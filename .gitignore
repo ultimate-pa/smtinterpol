@@ -1,6 +1,40 @@
 *.class
 
 # Package Files #
-*.jar
-*.war
-*.ear
+smtinterpol*.jar
+smtinterpol-src.zip
+smtinterpol-smtcomp.tar.gz
+
+# Automatically generated parsers #
+SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs/Lexer.java
+SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs/Lexer.java~
+SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs/LexerSymbols.java
+SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs/Parser.java
+SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib/Lexer.java
+SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib/Lexer.java~
+SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib/LexerSymbols.java
+SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib/Parser.java
+SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2/Lexer.java
+SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2/Lexer.java~
+SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2/LexerSymbols.java
+SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2/Parser.java
+
+# emacs backup files #
+**/*~
+
+# bin and release directories #
+**/bin
+**/release
+
+# eclipse metadata #
+.metadata
+
+# file created by bash-completion #
+.ant-targets-buildjar.xml
+
+# test-related stuff #
+testreports
+cobertura
+
+# project specific settings
+*/.settings

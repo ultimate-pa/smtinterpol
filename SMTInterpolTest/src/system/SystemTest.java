@@ -1,0 +1,110 @@
+/*
+ * Copyright (C) 2012-2013 University of Freiburg
+ *
+ * This file is part of SMTInterpol.
+ *
+ * SMTInterpol is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * SMTInterpol is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.
+ */
+package system;
+
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.FilenameFilter;
+import java.net.URISyntaxException;
+import java.net.URL;
+
+import org.apache.log4j.Level;
+import org.apache.log4j.Logger;
+import org.junit.Test;
+
+import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.ParseEnvironment;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TestCaseWithLogger;
+
+public class SystemTest extends TestCaseWithLogger {
+
+	@Test
+	public void testSystem() throws URISyntaxException, FileNotFoundException {
+		String name = getClass().getPackage().getName();
+		URL url = getClass().getClassLoader().getResource(name);
+		File f = new File(url.toURI());
+		File[] lst = f.getParentFile().getParentFile().listFiles(
+				new FilenameFilter() {
+			
+					@Override
+					public boolean accept(File dir, String name) {
+						return name.equals("test");
+					}
+				});
+		if (lst == null || lst.length != 1)
+			return;
+		File testDir = lst[0];
+		lst = testDir.listFiles();
+		for (File dir : lst) {
+			for (File tst: dir.listFiles(new FilenameFilter() {
+				
+				@Override
+				public boolean accept(File dir, String name) {
+					return name.endsWith(".smt2")
+							&& !name.endsWith(".msat.smt2");
+				}
+			})) {
+				try {
+					if (shouldExecute(tst))
+						performTest(tst);
+				} catch (SMTLIBException e) {
+					fail("File " + tst.getAbsolutePath() + " produced error:\n"
+							+ e.getMessage());
+				}
+			}
+		}
+	}
+	
+	private void performTest(File f)
+		throws SMTLIBException, FileNotFoundException {
+		System.out.println("Testing " + f.getAbsolutePath());
+		Logger.getRootLogger().setLevel(Level.TRACE);
+		SMTInterpol solver = new SMTInterpol(Logger.getRootLogger(), false);
+		ParseEnvironment pe = new ParseEnvironment(solver) {
+
+			@Override
+			public void printError(String message) {
+				fail(message);
+			}
+
+			@Override
+			public void printResponse(Object response) {
+				if ("unsupported".equals(response))
+					fail("unsupported");
+				super.printResponse(response);
+			}
+			
+		};
+		pe.parseStream(new FileReader(f), "TestStream");
+	}
+	
+	private boolean shouldExecute(File f) {
+		String fname = f.getName();
+		if (fname.startsWith("tightrhombus")) {
+			String sizestr = fname.substring(fname.lastIndexOf('-') + 1,
+					fname.lastIndexOf('.'));
+			int size = Integer.parseInt(sizestr);
+			return size < 5;// NOCHECKSTYLE
+		}
+		return true;
+	}
+	
+}

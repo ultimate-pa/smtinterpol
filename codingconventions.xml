@@ -1,0 +1,133 @@
+<?xml version="1.0"?>
+<!DOCTYPE module PUBLIC
+    "-//Puppy Crawl//DTD Check Configuration 1.1//EN"
+    "http://www.puppycrawl.com/dtds/configuration_1_1.dtd">
+
+<module name="Checker">
+  <module name="TreeWalker">
+
+    <property name="tabWidth" value="4"/>
+
+    <module name="FileContentsHolder"/>
+
+    <module name="MemberName">
+      <property name="format" value="^m[A-Z][a-zA-Z0-9]*$"/>
+    </module>
+    <module name="LocalVariableName">
+      <property name="format" value="^(?:e[a-zA-Z0-9]*)|(?:ignored)$"/>
+      <property name="tokens" value="PARAMETER_DEF"/>
+    </module>
+    <module name="TypeName"/>
+    <module name="ConstantName"/>
+
+    <module name="EmptyBlock">
+      <property name="option" value="text"/>
+    </module>
+
+    <module name="LeftCurly"/>
+    <module name="RightCurly"/>
+
+    <module name="AvoidNestedBlocks">
+      <property name="allowInSwitchCase" value="true"/>
+    </module>
+
+    <module name="EqualsHashCode"/>
+
+    <module name="IllegalInstantiation">
+      <property name="classes" value="java.lang.Boolean, java.langString, de.uni_freiburg.informatik.ultimate.logic.Rational, de.uni_freiburg.informatik.ultimate.logic.Theory"/>
+    </module>
+
+    <module name="MagicNumber">
+      <property name="ignoreHashCodeMethod" value="true"/>
+      <property name="severity" value="info"/>
+    </module>
+
+    <module name="MissingSwitchDefault"/>
+    <module name="DefaultComesLast"/>
+    <module name="FallThrough"/>
+
+    <module name="SimplifyBooleanExpression">
+      <property name="severity" value="warning"/>
+    </module>
+    <module name="SimplifyBooleanReturn"/>
+
+    <module name="SuperClone"/>
+    <module name="SuperFinalize"/>
+
+    <module name="PackageDeclaration"/>
+
+    <module name="AvoidStaticImport"/>
+    <module name="UnusedImports">
+      <property name="severity" value="warning"/>
+    </module>
+
+    <module name="HideUtilityClassConstructor">
+      <property name="severity" value="warning"/>
+    </module>
+
+    <module name="TodoComment">
+      <property name="format" value="TODO|FIXME"/>
+      <property name="severity" value="info"/>
+    </module>
+
+    <module name="UpperEll">
+      <property name="severity" value="info"/>
+    </module>
+
+    <module name="ArrayTypeStyle"/>
+
+    <module name="Indentation">
+      <property name="caseIndent" value="0"/>
+      <property name="severity" value="warning"/>
+    </module>
+
+    <module name="OuterTypeFilename"/>
+    <module name="OuterTypeNumber"/>
+
+    <module name="GenericWhitespace"/>
+    <module name="EmptyForInitializerPad">
+      <property name="option" value="space"/>
+    </module>
+    <module name="EmptyForIteratorPad">
+      <property name="option" value="space"/>
+    </module>
+    <module name="MethodParamPad"/>
+    <module name="NoWhitespaceAfter">
+      <property name="tokens" value="BNOT,DEC,DOT,INC,LNOT,UNARY_MINUS,UNARY_PLUS"/>
+    </module>
+    <module name="NoWhitespaceBefore"/>
+    <module name="ParenPad"/>
+    <module name="TypecastParenPad"/>
+    <module name="WhitespaceAround">
+      <property name="tokens" value="ASSIGN, BAND, BAND_ASSIGN, BOR, BOR_ASSIGN, BSR, BSR_ASSIGN, BXOR, BXOR_ASSIGN, COLON, DIV, DIV_ASSIGN, EQUAL, GE, GT, LAND, LCURLY, LE, LITERAL_CATCH, LITERAL_DO, LITERAL_ELSE, LITERAL_FINALLY, LITERAL_FOR, LITERAL_IF, LITERAL_RETURN, LITERAL_SYNCHRONIZED, LITERAL_TRY, LITERAL_WHILE, LOR, LT, MINUS, MINUS_ASSIGN, MOD, MOD_ASSIGN, NOT_EQUAL, PLUS, PLUS_ASSIGN, QUESTION, RCURLY, SL, SLIST, SL_ASSIGN, SR, SR_ASSIGN, STAR, STAR_ASSIGN"/>
+      <property name="severity" value="warning"/>
+    </module>    
+
+    <module name="OperatorWrap"/>
+
+    <module name="LineLength">
+      <property name="max" value="80"/>
+      <property name="ignorePattern" value="^import"/>
+      <property name="severity" value="info"/>
+    </module>
+
+    <module name="de.uni_freiburg.informatik.ultimate.smtinterpol.checkstyle.NoStaticCheck"/>
+
+  </module>
+
+  <module name="RegexpHeader">
+    <property name="id" value="licenseHeader"/>
+    <property name="header"
+        value="^/\*$\n^\p{Blank}\* Copyright \(C\) \d\d\d\d(-\d\d\d\d)? University of Freiburg$\n^\p{Blank}\*$\n^\p{Blank}\* This file is part of SMTInterpol\.$\n^ \*$\n^\p{Blank}\* SMTInterpol is free software: you can redistribute it and/or modify$\n^\p{Blank}\* it under the terms of the GNU Lesser General Public License as published$\n^\p{Blank}\* by the Free Software Foundation, either version 3 of the License, or$\n^\p{Blank}\* \(at your option\) any later version\.$\n^\p{Blank}\*$\n^\p{Blank}\* SMTInterpol is distributed in the hope that it will be useful,$\n^\p{Blank}\* but WITHOUT ANY WARRANTY; without even the implied warranty of$\n^\p{Blank}\* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE\.  See the$\n^\p{Blank}\* GNU Lesser General Public License for more details\.$\n^\p{Blank}\*$\n^\p{Blank}\* You should have received a copy of the GNU Lesser General Public License$\n^\p{Blank}\* along with SMTInterpol\.  If not, see .http://www\.gnu\.org/licenses/.\.$\n^\p{Blank}\*/$"/>
+  </module>
+
+  <module name="NewlineAtEndOfFile"/>
+
+  <module name="SuppressionFilter">
+    <property name="file" value="${loc.suppressions}/suppressions.xml"/>
+  </module>
+  <module name="SuppressWithNearbyCommentFilter">
+    <property name="commentFormat" value="\w*NOCHECKSTYLE\w*"/>
+  </module>
+
+</module>

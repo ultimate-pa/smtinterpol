@@ -1,0 +1,327 @@
+This document describes the coding conventions used by SMTInterpol along with
+the configuration of checkstyle.
+
+Installation of PMD and Checkstyle in Eclipse
+---------------------------------------------
+
+Add the update sites
+http://sourceforge.net/projects/pmd/files/pmd-eclipse/update-site/ (for PMD)
+and
+http://eclipse-cs.sf.net/update/ (for Checkstyle)
+and install the corresponding eclipse plugins.  Afterwards, copy the jars
+CheckStyleAdds_0.0.1.jar and PMDAdds_0.0.1.jar from the libs directory into
+the plugins folder of your eclipse installation.  After a restart of eclipse
+you should be able to use these additional checkers.
+
+After restarting eclipse go to Window->Preferences->Checkstyle and add a new
+configuration.  Choose "Exernal Configuration File" as "Type" and use the file
+"codingconventions.xml" in the root directory of your git clone.  Under
+"Additional properties" add the property "loc.suppressions" which should be an
+absolute path pointing to your git clone.  Finally, set the newly created
+profile as default for your system.
+
+
+Suppressing checkstyle warnings
+-------------------------------
+
+Sometimes we deliberately violate the coding style policies set forward in
+this document.  Then, the comment "NOCHECKSTYLE" can be used to prevent
+checkstyle messages.
+
+Configuration:
+<module name="FileContentsHolder"/> (in TreeWalker)
+
+<module name="SuppressionFilter">
+  <property name="file" value="suppressions.xml"/>
+</module>
+<module name="SuppressWithNearbyCommentFilter"/>
+
+Spacing
+-------
+
+Tabs are used as indentation.
+
+The tab with is set to 4.
+
+Configuration:
+<property name="tabWidth" value="4"/>
+
+Naming
+------
+
+We use the following naming conventions:
+
+- members start with an m and consist of letters and digits
+- names of classes and interfaces start with an uppercase letter and consist
+  of letters and digits
+- constants are written in ALL CAPS, contain numbers, digits, and underscores,
+  but do neither end in an underscore nor have two adjacent underscores
+- names of caught exceptions start with an e and consist of numbers and
+  digits.  As an exception we allow the word "ignored".
+
+Configuration:
+<module name="MemberName">
+  <property name="format" value="^m[A-Z][a-zA-Z0-9]*$"/>
+</module>
+<module name="LocalVariableName">
+  <property name="format" value="^(?:e[a-zA-Z0-9])|(?:ignored)$"/>
+</module>
+<module name="TypeName"/>
+<module name="ConstantName"/>
+
+Empty code blocks
+-----------------
+
+If an empty code block is used somewhere in the code, we require a comment to
+justify this empty block.
+
+Configuration:
+<module name="EmptyBlock">
+  <property name="option" value="text"/>
+</module>
+
+Placement of braces
+-------------------
+
+The left brace should be on the same line as the statement.  The right brace
+before an else, catch, and finally should be on the same line then the
+keyword, but should be the first non-whitespace on that line.
+
+Configuration:
+<module name="LeftCurly"/>
+<module name="RightCurly"/>
+
+Nesting of blocks
+-----------------
+
+Nested blocks are allowed only in switch-cases.
+
+Configuration:
+<module name="AvoidNestedBlocks">
+  <property name="allowInSwitchCase" value="true"/>
+</module>
+
+equals() and hashCode()
+-----------------------
+
+We ensure that equals() and hashCode() match.  This check is slightly
+complicated by the fact that subclasses of Term provide an equals() method,
+but the corresponding hashCode() method is provided by Term.
+
+Configuration:
+<module name="EqualsHashCode"/>
+
+Instantiation of classes
+------------------------
+
+Some classes should never be instantiated directly.  These classes are:
+- Boolean
+- String
+- Rational
+- Theory
+
+Configuration:
+<module name="IllegalInstantiation">
+  <property name="classes" value="java.lang.Boolean, java.langString, de.uni_freiburg.informatik.ultimate.logic.Rational, de.uni_freiburg.informatik.ultimate.logic.Theory"/>
+</module>
+
+Magic numbers
+-------------
+
+Concrete numbers are only allowed as constants or in the computation of hash
+codes
+
+Configuration:
+<module name="MagicNumber">
+  <property name="ignoreHashCodeMethod" value="true"/>
+</module>
+
+Switches
+--------
+
+Every switch should have a default value that comes last.  Fall through cases
+needs to be justified by a comment of the form
+- fallthru
+- fallthrough
+- fall through
+- fallsthrough
+- falls through
+
+Configuration:
+<module name="MissingSwitchDefault"/>
+<module name="DefaultComesLast"/>
+<module name="FallThrough"/>
+
+Boolean expressions and returns
+-------------------------------
+
+Boolean expressions should be free of neutral elements and repetition.
+Furthermore, functions that return boolean values should be simple, i.e.,
+should not first branch on a boolean condition and then either return true or
+false, but simply return the (evaluation of the) boolean condition.
+
+Configuration:
+<module name="SimplifyBooleanExpression"/>
+<module name="SimplifyBooleanReturn"/>
+
+Needed calls to super
+---------------------
+
+If a class overrides clone() or finalize() it should call the corresponding
+functions in super.
+
+Configuration:
+<module name="SuperClone"/>
+<module name="SuperFinalize"/>
+
+Package declaration
+-------------------
+
+Every class should reside in a package and the package name should match the
+location in the source tree.
+
+Configuration:
+<module name="PackageDeclaration"/>
+
+Header
+------
+
+Every file should have the license header on top.  We exclude automatically
+generated java files from this check.
+
+Configuration:
+  <module name="RegexpHeader">
+    <property name="id" value="licenseHeader"/>
+    <property name="header"
+      value="^/*$\n^ * Copyright \(C\) \d\d\d\d-\d\d\d\d University of Freiburg$\n^ *$\n^ * This file is part of SMTInterpol.$\n^ *$\n^ * SMTInterpol is free software: you can redistribute it and/or modify$\n^ * it under the terms of the GNU Lesser General Public License as published$\n^ * by the Free Software Foundation, either version 3 of the License, or$\n^ * (at your option) any later version.$\n^ *$\n^ * SMTInterpol is distributed in the hope that it will be useful,$\n^ * but WITHOUT ANY WARRANTY; without even the implied warranty of$\n^ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the$\n^ * GNU Lesser General Public License for more details.$\n^ *$\n^ * You should have received a copy of the GNU Lesser General Public License$\n^ * along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.$\n^ */$"/>
+  </module>
+(Note: No line breaks allowed in RegExps!)
+
+
+Imports
+-------
+
+The keyword combination "import static" is not allowed.  It is unneeded since
+we can always qualify the static field/method.
+
+Imports should not be redundant of unused.
+
+Configuration:
+<module name="AvoidStaticImport"/>
+<module name="UnusedImports"/>
+
+Design
+------
+
+Utility classes (i.e., classes that only provide static methods) should not
+have a public constructor.
+
+Configuration:
+<module name="HideUtilityClassConstructor"/>
+
+TODO and FIXME comments
+-----------------------
+
+TODO and FIXME comments should not be left in the final version.  This check
+will remind the programmer to take care of them.
+
+Configuration:
+<module name="TodoComment>
+  <property name="format" value="TODO|FIXME"/>
+</module>
+
+Long literals
+-------------
+
+Literals of type long should have the suffix "L" and not the suffix "l".
+
+Configuration:
+<module name="UpperEll"/>
+
+Arrays
+------
+
+Arrays should be written in Java style, i.e., the array brackets directly
+after the base type and not in C style.
+
+Configuration:
+<module name="ArrayTypeStyle"/>
+
+Indentation
+-----------
+
+Every indentation level should add 4 spaces, but braces on a new line and case
+statements do not introduce a new level.
+
+Configuration:
+<module name="Indentation">
+  <property name="caseIndent" value="0"/>
+</module>
+
+Outer types
+-----------
+
+The file name must be the name of the outermost type.  Every class should
+contain only one outer type.
+
+Configuration:
+<module name="OuterTypeFilename"/>
+<module name="OuterTypeNumber"/>
+
+Whitespace
+----------
+
+- Generic arguments should be written tight, i.e., without additional
+  whitespace
+- If the initializer or the iterator of a for-loop is empty, we require a space
+- No space is allowed between a method name and the parameters unless a line
+  break occurs
+- Whitespace is forbidden after unary prefix operators and . unless a line
+  break occurs
+- Whitespace is forbidden before ;, ., and unary postfix operators
+- Whitespace is forbidden after an opening parenthesis and before a closing
+  parenthesis 
+- Whitespace if forbidden after the left and before the right parenthesis of a
+  type cast
+- Whitespace is required around most operators
+
+Configuration:
+<module name="GenericWhitespace"/>
+<module name="EmptyForInitializerPad">
+  <property name="option" value="space"/>
+</module>
+<module name="EmptyForIteratorPad">
+  <property name="option" value="space"/>
+</module>
+<module name="MethodParamPad"/>
+<module name="NoWhitespaceAfter">
+  <property name="tokens" value="BNOT,DEC,DOT,INC,LNOT,UNARY_MINUS,UNARY_PLUS"/>
+</module>
+<module name="NoWhitespaceBefore"/>
+<module name="ParenPad"/>
+<module name="TypecastParenPad"/>
+<module name="WhitespaceAround">
+  <property name="tokens" value="ASSIGN, BAND, BAND_ASSIGN, BOR, BOR_ASSIGN, BSR, BSR_ASSIGN, BXOR, BXOR_ASSIGN, COLON, DIV, DIV_ASSIGN, EQUAL, GE, GT, LAND, LCURLY, LE, LITERAL_CATCH, LITERAL_DO, LITERAL_ELSE, LITERAL_FINALLY, LITERAL_FOR, LITERAL_IF, LITERAL_RETURN, LITERAL_SYNCHRONIZED, LITERAL_TRY, LITERAL_WHILE, LOR, LT, MINUS, MINUS_ASSIGN, MOD, MOD_ASSIGN, NOT_EQUAL, PLUS, PLUS_ASSIGN, QUESTION, RCURLY, SL, SLIST, SL_ASSIGN, SR, SR_ASSIGN, STAR, STAR_ASSIGN"/>
+</module>
+
+Wrapping operators
+------------------
+
+When wrapping long lines at operator boundaries the operator moves to the next
+line.
+
+Configuration:
+<module name="OperatorWrap"/>
+
+Line length
+-----------
+
+After expanding a tab into 4 spaces, lines should not span more than 80
+characters.  As an exception from this rule, all lines starting with "import"
+are ignored.
+
+Configuration:
+<module name="LineLength">
+  <property name="max" value="80"/>
+  <property name="ignorePattern" value="^import"/>
+<module>
