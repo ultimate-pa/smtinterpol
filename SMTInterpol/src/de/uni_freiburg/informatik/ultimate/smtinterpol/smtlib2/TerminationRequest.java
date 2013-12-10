@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2012 University of Freiburg
+ * Copyright (C) 2013 University of Freiburg
  *
  * This file is part of SMTInterpol.
  *
@@ -16,38 +16,23 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.
  */
-package de.uni_freiburg.informatik.ultimate.logic;
+package de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2;
 
 /**
- * The reason why we returned unknown.  Note that the SMTLIB standard at the
- * moment only allows "memout" and "incomplete", but "timeout" and "crashed" and
- * "cancelled" seem to be a good idea, too...
+ * An asynchronous user cancellation request proxy.  SMTInterpol regularly polls
+ * an object that implements this interface for user requests to terminate the
+ * current search.  If cancellation is requested, SMTInterpol will set the 
+ * reason to return unknown to {@link ReasonUnknown#CANCELLED cancelled}.
  * @author Juergen Christ
  */
-public enum ReasonUnknown {
-	MEMOUT {
-		public String toString() {
-			return "memout";
-		}
-	},
-	INCOMPLETE {
-		public String toString() {
-			return "incomplete";
-		}
-	},
-	TIMEOUT {
-		public String toString() {
-			return "timeout";
-		}
-	},
-	CRASHED {
-		public String toString() {
-			return "crashed";
-		}
-	},
-	CANCELLED {
-		public String toString() {
-			return "cancelled";
-		}
-	}
+public interface TerminationRequest {
+
+	/**
+	 * Check for termination.  If this returns <code>true</code> SMTInterpol
+	 * will stop the current check and set the reason to return unknown to
+	 * {@link ReasonUnknown#CANCELLED cancelled}.
+	 * @return Should the current check be aborted.
+	 */
+	boolean isTerminationRequested();
+
 }

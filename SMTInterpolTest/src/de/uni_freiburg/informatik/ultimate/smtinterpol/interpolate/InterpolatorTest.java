@@ -66,7 +66,6 @@ public class InterpolatorTest {
 		mS = mSolver.term("s");
 	}
 	
-	@Test
 	public void doTestEq(boolean ccswap, boolean abswap, 
 			boolean clauseswap, boolean litswap,
 			boolean doubleab, boolean addconst, boolean addvar) {

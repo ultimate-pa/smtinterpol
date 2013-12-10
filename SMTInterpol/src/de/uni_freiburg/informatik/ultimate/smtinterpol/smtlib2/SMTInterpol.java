@@ -73,6 +73,12 @@ import de.uni_freiburg.informatik.ultimate.util.ScopedArrayList;
 
 public class SMTInterpol extends NoopScript {
 	
+	private static class NoUserCancellation implements TerminationRequest {
+		public boolean isTerminationRequested() {
+			return false; // NOPMD
+		}
+	}
+	
 	private static enum CheckType {
 		FULL {
 			boolean check(DPLLEngine engine) {
@@ -416,6 +422,7 @@ public class SMTInterpol extends NoopScript {
 	private DPLLEngine mEngine;
 	private Clausifier mClausifier;
 	private ScopedArrayList<Term> mAssertions;
+	private final TerminationRequest mCancel;
 	
 	private String mOutName = "stdout";
 	private PrintWriter mErr = new PrintWriter(System.err);
@@ -582,23 +589,39 @@ public class SMTInterpol extends NoopScript {
 			    && System.getProperty("smtinterpol.ddfriendly") != null;
 	
 	public SMTInterpol() {
-		this(Logger.getRootLogger(), true);
+		this(Logger.getRootLogger(), true, new NoUserCancellation());
 	}
 	
 	public SMTInterpol(Logger logger) {
-		this(logger, false);
+		this(logger, false, new NoUserCancellation());
 	}
 	
 	public SMTInterpol(Logger logger, boolean ownLogger) {
+		this(logger, ownLogger, new NoUserCancellation());
+	}
+	
+	public SMTInterpol(TerminationRequest cancel) {
+		this(Logger.getRootLogger(), true, cancel);
+	}
+	
+	public SMTInterpol(Logger logger, TerminationRequest cancel) {
+		this(logger, false, cancel);
+	}
+	
+	public SMTInterpol(
+			Logger logger, boolean ownLogger, TerminationRequest cancel) {
+		if (cancel == null)
+			cancel = new NoUserCancellation();
 		mLogger = logger;
 		if (ownLogger) {
 			mLayout = new SimpleLayout();
 			mAppender = new WriterAppender(mLayout, mErr);
-	        mLogger.addAppender(mAppender);
-	        mLogger.setLevel(Config.DEFAULT_LOG_LEVEL);
+			mLogger.addAppender(mAppender);
+			mLogger.setLevel(Config.DEFAULT_LOG_LEVEL);
 		}
-        mTimeout = 0;
-        reset();
+		mTimeout = 0;
+		mCancel = cancel;
+		reset();
 	}
 	/**
 	 * Copy the current context and modify some pre-theory options.  The copy
@@ -619,8 +642,9 @@ public class SMTInterpol extends NoopScript {
 		if (options != null)
 			for (Map.Entry<String, Object> me : options.entrySet())
 				setOption(me.getKey(), me.getValue());
-		mEngine = new DPLLEngine(getTheory(), mLogger);
-        mClausifier = new Clausifier(mEngine, 0);
+		mCancel = other.mCancel;
+		mEngine = new DPLLEngine(getTheory(), mLogger, mCancel);
+		mClausifier = new Clausifier(mEngine, 0);
 		mClausifier.setLogic(getTheory().getLogic());
 		mEngine.getRandom().setSeed(mRandomSeed);
 	}
@@ -728,6 +752,9 @@ public class SMTInterpol extends NoopScript {
 					case DPLLEngine.INCOMPLETE_CHECK:
 						mReasonUnknown = ReasonUnknown.INCOMPLETE;
 						break;
+					case DPLLEngine.INCOMPLETE_CANCELLED:
+						mReasonUnknown = ReasonUnknown.CANCELLED;
+						break;
 					default:
 						throw new InternalError("Unknown incompleteness reason");
 					}
@@ -778,15 +805,15 @@ public class SMTInterpol extends NoopScript {
 	}
 	
 	public void setLogic(Logics logic)
-	    throws UnsupportedOperationException, SMTLIBException {
+		throws UnsupportedOperationException, SMTLIBException {
 		mSolverSetup = new SMTInterpolSetup(mProofMode);
 		super.setLogic(logic);
 		try {
-			mEngine = new DPLLEngine(getTheory(), mLogger);
-	        mClausifier = new Clausifier(mEngine, mProofMode);
-	        // This has to be before set-logic since we need to capture
-	        // initialization of CClosure.
-	        mEngine.setProofGeneration(
+			mEngine = new DPLLEngine(getTheory(), mLogger, mCancel);
+			mClausifier = new Clausifier(mEngine, mProofMode);
+			// This has to be before set-logic since we need to capture
+			// initialization of CClosure.
+			mEngine.setProofGeneration(
 					mProduceProofs || mProduceUnsatCores || mProduceInterpolants);
 			mClausifier.setLogic(logic);
 			mClausifier.setAssignmentProduction(mProduceAssignment);

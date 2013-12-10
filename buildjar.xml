@@ -235,6 +235,7 @@
       </assertions>
 
       <classpath>
+        <pathelement location="${dir.workspace}/libs/junit4.jar"/>
 	<pathelement location="${dir.workspace}/SMTInterpol/lib/log4j-1.2.15.jar"/>
 	<pathelement location="${dir.workspace}/SMTInterpol/lib/java-cup-12joho.jar"/>
 	<pathelement location="${dir.workspace}/Library-SMTLIB/release" />
@@ -276,6 +277,7 @@
       -->
 
       <classpath>
+        <pathelement location="${dir.workspace}/libs/junit4.jar"/>
 	<pathelement location="${instrumentation.dir}" />
 	<pathelement location="${dir.workspace}/SMTInterpol/lib/log4j-1.2.15.jar"/>
 	<pathelement location="${dir.workspace}/SMTInterpol/lib/java-cup-12joho.jar"/>

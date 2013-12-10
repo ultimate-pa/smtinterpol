@@ -53,7 +53,7 @@ public class EpsilonTest extends TestCaseWithLogger {
 	private final static Sort[] EMPTY_SORT_ARRAY = {};
 	
 	@Before
-	protected void setUp() throws Exception {
+	public void setUp() throws Exception {
 		mSolver = new SMTInterpol(Logger.getRootLogger(), false);
 		mSolver.setOption(":produce-models", Boolean.TRUE);
 		mSolver.setLogic(Logics.QF_LRA);
@@ -74,7 +74,7 @@ public class EpsilonTest extends TestCaseWithLogger {
 	}
 
 	@After
-	protected void tearDown() throws Exception {
+	public void tearDown() throws Exception {
 		mInputBase = null;
 		mSolver.exit();
 		mSolver = null;

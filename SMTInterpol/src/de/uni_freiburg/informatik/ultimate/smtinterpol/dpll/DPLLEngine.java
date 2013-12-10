@@ -41,6 +41,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom.TrueAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ResolutionNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ResolutionNode.Antecedent;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.TerminationRequest;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.CuckooHashSet;
 import de.uni_freiburg.informatik.ultimate.util.DebugMessage;
 import de.uni_freiburg.informatik.ultimate.util.ScopedHashMap;
@@ -60,6 +61,7 @@ public class DPLLEngine {
 	public static final int INCOMPLETE_UNKNOWN = 4;
 	public static final int INCOMPLETE_TIMEOUT = 5;
 	public static final int INCOMPLETE_CHECK = 6;
+	public static final int INCOMPLETE_CANCELLED = 7;
 	
 	private static final String[] COMPLETENESS_STRINGS = {
 		"Complete",
@@ -68,7 +70,8 @@ public class DPLLEngine {
 		"Not enough memory",
 		"Unknown internal error",
 		"Sat check timed out",
-		"Incomplete check used"
+		"Incomplete check used",
+		"User requested cancellation"
 	};
 	private int mCompleteness;
 	
@@ -130,7 +133,10 @@ public class DPLLEngine {
 	// Random source for the solver.
 	private final Random mRandom;
 	
-	public DPLLEngine(Theory smtTheory,Logger logger) {
+	private final TerminationRequest mCancel;
+	
+	public DPLLEngine(
+			Theory smtTheory, Logger logger, TerminationRequest cancel) {
 		this.mSmtTheory = smtTheory;
 		mCompleteness = COMPLETE;
 		assert(logger != null);
@@ -138,6 +144,7 @@ public class DPLLEngine {
 		mPpStack = new StackData();
 		// Benchmark sets the seed...
 		mRandom = new Random();
+		mCancel = cancel;
 	}
 	
 	public int getDecideLevel() {
@@ -1011,7 +1018,7 @@ public class DPLLEngine {
 			int iteration = 1;
 			int nextRestart = Config.RESTART_FACTOR;
 			long time; 
-			while (!mStopEngine) {
+			while (!mStopEngine && !isTerminationRequested()) {
 				Clause conflict;
 				do {
 					conflict = propagateInternal();
@@ -1637,6 +1644,14 @@ public class DPLLEngine {
 			throw new UnsupportedOperationException("Cannot remove model!");
 		}
 		
+	}
+	
+	private boolean isTerminationRequested() {
+		if (mCancel.isTerminationRequested()) {
+			mCompleteness = INCOMPLETE_CANCELLED;
+			return true;
+		}
+		return false;
 	}
 
 }
