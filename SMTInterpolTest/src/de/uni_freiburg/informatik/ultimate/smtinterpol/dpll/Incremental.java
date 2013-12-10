@@ -18,10 +18,10 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.dpll;
 
-
 import junit.framework.TestCase;
 
 import org.apache.log4j.Logger;
+import org.junit.Assert;
 import org.junit.Test;
 
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
@@ -52,13 +52,13 @@ public class Incremental extends TestCase {
 		script.push(1);
 		script.assertTerm(script.term("true"));
 		LBool isSat = script.checkSat();
-		assertSame(LBool.SAT, isSat);
+		Assert.assertSame(LBool.SAT, isSat);
 		script.pop(1);
 		// Back at empty initial stack
 		script.push(1);
 		script.assertTerm(script.term("false"));
 		isSat = script.checkSat();
-		assertSame(LBool.UNSAT, isSat);
+		Assert.assertSame(LBool.UNSAT, isSat);
 		// Level 1: false
 		script.push(1);
 		script.assertTerm(script.term("true"));
@@ -66,14 +66,14 @@ public class Incremental extends TestCase {
 		script.push(1);
 		script.assertTerm(script.term("not", satformula));
 		isSat = script.checkSat();
-		assertSame(LBool.UNSAT, isSat);// Should be unsat-cached
+		Assert.assertSame(LBool.UNSAT, isSat);// Should be unsat-cached
 		script.pop(3);// NOCHECKSTYLE
 		isSat = script.checkSat();
-		assertSame(LBool.SAT, isSat);
+		Assert.assertSame(LBool.SAT, isSat);
 		script.assertTerm(script.term("true"));
 		script.assertTerm(script.term("false"));
 		isSat = script.checkSat();
-		assertSame(LBool.UNSAT, isSat);
-//		assertEquals(3, engine.getInterpolants().length);
+		Assert.assertSame(LBool.UNSAT, isSat);
+//		Assert.assertEquals(3, engine.getInterpolants().length);
 	}
 }

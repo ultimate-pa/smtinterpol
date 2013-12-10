@@ -25,7 +25,10 @@ import java.util.Iterator;
 import java.util.Set;
 
 import org.apache.log4j.Logger;
+import org.junit.Assert;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.NoopScript;
@@ -38,6 +41,7 @@ import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TestCaseWithLogger;
 
+@RunWith(JUnit4.class)
 public class InferenceTest extends TestCaseWithLogger {
 	private final Script mScript;
 	private final Set<TermVariable> mTvs;
@@ -85,13 +89,13 @@ public class InferenceTest extends TestCaseWithLogger {
 	public void testITELifting() {
 		InferencePreparation ip =
 				new InferencePreparation(mTopLevel.getTheory(),mTvs);
-		assertEquals("(ite (and P Q) (g x) (g y))",
+		Assert.assertEquals("(ite (and P Q) (g x) (g y))",
 				ip.prepare(mTopLevel).toStringDirect());
-		assertEquals("(and P (ite (and P Q) (g x) (g y)))",
+		Assert.assertEquals("(and P (ite (and P Q) (g x) (g y)))",
 				ip.prepare(mSubLevel).toStringDirect());
-		assertEquals("(ite (and P Q) (ite (or P Q) (g (f x y)) (g (f x x))) (ite (or P Q) (g (f y y)) (g (f y x))))",// NOCHECKSTYLE
+		Assert.assertEquals("(ite (and P Q) (ite (or P Q) (g (f x y)) (g (f x x))) (ite (or P Q) (g (f y y)) (g (f y x))))",// NOCHECKSTYLE
 				ip.prepare(mDouble).toStringDirect());
-		assertEquals("(ite (and P Q) (g x) (ite (or P Q) (g y) (g x)))",
+		Assert.assertEquals("(ite (and P Q) (g x) (ite (or P Q) (g y) (g x)))",
 				ip.prepare(mNested).toStringDirect());
 	}
 	
@@ -177,65 +181,65 @@ public class InferenceTest extends TestCaseWithLogger {
 		candidates.insert(((QuantifiedFormula)looping).getSubformula());
 		Term[] units = candidates.getAllUnitTriggers();
 		// This formula has at least one unit-trigger
-		assertNotNull(units);
+		Assert.assertNotNull(units);
 		logger.info("For " + looping + " I inferred unit triggers " 
 				+ Arrays.toString(units));
 		int expectedLength = Config.FEATURE_BLOCK_LOOPING_PATTERN ? 1 : 2;
 		Set<Term> unitSet = new HashSet<Term>(expectedLength,1.0f);
 		for (Term t : units)
 			unitSet.add(t);
-		assertEquals(expectedLength,unitSet.size());
-		assertTrue("Did not infer nonlooping trigger (k x)",
+		Assert.assertEquals(expectedLength,unitSet.size());
+		Assert.assertTrue("Did not infer nonlooping trigger (k x)",
 				unitSet.contains(nonloopingtrig));
 		if (!Config.FEATURE_BLOCK_LOOPING_PATTERN)
-			assertTrue("Did not infer looping trigger (h x) although I should",
+			Assert.assertTrue("Did not infer looping trigger (h x) although I should",
 					unitSet.contains(loopingtrig));
 		candidates.reinit(transitivityVars);
 		candidates.insert(((QuantifiedFormula)transitivity).getSubformula());
 		units = candidates.getAllUnitTriggers();
 		// This formula only has multi-triggers
-		assertNull(units);
+		Assert.assertNull(units);
 		Term[] multi = candidates.getMultiTrigger();
-		assertNotNull(multi);
+		Assert.assertNotNull(multi);
 		logger.info("For " + transitivity + " I inferred multi trigger " 
 				+ Arrays.toString(multi));
 		Set<Term> multiSet = new HashSet<Term>(2,1.0f);
 		for (Term t : multi)
 			multiSet.add(t);
-		assertEquals(2, multiSet.size());
+		Assert.assertEquals(2, multiSet.size());
 		Iterator<Term> it = multiSet.iterator();
 		Term first = it.next();
 		Term second = it.next();
 		if (first == p1)
-			assertTrue("Wrong multi trigger", second == p2 || second == c);
+			Assert.assertTrue("Wrong multi trigger", second == p2 || second == c);
 		else if (first == p2)
-			assertTrue("Wrong multi trigger", second == p1 || second == c);
+			Assert.assertTrue("Wrong multi trigger", second == p1 || second == c);
 		else if (first == c)
-			assertTrue("Wrong multi trigger", second == p1 || second == p2);
+			Assert.assertTrue("Wrong multi trigger", second == p1 || second == p2);
 		candidates.reinit(singleX);
 		candidates.insert(
 				((QuantifiedFormula)partiallyConstant).getSubformula());
 		units = candidates.getAllUnitTriggers();
-		assertNotNull(units);
+		Assert.assertNotNull(units);
 		logger.info("For " + partiallyConstant + " I inferred unit triggers " 
 				+ Arrays.toString(units));
-		assertEquals(1, units.length);
-		assertEquals(constTrig, units[0]);
+		Assert.assertEquals(1, units.length);
+		Assert.assertEquals(constTrig, units[0]);
 		candidates.reinit(intvars);
 		candidates.insert(((QuantifiedFormula)notrig).getSubformula());
 		units = candidates.getAllUnitTriggers();
-		assertNull("Did infer unit-triggers where none exists: "
+		Assert.assertNull("Did infer unit-triggers where none exists: "
 				+ Arrays.toString(units), units);
 		multi = candidates.getMultiTrigger();
-		assertNull("Did infer a multi trigger where none exists: "
+		Assert.assertNull("Did infer a multi trigger where none exists: "
 				+ Arrays.toString(multi), multi);
 		candidates.reinit(int1);
 		candidates.insert(((QuantifiedFormula)notrigcomb).getSubformula());
 		units = candidates.getAllUnitTriggers();
-		assertNull("Did infer unit-triggers where none exists: "
+		Assert.assertNull("Did infer unit-triggers where none exists: "
 				+ Arrays.toString(units), units);
 		multi = candidates.getMultiTrigger();
-		assertNull("Did infer a multi trigger where none exists: "
+		Assert.assertNull("Did infer a multi trigger where none exists: "
 				+ Arrays.toString(multi),multi);
 	}
 }

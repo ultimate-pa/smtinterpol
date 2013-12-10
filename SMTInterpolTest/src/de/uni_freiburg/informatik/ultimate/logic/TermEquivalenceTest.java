@@ -18,7 +18,10 @@
  */
 package de.uni_freiburg.informatik.ultimate.logic;
 
+import org.junit.Assert;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
@@ -26,9 +29,9 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermEquivalence;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
-import junit.framework.TestCase;
 
-public class TermEquivalenceTest extends TestCase {
+@RunWith(JUnit4.class)
+public class TermEquivalenceTest {
 	
 	@Test
 	public void testEq() {
@@ -44,6 +47,6 @@ public class TermEquivalenceTest extends TestCase {
 				theory.forall(new TermVariable[]{y}, theory.term(">=", y, x)));
 		Term rhs = theory.let(z, y, 
 				theory.forall(new TermVariable[]{w}, theory.term(">=", w, z)));
-		assertTrue(new TermEquivalence().equal(lhs, rhs));
+		Assert.assertTrue(new TermEquivalence().equal(lhs, rhs));
 	}
 }

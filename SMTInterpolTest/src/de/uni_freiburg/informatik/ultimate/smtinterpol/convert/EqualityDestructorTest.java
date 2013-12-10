@@ -19,7 +19,10 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.convert;
 
 import org.apache.log4j.Logger;
+import org.junit.Assert;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
@@ -27,9 +30,9 @@ import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.NoopProofTracker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
-import junit.framework.TestCase;
 
-public class EqualityDestructorTest extends TestCase {
+@RunWith(JUnit4.class)
+public class EqualityDestructorTest {
 	private final Script mScript;
 	private final TermCompiler mCompiler = new TermCompiler();
 	private final Sort mInt, mU;
@@ -67,7 +70,7 @@ public class EqualityDestructorTest extends TestCase {
 		Term ibody = mCompiler.transform(body);
 		EqualityDestructor ed = new EqualityDestructor(mCompiler);
 		Term dbody = ed.destruct(ibody);
-		assertSame(mScript.term("false"), dbody);
+		Assert.assertSame(mScript.term("false"), dbody);
 	}
 	
 	@Test
@@ -85,7 +88,7 @@ public class EqualityDestructorTest extends TestCase {
 		Term expected = mScript.term("<=",
 				mScript.term("+", mIC1, mIC2, mScript.numeral("3")),
 				mScript.numeral("0"));
-		assertSame(expected, dbody);
+		Assert.assertSame(expected, dbody);
 	}
 	
 	@Test
@@ -99,7 +102,7 @@ public class EqualityDestructorTest extends TestCase {
 		EqualityDestructor ed = new EqualityDestructor(mCompiler);
 		Term dbody = ed.destruct(ibody);
 		Term expected = mScript.term("=", mScript.term("f", mUC1), mUC2);
-		assertSame(expected, dbody);
+		Assert.assertSame(expected, dbody);
 	}
 	
 	@Test
@@ -122,6 +125,6 @@ public class EqualityDestructorTest extends TestCase {
 						mScript.term("not",
 								mScript.term("=",
 										mScript.term("f", mUC2), mUC2))));
-		assertSame(expected, dbody);
+		Assert.assertSame(expected, dbody);
 	}
 }

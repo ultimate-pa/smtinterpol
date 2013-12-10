@@ -35,6 +35,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ClauseDeletionHook;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofNode;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.TerminationRequest;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TestCaseWithLogger;
 
 /**
@@ -52,7 +53,14 @@ public final class IntDivideTest extends TestCaseWithLogger {
 	public IntDivideTest() {
 		mTheory = new Theory(Logics.QF_UFLIRA);
 		Logger logger = Logger.getRootLogger();
-		DPLLEngine dpllEngine = new DPLLEngine(mTheory, logger);
+		DPLLEngine dpllEngine = new DPLLEngine(mTheory, logger,
+				new TerminationRequest() {
+			
+					@Override
+					public boolean isTerminationRequested() {
+						return false;
+					}
+				});
 		mClausifier = new Clausifier(dpllEngine, 0) {
 			@Override
 			public void addClause(

@@ -18,11 +18,13 @@
  */
 package de.uni_freiburg.informatik.ultimate.logic;
 
+import org.junit.Assert;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
-import junit.framework.TestCase;
-
-public class PrintTest extends TestCase {
+@RunWith(JUnit4.class)
+public class PrintTest {
 	
 	@Test
 	public void testSort() {
@@ -34,10 +36,10 @@ public class PrintTest extends TestCase {
 		theory.defineSort("0AB", 1, sortReal);
 		theory.declareSort("~!@$%^&*_+-=<>.?/abyzABYZ0189", 0);
 		theory.declareSort("A", 1);
-		assertEquals("|U'|", theory.getSort("U'").toString());
-		assertEquals("(|0AB| |U'|)", 
+		Assert.assertEquals("|U'|", theory.getSort("U'").toString());
+		Assert.assertEquals("(|0AB| |U'|)", 
 				theory.getSort("0AB", theory.getSort("U'")).toString());
-		assertEquals("~!@$%^&*_+-=<>.?/abyzABYZ0189", 
+		Assert.assertEquals("~!@$%^&*_+-=<>.?/abyzABYZ0189", 
 				theory.getSort("~!@$%^&*_+-=<>.?/abyzABYZ0189").toString());
 		
 		StringBuilder expected = new StringBuilder();
@@ -50,7 +52,7 @@ public class PrintTest extends TestCase {
 		for (int i = 0; i < 10000; i++) { // NOCHECKSTYLE
 			expected.append(')');
 		}
-		assertEquals(expected.toString(), sort.toString());
+		Assert.assertEquals(expected.toString(), sort.toString());
 	}	
 
 	@Test
@@ -63,10 +65,10 @@ public class PrintTest extends TestCase {
 		theory.declareFunction("0AB", new Sort[] { sortInt }, sortInt);
 		theory.declareFunction("~!@$%^&*_+-=<>.?/abyzABYZ0189", empty, sortInt);
 		theory.declareFunction("f", new Sort[] { sortInt }, sortInt);
-		assertEquals("|U'|", theory.term("U'").toString());
-		assertEquals("(|0AB| |U'|)",
+		Assert.assertEquals("|U'|", theory.term("U'").toString());
+		Assert.assertEquals("(|0AB| |U'|)",
 				theory.term("0AB", theory.term("U'")).toString());
-		assertEquals("~!@$%^&*_+-=<>.?/abyzABYZ0189", 
+		Assert.assertEquals("~!@$%^&*_+-=<>.?/abyzABYZ0189", 
 				theory.term("~!@$%^&*_+-=<>.?/abyzABYZ0189").toString());
 		
 		StringBuilder expected = new StringBuilder();
@@ -79,6 +81,6 @@ public class PrintTest extends TestCase {
 		for (int i = 0; i < 10000; i++) { // NOCHECKSTYLE
 			expected.append(')');
 		}
-		assertEquals(expected.toString(), term.toStringDirect());
+		Assert.assertEquals(expected.toString(), term.toStringDirect());
 	}	
 }

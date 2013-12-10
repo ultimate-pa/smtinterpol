@@ -20,17 +20,20 @@ package de.uni_freiburg.informatik.ultimate.logic;
 
 import java.math.BigInteger;
 
+import org.junit.Assert;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
-import junit.framework.TestCase;
 
 /**
  * Test Class for Rationals.
  * 
  * @author Jochen Hoenicke
  */
-public final class RationalTest extends TestCase {
+@RunWith(JUnit4.class)
+public final class RationalTest {
 	
 	final static BigInteger LARGE =
 			new BigInteger("1234567890123456789012345678901234567890"); 
@@ -59,73 +62,73 @@ public final class RationalTest extends TestCase {
 
 	@Test
 	public void testGCD() {
-		assertEquals(0, Rational.gcd(0, 0));
-		assertEquals(5, Rational.gcd(5, 0));// NOCHECKSTYLE
-		assertEquals(5, Rational.gcd(0, 5));// NOCHECKSTYLE
-		assertEquals(1, Rational.gcd(1, 5));// NOCHECKSTYLE
-		assertEquals(1, Rational.gcd(5, 1));// NOCHECKSTYLE
-		assertEquals(37, Rational.gcd(111, 37));// NOCHECKSTYLE
-		assertEquals(10, Rational.gcd(150, 220));// NOCHECKSTYLE
-		assertEquals(Integer.MAX_VALUE, Rational.gcd(Integer.MAX_VALUE,
+		Assert.assertEquals(0, Rational.gcd(0, 0));
+		Assert.assertEquals(5, Rational.gcd(5, 0));// NOCHECKSTYLE
+		Assert.assertEquals(5, Rational.gcd(0, 5));// NOCHECKSTYLE
+		Assert.assertEquals(1, Rational.gcd(1, 5));// NOCHECKSTYLE
+		Assert.assertEquals(1, Rational.gcd(5, 1));// NOCHECKSTYLE
+		Assert.assertEquals(37, Rational.gcd(111, 37));// NOCHECKSTYLE
+		Assert.assertEquals(10, Rational.gcd(150, 220));// NOCHECKSTYLE
+		Assert.assertEquals(Integer.MAX_VALUE, Rational.gcd(Integer.MAX_VALUE,
 				Integer.MAX_VALUE));
-		assertEquals(1, Rational.gcd(Integer.MAX_VALUE, 720720));// NOCHECKSTYLE
-		assertEquals(77, Rational.gcd(1309, 720720));// NOCHECKSTYLE
+		Assert.assertEquals(1, Rational.gcd(Integer.MAX_VALUE, 720720));// NOCHECKSTYLE
+		Assert.assertEquals(77, Rational.gcd(1309, 720720));// NOCHECKSTYLE
 	}
 
 	@Test
 	public void testGCDlong() {
-		assertEquals(0, Rational.gcd(0L, 0L));
-		assertEquals(5, Rational.gcd(5L, 0L));// NOCHECKSTYLE
-		assertEquals(5, Rational.gcd(0L, 5L));// NOCHECKSTYLE
-		assertEquals(1, Rational.gcd(1L, 5L));// NOCHECKSTYLE
-		assertEquals(1, Rational.gcd(5L, 1L));// NOCHECKSTYLE
-		assertEquals(37, Rational.gcd(111L, 37L));// NOCHECKSTYLE
-		assertEquals(10, Rational.gcd(150L, 220L));// NOCHECKSTYLE
-		assertEquals(Long.MAX_VALUE, Rational.gcd(Long.MAX_VALUE,
+		Assert.assertEquals(0, Rational.gcd(0L, 0L));
+		Assert.assertEquals(5, Rational.gcd(5L, 0L));// NOCHECKSTYLE
+		Assert.assertEquals(5, Rational.gcd(0L, 5L));// NOCHECKSTYLE
+		Assert.assertEquals(1, Rational.gcd(1L, 5L));// NOCHECKSTYLE
+		Assert.assertEquals(1, Rational.gcd(5L, 1L));// NOCHECKSTYLE
+		Assert.assertEquals(37, Rational.gcd(111L, 37L));// NOCHECKSTYLE
+		Assert.assertEquals(10, Rational.gcd(150L, 220L));// NOCHECKSTYLE
+		Assert.assertEquals(Long.MAX_VALUE, Rational.gcd(Long.MAX_VALUE,
 				Long.MAX_VALUE));
-		assertEquals(7, Rational.gcd(Long.MAX_VALUE, 720720L));// NOCHECKSTYLE
-		assertEquals(1, Rational.gcd(Long.MAX_VALUE, Long.MAX_VALUE >> 1));
-		assertEquals(77, Rational.gcd(1309l, 720720L));// NOCHECKSTYLE
+		Assert.assertEquals(7, Rational.gcd(Long.MAX_VALUE, 720720L));// NOCHECKSTYLE
+		Assert.assertEquals(1, Rational.gcd(Long.MAX_VALUE, Long.MAX_VALUE >> 1));
+		Assert.assertEquals(77, Rational.gcd(1309l, 720720L));// NOCHECKSTYLE
 	}
 
 	@Test
 	public void testValueOf() {
-		assertSame(Rational.ZERO, Rational.valueOf(0, 5));// NOCHECKSTYLE
-		assertSame(Rational.ONE, Rational.valueOf(5, 5));// NOCHECKSTYLE
-		assertSame(Rational.MONE, Rational.valueOf(-5, 5));// NOCHECKSTYLE
+		Assert.assertSame(Rational.ZERO, Rational.valueOf(0, 5));// NOCHECKSTYLE
+		Assert.assertSame(Rational.ONE, Rational.valueOf(5, 5));// NOCHECKSTYLE
+		Assert.assertSame(Rational.MONE, Rational.valueOf(-5, 5));// NOCHECKSTYLE
 
-		assertSame(Rational.ZERO, Rational.valueOf(0, Long.MAX_VALUE));
-		assertSame(Rational.ONE, 
+		Assert.assertSame(Rational.ZERO, Rational.valueOf(0, Long.MAX_VALUE));
+		Assert.assertSame(Rational.ONE, 
 				Rational.valueOf(Long.MAX_VALUE, Long.MAX_VALUE));
-		assertSame(Rational.MONE, 
+		Assert.assertSame(Rational.MONE, 
 				Rational.valueOf(-Long.MAX_VALUE, Long.MAX_VALUE));
 
-		assertSame(Rational.POSITIVE_INFINITY, 
+		Assert.assertSame(Rational.POSITIVE_INFINITY, 
 				Rational.valueOf(Long.MAX_VALUE, 0));
-		assertSame(Rational.NEGATIVE_INFINITY, 
+		Assert.assertSame(Rational.NEGATIVE_INFINITY, 
 				Rational.valueOf(-Long.MAX_VALUE, 0));
-		assertSame(Rational.NAN, Rational.valueOf(0, 0));
+		Assert.assertSame(Rational.NAN, Rational.valueOf(0, 0));
 
-		assertEquals(Rational.valueOf(2, 1),
+		Assert.assertEquals(Rational.valueOf(2, 1),
 				Rational.valueOf(0x7fffffe, 0x3ffffffl));// NOCHECKSTYLE
-		assertTrue(Rational.valueOf(1, -Long.MAX_VALUE).isNegative());
-		assertTrue(!Rational.valueOf(1, Long.MAX_VALUE).isNegative());
+		Assert.assertTrue(Rational.valueOf(1, -Long.MAX_VALUE).isNegative());
+		Assert.assertTrue(!Rational.valueOf(1, Long.MAX_VALUE).isNegative());
 
 		BigInteger large = new BigInteger(
 				"1234567890123456789012345678901234567890");
-		assertSame(Rational.ZERO, Rational.valueOf(
+		Assert.assertSame(Rational.ZERO, Rational.valueOf(
 				BigInteger.ZERO,	BigInteger.ONE));
-		assertSame(Rational.ZERO, Rational.valueOf(BigInteger.ZERO, large));
-		assertSame(Rational.ONE, Rational.valueOf(large, large));
-		assertSame(Rational.ONE, Rational.valueOf(
+		Assert.assertSame(Rational.ZERO, Rational.valueOf(BigInteger.ZERO, large));
+		Assert.assertSame(Rational.ONE, Rational.valueOf(large, large));
+		Assert.assertSame(Rational.ONE, Rational.valueOf(
 				large.negate(), large.negate()));
-		assertSame(Rational.MONE, Rational.valueOf(large, large.negate()));
-		assertSame(Rational.MONE, Rational.valueOf(large.negate(), large));
-		assertSame(Rational.POSITIVE_INFINITY, Rational.valueOf(
+		Assert.assertSame(Rational.MONE, Rational.valueOf(large, large.negate()));
+		Assert.assertSame(Rational.MONE, Rational.valueOf(large.negate(), large));
+		Assert.assertSame(Rational.POSITIVE_INFINITY, Rational.valueOf(
 				large, BigInteger.ZERO));
-		assertSame(Rational.NEGATIVE_INFINITY, Rational.valueOf(
+		Assert.assertSame(Rational.NEGATIVE_INFINITY, Rational.valueOf(
 				large.negate(), BigInteger.ZERO));
-		assertSame(Rational.NAN, Rational.valueOf(
+		Assert.assertSame(Rational.NAN, Rational.valueOf(
 				BigInteger.ZERO, BigInteger.ZERO));
 	}
 
@@ -133,34 +136,34 @@ public final class RationalTest extends TestCase {
 	public void testAdd() {
 		for (int i = 0; i < RATIONALS.length; i++) {
 			for (int j = i + 1; j < RATIONALS.length; j++) {
-				assertFalse(RATIONALS[i].equals(RATIONALS[j]));
-				assertFalse(RATIONALS[j].equals(RATIONALS[i]));
+				Assert.assertFalse(RATIONALS[i].equals(RATIONALS[j]));
+				Assert.assertFalse(RATIONALS[j].equals(RATIONALS[i]));
 			}
 		}
 		for (int i = 0; i < RATIONALS.length; i++) {
-			assertSame("NAN + " + RATIONALS[i], Rational.NAN,
+			Assert.assertSame("NAN + " + RATIONALS[i], Rational.NAN,
 					Rational.NAN.add(RATIONALS[i]));
-			assertSame(RATIONALS[i] + " + NAN", Rational.NAN,
+			Assert.assertSame(RATIONALS[i] + " + NAN", Rational.NAN,
 					RATIONALS[i].add(Rational.NAN));
 			if (RATIONALS[i] != Rational.NAN) {
 				Rational expect = RATIONALS[i] == Rational.NEGATIVE_INFINITY
 							? Rational.NAN : Rational.POSITIVE_INFINITY;
-				assertSame(expect,
+				Assert.assertSame(expect,
 						RATIONALS[i].add(Rational.POSITIVE_INFINITY));
-				assertSame(expect,
+				Assert.assertSame(expect,
 						Rational.POSITIVE_INFINITY.add(RATIONALS[i]));
 				expect = RATIONALS[i] == Rational.POSITIVE_INFINITY
 							? Rational.NAN : Rational.NEGATIVE_INFINITY;
-				assertSame(expect,
+				Assert.assertSame(expect,
 						RATIONALS[i].add(Rational.NEGATIVE_INFINITY));
-				assertSame(expect,
+				Assert.assertSame(expect,
 						Rational.NEGATIVE_INFINITY.add(RATIONALS[i]));
 			}
 		}
 		
 		for (int i = 0; i < RATIONALS.length; i++) {
 			for (int j = i + 1; j < RATIONALS.length; j++) {
-				assertEquals(RATIONALS[i].add(RATIONALS[j]),
+				Assert.assertEquals(RATIONALS[i].add(RATIONALS[j]),
 						RATIONALS[j].add(RATIONALS[i]));
 			}
 		}
@@ -168,23 +171,23 @@ public final class RationalTest extends TestCase {
 	
 	@Test
 	public void testMul() {
-		assertEquals(Rational.ZERO, Rational.POSITIVE_INFINITY.inverse());
-		assertEquals(Rational.ZERO, Rational.NEGATIVE_INFINITY.inverse());
-		assertEquals(Rational.POSITIVE_INFINITY, Rational.ZERO.inverse());
-		assertEquals(Rational.NAN,
+		Assert.assertEquals(Rational.ZERO, Rational.POSITIVE_INFINITY.inverse());
+		Assert.assertEquals(Rational.ZERO, Rational.NEGATIVE_INFINITY.inverse());
+		Assert.assertEquals(Rational.POSITIVE_INFINITY, Rational.ZERO.inverse());
+		Assert.assertEquals(Rational.NAN,
 				Rational.ZERO.mul(Rational.POSITIVE_INFINITY));
-		assertEquals(Rational.NAN,
+		Assert.assertEquals(Rational.NAN,
 				Rational.ZERO.mul(Rational.NEGATIVE_INFINITY));
 		
 		for (int i = 0; i < RATIONALS.length; i++) {
 			if (RATIONALS[i] != Rational.ZERO
 				&& !RATIONALS[i].denominator().equals(BigInteger.ZERO))
-				assertEquals(Rational.ONE,
+				Assert.assertEquals(Rational.ONE,
 						RATIONALS[i].mul(RATIONALS[i].inverse()));
 			for (int j = i + 1; j < RATIONALS.length; j++) {
-				assertEquals(RATIONALS[i].mul(RATIONALS[j]),
+				Assert.assertEquals(RATIONALS[i].mul(RATIONALS[j]),
 						RATIONALS[j].mul(RATIONALS[i]));
-				assertEquals(RATIONALS[i].mul(RATIONALS[j]).signum(),
+				Assert.assertEquals(RATIONALS[i].mul(RATIONALS[j]).signum(),
 						RATIONALS[i].signum() * RATIONALS[j].signum());
 			}
 		}
@@ -193,32 +196,32 @@ public final class RationalTest extends TestCase {
 	@Test
 	public void testDiverse() {
 		for (int i = 0; i < RATIONALS.length; i++) {
-			assertEquals(0, RATIONALS[i].compareTo(RATIONALS[i]));
+			Assert.assertEquals(0, RATIONALS[i].compareTo(RATIONALS[i]));
 			for (int j = i + 1; j < RATIONALS.length; j++) {
 				if (RATIONALS[i] != Rational.NAN
 					&& RATIONALS[j] != Rational.NAN)
-					assertTrue(RATIONALS[i] + " =<>= " + RATIONALS[j],
+					Assert.assertTrue(RATIONALS[i] + " =<>= " + RATIONALS[j],
 							RATIONALS[i].compareTo(RATIONALS[j]) != 0);
-				assertEquals(RATIONALS[i] + " <=> " + RATIONALS[j],
+				Assert.assertEquals(RATIONALS[i] + " <=> " + RATIONALS[j],
 						RATIONALS[i].compareTo(RATIONALS[j]),
 						-RATIONALS[j].compareTo(RATIONALS[i]));
 			}
 		}
 		for (int i = 0; i < RATIONALS.length; i++) {
-			assertEquals(RATIONALS[i].isNegative(),
+			Assert.assertEquals(RATIONALS[i].isNegative(),
 				     RATIONALS[i].compareTo(Rational.ZERO) < 0);
-			assertEquals(RATIONALS[i].signum(),
+			Assert.assertEquals(RATIONALS[i].signum(),
 				     RATIONALS[i].compareTo(Rational.ZERO));
 			if (RATIONALS[i] != Rational.NEGATIVE_INFINITY)
-				assertEquals(RATIONALS[i], RATIONALS[i].inverse().inverse());
-			assertEquals(RATIONALS[i], RATIONALS[i].negate().negate());
-			assertEquals(RATIONALS[i],
+				Assert.assertEquals(RATIONALS[i], RATIONALS[i].inverse().inverse());
+			Assert.assertEquals(RATIONALS[i], RATIONALS[i].negate().negate());
+			Assert.assertEquals(RATIONALS[i],
 					RATIONALS[i].floor().add(RATIONALS[i].frac()));
-			assertEquals(RATIONALS[i],
+			Assert.assertEquals(RATIONALS[i],
 					RATIONALS[i].frac().add(RATIONALS[i].floor()));
-			assertFalse(RATIONALS[i].frac().isNegative());
-			assertTrue(RATIONALS[i].frac().compareTo(Rational.ONE) < 0);
-			assertEquals(RATIONALS[i].isIntegral(),
+			Assert.assertFalse(RATIONALS[i].frac().isNegative());
+			Assert.assertTrue(RATIONALS[i].frac().compareTo(Rational.ONE) < 0);
+			Assert.assertEquals(RATIONALS[i].isIntegral(),
 					RATIONALS[i].frac() == Rational.ZERO);
 		}
 	}

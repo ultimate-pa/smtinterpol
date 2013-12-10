@@ -20,16 +20,19 @@ package de.uni_freiburg.informatik.ultimate.logic;
 
 import java.math.BigInteger;
 
+import org.junit.Assert;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
-import junit.framework.TestCase;
 
-public class FunctionTest extends TestCase {
+@RunWith(JUnit4.class)
+public class FunctionTest {
 	
 	@Test
 	public void test() {
@@ -43,16 +46,16 @@ public class FunctionTest extends TestCase {
 
 		FunctionSymbol select = 
 			theory.getFunction("select", sortArrIntReal, sortInt);
-		assertNotNull(select);
-		assertSame(sortReal, select.getReturnSort());
+		Assert.assertNotNull(select);
+		Assert.assertSame(sortReal, select.getReturnSort());
 
 		FunctionSymbol store = 
 			theory.getFunction("store", sortArrIntReal, sortInt, sortReal);
-		assertNotNull(store);
-		assertSame(sortArrIntReal, store.getReturnSort());
+		Assert.assertNotNull(store);
+		Assert.assertSame(sortArrIntReal, store.getReturnSort());
 
-		assertNull(theory.getFunction("select", sortArrIntReal, sortReal));
-		assertNull(theory.getFunction(
+		Assert.assertNull(theory.getFunction("select", sortArrIntReal, sortReal));
+		Assert.assertNull(theory.getFunction(
 				"store", sortArrIntReal, sortInt, sortInt));
 		
 		Sort sortMyInt   = theory.getSort("MyInt");
@@ -67,36 +70,36 @@ public class FunctionTest extends TestCase {
 				"nil", typeArgs, new Sort[0], listx,
 				FunctionSymbol.RETURNOVERLOAD);
 		
-		assertNull(theory.getFunction("nil"));
-		assertNull(theory.getFunctionWithResult("nil", null, sortInt));
-		assertNull(theory.getFunctionWithResult(
+		Assert.assertNull(theory.getFunction("nil"));
+		Assert.assertNull(theory.getFunctionWithResult("nil", null, sortInt));
+		Assert.assertNull(theory.getFunctionWithResult(
 				"nil", null, sortArrMyIntMyReal));
 		
 		Sort listInt = theory.getSort("List", sortInt);
 		FunctionSymbol nil = theory.getFunctionWithResult("nil", null, listInt);
-		assertNotNull(nil);
-		assertSame(listInt, nil.getReturnSort());
+		Assert.assertNotNull(nil);
+		Assert.assertSame(listInt, nil.getReturnSort());
 
 		Sort listArr = theory.getSort("List", sortArrMyIntMyReal);
 		FunctionSymbol nilListArr =
 				theory.getFunctionWithResult("nil", null, listArr);
-		assertNotNull(nilListArr);
-		assertSame(listArr.getRealSort(),
+		Assert.assertNotNull(nilListArr);
+		Assert.assertSame(listArr.getRealSort(),
 				nilListArr.getReturnSort().getRealSort());
 		
 		theory.defineSort("Heap", 0, listArr);
 		Sort heap = theory.getSort("Heap");
 		FunctionSymbol nilHeap =
 				theory.getFunctionWithResult("nil", null, heap);
-		assertNotNull(nilHeap);
-		assertSame(heap, nilHeap.getReturnSort());
+		Assert.assertNotNull(nilHeap);
+		Assert.assertSame(heap, nilHeap.getReturnSort());
 		
 		theory.declareInternalPolymorphicFunction("car", typeArgs,
 				new Sort[] {listx}, typeArgs[0], 0);
 
 		FunctionSymbol carHeap = theory.getFunction("car", heap.getRealSort());
-		assertNotNull(carHeap);
-		assertSame(sortArrIntReal.getRealSort(), carHeap.getReturnSort());
+		Assert.assertNotNull(carHeap);
+		Assert.assertSame(sortArrIntReal.getRealSort(), carHeap.getReturnSort());
 		Term selcarnilmone = 
 			theory.term(select, 
 					theory.term(carHeap, theory.term(nilHeap)),
@@ -106,8 +109,8 @@ public class FunctionTest extends TestCase {
 					"=", new Sort[] { selcarnilmone.getSort(), sortReal });
 		Term t = theory.term(eq, selcarnilmone,
 					theory.rational(BigInteger.TEN, BigInteger.valueOf(-15)));// NOCHECKSTYLE
-		assertSame(theory.getBooleanSort(), t.getSort());
-		assertEquals("(= (select (car (as nil Heap)) (- 1)) (/ (- (to_real 2)) (to_real 3)))",// NOCHECKSTYLE
+		Assert.assertSame(theory.getBooleanSort(), t.getSort());
+		Assert.assertEquals("(= (select (car (as nil Heap)) (- 1)) (/ (- (to_real 2)) (to_real 3)))",// NOCHECKSTYLE
 				t.toString());
 	}	
 }

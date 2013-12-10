@@ -20,15 +20,18 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.dpll;
 
 import java.math.BigInteger;
 
+import org.junit.Assert;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
-import junit.framework.TestCase;
 
-public class AllSatTest extends TestCase {
+@RunWith(JUnit4.class)
+public class AllSatTest {
 
 	@Test
 	public void testAllSat() {
@@ -60,7 +63,7 @@ public class AllSatTest extends TestCase {
 				System.err.println(t);
 			++cnt;
 		}
-		assertEquals(3, cnt);// NOCHECKSTYLE
+		Assert.assertEquals(3, cnt);// NOCHECKSTYLE
 	}
 	
 }

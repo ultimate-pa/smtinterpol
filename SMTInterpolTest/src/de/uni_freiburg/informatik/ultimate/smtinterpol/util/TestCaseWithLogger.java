@@ -22,9 +22,11 @@ import org.apache.log4j.ConsoleAppender;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.apache.log4j.SimpleLayout;
-import junit.framework.TestCase;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
-public abstract class TestCaseWithLogger extends TestCase {
+@RunWith(JUnit4.class)
+public class TestCaseWithLogger {
 	
 	static { 
 		Logger logger = Logger.getRootLogger();
@@ -32,11 +34,11 @@ public abstract class TestCaseWithLogger extends TestCase {
 		logger.addAppender(new ConsoleAppender(layout));
 	}
 	
-	public TestCaseWithLogger() {
+	protected TestCaseWithLogger() {
 		this(Level.DEBUG);
 	}
 	
-	public TestCaseWithLogger(Level level) {
+	protected TestCaseWithLogger(Level level) {
 		Logger.getRootLogger().setLevel(level);
 	}
 }

@@ -22,7 +22,10 @@ import java.math.BigInteger;
 import java.util.Map;
 
 import org.apache.log4j.Logger;
+import org.junit.Assert;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
@@ -39,6 +42,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TestCaseWithLogger;
  * Tests for the model production of SMTInterpol.
  * @author Juergen Christ
  */
+@RunWith(JUnit4.class)
 public class ModelTest extends TestCaseWithLogger {
 	
 	private final String[] mBooleanNames = {
@@ -86,109 +90,109 @@ public class ModelTest extends TestCaseWithLogger {
 		script.assertTerm(script.term("Pred", trueTerm));
 		script.assertTerm(script.term("not", script.term("Pred", falseTerm)));
 		LBool isSat = script.checkSat();
-		assertEquals(LBool.SAT, isSat);
+		Assert.assertEquals(LBool.SAT, isSat);
 		Model model = script.getModel();
 		pos = true;
 		for (Term bt : boolTerms) {
 			Term val = model.evaluate(bt);
-			assertEquals(pos ? trueTerm : falseTerm, val);
+			Assert.assertEquals(pos ? trueTerm : falseTerm, val);
 			pos ^= true;
 		}
 		// True test
-		assertEquals(trueTerm, model.evaluate(trueTerm));
+		Assert.assertEquals(trueTerm, model.evaluate(trueTerm));
 		// False test
-		assertEquals(falseTerm, model.evaluate(falseTerm));
+		Assert.assertEquals(falseTerm, model.evaluate(falseTerm));
 		// Simple not test
-		assertEquals(falseTerm, model.evaluate(
+		Assert.assertEquals(falseTerm, model.evaluate(
 				script.term("not", boolTerms[0])));
-		assertEquals(trueTerm, model.evaluate(
+		Assert.assertEquals(trueTerm, model.evaluate(
 				script.term("not", boolTerms[1])));
 		// Simple implies tests
 		// true implies false
-		assertEquals(falseTerm, model.evaluate(
+		Assert.assertEquals(falseTerm, model.evaluate(
 				script.term("=>", boolTerms[0], boolTerms[1])));
 		// false implies true
-		assertEquals(trueTerm, model.evaluate(
+		Assert.assertEquals(trueTerm, model.evaluate(
 				script.term("=>", boolTerms[1], boolTerms[2])));
 		// true implies true
-		assertEquals(trueTerm, model.evaluate(
+		Assert.assertEquals(trueTerm, model.evaluate(
 				script.term("=>", boolTerms[0], boolTerms[2])));
 		// left associativity: (=> true false true false) == false
-		assertEquals(falseTerm, model.evaluate(script.term("=>", boolTerms)));
+		Assert.assertEquals(falseTerm, model.evaluate(script.term("=>", boolTerms)));
 		// left associativity: (=> true false true true) == true
-		assertEquals(trueTerm, model.evaluate(
+		Assert.assertEquals(trueTerm, model.evaluate(
 				script.term("=>", boolTerms[0], boolTerms[1], boolTerms[2],
 						script.term("not", boolTerms[3]))));// NOCHECKSTYLE
 		// Simple and tests
-		assertEquals(trueTerm, model.evaluate(
+		Assert.assertEquals(trueTerm, model.evaluate(
 				script.term("and", boolTerms[0], boolTerms[2])));
-		assertEquals(falseTerm, model.evaluate(
+		Assert.assertEquals(falseTerm, model.evaluate(
 				script.term("and", boolTerms[0], boolTerms[1])));
-		assertEquals(falseTerm, model.evaluate(
+		Assert.assertEquals(falseTerm, model.evaluate(
 				script.term("and", boolTerms[1], boolTerms[2])));
-		assertEquals(falseTerm, model.evaluate(
+		Assert.assertEquals(falseTerm, model.evaluate(
 				script.term("and", boolTerms[1], boolTerms[3])));// NOCHECKSTYLE
 		// left associativity
-		assertEquals(falseTerm, model.evaluate(script.term("and", boolTerms)));
-		assertEquals(trueTerm, model.evaluate(
+		Assert.assertEquals(falseTerm, model.evaluate(script.term("and", boolTerms)));
+		Assert.assertEquals(trueTerm, model.evaluate(
 				script.term("and", boolTerms[0], boolTerms[2], 
 						script.term("not", boolTerms[1]),
 						script.term("not", boolTerms[3]))));// NOCHECKSTYLE
 		// Simple or tests
-		assertEquals(trueTerm, model.evaluate(
+		Assert.assertEquals(trueTerm, model.evaluate(
 				script.term("or", boolTerms[0], boolTerms[2])));
-		assertEquals(trueTerm, model.evaluate(
+		Assert.assertEquals(trueTerm, model.evaluate(
 				script.term("or", boolTerms[0], boolTerms[1])));
-		assertEquals(trueTerm, model.evaluate(
+		Assert.assertEquals(trueTerm, model.evaluate(
 				script.term("or", boolTerms[1], boolTerms[2])));
-		assertEquals(falseTerm, model.evaluate(
+		Assert.assertEquals(falseTerm, model.evaluate(
 				script.term("or", boolTerms[1], boolTerms[3])));// NOCHECKSTYLE
 		// left associativity
-		assertEquals(trueTerm, model.evaluate(script.term("or", boolTerms)));
-		assertEquals(falseTerm, model.evaluate(
+		Assert.assertEquals(trueTerm, model.evaluate(script.term("or", boolTerms)));
+		Assert.assertEquals(falseTerm, model.evaluate(
 				script.term("and", boolTerms[1], boolTerms[3], // NOCHECKSTYLE
 						script.term("not", boolTerms[0]),
 						script.term("not", boolTerms[2]))));
 		// simple xor tests
-		assertEquals(trueTerm, model.evaluate(
+		Assert.assertEquals(trueTerm, model.evaluate(
 				script.term("xor", boolTerms[0], boolTerms[1])));
-		assertEquals(falseTerm, model.evaluate(
+		Assert.assertEquals(falseTerm, model.evaluate(
 				script.term("xor", boolTerms[0], boolTerms[2])));
 		// left associativity: (xor true false true false) == false
-		assertEquals(falseTerm, model.evaluate(script.term("xor", boolTerms)));
+		Assert.assertEquals(falseTerm, model.evaluate(script.term("xor", boolTerms)));
 		// left associativity: (xor true false false) == true
-		assertEquals(trueTerm, model.evaluate(
+		Assert.assertEquals(trueTerm, model.evaluate(
 				script.term("xor", boolTerms[0], boolTerms[1], boolTerms[3])));// NOCHECKSTYLE
 		// simple = tests
-		assertEquals(trueTerm, model.evaluate(script.term("=",
+		Assert.assertEquals(trueTerm, model.evaluate(script.term("=",
 				boolTerms[0], boolTerms[2])));
-		assertEquals(falseTerm, model.evaluate(script.term("=",
+		Assert.assertEquals(falseTerm, model.evaluate(script.term("=",
 				boolTerms[0], boolTerms[1])));
 		// chainable
-		assertEquals(falseTerm, model.evaluate(script.term("=", boolTerms)));
-		assertEquals(trueTerm, model.evaluate(script.term("=",
+		Assert.assertEquals(falseTerm, model.evaluate(script.term("=", boolTerms)));
+		Assert.assertEquals(trueTerm, model.evaluate(script.term("=",
 				boolTerms[0], boolTerms[2], script.term("not", boolTerms[1]))));
 		// simple distinct tests
-		assertEquals(trueTerm, model.evaluate(
+		Assert.assertEquals(trueTerm, model.evaluate(
 				script.term("distinct", boolTerms[0], boolTerms[1])));
-		assertEquals(falseTerm, model.evaluate(
+		Assert.assertEquals(falseTerm, model.evaluate(
 				script.term("distinct", boolTerms[0], boolTerms[2])));
 		// pairwise does not make sense for Booleans!!!
 		// simple ite tests
-		assertEquals(trueTerm, model.evaluate(
+		Assert.assertEquals(trueTerm, model.evaluate(
 				script.term("ite", boolTerms[0], boolTerms[2], boolTerms[1])));
-		assertEquals(falseTerm, model.evaluate(
+		Assert.assertEquals(falseTerm, model.evaluate(
 				script.term("ite", boolTerms[0], boolTerms[1], boolTerms[2])));
-		assertEquals(trueTerm, model.evaluate(
+		Assert.assertEquals(trueTerm, model.evaluate(
 				script.term("ite", boolTerms[1], boolTerms[3], boolTerms[0])));// NOCHECKSTYLE
-		assertEquals(falseTerm, model.evaluate(
+		Assert.assertEquals(falseTerm, model.evaluate(
 				script.term("ite", boolTerms[1], boolTerms[0], boolTerms[3])));// NOCHECKSTYLE
-		assertEquals(trueTerm, model.evaluate(script.term("Pred", trueTerm)));
-		assertEquals(falseTerm, model.evaluate(script.term("Pred", falseTerm)));
+		Assert.assertEquals(trueTerm, model.evaluate(script.term("Pred", trueTerm)));
+		Assert.assertEquals(falseTerm, model.evaluate(script.term("Pred", falseTerm)));
 		// Unconstrained Booleans should be mapped to false
-		assertEquals(falseTerm,
+		Assert.assertEquals(falseTerm,
 				model.evaluate(script.term("Unused", trueTerm)));
-		assertEquals(falseTerm,
+		Assert.assertEquals(falseTerm,
 				model.evaluate(script.term("Unused", falseTerm)));
 	}
 	
@@ -214,18 +218,18 @@ public class ModelTest extends TestCaseWithLogger {
 				"ite", boolTerms[3], boolTerms[2], boolTerms[1]);// NOCHECKSTYLE
 		script.assertTerm(script.term("=", ite1, ite2));
 		LBool isSat = script.checkSat();
-		assertEquals(LBool.SAT, isSat);
+		Assert.assertEquals(LBool.SAT, isSat);
 		Term trueTerm = script.term("true");
 		Term falseTerm = script.term("false");
 		Model model = script.getModel();
 		pos = true;
 		for (Term bt : boolTerms) {
 			Term val = model.evaluate(bt);
-			assertEquals(pos ? trueTerm : falseTerm, val);
+			Assert.assertEquals(pos ? trueTerm : falseTerm, val);
 			pos ^= true;
 		}
-		assertEquals(falseTerm, model.evaluate(ite1));
-		assertEquals(falseTerm, model.evaluate(ite2));
+		Assert.assertEquals(falseTerm, model.evaluate(ite1));
+		Assert.assertEquals(falseTerm, model.evaluate(ite2));
 	}
 	
 	@Test
@@ -240,11 +244,11 @@ public class ModelTest extends TestCaseWithLogger {
 		}
 		script.assertTerm(script.term("<", intTerms));
 		LBool isSat = script.checkSat();
-		assertEquals(LBool.SAT, isSat);
+		Assert.assertEquals(LBool.SAT, isSat);
 		Term trueTerm = script.term("true");
 		Term falseTerm = script.term("false");
 		Model model = script.getModel();
-		assertEquals(Rational.ONE,
+		Assert.assertEquals(Rational.ONE,
 				getConstantTerm(model, script.numeral(BigInteger.ONE)).
 					getValue());
 		ConstantTerm uval = getConstantTerm(model, intTerms[0]);
@@ -252,48 +256,48 @@ public class ModelTest extends TestCaseWithLogger {
 		Rational diff = ((Rational) uval.getValue()).sub(
 				(Rational) vval.getValue());
 		// We have u < v ==> u - v < 0
-		assertTrue(diff.compareTo(Rational.ZERO) < 0);
+		Assert.assertTrue(diff.compareTo(Rational.ZERO) < 0);
 		// u < v ?
-		assertEquals(trueTerm, model.evaluate(
+		Assert.assertEquals(trueTerm, model.evaluate(
 				script.term("<", intTerms[0], intTerms[1])));
 		// u > v ?
-		assertEquals(falseTerm, model.evaluate(
+		Assert.assertEquals(falseTerm, model.evaluate(
 				script.term(">", intTerms[0], intTerms[1])));
 		// u <= v ?
-		assertEquals(trueTerm, model.evaluate(
+		Assert.assertEquals(trueTerm, model.evaluate(
 				script.term("<=", intTerms[0], intTerms[1])));
 		// u >= v ?
-		assertEquals(falseTerm, model.evaluate(
+		Assert.assertEquals(falseTerm, model.evaluate(
 				script.term(">=", intTerms[0], intTerms[1])));
 		// u = v ?
-		assertEquals(falseTerm, model.evaluate(
+		Assert.assertEquals(falseTerm, model.evaluate(
 				script.term("=", intTerms[0], intTerms[1])));
 		// u != v ?
-		assertEquals(trueTerm, model.evaluate(
+		Assert.assertEquals(trueTerm, model.evaluate(
 				script.term("distinct", intTerms[0], intTerms[1])));
 		// associativity: v < w < u ?
-		assertEquals(falseTerm, model.evaluate(
+		Assert.assertEquals(falseTerm, model.evaluate(
 				script.term("<", intTerms[1], intTerms[2], intTerms[0])));
 		// associativity: u < v < w
-		assertEquals(trueTerm, model.evaluate(
+		Assert.assertEquals(trueTerm, model.evaluate(
 				script.term("<", intTerms[0], intTerms[1], intTerms[2])));
 		// associativity: v > w > u ?
-		assertEquals(falseTerm, model.evaluate(
+		Assert.assertEquals(falseTerm, model.evaluate(
 				script.term(">", intTerms[1], intTerms[2], intTerms[0])));
 		// associativity: w > v > u
-		assertEquals(trueTerm, model.evaluate(
+		Assert.assertEquals(trueTerm, model.evaluate(
 				script.term(">", intTerms[2], intTerms[1], intTerms[0])));
 		// associativity: v <= w <= u ?
-		assertEquals(falseTerm, model.evaluate(
+		Assert.assertEquals(falseTerm, model.evaluate(
 				script.term("<=", intTerms[1], intTerms[2], intTerms[0])));
 		// associativity: u <= v <= w
-		assertEquals(trueTerm, model.evaluate(
+		Assert.assertEquals(trueTerm, model.evaluate(
 				script.term("<=", intTerms[0], intTerms[1], intTerms[2])));
 		// associativity: v >= w >= u ?
-		assertEquals(falseTerm, model.evaluate(
+		Assert.assertEquals(falseTerm, model.evaluate(
 				script.term(">=", intTerms[1], intTerms[2], intTerms[0])));
 		// associativity: w >= v >= u
-		assertEquals(trueTerm, model.evaluate(
+		Assert.assertEquals(trueTerm, model.evaluate(
 				script.term(">=", intTerms[2], intTerms[1], intTerms[0])));
 		ConstantTerm wwal = getConstantTerm(model, intTerms[2]);
 		// Test for math operations
@@ -302,23 +306,23 @@ public class ModelTest extends TestCaseWithLogger {
 				(Rational) vval.getValue()).add((Rational) wwal.getValue());
 		ConstantTerm got = getConstantTerm(model, script.term(
 				"+", intTerms[0], intTerms[1], intTerms[2]));
-		assertEquals(expected, got.getValue());
+		Assert.assertEquals(expected, got.getValue());
 		// - (simple)
 		expected = ((Rational) uval.getValue()).sub(
 				(Rational) vval.getValue()).sub((Rational) wwal.getValue());
 		got = getConstantTerm(model, script.term(
 				"-", intTerms[0], intTerms[1], intTerms[2]));
-		assertEquals(expected, got.getValue());
+		Assert.assertEquals(expected, got.getValue());
 		// * (simple)
 		expected = ((Rational) uval.getValue()).mul(BigInteger.TEN);
 		got = getConstantTerm(model, script.term(
 				"*", script.numeral(BigInteger.TEN), intTerms[0]));
-		assertEquals(expected, got.getValue());
+		Assert.assertEquals(expected, got.getValue());
 		// * (non-linear)
 		expected = ((Rational) uval.getValue()).mul((Rational) vval.getValue());
 		got = getConstantTerm(model, script.term(
 				"*", intTerms[0], intTerms[1]));
-		assertEquals(expected, got.getValue());
+		Assert.assertEquals(expected, got.getValue());
 		// Now, I fix the value of a variable to compute the values of div, mod,
 		// (_ divisible n), abs
 		Term xvar = intTerms[4];// NOCHECKSTYLE
@@ -327,35 +331,35 @@ public class ModelTest extends TestCaseWithLogger {
 		Term tmnine = script.numeral(BigInteger.valueOf(-9));// NOCHECKSTYLE
 		script.assertTerm(script.term("=", xvar, tten));
 		isSat = script.checkSat();
-		assertEquals(LBool.SAT, isSat);
+		Assert.assertEquals(LBool.SAT, isSat);
 		model = script.getModel();
 		Rational ten = Rational.valueOf(10, 1);// NOCHECKSTYLE
-		assertEquals(ten, getConstantTerm(model, xvar).getValue());
+		Assert.assertEquals(ten, getConstantTerm(model, xvar).getValue());
 		// div
-		assertEquals(Rational.ONE, getConstantTerm(model,
+		Assert.assertEquals(Rational.ONE, getConstantTerm(model,
 				script.term("div", xvar, tten)).getValue());
 		// Test rounding according to standard
-		assertEquals(Rational.ONE, getConstantTerm(model,
+		Assert.assertEquals(Rational.ONE, getConstantTerm(model,
 				script.term("div", xvar, tnine)).getValue());
-		assertEquals(Rational.MONE, getConstantTerm(model,
+		Assert.assertEquals(Rational.MONE, getConstantTerm(model,
 				script.term("div", xvar, tmnine)).getValue());
 		// mod
-		assertEquals(Rational.ZERO, getConstantTerm(model,
+		Assert.assertEquals(Rational.ZERO, getConstantTerm(model,
 				script.term("mod", xvar, tten)).getValue());
 		// Test rounding according to standard
-		assertEquals(Rational.ONE, getConstantTerm(model,
+		Assert.assertEquals(Rational.ONE, getConstantTerm(model,
 				script.term("mod", xvar, tnine)).getValue());
-		assertEquals(Rational.ONE, getConstantTerm(model,
+		Assert.assertEquals(Rational.ONE, getConstantTerm(model,
 				script.term("mod", xvar, tmnine)).getValue());
 		// divisible
-		assertEquals(trueTerm, model.evaluate(
+		Assert.assertEquals(trueTerm, model.evaluate(
 				script.term("divisible", new BigInteger[]{BigInteger.TEN}, null,
 						xvar)));
-		assertEquals(falseTerm, model.evaluate(
+		Assert.assertEquals(falseTerm, model.evaluate(
 				script.term("divisible",
 						new BigInteger[]{BigInteger.valueOf(9)}, null, xvar)));// NOCHECKSTYLE
 		// abs
-		assertEquals(model.evaluate(xvar), model.evaluate(script.term("abs",
+		Assert.assertEquals(model.evaluate(xvar), model.evaluate(script.term("abs",
 				script.term("-", xvar))));
 	}
 	
@@ -386,29 +390,29 @@ public class ModelTest extends TestCaseWithLogger {
 				script.term("+", realTerms[3],// NOCHECKSTYLE
 						script.numeral(BigInteger.ONE))));
 		LBool isSat = script.checkSat();
-		assertEquals(LBool.SAT, isSat);
+		Assert.assertEquals(LBool.SAT, isSat);
 		Model model = script.getModel();
 		Rational ten = Rational.valueOf(10, 1);// NOCHECKSTYLE
 		Rational five = Rational.valueOf(5, 1);// NOCHECKSTYLE
-		assertEquals(ten, getConstantTerm(model, realTerms[0]).getValue());
-		assertEquals(ten, getConstantTerm(model, realTerms[1]).getValue());
-		assertEquals(five, getConstantTerm(model, realTerms[2]).getValue());
+		Assert.assertEquals(ten, getConstantTerm(model, realTerms[0]).getValue());
+		Assert.assertEquals(ten, getConstantTerm(model, realTerms[1]).getValue());
+		Assert.assertEquals(five, getConstantTerm(model, realTerms[2]).getValue());
 		// Tests for /
-		assertEquals(Rational.ONE, getConstantTerm(model,
+		Assert.assertEquals(Rational.ONE, getConstantTerm(model,
 				script.term("/", realTerms[0], realTerms[1])).getValue());
-		assertEquals(Rational.ONE, getConstantTerm(model,
+		Assert.assertEquals(Rational.ONE, getConstantTerm(model,
 				script.term("/", realTerms[0], realTerms[1])).getValue());
-		assertEquals(Rational.TWO, getConstantTerm(model,
+		Assert.assertEquals(Rational.TWO, getConstantTerm(model,
 				script.term("/", realTerms[0], realTerms[2])).getValue());
 		// Infinitesimal test
 		Rational wval =
 			(Rational) getConstantTerm(model, realTerms[3]).getValue();// NOCHECKSTYLE
 		Rational xval =
 			(Rational) getConstantTerm(model, realTerms[4]).getValue();// NOCHECKSTYLE
-		assertTrue(wval.compareTo(xval) < 0);
-		assertTrue(!wval.isIntegral() || !xval.isIntegral());
+		Assert.assertTrue(wval.compareTo(xval) < 0);
+		Assert.assertTrue(!wval.isIntegral() || !xval.isIntegral());
 		// Unused rational variable test
-		assertEquals(Rational.ZERO,
+		Assert.assertEquals(Rational.ZERO,
 				getConstantTerm(model, realTerms[5]).getValue());// NOCHECKSTYLE
 	}
 	
@@ -416,19 +420,19 @@ public class ModelTest extends TestCaseWithLogger {
 	public void testLIRA() {
 		Script script = setupScript(Logics.QF_UFLIRA);
 		LBool isSat = script.checkSat();
-		assertEquals(LBool.SAT, isSat);
+		Assert.assertEquals(LBool.SAT, isSat);
 		Model model = script.getModel();
 		// Test to_int floor
-		assertEquals(Rational.ZERO, getConstantTerm(model, script.term("to_int",
+		Assert.assertEquals(Rational.ZERO, getConstantTerm(model, script.term("to_int",
 				script.term("/", script.decimal("1.0"),
 						script.decimal("2.0")))).getValue());
 		// Test to_real noop
-		assertEquals(Rational.ZERO, getConstantTerm(model, script.term(
+		Assert.assertEquals(Rational.ZERO, getConstantTerm(model, script.term(
 				"to_real", script.numeral("0"))).getValue());
 		// Test is_int
-		assertEquals(script.term("true"),
+		Assert.assertEquals(script.term("true"),
 				model.evaluate(script.term("is_int", script.decimal("1"))));
-		assertEquals(script.term("false"),
+		Assert.assertEquals(script.term("false"),
 				model.evaluate(script.term("is_int", script.decimal("1.1"))));
 	}
 	
@@ -449,27 +453,27 @@ public class ModelTest extends TestCaseWithLogger {
 		Term fx = script.term("f", x);
 		script.assertTerm(script.term("=", x, fx));
 		LBool isSat = script.checkSat();
-		assertEquals(LBool.SAT, isSat);
+		Assert.assertEquals(LBool.SAT, isSat);
 		Model model = script.getModel();
 		Term val = model.evaluate(x);
-		assertEquals(val, model.evaluate(fx));
-		assertEquals(val, model.evaluate(script.term("f", fx)));
+		Assert.assertEquals(val, model.evaluate(fx));
+		Assert.assertEquals(val, model.evaluate(script.term("f", fx)));
 		// Test for stack overflows in the evaluation
 		Term testTerm = fx;
 		for (int i = 0; i < 1000000; ++i)// NOCHECKSTYLE
 			testTerm = script.term("f", testTerm);
-		assertEquals(val, model.evaluate(testTerm));
+		Assert.assertEquals(val, model.evaluate(testTerm));
 		// Dynamic completion check
 		// 1. U already has an element in the domain (val)
 		// => all unconstrained elements are mapped to val
-		assertEquals(val, model.evaluate(script.term("y")));
-		assertEquals(val, model.evaluate(script.term("f", script.term("y"))));
+		Assert.assertEquals(val, model.evaluate(script.term("y")));
+		Assert.assertEquals(val, model.evaluate(script.term("f", script.term("y"))));
 		// 2. V does not have any constrained elements
 		// => first element will describe the singleton value of this sort
 		Term z1 = script.term("z1");
-		assertEquals(z1, model.evaluate(z1));
+		Assert.assertEquals(z1, model.evaluate(z1));
 		Term z2 = script.term("z2");
-		assertEquals(z1, model.evaluate(z2));
+		Assert.assertEquals(z1, model.evaluate(z2));
 	}
 	
 	@Test
@@ -487,20 +491,20 @@ public class ModelTest extends TestCaseWithLogger {
 		script.assertTerm(script.term("=", x, script.numeral("5")));
 		script.assertTerm(script.term(">", y, script.numeral(BigInteger.ZERO)));
 		LBool isSat = script.checkSat();
-		assertEquals(LBool.SAT, isSat);
+		Assert.assertEquals(LBool.SAT, isSat);
 		Model model = script.getModel();
-		assertEquals(five, getConstantTerm(model, x).getValue());
-		assertEquals(five, getConstantTerm(model, fx5).getValue());
+		Assert.assertEquals(five, getConstantTerm(model, x).getValue());
+		Assert.assertEquals(five, getConstantTerm(model, fx5).getValue());
 		Rational yval = (Rational) getConstantTerm(model, y).getValue();
 		// Evaluate f at position x - y + (y+5)
 		Rational yvalminus5 = yval.add(five);
-		assertEquals(five,
+		Assert.assertEquals(five,
 				getConstantTerm(model,
 						script.term("f", script.term("+", x,
 								script.term("-", y),
 								yvalminus5.toSMTLIB(intSort.getTheory())))).
 								getValue());
-		assertEquals(five, getConstantTerm(model,
+		Assert.assertEquals(five, getConstantTerm(model,
 				script.term("f", script.numeral(BigInteger.TEN))).getValue());
 	}
 	
@@ -518,16 +522,16 @@ public class ModelTest extends TestCaseWithLogger {
 			script.assertTerm(script.term("=",
 					intTerms[i], script.numeral(BigInteger.valueOf(i))));
 		LBool isSat = script.checkSat();
-		assertEquals(LBool.SAT, isSat);
+		Assert.assertEquals(LBool.SAT, isSat);
 		Model model = script.getModel();
 		Map<Term, Term> valuation = script.getValue(intTerms);
 		Map<Term, Term> modeleval = model.evaluate(intTerms);
 		for (int i = 0; i < intTerms.length; ++i) {
 			Rational val = Rational.valueOf(i, 1);
 			Term expected = val.toTerm(intSort);
-			assertEquals(expected, valuation.get(intTerms[i]));
-			assertEquals(expected, modeleval.get(intTerms[i]));
-			assertEquals(expected, model.evaluate(intTerms[i]));
+			Assert.assertEquals(expected, valuation.get(intTerms[i]));
+			Assert.assertEquals(expected, modeleval.get(intTerms[i]));
+			Assert.assertEquals(expected, model.evaluate(intTerms[i]));
 		}
 	}
 	

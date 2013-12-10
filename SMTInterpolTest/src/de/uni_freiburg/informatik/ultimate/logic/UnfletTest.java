@@ -20,7 +20,10 @@ package de.uni_freiburg.informatik.ultimate.logic;
 
 import java.util.Arrays;
 
+import org.junit.Assert;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet.UnletType;
@@ -31,9 +34,9 @@ import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
-import junit.framework.TestCase;
 
-public class UnfletTest extends TestCase {
+@RunWith(JUnit4.class)
+public class UnfletTest {
 	
 	Theory mTheory = new Theory(Logics.AUFLIRA);
 	
@@ -61,79 +64,79 @@ public class UnfletTest extends TestCase {
 	public void test() {
 		Term letTerm = mTheory.let(arr(mX, mY), arr(mNum1, mNum2),
 				mTheory.term(mPlus, mX, mY));
-		assertEquals("(let ((x 1) (y 2)) (+ x y))", letTerm.toStringDirect());
-		assertEquals("(+ 1 2)", mUnletter.unlet(letTerm).toStringDirect());
+		Assert.assertEquals("(let ((x 1) (y 2)) (+ x y))", letTerm.toStringDirect());
+		Assert.assertEquals("(+ 1 2)", mUnletter.unlet(letTerm).toStringDirect());
 	}
 	
 	@Test
 	public void testScope() {
 		Term letTerm = mTheory.let(mX, mNum2, 
 				mTheory.term(mPlus, mTheory.let(mX, mNum1, mX), mX));
-		assertEquals("(let ((x 2)) (+ (let ((x 1)) x) x))",
+		Assert.assertEquals("(let ((x 2)) (+ (let ((x 1)) x) x))",
 				letTerm.toStringDirect());
-		assertEquals("(+ 1 2)",
+		Assert.assertEquals("(+ 1 2)",
 				mUnletter.unlet(letTerm).toStringDirect());
-		assertEquals("(+ 1 x)",
+		Assert.assertEquals("(+ 1 x)",
 				mUnletter.unlet(((LetTerm) letTerm).getSubTerm()).
 					toStringDirect());
-		assertTrue(Arrays.equals(new TermVariable[] {mX}, 
+		Assert.assertTrue(Arrays.equals(new TermVariable[] {mX}, 
 				mUnletter.unlet(((LetTerm) letTerm).getSubTerm()).
 					getFreeVars()));
 		
 		letTerm = mTheory.let(arr(mX, mY), arr(mY, mX),
 				mTheory.term(mPlus, mX, mY));
-		assertEquals("(let ((x y) (y x)) (+ x y))", letTerm.toStringDirect());
-		assertEquals("(+ y x)", mUnletter.unlet(letTerm).toStringDirect());
+		Assert.assertEquals("(let ((x y) (y x)) (+ x y))", letTerm.toStringDirect());
+		Assert.assertEquals("(+ y x)", mUnletter.unlet(letTerm).toStringDirect());
 
 		letTerm = mTheory.let(mX, mY,
 				mTheory.let(mY, mX, mTheory.term(mPlus, mX, mY)));
-		assertEquals("(let ((x y)) (let ((y x)) (+ x y)))",
+		Assert.assertEquals("(let ((x y)) (let ((y x)) (+ x y)))",
 				letTerm.toStringDirect());
-		assertEquals("(+ y y)", mUnletter.unlet(letTerm).toStringDirect());
+		Assert.assertEquals("(+ y y)", mUnletter.unlet(letTerm).toStringDirect());
 		// This test is broken: the lazy semantics would require non-termination
-		//assertEquals("(+ x y)", unletterLazy.unlet(letTerm).toStringDirect());
+		//Assert.assertEquals("(+ x y)", unletterLazy.unlet(letTerm).toStringDirect());
 	}
 	
 	@Test
 	public void testLazy() {
 		Term letTerm = mTheory.let(mX, mY, mTheory.let(mY, mNum1, mX));
-		assertEquals("(let ((x y)) (let ((y 1)) x))", letTerm.toStringDirect());
-		assertEquals("y", mUnletter.unlet(letTerm).toStringDirect());
-		assertEquals("1", mUnletterLazy.unlet(letTerm).toStringDirect());
+		Assert.assertEquals("(let ((x y)) (let ((y 1)) x))", letTerm.toStringDirect());
+		Assert.assertEquals("y", mUnletter.unlet(letTerm).toStringDirect());
+		Assert.assertEquals("1", mUnletterLazy.unlet(letTerm).toStringDirect());
 	}
 	
 	@Test
 	public void testQuant() {
 		Term letTerm = mTheory.let(mX, mY,
 				mTheory.exists(arr(mX), mTheory.equals(mX, mY)));
-		assertEquals("(let ((x y)) (exists ((x Int)) (= x y)))", 
+		Assert.assertEquals("(let ((x y)) (exists ((x Int)) (= x y)))", 
 				letTerm.toStringDirect());
-		assertEquals("(exists ((x Int)) (= x y))", 
+		Assert.assertEquals("(exists ((x Int)) (= x y))", 
 				mUnletter.unlet(letTerm).toStringDirect());
 
 		letTerm = mTheory.let(arr(mX,mY), arr(mY,mZ), 
 				mTheory.exists(arr(mX), mTheory.equals(mX, mY)));
-		assertEquals("(let ((x y) (y z)) (exists ((x Int)) (= x y)))", 
+		Assert.assertEquals("(let ((x y) (y z)) (exists ((x Int)) (= x y)))", 
 				letTerm.toStringDirect());
-		assertEquals("(exists ((x Int)) (= x z))", 
+		Assert.assertEquals("(exists ((x Int)) (= x z))", 
 				mUnletter.unlet(letTerm).toStringDirect());
 	
 		letTerm = mTheory.let(mY, mX,
 				mTheory.exists(arr(mX), mTheory.equals(mX, mY)));
-		assertEquals("(let ((y x)) (exists ((x Int)) (= x y)))", 
+		Assert.assertEquals("(let ((y x)) (exists ((x Int)) (= x y)))", 
 				letTerm.toStringDirect());
-		assertEquals("(exists ((.unlet.0 Int)) (= .unlet.0 x))", 
+		Assert.assertEquals("(exists ((.unlet.0 Int)) (= .unlet.0 x))", 
 				mUnletter.unlet(letTerm).toStringDirect());
 
 		letTerm = mTheory.let(arr(mX,mY), arr(mY,mZ), 
 				mTheory.exists(arr(mY), mTheory.equals(mX, mY)));
-		assertEquals("(let ((x y) (y z)) (exists ((y Int)) (= x y)))", 
+		Assert.assertEquals("(let ((x y) (y z)) (exists ((y Int)) (= x y)))", 
 				letTerm.toStringDirect());
 		Term unlet = mUnletter.unlet(letTerm);
 		String varname =
 				((QuantifiedFormula) unlet).getVariables()[0].toStringDirect();
-		assertEquals(".unlet.", varname.substring(0, 7));// NOCHECKSTYLE
-		assertEquals("(exists ((" + varname + " Int)) (= y " + varname + "))", 
+		Assert.assertEquals(".unlet.", varname.substring(0, 7));// NOCHECKSTYLE
+		Assert.assertEquals("(exists ((" + varname + " Int)) (= y " + varname + "))", 
 				unlet.toStringDirect());
 	}
 
@@ -142,9 +145,9 @@ public class UnfletTest extends TestCase {
 		Term letTerm = mTheory.let(mX, mY, 
 				mTheory.annotatedTerm(
 						arr(new Annotation(":named", "foo")), mX));
-		assertEquals("(let ((x y)) (! x :named foo))", 
+		Assert.assertEquals("(let ((x y)) (! x :named foo))", 
 				letTerm.toStringDirect());
-		assertEquals("(! y :named foo)", 
+		Assert.assertEquals("(! y :named foo)", 
 				mUnletter.unlet(letTerm).toStringDirect());
 		
 		letTerm = mTheory.let(mX, mZ, 
@@ -154,9 +157,9 @@ public class UnfletTest extends TestCase {
 									mTheory.term(mPlus, mX, mY))), 
 							mTheory.equals(
 									mTheory.term(mPlus, mX, mY), mNum2))));
-		assertEquals("(let ((x z)) (exists ((y Int)) (! (= (+ x y) 2) :pattern (+ x y))))",// NOCHECKSTYLE 
+		Assert.assertEquals("(let ((x z)) (exists ((y Int)) (! (= (+ x y) 2) :pattern (+ x y))))",// NOCHECKSTYLE 
 				letTerm.toStringDirect());
-		assertEquals("(exists ((y Int)) (! (= (+ z y) 2) :pattern (+ z y)))", 
+		Assert.assertEquals("(exists ((y Int)) (! (= (+ z y) 2) :pattern (+ z y)))", 
 				mUnletter.unlet(letTerm).toStringDirect());
 
 		letTerm = mTheory.let(mX, mZ, 
@@ -166,9 +169,9 @@ public class UnfletTest extends TestCase {
 									mTheory.term(mPlus, mY, mX)))), 
 							mTheory.equals(
 									mTheory.term(mPlus, mX, mY), mNum2))));
-		assertEquals("(let ((x z)) (exists ((y Int)) (! (= (+ x y) 2) :pattern ((+ x y) (+ y x)))))",// NOCHECKSTYLE 
+		Assert.assertEquals("(let ((x z)) (exists ((y Int)) (! (= (+ x y) 2) :pattern ((+ x y) (+ y x)))))",// NOCHECKSTYLE 
 				letTerm.toStringDirect());
-		assertEquals("(exists ((y Int)) (! (= (+ z y) 2) :pattern ((+ z y) (+ y z))))", // NOCHECKSTYLE
+		Assert.assertEquals("(exists ((y Int)) (! (= (+ z y) 2) :pattern ((+ z y) (+ y z))))", // NOCHECKSTYLE
 				mUnletter.unlet(letTerm).toStringDirect());
 	}
 
@@ -183,32 +186,32 @@ public class UnfletTest extends TestCase {
 		// do not even think of calling toStringDirect here...
 		while ((unlet instanceof ApplicationTerm)) {
 			ApplicationTerm app = (ApplicationTerm) unlet; 
-			assertEquals(mPlus, app.getFunction());
-			assertEquals(app.getParameters()[0], app.getParameters()[1]);
+			Assert.assertEquals(mPlus, app.getFunction());
+			Assert.assertEquals(app.getParameters()[0], app.getParameters()[1]);
 			unlet = app.getParameters()[0];
 			depth++;
 		}
-		assertEquals(mY, unlet);
-		assertEquals(99, depth);// NOCHECKSTYLE
+		Assert.assertEquals(mY, unlet);
+		Assert.assertEquals(99, depth);// NOCHECKSTYLE
 
 		Term plusxy = mTheory.term(mPlus, mX, mY);
 		
 		Term letTerm = mTheory.let(mX, mZ, mTheory.equals(
 				plusxy, mTheory.let(mX, mY, plusxy)));
-		assertEquals("(let ((x z)) (= (+ x y) (let ((x y)) (+ x y))))", 
+		Assert.assertEquals("(let ((x z)) (= (+ x y) (let ((x y)) (+ x y))))", 
 				letTerm.toStringDirect());
-		assertEquals("(= (+ z y) (+ y y))", 
+		Assert.assertEquals("(= (+ z y) (+ y y))", 
 				mUnletter.unlet(letTerm).toStringDirect());
 		letTerm = mTheory.equals(mTheory.let(mX, mZ, plusxy),
 				mTheory.let(mX, mY, plusxy));
-		assertEquals("(= (let ((x z)) (+ x y)) (let ((x y)) (+ x y)))", 
+		Assert.assertEquals("(= (let ((x z)) (+ x y)) (let ((x y)) (+ x y)))", 
 				letTerm.toStringDirect());
-		assertEquals("(= (+ z y) (+ y y))", 
+		Assert.assertEquals("(= (+ z y) (+ y y))", 
 				mUnletter.unlet(letTerm).toStringDirect());
 		letTerm = mTheory.equals(plusxy, mTheory.let(mX, mY, plusxy));
-		assertEquals("(= (+ x y) (let ((x y)) (+ x y)))", 
+		Assert.assertEquals("(= (+ x y) (let ((x y)) (+ x y)))", 
 				letTerm.toStringDirect());
-		assertEquals("(= (+ x y) (+ y y))", 
+		Assert.assertEquals("(= (+ x y) (+ y y))", 
 				mUnletter.unlet(letTerm).toStringDirect());
 	}
 	
@@ -218,7 +221,7 @@ public class UnfletTest extends TestCase {
 		FunctionSymbol plusdef =
 				mTheory.defineFunction("plus", arr(mX, mY), def);
 		Term defed = mTheory.term(plusdef, mNum1, mNum2);
-		assertEquals("(plus 1 2)", defed.toStringDirect());
-		assertEquals("(+ 1 2)", mUnletterExpand.unlet(defed).toStringDirect());
+		Assert.assertEquals("(plus 1 2)", defed.toStringDirect());
+		Assert.assertEquals("(+ 1 2)", mUnletterExpand.unlet(defed).toStringDirect());
 	}
 }

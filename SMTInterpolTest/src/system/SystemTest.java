@@ -27,13 +27,17 @@ import java.net.URL;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
+import org.junit.Assert;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.ParseEnvironment;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TestCaseWithLogger;
 
+@RunWith(JUnit4.class)
 public class SystemTest extends TestCaseWithLogger {
 
 	@Test
@@ -66,8 +70,8 @@ public class SystemTest extends TestCaseWithLogger {
 					if (shouldExecute(tst))
 						performTest(tst);
 				} catch (SMTLIBException e) {
-					fail("File " + tst.getAbsolutePath() + " produced error:\n"
-							+ e.getMessage());
+					Assert.fail("File " + tst.getAbsolutePath()
+							+ " produced error:\n" + e.getMessage());
 				}
 			}
 		}
@@ -82,13 +86,13 @@ public class SystemTest extends TestCaseWithLogger {
 
 			@Override
 			public void printError(String message) {
-				fail(message);
+				Assert.fail(message);
 			}
 
 			@Override
 			public void printResponse(Object response) {
 				if ("unsupported".equals(response))
-					fail("unsupported");
+					Assert.fail("unsupported");
 				super.printResponse(response);
 			}
 			

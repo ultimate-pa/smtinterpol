@@ -22,7 +22,10 @@ import java.util.ArrayDeque;
 import java.util.HashSet;
 import java.util.Queue;
 
+import org.junit.Assert;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
@@ -31,9 +34,9 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ResolutionNode.Antecedent;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.Transformations.AvailableTransformations;
-import junit.framework.TestCase;
 
-public class RPITest extends TestCase {
+@RunWith(JUnit4.class)
+public class RPITest {
 	
 	private static class ProofDAGCheck {
 		private final ArrayDeque<Clause> mTodo = new ArrayDeque<Clause>();
@@ -152,7 +155,7 @@ public class RPITest extends TestCase {
 		input.add(mEtas[1]);
 		input.add(mEtas[0]);
 		boolean checkDAGCheck = pdc.check(input, empty);
-		assertTrue(checkDAGCheck);
+		Assert.assertTrue(checkDAGCheck);
 		input.clear();
 		input.add(empty);
 		input.add(mEtas[8]);// NOCHECKSTYLE
@@ -165,7 +168,7 @@ public class RPITest extends TestCase {
 		input.add(mEtas[1]);
 		input.add(mEtas[0]);
 		boolean check = new ProofDAGCheck().check(input, transformed);
-		assertTrue(check);
+		Assert.assertTrue(check);
 	}
 	
 	@Test
@@ -214,7 +217,7 @@ public class RPITest extends TestCase {
 		input.add(mEtas[2]);
 		input.add(mEtas[0]);
 		boolean checkDAGCheck = pdc.check(input, empty);
-		assertTrue(checkDAGCheck);
+		Assert.assertTrue(checkDAGCheck);
 		input.clear();
 		input.add(empty);
 		input.add(mEtas[8]);// NOCHECKSTYLE
@@ -226,7 +229,7 @@ public class RPITest extends TestCase {
 		input.add(mEtas[1]);
 		input.add(mEtas[2]);
 		boolean check = new ProofDAGCheck().check(input, transformed);
-		assertTrue(check);
+		Assert.assertTrue(check);
 	}
 	
 	@Test
@@ -278,7 +281,7 @@ public class RPITest extends TestCase {
 		input.add(mEtas[2]);
 		input.add(mEtas[0]);
 		boolean checkDAGCheck = pdc.check(input, empty);
-		assertTrue(checkDAGCheck);
+		Assert.assertTrue(checkDAGCheck);
 		input.clear();
 		input.add(empty);
 		input.add(mEtas[8]);// NOCHECKSTYLE
@@ -291,7 +294,7 @@ public class RPITest extends TestCase {
 		input.add(mEtas[1]);
 		input.add(mEtas[2]);
 		boolean check = new ProofDAGCheck().check(input, transformed);
-		assertTrue(check);
+		Assert.assertTrue(check);
 	}
 	
 	@Test
@@ -333,14 +336,14 @@ public class RPITest extends TestCase {
 		input.add(ab);
 		input.add(bnegc);
 		boolean checkDAGCheck = pdc.check(input, empty);
-		assertTrue(checkDAGCheck);
+		Assert.assertTrue(checkDAGCheck);
 		input.clear();
 		input.add(empty);
 		input.add(nega);
 		input.add(negb);
 		input.add(ab);
 		boolean check = new ProofDAGCheck().check(input, transformed);
-		assertTrue(check);
+		Assert.assertTrue(check);
 	}
 
 	@Test
@@ -382,14 +385,14 @@ public class RPITest extends TestCase {
 		input.add(negbc);
 		input.add(ab);
 		boolean checkDAGCheck = pdc.check(input, empty);
-		assertTrue(checkDAGCheck);
+		Assert.assertTrue(checkDAGCheck);
 		input.clear();
 		input.add(empty);
 		input.add(nega);
 		input.add(negb);
 		input.add(ab);
 		boolean check = new ProofDAGCheck().check(input, transformed);
-		assertTrue(check);
+		Assert.assertTrue(check);
 	}
 	
 }

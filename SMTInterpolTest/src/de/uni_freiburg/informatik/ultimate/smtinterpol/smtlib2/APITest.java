@@ -22,11 +22,16 @@ import java.math.BigInteger;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
+import org.junit.Assert;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
+import de.uni_freiburg.informatik.ultimate.logic.ReasonUnknown;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
+import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TestCaseWithLogger;
 
@@ -34,9 +39,29 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TestCaseWithLogger;
  * A basic test case for the API of SMTInterpol.
  * @author Juergen Christ
  */
+@RunWith(JUnit4.class)
 public class APITest extends TestCaseWithLogger {
+	
+	private static class TerminationCounter implements TerminationRequest {
+
+		private int mCount = 0;
+		
+		@Override
+		public boolean isTerminationRequested() {
+			/* The 1 here really is a magic number.  It relies on the current
+			 * quickchecker to not do any propositional probing.  Essentially it
+			 * says "Cancell if a decision yields a conflict!"
+			 */
+			return ++mCount > 1;
+		}
+		
+		public void reset() {
+			mCount = 0;
+		}
+		
+	}
 	public APITest() {
-		super(Level.ERROR);
+		super(Level.TRACE);
 	}
 	/**
 	 * Test what is possible without a logic...
@@ -47,43 +72,43 @@ public class APITest extends TestCaseWithLogger {
 		solver.setOption(":interactive-mode", true);
 		try {
 			solver.sort("Bool");
-			fail("Could retrieve sort Bool without logic");
+			Assert.fail("Could retrieve sort Bool without logic");
 		} catch (SMTLIBException expected) {
 			System.err.println(expected.getMessage());
 		}
 		try {
 			solver.assertTerm(solver.term("true"));
-			fail("Could assert true without logic");
+			Assert.fail("Could assert true without logic");
 		} catch (SMTLIBException expected) {
 			System.err.println(expected.getMessage());
 		}
 		try {
 			solver.checkSat();
-			fail("Could check satisfiability without logic");
+			Assert.fail("Could check satisfiability without logic");
 		} catch (SMTLIBException expected) {
 			System.err.println(expected.getMessage());
 		}
 		try {
 			solver.push(1);
-			fail("Could push without logic");
+			Assert.fail("Could push without logic");
 		} catch (SMTLIBException expected) {
 			System.err.println(expected.getMessage());
 		}
 		try {
 			solver.pop(1);
-			fail("Could pop without logic");
+			Assert.fail("Could pop without logic");
 		} catch (SMTLIBException expected) {
 			System.err.println(expected.getMessage());
 		}
 		try {
 			solver.assertTerm(solver.term("true"));
-			fail("Could assert true without logic");
+			Assert.fail("Could assert true without logic");
 		} catch (SMTLIBException expected) {
 			System.err.println(expected.getMessage());
 		}
 		try {
 			solver.getAssertions();
-			fail("Could get assertions without logic");
+			Assert.fail("Could get assertions without logic");
 		} catch (SMTLIBException expected) {
 			System.err.println(expected.getMessage());
 		}
@@ -94,7 +119,7 @@ public class APITest extends TestCaseWithLogger {
 		SMTInterpol solver = new SMTInterpol(Logger.getRootLogger());
 		try {
 			solver.setLogic("TestLogicThatDoesNotExist");
-			fail("Could set strange logic!");
+			Assert.fail("Could set strange logic!");
 		} catch (UnsupportedOperationException expected) {
 			System.err.println(expected.getMessage());
 		}
@@ -107,16 +132,16 @@ public class APITest extends TestCaseWithLogger {
 		try {
 			solver.push(3);// NOCHECKSTYLE
 		} catch (SMTLIBException eUnexpected) {
-			fail(eUnexpected.getMessage());
+			Assert.fail(eUnexpected.getMessage());
 		}
 		try {
 			solver.pop(2);// NOCHECKSTYLE
 		} catch (SMTLIBException eUnexpected) {
-			fail(eUnexpected.getMessage());
+			Assert.fail(eUnexpected.getMessage());
 		}
 		try {
 			solver.pop(2);// NOCHECKSTYLE
-			fail("Could pop 4 levels after pushing 3");
+			Assert.fail("Could pop 4 levels after pushing 3");
 		} catch (SMTLIBException expected) {
 			System.err.println(expected.getMessage());
 		}
@@ -128,37 +153,37 @@ public class APITest extends TestCaseWithLogger {
 		solver.setLogic(Logics.QF_LIA);
 		try {
 			solver.setOption(":interactive-mode", true);
-			fail("Could activate interactive mode after setting logic");
+			Assert.fail("Could activate interactive mode after setting logic");
 		} catch (SMTLIBException expected) {
 			System.err.println(expected.getMessage());
 		}
 		try {
 			solver.setOption(":produce-proofs", true);
-			fail("Could activate proof production after setting logic");
+			Assert.fail("Could activate proof production after setting logic");
 		} catch (SMTLIBException expected) {
 			System.err.println(expected.getMessage());
 		}
 		try {
 			solver.setOption(":produce-unsat-cores", true);
-			fail("Could activate unsat core production after setting logic");
+			Assert.fail("Could activate unsat core production after setting logic");
 		} catch (SMTLIBException expected) {
 			System.err.println(expected.getMessage());
 		}
 		try {
 			solver.setOption(":produce-assignments", true);
-			fail("Could activate assignment production after setting logic");
+			Assert.fail("Could activate assignment production after setting logic");
 		} catch (SMTLIBException expected) {
 			System.err.println(expected.getMessage());
 		}
 		try {
 			solver.setOption(":interpolant-check-mode", true);
-			fail("Could activate interpolant check mode after setting logic");
+			Assert.fail("Could activate interpolant check mode after setting logic");
 		} catch (SMTLIBException expected) {
 			System.err.println(expected.getMessage());
 		}
 		try {
 			solver.setOption(":unsat-core-check-mode", true);
-			fail("Could activate unsat core check mode after setting logic");
+			Assert.fail("Could activate unsat core check mode after setting logic");
 		} catch (SMTLIBException expected) {
 			System.err.println(expected.getMessage());
 		}
@@ -170,7 +195,7 @@ public class APITest extends TestCaseWithLogger {
 		solver.setLogic(Logics.QF_LIA);
 		try {
 			solver.setLogic(Logics.QF_LIA);
-			fail("Could set logic a second time");
+			Assert.fail("Could set logic a second time");
 		} catch (SMTLIBException expected) {
 			System.err.println(expected.getMessage());
 		}
@@ -180,7 +205,7 @@ public class APITest extends TestCaseWithLogger {
 					solver.term("x"), solver.numeral(BigInteger.ZERO)));
 			solver.checkSat();
 		} catch (SMTLIBException eUnexpected) {
-			fail(eUnexpected.getMessage());
+			Assert.fail(eUnexpected.getMessage());
 		}
 	}
 	
@@ -195,13 +220,13 @@ public class APITest extends TestCaseWithLogger {
 		try {
 			solver1.assertTerm(solver2.term("=",
 					solver2.term("x"), solver2.numeral(BigInteger.ZERO)));
-			fail("Could assert term created by different solver");
+			Assert.fail("Could assert term created by different solver");
 		} catch (SMTLIBException expected) {
 			System.err.println(expected.getMessage());
 		}
 		try {
 			solver1.assertTerm(solver1.term("x"));
-			fail("Could assert non-Boolean term");
+			Assert.fail("Could assert non-Boolean term");
 		} catch (SMTLIBException expected) {
 			System.err.println(expected.getMessage());
 		}
@@ -209,7 +234,7 @@ public class APITest extends TestCaseWithLogger {
 			try {
 				solver1.assertTerm(solver1.term("=", solver1.term("x"),
 						solver1.variable("y", solver1.sort("Int"))));
-				fail("Could assert open term");
+				Assert.fail("Could assert open term");
 			} catch (SMTLIBException expected) {
 				System.err.println(expected.getMessage());
 			}
@@ -224,15 +249,66 @@ public class APITest extends TestCaseWithLogger {
 		solver.setLogic(Logics.QF_LIA);
 		try {
 			solver.term("x");
-			fail("Could create undeclared term");
+			Assert.fail("Could create undeclared term");
 		} catch (SMTLIBException expected) {
 			System.err.println(expected.getMessage());
 		}
 		try {
 			solver.variable("x", solver.sort("NOTEXISTENT"));
-			fail("Could create variable with unknown sort");
+			Assert.fail("Could create variable with unknown sort");
 		} catch (SMTLIBException expected) {
 			System.err.println(expected.getMessage());
 		}
+	}
+	
+	@Test
+	public void cancellationRequest() {
+		TerminationCounter tc = new TerminationCounter();
+		SMTInterpol solver = new SMTInterpol(Logger.getRootLogger(), tc);
+		solver.setLogic(Logics.CORE);
+		Sort bool = solver.sort("Bool");
+		solver.declareFun("P", new Sort[0], bool);
+		solver.declareFun("Q", new Sort[0], bool);
+		solver.declareFun("R", new Sort[0], bool);
+		solver.push(1);
+		solver.assertTerm(solver.term(
+				"or", solver.term("P"), solver.term("Q")));
+		solver.assertTerm(solver.term(
+				"or", solver.term("P"), solver.term("R")));
+		solver.assertTerm(solver.term(
+				"or", solver.term("not", solver.term("P")),
+				      solver.term("not", solver.term("Q"))));
+		solver.assertTerm(solver.term(
+				"or", solver.term("not", solver.term("P")),
+				      solver.term("not", solver.term("R"))));
+		solver.assertTerm(solver.term(
+				"or", solver.term("not", solver.term("P")),
+				      solver.term("Q"), solver.term("R")));
+		LBool isSat = solver.checkSat();
+		Assert.assertSame(LBool.SAT, isSat);
+		solver.pop(1);
+		tc.reset();
+		solver.push(1);
+		solver.assertTerm(solver.term(
+				"or", solver.term("P"), solver.term("Q")));
+		solver.assertTerm(solver.term(
+				"or", solver.term("P"), solver.term("R")));
+		solver.assertTerm(solver.term(
+				"or", solver.term("not", solver.term("P")),
+				      solver.term("not", solver.term("Q"))));
+		solver.assertTerm(solver.term(
+				"or", solver.term("not", solver.term("P")),
+				      solver.term("not", solver.term("R"))));
+		solver.assertTerm(solver.term(
+				"or", solver.term("not", solver.term("P")),
+				      solver.term("Q"), solver.term("R")));
+		solver.assertTerm(solver.term(
+				"or", solver.term("P"), solver.term("not", solver.term("Q")),
+						solver.term("not", solver.term("R"))));
+		isSat = solver.checkSat();
+		Assert.assertSame(LBool.UNKNOWN, isSat);
+		ReasonUnknown ru = (ReasonUnknown) solver.getInfo(":reason-unknown");
+		Assert.assertSame(ReasonUnknown.CANCELLED, ru);
+		solver.pop(1);
 	}
 }

@@ -23,8 +23,11 @@ import java.util.Map;
 
 import org.apache.log4j.Logger;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
@@ -41,6 +44,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TestCaseWithLogger;
  * formula using SMTInterpols model-check-mode
  * @author Juergen Christ
  */
+@RunWith(JUnit4.class)
 public class EpsilonTest extends TestCaseWithLogger {
 
 	private SMTInterpol mSolver;
@@ -49,9 +53,7 @@ public class EpsilonTest extends TestCaseWithLogger {
 	private final static Sort[] EMPTY_SORT_ARRAY = {};
 	
 	@Before
-	@Override
 	protected void setUp() throws Exception {
-		super.setUp();
 		mSolver = new SMTInterpol(Logger.getRootLogger(), false);
 		mSolver.setOption(":produce-models", Boolean.TRUE);
 		mSolver.setLogic(Logics.QF_LRA);
@@ -72,9 +74,7 @@ public class EpsilonTest extends TestCaseWithLogger {
 	}
 
 	@After
-	@Override
 	protected void tearDown() throws Exception {
-		super.tearDown();
 		mInputBase = null;
 		mSolver.exit();
 		mSolver = null;
@@ -83,10 +83,10 @@ public class EpsilonTest extends TestCaseWithLogger {
 	@Test
 	public void testEmptyProhibitions() {
 		LBool isSat = mSolver.checkSat();
-		assertSame(LBool.SAT, isSat);
+		Assert.assertSame(LBool.SAT, isSat);
 		Map<Term, Term> eval = mSolver.getValue(new Term[] {mInputBase});
-		assertEquals(1, eval.size());
-		assertSame(mSolver.term("true"), eval.get(mInputBase));
+		Assert.assertEquals(1, eval.size());
+		Assert.assertSame(mSolver.term("true"), eval.get(mInputBase));
 	}
 	
 	@Test
@@ -97,13 +97,13 @@ public class EpsilonTest extends TestCaseWithLogger {
 						mSolver.decimal(BigDecimal.ONE)));
 		mSolver.assertTerm(second);
 		LBool isSat = mSolver.checkSat();
-		assertSame(LBool.SAT, isSat);
+		Assert.assertSame(LBool.SAT, isSat);
 		Map<Term, Term> eval = mSolver.getValue(
 				new Term[] {mInputBase, second});
-		assertEquals(2, eval.size());
+		Assert.assertEquals(2, eval.size());
 		Term trueTerm = mSolver.term("true");
-		assertSame(trueTerm, eval.get(mInputBase));
-		assertSame(trueTerm, eval.get(second));
+		Assert.assertSame(trueTerm, eval.get(mInputBase));
+		Assert.assertSame(trueTerm, eval.get(second));
 	}
 	
 	@Test
@@ -115,13 +115,13 @@ public class EpsilonTest extends TestCaseWithLogger {
 						mSolver.decimal(BigDecimal.ONE.negate())));
 		mSolver.assertTerm(second);
 		LBool isSat = mSolver.checkSat();
-		assertSame(LBool.SAT, isSat);
+		Assert.assertSame(LBool.SAT, isSat);
 		Map<Term, Term> eval = mSolver.getValue(
 				new Term[] {mInputBase, second});
-		assertEquals(2, eval.size());
+		Assert.assertEquals(2, eval.size());
 		Term trueTerm = mSolver.term("true");
-		assertSame(trueTerm, eval.get(mInputBase));
-		assertSame(trueTerm, eval.get(second));
+		Assert.assertSame(trueTerm, eval.get(mInputBase));
+		Assert.assertSame(trueTerm, eval.get(second));
 	}
 	
 	@Test
@@ -137,13 +137,13 @@ public class EpsilonTest extends TestCaseWithLogger {
 								BigDecimal.valueOf(2))))));
 		mSolver.assertTerm(second);
 		LBool isSat = mSolver.checkSat();
-		assertSame(LBool.SAT, isSat);
+		Assert.assertSame(LBool.SAT, isSat);
 		Map<Term, Term> eval = mSolver.getValue(
 				new Term[] {mInputBase, second});
-		assertEquals(2, eval.size());
+		Assert.assertEquals(2, eval.size());
 		Term trueTerm = mSolver.term("true");
-		assertSame(trueTerm, eval.get(mInputBase));
-		assertSame(trueTerm, eval.get(second));
+		Assert.assertSame(trueTerm, eval.get(mInputBase));
+		Assert.assertSame(trueTerm, eval.get(second));
 	}
 	
 	@Test
@@ -158,13 +158,13 @@ public class EpsilonTest extends TestCaseWithLogger {
 						mSolver.decimal(BigDecimal.valueOf(-2)))));// NOCHECKSTYLE
 		mSolver.assertTerm(second);
 		LBool isSat = mSolver.checkSat();
-		assertSame(LBool.SAT, isSat);
+		Assert.assertSame(LBool.SAT, isSat);
 		Map<Term, Term> eval = mSolver.getValue(
 				new Term[] {mInputBase, second});
-		assertEquals(2, eval.size());
+		Assert.assertEquals(2, eval.size());
 		Term trueTerm = mSolver.term("true");
-		assertSame(trueTerm, eval.get(mInputBase));
-		assertSame(trueTerm, eval.get(second));
+		Assert.assertSame(trueTerm, eval.get(mInputBase));
+		Assert.assertSame(trueTerm, eval.get(second));
 	}
 	
 	@Test
@@ -179,13 +179,13 @@ public class EpsilonTest extends TestCaseWithLogger {
 						mSolver.decimal(BigDecimal.ONE))));
 		mSolver.assertTerm(second);
 		LBool isSat = mSolver.checkSat();
-		assertSame(LBool.SAT, isSat);
+		Assert.assertSame(LBool.SAT, isSat);
 		Map<Term, Term> eval = mSolver.getValue(
 				new Term[] {mInputBase, second});
-		assertEquals(2, eval.size());
+		Assert.assertEquals(2, eval.size());
 		Term trueTerm = mSolver.term("true");
-		assertSame(trueTerm, eval.get(mInputBase));
-		assertSame(trueTerm, eval.get(second));
+		Assert.assertSame(trueTerm, eval.get(mInputBase));
+		Assert.assertSame(trueTerm, eval.get(second));
 	}
 	
 	@Test
@@ -194,12 +194,12 @@ public class EpsilonTest extends TestCaseWithLogger {
 				mSolver.term("y"), mSolver.decimal(BigDecimal.ONE));
 		mSolver.assertTerm(second);
 		LBool isSat = mSolver.checkSat();
-		assertSame(LBool.SAT, isSat);
+		Assert.assertSame(LBool.SAT, isSat);
 		Map<Term, Term> eval = mSolver.getValue(
 				new Term[] {mInputBase, second});
-		assertEquals(2, eval.size());
+		Assert.assertEquals(2, eval.size());
 		Term trueTerm = mSolver.term("true");
-		assertSame(trueTerm, eval.get(mInputBase));
-		assertSame(trueTerm, eval.get(second));
+		Assert.assertSame(trueTerm, eval.get(mInputBase));
+		Assert.assertSame(trueTerm, eval.get(second));
 	}
 }

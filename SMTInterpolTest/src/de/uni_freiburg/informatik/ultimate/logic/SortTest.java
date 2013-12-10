@@ -21,14 +21,17 @@ package de.uni_freiburg.informatik.ultimate.logic;
 import java.math.BigInteger;
 import java.util.HashMap;
 
+import org.junit.Assert;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
-import junit.framework.TestCase;
 
-public class SortTest extends TestCase {
+@RunWith(JUnit4.class)
+public class SortTest {
 	
 	@Test
 	public void test() {
@@ -41,29 +44,29 @@ public class SortTest extends TestCase {
 		Sort sortReal = theory.getSort("Real");
 		Sort sortArrIntReal = theory.getSort("Array", sortInt, sortReal);
 
-		assertEquals(sortInt.toString(), "Int");
-		assertEquals(sortReal.toString(), "Real");
-		assertEquals(sortArrIntReal.toString(), "(Array Int Real)");
+		Assert.assertEquals(sortInt.toString(), "Int");
+		Assert.assertEquals(sortReal.toString(), "Real");
+		Assert.assertEquals(sortArrIntReal.toString(), "(Array Int Real)");
 
 		theory.defineSort("AIR", 0, sortArrIntReal);
 		Sort sortAIR = theory.getSort("AIR");
 
-		assertEquals(sortAIR.toString(), "AIR");
-		assertSame(sortAIR.getRealSort(), sortArrIntReal);
+		Assert.assertEquals(sortAIR.toString(), "AIR");
+		Assert.assertSame(sortAIR.getRealSort(), sortArrIntReal);
 		
 		Sort[] sortParam = theory.createSortVariables("x");
-		assertEquals(sortParam.length, 1);
-		assertEquals(sortParam[0].toString(), "x");
+		Assert.assertEquals(sortParam.length, 1);
+		Assert.assertEquals(sortParam[0].toString(), "x");
 
 		Sort sortArrIntX = theory.getSort("Array", sortInt, sortParam[0]);
-		assertEquals(sortArrIntX.toString(), "(Array Int x)");
+		Assert.assertEquals(sortArrIntX.toString(), "(Array Int x)");
 
 		
 		theory.defineSort("AIx", 1, sortArrIntX);
 		Sort sortAIR2 = theory.getSort("AIx", sortReal);
 		
-		assertEquals(sortAIR2.toString(), "(AIx Real)");
-		assertSame(sortAIR2.getRealSort(), sortArrIntReal);
+		Assert.assertEquals(sortAIR2.toString(), "(AIx Real)");
+		Assert.assertSame(sortAIR2.getRealSort(), sortArrIntReal);
 	}
 	
 	@Test
@@ -82,28 +85,28 @@ public class SortTest extends TestCase {
 		for (int i = 0; i < 100; i++) { // NOCHECKSTYLE
 			theory.defineSort("rec" + i, 2, tmp);
 			tmp = theory.getSort("rec" + i, consxy, unconsxy);
-			assertEquals(tmp.toString(), 
+			Assert.assertEquals(tmp.toString(), 
 					"(rec" + i + " (cons X Y) (un (cons X Y)))");
 			
 			Sort untmpconcrete = theory.getSort("un", tmpconcrete);
 			tmpconcrete = theory.getSort("cons", tmpconcrete, untmpconcrete);
 
-			assertSame(tmpconcrete, tmp.getRealSort().mapSort(sort2));
+			Assert.assertSame(tmpconcrete, tmp.getRealSort().mapSort(sort2));
 				
 			HashMap<Sort,Sort> unifier = new HashMap<Sort, Sort>();
-			assertTrue(tmp.unifySort(unifier, tmpconcrete));
-			assertSame(sort, unifier.get(typeargs[0]));
-			assertSame(sort, unifier.get(typeargs[1]));
+			Assert.assertTrue(tmp.unifySort(unifier, tmpconcrete));
+			Assert.assertSame(sort, unifier.get(typeargs[0]));
+			Assert.assertSame(sort, unifier.get(typeargs[1]));
 			
 			if (i < 10)// NOCHECKSTYLE
-				assertEquals((46 << i)-13, tmpconcrete.toString().length());// NOCHECKSTYLE
+				Assert.assertEquals((46 << i)-13, tmpconcrete.toString().length());// NOCHECKSTYLE
 		}
-		assertEquals("(rec99 (cons X Y) (un (cons X Y)))", tmp.toString());
-		assertEquals("(rec99 (cons U U) (un (cons U U)))",
+		Assert.assertEquals("(rec99 (cons X Y) (un (cons X Y)))", tmp.toString());
+		Assert.assertEquals("(rec99 (cons U U) (un (cons U U)))",
 				tmp.mapSort(sort2).toString());
-		assertSame(tmpconcrete, tmp.mapSort(sort2).getRealSort());
+		Assert.assertSame(tmpconcrete, tmp.mapSort(sort2).getRealSort());
 		/* Unfortunately, the following test does not work :) 
-		 * assertEquals(29155963805249276234424173723635,
+		 * Assert.assertEquals(29155963805249276234424173723635,
 		 * tmpconcrete.toString().length()); 
 		 */
 	}
@@ -124,11 +127,11 @@ public class SortTest extends TestCase {
 		Sort sortArray = theory.getSort("Array", generic);
 		
 		HashMap<Sort,Sort> unifier = new HashMap<Sort, Sort>();
-		assertTrue(generic[0].unifySort(unifier, sortInt));
-		assertTrue(generic[0].unifySort(unifier, sortMyInt.getRealSort()));
-		assertTrue(generic[1].unifySort(unifier, sortMyReal.getRealSort()));
-		assertTrue(generic[1].unifySort(unifier, sortReal.getRealSort()));
-		assertTrue(sortArray.unifySort(unifier, sortArrIntReal.getRealSort()));
+		Assert.assertTrue(generic[0].unifySort(unifier, sortInt));
+		Assert.assertTrue(generic[0].unifySort(unifier, sortMyInt.getRealSort()));
+		Assert.assertTrue(generic[1].unifySort(unifier, sortMyReal.getRealSort()));
+		Assert.assertTrue(generic[1].unifySort(unifier, sortReal.getRealSort()));
+		Assert.assertTrue(sortArray.unifySort(unifier, sortArrIntReal.getRealSort()));
 	}
 	
 	@Test
@@ -147,7 +150,7 @@ public class SortTest extends TestCase {
 				// Disable arity check for this test
 			}
 		}.getSort(dim, bv5, bv5);// NOCHECKSTYLE
-		assertEquals("(_ bv 5)", bv5.toString());
-		assertEquals("((_ MultiArray 2) (_ bv 5) (_ bv 5))", marr.toString());
+		Assert.assertEquals("(_ bv 5)", bv5.toString());
+		Assert.assertEquals("((_ MultiArray 2) (_ bv 5) (_ bv 5))", marr.toString());
 	}
 }

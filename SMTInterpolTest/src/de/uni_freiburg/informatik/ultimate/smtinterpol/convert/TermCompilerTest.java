@@ -18,10 +18,11 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.convert;
 
-import junit.framework.TestCase;
-
 import org.apache.log4j.Logger;
+import org.junit.Assert;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
@@ -30,7 +31,8 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.NoopProofTracker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 
-public class TermCompilerTest extends TestCase {
+@RunWith(JUnit4.class)
+public class TermCompilerTest {
 
 	private final Script mSolver;
 	private final Term mA,mB,mC,mX,mY,mZ,mT,mF,mThree,mFive;
@@ -66,25 +68,25 @@ public class TermCompilerTest extends TestCase {
 	public void testNot() {
 		Term nota = mSolver.term("not", mA);
 		Term res = mCompiler.transform(nota);
-		assertSame(nota, res);
+		Assert.assertSame(nota, res);
 		res = mCompiler.transform(mSolver.term("not", nota));
-		assertSame(mA, res);
+		Assert.assertSame(mA, res);
 		res = mCompiler.transform(mSolver.term("not", mT));
-		assertSame(mF, res);
+		Assert.assertSame(mF, res);
 		res = mCompiler.transform(mSolver.term("not", mF));
-		assertSame(mT, res);
+		Assert.assertSame(mT, res);
 	}
 	
 	@Test
 	public void testOr() {
 		Term res = mCompiler.transform(mSolver.term("or", mA, mT));
-		assertSame(mT, res);
+		Assert.assertSame(mT, res);
 		res = mCompiler.transform(mSolver.term("or", mA, mF, mB));
-		assertSame(mSolver.term("or", mA, mB), res);
+		Assert.assertSame(mSolver.term("or", mA, mB), res);
 		res = mCompiler.transform(mSolver.term("or", mA, mA));
-		assertSame(mA, res);
+		Assert.assertSame(mA, res);
 		res = mCompiler.transform(mSolver.term("or", mA, mB, mC, mA));
-		assertSame(mSolver.term("or", mA, mB, mC), res);
+		Assert.assertSame(mSolver.term("or", mA, mB, mC), res);
 	}
 	
 	@Test
@@ -94,126 +96,126 @@ public class TermCompilerTest extends TestCase {
 				mSolver.term("or", mSolver.term("not", mA),
 						mSolver.term("not", mB)));
 		Term res = mCompiler.transform(in);
-		assertSame(ex, res);
+		Assert.assertSame(ex, res);
 		in = mSolver.term("and", mA, mA);
 		res = mCompiler.transform(in);
-		assertSame(mA, res);
+		Assert.assertSame(mA, res);
 		in = mSolver.term("and", mA, mB, mC, mA);
 		ex = mSolver.term("not",
 				mSolver.term("or", mSolver.term("not", mA),
 						mSolver.term("not", mB), mSolver.term("not", mC)));
 		res = mCompiler.transform(in);
-		assertSame(ex, res);
+		Assert.assertSame(ex, res);
 	}
 	
 	@Test
 	public void testIte() {
 		Term res = mCompiler.transform(mSolver.term("ite", mT, mA, mB));
-		assertSame(mA, res);
+		Assert.assertSame(mA, res);
 		res = mCompiler.transform(mSolver.term("ite", mF, mA, mB));
-		assertSame(mB, res);
+		Assert.assertSame(mB, res);
 		res = mCompiler.transform(mSolver.term("ite", mC, mA, mA));
-		assertSame(mA, res);
+		Assert.assertSame(mA, res);
 		res = mCompiler.transform(mSolver.term("ite", mC, mT, mF));
-		assertSame(mC, res);
+		Assert.assertSame(mC, res);
 		res = mCompiler.transform(mSolver.term("ite", mC, mF, mT));
-		assertSame(mSolver.term("not", mC), res);
+		Assert.assertSame(mSolver.term("not", mC), res);
 		res = mCompiler.transform(mSolver.term("ite", mC, mT, mA));
-		assertSame(mSolver.term("or", mC, mA), res);
+		Assert.assertSame(mSolver.term("or", mC, mA), res);
 		res = mCompiler.transform(mSolver.term("ite", mC, mF, mA));
-		assertSame(
+		Assert.assertSame(
 				mSolver.term("not",
 						mSolver.term("or", mC, mSolver.term("not", mA))),
 				res);
 		res = mCompiler.transform(mSolver.term("ite", mC, mA, mT));
-		assertSame(mSolver.term("or", mSolver.term("not", mC), mA), res);
+		Assert.assertSame(mSolver.term("or", mSolver.term("not", mC), mA), res);
 		res = mCompiler.transform(mSolver.term("ite", mC, mA, mF));
-		assertSame(mSolver.term("not", 
+		Assert.assertSame(mSolver.term("not", 
 				mSolver.term("or", mSolver.term("not", mC),
 						mSolver.term("not", mA))), res);
 		Term cab = mSolver.term("ite", mC, mA, mB);
 		res = mCompiler.transform(cab);
-		assertSame(cab, res);
+		Assert.assertSame(cab, res);
 	}
 	
 	@Test
 	public void testEq() {
 		Term in = mSolver.term("=", mX, mY, mThree, mFive);
 		Term res = mCompiler.transform(in);
-		assertSame(res, mF);
+		Assert.assertSame(res, mF);
 		in = mSolver.term("=", mX, mY, mX);
 		res = mCompiler.transform(in);
-		assertSame(mSolver.term("=", mX, mY), res);
+		Assert.assertSame(mSolver.term("=", mX, mY), res);
 		in = mSolver.term("=", mX, mX);
 		res = mCompiler.transform(in);
-		assertSame(mT, res);
+		Assert.assertSame(mT, res);
 		in = mSolver.term("=", mT, mA, mF);
 		res = mCompiler.transform(in);
-		assertSame(mF, res);
+		Assert.assertSame(mF, res);
 		in = mSolver.term("=", mF, mA, mT);
 		res = mCompiler.transform(in);
-		assertSame(mF, res);
+		Assert.assertSame(mF, res);
 		in = mSolver.term("=", mA, mB, mT);
 		Term exp = mSolver.term("not",
 				mSolver.term("or", mSolver.term("not", mA),
 						mSolver.term("not", mB)));
 		res = mCompiler.transform(in);
-		assertSame(exp, res);
+		Assert.assertSame(exp, res);
 		in = mSolver.term("=", mA, mB, mF);
 		exp = mSolver.term("not", mSolver.term("or", mA, mB));
 		res = mCompiler.transform(in);
-		assertSame(exp, res);
+		Assert.assertSame(exp, res);
 		in = mSolver.term("=", mA, mB, mC, mA);
 		exp = mSolver.term("not", mSolver.term("or",
 				mSolver.term("not", mSolver.term("=", mA, mB)),
 				mSolver.term("not", mSolver.term("=", mB, mC))));
 		res = mCompiler.transform(in);
-		assertSame(exp, res);
+		Assert.assertSame(exp, res);
 	}
 	
 	@Test
 	public void testDistinct() {
 		Term in = mSolver.term("distinct", mA, mB, mC);
 		Term res = mCompiler.transform(in);
-		assertSame(mF, res);
+		Assert.assertSame(mF, res);
 		in = mSolver.term("distinct", mA, mF);
 		res = mCompiler.transform(in);
-		assertSame(mA, res);
+		Assert.assertSame(mA, res);
 		in = mSolver.term("distinct", mA, mT);
 		res = mCompiler.transform(in);
-		assertSame(mSolver.term("not", mA), res);
+		Assert.assertSame(mSolver.term("not", mA), res);
 		in = mSolver.term("distinct", mF, mA);
 		res = mCompiler.transform(in);
-		assertSame(mA, res);
+		Assert.assertSame(mA, res);
 		in = mSolver.term("distinct", mT, mA);
 		res = mCompiler.transform(in);
-		assertSame(mSolver.term("not", mA), res);
+		Assert.assertSame(mSolver.term("not", mA), res);
 		in = mSolver.term("distinct", mA, mA);
 		res = mCompiler.transform(in);
-		assertSame(mF, res);
+		Assert.assertSame(mF, res);
 		in = mSolver.term("distinct", mA, mSolver.term("not", mA));
 		res = mCompiler.transform(in);
-		assertSame(mT, res);
+		Assert.assertSame(mT, res);
 		in = mSolver.term("distinct", mA, mSolver.term("not", mB));
 		res = mCompiler.transform(in);
-		assertSame(mSolver.term("=", mA, mB), res);
+		Assert.assertSame(mSolver.term("=", mA, mB), res);
 		in = mSolver.term("distinct", mSolver.term("not", mA), mB);
 		res = mCompiler.transform(in);
-		assertSame(mSolver.term("=", mA, mB), res);
+		Assert.assertSame(mSolver.term("=", mA, mB), res);
 		in = mSolver.term("distinct", mA, mB);
 		res = mCompiler.transform(in);
-		assertSame(mSolver.term("=", mA, mSolver.term("not", mB)), res);
+		Assert.assertSame(mSolver.term("=", mA, mSolver.term("not", mB)), res);
 		in = mSolver.term("distinct", mX, mY, mX);
 		res = mCompiler.transform(in);
-		assertSame(mF, res);
+		Assert.assertSame(mF, res);
 		in = mSolver.term("distinct", mX, mY);
 		res = mCompiler.transform(in);
-		assertSame(mSolver.term("not", mSolver.term("=", mX, mY)), res);
+		Assert.assertSame(mSolver.term("not", mSolver.term("=", mX, mY)), res);
 		in = mSolver.term("distinct", mX, mY, mZ);
 		res = mCompiler.transform(in);
 		Term exp = mSolver.term("not", mSolver.term("or",
 				mSolver.term("=", mX, mY), mSolver.term("=", mX, mZ),
 				mSolver.term("=", mY, mZ)));
-		assertSame(exp, res);
+		Assert.assertSame(exp, res);
 	}
 }

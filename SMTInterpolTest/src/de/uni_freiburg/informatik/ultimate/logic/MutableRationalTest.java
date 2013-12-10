@@ -18,18 +18,21 @@
  */
 package de.uni_freiburg.informatik.ultimate.logic;
 
+import org.junit.Assert;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import de.uni_freiburg.informatik.ultimate.logic.MutableRational;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
-import junit.framework.TestCase;
 
 /**
  * Test Class for Rationals.
  * 
  * @author Jochen Hoenicke
  */
-public final class MutableRationalTest extends TestCase {
+@RunWith(JUnit4.class)
+public final class MutableRationalTest {
 	Rational[] mRationals = RationalTest.RATIONALS;
 
 	@Test
@@ -37,8 +40,8 @@ public final class MutableRationalTest extends TestCase {
 		for (int i = 0; i < mRationals.length; i++) {
 			for (int j = 0; j < mRationals.length; j++) {
 				MutableRational r1 = new MutableRational(mRationals[i]);
-				assertSame(r1, r1.add(mRationals[j]));
-				assertEquals(mRationals[i] + " + " + mRationals[j],
+				Assert.assertSame(r1, r1.add(mRationals[j]));
+				Assert.assertEquals(mRationals[i] + " + " + mRationals[j],
 						mRationals[i].add(mRationals[j]), r1.toRational());
 			}
 		}
@@ -49,8 +52,8 @@ public final class MutableRationalTest extends TestCase {
 		for (int i = 0; i < mRationals.length; i++) {
 			for (int j = 0; j < mRationals.length; j++) {
 				MutableRational r1 = new MutableRational(mRationals[i]);
-				assertSame(r1, r1.mul(mRationals[j]));
-				assertEquals(mRationals[i] + " * " + mRationals[j],
+				Assert.assertSame(r1, r1.mul(mRationals[j]));
+				Assert.assertEquals(mRationals[i] + " * " + mRationals[j],
 						mRationals[i].mul(mRationals[j]), r1.toRational());
 			}
 		}
@@ -60,21 +63,21 @@ public final class MutableRationalTest extends TestCase {
 	public void testDiverse() {
 		for (int i = 0; i < mRationals.length; i++) {
 			MutableRational r1 = new MutableRational(mRationals[i]);
-			assertSame(r1, r1.inverse());
-			assertEquals(mRationals[i] + ".inverse()",
+			Assert.assertSame(r1, r1.inverse());
+			Assert.assertEquals(mRationals[i] + ".inverse()",
 					mRationals[i].inverse(), r1.toRational());
 			r1 = new MutableRational(mRationals[i]);
-			assertSame(r1, r1.negate());
-			assertEquals(mRationals[i] + ".negate()",
+			Assert.assertSame(r1, r1.negate());
+			Assert.assertEquals(mRationals[i] + ".negate()",
 					mRationals[i].negate(), r1.toRational());
 			r1 = new MutableRational(mRationals[i]);
-			assertEquals(mRationals[i] + ".isIntegral()",
+			Assert.assertEquals(mRationals[i] + ".isIntegral()",
 					mRationals[i].isIntegral(), r1.isIntegral());
-			assertEquals(mRationals[i] + ".isNegative()",
+			Assert.assertEquals(mRationals[i] + ".isNegative()",
 					mRationals[i].isNegative(), r1.isNegative());
 			for (int j = 0; j < mRationals.length; j++) {
 				MutableRational r2 = new MutableRational(mRationals[j]);
-				assertEquals(mRationals[i] + " <=> " + mRationals[j],
+				Assert.assertEquals(mRationals[i] + " <=> " + mRationals[j],
 						mRationals[i].compareTo(mRationals[j]),
 						r1.compareTo(r2));
 			}

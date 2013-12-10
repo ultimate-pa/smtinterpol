@@ -18,26 +18,28 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.dpll;
 
+import org.junit.Assert;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.SimpleList;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.SimpleListable;
-import junit.framework.TestCase;
 
-
-public class SimpleListTest extends TestCase {
+@RunWith(JUnit4.class)
+public class SimpleListTest {
 	class Elem extends SimpleListable<Elem> {
 		int mVal;
-		
+
 		public Elem(int i) {
 			mVal = i;
 		}
-		
+
 		public String toString() {
 			return String.valueOf(mVal);
 		}
 	}
-	
+
 	@Test
 	public void testAppendPrepend() {
 		SimpleList<Elem> l = new SimpleList<Elem>();
@@ -46,72 +48,72 @@ public class SimpleListTest extends TestCase {
 		l.prepend(new Elem(2));
 		l.append(new Elem(5));// NOCHECKSTYLE
 		l.prepend(new Elem(1));
-		assertTrue(l.wellformed());
-		assertEquals("[1,2,3,4,5]", l.toString());
+		Assert.assertTrue(l.wellformed());
+		Assert.assertEquals("[1,2,3,4,5]", l.toString());
 		l.clear();
 		l.prepend(new Elem(3));// NOCHECKSTYLE
 		l.append(new Elem(4));// NOCHECKSTYLE
 		l.prepend(new Elem(2));
 		l.append(new Elem(5));// NOCHECKSTYLE
 		l.prepend(new Elem(1));
-		assertTrue(l.wellformed());
-		assertEquals("[1,2,3,4,5]", l.toString());
+		Assert.assertTrue(l.wellformed());
+		Assert.assertEquals("[1,2,3,4,5]", l.toString());
 	}
-	
+
 	@Test
 	public void testJoinBorder() {
 		SimpleList<Elem> la = new SimpleList<Elem>();
 		la.prependIntoJoined(new Elem(3), true);// NOCHECKSTYLE
 		la.prependIntoJoined(new Elem(2), true);
 		la.prependIntoJoined(new Elem(1), true);
-		assertTrue(la.wellformed());
-		assertEquals("[1,2,3]", la.toString());
+		Assert.assertTrue(la.wellformed());
+		Assert.assertEquals("[1,2,3]", la.toString());
 	}
-	
+
 	@Test
 	public void testLinearJoins() {
 		SimpleList<Elem> la = new SimpleList<Elem>();
 		SimpleList<Elem> lb = new SimpleList<Elem>();
 		SimpleList<Elem> lc = new SimpleList<Elem>();
 		SimpleList<Elem> ld = new SimpleList<Elem>();
-		
+
 		la.append(new Elem(1));
 		la.append(new Elem(2));
 		lc.append(new Elem(4));// NOCHECKSTYLE
-		
-		assertTrue(la.wellformed());
-		assertEquals("[1,2]", la.toString());
-		assertTrue(lb.wellformed());
-		assertEquals("[]", lb.toString());
-		assertTrue(lc.wellformed());
-		assertEquals("[4]", lc.toString());
-		assertTrue(ld.wellformed());
-		assertEquals("[]", ld.toString());
-		
+
+		Assert.assertTrue(la.wellformed());
+		Assert.assertEquals("[1,2]", la.toString());
+		Assert.assertTrue(lb.wellformed());
+		Assert.assertEquals("[]", lb.toString());
+		Assert.assertTrue(lc.wellformed());
+		Assert.assertEquals("[4]", lc.toString());
+		Assert.assertTrue(ld.wellformed());
+		Assert.assertEquals("[]", ld.toString());
+
 		lc.joinList(ld);
-		assertTrue(lc.wellformed());
-		assertEquals("[4]", lc.toString());
+		Assert.assertTrue(lc.wellformed());
+		Assert.assertEquals("[4]", lc.toString());
 		lb.joinList(lc);
-		assertTrue(lb.wellformed());
-		assertEquals("[4]", lb.toString());
+		Assert.assertTrue(lb.wellformed());
+		Assert.assertEquals("[4]", lb.toString());
 		la.joinList(lb);
 
-		assertTrue(la.wellformed());
-		assertEquals("[1,2,4]", la.toString());
-		assertTrue(lb.wellformedPart());
-		assertTrue(lc.wellformedPart());
-		assertTrue(ld.wellformedPart());
-		
+		Assert.assertTrue(la.wellformed());
+		Assert.assertEquals("[1,2,4]", la.toString());
+		Assert.assertTrue(lb.wellformedPart());
+		Assert.assertTrue(lc.wellformedPart());
+		Assert.assertTrue(ld.wellformedPart());
+
 		Elem e3 = new Elem(3);// NOCHECKSTYLE
 		lc.prependIntoJoined(e3, false);
 		lb.prependIntoJoined(e3, false);
 		la.prependIntoJoined(e3, true);
-		
-		assertTrue(la.wellformed());
-		assertEquals("[1,2,3,4]", la.toString());
-		assertTrue(lb.wellformedPart());
-		assertTrue(lc.wellformedPart());
-		assertTrue(ld.wellformedPart());
+
+		Assert.assertTrue(la.wellformed());
+		Assert.assertEquals("[1,2,3,4]", la.toString());
+		Assert.assertTrue(lb.wellformedPart());
+		Assert.assertTrue(lc.wellformedPart());
+		Assert.assertTrue(ld.wellformedPart());
 
 		Elem e5 = new Elem(5);// NOCHECKSTYLE
 		ld.prependIntoJoined(e5, false);
@@ -119,25 +121,24 @@ public class SimpleListTest extends TestCase {
 		lb.prependIntoJoined(e5, false);
 		la.prependIntoJoined(e5, true);
 
-		assertTrue(la.wellformed());
-		assertEquals("[1,2,5,3,4]", la.toString());
-		assertTrue(lb.wellformedPart());
-		assertTrue(lc.wellformedPart());
-		assertTrue(ld.wellformedPart());
-		
+		Assert.assertTrue(la.wellformed());
+		Assert.assertEquals("[1,2,5,3,4]", la.toString());
+		Assert.assertTrue(lb.wellformedPart());
+		Assert.assertTrue(lc.wellformedPart());
+		Assert.assertTrue(ld.wellformedPart());
+
 		la.unjoinList(lb);
 		lb.unjoinList(lc);
 		lc.unjoinList(ld);
 
-
-		assertTrue(la.wellformed());
-		assertEquals("[1,2]", la.toString());
-		assertTrue(lb.wellformed());
-		assertEquals("[]", lb.toString());
-		assertTrue(lc.wellformed());
-		assertEquals("[3,4]", lc.toString());
-		assertTrue(ld.wellformed());
-		assertEquals("[5]", ld.toString());
+		Assert.assertTrue(la.wellformed());
+		Assert.assertEquals("[1,2]", la.toString());
+		Assert.assertTrue(lb.wellformed());
+		Assert.assertEquals("[]", lb.toString());
+		Assert.assertTrue(lc.wellformed());
+		Assert.assertEquals("[3,4]", lc.toString());
+		Assert.assertTrue(ld.wellformed());
+		Assert.assertEquals("[5]", ld.toString());
 	}
 
 	@Test
@@ -147,74 +148,73 @@ public class SimpleListTest extends TestCase {
 		SimpleList<Elem> lc = new SimpleList<Elem>();
 		SimpleList<Elem> ld = new SimpleList<Elem>();
 		SimpleList<Elem> le = new SimpleList<Elem>();
-		
+
 		lb.append(new Elem(1));
 		lb.append(new Elem(2));
 		le.append(new Elem(4));// NOCHECKSTYLE
-		
-		assertTrue(la.wellformed());
-		assertEquals("[]", la.toString());
-		assertTrue(lb.wellformed());
-		assertEquals("[1,2]", lb.toString());
-		assertTrue(lc.wellformed());
-		assertEquals("[]", lc.toString());
-		assertTrue(ld.wellformed());
-		assertEquals("[]", ld.toString());
-		assertTrue(le.wellformed());
-		assertEquals("[4]", le.toString());
-		
+
+		Assert.assertTrue(la.wellformed());
+		Assert.assertEquals("[]", la.toString());
+		Assert.assertTrue(lb.wellformed());
+		Assert.assertEquals("[1,2]", lb.toString());
+		Assert.assertTrue(lc.wellformed());
+		Assert.assertEquals("[]", lc.toString());
+		Assert.assertTrue(ld.wellformed());
+		Assert.assertEquals("[]", ld.toString());
+		Assert.assertTrue(le.wellformed());
+		Assert.assertEquals("[4]", le.toString());
+
 		lb.joinList(lc);
-		assertTrue(lb.wellformed());
-		assertEquals("[1,2]", lb.toString());
+		Assert.assertTrue(lb.wellformed());
+		Assert.assertEquals("[1,2]", lb.toString());
 		ld.joinList(le);
-		assertTrue(ld.wellformed());
-		assertEquals("[4]", ld.toString());
+		Assert.assertTrue(ld.wellformed());
+		Assert.assertEquals("[4]", ld.toString());
 		la.joinList(lb);
-		assertTrue(la.wellformed());
-		assertEquals("[1,2]", la.toString());
+		Assert.assertTrue(la.wellformed());
+		Assert.assertEquals("[1,2]", la.toString());
 		la.joinList(ld);
-		assertTrue(la.wellformed());
-		assertEquals("[1,2,4]", la.toString());
-		assertTrue(lb.wellformedPart());
-		assertTrue(lc.wellformedPart());
-		assertTrue(ld.wellformedPart());
-		assertTrue(le.wellformedPart());
-		
+		Assert.assertTrue(la.wellformed());
+		Assert.assertEquals("[1,2,4]", la.toString());
+		Assert.assertTrue(lb.wellformedPart());
+		Assert.assertTrue(lc.wellformedPart());
+		Assert.assertTrue(ld.wellformedPart());
+		Assert.assertTrue(le.wellformedPart());
+
 		Elem e3 = new Elem(3);// NOCHECKSTYLE
 		lc.prependIntoJoined(e3, false);
 		lb.prependIntoJoined(e3, false);
 		la.prependIntoJoined(e3, true);
-		
-		assertTrue(la.wellformed());
-		assertEquals("[3,1,2,4]", la.toString());
-		assertTrue(lb.wellformedPart());
-		assertTrue(lc.wellformedPart());
+
+		Assert.assertTrue(la.wellformed());
+		Assert.assertEquals("[3,1,2,4]", la.toString());
+		Assert.assertTrue(lb.wellformedPart());
+		Assert.assertTrue(lc.wellformedPart());
 
 		Elem e5 = new Elem(5);// NOCHECKSTYLE
 		le.prependIntoJoined(e5, false);
 		ld.prependIntoJoined(e5, false);
 		la.prependIntoJoined(e5, true);
 
-		assertTrue(la.wellformed());
-		assertEquals("[3,1,2,5,4]", la.toString());
-		assertTrue(ld.wellformedPart());
-		assertTrue(le.wellformedPart());
-		
+		Assert.assertTrue(la.wellformed());
+		Assert.assertEquals("[3,1,2,5,4]", la.toString());
+		Assert.assertTrue(ld.wellformedPart());
+		Assert.assertTrue(le.wellformedPart());
+
 		la.unjoinList(lb);
 		lb.unjoinList(lc);
 		la.unjoinList(ld);
 		ld.unjoinList(le);
 
-
-		assertTrue(la.wellformed());
-		assertEquals("[]", la.toString());
-		assertTrue(lb.wellformed());
-		assertEquals("[1,2]", lb.toString());
-		assertTrue(lc.wellformed());
-		assertEquals("[3]", lc.toString());
-		assertTrue(ld.wellformed());
-		assertEquals("[]", ld.toString());
-		assertTrue(le.wellformed());
-		assertEquals("[5,4]", le.toString());
+		Assert.assertTrue(la.wellformed());
+		Assert.assertEquals("[]", la.toString());
+		Assert.assertTrue(lb.wellformed());
+		Assert.assertEquals("[1,2]", lb.toString());
+		Assert.assertTrue(lc.wellformed());
+		Assert.assertEquals("[3]", lc.toString());
+		Assert.assertTrue(ld.wellformed());
+		Assert.assertEquals("[]", ld.toString());
+		Assert.assertTrue(le.wellformed());
+		Assert.assertEquals("[5,4]", le.toString());
 	}
 }

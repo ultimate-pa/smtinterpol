@@ -21,10 +21,11 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate;
 import java.util.Collections;
 import java.util.Set;
 
-import junit.framework.TestCase;
-
 import org.apache.log4j.Logger;
+import org.junit.Assert;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
@@ -42,7 +43,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LAEquality;
 
-public class InterpolatorTest extends TestCase {
+@RunWith(JUnit4.class)
+public class InterpolatorTest {
 	SMTInterpol mSolver;
 	Clausifier mClausifier;
 	Interpolator mInterpolator;
@@ -95,8 +97,8 @@ public class InterpolatorTest extends TestCase {
 		sa.shareWithLinAr(); builder.convert(sa.getTerm());
 		sb.shareWithLinAr(); builder.convert(sb.getTerm());
 		EqualityProxy eq = sa.createEquality(sb);
-		assertNotSame(EqualityProxy.getFalseProxy(), eq);
-		assertNotSame(EqualityProxy.getTrueProxy(), eq);
+		Assert.assertNotSame(EqualityProxy.getFalseProxy(), eq);
+		Assert.assertNotSame(EqualityProxy.getTrueProxy(), eq);
 		CCEquality cceq = ccswap
 				? eq.createCCEquality(sa, sb) : eq.createCCEquality(sb, sa);
 		LAEquality laeq = cceq.getLASharedData();
@@ -158,7 +160,7 @@ public class InterpolatorTest extends TestCase {
 		}
 		Term rhs = summands.toSMTLib(mSolver.getTheory(), false);
 		Term expected = mSolver.term("=", var, rhs);
-		assertSame(expected, interpolants[0].mTerm);
+		Assert.assertSame(expected, interpolants[0].mTerm);
 	}
 
 	@Test

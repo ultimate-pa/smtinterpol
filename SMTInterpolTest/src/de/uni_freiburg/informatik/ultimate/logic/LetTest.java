@@ -18,11 +18,13 @@
  */
 package de.uni_freiburg.informatik.ultimate.logic;
 
+import org.junit.Assert;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
-import junit.framework.TestCase;
-
-public class LetTest extends TestCase {
+@RunWith(JUnit4.class)
+public class LetTest {
 
 	private final static Sort[] EMPTY_SORTS = {};
 	
@@ -35,12 +37,12 @@ public class LetTest extends TestCase {
 		Term i = theory.term("i");
 		FormulaLet let = new FormulaLet();
 		Term leti = let.let(i);
-		assertSame(i, new FormulaUnLet().unlet(leti));
-		assertSame(i, leti);
+		Assert.assertSame(i, new FormulaUnLet().unlet(leti));
+		Assert.assertSame(i, leti);
 		Term ij = theory.term("+", i, theory.term("j"));
 		Term letij = let.let(ij);
-		assertSame(ij, new FormulaUnLet().unlet(letij));
-		assertSame(ij, letij);
+		Assert.assertSame(ij, new FormulaUnLet().unlet(letij));
+		Assert.assertSame(ij, letij);
 	}
 	
 	@Test
@@ -53,10 +55,10 @@ public class LetTest extends TestCase {
 		Term toLet = theory.term("+", theory.term("i"), theory.term("j"));
 		Term input = theory.term("+", toLet, toLet);
 		Term output = let.let(input);
-		assertSame(input, new FormulaUnLet().unlet(output));
+		Assert.assertSame(input, new FormulaUnLet().unlet(output));
 		TermVariable cse0 = theory.createTermVariable(".cse0", intSort);
 		Term expected = theory.let(cse0, toLet, theory.term("+", cse0, cse0));
-		assertSame(expected, output);
+		Assert.assertSame(expected, output);
 	}
 	
 	@Test
@@ -71,7 +73,7 @@ public class LetTest extends TestCase {
 		Term toLet = theory.term("+", x, x);
 		Term input = theory.let(x, ij, theory.term("+", toLet, toLet));
 		Term output = let.let(input);
-		assertSame(new FormulaUnLet().unlet(input),
+		Assert.assertSame(new FormulaUnLet().unlet(input),
 				new FormulaUnLet().unlet(output));
 		TermVariable cse1 = theory.createTermVariable(".cse1", intSort);
 		TermVariable cse0 = theory.createTermVariable(".cse0", intSort);
@@ -79,7 +81,7 @@ public class LetTest extends TestCase {
 				theory.let(cse0, theory.let(cse1, ij,
 						theory.term("+", cse1, cse1)), 
 						theory.term("+", cse0, cse0));
-		assertSame(expected, output);
+		Assert.assertSame(expected, output);
 		TermVariable y = theory.createTermVariable("y", intSort);
 		TermVariable z = theory.createTermVariable("z", intSort);
 		Term xz = theory.term("+", x, z);
@@ -88,13 +90,13 @@ public class LetTest extends TestCase {
 						theory.let(z, theory.term("+", y, theory.numeral("1")),
 								theory.term("+", xz, xz))));
 		output = let.let(input);
-		assertSame(new FormulaUnLet().unlet(input),
+		Assert.assertSame(new FormulaUnLet().unlet(input),
 				new FormulaUnLet().unlet(output));
 		expected = theory.let(cse0, 
 				theory.let(cse1, theory.term("+", ij, theory.numeral("1")),
 								theory.term("+", cse1, cse1)),
 							theory.term("+", cse0, cse0));
-		assertSame(expected, output);
+		Assert.assertSame(expected, output);
 	}
 	
 	@Test
@@ -126,7 +128,7 @@ public class LetTest extends TestCase {
 		Term andTerm = theory.and(eq1, eq2);
 		FormulaLet let = new FormulaLet();
 		Term output = let.let(andTerm);
-		assertSame(andTerm, new FormulaUnLet().unlet(output));
+		Assert.assertSame(andTerm, new FormulaUnLet().unlet(output));
 		TermVariable cse1 = theory.createTermVariable(".cse1", u);
 		TermVariable cse0 = theory.createTermVariable(".cse0", u);
 		Term expected = theory.let(cse1, nx,
@@ -142,7 +144,7 @@ public class LetTest extends TestCase {
 									theory.term("b",
 											theory.term("c", cse0))),
 							cse1))));
-		assertSame(expected, output);
+		Assert.assertSame(expected, output);
 	}
 	
 	@Test
@@ -162,7 +164,7 @@ public class LetTest extends TestCase {
 		Term outer = theory.term("f", quant, quant);
 		FormulaLet let = new FormulaLet();
 		Term output = let.let(outer);
-		assertSame(outer, new FormulaUnLet().unlet(output));
+		Assert.assertSame(outer, new FormulaUnLet().unlet(output));
 		TermVariable cse0 =
 				theory.createTermVariable(".cse0", theory.getBooleanSort());
 		TermVariable cse1 =
@@ -172,7 +174,7 @@ public class LetTest extends TestCase {
 						theory.let(cse1, px,
 								theory.term("f", cse1, cse1))),
 								theory.term("f", cse0, cse0));
-		assertSame(expected, output);
+		Assert.assertSame(expected, output);
 	}
 	
 }

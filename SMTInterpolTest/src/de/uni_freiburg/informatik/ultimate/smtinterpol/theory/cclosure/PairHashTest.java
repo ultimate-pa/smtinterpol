@@ -20,13 +20,17 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
+import org.junit.Assert;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.TerminationRequest;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TestCaseWithLogger;
@@ -36,6 +40,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TestCaseWithLogger;
  * 
  * @author Jochen Hoenicke
  */
+@RunWith(JUnit4.class)
 public final class PairHashTest extends TestCaseWithLogger {
 	Theory mTheory;
 	CClosure mEngine;
@@ -44,7 +49,14 @@ public final class PairHashTest extends TestCaseWithLogger {
 	public PairHashTest() {
 		mTheory = new Theory(Logics.QF_UF);
 		Logger logger = Logger.getRootLogger();
-		DPLLEngine dpllEngine = new DPLLEngine(mTheory, logger);
+		DPLLEngine dpllEngine = new DPLLEngine(mTheory, logger,
+				new TerminationRequest() {
+					
+					@Override
+					public boolean isTerminationRequested() {
+						return false;
+					}
+				});
 		mEngine = new CClosure(dpllEngine,null);
 		createtermss();
 		logger.setLevel(Level.DEBUG);
@@ -100,9 +112,9 @@ public final class PairHashTest extends TestCaseWithLogger {
 				}
 			}
 		}
-		assertNotNull(mEngine.mPairHash.getInfo(mTerms[15],mTerms[9]));// NOCHECKSTYLE
-		assertNotNull(mEngine.mPairHash.getInfo(mTerms[11],mTerms[32]));// NOCHECKSTYLE
-		assertNotNull(mEngine.mPairHash.getInfo(mTerms[3],mTerms[34]));// NOCHECKSTYLE
-		assertNotNull(mEngine.mPairHash.getInfo(mTerms[2],mTerms[6]));// NOCHECKSTYLE
+		Assert.assertNotNull(mEngine.mPairHash.getInfo(mTerms[15],mTerms[9]));// NOCHECKSTYLE
+		Assert.assertNotNull(mEngine.mPairHash.getInfo(mTerms[11],mTerms[32]));// NOCHECKSTYLE
+		Assert.assertNotNull(mEngine.mPairHash.getInfo(mTerms[3],mTerms[34]));// NOCHECKSTYLE
+		Assert.assertNotNull(mEngine.mPairHash.getInfo(mTerms[2],mTerms[6]));// NOCHECKSTYLE
 	}
 }

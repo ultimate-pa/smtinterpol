@@ -20,51 +20,54 @@ package de.uni_freiburg.informatik.ultimate.logic;
 
 import java.math.BigInteger;
 
+import org.junit.Assert;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
-import junit.framework.TestCase;
 
-public class LogicTest extends TestCase {
+@RunWith(JUnit4.class)
+public class LogicTest {
 	
 	@Test
 	public void testLIRA() {
 		Theory theory = new Theory(Logics.AUFLIRA);
 		Sort sortInt   = theory.getSort("Int");
 		Sort sortReal  = theory.getSort("Real");
-		assertNull(theory.getFunction("-"));
+		Assert.assertNull(theory.getFunction("-"));
 		FunctionSymbol minusInt1 = theory.getFunction("-", sortInt);
 		FunctionSymbol minusInt2 = theory.getFunction("-", sortInt, sortInt);
-		assertNotNull(minusInt1);
-		assertNotNull(minusInt2);
-		assertSame(minusInt2,
+		Assert.assertNotNull(minusInt1);
+		Assert.assertNotNull(minusInt2);
+		Assert.assertSame(minusInt2,
 				theory.getFunction("-", sortInt, sortInt, sortInt));
-		assertNull(theory.getFunction("+"));
-		assertNull(theory.getFunction("+", sortInt));
+		Assert.assertNull(theory.getFunction("+"));
+		Assert.assertNull(theory.getFunction("+", sortInt));
 		FunctionSymbol plusInt2 = theory.getFunction("+", sortInt, sortInt);
-		assertNotNull(plusInt2);
-		assertSame(plusInt2,
+		Assert.assertNotNull(plusInt2);
+		Assert.assertSame(plusInt2,
 				theory.getFunction("+", sortInt, sortInt, sortInt));
 
 		FunctionSymbol minusReal1 = theory.getFunction("-", sortReal);
 		FunctionSymbol minusReal2 = theory.getFunction("-", sortReal, sortReal);
-		assertNotNull(minusReal1);
-		assertNotNull(minusReal2);
-		assertSame(minusReal2,
+		Assert.assertNotNull(minusReal1);
+		Assert.assertNotNull(minusReal2);
+		Assert.assertSame(minusReal2,
 				theory.getFunction("-", sortReal, sortReal, sortReal));
 
-		assertNull(theory.getFunction("+", sortReal));
+		Assert.assertNull(theory.getFunction("+", sortReal));
 		FunctionSymbol plusReal2 = theory.getFunction("+", sortReal, sortReal);
-		assertNotNull(plusReal2);
-		assertSame(plusReal2,
+		Assert.assertNotNull(plusReal2);
+		Assert.assertSame(plusReal2,
 				theory.getFunction("+", sortReal, sortReal, sortReal));
-		assertSame(plusReal2,
+		Assert.assertSame(plusReal2,
 				theory.getFunction("+", sortReal, sortInt, sortReal));
-		assertSame(plusReal2,
+		Assert.assertSame(plusReal2,
 				theory.getFunction("+", sortInt, sortInt, sortReal));
 		
 		Term x =
@@ -77,8 +80,8 @@ public class LogicTest extends TestCase {
 		Term sum = theory.term("+", x, y, i, j);
 		Term mul = theory.term("*",
 				theory.rational(new BigInteger("-3"), new BigInteger("7")), i);
-		assertEquals("(+ x y i j)", sum.toString());
-		assertEquals("(* (/ (- (to_real 3)) (to_real 7)) i)", mul.toString());
+		Assert.assertEquals("(+ x y i j)", sum.toString());
+		Assert.assertEquals("(* (/ (- (to_real 3)) (to_real 7)) i)", mul.toString());
 	}
 
 	private Sort bitvec(Theory theory, int len) {
@@ -91,9 +94,9 @@ public class LogicTest extends TestCase {
 		Theory theory = new Theory(Logics.QF_BV);
 		Term bvABCD = theory.hexadecimal("#xABCD");
 		Term bv1111 = theory.binary("#b1111");
-		assertEquals(bitvec(theory, 16), bvABCD.getSort());// NOCHECKSTYLE
-		assertEquals(bitvec(theory, 4), bv1111.getSort());// NOCHECKSTYLE
+		Assert.assertEquals(bitvec(theory, 16), bvABCD.getSort());// NOCHECKSTYLE
+		Assert.assertEquals(bitvec(theory, 4), bv1111.getSort());// NOCHECKSTYLE
 		Term bv2 = theory.term("concat", bvABCD, bv1111);
-		assertEquals(bitvec(theory, 20), bv2.getSort());// NOCHECKSTYLE
+		Assert.assertEquals(bitvec(theory, 20), bv2.getSort());// NOCHECKSTYLE
 	}
 }
