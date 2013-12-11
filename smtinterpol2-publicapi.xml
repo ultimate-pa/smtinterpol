@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<project default="javadoc">
+    <target name="javadoc">
+        <javadoc access="protected" author="true"
+        	classpath="SMTInterpol/lib/log4j-1.2.15.jar:SMTInterpol/lib/java-cup-12joho.jar:Library-SMTLIB/bin:Library-SMTLIB/release:SMTInterpol/bin:SMTInterpol/release" 
+        	destdir="doc-smtinterpol" 
+        	Doctitle="SMTInterpol 2.0 Public API" 
+        	nodeprecated="false" 
+        	nodeprecatedlist="false" 
+        	noindex="false" 
+        	nonavbar="false" 
+        	notree="false" 
+        	source="1.6" 
+        	splitindex="true"
+        	use="true"
+        	version="true"
+		Windowtitle="SMTInterpol 2.0 Public API">
+              <fileset dir="." defaultexcludes="yes">
+                 <include name="Library-SMTLIB/src/de/uni_freiburg/informatik/ultimate/logic/**"/>
+                 <exclude name="Library-SMTLIB/src/de/uni_freiburg/informatik/ultimate/logic/simplification/**"/>
+                 <exclude name="Library-SMTLIB/src/de/uni_freiburg/informatik/ultimate/logic/Theory.java"/>
+                 <exclude name="Library-SMTLIB/src/de/uni_freiburg/informatik/ultimate/logic/FunctionSymbolFactory.java"/>
+                 <exclude name="Library-SMTLIB/src/de/uni_freiburg/informatik/ultimate/logic/PolymorphicFunctionSymbol.java"/>
+                 <exclude name="Library-SMTLIB/src/de/uni_freiburg/informatik/ultimate/logic/FormulaWalker.java"/>
+                 <include name="SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2/SMTInterpol.java"/>
+                 <include name="SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2/TerminationRequest.java"/>
+              </fileset>
+
+        </javadoc>
+
+	<echo message="Generated JavaDOC API under ${basedir}/doc-smtinterpol/index.html" />
+    </target>
+</project>

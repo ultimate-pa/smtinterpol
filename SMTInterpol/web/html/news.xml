@@ -9,6 +9,8 @@
 <page id="news">
   <name>News</name>
   <content>
+    <head1>New minor release</head1>
+    <txt>Release 2.1 of <s /> is available.  Among some bug fixes this release includes support for user cancellation requests.  While <s /> is performing a satisfiability check it now regularly polls a cancellation request that can be configured via the API.</txt>
     <head1>New release</head1>
     <txt>A new release is available.  This release fixes a bug in the tree interpolation engine and provides SMTLIB 2 compliant models for IRA logics.</txt>
     <head1>New bugfix release</head1>

@@ -70,7 +70,16 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.UnsatCoreCollector;
 import de.uni_freiburg.informatik.ultimate.util.DebugMessage;
 import de.uni_freiburg.informatik.ultimate.util.ScopedArrayList;
 
-
+/**
+ * Implementation of the 
+ * {@link de.uni_freiburg.informatik.ultimate.logic.Script} interface to
+ * interact with SMTInterpol.
+ * 
+ * Users should however stick to the
+ * {@link de.uni_freiburg.informatik.ultimate.logic.Script} interface which
+ * provides most of the methods provided in this class.
+ * @author Juergen Christ
+ */
 public class SMTInterpol extends NoopScript {
 	
 	private static class NoUserCancellation implements TerminationRequest {
@@ -588,26 +597,64 @@ public class SMTInterpol extends NoopScript {
 	        !Config.COMPETITION 
 			    && System.getProperty("smtinterpol.ddfriendly") != null;
 	
+	/**
+	 * Default constructor using the root logger and no user termination
+	 * request.  If this constructor is used, SMTInterpol assumes ownership of
+	 * the logger.
+	 */
 	public SMTInterpol() {
 		this(Logger.getRootLogger(), true, new NoUserCancellation());
 	}
 	
+	/**
+	 * Construct SMTInterpol with a user-owned logger but without user
+	 * termination request.  Note that the logger is assumed to be correctly set
+	 * up.
+	 * @param logger The logger owned by the caller.
+	 */
 	public SMTInterpol(Logger logger) {
 		this(logger, false, new NoUserCancellation());
 	}
 	
+	/**
+	 * Construct SMTInterpol with a but without user termination request.  The
+	 * logger has to be set up correctly if SMTInterpol should not take
+	 * ownership of it.
+	 * @param logger    The logger owned by the caller.
+	 * @param ownLogger Should SMTInterpol take ownership of the logger?
+	 */
 	public SMTInterpol(Logger logger, boolean ownLogger) {
 		this(logger, ownLogger, new NoUserCancellation());
 	}
 	
+	/**
+	 * Default constructor using the root logger and a given user termination
+	 * request.  If this constructor is used, SMTInterpol assumes ownership of
+	 * the logger.
+	 * @param cancel User termination request to poll during checks.
+	 */
 	public SMTInterpol(TerminationRequest cancel) {
 		this(Logger.getRootLogger(), true, cancel);
 	}
 	
+	/**
+	 * Construct SMTInterpol with a user-owned logger and a user termination
+	 * request.  Note that the logger is assumed to be correctly set up.
+	 * @param logger The logger owned by the caller.
+	 * @param cancel User termination request to poll during checks.
+	 */
 	public SMTInterpol(Logger logger, TerminationRequest cancel) {
 		this(logger, false, cancel);
 	}
 	
+	/**
+	 * Construct SMTInterpol with a user-owned logger but without user
+	 * termination request.  Note that the logger is assumed to be correctly set
+	 * up.
+	 * @param logger    The logger owned by the caller.
+	 * @param ownLogger Should SMTInterpol take ownership of the logger?
+	 * @param cancel    User termination request to poll during checks.
+	 */
 	public SMTInterpol(
 			Logger logger, boolean ownLogger, TerminationRequest cancel) {
 		if (cancel == null)
@@ -650,6 +697,10 @@ public class SMTInterpol extends NoopScript {
 	}
 	
 	// Called in ctor => make it final
+	/**
+	 * Unset the logic and clear the assertion stack.  This does not reset
+	 * online modifyable options.
+	 */
 	public final void reset() {
 		super.reset();
 		mEngine = null;
@@ -659,6 +710,7 @@ public class SMTInterpol extends NoopScript {
         	mAssertions.clear();
 	}
 	
+	@Override
 	public void push(int n) throws SMTLIBException {
 		super.push(n);
 		modifyAssertionStack();
@@ -669,6 +721,7 @@ public class SMTInterpol extends NoopScript {
 		}
 	}
 	
+	@Override
 	public void pop(int n) throws SMTLIBException {
 		super.pop(n);
 		modifyAssertionStack();
@@ -682,7 +735,8 @@ public class SMTInterpol extends NoopScript {
 			// We've popped all division-by-0s.
 			mBy0Seen = -1;
 	}
-		
+	
+	@Override
 	public LBool checkSat() throws SMTLIBException {
 		if (mEngine == null)
 			throw new SMTLIBException("No logic set!");
@@ -793,6 +847,7 @@ public class SMTInterpol extends NoopScript {
 		return mStatusSet != null && !mStatusSet.equals("unknown");
 	}
 
+	@Override
 	public void setLogic(String logic)
 	    throws UnsupportedOperationException, SMTLIBException {
 		try {
@@ -804,6 +859,7 @@ public class SMTInterpol extends NoopScript {
 		}
 	}
 	
+	@Override
 	public void setLogic(Logics logic)
 		throws UnsupportedOperationException, SMTLIBException {
 		mSolverSetup = new SMTInterpolSetup(mProofMode);
@@ -1033,6 +1089,7 @@ public class SMTInterpol extends NoopScript {
 	}
 	
 	@SuppressWarnings("unchecked")
+	@Override
 	public Term[] getInterpolants(Term[] partition, int[] startOfSubtree) {
 		if (mEngine == null)
 			throw new SMTLIBException("No logic set!");
@@ -1308,6 +1365,14 @@ public class SMTInterpol extends NoopScript {
 		}
 	}
 	
+	/**
+	 * Translates special files names specified by SMTLIB into PrintWriters.
+	 * 
+	 * The special file names are <pre>stdout</pre> and <pre>stderr</pre>.
+	 * @param file Name of a file or a special file name.
+	 * @return PrintWriter to write to this file.
+	 * @throws IOException Output file could not be opened for writing.
+	 */
 	public PrintWriter createChannel(String file) throws IOException {
 		if (file.equals("stdout"))
 			return new PrintWriter(System.out);
@@ -1511,14 +1576,26 @@ public class SMTInterpol extends NoopScript {
 		mEngine.flipNamedLiteral(name);
 	}
 
+	/**
+	 * Access to the internal CNF transformer.  Should not be used by users.
+	 * @return Internal CNF transformer.
+	 */
 	public Clausifier getClausifier() {
 		return mClausifier;
 	}
 
+	/**
+	 * Access to the internal DPLL engine.  Should not be used by users.
+	 * @return Internal DPLL engine.
+	 */
 	public DPLLEngine getEngine() {
 		return mEngine;
 	}	
 
+	/**
+	 * Access to the logger used by SMTInterpol.
+	 * @return The logger used by SMTInterpol.
+	 */
 	public Logger getLogger() {
 		return mLogger;
 	}	
@@ -1556,6 +1633,13 @@ public class SMTInterpol extends NoopScript {
 		}
 	}
 	
+	/**
+	 * Retrieve the proof in its internal format.  Users should use
+	 * {@link #getProof()} to retrieve the proof as a proof term.
+	 * @return Internal proof.
+	 * @throws SMTLIBException If no proof is present or the proof is found to
+	 *                         to be incorrect.
+	 */
 	public Clause retrieveProof() throws SMTLIBException {
 		Clause unsat = mEngine.getProof();
 		if (unsat == null) {
@@ -1570,6 +1654,14 @@ public class SMTInterpol extends NoopScript {
 		return proof;
 	}
 	
+	/**
+	 * Get all literals currently set to true.  Note that this function might
+	 * also be called if SMTInterpol is currently in an unsat state.  Then, it
+	 * will simply return an empty array.
+	 * @return All literals currently set to true.
+	 * @throws SMTLIBException If the assertion stack is modified since the last
+	 *                         clean state.
+	 */
 	public Term[] getSatisfiedLiterals() throws SMTLIBException {
 		checkAssertionStackModified();
 		return mEngine.getSatisfiedLiterals();
@@ -1611,6 +1703,7 @@ public class SMTInterpol extends NoopScript {
 		}
 	}
 	
+	@Override
 	public Iterable<Term[]> checkAllsat(final Term[] input) {
 		final Literal[] lits = new Literal[input.length];
 		for (int i = 0; i < input.length; ++i) {

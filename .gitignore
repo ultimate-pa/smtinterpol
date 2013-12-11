@@ -21,6 +21,7 @@ SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2/Parser.j
 
 # emacs backup files #
 **/*~
+*~
 
 # bin and release directories #
 **/bin
@@ -38,3 +39,9 @@ cobertura
 
 # project specific settings
 */.settings
+
+# the documentation directory (is automatically generated)
+doc-smtinterpol
+SMTInterpol/web/html/gen/
+SMTInterpol/web/html/download.xml
+

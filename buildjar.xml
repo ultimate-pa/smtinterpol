@@ -113,8 +113,8 @@
 
   <!-- Create a source zip -->
   <target name="create_src_zip">
-    <zip destfile="${jar.outdir}/${jar.basename}-src.zip" prefix="SMTInterpol">
-      <zipfileset dir="${dir.workspace}">
+    <zip destfile="${jar.outdir}/${jar.basename}-src.zip">
+      <zipfileset dir="${dir.workspace}" prefix="SMTInterpol">
 	<include name="**/src/**" />
 	<exclude name="**/test_generator/**" />
 	<exclude name="**/smtcomp/**" />

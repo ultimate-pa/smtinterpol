@@ -22,7 +22,8 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2;
  * An asynchronous user cancellation request proxy.  SMTInterpol regularly polls
  * an object that implements this interface for user requests to terminate the
  * current search.  If cancellation is requested, SMTInterpol will set the 
- * reason to return unknown to {@link ReasonUnknown#CANCELLED cancelled}.
+ * reason to return unknown to 
+ * {@link de.uni_freiburg.informatik.ultimate.logic.ReasonUnknown#CANCELLED}.
  * @author Juergen Christ
  */
 public interface TerminationRequest {
@@ -30,7 +31,7 @@ public interface TerminationRequest {
 	/**
 	 * Check for termination.  If this returns <code>true</code> SMTInterpol
 	 * will stop the current check and set the reason to return unknown to
-	 * {@link ReasonUnknown#CANCELLED cancelled}.
+	 * {@link de.uni_freiburg.informatik.ultimate.logic.ReasonUnknown#CANCELLED}.
 	 * @return Should the current check be aborted.
 	 */
 	boolean isTerminationRequested();
