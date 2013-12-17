@@ -468,7 +468,7 @@ public class SMTInterpol extends NoopScript {
 	private boolean mPartialModels = false;
 	
 	private final static Object NAME = new QuotedObject("SMTInterpol");
-	private final static Object VERSION = new QuotedObject("2.1");
+	private final static Object VERSION = new QuotedObject(Version.VERSION);
 	private final static Object AUTHORS = new QuotedObject(
 					"Jochen Hoenicke, Juergen Christ, and Alexander Nutz");
 	private final static Object INTERPOLATION_METHOD = new QuotedObject("tree");
