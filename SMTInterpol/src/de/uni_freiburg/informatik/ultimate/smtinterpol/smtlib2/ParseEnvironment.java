@@ -33,6 +33,7 @@ import java.util.Map;
 
 import org.apache.log4j.Logger;
 
+import de.uni_freiburg.informatik.ultimate.logic.IRAConstantFormatter;
 import de.uni_freiburg.informatik.ultimate.logic.PrintTerm;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
@@ -173,7 +174,9 @@ public class ParseEnvironment {
 			mOut.print('(');
 			pt.append(mOut, me.getKey());
 			mOut.print(' ');
-			pt.append(mOut, me.getValue());
+			pt.append(mOut, me.getValue().getTheory().getLogic().isIRA()
+					? new IRAConstantFormatter().transform(me.getValue())
+							: me.getValue());
 			mOut.print(')');
 			sep = itemSep;
 		}

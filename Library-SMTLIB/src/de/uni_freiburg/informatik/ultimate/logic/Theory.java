@@ -428,28 +428,43 @@ public class Theory {
 				ConstantTerm.hashConstant(value, sort));
 	}
 	
-	public Term rational(BigInteger num,BigInteger denom) {
+	public Term rational(BigInteger num, BigInteger denom) {
 		BigInteger gcd = num.gcd(denom);
 		if (denom.signum() * gcd.signum() < 0)
 			gcd = gcd.negate();
 		num = num.divide(gcd);
 		denom = denom.divide(gcd);
 		
-		if (denom.equals(BigInteger.ONE) && !mLogic.isIRA()) {
-			return numeral(num);
-		} else {
-			if (mLogic.isIRA()) {
-				FunctionSymbol div = getFunction("/", mRealSort, mRealSort);
-				FunctionSymbol toreal = getFunction("to_real", mNumericSort);
-				Term numeralTerm = term(toreal, numeral(num.abs()));
-				if (num.signum() < 0)
-					numeralTerm = term("-", numeralTerm);
-				return term(div, numeralTerm, term(toreal, numeral(denom)));
-			} else  {
-				FunctionSymbol div =
-						getFunction("/", mNumericSort, mNumericSort);
-				return term(div, numeral(num), numeral(denom));
+		if (denom.equals(BigInteger.ONE))
+			return decimal(new BigDecimal(num));// numeral(num);
+		FunctionSymbol div = getFunction("/", mNumericSort, mNumericSort);
+		return term(div, numeral(num), numeral(denom));
+	}
+	
+	public Term modelRational(Rational rat, Sort sort) {
+		if (sort == mRealSort) {
+			BigInteger num = rat.numerator();
+			BigInteger denom = rat.denominator();
+			
+			if (denom.equals(BigInteger.ONE) && !mLogic.isIRA()) {
+				return decimal(new BigDecimal(num));
+			} else {
+				if (mLogic.isIRA()) {
+					FunctionSymbol div = getFunction("/", mRealSort, mRealSort);
+					FunctionSymbol toreal = getFunction("to_real", mNumericSort);
+					Term numeralTerm = term(toreal, numeral(num.abs()));
+					if (num.signum() < 0)
+						numeralTerm = term("-", numeralTerm);
+					return term(div, numeralTerm, term(toreal, numeral(denom)));
+				} else  {
+					FunctionSymbol div =
+							getFunction("/", mNumericSort, mNumericSort);
+					return term(div, numeral(num), numeral(denom));
+				}
 			}
+		} else {
+			assert rat.isIntegral();
+			return numeral(rat.numerator());
 		}
 	}
 	

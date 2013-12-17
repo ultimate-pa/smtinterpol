@@ -165,7 +165,8 @@ public class AnnotationToProofTerm {
 			if (info.mLiteral != null) {
 				Rational sign = annot.isUpper() ? Rational.MONE : Rational.ONE;
 				disjs[i] = info.mLiteral;
-				coeffs[i] = sign.div(gcd).toSMTLIB(theory);
+				coeffs[i] = sign.div(gcd).toTerm(
+					theory.getSort(annot.getLinVar().isInt() ? "Int" : "Real"));
 				++i;
 			}
 			boolean trichotomy = false;
@@ -175,7 +176,8 @@ public class AnnotationToProofTerm {
 				if (lit instanceof LAEquality)
 					trichotomy = true;
 				disjs[i] = me.getKey().getSMTFormula(theory, true);
-				coeffs[i] = me.getValue().div(gcd).toSMTLIB(theory);
+				coeffs[i] = me.getValue().div(gcd).toTerm(
+					theory.getSort(annot.getLinVar().isInt() ? "Int" : "Real"));
 				++i;
 			}
 			for (Map.Entry<LAAnnotation, Rational> me
@@ -187,7 +189,8 @@ public class AnnotationToProofTerm {
 				if (disjs.length == 2 && auxInfo.mLiteral == disjs[0])
 					continue todo_loop;
 				disjs[i] = auxInfo.mNegLiteral;
-				coeffs[i] = me.getValue().div(gcd).toSMTLIB(theory);
+				coeffs[i] = me.getValue().div(gcd).toTerm(
+					theory.getSort(annot.getLinVar().isInt() ? "Int" : "Real"));
 				++i;
 			}
 			Term proofAnnot = theory.term(theory.mOr, disjs);

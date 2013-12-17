@@ -762,6 +762,13 @@ public class Rational implements Comparable<Rational> {
 	public Term toTerm(Sort sort) {
 		return sort.getTheory().constant(this, sort);
 	}
+	/**
+	 * Convert this rational into an SMTLIB term.
+	 * @param t Theory to use during conversion.
+	 * @return SMTLIB term corresponding to this rational.
+	 * @deprecated Use {@link #toTerm(Sort)} since this is the type-safe version
+	 */
+	@Deprecated
 	public Term toSMTLIB(Theory t) {
 		return t.rational(numerator(), denominator());
 	}

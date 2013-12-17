@@ -502,8 +502,7 @@ public class ModelTest extends TestCaseWithLogger {
 				getConstantTerm(model,
 						script.term("f", script.term("+", x,
 								script.term("-", y),
-								yvalminus5.toSMTLIB(intSort.getTheory())))).
-								getValue());
+								yvalminus5.toTerm(intSort)))).getValue());
 		Assert.assertEquals(five, getConstantTerm(model,
 				script.term("f", script.numeral(BigInteger.TEN))).getValue());
 	}

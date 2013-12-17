@@ -21,6 +21,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.model;
 import java.util.Map;
 
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.IRAConstantFormatter;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
@@ -82,17 +83,17 @@ public class ModelFormatter {
 	private void appendExecTerm(ExecTerm et, TermVariable[] vars, Theory t) {
 		if (et instanceof Value) {
 			newline();
-			mString.append(et.toSMTLIB(t, vars));
+			mString.append(toModelTerm(et, vars, t));
 		} else if (et instanceof HashExecTerm) {
 			HashExecTerm het = (HashExecTerm) et;
-			Term defaultVal = het.getDefaultValue().toSMTLIB(t, null);
+			Term defaultVal = toModelTerm(het.getDefaultValue(), null, t);
 			int closing = 0;
 			for (Map.Entry<Index, ExecTerm> me : het.values().entrySet()) {
 				if (me.getValue() != defaultVal) {
 					newline();
 					mString.append("(ite ").append(
 							me.getKey().toSMTLIB(t, vars)).append(' ').append(
-									me.getValue().toSMTLIB(t, null));
+									toModelTerm(me.getValue(), null, t));
 					// We have to close one parenthesis;
 					++closing;
 				}
@@ -112,5 +113,9 @@ public class ModelFormatter {
 		return mString.append(')').toString();
 	}
 	
-	
+	static Term toModelTerm(ExecTerm et, TermVariable[] vars, Theory t) {
+		Term val = et.toSMTLIB(t, vars);
+		return t.getLogic().isIRA() ? new IRAConstantFormatter().transform(val)
+				: val;
+	}
 }

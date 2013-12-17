@@ -110,7 +110,7 @@ public class FunctionTest {
 		Term t = theory.term(eq, selcarnilmone,
 					theory.rational(BigInteger.TEN, BigInteger.valueOf(-15)));// NOCHECKSTYLE
 		Assert.assertSame(theory.getBooleanSort(), t.getSort());
-		Assert.assertEquals("(= (select (car (as nil Heap)) (- 1)) (/ (- (to_real 2)) (to_real 3)))",// NOCHECKSTYLE
+		Assert.assertEquals("(= (select (car (as nil Heap)) (- 1)) (/ (- 2) 3))",// NOCHECKSTYLE
 				t.toString());
 	}	
 }

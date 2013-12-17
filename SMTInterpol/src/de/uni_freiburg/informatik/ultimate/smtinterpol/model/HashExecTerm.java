@@ -54,7 +54,8 @@ public class HashExecTerm implements ExecTerm {
 			assert(vars.length == mArgs.length);
 			Term[] conj = new Term[vars.length];
 			for (int i = 0; i < vars.length; ++i)
-				conj[i] = t.equals(vars[i], mArgs[i].toSMTLIB(t, null));
+				conj[i] = t.equals(vars[i], ModelFormatter.toModelTerm(
+						mArgs[i], null, t));
 			return t.and(conj);
 		}
 	}

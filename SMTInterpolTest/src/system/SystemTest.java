@@ -25,7 +25,6 @@ import java.io.FilenameFilter;
 import java.net.URISyntaxException;
 import java.net.URL;
 
-import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.junit.Assert;
 import org.junit.Test;
@@ -77,22 +76,21 @@ public class SystemTest extends TestCaseWithLogger {
 		}
 	}
 	
-	private void performTest(File f)
+	private void performTest(final File f)
 		throws SMTLIBException, FileNotFoundException {
 		System.out.println("Testing " + f.getAbsolutePath());
-		Logger.getRootLogger().setLevel(Level.TRACE);
 		SMTInterpol solver = new SMTInterpol(Logger.getRootLogger(), false);
 		ParseEnvironment pe = new ParseEnvironment(solver) {
 
 			@Override
 			public void printError(String message) {
-				Assert.fail(message);
+				Assert.fail(f.getAbsolutePath() + ": " + message);
 			}
 
 			@Override
 			public void printResponse(Object response) {
 				if ("unsupported".equals(response))
-					Assert.fail("unsupported");
+					Assert.fail(f.getAbsolutePath() + ": " + "unsupported");
 				super.printResponse(response);
 			}
 			
