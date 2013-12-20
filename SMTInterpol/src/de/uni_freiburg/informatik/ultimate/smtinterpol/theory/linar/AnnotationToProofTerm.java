@@ -25,6 +25,7 @@ import java.util.Map;
 
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
+import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
@@ -69,7 +70,7 @@ public class AnnotationToProofTerm {
 	
 	/**
 	 * Compute the gcd of all Farkas coefficients used in the annotation.
-	 * This is used to keep make the Farkas coefficients integral.
+	 * This is used to make the Farkas coefficients integral.
 	 * @param annot the annotation.
 	 * @return the gcd of all Farkas coefficients in annot.
 	 */
@@ -165,8 +166,7 @@ public class AnnotationToProofTerm {
 			if (info.mLiteral != null) {
 				Rational sign = annot.isUpper() ? Rational.MONE : Rational.ONE;
 				disjs[i] = info.mLiteral;
-				coeffs[i] = sign.div(gcd).toTerm(
-					theory.getSort(annot.getLinVar().isInt() ? "Int" : "Real"));
+				coeffs[i] = sign.div(gcd).toTerm(getSort(theory));
 				++i;
 			}
 			boolean trichotomy = false;
@@ -176,8 +176,7 @@ public class AnnotationToProofTerm {
 				if (lit instanceof LAEquality)
 					trichotomy = true;
 				disjs[i] = me.getKey().getSMTFormula(theory, true);
-				coeffs[i] = me.getValue().div(gcd).toTerm(
-					theory.getSort(annot.getLinVar().isInt() ? "Int" : "Real"));
+				coeffs[i] = me.getValue().div(gcd).toTerm(getSort(theory));
 				++i;
 			}
 			for (Map.Entry<LAAnnotation, Rational> me
@@ -189,8 +188,7 @@ public class AnnotationToProofTerm {
 				if (disjs.length == 2 && auxInfo.mLiteral == disjs[0])
 					continue todo_loop;
 				disjs[i] = auxInfo.mNegLiteral;
-				coeffs[i] = me.getValue().div(gcd).toTerm(
-					theory.getSort(annot.getLinVar().isInt() ? "Int" : "Real"));
+				coeffs[i] = me.getValue().div(gcd).toTerm(getSort(theory));
 				++i;
 			}
 			Term proofAnnot = theory.term(theory.mOr, disjs);
@@ -213,5 +211,17 @@ public class AnnotationToProofTerm {
 		if (antes.size() == 1)
 			return antes.getFirst();
 		return theory.term("@res", antes.toArray(new Term[antes.size()]));
+	}
+	
+	/**
+	 * Helper method to retrieve a sort used to convert Rationals.  By default,
+	 * we try to print Rationals as integers.  If this fails, we switch back to
+	 * reals.
+	 * @param t The theory used to create sorts and terms.
+	 * @return A sort to use for conversion of Rationals.
+	 */
+	private Sort getSort(Theory t) {
+		Sort res = t.getSort("Int");
+		return res == null ? t.getSort("Real") : res;
 	}
 }
