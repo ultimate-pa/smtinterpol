@@ -371,6 +371,12 @@ public class CutCreator {
 			}
 		}
 		
+		// make positive
+		if (mColumns[nr].mCoeffs[0].signum() < 0) {
+			mColumns[nr].negate();
+			mRows[nr].negate();
+		}
+		
 		// Finally reduce the rows left of this column.
 		BigInteger coeffNr = mColumns[nr].mCoeffs[0];
 		BigInteger coeffNrM1 = coeffNr.subtract(BigInteger.ONE);
