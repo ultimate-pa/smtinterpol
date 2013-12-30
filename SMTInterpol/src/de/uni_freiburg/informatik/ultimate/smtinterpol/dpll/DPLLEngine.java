@@ -1022,7 +1022,8 @@ public class DPLLEngine {
 				Clause conflict;
 				do {
 					conflict = propagateInternal();
-					if (conflict != null || mStopEngine) // NOPMD
+					if (conflict != null || mStopEngine // NOPMD
+							|| isTerminationRequested())
 						break;
 					if (Config.PROFILE_TIME) {
 						time = System.nanoTime();
