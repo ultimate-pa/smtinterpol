@@ -232,18 +232,20 @@
   <target name="runtests" description="Run junit tests" depends="compile_tests">
     <delete dir="${dir.workspace}/testreports" quiet="true" />
     <mkdir dir="${dir.workspace}/testreports" />
-    <junit fork="yes" forkmode="once" dir="${dir.workspace}/testreports" failureProperty="test.failed">
+    <junit fork="true" forkmode="once" dir="${dir.workspace}/testreports"
+	   failureProperty="test.failed">
       <assertions>
 	<enable />
       </assertions>
 
       <classpath>
-        <pathelement location="${dir.workspace}/libs/junit4.jar"/>
+	<pathelement location="${dir.workspace}/libs/junit4.jar"/>
+	<pathelement location="${dir.workspace}/libs/ant-junit4.jar"/>
 	<pathelement location="${dir.workspace}/SMTInterpol/lib/log4j-1.2.15.jar"/>
 	<pathelement location="${dir.workspace}/SMTInterpol/lib/java-cup-12joho.jar"/>
-	<pathelement location="${dir.workspace}/Library-SMTLIB/release" />
-	<pathelement location="${dir.workspace}/SMTInterpol/release" />
-	<pathelement location="${dir.tests}/SMTInterpolTest/release" />
+	<pathelement path="${dir.workspace}/Library-SMTLIB/release" />
+	<pathelement path="${dir.workspace}/SMTInterpol/release" />
+	<pathelement path="${dir.tests}/SMTInterpolTest/release" />
       </classpath>
 
       <formatter type="xml" />
@@ -263,7 +265,7 @@
   <target name="runtests-cobertura" description="Run junit tests using cobertura coverage analyzer" depends="compile_tests,coberturainstrument,cobertura-setup" if="cobertura.present">
     <delete dir="${dir.workspace}/testreports" quiet="true" />
     <mkdir dir="${dir.workspace}/testreports" />
-    <junit fork="yes" forkmode="once" dir="${dir.workspace}/testreports" failureProperty="test.failed">
+    <junit fork="true" forkmode="once" dir="${dir.workspace}/testreports" failureProperty="test.failed">
       <assertions>
 	<enable />
       </assertions>
@@ -281,12 +283,13 @@
 
       <classpath>
         <pathelement location="${dir.workspace}/libs/junit4.jar"/>
-	<pathelement location="${instrumentation.dir}" />
+	<pathelement location="${dir.workspace}/libs/ant-junit4.jar"/> 
+	<pathelement path="${instrumentation.dir}" />
 	<pathelement location="${dir.workspace}/SMTInterpol/lib/log4j-1.2.15.jar"/>
 	<pathelement location="${dir.workspace}/SMTInterpol/lib/java-cup-12joho.jar"/>
-	<pathelement location="${dir.workspace}/Library-SMTLIB/release" />
-	<pathelement location="${dir.workspace}/SMTInterpol/release" />
-	<pathelement location="${dir.tests}/SMTInterpolTest/release" />
+	<pathelement path="${dir.workspace}/Library-SMTLIB/release" />
+	<pathelement path="${dir.workspace}/SMTInterpol/release" />
+	<pathelement path="${dir.tests}/SMTInterpolTest/release" />
       </classpath>
       <!--
 	  The instrumented classes reference classes used by the
