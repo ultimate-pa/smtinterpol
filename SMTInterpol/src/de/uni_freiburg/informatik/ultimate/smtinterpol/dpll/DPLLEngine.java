@@ -1063,7 +1063,8 @@ public class DPLLEngine {
 						mDecides++;
 						conflict = setLiteral(literal);
 					}
-				} while (conflict == null && !mStopEngine);
+				} while (conflict == null && !mStopEngine
+						&& !isTerminationRequested());
 				if (Config.PROFILE_TIME) {
 					time = System.nanoTime();
 					mPropTime += time - lastTime - mSetTime - mBacktrackTime;

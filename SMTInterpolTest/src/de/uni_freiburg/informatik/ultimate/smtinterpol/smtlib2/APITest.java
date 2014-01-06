@@ -44,19 +44,15 @@ public class APITest extends TestCaseWithLogger {
 	
 	private static class TerminationCounter implements TerminationRequest {
 
-		private int mCount = 0;
+		private boolean mStop = false;
 		
 		@Override
 		public boolean isTerminationRequested() {
-			/* The 1 here really is a magic number.  It relies on the current
-			 * quickchecker to not do any propositional probing.  Essentially it
-			 * says "Cancell if a decision yields a conflict!"
-			 */
-			return ++mCount > 1;
+			return mStop;
 		}
 		
-		public void reset() {
-			mCount = 0;
+		public void setStop(boolean stop) {
+			mStop = stop;
 		}
 		
 	}
@@ -287,7 +283,7 @@ public class APITest extends TestCaseWithLogger {
 		LBool isSat = solver.checkSat();
 		Assert.assertSame(LBool.SAT, isSat);
 		solver.pop(1);
-		tc.reset();
+		tc.setStop(true);
 		solver.push(1);
 		solver.assertTerm(solver.term(
 				"or", solver.term("P"), solver.term("Q")));
@@ -309,6 +305,9 @@ public class APITest extends TestCaseWithLogger {
 		Assert.assertSame(LBool.UNKNOWN, isSat);
 		ReasonUnknown ru = (ReasonUnknown) solver.getInfo(":reason-unknown");
 		Assert.assertSame(ReasonUnknown.CANCELLED, ru);
+		tc.setStop(false);
+		isSat = solver.checkSat();
+		Assert.assertSame(LBool.UNSAT, isSat);
 		solver.pop(1);
 	}
 }
