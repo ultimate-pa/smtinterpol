@@ -66,9 +66,9 @@ public final class HashUtils {
 	
 	public static int hashJenkins(int init, Object val) {
 		int a,b,c;
-		a = b = c = BASE + 4 + init; //NOCHECKSTYLE
+		a = b = BASE + 4 + init; //NOCHECKSTYLE
 		a += val.hashCode();
-		c ^= b; c -= ((b << 14) | (b >> 18)); //NOCHECKSTYLE
+		c = -((b << 14) | (b >> 18)); //NOCHECKSTYLE
 		a ^= c; a -= ((c << 11) | (c >> 21)); //NOCHECKSTYLE
 		b ^= a; b -= ((a << 25) | (a >> 7)); //NOCHECKSTYLE
 		c ^= b; c -= ((b << 16) | (b >> 16)); //NOCHECKSTYLE
