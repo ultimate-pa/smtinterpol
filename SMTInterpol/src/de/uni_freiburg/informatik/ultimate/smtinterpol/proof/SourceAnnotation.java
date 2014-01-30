@@ -59,15 +59,14 @@ public class SourceAnnotation implements IAnnotation {
 	@Override
 	public Term toTerm(Clause cls, Theory theory) {
 		Term res = cls.toTerm(theory);
-		if (mSource == null)
+		if (mSource == null) {
+			// Partial proof mode
 			res = theory.term("@asserted", mAnnot.isEmpty() ? res
 					: theory.annotatedTerm(new Annotation[] {
 						new Annotation(":input", mAnnot)
 					}, res));
-		else {
+		} else {
 			// Full proof mode
-			if (cls.getSize() <= 1)
-				return mSource;
 			res = theory.term("@clause", mSource, res);
 		}
 		return res;
