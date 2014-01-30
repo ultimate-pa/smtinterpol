@@ -122,12 +122,12 @@ public class CClosure implements ITheory {
 	
 	private CCTerm convertFuncTerm(FunctionSymbol sym, CCTerm[] args, int numArgs) {
 		if (numArgs == 0) {
-			CCTerm term = mSymbolicTerms.get(sym);
+			CCTerm term = mSymbolicTerms.get(sym.getName());
 			if (term == null) {
 				term = new CCBaseTerm(
 				        args.length > 0, mNumFunctionPositions, sym, null);
 				mNumFunctionPositions += args.length;
-				mSymbolicTerms.put(sym, term);
+				mSymbolicTerms.put(sym.getName(), term);
 			}
 			return term;
 		} else {
@@ -142,12 +142,12 @@ public class CClosure implements ITheory {
 	 * @return CCTerm representing this function symbol in the egraph.
 	 */
 	public CCTerm getFuncTerm(FunctionSymbol sym) {
-		CCTerm term = mSymbolicTerms.get(sym);
+		CCTerm term = mSymbolicTerms.get(sym.getName());
 		if (term == null) {
 			term = new CCBaseTerm(sym.getParameterSorts().length > 0,
 					mNumFunctionPositions,sym,null);
 			mNumFunctionPositions += sym.getParameterSorts().length;
-			mSymbolicTerms.put(sym,term);
+			mSymbolicTerms.put(sym.getName(),term);
 		}
 		return term;
 	}
@@ -222,7 +222,7 @@ public class CClosure implements ITheory {
 		return eq;
 	}
 	public boolean knowsConstant(FunctionSymbol sym) {
-		return mSymbolicTerms.containsKey(sym);
+		return mSymbolicTerms.containsKey(sym.getName());
 	}
 	public CCTerm createFuncTerm(
 			FunctionSymbol sym, CCTerm[] subterms, SharedTerm fapp) {
