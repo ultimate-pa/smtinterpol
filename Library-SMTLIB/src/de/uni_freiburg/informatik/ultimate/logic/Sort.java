@@ -70,14 +70,13 @@ public final class Sort {
 	private int mHash;
 	
 	Sort(SortSymbol sym, BigInteger[] indices, Sort[] args) {
+		assert args != null;
 		assert args.length == (sym.isParametric() ? 0 : sym.mNumParams) 
 				: "Sort created with wrong number of args";
 		mSymbol = sym;
 		mIndices = indices;
 		mArgs = args;
-		mHash = mSymbol.hashCode();
-		if (mArgs != null)
-			mHash = HashUtils.hashJenkins(mHash, (Object[]) mArgs);
+		mHash = HashUtils.hashJenkins(mSymbol.hashCode(), (Object[]) mArgs);
 		if (mIndices != null)
 			mHash = HashUtils.hashJenkins(mHash, (Object[]) mIndices);
 	}

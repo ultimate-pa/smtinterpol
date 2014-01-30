@@ -1055,20 +1055,24 @@ public class Clausifier {
 					if (eq == EqualityProxy.getTrueProxy()) {
 						if (positive)
 							mCollector.setTrue();
-						mCollector.getTracker().eq(lhs, rhs, mTheory.mTrue);
-						mCollector.getTracker().negation(mTheory.mTrue,
-								mTheory.mFalse,
-								ProofConstants.RW_NOT_SIMP);
-						mCollector.getTracker().notifyFalseLiteral(at);
-						mCollector.setSimpOr();
+						else {
+							mCollector.getTracker().eq(lhs, rhs, mTheory.mTrue);
+							mCollector.getTracker().negation(mTheory.mTrue,
+									mTheory.mFalse,
+									ProofConstants.RW_NOT_SIMP);
+							mCollector.getTracker().notifyFalseLiteral(at);
+							mCollector.setSimpOr();
+						}
 						return;
 					}
 					if (eq == EqualityProxy.getFalseProxy()) {
 						if (!positive)
 							mCollector.setTrue();
-						mCollector.getTracker().eq(lhs, rhs, mTheory.mFalse);
-						mCollector.getTracker().notifyFalseLiteral(at);
-						mCollector.setSimpOr();
+						else {
+							mCollector.getTracker().eq(lhs, rhs, mTheory.mFalse);
+							mCollector.getTracker().notifyFalseLiteral(at);
+							mCollector.setSimpOr();
+						}
 						return;
 					}
 					mCollector.getTracker().save();

@@ -462,10 +462,6 @@ public class ProofTracker implements IProofTracker {
 		Term orig = res.getTheory().term("=", lhs, rhs);
 		if (orig != res)
 			append(new InternRewrite(orig, res));
-		if (res == res.getTheory().mTrue) {
-			orig = res.getTheory().term("not", orig);
-			res = res.getTheory().mFalse;
-		}
 	}
 
 	@Override

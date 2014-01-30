@@ -55,7 +55,7 @@ public class MatrixEntry {
 		assert this.mRow.mHeadEntry == this;
 		assert this.mRow == this.mColumn;
 		assert nb != this.mRow;
-		assert(!value.equals(Rational.ZERO));
+		assert(!value.equals(BigInteger.ZERO));
 		MatrixEntry ptr = this.mNextInRow;
 		int poscmp = Integer.MAX_VALUE - this.mColumn.mMatrixpos;
 		while (ptr.mColumn.mMatrixpos + poscmp < nb.mMatrixpos + poscmp)
@@ -64,7 +64,7 @@ public class MatrixEntry {
 			assert ptr != this;
 			/* Add to existing entry */
 			ptr.mCoeff = ptr.mCoeff.add(value);
-			if (ptr.mCoeff.equals(Rational.ZERO))
+			if (ptr.mCoeff.equals(BigInteger.ZERO))
 				ptr.removeFromMatrix();
 		} else {
 			ptr.insertBefore(nb, value);
@@ -155,7 +155,7 @@ public class MatrixEntry {
 				trow = trow.mNextInRow;
 			}
 			BigInteger ocoeff = orow.mCoeff.multiply(omul);
-			assert(!ocoeff.equals(Rational.ZERO));
+			assert(!ocoeff.equals(BigInteger.ZERO));
 			if (trow.mColumn == orow.mColumn) {
 				BigInteger oldval = trow.mCoeff.multiply(tmul);
 				trow.mCoeff = oldval.add(ocoeff);

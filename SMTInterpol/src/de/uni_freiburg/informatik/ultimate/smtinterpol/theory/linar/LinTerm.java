@@ -54,7 +54,7 @@ public class LinTerm {
 				sb.append(isFirst ? "" : " + ");
 			}
 			fact = fact.abs();
-			if (!fact.equals(Rational.ONE))
+			if (!fact.equals(BigInteger.ONE))
 				sb.append(fact).append('*');
 			sb.append(var);
 			isFirst = false;
