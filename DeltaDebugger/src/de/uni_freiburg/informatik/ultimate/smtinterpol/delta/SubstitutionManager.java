@@ -77,7 +77,7 @@ public class SubstitutionManager {
 			ApplicationTerm at = (ApplicationTerm) t;
 			if (at.getParameters().length > 0) {
 				if (at.getFunction().getName().equals("store"))
-					return new ReplaceByTerm(t, at.getParameters()[1]);
+					return new ReplaceByTerm(t, at.getParameters()[0]);
 				return new ReplaceByFreshTerm(t);
 			}
 		}
