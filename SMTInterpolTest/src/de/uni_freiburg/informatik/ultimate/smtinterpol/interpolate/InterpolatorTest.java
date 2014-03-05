@@ -42,9 +42,10 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.LeafNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LAEquality;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TestCaseWithLogger;
 
 @RunWith(JUnit4.class)
-public class InterpolatorTest {
+public class InterpolatorTest extends TestCaseWithLogger {
 	SMTInterpol mSolver;
 	Clausifier mClausifier;
 	Interpolator mInterpolator;

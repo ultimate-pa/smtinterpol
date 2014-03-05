@@ -30,16 +30,17 @@ import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.NoopProofTracker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TestCaseWithLogger;
 
 @RunWith(JUnit4.class)
-public class EqualityDestructorTest {
+public class EqualityDestructorTest extends TestCaseWithLogger {
 	private final Script mScript;
 	private final TermCompiler mCompiler = new TermCompiler();
 	private final Sort mInt, mU;
 	private final Term mIC1, mIC2;
 	private final Term mUC1, mUC2;
 	public EqualityDestructorTest() {
-		mScript = new SMTInterpol(Logger.getRootLogger(), true);
+		mScript = new SMTInterpol(Logger.getRootLogger(), false);
 		mScript.setLogic(Logics.QF_UFLIA);
 		mInt = mScript.sort("Int");
 		mScript.declareSort("U", 0);

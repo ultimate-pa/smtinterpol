@@ -27,8 +27,10 @@ public class TestCaseWithLogger {
 	
 	static { 
 		Logger logger = Logger.getRootLogger();
-		SimpleLayout layout = new SimpleLayout();
-		logger.addAppender(new ConsoleAppender(layout));
+		if (!logger.getAllAppenders().hasMoreElements()) {
+			SimpleLayout layout = new SimpleLayout();
+			logger.addAppender(new ConsoleAppender(layout));
+		}
 	}
 	
 	protected TestCaseWithLogger() {

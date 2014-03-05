@@ -30,16 +30,17 @@ import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.NoopProofTracker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TestCaseWithLogger;
 
 @RunWith(JUnit4.class)
-public class TermCompilerTest {
+public class TermCompilerTest extends TestCaseWithLogger {
 
 	private final Script mSolver;
 	private final Term mA,mB,mC,mX,mY,mZ,mT,mF,mThree,mFive;
 	private final TermCompiler mCompiler;
 	
 	public TermCompilerTest() {
-		mSolver = new SMTInterpol(Logger.getRootLogger(), true);
+		mSolver = new SMTInterpol(Logger.getRootLogger());
 		mSolver.setLogic(Logics.QF_LIA);
 		Sort boolSort = mSolver.sort("Bool");
 		Sort intSort = mSolver.sort("Int");
