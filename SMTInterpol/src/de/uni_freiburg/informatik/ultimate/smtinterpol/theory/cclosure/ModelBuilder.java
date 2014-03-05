@@ -155,9 +155,15 @@ public class ModelBuilder {
 		// Now, walk is the CCBaseTerm corresponding the the function
 		// If we did not enqueue an argument, we can extend the model.
 		if (!enqueued) {
-			FunctionSymbol fs = ((CCBaseTerm) walk).getFunctionSymbol();
-			model.extend(fs, args.toArray(new ExecTerm[args.size()]), value);
-			mProduced.put(app, value);
+			CCBaseTerm base = (CCBaseTerm) walk;
+			if (base.isFunctionSymbol()) {
+				FunctionSymbol fs = base.getFunctionSymbol();
+				model.extend(fs, args.toArray(new ExecTerm[args.size()]), value);
+				mProduced.put(app, value);
+			} else {
+				assert (base.mSymbol instanceof String);
+				// This is either select or store
+			}
 		}
 	}
 	

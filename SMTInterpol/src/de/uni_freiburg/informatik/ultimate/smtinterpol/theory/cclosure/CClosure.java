@@ -71,8 +71,8 @@ public class CClosure implements ITheory {
 	final ArrayList<CCTerm> mAllTerms = new ArrayList<CCTerm>();
 	final CCTermPairHash mPairHash = new CCTermPairHash();
 	final ArrayQueue<Literal> mPendingLits = new ArrayQueue<Literal>();
-	final ScopedHashMap<Object, CCTerm> mSymbolicTerms =
-			new ScopedHashMap<Object, CCTerm>();
+	final ScopedHashMap<Object, CCBaseTerm> mSymbolicTerms =
+			new ScopedHashMap<Object, CCBaseTerm>();
 	int mNumFunctionPositions;
 	int mMergeDepth;
 	final ArrayDeque<CCTerm> mMerges = new ArrayDeque<CCTerm>();
@@ -83,6 +83,8 @@ public class CClosure implements ITheory {
 	
 	private long mInvertEdgeTime, mEqTime, mCcTime, mSetRepTime;
 	private long mCcCount, mMergeCount;
+	
+	private int mStoreNum, mSelectNum, mDiffNum;
 
 	public CClosure(DPLLEngine engine, Clausifier clausifier) {
 		this.mEngine = engine;
@@ -120,14 +122,15 @@ public class CClosure implements ITheory {
 		return term;
 	}
 	
+	// Only works for non-polymorphic function symbols
 	private CCTerm convertFuncTerm(FunctionSymbol sym, CCTerm[] args, int numArgs) {
 		if (numArgs == 0) {
-			CCTerm term = mSymbolicTerms.get(sym.getName());
+			CCBaseTerm term = mSymbolicTerms.get(sym);
 			if (term == null) {
 				term = new CCBaseTerm(
 				        args.length > 0, mNumFunctionPositions, sym, null);
 				mNumFunctionPositions += args.length;
-				mSymbolicTerms.put(sym.getName(), term);
+				mSymbolicTerms.put(sym, term);
 			}
 			return term;
 		} else {
@@ -142,12 +145,19 @@ public class CClosure implements ITheory {
 	 * @return CCTerm representing this function symbol in the egraph.
 	 */
 	public CCTerm getFuncTerm(FunctionSymbol sym) {
-		CCTerm term = mSymbolicTerms.get(sym.getName());
+		CCBaseTerm term = mSymbolicTerms.get(sym);
 		if (term == null) {
-			term = new CCBaseTerm(sym.getParameterSorts().length > 0,
-					mNumFunctionPositions,sym,null);
-			mNumFunctionPositions += sym.getParameterSorts().length;
-			mSymbolicTerms.put(sym.getName(),term);
+			term = mSymbolicTerms.get(sym.getName());
+			if (term == null) {
+				term = new CCBaseTerm(sym.getParameterSorts().length > 0,
+						mNumFunctionPositions, sym, null);
+				mNumFunctionPositions += sym.getParameterSorts().length;
+			} else {
+				// This is a polymorphic function symbol
+				term = new CCBaseTerm(
+						term.mIsFunc, term.mParentPosition, sym, null);
+			}
+			mSymbolicTerms.put(sym, term);
 		}
 		return term;
 	}
@@ -221,8 +231,10 @@ public class CClosure implements ITheory {
 		}
 		return eq;
 	}
+	
+	/// Only works for non-polymorphic function symbols.
 	public boolean knowsConstant(FunctionSymbol sym) {
-		return mSymbolicTerms.containsKey(sym.getName());
+		return mSymbolicTerms.containsKey(sym);
 	}
 	public CCTerm createFuncTerm(
 			FunctionSymbol sym, CCTerm[] subterms, SharedTerm fapp) {
@@ -737,6 +749,37 @@ public class CClosure implements ITheory {
 	
 	void incMergeCount() {
 		++mMergeCount;
+	}
+	
+	void initArrays() {
+		assert mNumFunctionPositions == 0 : "Solver already in use before initArrays";
+		CCBaseTerm store = new CCBaseTerm(
+				true, mNumFunctionPositions, "store", null);
+		mStoreNum = mNumFunctionPositions;
+		mNumFunctionPositions += 3;
+		mSymbolicTerms.put("store", store);
+		CCBaseTerm select = new CCBaseTerm(
+				true, mNumFunctionPositions, "select", null);
+		mSelectNum = mNumFunctionPositions;
+		mNumFunctionPositions += 2;
+		mSymbolicTerms.put("select", select);
+		CCBaseTerm diff = new CCBaseTerm(
+				true, mNumFunctionPositions, "@diff", null);
+		mDiffNum = mNumFunctionPositions;
+		mNumFunctionPositions += 2;
+		mSymbolicTerms.put("@diff", diff);
+	}
+	
+	int getStoreNum() {
+		return mStoreNum;
+	}
+	
+	int getSelectNum() {
+		return mSelectNum;
+	}
+	
+	int getDiffNum() {
+		return mDiffNum;
 	}
 	
 }

@@ -1034,14 +1034,20 @@ public class DPLLEngine {
 					if (literal == null) {
 						conflict = checkConsistency();
 						if (conflict == null) {
-							Literal lit = suggestions();
-							if (lit != null) { // NOPMD
+							Literal lit;
+							boolean suggested = false;
+							while (conflict != null
+									&& (lit = suggestions()) != null) { // NOPMD
 								if (lit.getAtom().mExplanation == null) {
 									increaseDecideLevel();
 									mDecides++;
 								}
 								conflict = setLiteral(lit);
-							} else if (mWatcherBackList.isEmpty() && mAtoms.isEmpty()) {
+								suggested = true;
+							}
+							//@assert conflict != null ==> suggested == true
+							if (!suggested && mWatcherBackList.isEmpty()
+									&& mAtoms.isEmpty()) {
 								/* We found a model */
 								if (mLogger.isInfoEnabled()) {
 									printStatistics();

@@ -18,6 +18,8 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure;
 
+import java.util.Map;
+
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
@@ -105,6 +107,10 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 	SharedTerm mFlatTerm;
 	
 	int mHashCode;
+	
+	/// Array stuff
+	int mArrayNum;
+	Map<CCTerm, CCAppTerm> mSelects;
 	
 	static class TermPairMergeInfo {
 		CCTermPairHash.Info.Entry mInfo;
@@ -578,5 +584,9 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 	public abstract Term toSMTTerm(Theory t, boolean useAuxVars);
 	public Term toSMTTerm(Theory t) {
 		return toSMTTerm(t, false);
+	}
+	
+	void initArray(int arrayNum) {
+		mArrayNum = arrayNum;
 	}
 }

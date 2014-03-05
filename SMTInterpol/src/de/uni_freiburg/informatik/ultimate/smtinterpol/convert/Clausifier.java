@@ -58,6 +58,9 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofTracker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ResolutionNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ResolutionNode.Antecedent;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.ArrayDiffAnnotation;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.ArrayStoreAnnotation;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.ArrayTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinArSolve;
@@ -70,12 +73,95 @@ import de.uni_freiburg.informatik.ultimate.util.ScopedHashMap;
  * @author Juergen Christ
  */
 public class Clausifier {
+	
+	/**
+	 * Helper class to add the index-axiom for (store a i v), i.e.,
+	 * (select (store a i v) i) = v.  Additionally, this class creates an array
+	 * read (select a i).
+	 * @author Juergen Christ
+	 */
+	private final class AddStoreAxioms implements Operation {
+		
+		private final ApplicationTerm mStore;
+		
+		public AddStoreAxioms(ApplicationTerm store) {
+			mStore = store;
+		}
+
+		@Override
+		public void perform() {
+			Term i = mStore.getParameters()[1];
+			Term v = mStore.getParameters()[2];
+			Term selstore = mTheory.term("select", mStore, i);
+			EqualityProxy ep = createEqualityProxy(
+					getSharedTerm(selstore), getSharedTerm(v));
+			Literal lit = ep.getLiteral();
+			addClause(new Literal[] {lit}, null, new LeafNode(LeafNode.THEORY_ARRAY,
+					new ArrayStoreAnnotation(mStore, getAnnotation())));
+			if (Config.ARRAY_ALWAYS_ADD_READ
+					// HACK: We meen "finite sorts"
+					|| v.getSort() == mTheory.getBooleanSort()) {
+				Term a = mStore.getParameters()[0];
+				Term sel = mTheory.term("select", a, i);
+				// Simply create the CCTerm
+				getSharedTerm(sel);
+			}
+		}
+		
+	}
+	/**
+	 * Helper class to insert instantiations of the array diff extensionality
+	 * axiom into the clause set.
+	 * @author Juergen Christ
+	 */
+	private final class AddDiffAxiom implements Operation {
+		
+		private final ApplicationTerm mDiff;
+		
+		public AddDiffAxiom(ApplicationTerm diff) {
+			mDiff = diff;
+		}
+
+		@Override
+		public void perform() {
+			// Create a = b \/ select(a, diff(a,b)) != select(b, diff(a,b))
+			Term a = mDiff.getParameters()[0];
+			Term b = mDiff.getParameters()[1];
+			SharedTerm sharedA = getSharedTerm(a);
+			SharedTerm sharedB = getSharedTerm(b);
+			EqualityProxy eparray = createEqualityProxy(sharedA, sharedB);
+			if (eparray == EqualityProxy.getTrueProxy())
+				// Someone wrote (@diff a a)...
+				return;
+			Theory t = mDiff.getTheory();
+			Term selecta = t.term("select", a, mDiff);
+			Term selectb = t.term("select", b, mDiff);
+			SharedTerm sharedSelectA = getSharedTerm(selecta);
+			SharedTerm sharedSelectB = getSharedTerm(selectb);
+			EqualityProxy epselect = createEqualityProxy(
+					sharedSelectA, sharedSelectB);
+			Literal[] lits = {
+				eparray.getLiteral(),
+				epselect.getLiteral()
+			};
+			ProofNode diffProof = new LeafNode(LeafNode.THEORY_ARRAY_DIFF_AXIOM,
+				new ArrayDiffAnnotation(mDiff, getAnnotation()));
+			addClause(lits, null, diffProof);
+		}
+		
+	}
 
 	public class CCTermBuilder {
 		private class BuildCCTerm implements Operation {
 			private Term mTerm;
 			public BuildCCTerm(Term term) {
 				mTerm = term;
+				if (term instanceof ApplicationTerm) {
+					ApplicationTerm at = (ApplicationTerm) term;
+					FunctionSymbol fs = at.getFunction();
+					if (fs.isIntern() && fs.getName().equals("@diff"))
+						pushOperation(new AddDiffAxiom(at));
+				}
 			}
 			public void perform() {
 				SharedTerm shared = getSharedTerm(mTerm, true);
@@ -108,7 +194,7 @@ public class Clausifier {
 					// Don't descend into interpreted function symbols unless
 					// it is a select or store
 					if (!fs.isInterpreted() || fs.getName() == "select"
-							|| fs.getName() == "store")
+							|| fs.getName() == "store" || fs.getName() == "@diff")
 						return fs;
 				}
 				return null;
@@ -122,6 +208,11 @@ public class Clausifier {
 			public void perform() {
 				mShared.setCCTerm(mConverted.peek());
 				mCClosure.addTerm(mShared.mCCterm, mShared);
+				if (mShared.getTerm().getSort().isArraySort()) {
+					ApplicationTerm t = (ApplicationTerm) mShared.getRealTerm();
+					mArrayTheory.notifyArray(mShared.mCCterm,
+							t.getFunction().getName().equals("store"));
+				}
 			}
 		}
 		/**
@@ -1066,13 +1157,12 @@ public class Clausifier {
 						return;
 					}
 					if (eq == EqualityProxy.getFalseProxy()) {
-						if (!positive)
-							mCollector.setTrue();
-						else {
+						if (positive) {
 							mCollector.getTracker().eq(lhs, rhs, mTheory.mFalse);
 							mCollector.getTracker().notifyFalseLiteral(at);
 							mCollector.setSimpOr();
-						}
+						} else
+							mCollector.setTrue();
 						return;
 					}
 					mCollector.getTracker().save();
@@ -1504,6 +1594,9 @@ public class Clausifier {
 						else if (fs.getName().equals("ite") 
 								&& fs.getReturnSort() != mTheory.getBooleanSort())
 							pushOperation(new AddTermITEAxiom(res));
+						else if (fs.getName().equals("store")) {
+							pushOperation(new AddStoreAxioms(at));
+						}
 					} else if (!inCCTermBuilder
 							&& at.getParameters().length > 0) {
 						CCTermBuilder cc = new CCTermBuilder();
@@ -1529,6 +1622,7 @@ public class Clausifier {
 	private final DPLLEngine mEngine;
 	private CClosure mCClosure;
 	private LinArSolve mLASolver;
+	private ArrayTheory mArrayTheory;
 	
 	private boolean mInstantiationMode;
 	/**
@@ -1861,6 +1955,12 @@ public class Clausifier {
 		}
 	}
 	
+	private void setupArrayTheory() {
+		if (mArrayTheory == null) {
+			mArrayTheory = new ArrayTheory(this, mCClosure);
+			mEngine.addTheory(mArrayTheory);
+		}
+	}
 //	private void setupQuantifiers() {
 		// TODO Implement 
 //		setupCClosure();
@@ -1900,6 +2000,15 @@ public class Clausifier {
 			break;
 		case QF_UF:
 			setupCClosure();
+			break;
+		case QF_AUFLIA:
+			setupCClosure();
+			setupLinArithmetic();
+ 			setupArrayTheory();
+ 			break;
+		case QF_AX:
+			setupCClosure();
+			setupArrayTheory();
 			break;
 		default:
 			throw new UnsupportedOperationException(

@@ -836,6 +836,8 @@ public class SMTInterpol extends NoopScript {
 					&& !mStatus.toString().equals(mStatusSet)) {
 			mLogger.warn("Status differs: User said " + mStatusSet
 					+ " but we got " + mStatus);
+			if (mDDFriendly)
+				System.exit(13);
 		}
 		mStatusSet = null;
 		if (timer != null)

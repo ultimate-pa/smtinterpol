@@ -20,6 +20,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure;
 
 import java.util.HashSet;
 
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
@@ -160,17 +161,29 @@ public class CCAppTerm extends CCTerm {
 	public Term toSMTTerm(Theory theory, boolean useAuxVars) {
 		assert !mIsFunc;
 		CCTerm t = this;
-		while (t instanceof CCAppTerm)
+		int dest = 0;
+		while (t instanceof CCAppTerm) {
 			t = ((CCAppTerm) t).mFunc;
+			++dest;
+		}
 		CCBaseTerm basefunc = (CCBaseTerm) t;
-		FunctionSymbol sym = (FunctionSymbol) basefunc.mSymbol;
-		Term[] args = new Term[sym.getParameterSorts().length];
-		int dest = args.length;
+		Term[] args = new Term[dest];
 		t = this;
 		while (t instanceof CCAppTerm) {
 			args[--dest] = ((CCAppTerm)t).mArg.toSMTTerm(theory, useAuxVars);
 			t = ((CCAppTerm) t).mFunc;
 		}
+		FunctionSymbol sym;
+		if (basefunc.mSymbol instanceof FunctionSymbol)
+			sym = (FunctionSymbol) basefunc.mSymbol;
+		else if (basefunc.mSymbol instanceof String) {
+			// tmp is just to get the correct function symbol.  This is needed
+			// if the function symbol is polymorphic
+			ApplicationTerm tmp = theory.term((String) basefunc.mSymbol, args);
+			sym = tmp.getFunction();
+		} else
+			throw new InternalError("Unknown symbol in CCBaseTerm: "
+				+ basefunc.mSymbol);
 		return Coercion.buildApp(sym, args);
 	}
 }
