@@ -63,6 +63,10 @@ public class CongruencePath {
 				mLitsOnPath.add(second.mLitsOnPath.get(i));
 			}
 		}
+
+		public String toString() {
+			return mTermsOnPath.toString();
+		}
 	}
 
 	final HashMap<SymmetricPair<CCTerm>,SubPath> mVisited;

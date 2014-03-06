@@ -22,7 +22,6 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
@@ -41,7 +40,7 @@ public class WeakCongruencePath extends CongruencePath {
 		
 		private final CCTerm mIdx;
 		
-		private final ArrayList<CCTerm> mPath = new ArrayList<CCTerm>();
+		private final ArrayList<Object> mPath = new ArrayList<Object>();
 		
 		private final boolean mProduceProofs;
 		
@@ -52,15 +51,36 @@ public class WeakCongruencePath extends CongruencePath {
 		
 		public void storeInto(CCTerm[] weakIndices, CCTerm[][] weakpaths, int i) {
 			assert mProduceProofs;
+			ArrayList<CCTerm> path = new ArrayList<CCTerm>();
+			CCTerm last = null;
+			for (Object o : mPath) {
+				if (o instanceof SubPath) {
+					SubPath sub = (SubPath) o;
+					if (last == sub.mTermsOnPath.get(0)) {
+						for (int j = 1; j < sub.mTermsOnPath.size(); ++j)
+							path.add(sub.mTermsOnPath.get(j));
+					} else
+						path.addAll(sub.mTermsOnPath);
+					last = sub.mTermsOnPath.get(sub.mTermsOnPath.size() - 1);
+				} else if (o instanceof CCTerm) {
+					CCTerm co = (CCTerm) o;
+					if (co != last) {
+						path.add(co);
+						last = co;
+					}
+				} else {
+					throw new InternalError(
+							"Encountered unexpected element on weak path");
+				}
+			}
 			// allocate memory
-			weakpaths[i] = new CCTerm[mPath.size()];
 			weakIndices[i] = mIdx;
-			weakpaths[i] = mPath.toArray(weakpaths[i]);
+			weakpaths[i] = path.toArray(new CCTerm[path.size()]);
 		}
 		
 		void addSubPath(SubPath p) {
 			if (mProduceProofs)
-				mPath.addAll(p.mTermsOnPath);
+				mPath.add(p);
 		}
 		
 		void addEmptySubPath(CCTerm l) {
@@ -161,74 +181,77 @@ public class WeakCongruencePath extends CongruencePath {
 			sub.addEmptySubPath(a);
 		else
 			sub.addSubPath(computePath(a, left));
+		WeakEQEntry step = weakeq.get(new SymmetricPair<CCTerm>(left, right));
+		// TODO For now, I just prefer modulo edges.  We should revise this.
+		boolean done = false;
+		if (useModuloEdges) {
+			WeakEQiEntry modEdge = step.getModuloPath(idx);
+			if (modEdge != null) {
+				if (modEdge.isModuloStep()) {
+					addModuloStep(sub, left, right, idx, modEdge, weakeq);
+					done = true;
+				} else {
+					CCTerm leftarr, rightarr;
+					if (left.mArrayNum < right.mArrayNum) {
+						leftarr = modEdge.getLeftModuloArray();
+						rightarr = modEdge.getRightModuloArray();
+					} else {
+						leftarr = modEdge.getRightModuloArray();
+						rightarr = modEdge.getLeftModuloArray();
+					}
+					addPath(sub, left, leftarr, idx, weakeq, null);
+					WeakEQEntry weakstep = weakeq.get(
+							new SymmetricPair<CCTerm>(leftarr, rightarr));
+					WeakEQiEntry weakistep = weakstep.getModuloPath(idx);
+					addModuloStep(sub, leftarr, rightarr, idx, weakistep, weakeq);
+					addPath(sub, rightarr, right, idx, weakeq, null);
+					done = true;
+				}
+			}
+		}
+		if (!done)
+			// We either don't use or don't have mod edges here
+			addPath(sub, left, right, idx, weakeq, step);
 		if (b == right)
 			sub.addEmptySubPath(b);
 		else
 			sub.addSubPath(computePath(b, right));
-		while (true) {
-			WeakEQEntry step = weakeq.get(new SymmetricPair<CCTerm>(left, right));
-			// TODO For now, I just prefer modulo edges.  We should revise this.
-			if (useModuloEdges) {
-				WeakEQiEntry modEdge = step.getModuloPath(idx);
-				if (modEdge != null) {
-					if (modEdge.isModuloStep()) {
-						// Only use one modulo edge
-						useModuloEdges = false;
-						CCTerm start, startarr, endarr, startsel, endsel,
-						startidx, endidx;
-						boolean inOrder = left.mArrayNum < right.mArrayNum;
-						if (inOrder) {
-							start = left;
-							startarr = modEdge.getLeftArray();
-							endarr = modEdge.getRightArray();
-							startsel = modEdge.getLeftSelect();
-							endsel = modEdge.getRightSelect();
-							startidx = modEdge.getLeftIndex();
-							endidx = modEdge.getRightIndex();
-							left = endarr.getRepresentative();
-						} else {
-							start = right;
-							startarr = modEdge.getLeftArray();
-							endarr = modEdge.getRightArray();
-							startsel = modEdge.getLeftSelect();
-							endsel = modEdge.getRightSelect();
-							startidx = modEdge.getLeftIndex();
-							endidx = modEdge.getRightIndex();
-							right = endarr.getRepresentative();
-						}
-						assert start.getRepresentative() == startarr.getRepresentative();
-						addPath(sub, start, startarr, idx, weakeq, null);
-						sub.addModuloStep(modEdge, inOrder);
-						// Compute judgement for modEdge
-						computePath(startsel, endsel);
-						// Compute judgement for "idx equals select indices"
-						computePath(idx, startidx);
-						computePath(idx, endidx);
-						// continue at representative of endarr
-						addPath(sub, endarr, endarr.getRepresentative(), idx, weakeq,
-								null);
-					} else {
-						CCTerm leftarr, rightarr;
-						if (left.mArrayNum < right.mArrayNum) {
-							leftarr = modEdge.getLeftModuloArray();
-							rightarr = modEdge.getRightModuloArray();
-						} else {
-							leftarr = modEdge.getRightModuloArray();
-							rightarr = modEdge.getLeftModuloArray();
-						}
-						addPath(sub, left, leftarr, idx, weakeq, null);
-						addPath(sub, rightarr, right, idx, weakeq, null);
-						left = leftarr;
-						right = rightarr;
-					}
-					continue;
-				}
-			}
-			// We either don't use or don't have mod edges here
-			addPath(sub, left, right, idx, weakeq, step);
-			break; // NOPMD
-		}
 		return sub;
+	}
+	
+	private void addModuloStep(WeakSubPath sub, CCTerm left, CCTerm right,
+			CCTerm idx, WeakEQiEntry modEdge,
+			Map<SymmetricPair<CCTerm>, WeakEQEntry> weakeq) {
+		CCTerm leftarr, rightarr, leftsel, rightsel,
+		startidx, endidx;
+		boolean inOrder = left.mArrayNum < right.mArrayNum;
+		if (inOrder) {
+			leftarr = modEdge.getLeftArray();
+			rightarr = modEdge.getRightArray();
+			leftsel = modEdge.getLeftSelect();
+			rightsel = modEdge.getRightSelect();
+			startidx = modEdge.getLeftIndex();
+			endidx = modEdge.getRightIndex();
+		} else {
+			leftarr = modEdge.getRightArray();
+			rightarr = modEdge.getLeftArray();
+			leftsel = modEdge.getRightSelect();
+			rightsel = modEdge.getLeftSelect();
+			startidx = modEdge.getLeftIndex();
+			endidx = modEdge.getRightIndex();
+		}
+		assert left.getRepresentative() == leftarr.getRepresentative();
+		assert right.getRepresentative() == rightarr.getRepresentative();
+		if (left != leftarr)
+			sub.addSubPath(computePath(left, leftarr));
+		sub.addModuloStep(modEdge, inOrder);
+		// Compute judgement for modEdge
+		computePath(leftsel, rightsel);
+		// Compute judgement for "idx equals select indices"
+		computePath(idx, startidx);
+		computePath(idx, endidx);
+		if (right != rightarr)
+			sub.addSubPath(computePath(rightarr, right));
 	}
 	
 	/**
@@ -242,26 +265,15 @@ public class WeakCongruencePath extends CongruencePath {
 	 * @param first  First step of a weakeq path if available.  Might be
 	 *               <code>null</code> in which case the method searches for the
 	 *               first step.
-	 */// TODO Reverse paths, multiple occurrences of representative...
+	 */
 	private void addPath(WeakSubPath path, CCTerm left, CCTerm right,
 			CCTerm idx, Map<SymmetricPair<CCTerm>, WeakEQEntry> weakeq,
 			WeakEQEntry first) {
-		if (left.getRepresentative() == right.getRepresentative()) {
-			if (left == right)
-				path.addEmptySubPath(left);
-			else
-				path.addSubPath(computePath(left, right));
+		if (left.getRepresentative() == right.getRepresentative())
 			return;
-		}
-		HashSet<CCTerm> visited = new HashSet<CCTerm>();
 		WeakEQEntry step = first == null
 				? weakeq.get(new SymmetricPair<CCTerm>(left, right)) : first;
-		while (left != right) { //FIXME This can be an endless loop...
-//			System.err.println("left = " + left + "; right = " + right);
-			if (!visited.add(left)) {
-				System.err.println("Loop detected!");
-				System.exit(73);
-			}
+		while (left != right) {
 			EntryPair nextPair = step.getConnection(idx);
 			boolean inOrder = left.mArrayNum < right.mArrayNum;
 			CCTerm next = nextPair.getEntry(inOrder);
@@ -282,9 +294,7 @@ public class WeakCongruencePath extends CongruencePath {
 			 * right (if reverse if false) or left (if reverse is true).
 			 */
 			// left -- edgeleft
-			if (left == edgeleft)
-				path.addEmptySubPath(left);
-			else
+			if (left != edgeleft)
 				path.addSubPath(computePath(left, edgeleft));
 			// -j-
 			computeIndexDiseq(idx, ArrayTheory.getIndexFromStore(next));
@@ -292,9 +302,7 @@ public class WeakCongruencePath extends CongruencePath {
 			CCTerm targetrep = right.getRepresentative();
 			if (edgeright.getRepresentative() == targetrep) {
 				// finish the path
-				if (edgeright == right)
-					path.addEmptySubPath(edgeright);
-				else
+				if (edgeright != right)
 					path.addSubPath(computePath(edgeright, right));
 				break;
 			} else {

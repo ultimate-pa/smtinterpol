@@ -553,7 +553,6 @@ public class ArrayTheory implements ITheory {
 						me.getValue(), mWeakEq,
 						mCClosure.mEngine.isProofGenerationEnabled(),
 						mSuggestions);
-				System.err.println(lemma);
 				if (mLogger.isDebugEnabled())
 					mLogger.debug("AL we: " + lemma);
 				// TODO Should we really add all lemmata
