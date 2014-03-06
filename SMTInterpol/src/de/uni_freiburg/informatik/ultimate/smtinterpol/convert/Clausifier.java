@@ -142,7 +142,7 @@ public class Clausifier {
 					sharedSelectA, sharedSelectB);
 			Literal[] lits = {
 				eparray.getLiteral(),
-				epselect.getLiteral()
+				epselect.getLiteral().negate()
 			};
 			ProofNode diffProof = new LeafNode(LeafNode.THEORY_ARRAY_DIFF_AXIOM,
 				new ArrayDiffAnnotation(mDiff, getAnnotation()));
@@ -156,12 +156,6 @@ public class Clausifier {
 			private Term mTerm;
 			public BuildCCTerm(Term term) {
 				mTerm = term;
-				if (term instanceof ApplicationTerm) {
-					ApplicationTerm at = (ApplicationTerm) term;
-					FunctionSymbol fs = at.getFunction();
-					if (fs.isIntern() && fs.getName().equals("@diff"))
-						pushOperation(new AddDiffAxiom(at));
-				}
 			}
 			public void perform() {
 				SharedTerm shared = getSharedTerm(mTerm, true);
@@ -1594,9 +1588,10 @@ public class Clausifier {
 						else if (fs.getName().equals("ite") 
 								&& fs.getReturnSort() != mTheory.getBooleanSort())
 							pushOperation(new AddTermITEAxiom(res));
-						else if (fs.getName().equals("store")) {
+						else if (fs.getName().equals("store"))
 							pushOperation(new AddStoreAxioms(at));
-						}
+						else if (fs.getName().equals("@diff"))
+							pushOperation(new AddDiffAxiom(at));
 					} else if (!inCCTermBuilder
 							&& at.getParameters().length > 0) {
 						CCTermBuilder cc = new CCTermBuilder();
