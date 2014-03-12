@@ -90,6 +90,19 @@
     </javac>
   </target>
 
+  <!-- Compile Deltadebugger -->
+  <target name="compiledd" depends="compile">
+    <mkdir dir="${dir.workspace}/DeltaDebugger/release"/>
+    <javac srcdir="${dir.workspace}/DeltaDebugger/src" destdir="${dir.workspace}/DeltaDebugger/release" optimize="${optimize}" includeAntRuntime="false" debug="${debug}">
+      <classpath>
+        <pathelement location="${dir.workspace}/SMTInterpol/lib/log4j-1.2.15.jar"/>
+        <pathelement location="${dir.workspace}/SMTInterpol/lib/java-cup-12joho.jar"/>
+        <pathelement path="${dir.workspace}/Library-SMTLIB/release"/>
+        <pathelement path="${dir.workspace}/SMTInterpol/release"/>
+      </classpath>
+    </javac>
+  </target>
+
   <!-- Create an executable jar -->
   <target name="create_run_jar" depends="clean,compile">
     <jar destfile="${jar.outdir}/${jar.basename}.jar" filesetmanifest="mergewithoutmain">
@@ -100,6 +113,28 @@
 	<exclude name="**/test_generator/**" />
 	<exclude name="**/smtcomp/**" />
       </fileset>
+      <zipfileset excludes="META-INF/**" src="${dir.workspace}/SMTInterpol/lib/log4j-1.2.15.jar"/>
+      <zipfileset excludes="META-INF/**" src="${dir.workspace}/SMTInterpol/lib/java-cup-12joho.jar"/>
+      <fileset dir="${dir.workspace}/Library-SMTLIB/release" />
+      <zipfileset file="${dir.workspace}/LICENSE" prefix="" />
+      <zipfileset file="${dir.workspace}/COPYING" prefix="" />
+      <zipfileset file="${dir.workspace}/COPYING.LESSER" prefix="" />
+      <zipfileset file="${dir.workspace}/AUTHORS" prefix="" />
+      <zipfileset file="${dir.workspace}/README" prefix="" />
+    </jar>
+  </target>
+
+  <!-- Create deltadebugger jar -->
+  <target name="create_deltadebugger_jar" depends="clean,compiledd">
+    <jar destfile="${jar.outdir}/deltadebugger.jar" filesetmanifest="mergewithoutmain">
+      <manifest>
+        <attribute name="Main-Class" value="de.uni_freiburg.informatik.ultimate.smtinterpol.delta.Minimizer"/>
+      </manifest>
+      <fileset dir="${dir.workspace}/SMTInterpol/release">
+	<include name="**/smtlib2/**" />
+	<include name="**/util/**" />
+      </fileset>
+      <fileset dir="${dir.workspace}/DeltaDebugger/release" />
       <zipfileset excludes="META-INF/**" src="${dir.workspace}/SMTInterpol/lib/log4j-1.2.15.jar"/>
       <zipfileset excludes="META-INF/**" src="${dir.workspace}/SMTInterpol/lib/java-cup-12joho.jar"/>
       <fileset dir="${dir.workspace}/Library-SMTLIB/release" />
