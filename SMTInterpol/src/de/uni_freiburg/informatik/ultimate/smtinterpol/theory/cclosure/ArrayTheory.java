@@ -409,27 +409,31 @@ public class ArrayTheory implements ITheory {
 			for (CCTerm u : roots) {
 				if (u == p.getSecond())
 					continue;
+				WeakEQEntry ufpath = mWeakEq.get(
+						new SymmetricPair<CCTerm>(u, p.getFirst()));
+				if (ufpath == null)
+					continue;
 				for (CCTerm v : roots) {
 					if (u == v || v == p.getFirst())
 						continue;
+					WeakEQEntry svpath = mWeakEq.get(
+							new SymmetricPair<CCTerm>(p.getSecond(), v));
+					if (svpath == null)
+						continue;
 					WeakEQEntry uvpath = mWeakEq.get(
 							new SymmetricPair<CCTerm>(u, v));
+					if (uvpath == null)
+						continue;
 					for (Entry<CCTerm, WeakEQiEntry> e
 							: pentry.getModuloEdges().entrySet()) {
 						CCTerm idx = e.getKey();
 						if (uvpath.getConnection(idx) == null
 								&& uvpath.getModuloPath(idx) == null) {
 							// Check u -- p.getFirst()
-							WeakEQEntry ufpath = mWeakEq.get(
-									new SymmetricPair<CCTerm>(u, p.getFirst()));
-							if (ufpath != null
-									&& ufpath.getConnection(idx) == null)
+							if (ufpath.getConnection(idx) == null)
 								continue;
 							// Check p.getSecond() -- v
-							WeakEQEntry svpath = mWeakEq.get(
-									new SymmetricPair<CCTerm>(p.getSecond(), v));
-							if (svpath != null
-									&& svpath.getConnection(idx) == null)
+							if (svpath.getConnection(idx) == null)
 								continue;
 							// add weakeq modulo i path
 							uvpath.addModEdge(idx,
