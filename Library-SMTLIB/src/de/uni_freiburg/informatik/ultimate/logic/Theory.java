@@ -118,6 +118,11 @@ public class Theory {
 	public final PolymorphicFunctionSymbol mEquals, mDistinct, mIte;
 	
 	private final static Sort[] EMPTY_SORT_ARRAY = {};
+	/**
+	 * Pattern for model value variables '{@literal @}digits'.
+	 */
+	private final static String MODEL_VALUE_PATTERN = "^@\\d+$";
+	
 	
 	private int mTvarCtr = 0;
 	
@@ -1015,6 +1020,9 @@ public class Theory {
 				throw new IllegalArgumentException(
 						"Not allowed in this logic!");
 		}
+		if (name.charAt(0) == '@' && name.matches(MODEL_VALUE_PATTERN))
+			throw new IllegalArgumentException(
+					"Function " + name + " is reserved for internal purposes.");
 		if (mFunFactory.get(name) != null || mDeclaredFuns.get(name) != null)
 			throw new IllegalArgumentException(
 					"Function " + name + " is already defined.");
@@ -1080,7 +1088,7 @@ public class Theory {
 			String name, BigInteger[] indices, Sort resultType,
 			Sort... paramTypes) {
 		if (resultType != null && indices == null && paramTypes.length == 0
-			&& name.charAt(0) == '@' && name.matches("^@\\d+$")) {
+			&& name.matches(MODEL_VALUE_PATTERN)) {
 			return getModelValueSymbol(name, resultType);
 		}
 		FunctionSymbolFactory factory = mFunFactory.get(name);
