@@ -1068,9 +1068,10 @@ public class Theory {
 			if (symb.getName().equals(name) && symb.getReturnSort() == sort)
 				return symb;
 		}
-		FunctionSymbol symb = new FunctionSymbol
-				(name, null, EMPTY_SORT_ARRAY, sort, null, null, 
-				FunctionSymbol.RETURNOVERLOAD | FunctionSymbol.INTERNAL);
+		FunctionSymbol symb = new FunctionSymbol(
+				name, null, EMPTY_SORT_ARRAY, sort, null, null, 
+				FunctionSymbol.RETURNOVERLOAD | FunctionSymbol.INTERNAL
+				| FunctionSymbol.MODELVALUE);
 		mModelValueCache.put(hash,symb);
 		return symb;
 	}
