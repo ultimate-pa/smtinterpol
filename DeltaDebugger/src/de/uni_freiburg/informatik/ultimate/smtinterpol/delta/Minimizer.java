@@ -38,6 +38,7 @@ import java.util.Set;
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermTransformer;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.delta.TermSimplifier.Mode;
@@ -74,10 +75,11 @@ public class Minimizer {
 	private static class DeactivateCmds implements BinSearch.Driver<Cmd> {
 
 		@Override
-		public void prepare(List<Cmd> sublist) {
+		public boolean prepare(List<Cmd> sublist) {
 			System.err.println("Trying " + sublist);
 			for (Cmd cmd : sublist)
 				cmd.deactivate();
+			return false;
 		}
 
 		@Override
@@ -99,6 +101,7 @@ public class Minimizer {
 		private final AbstractOneTermCmd mCmd;
 		private final SubstitutionManager mMgr;
 		private final List<Substitution> mSubsts;
+		private final HashSet<Term> mSeen;
 		private List<Cmd> mPres;
 		
 		public SimplifyTerms(AbstractOneTermCmd cmd, SubstitutionManager mgr,
@@ -106,20 +109,24 @@ public class Minimizer {
 			mCmd = cmd;
 			mMgr = mgr;
 			mSubsts = substs;
+			mSeen = new HashSet<Term>();
 		}
 		
 		@Override
-		public void prepare(List<Substitution> sublist) {
+		public boolean prepare(List<Substitution> sublist) {
 			SubstitutionApplier applier = new SubstitutionApplier();
 			for (Substitution subst : sublist)
 				subst.activate();
-			System.err.println("Active substs: " + sublist); 	
+			System.err.println("Active substs: " + sublist);
 			applier.init(mMgr.getDepth(), mSubsts);
 			Term simp = applier.apply(mCmd.getTerm());
 			System.err.println("simp = " + simp);
+			if (!mSeen.add(simp))
+				return true;
 			mCmd.setTerm(simp);
 			mPres = applier.getAdds();
 			mCmd.appendPreCmds(mPres);
+			return false;
 		}
 
 		@Override
@@ -150,7 +157,7 @@ public class Minimizer {
 		}
 
 		@Override
-		public void prepare(List<Scope> sublist) {
+		public boolean prepare(List<Scope> sublist) {
 			for (Scope s : sublist) {
 				for (int i = s.mFirst; i < s.mLast; ++i)
 					mCmds.get(i).deactivate();
@@ -161,6 +168,7 @@ public class Minimizer {
 				else
 					sc.tryNumScopes(remScopes);
 			}
+			return false;
 		}
 
 		@Override
@@ -364,7 +372,7 @@ public class Minimizer {
 				unusedDefs, new BinSearch.Driver<Cmd>() {
 
 			@Override
-			public void prepare(List<Cmd> sublist) {
+			public boolean prepare(List<Cmd> sublist) {
 				for (Cmd cmd : sublist) {
 					OneTermCmd tcmd = (OneTermCmd) cmd;
 					Term stripped = new TermTransformer() {
@@ -386,6 +394,7 @@ public class Minimizer {
 					}.transform(tcmd.getTerm());// NOCHECKSTYLE 
 					tcmd.setTerm(stripped);
 				}
+				return false;
 			}
 
 			@Override
