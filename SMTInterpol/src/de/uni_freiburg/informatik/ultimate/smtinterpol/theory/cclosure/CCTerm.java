@@ -108,6 +108,8 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 	
 	int mHashCode;
 	
+	int mModelVal;
+	
 	/// Array stuff
 	int mArrayNum;
 	Map<CCTerm, CCAppTerm> mSelects;

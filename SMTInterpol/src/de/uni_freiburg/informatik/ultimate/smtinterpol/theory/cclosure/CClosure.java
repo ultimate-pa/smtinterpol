@@ -724,7 +724,9 @@ public class CClosure implements ITheory {
 				trueNode = mAllTerms.get(1);
 			}
 		}
-		new ModelBuilder(mAllTerms, model, t, ste, trueNode, falseNode);
+		trueNode.mModelVal = model.getBoolSortInterpretation().getTrueIdx();
+		falseNode.mModelVal = model.getBoolSortInterpretation().getFalseIdx();
+		new ModelBuilder(this, mAllTerms, model, t, ste, trueNode, falseNode);
 	}
 	
 	void addInvertEdgeTime(long time) {
@@ -768,6 +770,10 @@ public class CClosure implements ITheory {
 		mDiffNum = mNumFunctionPositions;
 		mNumFunctionPositions += 2;
 		mSymbolicTerms.put("@diff", diff);
+	}
+	
+	boolean isArrayTheory() {
+		return mStoreNum != mSelectNum;
 	}
 	
 	int getStoreNum() {

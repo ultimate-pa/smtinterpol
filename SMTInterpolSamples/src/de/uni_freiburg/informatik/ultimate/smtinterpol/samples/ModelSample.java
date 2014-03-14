@@ -103,7 +103,7 @@ public final class ModelSample {
 			Term evalTest1 = model.evaluate(test);
 			if (evalTest1 == falseTerm) {
 				System.out.println("Using solver to check model");
-				Term sortConstraint = model.constrainBySort(skolem);
+				Term sortConstraint = null;//model.constrainBySort(skolem);
 				script.push(1);
 				script.assertTerm(test);
 				script.assertTerm(sortConstraint);

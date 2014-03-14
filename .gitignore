@@ -50,3 +50,7 @@ SMTInterpol/web/html/download.xml
 # git update-index --assume-unchanged SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2/Version.java
 SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2/Version.java
 
+# smtlib files and generated jars in the main directory
+*.smt2
+*.jar
+

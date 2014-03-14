@@ -32,6 +32,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.LeafNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.ArrayAnnotation.RuleKind;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTermPairHash.Info;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.WeakEQEntry.EntryPair;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LAEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
 
 public class WeakCongruencePath extends CongruencePath {
@@ -117,13 +118,17 @@ public class WeakCongruencePath extends CongruencePath {
 	}
 
 	private CCEquality createEquality(CCTerm t1, CCTerm t2) {
-		if (t1.getSharedTerm() != null && t2.getSharedTerm() != null) {
-			EqualityProxy ep = t1.getSharedTerm().createEquality(t2.getSharedTerm());
-			return (ep == EqualityProxy.getFalseProxy())
-					? null : ep.createCCEquality(t1.getSharedTerm(), t2.getSharedTerm());
-		}
-		return mClosure.createCCEquality(mClosure.mClausifier.getStackLevel(),
-				t1, t2);
+		EqualityProxy ep = t1.getFlatTerm().createEquality(t2.getFlatTerm());
+		if (ep == EqualityProxy.getFalseProxy())
+				return null;
+		Literal res = ep.getLiteral();
+		if (res instanceof CCEquality)
+			return (CCEquality) res;
+		for (CCEquality eq : ((LAEquality) res).getDependentEqualities())
+			if ((eq.getLhs() == t1 && eq.getRhs() == t2)
+					|| (eq.getRhs() == t1 && eq.getLhs() == t2))
+				return eq;
+		throw new InternalError();
 	}
 	
 	public Clause computeSelectOverWeakEQ(CCAppTerm select1, CCAppTerm select2,

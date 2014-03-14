@@ -61,6 +61,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.ArrayDiffAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.ArrayStoreAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.ArrayTheory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAppTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinArSolve;
@@ -202,11 +203,16 @@ public class Clausifier {
 			public void perform() {
 				mShared.setCCTerm(mConverted.peek());
 				mCClosure.addTerm(mShared.mCCterm, mShared);
-				if (mShared.getTerm().getSort().isArraySort()) {
-					ApplicationTerm t = (ApplicationTerm) mShared.getRealTerm();
+				Term t = mShared.getTerm();
+				if (t.getSort().isArraySort()) {
+					ApplicationTerm at = (ApplicationTerm) t;
 					mArrayTheory.notifyArray(mShared.mCCterm,
-							t.getFunction().getName().equals("store"));
+							at.getFunction().getName().equals("store"));
 				}
+				if (t instanceof ApplicationTerm
+						&& ((ApplicationTerm) t).getFunction().getName().equals(
+								"@diff"))
+					mArrayTheory.notifyDiff((CCAppTerm) mShared.mCCterm);
 			}
 		}
 		/**
@@ -1586,13 +1592,14 @@ public class Clausifier {
 						else if (fs.getName().equals("to_int"))
 							pushOperation(new AddToIntAxioms(at));
 						else if (fs.getName().equals("ite") 
-								&& fs.getReturnSort() != mTheory.getBooleanSort())
-							pushOperation(new AddTermITEAxiom(res));
+								&& (fs.getReturnSort() != mTheory.getBooleanSort()))
+								pushOperation(new AddTermITEAxiom(res));
 						else if (fs.getName().equals("store"))
 							pushOperation(new AddStoreAxioms(at));
 						else if (fs.getName().equals("@diff"))
 							pushOperation(new AddDiffAxiom(at));
-					} else if (!inCCTermBuilder
+					}
+					if (needCCTerm(fs) && !inCCTermBuilder
 							&& at.getParameters().length > 0) {
 						CCTermBuilder cc = new CCTermBuilder();
 						res.mCCterm = cc.convert(t);
@@ -1603,6 +1610,11 @@ public class Clausifier {
 				res.shareWithLinAr();
 		}
 		return res;
+	}
+	
+	private boolean needCCTerm(FunctionSymbol fs) {
+		return !fs.isInterpreted() || fs.getName() == "select"
+				|| fs.getName() == "store" || fs.getName() == "@diff";
 	}
 	
 	/// Internalization stuff

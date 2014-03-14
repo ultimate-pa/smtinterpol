@@ -80,10 +80,14 @@ public class WeakEQEntry {
 
 	private EntryPair mDefault;
 	
-	//@invariant mDefault != null ==> mEntries != null;
+	public final static WeakEQEntry STRONGEQ_ENTRY =
+			new WeakEQEntry(new EntryPair(null, null));
 	
 	public WeakEQEntry() {
-		mDefault = null;
+		this(null);
+	}
+	private WeakEQEntry(EntryPair p) {	
+		mDefault = p;
 	}
 	
 	/**
@@ -199,15 +203,6 @@ public class WeakEQEntry {
 					}
 				}
 			}
-			// FIXME We need to propagate the store indices or collect them otherwise for weakeq-ext
-//			for (CCTerm store : left.mEntries.keySet()) {
-//				if (!mEntries.containsKey(store))
-//					mEntries.put(store, mDefault);
-//			}
-//			for (CCTerm store : right.mEntries.keySet()) {
-//				if (!mEntries.containsKey(store))
-//					mEntries.put(store, mDefault);
-//			}
 		}
 		assert defaultInvariant();
 		return result;

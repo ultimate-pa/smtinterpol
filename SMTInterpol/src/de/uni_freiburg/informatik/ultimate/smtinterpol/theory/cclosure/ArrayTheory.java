@@ -23,18 +23,23 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
 import org.apache.log4j.Logger;
 
+import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ITheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.model.ArraySortInterpretation;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.model.ArrayValue;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.model.Model;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.model.SharedTermEvaluator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAppTerm.Parent;
@@ -61,8 +66,10 @@ public class ArrayTheory implements ITheory {
 	
 	private final ScopedArrayList<CCTerm> mArrays =
 			new ScopedArrayList<CCTerm>();
-	private final ScopedHashSet<CCTerm> mStores =
-			new ScopedHashSet<CCTerm>();
+	private final ScopedHashSet<CCAppTerm> mStores =
+			new ScopedHashSet<CCAppTerm>();
+	private final ScopedHashSet<CCAppTerm> mDiffs =
+			new ScopedHashSet<CCAppTerm>();
 	
 	private final ArrayDeque<Literal> mSuggestions = new ArrayDeque<Literal>();
 	
@@ -98,16 +105,18 @@ public class ArrayTheory implements ITheory {
 	
 	@Override
 	public Clause startCheck() {
+		cleanCaches();
 		return null;
 	}
 
 	@Override
 	public void endCheck() {
-		// Nothing to do
+		// Don't clean the caches here.  We might need them to build a model!
 	}
 
 	@Override
 	public Clause setLiteral(Literal literal) {
+		cleanCaches();
 		return null;
 	}
 
@@ -124,20 +133,21 @@ public class ArrayTheory implements ITheory {
 	@Override
 	public Clause computeConflictClause() {
 		// Reinit the cache
-		mCongRoots = null;
 		buildWeakEq();
 		computeSelects();
 		boolean foundLemma = computeSelectOverWeakeq();
 		if (!foundLemma) {
 			buildWeakEQi();
 			clearSelects();
-			computeWeakeqExt();
+			foundLemma = computeWeakeqExt();
 		}
 		// Free the cache
 		clearSelects();
 		mCongRoots = null;
-		// We have to recompute mWeakEq every time since it might have changed
-		mWeakEq = null;
+		if (foundLemma) {
+			// We have to recompute mWeakEq anyways.
+			mWeakEq = null;
+		}
 		return null;
 	}
 
@@ -201,8 +211,7 @@ public class ArrayTheory implements ITheory {
 	@Override
 	public Clause backtrackComplete() {
 		mSuggestions.clear();
-		mWeakEq = null;
-		mCongRoots = null;
+		cleanCaches();
 		clearSelects();
 		return null;
 	}
@@ -221,6 +230,7 @@ public class ArrayTheory implements ITheory {
 	public Object push() {
 		mArrays.beginScope();
 		mStores.beginScope();
+		mDiffs.beginScope();
 		return Integer.valueOf(mNumArrays);
 	}
 
@@ -229,6 +239,7 @@ public class ArrayTheory implements ITheory {
 		mNumArrays = ((Integer) object).intValue();
 		mStores.endScope();
 		mArrays.endScope();
+		mDiffs.endScope();
 	}
 
 	@Override
@@ -252,16 +263,122 @@ public class ArrayTheory implements ITheory {
 
 	@Override
 	public void fillInModel(Model model, Theory t, SharedTermEvaluator ste) {
-		// TODO Auto-generated method stub
-
+		computeSelects();
+		Map<CCTerm, CCTerm> weakRootMap = new HashMap<CCTerm, CCTerm>();
+		Map<CCTerm, Set<CCTerm>> weakMembers =
+				new HashMap<CCTerm, Set<CCTerm>>();
+		Set<CCAppTerm> selects = new HashSet<CCAppTerm>();
+		Set<CCTerm> roots = getCongruenceRoots();
+		while (!roots.isEmpty()) {
+			CCTerm peek = roots.iterator().next();
+			Set<CCTerm> members = new HashSet<CCTerm>();
+			members.add(peek);
+			weakMembers.put(peek, members);
+			weakRootMap.put(peek, peek);
+			selects.addAll(peek.mSelects.values());
+			roots.remove(peek);
+			for (Iterator<CCTerm> it = roots.iterator(); it.hasNext(); ) {
+				CCTerm next = it.next();
+				WeakEQEntry entry = mWeakEq.get(
+						new SymmetricPair<CCTerm>(peek, next));
+				if (entry != null) {
+					members.add(next);
+					selects.addAll(next.mSelects.values());
+					weakRootMap.put(next, peek);
+					it.remove();
+				}
+			}
+		}
+		for (CCAppTerm select : selects) {
+			CCTerm a = getArrayFromSelect(select).mRepStar;
+			CCTerm i = getIndexFromSelect(select).mRepStar;
+			Sort arraySort = getArraySortFromSelect(select);
+			ArraySortInterpretation interp =
+					model.getArrayInterpretation(arraySort);
+			ArrayValue val = interp.getValue(a.mModelVal);
+			int v = select.mRepStar.mModelVal;
+			// check whether a i is already set
+			if (val.containsMapping(i.mModelVal)) {
+				assert (val.select(i.mModelVal, false) == v);
+				continue;
+			}
+			for (CCTerm b : weakMembers.get(weakRootMap.get(a))) {
+				// if b weakeqi a, then set b(i) to v
+				WeakEQEntry e = mWeakEq.get(
+						new SymmetricPair<CCTerm>(a, b));
+				if (e.getConnection(i) != null || e.getModuloPath(i) != null) {
+					ArrayValue bval = interp.getValue(b.mModelVal);
+					int old = bval.store(i.mModelVal, v);
+					assert old == v : "Storing different values at same index";
+				}
+			}
+		}
+		
+		if (!Config.ARRAY_ALWAYS_ADD_READ) {
+			for (CCAppTerm store : mStores) {
+				CCTerm a = getArrayFromStore(store).mRepStar;
+				CCTerm i = getIndexFromStore(store).mRepStar;
+				Sort arraySort = getArraySortFromStore(store);
+				ArraySortInterpretation interp =
+						model.getArrayInterpretation(arraySort);
+				ArrayValue val = interp.getValue(a.mModelVal);
+				// check whether a i is already set
+				if (val.containsMapping(i.mModelVal))
+					continue;
+				int v = interp.getValueInterpretation().extendFresh();
+				for (CCTerm b : weakMembers.get(weakRootMap.get(a))) {
+					// if b weakeqi a, then set b(i) to v
+					WeakEQEntry e = mWeakEq.get(
+							new SymmetricPair<CCTerm>(a, b));
+					if (e.getConnection(i) != null || e.getModuloPath(i) != null) {
+						ArrayValue bval = interp.getValue(b.mModelVal);
+						bval.store(i.mModelVal, v);
+					}
+				}
+			}
+		}
+		for (Entry<CCTerm, Set<CCTerm>> e : weakMembers.entrySet()) {
+			Sort arraySort =
+					e.getKey().toSMTTerm(mClausifier.getTheory()).getSort();
+			ArraySortInterpretation interp = 
+					model.getArrayInterpretation(arraySort);
+			int idx = interp.getIndexInterpretation().extendFresh();
+			interp.getValueInterpretation().ensureCapacity(2);
+			for (CCTerm member : e.getValue()) {
+				ArrayValue val = interp.getValue(member.mModelVal);
+				val.store(idx, 1);
+			}
+		}
+		for (CCAppTerm diff : mDiffs) {
+			CCTerm l = getLeftFromDiff(diff);
+			CCTerm r = getRightFromDiff(diff);
+			Sort arraySort =
+					l.toSMTTerm(mClausifier.getTheory()).getSort();
+			ArraySortInterpretation interp = 
+					model.getArrayInterpretation(arraySort);
+			ArrayValue lval = interp.getValue(l.mRepStar.mModelVal);
+			lval.addDiff(r.mRepStar.mModelVal, diff.mRepStar.mModelVal);
+		}
 	}
 	
 	public void notifyArray(CCTerm array, boolean isStore) {
 		if (isStore)
-			mStores.add(array);
+			mStores.add((CCAppTerm) array);
 		else
 			mArrays.add(array);
 		array.initArray(mNumArrays++);
+	}
+	
+	public void notifyDiff(CCAppTerm diff) {
+		mDiffs.add(diff);
+	}
+	
+	static CCTerm getArrayFromSelect(CCTerm select) {
+		return ((CCAppTerm) ((CCAppTerm) select).getFunc()).getArg();
+	}
+
+	static CCTerm getIndexFromSelect(CCTerm select) {
+		return ((CCAppTerm) select).getArg();
 	}
 	
 	static CCTerm getArrayFromStore(CCTerm store) {
@@ -277,6 +394,23 @@ public class ArrayTheory implements ITheory {
 		return ((CCAppTerm) store).getArg();
 	}
 	
+	static CCTerm getLeftFromDiff(CCAppTerm diff) {
+		return getIndexFromStore(diff);
+	}
+	
+	static CCTerm getRightFromDiff(CCAppTerm diff) {
+		return diff.getArg();
+	}
+	
+	static Sort getArraySortFromSelect(CCAppTerm select) {
+		return ((CCBaseTerm) ((CCAppTerm) select.getFunc()).getFunc())
+				.getFunctionSymbol().getParameterSorts()[0];
+	}
+	
+	static Sort getArraySortFromStore(CCAppTerm store) {
+		return getArraySortFromSelect((CCAppTerm) store.getFunc());
+	}
+	
 	private final boolean isInOrder(SymmetricPair<CCTerm> idx) {
 		return idx.getFirst().mArrayNum < idx.getSecond().mArrayNum;
 	}
@@ -284,11 +418,19 @@ public class ArrayTheory implements ITheory {
 	private void buildWeakEq() {
 		if (mWeakEq != null)
 			return;
-//		System.err.println("Num Stores: " + mStores.size());
-//		System.err.println("Start buildWeakEq");
 		++mNumBuildWeakEQ;
 		long startTime = System.nanoTime();
 		mWeakEq = new HashMap<SymmetricPair<CCTerm>, WeakEQEntry>();
+		for (CCTerm a : mArrays) {
+			CCTerm repa = a.mRepStar;
+			mWeakEq.put(new SymmetricPair<CCTerm>(repa, repa),
+					WeakEQEntry.STRONGEQ_ENTRY);
+		}
+		for (CCTerm a : mStores) {
+			CCTerm repa = a.mRepStar;
+			mWeakEq.put(new SymmetricPair<CCTerm>(repa, repa),
+					WeakEQEntry.STRONGEQ_ENTRY);
+		}
 		Deque<SymmetricPair<CCTerm>> todo = new ArrayDeque<SymmetricPair<CCTerm>>();
 		// Add all stores
 		for (CCTerm store : mStores) {
@@ -308,13 +450,11 @@ public class ArrayTheory implements ITheory {
 			}
 		}
 		Set<CCTerm> roots = getCongruenceRoots();
-//		System.err.println("Num Congroots: " + roots.size());
 		// saturate
 		SymmetricPair<CCTerm> next;
 		while ((next = todo.poll()) != null) {
 			assert next.getFirst() == next.getFirst().mRepStar;
 			assert next.getSecond() == next.getSecond().mRepStar;
-//			System.err.println(todo.size());
 			for (CCTerm root : roots) {
 				assert root == root.mRepStar;
 				if (root != next.getFirst() && root != next.getSecond()) {
@@ -328,7 +468,6 @@ public class ArrayTheory implements ITheory {
 								new SymmetricPair<CCTerm>(root, next.getSecond());
 						WeakEQEntry res = mWeakEq.get(leftRes);
 						if (res == null) {
-//							System.err.println("New entry for " + leftRes);
 							res = new WeakEQEntry();
 							mWeakEq.put(leftRes, res);
 						}
@@ -336,12 +475,9 @@ public class ArrayTheory implements ITheory {
 						assert right != null;
 						assert right.invariant(next.getFirst(), next.getSecond());
 						assert res.invariant(leftRes.getFirst(), leftRes.getSecond());
-//						System.err.println("Merging " + res + " <= " + left + " Y " + right);
 						if (res.merge(left, isInOrder(idxLeft), right, 
 								isInOrder(next), isInOrder(leftRes))) {
-//							System.err.println("Merged " + idxLeft + " Y " + next);
 							assert res.invariant(leftRes.getFirst(), leftRes.getSecond());
-//							System.err.println("Success: " + res);
 							++mNumMerges;
 							todo.add(leftRes);
 						}
@@ -356,7 +492,6 @@ public class ArrayTheory implements ITheory {
 								new SymmetricPair<CCTerm>(next.getFirst(), root);
 						WeakEQEntry res = mWeakEq.get(rightRes);
 						if (res == null) {
-//							System.err.println("New entry for " + rightRes);
 							res = new WeakEQEntry();
 							mWeakEq.put(rightRes, res);
 						}
@@ -367,9 +502,7 @@ public class ArrayTheory implements ITheory {
 //						System.err.println("Merging " + res + " <= " + left + " Y " + right);
 						if (res.merge(left, isInOrder(next), right,
 								isInOrder(idxRight), isInOrder(rightRes))) {
-//							System.err.println("Merged " + next + " Y " + idxRight);
 							assert res.invariant(rightRes.getFirst(), rightRes.getSecond());
-//							System.err.println("Success");
 							++mNumMerges;
 							todo.add(rightRes);
 						}
@@ -378,7 +511,6 @@ public class ArrayTheory implements ITheory {
 			}
 		}
 		mTimeBuildWeakEq += (System.nanoTime() - startTime);
-//		System.err.println("End buildWeakEq");
 	}
 	
 	private void buildWeakEQi() {
@@ -388,6 +520,8 @@ public class ArrayTheory implements ITheory {
 				new ArrayList<SymmetricPair<CCTerm>>();
 		// init
 		for (Entry<SymmetricPair<CCTerm>, WeakEQEntry> me : mWeakEq.entrySet()) {
+			if (me.getValue() == WeakEQEntry.STRONGEQ_ENTRY)
+				continue;
 			for (Entry<CCTerm, EntryPair> weakme
 					: me.getValue().getEntries().entrySet()) {
 				if (weakme.getValue() == null) {
@@ -485,6 +619,8 @@ public class ArrayTheory implements ITheory {
 	private boolean computeSelectOverWeakeq() {
 		boolean res = false;
 		for (Entry<SymmetricPair<CCTerm>, WeakEQEntry> me : mWeakEq.entrySet()) {
+			if (me.getValue() == WeakEQEntry.STRONGEQ_ENTRY)
+				continue;
 			CCTerm left = me.getKey().getFirst();
 			CCTerm right = me.getKey().getSecond();
 			Map<CCTerm, CCAppTerm> leftselects = left.mSelects;
@@ -534,6 +670,8 @@ public class ArrayTheory implements ITheory {
 	private boolean computeWeakeqExt() {
 		boolean res = false;
 		for (Entry<SymmetricPair<CCTerm>, WeakEQEntry> me : mWeakEq.entrySet()) {
+			if (me.getValue() == WeakEQEntry.STRONGEQ_ENTRY)
+				continue;
 			// We simply check if there is a path for all store indices in
 			// WeakEQEntry here.
 			boolean equal = true;
@@ -635,5 +773,10 @@ public class ArrayTheory implements ITheory {
 	
 	boolean isStore(CCTerm term) {
 		return mStores.contains(term);
+	}
+	
+	private void cleanCaches() {
+		mWeakEq = null;
+		mCongRoots = null;
 	}
 }
