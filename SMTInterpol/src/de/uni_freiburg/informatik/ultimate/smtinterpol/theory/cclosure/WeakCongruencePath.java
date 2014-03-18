@@ -128,7 +128,7 @@ public class WeakCongruencePath extends CongruencePath {
 			if ((eq.getLhs() == t1 && eq.getRhs() == t2)
 					|| (eq.getRhs() == t1 && eq.getLhs() == t2))
 				return eq;
-		throw new InternalError();
+		return ep.createCCEquality(t1.getFlatTerm(), t2.getFlatTerm());
 	}
 	
 	public Clause computeSelectOverWeakEQ(CCAppTerm select1, CCAppTerm select2,
