@@ -32,7 +32,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.LeafNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.ArrayAnnotation.RuleKind;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTermPairHash.Info;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.WeakEQEntry.EntryPair;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LAEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
 
 public class WeakCongruencePath extends CongruencePath {
@@ -124,10 +123,6 @@ public class WeakCongruencePath extends CongruencePath {
 		Literal res = ep.getLiteral();
 		if (res instanceof CCEquality)
 			return (CCEquality) res;
-		for (CCEquality eq : ((LAEquality) res).getDependentEqualities())
-			if ((eq.getLhs() == t1 && eq.getRhs() == t2)
-					|| (eq.getRhs() == t1 && eq.getLhs() == t2))
-				return eq;
 		return ep.createCCEquality(t1.getFlatTerm(), t2.getFlatTerm());
 	}
 	
@@ -388,7 +383,7 @@ public class WeakCongruencePath extends CongruencePath {
 		for (Literal l: mAllLiterals) {
 			lemma[i++] = l.negate();
 			// I want to suggest all paths.  Thus I put all l in suggestions.
-			suggestions.offer(l);
+//			suggestions.offer(l);
 		}
 		Clause c = new Clause(lemma);
 		if (produceProofs)
