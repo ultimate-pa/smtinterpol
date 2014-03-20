@@ -33,8 +33,6 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
-import org.apache.log4j.Logger;
-
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.MutableRational;
@@ -42,6 +40,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.EqualityProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SharedTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
@@ -979,7 +978,7 @@ public class LinArSolve implements ITheory {
 		}
 	}
 	
-	public void dumpTableaux(Logger logger) {
+	public void dumpTableaux(LogProxy logger) {
 		for (LinVar var : mLinvars) {
 			if (var.mBasic) {
 				StringBuilder sb = new StringBuilder();
@@ -994,7 +993,7 @@ public class LinArSolve implements ITheory {
 		}
 	}
 	
-	public void dumpConstraints(Logger logger) {
+	public void dumpConstraints(LogProxy logger) {
 		for (LinVar var : mLinvars) {
 			StringBuilder sb = new StringBuilder();
 			sb.append(var).append(": ");
@@ -1042,34 +1041,38 @@ public class LinArSolve implements ITheory {
 	}
 	
 	@Override
-	public void dumpModel(Logger logger) {
-		prepareModel();
-		logger.info("Assignments:");
-		for (LinVar var : mLinvars) {
-			if (!var.isInitiallyBasic())
-				logger.info(var + " = " + realValue(var));
-		}
-		if (mSimps != null) {
-			for (LinVar var : mSimps.keySet())
-				logger.info(var + " = " + realValue(var));
+	public void dumpModel(LogProxy logger) {
+		if (logger.isInfoEnabled()) {
+			prepareModel();
+			logger.info("Assignments:");
+			for (LinVar var : mLinvars) {
+				if (!var.isInitiallyBasic())
+					logger.info(var + " = " + realValue(var));
+			}
+			if (mSimps != null) {
+				for (LinVar var : mSimps.keySet())
+					logger.info(var + " = " + realValue(var));
+			}
 		}
 	}
 
 	@Override
-	public void printStatistics(Logger logger) {
-		logger.info("Number of Bland pivoting-Operations: "
-				+ mNumPivotsBland + "/" + mNumPivots);
-		logger.info("Number of switches to Bland's Rule: " + mNumSwitchToBland);
-		logger.info("Number of variables: " + mLinvars.size());
-		logger.info("Time for pivoting         : " + mPivotTime / 1000000);// NOCHECKSTYLE
-		logger.info("Time for bound computation: " + mPropBoundTime / 1000000);// NOCHECKSTYLE
-		logger.info("Time for bound setting    : " + mPropBoundSetTime / 1000000);// NOCHECKSTYLE
-		logger.info("Time for bound comp(back) : " + mBacktrackPropTime/1000000);// NOCHECKSTYLE
-		logger.info("No. of simplified variables: " + (mSimps == null ? 0 : mSimps.size()));
-		logger.info("Composite::createLit: " + mCompositeCreateLit);
-		logger.info("Number of cuts: " + mNumCuts);
-		logger.info("Time for cut-generation: " + mCutGenTime / 1000000);// NOCHECKSTYLE
-		logger.info("Number of branchings: " + mNumBranches);
+	public void printStatistics(LogProxy logger) {
+		if (logger.isInfoEnabled()) {
+			logger.info("Number of Bland pivoting-Operations: "
+					+ mNumPivotsBland + "/" + mNumPivots);
+			logger.info("Number of switches to Bland's Rule: " + mNumSwitchToBland);
+			logger.info("Number of variables: " + mLinvars.size());
+			logger.info("Time for pivoting         : " + mPivotTime / 1000000);// NOCHECKSTYLE
+			logger.info("Time for bound computation: " + mPropBoundTime / 1000000);// NOCHECKSTYLE
+			logger.info("Time for bound setting    : " + mPropBoundSetTime / 1000000);// NOCHECKSTYLE
+			logger.info("Time for bound comp(back) : " + mBacktrackPropTime/1000000);// NOCHECKSTYLE
+			logger.info("No. of simplified variables: " + (mSimps == null ? 0 : mSimps.size()));
+			logger.info("Composite::createLit: " + mCompositeCreateLit);
+			logger.info("Number of cuts: " + mNumCuts);
+			logger.info("Time for cut-generation: " + mCutGenTime / 1000000);// NOCHECKSTYLE
+			logger.info("Number of branchings: " + mNumBranches);
+		}
 	}
 	
 	/**
@@ -1171,7 +1174,7 @@ public class LinArSolve implements ITheory {
 		if (isIntegral)
 			return null;
 
-		Logger logger = mEngine.getLogger();
+		LogProxy logger = mEngine.getLogger();
 		if (logger.isDebugEnabled())
 			dumpTableaux(logger);
 

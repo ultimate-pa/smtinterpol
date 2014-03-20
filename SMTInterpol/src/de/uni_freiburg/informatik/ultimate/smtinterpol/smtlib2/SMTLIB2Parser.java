@@ -20,15 +20,19 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2;
 
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.IParser;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 
 public class SMTLIB2Parser implements IParser {
 
 	@Override
-	public int run(Script solver, String filename) {
+	public int run(Script solver, String filename, LogProxy logger) {
 		if (filename == null)
 			filename = "<stdin>";
-        ParseEnvironment parseEnv = new ParseEnvironment(solver);
+        ParseEnvironment parseEnv = logger instanceof DefaultLogger
+        		? new ParseEnvironment(solver, (DefaultLogger) logger)
+        			: new ParseEnvironment(solver);
         try {
         	// Have to carry this option through
         	parseEnv.setOption(":print-success",

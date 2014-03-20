@@ -32,7 +32,8 @@ public interface IParser {
 	 * parser should parse standard input,
 	 * @param script    The script that should be used.
 	 * @param filename  The name of the file to parse.
+	 * @param logger    The logger used to setup the script.
 	 * @return Exit code.
 	 */
-	public int run(Script script, String filename); 
+	public int run(Script script, String filename, LogProxy logger);
 }

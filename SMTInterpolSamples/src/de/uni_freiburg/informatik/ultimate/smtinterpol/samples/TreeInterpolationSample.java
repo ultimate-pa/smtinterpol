@@ -20,12 +20,11 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.samples;
 
 import java.io.StringReader;
 
-import org.apache.log4j.Logger;
-
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.ParseEnvironment;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 
@@ -43,13 +42,13 @@ public final class TreeInterpolationSample {
 	
 	public static void main(String[] unused) {
 		// Create a new solver
-		Script solver = new SMTInterpol(Logger.getRootLogger(), true);
+		Script solver = new SMTInterpol(new DefaultLogger());
 		// Enable interpolant production
 		solver.setOption(":produce-interpolants", Boolean.TRUE);
-		// Disable success messages
-		solver.setOption(":print-success", Boolean.FALSE);
 		// A parse environment to read from strings
 		ParseEnvironment pe = new ParseEnvironment(solver);
+		// Disable success messages
+		pe.setOption(":print-success", Boolean.FALSE);
 		solver.setLogic(Logics.QF_LIA);
 		// Declare some function symbols
 		pe.parseStream(new StringReader("(declare-fun x_1 () Int)"), "x_1");

@@ -20,7 +20,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2;
 
 import java.math.BigInteger;
 
-import org.apache.log4j.Logger;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 
 public final class Main {
     
@@ -34,9 +34,9 @@ public final class Main {
 	}
 	
 	public static void main(String[] param) {
-		Logger logger = Logger.getRootLogger();
+		DefaultLogger logger = new DefaultLogger();
         int paramctr = 0;
-        SMTInterpol benchmark = new SMTInterpol(logger, true);
+        SMTInterpol benchmark = new SMTInterpol(logger);
         while (paramctr < param.length
         		&& param[paramctr].startsWith("-")) {
         	if (param[paramctr].equals("--")) {
@@ -87,7 +87,7 @@ public final class Main {
 			usage();
 			return;
 		}
-        ParseEnvironment parseEnv = new ParseEnvironment(benchmark);
+        ParseEnvironment parseEnv = new ParseEnvironment(benchmark, logger);
         parseEnv.parseScript(filename);
 	}
 }

@@ -22,11 +22,10 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.log4j.Logger;
-
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SharedTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
@@ -474,7 +473,7 @@ public class CClosure implements ITheory {
 	}
 	
 
-	public void dumpModel(Logger logger) {
+	public void dumpModel(LogProxy logger) {
 //		assert(checkCongruence());
 		logger.info("Equivalence Classes:");
 		for (CCTerm t : mAllTerms) {
@@ -516,7 +515,7 @@ public class CClosure implements ITheory {
 		return true;
 	}
 	
-	public void printStatistics(Logger logger) {
+	public void printStatistics(LogProxy logger) {
 		logger.info("CCTimes: iE " + mInvertEdgeTime + " eq "
 				+ mEqTime + " cc " + mCcTime + " setRep "
 				+ mSetRepTime);

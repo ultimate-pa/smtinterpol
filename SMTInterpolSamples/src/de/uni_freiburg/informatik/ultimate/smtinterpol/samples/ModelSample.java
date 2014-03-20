@@ -18,8 +18,6 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.samples;
 
-import org.apache.log4j.Logger;
-
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.Model;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
@@ -27,6 +25,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 
 /**
@@ -55,7 +54,7 @@ public final class ModelSample {
 		// Counter for the skolem instances
 		int numskolem = 0;
 		// Let SMTInterpol set up the logger for us
-		Script script = new SMTInterpol(Logger.getRootLogger(), true);
+		Script script = new SMTInterpol(new DefaultLogger());
 		// Enable model production
 		script.setOption(":produce-models", true);
 		script.setOption(":verbosity", 1);

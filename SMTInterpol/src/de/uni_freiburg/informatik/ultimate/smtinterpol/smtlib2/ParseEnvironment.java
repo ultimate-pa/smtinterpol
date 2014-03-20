@@ -31,19 +31,19 @@ import java.util.Deque;
 import java.util.Locale;
 import java.util.Map;
 
-import org.apache.log4j.Logger;
-
 import de.uni_freiburg.informatik.ultimate.logic.IRAConstantFormatter;
 import de.uni_freiburg.informatik.ultimate.logic.PrintTerm;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.MySymbolFactory;
 
 public class ParseEnvironment {
 	final Script      mScript;
 	private PrintWriter mOut = new PrintWriter(System.out);
+	private String mOutName = "stdout";
 	private boolean mPrintSuccess = true;
 	private boolean mPrintTermCSE = true;
 	private File mCwd = null;
@@ -52,9 +52,18 @@ public class ParseEnvironment {
 	// Initialize this lazily.
 	private Deque<Long> mTiming;
 	private boolean mContinueOnError = true;
+
+	private String mErrName = "stderr";
+	private DefaultLogger mLogger;
 	
 	public ParseEnvironment(Script script) {
-		this(script, null);
+		this(script, (ExitHook) null);
+	}
+	
+	public ParseEnvironment(Script script, DefaultLogger logger) {
+		this(script, (ExitHook) null);
+		mLogger = logger;
+		
 	}
 	
 	public ParseEnvironment(Script script, ExitHook exit) {
@@ -128,7 +137,7 @@ public class ParseEnvironment {
 		try {
 			parser.parse();
 		} catch (Exception ex) {
-			Logger.getRootLogger().error("Unexpected Exception", ex);
+			System.err.println("Unexpected Exception: " + ex);
 			throw new SMTLIBException(ex);
 		}
 	}
@@ -264,9 +273,19 @@ public class ParseEnvironment {
 	public void setOption(String opt, Object value) throws SMTLIBException {
 		if (opt.equals(":regular-output-channel")) {
 			try {
-				mOut = new PrintWriter(createChannel((String) value));
+				mOut = createChannel((String) value);
+				mOutName = (String) value;
 			} catch (IOException ex) {
 				throw new SMTLIBException(ex);
+			}
+		} else if (opt.equals(":diagnostic-output-channel")) {
+			if (mLogger != null) {
+				try {
+					mLogger.setChannel(createChannel((String) value));
+					mErrName = (String) value;
+				} catch (IOException ex) {
+					throw new SMTLIBException(ex);
+				}
 			}
 		} else if (opt.equals(":print-success")) {
 			if (value instanceof Boolean)
@@ -278,8 +297,21 @@ public class ParseEnvironment {
 				mPrintTermCSE = (Boolean) value;
 			else if (value instanceof String)
 				mPrintTermCSE = Boolean.valueOf((String) value);
-		}
-		mScript.setOption(opt, value);
+		} else
+			mScript.setOption(opt, value);
+	}
+	
+	public Object getOption(String opt) {
+		if (opt.equals(":regular-output-channel")) {
+			return mOutName;
+		} else if (opt.equals(":diagnostic-output-channel")) {
+			return mErrName;
+		} else if (opt.equals(":print-success")) {
+			return mPrintSuccess;
+		} else if (opt.equals(":print-terms-cse")) {
+			return mPrintTermCSE;
+		} else
+			return mScript.getOption(opt);
 	}
 	
 	public void setInfo(String info, Object value) {

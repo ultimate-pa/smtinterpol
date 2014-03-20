@@ -61,6 +61,6 @@ public final class PCMain {
 				useIsabelle, prettyOutput, fastProofs, partialProof);
 		checker.setOption(":verbosity", 3);
 		
-		new SMTLIB2Parser().run(checker, args[0]);
+		new SMTLIB2Parser().run(checker, args[0], null);
 	}
 }

@@ -21,7 +21,6 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate;
 import java.util.Collections;
 import java.util.Set;
 
-import org.apache.log4j.Logger;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -31,6 +30,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier.CCTermBuilder;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.EqualityProxy;
@@ -53,7 +53,7 @@ public class InterpolatorTest {
 	Term mA, mB, mS;
 	
 	public InterpolatorTest() {
-		mSolver = new SMTInterpol(Logger.getRootLogger());
+		mSolver = new SMTInterpol(new DefaultLogger());
 		mSolver.setLogic("QF_UFLRA");
 		mReal = mSolver.sort("Real");
 		mSolver.declareFun("a", new Sort[0], mReal);

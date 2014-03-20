@@ -18,7 +18,6 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.convert;
 
-import org.apache.log4j.Logger;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -28,6 +27,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.NoopProofTracker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 
@@ -39,7 +39,7 @@ public class TermCompilerTest {
 	private final TermCompiler mCompiler;
 	
 	public TermCompilerTest() {
-		mSolver = new SMTInterpol(Logger.getRootLogger(), true);
+		mSolver = new SMTInterpol(new DefaultLogger());
 		mSolver.setLogic(Logics.QF_LIA);
 		Sort boolSort = mSolver.sort("Bool");
 		Sort intSort = mSolver.sort("Int");

@@ -30,11 +30,6 @@ import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
 
-import org.apache.log4j.Level;
-import org.apache.log4j.Logger;
-import org.apache.log4j.SimpleLayout;
-import org.apache.log4j.WriterAppender;
-
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
@@ -56,6 +51,8 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.logic.simplification.SimplifyDDA;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
@@ -67,7 +64,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofTermGenerator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.PropProofChecker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.Transformations.AvailableTransformations;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.UnsatCoreCollector;
-import de.uni_freiburg.informatik.ultimate.util.DebugMessage;
 import de.uni_freiburg.informatik.ultimate.util.ScopedArrayList;
 
 /**
@@ -433,12 +429,7 @@ public class SMTInterpol extends NoopScript {
 	private ScopedArrayList<Term> mAssertions;
 	private final TerminationRequest mCancel;
 	
-	private String mOutName = "stdout";
-	private PrintWriter mErr = new PrintWriter(System.err);
-	private String mErrName = "stderr";
-	private SimpleLayout mLayout;
-	private Logger mLogger;
-	private WriterAppender mAppender;
+	private LogProxy mLogger;
 	
 	String mErrorMessage;
 	boolean mProduceModels = false;
@@ -498,46 +489,33 @@ public class SMTInterpol extends NoopScript {
 	private boolean mSimplifyRepeatedly = true;
 	
 	// The option numbers
-	private final static int OPT_PRINT_SUCCESS = 0;
-	private final static int OPT_VERBOSITY = 1;
-	private final static int OPT_TIMEOUT = 2;
-	private final static int OPT_REGULAR_OUTPUT_CHANNEL = 3;
-	private final static int OPT_DIAGNOSTIC_OUTPUT_CHANNEL = 4;
-	private final static int OPT_PRODUCE_PROOFS = 5;
-	private final static int OPT_PRODUCE_MODELS = 6;
-	private final static int OPT_PRODUCE_ASSIGNMENTS = 7;
-	private final static int OPT_RANDOM_SEED = 8;
-	private final static int OPT_INTERACTIVE_MODE = 9;
-	private final static int OPT_INTERPOLANT_CHECK_MODE = 10;
-	private final static int OPT_PRODUCE_INTERPOLANTS = 11;
-	private final static int OPT_PRODUCE_UNSAT_CORES = 12;
-	private final static int OPT_UNSAT_CORE_CHECK_MODE = 13;
-	private final static int OPT_PRINT_TERMS_CSE = 14;
-	private final static int OPT_MODEL_CHECK_MODE = 15;
-	private final static int OPT_PROOF_TRANSFORMATION = 16;
-	private final static int OPT_MODELS_PARTIAL = 17;
-	private final static int OPT_CHECK_TYPE = 18;
-	private final static int OPT_SIMPLIFY_INTERPOLANTS = 19;
-	private final static int OPT_SIMPLIFY_CHECK_TYPE = 20;
-	private final static int OPT_SIMPLIFY_REPEATEDLY = 21;
+	private final static int OPT_VERBOSITY = 0;
+	private final static int OPT_TIMEOUT = 1;
+	private final static int OPT_PRODUCE_PROOFS = 2;
+	private final static int OPT_PRODUCE_MODELS = 3;
+	private final static int OPT_PRODUCE_ASSIGNMENTS = 4;
+	private final static int OPT_RANDOM_SEED = 5;
+	private final static int OPT_INTERACTIVE_MODE = 6;
+	private final static int OPT_INTERPOLANT_CHECK_MODE = 7;
+	private final static int OPT_PRODUCE_INTERPOLANTS = 8;
+	private final static int OPT_PRODUCE_UNSAT_CORES = 9;
+	private final static int OPT_UNSAT_CORE_CHECK_MODE = 10;
+	private final static int OPT_MODEL_CHECK_MODE = 11;
+	private final static int OPT_PROOF_TRANSFORMATION = 12;
+	private final static int OPT_MODELS_PARTIAL = 13;
+	private final static int OPT_CHECK_TYPE = 14;
+	private final static int OPT_SIMPLIFY_INTERPOLANTS = 15;
+	private final static int OPT_SIMPLIFY_CHECK_TYPE = 16;
+	private final static int OPT_SIMPLIFY_REPEATEDLY = 17;
 	//// Add a new option number for every new option
 	
 	// The Options Map
 	private final static OptionMap OPTIONS = new OptionMap();
 	
 	static {
-		new BoolOption(":print-success",
-				"Print \"success\" after successfully executing a command",
-				true, OPT_PRINT_SUCCESS);
 		new IntOption(":verbosity", "Set the verbosity level",
 				true, OPT_VERBOSITY);
 		new IntOption(":timeout", "Set the timeout", true, OPT_TIMEOUT);
-		new StringOption(":regular-output-channel",
-				"Configure the standard output channel",
-				true, OPT_REGULAR_OUTPUT_CHANNEL);
-		new StringOption(":diagnostic-output-channel",
-				"Configure the debug output channel",
-				true, OPT_DIAGNOSTIC_OUTPUT_CHANNEL);
 		new BoolOption(":produce-proofs",
 				"Generate proofs (needed for interpolants)",
 				false, OPT_PRODUCE_PROOFS);
@@ -557,9 +535,6 @@ public class SMTInterpol extends NoopScript {
 				false, OPT_PRODUCE_UNSAT_CORES);
 		new BoolOption(":unsat-core-check-mode", "Check generated unsat cores",
 				false, OPT_UNSAT_CORE_CHECK_MODE);
-		new BoolOption(":print-terms-cse",
-				"Eliminate common subexpressions in output",
-				true, OPT_PRINT_TERMS_CSE);
 		new BoolOption(":model-check-mode",
 				"Check satisfiable formulas against the produced model",
 				false, OPT_MODEL_CHECK_MODE);
@@ -598,53 +573,56 @@ public class SMTInterpol extends NoopScript {
 			    && System.getProperty("smtinterpol.ddfriendly") != null;
 	
 	/**
-	 * Default constructor using the root logger and no user termination
+	 * Default constructor using a default logger and no user termination
 	 * request.  If this constructor is used, SMTInterpol assumes ownership of
 	 * the logger.
 	 */
 	public SMTInterpol() {
-		this(Logger.getRootLogger(), true, new NoUserCancellation());
+		this(new DefaultLogger(), new NoUserCancellation());
 	}
 	
 	/**
 	 * Construct SMTInterpol with a user-owned logger but without user
-	 * termination request.  Note that the logger is assumed to be correctly set
-	 * up.
+	 * termination request.
 	 * @param logger The logger owned by the caller.
 	 */
-	public SMTInterpol(Logger logger) {
-		this(logger, false, new NoUserCancellation());
+	public SMTInterpol(LogProxy logger) {
+		this(logger, new NoUserCancellation());
 	}
 	
 	/**
-	 * Construct SMTInterpol with a but without user termination request.  The
-	 * logger has to be set up correctly if SMTInterpol should not take
-	 * ownership of it.
+	 * Construct SMTInterpol with a logger but without user termination request.
+	 * The logger is assumed to be configured by the user.
 	 * @param logger    The logger owned by the caller.
-	 * @param ownLogger Should SMTInterpol take ownership of the logger?
+	 * @param ignored   This parameter is ignored!
+	 * @deprecated Use a constructor version without the boolean parameter!
 	 */
-	public SMTInterpol(Logger logger, boolean ownLogger) {
-		this(logger, ownLogger, new NoUserCancellation());
+	public SMTInterpol(LogProxy logger, boolean ignored) {
+		this(logger, new NoUserCancellation());
 	}
 	
 	/**
-	 * Default constructor using the root logger and a given user termination
-	 * request.  If this constructor is used, SMTInterpol assumes ownership of
-	 * the logger.
+	 * Default constructor using a default logger and a given user termination
+	 * request.
 	 * @param cancel User termination request to poll during checks.
 	 */
 	public SMTInterpol(TerminationRequest cancel) {
-		this(Logger.getRootLogger(), true, cancel);
+		this(new DefaultLogger(), cancel);
 	}
 	
 	/**
-	 * Construct SMTInterpol with a user-owned logger and a user termination
-	 * request.  Note that the logger is assumed to be correctly set up.
+	 * Construct SMTInterpol with a logger and a user termination
+	 * request.  This is the main constructor of SMTInterpol.
 	 * @param logger The logger owned by the caller.
 	 * @param cancel User termination request to poll during checks.
 	 */
-	public SMTInterpol(Logger logger, TerminationRequest cancel) {
-		this(logger, false, cancel);
+	public SMTInterpol(LogProxy logger, TerminationRequest cancel) {
+		if (cancel == null)
+			cancel = new NoUserCancellation();
+		mLogger = logger;
+		mTimeout = 0;
+		mCancel = cancel;
+		reset();
 	}
 	
 	/**
@@ -652,23 +630,13 @@ public class SMTInterpol extends NoopScript {
 	 * termination request.  Note that the logger is assumed to be correctly set
 	 * up.
 	 * @param logger    The logger owned by the caller.
-	 * @param ownLogger Should SMTInterpol take ownership of the logger?
+	 * @param ignored   This option is ignored!
 	 * @param cancel    User termination request to poll during checks.
+	 * @deprecated Use a constructor version without the boolean parameter.
 	 */
 	public SMTInterpol(
-			Logger logger, boolean ownLogger, TerminationRequest cancel) {
-		if (cancel == null)
-			cancel = new NoUserCancellation();
-		mLogger = logger;
-		if (ownLogger) {
-			mLayout = new SimpleLayout();
-			mAppender = new WriterAppender(mLayout, mErr);
-			mLogger.addAppender(mAppender);
-			mLogger.setLevel(Config.DEFAULT_LOG_LEVEL);
-		}
-		mTimeout = 0;
-		mCancel = cancel;
-		reset();
+			LogProxy logger, boolean ownLogger, TerminationRequest cancel) {
+		this(logger, cancel);
 	}
 	/**
 	 * Copy the current context and modify some pre-theory options.  The copy
@@ -812,10 +780,8 @@ public class SMTInterpol extends NoopScript {
 					default:
 						throw new InternalError("Unknown incompleteness reason");
 					}
-					mLogger.info(
-							new DebugMessage(
-									"Got {0} as reason to return unknown",
-									mEngine.getCompletenessReason()));
+					mLogger.info("Got %s as reason to return unknown",
+									mEngine.getCompletenessReason());
 				}
 			} else {
 				result = LBool.UNSAT;
@@ -834,8 +800,8 @@ public class SMTInterpol extends NoopScript {
 		if (Config.CHECK_STATUS_SET && isStatusSet() 
 				&& mReasonUnknown != ReasonUnknown.MEMOUT
 					&& !mStatus.toString().equals(mStatusSet)) {
-			mLogger.warn("Status differs: User said " + mStatusSet
-					+ " but we got " + mStatus);
+			mLogger.warn("Status differs: User said %s but we got %s",
+					mStatusSet, mStatus);
 		}
 		mStatusSet = null;
 		if (timer != null)
@@ -989,31 +955,10 @@ public class SMTInterpol extends NoopScript {
 		if (o == null)
 			throw new UnsupportedOperationException();
 		switch (o.getOptionNumber()) {
-		case OPT_PRINT_SUCCESS:
-			return mReportSuccess;
 		case OPT_VERBOSITY:
-			switch(mLogger.getLevel().toInt()) {
-			case Level.ALL_INT:
-				return BigInteger.valueOf(6); // NOCHECKSTYLE
-			case Level.DEBUG_INT:
-				return BigInteger.valueOf(5); // NOCHECKSTYLE
-			case Level.INFO_INT:
-				return BigInteger.valueOf(4); // NOCHECKSTYLE
-			case Level.WARN_INT:
-				return BigInteger.valueOf(3); // NOCHECKSTYLE
-			case Level.ERROR_INT:
-				return BigInteger.valueOf(2);
-			case Level.FATAL_INT:
-				return BigInteger.valueOf(1);
-			default:
-				return BigInteger.valueOf(0);
-			}
+			return BigInteger.valueOf(mLogger.getLoglevel());
 		case OPT_TIMEOUT:
 			return BigInteger.valueOf(mTimeout);
-		case OPT_REGULAR_OUTPUT_CHANNEL:
-			return mOutName;
-		case OPT_DIAGNOSTIC_OUTPUT_CHANNEL:
-			return mErrName;
 		case OPT_PRODUCE_PROOFS:
 			return mProduceProofs;
 		case OPT_PRODUCE_MODELS:
@@ -1030,8 +975,6 @@ public class SMTInterpol extends NoopScript {
 			return mProduceUnsatCores;
 		case OPT_UNSAT_CORE_CHECK_MODE:
 			return mUnsatCoreCheckMode;
-		case OPT_PRINT_TERMS_CSE:
-			return mPrintCSE;
 		case OPT_MODEL_CHECK_MODE:
 			return mModelCheckMode;
 		case OPT_PROOF_TRANSFORMATION:
@@ -1152,9 +1095,9 @@ public class SMTInterpol extends NoopScript {
 			tmpBench = new SMTInterpol(this,
 					Collections.singletonMap(":interactive-mode",
 							(Object)Boolean.TRUE));
-			Level old = tmpBench.mLogger.getLevel();
+			int old = tmpBench.mLogger.getLoglevel();
 			try {
-				tmpBench.mLogger.setLevel(Level.ERROR);
+				tmpBench.mLogger.setLoglevel(LogProxy.LOGLEVEL_ERROR);
 				// Clone the current context except for the parts used in the
 				// interpolation problem
 				collector = new SymbolCollector();
@@ -1174,7 +1117,7 @@ public class SMTInterpol extends NoopScript {
 				}
 				globals = collector.getTheorySymbols();
 			} finally {
-				tmpBench.mLogger.setLevel(old);
+				tmpBench.mLogger.setLoglevel(old);
 			}
 			// free space
 			usedParts = null;
@@ -1192,9 +1135,9 @@ public class SMTInterpol extends NoopScript {
 		
 		if (mInterpolantCheckMode) {
 			boolean error = false;
-			Level old = tmpBench.mLogger.getLevel();
+			int old = tmpBench.mLogger.getLoglevel();
 			try {
-				tmpBench.mLogger.setLevel(Level.ERROR);
+				tmpBench.mLogger.setLoglevel(LogProxy.LOGLEVEL_ERROR);
 				// Compute Symbol occurrence
 				Map<FunctionSymbol, Integer>[] occs =
 					new Map[partition.length];
@@ -1240,26 +1183,24 @@ public class SMTInterpol extends NoopScript {
 					if (res != LBool.UNSAT) {
 						if (mDDFriendly)
 							System.exit(2);
-						mLogger.error(new DebugMessage(
-						        "Interpolant {0} not inductive: "
-								+ " (Check returned {1})", i, res));
+						mLogger.error("Interpolant %d not inductive: "
+								+ " (Check returned %s)", i, res);
 						error = true;
 					}
 					tmpBench.pop(1);
 					// Check symbol condition
 					if (i != ipls.length 
 						&& checker.check(ipls[i], occs[i], occs[ipls.length])) {
-						mLogger.error(new DebugMessage(
-								"Symbol error in Interpolant {0}.  "
-								+ "Subtree only symbols: {1}.  "
-								+ "Non-subtree only symbols: {2}.", i,
+						mLogger.error("Symbol error in Interpolant %d.  "
+								+ "Subtree only symbols: %s.  "
+								+ "Non-subtree only symbols: %s.", i,
 								checker.getLeftErrors(),
-								checker.getRightErrors()));
+								checker.getRightErrors());
 						error = true;
 					}
 				}
 			} finally {
-				tmpBench.mLogger.setLevel(old);
+				tmpBench.mLogger.setLoglevel(old);
 				// Not needed for now, but maybe later...
 				tmpBench.exit();
 			}
@@ -1296,9 +1237,9 @@ public class SMTInterpol extends NoopScript {
 			for (Term t : core)
 				usedParts.add(((ApplicationTerm)t).getFunction().getName());
 			SMTInterpol tmpBench = new SMTInterpol(this, null);
-			Level old = tmpBench.mLogger.getLevel();
+			int old = tmpBench.mLogger.getLoglevel();
 			try {
-				tmpBench.mLogger.setLevel(Level.ERROR);
+				tmpBench.mLogger.setLoglevel(LogProxy.LOGLEVEL_ERROR);
 				// Clone the current context except for the parts used in
 				// the unsat core
 			termloop:
@@ -1317,12 +1258,12 @@ public class SMTInterpol extends NoopScript {
 					tmpBench.assertTerm(t);
 				LBool isUnsat = tmpBench.checkSat();
 				if (isUnsat != LBool.UNSAT) {
-					mLogger.error(new DebugMessage(
-							"Unsat core could not be proven unsat (Result is {0})",
-							isUnsat));
+					mLogger.error(
+							"Unsat core could not be proven unsat (Result is %s)",
+							isUnsat);
 				}
 			} finally {
-				tmpBench.mLogger.setLevel(old);
+				tmpBench.mLogger.setLoglevel(old);
 				// Not needed for now, but maybe later...
 				tmpBench.exit();
 			}
@@ -1396,29 +1337,15 @@ public class SMTInterpol extends NoopScript {
 			throw new UnsupportedOperationException();
 		checkOnlineModifyable(o);
 		switch (o.getOptionNumber()) {
-		case OPT_PRINT_SUCCESS:
-			mReportSuccess = o.checkArg(value, mReportSuccess);
-			break;
 		case OPT_VERBOSITY:
 			BigInteger blevel = o.checkArg(value, BigInteger.ZERO);// FAKE...
 			int level = blevel.bitLength() >= 32 ?  // NOCHECKSTYLE
 					Integer.MAX_VALUE : blevel.intValue();
-			if (level > 5) // NOCHECKSTYLE
-				mLogger.setLevel(Level.ALL);
-			else if (level > 4) // NOCHECKSTYLE
-				mLogger.setLevel(Level.DEBUG);
-			else if (level > 3) // NOCHECKSTYLE
-				mLogger.setLevel(Level.INFO);
-			else if (level > 2)
-				mLogger.setLevel(Level.WARN);
-			else if (level > 1)
-				mLogger.setLevel(Level.ERROR);
-			else if (level > 0)
-				mLogger.setLevel(Level.FATAL);
-			else if (level == -1)
-				mLogger.setLevel(Level.TRACE);
-			else
-				mLogger.setLevel(Level.OFF);
+			if (level > LogProxy.LOGLEVEL_TRACE)
+				level = LogProxy.LOGLEVEL_TRACE;
+			if (level < LogProxy.LOGLEVEL_OFF)
+				level = LogProxy.LOGLEVEL_OFF;
+			mLogger.setLoglevel(level);
 			break;
 		case OPT_TIMEOUT:
 		{
@@ -1432,22 +1359,6 @@ public class SMTInterpol extends NoopScript {
 				mTimeout = Long.MAX_VALUE;
 			break;
 		}
-		case OPT_REGULAR_OUTPUT_CHANNEL:
-			mOutName = o.checkArg(value, mOutName);
-			break;
-		case OPT_DIAGNOSTIC_OUTPUT_CHANNEL:
-			if (mAppender == null)
-				throw new SMTLIBException("SMTInterpol does not own the logger");
-			try {
-				String arg = o.checkArg(value, mErrName);
-				mErr = createChannel(arg);
-				mAppender.setWriter(mErr);
-				mErrName = arg;
-			} catch (IOException ex) {
-				mLogger.error(ex);
-				throw new SMTLIBException("file not found: " + value);
-			}
-			break;
 		case OPT_PRODUCE_PROOFS:
 			if (mProduceProofs = o.checkArg(value, mProduceProofs))
 				mProofMode = 2;
@@ -1490,9 +1401,6 @@ public class SMTInterpol extends NoopScript {
 			if ((mUnsatCoreCheckMode = o.checkArg(value, mUnsatCoreCheckMode))
 				 && mAssertions == null)
 					mAssertions = new ScopedArrayList<Term>();
-			break;
-		case OPT_PRINT_TERMS_CSE:
-			mPrintCSE = o.checkArg(value, mPrintCSE);
 			break;
 		case OPT_MODEL_CHECK_MODE:
 			if ((mModelCheckMode = o.checkArg(value, mModelCheckMode))
@@ -1596,7 +1504,7 @@ public class SMTInterpol extends NoopScript {
 	 * Access to the logger used by SMTInterpol.
 	 * @return The logger used by SMTInterpol.
 	 */
-	public Logger getLogger() {
+	public LogProxy getLogger() {
 		return mLogger;
 	}	
 

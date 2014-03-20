@@ -18,8 +18,6 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.samples;
 
-import org.apache.log4j.Logger;
-
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
@@ -27,6 +25,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 
 public final class InterpolationUsageStub {
@@ -37,7 +36,7 @@ public final class InterpolationUsageStub {
 
 	public static void main(String[] args) {
 		try {
-			Script s = new SMTInterpol(Logger.getRootLogger(), true);
+			Script s = new SMTInterpol(new DefaultLogger());
 			s.setOption(":produce-proofs", true);
 			s.setLogic(Logics.QF_LIA);
 			s.declareFun("x", new Sort[0], s.sort("Int"));

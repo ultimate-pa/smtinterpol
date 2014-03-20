@@ -27,8 +27,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 
-import org.apache.log4j.Logger;
-
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
@@ -40,6 +38,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.BooleanVarAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ClauseDeletionHook;
@@ -1600,7 +1599,7 @@ public class Clausifier {
 	 */
 	private boolean mWarnedFailedPush = false;
 	
-	private final Logger mLogger;
+	private final LogProxy mLogger;
 	/**
 	 * A tracker for proof production.
 	 */
@@ -1972,7 +1971,7 @@ public class Clausifier {
 		return mLASolver;
 	}
 	
-	public Logger getLogger() {
+	public LogProxy getLogger() {
 		return mLogger;
 	}
 	

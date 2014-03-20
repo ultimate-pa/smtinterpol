@@ -18,27 +18,26 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.dpll;
 
-import junit.framework.TestCase;
-
-import org.apache.log4j.Logger;
 import org.junit.Assert;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 
-
-public class Incremental extends TestCase {
+@RunWith(JUnit4.class)
+public class Incremental {
 	
 	@Test
 	public void testPushPop() throws Exception {
-		Logger logger = Logger.getRootLogger();
         // Setup theory and formulae
-		Script script = new SMTInterpol(logger);
+		Script script = new SMTInterpol(new DefaultLogger());
 		script.setLogic(Logics.QF_UFLIA);
 		Sort intSort = script.sort("Int");
 		script.declareFun("f", new Sort[] {intSort}, intSort);

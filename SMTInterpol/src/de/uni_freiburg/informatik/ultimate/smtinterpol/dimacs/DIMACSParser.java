@@ -24,12 +24,13 @@ import java.io.Reader;
 
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.IParser;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.MySymbolFactory;
 
 public class DIMACSParser implements IParser {
 
 	@Override
-	public int run(Script solver, String filename) {
+	public int run(Script solver, String filename, LogProxy ignored) {
 		try {
 			MySymbolFactory symfactory = new MySymbolFactory();
 			Reader reader;

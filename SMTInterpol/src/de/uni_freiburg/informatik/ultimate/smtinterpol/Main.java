@@ -132,8 +132,9 @@ public final class Main {
 			usage();
 			return;
 		}
+		DefaultLogger mLogger = null;
 		if (solver == null)
-			solver = new SMTInterpol();
+			solver = new SMTInterpol(mLogger = new DefaultLogger());
 		solver.setOption(":print-success", printSuccess);
 		if (verbosity != null)
 			solver.setOption(":verbosity", verbosity);
@@ -141,7 +142,7 @@ public final class Main {
 			solver.setOption(":timeout", timeout);
 		if (seed != null)
 			solver.setOption(":random-seed", seed);
-		int exitCode = parser.run(solver, filename);
+		int exitCode = parser.run(solver, filename, mLogger);
 		System.exit(exitCode);
 	}
 

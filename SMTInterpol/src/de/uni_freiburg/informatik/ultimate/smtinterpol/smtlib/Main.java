@@ -23,16 +23,10 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.math.BigInteger;
 
-import org.apache.log4j.Appender;
-import org.apache.log4j.Layout;
-import org.apache.log4j.Level;
-import org.apache.log4j.Logger;
-import org.apache.log4j.SimpleLayout;
-import org.apache.log4j.WriterAppender;
-
 import de.uni_freiburg.informatik.ultimate.logic.LoggingScript;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.MySymbolFactory;
 
@@ -103,14 +97,10 @@ public final class Main {
 		parser.setFileName(filename);
 		Script solver = null;
 		if (conversionFile == null) 
-			solver = new SMTInterpol(Logger.getRootLogger(), true);
+			solver = new SMTInterpol(new DefaultLogger());
 		else {
 			try {
 				solver = new LoggingScript(conversionFile, false);
-				Layout layout = new SimpleLayout();
-				Appender appender = new WriterAppender(layout, System.err);
-		        Logger.getRootLogger().addAppender(appender);
-		        Logger.getRootLogger().setLevel(Level.INFO);
 			} catch (Exception exc) {
 				exc.printStackTrace(System.err);
 				System.exit(1);

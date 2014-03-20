@@ -29,9 +29,6 @@ import java.util.HashSet;
 import java.util.Map.Entry;
 import java.util.Set;
 
-import org.apache.log4j.Level;
-import org.apache.log4j.Logger;
-
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
@@ -43,6 +40,7 @@ import de.uni_freiburg.informatik.ultimate.logic.TermTransformer;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SharedTerm;
@@ -186,7 +184,7 @@ public class Interpolator {
 
 	SMTInterpol mSmtSolver;
 
-	Logger mLogger;
+	LogProxy mLogger;
 	Theory mTheory;
 	int mNumInterpolants;
 	/**
@@ -221,7 +219,7 @@ public class Interpolator {
 	
 	
 
-	public Interpolator(Logger logger, SMTInterpol smtSolver, Theory theory, 
+	public Interpolator(LogProxy logger, SMTInterpol smtSolver, Theory theory, 
 			Set<String>[] partitions, int[] startOfSubTrees) {
 		mPartitions = new HashMap<String, Integer>();
 		for (int i = 0; i < partitions.length; i++) {
@@ -241,7 +239,7 @@ public class Interpolator {
 		mInterpolants = new HashMap<Clause,Interpolant[]>();
 	}
 
-	public Interpolator(Logger logger, Theory theory, 
+	public Interpolator(LogProxy logger, Theory theory, 
 			Set<String>[] partitions, Clausifier clausifier) {
 		this(logger, null, theory, partitions, new int[partitions.length]);
 	}
@@ -267,8 +265,8 @@ public class Interpolator {
 	}
 	
 	private void checkInductivity(Collection<Literal> clause, Interpolant[] ipls) {
-		Level old = mLogger.getLevel();// NOPMD
-		mLogger.setLevel(Level.ERROR);
+		int old = mLogger.getLoglevel();// NOPMD
+		mLogger.setLoglevel(LogProxy.LOGLEVEL_ERROR);
 
 		mSmtSolver.push(1);
 		
@@ -447,7 +445,7 @@ public class Interpolator {
 			mSmtSolver.pop(1);
 		}
 		mSmtSolver.pop(1);
-		mLogger.setLevel(old);
+		mLogger.setLoglevel(old);
 	}
 
 	public Interpolant[] interpolate(Clause cl) {
@@ -472,20 +470,20 @@ public class Interpolator {
 				interpolants[i] = new Interpolant(primInterpolants[i].mTerm);
 			}
 			
-			mLogger.debug(new DebugMessage("Resolution Primary: {0}", prim));
+			mLogger.debug("Resolution Primary: %s", prim);
 
 			for (Antecedent assump : resNode.getAntecedents()) {
 				Interpolant[] assInterp = interpolate(assump.mAntecedent);
 				Literal pivot = assump.mPivot;
 				LitInfo pivInfo = mLiteralInfos.get(pivot.getAtom());
 
-				mLogger.debug(new DebugMessage("Interpolating for {0}", assump));
+				mLogger.debug("Interpolating for %s", assump);
 
 				for (int i = 0; i < mNumInterpolants; i++) {
-					mLogger.debug(new DebugMessage(
-					        "Pivot {2}{3} on interpolants {0} and {1} gives...",
+					mLogger.debug(
+					        "Pivot %3$s%4%s on interpolants %1$s and %2$s gives...",
 									interpolants[i], assInterp[i], 
-									pivot.getSMTFormula(mTheory), pivInfo));
+									pivot.getSMTFormula(mTheory), pivInfo);
 					if (pivInfo.isALocal(i)) {
 						interpolants[i].mTerm = mTheory.or(
 						        interpolants[i].mTerm, assInterp[i].mTerm);

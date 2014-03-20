@@ -72,13 +72,12 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.demo;
 
-import org.apache.log4j.Logger;
-
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 
 /**
@@ -105,7 +104,7 @@ public final class Spin2012 {
 		// Hide constructor
 	}
 	public static void main(String[] args) {
-		SMTInterpol script = new SMTInterpol(Logger.getRootLogger(), true);
+		SMTInterpol script = new SMTInterpol(new DefaultLogger());
 		script.setOption(":produce-proofs", true);
 		script.setLogic(Logics.QF_UFLIA);
 		script.declareFun("x", new Sort[0], script.sort("Int"));
