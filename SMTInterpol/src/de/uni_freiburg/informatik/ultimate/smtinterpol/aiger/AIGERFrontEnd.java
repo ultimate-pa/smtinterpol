@@ -34,7 +34,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.IParser;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 
 public class AIGERFrontEnd implements IParser {
 	
@@ -368,7 +368,16 @@ public class AIGERFrontEnd implements IParser {
 	}
 
 	@Override
-	public int run(Script solver, String filename, LogProxy ignored) {
+	public int run(Script solver, String filename, boolean ignored,
+			String verbosity, String timeout, String randomSeed) {
+		if (solver == null)
+			solver = new SMTInterpol();
+		if (verbosity != null)
+			solver.setOption(":verbosity", verbosity);
+		if (timeout != null)
+			solver.setOption(":timeout", timeout);
+		if (randomSeed != null)
+			solver.setOption(":random-seed", randomSeed);
 		mSolver = solver;
 		if (filename == null) {
 			filename = "<stdin>";

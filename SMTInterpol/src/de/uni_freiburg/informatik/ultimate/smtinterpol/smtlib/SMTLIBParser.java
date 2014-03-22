@@ -25,13 +25,14 @@ import java.io.Reader;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.IParser;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.MySymbolFactory;
 
 public class SMTLIBParser implements IParser {
 
 	@Override
-	public int run(Script solver, String filename, LogProxy ignored) {
+	public int run(Script script, String filename, boolean printSucces,
+			String verbosity, String timeout, String randomSeed) {
 		try {
 			MySymbolFactory symfactory = new MySymbolFactory();
 			Reader reader;
@@ -45,7 +46,15 @@ public class SMTLIBParser implements IParser {
 			lexer.setSymbolFactory(symfactory);
 			Parser parser = new Parser(lexer, symfactory);
 			parser.setFileName(filename);
-			parser.setSolver(solver, false);
+			if (script == null)
+				script = new SMTInterpol();
+			if (verbosity != null)
+				script.setOption(":verbosity", verbosity);
+			if (timeout != null)
+				script.setOption(":timeout", timeout);
+			if (randomSeed != null)
+				script.setOption(":randomSeed", randomSeed);
+			parser.setSolver(script, false);
 			parser.parse();
 			Term[] interpolants = parser.benchmark.check();
 			if (interpolants != null) {
@@ -59,4 +68,5 @@ public class SMTLIBParser implements IParser {
 			return 1;
 		}
 	}
+
 }

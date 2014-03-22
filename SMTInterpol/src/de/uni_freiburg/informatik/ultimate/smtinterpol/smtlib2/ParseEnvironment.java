@@ -56,18 +56,20 @@ public class ParseEnvironment {
 	private String mErrName = "stderr";
 	private DefaultLogger mLogger;
 	
-	public ParseEnvironment(Script script) {
-		this(script, (ExitHook) null);
+	public ParseEnvironment() {
+		this(null, null);
 	}
 	
-	public ParseEnvironment(Script script, DefaultLogger logger) {
-		this(script, (ExitHook) null);
-		mLogger = logger;
-		
+	public ParseEnvironment(Script script) {
+		this(script, null);
 	}
 	
 	public ParseEnvironment(Script script, ExitHook exit) {
-		mScript = script;
+		if (script == null) {
+			mLogger = new DefaultLogger();
+			mScript = new SMTInterpol(mLogger);
+		} else
+			mScript = script;
 		mExitHook = exit;
 	}
 	

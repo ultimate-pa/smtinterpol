@@ -20,23 +20,43 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2;
 
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.IParser;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 
 public class SMTLIB2Parser implements IParser {
 
 	@Override
-	public int run(Script solver, String filename, LogProxy logger) {
+	public int run(Script script, String filename, boolean printSucces,
+			String verbosity, String timeout, String randomSeed) {
 		if (filename == null)
 			filename = "<stdin>";
-        ParseEnvironment parseEnv = logger instanceof DefaultLogger
-        		? new ParseEnvironment(solver, (DefaultLogger) logger)
-        			: new ParseEnvironment(solver);
+        ParseEnvironment parseEnv = new ParseEnvironment(script);
         try {
-        	// Have to carry this option through
-        	parseEnv.setOption(":print-success",
-        			solver.getOption(":print-success"));
+        	parseEnv.setOption(":print-success", printSucces);
+        } catch (SMTLIBException se) {
+        	parseEnv.printError(se.getMessage());
+        }
+        if (verbosity != null) {
+        	try {
+            	parseEnv.setOption(":verbosity", verbosity);
+            } catch (SMTLIBException se) {
+            	parseEnv.printError(se.getMessage());
+            }
+        }
+        if (timeout != null) {
+        	try {
+            	parseEnv.setOption(":timeout", timeout);
+            } catch (SMTLIBException se) {
+            	parseEnv.printError(se.getMessage());
+            }
+        }
+        if (randomSeed != null) {
+        	try {
+            	parseEnv.setOption(":random-seed", randomSeed);
+            } catch (SMTLIBException se) {
+            	parseEnv.printError(se.getMessage());
+            }
+        }
+        try {	
         	parseEnv.parseScript(filename);
         } catch (SMTLIBException se) {
         	parseEnv.printError(se.getMessage());

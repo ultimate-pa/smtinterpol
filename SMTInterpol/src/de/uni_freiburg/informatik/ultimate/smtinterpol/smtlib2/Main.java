@@ -20,7 +20,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2;
 
 import java.math.BigInteger;
 
-import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
+import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 
 public final class Main {
     
@@ -34,47 +34,32 @@ public final class Main {
 	}
 	
 	public static void main(String[] param) {
-		DefaultLogger logger = new DefaultLogger();
         int paramctr = 0;
-        SMTInterpol benchmark = new SMTInterpol(logger);
+        ParseEnvironment parseEnv = new ParseEnvironment();
         while (paramctr < param.length
         		&& param[paramctr].startsWith("-")) {
-        	if (param[paramctr].equals("--")) {
-        		paramctr++;
-        		break;
-        	} else if (param[paramctr].equals("-v")) {
-        		benchmark.setOption(":verbosity", BigInteger.valueOf(5)); // NOCHECKSTYLE
-        		paramctr++;
-        	} else if (param[paramctr].equals("-q")) {
-        		benchmark.setOption(":verbosity", BigInteger.valueOf(3)); // NOCHECKSTYLE
-        		paramctr++;
-        	} else if (param[paramctr].equals("-t") && ++paramctr < param.length) {
-        		try {
-        			int timeout = Integer.parseInt(param[paramctr]);
-        			if (timeout < 0) {
-        				logger.error("Cannot parse timeout argument: Negative number");
-        			} else {
-        				benchmark.setOption(":timeout", BigInteger.valueOf(timeout));
-        			}
-        		} catch (NumberFormatException enfe) {
-    				logger.error("Cannot parse timeout argument: Not a number");
-        		}
-        		paramctr++;
-        	} else if (param[paramctr].equals("-r") && ++paramctr < param.length) {
-        		try {
-        			int seed = Integer.parseInt(param[paramctr]);
-        			if (seed < 0) {
-        				logger.error("Cannot parse random seed argument: Negative number");
-        			} else {
-        				benchmark.setOption(":random-seed", BigInteger.valueOf(seed));
-        			}
-        		} catch (NumberFormatException enfe) {
-    				logger.error("Cannot parse random seed argument: Not a number");
-        		}
-        		paramctr++;
-        	} else {
-        		usage();
-        		return;
+        	try {
+	        	if (param[paramctr].equals("--")) {
+	        		paramctr++;
+	        		break;
+	        	} else if (param[paramctr].equals("-v")) {
+	        		parseEnv.setOption(":verbosity", BigInteger.valueOf(5)); // NOCHECKSTYLE
+	        		paramctr++;
+	        	} else if (param[paramctr].equals("-q")) {
+	        		parseEnv.setOption(":verbosity", BigInteger.valueOf(3)); // NOCHECKSTYLE
+	        		paramctr++;
+	        	} else if (param[paramctr].equals("-t") && ++paramctr < param.length) {
+	        		parseEnv.setOption(":timeout", param[paramctr]);
+	        		paramctr++;
+	        	} else if (param[paramctr].equals("-r") && ++paramctr < param.length) {
+	   				parseEnv.setOption(":random-seed", param[paramctr]);
+	        		paramctr++;
+	        	} else {
+	        		usage();
+	        		return;
+	        	}
+        	} catch (SMTLIBException eParams) {
+        		System.err.println(eParams.getMessage());
         	}
         }
 		String filename;
@@ -87,7 +72,6 @@ public final class Main {
 			usage();
 			return;
 		}
-        ParseEnvironment parseEnv = new ParseEnvironment(benchmark, logger);
         parseEnv.parseScript(filename);
 	}
 }

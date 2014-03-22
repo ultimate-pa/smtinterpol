@@ -18,14 +18,11 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol;
 
-import java.math.BigInteger;
-
 import de.uni_freiburg.informatik.ultimate.logic.LoggingScript;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.aiger.AIGERFrontEnd;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dimacs.DIMACSParser;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib.SMTLIBParser;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTLIB2Parser;
 
 /**
@@ -59,9 +56,9 @@ public final class Main {
 	 * @param param Command line arguments.
 	 */
 	public static void main(String[] param) throws Exception {
-		BigInteger verbosity = null;
-		BigInteger timeout = null;
-		BigInteger seed = null;
+		String verbosity = null;
+		String timeout = null;
+		String seed = null;
 		IParser parser = new SMTLIB2Parser();
 		Script solver = null;
 		boolean printSuccess = true;
@@ -83,32 +80,15 @@ public final class Main {
         	} else if (param[paramctr].equals("-no-success")) {
         		printSuccess = false;
         	} else if (param[paramctr].equals("-v")) {
-        		verbosity = BigInteger.valueOf(5);// NOCHECKSTYLE
+        		verbosity = "5";
         	} else if (param[paramctr].equals("-q")) {
-        		verbosity = BigInteger.valueOf(2);// NOCHECKSTYLE
+        		verbosity = "2";
         	} else if (param[paramctr].equals("-t")
         			&& ++paramctr < param.length) {
-        		try {
-        			timeout = new BigInteger(param[paramctr]);
-        			if (timeout.signum() <= 0) {
-        				timeout = null;
-        				System.err.println(
-        						"Cannot parse timeout argument: Non-positive number");// NOCHECKSTYLE
-        			}
-        		} catch (NumberFormatException enfe) {
-        			System.err.println("Cannot parse timeout argument: Not a number");// NOCHECKSTYLE
-        		}
+       			timeout = param[paramctr];
         	} else if (param[paramctr].equals("-r")
         			&& ++paramctr < param.length) {
-        		try {
-        			seed = new BigInteger(param[paramctr]);
-        			if (seed.signum() < 0) {
-        				System.err.println("Cannot parse random seed argument: Negative number");// NOCHECKSTYLE
-        				seed = null;
-        			}
-        		} catch (NumberFormatException enfe) {
-    				System.err.println("Cannot parse random seed argument: Not a number");// NOCHECKSTYLE
-        		}
+       			seed = param[paramctr];
         	} else if (param[paramctr].equals("-smt2")) {
         		parser = new SMTLIB2Parser();
         	} else if (param[paramctr].equals("-smt")) {
@@ -118,7 +98,7 @@ public final class Main {
         	} else if (param[paramctr].equals("-a")) {
         		parser = new AIGERFrontEnd();
         	} else if (param[paramctr].equals("-trace")) {
-        		verbosity = BigInteger.ONE.negate();
+        		verbosity = "6";
         	} else {
         		usage();
         		return;
@@ -132,17 +112,8 @@ public final class Main {
 			usage();
 			return;
 		}
-		DefaultLogger mLogger = null;
-		if (solver == null)
-			solver = new SMTInterpol(mLogger = new DefaultLogger());
-		solver.setOption(":print-success", printSuccess);
-		if (verbosity != null)
-			solver.setOption(":verbosity", verbosity);
-		if (timeout != null)
-			solver.setOption(":timeout", timeout);
-		if (seed != null)
-			solver.setOption(":random-seed", seed);
-		int exitCode = parser.run(solver, filename, mLogger);
+		int exitCode = parser.run(
+			solver, filename, printSuccess, verbosity, timeout, seed);
 		System.exit(exitCode);
 	}
 
