@@ -21,88 +21,108 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
+import java.util.ListIterator;
 
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.EqualityProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.LeafNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.ArrayAnnotation.RuleKind;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.ArrayTheory.ArrayNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTermPairHash.Info;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.WeakEQEntry.EntryPair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
 
+/**
+ * Class to compute weak congruence paths and the extended select over
+ * store lemmata.
+ * 
+ * @author hoenicke
+ */
 public class WeakCongruencePath extends CongruencePath {
 	
-	private static class WeakSubPath {
+	/**
+	 * A simple cursor to iterate simultaneously through the
+	 * array nodes and the ccterms.
+	 * 
+	 * @author hoenicke
+	 */
+	private static class Cursor {
+		public CCTerm mTerm;
+		public ArrayNode mArrayNode;
 		
+		public Cursor(CCTerm term, ArrayNode arrayNode) {
+			mTerm = term;
+			mArrayNode = arrayNode;
+		}
+		
+		public void update(CCTerm term, ArrayNode arrayNode) {
+			mTerm = term;
+			mArrayNode = arrayNode;
+		}
+	}
+	
+	private class WeakSubPath {
 		private final CCTerm mIdx;
+		private final CCTerm mIdxRep;
+		private final ArrayList<CCTerm> mTermsOnPath;
+		private final ArrayList<CCEquality> mLitsOnPath;
 		
-		private final ArrayList<Object> mPath = new ArrayList<Object>();
-		
-		private final boolean mProduceProofs;
-		
-		public WeakSubPath(CCTerm idx, boolean produceProofs) {
+		public WeakSubPath(CCTerm idx, CCTerm start, boolean produceProofs) {
 			mIdx = idx;
-			mProduceProofs = produceProofs;
-		}
-		
-		public void storeInto(CCTerm[] weakIndices, CCTerm[][] weakpaths, int i) {
-			assert mProduceProofs;
-			ArrayList<CCTerm> path = new ArrayList<CCTerm>();
-			CCTerm last = null;
-			for (Object o : mPath) {
-				if (o instanceof SubPath) {
-					SubPath sub = (SubPath) o;
-					if (last == sub.mTermsOnPath.get(0)) {
-						for (int j = 1; j < sub.mTermsOnPath.size(); ++j)
-							path.add(sub.mTermsOnPath.get(j));
-					} else
-						path.addAll(sub.mTermsOnPath);
-					last = sub.mTermsOnPath.get(sub.mTermsOnPath.size() - 1);
-				} else if (o instanceof CCTerm) {
-					CCTerm co = (CCTerm) o;
-					if (co != last) {
-						path.add(co);
-						last = co;
-					}
-				} else {
-					throw new InternalError(
-							"Encountered unexpected element on weak path");
-				}
-			}
-			// allocate memory
-			weakIndices[i] = mIdx;
-			weakpaths[i] = path.toArray(new CCTerm[path.size()]);
-		}
-		
-		void addSubPath(SubPath p) {
-			if (mProduceProofs)
-				mPath.add(p);
-		}
-		
-		void addEmptySubPath(CCTerm l) {
-			if (mProduceProofs)
-				mPath.add(l);
-		}
-		
-		void addModuloStep(WeakEQiEntry e, boolean inOrder) { // NOPMD
-			if (mProduceProofs) {
-				assert e.isModuloStep();
-				if (inOrder) {
-					mPath.add(e.getLeftSelect());
-					mPath.add(e.getRightSelect());
-				} else {
-					mPath.add(e.getRightSelect());
-					mPath.add(e.getLeftSelect());
-				}
-			}
+			mIdxRep = idx.getRepresentative();
+			mTermsOnPath = produceProofs ? new ArrayList<CCTerm>() : null;
+			mLitsOnPath = produceProofs ? new ArrayList<CCEquality>() : null;
+			if (produceProofs)
+				mTermsOnPath.add(start);
 		}
 		
 		public String toString() {
-			return mPath.toString();
+			return "Weakpath " + mIdx + 
+					(mTermsOnPath != null ? " " + mTermsOnPath.toString() : "");
+		}
+
+		public void addTerm(CCTerm term) {
+			if (mTermsOnPath != null) {
+				mTermsOnPath.add(term);
+				mLitsOnPath.add(null);
+			}
+		}
+
+		public void addSubPath(SubPath path) {
+			if (mTermsOnPath != null) {
+				assert (path.mTermsOnPath.get(0) 
+						== mTermsOnPath.get(mTermsOnPath.size() - 1));
+				for (int i = 0; i < path.mLitsOnPath.size(); i++) {
+					mTermsOnPath.add(path.mTermsOnPath.get(i + 1));
+					mLitsOnPath.add(path.mLitsOnPath.get(i));
+				}
+			}
+		}
+
+		void addReverse(WeakSubPath p) {
+			if (mTermsOnPath != null) {
+				assert (mTermsOnPath.get(mTermsOnPath.size()-1)
+						== p.mTermsOnPath.get(p.mTermsOnPath.size()-1)); 
+				ListIterator<CCTerm> it = 
+						p.mTermsOnPath.listIterator(p.mTermsOnPath.size()-1);
+				while (it.hasPrevious())
+					mTermsOnPath.add(it.previous());
+				ListIterator<CCEquality> itLit = 
+						p.mLitsOnPath.listIterator(p.mLitsOnPath.size());
+				while (itLit.hasPrevious())
+					mLitsOnPath.add(itLit.previous());
+			}
+		}
+		
+		public WeakSubPath createEmptyCopy(CCTerm start) {
+			return new WeakSubPath(mIdx, start, mTermsOnPath != null);
+		}
+
+		public void storeInto(CCTerm[] idxs, CCTerm[][] paths, int i) {
+			idxs[i] = mIdx;
+			paths[i] = mTermsOnPath.toArray(new CCTerm[mTermsOnPath.size()]);
 		}
 	}
 
@@ -127,35 +147,137 @@ public class WeakCongruencePath extends CongruencePath {
 	}
 	
 	public Clause computeSelectOverWeakEQ(CCAppTerm select1, CCAppTerm select2,
-			Map<SymmetricPair<CCTerm>, WeakEQEntry> weakeq,
 			boolean produceProofs, Deque<Literal> suggestions) {
 		CCEquality eq = createEquality(select1, select2);
+
 		CCTerm i1 = select1.getArg();
 		CCTerm i2 = select2.getArg();
 		CCTerm a = ((CCAppTerm) select1.getFunc()).getArg();
 		CCTerm b = ((CCAppTerm) select2.getFunc()).getArg();
 		mMainPath = computePath(i1, i2);
 		WeakSubPath weakpath =
-				computeWeakPath(a, b, i1, weakeq, false, produceProofs);
+				computeWeakPath(a, b, i1.mRepStar, produceProofs);
 		mWeakPaths.add(weakpath);
+
 		return generateClause(eq, produceProofs, suggestions,
 				RuleKind.READ_OVER_WEAKEQ);
 	}
 	
 	public Clause computeWeakeqExt(CCTerm a, CCTerm b,
-			WeakEQEntry weakpaths,
-			HashMap<SymmetricPair<CCTerm>, WeakEQEntry> weakeq,
 			boolean produceProofs, ArrayDeque<Literal> suggestions) {
 		CCEquality eq = createEquality(a, b);
-		for (CCTerm storeidx : weakpaths.getEntries().keySet()) {
-			WeakSubPath weakpath =
-					computeWeakPath(a, b, storeidx, weakeq, true, produceProofs);
+		
+		HashSet<CCTerm> storeIndices = new HashSet<CCTerm>();
+		mMainPath = computeStoreBackbone(a, b, storeIndices, produceProofs);
+		for (CCTerm idx : storeIndices) {
+			WeakSubPath weakpath = computeWeakPathWithModulo(a, b, idx, produceProofs);
 			mWeakPaths.add(weakpath);
 		}
 		return generateClause(eq, produceProofs, suggestions,
 				RuleKind.WEAKEQ_EXT);
 	}
+	
+	public void computeBackboneStep(Cursor cursor, SubPath path, 
+			HashSet<CCTerm> storeIndices) {
+		ArrayNode node = cursor.mArrayNode;
+		CCAppTerm store = node.mStoreReason;
+		CCTerm t1 = store;
+		CCTerm t2 = ArrayTheory.getArrayFromStore(store);
+		if (t2.mRepStar == cursor.mArrayNode.mTerm) {
+			CCTerm t = t2;
+			t2 = t1;
+			t1 = t;
+		}
+		assert t1.mRepStar == node.mTerm;
+		assert t2.mRepStar == node.mStoreEdge.mTerm;
+		SubPath sub = computePath(cursor.mTerm, t1);
+		if (path != null) {
+			path.addForward(sub);
+			path.addEntry(t2, null);
+		}
+		cursor.update(t2, node.mStoreEdge);
+		storeIndices.add(ArrayTheory.getIndexFromStore(store));
+	}
+	
+	public SubPath computeStoreBackbone(CCTerm ccArray1, CCTerm ccArray2, 
+			HashSet<CCTerm> storeIndices, boolean produceProofs) {
+		Cursor cursor1 = new Cursor(ccArray1, 
+				mArrayTheory.mCongRoots.get(ccArray1.getRepresentative())); 
+		Cursor cursor2 = new Cursor(ccArray2, 
+				mArrayTheory.mCongRoots.get(ccArray2.getRepresentative())); 
+		SubPath path1 = null;
+		SubPath path2 = null;
+		if (produceProofs) {
+			path1 = new SubPath(ccArray1);
+			path2 = new SubPath(ccArray2);
+		}
+		assert cursor1.mArrayNode.getWeakRepresentative() == 
+				cursor2.mArrayNode.getWeakRepresentative();
+		int count1 = cursor1.mArrayNode.countStoreEdges();
+		int count2 = cursor2.mArrayNode.countStoreEdges();
+		while (count1 > count2) {
+			computeBackboneStep(cursor1, path1, storeIndices);
+			count1--;
+		}
+		while (count2 > count1) {
+			computeBackboneStep(cursor2, path2, storeIndices);
+			count2--;
+		}
+		while (cursor1.mArrayNode != cursor2.mArrayNode) {
+			computeBackboneStep(cursor1, path1, storeIndices);
+			computeBackboneStep(cursor2, path2, storeIndices);
+		}
+		SubPath sub = computePath(cursor1.mTerm, cursor2.mTerm);
+		if (path1 != null) {
+			path1.addForward(sub);
+			path1.addReverse(path2);
+		}
+		mVisited.put(new SymmetricPair<CCTerm>(ccArray1, ccArray2), path1);
+		return path1;
+	}
 
+	/**
+	 * Compute a weak path and the corresponding weak path condition.  The path
+	 * condition is added to the set of literals constituting the conflict.
+	 * @param a              Start of the path.
+	 * @param b              End of the path.
+	 * @param idx            Index for this path.
+	 * @param weakeq         Weak equivalence relation.
+	 * @param produceProofs  Proof production enabled?
+	 * @return Path information for this weak path.
+	 */
+	private WeakSubPath computeWeakPath(CCTerm ccArray1, CCTerm ccArray2, 
+			CCTerm index, boolean produceProofs) {
+
+		CCTerm indexRep = index.getRepresentative();
+		Cursor cursor1 = new Cursor(ccArray1, 
+				mArrayTheory.mCongRoots.get(ccArray1.getRepresentative())); 
+		Cursor cursor2 = new Cursor(ccArray2, 
+				mArrayTheory.mCongRoots.get(ccArray2.getRepresentative())); 
+		WeakSubPath sub1 = new WeakSubPath(index, ccArray1, produceProofs);
+		WeakSubPath sub2 = new WeakSubPath(index, ccArray2, produceProofs);
+		assert cursor1.mArrayNode.getWeakIRepresentative(indexRep) == 
+				cursor2.mArrayNode.getWeakIRepresentative(indexRep);
+		int count1 = cursor1.mArrayNode.countSelectEdges(indexRep);
+		int count2 = cursor2.mArrayNode.countSelectEdges(indexRep);
+		while (count1 > count2) {
+			collectPathOneSelect(cursor1, sub1);
+			count1--;
+		}
+		while (count2 > count1) {
+			collectPathOneSelect(cursor2, sub2);
+			count2--;
+		}
+		while (cursor1.mArrayNode.findSelectNode(indexRep) != 
+				cursor2.mArrayNode.findSelectNode(indexRep)) {
+			collectPathOneSelect(cursor1, sub1);
+			collectPathOneSelect(cursor2, sub2);
+		}
+		collectPathNoSelect(cursor1, cursor2, sub1);
+		sub1.addReverse(sub2);
+		return sub1;
+	}
+	
 	/**
 	 * Compute a weak path and the corresponding weak path condition.  The path
 	 * condition is added to the set of literals constituting the conflict.
@@ -168,154 +290,113 @@ public class WeakCongruencePath extends CongruencePath {
 	 * @param produceProofs  Proof production enabled?
 	 * @return Path information for this weak path.
 	 */
-	private WeakSubPath computeWeakPath(CCTerm a, CCTerm b, CCTerm idx,
-			Map<SymmetricPair<CCTerm>, WeakEQEntry> weakeq,
-			boolean useModuloEdges, boolean produceProofs) {
-		assert a.getRepresentative() != b.getRepresentative()
-				: "Compute a strong path not a weak path!";
-		CCTerm left = a.getRepresentative();
-		CCTerm right = b.getRepresentative();
-		WeakSubPath sub = new WeakSubPath(idx, produceProofs);
-		// first compute paths to their representatives
-		if (a == left)
-			sub.addEmptySubPath(a);
-		else
-			sub.addSubPath(computePath(a, left));
-		WeakEQEntry step = weakeq.get(new SymmetricPair<CCTerm>(left, right));
-		// TODO For now, I just prefer modulo edges.  We should revise this.
-		boolean done = false;
-		if (useModuloEdges) {
-			WeakEQiEntry modEdge = step.getModuloPath(idx);
-			if (modEdge != null) {
-				if (modEdge.isModuloStep()) {
-					addModuloStep(sub, left, right, idx, modEdge, weakeq);
-					done = true;
-				} else {
-					CCTerm leftarr, rightarr;
-					if (left.mArrayNum < right.mArrayNum) {
-						leftarr = modEdge.getLeftModuloArray();
-						rightarr = modEdge.getRightModuloArray();
-					} else {
-						leftarr = modEdge.getRightModuloArray();
-						rightarr = modEdge.getLeftModuloArray();
-					}
-					addPath(sub, left, leftarr, idx, weakeq, null);
-					WeakEQEntry weakstep = weakeq.get(
-							new SymmetricPair<CCTerm>(leftarr, rightarr));
-					WeakEQiEntry weakistep = weakstep.getModuloPath(idx);
-					addModuloStep(sub, leftarr, rightarr, idx, weakistep, weakeq);
-					addPath(sub, rightarr, right, idx, weakeq, null);
-					done = true;
-				}
-			}
-		}
-		if (!done)
-			// We either don't use or don't have mod edges here
-			addPath(sub, left, right, idx, weakeq, step);
-		if (b == right)
-			sub.addEmptySubPath(b);
-		else
-			sub.addSubPath(computePath(b, right));
-		return sub;
+	private WeakSubPath computeWeakPathWithModulo(CCTerm ccArray1, CCTerm ccArray2, 
+			CCTerm index, boolean produceProofs) {
+
+		CCTerm indexRep = index.getRepresentative();
+		ArrayNode node1 = mArrayTheory.mCongRoots.get(ccArray1.getRepresentative()); 
+		ArrayNode node2 = mArrayTheory.mCongRoots.get(ccArray2.getRepresentative()); 
+		ArrayNode rep1 = node1.getWeakIRepresentative(indexRep);
+		ArrayNode rep2 = node2.getWeakIRepresentative(indexRep);
+		if (rep1 == rep2)
+			return computeWeakPath(ccArray1, ccArray2, index, produceProofs);
+		CCAppTerm select1 = rep1.mSelects.get(indexRep);
+		CCAppTerm select2 = rep2.mSelects.get(indexRep);
+		assert select1.getRepresentative() == select2.getRepresentative();
+		// match select indices with index. 
+		computePath(index, ArrayTheory.getIndexFromSelect(select1));
+		computePath(index, ArrayTheory.getIndexFromSelect(select2));
+		
+		// go from ccArrays to select arrays
+		CCTerm selArray1 = ArrayTheory.getArrayFromSelect(select1);
+		CCTerm selArray2 = ArrayTheory.getArrayFromSelect(select2);
+		WeakSubPath path1 = 
+				computeWeakPath(ccArray1, selArray1, index, produceProofs);
+		WeakSubPath path2 =
+				computeWeakPath(ccArray2, selArray2, index, produceProofs);
+		
+		//combine everything
+		computePath(select1, select2);
+		path1.addTerm(selArray2);
+		path1.addReverse(path2);
+		return path1;
 	}
 	
-	private void addModuloStep(WeakSubPath sub, CCTerm left, CCTerm right,
-			CCTerm idx, WeakEQiEntry modEdge,
-			Map<SymmetricPair<CCTerm>, WeakEQEntry> weakeq) {
-		CCTerm leftarr, rightarr, leftsel, rightsel,
-		startidx, endidx;
-		boolean inOrder = left.mArrayNum < right.mArrayNum;
-		if (inOrder) {
-			leftarr = modEdge.getLeftArray();
-			rightarr = modEdge.getRightArray();
-			leftsel = modEdge.getLeftSelect();
-			rightsel = modEdge.getRightSelect();
-			startidx = modEdge.getLeftIndex();
-			endidx = modEdge.getRightIndex();
-		} else {
-			leftarr = modEdge.getRightArray();
-			rightarr = modEdge.getLeftArray();
-			leftsel = modEdge.getRightSelect();
-			rightsel = modEdge.getLeftSelect();
-			startidx = modEdge.getLeftIndex();
-			endidx = modEdge.getRightIndex();
+	private void collectPathNoStore(Cursor start, CCTerm dest, WeakSubPath path) {
+		SubPath sub = computePath(start.mTerm, dest);
+		if (sub != null)
+			path.addSubPath(sub);
+		start.mTerm = dest;
+	}
+	
+	private void collectPathOneStore(Cursor cursor, WeakSubPath path) {
+		ArrayNode node = cursor.mArrayNode;
+		CCAppTerm store = node.mStoreReason;
+		CCTerm t1 = store;
+		CCTerm t2 = ArrayTheory.getArrayFromStore(store);
+		if (t2.mRepStar == cursor.mArrayNode.mTerm) {
+			CCTerm t = t2;
+			t2 = t1;
+			t1 = t;
 		}
-		assert left.getRepresentative() == leftarr.getRepresentative();
-		assert right.getRepresentative() == rightarr.getRepresentative();
-		if (left != leftarr)
-			sub.addSubPath(computePath(left, leftarr));
-		sub.addModuloStep(modEdge, inOrder);
-		// Compute judgement for modEdge
-		computePath(leftsel, rightsel);
-		// Compute judgement for "idx equals select indices"
-		computePath(idx, startidx);
-		computePath(idx, endidx);
-		if (right != rightarr)
-			sub.addSubPath(computePath(rightarr, right));
+		assert t1.mRepStar == node.mTerm;
+		assert t2.mRepStar == node.mStoreEdge.mTerm;
+		collectPathNoStore(cursor, t1, path);
+		computeIndexDiseq(path.mIdx, ArrayTheory.getIndexFromStore(store));
+		path.addTerm(t2);
+		cursor.update(t2, node.mStoreEdge);
+	}
+	
+	private void collectPathNoSelect(Cursor start, Cursor dest, 
+			WeakSubPath path) {
+		WeakSubPath path2 = path.createEmptyCopy(dest.mTerm);
+		int count1 = start.mArrayNode.countStoreEdges();
+		int count2 = dest.mArrayNode.countStoreEdges();
+		while (count1 > count2) {
+			collectPathOneStore(start, path);
+			count1--;
+		}
+		while (count2 > count1) {
+			collectPathOneStore(dest, path2);
+			count2--;
+		}
+		while (start.mArrayNode != dest.mArrayNode) {
+			collectPathOneStore(start, path);
+			collectPathOneStore(dest, path2);
+		}
+		collectPathNoStore(start, dest.mTerm, path);
+		path.addReverse(path2);
 	}
 	
 	/**
-	 * Add a path entry.  This path entry might either be a weak equivalence
-	 * path or a strong equivalence path, but not a modulo step.
-	 * @param path   The path to extend.
-	 * @param left   The start of the new path.
-	 * @param right  The end of the new path.
-	 * @param idx    The index for this weak path.
-	 * @param weakeq The weak equivalence relation.
-	 * @param first  First step of a weakeq path if available.  Might be
-	 *               <code>null</code> in which case the method searches for the
-	 *               first step.
+	 * Step over a single select edge in the weak-i equivalence class.  This
+	 * assumes there is such a select edge.  It adds the path from cursor
+	 * to the destination of the select edge and moves the cursor accordingly. 
+	 * @param cursor  The position where the path currently ends. This is 
+	 * updated to the destination of the select edge
+	 * @param path the accumulated path that is extended at the end.
 	 */
-	private void addPath(WeakSubPath path, CCTerm left, CCTerm right,
-			CCTerm idx, Map<SymmetricPair<CCTerm>, WeakEQEntry> weakeq,
-			WeakEQEntry first) {
-		if (left.getRepresentative() == right.getRepresentative())
-			return;
-		WeakEQEntry step = first == null
-				? weakeq.get(new SymmetricPair<CCTerm>(left, right)) : first;
-		while (left != right) {
-			EntryPair nextPair = step.getConnection(idx);
-			boolean inOrder = left.mArrayNum < right.mArrayNum;
-			CCTerm next = nextPair.getEntry(inOrder);
-			assert mArrayTheory.isStore(next);
-			CCTerm edgeleft, edgeright;
-			if (left.getRepresentative() == next.getRepresentative()) {
-				edgeleft = next;
-				edgeright = ArrayTheory.getArrayFromStore(next);
-			} else {
-				edgeleft = ArrayTheory.getArrayFromStore(next);
-				assert left.getRepresentative() == edgeleft.getRepresentative();
-				edgeright = next;
-			}
-			/* Now, we have a path of the form
-			 * left -- edgeleft -j- edgeright
-			 * and should continue work at edgeright.getRepresentative()
-			 * Not that reverse specifies whether we are moving towards
-			 * right (if reverse if false) or left (if reverse is true).
-			 */
-			// left -- edgeleft
-			if (left != edgeleft)
-				path.addSubPath(computePath(left, edgeleft));
-			// -j-
-			computeIndexDiseq(idx, ArrayTheory.getIndexFromStore(next));
-			// Check for final step
-			CCTerm targetrep = right.getRepresentative();
-			if (edgeright.getRepresentative() == targetrep) {
-				// finish the path
-				if (edgeright != right)
-					path.addSubPath(computePath(edgeright, right));
-				break;
-			} else {
-				// Continue at edgeright.getRepresentative();
-				if (edgeright == edgeright.getRepresentative())
-					path.addEmptySubPath(edgeright);
-				else
-					path.addSubPath(computePath(
-							edgeright, edgeright.getRepresentative()));
-				left = edgeright.getRepresentative();
-			}
-			step = weakeq.get(new SymmetricPair<CCTerm>(left, right));
-		} // end while
+	private void collectPathOneSelect(Cursor cursor, WeakSubPath path) {
+		ArrayNode selector = cursor.mArrayNode.findSelectNode(path.mIdxRep);
+		CCAppTerm store = selector.mSelectReason;
+		CCTerm t1 = store;
+		CCTerm t2 = ArrayTheory.getArrayFromStore(store);
+		ArrayNode n1 = mArrayTheory.mCongRoots.get(t1.mRepStar);
+		ArrayNode n2 = mArrayTheory.mCongRoots.get(t2.mRepStar);
+		if (n2.findSelectNode(path.mIdxRep) == selector) {
+			//swap nodes, such that n1 is in the same region as node.
+			ArrayNode n = n2;
+			n2 = n1;
+			n1 = n;
+			CCTerm t = t2;
+			t2 = t1;
+			t1 = t;
+		}
+		assert (n1.findSelectNode(path.mIdxRep) == selector);
+		collectPathNoSelect(cursor, new Cursor(t1, n1), path);
+		computeIndexDiseq(path.mIdx, ArrayTheory.getIndexFromStore(store));
+		path.addTerm(t2);
+		cursor.update(t2, n2);
 	}
 
 	/**
@@ -324,8 +405,9 @@ public class WeakCongruencePath extends CongruencePath {
 	 * @param idxFromStore The index of an edge in the weakeq graph.
 	 */
 	private void computeIndexDiseq(CCTerm idx, CCTerm idxFromStore) {
-		if (idx.getSharedTerm() != null && idxFromStore != null) {
-			// check for shared term diseqality
+		if (idx.getSharedTerm() != null 
+				&& idxFromStore.getSharedTerm() != null) {
+			// check for shared term disequality
 			EqualityProxy ep = mArrayTheory.getClausifier().createEqualityProxy(
 					idx.getSharedTerm(), idxFromStore.getSharedTerm());
 			if (ep == EqualityProxy.getFalseProxy())
@@ -377,9 +459,13 @@ public class WeakCongruencePath extends CongruencePath {
 
 	private Clause generateClause(CCEquality diseq, boolean produceProofs,
 			Deque<Literal> suggestions, RuleKind rule) {
-		Literal[] lemma = new Literal[mAllLiterals.size() + 1];
+		assert diseq != null;
+		// Note that it can actually happen that diseq is already in
+		// the list of all literals (because it is an index assumption).
+		mAllLiterals.add(diseq.negate());
+
+		Literal[] lemma = new Literal[mAllLiterals.size()];
 		int i = 0;
-		lemma[i++] = diseq;
 		for (Literal l: mAllLiterals) {
 			lemma[i++] = l.negate();
 			// I want to suggest all paths.  Thus I put all l in suggestions.
@@ -409,5 +495,4 @@ public class WeakCongruencePath extends CongruencePath {
 			weakpath.storeInto(weakIndices, weakPaths, j++);
 		return new ArrayAnnotation(diseq, paths, lits, weakIndices, weakPaths, rule);
 	}
-
 }

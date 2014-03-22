@@ -211,6 +211,10 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		return mRepStar;
 	}
 
+	public final boolean isRepresentative() {
+		return mRep == this;
+	}
+
 	public void share(CClosure engine, SharedTerm sterm) {
 		if (this.mSharedTerm != null) {
 			if (this.mSharedTerm == sterm)
@@ -233,7 +237,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 	
 	public void unshare(SharedTerm sterm) {
 		assert this.mSharedTerm == sterm;
-		assert this.mRep == this;
+		assert this.isRepresentative();
 		this.mSharedTerm = null;
 	}
 	
