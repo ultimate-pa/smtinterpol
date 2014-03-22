@@ -79,8 +79,8 @@ public class WeakCongruencePath extends CongruencePath {
 		}
 		
 		public String toString() {
-			return "Weakpath " + mIdx + 
-					(mTermsOnPath != null ? " " + mTermsOnPath.toString() : "");
+			return "Weakpath " + mIdx
+				+ (mTermsOnPath == null ? "" : " " + mTermsOnPath.toString());
 		}
 
 		public void addTerm(CCTerm term) {
@@ -103,10 +103,10 @@ public class WeakCongruencePath extends CongruencePath {
 
 		void addReverse(WeakSubPath p) {
 			if (mTermsOnPath != null) {
-				assert (mTermsOnPath.get(mTermsOnPath.size()-1)
-						== p.mTermsOnPath.get(p.mTermsOnPath.size()-1)); 
+				assert (mTermsOnPath.get(mTermsOnPath.size() - 1)
+						== p.mTermsOnPath.get(p.mTermsOnPath.size() - 1)); 
 				ListIterator<CCTerm> it = 
-						p.mTermsOnPath.listIterator(p.mTermsOnPath.size()-1);
+						p.mTermsOnPath.listIterator(p.mTermsOnPath.size() - 1);
 				while (it.hasPrevious())
 					mTermsOnPath.add(it.previous());
 				ListIterator<CCEquality> itLit = 
@@ -170,7 +170,8 @@ public class WeakCongruencePath extends CongruencePath {
 		HashSet<CCTerm> storeIndices = new HashSet<CCTerm>();
 		mMainPath = computeStoreBackbone(a, b, storeIndices, produceProofs);
 		for (CCTerm idx : storeIndices) {
-			WeakSubPath weakpath = computeWeakPathWithModulo(a, b, idx, produceProofs);
+			WeakSubPath weakpath = 
+					computeWeakPathWithModulo(a, b, idx, produceProofs);
 			mWeakPaths.add(weakpath);
 		}
 		return generateClause(eq, produceProofs, suggestions,
@@ -211,8 +212,8 @@ public class WeakCongruencePath extends CongruencePath {
 			path1 = new SubPath(ccArray1);
 			path2 = new SubPath(ccArray2);
 		}
-		assert cursor1.mArrayNode.getWeakRepresentative() == 
-				cursor2.mArrayNode.getWeakRepresentative();
+		assert cursor1.mArrayNode.getWeakRepresentative() 
+				== cursor2.mArrayNode.getWeakRepresentative();
 		int count1 = cursor1.mArrayNode.countStoreEdges();
 		int count2 = cursor2.mArrayNode.countStoreEdges();
 		while (count1 > count2) {
@@ -256,8 +257,8 @@ public class WeakCongruencePath extends CongruencePath {
 				mArrayTheory.mCongRoots.get(ccArray2.getRepresentative())); 
 		WeakSubPath sub1 = new WeakSubPath(index, ccArray1, produceProofs);
 		WeakSubPath sub2 = new WeakSubPath(index, ccArray2, produceProofs);
-		assert cursor1.mArrayNode.getWeakIRepresentative(indexRep) == 
-				cursor2.mArrayNode.getWeakIRepresentative(indexRep);
+		assert cursor1.mArrayNode.getWeakIRepresentative(indexRep)
+				== cursor2.mArrayNode.getWeakIRepresentative(indexRep);
 		int count1 = cursor1.mArrayNode.countSelectEdges(indexRep);
 		int count2 = cursor2.mArrayNode.countSelectEdges(indexRep);
 		while (count1 > count2) {
@@ -268,8 +269,8 @@ public class WeakCongruencePath extends CongruencePath {
 			collectPathOneSelect(cursor2, sub2);
 			count2--;
 		}
-		while (cursor1.mArrayNode.findSelectNode(indexRep) != 
-				cursor2.mArrayNode.findSelectNode(indexRep)) {
+		while (cursor1.mArrayNode.findSelectNode(indexRep)
+				!= cursor2.mArrayNode.findSelectNode(indexRep)) {
 			collectPathOneSelect(cursor1, sub1);
 			collectPathOneSelect(cursor2, sub2);
 		}
@@ -290,16 +291,16 @@ public class WeakCongruencePath extends CongruencePath {
 	 * @param produceProofs  Proof production enabled?
 	 * @return Path information for this weak path.
 	 */
-	private WeakSubPath computeWeakPathWithModulo(CCTerm ccArray1, CCTerm ccArray2, 
+	private WeakSubPath computeWeakPathWithModulo(CCTerm array1, CCTerm array2, 
 			CCTerm index, boolean produceProofs) {
 
 		CCTerm indexRep = index.getRepresentative();
-		ArrayNode node1 = mArrayTheory.mCongRoots.get(ccArray1.getRepresentative()); 
-		ArrayNode node2 = mArrayTheory.mCongRoots.get(ccArray2.getRepresentative()); 
+		ArrayNode node1 = mArrayTheory.mCongRoots.get(array1.getRepresentative()); 
+		ArrayNode node2 = mArrayTheory.mCongRoots.get(array2.getRepresentative()); 
 		ArrayNode rep1 = node1.getWeakIRepresentative(indexRep);
 		ArrayNode rep2 = node2.getWeakIRepresentative(indexRep);
 		if (rep1 == rep2)
-			return computeWeakPath(ccArray1, ccArray2, index, produceProofs);
+			return computeWeakPath(array1, array2, index, produceProofs);
 		CCAppTerm select1 = rep1.mSelects.get(indexRep);
 		CCAppTerm select2 = rep2.mSelects.get(indexRep);
 		assert select1.getRepresentative() == select2.getRepresentative();
@@ -311,9 +312,9 @@ public class WeakCongruencePath extends CongruencePath {
 		CCTerm selArray1 = ArrayTheory.getArrayFromSelect(select1);
 		CCTerm selArray2 = ArrayTheory.getArrayFromSelect(select2);
 		WeakSubPath path1 = 
-				computeWeakPath(ccArray1, selArray1, index, produceProofs);
+				computeWeakPath(array1, selArray1, index, produceProofs);
 		WeakSubPath path2 =
-				computeWeakPath(ccArray2, selArray2, index, produceProofs);
+				computeWeakPath(array2, selArray2, index, produceProofs);
 		
 		//combine everything
 		computePath(select1, select2);

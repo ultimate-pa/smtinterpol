@@ -18,8 +18,6 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure;
 
-import java.util.Map;
-
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
@@ -109,10 +107,6 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 	int mHashCode;
 	
 	int mModelVal;
-	
-	/// Array stuff
-	int mArrayNum;
-	Map<CCTerm, CCAppTerm> mSelects;
 	
 	static class TermPairMergeInfo {
 		CCTermPairHash.Info.Entry mInfo;
@@ -407,7 +401,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 				if (destInfo.mDiseq == null && info.mDiseq != null) {
 					destInfo.mDiseq = info.mDiseq;
 					for (CCEquality.Entry eq : destInfo.mEqlits) {
-						assert (eq.getCCEquality().getDecideStatus() != eq.getCCEquality());
+						assert eq.getCCEquality().getDecideStatus() != eq.getCCEquality();
 						if (eq.getCCEquality().getDecideStatus() == null) {
 							eq.getCCEquality().mDiseqReason = info.mDiseq;
 							engine.addPending(eq.getCCEquality().negate());
@@ -415,7 +409,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 					}
 				} else if (destInfo.mDiseq != null && info.mDiseq == null) {
 					for (CCEquality.Entry eq : info.mEqlits) {
-						assert (eq.getCCEquality().getDecideStatus() != eq.getCCEquality());
+						assert eq.getCCEquality().getDecideStatus() != eq.getCCEquality();
 						if (eq.getCCEquality().getDecideStatus() == null) {
 							eq.getCCEquality().mDiseqReason = destInfo.mDiseq;
 							engine.addPending(eq.getCCEquality().negate());
@@ -590,9 +584,5 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 	public abstract Term toSMTTerm(Theory t, boolean useAuxVars);
 	public Term toSMTTerm(Theory t) {
 		return toSMTTerm(t, false);
-	}
-	
-	void initArray(int arrayNum) {
-		mArrayNum = arrayNum;
 	}
 }
