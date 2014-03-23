@@ -63,6 +63,10 @@ public class OneTermCmd extends AbstractOneTermCmd {
 	public void addUsedDefinitions(
 			Map<String, Cmd> context, Set<Cmd> usedDefs) {
 		new DefinitionTracker(context, usedDefs).track(mTerm);
+		if (mPreCmds != null) {
+			for (Cmd cmd : mPreCmds)
+				cmd.addUsedDefinitions(context, usedDefs);
+		}
 	}
 	
 	public String toString() {

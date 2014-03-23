@@ -72,7 +72,8 @@ public abstract class AbstractOneTermCmd extends TermCmd {
 	public void dump(PrintWriter writer) {
 		if (mPreCmds != null)
 			for (Cmd cmd : mPreCmds)
-				cmd.dump(writer);
+				if (cmd.isActive())
+					cmd.dump(writer);
 	}
 
 }
