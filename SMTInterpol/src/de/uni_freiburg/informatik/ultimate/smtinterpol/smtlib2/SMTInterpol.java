@@ -918,7 +918,11 @@ public class SMTInterpol extends NoopScript {
 			}
 		} catch (UnsupportedOperationException ex) {
 			throw new SMTLIBException(ex.getMessage());
-		} catch (Exception exc) {
+		} catch (RuntimeException exc) {
+			if (mDDFriendly)
+				System.exit(7);// NOCHECKSTYLE
+			throw exc;
+		} catch (AssertionError exc) {
 			if (mDDFriendly)
 				System.exit(7);// NOCHECKSTYLE
 			throw exc;
