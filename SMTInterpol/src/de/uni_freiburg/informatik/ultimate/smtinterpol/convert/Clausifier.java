@@ -1281,8 +1281,16 @@ public class Clausifier {
 			return mSubTracker;
 		}
 		public void setFlatten(Term[] origArgs) {
-			mOrigArgs = origArgs;
-			mFlatten = true;
+			for (Term t : origArgs) {
+				if (t instanceof ApplicationTerm) {
+					ApplicationTerm at = (ApplicationTerm) t;
+					if (at.getFunction() == mTheory.mOr) {
+						mOrigArgs = origArgs;
+						mFlatten = true;
+						return;
+					}
+				}
+			}
 		}
 		public void setSimpOr() {
 			mSimpOr = true;
