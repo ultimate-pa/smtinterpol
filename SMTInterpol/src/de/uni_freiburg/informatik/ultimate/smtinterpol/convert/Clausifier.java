@@ -167,6 +167,8 @@ public class Clausifier {
 						CCTerm res = mCClosure.createAnonTerm(shared);
 						shared.setCCTerm(res);
 						mConverted.push(res);
+						if (mTerm.getSort().isArraySort())
+							mArrayTheory.notifyArray(res, false);
 					} else {
 						mOps.push(new SaveCCTerm(shared));
 						ApplicationTerm at = (ApplicationTerm) mTerm;
