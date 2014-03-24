@@ -782,7 +782,9 @@ public class ArrayTheory implements ITheory {
 		
 		mNumMerges++;
 		if (mLogger.isDebugEnabled())
-			mLogger.debug("Merge: " + storeNode+" and " + arrayNode);
+			mLogger.debug("Merge: ["
+					+ getIndexFromStore(store).getRepresentative() + "] "
+					+ arrayNode + " and " + storeNode);
 		
 		arrayNode.makeWeakRepresentative();
 		storeNode.makeWeakRepresentative();
@@ -790,6 +792,8 @@ public class ArrayTheory implements ITheory {
 		Set<SymmetricPair<CCAppTerm>> propEqualities = 
 				new HashSet<SymmetricPair<CCAppTerm>>();
 		if (arrayNode.mStoreEdge == null) {
+			if (mLogger.isDebugEnabled())
+				mLogger.debug("  StoreEdge");
 			// Combine the arrayNode and storeNode.
 			arrayNode.mergeWith(storeNode, store, propEqualities);
 		} else {
@@ -803,13 +807,17 @@ public class ArrayTheory implements ITheory {
 			while (node.mStoreEdge != null) {
 				CCTerm index = getIndexFromStore(node.mStoreReason)
 						.getRepresentative();
-				if (index == storeIndex) {
-					break;
-				} else if (!seenIndices.contains(index)) {
+				if (index != storeIndex
+						&& !seenIndices.contains(index)) {
 					seenIndices.add(index);
 					ArrayNode indexRep = node.getWeakIRepresentative(index);
 					if (indexRep != storeNode) {
 						mNumModuloEdges++;
+						if (mLogger.isDebugEnabled())
+							if (mLogger.isDebugEnabled())
+								mLogger.debug("  SelectEdge: ["
+								    + index + "] "
+									+ node + " to " + storeNode);
 						node.mergeSelect(storeNode, store, propEqualities);
 					}
 				}
