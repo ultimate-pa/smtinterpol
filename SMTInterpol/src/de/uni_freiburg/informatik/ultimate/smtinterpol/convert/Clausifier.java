@@ -1110,7 +1110,7 @@ public class Clausifier {
 						mCollector.addLiteral(lit, mTerm);
 						mCollector.getTracker().cleanSave();
 					} else {
-						mCollector.setFlatten();
+						mCollector.setFlatten(at.getParameters());
 						for (Term p : at.getParameters())
 							pushOperation(new CollectLiterals(p, mCollector));
 					}
@@ -1280,7 +1280,8 @@ public class Clausifier {
 		public IProofTracker getTracker() {
 			return mSubTracker;
 		}
-		public void setFlatten() {
+		public void setFlatten(Term[] origArgs) {
+			mOrigArgs = origArgs;
 			mFlatten = true;
 		}
 		public void setSimpOr() {
