@@ -908,6 +908,9 @@ public class DPLLEngine {
 	}
 
 	private Literal chooseLiteral() {
+		Literal lit = suggestions();
+		if (lit != null)
+			return lit;
 		DPLLAtom atom;
 		int ran = mRandom.nextInt(Config.RANDOM_SPLIT_BASE);
 		if (!mAtoms.isEmpty() && ran <= Config.RANDOM_SPLIT_FREQ) {
