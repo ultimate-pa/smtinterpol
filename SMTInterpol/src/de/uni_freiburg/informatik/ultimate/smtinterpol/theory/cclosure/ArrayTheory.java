@@ -814,10 +814,9 @@ public class ArrayTheory implements ITheory {
 					if (indexRep != storeNode) {
 						mNumModuloEdges++;
 						if (mLogger.isDebugEnabled())
-							if (mLogger.isDebugEnabled())
-								mLogger.debug("  SelectEdge: ["
-								    + index + "] "
-									+ node + " to " + storeNode);
+							mLogger.debug("  SelectEdge: ["
+							    + index + "] "
+								+ node + " to " + storeNode);
 						node.mergeSelect(storeNode, store, propEqualities);
 					}
 				}

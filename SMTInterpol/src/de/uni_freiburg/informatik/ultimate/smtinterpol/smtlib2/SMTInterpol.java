@@ -1830,4 +1830,15 @@ public class SMTInterpol extends NoopScript {
 		return new Term[] {at, bt, ct};
 	}
 
+	@Override
+	public void declareFun(String fun, Sort[] paramSorts, Sort resultSort)
+		throws SMTLIBException {
+		Sort realSort = resultSort.getRealSort();
+		if (realSort.isArraySort()
+				&& realSort.getArguments()[0] == getTheory().getBooleanSort())
+			throw new UnsupportedOperationException(
+					"SMTInterpol does not support Arrays with Boolean indices");
+		super.declareFun(fun, paramSorts, resultSort);
+	}
+
 }

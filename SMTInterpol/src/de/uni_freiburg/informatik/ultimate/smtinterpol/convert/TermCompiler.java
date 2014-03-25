@@ -77,9 +77,6 @@ public class TermCompiler extends TermTransformer {
 	}
 	
 	public void convert(Term term) {
-		if (term.getSort().isArraySort()
-				&& term.getSort().getArguments()[0] == term.getTheory().getBooleanSort())
-			throw new UnsupportedOperationException("SMTInterpol does not support Arrays with Boolean indices");
 		if (term instanceof ApplicationTerm) {
 			ApplicationTerm appTerm = (ApplicationTerm) term;
 			FunctionSymbol fsym = appTerm.getFunction();
