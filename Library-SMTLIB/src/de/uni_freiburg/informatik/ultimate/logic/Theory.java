@@ -876,6 +876,7 @@ public class Theory {
 			break;
 		case AUFLIRA:
 		case AUFNIRA:
+		case QF_AUFLIRA:
 			createArrayOperators();// fallthrough
 		case QF_UFLIRA:
 			mIsUFLogic = true;

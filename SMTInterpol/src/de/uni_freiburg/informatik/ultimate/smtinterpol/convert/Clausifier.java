@@ -1802,6 +1802,10 @@ public class Clausifier {
 				return EqualityProxy.getFalseProxy();
 			}
 		}
+		if (mTheory.getLogic().isIRA()
+				&& diff.isAllIntSummands() && !diff.getConstant().isIntegral())
+			// IRA-unsatisfiable.
+			return EqualityProxy.getFalseProxy();
 		diff = diff.div(diff.getGcd());
 		// check for unsatisfiable integer formula, e.g. 2x + 2y = 1.
 		if (diff.isIntegral() && !diff.getConstant().isIntegral()) {
@@ -2020,6 +2024,7 @@ public class Clausifier {
 			setupCClosure();
 			break;
 		case QF_AUFLIA:
+		case QF_AUFLIRA:
 			setupCClosure();
 			setupLinArithmetic();
  			setupArrayTheory();
