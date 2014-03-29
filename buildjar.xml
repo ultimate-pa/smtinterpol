@@ -1,11 +1,29 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<project default="create_run_jar" name="Create Runnable Jar for Project SMTInterpol">
+<project default="all" name="Create Project SMTInterpol">
+
+  <!-- Build everything  -->
+  <target name="all">
+    <antcall target="create_run_jar" />
+    <antcall target="create_competition_jar" />
+    <antcall target="create_src_zip" />
+  </target>
 
   <property file="buildjar.properties"/>
 
   <property name="instrumentation.dir" value="${dir.cobertura}/instrumentation" />
 
   <available file="${dir.cobertura}" type="dir" property="cobertura.present"/>
+
+  <target name="get-version">
+    <!-- get a new version string using git describe if possible -->
+    <exec executable="git" outputproperty="version">
+      <arg value="describe"/>
+    </exec>
+    <tstamp>
+      <format property="build.date" pattern="yyyy-MM-dd"/>
+      <format property="build.year" pattern="yyyy"/>
+    </tstamp> 
+  </target>
 
   <path id="cobertura.classpath">
     <fileset dir="${dir.cobertura}">
@@ -69,7 +87,7 @@
   </target>
 
   <!-- Compile SMTInterpol -->
-  <target name="compile" depends="smtlib1.cup,smtlib2.cup,dimacs.cup">
+  <target name="compile" depends="get-version,smtlib1.cup,smtlib2.cup,dimacs.cup">
     <mkdir dir="${dir.workspace}/Library-SMTLIB/release"/>
     <mkdir dir="${dir.workspace}/SMTInterpol/release"/>
     <javac srcdir="${dir.workspace}/Library-SMTLIB/src" destdir="${dir.workspace}/Library-SMTLIB/release" optimize="${optimize}" includeAntRuntime="false" debug="${debug}">
@@ -88,6 +106,11 @@
         <pathelement path="${dir.workspace}/Library-SMTLIB/release"/>
       </classpath>
     </javac>
+    <propertyfile file="${dir.workspace}/SMTInterpol/release/de/uni_freiburg/informatik/ultimate/smtinterpol/Version.properties">
+      <entry key="version" value="${version}"/>
+      <entry key="build.date" value="${build.date}"/>
+      <entry key="build.year" value="${build.year}"/>
+    </propertyfile>
   </target>
 
   <!-- Create an executable jar -->
@@ -112,7 +135,10 @@
   </target>
 
   <!-- Create a source zip -->
-  <target name="create_src_zip">
+  <target name="create_src_zip" depends="get-version">
+    <propertyfile file="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/Version.properties">
+      <entry key="version" value="${version}"/>
+    </propertyfile>
     <zip destfile="${jar.outdir}/${jar.basename}-src.zip">
       <zipfileset dir="${dir.workspace}" prefix="SMTInterpol">
 	<include name="**/src/**" />
@@ -123,6 +149,7 @@
 	<exclude name="SMTInterpolSamples/src/de/uni_freiburg/informatik/ultimate/smtinterpol/samples/FlipDecisions.java" />
       </zipfileset>
     </zip>
+    <delete file="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/Version.properties"/>
   </target>
 
   <!-- Set the competition flag in Config.java -->
@@ -150,21 +177,6 @@
       <zipfileset file="${dir.workspace}/README" prefix="" />
     </jar>
     <patch patchfile="${dir.workspace}/competition.patch" strip="0" />
-  </target>
-
-  <!-- Create a jar for the SMT-COMP including the binary and the sources of the solver -->
-  <target name="create_competition_version" depends="create_run_jar,create_src_zip">
-    <tar destfile="smtinterpol-smtcomp.tar">
-      <tarfileset dir="." filemode="755" prefix="smtinterpol">
-	<include name="run"/>
-      </tarfileset>
-      <tarfileset dir="." filemode="644" prefix="smtinterpol">
-	<include name="smtinterpol.jar" />
-	<include name="smtinterpol-src.zip" />
-      </tarfileset>
-    </tar>
-    <gzip destfile="smtinterpol-smtcomp.tar.gz" src="smtinterpol-smtcomp.tar" />
-    <delete file="smtinterpol-smtcomp.tar" />
   </target>
 
   <!-- Create a new distribution -->

@@ -44,9 +44,3 @@ cobertura
 doc-smtinterpol
 SMTInterpol/web/html/gen/
 SMTInterpol/web/html/download.xml
-
-# Version.java is automatically updated if we make a new release
-# This does not work.  Use
-# git update-index --assume-unchanged SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2/Version.java
-SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2/Version.java
-

@@ -18,7 +18,10 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigInteger;
+import java.util.Properties;
 
 import de.uni_freiburg.informatik.ultimate.logic.LoggingScript;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
@@ -27,7 +30,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dimacs.DIMACSParser;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib.SMTLIBParser;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTLIB2Parser;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.Version;
 
 /**
  * Generic frontend that dispatches to the different parsers supported by
@@ -36,10 +38,30 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.Version;
  */
 public final class Main {
 	
+	public static Properties sVersionInfo; //NOCHECKSTYLE
+	static {
+		sVersionInfo = new Properties();
+		try {
+			InputStream is = 
+					Main.class.getResourceAsStream("Version.properties");
+			if (is != null)
+				sVersionInfo.load(is);
+		} catch (IOException ex) {
+			/* ignore */
+		}
+	}
+	
 	private Main() {
 		// Hide constructor
 	}
 
+	public static final String getVersion() {
+		String version = sVersionInfo.getProperty("version", "unknown version");
+		if (Config.COMPETITION)
+			version += "-comp";
+		return version;
+	}
+	
 	private static void usage() {
 		System.err.println("USAGE: smtinterpol [OPTION]... [INPUTFILE]");
 		System.err.println("If no INPUTFILE is given, stdin is used.");
@@ -57,7 +79,10 @@ public final class Main {
 	}
 	
 	private static void version() {
-		System.err.println("smtinterpol "+Version.VERSION);
+		String date = sVersionInfo.getProperty("build.date");
+		System.err.println("SMTInterpol " + getVersion());
+		if (date != null)
+			System.err.println("  built on " + date);
 	}
 	
 	/**

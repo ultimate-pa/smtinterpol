@@ -56,6 +56,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.logic.simplification.SimplifyDDA;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.Main;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
@@ -468,7 +469,6 @@ public class SMTInterpol extends NoopScript {
 	private boolean mPartialModels = false;
 	
 	private final static Object NAME = new QuotedObject("SMTInterpol");
-	private final static Object VERSION = new QuotedObject(Version.VERSION);
 	private final static Object AUTHORS = new QuotedObject(
 					"Jochen Hoenicke, Juergen Christ, and Alexander Nutz");
 	private final static Object INTERPOLATION_METHOD = new QuotedObject("tree");
@@ -948,7 +948,7 @@ public class SMTInterpol extends NoopScript {
 		if (":name".equals(info))
 			return NAME;
 		if (":version".equals(info))
-			return VERSION;
+			return new QuotedObject(Main.getVersion());
 		if (":authors".equals(info))
 			return AUTHORS;
 		if (":all-statistics".equals(info)) {
