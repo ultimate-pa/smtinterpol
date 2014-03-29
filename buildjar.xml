@@ -181,13 +181,9 @@
 
   <!-- Create a new distribution -->
   <target name="distribution">
-    <exec executable="make" dir="SMTInterpol/web/html">
-      <arg line="version" />
-    </exec>
-    <!-- This is ugly, but I don't know how to do it differently... -->
-    <ant antfile="buildjar.xml" target="create_run_jar" />
-    <ant antfile="buildjar.xml" target="create_competition_jar" />
-    <ant antfile="buildjar.xml" target="create_src_zip" />
+    <antcall target="create_run_jar" />
+    <antcall target="create_competition_jar" />
+    <antcall target="create_src_zip" />
     <exec executable="make" dir="SMTInterpol/web/html">
       <arg line="distribution" />
     </exec>
