@@ -1852,6 +1852,7 @@ public class LinArSolve implements ITheory {
 				Set<Rational> set = sharedPoints.get(coeff1);
 				if (set == null) {
 					set = new TreeSet<Rational>();
+					sharedPoints.put(coeff1, set);
 				}
 				Rational curval1 = sh1.getOffset();
 				if (lv1 != null)
@@ -1955,7 +1956,8 @@ public class LinArSolve implements ITheory {
 			Rational lcm, Rational currentValue) {
 		// Check if variable is fixed or allowed.
 		if (upper.equals(lower)
-			|| !prohibitions.contains(currentValue))
+			|| (!prohibitions.contains(currentValue))
+				&& !hasSharing(sharedPoints, Rational.ZERO))
 			return currentValue;
 		
 		if (lcm == Rational.POSITIVE_INFINITY) {
@@ -2024,7 +2026,7 @@ public class LinArSolve implements ITheory {
 		for (Entry<Rational, Set<Rational>> entry : sharedPoints.entrySet()) {
 			Rational sharedDiff = entry.getKey().mul(diff);
 			for (Rational r : entry.getValue()) {
-				if (used.add(r.add(sharedDiff)))
+				if (!used.add(r.add(sharedDiff)))
 					return true;
 			}
 		}
