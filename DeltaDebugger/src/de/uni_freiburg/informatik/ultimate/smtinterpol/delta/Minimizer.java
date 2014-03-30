@@ -217,6 +217,21 @@ public class Minimizer {
 			// Not needed anymore since I don't do further tests...
 	//		shrinkCmdList();
 			++numRounds;
+			if (cmds)
+				System.err.println("Removed commands");
+			if (terms)
+				System.err.println("Simplified terms");
+			if (bindings)
+				System.err.println("Removed bindings");
+			if (neutrals)
+				System.err.println("Removed neutrals");
+			if (lists)
+				System.err.println("Simplifed term command lists");
+			if (ips)
+				System.err.println("Simplified get-interpolants");
+			if (decls)
+				System.err.println("Removed declarations");
+//			System.in.read();
 		} while (
 				cmds || terms || bindings || neutrals || lists || ips || decls);
 		boolean features = removeFeatures();
@@ -691,8 +706,11 @@ public class Minimizer {
 		for (Cmd cmd : mCmds) {
 			if (!cmd.isActive())
 				continue;
-			if (cmd instanceof TermListCmd)
-				cmds.add((TermListCmd) cmd);
+			if (cmd instanceof TermListCmd) {
+				TermListCmd tcmd = (TermListCmd) cmd;
+				if (tcmd.getTerms().length > 1)
+					cmds.add(tcmd);
+			}
 		}
 		if (cmds.isEmpty()) {
 			System.err.println("...done");
@@ -706,9 +724,6 @@ public class Minimizer {
 			goon = false;
 			for (TermListCmd cmd : cmds) {
 				Term[] terms = cmd.getTerms();
-				if (terms.length == 1)
-					continue;
-				goon = true;
 				Term[] newTerms = new Term[terms.length / 2];
 				System.arraycopy(terms, 0, newTerms, 0, newTerms.length);
 				cmd.setNewTerms(newTerms);
@@ -717,14 +732,12 @@ public class Minimizer {
 				for (TermListCmd cmd : cmds)
 					cmd.success();
 				res = true;
+				goon = true;
 			} else {
 				// We had a failure => Try to reduce to the other half
 				for (TermListCmd cmd : cmds) {
 					cmd.failure();
 					Term[] terms = cmd.getTerms();
-					if (terms.length == 1)
-						continue;
-					goon = true;
 					int len = terms.length - terms.length / 2;
 					Term[] newTerms = new Term[len];
 					System.arraycopy(terms, terms.length / 2, newTerms, 0,
@@ -740,6 +753,8 @@ public class Minimizer {
 				} else {
 					for (TermListCmd cmd : cmds)
 						cmd.success();
+					res = true;
+					goon = true;
 				}
 			}
 		}
