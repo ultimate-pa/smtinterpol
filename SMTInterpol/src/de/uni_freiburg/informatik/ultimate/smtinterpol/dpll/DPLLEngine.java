@@ -1271,7 +1271,7 @@ public class DPLLEngine {
 		if (mUnsatClause != null && mUnsatClause.mStacklevel > targetstacklevel) {
 			mUnsatClause = null;
 		}
-		if (!Config.EXPENSIVE_ASSERTS
+		if (Config.EXPENSIVE_ASSERTS
 				&& !checkProofStackLevel(mUnsatClause, targetstacklevel))
 			throw new AssertionError();
 		if (!mDecideStack.isEmpty()) {
