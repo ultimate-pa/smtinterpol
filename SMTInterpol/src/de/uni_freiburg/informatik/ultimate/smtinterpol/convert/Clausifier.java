@@ -1955,6 +1955,11 @@ public class Clausifier {
 	
 	private final void run() {
 		while (!mTodoStack.isEmpty()) {
+			if (mEngine.isTerminationRequested()) {
+				/* Note: Engine remembers incompleteness */
+				mTodoStack.clear();
+				return;
+			}
 			Operation op = mTodoStack.pop();
 			op.perform();
 		}

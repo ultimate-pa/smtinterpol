@@ -1651,12 +1651,11 @@ public class DPLLEngine {
 		
 	}
 	
-	private boolean isTerminationRequested() {
+	public boolean isTerminationRequested() {
 		if (mCancel.isTerminationRequested()) {
 			mCompleteness = INCOMPLETE_CANCELLED;
 			return true;
 		}
 		return false;
 	}
-
 }
