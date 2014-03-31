@@ -267,7 +267,11 @@ contains axioms for the following cases.
       $i=0,1$}]{ }{(distinct\ t_0\ t_1) =
     (not\ t_{1-i})}\\ \inferrule*[left=DistinctFalse,right={$t_i\equiv false$
       for $i=0,1$}]{ }{(distinct\ t_0\ t_1) =
-    t_{1-i}}\\ \inferrule*[left=DistinctBinary]{ }{(distinct_{i\in I}\ t_i) =
+    t_{1-i}}\\
+  \inferrule*[left=DistinctBoolEq,right={$sort(t_0)=sort(t_1)=Bool\land
+      ((t_0',t_1')=(\lnot t_0,t_1)\lor(t_0',t_1')=(t_0,\lnot t_1))$}]{ }
+  {(distinct\ t_0\ t_1) = (=\ t_0'\ t_1')}\\
+  \inferrule*[left=DistinctBinary]{ }{(distinct_{i\in I}\ t_i) =
     (not\ (or_{i',i''\in I}\ (= t_{i'}\ t_{i''})))}
 \end{mathpar}
 The last rule is used to convert distinct applications into negated binary

@@ -31,6 +31,7 @@ import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
 import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
+import de.uni_freiburg.informatik.ultimate.logic.QuotedObject;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermTransformer;
@@ -169,12 +170,13 @@ public class SimplifyDDA extends NonRecursive {
 					HashSet<Term> oldContext =
 							new HashSet<Term>(info.mContext.length);
 					oldContext.addAll(Arrays.asList(info.mContext));
-					ArrayList<Term> newContext =
-							new ArrayList<Term>(info.mContext.length);
+					ArrayDeque<Term> newContext =
+							new ArrayDeque<Term>(info.mContext.length);
 					for (Term t : mContext) {
 						if (oldContext.contains(t))
 							newContext.add(t);
 					}
+					mContext = newContext;
 					info.mContext =
 							newContext.toArray(new Term[newContext.size()]);
 				}
@@ -305,6 +307,9 @@ public class SimplifyDDA extends NonRecursive {
 				}
 			}
 		}
+		public String toString() {
+			return "PrepareSimplifier[" + mTerm + "]"; 
+		}
 	}
 	
 	private static class StoreSimplified implements Walker {
@@ -319,6 +324,9 @@ public class SimplifyDDA extends NonRecursive {
 			SimplifyDDA simplifier = (SimplifyDDA) engine;
 			TermInfo info = simplifier.mTermInfos.get(mTerm);
 			info.mSimplified = simplifier.popResult();
+		}
+		public String toString() {
+			return "StoreSimplified[" + mTerm + "]"; 
 		}
 	}
 
@@ -520,7 +528,10 @@ public class SimplifyDDA extends NonRecursive {
 					new Simplifier(false, params[mParamCtr]));
 				mParamCtr++;
 			}
-		}	
+		}
+		public String toString() {
+			return "Simplifier["+mTerm+", param: "+mParamCtr+"]"; 
+		}
 	}
 	
 	/**
@@ -582,7 +593,6 @@ public class SimplifyDDA extends NonRecursive {
 		if (checktype != null)
 			mScript.setOption(":check-type", checktype);
 		return areTermsEquivalent;
-		
 	}
 	
 	/**
@@ -644,6 +654,7 @@ public class SimplifyDDA extends NonRecursive {
 		if (!inputTerm.getSort().getName().equals("Bool"))
 			return inputTerm;
 		Term term = inputTerm;
+		mScript.echo(new QuotedObject("Begin Simplifier"));
 		mScript.push(1);
 		final TermVariable[] vars = term.getFreeVars();
 		final Term[] values = new Term[vars.length];
@@ -675,6 +686,7 @@ public class SimplifyDDA extends NonRecursive {
 		mScript.pop(1);
 		assert (checkEquivalence(inputTerm, term) == LBool.UNSAT)
 			: "Simplification unsound?";
+		mScript.echo(new QuotedObject("End Simplifier"));
 		return term;
 	}
 	

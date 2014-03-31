@@ -1059,7 +1059,13 @@ public class LinArSolve implements ITheory {
 		logger.info("Number of Bland pivoting-Operations: "
 				+ mNumPivotsBland + "/" + mNumPivots);
 		logger.info("Number of switches to Bland's Rule: " + mNumSwitchToBland);
-		logger.info("Number of variables: " + mLinvars.size());
+		int basicVars = 0;
+		for (LinVar var : mLinvars) {
+			if (!var.isInitiallyBasic())
+				basicVars++;
+		}
+		logger.info("Number of variables: " + mLinvars.size()
+				+ " nonbasic: " + basicVars + " shared: " + mSharedVars.size());			
 		logger.info("Time for pivoting         : " + mPivotTime / 1000000);// NOCHECKSTYLE
 		logger.info("Time for bound computation: " + mPropBoundTime / 1000000);// NOCHECKSTYLE
 		logger.info("Time for bound setting    : " + mPropBoundSetTime / 1000000);// NOCHECKSTYLE
@@ -1791,7 +1797,9 @@ public class LinArSolve implements ITheory {
 	private Map<ExactInfinitNumber,List<SharedTerm>> mutate() {
 		MutableRational lower = new MutableRational(0,1);
 		MutableRational upper = new MutableRational(0,1);
-		TreeSet<Rational> prohib = new TreeSet<Rational>();
+		Map<Rational,Set<Rational>> sharedPoints = 
+				new TreeMap<Rational, Set<Rational>>();
+		Set<Rational> prohib = new TreeSet<Rational>();
 		for (LinVar lv : mLinvars) {
 			if (lv.mBasic
 				|| lv.getUpperBound().equals(lv.getLowerBound()))
@@ -1804,6 +1812,7 @@ public class LinArSolve implements ITheory {
 			Rational gcd = lv.isInt() ? Rational.ONE : Rational.ZERO;
 			Rational curval = lv.mCurval.mA;
 
+			sharedPoints.clear();
 			prohib.clear();
 			// prevent violating disequalities
 			if (lv.mDisequalities != null) {
@@ -1839,34 +1848,21 @@ public class LinArSolve implements ITheory {
 					coeff1 = Rational.ZERO;
 				else
 					coeff1 = coeff1.mul(sh1.getFactor());
+				Set<Rational> set = sharedPoints.get(coeff1);
+				if (set == null) {
+					set = new TreeSet<Rational>();
+					sharedPoints.put(coeff1, set);
+				}
 				Rational curval1 = sh1.getOffset();
 				if (lv1 != null)
 					curval1 = curval1.addmul(lv1.mCurval.mA, sh1.getFactor());
-				for (int j = i + 1; j < mSharedVars.size(); j++) {
-					SharedTerm sh2 = mSharedVars.get(j);
-					LinVar lv2 = sh2.getLinVar();
-					Rational coeff2 = basicFactors.get(lv2);
-					Rational curval2 = sh2.getOffset();
-					if (lv2 != null)
-						curval2 = curval2.addmul(lv2.mCurval.mA, sh2.getFactor());
-					if (coeff2 == null)
-						coeff2 = Rational.ZERO;
-					else
-						coeff2 = coeff2.mul(sh2.getFactor());
-					// If coeffs are equal, there is nothing we can do.
-					if (coeff1.equals(coeff2))
-						continue;
-					
-					// Prevent shared variables to get equal.
-					Rational cdiff = coeff1.sub(coeff2);
-					prohib.add(curval.sub(curval1.sub(curval2).div(cdiff)));
-				}
+				set.add(curval1);
 			}
 			// If there is no integer constraint for the non-basic manipulate
 			// it by eps, otherwise incrementing by a multiple of gcd.inverse()
 			// will preserve integrity of all depending variables. 
 			Rational lcm = gcd.inverse();
-			Rational chosen = choose(lower,upper,prohib,lcm,lv.mCurval.mA);
+			Rational chosen = choose(lower,upper,prohib,sharedPoints,lcm,lv.mCurval.mA);
 			assert (chosen.compareTo(lower.toRational()) >= 0
 					&& chosen.compareTo(upper.toRational()) <= 0);
 			if (!chosen.equals(lv.mCurval.mA))
@@ -1954,11 +1950,13 @@ public class LinArSolve implements ITheory {
      */
 	private Rational choose(MutableRational lower,
 			MutableRational upper,
-			TreeSet<Rational> prohibitions,
+			Set<Rational> prohibitions,
+			Map<Rational,Set<Rational>> sharedPoints,
 			Rational lcm, Rational currentValue) {
 		// Check if variable is fixed or allowed.
 		if (upper.equals(lower)
-			|| !prohibitions.contains(currentValue))
+			|| (!prohibitions.contains(currentValue))
+				&& !hasSharing(sharedPoints, Rational.ZERO))
 			return currentValue;
 		
 		if (lcm == Rational.POSITIVE_INFINITY) {
@@ -1973,7 +1971,8 @@ public class LinArSolve implements ITheory {
 			Rational mid = upper.toRational().add(low).div(Rational.TWO);
 			if (mid == Rational.POSITIVE_INFINITY)
 				mid = low.add(Rational.ONE);
-			while (prohibitions.contains(mid))
+			while (prohibitions.contains(mid)
+					|| hasSharing(sharedPoints, mid.sub(currentValue)))
 				mid = mid.add(low).div(Rational.TWO);
 			return mid;
 		} else {
@@ -1987,27 +1986,31 @@ public class LinArSolve implements ITheory {
 				if (up.compareTo(upper) > 0)
 					break;
 				Rational cur = up.toRational();
-				if (!prohibitions.contains(cur))
+				if (!prohibitions.contains(cur)
+					&& !hasSharing(sharedPoints, cur.sub(currentValue)))
 					return cur;
 				
 				down.sub(lcm);
 				if (down.compareTo(lower) < 0)
 					break;
 				cur = down.toRational();
-				if (!prohibitions.contains(cur))
+				if (!prohibitions.contains(cur)
+					&& !hasSharing(sharedPoints, cur.sub(currentValue)))
 					return cur;
 			}
 			up.add(lcm);
 			while (up.compareTo(upper) <= 0) {
 				Rational cur = up.toRational();
-				if (!prohibitions.contains(cur))
+				if (!prohibitions.contains(cur)
+					&& !hasSharing(sharedPoints, cur.sub(currentValue)))
 					return cur;
 				up.add(lcm);
 			}
 			down.sub(lcm);
 			while (down.compareTo(lower) >= 0) {
 				Rational cur = down.toRational();
-				if (!prohibitions.contains(cur))
+				if (!prohibitions.contains(cur)
+					&& !hasSharing(sharedPoints, cur.sub(currentValue)))
 					return cur;
 				down.sub(lcm);
 			}
@@ -2016,6 +2019,19 @@ public class LinArSolve implements ITheory {
 		}
 	}
 	
+	private boolean hasSharing(Map<Rational, Set<Rational>> sharedPoints,
+			Rational diff) {
+		TreeSet<Rational> used = new TreeSet<Rational>();
+		for (Entry<Rational, Set<Rational>> entry : sharedPoints.entrySet()) {
+			Rational sharedDiff = entry.getKey().mul(diff);
+			for (Rational r : entry.getValue()) {
+				if (!used.add(r.add(sharedDiff)))
+					return true;
+			}
+		}
+		return false;
+	}
+
 	private Clause mbtc(Map<ExactInfinitNumber,List<SharedTerm>> cong) {
 		for (Map.Entry<ExactInfinitNumber,List<SharedTerm>> congclass : cong.entrySet()) {
 			List<SharedTerm> lcongclass = congclass.getValue();

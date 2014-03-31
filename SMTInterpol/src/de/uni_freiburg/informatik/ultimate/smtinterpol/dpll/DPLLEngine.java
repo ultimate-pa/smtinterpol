@@ -1171,6 +1171,9 @@ public class DPLLEngine {
 			mCompleteness = INCOMPLETE_UNKNOWN;
 			if (System.getProperty("smtinterpol.ddfriendly") != null)
 				System.exit(3); 
+		} finally {
+			for (ITheory t : mTheories)
+				t.endCheck();
 		}
 		return true;
 	}
@@ -1277,7 +1280,7 @@ public class DPLLEngine {
 		if (mUnsatClause != null && mUnsatClause.mStacklevel > targetstacklevel) {
 			mUnsatClause = null;
 		}
-		if (!Config.EXPENSIVE_ASSERTS
+		if (Config.EXPENSIVE_ASSERTS
 				&& !checkProofStackLevel(mUnsatClause, targetstacklevel))
 			throw new AssertionError();
 		if (!mDecideStack.isEmpty()) {
