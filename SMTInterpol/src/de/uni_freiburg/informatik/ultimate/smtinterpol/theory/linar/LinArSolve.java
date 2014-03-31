@@ -586,7 +586,8 @@ public class LinArSolve implements ITheory {
 		if (c != null || !mSuggestions.isEmpty() || !mProplist.isEmpty())
 			return c;
 		assert mOob.isEmpty();
-		Map<ExactInfinitNumber, List<SharedTerm>> cong = mutate();
+		mutate();
+		Map<ExactInfinitNumber, List<SharedTerm>> cong = getSharedCongruences();
 		assert checkClean();
 		mEngine.getLogger().debug(new DebugMessage("cong: {0}", cong));
 		for (LinVar v : mLinvars) {
@@ -1016,29 +1017,30 @@ public class LinArSolve implements ITheory {
 		 */
 		if (mEps != null)
 			return;
-//		HashSet<Rational> prohibitions = new HashSet<Rational>();
 		TreeSet<Rational> prohibitions = new TreeSet<Rational>();
 		InfinitNumber maxeps = computeMaxEpsilon(prohibitions);
 		if (maxeps == InfinitNumber.POSITIVE_INFINITY)
 			mEps = Rational.ONE;
 		else
 			mEps = maxeps.inverse().ceil().mA.inverse();
-		// FIX: If we cannot choose the current value since we would violate a
-		//      disequality, choose a different number.
-//		while (prohibitions.contains(m_Eps))
-//			m_Eps = m_Eps.div(Rational.TWO);
-		if (prohibitions.contains(mEps)) {
-			if (prohibitions.size() == 1)
-				// No other chance
-				mEps = mEps.div(Rational.TWO);
-			else {
-				Rational next = prohibitions.lower(mEps);
-				if (next == null || next.signum() <= 0)
-					mEps = mEps.div(Rational.TWO);
-				else
-					mEps = mEps.add(next).div(Rational.TWO);
+		Map<Rational,Set<Rational>> sharedPoints = 
+				new TreeMap<Rational, Set<Rational>>();
+		// Do not merge two shared variables that are not yet merged.
+		Map<ExactInfinitNumber, List<SharedTerm>> cong = getSharedCongruences();
+		for (ExactInfinitNumber value : cong.keySet()) {
+			Rational eps = value.getEpsilon();
+			Set<Rational> confl = sharedPoints.get(eps);
+			if (confl == null) {
+				confl = new TreeSet<Rational>();
+				sharedPoints.put(eps, confl);
 			}
+			confl.add(value.getRealValue());
 		}
+		// If we cannot choose the current value since we would violate a
+		// disequality, choose a different number.
+		while (prohibitions.contains(mEps)
+				|| hasSharing(sharedPoints, mEps))
+			mEps = mEps.inverse().add(Rational.ONE).inverse();
 	}
 	
 	@Override
@@ -1793,9 +1795,8 @@ public class LinArSolve implements ITheory {
 	 * 
 	 * TODO This method is still very inefficient. Even if all variables have
 	 * distinct values, we still compute a lot of stuff.
-	 * @return Multi-Map describing which variables have which (common) value.
 	 */
-	private Map<ExactInfinitNumber,List<SharedTerm>> mutate() {
+	private void mutate() {
 		MutableRational lower = new MutableRational(0,1);
 		MutableRational upper = new MutableRational(0,1);
 		Map<Rational,Set<Rational>> sharedPoints = 
@@ -1842,22 +1843,22 @@ public class LinArSolve implements ITheory {
 				
 			// Do not merge two shared variables
 			for (int i = 0; i < mSharedVars.size(); i++) {
-				SharedTerm sh1 = mSharedVars.get(i);
-				LinVar lv1 = sh1.getLinVar();
-				Rational coeff1 = basicFactors.get(lv1);
-				if (coeff1 == null)
-					coeff1 = Rational.ZERO;
+				SharedTerm sharedVar = mSharedVars.get(i);
+				LinVar sharedLV = sharedVar.getLinVar();
+				Rational sharedCoeff = basicFactors.get(sharedLV);
+				if (sharedCoeff == null)
+					sharedCoeff = Rational.ZERO;
 				else
-					coeff1 = coeff1.mul(sh1.getFactor());
-				Set<Rational> set = sharedPoints.get(coeff1);
+					sharedCoeff = sharedCoeff.mul(sharedVar.getFactor());
+				Set<Rational> set = sharedPoints.get(sharedCoeff);
 				if (set == null) {
 					set = new TreeSet<Rational>();
-					sharedPoints.put(coeff1, set);
+					sharedPoints.put(sharedCoeff, set);
 				}
-				Rational curval1 = sh1.getOffset();
-				if (lv1 != null)
-					curval1 = curval1.addmul(lv1.mCurval.mA, sh1.getFactor());
-				set.add(curval1);
+				Rational sharedCurVal = sharedVar.getOffset();
+				if (sharedLV != null)
+					sharedCurVal = sharedCurVal.addmul(sharedLV.mCurval.mA, sharedVar.getFactor());
+				set.add(sharedCurVal);
 			}
 			// If there is no integer constraint for the non-basic manipulate
 			// it by eps, otherwise incrementing by a multiple of gcd.inverse()
@@ -1869,6 +1870,14 @@ public class LinArSolve implements ITheory {
 			if (!chosen.equals(lv.mCurval.mA))
 				updateVariableValue(lv, new InfinitNumber(chosen, 0));
 		}
+	}
+	
+	/**
+	 * Compute the value of each shared variable as exact infinite number.
+	 * @return A map from the value to the list of shared variables that
+	 * have this value.
+	 */
+	Map<ExactInfinitNumber, List<SharedTerm>> getSharedCongruences() {
 		mEngine.getLogger().debug("Shared Vars:");
 		Map<ExactInfinitNumber, List<SharedTerm>> result = 
 			new HashMap<ExactInfinitNumber, List<SharedTerm>>();
