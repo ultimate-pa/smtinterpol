@@ -107,9 +107,16 @@ public class TermSimplifier extends TermTransformer {
 				if (!isZero(newArgs[start]))
 					simp.add(newArgs[start]);
 			}
-			if (newArgs.length != simp.size())
-				newArgs = simp.toArray(new Term[simp.size()]);
-			setResult(appTerm.getTheory().term(fs, newArgs));
+			if (simp.isEmpty())
+				setResult(t.term(appTerm.getFunction(),
+						newArgs[0], newArgs[0]));
+			else if (simp.size() == 1)
+				setResult(simp.iterator().next());
+			else if (newArgs.length == simp.size())
+				setResult(appTerm.getTheory().term(fs, newArgs));
+			else
+				setResult(appTerm.getTheory().term(fs,
+						simp.toArray(new Term[simp.size()])));
 		} else
 			super.convertApplicationTerm(appTerm, newArgs);
 	}
