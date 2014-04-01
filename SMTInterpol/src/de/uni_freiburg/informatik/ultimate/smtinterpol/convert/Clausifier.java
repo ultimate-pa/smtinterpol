@@ -1066,13 +1066,12 @@ public class Clausifier {
 						return;
 					}
 					if (eq == EqualityProxy.getFalseProxy()) {
-						if (!positive)
-							mCollector.setTrue();
-						else {
+						if (positive) {
 							mCollector.getTracker().eq(lhs, rhs, mTheory.mFalse);
 							mCollector.getTracker().notifyFalseLiteral(at);
 							mCollector.setSimpOr();
-						}
+						} else
+							mCollector.setTrue();
 						return;
 					}
 					mCollector.getTracker().save();

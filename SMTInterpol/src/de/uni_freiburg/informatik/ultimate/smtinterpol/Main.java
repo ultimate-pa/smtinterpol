@@ -58,7 +58,7 @@ public final class Main {
 	public static final String getVersion() {
 		String version = sVersionInfo.getProperty("version", "unknown version");
 		if (Config.COMPETITION)
-			version += "-comp";
+			version += "-comp"; // NOPMD
 		return version;
 	}
 	
