@@ -81,10 +81,10 @@ public class TermSimplifier extends TermTransformer {
 						newParams.add(p);
 				}
 				if (newParams.size() != newArgs.length) {
-					// Otherwise replace by true/false should succeed...
-					assert newParams.isEmpty() ^ true;
 					if (newParams.size() == 1)
 						setResult(newParams.iterator().next());
+					else if (newParams.isEmpty())
+						setResult(t.term(fs, new Term[] {neutral, neutral}));
 					else
 						setResult(t.term(fs,
 							newParams.toArray(new Term[newParams.size()])));
