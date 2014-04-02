@@ -1840,5 +1840,4 @@ public class SMTInterpol extends NoopScript {
 					"SMTInterpol does not support Arrays with Boolean indices");
 		super.declareFun(fun, paramSorts, resultSort);
 	}
-
 }
