@@ -891,6 +891,9 @@ public class LinArSolve implements ITheory {
 		DPLLAtom atom = literal.getAtom();
 		assert checkClean();
 		Clause conflict = null;
+		if (mProplist.contains(literal.negate()))
+			return getUnitClause(literal.negate());
+		
 		if (atom instanceof LAEquality) {
 			LAEquality lasd = (LAEquality) atom;
 			/* Propagate dependent atoms */
