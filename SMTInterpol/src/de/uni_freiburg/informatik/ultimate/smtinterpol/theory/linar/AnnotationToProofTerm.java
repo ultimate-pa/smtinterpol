@@ -135,9 +135,9 @@ public class AnnotationToProofTerm {
 				infos.put(annot, info);
 				if (annot.getLinVar() != null)
 					computeLiterals(annot, theory, info);
+				todo.addAll(annot.getAuxAnnotations().keySet());
 			}
 			info.mCount++;
-			todo.addAll(annot.getAuxAnnotations().keySet());
 		}
 
 		ArrayDeque<Term> antes = new ArrayDeque<Term>();
