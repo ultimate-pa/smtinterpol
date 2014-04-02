@@ -82,10 +82,10 @@ public class SubstitutionApplier extends NonRecursive {
 
 		@Override
 		public void walk(NonRecursive engine) {
-			Term subform = mConverted.pop();
 			Term[] newVals = new Term[mTerm.getValues().length];
 			for (int i = 0; i < newVals.length; ++i)
 				newVals[i] = mConverted.pop();
+			Term subform = mConverted.pop();
 			Term res = mTerm.getTheory().let(
 					mTerm.getVariables(), newVals, subform);
 			mConverted.push(res);

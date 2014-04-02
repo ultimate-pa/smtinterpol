@@ -77,8 +77,9 @@ public class SubstitutionManager {
 			ApplicationTerm at = (ApplicationTerm) t;
 			if (at.getParameters().length > 0) {
 				if (at.getFunction().getName().equals("store"))
-					return new ReplaceByTerm(t, at.getParameters()[1]);
-				return new ReplaceByFreshTerm(t);
+					return new ReplaceByTerm(t, at.getParameters()[0]);
+				return ReplaceByFreshTerm.isFreshTerm(at)
+						? null : new ReplaceByFreshTerm(t);
 			}
 		}
 		// Cannot replace TermVariables or ConstantTerms
@@ -114,8 +115,10 @@ public class SubstitutionManager {
 			// Can be either neutrals or ite or store
 			ApplicationTerm at = (ApplicationTerm) t;
 			if (at.getFunction().getName().equals("ite")) {
-				if (r.mReplacement == at.getParameters()[0])
-					return new ReplaceByTerm(t, at.getParameters()[1]);
+				if (r.mReplacement == at.getParameters()[1])
+					return new ReplaceByTerm(t, at.getParameters()[2]);
+				else
+					return null;
 			} else if (at.getFunction().getName().equals("store")
 					&& r.mReplacement == at.getParameters()[0])
 				return new ReplaceByFreshTerm(t);

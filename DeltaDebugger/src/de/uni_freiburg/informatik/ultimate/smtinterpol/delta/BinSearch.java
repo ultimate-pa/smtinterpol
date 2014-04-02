@@ -25,7 +25,7 @@ import java.util.List;
 public class BinSearch<E> {
 
 	public static interface Driver<E> {
-		public void prepare(List<E> sublist);
+		public boolean prepare(List<E> sublist);
 		public void failure(List<E> sublist);
 		public void success(List<E> sublist);
 	}
@@ -60,12 +60,13 @@ public class BinSearch<E> {
 			List<E> sublist = mList.subList(p.mFirst, p.mSecond);
 			if (sublist.isEmpty())
 				continue;
-			mDriver.prepare(sublist);
-			if (tester.test()) {
+			boolean seen = mDriver.prepare(sublist);
+			if (!seen && tester.test()) {
 				mDriver.success(sublist);
 				result = true;
 			} else {
-				mDriver.failure(sublist);
+				if (!seen)
+					mDriver.failure(sublist);
 				// Split into two new sublists
 				int mid = (p.mFirst + p.mSecond) / 2;
 				if (mid == p.mFirst)

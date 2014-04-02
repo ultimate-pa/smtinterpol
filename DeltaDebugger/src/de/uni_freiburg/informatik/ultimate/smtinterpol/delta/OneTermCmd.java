@@ -62,6 +62,13 @@ public class OneTermCmd extends AbstractOneTermCmd {
 	@Override
 	public void addUsedDefinitions(
 			Map<String, Cmd> context, Set<Cmd> usedDefs) {
+		if (mPreCmds != null) {
+			/* If we have pre commands, we need to add the definitions since the
+			 * symbols in the term would otherwise not be well defined.
+			 */
+			for (Cmd cmd : mPreCmds)
+				cmd.insertDefinitions(context);
+		}
 		new DefinitionTracker(context, usedDefs).track(mTerm);
 	}
 	
