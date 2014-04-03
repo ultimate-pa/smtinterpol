@@ -965,7 +965,7 @@ public class DPLLEngine {
 	 */
 	public boolean solve() {
 		mHasModel = false;
-		mStopEngine = false;
+		mStopEngine = mCompleteness == INCOMPLETE_CANCELLED;
 		if (mUnsatClause != null) {
 			mLogger.debug("Using cached unsatisfiability");
 			return false;
@@ -1252,6 +1252,10 @@ public class DPLLEngine {
 	}
 	public int getCompleteness() {
 		return mCompleteness;
+	}
+	public void provideCompleteness(int ncompleteness) {
+		if (mCompleteness == COMPLETE)
+			mCompleteness = ncompleteness;
 	}
 	public String getCompletenessReason() {
 		return COMPLETENESS_STRINGS[mCompleteness];
@@ -1652,7 +1656,8 @@ public class DPLLEngine {
 	}
 	
 	public boolean isTerminationRequested() {
-		if (mCancel.isTerminationRequested()) {
+		if (mCompleteness == INCOMPLETE_CANCELLED
+				|| mCancel.isTerminationRequested()) {
 			mCompleteness = INCOMPLETE_CANCELLED;
 			return true;
 		}
