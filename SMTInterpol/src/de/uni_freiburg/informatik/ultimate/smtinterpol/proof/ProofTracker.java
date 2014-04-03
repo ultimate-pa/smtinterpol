@@ -713,7 +713,7 @@ public class ProofTracker implements IProofTracker {
 	}
 
 	@Override
-	public void mod(SMTAffineTerm x, SMTAffineTerm y, SMTAffineTerm res,
+	public void mod(Term x, Term y, Term res,
 			int rule) {
 		Theory t = x.getTheory();
 		Term mod = t.term(
@@ -722,7 +722,7 @@ public class ProofTracker implements IProofTracker {
 	}
 
 	@Override
-	public void div(SMTAffineTerm x, SMTAffineTerm y, SMTAffineTerm res,
+	public void div(Term x, Term y, Term res,
 			int rule) {
 		Theory t = x.getTheory();
 		Term mod = t.term(
@@ -731,7 +731,7 @@ public class ProofTracker implements IProofTracker {
 	}
 
 	@Override
-	public void toInt(SMTAffineTerm arg, SMTAffineTerm res) {
+	public void toInt(Term arg, Term res) {
 		Theory t = arg.getTheory();
 		Term toint = t.term("to_int", SMTAffineTerm.cleanup(arg));
 		append(new ResultRewrite(toint, SMTAffineTerm.cleanup(res),
@@ -903,13 +903,10 @@ public class ProofTracker implements IProofTracker {
 	}
 
 	@Override
-	public void toReal(SMTAffineTerm arg, SMTAffineTerm res) {
-		if (res.isConstant()) {
-			Term orig = arg.getTheory().term(
-					"to_real", SMTAffineTerm.cleanup(arg));
-			append(new ResultRewrite(orig, SMTAffineTerm.cleanup(res),
-					ProofConstants.RW_TO_REAL));
-		}
+	public void toReal(Term arg, Term res) {
+		Term orig = arg.getTheory().term(
+				"to_real", SMTAffineTerm.cleanup(arg));
+		append(new ResultRewrite(orig, SMTAffineTerm.cleanup(res),
+				ProofConstants.RW_TO_REAL));
 	}
-	
 }
