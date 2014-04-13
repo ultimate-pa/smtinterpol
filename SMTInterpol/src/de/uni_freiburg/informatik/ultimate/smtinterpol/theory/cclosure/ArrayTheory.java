@@ -803,22 +803,23 @@ public class ArrayTheory implements ITheory {
 			
 			HashSet<CCTerm> seenIndices = new HashSet<CCTerm>();
 			CCTerm storeIndex = getIndexFromStore(store).getRepresentative();
+			seenIndices.add(storeIndex);
 			ArrayNode node = arrayNode;
 			while (node.mStoreEdge != null) {
 				CCTerm index = getIndexFromStore(node.mStoreReason)
 						.getRepresentative();
-				if (index != storeIndex
-						&& !seenIndices.contains(index)) {
-					seenIndices.add(index);
-					ArrayNode indexRep = node.getWeakIRepresentative(index);
-					if (indexRep != storeNode) {
-						mNumModuloEdges++;
-						if (mLogger.isDebugEnabled())
-							mLogger.debug("  SelectEdge: ["
-							    + index + "] "
+				/* add the index to the seen indices and merge weak-i
+				 * equivalence classes if index was not seen before and they
+				 * are not already the same.
+				 */
+				if (seenIndices.add(index)
+						&& node.getWeakIRepresentative(index) != storeNode) {
+					mNumModuloEdges++;
+					if (mLogger.isDebugEnabled())
+						mLogger.debug("  SelectEdge: ["
+								+ index + "] "
 								+ node + " to " + storeNode);
-						node.mergeSelect(storeNode, store, propEqualities);
-					}
+					node.mergeSelect(storeNode, store, propEqualities);
 				}
 				node = node.mStoreEdge;
 			}
@@ -835,7 +836,7 @@ public class ArrayTheory implements ITheory {
 		}
 		return !propEqualities.isEmpty();
 	}
-		
+	
 	private boolean buildWeakEq() {
 		mNumBuildWeakEQ++;
 		long startTime = System.nanoTime();
