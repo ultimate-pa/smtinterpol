@@ -587,7 +587,8 @@ public class Clausifier {
 									mTracker.split(p, mProofTerm,
 											ProofConstants.SPLIT_NEG_OR)));
 					}
-				} else if (!at.getFunction().isIntern()
+				} else if ((!at.getFunction().isIntern()
+						|| at.getFunction().getName().equals("select"))
 						&& at.getFunction().getReturnSort()
 							== t.getBooleanSort()) {
 					Literal lit = createBooleanLit(at);
@@ -595,7 +596,7 @@ public class Clausifier {
 					sub.intern(at, lit);
 					addClause(new Literal[] {positive ? lit : lit.negate()},
 							null, getProofNewSource(sub.clause(mProofTerm)));
-			    } else if (at.getFunction().getName().equals("=")) {
+				} else if (at.getFunction().getName().equals("=")) {
 					Term lhs = at.getParameters()[0];
 					Term rhs = at.getParameters()[1];
 					if (lhs.getSort() == t.getBooleanSort()) {
@@ -1116,7 +1117,8 @@ public class Clausifier {
 						for (Term p : at.getParameters())
 							pushOperation(new CollectLiterals(p, mCollector));
 					}
-				} else if (!at.getFunction().isIntern()
+				} else if ((!at.getFunction().isIntern()
+						|| at.getFunction().getName().equals("select"))
 						&& at.getFunction().getReturnSort() == t.getBooleanSort()) {
 					mCollector.getTracker().save();
 					Literal lit = createBooleanLit(at);
@@ -1133,9 +1135,9 @@ public class Clausifier {
 //					/*
 //					 * (= A B) === (or (and A B) (and (not A) (not B)))
 //					 */
-			    } else if (at.getFunction().getName().equals("=")
-			    		&& at.getParameters()[0].getSort()
-			    			!= mTheory.getBooleanSort()) {
+				} else if (at.getFunction().getName().equals("=")
+						&& at.getParameters()[0].getSort()
+							!= mTheory.getBooleanSort()) {
 					Term lhs = at.getParameters()[0];
 					Term rhs = at.getParameters()[1];
 					SharedTerm slhs = getSharedTerm(lhs);
@@ -2306,7 +2308,7 @@ public class Clausifier {
 					lit = new DPLLAtom.TrueAtom().negate();
 				else
 					lit = ep.getLiteral();
-			} else if (!fs.isIntern()
+			} else if ((!fs.isIntern() || fs.getName().equals("select"))
 					&& fs.getReturnSort() == mTheory.getBooleanSort()) {
 				lit = createBooleanLit(at);
 			} else if (at == mTheory.mTrue) {
@@ -2386,7 +2388,7 @@ public class Clausifier {
 		}
 
 		Literal res;
-		if (!fs.isIntern())// NOPMD
+		if (!fs.isIntern() || fs.getName().equals("select"))// NOPMD
 			res = createBooleanLit(at);
 		else if (at == mTheory.mTrue)
 			res = new TrueAtom();
