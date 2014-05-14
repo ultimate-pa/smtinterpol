@@ -32,7 +32,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Theory;
  */
 public class FiniteSortInterpretation implements SortInterpretation {
 	
-	private int mSize = 1;
+	private int mSize = 0;
 	
 	@Override
 	public Term toSMTLIB(Theory t, Sort sort) {

@@ -26,14 +26,8 @@ import de.uni_freiburg.informatik.ultimate.logic.Theory;
 public class NumericSortInterpretation implements SortInterpretation {
 	
 	private final BidiMap<Rational> mValues = new BidiMap<Rational>();
-	private Rational mBiggest = Rational.TWO;
-	
+	private Rational mBiggest = Rational.ZERO;
 
-	public NumericSortInterpretation() {
-		mValues.add(0, Rational.ZERO);
-		mValues.add(1, Rational.ONE);
-	}
-	
 	@Override
 	public Term toSMTLIB(Theory t, Sort sort) {
 		throw new InternalError("Should never be called!");
@@ -42,7 +36,7 @@ public class NumericSortInterpretation implements SortInterpretation {
 	public int extend(Rational rat) {
 		if (mValues.containsVal(rat))
 			return mValues.get(rat);
-		int idx = mValues.size();
+		int idx = mValues.size() + 1;
 		mValues.add(idx, rat);
 		if (rat.compareTo(mBiggest) > 0)
 			mBiggest = rat.ceil().add(Rational.ONE);
@@ -51,7 +45,7 @@ public class NumericSortInterpretation implements SortInterpretation {
 	
 	@Override
 	public int extendFresh() {
-		int idx = mValues.size();
+		int idx = mValues.size() + 1;
 		mValues.add(idx, mBiggest);
 		mBiggest = mBiggest.add(Rational.ONE);
 		return idx;
@@ -83,6 +77,27 @@ public class NumericSortInterpretation implements SortInterpretation {
 	
 	public Rational get(int idx) {
 		return mValues.get(idx);
+	}
+
+	/**
+	 * Create the default value for numeric sorts.  This function should be
+	 * called after all other values needed by the model are already inserted
+	 * into this sort interpretation.  This fixes a bug with array models where
+	 * we accidentally capture the default value of an array by a value needed
+	 * to disambiguate two different arrays.
+	 */
+	public void finish() {
+		// first try some nice values, then fall back to a guaranteed fresh one
+		if (!mValues.containsVal(Rational.ZERO))
+			mValues.add(0, Rational.ZERO);
+		else if (!mValues.containsVal(Rational.ONE))
+			mValues.add(0, Rational.ONE);
+		else if (!mValues.containsVal(Rational.MONE))
+			mValues.add(0, Rational.MONE);
+		else {
+			mValues.add(0, mBiggest);
+			mBiggest = mBiggest.add(Rational.ONE);
+		}
 	}
 
 }

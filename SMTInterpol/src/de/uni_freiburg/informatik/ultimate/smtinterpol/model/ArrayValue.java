@@ -46,7 +46,10 @@ public class ArrayValue {
 			mListPrev = sentinel.mListPrev;
 			sentinel.mListPrev.mListNext = this;
 			sentinel.mListPrev = this;
-			
+		}
+		public void unlink() {
+			mListNext.mListPrev = mListPrev;
+			mListPrev.mListNext = mListNext;
 		}
 		public int getKey() {
 			return mKey;
@@ -121,6 +124,25 @@ public class ArrayValue {
 				return value;
 			}
 			return e.setValue(value);
+		}
+		
+		public int remove(int key) {
+			int hash = idx2bucket(key);
+			Entry prev = null;
+			for (Entry bucket = mTable[hash]; bucket != null;
+					bucket = bucket.mNext) {
+				if (bucket.getKey() == key) {
+					bucket.unlink();
+					if (prev == null)
+						mTable[hash] = bucket.mNext;
+					else
+						prev.mNext = bucket.mNext;
+					--mSize;
+					return bucket.getValue();
+				}
+				prev = bucket;
+			}
+			return 0;
 		}
 		
 		public int get(int key, boolean partial) {
@@ -256,6 +278,8 @@ public class ArrayValue {
 	}
 	
 	public int store(int idx, int val) {
+		if (val == 0)
+			return mValues.remove(idx);
 		return mValues.add(idx, val);
 	}
 	

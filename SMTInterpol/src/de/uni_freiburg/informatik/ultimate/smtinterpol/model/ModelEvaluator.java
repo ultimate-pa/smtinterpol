@@ -62,8 +62,9 @@ public class ModelEvaluator extends NonRecursive {
 			if (selector == -1)
 				eval.setResult(-1);
 			else {
-				assert eval.mModel.getBoolSortInterpretation().getTrueIdx() == 0;
-				eval.pushTerm(mIte.getParameters()[selector + 1]);
+				eval.pushTerm(mIte.getParameters()
+						[selector == eval.mModel.getBoolSortInterpretation()
+						.getTrueIdx() ? 1 : 2]);
 			}
 		}
 		

@@ -117,12 +117,15 @@ public class ModelTest extends TestCaseWithLogger {
 		// true implies true
 		Assert.assertEquals(trueTerm, model.evaluate(
 				script.term("=>", boolTerms[0], boolTerms[2])));
-		// left associativity: (=> true false true false) == false
-		Assert.assertEquals(falseTerm, model.evaluate(script.term("=>", boolTerms)));
-		// left associativity: (=> true false true true) == true
-		Assert.assertEquals(trueTerm, model.evaluate(
-				script.term("=>", boolTerms[0], boolTerms[1], boolTerms[2],
-						script.term("not", boolTerms[3]))));// NOCHECKSTYLE
+		// right associativity: (=> true false true false) == true
+		//                      (=> true (=> false (=> true false)))
+		Assert.assertEquals(trueTerm, model.evaluate(script.term("=>", boolTerms)));
+		// right associativity: (=> true true true false) == false
+		//                      (=> true (=> true (=> true false)))
+		Assert.assertEquals(falseTerm, model.evaluate(
+				script.term("=>", boolTerms[0], 
+						script.term("not", boolTerms[1]), boolTerms[2],
+						boolTerms[3])));// NOCHECKSTYLE
 		// Simple and tests
 		Assert.assertEquals(trueTerm, model.evaluate(
 				script.term("and", boolTerms[0], boolTerms[2])));
@@ -412,7 +415,9 @@ public class ModelTest extends TestCaseWithLogger {
 		Assert.assertTrue(wval.compareTo(xval) < 0);
 		Assert.assertTrue(!wval.isIntegral() || !xval.isIntegral());
 		// Unused rational variable test
-		Assert.assertEquals(Rational.ZERO,
+		Rational unusedVal = (Rational) getConstantTerm(model,
+				script.term("@0", null, realSort)).getValue();
+		Assert.assertEquals(unusedVal,
 				getConstantTerm(model, realTerms[5]).getValue());// NOCHECKSTYLE
 	}
 	
@@ -469,11 +474,12 @@ public class ModelTest extends TestCaseWithLogger {
 		Assert.assertEquals(val, model.evaluate(script.term("y")));
 		Assert.assertEquals(val, model.evaluate(script.term("f", script.term("y"))));
 		// 2. V does not have any constrained elements
-		// => first element will describe the singleton value of this sort
+		// => all unconstrained elements will map to default (as @0 V)
+		val = script.term("@0", null, v);
 		Term z1 = script.term("z1");
-		Assert.assertEquals(z1, model.evaluate(z1));
+		Assert.assertEquals(val, model.evaluate(z1));
 		Term z2 = script.term("z2");
-		Assert.assertEquals(z1, model.evaluate(z2));
+		Assert.assertEquals(val, model.evaluate(z2));
 	}
 	
 	@Test

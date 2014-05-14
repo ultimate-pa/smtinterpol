@@ -24,8 +24,8 @@ import de.uni_freiburg.informatik.ultimate.logic.Theory;
 
 public class BoolSortInterpretation implements SortInterpretation {
 	
-	private final static int TRUE_INDEX = 0;
-	private final static int FALSE_INDEX = 1;
+	private final static int TRUE_INDEX = 1;
+	private final static int FALSE_INDEX = 0;
 
 	@Override
 	public Term toSMTLIB(Theory t, Sort sort) {
@@ -42,14 +42,14 @@ public class BoolSortInterpretation implements SortInterpretation {
 
 	@Override
 	public int ensureCapacity(int maxValue) {
-		if (maxValue > 1)
+		if (maxValue > 2)
 			throw new InternalError("Three-valued Bool?");
-		return 1;
+		return 2;
 	}
 
 	@Override
 	public int size() {
-		return 1;
+		return 2;
 	}
 
 	@Override
