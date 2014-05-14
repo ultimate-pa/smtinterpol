@@ -59,7 +59,7 @@ public class Explainer {
 	/**
 	 * The stack of reasons/annotations we are currently explaining. 
 	 */
-	private ArrayDeque<LAAnnotation> mAnnotationStack;
+	private final ArrayDeque<LAAnnotation> mAnnotationStack;
 	
 	
 	public Explainer(LinArSolve solver, boolean generateProofTree, 

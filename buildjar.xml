@@ -41,10 +41,14 @@
   <target name="check_smtlib1.cup_current">
     <uptodate property="smtlib1.cup.current">
       <srcfiles dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib" includes="*.cup,*.flex" />
+      <srcfiles file="${dir.workspace}/SMTInterpol/lib/java-cup-12joho.jar"/>
       <mapper>
 	<globmapper from="smtlib.cup" to="Parser.java"/>
 	<globmapper from="smtlib.cup" to="LexerSymbols.java"/>
 	<globmapper from="smtlib.flex" to="Lexer.java"/>
+	<globmapper from="java-cup-12joho.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Parser.java"/>
+	<globmapper from="java-cup-12joho.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}LexerSymbols.java"/>
+	<globmapper from="java-cup-12joho.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Lexer.java"/>
       </mapper>
     </uptodate>
   </target>
@@ -57,10 +61,14 @@
   <target name="check_smtlib2.cup_current">
     <uptodate property="smtlib2.cup.current">
       <srcfiles dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2" includes="*.cup,*.flex" />
+      <srcfiles file="${dir.workspace}/SMTInterpol/lib/java-cup-12joho.jar"/>
       <mapper>
 	<globmapper from="smtlib.cup" to="Parser.java"/>
 	<globmapper from="smtlib.cup" to="LexerSymbols.java"/>
 	<globmapper from="smtlib.flex" to="Lexer.java"/>
+	<globmapper from="java-cup-12joho.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Parser.java"/>
+	<globmapper from="java-cup-12joho.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}LexerSymbols.java"/>
+	<globmapper from="java-cup-12joho.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Lexer.java"/>
       </mapper>
     </uptodate>
   </target>
@@ -74,10 +82,14 @@
   <target name="check_dimacs.cup_current">
     <uptodate property="dimacs.cup.current">
       <srcfiles dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs" includes="*.cup,*.flex" />
+      <srcfiles file="${dir.workspace}/SMTInterpol/lib/java-cup-12joho.jar"/>
       <mapper>
 	<globmapper from="dimacs.cup" to="Parser.java"/>
 	<globmapper from="dimacs.cup" to="LexerSymbols.java"/>
 	<globmapper from="dimacs.flex" to="Lexer.java"/>
+	<globmapper from="java-cup-12joho.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Parser.java"/>
+	<globmapper from="java-cup-12joho.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}LexerSymbols.java"/>
+	<globmapper from="java-cup-12joho.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Lexer.java"/>
       </mapper>
     </uptodate>
   </target>
@@ -229,17 +241,31 @@
   <target name="clean" description="Deletes a previous build">
     <echo message="Deleting release trees"/>
     <delete failonerror="false" includeemptydirs="true">
-      <fileset dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib" includes="Parser.java,Lexer.java,LexerSymbols.java" />
-      <fileset dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2" includes="Parser.java,Lexer.java,LexerSymbols.java" />
       <fileset dir="${dir.workspace}/SMTInterpol/release"/>
       <fileset dir="${dir.workspace}/Library-SMTLIB/release"/>
+      <fileset dir="${dir.workspace}/DeltaDebugger/release"/>
+      <fileset dir="${dir.workspace}/SMTInterpolTest/release"/>
     </delete>
+  </target>
+
+  <!-- Delete generated parsers -->
+  <target name="clean_parsers" description="Deletes all created parser source files">
+    <delete file="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib/Parser.java" failonerror="false"/>
+    <delete file="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib/Lexer.java" failonerror="false"/>
+    <delete file="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib/LexerSymbols.java" failonerror="false"/>
+    <delete file="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2/Parser.java" failonerror="false"/>
+    <delete file="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2/Lexer.java" failonerror="false"/>
+    <delete file="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2/LexerSymbols.java" failonerror="false"/>
+    <delete file="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs/Parser.java" failonerror="false"/>
+    <delete file="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs/Lexer.java" failonerror="false"/>
+    <delete file="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs/LexerSymbols.java" failonerror="false"/>
   </target>
 
   <!-- Delete the executable jar and the source zip -->
   <target name="distclean" description="Deletes a previously build jar" depends="clean">
     <delete file="${jar.outdir}/${jar.basename}.jar" failonerror="false"/>
     <delete file="${jar.outdir}/${jar.basename}-src.zip" failonerror="false"/>
+    <delete file="${jar.outdir}/deltadebugger.jar" failonerror="false"/>
   </target>
 
   <!-- Clean before creating an executable jar -->

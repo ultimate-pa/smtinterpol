@@ -92,19 +92,19 @@ public class SMTInterpol extends NoopScript {
 	private static enum CheckType {
 		FULL {
 			boolean check(DPLLEngine engine) {
-				engine.setCompleteness(DPLLEngine.COMPLETE);
+				engine.provideCompleteness(DPLLEngine.COMPLETE);
 				return engine.solve();
 			}
 		},
 		PROPAGATION {
 			boolean check(DPLLEngine engine) {
-				engine.setCompleteness(DPLLEngine.INCOMPLETE_CHECK);
+				engine.provideCompleteness(DPLLEngine.INCOMPLETE_CHECK);
 				return engine.propagate();
 			}
 		},
 		QUICK {
 			boolean check(DPLLEngine engine) {
-				engine.setCompleteness(DPLLEngine.INCOMPLETE_CHECK);
+				engine.provideCompleteness(DPLLEngine.INCOMPLETE_CHECK);
 				return engine.quickCheck();
 			}
 		};
@@ -767,7 +767,7 @@ public class SMTInterpol extends NoopScript {
 					result = LBool.SAT;
 					if (mModelCheckMode/* && m_ProduceModels*/) {
 						mModel = new de.uni_freiburg.informatik.ultimate.
-						                smtinterpol.model.Model(
+								smtinterpol.model.Model(
 								mClausifier, getTheory(), mPartialModels);
 						for (Term asserted : mAssertions) {
 							Term checkedResult = mModel.evaluate(asserted);

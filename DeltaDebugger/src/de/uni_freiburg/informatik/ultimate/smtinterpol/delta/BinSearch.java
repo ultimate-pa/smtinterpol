@@ -68,7 +68,8 @@ public class BinSearch<E> {
 				if (!seen)
 					mDriver.failure(sublist);
 				// Split into two new sublists
-				int mid = (p.mFirst + p.mSecond) / 2;
+				int mid = p.mFirst / 2 + p.mSecond / 2
+						+ (p.mFirst & p.mSecond & 1);
 				if (mid == p.mFirst)
 					continue;
 				mTodo.push(new IntPair(mid, p.mSecond));

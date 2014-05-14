@@ -305,9 +305,14 @@ public class APITest extends TestCaseWithLogger {
 		Assert.assertSame(LBool.UNKNOWN, isSat);
 		ReasonUnknown ru = (ReasonUnknown) solver.getInfo(":reason-unknown");
 		Assert.assertSame(ReasonUnknown.CANCELLED, ru);
+		// Check monotonicity of checker
 		tc.setStop(false);
 		isSat = solver.checkSat();
-		Assert.assertSame(LBool.UNSAT, isSat);
+		Assert.assertSame(LBool.UNKNOWN, isSat);
+		ru = (ReasonUnknown) solver.getInfo(":reason-unknown");
+		Assert.assertSame(ReasonUnknown.CANCELLED, ru);
 		solver.pop(1);
+		isSat = solver.checkSat();
+		Assert.assertSame(LBool.SAT, isSat);
 	}
 }

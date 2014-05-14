@@ -41,6 +41,7 @@ import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermTransformer;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.delta.BinSearch.Driver;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.delta.TermSimplifier.Mode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.ParseEnvironment;
 import de.uni_freiburg.informatik.ultimate.util.ScopedHashMap;
@@ -188,6 +189,35 @@ public class Minimizer {
 		public void success(List<Scope> sublist) {
 			for (Scope s : sublist)
 				s.mDeactivated = true;
+		}
+		
+	}
+	
+	private final static class RemoveNeutrals implements BinSearch.Driver<Neutral> {
+
+		private final AbstractOneTermCmd mCmd;
+		
+		public RemoveNeutrals(AbstractOneTermCmd cmd) {
+			mCmd = cmd;
+		}
+		
+		@Override
+		public boolean prepare(List<Neutral> sublist) {
+			System.err.println("Trying " + sublist);
+			Term rem = new NeutralRemover(sublist).removeNeutrals(mCmd.getTerm());
+			System.err.println("Result: " + rem);
+			mCmd.setTerm(rem);
+			return false;
+		}
+
+		@Override
+		public void failure(List<Neutral> sublist) {
+			mCmd.failure();
+		}
+
+		@Override
+		public void success(List<Neutral> sublist) {
+			mCmd.success();
 		}
 		
 	}
@@ -475,7 +505,20 @@ public class Minimizer {
 	}
 	
 	private boolean removeNeutrals() throws IOException, InterruptedException {
-		return removeUnusedCore(Mode.NEUTRALS);
+//		return removeUnusedCore(Mode.NEUTRALS);
+		boolean result = false;
+		for (Cmd cmd : mCmds) {
+			if (!cmd.isActive() || !(cmd instanceof AbstractOneTermCmd))
+				continue;
+			AbstractOneTermCmd tcmd = (AbstractOneTermCmd) cmd;
+			List<Neutral> neutrals = new NeutralDetector().detect(tcmd.getTerm());
+			if (neutrals.isEmpty())
+				continue;
+			RemoveNeutrals driver = new RemoveNeutrals(tcmd);
+			BinSearch<Neutral> bs = new BinSearch<Neutral>(neutrals, driver);
+			result |= bs.run(this);
+		}
+		return result;
 	}
 	
 	private boolean simplifyTerms() throws IOException, InterruptedException {
@@ -840,12 +883,13 @@ public class Minimizer {
 	
 	public static void usage() {
 		System.err.println(
-				"Usage: Minimizer <infile> <outfile> <command> <args>");
+				"Usage: Minimizer <infile> <outfile> [-f] <command> <args>");
 		System.err.println("where");
-		System.err.println("\tinfile\tis the original input file");
-		System.err.println("\toutfile\tis the desired output file");
-		System.err.println("\tcommand\tis the command to start the solver");
-		System.err.println("\targs\tare optional arguments to \"command\"");
+		System.err.println("  infile  is the original input file");
+		System.err.println("  outfile is the desired output file");
+		System.err.println("  command is the command to start the solver");
+		System.err.println("  -f      forces \"outfile\" to be overwritten");
+		System.err.println("  args    are optional arguments to \"command\"");
 		System.exit(0);
 	}
 	
@@ -854,15 +898,25 @@ public class Minimizer {
 			usage();
 		String infile = args[0];
 		String outfile = args[1];
+		int cmdstart = 2;
+		boolean force = false;
+		if (args[2].equals("-f")) {
+			force = true;
+			cmdstart = 3;
+		}
 		StringBuilder command = new StringBuilder();
-		for (int i = 2; i < args.length; ++i)
+		for (int i = cmdstart; i < args.length; ++i)
 			command.append(args[i]).append(' ');
 		File resultFile = new File(outfile);
 		try {
 			File tmpFile = File.createTempFile("minimize", ".smt2");
 			tmpFile.deleteOnExit();
 			File input = new File(infile);
-			Files.copy(input.toPath(), resultFile.toPath());
+			if (force)
+				Files.copy(input.toPath(), resultFile.toPath(),
+						StandardCopyOption.REPLACE_EXISTING);
+			else
+				Files.copy(input.toPath(), resultFile.toPath());
 			Files.copy(input.toPath(), tmpFile.toPath(),
 					StandardCopyOption.REPLACE_EXISTING);
 			command.append(tmpFile.getAbsolutePath());
