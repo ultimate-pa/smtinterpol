@@ -88,11 +88,11 @@ public class NumericSortInterpretation implements SortInterpretation {
 	 */
 	public void finish() {
 		// first try some nice values, then fall back to a guaranteed fresh one
-		if (!mValues.containsVal(Rational.ZERO))
+		if (!mValues.containsVal(Rational.ZERO)) // NOPMD
 			mValues.add(0, Rational.ZERO);
-		else if (!mValues.containsVal(Rational.ONE))
+		else if (!mValues.containsVal(Rational.ONE)) // NOPMD
 			mValues.add(0, Rational.ONE);
-		else if (!mValues.containsVal(Rational.MONE))
+		else if (!mValues.containsVal(Rational.MONE)) // NOPMD
 			mValues.add(0, Rational.MONE);
 		else {
 			mValues.add(0, mBiggest);
