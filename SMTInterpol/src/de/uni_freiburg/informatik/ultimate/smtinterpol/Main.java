@@ -70,7 +70,7 @@ public final class Main {
 		System.err.println("  -no-success          Don't print success messages.");// NOCHECKSTYLE
 		System.err.println("  -q                   Don't print statistics and models.");// NOCHECKSTYLE
 		System.err.println("  -v                   Print debugging messages.");
-		System.err.println("  -t <num>             Set the timeout per check-sat call to <num> seconds.");// NOCHECKSTYLE
+		System.err.println("  -t <num>             Set the timeout per check-sat call to <num> milliseconds.");// NOCHECKSTYLE
 		System.err.println("  -r <num>             Use a different random seed.");// NOCHECKSTYLE
 		System.err.println("  -smt2                Parse input as SMTLIB 2 script.");// NOCHECKSTYLE
 		System.err.println("  -smt                 Parse input as SMTLIB 1 benchmark.");// NOCHECKSTYLE
