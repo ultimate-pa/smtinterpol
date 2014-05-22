@@ -70,17 +70,23 @@ public class CCAppTerm extends CCTerm {
 		return mArg;
 	}
 
+	/**
+	 * Searches the current mCCPar list of args and func to find an 
+	 * application term that is congruent to this term.  The congruence is
+	 * detected by finding a CCAppTerm that is in both parent lists. 
+	 * @param func A term on the path from this.mFunc to this.mFunc.mRepStar.
+	 * @param arg A term on the path from this.mArg to this.mArg.mRepStar.
+	 * @return The congruent CCAppTerm appearing in both terms.
+	 */
 	private CCAppTerm findCongruentAppTerm(CCTerm func, CCTerm arg) {
 		CCParentInfo argInfo = arg.mCCPars.getInfo(func.mParentPosition);
-		if (argInfo != null) {
+		CCParentInfo funcInfo = func.mCCPars.getInfo(0);
+		if (argInfo != null && funcInfo != null) {
 			for (Parent p : argInfo.mCCParents) {
 				if (p.getData() != this) {
-					CCParentInfo funcInfo = func.mCCPars.getInfo(0);
-					if (funcInfo != null) {
-						for (Parent q : funcInfo.mCCParents) {
-							if (p.getData() == q.getData()) {
-								return p.getData();
-							}
+					for (Parent q : funcInfo.mCCParents) {
+						if (p.getData() == q.getData()) {
+							return p.getData();
 						}
 					}
 				}
@@ -89,11 +95,27 @@ public class CCAppTerm extends CCTerm {
 		return null;
 	}
 	
+	/**
+	 * Add this app term to the parent info lists of its function and
+	 * argument.   Also adds it to the mCCPars of all the oldReps on the path
+	 * to the repStar, which is necessary for unmerging correctly.
+	 * @param engine the congruence closure engine.
+	 * @return the first term that is congruent to the current application term.
+	 * I.e., the first term that would have been merged if the term would have
+	 * existed earlier. 
+	 */
 	public CCAppTerm addParentInfo(CClosure engine) {
 		CCTerm func = this.mFunc;
 		CCTerm arg = this.mArg;
 		
 		CCAppTerm congruentAppTerm = null;
+		/*
+		 * Store the parent info in all mCCPars of the representatives 
+		 * occuring on the path to the root, so that it is still present
+		 * when we unmerge later.
+		 * 
+		 * Also find the first congruent application term.
+		 */
 		while (func.mRep != func || arg.mRep != arg) {
 			if (congruentAppTerm == null) {
 				congruentAppTerm = findCongruentAppTerm(func, arg);
