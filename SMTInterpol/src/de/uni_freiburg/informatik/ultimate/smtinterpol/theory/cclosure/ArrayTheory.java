@@ -730,15 +730,14 @@ public class ArrayTheory implements ITheory {
 			interp.getValueInterpretation().ensureCapacity(2);
 			aval.store(freshIndices.get(root), 1);
 			Set<CCTerm> storeIdxs = storeIndices.get(root);
-			if (!storeIdxs.isEmpty()) {
-				if (!freshValues.containsKey(root)) {
-					freshValues.put(root, 
-							interp.getValueInterpretation().extendFresh());
-				}
-				int val = freshValues.get(root);
-				for (CCTerm index : storeIdxs) {
-					if (!e.getValue().containsKey(index))
-						aval.store(index.mModelVal, val);
+			for (CCTerm index : storeIdxs) {
+				if (!e.getValue().containsKey(index)) {
+					if (!freshValues.containsKey(root)) {
+						freshValues.put(root, 
+								interp.getValueInterpretation().extendFresh());
+					}
+					int val = freshValues.get(root);
+					aval.store(index.mModelVal, val);
 				}
 			}
 			for (Entry<CCTerm, Object> mapping : e.getValue().entrySet()) {
