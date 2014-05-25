@@ -684,6 +684,33 @@ public class ArrayTheory implements ITheory {
 	public void fillInModel(Model model, Theory t, SharedTermEvaluator ste) {
 		HashMap<ArrayNode, Integer> freshIndices = new HashMap<ArrayNode, Integer>();
 		HashMap<ArrayNode, Integer> freshValues = new HashMap<ArrayNode, Integer>();
+		HashMap<ArrayNode, Set<Integer>> storeIndices = new HashMap<ArrayNode, Set<Integer>>();
+		for (Entry<ArrayNode, Map<CCTerm, Object>> e 
+				: mArrayModels.entrySet()) {
+
+			ArrayNode root = (ArrayNode) e.getValue().get(null);
+			Set<Integer> stores = storeIndices.get(root);
+			if (stores == null) {
+				stores = new HashSet<Integer>();
+				storeIndices.put(root, stores);
+			}
+			/* Collect the indices for which a store that explicitly stores
+			 * a zero value exists.  We need to set the values for the
+			 * root at these indices to a fresh value.
+			 *
+			 * In our paper we set all indices for which a store exists to a 
+			 * fresh value, but this is enough.
+			 */
+			for (Entry<CCTerm, Object> mapping : e.getValue().entrySet()) {
+				if (mapping.getValue() instanceof CCTerm) {
+					assert ((CCTerm) mapping.getValue()).isRepresentative();
+					int val = ((CCTerm) mapping.getValue()).mModelVal;
+					if (val == 0) {
+						stores.add(mapping.getKey().mModelVal);
+					}
+				}
+			}
+		}
 		for (Entry<ArrayNode, Map<CCTerm, Object>> e 
 				: mArrayModels.entrySet()) {
 			CCTerm ccterm = e.getKey().mTerm;
@@ -696,9 +723,20 @@ public class ArrayTheory implements ITheory {
 			if (!freshIndices.containsKey(root)) {
 				int idx = interp.getIndexInterpretation().extendFresh();
 				freshIndices.put(root, idx);
-				interp.getValueInterpretation().ensureCapacity(2);
 			}
+			interp.getValueInterpretation().ensureCapacity(2);
 			aval.store(freshIndices.get(root), 1);
+			Set<Integer> storeIdxs = storeIndices.get(root);
+			if (!storeIdxs.isEmpty()) {
+				if (!freshValues.containsKey(root)) {
+					freshValues.put(root, 
+							interp.getValueInterpretation().extendFresh());
+				}
+				int val = freshValues.get(root);
+				for (int idx : storeIdxs) {
+					aval.store(idx, val);
+				}
+			}
 			for (Entry<CCTerm, Object> mapping : e.getValue().entrySet()) {
 				if (mapping.getKey() == null)
 					continue;
@@ -710,12 +748,11 @@ public class ArrayTheory implements ITheory {
 					val = ((CCTerm) mapping.getValue()).mModelVal;
 				} else {
 					ArrayNode weaki = (ArrayNode) mapping.getValue();
-					if (freshValues.containsKey(weaki)) {
-						val = freshValues.get(weaki);
-					} else {
-						val = interp.getValueInterpretation().extendFresh();
-						freshValues.put(weaki, val);
+					if (!freshValues.containsKey(weaki)) {
+						freshValues.put(weaki, 
+								interp.getValueInterpretation().extendFresh());
 					}
+					val = freshValues.get(weaki);
 				}
 				aval.store(idx, val);
 			}
