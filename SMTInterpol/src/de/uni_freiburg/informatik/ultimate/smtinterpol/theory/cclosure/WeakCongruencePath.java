@@ -147,7 +147,7 @@ public class WeakCongruencePath extends CongruencePath {
 	}
 	
 	public Clause computeSelectOverWeakEQ(CCAppTerm select1, CCAppTerm select2,
-			boolean produceProofs, Deque<Literal> suggestions) {
+			boolean produceProofs) {
 		CCEquality eq = createEquality(select1, select2);
 
 		CCTerm i1 = select1.getArg();
@@ -159,12 +159,10 @@ public class WeakCongruencePath extends CongruencePath {
 				computeWeakPath(a, b, i1, produceProofs);
 		mWeakPaths.add(weakpath);
 
-		return generateClause(eq, produceProofs, suggestions,
-				RuleKind.READ_OVER_WEAKEQ);
+		return generateClause(eq, produceProofs, RuleKind.READ_OVER_WEAKEQ);
 	}
 	
-	public Clause computeWeakeqExt(CCTerm a, CCTerm b,
-			boolean produceProofs, ArrayDeque<Literal> suggestions) {
+	public Clause computeWeakeqExt(CCTerm a, CCTerm b, boolean produceProofs) {
 		CCEquality eq = createEquality(a, b);
 		
 		HashSet<CCTerm> storeIndices = new HashSet<CCTerm>();
@@ -174,8 +172,7 @@ public class WeakCongruencePath extends CongruencePath {
 					computeWeakPathWithModulo(a, b, idx, produceProofs);
 			mWeakPaths.add(weakpath);
 		}
-		return generateClause(eq, produceProofs, suggestions,
-				RuleKind.WEAKEQ_EXT);
+		return generateClause(eq, produceProofs, RuleKind.WEAKEQ_EXT);
 	}
 	
 	public void computeBackboneStep(Cursor cursor, SubPath path, 
@@ -413,7 +410,7 @@ public class WeakCongruencePath extends CongruencePath {
 	}
 
 	private Clause generateClause(CCEquality diseq, boolean produceProofs,
-			Deque<Literal> suggestions, RuleKind rule) {
+			RuleKind rule) {
 		assert diseq != null;
 		// Note that it can actually happen that diseq is already in
 		// the list of all literals (because it is an index assumption).
@@ -423,8 +420,6 @@ public class WeakCongruencePath extends CongruencePath {
 		int i = 0;
 		for (Literal l: mAllLiterals) {
 			lemma[i++] = l.negate();
-			// I want to suggest all paths.  Thus I put all l in suggestions.
-//			suggestions.offer(l);
 		}
 		Clause c = new Clause(lemma);
 		if (produceProofs)
