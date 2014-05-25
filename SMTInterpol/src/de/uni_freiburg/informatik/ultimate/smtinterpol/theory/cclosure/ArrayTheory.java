@@ -31,6 +31,7 @@ import org.apache.log4j.Logger;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.EqualityProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ITheory;
@@ -478,6 +479,15 @@ public class ArrayTheory implements ITheory {
 			return "ArrayNode[" + mTerm + "]";
 		}
 	}
+	
+	private static class ArrayLemma {
+		Set<CCEquality> mUndecidedLits;
+		SymmetricPair<CCAppTerm> mPropagatedEq;
+		
+		public String toString() {
+			return "ArrayLemma["+mPropagatedEq+" ; "+ mUndecidedLits +"]";
+		}
+	}
 
 	private final Clausifier mClausifier;
 	private final CClosure mCClosure;
@@ -491,6 +501,8 @@ public class ArrayTheory implements ITheory {
 	private final ScopedHashSet<CCAppTerm> mDiffs =
 			new ScopedHashSet<CCAppTerm>();
 	
+	private final ArrayDeque<ArrayLemma> mPropClauses = 
+			new ArrayDeque<ArrayLemma>();
 	private final ArrayDeque<Literal> mSuggestions = new ArrayDeque<Literal>();
 	
 	private final Logger mLogger;
@@ -509,6 +521,8 @@ public class ArrayTheory implements ITheory {
 	private int mNumModuloEdges = 0;
 	private long mTimeBuildWeakEq = 0;
 	private long mTimeBuildWeakEqi = 0;
+	private long mTimePropagation = 0;
+	private long mTimeExplanations = 0;
 	
 	private int mNumArrays = 0;
 	
@@ -533,46 +547,105 @@ public class ArrayTheory implements ITheory {
 
 	@Override
 	public Clause setLiteral(Literal literal) {
-		cleanCaches();
+		if (literal instanceof CCEquality) {
+			cleanCaches();
+		} else {
+			for (ArrayLemma lemma : mPropClauses) {
+				if (lemma.mUndecidedLits.remove(literal.negate())
+					&& lemma.mUndecidedLits.isEmpty()) {
+					return explainPropagation(lemma.mPropagatedEq);
+				}
+			}
+		}
 		return null;
 	}
 
 	@Override
 	public void backtrackLiteral(Literal literal) {
-		// Nothing to do
+		cleanCaches();
 	}
 
 	@Override
 	public Clause checkpoint() {
+		if (mCongRoots == null
+			&& buildWeakEq()) {
+			for (ArrayLemma lemma : mPropClauses) {
+				if (lemma.mUndecidedLits.isEmpty())
+					return explainPropagation(lemma.mPropagatedEq);
+			}
+		}
 		return null;
 	}
 
 	@Override
 	public Clause computeConflictClause() {
-		// Reinit the cache
-		boolean foundLemma = buildWeakEq();
-		if (!foundLemma) {
-			foundLemma = computeWeakeqExt();
+		Clause conflict = checkpoint();
+		if (conflict != null)
+			return conflict;
+		if (mPropClauses.isEmpty()) {
+			boolean foundLemma = computeWeakeqExt();
+			if (foundLemma)
+				mArrayModels = null;
+			else
+				mCongRoots = null;
 		}
-		// Free the cache
-		mCongRoots = null;
-		if (foundLemma)
-			mArrayModels = null;
 		return null;
 	}
 
 	@Override
 	public Literal getPropagatedLiteral() {
+		long start = System.nanoTime();
+		for (ArrayLemma lemma : mPropClauses) {
+			if (lemma.mUndecidedLits.size() == 1) {
+				if (mLogger.isDebugEnabled())
+					mLogger.debug("AL prop: " + lemma);
+				Literal lit = lemma.mUndecidedLits.iterator().next();
+				mTimePropagation += System.nanoTime() - start;
+				lit.getAtom().mExplanation = explainPropagation(lemma.mPropagatedEq);
+				return lit;
+			}
+		}
 		return null;
 	}
 
 	@Override
 	public Clause getUnitClause(Literal literal) {
-		return null;
+		assert literal instanceof CCEquality;
+		if (mCongRoots == null)
+			buildWeakEq();
+		for (ArrayLemma lemma : mPropClauses) {
+			Set<CCEquality> lits = lemma.mUndecidedLits;
+			if (lits.isEmpty()
+				|| (lits.size() == 1 && lits.contains(literal))) {
+				return explainPropagation(lemma.mPropagatedEq);
+			}
+		}
+		throw new AssertionError("Cannot explain unit literal!");
+	}
+
+	private Clause explainPropagation(SymmetricPair<CCAppTerm> equality) {
+		long start = System.nanoTime();
+		mNumInstsSelect++;
+		WeakCongruencePath path = new WeakCongruencePath(this);
+		Clause lemma = path.computeSelectOverWeakEQ(
+				equality.getFirst(), equality.getSecond(),
+				mCClosure.mEngine.isProofGenerationEnabled(), mSuggestions);
+		if (mLogger.isDebugEnabled())
+			mLogger.debug("AL sw: " + lemma);
+		mTimeExplanations += System.nanoTime() - start;
+		return lemma;
 	}
 
 	@Override
 	public Literal getSuggestion() {
+		/*
+		for (ArrayLemma lemma : mPropClauses) {
+			if (!lemma.mUndecidedLits.isEmpty()) {
+				++mNumSuggestions;
+				return lemma.mUndecidedLits.iterator().next().negate();
+			}
+		}
+		*/
 		while (!mSuggestions.isEmpty()) {
 			Literal lit = mSuggestions.poll();
 			if (lit.getAtom().getDecideStatus() == null) {
@@ -596,6 +669,8 @@ public class ArrayTheory implements ITheory {
 					mNumInstsSelect, mNumInstsEq));
 			logger.info(String.format("Time: BuildWeakEq: %.3f ms, BuildWeakEqi: %.3f ms",
 					mTimeBuildWeakEq / 10.e6, mTimeBuildWeakEqi / 10.e6));
+			logger.info(String.format("Time: Propagation %.3f ms, Explanations: %.3f ms",
+					mTimePropagation / 10.e6, mTimeExplanations / 10.e6));
 		}
 
 	}
@@ -632,6 +707,7 @@ public class ArrayTheory implements ITheory {
 	@Override
 	public Clause backtrackComplete() {
 		mSuggestions.clear();
+		mPropClauses.clear();
 		return null;
 	}
 
@@ -675,7 +751,9 @@ public class ArrayTheory implements ITheory {
 				{"WeakeqExt", mNumInstsEq},
 				{"Times", new Object[][]{
 					{"BuildWeakEq", mTimeBuildWeakEq},
-					{"BuildWeakEqi", mTimeBuildWeakEqi}
+					{"BuildWeakEqi", mTimeBuildWeakEqi},
+					{"Propagation", mTimePropagation},
+					{"Explanations", mTimeExplanations}
 				}}
 			}};
 	}
@@ -824,19 +902,155 @@ public class ArrayTheory implements ITheory {
 				node = node.mStoreEdge;
 			}
 		}
-		for (SymmetricPair<CCAppTerm> equalities : propEqualities) {
-			mNumInstsSelect++;
-			WeakCongruencePath path = new WeakCongruencePath(this);
-			Clause lemma = path.computeSelectOverWeakEQ(
-					equalities.getFirst(), equalities.getSecond(),
-					mCClosure.mEngine.isProofGenerationEnabled(), mSuggestions);
-			if (mLogger.isDebugEnabled())
-				mLogger.debug("AL sw: " + lemma);
-			mCClosure.mEngine.learnClause(lemma);
+		for (SymmetricPair<CCAppTerm> equality : propEqualities) {
+			CCAppTerm select1 = equality.getFirst();
+			CCAppTerm select2 = equality.getSecond();
+			if (select1.getRepresentative() == select2.getRepresentative())
+				continue;
+			CCTerm index1 = getIndexFromSelect(select1);
+			CCTerm array1 = getArrayFromSelect(select1);
+			CCTerm array2 = getArrayFromSelect(select2);
+			Set<CCTerm> storeIndices = new HashSet<CCTerm>();
+			computeStoreIndices(index1.getRepresentative(), array1, array2, storeIndices);
+			Set<CCEquality> propClause = new HashSet<CCEquality>();
+			for (CCTerm idx : storeIndices) {
+				assert index1.getRepresentative() != idx.getRepresentative();
+				CCEquality lit = createEquality(index1, idx);
+				if (lit != null) {
+					assert lit.getDecideStatus() != lit;
+					if (lit.getDecideStatus() == null)
+						propClause.add(lit);
+				}
+			}
+			CCEquality lit = createEquality(select1, select2);
+			if (lit != null) {
+				assert lit.getDecideStatus() != lit;
+				if (lit.getDecideStatus() == null)
+					propClause.add(lit);
+			}
+			ArrayLemma lemma = new ArrayLemma();
+			lemma.mUndecidedLits = propClause;
+			lemma.mPropagatedEq = equality;
+			mPropClauses.add(lemma);
 		}
 		return !propEqualities.isEmpty();
 	}
 	
+	private CCEquality createEquality(CCTerm t1, CCTerm t2) {
+		EqualityProxy ep = t1.getFlatTerm().createEquality(t2.getFlatTerm());
+		if (ep == EqualityProxy.getFalseProxy())
+				return null;
+		Literal res = ep.getLiteral();
+		if (res instanceof CCEquality)
+			return (CCEquality) res;
+		return ep.createCCEquality(t1.getFlatTerm(), t2.getFlatTerm());
+	}
+
+	/**
+	 * Auxiliary class to find the path between two array nodes for
+	 * a given store index.
+	 *
+	 */
+	private class Cursor {
+		ArrayNode mNode;
+
+		public Cursor(CCTerm term, ArrayNode node) {
+			this.mNode = node;
+		}
+		
+		/**
+		 * Collect the store indices from this to dest over their
+		 * common root using only the store edges.  The arrays must be
+		 * weakly equivalent.
+		 * @param array1 the first array.
+		 * @param array2 the second array.
+		 * @param storeIndices a map where the store indices are collected to.
+		 */
+		public void collectOverStores(ArrayNode destNode, Set<CCTerm> storeIndices) {
+			int steps1 = mNode.countStoreEdges();
+			int steps2 = destNode.countStoreEdges();
+			while (steps1 > steps2) {
+				storeIndices.add(getIndexFromStore(mNode.mStoreReason));
+				mNode = mNode.mStoreEdge;
+				steps1--;
+			}
+			while (steps2 > steps1) {
+				storeIndices.add(getIndexFromStore(destNode.mStoreReason));
+				destNode = destNode.mStoreEdge;
+				steps2--;
+			}
+			while (mNode != destNode) {
+				storeIndices.add(getIndexFromStore(mNode.mStoreReason));
+				storeIndices.add(getIndexFromStore(destNode.mStoreReason));
+				mNode = mNode.mStoreEdge;
+				destNode = destNode.mStoreEdge;
+			}
+		}
+		
+		public void collectOneSelect(CCTerm index, Set<CCTerm> storeIndices) {
+			ArrayNode selectNode = mNode.findSelectNode(index);
+			CCAppTerm store = selectNode.mSelectReason;
+			CCTerm array = getArrayFromStore(store);
+			ArrayNode arrayNode = mCongRoots.get(array.getRepresentative());
+			ArrayNode storeNode = mCongRoots.get(store.getRepresentative());
+			if (arrayNode.findSelectNode(index) == selectNode) {
+				collectOverStores(arrayNode, storeIndices);
+				mNode = storeNode;
+			} else {
+				assert storeNode.findSelectNode(index) == selectNode;
+				collectOverStores(storeNode, storeIndices);
+				mNode = arrayNode;
+			}
+			storeIndices.add(getIndexFromStore(store));
+		}
+
+		/**
+		 * Collect the store indices on the path from this to dest using
+		 * only indices different from index. 
+		 * @param index  the select index of the selects whose equality is propagated.
+		 * @param dest the cursor for the second array.
+		 * @param storeIndices initially an empty map.  All store indices are added
+		 * to this map as side-effect.
+		 */
+		public void collect(CCTerm index, Cursor dest, Set<CCTerm> storeIndices) {
+			int steps1 = mNode.countSelectEdges(index);
+			int steps2 = dest.mNode.countSelectEdges(index);
+			while (steps1 > steps2) {
+				this.collectOneSelect(index, storeIndices);
+				steps1--;
+			}
+			while (steps2 > steps1) {
+				dest.collectOneSelect(index, storeIndices);
+				steps2--;
+			}
+			while (mNode.findSelectNode(index) != 
+					dest.mNode.findSelectNode(index)) {
+				this.collectOneSelect(index, storeIndices);
+				dest.collectOneSelect(index, storeIndices);
+			}
+			this.collectOverStores(dest.mNode, storeIndices);
+		}
+	}
+
+	/**
+	 * Collect the store indices on the path from array1 to array2 using
+	 * only indices different from index. 
+	 * @param index  the select index of the selects whose equality is propagated.
+	 * @param array1 the first array.
+	 * @param array2 the second array.
+	 * @param storeIndices initially an empty map.  All store indices are added
+	 * to this map as side-effect.
+	 */
+	private void computeStoreIndices(CCTerm index, CCTerm array1,
+			CCTerm array2, Set<CCTerm> storeIndices) {
+		ArrayNode node1 = mCongRoots.get(array1.getRepresentative());
+		ArrayNode node2 = mCongRoots.get(array2.getRepresentative());
+		Cursor cursor1 = new Cursor(array1, node1); 
+		Cursor cursor2 = new Cursor(array2, node2); 
+		assert index == index.getRepresentative();
+		cursor1.collect(index, cursor2, storeIndices);
+	}
+
 	private boolean buildWeakEq() {
 		mNumBuildWeakEQ++;
 		long startTime = System.nanoTime();
@@ -936,5 +1150,6 @@ public class ArrayTheory implements ITheory {
 	
 	private void cleanCaches() {
 		mCongRoots = null;
+		mPropClauses.clear();
 	}
 }

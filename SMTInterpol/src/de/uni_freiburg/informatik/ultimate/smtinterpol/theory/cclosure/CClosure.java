@@ -41,32 +41,11 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.LeafNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTermPairHash.Info.Entry;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LAEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ArrayQueue;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
 import de.uni_freiburg.informatik.ultimate.util.DebugMessage;
 import de.uni_freiburg.informatik.ultimate.util.ScopedHashMap;
 
 public class CClosure implements ITheory {
-	private final class CCAppTermPair {
-		final CCAppTerm mFirst, mSecond;
-		public CCAppTermPair(CCAppTerm first,CCAppTerm second) {
-			this.mFirst = first;
-			this.mSecond = second;
-		}
-		public int hashCode() {
-			// Needs to be symmetric
-			return mFirst.hashCode() + mSecond.hashCode();
-		}
-		public boolean equals(Object o) {
-			if (o instanceof CCAppTermPair) {
-				CCAppTermPair p = (CCAppTermPair)o;
-				return (mFirst == p.mFirst && mSecond == p.mSecond) 
-					|| (mFirst == p.mSecond && mSecond == p.mFirst);
-			}
-			return false;
-		}
-		public String toString() {
-			return mFirst + " " + mSecond;
-		}
-	}
 	final DPLLEngine mEngine;
 	final ArrayList<CCTerm> mAllTerms = new ArrayList<CCTerm>();
 	final CCTermPairHash mPairHash = new CCTermPairHash();
@@ -76,8 +55,8 @@ public class CClosure implements ITheory {
 	int mNumFunctionPositions;
 	int mMergeDepth;
 	final ArrayDeque<CCTerm> mMerges = new ArrayDeque<CCTerm>();
-	final ArrayDeque<CCAppTermPair> mPendingCongruences =
-		new ArrayDeque<CCAppTermPair>();
+	final ArrayDeque<SymmetricPair<CCAppTerm>> mPendingCongruences =
+		new ArrayDeque<SymmetricPair<CCAppTerm>>();
 	
 	final Clausifier mClausifier;
 	
@@ -250,7 +229,7 @@ public class CClosure implements ITheory {
 		term.mFlatTerm = shared;
 		mAllTerms.add(term);
 	}
-			
+	
 	@Override
 	public void backtrackLiteral(Literal literal) {
 		if (!(literal.getAtom() instanceof CCEquality))
@@ -336,12 +315,6 @@ public class CClosure implements ITheory {
 				if (conflict != null)
 					return conflict;
 			}
-			/* TODO get array extensionality working! */
-			/*if (eq.isArray()) {
-				// This is ext-diseq
-				Info info = pairHash.getInfo(left, right);
-				info.addExtensionalityDiseq(converter);
-			}*/
 			separate(left, right, eq);
 			eq.mStackDepth = mMerges.size();
 		}
@@ -470,7 +443,7 @@ public class CClosure implements ITheory {
 	public Clause checkpoint() {
 		// TODO Move some functionality from setLiteral here.
 		while (!mPendingCongruences.isEmpty()/* || root.next != root*/) {
-			Clause res = buildCongruence(true);
+			Clause res = buildCongruence();
 			return res;// NOPMD
 		}
 		return null;
@@ -554,7 +527,8 @@ public class CClosure implements ITheory {
 	@Override
 	public Clause backtrackComplete() {
 		mPendingLits.clear();
-		return buildCongruence(true);
+		mPendingCongruences.clear();
+		return null;
 	}
 
 	@Override
@@ -573,46 +547,36 @@ public class CClosure implements ITheory {
 	void addPendingCongruence(CCAppTerm first,CCAppTerm second) {
 		assert(first.mLeftParInfo.inList() && second.mLeftParInfo.inList());
 		assert(first.mRightParInfo.inList() && second.mRightParInfo.inList());
-		mPendingCongruences.add(new CCAppTermPair(first,second));
+		mPendingCongruences.add(new SymmetricPair<CCAppTerm>(first,second));
 	}
 	
-	void prependPendingCongruence(CCAppTerm first,CCAppTerm second) {
-		assert(first.mLeftParInfo.inList() && second.mLeftParInfo.inList());
-		assert(first.mRightParInfo.inList() && second.mRightParInfo.inList());
-		mPendingCongruences.addFirst(new CCAppTermPair(first,second));
-	}
-	
-	private Clause buildCongruence(boolean checked) {
-		CCAppTermPair cong;
+	/**
+	 * Add all pending congruences to the CC graph.  We do not merge congruences
+	 * immediately but wait for checkpoint.  Then this method is called to merge
+	 * congruent function applications.
+	 * @return A conflict clause if a conflict was found, null otherwise.
+	 */
+	private Clause buildCongruence() {
+		SymmetricPair<CCAppTerm> cong;
 		while ((cong = mPendingCongruences.poll()) != null) {
 			mEngine.getLogger().debug(new DebugMessage("PC {0}", cong));
-			Clause res = null;
-			// TODO Uncomment checked here
-			if (/*!checked ||*/ 
-					(cong.mFirst.mArg.mRepStar == cong.mSecond.mArg.mRepStar
-						&& cong.mFirst.mFunc.mRepStar == cong.mSecond.mFunc.mRepStar)) {
-				res = cong.mFirst.merge(this,cong.mSecond,null);
-			} else
-				assert checked : "Unchecked buildCongruence with non-holding congruence!";
+			CCAppTerm lhs = cong.getFirst();
+			CCAppTerm rhs = cong.getSecond();
+			assert lhs.mArg.mRepStar == rhs.mArg.mRepStar
+				&& lhs.mFunc.mRepStar == rhs.mFunc.mRepStar;
+			Clause res = lhs.merge(this, rhs, null);
 			if (res != null) {
 				return res;
 			}
 		}
 		return null;
-	}	
+	}
 
 	private void backtrackStack(int todepth) {
 		while (mMerges.size() > todepth) {
 			CCTerm top = mMerges.pop();
 			top.mRepStar.invertEqualEdges(this);
-			boolean isCongruence = top.mOldRep.mReasonLiteral == null;
-			CCTerm lhs = top;
-			CCTerm rhs = top.mEqualEdge;
 			top.undoMerge(this, top.mEqualEdge);
-			if (isCongruence) {
-				assert (rhs instanceof CCAppTerm);
-				prependPendingCongruence((CCAppTerm)lhs, (CCAppTerm)rhs);
-			}
 		}
 	}
 

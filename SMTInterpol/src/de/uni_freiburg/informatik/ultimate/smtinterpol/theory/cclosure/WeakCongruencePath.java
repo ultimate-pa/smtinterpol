@@ -156,7 +156,7 @@ public class WeakCongruencePath extends CongruencePath {
 		CCTerm b = ((CCAppTerm) select2.getFunc()).getArg();
 		mMainPath = computePath(i1, i2);
 		WeakSubPath weakpath =
-				computeWeakPath(a, b, i1.mRepStar, produceProofs);
+				computeWeakPath(a, b, i1, produceProofs);
 		mWeakPaths.add(weakpath);
 
 		return generateClause(eq, produceProofs, suggestions,
