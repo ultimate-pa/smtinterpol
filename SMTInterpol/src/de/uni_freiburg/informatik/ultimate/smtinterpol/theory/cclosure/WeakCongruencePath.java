@@ -92,11 +92,20 @@ public class WeakCongruencePath extends CongruencePath {
 
 		public void addSubPath(SubPath path) {
 			if (mTermsOnPath != null) {
-				assert (path.mTermsOnPath.get(0) 
-						== mTermsOnPath.get(mTermsOnPath.size() - 1));
-				for (int i = 0; i < path.mLitsOnPath.size(); i++) {
-					mTermsOnPath.add(path.mTermsOnPath.get(i + 1));
-					mLitsOnPath.add(path.mLitsOnPath.get(i));
+				if (path.mTermsOnPath.get(0) ==
+						mTermsOnPath.get(mTermsOnPath.size() - 1)) {
+					for (int i = 0; i < path.mLitsOnPath.size(); i++) {
+						mTermsOnPath.add(path.mTermsOnPath.get(i + 1));
+						mLitsOnPath.add(path.mLitsOnPath.get(i));
+					}
+				} else {
+					/* sub path is reversed */
+					assert (path.mTermsOnPath.get(path.mTermsOnPath.size() - 1) 
+							== mTermsOnPath.get(mTermsOnPath.size() - 1));
+					for (int i = path.mLitsOnPath.size() - 1; i >= 0; i--) {
+						mTermsOnPath.add(path.mTermsOnPath.get(i));
+						mLitsOnPath.add(path.mLitsOnPath.get(i));
+					}
 				}
 			}
 		}

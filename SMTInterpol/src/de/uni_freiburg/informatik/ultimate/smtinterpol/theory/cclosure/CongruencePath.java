@@ -86,11 +86,22 @@ public class CongruencePath {
 		public void addForward(SubPath second) {
 			if (second == null)
 				return;
-			assert second.mTermsOnPath.get(0)
-				== mTermsOnPath.get(mTermsOnPath.size() - 1);
-			for (int i = 0; i < second.mLitsOnPath.size(); i++) {
-				mTermsOnPath.add(second.mTermsOnPath.get(i + 1));
-				mLitsOnPath.add(second.mLitsOnPath.get(i));
+			if (mTermsOnPath != null) {
+				if (second.mTermsOnPath.get(0) ==
+						mTermsOnPath.get(mTermsOnPath.size() - 1)) {
+					for (int i = 0; i < second.mLitsOnPath.size(); i++) {
+						mTermsOnPath.add(second.mTermsOnPath.get(i + 1));
+						mLitsOnPath.add(second.mLitsOnPath.get(i));
+					}
+				} else {
+					/* sub path is reversed */
+					assert (second.mTermsOnPath.get(second.mTermsOnPath.size() - 1) 
+							== mTermsOnPath.get(mTermsOnPath.size() - 1));
+					for (int i = second.mLitsOnPath.size() - 1; i >= 0; i--) {
+						mTermsOnPath.add(second.mTermsOnPath.get(i));
+						mLitsOnPath.add(second.mLitsOnPath.get(i));
+					}
+				}
 			}
 		}
 
