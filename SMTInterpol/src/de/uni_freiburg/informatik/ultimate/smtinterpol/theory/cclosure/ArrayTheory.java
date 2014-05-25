@@ -682,16 +682,19 @@ public class ArrayTheory implements ITheory {
 
 	@Override
 	public void fillInModel(Model model, Theory t, SharedTermEvaluator ste) {
-		HashMap<ArrayNode, Integer> freshIndices = new HashMap<ArrayNode, Integer>();
-		HashMap<ArrayNode, Integer> freshValues = new HashMap<ArrayNode, Integer>();
-		HashMap<ArrayNode, Set<Integer>> storeIndices = new HashMap<ArrayNode, Set<Integer>>();
+		HashMap<ArrayNode, Integer> freshIndices =
+				new HashMap<ArrayNode, Integer>();
+		HashMap<ArrayNode, Integer> freshValues =
+				new HashMap<ArrayNode, Integer>();
+		HashMap<ArrayNode, Set<CCTerm>> storeIndices =
+				new HashMap<ArrayNode, Set<CCTerm>>();
 		for (Entry<ArrayNode, Map<CCTerm, Object>> e 
 				: mArrayModels.entrySet()) {
 
 			ArrayNode root = (ArrayNode) e.getValue().get(null);
-			Set<Integer> stores = storeIndices.get(root);
+			Set<CCTerm> stores = storeIndices.get(root);
 			if (stores == null) {
-				stores = new HashSet<Integer>();
+				stores = new HashSet<CCTerm>();
 				storeIndices.put(root, stores);
 			}
 			/* Collect the indices for which a store that explicitly stores
@@ -706,7 +709,7 @@ public class ArrayTheory implements ITheory {
 					assert ((CCTerm) mapping.getValue()).isRepresentative();
 					int val = ((CCTerm) mapping.getValue()).mModelVal;
 					if (val == 0) {
-						stores.add(mapping.getKey().mModelVal);
+						stores.add(mapping.getKey());
 					}
 				}
 			}
@@ -726,35 +729,37 @@ public class ArrayTheory implements ITheory {
 			}
 			interp.getValueInterpretation().ensureCapacity(2);
 			aval.store(freshIndices.get(root), 1);
-			Set<Integer> storeIdxs = storeIndices.get(root);
+			Set<CCTerm> storeIdxs = storeIndices.get(root);
 			if (!storeIdxs.isEmpty()) {
 				if (!freshValues.containsKey(root)) {
 					freshValues.put(root, 
 							interp.getValueInterpretation().extendFresh());
 				}
 				int val = freshValues.get(root);
-				for (int idx : storeIdxs) {
-					aval.store(idx, val);
+				for (CCTerm index : storeIdxs) {
+					if (!e.getValue().containsKey(index))
+						aval.store(index.mModelVal, val);
 				}
 			}
 			for (Entry<CCTerm, Object> mapping : e.getValue().entrySet()) {
-				if (mapping.getKey() == null)
+				CCTerm index = mapping.getKey();
+				if (index == null)
 					continue;
-				assert mapping.getKey().isRepresentative();
-				int idx = mapping.getKey().mModelVal;
+				assert index.isRepresentative();
+				Object value = mapping.getValue();
 				int val;
-				if (mapping.getValue() instanceof CCTerm) {
-					assert ((CCTerm) mapping.getValue()).isRepresentative();
-					val = ((CCTerm) mapping.getValue()).mModelVal;
+				if (value instanceof CCTerm) {
+					assert ((CCTerm) value).isRepresentative();
+					val = ((CCTerm) value).mModelVal;
 				} else {
-					ArrayNode weaki = (ArrayNode) mapping.getValue();
+					ArrayNode weaki = (ArrayNode) value;
 					if (!freshValues.containsKey(weaki)) {
 						freshValues.put(weaki, 
 								interp.getValueInterpretation().extendFresh());
 					}
 					val = freshValues.get(weaki);
 				}
-				aval.store(idx, val);
+				aval.store(index.mModelVal, val);
 			}
 		}
 	}
