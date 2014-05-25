@@ -406,55 +406,9 @@ public class WeakCongruencePath extends CongruencePath {
 	 * @param idxFromStore The index of an edge in the weakeq graph.
 	 */
 	private void computeIndexDiseq(CCTerm idx, CCTerm idxFromStore) {
-		if (idx.getSharedTerm() != null 
-				&& idxFromStore.getSharedTerm() != null) {
-			// check for shared term disequality
-			EqualityProxy ep = mArrayTheory.getClausifier().createEqualityProxy(
-					idx.getSharedTerm(), idxFromStore.getSharedTerm());
-			if (ep == EqualityProxy.getFalseProxy())
-				// Always different
-				return;
-		}
-		CCTerm idxrep = idx.getRepresentative();
-		CCTerm idxStorerep = idxFromStore.getRepresentative();
-		assert idxrep != idxStorerep;
-		Info info = mClosure.mPairHash.getInfo(idxrep, idxStorerep);
-		CCEquality diseq = null;
-		boolean idxIsLhs = true;
-		if (info != null) {
-			CCEquality first = null;
-			for (CCEquality.Entry entry : info.mEqlits) {
-				CCEquality cur = entry.getCCEquality();
-				// Pick first diseq
-				if (first == null)
-					first = cur;
-				// Check for perfect matches
-				if (cur.getLhs() == idx && cur.getRhs() == idxFromStore) {
-					diseq = cur;
-				} else if (cur.getLhs() == idxFromStore && cur.getRhs() == idx) {
-					diseq = cur;
-					idxIsLhs = false;
-				}
-			}
-			if (diseq == null) {
-				diseq = first;
-				idxIsLhs = diseq.getLhs().getRepresentative() == idxrep;
-			}
-		}
-		if (diseq == null) {
-			// We don't have an equality literal for these equivalence classes
-			// Create one
-			CCEquality eqlit = createEquality(idx, idxFromStore);
-			if (eqlit != null) {
-				// mAllLiterals is conflict
-				mAllLiterals.add(eqlit.negate());
-			}
-		} else {
-			// compute paths to the literal
-			computePath(idx, idxIsLhs ? diseq.getLhs() : diseq.getRhs());
-			computePath(idxIsLhs ? diseq.getRhs() : diseq.getLhs(), idxFromStore);
-			// mAllLiterals is conflict
-			mAllLiterals.add(diseq.negate());
+		CCEquality eqlit = createEquality(idx, idxFromStore);
+		if (eqlit != null) {
+			mAllLiterals.add(eqlit.negate());
 		}
 	}
 
