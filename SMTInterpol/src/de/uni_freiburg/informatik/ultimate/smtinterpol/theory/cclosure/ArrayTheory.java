@@ -750,8 +750,38 @@ public class ArrayTheory implements ITheory {
 
 	@Override
 	public void fillInModel(Model model, Theory t, SharedTermEvaluator ste) {
-		HashMap<ArrayNode, Integer> freshIndices = new HashMap<ArrayNode, Integer>();
-		HashMap<ArrayNode, Integer> freshValues = new HashMap<ArrayNode, Integer>();
+		HashMap<ArrayNode, Integer> freshIndices =
+				new HashMap<ArrayNode, Integer>();
+		HashMap<ArrayNode, Integer> freshValues =
+				new HashMap<ArrayNode, Integer>();
+		HashMap<ArrayNode, Set<CCTerm>> storeIndices =
+				new HashMap<ArrayNode, Set<CCTerm>>();
+		for (Entry<ArrayNode, Map<CCTerm, Object>> e 
+				: mArrayModels.entrySet()) {
+
+			ArrayNode root = (ArrayNode) e.getValue().get(null);
+			Set<CCTerm> stores = storeIndices.get(root);
+			if (stores == null) {
+				stores = new HashSet<CCTerm>();
+				storeIndices.put(root, stores);
+			}
+			/* Collect the indices for which a store that explicitly stores
+			 * a zero value exists.  We need to set the values for the
+			 * root at these indices to a fresh value.
+			 *
+			 * In our paper we set all indices for which a store exists to a 
+			 * fresh value, but this is enough.
+			 */
+			for (Entry<CCTerm, Object> mapping : e.getValue().entrySet()) {
+				if (mapping.getValue() instanceof CCTerm) {
+					assert ((CCTerm) mapping.getValue()).isRepresentative();
+					int val = ((CCTerm) mapping.getValue()).mModelVal;
+					if (val == 0) {
+						stores.add(mapping.getKey());
+					}
+				}
+			}
+		}
 		for (Entry<ArrayNode, Map<CCTerm, Object>> e 
 				: mArrayModels.entrySet()) {
 			CCTerm ccterm = e.getKey().mTerm;
@@ -764,28 +794,39 @@ public class ArrayTheory implements ITheory {
 			if (!freshIndices.containsKey(root)) {
 				int idx = interp.getIndexInterpretation().extendFresh();
 				freshIndices.put(root, idx);
-				interp.getValueInterpretation().ensureCapacity(2);
 			}
+			interp.getValueInterpretation().ensureCapacity(2);
 			aval.store(freshIndices.get(root), 1);
-			for (Entry<CCTerm, Object> mapping : e.getValue().entrySet()) {
-				if (mapping.getKey() == null)
-					continue;
-				assert mapping.getKey().isRepresentative();
-				int idx = mapping.getKey().mModelVal;
-				int val;
-				if (mapping.getValue() instanceof CCTerm) {
-					assert ((CCTerm) mapping.getValue()).isRepresentative();
-					val = ((CCTerm) mapping.getValue()).mModelVal;
-				} else {
-					ArrayNode weaki = (ArrayNode) mapping.getValue();
-					if (freshValues.containsKey(weaki)) {
-						val = freshValues.get(weaki);
-					} else {
-						val = interp.getValueInterpretation().extendFresh();
-						freshValues.put(weaki, val);
+			Set<CCTerm> storeIdxs = storeIndices.get(root);
+			for (CCTerm index : storeIdxs) {
+				if (!e.getValue().containsKey(index)) {
+					if (!freshValues.containsKey(root)) {
+						freshValues.put(root, 
+								interp.getValueInterpretation().extendFresh());
 					}
+					int val = freshValues.get(root);
+					aval.store(index.mModelVal, val);
 				}
-				aval.store(idx, val);
+			}
+			for (Entry<CCTerm, Object> mapping : e.getValue().entrySet()) {
+				CCTerm index = mapping.getKey();
+				if (index == null)
+					continue;
+				assert index.isRepresentative();
+				Object value = mapping.getValue();
+				int val;
+				if (value instanceof CCTerm) {
+					assert ((CCTerm) value).isRepresentative();
+					val = ((CCTerm) value).mModelVal;
+				} else {
+					ArrayNode weaki = (ArrayNode) value;
+					if (!freshValues.containsKey(weaki)) {
+						freshValues.put(weaki, 
+								interp.getValueInterpretation().extendFresh());
+					}
+					val = freshValues.get(weaki);
+				}
+				aval.store(index.mModelVal, val);
 			}
 		}
 	}
