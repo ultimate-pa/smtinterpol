@@ -54,9 +54,9 @@ public class BinSearch<E> {
 		if (mList.isEmpty())
 			return false;
 		boolean result = false;
-		mTodo.push(new IntPair(0, mList.size()));
+		mTodo.add(new IntPair(0, mList.size()));
 		while (!mTodo.isEmpty()) {
-			IntPair p = mTodo.pop();
+			IntPair p = mTodo.poll();
 			List<E> sublist = mList.subList(p.mFirst, p.mSecond);
 			if (sublist.isEmpty())
 				continue;

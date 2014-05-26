@@ -38,10 +38,8 @@ import java.util.Set;
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
-import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermTransformer;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.delta.BinSearch.Driver;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.delta.TermSimplifier.Mode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.ParseEnvironment;
 import de.uni_freiburg.informatik.ultimate.util.ScopedHashMap;
@@ -222,7 +220,7 @@ public class Minimizer {
 		
 	}
 	
-	private final List<Cmd> mCmds;
+	private List<Cmd> mCmds;
 	private final int mGoldenExit;
 	private final File mTmpFile, mResultFile;
 	private final String mSolver;
@@ -816,10 +814,19 @@ public class Minimizer {
 	
 	private void shrinkCmdList() {
 		System.err.println("Shrinking command list...");
+		int newsize = 0;
 		for (Iterator<Cmd> it = mCmds.iterator(); it.hasNext(); ) {
-			if (!it.next().isActive())
-				it.remove();
+			if (it.next().isActive())
+				++newsize;
 		}
+		System.err.println(mCmds.size() + " -> " + newsize);
+		List<Cmd> tmp = new ArrayList<Cmd>(newsize);
+		for (Iterator<Cmd> it = mCmds.iterator(); it.hasNext(); ) {
+			Cmd cmd = it.next();
+			if (cmd.isActive())
+				tmp.add(cmd);
+		}
+		mCmds = tmp;
 		System.err.println("...done");
 	}
 	
