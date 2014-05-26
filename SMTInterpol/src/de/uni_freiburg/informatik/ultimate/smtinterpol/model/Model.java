@@ -105,7 +105,6 @@ public class Model implements de.uni_freiburg.informatik.ultimate.logic.Model {
 			cc.fillInModel(this, t, ste);
 		if (array != null)
 			array.fillInModel(this, t, ste);
-		mNumSorts.finish();
 		mEval = new ModelEvaluator(this);
 	}
 	
