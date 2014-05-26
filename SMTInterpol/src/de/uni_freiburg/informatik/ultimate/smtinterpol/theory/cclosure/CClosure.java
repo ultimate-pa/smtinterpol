@@ -443,7 +443,7 @@ public class CClosure implements ITheory {
 	public Clause checkpoint() {
 		// TODO Move some functionality from setLiteral here.
 		while (!mPendingCongruences.isEmpty()/* || root.next != root*/) {
-			Clause res = buildCongruence();
+			Clause res = buildCongruence(true);
 			return res;// NOPMD
 		}
 		return null;
@@ -527,8 +527,7 @@ public class CClosure implements ITheory {
 	@Override
 	public Clause backtrackComplete() {
 		mPendingLits.clear();
-		mPendingCongruences.clear();
-		return null;
+		return buildCongruence(true);
 	}
 
 	@Override
@@ -550,21 +549,33 @@ public class CClosure implements ITheory {
 		mPendingCongruences.add(new SymmetricPair<CCAppTerm>(first,second));
 	}
 	
+	void prependPendingCongruence(CCAppTerm first,CCAppTerm second) {
+		assert(first.mLeftParInfo.inList() && second.mLeftParInfo.inList());
+		assert(first.mRightParInfo.inList() && second.mRightParInfo.inList());
+		mPendingCongruences.addFirst(new SymmetricPair<CCAppTerm>(first,second));
+	}
+	
 	/**
 	 * Add all pending congruences to the CC graph.  We do not merge congruences
 	 * immediately but wait for checkpoint.  Then this method is called to merge
 	 * congruent function applications.
+	 * @param checked if true, congruences are only applied if they still hold.
 	 * @return A conflict clause if a conflict was found, null otherwise.
 	 */
-	private Clause buildCongruence() {
+	private Clause buildCongruence(boolean checked) {
 		SymmetricPair<CCAppTerm> cong;
 		while ((cong = mPendingCongruences.poll()) != null) {
 			mEngine.getLogger().debug(new DebugMessage("PC {0}", cong));
+			Clause res = null;
 			CCAppTerm lhs = cong.getFirst();
 			CCAppTerm rhs = cong.getSecond();
-			assert lhs.mArg.mRepStar == rhs.mArg.mRepStar
-				&& lhs.mFunc.mRepStar == rhs.mFunc.mRepStar;
-			Clause res = lhs.merge(this, rhs, null);
+			// TODO Uncomment checked here
+			if (/*!checked ||*/ 
+					(lhs.mArg.mRepStar == rhs.mArg.mRepStar
+						&& lhs.mFunc.mRepStar == rhs.mFunc.mRepStar)) {
+				res = lhs.merge(this, rhs, null);
+			} else
+				assert checked : "Unchecked buildCongruence with non-holding congruence!";
 			if (res != null) {
 				return res;
 			}
@@ -576,7 +587,14 @@ public class CClosure implements ITheory {
 		while (mMerges.size() > todepth) {
 			CCTerm top = mMerges.pop();
 			top.mRepStar.invertEqualEdges(this);
+			boolean isCongruence = top.mOldRep.mReasonLiteral == null;
+			CCTerm lhs = top;
+			CCTerm rhs = top.mEqualEdge;
 			top.undoMerge(this, top.mEqualEdge);
+			if (isCongruence) {
+				assert (rhs instanceof CCAppTerm);
+				prependPendingCongruence((CCAppTerm)lhs, (CCAppTerm)rhs);
+			}
 		}
 	}
 
