@@ -270,7 +270,8 @@ public class DPLLEngine {
 					do {
 						if (propLit.mAtom.mDecideStatus == null) {
 							mTProps++;
-							propLit.mAtom.mExplanation = t;
+							if (propLit.mAtom.mExplanation == null)
+								propLit.mAtom.mExplanation = t;
 							Clause conflict = setLiteral(propLit);
 							if (conflict != null) {
 								for (Literal lit: conflict.mLiterals) {

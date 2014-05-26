@@ -435,8 +435,8 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 //			assert (destParentInfo == null || destParentInfo.m_Next == null);
 			if (srcParentInfo != null) {
 				assert(srcParentInfo.mFuncSymbNr == destParentInfo.mFuncSymbNr);
-			tloop: 
-			    for (CCAppTerm.Parent t1 : srcParentInfo.mCCParents) {
+			tloop:
+				for (CCAppTerm.Parent t1 : srcParentInfo.mCCParents) {
 					if (t1.isMarked()) continue;
 					CCAppTerm t = t1.getData();
 					for (CCAppTerm.Parent u1 : destParentInfo.mCCParents) {
