@@ -1288,7 +1288,7 @@ public class Clausifier {
 			for (Term t : origArgs) {
 				if (t instanceof ApplicationTerm) {
 					ApplicationTerm at = (ApplicationTerm) t;
-					if (at.getFunction() == mTheory.mOr) {
+					if (shouldFlatten(at)) {
 						mOrigArgs = origArgs;
 						mFlatten = true;
 						return;
@@ -2420,4 +2420,9 @@ public class Clausifier {
 		return negated ? res.negate() : res;
 	}
 	
+	public static boolean shouldFlatten(ApplicationTerm term) {
+		return term.getFunction() == term.getTheory().mOr
+				&& term.mTmpCtr <= Config.OCC_INLINE_THRESHOLD;
+	}
+
 }
