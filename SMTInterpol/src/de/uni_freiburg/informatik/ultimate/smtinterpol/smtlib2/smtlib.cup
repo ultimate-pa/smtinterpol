@@ -70,7 +70,7 @@ parser code {:
 
 action code {:
 	ScopedHashMap<String,TermVariable> localVars = 
-		new ScopedHashMap<String, TermVariable>(); 
+		new ScopedHashMap<String, TermVariable>(false); 
 	Sort[] sortParams = null;
 	static Sort[] emptySortArray = new Sort[0];
 	
@@ -608,7 +608,7 @@ command ::= SETLOGIC symbol:logic
             }  :}
           | ASSERT term:t
             {: if (hasError())
-            	   parser.env.printError(getError());
+                   parser.env.printError(getError());
                else {
                	try {
                    parser.env.getScript().assertTerm(t);
