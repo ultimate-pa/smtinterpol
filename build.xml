@@ -23,7 +23,7 @@
     <tstamp>
       <format property="build.date" pattern="yyyy-MM-dd"/>
       <format property="build.year" pattern="yyyy"/>
-    </tstamp> 
+    </tstamp>
   </target>
 
   <path id="cobertura.classpath">
