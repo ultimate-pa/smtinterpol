@@ -18,7 +18,7 @@ SMTInterpol comes with an ant build file that compiles the sources into a bin
 folder (will be created by the build), and creates a standalone jar.  You can
 run it with
 
-    ant -f buildjar.xml
+    ant
 
 
 Usage
