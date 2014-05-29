@@ -557,7 +557,7 @@ public class Interpolator {
 			} else if  (leaf.getLeafKind() == LeafNode.THEORY_CC) {
 				CCInterpolator ipolator = new CCInterpolator(this);
 				Term[] interpolantTerms = ipolator.computeInterpolants(
-				        (CCAnnotation) leaf.getTheoryAnnotation());
+						cl, (CCAnnotation) leaf.getTheoryAnnotation());
 				interpolants = new Interpolant[mNumInterpolants];
 				for (int j = 0; j < mNumInterpolants; j++) { 
 					interpolants[j] = new Interpolant(interpolantTerms[j]);
