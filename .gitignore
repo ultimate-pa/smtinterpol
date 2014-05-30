@@ -51,6 +51,11 @@ SMTInterpol/web/html/download.xml
 java.hprof*
 
 # latex files
+SMTInterpol/doc/*.aux
+SMTInterpol/doc/*.bbl
+SMTInterpol/doc/*.blg
+SMTInterpol/doc/*.log
+SMTInterpol/doc/*.out
 SMTInterpol/doc/**/*.aux
 SMTInterpol/doc/**/*.bbl
 SMTInterpol/doc/**/*.blg
@@ -64,3 +69,8 @@ SMTInterpol/doc/mixedInterpolation/techReport_mixedInterpolation.pdf
 SMTInterpol/doc/mixedInterpolation/tacas_mixedInterpolation.pdf
 SMTInterpol/doc/sysdesc/sysdesc.pdf
 SMTInterpol/doc/sysdesc/sysdesc2014.pdf
+SMTInterpol/doc/arrays/models.pdf
+SMTInterpol/doc/future-devel/future.pdf
+SMTInterpol/doc/interpolation.pdf
+SMTInterpol/doc/progvars.pdf
+SMTInterpol/doc/proposal.pdf
