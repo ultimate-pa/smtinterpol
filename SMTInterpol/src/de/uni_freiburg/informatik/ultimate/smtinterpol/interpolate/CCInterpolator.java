@@ -495,7 +495,7 @@ public class CCInterpolator {
 			if (lit.negate() instanceof CCEquality) {
 				CCEquality eq = (CCEquality) lit.negate();
 				mEqualities.put
-						(new SymmetricPair<>(eq.getLhs(), eq.getRhs()), eq);
+						(new SymmetricPair<CCTerm>(eq.getLhs(), eq.getRhs()), eq);
 			}
 		}
 
