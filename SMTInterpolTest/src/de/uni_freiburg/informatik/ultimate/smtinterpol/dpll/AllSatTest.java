@@ -20,6 +20,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.dpll;
 
 import java.math.BigInteger;
 
+import org.apache.log4j.Logger;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -29,13 +30,14 @@ import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TestCaseWithLogger;
 
 @RunWith(JUnit4.class)
-public class AllSatTest {
+public class AllSatTest extends TestCaseWithLogger {
 
 	@Test
 	public void testAllSat() {
-		SMTInterpol solver = new SMTInterpol();
+		SMTInterpol solver = new SMTInterpol(Logger.getRootLogger());
 		solver.setOption(":verbosity", 10);
 		solver.setLogic(Logics.QF_LIA);
 		Sort[] empty = new Sort[0];

@@ -44,3 +44,7 @@ cobertura
 doc-smtinterpol
 SMTInterpol/web/html/gen/
 SMTInterpol/web/html/download.xml
+
+# smtlib files and generated jars in the main directory
+*.smt2
+*.jar

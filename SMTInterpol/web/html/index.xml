@@ -18,18 +18,18 @@
     <txt>The solver is written
     in <link url="http://www.oracle.com/technetwork/java/index.html">Java</link>
     and can be used on any operating system that supports Java Version
-    6.</txt>
+    6 or above.</txt>
     <txt>The solver reads input in <link url="http://smtlib.org">SMTLIB
     Version 2</link> format.</txt>
 
     <head1>Status</head1>
-    <txt>The current version of <s /> is
-    2.0.  It supports interpolation for the combination of the
-    quantifier-free fragments of the theories of uninterpreted functions,
-    linear real arithmetic, and linear integer arithmetic.</txt>
+    <txt>The current version of <s /> supports interpolation for the
+    combination of the quantifier-free fragments of the theories of
+    uninterpreted functions, linear real arithmetic, linear integer
+    arithmetic, and arrays.</txt>
 
     <head1>System Requirements</head1>
-    <txt><s /> needs a Java 6 JRE.  No
+    <txt><s /> needs a Java 6 JRE or above.  No
     special hardware is necessary but depending on the input problem, a fast
     CPU and a good amount of RAM might be useful.</txt>
 
@@ -47,8 +47,8 @@
     <txt><s /> is distributed under LGPL Version 3.</txt>
 
     <head1>SMTInterpol in Action</head1>
-    <txt><s /> participates in the <link
-    url="http://www.smtcomp.org/2012/">SMT-COMP 2012</link>. See this page or
+    <txt><s /> participates regularly in the <link
+    url="http://smtcomp.sourceforge.net">SMT-COMP</link>. See this page or
     the news page for further details.</txt>
 
     <head1>Further Development</head1>

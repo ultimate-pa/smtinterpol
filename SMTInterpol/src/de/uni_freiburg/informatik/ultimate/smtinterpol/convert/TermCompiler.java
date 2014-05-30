@@ -75,11 +75,13 @@ public class TermCompiler extends TermTransformer {
 	public Map<Term, Set<String>> getNames() {
 		return mNames;
 	}
-
+	
 	public void convert(Term term) {
 		if (term instanceof ApplicationTerm) {
 			ApplicationTerm appTerm = (ApplicationTerm) term;
 			FunctionSymbol fsym = appTerm.getFunction();
+			if (fsym.isModelValue())
+				throw new SMTLIBException("Model values not allowed in input");
 			Term[] params = appTerm.getParameters();
 			if (fsym.isLeftAssoc() && params.length > 2) {
 				Theory theory = appTerm.getTheory();

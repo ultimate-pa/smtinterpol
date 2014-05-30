@@ -9,6 +9,9 @@
 <page id="news">
   <name>News</name>
   <content>
+    <head1>New preview release</head1>
+    <txt>A preview to release 2.2 of <s /> is available.  This release contains a new array decision procedure which is designed to enable quantifier-free interpolation.  The interpolation procedure however is not yet implemented.  Additionally we changed the model generation such that we now produce anonymous terms of the form (as @0 S) for a sort S.  The array model basically are a difference map to an array (as @0 (Array TI TE)) that contains at every index the value (as @0 TE).  Note that in the current version of our array solver the index type Bool is not supported.</txt>
+
     <head1>New minor release</head1>
     <txt>Release 2.1 of <s /> is available.  Among some bug fixes this release includes support for user cancellation requests.  While <s /> is performing a satisfiability check it now regularly polls a cancellation request that can be configured via the API.</txt>
     <head1>New release</head1>

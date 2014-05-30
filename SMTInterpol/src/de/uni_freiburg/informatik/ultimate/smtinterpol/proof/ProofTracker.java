@@ -34,7 +34,7 @@ import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier.ConditionChain;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Utils;
@@ -773,8 +773,7 @@ public class ProofTracker implements IProofTracker {
 			for (int i = mOffset; i < mArgs.length; ++i) {
 				if (mArgs[i] instanceof ApplicationTerm) {
 					ApplicationTerm tst = (ApplicationTerm) mArgs[i];
-					if (tst.getFunction() == tst.getTheory().mOr
-					        && tst.mTmpCtr <= Config.OCC_INLINE_THRESHOLD) {
+					if (Clausifier.shouldFlatten(tst)) {
 						mOffset = i + 1;
 						if (mOffset < mArgs.length)
 							todo.addFirst(this);

@@ -1,0 +1,62 @@
+\documentclass{article}
+\usepackage[english]{babel}
+\usepackage{xspace}
+\usepackage{hyperref}
+
+\newcommand\SI{SMTInterpol\xspace}
+\newcommand\version{2.1-96-gade4dc0-comp\xspace}
+
+\title{\SI\\{\large Version \version}}
+
+\author{J\"urgen Christ, Jochen Hoenicke\\
+  University of Freiburg\\
+  \texttt{\{christj,hoenicke\}@informatik.uni-freiburg.de}}
+
+\begin{document}
+\maketitle
+\section*{Description}
+\SI is an SMT solver written in Java and available under LGPL v3.  It supports
+the quantifier-free combination of the theories of uninterpreted functions,
+linear arithmetic over integers and reals, and arrays.  Furthermore it can
+produce models, proofs, unsatisfiable cores, and interpolants.  The solver
+reads input in SMTLIB format.  It includes parsers for DIMACS, AIGER, and
+SMTLIB version 1.2 and 2.
+
+The solver uses variants of standard algorithms for CNF
+conversion~\cite{DBLP:journals/jsc/PlaistedG86}, congruence
+closure~\cite{DBLP:conf/rta/NieuwenhuisO05}, simplex~\cite{DBLP:conf/cav/DutertreM06} and
+branch-and-cut~\cite{DBLP:conf/cav/DilligDA09}.
+The array decision procedure is based on \emph{weak equivalences} and will be
+presented at the SMT workshop 2014.
+%%   A new array decision
+%% procedure based on \emph{weak equivalences} has been added to \SI for this years
+%% competition.  Details about this procedure will be presented at the SMT
+%% workshop.
+Theory combination is performed based on partial models produced by the theory
+solvers~\cite{DBLP:journals/entcs/MouraB08}.
+
+The main focus of \SI is the application track where the incremental usage of
+the solver is required.  This track simulates the typical application of \SI
+where a user asks multiple queries.  Unfortunately, the interpolation
+engine~\cite{DBLP:conf/tacas/ChristHN13} of \SI which is the focus of the
+development team of \SI is not tested during SMT-COMP.
+
+\section*{Competition Version}
+The version submitted to the SMT-COMP 2014 is a preliminary release of version
+2.2.  This release will include quantifier-free interpolation for the theory
+of arrays which is still missing in the current solver.
+
+Further information about \SI can be found at
+\begin{center}
+  \url{http://ultimate.informatik.uni-freiburg.de/smtinterpol/}
+\end{center}
+The sources are available via GitHub
+\begin{center}
+  \url{https://github.com/juergenchrist/smtinterpol}
+\end{center}
+
+Magic Number: $3\,154\,861\,623$
+
+\bibliography{sysdec}
+\bibliographystyle{alpha}
+\end{document}
