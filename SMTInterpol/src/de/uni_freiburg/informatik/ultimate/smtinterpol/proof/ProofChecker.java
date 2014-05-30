@@ -543,10 +543,10 @@ public class ProofChecker extends NonRecursive {
 				Term[] p1 = ((ApplicationTerm) sides[0]).getParameters();
 				Term[] p2 = ((ApplicationTerm) sides[1]).getParameters();
 				if (p1[1] == p2[1]
-					|| strongPaths.contains
-						(new SymmetricPair<Term>(p1[1], p2[1]))) {
-					HashSet<Term> weakPs = weakPaths.get
-							(new SymmetricPair<Term>(p1[0], p2[0]));
+					|| strongPaths.contains(
+							new SymmetricPair<Term>(p1[1], p2[1]))) {
+					HashSet<Term> weakPs = weakPaths.get(
+							new SymmetricPair<Term>(p1[0], p2[0]));
 					if (weakPs != null
 						&& (weakPs.contains(p1[1]) || weakPs.contains(p2[1])))
 						return;
@@ -591,11 +591,11 @@ public class ProofChecker extends NonRecursive {
 					continue;
 			}
 			/* check for weak store step */
-			Term storeIndex = checkStoreIndex(path[i], path[i+1]);
+			Term storeIndex = checkStoreIndex(path[i], path[i + 1]);
 			if (storeIndex != null) {
 				if (weakIdx != null 
-					&& indexDiseqs.contains
-						(new SymmetricPair<Term>(weakIdx, storeIndex)))
+					&& indexDiseqs.contains(
+							new SymmetricPair<Term>(weakIdx, storeIndex)))
 					continue;
 
 				if (weakPaths != null
@@ -613,8 +613,8 @@ public class ProofChecker extends NonRecursive {
 					for (int j = 0; j < p1.length; j++) {
 						if (p1[j] == p2[j])
 							continue;
-						if (!strongPaths.contains
-								(new SymmetricPair<Term>(p1[j], p2[j])))
+						if (!strongPaths.contains(
+								new SymmetricPair<Term>(p1[j], p2[j])))
 							reportError("unexplained equality");
 					}
 					continue;

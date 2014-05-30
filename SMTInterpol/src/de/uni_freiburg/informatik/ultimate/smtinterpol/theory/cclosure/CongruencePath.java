@@ -79,8 +79,8 @@ public class CongruencePath {
 
 		public void addSubPath(SubPath second) {
 			if (mTermsOnPath != null && second != null) {
-				if (second.mTermsOnPath.get(0) ==
-						mTermsOnPath.get(mTermsOnPath.size() - 1)) {
+				if (second.mTermsOnPath.get(0)
+						== mTermsOnPath.get(mTermsOnPath.size() - 1)) {
 					for (int i = 1; i < second.mTermsOnPath.size(); i++) {
 						mTermsOnPath.add(second.mTermsOnPath.get(i));
 					}

@@ -1054,8 +1054,8 @@ public class ArrayTheory implements ITheory {
 				dest.collectOneSelect(index, storeIndices);
 				steps2--;
 			}
-			while (mNode.findSelectNode(index) != 
-					dest.mNode.findSelectNode(index)) {
+			while (mNode.findSelectNode(index) 
+					!= dest.mNode.findSelectNode(index)) {
 				this.collectOneSelect(index, storeIndices);
 				dest.collectOneSelect(index, storeIndices);
 			}

@@ -494,8 +494,8 @@ public class CCInterpolator {
 			Literal lit = cl.getLiteral(i);
 			if (lit.negate() instanceof CCEquality) {
 				CCEquality eq = (CCEquality) lit.negate();
-				mEqualities.put
-						(new SymmetricPair<CCTerm>(eq.getLhs(), eq.getRhs()), eq);
+				mEqualities.put(
+					new SymmetricPair<CCTerm>(eq.getLhs(), eq.getRhs()), eq);
 			}
 		}
 
