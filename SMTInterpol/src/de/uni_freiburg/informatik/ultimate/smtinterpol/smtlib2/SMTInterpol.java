@@ -39,6 +39,7 @@ import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Assignments;
+import de.uni_freiburg.informatik.ultimate.logic.CheckClosedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
@@ -909,7 +910,7 @@ public class SMTInterpol extends NoopScript {
 			else
 				throw new SMTLIBException("Asserted terms created with incompatible theory");
 		}
-		if (Config.STRONG_USAGE_CHECKS && term.getFreeVars().length != 0)
+		if (Config.STRONG_USAGE_CHECKS && !new CheckClosedTerm().isClosed(term))
 			throw new SMTLIBException("Asserted terms must be closed");
 		if (mAssertions != null)
 			mAssertions.add(term);
