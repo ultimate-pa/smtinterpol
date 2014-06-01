@@ -400,6 +400,12 @@ public class Minimizer {
 				continue;
 			if (cmd.hasDefinitions() && !usedDefs.contains(cmd))
 				unusedDefs.add(cmd);
+			if (cmd instanceof AbstractOneTermCmd) {
+				for (Cmd pre : ((AbstractOneTermCmd) cmd).getPreCmds())
+					if (pre.isActive() && pre.hasDefinitions()
+							&& !usedDefs.contains(pre))
+						unusedDefs.add(pre);
+			}
 		}
 		boolean res = deactivateCmds(unusedDefs);
 		// Now, we have deactivated all unused definitions that can be

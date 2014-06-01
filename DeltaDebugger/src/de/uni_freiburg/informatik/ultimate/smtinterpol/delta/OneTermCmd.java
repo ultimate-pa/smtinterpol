@@ -67,7 +67,8 @@ public class OneTermCmd extends AbstractOneTermCmd {
 			 * symbols in the term would otherwise not be well defined.
 			 */
 			for (Cmd cmd : mPreCmds)
-				cmd.insertDefinitions(context);
+				if (cmd.isActive())
+					cmd.insertDefinitions(context);
 		}
 		new DefinitionTracker(context, usedDefs).track(mTerm);
 	}
