@@ -725,7 +725,7 @@ public class LinArSolve implements ITheory {
 		if (cceq == cclit)
 			ea = ea.negate();
 		return new Clause(new Literal[] { cclit, ea }, 
-				new LeafNode(LeafNode.EQ, null));
+				new LeafNode(LeafNode.EQ, EQAnnotation.EQ));
 	}
 
 	/**

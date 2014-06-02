@@ -542,8 +542,7 @@ public class Interpolator {
 				interpolants = computeEQInterpolant(
 				        (CCEquality) l1.getAtom(),	(LAEquality) l2.getAtom(),
 				            l1.getSign());
-			} else if (leaf.isTautology()
-			        || leaf.getLeafKind() == LeafNode.NO_THEORY) {
+			} else if (leaf.hasSourceAnnotation()) {
 				SourceAnnotation annot = 
 						(SourceAnnotation) leaf.getTheoryAnnotation();
 				int partition = mPartitions.containsKey(annot.getAnnotation())
@@ -698,7 +697,7 @@ public class Interpolator {
 		ProofNode pn = root.getProof();
 		if (pn.isLeaf()) {
 			LeafNode ln = (LeafNode) pn;
-			if (ln.isColorable()) {
+			if (ln.hasSourceAnnotation()) {
 				SourceAnnotation annot = 
 						(SourceAnnotation) ln.getTheoryAnnotation();
 				int partition = mPartitions.containsKey(annot.getAnnotation())
