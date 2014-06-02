@@ -241,6 +241,9 @@ public class SMTInterpol extends NoopScript {
 			case UFLRA:
 				declareRealSymbols(theory);
 				break;
+			case QF_AX:
+				declareArraySymbols(theory);
+				break;
 			default:
 				break;
 			}
