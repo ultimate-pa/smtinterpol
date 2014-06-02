@@ -35,6 +35,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.EqualityProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier.ConditionChain;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Utils;
@@ -694,6 +695,18 @@ public class ProofTracker implements IProofTracker {
 		case ProofConstants.AUX_TO_INT_HIGH:
 			axiom = t.term(t.mNot, t.term("<=", SMTAffineTerm.cleanup(data),
 					t.rational(BigInteger.ZERO, BigInteger.ONE)));
+			break;
+		case ProofConstants.AUX_ARRAY_STORE:
+			params = ((ApplicationTerm) data).getParameters();
+			axiom = t.term("=", t.term("select", data, params[1]), params[2]);
+			break;
+		case ProofConstants.AUX_ARRAY_DIFF:
+			// Create a = b \/ select(a, diff(a,b)) != select(b, diff(a,b))
+			params = ((ApplicationTerm) data).getParameters();
+			axiom = t.term("or", t.term("=", params),
+						t.term("not", t.term("=", 
+								t.term("select", params[0], data),
+								t.term("select", params[1], data))));
 			break;
 		default:
 			throw new InternalError("BUG in ProofTracker: AUX");

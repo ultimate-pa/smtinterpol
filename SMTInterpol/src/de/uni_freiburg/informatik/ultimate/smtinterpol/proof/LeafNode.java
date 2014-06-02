@@ -38,8 +38,6 @@ public class LeafNode extends ProofNode {
 	public final static int EQ = ProofConstants.AUX_EQ;
 	/// Array lemma
 	public final static int THEORY_ARRAY = -5;
-	/// Diff axiom
-	public final static int THEORY_ARRAY_DIFF_AXIOM = -6;
 
 	private final int mLeafKind;
 	private IAnnotation mAnnotation;

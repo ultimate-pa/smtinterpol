@@ -58,8 +58,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofTracker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ResolutionNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ResolutionNode.Antecedent;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.ArrayDiffAnnotation;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.ArrayStoreAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.ArrayTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAppTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
@@ -91,14 +89,18 @@ public class Clausifier {
 
 		@Override
 		public void perform() {
+			IProofTracker sub = mTracker.getDescendent();
 			Term i = mStore.getParameters()[1];
 			Term v = mStore.getParameters()[2];
 			Term selstore = mTheory.term("select", mStore, i);
 			EqualityProxy ep = createEqualityProxy(
 					getSharedTerm(selstore), getSharedTerm(v));
 			Literal lit = ep.getLiteral();
-			addClause(new Literal[] {lit}, null, new LeafNode(LeafNode.THEORY_ARRAY,
-					new ArrayStoreAnnotation(mStore, getAnnotation())));
+			Term prf = sub.auxAxiom(
+					ProofConstants.AUX_ARRAY_STORE, null, mStore, null, null);
+			addClause(new Literal[] {lit}, null, 
+					getProofNewSource(
+							ProofConstants.AUX_ARRAY_STORE, sub.clause(prf)));
 			if (Config.ARRAY_ALWAYS_ADD_READ
 					// HACK: We meen "finite sorts"
 					|| v.getSort() == mTheory.getBooleanSort()) {
@@ -125,6 +127,7 @@ public class Clausifier {
 
 		@Override
 		public void perform() {
+			IProofTracker sub = mTracker.getDescendent();
 			// Create a = b \/ select(a, diff(a,b)) != select(b, diff(a,b))
 			Term a = mDiff.getParameters()[0];
 			Term b = mDiff.getParameters()[1];
@@ -145,9 +148,11 @@ public class Clausifier {
 				eparray.getLiteral(),
 				epselect.getLiteral().negate()
 			};
-			ProofNode diffProof = new LeafNode(LeafNode.THEORY_ARRAY_DIFF_AXIOM,
-				new ArrayDiffAnnotation(mDiff, getAnnotation()));
-			addClause(lits, null, diffProof);
+			Term prf = sub.auxAxiom(
+					ProofConstants.AUX_ARRAY_DIFF, null, mDiff, null, null);
+			addClause(lits, null, 
+					getProofNewSource(
+							ProofConstants.AUX_ARRAY_DIFF, sub.clause(prf)));
 		}
 		
 	}
