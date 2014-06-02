@@ -48,3 +48,29 @@ SMTInterpol/web/html/download.xml
 # smtlib files and generated jars in the main directory
 *.smt2
 *.jar
+java.hprof*
+
+# latex files
+SMTInterpol/doc/*.aux
+SMTInterpol/doc/*.bbl
+SMTInterpol/doc/*.blg
+SMTInterpol/doc/*.log
+SMTInterpol/doc/*.out
+SMTInterpol/doc/**/*.aux
+SMTInterpol/doc/**/*.bbl
+SMTInterpol/doc/**/*.blg
+SMTInterpol/doc/**/*.log
+SMTInterpol/doc/**/*.out
+SMTInterpol/doc/**/comment.cut
+# generated pdf files
+SMTInterpol/doc/proof/proof.pdf
+SMTInterpol/doc/mixedInterpolation/newtechreport.pdf
+SMTInterpol/doc/mixedInterpolation/techReport_mixedInterpolation.pdf
+SMTInterpol/doc/mixedInterpolation/tacas_mixedInterpolation.pdf
+SMTInterpol/doc/sysdesc/sysdesc.pdf
+SMTInterpol/doc/sysdesc/sysdesc2014.pdf
+SMTInterpol/doc/arrays/models.pdf
+SMTInterpol/doc/future-devel/future.pdf
+SMTInterpol/doc/interpolation.pdf
+SMTInterpol/doc/progvars.pdf
+SMTInterpol/doc/proposal.pdf
