@@ -65,15 +65,16 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 public class ArrayAnnotation extends CCAnnotation {
 
 	enum RuleKind {
-		READ_OVER_WEAKEQ {
-			public String toString() {
-				return ":read-over-weakeq";
-			}
-		},
-		WEAKEQ_EXT {
-			public String toString() {
-				return ":weakeq-ext";
-			}
+		READ_OVER_WEAKEQ(":read-over-weakeq"),
+		WEAKEQ_EXT(":weakeq-ext");
+		
+		String mKind;
+		private RuleKind(String kind) {
+			mKind = kind;
+		}
+		
+		public String getKind() {
+			return mKind;
 		}
 	}
 	
@@ -99,12 +100,6 @@ public class ArrayAnnotation extends CCAnnotation {
 		return mWeakPaths;
 	}
 	
-	@Override
-	public String toSExpr(Theory smtTheory) {
-		// TODO This function should be removed!!!
-		return null;
-	}
-
 	@Override
 	public Term toTerm(Clause cls, Theory theory) {
 		Term base = cls.toTerm(theory);
@@ -132,8 +127,7 @@ public class ArrayAnnotation extends CCAnnotation {
 			subannots[i++] = subs;
 		}
 		Annotation[] annots = new Annotation[] {
-			// TODO: Should we mention :ARRAY somehow???
-			new Annotation(mRule.toString(), subannots)
+			new Annotation(mRule.getKind(), subannots)
 		};
 		return theory.term("@lemma", theory.annotatedTerm(annots, base));
 	}
