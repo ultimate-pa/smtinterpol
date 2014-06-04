@@ -2012,7 +2012,7 @@ public class Clausifier {
 			throw new UnsupportedOperationException(
 					"Logic " + logic.toString() + " unsupported");
 		
-		if (logic.isUF())
+		if (logic.isUF() || logic.isArray())
 			setupCClosure();
 		if (logic.isArithmetic())
 			setupLinArithmetic();
