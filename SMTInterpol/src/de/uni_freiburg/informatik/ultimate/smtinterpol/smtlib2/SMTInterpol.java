@@ -212,41 +212,12 @@ public class SMTInterpol extends NoopScript {
 					return resultSort;
 				}
 			});
-			switch (logic) {
-			case QF_AUFLIA:
-			case AUFLIA:
+			if (logic.isArray())
 				declareArraySymbols(theory);
-				// fallthrough
-			case QF_UFLIA:
-			case QF_LIA:
-			case QF_IDL:
-			case QF_UFIDL:
-			case QF_NIA:
-			case UFNIA:
+			if (logic.hasIntegers())
 				declareIntSymbols(theory);
-				break;
-			case AUFLIRA:
-			case AUFNIRA:
-				declareArraySymbols(theory);
-				// fallthrough
-			case QF_UFLIRA:
-				declareIntSymbols(theory);
-				// fallthrough to real symbols since mixed logics.
-			case LRA:
-			case QF_LRA:
-			case QF_NRA:
-			case QF_UFLRA:
-			case QF_UFNRA:
-			case QF_RDL:
-			case UFLRA:
+			if (logic.hasReals())
 				declareRealSymbols(theory);
-				break;
-			case QF_AX:
-				declareArraySymbols(theory);
-				break;
-			default:
-				break;
-			}
 		}
 		
 		private final void declareIntSymbols(Theory theory) {
@@ -269,7 +240,6 @@ public class SMTInterpol extends NoopScript {
 			declareInternalPolymorphicFunction(
 					theory, "@diff", vars, new Sort[]{array, array}, vars[0], 0);
 		}
-		
 	}
 	
 	private static abstract class Option {
