@@ -660,9 +660,9 @@ public class ArrayTheory implements ITheory {
 					"Insts: ReadOverWeakEQ: %d, WeakeqExt: %d",
 					mNumInstsSelect, mNumInstsEq));
 			logger.info(String.format("Time: BuildWeakEq: %.3f ms, BuildWeakEqi: %.3f ms",
-					mTimeBuildWeakEq / 10.e6, mTimeBuildWeakEqi / 10.e6));
+					mTimeBuildWeakEq / 1e6, mTimeBuildWeakEqi / 1e6));
 			logger.info(String.format("Time: Propagation %.3f ms, Explanations: %.3f ms",
-					mTimePropagation / 10.e6, mTimeExplanations / 10.e6));
+					mTimePropagation / 1e6, mTimeExplanations / 1e6));
 		}
 
 	}
