@@ -890,28 +890,48 @@ public class Minimizer {
 	
 	public static void usage() {
 		System.err.println(
-				"Usage: Minimizer <infile> <outfile> [-f] <command> <args>");
+				"Usage: Minimizer <infile> <outfile> [-f] [-golden <num>] <command> <args>");
 		System.err.println("where");
-		System.err.println("  infile  is the original input file");
-		System.err.println("  outfile is the desired output file");
-		System.err.println("  command is the command to start the solver");
-		System.err.println("  -f      forces \"outfile\" to be overwritten");
-		System.err.println("  args    are optional arguments to \"command\"");
+		System.err.println("  infile        is the original input file");
+		System.err.println("  outfile       is the desired output file");
+		System.err.println("  command       is the command to start the solver");
+		System.err.println("  -f            forces \"outfile\" to be overwritten");
+		System.err.println("  -golden <num> sets expected exit code to \"num\" and safes initial test");
+		System.err.println("  args          are optional arguments to \"command\"");
 		System.exit(0);
 	}
 	
 	public static void main(String[] args) {
 		if (args.length < 3)// NOCHECKSTYLE
 			usage();
+		int goldenExit = 0;
 		String infile = args[0];
 		String outfile = args[1];
 		int cmdstart = 2;
 		boolean force = false;
-		if (args[2].equals("-f")) {
-			force = true;
-			cmdstart = 3;
+		int arg = 2;
+		boolean foundArg = true;
+		while (foundArg && arg < args.length) {
+			foundArg = false;
+			if (args[arg].equals("-f")) {
+				force = true;
+				foundArg = true;
+			} else if (args[arg].equals("-golden")) {
+				if (++arg == args.length)
+					usage();
+				try {
+					goldenExit = Integer.parseInt(args[arg]);
+				} catch (NumberFormatException eNAN) {
+					usage();
+				}
+				foundArg = true;
+			}
+			++arg;
 		}
+		cmdstart = arg;
 		StringBuilder command = new StringBuilder();
+		if (cmdstart >= args.length)
+			usage();
 		for (int i = cmdstart; i < args.length; ++i)
 			command.append(args[i]).append(' ');
 		File resultFile = new File(outfile);
@@ -919,28 +939,25 @@ public class Minimizer {
 			File tmpFile = File.createTempFile("minimize", ".smt2");
 			tmpFile.deleteOnExit();
 			File input = new File(infile);
-			if (force)
-				Files.copy(input.toPath(), resultFile.toPath(),
-						StandardCopyOption.REPLACE_EXISTING);
-			else
-				Files.copy(input.toPath(), resultFile.toPath());
-			Files.copy(input.toPath(), tmpFile.toPath(),
-					StandardCopyOption.REPLACE_EXISTING);
 			command.append(tmpFile.getAbsolutePath());
 			String solver = command.toString();
 			// Free space
 			command = null;
-			System.err.println("Starting " + solver);
-			Process p = Runtime.getRuntime().exec(solver);
-			OutputReaper out = new OutputReaper(p.getInputStream());
-			out.start();
-			OutputReaper err = new OutputReaper(p.getErrorStream());
-			err.start();
-			int goldenExit = p.waitFor();
-			out.join();
-			err.join();
-			// Free space
-			p = null;
+			if (goldenExit == 0) {
+				Files.copy(input.toPath(), tmpFile.toPath(),
+						StandardCopyOption.REPLACE_EXISTING);
+				System.err.println("Starting " + solver);
+				Process p = Runtime.getRuntime().exec(solver);
+				OutputReaper out = new OutputReaper(p.getInputStream());
+				out.start();
+				OutputReaper err = new OutputReaper(p.getErrorStream());
+				err.start();
+				goldenExit = p.waitFor();
+				out.join();
+				err.join();
+				// Free space
+				p = null;
+			}
 			System.err.println("Got golden exit code: " + goldenExit);
 			ParseScript ps = new ParseScript();
 			ParseEnvironment pe = new ParseEnvironment(ps) {
