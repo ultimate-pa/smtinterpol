@@ -1372,7 +1372,7 @@ public class Clausifier {
 			Utils tmp = new Utils(sub);
 			SMTAffineTerm realTerm = SMTAffineTerm.create(
 					mToIntTerm.getParameters()[0]);
-			SMTAffineTerm toInt = SMTAffineTerm.create(mToIntTerm).toReal(
+			SMTAffineTerm toInt = SMTAffineTerm.create(mToIntTerm).typecast(
 					realTerm.getSort());
 			// (<= (- (to_real (to_int x)) x) 0)
 			SMTAffineTerm difflow = toInt.add(realTerm.negate());
@@ -1809,11 +1809,11 @@ public class Clausifier {
 				return EqualityProxy.getFalseProxy();
 			}
 		}
-		if (mTheory.getLogic().isIRA()
-				&& diff.isAllIntSummands() && !diff.getConstant().isIntegral())
-			// IRA-unsatisfiable.
-			return EqualityProxy.getFalseProxy();
 		diff = diff.div(diff.getGcd());
+		// normalize equality to integer logic if all variables are integer.
+		if (mTheory.getLogic().isIRA() && !diff.isIntegral()
+				&& diff.isAllIntSummands())
+			diff = diff.typecast(getTheory().getSort("Int"));
 		// check for unsatisfiable integer formula, e.g. 2x + 2y = 1.
 		if (diff.isIntegral() && !diff.getConstant().isIntegral()) {
 			return EqualityProxy.getFalseProxy();
@@ -1938,7 +1938,7 @@ public class Clausifier {
 	
 	SharedTerm toReal(SharedTerm t) {
 		SMTAffineTerm tst = SMTAffineTerm.create(t.getTerm());
-		return getSharedTerm(tst.toReal(mTheory.getSort("Real")));
+		return getSharedTerm(tst.typecast(mTheory.getSort("Real")));
 	}
 	
 	void addUnshareCC(SharedTerm shared) {
