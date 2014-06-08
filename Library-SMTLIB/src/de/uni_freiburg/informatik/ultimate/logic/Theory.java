@@ -871,6 +871,7 @@ public class Theory {
 	private SortSymbol defineSort(String name, int paramCount, Sort definition,
 				int flags) {
 		if ((flags & FunctionSymbol.INTERNAL) == 0
+				&& definition == null
 				&& !mLogic.isUF() && !mLogic.isArray())
 			throw new IllegalArgumentException("Not allowed in this logic");
 		SortSymbol sortsym = mDeclaredSorts.get(name);
