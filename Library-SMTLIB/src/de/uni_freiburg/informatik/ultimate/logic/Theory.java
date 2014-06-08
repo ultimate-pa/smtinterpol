@@ -873,7 +873,7 @@ public class Theory {
 		if ((flags & FunctionSymbol.INTERNAL) == 0
 				&& definition == null
 				&& !mLogic.isUF() && !mLogic.isArray())
-			throw new IllegalArgumentException("Not allowed in this logic");
+			throw new IllegalArgumentException("Free sorts are not allowed in this logic");
 		SortSymbol sortsym = mDeclaredSorts.get(name);
 		if (sortsym != null)
 			throw new IllegalArgumentException(
@@ -982,7 +982,7 @@ public class Theory {
 				throw new IllegalArgumentException("Call set-logic first!");
 			if (!mLogic.isUF() && paramTypes.length > 0 && definition == null)
 				throw new IllegalArgumentException(
-						"Not allowed in this logic!");
+						"Free functions are not allowed in this logic!");
 		}
 		if (name.charAt(0) == '@' && name.matches(MODEL_VALUE_PATTERN))
 			throw new IllegalArgumentException(
