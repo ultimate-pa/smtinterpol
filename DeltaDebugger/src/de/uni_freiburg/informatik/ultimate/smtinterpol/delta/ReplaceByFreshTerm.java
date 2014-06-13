@@ -40,6 +40,11 @@ final class ReplaceByFreshTerm extends Substitution {
 		return FRESH_PREFIX + (++freshnum);
 	}
 	
+	public static void ensureNotFresh(int num) {
+		if (freshnum <= num)
+			freshnum = num + 1;
+	}
+	
 	@Override
 	public Term apply(Term input) {
 		String funname = getNextFreshName();

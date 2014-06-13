@@ -4,8 +4,6 @@
   <!-- Build everything  -->
   <target name="all">
     <antcall target="create_run_jar" />
-    <antcall target="create_competition_jar" />
-    <antcall target="create_src_zip" />
     <antcall target="create_deltadebugger_jar" />
   </target>
 
@@ -235,6 +233,29 @@
     <exec executable="make" dir="SMTInterpol/web/html">
       <arg line="distribution" />
     </exec>
+  </target>
+
+  <!-- Create the starexec solver zip file -->
+  <target name="starexec" depends="get-version">
+    <property name="tmpdir" value="buildtmp"/>
+    <mkdir dir="${tmpdir}/bin"/>
+    <echo file="${tmpdir}/bin/starexec_run_default" append="false">#!/bin/bash
+
+# Run script for SMTInterpol for the STAREXEC cluster
+
+java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/2))m -da -dsa -XX:-UseGCOverheadLimit -jar smtinterpol-comp.jar -no-success "$$@"
+</echo>
+    <chmod file="${tmpdir}/bin/starexec_run_default" perm="a+rx" />
+    <echo file="${tmpdir}/starexec_description.txt" append="false">SMTInterpol ${version}</echo>
+    <!-- stupid starexec does not like - characters in description -->
+    <replace file="${tmpdir}/starexec_description.txt" token="-" value="_"/>
+    <antcall target="create_competition_jar">
+      <param name="jar.outdir" value="${tmpdir}/bin"/>
+    </antcall>
+    <zip destfile="smtinterpol-${version}.zip"
+         basedir="${tmpdir}" />
+    <delete failonerror="false" includeemptydirs="true" dir="${tmpdir}"/>
+    <echo>created smtinterpol-${version}.zip</echo>
   </target>
 
   <!-- Delete compiled class files -->

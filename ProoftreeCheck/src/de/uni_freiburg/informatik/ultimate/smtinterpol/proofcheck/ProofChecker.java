@@ -139,27 +139,10 @@ public class ProofChecker extends SMTInterpol {
 		try {
 			// import linear arithmetic theory only when necessary
 			final String imports;
-			switch (logic) {
-			case AUFLIA:
-			case AUFNIRA:
-			case AUFLIRA:
-			case LRA:
-			case QF_AUFLIA:
-			case QF_LIA:
-			case QF_LRA:
-			case QF_NIA:
-			case QF_NRA:
-			case QF_UFLIA:
-			case QF_UFLIRA:
-			case QF_UFLRA:
-			case QF_UFNRA:
-			case UFLRA:
-			case UFNIA:
+			if (logic.isArithmetic())
 				imports = "XLinearArithmetic";
-				break;
-			default:
+			else
 				imports = "XBool";
-			}
 			
 			// main file
 			mFile.append("theory SMTTheory\nimports ");
