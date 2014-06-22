@@ -1936,11 +1936,6 @@ public class Clausifier {
 		mUndoTrail = mUndoTrail.getPrevious();
 	}
 	
-	SharedTerm toReal(SharedTerm t) {
-		SMTAffineTerm tst = SMTAffineTerm.create(t.getTerm());
-		return getSharedTerm(tst.typecast(mTheory.getSort("Real")));
-	}
-	
 	void addUnshareCC(SharedTerm shared) {
 		mUnshareCC.add(shared);
 	}
