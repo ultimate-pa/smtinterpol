@@ -95,25 +95,6 @@ public class CCAnnotation implements IAnnotation {
 	}
 
 	@Override
-	public String toSExpr(Theory smtTheory) {
-		StringBuilder sb = new StringBuilder();
-		sb.append('(');
-		if (mDiseq != null)
-			sb.append(mDiseq.negate().getSMTFormula(smtTheory));
-		for (int p = 0; p < mPaths.length; p++) {
-			sb.append(" :subpath (");
-			String spacer = "";
-			for (CCTerm t : mPaths[p]) {
-				sb.append(spacer).append(t.toSMTTerm(smtTheory));
-				spacer = " ";
-			}
-			sb.append(')');
-		}
-		sb.append(')');
-		return sb.toString();
-	}
-
-	@Override
 	public Term toTerm(Clause cls, Theory theory) {
 		Term base = cls.toTerm(theory);
 		Object[] subannots =

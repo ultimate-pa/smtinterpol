@@ -2006,39 +2006,18 @@ public class Clausifier {
 		if (mEngine.isProofGenerationEnabled())
 			setSourceAnnotation(LeafNode.NO_THEORY,
 					SourceAnnotation.EMPTY_SOURCE_ANNOT);
-		switch (logic) {
-		case CORE:
-			break;
-		case QF_UFLRA:
-		case QF_UFLIRA:
-		case QF_UFLIA:
-		case QF_UFIDL:
-			setupCClosure();
-			setupLinArithmetic();
-			break;
-		case QF_IDL:
-		case QF_LIA:
-		case QF_LRA:
-		case QF_RDL:
-			setupLinArithmetic();
-			break;
-		case QF_UF:
-			setupCClosure();
-			break;
-		case QF_AUFLIA:
-		case QF_AUFLIRA:
-			setupCClosure();
-			setupLinArithmetic();
- 			setupArrayTheory();
- 			break;
-		case QF_AX:
-			setupCClosure();
-			setupArrayTheory();
-			break;
-		default:
+		
+		if (logic.isBitVector() || logic.isQuantified()
+				|| logic.isNonLinearArithmetic())
 			throw new UnsupportedOperationException(
 					"Logic " + logic.toString() + " unsupported");
-		}
+		
+		if (logic.isUF() || logic.isArray())
+			setupCClosure();
+		if (logic.isArithmetic())
+			setupLinArithmetic();
+		if (logic.isArray())
+ 			setupArrayTheory();
 	}
 	
 	public Iterable<BooleanVarAtom> getBooleanVars() {

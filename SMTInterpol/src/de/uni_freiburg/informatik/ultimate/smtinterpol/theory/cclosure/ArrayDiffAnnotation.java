@@ -20,7 +20,6 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure;
 
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
-import de.uni_freiburg.informatik.ultimate.logic.QuotedObject;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
@@ -51,12 +50,6 @@ public class ArrayDiffAnnotation implements IAnnotation {
 	
 	public String getSource() {
 		return mSource;
-	}
-
-	@Override
-	public String toSExpr(Theory smtTheory) {
-		return mDiff + " :diff"
-				+ (mSource.isEmpty() ? "" : " " + new QuotedObject(mSource));
 	}
 
 	@Override
