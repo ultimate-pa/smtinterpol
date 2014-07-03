@@ -25,9 +25,15 @@ public abstract class Substitution {
 	private boolean mActive = false;
 	private final Term mMatch;
 	private boolean mSuccess = false;
+	private final boolean mRecurse;
 	
 	public Substitution(Term match) {
+		this(match, false);
+	}
+	
+	public Substitution(Term match, boolean recurse) {
 		mMatch = match;
+		mRecurse = recurse;
 	}
 	
 	public boolean matches(Term t) {
@@ -48,6 +54,10 @@ public abstract class Substitution {
 	
 	public void deactivate() {
 		mActive = false;
+	}
+	
+	public boolean isRecurse() {
+		return mRecurse;
 	}
 	
 	public void success() {
