@@ -68,7 +68,7 @@ public class EqualityDestructorTest {
 				mScript.term("<",
 						mScript.variable("x", mInt), mScript.numeral("2")));
 		Term ibody = mCompiler.transform(body);
-		EqualityDestructor ed = new EqualityDestructor(mCompiler);
+		EqualityDestructor ed = new EqualityDestructor();
 		Term dbody = ed.destruct(ibody);
 		Assert.assertSame(mScript.term("false"), dbody);
 	}
@@ -83,7 +83,7 @@ public class EqualityDestructorTest {
 								mScript.variable("x", mInt), mIC1, mIC2),
 						mScript.numeral("0")));
 		Term ibody = mCompiler.transform(body);
-		EqualityDestructor ed = new EqualityDestructor(mCompiler);
+		EqualityDestructor ed = new EqualityDestructor();
 		Term dbody = SMTAffineTerm.cleanup(ed.destruct(ibody));
 		Term expected = mScript.term("<=",
 				mScript.term("+", mIC1, mIC2, mScript.numeral("3")),
@@ -99,7 +99,7 @@ public class EqualityDestructorTest {
 						mScript.variable("x", mU)),
 					mUC2));
 		Term ibody = mCompiler.transform(body);
-		EqualityDestructor ed = new EqualityDestructor(mCompiler);
+		EqualityDestructor ed = new EqualityDestructor();
 		Term dbody = ed.destruct(ibody);
 		Term expected = mScript.term("=", mScript.term("f", mUC1), mUC2);
 		Assert.assertSame(expected, dbody);
@@ -115,7 +115,7 @@ public class EqualityDestructorTest {
 						mScript.term("=", mScript.term("f", mUC2), mUC2),
 						mScript.term("=", mScript.variable("x", mU), mUC1)));
 		Term ibody = mCompiler.transform(body);
-		EqualityDestructor ed = new EqualityDestructor(mCompiler);
+		EqualityDestructor ed = new EqualityDestructor();
 		Term dbody = ed.destruct(ibody);
 		Term expected = mScript.term("not",
 				mScript.term("or",

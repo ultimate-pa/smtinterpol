@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 University of Freiburg
+ * Copyright (C) 2014 University of Freiburg
  *
  * This file is part of SMTInterpol.
  *
@@ -16,13 +16,23 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.
  */
-package de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2;
+package de.uni_freiburg.informatik.ultimate.smtinterpol.delta;
 
-public final class Version {
+import de.uni_freiburg.informatik.ultimate.logic.Term;
+
+public class Neutral {
+	private final Term mTerm;
+	private final int mPos;
 	
-	private Version() {
+	public Neutral(Term term, int pos) {
+		mTerm = term;
+		mPos = pos;
 	}
 	
-	public static final String VERSION = "Inofficial git checkout";
-
+	public boolean matches(Term t, int pos) {
+		return mTerm == t && mPos == pos;
+	}
+	public String toString() {
+		return mTerm + "@" + mPos;
+	}
 }

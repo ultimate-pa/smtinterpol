@@ -78,7 +78,7 @@ public interface Config {
 	
 	////// Proofs
 	/// Check proofs for propositional validity
-	public final static boolean CHECK_PROP_PROOF = !COMPETITION;
+	public final static boolean CHECK_PROP_PROOF = false;
 	
 	////// Printing of results
 	/// Include line breaks in output of lists
@@ -108,5 +108,10 @@ public interface Config {
 	////// Interpolator Configuration
 	/// Should we check partial interpolants in interpolant-check-mode?
 	public static final boolean DEEP_CHECK_INTERPOLANTS = false;
+
+	////// Array solver configuration
+	/// Should we always add a read on the base array of a store?
+	/// If not, the read will only be created if the value sort is finite.
+	public static final boolean ARRAY_ALWAYS_ADD_READ = false;
 
 }

@@ -23,13 +23,6 @@ import de.uni_freiburg.informatik.ultimate.logic.Theory;
 
 public interface IAnnotation {
 	/**
-	 * Convert this annotation to an s-expression such that we can print it in
-	 * the get-proof result.
-	 * @param smtTheory The theory to use in convertion of literals.
-	 * @return This annotation in s-expression text format.
-	 */
-	public String toSExpr(Theory smtTheory);
-	/**
 	 * Convert this annotation into a term suitable to add to the proof tree.
 	 * The resulting term might either correspond to the clause, or replace the
 	 * clause in the resulting proof term.

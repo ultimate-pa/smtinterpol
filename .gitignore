@@ -45,8 +45,32 @@ doc-smtinterpol
 SMTInterpol/web/html/gen/
 SMTInterpol/web/html/download.xml
 
-# Version.java is automatically updated if we make a new release
-# This does not work.  Use
-# git update-index --assume-unchanged SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2/Version.java
-SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2/Version.java
+# smtlib files and generated jars in the main directory
+*.smt2
+*.jar
+java.hprof*
 
+# latex files
+SMTInterpol/doc/*.aux
+SMTInterpol/doc/*.bbl
+SMTInterpol/doc/*.blg
+SMTInterpol/doc/*.log
+SMTInterpol/doc/*.out
+SMTInterpol/doc/**/*.aux
+SMTInterpol/doc/**/*.bbl
+SMTInterpol/doc/**/*.blg
+SMTInterpol/doc/**/*.log
+SMTInterpol/doc/**/*.out
+SMTInterpol/doc/**/comment.cut
+# generated pdf files
+SMTInterpol/doc/proof/proof.pdf
+SMTInterpol/doc/mixedInterpolation/newtechreport.pdf
+SMTInterpol/doc/mixedInterpolation/techReport_mixedInterpolation.pdf
+SMTInterpol/doc/mixedInterpolation/tacas_mixedInterpolation.pdf
+SMTInterpol/doc/sysdesc/sysdesc.pdf
+SMTInterpol/doc/sysdesc/sysdesc2014.pdf
+SMTInterpol/doc/arrays/models.pdf
+SMTInterpol/doc/future-devel/future.pdf
+SMTInterpol/doc/interpolation.pdf
+SMTInterpol/doc/progvars.pdf
+SMTInterpol/doc/proposal.pdf

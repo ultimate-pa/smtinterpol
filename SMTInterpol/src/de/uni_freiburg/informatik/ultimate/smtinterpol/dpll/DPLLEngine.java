@@ -268,7 +268,8 @@ public class DPLLEngine {
 					do {
 						if (propLit.mAtom.mDecideStatus == null) {
 							mTProps++;
-							propLit.mAtom.mExplanation = t;
+							if (propLit.mAtom.mExplanation == null)
+								propLit.mAtom.mExplanation = t;
 							Clause conflict = setLiteral(propLit);
 							if (conflict != null) {
 								for (Literal lit: conflict.mLiterals) {
@@ -906,6 +907,9 @@ public class DPLLEngine {
 	}
 
 	private Literal chooseLiteral() {
+		Literal lit = suggestions();
+		if (lit != null)
+			return lit;
 		DPLLAtom atom;
 		int ran = mRandom.nextInt(Config.RANDOM_SPLIT_BASE);
 		if (!mAtoms.isEmpty() && ran <= Config.RANDOM_SPLIT_FREQ) {
@@ -963,7 +967,7 @@ public class DPLLEngine {
 	 */
 	public boolean solve() {
 		mHasModel = false;
-		mStopEngine = false;
+		mStopEngine = mCompleteness == INCOMPLETE_CANCELLED;
 		if (mUnsatClause != null) {
 			mLogger.debug("Using cached unsatisfiability");
 			return false;
@@ -1032,14 +1036,20 @@ public class DPLLEngine {
 					if (literal == null) {
 						conflict = checkConsistency();
 						if (conflict == null) {
-							Literal lit = suggestions();
-							if (lit != null) { // NOPMD
+							Literal lit;
+							boolean suggested = false;
+							while (conflict != null
+									&& (lit = suggestions()) != null) { // NOPMD
 								if (lit.getAtom().mExplanation == null) {
 									increaseDecideLevel();
 									mDecides++;
 								}
 								conflict = setLiteral(lit);
-							} else if (mWatcherBackList.isEmpty() && mAtoms.isEmpty()) {
+								suggested = true;
+							}
+							//@assert conflict != null ==> suggested == true
+							if (!suggested && mWatcherBackList.isEmpty()
+									&& mAtoms.isEmpty()) {
 								/* We found a model */
 								if (mLogger.isInfoEnabled()) {
 									printStatistics();
@@ -1250,6 +1260,10 @@ public class DPLLEngine {
 	public int getCompleteness() {
 		return mCompleteness;
 	}
+	public void provideCompleteness(int ncompleteness) {
+		if (mCompleteness == COMPLETE)
+			mCompleteness = ncompleteness;
+	}
 	public String getCompletenessReason() {
 		return COMPLETENESS_STRINGS[mCompleteness];
 	}
@@ -1268,7 +1282,7 @@ public class DPLLEngine {
 		if (mUnsatClause != null && mUnsatClause.mStacklevel > targetstacklevel) {
 			mUnsatClause = null;
 		}
-		if (!Config.EXPENSIVE_ASSERTS
+		if (Config.EXPENSIVE_ASSERTS
 				&& !checkProofStackLevel(mUnsatClause, targetstacklevel))
 			throw new AssertionError();
 		if (!mDecideStack.isEmpty()) {
@@ -1648,12 +1662,12 @@ public class DPLLEngine {
 		
 	}
 	
-	private boolean isTerminationRequested() {
-		if (mCancel.isTerminationRequested()) {
+	public boolean isTerminationRequested() {
+		if (mCompleteness == INCOMPLETE_CANCELLED
+				|| mCancel.isTerminationRequested()) {
 			mCompleteness = INCOMPLETE_CANCELLED;
 			return true;
 		}
 		return false;
 	}
-
 }

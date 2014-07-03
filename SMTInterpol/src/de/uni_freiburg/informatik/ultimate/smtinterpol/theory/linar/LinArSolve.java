@@ -23,7 +23,6 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -50,7 +49,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ITheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.model.Model;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.model.SharedTermEvaluator;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.model.Value;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.LeafNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ArrayMap;
@@ -143,7 +141,10 @@ public class LinArSolve implements ITheory {
 	private long mPropBoundTime;
 	private long mPropBoundSetTime;
 	private long mBacktrackPropTime;
-	private ArrayDeque<LinVar> mPropBounds;
+	/**
+	 * The variables for which we need to recompute the composite bounds.
+	 */
+	private TreeSet<LinVar> mPropBounds;
 	private LinVar mConflictVar;
 	private Rational mEps;
 	
@@ -161,7 +162,7 @@ public class LinArSolve implements ITheory {
 		mEngine = engine;
 		mLinvars = new ArrayList<LinVar>();
 		mIntVars = new ArrayList<LinVar>();
-		mPropBounds = new ArrayDeque<LinVar>();
+		mPropBounds = new TreeSet<LinVar>();
 		mProplist = new ArrayDeque<Literal>();
 		mSuggestions = new ArrayDeque<Literal>();
 		mTerms = new ScopedHashMap<Map<LinVar,Rational>,LinVar>();
@@ -398,7 +399,7 @@ public class LinArSolve implements ITheory {
 					if (conflict == null)
 						conflict = propagateBound(var, false);
 					else
-						mPropBounds.addLast(var);
+						mPropBounds.add(var);
 				}
 				
 			} else {
@@ -409,7 +410,7 @@ public class LinArSolve implements ITheory {
 					if (conflict == null)
 						conflict = propagateBound(var, true);
 					else
-						mPropBounds.addLast(var);
+						mPropBounds.add(var);
 				}
 			}
 			assert(!var.mBasic || var.checkBrpCounters());
@@ -545,32 +546,39 @@ public class LinArSolve implements ITheory {
 		Clause conflict = checkPendingConflict();
 		if (conflict != null)
 			return conflict;
+		conflict = checkPendingBoundPropagations();
+		if (conflict != null)
+			return conflict;
 		
+		assert checkClean();
+		return fixOobs();
+	}
+
+	private Clause checkPendingBoundPropagations() {
 		/* check if there are unprocessed bounds */
 		while (!mPropBounds.isEmpty()) {
-			LinVar b = mPropBounds.removeFirst();
+			LinVar b = mPropBounds.pollFirst();
 			if (b.mDead || !b.mBasic)
 				continue;
 			assert b.checkBrpCounters();
 			long time;
 			if (Config.PROFILE_TIME)
 				time = System.nanoTime();
+			Clause conflict = null;
 			if (b.mNumUpperInf == 0)
 				conflict = propagateBound(b, true);
 			if (b.mNumLowerInf == 0) {
 				if (conflict == null)
 					conflict = propagateBound(b, false);
 				else
-					mPropBounds.addLast(b);
+					mPropBounds.add(b);
 			}
 			if (Config.PROFILE_TIME)
 				mBacktrackPropTime += System.nanoTime() - time;
 			if (conflict != null)
 				return conflict;
 		}
-		
-		assert checkClean();
-		return fixOobs();
+		return null;
 	}
 
 	@Override
@@ -585,7 +593,8 @@ public class LinArSolve implements ITheory {
 		if (c != null || !mSuggestions.isEmpty() || !mProplist.isEmpty())
 			return c;
 		assert mOob.isEmpty();
-		Map<ExactInfinitNumber, List<SharedTerm>> cong = mutate();
+		mutate();
+		Map<ExactInfinitNumber, List<SharedTerm>> cong = getSharedCongruences();
 		assert checkClean();
 		mEngine.getLogger().debug(new DebugMessage("cong: {0}", cong));
 		for (LinVar v : mLinvars) {
@@ -794,7 +803,7 @@ public class LinArSolve implements ITheory {
 			// Propagate Disequalities
 			LAEquality ea;
 			while (bound.mEps == 0 && (ea = var.getDiseq(bound.mA)) != null) {
-				bound = bound.sub(epsilon);				
+				bound = bound.sub(epsilon);
 				if (ea.getStackPosition() > lastLiteral.getStackPosition()) {
 					lastLiteral = new LiteralReason(var, bound, 
 							true, ea.negate());
@@ -863,7 +872,7 @@ public class LinArSolve implements ITheory {
 					: var.mConstraints.subMap(oldBound, bound).values()) {
 				assert bc.getInverseBound().lesseq(var.getLowerBound());
 				mProplist.add(bc.negate());
-			}			
+			}
 			for (LAEquality laeq
 					: var.mEqualities.subMap(oldBound, bound).values()) {
 				mProplist.add(laeq.negate());
@@ -886,9 +895,13 @@ public class LinArSolve implements ITheory {
 	
 	@Override
 	public Clause setLiteral(Literal literal) {
-		DPLLAtom atom = literal.getAtom();
+		Clause conflict = checkPendingBoundPropagations();
+		if (conflict != null)
+			return conflict;
 		assert checkClean();
-		Clause conflict = null;
+		if (mProplist.contains(literal.negate()))
+			return getUnitClause(literal.negate());
+		DPLLAtom atom = literal.getAtom();
 		if (atom instanceof LAEquality) {
 			LAEquality lasd = (LAEquality) atom;
 			/* Propagate dependent atoms */
@@ -958,6 +971,9 @@ public class LinArSolve implements ITheory {
 
 	@Override
 	public Clause checkpoint() {
+		Clause conflict = checkPendingBoundPropagations();
+		if (conflict != null)
+			return conflict;
 		// Prevent pivoting before tableau simplification
 		if (!mInCheck)
 			return null;
@@ -1015,29 +1031,30 @@ public class LinArSolve implements ITheory {
 		 */
 		if (mEps != null)
 			return;
-//		HashSet<Rational> prohibitions = new HashSet<Rational>();
 		TreeSet<Rational> prohibitions = new TreeSet<Rational>();
 		InfinitNumber maxeps = computeMaxEpsilon(prohibitions);
 		if (maxeps == InfinitNumber.POSITIVE_INFINITY)
 			mEps = Rational.ONE;
 		else
 			mEps = maxeps.inverse().ceil().mA.inverse();
-		// FIX: If we cannot choose the current value since we would violate a
-		//      disequality, choose a different number.
-//		while (prohibitions.contains(m_Eps))
-//			m_Eps = m_Eps.div(Rational.TWO);
-		if (prohibitions.contains(mEps)) {
-			if (prohibitions.size() == 1)
-				// No other chance
-				mEps = mEps.div(Rational.TWO);
-			else {
-				Rational next = prohibitions.lower(mEps);
-				if (next == null || next.signum() <= 0)
-					mEps = mEps.div(Rational.TWO);
-				else
-					mEps = mEps.add(next).div(Rational.TWO);
+		Map<Rational,Set<Rational>> sharedPoints = 
+				new TreeMap<Rational, Set<Rational>>();
+		// Do not merge two shared variables that are not yet merged.
+		Map<ExactInfinitNumber, List<SharedTerm>> cong = getSharedCongruences();
+		for (ExactInfinitNumber value : cong.keySet()) {
+			Rational eps = value.getEpsilon();
+			Set<Rational> confl = sharedPoints.get(eps);
+			if (confl == null) {
+				confl = new TreeSet<Rational>();
+				sharedPoints.put(eps, confl);
 			}
+			confl.add(value.getRealValue());
 		}
+		// If we cannot choose the current value since we would violate a
+		// disequality, choose a different number.
+		while (prohibitions.contains(mEps)
+				|| hasSharing(sharedPoints, mEps))
+			mEps = mEps.inverse().add(Rational.ONE).inverse();
 	}
 	
 	@Override
@@ -1062,7 +1079,13 @@ public class LinArSolve implements ITheory {
 			logger.info("Number of Bland pivoting-Operations: "
 					+ mNumPivotsBland + "/" + mNumPivots);
 			logger.info("Number of switches to Bland's Rule: " + mNumSwitchToBland);
-			logger.info("Number of variables: " + mLinvars.size());
+			int basicVars = 0;
+			for (LinVar var : mLinvars) {
+				if (!var.isInitiallyBasic())
+					basicVars++;
+			}
+			logger.info("Number of variables: " + mLinvars.size()
+					+ " nonbasic: " + basicVars + " shared: " + mSharedVars.size());			
 			logger.info("Time for pivoting         : " + mPivotTime / 1000000);// NOCHECKSTYLE
 			logger.info("Time for bound computation: " + mPropBoundTime / 1000000);// NOCHECKSTYLE
 			logger.info("Time for bound setting    : " + mPropBoundSetTime / 1000000);// NOCHECKSTYLE
@@ -1131,13 +1154,13 @@ public class LinArSolve implements ITheory {
 				if (conflict == null)
 					conflict = propagateBound(row, true);
 				else
-					mPropBounds.addLast(row);
+					mPropBounds.add(row);
 			}
 			if (row.mNumLowerInf == 0) {
 				if (conflict == null)
 					conflict = propagateBound(row, false);
 				else
-					mPropBounds.addLast(row);
+					mPropBounds.add(row);
 			}
 		}
 		
@@ -1147,13 +1170,13 @@ public class LinArSolve implements ITheory {
 			if (conflict == null)
 				conflict = propagateBound(nonbasic, true);
 			else
-				mPropBounds.addLast(nonbasic);
+				mPropBounds.add(nonbasic);
 		}
 		if (nonbasic.mNumLowerInf == 0) {
 			if (conflict == null)
 				conflict = propagateBound(nonbasic, false);
 			else
-				mPropBounds.addLast(nonbasic);
+				mPropBounds.add(nonbasic);
 		}
 		if (Config.PROFILE_TIME)
 			mPivotTime += System.nanoTime() - starttime;
@@ -1504,14 +1527,8 @@ public class LinArSolve implements ITheory {
 		val = val.mul(gcd);
 		v.mCurval = val.toInfinitNumber();
 		assert v.checkBrpCounters();
-		if (v.mNumUpperInf == 0) {
-			propagateBound(v, true);
-			/* ignore conflicts */
-		}
-		if (v.mNumLowerInf == 0) {
-			propagateBound(v, false);
-			/* ignore conflicts */
-		}
+		if (v.mNumUpperInf == 0 || v.mNumLowerInf == 0)
+			mPropBounds.add(v);
 		assert !v.mCurval.mA.denominator().equals(BigInteger.ZERO);
 	}
 	
@@ -1608,16 +1625,14 @@ public class LinArSolve implements ITheory {
 		 */
 		HashMap<LinVar,TreeMap<LinVar,Rational>> newsimps = 
 			new HashMap<LinVar, TreeMap<LinVar,Rational>>();
-		LinkedHashSet<LinVar> props = new LinkedHashSet<LinVar>(mPropBounds);
 		for (LinVar v : removeVars) {
 			assert v.mBasic;
 			mEngine.getLogger().debug(new DebugMessage("Simplifying {0}",v));
 			TreeMap<LinVar,Rational> coeffs = removeVar(v);
 			updateSimps(v,coeffs);
 			newsimps.put(v,coeffs);
-			props.remove(v);
+			mPropBounds.remove(v);
 		}
-		mPropBounds = new ArrayDeque<LinVar>(props);
 		mSimps.putAll(newsimps);
 		assert checkPostSimplify();
 		return null;
@@ -1790,12 +1805,13 @@ public class LinArSolve implements ITheory {
 	 * 
 	 * TODO This method is still very inefficient. Even if all variables have
 	 * distinct values, we still compute a lot of stuff.
-	 * @return Multi-Map describing which variables have which (common) value.
 	 */
-	private Map<ExactInfinitNumber,List<SharedTerm>> mutate() {
+	private void mutate() {
 		MutableRational lower = new MutableRational(0,1);
 		MutableRational upper = new MutableRational(0,1);
-		TreeSet<Rational> prohib = new TreeSet<Rational>();
+		Map<Rational,Set<Rational>> sharedPoints = 
+				new TreeMap<Rational, Set<Rational>>();
+		Set<Rational> prohib = new TreeSet<Rational>();
 		for (LinVar lv : mLinvars) {
 			if (lv.mBasic
 				|| lv.getUpperBound().equals(lv.getLowerBound()))
@@ -1808,6 +1824,7 @@ public class LinArSolve implements ITheory {
 			Rational gcd = lv.isInt() ? Rational.ONE : Rational.ZERO;
 			Rational curval = lv.mCurval.mA;
 
+			sharedPoints.clear();
 			prohib.clear();
 			// prevent violating disequalities
 			if (lv.mDisequalities != null) {
@@ -1836,46 +1853,41 @@ public class LinArSolve implements ITheory {
 				
 			// Do not merge two shared variables
 			for (int i = 0; i < mSharedVars.size(); i++) {
-				SharedTerm sh1 = mSharedVars.get(i);
-				LinVar lv1 = sh1.getLinVar();
-				Rational coeff1 = basicFactors.get(lv1);
-				if (coeff1 == null)
-					coeff1 = Rational.ZERO;
+				SharedTerm sharedVar = mSharedVars.get(i);
+				LinVar sharedLV = sharedVar.getLinVar();
+				Rational sharedCoeff = basicFactors.get(sharedLV);
+				if (sharedCoeff == null)
+					sharedCoeff = Rational.ZERO;
 				else
-					coeff1 = coeff1.mul(sh1.getFactor());
-				Rational curval1 = sh1.getOffset();
-				if (lv1 != null)
-					curval1 = curval1.addmul(lv1.mCurval.mA, sh1.getFactor());
-				for (int j = i + 1; j < mSharedVars.size(); j++) {
-					SharedTerm sh2 = mSharedVars.get(j);
-					LinVar lv2 = sh2.getLinVar();
-					Rational coeff2 = basicFactors.get(lv2);
-					Rational curval2 = sh2.getOffset();
-					if (lv2 != null)
-						curval2 = curval2.addmul(lv2.mCurval.mA, sh2.getFactor());
-					if (coeff2 == null)
-						coeff2 = Rational.ZERO;
-					else
-						coeff2 = coeff2.mul(sh2.getFactor());
-					// If coeffs are equal, there is nothing we can do.
-					if (coeff1.equals(coeff2))
-						continue;
-					
-					// Prevent shared variables to get equal.
-					Rational cdiff = coeff1.sub(coeff2);
-					prohib.add(curval.sub(curval1.sub(curval2).div(cdiff)));
+					sharedCoeff = sharedCoeff.mul(sharedVar.getFactor());
+				Set<Rational> set = sharedPoints.get(sharedCoeff);
+				if (set == null) {
+					set = new TreeSet<Rational>();
+					sharedPoints.put(sharedCoeff, set);
 				}
+				Rational sharedCurVal = sharedVar.getOffset();
+				if (sharedLV != null)
+					sharedCurVal = sharedCurVal.addmul(sharedLV.mCurval.mA, sharedVar.getFactor());
+				set.add(sharedCurVal);
 			}
 			// If there is no integer constraint for the non-basic manipulate
 			// it by eps, otherwise incrementing by a multiple of gcd.inverse()
 			// will preserve integrity of all depending variables. 
 			Rational lcm = gcd.inverse();
-			Rational chosen = choose(lower,upper,prohib,lcm,lv.mCurval.mA);
+			Rational chosen = choose(lower,upper,prohib,sharedPoints,lcm,lv.mCurval.mA);
 			assert (chosen.compareTo(lower.toRational()) >= 0
 					&& chosen.compareTo(upper.toRational()) <= 0);
 			if (!chosen.equals(lv.mCurval.mA))
 				updateVariableValue(lv, new InfinitNumber(chosen, 0));
 		}
+	}
+	
+	/**
+	 * Compute the value of each shared variable as exact infinite number.
+	 * @return A map from the value to the list of shared variables that
+	 * have this value.
+	 */
+	Map<ExactInfinitNumber, List<SharedTerm>> getSharedCongruences() {
 		mEngine.getLogger().debug("Shared Vars:");
 		Map<ExactInfinitNumber, List<SharedTerm>> result = 
 			new HashMap<ExactInfinitNumber, List<SharedTerm>>();
@@ -1958,11 +1970,13 @@ public class LinArSolve implements ITheory {
      */
 	private Rational choose(MutableRational lower,
 			MutableRational upper,
-			TreeSet<Rational> prohibitions,
+			Set<Rational> prohibitions,
+			Map<Rational,Set<Rational>> sharedPoints,
 			Rational lcm, Rational currentValue) {
 		// Check if variable is fixed or allowed.
 		if (upper.equals(lower)
-			|| !prohibitions.contains(currentValue))
+			|| (!prohibitions.contains(currentValue))
+				&& !hasSharing(sharedPoints, Rational.ZERO))
 			return currentValue;
 		
 		if (lcm == Rational.POSITIVE_INFINITY) {
@@ -1977,7 +1991,8 @@ public class LinArSolve implements ITheory {
 			Rational mid = upper.toRational().add(low).div(Rational.TWO);
 			if (mid == Rational.POSITIVE_INFINITY)
 				mid = low.add(Rational.ONE);
-			while (prohibitions.contains(mid))
+			while (prohibitions.contains(mid)
+					|| hasSharing(sharedPoints, mid.sub(currentValue)))
 				mid = mid.add(low).div(Rational.TWO);
 			return mid;
 		} else {
@@ -1991,27 +2006,31 @@ public class LinArSolve implements ITheory {
 				if (up.compareTo(upper) > 0)
 					break;
 				Rational cur = up.toRational();
-				if (!prohibitions.contains(cur))
+				if (!prohibitions.contains(cur)
+					&& !hasSharing(sharedPoints, cur.sub(currentValue)))
 					return cur;
 				
 				down.sub(lcm);
 				if (down.compareTo(lower) < 0)
 					break;
 				cur = down.toRational();
-				if (!prohibitions.contains(cur))
+				if (!prohibitions.contains(cur)
+					&& !hasSharing(sharedPoints, cur.sub(currentValue)))
 					return cur;
 			}
 			up.add(lcm);
 			while (up.compareTo(upper) <= 0) {
 				Rational cur = up.toRational();
-				if (!prohibitions.contains(cur))
+				if (!prohibitions.contains(cur)
+					&& !hasSharing(sharedPoints, cur.sub(currentValue)))
 					return cur;
 				up.add(lcm);
 			}
 			down.sub(lcm);
 			while (down.compareTo(lower) >= 0) {
 				Rational cur = down.toRational();
-				if (!prohibitions.contains(cur))
+				if (!prohibitions.contains(cur)
+					&& !hasSharing(sharedPoints, cur.sub(currentValue)))
 					return cur;
 				down.sub(lcm);
 			}
@@ -2020,6 +2039,19 @@ public class LinArSolve implements ITheory {
 		}
 	}
 	
+	private boolean hasSharing(Map<Rational, Set<Rational>> sharedPoints,
+			Rational diff) {
+		TreeSet<Rational> used = new TreeSet<Rational>();
+		for (Entry<Rational, Set<Rational>> entry : sharedPoints.entrySet()) {
+			Rational sharedDiff = entry.getKey().mul(diff);
+			for (Rational r : entry.getValue()) {
+				if (!used.add(r.add(sharedDiff)))
+					return true;
+			}
+		}
+		return false;
+	}
+
 	private Clause mbtc(Map<ExactInfinitNumber,List<SharedTerm>> cong) {
 		for (Map.Entry<ExactInfinitNumber,List<SharedTerm>> congclass : cong.entrySet()) {
 			List<SharedTerm> lcongclass = congclass.getValue();
@@ -2263,6 +2295,7 @@ public class LinArSolve implements ITheory {
 		}
 		for (LinVar v : removeVars) {
 			mOob.remove(v);
+			mPropBounds.remove(v);
 			if (v.mDead)
 				mSimps.remove(v);
 			else
@@ -2280,8 +2313,6 @@ public class LinArSolve implements ITheory {
 		// TODO This is a bit too much but should work
 		mSuggestions.clear();
 		mProplist.clear();
-		// TODO What is this for?
-		mPropBounds.clear();
 		assert popPost();
 	}
 
@@ -2405,8 +2436,7 @@ public class LinArSolve implements ITheory {
 				FunctionSymbol fsym = getsValueFromLA(term);
 				if (fsym != null) {
 					Rational val = realValue(var);
-					model.extend(fsym,
-							new Value(val.toTerm(fsym.getReturnSort())));
+					model.extendNumeric(fsym, val);
 				}
 			}
 		}
@@ -2421,8 +2451,7 @@ public class LinArSolve implements ITheory {
 						for (Entry<LinVar,Rational> chain : me.getValue().entrySet())
 							val = val.add(realValue(chain.getKey()).mul(
 									chain.getValue()));
-						model.extend(fsym,
-								new Value(val.toTerm(fsym.getReturnSort())));
+						model.extendNumeric(fsym, val);
 					}
 				}
 			}

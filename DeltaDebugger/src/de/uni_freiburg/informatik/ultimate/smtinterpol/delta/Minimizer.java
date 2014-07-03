@@ -65,19 +65,19 @@ public class Minimizer {
 			} catch (IOException ignored) {
 				// Ignore exception and terminate since process died...
 			}
-			System.err.println("OutputReaper terminating");
-			
 		}
 		
 	}
 	
-	private static class DeactivateCmds implements BinSearch.Driver<Cmd> {
+	private class DeactivateCmds implements BinSearch.Driver<Cmd> {
 
 		@Override
-		public void prepare(List<Cmd> sublist) {
-			System.err.println("Trying " + sublist);
+		public Boolean prepare(List<Cmd> sublist) {
+			if (mVerbosity > 1)
+				System.err.println("Trying " + sublist);
 			for (Cmd cmd : sublist)
 				cmd.deactivate();
+			return null;
 		}
 
 		@Override
@@ -93,37 +93,50 @@ public class Minimizer {
 		
 	}
 	
-	private static class SimplifyTerms 
-		implements BinSearch.Driver<Substitution> {
+	private class SimplifyTerms implements BinSearch.Driver<Substitution> {
 
 		private final AbstractOneTermCmd mCmd;
 		private final SubstitutionManager mMgr;
 		private final List<Substitution> mSubsts;
+		private final HashMap<Term, Boolean> mSeen;
 		private List<Cmd> mPres;
 		
 		public SimplifyTerms(AbstractOneTermCmd cmd, SubstitutionManager mgr,
-				List<Substitution> substs) {
+				List<Substitution> substs, HashMap<Term, Boolean> cache) {
 			mCmd = cmd;
 			mMgr = mgr;
 			mSubsts = substs;
+			mSeen = cache;
 		}
 		
 		@Override
-		public void prepare(List<Substitution> sublist) {
+		public Boolean prepare(List<Substitution> sublist) {
 			SubstitutionApplier applier = new SubstitutionApplier();
 			for (Substitution subst : sublist)
 				subst.activate();
-			System.err.println("Active substs: " + sublist); 	
+			if (mVerbosity > 1)
+				System.err.println("Active substs: " + sublist);
 			applier.init(mMgr.getDepth(), mSubsts);
 			Term simp = applier.apply(mCmd.getTerm());
-			System.err.println("simp = " + simp);
+			if (mVerbosity > 1)
+				System.err.println("simp = " + simp);
+			Boolean res = mSeen.get(simp);
+			if (res != null && !res.booleanValue()) {
+				for (Substitution s : sublist)
+					s.deactivate();
+				return res;
+			}
 			mCmd.setTerm(simp);
 			mPres = applier.getAdds();
 			mCmd.appendPreCmds(mPres);
+			if (res != null && res.booleanValue())
+				success(sublist);
+			return res;
 		}
 
 		@Override
 		public void failure(List<Substitution> sublist) {
+			mSeen.put(mCmd.getTerm(), Boolean.FALSE);
 			mCmd.removePreCmds(mPres);
 			mCmd.failure();
 			for (Substitution subst : sublist)
@@ -133,6 +146,7 @@ public class Minimizer {
 
 		@Override
 		public void success(List<Substitution> sublist) {
+			mSeen.put(mCmd.getTerm(), Boolean.TRUE);
 			for (Substitution s : sublist)
 				s.success();
 			mCmd.success();
@@ -150,7 +164,7 @@ public class Minimizer {
 		}
 
 		@Override
-		public void prepare(List<Scope> sublist) {
+		public Boolean prepare(List<Scope> sublist) {
 			for (Scope s : sublist) {
 				for (int i = s.mFirst; i < s.mLast; ++i)
 					mCmds.get(i).deactivate();
@@ -161,6 +175,7 @@ public class Minimizer {
 				else
 					sc.tryNumScopes(remScopes);
 			}
+			return null;
 		}
 
 		@Override
@@ -184,24 +199,66 @@ public class Minimizer {
 		
 	}
 	
-	private final List<Cmd> mCmds;
+	private final class RemoveNeutrals implements BinSearch.Driver<Neutral> {
+
+		private final AbstractOneTermCmd mCmd;
+		
+		public RemoveNeutrals(AbstractOneTermCmd cmd) {
+			mCmd = cmd;
+		}
+		
+		@Override
+		public Boolean prepare(List<Neutral> sublist) {
+			if (mVerbosity > 1)
+				System.err.println("Trying " + sublist);
+			Term rem = new NeutralRemover(sublist).removeNeutrals(mCmd.getTerm());
+			if (mVerbosity > 1)
+				System.err.println("Result: " + rem);
+			mCmd.setTerm(rem);
+			return null;
+		}
+
+		@Override
+		public void failure(List<Neutral> sublist) {
+			mCmd.failure();
+		}
+
+		@Override
+		public void success(List<Neutral> sublist) {
+			mCmd.success();
+		}
+		
+	}
+	
+	private List<Cmd> mCmds;
 	private final int mGoldenExit;
 	private final File mTmpFile, mResultFile;
 	private final String mSolver;
 	
 	private int mTestCtr = 0, mSuccTestCtr = 0;
+	/**
+	 * The verbosity level for the delta debugger.  Values are:
+	 * <th><td>level</td><td>meaning</td></th>
+	 * <tr><td>0</td><td>only final statistics</td></tr>
+	 * <tr><td>1</td><td>print current and successful phases</td></tr>
+	 * <tr><td>2</td><td>print also debugging information for phases</td></tr>
+	 * <tr><td>&gt;2</td><td>print also debugging information about tests</td></tr>
+	 */
+	private final int mVerbosity;
 	
 	public Minimizer(List<Cmd> cmds, int goldenExit,
-			File tmpFile, File resultFile, String solver) {
+			File tmpFile, File resultFile, String solver, int verbosity) {
 		mCmds = cmds;
 		mGoldenExit = goldenExit;
 		mTmpFile = tmpFile;
 		mResultFile = resultFile;
 		mSolver = solver;
+		mVerbosity = verbosity;
 	}
 	
 	public boolean deltaDebug() throws IOException, InterruptedException {
-		System.err.println("# commands: " + mCmds.size());
+		if (mVerbosity > 0)
+			System.err.println("# commands: " + mCmds.size());
 		int numRounds = 0;
 		boolean cmds, terms, bindings, neutrals, lists, ips, decls;
 		boolean scopes = removeScopes();
@@ -217,6 +274,22 @@ public class Minimizer {
 			// Not needed anymore since I don't do further tests...
 	//		shrinkCmdList();
 			++numRounds;
+			if (mVerbosity > 0) {
+				if (cmds)
+					System.err.println("Removed commands");
+				if (terms)
+					System.err.println("Simplified terms");
+				if (bindings)
+					System.err.println("Removed bindings");
+				if (neutrals)
+					System.err.println("Removed neutrals");
+				if (lists)
+					System.err.println("Simplifed term command lists");
+				if (ips)
+					System.err.println("Simplified get-interpolants");
+				if (decls)
+					System.err.println("Removed declarations");
+			}
 		} while (
 				cmds || terms || bindings || neutrals || lists || ips || decls);
 		boolean features = removeFeatures();
@@ -253,12 +326,14 @@ public class Minimizer {
 			if (cmd instanceof ScopeCmd) {
 				ScopeCmd sc = (ScopeCmd) cmd;
 				if (sc.isScopeStart()) {
-					System.err.println("Found scope start at " + i);
+					if (mVerbosity > 1)
+						System.err.println("Found scope start at " + i);
 					Scope s = new Scope(i);
 					for (int n = 0; n < sc.getNumScopes(); ++n)
 						ppStack.push(s);
 				} else {
-					System.err.println("Found scope end at " + i);
+					if (mVerbosity > 1)
+						System.err.println("Found scope end at " + i);
 					for (int n = 0; n < sc.getNumScopes(); ++n) {
 						Scope last = ppStack.pop();
 						Scope next = ppStack.peek();
@@ -278,7 +353,8 @@ public class Minimizer {
 	}
 	
 	private boolean removeScopes() throws IOException, InterruptedException {
-		System.err.println("Removing scopes...");
+		if (mVerbosity > 0)
+			System.err.println("Removing scopes...");
 		boolean res = false;
 		ArrayDeque<List<Scope>> todo = new ArrayDeque<List<Scope>>();
 		todo.push(detectScopes());
@@ -291,12 +367,14 @@ public class Minimizer {
 				if (!s.mDeactivated && s.mNested != null)
 					todo.push(s.mNested);
 		}
-		System.err.println("...done");
+		if (mVerbosity > 0)
+			System.err.println("...done");
 		return res;
 	}
 	
 	private boolean removeCmds() throws IOException, InterruptedException {
-		System.err.println("Removing commands...");
+		if (mVerbosity > 0)
+			System.err.println("Removing commands...");
 		List<Cmd> cmds = new ArrayList<Cmd>();
 		for (int i = 0; i < mCmds.size(); ++i) {
 			Cmd cmd = mCmds.get(i);
@@ -307,7 +385,8 @@ public class Minimizer {
 			}
 		}
 		boolean res = deactivateCmds(cmds);
-		System.err.println("...done");
+		if (mVerbosity > 0)
+			System.err.println("...done");
 		return res;
 	}
 	
@@ -319,7 +398,8 @@ public class Minimizer {
 	}
 	
 	private boolean removeDecls() throws IOException, InterruptedException {
-		System.err.println("Removing unused declarations...");
+		if (mVerbosity > 0)
+			System.err.println("Removing unused declarations...");
 		// Collect used definitions
 		ScopedHashMap<String, Cmd> definitions =
 				new ScopedHashMap<String, Cmd>();
@@ -349,6 +429,12 @@ public class Minimizer {
 				continue;
 			if (cmd.hasDefinitions() && !usedDefs.contains(cmd))
 				unusedDefs.add(cmd);
+			if (cmd instanceof AbstractOneTermCmd) {
+				for (Cmd pre : ((AbstractOneTermCmd) cmd).getPreCmds())
+					if (pre.isActive() && pre.hasDefinitions()
+							&& !usedDefs.contains(pre))
+						unusedDefs.add(pre);
+			}
 		}
 		boolean res = deactivateCmds(unusedDefs);
 		// Now, we have deactivated all unused definitions that can be
@@ -364,7 +450,7 @@ public class Minimizer {
 				unusedDefs, new BinSearch.Driver<Cmd>() {
 
 			@Override
-			public void prepare(List<Cmd> sublist) {
+			public Boolean prepare(List<Cmd> sublist) {
 				for (Cmd cmd : sublist) {
 					OneTermCmd tcmd = (OneTermCmd) cmd;
 					Term stripped = new TermTransformer() {
@@ -386,6 +472,7 @@ public class Minimizer {
 					}.transform(tcmd.getTerm());// NOCHECKSTYLE 
 					tcmd.setTerm(stripped);
 				}
+				return null;
 			}
 
 			@Override
@@ -402,7 +489,8 @@ public class Minimizer {
 			
 		});// NOCHECKSTYLE
 		res |= bs.run(this); 
-		System.err.println("...done");
+		if (mVerbosity > 0)
+			System.err.println("...done");
 		return res;
 	}
 	
@@ -451,11 +539,25 @@ public class Minimizer {
 	}
 	
 	private boolean removeNeutrals() throws IOException, InterruptedException {
-		return removeUnusedCore(Mode.NEUTRALS);
+//		return removeUnusedCore(Mode.NEUTRALS);
+		boolean result = false;
+		for (Cmd cmd : mCmds) {
+			if (!cmd.isActive() || !(cmd instanceof AbstractOneTermCmd))
+				continue;
+			AbstractOneTermCmd tcmd = (AbstractOneTermCmd) cmd;
+			List<Neutral> neutrals = new NeutralDetector().detect(tcmd.getTerm());
+			if (neutrals.isEmpty())
+				continue;
+			RemoveNeutrals driver = new RemoveNeutrals(tcmd);
+			BinSearch<Neutral> bs = new BinSearch<Neutral>(neutrals, driver);
+			result |= bs.run(this);
+		}
+		return result;
 	}
 	
 	private boolean simplifyTerms() throws IOException, InterruptedException {
-		System.err.println("Simplifying terms...");
+		if (mVerbosity > 0)
+			System.err.println("Simplifying terms...");
 		boolean res = false;
 		for (Cmd cmd : mCmds) {
 			if (!cmd.isActive() || !(cmd instanceof AbstractOneTermCmd))
@@ -468,16 +570,19 @@ public class Minimizer {
 			if (isUnnamedAssert(tcmd))
 				// We should not substitute the top level
 				substmgr.deepen();
+			HashMap<Term, Boolean> testCache = new HashMap<Term, Boolean>();
 			deepen: while (substmgr.deepen()) {// NOCHECKSTYLE
 				List<Substitution> substs;
 				do {
 					substs = substmgr.getSubstitutions();
 					if (substs.isEmpty())
 						continue deepen;
-					System.err.println("Term: " + tcmd.getTerm());
-					System.err.println("Substs: " + substs);
+					if (mVerbosity > 1) {
+						System.err.println("Term: " + tcmd.getTerm());
+						System.err.println("Substs: " + substs);
+					}
 					SimplifyTerms driver = new SimplifyTerms(
-							tcmd, substmgr, substs);
+							tcmd, substmgr, substs, testCache);
 					BinSearch<Substitution> bs =
 							new BinSearch<Substitution>(substs, driver);
 					localres |= bs.run(this);
@@ -485,7 +590,8 @@ public class Minimizer {
 			}
 			res |= localres;
 		} // Cmd-loop
-		System.err.println("...done");
+		if (mVerbosity > 0)
+			System.err.println("...done");
 		return res;
 	}
 	
@@ -656,7 +762,8 @@ public class Minimizer {
 	
 	private boolean simplifyGetInterpolants()
 		throws IOException, InterruptedException {
-		System.err.println("Simplifying get-interpolants...");
+		if (mVerbosity > 0)
+			System.err.println("Simplifying get-interpolants...");
 		boolean res = false;
 		Map<Term, Term> actualNames = new HashMap<Term, Term>();
 		for (Cmd cmd : mCmds) {
@@ -680,22 +787,28 @@ public class Minimizer {
 								t.getTheory().term(a.getValue().toString()), v);
 			}
 		}
-		System.err.println("...done");
+		if (mVerbosity > 0)
+			System.err.println("...done");
 		return res;
 	}
 	
 	private boolean simplifyTermListCmds()
 		throws IOException, InterruptedException {
-		System.err.println("Simplifying term list commands...");
+		if (mVerbosity > 0)
+			System.err.println("Simplifying term list commands...");
 		List<TermListCmd> cmds = new ArrayList<TermListCmd>();
 		for (Cmd cmd : mCmds) {
 			if (!cmd.isActive())
 				continue;
-			if (cmd instanceof TermListCmd)
-				cmds.add((TermListCmd) cmd);
+			if (cmd instanceof TermListCmd) {
+				TermListCmd tcmd = (TermListCmd) cmd;
+				if (tcmd.getTerms().length > 1)
+					cmds.add(tcmd);
+			}
 		}
 		if (cmds.isEmpty()) {
-			System.err.println("...done");
+			if (mVerbosity > 0)
+				System.err.println("...done");
 			return false;
 		}
 		// Try to reduce number of terms in the list
@@ -706,9 +819,6 @@ public class Minimizer {
 			goon = false;
 			for (TermListCmd cmd : cmds) {
 				Term[] terms = cmd.getTerms();
-				if (terms.length == 1)
-					continue;
-				goon = true;
 				Term[] newTerms = new Term[terms.length / 2];
 				System.arraycopy(terms, 0, newTerms, 0, newTerms.length);
 				cmd.setNewTerms(newTerms);
@@ -717,14 +827,12 @@ public class Minimizer {
 				for (TermListCmd cmd : cmds)
 					cmd.success();
 				res = true;
+				goon = true;
 			} else {
 				// We had a failure => Try to reduce to the other half
 				for (TermListCmd cmd : cmds) {
 					cmd.failure();
 					Term[] terms = cmd.getTerms();
-					if (terms.length == 1)
-						continue;
-					goon = true;
 					int len = terms.length - terms.length / 2;
 					Term[] newTerms = new Term[len];
 					System.arraycopy(terms, terms.length / 2, newTerms, 0,
@@ -740,20 +848,35 @@ public class Minimizer {
 				} else {
 					for (TermListCmd cmd : cmds)
 						cmd.success();
+					res = true;
+					goon = true;
 				}
 			}
 		}
-		System.err.println("...done");
+		if (mVerbosity > 0)
+			System.err.println("...done");
 		return res;
 	}
 	
 	private void shrinkCmdList() {
-		System.err.println("Shrinking command list...");
+		if (mVerbosity > 0)
+			System.err.println("Shrinking command list...");
+		int newsize = 0;
 		for (Iterator<Cmd> it = mCmds.iterator(); it.hasNext(); ) {
-			if (!it.next().isActive())
-				it.remove();
+			if (it.next().isActive())
+				++newsize;
 		}
-		System.err.println("...done");
+		if (mVerbosity > 1)
+			System.err.println(mCmds.size() + " -> " + newsize);
+		List<Cmd> tmp = new ArrayList<Cmd>(newsize);
+		for (Iterator<Cmd> it = mCmds.iterator(); it.hasNext(); ) {
+			Cmd cmd = it.next();
+			if (cmd.isActive())
+				tmp.add(cmd);
+		}
+		mCmds = tmp;
+		if (mVerbosity > 0)
+			System.err.println("...done");
 	}
 	
 	private boolean removeFeatures() throws IOException, InterruptedException {
@@ -762,7 +885,8 @@ public class Minimizer {
 			if (cmd.isActive()) {
 				String feature = cmd.provideFeature();
 				if (feature != null) {
-					System.err.println("Found feature " + feature);
+					if (mVerbosity > 1)
+						System.err.println("Found feature " + feature);
 					features.put(feature, cmd);
 				}
 			}
@@ -770,7 +894,8 @@ public class Minimizer {
 			if (cmd.isActive())
 				cmd.checkFeature(features);
 		List<Cmd> featureProvider = new ArrayList<Cmd>(features.values());
-		System.err.println("Trying to remove features " + featureProvider);
+		if (mVerbosity > 1)
+			System.err.println("Trying to remove features " + featureProvider);
 		return deactivateCmds(featureProvider);
 	}
 
@@ -782,9 +907,11 @@ public class Minimizer {
 	 */
 	boolean test() throws IOException, InterruptedException {
 		++mTestCtr;
-		System.err.println("Dumping...");
+		if (mVerbosity > 2)
+			System.err.println("Dumping...");
 		dumpCmds();
-		System.err.println("Testing...");
+		if (mVerbosity > 2)
+			System.err.println("Testing...");
 		Process p = Runtime.getRuntime().exec(mSolver);
 		OutputReaper out = new OutputReaper(p.getInputStream());
 		out.start();
@@ -795,12 +922,14 @@ public class Minimizer {
 		err.join();
 		if (exitVal == mGoldenExit) {
 			++mSuccTestCtr;
-			System.err.println("Success");
+			if (mVerbosity > 2)
+				System.err.println("Success");
 			Files.copy(mTmpFile.toPath(), mResultFile.toPath(),
 					StandardCopyOption.REPLACE_EXISTING);
 			return true;
 		}
-		System.err.println("Failure");
+		if (mVerbosity > 2)
+			System.err.println("Failure");
 		return false;
 	}
 	
@@ -816,47 +945,78 @@ public class Minimizer {
 	
 	public static void usage() {
 		System.err.println(
-				"Usage: Minimizer <infile> <outfile> <command> <args>");
+				"Usage: Minimizer <infile> <outfile> [-v] [-golden <num>] <command> <args>");
 		System.err.println("where");
-		System.err.println("\tinfile\tis the original input file");
-		System.err.println("\toutfile\tis the desired output file");
-		System.err.println("\tcommand\tis the command to start the solver");
-		System.err.println("\targs\tare optional arguments to \"command\"");
+		System.err.println("  infile        is the original input file");
+		System.err.println("  outfile       is the desired output file");
+		System.err.println("  command       is the command to start the solver");
+		System.err.println("  -golden <num> sets expected exit code to \"num\" and safes initial test");
+		System.err.println("  -v            make output more verbose (can be repeated)");
+		System.err.println("  args          are optional arguments to \"command\"");
 		System.exit(0);
 	}
 	
 	public static void main(String[] args) {
 		if (args.length < 3)// NOCHECKSTYLE
 			usage();
+		int goldenExit = 0;
 		String infile = args[0];
 		String outfile = args[1];
+		int cmdstart = 2;
+		int arg = 2;
+		boolean foundArg = true;
+		int verbosity = 0;
+		while (foundArg && arg < args.length) {
+			foundArg = false;
+			if (args[arg].equals("-v")) {
+				++verbosity;
+				++arg;
+				foundArg = true;
+			} else if (args[arg].equals("-golden")) {
+				if (++arg == args.length)
+					usage();
+				try {
+					goldenExit = Integer.parseInt(args[arg]);
+				} catch (NumberFormatException eNAN) {
+					usage();
+				}
+				foundArg = true;
+				++arg;
+			}
+		}
+		cmdstart = arg;
 		StringBuilder command = new StringBuilder();
-		for (int i = 2; i < args.length; ++i)
+		if (cmdstart >= args.length)
+			usage();
+		for (int i = cmdstart; i < args.length; ++i)
 			command.append(args[i]).append(' ');
 		File resultFile = new File(outfile);
 		try {
 			File tmpFile = File.createTempFile("minimize", ".smt2");
 			tmpFile.deleteOnExit();
 			File input = new File(infile);
-			Files.copy(input.toPath(), resultFile.toPath());
-			Files.copy(input.toPath(), tmpFile.toPath(),
-					StandardCopyOption.REPLACE_EXISTING);
 			command.append(tmpFile.getAbsolutePath());
 			String solver = command.toString();
 			// Free space
 			command = null;
-			System.err.println("Starting " + solver);
-			Process p = Runtime.getRuntime().exec(solver);
-			OutputReaper out = new OutputReaper(p.getInputStream());
-			out.start();
-			OutputReaper err = new OutputReaper(p.getErrorStream());
-			err.start();
-			int goldenExit = p.waitFor();
-			out.join();
-			err.join();
-			// Free space
-			p = null;
-			System.err.println("Got golden exit code: " + goldenExit);
+			if (goldenExit == 0) {
+				Files.copy(input.toPath(), tmpFile.toPath(),
+						StandardCopyOption.REPLACE_EXISTING);
+				if (verbosity > 2)
+					System.err.println("Starting " + solver);
+				Process p = Runtime.getRuntime().exec(solver);
+				OutputReaper out = new OutputReaper(p.getInputStream());
+				out.start();
+				OutputReaper err = new OutputReaper(p.getErrorStream());
+				err.start();
+				goldenExit = p.waitFor();
+				out.join();
+				err.join();
+				// Free space
+				p = null;
+			}
+			if (verbosity > 0)
+				System.err.println("Got golden exit code: " + goldenExit);
 			ParseScript ps = new ParseScript();
 			ParseEnvironment pe = new ParseEnvironment(ps) {
 
@@ -886,13 +1046,16 @@ public class Minimizer {
 				}
 				
 			};
-			System.err.println("Begin parsing");
+			if (verbosity > 0)
+				System.err.println("Begin parsing");
 			pe.parseScript(infile);
 			// Free space
 			pe = null;
-			System.err.println("Parsing done");
+			if (verbosity > 0)
+				System.err.println("Parsing done");
 			Minimizer mini = new Minimizer(
-					ps.getCmds(), goldenExit, tmpFile, resultFile, solver);
+					ps.getCmds(), goldenExit, tmpFile, resultFile, solver,
+					verbosity);
 			// Free space
 			ps = null;
 			if (!mini.deltaDebug())

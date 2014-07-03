@@ -18,9 +18,6 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.model;
 
-import java.util.HashSet;
-
-import de.uni_freiburg.informatik.ultimate.logic.IRAConstantFormatter;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
@@ -34,47 +31,44 @@ import de.uni_freiburg.informatik.ultimate.logic.Theory;
  * @author Juergen Christ
  */
 public class FiniteSortInterpretation implements SortInterpretation {
-	/**
-	 * The set of all terms.
-	 */
-	private final HashSet<Term> mTerms = new HashSet<Term>();
-	@Override
-	public boolean isFinite() {
-		return true;
-	}
-
-	@Override
-	public void extend(Term termOfSort) {
-		mTerms.add(termOfSort);
-	}
-
+	
+	private int mSize = 0;
+	
 	@Override
 	public Term toSMTLIB(Theory t, Sort sort) {
-		IRAConstantFormatter format = t.getLogic().isIRA()
-				? new IRAConstantFormatter() : null;
 		TermVariable var = t.createTermVariable("@v", sort);
-		Term[] disj = new Term[mTerms.size()];
-		int i = -1;
-		for (Term term : mTerms)
-			disj[++i] = t.equals(var, format == null
-				? term : format.transform(term));
+		Term[] disj = new Term[mSize];
+		for (int i = 0; i < mSize; ++i)
+			disj[i] = t.equals(var, genModelTerm(i, t, sort));
 		return t.forall(new TermVariable[] {var}, t.or(disj));
 	}
-
+	
 	@Override
-	public Term peek() {
-		if (mTerms.isEmpty())
-			return null;
-		return mTerms.iterator().next();
+	public int ensureCapacity(int numValues) {
+		if (mSize < numValues)
+			mSize = numValues;
+		return mSize;
 	}
 
 	@Override
-	public Term constrain(Theory t, Term input) {
-		Term[] disj = new Term[mTerms.size()];
-		int i = -1;
-		for (Term term : mTerms)
-			disj[++i] = t.equals(input, term);
-		return t.or(disj);
+	public int size() {
+		return mSize;
+	}
+
+	@Override
+	public Term get(int idx, Sort s, Theory t) throws IndexOutOfBoundsException {
+		if (idx < 0 || idx >= mSize)
+			throw new IndexOutOfBoundsException();
+		return genModelTerm(idx, t, s);
+	}
+
+	private Term genModelTerm(int idx, Theory t, Sort s) {
+		return t.term(t.getFunctionWithResult("@" + idx, null, s));
+	}
+
+	@Override
+	public int extendFresh() {
+		return mSize++;
 	}
 
 }

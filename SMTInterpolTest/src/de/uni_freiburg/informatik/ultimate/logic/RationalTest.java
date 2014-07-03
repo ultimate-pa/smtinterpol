@@ -225,4 +225,46 @@ public final class RationalTest {
 					RATIONALS[i].frac() == Rational.ZERO);
 		}
 	}
+	
+	@Test
+	public void testDiv() {
+		Assert.assertSame(Rational.POSITIVE_INFINITY,
+				SMALL_RAT.div(Rational.ZERO));
+		Assert.assertSame(Rational.NEGATIVE_INFINITY,
+				SMALL_RAT.negate().div(Rational.ZERO));
+		Assert.assertSame(Rational.POSITIVE_INFINITY,
+				LARGE_RAT.div(Rational.ZERO));
+		Assert.assertSame(Rational.NEGATIVE_INFINITY,
+				LARGE_RAT.negate().div(Rational.ZERO));
+		Assert.assertSame(Rational.POSITIVE_INFINITY,
+				Rational.POSITIVE_INFINITY.div(Rational.ZERO));
+		Assert.assertSame(Rational.NEGATIVE_INFINITY,
+				Rational.NEGATIVE_INFINITY.div(Rational.ZERO));
+		Assert.assertSame(Rational.NAN,
+				Rational.NAN.div(Rational.ZERO));
+		Assert.assertSame(Rational.NAN,
+				Rational.POSITIVE_INFINITY.div(Rational.POSITIVE_INFINITY));
+		Assert.assertSame(Rational.NAN,
+				Rational.POSITIVE_INFINITY.div(Rational.NEGATIVE_INFINITY));
+		Assert.assertSame(Rational.NAN,
+				Rational.NEGATIVE_INFINITY.div(Rational.POSITIVE_INFINITY));
+		Assert.assertSame(Rational.NAN,
+				Rational.NEGATIVE_INFINITY.div(Rational.NEGATIVE_INFINITY));
+		Assert.assertSame(Rational.ZERO,
+				Rational.ONE.div(Rational.POSITIVE_INFINITY));
+		Assert.assertSame(Rational.ZERO,
+				Rational.ONE.div(Rational.NEGATIVE_INFINITY));
+		Assert.assertSame(Rational.ZERO,
+				LARGE_RAT.div(Rational.POSITIVE_INFINITY));
+		Assert.assertSame(Rational.ZERO,
+				LARGE_RAT.div(Rational.NEGATIVE_INFINITY));
+		Assert.assertSame(Rational.NAN,
+				Rational.POSITIVE_INFINITY.add(Rational.NEGATIVE_INFINITY));
+		Assert.assertSame(Rational.NAN,
+				Rational.NEGATIVE_INFINITY.add(Rational.POSITIVE_INFINITY));
+		Assert.assertSame(Rational.NAN,
+				Rational.POSITIVE_INFINITY.sub(Rational.POSITIVE_INFINITY));
+		Assert.assertSame(Rational.NAN,
+				Rational.NEGATIVE_INFINITY.sub(Rational.NEGATIVE_INFINITY));
+	}
 }

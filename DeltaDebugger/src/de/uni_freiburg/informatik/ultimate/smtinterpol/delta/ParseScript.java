@@ -74,6 +74,7 @@ public class ParseScript extends NoopScript {
 		throws SMTLIBException {
 		super.declareFun(fun, paramSorts, resultSort);
 		mCmds.add(new DeclareFun(fun, paramSorts, resultSort));
+		ensureNotFresh(fun);
 	}
 
 	@Override
@@ -81,6 +82,7 @@ public class ParseScript extends NoopScript {
 			Term definition) throws SMTLIBException {
 		super.defineFun(fun, params, resultSort, definition);
 		mCmds.add(new DefineFun(fun, params, resultSort, definition));
+		ensureNotFresh(fun);
 	}
 
 	@Override
@@ -184,6 +186,18 @@ public class ParseScript extends NoopScript {
 		throws SMTLIBException, UnsupportedOperationException {
 		mCmds.add(new TermListCmd("check-allsat", predicates));
 		return null;
+	}
+	
+	private void ensureNotFresh(String fun) {
+		if (fun.startsWith(ReplaceByFreshTerm.FRESH_PREFIX)) {
+			String tail = fun.substring(
+					ReplaceByFreshTerm.FRESH_PREFIX.length() + 1);
+			try {
+				ReplaceByFreshTerm.ensureNotFresh(Integer.parseInt(tail));
+			} catch (NumberFormatException ignored) {
+				// Function symbol will not collide with our fresh symbols.
+			}
+		}
 	}
 	
 }

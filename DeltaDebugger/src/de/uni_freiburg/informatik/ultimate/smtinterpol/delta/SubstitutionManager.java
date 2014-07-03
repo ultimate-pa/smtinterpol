@@ -64,21 +64,22 @@ public class SubstitutionManager {
 					// Cannot substitute at this level
 					return null;
 			// No names => Ignore annotations
-			return new ReplaceByTerm(t, at.getSubterm());
+			return new ReplaceByTerm(t, at.getSubterm(), true);
 		} else if (t.getSort() == t.getTheory().getBooleanSort()) {
 			// Try to replace by true
-			return new ReplaceByTerm(t, t.getTheory().mTrue);
+			return new ReplaceByTerm(t, t.getTheory().mTrue, true);
 		} else if (t.getSort().isNumericSort()) {
 			return new ReplaceByTerm(t, t.getSort().getName().equals("Int")
 					? t.getTheory().numeral(BigInteger.ZERO)
-						: t.getTheory().decimal(BigDecimal.ZERO));
+						: t.getTheory().decimal(BigDecimal.ZERO), true);
 		} else if (t instanceof ApplicationTerm) {
 			// I guess this is always the case...
 			ApplicationTerm at = (ApplicationTerm) t;
 			if (at.getParameters().length > 0) {
 				if (at.getFunction().getName().equals("store"))
-					return new ReplaceByTerm(t, at.getParameters()[1]);
-				return new ReplaceByFreshTerm(t);
+					return new ReplaceByTerm(t, at.getParameters()[0], true);
+				return ReplaceByFreshTerm.isFreshTerm(at)
+						? null : new ReplaceByFreshTerm(t);
 			}
 		}
 		// Cannot replace TermVariables or ConstantTerms
@@ -90,18 +91,18 @@ public class SubstitutionManager {
 		if (subst instanceof ReplaceByFreshTerm) {
 			ApplicationTerm at = (ApplicationTerm) t;
 			if (at.getFunction().getName().equals("ite"))
-				return new ReplaceByTerm(t, at.getParameters()[1]);
+				return new ReplaceByTerm(t, at.getParameters()[1], true, false);
 			return null;
 		}
 		ReplaceByTerm r = (ReplaceByTerm) subst;
 		if (t instanceof AnnotatedTerm) {
-			assert r.mReplacement == ((AnnotatedTerm) t).getSubterm();
+			assert r.getReplacement() == ((AnnotatedTerm) t).getSubterm();
 			return null;
 		}
 		Theory theory = t.getTheory();
-		if (r.mReplacement == theory.mTrue)
-			return new ReplaceByTerm(t, theory.mFalse);
-		if (r.mReplacement == theory.mFalse) {
+		if (r.getReplacement() == theory.mTrue && r.isNeutralReplacement())
+			return new ReplaceByTerm(t, theory.mFalse, true);
+		if (r.getReplacement() == theory.mFalse && r.isNeutralReplacement()) {
 			if (t instanceof ApplicationTerm) {
 				ApplicationTerm at = (ApplicationTerm) t;
 				// replace f-app
@@ -114,10 +115,13 @@ public class SubstitutionManager {
 			// Can be either neutrals or ite or store
 			ApplicationTerm at = (ApplicationTerm) t;
 			if (at.getFunction().getName().equals("ite")) {
-				if (r.mReplacement == at.getParameters()[0])
-					return new ReplaceByTerm(t, at.getParameters()[1]);
+				if (r.getReplacement() == at.getParameters()[1])
+					return new ReplaceByTerm(t, at.getParameters()[2], true, false);
+				else if (!r.isNeutralReplacement()
+						|| r.getReplacement() == at.getParameters()[2])
+					return null;
 			} else if (at.getFunction().getName().equals("store")
-					&& r.mReplacement == at.getParameters()[0])
+					&& r.getReplacement() == at.getParameters()[0])
 				return new ReplaceByFreshTerm(t);
 			if (at.getParameters().length > 0)
 				return new ReplaceByFreshTerm(t);
@@ -142,8 +146,15 @@ public class SubstitutionManager {
 		List<Substitution> old = mSubsts;
 		mSubsts = new ArrayList<Substitution>(old.size());
 		for (Substitution cur : old) {
-			if (cur.isActive())
+			if (cur.isActive()) {
+				if (cur.isRecurse()) {
+					Substitution rec = getSubstition(
+							((ReplaceByTerm) cur).getReplacement());
+					if (rec != null)
+						mSubsts.add(rec);
+				}
 				continue;
+			}
 			Substitution next = getNextSubstitution(cur);
 			if (next != null)
 				mSubsts.add(next);

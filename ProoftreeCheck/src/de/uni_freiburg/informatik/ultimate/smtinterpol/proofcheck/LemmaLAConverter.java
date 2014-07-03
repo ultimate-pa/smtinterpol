@@ -90,32 +90,13 @@ public class LemmaLAConverter extends AConverter {
 		
 		// find the correct theory: integer, real, or mixed
 		final EArith arithType;
-		switch (mTheory.getLogic()) {
-		case AUFLIA:
-		case QF_AUFLIA:
-		case QF_LIA:
-		case QF_NIA:
-		case QF_UFLIA:
-		case UFNIA:
-			arithType = EArith.integer;
-			break;
-		case LRA:
-		case QF_LRA:
-		case QF_NRA:
-		case QF_UFLRA:
-		case QF_UFNRA:
-		case UFLRA:
-			arithType = EArith.real;
-			break;
-		case AUFLIRA:
-		case AUFNIRA:
-		case QF_UFLIRA:
+		Logics logic = mTheory.getLogic();
+		if (logic.isIRA())
 			arithType = EArith.mixed;
-			break;
-		default:
-			throw new IllegalArgumentException(
-					"The current logic is not supported");
-		}
+		else if (logic.hasReals())
+			arithType = EArith.real;
+		else
+			arithType = EArith.integer;
 		
 		// data structure for the literals
 		final IneqInfo ineqs = new IneqInfo(disjuncts.length, factors,

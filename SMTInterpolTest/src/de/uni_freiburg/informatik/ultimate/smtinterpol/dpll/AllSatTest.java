@@ -28,6 +28,7 @@ import org.junit.runners.JUnit4;
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 
 @RunWith(JUnit4.class)
@@ -35,7 +36,7 @@ public class AllSatTest {
 
 	@Test
 	public void testAllSat() {
-		SMTInterpol solver = new SMTInterpol();
+		SMTInterpol solver = new SMTInterpol(new DefaultLogger());
 		solver.setOption(":verbosity", 10);
 		solver.setLogic(Logics.QF_LIA);
 		Sort[] empty = new Sort[0];

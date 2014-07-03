@@ -23,11 +23,26 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 
 final class ReplaceByTerm extends Substitution {
 	
-	Term mReplacement;
+	private final Term mReplacement;
+	private final boolean mNeutral;
 	
-	public ReplaceByTerm(Term match, Term replacement) {
-		super(match);
+	public ReplaceByTerm(Term match, Term replacement, boolean neutral) {
+		this(match, replacement, false, neutral);
+	}
+	
+	public ReplaceByTerm(Term match, Term replacement, boolean recurse,
+			boolean neutral) {
+		super(match, recurse);
 		mReplacement = replacement;
+		mNeutral = neutral;
+	}
+	
+	public boolean isNeutralReplacement() {
+		return mNeutral;
+	}
+	
+	public Term getReplacement() {
+		return mReplacement;
 	}
 
 	@Override

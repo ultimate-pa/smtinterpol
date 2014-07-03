@@ -18,6 +18,7 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.delta;
 
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.PrintTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -31,12 +32,17 @@ final class ReplaceByFreshTerm extends Substitution {
 
 	private Cmd mAdd;
 	
-	private final static String FRESH_PREFIX = "@DELTA_DEBUG_FRESH_";
+	public final static String FRESH_PREFIX = "@DELTA_DEBUG_FRESH_";
 	private static int freshnum = 0; // NOCHECKSTYLE since not multi-threaded
 	private final static Sort[] EMPTY_SORT_ARRAY = {};
 	
 	private static String getNextFreshName() {
 		return FRESH_PREFIX + (++freshnum);
+	}
+	
+	public static void ensureNotFresh(int num) {
+		if (freshnum <= num)
+			freshnum = num + 1;
 	}
 	
 	@Override
@@ -60,6 +66,11 @@ final class ReplaceByFreshTerm extends Substitution {
 		pt.append(sb, getMatch());
 		sb.append(" ==> fresh");
 		return sb.toString();
+	}
+
+	public static boolean isFreshTerm(ApplicationTerm at) {
+		return at.getParameters().length == 0
+				&& at.getFunction().getName().startsWith(FRESH_PREFIX);
 	}
 	
 }

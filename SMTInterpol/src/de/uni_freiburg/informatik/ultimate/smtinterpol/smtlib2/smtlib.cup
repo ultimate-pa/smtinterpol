@@ -70,7 +70,7 @@ parser code {:
 
 action code {:
 	ScopedHashMap<String,TermVariable> localVars = 
-		new ScopedHashMap<String, TermVariable>(); 
+		new ScopedHashMap<String, TermVariable>(false); 
 	Sort[] sortParams = null;
 	static Sort[] emptySortArray = new Sort[0];
 	
@@ -352,11 +352,12 @@ qualIdentifier ::= identifier:i
        | LPAR AS identifier:i sort:s RPAR 
          {: RESULT = new QualIdentifier(i, s); :};
 varBinding ::= LPAR symbol:sym term:t RPAR
-         {: if (!hasError()) {
+         {: if (hasError()) {
+            	RESULT = null;
+            } else {
          		TermVariable tv = createTermVariable(sym, t.getSort());
             	RESULT = new Binding(tv, t);
-            } else
-            	RESULT = null;
+            }
           :};
 sortedVar ::= LPAR symbol:sym sort:s RPAR
          {: RESULT = createTermVariable(sym, s); :};
@@ -486,13 +487,14 @@ interpolantpartition
                    child.addParent(createTerm(symb$, symb, null, null, new Term[0])); 
                 RESULT = child;:}
            | interpolantpartition:child LPAR interpolantpartition:sibling RPAR
-             {: if (sibling.isAndTerm() && !hasError()) 
+             {: if (sibling.isAndTerm() && !hasError()) { 
              	    child.addParent(parser.env.getScript()
              	    				.term("and", sibling.getPartition()));
-                else if (!child.isClosedTree())
-					parser.report_error("Interpolation tree malformed.", child$);
-				else
+                } else if (child.isClosedTree()) {
 				    child.addSibling(sibling);
+				} else {
+					parser.report_error("Interpolation tree malformed.", child$);
+				}
                 RESULT = child; :}
            | /* empty */
              {: RESULT = new InterpolationInfo(); :}
@@ -505,7 +507,8 @@ command ::= SETLOGIC symbol:logic
             } catch (UnsupportedOperationException uoe) {
             	parser.env.printResponse("unsupported");
             } catch (SMTLIBException se) {
-            	parser.env.printError(se.getMessage());
+				parser.report_error(se.getMessage(), logic$);
+				parser.env.printError(getError());
             }
              :}
           | SETOPTION option:opt
@@ -513,19 +516,21 @@ command ::= SETLOGIC symbol:logic
             {: parser.env.setInfo(k, v);
             parser.env.printSuccess(); :}
           | DECLARESORT symbol:sort NUMERAL:n
-            {: if (n.bitLength() >= 32)
-            	   parser.report_error("sort has too many arguments", n$);
-               if (hasError())
-            	   parser.env.printError(getError());
-               else {
-                   try {
-                   		parser.env.getScript().declareSort(sort, n.intValue());
-                   		parser.env.printSuccess();
-                   	} catch (SMTLIBException se) {
-                   		parser.env.printError(se.getMessage());
-                   	}
-               }
-            :}
+			{:
+				if (n.bitLength() >= 32)
+					parser.report_error("sort has too many arguments", n$);
+				if (hasError())
+					parser.env.printError(getError());
+				else {
+					try {
+						parser.env.getScript().declareSort(sort, n.intValue());
+						parser.env.printSuccess();
+					} catch (SMTLIBException se) {
+						parser.report_error(se.getMessage(), sort$);
+						parser.env.printError(getError());
+					}
+				}
+			:}
           | DEFINESORT symbol:sort LPAR symbol*:sortVars
             {: sortParams = parser.env.getScript().sortVariables(sortVars); :} 
             RPAR sort:def
@@ -533,10 +538,11 @@ command ::= SETLOGIC symbol:logic
             	   parser.env.printError(getError());
                else {
                    try {
-                   	parser.env.getScript().defineSort(sort, sortParams, def);
-                   	parser.env.printSuccess();
+                   		parser.env.getScript().defineSort(sort, sortParams, def);
+                   		parser.env.printSuccess();
                    } catch (SMTLIBException se) {
-                   	parser.env.printError(se.getMessage());
+                   		parser.report_error(se.getMessage(), sort$);
+                   		parser.env.printError(getError());
                    }
                }
             :}
@@ -545,10 +551,11 @@ command ::= SETLOGIC symbol:logic
             	   parser.env.printError(getError());
                else {
                    try {
-                   	parser.env.getScript().declareFun(fun, param, result);
-                   	parser.env.printSuccess();
+                   		parser.env.getScript().declareFun(fun, param, result);
+                   		parser.env.printSuccess();
                    } catch (SMTLIBException se) {
-                   	parser.env.printError(se.getMessage());
+                   		parser.report_error(se.getMessage(), fun$);
+                   		parser.env.printError(getError());
                    }
                }
             :}
@@ -562,7 +569,8 @@ command ::= SETLOGIC symbol:logic
                    	parser.env.getScript().defineFun(fun, param, resultSort, value);
                    	parser.env.printSuccess();
                    } catch (SMTLIBException se) {
-                   	parser.env.printError(se.getMessage());
+                   		parser.report_error(se.getMessage(), fun$);
+                   		parser.env.printError(getError());
                    }
                }
             :}
@@ -575,7 +583,8 @@ command ::= SETLOGIC symbol:logic
                       parser.env.getScript().push(n.intValue());
                       parser.env.printSuccess();
                    } catch (SMTLIBException se) {
-                      parser.env.printError(se.getMessage());
+                   		parser.report_error(se.getMessage(), n$);
+                   		parser.env.printError(getError());
                    }
                } :}
           | POP NUMERAL:n
@@ -587,7 +596,8 @@ command ::= SETLOGIC symbol:logic
                    parser.env.getScript().pop(n.intValue());
                    parser.env.printSuccess();
                 } catch (SMTLIBException se) {
-                	parser.env.printError(se.getMessage());
+                   		parser.report_error(se.getMessage(), n$);
+                   		parser.env.printError(getError());
                 }
                } :}
           | PUSH
@@ -606,13 +616,14 @@ command ::= SETLOGIC symbol:logic
             }  :}
           | ASSERT term:t
             {: if (hasError())
-            	   parser.env.printError(getError());
+                   parser.env.printError(getError());
                else {
                	try {
                    parser.env.getScript().assertTerm(t);
                    parser.env.printSuccess();
                  } catch (SMTLIBException se) {
-                 	parser.env.printError(se.getMessage());
+                 	parser.report_error(se.getMessage());
+                 	parser.env.printError(getError());
                  }
                }
             :}

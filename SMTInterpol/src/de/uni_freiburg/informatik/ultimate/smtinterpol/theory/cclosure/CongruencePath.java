@@ -18,6 +18,7 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -28,63 +29,90 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.LeafNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
 
-
+/**
+ * This class generates congruence lemmata and their explanation.
+ * It takes the CClosure and extracts from it a path of equalities that
+ * connect two equivalent CCTerm.  It also computes the required 
+ * congruences.  All literals are collected and if proof production
+ * is enabled, also the paths are collected and remembered.
+ * 
+ * 
+ * @author hoenicke
+ *
+ */
 public class CongruencePath {
 
 	final CClosure mClosure;
 	
+	/**
+	 * This is the data structure that remembers an equality path if 
+	 * proof production is enabled.  It just is a list of ccterms that
+	 * are connected by equality edges or congruences.
+	 * 
+	 * This data structure is only in use if proof production is enabled.
+	 * 
+	 * @author hoenicke
+	 */
 	public static class SubPath {
 		ArrayList<CCTerm> mTermsOnPath;
-		ArrayList<CCEquality> mLitsOnPath;
 		
 		public SubPath(CCTerm start) {
-			mTermsOnPath = new ArrayList<CCTerm>();
-			mLitsOnPath = new ArrayList<CCEquality>();
-			mTermsOnPath.add(start);
+			this(start, true);
+		}
+		
+		public SubPath(CCTerm start, boolean produceProofs) {
+			if (produceProofs) {
+				mTermsOnPath = new ArrayList<CCTerm>();
+				mTermsOnPath.add(start);
+			}
 		}
 
-		public void storeInto(CCTerm[][] paths, CCEquality[][] lits, int i) {
-			assert mTermsOnPath.size() == mLitsOnPath.size() + 1;
-			paths[i] = mTermsOnPath.toArray(new CCTerm[mTermsOnPath.size()]);
-			lits[i] = mLitsOnPath.toArray(new CCEquality[mLitsOnPath.size()]);			
+		public CCTerm[] getTerms() {
+			return mTermsOnPath.toArray(new CCTerm[mTermsOnPath.size()]);
 		}
 
 		public void addEntry(CCTerm term, CCEquality reason) {
-			mTermsOnPath.add(term);
-			mLitsOnPath.add(reason);
+			if (mTermsOnPath != null) {
+				mTermsOnPath.add(term);
+			}
 		}
 
-		public void addReverse(SubPath second) {
-			assert second.mTermsOnPath.size() == second.mLitsOnPath.size() + 1;
-			assert second.mTermsOnPath.get(second.mTermsOnPath.size() - 1)
-				== mTermsOnPath.get(mTermsOnPath.size() - 1);
-			for (int i = second.mLitsOnPath.size() - 1; i >= 0; i--) {
-				mTermsOnPath.add(second.mTermsOnPath.get(i));
-				mLitsOnPath.add(second.mLitsOnPath.get(i));
+		public void addSubPath(SubPath second) {
+			if (mTermsOnPath != null && second != null) {
+				if (second.mTermsOnPath.get(0)
+						== mTermsOnPath.get(mTermsOnPath.size() - 1)) {
+					for (int i = 1; i < second.mTermsOnPath.size(); i++) {
+						mTermsOnPath.add(second.mTermsOnPath.get(i));
+					}
+				} else {
+					/* sub path is reversed */
+					assert (second.mTermsOnPath.get(second.mTermsOnPath.size() - 1) 
+							== mTermsOnPath.get(mTermsOnPath.size() - 1));
+					for (int i = second.mTermsOnPath.size() - 2; i >= 0; i--) {
+						mTermsOnPath.add(second.mTermsOnPath.get(i));
+					}
+				}
 			}
+		}
+
+		public String toString() {
+			return mTermsOnPath.toString();
 		}
 	}
 
 	final HashMap<SymmetricPair<CCTerm>,SubPath> mVisited;
-	SubPath mMainPath;
+	final ArrayDeque<SubPath> mAllPaths;
 	final Set<Literal> mAllLiterals;
 
 	public CongruencePath(CClosure closure) {
 		this.mClosure = closure;
 		mVisited = new HashMap<SymmetricPair<CCTerm>, SubPath>();
 		mAllLiterals = new HashSet<Literal>();
+		mAllPaths = new ArrayDeque<SubPath>();
 	}
 	
 	private CCAnnotation createAnnotation(CCEquality diseq) {
-		CCTerm[][] paths = new CCTerm[mVisited.size()][];
-		CCEquality[][] lits  = new CCEquality[mVisited.size()][];
-		int i = 0;
-		mMainPath.storeInto(paths, lits, i++);
-		for (SubPath subPath : mVisited.values()) {
-			if (subPath != mMainPath)
-				subPath.storeInto(paths, lits, i++);
-		}
-		return new CCAnnotation(diseq, paths, lits);
+		return new CCAnnotation(diseq, mAllPaths);
 	}
 	
 	private int computeDepth(CCTerm t) {
@@ -119,7 +147,9 @@ public class CongruencePath {
 	private void computeCCPath(CCAppTerm start, CCAppTerm end) {
 		while (true) {
 			/* Compute path and interpolation info for func and arg */
-			computePath(start.mArg, end.mArg);
+			SubPath path = computePath(start.mArg, end.mArg);
+			if (path != null)
+				mAllPaths.addFirst(path);
 
 			/* We do not have explicit edges between partial function
 			 * applications.  Hence start.func and end.func must be equal 
@@ -150,9 +180,12 @@ public class CongruencePath {
 	 * the equality chains. 
 	 * @param t the first term in the path.
 	 * @param end the last term in the path.
+	 * @return the sub path from t to end, if proof production is enabled.  
+	 *   Without proof production, this returns null.
 	 */
 	private SubPath computePathTo(CCTerm t, CCTerm end) {
-		SubPath path = new SubPath(t);
+		SubPath path = 
+				new SubPath(t, mClosure.mEngine.isProofGenerationEnabled()); 
 		CCTerm startCongruence = t;
 		while (t != end) {
 			if (t.mOldRep.mReasonLiteral != null) {
@@ -232,13 +265,15 @@ public class CongruencePath {
 			computeCCPath((CCAppTerm)llWithReason, (CCAppTerm)rrWithReason);
 			path.addEntry(rrWithReason, null);
 		}
-		path.addReverse(computePathTo(right, rrWithReason));
+		SubPath pathBack = computePathTo(right, rrWithReason);
+		path.addSubPath(pathBack);
 		mVisited.put(key, path);
 		return path;
 	}
 	
 	public Clause computeCycle(CCEquality eq, boolean produceProofs) {
-		mMainPath = computePath(eq.getLhs(), eq.getRhs());
+		SubPath path = computePath(eq.getLhs(), eq.getRhs());
+		mAllPaths.addFirst(path);
 		Literal[] cycle = new Literal[mAllLiterals.size() + 1];
 		int i = 0;
 		cycle[i++] = eq;
@@ -252,7 +287,8 @@ public class CongruencePath {
 	
 	public Clause computeCycle(CCTerm lconstant, CCTerm rconstant, boolean produceProofs) {
 		mClosure.mEngine.getLogger().debug("computeCycle for Constants");
-		mMainPath = computePath(lconstant, rconstant);
+		SubPath path = computePath(lconstant, rconstant);
+		mAllPaths.addFirst(path);
 		Literal[] cycle = new Literal[mAllLiterals.size()];
 		int i = 0;
 		for (Literal l: mAllLiterals)
@@ -271,5 +307,4 @@ public class CongruencePath {
 		sb.append(']');
 		return sb.toString();
 	}
-
 }

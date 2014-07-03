@@ -48,11 +48,17 @@ public class ScopedHashMap<K, V> extends AbstractMap<K, V> {
 	private final HashMap<K, V> mMap;
 	private HashMap<K, V>[] mHistory;
 	int mCurScope = -1;
+	private final boolean mShrink;
+	
+	public ScopedHashMap() {
+		this(true);
+	}
 	
 	@SuppressWarnings("unchecked")
-	public ScopedHashMap() {
+	public ScopedHashMap(boolean shrink) {
 		mMap = new HashMap<K, V>();
 		mHistory = new HashMap[ScopeUtils.NUM_INITIAL_SCOPES];
+		mShrink = shrink;
 	}
 	
 	private HashMap<K, V> undoMap() {
@@ -85,7 +91,7 @@ public class ScopedHashMap<K, V> extends AbstractMap<K, V> {
 			undoEntry(old);
 		}
 		mHistory[mCurScope--] = null;
-		if (ScopeUtils.shouldShrink(mHistory))
+		if (mShrink && ScopeUtils.shouldShrink(mHistory))
 			mHistory = ScopeUtils.shrink(mHistory);
 	}
 	

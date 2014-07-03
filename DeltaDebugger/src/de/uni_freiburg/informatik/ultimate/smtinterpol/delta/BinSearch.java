@@ -25,7 +25,7 @@ import java.util.List;
 public class BinSearch<E> {
 
 	public static interface Driver<E> {
-		public void prepare(List<E> sublist);
+		public Boolean prepare(List<E> sublist);
 		public void failure(List<E> sublist);
 		public void success(List<E> sublist);
 	}
@@ -54,20 +54,24 @@ public class BinSearch<E> {
 		if (mList.isEmpty())
 			return false;
 		boolean result = false;
-		mTodo.push(new IntPair(0, mList.size()));
+		mTodo.add(new IntPair(0, mList.size()));
 		while (!mTodo.isEmpty()) {
-			IntPair p = mTodo.pop();
+			IntPair p = mTodo.poll();
 			List<E> sublist = mList.subList(p.mFirst, p.mSecond);
 			if (sublist.isEmpty())
 				continue;
-			mDriver.prepare(sublist);
-			if (tester.test()) {
-				mDriver.success(sublist);
+			Boolean seen = mDriver.prepare(sublist);
+			boolean success = (seen == null ? tester.test() : seen);
+			if (success) {
+				if (seen == null)
+					mDriver.success(sublist);
 				result = true;
 			} else {
-				mDriver.failure(sublist);
+				if (seen == null)
+					mDriver.failure(sublist);
 				// Split into two new sublists
-				int mid = (p.mFirst + p.mSecond) / 2;
+				int mid = p.mFirst / 2 + p.mSecond / 2
+						+ (p.mFirst & p.mSecond & 1);
 				if (mid == p.mFirst)
 					continue;
 				mTodo.push(new IntPair(mid, p.mSecond));

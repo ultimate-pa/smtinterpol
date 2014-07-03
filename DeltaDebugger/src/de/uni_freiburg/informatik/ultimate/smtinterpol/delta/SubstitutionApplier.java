@@ -25,6 +25,7 @@ import java.util.List;
 
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.CheckClosedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.LetTerm;
 import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
@@ -82,12 +83,13 @@ public class SubstitutionApplier extends NonRecursive {
 
 		@Override
 		public void walk(NonRecursive engine) {
-			Term subform = mConverted.pop();
 			Term[] newVals = new Term[mTerm.getValues().length];
 			for (int i = 0; i < newVals.length; ++i)
 				newVals[i] = mConverted.pop();
-			Term res = mTerm.getTheory().let(
-					mTerm.getVariables(), newVals, subform);
+			Term subform = mConverted.pop();
+			Term res = new CheckClosedTerm().isClosed(subform) ? subform
+					: mTerm.getTheory().let(
+							mTerm.getVariables(), newVals, subform);
 			mConverted.push(res);
 		}
 		
@@ -105,7 +107,8 @@ public class SubstitutionApplier extends NonRecursive {
 		public void walk(NonRecursive engine) {
 			Term subform = mConverted.pop();
 			Theory t = mTerm.getTheory();
-			Term res = mTerm.getQuantifier() == QuantifiedFormula.EXISTS
+			Term res = new CheckClosedTerm().isClosed(subform) ? subform
+					: mTerm.getQuantifier() == QuantifiedFormula.EXISTS
 					? t.exists(mTerm.getVariables(), subform)
 						: t.forall(mTerm.getVariables(), subform);
 			mConverted.push(res);

@@ -19,6 +19,7 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.delta;
 
 import java.io.PrintWriter;
+import java.util.Collections;
 import java.util.List;
 
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -72,7 +73,13 @@ public abstract class AbstractOneTermCmd extends TermCmd {
 	public void dump(PrintWriter writer) {
 		if (mPreCmds != null)
 			for (Cmd cmd : mPreCmds)
-				cmd.dump(writer);
+				if (cmd.isActive())
+					cmd.dump(writer);
+	}
+
+	public List<Cmd> getPreCmds() {
+		List<Cmd> empty = Collections.emptyList();
+		return mPreCmds == null ? empty : mPreCmds;
 	}
 
 }

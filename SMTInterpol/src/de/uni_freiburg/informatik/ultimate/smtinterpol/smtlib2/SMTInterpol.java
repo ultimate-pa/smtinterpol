@@ -34,6 +34,7 @@ import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Assignments;
+import de.uni_freiburg.informatik.ultimate.logic.CheckClosedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
@@ -53,6 +54,7 @@ import de.uni_freiburg.informatik.ultimate.logic.simplification.SimplifyDDA;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.Main;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
@@ -60,6 +62,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate.Interpolator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate.SymbolChecker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate.SymbolCollector;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofChecker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofTermGenerator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.PropProofChecker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.Transformations.AvailableTransformations;
@@ -87,19 +90,19 @@ public class SMTInterpol extends NoopScript {
 	private static enum CheckType {
 		FULL {
 			boolean check(DPLLEngine engine) {
-				engine.setCompleteness(DPLLEngine.COMPLETE);
+				engine.provideCompleteness(DPLLEngine.COMPLETE);
 				return engine.solve();
 			}
 		},
 		PROPAGATION {
 			boolean check(DPLLEngine engine) {
-				engine.setCompleteness(DPLLEngine.INCOMPLETE_CHECK);
+				engine.provideCompleteness(DPLLEngine.INCOMPLETE_CHECK);
 				return engine.propagate();
 			}
 		},
 		QUICK {
 			boolean check(DPLLEngine engine) {
-				engine.setCompleteness(DPLLEngine.INCOMPLETE_CHECK);
+				engine.provideCompleteness(DPLLEngine.INCOMPLETE_CHECK);
 				return engine.quickCheck();
 			}
 		};
@@ -207,38 +210,12 @@ public class SMTInterpol extends NoopScript {
 					return resultSort;
 				}
 			});
-			switch (logic) {
-			case QF_AUFLIA:
-			case AUFLIA:
+			if (logic.isArray())
 				declareArraySymbols(theory);
-				// fallthrough
-			case QF_UFLIA:
-			case QF_LIA:
-			case QF_IDL:
-			case QF_UFIDL:
-			case QF_NIA:
-			case UFNIA:
+			if (logic.hasIntegers())
 				declareIntSymbols(theory);
-				break;
-			case AUFLIRA:
-			case AUFNIRA:
-				declareArraySymbols(theory);
-				// fallthrough
-			case QF_UFLIRA:
-				declareIntSymbols(theory);
-				// fallthrough to real symbols since mixed logics.
-			case LRA:
-			case QF_LRA:
-			case QF_NRA:
-			case QF_UFLRA:
-			case QF_UFNRA:
-			case QF_RDL:
-			case UFLRA:
+			if (logic.hasReals())
 				declareRealSymbols(theory);
-				break;
-			default:
-				break;
-			}
 		}
 		
 		private final void declareIntSymbols(Theory theory) {
@@ -261,7 +238,6 @@ public class SMTInterpol extends NoopScript {
 			declareInternalPolymorphicFunction(
 					theory, "@diff", vars, new Sort[]{array, array}, vars[0], 0);
 		}
-		
 	}
 	
 	private static abstract class Option {
@@ -452,14 +428,12 @@ public class SMTInterpol extends NoopScript {
 	boolean mInterpolantCheckMode = false;
 	boolean mUnsatCoreCheckMode = false;
 	boolean mModelCheckMode = false;
-	
-	private int mProofMode;
+	boolean mProofCheckMode = false;
 	
 	de.uni_freiburg.informatik.ultimate.smtinterpol.model.Model mModel = null;
 	private boolean mPartialModels = false;
 	
 	private final static Object NAME = new QuotedObject("SMTInterpol");
-	private final static Object VERSION = new QuotedObject(Version.VERSION);
 	private final static Object AUTHORS = new QuotedObject(
 					"Jochen Hoenicke, Juergen Christ, and Alexander Nutz");
 	private final static Object INTERPOLATION_METHOD = new QuotedObject("tree");
@@ -489,24 +463,29 @@ public class SMTInterpol extends NoopScript {
 	private boolean mSimplifyRepeatedly = true;
 	
 	// The option numbers
-	private final static int OPT_VERBOSITY = 0;
-	private final static int OPT_TIMEOUT = 1;
-	private final static int OPT_PRODUCE_PROOFS = 2;
-	private final static int OPT_PRODUCE_MODELS = 3;
-	private final static int OPT_PRODUCE_ASSIGNMENTS = 4;
-	private final static int OPT_RANDOM_SEED = 5;
-	private final static int OPT_INTERACTIVE_MODE = 6;
-	private final static int OPT_INTERPOLANT_CHECK_MODE = 7;
-	private final static int OPT_PRODUCE_INTERPOLANTS = 8;
-	private final static int OPT_PRODUCE_UNSAT_CORES = 9;
-	private final static int OPT_UNSAT_CORE_CHECK_MODE = 10;
-	private final static int OPT_MODEL_CHECK_MODE = 11;
-	private final static int OPT_PROOF_TRANSFORMATION = 12;
-	private final static int OPT_MODELS_PARTIAL = 13;
-	private final static int OPT_CHECK_TYPE = 14;
-	private final static int OPT_SIMPLIFY_INTERPOLANTS = 15;
-	private final static int OPT_SIMPLIFY_CHECK_TYPE = 16;
-	private final static int OPT_SIMPLIFY_REPEATEDLY = 17;
+	private final static int OPT_PRINT_SUCCESS = 0;
+	private final static int OPT_VERBOSITY = 1;
+	private final static int OPT_TIMEOUT = 2;
+	private final static int OPT_REGULAR_OUTPUT_CHANNEL = 3;
+	private final static int OPT_DIAGNOSTIC_OUTPUT_CHANNEL = 4;
+	private final static int OPT_PRODUCE_PROOFS = 5;
+	private final static int OPT_PRODUCE_MODELS = 6;
+	private final static int OPT_PRODUCE_ASSIGNMENTS = 7;
+	private final static int OPT_RANDOM_SEED = 8;
+	private final static int OPT_INTERACTIVE_MODE = 9;
+	private final static int OPT_INTERPOLANT_CHECK_MODE = 10;
+	private final static int OPT_PRODUCE_INTERPOLANTS = 11;
+	private final static int OPT_PRODUCE_UNSAT_CORES = 12;
+	private final static int OPT_UNSAT_CORE_CHECK_MODE = 13;
+	private final static int OPT_PRINT_TERMS_CSE = 14;
+	private final static int OPT_MODEL_CHECK_MODE = 15;
+	private final static int OPT_PROOF_TRANSFORMATION = 16;
+	private final static int OPT_MODELS_PARTIAL = 17;
+	private final static int OPT_CHECK_TYPE = 18;
+	private final static int OPT_SIMPLIFY_INTERPOLANTS = 19;
+	private final static int OPT_SIMPLIFY_CHECK_TYPE = 20;
+	private final static int OPT_SIMPLIFY_REPEATEDLY = 21;
+	private final static int OPT_PROOF_CHECK_MODE = 22;
 	//// Add a new option number for every new option
 	
 	// The Options Map
@@ -557,6 +536,9 @@ public class SMTInterpol extends NoopScript {
 		new BoolOption(":simplify-repeatedly",
 				"Simplify until the fixpoint is reached", true,
 				OPT_SIMPLIFY_REPEATEDLY);
+		new BoolOption(":proof-check-mode",
+				"Check the produced proof for unsatisfiable formulas", false,
+				OPT_PROOF_CHECK_MODE);
 		//// Create new option object for every new option
 	}
 	
@@ -735,7 +717,7 @@ public class SMTInterpol extends NoopScript {
 					result = LBool.SAT;
 					if (mModelCheckMode/* && m_ProduceModels*/) {
 						mModel = new de.uni_freiburg.informatik.ultimate.
-						                smtinterpol.model.Model(
+								smtinterpol.model.Model(
 								mClausifier, getTheory(), mPartialModels);
 						for (Term asserted : mAssertions) {
 							Term checkedResult = mModel.evaluate(asserted);
@@ -785,10 +767,20 @@ public class SMTInterpol extends NoopScript {
 				}
 			} else {
 				result = LBool.UNSAT;
+				if (mProofCheckMode) {
+					ProofChecker proofchecker = 
+							new ProofChecker(this, getLogger());
+					if (!proofchecker.check(getProof())) { 
+						if (mDDFriendly)
+							System.exit(2);
+						mLogger.fatal("Proof-checker did not verify");
+					}
+				}
 			}
 		} catch (OutOfMemoryError eoom) {
 			// BUGFIX: Don't do this since log4j will produce another OOM.
 //			m_Logger.fatal("OOM during check ",oom);
+			mLogger.outOfMemory("Out of memory during checkSat");
 			mReasonUnknown = ReasonUnknown.MEMOUT;
 		} catch (Throwable ex) {
 			if (mDDFriendly)
@@ -802,6 +794,8 @@ public class SMTInterpol extends NoopScript {
 					&& !mStatus.toString().equals(mStatusSet)) {
 			mLogger.warn("Status differs: User said %s but we got %s",
 					mStatusSet, mStatus);
+			if (mDDFriendly)
+				System.exit(13);
 		}
 		mStatusSet = null;
 		if (timer != null)
@@ -828,15 +822,15 @@ public class SMTInterpol extends NoopScript {
 	@Override
 	public void setLogic(Logics logic)
 		throws UnsupportedOperationException, SMTLIBException {
-		mSolverSetup = new SMTInterpolSetup(mProofMode);
+		int proofMode = getProofMode();
+		mSolverSetup = new SMTInterpolSetup(proofMode);
 		super.setLogic(logic);
 		try {
 			mEngine = new DPLLEngine(getTheory(), mLogger, mCancel);
-			mClausifier = new Clausifier(mEngine, mProofMode);
+			mClausifier = new Clausifier(mEngine, proofMode);
 			// This has to be before set-logic since we need to capture
 			// initialization of CClosure.
-			mEngine.setProofGeneration(
-					mProduceProofs || mProduceUnsatCores || mProduceInterpolants);
+			mEngine.setProofGeneration(proofMode > 0);
 			mClausifier.setLogic(logic);
 			mClausifier.setAssignmentProduction(mProduceAssignment);
 			mEngine.setProduceAssignments(mProduceAssignment);
@@ -860,7 +854,7 @@ public class SMTInterpol extends NoopScript {
 			else
 				throw new SMTLIBException("Asserted terms created with incompatible theory");
 		}
-		if (Config.STRONG_USAGE_CHECKS && term.getFreeVars().length != 0)
+		if (Config.STRONG_USAGE_CHECKS && !new CheckClosedTerm().isClosed(term))
 			throw new SMTLIBException("Asserted terms must be closed");
 		if (mAssertions != null)
 			mAssertions.add(term);
@@ -882,6 +876,14 @@ public class SMTInterpol extends NoopScript {
 			}
 		} catch (UnsupportedOperationException ex) {
 			throw new SMTLIBException(ex.getMessage());
+		} catch (RuntimeException exc) {
+			if (mDDFriendly)
+				System.exit(7);// NOCHECKSTYLE
+			throw exc;
+		} catch (AssertionError exc) {
+			if (mDDFriendly)
+				System.exit(7);// NOCHECKSTYLE
+			throw exc;
 		}
 		return LBool.UNKNOWN;
 	}
@@ -914,7 +916,7 @@ public class SMTInterpol extends NoopScript {
 		if (":name".equals(info))
 			return NAME;
 		if (":version".equals(info))
-			return VERSION;
+			return new QuotedObject(Main.getVersion());
 		if (":authors".equals(info))
 			return AUTHORS;
 		if (":all-statistics".equals(info)) {
@@ -991,21 +993,34 @@ public class SMTInterpol extends NoopScript {
 			return mSimplifyCheckType.name().toLowerCase();
 		case OPT_SIMPLIFY_REPEATEDLY:
 			return mSimplifyRepeatedly;
+		case OPT_PROOF_CHECK_MODE:
+			return mProofCheckMode;
 		default:
 			throw new InternalError("This should be implemented!!!");
 		}
 	}
 
+	/**
+	 * Get the proofMode according to the options that are set.
+	 * @returns 2 for full proofs, 1 for propositional only proofs, 0
+	 * for no proofs.
+	 */
+	private int getProofMode() {
+		if (mProofCheckMode || mProduceProofs) {
+			return 2;
+		} else if (mProduceInterpolants || mProduceUnsatCores) { 
+			return 1;
+		} else {
+			return 0;
+		}
+	}
+	
 	@Override
 	public Term getProof()
 	    throws SMTLIBException, UnsupportedOperationException {
 		if (mEngine == null)
 			throw new SMTLIBException("No logic set!");
-		int proofMode = 0;
-		if (mProduceInterpolants || mProduceUnsatCores)
-			proofMode = 1;
-		if (mProduceProofs)
-			proofMode = 2;
+		int proofMode = getProofMode();
 		if (proofMode == 0)
 			throw new SMTLIBException("Option :produce-proofs not set to true");
 		if (proofMode == 1)
@@ -1036,6 +1051,9 @@ public class SMTInterpol extends NoopScript {
 	public Term[] getInterpolants(Term[] partition, int[] startOfSubtree) {
 		if (mEngine == null)
 			throw new SMTLIBException("No logic set!");
+		if (getTheory().getLogic().isArray())
+			throw new UnsupportedOperationException(
+					"Array interpolation not implemented yet");
 		if (!mProduceProofs && !mProduceInterpolants)
 			throw new SMTLIBException(
 					"Interpolant production not enabled.  Set either :produce-interpolants or :produce-proofs to true");
@@ -1360,16 +1378,13 @@ public class SMTInterpol extends NoopScript {
 			break;
 		}
 		case OPT_PRODUCE_PROOFS:
-			if (mProduceProofs = o.checkArg(value, mProduceProofs))
-				mProofMode = 2;
+			mProduceProofs = o.checkArg(value, mProduceProofs);
 			break;
 		case OPT_PRODUCE_MODELS:
 			mProduceModels = o.checkArg(value, mProduceModels);
 			break;
 		case OPT_PRODUCE_ASSIGNMENTS:
-			if ((mProduceAssignment = o.checkArg(value, mProduceAssignment))
-				&& mProofMode == 0)
-				mProofMode = 1;
+			mProduceAssignment = o.checkArg(value, mProduceAssignment);
 			break;
 		case OPT_RANDOM_SEED:
 		{
@@ -1383,7 +1398,8 @@ public class SMTInterpol extends NoopScript {
 		case OPT_INTERACTIVE_MODE:
 			if (o.checkArg(value, Boolean.TRUE) == Boolean.TRUE)// FAKE...
 				mAssertions = new ScopedArrayList<Term>();
-			else if (!mInterpolantCheckMode && !mUnsatCoreCheckMode)
+			else if (!mInterpolantCheckMode && !mUnsatCoreCheckMode
+					&& !mProofCheckMode)
 				mAssertions = null;
 			break;
 		case OPT_INTERPOLANT_CHECK_MODE:
@@ -1393,9 +1409,7 @@ public class SMTInterpol extends NoopScript {
 					mAssertions = new ScopedArrayList<Term>();
 			break;
 		case OPT_PRODUCE_UNSAT_CORES:
-			if ((mProduceUnsatCores = o.checkArg(value, mProduceUnsatCores))
-				&& mProofMode == 0)
-				mProofMode = 1;
+			mProduceUnsatCores = o.checkArg(value, mProduceUnsatCores);
 			break;
 		case OPT_UNSAT_CORE_CHECK_MODE:
 			if ((mUnsatCoreCheckMode = o.checkArg(value, mUnsatCoreCheckMode))
@@ -1428,9 +1442,7 @@ public class SMTInterpol extends NoopScript {
 			break;
 		}
 		case OPT_PRODUCE_INTERPOLANTS:
-			if ((mProduceInterpolants = o.checkArg(value, mProduceInterpolants))
-				&& mProofMode == 0)
-				mProofMode = 1;
+			mProduceInterpolants = o.checkArg(value, mProduceInterpolants);
 			break;
 		case OPT_MODELS_PARTIAL:
 			mPartialModels = o.checkArg(value, mPartialModels);
@@ -1447,6 +1459,11 @@ public class SMTInterpol extends NoopScript {
 			break;
 		case OPT_SIMPLIFY_REPEATEDLY:
 			mSimplifyRepeatedly = o.checkArg(value, mSimplifyRepeatedly);
+			break;
+		case OPT_PROOF_CHECK_MODE:
+			if ((mProofCheckMode = o.checkArg(value, mProofCheckMode))
+				&& mAssertions == null)
+				mAssertions = new ScopedArrayList<Term>();
 			break;
 		default:
 			throw new InternalError("This should be implemented!!!");
@@ -1548,6 +1565,7 @@ public class SMTInterpol extends NoopScript {
 	 * @throws SMTLIBException If no proof is present or the proof is found to
 	 *                         to be incorrect.
 	 */
+	@SuppressWarnings("unused")
 	public Clause retrieveProof() throws SMTLIBException {
 		Clause unsat = mEngine.getProof();
 		if (unsat == null) {
@@ -1728,4 +1746,14 @@ public class SMTInterpol extends NoopScript {
 		return new Term[] {at, bt, ct};
 	}
 
+	@Override
+	public void declareFun(String fun, Sort[] paramSorts, Sort resultSort)
+		throws SMTLIBException {
+		Sort realSort = resultSort.getRealSort();
+		if (realSort.isArraySort()
+				&& realSort.getArguments()[0] == getTheory().getBooleanSort())
+			throw new UnsupportedOperationException(
+					"SMTInterpol does not support Arrays with Boolean indices");
+		super.declareFun(fun, paramSorts, resultSort);
+	}
 }
