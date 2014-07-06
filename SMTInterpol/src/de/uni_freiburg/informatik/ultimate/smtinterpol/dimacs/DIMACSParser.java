@@ -23,16 +23,14 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 
 import de.uni_freiburg.informatik.ultimate.logic.Script;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.IParser;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.MySymbolFactory;
 
 public class DIMACSParser implements IParser {
 
 	@Override
-	public int run(Script script, String filename, boolean printSucces,
-				String verbosity, String timeout, String randomSeed) {
+	public int run(Script script, String filename, OptionMap options) {
 		try {
 			MySymbolFactory symfactory = new MySymbolFactory();
 			Reader reader;
@@ -45,14 +43,6 @@ public class DIMACSParser implements IParser {
 			lexer.setSymbolFactory(symfactory);
 			Parser parser = new Parser(lexer, symfactory);
 			parser.init(filename);
-			if (script == null)
-				script = new SMTInterpol(new DefaultLogger());
-			if (verbosity != null)
-				script.setOption(":verbosity", verbosity);
-			if (timeout != null)
-				script.setOption(":timeout", timeout);
-			if (randomSeed != null)
-				script.setOption(":random-seed", randomSeed);
 			parser.setSolver(script);
 			parser.parse();
 		} catch (Exception e) {

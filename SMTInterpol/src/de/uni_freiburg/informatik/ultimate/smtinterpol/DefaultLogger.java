@@ -21,7 +21,9 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol;
 import java.io.PrintWriter;
 import java.util.Formatter;
 
-public class DefaultLogger implements LogProxy {
+import de.uni_freiburg.informatik.ultimate.smtinterpol.option.ChannelOption.ChannelHolder;
+
+public class DefaultLogger implements LogProxy, ChannelHolder {
 
 	// Multithreading support
 	private static final Object LOCK = new Object();
@@ -181,9 +183,15 @@ public class DefaultLogger implements LogProxy {
 			log(LOGLEVEL_TRACE, msg);
 	}
 
+	@Override
 	public void setChannel(PrintWriter newChannel) {
 		mWriter = newChannel;
 		mFormat = new Formatter(mWriter);
+	}
+	
+	@Override
+	public PrintWriter getChannel() {
+		return mWriter;
 	}
 
 }

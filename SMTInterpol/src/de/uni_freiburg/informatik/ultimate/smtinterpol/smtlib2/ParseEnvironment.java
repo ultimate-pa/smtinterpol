@@ -21,8 +21,6 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.io.Reader;
@@ -37,15 +35,11 @@ import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.option.FrontEndOptions;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.MySymbolFactory;
 
 public class ParseEnvironment {
 	final Script      mScript;
-	private PrintWriter mOut = new PrintWriter(System.out);
-	private String mOutName = "stdout";
-	private boolean mPrintSuccess = true;
-	private boolean mPrintTermCSE = true;
 	private File mCwd = null;
 	// What to do when script exits
 	private ExitHook mExitHook;
@@ -53,24 +47,17 @@ public class ParseEnvironment {
 	private Deque<Long> mTiming;
 	private boolean mContinueOnError = true;
 
-	private String mErrName = "stderr";
-	private DefaultLogger mLogger;
-	
-	public ParseEnvironment() {
-		this(null, null);
+	private final FrontEndOptions mOptions;
+
+	public ParseEnvironment(Script script, FrontEndOptions options) {
+		this(script, null, options);
 	}
 	
-	public ParseEnvironment(Script script) {
-		this(script, null);
-	}
-	
-	public ParseEnvironment(Script script, ExitHook exit) {
-		if (script == null) {
-			mLogger = new DefaultLogger();
-			mScript = new SMTInterpol(mLogger);
-		} else
-			mScript = script;
+	public ParseEnvironment(Script script, ExitHook exit,
+			FrontEndOptions options) {
+		mScript = script;
 		mExitHook = exit;
+		mOptions = options;
 	}
 	
 	public Script getScript() {
@@ -159,76 +146,81 @@ public class ParseEnvironment {
 	}
 	
 	public void printSuccess() {
-		if (mPrintSuccess) {
-			mOut.println("success");
-			mOut.flush();
+		if (mOptions.isPrintSuccess()) {
+			PrintWriter out = mOptions.getOutChannel();
+			out.println("success");
+			out.flush();
 		}
 	}
 	
 	public void printError(String message) {
-		mOut.print("(error \"");
-		mOut.print(message);
-		mOut.println("\")");
-		mOut.flush();
+		PrintWriter out = mOptions.getOutChannel();
+		out.print("(error \"");
+		out.print(message);
+		out.println("\")");
+		out.flush();
 		if (!mContinueOnError)
 			System.exit(1);
 	}
 	
 	public void printValues(Map<Term, Term> values) {
 		PrintTerm pt = new PrintTerm();
-		mOut.print('(');
+		PrintWriter out = mOptions.getOutChannel();
+		out.print('(');
 		String sep = "";
 		String itemSep = Config.RESULTS_ONE_PER_LINE 
 				? System.getProperty("line.separator") + " " : " "; 
 		for (Map.Entry<Term, Term> me : values.entrySet()) {
-			mOut.print(sep);
-			mOut.print('(');
-			pt.append(mOut, me.getKey());
-			mOut.print(' ');
-			pt.append(mOut, me.getValue().getTheory().getLogic().isIRA()
+			out.print(sep);
+			out.print('(');
+			pt.append(out, me.getKey());
+			out.print(' ');
+			pt.append(out, me.getValue().getTheory().getLogic().isIRA()
 					? new IRAConstantFormatter().transform(me.getValue())
 							: me.getValue());
-			mOut.print(')');
+			out.print(')');
 			sep = itemSep;
 		}
-		mOut.println(')');
-		mOut.flush();
+		out.println(')');
+		out.flush();
 	}
 	
 	public void printResponse(Object response) {
-		if (!mPrintTermCSE) {
+		PrintWriter out = mOptions.getOutChannel();
+		if (!mOptions.isPrintTermsCSE()) {
 			if (response instanceof Term) {
-				new PrintTerm().append(mOut, (Term) response);
-				mOut.println();
-				mOut.flush();
+				new PrintTerm().append(out, (Term) response);
+				out.println();
+				out.flush();
 				return;
 			} else if (response instanceof Term[]) {
 				printTermResponse((Term[])response);
-				mOut.flush();
+				out.flush();
 				return;
 			}
 		}
 		if (response instanceof Object[]) {
 			StringBuilder sb = new StringBuilder();
 			convertSexp(sb, response, 0);
-			mOut.println(sb.toString());
+			out.println(sb.toString());
 		} else if (response instanceof Iterable) {
 			Iterable<?> it = (Iterable<?>) response;
-			mOut.print("(");
+			out.print("(");
 			for (Object o : it)
 				printResponse(o);
-			mOut.println(")");
+			out.println(")");
 		} else
-			mOut.println(response);
-		mOut.flush();
+			out.println(response);
+		out.flush();
 	}
 	
 	public void printInfoResponse(String info, Object response) {
+		PrintWriter out = mOptions.getOutChannel();
 		StringBuilder sb = new StringBuilder();
 		sb.append('(').append(info).append(' ');
 		convertSexp(sb, response, 0);
-		mOut.println(sb.append(')').toString());
-		mOut.flush();
+		out.println(sb.append(')').toString());
+		out.flush();
 	}
 	
 	/**
@@ -251,8 +243,8 @@ public class ParseEnvironment {
             sep = itemSep;
         }
         sb.append(')');
-		mOut.println(sb.toString());
-		mOut.flush();
+		mOptions.getOutChannel().println(sb.toString());
+		mOptions.getOutChannel().flush();
 	}
 
 	public void exit() {
@@ -261,59 +253,6 @@ public class ParseEnvironment {
 			Runtime.getRuntime().exit(0);
 		} else
 			mExitHook.exitHook();
-	}
-	
-	public PrintWriter createChannel(String file) throws IOException {
-		if (file.equals("stdout"))
-			return new PrintWriter(System.out);
-		else if (file.equals("stderr"))
-			return new PrintWriter(System.err);
-		else
-			return new PrintWriter(new FileWriter(file));
-	}
-	
-	public void setOption(String opt, Object value) throws SMTLIBException {
-		if (opt.equals(":regular-output-channel")) {
-			try {
-				mOut = createChannel((String) value);
-				mOutName = (String) value;
-			} catch (IOException ex) {
-				throw new SMTLIBException(ex);
-			}
-		} else if (opt.equals(":diagnostic-output-channel")) {
-			if (mLogger != null) {
-				try {
-					mLogger.setChannel(createChannel((String) value));
-					mErrName = (String) value;
-				} catch (IOException ex) {
-					throw new SMTLIBException(ex);
-				}
-			}
-		} else if (opt.equals(":print-success")) {
-			if (value instanceof Boolean)
-				mPrintSuccess = (Boolean) value;
-			else if (value instanceof String)
-				mPrintSuccess = Boolean.valueOf((String) value);
-		} else if (opt.equals(":print-terms-cse")) {
-			if (value instanceof Boolean)
-				mPrintTermCSE = (Boolean) value;
-			else if (value instanceof String)
-				mPrintTermCSE = Boolean.valueOf((String) value);
-		} else
-			mScript.setOption(opt, value);
-	}
-	
-	public Object getOption(String opt) {
-		if (opt.equals(":regular-output-channel")) {
-			return mOutName;
-		} else if (opt.equals(":diagnostic-output-channel")) {
-			return mErrName;
-		} else if (opt.equals(":print-success")) {
-			return mPrintSuccess;
-		} else if (opt.equals(":print-terms-cse")) {
-			return mPrintTermCSE;
-		} else
-			return mScript.getOption(opt);
 	}
 	
 	public void setInfo(String info, Object value) {
@@ -332,14 +271,10 @@ public class ParseEnvironment {
 		return mScript.getInfo(info);
 	}
 
-	public void setOutStream(PrintWriter stream) {
-		mOut = stream;
-	}
-	
 	public void startTiming() {
 		if (mTiming == null)
 			mTiming = new ArrayDeque<Long>();
-		mOut.print('(');
+		mOptions.getOutChannel().print('(');
 		mTiming.push(System.nanoTime());
 	}
 	
@@ -347,9 +282,9 @@ public class ParseEnvironment {
 		long old = mTiming.pop();
 		long duration = System.nanoTime() - old;
 		double secs = duration / 1000000000.0; // NOCHECKSTYLE
-		mOut.printf((Locale) null, " :time %.3f)", secs);
-		mOut.println();
-		mOut.flush();
+		mOptions.getOutChannel().printf((Locale) null, " :time %.3f)", secs);
+		mOptions.getOutChannel().println();
+		mOptions.getOutChannel().flush();
 	}
 	
 	public boolean isContinueOnError() {

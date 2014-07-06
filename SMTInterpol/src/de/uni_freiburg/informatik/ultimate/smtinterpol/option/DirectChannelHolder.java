@@ -18,22 +18,20 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.option;
 
-import java.math.BigInteger;
+import java.io.PrintWriter;
+
+import de.uni_freiburg.informatik.ultimate.smtinterpol.option.ChannelOption.ChannelHolder;
 
 /**
- * A manager for a set of options.  The functions have an additional parameter
- * that is given to the option map when registering the option.  It can be used
- * to speed up case constructs.  The option map does not enforce any
- * restrictions on this parameter.  Hence, an implementer is free to ignore
- * this parameter.
+ * A direct wrapper around a PrintWriter.
  * @author Juergen Christ
  */
-public interface OptionHandler {
-	public void setBooleanOption(String option, boolean value, int userData);
-	public void setStringOption(String option, String value, int userData);
-	public void setNumeralOption(String option, BigInteger value, int userData);
-	
-	public boolean getBooleanOption(String option, int userData);
-	public String getStringOption(String option, int userData);
-	public BigInteger getNumeralOption(String option, int userData);
+public class DirectChannelHolder implements ChannelHolder {
+	private PrintWriter mWriter;
+	public PrintWriter getChannel() {
+		return mWriter;
+	}
+	public void setChannel(PrintWriter writer) {
+		mWriter = writer;
+	}
 }

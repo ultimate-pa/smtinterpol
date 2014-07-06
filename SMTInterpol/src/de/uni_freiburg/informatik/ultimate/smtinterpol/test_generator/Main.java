@@ -43,7 +43,7 @@ public final class Main {
 
 	public static void main(String[] param) throws IOException, InterruptedException {
 
-		LogProxy logger = new DefaultLogger();
+		DefaultLogger logger = new DefaultLogger();
 		int paramctr = 0;
 
 		// Oday: Read multiple files
@@ -112,8 +112,10 @@ public final class Main {
 			return;
 		}
 		
-		ParseEnvironment env = new ParseEnvironment(benchmark);
-		env.parseScript(filename);
+		// JC: Commented this out since it does not work.  Not sure if it is
+		//     worth refactoring this.
+//		ParseEnvironment env = new ParseEnvironment(benchmark);
+//		env.parseScript(filename);
 	}
 	
 	public static List<String> getFiles(File path) {

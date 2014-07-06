@@ -31,7 +31,10 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.ParseEnvironment;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 
 @RunWith(JUnit4.class)
 public class SystemTest {
@@ -76,7 +79,11 @@ public class SystemTest {
 	private void performTest(final File f)
 		throws SMTLIBException, FileNotFoundException {
 		System.out.println("Testing " + f.getAbsolutePath());
-		ParseEnvironment pe = new ParseEnvironment() {
+		DefaultLogger logger = new DefaultLogger();
+		OptionMap options = new OptionMap(logger);
+		SMTInterpol solver = new SMTInterpol(options);
+		ParseEnvironment pe = new ParseEnvironment(solver,
+				options.createFrontEndOptions()) {
 
 			@Override
 			public void printError(String message) {

@@ -21,41 +21,16 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.IParser;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap;
 
 public class SMTLIB2Parser implements IParser {
 
 	@Override
-	public int run(Script script, String filename, boolean printSucces,
-			String verbosity, String timeout, String randomSeed) {
+	public int run(Script script, String filename, OptionMap options) {
 		if (filename == null)
 			filename = "<stdin>";
-        ParseEnvironment parseEnv = new ParseEnvironment(script);
-        try {
-        	parseEnv.setOption(":print-success", printSucces);
-        } catch (SMTLIBException se) {
-        	parseEnv.printError(se.getMessage());
-        }
-        if (verbosity != null) {
-        	try {
-            	parseEnv.setOption(":verbosity", verbosity);
-            } catch (SMTLIBException se) {
-            	parseEnv.printError(se.getMessage());
-            }
-        }
-        if (timeout != null) {
-        	try {
-            	parseEnv.setOption(":timeout", timeout);
-            } catch (SMTLIBException se) {
-            	parseEnv.printError(se.getMessage());
-            }
-        }
-        if (randomSeed != null) {
-        	try {
-            	parseEnv.setOption(":random-seed", randomSeed);
-            } catch (SMTLIBException se) {
-            	parseEnv.printError(se.getMessage());
-            }
-        }
+        ParseEnvironment parseEnv = new ParseEnvironment(script,
+        		options.getFrontEndOptions());
         try {	
         	parseEnv.parseScript(filename);
         } catch (SMTLIBException se) {

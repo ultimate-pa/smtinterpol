@@ -18,233 +18,161 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.option;
 
-import java.math.BigInteger;
 import java.util.LinkedHashMap;
-import java.util.Map.Entry;
 
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 
+/**
+ * A map to handle all options supported by SMTInterpol.  The map provides
+ * general methods to set and get values for options based on the options name.
+ * If the option is unknown, the methods will throw an
+ * UnsupportedOperationException.
+ * 
+ * The options are group into front end options and solver options.  The front
+ * end options contain all options only used by the {@link ParseEnvironment}.
+ * The solver options contain all options used by the solver whether created to
+ * be used from command line or through its API.
+ * 
+ * The diagnostic output channel option has a special role.  Since we are
+ * working with {@link LogProxy}s, we might not be able to change the logging
+ * destination.  Thus, only if the logger to be used is a {@link DefaultLogger},
+ * we set up this option.
+ * 
+ * The front end options are not set up by default.  If they are needed, the
+ * method {@link #createFrontEndOptions()} has to be called.
+ * 
+ * The map maintains a flag representing the current state of the solver.  If
+ * this flag is turned on, all options that are not configured to be online
+ * modifiable cannot be modified anymore.  Attempting to do so will throw a
+ * {@link SMTLIBException}.
+ * @author Juergen Christ
+ */
 public class OptionMap {
-	private static abstract class Option {
-		protected final OptionHandler mHandler;
-		protected final int mUserData;
-		private final OptionChangeStage mStage;
-		private final String mDescription;
-		public Option(OptionHandler handler, int userData,
-				OptionChangeStage stage, String description) {
-			mHandler = handler;
-			mUserData = userData;
-			mStage = stage;
-			mDescription = description;
-		}
-		public abstract void setValue(String option, Object value);
-		public abstract Object getValue(String option);
-		public final OptionChangeStage getStage() {
-			return mStage;
-		}
-		public final String getDescription() {
-			return mDescription;
-		}
-	}
-	
-	private static class BooleanOption extends Option {
 		
-		public BooleanOption(OptionHandler handler, int userData,
-				OptionChangeStage stage, String description) {
-			super(handler, userData, stage, description);
-		}
-
-		@Override
-		public void setValue(String option, Object value) {
-			boolean val = true;
-			if (value instanceof Boolean)
-				val = ((Boolean) value).booleanValue();
-			else if (value instanceof String) {
-				// Unfortunately, Boolean.parseBoolean(String) is too crude.
-				String sval = (String) value;
-				if (sval.equalsIgnoreCase("true"))
-					val = true;
-				else if (sval.equalsIgnoreCase("false"))
-					val = false;
-				else
-					throw new SMTLIBException("Not a Boolean value " + value);
-			}
-			mHandler.setBooleanOption(option, val, mUserData);
-		}
-
-		@Override
-		public Object getValue(String option) {
-			return mHandler.getBooleanOption(option, mUserData);
-		}
-		
-	}
-	
-	private static class StringOption extends Option {
-
-		public StringOption(OptionHandler handler, int userData,
-				OptionChangeStage stage, String description) {
-			super(handler, userData, stage, description);
-		}
-
-		@Override
-		public void setValue(String option, Object value) {
-			String val =
-					value instanceof String ? (String) value : String.valueOf(value);
-			mHandler.setStringOption(option, val, mUserData);
-		}
-
-		@Override
-		public Object getValue(String option) {
-			return mHandler.getStringOption(option, mUserData);
-		}
-		
-	}
-	
-	private static class NumericOption extends Option {
-
-		public NumericOption(OptionHandler handler, int userData,
-				OptionChangeStage stage, String description) {
-			super(handler, userData, stage, description);
-		}
-
-		@Override
-		public void setValue(String option, Object value) {
-			BigInteger val = null;
-			if (value instanceof BigInteger)
-				val = (BigInteger) value;
-			else if (value instanceof Integer)
-				val = BigInteger.valueOf(((Integer) value).longValue());
-			else if (value instanceof Long)
-				val = BigInteger.valueOf(((Long) value).longValue());
-			else if (value instanceof String) {
-				try {
-					val = new BigInteger((String) value);
-				} catch (NumberFormatException enfe) {
-					throw new SMTLIBException("Not a number: " + value, enfe);
-				}
-			}
-			mHandler.setNumeralOption(option, val, mUserData);
-		}
-
-		@Override
-		public Object getValue(String option) {
-			return mHandler.getNumeralOption(option, mUserData);
-		}
-		
-	}
-	
-	static enum OptionChangeStage {
-		PRE_SET_LOGIC(1, "Option can only be set before set-logic") {
-			@Override
-			public String toSExpr() {
-				return ":pre-set-logic";
-			}
-		},
-		BEFORE_MODIFY_ASSERTION_STACK(2, "Option can only be set before "
-				+ "the assertion stack gets changed") {
-			@Override
-			public String toSExpr() {
-				return ":before-modify-assertion-stack";
-			}
-		},
-		AFTER_MODIFY_ASSERTIONSTACK(4, "Option can only be set after the "
-				+ "assertion stack gets changed") {
-			@Override
-			public String toSExpr() {
-				return ":after-modify-assertion-stack";
-			}
-		},
-		ALWAYS(7, "Option can always be changed") {
-			@Override
-			public String toSExpr() {
-				return ":always";
-			}
-		};
-		
-		private OptionChangeStage(int stage, String msg) {
-			mStage = stage;
-			mMsg = msg;
-		}
-		private final int mStage;
-		private final String mMsg;
-		public String isChangeable(OptionChangeStage current) {
-			return (current.mStage & mStage) == 0 ? mMsg : null;
-		}
-		public abstract String toSExpr();
-	}
-	
 	private final LinkedHashMap<String, Option> mOptions;
-	private OptionChangeStage mStage;
+	private final SolverOptions mSolverOptions;
+	private FrontEndOptions mFrontEndOptions;
+	private final LogProxy mLogger;
+	private boolean mOnline;
 	
-	public OptionMap() {
+	/**
+	 * Create a new option map and set up the solver options.  If the logger
+	 * given is a {@link DefaultLogger}, we also set up the option
+	 * <code>:diagnostic-output-channel</code> to configure this logger.
+	 * @param logger The logger to be used by SMTInterpol.
+	 */
+	public OptionMap(LogProxy logger) {
 		mOptions = new LinkedHashMap<String, Option>();
-		mStage = OptionChangeStage.PRE_SET_LOGIC;
+		mSolverOptions = new SolverOptions(this, logger);
+		mLogger = logger;
+		if (logger instanceof DefaultLogger) {
+			addOption(":diagnostic-output-channel", new ChannelOption("stderr",
+					(DefaultLogger) logger, true, "Where to print "
+						+ "diagnostic output to.  Use \"stdout\" for standard "
+						+ "output and \"stderr\" for standard error."));
+		}
+		mOnline = false;
 	}
 	
-	public void setLogic() {
-		mStage = OptionChangeStage.BEFORE_MODIFY_ASSERTION_STACK;
+	/**
+	 * Set the option map into online mode.  From now on, all options that are
+	 * not online modifiable cannot be modified anymore.
+	 */
+	public void setOnline() {
+		mOnline = true;
 	}
 	
-	public void modifyAssertionStack() {
-		mStage = OptionChangeStage.AFTER_MODIFY_ASSERTIONSTACK;
+	/**
+	 * Get the logger used to construct this option map.
+	 * @return The logger used to construct this option map.
+	 */
+	public final LogProxy getLogProxy() {
+		return mLogger;
 	}
 	
-	public void registerBooleanOption(String option, OptionHandler handler,
-			int userData, OptionChangeStage stage, String description) {
-		if (mOptions.containsKey(option))
-			throw new SMTLIBException("Option \"" + option + "\" already exists");
-		mOptions.put(option,
-				new BooleanOption(handler, userData, stage, description));
+	public final SolverOptions getSolverOptions() {
+		return mSolverOptions;
 	}
 	
-	public void registerStringOption(String option, OptionHandler handler,
-			int userData, OptionChangeStage stage, String description) {
-		if (mOptions.containsKey(option))
-			throw new SMTLIBException("Option \"" + option + "\" already exists");
-		mOptions.put(option,
-				new StringOption(handler, userData, stage, description));
+	public final FrontEndOptions createFrontEndOptions() {
+		return mFrontEndOptions = new FrontEndOptions(this);
 	}
 	
-	public void registerNumericOption(String option, OptionHandler handler,
-			int userData, OptionChangeStage stage, String description) {
-		if (mOptions.containsKey(option))
-			throw new SMTLIBException("Option \"" + option + "\" already exists");
-		mOptions.put(option,
-				new NumericOption(handler, userData, stage, description));
+	public final FrontEndOptions getFrontEndOptions() {
+		return mFrontEndOptions;
+	}
+
+	public void addOption(String name, Option option) {
+		mOptions.put(name, option);
 	}
 	
-	private Option findOption(String option) {
+	/**
+	 * Get the current value of an option.  If the option is unknown to this
+	 * option map, a <code>UnsupportedOperationException</code> will be thrown.
+	 * @param option To option whose value should be retrieved.
+	 * @return The current value of this option.
+	 */
+	public Object get(String option) {
 		Option o = mOptions.get(option);
 		if (o == null)
-			throw new SMTLIBException("Unknown option: \"" + option + "\"");
-		return o;
+			throw new UnsupportedOperationException();
+		return o.get();
 	}
 	
-	public void setOption(String option, Object value) {
-		Option o = findOption(option);
-		String msg = o.getStage().isChangeable(mStage);
-		if (msg != null)
-			throw new SMTLIBException(msg);
-		o.setValue(option, value);
+	/**
+	 * Set the value of an option.  The option map relies on the caller of this
+	 * function to correctly 
+	 * @param option
+	 * @param value
+	 */
+	public void set(String option, Object value) {
+		Option o = mOptions.get(option);
+		if (o == null)
+			throw new UnsupportedOperationException();
+		if (mOnline && !o.isOnlineModifiable())
+			throw new SMTLIBException("Option " + option
+					+ " can only be changed before setting the logic");
+		o.set(value);
 	}
 	
-	public Object getOption(String option) {
-		Option o = findOption(option);
-		return o.getValue(option);
+	/**
+	 * Get all known option names.
+	 * @return All known option names.
+	 */
+	public String[] getInfo() {
+		return mOptions.keySet().toArray(new String[mOptions.size()]);
 	}
 	
-	public String getInfo() {
-		StringBuilder sb = new StringBuilder();
-		String spacer = "";
-		for (String key : mOptions.keySet()) {
-			sb.append(spacer).append(key);
-			spacer = " ";
-		}
-		return sb.toString();
+	/**
+	 * Get information about a specific option.  The information contains the
+	 * description, the default value, and the online modifiable state of this
+	 * option.  If the option is unknown, an 
+	 * <code>UnsupportedOperationException</code> will be thrown.
+	 * @param option The option to get information for.
+	 * @return Information for this option.
+	 */
+	public Object[] getInfo(String option) {
+		Option o = mOptions.get(option);
+		if (o == null)
+			throw new UnsupportedOperationException();
+		if (o.isOnlineModifiable())
+			return new Object[] {
+				":description", o.getDescription(), ":default",
+				o.defaultValue(), ":online-modifiable" };
+		return new Object[] {
+			":description", o.getDescription(), ":default",
+				o.defaultValue() };
 	}
 	
-	public String getInfo(String option) {
-		Option o = findOption(option);
-		return o.getDescription() + " " + o.getStage().toSExpr();
+	/**
+	 * Reset every option to its default value and set the map back to offline
+	 * state.
+	 */
+	public void reset() {
+		mOnline = false;
+		for (Option o : mOptions.values())
+			o.reset();
 	}
 }
