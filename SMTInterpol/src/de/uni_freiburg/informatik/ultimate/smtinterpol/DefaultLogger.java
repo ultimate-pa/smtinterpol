@@ -62,6 +62,7 @@ public class DefaultLogger implements LogProxy, ChannelHolder {
 			mWriter.print(LEVELS[lvl - 1]);
 			mWriter.print(" - ");
 			mWriter.println(msg);
+			mWriter.flush();
 		}
 	}
 	
