@@ -48,7 +48,7 @@ public class ChannelOption extends Option {
 			boolean onlineModifiable, String description) {
 		super(onlineModifiable, description);
 		mHolder = holder;
-		createChannel(mName);
+		createChannel(defaultChannel);
 		mName = mDefaultName = defaultChannel;
 	}
 	
