@@ -4,7 +4,7 @@
 (declare-fun a () Int)
 (declare-fun b () Int)
 (declare-fun c () Int)
-(assert (= a (f a)))
+(assert (= (to_real a) (f a)))
 (assert (= (f b) (/ 1.0 2.0)))
 (assert (= a b))
 (assert (= (+ a 1) c))
