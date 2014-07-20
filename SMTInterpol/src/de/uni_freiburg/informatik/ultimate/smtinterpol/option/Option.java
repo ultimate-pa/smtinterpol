@@ -65,4 +65,11 @@ public abstract class Option {
 	public final String getDescription() {
 		return mDescription;
 	}
+
+	/**
+	 * Generate a copy of this option.  The copy should currently store the same
+	 * value as this option.
+	 * @return A copy of this option.
+	 */
+	public abstract Option copy();
 }

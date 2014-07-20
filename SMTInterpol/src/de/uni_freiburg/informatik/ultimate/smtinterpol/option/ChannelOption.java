@@ -44,6 +44,10 @@ public class ChannelOption extends Option {
 		void setChannel(PrintWriter writer);
 	}
 	
+	private String mName;
+	private final String mDefaultName;
+	private final ChannelHolder mHolder;
+
 	public ChannelOption(String defaultChannel, ChannelHolder holder,
 			boolean onlineModifiable, String description) {
 		super(onlineModifiable, description);
@@ -51,10 +55,10 @@ public class ChannelOption extends Option {
 		createChannel(defaultChannel);
 		mName = mDefaultName = defaultChannel;
 	}
-	
-	private String mName;
-	private final String mDefaultName;
-	private final ChannelHolder mHolder;
+	@Override
+	public Option copy() {
+		return this; // Cannot copy channel option.  Does not make sense!
+	}
 	@Override
 	public void set(Object value) {
 		String val = value.toString();

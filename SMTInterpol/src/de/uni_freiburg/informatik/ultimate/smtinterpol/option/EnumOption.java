@@ -46,6 +46,16 @@ public class EnumOption<E extends Enum<E>> extends Option {
 		mValue = mDefaultValue = defaultValue;
 		mClass = cls;
 	}
+	EnumOption(EnumOption<E> other) {
+		super(other.isOnlineModifiable(), other.getDescription());
+		mValue = other.mValue;
+		mDefaultValue = other.mDefaultValue;
+		mClass = other.mClass;
+	}
+	@Override
+	public Option copy() {
+		return new EnumOption<E>(this);
+	}
 	@SuppressWarnings("unchecked")
 	@Override
 	public void set(Object value) {

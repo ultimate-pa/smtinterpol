@@ -37,6 +37,16 @@ public class LongOption extends Option {
 		super(onlineModifiable, description);
 		mValue = mDefaultValue = defaultValue;
 	}
+	
+	LongOption(LongOption other) {
+		super(other.isOnlineModifiable(), other.getDescription());
+		mValue = other.mValue;
+		mDefaultValue = other.mDefaultValue;
+	}
+	@Override
+	public Option copy() {
+		return new LongOption(this);
+	}
 
 	@Override
 	public void set(Object value) {

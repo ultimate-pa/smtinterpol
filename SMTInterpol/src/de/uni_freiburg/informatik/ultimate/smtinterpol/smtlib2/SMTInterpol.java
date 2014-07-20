@@ -62,6 +62,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate.Interpolator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate.SymbolChecker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate.SymbolCollector;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap.CopyMode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SolverOptions;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofChecker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofTermGenerator;
@@ -231,8 +232,6 @@ public class SMTInterpol extends NoopScript {
 	
 	private LogProxy mLogger;
 	
-	String mErrorMessage;
-	
 	de.uni_freiburg.informatik.ultimate.smtinterpol.model.Model mModel = null;
 	
 	private final static Object NAME = new QuotedObject("SMTInterpol");
@@ -365,15 +364,18 @@ public class SMTInterpol extends NoopScript {
 	 * push/pop-stack treatment.
 	 * @param other   The context to clone.
 	 * @param options The options to set before setting the logic.
+	 * @param mode    What to do when copying existing options.
 	 */
-	public SMTInterpol(SMTInterpol other, Map<String, Object> options) {
+	public SMTInterpol(SMTInterpol other, Map<String, Object> options,
+			OptionMap.CopyMode mode) {
 		super(other.getTheory());
 		mLogger = other.mLogger;
-		mOptions = other.mOptions;
+		mOptions = other.mOptions.copy(mode);
 		mSolverOptions = mOptions.getSolverOptions();
 		if (options != null)
 			for (Map.Entry<String, Object> me : options.entrySet())
 				setOption(me.getKey(), me.getValue());
+		mOptions.setOnline();
 		mCancel = other.mCancel;
 		mEngine = new DPLLEngine(getTheory(), mLogger, mCancel);
 		mClausifier = new Clausifier(mEngine, 0);
@@ -801,7 +803,7 @@ public class SMTInterpol extends NoopScript {
 				usedParts.addAll(part);
 			tmpBench = new SMTInterpol(this,
 					Collections.singletonMap(":interactive-mode",
-							(Object)Boolean.TRUE));
+							(Object)Boolean.TRUE), CopyMode.CURRENT_VALUE);
 			int old = tmpBench.mLogger.getLoglevel();
 			try {
 				tmpBench.mLogger.setLoglevel(LogProxy.LOGLEVEL_ERROR);
@@ -919,7 +921,8 @@ public class SMTInterpol extends NoopScript {
 			SimplifyDDA simplifier = new SimplifyDDA(new SMTInterpol(this, 
 					Collections.singletonMap(
 							":check-type",
-							(Object) mSolverOptions.getSimplifierCheckType())),
+							(Object) mSolverOptions.getSimplifierCheckType()),
+							CopyMode.CURRENT_VALUE),
 							getBooleanOption(":simplify-repeatedly"));
 			for (int i = 0; i < ipls.length; ++i)
 				ipls[i] = simplifier.getSimplifiedTerm(ipls[i]);
@@ -944,7 +947,7 @@ public class SMTInterpol extends NoopScript {
 			HashSet<String> usedParts = new HashSet<String>();
 			for (Term t : core)
 				usedParts.add(((ApplicationTerm)t).getFunction().getName());
-			SMTInterpol tmpBench = new SMTInterpol(this, null);
+			SMTInterpol tmpBench = new SMTInterpol(this, null, CopyMode.CURRENT_VALUE);
 			int old = tmpBench.mLogger.getLoglevel();
 			try {
 				tmpBench.mLogger.setLoglevel(LogProxy.LOGLEVEL_ERROR);

@@ -19,6 +19,7 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.option;
 
 import java.util.LinkedHashMap;
+import java.util.Map;
 
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
@@ -50,13 +51,29 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
  * @author Juergen Christ
  */
 public class OptionMap {
-		
+
+	/**
+	 * When copying this map, the options stored in this map can be either stay
+	 * unchanged or be reset to their default value.  This is controlled by this
+	 * enum.  The names are pretty self-expanatory.
+	 * @author Juergen Christ
+	 */
+	public enum CopyMode {
+		CURRENT_VALUE,
+		RESET_TO_DEFAULT,
+		/**
+		 * Reset all options except for :regular-output-channel,
+		 * :diagnostic-output-channel, and :verbosity.
+		 */
+		RESET_EXCEPT_CHANNELS
+	}
+	
 	private final LinkedHashMap<String, Option> mOptions;
 	private final SolverOptions mSolverOptions;
 	private FrontEndOptions mFrontEndOptions;
 	private final LogProxy mLogger;
 	private boolean mOnline;
-	
+
 	/**
 	 * Create a new option map and set up the solver options.  If the logger
 	 * given is a {@link DefaultLogger}, we also set up the option
@@ -73,6 +90,13 @@ public class OptionMap {
 						+ "diagnostic output to.  Use \"stdout\" for standard "
 						+ "output and \"stderr\" for standard error."));
 		}
+		mOnline = false;
+	}
+	
+	private OptionMap(LogProxy logger, LinkedHashMap<String, Option> options) {
+		mOptions = options;
+		mSolverOptions = new SolverOptions(this);
+		mLogger = logger;
 		mOnline = false;
 	}
 	
@@ -174,5 +198,28 @@ public class OptionMap {
 		mOnline = false;
 		for (Option o : mOptions.values())
 			o.reset();
+	}
+
+	public OptionMap copy(CopyMode mode) {
+		LinkedHashMap<String, Option> options = new LinkedHashMap<String, Option>();
+		for (Map.Entry<String, Option> me : mOptions.entrySet()) {
+			Option cpy = me.getValue().copy();
+			switch(mode) {
+			case CURRENT_VALUE:
+				break;
+			case RESET_EXCEPT_CHANNELS:
+				if (cpy instanceof VerbosityOption || cpy instanceof ChannelOption)
+					break;
+				// FALLTHROUGH
+			default:
+				cpy.reset();
+			}
+			options.put(me.getKey(), cpy);
+		}
+		return new OptionMap(mLogger, options);
+	}
+	
+	Option getOption(String key) {
+		return mOptions.get(key);
 	}
 }

@@ -28,9 +28,18 @@ public class StringOption extends Option {
 	private final String mDefaultValue;
 
 	public StringOption(String defaultValue, boolean onlineModifiable,
-			String desciption) {
-		super(onlineModifiable, desciption);
+			String description) {
+		super(onlineModifiable, description);
 		mValue = mDefaultValue = defaultValue;
+	}
+	StringOption(StringOption other) {
+		super(other.isOnlineModifiable(), other.getDescription());
+		mValue = other.mValue;
+		mDefaultValue = other.mDefaultValue;
+	}
+	@Override
+	public Option copy() {
+		return new StringOption(this);
 	}
 	
 	@Override

@@ -30,63 +30,85 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol.Check
  */
 public class SolverOptions {
 
-	private final LongOption mTimeout = new LongOption(0, true, "Soft timeout "
-			+ "in milliseconds for individual check-sat calls.  Values <= 0 "
-			+ "deactivate the timeout.");
-	private final BooleanOption mProduceProofs = new BooleanOption(false, false,
-			"Produce proofs for unsatisfiable formulas.");
-	private final LongOption mRandomSeed = new LongOption(Config.RANDOM_SEED,
-			true, "Seed for the internal pseudo-random number generator.");
-	private final BooleanOption mInterpolantCheckMode = new BooleanOption(
-			false, false, "Check generated interpolants.");
-	private final BooleanOption mProduceInterpolants = new BooleanOption(
-			false, false, "Enable interpolant production.");
-	private final BooleanOption mModelCheckMode = new BooleanOption(
-			false, true,
-			"Check satisfiable formulas against the produced model.");
-	private final EnumOption<AvailableTransformations> mProofTrans = new
-			EnumOption<AvailableTransformations>(AvailableTransformations.NONE,
-					true, AvailableTransformations.class,
-					"Algorithm used to transform the resolution proof tree.");
-	private final BooleanOption mModelsPartial = new BooleanOption(false, true,
-			"Don't totalize models.");
-	private final EnumOption<CheckType> mCheckType = new EnumOption<CheckType>(
-			CheckType.FULL, true, CheckType.class,
-			"Strength of check used in check-sat command.");
-	private final BooleanOption mSimpIps = new BooleanOption(false, true,
-			"Apply strong context simplification to generated interpolants.");
-	private final BooleanOption mProofCheckMode = new BooleanOption(false,
-			false, "Check the produced proof for unsatisfiable formulas.");
-	private final EnumOption<CheckType> mSimpCheckType = 
-			new EnumOption<CheckType>(CheckType.QUICK, true, CheckType.class,
-					"Strength of checks used by the strong context simplifier "
-							+ "used in the simplify command");
+	private final LongOption mTimeout;
+	private final BooleanOption mProduceProofs;
+	private final LongOption mRandomSeed;
+	private final BooleanOption mInterpolantCheckMode;
+	private final BooleanOption mProduceInterpolants;
+	private final BooleanOption mModelCheckMode;
+	private final EnumOption<AvailableTransformations> mProofTrans;
+	private final BooleanOption mModelsPartial;
+	private final EnumOption<CheckType> mCheckType;
+	private final BooleanOption mSimpIps;
+	private final BooleanOption mProofCheckMode;
+	private final EnumOption<CheckType> mSimpCheckType;
+	
+	public static final String TIMEOUT = ":timeout";
+	public static final String RANDOM_SEED = ":random-seed";
+	public static final String MODELS_PARTIAL = ":models-partial";
+	public static final String MODEL_CHECK_MODE = ":model-check-mode";
+	public static final String PRODUCE_PROOFS = ":produce-proofs";
+	public static final String PROOF_TRANSFORMATION = ":proof-transformation";
+	public static final String PROOF_CHECK_MODE = ":proof-check-mode";
+	public static final String PRODUCE_INTERPOLANTS = ":produce-interpolants";
+	public static final String INTERPOLANT_CHECK_MODE = ":interpolant-check-mode";
+	public static final String SIMPLIFY_INTERPOLANTS = ":simplify-interpolants";
+	public static final String CHECK_TYPE = ":check-type";
+	public static final String SIMPLIFY_CHECK_TYPE = ":simplify-check-type";
 
 	SolverOptions(OptionMap options, LogProxy logger) {
+		mTimeout = new LongOption(0, true, "Soft timeout in milliseconds for "
+				+ "individual check-sat calls.  Values <= 0 deactivate the "
+				+ "timeout.");
+		mProduceProofs = new BooleanOption(false, false,
+				"Produce proofs for unsatisfiable formulas.");
+		mRandomSeed = new LongOption(Config.RANDOM_SEED,
+				true, "Seed for the internal pseudo-random number generator.");
+		mInterpolantCheckMode = new BooleanOption(
+				false, false, "Check generated interpolants.");
+		mProduceInterpolants = new BooleanOption(
+				false, false, "Enable interpolant production.");
+		mModelCheckMode = new BooleanOption(false, true,
+				"Check satisfiable formulas against the produced model.");
+		mProofTrans = new EnumOption<AvailableTransformations>(
+				AvailableTransformations.NONE, true,
+				AvailableTransformations.class,
+				"Algorithm used to transform the resolution proof tree.");
+		mModelsPartial = new BooleanOption(false, true, "Don't totalize models.");
+		mCheckType = new EnumOption<CheckType>(CheckType.FULL, true,
+				CheckType.class, "Strength of check used in check-sat command.");
+		mSimpIps = new BooleanOption(false, true,
+				"Apply strong context simplification to generated interpolants.");
+		mProofCheckMode = new BooleanOption(false,
+				false, "Check the produced proof for unsatisfiable formulas.");
+		mSimpCheckType = new EnumOption<CheckType>(CheckType.QUICK, true,
+				CheckType.class, "Strength of checks used by the strong context"
+				+ " simplifier used in the simplify command");
+		
 		// general standard compliant options
 		options.addOption(":verbosity", new VerbosityOption(logger));
-		options.addOption(":timeout", mTimeout);
-		options.addOption(":random-seed", mRandomSeed);
+		options.addOption(TIMEOUT, mTimeout);
+		options.addOption(RANDOM_SEED, mRandomSeed);
 		options.addOption(":interactive-mode", new BooleanOption(false, false,
 				"Store asserted formulas for later retrieval."));
 		// model options
 		options.addOption(":produce-models", new BooleanOption(false, true,
 				"Produce models for satisfiable formulas"));
-		options.addOption(":models-partial", mModelsPartial);
-		options.addOption(":model-check-mode", mModelCheckMode);
+		options.addOption(MODELS_PARTIAL, mModelsPartial);
+		options.addOption(MODEL_CHECK_MODE, mModelCheckMode);
 		options.addOption(":produce-assignments", new BooleanOption(false,
 				false, "Produce assignments of named Boolean terms for "
 				+ "satisfiable formulas"));
 		
 		// proof options
-		options.addOption(":produce-proofs", mProduceProofs);
-		options.addOption(":proof-transformation", mProofTrans);
-		options.addOption(":proof-check-mode", mProofCheckMode);
+		options.addOption(PRODUCE_PROOFS, mProduceProofs);
+		options.addOption(PROOF_TRANSFORMATION, mProofTrans);
+		options.addOption(PROOF_CHECK_MODE, mProofCheckMode);
 		
 		// interpolant options
-		options.addOption(":produce-interpolants", mProduceInterpolants);
-		options.addOption(":interpolant-check-mode", mInterpolantCheckMode);
-		options.addOption(":simplify-interpolants", mSimpIps);
+		options.addOption(PRODUCE_INTERPOLANTS, mProduceInterpolants);
+		options.addOption(INTERPOLANT_CHECK_MODE, mInterpolantCheckMode);
+		options.addOption(SIMPLIFY_INTERPOLANTS, mSimpIps);
 		
 		// unsat core options
 		options.addOption(":produce-unsat-cores", new BooleanOption(
@@ -95,12 +117,28 @@ public class SolverOptions {
 				false, false, "Check generated unsat cores"));
 		
 		// general non-standard options
-		options.addOption(":check-type", mCheckType);
+		options.addOption(CHECK_TYPE, mCheckType);
 		
 		// simplifier options
-		options.addOption(":simplify-check-type", mSimpCheckType);
+		options.addOption(SIMPLIFY_CHECK_TYPE, mSimpCheckType);
 		options.addOption(":simplify-repeatedly", new BooleanOption(true, true,
 				"Simplify until the fixpoint is reached."));
+	}
+	
+	@SuppressWarnings("unchecked")
+	SolverOptions(OptionMap options) {
+		mTimeout = (LongOption) options.getOption(TIMEOUT);
+		mProduceProofs = (BooleanOption) options.getOption(PRODUCE_PROOFS);
+		mRandomSeed = (LongOption) options.getOption(RANDOM_SEED);
+		mInterpolantCheckMode = (BooleanOption) options.getOption(INTERPOLANT_CHECK_MODE);
+		mProduceInterpolants = (BooleanOption) options.getOption(PRODUCE_INTERPOLANTS);
+		mModelCheckMode = (BooleanOption) options.getOption(MODEL_CHECK_MODE);
+		mProofTrans = (EnumOption<AvailableTransformations>) options.getOption(PROOF_TRANSFORMATION);
+		mModelsPartial = (BooleanOption) options.getOption(MODELS_PARTIAL);
+		mCheckType = (EnumOption<CheckType>) options.getOption(CHECK_TYPE);
+		mSimpIps = (BooleanOption) options.getOption(SIMPLIFY_INTERPOLANTS);
+		mProofCheckMode = (BooleanOption) options.getOption(PROOF_CHECK_MODE);
+		mSimpCheckType = (EnumOption<CheckType>) options.getOption(SIMPLIFY_CHECK_TYPE);
 	}
 	
 	public final CheckType getCheckType() {

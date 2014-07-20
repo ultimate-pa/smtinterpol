@@ -34,6 +34,15 @@ public class BooleanOption extends Option {
 		super(onlineModifiable, description);
 		mValue = mDefaultValue = defaultValue;
 	}
+	public BooleanOption(BooleanOption other) {
+		super(other.isOnlineModifiable(), other.getDescription());
+		mValue = other.mValue;
+		mDefaultValue = other.mDefaultValue;
+	}
+	@Override
+	public Option copy() {
+		return new BooleanOption(this);
+	}
 	@Override
 	public void set(Object value) {
 		if (value instanceof Boolean)

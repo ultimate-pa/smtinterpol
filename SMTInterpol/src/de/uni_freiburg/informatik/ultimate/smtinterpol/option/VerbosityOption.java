@@ -43,6 +43,10 @@ public class VerbosityOption extends Option {
 		mLogger.setLoglevel(Config.DEFAULT_LOG_LEVEL);
 	}
 	@Override
+	public Option copy() {
+		return this; // Cannot copy verbosity option.  Does not make sense!
+	}
+	@Override
 	public void set(Object value) {
 		int lvl;
 		if (value instanceof Number) {

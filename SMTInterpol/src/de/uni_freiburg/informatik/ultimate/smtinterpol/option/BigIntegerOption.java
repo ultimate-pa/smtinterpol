@@ -36,6 +36,16 @@ public class BigIntegerOption extends Option {
 		super(onlineModifiable, description);
 		mValue = mDefaultValue = defaultValue;
 	}
+	
+	BigIntegerOption(BigIntegerOption other) {
+		super(other.isOnlineModifiable(), other.getDescription());
+		mValue = other.mValue;
+		mDefaultValue = other.mDefaultValue;
+	}
+	
+	public Option copy() {
+		return new BigIntegerOption(this);
+	}
 
 	@Override
 	public void set(Object value) {
