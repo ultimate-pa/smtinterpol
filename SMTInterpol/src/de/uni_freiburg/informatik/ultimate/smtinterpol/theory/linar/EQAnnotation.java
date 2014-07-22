@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 University of Freiburg
+ * Copyright (C) 2009-2012 University of Freiburg
  *
  * This file is part of SMTInterpol.
  *
@@ -16,49 +16,38 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.
  */
-package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure;
+package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar;
 
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
-import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.IAnnotation;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 
-public class ArrayDiffAnnotation implements IAnnotation {
+/**
+ * Annotations for Nelson-Oppen equality translating lemmas.
+ * 
+ * These annotations have no data, so we can share them.
+ * 
+ * @author Jochen Hoenicke
+ *
+ */
+public class EQAnnotation implements IAnnotation {
+	/**
+	 * The singleton EQAnnotation instance.
+	 */
+	public static final EQAnnotation EQ = new EQAnnotation();
+
+	private Annotation[] mAnnots = new Annotation[] {
+		new Annotation(":EQ", null)
+	};
 	
-	private final ApplicationTerm mDiff;
-	private final String mSource;
-	
-	public ArrayDiffAnnotation(ApplicationTerm diff, String source) {
-		mDiff = diff;
-		mSource = source;
-	}
-	
-	public ArrayDiffAnnotation(ApplicationTerm diff, IAnnotation source) {
-		mDiff = diff;
-		if (source instanceof SourceAnnotation)
-			mSource = ((SourceAnnotation) source).getAnnotation();
-		else
-			mSource = "";
-	}
-	
-	public ApplicationTerm getDiff() {
-		return mDiff;
-	}
-	
-	public String getSource() {
-		return mSource;
+	private EQAnnotation() {
 	}
 
 	@Override
 	public Term toTerm(Clause cls, Theory theory) {
 		Term base = cls.toTerm(theory);
-		return theory.term("@lemma", theory.annotatedTerm(new Annotation[] {
-			new Annotation(":diff", mDiff),
-			new Annotation(":input", mSource)
-		}, base));
+		return theory.term("@lemma", theory.annotatedTerm(mAnnots, base));
 	}
-
 }

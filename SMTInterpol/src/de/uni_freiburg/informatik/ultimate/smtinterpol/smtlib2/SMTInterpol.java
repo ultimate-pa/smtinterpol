@@ -668,10 +668,7 @@ public class SMTInterpol extends NoopScript {
 			for (Map.Entry<String, Object> me : options.entrySet())
 				setOption(me.getKey(), me.getValue());
 		mCancel = other.mCancel;
-		mEngine = new DPLLEngine(getTheory(), mLogger, mCancel);
-		mClausifier = new Clausifier(mEngine, 0);
-		mClausifier.setLogic(getTheory().getLogic());
-		mEngine.getRandom().setSeed(mRandomSeed);
+		setupClausifier(getTheory().getLogic());
 	}
 	
 	// Called in ctor => make it final
@@ -851,10 +848,21 @@ public class SMTInterpol extends NoopScript {
 	@Override
 	public void setLogic(Logics logic)
 		throws UnsupportedOperationException, SMTLIBException {
-		int proofMode = getProofMode();
-		mSolverSetup = new SMTInterpolSetup(proofMode);
+		mSolverSetup = new SMTInterpolSetup(getProofMode());
 		super.setLogic(logic);
+		setupClausifier(logic);
+	}
+
+	/**
+	 * Setup the clausifier and the engine according to the logic,
+	 * the current proof production mode, and some other options.
+	 * @param logic the SMT-LIB logic to use.
+	 * @throws UnsupportedOperationException if the logic is not supported
+	 * by SMTInterpol.
+	 */
+	private void setupClausifier(Logics logic) {
 		try {
+			int proofMode = getProofMode();
 			mEngine = new DPLLEngine(getTheory(), mLogger, mCancel);
 			mClausifier = new Clausifier(mEngine, proofMode);
 			// This has to be before set-logic since we need to capture
@@ -1103,9 +1111,6 @@ public class SMTInterpol extends NoopScript {
 	public Term[] getInterpolants(Term[] partition, int[] startOfSubtree) {
 		if (mEngine == null)
 			throw new SMTLIBException("No logic set!");
-		if (getTheory().getLogic().isArray())
-			throw new UnsupportedOperationException(
-					"Array interpolation not implemented yet");
 		if (!mProduceProofs && !mProduceInterpolants)
 			throw new SMTLIBException(
 					"Interpolant production not enabled.  Set either :produce-interpolants or :produce-proofs to true");
@@ -1610,7 +1615,7 @@ public class SMTInterpol extends NoopScript {
 	 */
 	public Logger getLogger() {
 		return mLogger;
-	}	
+	}
 
 	protected void setEngine(DPLLEngine engine) {
 		mEngine = engine;
