@@ -6,26 +6,16 @@ smtinterpol-src.zip
 smtinterpol-smtcomp.tar.gz
 
 # Automatically generated parsers #
-SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs/Lexer.java
-SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs/Lexer.java~
-SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs/LexerSymbols.java
-SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs/Parser.java
-SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib/Lexer.java
-SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib/Lexer.java~
-SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib/LexerSymbols.java
-SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib/Parser.java
-SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2/Lexer.java
-SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2/Lexer.java~
-SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2/LexerSymbols.java
-SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2/Parser.java
+Lexer.java
+LexerSymbols.java
+Parser.java
 
 # emacs backup files #
-**/*~
 *~
 
 # bin and release directories #
-**/bin
-**/release
+bin
+release
 
 # eclipse metadata #
 .metadata
@@ -38,39 +28,42 @@ testreports
 cobertura
 
 # project specific settings
-*/.settings
+.settings
 
 # the documentation directory (is automatically generated)
 doc-smtinterpol
-SMTInterpol/web/html/gen/
-SMTInterpol/web/html/download.xml
+/SMTInterpol/web/html/gen/
+/SMTInterpol/web/html/download.xml
 
-# smtlib files and generated jars in the main directory
+# smtlib files and generated jars except in certain directories
 *.smt2
+!/SMTInterpolTest/test/**/*.smt2
+!/SMTInterpol/web/*.smt2
 *.jar
+!libs/*.jar
+!**/lib/*.jar
+
+# java profiles and error logs
 java.hprof*
+hs_err_pid*
 
 # latex files
-SMTInterpol/doc/*.aux
-SMTInterpol/doc/*.bbl
-SMTInterpol/doc/*.blg
-SMTInterpol/doc/*.log
-SMTInterpol/doc/*.out
-SMTInterpol/doc/**/*.aux
-SMTInterpol/doc/**/*.bbl
-SMTInterpol/doc/**/*.blg
-SMTInterpol/doc/**/*.log
-SMTInterpol/doc/**/*.out
-SMTInterpol/doc/**/comment.cut
+*.aux
+*.bbl
+*.blg
+*.log
+*.out
+comment.cut
+
 # generated pdf files
-SMTInterpol/doc/proof/proof.pdf
-SMTInterpol/doc/mixedInterpolation/newtechreport.pdf
-SMTInterpol/doc/mixedInterpolation/techReport_mixedInterpolation.pdf
-SMTInterpol/doc/mixedInterpolation/tacas_mixedInterpolation.pdf
-SMTInterpol/doc/sysdesc/sysdesc.pdf
-SMTInterpol/doc/sysdesc/sysdesc2014.pdf
-SMTInterpol/doc/arrays/models.pdf
-SMTInterpol/doc/future-devel/future.pdf
-SMTInterpol/doc/interpolation.pdf
-SMTInterpol/doc/progvars.pdf
-SMTInterpol/doc/proposal.pdf
+/SMTInterpol/doc/proof/proof.pdf
+/SMTInterpol/doc/mixedInterpolation/newtechreport.pdf
+/SMTInterpol/doc/mixedInterpolation/techReport_mixedInterpolation.pdf
+/SMTInterpol/doc/mixedInterpolation/tacas_mixedInterpolation.pdf
+/SMTInterpol/doc/sysdesc/sysdesc.pdf
+/SMTInterpol/doc/sysdesc/sysdesc2014.pdf
+/SMTInterpol/doc/arrays/models.pdf
+/SMTInterpol/doc/future-devel/future.pdf
+/SMTInterpol/doc/interpolation.pdf
+/SMTInterpol/doc/progvars.pdf
+/SMTInterpol/doc/proposal.pdf

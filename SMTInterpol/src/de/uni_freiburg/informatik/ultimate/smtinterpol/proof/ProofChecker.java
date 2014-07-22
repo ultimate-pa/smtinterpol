@@ -193,7 +193,7 @@ public class ProofChecker extends NonRecursive {
 				setResult(prod);
 			} else if (funcName == "to_real") {
 				SMTAffineTerm t = SMTAffineTerm.create(newArgs[0]);
-				setResult(t.toReal(appTerm.getSort()));
+				setResult(t.typecast(appTerm.getSort()));
 			} else {
 				throw new AssertionError(
 						"Unexpected Function: " + funcName);
