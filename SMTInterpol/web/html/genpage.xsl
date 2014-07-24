@@ -3,6 +3,10 @@
 <xsl:stylesheet version="1.0"
 xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns="http://www.w3.org/1999/xhtml">
 
+  <xsl:template match="node() | @*">
+    <xsl:copy-of select="."/>
+  </xsl:template>
+
   <xsl:output
       method = "xml"
       encoding = "UTF-8"
@@ -11,7 +15,7 @@ xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns="http://www.w3.org/1999/x
       doctype-system = "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"
       indent = "yes" />
 
-  <xsl:template match="/">
+  <xsl:template match="/page">
     <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-us" lang="en-us">
       <head>
 	<xsl:element name="meta">
@@ -67,7 +71,7 @@ xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns="http://www.w3.org/1999/x
 	  </xsl:for-each>
 	</div>
 	<div id="contentbox">
-	  <xsl:apply-templates />
+	  <xsl:apply-templates match="content" />
 	  <div><xsl:text disable-output-escaping="yes">&amp;nbsp;</xsl:text></div>
 	  <p>
 	    Last modified: <xsl:value-of select="$date" />

@@ -9,6 +9,11 @@
 <page id="news">
   <name>News</name>
   <content>
+    <head1><s /> at SMTCOMP 2014</head1>
+    <txt>We participated in the SMTCOMP 2014 which was part of the Vienna Summer of Logic Olympic Games.  The primary new feature was our array solver which performed really good.  We were awarded with the  G&ouml;del medal for the second place according to the multi-division error-free scoring.  Furthermore, David Cok - the lead organizer of the competition - awarded us with a beautiful "big A" also known as a universal quantifier when put in correct position.  We thank all the supporters that helped to improve <s /> and, of course, the organizers of the competition and the VSL olympic games for these nice awards.<br /><img src="floc2014.jpg" alt="Awards for SMTInterpol during VSL 2014" /><img src="goedel.jpg" alt="The goedel medal" /></txt>
+
+<txt>The scoring system that was applied this year penalized errors in a draconic way.  This quasi led to the disqualification of the main competitors CVC4 and Yices.  Also Z3 and MathSAT were not competing this year.  Therefore the second place should be taken with a grain of salt.</txt>
+
     <head1>New preview release</head1>
     <txt>A preview to release 2.2 of <s /> is available.  This release contains a new array decision procedure which is designed to enable quantifier-free interpolation.  The interpolation procedure however is not yet implemented.  Additionally we changed the model generation such that we now produce anonymous terms of the form (as @0 S) for a sort S.  The array model basically are a difference map to an array (as @0 (Array TI TE)) that contains at every index the value (as @0 TE).  Note that in the current version of our array solver the index type Bool is not supported.</txt>
 

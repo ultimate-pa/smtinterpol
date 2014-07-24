@@ -11,6 +11,18 @@
   <content>
     <head1>Publications about <s /></head1>
     <list>
+      <paper conf="CoRR abs" note="Extended Version">
+	<authors>J&uuml;rgen Christ, and Jochen Hoenicke</authors>
+	<title>Weakly Equivalent Arrays</title>
+	<pdf>http://arxiv.org/pdf/1405.6939v1.pdf</pdf>
+	<bib>http://dblp.uni-trier.de/rec/bibtex/journals/corr/ChristH14</bib>
+      </paper>
+      <paper conf="TACAS 2013" note="Technical Report">
+	<authors>J&uuml;rgen Christ, Jochen Hoenicke, and Alexander Nutz</authors>
+	<title>Proof Tree Preserving Interpolation</title>
+	<pdf>http://www.avacs.org/fileadmin/Publikationen/Open/avacs_technical_report_089.pdf</pdf>
+	<bib>http://www.avacs.org/fileadmin/Publikationen/Bibs/atr089.bib</bib>
+      </paper>
       <paper conf="SPIN 2012">
 	<authors>J&uuml;rgen Christ, Jochen Hoenicke, and Alexander Nutz</authors>
 	<title>SMTInterpol: An Interpolating SMT Solver</title>
@@ -34,10 +46,12 @@
 	<doi>http://dx.doi.org/10.1007/978-3-642-27940-9_13</doi>
 	<bib>http://dblp.uni-trier.de/rec/bibtex/conf/vmcai/ErmisHP12</bib>
       </paper>
-      <paper conf="FM 2012" note="to appear">
+      <paper conf="FM 2012">
 	<authors>Evren Ermis, Martin Sch&auml;f, and Thomas Wies</authors>
 	<title>Error Invariants</title>
 	<pdf>http://cs.nyu.edu/wies/publ/error_invariants.pdf</pdf>
+	<doi>http://dx.doi.org/10.1007/978-3-642-32759-9_17</doi>
+	<bib>http://dblp.uni-trier.de/rec/bibtex/conf/vmcai/ErmisSW12</bib>
       </paper>
     </list>
     <br />
