@@ -2295,10 +2295,10 @@ public class Clausifier {
 			} else if (at == mTheory.mFalse) {
 				lit = new DPLLAtom.TrueAtom().negate();
 			} else {
-				lit = getLiteralTseitin(term);
+				lit = getLiteralTseitin(idx);
 			}
 		} else
-			lit = getLiteralTseitin(term);
+			lit = getLiteralTseitin(idx);
 		if (!pos)
 			lit = lit.negate();
 		for (String name : names) {
