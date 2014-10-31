@@ -403,6 +403,21 @@ public class SMTInterpol extends NoopScript {
 			return res;
 		}
 	}
+	
+	private static class TimeoutTask extends TimerTask {
+		private final DPLLEngine mEngine;
+		public TimeoutTask(DPLLEngine engine) {
+			mEngine = engine;
+		}
+		@Override
+		public void run() {
+			synchronized (mEngine) {
+				mEngine.setCompleteness(DPLLEngine.INCOMPLETE_TIMEOUT);
+				mEngine.stop();
+			}
+		}
+	}
+	
 	private CheckType mCheckType = CheckType.FULL;
 	private DPLLEngine mEngine;
 	private Clausifier mClausifier;
@@ -470,6 +485,9 @@ public class SMTInterpol extends NoopScript {
 	private boolean mSimplifyInterpolants = false;
 	private CheckType mSimplifyCheckType = CheckType.QUICK;
 	private boolean mSimplifyRepeatedly = true;
+	
+	// Timeout handling
+	private Timer mTimer;
 	
 	// The option numbers
 	private final static int OPT_PRINT_SUCCESS = 0;
@@ -717,20 +735,10 @@ public class SMTInterpol extends NoopScript {
 			throw new SMTLIBException("No logic set!");
 		mModel = null;
 		mAssertionStackModified = false;
-		Timer timer = null;
+		TimeoutTask timer = null;
 		if (mTimeout > 0) {
-			timer = new Timer("Timing thread",true);
-			timer.schedule(new TimerTask() {
-
-				@Override
-				public void run() {
-					synchronized (mEngine) {
-						mEngine.setCompleteness(DPLLEngine.INCOMPLETE_TIMEOUT);
-						mEngine.stop();
-					}
-				}
-			
-			}, mTimeout);
+			timer = new TimeoutTask(mEngine);
+			getTimer().schedule(timer, mTimeout);
 		}
 		
 		LBool result = LBool.UNKNOWN;
@@ -1847,5 +1855,12 @@ public class SMTInterpol extends NoopScript {
 			throw new UnsupportedOperationException(
 					"SMTInterpol does not support Arrays with Boolean indices");
 		super.declareFun(fun, paramSorts, resultSort);
+	}
+	
+	private Timer getTimer() {
+		if (mTimer == null) {
+			mTimer = new Timer("SMTInterpol Timeout Handler", true);
+		}
+		return mTimer;
 	}
 }
