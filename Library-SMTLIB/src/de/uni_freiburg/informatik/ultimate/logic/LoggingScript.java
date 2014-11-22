@@ -494,4 +494,15 @@ public class LoggingScript implements Script {
 		mPw.println(')');
 		return mScript.echo(msg);
 	}
+	
+	/**
+	 * Write a comment to the generated SMTLIB dump file.  Note that this
+	 * function is only available in the LoggingScript and not in the interface
+	 * {@link Script} since it only makes sense for logging and not for solving.
+	 * @param comment The comment to write to the dump file.
+	 */
+	public void comment(String comment) {
+		mPw.print("; ");
+		mPw.println(comment);
+	}
 }
