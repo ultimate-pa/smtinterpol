@@ -29,13 +29,18 @@ public class BinSearch<E> {
 		public void failure(List<E> sublist);
 		public void success(List<E> sublist);
 	}
-	
+
 	private static class IntPair {
 		final int mFirst;
 		final int mSecond;
+		final boolean mBuddy;
 		public IntPair(int f, int s) {
+			this(f, s, false);
+		}
+		public IntPair(int f, int s, boolean buddy) {
 			mFirst = f;
 			mSecond = s;
+			mBuddy = buddy;
 		}
 	}
 	
@@ -48,7 +53,29 @@ public class BinSearch<E> {
 		mDriver = driver;
 		mTodo = new ArrayDeque<IntPair>();
 	}
-	
+
+	/**
+	 * Split a region into two regions.  The split pushes first the right part
+	 * of the split onto the todo stack and then creates the left part and
+	 * pushes it.  The left part has the buddy flag set since we assume we
+	 * already know that the interval we are splitting yields a test failure.
+	 * Thus, if the left part is a success, applying the right part will
+	 * recreate the whole interval we are currently splitting.  Assuming
+	 * deterministic behaviour of our system under test, we will get a failure
+	 * for the right part.
+	 * @param first  The start of the interval.
+	 * @param second The end of the interval.
+	 */
+	private void split(int first, int second) {
+		// Split into two new sublists
+		int mid = first / 2 + second / 2
+				+ (first & second & 1);
+		if (mid != first) {
+			mTodo.push(new IntPair(mid, second));
+			mTodo.push(new IntPair(first, mid, true));
+		}
+	}
+
 	public boolean run(Minimizer tester)
 		throws IOException, InterruptedException {
 		if (mList.isEmpty())
@@ -66,16 +93,16 @@ public class BinSearch<E> {
 				if (seen == null)
 					mDriver.success(sublist);
 				result = true;
+				if (p.mBuddy) {
+					// We already know that the buddy cannot succeed.
+					// Split the buddy to prevent a meaningless test
+					IntPair buddy = mTodo.poll();
+					split(buddy.mFirst, buddy.mSecond);
+				}
 			} else {
 				if (seen == null)
 					mDriver.failure(sublist);
-				// Split into two new sublists
-				int mid = p.mFirst / 2 + p.mSecond / 2
-						+ (p.mFirst & p.mSecond & 1);
-				if (mid == p.mFirst)
-					continue;
-				mTodo.push(new IntPair(mid, p.mSecond));
-				mTodo.push(new IntPair(p.mFirst, mid));
+				split(p.mFirst, p.mSecond);
 			}
 		}
 		return result;
