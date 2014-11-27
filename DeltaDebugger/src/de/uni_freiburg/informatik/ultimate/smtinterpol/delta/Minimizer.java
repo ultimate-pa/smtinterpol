@@ -50,23 +50,41 @@ public class Minimizer {
 
 		private final static int CHUNK_SIZE = 1024;
 		
-		private final InputStream mToReap;
+		private InputStream mToReap;
 		
-		public OutputReaper(InputStream toReap) {
-			mToReap = toReap;
+		public OutputReaper() {
 			setDaemon(true);
 		}
 		
 		@Override
 		public void run() {
 			byte[] chunk = new byte[CHUNK_SIZE];
-			try {
-				while (mToReap.read(chunk) != -1) ;
-			} catch (IOException ignored) {
-				// Ignore exception and terminate since process died...
+			while (true) {
+				try {
+					synchronized(this) {
+						wait();
+					}
+				} catch (InterruptedException eie) {
+					// Interrupted while waiting for something to do => terminate
+					return;
+				}
+				if (mToReap == null) {
+					// woken up without anything to do => terminate thread
+					return;
+				}
+				try {
+					while (mToReap.read(chunk) != -1) ;
+				} catch (IOException ignored) {
+					// Ignore exception and wait since process died...
+				}
+				mToReap = null;
 			}
 		}
 		
+		public synchronized void setToReap(InputStream toReap) {
+			mToReap = toReap;
+			notifyAll();
+		}
 	}
 	
 	private class DeactivateCmds implements BinSearch.Driver<Cmd> {
@@ -246,14 +264,19 @@ public class Minimizer {
 	 */
 	private final int mVerbosity;
 	
+	private final OutputReaper mOut, mErr;
+
 	public Minimizer(List<Cmd> cmds, int goldenExit,
-			File tmpFile, File resultFile, String solver, int verbosity) {
+			File tmpFile, File resultFile, String solver, int verbosity,
+			OutputReaper out, OutputReaper err) {
 		mCmds = cmds;
 		mGoldenExit = goldenExit;
 		mTmpFile = tmpFile;
 		mResultFile = resultFile;
 		mSolver = solver;
 		mVerbosity = verbosity;
+		mOut = out;
+		mErr = err;
 	}
 	
 	public boolean deltaDebug() throws IOException, InterruptedException {
@@ -913,13 +936,9 @@ public class Minimizer {
 		if (mVerbosity > 2)
 			System.err.println("Testing...");
 		Process p = Runtime.getRuntime().exec(mSolver);
-		OutputReaper out = new OutputReaper(p.getInputStream());
-		out.start();
-		OutputReaper err = new OutputReaper(p.getErrorStream());
-		err.start();
+		mOut.setToReap(p.getInputStream());
+		mErr.setToReap(p.getErrorStream());
 		int exitVal = p.waitFor();
-		out.join();
-		err.join();
 		if (exitVal == mGoldenExit) {
 			++mSuccTestCtr;
 			if (mVerbosity > 2)
@@ -999,19 +1018,20 @@ public class Minimizer {
 			String solver = command.toString();
 			// Free space
 			command = null;
+			// Start the output reapers
+			OutputReaper out = new OutputReaper();
+			OutputReaper err = new OutputReaper();
+			out.start();
+			err.start();
 			if (goldenExit == 0) {
 				Files.copy(input.toPath(), tmpFile.toPath(),
 						StandardCopyOption.REPLACE_EXISTING);
 				if (verbosity > 2)
 					System.err.println("Starting " + solver);
 				Process p = Runtime.getRuntime().exec(solver);
-				OutputReaper out = new OutputReaper(p.getInputStream());
-				out.start();
-				OutputReaper err = new OutputReaper(p.getErrorStream());
-				err.start();
+				out.setToReap(p.getInputStream());
+				err.setToReap(p.getErrorStream());
 				goldenExit = p.waitFor();
-				out.join();
-				err.join();
 				// Free space
 				p = null;
 			}
@@ -1055,11 +1075,16 @@ public class Minimizer {
 				System.err.println("Parsing done");
 			Minimizer mini = new Minimizer(
 					ps.getCmds(), goldenExit, tmpFile, resultFile, solver,
-					verbosity);
+					verbosity, out, err);
 			// Free space
 			ps = null;
 			if (!mini.deltaDebug())
 				System.err.println("Failed to minimize");
+			// Gracefully terminate our threads.
+			out.setToReap(null);
+			err.setToReap(null);
+			out.join();
+			err.join();
 		} catch (IOException e) {
 			e.printStackTrace();
 		} catch (InterruptedException e) {

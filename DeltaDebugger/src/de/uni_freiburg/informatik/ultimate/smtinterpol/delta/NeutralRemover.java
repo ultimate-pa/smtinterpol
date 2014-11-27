@@ -63,7 +63,7 @@ public class NeutralRemover extends NonRecursive {
 		@Override
 		public void walk(NonRecursive engine) {
 			NeutralRemover remover = (NeutralRemover) engine;
-			if (mApp.getParameters().length == mNumParams)
+			if (mApp.getParameters().length == 0)
 				remover.setResult(mApp);
 			else if (mNumParams == 0) {
 				// Try to remove the whole term
@@ -71,9 +71,11 @@ public class NeutralRemover extends NonRecursive {
 					remover.setResult(mApp.getTheory().mTrue);
 				else
 					remover.setResult(Rational.ZERO.toTerm(mApp.getSort()));
-			} else if (mNumParams == 1)
-				remover.setResult(remover.getConverted());
-			else {
+			} else if (mNumParams == 1 && mApp.getParameters().length != 1) {
+				// We removed some neutral elements.  The result is already on
+				// the result stack.  Thus, we don't do
+				// remover.setResult(remover.getConverted());
+			} else {
 				Term[] params = remover.getConverted(mNumParams);
 				remover.setResult(mApp.getTheory().term(
 						mApp.getFunction(), params));

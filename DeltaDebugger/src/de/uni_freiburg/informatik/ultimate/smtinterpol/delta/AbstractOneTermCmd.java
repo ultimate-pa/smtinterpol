@@ -40,6 +40,7 @@ public abstract class AbstractOneTermCmd extends TermCmd {
 	}
 	
 	public void setTerm(Term newTerm) {
+		assert (newTerm != mTerm) : "No change in the term";
 		mOldTerm = mTerm;
 		mTerm = newTerm;
 	}
