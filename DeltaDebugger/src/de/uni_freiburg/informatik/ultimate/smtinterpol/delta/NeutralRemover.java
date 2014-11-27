@@ -63,7 +63,6 @@ public class NeutralRemover extends NonRecursive {
 		@Override
 		public void walk(NonRecursive engine) {
 			NeutralRemover remover = (NeutralRemover) engine;
-			System.err.println("Building ApplicationTerm: " + mApp + " @ "+ mNumParams);
 			if (mApp.getParameters().length == mNumParams)
 				remover.setResult(mApp);
 			else if (mNumParams == 0) {
