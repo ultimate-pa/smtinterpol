@@ -165,25 +165,37 @@ public class CutCreator {
 		LinVar[] mIndices;
 		BigInteger[] mCoeffs;
 		InfinitNumber mCurval;
+		boolean mIsInt;
 		
 		public Row(LinVar nonbasic) {
-			if (nonbasic.isInitiallyBasic()) {
-				Map<LinVar, BigInteger> linterm = nonbasic.getLinTerm();
-				mIndices = new LinVar[linterm.size()];
-				mCoeffs = new BigInteger[linterm.size()];
-				int i = 0;
-				for (Map.Entry<LinVar, BigInteger> entry
-					: linterm.entrySet()) {
-					mIndices[i] = entry.getKey();
-					mCoeffs[i] = entry.getValue();
-					i++;
+			mIsInt = nonbasic.mIsInt;
+			if (mIsInt) {
+				if (nonbasic.isInitiallyBasic()) {
+					Map<LinVar, BigInteger> linterm = nonbasic.getLinTerm();
+					mIndices = new LinVar[linterm.size()];
+					mCoeffs = new BigInteger[linterm.size()];
+					int i = 0;
+					for (Map.Entry<LinVar, BigInteger> entry
+						: linterm.entrySet()) {
+						mIndices[i] = entry.getKey();
+						mCoeffs[i] = entry.getValue();
+						i++;
+					}
+				} else {
+					mIndices = new LinVar[] { nonbasic };
+					mCoeffs = new BigInteger[] { BigInteger.ONE };
 				}
 			} else {
-				mIndices = new LinVar[] { nonbasic };
-				mCoeffs = new BigInteger[] { BigInteger.ONE };
+				// Do not compute anything for real rows.
+				mIndices = new LinVar[0];
+				mCoeffs = new BigInteger[0];
 			}
 			assert (mIndices.length > 0);
 			mCurval = nonbasic.mCurval;
+		}
+		
+		public boolean isInt() {
+			return mIsInt;
 		}
 		
 		/**
@@ -201,6 +213,10 @@ public class CutCreator {
 		 * @param factor the factor.
 		 */
 		public void addmul(Row other, BigInteger factor) {
+			// Do not compute real rows; they do not lead to cuts anyway.
+			if (!isInt())
+				return;
+			assert other.isInt();
 			LinVar[] newIndices = new LinVar[mIndices.length + other.mIndices.length];
 			BigInteger[] newCoeffs = new BigInteger[newIndices.length];
 			int idx = 0, oidx = 0, newidx = 0;
@@ -286,6 +302,11 @@ public class CutCreator {
 			mat.add(mCurval.floor().negate());
 			return mSolver.generateConstraint(mat, false, maxlevel);
 		}
+
+		public void divide(BigInteger denom) {
+			assert(!mIsInt);
+			// Do not compute real rows; they do not lead to cuts anyway.
+		}
 	}
 
 	LinArSolve mSolver;
@@ -302,8 +323,6 @@ public class CutCreator {
 	Column[] mAColumns;
 	
 	private int compare(LinVar v1, LinVar v2) {
-		if (v1.mIsInt != v2.mIsInt)
-			return v1.mIsInt ? 1 : -1;
 		return v1.mMatrixpos - v2.mMatrixpos;
 	}
 	
@@ -349,15 +368,13 @@ public class CutCreator {
 			if (lv.isInitiallyBasic()) {
 				for (Map.Entry<LinVar, BigInteger> entry
 					: lv.getLinTerm().entrySet()) {
-					if (entry.getKey().isInt()) {
-						BigInteger value = entry.getValue();
-						if (negated)
-							value = value.negate();
-						new LinVarBigInt(lv, value)
-							.addToMap(colmap, entry.getKey());
-					}
+					BigInteger value = entry.getValue();
+					if (negated)
+						value = value.negate();
+					new LinVarBigInt(lv, value)
+						.addToMap(colmap, entry.getKey());
 				}
-			} else if (lv.isInt()) {
+			} else {
 				new LinVarBigInt(lv, BigInteger.valueOf(negated ?  -1 : 1))
 					.addToMap(colmap, lv);
 			}
@@ -388,7 +405,7 @@ public class CutCreator {
 	 * Computes the nr-th row of the Hermite Normal Form, by applying the
 	 * mgcd algorithm on the columns from nr upwards.  This ensures that
 	 * the nr-th column contains the gcd at that row and the later columns
-	 * are zero.  Afterward the nr-th column is substracted from column 0
+	 * are zero.  Afterward the nr-th column is subtracted from column 0
 	 * to nr-1 to make the coefficients as small as possible.
 	 * 
 	 * This assumes that the columns smaller than nr has been normalized
@@ -404,7 +421,8 @@ public class CutCreator {
 		}
 		
 		/* reorder columns: put zero columns at end,
-		 * put column with smallest absolute coeff at front.
+		 * put column with smallest absolute coeff to the front.
+		 * If there is a real non-zero column put that to the front.
 		 */
 		int end = mAColumns.length;
 		while (end > nr + 1) {
@@ -427,7 +445,11 @@ public class CutCreator {
 					end--;
 				assert mAColumns[nr].mIndices[0] == row;
 				assert mAColumns[i].mIndices[0] == row;
-				if (mAColumns[nr].mCoeffs[0].abs().compareTo(
+				// there is already a real column at front --> no reorder
+				if (!mURows[nr].isInt())
+					continue;
+				if (!mURows[i].isInt()
+					|| mAColumns[nr].mCoeffs[0].abs().compareTo(
 						mAColumns[i].mCoeffs[0].abs()) > 0) {
 					// move to front
 					Column tc = mAColumns[i];
@@ -445,7 +467,7 @@ public class CutCreator {
 				mURows[nr].negate();
 			}
 			
-			// now reduce all other rows with row[nr].
+			// now reduce all other columns with column[nr].
 			BigInteger coeffNr = mAColumns[nr].mCoeffs[0];
 			BigInteger coeffNr2 = coeffNr.shiftRight(1);
 			for (int i = nr + 1; i < end; i++) {
@@ -471,13 +493,27 @@ public class CutCreator {
 			mAColumns[nr].negate();
 			mURows[nr].negate();
 		}
-		
-		// Finally reduce the rows left of this column.
 		BigInteger coeffNr = mAColumns[nr].mCoeffs[0];
+
+		// make one if real
+		if (!mURows[nr].isInt() 
+			&& !coeffNr.equals(BigInteger.ONE)) {
+			mURows[nr].divide(coeffNr);
+			for (int i = 0; i < mAColumns[nr].mCoeffs.length; i++) {
+				BigInteger gcd = mAColumns[nr].mCoeffs[i].gcd(coeffNr);
+				BigInteger factor = coeffNr.divide(gcd);
+				multiplyARow(mAColumns[nr].mIndices[i], factor);
+				mAColumns[nr].mCoeffs[i] = mAColumns[nr].mCoeffs[i].divide(coeffNr);
+			}
+		}
+		
+		// Finally reduce the non-real columns left of this column.
 		BigInteger coeffNrM1 = coeffNr.subtract(BigInteger.ONE);
 		BigInteger coeffNr2 = coeffNr.shiftRight(1);
 		BigInteger coeffNr32 = coeffNr.shiftRight(5);// NOCHECKSTYLE
 		for (int i = 0; i < nr; i++) {
+			if (!mURows[i].isInt())
+				continue;
 			int j = 0;
 			while (j < mAColumns[i].mIndices.length
 					&& compare(mAColumns[i].mIndices[j], row) < 0)
@@ -516,6 +552,16 @@ public class CutCreator {
 				|| mAColumns[nr + 1].mIndices[0] != row);
 	}
 
+	private void multiplyARow(LinVar linVar, BigInteger factor) {
+		for (int i = 0; i < mAColumns.length; i++) {
+			for (int j = 0; j < mAColumns[i].mIndices.length; j++)
+				if (mAColumns[i].mIndices[j] == linVar) {
+					mAColumns[i].mCoeffs[j] = 
+							mAColumns[i].mCoeffs[j].multiply(factor); 
+				}
+		}
+	}
+
 	private boolean isTight(LinVar linVar) {
 		return linVar.mCurval.lesseq(linVar.getLowerBound())
 			|| linVar.getUpperBound().lesseq(linVar.mCurval);
@@ -544,10 +590,16 @@ public class CutCreator {
 		return tight;
 	}
 
+	/**
+	 * Compute which cuts are bad, because they do not help in the current
+	 * tableaux.  These are cuts that are already integer and cuts that
+	 * depend on another non-bad cut.
+	 * @return
+	 */
 	private boolean[] computeBadness() {
 		boolean[] isBad = new boolean[mAColumns.length];
 		for (int i = 0; i < mAColumns.length; i++) {
-			if (mURows[i].mCurval.isIntegral()) {
+			if (mURows[i].mCurval.isIntegral() || !mURows[i].mIsInt) {
 				isBad[i] = true;
 			} else {
 				int k = i + 1;
