@@ -1659,6 +1659,13 @@ public class SMTInterpol extends NoopScript {
 				System.exit(4); // NOCHECKSTYLE
 			throw new SMTLIBException("Context is inconsistent");
 		}
+		if (mStatus != LBool.SAT) {
+			// Once we have incomplete solvers we might check mReasonUnknown...
+			if (mDDFriendly)
+				System.exit(9);
+			throw new SMTLIBException(
+					"Cannot construct model since solving did not complete");
+		}
 		if (mModel == null) {
 			mModel = new
 				de.uni_freiburg.informatik.ultimate.smtinterpol.model.Model(
