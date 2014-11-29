@@ -126,8 +126,6 @@ public class LinArSolve implements ITheory {
 	long mPivotTime;
 	/** Number of literals created due to composites. */
 	int mCompositeCreateLit;
-	/** Number of branches since the last cut. */
-	private int mBranchCtr;
 
 	// Statistics
 	int mNumCuts;
@@ -1209,34 +1207,6 @@ public class LinArSolve implements ITheory {
 		long start;
 		if (Config.PROFILE_TIME)
 			start = System.nanoTime();
-		while (mBranchCtr++ < 5) {
-			LinVar best = null;
-			for (LinVar lv : mIntVars) {
-				if (lv.mCurval.isIntegral())
-					continue;
-				if (best == null)
-					best = lv;
-				else if (lv.getUpperBound().sub(lv.getLowerBound()).less(
-						best.getUpperBound().sub(best.getLowerBound())))
-					best = lv;
-			}
-			if (best == null)
-				return null;
-			if (best.mCurval.less(best.getLowerBound())
-				|| best.getUpperBound().less(best.mCurval)) {
-				mOob.add(best);
-				mNumCuts++;
-			} else {
-				Literal branch = generateConstraint(
-						best, best.mCurval.floor(), false);
-				mSuggestions.add(branch);
-				mNumBranches++;
-			}
-			Clause c = fixOobs();
-			if (c != null)
-				return c;
-		}
-		mBranchCtr = 0;
 		CutCreator cutter = new CutCreator(this);
 		cutter.generateCuts();
 		if (Config.PROFILE_TIME)
