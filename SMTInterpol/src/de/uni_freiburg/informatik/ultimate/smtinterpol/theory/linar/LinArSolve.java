@@ -1948,7 +1948,8 @@ public class LinArSolve implements ITheory {
 			Rational lcm, InfinitNumber currentValue) {
 		// Check if variable is fixed or allowed.
 		if (upper.equals(lower)
-			|| (!prohibitions.contains(currentValue.mA))
+			|| (!prohibitions.contains(currentValue.mA)
+					|| currentValue.mEps != 0)
 				&& !hasSharing(sharedPoints, Rational.ZERO))
 			return currentValue;
 		
@@ -1965,7 +1966,7 @@ public class LinArSolve implements ITheory {
 					upper.toInfinitNumber().add(low).div(Rational.TWO);
 			if (mid == InfinitNumber.POSITIVE_INFINITY)
 				mid = low.add(InfinitNumber.ONE);
-			while (prohibitions.contains(mid.mA)
+			while ((prohibitions.contains(mid.mA) && mid.mEps == 0)
 					|| hasSharing(sharedPoints, mid.sub(currentValue).mA))
 				mid = mid.add(low).div(Rational.TWO);
 			return mid;
@@ -1981,7 +1982,7 @@ public class LinArSolve implements ITheory {
 				if (up.compareTo(upper) > 0)
 					break;
 				InfinitNumber cur = up.toInfinitNumber();
-				if (!prohibitions.contains(cur)
+				if (!prohibitions.contains(cur.mA)
 					&& !hasSharing(sharedPoints, cur.sub(currentValue).mA))
 					return cur;
 				
@@ -1989,14 +1990,14 @@ public class LinArSolve implements ITheory {
 				if (down.compareTo(lower) < 0)
 					break;
 				cur = down.toInfinitNumber();
-				if (!prohibitions.contains(cur)
+				if (!prohibitions.contains(cur.mA)
 					&& !hasSharing(sharedPoints, cur.sub(currentValue).mA))
 					return cur;
 			}
 			up.add(ilcm);
 			while (up.compareTo(upper) <= 0) {
 				InfinitNumber cur = up.toInfinitNumber();
-				if (!prohibitions.contains(cur)
+				if (!prohibitions.contains(cur.mA)
 					&& !hasSharing(sharedPoints, cur.sub(currentValue).mA))
 					return cur;
 				up.add(ilcm);
@@ -2004,7 +2005,7 @@ public class LinArSolve implements ITheory {
 			down.sub(ilcm);
 			while (down.compareTo(lower) >= 0) {
 				InfinitNumber cur = down.toInfinitNumber();
-				if (!prohibitions.contains(cur)
+				if (!prohibitions.contains(cur.mA)
 					&& !hasSharing(sharedPoints, cur.sub(currentValue).mA))
 					return cur;
 				down.sub(ilcm);
