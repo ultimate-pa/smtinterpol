@@ -1214,7 +1214,7 @@ public class LinArSolve implements ITheory {
 		Clause c = checkPendingConflict();
 		if (c != null)
 			return c;
-		c = fixOobs();
+		c = checkpoint();
 		if (c != null)
 			return c;
 		return null;
@@ -1462,6 +1462,10 @@ public class LinArSolve implements ITheory {
 			bc = new BoundConstraint(rbound, var, mEngine.getAssertionStackLevel());
 			assert bc.mVar.checkCoeffChain();
 			mEngine.addAtom(bc);
+			if (var.getUpperBound().lesseq(rbound))
+				mProplist.add(bc);
+			if (rbound.less(var.getLowerBound()))
+				mProplist.add(bc.negate());
 		}
 		return isLowerBound ? bc.negate() : bc;
 	}
@@ -2048,7 +2052,7 @@ public class LinArSolve implements ITheory {
 				if (cceq.getLASharedData().getDecideStatus() != null) { // NOPMD
 					if (cceq.getDecideStatus() == cceq.negate())
 						return generateEqualityClause(cceq);
-					else if	(cceq.getDecideStatus() == null)
+					else if (cceq.getDecideStatus() == null)
 						mProplist.add(cceq);
 					else
 						mEngine.getLogger().debug(
