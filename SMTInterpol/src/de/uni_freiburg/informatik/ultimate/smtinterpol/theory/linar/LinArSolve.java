@@ -1956,7 +1956,7 @@ public class LinArSolve implements ITheory {
 		if (lcm == Rational.POSITIVE_INFINITY) {
 			/* use binary search to find the candidate */
 			InfinitNumber low = lower.toInfinitNumber();
-			if (low == InfinitNumber.NEGATIVE_INFINITY) {
+			if (low.isInfinity()) {
 				if (upper.mA.signum() > 0)
 					low = InfinitNumber.ZERO;
 				else
@@ -1964,11 +1964,13 @@ public class LinArSolve implements ITheory {
 			}
 			InfinitNumber mid =
 					upper.toInfinitNumber().add(low).div(Rational.TWO);
-			if (mid == InfinitNumber.POSITIVE_INFINITY)
+			if (mid.isInfinity())
 				mid = low.add(InfinitNumber.ONE);
 			while ((prohibitions.contains(mid.mA) && mid.mEps == 0)
-					|| hasSharing(sharedPoints, mid.sub(currentValue).mA))
+					|| hasSharing(sharedPoints, mid.sub(currentValue).mA)) {
+				System.err.println("Tried: " + mid);
 				mid = mid.add(low).div(Rational.TWO);
+			}
 			return mid;
 		} else {
 			/* We should change it.  We search upwards and downwards by
