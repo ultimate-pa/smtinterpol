@@ -1968,7 +1968,6 @@ public class LinArSolve implements ITheory {
 				mid = low.add(InfinitNumber.ONE);
 			while ((prohibitions.contains(mid.mA) && mid.mEps == 0)
 					|| hasSharing(sharedPoints, mid.sub(currentValue).mA)) {
-				System.err.println("Tried: " + mid);
 				mid = mid.add(low).div(Rational.TWO);
 			}
 			return mid;
