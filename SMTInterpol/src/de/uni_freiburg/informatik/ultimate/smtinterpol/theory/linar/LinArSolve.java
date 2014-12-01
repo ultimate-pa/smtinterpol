@@ -1001,10 +1001,10 @@ public class LinArSolve implements ITheory {
 				sb.append(var.mHeadEntry.mCoeff).append('*').append(var).
 				append(" ; ");
 				for (MatrixEntry entry = var.mHeadEntry.mNextInRow;
-			         entry != var.mHeadEntry; entry = entry.mNextInRow) {
+						entry != var.mHeadEntry; entry = entry.mNextInRow) {
 					sb.append(" ; ").append(entry.mCoeff)
 						.append('*').append(entry.mColumn);
-				}				
+				}
 				logger.debug(sb.toString());
 			}
 		}

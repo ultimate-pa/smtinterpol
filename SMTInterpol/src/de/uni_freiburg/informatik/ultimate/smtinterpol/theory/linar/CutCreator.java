@@ -183,7 +183,6 @@ public class CutCreator {
 	public class Row {
 		LinVar[] mIndices;
 		BigInteger[] mCoeffs;
-		InfinitNumber mCurval;
 		/** This flag is set for integer variables. */
 		boolean mIsInt;
 		/** This flag is set if a bound can be computed (a cut). */
@@ -192,6 +191,8 @@ public class CutCreator {
 		 * the non-basics.
 		 */
 		boolean mFixed;
+		Rational mCurval;
+		Rational mEpsilons;
 		
 		public Row(LinVar nonbasic) {
 			assert !nonbasic.isInitiallyBasic();
@@ -204,7 +205,6 @@ public class CutCreator {
 				mIndices = new LinVar[0];
 				mCoeffs = new BigInteger[0];
 			}
-			mCurval = nonbasic.mCurval;
 		}
 		
 		public boolean isInt() {
@@ -217,7 +217,6 @@ public class CutCreator {
 		public void negate() {
 			for (int i = 0; i < mCoeffs.length; i++)
 				mCoeffs[i] = mCoeffs[i].negate();
-			mCurval = mCurval.negate();
 		}
 
 		/**
@@ -278,8 +277,6 @@ public class CutCreator {
 				mIndices = newIndices;
 				mCoeffs = newCoeffs;
 			}
-			Rational fac = Rational.valueOf(factor, BigInteger.ONE);
-			mCurval = mCurval.addmul(other.mCurval, fac);
 		}
 		
 		public String getVar() {
@@ -297,6 +294,7 @@ public class CutCreator {
 			StringBuilder sb = new StringBuilder();
 			sb.append(getVar());
 			sb.append(" == ").append(mCurval);
+			sb.append(" + ").append(mEpsilons).append(" eps");
 			return sb.toString();
 		}
 
@@ -313,8 +311,25 @@ public class CutCreator {
 					maxlevel = mIndices[i].mAssertionstacklevel;
 				mat.add(Rational.valueOf(mCoeffs[i], BigInteger.ONE), mIndices[i]);
 			}
-			mat.add(mCurval.floor().negate());
+			mat.add(new InfinitNumber(mCurval, mEpsilons.signum()).floor().negate());
 			return mSolver.generateConstraint(mat, false, maxlevel);
+		}
+
+		public void computeValue() {
+			mCurval = Rational.ZERO;
+			mEpsilons = Rational.ZERO;
+			for (int i = 0; i < mIndices.length; i++) {
+				LinVar var = mIndices[i];
+				Rational coeff = Rational.valueOf(mCoeffs[i], BigInteger.ONE);
+				mCurval = mCurval.addmul(coeff, var.mCurval.mA);
+				mEpsilons = mEpsilons.addmul(coeff, var.computeEpsilon());
+			}
+		}
+
+		public boolean isBad() {
+			if (!mIsInt)
+				return true;
+			return mCurval.isIntegral() && mEpsilons.signum() == 0;
 		}
 
 		public void divide(BigInteger denom) {
@@ -608,6 +623,7 @@ public class CutCreator {
 		}
 		mURows[nr].mFixed = isFixed;
 		mURows[nr].mTight = isTight;
+		mURows[nr].computeValue();
 		assert(nr + 1 == mAColumns.length
 				|| mAColumns[nr + 1].mIndices[0] != row);
 	}
@@ -640,7 +656,7 @@ public class CutCreator {
 	private boolean[] computeBadness() {
 		boolean[] isBad = new boolean[mAColumns.length];
 		for (int i = 0; i < mAColumns.length; i++) {
-			if (mURows[i].mCurval.isIntegral() || !mURows[i].mIsInt) {
+			if (mURows[i].isBad()) {
 				isBad[i] = true;
 			} else {
 				int k = i + 1;
@@ -660,7 +676,6 @@ public class CutCreator {
 
 	public void generateCut(int row, boolean isTight) {
 		assert mURows[row].mIndices[0].mIsInt;
-		assert !mURows[row].mCurval.isIntegral();
 
 		Literal cut = mURows[row].createConstraint();
 		if (mSolver.mEngine.getLogger().isDebugEnabled()) {
