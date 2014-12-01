@@ -1954,8 +1954,7 @@ public class LinArSolve implements ITheory {
 		// Check if variable is fixed or allowed.
 		if (upper.equals(lower)
 			|| (!prohibitions.contains(currentValue.mA)
-					|| currentValue.mEps != 0)
-				&& !hasSharing(sharedPoints, Rational.ZERO))
+				&& !hasSharing(sharedPoints, Rational.ZERO)))
 			return currentValue;
 		
 		if (lcm == Rational.POSITIVE_INFINITY) {
@@ -1971,7 +1970,7 @@ public class LinArSolve implements ITheory {
 					upper.toInfinitNumber().add(low).div(Rational.TWO);
 			if (mid.isInfinity())
 				mid = low.add(InfinitNumber.ONE);
-			while ((prohibitions.contains(mid.mA) && mid.mEps == 0)
+			while (prohibitions.contains(mid.mA)
 					|| hasSharing(sharedPoints, mid.sub(currentValue).mA)) {
 				mid = mid.add(low).div(Rational.TWO);
 			}
