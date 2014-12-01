@@ -1190,6 +1190,7 @@ public class LinArSolve implements ITheory {
 	private Clause ensureIntegrals() {
 		boolean isIntegral = true;
 		for (LinVar lv : mIntVars) {
+			lv.fixEpsilon();
 			if (!lv.mCurval.isIntegral())
 				isIntegral = false;
 		}
