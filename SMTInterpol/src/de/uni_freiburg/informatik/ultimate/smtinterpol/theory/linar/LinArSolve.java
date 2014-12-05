@@ -439,7 +439,9 @@ public class LinArSolve implements ITheory {
 		if (reason.isUpper()) {
 			if (var.mUpper == reason) {
 				var.mUpper = reason.getOldReason();
-				if (!var.mBasic) { // NOPMD
+				if (var.mDead) {
+					/* do nothing for simplified variables */
+				} else if (!var.mBasic) { // NOPMD
 					updatePropagationCountersOnBacktrack(
 							var, reason.getBound(), var.getUpperBound(), true);
 					if (var.mCurval.less(var.getLowerBound()))
@@ -453,7 +455,9 @@ public class LinArSolve implements ITheory {
 		} else {
 			if (var.mLower == reason) {
 				var.mLower = reason.getOldReason();
-				if (!var.mBasic) { // NOPMD
+				if (var.mDead) {
+					/* do nothing for simplified variables */
+				} else if (!var.mBasic) { // NOPMD
 					updatePropagationCountersOnBacktrack(
 							var, reason.getBound(), var.getLowerBound(), false);
 					if (var.getUpperBound().less(var.mCurval))
@@ -1609,6 +1613,7 @@ public class LinArSolve implements ITheory {
 			TreeMap<LinVar,Rational> coeffs = removeVar(v);
 			updateSimps(v,coeffs);
 			newsimps.put(v,coeffs);
+			mOob.remove(v);
 			mPropBounds.remove(v);
 		}
 		mSimps.putAll(newsimps);
