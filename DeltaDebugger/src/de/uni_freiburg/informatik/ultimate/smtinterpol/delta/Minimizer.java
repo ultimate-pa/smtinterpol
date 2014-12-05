@@ -705,14 +705,48 @@ public class Minimizer {
 		return ((ApplicationTerm) t).getFunction() == t.getTheory().mAnd;
 	}
 	
+	private boolean simplifyAndParition(GetInterpolants gi, int idx) throws IOException, InterruptedException {
+		Term[] partition = gi.getPartition();
+		Term[] conjs =
+				((ApplicationTerm) partition[idx]).getParameters();
+		int c = 0;
+		boolean res = false;
+		while (c < conjs.length) {
+			ArrayList<Term> newcs =
+					new ArrayList<Term>(conjs.length - 1);
+			for (int j = 0; j < conjs.length; ++j)
+				if (j != c)
+					newcs.add(conjs[j]);
+			Term[] newPartition = partition.clone();
+			newPartition[idx] = buildAnd(newcs);
+			gi.setNewPartition(newPartition);
+			if (test()) {
+				gi.success();
+				conjs = ((ApplicationTerm) newPartition[idx]).
+						getParameters();
+				partition = newPartition;
+				res = true;
+				// Don't increment c since we shifted elements
+			} else {
+				gi.failure();
+				++c;
+			}
+		}
+		return res;
+	}
+
 	private boolean simplifyInterpolantPartitions(GetInterpolants gi)
 		throws IOException, InterruptedException {
-
-		Term[] partition = gi.getPartition();
-		if (partition.length == 2)
-			return false;
-		int i = 0;
 		boolean res = false;
+		Term[] partition = gi.getPartition();
+		if (partition.length == 2) {
+			if (isAnd(partition[0]))
+				res |= simplifyAndParition(gi, 0);
+			if (isAnd(partition[1]))
+				res |= simplifyAndParition(gi, 1);
+			return res;
+		}
+		int i = 0;
 		while (i < partition.length) {
 			// Try to remove partition i
 			// 1. complete
@@ -743,37 +777,14 @@ public class Minimizer {
 				gi.failure();
 				// 2. If conjunctive partition, try to simplify conjunction
 				if (isAnd(partition[i])) {
-					Term[] conjs =
-							((ApplicationTerm) partition[i]).getParameters();
-					ArrayList<Term> newcs =
-							new ArrayList<Term>(conjs.length - 1);
-					int c = 0;
-					while (c < conjs.length) {
-						for (int j = 0; j < conjs.length; ++j)
-							if (j != c)
-								newcs.add(conjs[j]);
-						newPartition = partition.clone();
-						newPartition[i] = buildAnd(newcs);
-						gi.setNewPartition(newPartition);
-						if (test()) {
-							gi.success();
-							conjs = ((ApplicationTerm) newPartition[i]).
-									getParameters();
-							partition = newPartition;
-							res = true;
-							// Don't increment c since we shifted elements
-						} else {
-							gi.failure();
-							++c;
-						}
-					}
+					res |= simplifyAndParition(gi, i);
 				}
 				++i;
 			}
 		}
 		return res;
 	}
-	
+
 	private static ApplicationTerm buildAnd(List<Term> conjs) {
 		if (conjs.isEmpty())
 			return null;
