@@ -313,7 +313,9 @@ public class SMTInterpol extends NoopScript {
 			if (value instanceof String) {
 				try {
 					return new BigInteger((String) value);
-				} catch (NumberFormatException ignored) { /* ignored */ }
+				} catch (NumberFormatException ignored) { 
+					/* fall through into error case */
+				}
 			}
 			throw new SMTLIBException("Option " + getName()
 					+ " expects a numeral value");
