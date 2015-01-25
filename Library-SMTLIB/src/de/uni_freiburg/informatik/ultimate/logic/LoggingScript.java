@@ -138,7 +138,7 @@ public class LoggingScript implements Script {
 		mPw.print("(set-option ");
 		mPw.print(opt);
 		mPw.print(' ');
-		mPw.print(value);
+		new PrintTerm().append(mPw, value);
 		mPw.println(")");
 		mScript.setOption(opt, value);
 	}
@@ -148,7 +148,7 @@ public class LoggingScript implements Script {
 		mPw.print("(set-info ");
 		mPw.print(info);
 		mPw.print(' ');
-		mPw.print(value);
+		new PrintTerm().append(mPw, value);
 		mPw.println(")");
 		mScript.setInfo(info, value);
 	}
@@ -157,7 +157,7 @@ public class LoggingScript implements Script {
 	public void declareSort(String sort, int arity) throws SMTLIBException {
 		mScript.declareSort(sort, arity);
 		mPw.print("(declare-sort ");
-		mPw.print(PrintTerm.quoteIdentifier(sort));
+		mPw.print(Identifier.quoteIdentifier(sort));
 		mPw.print(' ');
 		mPw.print(arity);
 		mPw.println(")");
@@ -168,7 +168,7 @@ public class LoggingScript implements Script {
 		throws SMTLIBException {
 		mScript.defineSort(sort, sortParams, definition);
 		mPw.print("(define-sort ");
-		mPw.print(PrintTerm.quoteIdentifier(sort));
+		mPw.print(Identifier.quoteIdentifier(sort));
 		mPw.print(" (");
 		String sep = "";
 		for (Sort p : sortParams) {
@@ -186,7 +186,7 @@ public class LoggingScript implements Script {
 		throws SMTLIBException {
 		mScript.declareFun(fun, paramSorts, resultSort);
 		mPw.print("(declare-fun ");
-		mPw.print(PrintTerm.quoteIdentifier(fun));
+		mPw.print(Identifier.quoteIdentifier(fun));
 		mPw.print(" (");
 		String sep = "";
 		for (Sort p : paramSorts) {
@@ -204,7 +204,7 @@ public class LoggingScript implements Script {
 			Term definition) throws SMTLIBException {
 		mScript.defineFun(fun, params, resultSort, definition);
 		mPw.print("(define-fun ");
-		mPw.print(PrintTerm.quoteIdentifier(fun));
+		mPw.print(Identifier.quoteIdentifier(fun));
 		mPw.print(" (");
 		String sep = "(";
 		for (TermVariable t : params) {

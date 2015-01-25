@@ -21,7 +21,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.delta;
 import java.io.PrintWriter;
 import java.util.Map;
 
-import de.uni_freiburg.informatik.ultimate.logic.PrintTerm;
+import de.uni_freiburg.informatik.ultimate.logic.Identifier;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 
 public class DeclareFun extends Cmd {
@@ -39,7 +39,7 @@ public class DeclareFun extends Cmd {
 	@Override
 	public void dump(PrintWriter writer) {
 		writer.print("(declare-fun ");
-		writer.print(PrintTerm.quoteIdentifier(mFun));
+		writer.print(Identifier.quoteIdentifier(mFun));
 		writer.print(" (");
 		String sep = "";
 		for (Sort p : mParams) {
