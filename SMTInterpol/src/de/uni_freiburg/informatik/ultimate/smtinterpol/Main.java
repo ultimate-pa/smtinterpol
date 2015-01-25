@@ -158,6 +158,7 @@ public final class Main {
 		}
 		if (solver == null)
 			solver = new SMTInterpol();
+		parser.setSolver(solver);
 		for (String opt : options) {
 			int eq = opt.indexOf('=');
 			String name;
@@ -170,7 +171,7 @@ public final class Main {
 				value = opt.substring(eq + 1);
 			}
 			try {
-				solver.setOption(":" + name, value);
+				parser.setOption(":" + name, value);
 			} catch (UnsupportedOperationException ex) {
 				System.err.println("Unknown option :" + name + ".");
 				return;
@@ -179,7 +180,7 @@ public final class Main {
 				return;
 			}
 		}
-		int exitCode = parser.run(solver, filename);
+		int exitCode = parser.parseFile(filename);
 		System.exit(exitCode);
 	}
 
