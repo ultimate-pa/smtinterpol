@@ -161,6 +161,10 @@ public class Explainer {
 		assert (mAnnotationStack.size() == 1);
 		LAAnnotation baseAnnotation = mAnnotationStack.getLast();
 		Literal[] lits = baseAnnotation.collectLiterals();
+		for (Literal lit : lits) {
+			if (lit.getAtom() instanceof BoundConstraint)
+				((BoundConstraint) lit.getAtom()).setCutExplained();
+		}
 		Clause clause = new Clause(lits);
 		if (engine.isProofGenerationEnabled()) {
 			clause.setProof(new LeafNode(

@@ -733,7 +733,7 @@ public class LinArSolve implements ITheory {
 			return generateEqualityClause(literal);
 		} else {
 			BoundConstraint bc = (BoundConstraint)atom;
-			bc.setCutExplained();
+//			bc.setCutExplained();
 			LinVar var = bc.getVar();
 			boolean isUpper = literal.getSign() > 0;
 			return createUnitClause(literal, isUpper,
