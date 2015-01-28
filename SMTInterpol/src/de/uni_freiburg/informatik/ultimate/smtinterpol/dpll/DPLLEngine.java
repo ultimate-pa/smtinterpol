@@ -1222,6 +1222,11 @@ public class DPLLEngine {
 			t.removeAtom(atom);
 	}
 
+	public void removeAtomRunning(DPLLAtom atom) {
+		mPpStack.removeAtom(atom);
+		removeAtom(atom);
+	}
+
 	public void addTheory(ITheory t) {
 		ITheory[] newTheories = new ITheory[mTheories.length + 1];
 		System.arraycopy(mTheories, 0, newTheories, 0, mTheories.length);
@@ -1662,9 +1667,15 @@ public class DPLLEngine {
 		public void remove() {
 			throw new UnsupportedOperationException("Cannot remove model!");
 		}
-		
+
 	}
-	
+
+	/**
+	 * Is termination requested via a termination request?  This function does
+	 * not check for user timeouts.  See
+	 * {@link DPLLEngine#isStopped() isStopped} for a complete check.
+	 * @return Did the user termination request trigger termination?
+	 */
 	public boolean isTerminationRequested() {
 		if (mCompleteness == INCOMPLETE_CANCELLED
 				|| mCancel.isTerminationRequested()) {
@@ -1672,5 +1683,14 @@ public class DPLLEngine {
 			return true;
 		}
 		return false;
+	}
+
+	/**
+	 * Did the user request the engine to stop solving?  This test includes
+	 * both the timeout and the user termination request.
+	 * @return
+	 */
+	public boolean isStopped() {
+		return mStopEngine || isTerminationRequested();
 	}
 }

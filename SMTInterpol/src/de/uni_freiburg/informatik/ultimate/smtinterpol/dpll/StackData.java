@@ -64,4 +64,6 @@ public class StackData {
 		engine.setCompleteness(mPrev.mCompleteness);
 		return mPrev;
 	}
+	
+	public void removeAtom(DPLLAtom atom) {}
 }

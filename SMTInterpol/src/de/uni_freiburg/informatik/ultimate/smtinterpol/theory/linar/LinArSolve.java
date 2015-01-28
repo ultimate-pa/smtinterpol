@@ -153,6 +153,8 @@ public class LinArSolve implements ITheory {
 	 * The number of the next variable when created.
 	 */
 	private int mVarNum = 0;
+	
+	private int mNumRemoved = 0;
 	/**
 	 * Basic initialization.
 	 * @param engine DPLLEngine this theory is used in.
@@ -486,6 +488,7 @@ public class LinArSolve implements ITheory {
 		DPLLAtom atom = literal.getAtom();
 		LinVar var;
 		InfinitNumber bound;
+		boolean removeAtom = false;
 		if (atom instanceof LAEquality) {
 			LAEquality laeq = (LAEquality) atom;
 			var = laeq.getVar();
@@ -496,6 +499,7 @@ public class LinArSolve implements ITheory {
 			}
 		} else if (atom instanceof BoundConstraint) {
 			BoundConstraint bc = (BoundConstraint) atom;
+			removeAtom = bc.isUnexplainedCut();
 			var = bc.getVar();
 			bound = bc.getBound();
 		} else
@@ -520,6 +524,11 @@ public class LinArSolve implements ITheory {
 				break;
 			}
 			reason = reason.getOldReason();
+		}
+		if (removeAtom) {
+			++mNumRemoved;
+			System.err.println(mNumRemoved + ": " + atom);
+			mEngine.removeAtomRunning(atom);
 		}
 	}
 	
@@ -724,6 +733,7 @@ public class LinArSolve implements ITheory {
 			return generateEqualityClause(literal);
 		} else {
 			BoundConstraint bc = (BoundConstraint)atom;
+			bc.setCutExplained();
 			LinVar var = bc.getVar();
 			boolean isUpper = literal.getSign() > 0;
 			return createUnitClause(literal, isUpper,
@@ -1250,7 +1260,7 @@ public class LinArSolve implements ITheory {
 		int curnumpivots = 0;
 		boolean useBland = false;
 	poll_loop:
-		while (!mOob.isEmpty()) {
+		while (!mOob.isEmpty() && !mEngine.isStopped()) {
 			LinVar oob = useBland ? mOob.pollFirst() : findBestVar();
 			if (oob == null)
 				return null;
@@ -2241,24 +2251,24 @@ public class LinArSolve implements ITheory {
 			BoundConstraint bc = (BoundConstraint) atom;
 			LinVar v = bc.getVar();
 			v.mConstraints.remove(bc.getBound());
-//			if (v.unconstrained()) {
-//				if (v.isInitiallyBasic()) {
+			if (v.unconstrained()) {
+				if (v.isInitiallyBasic()) {
 //					System.err.println("Removing initially basic variable");
-//					removeLinVar(bc.getVar());
-//				} else if (v.mbasic) {
+					removeLinVar(bc.getVar());
+				} else if (v.mBasic) {
 //					System.err.println("Moving unconstraint variable away");
-//					// Move it out of the way and let simplifier handle this
-//					for (MatrixEntry entry = v.headEntry.nextInRow; 
-//						entry != v.headEntry; entry = entry.nextInRow) {
-//						if (entry.column.isInitiallyBasic()) {
+					// Move it out of the way and let simplifier handle this
+					for (MatrixEntry entry = v.mHeadEntry.mNextInRow; 
+						entry != v.mHeadEntry; entry = entry.mNextInRow) {
+						if (entry.mColumn.isInitiallyBasic()) {
 //							System.err.println("Using variable " + entry.column);
-//							pivot(entry);
-//							return;
-//						}
-//					}
-//					throw new IllegalStateException("We should never reach here!!!");
-//				}
-//			}
+							pivot(entry);
+							return;
+						}
+					}
+					throw new IllegalStateException("We should never reach here!!!");
+				}
+			}
 		} else if (atom instanceof LAEquality) {
 			LAEquality laeq = (LAEquality) atom;
 			InfinitNumber num = new InfinitNumber(laeq.getBound(), 0);

@@ -47,4 +47,8 @@ public class NonRootLvlStackData extends StackData {
 		mAtoms.clear();
 		return super.restore(engine, targetlevel);
 	}
+	
+	public void removeAtom(DPLLAtom atom) {
+		mAtoms.remove(atom);
+	}
 }

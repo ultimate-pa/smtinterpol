@@ -34,6 +34,11 @@ public class BoundConstraint extends DPLLAtom {
 	final InfinitNumber mBound;
 	final InfinitNumber mIBound;
 	final LinVar mVar;
+	int mCut = NOCUT;
+
+	public final static int NOCUT = 0;
+	public final static int CUT = 1;
+	public final static int EXPLAINED_CUT = 2;
 
 	public BoundConstraint(InfinitNumber bound, LinVar var, int assertionstacklevel) {
 		super(HashUtils.hashJenkins(var.hashCode(), bound), assertionstacklevel);
@@ -128,5 +133,18 @@ public class BoundConstraint extends DPLLAtom {
 			return o.mVar == mVar && o.mBound.equals(mBound);
 		}
 		return false;
+	}
+	
+	void setCutExplained() {
+		if (mCut == CUT)
+			mCut = EXPLAINED_CUT;
+	}
+	
+	void setCut() {
+		mCut = CUT;
+	}
+	
+	boolean isUnexplainedCut() {
+		return mCut == CUT;
 	}
 }
