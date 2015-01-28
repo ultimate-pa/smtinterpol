@@ -312,7 +312,9 @@ public class CutCreator {
 				mat.add(Rational.valueOf(mCoeffs[i], BigInteger.ONE), mIndices[i]);
 			}
 			mat.add(new InfinitNumber(mCurval, mEpsilons.signum()).floor().negate());
-			return mSolver.generateConstraint(mat, false, maxlevel);
+			Literal lit = mSolver.generateConstraint(mat, false, maxlevel);
+			((BoundConstraint) lit.getAtom()).setCut();
+			return lit;
 		}
 
 		public void computeValue() {

@@ -1547,7 +1547,9 @@ public class LinArSolve implements ITheory {
 	}
 	
 	public void removeLinVar(LinVar v) {
-		assert mOob.isEmpty();
+//		assert mOob.isEmpty();
+		mOob.remove(v);
+		mPropBounds.remove(v);
 		if (!v.mBasic) {
 			// We might have nonbasic variables that do not contribute to a basic variable. 
 			if (v.mHeadEntry.mNextInCol == v.mHeadEntry) {
