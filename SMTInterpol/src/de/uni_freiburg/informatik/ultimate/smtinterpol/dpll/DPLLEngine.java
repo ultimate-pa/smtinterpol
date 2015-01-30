@@ -42,6 +42,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ResolutionNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ResolutionNode.Antecedent;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.TerminationRequest;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.BoundConstraint;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.CuckooHashSet;
 import de.uni_freiburg.informatik.ultimate.util.DebugMessage;
 import de.uni_freiburg.informatik.ultimate.util.ScopedHashMap;
@@ -451,6 +452,7 @@ public class DPLLEngine {
 				if (mUnsatClause == null)
 					mUnsatClause = clause;
 			} else {
+				clause.mLiterals[0].getAtom().incUseCount();
 				/* propagate unit clause: only register watcher zero. */
 				mWatcherBackList.append(clause, 0);
 			}
@@ -458,6 +460,8 @@ public class DPLLEngine {
 			/* A clause is "watched" if it appears on either the
 			 * watcherBack/SetList or the watchers list of some atom.
 			 */
+			for (Literal lit : clause.mLiterals)
+				lit.getAtom().incUseCount();
 			mWatcherBackList.append(clause, 0);
 			mWatcherBackList.append(clause, 1);
 		}
@@ -913,12 +917,20 @@ public class DPLLEngine {
 		if (lit != null)
 			return lit;
 		DPLLAtom atom;
-		int ran = mRandom.nextInt(Config.RANDOM_SPLIT_BASE);
-		if (!mAtoms.isEmpty() && ran <= Config.RANDOM_SPLIT_FREQ) {
-			atom = mAtoms.mAtoms[mRandom.nextInt(mAtoms.size())];
-			++mNumRandomSplits;
-		} else
-			atom = mAtoms.peek();
+		do {
+			int ran = mRandom.nextInt(Config.RANDOM_SPLIT_BASE);
+			if (!mAtoms.isEmpty() && ran <= Config.RANDOM_SPLIT_FREQ) {
+				atom = mAtoms.mAtoms[mRandom.nextInt(mAtoms.size())];
+				++mNumRandomSplits;
+			} else
+				atom = mAtoms.peek();
+			if (atom instanceof BoundConstraint && !atom.isForced() && !atom.isUsed()) {
+//				System.err.println("Removing unused atom " + atom);
+				removeAtomRunning(atom);
+				atom = null;
+				continue;
+			}
+		} while (false);
 		if (atom == null)
 			return null;
 		assert atom.mDecideStatus == null;
@@ -1187,6 +1199,8 @@ public class DPLLEngine {
 					|| c.mStacklevel > targetstacklevel && c.doCleanup(this)) {
 				mNumClauses--;
 				it.remove();
+				for (Literal lit : c.mLiterals)
+					lit.getAtom().decUseCount();
 			}
 		}
 	}

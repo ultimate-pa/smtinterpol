@@ -142,6 +142,7 @@ public class BoundConstraint extends DPLLAtom {
 	
 	void setCut() {
 		mCut = CUT;
+		setForced();
 	}
 	
 	boolean isUnexplainedCut() {

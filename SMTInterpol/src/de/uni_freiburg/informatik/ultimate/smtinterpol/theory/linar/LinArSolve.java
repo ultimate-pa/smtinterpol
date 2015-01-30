@@ -527,7 +527,7 @@ public class LinArSolve implements ITheory {
 		}
 		if (removeAtom) {
 			++mNumRemoved;
-			System.err.println(mNumRemoved + ": " + atom);
+//			System.err.println(mNumRemoved + ": " + atom);
 			mEngine.removeAtomRunning(atom);
 		}
 	}
@@ -1548,8 +1548,6 @@ public class LinArSolve implements ITheory {
 	
 	public void removeLinVar(LinVar v) {
 //		assert mOob.isEmpty();
-		mOob.remove(v);
-		mPropBounds.remove(v);
 		if (!v.mBasic) {
 			// We might have nonbasic variables that do not contribute to a basic variable. 
 			if (v.mHeadEntry.mNextInCol == v.mHeadEntry) {
@@ -1561,6 +1559,8 @@ public class LinArSolve implements ITheory {
 		}
 		TreeMap<LinVar, Rational> coeffs = removeVar(v);
 		updateSimps(v, coeffs);
+		mOob.remove(v);
+		mPropBounds.remove(v);
 	}
 	
 	/**
@@ -1570,6 +1570,8 @@ public class LinArSolve implements ITheory {
 	 * any bound constraint is trivially satisfiable.
 	 */
 	private Clause simplifyTableau() {
+		if (mEngine.getSMTTheory().getLogic().isIRA())
+			return null;
 		// We cannot remove more vars than we have basic variables
 		List<LinVar> removeVars = new ArrayList<LinVar>(mLinvars.size());
 		for (LinVar v : mLinvars) {
@@ -2253,7 +2255,7 @@ public class LinArSolve implements ITheory {
 			BoundConstraint bc = (BoundConstraint) atom;
 			LinVar v = bc.getVar();
 			v.mConstraints.remove(bc.getBound());
-			if (v.unconstrained()) {
+			if (v.unconstrained() && v.isCurrentlyUnconstrained()) {
 				if (v.isInitiallyBasic()) {
 //					System.err.println("Removing initially basic variable");
 					removeLinVar(bc.getVar());
@@ -2263,7 +2265,7 @@ public class LinArSolve implements ITheory {
 					for (MatrixEntry entry = v.mHeadEntry.mNextInRow; 
 						entry != v.mHeadEntry; entry = entry.mNextInRow) {
 						if (entry.mColumn.isInitiallyBasic()) {
-//							System.err.println("Using variable " + entry.column);
+//							System.err.println("Using variable " + entry.mColumn);
 							pivot(entry);
 							return;
 						}

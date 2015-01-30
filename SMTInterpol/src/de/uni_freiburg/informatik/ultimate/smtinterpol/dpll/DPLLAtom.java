@@ -36,9 +36,9 @@ public abstract class DPLLAtom extends Literal {
 		public Term getSMTFormula(Theory smtTheory, boolean quoted) {
 			return smtTheory.mTrue;
 		}
-		
+
 	}
-	
+
 	public static class NegLiteral extends Literal {
 		public NegLiteral(DPLLAtom atom) {
 			super(~atom.hashCode());//TODO is bit-flipping a good hash??? 
@@ -66,7 +66,9 @@ public abstract class DPLLAtom extends Literal {
 	Clause.WatchList mBacktrackWatchers = new Clause.WatchList();
 	int mAtomQueueIndex = -1;
 	final int mAssertionstacklevel;
-	
+	private int mUseCount;
+	private boolean mForced;
+
 	public DPLLAtom(int hash, int assertionstacklevel) {
 		super(hash);
 		this.mAtom = this;
@@ -74,7 +76,7 @@ public abstract class DPLLAtom extends Literal {
 		this.mAssertionstacklevel = assertionstacklevel;
 		mLastStatus = mNegated;
 	}
-	
+
 	/**
 	 * Compares two atoms with respect to their activity. Do not override!
 	 */
@@ -89,7 +91,7 @@ public abstract class DPLLAtom extends Literal {
 	public int getSign() {
 		return 1;
 	}
-	
+
 	public final int getDecideLevel() { 
 		return mDecideLevel;
 	}
@@ -105,7 +107,7 @@ public abstract class DPLLAtom extends Literal {
 	public String toStringNegated() {
 		return "!(" + toString() + ")";
 	}
-	
+
 	/**
 	 * Returns a SMT formula representing the negated atoms.
 	 * Subclasses may overwrite this for pretty output.
@@ -132,8 +134,30 @@ public abstract class DPLLAtom extends Literal {
 		mLastStatus = status;
 //		activity += 1.0;
 	}
-	
+
 	public Literal getPreferredStatus() {
 		return mLastStatus;
+	}
+
+	public void incUseCount() {
+		++mUseCount;
+	}
+
+	public void decUseCount() {
+		--mUseCount;
+	}
+
+	public boolean isUsed() {
+		return mUseCount != 0;
+	}
+
+	public void setForced() {
+		mForced = true;
+	}
+
+	public boolean isForced() {
+		boolean res = mForced;
+		mForced = false;
+		return res;
 	}
 }
