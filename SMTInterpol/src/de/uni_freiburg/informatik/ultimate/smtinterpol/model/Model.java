@@ -118,6 +118,8 @@ public class Model implements de.uni_freiburg.informatik.ultimate.logic.Model {
 	
 	public int extendNumeric(FunctionSymbol fsym, Rational rat) {
 		assert fsym.getReturnSort().isNumericSort();
+		if (fsym.getReturnSort().getName().equals("Int") && !rat.isIntegral())
+			throw new InternalError("Non-integral value on " + fsym);
 		int idx = mNumSorts.extend(rat);
 		mFuncVals.put(fsym, new FunctionValue(idx));
 		return idx;
