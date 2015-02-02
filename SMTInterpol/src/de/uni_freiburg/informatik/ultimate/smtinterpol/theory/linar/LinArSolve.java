@@ -23,6 +23,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -159,7 +160,7 @@ public class LinArSolve implements ITheory {
 
 	private int mNumRemoved = 0;
 
-	private final List<LinVar> mToRemove = new ArrayList<LinVar>();
+	private final Set<LinVar> mToRemove = new LinkedHashSet<LinVar>();
 
 	/**
 	 * Basic initialization.
