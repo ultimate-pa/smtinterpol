@@ -117,7 +117,12 @@ public class LinVar implements Comparable<LinVar> {
 	boolean mDead = false;
 
 	int mChainlength;
-	
+
+	Map<LinVar, Rational> mFactors;
+	void setFactors(Map<LinVar, Rational> factors) {
+		mFactors = factors;
+	}
+
 	/// --- Construction ---
 	/**
 	 * Constructs a dummy linear variable.

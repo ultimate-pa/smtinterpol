@@ -310,6 +310,7 @@ public class LinArSolve implements ITheory {
 			var = new LinVar(new LinTerm(intSum), isInt, level, mVarNum++);
 			insertVar(var, curcoeffs);
 			mTerms.put(factors, var);
+			var.setFactors(factors);
 			mLinvars.add(var);
 			assert var.checkBrpCounters();
 		}
@@ -1559,6 +1560,8 @@ public class LinArSolve implements ITheory {
 		}
 		TreeMap<LinVar, Rational> coeffs = removeVar(v);
 		updateSimps(v, coeffs);
+		if (v.mFactors != null)
+			mTerms.remove(v.mFactors);
 		mOob.remove(v);
 		mPropBounds.remove(v);
 	}
