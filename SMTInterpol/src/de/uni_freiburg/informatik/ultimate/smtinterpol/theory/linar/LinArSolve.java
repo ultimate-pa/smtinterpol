@@ -1390,7 +1390,7 @@ public class LinArSolve implements ITheory {
 		} // end of queue polling
 		for (Iterator<LinVar> it = mToRemove.iterator(); it.hasNext(); ) {
 			LinVar v = it.next();
-			if (v.unconstrained() && v.isCurrentlyUnconstrained()) {
+			if (v.isInitiallyBasic() && v.unconstrained() && v.isCurrentlyUnconstrained()) {
 				removeLinVar(v);
 				it.remove();
 			}
@@ -1594,6 +1594,7 @@ public class LinArSolve implements ITheory {
 	}
 
 	public void removeLinVar(LinVar v) {
+		System.err.println("Removing var " + v);
 		// assert mOob.isEmpty();
 		if (!mOob.isEmpty()) {
 			Clause c = fixOobs();
