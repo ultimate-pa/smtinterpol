@@ -723,6 +723,7 @@ public class Minimizer {
 			Term[] newPartition = partition.clone();
 			newPartition[idx] = buildAnd(newcs);
 			gi.setNewPartition(newPartition);
+			gi.setNewStartOfSubtree(gi.getStartOfSubtree());
 			if (test()) {
 				gi.success();
 				conjs = ((ApplicationTerm) newPartition[idx]).
