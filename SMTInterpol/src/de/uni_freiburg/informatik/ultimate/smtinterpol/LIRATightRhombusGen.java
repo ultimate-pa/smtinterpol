@@ -20,7 +20,7 @@ public class LIRATightRhombusGen {
 		}
 	}
 
-	private final static Rational EPSILON = Rational.valueOf(1, 1000000000);
+	private final static Rational EPSILON = Rational.valueOf(1, 10000000000000L);
 
 	private static void writeBenchmarkHead(PrintWriter out, Rational xcoeff,
 			Rational ycoeff, Rational scale) {
@@ -116,23 +116,46 @@ public class LIRATightRhombusGen {
 		System.err.println("xlower = " + xlower);
 		System.err.println("xupper = " + xupper);
 		Rational mindiff = Rational.POSITIVE_INFINITY;
-		for (Rational i = xlower; i.compareTo(xupper) <= 0; i = i.add(Rational.ONE)) {
+		Rational xformin = null;
+		String minval = null;
+		Rational i = Rational.valueOf(10, 1);
+//		for (Rational i = xlower; i.compareTo(xupper) <= 0; i = i.add(Rational.ONE)) {
 			Rational ymax1 = xcoeff.div(ycoeff.add(Rational.ONE)).mul(i);
 			Rational ymax2 = xcoeff.add(Rational.ONE).div(ycoeff).mul(i).sub(ycoeff.inverse());
-			Rational ymax = ymax1.compareTo(ymax2) <= 0 ? ymax1 : ymax2;
+			Rational ymax;
+			if (ymax1.compareTo(ymax2) <= 0) {
+				ymax = ymax1;
+				minval = "ymax1";
+			} else {
+				ymax = ymax2;
+				minval = "ymax2";
+			}
 			Rational diff = ymax.sub(ymax.floor());
-			if (diff.compareTo(mindiff) < 0)
+			if (diff.compareTo(mindiff) < 0) {
 				mindiff = diff;
+				xformin = i;
+			}
 			Rational ymin1 = xcoeff.div(ycoeff.add(Rational.ONE)).mul(i).sub(scale.sub(Rational.ONE).div(ycoeff.add(Rational.ONE)));
 			Rational ymin2 = xcoeff.add(Rational.ONE).div(ycoeff).mul(i).sub(scale.div(ycoeff));
-			Rational ymin = ymin1.compareTo(ymin2) > 0 ? ymin1 : ymin2;
+			Rational ymin;
+			if (ymin1.compareTo(ymin2) > 0) {
+				ymin = ymin1;
+				minval = "ymin1";
+			} else {
+				ymin = ymin2;
+				minval = "ymin2";
+			}
 			diff = ymin.sub(ymin.floor());
-			if (diff.compareTo(mindiff) < 0)
+			if (diff.compareTo(mindiff) < 0) {
 				mindiff = diff;
-		}
+				xformin = i;
+			}
+//		}
 		System.err.println("mindiff = " + mindiff);
-		writeSatBenchmark(xcoeff, ycoeff, scale, mindiff, args[0], args[1], args[2]);
-		writeUnsatBenchmark(xcoeff, ycoeff, scale, mindiff, args[0], args[1], args[2]);
+		System.err.println("xformin = " + xformin);
+		System.err.println("minval = " + minval);
+//		writeSatBenchmark(xcoeff, ycoeff, scale, mindiff, args[0], args[1], args[2]);
+//		writeUnsatBenchmark(xcoeff, ycoeff, scale, mindiff, args[0], args[1], args[2]);
 	}
 
 }
