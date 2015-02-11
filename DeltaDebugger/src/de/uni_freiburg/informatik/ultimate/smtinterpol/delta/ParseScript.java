@@ -191,7 +191,7 @@ public class ParseScript extends NoopScript {
 	private void ensureNotFresh(String fun) {
 		if (fun.startsWith(ReplaceByFreshTerm.FRESH_PREFIX)) {
 			String tail = fun.substring(
-					ReplaceByFreshTerm.FRESH_PREFIX.length() + 1);
+					ReplaceByFreshTerm.FRESH_PREFIX.length());
 			try {
 				ReplaceByFreshTerm.ensureNotFresh(Integer.parseInt(tail));
 			} catch (NumberFormatException ignored) {
