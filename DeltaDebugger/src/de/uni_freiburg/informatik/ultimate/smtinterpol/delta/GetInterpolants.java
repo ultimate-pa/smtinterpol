@@ -76,7 +76,7 @@ public class GetInterpolants extends Cmd {
 		mSos = mOldSos;
 	}
 	public void success() {
-		System.err.println("New partition: " + Arrays.toString(mPartition));
+		System.err.println("New partition: " + Arrays.toString(mPartition) + "/" + Arrays.toString(mSos));
 		mOldPartition = null;
 		mOldSos = null;
 	}

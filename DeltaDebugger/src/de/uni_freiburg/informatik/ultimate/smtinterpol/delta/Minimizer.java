@@ -665,6 +665,8 @@ public class Minimizer {
 				newSos[i - diff] = Math.max(sos[i] - 1, 0);
 			}
 		}
+		gi.setNewPartition(newPartition);
+		gi.setNewStartOfSubtree(newSos);
 	}
 	
 	private boolean mergeTree(GetInterpolants gi)
@@ -689,6 +691,7 @@ public class Minimizer {
 				if (test()) {
 					res = true;
 					gi.success();
+					sos = gi.getStartOfSubtree();
 					--i;
 					--n;
 					--children;
