@@ -152,7 +152,7 @@ public class LAInterpolator {
 			boolean isFirst = true;
 			for (LinVar lv : mSum.getSummands().keySet()) {
 				Interpolator.Occurrence occ = 
-						mInterpolator.mSymbolPartition.get(lv.getSharedTerm());
+						mInterpolator.getOccurrence(lv.getSharedTerm());
 				assert (occ != null);
 				if (isFirst) {
 					mInA.or(occ.mInA);
@@ -188,7 +188,7 @@ public class LAInterpolator {
 					LinVar lv = mMyAnnotation.getLinVar();
 
 					for (Entry<LinVar, BigInteger> en : lv.getLinTerm().entrySet()) {
-						Occurrence occ = mInterpolator.mSymbolPartition.get(
+						Occurrence occ = mInterpolator.getOccurrence(
 									en.getKey().getSharedTerm());
 
 						if (occ.isALocal(part)) {
