@@ -118,6 +118,8 @@ public class LinVar implements Comparable<LinVar> {
 
 	int mChainlength;
 	
+	ExactInfinitNumber mExactVal = null;
+	
 	/// --- Construction ---
 	/**
 	 * Constructs a dummy linear variable.
@@ -571,5 +573,15 @@ public class LinVar implements Comparable<LinVar> {
 	}
 	public boolean isAlive() {
 		return !mDead;
+	}
+	
+	public ExactInfinitNumber getExactValue() {
+//		if (mExactVal == null) // Cache deactivated for now since it has to be invalidated when we change mCurval
+			mExactVal = new ExactInfinitNumber(mCurval.mA, computeEpsilon());
+		return mExactVal;
+	}
+	
+	public void clearExactValue() {
+		mExactVal = null;
 	}
 }
