@@ -1756,8 +1756,8 @@ public class LinArSolve implements ITheory {
      * @param var   Nonbasic variable to compute freedom interval for.
      */
 	private void freedom(LinVar var) {
-		mLower = new ExactInfinitNumber(var.getLowerBound());
-		mUpper = new ExactInfinitNumber(var.getUpperBound());
+		mLower = new ExactInfinitNumber(var.getExactLowerBound());
+		mUpper = new ExactInfinitNumber(var.getExactUpperBound());
 		// fast path: Fixed variable
 		if (mLower.equals(mUpper))
 			return;
@@ -1767,9 +1767,9 @@ public class LinArSolve implements ITheory {
 			me = me.mNextInCol) {
 			Rational coeff = Rational.valueOf(
 					me.mRow.mHeadEntry.mCoeff.negate(), me.mCoeff);
-			ExactInfinitNumber below = me.mRow.getLowerBound().sub(
+			ExactInfinitNumber below = me.mRow.getExactLowerBound().sub(
 					me.mRow.getExactValue()).mul(coeff);
-			ExactInfinitNumber above = me.mRow.getUpperBound().sub(
+			ExactInfinitNumber above = me.mRow.getExactUpperBound().sub(
 					me.mRow.getExactValue()).mul(coeff);
 			if (coeff.isNegative()) {
 				// reverse orders
@@ -1777,7 +1777,16 @@ public class LinArSolve implements ITheory {
 				below = above;
 				above = t;
 			}
-			assert (below.signum() <= 0 && above.signum() >= 0);
+			if (below.signum() > 0) {
+				// We can only violate a bound by a number of epsilons
+				assert below.getRealValue() == Rational.ZERO;
+				below = new ExactInfinitNumber();
+			}
+			if (above.signum() < 0) {
+				// We can only violate a bound by a number of epsilons
+				assert above.getRealValue() == Rational.ZERO;
+				above = new ExactInfinitNumber();
+			}
 			if (below.compareTo(maxBelow) > 0)
 				maxBelow = below;
 			if (above.compareTo(minAbove) < 0)
@@ -1846,6 +1855,7 @@ public class LinArSolve implements ITheory {
 				}
 			}
 
+			Map<LinVar, ExactInfinitNumber> simps = calculateSimpVals();
 			// Do not merge two shared variables
 			for (int i = 0; i < mSharedVars.size(); i++) {
 				SharedTerm sharedVar = mSharedVars.get(i);
@@ -1864,7 +1874,8 @@ public class LinArSolve implements ITheory {
 						sharedVar.getOffset(), Rational.ZERO);
 				if (sharedLV != null)
 					sharedCurVal = sharedCurVal.add(
-							sharedLV.getExactValue().mul(sharedVar.getFactor()));
+							(sharedLV.isAlive() ? sharedLV.getExactValue() : simps.get(sharedLV))
+							.mul(sharedVar.getFactor()));
 				set.add(sharedCurVal);
 			}
 			// If there is no integer constraint for the non-basic manipulate
@@ -1975,7 +1986,7 @@ public class LinArSolve implements ITheory {
 
 		ExactInfinitNumber exactval = new ExactInfinitNumber(currentValue);
 		if (lcm == Rational.POSITIVE_INFINITY) {
-			if (mUpper.equals(ExactInfinitNumber.POSITIVE_INFINITY)) {
+			if (mUpper.isInfinite()) {
 				// We search linear upwards from starting from the current value
 				InfinitNumber cur = currentValue;
 				do {
@@ -1984,7 +1995,7 @@ public class LinArSolve implements ITheory {
 						&& hasSharing(sharedPoints, exactval.isub(cur)));
 				return cur;
 			}
-			if (mLower.equals(ExactInfinitNumber.NEGATIVE_INFINITY)) {
+			if (mLower.isInfinite()) {
 				// We search linear downwards
 				InfinitNumber cur = currentValue;
 				do {
@@ -2129,8 +2140,10 @@ public class LinArSolve implements ITheory {
 		for (Entry<Rational, Set<ExactInfinitNumber>> entry : sharedPoints.entrySet()) {
 			ExactInfinitNumber sharedDiff = diff.mul(entry.getKey());
 			for (ExactInfinitNumber r : entry.getValue()) {
-				if (!used.add(r.add(sharedDiff)))
+				if (!used.add(r.add(sharedDiff))) {
+//					System.err.println("found sharing");
 					return true;
+				}
 			}
 		}
 		return false;

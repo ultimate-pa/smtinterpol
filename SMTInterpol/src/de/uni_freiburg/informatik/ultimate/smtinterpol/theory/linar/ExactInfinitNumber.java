@@ -146,4 +146,7 @@ public class ExactInfinitNumber implements Comparable<ExactInfinitNumber> {
 	public int signum() {
 		return mReal == Rational.ZERO ? mEps.signum() : mReal.signum();
 	}
+	public boolean isInfinite() {
+		return !mReal.isRational();
+	}
 }
