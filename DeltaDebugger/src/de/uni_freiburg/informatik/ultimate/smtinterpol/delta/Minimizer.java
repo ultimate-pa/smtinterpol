@@ -118,7 +118,7 @@ public class Minimizer {
 		private final List<Substitution> mSubsts;
 		private final HashMap<Term, Boolean> mSeen;
 		private List<Cmd> mPres;
-		
+
 		public SimplifyTerms(AbstractOneTermCmd cmd, SubstitutionManager mgr,
 				List<Substitution> substs, HashMap<Term, Boolean> cache) {
 			mCmd = cmd;
@@ -135,7 +135,7 @@ public class Minimizer {
 			if (mVerbosity > 1)
 				System.err.println("Active substs: " + sublist);
 			applier.init(mMgr.getDepth(), mSubsts);
-			Term simp = applier.apply(mCmd.getTerm());
+			Term simp = applier.apply(mCmd.getTerm(mUnletRelet));
 			if (mVerbosity > 1)
 				System.err.println("simp = " + simp);
 			Boolean res = mSeen.get(simp);
@@ -144,7 +144,7 @@ public class Minimizer {
 					s.deactivate();
 				return res;
 			}
-			mCmd.setTerm(simp);
+			mCmd.setTerm(simp, mUnletRelet);
 			mPres = applier.getAdds();
 			mCmd.appendPreCmds(mPres);
 			if (res != null && res.booleanValue())
@@ -154,7 +154,7 @@ public class Minimizer {
 
 		@Override
 		public void failure(List<Substitution> sublist) {
-			mSeen.put(mCmd.getTerm(), Boolean.FALSE);
+			mSeen.put(mCmd.getTerm(mUnletRelet), Boolean.FALSE);
 			mCmd.removePreCmds(mPres);
 			mCmd.failure();
 			for (Substitution subst : sublist)
@@ -164,7 +164,7 @@ public class Minimizer {
 
 		@Override
 		public void success(List<Substitution> sublist) {
-			mSeen.put(mCmd.getTerm(), Boolean.TRUE);
+			mSeen.put(mCmd.getTerm(mUnletRelet), Boolean.TRUE);
 			for (Substitution s : sublist)
 				s.success();
 			mCmd.success();
@@ -229,10 +229,10 @@ public class Minimizer {
 		public Boolean prepare(List<Neutral> sublist) {
 			if (mVerbosity > 1)
 				System.err.println("Trying " + sublist);
-			Term rem = new NeutralRemover(sublist).removeNeutrals(mCmd.getTerm());
+			Term rem = new NeutralRemover(sublist).removeNeutrals(mCmd.getTerm(mUnletRelet));
 			if (mVerbosity > 1)
 				System.err.println("Result: " + rem);
-			mCmd.setTerm(rem);
+			mCmd.setTerm(rem, mUnletRelet);
 			return null;
 		}
 
@@ -266,9 +266,11 @@ public class Minimizer {
 	
 	private final OutputReaper mOut, mErr;
 
+	private final boolean mUnletRelet;
+
 	public Minimizer(List<Cmd> cmds, int goldenExit,
 			File tmpFile, File resultFile, String solver, int verbosity,
-			OutputReaper out, OutputReaper err) {
+			OutputReaper out, OutputReaper err, boolean unletRelet) {
 		mCmds = cmds;
 		mGoldenExit = goldenExit;
 		mTmpFile = tmpFile;
@@ -277,23 +279,27 @@ public class Minimizer {
 		mVerbosity = verbosity;
 		mOut = out;
 		mErr = err;
+		mUnletRelet = unletRelet;
 	}
 	
 	public boolean deltaDebug() throws IOException, InterruptedException {
 		if (mVerbosity > 0)
 			System.err.println("# commands: " + mCmds.size());
 		int numRounds = 0;
-		boolean cmds, terms, bindings, neutrals, lists, ips, decls;
+		boolean cmds = false, terms = false, bindings = false, neutrals = false,
+				lists = false, ips = false, decls = false;
 		boolean scopes = removeScopes();
 		do {
 			cmds = removeCmds();
+			terms = simplifyTerms(true);
+			decls = removeDecls();
 			shrinkCmdList();
-			terms = simplifyTerms();
+			terms = simplifyTerms(false);
 			bindings = removeBindings();
 			neutrals = removeNeutrals();
 			lists = simplifyTermListCmds();
 			ips = simplifyGetInterpolants();
-			decls = removeDecls();
+			decls = removeDecls() || decls;
 			// Not needed anymore since I don't do further tests...
 	//		shrinkCmdList();
 			++numRounds;
@@ -492,8 +498,8 @@ public class Minimizer {
 										newBody));
 						}
 						
-					}.transform(tcmd.getTerm());// NOCHECKSTYLE 
-					tcmd.setTerm(stripped);
+					}.transform(tcmd.getTerm(mUnletRelet));// NOCHECKSTYLE 
+					tcmd.setTerm(stripped, mUnletRelet);
 				}
 				return null;
 			}
@@ -527,8 +533,8 @@ public class Minimizer {
 		if (cmd instanceof OneTermCmd) {
 			OneTermCmd tcmd = (OneTermCmd) cmd;
 			if (tcmd.getCmd().equals("assert")
-					&& tcmd.getTerm() instanceof AnnotatedTerm)
-				for (Annotation a : ((AnnotatedTerm) tcmd.getTerm()).
+					&& tcmd.getTerm(false) instanceof AnnotatedTerm)
+				for (Annotation a : ((AnnotatedTerm) tcmd.getTerm(false)).
 						getAnnotations())
 					if (a.getKey().equals(":named"))
 						return true;
@@ -544,9 +550,9 @@ public class Minimizer {
 			if (!cmd.isActive() || !(cmd instanceof AbstractOneTermCmd))
 				continue;
 			AbstractOneTermCmd tcmd = (AbstractOneTermCmd) cmd;
-			Term s = simp.transform(tcmd.getTerm());
-			if (s != tcmd.getTerm()) {
-				tcmd.setTerm(s);
+			Term s = simp.transform(tcmd.getTerm(mUnletRelet));
+			if (s != tcmd.getTerm(mUnletRelet)) {
+				tcmd.setTerm(s, mUnletRelet);
 				if (test()) {
 					res = true;
 					tcmd.success();
@@ -568,7 +574,7 @@ public class Minimizer {
 			if (!cmd.isActive() || !(cmd instanceof AbstractOneTermCmd))
 				continue;
 			AbstractOneTermCmd tcmd = (AbstractOneTermCmd) cmd;
-			List<Neutral> neutrals = new NeutralDetector().detect(tcmd.getTerm());
+			List<Neutral> neutrals = new NeutralDetector().detect(tcmd.getTerm(mUnletRelet));
 			if (neutrals.isEmpty())
 				continue;
 			RemoveNeutrals driver = new RemoveNeutrals(tcmd);
@@ -578,17 +584,18 @@ public class Minimizer {
 		return result;
 	}
 	
-	private boolean simplifyTerms() throws IOException, InterruptedException {
+	private boolean simplifyTerms(boolean simpAsserts) throws IOException, InterruptedException {
 		if (mVerbosity > 0)
 			System.err.println("Simplifying terms...");
 		boolean res = false;
 		for (Cmd cmd : mCmds) {
-			if (!cmd.isActive() || !(cmd instanceof AbstractOneTermCmd))
+			if (!cmd.isActive() || !(cmd instanceof AbstractOneTermCmd)
+					|| (simpAsserts ^ (cmd instanceof OneTermCmd && ((OneTermCmd) cmd).getCmd().equals("assert"))))
 				continue;
 			boolean localres = false;
 			AbstractOneTermCmd tcmd = (AbstractOneTermCmd) cmd;
 			SubstitutionManager substmgr =
-					new SubstitutionManager(tcmd);
+					new SubstitutionManager(tcmd, mUnletRelet);
 			// Try to simplify this one command...
 			if (isUnnamedAssert(tcmd))
 				// We should not substitute the top level
@@ -601,7 +608,7 @@ public class Minimizer {
 					if (substs.isEmpty())
 						continue deepen;
 					if (mVerbosity > 1) {
-						System.err.println("Term: " + tcmd.getTerm());
+						System.err.println("Term: " + tcmd.getTerm(false));
 						System.err.println("Substs: " + substs);
 					}
 					SimplifyTerms driver = new SimplifyTerms(
@@ -817,7 +824,7 @@ public class Minimizer {
 				res |= mergeTree(gi);
 			} else if (isNamedAssert(cmd)) {
 				AbstractOneTermCmd tcmd = (AbstractOneTermCmd) cmd;
-				AnnotatedTerm t = (AnnotatedTerm) tcmd.getTerm();
+				AnnotatedTerm t = (AnnotatedTerm) tcmd.getTerm(false);
 				Term v = t.getSubterm();
 				for (Annotation a : t.getAnnotations())
 					if (a.getKey().equals(":named"))
@@ -1000,6 +1007,7 @@ public class Minimizer {
 		int arg = 2;
 		boolean foundArg = true;
 		int verbosity = 0;
+		boolean unletReletMode = false;
 		while (foundArg && arg < args.length) {
 			foundArg = false;
 			if (args[arg].equals("-v")) {
@@ -1016,6 +1024,10 @@ public class Minimizer {
 				}
 				foundArg = true;
 				++arg;
+			} else if (args[arg].equals("-u")) {
+				unletReletMode = true;
+				++arg;
+				foundArg = true;
 			}
 		}
 		cmdstart = arg;
@@ -1090,7 +1102,7 @@ public class Minimizer {
 				System.err.println("Parsing done");
 			Minimizer mini = new Minimizer(
 					ps.getCmds(), goldenExit, tmpFile, resultFile, solver,
-					verbosity, out, err);
+					verbosity, out, err, unletReletMode);
 			// Free space
 			ps = null;
 			if (!mini.deltaDebug())

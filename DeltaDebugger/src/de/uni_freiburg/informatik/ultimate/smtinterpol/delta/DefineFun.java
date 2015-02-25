@@ -68,5 +68,10 @@ public class DefineFun extends AbstractOneTermCmd {
 	public String toString() {
 		return "DEFINE_FUN " + mFun;
 	}
+
+	@Override
+	public boolean hasDefinitions() {
+		return true;
+	}
 	
 }
