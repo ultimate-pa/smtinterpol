@@ -693,7 +693,6 @@ public class Interpolator {
 	public void colorLiterals(Clause root, HashSet<Clause> visited) {
 		if (visited.contains(root))
 			return;
-		visited.add(root);
 		ProofNode pn = root.getProof();
 		if (pn.isLeaf()) {
 			LeafNode ln = (LeafNode) pn;
@@ -733,6 +732,7 @@ public class Interpolator {
 				colorLiterals(a.mAntecedent, visited);
 			}
 		}
+		visited.add(root);
 	}
 
 
