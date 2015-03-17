@@ -67,3 +67,16 @@ comment.cut
 /SMTInterpol/doc/interpolation.pdf
 /SMTInterpol/doc/progvars.pdf
 /SMTInterpol/doc/proposal.pdf
+
+# eclipse stuff
+.recommenders
+.externalToolBuilders
+
+#ant stuff
+.ant-*
+
+# archives
+*.tar.gz
+*.tgz
+*.zip
+
