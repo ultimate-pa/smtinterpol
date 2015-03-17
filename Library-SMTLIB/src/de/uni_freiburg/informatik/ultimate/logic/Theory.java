@@ -116,7 +116,9 @@ public class Theory {
 	public final FunctionSymbol mAnd, mOr, mNot, mImplies, mXor;
 	public final PolymorphicFunctionSymbol mEquals, mDistinct, mIte;
 	
-	private final static Sort[] EMPTY_SORT_ARRAY = {};
+	final static Sort[] EMPTY_SORT_ARRAY = {};
+	final static TermVariable[] EMPTY_TERM_VARIABLE_ARRAY = {};
+	final static Term[] EMPTY_TERM_ARRAY = {};
 	/**
 	 * Pattern for model value variables '{@literal @}digits'.
 	 */
@@ -990,6 +992,10 @@ public class Theory {
 		if (mFunFactory.get(name) != null || mDeclaredFuns.get(name) != null)
 			throw new IllegalArgumentException(
 					"Function " + name + " is already defined.");
+		if (paramTypes.length == 0)
+			paramTypes = EMPTY_SORT_ARRAY;
+		if (definitionVars != null && definitionVars.length == 0)
+			definitionVars = EMPTY_TERM_VARIABLE_ARRAY;
 		FunctionSymbol f = new FunctionSymbol(name, null, paramTypes,
 				resultType, definitionVars, definition, flags);	
 		mDeclaredFuns.put(name, f);
@@ -1022,7 +1028,8 @@ public class Theory {
 	 */
 	public FunctionSymbol defineFunction(String name, 
 			TermVariable[] definitionVars, Term definition) {
-		Sort[] paramTypes = new Sort[definitionVars.length];
+		Sort[] paramTypes =
+				definitionVars.length == 0 ? EMPTY_SORT_ARRAY : new Sort[definitionVars.length];
 		for (int i = 0; i < paramTypes.length; i++)
 			paramTypes[i] = definitionVars[i].getSort();
 		Sort resultType = definition.getSort();
@@ -1078,7 +1085,8 @@ public class Theory {
 	
 	public ApplicationTerm term(
 			FunctionSymbolFactory factory, Term... parameters) {
-		Sort[] sorts = new Sort[parameters.length];
+		Sort[] sorts =
+				parameters.length == 0 ? EMPTY_SORT_ARRAY : new Sort[parameters.length];
 		for (int i = 0; i < parameters.length; i++)
 			sorts[i] = parameters[i].getSort();
 		FunctionSymbol fsym = 
@@ -1090,7 +1098,8 @@ public class Theory {
 	}
 
 	public ApplicationTerm term(String func, Term... parameters) {
-		Sort[] paramSorts = new Sort[parameters.length];
+		Sort[] paramSorts =
+				parameters.length == 0 ? EMPTY_SORT_ARRAY : new Sort[parameters.length];
 		for (int i = 0; i < parameters.length; i++)
 			paramSorts[i] = parameters[i].getSort();
 		FunctionSymbol fsym =
@@ -1101,6 +1110,8 @@ public class Theory {
 	}
 
 	public ApplicationTerm term(FunctionSymbol func, Term... parameters) {
+		if (parameters.length == 0)
+			parameters = EMPTY_TERM_ARRAY;
 		int hash = ApplicationTerm.hashApplication(func, parameters);
 		for (Term t : mTermCache.iterateHashCode(hash)) {
 			if (t instanceof ApplicationTerm) {
