@@ -1190,8 +1190,8 @@ public class Interpolator {
 					.add(new InfinitNumber(c1c2, 0));
 			assert newK.isIntegral();
 			
-			Rational k1c1 = la1.mK.mA.add(Rational.ONE).div(absc1).floor();
-			Rational k2c2 = la2.mK.mA.add(Rational.ONE).div(absc2).floor();
+			Rational k1c1 = la1.mK.mA.add(Rational.ONE).div(absc1).ceil();
+			Rational k2c2 = la2.mK.mA.add(Rational.ONE).div(absc2).ceil();
 			Rational kc;
 			Rational theC;
 			InterpolatorAffineTerm theS;
