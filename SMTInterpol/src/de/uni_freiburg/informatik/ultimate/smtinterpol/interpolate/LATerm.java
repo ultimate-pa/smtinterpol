@@ -27,6 +27,24 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.InfinitNumbe
 public class LATerm extends Term {
 	public LATerm(InterpolatorAffineTerm s, InfinitNumber k, Term F) {
 		super(F.hashCode());
+		Rational gcd = s.getGCD().abs();
+		if (!gcd.equals(Rational.ONE)) {
+		    // normalize s-Term by dividing by gcd
+		    s.div(gcd);
+		    k = k.div(gcd);
+		    // if s is an integer term, round the constants accordingly
+		    if (s.isInt()) {
+			// s <= 0 iff ceil(s) <= 0.
+			Rational c = s.getConstant();
+			// ceil(s) = s - c + ceil(c) = s + cdiff
+			Rational cdiff = c.ceil().add(c.negate());
+			s.add(cdiff);
+			// -k <= s iff -k+cdiff <= s + cdiff
+			//         iff ceil(-k+cdiff) <= s + cdiff
+			// -ceil(-k+cdiff) = floor(k-cdiff)
+			k = k.add(cdiff.negate()).floor();
+		    }
+		}
 		mS = s;
 		mK = k;
 		mF = F;
