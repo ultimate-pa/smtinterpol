@@ -21,7 +21,11 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.delta;
 import java.io.PrintWriter;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
+import de.uni_freiburg.informatik.ultimate.logic.FormulaLet;
+import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 
 public abstract class AbstractOneTermCmd extends TermCmd {
@@ -35,13 +39,14 @@ public abstract class AbstractOneTermCmd extends TermCmd {
 		addTerm(term);
 	}
 	
-	public Term getTerm() {
-		return mTerm;
+	public Term getTerm(boolean unlet) {
+		return unlet ? new FormulaUnLet().unlet(mTerm) : mTerm;
 	}
 	
-	public void setTerm(Term newTerm) {
+	public void setTerm(Term newTerm, boolean relet) {
+		assert (newTerm != mTerm) : "No change in the term";
 		mOldTerm = mTerm;
-		mTerm = newTerm;
+		mTerm = new FormulaLet().let(newTerm);
 	}
 	
 	public void success() {
@@ -80,6 +85,11 @@ public abstract class AbstractOneTermCmd extends TermCmd {
 	public List<Cmd> getPreCmds() {
 		List<Cmd> empty = Collections.emptyList();
 		return mPreCmds == null ? empty : mPreCmds;
+	}
+
+	@Override
+	public void addUsedDefinitions(Map<String, Cmd> context, Set<Cmd> usedDefs) {
+		new DefinitionTracker(context, usedDefs).track(mTerm);
 	}
 
 }

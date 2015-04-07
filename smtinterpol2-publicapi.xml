@@ -4,7 +4,7 @@
         <javadoc access="protected" author="true"
         	classpath="SMTInterpol/lib/log4j-1.2.15.jar:SMTInterpol/lib/java-cup-12joho.jar:Library-SMTLIB/bin:Library-SMTLIB/release:SMTInterpol/bin:SMTInterpol/release" 
         	destdir="doc-smtinterpol" 
-        	Doctitle="SMTInterpol 2.0 Public API" 
+        	Doctitle="SMTInterpol 2.1 Public API"
         	nodeprecated="false" 
         	nodeprecatedlist="false" 
         	noindex="false" 
@@ -14,7 +14,7 @@
         	splitindex="true"
         	use="true"
         	version="true"
-		Windowtitle="SMTInterpol 2.0 Public API">
+		Windowtitle="SMTInterpol 2.1 Public API">
               <fileset dir="." defaultexcludes="yes">
                  <include name="Library-SMTLIB/src/de/uni_freiburg/informatik/ultimate/logic/**"/>
                  <exclude name="Library-SMTLIB/src/de/uni_freiburg/informatik/ultimate/logic/simplification/**"/>

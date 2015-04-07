@@ -19,7 +19,7 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.delta;
 
 import java.io.PrintWriter;
-import java.util.Arrays;
+//import java.util.Arrays;
 import java.util.Map;
 
 import de.uni_freiburg.informatik.ultimate.logic.PrintTerm;
@@ -76,7 +76,7 @@ public class GetInterpolants extends Cmd {
 		mSos = mOldSos;
 	}
 	public void success() {
-		System.err.println("New partition: " + Arrays.toString(mPartition));
+//		System.err.println("New partition: " + Arrays.toString(mPartition) + "/" + Arrays.toString(mSos));
 		mOldPartition = null;
 		mOldSos = null;
 	}

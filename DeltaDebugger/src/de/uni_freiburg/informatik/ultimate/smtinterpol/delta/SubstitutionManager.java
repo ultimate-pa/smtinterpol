@@ -35,9 +35,11 @@ public class SubstitutionManager {
 	private List<Substitution> mSubsts;
 	
 	private final AbstractOneTermCmd mCmd;
-	
-	public SubstitutionManager(AbstractOneTermCmd cmd) {
+	private final boolean mUnletRelet;
+
+	public SubstitutionManager(AbstractOneTermCmd cmd, boolean unletRelet) {
 		mCmd = cmd;
+		mUnletRelet = unletRelet;
 	}
 	
 	public boolean deepen() {
@@ -131,7 +133,7 @@ public class SubstitutionManager {
 	
 	private boolean computeSubsts() {
 		TermCollector tc = new TermCollector(mDepth);
-		tc.add(mCmd.getTerm());
+		tc.add(mCmd.getTerm(mUnletRelet));
 		List<Term> found = tc.getTerms();
 		mSubsts = new ArrayList<Substitution>(found.size());
 		for (Term t : found) {

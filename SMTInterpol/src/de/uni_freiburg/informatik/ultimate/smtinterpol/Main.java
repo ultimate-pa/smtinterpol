@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
 
+import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.aiger.AIGERFrontEnd;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dimacs.DIMACSParser;
@@ -66,6 +67,7 @@ public final class Main {
 		System.err.println("If no INPUTFILE is given, stdin is used.");
 		System.err.println("  -script <class>      Send the input to another Java class implementing Script.");// NOCHECKSTYLE
 		System.err.println("  -no-success          Don't print success messages.");// NOCHECKSTYLE
+		System.err.println("  -o <opt>=<value>     Set option :opt to value. The default value is true.");// NOCHECKSTYLE
 		System.err.println("  -q                   Only print error messages.");// NOCHECKSTYLE
 		System.err.println("  -w                   Don't print statistics and models.");// NOCHECKSTYLE
 		System.err.println("  -v                   Print debugging messages.");
@@ -118,6 +120,29 @@ public final class Main {
 			} else if (param[paramctr].equals("-r")
 					&& ++paramctr < param.length) {
 				options.set(":random-seed", param[paramctr]);
+			} else if (param[paramctr].equals("-o")
+					&& paramctr + 1 < param.length) {
+				paramctr++;
+				String opt = param[paramctr];
+				int eq = opt.indexOf('=');
+				String name;
+				Object value;
+				if (eq == -1) {
+					name = opt;
+					value = Boolean.TRUE;
+				} else {
+					name = opt.substring(0, eq);
+					value = opt.substring(eq + 1);
+				}
+				try {
+					solver.setOption(":" + name, value);
+				} catch (UnsupportedOperationException ex) {
+					System.err.println("Unknown option :" + name + ".");
+					return;
+				} catch (SMTLIBException ex) {
+					System.err.println(ex.getMessage());
+					return;
+				}
 			} else if (param[paramctr].equals("-smt2")) {
 				parser = new SMTLIB2Parser();
 			} else if (param[paramctr].equals("-smt")) {

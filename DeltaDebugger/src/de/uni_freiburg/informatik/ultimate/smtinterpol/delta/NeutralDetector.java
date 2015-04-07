@@ -58,25 +58,26 @@ public class NeutralDetector extends NonRecursive {
 			NeutralDetector detector = (NeutralDetector) walker;
 			FunctionSymbol fsym = term.getFunction();
 			Theory t = fsym.getTheory();
+			Term[] params = term.getParameters();
 			if (fsym == t.mAnd || fsym == t.mOr) {
 				Term neutral = fsym == t.mAnd ? t.mTrue : t.mFalse;
-				Term[] params = term.getParameters();
 				for (int i = 0; i < params.length; ++i) {
 					if (params[i] == neutral)
 						detector.mNeutrals.add(new Neutral(term, i));
 					else
 						detector.enqueueWalker(new NeutralWalker(params[i]));
 				}
-			}
-			if (fsym.getName().equals("+") || fsym.getName().equals("-")) {
+			} else if (fsym.getName().equals("+") || fsym.getName().equals("-")) {
 				int start = fsym.getName().equals("+") ? 0 : 1;
-				Term[] params = term.getParameters();
 				for (int i = start; i < params.length; ++i) {
 					if (isZero(params[i]))
 						detector.mNeutrals.add(new Neutral(term, i));
 					else
 						detector.enqueueWalker(new NeutralWalker(params[i]));
 				}
+			} else {
+				for (Term p : params)
+					detector.enqueueWalker(new NeutralWalker(p));
 			}
 		}
 
@@ -108,7 +109,8 @@ public class NeutralDetector extends NonRecursive {
 			if (val instanceof BigInteger)
 				return BigInteger.ZERO.equals(val);
 			if (val instanceof BigDecimal)
-				return BigDecimal.ZERO.equals(val);
+				// Bugfix: Don't use equals since it requires equal scale! 
+				return BigDecimal.ZERO.compareTo((BigDecimal) val) == 0;
 			if (val instanceof Rational)
 				return Rational.ZERO.equals(val);
 		}

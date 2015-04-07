@@ -225,6 +225,21 @@ public class SMTInterpol extends NoopScript {
 	
 	private final OptionMap mOptions;
 	private final SolverOptions mSolverOptions;
+	
+	private static class TimeoutTask extends TimerTask {
+		private final DPLLEngine mEngine;
+		public TimeoutTask(DPLLEngine engine) {
+			mEngine = engine;
+		}
+		@Override
+		public void run() {
+			synchronized (mEngine) {
+				mEngine.setCompleteness(DPLLEngine.INCOMPLETE_TIMEOUT);
+				mEngine.stop();
+			}
+		}
+	}
+	
 	private DPLLEngine mEngine;
 	private Clausifier mClausifier;
 	private ScopedArrayList<Term> mAssertions;
@@ -253,6 +268,9 @@ public class SMTInterpol extends NoopScript {
 	// encountered.  If it is -1, it means "never"
 	private int mBy0Seen = -1;
 	
+	// Timeout handling
+	private Timer mTimer;
+		
 	/**
 	 * Delta debugger friendly version.  Exits with following codes:
 	 * model-check-mode fails: 1
@@ -426,20 +444,11 @@ public class SMTInterpol extends NoopScript {
 			throw new SMTLIBException("No logic set!");
 		mModel = null;
 		mAssertionStackModified = false;
-		Timer timer = null;
-		if (mSolverOptions.getTimeout() > 0) {
-			timer = new Timer("Timing thread",true);
-			timer.schedule(new TimerTask() {
-
-				@Override
-				public void run() {
-					synchronized (mEngine) {
-						mEngine.setCompleteness(DPLLEngine.INCOMPLETE_TIMEOUT);
-						mEngine.stop();
-					}
-				}
-			
-			}, mSolverOptions.getTimeout());
+		long timeout = mSolverOptions.getTimeout();
+		TimeoutTask timer = null;
+		if (timeout > 0) {
+			timer = new TimeoutTask(mEngine);
+			getTimer().schedule(timer, timeout);
 		}
 		
 		LBool result = LBool.UNKNOWN;
@@ -894,14 +903,22 @@ public class SMTInterpol extends NoopScript {
 							tmpBench.assertTerm(tmpBench.term("not", ipls[i]));
 					} catch (SMTLIBException exc) {
 						mLogger.error("Could not assert interpolant", exc);
+						error = true;
 					}
 					LBool res = tmpBench.checkSat();
-					if (res != LBool.UNSAT) {
+					if (res == LBool.SAT) {
 						if (mDDFriendly)
 							System.exit(2);
 						mLogger.error("Interpolant %d not inductive: "
 								+ " (Check returned %s)", i, res);
 						error = true;
+					} else if (res == LBool.UNKNOWN) {
+						ReasonUnknown ru = tmpBench.mReasonUnknown;
+						mLogger.warn("Unable to check validity of interpolant: "
+								+ ru);
+						// I don't set the error flag here since I am not sure
+						// whether this is a real error or not.  Maybe we should
+						// base this on ru?
 					}
 					tmpBench.pop(1);
 					// Check symbol condition
@@ -1110,6 +1127,13 @@ public class SMTInterpol extends NoopScript {
 			if (mDDFriendly)
 				System.exit(4); // NOCHECKSTYLE
 			throw new SMTLIBException("Context is inconsistent");
+		}
+		if (mStatus != LBool.SAT) {
+			// Once we have incomplete solvers we might check mReasonUnknown...
+			if (mDDFriendly)
+				System.exit(9);
+			throw new SMTLIBException(
+					"Cannot construct model since solving did not complete");
 		}
 		if (mModel == null) {
 			mModel = new
@@ -1320,4 +1344,21 @@ public class SMTInterpol extends NoopScript {
 	private final boolean getBooleanOption(String option) {
 		return ((Boolean) mOptions.get(option)).booleanValue();
 	}
+
+	private Timer getTimer() {
+		if (mTimer == null) {
+			mTimer = new Timer("SMTInterpol Timeout Handler", true);
+		}
+		return mTimer;
+	}
+
+	@Override
+	public void exit() {
+		if (mTimer != null) {
+			mTimer.cancel();
+			mTimer = null;
+		}
+		super.exit();
+	}
+
 }

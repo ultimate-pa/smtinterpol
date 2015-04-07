@@ -56,7 +56,7 @@ public class LinVar implements Comparable<LinVar> {
 	/** Current lower bound and its reason. null if no lower bound. */
 	LAReason mLower;
 	/** Current value. */
-	InfinitNumber mCurval;
+	private InfinitNumber mCurval;
 	// Is value required to be integer?
 	boolean mIsInt;
 	// List of all bounds on this variable
@@ -117,6 +117,8 @@ public class LinVar implements Comparable<LinVar> {
 	boolean mDead = false;
 
 	int mChainlength;
+	
+	ExactInfinitNumber mExactVal = null;
 	
 	/// --- Construction ---
 	/**
@@ -233,15 +235,13 @@ public class LinVar implements Comparable<LinVar> {
 	 * @return <code>false</code> iff <code>mlbound<=mcurval<=mubound</code>. 
 	 */
 	public boolean outOfBounds() {
-		if (mUpper instanceof LiteralReason
-			|| (isInt() && mUpper != null)) {
+		if (mUpper != null) {
 			if (mCurval.mA.equals(mUpper.getExactBound().mA))
 				fixEpsilon();
 			if (mUpper.getExactBound().less(mCurval))
 				return true;
 		}
-		if (mLower instanceof LiteralReason
-			|| (isInt() && mLower != null)) {
+		if (mLower != null) {
 			if (mCurval.mA.equals(mLower.getExactBound().mA))
 				fixEpsilon();
 			if (mCurval.less(mLower.getExactBound()))
@@ -573,5 +573,24 @@ public class LinVar implements Comparable<LinVar> {
 	}
 	public boolean isAlive() {
 		return !mDead;
+	}
+	
+	public final ExactInfinitNumber getExactValue() {
+		if (mExactVal == null)
+			mExactVal = new ExactInfinitNumber(mCurval.mA, computeEpsilon());
+		return mExactVal;
+	}
+	
+	public final void clearExactValue() {
+		mExactVal = null;
+	}
+	
+	public final void setValue(InfinitNumber value) {
+		mCurval = value;
+		mExactVal = null;
+	}
+	
+	public final InfinitNumber getValue() {
+		return mCurval;
 	}
 }
