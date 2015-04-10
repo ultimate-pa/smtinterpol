@@ -32,7 +32,7 @@ public class FrontEndOptions {
 	private final static String REG_OUT_CHANNEL_NAME = ":regular-output-channel";
 	private final static String REG_OUT_CHANNEL_DEF = "stdout";
 	private final static String REG_OUT_CHANNEL_DESC =
-			"Where to print command responces to.  Use \"stdout\" for standard "
+			"Where to print command responses to.  Use \"stdout\" for standard "
 				+ "output and \"stderr\" for standard error.";
 
 	FrontEndOptions(OptionMap options) {
