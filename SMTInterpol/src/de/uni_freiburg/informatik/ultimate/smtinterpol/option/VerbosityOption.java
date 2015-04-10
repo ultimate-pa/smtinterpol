@@ -33,6 +33,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
  */
 public class VerbosityOption extends Option {
 
+	private int mDefaultLvl;
 	private final LogProxy mLogger;
 
 	public VerbosityOption(LogProxy logger) {
@@ -40,7 +41,7 @@ public class VerbosityOption extends Option {
 	+ "channel.  The bigger the number the more output will be produces.  0 "
 				+ "turns off diagnostic output.");
 		mLogger = logger;
-		mLogger.setLoglevel(Config.DEFAULT_LOG_LEVEL);
+		mLogger.setLoglevel(mDefaultLvl = Config.DEFAULT_LOG_LEVEL);
 	}
 	@Override
 	public Option copy() {
@@ -74,12 +75,16 @@ public class VerbosityOption extends Option {
 
 	@Override
 	public void reset() {
-		mLogger.setLoglevel(Config.DEFAULT_LOG_LEVEL);
+		mLogger.setLoglevel(mDefaultLvl);
 	}
 
 	@Override
 	public Object defaultValue() {
-		return BigInteger.valueOf(Config.DEFAULT_LOG_LEVEL);
+		return BigInteger.valueOf(mDefaultLvl);
+	}
+	@Override
+	public void started() {
+		mDefaultLvl = mLogger.getLoglevel();
 	}
 
 }

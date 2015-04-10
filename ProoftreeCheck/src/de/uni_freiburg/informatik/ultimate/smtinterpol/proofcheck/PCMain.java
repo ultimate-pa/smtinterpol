@@ -63,8 +63,7 @@ public final class PCMain {
 				useIsabelle, prettyOutput, fastProofs, partialProof);
 		checker.setOption(":verbosity", 3);
 		DefaultLogger logger = new DefaultLogger();
-		OptionMap options = new OptionMap(logger);
-		options.createFrontEndOptions();
+		OptionMap options = new OptionMap(logger, true);
 		new SMTLIB2Parser().run(checker, args[0], options);
 	}
 }

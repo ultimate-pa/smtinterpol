@@ -18,11 +18,11 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.option;
 
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.ChannelUtil;
 
 /**
  * An option specialized for output channels.  This option supports strings to
@@ -35,23 +35,13 @@ import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
  */
 public class ChannelOption extends Option {
 
-	/**
-	 * A wrapper for a PrintWriter.
-	 * @author Juergen Christ
-	 */
-	public static interface ChannelHolder {
-		PrintWriter getChannel();
-		void setChannel(PrintWriter writer);
-	}
-	
 	private String mName;
-	private final String mDefaultName;
-	private final ChannelHolder mHolder;
+	private String mDefaultName;
+	private PrintWriter mWriter;
 
-	public ChannelOption(String defaultChannel, ChannelHolder holder,
+	public ChannelOption(String defaultChannel,
 			boolean onlineModifiable, String description) {
 		super(onlineModifiable, description);
-		mHolder = holder;
 		createChannel(defaultChannel);
 		mName = mDefaultName = defaultChannel;
 	}
@@ -83,17 +73,18 @@ public class ChannelOption extends Option {
 	}
 	
 	private void createChannel(String file) {
-		if ("stdout".equals(file))
-			mHolder.setChannel(new PrintWriter(System.out));
-		else if ("stderr".equals(file))
-			mHolder.setChannel(new PrintWriter(System.err));
-		else {
-			try {
-				mHolder.setChannel(new PrintWriter(new FileWriter(file)));
-			} catch (IOException eIO) {
-				throw new SMTLIBException(eIO);
-			}
+		try {
+			mWriter = ChannelUtil.createChannel(file);
+		} catch (IOException eIO) {
+			throw new SMTLIBException(eIO);
 		}
+	}
+	@Override
+	public void started() {
+		mDefaultName = mName;
+	}
+	public PrintWriter getChannel() {
+		return mWriter;
 	}
 
 }

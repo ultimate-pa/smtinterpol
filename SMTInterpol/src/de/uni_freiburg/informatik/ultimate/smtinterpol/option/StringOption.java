@@ -25,7 +25,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.option;
 public class StringOption extends Option {
 
 	private String mValue;
-	private final String mDefaultValue;
+	private String mDefaultValue;
 
 	public StringOption(String defaultValue, boolean onlineModifiable,
 			String description) {
@@ -64,6 +64,10 @@ public class StringOption extends Option {
 	@Override
 	public Object defaultValue() {
 		return mDefaultValue;
+	}
+	@Override
+	public void started() {
+		mDefaultValue = mValue;
 	}
 
 }

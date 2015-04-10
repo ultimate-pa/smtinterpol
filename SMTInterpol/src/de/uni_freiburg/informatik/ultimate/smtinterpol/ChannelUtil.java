@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 University of Freiburg
+ * Copyright (C) 2014-2015 University of Freiburg
  *
  * This file is part of SMTInterpol.
  *
@@ -16,22 +16,22 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.
  */
-package de.uni_freiburg.informatik.ultimate.smtinterpol.option;
+package de.uni_freiburg.informatik.ultimate.smtinterpol;
 
+import java.io.FileWriter;
+import java.io.IOException;
 import java.io.PrintWriter;
 
-import de.uni_freiburg.informatik.ultimate.smtinterpol.option.ChannelOption.ChannelHolder;
-
-/**
- * A direct wrapper around a PrintWriter.
- * @author Juergen Christ
- */
-public class DirectChannelHolder implements ChannelHolder {
-	private PrintWriter mWriter;
-	public PrintWriter getChannel() {
-		return mWriter;
+public final class ChannelUtil {
+	private ChannelUtil() {
+		// hide constructor
 	}
-	public void setChannel(PrintWriter writer) {
-		mWriter = writer;
+	public static PrintWriter createChannel(String file) throws IOException {
+		if ("stdout".equals(file))
+			return new PrintWriter(System.out);
+		if ("stderr".equals(file))
+			return new PrintWriter(System.err);
+		else
+			return new PrintWriter(new FileWriter(file));
 	}
 }

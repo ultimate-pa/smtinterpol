@@ -55,8 +55,7 @@ public class Prepare implements ExitHook {
 		}
 		Prepare exit = new Prepare();
 		DefaultLogger logger = new DefaultLogger();
-		OptionMap options = new OptionMap(logger);
-		options.createFrontEndOptions();
+		OptionMap options = new OptionMap(logger, true);
 		while (fileStartIdx < args.length) {
 			StringBuilder target = new StringBuilder(args[fileStartIdx]);
 			// Insert .prep before .smt2

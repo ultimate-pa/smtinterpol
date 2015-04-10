@@ -18,6 +18,8 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.samples.util;
 
+import java.io.IOException;
+
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
@@ -199,6 +201,22 @@ public class Log4jProxy implements LogProxy {
 	@Override
 	public void trace(Object msg) {
 		mLogger.trace(msg);
+	}
+
+	@Override
+	public boolean canChangeDestination() {
+		// I assume the loger is managed by some external log4j configurator.
+		return false;
+	}
+
+	@Override
+	public void changeDestination(String newDest) throws IOException {
+		throw new InternalError("This should never be called!");
+	}
+
+	@Override
+	public String getDestination() {
+		return mLogger.getName(); // Essentially a dummy
 	}
 
 }

@@ -29,7 +29,7 @@ import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 public class BigIntegerOption extends Option {
 
 	private BigInteger mValue;
-	private final BigInteger mDefaultValue;
+	private BigInteger mDefaultValue;
 
 	public BigIntegerOption(BigInteger defaultValue, boolean onlineModifiable,
 			String description) {
@@ -78,6 +78,11 @@ public class BigIntegerOption extends Option {
 	@Override
 	public Object defaultValue() {
 		return mDefaultValue;
+	}
+
+	@Override
+	public void started() {
+		mDefaultValue = mValue;
 	}
 
 }

@@ -27,7 +27,7 @@ import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 public class BooleanOption extends Option {
 
 	private boolean mValue;
-	private final boolean mDefaultValue;
+	private boolean mDefaultValue;
 
 	public BooleanOption(boolean defaultValue, boolean onlineModifiable,
 			String description) {
@@ -75,6 +75,10 @@ public class BooleanOption extends Option {
 	@Override
 	public Object defaultValue() {
 		return Boolean.valueOf(mDefaultValue);
+	}
+	@Override
+	public void started() {
+		mDefaultValue = mValue;
 	}
 
 }

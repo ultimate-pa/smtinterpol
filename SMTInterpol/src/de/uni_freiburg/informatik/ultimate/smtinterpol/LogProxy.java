@@ -18,6 +18,8 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol;
 
+import java.io.IOException;
+
 /**
  * A proxy for different logging frameworks.  This proxy provides the basic
  * features needed by SMTInterpol.  It can be instantiated to different logging
@@ -75,5 +77,29 @@ public interface LogProxy {
 	// Trace messages.
 	boolean isTraceEnabled();
 	void trace(String msg, Object... params);
-	void trace(Object msg);	
+	void trace(Object msg);
+	
+	// Output destination management
+	/**
+	 * Check if the logger can change its destination.
+	 * @return <code>true</code> if the destination of the log messages can be
+	 *         changed by this logger.
+	 */
+	boolean canChangeDestination();
+	/**
+	 * Change to a new destination.  The destination can be <code>stdout</code>
+	 * for the standard output channel of the process, <code>stderr</code> for
+	 * the standard error channel, or a name of a file.  The option map ensures
+	 * that this function is called only if {@link #canChangeDestination()}
+	 * returned <code>true</code>.
+	 * @param newDest The new destination.
+	 * @throws IOException If the new destination cannot be created.
+	 */
+	void changeDestination(String newDest) throws IOException;
+	/**
+	 * Gets a string representation of the current destination.  The output has
+	 * to be valid input for {@link #changeDestination(String)}.
+	 * @return The current destination.
+	 */
+	String getDestination();
 }

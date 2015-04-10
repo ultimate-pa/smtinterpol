@@ -91,8 +91,7 @@ public final class Main {
 	 */
 	public static void main(String[] param) throws Exception {
 		DefaultLogger logger = new DefaultLogger();
-		OptionMap options = new OptionMap(logger);
-		options.createFrontEndOptions();
+		OptionMap options = new OptionMap(logger, true);
 		IParser parser = new SMTLIB2Parser();
 		Script solver = null;
 		int paramctr = 0;
@@ -169,6 +168,7 @@ public final class Main {
 			usage();
 			return;
 		}
+		options.started();
 		if (solver == null)
 			solver = new SMTInterpol(null, options);
 		int exitCode = parser.run(solver, filename, options);

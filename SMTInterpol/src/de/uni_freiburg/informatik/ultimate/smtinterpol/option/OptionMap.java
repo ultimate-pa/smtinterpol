@@ -22,7 +22,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 
 /**
@@ -39,10 +38,15 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
  * The diagnostic output channel option has a special role.  Since we are
  * working with {@link LogProxy}s, we might not be able to change the logging
  * destination.  Thus, only if the logger to be used is a {@link DefaultLogger},
- * we set up this option.
+ * we set up this option to change the log destination.  If a different logger
+ * is used, we simply set up an option to print a warning if this option is
+ * changed.
  * 
- * The front end options are not set up by default.  If they are needed, the
- * method {@link #createFrontEndOptions()} has to be called.
+ * The front end options are not activated by default.  If they are needed, the
+ * method {@link #activateFrontEndOptions()} has to be called.  All options are
+ * available, but the option <pre>:regular-output-channel</pre> will print a
+ * warning if its value is changed.  Only in the activated state, this option
+ * actually changes the destination of the output.  
  * 
  * The map maintains a flag representing the current state of the solver.  If
  * this flag is turned on, all options that are not configured to be online
@@ -52,6 +56,12 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
  */
 public class OptionMap {
 
+	private final static String DIAG_OUTPUT_CHANNEL_NAME =
+		":diagnostic-output-channel";
+	private final static String DIAG_OUTPUT_CHANNEL_DEFAULT = "stderr";
+	private final static String DIAG_OUTPUT_CHANNEL_DESC =
+		"Where to print diagnostic output to.  Use \"stdout\" for standard "
+			+ "output and \"stderr\" for standard error.";
 	/**
 	 * When copying this map, the options stored in this map can be either stay
 	 * unchanged or be reset to their default value.  This is controlled by this
@@ -70,34 +80,49 @@ public class OptionMap {
 	
 	private final LinkedHashMap<String, Option> mOptions;
 	private final SolverOptions mSolverOptions;
-	private FrontEndOptions mFrontEndOptions;
+	private final FrontEndOptions mFrontEndOptions;
 	private final LogProxy mLogger;
 	private boolean mOnline;
+
+	/**
+	 * Convenience constructor for {@link #OptionMap(LogProxy, boolean)} where
+	 * the front end is not activated by default.  This constructor should be
+	 * used when the Java API of SMTInterpol is used. 
+	 * @param logger The logger to be used by SMTInterpol.
+	 */
+	public OptionMap(LogProxy logger) {
+		this(logger, false);
+	}
 
 	/**
 	 * Create a new option map and set up the solver options.  If the logger
 	 * given is a {@link DefaultLogger}, we also set up the option
 	 * <code>:diagnostic-output-channel</code> to configure this logger.
-	 * @param logger The logger to be used by SMTInterpol.
+	 * @param logger         The logger to be used by SMTInterpol.
+	 * @param activeFrontEnd Activate the front end options?
 	 */
-	public OptionMap(LogProxy logger) {
+	public OptionMap(LogProxy logger, boolean activeFrontEnd) {
 		mOptions = new LinkedHashMap<String, Option>();
 		mSolverOptions = new SolverOptions(this, logger);
 		mLogger = logger;
-		if (logger instanceof DefaultLogger) {
-			addOption(":diagnostic-output-channel", new ChannelOption("stderr",
-					(DefaultLogger) logger, true, "Where to print "
-						+ "diagnostic output to.  Use \"stdout\" for standard "
-						+ "output and \"stderr\" for standard error."));
-		}
+		addOption(DIAG_OUTPUT_CHANNEL_NAME, new LoggerOption(
+				DIAG_OUTPUT_CHANNEL_DESC, logger));
 		mOnline = false;
+		mFrontEndOptions = new FrontEndOptions(this, activeFrontEnd);
 	}
 	
 	private OptionMap(LogProxy logger, LinkedHashMap<String, Option> options) {
 		mOptions = options;
 		mSolverOptions = new SolverOptions(this);
+		mFrontEndOptions = new FrontEndOptions(this);
 		mLogger = logger;
 		mOnline = false;
+	}
+	
+	public void started() {
+		for (Option o : mOptions.values()) {
+			o.started();
+		}
 	}
 	
 	/**
@@ -120,8 +145,9 @@ public class OptionMap {
 		return mSolverOptions;
 	}
 	
-	public final FrontEndOptions createFrontEndOptions() {
-		return mFrontEndOptions = new FrontEndOptions(this);
+	public final FrontEndOptions activateFrontEndOptions() {
+		mFrontEndOptions.activateFrontEnd(this);
+		return mFrontEndOptions;
 	}
 	
 	public final FrontEndOptions getFrontEndOptions() {

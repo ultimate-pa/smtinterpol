@@ -18,12 +18,11 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol;
 
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Formatter;
 
-import de.uni_freiburg.informatik.ultimate.smtinterpol.option.ChannelOption.ChannelHolder;
-
-public class DefaultLogger implements LogProxy, ChannelHolder {
+public class DefaultLogger implements LogProxy {
 
 	// Multithreading support
 	private static final Object LOCK = new Object();
@@ -40,6 +39,7 @@ public class DefaultLogger implements LogProxy, ChannelHolder {
 
 	private PrintWriter mWriter = new PrintWriter(System.err);
 	private Formatter mFormat = new Formatter(mWriter);
+	private String mDest = "stderr";
 	
 	private int mLevel = Config.DEFAULT_LOG_LEVEL;
 	
@@ -187,14 +187,20 @@ public class DefaultLogger implements LogProxy, ChannelHolder {
 	}
 
 	@Override
-	public void setChannel(PrintWriter newChannel) {
-		mWriter = newChannel;
-		mFormat = new Formatter(mWriter);
+	public boolean canChangeDestination() {
+		return true;
 	}
-	
+
 	@Override
-	public PrintWriter getChannel() {
-		return mWriter;
+	public void changeDestination(String newDest) throws IOException {
+		mWriter = ChannelUtil.createChannel(newDest);
+		mFormat = new Formatter(mWriter);
+		mDest = newDest;
+	}
+
+	@Override
+	public String getDestination() {
+		return mDest;
 	}
 
 }

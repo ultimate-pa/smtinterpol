@@ -40,10 +40,10 @@ public final class InputTruncation {
 		String outfile = args[1];
 		try {
 			DefaultLogger logger = new DefaultLogger();
-			OptionMap options = new OptionMap(logger);
+			OptionMap options = new OptionMap(logger, true);
 			ParseEnvironment pe = new ParseEnvironment(
 					new LoggingScript(new SMTInterpol(logger), outfile, true),
-					options.createFrontEndOptions());
+					options.getFrontEndOptions());
 			pe.parseScript(infile);
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();

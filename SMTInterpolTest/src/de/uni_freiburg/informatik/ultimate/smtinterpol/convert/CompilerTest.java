@@ -71,10 +71,10 @@ public class CompilerTest {
 			return;
 		}
 		DefaultLogger logger = new DefaultLogger();
-		OptionMap options = new OptionMap(logger);
+		OptionMap options = new OptionMap(logger, true);
 		Script script = new MyLoggingScript(outfilename);
         ParseEnvironment parseEnv = new ParseEnvironment(script,
-        		options.createFrontEndOptions());
+        		options.getFrontEndOptions());
 		parseEnv.parseScript(infilename);
 		parseEnv.exit();
 	}

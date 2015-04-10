@@ -72,4 +72,10 @@ public abstract class Option {
 	 * @return A copy of this option.
 	 */
 	public abstract Option copy();
+
+	/**
+	 * Called by the option map to indicate that the solver is now started.  The
+	 * current values should be set as default values.
+	 */
+	public abstract void started();
 }

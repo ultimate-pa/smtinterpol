@@ -80,10 +80,10 @@ public class SystemTest {
 		throws SMTLIBException, FileNotFoundException {
 		System.out.println("Testing " + f.getAbsolutePath());
 		DefaultLogger logger = new DefaultLogger();
-		OptionMap options = new OptionMap(logger);
+		OptionMap options = new OptionMap(logger, true);
 		SMTInterpol solver = new SMTInterpol(options);
 		ParseEnvironment pe = new ParseEnvironment(solver,
-				options.createFrontEndOptions()) {
+				options.getFrontEndOptions()) {
 
 			@Override
 			public void printError(String message) {

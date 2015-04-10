@@ -37,7 +37,7 @@ import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 public class EnumOption<E extends Enum<E>> extends Option {
 
 	private E mValue;
-	private final E mDefaultValue;
+	private E mDefaultValue;
 	private final Class<E> mClass;
 	
 	public EnumOption(E defaultValue, boolean onlineModifiable, Class<E> cls,
@@ -106,6 +106,10 @@ public class EnumOption<E extends Enum<E>> extends Option {
 		// Just to be sure the value can actually be used.  If an enum
 		// overwrites toString() we would end up with a strange output.
 		return mDefaultValue.name();
+	}
+	@Override
+	public void started() {
+		mDefaultValue = mValue;
 	}
 
 }

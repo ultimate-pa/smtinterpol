@@ -26,22 +26,41 @@ import java.io.PrintWriter;
  */
 public class FrontEndOptions {
 	private final BooleanOption mPrintSuccess;
-	private final DirectChannelHolder mOut;
+	private ChannelOption mOut;
 	private final BooleanOption mPrintTermsCSE;
 
+	private final static String REG_OUT_CHANNEL_NAME = ":regular-output-channel";
+	private final static String REG_OUT_CHANNEL_DEF = "stdout";
+	private final static String REG_OUT_CHANNEL_DESC =
+			"Where to print command responces to.  Use \"stdout\" for standard "
+				+ "output and \"stderr\" for standard error.";
+
 	FrontEndOptions(OptionMap options) {
+		mPrintSuccess = (BooleanOption) options.getOption(":print-success");
+		mPrintTermsCSE = (BooleanOption) options.getOption(":print-terms-cse");
+	}
+
+	FrontEndOptions(OptionMap options, boolean active) {
 		mPrintSuccess = new BooleanOption(true, true, "Print \"success\" after "
 				+ "successful command executions that would otherwise not "
 				+ "produce feedback.");
-		mOut = new DirectChannelHolder();
 		mPrintTermsCSE = new BooleanOption(true, true,
 				"Eliminate common subexpressions before printing terms.");
 		options.addOption(":print-success", mPrintSuccess);
-		options.addOption(":regular-output-channel", 
-				new ChannelOption("stdout", mOut, true, "Where to print "
-					+ "command responces to.  Use \"stdout\" for standard "
-					+ "output and \"stderr\" for standard error."));
+		if (active)
+			activateFrontEnd(options);
+		else
+			options.addOption(REG_OUT_CHANNEL_NAME,
+				new StringOptionWithWarning(REG_OUT_CHANNEL_DEF, true,
+						REG_OUT_CHANNEL_DESC, 
+						"Front End not active.  Option change will not have an effect!",
+						options.getLogProxy()));
 		options.addOption(":print-terms-cse", mPrintTermsCSE);
+	}
+	
+	void activateFrontEnd(OptionMap options) {
+		mOut = new ChannelOption(REG_OUT_CHANNEL_DEF, true, REG_OUT_CHANNEL_DESC);
+		options.addOption(REG_OUT_CHANNEL_NAME, mOut);
 	}
 	
 	public final boolean isPrintSuccess() {

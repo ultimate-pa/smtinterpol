@@ -30,7 +30,7 @@ import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 public class LongOption extends Option {
 
 	private long mValue;
-	private final long mDefaultValue;
+	private long mDefaultValue;
 
 	public LongOption(long defaultValue, boolean onlineModifiable,
 			String description) {
@@ -79,6 +79,11 @@ public class LongOption extends Option {
 	@Override
 	public Object defaultValue() {
 		return BigInteger.valueOf(mDefaultValue);
+	}
+
+	@Override
+	public void started() {
+		mDefaultValue = mValue;
 	}
 
 }
