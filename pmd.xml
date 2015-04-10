@@ -53,7 +53,6 @@
    <rule ref="rulesets/java/design.xml/ReturnEmptyArrayRatherThanNull"/>
    <rule ref="rulesets/java/design.xml/AbstractClassWithoutAnyMethod"/>
    <rule ref="rulesets/java/design.xml/LogicInversion"/>
-   <rule ref="rulesets/java/design.xml/UseVarargs"/>
    <rule ref="rulesets/java/empty.xml/EmptyStatementNotInLoop"/>
    <rule ref="rulesets/java/empty.xml/EmptyInitializer"/>
    <rule ref="rulesets/java/finalizers.xml/EmptyFinalizer"/>
