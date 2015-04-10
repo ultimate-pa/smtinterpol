@@ -43,6 +43,15 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.util.MySymbolFactory;
   private StringBuilder string; // NOPMD
   private MySymbolFactory symFactory;
   private final UnifyHash<BigInteger> bignumbers = new UnifyHash<BigInteger>();
+  private boolean version25 = true;
+  
+  public void setVersion25(boolean on) {
+    version25 = on;
+  }
+  
+  public boolean isVersion25() {
+    return version25;
+  }
   
   public void setSymbolFactory(MySymbolFactory factory) {
     symFactory = factory;
@@ -86,7 +95,7 @@ Symbol = {SMTLetter} {SMTLetterDigit}*
 Binary = "#b" [01]+
 Keyword = ":" {SMTLetterDigit}+
 
-%state STRING
+%state STRING20 STRING25
 
 %%
 
@@ -188,7 +197,7 @@ Keyword = ":" {SMTLetterDigit}+
   {Decimal}              { return symbol(LexerSymbols.DECIMAL, new BigDecimal(yytext())); }
   {HexaDecimal}          { return symbol(LexerSymbols.HEXADECIMAL, yytext()); }
   {Binary}               { return symbol(LexerSymbols.BINARY, yytext()); }
-  \"                     { string = new StringBuilder(); yybegin(STRING); }
+  \"                     { string = new StringBuilder(); if (version25) yybegin(STRING25); else yybegin(STRING20); }
 
  
   /* comments */
@@ -198,7 +207,7 @@ Keyword = ":" {SMTLetterDigit}+
   {WhiteSpace}           { /* ignore */ }
 }
 
-<STRING> {
+<STRING20> {
   \"                             { String value = string.toString();
                                    string = null;
                                    yybegin(YYINITIAL);
@@ -207,6 +216,14 @@ Keyword = ":" {SMTLetterDigit}+
   \\\"                           { string.append('\"'); }
   \\\\                           { string.append('\\'); }
   \\                             { string.append('\\'); }
+}
+
+<STRING25> {
+  \"\"                           { string.append ('"'); }
+  \"                             { String value = string.toString();
+                                   string = null;
+                                   yybegin(YYINITIAL);
+                                   return symbol(LexerSymbols.STRING, value); }
 }
 
 
