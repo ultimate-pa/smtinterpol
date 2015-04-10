@@ -20,6 +20,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.option;
 
 import java.io.IOException;
 
+import de.uni_freiburg.informatik.ultimate.logic.QuotedObject;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 
@@ -45,6 +46,8 @@ public class LoggerOption extends Option {
 
 	@Override
 	public void set(Object value) {
+		if (value instanceof QuotedObject)
+			value = ((QuotedObject) value).getValue();
 		if (mLogger.canChangeDestination()) {
 			changeLoggerDest(String.valueOf(value));
 		} else {
@@ -54,7 +57,7 @@ public class LoggerOption extends Option {
 
 	@Override
 	public Object get() {
-		return mLogger.getDestination();
+		return new QuotedObject(mLogger.getDestination());
 	}
 
 	@Override

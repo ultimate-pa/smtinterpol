@@ -21,6 +21,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.option;
 import java.io.IOException;
 import java.io.PrintWriter;
 
+import de.uni_freiburg.informatik.ultimate.logic.QuotedObject;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.ChannelUtil;
 
@@ -51,6 +52,8 @@ public class ChannelOption extends Option {
 	}
 	@Override
 	public void set(Object value) {
+		if (value instanceof QuotedObject)
+			value = ((QuotedObject) value).getValue();
 		String val = value.toString();
 		createChannel(val);
 		mName = val;
@@ -58,7 +61,7 @@ public class ChannelOption extends Option {
 
 	@Override
 	public Object get() {
-		return mName;
+		return new QuotedObject(mName);
 	}
 
 	@Override
