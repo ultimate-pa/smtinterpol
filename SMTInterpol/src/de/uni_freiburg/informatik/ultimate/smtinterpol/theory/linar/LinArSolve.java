@@ -142,7 +142,7 @@ public class LinArSolve implements ITheory {
 	/**
 	 * The variables for which we need to recompute the composite bounds.
 	 */
-	private TreeSet<LinVar> mPropBounds;
+	private final TreeSet<LinVar> mPropBounds;
 	private LinVar mConflictVar;
 	private Rational mEps;
 	
@@ -2153,7 +2153,7 @@ public class LinArSolve implements ITheory {
 	private Clause mbtc(Map<ExactInfinitNumber,List<SharedTerm>> cong) {
 		for (Map.Entry<ExactInfinitNumber,List<SharedTerm>> congclass : cong.entrySet()) {
 			List<SharedTerm> lcongclass = congclass.getValue();
-			if (lcongclass.size() <= 1)
+			if (lcongclass.size() <= 1) // NOPMD
 				continue;
 			mEngine.getLogger().debug(new DebugMessage("propagating MBTC: {0}",
 					lcongclass));

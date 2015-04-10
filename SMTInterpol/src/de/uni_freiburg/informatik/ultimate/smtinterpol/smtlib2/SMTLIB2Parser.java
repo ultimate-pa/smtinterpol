@@ -29,6 +29,7 @@ public class SMTLIB2Parser implements IParser {
 	public int run(Script script, String filename, OptionMap options) {
 		if (filename == null)
 			filename = "<stdin>";
+
         ParseEnvironment parseEnv = new ParseEnvironment(script,
         		options.getFrontEndOptions());
         try {	

@@ -58,7 +58,7 @@ public class UnfletTest {
 			new FormulaUnLet(UnletType.EXPAND_DEFINITIONS);
 	
 	@SafeVarargs
-	private final <E> E[] arr(E... vals) { return vals; }
+	private final <E> E[] arr(E... vals) { return vals; } // NOCHECKSTYLE
 	
 	@Test
 	public void test() {

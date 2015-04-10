@@ -536,7 +536,7 @@ public class CClosure implements ITheory {
 	}
 
 	@Override
-	public Clause startCheck() { return null; }
+	public Clause startCheck() { return null; } // NOCHECKSTYLE
 	
 	@Override
 	public void endCheck() {
