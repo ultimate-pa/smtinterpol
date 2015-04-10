@@ -53,8 +53,7 @@ public class DefinitionExpander extends LoggingScript {
 		OptionMap options = new OptionMap(new DefaultLogger(), true);
 		try {
 			ParseEnvironment pe = new ParseEnvironment(
-					new DefinitionExpander(outfile),
-					options.getFrontEndOptions());
+					new DefinitionExpander(outfile), options);
 			pe.parseScript(infile);
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();

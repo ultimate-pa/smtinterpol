@@ -36,6 +36,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.FrontEndOptions;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.MySymbolFactory;
 
 public class ParseEnvironment {
@@ -49,15 +50,17 @@ public class ParseEnvironment {
 
 	private final FrontEndOptions mOptions;
 
-	public ParseEnvironment(Script script, FrontEndOptions options) {
+	public ParseEnvironment(Script script, OptionMap options) {
 		this(script, null, options);
 	}
 	
 	public ParseEnvironment(Script script, ExitHook exit,
-			FrontEndOptions options) {
+			OptionMap options) {
 		mScript = script;
 		mExitHook = exit;
-		mOptions = options;
+		mOptions = options.getFrontEndOptions();
+		if (!mOptions.isFrontEndActive())
+			throw new IllegalArgumentException("Front End not active!");
 	}
 	
 	public Script getScript() {

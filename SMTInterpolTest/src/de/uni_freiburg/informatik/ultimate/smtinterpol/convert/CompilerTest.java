@@ -54,7 +54,7 @@ public class CompilerTest {
 	}
 	
 	public static void main(String[] param) throws Exception {
-        int paramctr = 0;
+		int paramctr = 0;
 		String infilename, outfilename;
 		if (paramctr < param.length) {
 			infilename = param[paramctr++];
@@ -73,8 +73,7 @@ public class CompilerTest {
 		DefaultLogger logger = new DefaultLogger();
 		OptionMap options = new OptionMap(logger, true);
 		Script script = new MyLoggingScript(outfilename);
-        ParseEnvironment parseEnv = new ParseEnvironment(script,
-        		options.getFrontEndOptions());
+		ParseEnvironment parseEnv = new ParseEnvironment(script, options);
 		parseEnv.parseScript(infilename);
 		parseEnv.exit();
 	}

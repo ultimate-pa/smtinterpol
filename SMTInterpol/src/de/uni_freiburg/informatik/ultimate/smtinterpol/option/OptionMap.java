@@ -23,6 +23,7 @@ import java.util.Map;
 
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.ParseEnvironment;
 
 /**
  * A map to handle all options supported by SMTInterpol.  The map provides
@@ -42,11 +43,13 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
  * is used, we simply set up an option to print a warning if this option is
  * changed.
  * 
- * The front end options are not activated by default.  If they are needed, the
- * method {@link #activateFrontEndOptions()} has to be called.  All options are
+ * The front end options are not activated by default.  All options are
  * available, but the option <pre>:regular-output-channel</pre> will print a
  * warning if its value is changed.  Only in the activated state, this option
- * actually changes the destination of the output.  
+ * actually changes the destination of the output.  To activate the front end
+ * (if you actually use a {@link ParseEnvironment}), use the constructor 
+ * {@link #OptionMap(LogProxy, boolean)} with the second parameter set to
+ * <code>true</code>.
  * 
  * The map maintains a flag representing the current state of the solver.  If
  * this flag is turned on, all options that are not configured to be online
@@ -143,11 +146,6 @@ public class OptionMap {
 	
 	public final SolverOptions getSolverOptions() {
 		return mSolverOptions;
-	}
-	
-	public final FrontEndOptions activateFrontEndOptions() {
-		mFrontEndOptions.activateFrontEnd(this);
-		return mFrontEndOptions;
 	}
 	
 	public final FrontEndOptions getFrontEndOptions() {

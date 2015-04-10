@@ -43,7 +43,7 @@ public final class InputTruncation {
 			OptionMap options = new OptionMap(logger, true);
 			ParseEnvironment pe = new ParseEnvironment(
 					new LoggingScript(new SMTInterpol(logger), outfile, true),
-					options.getFrontEndOptions());
+					options);
 			pe.parseScript(infile);
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();

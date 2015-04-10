@@ -82,8 +82,7 @@ public class SystemTest {
 		DefaultLogger logger = new DefaultLogger();
 		OptionMap options = new OptionMap(logger, true);
 		SMTInterpol solver = new SMTInterpol(options);
-		ParseEnvironment pe = new ParseEnvironment(solver,
-				options.getFrontEndOptions()) {
+		ParseEnvironment pe = new ParseEnvironment(solver, options) {
 
 			@Override
 			public void printError(String message) {

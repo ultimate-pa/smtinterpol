@@ -63,7 +63,7 @@ public class Prepare implements ExitHook {
 			options.reset();
 			ParseEnvironment pe = new ParseEnvironment(exit.mScript =
 					new PrepareScript(track, target.toString()), exit,
-					options.getFrontEndOptions());
+					options);
 			pe.parseScript(args[fileStartIdx]);
 			++fileStartIdx;
 		}

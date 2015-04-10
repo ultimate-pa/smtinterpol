@@ -26,7 +26,7 @@ import java.io.PrintWriter;
  */
 public class FrontEndOptions {
 	private final BooleanOption mPrintSuccess;
-	private ChannelOption mOut;
+	private final ChannelOption mOut;
 	private final BooleanOption mPrintTermsCSE;
 
 	private final static String REG_OUT_CHANNEL_NAME = ":regular-output-channel";
@@ -37,6 +37,7 @@ public class FrontEndOptions {
 
 	FrontEndOptions(OptionMap options) {
 		mPrintSuccess = (BooleanOption) options.getOption(":print-success");
+		mOut = (ChannelOption) options.getOption(REG_OUT_CHANNEL_NAME);
 		mPrintTermsCSE = (BooleanOption) options.getOption(":print-terms-cse");
 	}
 
@@ -47,20 +48,22 @@ public class FrontEndOptions {
 		mPrintTermsCSE = new BooleanOption(true, true,
 				"Eliminate common subexpressions before printing terms.");
 		options.addOption(":print-success", mPrintSuccess);
-		if (active)
-			activateFrontEnd(options);
-		else
+		if (active) {
+			mOut = new ChannelOption(REG_OUT_CHANNEL_DEF, true, REG_OUT_CHANNEL_DESC);
+			options.addOption(REG_OUT_CHANNEL_NAME, mOut);
+		} else {
 			options.addOption(REG_OUT_CHANNEL_NAME,
 				new StringOptionWithWarning(REG_OUT_CHANNEL_DEF, true,
 						REG_OUT_CHANNEL_DESC, 
 						"Front End not active.  Option change will not have an effect!",
 						options.getLogProxy()));
+			mOut = null;
+		}
 		options.addOption(":print-terms-cse", mPrintTermsCSE);
 	}
 	
-	void activateFrontEnd(OptionMap options) {
-		mOut = new ChannelOption(REG_OUT_CHANNEL_DEF, true, REG_OUT_CHANNEL_DESC);
-		options.addOption(REG_OUT_CHANNEL_NAME, mOut);
+	public final boolean isFrontEndActive() {
+		return mOut != null;
 	}
 	
 	public final boolean isPrintSuccess() {

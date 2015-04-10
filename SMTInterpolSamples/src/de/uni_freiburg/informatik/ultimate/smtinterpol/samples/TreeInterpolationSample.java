@@ -52,8 +52,7 @@ public final class TreeInterpolationSample {
 		solver.setOption(":produce-interpolants", Boolean.TRUE);
 		// A parse environment to read from strings.  This is a front end and
 		// thus needs front end options.
-		ParseEnvironment pe = new ParseEnvironment(solver,
-				options.getFrontEndOptions());
+		ParseEnvironment pe = new ParseEnvironment(solver, options);
 		// Disable success messages
 		solver.setOption(":print-success", Boolean.FALSE);
 		solver.setLogic(Logics.QF_LIA);
