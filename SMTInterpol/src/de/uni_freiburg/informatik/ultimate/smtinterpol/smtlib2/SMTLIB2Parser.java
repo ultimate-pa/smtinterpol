@@ -31,8 +31,12 @@ public class SMTLIB2Parser implements IParser {
         ParseEnvironment parseEnv = new ParseEnvironment(solver);
         try {
         	// Have to carry this option through
+        	parseEnv.setOption(":regular-output-channel",
+        			solver.getOption(":regular-output-channel"));
         	parseEnv.setOption(":print-success",
         			solver.getOption(":print-success"));
+        	parseEnv.setOption(":print-terms-cse",
+        			solver.getOption(":print-terms-cse"));
         	parseEnv.parseScript(filename);
         } catch (SMTLIBException se) {
         	parseEnv.printError(se.getMessage());
