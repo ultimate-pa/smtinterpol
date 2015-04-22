@@ -625,7 +625,7 @@ public class SimplifyDDA extends NonRecursive {
 	 * NON_RELAXING if term is equivalent to true,
 	 * NOT_REDUNDANT if term is not redundant.
 	 */
-	private Redundancy getRedundancy(Term term) {
+	protected Redundancy getRedundancy(Term term) {
 		LBool isTermConstraining =
 				Util.checkSat(mScript, Util.not(mScript, term));
 		if (isTermConstraining == LBool.UNSAT) {
