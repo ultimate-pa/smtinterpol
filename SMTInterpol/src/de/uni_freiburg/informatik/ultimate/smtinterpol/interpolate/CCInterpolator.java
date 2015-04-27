@@ -297,7 +297,6 @@ public class CCInterpolator {
 					}
 					Term boundaryTerm = Coercion.buildApp(func, boundaryParams);
 					closeSingleAPath(other, boundaryTerm);
-					mColor = getParent(mColor);
 				}
 				int highColor = mColor;
 				while (true) {
