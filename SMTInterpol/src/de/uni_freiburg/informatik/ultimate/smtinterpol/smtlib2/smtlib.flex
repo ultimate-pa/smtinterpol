@@ -219,7 +219,8 @@ Keyword = ":" {SMTLetterDigit}+
 }
 
 <STRING25> {
-  \"\"                           { string.append ('"'); }
+  [^\"]+                         { string.append( yytext() ); }
+  \"\"                           { string.append ('\"'); }
   \"                             { String value = string.toString();
                                    string = null;
                                    yybegin(YYINITIAL);
