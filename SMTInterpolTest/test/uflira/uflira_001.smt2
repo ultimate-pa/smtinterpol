@@ -7,5 +7,5 @@
 (assert (= (f b) (/ 1.0 2.0)))
 (assert (= a b))
 (check-sat)
-(get-model)
+;(get-model)
 (exit)

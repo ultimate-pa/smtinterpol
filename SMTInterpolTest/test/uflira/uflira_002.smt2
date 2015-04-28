@@ -9,5 +9,5 @@
 (assert (= a b))
 (assert (= (+ a 1) c))
 (check-sat)
-(get-model)
+;(get-model)
 (exit)
