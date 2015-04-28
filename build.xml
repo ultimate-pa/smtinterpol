@@ -410,7 +410,7 @@ java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/2))m -ea -dsa -XX:-UseGCOverheadLimit -j
       <html destdir="${dir.workspace}/coverage" />
     </jacoco:report>
 
-    <echo message="See coverage results in ${dir.cobertura}/coverage/index.html" />
+    <echo message="See coverage results in ${dir.workspace}/coverage/index.html" />
   </target>
 
 </project>

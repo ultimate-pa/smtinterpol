@@ -26,6 +26,7 @@ release
 # test-related stuff #
 testreports
 cobertura
+coverage
 
 # project specific settings
 .settings
