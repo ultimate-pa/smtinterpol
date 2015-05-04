@@ -268,7 +268,7 @@ public class NoopScript implements Script {
 		if (mTheory == null)
 			throw new SMTLIBException("No logic set!");
 		Sort[] sorts =
-				params.length == 0 ? Theory.EMPTY_SORT_ARRAY : new Sort[params.length];
+				params.length == 0 ? Script.EMPTY_SORT_ARRAY : new Sort[params.length];
 		for (int i = 0; i < sorts.length; i++) {
 			sorts[i] = params[i].getSort();
 		}

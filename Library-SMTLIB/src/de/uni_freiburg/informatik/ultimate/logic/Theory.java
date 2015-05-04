@@ -121,9 +121,9 @@ public class Theory {
 	public final FunctionSymbol mAnd, mOr, mNot, mImplies, mXor;
 	public final PolymorphicFunctionSymbol mEquals, mDistinct, mIte;
 	
-	final static Sort[] EMPTY_SORT_ARRAY = {};
+	final static Sort[] EMPTY_SORT_ARRAY = Script.EMPTY_SORT_ARRAY;
 	final static TermVariable[] EMPTY_TERM_VARIABLE_ARRAY = {};
-	final static Term[] EMPTY_TERM_ARRAY = {};
+	final static Term[] EMPTY_TERM_ARRAY = Script.EMPTY_TERM_ARRAY;
 	/**
 	 * Pattern for model value variables '{@literal @}digits'.
 	 */

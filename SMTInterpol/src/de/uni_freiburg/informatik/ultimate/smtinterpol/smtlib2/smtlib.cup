@@ -35,6 +35,8 @@ option java15, compact_red, newpositions;
 parser code {:
 	String filename;
 	ParseEnvironment env;
+	
+	public static final Sort[] EMPTY_SORT_ARRAY = {};
 
 	public void report_error(String s, Object sym) {
 		String location;
@@ -224,7 +226,7 @@ scan with {: return getScanner().next_token(); :}
 /* Predefined Symbols */
 terminal String UNDERSCORE, BANG,
          AS, ASSERT, CHECKSAT, CONTINUEDEXECUTION, 
-         DECLARESORT, DECLAREFUN, DEFINESORT, DEFINEFUN, ERRORSYM,
+         DECLARESORT, DECLAREFUN, DECLARECONST, DEFINESORT, DEFINEFUN, ERRORSYM,
          EXISTS, EXIT, FALSE, FORALL, GETASSERTIONS, GETASSIGNMENT, GETINFO,
          GETINTERPOLANTS,
          GETMODEL, GETOPTION, GETPROOF, GETUNSATCORE, GETVALUE, IMMEDIATEEXIT,
@@ -559,6 +561,19 @@ command ::= SETLOGIC symbol:logic
                    }
                }
             :}
+          | DECLARECONST symbol:fun sort:result
+            {:  if (hasError())
+                    parser.env.printError(getError());
+                else {
+                    try {
+                        parser.env.getScript().declareFun(fun, Script.EMPTY_SORT_ARRAY, result);
+                        parser.env.printSuccess();
+                    } catch(SMTLIBException se) {
+                        parser.report_error(se.getMessage(), fun$);
+                        parser.env.printError(getError());
+                    }
+               }
+            :}
           | DEFINEFUN {: localVars.beginScope(); :} symbol:fun
                       LPAR sortedVar*:param RPAR sort:resultSort term:value
             {: localVars.endScope();
@@ -775,7 +790,7 @@ symbol ::= SYMBOL | CONTINUEDEXECUTION | ERRORSYM | FALSE | IMMEDIATEEXIT |
          PAR | NUMERALSYM | DECIMALSYM | STRINGSYM |
          UNDERSCORE | AS | BANG | LET | FORALL | EXISTS |
          ASSERT | CHECKSAT |  
-         DECLARESORT | DECLAREFUN | DEFINESORT | DEFINEFUN | 
+         DECLARESORT | DECLAREFUN | DECLARECONST | DEFINESORT | DEFINEFUN | 
          EXIT | GETASSERTIONS | GETASSIGNMENT | GETINFO |
          GETMODEL | GETOPTION | GETPROOF | GETUNSATCORE | GETVALUE |
          POP | PUSH | SETLOGIC | SETINFO | SETOPTION; */

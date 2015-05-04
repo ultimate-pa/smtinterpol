@@ -47,6 +47,8 @@ import java.util.Map;
  * @author Jochen Hoenicke, Juergen Christ
  */
 public interface Script {
+	public static final Sort[] EMPTY_SORT_ARRAY = new Sort[0];
+	public static final Term[] EMPTY_TERM_ARRAY = new Term[0];
 	/**
 	 * A lifted three valued Boolean datatype.  Convenience operators for the
 	 * interaction with SMT-solvers written in C are given.

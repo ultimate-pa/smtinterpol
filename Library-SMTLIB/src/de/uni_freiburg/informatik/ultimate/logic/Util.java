@@ -29,9 +29,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
  * @author christ, heizmann, hoenicke 
  */
 public final class Util {
-	
-	private static final Sort[] EMPTY_SORT_ARRAY = {};
-	
+
 	private Util() {
 		// Prevent instantiation of this utility class
 	}
@@ -64,7 +62,7 @@ public final class Util {
 	private static Term termVariable2constant(Script script, TermVariable tv) {
 		String name = tv.getName() + "_const_" + tv.hashCode();
 		Sort resultSort = tv.getSort();
-		script.declareFun(name, EMPTY_SORT_ARRAY, resultSort);
+		script.declareFun(name, Script.EMPTY_SORT_ARRAY, resultSort);
 		return script.term(name);
 	}
 	

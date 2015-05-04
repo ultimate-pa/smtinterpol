@@ -113,6 +113,7 @@ Keyword = ":" {SMTLetterDigit}+
   "DECIMAL"              { return symbol(LexerSymbols.DECIMALSYM, yytext()); }
   "declare-sort"         { return symbol(LexerSymbols.DECLARESORT, yytext()); }
   "declare-fun"          { return symbol(LexerSymbols.DECLAREFUN, yytext()); }
+  "declare-const"        { return symbol(LexerSymbols.DECLARECONST, yytext()); }
   "define-sort"          { return symbol(LexerSymbols.DEFINESORT, yytext()); }
   "define-fun"           { return symbol(LexerSymbols.DEFINEFUN, yytext()); }
   "error"                { return symbol(LexerSymbols.ERRORSYM, yytext()); }

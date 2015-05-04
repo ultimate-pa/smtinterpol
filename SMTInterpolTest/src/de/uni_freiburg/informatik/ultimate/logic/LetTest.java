@@ -26,14 +26,12 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class LetTest {
 
-	private final static Sort[] EMPTY_SORTS = {};
-	
 	@Test
 	public void testNoLet() {
 		Theory theory = new Theory(Logics.AUFLIA);
 		Sort intSort = theory.getNumericSort();
-		theory.declareFunction("i", EMPTY_SORTS, intSort);
-		theory.declareFunction("j", EMPTY_SORTS, intSort);
+		theory.declareFunction("i", Script.EMPTY_SORT_ARRAY, intSort);
+		theory.declareFunction("j", Script.EMPTY_SORT_ARRAY, intSort);
 		Term i = theory.term("i");
 		FormulaLet let = new FormulaLet();
 		Term leti = let.let(i);
@@ -49,8 +47,8 @@ public class LetTest {
 	public void testArith() {
 		Theory theory = new Theory(Logics.AUFLIA);
 		Sort intSort = theory.getNumericSort();
-		theory.declareFunction("i", EMPTY_SORTS, intSort);
-		theory.declareFunction("j", EMPTY_SORTS, intSort);
+		theory.declareFunction("i", Script.EMPTY_SORT_ARRAY, intSort);
+		theory.declareFunction("j", Script.EMPTY_SORT_ARRAY, intSort);
 		FormulaLet let = new FormulaLet();
 		Term toLet = theory.term("+", theory.term("i"), theory.term("j"));
 		Term input = theory.term("+", toLet, toLet);
@@ -65,8 +63,8 @@ public class LetTest {
 	public void testLet() {
 		Theory theory = new Theory(Logics.AUFLIA);
 		Sort intSort = theory.getNumericSort();
-		theory.declareFunction("i", EMPTY_SORTS, intSort);
-		theory.declareFunction("j", EMPTY_SORTS, intSort);
+		theory.declareFunction("i", Script.EMPTY_SORT_ARRAY, intSort);
+		theory.declareFunction("j", Script.EMPTY_SORT_ARRAY, intSort);
 		Term ij = theory.term("+", theory.term("i"), theory.term("j"));
 		FormulaLet let = new FormulaLet();
 		TermVariable x = theory.createTermVariable("x", intSort);
@@ -113,8 +111,8 @@ public class LetTest {
 		theory.declareFunction("g", binary, u);
 		theory.declareFunction("h", unary, u);
 		theory.declareFunction("i", unary, u);
-		theory.declareFunction("x", EMPTY_SORTS, u);
-		theory.declareFunction("y", EMPTY_SORTS, u);
+		theory.declareFunction("x", Script.EMPTY_SORT_ARRAY, u);
+		theory.declareFunction("y", Script.EMPTY_SORT_ARRAY, u);
 		theory.declareFunction("m", binary, u);
 		theory.declareFunction("n", unary, u);
 		Term nx = theory.term("n", theory.term("x"));
