@@ -303,7 +303,7 @@ public class CutCreator {
 		 * @return the literal representing variable <= rounded current value.
 		 */
 		public Literal createConstraint() {
-			assert(mIsInt);
+			assert mIsInt;
 			MutableAffinTerm mat = new MutableAffinTerm();
 			int maxlevel = 0;
 			for (int i = 0; i < mIndices.length; i++) {
@@ -610,7 +610,7 @@ public class CutCreator {
 					}
 					if (adjust != 0)
 						quo = quo.add(BigInteger.valueOf(adjust));
-					if (!mURows[i].mTight)
+					if (!mURows[i].mTight) //NOPMD
 						isTight = false;
 					else if (rem.signum() > 0)
 						isTight &= mURows[i].mFixed;
