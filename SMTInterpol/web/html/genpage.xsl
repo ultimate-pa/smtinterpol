@@ -79,11 +79,11 @@ xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns="http://www.w3.org/1999/x
 	    <xsl:text disable-output-escaping="yes">&amp;nbsp;</xsl:text>
 	    <xsl:text disable-output-escaping="yes">&amp;nbsp;</xsl:text>
 	    <a href="http://validator.w3.org/check?uri=referer">
-	      <img src="http://www.w3.org/Icons/valid-xhtml10"
+	      <img src="valid-xhtml10.png"
 		   alt="Valid XHTML 1.0 Transitional" height="31" width="88" /></a>
 	      <a href="http://jigsaw.w3.org/css-validator/check/referer">
 		<img style="border:0;width:88px;height:31px"
-		     src="http://jigsaw.w3.org/css-validator/images/vcss"
+		     src="vcss.gif"
 		       alt="Valid CSS!" />
 	      </a>
 	  </p>
