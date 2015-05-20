@@ -754,6 +754,8 @@ public class SMTInterpol extends NoopScript {
 						mModel = new de.uni_freiburg.informatik.ultimate.
 								smtinterpol.model.Model(
 								mClausifier, getTheory(), mPartialModels);
+						if (!mModel.checkTypeValues(mLogger) && mDDFriendly)
+							System.exit(1);
 						for (Term asserted : mAssertions) {
 							Term checkedResult = mModel.evaluate(asserted);
 							if (checkedResult != getTheory().mTrue) {
