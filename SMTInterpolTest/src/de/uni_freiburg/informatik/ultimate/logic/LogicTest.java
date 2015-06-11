@@ -98,5 +98,14 @@ public class LogicTest {
 		Assert.assertEquals(bitvec(theory, 4), bv1111.getSort());// NOCHECKSTYLE
 		Term bv2 = theory.term("concat", bvABCD, bv1111);
 		Assert.assertEquals(bitvec(theory, 20), bv2.getSort());// NOCHECKSTYLE
+		FunctionSymbol bv5sym = theory.getFunctionWithResult("bv5", 
+				new BigInteger[] { BigInteger.valueOf(3) }, null);
+		Term bv5 = theory.term(bv5sym);
+		FunctionSymbol bv3sym = theory.getFunctionWithResult("bv3", 
+				new BigInteger[] { BigInteger.valueOf(5) }, null);
+		Term bv3 = theory.term(bv3sym);
+		Assert.assertEquals(bitvec(theory, 3), bv5.getSort());// NOCHECKSTYLE
+		Assert.assertEquals(bitvec(theory, 5), bv3.getSort());// NOCHECKSTYLE
+		Assert.assertEquals(bitvec(theory, 8), theory.term("concat", bv3, bv5).getSort());// NOCHECKSTYLE
 	}
 }
