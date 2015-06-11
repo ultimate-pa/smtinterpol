@@ -111,6 +111,10 @@ public class Theory {
 	private final UnifyHash<Term> mTermCache = new UnifyHash<Term>();
 	private final UnifyHash<TermVariable> mTvUnify =
 			new UnifyHash<TermVariable>();
+	/**
+	 * Cache for bitvector constant function symbols (_ bv123 456).
+	 */
+	private UnifyHash<FunctionSymbol> mBitVecConstCache;
 	
 	public final ApplicationTerm mTrue, mFalse;
 	public final FunctionSymbol mAnd, mOr, mNot, mImplies, mXor;
@@ -122,7 +126,8 @@ public class Theory {
 	/**
 	 * Pattern for model value variables '{@literal @}digits'.
 	 */
-	private final static String MODEL_VALUE_PATTERN = "^@\\d+$";
+	private final static String MODEL_VALUE_PATTERN = "@\\d+";
+	private final static String BITVEC_CONST_PATTERN = "bv\\d+";
 	
 	
 	private int mTvarCtr = 0;
@@ -1080,9 +1085,31 @@ public class Theory {
 		if (fsym != null && indices == null && resultType == null
 				&& fsym.typecheck(paramTypes))
 			return fsym;
+		if (mBitVecSort != null && name.matches(BITVEC_CONST_PATTERN)
+			&& indices != null && indices.length == 1
+			&& resultType == null) {
+			/* Create bitvector constants */
+			return getBitVecConstant(name, indices);
+		}
 		return null;
 	}
 	
+	private FunctionSymbol getBitVecConstant(String name, BigInteger[] indices) {
+		if (mBitVecConstCache == null)
+			mBitVecConstCache = new UnifyHash<FunctionSymbol>();
+		int hash = HashUtils.hashJenkins(name.hashCode(), (Object[]) indices);
+		for (FunctionSymbol symb : mModelValueCache.iterateHashCode(hash)) {
+			if (symb.getName().equals(name) && symb.getIndices()[0].equals(indices[0]))
+				return symb;
+		}
+		Sort sort = mBitVecSort.getSort(indices);
+		FunctionSymbol symb = new FunctionSymbol(
+				name, indices, EMPTY_SORT_ARRAY, sort, null, null,
+				FunctionSymbol.INTERNAL);
+		mBitVecConstCache.put(hash,symb);
+		return symb;
+	}
+
 	public ApplicationTerm term(
 			FunctionSymbolFactory factory, Term... parameters) {
 		Sort[] sorts =
