@@ -993,6 +993,7 @@ public class Minimizer {
 		System.err.println("  command       is the command to start the solver");
 		System.err.println("  -golden <num> sets expected exit code to \"num\" and safes initial test");
 		System.err.println("  -v            make output more verbose (can be repeated)");
+		System.err.println("  -u            forces all terms to be unlet and (potentially) reletted");
 		System.err.println("  args          are optional arguments to \"command\"");
 		System.exit(0);
 	}
