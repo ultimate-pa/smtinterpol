@@ -711,7 +711,7 @@ public class SimplifyDDA extends NonRecursive {
 			}
 		}.transform(term);// NOCHECKSTYLE
 		mScript.pop(1);
-		assert (checkEquivalence(inputTerm, term) == LBool.UNSAT)
+		assert (checkEquivalence(inputTerm, term) != LBool.SAT)
 			: "Simplification unsound?";
 		mScript.echo(new QuotedObject("End Simplifier"));
 		assert PushPopChecker.atLevel(mScript, lvl);
