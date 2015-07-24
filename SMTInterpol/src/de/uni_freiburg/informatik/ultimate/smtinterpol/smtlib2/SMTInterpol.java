@@ -412,7 +412,14 @@ public class SMTInterpol extends NoopScript {
         	mAssertions.clear();
         mOptions.reset();
 	}
-	
+
+	public final void resetAssertions() {
+		super.resetAssertions();
+		mAssertionStackModified = true;
+		if (mAssertions != null)
+			mAssertions.clear();
+		setupClausifier(mEngine.getSMTTheory().getLogic());
+	}
 	@Override
 	public void push(int n) throws SMTLIBException {
 		super.push(n);

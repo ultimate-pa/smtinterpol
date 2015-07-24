@@ -23,7 +23,9 @@ import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashSet;
+import java.util.Map;
 
 import de.uni_freiburg.informatik.ultimate.util.HashUtils;
 import de.uni_freiburg.informatik.ultimate.util.ScopedHashMap;
@@ -1521,5 +1523,25 @@ public class Theory {
 		return new FunctionSymbol(
 				"@" + tv.getName() + "_skolem_" + mSkolemCounter++,null,
 				EMPTY_SORT_ARRAY,tv.getSort(),null,null,0);
+	}
+
+	public void resetAssertions() {
+		// TODO: global symbols
+		while (mDeclaredFuns.getActiveScopeNum() > 1)
+			mDeclaredFuns.endScope();
+		for (Iterator<Map.Entry<String, FunctionSymbol>> it = mDeclaredFuns.entrySet().iterator();
+				it.hasNext(); ) {
+			Map.Entry<String, FunctionSymbol> next = it.next();
+			if (!next.getValue().isIntern())
+				it.remove();
+		}
+		while (mDeclaredSorts.getActiveScopeNum() > 1)
+			mDeclaredSorts.endScope();
+		for (Iterator<Map.Entry<String, SortSymbol>> it = mDeclaredSorts.entrySet().iterator();
+				it.hasNext(); ) {
+			Map.Entry<String, SortSymbol> next = it.next();
+			if (!next.getValue().isIntern())
+				it.remove();
+		}
 	}
 }

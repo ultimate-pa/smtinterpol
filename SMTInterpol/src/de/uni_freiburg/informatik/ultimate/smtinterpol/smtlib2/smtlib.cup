@@ -233,7 +233,8 @@ terminal String UNDERSCORE, BANG,
          INCOMPLETE, LET, LOGIC, NONE, NUMERALSYM, MEMOUT, PAR, POP, PUSH,
          DECIMALSYM, SAT, SUCCESS, SETLOGIC, SETINFO, SETOPTION, STRINGSYM,
          THEORY, TRUE, UNKNOWN, UNSUPPORTED, UNSAT,
-         INCLUDE, RESET, SIMPLIFY, TIMED, ALLSAT, ECHO, FINDIMPLIEDEQUALITY;
+         INCLUDE, RESET, RESETASSERTIONS, SIMPLIFY, TIMED, ALLSAT, ECHO,
+         FINDIMPLIEDEQUALITY;
 
 /* Predefined Keywords */
 terminal String /* attribute */
@@ -746,6 +747,8 @@ command ::= SETLOGIC symbol:logic
             :}
           | RESET
             {: parser.env.getScript().reset(); parser.env.printSuccess(); :}
+          | RESETASSERTIONS
+            {: parser.env.getScript().resetAssertions(); parser.env.printSuccess(); :}
           | EXIT
             {: parser.env.getScript().exit(); parser.done_parsing(); :}
           | TIMED
@@ -783,8 +786,7 @@ script ::= commandPar*;
 
 symbol ::= SYMBOL | CONTINUEDEXECUTION | ERRORSYM | FALSE | IMMEDIATEEXIT |
            INCOMPLETE | LOGIC | NONE | MEMOUT | SAT | SUCCESS | THEORY | TRUE |
-           UNKNOWN | UNSUPPORTED | UNSAT | INCLUDE | RESET |
-           SIMPLIFY;
+           UNKNOWN | UNSUPPORTED | UNSAT | INCLUDE | SIMPLIFY;
          
 /* The following are reserved words
          PAR | NUMERALSYM | DECIMALSYM | STRINGSYM |
@@ -793,7 +795,8 @@ symbol ::= SYMBOL | CONTINUEDEXECUTION | ERRORSYM | FALSE | IMMEDIATEEXIT |
          DECLARESORT | DECLAREFUN | DECLARECONST | DEFINESORT | DEFINEFUN | 
          EXIT | GETASSERTIONS | GETASSIGNMENT | GETINFO |
          GETMODEL | GETOPTION | GETPROOF | GETUNSATCORE | GETVALUE |
-         POP | PUSH | SETLOGIC | SETINFO | SETOPTION; */
+         POP | PUSH | RESET | RESETASSERTIONS |
+         SETLOGIC | SETINFO | SETOPTION; */
 
 keywordAttr   ::= CPATTERN | CNAMED;
 keywordTheory ::= CSORTSDESCRIPTION | CSORTS | 

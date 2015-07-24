@@ -154,6 +154,7 @@ Keyword = ":" {SMTLetterDigit}+
   "unsat"                { return symbol(LexerSymbols.UNSAT, yytext()); }
   "simplify"             { return symbol(LexerSymbols.SIMPLIFY, yytext()); }
   "reset"                { return symbol(LexerSymbols.RESET, yytext()); }
+  "reset-assertions"     { return symbol(LexerSymbols.RESETASSERTIONS, yytext()); }
   "timed"                { return symbol(LexerSymbols.TIMED, yytext()); }
   "check-allsat"         { return symbol(LexerSymbols.ALLSAT, yytext()); }
   "echo"                 { return symbol(LexerSymbols.ECHO, yytext()); }

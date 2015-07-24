@@ -505,4 +505,10 @@ public class LoggingScript implements Script {
 		mPw.print("; ");
 		mPw.println(comment);
 	}
+
+	@Override
+	public void resetAssertions() {
+		mPw.println("(reset-assertions)");
+		mScript.resetAssertions();
+	}
 }

@@ -442,6 +442,11 @@ public interface Script {
 	 */
 	public void reset();
 	/**
+	 * Resets the assertion stack.  This option will keep the logic and all
+	 * globally defined symbols.
+	 */
+	public void resetAssertions();
+	/**
 	 * Get interpolants for the partitions.  Note that the arguments to this
 	 * call must either be the names of Boolean top-level assertions, or the
 	 * conjunction of such names.
