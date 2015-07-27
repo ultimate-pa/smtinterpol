@@ -118,11 +118,11 @@ public class Theory {
 	 * Cache for bitvector constant function symbols (_ bv123 456).
 	 */
 	private UnifyHash<FunctionSymbol> mBitVecConstCache;
-	
+
 	public final ApplicationTerm mTrue, mFalse;
 	public final FunctionSymbol mAnd, mOr, mNot, mImplies, mXor;
 	public final PolymorphicFunctionSymbol mEquals, mDistinct, mIte;
-	
+
 	final static Sort[] EMPTY_SORT_ARRAY = Script.EMPTY_SORT_ARRAY;
 	final static TermVariable[] EMPTY_TERM_VARIABLE_ARRAY = {};
 	final static Term[] EMPTY_TERM_ARRAY = Script.EMPTY_TERM_ARRAY;
@@ -131,12 +131,14 @@ public class Theory {
 	 */
 	private final static String MODEL_VALUE_PATTERN = "@\\d+";
 	private final static String BITVEC_CONST_PATTERN = "bv\\d+";
-	
-	
+
+
 	private int mTvarCtr = 0;
-	
+
 	private int mSkolemCounter = 0;
-	
+
+	private boolean mGlobalDecls;
+
 	public Theory() {
 		mTrue = mFalse = null;
 		mAnd = mOr = mNot = mImplies = mXor = null;
@@ -1509,13 +1511,17 @@ public class Theory {
 	/******************** ASSERTION STACK *********************************/
 
 	public void push() {
-		mDeclaredFuns.beginScope();
-		mDeclaredSorts.beginScope();
+		if (!mGlobalDecls) {
+			mDeclaredFuns.beginScope();
+			mDeclaredSorts.beginScope();
+		}
 	}
 
 	public void pop() {
-		mDeclaredFuns.endScope();
-		mDeclaredSorts.endScope();
+		if (!mGlobalDecls) {
+			mDeclaredFuns.endScope();
+			mDeclaredSorts.endScope();
+		}
 	}
 	
 	/******************** SKOLEMIZATION SUPPORT ***************************/
@@ -1526,7 +1532,8 @@ public class Theory {
 	}
 
 	public void resetAssertions() {
-		// TODO: global symbols
+		if (mGlobalDecls)
+			return;
 		while (mDeclaredFuns.getActiveScopeNum() > 1)
 			mDeclaredFuns.endScope();
 		for (Iterator<Map.Entry<String, FunctionSymbol>> it = mDeclaredFuns.entrySet().iterator();
@@ -1543,5 +1550,9 @@ public class Theory {
 			if (!next.getValue().isIntern())
 				it.remove();
 		}
+	}
+
+	public void setGlobalSymbols(boolean globalDecls) {
+		mGlobalDecls = globalDecls;
 	}
 }

@@ -28,8 +28,10 @@ import org.junit.runners.JUnit4;
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.ReasonUnknown;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
+import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
+import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 
@@ -310,5 +312,54 @@ public class APITest {
 		solver.pop(1);
 		isSat = solver.checkSat();
 		Assert.assertSame(LBool.SAT, isSat);
+	}
+
+	@Test
+	public void testResetAssertions() {
+		SMTInterpol solver = new SMTInterpol(new DefaultLogger());
+		solver.setLogic(Logics.QF_LIA);
+		solver.declareFun("x", Script.EMPTY_SORT_ARRAY, solver.sort("Int"));
+		solver.assertTerm(solver.term("false"));
+		LBool res = solver.checkSat();
+		Assert.assertSame(res, LBool.UNSAT);
+		try {
+			solver.resetAssertions();
+			res = solver.checkSat();
+			Assert.assertSame(res, LBool.SAT);
+		} catch (SMTLIBException ese) {
+			Assert.fail(ese.getMessage());
+		} catch (UnsupportedOperationException eunsupp) {
+			Assert.fail(eunsupp.getMessage());
+		}
+		try {
+			solver.declareFun("x", Script.EMPTY_SORT_ARRAY, solver.sort("Int"));
+		} catch (SMTLIBException ese) {
+			Assert.fail(ese.getMessage());
+		}
+	}
+	@Test
+	public void testGlobalSymbols() {
+		SMTInterpol solver = new SMTInterpol(new DefaultLogger());
+		try {
+			solver.setOption(":global-declarations", Boolean.TRUE);
+		} catch (UnsupportedOperationException eunsupp) {
+			Assert.fail("global-declarations not supported!!!");
+		}
+		solver.setLogic(Logics.QF_LIA);
+		solver.declareFun("x", Script.EMPTY_SORT_ARRAY, solver.sort("Int"));
+		Term x = solver.term("x");
+		try {
+			solver.resetAssertions();
+		} catch (SMTLIBException ese) {
+			Assert.fail(ese.getMessage());
+		} catch (UnsupportedOperationException eunsupp) {
+			Assert.fail(eunsupp.getMessage());
+		}
+		try {
+			Term x2 = solver.term("x");
+			Assert.assertSame(x, x2);
+		} catch (SMTLIBException ese) {
+			Assert.fail(ese.getMessage());
+		}
 	}
 }

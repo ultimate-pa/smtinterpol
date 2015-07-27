@@ -123,6 +123,9 @@ public class SolverOptions {
 		options.addOption(SIMPLIFY_CHECK_TYPE, mSimpCheckType);
 		options.addOption(":simplify-repeatedly", new BooleanOption(true, true,
 				"Simplify until the fixpoint is reached."));
+		
+		options.addOption(":global-declarations", new BooleanOption(false, false,
+				"Make all declared and defined symbols global.  Global symbols survive pop operations."));
 	}
 	
 	@SuppressWarnings("unchecked")

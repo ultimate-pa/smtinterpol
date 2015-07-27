@@ -597,6 +597,8 @@ public class SMTInterpol extends NoopScript {
 					|| mSolverOptions.isModelCheckModeActive())
 				mAssertions = new ScopedArrayList<Term>();
 			mOptions.setOnline();
+			mEngine.getSMTTheory().setGlobalSymbols(
+					((Boolean) mOptions.get(":global-declarations")).booleanValue());
 		} catch (UnsupportedOperationException eLogicUnsupported) {
 			super.reset();
 			mEngine = null;
