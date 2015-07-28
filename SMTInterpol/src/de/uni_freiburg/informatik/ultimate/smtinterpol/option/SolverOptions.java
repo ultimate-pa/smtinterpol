@@ -89,8 +89,9 @@ public class SolverOptions {
 		options.addOption(":verbosity", new VerbosityOption(logger));
 		options.addOption(TIMEOUT, mTimeout);
 		options.addOption(RANDOM_SEED, mRandomSeed);
-		options.addOption(":interactive-mode", new BooleanOption(false, false,
+		options.addOption(":produce-assertions", new BooleanOption(false, false,
 				"Store asserted formulas for later retrieval."));
+		options.addAlias(":interactive-mode", ":produce-assertions");
 		// model options
 		options.addOption(":produce-models", new BooleanOption(false, true,
 				"Produce models for satisfiable formulas"));
