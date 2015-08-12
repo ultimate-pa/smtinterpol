@@ -83,7 +83,7 @@ public class SimplifyDDA extends NonRecursive {
 	 * context is inconsistent. The flag it set to false whenever we pop
 	 * the context.
 	 */
-	protected boolean mContextIsInconsistent;
+	protected boolean mInconsistencyOfContextDetected;
 
 	/**
 	 * This class counts the predecessors of every term to enable the
@@ -553,8 +553,8 @@ public class SimplifyDDA extends NonRecursive {
 							mSimplifiedParams[i], connective, i, params.length);
 						LBool sat = simplifier.mScript.assertTerm(sibling);
 						if (sat == LBool.UNSAT) {
-							simplifier.mContextIsInconsistent = true;
-							continue;
+							simplifier.mInconsistencyOfContextDetected = true;
+							break;
 						}
 					}
 				}
@@ -638,7 +638,7 @@ public class SimplifyDDA extends NonRecursive {
 	 * NOT_REDUNDANT if term is not redundant.
 	 */
 	protected Redundancy getRedundancy(Term term) {
-		if (mContextIsInconsistent) {
+		if (mInconsistencyOfContextDetected) {
 			// context already inconsistent, hence term is 
 			// NON_CONSTRAINING and NON_RELAXING
 			return Redundancy.NON_CONSTRAINING;
@@ -667,7 +667,7 @@ public class SimplifyDDA extends NonRecursive {
 	}
 	
 	public Term simplifyOnce(Term term) {
-		mContextIsInconsistent = false;
+		mInconsistencyOfContextDetected = false;
 		mTermInfos = new HashMap<Term, TermInfo>(); 
 
 		run(new TermCounter(term));
@@ -763,14 +763,14 @@ public class SimplifyDDA extends NonRecursive {
 		for (Term t : context) {
 			LBool sat = mScript.assertTerm(t);
 			if (sat == LBool.UNSAT) {
-				mContextIsInconsistent = true;
+				mInconsistencyOfContextDetected = true;
 				return;
 			}
 		}
 	}
 
 	void popContext() {
-		mContextIsInconsistent = false;
+		mInconsistencyOfContextDetected = false;
 		mScript.pop(1);
 	}
 
