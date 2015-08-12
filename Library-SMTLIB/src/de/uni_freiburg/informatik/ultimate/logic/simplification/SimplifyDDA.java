@@ -78,6 +78,12 @@ public class SimplifyDDA extends NonRecursive {
 	final Term mTrue;
 	final Term mFalse;
 	final boolean mSimplifyRepeatedly;
+	/**
+	 * If asserting a term returns UNSAT, we use this flag to store that the
+	 * context is inconsistent. The flag it set to false whenever we pop
+	 * the context.
+	 */
+	protected boolean mContextIsInconsistent;
 
 	/**
 	 * This class counts the predecessors of every term to enable the
@@ -545,7 +551,11 @@ public class SimplifyDDA extends NonRecursive {
 					for (int i = 0; i < mParamCtr; i++) {
 						Term sibling = simplifier.negateSibling(
 							mSimplifiedParams[i], connective, i, params.length);
-						simplifier.mScript.assertTerm(sibling);
+						LBool sat = simplifier.mScript.assertTerm(sibling);
+						if (sat == LBool.UNSAT) {
+							simplifier.mContextIsInconsistent = true;
+							continue;
+						}
 					}
 				}
 				simplifier.enqueueWalker(this);
@@ -628,6 +638,11 @@ public class SimplifyDDA extends NonRecursive {
 	 * NOT_REDUNDANT if term is not redundant.
 	 */
 	protected Redundancy getRedundancy(Term term) {
+		if (mContextIsInconsistent) {
+			// context already inconsistent, hence term is 
+			// NON_CONSTRAINING and NON_RELAXING
+			return Redundancy.NON_CONSTRAINING;
+		}
 		LBool isTermConstraining =
 				Util.checkSat(mScript, Util.not(mScript, term));
 		if (isTermConstraining == LBool.UNSAT) {
@@ -652,6 +667,7 @@ public class SimplifyDDA extends NonRecursive {
 	}
 	
 	public Term simplifyOnce(Term term) {
+		mContextIsInconsistent = false;
 		mTermInfos = new HashMap<Term, TermInfo>(); 
 
 		run(new TermCounter(term));
@@ -745,12 +761,16 @@ public class SimplifyDDA extends NonRecursive {
 	void pushContext(Term... context) {
 		mScript.push(1);
 		for (Term t : context) {
-			if (mScript.assertTerm(t) == LBool.UNSAT)
+			LBool sat = mScript.assertTerm(t);
+			if (sat == LBool.UNSAT) {
+				mContextIsInconsistent = true;
 				return;
+			}
 		}
 	}
 
 	void popContext() {
+		mContextIsInconsistent = false;
 		mScript.pop(1);
 	}
 
