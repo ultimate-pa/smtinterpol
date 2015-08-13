@@ -886,20 +886,20 @@ public class Minimizer {
 				}
 				if (test()) {
 					for (TermListCmd cmd : cmds)
-						cmd.failure();
-					// Both reductions failed => give up
-					System.err.println("...done");
-					return res;
-				} else {
-					for (TermListCmd cmd : cmds)
 						cmd.success();
 					res = true;
 					goon = true;
+				} else {
+					for (TermListCmd cmd : cmds)
+						cmd.failure();
+					// Both reductions failed => give up
+					if (mVerbosity > 0)
+						System.err.println("...done");
+					return res;
 				}
 			}
 		}
-		if (mVerbosity > 0)
-			System.err.println("...done");
+		// Actually dead code, but required by the java compiler
 		return res;
 	}
 	
