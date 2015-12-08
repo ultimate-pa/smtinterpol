@@ -928,6 +928,9 @@ public class SMTInterpol extends NoopScript {
 			/* We always have to reset the flag, but only need to set the stack
 			 * level if it is not already set. 
 			 */
+			System.out.println("debug:");//alex: debugging
+			System.out.println(mEngine.getClauses());//alex: debugging
+//			System.out.println(mEngine.dumpClauses());//alex: debugging
 			if (mClausifier.resetBy0Seen() && mBy0Seen == -1)
 				mBy0Seen = mStackLevel;
 			if (!mEngine.quickCheck()) {
