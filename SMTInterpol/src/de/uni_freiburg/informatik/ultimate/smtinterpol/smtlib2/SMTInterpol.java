@@ -930,6 +930,8 @@ public class SMTInterpol extends NoopScript {
 			 */
 			System.out.println("debug:");//alex: debugging
 			System.out.println(mEngine.getClauses());//alex: debugging
+			System.out.println(mClausifier.getFulfilledEprClauses());//alex: debugging
+			System.out.println(mClausifier.getNotFulfilledEprClauses());//alex: debugging
 //			System.out.println(mEngine.dumpClauses());//alex: debugging
 			if (mClausifier.resetBy0Seen() && mBy0Seen == -1)
 				mBy0Seen = mStackLevel;

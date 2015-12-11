@@ -51,6 +51,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.IAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.NamedAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.SimpleList;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.IProofTracker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.LeafNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.NoopProofTracker;
@@ -1131,12 +1132,19 @@ public class Clausifier {
 //			}
 			if (idx instanceof ApplicationTerm) {
 //				//alex (begin)
-//				if (EprTheory.isEprAtom(idx)) {
-//					// idx has implicitly forall-quantified variables
-//					// --> dont create a literal for the current term 
-//					//     (i.e. only the EPR-theory, not the DPLLEngine, will know it)
-//					return;
-//				}
+				if (EprTheory.isQuantifiedEprAtom(idx)) {
+					// idx has implicitly forall-quantified variables
+					// --> dont create a literal for the current term 
+					//     (i.e. only the EPR-theory, not the DPLLEngine, will know it)
+					mCollector.getTracker().save();
+//					DPLLAtom eqAtom = eq.getLiteral();
+					DPLLAtom eqAtom = mEprTheory.getEprAtom((ApplicationTerm) idx, 0, 0);
+//					mCollector.getTracker().eq(lhs, rhs, eqAtom);
+					mCollector.addLiteral(
+							positive ? eqAtom : eqAtom.negate(), mTerm);
+					mCollector.getTracker().cleanSave();
+					return;
+				}
 //				//alex (end)
 
 				ApplicationTerm at = (ApplicationTerm) idx;
@@ -1318,16 +1326,16 @@ public class Clausifier {
 					mSubTracker.orSimpClause(mOrigArgs);
 				
 				//alex (begin)
-				boolean addClause = true;
+				boolean isDpllClause = true;
 				for (Literal l : lits) {
-					if (EprTheory.isEprAtom(l.getSMTFormula(mTheory))) {
-							// we have an EPR-clause
-							//FIXME: probably this test has to check for auxLiterals (and not look inside them)
-						addClause = false;
+					if (l instanceof EprAtom
+							&& EprTheory.isQuantifiedEprAtom(toPositive(l.getSMTFormula(mTheory)))) {
+						// we have an EPR-clause
+						isDpllClause = false;
 					}
 				}
 
-				if (addClause) {
+				if (isDpllClause) {
 				//alex (end)
 					addClause(lits,	null,
 							getProofNewSource(mLeafKind,
@@ -2414,7 +2422,7 @@ public class Clausifier {
 				// alex: this the right place to get rid of the CClosure predicate conversion in EPR-case?
 				// --> seems to be one of three positions..
 				if (mTheory.getLogic().isQuantified()) {
-					lit = new EprAtom(term, 0, 0);
+					lit = mEprTheory.getEprAtom(term, 0, 0);
 				} else {
 					// replace a predicate atom "(p x)" by "(p x) = true"
 					SharedTerm st = getSharedTerm(term);
@@ -2497,6 +2505,14 @@ public class Clausifier {
 	public static boolean shouldFlatten(ApplicationTerm term) {
 		return term.getFunction() == term.getTheory().mOr
 				&& term.mTmpCtr <= Config.OCC_INLINE_THRESHOLD;
+	}
+
+	public SimpleList<Clause> getFulfilledEprClauses() {
+		return mEprTheory.getFulfilledClauses();
+	}
+
+	public SimpleList<Clause> getNotFulfilledEprClauses() {
+		return mEprTheory.getNotFulfilledClauses();
 	}
 
 }
