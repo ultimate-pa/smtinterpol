@@ -298,8 +298,12 @@ public class EprTheory implements ITheory {
 		if (idx.getFunction().getName().equals("=")) {
 			return new EprEqualityAtom(idx, i, j);
 		} else {
-			mEprPredicates.put(idx.getFunction(), new EprPredicate(idx.getFunction().getName()));
-			return new EprPredicateAtom(idx, i, j, idx.getFunction());
+			EprPredicate pred = mEprPredicates.get(idx.getFunction());
+			if (pred == null) {
+				pred = new EprPredicate(idx.getFunction().getName());
+				mEprPredicates.put(idx.getFunction(), pred);
+			}
+			return new EprPredicateAtom(idx, i, j, pred);
 		}
 	}
 

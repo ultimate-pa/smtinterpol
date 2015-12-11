@@ -18,7 +18,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
  */
 public abstract class EprAtom extends DPLLAtom {
 	
-	private final ApplicationTerm mTerm;
+	protected final ApplicationTerm mTerm;
 
 	public EprAtom(ApplicationTerm term, int hash, int assertionstacklevel) {
 		super(hash, assertionstacklevel);

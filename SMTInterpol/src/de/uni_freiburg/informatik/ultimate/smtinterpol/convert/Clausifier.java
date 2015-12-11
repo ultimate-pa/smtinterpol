@@ -1821,16 +1821,18 @@ public class Clausifier {
 			return (at.getFunction() == at.getTheory().mNot)
 					? at.getParameters()[0] : at;
 		}
-		// FIXME: Think about how to get Utils in here...
-//		else if (t instanceof QuantifiedFormula) {
-//			QuantifiedFormula qf = (QuantifiedFormula) t;
-//			if (qf.getQuantifier() == QuantifiedFormula.EXISTS) {
-//				// (exists (x) (phi x)) is (not (forall (x) (not (phi x))))
-//				return t.getTheory().forall(qf.getVariables(),
+		// FIXME: Think about how to get Utils in here... 
+		else if (t instanceof QuantifiedFormula) {
+			QuantifiedFormula qf = (QuantifiedFormula) t;
+			if (qf.getQuantifier() == QuantifiedFormula.FORALL) { //alex: convention seems to have changed form forall to exists
+				// (exists (x) (phi x)) is (not (forall (x) (not (phi x))))
+				// alex: (forall (x) (phi x)) is (not (exists (x) (not (phi x))))
+				return t.getTheory().exists(qf.getVariables(), 
+						t.getTheory().not(t)); //alex: just using theory instead of utils --> TODO is that a problem?
 //						Utils.createNot(qf.getSubformula()));
-//			}
-//			return qf;
-//		}
+			}
+			return qf;
+		}
 		throw new InternalError("Unclear how to compute positive for " + t);
 	}
 	
@@ -2422,7 +2424,11 @@ public class Clausifier {
 				// alex: this the right place to get rid of the CClosure predicate conversion in EPR-case?
 				// --> seems to be one of three positions..
 				if (mTheory.getLogic().isQuantified()) {
-					lit = mEprTheory.getEprAtom(term, 0, 0);
+					// assuming right now that 
+					assert !term.getFunction().getName().equals("not") : "do something for the negated case!";
+					DPLLAtom atom = mEprTheory.getEprAtom(term, 0, 0);
+					lit = atom;
+					mEngine.addAtom(atom);
 				} else {
 					// replace a predicate atom "(p x)" by "(p x) = true"
 					SharedTerm st = getSharedTerm(term);

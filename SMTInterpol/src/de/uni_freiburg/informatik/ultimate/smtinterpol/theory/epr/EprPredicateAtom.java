@@ -1,19 +1,42 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
-import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.Term;
 
 public class EprPredicateAtom extends EprAtom {
 
-	private final FunctionSymbol mPredicate;
+	private final EprPredicate mPredicate;
+	private final int mArity;
+	
+	private HashSet<TermTuple> mPositivelySetPoints = new HashSet<>();
+	private HashSet<TermTuple> mNegativelySetPoints = new HashSet<>();
 
-	public EprPredicateAtom(ApplicationTerm term, int hash, int assertionstacklevel, FunctionSymbol predicate) {
+	public EprPredicateAtom(ApplicationTerm term, int hash, int assertionstacklevel, EprPredicate pred) {
 		super(term, hash, assertionstacklevel);
-		mPredicate = predicate;
+		mPredicate = pred;
+		mArity = term.getParameters().length;
 	}
 	
-	public FunctionSymbol getPredicate() {
+	public EprPredicate getPredicate() {
 		return mPredicate;
 	}
 
+	public Term[] getArguments() {
+		return mTerm.getParameters();
+	}
+	
+	public void setPointPositive(TermTuple point) {
+		assert point.arity == mArity;
+		assert !mNegativelySetPoints.contains(point) : "is that ok??";
+		mPositivelySetPoints.add(point);
+	}
+
+	public void setPointNegative(TermTuple point) {
+		assert point.arity == mArity;
+		assert !mPositivelySetPoints.contains(point) : "is that ok??";
+		mNegativelySetPoints.add(point);
+	}
 }
