@@ -13,12 +13,18 @@
 
 \section{Zusammenfassung}
 
-Da der momentane Prooftracker, der den Beweis für die Umformung einer Eingabeformel erst in eine äquivalente Negation Normal Form (NNF) und dann in eine erfüllbarkeitsäquivalente Konjunktive Normal Form (KNF), mitschreibt, einige Probleme hat, soll dieser umgeschrieben werden. Die Umformung in NNF wird nach De Morgan's Laws gemacht und vom Termcompiler ausgeführt. Die Umformung in KNF wird nach Plaisted und Greenbaum gemacht und vom Clausifier ausgeführt. Die generierten Beweise sind schwer zu lesen und in einigen Fällen sogar falsch. Außerdem sind die Beweisregeln aufwendig zu prüfen, für jede Ersetzungsregel muss die gesamte Formel durchlaufen werden. Aufwand $O(n^2)$, statt $O(n)$. Diese Probleme sollen mit neuen Umschreiberegeln angegangen werden.
+Da der momentane Prooftracker, der den Beweis für die Umformung einer Eingabeformel erst in eine äquivalente Negation Normal Form (NNF) und dann in eine erfüllbarkeitsäquivalente Konjunktive Normal Form (KNF), mitschreibt, einige Probleme hat, soll dieser umgeschrieben werden.
+Die Umformung in NNF wird nach De Morgan's Laws gemacht und vom Termcompiler ausgeführt.
+Die Umformung in KNF wird nach Plaisted und Greenbaum gemacht und vom Clausifier ausgeführt.
+Die generierten Beweise sind schwer zu lesen und in einigen Fällen sogar falsch.
+Außerdem sind die Beweisregeln aufwendig zu prüfen, für jede Ersetzungsregel muss die gesamte Formel durchlaufen werden.
+Aufwand $O(n^2)$, statt $O(n)$. Diese Probleme sollen mit neuen Umschreiberegeln angegangen werden.
 
 \section{Aufgabenbeschreibung}
 
 Zuerst muss der Prooftracker angepasst, bzw. erweitert werden um die Regeln Reflexivität, Transitivität und Kongruenz.
-Ziel ist es jeden Umschreibeschritt genau zu dokumentieren. Dann muss der Termcompiler so angepasst werden, das er die neuen Regeln verwendet.
+Ziel ist es jeden Umschreibeschritt genau zu dokumentieren.
+Dann muss der Termcompiler so angepasst werden, das er die neuen Regeln verwendet.
 Und zuletzt muss der Clausifier angepasst werden, im speziellen die Methoden addAsAxiom und addAxiom.
 
 \section{Arbeitspakete}
