@@ -114,8 +114,9 @@ public class InterpolatorTest extends TestCaseWithLogger {
 		@SuppressWarnings("unchecked")
 		Set<String>[] partition = new Set[] { empty, empty };
 		mInterpolator = 
-			new Interpolator(mSolver.getLogger(), mSolver.getTheory(), 
-					partition, mClausifier);
+			new Interpolator(mSolver.getLogger(), mSolver, null,
+					mSolver.getTheory(), 
+					partition, new int[partition.length]);
 		if (abswap) {
 			mInterpolator.addOccurrence(sb, 0);
 			mInterpolator.addOccurrence(sa, 1);

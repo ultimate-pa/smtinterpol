@@ -37,6 +37,7 @@ import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
+import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -186,6 +187,7 @@ public class Interpolator {
 	}
 
 	SMTInterpol mSmtSolver;
+	Script mCheckingSolver;
 
 	Logger mLogger;
 	Theory mTheory;
@@ -220,9 +222,8 @@ public class Interpolator {
 	HashMap<String, Integer> mPartitions;
 	HashMap<Clause, Interpolant[]> mInterpolants;
 	
-	
-
-	public Interpolator(Logger logger, SMTInterpol smtSolver, Theory theory, 
+	public Interpolator(Logger logger, SMTInterpol smtSolver, 
+			Script checkingSolver, Theory theory, 
 			Set<String>[] partitions, int[] startOfSubTrees) {
 		mPartitions = new HashMap<String, Integer>();
 		for (int i = 0; i < partitions.length; i++) {
@@ -233,6 +234,7 @@ public class Interpolator {
 		}
 		mLogger = logger;
 		mSmtSolver = smtSolver;
+		mCheckingSolver = checkingSolver;
 		mTheory = theory;
 		mNumInterpolants = partitions.length - 1;
 
@@ -240,11 +242,6 @@ public class Interpolator {
 		mSymbolPartition = new HashMap<SharedTerm, Occurrence>();
 		mLiteralInfos = new HashMap<DPLLAtom, LitInfo>();
 		mInterpolants = new HashMap<Clause,Interpolant[]>();
-	}
-
-	public Interpolator(Logger logger, Theory theory, 
-			Set<String>[] partitions, Clausifier clausifier) {
-		this(logger, null, theory, partitions, new int[partitions.length]);
 	}
 
 	private Term unfoldLAs(Interpolant interpolant) {
@@ -271,7 +268,7 @@ public class Interpolator {
 		Level old = mLogger.getLevel();// NOPMD
 		mLogger.setLevel(Level.ERROR);
 
-		mSmtSolver.push(1);
+		mCheckingSolver.push(1);
 		
 		/* initialize auxMaps, which maps for each partition the auxiliary
 		 * variables for mixed literals to a new fresh constant.
@@ -285,8 +282,8 @@ public class Interpolator {
 				if (info.isMixed(part)) {
 					TermVariable tv = info.mMixedVar;
 					String name = ".check" + part + "." + tv.getName();
-					mSmtSolver.declareFun(name, new Sort[0], tv.getSort());
-					Term term = mSmtSolver.term(name);
+					mCheckingSolver.declareFun(name, new Sort[0], tv.getSort());
+					Term term = mCheckingSolver.term(name);
 					if (auxMaps[part] == null)
 						auxMaps[part] = new HashMap<TermVariable, Term>();
 					auxMaps[part].put(tv, term);
@@ -313,16 +310,16 @@ public class Interpolator {
 		
 		
 		for (int part = 0; part < ipls.length; part++) {
-			mSmtSolver.push(1);
+			mCheckingSolver.push(1);
 			for (Entry<String, Integer> entry: mPartitions.entrySet()) {
 				if (entry.getValue() == part)
-					mSmtSolver.assertTerm(mTheory.term(entry.getKey()));
+					mCheckingSolver.assertTerm(mTheory.term(entry.getKey()));
 			}
 			for (Literal lit : clause) {
 				lit = lit.negate();
 				LitInfo info = mLiteralInfos.get(lit.getAtom());
 				if (info.contains(part)) {
-					mSmtSolver.assertTerm(lit.getSMTFormula(mTheory));
+					mCheckingSolver.assertTerm(lit.getSMTFormula(mTheory));
 				} else if (info.isBLocal(part)) {
 					// nothing to do, literal cannot be mixed in sub-tree.
 				} else if (info.isALocalInSomeChild(part)) {
@@ -351,9 +348,9 @@ public class Interpolator {
 							assert info.getLhsOccur().isBLocal(part);
 							lhs = auxMaps[part].get(info.mMixedVar);
 						}
-						mSmtSolver.assertTerm(mTheory.term("=", lhs, rhs));
+						mCheckingSolver.assertTerm(mTheory.term("=", lhs, rhs));
 					} else {
-						mSmtSolver.assertTerm(mTheory.term(lit.getSign() < 0 ? "distinct" : "=", lhs, rhs));
+						mCheckingSolver.assertTerm(mTheory.term(lit.getSign() < 0 ? "distinct" : "=", lhs, rhs));
 					}
 				} else if (lit.negate() instanceof LAEquality) {
 					// handle mixed LA disequalities.
@@ -375,7 +372,7 @@ public class Interpolator {
 						Term zero = eq.getVar().isInt() 
 								? mTheory.numeral(BigInteger.ZERO)
 								: mTheory.decimal(BigDecimal.ZERO);
-						mSmtSolver.assertTerm(mTheory.term("=", t, zero));
+						mCheckingSolver.assertTerm(mTheory.term("=", t, zero));
 					} else {
 						assert !at.isConstant();
 						at.add(Rational.ONE, eq.getVar());
@@ -384,7 +381,7 @@ public class Interpolator {
 						Term zero = eq.getVar().isInt() 
 								? mTheory.numeral(BigInteger.ZERO)
 								: mTheory.decimal(BigDecimal.ZERO);
-						mSmtSolver.assertTerm(mTheory.term("distinct", t, zero));
+						mCheckingSolver.assertTerm(mTheory.term("distinct", t, zero));
 					}
 				} else {
 					// handle mixed LA inequalities and equalities.
@@ -423,7 +420,7 @@ public class Interpolator {
 					if (lit.getAtom() instanceof BoundConstraint) {
 						if (lit.getSign() < 0)
 							at.negate();
-						mSmtSolver.assertTerm(at.toLeq0(mTheory));
+						mCheckingSolver.assertTerm(at.toLeq0(mTheory));
 					} else {
 						boolean isInt = at.isInt();
 						Term t = at.toSMTLib(mTheory, isInt);
@@ -434,20 +431,20 @@ public class Interpolator {
 						if (!info.isMixed(part)
 							&& lit.getSign() < 0)
 							eqTerm = mTheory.term("not", eqTerm);
-						mSmtSolver.assertTerm(eqTerm);
+						mCheckingSolver.assertTerm(eqTerm);
 					}
 				}
 			}
 			for (int child = part - 1;	child >= mStartOfSubtrees[part]; 
 					child = mStartOfSubtrees[child] - 1) {
-				mSmtSolver.assertTerm(interpolants[child]);
+				mCheckingSolver.assertTerm(interpolants[child]);
 			}
-			mSmtSolver.assertTerm(mTheory.term("not", interpolants[part]));
-			if (mSmtSolver.checkSat() != LBool.UNSAT)
+			mCheckingSolver.assertTerm(mTheory.term("not", interpolants[part]));
+			if (mCheckingSolver.checkSat() != LBool.UNSAT)
 				throw new AssertionError();
-			mSmtSolver.pop(1);
+			mCheckingSolver.pop(1);
 		}
-		mSmtSolver.pop(1);
+		mCheckingSolver.pop(1);
 		mLogger.setLevel(old);
 	}
 
@@ -465,7 +462,7 @@ public class Interpolator {
 			Interpolant[] primInterpolants = interpolate(prim);
 			interpolants = new Interpolant[mNumInterpolants];
 			HashSet<Literal> lits = null;
-			if (Config.DEEP_CHECK_INTERPOLANTS && mSmtSolver != null) {
+			if (Config.DEEP_CHECK_INTERPOLANTS && mCheckingSolver != null) {
 				lits = new HashSet<Literal>();
 				for (int i = 0; i < prim.getSize(); i++)
 					lits.add(prim.getLiteral(i));
@@ -522,7 +519,7 @@ public class Interpolator {
 					}
 					mLogger.debug(interpolants[i]);
 				}
-				if (Config.DEEP_CHECK_INTERPOLANTS && mSmtSolver != null) {
+				if (Config.DEEP_CHECK_INTERPOLANTS && mCheckingSolver != null) {
 					lits.remove(pivot.negate());
 					for (int i = 0; i < assump.mAntecedent.getSize(); i++) {
 						if (assump.mAntecedent.getLiteral(i) != pivot)
@@ -573,7 +570,7 @@ public class Interpolator {
 				throw new UnsupportedOperationException("Cannot interpolate " + proof);
 			}
 		}
-		if (Config.DEEP_CHECK_INTERPOLANTS && mSmtSolver != null) {
+		if (Config.DEEP_CHECK_INTERPOLANTS && mCheckingSolver != null) {
 			HashSet<Literal> lits = new HashSet<Literal>();
 			for (int i = 0; i < cl.getSize(); i++)
 				lits.add(cl.getLiteral(i));
