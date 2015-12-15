@@ -454,7 +454,7 @@ public class Interpolator {
 	public Interpolant[] interpolate(Clause cl) {
 		if (mInterpolants.containsKey(cl))
 			return mInterpolants.get(cl);
-		if (mSmtSolver.getEngine().isTerminationRequested())
+		if (mSmtSolver.isTerminationRequested())
 			throw new SMTLIBException("Timeout exceeded");
 
 		Interpolant[] interpolants = null;
@@ -1217,7 +1217,7 @@ public class Interpolator {
 				sPlusOffset.add(theC.abs().add(Rational.MONE));
 			while (offset.compareTo(kc) <= 0) {
 				Term x;
-				if (mSmtSolver.getEngine().isTerminationRequested())
+				if (mSmtSolver.isTerminationRequested())
 					throw new SMTLIBException("Timeout exceeded");
 				x = sPlusOffset.toSMTLib(mTheory, true);
 				if (!cNum.equals(BigInteger.ONE))
