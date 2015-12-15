@@ -1,16 +1,113 @@
 \documentclass[a4paper]{article}
+
 \usepackage[ngerman]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{mathpartir}
+\usepackage{pxfonts}
 
 \title{}
 \author{Markus Pomrehn}
-\abstract{}
 
 \begin{document}
+
+\abstract{}
 
 \section{Einführung}
 
 \section{Beweisformat}
 \subsection{Alt}
+\subsubsection{Vorhandene Beweisregeln}
+
+
+\paragraph{expand:} SMTInterpol erweitert assoziative Funktionen, je nach dem ob sie links- oder rechts-assoziativ. Aus $f(t_1,t_2...,t_{n-1},t_n)$ wird bei links-assoziativen Funktionen $f(f(...f(t_1,t_2),...),t_n)$ und bei rechts-assoziativen Funktionen $f(t_1,f(...,f(t_{n-1},t_n)))$.
+Außerdem wird bei verkettbaren Funktionen aus $f(t_1,t_2,t_3...,t_{n-1},t_n)$ = $f(t_1,t_2) \land f(t_2,t_3) \land ... \land f(t_{n-1},t_n)$.
+\paragraph{expandDef:} SMTLib ermöglicht es Benutzern eigene Funktionen zu definieren. Diese Funktion ersetzt n durch ihre Defintition d.
+\[
+\inferrule*[left=ExpandDef]{ }{n(t) = d[t]}
+\]
+\paragraph{trueNotFalse:} Gleichheit von Boolschen Termen, mit einem Term der falsch ist und einem der wahr ist, vereinfache zu falsch.
+\begin{mathpar}
+  \inferrule*[left=TrueNotFalse,right={$\exists j,k\in I.\ t_j=true \land
+      t_k=false$}]{ } {(=_{i\in I}\ t_i) = false}
+      \end{mathpar}
+\paragraph{constDiff:} Gleichheit unterschiedlicher Konstanten ist falsch.
+\begin{mathpar}
+\inferrule*[left=ConstDiff,right={$\exists j,k\in I.\ t_j=c_j \land
+      t_k=c_k\land c_j\neq c_k$}]{ } {(=_{i\in I}\ t_i) = false}
+\end{mathpar}
+\paragraph{eqTrue:} Gleicheit zu wahr, wird durch ein Konjunkt ersetzt.
+\begin{mathpar}
+\inferrule*[left=EqTrue,right={$\exists j\in I.\ t_j=true\land I'\subset
+      I\land j\not\in I'$}]{ } {(=_{i\in I}\ t_i) = (and_{i'\in I'}\ t_{i'})}
+\end{mathpar}
+\paragraph{eqFalse:} Gleichheit zu falsch, wird durch die Negation der Veroderung der zu falsch gleichen Terme ersetzt.
+\begin{mathpar}
+\inferrule*[left=EqFalse,right={$\exists j\in I.\ t_j=false\land I'\subset
+      I\land j\not\in I'$}]{ } {(=_{i\in I}\ t_i) = (not\ (or_{i'\in I'}\
+    t_{i'}))}
+\end{mathpar}
+\paragraph{eqSame:} Wenn alle Terme gleich sind, vereinfache zu wahr.
+\begin{mathpar}
+\inferrule*[left=EqSame,right={$\forall i,j\in I.\ t_i\equiv t_j$}]{
+  }{(=_{i\in I}\ t_i) = true}
+\end{mathpar}
+\paragraph{eqSimp:} Ersetze gleiche Terme durch diesen Terme.
+\begin{mathpar}
+\inferrule*[left=EqSimp,right={$I'\subset I\land |I'| = |\{t_i.\ i\in
+      I\}|\land\{t_i.\ i\in I\} = \{t_j.\ j\in I'\} $}]{ }{(=_{i\in I}\ t_i) =
+    (=_{i'\in I'}\ t_{i'})}
+\end{mathpar}
+\paragraph{eqBinary}
+\paragraph{distinctBool}
+\paragraph{distinctSame}
+\paragraph{distinctNeg}
+\paragraph{distinctTrue}
+\paragraph{distinctFalse}
+\paragraph{distinctBoolEq}
+\begin{mathpar}
+\inferrule*[left=DistinctBoolEq,right={$sort(t_0)=sort(t_1)=Bool\land
+      ((t_0',t_1')=(\lnot t_0,t_1)\lor(t_0',t_1')=(t_0,\lnot t_1))$}]{ }
+  {(distinct\ t_0\ t_1) = (=\ t_0'\ t_1')}
+\end{mathpar}
+\paragraph{distinctBinary}
+\paragraph{notSimp}
+\paragraph{orSimp}
+\paragraph{orTaut}
+\paragraph{iteTrue}
+\paragraph{iteFalse}
+\paragraph{iteSame}
+\paragraph{iteBool1}
+\paragraph{iteBool2}
+\paragraph{iteBool3}
+\paragraph{iteBool4}
+\paragraph{iteBool5}
+\paragraph{iteBool6}
+\paragraph{andToOr}
+\paragraph{xorToDistinct}
+\paragraph{impToOr}
+\paragraph{canonicalSum}
+\paragraph{leqToLeq0}
+\paragraph{ltToLeq0}
+\paragraph{geqToLeq0}
+\paragraph{gtToLeq0}
+\paragraph{leqTrue}
+\paragraph{leqFalse}
+\paragraph{desugar}
+\paragraph{divisible}
+\paragraph{modulo}
+\paragraph{modulo1}
+\paragraph{modulo-1}
+\paragraph{moduloConst}
+\paragraph{div1}
+\paragraph{div-1}
+\paragraph{divConst}
+\paragraph{toInt}
+\paragraph{toReal}
+\paragraph{flatten}
+\paragraph{strip}
+\paragraph{storeOverStore}
+\paragraph{selectOverStore}
+\paragraph{storeRewrite}
 
 Probleme:
 

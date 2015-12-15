@@ -5,7 +5,7 @@
 (set-logic QF_UF)
 (declare-fun a () Bool)
 
-(assert (not (= a a)))
+(assert (or (and a (not a)) (not (= a a))))
 
 (check-sat)
 (set-option :print-terms-cse false)

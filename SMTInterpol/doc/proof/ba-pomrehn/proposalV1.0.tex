@@ -1,0 +1,87 @@
+\documentclass[a4paper]{article}
+\usepackage[ngerman]{babel}
+\usepackage[normalem]{ulem}
+\usepackage[utf8]{inputenc}
+
+\title{Bachelor Arbeit Proposal}
+\author{Markus Pomrehn\\{markus.pomrehn@gmail.com}}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Zusammenfassung}
+
+Da der momentane Prooftracker, der den Beweis für die Umformung einer Eingabeformel erst in eine äquivalente Negation Normal Form (NNF) und dann in eine erfüllbarkeitsäquivalente Konjunktive Normal Form (KNF), mitschreibt, einige Probleme hat, soll dieser umgeschrieben werden. Die Umformung in NNF wird nach De Morgan's Laws gemacht und vom Termcompiler ausgeführt. Die Umformung in KNF wird nach Plaisted und Greenbaum gemacht und vom Clausifier ausgeführt. Die generierten Beweise sind schwer zu lesen und in einigen Fällen sogar falsch. Außerdem sind die Beweisregeln aufwendig zu prüfen, für jede Ersetzungsregel muss die gesamte Formel durchlaufen werden. Aufwand $O(n^2)$, statt $O(n)$. Diese Probleme sollen mit neuen Umschreiberegeln angegangen werden.
+
+\section{Aufgabenbeschreibung}
+
+Zuerst muss der Prooftracker angepasst, bzw. erweitert werden um die Regeln Reflexivität, Transitivität und Kongruenz.
+Ziel ist es jeden Umschreibeschritt genau zu dokumentieren. Dann muss der Termcompiler so angepasst werden, das er die neuen Regeln verwendet.
+Und zuletzt muss der Clausifier angepasst werden, im speziellen die Methoden addAsAxiom und addAxiom.
+
+\section{Arbeitspakete}
+
+\subsection{Einarbeitung}
+
+...kurze Beschreibung...
+
+\paragraph{Ergebnis:}
+Möglichst vollständiges Verständnis vom Code.
+Teil des Kapitels Beweisformat Alt.
+Kapitel: Implementation Alt.
+
+\subsection{Neues Beweisformat}
+
+...kurze Beschreibung...
+
+\paragraph{Ergebnis:}
+Teil des Kapitels Beweisformat Neu.
+Teil des Kapitels Entwurf (Beispiel Beweisgenerierung)
+
+
+\subsection{Implementierung Prooftracker}
+
+\paragraph{Prooftracker umschreiben}
+Folgende Regeln m"ussen dem Prooftracker hinzugef"ugt werden:\\
+\uline{Reflexivit"at}: Gibt f"ur einen Term t ein Beweis f"ur (= t t) zur"uck\\
+\uline{Transitivit"at}: Gibt f"ur einen Beweis f"ur (= a b) und (= b c) ein Beweis f"ur \mbox{(= a c)} zur"uck, die Regel soll links assoziativ sein\\
+\uline{Kongruenz}: Gibt f"ur einen Beweis f"ur (= s (f $t_1$ ... $t_n$)) und (= t t') einen Beweis f"ur (= s (f $t_1$' ... $t_n$')) wobei $t_i$' = t' falls $t_i$ = t und f"ur den Rest gilt $t_i$' = $t_i$.\\
+
+\paragraph{Compiler anpassen}
+
+...kurze Beschreibung...
+\paragraph{Clausifier anpassen}
+...kurze Beschreibung...
+
+\paragraph{Ergebnis:}
+Kapitel Entwurf fertig, Kapitel Implementierung
+
+\subsection{Test und Evaluierung}
+
+.. kurze Beschreibung...
+
+\paragraph{Ergebnis:}
+Testfälle, Statistiken,
+Kapitel "Evaluation" in der Bachelorarbeit.
+
+\subsection{Bachelorarbeit aufschreiben}
+
+.. kurze Beschreibung...
+Einführung, Fazit. Rechtschreibfehler beheben.
+
+\paragraph{Ergebnis:}
+Die fertige Bachelorarbeit
+
+
+\section{Zeitplan}
+
+Für jedes Arbeitspaket eine Angabe der Dauer (in Wochen).
+Gantt Diagram??
+
+
+
+\bibliography{references}
+
+\end{document}
