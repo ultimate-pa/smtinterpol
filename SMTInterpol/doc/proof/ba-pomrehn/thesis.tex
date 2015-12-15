@@ -10,6 +10,8 @@
 
 \begin{document}
 
+\maketitle
+
 \abstract{}
 
 \section{Einführung}
@@ -19,9 +21,12 @@
 \subsubsection{Vorhandene Beweisregeln}
 
 
-\paragraph{expand:} SMTInterpol erweitert assoziative Funktionen, je nach dem ob sie links- oder rechts-assoziativ. Aus $f(t_1,t_2...,t_{n-1},t_n)$ wird bei links-assoziativen Funktionen $f(f(...f(t_1,t_2),...),t_n)$ und bei rechts-assoziativen Funktionen $f(t_1,f(...,f(t_{n-1},t_n)))$.
+\paragraph{expand:} SMTInterpol erweitert assoziative Funktionen, je nach dem ob sie links- oder rechts-assoziativ.
+Aus $f(t_1,t_2...,t_{n-1},t_n)$ wird bei links-assoziativen Funktionen $f(f(...f(t_1,t_2),...),t_n)$ und bei rechts-assoziativen Funktionen $f(t_1,f(...,f(t_{n-1},t_n)))$.
 Außerdem wird bei verkettbaren Funktionen aus $f(t_1,t_2,t_3...,t_{n-1},t_n)$ = $f(t_1,t_2) \land f(t_2,t_3) \land ... \land f(t_{n-1},t_n)$.
-\paragraph{expandDef:} SMTLib ermöglicht es Benutzern eigene Funktionen zu definieren. Diese Funktion ersetzt n durch ihre Defintition d.
+
+\paragraph{expandDef:} SMTLib ermöglicht es Benutzern eigene Funktionen zu definieren.
+Diese Funktion ersetzt n durch ihre Defintition d.
 \[
 \inferrule*[left=ExpandDef]{ }{n(t) = d[t]}
 \]
