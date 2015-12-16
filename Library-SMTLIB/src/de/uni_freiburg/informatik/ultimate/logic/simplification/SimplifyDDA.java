@@ -37,6 +37,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermTransformer;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Util;
+import de.uni_freiburg.informatik.ultimate.util.PushPopChecker;
 
 /**
  * Simplify formulas, but keep their Boolean structure.
@@ -77,6 +78,12 @@ public class SimplifyDDA extends NonRecursive {
 	final Term mTrue;
 	final Term mFalse;
 	final boolean mSimplifyRepeatedly;
+	/**
+	 * If asserting a term returns UNSAT, we use this flag to store that the
+	 * context is inconsistent. The flag it set to false whenever we pop
+	 * the context.
+	 */
+	protected boolean mInconsistencyOfContextDetected;
 
 	/**
 	 * This class counts the predecessors of every term to enable the
@@ -285,7 +292,6 @@ public class SimplifyDDA extends NonRecursive {
 		@Override
 		public void walk(NonRecursive engine) {
 			SimplifyDDA simplifier = (SimplifyDDA) engine;
-			assert simplifier.atAssertionStackLevel(simplifier.mScript, 1);
 			TermInfo info = simplifier.mTermInfos.get(mTerm);
 			if (info.mPrepared++ > 0)
 				return;
@@ -455,9 +461,10 @@ public class SimplifyDDA extends NonRecursive {
 					mParamCtr++;
 					/* fall through */
 				case 2:
+					if (mSimplifiedParams[0] != simplifier.mFalse)
+						simplifier.popContext();
 					if (mSimplifiedParams[0] != simplifier.mTrue) {
 						simplifier.enqueueWalker(this);
-						simplifier.popContext();
 						simplifier.pushContext(
 								Util.not(simplifier.mScript, mSimplifiedParams[0]));
 						simplifier.enqueueWalker(
@@ -468,7 +475,8 @@ public class SimplifyDDA extends NonRecursive {
 					mParamCtr++;
 					/* fall through */
 				case 3: // NOCHECKSTYLE
-					simplifier.popContext();
+					if (mSimplifiedParams[0] != simplifier.mTrue)
+						simplifier.popContext();
 					Term result = Util.ite(simplifier.mScript, 
 							mSimplifiedParams[0], mSimplifiedParams[1],
 							mSimplifiedParams[2]);
@@ -543,7 +551,11 @@ public class SimplifyDDA extends NonRecursive {
 					for (int i = 0; i < mParamCtr; i++) {
 						Term sibling = simplifier.negateSibling(
 							mSimplifiedParams[i], connective, i, params.length);
-						simplifier.mScript.assertTerm(sibling);
+						LBool sat = simplifier.mScript.assertTerm(sibling);
+						if (sat == LBool.UNSAT) {
+							simplifier.mInconsistencyOfContextDetected = true;
+							break;
+						}
 					}
 				}
 				simplifier.enqueueWalker(this);
@@ -626,6 +638,11 @@ public class SimplifyDDA extends NonRecursive {
 	 * NOT_REDUNDANT if term is not redundant.
 	 */
 	protected Redundancy getRedundancy(Term term) {
+		if (mInconsistencyOfContextDetected) {
+			// context already inconsistent, hence term is 
+			// NON_CONSTRAINING and NON_RELAXING
+			return Redundancy.NON_CONSTRAINING;
+		}
 		LBool isTermConstraining =
 				Util.checkSat(mScript, Util.not(mScript, term));
 		if (isTermConstraining == LBool.UNSAT) {
@@ -650,6 +667,7 @@ public class SimplifyDDA extends NonRecursive {
 	}
 	
 	public Term simplifyOnce(Term term) {
+		mInconsistencyOfContextDetected = false;
 		mTermInfos = new HashMap<Term, TermInfo>(); 
 
 		run(new TermCounter(term));
@@ -660,17 +678,6 @@ public class SimplifyDDA extends NonRecursive {
 
 		mTermInfos = null;
 		return output;
-	}
-	private final boolean atAssertionStackLevel(Script script, long lvl) {
-		try {
-			Object l = script.getInfo(":assertion-stack-levels");
-			if (l instanceof Number) {
-				assert ((Number) l).longValue() == lvl;
-			}
-		} catch (UnsupportedOperationException ignored) {
-			// Solver does not support the optinal information (SMTLIB 2.5)
-		}
-		return true;
 	}
 
 	/**
@@ -687,7 +694,8 @@ public class SimplifyDDA extends NonRecursive {
 		/* We can only simplify boolean terms. */
 		if (!inputTerm.getSort().getName().equals("Bool"))
 			return inputTerm;
-		assert atAssertionStackLevel(mScript, 0);
+		int lvl = 0;// Java requires initialization
+		assert (lvl = PushPopChecker.currentLevel(mScript)) >= -1;
 		Term term = inputTerm;
 		mScript.echo(new QuotedObject("Begin Simplifier"));
 		mScript.push(1);
@@ -719,10 +727,10 @@ public class SimplifyDDA extends NonRecursive {
 			}
 		}.transform(term);// NOCHECKSTYLE
 		mScript.pop(1);
-		assert (checkEquivalence(inputTerm, term) == LBool.UNSAT)
+		assert (checkEquivalence(inputTerm, term) != LBool.SAT)
 			: "Simplification unsound?";
 		mScript.echo(new QuotedObject("End Simplifier"));
-		assert atAssertionStackLevel(mScript, 0);
+		assert PushPopChecker.atLevel(mScript, lvl);
 		return term;
 	}
 	
@@ -753,12 +761,16 @@ public class SimplifyDDA extends NonRecursive {
 	void pushContext(Term... context) {
 		mScript.push(1);
 		for (Term t : context) {
-			if (mScript.assertTerm(t) == LBool.UNSAT)
+			LBool sat = mScript.assertTerm(t);
+			if (sat == LBool.UNSAT) {
+				mInconsistencyOfContextDetected = true;
 				return;
+			}
 		}
 	}
 
 	void popContext() {
+		mInconsistencyOfContextDetected = false;
 		mScript.pop(1);
 	}
 

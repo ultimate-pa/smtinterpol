@@ -51,7 +51,7 @@ public class ParseEnvironment {
 	private ExitHook mExitHook;
 	// Initialize this lazily.
 	private Deque<Long> mTiming;
-	private boolean mContinueOnError = true;
+	private boolean mContinueOnError = !Config.COMPETITION;
 	
 	public ParseEnvironment(Script script) {
 		this(script, null);
@@ -174,9 +174,7 @@ public class ParseEnvironment {
 			mOut.print('(');
 			pt.append(mOut, me.getKey());
 			mOut.print(' ');
-			pt.append(mOut, me.getValue().getTheory().getLogic().isIRA()
-					? new IRAConstantFormatter().transform(me.getValue())
-							: me.getValue());
+			pt.append(mOut, me.getValue());
 			mOut.print(')');
 			sep = itemSep;
 		}

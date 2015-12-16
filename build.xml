@@ -3,8 +3,9 @@
 
   <!-- Build everything  -->
   <target name="all">
-    <antcall target="create_run_jar" />
-    <antcall target="create_deltadebugger_jar" />
+    <antcall target="smtinterpol.jar" />
+    <antcall target="smtinterpol-comp.jar" />
+    <antcall target="deltadebugger.jar" />
   </target>
 
   <property file="buildjar.properties"/>
@@ -136,7 +137,7 @@
   </target>
 
   <!-- Create an executable jar -->
-  <target name="create_run_jar" depends="clean,compile">
+  <target name="smtinterpol.jar" depends="clean,compile">
     <jar destfile="${jar.outdir}/${jar.basename}.jar" filesetmanifest="mergewithoutmain">
       <manifest>
         <attribute name="Main-Class" value="de.uni_freiburg.informatik.ultimate.smtinterpol.Main"/>
@@ -157,7 +158,7 @@
   </target>
 
   <!-- Create deltadebugger jar -->
-  <target name="create_deltadebugger_jar" depends="clean,compiledd">
+  <target name="deltadebugger.jar" depends="clean,compiledd">
     <jar destfile="${jar.outdir}/deltadebugger.jar" filesetmanifest="mergewithoutmain">
       <manifest>
         <attribute name="Main-Class" value="de.uni_freiburg.informatik.ultimate.smtinterpol.delta.Minimizer"/>
@@ -202,7 +203,7 @@
   </target>
 
   <!-- Create an executable jar in competition mode -->
-  <target name="create_competition_jar" depends="clean,patch_competition,compile">
+  <target name="smtinterpol-comp.jar" depends="clean,patch_competition,compile">
     <jar destfile="${jar.outdir}/${jar.basename}-comp.jar" filesetmanifest="mergewithoutmain">
       <manifest>
         <attribute name="Main-Class" value="de.uni_freiburg.informatik.ultimate.smtinterpol.Main"/>
@@ -225,8 +226,8 @@
 
   <!-- Create a new distribution -->
   <target name="distribution">
-    <antcall target="create_run_jar" />
-    <antcall target="create_competition_jar" />
+    <antcall target="smtinterpol.jar" />
+    <antcall target="smtinterpol-comp.jar" />
     <antcall target="create_src_zip" />
     <exec executable="make" dir="SMTInterpol/web/html">
       <arg line="distribution" />
@@ -261,7 +262,7 @@ java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/2))m -ea -dsa -XX:-UseGCOverheadLimit -j
     <echo file="${tmpdir}/starexec_description.txt" append="false">SMTInterpol ${version}</echo>
     <!-- stupid starexec does not like - characters in description -->
     <replace file="${tmpdir}/starexec_description.txt" token="-" value="_"/>
-    <antcall target="create_competition_jar">
+    <antcall target="smtinterpol-comp.jar">
       <param name="jar.outdir" value="${tmpdir}/bin"/>
     </antcall>
     <zip destfile="smtinterpol-${version}.zip"
@@ -302,7 +303,7 @@ java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/2))m -ea -dsa -XX:-UseGCOverheadLimit -j
   </target>
 
   <!-- Clean before creating an executable jar -->
-  <target name="cleanbuild" description="Clean and rebuild jar" depends="clean,create_run_jar"/>
+  <target name="cleanbuild" description="Clean and rebuild jar" depends="clean,smtinterpol.jar"/>
 
   <!-- Compile SMTInterpolTest -->
   <target name="compile_tests" depends="compile">
