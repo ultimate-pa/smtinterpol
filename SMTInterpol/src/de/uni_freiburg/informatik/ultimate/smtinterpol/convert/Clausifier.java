@@ -2074,7 +2074,8 @@ public class Clausifier {
 		// TODO maybe merge with setupQuantifiers, below?
 
 		if (mEprTheory == null) {
-			mEprTheory = new EprTheory(this.getTheory());
+//			mEprTheory = new EprTheory(this.getTheory());
+			mEprTheory = new EprTheory();
 			mEngine.addTheory(mEprTheory);
 		}
 	}

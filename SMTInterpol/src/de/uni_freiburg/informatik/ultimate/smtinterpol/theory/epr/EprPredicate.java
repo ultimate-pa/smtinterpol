@@ -5,8 +5,10 @@ import java.util.HashSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 
@@ -113,15 +115,14 @@ public class EprPredicate {
 	 * Special predicate that describes the value the current EPR predicate has at
 	 * almost all positions.
 	 */
-	EprPredicateAtom mAlmostAllAtom;
+	DPLLAtom mAlmostAllAtom;
+//	EprPredicateAtom mAlmostAllAtom;
 
-	public EprPredicateAtom getAlmostAllAtom(Clausifier cl) {
+	public DPLLAtom getAlmostAllAtom(Clausifier cl) {
 		if (mAlmostAllAtom == null) {
-//			cl.getTheory()
-//			cl.
-//			cl.gete
-//			th.cl
-//			cl.getCreateLiteral(th.term(mFunctionSymbol, ))
+			//TODO: is this the right way to introduce a literal??..
+			Term boolConst = cl.getTheory().constant("AA_" + mFunctionSymbol.toString(), cl.getTheory().getBooleanSort());
+			mAlmostAllAtom = cl.getCreateLiteral(boolConst).getAtom();
 		}
 		return mAlmostAllAtom;
 	}

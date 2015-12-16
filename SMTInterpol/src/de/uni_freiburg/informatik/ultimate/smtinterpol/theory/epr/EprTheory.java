@@ -37,11 +37,11 @@ public class EprTheory implements ITheory {
 	
 	HashMap<FunctionSymbol, EprPredicate> mEprPredicates = new HashMap<>();
 
-	private Term mAlmostAllConstant;
-	
-	public EprTheory(Theory th) {
-		mAlmostAllConstant = th.term("@0");
-	}
+//	private Term mAlmostAllConstant;
+//	
+//	public EprTheory(Theory th) {
+//		mAlmostAllConstant = th.term("@0");
+//	}
 
 	@Override
 	public Clause startCheck() {
@@ -393,7 +393,6 @@ public class EprTheory implements ITheory {
 		return mNotFulfilledEprClauses;
 	}
 
-
 	public DPLLAtom getEprAtom(ApplicationTerm idx, int hash, int assertionStackLevel) {
 		if (idx.getFunction().getName().equals("=")) {
 			return new EprEqualityAtom(idx, hash, assertionStackLevel);
@@ -408,7 +407,7 @@ public class EprTheory implements ITheory {
 	}
 
 	
-	public Term getAlmostAllConstant() {
-		return mAlmostAllConstant;
-	}
+//	public Term getAlmostAllConstant() {
+//		return mAlmostAllConstant;
+//	}
 }
