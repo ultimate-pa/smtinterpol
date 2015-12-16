@@ -37,6 +37,12 @@ public class EprTheory implements ITheory {
 	
 	HashMap<FunctionSymbol, EprPredicate> mEprPredicates = new HashMap<>();
 
+	private Term mAlmostAllConstant;
+	
+	public EprTheory(Theory th) {
+		mAlmostAllConstant = th.term("@0");
+	}
+
 	@Override
 	public Clause startCheck() {
 //		throw new UnsupportedOperationException();
@@ -55,15 +61,13 @@ public class EprTheory implements ITheory {
 
 	@Override
 	public Clause setLiteral(Literal literal) {
-		
-		System.out.println("EPRDEBUG: setLiteral" + literal);
+		System.out.println("EPRDEBUG: setLiteral " + literal);
 
 		// does this literal occur in any of the EprClauses?
 		// --> then check for satisfiability
 		//   return a conflict clause in case
 		//   possibly do (or cache) propagations
 		// --> otherwise update the predicate model (held in the corresponding EprPredicate) accordingly
-
 
 		DPLLAtom atom = literal.getAtom();
 		
@@ -72,34 +76,32 @@ public class EprTheory implements ITheory {
 			// it being set by the DPLLEngine means that it has been set because it 
 			// occurs in a non-epr clause
 			
-			
 			//update model
+			EprPredicate eprPred = ((EprPredicateAtom) atom).getPredicate();
+			boolean success;
+			if (literal.getSign() == 1) success = eprPred.setPointPositive(new TermTuple(((EprPredicateAtom) atom).getArguments()));
+			else 						success = eprPred.setPointNegative(new TermTuple(((EprPredicateAtom) atom).getArguments()));
+			//return a unit clause saying that the point is already set negatively
+			// question: can this occur at all?? when?
+//			if (!success)
+//				
+			
+			
+			// 
 			
 			// update (non)fulfilled clauses (as it may make EprClauses true like any other, possibly non-epr, literal)
-
-
-//			EprPredicate ePred = mEprPredicates.get(((EprPredicateAtom) atom).getPredicate());
-//			if (literal.getSign() == 1) {
-//				ePred.setPositive((EprAtom) literal.getAtom());
-//			} else {
-//				ePred.setNegative((EprAtom) literal.getAtom());
-//			}
+			for (Clause c : mNotFulfilledEprClauses) {
+				if (c.contains(literal)) {
+					c.removeFromList();
+					mFulfilledEprClauses.append(c);
+				}
+			}
 
 			return null;
-//		} else if (atom instanceof NamedAtom) {
-//			// literal is an auxilliary literal from the CNF transformation
-//			// --> check if it occurs in one of the EPR-clauses
-//			//      if it fulfills the clause "deactivate" it
-//			//      otherwise "activate" it, possibly return a conflict clause?
-//			// TODO: what does (de)activate mean?..
-//			// FIXME: probably do the intricate stuff only at (check-sat)
-//			return null;
-			// meta-comment: NamedAtom is not a special case, any other non-epr-atom may occur
-			// in an epr-clause as well and make that true or not..
 		} else if (atom instanceof EprEqualityAtom) {
 			//this should not happen because an EprEqualityAtom always has at least one
 			// quantified variable, thus the DPLLEngine should not know about that atom
-			assert false : "DPLLEngine is setting an EprAtom --> this cannot be..";
+			assert false : "DPLLEngine is setting a quantified EprAtom --> this cannot be..";
 			return null;
 		} else {
 			// not an EprAtom 
@@ -108,14 +110,12 @@ public class EprTheory implements ITheory {
 			//      otherwise do nothing, because the literal means nothing to EPR 
 			//          --> other theories will deal with it..?
 			// (like standard DPLL)
-
 			for (Clause c : mNotFulfilledEprClauses) {
 				if (c.contains(literal)) {
 					c.removeFromList();
 					mFulfilledEprClauses.append(c);
 				}
 			}
-
 			System.out.println("EPRDEBUG: setLiteral, new fulfilled clauses: " + mFulfilledEprClauses);
 			System.out.println("EPRDEBUG: setLiteral, new not fulfilled clauses: " + mNotFulfilledEprClauses);
 
@@ -125,20 +125,110 @@ public class EprTheory implements ITheory {
 
 	@Override
 	public void backtrackLiteral(Literal literal) {
-		// .. dual to setLiteral
-		
-		// TODO Auto-generated method stub
-
 		System.out.println("EPRDEBUG: backtrackLiteral");
-//		throw new UnsupportedOperationException();
+
+		// .. dual to setLiteral
+
+		DPLLAtom atom = literal.getAtom();
+		
+		if (atom instanceof EprPredicateAtom) {
+			// literal is of the form (P x1 .. xn)
+			
+			//update model
+			EprPredicate eprPred = ((EprPredicateAtom) atom).getPredicate();
+			if (literal.getSign() == 1) eprPred.unSetPointPositive(new TermTuple(((EprPredicateAtom) atom).getArguments()));
+			else 						eprPred.unSetPointNegative(new TermTuple(((EprPredicateAtom) atom).getArguments()));
+			
+			// update (non)fulfilled clauses
+			for (Clause c : mFulfilledEprClauses) {
+				//check if this was the only literal that made the clause fulfilled
+				// if that is the case, mark it unfulfilled
+				if (c.contains(literal)) {
+					
+					boolean stillfulfilled = false;
+					for (int i = 0; i < c.getSize(); i++) {
+						Literal l  = c.getLiteral(i);
+						if (l == literal)
+							continue;
+						boolean isSet = l == l.getAtom().getDecideStatus();
+						stillfulfilled |= isSet;
+					}
+					if (!stillfulfilled) {
+						c.removeFromList();
+						mNotFulfilledEprClauses.append(c);
+					}
+				}
+			}
+			return;
+		} else if (atom instanceof EprEqualityAtom) {
+			assert false : "DPLLEngine is unsetting a quantified EprAtom --> this cannot be..";
+			return;
+		} else {
+			// not an EprAtom 
+			for (Clause c : mFulfilledEprClauses) {
+				//check if this was the only literal that made the clause fulfilled
+				// if that is the case, mark it unfulfilled
+				if (c.contains(literal)) {
+					
+					boolean stillfulfilled = false;
+					for (int i = 0; i < c.getSize(); i++) {
+						Literal l  = c.getLiteral(i);
+						if (l == literal)
+							continue;
+						boolean isSet = l == l.getAtom().getDecideStatus();
+						stillfulfilled |= isSet;
+					}
+					if (!stillfulfilled) {
+						c.removeFromList();
+						mNotFulfilledEprClauses.append(c);
+					}
+				}
+			}
+
+			System.out.println("EPRDEBUG: backtrackLiteral, new fulfilled clauses: " + mFulfilledEprClauses);
+			System.out.println("EPRDEBUG: backtrackLiteral, new not fulfilled clauses: " + mNotFulfilledEprClauses);
+
+			return;
+		}
 	}
 
 	@Override
 	public Clause checkpoint() {
-		// TODO Auto-generated method stub
 		System.out.println("EPRDEBUG: checkpoint");
+		
+		//plan:
+		// for each epr clause c
+		//  if c is already fulfilled: skip
+		//  else:
+		//   collect the the positive EprEqualityAtoms 
+		//             (there are no negative ones, because destructive equality reasoning eliminated them) 
+		//   for each EprPredicateAtom epa:
+		//    look up if in the current state (setLiteral stuff) there is a contradiction with epa
+		//   if all epa had a contradiction:
+		//    return the conflicting points as conflict clause
+		// if no clause yielded a conflict:
+		//  return null
+		
+
+//		boolean checkResult = true;
+		
+		for (Clause c : mNotFulfilledEprClauses) {
+			EprClause e = (EprClause)	c;
+			
+			// an epr clause looks like this:
+			// x1 =/!= x2 \/ ... \/ xn+1 = c1 ... \/ (P1 ci/xi ... cj/xj) \/ ... \/ (non-EPR literals)
+			// we have
+			// - (dis)equalities over two quantified variables
+			// - equalities over a quantified variable and a constant each
+			// - predicates over quantified variables and/or constants
+			// - non-epr literals (in mNotFulfilledEprClauses, they are all false (maybe unset??))
+			Clause conflict = e.check();
+//			checkResult &= conflict == null;
+			if (conflict != null)
+				return conflict;
+		}
+		
 		return null;
-//		throw new UnsupportedOperationException();
 	}
 
 	@Override
@@ -255,8 +345,19 @@ public class EprTheory implements ITheory {
 	}
 
 	public void addClause(Literal[] lits, ClauseDeletionHook hook, ProofNode proof) {
-//		mEprClauses.append(new Clause(lits));
-		mNotFulfilledEprClauses.append(new Clause(lits));
+
+		EprClause eprClause = new EprClause(lits);
+
+		// Have the EprPredicates point to the clauses and literals they occur in.
+		for (Literal l : lits) {
+			if (l.getAtom() instanceof EprPredicateAtom
+					&& ((EprPredicateAtom) l.getAtom()).isQuantified()) {
+				EprPredicate pred = ((EprPredicateAtom) l.getAtom()).getPredicate();
+				pred.addQuantifiedOccurence(l, eprClause);
+			}
+		}
+		
+		mNotFulfilledEprClauses.append(eprClause);
 	}
 
 	/**
@@ -293,18 +394,21 @@ public class EprTheory implements ITheory {
 	}
 
 
-	public DPLLAtom getEprAtom(ApplicationTerm idx, int i, int j) {
-
+	public DPLLAtom getEprAtom(ApplicationTerm idx, int hash, int assertionStackLevel) {
 		if (idx.getFunction().getName().equals("=")) {
-			return new EprEqualityAtom(idx, i, j);
+			return new EprEqualityAtom(idx, hash, assertionStackLevel);
 		} else {
 			EprPredicate pred = mEprPredicates.get(idx.getFunction());
 			if (pred == null) {
-				pred = new EprPredicate(idx.getFunction().getName());
+				pred = new EprPredicate(idx.getFunction());
 				mEprPredicates.put(idx.getFunction(), pred);
 			}
-			return new EprPredicateAtom(idx, i, j, pred);
+			return new EprPredicateAtom(idx, hash, assertionStackLevel, pred);
 		}
 	}
 
+	
+	public Term getAlmostAllConstant() {
+		return mAlmostAllConstant;
+	}
 }

@@ -1138,10 +1138,10 @@ public class Clausifier {
 					//     (i.e. only the EPR-theory, not the DPLLEngine, will know it)
 					mCollector.getTracker().save();
 //					DPLLAtom eqAtom = eq.getLiteral();
-					DPLLAtom eqAtom = mEprTheory.getEprAtom((ApplicationTerm) idx, 0, 0);
+					DPLLAtom eprAtom = mEprTheory.getEprAtom((ApplicationTerm) idx, 0, 0);
 //					mCollector.getTracker().eq(lhs, rhs, eqAtom);
 					mCollector.addLiteral(
-							positive ? eqAtom : eqAtom.negate(), mTerm);
+							positive ? eprAtom : eprAtom.negate(), mTerm);
 					mCollector.getTracker().cleanSave();
 					return;
 				}
@@ -1809,7 +1809,7 @@ public class Clausifier {
 	 * <ul>
 	 * <li>is an {@link ApplicationTerm} that does not correspond to a negation
 	 * </li>
-	 * <li>is a {@link QuantifiedFormula} that is universally quantified</li>
+	 * <li>is a {@link QuantifiedFormula} that is existentially quantified</li>
 	 * </ul> 
 	 * @param t The term to compute the positive for.
 	 * @return The positive of this term.
@@ -1824,7 +1824,7 @@ public class Clausifier {
 		// FIXME: Think about how to get Utils in here... 
 		else if (t instanceof QuantifiedFormula) {
 			QuantifiedFormula qf = (QuantifiedFormula) t;
-			if (qf.getQuantifier() == QuantifiedFormula.FORALL) { //alex: convention seems to have changed form forall to exists
+			if (qf.getQuantifier() == QuantifiedFormula.FORALL) { //alex: convention seems to have changed from forall to exists
 				// (exists (x) (phi x)) is (not (forall (x) (not (phi x))))
 				// alex: (forall (x) (phi x)) is (not (exists (x) (not (phi x))))
 				return t.getTheory().exists(qf.getVariables(), 
@@ -2074,7 +2074,7 @@ public class Clausifier {
 		// TODO maybe merge with setupQuantifiers, below?
 
 		if (mEprTheory == null) {
-			mEprTheory = new EprTheory();
+			mEprTheory = new EprTheory(this.getTheory());
 			mEngine.addTheory(mEprTheory);
 		}
 	}
@@ -2426,7 +2426,7 @@ public class Clausifier {
 				if (mTheory.getLogic().isQuantified()) {
 					// assuming right now that 
 					assert !term.getFunction().getName().equals("not") : "do something for the negated case!";
-					DPLLAtom atom = mEprTheory.getEprAtom(term, 0, 0);
+					DPLLAtom atom = mEprTheory.getEprAtom(term, 0, mEngine.getAssertionStackLevel());//TODO: replace 0 by hash value
 					lit = atom;
 					mEngine.addAtom(atom);
 				} else {
@@ -2513,6 +2513,7 @@ public class Clausifier {
 				&& term.mTmpCtr <= Config.OCC_INLINE_THRESHOLD;
 	}
 
+	//alex (begin)
 	public SimpleList<Clause> getFulfilledEprClauses() {
 		return mEprTheory.getFulfilledClauses();
 	}
@@ -2520,5 +2521,9 @@ public class Clausifier {
 	public SimpleList<Clause> getNotFulfilledEprClauses() {
 		return mEprTheory.getNotFulfilledClauses();
 	}
-
+	
+	public EprTheory getEprTheory() {
+		return mEprTheory;
+	}
+	//alex (end)
 }

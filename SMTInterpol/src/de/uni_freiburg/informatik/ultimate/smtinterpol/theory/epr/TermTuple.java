@@ -13,6 +13,10 @@ public class TermTuple {
 		this.arity = arity;
 	}
 
+	public TermTuple(Term[] arguments) {
+		this(arguments, arguments.length);
+	}
+
 	@Override
 	public boolean equals(Object arg0) {
 		if (!(arg0 instanceof TermTuple)) return false;
@@ -39,7 +43,7 @@ public class TermTuple {
 			sb.append(comma + t.toString());
 			comma = ", ";
 		}
-		sb.append("(");
+		sb.append(")");
 		return sb.toString();
 	}
 }
