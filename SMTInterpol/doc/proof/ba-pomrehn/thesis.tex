@@ -1,6 +1,7 @@
 \documentclass[a4paper]{article}
 
 \usepackage[ngerman]{babel}
+\usepackage[normalem]{ulem}
 \usepackage[utf8]{inputenc}
 \usepackage{mathpartir}
 \usepackage{pxfonts}
@@ -17,9 +18,10 @@
 \section{Einführung}
 
 \section{Beweisformat}
-\subsection{Alt}
-\subsubsection{Vorhandene Beweisregeln}
 
+\subsection{Alt}
+
+\subsubsection{Vorhandene Beweisregeln}
 
 \paragraph{expand:} SMTInterpol erweitert assoziative Funktionen, je nach dem ob sie links- oder rechts-assoziativ.
 Aus $f(t_1,t_2...,t_{n-1},t_n)$ wird bei links-asso\-zia\-ti\-ven Funktionen $f(f(...f(t_1,t_2),...),t_n)$ und bei rechts-assoziativen Funktionen $f(t_1,f(...,f(t_{n-1},t_n)))$.
@@ -117,6 +119,13 @@ Diese Funktion ersetzt n durch ihre Defintition d.
 Probleme:
 
 \subsection{Neu}
+
+\subsubsection{Hinzukommende Beweisregeln}
+\uline{Reflexivit"at}: Gibt f"ur einen Term t ein Beweis f"ur (= t t) zur"uck\\
+\uline{Transitivit"at}: Gibt f"ur einen Beweis f"ur (= a b) und (= b c) ein Beweis f"ur \mbox{(= a c)} zur"uck, die Regel soll links assoziativ sein\\
+\uline{Kongruenz}: Gibt f"ur einen Beweis f"ur (= s (f $t_1$ ... $t_n$)) und (= t t') einen Beweis f"ur (= s (f $t_1$' ... $t_n$')) wobei $t_i$' = t' falls $t_i$ = t und f"ur den Rest gilt $t_i$' = $t_i$.\\
+
+
 
 \section{Entwurf}
 

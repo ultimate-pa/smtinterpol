@@ -1,7 +1,9 @@
 \documentclass[a4paper]{article}
+
 \usepackage[ngerman]{babel}
 \usepackage[normalem]{ulem}
 \usepackage[utf8]{inputenc}
+\usepackage{graphicx}
 
 \title{Bachelor Arbeit Proposal\\
   Detailliertere Beweisgenerierung in SMTInterpol
@@ -33,7 +35,9 @@ Und zuletzt muss der Clausifier angepasst werden, im speziellen die Methoden add
 
 \subsection{Einarbeitung}
 
-...kurze Beschreibung...
+Zuerst muss man sich mit dem vorhandenen Beweisverfahren auseinander setzen, beziehungsweise es verstehen.
+Nachvollziehen, wie die beteiligten Klassen mit einander arbeiten.
+Dazu den Programm Code heran ziehen.
 
 \paragraph{Ergebnis:}
 Möglichst vollständiges Verständnis vom Code.
@@ -42,7 +46,7 @@ Kapitel: Implementation Alt.
 
 \subsection{Neues Beweisformat}
 
-...kurze Beschreibung...
+Zu den vorhandenen Beweisregeln sollen die oben erwähnten Reflexivität, Transitivität und Kongruenz hinzugefügt werden.
 
 \paragraph{Ergebnis:}
 Teil des Kapitels Beweisformat Neu.
@@ -52,32 +56,36 @@ Teil des Kapitels Entwurf (Beispiel Beweisgenerierung)
 \subsection{Implementierung Prooftracker}
 
 \paragraph{Prooftracker umschreiben}
-Folgende Regeln m"ussen dem Prooftracker hinzugef"ugt werden:\\
-\uline{Reflexivit"at}: Gibt f"ur einen Term t ein Beweis f"ur (= t t) zur"uck\\
-\uline{Transitivit"at}: Gibt f"ur einen Beweis f"ur (= a b) und (= b c) ein Beweis f"ur \mbox{(= a c)} zur"uck, die Regel soll links assoziativ sein\\
-\uline{Kongruenz}: Gibt f"ur einen Beweis f"ur (= s (f $t_1$ ... $t_n$)) und (= t t') einen Beweis f"ur (= s (f $t_1$' ... $t_n$')) wobei $t_i$' = t' falls $t_i$ = t und f"ur den Rest gilt $t_i$' = $t_i$.\\
+
+Hinzufügen der neuen Beweisregeln.
 
 \paragraph{Compiler anpassen}
 
-...kurze Beschreibung...
+Verwendung der dem Prooftracker hinzugefügten Regeln hinzufügen.
+
 \paragraph{Clausifier anpassen}
-...kurze Beschreibung...
+
+Die Methoden addAsAxiom und addAxiom anpassen.
 
 \paragraph{Ergebnis:}
-Kapitel Entwurf fertig, Kapitel Implementierung
+Kapitel Entwurf fertig, Kapitel Implementierung, Implementierung fertig
 
 \subsection{Test und Evaluierung}
 
-.. kurze Beschreibung...
+So früh wie möglich sollte mit Testen begonnen werden.
+Sobald dem Prooftracker die Regeln hinzugefügt wurden, sollten diese auch getestet werden.
+Das Testen läuft parallel zu Implementierung.
+Bei der Evaluierung die Beweise auf Lesbarkeit, Korrektheit und Geschwindigkeit bei der Erstellung untersuchen.
 
 \paragraph{Ergebnis:}
 Testfälle, Statistiken,
-Kapitel "`Evaluaierung"' in der Bachelorarbeit.
+Kapitel Evaluierung in der Bachelorarbeit.
 
 \subsection{Bachelorarbeit aufschreiben}
 
-.. kurze Beschreibung...
-Einführung, Fazit. Rechtschreibfehler beheben.
+Auch das Aufschreiben so früh wie möglich beginnen.
+Zu den bisher erwähnten Teilen der Bachelorarbeit Einführung, Fazit hinzufügen und am Ende auf 
+Rechtschreibfehler prüfen.
 
 \paragraph{Ergebnis:}
 Die fertige Bachelorarbeit
@@ -86,8 +94,9 @@ Die fertige Bachelorarbeit
 \section{Zeitplan}
 
 Für jedes Arbeitspaket eine Angabe der Dauer (in Wochen).
-Gantt Diagram??
+Gantt Diagramm
 
+\centerline{\includegraphics[scale=0.5]{Ganttchart}}
 
 
 \bibliography{references}
