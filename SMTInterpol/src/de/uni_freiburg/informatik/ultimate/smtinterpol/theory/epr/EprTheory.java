@@ -2,6 +2,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 
@@ -15,6 +16,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ClauseDeletionHook;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ITheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.NamedAtom;
@@ -44,11 +46,13 @@ public class EprTheory implements ITheory {
 	HashMap<FunctionSymbol, EprPredicate> mEprPredicates = new HashMap<>();
 
 	private Theory mTheory;
+	private DPLLEngine mEngine;
 
 //	private Term mAlmostAllConstant;
 //	
-	public EprTheory(Theory th) {
+	public EprTheory(Theory th, DPLLEngine engine) {
 		mTheory = th;
+		mEngine = engine;
 //		mAlmostAllConstant = th.term("@0");
 	}
 
@@ -87,15 +91,24 @@ public class EprTheory implements ITheory {
 				"An atom that contains quantified variables should not be known to the DPLLEngine.";
 			
 			//update model
+			// no conflict can arise from setting a point, reasons:
+			//  - if that point was set by the opposite literal, the DPLLEngine sees the conflict
+			//  - a point is never in conflict to an almost-all atom
+			//   -- if both say "false", then there is no problem anyway
+			//   -- otherwise, "almost-all" comes into play 
+			//         (alternatively, one could store the exceptions in the AlmostAllAtoms 
+			//				--> not sure what that would mean.., this way, the final check has to check the exceptions)
 			EprPredicate eprPred = ((EprPredicateAtom) atom).eprPredicate;
-			boolean success;
-			if (literal.getSign() == 1) success = eprPred.setPointPositive(new TermTuple(((EprPredicateAtom) atom).getArguments()));
-			else 						success = eprPred.setPointNegative(new TermTuple(((EprPredicateAtom) atom).getArguments()));
+			if (literal.getSign() == 1) eprPred.setPointPositive(new TermTuple(((EprPredicateAtom) atom).getArguments()));
+			else 						eprPred.setPointNegative(new TermTuple(((EprPredicateAtom) atom).getArguments()));
+
+//			boolean success;
+//			if (literal.getSign() == 1) success = eprPred.setPointPositive(new TermTuple(((EprPredicateAtom) atom).getArguments()));
+//			else 						success = eprPred.setPointNegative(new TermTuple(((EprPredicateAtom) atom).getArguments()));
 			//return a unit clause saying that the point is already set negatively
 			// question: can this occur at all?? when?
 //			if (!success)
 //				
-			
 			
 			// 
 			
@@ -112,10 +125,10 @@ public class EprTheory implements ITheory {
 			EprPredicate eprPred = ((EprAlmostAllAtom) atom).eprPredicate;
 
 			Clause conflict;
-			if (literal.getSign() == 1) conflict = eprPred.setAlmostAllAtomPositive(atom);
-			else 						conflict = eprPred.setAlmostAllAtomNegative(atom);
+			if (literal.getSign() == 1) conflict = eprPred.setAlmostAllAtomPositive((EprAlmostAllAtom) atom);
+			else 						conflict = eprPred.setAlmostAllAtomNegative((EprAlmostAllAtom) atom);
 
-			return null;//TODO
+			return conflict;
 		} else if (atom instanceof EprEqualityAtom) {
 			//this should not happen because an EprEqualityAtom always has at least one
 			// quantified variable, thus the DPLLEngine should not know about that atom
@@ -126,7 +139,7 @@ public class EprTheory implements ITheory {
 			// --> check if it occurs in one of the EPR-clauses
 			//      if it fulfills the clause, mark the clause as fulfilled
 			//      otherwise do nothing, because the literal means nothing to EPR 
-			//          --> other theories will deal with it..?
+			//          --> other theories may report their own conflicts..?
 			// (like standard DPLL)
 			markEprClausesFulfilled(literal);
 
@@ -174,6 +187,13 @@ public class EprTheory implements ITheory {
 			
 			// update (non)fulfilled clauses
 			markEprClausesNotFulfilled(literal);
+			return;
+		} else if (atom instanceof EprAlmostAllAtom) {
+			EprPredicate eprPred = ((EprAlmostAllAtom) atom).eprPredicate;
+
+			if (literal.getSign() == 1) eprPred.unSetAlmostAllAtomPositive((EprAlmostAllAtom) atom);
+			else 						eprPred.unSetAlmostAllAtomNegative((EprAlmostAllAtom) atom);
+
 			return;
 		} else if (atom instanceof EprEqualityAtom) {
 			assert false : "DPLLEngine is unsetting a quantified EprAtom --> this cannot be..";
@@ -372,13 +392,16 @@ public class EprTheory implements ITheory {
 	}
 
 	/**
-	 * 
+	 * Given some literals where at least one variable is free (thus implicitly forall-quantified), 
+	 * inserts the clause into the eprTheory,
+	 * and returns the corresponding almost-all clause which is to be added in the DPLLEngine
 	 * @param lits
 	 * @param hook
 	 * @param proof
 	 * @return
 	 */
 	public Literal[] createEprClause(Literal[] lits, ClauseDeletionHook hook, ProofNode proof) {
+		//TODO: do something about hook and proof..
 
 		EprClause eprClause = new EprClause(lits);
 		
@@ -401,14 +424,92 @@ public class EprTheory implements ITheory {
 		mNotFulfilledEprClauses.add(eprClause);
 		
 		//compute the "almost-all-clause", which will be inserted into the DPLL-engine
+		// - quantified equalities are left out
+		// - quantified predicates are converted to EprAlmostAllAtoms
+		// - everything else is added to the clause as is
 		Literal[] almostallClause = new Literal[noAlmostAllLiterals];
 		for (Literal l : lits) {
-			if (!(l.getAtom() instanceof EprEqualityAtom)) {
-				almostallClause[--noAlmostAllLiterals] = l;
+			if (l.getAtom() instanceof EprEqualityAtom)
+				continue;
+
+			if (l.getAtom() instanceof EprPredicateAtom 
+					&& ((EprPredicateAtom) l.getAtom()).isQuantified) {
+				EprPredicateAtom eprPred = (EprPredicateAtom) l.getAtom();
+					
+				EprAlmostAllAtom eaaa = getEprAlmostAllAtom(
+								l.getAtom().getAssertionStackLevel(), 
+								eprPred.eprPredicate, 
+								eprPred.getArguments());
+
+				almostallClause[--noAlmostAllLiterals] = l.getSign() == 1 ? eaaa : eaaa.negate();
+
+				continue;
 			}
+			
+			almostallClause[--noAlmostAllLiterals] = l;
 		}
 
 		return almostallClause;
+	}
+	
+	/**
+	 * Compute a the almost-all signature from an ApplicationTerm.
+	 * (Basically this means discovering which arguments repeat, and how.)
+	 * @param arity
+	 * @param arguments repetitions here are used to compute the signature
+	 * @return
+	 */
+	private ArrayList<HashSet<Integer>> computeSignature(Term[] arguments) {
+		ArrayList<HashSet<Integer>> sig = new ArrayList<HashSet<Integer>>(arguments.length);
+
+		int newPartition = 0;
+		HashMap<Term, Integer> argToPartition = new HashMap<>();
+		for (Term t : arguments) {
+			Integer partition = argToPartition.get(t);
+			if (partition == null) {
+				partition =  ++newPartition;
+			}
+			argToPartition.put(t, partition);
+		}
+		
+		for (int i = 0; i < arguments.length; i++) 
+			sig.add(new HashSet<>());
+
+		for (int i = 0; i < arguments.length; i++) {
+			Term param = arguments[i];
+			int partitionNr = argToPartition.get(param);
+			HashSet<Integer> s = sig.get(i);
+			s.add(partitionNr);
+		}
+		return sig;
+	}
+	
+	HashMap<EprPredicate, HashMap<ArrayList<HashSet<Integer>>, EprAlmostAllAtom>> mAlmostAllAtomsStore = new HashMap<>();
+
+	/**
+	 * Looks up a fitting atom in the store, makes a new one if there is none.
+	 * @param assertionStackLevel
+	 * @param eprPredicate
+	 * @param argumentsForSignatureComputation
+	 * @return
+	 */
+	private EprAlmostAllAtom getEprAlmostAllAtom(int assertionStackLevel, EprPredicate eprPredicate, Term[] argumentsForSignatureComputation) {
+
+		ArrayList<HashSet<Integer>> signature = computeSignature(argumentsForSignatureComputation);
+		
+		HashMap<ArrayList<HashSet<Integer>>, EprAlmostAllAtom> itm = mAlmostAllAtomsStore.get(eprPredicate);
+		if (itm == null) {
+			itm = new HashMap<>();
+			mAlmostAllAtomsStore.put(eprPredicate, itm);
+		}
+		EprAlmostAllAtom eaaa = itm.get(signature);
+		if (eaaa == null) {
+			//TODO: good hash value
+			Term t = mTheory.constant("<" + eprPredicate.functionSymbol.getName() + signature.toString() + ">", mTheory.getBooleanSort());
+			eaaa = new EprAlmostAllAtom(t, 0, assertionStackLevel, eprPredicate, signature);
+			mEngine.addAtom(eaaa);
+		} 
+		return eaaa;
 	}
 
 	/**
@@ -444,13 +545,13 @@ public class EprTheory implements ITheory {
 		return mNotFulfilledEprClauses;
 	}
 
-	public DPLLAtom getEprAtom(ApplicationTerm idx, int hash, int assertionStackLevel) {
+	public EprAtom getEprAtom(ApplicationTerm idx, int hash, int assertionStackLevel) {
 		if (idx.getFunction().getName().equals("=")) {
 			return new EprEqualityAtom(idx, hash, assertionStackLevel);
 		} else {
 			EprPredicate pred = mEprPredicates.get(idx.getFunction());
 			if (pred == null) {
-				pred = new EprPredicate(idx.getFunction());
+				pred = new EprPredicate(idx.getFunction(), idx.getParameters().length);
 				mEprPredicates.put(idx.getFunction(), pred);
 			}
 			return new EprPredicateAtom(idx, hash, assertionStackLevel, pred);

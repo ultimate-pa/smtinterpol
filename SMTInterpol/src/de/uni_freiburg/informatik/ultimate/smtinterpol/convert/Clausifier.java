@@ -67,6 +67,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAppTerm
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinArSolve;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.MutableAffinTerm;
@@ -602,11 +603,34 @@ public class Clausifier {
 						|| at.getFunction().getName().equals("select"))
 						&& at.getFunction().getReturnSort()
 							== t.getBooleanSort()) {
+					//alex: unit clause case --> no further simplification needed
+					// do basically the same as in BuildClause.perform()...
+					
 					Literal lit = createBooleanLit(at);
 					IProofTracker sub = mTracker.getDescendent();
 					sub.intern(at, lit);
-					addClause(new Literal[] {positive ? lit : lit.negate()},
-							null, getProofNewSource(sub.clause(mProofTerm)));
+				
+					//alex (begin)
+					boolean isDpllClause = true;
+					if (lit instanceof EprAtom
+							&& EprTheory.isQuantifiedEprAtom(toPositive(lit.getSMTFormula(mTheory)))) {
+						// we have an EPR-clause
+						isDpllClause = false;
+					}
+					if (isDpllClause) {
+					//alex (end)
+						addClause(new Literal[] {positive ? lit : lit.negate()},
+								null, getProofNewSource(sub.clause(mProofTerm)));
+					//alex (begin)
+					} else{
+						//TODO: replace the nulls
+						// the almostAllClause is used to let the DPLLEngine compute default values for the EPR predicates
+						// it is basically the (implicitly quantified) EPR clause with all quantified equalities left out 
+						Literal[] lits = new Literal[] {positive ? lit : lit.negate()};
+						Literal[] almostAllClauseLiterals = mEprTheory.createEprClause(lits, null, null);
+						addClause(almostAllClauseLiterals, null, null);
+					}
+				//alex (end)
 				} else if (at.getFunction().getName().equals("=")) {
 					Term lhs = at.getParameters()[0];
 					Term rhs = at.getParameters()[1];
@@ -2082,7 +2106,7 @@ public class Clausifier {
 
 		if (mEprTheory == null) {
 //			mEprTheory = new EprTheory(this.getTheory());
-			mEprTheory = new EprTheory(mTheory);
+			mEprTheory = new EprTheory(mTheory, mEngine);
 			mEngine.addTheory(mEprTheory);
 		}
 	}
@@ -2434,9 +2458,10 @@ public class Clausifier {
 				if (mTheory.getLogic().isQuantified()) {
 					// assuming right now that 
 					assert !term.getFunction().getName().equals("not") : "do something for the negated case!";
-					DPLLAtom atom = mEprTheory.getEprAtom(term, 0, mEngine.getAssertionStackLevel());//TODO: replace 0 by hash value
+					EprAtom atom = mEprTheory.getEprAtom(term, 0, mEngine.getAssertionStackLevel());//TODO: replace 0 by hash value
 					lit = atom;
-					mEngine.addAtom(atom);
+					if (!atom.isQuantified)
+						mEngine.addAtom(atom);
 				} else {
 					// replace a predicate atom "(p x)" by "(p x) = true"
 					SharedTerm st = getSharedTerm(term);

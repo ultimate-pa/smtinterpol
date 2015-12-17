@@ -18,9 +18,10 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
  */
 public abstract class EprAtom extends DPLLAtom {
 	
-	protected final ApplicationTerm mTerm;
+	protected final Term mTerm;
+	public boolean isQuantified;
 
-	public EprAtom(ApplicationTerm term, int hash, int assertionstacklevel) {
+	public EprAtom(Term term, int hash, int assertionstacklevel) {
 		super(hash, assertionstacklevel);
 		this.mTerm = term;
 	}

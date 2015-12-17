@@ -1,5 +1,6 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 
@@ -21,21 +22,31 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
  * @author Alexander Nutz
  */
 public class EprPredicate {
-	private final FunctionSymbol mFunctionSymbol;
-//	private final int mArity;
+
+	public final FunctionSymbol functionSymbol;
+
+	public final int arity;
 	
 	private HashSet<TermTuple> mPositivelySetPoints = new HashSet<>();
 	private HashSet<TermTuple> mNegativelySetPoints = new HashSet<>();
+	
+	
+//	private ArrayList<EprAlmostAllAtom> mAlmostAllAtoms;
+//	private ArrayList<Literal> mAlmostAllAtoms;
 	
 	/*
 	 * Storage to track where this predicate occurs in the formula with at least one quantified argument.
 	 */
 	HashMap<EprClause, HashSet<Literal>> mQuantifiedOccurences = new HashMap<>();
 
+	private HashSet<EprAlmostAllAtom> mPositiveAlmostAllAtoms = new HashSet<>();
+	private HashSet<EprAlmostAllAtom> mNegativeAlmostAllAtoms = new HashSet<>();
+
 
 	
-	public EprPredicate(FunctionSymbol fs) {
-		this.mFunctionSymbol = fs;
+	public EprPredicate(FunctionSymbol fs, int arity) {
+		this.functionSymbol = fs;
+		this.arity = arity;
 	}
 	
 	/**
@@ -71,7 +82,7 @@ public class EprPredicate {
 	}
 	
 	public String toString() {
-		return "EprPred: " + mFunctionSymbol.getName();
+		return "EprPred: " + functionSymbol.getName();
 	}
 
 	public void unSetPointPositive(TermTuple point) {
@@ -112,14 +123,74 @@ public class EprPredicate {
 //		return mQuantifiedOccurences;
 //	}
 
-	public Clause setAlmostAllAtomPositive(DPLLAtom atom) {
-		// TODO Auto-generated method stub
+	/**
+	 * Update the model such that atom is set.
+	 * This may return a conflict in form of a clause over almost-all atoms if the newly
+	 * set atom contradicts the current model.
+	 * (example: atom = <P v1 v2>, mAlmostAllAtoms = [(not <P v1 v1>)] will yield the conflict clause
+	 *  {(not <P v1 v2>), <P v1 v1>})
+	 * @param atom the almost-all atom that is to be set positively in the model
+	 * @return conflict clause if there is a conflict with the current model, otherwise null
+	 */
+	public Clause setAlmostAllAtomPositive(EprAlmostAllAtom atom) {
+		mPositiveAlmostAllAtoms.add(atom);
+		assert !mNegativeAlmostAllAtoms.contains(atom) : 
+			"DPLL sets that atom both positively and negatively? --> this cannot be, right?";
+
+		//check for conflicts with current model
+		for (EprAlmostAllAtom aaa : mNegativeAlmostAllAtoms) {
+			//case: setting <P ...>, already set (not <P ...>)
+			if (atom.signatureImplies(aaa)) {
+				//case: setting <P x y>, already set (not <P x x>)
+				// conflict clause: {(not <P x y>), <P x x>}, i.e. <P x y> ==> <P x x>
+				Literal[] lits = new Literal[2];
+				lits[0] = atom.negate();
+				lits[1] = aaa;
+				return new Clause(lits);
+			}
+		}
+			
+		//no conflict detected
 		return null;
 	}
 
-	public Clause setAlmostAllAtomNegative(DPLLAtom atom) {
-		// TODO Auto-generated method stub
+	/**
+	 * Update the model such that atom is set.
+	 * This may return a conflict in form of a clause over almost-all atoms if the newly
+	 * set atom contradicts the current model.
+	 * @param atom the almost-all atom that is to be set negatively in the model
+	 * @return conflict clause if there is a conflict with the current model, otherwise null
+	 */
+	public Clause setAlmostAllAtomNegative(EprAlmostAllAtom atom) {
+		//(dual to positive case, of course)
+		mNegativeAlmostAllAtoms.add(atom);
+		assert !mPositiveAlmostAllAtoms.contains(atom) : 
+			"DPLL sets that atom both positively and negatively? --> this cannot be, right?";
+
+		//check for conflicts with current model
+		for (EprAlmostAllAtom aaa : mPositiveAlmostAllAtoms) {
+			//case: setting (not <P ...>), already set <P ...>
+			if (atom.signatureImplies(aaa)) {
+				//case: setting (not <P x y>), already set <P x x>
+				// conflict clause: { <P x y>, (not <P x x>)}, i.e. (not <P x y>) ==> (not <P x x>)
+				Literal[] lits = new Literal[2];
+				lits[0] = atom;
+				lits[1] = aaa.negate();
+				return new Clause(lits);
+			}
+		}
+			
+		//no conflict detected
 		return null;
+
+	}
+
+	public void unSetAlmostAllAtomPositive(EprAlmostAllAtom atom) {
+		mPositiveAlmostAllAtoms.remove(atom);
+	}
+
+	public void unSetAlmostAllAtomNegative(EprAlmostAllAtom atom) {
+		mNegativeAlmostAllAtoms.remove(atom);
 	}
 	
 //	/*
