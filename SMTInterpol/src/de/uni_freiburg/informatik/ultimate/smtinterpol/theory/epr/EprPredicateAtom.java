@@ -8,24 +8,24 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 
 public class EprPredicateAtom extends EprAtom {
 
-	private final EprPredicate mPredicate;
-	private final boolean mIsQuantified;
+	public final EprPredicate eprPredicate;
+	public final boolean isQuantified;
 
 	public EprPredicateAtom(ApplicationTerm term, int hash, int assertionstacklevel, EprPredicate pred) {
 		super(term, hash, assertionstacklevel);
-		mPredicate = pred;
-		mIsQuantified = term.getFreeVars().length > 0;
+		eprPredicate = pred;
+		isQuantified = term.getFreeVars().length > 0;
 	}
 	
-	public EprPredicate getPredicate() {
-		return mPredicate;
-	}
+//	public EprPredicate getPredicate() {
+//		return mPredicate;
+//	}
 
 	public Term[] getArguments() {
 		return mTerm.getParameters();
 	}
 
-	public boolean isQuantified() {
-		return mIsQuantified;
-	}
+//	public boolean isQuantified() {
+//		return mIsQuantified;
+//	}
 }

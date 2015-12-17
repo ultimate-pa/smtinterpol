@@ -80,7 +80,7 @@ public class EprClause extends Clause {
 		
 		for (Literal l : eprPredicateLiterals) {
 			EprPredicateAtom e = (EprPredicateAtom) l.getAtom();
-			result |= e.getPredicate().check(l.getSign() == 1, exceptedConstants);
+			result |= e.eprPredicate.check(l.getSign() == 1, exceptedConstants);
 		}
 
 		return null; 

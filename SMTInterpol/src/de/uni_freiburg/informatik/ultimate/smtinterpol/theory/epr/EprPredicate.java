@@ -8,6 +8,7 @@ import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
@@ -106,24 +107,34 @@ public class EprPredicate {
 		}
 		val.add(l);
 	}
-	
-	public HashMap<EprClause,HashSet<Literal>> getQuantifiedOccurences() {
-		return mQuantifiedOccurences;
-	}
-	
-	/*
-	 * Special predicate that describes the value the current EPR predicate has at
-	 * almost all positions.
-	 */
-	DPLLAtom mAlmostAllAtom;
-//	EprPredicateAtom mAlmostAllAtom;
+//	
+//	public HashMap<EprClause,HashSet<Literal>> getQuantifiedOccurences() {
+//		return mQuantifiedOccurences;
+//	}
 
-	public DPLLAtom getAlmostAllAtom(Clausifier cl) {
-		if (mAlmostAllAtom == null) {
-			//TODO: is this the right way to introduce a literal??..
-			Term boolConst = cl.getTheory().constant("AA_" + mFunctionSymbol.toString(), cl.getTheory().getBooleanSort());
-			mAlmostAllAtom = cl.getCreateLiteral(boolConst).getAtom();
-		}
-		return mAlmostAllAtom;
+	public Clause setAlmostAllAtomPositive(DPLLAtom atom) {
+		// TODO Auto-generated method stub
+		return null;
 	}
+
+	public Clause setAlmostAllAtomNegative(DPLLAtom atom) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+	
+//	/*
+//	 * Special predicate that describes the value the current EPR predicate has at
+//	 * almost all positions.
+//	 */
+//	DPLLAtom mAlmostAllAtom;
+////	EprPredicateAtom mAlmostAllAtom;
+//
+//	public DPLLAtom getAlmostAllAtom(Clausifier cl) {
+//		if (mAlmostAllAtom == null) {
+//			//TODO: is this the right way to introduce a literal??..
+//			Term boolConst = cl.getTheory().constant("AA_" + mFunctionSymbol.toString(), cl.getTheory().getBooleanSort());
+//			mAlmostAllAtom = cl.getCreateLiteral(boolConst).getAtom();
+//		}
+//		return mAlmostAllAtom;
+//	}
 }

@@ -24,6 +24,7 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
@@ -1340,9 +1341,15 @@ public class Clausifier {
 					addClause(lits,	null,
 							getProofNewSource(mLeafKind,
 									mSubTracker.clause(mProofTerm)));
+				//alex (begin)
 				} else{
-					mEprTheory.addClause(lits, null, null);
+					//TODO: replace the nulls
+					// the almostAllClause is used to let the DPLLEngine compute default values for the EPR predicates
+					// it is basically the (implicitly quantified) EPR clause with all quantified equalities left out 
+					Literal[] almostAllClauseLiterals = mEprTheory.createEprClause(lits, null, null);
+					addClause(almostAllClauseLiterals, null, null);
 				}
+				//alex (end)
 			}
 		}
 		public IProofTracker getTracker() {
@@ -2075,7 +2082,7 @@ public class Clausifier {
 
 		if (mEprTheory == null) {
 //			mEprTheory = new EprTheory(this.getTheory());
-			mEprTheory = new EprTheory();
+			mEprTheory = new EprTheory(mTheory);
 			mEngine.addTheory(mEprTheory);
 		}
 	}
@@ -2515,11 +2522,11 @@ public class Clausifier {
 	}
 
 	//alex (begin)
-	public SimpleList<Clause> getFulfilledEprClauses() {
+	public List<Clause> getFulfilledEprClauses() {
 		return mEprTheory.getFulfilledClauses();
 	}
 
-	public SimpleList<Clause> getNotFulfilledEprClauses() {
+	public List<Clause> getNotFulfilledEprClauses() {
 		return mEprTheory.getNotFulfilledClauses();
 	}
 	
