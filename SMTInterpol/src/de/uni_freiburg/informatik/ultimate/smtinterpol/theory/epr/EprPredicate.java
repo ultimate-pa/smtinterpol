@@ -140,7 +140,8 @@ public class EprPredicate {
 		//check for conflicts with current model
 		for (EprAlmostAllAtom aaa : mNegativeAlmostAllAtoms) {
 			//case: setting <P ...>, already set (not <P ...>)
-			if (atom.signatureImplies(aaa)) {
+//			if (atom.signatureImplies(aaa)) {
+			if (atom.signature.implies(aaa.signature)) {
 				//case: setting <P x y>, already set (not <P x x>)
 				// conflict clause: {(not <P x y>), <P x x>}, i.e. <P x y> ==> <P x x>
 				Literal[] lits = new Literal[2];
@@ -170,7 +171,8 @@ public class EprPredicate {
 		//check for conflicts with current model
 		for (EprAlmostAllAtom aaa : mPositiveAlmostAllAtoms) {
 			//case: setting (not <P ...>), already set <P ...>
-			if (atom.signatureImplies(aaa)) {
+//			if (atom.signatureImplies(aaa)) {
+			if (atom.signature.implies(aaa.signature)) {
 				//case: setting (not <P x y>), already set <P x x>
 				// conflict clause: { <P x y>, (not <P x x>)}, i.e. (not <P x y>) ==> (not <P x x>)
 				Literal[] lits = new Literal[2];

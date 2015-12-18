@@ -459,7 +459,7 @@ public class EprTheory implements ITheory {
 	 * @param arguments repetitions here are used to compute the signature
 	 * @return
 	 */
-	private ArrayList<HashSet<Integer>> computeSignature(Term[] arguments) {
+	private AAAtomSignature computeSignature(Term[] arguments) {
 		ArrayList<HashSet<Integer>> sig = new ArrayList<HashSet<Integer>>(arguments.length);
 
 		int newPartition = 0;
@@ -481,10 +481,10 @@ public class EprTheory implements ITheory {
 			HashSet<Integer> s = sig.get(i);
 			s.add(partitionNr);
 		}
-		return sig;
+		return new AAAtomSignature(sig);
 	}
 	
-	HashMap<EprPredicate, HashMap<ArrayList<HashSet<Integer>>, EprAlmostAllAtom>> mAlmostAllAtomsStore = new HashMap<>();
+	HashMap<EprPredicate, HashMap<AAAtomSignature, EprAlmostAllAtom>> mAlmostAllAtomsStore = new HashMap<>();
 
 	/**
 	 * Looks up a fitting atom in the store, makes a new one if there is none.
@@ -494,10 +494,10 @@ public class EprTheory implements ITheory {
 	 * @return
 	 */
 	private EprAlmostAllAtom getEprAlmostAllAtom(int assertionStackLevel, EprPredicate eprPredicate, Term[] argumentsForSignatureComputation) {
-
-		ArrayList<HashSet<Integer>> signature = computeSignature(argumentsForSignatureComputation);
+		//TODO: maybe replace the AlmostAllAtomsStore by a HashSet??
+		AAAtomSignature signature = computeSignature(argumentsForSignatureComputation);
 		
-		HashMap<ArrayList<HashSet<Integer>>, EprAlmostAllAtom> itm = mAlmostAllAtomsStore.get(eprPredicate);
+		HashMap<AAAtomSignature, EprAlmostAllAtom> itm = mAlmostAllAtomsStore.get(eprPredicate);
 		if (itm == null) {
 			itm = new HashMap<>();
 			mAlmostAllAtomsStore.put(eprPredicate, itm);
@@ -508,6 +508,7 @@ public class EprTheory implements ITheory {
 			Term t = mTheory.constant("<" + eprPredicate.functionSymbol.getName() + signature.toString() + ">", mTheory.getBooleanSort());
 			eaaa = new EprAlmostAllAtom(t, 0, assertionStackLevel, eprPredicate, signature);
 			mEngine.addAtom(eaaa);
+			itm.put(signature, eaaa);
 		} 
 		return eaaa;
 	}

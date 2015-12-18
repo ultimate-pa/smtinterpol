@@ -21,7 +21,8 @@ public class EprAlmostAllAtom extends EprAtom {
 	 * (for example (P x y x) will yield the signature [{1,3}, {2}, {1,3}])
 	 * TODO: find something more efficient
 	 */
-	public final ArrayList<HashSet<Integer>> signature;
+//	public final ArrayList<HashSet<Integer>> signature;
+	public final AAAtomSignature signature;
 	
 
 //	public EprAlmostAllAtom(ApplicationTerm term, int hash, int assertionstacklevel, EprPredicate eprPred, Term[] argumentsForPattern) {
@@ -36,7 +37,7 @@ public class EprAlmostAllAtom extends EprAtom {
 
 	
 	public EprAlmostAllAtom(Term term, int hash, int assertionStackLevel, EprPredicate eprPred,
-			ArrayList<HashSet<Integer>> sig) {
+			AAAtomSignature sig) {
 		//TODO: make sure hash matches equals given below
 		super(term, hash, assertionStackLevel);
 		eprPredicate = eprPred;
@@ -49,22 +50,22 @@ public class EprAlmostAllAtom extends EprAtom {
 
 
 
-	/**
-	 * 
-	 * @param other
-	 * @return true iff, by our assumed semantics, this implies other
-	 */
-	public boolean signatureImplies(EprAlmostAllAtom other) {
-		assert other.eprPredicate.arity == this.eprPredicate.arity;
-
-		//check:
-		// at every point, the signatures partition must be subset of other's signature's partition..
-		boolean result = true;
-		for (int i = 0; i < this.eprPredicate.arity; i++) 
-			result = result && other.signature.get(i).containsAll(this.signature.get(i));
-		
-		return result;
-	}
+//	/**
+//	 * 
+//	 * @param other
+//	 * @return true iff, by our assumed semantics, this implies other
+//	 */
+//	public boolean signatureImplies(EprAlmostAllAtom other) {
+//		assert other.eprPredicate.arity == this.eprPredicate.arity;
+//
+//		//check:
+//		// at every point, the signatures partition must be subset of other's signature's partition..
+//		boolean result = true;
+//		for (int i = 0; i < this.eprPredicate.arity; i++) 
+//			result = result && other.signature.get(i).containsAll(this.signature.get(i));
+//		
+//		return result;
+//	}
 
 
 	@Override
