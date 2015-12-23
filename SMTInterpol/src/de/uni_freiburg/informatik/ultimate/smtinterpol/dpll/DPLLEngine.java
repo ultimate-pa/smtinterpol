@@ -123,6 +123,7 @@ public class DPLLEngine {
 	private final AtomQueue mAtoms = new AtomQueue();
 
 	private int mCurrentDecideLevel = 0;
+	private int mBaseLevel = 0;
 	private boolean mPGenabled = false;
 	private boolean mProduceAssignments = false;
 	private ScopedHashMap<String, Literal> mAssignments;
@@ -173,7 +174,7 @@ public class DPLLEngine {
 		atom.mDecideStatus = lit;
 		atom.mLastStatus = atom.mDecideStatus;
 		atom.mExplanation = t;
-		if (decideLevel == 0) {
+		if (decideLevel == mBaseLevel) {
 			/* This atom is now decided once and for all. */
 			mNumSolvedAtoms++;
 			generateLevel0Proof(lit);
@@ -211,7 +212,7 @@ public class DPLLEngine {
 		atom.mDecideStatus = lit;
 		atom.mLastStatus = atom.mDecideStatus;
 		atom.mExplanation = t;
-		if (level == 0) {
+		if (level == mBaseLevel) {
 			/* This atom is now decided once and for all. */
 			mNumSolvedAtoms++;
 			generateLevel0Proof(lit);
@@ -425,7 +426,7 @@ public class DPLLEngine {
 		if (Config.PROFILE_TIME)
 			time = System.nanoTime();
 		Clause conflict = null;
-		if (mCurrentDecideLevel == 0) {
+		if (mCurrentDecideLevel == mBaseLevel) {
 			/* This atom is now decided once and for all. */
 			mNumSolvedAtoms++;
 			generateLevel0Proof(literal);
@@ -563,7 +564,7 @@ public class DPLLEngine {
 		for (Literal lit: clause.mLiterals) {
 			DPLLAtom atom = lit.getAtom();
 			assert(atom.mDecideStatus == lit.negate());
-			if (atom.mDecideLevel > 0) {
+			if (atom.mDecideLevel > mBaseLevel) {
 				if (atom.mDecideLevel >= maxDecideLevel) {
 					if (atom.mDecideLevel > maxDecideLevel) {
 						maxDecideLevel = atom.mDecideLevel;
@@ -639,7 +640,7 @@ public class DPLLEngine {
 				if (l != lit) {
 					assert(l.getAtom().mDecideStatus == l.negate());
 					int level = l.getAtom().mDecideLevel;
-					if (level > 0) {
+					if (level > mBaseLevel) {
 						if (conflict.add(l.negate()) && level == maxDecideLevel)
 							numLitsOnMaxDecideLevel++;
 					} else {
@@ -696,7 +697,7 @@ public class DPLLEngine {
 					if (l != lit) {
 						assert(l.getAtom().mDecideStatus == l.negate());
 						int level = l.getAtom().mDecideLevel;
-						if (level > 0) {
+						if (level > mBaseLevel) {
 							conflict.add(l.negate());
 						} else {
 							// Here, we do level0 resolution as well
@@ -808,7 +809,7 @@ public class DPLLEngine {
 				}
 				for (Literal l : expl.mLiterals) {
 					assert l.getAtom().getDecideStatus() != null;
-					if (l != next && l.getAtom().getDecideLevel() > 0) {
+					if (l != next && l.getAtom().getDecideLevel() > mBaseLevel) {
 						Literal lneg = l.negate();
 						assert lneg.getAtom().getDecideStatus() == lneg;
 						Integer st = status.get(lneg);
@@ -1113,7 +1114,7 @@ public class DPLLEngine {
 				if (--nextRestart == 0) {
 					DPLLAtom next = mAtoms.peek();
 					int restartpos = -1;
-					for (int i = mNumSolvedAtoms; i < mDecideStack.size(); ++i) {
+					for (int i = mNumSolvedAtoms + mBaseLevel; i < mDecideStack.size(); ++i) {
 						DPLLAtom var = mDecideStack.get(i).getAtom();
 						if (var.mExplanation == null
 						        && var.mActivity < next.mActivity) { 
@@ -1127,7 +1128,7 @@ public class DPLLEngine {
 						while (mDecideStack.size() > restartpos) {
 							Literal lit = mDecideStack.remove(
 							        mDecideStack.size() - 1);
-							assert(lit.getAtom().mDecideLevel != 0);
+							assert(lit.getAtom().mDecideLevel != mBaseLevel);
 							Object litexpl = lit.getAtom().mExplanation;
 							if (litexpl == null)
 								++decleveldec;
@@ -1350,7 +1351,7 @@ public class DPLLEngine {
 	}
 	
 	private void generateLevel0Proof(Literal lit) {
-		assert (lit.getAtom().mDecideLevel == 0) : "Level0 proof for non-level0 literal?";
+		assert (lit.getAtom().mDecideLevel == mBaseLevel) : "Level0 proof for non-level0 literal?";
 		Clause c = getExplanation(lit);
 		if (c.getSize() > 1) {
 			int stacklvl = c.mStacklevel; 
@@ -1382,7 +1383,7 @@ public class DPLLEngine {
 	}
 	
 	private Clause getLevel0(Literal lit) {
-		assert(lit.getAtom().mDecideLevel == 0);
+		assert(lit.getAtom().mDecideLevel == mBaseLevel);
 		Object expl = lit.getAtom().mExplanation;
 		assert expl instanceof Clause
 		   && ((Clause)expl).getSize() == 1;
@@ -1550,7 +1551,7 @@ public class DPLLEngine {
 	}
 	
 	public void flipDecisions() {
-		while (mDecideStack.size() > mNumSolvedAtoms) {
+		while (mDecideStack.size() > mBaseLevel + mNumSolvedAtoms) {
 			Literal lit = mDecideStack.remove(mDecideStack.size() - 1);
 			backtrackLiteral(lit);
 			// Flip the decision
@@ -1558,17 +1559,17 @@ public class DPLLEngine {
 		}
 		Clause conflict = finalizeBacktrack();
 		assert (conflict == null);
-		mCurrentDecideLevel = 0;
+		mCurrentDecideLevel = mBaseLevel;
 	}
 	
 	public void flipNamedLiteral(String name) throws SMTLIBException {
-		while (mDecideStack.size() > mNumSolvedAtoms) {
+		while (mDecideStack.size() > mBaseLevel + mNumSolvedAtoms) {
 			Literal lit = mDecideStack.remove(mDecideStack.size() - 1);
 			backtrackLiteral(lit);
 		}
 		Clause conflict = finalizeBacktrack();
 		assert (conflict == null);
-		mCurrentDecideLevel = 0;
+		mCurrentDecideLevel = mBaseLevel;
 		Literal lit = mAssignments.get(name);
 		if (lit == null)
 			throw new SMTLIBException("Name " + name + " not known");
@@ -1656,6 +1657,17 @@ public class DPLLEngine {
 			return true;
 		}
 		return false;
+	}
+
+	/**
+	 * Add some literals and prepare for a check-sat.  Trivial
+	 * inconsistencies between assumptions are detected.
+	 * @param lits The literals to assume.
+	 * @return <code>false</code> if the assumptions are trivially inconsistent.
+	 */
+	public boolean assume(Literal[] lits) {
+		// TODO implement
+		return true;
 	}
 
 }
