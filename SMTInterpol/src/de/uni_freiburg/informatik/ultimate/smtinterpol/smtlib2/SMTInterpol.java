@@ -594,7 +594,8 @@ public class SMTInterpol extends NoopScript {
 			mEngine.setRandomSeed(mSolverOptions.getRandomSeed());
 			if (getBooleanOption(":interactive-mode")
 					|| mSolverOptions.isInterpolantCheckModeActive()
-					|| mSolverOptions.isModelCheckModeActive())
+					|| mSolverOptions.isModelCheckModeActive()
+					|| getBooleanOption(":unsat-core-check-mode"))
 				mAssertions = new ScopedArrayList<Term>();
 			mOptions.setOnline();
 			mEngine.getSMTTheory().setGlobalSymbols(
