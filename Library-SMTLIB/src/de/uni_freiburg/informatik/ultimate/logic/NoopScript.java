@@ -169,6 +169,11 @@ public class NoopScript implements Script {
 	public LBool checkSat() {
 		return LBool.UNKNOWN;
 	}
+	
+	@Override
+	public LBool checkSatAssuming(Term... assumptions) {
+		return LBool.UNKNOWN;
+	}
 
 	@Override
 	public Term[] getAssertions() throws SMTLIBException {

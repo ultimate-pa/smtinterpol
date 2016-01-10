@@ -454,10 +454,27 @@ public class SMTInterpol extends NoopScript {
 	
 	@Override
 	public LBool checkSat() throws SMTLIBException {
+		return checkSatAssuming();
+	}
+	
+	@Override
+	public LBool checkSatAssuming(Term... assumptions) throws SMTLIBException {
 		if (mEngine == null)
 			throw new SMTLIBException("No logic set!");
 		mModel = null;
 		mAssertionStackModified = false;
+		mEngine.clearAssumptions();
+		if (assumptions != null && assumptions.length != 0) {
+			// Since checkSatAssuming does not first do bcp and we might have
+			// popped, we manually trigger bcp
+			if (!mEngine.quickCheck())
+				return LBool.UNSAT;
+			Literal[] assumptionlits = new Literal[assumptions.length];
+			for (int i = 0; i < assumptions.length; ++i) {
+				assumptionlits[i] = mClausifier.getCreateLiteral(assumptions[i]);
+			}
+			mEngine.assume(assumptionlits);
+		}
 		long timeout = mSolverOptions.getTimeout();
 		if (timeout > 0) {
 			mCancel.setTimeout(timeout);
@@ -1133,6 +1150,7 @@ public class SMTInterpol extends NoopScript {
 	private void modifyAssertionStack() {
 		mAssertionStackModified = true;
 		mModel = null;
+		mEngine.clearAssumptions();
 	}
 	
 	private void buildModel() throws SMTLIBException {

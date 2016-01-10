@@ -184,6 +184,18 @@ public interface Script {
 	 */
 	public LBool checkSat() throws SMTLIBException;
 	/**
+	 * Check for satisfiability of the current context under additional
+	 * assumptions.
+	 * 
+	 * Note that this function should return {@link LBool#UNKNOWN} in case of
+	 * errors.
+	 * @param assumptions Additional assumptions as Boolean constants (nullary
+	 *                    ApplicationTerms of sort Bool or their negations).
+	 * @return The result of the check as a lifted Boolean.
+	 * @throws SMTLIBException If the logic is not set.
+	 */
+	public LBool checkSatAssuming(Term... assumptions) throws SMTLIBException;
+	/**
 	 * Get all assertions contained in the assertion stack.  Note that this
 	 * command is only available in interactive mode.  To enable interactive
 	 * mode, call

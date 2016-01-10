@@ -37,6 +37,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause.WatchList;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom.TrueAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.LeafNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ResolutionNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ResolutionNode.Antecedent;
@@ -426,7 +427,7 @@ public class DPLLEngine {
 		if (Config.PROFILE_TIME)
 			time = System.nanoTime();
 		Clause conflict = null;
-		if (mCurrentDecideLevel == mBaseLevel) {
+		if (mCurrentDecideLevel == 0) {
 			/* This atom is now decided once and for all. */
 			mNumSolvedAtoms++;
 			generateLevel0Proof(literal);
@@ -449,10 +450,48 @@ public class DPLLEngine {
 				if (mUnsatClause == null)
 					mUnsatClause = clause;
 			} else {
+				// Make sure the unit literal is actually a unit
+				if (clause.getLiteral(0).getAtom().isAssumption()) {
+					// CHECK do we learn trivially satisfied clauses?
+					if (clause.getLiteral(0) != clause.getLiteral(0).getAtom().getDecideStatus()) {
+						mUnsatClause = clause;
+						return;
+					}
+				}
 				/* propagate unit clause: only register watcher zero. */
 				mWatcherBackList.append(clause, 0);
 			}
 		} else {
+			// Move unset literals upfront
+			int dest = 0;
+			while (dest < 2) {
+				if (clause.getLiteral(dest).getAtom().isAssumption()) {
+					boolean found = false;
+					for (int i = dest + 1; i < clause.getSize(); ++i) {
+						if (clause.getLiteral(dest).getAtom().isAssumption()) {
+							// swap literal @dest with literal @i
+							Literal tmp = clause.mLiterals[i];
+							clause.mLiterals[i] = clause.mLiterals[dest];
+							clause.mLiterals[dest] = tmp;
+							found = true;
+							break;
+						}
+					}
+					if (found)
+						dest++;
+					else if (dest == 0) {
+						// We only found assumptions in this clause.
+						mUnsatClause = clause;
+						return;
+					} else {
+						assert dest == 1;
+						// We found a unit clause
+						/* propagate unit clause: only register watcher zero. */
+						mWatcherBackList.append(clause, 0);
+						return;
+					}
+				}
+			}
 			/* A clause is "watched" if it appears on either the
 			 * watcherBack/SetList or the watchers list of some atom.
 			 */
@@ -564,7 +603,7 @@ public class DPLLEngine {
 		for (Literal lit: clause.mLiterals) {
 			DPLLAtom atom = lit.getAtom();
 			assert(atom.mDecideStatus == lit.negate());
-			if (atom.mDecideLevel > mBaseLevel) {
+			if (atom.mDecideLevel > 0) {
 				if (atom.mDecideLevel >= maxDecideLevel) {
 					if (atom.mDecideLevel > maxDecideLevel) {
 						maxDecideLevel = atom.mDecideLevel;
@@ -1114,7 +1153,7 @@ public class DPLLEngine {
 				if (--nextRestart == 0) {
 					DPLLAtom next = mAtoms.peek();
 					int restartpos = -1;
-					for (int i = mNumSolvedAtoms + mBaseLevel; i < mDecideStack.size(); ++i) {
+ 					for (int i = mNumSolvedAtoms + mBaseLevel; i < mDecideStack.size(); ++i) {
 						DPLLAtom var = mDecideStack.get(i).getAtom();
 						if (var.mExplanation == null
 						        && var.mActivity < next.mActivity) { 
@@ -1347,7 +1386,15 @@ public class DPLLEngine {
 	}
 	
 	public Clause getProof() {
-		return mUnsatClause;
+		assert checkValidUnsatClause();
+		Antecedent[] antecedents = new Antecedent[mUnsatClause.getSize()];
+		for (int i = 0; i < mUnsatClause.getSize(); ++i) {
+			Literal lit = mUnsatClause.getLiteral(i).negate();
+			antecedents[i] = new Antecedent(lit, new Clause(new Literal[] {lit}, new LeafNode(LeafNode.ASSUMPTION, null)));
+		}
+		ResolutionNode proof = new ResolutionNode(mUnsatClause, antecedents);
+		Clause empty = new Clause(new Literal[0], proof);
+		return empty;
 	}
 	
 	private void generateLevel0Proof(Literal lit) {
@@ -1660,13 +1707,91 @@ public class DPLLEngine {
 	}
 
 	/**
+	 * Remove all assumptions.  We backtrack to level 0.
+	 */
+	public void clearAssumptions() {
+		mLogger.debug("Clearing Assumptions (Baselevel is %d)", mBaseLevel);
+		if (mBaseLevel != 0) {
+			Literal top = mDecideStack.get(mDecideStack.size() - 1);
+			while (top.getAtom().getDecideLevel() != 0) {
+				backtrackLiteral(top);
+				mDecideStack.remove(mDecideStack.size() - 1);
+				if (top.getAtom().isAssumption())
+					top.getAtom().unassume();
+				top = mDecideStack.get(mDecideStack.size() - 1);
+			}
+			Clause res = finalizeBacktrack();
+			assert res == null : "Conflict when clearing assumptions!";
+			mBaseLevel = 0;
+			mCurrentDecideLevel = 0;
+		}
+		if (mUnsatClause != null && mUnsatClause.getSize() != 0)
+			// delete unsat clause since it depends on assumptions
+			mUnsatClause = null;
+	}	
+	
+	/**
 	 * Add some literals and prepare for a check-sat.  Trivial
 	 * inconsistencies between assumptions are detected.
 	 * @param lits The literals to assume.
 	 * @return <code>false</code> if the assumptions are trivially inconsistent.
 	 */
 	public boolean assume(Literal[] lits) {
-		// TODO implement
+		for (Literal lit : lits) {
+			mLogger.debug("Assuming Literal %s", lit);
+			// First check if the literal is already set
+			if (lit.getAtom().getDecideStatus() != null) {
+				if (lit.getAtom().getDecideStatus() == lit) {
+					mLogger.debug("Already set!");
+					continue;
+				} else {
+					// We have the assumption lit, but we know ~lit holds.
+					// This can have two cases:
+					// 1) We assumed ~lit in which case we have to build a
+					//    new clause to represent the proof using only
+					//    assumptions
+					// 2) We derived the unit ~lit from assertions in which
+					//    case we can use the proof for ~lit
+					if (lit.getAtom().isAssumption()) {
+						mUnsatClause = new Clause(new Literal[] {lit.negate()}, new LeafNode(LeafNode.ASSUMPTION, null));
+						mLogger.debug("Conflicting assumptions");
+					} else {
+						assert lit.getAtom().getDecideLevel() == 0;
+						assert lit.getAtom().mExplanation instanceof Clause;
+						mUnsatClause = (Clause) lit.getAtom().mExplanation;
+						mLogger.debug("Conflict against unit clause");
+					}
+					assert checkValidUnsatClause();
+					mBaseLevel = mCurrentDecideLevel;
+					return false;
+				}
+			}
+			// The literal is not already set => assume it
+			lit.getAtom().assume();
+			increaseDecideLevel();
+			Clause conflict = setLiteral(lit);
+			if (conflict != null) {
+				mLogger.debug("Conflict when setting literal");
+				mBaseLevel = mCurrentDecideLevel;
+				mUnsatClause = explainConflict(conflict);
+				checkValidUnsatClause();
+				Clause tmp = finalizeBacktrack();
+				assert tmp == null;
+				return false;
+			}
+		}
+		mLogger.debug("Setting base level to %d", mCurrentDecideLevel);
+		mBaseLevel = mCurrentDecideLevel;
+		return true;
+	}
+	
+	private boolean checkValidUnsatClause() {
+		if (mUnsatClause != null) {
+			for (Literal lit : mUnsatClause.mLiterals) {
+				assert lit.getAtom().isAssumption() : "Not an assumption in unsat clause";
+				assert lit.getAtom().getDecideStatus() == lit.negate() : "unsat clause satisfied!";
+			}
+		}
 		return true;
 	}
 

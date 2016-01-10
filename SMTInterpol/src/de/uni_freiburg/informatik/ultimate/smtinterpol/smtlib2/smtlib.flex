@@ -159,6 +159,7 @@ Keyword = ":" {SMTLetterDigit}+
   "check-allsat"         { return symbol(LexerSymbols.ALLSAT, yytext()); }
   "echo"                 { return symbol(LexerSymbols.ECHO, yytext()); }
   "find-implied-equality" { return symbol(LexerSymbols.FINDIMPLIEDEQUALITY, yytext()); }
+  "check-sat-assuming"   { return symbol(LexerSymbols.CHECKSATASSUMING, yytext()); }
 
   /* Predefined Keywords */
   ":named"               { return symbol(LexerSymbols.CNAMED, yytext()); }

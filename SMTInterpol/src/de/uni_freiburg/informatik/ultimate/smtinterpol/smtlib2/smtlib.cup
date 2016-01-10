@@ -233,8 +233,8 @@ terminal String UNDERSCORE, BANG,
          INCOMPLETE, LET, LOGIC, NONE, NUMERALSYM, MEMOUT, PAR, POP, PUSH,
          DECIMALSYM, SAT, SUCCESS, SETLOGIC, SETINFO, SETOPTION, STRINGSYM,
          THEORY, TRUE, UNKNOWN, UNSUPPORTED, UNSAT,
-         INCLUDE, RESET, RESETASSERTIONS, SIMPLIFY, TIMED, ALLSAT, ECHO,
-         FINDIMPLIEDEQUALITY;
+         INCLUDE, RESET, RESETASSERTIONS, SIMPLIFY, TIMED, ALLSAT, ECHO, 
+         FINDIMPLIEDEQUALITY, CHECKSATASSUMING;
 
 /* Predefined Keywords */
 terminal String /* attribute */
@@ -650,6 +650,13 @@ command ::= SETLOGIC symbol:logic
             } catch(SMTLIBException se) {
             	parser.env.printError(se.getMessage());
             } :}
+          | CHECKSATASSUMING LPAR term+:t RPAR
+            {: try {
+                Script.LBool res = parser.env.getScript().checkSatAssuming(t);
+                parser.env.printResponse(res);
+            } catch(SMTLIBException se) {
+            	parser.env.printError(se.getMessage());
+            } :}
           | GETASSERTIONS
             {: try {
             	Term[] res = parser.env.getScript().getAssertions();
@@ -791,9 +798,9 @@ symbol ::= SYMBOL | CONTINUEDEXECUTION | ERRORSYM | FALSE | IMMEDIATEEXIT |
 /* The following are reserved words
          PAR | NUMERALSYM | DECIMALSYM | STRINGSYM |
          UNDERSCORE | AS | BANG | LET | FORALL | EXISTS |
-         ASSERT | CHECKSAT |  
+         ASSERT | CHECKSAT | CHECKSATASSUMING 
          DECLARESORT | DECLAREFUN | DECLARECONST | DEFINESORT | DEFINEFUN | 
-         EXIT | GETASSERTIONS | GETASSIGNMENT | GETINFO |
+         ECHO | EXIT | GETASSERTIONS | GETASSIGNMENT | GETINFO |
          GETMODEL | GETOPTION | GETPROOF | GETUNSATCORE | GETVALUE |
          POP | PUSH | RESET | RESETASSERTIONS |
          SETLOGIC | SETINFO | SETOPTION; */
