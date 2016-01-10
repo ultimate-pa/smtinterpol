@@ -184,6 +184,7 @@ public class SMTInterpol extends NoopScript {
 				declareInternalFunction(theory, "@tautology", bool1, proof, 0);
 				declareInternalFunction(theory, "@lemma", bool1, proof, 0);
 				declareInternalFunction(theory, "@asserted", bool1, proof, 0);
+				declareInternalFunction(theory, "@assumption", bool1, proof, 0);
 			}
 			if (mProofMode > 1) {
 				// Full proofs.

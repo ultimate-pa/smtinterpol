@@ -82,7 +82,12 @@ public class ProofTermGenerator extends NonRecursive {
 				Term res;
 				Theory t = engine.getTheory();
 				IAnnotation annot = ln.getTheoryAnnotation();
-				res = annot.toTerm(mCls, t);
+				if (annot == null) {
+					assert ln.getLeafKind() == LeafNode.ASSUMPTION;
+					res = t.term("@assumption", mCls.toTerm(t));
+				} else {
+					res = annot.toTerm(mCls, t);
+				}
 				engine.setResult(mCls, res);
 				engine.pushConverted(res);
 			} else {
