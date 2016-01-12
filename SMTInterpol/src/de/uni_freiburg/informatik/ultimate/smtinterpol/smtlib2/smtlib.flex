@@ -129,6 +129,7 @@ Keyword = ":" {SMTLetterDigit}+
   "get-option"           { return symbol(LexerSymbols.GETOPTION, yytext()); }
   "get-proof"            { return symbol(LexerSymbols.GETPROOF, yytext()); }
   "get-unsat-core"       { return symbol(LexerSymbols.GETUNSATCORE, yytext()); }
+  "get-unsat-assumptions" { return symbol(LexerSymbols.GETUNSATASSUMPTIONS, yytext()); }
   "get-value"            { return symbol(LexerSymbols.GETVALUE, yytext()); }
   "immediate-exit"       { return symbol(LexerSymbols.IMMEDIATEEXIT, yytext()); }
   "include"              { return symbol(LexerSymbols.INCLUDE, yytext()); }

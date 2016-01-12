@@ -117,6 +117,12 @@ public class SolverOptions {
 		options.addOption(":unsat-core-check-mode", new BooleanOption(
 				false, false, "Check generated unsat cores"));
 		
+		// unsat assumptions options
+		options.addOption(":produce-unsat-assumptions", new BooleanOption(
+				false, false, "Enable production of unsatisfiable assumptions."));
+		options.addOption(":unsat-assumptions-check-mode", new BooleanOption(
+				false, false, "Check generated unsat assumptions"));
+		
 		// general non-standard options
 		options.addOption(CHECK_TYPE, mCheckType);
 		

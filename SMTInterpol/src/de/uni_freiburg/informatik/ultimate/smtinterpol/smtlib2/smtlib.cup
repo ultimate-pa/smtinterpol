@@ -234,7 +234,7 @@ terminal String UNDERSCORE, BANG,
          DECIMALSYM, SAT, SUCCESS, SETLOGIC, SETINFO, SETOPTION, STRINGSYM,
          THEORY, TRUE, UNKNOWN, UNSUPPORTED, UNSAT,
          INCLUDE, RESET, RESETASSERTIONS, SIMPLIFY, TIMED, ALLSAT, ECHO, 
-         FINDIMPLIEDEQUALITY, CHECKSATASSUMING;
+         FINDIMPLIEDEQUALITY, CHECKSATASSUMING, GETUNSATASSUMPTIONS;
 
 /* Predefined Keywords */
 terminal String /* attribute */
@@ -250,7 +250,7 @@ terminal String /* attribute */
          CEXPANDDEFINITIONS, CINTERACTIVEMODE, CPRINTSUCCESS, CVERBOSITY,     
 	     CPRODUCEASSIGNMENTS, CPRODUCEMODELS, CPRODUCEPROOFS, CPRODUCEUNSATCORES, 
 	     CRANDOMSEED, CINTERPOLANTCHECKMODE, CSTRONGSIMPLIFIER,
-	     CTIMEOUT;
+	     CTIMEOUT, CPRODUCEUNSATASSUMPTIONS;
 terminal String SYMBOL, KEYWORD;
 terminal BigInteger NUMERAL;
 terminal BigDecimal DECIMAL;
@@ -441,7 +441,7 @@ bValue ::= TRUE {: RESULT = true; :} | FALSE {: RESULT = false; :};
 booleanOption ::= CPRINTSUCCESS | CEXPANDDEFINITIONS | CINTERACTIVEMODE 
                 | CPRODUCEPROOFS | CPRODUCEUNSATCORES | CPRODUCEMODELS
                 | CPRODUCEASSIGNMENTS | CINTERPOLANTCHECKMODE
-                | CSTRONGSIMPLIFIER;
+                | CSTRONGSIMPLIFIER | CPRODUCEUNSATASSUMPTIONS;
 stringOption ::= CREGULAROUTPUTCHANNEL | CDIAGNOSTICOUTPUTCHANNEL;
 numeralOption ::= CRANDOMSEED | CVERBOSITY | CTIMEOUT;
 option ::= booleanOption:o bValue:b
@@ -698,6 +698,15 @@ command ::= SETLOGIC symbol:logic
             } catch (UnsupportedOperationException uoe) {
             	parser.env.printResponse("unsupported");
             } :}
+          | GETUNSATASSUMPTIONS
+            {: try {
+            	Term[] res = parser.env.getScript().getUnsatAssumptions();
+            	parser.env.printResponse(res);
+            } catch (SMTLIBException se) {
+            	parser.env.printError(se.getMessage());
+            } catch (UnsupportedOperationException uoe) {
+            	parser.env.printResponse("unsupported");
+            } :}
           |  GETMODEL
             {: try {
                 Model model = parser.env.getScript().getModel();
@@ -793,7 +802,8 @@ script ::= commandPar*;
 
 symbol ::= SYMBOL | CONTINUEDEXECUTION | ERRORSYM | FALSE | IMMEDIATEEXIT |
            INCOMPLETE | LOGIC | NONE | MEMOUT | SAT | SUCCESS | THEORY | TRUE |
-           UNKNOWN | UNSUPPORTED | UNSAT | INCLUDE | SIMPLIFY;
+           UNKNOWN | UNSUPPORTED | UNSAT | INCLUDE | SIMPLIFY |
+           FINDIMPLIEDEQUALITY | ALLSAT;
          
 /* The following are reserved words
          PAR | NUMERALSYM | DECIMALSYM | STRINGSYM |
@@ -801,7 +811,8 @@ symbol ::= SYMBOL | CONTINUEDEXECUTION | ERRORSYM | FALSE | IMMEDIATEEXIT |
          ASSERT | CHECKSAT | CHECKSATASSUMING 
          DECLARESORT | DECLAREFUN | DECLARECONST | DEFINESORT | DEFINEFUN | 
          ECHO | EXIT | GETASSERTIONS | GETASSIGNMENT | GETINFO |
-         GETMODEL | GETOPTION | GETPROOF | GETUNSATCORE | GETVALUE |
+         GETMODEL | GETOPTION | GETPROOF | GETUNSATASSUMPTIONS |
+         GETUNSATCORE | GETVALUE |
          POP | PUSH | RESET | RESETASSERTIONS |
          SETLOGIC | SETINFO | SETOPTION; */
 

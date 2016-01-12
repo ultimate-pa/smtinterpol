@@ -95,6 +95,11 @@ public class DPLLEngine {
 	 */
 	private Clause mUnsatClause = null;
 	
+	/**
+	 * If we assume a literal and its negation, we mark the conflicting
+	 * assumption in this variable.
+	 */
+	private Literal mConflictingAssumption = null;
 	/* Statistics */
 	private int mConflicts, mDecides, mTProps, mProps;
 	private int mNumSolvedAtoms, mNumClauses, mNumAxiomClauses;
@@ -1385,6 +1390,13 @@ public class DPLLEngine {
 		return mPGenabled;
 	}
 	
+	public Literal[] getUnsatAssumptions() {
+		if (mConflictingAssumption != null) {
+			return new Literal[] {mConflictingAssumption, mConflictingAssumption.negate()};
+		}
+		return mUnsatClause.mLiterals;
+	}
+	
 	public Clause getProof() {
 		assert checkValidUnsatClause();
 		Antecedent[] antecedents = new Antecedent[mUnsatClause.getSize()];
@@ -1710,6 +1722,7 @@ public class DPLLEngine {
 	 * Remove all assumptions.  We backtrack to level 0.
 	 */
 	public void clearAssumptions() {
+		mConflictingAssumption = null;
 		mLogger.debug("Clearing Assumptions (Baselevel is %d)", mBaseLevel);
 		if (mBaseLevel != 0) {
 			Literal top = mDecideStack.get(mDecideStack.size() - 1);
@@ -1755,6 +1768,7 @@ public class DPLLEngine {
 					if (lit.getAtom().isAssumption()) {
 						mUnsatClause = new Clause(new Literal[] {lit.negate()}, new LeafNode(LeafNode.ASSUMPTION, null));
 						mLogger.debug("Conflicting assumptions");
+						mConflictingAssumption = lit;
 					} else {
 						assert lit.getAtom().getDecideLevel() == 0;
 						assert lit.getAtom().mExplanation instanceof Clause;

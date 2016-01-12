@@ -613,7 +613,8 @@ public class SMTInterpol extends NoopScript {
 			if (getBooleanOption(":interactive-mode")
 					|| mSolverOptions.isInterpolantCheckModeActive()
 					|| mSolverOptions.isModelCheckModeActive()
-					|| getBooleanOption(":unsat-core-check-mode"))
+					|| getBooleanOption(":unsat-core-check-mode")
+					|| getBooleanOption(":unsat-assumptions-check-mode"))
 				mAssertions = new ScopedArrayList<Term>();
 			mOptions.setOnline();
 			mEngine.getSMTTheory().setGlobalSymbols(
@@ -1036,6 +1037,50 @@ public class SMTInterpol extends NoopScript {
 			}
 		}
 		return core;
+	}
+
+	
+	@Override
+	public Term[] getUnsatAssumptions()
+	    throws SMTLIBException, UnsupportedOperationException {
+		if (mEngine == null)
+			throw new SMTLIBException("No logic set!");
+		if (!getBooleanOption(":produce-unsat-assumptions"))
+			throw new SMTLIBException(
+					"Set option :produce-unsat-assumptions to true before using get-unsat-assumptions");
+		checkAssertionStackModified();
+		if (!mEngine.inconsistent())
+			throw new SMTLIBException("Logical context not inconsistent!");
+		Literal[] unsatAssumptionLits = mEngine.getUnsatAssumptions();
+		Term[] unsatAssumptions = new Term[unsatAssumptionLits.length];
+		Theory t = getTheory();
+		for (int i = 0; i < unsatAssumptionLits.length; ++i) {
+			unsatAssumptions[i] = unsatAssumptionLits[i].negate().getSMTFormula(t);
+		}
+		if (getBooleanOption(":unsat-assumptions-check-mode")) {
+			SMTInterpol tmpBench = new SMTInterpol(this, null, CopyMode.CURRENT_VALUE);
+			int old = tmpBench.mLogger.getLoglevel();
+			try {
+				tmpBench.mLogger.setLoglevel(LogProxy.LOGLEVEL_ERROR);
+				// Clone the current context
+			    for (Term asserted : mAssertions) {
+					tmpBench.assertTerm(asserted);
+				}
+				for (Term ass : unsatAssumptions)
+					tmpBench.assertTerm(ass);
+				LBool isUnsat = tmpBench.checkSat();
+				if (isUnsat != LBool.UNSAT) {
+					mLogger.error(
+							"Unsat assumptions could not be proven unsat (Result is %s)",
+							isUnsat);
+				}
+			} finally {
+				tmpBench.mLogger.setLoglevel(old);
+				// Not needed for now, but maybe later...
+				tmpBench.exit();
+			}
+		}
+		return unsatAssumptions;
 	}
 
 	@Override

@@ -466,4 +466,10 @@ public class NoopScript implements Script {
 		mStackLevel = 0;
 	}
 
+	@Override
+	public Term[] getUnsatAssumptions() throws SMTLIBException,
+			UnsupportedOperationException {
+		throw new UnsupportedOperationException();
+	}
+
 }

@@ -230,6 +230,22 @@ public interface Script {
 	public Term[] getUnsatCore()
 		throws SMTLIBException, UnsupportedOperationException;
 	/**
+	 * Get the unsatisfiable assumptions.  Note that this command is only
+	 * available if unsat assumption production is enabled and the last
+	 * {@link #checkSatAssuming(Term...)} returned
+	 * {@link LBool#UNSAT}.  To enable unsat assumption production, call
+	 * {@link #setOption(String, Object) setOption}
+	 * (":produce-unsat-assumptions", true).
+	 * @return An array of terms that correspond to an unsatisfiable subset of
+	 *         last assumptions.
+	 * @throws SMTLIBException If unsat assumption production is not enabled or
+	 *                         the solver did not detect unsatisfiability.
+	 * @throws UnsupportedOperationException If unsat assumption computation is
+	 *                                       unsupported.
+	 */
+	public Term[] getUnsatAssumptions()
+		throws SMTLIBException, UnsupportedOperationException;
+	/**
 	 * Get values for some terms in the model.  Note that this command is only
 	 * available if model production is enabled and the last {@link #checkSat()}
 	 * did not return {@link LBool#UNSAT}.  To enable model production, call

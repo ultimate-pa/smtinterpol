@@ -524,4 +524,11 @@ public class LoggingScript implements Script {
 		mPw.println("(reset-assertions)");
 		mScript.resetAssertions();
 	}
+
+	@Override
+	public Term[] getUnsatAssumptions() throws SMTLIBException,
+			UnsupportedOperationException {
+		mPw.println("(get-unsat-assumptions)");
+		return mScript.getUnsatAssumptions();
+	}
 }
