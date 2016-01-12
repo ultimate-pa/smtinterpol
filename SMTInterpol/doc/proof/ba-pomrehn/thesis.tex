@@ -32,89 +32,282 @@ Diese Funktion ersetzt n durch ihre Defintition d.
 \[
 \inferrule*[left=ExpandDef]{ }{n(t) = d[t]}
 \]
+
 \paragraph{trueNotFalse:} Gleichheit von Boolschen Termen, mit einem Term der falsch ist und einem der wahr ist, vereinfache zu falsch.
-\begin{mathpar}
+\[
   \inferrule*[left=TrueNotFalse,right={$\exists j,k\in I.\ t_j=true \land
       t_k=false$}]{ } {(=_{i\in I}\ t_i) = false}
-      \end{mathpar}
+\]
+
 \paragraph{constDiff:} Gleichheit unterschiedlicher Konstanten ist falsch.
-\begin{mathpar}
+\[
 \inferrule*[left=ConstDiff,right={$\exists j,k\in I.\ t_j=c_j \land
       t_k=c_k\land c_j\neq c_k$}]{ } {(=_{i\in I}\ t_i) = false}
-\end{mathpar}
+\]
+
 \paragraph{eqTrue:} Gleicheit zu wahr, wird durch ein Konjunkt ersetzt.
-\begin{mathpar}
+\[
 \inferrule*[left=EqTrue,right={$\exists j\in I.\ t_j=true\land I'\subset
       I\land j\not\in I'$}]{ } {(=_{i\in I}\ t_i) = (and_{i'\in I'}\ t_{i'})}
-\end{mathpar}
+\]
+
 \paragraph{eqFalse:} Gleichheit zu falsch, wird durch die Negation der Veroderung der zu falsch gleichen Terme ersetzt.
-\begin{mathpar}
+\[
 \inferrule*[left=EqFalse,right={$\exists j\in I.\ t_j=false\land I'\subset
       I\land j\not\in I'$}]{ } {(=_{i\in I}\ t_i) = (not\ (or_{i'\in I'}\
     t_{i'}))}
-\end{mathpar}
+\]
+
 \paragraph{eqSame:} Wenn alle Terme gleich sind, vereinfache zu wahr.
-\begin{mathpar}
+\[
 \inferrule*[left=EqSame,right={$\forall i,j\in I.\ t_i\equiv t_j$}]{
   }{(=_{i\in I}\ t_i) = true}
-\end{mathpar}
-\paragraph{eqSimp:} Ersetze gleiche Terme durch diesen Terme.
-\begin{mathpar}
+\]
+
+\paragraph{eqSimp:} Ersetze gleiche Terme durch diesen Term.
+\[
 \inferrule*[left=EqSimp,right={$I'\subset I\land |I'| = |\{t_i.\ i\in
       I\}|\land\{t_i.\ i\in I\} = \{t_j.\ j\in I'\} $}]{ }{(=_{i\in I}\ t_i) =
     (=_{i'\in I'}\ t_{i'})}
+\]
+
+\paragraph{eqBinary:} Ersetze Gleichheit von binären Variablen durch die Negation der Veroderung der Negation der Gleichheit.
+\[
+\inferrule*[left=EqBinary]{(=_{i\in I}\ t_i) = (=_{i'\in I'}
+    t_{i'})}{(=_{i\in I} t_i) = (not\ (or_{i',i''\in I'}\ (not\ (=\ t_{i'}\ t_{i''}))))}
+\]
+
+\paragraph{distinctBool:} Ersetze Ungleichheit von mehr als 2 boolschen Variablen durch falsch.
+\begin{mathpar}
+\inferrule*[left=DistinctBool,right={$|I| > 2\land sort(t_i)=Bool$}]{
+  }{(distinct_{i\in I}\ t_i) =
+    false}
 \end{mathpar}
-\paragraph{eqBinary}
-\paragraph{distinctBool}
-\paragraph{distinctSame}
-\paragraph{distinctNeg}
-\paragraph{distinctTrue}
-\paragraph{distinctFalse}
-\paragraph{distinctBoolEq}
+
+\paragraph{distinctSame:} Ersetze Ungleichheit gleicher Konstanten zu falsch.
+\begin{mathpar}
+\inferrule*[left=DistinctSame,right={$\exists j,k\in I.\ t_j
+      \equiv t_k \land j\neq k$}]{ }{(= distinct_{i\in I}\ t_i) =
+    false}
+\end{mathpar}
+
+\paragraph{distinctNeg:} Ersetze die Ungleichheit einer Variablen und ihrer Negation durch wahr.
+\begin{mathpar}
+\inferrule*[left=DistinctNeg,right={$t_0$ is negation of $t_1$}]{
+  }{(distinct\ t_0\ t_1) =
+    true}
+\end{mathpar}
+
+\paragraph{distinctTrue:} Ersetze Ungleichheit zweier Variablen, bei der die eine wahr ist, durch die Negation der anderen.
+\begin{mathpar}
+\inferrule*[left=DistinctTrue,right={$t_i\equiv true$ for
+      $i=0,1$}]{ }{(distinct\ t_0\ t_1) =
+    (not\ t_{1-i})}
+\end{mathpar}
+
+\paragraph{distinctFalse:} Ersetze Ungleichheit zweier Variablen, bei der die eine falsch ist, durch die andere.
+\begin{mathpar}
+\inferrule*[left=DistinctFalse,right={$t_i\equiv false$
+      for $i=0,1$}]{ }{(distinct\ t_0\ t_1) =
+    t_{1-i}}
+\end{mathpar}
+
+\paragraph{distinctBoolEq:} Ersetze Ungleichheit zweier boolschen Variablen, durch Gleichheit der beiden Variablen, wobei eine negiert wird.
 \begin{mathpar}
 \inferrule*[left=DistinctBoolEq,right={$sort(t_0)=sort(t_1)=Bool\land
       ((t_0',t_1')=(\lnot t_0,t_1)\lor(t_0',t_1')=(t_0,\lnot t_1))$}]{ }
   {(distinct\ t_0\ t_1) = (=\ t_0'\ t_1')}
 \end{mathpar}
-\paragraph{distinctBinary}
-\paragraph{notSimp}
-\paragraph{orSimp}
-\paragraph{orTaut}
-\paragraph{iteTrue}
-\paragraph{iteFalse}
-\paragraph{iteSame}
-\paragraph{iteBool1}
-\paragraph{iteBool2}
-\paragraph{iteBool3}
-\paragraph{iteBool4}
-\paragraph{iteBool5}
-\paragraph{iteBool6}
-\paragraph{andToOr}
-\paragraph{xorToDistinct}
-\paragraph{impToOr}
-\paragraph{canonicalSum}
-\paragraph{leqToLeq0}
-\paragraph{ltToLeq0}
-\paragraph{geqToLeq0}
-\paragraph{gtToLeq0}
-\paragraph{leqTrue}
-\paragraph{leqFalse}
-\paragraph{desugar}
-\paragraph{divisible}
-\paragraph{modulo}
-\paragraph{modulo1}
-\paragraph{modulo-1}
-\paragraph{moduloConst}
-\paragraph{div1}
-\paragraph{div-1}
-\paragraph{divConst}
-\paragraph{toInt}
-\paragraph{toReal}
-\paragraph{flatten}
-\paragraph{strip}
-\paragraph{storeOverStore}
-\paragraph{selectOverStore}
-\paragraph{storeRewrite}
+
+\paragraph{distinctBinary:} Ersetze Ungleichheit mehrerer Variablen, durch die Negation der Veroderung paarweiser Gleichheit.
+\begin{mathpar}
+\inferrule*[left=DistinctBinary]{ }{(distinct_{i\in I}\ t_i) =
+    (not\ (or_{i',i''\in I}\ (= t_{i'}\ t_{i''})))}
+\end{mathpar}
+
+\paragraph{notSimp:} Negation Vereinfachung.
+\begin{mathpar}
+\inferrule*[left=NotSimp,right={$F'\equiv
+    \left\{\begin{array}{l@{\quad\mbox{if}\quad}l}false & F\equiv true\\true &
+    F\equiv false\\ G&F\equiv(not\ G)\end{array}\right.$}]{ }
+           {(not\ F) = F'}
+\end{mathpar}
+
+\paragraph{orSimp:} Lasse mehrfaches Vorkommen eines Terms oder falsch weg.
+\begin{mathpar}
+\inferrule*[left=OrSimp,right={$F \equiv (or_{i\in I'}\ t_i)$ where
+      $I'\subset I$ or $F \equiv t_i$}]{ }{(or_{i\in I}\ t_i) = F}
+\end{mathpar}
+
+\begin{mathpar}
+\inferrule*[left=OrSimp,right={}]{ }{
+F \lor \bot = F}
+\end{mathpar}
+
+\paragraph{orTaut:} Vereinfache disjunktive Formel, die wahr oder ein Literal in positiver und negierter Form enthalten, zu wahr.
+\begin{mathpar}
+\inferrule*[left=OrTaut,right={$\exists j\in I.\ t_i\equiv\ true\lor\exists
+      j,k\in I.\ t_j\equiv\ (not\ t_k)$}]{ }{(or_{i\in I}\ t_i) = true}
+\end{mathpar}
+
+\paragraph{iteTrue:} Ersetze if-then-else (ite), bei denen die Bedingung wahr ist, durch den then Teil.
+\begin{mathpar}
+\inferrule*[left=IteTrue]{ }{(ite\ true\ t_1\ t_2) = t_1}
+\end{mathpar}
+
+\paragraph{iteFalse:} Ersetze ite, bei denen die Bedingun falsch ist, durch den else Teil.
+\begin{mathpar}
+\inferrule*[left=IteFalse]{ }{(ite\ false\ t_1\ t_2) = t_2}
+\end{mathpar}
+\paragraph{iteSame:} Ersetze ite, bei denen der then Teil und der else Teil identisch sind, durch eben diesen Term.
+\begin{mathpar}
+\inferrule*[left=IteSame]{ }{(ite\ t_0\ t_1\ t_1) = t_1}
+\end{mathpar}
+\paragraph{iteBool1:} Ersetze ite, bei denen der then Teil wahr ist und der else Teil falsch ist, durch die Bedingung.
+\begin{mathpar}
+\inferrule*[left=IteBool1]{ }{(ite\ t_0\ true\ false) = t_0}
+\end{mathpar}
+\paragraph{iteBool2:} Ersetze ite, bei denen der then Teil falsch ist und der else Teil wahr ist, durch die Negation der Bedingung.
+\begin{mathpar}
+\inferrule*[left=IteBool2]{ }{(ite\ t_0\ false\ true) = (not\ t_0)}
+\end{mathpar}
+\paragraph{iteBool3:} Ersetze ite, bei denen der then Teil wahr ist, durch die Veroderung der Bedingung und des else Teils.
+\begin{mathpar}
+\inferrule*[left=IteBool3]{ }{(ite\ t_0\ true\ t_2) = (or\ t_0\ t_2)}
+\end{mathpar}
+\paragraph{iteBool4:} Ersetze ite, bei denen der then Teil falsch ist, durch die Negation der Veroderung von Bedingung und der Negation des else Teils.
+\begin{mathpar}
+\inferrule*[left=IteBool4]{ }{(ite\ t_0\ false\ t_2) =
+    (not\ (or\ t_0\ (not\ t_2)))}
+\end{mathpar}
+\paragraph{iteBool5:} Ersetze ite, bei denen der else Teil wahr ist, durch die Veroderung der Negation der Bedingung und des then Teils.
+\begin{mathpar}
+\inferrule*[left=IteBool5]{ }{(ite\ t_0\ t_1\ true) = (or\ (not\ t_0)\ t_1)}
+\end{mathpar}
+\paragraph{iteBool6:} Ersetze ite, bei denen der else Teil falsch ist, durch die Negation der Veroderung der negierten Bedingung und then Teils.
+\begin{mathpar}
+\inferrule*[left=IteBool6]{ }{(ite\ t_0\ t_1\ false) =
+    (not\ (or\ (not\ t_0)\ (not\ t_1)))}
+\end{mathpar}
+\paragraph{andToOr:} Ersetze Verundungen durch die Negation der Veroderung der Negationen.
+\begin{mathpar}
+\inferrule*[left=AndToOr]{ }{(and\ t_i) = (not\ (or\ (not\ t_i)))}
+\end{mathpar}
+\paragraph{xorToDistinct:} Ersetze XOR durch Ungleich.
+\begin{mathpar}
+\inferrule*[left=XorToDistinct]{ }{(xor\ t_1\ t_2) = (distinct\ t_1\ t_2)}
+\end{mathpar}
+\paragraph{impToOr:} Ersetze Implikation durch Oder.
+\begin{mathpar}
+\inferrule*[left=ImpToOr]{ }{(implies_{i\in I}\ t_i\ t) = (or_{i\in
+      I}\ t\ (not\ t_i))}
+\end{mathpar}
+\paragraph{canonicalSum:}
+\paragraph{leqToLeq0:} Ersetze kleiner gleich durch kleiner gleich Null.
+\begin{mathpar}
+\inferrule*[left=LeqToLeq0,right={$t' \cong t_1-t_2$}]{
+    }{(<=\ t_1\ t_2) = (<=\ t'\ 0)}
+\end{mathpar}
+\paragraph{ltToLeq0:} Ersetze kleiner durch kleiner gleich Null.
+\begin{mathpar}
+\inferrule*[left=LtToLeq0,right={$t' \cong t_2-t_1$}]{
+    }{(<\ t_1\ t_2) = (not\ (<=\ t'\ 0))}
+\end{mathpar}
+\paragraph{geqToLeq0:} Ersetze größer gleich durch kleiner gleich.
+\begin{mathpar}
+\inferrule*[left=GeqToLeq0,right={$t' \cong t_2-t_1$}]{
+    }{(>=\ t_1\ t_2) = (<=\ t'\ 0)}
+\end{mathpar}
+\paragraph{gtToLeq0:} Ersetze größer durch kleiner gleich.
+\begin{mathpar}
+  \inferrule*[left=GtToLeq0,right={$t' \cong t_1-t_2$}]{
+    }{(>\ t_1\ t_2) = (not\ (<=\ t'\ 0))}
+\end{mathpar}
+\paragraph{leqTrue:} Ersetze $(<= c\ 0)$ durch wahr, falls c $\leq$ 0 ist.
+\begin{mathpar}
+\inferrule*[left=LeqTrue,right={$c \leq 0$}]{ }{(<=\ c\ 0) = true}
+\end{mathpar}
+\paragraph{leqFalse:}Ersetze $(<= c\ 0)$ durch falsch, falls c $>$ 0 ist.
+\begin{mathpar}
+\inferrule*[left=LeqFalse,right={$c > 0$}]{ }{(<=\ c\ 0) = false}
+\end{mathpar}
+\paragraph{desugar:} Diese Regeln werden angewandt, wenn Integers und Reals gemischt in der Formel auftauchen.
+\begin{mathpar}
+\inferrule*[left={desugar},right={$t$ is an integer}]{ }{F[t] =
+  F[t.0]}\quad
+\inferrule*[left={desugar},right={$t$ is not an integer}]{ }{F[t] =
+  F[to\_real(t)]}
+\end{mathpar}
+\paragraph{divisible:}Entfernen des Teilbar-Operators.
+\begin{mathpar}
+\inferrule*[left=divisible]{ }{((\_\ divisible\ 1)\ t) = true}\\
+\inferrule*[left=divisible,right={$t$ is integer constant not divisible by
+    $n$}]{ }{((\_\ divisible\ n)\ t) = false}\\
+\inferrule*[left=divisible,right={$t$ is integer constant divisible by $n$}]{
+}{((\_\ divisible\ n)\ t) = true}\\
+\inferrule*[left=divisible]{ }{((\_\ divisible\ n)\ t) =
+  (=\ t\ (*\ n\ (div\ t\ n)))}
+\end{mathpar}
+\paragraph{modulo:} Ersetze Modulo durch Geteilt.
+\begin{mathpar}
+\inferrule*[left=modulo]{ }{(mod\ x\ y) = (+\ x\ (*\ (- y)\ (div\ x\ y)))}
+\end{mathpar}
+\paragraph{modulo1:} Modulo 1 ist gleich 0.
+\begin{mathpar}
+\inferrule*[left=mod1]{ }{(mod\ c\ 1) = 0}
+\end{mathpar}
+\paragraph{modulo-1:} Modulo -1 ist gleich 0.
+\begin{mathpar}
+\inferrule*[left=mod-1]{ }{(mod\ c\ (-\ 1)) = 0}
+\end{mathpar}
+\paragraph{moduloConst:} Berechne den Rest, falls es Konstanten sind.
+\begin{mathpar}
+\inferrule*[left=modConst,right={$d\equiv\left\{\begin{array}{l@{\ \mbox{if}\ }l}c_1-c_2\lfloor\frac{c_1}{c_2}\rfloor&c_2>0\\ c_1-c_2\lceil\frac{c_1}{c_2}\rceil&c_2<0\end{array}\right.$}]{ }{(mod\ c_1\ c_2) = d}
+\end{mathpar}
+\paragraph{div1:} Geteilt durch 1 ist gleich dem Dividenden.
+\begin{mathpar}
+\inferrule*[left=div1]{ }{(div\ c\ 1) = c}
+\end{mathpar}
+\paragraph{div-1:} Geteilt durch -1 ist gleich dem negativem Dividenden.
+\begin{mathpar}
+\inferrule*[left=div-1,right={$d\equiv-c$}]{ }{(div\ c\ (-\ 1)) = d}
+\end{mathpar}
+\paragraph{divConst:} Berechne die Division, wenn es um Konstanten geht.
+\begin{mathpar}
+\inferrule*[left=divConst,right={$d\equiv\left\{\begin{array}{l@{\ \mbox{if}\ }l}\lfloor\frac{c_1}{c_2}\rfloor&c_2>0\\ \lceil\frac{c_1}{c_2}\rceil&c_2<0\end{array}\right.$}]{ }{(div\ c_1\ c_2) = d}
+\end{mathpar}
+\paragraph{toInt:} Wandle reelle Zahlen in Integer um.
+\begin{mathpar}
+\inferrule*[left=toInt,right={$v\equiv\lfloor r\rfloor$}]{ }{(to\_int\ r) = v}
+\end{mathpar}
+\paragraph{toReal:} Wandle Integer Zahlen in reelle um.
+\begin{mathpar}
+\inferrule*[left=toReal]{ }{(to\_real c) = c.0}
+\end{mathpar}
+\paragraph{flatten:}
+\paragraph{strip:} Entfernen der Benennung.
+\begin{mathpar}
+\inferrule*[left=strip]{ }{(!\ F\ :\!annotations) = F}
+\end{mathpar}
+\paragraph{storeOverStore:} Bei einem verschachteltem Store wird das Innere entfernt.
+\begin{mathpar}
+\inferrule*[left=storeOverStore]{ }{(store\ (store\ a\ i\ v_1)\ i\ v_2) =
+  (store\ a\ i\ v_2)}
+\end{mathpar}
+\paragraph{selectOverStore:} Wenn man auf die Position zugreift, die gerade beschrieben wurde, erhält man das was gerade geschrieben wurde und wenn man eine andere Position liest, bekommt das was da vorher schon drin stand.
+\begin{mathpar}
+\inferrule*[left=selectOverStore]{ }{(select\ (store\ a\ i\ v)\ i) = v}
+\\
+  \inferrule*[left=selectOverStore,right={$c_1\neq c_2$}]{
+  }{(select\ (store\ a\ c_1\ v)\ c_2) = (select\ a\ c_2)}
+\end{mathpar}
+\paragraph{storeRewrite:} Es gibt 2 Möglichkeiten einen store in einen select umzuwandeln.
+\begin{mathpar}
+\inferrule*[left=storeRewrite]{ }{(=\ a\ (store\ a\ i\ v)) =
+  (=\ (select\ a\ i)\ v)}\\
+\inferrule*[left=storeRewrite]{ }{(=\ (store\ a\ i\ v)\ a) =
+  (=\ (select\ a\ i)\ v)}
+\end{mathpar}
 
 Probleme:
 
