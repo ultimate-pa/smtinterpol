@@ -495,6 +495,8 @@ public class DPLLEngine {
 						mWatcherBackList.append(clause, 0);
 						return;
 					}
+				} else {
+					dest++;
 				}
 			}
 			/* A clause is "watched" if it appears on either the
