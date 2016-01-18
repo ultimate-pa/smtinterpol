@@ -32,7 +32,10 @@ import de.uni_freiburg.informatik.ultimate.logic.Theory;
  */
 public class FiniteSortInterpretation implements SortInterpretation {
 	
-	private int mSize = 0;
+	// We don't support empty sorts.  So the initial size has to be at least
+	// one.  I prefer this approach over calling extendFresh from when the
+	// sort interpretation is created.  This should shorten the code path.
+	private int mSize = 1;
 	
 	@Override
 	public Term toSMTLIB(Theory t, Sort sort) {
