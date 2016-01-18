@@ -202,7 +202,11 @@ F \lor \bot = F}
 \inferrule*[left=ImpToOr]{ }{(implies_{i\in I}\ t_i\ t) = (or_{i\in
       I}\ t\ (not\ t_i))}
 \end{mathpar}
-\paragraph{canonicalSum:}
+\paragraph{canonicalSum:} Summen werden so dargestellt, das nur die äusserste Funktion Plus ist. Mehrfaches auftreten wird zu einem Produkt zusammengefasst.
+\begin{mathpar}
+\inferrule*[left=CanonicalSum,right={$t' \cong t$}]{ }{t =
+    t'}
+\end{mathpar}
 \paragraph{leqToLeq0:} Ersetze kleiner gleich durch kleiner gleich Null.
 \begin{mathpar}
 \inferrule*[left=LeqToLeq0,right={$t' \cong t_1-t_2$}]{
@@ -284,7 +288,7 @@ F \lor \bot = F}
 \begin{mathpar}
 \inferrule*[left=toReal]{ }{(to\_real c) = c.0}
 \end{mathpar}
-\paragraph{flatten:}
+\paragraph{flatten:} Verschachtelte Oder werden zu einem grossen umgewandelt.
 \paragraph{strip:} Entfernen der Benennung.
 \begin{mathpar}
 \inferrule*[left=strip]{ }{(!\ F\ :\!annotations) = F}
