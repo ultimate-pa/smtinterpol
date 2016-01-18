@@ -466,6 +466,19 @@ public class SMTInterpol extends NoopScript {
 		mAssertionStackModified = false;
 		mEngine.clearAssumptions();
 		if (assumptions != null && assumptions.length != 0) {
+			if (Config.STRONG_USAGE_CHECKS) {
+				// Check that every literal is a Boolean constant or its negation
+				for (Term ass : assumptions) {
+					if (!(ass instanceof ApplicationTerm))
+						throw new SMTLIBException("Assumption is not a boolean constant");
+					ApplicationTerm at = (ApplicationTerm) ass;
+					if (at.getSort() != getTheory().getBooleanSort())
+						throw new SMTLIBException("Assumption is not a boolean constant");
+					if (at.getParameters().length > 1
+							|| (at.getParameters().length == 1 && !at.getFunction().getName().equals("not")))
+						throw new SMTLIBException("Assumption is not a boolean constant");
+				}
+			}
 			// Since checkSatAssuming does not first do bcp and we might have
 			// popped, we manually trigger bcp
 			if (!mEngine.quickCheck())
