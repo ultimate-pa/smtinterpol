@@ -111,6 +111,8 @@ public class Model implements de.uni_freiburg.informatik.ultimate.logic.Model {
 			for (FunctionSymbol fs : t.getDeclaredFunctions().values()) {
 				if (!fs.isIntern() && !mFuncVals.containsKey(fs)) {
 					SortInterpretation si = provideSortInterpretation(fs.getReturnSort());
+					// ensure the sort is inhabited
+					si.ensureCapacity(1);
 					map(fs, 0);
 				}
 			}
