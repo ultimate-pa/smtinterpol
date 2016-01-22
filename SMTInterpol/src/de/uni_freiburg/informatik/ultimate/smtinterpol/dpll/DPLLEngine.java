@@ -607,11 +607,14 @@ public class DPLLEngine {
 		Set<Literal> conflict = new CuckooHashSet<Literal>();
 		int maxDecideLevel = 1;
 		int numLitsOnMaxDecideLevel = 0;
+		int numAssumptions = 0;
 		for (Literal lit: clause.mLiterals) {
 			DPLLAtom atom = lit.getAtom();
 			assert(atom.mDecideStatus == lit.negate());
 			if (atom.mDecideLevel > 0) {
-				if (atom.mDecideLevel >= maxDecideLevel) {
+				if (atom.isAssumption())
+					++numAssumptions;
+				else if (atom.mDecideLevel >= maxDecideLevel) {
 					if (atom.mDecideLevel > maxDecideLevel) {
 						maxDecideLevel = atom.mDecideLevel;
 						numLitsOnMaxDecideLevel = 1;
@@ -626,18 +629,33 @@ public class DPLLEngine {
 		}
 		if (mLogger.isDebugEnabled())
 			mLogger.debug("removing level0: " + conflict);
-		if (conflict.isEmpty()) {
+		if (conflict.size() == numAssumptions) {
 			/* Unsatisfiable
 			 */
-			Clause res = new Clause(new Literal[0], expstacklevel);
+			Literal[] newlits = new Literal[conflict.size()];
+			int i = 0;
+			for (Literal l : conflict) {
+				newlits[i++] = l.negate();
+			}
+			assert newlits[newlits.length - 1] != null;
+			Clause resolution = new Clause(newlits, expstacklevel);
 			if (isProofGenerationEnabled()) {
 				for (Literal l0: level0Ants)
 					antecedents.add(new Antecedent(l0, getLevel0(l0)));
-				Antecedent[] ants = 
-					antecedents.toArray(new Antecedent[antecedents.size()]);
-				res.setProof(new ResolutionNode(clause, ants));
+				if (antecedents.isEmpty()) {
+					// TODO: only one clause object needed here.
+					resolution.setProof(clause.getProof());				
+				} else {
+					Antecedent[] ants = 
+							antecedents.toArray(
+									new Antecedent[antecedents.size()]);
+					resolution.setProof(new ResolutionNode(clause, ants));
+				}
 			}
-			return res;
+			// Remember unsat clause (which might not be empty, by conflicting
+			// against assumptions)
+			mUnsatClause = resolution;
+			return resolution;
 		}
 		assert numLitsOnMaxDecideLevel >= 1;
 		while (mCurrentDecideLevel > maxDecideLevel) {
@@ -686,10 +704,12 @@ public class DPLLEngine {
 				if (l != lit) {
 					assert(l.getAtom().mDecideStatus == l.negate());
 					int level = l.getAtom().mDecideLevel;
-					if (level > mBaseLevel) {
+					if (l.getAtom().isAssumption() && conflict.add(l.negate()))
+						++numAssumptions;
+					else if (level >= mBaseLevel) {
 						if (conflict.add(l.negate()) && level == maxDecideLevel)
 							numLitsOnMaxDecideLevel++;
-					} else {
+					} else if (level == 0) {
 						// Here, we do level0 resolution as well
 						expstacklevel = 
 							level0resolve(l, level0Ants, expstacklevel);
@@ -743,9 +763,11 @@ public class DPLLEngine {
 					if (l != lit) {
 						assert(l.getAtom().mDecideStatus == l.negate());
 						int level = l.getAtom().mDecideLevel;
-						if (level > mBaseLevel) {
+						if (l.getAtom().isAssumption() && conflict.add(l.negate()))
+							++numAssumptions;
+						else if (level > mBaseLevel) {
 							conflict.add(l.negate());
-						} else {
+						} else if (level == 0) {
 							// Here, we do level0 resolution as well
 							expstacklevel =
 								level0resolve(l, level0Ants, expstacklevel);
@@ -779,6 +801,9 @@ public class DPLLEngine {
 		}
 		if (mLogger.isDebugEnabled())
 			mLogger.debug("Resolved to " + resolution);
+		// If resolution size is number of literals we are unsat
+		if (newlits.length == numAssumptions)
+			mUnsatClause = resolution;
 		return resolution;
 	}
 	
