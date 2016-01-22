@@ -1426,13 +1426,17 @@ public class DPLLEngine {
 	
 	public Clause getProof() {
 		assert checkValidUnsatClause();
-		Antecedent[] antecedents = new Antecedent[mUnsatClause.getSize()];
-		for (int i = 0; i < mUnsatClause.getSize(); ++i) {
-			Literal lit = mUnsatClause.getLiteral(i).negate();
-			antecedents[i] = new Antecedent(lit, new Clause(new Literal[] {lit}, new LeafNode(LeafNode.ASSUMPTION, null)));
+		Clause empty = mUnsatClause;
+		if (mUnsatClause.getSize() > 0) {
+			// We have to remove the assumptions via resolution
+			Antecedent[] antecedents = new Antecedent[mUnsatClause.getSize()];
+			for (int i = 0; i < mUnsatClause.getSize(); ++i) {
+				Literal lit = mUnsatClause.getLiteral(i).negate();
+				antecedents[i] = new Antecedent(lit, new Clause(new Literal[] {lit}, new LeafNode(LeafNode.ASSUMPTION, null)));
+			}
+			ResolutionNode proof = new ResolutionNode(mUnsatClause, antecedents);
+			empty = new Clause(new Literal[0], proof);
 		}
-		ResolutionNode proof = new ResolutionNode(mUnsatClause, antecedents);
-		Clause empty = new Clause(new Literal[0], proof);
 		return empty;
 	}
 	

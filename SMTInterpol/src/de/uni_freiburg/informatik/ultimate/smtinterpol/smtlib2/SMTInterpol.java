@@ -783,7 +783,7 @@ public class SMTInterpol extends NoopScript {
 		}
 		try {
 			ProofTermGenerator generator = new ProofTermGenerator(getTheory());
-			Term res = generator.convert(retrieveProof());
+			Term res = generator.convert(unsat);
 			if (mBy0Seen != -1)
 				res = new Div0Remover().transform(res);
 			return res;
