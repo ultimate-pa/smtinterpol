@@ -1,0 +1,35 @@
+ALT:
+	
+(@clause 
+	(@eq 
+		(@eq 
+			(@asserted (or a (and a b))) 
+			(@rewrite (! (= (and a b) (not (or (not a) (not b)))) :andToOr))) 
+			(@intern (= (not (or (not a) (not b))) (not (! (or (not a) (not b)) :quoted)))))
+(or (not (! (or (not a) (not b)) :quoted)) a)
+
+
+
+
+NEU:
+
+(@clause  
+
+		// (or a (not (! (or (not a) (not b)) :quoted)))
+
+		(@eq (@asserted (or a (and a b)))
+		
+		// (=
+		//	(or a (and a b))
+		//	(or a (not (! (or (not a) (not b)) :quoted))))
+		
+		(@cong (@refl  (or a (and a b)))
+		
+			// (=
+			//	(and a b)
+			//	(not (! (or (not a) (not b)) :quoted)))
+			
+			(@trans		
+				(@rewrite (! (= (and a b) (not (or (not a) (not b)))) :andToOr))) 
+				(@intern (= (not (or (not a) (not b))) (not (! (or (not a) (not b)) :quoted))))))
+	) (or (not (! (or (not a) (not b)) :quoted)) a))

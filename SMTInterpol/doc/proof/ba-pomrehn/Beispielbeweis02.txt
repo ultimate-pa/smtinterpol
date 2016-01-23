@@ -1,0 +1,92 @@
+ALT:
+
+(@clause 
+	(@eq 
+		(@asserted (or (and a (not a)) (not (= a a)))) 
+		(@rewrite (! (= (and a (not a)) (not (or (not a) (not (not a))))) :andToOr)) 
+		(@rewrite (! (= (not (not a)) a) :notSimp)) 
+		(@rewrite (! (= (or (not a) a) true) :orTaut)) 
+		(@rewrite (! (= (not true) false) :notSimp)) 
+		(@rewrite (! (= (= a a) true) :eqSame)) 
+		(@rewrite (! (= (not true) false) :notSimp)) 
+		(@rewrite (! (= (or false false) false) :orSimp))) 
+false)
+
+
+NEU:
+
+(@clause
+
+  // false
+  
+ (@eq
+  (@asserted (or (and a (not a)) (not (= a a))))
+  
+  // (=
+  //	(or (and a (not a)) (not (= a a)))
+  //	false)
+  
+  (@trans
+  
+	// 	(=	
+	//		(or (and a (not a)) (not (= a a)))
+	//		(or false false))
+	
+	
+	(@cong 
+	
+		// (=
+		//		(or (and a (not a)) (not (= a a)))
+		//		(or (and a (not a)) (not (= a a))))
+		
+		(@refl (or (and a (not a)) (not (= a a))))
+	
+		// (=	
+		//		(and a (not a))
+		//		false)
+		
+		(@trans 
+	  
+			// (=	
+			//		(and a (not a))
+			//		(not true))
+	  
+	  
+			(@cong 
+					(@rewrite (! (= (and a (not a)) (not (or (not a) (not (not a))))) :andToOr))
+	  
+					//	(=
+					//		(or (not a) (not (not a)))
+					//		true)
+			
+	  
+	  
+					(@trans 
+						//	(=
+						//		(or (not a) (not (not a)))
+						//		(or (not a) a))
+						(@cong 
+							(@refl (or (not a) (not (not a))))
+							(@rewrite (! (= (not (not a)) a) :notSimp)))
+						(@rewrite (! (= (or (not a) a) true) :orTaut))))
+			(@rewrite (! (= (not true) false) :notSimp)))
+		  
+		//	  (=
+		//			(not (= a a))
+		//			false)
+		  
+		  
+		(@trans 
+	  
+			// 	(=
+			//		(not (= a a))
+			//		(not true))
+	  
+			(@cong 
+				(@refl (not (= a a)))
+				(@rewrite (! (= (= a a) true) :eqSame)))
+			
+			(@rewrite (! (= (not true) false) :notSimp))))
+   
+   (@rewrite (! (= (or false false) false) :orSimp))))
+ false)
