@@ -1,0 +1,47 @@
+ALT:
+
+(@clause 
+	(@eq 
+		(@eq 
+			(@asserted (or c (not (or a b (not a))))) 
+			(@rewrite (! (= (or a b (not a)) true) :orTaut)) 
+			(@rewrite (! (= (not true) false) :notSimp)) 
+			(@rewrite (! (= (or c false) c) :orSimp))) 
+			(@intern (= c (! c :quoted)))) 
+(! c :quoted))
+
+
+NEU:
+
+(@clause
+
+	// (! c :quoted)
+	
+	(@eq 
+		(@asserted (or c (not (or a b (not a)))))
+		
+		// (=
+		//		(or c (not (or a b (not a))))
+		//		(! c :quoted))
+			
+			
+		(@cong
+		
+			(@rewrite (! (= (or a b (not a)) true) :orTaut))
+					
+			//	(=	(or c (not true))
+			//		(! c :quoted)
+			//		)		
+					
+			(@cong		
+				(@rewrite (! (= (not true) false) :notSimp))
+			
+				//	(=
+				//		(or c false)
+				//		(! c :quoted))
+			
+			
+				(@trans
+					(@rewrite (! (= (or c false) c) :orSimp)))
+					(@intern (= c (! c :quoted)))))
+(! c :quoted))
