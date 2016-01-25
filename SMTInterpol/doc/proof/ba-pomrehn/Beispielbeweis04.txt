@@ -1,5 +1,42 @@
-(@clause (@eq (@eq (@asserted (>= (- x (to_int x)) 1.0)) 
-	(@rewrite (! (= (- x (to_int x)) (- x (to_real (to_int x)))) :desugar)) 
-	(@rewrite (! (= (- x (to_real (to_int x))) (+ (- (to_real (to_int x))) x)) :canonicalSum)) 
-	(@rewrite (! (= (>= (+ (- (to_real (to_int x))) x) 1.0) (<= (+ (to_real (to_int x)) (- x) 1.0) 0.0)) :geqToLeq0))) 
-	(@intern (= (<= (+ (to_real (to_int x)) (- x) 1.0) 0.0) (! (<= (+ (to_real (to_int x)) (- x) 1.0) 0.0) :quoted)))) (! (<= (+ (to_real (to_int x)) (- x) 1.0) 0.0) :quoted)) :pivot (! (<= (+ (to_real (to_int x)) (- x) 1.0) 0.0) :quoted))
+(@clause
+	(@eq 
+		(@eq 
+		(@asserted (>= (- x (to_int x)) 1.0)) 
+		(@rewrite (! (= (- x (to_int x)) (- x (to_real (to_int x)))) :desugar)) 
+		(@rewrite (! (= (- x (to_real (to_int x))) (+ (- (to_real (to_int x))) x)) :canonicalSum)) 
+		(@rewrite (! (= (>= (+ (- (to_real (to_int x))) x) 1.0) (<= (+ (to_real (to_int x)) (- x) 1.0) 0.0)) :geqToLeq0))) 
+		(@intern (= (<= (+ (to_real (to_int x)) (- x) 1.0) 0.0) (! (<= (+ (to_real (to_int x)) (- x) 1.0) 0.0) :quoted)))) (! (<= (+ (to_real (to_int x)) (- x) 1.0) 0.0) :quoted)) :pivot (! (<= (+ (to_real (to_int x)) (- x) 1.0) 0.0) :quoted)))
+
+
+NEU:
+
+(@clause
+
+	//	(! (<= (+ (to_real (to_int x)) (- x) 1.0) 0.0) :quoted)))
+
+	(@eq 
+	(@asserted (>= (- x (to_int x)) 1.0))
+
+	//	(=
+	//		(>= (- x (to_int x)) 1.0)
+	//		(! (<= (+ (to_real (to_int x)) (- x) 1.0) 0.0) :quoted))))
+	
+	(@cong
+	
+		(@rewrite (! (= (- x (to_int x)) (- x (to_real (to_int x)))) :desugar)) 
+	
+		//	(=
+		//		(>= (- x (to_real (to_int x))) 1.0)
+		//		(! (<= (+ (to_real (to_int x)) (- x) 1.0) 0.0) :quoted)))
+	
+		(@cong
+			(@rewrite (! (= (- x (to_real (to_int x))) (+ (- (to_real (to_int x))) x)) :canonicalSum)))
+	
+			// (=
+			//		(>= (+ (- (to_real (to_int x))) x) 1.0)
+			//		(! (<= (+ (to_real (to_int x)) (- x) 1.0) 0.0) :quoted))
+	
+	
+			(@trans
+				(@rewrite (! (= (>= (+ (- (to_real (to_int x))) x) 1.0) (<= (+ (to_real (to_int x)) (- x) 1.0) 0.0)) :geqToLeq0)))
+				(@intern (= (<= (+ (to_real (to_int x)) (- x) 1.0) 0.0) (! (<= (+ (to_real (to_int x)) (- x) 1.0) 0.0) :quoted)))) (! (<= (+ (to_real (to_int x)) (- x) 1.0) 0.0) :quoted)) :pivot (! (<= (+ (to_real (to_int x)) (- x) 1.0) 0.0) :quoted)))
