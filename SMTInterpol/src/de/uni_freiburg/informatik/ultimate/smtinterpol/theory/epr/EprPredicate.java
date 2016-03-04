@@ -39,9 +39,13 @@ public class EprPredicate {
 	 */
 	HashMap<EprClause, HashSet<Literal>> mQuantifiedOccurences = new HashMap<>();
 
-	private HashSet<EprAlmostAllAtom> mPositiveAlmostAllAtoms = new HashSet<>();
-	private HashSet<EprAlmostAllAtom> mNegativeAlmostAllAtoms = new HashSet<>();
+	private HashMap<EprPredicate, HashSet<EprAlmostAllAtom>> mPositiveAlmostAllAtoms = new HashMap<>();
+	private HashMap<EprPredicate, HashSet<EprAlmostAllAtom>> mNegativeAlmostAllAtoms = new HashMap<>();
 
+	/*
+	 * Sometimes we have to add almost-all-atoms, this map helps us undo the change, when we need to backtrack.
+	 */
+	private HashMap<EprAlmostAllAtom, HashSet<EprAlmostAllAtom>> mAAAtomsAddedThroughClosure = new HashMap<>();
 
 	
 	public EprPredicate(FunctionSymbol fs, int arity) {
@@ -130,27 +134,64 @@ public class EprPredicate {
 	 * (example: atom = <P v1 v2>, mAlmostAllAtoms = [(not <P v1 v1>)] will yield the conflict clause
 	 *  {(not <P v1 v2>), <P v1 v1>})
 	 * @param atom the almost-all atom that is to be set positively in the model
+	 * @param eprTheory 
 	 * @return conflict clause if there is a conflict with the current model, otherwise null
 	 */
-	public Clause setAlmostAllAtomPositive(EprAlmostAllAtom atom) {
-		mPositiveAlmostAllAtoms.add(atom);
-		assert !mNegativeAlmostAllAtoms.contains(atom) : 
-			"DPLL sets that atom both positively and negatively? --> this cannot be, right?";
+	public Clause setAlmostAllAtomPositive(EprAlmostAllAtom atom, EprTheory eprTheory) {
+		Clause conflict = null;
 
-		//check for conflicts with current model
-		for (EprAlmostAllAtom aaa : mNegativeAlmostAllAtoms) {
-			//case: setting <P ...>, already set (not <P ...>)
-//			if (atom.signatureImplies(aaa)) {
-			if (atom.signature.implies(aaa.signature)) {
-				//case: setting <P x y>, already set (not <P x x>)
-				// conflict clause: {(not <P x y>), <P x x>}, i.e. <P x y> ==> <P x x>
-				Literal[] lits = new Literal[2];
-				lits[0] = atom.negate();
-				lits[1] = aaa;
-				return new Clause(lits);
+		//update mPositiveAlmostAllAtoms
+		HashSet<EprAlmostAllAtom> alreadySetAtomsOfThisPredicate = mPositiveAlmostAllAtoms.get(atom.eprPredicate);
+		if (alreadySetAtomsOfThisPredicate == null) {
+			alreadySetAtomsOfThisPredicate = new HashSet<>();
+			mPositiveAlmostAllAtoms.put(atom.eprPredicate, alreadySetAtomsOfThisPredicate);
+		}
+		alreadySetAtomsOfThisPredicate.add(atom);
+		
+		//TODO: if this atom has already been set through closure, we ..?..
+
+
+		assert mNegativeAlmostAllAtoms.get(atom.eprPredicate) == null 
+				|| !mNegativeAlmostAllAtoms.get(atom.eprPredicate).contains(atom) : 
+					"DPLL sets that atom both positively and negatively? --> this cannot be, right?";
+
+		// check for conflicts with current model
+		if(mNegativeAlmostAllAtoms.get(atom.eprPredicate) != null) {
+			for (EprAlmostAllAtom aaa : mNegativeAlmostAllAtoms.get(atom.eprPredicate)) {
+				//case: setting <P ...>, already set (not <P ...>)
+				//			if (atom.signatureImplies(aaa)) {
+				if (atom.signature.implies(aaa.signature)) {
+					//case: setting <P x y>, already set (not <P x x>)
+					// conflict clause: {(not <P x y>), <P x x>}, i.e. <P x y> ==> <P x x>
+					return new Clause(new Literal[] { atom.negate(), aaa});
+//					conflict = new Clause(new Literal[] { atom.negate(), aaa});
+//					break;
+				}
 			}
 		}
-			
+		
+		// add almost atoms that follow from the already set ones together with the one currently set
+		if(mPositiveAlmostAllAtoms.get(atom.eprPredicate) != null) {
+			//TODO do it efficiently
+			for (EprAlmostAllAtom aaa1 : mPositiveAlmostAllAtoms.get(atom.eprPredicate)) {
+				for (EprAlmostAllAtom aaa2 : mPositiveAlmostAllAtoms.get(atom.eprPredicate)) {
+					AAAtomSignature join = aaa1.signature.joinComplementary(aaa2.signature);
+					if (join != null) {
+						EprAlmostAllAtom newAtom = eprTheory.getEprAlmostAllAtom(
+								atom.getAssertionStackLevel(), atom.eprPredicate, join);
+						mPositiveAlmostAllAtoms.get(atom.eprPredicate).add(newAtom);
+						
+						HashSet<EprAlmostAllAtom> hs = mAAAtomsAddedThroughClosure.get(atom);
+						if (hs == null) {
+							hs = new HashSet<>();
+							mAAAtomsAddedThroughClosure.put(atom, hs);
+						}
+						hs.add(newAtom);
+					}
+				}
+			}
+		}
+
 		//no conflict detected
 		return null;
 	}
@@ -160,27 +201,34 @@ public class EprPredicate {
 	 * This may return a conflict in form of a clause over almost-all atoms if the newly
 	 * set atom contradicts the current model.
 	 * @param atom the almost-all atom that is to be set negatively in the model
+	 * @param eprTheory 
 	 * @return conflict clause if there is a conflict with the current model, otherwise null
 	 */
-	public Clause setAlmostAllAtomNegative(EprAlmostAllAtom atom) {
-		//(dual to positive case, of course)
-		mNegativeAlmostAllAtoms.add(atom);
-		assert !mPositiveAlmostAllAtoms.contains(atom) : 
-			"DPLL sets that atom both positively and negatively? --> this cannot be, right?";
-
-		//check for conflicts with current model
-		for (EprAlmostAllAtom aaa : mPositiveAlmostAllAtoms) {
-			//case: setting (not <P ...>), already set <P ...>
-//			if (atom.signatureImplies(aaa)) {
-			if (atom.signature.implies(aaa.signature)) {
-				//case: setting (not <P x y>), already set <P x x>
-				// conflict clause: { <P x y>, (not <P x x>)}, i.e. (not <P x y>) ==> (not <P x x>)
-				Literal[] lits = new Literal[2];
-				lits[0] = atom;
-				lits[1] = aaa.negate();
-				return new Clause(lits);
-			}
-		}
+	public Clause setAlmostAllAtomNegative(EprAlmostAllAtom atom, EprTheory eprTheory) {
+//		//(dual to positive case, of course)
+//		mNegativeAlmostAllAtoms.add(atom);
+//		assert !mPositiveAlmostAllAtoms.contains(atom) : 
+//			"DPLL sets that atom both positively and negatively? --> this cannot be, right?";
+//
+//		//check for conflicts with current model
+//		for (EprAlmostAllAtom aaa : mPositiveAlmostAllAtoms) {
+//			//case: setting (not <P ...>), already set <P ...>
+////			if (atom.signatureImplies(aaa)) {
+//			if (atom.signature.implies(aaa.signature)) {
+//				//case: setting (not <P x y>), already set <P x x>
+//				// conflict clause: { <P x y>, (not <P x x>)}, i.e. (not <P x y>) ==> (not <P x x>)
+//				Literal[] lits = new Literal[2];
+//				lits[0] = atom;
+//				lits[1] = aaa.negate();
+//				return new Clause(lits);
+//			}
+////			if (aaa.signature.implies(atom.signature)) {
+////				Literal[] lits = new Literal[2];
+////				lits[0] = atom;
+////				lits[1] = aaa.negate();
+////				return new Clause(lits);
+////			}
+//		}
 			
 		//no conflict detected
 		return null;

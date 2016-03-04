@@ -39,6 +39,7 @@ import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
+import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
@@ -67,6 +68,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAppTerm
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinArSolve;
@@ -1867,8 +1869,27 @@ public class Clausifier {
 		throw new InternalError("Unclear how to compute positive for " + t);
 	}
 	
-	NamedAtom createAnonAtom(Term smtFormula) {
-		NamedAtom atom = new NamedAtom(smtFormula, mStackLevel);
+	DPLLAtom createAnonAtom(Term smtFormula) {
+		DPLLAtom atom = null;
+		if (mTheory.getLogic().isQuantified()
+				&& smtFormula.getFreeVars().length > 0) {
+			
+			Sort[] paramTypes = new Sort[smtFormula.getFreeVars().length];
+			for (int i = 0; i < paramTypes.length; i++)
+				paramTypes[i] = smtFormula.getFreeVars()[i].getSort();
+			
+//			FunctionSymbol fs = mTheory.getFunction(String.format("AUX({})", smtFormula.toString()), paramTypes);
+			FunctionSymbol fs = mTheory.declareFunction(
+//					String.format("AUX{}", smtFormula.toString()), 
+					"AUX(" + smtFormula.toString() + ")", 
+					paramTypes,
+					mTheory.getBooleanSort());
+			EprPredicate eprPred = new EprPredicate(fs, smtFormula.getFreeVars().length);
+			atom = new EprPredicateAtom(mTheory.term(fs, smtFormula.getFreeVars()), 
+					0, mStackLevel, eprPred);	//TODO add good hash value
+		} else {
+			atom = new NamedAtom(smtFormula, mStackLevel);
+		}
 		mEngine.addAtom(atom);
 		mTracker.quoted(smtFormula, atom);
 		mNumAtoms++;

@@ -125,8 +125,10 @@ public class EprTheory implements ITheory {
 			EprPredicate eprPred = ((EprAlmostAllAtom) atom).eprPredicate;
 
 			Clause conflict;
-			if (literal.getSign() == 1) conflict = eprPred.setAlmostAllAtomPositive((EprAlmostAllAtom) atom);
-			else 						conflict = eprPred.setAlmostAllAtomNegative((EprAlmostAllAtom) atom);
+			if (literal.getSign() == 1) conflict = eprPred.setAlmostAllAtomPositive((EprAlmostAllAtom) atom, this);
+			else 						conflict = eprPred.setAlmostAllAtomNegative((EprAlmostAllAtom) atom, this);
+
+			System.out.println("EPRDEBUG: setLiteral --> almost-all atom conflict clause: " + conflict);
 
 			return conflict;
 		} else if (atom instanceof EprEqualityAtom) {
@@ -406,6 +408,8 @@ public class EprTheory implements ITheory {
 		EprClause eprClause = new EprClause(lits);
 		
 		int noAlmostAllLiterals = lits.length;
+		
+		ArrayList<EprEqualityAtom> equalities = new ArrayList<>();
 
 		for (Literal l : lits) {
 			if (l.getAtom() instanceof EprPredicateAtom
@@ -417,6 +421,7 @@ public class EprTheory implements ITheory {
 			
 			if (l.getAtom() instanceof EprEqualityAtom) {
 				noAlmostAllLiterals--;
+				equalities.add((EprEqualityAtom) l.getAtom());
 			}
 		}
 		
@@ -439,7 +444,9 @@ public class EprTheory implements ITheory {
 				EprAlmostAllAtom eaaa = getEprAlmostAllAtom(
 								l.getAtom().getAssertionStackLevel(), 
 								eprPred.eprPredicate, 
-								eprPred.getArguments());
+								eprPred.getArguments(),
+								equalities,
+								l.getSign() == -1);
 
 				almostallClause[--noAlmostAllLiterals] = l.getSign() == 1 ? eaaa : eaaa.negate();
 
@@ -455,33 +462,36 @@ public class EprTheory implements ITheory {
 	/**
 	 * Compute a the almost-all signature from an ApplicationTerm.
 	 * (Basically this means discovering which arguments repeat, and how.)
-	 * @param arity
 	 * @param arguments repetitions here are used to compute the signature
 	 * @return
 	 */
-	private AAAtomSignature computeSignature(Term[] arguments) {
-		ArrayList<HashSet<Integer>> sig = new ArrayList<HashSet<Integer>>(arguments.length);
-
-		int newPartition = 0;
-		HashMap<Term, Integer> argToPartition = new HashMap<>();
-		for (Term t : arguments) {
-			Integer partition = argToPartition.get(t);
-			if (partition == null) {
-				partition =  ++newPartition;
+	private AAAtomSignature computeSignature(Term[] arguments, ArrayList<EprEqualityAtom> equations, boolean negated) {
+		HashMap<Term, HashSet<Integer>> argToOccurences = new HashMap<>();
+		for (int i = 0; i < arguments.length; i++) {
+			Term t = arguments[i];
+			HashSet<Integer> occ = argToOccurences.get(t);
+			if (occ == null) {
+				occ = new HashSet<>();
+				argToOccurences.put(t, occ);
 			}
-			argToPartition.put(t, partition);
+			occ.add(i);
+		}
+		ArrayList<HashSet<Integer>> repetitionSig = new ArrayList<HashSet<Integer>>(arguments.length);
+		for (int i = 0; i < arguments.length; i++) {
+			repetitionSig.add(argToOccurences.get(arguments[i]));
 		}
 		
-		for (int i = 0; i < arguments.length; i++) 
-			sig.add(new HashSet<>());
-
-		for (int i = 0; i < arguments.length; i++) {
-			Term param = arguments[i];
-			int partitionNr = argToPartition.get(param);
-			HashSet<Integer> s = sig.get(i);
-			s.add(partitionNr);
+		ArrayList<HashSet<Integer>> nonReflSig = new ArrayList<>();
+		for (EprEqualityAtom eea : equations) {
+			if (eea.areBothQuantified()) {
+				HashSet<Integer> eq = new HashSet<>();
+				eq.addAll(argToOccurences.get(eea.getLhs()));
+				eq.addAll(argToOccurences.get(eea.getRhs()));
+				nonReflSig.add(eq);
+			}
 		}
-		return new AAAtomSignature(sig);
+
+		return new AAAtomSignature(repetitionSig, nonReflSig, negated);
 	}
 	
 	HashMap<EprPredicate, HashMap<AAAtomSignature, EprAlmostAllAtom>> mAlmostAllAtomsStore = new HashMap<>();
@@ -493,10 +503,19 @@ public class EprTheory implements ITheory {
 	 * @param argumentsForSignatureComputation
 	 * @return
 	 */
-	private EprAlmostAllAtom getEprAlmostAllAtom(int assertionStackLevel, EprPredicate eprPredicate, Term[] argumentsForSignatureComputation) {
+	private EprAlmostAllAtom getEprAlmostAllAtom(int assertionStackLevel, 
+			EprPredicate eprPredicate, 
+			Term[] argumentsForSignatureComputation, 
+			ArrayList<EprEqualityAtom> equalities, 
+			boolean negated) {
 		//TODO: maybe replace the AlmostAllAtomsStore by a HashSet??
-		AAAtomSignature signature = computeSignature(argumentsForSignatureComputation);
+		AAAtomSignature signature = computeSignature(argumentsForSignatureComputation, equalities, negated);
 		
+		return getEprAlmostAllAtom(assertionStackLevel, eprPredicate, signature);
+	}
+
+	EprAlmostAllAtom getEprAlmostAllAtom(int assertionStackLevel, EprPredicate eprPredicate,
+			AAAtomSignature signature) {
 		HashMap<AAAtomSignature, EprAlmostAllAtom> itm = mAlmostAllAtomsStore.get(eprPredicate);
 		if (itm == null) {
 			itm = new HashMap<>();
@@ -512,6 +531,7 @@ public class EprTheory implements ITheory {
 		} 
 		return eaaa;
 	}
+
 
 	/**
 	 * A term is an EPR atom, if it is
