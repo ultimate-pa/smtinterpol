@@ -58,6 +58,11 @@ public class EprClause extends Clause {
 			if (l.getAtom() instanceof EprEqualityAtom) {
 				eprEqualityLiterals[--noEqualities] = l;
 			} else if (l.getAtom() instanceof EprPredicateAtom) {
+				if (((EprPredicateAtom) l.getAtom()).isQuantified) {
+					// Have the EprPredicates point to the clauses and literals they occur in.
+					EprPredicate pred = ((EprPredicateAtom) l.getAtom()).eprPredicate;
+					pred.addQuantifiedOccurence(l, this);
+				}
 				eprPredicateLiterals[--noPredicates] = l;
 			} else {
 				nonEprLiterals[--noOthers] = l;
