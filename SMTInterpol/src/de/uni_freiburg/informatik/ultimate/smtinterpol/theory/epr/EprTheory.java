@@ -99,8 +99,10 @@ public class EprTheory implements ITheory {
 			//         (alternatively, one could store the exceptions in the AlmostAllAtoms 
 			//				--> not sure what that would mean.., this way, the final check has to check the exceptions)
 			EprPredicate eprPred = ((EprPredicateAtom) atom).eprPredicate;
-			if (literal.getSign() == 1) eprPred.setPointPositive(new TermTuple(((EprPredicateAtom) atom).getArguments()));
-			else 						eprPred.setPointNegative(new TermTuple(((EprPredicateAtom) atom).getArguments()));
+//			if (literal.getSign() == 1) eprPred.setPointPositive(new TermTuple(((EprPredicateAtom) atom).getArguments()));
+//			else 						eprPred.setPointNegative(new TermTuple(((EprPredicateAtom) atom).getArguments()));
+			if (literal.getSign() == 1) eprPred.setPointPositive((EprPredicateAtom) atom);
+			else 						eprPred.setPointNegative((EprPredicateAtom) atom);
 
 //			boolean success;
 //			if (literal.getSign() == 1) success = eprPred.setPointPositive(new TermTuple(((EprPredicateAtom) atom).getArguments()));
@@ -184,8 +186,8 @@ public class EprTheory implements ITheory {
 			
 			//update model
 			EprPredicate eprPred = ((EprPredicateAtom) atom).eprPredicate;
-			if (literal.getSign() == 1) eprPred.unSetPointPositive(new TermTuple(((EprPredicateAtom) atom).getArguments()));
-			else 						eprPred.unSetPointNegative(new TermTuple(((EprPredicateAtom) atom).getArguments()));
+			if (literal.getSign() == 1) eprPred.unSetPointPositive((EprPredicateAtom) atom);
+			else 						eprPred.unSetPointNegative((EprPredicateAtom) atom);
 			
 			// update (non)fulfilled clauses
 			markEprClausesNotFulfilled(literal);
@@ -285,6 +287,21 @@ public class EprTheory implements ITheory {
 		// TODO Auto-generated method stub
 //		throw new UnsupportedOperationException();
 		System.out.println("EPRDEBUG: computeConflictClause");
+		for (Clause c : mNotFulfilledEprClauses) {
+			EprClause e = (EprClause)	c;
+			
+			// an epr clause looks like this:
+			// x1 =/!= x2 \/ ... \/ xn+1 = c1 ... \/ (P1 ci/xi ... cj/xj) \/ ... \/ (non-EPR literals)
+			// we have
+			// - (dis)equalities over two quantified variables
+			// - equalities over a quantified variable and a constant each
+			// - predicates over quantified variables and/or constants
+			// - non-epr literals (in mNotFulfilledEprClauses, they are all false (maybe unset??))
+			Clause conflict = e.check();
+//			checkResult &= conflict == null;
+			if (conflict != null)
+				return conflict;
+		}
 		return null;
 	}
 
@@ -403,7 +420,7 @@ public class EprTheory implements ITheory {
 	 */
 	public void addEprClause(Literal[] lits, ClauseDeletionHook hook, ProofNode proof) {
 		//TODO: do something about hook and proof..
-		EprClause eprClause = new EprClause(lits);
+		EprClause eprClause = new EprClause(lits, mTheory);
 		mNotFulfilledEprClauses.add(eprClause);
 	}
 

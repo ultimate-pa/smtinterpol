@@ -27,8 +27,13 @@ public class EprPredicate {
 
 	public final int arity;
 	
-	private HashSet<TermTuple> mPositivelySetPoints = new HashSet<>();
-	private HashSet<TermTuple> mNegativelySetPoints = new HashSet<>();
+	HashSet<TermTuple> mPositivelySetPoints = new HashSet<>();
+	HashSet<TermTuple> mNegativelySetPoints = new HashSet<>();
+	
+	// idea: every domain is nonempty, so we always have to decide the value of a predicate on 
+	// a point (lambda, lambda, ...) 
+	// (lambda may be equal to other constants appearing in the formula, but if there is none, we need this point for our domain)
+	boolean valueOnLambda = false;
 	
 	
 //	private ArrayList<EprAlmostAllAtom> mAlmostAllAtoms;
@@ -38,6 +43,8 @@ public class EprPredicate {
 	 * Storage to track where this predicate occurs in the formula with at least one quantified argument.
 	 */
 	HashMap<EprClause, HashSet<Literal>> mQuantifiedOccurences = new HashMap<>();
+	
+	HashMap<TermTuple, EprPredicateAtom> mPointToAtom = new HashMap<TermTuple, EprPredicateAtom>();
 
 //	private HashMap<EprPredicate, HashSet<EprAlmostAllAtom>> mPositiveAlmostAllAtoms = new HashMap<>();
 //	private HashMap<EprPredicate, HashSet<EprAlmostAllAtom>> mNegativeAlmostAllAtoms = new HashMap<>();
@@ -53,21 +60,40 @@ public class EprPredicate {
 		this.arity = arity;
 	}
 	
+//	/**
+//	 * If the current model allows it, set the given point in the predicate model to "true", return true;
+//	 * If the point was already set to false, we have a conflict, do nothing, return false.
+//	 * @param point
+//	 * @return
+//	 */
+//	public boolean setPointPositive(TermTuple point) {
+////		assert !mNegativelySetPoints.contains(point) : "is that ok??";
+//		if (mNegativelySetPoints.contains(point)) {
+//			return false;
+//		} else {
+//			mPositivelySetPoints.add(point);
+//			return true;
+//		}
+//	}
+	
 	/**
 	 * If the current model allows it, set the given point in the predicate model to "true", return true;
 	 * If the point was already set to false, we have a conflict, do nothing, return false.
-	 * @param point
+	 * @param atom
 	 * @return
 	 */
-	public boolean setPointPositive(TermTuple point) {
+	public boolean setPointPositive(EprPredicateAtom atom) {
+        TermTuple point = new TermTuple(((EprPredicateAtom) atom).getArguments());
 //		assert !mNegativelySetPoints.contains(point) : "is that ok??";
-		if (!mNegativelySetPoints.contains(point)) {
+		if (mNegativelySetPoints.contains(point)) {
 			return false;
 		} else {
+			mPointToAtom.put(point, atom);
 			mPositivelySetPoints.add(point);
 			return true;
 		}
 	}
+
 
 	/**
 	 * If the current model allows it, set the given point in the predicate model to "false", return true;
@@ -75,27 +101,42 @@ public class EprPredicate {
 	 * @param point
 	 * @return
 	 */
-	public boolean setPointNegative(TermTuple point) {
-//		assert !mPositivelySetPoints.contains(point) : "is that ok??";
-		if (!mPositivelySetPoints.contains(point)) {
+	public boolean setPointNegative(EprPredicateAtom atom) {
+        TermTuple point = new TermTuple(((EprPredicateAtom) atom).getArguments());
+//		assert !mNegativelySetPoints.contains(point) : "is that ok??";
+		if (mPositivelySetPoints.contains(point)) {
 			return false;
 		} else {
 			mNegativelySetPoints.add(point);
+			mPointToAtom.put(point, atom);
 			return true;
 		}
 	}
+//	public boolean setPointNegative(TermTuple point) {
+////		assert !mPositivelySetPoints.contains(point) : "is that ok??";
+//		if (mPositivelySetPoints.contains(point)) {
+//			return false;
+//		} else {
+//			mNegativelySetPoints.add(point);
+//			return true;
+//		}
+//	}
 	
 	public String toString() {
 		return "EprPred: " + functionSymbol.getName();
 	}
 
-	public void unSetPointPositive(TermTuple point) {
+	public void unSetPointPositive(EprPredicateAtom atom) {
+        TermTuple point = new TermTuple(((EprPredicateAtom) atom).getArguments());
 		assert mPositivelySetPoints.contains(point) : "backtracking a point that was not set";
+		mPointToAtom.remove(point);
 		mPositivelySetPoints.remove(point);
 	}
 	
-	public void unSetPointNegative(TermTuple point) {
+	public void unSetPointNegative(EprPredicateAtom atom) {
+        TermTuple point = new TermTuple(((EprPredicateAtom) atom).getArguments());
 		assert mNegativelySetPoints.contains(point) : "backtracking a point that was not set";
+		mPointToAtom.remove(point);
 		mNegativelySetPoints.remove(point);
 	}
 
@@ -105,13 +146,25 @@ public class EprPredicate {
 	 *  - given some excepted variables where we don't care (because of equalities in the clause),
 	 *  - given a sign of the literal in which the predicate occurs in the current clause,
 	 * this predicate is "true".
+	 * Returns null if it is fulfilled, and a conflicting point if it is not.
 	 * @param isLiteralPositive true, iff, the literal occurs positive in the clause
-	 * @param exceptedConstants constants where we don't need to fulfill the predicate
+	 * @param literalSignature  the parameters of the literal's applicationTerm -- needed to see which are quantified and otherwise which constant is constrained
+	 * @param exceptedConstants parameter positions to constants where we don't need to fulfill the predicate
 	 */
-	public boolean check(boolean isLiteralPositive, ApplicationTerm[] exceptedConstants) {
-		// TODO Auto-generated method stub
+	public TermTuple check(boolean isLiteralPositive, TermTuple literalSignature, HashMap<Integer,ArrayList<ApplicationTerm>> exceptedConstants) {
+		HashSet<TermTuple> potentialConflictPoints = isLiteralPositive ?
+				mNegativelySetPoints :
+					mPositivelySetPoints;
 		
-		return false; //TODO return correct value
+		for (TermTuple tt : potentialConflictPoints) {
+			if (literalSignature.matches(tt, exceptedConstants)) {
+				//conflict!
+				return tt;
+			}
+		}
+		
+		// no conflict
+		return null;
 	}
 	
 	public void addQuantifiedOccurence(Literal l, EprClause eprClause) {
@@ -122,6 +175,12 @@ public class EprPredicate {
 		}
 		val.add(l);
 	}
+	
+	
+	public EprPredicateAtom getAtomForPoint(TermTuple point) {
+		return mPointToAtom.get(point);
+	}
+	
 //	
 //	public HashMap<EprClause,HashSet<Literal>> getQuantifiedOccurences() {
 //		return mQuantifiedOccurences;
