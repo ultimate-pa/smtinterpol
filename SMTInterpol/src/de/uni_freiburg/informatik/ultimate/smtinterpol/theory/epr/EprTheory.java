@@ -264,7 +264,7 @@ public class EprTheory implements ITheory {
 //		boolean checkResult = true;
 		
 		for (Clause c : mNotFulfilledEprClauses) {
-			EprClause e = (EprClause)	c;
+			EprClause eprClause = (EprClause)	c;
 			
 			// an epr clause looks like this:
 			// x1 =/!= x2 \/ ... \/ xn+1 = c1 ... \/ (P1 ci/xi ... cj/xj) \/ ... \/ (non-EPR literals)
@@ -273,7 +273,7 @@ public class EprTheory implements ITheory {
 			// - equalities over a quantified variable and a constant each
 			// - predicates over quantified variables and/or constants
 			// - non-epr literals (in mNotFulfilledEprClauses, they are all false (maybe unset??))
-			Clause conflict = e.check();
+			Clause conflict = eprClause.check();
 //			checkResult &= conflict == null;
 			if (conflict != null)
 				return conflict;
@@ -284,11 +284,10 @@ public class EprTheory implements ITheory {
 
 	@Override
 	public Clause computeConflictClause() {
-		// TODO Auto-generated method stub
 //		throw new UnsupportedOperationException();
 		System.out.println("EPRDEBUG: computeConflictClause");
 		for (Clause c : mNotFulfilledEprClauses) {
-			EprClause e = (EprClause)	c;
+			EprClause eprClause = (EprClause)	c;
 			
 			// an epr clause looks like this:
 			// x1 =/!= x2 \/ ... \/ xn+1 = c1 ... \/ (P1 ci/xi ... cj/xj) \/ ... \/ (non-EPR literals)
@@ -297,7 +296,7 @@ public class EprTheory implements ITheory {
 			// - equalities over a quantified variable and a constant each
 			// - predicates over quantified variables and/or constants
 			// - non-epr literals (in mNotFulfilledEprClauses, they are all false (maybe unset??))
-			Clause conflict = e.check();
+			Clause conflict = eprClause.check();
 //			checkResult &= conflict == null;
 			if (conflict != null)
 				return conflict;

@@ -4,6 +4,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map.Entry;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -22,9 +23,15 @@ public class EprClause extends Clause {
 	
 	Theory mTheory;
 
+	/**
+	 * stores the information from literals of the form "variable = constant". Instantiations that contain the corresponding
+	 * substitution cannot be a conflict clause.
+	 * TODO: further effect: we may want to propagate the equalities...
+	 */
 	HashMap<TermVariable, ArrayList<ApplicationTerm>> mExceptedPoints = new HashMap<TermVariable, ArrayList<ApplicationTerm>>();
-	HashMap<Literal, HashMap<Integer, ArrayList<ApplicationTerm>>>	mExceptedPointsPerLiteral = 
-			new HashMap<Literal, HashMap<Integer, ArrayList<ApplicationTerm>>>();
+
+//	HashMap<Literal, HashMap<Integer, ArrayList<ApplicationTerm>>>	mExceptedPointsPerLiteral = 
+//			new HashMap<Literal, HashMap<Integer, ArrayList<ApplicationTerm>>>();
 
 	public EprClause(Literal[] literals, Theory theory) {
 		super(literals);
@@ -101,27 +108,27 @@ public class EprClause extends Clause {
 			}
 		}
 		
-		for (Literal l : eprPredicateLiterals) {
-				updateExceptedPointsPerLiteral(l);
-		}
+//		for (Literal l : eprPredicateLiterals) {
+//				updateExceptedPointsPerLiteral(l);
+//		}
 	}
 
-	private void updateExceptedPointsPerLiteral(Literal l) {
-		HashMap<Integer, ArrayList<ApplicationTerm>> perLiteral = mExceptedPointsPerLiteral.get(l);
-		if (perLiteral == null) {
-			perLiteral = new HashMap<>();
-			mExceptedPointsPerLiteral.put(l, perLiteral);
-		}
-		
-		ApplicationTerm at = (ApplicationTerm) ((EprAtom) l.getAtom()).mTerm;
-		for (int i = 0; i < at.getParameters().length; i++) {
-			Term p = at.getParameters()[i];
-			if (p instanceof TermVariable) {
-				ArrayList<ApplicationTerm> exceptions = mExceptedPoints.get(p);
-				perLiteral.put(i, exceptions);
-			}
-		}
-	}
+//	private void updateExceptedPointsPerLiteral(Literal l) {
+//		HashMap<Integer, ArrayList<ApplicationTerm>> perLiteral = mExceptedPointsPerLiteral.get(l);
+//		if (perLiteral == null) {
+//			perLiteral = new HashMap<>();
+//			mExceptedPointsPerLiteral.put(l, perLiteral);
+//		}
+//		
+//		ApplicationTerm at = (ApplicationTerm) ((EprAtom) l.getAtom()).mTerm;
+//		for (int i = 0; i < at.getParameters().length; i++) {
+//			Term p = at.getParameters()[i];
+//			if (p instanceof TermVariable) {
+//				ArrayList<ApplicationTerm> exceptions = mExceptedPoints.get(p);
+//				perLiteral.put(i, exceptions);
+//			}
+//		}
+//	}
 
 	private void updateExceptedPoints(TermVariable tv, ApplicationTerm at) {
 		ArrayList<ApplicationTerm> exceptions = mExceptedPoints.get(tv);
@@ -256,6 +263,11 @@ public class EprClause extends Clause {
 		for (TermTuple tt : currentPoints) {
 			HashMap<TermVariable, ApplicationTerm> newSubs = new HashMap<TermVariable, ApplicationTerm>(substitution);
 			newSubs = tt.match(currentPfl, newSubs);
+			
+			if (isSubstitutionExcepted(newSubs)) {
+				continue;
+			}
+			
 			if (newSubs != null) {
 				ArrayList<ArrayList<TermTuple>> instantiationsNew = new ArrayList<ArrayList<TermTuple>>();
 				if (isFirstCall) {
@@ -283,5 +295,22 @@ public class EprClause extends Clause {
 		return new ArrayList<ArrayList<TermTuple>>();
 //		return instantiations;
 //		return null;
+	}
+
+	/**
+	 * checks is the given substitution refers to an instantiation of the quantified variables that is excepted
+	 * through an equality literal in the clause 
+	 * (e.g. the clause says {... v x = c}, then an instantiation that 
+	 * maps x to c cannot violate the clause)
+	 * 
+	 * returns true iff newSubs corresponds to at least one excepted point
+	 */
+	private boolean isSubstitutionExcepted(HashMap<TermVariable, ApplicationTerm> newSubs) {
+		for (Entry<TermVariable, ApplicationTerm> en : newSubs.entrySet()) {
+			ArrayList<ApplicationTerm> epCon = mExceptedPoints.get(en.getKey());
+			if (epCon != null && epCon.contains(en.getValue()))
+					return true;
+		}
+		return false;
 	}
 }
