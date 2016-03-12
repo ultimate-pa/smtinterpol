@@ -16,55 +16,95 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ResolutionNode;
 
 public class EprClause extends Clause {
-	
+
 	Literal[] eprEqualityLiterals;
 	Literal[] eprPredicateLiterals;
 	Literal[] nonEprLiterals;
-	
+
 	Theory mTheory;
 
 	/**
-	 * stores the information from literals of the form "variable = constant". Instantiations that contain the corresponding
-	 * substitution cannot be a conflict clause.
-	 * TODO: further effect: we may want to propagate the equalities...
+	 * stores the information from literals of the form "variable = constant".
+	 * Instantiations that contain the corresponding substitution cannot be a
+	 * conflict clause. TODO: further effect: we may want to propagate the
+	 * equalities...
 	 */
 	HashMap<TermVariable, ArrayList<ApplicationTerm>> mExceptedPoints = new HashMap<TermVariable, ArrayList<ApplicationTerm>>();
 
-//	HashMap<Literal, HashMap<Integer, ArrayList<ApplicationTerm>>>	mExceptedPointsPerLiteral = 
-//			new HashMap<Literal, HashMap<Integer, ArrayList<ApplicationTerm>>>();
+	private Literal mUnitLiteral;
+
+	/**
+	 * Tracks for each literal lit in this clause if, in the current partial
+	 * model (determined through setLiteral and possibly first-order
+	 * propagations), lit can still be fulfilled. (Example: literal (not (P x
+	 * y)) cannot be fulfilled after setting (P c d))
+	 * 
+	 * Special cases:
+	 *  - quantified equalities are not tracked -- we just consider the eprLiterals 
+	 *    modulo those exceptions. 
+	 *    (? does this work? an alternative would be to unit-propagate those 
+	 *      equalities, too, TODO: think about it..)
+	 *  - for non EprLiterals this coincides with their state in the DPLLEngine
+	 *    (so "fulfillable" means "true" here)
+	 */
+	private HashMap<Literal, Boolean> mFulfillabilityStatus;
+	private int mNoFulfillableLiterals;
+
+	// HashMap<Literal, HashMap<Integer, ArrayList<ApplicationTerm>>>
+	// mExceptedPointsPerLiteral =
+	// new HashMap<Literal, HashMap<Integer, ArrayList<ApplicationTerm>>>();
 
 	public EprClause(Literal[] literals, Theory theory) {
 		super(literals);
 		mTheory = theory;
-		sortEprLiterals(literals);
+		setUpClause(literals);
 	}
 
 	public EprClause(Literal[] literals, ProofNode proof, Theory theory) {
 		super(literals, proof);
 		mTheory = theory;
-		sortEprLiterals(literals);
+		setUpClause(literals);
 	}
 
 	public EprClause(Literal[] literals, int stacklevel, Theory theory) {
 		super(literals, stacklevel);
 		mTheory = theory;
-		sortEprLiterals(literals);
+		setUpClause(literals);
 	}
 
 	public EprClause(Literal[] literals, ResolutionNode proof, int stacklevel, Theory theory) {
 		super(literals, proof, stacklevel);
 		mTheory = theory;
-		sortEprLiterals(literals);
+		setUpClause(literals);
 	}
 
-	private void sortEprLiterals(Literal[] literals) {
+	private void setUpClause(Literal[] literals) {
+
+		if (literals.length == 1) {
+			mUnitLiteral = literals[0];
+		}
+
+		sortLiterals(literals);
+
+		mNoFulfillableLiterals = 0;
+		for (Literal li : eprPredicateLiterals) {
+			setLiteralFulfillable(li);
+		}
+//		for (Literal li : nonEprLiterals) {
+//			setLiteralFulfillable(li);
+//		} //--> will be set through DPLLEngine, right?..
+	}
+
+	private void sortLiterals(Literal[] literals) {
 		int noEqualities = 0;
 		int noPredicates = 0;
 		int noOthers = 0;
-		//TODO: is this (counting then making arrays) more efficient than using a list?
+		// TODO: is this (counting then making arrays) more efficient than using
+		// a list?
 		for (Literal l : literals) {
 			if (l.getAtom() instanceof EprEqualityAtom) {
-				//TODO: this assert is probably too strict: we have to allow disequalities between quantified variables, right?
+				// TODO: this assert is probably too strict: we have to allow
+				// disequalities between quantified variables, right?
 				assert l.getSign() == 1 : "Destructive equality reasoning should have eliminated this literal.";
 				noEqualities++;
 			} else if (l.getAtom() instanceof EprPredicateAtom) {
@@ -73,18 +113,20 @@ public class EprClause extends Clause {
 				noOthers++;
 			}
 		}
-		
+
 		eprEqualityLiterals = new Literal[noEqualities];
 		eprPredicateLiterals = new Literal[noPredicates];
 		nonEprLiterals = new Literal[noOthers];
 
-		//TODO: reusing the counter as array index may be unnecessarily confusing..
+		// TODO: reusing the counter as array index may be unnecessarily
+		// confusing..
 		for (Literal l : literals) {
 			if (l.getAtom() instanceof EprEqualityAtom) {
 				eprEqualityLiterals[--noEqualities] = l;
 			} else if (l.getAtom() instanceof EprPredicateAtom) {
 				if (((EprPredicateAtom) l.getAtom()).isQuantified) {
-					// Have the EprPredicates point to the clauses and literals they occur in.
+					// Have the EprPredicates point to the clauses and literals
+					// they occur in.
 					EprPredicate pred = ((EprPredicateAtom) l.getAtom()).eprPredicate;
 					pred.addQuantifiedOccurence(l, this);
 				}
@@ -92,8 +134,8 @@ public class EprClause extends Clause {
 			} else {
 				nonEprLiterals[--noOthers] = l;
 			}
-		}		
-		
+		}
+
 		for (Literal l : eprEqualityLiterals) {
 			Term p0 = ((ApplicationTerm) ((EprEqualityAtom) l.getAtom()).mTerm).getParameters()[0];
 			Term p1 = ((ApplicationTerm) ((EprEqualityAtom) l.getAtom()).mTerm).getParameters()[1];
@@ -104,31 +146,28 @@ public class EprClause extends Clause {
 			} else if (p1 instanceof TermVariable) {
 				updateExceptedPoints((TermVariable) p1, (ApplicationTerm) p0);
 			} else {
-				assert false: "this equation should have gone to CClosure Theory: " + l.getAtom();
+				assert false : "this equation should have gone to CClosure Theory: " + l.getAtom();
 			}
 		}
-		
-//		for (Literal l : eprPredicateLiterals) {
-//				updateExceptedPointsPerLiteral(l);
-//		}
 	}
 
-//	private void updateExceptedPointsPerLiteral(Literal l) {
-//		HashMap<Integer, ArrayList<ApplicationTerm>> perLiteral = mExceptedPointsPerLiteral.get(l);
-//		if (perLiteral == null) {
-//			perLiteral = new HashMap<>();
-//			mExceptedPointsPerLiteral.put(l, perLiteral);
-//		}
-//		
-//		ApplicationTerm at = (ApplicationTerm) ((EprAtom) l.getAtom()).mTerm;
-//		for (int i = 0; i < at.getParameters().length; i++) {
-//			Term p = at.getParameters()[i];
-//			if (p instanceof TermVariable) {
-//				ArrayList<ApplicationTerm> exceptions = mExceptedPoints.get(p);
-//				perLiteral.put(i, exceptions);
-//			}
-//		}
-//	}
+	// private void updateExceptedPointsPerLiteral(Literal l) {
+	// HashMap<Integer, ArrayList<ApplicationTerm>> perLiteral =
+	// mExceptedPointsPerLiteral.get(l);
+	// if (perLiteral == null) {
+	// perLiteral = new HashMap<>();
+	// mExceptedPointsPerLiteral.put(l, perLiteral);
+	// }
+	//
+	// ApplicationTerm at = (ApplicationTerm) ((EprAtom) l.getAtom()).mTerm;
+	// for (int i = 0; i < at.getParameters().length; i++) {
+	// Term p = at.getParameters()[i];
+	// if (p instanceof TermVariable) {
+	// ArrayList<ApplicationTerm> exceptions = mExceptedPoints.get(p);
+	// perLiteral.put(i, exceptions);
+	// }
+	// }
+	// }
 
 	private void updateExceptedPoints(TermVariable tv, ApplicationTerm at) {
 		ArrayList<ApplicationTerm> exceptions = mExceptedPoints.get(tv);
@@ -138,69 +177,65 @@ public class EprClause extends Clause {
 		}
 		exceptions.add(at);
 	}
-	
+
 	/**
-	 * Checks if this clause is fulfilled in the current decide state wrt. the EPR theory.
+	 * Checks if this clause is fulfilled in the current decide state wrt. the
+	 * EPR theory.
+	 * 
 	 * @return null if this clause is fulfilled, a conflict clause otherwise
 	 */
 	public Clause check() {
 
 		ArrayDeque<HashSet<TermTuple>> conflictPointSets = new ArrayDeque<>();
-		
+
 		for (Literal l : eprPredicateLiterals) {
 			EprPredicateAtom epa = (EprPredicateAtom) l.getAtom();
 			EprPredicate ep = epa.eprPredicate;
-			
-			HashSet<TermTuple> potentialConflictPoints = l.getSign() == 1 ?
-					ep.mNegativelySetPoints :
-						ep.mPositivelySetPoints;
-			
+
+			HashSet<TermTuple> potentialConflictPoints = l.getSign() == 1 ? ep.mNegativelySetPoints
+					: ep.mPositivelySetPoints;
+
 			conflictPointSets.add(potentialConflictPoints);
 		}
-		
-		//TODO: take excepted points into account
-		
+
+		// TODO: take excepted points into account
+
 		ArrayDeque<TermTuple> pointsFromLiterals = computePointsFromLiterals(eprPredicateLiterals);
-		
 
+		ArrayList<ArrayList<TermTuple>> instantiations = computeInstantiations(new ArrayList<ArrayList<TermTuple>>(),
+				conflictPointSets, pointsFromLiterals, new HashMap<TermVariable, ApplicationTerm>(), true);
 
-		ArrayList<ArrayList<TermTuple>> instantiations = computeInstantiations(
-				new ArrayList<ArrayList<TermTuple>>(), 
-				conflictPointSets,
-				pointsFromLiterals,
-				new HashMap<TermVariable, ApplicationTerm>(),
-				true);
-
-		// if there is a fitting instantiation, it directly induces a conflict clause
+		// if there is a fitting instantiation, it directly induces a conflict
+		// clause
 		if (instantiations.isEmpty()) {
 			return null;
 		} else {
 			ArrayList<EprPredicate> predicates = computePredicatesFromLiterals(eprPredicateLiterals);
 			ArrayList<Boolean> polaritites = computePolaritiesFromLiterals(eprPredicateLiterals);
-			return clauseFromInstantiation(predicates, instantiations.get(0), polaritites); 
+			return clauseFromInstantiation(predicates, instantiations.get(0), polaritites);
 		}
 	}
 
-	private Clause clauseFromInstantiation(ArrayList<EprPredicate> predicates, 
-			ArrayList<TermTuple> points,
+	private Clause clauseFromInstantiation(ArrayList<EprPredicate> predicates, ArrayList<TermTuple> points,
 			ArrayList<Boolean> polarities) {
-//		ArrayList<EprPredicateAtom> result = new ArrayList<EprPredicateAtom>();
+		// ArrayList<EprPredicateAtom> result = new
+		// ArrayList<EprPredicateAtom>();
 		ArrayList<Literal> result = new ArrayList<Literal>();
 		for (int i = 0; i < predicates.size(); i++) {
-//			EprPredicateAtom epa = new EprPredicateAtom(
-//					mTheory.term(predicates.get(i).functionSymbol, points.get(i).terms), 
-//					0, 0, predicates.get(i));//TODO replace 0, 0
+			// EprPredicateAtom epa = new EprPredicateAtom(
+			// mTheory.term(predicates.get(i).functionSymbol,
+			// points.get(i).terms),
+			// 0, 0, predicates.get(i));//TODO replace 0, 0
 			EprPredicateAtom epa = predicates.get(i).getAtomForPoint(points.get(i));
 
-			result.add(polarities.get(i) ? epa
-							:epa.negate());
+			result.add(polarities.get(i) ? epa : epa.negate());
 		}
 
 		return new Clause(result.toArray(new Literal[result.size()]));
 	}
 
 	private ArrayList<EprPredicate> computePredicatesFromLiterals(Literal[] eprPredicateLiterals2) {
-		//TODO cache/precompute this
+		// TODO cache/precompute this
 		ArrayList<EprPredicate> result = new ArrayList<EprPredicate>();
 		for (Literal l : eprPredicateLiterals2) {
 			result.add(((EprPredicateAtom) l.getAtom()).eprPredicate);
@@ -209,65 +244,48 @@ public class EprClause extends Clause {
 	}
 
 	private ArrayList<Boolean> computePolaritiesFromLiterals(Literal[] eprPredicateLiterals2) {
-		//TODO cache/precompute this
+		// TODO cache/precompute this
 		ArrayList<Boolean> result = new ArrayList<Boolean>();
 		for (Literal l : eprPredicateLiterals2) {
 			result.add(l.getSign() == 1);
 		}
 		return result;
 	}
+
 	private ArrayDeque<TermTuple> computePointsFromLiterals(Literal[] predicateLiterals) {
-		//TODO cache/precompute this
+		// TODO cache/precompute this
 		ArrayDeque<TermTuple> result = new ArrayDeque<>();
 		for (Literal l : predicateLiterals) {
-			result.add(
-					new TermTuple(
-							((ApplicationTerm) 
-									((EprPredicateAtom) l.getAtom()).mTerm)
-							.getParameters()));
-			
+			result.add(new TermTuple(((ApplicationTerm) ((EprPredicateAtom) l.getAtom()).mTerm).getParameters()));
+
 		}
 		return result;
 	}
 
 	/**
-	 *  compute a filtered cross product
-	 * @param pointsFromLiterals 
+	 * compute a filtered cross product
+	 * 
+	 * @param pointsFromLiterals
 	 */
-	private ArrayList<ArrayList<TermTuple>> computeInstantiations(
-			ArrayList<ArrayList<TermTuple>> instantiations,
-			ArrayDeque<HashSet<TermTuple>> conflictPointSets, 
-			ArrayDeque<TermTuple> pointsFromLiterals,
-			HashMap<TermVariable, ApplicationTerm> substitution,
-			boolean isFirstCall) {
-		//TODO: might be better to rework this as NonRecursive
-		
-//		if (instantiations.isEmpty() && !isFirstCall)
-//			return instantiations;
+	private ArrayList<ArrayList<TermTuple>> computeInstantiations(ArrayList<ArrayList<TermTuple>> instantiations,
+			ArrayDeque<HashSet<TermTuple>> conflictPointSets, ArrayDeque<TermTuple> pointsFromLiterals,
+			HashMap<TermVariable, ApplicationTerm> substitution, boolean isFirstCall) {
+		// TODO: might be better to rework this as NonRecursive
+
 		if (conflictPointSets.isEmpty())
 			return instantiations;
 
 		HashSet<TermTuple> currentPoints = conflictPointSets.pollFirst();
 		TermTuple currentPfl = pointsFromLiterals.pollFirst();
-		
-//		if (currentPoints.isEmpty())
-//			return new ArrayList<ArrayList<TermTuple>>();
-		
-		//if the toMatch part is constant, it only trivially matches itself.. //seems bullshit..
-//		if (currentPfl.onlyContainsConstants()) {
-//			//TODO: is there a nicer way?
-//			currentPoints = new HashSet<>();
-//			currentPoints.add(currentPfl);
-//		}
-		
+
 		for (TermTuple tt : currentPoints) {
 			HashMap<TermVariable, ApplicationTerm> newSubs = new HashMap<TermVariable, ApplicationTerm>(substitution);
 			newSubs = tt.match(currentPfl, newSubs);
-			
+
 			if (isSubstitutionExcepted(newSubs)) {
 				continue;
 			}
-			
+
 			if (newSubs != null) {
 				ArrayList<ArrayList<TermTuple>> instantiationsNew = new ArrayList<ArrayList<TermTuple>>();
 				if (isFirstCall) {
@@ -281,26 +299,17 @@ public class EprClause extends Clause {
 						instantiationsNew.add(inNew);
 					}
 				}
-//				instantiations.addAll(
-				return computeInstantiations(
-//								new ArrayList<ArrayList<TermTuple>>(instantiations), 
-								instantiationsNew,
-								new ArrayDeque<HashSet<TermTuple>>(conflictPointSets),
-								new ArrayDeque<TermTuple>(pointsFromLiterals),
-								newSubs,
-								false
-						);
+				return computeInstantiations(instantiationsNew, new ArrayDeque<HashSet<TermTuple>>(conflictPointSets),
+						new ArrayDeque<TermTuple>(pointsFromLiterals), newSubs, false);
 			}
 		}
 		return new ArrayList<ArrayList<TermTuple>>();
-//		return instantiations;
-//		return null;
 	}
 
 	/**
-	 * checks is the given substitution refers to an instantiation of the quantified variables that is excepted
-	 * through an equality literal in the clause 
-	 * (e.g. the clause says {... v x = c}, then an instantiation that 
+	 * checks is the given substitution refers to an instantiation of the
+	 * quantified variables that is excepted through an equality literal in the
+	 * clause (e.g. the clause says {... v x = c}, then an instantiation that
 	 * maps x to c cannot violate the clause)
 	 * 
 	 * returns true iff newSubs corresponds to at least one excepted point
@@ -309,8 +318,41 @@ public class EprClause extends Clause {
 		for (Entry<TermVariable, ApplicationTerm> en : newSubs.entrySet()) {
 			ArrayList<ApplicationTerm> epCon = mExceptedPoints.get(en.getKey());
 			if (epCon != null && epCon.contains(en.getValue()))
-					return true;
+				return true;
 		}
 		return false;
+	}
+
+	public Literal getUnitClauseLiteral() {
+		assert mUnitLiteral != null;
+
+		return this.mUnitLiteral;
+	}
+
+	public void setLiteralUnfulfillable(Literal lit) {
+		mFulfillabilityStatus.put(lit, false);
+		mNoFulfillableLiterals--;
+		if (mNoFulfillableLiterals == 1) {
+			//TODO: this could be done more efficiently i guess..
+			for (Literal li : eprPredicateLiterals) {
+				if (mFulfillabilityStatus.get(li)) {
+					mUnitLiteral = li;
+					break;
+				}
+			}
+		}
+
+	}
+
+	public void setLiteralFulfillable(Literal li) {
+		mFulfillabilityStatus.put(li, true);
+		mNoFulfillableLiterals++;
+		if (mNoFulfillableLiterals == 2) {
+			mUnitLiteral = null;
+		}
+	}
+	
+	public boolean isUnitClause() {
+		return mUnitLiteral != null;
 	}
 }

@@ -62,6 +62,11 @@ public class TermTuple {
 		// TODO Auto-generated method stub
 		return false;
 	}
+	
+	
+	public HashMap<TermVariable, ApplicationTerm> match(TermTuple other) {
+		return match(other, new HashMap<TermVariable, ApplicationTerm>());
+	}
 
 	/**
 	 * "this" must be a TermTuple over constants.

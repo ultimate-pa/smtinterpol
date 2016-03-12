@@ -3,10 +3,12 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map.Entry;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
@@ -35,46 +37,17 @@ public class EprPredicate {
 	// (lambda may be equal to other constants appearing in the formula, but if there is none, we need this point for our domain)
 	boolean valueOnLambda = false;
 	
-	
-//	private ArrayList<EprAlmostAllAtom> mAlmostAllAtoms;
-//	private ArrayList<Literal> mAlmostAllAtoms;
-	
-	/*
+	/**
 	 * Storage to track where this predicate occurs in the formula with at least one quantified argument.
 	 */
 	HashMap<EprClause, HashSet<Literal>> mQuantifiedOccurences = new HashMap<>();
 	
 	HashMap<TermTuple, EprPredicateAtom> mPointToAtom = new HashMap<TermTuple, EprPredicateAtom>();
 
-//	private HashMap<EprPredicate, HashSet<EprAlmostAllAtom>> mPositiveAlmostAllAtoms = new HashMap<>();
-//	private HashMap<EprPredicate, HashSet<EprAlmostAllAtom>> mNegativeAlmostAllAtoms = new HashMap<>();
-//
-//	/*
-//	 * Sometimes we have to add almost-all-atoms, this map helps us undo the change, when we need to backtrack.
-//	 */
-//	private HashMap<EprAlmostAllAtom, HashSet<EprAlmostAllAtom>> mAAAtomsAddedThroughClosure = new HashMap<>();
-
-	
 	public EprPredicate(FunctionSymbol fs, int arity) {
 		this.functionSymbol = fs;
 		this.arity = arity;
 	}
-	
-//	/**
-//	 * If the current model allows it, set the given point in the predicate model to "true", return true;
-//	 * If the point was already set to false, we have a conflict, do nothing, return false.
-//	 * @param point
-//	 * @return
-//	 */
-//	public boolean setPointPositive(TermTuple point) {
-////		assert !mNegativelySetPoints.contains(point) : "is that ok??";
-//		if (mNegativelySetPoints.contains(point)) {
-//			return false;
-//		} else {
-//			mPositivelySetPoints.add(point);
-//			return true;
-//		}
-//	}
 	
 	/**
 	 * If the current model allows it, set the given point in the predicate model to "true", return true;
@@ -90,6 +63,7 @@ public class EprPredicate {
 		} else {
 			mPointToAtom.put(point, atom);
 			mPositivelySetPoints.add(point);
+			updateClauseLiteralFulfillabilityOnPointSetting(true, point);
 			return true;
 		}
 	}
@@ -109,19 +83,35 @@ public class EprPredicate {
 		} else {
 			mNegativelySetPoints.add(point);
 			mPointToAtom.put(point, atom);
+//			updateUnitClausesOnPointSetting(false, atom);
+			updateClauseLiteralFulfillabilityOnPointSetting(false, point);
 			return true;
 		}
 	}
-//	public boolean setPointNegative(TermTuple point) {
-////		assert !mPositivelySetPoints.contains(point) : "is that ok??";
-//		if (mPositivelySetPoints.contains(point)) {
-//			return false;
-//		} else {
-//			mNegativelySetPoints.add(point);
-//			return true;
-//		}
-//	}
 	
+	/**
+	 * Called when a point is set.
+	 * Checks for each epr-clause if it becomes a unit clause because of that. Updates that clause's status accordingly.
+	 * @param settingPositive is true if this method was called because atom is being set positive, negative if atom is being
+	 *  set negative
+	 * @param atom
+	 */
+//	private void updateUnitClausesOnPointSetting(boolean settingPositive, EprPredicateAtom atom) {
+	private void updateClauseLiteralFulfillabilityOnPointSetting(boolean settingPositive, TermTuple point) {
+		for (Entry<EprClause, HashSet<Literal>> qo : mQuantifiedOccurences.entrySet()) {
+			EprClause clause = qo.getKey();
+			for (Literal li : qo.getValue()) {
+				boolean oppositeSigns = li.getSign() == 1 ^ settingPositive;
+				TermTuple otherPoint = new TermTuple(((EprPredicateAtom) li.getAtom()).getArguments());
+				HashMap<TermVariable, ApplicationTerm> subs = point.match(otherPoint);
+				if (oppositeSigns && subs != null) {
+					clause.setLiteralUnfulfillable(li);
+				}
+			}
+		}
+		
+	}
+
 	public String toString() {
 		return "EprPred: " + functionSymbol.getName();
 	}
