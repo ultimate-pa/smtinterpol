@@ -15,11 +15,30 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ResolutionNode;
 
+/**
+ * Represents a clause that contains free variables, i.e., that is implicitly universally quantified.
+ *  
+ * Specialities:
+ *  The literals in an EprClause are of three kinds
+ *  - nonEprLiterals 
+ *    Literals as normal, don't contain quantified variables, are set by the DPLLEngine
+ *  - quantified equalities
+ *    they essentially represent exceptions to the quantified EprLiterals
+ *  - not quantified EprPredicateLiterals 
+ *  - quantified EprPredicateLiterals 
+ *    implicitly quantified literals those have special states of fulfillability
+ *    -- not fulfilled
+ *       this is the case if at least one point (that is not excepted by an equality) is set conversely to the literal
+ *    -- fulfillable
+ *       if there is no counterexample (point) to the literal in the current state
+ *    -- fulfilled
+ *       if, e.g. through unit propagation, all points concerned by the quantified predicate are set the right way
+ */
 public class EprClause extends Clause {
 
 	Literal[] eprEqualityLiterals;
-	Literal[] eprPredicateLiterals;
-	Literal[] nonEprLiterals;
+	Literal[] eprQuantifiedPredicateLiterals;
+	Literal[] groundLiterals;
 
 	Theory mTheory;
 
@@ -47,8 +66,10 @@ public class EprClause extends Clause {
 	 *  - for non EprLiterals this coincides with their state in the DPLLEngine
 	 *    (so "fulfillable" means "true" here)
 	 */
-	private HashMap<Literal, Boolean> mFulfillabilityStatus;
+	private HashMap<Literal, Boolean> mFulfillabilityStatus = new HashMap<Literal, Boolean>();
 	private int mNoFulfillableLiterals;
+	
+	HashSet<Literal> mFulfilledLiterals = new HashSet<Literal>();
 
 	// HashMap<Literal, HashMap<Integer, ArrayList<ApplicationTerm>>>
 	// mExceptedPointsPerLiteral =
@@ -87,7 +108,7 @@ public class EprClause extends Clause {
 		sortLiterals(literals);
 
 		mNoFulfillableLiterals = 0;
-		for (Literal li : eprPredicateLiterals) {
+		for (Literal li : eprQuantifiedPredicateLiterals) {
 			setLiteralFulfillable(li);
 		}
 //		for (Literal li : nonEprLiterals) {
@@ -96,8 +117,8 @@ public class EprClause extends Clause {
 	}
 
 	private void sortLiterals(Literal[] literals) {
-		int noEqualities = 0;
-		int noPredicates = 0;
+		int noQuantifiedEqualities = 0;
+		int noQuantifiedPredicates = 0;
 		int noOthers = 0;
 		// TODO: is this (counting then making arrays) more efficient than using
 		// a list?
@@ -106,33 +127,34 @@ public class EprClause extends Clause {
 				// TODO: this assert is probably too strict: we have to allow
 				// disequalities between quantified variables, right?
 				assert l.getSign() == 1 : "Destructive equality reasoning should have eliminated this literal.";
-				noEqualities++;
-			} else if (l.getAtom() instanceof EprPredicateAtom) {
-				noPredicates++;
+				noQuantifiedEqualities++;
+			} else if (l.getAtom() instanceof EprQuantifiedPredicateAtom) {
+				noQuantifiedPredicates++;
 			} else {
 				noOthers++;
 			}
 		}
 
-		eprEqualityLiterals = new Literal[noEqualities];
-		eprPredicateLiterals = new Literal[noPredicates];
-		nonEprLiterals = new Literal[noOthers];
+		eprEqualityLiterals = new Literal[noQuantifiedEqualities];
+		eprQuantifiedPredicateLiterals = new Literal[noQuantifiedPredicates];
+		groundLiterals = new Literal[noOthers];
 
 		// TODO: reusing the counter as array index may be unnecessarily
 		// confusing..
 		for (Literal l : literals) {
 			if (l.getAtom() instanceof EprEqualityAtom) {
-				eprEqualityLiterals[--noEqualities] = l;
-			} else if (l.getAtom() instanceof EprPredicateAtom) {
-				if (((EprPredicateAtom) l.getAtom()).isQuantified) {
+				eprEqualityLiterals[--noQuantifiedEqualities] = l;
+//			} else if (l.getAtom() instanceof EprPredicateAtom) {
+			} else if (l.getAtom() instanceof EprQuantifiedPredicateAtom) {
+//				if (((EprPredicateAtom) l.getAtom()).isQuantified) {
 					// Have the EprPredicates point to the clauses and literals
 					// they occur in.
 					EprPredicate pred = ((EprPredicateAtom) l.getAtom()).eprPredicate;
 					pred.addQuantifiedOccurence(l, this);
-				}
-				eprPredicateLiterals[--noPredicates] = l;
+//				}
+				eprQuantifiedPredicateLiterals[--noQuantifiedPredicates] = l;
 			} else {
-				nonEprLiterals[--noOthers] = l;
+				groundLiterals[--noOthers] = l;
 			}
 		}
 
@@ -150,24 +172,6 @@ public class EprClause extends Clause {
 			}
 		}
 	}
-
-	// private void updateExceptedPointsPerLiteral(Literal l) {
-	// HashMap<Integer, ArrayList<ApplicationTerm>> perLiteral =
-	// mExceptedPointsPerLiteral.get(l);
-	// if (perLiteral == null) {
-	// perLiteral = new HashMap<>();
-	// mExceptedPointsPerLiteral.put(l, perLiteral);
-	// }
-	//
-	// ApplicationTerm at = (ApplicationTerm) ((EprAtom) l.getAtom()).mTerm;
-	// for (int i = 0; i < at.getParameters().length; i++) {
-	// Term p = at.getParameters()[i];
-	// if (p instanceof TermVariable) {
-	// ArrayList<ApplicationTerm> exceptions = mExceptedPoints.get(p);
-	// perLiteral.put(i, exceptions);
-	// }
-	// }
-	// }
 
 	private void updateExceptedPoints(TermVariable tv, ApplicationTerm at) {
 		ArrayList<ApplicationTerm> exceptions = mExceptedPoints.get(tv);
@@ -188,7 +192,7 @@ public class EprClause extends Clause {
 
 		ArrayDeque<HashSet<TermTuple>> conflictPointSets = new ArrayDeque<>();
 
-		for (Literal l : eprPredicateLiterals) {
+		for (Literal l : eprQuantifiedPredicateLiterals) {
 			EprPredicateAtom epa = (EprPredicateAtom) l.getAtom();
 			EprPredicate ep = epa.eprPredicate;
 
@@ -200,7 +204,7 @@ public class EprClause extends Clause {
 
 		// TODO: take excepted points into account
 
-		ArrayDeque<TermTuple> pointsFromLiterals = computePointsFromLiterals(eprPredicateLiterals);
+		ArrayDeque<TermTuple> pointsFromLiterals = computePointsFromLiterals(eprQuantifiedPredicateLiterals);
 
 		ArrayList<ArrayList<TermTuple>> instantiations = computeInstantiations(new ArrayList<ArrayList<TermTuple>>(),
 				conflictPointSets, pointsFromLiterals, new HashMap<TermVariable, ApplicationTerm>(), true);
@@ -210,8 +214,8 @@ public class EprClause extends Clause {
 		if (instantiations.isEmpty()) {
 			return null;
 		} else {
-			ArrayList<EprPredicate> predicates = computePredicatesFromLiterals(eprPredicateLiterals);
-			ArrayList<Boolean> polaritites = computePolaritiesFromLiterals(eprPredicateLiterals);
+			ArrayList<EprPredicate> predicates = computePredicatesFromLiterals(eprQuantifiedPredicateLiterals);
+			ArrayList<Boolean> polaritites = computePolaritiesFromLiterals(eprQuantifiedPredicateLiterals);
 			return clauseFromInstantiation(predicates, instantiations.get(0), polaritites);
 		}
 	}
@@ -334,7 +338,7 @@ public class EprClause extends Clause {
 		mNoFulfillableLiterals--;
 		if (mNoFulfillableLiterals == 1) {
 			//TODO: this could be done more efficiently i guess..
-			for (Literal li : eprPredicateLiterals) {
+			for (Literal li : eprQuantifiedPredicateLiterals) {
 				if (mFulfillabilityStatus.get(li)) {
 					mUnitLiteral = li;
 					break;
@@ -352,7 +356,53 @@ public class EprClause extends Clause {
 		}
 	}
 	
+	
+//	public void setLiteralFulfilled(Literal li) {
+//		
+//	}
+	
 	public boolean isUnitClause() {
 		return mUnitLiteral != null;
 	}
+
+	public void setNonEprLiteral(Literal literal) {
+		for (Literal li : groundLiterals) {
+			if (literal.getAtom().equals(li.getAtom())) {
+				if (literal.getSign() == li.getSign()) {
+					setLiteralFulfillable(li);
+					mFulfilledLiterals.add(li);
+				} else {
+					setLiteralUnfulfillable(li);
+					mFulfilledLiterals.remove(li);
+				}
+			}
+		}
+	
+	}
+
+	public void UnsetNonEprLiteral(Literal literal) {
+		for (Literal li : groundLiterals) {
+			if (literal.getAtom().equals(li.getAtom())) {
+				if (literal.getSign() == li.getSign()) {
+					// was fulfillable after set (bc true), is still fulfillable after unset (bc unconstrained)
+					mFulfilledLiterals.remove(li);
+				} else {
+//					setLiteralUnfulfillable(li);
+					// was unfulfillable after set (bc false), is fulfillable now (bc unconstrained)
+					setLiteralFulfillable(li);
+					//was not fulfilled after set, is still not fulfilled now.
+//					mFulfilledLiterals.remove(li);
+				}
+			}
+		}
+	}
+
+	/**
+	 * @return true if at least one of the literals of this clause is definitely true.
+	 */
+	public boolean isFulfilled() {
+		return mFulfilledLiterals.size() > 0;
+	}
+
+
 }

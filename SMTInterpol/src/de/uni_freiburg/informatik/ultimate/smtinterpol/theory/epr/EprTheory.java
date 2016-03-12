@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.log4j.Logger;
 
@@ -37,15 +38,20 @@ public class EprTheory implements ITheory {
 	// TODO: probably should do something more efficient
 
 	//TODO: replace arraylist, simplelist made problems..
-	ArrayList<Clause> mEprClauses = new ArrayList<>();
-	ArrayList<Clause> mFulfilledEprClauses = new ArrayList<>();
-	ArrayList<Clause> mNotFulfilledEprClauses = new ArrayList<>();
-	
+//	ArrayList<Clause> mEprClauses = new ArrayList<>();
+//	ArrayList<Clause> mFulfilledEprClauses = new ArrayList<>();
+//	ArrayList<Clause> mNotFulfilledEprClauses = new ArrayList<>();
+	HashSet<Clause> mEprClauses = new HashSet<>();
+	HashSet<Clause> mFulfilledEprClauses = new HashSet<>();
+	HashSet<Clause> mNotFulfilledEprClauses = new HashSet<>();
+
 //	ArrayList<EprClause> mEprUnitClauses = new ArrayList<>();
 //	SimpleList<Clause> mFulfilledEprClauses = new SimpleList<>();
 //	SimpleList<Clause> mNotFulfilledEprClauses = new SimpleList<>();
 	
 	HashMap<FunctionSymbol, EprPredicate> mEprPredicates = new HashMap<>();
+
+	HashMap<Literal, HashSet<EprClause>> mLiteralToClauses = new HashMap<Literal, HashSet<EprClause>>();
 
 	private Theory mTheory;
 	private DPLLEngine mEngine;
@@ -101,8 +107,9 @@ public class EprTheory implements ITheory {
 				success &= eprPred.setPointNegative((EprPredicateAtom) atom);
 			assert success : "treat this case!";
 
-			
-//			markEprClausesFulfilled(literal);
+			for (EprClause ec : mLiteralToClauses.get(literal)) {
+				updateFulFilledSets(ec);
+			}
 
 			return null;
 		} else if (atom instanceof EprEqualityAtom) {
@@ -118,9 +125,10 @@ public class EprTheory implements ITheory {
 			//          --> other theories may report their own conflicts..?
 			// (like standard DPLL)
 			
-			for ()
-
-//			markEprClausesFulfilled(literal);
+			for (EprClause ec : mLiteralToClauses.get(literal)) {
+				ec.setNonEprLiteral(literal);
+				updateFulFilledSets(ec);
+			}
 
 			System.out.println("EPRDEBUG: setLiteral, new fulfilled clauses: " + mFulfilledEprClauses);
 			System.out.println("EPRDEBUG: setLiteral, new not fulfilled clauses: " + mNotFulfilledEprClauses);
@@ -129,24 +137,15 @@ public class EprTheory implements ITheory {
 		}
 	}
 
-//	/**
-//	 * Changes the status of all EPR clauses from not fulfilled to fulfilled that contain
-//	 * the given literal. (To be called by setLiteral)
-//	 * @param literal
-//	 */
-//	private void markEprClausesFulfilled(Literal literal) {
-//		ArrayList<Clause> toRemove = new ArrayList<>();
-//		for (Clause c : mNotFulfilledEprClauses) {
-//			if (c.contains(literal)) {
-//				//TODO: when switching back to SimpleList some time: this code seems dubious, and there were some problems where the iterator returned a SimpleList --> connected??
-////					c.removeFromList();
-////					mFulfilledEprClauses.append(c);
-//				toRemove.add(c);
-//				mFulfilledEprClauses.add(c);
-//			}
-//		}
-//		mNotFulfilledEprClauses.removeAll(toRemove);
-//	}
+	private void updateFulFilledSets(EprClause ec) {
+		if (!ec.isFulfilled() && mFulfilledEprClauses.contains(ec)) {
+			mFulfilledEprClauses.remove(ec);
+			mNotFulfilledEprClauses.add(ec);
+		} else if (ec.isFulfilled() && mNotFulfilledEprClauses.contains(ec)) {
+			mNotFulfilledEprClauses.remove(ec);
+			mFulfilledEprClauses.add(ec);
+		}
+	}
 
 	@Override
 	public void backtrackLiteral(Literal literal) {
@@ -164,21 +163,22 @@ public class EprTheory implements ITheory {
 			if (literal.getSign() == 1) eprPred.unSetPointPositive((EprPredicateAtom) atom);
 			else 						eprPred.unSetPointNegative((EprPredicateAtom) atom);
 			
-			// update (non)fulfilled clauses
-			markEprClausesNotFulfilled(literal);
+			for (EprClause ec : mLiteralToClauses.get(literal)) {
+				updateFulFilledSets(ec);
+			}
+
 			return;
-//		} else if (atom instanceof EprAlmostAllAtom) {
-//			EprPredicate eprPred = ((EprAlmostAllAtom) atom).eprPredicate;
-//
-//			if (literal.getSign() == 1) eprPred.unSetAlmostAllAtomPositive((EprAlmostAllAtom) atom);
-//			else 						eprPred.unSetAlmostAllAtomNegative((EprAlmostAllAtom) atom);
-//
-//			return;
+
 		} else if (atom instanceof EprEqualityAtom) {
 			assert false : "DPLLEngine is unsetting a quantified EprAtom --> this cannot be..";
 			return;
 		} else {
-			markEprClausesNotFulfilled(literal);
+			// not an EprAtom 
+
+			for (EprClause ec : mLiteralToClauses.get(literal)) {
+				ec.UnsetNonEprLiteral(literal);
+				updateFulFilledSets(ec);
+			}
 
 			System.out.println("EPRDEBUG: backtrackLiteral, new fulfilled clauses: " + mFulfilledEprClauses);
 			System.out.println("EPRDEBUG: backtrackLiteral, new not fulfilled clauses: " + mNotFulfilledEprClauses);
@@ -272,7 +272,8 @@ public class EprTheory implements ITheory {
 		for (Clause c : mNotFulfilledEprClauses) {
 			EprClause ec = (EprClause) c;
 			if (ec.isUnitClause()) {
-				jyhgd
+				Literal unitLiteral = ec.getUnitClauseLiteral();
+//				if (unitLiteral instanceof Epr)
 			}
 		}
 		
@@ -419,149 +420,21 @@ public class EprTheory implements ITheory {
 		EprClause eprClause = new EprClause(lits, mTheory);
 		mEprClauses.add(eprClause);
 		mNotFulfilledEprClauses.add(eprClause);
-//		if (eprClause.isUnitClause)
-//			mEprUnitClauses.add(eprClause);
+		
+		for (Literal li : lits) {
+			updateLiteralToClauses(li, eprClause);
+		}
 	}
 
-//	/**
-//	 * Given some literals where at least one variable is free (thus implicitly forall-quantified), 
-//	 * inserts the clause into the eprTheory,
-//	 * and returns the corresponding almost-all clause which is to be added in the DPLLEngine
-//	 * @param lits
-//	 * @param hook
-//	 * @param proof
-//	 * @return
-//	 */
-//	public Literal[] createEprClause(Literal[] lits, ClauseDeletionHook hook, ProofNode proof) {
-//		//TODO: do something about hook and proof..
-//
-//		EprClause eprClause = new EprClause(lits);
-//		
-//		int noAlmostAllLiterals = lits.length;
-//		
-//		ArrayList<EprEqualityAtom> equalities = new ArrayList<>();
-//
-//		for (Literal l : lits) {
-//			if (l.getAtom() instanceof EprPredicateAtom
-//					&& ((EprPredicateAtom) l.getAtom()).isQuantified) {
-//				// Have the EprPredicates point to the clauses and literals they occur in.
-//				EprPredicate pred = ((EprPredicateAtom) l.getAtom()).eprPredicate;
-//				pred.addQuantifiedOccurence(l, eprClause);
-//			}
-//			
-//			if (l.getAtom() instanceof EprEqualityAtom) {
-//				noAlmostAllLiterals--;
-//				equalities.add((EprEqualityAtom) l.getAtom());
-//			}
-//		}
-//		
-////		mNotFulfilledEprClauses.append(eprClause);
-//		mNotFulfilledEprClauses.add(eprClause);
-//		
-//		//compute the "almost-all-clause", which will be inserted into the DPLL-engine
-//		// - quantified equalities are left out
-//		// - quantified predicates are converted to EprAlmostAllAtoms
-//		// - everything else is added to the clause as is
-//		Literal[] almostallClause = new Literal[noAlmostAllLiterals];
-//		for (Literal l : lits) {
-//			if (l.getAtom() instanceof EprEqualityAtom)
-//				continue;
-//
-//			if (l.getAtom() instanceof EprPredicateAtom 
-//					&& ((EprPredicateAtom) l.getAtom()).isQuantified) {
-//				EprPredicateAtom eprPred = (EprPredicateAtom) l.getAtom();
-//					
-//				EprAlmostAllAtom eaaa = getEprAlmostAllAtom(
-//								l.getAtom().getAssertionStackLevel(), 
-//								eprPred.eprPredicate, 
-//								eprPred.getArguments(),
-//								equalities,
-//								l.getSign() == -1);
-//
-//				almostallClause[--noAlmostAllLiterals] = l.getSign() == 1 ? eaaa : eaaa.negate();
-//
-//				continue;
-//			}
-//			
-//			almostallClause[--noAlmostAllLiterals] = l;
-//		}
-//
-//		return almostallClause;
-//	}
 	
-//	/**
-//	 * Compute a the almost-all signature from an ApplicationTerm.
-//	 * (Basically this means discovering which arguments repeat, and how.)
-//	 * @param arguments repetitions here are used to compute the signature
-//	 * @return
-//	 */
-//	private AAAtomSignature computeSignature(Term[] arguments, ArrayList<EprEqualityAtom> equations, boolean negated) {
-//		HashMap<Term, HashSet<Integer>> argToOccurences = new HashMap<>();
-//		for (int i = 0; i < arguments.length; i++) {
-//			Term t = arguments[i];
-//			HashSet<Integer> occ = argToOccurences.get(t);
-//			if (occ == null) {
-//				occ = new HashSet<>();
-//				argToOccurences.put(t, occ);
-//			}
-//			occ.add(i);
-//		}
-//		ArrayList<HashSet<Integer>> repetitionSig = new ArrayList<HashSet<Integer>>(arguments.length);
-//		for (int i = 0; i < arguments.length; i++) {
-//			repetitionSig.add(argToOccurences.get(arguments[i]));
-//		}
-//		
-//		ArrayList<HashSet<Integer>> nonReflSig = new ArrayList<>();
-//		for (EprEqualityAtom eea : equations) {
-//			if (eea.areBothQuantified()) {
-//				HashSet<Integer> eq = new HashSet<>();
-//				eq.addAll(argToOccurences.get(eea.getLhs()));
-//				eq.addAll(argToOccurences.get(eea.getRhs()));
-//				nonReflSig.add(eq);
-//			}
-//		}
-//
-//		return new AAAtomSignature(repetitionSig, nonReflSig, negated);
-//	}
-//	
-//	HashMap<EprPredicate, HashMap<AAAtomSignature, EprAlmostAllAtom>> mAlmostAllAtomsStore = new HashMap<>();
-
-//	/**
-//	 * Looks up a fitting atom in the store, makes a new one if there is none.
-//	 * @param assertionStackLevel
-//	 * @param eprPredicate
-//	 * @param argumentsForSignatureComputation
-//	 * @return
-//	 */
-//	private EprAlmostAllAtom getEprAlmostAllAtom(int assertionStackLevel, 
-//			EprPredicate eprPredicate, 
-//			Term[] argumentsForSignatureComputation, 
-//			ArrayList<EprEqualityAtom> equalities, 
-//			boolean negated) {
-//		//TODO: maybe replace the AlmostAllAtomsStore by a HashSet??
-//		AAAtomSignature signature = computeSignature(argumentsForSignatureComputation, equalities, negated);
-//		
-//		return getEprAlmostAllAtom(assertionStackLevel, eprPredicate, signature);
-//	}
-//
-//	EprAlmostAllAtom getEprAlmostAllAtom(int assertionStackLevel, EprPredicate eprPredicate,
-//			AAAtomSignature signature) {
-//		HashMap<AAAtomSignature, EprAlmostAllAtom> itm = mAlmostAllAtomsStore.get(eprPredicate);
-//		if (itm == null) {
-//			itm = new HashMap<>();
-//			mAlmostAllAtomsStore.put(eprPredicate, itm);
-//		}
-//		EprAlmostAllAtom eaaa = itm.get(signature);
-//		if (eaaa == null) {
-//			//TODO: good hash value
-//			Term t = mTheory.constant("<" + eprPredicate.functionSymbol.getName() + signature.toString() + ">", mTheory.getBooleanSort());
-//			eaaa = new EprAlmostAllAtom(t, 0, assertionStackLevel, eprPredicate, signature);
-//			mEngine.addAtom(eaaa);
-//			itm.put(signature, eaaa);
-//		} 
-//		return eaaa;
-//	}
-
+	void updateLiteralToClauses(Literal lit, EprClause c) {
+		HashSet<EprClause> clauses = mLiteralToClauses.get(lit);
+		if (clauses == null) {
+			clauses = new HashSet<EprClause>();
+			mLiteralToClauses.put(lit, clauses);
+		}
+		clauses.add(c);
+	}
 
 	/**
 	 * A term is an EPR atom, if it is
@@ -588,11 +461,13 @@ public class EprTheory implements ITheory {
 		return true;
 	}
 	
-	public List<Clause> getFulfilledClauses() {
+//	public List<Clause> getFulfilledClauses() {
+	public Set<Clause> getFulfilledClauses() {
 		return mFulfilledEprClauses;
 	}
 
-	public List<Clause> getNotFulfilledClauses() {
+//	public List<Clause> getNotFulfilledClauses() {
+	public Set<Clause> getNotFulfilledClauses() {
 		return mNotFulfilledEprClauses;
 	}
 
@@ -608,9 +483,4 @@ public class EprTheory implements ITheory {
 			return new EprPredicateAtom(idx, hash, assertionStackLevel, pred);
 		}
 	}
-
-	
-//	public Term getAlmostAllConstant() {
-//		return mAlmostAllConstant;
-//	}
 }

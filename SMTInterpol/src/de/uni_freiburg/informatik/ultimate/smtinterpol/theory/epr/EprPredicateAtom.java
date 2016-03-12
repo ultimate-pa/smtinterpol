@@ -6,7 +6,7 @@ import java.util.HashSet;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 
-public class EprPredicateAtom extends EprAtom {
+public abstract class EprPredicateAtom extends EprAtom {
 
 	public final EprPredicate eprPredicate;
 
