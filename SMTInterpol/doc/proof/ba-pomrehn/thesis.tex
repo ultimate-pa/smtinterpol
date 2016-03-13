@@ -313,7 +313,25 @@ F \lor \bot = F}
   (=\ (select\ a\ i)\ v)}
 \end{mathpar}
 
-Probleme:
+\subsubsection{Beispielbeweis}
+
+\newcounter{line}
+
+\begin{list}{\bf Zeile \arabic{line}:}{\usecounter{line}\it}
+\item (@clause
+\item \hspace*{5mm}(@eq
+\item \hspace*{10mm}(@eq
+\item \hspace*{15mm}@asserted (or c (not (or a b (not a)))))
+\item \hspace*{15mm}(@rewrite (! (= (or a b (not a)) true) :orTaut))
+\item \hspace*{15mm}(@rewrite (! (= (not true) false) :notSimp)
+\item \hspace*{15mm}(@rewrite (! (= (or c false) c) :orSimp)))
+\item \hspace*{10mm}(@intern (= c (! c :quoted))))
+\item \hspace*{5mm}(! c :quoted))
+\end{list}
+
+Im alten Beweisformat wird nicht darauf eingegangen in welchem Kontext das umzuschreibende Element auftaucht und ob es mehrfach auftritt. Die rewrite-Regeln werden einfach aufgesammelt. Zeile 5 - 7 sind die rewrite-Regeln. Zeile 4 wird asserted. Das Ergebnis des @eq in Zeile 3 ist c und das des @eqs aus Zeile 2 ist das gesamt Ergebnis (! c :quoted).
+
+
 
 \subsection{Neu}
 
@@ -322,7 +340,30 @@ Probleme:
 \uline{Transitivit"at}: Gibt f"ur einen Beweis f"ur (= a b) und (= b c) ein Beweis f"ur \mbox{(= a c)} zur"uck, die Regel soll links assoziativ sein\\
 \uline{Kongruenz}: Gibt f"ur einen Beweis f"ur (= s (f $t_1$ ... $t_n$)) und (= t t') einen Beweis f"ur (= s (f $t_1$' ... $t_n$')) wobei $t_i$' = t' falls $t_i$ = t und f"ur den Rest gilt $t_i$' = $t_i$.\\
 
+\subsubsection{Beispielbeweis}
 
+\begin{list}{\bf Zeile \arabic{line}:}{\usecounter{line}\it}
+\item (@clause
+\item \hspace*{5mm}(@eq
+\item \hspace*{10mm}(@asserted (or c (not (or a b (not a)))))
+\item \hspace*{10mm}(@trans
+\item \hspace*{15mm}(@cong
+\item \hspace*{20mm}(@refl (or c (not (or a b (not a)))))
+\item \hspace*{20mm}(@trans
+\item \hspace*{25mm}(@cong
+\item \hspace*{30mm}(@refl (not (or a b (not a))))
+\item \hspace*{28.5mm}(@rewrite (! (= (or a b (not a)) true) :orTaut)))
+\item \hspace*{23.5mm}(@rewrite (! (= (not true) false) :notSimp))))
+\item \hspace*{12.5mm}(@rewrite (! (= (or c false) c) :orSimp))
+\item \hspace*{12.5mm}(@intern (= c (! c :quoted)))))
+\item \hspace*{2.5mm}(! c :quoted))
+\end{list}
+
+Beim neuen Beweisformat wird mit der Kongruenz-Regel genau beschrieben an welcher Stelle ersetzt wird, was dann mit der Transitivität-Regel weiter umgeschrieben kann. In obigem Beweis wird mit der Kongruenz-Regel bis zur innersten Ersetzung abgestiegen und dort umgeschrieben. Die Eingabe sind die Reflexivität-Regel
+(@refl (not (or a b (not a)))) und der Rewrite-Schritt 
+(@rewrite (! (= (or a b (not a)) true) :orTaut))).
+Das Ergebnis ist der Beweis (= (not (or a b (not a) (not true)). Die drüber stehenden Transitivität liefert mit dem Beweis der Kongruenz und dem Rewrite-Schritt\, (@rewrite (! (= (not true) false) :notSimp))\, den Beweis für\, (= (not (or a b (not a)))\, false).
+Mit diesem Beweis und der Reflexivität-Regel, liefert die übergeordnete Kongruenz-Regel (= (or c (not (or a b (not a)))) (or c false)). Darauf folgt eine 3-fache Transitivität-Regel, die hat als Eingabe den Beweis der Kongruenz-Regel (= (or c (not (or a b (not a)))) (or c false)), die Rewrite-Schritt (@rewrite (! (= (or c false) c) :orSimp)) und den Intern-Schritt (@intern (= c (! c :quoted))))). Das Ergebnis ist der Beweis (= (or c (not (or a b (not a)))) (! c :quoted)) so das das @eq das gewünschte (! c :quoted) ausspuckt.
 
 \section{Entwurf}
 

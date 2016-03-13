@@ -1,3 +1,5 @@
+ALT:
+
 (@clause
 	(@eq 
 		(@eq 
@@ -28,8 +30,15 @@ NEU:
 		//	(=
 		//		(>= (- x (to_int x)) 1.0)
 		//		(>= (+ (- (to_real (to_int x))) x) 1.0))
-		(@cong  (@refl (>= (- x (to_int x)) 1.0))
-			(@trans (@rewrite (! (= (- x (to_int x)) (- x (to_real (to_int x)))) :desugar))
+		(@cong  
+		
+			(@refl (>= (- x (to_int x)) 1.0))
+		
+			//	(=
+			//		(- x (to_int x))
+			//		(+ (- (to_real (to_int x))) x))
+			(@trans 
+				(@rewrite (! (= (- x (to_int x)) (- x (to_real (to_int x)))) :desugar))
 				(@rewrite (! (= (- x (to_real (to_int x))) (+ (- (to_real (to_int x))) x)) :canonicalSum))))
 
 		(@rewrite (! (= (>= (+ (- (to_real (to_int x))) x) 1.0) (<= (+ (to_real (to_int x)) (- x) 1.0) 0.0)) :geqToLeq0))

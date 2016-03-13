@@ -11,58 +11,34 @@ ALT:
 	(! c :quoted))
 
 
-NEU:
+NEU: (wobei (@eq s (= s t)) einen Beweis für t liefert)
 
 (@clause
 
 	// (! c :quoted)
-	
-	(@eq 
+
+	(@eq
 		(@asserted (or c (not (or a b (not a)))))
-		
-		// (=
-		//		(or c (not (or a b (not a))))
-		//		(! c :quoted))
-			
-			
-		(@cong
-		
-			(@rewrite (! (= (or a b (not a)) true) :orTaut))
-					
-			//	(=	(or c (not true))
-			//		(! c :quoted)
-			//		)		
-					
-			(@cong		
-				(@rewrite (! (= (not true) false) :notSimp))
-			
-				//	(=
-				//		(or c false)
-				//		(! c :quoted))
-			
-			
+		// (= (or c (not (or a b (not a)))) (! c :quoted))
+		(@trans 
+			// (=
+			//	(or c (not (or a b (not a))))
+			//	(or c false))
+			(@cong 
+				(@refl (or c (not (or a b (not a)))))
+				// (=
+				//		(not (or a b (not a)))
+				//		false)
 				(@trans
-					(@rewrite (! (= (or c false) c) :orSimp)))
-					(@intern (= c (! c :quoted)))))
-(! c :quoted))
-
-
-
-FIXED:
-
-(@clause
-
-(@eq
- (@asserted (or c (not (or a b (not a)))))
- // proof for (= (or c (not (or a b (not a)))) (! c :quoted))
- (@trans // (= (or c (not (or a b (not a)))) (or c false))
-	 (@cong (@refl (or c (not (or a b (not a)))))
-		// (= (not (or a b (not a))) false)
-		(@trans	// (= (not (or a b (not a))) (not true))
-			(@cong (@refl (not (or a b (not a))))
-			       (@rewrite (! (= (or a b (not a)) true) :orTaut)))
-			(@rewrite (! (= (not true) false) :notSimp))))
-	 (@rewrite (! (= (or c false) c) :orSimp))
-	 (@intern (= c (! c :quoted)))))
+					// (= 
+					//		(not (or a b (not a)))
+					//		(not true))
+			
+					(@cong 
+						(@refl (not (or a b (not a))))
+						(@rewrite (! (= (or a b (not a)) true) :orTaut)))
+					(@rewrite (! (= (not true) false) :notSimp))))
+			(@rewrite (! (= (or c false) c) :orSimp))
+			(@intern (= c (! c :quoted)))))
 
 (! c :quoted))
