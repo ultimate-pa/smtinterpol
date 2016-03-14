@@ -13,8 +13,8 @@ import org.apache.log4j.Logger;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ClauseDeletionHook;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
@@ -278,7 +278,7 @@ public class EprTheory implements ITheory {
 			EprClause ec = (EprClause) c;
 			if (ec.isUnitClause()) {
 				Literal unitLiteral = ec.getUnitClauseLiteral();
-				if (unitLiteral instanceof EprQuantifiedPredicateAtom) {
+				if (unitLiteral.getAtom() instanceof EprQuantifiedPredicateAtom) {
 					/*
 					 * propagate a quantified predicate
 					 *  --> rules for first-order resolution apply
@@ -438,8 +438,18 @@ public class EprTheory implements ITheory {
 	 * @return
 	 */
 	public void addEprClause(Literal[] lits, ClauseDeletionHook hook, ProofNode proof) {
+		
+		// do alpha renaming of the quantified literals
+		// (would be nicer to do it in EprTheory.getLiteral, but this would mean we have to know
+		// which clause the literal is in, which we don't..)
+		// TODO would be to build the corresponding communication with the Clausifier..)
+//		Literal[] literalsRnmd = doAlphaRenaming(lits);
+		
 		//TODO: do something about hook and proof..
-		EprClause eprClause = new EprClause(lits, mTheory, mClauseCounter++);
+//		EprClause eprClause = new EprClause(literalsRnmd, mTheory);
+		EprClause eprClause = new EprClause(lits, mTheory);
+		
+		
 		mEprClauses.add(eprClause);
 		mNotFulfilledEprClauses.add(eprClause);
 		
@@ -448,7 +458,6 @@ public class EprTheory implements ITheory {
 		}
 	}
 
-	
 	void updateLiteralToClauses(Literal lit, EprClause c) {
 		HashSet<EprClause> clauses = mLiteralToClauses.get(lit);
 		if (clauses == null) {
@@ -493,7 +502,7 @@ public class EprTheory implements ITheory {
 		return mNotFulfilledEprClauses;
 	}
 
-	public EprAtom getEprAtom(ApplicationTerm idx, int hash, int assertionStackLevel) {
+	public EprAtom getEprAtom(ApplicationTerm idx, int hash, int assertionStackLevel, Object mCollector) {
 		if (idx.getFunction().getName().equals("=")) {
 			return new EprEqualityAtom(idx, hash, assertionStackLevel);
 		} else {
@@ -508,5 +517,46 @@ public class EprTheory implements ITheory {
 				return new EprQuantifiedPredicateAtom(idx, hash, assertionStackLevel, pred);
 			}
 		}
+	}
+
+	HashMap<Object, HashMap<TermVariable, Term>> mBuildClauseToAlphaRenamingSub = 
+			new HashMap<Object, HashMap<TermVariable,Term>>();
+
+//	public void notifyAboutNewClause(BuildClause buildClause) {
+	public void notifyAboutNewClause(Object buildClause) {
+		mBuildClauseToAlphaRenamingSub.put(buildClause, new HashMap<TermVariable, Term>());
+	}
+
+	private Literal[] doAlphaRenaming(Literal[] literals) {
+		Literal[] result = new Literal[literals.length];
+		
+		HashMap<TermVariable, Term> sub = new HashMap<TermVariable, Term>();
+		
+		for (int i = 0; i < literals.length; i++) {
+			if (literals[i].getAtom() instanceof EprQuantifiedPredicateAtom) {
+				boolean isPositive = literals[i].getSign() == 1;
+				EprQuantifiedPredicateAtom eqpa = (EprQuantifiedPredicateAtom) literals[i].getAtom();
+				TermTuple tt = eqpa.getArgumentsAsTermTuple();
+				
+				for (TermVariable fv : tt.getFreeVars()) {
+					if (sub.containsKey(fv))
+						continue;
+					sub.put(fv, mTheory.createFreshTermVariable(fv.getName(), fv.getSort()));
+				}
+				
+				TermTuple ttSub = tt.applySubstitution(sub);
+				EprQuantifiedPredicateAtom newAtom = new EprQuantifiedPredicateAtom(
+						mTheory.term(eqpa.eprPredicate.functionSymbol, ttSub.terms),
+						0,  //TODO make a good hash
+						eqpa.getAssertionStackLevel(), 
+						eqpa.eprPredicate);
+	
+				result[i] = isPositive ? newAtom : newAtom.negate();
+			} else {
+				result[i] = literals[i];
+			}
+		}
+	
+		return result;
 	}
 }

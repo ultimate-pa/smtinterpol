@@ -114,13 +114,21 @@ public class TermTuple {
 	public TermTuple applySubstitution(HashMap<TermVariable, Term> sub) {
 		Term[] newTerms = new Term[terms.length];
 		for (int i = 0; i < newTerms.length; i++)
-			if (terms[i] instanceof TermVariable)
-				if (sub.containsKey(terms[i]))
-					newTerms[i] = sub.get(terms[i]);
-				else
-					newTerms[i] = terms[i];
+			if (terms[i] instanceof TermVariable
+					&& sub.containsKey(terms[i]))
+				newTerms[i] = sub.get(terms[i]);
+			else
+				newTerms[i] = terms[i];
 		
+		assert nonNull(newTerms) : "substitution created a null-entry";
 		return new TermTuple(newTerms);
+	}
+	
+	private boolean nonNull(Term[] trms) {
+		for (Term t : trms)
+			if (t == null)
+				return false;
+		return true;
 	}
 	
 	public HashSet<TermVariable> getFreeVars() {

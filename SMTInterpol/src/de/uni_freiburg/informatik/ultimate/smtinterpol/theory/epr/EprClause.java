@@ -78,10 +78,12 @@ public class EprClause extends Clause {
 	// mExceptedPointsPerLiteral =
 	// new HashMap<Literal, HashMap<Integer, ArrayList<ApplicationTerm>>>();
 
-	public EprClause(Literal[] literals, Theory theory, int clauseIndex) {
+	public EprClause(Literal[] literals, Theory theory) {
+//	public EprClause(Literal[] literals, Theory theory) {
 		super(literals);
 		mTheory = theory;
-		setUpClause(literals, clauseIndex);
+//		setUpClause(literals, clauseIndex);
+		setUpClause(literals);
 	}
 
 	public EprClause(Literal[] literals, ProofNode proof, Theory theory) {
@@ -105,11 +107,9 @@ public class EprClause extends Clause {
 //		setUpClause(literals);
 	}
 
-	private void setUpClause(Literal[] literals, int clauseIndex) {
+//	private void setUpClause(Literal[] literals, int clauseIndex) {
+	private void setUpClause(Literal[] literals) {
 		
-		// for propagation later, we want the variables in each clause (i.e., quantifier scope) to be unique
-		literals = doAlphaRenaming(literals, clauseIndex);
-
 		// is this a unit clause upon creation?
 		if (literals.length == 1) {
 			mUnitLiteral = literals[0];
@@ -125,13 +125,7 @@ public class EprClause extends Clause {
 		}
 	}
 
-	private Literal[] doAlphaRenaming(Literal[] literals, int clauseIndex) {
-		Literal[] result = new Literal[literals.length];
-		
-		//TODO --> best do this in clausifier, right?
-		
-		return result;
-	}
+	
 
 	private void sortLiterals(Literal[] literals) {
 		int noQuantifiedEqualities = 0;

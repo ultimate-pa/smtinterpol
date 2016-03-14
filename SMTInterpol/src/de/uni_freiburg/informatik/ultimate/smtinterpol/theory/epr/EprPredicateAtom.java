@@ -9,7 +9,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 public abstract class EprPredicateAtom extends EprAtom {
 
 	public final EprPredicate eprPredicate;
-	TermTuple mArgsAsTermTuple = null;
+	private TermTuple mArgsAsTermTuple = null;
 
 	public EprPredicateAtom(ApplicationTerm term, int hash, int assertionstacklevel, EprPredicate pred) {
 		super(term, hash, assertionstacklevel);

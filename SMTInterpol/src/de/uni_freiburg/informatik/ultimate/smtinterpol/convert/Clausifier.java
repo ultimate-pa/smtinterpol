@@ -611,9 +611,7 @@ public class Clausifier {
 					// do basically the same as in BuildClause.perform()...
 					
 					Literal lit = createBooleanLit(at);
-					IProofTracker sub = mTracker.getDescendent();
-					sub.intern(at, lit);
-				
+			
 					//alex (begin)
 					boolean isDpllClause = true;
 					if (lit instanceof EprAtom
@@ -623,8 +621,12 @@ public class Clausifier {
 					}
 					if (isDpllClause) {
 					//alex (end)
-						addClause(new Literal[] {positive ? lit : lit.negate()},
-								null, getProofNewSource(sub.clause(mProofTerm)));
+
+					IProofTracker sub = mTracker.getDescendent();
+					sub.intern(at, lit);
+					addClause(new Literal[] {positive ? lit : lit.negate()},
+							null, getProofNewSource(sub.clause(mProofTerm)));
+
 					//alex (begin)
 					} else{
 						//TODO: replace the nulls
@@ -1168,7 +1170,7 @@ public class Clausifier {
 					//     (i.e. only the EPR-theory, not the DPLLEngine, will know it)
 					mCollector.getTracker().save();
 //					DPLLAtom eqAtom = eq.getLiteral();
-					DPLLAtom eprAtom = mEprTheory.getEprAtom((ApplicationTerm) idx, 0, 0);
+					DPLLAtom eprAtom = mEprTheory.getEprAtom((ApplicationTerm) idx, 0, 0, mCollector);
 //					mCollector.getTracker().eq(lhs, rhs, eqAtom);
 					mCollector.addLiteral(
 							positive ? eprAtom : eprAtom.negate(), mTerm);
@@ -1301,6 +1303,9 @@ public class Clausifier {
 		public BuildClause(Term proofTerm, Term original) {
 			this(LeafNode.NO_THEORY);
 			mProofTerm = proofTerm;
+			//alex begin
+			mEprTheory.notifyAboutNewClause(this);
+			//alex end
 		}
 		public void auxAxiom(Literal lit, Term res, Term base, Object auxData) {
 			mProofTerm = mSubTracker.auxAxiom(
@@ -2487,7 +2492,11 @@ public class Clausifier {
 				if (mTheory.getLogic().isQuantified()) {
 					// assuming right now that 
 					assert !term.getFunction().getName().equals("not") : "do something for the negated case!";
-					EprAtom atom = mEprTheory.getEprAtom(term, 0, mEngine.getAssertionStackLevel());//TODO: replace 0 by hash value
+
+					//FIXME: how to tell getEprAtom which clause we are in????
+//					EprAtom atom = mEprTheory.getEprAtom(term, 0, mEngine.getAssertionStackLevel());//TODO: replace 0 by hash value
+					EprAtom atom = mEprTheory.getEprAtom(term, 0, mEngine.getAssertionStackLevel(), null);//TODO: replace 0 by hash value
+
 					lit = atom;
 //					if (!atom.isQuantified)
 					if (atom instanceof EprGroundPredicateAtom)
