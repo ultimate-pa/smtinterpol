@@ -2,6 +2,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -52,20 +53,20 @@ public class TermTuple {
 		return sb.toString();
 	}
 
-	/**
-	 * something like "is unifiable" i think..
-	 * @param tt
-	 * @param exceptedConstants
-	 * @return
-	 */
-	public boolean matches(TermTuple tt, HashMap<Integer, ArrayList<ApplicationTerm>> exceptedConstants) {
-		// TODO Auto-generated method stub
-		return false;
-	}
+//	/**
+//	 * something like "is unifiable" i think..
+//	 * @param tt
+//	 * @param exceptedConstants
+//	 * @return
+//	 */
+//	public boolean matches(TermTuple tt, HashMap<Integer, ArrayList<ApplicationTerm>> exceptedConstants) {
+//		// TODO Auto-generated method stub
+//		return false;
+//	}
 	
 	
-	public HashMap<TermVariable, ApplicationTerm> match(TermTuple other) {
-		return match(other, new HashMap<TermVariable, ApplicationTerm>());
+	public HashMap<TermVariable, Term> match(TermTuple other) {
+		return match(other, new HashMap<TermVariable, Term>());
 	}
 
 	/**
@@ -74,12 +75,12 @@ public class TermTuple {
 	 * @param newSubs a substitution that constrains the matching of variables
 	 * @return a possibly more constrained substitution that is a unifier, null if there is no unifier
 	 */
-	public HashMap<TermVariable, ApplicationTerm> match(
+	public HashMap<TermVariable, Term> match(
 			TermTuple other,
-			HashMap<TermVariable, ApplicationTerm> subs) {
+			HashMap<TermVariable, Term> subs) {
 		assert this.arity == other.arity;
-		HashMap<TermVariable, ApplicationTerm> resultSubs = 
-				new HashMap<TermVariable, ApplicationTerm>(subs);//TODO: probably remove this copying (inserted it just to be safe..)
+		HashMap<TermVariable, Term> resultSubs = 
+				new HashMap<TermVariable, Term>(subs);//TODO: probably remove this copying (inserted it just to be safe..)
 		for (int i = 0; i < this.terms.length; i++) {
 			Term thisTerm = this.terms[i];
 			Term otherTerm = other.terms[i];
@@ -87,9 +88,9 @@ public class TermTuple {
 			if (thisTerm.equals(otherTerm)) {
 				//match -- > do nothing
 			} else if (otherTerm instanceof TermVariable) {
-				ApplicationTerm substitute = subs.get(otherTerm);
+				Term substitute = subs.get(otherTerm);
 				if (substitute == null) {
-					resultSubs.put((TermVariable) otherTerm, (ApplicationTerm) thisTerm);
+					resultSubs.put((TermVariable) otherTerm, thisTerm);
 				} else if (thisTerm.equals(substitute)) {
 					//match -- > do nothing
 				} else {
@@ -97,6 +98,8 @@ public class TermTuple {
 				}
 			}
 		}
+		assert this.applySubstitution(resultSubs).equals(other.applySubstitution(resultSubs)) 
+			: "the returned substitution should be a unifier";
 		return resultSubs;
 	}
 	
@@ -105,6 +108,26 @@ public class TermTuple {
 		boolean result = true;
 		for (Term t : terms)
 			result &= t.getFreeVars().length == 0;
+		return result;
+	}
+	
+	public TermTuple applySubstitution(HashMap<TermVariable, Term> sub) {
+		Term[] newTerms = new Term[terms.length];
+		for (int i = 0; i < newTerms.length; i++)
+			if (terms[i] instanceof TermVariable)
+				if (sub.containsKey(terms[i]))
+					newTerms[i] = sub.get(terms[i]);
+				else
+					newTerms[i] = terms[i];
+		
+		return new TermTuple(newTerms);
+	}
+	
+	public HashSet<TermVariable> getFreeVars() {
+		HashSet<TermVariable> result = new HashSet<>();
+		for (Term t : terms)
+			if (t instanceof TermVariable)
+				result.add((TermVariable) t);
 		return result;
 	}
 }

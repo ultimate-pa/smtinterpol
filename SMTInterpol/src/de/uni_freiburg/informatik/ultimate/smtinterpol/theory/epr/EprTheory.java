@@ -1,5 +1,6 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -44,6 +45,8 @@ public class EprTheory implements ITheory {
 	HashSet<Clause> mEprClauses = new HashSet<>();
 	HashSet<Clause> mFulfilledEprClauses = new HashSet<>();
 	HashSet<Clause> mNotFulfilledEprClauses = new HashSet<>();
+	
+	int mClauseCounter = 0;
 
 //	ArrayList<EprClause> mEprUnitClauses = new ArrayList<>();
 //	SimpleList<Clause> mFulfilledEprClauses = new SimpleList<>();
@@ -52,6 +55,8 @@ public class EprTheory implements ITheory {
 	HashMap<FunctionSymbol, EprPredicate> mEprPredicates = new HashMap<>();
 
 	HashMap<Literal, HashSet<EprClause>> mLiteralToClauses = new HashMap<Literal, HashSet<EprClause>>();
+	
+	ArrayDeque<Literal> mGroundLiteralsToPropagate = new ArrayDeque<Literal>();
 
 	private Theory mTheory;
 	private DPLLEngine mEngine;
@@ -126,7 +131,7 @@ public class EprTheory implements ITheory {
 			// (like standard DPLL)
 			
 			for (EprClause ec : mLiteralToClauses.get(literal)) {
-				ec.setNonEprLiteral(literal);
+				ec.setGroundLiteral(literal);
 				updateFulFilledSets(ec);
 			}
 
@@ -176,7 +181,7 @@ public class EprTheory implements ITheory {
 			// not an EprAtom 
 
 			for (EprClause ec : mLiteralToClauses.get(literal)) {
-				ec.UnsetNonEprLiteral(literal);
+				ec.unsetGroundLiteral(literal);
 				updateFulFilledSets(ec);
 			}
 
@@ -273,7 +278,32 @@ public class EprTheory implements ITheory {
 			EprClause ec = (EprClause) c;
 			if (ec.isUnitClause()) {
 				Literal unitLiteral = ec.getUnitClauseLiteral();
-//				if (unitLiteral instanceof Epr)
+				if (unitLiteral instanceof EprQuantifiedPredicateAtom) {
+					/*
+					 * propagate a quantified predicate
+					 *  --> rules for first-order resolution apply
+					 *  --> need to account for excepted points in the corresponding clause
+					 */
+					if (ec.mExceptedPoints.isEmpty()) {
+						//TODO: possibly optimize (so not all clauses have to be treated)
+						for (Clause otherClause : mEprClauses) {
+							EprClause otherEc = (EprClause) otherClause;
+							if (otherEc.equals(ec))
+								continue;
+							otherEc.setQuantifiedLiteral(unitLiteral);
+							updateFulFilledSets(otherEc);
+						}
+					} else {
+						throw new UnsupportedOperationException("todo: handle excepted points at first-order unit propagation");
+					}
+				} else {
+					/*
+					 * either an EprGroundAtom or a non EprAtom
+					 * (plan atm: don't propagate EprEqualities)
+					 * --> just propagate the literal through the normal means
+					 */
+					mGroundLiteralsToPropagate.add(unitLiteral);
+				}
 			}
 		}
 		
@@ -304,16 +334,8 @@ public class EprTheory implements ITheory {
 
 	@Override
 	public Literal getPropagatedLiteral() {
-		
-		// unit propagation for EPR clauses ?
-//		for (Clause c : mNotFulfilledEprClauses) {
-//			
-//		}
-		
-		// pure literal propagation for EPR clauses?
-
 		System.out.println("EPRDEBUG: getPropagatedLiteral");
-		return null;
+		return mGroundLiteralsToPropagate.pollFirst();
 	}
 
 	@Override
@@ -417,7 +439,7 @@ public class EprTheory implements ITheory {
 	 */
 	public void addEprClause(Literal[] lits, ClauseDeletionHook hook, ProofNode proof) {
 		//TODO: do something about hook and proof..
-		EprClause eprClause = new EprClause(lits, mTheory);
+		EprClause eprClause = new EprClause(lits, mTheory, mClauseCounter++);
 		mEprClauses.add(eprClause);
 		mNotFulfilledEprClauses.add(eprClause);
 		
@@ -480,7 +502,11 @@ public class EprTheory implements ITheory {
 				pred = new EprPredicate(idx.getFunction(), idx.getParameters().length);
 				mEprPredicates.put(idx.getFunction(), pred);
 			}
-			return new EprPredicateAtom(idx, hash, assertionStackLevel, pred);
+			if (idx.getFreeVars().length == 0) {
+				return new EprGroundPredicateAtom(idx, hash, assertionStackLevel, pred);
+			} else {
+				return new EprQuantifiedPredicateAtom(idx, hash, assertionStackLevel, pred);
+			}
 		}
 	}
 }

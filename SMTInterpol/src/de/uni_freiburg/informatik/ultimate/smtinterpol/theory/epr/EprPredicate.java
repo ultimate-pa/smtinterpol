@@ -103,7 +103,7 @@ public class EprPredicate {
 			for (Literal li : qo.getValue()) {
 				boolean oppositeSigns = li.getSign() == 1 ^ settingPositive;
 				TermTuple otherPoint = new TermTuple(((EprPredicateAtom) li.getAtom()).getArguments());
-				HashMap<TermVariable, ApplicationTerm> subs = point.match(otherPoint);
+				HashMap<TermVariable, Term> subs = point.match(otherPoint);
 				if (oppositeSigns && subs != null) {
 					clause.setLiteralUnfulfillable(li);
 				}
@@ -130,32 +130,32 @@ public class EprPredicate {
 		mNegativelySetPoints.remove(point);
 	}
 
-	/**
-	 * Answers the question, if, 
-	 *  - in the current decide state (communicated through setPoint-methods),
-	 *  - given some excepted variables where we don't care (because of equalities in the clause),
-	 *  - given a sign of the literal in which the predicate occurs in the current clause,
-	 * this predicate is "true".
-	 * Returns null if it is fulfilled, and a conflicting point if it is not.
-	 * @param isLiteralPositive true, iff, the literal occurs positive in the clause
-	 * @param literalSignature  the parameters of the literal's applicationTerm -- needed to see which are quantified and otherwise which constant is constrained
-	 * @param exceptedConstants parameter positions to constants where we don't need to fulfill the predicate
-	 */
-	public TermTuple check(boolean isLiteralPositive, TermTuple literalSignature, HashMap<Integer,ArrayList<ApplicationTerm>> exceptedConstants) {
-		HashSet<TermTuple> potentialConflictPoints = isLiteralPositive ?
-				mNegativelySetPoints :
-					mPositivelySetPoints;
-		
-		for (TermTuple tt : potentialConflictPoints) {
-			if (literalSignature.matches(tt, exceptedConstants)) {
-				//conflict!
-				return tt;
-			}
-		}
-		
-		// no conflict
-		return null;
-	}
+//	/**
+//	 * Answers the question, if, 
+//	 *  - in the current decide state (communicated through setPoint-methods),
+//	 *  - given some excepted variables where we don't care (because of equalities in the clause),
+//	 *  - given a sign of the literal in which the predicate occurs in the current clause,
+//	 * this predicate is "true".
+//	 * Returns null if it is fulfilled, and a conflicting point if it is not.
+//	 * @param isLiteralPositive true, iff, the literal occurs positive in the clause
+//	 * @param literalSignature  the parameters of the literal's applicationTerm -- needed to see which are quantified and otherwise which constant is constrained
+//	 * @param exceptedConstants parameter positions to constants where we don't need to fulfill the predicate
+//	 */
+//	public TermTuple check(boolean isLiteralPositive, TermTuple literalSignature, HashMap<Integer,ArrayList<ApplicationTerm>> exceptedConstants) {
+//		HashSet<TermTuple> potentialConflictPoints = isLiteralPositive ?
+//				mNegativelySetPoints :
+//					mPositivelySetPoints;
+//		
+//		for (TermTuple tt : potentialConflictPoints) {
+//			if (literalSignature.matches(tt, exceptedConstants)) {
+//				//conflict!
+//				return tt;
+//			}
+//		}
+//		
+//		// no conflict
+//		return null;
+//	}
 	
 	public void addQuantifiedOccurence(Literal l, EprClause eprClause) {
 		HashSet<Literal> val = mQuantifiedOccurences.get(eprClause);

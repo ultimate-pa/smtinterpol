@@ -19,19 +19,19 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 public abstract class EprAtom extends DPLLAtom {
 	
 	protected final Term mTerm;
-	public boolean isQuantified;
+//	public boolean isQuantified;
 
 	public EprAtom(Term term, int hash, int assertionstacklevel) {
 		super(hash, assertionstacklevel);
 		this.mTerm = term;
 	}
 
-	@Override
-	public Term getSMTFormula(Theory smtTheory, boolean quoted) {
-		// TODO Auto-generated method stub
-//		return null;
-		return mTerm;
-	}
+//	@Override
+//	public Term getSMTFormula(Theory smtTheory, boolean quoted) {
+//		// TODO Auto-generated method stub
+////		return null;
+//		return mTerm;
+//	}
 
 	@Override
 	public String toString() {

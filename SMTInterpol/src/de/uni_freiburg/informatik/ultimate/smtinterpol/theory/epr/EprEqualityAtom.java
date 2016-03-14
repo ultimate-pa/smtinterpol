@@ -3,6 +3,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
+import de.uni_freiburg.informatik.ultimate.logic.Theory;
 
 public class EprEqualityAtom extends EprAtom {
 	
@@ -13,8 +14,9 @@ public class EprEqualityAtom extends EprAtom {
 	public EprEqualityAtom(ApplicationTerm term, int hash, int assertionstacklevel) {
 		super(term, hash, assertionstacklevel);
 		assert term.getFunction().getName().equals("=");
+		assert term.getFreeVars().length > 0;
 
-		this.isQuantified = true;
+//		this.isQuantified = true;
 		
 		this.lhs = term.getParameters()[0];
 		this.rhs = term.getParameters()[1];
@@ -37,5 +39,12 @@ public class EprEqualityAtom extends EprAtom {
 	 */
 	public boolean areBothQuantified() {
 		return bothQuantified;
+	}
+
+	@Override
+	public Term getSMTFormula(Theory smtTheory, boolean quoted) {
+		// TODO Auto-generated method stub
+//		return null;
+		return mTerm;
 	}
 }

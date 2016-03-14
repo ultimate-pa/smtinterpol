@@ -68,8 +68,10 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAppTerm
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicateAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinArSolve;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.MutableAffinTerm;
@@ -1873,6 +1875,11 @@ public class Clausifier {
 	
 	DPLLAtom createAnonAtom(Term smtFormula) {
 		DPLLAtom atom = null;
+		//alex begin
+		/*
+		 * when inserting a cnf-auxvar (for tseitin-style encoding) in a quantified formula,
+		 *  we need it to depend on the currently active quantifiers
+		 */
 		if (mTheory.getLogic().isQuantified()
 				&& smtFormula.getFreeVars().length > 0) {
 			
@@ -1880,16 +1887,15 @@ public class Clausifier {
 			for (int i = 0; i < paramTypes.length; i++)
 				paramTypes[i] = smtFormula.getFreeVars()[i].getSort();
 			
-//			FunctionSymbol fs = mTheory.getFunction(String.format("AUX({})", smtFormula.toString()), paramTypes);
 			FunctionSymbol fs = mTheory.declareFunction(
-//					String.format("AUX{}", smtFormula.toString()), 
 					"AUX(" + smtFormula.toString() + ")", 
 					paramTypes,
 					mTheory.getBooleanSort());
 			EprPredicate eprPred = new EprPredicate(fs, smtFormula.getFreeVars().length);
-			atom = new EprPredicateAtom(mTheory.term(fs, smtFormula.getFreeVars()), 
+			atom = new EprQuantifiedPredicateAtom(mTheory.term(fs, smtFormula.getFreeVars()), 
 					0, mStackLevel, eprPred);	//TODO add good hash value
 		} else {
+		//alex end
 			atom = new NamedAtom(smtFormula, mStackLevel);
 		}
 		mEngine.addAtom(atom);
@@ -2483,7 +2489,8 @@ public class Clausifier {
 					assert !term.getFunction().getName().equals("not") : "do something for the negated case!";
 					EprAtom atom = mEprTheory.getEprAtom(term, 0, mEngine.getAssertionStackLevel());//TODO: replace 0 by hash value
 					lit = atom;
-					if (!atom.isQuantified)
+//					if (!atom.isQuantified)
+					if (atom instanceof EprGroundPredicateAtom)
 						mEngine.addAtom(atom);
 				} else {
 					// replace a predicate atom "(p x)" by "(p x) = true"

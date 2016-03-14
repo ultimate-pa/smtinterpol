@@ -2,6 +2,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map.Entry;
@@ -49,6 +50,8 @@ public class EprClause extends Clause {
 	 * equalities...
 	 */
 	HashMap<TermVariable, ArrayList<ApplicationTerm>> mExceptedPoints = new HashMap<TermVariable, ArrayList<ApplicationTerm>>();
+	
+//	int mClauseIndex = 0;
 
 	private Literal mUnitLiteral;
 
@@ -75,45 +78,59 @@ public class EprClause extends Clause {
 	// mExceptedPointsPerLiteral =
 	// new HashMap<Literal, HashMap<Integer, ArrayList<ApplicationTerm>>>();
 
-	public EprClause(Literal[] literals, Theory theory) {
+	public EprClause(Literal[] literals, Theory theory, int clauseIndex) {
 		super(literals);
 		mTheory = theory;
-		setUpClause(literals);
+		setUpClause(literals, clauseIndex);
 	}
 
 	public EprClause(Literal[] literals, ProofNode proof, Theory theory) {
 		super(literals, proof);
-		mTheory = theory;
-		setUpClause(literals);
+		throw new UnsupportedOperationException();
+//		mTheory = theory;
+//		setUpClause(literals);
 	}
 
 	public EprClause(Literal[] literals, int stacklevel, Theory theory) {
 		super(literals, stacklevel);
-		mTheory = theory;
-		setUpClause(literals);
+		throw new UnsupportedOperationException();
+//		mTheory = theory;
+//		setUpClause(literals);
 	}
 
 	public EprClause(Literal[] literals, ResolutionNode proof, int stacklevel, Theory theory) {
 		super(literals, proof, stacklevel);
-		mTheory = theory;
-		setUpClause(literals);
+		throw new UnsupportedOperationException();
+//		mTheory = theory;
+//		setUpClause(literals);
 	}
 
-	private void setUpClause(Literal[] literals) {
+	private void setUpClause(Literal[] literals, int clauseIndex) {
+		
+		// for propagation later, we want the variables in each clause (i.e., quantifier scope) to be unique
+		literals = doAlphaRenaming(literals, clauseIndex);
 
+		// is this a unit clause upon creation?
 		if (literals.length == 1) {
 			mUnitLiteral = literals[0];
 		}
 
+		// sort the literals into the different categories
 		sortLiterals(literals);
 
+		// set fulfillability status
 		mNoFulfillableLiterals = 0;
 		for (Literal li : eprQuantifiedPredicateLiterals) {
 			setLiteralFulfillable(li);
 		}
-//		for (Literal li : nonEprLiterals) {
-//			setLiteralFulfillable(li);
-//		} //--> will be set through DPLLEngine, right?..
+	}
+
+	private Literal[] doAlphaRenaming(Literal[] literals, int clauseIndex) {
+		Literal[] result = new Literal[literals.length];
+		
+		//TODO --> best do this in clausifier, right?
+		
+		return result;
 	}
 
 	private void sortLiterals(Literal[] literals) {
@@ -207,7 +224,7 @@ public class EprClause extends Clause {
 		ArrayDeque<TermTuple> pointsFromLiterals = computePointsFromLiterals(eprQuantifiedPredicateLiterals);
 
 		ArrayList<ArrayList<TermTuple>> instantiations = computeInstantiations(new ArrayList<ArrayList<TermTuple>>(),
-				conflictPointSets, pointsFromLiterals, new HashMap<TermVariable, ApplicationTerm>(), true);
+				conflictPointSets, pointsFromLiterals, new HashMap<TermVariable, Term>(), true);
 
 		// if there is a fitting instantiation, it directly induces a conflict
 		// clause
@@ -222,8 +239,6 @@ public class EprClause extends Clause {
 
 	private Clause clauseFromInstantiation(ArrayList<EprPredicate> predicates, ArrayList<TermTuple> points,
 			ArrayList<Boolean> polarities) {
-		// ArrayList<EprPredicateAtom> result = new
-		// ArrayList<EprPredicateAtom>();
 		ArrayList<Literal> result = new ArrayList<Literal>();
 		for (int i = 0; i < predicates.size(); i++) {
 			// EprPredicateAtom epa = new EprPredicateAtom(
@@ -273,7 +288,7 @@ public class EprClause extends Clause {
 	 */
 	private ArrayList<ArrayList<TermTuple>> computeInstantiations(ArrayList<ArrayList<TermTuple>> instantiations,
 			ArrayDeque<HashSet<TermTuple>> conflictPointSets, ArrayDeque<TermTuple> pointsFromLiterals,
-			HashMap<TermVariable, ApplicationTerm> substitution, boolean isFirstCall) {
+			HashMap<TermVariable, Term> substitution, boolean isFirstCall) {
 		// TODO: might be better to rework this as NonRecursive
 
 		if (conflictPointSets.isEmpty())
@@ -283,7 +298,7 @@ public class EprClause extends Clause {
 		TermTuple currentPfl = pointsFromLiterals.pollFirst();
 
 		for (TermTuple tt : currentPoints) {
-			HashMap<TermVariable, ApplicationTerm> newSubs = new HashMap<TermVariable, ApplicationTerm>(substitution);
+			HashMap<TermVariable, Term> newSubs = new HashMap<TermVariable, Term>(substitution);
 			newSubs = tt.match(currentPfl, newSubs);
 
 			if (isSubstitutionExcepted(newSubs)) {
@@ -318,8 +333,8 @@ public class EprClause extends Clause {
 	 * 
 	 * returns true iff newSubs corresponds to at least one excepted point
 	 */
-	private boolean isSubstitutionExcepted(HashMap<TermVariable, ApplicationTerm> newSubs) {
-		for (Entry<TermVariable, ApplicationTerm> en : newSubs.entrySet()) {
+	private boolean isSubstitutionExcepted(HashMap<TermVariable, Term> newSubs) {
+		for (Entry<TermVariable, Term> en : newSubs.entrySet()) {
 			ArrayList<ApplicationTerm> epCon = mExceptedPoints.get(en.getKey());
 			if (epCon != null && epCon.contains(en.getValue()))
 				return true;
@@ -365,7 +380,7 @@ public class EprClause extends Clause {
 		return mUnitLiteral != null;
 	}
 
-	public void setNonEprLiteral(Literal literal) {
+	public void setGroundLiteral(Literal literal) {
 		for (Literal li : groundLiterals) {
 			if (literal.getAtom().equals(li.getAtom())) {
 				if (literal.getSign() == li.getSign()) {
@@ -380,7 +395,7 @@ public class EprClause extends Clause {
 	
 	}
 
-	public void UnsetNonEprLiteral(Literal literal) {
+	public void unsetGroundLiteral(Literal literal) {
 		for (Literal li : groundLiterals) {
 			if (literal.getAtom().equals(li.getAtom())) {
 				if (literal.getSign() == li.getSign()) {
@@ -404,5 +419,75 @@ public class EprClause extends Clause {
 		return mFulfilledLiterals.size() > 0;
 	}
 
+	public void setQuantifiedLiteral(Literal unitLiteral) {
+		boolean positive = unitLiteral.getSign() == 1;
+		EprPredicateAtom atom = (EprPredicateAtom) unitLiteral.getAtom();
+		
+		ArrayList<Literal> predicateLiterals = new ArrayList<>();
+		predicateLiterals.addAll(Arrays.asList(eprQuantifiedPredicateLiterals));
+		for (Literal l : groundLiterals) 
+			if (l instanceof EprGroundPredicateAtom)
+				predicateLiterals.add(l);
+		
+		for (Literal otherLit : predicateLiterals) {
+			boolean otherPositive = otherLit.getSign() == 1;
+			EprPredicateAtom otherAtom = (EprPredicateAtom) otherLit.getAtom();
+			boolean otherIsQuantified = otherAtom instanceof EprQuantifiedPredicateAtom;
+
+			// do the eprPredicates match? do nothing if they don't
+			if (!otherAtom.eprPredicate.equals(atom.eprPredicate)) 
+				continue;
+
+			// is there a unifier?
+			TermTuple atomArgs = atom.getArgumentsAsTermTuple();
+			TermTuple otherArgs = otherAtom.getArgumentsAsTermTuple();
+			HashMap<TermVariable, Term> sub = otherArgs.match(atomArgs);
+
+			// if there is no unifier, do nothing
+			if (sub == null)
+				continue;
+			
+			// if the unifier is trivial, update this clauses satisfiability status accordingly
+			if (isUnifierTrivial(sub, atomArgs, otherArgs)) {
+				
+				// if the signs match, the clause is fulfilled
+				if (positive == otherPositive
+						&& otherIsQuantified) {
+					//setLiteralFulfilled
+				} else if (positive != otherPositive
+						&& otherIsQuantified) {
+					setLiteralUnfulfillable(otherLit);
+				} else if (positive == otherPositive
+						&& !otherIsQuantified) {
+
+				} else {
+					// 
+
+				}
+			
+				continue;
+			} else {
+				// if the unifier is non-trivial, create a new clause
+				
+			}
+			
+		}
+	}
+
+	/**
+	 * A unifier (substitution) is trivial wrt. two TermTuples
+	 *   iff 
+	 *  (- it only substitues variables with variables)
+	 *  - each TermTuple has the same number of variables after unification as before
+	 * @param sub
+	 * @return
+	 */
+	private boolean isUnifierTrivial(HashMap<TermVariable, Term> sub, TermTuple tt1, TermTuple tt2) {
+		if (tt1.applySubstitution(sub).getFreeVars().size() != tt1.getFreeVars().size())
+			return false;
+		if (tt2.applySubstitution(sub).getFreeVars().size() != tt2.getFreeVars().size())
+			return false;
+		return true;
+	}
 
 }
