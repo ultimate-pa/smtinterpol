@@ -26,6 +26,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.SimpleList;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.model.Model;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.model.SharedTermEvaluator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofNode;
+import de.uni_freiburg.informatik.ultimate.util.ScopedHashSet;
 
 public class EprTheory implements ITheory {
 
@@ -61,7 +62,12 @@ public class EprTheory implements ITheory {
 	private Theory mTheory;
 	private DPLLEngine mEngine;
 
-//	private Term mAlmostAllConstant;
+	HashMap<Object, HashMap<TermVariable, Term>> mBuildClauseToAlphaRenamingSub = 
+			new HashMap<Object, HashMap<TermVariable,Term>>();
+	
+	ScopedHashSet<Literal> mCurrentlySetQuantifiedLiterals = new ScopedHashSet<>();
+
+	//	private Term mAlmostAllConstant;
 //	
 	public EprTheory(Theory th, DPLLEngine engine) {
 		mTheory = th;
@@ -88,6 +94,8 @@ public class EprTheory implements ITheory {
 	@Override
 	public Clause setLiteral(Literal literal) {
 		System.out.println("EPRDEBUG: setLiteral " + literal);
+		
+		mCurrentlySetQuantifiedLiterals.beginScope();
 
 		// does this literal occur in any of the EprClauses?
 		// --> then check for satisfiability
@@ -155,8 +163,13 @@ public class EprTheory implements ITheory {
 	@Override
 	public void backtrackLiteral(Literal literal) {
 		System.out.println("EPRDEBUG: backtrackLiteral");
-
 		// .. dual to setLiteral
+		
+		//TODO: 
+//		for (Literal l : mCurrentlySetQuantifiedLiterals.currentScope()) {//FIXME is currentScope only the innermost, or all??
+//			//undo what setting them did..
+//		}
+		mCurrentlySetQuantifiedLiterals.endScope();
 
 		DPLLAtom atom = literal.getAtom();
 		
@@ -274,9 +287,12 @@ public class EprTheory implements ITheory {
 	 */
 	private void eprPropagate() {
 
+		//unit propagation
 		for (Clause c : mNotFulfilledEprClauses) {
 			EprClause ec = (EprClause) c;
 			if (ec.isUnitClause()) {
+
+				System.out.println("EPRDEBUG: found unit clause: " + ec);
 				Literal unitLiteral = ec.getUnitClauseLiteral();
 				if (unitLiteral.getAtom() instanceof EprQuantifiedPredicateAtom) {
 					/*
@@ -288,14 +304,15 @@ public class EprTheory implements ITheory {
 						//TODO: possibly optimize (so not all clauses have to be treated)
 						for (Clause otherClause : mEprClauses) {
 							EprClause otherEc = (EprClause) otherClause;
-							if (otherEc.equals(ec))
-								continue;
 							otherEc.setQuantifiedLiteral(unitLiteral);
 							updateFulFilledSets(otherEc);
+							int i = 0;
+							i++;
 						}
 					} else {
 						throw new UnsupportedOperationException("todo: handle excepted points at first-order unit propagation");
 					}
+					mCurrentlySetQuantifiedLiterals.add(unitLiteral); //FIXME: when adding excepted points somethin has to be done here, too
 				} else {
 					/*
 					 * either an EprGroundAtom or a non EprAtom
@@ -456,6 +473,12 @@ public class EprTheory implements ITheory {
 		for (Literal li : lits) {
 			updateLiteralToClauses(li, eprClause);
 		}
+		
+		// account for the current decide status of quantified literals
+		for (Literal qLit : mCurrentlySetQuantifiedLiterals) {
+			eprClause.setQuantifiedLiteral(qLit);
+			updateFulFilledSets(eprClause);
+		}
 	}
 
 	void updateLiteralToClauses(Literal lit, EprClause c) {
@@ -503,8 +526,11 @@ public class EprTheory implements ITheory {
 	}
 
 	public EprAtom getEprAtom(ApplicationTerm idx, int hash, int assertionStackLevel, Object mCollector) {
+		
 		if (idx.getFunction().getName().equals("=")) {
-			return new EprEqualityAtom(idx, hash, assertionStackLevel);
+		    ApplicationTerm subTerm = applyAlphaRenaming(idx, mCollector);
+//			return new EprEqualityAtom(idx, hash, assertionStackLevel);
+			return new EprEqualityAtom(subTerm, hash, assertionStackLevel);
 		} else {
 			EprPredicate pred = mEprPredicates.get(idx.getFunction());
 			if (pred == null) {
@@ -514,15 +540,38 @@ public class EprTheory implements ITheory {
 			if (idx.getFreeVars().length == 0) {
 				return new EprGroundPredicateAtom(idx, hash, assertionStackLevel, pred);
 			} else {
-				return new EprQuantifiedPredicateAtom(idx, hash, assertionStackLevel, pred);
+				ApplicationTerm subTerm = applyAlphaRenaming(idx, mCollector);
+//				return new EprQuantifiedPredicateAtom(idx, hash, assertionStackLevel, pred);
+				return new EprQuantifiedPredicateAtom(subTerm, hash, assertionStackLevel, pred);
 			}
 		}
 	}
 
-	HashMap<Object, HashMap<TermVariable, Term>> mBuildClauseToAlphaRenamingSub = 
-			new HashMap<Object, HashMap<TermVariable,Term>>();
+	private ApplicationTerm applyAlphaRenaming(ApplicationTerm idx, Object mCollector) {
+		TermTuple tt = new TermTuple(idx.getParameters());
 
-//	public void notifyAboutNewClause(BuildClause buildClause) {
+		HashMap<TermVariable, Term> sub;
+		// mCollector is a BuildClause-Object 
+		// --> we need to apply the same substitution in every literal of the clause..
+		if (mCollector != null) {
+			sub = mBuildClauseToAlphaRenamingSub.get(mCollector);
+		} else {
+			// if mCollector is null, this means we are in a unit clause (i think...), 
+			// and we can just use a fresh substitution
+			sub = new HashMap<>();
+		}
+
+		for (TermVariable fv : idx.getFreeVars()) {
+			if (sub.containsKey(fv))
+				continue;
+			sub.put(fv, mTheory.createFreshTermVariable(fv.getName(), fv.getSort()));
+		}
+		TermTuple ttSub = tt.applySubstitution(sub);
+		ApplicationTerm subTerm = mTheory.term(idx.getFunction(), ttSub.terms);
+		return subTerm;
+	}
+
+	//	public void notifyAboutNewClause(BuildClause buildClause) {
 	public void notifyAboutNewClause(Object buildClause) {
 		mBuildClauseToAlphaRenamingSub.put(buildClause, new HashMap<TermVariable, Term>());
 	}

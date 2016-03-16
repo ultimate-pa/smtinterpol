@@ -413,9 +413,26 @@ public class EprClause extends Clause {
 		return mFulfilledLiterals.size() > 0;
 	}
 
-	public void setQuantifiedLiteral(Literal unitLiteral) {
-		boolean positive = unitLiteral.getSign() == 1;
-		EprPredicateAtom atom = (EprPredicateAtom) unitLiteral.getAtom();
+	/**
+	 * Update the current solverstate wrt this clause according to the setting of qLiteral.
+	 *  - If qLiteral occurs in this clause "as is" (i.e. only trivial unification is needed), 
+	 *    this means that we can update the clause in-place, DPLL-style, i.e., update the
+	 *    fulfillability-status of the literals, or the whole clause
+	 *      (TODO: what if there is no unifier? what about factoring?)
+	 *  - If the clause has a literal using the same eprPredicate as qLiteral 
+	 *   -- .. and that has an opposite sign, we return a fresh clause that follows 
+	 *     through first-order resolution with the unit-clause containing qLiteral
+	 *   -- .. and that has the same sign, and qLiteral is more general than the literal
+	 *      in this clause, we mark this literal as fulfilled.. (..?) 
+	 *        (--> EprTheory will then mark the whole clause fulfilled)
+	 *   -- .. and that has the same sign, and qLiteral is -not- more general than the 
+	 *      literal in the clause, we do nothing
+	 * @param qLiteral
+	 * @return a fresh EprClause that follows from first-order resolution with qLiteral
+	 */
+	public EprClause setQuantifiedLiteral(Literal qLiteral) {
+		boolean positive = qLiteral.getSign() == 1;
+		EprPredicateAtom atom = (EprPredicateAtom) qLiteral.getAtom();
 		
 		ArrayList<Literal> predicateLiterals = new ArrayList<>();
 		predicateLiterals.addAll(Arrays.asList(eprQuantifiedPredicateLiterals));
@@ -436,36 +453,57 @@ public class EprClause extends Clause {
 			TermTuple atomArgs = atom.getArgumentsAsTermTuple();
 			TermTuple otherArgs = otherAtom.getArgumentsAsTermTuple();
 			HashMap<TermVariable, Term> sub = otherArgs.match(atomArgs);
+//			HashMap<TermVariable, Term> sub = atomArgs.match(otherArgs);//TODO does not work this way, seems fishy..
 
 			// if there is no unifier, do nothing
 			if (sub == null)
 				continue;
 			
-			// if the unifier is trivial, update this clauses satisfiability status accordingly
+			// if the unifier is trivial, update this clauses' satisfiability status accordingly
 			if (isUnifierTrivial(sub, atomArgs, otherArgs)) {
 				
 				// if the signs match, the clause is fulfilled
 				if (positive == otherPositive
 						&& otherIsQuantified) {
-					//setLiteralFulfilled
+					setLiteralFulfillable(otherLit);
+					assert !mFulfilledLiterals.contains(otherAtom);
+					mFulfilledLiterals.add(otherLit);
 				} else if (positive != otherPositive
 						&& otherIsQuantified) {
 					setLiteralUnfulfillable(otherLit);
+					assert !mFulfilledLiterals.contains(otherAtom);
 				} else if (positive == otherPositive
 						&& !otherIsQuantified) {
-
+					setGroundLiteral(otherLit);
 				} else {
-					// 
-
+					setLiteralFulfillable(otherLit);
 				}
 			
-				continue;
+				//TODO: deal with the case where several literals have the same predicate as qLiteral
+				return null;
 			} else {
 				// if the unifier is non-trivial, create a new clause
+				ArrayList<Literal> newLits = new ArrayList<Literal>();
+				newLits.addAll(Arrays.asList(groundLiterals));
+				for (Literal l : eprEqualityLiterals)
+					newLits.add(applySubstitution(sub, l));
+				for (Literal l : eprQuantifiedPredicateLiterals) {
+					if (l.equals(otherLit))
+						continue;
+					newLits.add(applySubstitution(sub, l));
+				}
 				
+				return new EprClause(newLits.toArray(new Literal[newLits.size()]), mTheory);
 			}
-			
 		}
+		return null;
+	}
+
+
+	private Literal applySubstitution(HashMap<TermVariable, Term> sub, Literal l) {
+		// TODO Auto-generated method stub
+
+		return null;
 	}
 
 	/**

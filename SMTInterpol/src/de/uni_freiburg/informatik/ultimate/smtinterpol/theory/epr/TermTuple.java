@@ -96,6 +96,15 @@ public class TermTuple {
 				} else {
 					return null; //no match
 				}
+			} else if (thisTerm instanceof TermVariable) {
+				Term substitute = subs.get(thisTerm);
+				if (substitute == null) {
+					resultSubs.put((TermVariable) thisTerm, otherTerm);
+				} else if (otherTerm.equals(substitute)) {
+					//match -- > do nothing
+				} else {
+					return null; //no match
+				}
 			}
 		}
 		assert this.applySubstitution(resultSubs).equals(other.applySubstitution(resultSubs)) 
