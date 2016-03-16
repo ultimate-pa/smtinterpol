@@ -1034,47 +1034,31 @@ public class Theory {
 			}
 		});
 
+		/*
+		 * Used to create Constants of the Floating Point theory
+		 */
+		class FloatingPointConstant extends FunctionSymbolFactory {
+			public FloatingPointConstant(String name) {
+				super(name);
+			}
+			@Override
+			public Sort getResultSort(BigInteger[] indices, Sort[] paramSorts,
+					Sort resultSort) {
+				if (indices.length != 2 || 
+					paramSorts.length != 0 || resultSort != null){
+					return null;
+				}
+				return mFloatingPointSort.getSort(indices, new Sort[0] );
+			}
+		}
 		// +/- infinity
-		defineFunction(new FunctionSymbolFactory("+oo") {
-			@Override
-			public Sort getResultSort(BigInteger[] indices, Sort[] paramSorts,
-					Sort resultSort) {
-				return mFloatingPointSort.getSort(indices, new Sort[0] );
-			}
-		});
-
-		defineFunction(new FunctionSymbolFactory("-oo") {
-			@Override
-			public Sort getResultSort(BigInteger[] indices, Sort[] paramSorts,
-					Sort resultSort) {
-				return mFloatingPointSort.getSort(indices, new Sort[0] );
-			}
-		});
-
+		defineFunction(new FloatingPointConstant("+oo"));
+		defineFunction(new FloatingPointConstant("-oo"));
 		// +/- zero
-		defineFunction(new FunctionSymbolFactory("+zero") {
-			@Override
-			public Sort getResultSort(BigInteger[] indices, Sort[] paramSorts,
-					Sort resultSort) {
-				return mFloatingPointSort.getSort(indices, new Sort[0] );
-			}
-		});
+		defineFunction(new FloatingPointConstant("+zero"));
+		defineFunction(new FloatingPointConstant("-zero"));
 
-		defineFunction(new FunctionSymbolFactory("-zero") {
-			@Override
-			public Sort getResultSort(BigInteger[] indices, Sort[] paramSorts,
-					Sort resultSort) {
-				return mFloatingPointSort.getSort(indices, new Sort[0] );
-			}
-		});
-
-		defineFunction(new FunctionSymbolFactory("NaN") {
-			@Override
-			public Sort getResultSort(BigInteger[] indices, Sort[] paramSorts,
-					Sort resultSort) {
-				return mFloatingPointSort.getSort(indices, new Sort[0] );
-			}
-		});
+		defineFunction(new FloatingPointConstant("NaN"));
 
 		//short forms of common floats
 		defineSort("Float16", 0, mFloatingPointSort.getSort(new BigInteger[]{new BigInteger("5"), new BigInteger("11")}));
