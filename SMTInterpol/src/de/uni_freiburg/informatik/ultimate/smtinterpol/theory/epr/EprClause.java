@@ -36,6 +36,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ResolutionNode;
  *       if, e.g. through unit propagation, all points concerned by the quantified predicate are set the right way
  */
 public class EprClause extends Clause {
+	
+	enum FulfillabilityStatus { Fulfilled, Fulfillable, Unfulfillable };
 
 	Literal[] eprEqualityLiterals;
 	Literal[] eprQuantifiedPredicateLiterals;
@@ -74,15 +76,14 @@ public class EprClause extends Clause {
 	
 	HashSet<Literal> mFulfilledLiterals = new HashSet<Literal>();
 
-	// HashMap<Literal, HashMap<Integer, ArrayList<ApplicationTerm>>>
-	// mExceptedPointsPerLiteral =
-	// new HashMap<Literal, HashMap<Integer, ArrayList<ApplicationTerm>>>();
+	/**
+	 * The eprClause this clause has been instantiated from.
+	 */
+	EprClause mExplanation = null;
 
 	public EprClause(Literal[] literals, Theory theory) {
-//	public EprClause(Literal[] literals, Theory theory) {
 		super(literals);
 		mTheory = theory;
-//		setUpClause(literals, clauseIndex);
 		setUpClause(literals);
 	}
 
@@ -199,7 +200,7 @@ public class EprClause extends Clause {
 	 * 
 	 * @return null if this clause is fulfilled, a conflict clause otherwise
 	 */
-	public Clause check() {
+	public Clause check(EprStateManager esm) {
 
 		ArrayDeque<HashSet<TermTuple>> conflictPointSets = new ArrayDeque<>();
 
@@ -207,8 +208,7 @@ public class EprClause extends Clause {
 			EprPredicateAtom epa = (EprPredicateAtom) l.getAtom();
 			EprPredicate ep = epa.eprPredicate;
 
-			HashSet<TermTuple> potentialConflictPoints = l.getSign() == 1 ? ep.mNegativelySetPoints
-					: ep.mPositivelySetPoints;
+			HashSet<TermTuple> potentialConflictPoints = esm.getPoints(l.getSign() == 1, ep);
 
 			conflictPointSets.add(potentialConflictPoints);
 		}
@@ -336,6 +336,9 @@ public class EprClause extends Clause {
 		return false;
 	}
 
+	/**
+	 * @return the only literal in the clause that is still fulfillable, null, if there is no such literal
+	 */
 	public Literal getUnitClauseLiteral() {
 		assert mUnitLiteral != null;
 
@@ -365,15 +368,6 @@ public class EprClause extends Clause {
 		}
 	}
 	
-	
-//	public void setLiteralFulfilled(Literal li) {
-//		
-//	}
-	
-	public boolean isUnitClause() {
-		return mUnitLiteral != null;
-	}
-
 	public void setGroundLiteral(Literal literal) {
 		for (Literal li : groundLiterals) {
 			if (literal.getAtom().equals(li.getAtom())) {
@@ -430,9 +424,9 @@ public class EprClause extends Clause {
 	 * @param qLiteral
 	 * @return a fresh EprClause that follows from first-order resolution with qLiteral
 	 */
-	public EprClause setQuantifiedLiteral(Literal qLiteral) {
-		boolean positive = qLiteral.getSign() == 1;
-		EprPredicateAtom atom = (EprPredicateAtom) qLiteral.getAtom();
+	public EprClause setQuantifiedLiteral(boolean positive, EprQuantifiedPredicateAtom atom) {
+//		boolean positive = qLiteral.getSign() == 1;
+//		EprPredicateAtom atom = (EprPredicateAtom) qLiteral.getAtom();
 		
 		ArrayList<Literal> predicateLiterals = new ArrayList<>();
 		predicateLiterals.addAll(Arrays.asList(eprQuantifiedPredicateLiterals));
@@ -520,6 +514,14 @@ public class EprClause extends Clause {
 		if (tt2.applySubstitution(sub).getFreeVars().size() != tt2.getFreeVars().size())
 			return false;
 		return true;
+	}
+
+	/**
+	 * 
+	 */
+	public void updateClauseState(EprStateManager mEprStateManager) {
+		// TODO Auto-generated method stub
+		
 	}
 
 }

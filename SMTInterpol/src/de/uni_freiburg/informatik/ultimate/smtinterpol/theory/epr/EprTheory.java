@@ -65,14 +65,15 @@ public class EprTheory implements ITheory {
 	HashMap<Object, HashMap<TermVariable, Term>> mBuildClauseToAlphaRenamingSub = 
 			new HashMap<Object, HashMap<TermVariable,Term>>();
 	
-	ScopedHashSet<Literal> mCurrentlySetQuantifiedLiterals = new ScopedHashSet<>();
+	EprStateManager mEprStateManager;
 
 	//	private Term mAlmostAllConstant;
 //	
 	public EprTheory(Theory th, DPLLEngine engine) {
 		mTheory = th;
 		mEngine = engine;
-//		mAlmostAllConstant = th.term("@0");
+
+		mEprStateManager = new EprStateManager();
 	}
 
 	@Override
@@ -95,7 +96,7 @@ public class EprTheory implements ITheory {
 	public Clause setLiteral(Literal literal) {
 		System.out.println("EPRDEBUG: setLiteral " + literal);
 		
-		mCurrentlySetQuantifiedLiterals.beginScope();
+		mEprStateManager.beginScope(literal);
 
 		// does this literal occur in any of the EprClauses?
 		// --> then check for satisfiability
@@ -113,11 +114,7 @@ public class EprTheory implements ITheory {
 			
 			EprPredicate eprPred = ((EprPredicateAtom) atom).eprPredicate;
 
-			boolean success = true;
-			if (literal.getSign() == 1) 
-				success &= eprPred.setPointPositive((EprPredicateAtom) atom);
-			else 	
-				success &= eprPred.setPointNegative((EprPredicateAtom) atom);
+			boolean success = mEprStateManager.setPoint(literal.getSign() == 1, (EprGroundPredicateAtom) atom);
 			assert success : "treat this case!";
 
 			for (EprClause ec : mLiteralToClauses.get(literal)) {
@@ -165,44 +162,44 @@ public class EprTheory implements ITheory {
 		System.out.println("EPRDEBUG: backtrackLiteral");
 		// .. dual to setLiteral
 		
+		mEprStateManager.endScope(literal);
 		//TODO: 
 //		for (Literal l : mCurrentlySetQuantifiedLiterals.currentScope()) {//FIXME is currentScope only the innermost, or all??
 //			//undo what setting them did..
 //		}
-		mCurrentlySetQuantifiedLiterals.endScope();
 
-		DPLLAtom atom = literal.getAtom();
-		
-		if (atom instanceof EprPredicateAtom) {
-			// literal is of the form (P x1 .. xn)
-			
-			//update model
-			EprPredicate eprPred = ((EprPredicateAtom) atom).eprPredicate;
-			if (literal.getSign() == 1) eprPred.unSetPointPositive((EprPredicateAtom) atom);
-			else 						eprPred.unSetPointNegative((EprPredicateAtom) atom);
-			
-			for (EprClause ec : mLiteralToClauses.get(literal)) {
-				updateFulFilledSets(ec);
-			}
-
-			return;
-
-		} else if (atom instanceof EprEqualityAtom) {
-			assert false : "DPLLEngine is unsetting a quantified EprAtom --> this cannot be..";
-			return;
-		} else {
-			// not an EprAtom 
-
-			for (EprClause ec : mLiteralToClauses.get(literal)) {
-				ec.unsetGroundLiteral(literal);
-				updateFulFilledSets(ec);
-			}
-
+//		DPLLAtom atom = literal.getAtom();
+//		
+//		if (atom instanceof EprPredicateAtom) {
+//			// literal is of the form (P x1 .. xn)
+//			
+//			//update model
+//			EprPredicate eprPred = ((EprPredicateAtom) atom).eprPredicate;
+//			if (literal.getSign() == 1) eprPred.unSetPointPositive((EprPredicateAtom) atom);
+//			else 						eprPred.unSetPointNegative((EprPredicateAtom) atom);
+//			
+//			for (EprClause ec : mLiteralToClauses.get(literal)) {
+//				updateFulFilledSets(ec);
+//			}
+//
+//			return;
+//
+//		} else if (atom instanceof EprEqualityAtom) {
+//			assert false : "DPLLEngine is unsetting a quantified EprAtom --> this cannot be..";
+//			return;
+//		} else {
+//			// not an EprAtom 
+//
+//			for (EprClause ec : mLiteralToClauses.get(literal)) {
+//				ec.unsetGroundLiteral(literal);
+//				updateFulFilledSets(ec);
+//			}
+//
 			System.out.println("EPRDEBUG: backtrackLiteral, new fulfilled clauses: " + mFulfilledEprClauses);
 			System.out.println("EPRDEBUG: backtrackLiteral, new not fulfilled clauses: " + mNotFulfilledEprClauses);
 
-			return;
-		}
+//			return;
+//		}
 	}
 
 //	/**
@@ -290,29 +287,12 @@ public class EprTheory implements ITheory {
 		//unit propagation
 		for (Clause c : mNotFulfilledEprClauses) {
 			EprClause ec = (EprClause) c;
-			if (ec.isUnitClause()) {
-
+			Literal unitLiteral = ec.getUnitClauseLiteral();
+			if (unitLiteral != null) {
 				System.out.println("EPRDEBUG: found unit clause: " + ec);
-				Literal unitLiteral = ec.getUnitClauseLiteral();
+
 				if (unitLiteral.getAtom() instanceof EprQuantifiedPredicateAtom) {
-					/*
-					 * propagate a quantified predicate
-					 *  --> rules for first-order resolution apply
-					 *  --> need to account for excepted points in the corresponding clause
-					 */
-					if (ec.mExceptedPoints.isEmpty()) {
-						//TODO: possibly optimize (so not all clauses have to be treated)
-						for (Clause otherClause : mEprClauses) {
-							EprClause otherEc = (EprClause) otherClause;
-							otherEc.setQuantifiedLiteral(unitLiteral);
-							updateFulFilledSets(otherEc);
-							int i = 0;
-							i++;
-						}
-					} else {
-						throw new UnsupportedOperationException("todo: handle excepted points at first-order unit propagation");
-					}
-					mCurrentlySetQuantifiedLiterals.add(unitLiteral); //FIXME: when adding excepted points somethin has to be done here, too
+					setQuantifiedAtom(unitLiteral.getSign() == 1, (EprQuantifiedPredicateAtom) unitLiteral.getAtom(), ec.mExceptedPoints);
 				} else {
 					/*
 					 * either an EprGroundAtom or a non EprAtom
@@ -325,6 +305,26 @@ public class EprTheory implements ITheory {
 		}
 		
 		
+	}
+
+	private void setQuantifiedAtom(boolean positive, EprQuantifiedPredicateAtom atom,
+			HashMap<TermVariable, ArrayList<ApplicationTerm>> exceptedPoints) {
+		/*
+		 * propagate a quantified predicate
+		 *  --> rules for first-order resolution apply
+		 *  --> need to account for excepted points in the corresponding clause
+		 */
+		if (exceptedPoints.isEmpty()) {
+			//TODO: possibly optimize (so not all clauses have to be treated)
+			for (Clause otherClause : mEprClauses) {
+				EprClause otherEc = (EprClause) otherClause;
+				otherEc.setQuantifiedLiteral(positive, atom);
+				updateFulFilledSets(otherEc);
+			}
+		} else {
+			throw new UnsupportedOperationException("todo: handle excepted points at first-order unit propagation");
+		}
+//					mCurrentlySetQuantifiedLiterals.add(unitLiteral); //FIXME: when adding excepted points somethin has to be done here, too
 	}
 
 	@Override
@@ -341,7 +341,7 @@ public class EprTheory implements ITheory {
 			// - equalities over a quantified variable and a constant each
 			// - predicates over quantified variables and/or constants
 			// - non-epr literals (in mNotFulfilledEprClauses, they are all false (maybe unset??))
-			Clause conflict = eprClause.check();
+			Clause conflict = eprClause.check(mEprStateManager);
 //			checkResult &= conflict == null;
 			if (conflict != null)
 				return conflict;
@@ -456,29 +456,24 @@ public class EprTheory implements ITheory {
 	 */
 	public void addEprClause(Literal[] lits, ClauseDeletionHook hook, ProofNode proof) {
 		
-		// do alpha renaming of the quantified literals
-		// (would be nicer to do it in EprTheory.getLiteral, but this would mean we have to know
-		// which clause the literal is in, which we don't..)
-		// TODO would be to build the corresponding communication with the Clausifier..)
-//		Literal[] literalsRnmd = doAlphaRenaming(lits);
-		
 		//TODO: do something about hook and proof..
-//		EprClause eprClause = new EprClause(literalsRnmd, mTheory);
-		EprClause eprClause = new EprClause(lits, mTheory);
+		EprClause newEprClause = new EprClause(lits, mTheory);
 		
 		
-		mEprClauses.add(eprClause);
-		mNotFulfilledEprClauses.add(eprClause);
+		mEprClauses.add(newEprClause);
+		mNotFulfilledEprClauses.add(newEprClause);
 		
 		for (Literal li : lits) {
-			updateLiteralToClauses(li, eprClause);
+			updateLiteralToClauses(li, newEprClause);
 		}
 		
-		// account for the current decide status of quantified literals
-		for (Literal qLit : mCurrentlySetQuantifiedLiterals) {
-			eprClause.setQuantifiedLiteral(qLit);
-			updateFulFilledSets(eprClause);
-		}
+		newEprClause.updateClauseState(mEprStateManager);
+
+//		// account for the current decide status of quantified literals
+//		for (Literal qLit : mCurrentlySetQuantifiedLiterals) {
+//			eprClause.setQuantifiedLiteral(qLit);
+//			updateFulFilledSets(eprClause);
+//		}
 	}
 
 	void updateLiteralToClauses(Literal lit, EprClause c) {

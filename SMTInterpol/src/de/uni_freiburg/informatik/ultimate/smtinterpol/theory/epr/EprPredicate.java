@@ -29,134 +29,23 @@ public class EprPredicate {
 
 	public final int arity;
 	
-	HashSet<TermTuple> mPositivelySetPoints = new HashSet<>();
-	HashSet<TermTuple> mNegativelySetPoints = new HashSet<>();
-	
-	// idea: every domain is nonempty, so we always have to decide the value of a predicate on 
-	// a point (lambda, lambda, ...) 
-	// (lambda may be equal to other constants appearing in the formula, but if there is none, we need this point for our domain)
-	boolean valueOnLambda = false;
+//	HashSet<TermTuple> mPositivelySetPoints = new HashSet<>();
+//	HashSet<TermTuple> mNegativelySetPoints = new HashSet<>();
 	
 	/**
 	 * Storage to track where this predicate occurs in the formula with at least one quantified argument.
 	 */
 	HashMap<EprClause, HashSet<Literal>> mQuantifiedOccurences = new HashMap<>();
 	
-	HashMap<TermTuple, EprPredicateAtom> mPointToAtom = new HashMap<TermTuple, EprPredicateAtom>();
+	HashMap<TermTuple, EprGroundPredicateAtom> mPointToAtom = new HashMap<TermTuple, EprGroundPredicateAtom>();
 
 	public EprPredicate(FunctionSymbol fs, int arity) {
 		this.functionSymbol = fs;
 		this.arity = arity;
 	}
 	
-	/**
-	 * If the current model allows it, set the given point in the predicate model to "true", return true;
-	 * If the point was already set to false, we have a conflict, do nothing, return false.
-	 * @param atom
-	 * @return
-	 */
-	public boolean setPointPositive(EprPredicateAtom atom) {
-        TermTuple point = new TermTuple(((EprPredicateAtom) atom).getArguments());
-//		assert !mNegativelySetPoints.contains(point) : "is that ok??";
-		if (mNegativelySetPoints.contains(point)) {
-			return false;
-		} else {
-			mPointToAtom.put(point, atom);
-			mPositivelySetPoints.add(point);
-			updateClauseLiteralFulfillabilityOnPointSetting(true, point);
-			return true;
-		}
-	}
 
 
-	/**
-	 * If the current model allows it, set the given point in the predicate model to "false", return true;
-	 * If the point was already set to false, we have a conflict, do nothing, return false.
-	 * @param point
-	 * @return
-	 */
-	public boolean setPointNegative(EprPredicateAtom atom) {
-        TermTuple point = new TermTuple(((EprPredicateAtom) atom).getArguments());
-//		assert !mNegativelySetPoints.contains(point) : "is that ok??";
-		if (mPositivelySetPoints.contains(point)) {
-			return false;
-		} else {
-			mNegativelySetPoints.add(point);
-			mPointToAtom.put(point, atom);
-//			updateUnitClausesOnPointSetting(false, atom);
-			updateClauseLiteralFulfillabilityOnPointSetting(false, point);
-			return true;
-		}
-	}
-	
-	/**
-	 * Called when a point is set.
-	 * Checks for each epr-clause if it becomes a unit clause because of that. Updates that clause's status accordingly.
-	 * @param settingPositive is true if this method was called because atom is being set positive, negative if atom is being
-	 *  set negative
-	 * @param atom
-	 */
-//	private void updateUnitClausesOnPointSetting(boolean settingPositive, EprPredicateAtom atom) {
-	private void updateClauseLiteralFulfillabilityOnPointSetting(boolean settingPositive, TermTuple point) {
-		for (Entry<EprClause, HashSet<Literal>> qo : mQuantifiedOccurences.entrySet()) {
-			EprClause clause = qo.getKey();
-			for (Literal li : qo.getValue()) {
-				boolean oppositeSigns = li.getSign() == 1 ^ settingPositive;
-				TermTuple otherPoint = new TermTuple(((EprPredicateAtom) li.getAtom()).getArguments());
-				HashMap<TermVariable, Term> subs = point.match(otherPoint);
-				if (oppositeSigns && subs != null) {
-					clause.setLiteralUnfulfillable(li);
-				}
-			}
-		}
-		
-	}
-
-	public String toString() {
-		return "EprPred: " + functionSymbol.getName();
-	}
-
-	public void unSetPointPositive(EprPredicateAtom atom) {
-        TermTuple point = new TermTuple(((EprPredicateAtom) atom).getArguments());
-		assert mPositivelySetPoints.contains(point) : "backtracking a point that was not set";
-		mPointToAtom.remove(point);
-		mPositivelySetPoints.remove(point);
-	}
-	
-	public void unSetPointNegative(EprPredicateAtom atom) {
-        TermTuple point = new TermTuple(((EprPredicateAtom) atom).getArguments());
-		assert mNegativelySetPoints.contains(point) : "backtracking a point that was not set";
-		mPointToAtom.remove(point);
-		mNegativelySetPoints.remove(point);
-	}
-
-//	/**
-//	 * Answers the question, if, 
-//	 *  - in the current decide state (communicated through setPoint-methods),
-//	 *  - given some excepted variables where we don't care (because of equalities in the clause),
-//	 *  - given a sign of the literal in which the predicate occurs in the current clause,
-//	 * this predicate is "true".
-//	 * Returns null if it is fulfilled, and a conflicting point if it is not.
-//	 * @param isLiteralPositive true, iff, the literal occurs positive in the clause
-//	 * @param literalSignature  the parameters of the literal's applicationTerm -- needed to see which are quantified and otherwise which constant is constrained
-//	 * @param exceptedConstants parameter positions to constants where we don't need to fulfill the predicate
-//	 */
-//	public TermTuple check(boolean isLiteralPositive, TermTuple literalSignature, HashMap<Integer,ArrayList<ApplicationTerm>> exceptedConstants) {
-//		HashSet<TermTuple> potentialConflictPoints = isLiteralPositive ?
-//				mNegativelySetPoints :
-//					mPositivelySetPoints;
-//		
-//		for (TermTuple tt : potentialConflictPoints) {
-//			if (literalSignature.matches(tt, exceptedConstants)) {
-//				//conflict!
-//				return tt;
-//			}
-//		}
-//		
-//		// no conflict
-//		return null;
-//	}
-	
 	public void addQuantifiedOccurence(Literal l, EprClause eprClause) {
 		HashSet<Literal> val = mQuantifiedOccurences.get(eprClause);
 		if (val == null) {
@@ -167,7 +56,7 @@ public class EprPredicate {
 	}
 	
 	
-	public EprPredicateAtom getAtomForPoint(TermTuple point) {
+	public EprGroundPredicateAtom getAtomForPoint(TermTuple point) {
 		return mPointToAtom.get(point);
 	}
 	
@@ -307,4 +196,10 @@ public class EprPredicate {
 ////		}
 ////		return mAlmostAllAtom;
 ////	}
+	
+	public String toString() {
+		return "EprPred: " + functionSymbol.getName();
+	}
+
+
 }
