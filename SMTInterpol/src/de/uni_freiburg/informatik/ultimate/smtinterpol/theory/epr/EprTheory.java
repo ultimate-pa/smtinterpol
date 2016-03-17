@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import org.apache.log4j.Logger;
@@ -43,7 +44,7 @@ public class EprTheory implements ITheory {
 //	ArrayList<Clause> mEprClauses = new ArrayList<>();
 //	ArrayList<Clause> mFulfilledEprClauses = new ArrayList<>();
 //	ArrayList<Clause> mNotFulfilledEprClauses = new ArrayList<>();
-	HashSet<Clause> mEprClauses = new HashSet<>();
+	HashSet<EprClause> mEprClauses = new HashSet<>();
 	HashSet<Clause> mFulfilledEprClauses = new HashSet<>();
 	HashSet<Clause> mNotFulfilledEprClauses = new HashSet<>();
 	
@@ -53,7 +54,7 @@ public class EprTheory implements ITheory {
 //	SimpleList<Clause> mFulfilledEprClauses = new SimpleList<>();
 //	SimpleList<Clause> mNotFulfilledEprClauses = new SimpleList<>();
 	
-	HashMap<FunctionSymbol, EprPredicate> mEprPredicates = new HashMap<>();
+	HashMap<FunctionSymbol, EprPredicate> mFunctionSymbolToEprPredicate = new HashMap<>();
 
 	HashMap<Literal, HashSet<EprClause>> mLiteralToClauses = new HashMap<Literal, HashSet<EprClause>>();
 	
@@ -106,23 +107,29 @@ public class EprTheory implements ITheory {
 
 		DPLLAtom atom = literal.getAtom();
 		
-		if (atom instanceof EprPredicateAtom) {
+		if (atom instanceof EprGroundPredicateAtom) {
 			// literal is of the form (P c1 .. cn) (no quantification, but an EprPredicate)
 			// it being set by the DPLLEngine (the quantified EprPredicateAtoms are not known to the DPLLEngine)
-			assert atom.getSMTFormula(mTheory).getFreeVars().length == 0 : 
-				"An atom that contains quantified variables should not be known to the DPLLEngine.";
 			
-			EprPredicate eprPred = ((EprPredicateAtom) atom).eprPredicate;
 
-			boolean success = mEprStateManager.setPoint(literal.getSign() == 1, (EprGroundPredicateAtom) atom);
-			assert success : "treat this case!";
+			//current Arbeitsteilung concerning EprTheory solver state information:
+			// EprStateManager deals with 
+			//  - single points in the predicates
+			//  - which clauses are derived clauses at which level
+			//  - which quantified literals (with exceptions) are set
+			// EprTheory deals with EprClauses, i.e.:
+			//  - updates the fulfillabilityState of all currently active clauses' literals
+			//  - updates its own set of currently active clauses (derived or not) with help of the EprStateManager
 
-			for (EprClause ec : mLiteralToClauses.get(literal)) {
-				updateFulFilledSets(ec);
-			}
+			boolean success = mEprStateManager.setGroundLiteral(literal);
+			assert success : "literal is already set the other way -- should not happen! (missed backtracking??)";
+
+//			updateClauseQuantifiedLiteralFulfillabilityOnPointSetting(literal);
+			for (EprClause ec : mEprClauses)
+				ec.setGroundLiteral(literal);
 
 			return null;
-		} else if (atom instanceof EprEqualityAtom) {
+		} else if (atom instanceof EprEqualityAtom || atom instanceof EprQuantifiedPredicateAtom) {
 			//this should not happen because an EprEqualityAtom always has at least one
 			// quantified variable, thus the DPLLEngine should not know about that atom
 			assert false : "DPLLEngine is setting a quantified EprAtom --> this cannot be..";
@@ -146,6 +153,34 @@ public class EprTheory implements ITheory {
 			return null;
 		}
 	}
+	
+//	/**
+//	 * Called when a point is set.
+//	 * Checks for each epr-clause if setting that point contradicts a quantified literal in the clause. 
+//	 * Updates that clause's status accordingly.
+//	 * @param settingPositive is true if this method was called because atom is being set positive, negative if atom is being
+//	 *  set negative
+//	 * @param atom
+//	 */
+//	private void updateClauseQuantifiedLiteralFulfillabilityOnPointSetting(Literal groundLit) {
+////			boolean settingPositive, TermTuple point, EprPredicate pred) {
+//		boolean settingPositive = groundLit.getSign() == 1;
+//		EprGroundPredicateAtom egpa = (EprGroundPredicateAtom) groundLit.getAtom();
+//		TermTuple point = egpa.getArgumentsAsTermTuple(); 
+//		EprPredicate pred = egpa.eprPredicate; 
+//
+//		for (Entry<EprClause, HashSet<Literal>> qo : pred.mQuantifiedOccurences.entrySet()) {
+//			EprClause clause = qo.getKey();
+//			for (Literal quantifiedLit : qo.getValue()) {
+//				boolean oppositeSigns = (quantifiedLit.getSign() == 1) ^ settingPositive;
+//				TermTuple otherPoint = new TermTuple(((EprPredicateAtom) quantifiedLit.getAtom()).getArguments());
+//				HashMap<TermVariable, Term> subs = point.match(otherPoint);
+//				if (oppositeSigns && subs != null) {
+//					clause.setQuantifiedLiteralUnfulfillable(quantifiedLit, groundLit);
+//				}
+//			}
+//		}
+//	}
 
 	private void updateFulFilledSets(EprClause ec) {
 		if (!ec.isFulfilled() && mFulfilledEprClauses.contains(ec)) {
@@ -163,6 +198,8 @@ public class EprTheory implements ITheory {
 		// .. dual to setLiteral
 		
 		mEprStateManager.endScope(literal);
+		for (EprClause ec : mEprClauses)
+			ec.unsetGroundLiteral(literal);
 		//TODO: 
 //		for (Literal l : mCurrentlySetQuantifiedLiterals.currentScope()) {//FIXME is currentScope only the innermost, or all??
 //			//undo what setting them did..
@@ -202,36 +239,7 @@ public class EprTheory implements ITheory {
 //		}
 	}
 
-//	/**
-//	 * Changes the status of all EPR clauses from fulfilled to not fulfilled that contain
-//	 * the given literal. (To be called by backtrackLiteral)
-//	 * @param literal
-//	 */
-//	private void markEprClausesNotFulfilled(Literal literal) {
-//		ArrayList<Clause> toRemove = new ArrayList<>();
-//		for (Clause c : mFulfilledEprClauses) {
-//			//check if this was the only literal that made the clause fulfilled
-//			// if that is the case, mark it unfulfilled
-//			if (c.contains(literal)) {
-//				
-//				boolean stillfulfilled = false;
-//				for (int i = 0; i < c.getSize(); i++) {
-//					Literal l  = c.getLiteral(i);
-//					if (l == literal)
-//						continue;
-//					boolean isSet = l == l.getAtom().getDecideStatus();
-//					stillfulfilled |= isSet;
-//				}
-//				if (!stillfulfilled) {
-////						c.removeFromList();
-////						mNotFulfilledEprClauses.append(c);
-//					toRemove.add(c);
-//					mNotFulfilledEprClauses.add(c);
-//				}
-//			}
-//		}
-//		mFulfilledEprClauses.removeAll(toRemove);
-//	}
+
 
 	@Override
 	public Clause checkpoint() {
@@ -510,34 +518,31 @@ public class EprTheory implements ITheory {
 		return true;
 	}
 	
-//	public List<Clause> getFulfilledClauses() {
 	public Set<Clause> getFulfilledClauses() {
 		return mFulfilledEprClauses;
 	}
 
-//	public List<Clause> getNotFulfilledClauses() {
 	public Set<Clause> getNotFulfilledClauses() {
 		return mNotFulfilledEprClauses;
 	}
 
 	public EprAtom getEprAtom(ApplicationTerm idx, int hash, int assertionStackLevel, Object mCollector) {
-		
 		if (idx.getFunction().getName().equals("=")) {
+			assert idx.getFreeVars().length > 0;
 		    ApplicationTerm subTerm = applyAlphaRenaming(idx, mCollector);
-//			return new EprEqualityAtom(idx, hash, assertionStackLevel);
 			return new EprEqualityAtom(subTerm, hash, assertionStackLevel);
 		} else {
-			EprPredicate pred = mEprPredicates.get(idx.getFunction());
+			EprPredicate pred = mFunctionSymbolToEprPredicate.get(idx.getFunction());
 			if (pred == null) {
 				pred = new EprPredicate(idx.getFunction(), idx.getParameters().length);
-				mEprPredicates.put(idx.getFunction(), pred);
+				mFunctionSymbolToEprPredicate.put(idx.getFunction(), pred);
+				mEprStateManager.addNewEprPredicate(pred);
 			}
 			if (idx.getFreeVars().length == 0) {
 				return new EprGroundPredicateAtom(idx, hash, assertionStackLevel, pred);
 			} else {
-				ApplicationTerm subTerm = applyAlphaRenaming(idx, mCollector);
-//				return new EprQuantifiedPredicateAtom(idx, hash, assertionStackLevel, pred);
-				return new EprQuantifiedPredicateAtom(subTerm, hash, assertionStackLevel, pred);
+				ApplicationTerm substitutedTerm = applyAlphaRenaming(idx, mCollector);
+				return new EprQuantifiedPredicateAtom(substitutedTerm, hash, assertionStackLevel, pred);
 			}
 		}
 	}
@@ -566,41 +571,7 @@ public class EprTheory implements ITheory {
 		return subTerm;
 	}
 
-	//	public void notifyAboutNewClause(BuildClause buildClause) {
 	public void notifyAboutNewClause(Object buildClause) {
 		mBuildClauseToAlphaRenamingSub.put(buildClause, new HashMap<TermVariable, Term>());
-	}
-
-	private Literal[] doAlphaRenaming(Literal[] literals) {
-		Literal[] result = new Literal[literals.length];
-		
-		HashMap<TermVariable, Term> sub = new HashMap<TermVariable, Term>();
-		
-		for (int i = 0; i < literals.length; i++) {
-			if (literals[i].getAtom() instanceof EprQuantifiedPredicateAtom) {
-				boolean isPositive = literals[i].getSign() == 1;
-				EprQuantifiedPredicateAtom eqpa = (EprQuantifiedPredicateAtom) literals[i].getAtom();
-				TermTuple tt = eqpa.getArgumentsAsTermTuple();
-				
-				for (TermVariable fv : tt.getFreeVars()) {
-					if (sub.containsKey(fv))
-						continue;
-					sub.put(fv, mTheory.createFreshTermVariable(fv.getName(), fv.getSort()));
-				}
-				
-				TermTuple ttSub = tt.applySubstitution(sub);
-				EprQuantifiedPredicateAtom newAtom = new EprQuantifiedPredicateAtom(
-						mTheory.term(eqpa.eprPredicate.functionSymbol, ttSub.terms),
-						0,  //TODO make a good hash
-						eqpa.getAssertionStackLevel(), 
-						eqpa.eprPredicate);
-	
-				result[i] = isPositive ? newAtom : newAtom.negate();
-			} else {
-				result[i] = literals[i];
-			}
-		}
-	
-		return result;
 	}
 }

@@ -71,15 +71,20 @@ public class EprClause extends Clause {
 	 *  - for non EprLiterals this coincides with their state in the DPLLEngine
 	 *    (so "fulfillable" means "true" here)
 	 */
-	private HashMap<Literal, Boolean> mFulfillabilityStatus = new HashMap<Literal, Boolean>();
+//	private HashMap<Literal, Boolean> mFulfillabilityStatus = new HashMap<Literal, Boolean>();
+
 	private int mNoFulfillableLiterals;
-	
+//	
 	HashSet<Literal> mFulfilledLiterals = new HashSet<Literal>();
+	
+	private HashMap<Literal, FulfillabilityStatus> mFulfillabilityStatus = new HashMap<Literal, FulfillabilityStatus>();
 
 	/**
 	 * The eprClause this clause has been instantiated from.
 	 */
 	EprClause mExplanation = null;
+
+	private HashMap<Literal, HashSet<Literal>> mLiteralToUnfulfillabilityReasons;
 
 	public EprClause(Literal[] literals, Theory theory) {
 		super(literals);
@@ -340,62 +345,132 @@ public class EprClause extends Clause {
 	 * @return the only literal in the clause that is still fulfillable, null, if there is no such literal
 	 */
 	public Literal getUnitClauseLiteral() {
-		assert mUnitLiteral != null;
-
+		if (!mFulfilledLiterals.isEmpty())
+			return null;
 		return this.mUnitLiteral;
 	}
 
-	public void setLiteralUnfulfillable(Literal lit) {
-		mFulfillabilityStatus.put(lit, false);
-		mNoFulfillableLiterals--;
-		if (mNoFulfillableLiterals == 1) {
-			//TODO: this could be done more efficiently i guess..
-			for (Literal li : eprQuantifiedPredicateLiterals) {
-				if (mFulfillabilityStatus.get(li)) {
-					mUnitLiteral = li;
-					break;
-				}
+	private void searchUnitLiteral() {
+		//TODO: this could be done more efficiently i guess..
+		for (Literal li : eprQuantifiedPredicateLiterals) {
+			if (mFulfillabilityStatus.get(li) == FulfillabilityStatus.Fulfillable) {
+				mUnitLiteral = li;
+				break;
 			}
 		}
-
 	}
 
-	public void setLiteralFulfillable(Literal li) {
-		mFulfillabilityStatus.put(li, true);
+	private void setLiteralFulfillable(Literal li) {
+		FulfillabilityStatus oldStatus = mFulfillabilityStatus.get(li);
+		if (oldStatus == FulfillabilityStatus.Fulfilled)
+			mFulfilledLiterals.remove(li);
+		mFulfillabilityStatus.put(li, FulfillabilityStatus.Fulfillable);
 		mNoFulfillableLiterals++;
 		if (mNoFulfillableLiterals == 2) {
 			mUnitLiteral = null;
 		}
 	}
+
+	private void setLiteralFulfilled(Literal li) {
+		FulfillabilityStatus oldStatus = mFulfillabilityStatus.get(li);
+		mFulfillabilityStatus.put(li, FulfillabilityStatus.Fulfilled);
+		mFulfilledLiterals.add(li);
+		if (oldStatus == FulfillabilityStatus.Fulfillable) {
+			mNoFulfillableLiterals--;
+			if (mNoFulfillableLiterals == 1) {
+				searchUnitLiteral();
+			}
+		}
+	}
 	
+	private void setLiteralUnfulfillable(Literal li) {
+		FulfillabilityStatus oldStatus = mFulfillabilityStatus.get(li);
+		if (oldStatus == FulfillabilityStatus.Fulfilled)
+			mFulfilledLiterals.remove(li);
+		mFulfillabilityStatus.put(li, FulfillabilityStatus.Unfulfillable);
+		if (oldStatus == FulfillabilityStatus.Fulfillable) {
+			mNoFulfillableLiterals--;
+			if (mNoFulfillableLiterals == 1) {
+				searchUnitLiteral();
+			}
+		}
+	}
+	
+	public void setQuantifiedLiteralUnfulfillable(Literal quantifiedLit, Literal reason) {
+		assert quantifiedLit.getAtom() instanceof EprQuantifiedPredicateAtom;
+		setLiteralUnfulfillable(quantifiedLit);
+		updateLiteralToUnfulfillabilityReasons(quantifiedLit, reason);
+	}
+
+	private void updateLiteralToUnfulfillabilityReasons(Literal quantifiedLit, Literal reason) {
+		HashSet<Literal> ufr = mLiteralToUnfulfillabilityReasons.get(quantifiedLit);
+		if (ufr == null) {
+			ufr = new HashSet<>();
+			mLiteralToUnfulfillabilityReasons.put(quantifiedLit, ufr);
+		}
+		ufr.add(reason);
+	}
+
+	/**
+	 * Upgrade the clause state to account for the fact that literal has been set.
+	 * @param literal
+	 */
 	public void setGroundLiteral(Literal literal) {
 		for (Literal li : groundLiterals) {
 			if (literal.getAtom().equals(li.getAtom())) {
 				if (literal.getSign() == li.getSign()) {
-					setLiteralFulfillable(li);
-					mFulfilledLiterals.add(li);
+					setLiteralFulfilled(li);
 				} else {
 					setLiteralUnfulfillable(li);
-					mFulfilledLiterals.remove(li);
 				}
 			}
 		}
-	
+		
+		if (literal instanceof EprGroundPredicateAtom) {
+			boolean settingPositive = literal.getSign() == 1;
+			EprGroundPredicateAtom egpa = (EprGroundPredicateAtom) literal.getAtom();
+			TermTuple point = egpa.getArgumentsAsTermTuple(); 
+			EprPredicate pred = egpa.eprPredicate; 
+
+			HashSet<Literal> qo = pred.mQuantifiedOccurences.get(this);
+			if (qo != null) {
+				for (Literal quantifiedLit : qo) {
+					boolean oppositeSigns = (quantifiedLit.getSign() == 1) ^ settingPositive;
+					TermTuple otherPoint = new TermTuple(((EprPredicateAtom) quantifiedLit.getAtom()).getArguments());
+					HashMap<TermVariable, Term> subs = point.match(otherPoint);
+					if (oppositeSigns && subs != null) {
+						setQuantifiedLiteralUnfulfillable(quantifiedLit, literal);
+					}
+				}
+			}
+		}	
 	}
 
+
+	/**
+	 * Upgrade the clause state to account for the fact that the setting of literal has been reverted/backtracked.
+	 * @param literal
+	 */
 	public void unsetGroundLiteral(Literal literal) {
 		for (Literal li : groundLiterals) {
 			if (literal.getAtom().equals(li.getAtom())) {
 				if (literal.getSign() == li.getSign()) {
-					// was fulfillable after set (bc true), is still fulfillable after unset (bc unconstrained)
-					mFulfilledLiterals.remove(li);
-				} else {
-//					setLiteralUnfulfillable(li);
-					// was unfulfillable after set (bc false), is fulfillable now (bc unconstrained)
+					assert mFulfillabilityStatus.get(li) == FulfillabilityStatus.Fulfilled;
 					setLiteralFulfillable(li);
-					//was not fulfilled after set, is still not fulfilled now.
-//					mFulfilledLiterals.remove(li);
+				} else {
+					assert mFulfillabilityStatus.get(li) == FulfillabilityStatus.Unfulfillable;
+					setLiteralFulfillable(li);
 				}
+			}
+		}
+		
+		// deal with quantified literals that may have been made unfulfillable by the setting of literal
+		//  revert their status if this was the only reason of unfulfillability
+		for (Entry<Literal, HashSet<Literal>> en : mLiteralToUnfulfillabilityReasons.entrySet()) {
+			boolean literalWasContained = en.getValue().remove(literal);
+			if (literalWasContained 
+					&& en.getValue().isEmpty()) {
+				setLiteralFulfillable(en.getKey());
 			}
 		}
 	}
@@ -404,7 +479,7 @@ public class EprClause extends Clause {
 	 * @return true if at least one of the literals of this clause is definitely true.
 	 */
 	public boolean isFulfilled() {
-		return mFulfilledLiterals.size() > 0;
+		return !mFulfilledLiterals.isEmpty();
 	}
 
 	/**
@@ -523,5 +598,7 @@ public class EprClause extends Clause {
 		// TODO Auto-generated method stub
 		
 	}
+
+
 
 }

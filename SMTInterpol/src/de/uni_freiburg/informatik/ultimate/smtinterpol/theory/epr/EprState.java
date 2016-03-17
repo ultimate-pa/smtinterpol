@@ -26,8 +26,20 @@ public class EprState {
 	HashMap<EprPredicate, EprPredicateModel> mPredicateToModel = new HashMap<>();
 
 
+	/**
+	 * constructor for the base state
+	 */
 	public EprState() {
 		// TODO Auto-generated constructor stub
+	}
+
+	/**
+	 * constructor for a non-base state
+	 */
+	public EprState(EprState previousState) {
+		// this state needs to know about all the predicates of the previous state (some more might be added, later, too..)
+		for (EprPredicate pred : previousState.mPredicateToModel.keySet())
+			mPredicateToModel.put(pred, new EprPredicateModel(pred));
 	}
 
 	/**
@@ -48,30 +60,13 @@ public class EprState {
         assert success;
         
         pred.mPointToAtom.put(point, atom);
-        updateClauseLiteralFulfillabilityOnPointSetting(positive, point, pred);
+        
         return success;
 	}
 
-	/**
-	 * Called when a point is set.
-	 * Checks for each epr-clause if setting that point contradicts a quantified literal in the clause. 
-	 * Updates that clause's status accordingly.
-	 * @param settingPositive is true if this method was called because atom is being set positive, negative if atom is being
-	 *  set negative
-	 * @param atom
-	 */
-	private void updateClauseLiteralFulfillabilityOnPointSetting(boolean settingPositive, TermTuple point, EprPredicate pred) {
-		for (Entry<EprClause, HashSet<Literal>> qo : pred.mQuantifiedOccurences.entrySet()) {
-			EprClause clause = qo.getKey();
-			for (Literal li : qo.getValue()) {
-				boolean oppositeSigns = (li.getSign() == 1) ^ settingPositive;
-				TermTuple otherPoint = new TermTuple(((EprPredicateAtom) li.getAtom()).getArguments());
-				HashMap<TermVariable, Term> subs = point.match(otherPoint);
-				if (oppositeSigns && subs != null) {
-					clause.setLiteralUnfulfillable(li);
-				}
-			}
-		}
-		
+
+
+	public void addNewEprPredicate(EprPredicate pred) {
+		mPredicateToModel.put(pred, new EprPredicateModel(pred));
 	}
 }

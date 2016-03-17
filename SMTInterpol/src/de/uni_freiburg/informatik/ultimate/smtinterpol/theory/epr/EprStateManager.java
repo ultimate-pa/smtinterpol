@@ -13,6 +13,8 @@ public class EprStateManager {
 	private Stack<Literal> mLiteralStack = new Stack<Literal>();
 	
 	private EprState baseState;
+	
+	private HashSet<EprClause> mAllClauses = new HashSet<>();
 
 	public EprStateManager() {
 		baseState = new EprState();
@@ -21,7 +23,7 @@ public class EprStateManager {
 
 	public void beginScope(Literal literal) {
 		mLiteralStack.push(literal);
-		mEprStateStack.push(new EprState());
+		mEprStateStack.push(new EprState(mEprStateStack.peek()));
 	}
 
 	/**
@@ -36,8 +38,10 @@ public class EprStateManager {
 		
 	}
 
-	public boolean setPoint(boolean positive, EprGroundPredicateAtom atom) {
-		return mEprStateStack.peek().setPoint(positive, atom);
+	public boolean setGroundLiteral(Literal literal) {
+		return mEprStateStack.peek().setPoint(
+				literal.getSign() == 1, 
+				(EprGroundPredicateAtom) literal.getAtom());
 	}
 	
 	public HashSet<TermTuple> getPoints(boolean positive, EprPredicate pred) {
@@ -49,6 +53,11 @@ public class EprStateManager {
 				result.addAll(es.mPredicateToModel.get(pred).mNegativelySetPoints);
 		}
 		return result;
+	}
+
+	public void addNewEprPredicate(EprPredicate pred) {
+		 mEprStateStack.peek().addNewEprPredicate(pred);
+		
 	}
 	
 
