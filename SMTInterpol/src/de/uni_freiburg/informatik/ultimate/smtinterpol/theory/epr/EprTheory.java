@@ -323,7 +323,7 @@ public class EprTheory implements ITheory {
 		 *  --> rules for first-order resolution apply
 		 *  --> need to account for excepted points in the corresponding clause
 		 */
-		// propagate withing EprClauses
+		// propagate within EprClauses
 		//TODO: possibly optimize (so not all clauses have to be treated)
 		for (EprClause otherEc : mEprClauses) {
 			EprClause derivedClause = otherEc.setQuantifiedLiteral(eqlwe);

@@ -223,17 +223,19 @@ public class EprClause extends Clause {
 
 		ArrayDeque<TermTuple> pointsFromLiterals = computePointsFromLiterals(eprQuantifiedPredicateLiterals);
 
-		ArrayList<ArrayList<TermTuple>> instantiations = computeInstantiations(new ArrayList<ArrayList<TermTuple>>(),
-				conflictPointSets, pointsFromLiterals, new HashMap<TermVariable, Term>(), true);
-
+//		ArrayList<ArrayList<TermTuple>> instantiations = computeInstantiations(new ArrayList<ArrayList<TermTuple>>(),
+//				conflictPointSets, pointsFromLiterals, new HashMap<TermVariable, Term>(), true);
+		ArrayList<TermTuple> instantiation = new ComputeInstantiations(conflictPointSets, pointsFromLiterals).getInstantiation();
 		// if there is a fitting instantiation, it directly induces a conflict
 		// clause
-		if (instantiations.isEmpty()) {
+//		if (instantiations.isEmpty()) {
+		if (instantiation == null) {
 			return null;
 		} else {
 			ArrayList<EprPredicate> predicates = computePredicatesFromLiterals(eprQuantifiedPredicateLiterals);
 			ArrayList<Boolean> polaritites = computePolaritiesFromLiterals(eprQuantifiedPredicateLiterals);
-			return clauseFromInstantiation(predicates, instantiations.get(0), polaritites);
+//			return clauseFromInstantiation(predicates, instantiations.get(0), polaritites);
+			return clauseFromInstantiation(predicates, instantiation, polaritites);
 		}
 	}
 
@@ -281,66 +283,7 @@ public class EprClause extends Clause {
 		return result;
 	}
 
-	/**
-	 * compute a filtered cross product
-	 * 
-	 * @param pointsFromLiterals
-	 */
-	private ArrayList<ArrayList<TermTuple>> computeInstantiations(ArrayList<ArrayList<TermTuple>> instantiations,
-			ArrayDeque<HashSet<TermTuple>> conflictPointSets, ArrayDeque<TermTuple> pointsFromLiterals,
-			HashMap<TermVariable, Term> substitution, boolean isFirstCall) {
-		// TODO: might be better to rework this as NonRecursive
 
-		if (conflictPointSets.isEmpty())
-			return instantiations;
-
-		HashSet<TermTuple> currentPoints = conflictPointSets.pollFirst();
-		TermTuple currentPfl = pointsFromLiterals.pollFirst();
-
-		for (TermTuple tt : currentPoints) {
-			HashMap<TermVariable, Term> newSubs = new HashMap<TermVariable, Term>(substitution);
-			newSubs = tt.match(currentPfl, newSubs);
-
-			if (isSubstitutionExcepted(newSubs)) {
-				continue;
-			}
-
-			if (newSubs != null) {
-				ArrayList<ArrayList<TermTuple>> instantiationsNew = new ArrayList<ArrayList<TermTuple>>();
-				if (isFirstCall) {
-					ArrayList<TermTuple> l = new ArrayList<TermTuple>();
-					l.add(tt);
-					instantiationsNew.add(l);
-				} else {
-					for (ArrayList<TermTuple> in : instantiations) {
-						ArrayList<TermTuple> inNew = new ArrayList<>(in);
-						inNew.add(tt);
-						instantiationsNew.add(inNew);
-					}
-				}
-				return computeInstantiations(instantiationsNew, new ArrayDeque<HashSet<TermTuple>>(conflictPointSets),
-						new ArrayDeque<TermTuple>(pointsFromLiterals), newSubs, false);
-			}
-		}
-		return new ArrayList<ArrayList<TermTuple>>();
-	}
-
-	/**
-	 * checks is the given substitution refers to an instantiation of the
-	 * quantified variables that is excepted through an equality literal in the
-	 * clause (e.g. the clause says {... v x = c}, then an instantiation that
-	 * maps x to c cannot violate the clause)
-	 * 
-	 * returns true iff newSubs corresponds to at least one excepted point
-	 */
-	private boolean isSubstitutionExcepted(HashMap<TermVariable, Term> newSubs) {
-		for (Entry<TermVariable, Term> en : newSubs.entrySet()) {
-			ArrayList<ApplicationTerm> epCon = mExceptedPoints.get(en.getKey());
-			if (epCon != null && epCon.contains(en.getValue()))
-				return true;
-		}
-		return false;
-	}
 
 	/**
 	 * @return the only literal in the clause that is still fulfillable, null, if there is no such literal
@@ -353,6 +296,26 @@ public class EprClause extends Clause {
 		if (!(this.mUnitLiteral instanceof EprQuantifiedPredicateAtom))
 			return this.mUnitLiteral;
 		
+		
+		
+		
+		ArrayDeque<HashSet<TermTuple>> conflictPointSets = new ArrayDeque<>();
+		ArrayDeque<TermTuple> pointsFromLiterals = new ArrayDeque<>();
+
+		for (Literal li : eprQuantifiedPredicateLiterals) {
+			if (li.equals(mUnitLiteral))
+				continue;
+			pointsFromLiterals.add(((EprPredicateAtom) li.getAtom()).getArgumentsAsTermTuple());
+			conflictPointSets.add(new HashSet<TermTuple>());
+			HashSet<Literal> ur = mLiteralToUnfulfillabilityReasons.get(li);
+			for (Literal url : ur) {
+				conflictPointSets.getLast().add(((EprPredicateAtom) url.getAtom()).getArgumentsAsTermTuple());
+			}
+		}
+		
+		HashMap<TermVariable, Term> sub = new ComputeInstantiations(conflictPointSets, pointsFromLiterals).getSubstitution();
+		Literal unifiedUnitLiteral = applySubstitution(sub, mUnitLiteral); //TODO: register the new literal somewhere???
+		return unifiedUnitLiteral;
 	}
 
 	private void searchUnitLiteral() {
@@ -365,12 +328,18 @@ public class EprClause extends Clause {
 		//      (i.e. in the big conjunction that the quantifier is, there is no single clause
 		//       that is unit)
 		
+		
+		mUnitLiteral = null;
+		
 		//TODO: this could be done more efficiently i guess..
 		for (Literal li : eprQuantifiedPredicateLiterals) {
-			if (mFulfillabilityStatus.get(li) == FulfillabilityStatus.Fulfillable) {
+			if (mFulfillabilityStatus.get(li) == FulfillabilityStatus.Unfulfillable) {
+				
+			} else if (mFulfillabilityStatus.get(li) == FulfillabilityStatus.Fulfillable) {
+				assert mUnitLiteral == null : "more than one literals are fulfillable -- something's wrong!";
 				mUnitLiteral = li;
-				break;
-			}
+			} else
+				assert false : "the whole clause is fulfillable -- then why should this method be called??";
 		}
 	}
 
@@ -650,7 +619,114 @@ public class EprClause extends Clause {
 		
 	}
 
+	class ComputeInstantiations {
+		
+		
+		private ArrayList<ArrayList<TermTuple>> mAllInstantiations = new ArrayList<>();
+		private HashMap<HashMap<TermVariable, Term>, ArrayList<ArrayList<TermTuple>>> mSubstitutionToInstantiations = new HashMap<>();
 
+		public ComputeInstantiations(ArrayDeque<HashSet<TermTuple>> conflictPointSets, 
+				ArrayDeque<TermTuple> pointsFromLiterals) { 
 
+			computeInstantiations(new ArrayList<ArrayList<TermTuple>>(), 
+					conflictPointSets, 
+					pointsFromLiterals, 
+					new HashMap<TermVariable, Term>(), 
+					true);
+		}
 
+		/**
+		 * compute a filtered cross product
+		 * 
+		 * @param partialInstantiations the instantiations collected so far (an instantiation is a sequence of points that fit the literals 
+		 *           of this clause that have been processed so far)
+		 * @param conflictPointSets the points we are essentially building a cross product over
+		 *                   (in the computeConflictClause case those are always ground, not so in the unitClause case)
+		 * @param pointsFromLiterals the literal points (possibly containing variables, coming from the clause) that we match the conflictPoints with
+		 * @param substitution the unifier of the current instantiation -- further unification may only be a specialization
+		 *                  (new for the unit clause case: this should not necessarily be a substitution that grounds everything.. 
+		 *                      -- computeConflictClause may always ground by adding lambdas, for example..)
+		 * @param isFirstCall the first call is special, because there are no instantiations to build upon
+		 * @return
+		 */
+		private void computeInstantiations(ArrayList<ArrayList<TermTuple>> partialInstantiations,
+				ArrayDeque<HashSet<TermTuple>> conflictPointSets, ArrayDeque<TermTuple> pointsFromLiterals,
+				HashMap<TermVariable, Term> substitution, boolean isFirstCall) {
+			// TODO: might be better to rework this as NonRecursive
+
+			if (conflictPointSets.isEmpty()) {
+				mAllInstantiations.addAll(partialInstantiations);
+				mSubstitutionToInstantiations.put(substitution, partialInstantiations);
+				return;
+			}
+
+			HashSet<TermTuple> currentPoints = conflictPointSets.pollFirst();
+			TermTuple currentPfl = pointsFromLiterals.pollFirst();
+
+			for (TermTuple tt : currentPoints) {
+				HashMap<TermVariable, Term> newSubs = new HashMap<TermVariable, Term>(substitution);
+				newSubs = tt.match(currentPfl, newSubs);
+
+				if (isSubstitutionExcepted(newSubs)) {
+					continue;
+				}
+
+				if (newSubs != null) {
+					ArrayList<ArrayList<TermTuple>> instantiationsNew = new ArrayList<ArrayList<TermTuple>>();
+					if (isFirstCall) {
+						ArrayList<TermTuple> l = new ArrayList<TermTuple>();
+						l.add(tt);
+						instantiationsNew.add(l);
+					} else {
+						for (ArrayList<TermTuple> in : partialInstantiations) {
+							ArrayList<TermTuple> inNew = new ArrayList<>(in);
+							inNew.add(tt);
+							instantiationsNew.add(inNew);
+						}
+					}
+//					return computeInstantiations(instantiationsNew, new ArrayDeque<HashSet<TermTuple>>(conflictPointSets),
+					computeInstantiations(instantiationsNew, new ArrayDeque<HashSet<TermTuple>>(conflictPointSets),
+							new ArrayDeque<TermTuple>(pointsFromLiterals), newSubs, false);
+				}
+			}
+//			return new ArrayList<ArrayList<TermTuple>>();
+		}
+
+		/**
+		 * checks is the given substitution refers to an instantiation of the
+		 * quantified variables that is excepted through an equality literal in the
+		 * clause (e.g. the clause says {... v x = c}, then an instantiation that
+		 * maps x to c cannot violate the clause)
+		 * 
+		 * returns true iff newSubs corresponds to at least one excepted point
+		 */
+		private boolean isSubstitutionExcepted(HashMap<TermVariable, Term> newSubs) {
+			for (Entry<TermVariable, Term> en : newSubs.entrySet()) {
+				ArrayList<ApplicationTerm> epCon = mExceptedPoints.get(en.getKey());
+				if (epCon != null && epCon.contains(en.getValue()))
+					return true;
+			}
+			return false;
+		}
+		
+		/**
+		 * Returns some (the first found) instantiation, null if there is none.
+		 * @return
+		 */
+		public ArrayList<TermTuple> getInstantiation() {
+			if (mAllInstantiations.isEmpty())
+				return null;
+			return mAllInstantiations.get(0);
+		}
+		/**
+		 * Returns some (the first found) substitution, null if there is none.
+		 * @return 
+		 * @return
+		 */
+		public HashMap<TermVariable, Term> getSubstitution() {
+			if (mSubstitutionToInstantiations.isEmpty())
+				return null;
+			return mSubstitutionToInstantiations.keySet().iterator().next();
+		}
+	}
 }
