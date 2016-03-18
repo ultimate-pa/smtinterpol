@@ -123,8 +123,9 @@ public class EprTheory implements ITheory {
 			//  - updates the fulfillabilityState of all currently active clauses' literals
 			//  - updates its own set of currently active clauses (derived or not) with help of the EprStateManager
 
-			boolean success = mEprStateManager.setGroundLiteral(literal);
-			assert success : "literal is already set the other way -- should not happen! (missed backtracking??)";
+			EprClause conflict = mEprStateManager.setGroundLiteral(literal);
+			if (conflict != null)
+				return conflict; // then act as if the literal is not set, right?
 
 //			updateClauseQuantifiedLiteralFulfillabilityOnPointSetting(literal);
 			for (EprClause ec : mEprClauses)
@@ -290,6 +291,9 @@ public class EprTheory implements ITheory {
 		for (Clause c : mNotFulfilledEprClauses) {
 			EprClause ec = (EprClause) c;
 			Literal unitLiteral = ec.getUnitClauseLiteral();
+//			if (!(unitLiteral.getAtom() instanceof EprQuantifiedPredicateAtom))
+//				mEngine.addAtom(unitLiteral.getAtom());
+
 			if (unitLiteral != null) {
 				System.out.println("EPRDEBUG: found unit clause: " + ec);
 
@@ -306,6 +310,8 @@ public class EprTheory implements ITheory {
 					 * (plan atm: don't propagate EprEqualities)
 					 * --> just propagate the literal through the normal means
 					 */
+					mEngine.addAtom(unitLiteral.getAtom());
+					mPropLitToExplanation.put(unitLiteral, ec.getInstantiationOfClauseForCurrentUnitLiteral());
 					mGroundLiteralsToPropagate.add(unitLiteral);
 				}
 			}
@@ -325,14 +331,17 @@ public class EprTheory implements ITheory {
 		 */
 		// propagate within EprClauses
 		//TODO: possibly optimize (so not all clauses have to be treated)
+		ArrayList<EprClause> toAdd = new ArrayList<>();
 		for (EprClause otherEc : mEprClauses) {
 			EprClause derivedClause = otherEc.setQuantifiedLiteral(eqlwe);
 			if (derivedClause != null) {
 				mEprStateManager.addDerivedClause(derivedClause);
-				mEprClauses.add(derivedClause);
+				toAdd.add(derivedClause);
 			}
 			updateFulFilledSets(otherEc);
 		}
+		mEprClauses.addAll(toAdd);
+		
 		// check if there is an Literal in the Engine that conflicts, or is unconstrained. In case propagate.
 		for (EprGroundPredicateAtom engineAtom : eqlwe.mAtom.eprPredicate.getDPLLAtoms()) {
 			Literal decideStatus = engineAtom.getDecideStatus();
@@ -388,15 +397,15 @@ public class EprTheory implements ITheory {
 //		return null;
 //		throw new UnsupportedOperationException();
 		System.out.println("EPRDEBUG: getUnitClause");
-		return mPropLitToExplanation.get(literal);
+		Clause unitClause = mPropLitToExplanation.get(literal);
+		assert unitClause != null;
+		return unitClause;
 //		return null;
 	}
 
 	@Override
 	public Literal getSuggestion() {
-		// TODO Auto-generated method stub
-//		return null;
-//		throw new UnsupportedOperationException();
+		//TODO: think about how to get smart suggestions..
 		System.out.println("EPRDEBUG: getSuggestion");
 		return null;
 	}
@@ -561,7 +570,7 @@ public class EprTheory implements ITheory {
 			if (idx.getFreeVars().length == 0) {
 				EprGroundPredicateAtom egpa = new EprGroundPredicateAtom(idx, hash, assertionStackLevel, pred);
 				pred.addDPLLAtom(egpa);
-				pred.addPointAtom(egpa.getArgumentsAsTermTuple(), egpa);
+//				pred.addPointAtom(egpa.getArgumentsAsTermTuple(), egpa);
 				return egpa;
 			} else {
 				ApplicationTerm substitutedTerm = applyAlphaRenaming(idx, mCollector);

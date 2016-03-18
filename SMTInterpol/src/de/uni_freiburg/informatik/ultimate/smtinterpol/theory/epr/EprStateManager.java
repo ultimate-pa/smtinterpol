@@ -6,6 +6,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Stack;
 
+import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 
 public class EprStateManager {
@@ -40,10 +42,32 @@ public class EprStateManager {
 		
 	}
 
-	public boolean setGroundLiteral(Literal literal) {
-		return mEprStateStack.peek().setPoint(
+	public EprClause setGroundLiteral(Literal literal) {
+		
+		EprGroundPredicateAtom atom = (EprGroundPredicateAtom) literal.getAtom();
+		
+		// is there a conflict with one of the currently set quantified literals??
+		for (EprState es : mEprStateStack) {
+			for (EprQuantifiedLitWExcptns l : es.mSetLiterals) {
+				if (l.mAtom.eprPredicate != atom.eprPredicate)
+					continue;
+				if (l.mIsPositive == (literal.getSign() == 1))
+					continue; // polarities match --> no conflict
+				HashMap<TermVariable, Term> sub = l.mAtom.getArgumentsAsTermTuple().match(atom.getArgumentsAsTermTuple());
+				if (sub != null) {
+					EprClause conflict =  l.mExplanation.instantiateClause(null, sub);
+					return conflict;
+				}
+			}
+		}
+		
+		
+		// if there is no conflict set it..
+		boolean success = mEprStateStack.peek().setPoint(
 				literal.getSign() == 1, 
 				(EprGroundPredicateAtom) literal.getAtom());
+		assert success;
+		return null;
 	}
 	
 	public boolean setQuantifiedLiteralWithExceptions(EprQuantifiedLitWExcptns eqlwe) {

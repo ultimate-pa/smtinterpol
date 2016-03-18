@@ -57,6 +57,7 @@ public class EprClause extends Clause {
 //	int mClauseIndex = 0;
 
 	private Literal mUnitLiteral;
+	private EprClause mInstantiationOfClauseForCurrentUnitLiteral;
 
 	/**
 	 * Tracks for each literal lit in this clause if, in the current partial
@@ -289,16 +290,22 @@ public class EprClause extends Clause {
 	 * @return the only literal in the clause that is still fulfillable, null, if there is no such literal
 	 */
 	public Literal getUnitClauseLiteral() {
-		if (!mFulfilledLiterals.isEmpty())
+		if (!mFulfilledLiterals.isEmpty()) {
+			mInstantiationOfClauseForCurrentUnitLiteral = null;
 			return null;
-		if (this.mUnitLiteral == null)
+		}
+		if (this.mUnitLiteral == null) {
+			mInstantiationOfClauseForCurrentUnitLiteral = null;
 			return null;
-		if (!(this.mUnitLiteral instanceof EprQuantifiedPredicateAtom))
+		}
+		if (!(this.mUnitLiteral.getAtom() instanceof EprQuantifiedPredicateAtom)) {
+			mInstantiationOfClauseForCurrentUnitLiteral = null;
 			return this.mUnitLiteral;
+		}
 		
-		
-		
-		
+		//if the unitLiteral is a quantified literal, then we first have to find out if there is 
+		// a unifier with the conflicts because of which we set the others "unfulfillable"
+		// if not, we cannot do a unitpropagation
 		ArrayDeque<HashSet<TermTuple>> conflictPointSets = new ArrayDeque<>();
 		ArrayDeque<TermTuple> pointsFromLiterals = new ArrayDeque<>();
 
@@ -314,9 +321,28 @@ public class EprClause extends Clause {
 		}
 		
 		HashMap<TermVariable, Term> sub = new ComputeInstantiations(conflictPointSets, pointsFromLiterals).getSubstitution();
+		if (sub == null) {
+			mInstantiationOfClauseForCurrentUnitLiteral = null;
+			return null; // if there is no unifier, then this clause actually is no unit clause
+		}
 		Literal unifiedUnitLiteral = applySubstitution(sub, mUnitLiteral); //TODO: register the new literal somewhere???
+		mInstantiationOfClauseForCurrentUnitLiteral = this.instantiateClause(null, sub);
+		if (unifiedUnitLiteral.getAtom().getDecideStatus() == unifiedUnitLiteral) // already set??
+			return null; //TODO: seems incomplete, maybe we want to propagate other points, then..
 		return unifiedUnitLiteral;
 	}
+	
+	/**
+	 * If this is a unit clause, then this yield the explanation clause, which is this clause instantiated in a way
+	 *  such that it really is a unit clause 
+	 *  (i.e. a ground unit clause or a set of such -- for a partial instantiation of the freevars..)
+	 *  TODO: does not look so nice from the programming point of view..
+	 * @return
+	 */
+	public EprClause getInstantiationOfClauseForCurrentUnitLiteral() {
+		return mInstantiationOfClauseForCurrentUnitLiteral;
+	}
+	
 
 	private void searchUnitLiteral() {
 		// that there is exactly one fulfillable literal is a necessary condition for this
@@ -327,7 +353,6 @@ public class EprClause extends Clause {
 		//      together with the unfulfilled literals themselves, don't have a unifier
 		//      (i.e. in the big conjunction that the quantifier is, there is no single clause
 		//       that is unit)
-		
 		
 		mUnitLiteral = null;
 		
@@ -584,9 +609,11 @@ public class EprClause extends Clause {
 					if (pointAtom != null) {
 						result = pointAtom;
 					} else {
-						result = new EprGroundPredicateAtom(newTerm, 0, //TODO: hash
-								l.getAtom().getAssertionStackLevel(), 
-								eqpa.eprPredicate);
+						result = eqpa.eprPredicate.getAtomForPoint(newTT);
+						if (result == null)
+							result = new EprGroundPredicateAtom(newTerm, 0, //TODO: hash
+									l.getAtom().getAssertionStackLevel(), 
+									eqpa.eprPredicate);
 					}
 			}
 			return isPositive ? result : result.negate();
