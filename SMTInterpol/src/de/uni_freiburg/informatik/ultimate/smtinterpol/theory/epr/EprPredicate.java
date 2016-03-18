@@ -35,9 +35,14 @@ public class EprPredicate {
 	/**
 	 * Storage to track where this predicate occurs in the formula with at least one quantified argument.
 	 */
-	HashMap<EprClause, HashSet<Literal>> mQuantifiedOccurences = new HashMap<>();
+	private HashMap<EprClause, HashSet<Literal>> mQuantifiedOccurences = new HashMap<>();
+
+	private HashMap<EprClause, HashSet<Literal>> mGroundOccurences = new HashMap<>();
+//	private HashSet<Literal> mGroundOccurences = new HashSet<>();
 	
-	HashMap<TermTuple, EprGroundPredicateAtom> mPointToAtom = new HashMap<TermTuple, EprGroundPredicateAtom>();
+	private HashSet<EprGroundPredicateAtom> mDPLLAtoms = new HashSet<>();
+	
+	private HashMap<TermTuple, EprGroundPredicateAtom> mPointToAtom = new HashMap<TermTuple, EprGroundPredicateAtom>();
 
 	public EprPredicate(FunctionSymbol fs, int arity) {
 		this.functionSymbol = fs;
@@ -55,6 +60,34 @@ public class EprPredicate {
 		val.add(l);
 	}
 	
+	public HashMap<EprClause, HashSet<Literal>> getQuantifiedOccurences() {
+		return mQuantifiedOccurences;
+	}
+	
+	public void addGroundOccurence(Literal l, EprClause eprClause) {
+		HashSet<Literal> val = mGroundOccurences.get(eprClause);
+		if (val == null) {
+			val = new HashSet<>();
+			mGroundOccurences.put(eprClause, val);
+		}
+		val.add(l);
+	}
+	
+	public HashMap<EprClause, HashSet<Literal>> getGroundOccurences() {
+		return mGroundOccurences;
+	}
+
+	public void addDPLLAtom(EprGroundPredicateAtom egpa) {
+		mDPLLAtoms.add(egpa);
+	}
+	
+	public HashSet<EprGroundPredicateAtom> getDPLLAtoms() {
+		return mDPLLAtoms;
+	}
+	
+	public void addPointAtom (TermTuple point, EprGroundPredicateAtom atom) {
+		mPointToAtom.put(point, atom);
+	}
 	
 	public EprGroundPredicateAtom getAtomForPoint(TermTuple point) {
 		return mPointToAtom.get(point);

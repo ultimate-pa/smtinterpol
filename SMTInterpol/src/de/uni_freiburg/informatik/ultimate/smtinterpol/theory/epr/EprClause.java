@@ -12,6 +12,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ResolutionNode;
@@ -84,7 +85,7 @@ public class EprClause extends Clause {
 	 */
 	EprClause mExplanation = null;
 
-	private HashMap<Literal, HashSet<Literal>> mLiteralToUnfulfillabilityReasons;
+	private HashMap<Literal, HashSet<Literal>> mLiteralToUnfulfillabilityReasons = new HashMap<>();
 
 	public EprClause(Literal[] literals, Theory theory) {
 		super(literals);
@@ -347,10 +348,23 @@ public class EprClause extends Clause {
 	public Literal getUnitClauseLiteral() {
 		if (!mFulfilledLiterals.isEmpty())
 			return null;
-		return this.mUnitLiteral;
+		if (this.mUnitLiteral == null)
+			return null;
+		if (!(this.mUnitLiteral instanceof EprQuantifiedPredicateAtom))
+			return this.mUnitLiteral;
+		
 	}
 
 	private void searchUnitLiteral() {
+		// that there is exactly one fulfillable literal is a necessary condition for this
+		// clause being a unit clause ..
+		assert mNoFulfillableLiterals == 1;
+		// .. however, it is not a sufficient condition
+		//   -- it might be that the reasons for unsatisfiability of the unfulfilled literals,
+		//      together with the unfulfilled literals themselves, don't have a unifier
+		//      (i.e. in the big conjunction that the quantifier is, there is no single clause
+		//       that is unit)
+		
 		//TODO: this could be done more efficiently i guess..
 		for (Literal li : eprQuantifiedPredicateLiterals) {
 			if (mFulfillabilityStatus.get(li) == FulfillabilityStatus.Fulfillable) {
@@ -426,13 +440,13 @@ public class EprClause extends Clause {
 			}
 		}
 		
-		if (literal instanceof EprGroundPredicateAtom) {
+		if (literal.getAtom() instanceof EprGroundPredicateAtom) {
 			boolean settingPositive = literal.getSign() == 1;
 			EprGroundPredicateAtom egpa = (EprGroundPredicateAtom) literal.getAtom();
 			TermTuple point = egpa.getArgumentsAsTermTuple(); 
 			EprPredicate pred = egpa.eprPredicate; 
 
-			HashSet<Literal> qo = pred.mQuantifiedOccurences.get(this);
+			HashSet<Literal> qo = pred.getQuantifiedOccurences().get(this);
 			if (qo != null) {
 				for (Literal quantifiedLit : qo) {
 					boolean oppositeSigns = (quantifiedLit.getSign() == 1) ^ settingPositive;
@@ -499,9 +513,11 @@ public class EprClause extends Clause {
 	 * @param qLiteral
 	 * @return a fresh EprClause that follows from first-order resolution with qLiteral
 	 */
-	public EprClause setQuantifiedLiteral(boolean positive, EprQuantifiedPredicateAtom atom) {
-//		boolean positive = qLiteral.getSign() == 1;
-//		EprPredicateAtom atom = (EprPredicateAtom) qLiteral.getAtom();
+	public EprClause setQuantifiedLiteral(EprQuantifiedLitWExcptns eqlwe) {
+		boolean positive = eqlwe.mIsPositive;
+		EprQuantifiedPredicateAtom atom = eqlwe.mAtom;
+		HashMap<TermVariable, ArrayList<ApplicationTerm>> exceptions = eqlwe.mExceptedPoints;
+		assert exceptions == null || exceptions.isEmpty() : "treat this case!";
 		
 		ArrayList<Literal> predicateLiterals = new ArrayList<>();
 		predicateLiterals.addAll(Arrays.asList(eprQuantifiedPredicateLiterals));
@@ -552,27 +568,62 @@ public class EprClause extends Clause {
 				return null;
 			} else {
 				// if the unifier is non-trivial, create a new clause
-				ArrayList<Literal> newLits = new ArrayList<Literal>();
-				newLits.addAll(Arrays.asList(groundLiterals));
-				for (Literal l : eprEqualityLiterals)
-					newLits.add(applySubstitution(sub, l));
-				for (Literal l : eprQuantifiedPredicateLiterals) {
-					if (l.equals(otherLit))
-						continue;
-					newLits.add(applySubstitution(sub, l));
-				}
-				
-				return new EprClause(newLits.toArray(new Literal[newLits.size()]), mTheory);
+				return instantiateClause(otherLit, sub);
 			}
 		}
 		return null;
 	}
 
+	/**
+	 * Create a new clause that is gained from applying the substitution sub to all literals in this clause.
+	 * otherLit is omitted (typically because it is the pivot literal of a resolution).
+	 * @param otherLit
+	 * @param sub
+	 * @return
+	 */
+	public EprClause instantiateClause(Literal otherLit, HashMap<TermVariable, Term> sub) {
+		ArrayList<Literal> newLits = new ArrayList<Literal>();
+		newLits.addAll(Arrays.asList(groundLiterals));
+		for (Literal l : eprEqualityLiterals)
+			newLits.add(applySubstitution(sub, l));
+		for (Literal l : eprQuantifiedPredicateLiterals) {
+			if (l.equals(otherLit))
+				continue;
+			newLits.add(applySubstitution(sub, l));
+		}
+		
+		return new EprClause(newLits.toArray(new Literal[newLits.size()]), mTheory);
+	}
+
 
 	private Literal applySubstitution(HashMap<TermVariable, Term> sub, Literal l) {
-		// TODO Auto-generated method stub
-
-		return null;
+		boolean isPositive = l.getSign() == 1;
+		DPLLAtom atom = l.getAtom();
+		
+		if (atom instanceof EprQuantifiedPredicateAtom) {
+			EprQuantifiedPredicateAtom eqpa = (EprQuantifiedPredicateAtom) atom;
+			TermTuple newTT = eqpa.getArgumentsAsTermTuple().applySubstitution(sub);
+			Term[] newParams = newTT.terms;
+			ApplicationTerm newTerm = mTheory.term(eqpa.eprPredicate.functionSymbol, newParams);
+			EprPredicateAtom result = null;
+			if (newTerm.getFreeVars().length > 0) {
+				result =  new EprQuantifiedPredicateAtom(newTerm, 0, //TODO: hash
+						l.getAtom().getAssertionStackLevel(), 
+						eqpa.eprPredicate);
+			} else {
+					EprGroundPredicateAtom pointAtom = eqpa.eprPredicate.getAtomForPoint(newTT);
+					if (pointAtom != null) {
+						result = pointAtom;
+					} else {
+						result = new EprGroundPredicateAtom(newTerm, 0, //TODO: hash
+								l.getAtom().getAssertionStackLevel(), 
+								eqpa.eprPredicate);
+					}
+			}
+			return isPositive ? result : result.negate();
+		} else {
+			return l;
+		}
 	}
 
 	/**
@@ -598,6 +649,7 @@ public class EprClause extends Clause {
 		// TODO Auto-generated method stub
 		
 	}
+
 
 
 

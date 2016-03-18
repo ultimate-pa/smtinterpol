@@ -1,6 +1,7 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Stack;
@@ -34,7 +35,8 @@ public class EprStateManager {
 	 */
 	public void endScope(Literal literal) {
 		mEprStateStack.pop();
-		mLiteralStack.pop();
+		Literal popped = mLiteralStack.pop();
+		assert literal == popped;
 		
 	}
 
@@ -42,6 +44,10 @@ public class EprStateManager {
 		return mEprStateStack.peek().setPoint(
 				literal.getSign() == 1, 
 				(EprGroundPredicateAtom) literal.getAtom());
+	}
+	
+	public boolean setQuantifiedLiteralWithExceptions(EprQuantifiedLitWExcptns eqlwe) {
+		return mEprStateStack.peek().setQuantifiedLiteralWithExceptions(eqlwe);
 	}
 	
 	public HashSet<TermTuple> getPoints(boolean positive, EprPredicate pred) {
@@ -55,10 +61,23 @@ public class EprStateManager {
 		return result;
 	}
 
+	public ArrayList<EprQuantifiedLitWExcptns> getSetLiterals() {
+		ArrayList<EprQuantifiedLitWExcptns> result = new ArrayList<>();
+		for (EprState es : mEprStateStack)
+			result.addAll(es.mSetLiterals);
+		return result;
+	}
+
 	public void addNewEprPredicate(EprPredicate pred) {
 		 mEprStateStack.peek().addNewEprPredicate(pred);
 		
 	}
-	
 
+	public void addDerivedClause(EprClause dc) {
+		mEprStateStack.peek().addDerivedClause(dc);
+	}
+
+	public ArrayList<EprClause> getTopLevelDerivedClauses() {
+		return mEprStateStack.peek().getDerivedClauses();
+	}
 }

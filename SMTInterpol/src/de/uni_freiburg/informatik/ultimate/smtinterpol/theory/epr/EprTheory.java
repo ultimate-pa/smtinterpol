@@ -68,6 +68,8 @@ public class EprTheory implements ITheory {
 	
 	EprStateManager mEprStateManager;
 
+	private HashMap<Literal, Clause> mPropLitToExplanation = new HashMap<>();
+
 	//	private Term mAlmostAllConstant;
 //	
 	public EprTheory(Theory th, DPLLEngine engine) {
@@ -129,7 +131,8 @@ public class EprTheory implements ITheory {
 				ec.setGroundLiteral(literal);
 
 			return null;
-		} else if (atom instanceof EprEqualityAtom || atom instanceof EprQuantifiedPredicateAtom) {
+		} else if (atom instanceof EprEqualityAtom 
+				|| atom instanceof EprQuantifiedPredicateAtom) {
 			//this should not happen because an EprEqualityAtom always has at least one
 			// quantified variable, thus the DPLLEngine should not know about that atom
 			assert false : "DPLLEngine is setting a quantified EprAtom --> this cannot be..";
@@ -197,46 +200,37 @@ public class EprTheory implements ITheory {
 		System.out.println("EPRDEBUG: backtrackLiteral");
 		// .. dual to setLiteral
 		
+		backtrackEprState(literal);
+
+		// update the fulfillment states of the remaining clauses
+		DPLLAtom atom = literal.getAtom();
+		if (atom instanceof EprGroundPredicateAtom) {
+			// literal is of the form (P x1 .. xn)
+			for (EprClause ec : mEprClauses)
+				ec.unsetGroundLiteral(literal);
+
+		} else if (atom instanceof EprEqualityAtom
+				|| atom instanceof EprQuantifiedPredicateAtom) {
+			assert false : "DPLLEngine is unsetting a quantified EprAtom --> this cannot be..";
+		} else {
+			// not an EprAtom 
+			for (EprClause ec : mEprClauses)
+				ec.unsetGroundLiteral(literal);
+
+		}
+		System.out.println("EPRDEBUG: backtrackLiteral, new fulfilled clauses: " + mFulfilledEprClauses);
+		System.out.println("EPRDEBUG: backtrackLiteral, new not fulfilled clauses: " + mNotFulfilledEprClauses);
+	}
+
+	/**
+	 * Pop the EprStateStack, remove the derived clauses from the sets of clauses managed by the theory.
+	 * @param literal
+	 */
+	private void backtrackEprState(Literal literal) {
+		mFulfilledEprClauses.removeAll(mEprStateManager.getTopLevelDerivedClauses());
+		mNotFulfilledEprClauses.removeAll(mEprStateManager.getTopLevelDerivedClauses());
+		mEprClauses.removeAll(mEprStateManager.getTopLevelDerivedClauses());
 		mEprStateManager.endScope(literal);
-		for (EprClause ec : mEprClauses)
-			ec.unsetGroundLiteral(literal);
-		//TODO: 
-//		for (Literal l : mCurrentlySetQuantifiedLiterals.currentScope()) {//FIXME is currentScope only the innermost, or all??
-//			//undo what setting them did..
-//		}
-
-//		DPLLAtom atom = literal.getAtom();
-//		
-//		if (atom instanceof EprPredicateAtom) {
-//			// literal is of the form (P x1 .. xn)
-//			
-//			//update model
-//			EprPredicate eprPred = ((EprPredicateAtom) atom).eprPredicate;
-//			if (literal.getSign() == 1) eprPred.unSetPointPositive((EprPredicateAtom) atom);
-//			else 						eprPred.unSetPointNegative((EprPredicateAtom) atom);
-//			
-//			for (EprClause ec : mLiteralToClauses.get(literal)) {
-//				updateFulFilledSets(ec);
-//			}
-//
-//			return;
-//
-//		} else if (atom instanceof EprEqualityAtom) {
-//			assert false : "DPLLEngine is unsetting a quantified EprAtom --> this cannot be..";
-//			return;
-//		} else {
-//			// not an EprAtom 
-//
-//			for (EprClause ec : mLiteralToClauses.get(literal)) {
-//				ec.unsetGroundLiteral(literal);
-//				updateFulFilledSets(ec);
-//			}
-//
-			System.out.println("EPRDEBUG: backtrackLiteral, new fulfilled clauses: " + mFulfilledEprClauses);
-			System.out.println("EPRDEBUG: backtrackLiteral, new not fulfilled clauses: " + mNotFulfilledEprClauses);
-
-//			return;
-//		}
 	}
 
 
@@ -300,7 +294,12 @@ public class EprTheory implements ITheory {
 				System.out.println("EPRDEBUG: found unit clause: " + ec);
 
 				if (unitLiteral.getAtom() instanceof EprQuantifiedPredicateAtom) {
-					setQuantifiedAtom(unitLiteral.getSign() == 1, (EprQuantifiedPredicateAtom) unitLiteral.getAtom(), ec.mExceptedPoints);
+					EprQuantifiedLitWExcptns eqlwe = new EprQuantifiedLitWExcptns(
+							unitLiteral.getSign() == 1, 
+							(EprQuantifiedPredicateAtom) unitLiteral.getAtom(), 
+							ec.mExceptedPoints, 
+							ec);
+					setQuantifiedAtom(eqlwe);
 				} else {
 					/*
 					 * either an EprGroundAtom or a non EprAtom
@@ -315,24 +314,41 @@ public class EprTheory implements ITheory {
 		
 	}
 
-	private void setQuantifiedAtom(boolean positive, EprQuantifiedPredicateAtom atom,
-			HashMap<TermVariable, ArrayList<ApplicationTerm>> exceptedPoints) {
+	private void setQuantifiedAtom(EprQuantifiedLitWExcptns eqlwe) {
+		
+		mEprStateManager.setQuantifiedLiteralWithExceptions(eqlwe);
+		
 		/*
 		 * propagate a quantified predicate
 		 *  --> rules for first-order resolution apply
 		 *  --> need to account for excepted points in the corresponding clause
 		 */
-		if (exceptedPoints.isEmpty()) {
-			//TODO: possibly optimize (so not all clauses have to be treated)
-			for (Clause otherClause : mEprClauses) {
-				EprClause otherEc = (EprClause) otherClause;
-				otherEc.setQuantifiedLiteral(positive, atom);
-				updateFulFilledSets(otherEc);
+		// propagate withing EprClauses
+		//TODO: possibly optimize (so not all clauses have to be treated)
+		for (EprClause otherEc : mEprClauses) {
+			EprClause derivedClause = otherEc.setQuantifiedLiteral(eqlwe);
+			if (derivedClause != null) {
+				mEprStateManager.addDerivedClause(derivedClause);
+				mEprClauses.add(derivedClause);
 			}
-		} else {
-			throw new UnsupportedOperationException("todo: handle excepted points at first-order unit propagation");
+			updateFulFilledSets(otherEc);
 		}
-//					mCurrentlySetQuantifiedLiterals.add(unitLiteral); //FIXME: when adding excepted points somethin has to be done here, too
+		// check if there is an Literal in the Engine that conflicts, or is unconstrained. In case propagate.
+		for (EprGroundPredicateAtom engineAtom : eqlwe.mAtom.eprPredicate.getDPLLAtoms()) {
+			Literal decideStatus = engineAtom.getDecideStatus();
+			
+			boolean polaritiesDifferOrUnconstrained = decideStatus == null || decideStatus.getSign() == 1 ^ eqlwe.mIsPositive;
+			if (polaritiesDifferOrUnconstrained) {
+
+				// is there a unifier?
+				HashMap<TermVariable, Term> sub = engineAtom.getArgumentsAsTermTuple().match(eqlwe.mAtom.getArgumentsAsTermTuple());
+				if (sub != null) {
+					Literal propLit = eqlwe.mIsPositive ? engineAtom : engineAtom.negate();
+					mGroundLiteralsToPropagate.add(propLit);
+					mPropLitToExplanation.put(propLit, eqlwe.mExplanation.instantiateClause(null, sub));
+				}
+			}
+		}
 	}
 
 	@Override
@@ -360,6 +376,9 @@ public class EprTheory implements ITheory {
 	@Override
 	public Literal getPropagatedLiteral() {
 		System.out.println("EPRDEBUG: getPropagatedLiteral");
+		if (!mGroundLiteralsToPropagate.isEmpty()) {
+			System.out.println("EPRDEBUG: propagating: " + mGroundLiteralsToPropagate.getFirst());
+		}
 		return mGroundLiteralsToPropagate.pollFirst();
 	}
 
@@ -369,7 +388,8 @@ public class EprTheory implements ITheory {
 //		return null;
 //		throw new UnsupportedOperationException();
 		System.out.println("EPRDEBUG: getUnitClause");
-		return null;
+		return mPropLitToExplanation.get(literal);
+//		return null;
 	}
 
 	@Override
@@ -539,7 +559,10 @@ public class EprTheory implements ITheory {
 				mEprStateManager.addNewEprPredicate(pred);
 			}
 			if (idx.getFreeVars().length == 0) {
-				return new EprGroundPredicateAtom(idx, hash, assertionStackLevel, pred);
+				EprGroundPredicateAtom egpa = new EprGroundPredicateAtom(idx, hash, assertionStackLevel, pred);
+				pred.addDPLLAtom(egpa);
+				pred.addPointAtom(egpa.getArgumentsAsTermTuple(), egpa);
+				return egpa;
 			} else {
 				ApplicationTerm substitutedTerm = applyAlphaRenaming(idx, mCollector);
 				return new EprQuantifiedPredicateAtom(substitutedTerm, hash, assertionStackLevel, pred);

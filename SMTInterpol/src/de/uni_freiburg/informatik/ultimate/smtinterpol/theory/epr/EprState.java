@@ -19,12 +19,11 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
  */
 public class EprState {
 
-	ArrayList<EprClause> mDerivedClauses = new ArrayList<EprClause>();
+	ArrayList<EprClause> mDerivedClauses = new ArrayList<>();
 
-	ArrayList<Literal> mSetLiterals = new ArrayList<>();
+	ArrayList<EprQuantifiedLitWExcptns> mSetLiterals = new ArrayList<>();
 	
 	HashMap<EprPredicate, EprPredicateModel> mPredicateToModel = new HashMap<>();
-
 
 	/**
 	 * constructor for the base state
@@ -59,14 +58,29 @@ public class EprState {
         	success = mPredicateToModel.get(pred).setPointNegative(point);
         assert success;
         
-        pred.mPointToAtom.put(point, atom);
+//        pred.addPointAtom(point, atom);
         
         return success;
 	}
 
+	public boolean setQuantifiedLiteralWithExceptions(EprQuantifiedLitWExcptns eqlwe) {
+		mSetLiterals.add(eqlwe);
+		return true;//TODO: do sth smart here??
+	}
 
+	/**
+	 * NOTE: in contrast to non-derived EprClauses the derived ones may lack any free variables
+	 * @param ec
+	 */
+	public void addDerivedClause(EprClause ec) {
+		mDerivedClauses.add(ec);
+	}
 
 	public void addNewEprPredicate(EprPredicate pred) {
 		mPredicateToModel.put(pred, new EprPredicateModel(pred));
+	}
+	
+	public ArrayList<EprClause> getDerivedClauses() {
+		return mDerivedClauses;
 	}
 }

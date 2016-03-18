@@ -5,8 +5,12 @@ import java.util.HashMap;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 
-public class EprQuantifiedAtomWithExceptions {
+public class EprQuantifiedLitWExcptns {
+	
+	// Literals polarity
+	boolean mIsPositive;
 
 	// quantified atom
 	EprQuantifiedPredicateAtom mAtom;
@@ -16,13 +20,18 @@ public class EprQuantifiedAtomWithExceptions {
 
 	// explanation
 	EprClause mExplanation;
+//	Clause mExplanation;
 
-	public EprQuantifiedAtomWithExceptions(EprQuantifiedPredicateAtom atom, 
+	public EprQuantifiedLitWExcptns(boolean isPositive, EprQuantifiedPredicateAtom atom, 
 			HashMap<TermVariable, ArrayList<ApplicationTerm>> ePoints,
 			EprClause explanation) {
+		mIsPositive = isPositive;
 		mAtom = atom;
 		mExceptedPoints = ePoints;
 		mExplanation = explanation;
 	}
 
+	public String toString() {
+		return mAtom.toString() + "\\" + mExceptedPoints.toString();
+	}
 }
