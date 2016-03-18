@@ -686,6 +686,18 @@ public class Theory {
 		declareInternalPolymorphicFunction(
 				"store", generic2,
 				new Sort[] { array, generic2[0], generic2[1] },	array, 0);
+		defineFunction(new FunctionSymbolFactory("const") {
+			@Override
+			public Sort getResultSort(BigInteger[] indices, Sort[] paramSorts,
+					Sort resultSort) {
+				if (indices != null
+					|| paramSorts.length != 1 || resultSort == null
+					|| resultSort.getName() != "Array"
+					|| ! paramSorts[0].equalsSort(resultSort.getArguments()[1]))
+					return null;
+				return resultSort;
+			}
+		});
 	}
 
 	private void createBitVecOperators() {
