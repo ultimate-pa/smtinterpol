@@ -68,6 +68,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAppTerm
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicateAtom;
@@ -1363,10 +1364,13 @@ public class Clausifier {
 				//alex (begin)
 				boolean isDpllClause = true;
 				for (Literal l : lits) {
-					if (l instanceof EprAtom
-							&& EprTheory.isQuantifiedEprAtom(toPositive(l.getSMTFormula(mTheory)))) {
+//					if (l instanceof EprAtom
+//							&& EprTheory.isQuantifiedEprAtom(toPositive(l.getSMTFormula(mTheory)))) {
+					if (l.getAtom() instanceof EprQuantifiedPredicateAtom
+							|| l.getAtom() instanceof EprEqualityAtom) {
 						// we have an EPR-clause
 						isDpllClause = false;
+						break;
 					}
 				}
 

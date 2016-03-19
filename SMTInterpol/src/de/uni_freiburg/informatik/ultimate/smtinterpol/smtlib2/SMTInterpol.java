@@ -928,9 +928,12 @@ public class SMTInterpol extends NoopScript {
 			/* We always have to reset the flag, but only need to set the stack
 			 * level if it is not already set. 
 			 */
-			System.out.println("debug:");//alex: debugging
+			System.out.println("debug: (SMTInterpol.java)");//alex: debugging
+			System.out.print("DPLL clauses:\t\t\t");
 			System.out.println(mEngine.getClauses());//alex: debugging
+			System.out.print("Fulfilled EPR clauses:\t\t");
 			System.out.println(mClausifier.getFulfilledEprClauses());//alex: debugging
+			System.out.print("Unfulfilled EPR clauses:\t");
 			System.out.println(mClausifier.getNotFulfilledEprClauses());//alex: debugging
 //			System.out.println(mEngine.dumpClauses());//alex: debugging
 			if (mClausifier.resetBy0Seen() && mBy0Seen == -1)

@@ -384,17 +384,18 @@ public class EprTheory implements ITheory {
 
 	@Override
 	public Literal getPropagatedLiteral() {
-		System.out.println("EPRDEBUG: getPropagatedLiteral");
+//		System.out.println("EPRDEBUG: getPropagatedLiteral");
 		if (!mGroundLiteralsToPropagate.isEmpty()) {
-			System.out.println("EPRDEBUG: propagating: " + mGroundLiteralsToPropagate.getFirst());
+			System.out.println("EPRDEBUG: getPropagatedLiteral propagating: " + mGroundLiteralsToPropagate.getFirst());
 		}
 		return mGroundLiteralsToPropagate.pollFirst();
 	}
 
 	@Override
 	public Clause getUnitClause(Literal literal) {
-		System.out.println("EPRDEBUG: getUnitClause");
+//		System.out.println("EPRDEBUG: getUnitClause");
 		Clause unitClause = mPropLitToExplanation.get(literal);
+		System.out.println("EPRDEBUG: getUnitClause -- returning " + unitClause);
 		assert unitClause != null;
 		return unitClause;
 	}
