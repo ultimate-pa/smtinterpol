@@ -393,14 +393,10 @@ public class EprTheory implements ITheory {
 
 	@Override
 	public Clause getUnitClause(Literal literal) {
-		// TODO Auto-generated method stub
-//		return null;
-//		throw new UnsupportedOperationException();
 		System.out.println("EPRDEBUG: getUnitClause");
 		Clause unitClause = mPropLitToExplanation.get(literal);
 		assert unitClause != null;
 		return unitClause;
-//		return null;
 	}
 
 	@Override
@@ -412,16 +408,12 @@ public class EprTheory implements ITheory {
 
 	@Override
 	public void printStatistics(Logger logger) {
-		// TODO Auto-generated method stub
-//		throw new UnsupportedOperationException();
 		System.out.println("EPRDEBUG: printStatistics");
 	}
 
 	@Override
 	public void dumpModel(Logger logger) {
-		// TODO Auto-generated method stub
 		System.out.println("EPRDEBUG: dumpmodel");
-
 	}
 
 	@Override
@@ -494,7 +486,7 @@ public class EprTheory implements ITheory {
 	public void addEprClause(Literal[] lits, ClauseDeletionHook hook, ProofNode proof) {
 		
 		//TODO: do something about hook and proof..
-		EprClause newEprClause = new EprClause(lits, mTheory);
+		EprClause newEprClause = new EprClause(lits, mTheory, mEprStateManager);
 		
 		
 		mEprClauses.add(newEprClause);
@@ -504,7 +496,7 @@ public class EprTheory implements ITheory {
 			updateLiteralToClauses(li, newEprClause);
 		}
 		
-		newEprClause.updateClauseState(mEprStateManager);
+//		newEprClause.updateClauseState(mEprStateManager);
 
 //		// account for the current decide status of quantified literals
 //		for (Literal qLit : mCurrentlySetQuantifiedLiterals) {
@@ -568,9 +560,11 @@ public class EprTheory implements ITheory {
 				mEprStateManager.addNewEprPredicate(pred);
 			}
 			if (idx.getFreeVars().length == 0) {
-				EprGroundPredicateAtom egpa = new EprGroundPredicateAtom(idx, hash, assertionStackLevel, pred);
-				pred.addDPLLAtom(egpa);
-//				pred.addPointAtom(egpa.getArgumentsAsTermTuple(), egpa);
+				EprGroundPredicateAtom egpa = pred.getAtomForPoint(new TermTuple(idx.getParameters()));
+				if (egpa == null) {
+					egpa = new EprGroundPredicateAtom(idx, hash, assertionStackLevel, pred);
+					pred.addDPLLAtom(egpa);
+				}
 				return egpa;
 			} else {
 				ApplicationTerm substitutedTerm = applyAlphaRenaming(idx, mCollector);

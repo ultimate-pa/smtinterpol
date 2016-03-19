@@ -71,16 +71,25 @@ public class EprStateManager {
 	}
 	
 	public boolean setQuantifiedLiteralWithExceptions(EprQuantifiedLitWExcptns eqlwe) {
+		
+		//TODO: do a consistency check with
+		// a) other quantified literals
+		// b) the current ground literals
+		
 		return mEprStateStack.peek().setQuantifiedLiteralWithExceptions(eqlwe);
 	}
 	
 	public HashSet<TermTuple> getPoints(boolean positive, EprPredicate pred) {
+		//TODO: some caching here?
 		HashSet<TermTuple> result = new HashSet<>();
 		for (EprState es : mEprStateStack) {
+			EprPredicateModel points = es.mPredicateToModel.get(pred);
+			if (points == null) //maybe not all eprStates on the stack know the predicate
+				continue;
 			if (positive)
-				result.addAll(es.mPredicateToModel.get(pred).mPositivelySetPoints);
+				result.addAll(points.mPositivelySetPoints);
 			else
-				result.addAll(es.mPredicateToModel.get(pred).mNegativelySetPoints);
+				result.addAll(points.mNegativelySetPoints);
 		}
 		return result;
 	}
@@ -97,6 +106,10 @@ public class EprStateManager {
 		
 	}
 
+	/**
+	 * Adds a clause that is derivable in the current state.
+	 * @param dc
+	 */
 	public void addDerivedClause(EprClause dc) {
 		mEprStateStack.peek().addDerivedClause(dc);
 	}

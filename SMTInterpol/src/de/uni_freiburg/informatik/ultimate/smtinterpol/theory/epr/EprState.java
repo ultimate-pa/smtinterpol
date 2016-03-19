@@ -19,6 +19,11 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
  */
 public class EprState {
 
+	/**
+	 * Set of Clauses that is derivable in the current state.
+	 * TODO: think more about this.
+	 *   -- if the clause is ground, add it to the theory?? Probably not, because we would need to remove it, when popping this state..
+	 */
 	ArrayList<EprClause> mDerivedClauses = new ArrayList<>();
 
 	ArrayList<EprQuantifiedLitWExcptns> mSetLiterals = new ArrayList<>();

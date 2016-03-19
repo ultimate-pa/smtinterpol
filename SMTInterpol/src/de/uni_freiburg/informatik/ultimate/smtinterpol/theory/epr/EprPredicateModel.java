@@ -56,4 +56,9 @@ public class EprPredicateModel {
 //		mPointToAtom.remove(point);
 //		mNegativelySetPoints.remove(point);
 //	}
+	
+	@Override
+	public String toString() {
+		return "someEprPoints..";
+	}
 }
