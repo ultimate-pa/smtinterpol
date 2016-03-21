@@ -245,7 +245,7 @@ public class TermTransformer extends NonRecursive {
 
 	/**
 	 * Get the converted terms from the converted stack.  This is the
-	 * dual of pushTerm() that is called after the term were removed
+	 * dual of pushTerms() that is called after the term were removed
 	 * from the todo stack and pushed to the converted stack.  It takes
 	 * the old terms as argument and checks for changes.
 	 * @param oldArgs the original arguments.
@@ -317,7 +317,7 @@ public class TermTransformer extends NonRecursive {
 	/**
 	 * Collect the sub term and the values of a let term from the 
 	 * converted stack and finish the conversion of let term.  
-	 * @param mAppTerm the let term to convert.
+	 * @param mLetTerm the let term to convert.
 	 */
 	protected static class BuildLetTerm implements Walker {
 		private final LetTerm mLetTerm;
@@ -346,7 +346,7 @@ public class TermTransformer extends NonRecursive {
 	 * converted stack. 
 	 * It stores the converted quantifier on the converted stack and in the
 	 * cache.
-	 * @param mAnnotatedTerm the quantifier to convert.
+	 * @param mQuant the quantifier to convert.
 	 */
 	protected static class BuildQuantifier implements Walker {
 		private final QuantifiedFormula mQuant;
