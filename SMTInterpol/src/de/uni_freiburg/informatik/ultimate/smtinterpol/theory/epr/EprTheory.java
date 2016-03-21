@@ -240,8 +240,9 @@ public class EprTheory implements ITheory {
 	public Clause checkpoint() {
 		System.out.println("EPRDEBUG: checkpoint");
 		
+		EprClause conflict = null;
 		
-		eprPropagate();
+		conflict = eprPropagate();
 	
 		
 		///////////////// old begin ////////////
@@ -278,17 +279,20 @@ public class EprTheory implements ITheory {
 //		}
 		///////////////// old end ////////////
 		
-		return null;
+//		return null;
+		return conflict;
 	}
 
 	/**
 	 * Does/queues all propagations that can be made through unit clause ec
 	 * @param ec a unit clause (i.e., unit in the current solver state)
 	 */
-	private void eprPropagate() {
+	private EprClause eprPropagate() {
+		EprClause conflict = null;
 
+		HashSet<Clause> notFulfilledCopy = new HashSet<>(mNotFulfilledEprClauses);
 		//unit propagation
-		for (Clause c : mNotFulfilledEprClauses) {
+		for (Clause c : notFulfilledCopy) {
 			EprClause ec = (EprClause) c;
 			Literal unitLiteral = ec.getUnitClauseLiteral();
 //			if (!(unitLiteral.getAtom() instanceof EprQuantifiedPredicateAtom))
@@ -303,7 +307,7 @@ public class EprTheory implements ITheory {
 							(EprQuantifiedPredicateAtom) unitLiteral.getAtom(), 
 							ec.mExceptedPoints, 
 							ec);
-					setQuantifiedAtom(eqlwe);
+					conflict = setQuantifiedAtom(eqlwe);
 				} else {
 					/*
 					 * either an EprGroundAtom or a non EprAtom
@@ -318,10 +322,13 @@ public class EprTheory implements ITheory {
 		}
 		
 		
+		return conflict;
 	}
 
-	private void setQuantifiedAtom(EprQuantifiedLitWExcptns eqlwe) {
+	private EprClause setQuantifiedAtom(EprQuantifiedLitWExcptns eqlwe) {
 		
+		EprClause conflict = null;
+
 		mEprStateManager.setQuantifiedLiteralWithExceptions(eqlwe);
 		
 		/*
@@ -334,9 +341,15 @@ public class EprTheory implements ITheory {
 		ArrayList<EprClause> toAdd = new ArrayList<>();
 		for (EprClause otherEc : mEprClauses) {
 			EprClause derivedClause = otherEc.setQuantifiedLiteral(eqlwe);
-			if (derivedClause != null) {
-				mEprStateManager.addDerivedClause(derivedClause);
-				toAdd.add(derivedClause);
+			if (derivedClause != null) { //TODO: derivedClause vs conflict clause distinction not nice..
+				toAdd.add(derivedClause); //TODO: this would be cleaner if eprStateManager would manage all EprClauses
+				
+				if (derivedClause.isConflictClause()) {
+					assert conflict == null : "what to do with several conflicts??"; //maybe one is enough (the state will change bc of backtracking anyway..)
+					conflict = derivedClause;
+					// TODO what if the conflict clause is not ground??
+					// maybe just ground it with one constant? e.g. lambda?..
+				}
 			}
 			updateFulFilledSets(otherEc);
 		}
@@ -358,6 +371,8 @@ public class EprTheory implements ITheory {
 				}
 			}
 		}
+
+		return conflict;
 	}
 
 	@Override

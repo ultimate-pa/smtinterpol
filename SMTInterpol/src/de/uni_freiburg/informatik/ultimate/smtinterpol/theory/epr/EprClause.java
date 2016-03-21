@@ -672,7 +672,8 @@ public class EprClause extends Clause {
 				continue;
 			
 			// if the unifier is trivial, update this clauses' satisfiability status accordingly
-			if (isUnifierTrivial(sub, atomArgs, otherArgs)) {
+			boolean unifierTrivial = isUnifierTrivial(sub, atomArgs, otherArgs);
+			if (unifierTrivial) {
 				
 				// if the signs match, the clause is fulfilled
 				if (positive == otherPositive
@@ -690,15 +691,30 @@ public class EprClause extends Clause {
 				} else {
 					setLiteralFulfillable(otherLit);
 				}
+				//TODO: deal with the case where several literals have the same predicate as qLiteral (factoring, multiple resolutions, ..?)
+			}
+
+			//resolution is possible if the signs don't match
+			Literal  skippedLit = positive != otherPositive ? otherLit : null;
 			
-				//TODO: deal with the case where several literals have the same predicate as qLiteral
-				return null;
-			} else {
-				// if the unifier is non-trivial, create a new clause
-				EprClause newClause = instantiateClause(otherLit, sub);
+			// if the unifier is not trivial the new clause is different --> return it
+			if (!unifierTrivial || skippedLit != null) {
+				EprClause newClause = instantiateClause(skippedLit, sub);
 				mStateManager.addDerivedClause(newClause);
 				return newClause;
 			}
+			
+			// if this became a conflict clause, we need to return it
+			if (this.isConflictClause()) {
+				return this;
+			}
+
+//			} else {
+//				// if the unifier is non-trivial, create a new clause
+//				EprClause newClause = instantiateClause(otherLit, sub);
+//				mStateManager.addDerivedClause(newClause);
+//				return newClause;
+//			}
 		}
 		return null;
 	}
@@ -902,5 +918,12 @@ public class EprClause extends Clause {
 				return null;
 			return mSubstitutionToInstantiations.keySet().iterator().next();
 		}
+	}
+
+	public boolean isConflictClause() {
+		for (Entry<Literal, FulfillabilityStatus> en : mFulfillabilityStatus.entrySet())
+			if (en.getValue() != FulfillabilityStatus.Unfulfillable)
+				return false;
+		return true;
 	}
 }
