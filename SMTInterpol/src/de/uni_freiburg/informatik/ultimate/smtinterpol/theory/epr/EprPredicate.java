@@ -89,8 +89,18 @@ public class EprPredicate {
 		mPointToAtom.put(point, atom);
 	}
 	
-	public EprGroundPredicateAtom getAtomForPoint(TermTuple point) {
-		return mPointToAtom.get(point);
+	public EprGroundPredicateAtom getAtomForPoint(TermTuple point, Theory mTheory, int assertionStackLevel) {
+		EprGroundPredicateAtom result = mPointToAtom.get(point);
+		if (result == null) {
+			ApplicationTerm newTerm = mTheory.term(this.functionSymbol, point.terms);
+			result = new EprGroundPredicateAtom(newTerm, 0, //TODO: hash
+					assertionStackLevel,
+//							l.getAtom().getAssertionStackLevel(), 
+					this);
+			addPointAtom(point, (EprGroundPredicateAtom) result);
+			addDPLLAtom(result);
+		}
+		return result;
 	}
 	
 //	
@@ -232,6 +242,14 @@ public class EprPredicate {
 	
 	public String toString() {
 		return "EprPred: " + functionSymbol.getName();
+	}
+
+
+
+	public EprGroundPredicateAtom getAtomForPoint(TermTuple point) {
+		EprGroundPredicateAtom result = mPointToAtom.get(point);
+		assert result != null;
+		return result;
 	}
 
 

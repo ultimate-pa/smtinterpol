@@ -2,6 +2,8 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -44,11 +46,11 @@ public class EprTheory implements ITheory {
 //	ArrayList<Clause> mEprClauses = new ArrayList<>();
 //	ArrayList<Clause> mFulfilledEprClauses = new ArrayList<>();
 //	ArrayList<Clause> mNotFulfilledEprClauses = new ArrayList<>();
-	HashSet<EprClause> mEprClauses = new HashSet<>();
-	HashSet<Clause> mFulfilledEprClauses = new HashSet<>();
-	HashSet<Clause> mNotFulfilledEprClauses = new HashSet<>();
+//	HashSet<EprClause> mEprClauses = new HashSet<>();
+//	HashSet<Clause> mFulfilledEprClauses = new HashSet<>();
+//	HashSet<Clause> mNotFulfilledEprClauses = new HashSet<>();
 	
-	int mClauseCounter = 0;
+//	int mClauseCounter = 0;
 
 //	ArrayList<EprClause> mEprUnitClauses = new ArrayList<>();
 //	SimpleList<Clause> mFulfilledEprClauses = new SimpleList<>();
@@ -66,9 +68,13 @@ public class EprTheory implements ITheory {
 	HashMap<Object, HashMap<TermVariable, Term>> mBuildClauseToAlphaRenamingSub = 
 			new HashMap<Object, HashMap<TermVariable,Term>>();
 	
-	EprStateManager mEprStateManager;
+	EprStateManager mStateManager;
 
 	private HashMap<Literal, Clause> mPropLitToExplanation = new HashMap<>();
+
+	private boolean mConflict;
+
+	HashSet<DPLLAtom> mAtomsAddedToDPLLEngine = new HashSet<>();
 
 	//	private Term mAlmostAllConstant;
 //	
@@ -76,7 +82,7 @@ public class EprTheory implements ITheory {
 		mTheory = th;
 		mEngine = engine;
 
-		mEprStateManager = new EprStateManager();
+		mStateManager = new EprStateManager();
 	}
 
 	@Override
@@ -99,7 +105,7 @@ public class EprTheory implements ITheory {
 	public Clause setLiteral(Literal literal) {
 		System.out.println("EPRDEBUG: setLiteral " + literal);
 		
-		mEprStateManager.beginScope(literal);
+		mStateManager.beginScope(literal);
 
 		// does this literal occur in any of the EprClauses?
 		// --> then check for satisfiability
@@ -123,12 +129,12 @@ public class EprTheory implements ITheory {
 			//  - updates the fulfillabilityState of all currently active clauses' literals
 			//  - updates its own set of currently active clauses (derived or not) with help of the EprStateManager
 
-			EprClause conflict = mEprStateManager.setGroundLiteral(literal);
+			EprClause conflict = mStateManager.setGroundLiteral(literal);
 			if (conflict != null)
 				return conflict; // then act as if the literal is not set, right?
 
 //			updateClauseQuantifiedLiteralFulfillabilityOnPointSetting(literal);
-			for (EprClause ec : mEprClauses)
+			for (EprClause ec : mStateManager.getAllClauses())
 				ec.setGroundLiteral(literal);
 
 			return null;
@@ -148,11 +154,11 @@ public class EprTheory implements ITheory {
 			
 			for (EprClause ec : mLiteralToClauses.get(literal)) {
 				ec.setGroundLiteral(literal);
-				updateFulFilledSets(ec);
+//				updateFulFilledSets(ec);
 			}
 
-			System.out.println("EPRDEBUG: setLiteral, new fulfilled clauses: " + mFulfilledEprClauses);
-			System.out.println("EPRDEBUG: setLiteral, new not fulfilled clauses: " + mNotFulfilledEprClauses);
+			System.out.println("EPRDEBUG: setLiteral, new fulfilled clauses: " + mStateManager.getFulfilledClauses());
+			System.out.println("EPRDEBUG: setLiteral, new not fulfilled clauses: " + mStateManager.getNotFulfilledClauses());
 
 			return null;
 		}
@@ -186,15 +192,15 @@ public class EprTheory implements ITheory {
 //		}
 //	}
 
-	private void updateFulFilledSets(EprClause ec) {
-		if (!ec.isFulfilled() && mFulfilledEprClauses.contains(ec)) {
-			mFulfilledEprClauses.remove(ec);
-			mNotFulfilledEprClauses.add(ec);
-		} else if (ec.isFulfilled() && mNotFulfilledEprClauses.contains(ec)) {
-			mNotFulfilledEprClauses.remove(ec);
-			mFulfilledEprClauses.add(ec);
-		}
-	}
+//	private void updateFulFilledSets(EprClause ec) {
+//		if (!ec.isFulfilled() && mFulfilledEprClauses.contains(ec)) {
+//			mFulfilledEprClauses.remove(ec);
+//			mNotFulfilledEprClauses.add(ec);
+//		} else if (ec.isFulfilled() && mNotFulfilledEprClauses.contains(ec)) {
+//			mNotFulfilledEprClauses.remove(ec);
+//			mFulfilledEprClauses.add(ec);
+//		}
+//	}
 
 	@Override
 	public void backtrackLiteral(Literal literal) {
@@ -207,7 +213,7 @@ public class EprTheory implements ITheory {
 		DPLLAtom atom = literal.getAtom();
 		if (atom instanceof EprGroundPredicateAtom) {
 			// literal is of the form (P x1 .. xn)
-			for (EprClause ec : mEprClauses)
+			for (EprClause ec : mStateManager.getAllClauses())
 				ec.unsetGroundLiteral(literal);
 
 		} else if (atom instanceof EprEqualityAtom
@@ -215,12 +221,12 @@ public class EprTheory implements ITheory {
 			assert false : "DPLLEngine is unsetting a quantified EprAtom --> this cannot be..";
 		} else {
 			// not an EprAtom 
-			for (EprClause ec : mEprClauses)
+			for (EprClause ec : mStateManager.getAllClauses())
 				ec.unsetGroundLiteral(literal);
 
 		}
-		System.out.println("EPRDEBUG: backtrackLiteral, new fulfilled clauses: " + mFulfilledEprClauses);
-		System.out.println("EPRDEBUG: backtrackLiteral, new not fulfilled clauses: " + mNotFulfilledEprClauses);
+		System.out.println("EPRDEBUG: backtrackLiteral, new fulfilled clauses: " + mStateManager.getFulfilledClauses());
+		System.out.println("EPRDEBUG: backtrackLiteral, new not fulfilled clauses: " + mStateManager.getNotFulfilledClauses());
 	}
 
 	/**
@@ -228,10 +234,10 @@ public class EprTheory implements ITheory {
 	 * @param literal
 	 */
 	private void backtrackEprState(Literal literal) {
-		mFulfilledEprClauses.removeAll(mEprStateManager.getTopLevelDerivedClauses());
-		mNotFulfilledEprClauses.removeAll(mEprStateManager.getTopLevelDerivedClauses());
-		mEprClauses.removeAll(mEprStateManager.getTopLevelDerivedClauses());
-		mEprStateManager.endScope(literal);
+//		mFulfilledEprClauses.removeAll(mStateManager.getTopLevelDerivedClauses());
+//		mNotFulfilledEprClauses.removeAll(mStateManager.getTopLevelDerivedClauses());
+//		mEprClauses.removeAll(mStateManager.getTopLevelDerivedClauses());
+		mStateManager.endScope(literal);
 	}
 
 
@@ -242,8 +248,18 @@ public class EprTheory implements ITheory {
 		
 		EprClause conflict = null;
 		
-		conflict = eprPropagate();
-	
+		// have we already a conflict clause in store?
+		if (!mStateManager.getConflictClauses().isEmpty()) {
+			EprClause realConflict = mStateManager.getConflictClauses().iterator().next();
+			System.out.println("EPRDEBUG (checkpoint): found a conflict: " + realConflict);
+			//TODO: work on explanation..
+			conflict = mStateManager.getClause(Collections.emptySet(), mTheory);
+		} else {
+			// try unit propagation
+
+			conflict = eprPropagate();
+
+		}
 		
 		///////////////// old begin ////////////
 		//plan:
@@ -290,7 +306,7 @@ public class EprTheory implements ITheory {
 	private EprClause eprPropagate() {
 		EprClause conflict = null;
 
-		HashSet<Clause> notFulfilledCopy = new HashSet<>(mNotFulfilledEprClauses);
+		HashSet<Clause> notFulfilledCopy = new HashSet<>(mStateManager.getNotFulfilledClauses());
 		//unit propagation
 		for (Clause c : notFulfilledCopy) {
 			EprClause ec = (EprClause) c;
@@ -314,7 +330,10 @@ public class EprTheory implements ITheory {
 					 * (plan atm: don't propagate EprEqualities)
 					 * --> just propagate the literal through the normal means
 					 */
-					mEngine.addAtom(unitLiteral.getAtom());
+					if (!mAtomsAddedToDPLLEngine.contains(unitLiteral.getAtom())) { //TODO not so nice, with the extra set..
+						mEngine.addAtom(unitLiteral.getAtom());
+						mAtomsAddedToDPLLEngine.add(unitLiteral.getAtom());
+					}
 					mPropLitToExplanation.put(unitLiteral, ec.getInstantiationOfClauseForCurrentUnitLiteral());
 					mGroundLiteralsToPropagate.add(unitLiteral);
 				}
@@ -324,12 +343,12 @@ public class EprTheory implements ITheory {
 		
 		return conflict;
 	}
-
+	
 	private EprClause setQuantifiedAtom(EprQuantifiedLitWExcptns eqlwe) {
 		
 		EprClause conflict = null;
 
-		mEprStateManager.setQuantifiedLiteralWithExceptions(eqlwe);
+		mStateManager.setQuantifiedLiteralWithExceptions(eqlwe);
 		
 		/*
 		 * propagate a quantified predicate
@@ -339,21 +358,25 @@ public class EprTheory implements ITheory {
 		// propagate within EprClauses
 		//TODO: possibly optimize (so not all clauses have to be treated)
 		ArrayList<EprClause> toAdd = new ArrayList<>();
-		for (EprClause otherEc : mEprClauses) {
-			EprClause derivedClause = otherEc.setQuantifiedLiteral(eqlwe);
-			if (derivedClause != null) { //TODO: derivedClause vs conflict clause distinction not nice..
-				toAdd.add(derivedClause); //TODO: this would be cleaner if eprStateManager would manage all EprClauses
-				
-				if (derivedClause.isConflictClause()) {
-					assert conflict == null : "what to do with several conflicts??"; //maybe one is enough (the state will change bc of backtracking anyway..)
-					conflict = derivedClause;
+		for (EprClause otherEc : mStateManager.getAllClauses()) {
+			EprClause conflictClause = otherEc.setQuantifiedLiteral(eqlwe);
+//			if (derivedClause != null) { //TODO: derivedClause vs conflict clause distinction not nice..
+//				toAdd.add(derivedClause); //TODO: this would be cleaner if eprStateManager would manage all EprClauses
+//				
+//				if (derivedClause.isConflictClause()) {
+//					assert conflict == null : "what to do with several conflicts??"; //maybe one is enough (the state will change bc of backtracking anyway..)
+//					conflict = derivedClause;
 					// TODO what if the conflict clause is not ground??
 					// maybe just ground it with one constant? e.g. lambda?..
-				}
+//				}
+//			}
+//			updateFulFilledSets(otherEc);
+			if (conflict == null && conflictClause != null) { // we only return the first conflict we find -- TODO: is that good?..
+				// TODO what if the conflict clause is not ground??
+				conflict = conflictClause;
 			}
-			updateFulFilledSets(otherEc);
 		}
-		mEprClauses.addAll(toAdd);
+//		mEprClauses.addAll(toAdd);
 		
 		// check if there is an Literal in the Engine that conflicts, or is unconstrained. In case propagate.
 		for (EprGroundPredicateAtom engineAtom : eqlwe.mAtom.eprPredicate.getDPLLAtoms()) {
@@ -379,7 +402,7 @@ public class EprTheory implements ITheory {
 	public Clause computeConflictClause() {
 //		throw new UnsupportedOperationException();
 		System.out.println("EPRDEBUG: computeConflictClause");
-		for (Clause c : mNotFulfilledEprClauses) {
+		for (Clause c : mStateManager.getNotFulfilledClauses()) {
 			EprClause eprClause = (EprClause)	c;
 			
 			// an epr clause looks like this:
@@ -389,7 +412,7 @@ public class EprTheory implements ITheory {
 			// - equalities over a quantified variable and a constant each
 			// - predicates over quantified variables and/or constants
 			// - non-epr literals (in mNotFulfilledEprClauses, they are all false (maybe unset??))
-			Clause conflict = eprClause.check(mEprStateManager);
+			Clause conflict = eprClause.check(mStateManager);
 //			checkResult &= conflict == null;
 			if (conflict != null)
 				return conflict;
@@ -502,12 +525,10 @@ public class EprTheory implements ITheory {
 	public void addEprClause(Literal[] lits, ClauseDeletionHook hook, ProofNode proof) {
 		
 		//TODO: do something about hook and proof..
-		EprClause newEprClause = new EprClause(lits, mTheory, mEprStateManager);
-		
-		
-		mEprClauses.add(newEprClause);
-		mNotFulfilledEprClauses.add(newEprClause);
-		
+//		EprClause newEprClause = new EprClause(lits, mTheory, mStateManager);
+		EprClause newEprClause = mStateManager.getClause(new HashSet<Literal>(Arrays.asList(lits)), mTheory);
+		mConflict |= mStateManager.addBaseClause(newEprClause);
+	
 		for (Literal li : lits) {
 			updateLiteralToClauses(li, newEprClause);
 		}
@@ -556,11 +577,15 @@ public class EprTheory implements ITheory {
 	}
 	
 	public Set<Clause> getFulfilledClauses() {
-		return mFulfilledEprClauses;
+		HashSet<Clause> cls = new HashSet<>();
+		cls.addAll(mStateManager.getFulfilledClauses());
+		return cls;
 	}
 
 	public Set<Clause> getNotFulfilledClauses() {
-		return mNotFulfilledEprClauses;
+		HashSet<Clause> cls = new HashSet<>();
+		cls.addAll(mStateManager.getNotFulfilledClauses());
+		return cls;
 	}
 
 	public EprAtom getEprAtom(ApplicationTerm idx, int hash, int assertionStackLevel, Object mCollector) {
@@ -573,14 +598,13 @@ public class EprTheory implements ITheory {
 			if (pred == null) {
 				pred = new EprPredicate(idx.getFunction(), idx.getParameters().length);
 				mFunctionSymbolToEprPredicate.put(idx.getFunction(), pred);
-				mEprStateManager.addNewEprPredicate(pred);
+				mStateManager.addNewEprPredicate(pred);
 			}
 			if (idx.getFreeVars().length == 0) {
-				EprGroundPredicateAtom egpa = pred.getAtomForPoint(new TermTuple(idx.getParameters()));
-				if (egpa == null) {
-					egpa = new EprGroundPredicateAtom(idx, hash, assertionStackLevel, pred);
-					pred.addDPLLAtom(egpa);
-				}
+				EprGroundPredicateAtom egpa = pred.getAtomForPoint(new TermTuple(idx.getParameters()), 
+						mTheory, 
+						mEngine.getAssertionStackLevel());
+				pred.addDPLLAtom(egpa);
 				return egpa;
 			} else {
 				ApplicationTerm substitutedTerm = applyAlphaRenaming(idx, mCollector);

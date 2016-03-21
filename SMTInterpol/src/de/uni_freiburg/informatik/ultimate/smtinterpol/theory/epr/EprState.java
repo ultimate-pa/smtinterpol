@@ -26,9 +26,17 @@ public class EprState {
 	 */
 	ArrayList<EprClause> mDerivedClauses = new ArrayList<>();
 
+	/**
+	 * Base clauses, i.e., clauses that came in through an assert. 
+	 * (state dependent as soon as we support push/pop
+	 */
+	ArrayList<EprClause> mBaseClauses = new ArrayList<>();
+
 	ArrayList<EprQuantifiedLitWExcptns> mSetLiterals = new ArrayList<>();
 	
 	HashMap<EprPredicate, EprPredicateModel> mPredicateToModel = new HashMap<>();
+
+	private ArrayList<EprClause> mConflictClauses = new ArrayList<>();
 
 	/**
 	 * constructor for the base state
@@ -76,10 +84,33 @@ public class EprState {
 	/**
 	 * NOTE: in contrast to non-derived EprClauses the derived ones may lack any free variables
 	 * @param ec
+	 * @return true if ec is a conflict clause, false otherwise
 	 */
-	public void addDerivedClause(EprClause ec) {
-		mDerivedClauses.add(ec);
+	public boolean addDerivedClause(EprClause ec) {
+		return addClause(ec, false);
 	}
+
+	/**
+	 * @param bc
+	 * @return true if bc is a conflict clause, false otherwise
+	 */
+	public boolean addBaseClause(EprClause bc) {
+		return addClause(bc, true);
+	}
+	
+	private boolean addClause(EprClause c, boolean base) {
+		if (base)
+			mBaseClauses.add(c);
+		else
+			mDerivedClauses.add(c);
+			
+		if (c.isConflictClause()) {
+			mConflictClauses.add(c);
+			return true;
+		}
+		return false;
+	}
+	
 
 	public void addNewEprPredicate(EprPredicate pred) {
 		mPredicateToModel.put(pred, new EprPredicateModel(pred));
@@ -87,5 +118,13 @@ public class EprState {
 	
 	public ArrayList<EprClause> getDerivedClauses() {
 		return mDerivedClauses;
+	}
+	
+	public ArrayList<EprClause> getBaseClauses() {
+		return mBaseClauses;
+	}
+
+	public ArrayList<EprClause> getConflictClauses() {
+		return mConflictClauses;
 	}
 }

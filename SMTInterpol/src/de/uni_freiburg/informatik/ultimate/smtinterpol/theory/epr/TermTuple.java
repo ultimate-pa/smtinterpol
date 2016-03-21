@@ -105,6 +105,8 @@ public class TermTuple {
 				} else {
 					return null; //no match
 				}
+			} else {
+				return null;
 			}
 		}
 		assert this.applySubstitution(resultSubs).equals(other.applySubstitution(resultSubs)) 

@@ -4,10 +4,12 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Set;
 import java.util.Stack;
 
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
+import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 
 public class EprStateManager {
@@ -17,7 +19,10 @@ public class EprStateManager {
 	
 	private EprState baseState;
 	
-	private HashSet<EprClause> mAllClauses = new HashSet<>();
+	
+	HashMap<Set<Literal>, EprClause> mLiteralToClauses = new HashMap<>();
+	
+//	private HashSet<EprClause> mAllClauses = new HashSet<>();
 
 	public EprStateManager() {
 		baseState = new EprState();
@@ -71,7 +76,8 @@ public class EprStateManager {
 	}
 	
 	public boolean setQuantifiedLiteralWithExceptions(EprQuantifiedLitWExcptns eqlwe) {
-		
+		System.out.println("EPRDEBUG (EprStateManager): setting Quantified literal: " + eqlwe);
+
 		//TODO: do a consistency check with
 		// a) other quantified literals
 		// b) the current ground literals
@@ -110,11 +116,65 @@ public class EprStateManager {
 	 * Adds a clause that is derivable in the current state.
 	 * @param dc
 	 */
-	public void addDerivedClause(EprClause dc) {
-		mEprStateStack.peek().addDerivedClause(dc);
+	public boolean addDerivedClause(EprClause dc) {
+		System.out.println("EPRDEBUG (EprStateManager): adding derived clause " + dc);
+//		mLiteralToClauses.put(dc.getLiteralSet(), dc);
+		return mEprStateStack.peek().addDerivedClause(dc);
+	}
+
+	public boolean addBaseClause(EprClause bc) {
+		System.out.println("EPRDEBUG (EprStateManager): adding base clause " + bc);
+		return mEprStateStack.peek().addBaseClause(bc);
 	}
 
 	public ArrayList<EprClause> getTopLevelDerivedClauses() {
 		return mEprStateStack.peek().getDerivedClauses();
+	}
+
+	public HashSet<EprClause> getAllClauses() {
+		HashSet<EprClause> allClauses = new HashSet<>();
+		for (EprState es : mEprStateStack) {
+			allClauses.addAll(es.getBaseClauses());
+			allClauses.addAll(es.getDerivedClauses());
+		}
+		return allClauses;
+	}
+
+	public HashSet<EprClause> getFulfilledClauses() {
+		HashSet<EprClause> fulfilledClauses = new HashSet<>();
+		for (EprClause ec : getAllClauses())
+			if (ec.isFulfilled())
+				fulfilledClauses.add(ec);
+		return fulfilledClauses;
+	}
+	
+	public HashSet<EprClause> getNotFulfilledClauses() {
+		HashSet<EprClause> notFulfilledClauses = new HashSet<>();
+		for (EprClause ec : getAllClauses())
+			if (!ec.isFulfilled())
+				notFulfilledClauses.add(ec);
+		return notFulfilledClauses;
+	}
+
+	public HashSet<EprClause> getConflictClauses() {
+		HashSet<EprClause> result = new HashSet<>();
+		for (EprState es : mEprStateStack) {
+			result.addAll(es.getConflictClauses());
+		}
+		return result;
+	}
+	/**
+	 * makes sure that for the same set of literals only one clause is constructed.
+	 * @param newLits
+	 * @param theory
+	 * @return
+	 */
+	public EprClause getClause(Set<Literal> newLits, Theory theory) {
+		EprClause result = mLiteralToClauses.get(newLits);
+		if (result == null) {
+			result = new EprClause(newLits.toArray(new Literal[newLits.size()]), theory, this);
+			mLiteralToClauses.put(newLits, result);
+		}
+		return result;
 	}
 }

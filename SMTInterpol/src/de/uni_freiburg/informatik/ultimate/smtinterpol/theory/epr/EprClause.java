@@ -3,6 +3,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map.Entry;
@@ -43,6 +44,8 @@ public class EprClause extends Clause {
 	Literal[] eprEqualityLiterals;
 	Literal[] eprQuantifiedPredicateLiterals;
 	Literal[] groundLiterals;
+	
+	HashSet<Literal> mAllLiterals;
 
 	Theory mTheory;
 
@@ -95,6 +98,7 @@ public class EprClause extends Clause {
 		super(literals);
 		mTheory = theory;
 		mStateManager = stateManager;
+		mAllLiterals = new HashSet<>(Arrays.asList(literals));
 		setUpClause(literals);
 	}
 
@@ -145,19 +149,10 @@ public class EprClause extends Clause {
 			boolean liPositive = li.getSign() == 1;
 
 
-			for (EprQuantifiedLitWExcptns sl : mStateManager.getSetLiterals()) {
-				if (sl.mAtom.eprPredicate != liAtom.eprPredicate)
-					continue;
-				if (subset(sl.mExceptedPoints, this.mExceptedPoints)) {
-					if (sl.mIsPositive == liPositive)
-						setLiteralFulfilled(li);
-					else
-						setLiteralUnfulfillable(li, new UnFulReason(sl));
-					continue nextLi;
-//				} else {
-//					setLiteralFulfillable(li);
-				}
-			}
+			boolean continueWithNextLiteral = compareToSetQuantifiedLiterals(li, liAtom, liPositive);
+			if (continueWithNextLiteral)
+				continue nextLi;
+			
 			// we only reach here if none of the quantified literals in the current state 
 			//  fulfilled or contradicted li
 			HashSet<TermTuple> otherPolarityPoints = mStateManager.getPoints(!liPositive, liAtom.eprPredicate);
@@ -187,6 +182,13 @@ public class EprClause extends Clause {
 			} else { //atom is undecided on the DPLL-side (maybe DPLLEngine does not know it??
 				if (liAtom instanceof EprGroundPredicateAtom) {
 					EprGroundPredicateAtom egpa = (EprGroundPredicateAtom) liAtom;
+					
+					// compare to set quantified literals
+					boolean continueWithNextLiteral = compareToSetQuantifiedLiterals(li, egpa, liPositive);
+					if (continueWithNextLiteral)
+						continue;
+
+					// compare to points
 					HashSet<TermTuple> samePolarityPoints = mStateManager.getPoints(liPositive, 
 							egpa.eprPredicate);
 					if (samePolarityPoints.contains(egpa.getArgumentsAsTermTuple())) {//TODO: seems inefficient..
@@ -208,13 +210,56 @@ public class EprClause extends Clause {
 						setLiteralUnfulfillable(li, new UnFulReason(liPositive ? opAtom.negate() : opAtom));
 						continue;
 					}
+
 				}
 				setLiteralFulfillable(li);
 			}
 		}
 	}
 
-	
+	public boolean compareToSetQuantifiedLiterals(Literal li, EprPredicateAtom liAtom, boolean liPositive) {
+		for (EprQuantifiedLitWExcptns sl : mStateManager.getSetLiterals()) {
+			if (sl.mAtom.eprPredicate != liAtom.eprPredicate)
+				continue;
+			HashMap<TermVariable, Term> sub = liAtom.getArgumentsAsTermTuple().match(
+					sl.mAtom.getArgumentsAsTermTuple());
+			if (sub == null)
+				continue;
+			if (subset(sl.mExceptedPoints, this.mExceptedPoints)) {
+				if (sl.mIsPositive == liPositive) {
+					if (sub.isEmpty())
+						setLiteralFulfilled(li);
+					else
+						throw new UnsupportedOperationException("todo..");
+				} else {
+					setLiteralUnfulfillable(li, new UnFulReason(sl));
+					HashSet<TermVariable>  fvIntersection = new HashSet<>(sub.keySet());
+					fvIntersection.retainAll(this.getFreeVars());
+					if (!sub.isEmpty() && !fvIntersection.isEmpty()) {
+//						mStateManager.addDerivedClause(instantiateClause(sl.getLiteral(), sub));
+//						mStateManager.addDerivedClause(instantiateClause(li, sub));
+						mStateManager.addDerivedClause(instantiateClause(null, sub));
+					}
+				}
+//					continue nextLi;
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private HashSet<TermVariable> getFreeVars() {
+		HashSet<TermVariable> result = new HashSet<>();
+		for (Literal l : eprQuantifiedPredicateLiterals) {
+			result.addAll(((EprQuantifiedPredicateAtom) l.getAtom()).getArgumentsAsTermTuple().getFreeVars());
+		}
+		return result;
+	}
+
+	public boolean isGround() {
+		return eprQuantifiedPredicateLiterals.length == 0;
+	}
+
 
 	private boolean subset(HashMap<TermVariable, HashSet<ApplicationTerm>> eps1,
 			HashMap<TermVariable, HashSet<ApplicationTerm>> eps2) {
@@ -430,12 +475,19 @@ public class EprClause extends Clause {
 				mInstantiationOfClauseForCurrentUnitLiteral = null;
 				return null; // if there is no unifier, then this clause actually is no unit clause
 			}
-			Literal unifiedUnitLiteral = applySubstitution(sub, mUnitLiteral); //TODO: register the new literal somewhere???
-			mInstantiationOfClauseForCurrentUnitLiteral = this.instantiateClause(null, sub);
-			mStateManager.addDerivedClause(mInstantiationOfClauseForCurrentUnitLiteral);
-			if (unifiedUnitLiteral.getAtom().getDecideStatus() == unifiedUnitLiteral) { // already set??
-				mUnitLiteral = null;
-				return null; //TODO: seems incomplete, maybe we want to propagate other points, then..
+//			if (isUnifierTrivial(sub, ((EprPredicateAtom) mUnitLiteral.getAtom()).getArgumentsAsTermTuple(), tt2))
+			Literal unifiedUnitLiteral = null;
+			if (!sub.isEmpty()) { 
+				unifiedUnitLiteral = applySubstitution(sub, mUnitLiteral); //TODO: register the new literal somewhere???
+				mInstantiationOfClauseForCurrentUnitLiteral = this.instantiateClause(null, sub);
+				mStateManager.addDerivedClause(mInstantiationOfClauseForCurrentUnitLiteral);
+				if (unifiedUnitLiteral.getAtom().getDecideStatus() == unifiedUnitLiteral) { // already set??
+					mUnitLiteral = null;
+					return null; //TODO: seems incomplete, maybe we want to propagate other points, then..
+				}
+			} else {
+				// unification is trivial, no need of a derived clause
+				unifiedUnitLiteral = mUnitLiteral;
 			}
 			return unifiedUnitLiteral;
 		} else {
@@ -445,7 +497,8 @@ public class EprClause extends Clause {
 			Literal unifiedUnitLiteral = applySubstitution(sub, mUnitLiteral); //TODO: register the new literal somewhere???
 
 			//TODO: what's the right unit clause here???
-			mInstantiationOfClauseForCurrentUnitLiteral = new EprClause(new Literal[] { unifiedUnitLiteral }, mTheory, mStateManager);
+			mInstantiationOfClauseForCurrentUnitLiteral = mStateManager.getClause(Collections.singleton(unifiedUnitLiteral), mTheory);
+//			mInstantiationOfClauseForCurrentUnitLiteral = new EprClause(new Literal[] { unifiedUnitLiteral }, mTheory, mStateManager);
 //			mInstantiationOfClauseForCurrentUnitLiteral = this.instantiateClause(null, sub);
 //			mStateManager.addDerivedClause(mInstantiationOfClauseForCurrentUnitLiteral);
 			
@@ -489,8 +542,10 @@ public class EprClause extends Clause {
 			} else if (mFulfillabilityStatus.get(li) == FulfillabilityStatus.Fulfillable) {
 				assert mUnitLiteral == null : "more than one literals are fulfillable -- something's wrong!";
 				mUnitLiteral = li;
-			} else
-				assert false : "the whole clause is fulfillable -- then why should this method be called??";
+			} else if (mFulfillabilityStatus.get(li) == FulfillabilityStatus.Fulfilled) {
+				assert false : "the whole clause is fulfilled -- then why should this method be called??";
+			} else 
+				assert false : "li has no fulfillabilityStatus";
 		}
 	}
 
@@ -737,8 +792,10 @@ public class EprClause extends Clause {
 			newLits.add(applySubstitution(sub, l));
 		}
 		
-		return new EprClause(newLits.toArray(new Literal[newLits.size()]), mTheory, mStateManager);
+		return mStateManager.getClause(new HashSet<Literal>(newLits), mTheory);
 	}
+
+
 
 
 	private Literal applySubstitution(HashMap<TermVariable, Term> sub, Literal l) {
@@ -756,13 +813,13 @@ public class EprClause extends Clause {
 						l.getAtom().getAssertionStackLevel(), 
 						eqpa.eprPredicate);
 			} else {
-				result = eqpa.eprPredicate.getAtomForPoint(newTT);
-				if (result == null) {
-					result = new EprGroundPredicateAtom(newTerm, 0, //TODO: hash
-							l.getAtom().getAssertionStackLevel(), 
-							eqpa.eprPredicate);
-					eqpa.eprPredicate.addPointAtom(newTT, (EprGroundPredicateAtom) result);
-				}
+				result = eqpa.eprPredicate.getAtomForPoint(newTT, mTheory, l.getAtom().getAssertionStackLevel());
+//				if (result == null) {
+//					result = new EprGroundPredicateAtom(newTerm, 0, //TODO: hash
+//							l.getAtom().getAssertionStackLevel(), 
+//							eqpa.eprPredicate);
+//					eqpa.eprPredicate.addPointAtom(newTT, (EprGroundPredicateAtom) result);
+//				}
 			}
 			return isPositive ? result : result.negate();
 		} else {
@@ -925,5 +982,9 @@ public class EprClause extends Clause {
 			if (en.getValue() != FulfillabilityStatus.Unfulfillable)
 				return false;
 		return true;
+	}
+	
+	public HashSet<Literal> getLiteralSet() {
+		return mAllLiterals;
 	}
 }
