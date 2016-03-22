@@ -700,7 +700,7 @@ public class Theory {
 		});
 	}
 
-	private void createBitVecOperators() {
+	private void createBitVecSort() {
 		mBitVecSort = new SortSymbol(this, "BitVec", 0, null,
 				SortSymbol.INTERNAL | SortSymbol.INDEXED) {
 			public void checkArity(BigInteger[] indices, int arity) {
@@ -716,6 +716,9 @@ public class Theory {
 			}
 		};
 		mDeclaredSorts.put("BitVec", mBitVecSort);
+	}
+
+	private void createBitVecOperators() {
 		class RegularBitVecFunction extends FunctionSymbolFactory {
 			int mNumArgs;
 			int mFlags;
@@ -903,8 +906,6 @@ public class Theory {
 		};
 
 		mDeclaredSorts.put("FloatingPoint", mFloatingPointSort);
-		mRealSort = declareInternalSort("Real", 0,
-				SortSymbol.INTERNAL).getSort(null, new Sort[0]);
 		mRoundingModeSort = declareInternalSort("RoundingMode", 0, 0)
 				.getSort(null, new Sort[0]);
 
@@ -1136,11 +1137,11 @@ public class Theory {
 		if (logic.isArray())
 			createArrayOperators();
 
+		if (logic.hasReals() || logic.isFloatingPoint())
+			mRealSort = declareInternalSort("Real", 0,
+					SortSymbol.NUMERIC).getSort(null, new Sort[0]);
+		
 		if (logic.isArithmetic()) {
-
-			if (logic.hasReals())
-				mRealSort = declareInternalSort("Real", 0,
-						SortSymbol.NUMERIC).getSort(null, new Sort[0]);
 
 			if (logic.hasIntegers())
 				mNumericSort = declareInternalSort("Int", 0,
@@ -1155,8 +1156,13 @@ public class Theory {
 			}
 		}
 
-		if (logic.isBitVector())
+		if (logic.isBitVector() || logic.isFloatingPoint()) {
+			createBitVecSort();
+		}
+
+		if (logic.isBitVector()) {
 			createBitVecOperators();
+		}
 
 		if (logic.isFloatingPoint()) {
 			createFloatingPointOperators();
