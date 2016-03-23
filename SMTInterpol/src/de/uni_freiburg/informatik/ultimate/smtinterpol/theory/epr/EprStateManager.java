@@ -58,7 +58,8 @@ public class EprStateManager {
 					continue;
 				if (l.mIsPositive == (literal.getSign() == 1))
 					continue; // polarities match --> no conflict
-				HashMap<TermVariable, Term> sub = l.mAtom.getArgumentsAsTermTuple().match(atom.getArgumentsAsTermTuple());
+//				HashMap<TermVariable, Term> sub = l.mAtom.getArgumentsAsTermTuple().match(atom.getArgumentsAsTermTuple());
+				TTSubstitution sub = l.mAtom.getArgumentsAsTermTuple().match(atom.getArgumentsAsTermTuple());
 				if (sub != null) {
 					EprClause conflict =  l.mExplanation.instantiateClause(null, sub);
 					return conflict;
@@ -169,10 +170,12 @@ public class EprStateManager {
 	 * @param theory
 	 * @return
 	 */
-	public EprClause getClause(Set<Literal> newLits, Theory theory) {
+//	public EprClause getClause(Set<Literal> newLits, Theory theory) {
+	public EprClause getClause(Set<Literal> newLits, Theory theory, EprClause explanation) {
 		EprClause result = mLiteralToClauses.get(newLits);
 		if (result == null) {
-			result = new EprClause(newLits.toArray(new Literal[newLits.size()]), theory, this);
+			result = new EprClause(newLits.toArray(new Literal[newLits.size()]), theory, this, explanation);
+			System.out.println("EPRDEBUG (EprStateManager): creating new clause " + result);
 			mLiteralToClauses.put(newLits, result);
 		}
 		return result;

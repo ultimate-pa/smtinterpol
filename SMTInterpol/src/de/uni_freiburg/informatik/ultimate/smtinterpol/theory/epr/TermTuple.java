@@ -65,8 +65,10 @@ public class TermTuple {
 //	}
 	
 	
-	public HashMap<TermVariable, Term> match(TermTuple other) {
-		return match(other, new HashMap<TermVariable, Term>());
+//	public HashMap<TermVariable, Term> match(TermTuple other) {
+	public TTSubstitution match(TermTuple other) {
+//		return match(other, new HashMap<TermVariable, Term>());
+		return match(other, new TTSubstitution());
 	}
 
 	/**
@@ -75,41 +77,76 @@ public class TermTuple {
 	 * @param newSubs a substitution that constrains the matching of variables
 	 * @return a possibly more constrained substitution that is a unifier, null if there is no unifier
 	 */
-	public HashMap<TermVariable, Term> match(
+	public TTSubstitution match(
 			TermTuple other,
-			HashMap<TermVariable, Term> subs) {
+			TTSubstitution subs) {
 		assert this.arity == other.arity;
-		HashMap<TermVariable, Term> resultSubs = 
-				new HashMap<TermVariable, Term>(subs);//TODO: probably remove this copying (inserted it just to be safe..)
-		for (int i = 0; i < this.terms.length; i++) {
-			Term thisTerm = this.terms[i];
-			Term otherTerm = other.terms[i];
 
+//		Term thisTerm = this.terms[0];
+//		Term otherTerm = other.terms[0];
+//
+//		if (thisTerm.equals(otherTerm)) {
+//			return new TermTuple(arguments)
+//		} else if (otherTerm instanceof TermVariable) {
+//
+//		} else if (thisTerm instanceof TermVariable) {
+//
+//		} else return null;
+	
+		
+//		HashMap<TermVariable, Term> resultSubs = 
+//				new HashMap<TermVariable, Term>(subs);//TODO: probably remove this copying (inserted it just to be safe..)
+		
+		TermTuple thisTT = new TermTuple(terms);
+		TermTuple otherTT = new TermTuple(other.terms);
+		
+		TTSubstitution resultSubs = subs; // TODO: or is a copy needed?
+		for (int i = 0; i < this.terms.length; i++) {
+//			Term thisTerm = this.terms[i];
+//			Term otherTerm = other.terms[i];
+			Term thisTerm = thisTT.terms[i];
+			Term otherTerm = otherTT.terms[i];
+
+			TermVariable tvTerm = null;
+			Term termTerm = null;
+			
 			if (thisTerm.equals(otherTerm)) {
 				//match -- > do nothing
+				continue;
 			} else if (otherTerm instanceof TermVariable) {
-				Term substitute = subs.get(otherTerm);
-				if (substitute == null) {
-					resultSubs.put((TermVariable) otherTerm, thisTerm);
-				} else if (thisTerm.equals(substitute)) {
-					//match -- > do nothing
-				} else {
-					return null; //no match
-				}
+				tvTerm = (TermVariable) otherTerm;
+				termTerm = thisTerm;
 			} else if (thisTerm instanceof TermVariable) {
-				Term substitute = subs.get(thisTerm);
-				if (substitute == null) {
-					resultSubs.put((TermVariable) thisTerm, otherTerm);
-				} else if (otherTerm.equals(substitute)) {
-					//match -- > do nothing
-				} else {
-					return null; //no match
-				}
+				tvTerm = (TermVariable) thisTerm;
+				termTerm = otherTerm;
 			} else {
 				return null;
 			}
+			
+			resultSubs.addSubs(tvTerm, termTerm);
+				
+//			Term substitute = subs.get(tvTerm);
+//			if (substitute == null) {
+//				Term trg = resultSubs.get(tvTerm);
+//				if (trg == null) {
+//					resultSubs.put((TermVariable) tvTerm, termTerm);
+//				}  else if (trg != null && trg instanceof TermVariable) {
+//					resultSubs.put((TermVariable) resultSubs.get(tvTerm), termTerm);
+//				} else {
+//					assert false : "not totally sure about this..";
+//				return null;
+//				}
+//			} else if (thisTerm.equals(substitute)) {
+//				//match -- > do nothing
+//			} else {
+//				return null; //no match
+//			}
+			
+			thisTT = resultSubs.apply(thisTT);
+			otherTT = resultSubs.apply(otherTT);
 		}
-		assert this.applySubstitution(resultSubs).equals(other.applySubstitution(resultSubs)) 
+//		assert this.applySubstitution(resultSubs).equals(other.applySubstitution(resultSubs)) 
+		assert resultSubs.apply(this).equals(resultSubs.apply(other))
 			: "the returned substitution should be a unifier";
 		return resultSubs;
 	}

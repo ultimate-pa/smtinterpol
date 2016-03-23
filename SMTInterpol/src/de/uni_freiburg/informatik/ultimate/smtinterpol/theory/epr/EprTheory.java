@@ -253,7 +253,7 @@ public class EprTheory implements ITheory {
 			EprClause realConflict = mStateManager.getConflictClauses().iterator().next();
 			System.out.println("EPRDEBUG (checkpoint): found a conflict: " + realConflict);
 			//TODO: work on explanation..
-			conflict = mStateManager.getClause(Collections.emptySet(), mTheory);
+			conflict = mStateManager.getClause(Collections.emptySet(), mTheory, null);
 		} else {
 			// try unit propagation
 
@@ -386,10 +386,13 @@ public class EprTheory implements ITheory {
 			if (polaritiesDifferOrUnconstrained) {
 
 				// is there a unifier?
-				HashMap<TermVariable, Term> sub = engineAtom.getArgumentsAsTermTuple().match(eqlwe.mAtom.getArgumentsAsTermTuple());
+//				HashMap<TermVariable, Term> sub = engineAtom.getArgumentsAsTermTuple().match(eqlwe.mAtom.getArgumentsAsTermTuple());
+				TTSubstitution sub = 
+						engineAtom.getArgumentsAsTermTuple().match(eqlwe.mAtom.getArgumentsAsTermTuple());
 				if (sub != null) {
 					Literal propLit = eqlwe.mIsPositive ? engineAtom : engineAtom.negate();
 					mGroundLiteralsToPropagate.add(propLit);
+//					mPropLitToExplanation.put(propLit, eqlwe.mExplanation.instantiateClause(null, sub));
 					mPropLitToExplanation.put(propLit, eqlwe.mExplanation.instantiateClause(null, sub));
 				}
 			}
@@ -526,7 +529,7 @@ public class EprTheory implements ITheory {
 		
 		//TODO: do something about hook and proof..
 //		EprClause newEprClause = new EprClause(lits, mTheory, mStateManager);
-		EprClause newEprClause = mStateManager.getClause(new HashSet<Literal>(Arrays.asList(lits)), mTheory);
+		EprClause newEprClause = mStateManager.getClause(new HashSet<Literal>(Arrays.asList(lits)), mTheory, null);
 		mConflict |= mStateManager.addBaseClause(newEprClause);
 	
 		for (Literal li : lits) {
