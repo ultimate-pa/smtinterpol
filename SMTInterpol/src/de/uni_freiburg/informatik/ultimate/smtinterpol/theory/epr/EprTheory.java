@@ -253,12 +253,16 @@ public class EprTheory implements ITheory {
 			EprClause realConflict = mStateManager.getConflictClauses().iterator().next();
 			System.out.println("EPRDEBUG (checkpoint): found a conflict: " + realConflict);
 			//TODO: work on explanation..
-			conflict = mStateManager.getClause(Collections.emptySet(), mTheory, null);
+			conflict = mStateManager.getClause(Collections.emptySet(), mTheory, "empty conflict clause");
 		} else {
 			// try unit propagation
 
 			conflict = eprPropagate();
 
+			if (conflict != null && conflict.eprQuantifiedPredicateLiterals.length > 0) {
+				// the conflict is a proper epr clause --> TODO: ..something about it ..
+				assert false : "the conflict is a proper epr clause --> we cannot give it to DPLL as is";
+			}
 		}
 		
 		///////////////// old begin ////////////
@@ -529,7 +533,7 @@ public class EprTheory implements ITheory {
 		
 		//TODO: do something about hook and proof..
 //		EprClause newEprClause = new EprClause(lits, mTheory, mStateManager);
-		EprClause newEprClause = mStateManager.getClause(new HashSet<Literal>(Arrays.asList(lits)), mTheory, null);
+		EprClause newEprClause = mStateManager.getClause(new HashSet<Literal>(Arrays.asList(lits)), mTheory, "base clause");
 		mConflict |= mStateManager.addBaseClause(newEprClause);
 	
 		for (Literal li : lits) {
@@ -611,7 +615,8 @@ public class EprTheory implements ITheory {
 				return egpa;
 			} else {
 				ApplicationTerm substitutedTerm = applyAlphaRenaming(idx, mCollector);
-				return new EprQuantifiedPredicateAtom(substitutedTerm, hash, assertionStackLevel, pred);
+//				return new EprQuantifiedPredicateAtom(substitutedTerm, hash, assertionStackLevel, pred);
+				return pred.getAtomForTermTuple(new TermTuple(substitutedTerm.getParameters()), mTheory, assertionStackLevel);
 			}
 		}
 	}

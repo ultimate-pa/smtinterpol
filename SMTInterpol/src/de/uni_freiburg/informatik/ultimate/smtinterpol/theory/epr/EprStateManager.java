@@ -118,7 +118,7 @@ public class EprStateManager {
 	 * @param dc
 	 */
 	public boolean addDerivedClause(EprClause dc) {
-		System.out.println("EPRDEBUG (EprStateManager): adding derived clause " + dc);
+//		System.out.println("EPRDEBUG (EprStateManager): adding derived clause " + dc);
 //		mLiteralToClauses.put(dc.getLiteralSet(), dc);
 		return mEprStateStack.peek().addDerivedClause(dc);
 	}
@@ -170,8 +170,7 @@ public class EprStateManager {
 	 * @param theory
 	 * @return
 	 */
-//	public EprClause getClause(Set<Literal> newLits, Theory theory) {
-	public EprClause getClause(Set<Literal> newLits, Theory theory, EprClause explanation) {
+	public EprClause getClause(Set<Literal> newLits, Theory theory, Object explanation) {
 		EprClause result = mLiteralToClauses.get(newLits);
 		if (result == null) {
 			result = new EprClause(newLits.toArray(new Literal[newLits.size()]), theory, this, explanation);

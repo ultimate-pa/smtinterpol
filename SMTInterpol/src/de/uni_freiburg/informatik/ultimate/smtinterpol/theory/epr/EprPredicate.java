@@ -42,7 +42,8 @@ public class EprPredicate {
 	
 	private HashSet<EprGroundPredicateAtom> mDPLLAtoms = new HashSet<>();
 	
-	private HashMap<TermTuple, EprGroundPredicateAtom> mPointToAtom = new HashMap<TermTuple, EprGroundPredicateAtom>();
+	private HashMap<TermTuple, EprGroundPredicateAtom> mPointToAtom = new HashMap<>();
+	private HashMap<TermTuple, EprQuantifiedPredicateAtom> mTermTupleToAtom = new HashMap<>();
 
 	public EprPredicate(FunctionSymbol fs, int arity) {
 		this.functionSymbol = fs;
@@ -85,9 +86,6 @@ public class EprPredicate {
 		return mDPLLAtoms;
 	}
 	
-	public void addPointAtom (TermTuple point, EprGroundPredicateAtom atom) {
-		mPointToAtom.put(point, atom);
-	}
 	
 	public EprGroundPredicateAtom getAtomForPoint(TermTuple point, Theory mTheory, int assertionStackLevel) {
 		EprGroundPredicateAtom result = mPointToAtom.get(point);
@@ -97,12 +95,26 @@ public class EprPredicate {
 					assertionStackLevel,
 //							l.getAtom().getAssertionStackLevel(), 
 					this);
-			addPointAtom(point, (EprGroundPredicateAtom) result);
+			mPointToAtom.put(point, result);
 			addDPLLAtom(result);
 		}
 		return result;
 	}
-	
+
+	public EprQuantifiedPredicateAtom getAtomForTermTuple(TermTuple tt, Theory mTheory, int assertionStackLevel) {
+		assert tt.getFreeVars().size() > 0 : "Use getAtomForPoint, if tt is ground";
+		EprQuantifiedPredicateAtom result = mTermTupleToAtom.get(tt);
+		
+		if (result == null) {
+			ApplicationTerm newTerm = mTheory.term(this.functionSymbol, tt.terms);
+			result = new EprQuantifiedPredicateAtom(newTerm, 0, //TODO: hash
+					assertionStackLevel,
+//							l.getAtom().getAssertionStackLevel(), 
+					this);
+			mTermTupleToAtom.put(tt, result);
+		}
+		return result;
+	}
 //	
 //	public HashMap<EprClause,HashSet<Literal>> getQuantifiedOccurences() {
 //		return mQuantifiedOccurences;

@@ -74,6 +74,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinArSolve;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.MutableAffinTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ArrayMap;
@@ -1171,7 +1172,7 @@ public class Clausifier {
 					//     (i.e. only the EPR-theory, not the DPLLEngine, will know it)
 					mCollector.getTracker().save();
 //					DPLLAtom eqAtom = eq.getLiteral();
-					DPLLAtom eprAtom = mEprTheory.getEprAtom((ApplicationTerm) idx, 0, 0, mCollector);
+					DPLLAtom eprAtom = mEprTheory.getEprAtom((ApplicationTerm) idx, 0, mEngine.getAssertionStackLevel(), mCollector);
 //					mCollector.getTracker().eq(lhs, rhs, eqAtom);
 					mCollector.addLiteral(
 							positive ? eprAtom : eprAtom.negate(), mTerm);
@@ -1901,8 +1902,9 @@ public class Clausifier {
 					paramTypes,
 					mTheory.getBooleanSort());
 			EprPredicate eprPred = new EprPredicate(fs, smtFormula.getFreeVars().length);
-			atom = new EprQuantifiedPredicateAtom(mTheory.term(fs, smtFormula.getFreeVars()), 
-					0, mStackLevel, eprPred);	//TODO add good hash value
+//			atom = new EprQuantifiedPredicateAtom(mTheory.term(fs, smtFormula.getFreeVars()), 
+//					0, mStackLevel, eprPred);	//TODO add good hash value
+			atom = eprPred.getAtomForTermTuple(new TermTuple(smtFormula.getFreeVars()), mTheory, mStackLevel);
 		} else {
 		//alex end
 			atom = new NamedAtom(smtFormula, mStackLevel);
