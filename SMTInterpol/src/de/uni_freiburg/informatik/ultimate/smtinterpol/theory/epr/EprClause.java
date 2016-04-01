@@ -499,7 +499,7 @@ public class EprClause extends Clause {
 		ArrayDeque<HashSet<TermTuple>> conflictPointSets = new ArrayDeque<>();
 		ArrayDeque<TermTuple> pointsFromLiterals = new ArrayDeque<>();
 //		ArrayList<HashMap<TermVariable, Term>> unifiers = new ArrayList<>();
-		ArrayList<TTSubstitution> unifiers = new ArrayList<>();
+//		ArrayList<TTSubstitution> unifiers = new ArrayList<>(); // seems to be wrong --> we need _one_ unifier
 
 		for (Literal li : eprQuantifiedPredicateLiterals) {
 			if (li.equals(mUnitLiteral))
@@ -511,16 +511,20 @@ public class EprClause extends Clause {
 			for (UnFulReason ufr : ur) {
 				if (ufr.mLiteral != null)
 //					conflictPointSets.getLast().add(((EprPredicateAtom) ufr.getAtom()).getArgumentsAsTermTuple());
-					conflictPointSets.getLast().add(((EprPredicateAtom) ufr.mLiteral.getAtom()).getArgumentsAsTermTuple());
+					conflictPointSets.getLast().add(((EprGroundPredicateAtom) ufr.mLiteral.getAtom()).getArgumentsAsTermTuple());
 				else {
-//					HashMap<TermVariable, Term> unifier = ufr.mqlwe.mAtom.getArgumentsAsTermTuple().match(liAtom.getArgumentsAsTermTuple());
-					TTSubstitution unifier = ufr.mqlwe.mAtom.getArgumentsAsTermTuple().match(liAtom.getArgumentsAsTermTuple());
-					unifiers.add(unifier);
+					if (ufr.mqlwe.mExceptedPoints.isEmpty()) {
+						conflictPointSets.getLast().add(ufr.mqlwe.mAtom.getArgumentsAsTermTuple());
+					} else {
+						assert false : "not yet implemented -- what to do with excepted points??";
+					}
+//					TTSubstitution unifier = ufr.mqlwe.mAtom.getArgumentsAsTermTuple().match(liAtom.getArgumentsAsTermTuple());
+//					unifiers.add(unifier);
 				}
 			}
 		}
 		
-		if (unifiers.isEmpty()) {
+//		if (unifiers.isEmpty()) {
 //			HashMap<TermVariable, Term> sub = new ComputeInstantiations(conflictPointSets, pointsFromLiterals).getSubstitution();
 			TTSubstitution sub = new ComputeInstantiations(conflictPointSets, pointsFromLiterals).getSubstitution();
 			if (sub == null) {
@@ -533,7 +537,7 @@ public class EprClause extends Clause {
 				unifiedUnitLiteral = applySubstitution(sub, mUnitLiteral); //TODO: register the new literal somewhere???
 				mInstantiationOfClauseForCurrentUnitLiteral = this.instantiateClause(null, sub);
 				mStateManager.addDerivedClause(mInstantiationOfClauseForCurrentUnitLiteral);
-				if (unifiedUnitLiteral.getAtom().getDecideStatus() == unifiedUnitLiteral) { // already set??
+				if (mStateManager.isSubsumedInCurrentState(unifiedUnitLiteral)) { // already set??
 					mUnitLiteral = null;
 					return null; //TODO: seems incomplete, maybe we want to propagate other points, then..
 				}
@@ -542,27 +546,27 @@ public class EprClause extends Clause {
 				unifiedUnitLiteral = mUnitLiteral;
 			}
 			return unifiedUnitLiteral;
-		} else {
-			// quantification retaining unifiers seem better (more general..)
-			
-//			HashMap<TermVariable, Term> sub = unifiers.get(0); //TODO arbitrary choice..
-			TTSubstitution sub = unifiers.get(0); //TODO arbitrary choice..
+//		} else {
+//			// quantification retaining unifiers seem better (more general..)
+//			
+////			HashMap<TermVariable, Term> sub = unifiers.get(0); //TODO arbitrary choice..
+//			TTSubstitution sub = unifiers.get(0); //TODO arbitrary choice..
+////			Literal unifiedUnitLiteral = applySubstitution(sub, mUnitLiteral); //TODO: register the new literal somewhere???
 //			Literal unifiedUnitLiteral = applySubstitution(sub, mUnitLiteral); //TODO: register the new literal somewhere???
-			Literal unifiedUnitLiteral = applySubstitution(sub, mUnitLiteral); //TODO: register the new literal somewhere???
-
-			//TODO: what's the right unit clause here???
-			mInstantiationOfClauseForCurrentUnitLiteral = mStateManager.getClause(Collections.singleton(unifiedUnitLiteral), mTheory, "getUnitClauseLiteral");
-//			mInstantiationOfClauseForCurrentUnitLiteral = new EprClause(new Literal[] { unifiedUnitLiteral }, mTheory, mStateManager);
-//			mInstantiationOfClauseForCurrentUnitLiteral = this.instantiateClause(null, sub);
-//			mStateManager.addDerivedClause(mInstantiationOfClauseForCurrentUnitLiteral);
-			
-			if (unifiedUnitLiteral.getAtom().getDecideStatus() == unifiedUnitLiteral) {// already set??
-				mUnitLiteral = null;
-				return null; //TODO: seems incomplete, maybe we want to propagate other points, then..
-			}
-
-			return unifiedUnitLiteral;
-		}
+//
+//			//TODO: what's the right unit clause here???
+//			mInstantiationOfClauseForCurrentUnitLiteral = mStateManager.getClause(Collections.singleton(unifiedUnitLiteral), mTheory, "getUnitClauseLiteral");
+////			mInstantiationOfClauseForCurrentUnitLiteral = new EprClause(new Literal[] { unifiedUnitLiteral }, mTheory, mStateManager);
+////			mInstantiationOfClauseForCurrentUnitLiteral = this.instantiateClause(null, sub);
+////			mStateManager.addDerivedClause(mInstantiationOfClauseForCurrentUnitLiteral);
+//			
+//			if (unifiedUnitLiteral.getAtom().getDecideStatus() == unifiedUnitLiteral) {// already set??
+//				mUnitLiteral = null;
+//				return null; //TODO: seems incomplete, maybe we want to propagate other points, then..
+//			}
+//
+//			return unifiedUnitLiteral;
+//		}
 	}
 	
 	/**
@@ -896,7 +900,7 @@ public class EprClause extends Clause {
 	 * @return
 	 */
 //	private boolean isUnifierTrivial(HashMap<TermVariable, Term> sub, TermTuple tt1, TermTuple tt2) {
-	private static boolean isUnifierJustARenaming(TTSubstitution sub, TermTuple tt1, TermTuple tt2) {
+	public static boolean isUnifierJustARenaming(TTSubstitution sub, TermTuple tt1, TermTuple tt2) {
 
 		
 //		if (tt1.applySubstitution(sub).getFreeVars().size() != tt1.getFreeVars().size())

@@ -179,4 +179,34 @@ public class EprStateManager {
 		}
 		return result;
 	}
+
+	/**
+	 * Checks if the given literal is already set, or if something stronger is set.
+	 * @param unifiedUnitLiteral
+	 * @return
+	 */
+	public boolean isSubsumedInCurrentState(Literal lit) { //TODO possibly this needs to work on a QuantifiedLitWExcptns
+		if (lit.getAtom().getDecideStatus() == lit) { // is it set in DPLL?
+			return true;
+		}
+		if (!(lit.getAtom() instanceof EprPredicateAtom))
+			return false;
+		
+		boolean isPositive = lit.getSign() == 1;
+		EprPredicateAtom atom = (EprPredicateAtom) lit.getAtom();
+			
+		for (EprQuantifiedLitWExcptns sl : this.getSetLiterals()) {
+			if (sl.mIsPositive != isPositive)
+				continue;
+			if (sl.mAtom.eprPredicate != atom.eprPredicate)
+				continue;
+			TermTuple slTT = sl.mAtom.getArgumentsAsTermTuple();
+			TermTuple tt = atom.getArgumentsAsTermTuple();
+			TTSubstitution sub = slTT.match(tt);
+			if (slTT.isEqualOrMoreGeneralThan(tt))
+				return true;
+		}
+		// TODO Auto-generated method stub
+		return false;
+	}
 }

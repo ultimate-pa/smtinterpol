@@ -186,4 +186,8 @@ public class TermTuple {
 				result.add((TermVariable) t);
 		return result;
 	}
+
+	public boolean isEqualOrMoreGeneralThan(TermTuple tt) {
+		throw new UnsupportedOperationException();
+	}
 }
