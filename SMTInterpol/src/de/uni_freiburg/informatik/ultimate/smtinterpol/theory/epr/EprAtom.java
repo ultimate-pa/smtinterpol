@@ -20,6 +20,7 @@ public abstract class EprAtom extends DPLLAtom {
 	
 	protected final Term mTerm;
 //	public boolean isQuantified;
+	private TermTuple mArgsAsTermTuple = null;
 
 	public EprAtom(Term term, int hash, int assertionstacklevel) {
 		super(hash, assertionstacklevel);
@@ -32,6 +33,16 @@ public abstract class EprAtom extends DPLLAtom {
 ////		return null;
 //		return mTerm;
 //	}
+	public Term[] getArguments() {
+		return ((ApplicationTerm) mTerm).getParameters();
+	}
+	
+
+	public TermTuple getArgumentsAsTermTuple() {
+		if (mArgsAsTermTuple == null)
+			mArgsAsTermTuple = new TermTuple(this.getArguments());
+		return mArgsAsTermTuple;
+	}
 
 	@Override
 	public String toString() {

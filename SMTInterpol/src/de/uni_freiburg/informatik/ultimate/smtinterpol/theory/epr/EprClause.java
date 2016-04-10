@@ -14,6 +14,7 @@ import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom.TrueAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ResolutionNode;
@@ -66,6 +67,7 @@ public class EprClause extends Clause {
 	HashMap<TermVariable, HashSet<ApplicationTerm>> mExceptedPoints = 
 			new HashMap<TermVariable, HashSet<ApplicationTerm>>();
 	
+	HashSet<TermTuple> exceptedEqualities = new HashSet<>();//TODO: store in a way that better represents symmetry
 //	int mClauseIndex = 0;
 
 	private Literal mUnitLiteral;
@@ -152,6 +154,8 @@ public class EprClause extends Clause {
 
 		// sort the literals into the different categories
 		sortLiterals(literals);
+		
+		mAllLiterals.removeAll(Arrays.asList(eprEqualityLiterals));
 
 		// set fulfillability status
 		mNoFulfillableLiterals = 0;
@@ -235,6 +239,11 @@ public class EprClause extends Clause {
 				setLiteralFulfillable(li);
 			}
 		}
+		
+//		for (Literal l : this.eprEqualityLiterals) {
+//			setLiteralUnfulfillable(l, null); //"quantifed equality literal --> we don't track its fulfillability for itself, "
+//					//+ "but through handling quantified epr predicate accordingly");
+//		}
 		
 		assert this.getLiteralSet().containsAll(mFulfillabilityStatus.keySet())	&& 
 		mFulfillabilityStatus.keySet().containsAll(this.getLiteralSet()) :
@@ -371,7 +380,7 @@ public class EprClause extends Clause {
 			Term p0 = ((ApplicationTerm) ((EprEqualityAtom) l.getAtom()).mTerm).getParameters()[0];
 			Term p1 = ((ApplicationTerm) ((EprEqualityAtom) l.getAtom()).mTerm).getParameters()[1];
 			if (p0 instanceof TermVariable && p1 instanceof TermVariable) {
-				throw new UnsupportedOperationException("todo: implement");
+				addExceptedEquality((TermVariable) p0, (TermVariable) p1);
 			} else if (p0 instanceof TermVariable) {
 				updateExceptedPoints((TermVariable) p0, (ApplicationTerm) p1);
 			} else if (p1 instanceof TermVariable) {
@@ -380,6 +389,10 @@ public class EprClause extends Clause {
 				assert false : "this equation should have gone to CClosure Theory: " + l.getAtom();
 			}
 		}
+	}
+
+	private void addExceptedEquality(TermVariable p0, TermVariable p1) {
+		exceptedEqualities.add(new TermTuple(new Term[] { p0 , p1 }));
 	}
 
 	private void updateExceptedPoints(TermVariable tv, ApplicationTerm at) {
@@ -518,55 +531,30 @@ public class EprClause extends Clause {
 					} else {
 						assert false : "not yet implemented -- what to do with excepted points??";
 					}
-//					TTSubstitution unifier = ufr.mqlwe.mAtom.getArgumentsAsTermTuple().match(liAtom.getArgumentsAsTermTuple());
-//					unifiers.add(unifier);
 				}
 			}
 		}
 		
-//		if (unifiers.isEmpty()) {
-//			HashMap<TermVariable, Term> sub = new ComputeInstantiations(conflictPointSets, pointsFromLiterals).getSubstitution();
-			TTSubstitution sub = new ComputeInstantiations(conflictPointSets, pointsFromLiterals).getSubstitution();
-			if (sub == null) {
-				mInstantiationOfClauseForCurrentUnitLiteral = null;
-				return null; // if there is no unifier, then this clause actually is no unit clause
+		TTSubstitution sub = new ComputeInstantiations(conflictPointSets, pointsFromLiterals).getSubstitution();
+		if (sub == null) {
+			mInstantiationOfClauseForCurrentUnitLiteral = null;
+			return null; // if there is no unifier, then this clause actually is no unit clause
+		}
+		//			if (isUnifierTrivial(sub, ((EprPredicateAtom) mUnitLiteral.getAtom()).getArgumentsAsTermTuple(), tt2))
+		Literal unifiedUnitLiteral = null;
+		if (!sub.isEmpty()) { 
+			unifiedUnitLiteral = applySubstitution(sub, mUnitLiteral); //TODO: register the new literal somewhere???
+			mInstantiationOfClauseForCurrentUnitLiteral = this.instantiateClause(null, sub);
+			mStateManager.addDerivedClause(mInstantiationOfClauseForCurrentUnitLiteral);
+			if (mStateManager.isSubsumedInCurrentState(unifiedUnitLiteral)) { // already set??
+				mUnitLiteral = null;
+				return null; //TODO: seems incomplete, maybe we want to propagate other points, then..
 			}
-//			if (isUnifierTrivial(sub, ((EprPredicateAtom) mUnitLiteral.getAtom()).getArgumentsAsTermTuple(), tt2))
-			Literal unifiedUnitLiteral = null;
-			if (!sub.isEmpty()) { 
-				unifiedUnitLiteral = applySubstitution(sub, mUnitLiteral); //TODO: register the new literal somewhere???
-				mInstantiationOfClauseForCurrentUnitLiteral = this.instantiateClause(null, sub);
-				mStateManager.addDerivedClause(mInstantiationOfClauseForCurrentUnitLiteral);
-				if (mStateManager.isSubsumedInCurrentState(unifiedUnitLiteral)) { // already set??
-					mUnitLiteral = null;
-					return null; //TODO: seems incomplete, maybe we want to propagate other points, then..
-				}
-			} else {
-				// unification is trivial, no need of a derived clause
-				unifiedUnitLiteral = mUnitLiteral;
-			}
-			return unifiedUnitLiteral;
-//		} else {
-//			// quantification retaining unifiers seem better (more general..)
-//			
-////			HashMap<TermVariable, Term> sub = unifiers.get(0); //TODO arbitrary choice..
-//			TTSubstitution sub = unifiers.get(0); //TODO arbitrary choice..
-////			Literal unifiedUnitLiteral = applySubstitution(sub, mUnitLiteral); //TODO: register the new literal somewhere???
-//			Literal unifiedUnitLiteral = applySubstitution(sub, mUnitLiteral); //TODO: register the new literal somewhere???
-//
-//			//TODO: what's the right unit clause here???
-//			mInstantiationOfClauseForCurrentUnitLiteral = mStateManager.getClause(Collections.singleton(unifiedUnitLiteral), mTheory, "getUnitClauseLiteral");
-////			mInstantiationOfClauseForCurrentUnitLiteral = new EprClause(new Literal[] { unifiedUnitLiteral }, mTheory, mStateManager);
-////			mInstantiationOfClauseForCurrentUnitLiteral = this.instantiateClause(null, sub);
-////			mStateManager.addDerivedClause(mInstantiationOfClauseForCurrentUnitLiteral);
-//			
-//			if (unifiedUnitLiteral.getAtom().getDecideStatus() == unifiedUnitLiteral) {// already set??
-//				mUnitLiteral = null;
-//				return null; //TODO: seems incomplete, maybe we want to propagate other points, then..
-//			}
-//
-//			return unifiedUnitLiteral;
-//		}
+		} else {
+			// unification is trivial, no need of a derived clause
+			unifiedUnitLiteral = mUnitLiteral;
+		}
+		return unifiedUnitLiteral;
 	}
 	
 	/**
@@ -845,8 +833,9 @@ public class EprClause extends Clause {
 	public EprClause instantiateClause(Literal otherLit, TTSubstitution sub) {
 		ArrayList<Literal> newLits = new ArrayList<Literal>();
 		newLits.addAll(Arrays.asList(groundLiterals));
-		for (Literal l : eprEqualityLiterals)
+		for (Literal l : eprEqualityLiterals) {
 			newLits.add(applySubstitution(sub, l));
+		}
 		for (Literal l : eprQuantifiedPredicateLiterals) {
 			if (l.equals(otherLit))
 				continue;
@@ -866,24 +855,28 @@ public class EprClause extends Clause {
 		
 		if (atom instanceof EprQuantifiedPredicateAtom) {
 			EprQuantifiedPredicateAtom eqpa = (EprQuantifiedPredicateAtom) atom;
-//			TermTuple newTT = eqpa.getArgumentsAsTermTuple().applySubstitution(sub);
 			TermTuple newTT = sub.apply(eqpa.getArgumentsAsTermTuple());
-			Term[] newParams = newTT.terms;
-			ApplicationTerm newTerm = mTheory.term(eqpa.eprPredicate.functionSymbol, newParams);
+			ApplicationTerm newTerm = mTheory.term(eqpa.eprPredicate.functionSymbol, newTT.terms);
 			EprPredicateAtom result = null;
 			if (newTerm.getFreeVars().length > 0) {
-//				result =  new EprQuantifiedPredicateAtom(newTerm, 0, //TODO: hash
-//						l.getAtom().getAssertionStackLevel(), 
-//						eqpa.eprPredicate);
 				result = eqpa.eprPredicate.getAtomForTermTuple(newTT, mTheory, l.getAtom().getAssertionStackLevel());
 			} else {
 				result = eqpa.eprPredicate.getAtomForPoint(newTT, mTheory, l.getAtom().getAssertionStackLevel());
-//				if (result == null) {
-//					result = new EprGroundPredicateAtom(newTerm, 0, //TODO: hash
-//							l.getAtom().getAssertionStackLevel(), 
-//							eqpa.eprPredicate);
-//					eqpa.eprPredicate.addPointAtom(newTT, (EprGroundPredicateAtom) result);
-//				}
+			}
+			return isPositive ? result : result.negate();
+		} else if (atom instanceof EprEqualityAtom) {
+			EprEqualityAtom eea = (EprEqualityAtom) atom;
+			TermTuple newTT = sub.apply(eea.getArgumentsAsTermTuple());
+			ApplicationTerm newTerm = mTheory.term("=", newTT.terms);
+			DPLLAtom result = null;
+			if (newTerm.getFreeVars().length == 2) {
+				result = new EprEqualityAtom(newTerm, 0, l.getAtom().getAssertionStackLevel());//TODO: hash
+			} else if (newTerm.getFreeVars().length == 1) {
+				// we have sth like a=a --> replace with TrueAtom
+				result = new TrueAtom();
+			} else {
+//				result = new CCEqu
+				throw new UnsupportedOperationException();
 			}
 			return isPositive ? result : result.negate();
 		} else {

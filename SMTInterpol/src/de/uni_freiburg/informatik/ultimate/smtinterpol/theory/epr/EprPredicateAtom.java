@@ -9,7 +9,6 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 public abstract class EprPredicateAtom extends EprAtom {
 
 	public final EprPredicate eprPredicate;
-	private TermTuple mArgsAsTermTuple = null;
 
 	public EprPredicateAtom(ApplicationTerm term, int hash, int assertionstacklevel, EprPredicate pred) {
 		super(term, hash, assertionstacklevel);
@@ -22,15 +21,6 @@ public abstract class EprPredicateAtom extends EprAtom {
 //		return mPredicate;
 //	}
 
-	public Term[] getArguments() {
-		return ((ApplicationTerm) mTerm).getParameters();
-	}
-	
 
-	public TermTuple getArgumentsAsTermTuple() {
-		if (mArgsAsTermTuple == null)
-			mArgsAsTermTuple = new TermTuple(this.getArguments());
-		return mArgsAsTermTuple;
-	}
 
 }
