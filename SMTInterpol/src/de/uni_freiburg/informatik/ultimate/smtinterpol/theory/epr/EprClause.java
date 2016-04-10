@@ -15,6 +15,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom.TrueAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate.Interpolator.Substitutor;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ResolutionNode;
@@ -105,13 +106,10 @@ public class EprClause extends Clause {
 	
 	EprStateManager mStateManager;
 
-//	public EprClause(Literal[] literals, Theory theory, EprStateManager stateManager) {
-//	public EprClause(Literal[] literals, Theory theory, EprStateManager stateManager, EprClause explanation) {
 	public EprClause(Literal[] literals, Theory theory, EprStateManager stateManager, Object explanation) {
 		super(literals);
 		mTheory = theory;
 		mStateManager = stateManager;
-//		mAllLiterals = new HashSet<>(Arrays.asList(literals));
 		mExplanation = explanation;
 		setUpClause(literals);
 	}
@@ -137,7 +135,20 @@ public class EprClause extends Clause {
 //		setUpClause(literals);
 	}
 
-	private void setUpClause(Literal[] literals) {
+	private void setUpClause(Literal[] lits) {
+		Literal[] literals = lits; // may be modified by destructive equality reasoning
+		
+		
+		// destructive equality reasoning:
+		// for each quantified disequality in literals:
+		//  - check for immediate tautology (like x = c or x != c)
+		//    --> mark clause as tautoloy in case
+		//  - change other literals accordingly 
+		//         (like "(or (distinct x c) (P x))" becomes "(P c)", in case of two variables, just take the first..)
+		//  - remove the disequality from literals
+		literals = applyDER(literals);
+		// NOTE: this may lead to an EprClause that is ground (which could not happen otherwise)
+		//   --> in that case add a DPLLClause. (possibly mark this one as a tautology, or dismiss it otherwise..)
 		
 		// is this a unit clause upon creation?
 		if (literals.length == 1) {
@@ -152,6 +163,7 @@ public class EprClause extends Clause {
 		//TODO:
 		// as an optimization perhaps stop here if isTautology is true.
 
+	
 		// sort the literals into the different categories
 		sortLiterals(literals);
 		
@@ -164,6 +176,85 @@ public class EprClause extends Clause {
 		
 		if (mNoFulfillableLiterals == 1)
 			searchUnitLiteral();
+	}
+
+	/**
+	 * Apply destructive equality reasoning to the clause consisting of the given
+	 * literals.
+	 * Procedure:
+	 *  - build one big substitution which has one entry for each equality
+ 	 *  - apply the subtitution to each (quantified) literal in the clause
+ 	 *   (it may be a bit suprising that this works, but I think it does,
+ 	 *    example: {x != c, x != d, P(x)} will yield the substitution [x <- c, x <- d], which
+ 	 *           will yield the clause {c != c, c != d, P(c)} which seems right.) //TODO: make sure..
+	 * @param literals
+	 * @return An equivalent clause (as a set of literals) without any quantified disequalites.
+	 */
+	private Literal[] applyDER(Literal[] literals) {
+		TTSubstitution sub = new TTSubstitution();
+		for (Literal li : literals) {
+			if (li.getSign() != 1 && li.getAtom() instanceof EprEqualityAtom) {
+				// we have a quantified disequality
+				EprEqualityAtom eea = (EprEqualityAtom) li.getAtom();
+				TermTuple tt = eea.getArgumentsAsTermTuple();
+				TermVariable tv = null;
+				Term t = null;
+				if (tt.terms[0] instanceof TermVariable) {
+					tv = (TermVariable) tt.terms[0];
+					t = tt.terms[1];
+				} else {
+					tv = (TermVariable) tt.terms[1];
+					t = tt.terms[0];
+				}
+				sub.addSubs(tv, t);
+			}
+		}
+
+		ArrayList<Literal> newLits = new ArrayList<>();
+		for (Literal li : literals) {
+			if (li.getAtom() instanceof EprQuantifiedPredicateAtom 
+					|| li.getAtom() instanceof EprEqualityAtom) {
+				boolean liPositive = li.getSign() == 1;
+				TermTuple liTT = ((EprAtom) li.getAtom()).getArgumentsAsTermTuple();
+				
+				TermTuple newTT = sub.apply(liTT);
+				
+				if (newTT.equals(liTT)) {
+					newLits.add(li);
+					continue;
+				}
+				
+				if (li.getAtom() instanceof EprEqualityAtom) {
+					if (newTT.isGround()) {
+						if (newTT.terms[0] == newTT.terms[1]) {
+							newLits.add(liPositive ? new TrueAtom() : new TrueAtom().negate());
+							continue;
+						}
+						throw new UnsupportedOperationException();// how to obtain a fresh CCEquality???
+					} else {
+						EprEqualityAtom eea = new EprEqualityAtom(mTheory.term("=", newTT.terms),
+								0,  //TODO use good hash
+								li.getAtom().getAssertionStackLevel());
+						newLits.add(liPositive ? eea : eea.negate());
+					}
+				} else {
+					// li.getAtom() instanceof EprQuantifiedPredicateAtom
+					EprPredicate liPred = ((EprQuantifiedPredicateAtom) li.getAtom()).eprPredicate;
+					
+					EprAtom ea = null;
+					if (newTT.isGround()) {
+						ea = liPred.getAtomForPoint(newTT, mTheory, li.getAtom().getAssertionStackLevel());
+					} else {
+						ea = liPred.getAtomForTermTuple(newTT, mTheory, li.getAtom().getAssertionStackLevel());
+					}
+					newLits.add(liPositive ? ea : ea.negate());
+				}
+				
+			} else {
+				newLits.add(li);
+			}
+		}
+		return newLits.toArray(new Literal[newLits.size()]);
 	}
 
 	public void setLiteralStates() {

@@ -186,6 +186,10 @@ public class TermTuple {
 				result.add((TermVariable) t);
 		return result;
 	}
+	
+	public boolean isGround() {
+		return getFreeVars().size() == 0;
+	}
 
 	/**
 	 * Are the possible instantiations of this TermTuple a superset of those of 

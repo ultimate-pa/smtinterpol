@@ -19,9 +19,14 @@ public class TTSubstitution {
 		this.subs = new ArrayList<>();
 	}
 	
+	public TTSubstitution(TermVariable tv, Term t) {
+		this();
+		this.addSubs(tv, t);
+	}
+	
 	public TTSubstitution(TTSubstitution substitution) {
 		// TODO is DeepCopy necessary?
-		this.subs = new ArrayList<>();
+		this();
 		for (TPair tp : substitution.subs)
 			addSubs(tp.tv, tp.t);
 	}

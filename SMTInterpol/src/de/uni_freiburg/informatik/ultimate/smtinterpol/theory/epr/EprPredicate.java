@@ -35,7 +35,6 @@ public class EprPredicate {
 	private HashMap<EprClause, HashSet<Literal>> mQuantifiedOccurences = new HashMap<>();
 
 	private HashMap<EprClause, HashSet<Literal>> mGroundOccurences = new HashMap<>();
-//	private HashSet<Literal> mGroundOccurences = new HashSet<>();
 	
 	private HashSet<EprGroundPredicateAtom> mDPLLAtoms = new HashSet<>();
 	
@@ -90,12 +89,12 @@ public class EprPredicate {
 	 * Use getAtomForTermTuple in order to obtain a quantified atom.
 	 */
 	public EprGroundPredicateAtom getAtomForPoint(TermTuple point, Theory mTheory, int assertionStackLevel) {
+		assert point.getFreeVars().size() == 0 : "Use getAtomForTermTuple, if tt is quantified";
 		EprGroundPredicateAtom result = mPointToAtom.get(point);
 		if (result == null) {
 			ApplicationTerm newTerm = mTheory.term(this.functionSymbol, point.terms);
 			result = new EprGroundPredicateAtom(newTerm, 0, //TODO: hash
 					assertionStackLevel,
-//							l.getAtom().getAssertionStackLevel(), 
 					this);
 			mPointToAtom.put(point, result);
 			addDPLLAtom(result);
@@ -130,8 +129,6 @@ public class EprPredicate {
 	public String toString() {
 		return "EprPred: " + functionSymbol.getName();
 	}
-
-
 
 	public EprGroundPredicateAtom getAtomForPoint(TermTuple point) {
 		EprGroundPredicateAtom result = mPointToAtom.get(point);

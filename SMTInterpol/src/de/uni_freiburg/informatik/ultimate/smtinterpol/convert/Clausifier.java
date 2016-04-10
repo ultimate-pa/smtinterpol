@@ -1383,11 +1383,7 @@ public class Clausifier {
 				//alex (begin)
 				} else{
 					//TODO: replace the nulls
-					// the almostAllClause is used to let the DPLLEngine compute default values for the EPR predicates
-					// it is basically the (implicitly quantified) EPR clause with all quantified equalities left out 
 					mEprTheory.addEprClause(lits, null, null);
-//					Literal[] almostAllClauseLiterals = mEprTheory.createEprClause(lits, null, null);
-//					addClause(almostAllClauseLiterals, null, null);
 				}
 				//alex (end)
 			}
