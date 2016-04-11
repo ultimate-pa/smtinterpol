@@ -635,9 +635,14 @@ public class Clausifier {
 						// the almostAllClause is used to let the DPLLEngine compute default values for the EPR predicates
 						// it is basically the (implicitly quantified) EPR clause with all quantified equalities left out 
 						Literal[] lits = new Literal[] {positive ? lit : lit.negate()};
-						mEprTheory.addEprClause(lits, null, null);
-//						Literal[] almostAllClauseLiterals = mEprTheory.createEprClause(lits, null, null);
-//						addClause(almostAllClauseLiterals, null, null);
+						Literal[] groundLiteralsAfterDER = mEprTheory.addEprClause(lits, null, null);
+						
+						// DER computed an equivalent ground clause --> add it to DPLL
+						if (groundLiteralsAfterDER != null) {
+							IProofTracker sub = mTracker.getDescendent();
+							sub.intern(at, lit);
+							addClause(groundLiteralsAfterDER, null, getProofNewSource(sub.clause(mProofTerm)));
+						}
 					}
 				//alex (end)
 				} else if (at.getFunction().getName().equals("=")) {
@@ -1383,7 +1388,13 @@ public class Clausifier {
 				//alex (begin)
 				} else{
 					//TODO: replace the nulls
-					mEprTheory.addEprClause(lits, null, null);
+					Literal[] groundLiteralsAfterDER = mEprTheory.addEprClause(lits, null, null);
+					
+					if (groundLiteralsAfterDER != null)
+						addClause(groundLiteralsAfterDER, null,
+								getProofNewSource(mLeafKind,
+										mSubTracker.clause(mProofTerm)));
+
 				}
 				//alex (end)
 			}

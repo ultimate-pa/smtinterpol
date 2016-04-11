@@ -29,6 +29,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.SimpleList;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.model.Model;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.model.SharedTermEvaluator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofNode;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
 import de.uni_freiburg.informatik.ultimate.util.ScopedHashSet;
 
 public class EprTheory implements ITheory {
@@ -144,6 +145,9 @@ public class EprTheory implements ITheory {
 			// quantified variable, thus the DPLLEngine should not know about that atom
 			assert false : "DPLLEngine is setting a quantified EprAtom --> this cannot be..";
 			return null;
+		} else if (atom instanceof CCEquality) {
+			assert false : "TODO: what to to do with a ground equality?";
+			return null;
 		} else {
 			// not an EprAtom 
 			// --> check if it occurs in one of the EPR-clauses
@@ -151,11 +155,12 @@ public class EprTheory implements ITheory {
 			//      otherwise do nothing, because the literal means nothing to EPR 
 			//          --> other theories may report their own conflicts..?
 			// (like standard DPLL)
-			
-			for (EprClause ec : mLiteralToClauses.get(literal)) {
-				ec.setGroundLiteral(literal);
-//				updateFulFilledSets(ec);
-			}
+			HashSet<EprClause> clauses = mLiteralToClauses.get(literal);
+			if (clauses != null)
+				for (EprClause ec : mLiteralToClauses.get(literal)) {
+					ec.setGroundLiteral(literal);
+//					updateFulFilledSets(ec);
+				}
 
 			System.out.println("EPRDEBUG: setLiteral, new fulfilled clauses: " + mStateManager.getFulfilledClauses());
 			System.out.println("EPRDEBUG: setLiteral, new not fulfilled clauses: " + mStateManager.getNotFulfilledClauses());
@@ -334,10 +339,7 @@ public class EprTheory implements ITheory {
 					 * (plan atm: don't propagate EprEqualities)
 					 * --> just propagate the literal through the normal means
 					 */
-					if (!mAtomsAddedToDPLLEngine.contains(unitLiteral.getAtom())) { //TODO not so nice, with the extra set..
-						mEngine.addAtom(unitLiteral.getAtom());
-						mAtomsAddedToDPLLEngine.add(unitLiteral.getAtom());
-					}
+					addAtomToDPLLEngine(unitLiteral.getAtom());
 					mPropLitToExplanation.put(unitLiteral, ec.getInstantiationOfClauseForCurrentUnitLiteral());
 					mGroundLiteralsToPropagate.add(unitLiteral);
 				}
@@ -346,6 +348,14 @@ public class EprTheory implements ITheory {
 		
 		
 		return conflict;
+	}
+
+	public void addAtomToDPLLEngine(DPLLAtom atom) {
+		assert !(atom instanceof EprEqualityAtom || atom instanceof EprQuantifiedPredicateAtom);
+		if (!mAtomsAddedToDPLLEngine.contains(atom)) { //TODO not so nice, with the extra set..
+			mEngine.addAtom(atom);
+			mAtomsAddedToDPLLEngine.add(atom);
+		}
 	}
 	
 	private EprClause setQuantifiedAtom(EprQuantifiedLitWExcptns eqlwe) {
@@ -521,19 +531,32 @@ public class EprTheory implements ITheory {
 
 	}
 	/**
-	 * Given some literals where at least one variable is free (thus implicitly forall-quantified), 
-	 * inserts the clause into the eprTheory,
-	 * and returns the corresponding almost-all clause which is to be added in the DPLLEngine
-	 * @param lits
+	 * Add an EprClause for a given a non-ground set of literals.
+	 * 
+	 * Speciality: apply destructive equality reasoning (DER)
+	 *  If the clause becomes ground through DER, don't add it as an EprClause, but return the corresponding literals
+	 *   instead (in order to be added as a DPLL clause).
+	 *  Otherwise return null
+	 * 
+	 * @param lits literals where at least one variable is free (thus implicitly forall-quantified)
 	 * @param hook
 	 * @param proof
-	 * @return
+	 * @return equivalent ground set of literals if DER obtained one, null otherwise
 	 */
-	public void addEprClause(Literal[] lits, ClauseDeletionHook hook, ProofNode proof) {
+	public Literal[] addEprClause(Literal[] lits, ClauseDeletionHook hook, ProofNode proof) {
+		
+		ApplyDestructiveEqualityReasioning ader = new ApplyDestructiveEqualityReasioning(lits);
+		
+		if (ader.isResultGround()) {
+			return ader.getResult().toArray(new Literal[ader.getResult().size()]);
+		} 
+		
+		HashSet<Literal> literals = ader.getResult();
 		
 		//TODO: do something about hook and proof..
 //		EprClause newEprClause = new EprClause(lits, mTheory, mStateManager);
-		EprClause newEprClause = mStateManager.getClause(new HashSet<Literal>(Arrays.asList(lits)), mTheory, "base clause");
+//		EprClause newEprClause = mStateManager.getClause(new HashSet<Literal>(Arrays.asList(literals)), mTheory, "base clause");
+		EprClause newEprClause = mStateManager.getClause(literals, mTheory, "base clause");
 		mConflict |= mStateManager.addBaseClause(newEprClause);
 	
 		for (Literal li : lits) {
@@ -547,6 +570,7 @@ public class EprTheory implements ITheory {
 //			eprClause.setQuantifiedLiteral(qLit);
 //			updateFulFilledSets(eprClause);
 //		}
+		return null;
 	}
 
 	void updateLiteralToClauses(Literal lit, EprClause c) {
@@ -647,5 +671,108 @@ public class EprTheory implements ITheory {
 
 	public void notifyAboutNewClause(Object buildClause) {
 		mBuildClauseToAlphaRenamingSub.put(buildClause, new HashMap<TermVariable, Term>());
+	}
+	
+	/**
+	 * Apply destructive equality reasoning to the clause consisting of the given
+	 * literals.
+	 * Procedure:
+	 *  - build one big substitution which has one entry for each equality
+	 *  - apply the subtitution to each (quantified) literal in the clause
+	 *   (it may be a bit suprising that this works, but I think it does,
+	 *    example: {x != c, x != d, P(x)} will yield the substitution [x <- c, x <- d], which
+	 *           will yield the clause {c != c, c != d, P(c)} which seems right.) //TODO: make sure..
+	 */
+	class ApplyDestructiveEqualityReasioning {
+
+		HashSet<Literal> mResult;
+		boolean mIsResultGround = true;
+		
+		public ApplyDestructiveEqualityReasioning(Literal[] literals) {
+			applyDER(literals);
+		}
+
+		private void applyDER(Literal[] literals) {
+			TTSubstitution sub = new TTSubstitution();
+			for (Literal li : literals) {
+				if (li.getSign() != 1 && li.getAtom() instanceof EprEqualityAtom) {
+					// we have a quantified disequality
+					EprEqualityAtom eea = (EprEqualityAtom) li.getAtom();
+					TermTuple tt = eea.getArgumentsAsTermTuple();
+					TermVariable tv = null;
+					Term t = null;
+					if (tt.terms[0] instanceof TermVariable) {
+						tv = (TermVariable) tt.terms[0];
+						t = tt.terms[1];
+					} else {
+						tv = (TermVariable) tt.terms[1];
+						t = tt.terms[0];
+					}
+					sub.addSubs(tv, t);
+				}
+			}
+
+			HashSet<Literal> newLits = new HashSet<>();
+			for (Literal li : literals) {
+				if (li.getAtom() instanceof EprQuantifiedPredicateAtom 
+						|| li.getAtom() instanceof EprEqualityAtom) {
+					boolean liPositive = li.getSign() == 1;
+					TermTuple liTT = ((EprAtom) li.getAtom()).getArgumentsAsTermTuple();
+
+					TermTuple newTT = sub.apply(liTT);
+
+					if (newTT.equals(liTT)) {
+						newLits.add(li);
+						continue;
+					}
+
+					if (li.getAtom() instanceof EprEqualityAtom) {
+						if (newTT.isGround()) {
+							if (newTT.terms[0] == newTT.terms[1] && liPositive) {
+								newLits.add(new DPLLAtom.TrueAtom());
+								continue;
+							} else if (newTT.terms[0] == newTT.terms[1] && !liPositive) {
+								// the FalseAtom can be omitted
+								continue;
+							}
+							throw new UnsupportedOperationException();// how to obtain a fresh CCEquality???
+//							addAtomToDPLLEngine(ea);
+						} else {
+							EprEqualityAtom eea = new EprEqualityAtom(mTheory.term("=", newTT.terms),
+									0,  //TODO use good hash
+									li.getAtom().getAssertionStackLevel());
+							newLits.add(liPositive ? eea : eea.negate());
+							mIsResultGround = false;
+						}
+					} else {
+						// li.getAtom() instanceof EprQuantifiedPredicateAtom
+						EprPredicate liPred = ((EprQuantifiedPredicateAtom) li.getAtom()).eprPredicate;
+
+						EprAtom ea = null;
+						if (newTT.isGround()) {
+							ea = liPred.getAtomForPoint(newTT, mTheory, li.getAtom().getAssertionStackLevel());
+							addAtomToDPLLEngine(ea);
+						} else {
+							ea = liPred.getAtomForTermTuple(newTT, mTheory, li.getAtom().getAssertionStackLevel());
+							mIsResultGround = false;
+						}
+						newLits.add(liPositive ? ea : ea.negate());
+					}
+				} else {
+					newLits.add(li);
+				}
+			}
+			mResult = newLits;
+		}
+
+		public HashSet<Literal> getResult() {
+			return mResult;
+		}
+
+		public boolean isResultGround() {
+			return mIsResultGround;
+		}
+		
+		
 	}
 }
