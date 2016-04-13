@@ -208,6 +208,10 @@ public class SMTInterpol extends NoopScript {
 			}
 			if (mProofMode > 1) {
 				// Full proofs.
+				Sort[] polySorts = theory.createSortVariables("A");
+				declareInternalPolymorphicFunction(theory, "@refl", polySorts, polySorts, proof, 0);
+				declareInternalFunction(
+						theory, "@trans", proof2, proof, leftassoc);
 				declareInternalFunction(theory, "@intern", bool1, proof, 0);
 				declareInternalFunction(
 						theory, "@split", new Sort[] {proof, bool}, proof, 0);

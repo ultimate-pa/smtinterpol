@@ -39,6 +39,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermTransformer;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.IProofTracker;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.IRuleApplicator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
 import de.uni_freiburg.informatik.ultimate.util.UnifyHash;
 
@@ -54,13 +55,33 @@ public class TermCompiler extends TermTransformer {
 	private boolean mBy0Seen = false;
 	private Map<Term, Set<String>> mNames;
 	
-	private IProofTracker mTracker;
+	private IRuleApplicator mTracker;
 	private Utils mUtils;
 	private final FormulaUnLet mUnletter = new FormulaUnLet();
 	private final UnifyHash<SMTAffineTerm> mAffineUnifier
 		= new UnifyHash<SMTAffineTerm>();
+
+	class TransitivityStep implements Walker {
+
+		Term mFirst;
+		
+		public TransitivityStep(Term first) {
+			mFirst = first;
+		}
+		
+		/* (non-Javadoc)
+		 * @see de.uni_freiburg.informatik.ultimate.logic.NonRecursive.Walker#walk(de.uni_freiburg.informatik.ultimate.logic.NonRecursive)
+		 */
+		@Override
+		public void walk(NonRecursive engine) {
+			TermCompiler compiler = (TermCompiler) engine;
+			Term second = getConverted();
+			Term result = compiler.mTracker.transitivity(mFirst, second);
+			pushTerm(result);
+		}
+	}
 	
-	public void setProofTracker(IProofTracker tracker) {
+	public void setIRuleApplicator(IRuleApplicator tracker) {
 		mTracker = tracker;
 		mUtils = new Utils(tracker);
 	}
@@ -87,63 +108,47 @@ public class TermCompiler extends TermTransformer {
 				Theory theory = appTerm.getTheory();
 				if (fsym == theory.mAnd || fsym == theory.mOr) {
 					// We keep n-ary and/or
-					enqueueWalker(new BuildApplicationTerm(appTerm));
-					pushTerms(params);
+					super.convert(appTerm);
 					return;
 				}
-//				m_Tracker.expand(appTerm);
-				enqueueWalker(new RewriteAdder(appTerm, null));
-				BuildApplicationTerm dummy = new BuildApplicationTerm(
-				        theory.term(fsym, params[0], params[1]));
-				for (int i = params.length - 1; i > 0; i--) {
-					enqueueWalker(dummy);
-					pushTerm(params[i]);
-				}
-				pushTerm(params[0]);
+				Term expanded = params[0];
+				for (int i = 1; i < params.length; i++)
+					expanded = theory.term(fsym, expanded, params[i]);
+				Term expandedWithProof = mTracker.expand(appTerm, expanded);
+				enqueueWalker(new TransitivityStep(expandedWithProof));
+				super.convert(expanded);
 				return;
 			}
 			if (fsym.isRightAssoc() && params.length > 2) {
 				Theory theory = appTerm.getTheory();
 				if (fsym == theory.mImplies) {
 					// We keep n-ary implies
-					enqueueWalker(new BuildApplicationTerm(appTerm));
-					pushTerms(params);
+					super.convert(appTerm);
 					return;
 				}
-//				m_Tracker.expand(appTerm);
-				enqueueWalker(new RewriteAdder(appTerm, null));
-				BuildApplicationTerm dummy = new BuildApplicationTerm(
-				        theory.term(fsym, params[params.length - 2], 
-							params[params.length - 1]));
-				for (int i = params.length - 1; i > 0; i--)
-					enqueueWalker(dummy);
-				pushTerms(params);
+				Term expanded = params[params.length-1];
+				for (int i = params.length - 2; i >= 0; i--)
+					expanded = theory.term(fsym, params[i], expanded);
+				Term expandedWithProof = mTracker.expand(appTerm, expanded);
+				enqueueWalker(new TransitivityStep(expandedWithProof));
+				super.convert(expanded);
 				return;
 			}
 			if (fsym.isChainable() && params.length > 2 
 					&& !fsym.getName().equals("=")) {
-//				m_Tracker.expand(appTerm);
-				enqueueWalker(new RewriteAdder(appTerm, null));
 				Theory theory = appTerm.getTheory();
-				BuildApplicationTerm and = new BuildApplicationTerm(
-				        theory.term("and", theory.mTrue, theory.mTrue));
-				BuildApplicationTerm dummy = new BuildApplicationTerm(
-						theory.term(fsym, params[0], params[1]));
-				for (int i = params.length - 1; i > 1; i--) {
-					enqueueWalker(and);
-					enqueueWalker(dummy);
-					pushTerm(params[i]);
-					pushTerm(params[i - 1]);
-				}
-				enqueueWalker(dummy);
-				pushTerm(params[1]);
-				pushTerm(params[0]);
+				Term[] conjuncts = new Term[params.length - 1];
+				for (int i = 0; i < params.length - 1; i++)
+					conjuncts[i] = theory.term(fsym, params[i], params[i + 1]);
+				Term expanded = theory.term("and", conjuncts);
+				Term expandedWithProof = mTracker.expand(appTerm, expanded);
+				enqueueWalker(new TransitivityStep(expandedWithProof));
+				super.convert(expanded);
 				return;
 			}
 		} else if (term instanceof ConstantTerm) {
 			SMTAffineTerm res = SMTAffineTerm.create(term);
-			mTracker.normalized((ConstantTerm) term, res);
-			setResult(res);
+			setResult(mTracker.normalized((ConstantTerm) term, res));
 			return;
 		}
 		super.convert(term);
@@ -167,7 +172,8 @@ public class TermCompiler extends TermTransformer {
 		public void walk(NonRecursive engine) {
 			TermCompiler transformer = (TermCompiler) engine;
 			if (mExpanded == null)
-				transformer.mTracker.expand(mAppTerm);
+				// TODO transformer.mTracker.expand(mAppTerm, ?);
+				transformer.mTracker.expand(mAppTerm, mExpanded);
 			else
 				transformer.mTracker.expandDef(mAppTerm, mExpanded);
 		}
@@ -182,6 +188,11 @@ public class TermCompiler extends TermTransformer {
 		FunctionSymbol fsym = appTerm.getFunction();
 		Theory theory = appTerm.getTheory();
 		
+		Term convertedApp = mTracker.reflexivity(appTerm);
+		if (args != appTerm.getParameters()) {
+			convertedApp = mTracker.congruence(convertedApp, args);
+		}
+		
  		if (fsym.getDefinition() != null) {
 			Term definition = 
 					fsym.getDefinitionVars().length == 0
@@ -189,7 +200,10 @@ public class TermCompiler extends TermTransformer {
 					fsym.getDefinitionVars(), appTerm.getParameters(), 
 					fsym.getDefinition());
 			Term expanded = mUnletter.unlet(definition);
-			enqueueWalker(new RewriteAdder(appTerm, expanded));
+			Term expandedProof = 
+					mTracker.expandDef(mTracker.getTerm(convertedApp), expanded);
+			expandedProof = mTracker.transitivity(convertedApp, expandedProof);
+			enqueueWalker(new TransitivityStep(expandedProof));
 			pushTerm(expanded);
 			return;
 		}
@@ -223,7 +237,8 @@ public class TermCompiler extends TermTransformer {
 		
 		if (fsym.isIntern()) {
 			if (fsym == theory.mNot) {
-				setResult(mUtils.createNot(args[0]));
+				Term convertNot = mUtils.convertNot((ApplicationTerm) mTracker.getTerm(convertedApp));
+				setResult(mTracker.transitivity(convertedApp, convertNot));
 				return;
 			}
 			if (fsym == theory.mAnd) {
@@ -246,7 +261,7 @@ public class TermCompiler extends TermTransformer {
 				Term[] tmp = new Term[args.length];
 				// We move the conclusion in front (see Simplify tech report)
 				for (int i = 1; i < args.length; ++i)
-					tmp[i] = mUtils.createNot(args[i - 1]);
+					tmp[i] = mUtils.convertNot(args[i - 1]);
 				tmp[0] = args[args.length - 1];
 				setResult(mUtils.createOr(tmp));
 				return;
@@ -287,7 +302,7 @@ public class TermCompiler extends TermTransformer {
 						.normalize(this);
 				mTracker.removeConnective(
 						args, res, ProofConstants.RW_GT_TO_LEQ0);
-				setResult(mUtils.createNot(mUtils.createLeq0(res)));
+				setResult(mUtils.convertNot(mUtils.createLeq0(res)));
 				return;
 			}
 			if (fsym.getName().equals("<")) {
@@ -296,7 +311,7 @@ public class TermCompiler extends TermTransformer {
 						.normalize(this);
 				mTracker.removeConnective(
 						args, res, ProofConstants.RW_LT_TO_LEQ0);
-				setResult(mUtils.createNot(mUtils.createLeq0(res)));
+				setResult(mUtils.convertNot(mUtils.createLeq0(res)));
 				return;
 			}
 			if (fsym.getName().equals("+")) {
@@ -526,7 +541,7 @@ public class TermCompiler extends TermTransformer {
 				throw new SMTLIBException("Undefined value in input");
 		}
 		// not an intern function symbols
-		super.convertApplicationTerm(appTerm, args);
+		setResult(convertedApp);
 	}
 	
 	public final static Rational constDiv(Rational c0, Rational c1) {
@@ -552,7 +567,7 @@ public class TermCompiler extends TermTransformer {
 		else {
 			// We should create (forall (x) (newBody x))
 			// This becomes (not (exists (x) (not (newBody x))))
-			Term negNewBody = mUtils.createNot(newBody);
+			Term negNewBody = mUtils.convertNot(newBody);
 			Theory t = old.getTheory();
 			Term res = t.term(t.mNot,
 					t.exists(old.getVariables(), negNewBody));

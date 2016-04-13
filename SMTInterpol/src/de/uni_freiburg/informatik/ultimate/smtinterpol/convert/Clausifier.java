@@ -51,13 +51,16 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.IAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.NamedAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.IProofTracker;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.IRuleApplicator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.LeafNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.NoopProofTracker;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.NoopRuleApplicator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofTracker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ResolutionNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ResolutionNode.Antecedent;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.RuleApplicator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.ArrayTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAppTerm;
@@ -90,7 +93,7 @@ public class Clausifier {
 
 		@Override
 		public void perform() {
-			IProofTracker sub = mTracker.getDescendent();
+			IRuleApplicator sub = mTracker.getDescendent();
 			Term i = mStore.getParameters()[1];
 			Term v = mStore.getParameters()[2];
 			Term selstore = mTheory.term("select", mStore, i);
@@ -137,7 +140,7 @@ public class Clausifier {
 			if (eparray == EqualityProxy.getTrueProxy())
 				// Someone wrote (@diff a a)...
 				return;
-			IProofTracker sub = mTracker.getDescendent();
+			IRuleApplicator sub = mTracker.getDescendent();
 			Theory t = mDiff.getTheory();
 			Term selecta = t.term("select", a, mDiff);
 			Term selectb = t.term("select", b, mDiff);
@@ -460,12 +463,12 @@ public class Clausifier {
 			return mProof != null;
 		}
 		public ProofNode getAxiomProof(
-				IProofTracker tracker, Term idx, Literal lit) {
+				IRuleApplicator tracker, Term idx, Literal lit) {
 			if (mProof instanceof IAnnotation)
 				return new LeafNode(LeafNode.NO_THEORY, (IAnnotation) mProof);
 			ProofData pd = (ProofData) mProof;
 			Theory t = pd.mTerm.getTheory();
-			IProofTracker sub = tracker.getDescendent();
+			IRuleApplicator sub = tracker.getDescendent();
 			Term unquoted = pd.mTerm;
 			if (pd.mNegated && testFlags(ClausifierInfo.POS_AXIOMS_ADDED))
 				sub.negation(t.term(t.mNot, unquoted), unquoted,
@@ -597,7 +600,7 @@ public class Clausifier {
 						&& at.getFunction().getReturnSort()
 							== t.getBooleanSort()) {
 					Literal lit = createBooleanLit(at);
-					IProofTracker sub = mTracker.getDescendent();
+					IRuleApplicator sub = mTracker.getDescendent();
 					sub.intern(at, lit);
 					addClause(new Literal[] {positive ? lit : lit.negate()},
 							null, getProofNewSource(sub.clause(mProofTerm)));
@@ -614,7 +617,7 @@ public class Clausifier {
 							pushOperation(new CollectLiterals(lhs, bc1));
 							pushOperation(new CollectLiterals(
 									t2 = new Utils(bc1.getTracker()).
-										createNot(rhs),
+											convertNot(rhs),
 									bc1));
 							bc1.setOrigArgs(lhs, t2);
 						} else {
@@ -632,16 +635,16 @@ public class Clausifier {
 							bc2.setProofTerm(mTracker.split(at, mProofTerm,
 									ProofConstants.SPLIT_POS_EQ_2));
 							pushOperation(new CollectLiterals(
-									t1 = tmp.createNot(lhs), bc2));
+									t1 = tmp.convertNot(lhs), bc2));
 							pushOperation(new CollectLiterals(rhs, bc2));
 							bc2.setOrigArgs(t1, rhs);
 						} else {
 							bc2.setProofTerm(mTracker.split(at, mProofTerm,
 								ProofConstants.SPLIT_NEG_EQ_2));
 							pushOperation(new CollectLiterals(
-									t1 = tmp.createNot(lhs), bc2));
+									t1 = tmp.convertNot(lhs), bc2));
 							pushOperation(new CollectLiterals(
-									t2 = tmp.createNot(rhs), bc2));
+									t2 = tmp.convertNot(rhs), bc2));
 							bc2.setOrigArgs(t1, t2);
 						}
 						bc2.getTracker().markPosition();
@@ -673,7 +676,7 @@ public class Clausifier {
 							return;
 						}
 						Literal lit = eq.getLiteral();
-						IProofTracker sub = mTracker.getDescendent();
+						IRuleApplicator sub = mTracker.getDescendent();
 						sub.intern(at, lit);
 						addClause(new Literal[] {
 							positive ? lit : lit.negate()}, null, 
@@ -698,9 +701,9 @@ public class Clausifier {
 					Utils tmp1 = new Utils(bc1.getTracker());
 					pushOperation(bc1);
 					pushOperation(new CollectLiterals(
-							t1 = tmp1.createNot(cond), bc1));
+							t1 = tmp1.convertNot(cond), bc1));
 					if (!positive)
-						thenForm = tmp1.createNot(thenForm);
+						thenForm = tmp1.convertNot(thenForm);
 					bc1.setOrigArgs(t1, thenForm);
 					tmp1 = null;
 					pushOperation(new CollectLiterals(thenForm, bc1));
@@ -711,7 +714,7 @@ public class Clausifier {
 					pushOperation(bc2);
 					pushOperation(new CollectLiterals(cond, bc2));
 					if (!positive)
-						elseForm = tmp2.createNot(elseForm);
+						elseForm = tmp2.convertNot(elseForm);
 					bc2.setOrigArgs(cond, elseForm);
 					tmp2 = null;
 					pushOperation(new CollectLiterals(elseForm, bc2));
@@ -719,7 +722,7 @@ public class Clausifier {
 				} else if (at.getFunction().getName().equals("<=")) {
 					// (<= SMTAffineTerm 0)
 					Literal lit = createLeq0(at);
-					IProofTracker sub = mTracker.getDescendent();
+					IRuleApplicator sub = mTracker.getDescendent();
 					sub.intern(at, lit);
 					if (lit.getSign() == -1 && !positive)
 						sub.negateLit(lit, mTheory);
@@ -833,7 +836,7 @@ public class Clausifier {
 						pushOperation(new CollectLiterals(thenTerm, bc1));
 						pushOperation(new CollectLiterals(
 								t1 = new Utils(bc1.getTracker()).
-								createNot(cond),
+										convertNot(cond),
 								bc1));
 						bc1.setOrigArgs(mTracker.produceAuxAxiom(
 								mAuxLit.negate(), t1, thenTerm));
@@ -869,9 +872,9 @@ public class Clausifier {
 						bc1.addLiteral(mAuxLit);
 						pushOperation(bc1);
 						pushOperation(new CollectLiterals(
-								t2 = tmp1.createNot(thenTerm), bc1));
+								t2 = tmp1.convertNot(thenTerm), bc1));
 						pushOperation(new CollectLiterals(
-								t1 = tmp1.createNot(cond), bc1));
+								t1 = tmp1.convertNot(cond), bc1));
 						bc1.setOrigArgs(mTracker.produceAuxAxiom(
 								mAuxLit, t1, t2));
 						bc1.getTracker().markPosition();
@@ -884,7 +887,7 @@ public class Clausifier {
 						pushOperation(new CollectLiterals(
 								t1 = new Utils(
 										bc2.getTracker()).
-										createNot(elseTerm),
+										convertNot(elseTerm),
 								bc2));
 						pushOperation(new CollectLiterals(cond, bc2));
 						bc2.setOrigArgs(mTracker.produceAuxAxiom(
@@ -898,9 +901,9 @@ public class Clausifier {
 							bc3.addLiteral(mAuxLit);
 							pushOperation(bc3);
 							pushOperation(new CollectLiterals(
-									t2 = tmp3.createNot(elseTerm), bc3));
+									t2 = tmp3.convertNot(elseTerm), bc3));
 							pushOperation(new CollectLiterals(
-									t1 = tmp3.createNot(thenTerm), bc3));
+									t1 = tmp3.convertNot(thenTerm), bc3));
 							bc3.setOrigArgs(mTracker.produceAuxAxiom(
 									mAuxLit, t1, t2));
 							bc3.getTracker().markPosition();
@@ -921,7 +924,7 @@ public class Clausifier {
 						bc1.addLiteral(mAuxLit.negate());
 						pushOperation(bc1);
 						pushOperation(new CollectLiterals(
-								t2 = tmp1.createNot(rhs), bc1));
+								t2 = tmp1.convertNot(rhs), bc1));
 						pushOperation(new CollectLiterals(lhs, bc1));
 						bc1.setOrigArgs(mTracker.produceAuxAxiom(
 								mAuxLit.negate(), lhs, t2));
@@ -935,7 +938,7 @@ public class Clausifier {
 						pushOperation(bc2);
 						pushOperation(new CollectLiterals(rhs, bc2));
 						pushOperation(new CollectLiterals(
-								t1 = tmp2.createNot(lhs), bc2));
+								t1 = tmp2.convertNot(lhs), bc2));
 						bc2.setOrigArgs(mTracker.produceAuxAxiom(
 								mAuxLit.negate(), t1, rhs));
 						bc2.getTracker().markPosition();
@@ -957,9 +960,9 @@ public class Clausifier {
 						bc2.addLiteral(mAuxLit);
 						pushOperation(bc2);
 						pushOperation(new CollectLiterals(
-								t2 = tmp.createNot(rhs), bc2));
+								t2 = tmp.convertNot(rhs), bc2));
 						pushOperation(new CollectLiterals(
-								t1 = tmp.createNot(lhs), bc2));
+								t1 = tmp.convertNot(lhs), bc2));
 						bc2.setOrigArgs(mTracker.produceAuxAxiom(
 								mAuxLit, t1, t2));
 						bc2.getTracker().markPosition();
@@ -1005,7 +1008,7 @@ public class Clausifier {
 				pushOperation(bc);
 				pushOperation(new CollectLiterals(
 						t = new Utils(bc.getTracker()).
-						createNot(disj), bc));
+						convertNot(disj), bc));
 				bc.getTracker().markPosition();
 				bc.setOrigArgs(mTracker.produceAuxAxiom(
 						mAuxLit, t));
@@ -1175,7 +1178,7 @@ public class Clausifier {
 				new LinkedHashSet<Literal>();
 		private Term mProofTerm;
 		private Term[] mOrigArgs;
-		private final IProofTracker mSubTracker = mTracker.getDescendent();
+		private final IRuleApplicator mSubTracker = mTracker.getDescendent();
 		private boolean mFlatten;
 		private boolean mSimpOr;
 		//@ invariant ProofProductionEnabled ==>
@@ -1245,7 +1248,7 @@ public class Clausifier {
 								mSubTracker.clause(mProofTerm)));
 			}
 		}
-		public IProofTracker getTracker() {
+		public IRuleApplicator getTracker() {
 			return mSubTracker;
 		}
 		public void setFlatten(Term[] origArgs) {
@@ -1279,7 +1282,7 @@ public class Clausifier {
 		
 		@Override
 		public void perform() {
-			IProofTracker sub = mTracker.getDescendent();
+			IRuleApplicator sub = mTracker.getDescendent();
 			Utils tmp = new Utils(sub);
 			SMTAffineTerm arg = SMTAffineTerm.create(mDivider);
 			SMTAffineTerm div = SMTAffineTerm.create(mDivTerm);
@@ -1327,7 +1330,7 @@ public class Clausifier {
 		}
 		@Override
 		public void perform() {
-			IProofTracker sub = mTracker.getDescendent();
+			IRuleApplicator sub = mTracker.getDescendent();
 			Utils tmp = new Utils(sub);
 			SMTAffineTerm realTerm = SMTAffineTerm.create(
 					mToIntTerm.getParameters()[0]);
@@ -1394,7 +1397,7 @@ public class Clausifier {
 			bc1.addLiteral(lit1);
 			pushOperation(bc1);
 			pushOperation(new CollectLiterals(
-					new Utils(bc1.getTracker()).createNot(
+					new Utils(bc1.getTracker()).convertNot(
 							mSharedTerm.getTerm()), bc1));
 			// (not m_Term) => elseForm is m_Term \/ elseForm
 			BuildClause bc2 = new BuildClause(
@@ -1477,7 +1480,7 @@ public class Clausifier {
 				Utils tmp = new Utils(bc.getTracker());
 				while (walk != null) {
 					pushOperation(new CollectLiterals(
-						walk.mNegated ? walk.mCond : tmp.createNot(walk.mCond),
+						walk.mNegated ? walk.mCond : tmp.convertNot(walk.mCond),
 						bc));
 					walk = walk.mPrev;
 				}
@@ -1682,14 +1685,14 @@ public class Clausifier {
 	/**
 	 * A tracker for proof production.
 	 */
-	private final IProofTracker mTracker;
+	private final IRuleApplicator mTracker;
 	
 	public Clausifier(DPLLEngine engine, int proofLevel) {
 		mTheory = engine.getSMTTheory();
 		mEngine = engine;
 		mLogger = engine.getLogger();
-		mTracker = proofLevel == 2 ? new ProofTracker() : new NoopProofTracker();
-		mCompiler.setProofTracker(mTracker);
+		mTracker = proofLevel == 2 ? new RuleApplicator() : new NoopRuleApplicator();
+		mCompiler.setIRuleApplicator(mTracker);
 	}
 	
 	public void setAssignmentProduction(boolean on) {
@@ -1724,7 +1727,7 @@ public class Clausifier {
 //			if (qf.getQuantifier() == QuantifiedFormula.EXISTS) {
 //				// (exists (x) (phi x)) is (not (forall (x) (not (phi x))))
 //				return t.getTheory().forall(qf.getVariables(),
-//						Utils.createNot(qf.getSubformula()));
+//						Utils.convertNot(qf.getSubformula()));
 //			}
 //			return qf;
 //		}
@@ -2301,7 +2304,7 @@ public class Clausifier {
 		return mCompiler.resetBy0Seen();
 	}
 
-	public IProofTracker getTracker() {
+	public IRuleApplicator getTracker() {
 		return mTracker;
 	}
 	

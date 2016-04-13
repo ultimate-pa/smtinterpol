@@ -27,6 +27,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.IProofTracker;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.IRuleApplicator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
 
 /**
@@ -36,35 +37,35 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
  */
 public class Utils {
 	
-	private final IProofTracker mTracker;
+	private final IRuleApplicator mTracker;
 	
 	
-	public Utils(IProofTracker tracker) {
+	public Utils(IRuleApplicator tracker) {
 		mTracker = tracker;
 	}
 	/**
 	 * Optimize nots.  Transforms (not true) to false, (not false) to true, and
 	 * remove double negation.
-	 * @param arg Term to negate.
-	 * @return Term equivalent to the negation of the input.
+	 * @param notTerm the not term to simplify.  Must be a not term.
+	 * @return Term equivalent to the negation of the input, 
+	 * optionally annotated with proof.
 	 */
-	public Term createNot(Term arg) {
+	public Term convertNot(Term notTerm) {
+		assert ((ApplicationTerm) notTerm).getFunction().getName() == "not";
+		Term arg = ((ApplicationTerm) notTerm).getParameters()[0];
 		Theory theory = arg.getTheory();
 		if (arg == theory.mFalse) {
-			mTracker.negation(arg, theory.mTrue, ProofConstants.RW_NOT_SIMP);
-			return theory.mTrue;
+			return mTracker.negation(arg, theory.mTrue, ProofConstants.RW_NOT_SIMP);
 		}
 		if (arg == theory.mTrue) {
-			mTracker.negation(arg, theory.mFalse, ProofConstants.RW_NOT_SIMP);
-			return theory.mFalse;
+			return mTracker.negation(arg, theory.mFalse, ProofConstants.RW_NOT_SIMP);
 		}
 		if ((arg instanceof ApplicationTerm)
 			&& ((ApplicationTerm) arg).getFunction().getName().equals("not")) {
 			Term res = ((ApplicationTerm) arg).getParameters()[0];
-			mTracker.negation(arg, res, ProofConstants.RW_NOT_SIMP);
-			return res;
+			return mTracker.negation(arg, res, ProofConstants.RW_NOT_SIMP);
 		}
-		return theory.term("not", arg);
+		return mTracker.reflexivity(notTerm);
 	}
 	
 	public static Term createNotUntracked(Term arg) {
@@ -170,7 +171,7 @@ public class Utils {
 		if (trueBranch == theory.mFalse && falseBranch == theory.mTrue) {
 			mTracker.ite(cond, trueBranch, falseBranch, null,
 					ProofConstants.RW_ITE_BOOL_2);
-			return createNot(cond);
+			return convertNot(cond);
 		}
 		if (trueBranch == theory.mTrue) {
 			// No need for createOr since we are already sure that we cannot
@@ -184,19 +185,19 @@ public class Utils {
 			// /\ !cond falseBranch => !(\/ cond !falseBranch)
 			mTracker.ite(cond, trueBranch, falseBranch, null,
 					ProofConstants.RW_ITE_BOOL_4);
-			return createNot(createOr(cond, createNot(falseBranch)));
+			return convertNot(createOr(cond, convertNot(falseBranch)));
 		}
 		if (falseBranch == theory.mTrue) {
 			// => cond trueBranch => \/ !cond trueBranch
 			mTracker.ite(cond, trueBranch, falseBranch, null,
 					ProofConstants.RW_ITE_BOOL_5);
-			return createOr(createNot(cond), trueBranch);
+			return createOr(convertNot(cond), trueBranch);
 		}
 		if (falseBranch == theory.mFalse) {
 			// /\ cond trueBranch => !(\/ !cond !trueBranch)
 			mTracker.ite(cond, trueBranch, falseBranch, null,
 					ProofConstants.RW_ITE_BOOL_6);
-			return createNot(createOr(createNot(cond), createNot(trueBranch)));
+			return convertNot(createOr(convertNot(cond), convertNot(trueBranch)));
 		}
 		return theory.term("ite", cond, trueBranch, falseBranch);
 	}
@@ -276,9 +277,9 @@ public class Utils {
 				Term[] tmpArgs = tmp.toArray(new Term[tmp.size()]);
 				mTracker.equality(args, tmpArgs, ProofConstants.RW_EQ_FALSE);
 				if (tmpArgs.length == 1)
-					return createNot(tmpArgs[0]);
+					return convertNot(tmpArgs[0]);
 				// take care of (= false false ... false)
-				return createNot(createOr(tmpArgs));
+				return convertNot(createOr(tmpArgs));
 			}
 		} else {
 			for (Term t : args)
@@ -378,7 +379,7 @@ public class Utils {
 			}
 			if (t0 == theory.mTrue) {
 				mTracker.distinct(args, null, ProofConstants.RW_DISTINCT_TRUE);
-				return createNot(t1);
+				return convertNot(t1);
 			}
 			if (t0 == theory.mFalse) {
 				mTracker.distinct(args, t1, ProofConstants.RW_DISTINCT_FALSE);
@@ -386,7 +387,7 @@ public class Utils {
 			}
 			if (t1 == theory.mTrue) {
 				mTracker.distinct(args, null, ProofConstants.RW_DISTINCT_TRUE);
-				return createNot(t0);
+				return convertNot(t0);
 			}
 			if (t1 == theory.mFalse) {
 				mTracker.distinct(args, t0, ProofConstants.RW_DISTINCT_FALSE);
@@ -395,10 +396,10 @@ public class Utils {
 			// Heuristics: Try to find an already negated term
 			if (isNegation(t0)) {
 				mTracker.distinctBoolEq(t0, t1, true);
-				return theory.term("=", createNot(t0), t1);
+				return theory.term("=", convertNot(t0), t1);
 			}
 			mTracker.distinctBoolEq(t0, t1, false);
-			return theory.term("=", t0, createNot(t1));
+			return theory.term("=", t0, convertNot(t1));
 		}
 		LinkedHashSet<Term> tmp = new LinkedHashSet<Term>();
 		for (Term t : args)
@@ -434,8 +435,8 @@ public class Utils {
 		assert (args.length > 1) : "Invalid and in simplification";
 		mTracker.removeConnective(args, null, ProofConstants.RW_AND_TO_OR);
 		for (int i = 0; i < args.length; ++i)
-			args[i] = createNot(args[i]);
-		return createNot(createOr(args));
+			args[i] = convertNot(args[i]);
+		return convertNot(createOr(args));
 	}
 	public Term createAnd(Term... args) {
 		args = args.clone();

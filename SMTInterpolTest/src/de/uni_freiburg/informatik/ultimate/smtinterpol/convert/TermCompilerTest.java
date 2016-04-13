@@ -29,6 +29,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.NoopProofTracker;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.NoopRuleApplicator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TestCaseWithLogger;
 
@@ -62,7 +63,7 @@ public class TermCompilerTest extends TestCaseWithLogger {
 		mThree = mSolver.numeral("3");
 		mFive = mSolver.numeral("5");
 		mCompiler = new TermCompiler();
-		mCompiler.setProofTracker(new NoopProofTracker());
+		mCompiler.setIRuleApplicator(new NoopRuleApplicator());
 	}
 	
 	@Test

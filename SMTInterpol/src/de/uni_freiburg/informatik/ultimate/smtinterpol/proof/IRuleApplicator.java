@@ -21,10 +21,14 @@ public interface IRuleApplicator {
 	
 	
 	/**
-	 * @param orig
-	 * @return
+	 * Apply the expand rule for left-associative, right-associative
+	 * or chainable operators.
+	 * @param orig  The original term.  It's function symbol must be 
+	 * left-associative, right-associative or chainable.
+	 * @param expanded  The expanded term. 
+	 * @return The expanded term, optionally annotated with the proof.
 	 */
-	public Term expand(ApplicationTerm orig);
+	public Term expand(ApplicationTerm orig, Term expanded);
 	/**
 	 * Track the expand definition rule.
 	 * @param orig The original term.
@@ -274,9 +278,9 @@ public interface IRuleApplicator {
 	 */
 	public Term reflexivity(Term a);
 	/**
-	 * @param a Annotated with a proof (= x a)
-	 * @param b Annotated with a proof (= a b)
-	 * @return Term b annotated with a proof (= x b)
+	 * @param a
+	 * @param b
+	 * @return
 	 */
 	public Term transitivity(Term a, Term b);
 	/**
@@ -284,7 +288,15 @@ public interface IRuleApplicator {
 	 * @param b
 	 * @return
 	 */
-	public Term congruence(Term a, Term b);
+	public Term congruence(Term a, Term[] b);
+	
+	
+	/**
+	 * Returns the converted term without the proof.
+	 * @param term A term optionally annotated with a proof.
+	 * @return the term without the proof.
+	 */
+	public Term getTerm(Term t);
 	
 	
 	// TODO *******************************************************************
@@ -330,6 +342,17 @@ public interface IRuleApplicator {
 	 *         disabled.
 	 */
 	public Term getRewriteProof(Term asserted);
+	
+	/**
+	 * Reset the cached proof data.
+	 */
+	public void reset();
+	/**
+	 * Create a sub-tracker.
+	 * @return A sub-tracker with the same tracking capabilities than this
+	 *         tracker.
+	 */
+	public IRuleApplicator getDescendent();
 	/**
 	 * Prepare to apply the IRA-Hack.  This should return a copy of the original
 	 * arguments to ensure correct applications of the desugar rule.
@@ -337,7 +360,14 @@ public interface IRuleApplicator {
 	 * @return <code>null</code> if no desugar should be applied and a copy of
 	 *         the argument otherwise. 
 	 */
+	
 	public Term[] prepareIRAHack(Term[] args);
+	/**
+	 * Mark the position where a clause simplification rule can be applied.
+	 * This function is necessary since clause simplification is delayed and,
+	 * hence, recognized at the wrong time. 
+	 */
+	public void markPosition();
 	/**
 	 * Mark the position where a clause simplification rule can be applied.
 	 * This function is necessary since clause simplification is delayed and,
@@ -347,7 +377,30 @@ public interface IRuleApplicator {
 	/**
 	 * Save the current position in the rewrite list.
 	 */
+	public void save();
+	/**
+	 * Restore to the last position in the list.
+	 */
+	public void restore();
+	/**
+	 * Remove all saved information.
+	 */
+	public void cleanSave();
+	/**
+	 * Notification about the creation of a literal.  This function is only
+	 * used to compute the correct delayed clause simplification axiom.
+	 * @param lit The created literal (in correct polarity.
+	 * @param t   The term for which the literal has been created.
+	 * @return Was <code>lit</code> the first literal for <code>t</code>? 
+	 */
 	public boolean notifyLiteral(Literal lit, Term t);
+	/**
+	 * Notification about the simplification of a literal to false.  This
+	 * function is only used to compute the correct delayed clause
+	 * simplification axiom.
+	 * @param t The term that simplified to false.
+	 */
+	public void notifyFalseLiteral(Term t);
 
 
 }
