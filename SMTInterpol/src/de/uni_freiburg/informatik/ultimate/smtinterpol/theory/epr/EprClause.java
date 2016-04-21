@@ -19,6 +19,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate.Interpolator.
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ResolutionNode;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution.SubsPair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution.TPair;
 
 /**
@@ -105,11 +106,13 @@ public class EprClause extends Clause {
 	private HashMap<Literal, HashSet<UnFulReason>> mLiteralToUnfulfillabilityReasons = new HashMap<>();
 	
 	EprStateManager mStateManager;
+	EqualityManager mEqualityManager;
 
 	public EprClause(Literal[] literals, Theory theory, EprStateManager stateManager, Object explanation) {
 		super(literals);
 		mTheory = theory;
 		mStateManager = stateManager;
+		mEqualityManager = stateManager.mEqualityManager;
 		mExplanation = explanation;
 		setUpClause(literals);
 	}
@@ -184,7 +187,8 @@ public class EprClause extends Clause {
 			//  fulfilled or contradicted li
 			HashSet<TermTuple> otherPolarityPoints = mStateManager.getPoints(!liPositive, liAtom.eprPredicate);
 			for (TermTuple opPoint : otherPolarityPoints) { // TODO: seems awfully inefficient..
-				if (opPoint.match(liAtom.getArgumentsAsTermTuple()) != null) {
+				if (opPoint.match(liAtom.getArgumentsAsTermTuple(), mEqualityManager) != null) {
+//				if (opPoint.match(liAtom.getArgumentsAsTermTuple()) != null) {
 					EprGroundPredicateAtom opAtom = liAtom.eprPredicate.getAtomForPoint(opPoint);
 					setLiteralUnfulfillable(li, new UnFulReason(liPositive ? opAtom.negate() : opAtom));
 					continue nextLi;
@@ -260,7 +264,7 @@ public class EprClause extends Clause {
 //			HashMap<TermVariable, Term> sub = liAtom.getArgumentsAsTermTuple().match(
 			TermTuple liTT = liAtom.getArgumentsAsTermTuple();
 			TermTuple slTT = sl.mAtom.getArgumentsAsTermTuple();
-			TTSubstitution sub = liTT.match(slTT);
+			TTSubstitution sub = liTT.match(slTT, mEqualityManager);
 			if (sub == null)
 				continue;
 			if (subset(sl.mExceptedPoints, this.mExceptedPoints)) {
@@ -676,7 +680,7 @@ public class EprClause extends Clause {
 					boolean oppositeSigns = (quantifiedLit.getSign() == 1) ^ settingPositive;
 					TermTuple otherPoint = new TermTuple(((EprPredicateAtom) quantifiedLit.getAtom()).getArguments());
 //					HashMap<TermVariable, Term> subs = point.match(otherPoint);
-					TTSubstitution subs = point.match(otherPoint);
+					TTSubstitution subs = point.match(otherPoint, mEqualityManager);
 					if (oppositeSigns && subs != null) {
 						setQuantifiedLiteralUnfulfillable(quantifiedLit, literal);
 					}
@@ -771,7 +775,7 @@ public class EprClause extends Clause {
 			TermTuple atomArgs = atom.getArgumentsAsTermTuple();
 			TermTuple otherArgs = otherAtom.getArgumentsAsTermTuple();
 //			HashMap<TermVariable, Term> sub = otherArgs.match(atomArgs);
-			TTSubstitution sub = otherArgs.match(atomArgs);
+			TTSubstitution sub = otherArgs.match(atomArgs, mEqualityManager);
 
 			// if there is no unifier, do nothing
 			if (sub == null)
@@ -986,7 +990,7 @@ public class EprClause extends Clause {
 			for (TermTuple tt : currentPoints) {
 //				HashMap<TermVariable, Term> newSubs = new HashMap<TermVariable, Term>(substitution);
 				TTSubstitution newSubs = new TTSubstitution(substitution);
-				newSubs = tt.match(currentPfl, newSubs);
+				newSubs = tt.match(currentPfl, newSubs, mEqualityManager);
 
 				if (isSubstitutionExcepted(newSubs)) {
 					continue;
@@ -1024,12 +1028,15 @@ public class EprClause extends Clause {
 //		private boolean isSubstitutionExcepted(HashMap<TermVariable, Term> newSubs) {
 		private boolean isSubstitutionExcepted(TTSubstitution newSubs) {
 //			for (Entry<TermVariable, Term> en : newSubs.entrySet()) {
-			for (TPair en : newSubs.subs) {
+			for (SubsPair en : newSubs.subs) {
 //				HashSet<ApplicationTerm> epCon = mExceptedPoints.get(en.getKey());
-				HashSet<ApplicationTerm> epCon = mExceptedPoints.get(en.tv);
-//				if (epCon != null && epCon.contains(en.getValue()))
-				if (epCon != null && epCon.contains(en.t))
-					return true;
+				if (en instanceof TPair) {
+					TPair tp = (TPair) en;
+					HashSet<ApplicationTerm> epCon = mExceptedPoints.get(tp.tv);
+					//				if (epCon != null && epCon.contains(en.getValue()))
+					if (epCon != null && epCon.contains(tp.t))
+						return true;
+				}
 			}
 			return false;
 		}

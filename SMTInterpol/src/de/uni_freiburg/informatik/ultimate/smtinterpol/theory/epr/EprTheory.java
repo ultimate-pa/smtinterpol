@@ -86,8 +86,8 @@ public class EprTheory implements ITheory {
 		mTheory = th;
 		mEngine = engine;
 
-		mStateManager = new EprStateManager();
 		mEqualityManager = new EqualityManager();
+		mStateManager = new EprStateManager(mEqualityManager);
 	}
 
 	@Override
@@ -419,7 +419,8 @@ public class EprTheory implements ITheory {
 				// is there a unifier?
 //				HashMap<TermVariable, Term> sub = engineAtom.getArgumentsAsTermTuple().match(eqlwe.mAtom.getArgumentsAsTermTuple());
 				TTSubstitution sub = 
-						engineAtom.getArgumentsAsTermTuple().match(eqlwe.mAtom.getArgumentsAsTermTuple());
+//						engineAtom.getArgumentsAsTermTuple().match(eqlwe.mAtom.getArgumentsAsTermTuple());
+						engineAtom.getArgumentsAsTermTuple().match(eqlwe.mAtom.getArgumentsAsTermTuple(), mEqualityManager);
 				if (sub != null) {
 					Literal propLit = eqlwe.mIsPositive ? engineAtom : engineAtom.negate();
 					mGroundLiteralsToPropagate.add(propLit);

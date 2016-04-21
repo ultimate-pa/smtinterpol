@@ -15,7 +15,7 @@ public class TermTuple {
 	public final int arity;
 	public final Term[] terms;
 
-	public TermTuple(Term[] terms, int arity) {
+	private TermTuple(Term[] terms, int arity) {
 		this.terms = terms;
 		this.arity = arity;
 	}
@@ -67,9 +67,10 @@ public class TermTuple {
 	
 	
 //	public HashMap<TermVariable, Term> match(TermTuple other) {
-	public TTSubstitution match(TermTuple other) {
+	public TTSubstitution match(TermTuple other,
+			EqualityManager equalityManager) {
 //		return match(other, new HashMap<TermVariable, Term>());
-		return match(other, new TTSubstitution());
+		return match(other, new TTSubstitution(), equalityManager);
 	}
 
 	/**
@@ -80,31 +81,15 @@ public class TermTuple {
 	 */
 	public TTSubstitution match(
 			TermTuple other,
-			TTSubstitution subs) {
+			TTSubstitution subs,
+			EqualityManager equalityManager) {
 		assert this.arity == other.arity;
 
-//		Term thisTerm = this.terms[0];
-//		Term otherTerm = other.terms[0];
-//
-//		if (thisTerm.equals(otherTerm)) {
-//			return new TermTuple(arguments)
-//		} else if (otherTerm instanceof TermVariable) {
-//
-//		} else if (thisTerm instanceof TermVariable) {
-//
-//		} else return null;
-	
-		
-//		HashMap<TermVariable, Term> resultSubs = 
-//				new HashMap<TermVariable, Term>(subs);//TODO: probably remove this copying (inserted it just to be safe..)
-		
 		TermTuple thisTT = new TermTuple(terms);
 		TermTuple otherTT = new TermTuple(other.terms);
 		
 		TTSubstitution resultSubs = subs; // TODO: or is a copy needed?
 		for (int i = 0; i < this.terms.length; i++) {
-//			Term thisTerm = this.terms[i];
-//			Term otherTerm = other.terms[i];
 			Term thisTerm = thisTT.terms[i];
 			Term otherTerm = otherTT.terms[i];
 
@@ -120,33 +105,19 @@ public class TermTuple {
 			} else if (thisTerm instanceof TermVariable) {
 				tvTerm = (TermVariable) thisTerm;
 				termTerm = otherTerm;
-			} else {
-				return null;
 			}
 			
-			resultSubs.addSubs(tvTerm, termTerm);
-				
-//			Term substitute = subs.get(tvTerm);
-//			if (substitute == null) {
-//				Term trg = resultSubs.get(tvTerm);
-//				if (trg == null) {
-//					resultSubs.put((TermVariable) tvTerm, termTerm);
-//				}  else if (trg != null && trg instanceof TermVariable) {
-//					resultSubs.put((TermVariable) resultSubs.get(tvTerm), termTerm);
-//				} else {
-//					assert false : "not totally sure about this..";
-//				return null;
-//				}
-//			} else if (thisTerm.equals(substitute)) {
-//				//match -- > do nothing
-//			} else {
-//				return null; //no match
-//			}
-			
+			if (tvTerm == null) {
+				if (!equalityManager.isEqual((ApplicationTerm) thisTerm, (ApplicationTerm) otherTerm)){
+					return null;
+				}
+				resultSubs.addSubs(thisTerm, otherTerm);
+			} else {
+				resultSubs.addSubs(tvTerm, termTerm);
+			}
 			thisTT = resultSubs.apply(thisTT);
 			otherTT = resultSubs.apply(otherTT);
 		}
-//		assert this.applySubstitution(resultSubs).equals(other.applySubstitution(resultSubs)) 
 		assert resultSubs.apply(this).equals(resultSubs.apply(other))
 			: "the returned substitution should be a unifier";
 		return resultSubs;

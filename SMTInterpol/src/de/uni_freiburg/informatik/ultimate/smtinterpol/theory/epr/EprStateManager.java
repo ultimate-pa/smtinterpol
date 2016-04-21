@@ -21,12 +21,14 @@ public class EprStateManager {
 	
 	
 	HashMap<Set<Literal>, EprClause> mLiteralToClauses = new HashMap<>();
+	public EqualityManager mEqualityManager;
 	
 //	private HashSet<EprClause> mAllClauses = new HashSet<>();
 
-	public EprStateManager() {
+	public EprStateManager(EqualityManager eqMan) {
 		baseState = new EprState();
 		mEprStateStack.push(baseState);
+		mEqualityManager =  eqMan;
 	}
 
 	public void beginScope(Literal literal) {
@@ -59,7 +61,8 @@ public class EprStateManager {
 				if (l.mIsPositive == (literal.getSign() == 1))
 					continue; // polarities match --> no conflict
 //				HashMap<TermVariable, Term> sub = l.mAtom.getArgumentsAsTermTuple().match(atom.getArgumentsAsTermTuple());
-				TTSubstitution sub = l.mAtom.getArgumentsAsTermTuple().match(atom.getArgumentsAsTermTuple());
+//				TTSubstitution sub = l.mAtom.getArgumentsAsTermTuple().match(atom.getArgumentsAsTermTuple());
+				TTSubstitution sub = l.mAtom.getArgumentsAsTermTuple().match(atom.getArgumentsAsTermTuple(), mEqualityManager);
 				if (sub != null) {
 					EprClause conflict =  l.mExplanation.instantiateClause(null, sub);
 					return conflict;
@@ -202,7 +205,7 @@ public class EprStateManager {
 				continue;
 			TermTuple slTT = sl.mAtom.getArgumentsAsTermTuple();
 			TermTuple tt = atom.getArgumentsAsTermTuple();
-			TTSubstitution sub = slTT.match(tt);
+			TTSubstitution sub = slTT.match(tt, mEqualityManager);
 			if (slTT.isEqualOrMoreGeneralThan(tt))
 				return true;
 		}
