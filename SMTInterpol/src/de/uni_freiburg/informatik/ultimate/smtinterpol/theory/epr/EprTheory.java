@@ -21,6 +21,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ClauseDeletionHook;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom.TrueAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ITheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
@@ -76,6 +77,8 @@ public class EprTheory implements ITheory {
 	private boolean mConflict;
 
 	HashSet<DPLLAtom> mAtomsAddedToDPLLEngine = new HashSet<>();
+	
+	EqualityManager mEqualityManager;
 
 	//	private Term mAlmostAllConstant;
 //	
@@ -84,6 +87,7 @@ public class EprTheory implements ITheory {
 		mEngine = engine;
 
 		mStateManager = new EprStateManager();
+		mEqualityManager = new EqualityManager();
 	}
 
 	@Override
@@ -146,7 +150,13 @@ public class EprTheory implements ITheory {
 			assert false : "DPLLEngine is setting a quantified EprAtom --> this cannot be..";
 			return null;
 		} else if (atom instanceof CCEquality) {
-			assert false : "TODO: what to to do with a ground equality?";
+			CCEquality eq = (CCEquality) atom;
+			ApplicationTerm f = (ApplicationTerm) eq.getSMTFormula(mTheory);
+			ApplicationTerm lhs = (ApplicationTerm) f.getParameters()[0];
+			ApplicationTerm rhs = (ApplicationTerm) f.getParameters()[1];
+			
+			mEqualityManager.addEquality(lhs, rhs);
+			
 			return null;
 		} else {
 			// not an EprAtom 
@@ -224,6 +234,13 @@ public class EprTheory implements ITheory {
 		} else if (atom instanceof EprEqualityAtom
 				|| atom instanceof EprQuantifiedPredicateAtom) {
 			assert false : "DPLLEngine is unsetting a quantified EprAtom --> this cannot be..";
+		} else if (atom instanceof CCEquality) {
+			CCEquality eq = (CCEquality) atom;
+			ApplicationTerm f = (ApplicationTerm) eq.getSMTFormula(mTheory);
+			ApplicationTerm lhs = (ApplicationTerm) f.getParameters()[0];
+			ApplicationTerm rhs = (ApplicationTerm) f.getParameters()[1];
+			
+			mEqualityManager.backtrackEquality(lhs, rhs);
 		} else {
 			// not an EprAtom 
 			for (EprClause ec : mStateManager.getAllClauses())
@@ -689,80 +706,113 @@ public class EprTheory implements ITheory {
 		boolean mIsResultGround = true;
 		
 		public ApplyDestructiveEqualityReasioning(Literal[] literals) {
-			applyDER(literals);
+			applyDER(new HashSet<Literal>(Arrays.asList(literals)));
+		}
+		
+		private void applyDER(HashSet<Literal> literals) {
+			HashSet<Literal> currentClause = literals;
+			Literal disEquality = findDisequality(literals);
+			while (disEquality != null) {
+				currentClause.remove(disEquality);
+
+				TTSubstitution sub = extractSubstitutionFromEquality((EprEqualityAtom) disEquality.getAtom());			
+
+				mResult = new HashSet<>();
+				mIsResultGround = true;
+				for (Literal l : currentClause) {
+					Literal sl = getSubstitutedLiteral(sub, l);
+					if (sl.getAtom() instanceof TrueAtom) {
+						if (sl.getSign() == 1) {
+							// do nothing (tautology will be detected later)
+						} else {
+							continue; //omit "false"
+						}
+					} else if (sl.getAtom() instanceof EprEqualityAtom ||
+							sl.getAtom() instanceof EprQuantifiedPredicateAtom) {
+						mIsResultGround = false;
+					} else if (sl.getAtom() instanceof EprGroundPredicateAtom ||
+							sl.getAtom() instanceof CCEquality) {
+						addAtomToDPLLEngine(sl.getAtom());
+					}
+					mResult.add(sl);
+				}
+				currentClause = mResult;
+
+				disEquality = findDisequality(literals);
+			}
 		}
 
-		private void applyDER(Literal[] literals) {
-			TTSubstitution sub = new TTSubstitution();
-			for (Literal li : literals) {
-				if (li.getSign() != 1 && li.getAtom() instanceof EprEqualityAtom) {
-					// we have a quantified disequality
-					EprEqualityAtom eea = (EprEqualityAtom) li.getAtom();
-					TermTuple tt = eea.getArgumentsAsTermTuple();
-					TermVariable tv = null;
-					Term t = null;
-					if (tt.terms[0] instanceof TermVariable) {
-						tv = (TermVariable) tt.terms[0];
-						t = tt.terms[1];
-					} else {
-						tv = (TermVariable) tt.terms[1];
-						t = tt.terms[0];
-					}
-					sub.addSubs(tv, t);
-				}
+		public TTSubstitution extractSubstitutionFromEquality(EprEqualityAtom eea) {
+			TermTuple tt = eea.getArgumentsAsTermTuple();
+			TermVariable tv = null;
+			Term t = null;
+			if (tt.terms[0] instanceof TermVariable) {
+				tv = (TermVariable) tt.terms[0];
+				t = tt.terms[1];
+			} else {
+				tv = (TermVariable) tt.terms[1];
+				t = tt.terms[0];
 			}
+			return new TTSubstitution(tv, t);
+		}
 
-			HashSet<Literal> newLits = new HashSet<>();
-			for (Literal li : literals) {
-				if (li.getAtom() instanceof EprQuantifiedPredicateAtom 
-						|| li.getAtom() instanceof EprEqualityAtom) {
-					boolean liPositive = li.getSign() == 1;
-					TermTuple liTT = ((EprAtom) li.getAtom()).getArgumentsAsTermTuple();
+		private Literal findDisequality(HashSet<Literal> literals) {
+			for (Literal l : literals) {
+				if (l.getSign() != 1 && l.getAtom() instanceof EprEqualityAtom)
+					return l;
+			}
+			return null;
+		}
 
-					TermTuple newTT = sub.apply(liTT);
+		/**
+		 * Applies sub to li and adds the resulting Literal to newLits.
+		 * Also updates mIsResultGround (i.e. when a Literal remains non-ground, it is set to false)
+		 * @param sub substitution to be applied
+		 * @param newLits set to add to
+		 * @param li literal whose variables should be substituted
+		 */
+		public Literal getSubstitutedLiteral(TTSubstitution sub, Literal li) {
+			if (li.getAtom() instanceof EprQuantifiedPredicateAtom 
+					|| li.getAtom() instanceof EprEqualityAtom) {
+				boolean liPositive = li.getSign() == 1;
+				TermTuple liTT = ((EprAtom) li.getAtom()).getArgumentsAsTermTuple();
 
-					if (newTT.equals(liTT)) {
-						newLits.add(li);
-						continue;
-					}
+				TermTuple newTT = sub.apply(liTT);
 
-					if (li.getAtom() instanceof EprEqualityAtom) {
-						if (newTT.isGround()) {
-							if (newTT.terms[0] == newTT.terms[1] && liPositive) {
-								newLits.add(new DPLLAtom.TrueAtom());
-								continue;
-							} else if (newTT.terms[0] == newTT.terms[1] && !liPositive) {
-								// the FalseAtom can be omitted
-								continue;
-							}
-							throw new UnsupportedOperationException();// how to obtain a fresh CCEquality???
+				if (newTT.equals(liTT)) {
+					return li;
+				}
+
+				if (li.getAtom() instanceof EprEqualityAtom) {
+					if (newTT.isGround()) {
+						if (newTT.terms[0] == newTT.terms[1] && liPositive) {
+							return new DPLLAtom.TrueAtom();
+						} else if (newTT.terms[0] == newTT.terms[1] && !liPositive) {
+							return new DPLLAtom.TrueAtom().negate();
+						}
+						throw new UnsupportedOperationException();// how to obtain a fresh CCEquality???
 //							addAtomToDPLLEngine(ea);
-						} else {
-							EprEqualityAtom eea = new EprEqualityAtom(mTheory.term("=", newTT.terms),
-									0,  //TODO use good hash
-									li.getAtom().getAssertionStackLevel());
-							newLits.add(liPositive ? eea : eea.negate());
-							mIsResultGround = false;
-						}
 					} else {
-						// li.getAtom() instanceof EprQuantifiedPredicateAtom
-						EprPredicate liPred = ((EprQuantifiedPredicateAtom) li.getAtom()).eprPredicate;
-
-						EprAtom ea = null;
-						if (newTT.isGround()) {
-							ea = liPred.getAtomForPoint(newTT, mTheory, li.getAtom().getAssertionStackLevel());
-							addAtomToDPLLEngine(ea);
-						} else {
-							ea = liPred.getAtomForTermTuple(newTT, mTheory, li.getAtom().getAssertionStackLevel());
-							mIsResultGround = false;
-						}
-						newLits.add(liPositive ? ea : ea.negate());
+						EprEqualityAtom eea = new EprEqualityAtom(mTheory.term("=", newTT.terms),
+								0,  //TODO use good hash
+								li.getAtom().getAssertionStackLevel());
+						return liPositive ? eea : eea.negate();
 					}
 				} else {
-					newLits.add(li);
+					// li.getAtom() instanceof EprQuantifiedPredicateAtom
+					EprPredicate liPred = ((EprQuantifiedPredicateAtom) li.getAtom()).eprPredicate;
+
+					EprAtom ea = null;
+					if (newTT.isGround()) {
+						ea = liPred.getAtomForPoint(newTT, mTheory, li.getAtom().getAssertionStackLevel());
+					} else {
+						ea = liPred.getAtomForTermTuple(newTT, mTheory, li.getAtom().getAssertionStackLevel());
+					}
+					return liPositive ? ea : ea.negate();
 				}
+			} else {
+				return li;
 			}
-			mResult = newLits;
 		}
 
 		public HashSet<Literal> getResult() {
