@@ -5,21 +5,49 @@ import java.util.HashMap;
 import java.util.HashSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
 
 public class EqualityManager {
 	
 	HashMap<ApplicationTerm, HashSet<ApplicationTerm>> eqGraph = new HashMap<>();
+	HashMap<ApplicationTerm, HashMap<ApplicationTerm, CCEquality>> termPairToEquality = new HashMap<>();
 
-	public void addEquality(ApplicationTerm a, ApplicationTerm b) {
+	public void addEquality(ApplicationTerm a, ApplicationTerm b, CCEquality e) {
+		updateTermPairToEquality(a, b, e);
+		
 		HashSet<ApplicationTerm> aTargets = eqGraph.get(a);
-		if (aTargets == null)
+		if (aTargets == null) {
 			aTargets = new HashSet<>();
+			eqGraph.put(a, aTargets);
+		}
 		aTargets.add(b);
 
 		HashSet<ApplicationTerm> bTargets = eqGraph.get(b);
-		if (bTargets == null)
+		if (bTargets == null) {
 			bTargets = new HashSet<>();
+			eqGraph.put(b, bTargets);
+		}
 		bTargets.add(a);
+	}
+
+	private void updateTermPairToEquality(ApplicationTerm a, ApplicationTerm b, CCEquality e) {
+		HashMap<ApplicationTerm, CCEquality> termToEquality = termPairToEquality.get(a);
+		if (termToEquality == null) {
+			termToEquality = new HashMap<>();
+			termPairToEquality.put(a, termToEquality);
+		}
+		termToEquality.put(b, e);
+
+		termToEquality = termPairToEquality.get(b);
+		if (termToEquality == null) {
+			termToEquality = new HashMap<>();
+			termPairToEquality.put(b, termToEquality);
+		}
+		termToEquality.put(a, e);
+	}
+	
+	public CCEquality getCCEquality(ApplicationTerm a, ApplicationTerm b) {
+		return termPairToEquality.get(a).get(b);
 	}
 
 	public void backtrackEquality(ApplicationTerm a, ApplicationTerm b) {

@@ -134,7 +134,7 @@ public class EprTheory implements ITheory {
 			//  - updates the fulfillabilityState of all currently active clauses' literals
 			//  - updates its own set of currently active clauses (derived or not) with help of the EprStateManager
 
-			EprClause conflict = mStateManager.setGroundLiteral(literal);
+			Clause conflict = mStateManager.setGroundLiteral(literal);
 			if (conflict != null)
 				return conflict; // then act as if the literal is not set, right?
 
@@ -155,7 +155,7 @@ public class EprTheory implements ITheory {
 			ApplicationTerm lhs = (ApplicationTerm) f.getParameters()[0];
 			ApplicationTerm rhs = (ApplicationTerm) f.getParameters()[1];
 			
-			mEqualityManager.addEquality(lhs, rhs);
+			mEqualityManager.addEquality(lhs, rhs, (CCEquality) atom);
 			
 			return null;
 		} else {
@@ -739,7 +739,7 @@ public class EprTheory implements ITheory {
 				}
 				currentClause = mResult;
 
-				disEquality = findDisequality(literals);
+				disEquality = findDisequality(currentClause);
 			}
 		}
 

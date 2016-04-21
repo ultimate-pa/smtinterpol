@@ -7,10 +7,14 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.Stack;
 
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
 
 public class EprStateManager {
 	
@@ -49,7 +53,7 @@ public class EprStateManager {
 		
 	}
 
-	public EprClause setGroundLiteral(Literal literal) {
+	public Clause setGroundLiteral(Literal literal) {
 		
 		EprGroundPredicateAtom atom = (EprGroundPredicateAtom) literal.getAtom();
 		
@@ -60,8 +64,6 @@ public class EprStateManager {
 					continue;
 				if (l.mIsPositive == (literal.getSign() == 1))
 					continue; // polarities match --> no conflict
-//				HashMap<TermVariable, Term> sub = l.mAtom.getArgumentsAsTermTuple().match(atom.getArgumentsAsTermTuple());
-//				TTSubstitution sub = l.mAtom.getArgumentsAsTermTuple().match(atom.getArgumentsAsTermTuple());
 				TTSubstitution sub = l.mAtom.getArgumentsAsTermTuple().match(atom.getArgumentsAsTermTuple(), mEqualityManager);
 				if (sub != null) {
 					EprClause conflict =  l.mExplanation.instantiateClause(null, sub);
@@ -69,7 +71,31 @@ public class EprStateManager {
 				}
 			}
 		}
-		
+		// is there a conflict with one of the currently set points 
+		// (taking into account the current equalities between constants)
+		HashSet<TermTuple> possibleConflictPoints = this.getPoints(literal.getSign() != 1, atom.eprPredicate);
+		for (TermTuple point : possibleConflictPoints) {
+			TTSubstitution sub = point.match(atom.getArgumentsAsTermTuple(), mEqualityManager);
+			if (sub != null) {
+				// build conflict clause
+				ArrayList<Literal> confLits = new ArrayList<>();
+
+				confLits.add(literal.negate());
+
+				EprGroundPredicateAtom atomOfPoint = atom.eprPredicate.getAtomForPoint(point);
+				confLits.add(literal.getSign() != 1 ? atomOfPoint.negate() : atomOfPoint);
+
+				for (int i = 0; i < point.arity; i++) {
+					confLits.add(mEqualityManager.getCCEquality(
+							(ApplicationTerm) point.terms[i],
+							(ApplicationTerm)  atom.getArguments()[i]).negate());
+
+				}
+				
+				Clause conflict = new Clause(confLits.toArray(new Literal[confLits.size()]));
+				return conflict;
+			}
+		}	
 		
 		// if there is no conflict set it..
 		boolean success = mEprStateStack.peek().setPoint(
