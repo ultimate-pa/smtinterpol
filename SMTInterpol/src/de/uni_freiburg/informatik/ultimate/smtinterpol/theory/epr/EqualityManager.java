@@ -1,6 +1,7 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 
@@ -11,6 +12,7 @@ public class EqualityManager {
 	
 	HashMap<ApplicationTerm, HashSet<ApplicationTerm>> eqGraph = new HashMap<>();
 	HashMap<ApplicationTerm, HashMap<ApplicationTerm, CCEquality>> termPairToEquality = new HashMap<>();
+	
 
 	public void addEquality(ApplicationTerm a, ApplicationTerm b, CCEquality e) {
 		updateTermPairToEquality(a, b, e);
@@ -46,34 +48,66 @@ public class EqualityManager {
 		termToEquality.put(a, e);
 	}
 	
-	public CCEquality getCCEquality(ApplicationTerm a, ApplicationTerm b) {
-		return termPairToEquality.get(a).get(b);
-	}
+//	public CCEquality getCCEquality(ApplicationTerm a, ApplicationTerm b) {
+//		return termPairToEquality.get(a).get(b);
+//	}
 
 	public void backtrackEquality(ApplicationTerm a, ApplicationTerm b) {
 		eqGraph.get(a).remove(b);
 		eqGraph.get(b).remove(a);
 	}
 	
-	public boolean isEqual(ApplicationTerm a, ApplicationTerm b) {
-		ArrayDeque<ApplicationTerm> queue = new ArrayDeque<>();
-		HashSet<ApplicationTerm> visited = new HashSet<>();
-		
-		queue.addLast(a);
-		
-		while (!queue.isEmpty()) {
-			ApplicationTerm current = queue.pollFirst();
-			
-			if (current.equals(b)) 
-				return true;
-			
-			visited.add(current);
-			
-			for (ApplicationTerm n : eqGraph.get(current)) {
-				if (!visited.contains(n))
-					queue.add(n);
+	public ArrayList<CCEquality> isEqualRec(ApplicationTerm a, ApplicationTerm b, 
+			ArrayList<CCEquality> pathSoFar, HashSet<ApplicationTerm> visited) {
+		if (a.equals(b))
+			return pathSoFar;
+		for (ApplicationTerm trg : eqGraph.get(a)) {
+			if (!visited.contains(trg)) {
+				visited.add(trg);
+				ArrayList<CCEquality> newPath = new ArrayList<>(pathSoFar);
+				newPath.add(termPairToEquality.get(a).get(trg));
+				ArrayList<CCEquality> res = isEqualRec(trg, b, newPath, visited);
+				if (res != null)
+					return res;
 			}
 		}
-		return false;
+		return null;
 	}
+
+	/**
+	 * 
+	 * @param a
+	 * @param b
+	 * @return null if a and b are not equal in the current state, a list of CCEqualities which are set and by transitivity witness a=b otherwise
+	 */
+	public ArrayList<CCEquality> isEqual(ApplicationTerm a, ApplicationTerm b) {
+//		ArrayDeque<ApplicationTerm> queue = new ArrayDeque<>();
+		HashSet<ApplicationTerm> visited = new HashSet<>();
+		ArrayList<CCEquality> path = new ArrayList<>();
+		
+		return isEqualRec(a, b, path, visited);
+		
+//		queue.addLast(a);
+//		
+//		while (!queue.isEmpty()) {
+//			ApplicationTerm current = queue.pollFirst();
+//			
+//			if (current.equals(b)) 
+//				return result;
+//			
+//			visited.add(current);
+//			
+//			for (ApplicationTerm n : eqGraph.get(current)) {
+//				if (!visited.contains(n))
+//					queue.add(n);
+//			}
+//		}
+//		return null;
+	}
+
+//	public Object getCCEqualities() {
+//		if (termPairTo)
+//		// TODO Auto-generated method stub
+//		return null;
+//	}
 }

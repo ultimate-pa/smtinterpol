@@ -86,9 +86,14 @@ public class EprStateManager {
 				confLits.add(literal.getSign() != 1 ? atomOfPoint.negate() : atomOfPoint);
 
 				for (int i = 0; i < point.arity; i++) {
-					confLits.add(mEqualityManager.getCCEquality(
-							(ApplicationTerm) point.terms[i],
-							(ApplicationTerm)  atom.getArguments()[i]).negate());
+					ApplicationTerm pointAt = (ApplicationTerm) point.terms[i];
+					ApplicationTerm atomAt = (ApplicationTerm)  atom.getArguments()[i];
+					for (CCEquality cceq : sub.getEqPathForEquality(pointAt, atomAt)) {
+						confLits.add(cceq.negate());
+					}
+//					confLits.add(mEqualityManager.getCCEquality(
+//							(ApplicationTerm) point.terms[i],
+//							(ApplicationTerm)  atom.getArguments()[i]).negate());
 
 				}
 				

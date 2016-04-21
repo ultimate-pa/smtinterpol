@@ -7,6 +7,7 @@ import java.util.HashSet;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
 import de.uni_freiburg.informatik.ultimate.util.HashUtils;
 
@@ -108,12 +109,13 @@ public class TermTuple {
 			}
 			
 			if (tvTerm == null) {
-				if (!equalityManager.isEqual((ApplicationTerm) thisTerm, (ApplicationTerm) otherTerm)){
+				ArrayList<CCEquality> eqPath = equalityManager.isEqual((ApplicationTerm) thisTerm, (ApplicationTerm) otherTerm);
+				if (eqPath == null){
 					return null;
 				}
-				resultSubs.addSubs(thisTerm, otherTerm);
+				resultSubs.addEquality(thisTerm, otherTerm, eqPath);
 			} else {
-				resultSubs.addSubs(tvTerm, termTerm);
+				resultSubs.addSubs(termTerm, tvTerm);
 			}
 			thisTT = resultSubs.apply(thisTT);
 			otherTT = resultSubs.apply(otherTT);

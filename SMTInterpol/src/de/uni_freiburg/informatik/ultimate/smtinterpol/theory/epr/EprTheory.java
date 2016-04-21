@@ -150,12 +150,14 @@ public class EprTheory implements ITheory {
 			assert false : "DPLLEngine is setting a quantified EprAtom --> this cannot be..";
 			return null;
 		} else if (atom instanceof CCEquality) {
-			CCEquality eq = (CCEquality) atom;
-			ApplicationTerm f = (ApplicationTerm) eq.getSMTFormula(mTheory);
-			ApplicationTerm lhs = (ApplicationTerm) f.getParameters()[0];
-			ApplicationTerm rhs = (ApplicationTerm) f.getParameters()[1];
-			
-			mEqualityManager.addEquality(lhs, rhs, (CCEquality) atom);
+			if (literal.getSign() == 1) {
+				CCEquality eq = (CCEquality) atom;
+				ApplicationTerm f = (ApplicationTerm) eq.getSMTFormula(mTheory);
+				ApplicationTerm lhs = (ApplicationTerm) f.getParameters()[0];
+				ApplicationTerm rhs = (ApplicationTerm) f.getParameters()[1];
+
+				mEqualityManager.addEquality(lhs, rhs, (CCEquality) atom);
+			}
 			
 			return null;
 		} else {
