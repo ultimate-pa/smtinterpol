@@ -26,13 +26,17 @@ public class EprStateManager {
 	
 	HashMap<Set<Literal>, EprClause> mLiteralToClauses = new HashMap<>();
 	public EqualityManager mEqualityManager;
+	private Theory mTheory;
+	
+	HashSet<EprPredicate> mAllEprPredicates = new HashSet<>();
 	
 //	private HashSet<EprClause> mAllClauses = new HashSet<>();
 
-	public EprStateManager(EqualityManager eqMan) {
+	public EprStateManager(EqualityManager eqMan, Theory theory) {
 		baseState = new EprState();
 		mEprStateStack.push(baseState);
 		mEqualityManager =  eqMan;
+		mTheory = theory;
 	}
 
 	public void beginScope(Literal literal) {
@@ -102,7 +106,7 @@ public class EprStateManager {
 			}
 		}	
 		
-		// if there is no conflict set it..
+		// if there is no conflict, set it..
 		boolean success = mEprStateStack.peek().setPoint(
 				literal.getSign() == 1, 
 				(EprGroundPredicateAtom) literal.getAtom());
@@ -120,6 +124,29 @@ public class EprStateManager {
 		return mEprStateStack.peek().setQuantifiedLiteralWithExceptions(eqlwe);
 	}
 	
+	public void setGroundEquality(CCEquality eq) {
+		ApplicationTerm f = (ApplicationTerm) eq.getSMTFormula(mTheory);
+		ApplicationTerm lhs = (ApplicationTerm) f.getParameters()[0];
+		ApplicationTerm rhs = (ApplicationTerm) f.getParameters()[1];
+	
+		mEqualityManager.addEquality(lhs, rhs, (CCEquality) eq);
+	
+		// is there a conflict with currently set points?
+		
+	}
+	
+//	/**
+//	 * Checks for all eprPredicates if their current state is consistent.
+//	 * The current state means points that are set and quantified literals that are set.
+//	 * @return conflict clause if there is a conflict, null otherwise
+//	 */
+//	public Clause checkConsistency() {
+//		
+//		for ()
+//
+//		return null;
+//	}
+
 	public HashSet<TermTuple> getPoints(boolean positive, EprPredicate pred) {
 		//TODO: some caching here?
 		HashSet<TermTuple> result = new HashSet<>();
@@ -144,7 +171,7 @@ public class EprStateManager {
 
 	public void addNewEprPredicate(EprPredicate pred) {
 		 mEprStateStack.peek().addNewEprPredicate(pred);
-		
+		 mAllEprPredicates.add(pred);
 	}
 
 	/**

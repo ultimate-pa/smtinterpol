@@ -61,6 +61,8 @@ public class EqualityManager {
 			ArrayList<CCEquality> pathSoFar, HashSet<ApplicationTerm> visited) {
 		if (a.equals(b))
 			return pathSoFar;
+		if (eqGraph.get(a) == null)
+			return null;
 		for (ApplicationTerm trg : eqGraph.get(a)) {
 			if (!visited.contains(trg)) {
 				visited.add(trg);

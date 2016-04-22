@@ -11,6 +11,13 @@ public class EprPredicateModel {
 	public EprPredicateModel(EprPredicate pred) {
 		mEprPredicate = pred;
 	}
+	
+//	public boolean setTermTupleWithExceptionsPositive(TermTuple tt) {
+//		assert tt.getFreeVars().size() > 0 : "for a point use the corresponding method!";
+//		
+//	}
+	
+	
 	/**
 	 * If the current model allows it, set the given point in the predicate model to "true", return true;
 	 * If the point was already set to false, we have a conflict, do nothing, return false.

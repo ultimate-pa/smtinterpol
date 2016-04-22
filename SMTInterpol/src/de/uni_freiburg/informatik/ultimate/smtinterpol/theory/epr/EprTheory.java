@@ -87,7 +87,7 @@ public class EprTheory implements ITheory {
 		mEngine = engine;
 
 		mEqualityManager = new EqualityManager();
-		mStateManager = new EprStateManager(mEqualityManager);
+		mStateManager = new EprStateManager(mEqualityManager, mTheory);
 	}
 
 	@Override
@@ -145,18 +145,13 @@ public class EprTheory implements ITheory {
 			return null;
 		} else if (atom instanceof EprEqualityAtom 
 				|| atom instanceof EprQuantifiedPredicateAtom) {
-			//this should not happen because an EprEqualityAtom always has at least one
-			// quantified variable, thus the DPLLEngine should not know about that atom
 			assert false : "DPLLEngine is setting a quantified EprAtom --> this cannot be..";
 			return null;
 		} else if (atom instanceof CCEquality) {
 			if (literal.getSign() == 1) {
 				CCEquality eq = (CCEquality) atom;
-				ApplicationTerm f = (ApplicationTerm) eq.getSMTFormula(mTheory);
-				ApplicationTerm lhs = (ApplicationTerm) f.getParameters()[0];
-				ApplicationTerm rhs = (ApplicationTerm) f.getParameters()[1];
-
-				mEqualityManager.addEquality(lhs, rhs, (CCEquality) atom);
+				
+				mStateManager.setGroundEquality((CCEquality) atom);
 			}
 			
 			return null;
