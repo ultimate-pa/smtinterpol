@@ -258,10 +258,7 @@ public class EprClause extends Clause {
 	}
 
 	public boolean compareToSetQuantifiedLiterals(Literal li, EprPredicateAtom liAtom, boolean liPositive) {
-		for (EprQuantifiedLitWExcptns sl : mStateManager.getSetLiterals()) {
-			if (sl.mAtom.eprPredicate != liAtom.eprPredicate)
-				continue;
-//			HashMap<TermVariable, Term> sub = liAtom.getArgumentsAsTermTuple().match(
+		for (EprQuantifiedLitWExcptns sl : mStateManager.getSetLiterals(liAtom.eprPredicate)) {
 			TermTuple liTT = liAtom.getArgumentsAsTermTuple();
 			TermTuple slTT = sl.mAtom.getArgumentsAsTermTuple();
 			TTSubstitution sub = liTT.match(slTT, mEqualityManager);
@@ -273,29 +270,20 @@ public class EprClause extends Clause {
 						setLiteralFulfilled(li);
 						return true;
 					}
-//					else
-//						throw new UnsupportedOperationException("todo..");
 				} else {
 					setLiteralUnfulfillable(li, new UnFulReason(sl));
-//					HashSet<TermVariable>  fvIntersection = new HashSet<>(sub.tvSet());
-//					fvIntersection.retainAll(this.getFreeVars());
-//					if (!sub.isEmpty() && !fvIntersection.isEmpty()) {
 					if (!isUnifierJustARenaming(sub, liTT, slTT) && doesUnifierChangeTheClause(sub, this)) {
-//						mStateManager.addDerivedClause(instantiateClause(sl.getLiteral(), sub));
 						EprClause dc = instantiateClause(li, sub);
 						if (!dc.isTautology) {
 							System.out.println("EPRDEBUG (EprClause): " + sl + " is set. Creating clause " + this + 
 									". ==> adding derived clause " + this + "\\" + li + " with unifier " + sub);
 							mStateManager.addDerivedClause(dc); //resolution with the unit-clause {sl}
-							//						mStateManager.addDerivedClause(instantiateClause(null, sub));
 						} else {
 							System.out.println("EPRDEBUG (EprClause): not adding tautology: " + dc);
 						}
 					}
 					return true;
 				}
-//					continue nextLi;
-//				return true;
 			}
 		}
 		return false;

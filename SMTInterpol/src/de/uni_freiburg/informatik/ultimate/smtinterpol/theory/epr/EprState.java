@@ -32,7 +32,7 @@ public class EprState {
 	 */
 	ArrayList<EprClause> mBaseClauses = new ArrayList<>();
 
-	ArrayList<EprQuantifiedLitWExcptns> mSetLiterals = new ArrayList<>();
+//	ArrayList<EprQuantifiedLitWExcptns> mSetLiterals = new ArrayList<>();
 	
 	HashMap<EprPredicate, EprPredicateModel> mPredicateToModel = new HashMap<>();
 
@@ -60,25 +60,23 @@ public class EprState {
 	 * @param atom
 	 * @return
 	 */
-	public boolean setPoint(boolean positive, EprGroundPredicateAtom atom) {
+	public void setPoint(boolean positive, EprGroundPredicateAtom atom) {
 		EprPredicate pred = atom.eprPredicate;
         TermTuple point = new TermTuple(((EprPredicateAtom) atom).getArguments());
 
-        boolean success;
         if (positive)
-        	success = mPredicateToModel.get(pred).setPointPositive(point);
+        	mPredicateToModel.get(pred).setPointPositive(point);
         else
-        	success = mPredicateToModel.get(pred).setPointNegative(point);
-        assert success;
-        
-//        pred.addPointAtom(point, atom);
-        
-        return success;
+        	mPredicateToModel.get(pred).setPointNegative(point);
 	}
 
-	public boolean setQuantifiedLiteralWithExceptions(EprQuantifiedLitWExcptns eqlwe) {
-		mSetLiterals.add(eqlwe);
-		return true;//TODO: do sth smart here??
+	public void setQuantifiedLiteralWithExceptions(EprQuantifiedLitWExcptns eqlwe) {
+		EprPredicate pred = eqlwe.mAtom.eprPredicate;
+
+        if (eqlwe.mIsPositive)
+        	mPredicateToModel.get(pred).setQuantifiedLitPositive(eqlwe);
+        else
+        	mPredicateToModel.get(pred).setQuantifiedLitNegative(eqlwe);
 	}
 
 	/**

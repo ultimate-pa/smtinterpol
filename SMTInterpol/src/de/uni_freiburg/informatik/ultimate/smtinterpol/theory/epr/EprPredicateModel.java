@@ -7,6 +7,8 @@ public class EprPredicateModel {
 	EprPredicate mEprPredicate;
 	HashSet<TermTuple> mPositivelySetPoints = new HashSet<>();
 	HashSet<TermTuple> mNegativelySetPoints = new HashSet<>();
+	HashSet<EprQuantifiedLitWExcptns> mPositivelySetQuantifiedLitsWE = new HashSet<>();
+	HashSet<EprQuantifiedLitWExcptns> mNegativelySetQuantifiedLitsWE = new HashSet<>();
 
 	public EprPredicateModel(EprPredicate pred) {
 		mEprPredicate = pred;
@@ -16,36 +18,38 @@ public class EprPredicateModel {
 //		assert tt.getFreeVars().size() > 0 : "for a point use the corresponding method!";
 //		
 //	}
+	public void setQuantifiedLitPositive(EprQuantifiedLitWExcptns eqlwe) {
+		assert eqlwe.mIsPositive;
+		mPositivelySetQuantifiedLitsWE.add(eqlwe);
+	}
 	
+	public void setQuantifiedLitNegative(EprQuantifiedLitWExcptns eqlwe) {
+		assert !eqlwe.mIsPositive;
+		mNegativelySetQuantifiedLitsWE.add(eqlwe);
+	}
+
 	
 	/**
 	 * If the current model allows it, set the given point in the predicate model to "true", return true;
 	 * If the point was already set to false, we have a conflict, do nothing, return false.
+	 * UPDATE: do consistency check somewhere else 
+	 *      (does not make much sense to check consistency wrt just one EprState in the stack)
 	 * @param atom
 	 * @return
 	 */
-	public boolean setPointPositive(TermTuple point) {
-		if (mNegativelySetPoints.contains(point)) {
-			return false;
-		} else {
-			mPositivelySetPoints.add(point);
-			return true;
-		}
+	public void setPointPositive(TermTuple point) {
+		assert !mNegativelySetPoints.contains(point);
+		mPositivelySetPoints.add(point);
 	}
 
 	/**
-	 * If the current model allows it, set the given point in the predicate model to "false", return true;
-	 * If the point was already set to false, we have a conflict, do nothing, return false.
+	 * see "positive" variant
 	 * @param point
 	 * @return
 	 */
-	public boolean setPointNegative(TermTuple point) {
-		if (mPositivelySetPoints.contains(point)) {
-			return false;
-		} else {
-			mNegativelySetPoints.add(point);
-			return true;
-		}
+	public void setPointNegative(TermTuple point) {
+		assert !mPositivelySetPoints.contains(point);
+		mNegativelySetPoints.add(point);
 	}
 	
 

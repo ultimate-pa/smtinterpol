@@ -62,17 +62,11 @@ public class EprStateManager {
 		EprGroundPredicateAtom atom = (EprGroundPredicateAtom) literal.getAtom();
 		
 		// is there a conflict with one of the currently set quantified literals??
-		for (EprState es : mEprStateStack) {
-			for (EprQuantifiedLitWExcptns l : es.mSetLiterals) {
-				if (l.mAtom.eprPredicate != atom.eprPredicate)
-					continue;
-				if (l.mIsPositive == (literal.getSign() == 1))
-					continue; // polarities match --> no conflict
-				TTSubstitution sub = l.mAtom.getArgumentsAsTermTuple().match(atom.getArgumentsAsTermTuple(), mEqualityManager);
-				if (sub != null) {
-					EprClause conflict =  l.mExplanation.instantiateClause(null, sub);
-					return conflict;
-				}
+		for (EprQuantifiedLitWExcptns l : getSetLiterals(literal.getSign() == 1, atom.eprPredicate)) {
+			TTSubstitution sub = l.mAtom.getArgumentsAsTermTuple().match(atom.getArgumentsAsTermTuple(), mEqualityManager);
+			if (sub != null) {
+				EprClause conflict =  l.mExplanation.instantiateClause(null, sub);
+				return conflict;
 			}
 		}
 		// is there a conflict with one of the currently set points 
@@ -107,21 +101,22 @@ public class EprStateManager {
 		}	
 		
 		// if there is no conflict, set it..
-		boolean success = mEprStateStack.peek().setPoint(
+		mEprStateStack.peek().setPoint(
 				literal.getSign() == 1, 
 				(EprGroundPredicateAtom) literal.getAtom());
-		assert success;
 		return null;
 	}
 	
-	public boolean setQuantifiedLiteralWithExceptions(EprQuantifiedLitWExcptns eqlwe) {
+	public EprClause setQuantifiedLiteralWithExceptions(EprQuantifiedLitWExcptns eqlwe) {
 		System.out.println("EPRDEBUG (EprStateManager): setting Quantified literal: " + eqlwe);
 
 		//TODO: do a consistency check with
 		// a) other quantified literals
 		// b) the current ground literals
 		
-		return mEprStateStack.peek().setQuantifiedLiteralWithExceptions(eqlwe);
+		mEprStateStack.peek().setQuantifiedLiteralWithExceptions(eqlwe);
+		
+		return null;
 	}
 	
 	public void setGroundEquality(CCEquality eq) {
@@ -151,21 +146,45 @@ public class EprStateManager {
 		//TODO: some caching here?
 		HashSet<TermTuple> result = new HashSet<>();
 		for (EprState es : mEprStateStack) {
-			EprPredicateModel points = es.mPredicateToModel.get(pred);
-			if (points == null) //maybe not all eprStates on the stack know the predicate
+			EprPredicateModel model = es.mPredicateToModel.get(pred);
+			if (model == null) //maybe not all eprStates on the stack know the predicate
 				continue;
 			if (positive)
-				result.addAll(points.mPositivelySetPoints);
+				result.addAll(model.mPositivelySetPoints);
 			else
-				result.addAll(points.mNegativelySetPoints);
+				result.addAll(model.mNegativelySetPoints);
 		}
 		return result;
 	}
 
-	public ArrayList<EprQuantifiedLitWExcptns> getSetLiterals() {
+//	public ArrayList<EprQuantifiedLitWExcptns> getSetLiterals() {
+//		ArrayList<EprQuantifiedLitWExcptns> result = new ArrayList<>();
+//		for (EprState es : mEprStateStack)
+//			result.addAll(es.mSetLiterals);
+//		return result;
+//	}
+	
+	public ArrayList<EprQuantifiedLitWExcptns> getSetLiterals(boolean positive, EprPredicate pred) {
+		//TODO: some caching here?
 		ArrayList<EprQuantifiedLitWExcptns> result = new ArrayList<>();
-		for (EprState es : mEprStateStack)
-			result.addAll(es.mSetLiterals);
+		for (EprState es : mEprStateStack) {
+			EprPredicateModel model = es.mPredicateToModel.get(pred);
+			if (model == null) //maybe not all eprStates on the stack know the predicate
+				continue;
+			if (positive)
+				result.addAll(model.mPositivelySetQuantifiedLitsWE);
+			else
+				result.addAll(model.mNegativelySetQuantifiedLitsWE);
+		}
+		return result;
+	
+	}
+
+	public ArrayList<EprQuantifiedLitWExcptns> getSetLiterals(EprPredicate eprPredicate) {
+		//TODO: some caching here?
+		ArrayList<EprQuantifiedLitWExcptns> result = new ArrayList<>();
+		result.addAll(getSetLiterals(true, eprPredicate));
+		result.addAll(getSetLiterals(false, eprPredicate));
 		return result;
 	}
 
@@ -256,18 +275,13 @@ public class EprStateManager {
 		boolean isPositive = lit.getSign() == 1;
 		EprPredicateAtom atom = (EprPredicateAtom) lit.getAtom();
 			
-		for (EprQuantifiedLitWExcptns sl : this.getSetLiterals()) {
-			if (sl.mIsPositive != isPositive)
-				continue;
-			if (sl.mAtom.eprPredicate != atom.eprPredicate)
-				continue;
+		for (EprQuantifiedLitWExcptns sl : this.getSetLiterals(isPositive, atom.eprPredicate)) {
 			TermTuple slTT = sl.mAtom.getArgumentsAsTermTuple();
 			TermTuple tt = atom.getArgumentsAsTermTuple();
 			TTSubstitution sub = slTT.match(tt, mEqualityManager);
 			if (slTT.isEqualOrMoreGeneralThan(tt))
 				return true;
 		}
-		// TODO Auto-generated method stub
 		return false;
 	}
 }

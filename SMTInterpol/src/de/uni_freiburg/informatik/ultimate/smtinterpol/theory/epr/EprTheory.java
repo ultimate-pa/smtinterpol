@@ -138,9 +138,7 @@ public class EprTheory implements ITheory {
 			if (conflict != null)
 				return conflict; // then act as if the literal is not set, right?
 
-//			updateClauseQuantifiedLiteralFulfillabilityOnPointSetting(literal);
-			for (EprClause ec : mStateManager.getAllClauses())
-				ec.setGroundLiteral(literal);
+			setGroundLiteralInClauses(literal);
 
 			return null;
 		} else if (atom instanceof EprEqualityAtom 
@@ -174,6 +172,11 @@ public class EprTheory implements ITheory {
 
 			return null;
 		}
+	}
+
+	public void setGroundLiteralInClauses(Literal literal) {
+		for (EprClause ec : mStateManager.getAllClauses())
+			ec.setGroundLiteral(literal);
 	}
 	
 //	/**
@@ -324,7 +327,6 @@ public class EprTheory implements ITheory {
 
 	/**
 	 * Does/queues all propagations that can be made through unit clause ec
-	 * @param ec a unit clause (i.e., unit in the current solver state)
 	 */
 	private EprClause eprPropagate() {
 		EprClause conflict = null;
@@ -334,8 +336,6 @@ public class EprTheory implements ITheory {
 		for (Clause c : notFulfilledCopy) {
 			EprClause ec = (EprClause) c;
 			Literal unitLiteral = ec.getUnitClauseLiteral();
-//			if (!(unitLiteral.getAtom() instanceof EprQuantifiedPredicateAtom))
-//				mEngine.addAtom(unitLiteral.getAtom());
 
 			if (unitLiteral != null) {
 				System.out.println("EPRDEBUG: found unit clause: " + ec);
@@ -346,7 +346,11 @@ public class EprTheory implements ITheory {
 							(EprQuantifiedPredicateAtom) unitLiteral.getAtom(), 
 							ec.mExceptedPoints, 
 							ec);
-					conflict = setQuantifiedAtom(eqlwe);
+
+					conflict = mStateManager.setQuantifiedLiteralWithExceptions(eqlwe);
+		
+					if (conflict == null)
+						conflict =  setQuantifiedLiteralWEInClauses(eqlwe);
 				} else {
 					/*
 					 * either an EprGroundAtom or a non EprAtom
@@ -359,8 +363,6 @@ public class EprTheory implements ITheory {
 				}
 			}
 		}
-		
-		
 		return conflict;
 	}
 
@@ -372,12 +374,9 @@ public class EprTheory implements ITheory {
 		}
 	}
 	
-	private EprClause setQuantifiedAtom(EprQuantifiedLitWExcptns eqlwe) {
-		
-		EprClause conflict = null;
 
-		mStateManager.setQuantifiedLiteralWithExceptions(eqlwe);
-		
+	public EprClause setQuantifiedLiteralWEInClauses(EprQuantifiedLitWExcptns eqlwe) {
+		EprClause conflict = null;
 		/*
 		 * propagate a quantified predicate
 		 *  --> rules for first-order resolution apply
@@ -388,23 +387,12 @@ public class EprTheory implements ITheory {
 		ArrayList<EprClause> toAdd = new ArrayList<>();
 		for (EprClause otherEc : mStateManager.getAllClauses()) {
 			EprClause conflictClause = otherEc.setQuantifiedLiteral(eqlwe);
-//			if (derivedClause != null) { //TODO: derivedClause vs conflict clause distinction not nice..
-//				toAdd.add(derivedClause); //TODO: this would be cleaner if eprStateManager would manage all EprClauses
-//				
-//				if (derivedClause.isConflictClause()) {
-//					assert conflict == null : "what to do with several conflicts??"; //maybe one is enough (the state will change bc of backtracking anyway..)
-//					conflict = derivedClause;
-					// TODO what if the conflict clause is not ground??
-					// maybe just ground it with one constant? e.g. lambda?..
-//				}
-//			}
-//			updateFulFilledSets(otherEc);
+
 			if (conflict == null && conflictClause != null) { // we only return the first conflict we find -- TODO: is that good?..
 				// TODO what if the conflict clause is not ground??
 				conflict = conflictClause;
 			}
 		}
-//		mEprClauses.addAll(toAdd);
 		
 		// check if there is an Literal in the Engine that conflicts, or is unconstrained. In case propagate.
 		for (EprGroundPredicateAtom engineAtom : eqlwe.mAtom.eprPredicate.getDPLLAtoms()) {
@@ -414,14 +402,11 @@ public class EprTheory implements ITheory {
 			if (polaritiesDifferOrUnconstrained) {
 
 				// is there a unifier?
-//				HashMap<TermVariable, Term> sub = engineAtom.getArgumentsAsTermTuple().match(eqlwe.mAtom.getArgumentsAsTermTuple());
 				TTSubstitution sub = 
-//						engineAtom.getArgumentsAsTermTuple().match(eqlwe.mAtom.getArgumentsAsTermTuple());
 						engineAtom.getArgumentsAsTermTuple().match(eqlwe.mAtom.getArgumentsAsTermTuple(), mEqualityManager);
 				if (sub != null) {
 					Literal propLit = eqlwe.mIsPositive ? engineAtom : engineAtom.negate();
 					mGroundLiteralsToPropagate.add(propLit);
-//					mPropLitToExplanation.put(propLit, eqlwe.mExplanation.instantiateClause(null, sub));
 					mPropLitToExplanation.put(propLit, eqlwe.mExplanation.instantiateClause(null, sub));
 				}
 			}
@@ -432,7 +417,6 @@ public class EprTheory implements ITheory {
 
 	@Override
 	public Clause computeConflictClause() {
-//		throw new UnsupportedOperationException();
 		System.out.println("EPRDEBUG: computeConflictClause");
 		for (Clause c : mStateManager.getNotFulfilledClauses()) {
 			EprClause eprClause = (EprClause)	c;
