@@ -7,9 +7,17 @@ import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 
+/**
+ * Stands for a clause of that contains one quantified literal built from an uninterpreted predicate,
+ * and an arbitrary number of quantified equalities.
+ * The predicate literal may be positive or negative, the equalities must be positive.
+ *  example: (or (not (P x y z a)) (= x a) (= x b) (= y z) ...)
+ *  
+ * @author nutz
+ */
 public class EprQuantifiedLitWExcptns {
 	
-	// Literals polarity
+	// the Literal's polarity
 	boolean mIsPositive;
 
 	// quantified atom

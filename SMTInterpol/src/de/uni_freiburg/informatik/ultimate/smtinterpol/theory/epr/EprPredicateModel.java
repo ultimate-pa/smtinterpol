@@ -14,10 +14,6 @@ public class EprPredicateModel {
 		mEprPredicate = pred;
 	}
 	
-//	public boolean setTermTupleWithExceptionsPositive(TermTuple tt) {
-//		assert tt.getFreeVars().size() > 0 : "for a point use the corresponding method!";
-//		
-//	}
 	public void setQuantifiedLitPositive(EprQuantifiedLitWExcptns eqlwe) {
 		assert eqlwe.mIsPositive;
 		mPositivelySetQuantifiedLitsWE.add(eqlwe);
@@ -29,6 +25,13 @@ public class EprPredicateModel {
 	}
 
 	
+	public void unsetQuantifiedLitPositive(EprQuantifiedLitWExcptns eqlwe) {
+		if (eqlwe.mIsPositive)
+			mPositivelySetQuantifiedLitsWE.remove(eqlwe);
+		else
+			mNegativelySetQuantifiedLitsWE.remove(eqlwe);
+	}
+
 	/**
 	 * If the current model allows it, set the given point in the predicate model to "true", return true;
 	 * If the point was already set to false, we have a conflict, do nothing, return false.

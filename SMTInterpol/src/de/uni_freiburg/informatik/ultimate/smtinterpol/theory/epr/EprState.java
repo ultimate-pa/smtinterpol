@@ -78,6 +78,12 @@ public class EprState {
         else
         	mPredicateToModel.get(pred).setQuantifiedLitNegative(eqlwe);
 	}
+	
+	public void unsetQuantifiedLiteralWithExceptions(EprQuantifiedLitWExcptns eqlwe) {
+		EprPredicate pred = eqlwe.mAtom.eprPredicate;
+
+		mPredicateToModel.get(pred).unsetQuantifiedLitPositive(eqlwe);
+	}
 
 	/**
 	 * NOTE: in contrast to non-derived EprClauses the derived ones may lack any free variables

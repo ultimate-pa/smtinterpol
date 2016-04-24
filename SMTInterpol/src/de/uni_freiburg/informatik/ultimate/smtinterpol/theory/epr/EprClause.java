@@ -175,14 +175,13 @@ public class EprClause extends Clause {
 	public void setLiteralStates() {
 		nextLi:
 		for (Literal li : eprQuantifiedPredicateLiterals) {
-			EprQuantifiedPredicateAtom liAtom = (EprQuantifiedPredicateAtom) li.getAtom();
-			boolean liPositive = li.getSign() == 1;
 
-
-			boolean continueWithNextLiteral = compareToSetQuantifiedLiterals(li, liAtom, liPositive);
+			boolean continueWithNextLiteral = compareToSetQuantifiedLiterals(li);
 			if (continueWithNextLiteral)
 				continue nextLi;
-			
+
+			EprQuantifiedPredicateAtom liAtom = (EprQuantifiedPredicateAtom) li.getAtom();
+			boolean liPositive = li.getSign() == 1;
 			// we only reach here if none of the quantified literals in the current state 
 			//  fulfilled or contradicted li
 			HashSet<TermTuple> otherPolarityPoints = mStateManager.getPoints(!liPositive, liAtom.eprPredicate);
@@ -212,13 +211,13 @@ public class EprClause extends Clause {
 				setLiteralUnfulfillable(li, new UnFulReason(li));
 			} else { //atom is undecided on the DPLL-side (maybe DPLLEngine does not know it??
 				if (liAtom instanceof EprGroundPredicateAtom) {
-					EprGroundPredicateAtom egpa = (EprGroundPredicateAtom) liAtom;
 					
 					// compare to set quantified literals
-					boolean continueWithNextLiteral = compareToSetQuantifiedLiterals(li, egpa, liPositive);
+					boolean continueWithNextLiteral = compareToSetQuantifiedLiterals(li);
 					if (continueWithNextLiteral)
 						continue;
 
+					EprGroundPredicateAtom egpa = (EprGroundPredicateAtom) liAtom;
 					// compare to points
 					HashSet<TermTuple> samePolarityPoints = mStateManager.getPoints(liPositive, 
 							egpa.eprPredicate);
@@ -257,7 +256,22 @@ public class EprClause extends Clause {
 			"Fulfillability status map is incomplete.";
 	}
 
-	public boolean compareToSetQuantifiedLiterals(Literal li, EprPredicateAtom liAtom, boolean liPositive) {
+	/**
+	 * Given li, a literal of this clause, set the status of li to 
+	 * fulfilled/fulfillable/unfulfillable according to which quantified literals 
+	 * are set in the current state (as known to the EprStateManager). 
+	 * 
+	 * If li conflicts with a set quantified literal, do resolution, and add the new clause
+	 * to the derived clauses.
+	 * 
+	 * @param li the literal to set the status of
+	 * @return true if the state of li was set because of, false if the quantified literals
+	 *           in the current state are indifferent to li
+	 */
+	public boolean compareToSetQuantifiedLiterals(Literal li) {
+		EprQuantifiedPredicateAtom liAtom = (EprQuantifiedPredicateAtom) li.getAtom();
+		boolean liPositive = li.getSign() == 1;
+
 		for (EprQuantifiedLitWExcptns sl : mStateManager.getSetLiterals(liAtom.eprPredicate)) {
 			TermTuple liTT = liAtom.getArgumentsAsTermTuple();
 			TermTuple slTT = sl.mAtom.getArgumentsAsTermTuple();
@@ -826,6 +840,20 @@ public class EprClause extends Clause {
 	 * @return
 	 */
 	public EprClause instantiateClause(Literal otherLit, TTSubstitution sub) {
+		return instantiateClause(otherLit, sub, null);
+	}
+
+	/**
+	 * Create a new clause that is gained from applying the substitution sub to all literals in this clause.
+	 * otherLit is omitted (typically because it is the pivot literal of a resolution).
+	 * 
+	 * @param otherLit
+	 * @param sub
+	 * @param preconditions a list of literals that are added to the clause 
+	 *       (we may want to express it holds under certain preconditions..)
+	 * @return
+	 */
+	public EprClause instantiateClause(Literal otherLit, TTSubstitution sub, ArrayList<Literal> preconditions) {
 		ArrayList<Literal> newLits = new ArrayList<Literal>();
 		newLits.addAll(Arrays.asList(groundLiterals));
 		for (Literal l : eprEqualityLiterals) {
@@ -836,6 +864,9 @@ public class EprClause extends Clause {
 				continue;
 			newLits.add(applySubstitution(sub, l));
 		}
+		
+		if (preconditions != null)
+			newLits.addAll(preconditions);
 		
 		return mStateManager.getClause(new HashSet<Literal>(newLits), mTheory, this);
 	}

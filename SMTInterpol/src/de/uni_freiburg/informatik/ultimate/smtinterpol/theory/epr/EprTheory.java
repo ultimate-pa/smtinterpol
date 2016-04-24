@@ -149,9 +149,9 @@ public class EprTheory implements ITheory {
 			if (literal.getSign() == 1) {
 				CCEquality eq = (CCEquality) atom;
 				
-				mStateManager.setGroundEquality((CCEquality) atom);
+				return mStateManager.setGroundEquality((CCEquality) atom);
 			}
-			
+			// TODO do disequalities have an impact for EPR?
 			return null;
 		} else {
 			// not an EprAtom 
@@ -268,7 +268,7 @@ public class EprTheory implements ITheory {
 	public Clause checkpoint() {
 		System.out.println("EPRDEBUG: checkpoint");
 		
-		EprClause conflict = null;
+		Clause conflict = null;
 		
 		// have we already a conflict clause in store?
 		if (!mStateManager.getConflictClauses().isEmpty()) {
@@ -281,7 +281,8 @@ public class EprTheory implements ITheory {
 
 			conflict = eprPropagate();
 
-			if (conflict != null && conflict.eprQuantifiedPredicateLiterals.length > 0) {
+			if (conflict != null && (conflict instanceof EprClause) &&
+					((EprClause) conflict).eprQuantifiedPredicateLiterals.length > 0) {
 				// the conflict is a proper epr clause --> TODO: ..something about it ..
 				assert false : "the conflict is a proper epr clause --> we cannot give it to DPLL as is";
 			}
@@ -328,8 +329,8 @@ public class EprTheory implements ITheory {
 	/**
 	 * Does/queues all propagations that can be made through unit clause ec
 	 */
-	private EprClause eprPropagate() {
-		EprClause conflict = null;
+	private Clause eprPropagate() {
+		Clause conflict = null;
 
 		HashSet<Clause> notFulfilledCopy = new HashSet<>(mStateManager.getNotFulfilledClauses());
 		//unit propagation
@@ -694,6 +695,8 @@ public class EprTheory implements ITheory {
 		private void applyDER(HashSet<Literal> literals) {
 			HashSet<Literal> currentClause = literals;
 			Literal disEquality = findDisequality(literals);
+			mResult = new HashSet<>(literals);
+			mIsResultGround = false;
 			while (disEquality != null) {
 				currentClause.remove(disEquality);
 

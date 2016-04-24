@@ -83,17 +83,7 @@ public class EprStateManager {
 				EprGroundPredicateAtom atomOfPoint = atom.eprPredicate.getAtomForPoint(point);
 				confLits.add(literal.getSign() != 1 ? atomOfPoint.negate() : atomOfPoint);
 
-				for (int i = 0; i < point.arity; i++) {
-					ApplicationTerm pointAt = (ApplicationTerm) point.terms[i];
-					ApplicationTerm atomAt = (ApplicationTerm)  atom.getArguments()[i];
-					for (CCEquality cceq : sub.getEqPathForEquality(pointAt, atomAt)) {
-						confLits.add(cceq.negate());
-					}
-//					confLits.add(mEqualityManager.getCCEquality(
-//							(ApplicationTerm) point.terms[i],
-//							(ApplicationTerm)  atom.getArguments()[i]).negate());
-
-				}
+				confLits.addAll(getDisequalityChainsFromSubstitution(sub, point.terms, atom.getArguments()));
 				
 				Clause conflict = new Clause(confLits.toArray(new Literal[confLits.size()]));
 				return conflict;
@@ -106,41 +96,117 @@ public class EprStateManager {
 				(EprGroundPredicateAtom) literal.getAtom());
 		return null;
 	}
-	
-	public EprClause setQuantifiedLiteralWithExceptions(EprQuantifiedLitWExcptns eqlwe) {
-		System.out.println("EPRDEBUG (EprStateManager): setting Quantified literal: " + eqlwe);
 
-		//TODO: do a consistency check with
-		// a) other quantified literals
-		// b) the current ground literals
-		
-		mEprStateStack.peek().setQuantifiedLiteralWithExceptions(eqlwe);
-		
-		return null;
+	/**
+	 * Given a substitution and to Term arrays, computes a list of disequalities as follows:
+	 * For every position in the two arrays where the substitution needed an equality for unification, adds 
+	 *    all the set CCEqualities to the result that are needed for establishing that unifying equality.
+	 * @param sub a substitution that unifies terms1 and terms2, possibly with the use of ground equalities
+	 * @param terms1 Term array that is unified with terms2 through sub
+	 * @param terms2 Term array that is unified with terms1 through sub
+	 * @return all the equalities that are currently set through the DPLLEngine 
+	 *	         that are needed for the unification of terms1 and terms2
+	 */
+	private ArrayList<Literal> getDisequalityChainsFromSubstitution(TTSubstitution sub, Term[] terms1,
+			Term[] terms2) {
+		ArrayList<Literal> disequalityChain = new ArrayList<>();
+		for (int i = 0; i < terms1.length; i++) {
+			if (!(terms1[i] instanceof ApplicationTerm ) || !(terms2[i] instanceof ApplicationTerm)) 
+				continue;
+			ApplicationTerm pointAt = (ApplicationTerm) terms1[i];
+			ApplicationTerm atomAt = (ApplicationTerm)  terms2[i];
+			for (CCEquality cceq : sub.getEqPathForEquality(pointAt, atomAt)) {
+				disequalityChain.add(cceq.negate());
+			}
+		}
+		return disequalityChain;
 	}
 	
-	public void setGroundEquality(CCEquality eq) {
+	public Clause setQuantifiedLiteralWithExceptions(EprQuantifiedLitWExcptns eqlwe) {
+		System.out.println("EPRDEBUG (EprStateManager): setting Quantified literal: " + eqlwe);
+
+		
+		mEprStateStack.peek().setQuantifiedLiteralWithExceptions(eqlwe);
+
+		//TODO: possibly do a more efficient consistency check
+		// i.e. only wrt the currently set literal
+		Clause conflict = checkConsistency();
+		if (conflict != null) {
+			mEprStateStack.peek().unsetQuantifiedLiteralWithExceptions(eqlwe);
+		}
+		
+		return conflict;
+	}
+	
+	public Clause setGroundEquality(CCEquality eq) {
 		ApplicationTerm f = (ApplicationTerm) eq.getSMTFormula(mTheory);
 		ApplicationTerm lhs = (ApplicationTerm) f.getParameters()[0];
 		ApplicationTerm rhs = (ApplicationTerm) f.getParameters()[1];
 	
 		mEqualityManager.addEquality(lhs, rhs, (CCEquality) eq);
 	
-		// is there a conflict with currently set points?
-		
+		// is there a conflict with currently set points or quantifiedy literals?
+		return checkConsistency();
 	}
 	
-//	/**
-//	 * Checks for all eprPredicates if their current state is consistent.
-//	 * The current state means points that are set and quantified literals that are set.
-//	 * @return conflict clause if there is a conflict, null otherwise
-//	 */
-//	public Clause checkConsistency() {
-//		
-//		for ()
-//
-//		return null;
-//	}
+	/**
+	 * Checks for all eprPredicates if their current state is consistent.
+	 * The current state means points that are set and quantified literals that are set.
+	 * @return conflict clause if there is a conflict, null otherwise
+	 */
+	public Clause checkConsistency() {
+		
+		//TODO: make sure that i case of a
+		
+		for (EprPredicate pred : mAllEprPredicates) {
+			for (EprQuantifiedLitWExcptns eqwlePos : getSetLiterals(true, pred)) {
+				TermTuple ttPos = eqwlePos.mAtom.getArgumentsAsTermTuple();
+				for (EprQuantifiedLitWExcptns eqwleNeg : getSetLiterals(false, pred)) {
+					TermTuple ttNeg = eqwleNeg.mAtom.getArgumentsAsTermTuple();
+					TTSubstitution sub = ttNeg.match(ttPos, mEqualityManager);
+					if (sub != null) {
+						return eqwlePos.mExplanation.instantiateClause(null, sub);
+					}
+				}
+				
+				for (TermTuple pointNeg : getPoints(false, pred)) {
+					TTSubstitution sub = pointNeg.match(ttPos, mEqualityManager);
+					if (sub != null) {
+						EprClause conflict =  eqwlePos.mExplanation.instantiateClause(null, sub, 
+								getDisequalityChainsFromSubstitution(sub, pointNeg.terms, eqwlePos.mAtom.getArguments()));
+						return conflict;
+					}
+				}
+			}
+			for (TermTuple pointPos : getPoints(true, pred)) {
+				for (EprQuantifiedLitWExcptns eqwleNeg : getSetLiterals(false, pred)) {
+					TermTuple ttNeg = eqwleNeg.mAtom.getArgumentsAsTermTuple();
+					TTSubstitution sub = ttNeg.match(pointPos, mEqualityManager);
+					if (sub != null) {
+						return eqwleNeg.mExplanation.instantiateClause(null, sub);
+					}
+				}
+				
+				for (TermTuple pointNeg : getPoints(false, pred)) {
+					TTSubstitution sub = pointNeg.match(pointPos, mEqualityManager);
+					if (sub != null) {
+						// build conflict clause
+						ArrayList<Literal> confLits = new ArrayList<>();
+
+						confLits.addAll(getDisequalityChainsFromSubstitution(sub, pointPos.terms, pointNeg.terms));
+						
+						confLits.add(pred.getAtomForPoint(pointPos).negate());
+						confLits.add(pred.getAtomForPoint(pointNeg));
+
+						return new Clause(confLits.toArray(new Literal[confLits.size()]));
+					}
+				}
+			}
+		
+		}
+
+		return null;
+	}
 
 	public HashSet<TermTuple> getPoints(boolean positive, EprPredicate pred) {
 		//TODO: some caching here?
