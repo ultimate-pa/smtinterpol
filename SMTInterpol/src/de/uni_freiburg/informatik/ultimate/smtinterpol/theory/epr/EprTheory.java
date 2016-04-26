@@ -31,6 +31,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.model.Model;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.model.SharedTermEvaluator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprClause.UnFulReason;
 import de.uni_freiburg.informatik.ultimate.util.ScopedHashSet;
 
 public class EprTheory implements ITheory {
@@ -72,6 +73,10 @@ public class EprTheory implements ITheory {
 	
 	EprStateManager mStateManager;
 
+	/**
+	 * if we propagate a ground literal we have to be able to give a unit clause
+	 * that explains the literal
+	 */
 	private HashMap<Literal, Clause> mPropLitToExplanation = new HashMap<>();
 
 	private boolean mConflict;
@@ -336,31 +341,42 @@ public class EprTheory implements ITheory {
 		//unit propagation
 		for (Clause c : notFulfilledCopy) {
 			EprClause ec = (EprClause) c;
-			Literal unitLiteral = ec.getUnitClauseLiteral();
+			UnFulReason unitLiteral = ec.getUnitClauseLiteral();
 
 			if (unitLiteral != null) {
 				System.out.println("EPRDEBUG: found unit clause: " + ec);
 
-				if (unitLiteral.getAtom() instanceof EprQuantifiedPredicateAtom) {
-					EprQuantifiedLitWExcptns eqlwe = new EprQuantifiedLitWExcptns(
-							unitLiteral.getSign() == 1, 
-							(EprQuantifiedPredicateAtom) unitLiteral.getAtom(), 
-							ec.mExceptedPoints, 
-							ec);
+				if (unitLiteral.mLiteral != null) {
+					if (unitLiteral.mLiteral.getAtom() instanceof EprQuantifiedPredicateAtom) {
+						assert false : "do we need this case???";
+						assert ec.eprEqualityAtoms.length == 0;
+						EprQuantifiedLitWExcptns eqlwe = new EprQuantifiedLitWExcptns(
+								unitLiteral.mLiteral.getSign() == 1, 
+								(EprQuantifiedPredicateAtom) unitLiteral.mLiteral.getAtom(), 
+								//							ec.mExceptedPoints, 
+								new EprEqualityAtom[0],
+								ec);
 
-					conflict = mStateManager.setQuantifiedLiteralWithExceptions(eqlwe);
-		
-					if (conflict == null)
-						conflict =  setQuantifiedLiteralWEInClauses(eqlwe);
+						conflict = mStateManager.setQuantifiedLiteralWithExceptions(eqlwe);
+
+						if (conflict == null)
+							conflict =  setQuantifiedLiteralWEInClauses(eqlwe);
+					} else {
+						/*
+						 * either an EprGroundAtom or a non EprAtom
+						 * (plan atm: don't propagate EprEqualities)
+						 * --> just propagate the literal through the normal means
+						 */
+						addAtomToDPLLEngine(unitLiteral.mLiteral.getAtom());
+						mPropLitToExplanation.put(unitLiteral.mLiteral, 
+								ec.getInstantiationOfClauseForCurrentUnitLiteral());
+						mGroundLiteralsToPropagate.add(unitLiteral.mLiteral);
+					} 
 				} else {
-					/*
-					 * either an EprGroundAtom or a non EprAtom
-					 * (plan atm: don't propagate EprEqualities)
-					 * --> just propagate the literal through the normal means
-					 */
-					addAtomToDPLLEngine(unitLiteral.getAtom());
-					mPropLitToExplanation.put(unitLiteral, ec.getInstantiationOfClauseForCurrentUnitLiteral());
-					mGroundLiteralsToPropagate.add(unitLiteral);
+					conflict = mStateManager.setQuantifiedLiteralWithExceptions(unitLiteral.mqlwe);
+
+					if (conflict == null)
+						conflict =  setQuantifiedLiteralWEInClauses(unitLiteral.mqlwe);
 				}
 			}
 		}
@@ -376,6 +392,18 @@ public class EprTheory implements ITheory {
 	}
 	
 
+	/**
+	 * Apply all the consequences of setting a quantified literal (with exceptions)
+	 *  - to all clauses
+	 *    this means 
+	 *    -- updating the fulfillability state of the literals
+	 *    -- adding derived clauses if applicable
+	 *       (these might be conflict clauses)
+	 *  - to the state of the DPLLEngine
+	 *    there may be atoms that interact with the set quantified literal
+	 * @param eqlwe
+	 * @return
+	 */
 	public EprClause setQuantifiedLiteralWEInClauses(EprQuantifiedLitWExcptns eqlwe) {
 		EprClause conflict = null;
 		/*

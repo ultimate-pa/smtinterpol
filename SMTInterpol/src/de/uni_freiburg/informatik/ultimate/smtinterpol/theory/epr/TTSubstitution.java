@@ -63,14 +63,10 @@ public class TTSubstitution {
 	public void addEquality(Term top, Term bot, ArrayList<CCEquality> eqPath) {
 		subs.add(new EqPair(top, bot, eqPath));
 	}
-//	public void addSubs(TermVariable tv, Term t) {
+	
 	public void addSubs(Term top, TermVariable bot) {
-//		if (bot instanceof TermVariable) {
-			tvSet.add((TermVariable) bot);
-			subs.add(new TPair(top, (TermVariable) bot));
-//		} else {
-//			subs.add(new SubsPair(top, bot));
-//		}
+		tvSet.add((TermVariable) bot);
+		subs.add(new TPair(top, (TermVariable) bot));
 	}
 	
 	public TermTuple apply(TermTuple tt) {
@@ -80,7 +76,6 @@ public class TTSubstitution {
 		Term[] newTerms = Arrays.copyOf(tt.terms, tt.terms.length);//new Term[tt.terms.length];
 		for (int i = 0; i < tt.terms.length; i++) {
 			for (int j = 0; j < subs.size(); j++) {
-//				TPair tp = subs.get(j);
 				SubsPair tp = subs.get(j);
 
 				if (newTerms[i].equals(tp.bot))
