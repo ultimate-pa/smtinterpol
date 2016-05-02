@@ -63,7 +63,7 @@ public class EprStateManager {
 		
 		// is there a conflict with one of the currently set quantified literals??
 		for (EprQuantifiedLitWExcptns l : getSetLiterals(literal.getSign() == 1, atom.eprPredicate)) {
-			TTSubstitution sub = l.mAtom.getArgumentsAsTermTuple().match(atom.getArgumentsAsTermTuple(), mEqualityManager);
+			TTSubstitution sub = l.getPredicateAtom().getArgumentsAsTermTuple().match(atom.getArgumentsAsTermTuple(), mEqualityManager);
 			if (sub != null) {
 				EprClause conflict =  l.mExplanation.instantiateClause(null, sub);
 				return conflict;
@@ -160,9 +160,9 @@ public class EprStateManager {
 		
 		for (EprPredicate pred : mAllEprPredicates) {
 			for (EprQuantifiedLitWExcptns eqwlePos : getSetLiterals(true, pred)) {
-				TermTuple ttPos = eqwlePos.mAtom.getArgumentsAsTermTuple();
+				TermTuple ttPos = eqwlePos.getPredicateAtom().getArgumentsAsTermTuple();
 				for (EprQuantifiedLitWExcptns eqwleNeg : getSetLiterals(false, pred)) {
-					TermTuple ttNeg = eqwleNeg.mAtom.getArgumentsAsTermTuple();
+					TermTuple ttNeg = eqwleNeg.getPredicateAtom().getArgumentsAsTermTuple();
 					TTSubstitution sub = ttNeg.match(ttPos, mEqualityManager);
 					if (sub != null) {
 						return eqwlePos.mExplanation.instantiateClause(null, sub);
@@ -173,14 +173,14 @@ public class EprStateManager {
 					TTSubstitution sub = pointNeg.match(ttPos, mEqualityManager);
 					if (sub != null) {
 						EprClause conflict =  eqwlePos.mExplanation.instantiateClause(null, sub, 
-								getDisequalityChainsFromSubstitution(sub, pointNeg.terms, eqwlePos.mAtom.getArguments()));
+								getDisequalityChainsFromSubstitution(sub, pointNeg.terms, eqwlePos.getPredicateAtom().getArguments()));
 						return conflict;
 					}
 				}
 			}
 			for (TermTuple pointPos : getPoints(true, pred)) {
 				for (EprQuantifiedLitWExcptns eqwleNeg : getSetLiterals(false, pred)) {
-					TermTuple ttNeg = eqwleNeg.mAtom.getArgumentsAsTermTuple();
+					TermTuple ttNeg = eqwleNeg.getPredicateAtom().getArgumentsAsTermTuple();
 					TTSubstitution sub = ttNeg.match(pointPos, mEqualityManager);
 					if (sub != null) {
 						return eqwleNeg.mExplanation.instantiateClause(null, sub);
@@ -342,7 +342,7 @@ public class EprStateManager {
 		EprPredicateAtom atom = (EprPredicateAtom) lit.getAtom();
 			
 		for (EprQuantifiedLitWExcptns sl : this.getSetLiterals(isPositive, atom.eprPredicate)) {
-			TermTuple slTT = sl.mAtom.getArgumentsAsTermTuple();
+			TermTuple slTT = sl.getPredicateAtom().getArgumentsAsTermTuple();
 			TermTuple tt = atom.getArgumentsAsTermTuple();
 			TTSubstitution sub = slTT.match(tt, mEqualityManager);
 			if (slTT.isEqualOrMoreGeneralThan(tt))

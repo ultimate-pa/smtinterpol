@@ -172,8 +172,11 @@ public class EprClause extends Clause {
 				mUnitLiteral = new UnFulReason(literals[0]);
 			} else {
 				Literal lit = eprQuantifiedPredicateLiterals[0];
-				EprQuantifiedLitWExcptns eqlwe = new EprQuantifiedLitWExcptns(lit.getSign() == 1, 
-						(EprQuantifiedPredicateAtom) lit.getAtom(), eprEqualityAtoms, this);
+				EprQuantifiedLitWExcptns eqlwe = EprHelpers.buildEQLWE(
+						lit.getSign() == 1, 
+						(EprQuantifiedPredicateAtom) lit.getAtom(), 
+						eprEqualityAtoms, this,
+						mTheory, mStateManager);
 				mUnitLiteral = new UnFulReason(eqlwe);
 			}
 		} else if (groundLiterals.length == 1
@@ -308,18 +311,21 @@ public class EprClause extends Clause {
 
 		for (EprQuantifiedLitWExcptns sl : mStateManager.getSetLiterals(liAtom.eprPredicate)) {
 			TermTuple liTT = liAtom.getArgumentsAsTermTuple();
-			TermTuple slTT = sl.mAtom.getArgumentsAsTermTuple();
+			TermTuple slTT = sl.getPredicateAtom().getArgumentsAsTermTuple();
 			TTSubstitution sub = liTT.match(slTT, mEqualityManager);
 			if (sub == null)
 				continue;
 //			if (subset(sl.mExceptedPoints, this.mExceptedPoints)) { // is this an efficient solution? --> then mb bring it back some time
 			
 		
-			if (sl.mIsPositive == liPositive) {
+			if ((sl.getPredicateLiteral().getSign() == 1) == liPositive) {
 				assert false : "TODO..";
 			} else {
 				EprQuantifiedLitWExcptns liEQLWE = 
-					new EprQuantifiedLitWExcptns(liPositive, liAtom, eprEqualityAtoms, null);//explanation should not be used..
+					EprHelpers.buildEQLWE(liPositive, 
+							liAtom, 
+							eprEqualityAtoms, null, //explanation should not be used..
+							mTheory, mStateManager);
 				EprClause resolvent  = 
 						sl.resolveAgainst(liEQLWE, sub, mTheory, 0); //TODO: set stacklevel
 				
@@ -598,7 +604,7 @@ public class EprClause extends Clause {
 					conflictPointSets.getLast().add(((EprGroundPredicateAtom) ufr.mLiteral.getAtom()).getArgumentsAsTermTuple());
 				else {
 					if (ufr.mqlwe.mExceptions.length == 0) {
-						conflictPointSets.getLast().add(ufr.mqlwe.mAtom.getArgumentsAsTermTuple());
+						conflictPointSets.getLast().add(ufr.mqlwe.getPredicateAtom().getArgumentsAsTermTuple());
 					} else {
 						//TODO : probably we need to track, and later use the equalities 
 						// that are created when resolving the literal with its UnFulReason
@@ -634,7 +640,7 @@ public class EprClause extends Clause {
 				
 
 				Literal realLiteral = EprHelpers.applySubstitution(sub, 
-						rawUnitEqlwe.getLiteral(), mTheory);
+						rawUnitEqlwe.getPredicateLiteral(), mTheory);
 				EprPredicateAtom realAtom = (EprPredicateAtom) realLiteral.getAtom();
 
 //				ArrayList<Literal> exceptions = new ArrayList<>();
@@ -652,11 +658,11 @@ public class EprClause extends Clause {
 				
 
 				if (realAtom instanceof EprQuantifiedPredicateAtom) {
-					EprQuantifiedLitWExcptns realUnitEqlwe = new EprQuantifiedLitWExcptns(
+					EprQuantifiedLitWExcptns realUnitEqlwe = EprHelpers.buildEQLWE(
 							realLiteral.getSign() == 1, 
 							(EprQuantifiedPredicateAtom) realAtom, 
 							exceptions.toArray(new EprEqualityAtom[exceptions.size()]), 
-							this);
+							this, mTheory, mStateManager);
 					unifiedUnitLiteral = new UnFulReason(realUnitEqlwe);
 				} else {
 					unifiedUnitLiteral = new UnFulReason(realLiteral);
@@ -704,8 +710,9 @@ public class EprClause extends Clause {
 				} else {
 					if (li instanceof EprQuantifiedPredicateAtom) {
 						mUnitLiteral = new UnFulReason(
-								new EprQuantifiedLitWExcptns(li.getSign() == 1, 
-								(EprQuantifiedPredicateAtom) li.getAtom(), eprEqualityAtoms, this));
+								EprHelpers.buildEQLWE(li.getSign() == 1, 
+								(EprQuantifiedPredicateAtom) li.getAtom(), eprEqualityAtoms, this,
+								mTheory, mStateManager));
 					} else {
 						assert false : "TODO -- something about finite models";
 					}
@@ -868,8 +875,8 @@ public class EprClause extends Clause {
 	 * @return a fresh EprClause that follows from first-order resolution with qLiteral
 	 */
 	public EprClause setQuantifiedLiteral(EprQuantifiedLitWExcptns setEqlwe) {
-		boolean setLitPositive = setEqlwe.mIsPositive;
-		EprQuantifiedPredicateAtom setLitAtom = setEqlwe.mAtom;
+		boolean setLitPositive = setEqlwe.getPredicateLiteral().getSign() == 1;
+		EprQuantifiedPredicateAtom setLitAtom = setEqlwe.getPredicateAtom();
 //		HashMap<TermVariable, HashSet<ApplicationTerm>> exceptions = eqlwe.mExceptedPoints;
 //		assert exceptions == null || exceptions.isEmpty() : "treat this case!";
 		
@@ -903,8 +910,9 @@ public class EprClause extends Clause {
 				EprClause resolvent  = null;
 				if (clauseLitIsQuantified) {
 					EprQuantifiedLitWExcptns liEQLWE = 
-							new EprQuantifiedLitWExcptns(clauseLitPositive, (EprQuantifiedPredicateAtom) clauseLitAtom, 
-									eprEqualityAtoms, null);//explanation should not be used..
+							EprHelpers.buildEQLWE(clauseLitPositive, (EprQuantifiedPredicateAtom) clauseLitAtom, 
+									eprEqualityAtoms, null,//explanation should not be used..
+									mTheory, mStateManager);
 					resolvent  = 
 							setEqlwe.resolveAgainst(liEQLWE, 
 									sub, mTheory, 0); //TODO: set stacklevel
@@ -1063,7 +1071,7 @@ public class EprClause extends Clause {
 			if (mLiteral != null)
 				return mLiteral;
 			else
-				return mqlwe.getLiteral();
+				return mqlwe.getPredicateLiteral();
 		}
 		
 		@Override

@@ -51,4 +51,19 @@ public class EprHelpers {
 		}
 	}
 
+	public static EprQuantifiedLitWExcptns buildEQLWE(
+			boolean isPositive, 
+			EprQuantifiedPredicateAtom atom, 
+			EprEqualityAtom[] excep,
+			EprClause explanation,
+			Theory theory,
+			EprStateManager stateManager) {
+		Literal[] lits = new Literal[excep.length + 1];
+		for (int i = 0; i < excep.length; i++) {
+			lits[i] = excep[i];
+		}
+		lits[lits.length - 1] = isPositive ? atom : atom.negate();
+
+		return new EprQuantifiedLitWExcptns(lits, theory, stateManager, explanation);
+	}
 }

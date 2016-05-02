@@ -15,18 +15,18 @@ public class EprPredicateModel {
 	}
 	
 	public void setQuantifiedLitPositive(EprQuantifiedLitWExcptns eqlwe) {
-		assert eqlwe.mIsPositive;
+		assert eqlwe.getPredicateLiteral().getSign() == 1;
 		mPositivelySetQuantifiedLitsWE.add(eqlwe);
 	}
 	
 	public void setQuantifiedLitNegative(EprQuantifiedLitWExcptns eqlwe) {
-		assert !eqlwe.mIsPositive;
+		assert eqlwe.getPredicateLiteral().getSign() != 1;
 		mNegativelySetQuantifiedLitsWE.add(eqlwe);
 	}
 
 	
 	public void unsetQuantifiedLitPositive(EprQuantifiedLitWExcptns eqlwe) {
-		if (eqlwe.mIsPositive)
+		if (eqlwe.getPredicateLiteral().getSign() == 1)
 			mPositivelySetQuantifiedLitsWE.remove(eqlwe);
 		else
 			mNegativelySetQuantifiedLitsWE.remove(eqlwe);

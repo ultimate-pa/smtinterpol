@@ -20,13 +20,23 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprQuantifiedP
  *  
  * @author nutz
  */
-public class EprQuantifiedLitWExcptns {
+public class EprQuantifiedLitWExcptns extends EprClause {
 	
-	// the Literal's polarity
-	boolean mIsPositive;
+	public EprQuantifiedLitWExcptns(Literal[] literals, Theory theory, EprStateManager stateManager,
+			Object explanation) {
+		super(literals, theory, stateManager, explanation);
+		assert eprQuantifiedPredicateLiterals.length == 1;
+		assert groundLiterals.length == 0;
+		mPredicateLiteral = eprQuantifiedPredicateLiterals[0];
+	}
+
+	Literal mPredicateLiteral;
+
+//	// the Literal's polarity
+//	boolean mIsPositive;
 
 	// quantified atom
-	EprQuantifiedPredicateAtom mAtom;
+	private EprQuantifiedPredicateAtom mAtom;
 
 	// excepted points
 //	HashMap<TermVariable, HashSet<ApplicationTerm>> mExceptedPoints;
@@ -38,25 +48,30 @@ public class EprQuantifiedLitWExcptns {
 	EprClause mExplanation;
 //	Clause mExplanation;
 
-	public EprQuantifiedLitWExcptns(boolean isPositive, EprQuantifiedPredicateAtom atom, 
-//			HashMap<TermVariable, HashSet<ApplicationTerm>> ePoints,
-			EprEqualityAtom[] excep,
-			EprClause explanation) {
-		mIsPositive = isPositive;
-		mAtom = atom;
-//		mExceptedPoints = ePoints;
-		mExceptions = excep;
-		mExplanation = explanation;
-	}
+//	public EprQuantifiedLitWExcptns(boolean isPositive, EprQuantifiedPredicateAtom atom, 
+////			HashMap<TermVariable, HashSet<ApplicationTerm>> ePoints,
+//			EprEqualityAtom[] excep,
+//			EprClause explanation) {
+//		this(new Literal[] {atom, excep[0] }, null, null, explanation);
+////		mIsPositive = isPositive;
+//		mAtom = atom;
+////		mExceptedPoints = ePoints;
+//		mExceptions = excep;
+//		mExplanation = explanation;
+//	}
 
 	public String toString() {
-		String not = mIsPositive ? "" : "! ";
+		String not = mPredicateLiteral.getSign() == 1 ? "" : "! ";
 //		return  not + mAtom.toString() + "\\" + mExceptedPoints.toString();
 		return  not + mAtom.toString() + "\\" + mExceptions.toString();
 	}
 
-	public Literal getLiteral() {
-		return mIsPositive ? mAtom : mAtom.negate();
+	public Literal getPredicateLiteral() {
+		return mPredicateLiteral;
+	}
+
+	public EprQuantifiedPredicateAtom getPredicateAtom() {
+		return mAtom;
 	}
 	
 	
@@ -68,15 +83,9 @@ public class EprQuantifiedLitWExcptns {
 	 */
 	public EprClause resolveAgainst(EprQuantifiedLitWExcptns eqlwe, 
 			TTSubstitution sub, Theory theory, int stackLevel) {
-		assert eqlwe.mIsPositive != this.mIsPositive;
+		assert eqlwe.getPredicateLiteral().getSign() != this.getPredicateLiteral().getSign();
 		assert eqlwe.mAtom.eprPredicate == this.mAtom.eprPredicate;
 
-//		TTSubstitution sub = this.mAtom.getArgumentsAsTermTuple().
-//				match(eqlwe.mAtom.getArgumentsAsTermTuple(), eqman);
-//		
-//		if (sub == null)
-//			return null;
-		
 		ArrayList<Literal> result = new ArrayList<>();
 		for (EprEqualityAtom eea : mExceptions) {
 			result.add(EprHelpers.applySubstitution(sub, eea, theory));

@@ -350,12 +350,13 @@ public class EprTheory implements ITheory {
 					if (unitLiteral.mLiteral.getAtom() instanceof EprQuantifiedPredicateAtom) {
 						assert false : "do we need this case???";
 						assert ec.eprEqualityAtoms.length == 0;
-						EprQuantifiedLitWExcptns eqlwe = new EprQuantifiedLitWExcptns(
+						EprQuantifiedLitWExcptns eqlwe = EprHelpers.buildEQLWE(
 								unitLiteral.mLiteral.getSign() == 1, 
 								(EprQuantifiedPredicateAtom) unitLiteral.mLiteral.getAtom(), 
 								//							ec.mExceptedPoints, 
 								new EprEqualityAtom[0],
-								ec);
+								ec, 
+								mTheory, mStateManager);
 
 						conflict = mStateManager.setQuantifiedLiteralWithExceptions(eqlwe);
 
@@ -424,17 +425,18 @@ public class EprTheory implements ITheory {
 		}
 		
 		// check if there is an Literal in the Engine that conflicts, or is unconstrained. In case propagate.
-		for (EprGroundPredicateAtom engineAtom : eqlwe.mAtom.eprPredicate.getDPLLAtoms()) {
+		for (EprGroundPredicateAtom engineAtom : eqlwe.getPredicateAtom().eprPredicate.getDPLLAtoms()) {
 			Literal decideStatus = engineAtom.getDecideStatus();
 			
-			boolean polaritiesDifferOrUnconstrained = decideStatus == null || decideStatus.getSign() == 1 ^ eqlwe.mIsPositive;
+			boolean polaritiesDifferOrUnconstrained = decideStatus == null || 
+					(decideStatus.getSign() != eqlwe.getPredicateLiteral().getSign());
 			if (polaritiesDifferOrUnconstrained) {
 
 				// is there a unifier?
 				TTSubstitution sub = 
-						engineAtom.getArgumentsAsTermTuple().match(eqlwe.mAtom.getArgumentsAsTermTuple(), mEqualityManager);
+						engineAtom.getArgumentsAsTermTuple().match(eqlwe.getPredicateAtom().getArgumentsAsTermTuple(), mEqualityManager);
 				if (sub != null) {
-					Literal propLit = eqlwe.mIsPositive ? engineAtom : engineAtom.negate();
+					Literal propLit = eqlwe.getPredicateLiteral().getSign() == 1 ? engineAtom : engineAtom.negate();
 					mGroundLiteralsToPropagate.add(propLit);
 					mPropLitToExplanation.put(propLit, eqlwe.mExplanation.instantiateClause(null, sub));
 				}
