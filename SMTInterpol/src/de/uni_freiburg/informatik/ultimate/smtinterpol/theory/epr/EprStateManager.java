@@ -24,7 +24,7 @@ public class EprStateManager {
 	private EprState baseState;
 	
 	
-	HashMap<Set<Literal>, EprClause> mLiteralToClauses = new HashMap<>();
+	HashMap<Set<Literal>, EprNonUnitClause> mLiteralToClauses = new HashMap<>();
 	public EqualityManager mEqualityManager;
 	private Theory mTheory;
 	
@@ -263,23 +263,23 @@ public class EprStateManager {
 	 * Adds a clause that is derivable in the current state.
 	 * @param dc
 	 */
-	public boolean addDerivedClause(EprClause dc) {
+	public boolean addDerivedClause(EprNonUnitClause dc) {
 //		System.out.println("EPRDEBUG (EprStateManager): adding derived clause " + dc);
 //		mLiteralToClauses.put(dc.getLiteralSet(), dc);
 		return mEprStateStack.peek().addDerivedClause(dc);
 	}
 
-	public boolean addBaseClause(EprClause bc) {
+	public boolean addBaseClause(EprNonUnitClause bc) {
 		System.out.println("EPRDEBUG (EprStateManager): adding base clause " + bc);
 		return mEprStateStack.peek().addBaseClause(bc);
 	}
 
-	public ArrayList<EprClause> getTopLevelDerivedClauses() {
+	public ArrayList<EprNonUnitClause> getTopLevelDerivedClauses() {
 		return mEprStateStack.peek().getDerivedClauses();
 	}
 
-	public HashSet<EprClause> getAllClauses() {
-		HashSet<EprClause> allClauses = new HashSet<>();
+	public HashSet<EprNonUnitClause> getAllClauses() {
+		HashSet<EprNonUnitClause> allClauses = new HashSet<>();
 		for (EprState es : mEprStateStack) {
 			allClauses.addAll(es.getBaseClauses());
 			allClauses.addAll(es.getDerivedClauses());
@@ -287,17 +287,17 @@ public class EprStateManager {
 		return allClauses;
 	}
 
-	public HashSet<EprClause> getFulfilledClauses() {
-		HashSet<EprClause> fulfilledClauses = new HashSet<>();
-		for (EprClause ec : getAllClauses())
+	public HashSet<EprNonUnitClause> getFulfilledClauses() {
+		HashSet<EprNonUnitClause> fulfilledClauses = new HashSet<>();
+		for (EprNonUnitClause ec : getAllClauses())
 			if (ec.isFulfilled())
 				fulfilledClauses.add(ec);
 		return fulfilledClauses;
 	}
 	
-	public HashSet<EprClause> getNotFulfilledClauses() {
-		HashSet<EprClause> notFulfilledClauses = new HashSet<>();
-		for (EprClause ec : getAllClauses())
+	public HashSet<EprNonUnitClause> getNotFulfilledClauses() {
+		HashSet<EprNonUnitClause> notFulfilledClauses = new HashSet<>();
+		for (EprNonUnitClause ec : getAllClauses())
 			if (!ec.isFulfilled())
 				notFulfilledClauses.add(ec);
 		return notFulfilledClauses;
@@ -310,17 +310,30 @@ public class EprStateManager {
 		}
 		return result;
 	}
+
 	/**
 	 * makes sure that for the same set of literals only one clause is constructed.
-	 * @param newLits
-	 * @param theory
-	 * @return
+	 * Note that this may return a EprDerivedClause -- if there already is one for the set of Literals
 	 */
-	public EprClause getClause(Set<Literal> newLits, Theory theory, Object explanation) {
-		EprClause result = mLiteralToClauses.get(newLits);
+	public EprNonUnitClause getBaseClause(Set<Literal> newLits, Theory theory) {
+		EprNonUnitClause result = mLiteralToClauses.get(newLits);
 		if (result == null) {
-			result = new EprClause(newLits.toArray(new Literal[newLits.size()]), theory, this, explanation);
-			System.out.println("EPRDEBUG (EprStateManager): creating new clause " + result);
+			result = new EprBaseClause(newLits.toArray(new Literal[newLits.size()]), theory, this);
+			System.out.println("EPRDEBUG (EprStateManager): creating new base clause " + result);
+			mLiteralToClauses.put(newLits, result);
+		}
+		return result;
+	}
+	
+	/**
+	 * makes sure that for the same set of literals only one clause is constructed.
+	 * Note that this may return a EprBaseClause -- if there already is one for the set of Literals
+	 */
+	public EprClause getDerivedClause(Set<Literal> newLits, Theory theory, Object explanation) {
+		EprNonUnitClause result = mLiteralToClauses.get(newLits);
+		if (result == null) {
+			result = new EprDerivedClause(newLits.toArray(new Literal[newLits.size()]), theory, this, explanation);
+			System.out.println("EPRDEBUG (EprStateManager): creating new derived clause " + result);
 			mLiteralToClauses.put(newLits, result);
 		}
 		return result;

@@ -63,18 +63,19 @@ public class EprQuantifiedLitWExcptns extends EprUnitClause {
 	 *         otherwise: null.
 	 */
 	public EprClause resolveAgainst(EprQuantifiedLitWExcptns eqlwe, 
-			TTSubstitution sub, Theory theory, int stackLevel) {
+//			TTSubstitution sub, Theory theory, int stackLevel) {
+			TTSubstitution sub) {
 		assert eqlwe.getPredicateLiteral().getSign() != this.getPredicateLiteral().getSign();
 		assert eqlwe.mAtom.eprPredicate == this.mAtom.eprPredicate;
 
 		ArrayList<Literal> result = new ArrayList<>();
 		for (EprEqualityAtom eea : mExceptions) {
-			result.add(EprHelpers.applySubstitution(sub, eea, theory));
+			result.add(EprHelpers.applySubstitution(sub, eea, mTheory));
 		}
 		for (EprEqualityAtom eea : eqlwe.mExceptions) {
-			result.add(EprHelpers.applySubstitution(sub, eea, theory));
+			result.add(EprHelpers.applySubstitution(sub, eea, mTheory));
 		}
-		return new EprClause(result.toArray(new Literal[result.size()]), stackLevel, theory);
+		return new EprDerivedClause(result.toArray(new Literal[result.size()]), mTheory, mStateManager, this);
 	}
 
 	/**
@@ -84,7 +85,8 @@ public class EprQuantifiedLitWExcptns extends EprUnitClause {
 	 *         otherwise: null.
 	 */
 	public EprClause resolveAgainst(EprPredicateAtom eqpa, 
-			TTSubstitution sub, Theory theory, int stackLevel) {
+//			TTSubstitution sub, Theory theory, int stackLevel) {
+			TTSubstitution sub) {
 		assert eqpa.eprPredicate == this.mAtom.eprPredicate;
 		
 //		TTSubstitution sub = this.mAtom.getArgumentsAsTermTuple().
@@ -95,9 +97,9 @@ public class EprQuantifiedLitWExcptns extends EprUnitClause {
 		
 		ArrayList<Literal> result = new ArrayList<>();
 		for (EprEqualityAtom eea : mExceptions) {
-			result.add(EprHelpers.applySubstitution(sub, eea, theory));
+			result.add(EprHelpers.applySubstitution(sub, eea, mTheory));
 		}
-		return new EprClause(result.toArray(new Literal[result.size()]), stackLevel, theory);
+		return new EprDerivedClause(result.toArray(new Literal[result.size()]), mTheory, mStateManager, this);
 	}
 	
 
@@ -110,5 +112,17 @@ public class EprQuantifiedLitWExcptns extends EprUnitClause {
 			result.add((DPLLAtom) EprHelpers.applySubstitution(sub, eea, theory));
 		}
 		return result;
+	}
+
+	@Override
+	public boolean isConflictClause() {
+		assert false : "TODO";
+		return false;
+	}
+
+	@Override
+	public EprUnitClause getUnitClauseLiteral() {
+		assert false : "TODO";
+		return null;
 	}
 }

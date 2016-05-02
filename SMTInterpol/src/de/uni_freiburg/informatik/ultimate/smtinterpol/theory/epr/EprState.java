@@ -24,13 +24,13 @@ public class EprState {
 	 * TODO: think more about this.
 	 *   -- if the clause is ground, add it to the theory?? Probably not, because we would need to remove it, when popping this state..
 	 */
-	ArrayList<EprClause> mDerivedClauses = new ArrayList<>();
+	ArrayList<EprNonUnitClause> mDerivedClauses = new ArrayList<>();
 
 	/**
 	 * Base clauses, i.e., clauses that came in through an assert. 
 	 * (state dependent as soon as we support push/pop
 	 */
-	ArrayList<EprClause> mBaseClauses = new ArrayList<>();
+	ArrayList<EprNonUnitClause> mBaseClauses = new ArrayList<>();
 
 //	ArrayList<EprQuantifiedLitWExcptns> mSetLiterals = new ArrayList<>();
 	
@@ -90,7 +90,8 @@ public class EprState {
 	 * @param ec
 	 * @return true if ec is a conflict clause, false otherwise
 	 */
-	public boolean addDerivedClause(EprClause ec) {
+	public boolean addDerivedClause(EprNonUnitClause ec) {
+		mDerivedClauses.add(ec);
 		return addClause(ec, false);
 	}
 
@@ -98,16 +99,12 @@ public class EprState {
 	 * @param bc
 	 * @return true if bc is a conflict clause, false otherwise
 	 */
-	public boolean addBaseClause(EprClause bc) {
+	public boolean addBaseClause(EprNonUnitClause bc) {
+		mBaseClauses.add(bc);
 		return addClause(bc, true);
 	}
 	
-	private boolean addClause(EprClause c, boolean base) {
-		if (base)
-			mBaseClauses.add(c);
-		else
-			mDerivedClauses.add(c);
-			
+	private boolean addClause(EprNonUnitClause c, boolean base) {
 		if (c.isConflictClause()) {
 			mConflictClauses.add(c);
 			return true;
@@ -120,11 +117,11 @@ public class EprState {
 		mPredicateToModel.put(pred, new EprPredicateModel(pred));
 	}
 	
-	public ArrayList<EprClause> getDerivedClauses() {
+	public ArrayList<EprNonUnitClause> getDerivedClauses() {
 		return mDerivedClauses;
 	}
 	
-	public ArrayList<EprClause> getBaseClauses() {
+	public ArrayList<EprNonUnitClause> getBaseClauses() {
 		return mBaseClauses;
 	}
 

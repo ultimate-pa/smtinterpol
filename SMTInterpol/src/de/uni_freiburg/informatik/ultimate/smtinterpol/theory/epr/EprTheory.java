@@ -60,7 +60,7 @@ public class EprTheory implements ITheory {
 	
 	HashMap<FunctionSymbol, EprPredicate> mFunctionSymbolToEprPredicate = new HashMap<>();
 
-	HashMap<Literal, HashSet<EprClause>> mLiteralToClauses = new HashMap<Literal, HashSet<EprClause>>();
+	HashMap<Literal, HashSet<EprNonUnitClause>> mLiteralToClauses = new HashMap<>();
 	
 	ArrayDeque<Literal> mGroundLiteralsToPropagate = new ArrayDeque<Literal>();
 
@@ -164,9 +164,9 @@ public class EprTheory implements ITheory {
 			//      otherwise do nothing, because the literal means nothing to EPR 
 			//          --> other theories may report their own conflicts..?
 			// (like standard DPLL)
-			HashSet<EprClause> clauses = mLiteralToClauses.get(literal);
+			HashSet<EprNonUnitClause> clauses = mLiteralToClauses.get(literal);
 			if (clauses != null)
-				for (EprClause ec : mLiteralToClauses.get(literal)) {
+				for (EprNonUnitClause ec : mLiteralToClauses.get(literal)) {
 					ec.setGroundLiteral(literal);
 //					updateFulFilledSets(ec);
 				}
@@ -179,7 +179,7 @@ public class EprTheory implements ITheory {
 	}
 
 	public void setGroundLiteralInClauses(Literal literal) {
-		for (EprClause ec : mStateManager.getAllClauses())
+		for (EprNonUnitClause ec : mStateManager.getAllClauses())
 			ec.setGroundLiteral(literal);
 	}
 	
@@ -232,7 +232,7 @@ public class EprTheory implements ITheory {
 		DPLLAtom atom = literal.getAtom();
 		if (atom instanceof EprGroundPredicateAtom) {
 			// literal is of the form (P x1 .. xn)
-			for (EprClause ec : mStateManager.getAllClauses())
+			for (EprNonUnitClause ec : mStateManager.getAllClauses())
 				ec.unsetGroundLiteral(literal);
 
 		} else if (atom instanceof EprEqualityAtom
@@ -247,7 +247,7 @@ public class EprTheory implements ITheory {
 			mEqualityManager.backtrackEquality(lhs, rhs);
 		} else {
 			// not an EprAtom 
-			for (EprClause ec : mStateManager.getAllClauses())
+			for (EprNonUnitClause ec : mStateManager.getAllClauses())
 				ec.unsetGroundLiteral(literal);
 
 		}
@@ -279,7 +279,7 @@ public class EprTheory implements ITheory {
 			EprClause realConflict = mStateManager.getConflictClauses().iterator().next();
 			System.out.println("EPRDEBUG (checkpoint): found a conflict: " + realConflict);
 			//TODO: work on explanation..
-			conflict = mStateManager.getClause(Collections.emptySet(), mTheory, "empty conflict clause");
+			conflict = mStateManager.getDerivedClause(Collections.emptySet(), mTheory, "empty conflict clause");
 		} else {
 			// try unit propagation
 
@@ -339,7 +339,7 @@ public class EprTheory implements ITheory {
 		HashSet<Clause> notFulfilledCopy = new HashSet<>(mStateManager.getNotFulfilledClauses());
 		//unit propagation
 		for (Clause c : notFulfilledCopy) {
-			EprClause ec = (EprClause) c;
+			EprNonUnitClause ec = (EprNonUnitClause) c;
 			EprUnitClause unitLiteral = ec.getUnitClauseLiteral();
 
 			if (unitLiteral != null) {
@@ -418,7 +418,7 @@ public class EprTheory implements ITheory {
 		// propagate within EprClauses
 		//TODO: possibly optimize (so not all clauses have to be treated)
 		ArrayList<EprClause> toAdd = new ArrayList<>();
-		for (EprClause otherEc : mStateManager.getAllClauses()) {
+		for (EprNonUnitClause otherEc : mStateManager.getAllClauses()) {
 			EprClause conflictClause = otherEc.setQuantifiedLiteral(eqlwe);
 
 			if (conflict == null && conflictClause != null) { // we only return the first conflict we find -- TODO: is that good?..
@@ -589,7 +589,7 @@ public class EprTheory implements ITheory {
 		//TODO: do something about hook and proof..
 //		EprClause newEprClause = new EprClause(lits, mTheory, mStateManager);
 //		EprClause newEprClause = mStateManager.getClause(new HashSet<Literal>(Arrays.asList(literals)), mTheory, "base clause");
-		EprClause newEprClause = mStateManager.getClause(literals, mTheory, "base clause");
+		EprNonUnitClause newEprClause = mStateManager.getBaseClause(literals, mTheory);
 		mConflict |= mStateManager.addBaseClause(newEprClause);
 	
 		for (Literal li : lits) {
@@ -606,10 +606,10 @@ public class EprTheory implements ITheory {
 		return null;
 	}
 
-	void updateLiteralToClauses(Literal lit, EprClause c) {
-		HashSet<EprClause> clauses = mLiteralToClauses.get(lit);
+	void updateLiteralToClauses(Literal lit, EprNonUnitClause c) {
+		HashSet<EprNonUnitClause> clauses = mLiteralToClauses.get(lit);
 		if (clauses == null) {
-			clauses = new HashSet<EprClause>();
+			clauses = new HashSet<EprNonUnitClause>();
 			mLiteralToClauses.put(lit, clauses);
 		}
 		clauses.add(c);

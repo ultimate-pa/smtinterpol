@@ -16,4 +16,16 @@ public class EprGroundUnitClause extends EprUnitClause {
 	public Literal getLiteral() {
 		return groundLiterals[0];
 	}
+
+	@Override
+	public boolean isConflictClause() {
+		assert false : "TODO";
+		return false;
+	}
+
+	@Override
+	public EprUnitClause getUnitClauseLiteral() {
+		assert false : "TODO";
+		return null;
+	}
 }
