@@ -20,7 +20,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprQuantifiedP
  *  
  * @author nutz
  */
-public class EprQuantifiedLitWExcptns extends EprClause {
+public class EprQuantifiedLitWExcptns extends EprUnitClause {
 	
 	public EprQuantifiedLitWExcptns(Literal[] literals, Theory theory, EprStateManager stateManager,
 			Object explanation) {
@@ -32,33 +32,14 @@ public class EprQuantifiedLitWExcptns extends EprClause {
 
 	Literal mPredicateLiteral;
 
-//	// the Literal's polarity
-//	boolean mIsPositive;
-
 	// quantified atom
 	private EprQuantifiedPredicateAtom mAtom;
 
-	// excepted points
-//	HashMap<TermVariable, HashSet<ApplicationTerm>> mExceptedPoints;
-	
 	// exceptions
 	EprEqualityAtom[] mExceptions;
 
 	// explanation
 	EprClause mExplanation;
-//	Clause mExplanation;
-
-//	public EprQuantifiedLitWExcptns(boolean isPositive, EprQuantifiedPredicateAtom atom, 
-////			HashMap<TermVariable, HashSet<ApplicationTerm>> ePoints,
-//			EprEqualityAtom[] excep,
-//			EprClause explanation) {
-//		this(new Literal[] {atom, excep[0] }, null, null, explanation);
-////		mIsPositive = isPositive;
-//		mAtom = atom;
-////		mExceptedPoints = ePoints;
-//		mExceptions = excep;
-//		mExplanation = explanation;
-//	}
 
 	public String toString() {
 		String not = mPredicateLiteral.getSign() == 1 ? "" : "! ";

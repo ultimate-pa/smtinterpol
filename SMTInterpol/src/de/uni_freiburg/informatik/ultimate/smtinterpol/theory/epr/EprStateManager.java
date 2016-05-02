@@ -331,23 +331,29 @@ public class EprStateManager {
 	 * @param unifiedUnitLiteral
 	 * @return
 	 */
-	public boolean isSubsumedInCurrentState(Literal lit) { //TODO possibly this needs to work on a QuantifiedLitWExcptns
-		if (lit.getAtom().getDecideStatus() == lit) { // is it set in DPLL?
-			return true;
-		}
-		if (!(lit.getAtom() instanceof EprPredicateAtom))
-			return false;
-		
-		boolean isPositive = lit.getSign() == 1;
-		EprPredicateAtom atom = (EprPredicateAtom) lit.getAtom();
-			
-		for (EprQuantifiedLitWExcptns sl : this.getSetLiterals(isPositive, atom.eprPredicate)) {
-			TermTuple slTT = sl.getPredicateAtom().getArgumentsAsTermTuple();
-			TermTuple tt = atom.getArgumentsAsTermTuple();
-			TTSubstitution sub = slTT.match(tt, mEqualityManager);
-			if (slTT.isEqualOrMoreGeneralThan(tt))
+	public boolean isSubsumedInCurrentState(EprUnitClause euc) { //TODO possibly this needs to work on a QuantifiedLitWExcptns
+		if (euc instanceof EprGroundUnitClause) {
+			Literal lit = ((EprGroundUnitClause) euc).getLiteral();
+			if (lit.getAtom().getDecideStatus() == lit) { // is it set in DPLL?
 				return true;
+			}
+			if (!(lit.getAtom() instanceof EprPredicateAtom))
+				return false;
+
+			boolean isPositive = lit.getSign() == 1;
+			EprPredicateAtom atom = (EprPredicateAtom) lit.getAtom();
+
+			for (EprQuantifiedLitWExcptns sl : this.getSetLiterals(isPositive, atom.eprPredicate)) {
+				TermTuple slTT = sl.getPredicateAtom().getArgumentsAsTermTuple();
+				TermTuple tt = atom.getArgumentsAsTermTuple();
+				TTSubstitution sub = slTT.match(tt, mEqualityManager);
+				if (slTT.isEqualOrMoreGeneralThan(tt))
+					return true;
+			}
+			return false;
+		} else {
+			assert false : "TODO: implement this case";
+			return false;
 		}
-		return false;
 	}
 }

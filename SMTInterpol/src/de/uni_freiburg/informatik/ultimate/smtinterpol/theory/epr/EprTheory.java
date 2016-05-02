@@ -31,7 +31,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.model.Model;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.model.SharedTermEvaluator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprClause.UnFulReason;
 import de.uni_freiburg.informatik.ultimate.util.ScopedHashSet;
 
 public class EprTheory implements ITheory {
@@ -341,18 +340,20 @@ public class EprTheory implements ITheory {
 		//unit propagation
 		for (Clause c : notFulfilledCopy) {
 			EprClause ec = (EprClause) c;
-			UnFulReason unitLiteral = ec.getUnitClauseLiteral();
+			EprUnitClause unitLiteral = ec.getUnitClauseLiteral();
 
 			if (unitLiteral != null) {
 				System.out.println("EPRDEBUG: found unit clause: " + ec);
 
-				if (unitLiteral.mLiteral != null) {
-					if (unitLiteral.mLiteral.getAtom() instanceof EprQuantifiedPredicateAtom) {
+//				if (unitLiteral.mLiteral != null) {
+				if (unitLiteral instanceof EprGroundUnitClause) {
+					Literal groundUnitLiteral = ((EprGroundUnitClause) unitLiteral).getLiteral();
+					if (groundUnitLiteral.getAtom() instanceof EprQuantifiedPredicateAtom) {
 						assert false : "do we need this case???";
 						assert ec.eprEqualityAtoms.length == 0;
 						EprQuantifiedLitWExcptns eqlwe = EprHelpers.buildEQLWE(
-								unitLiteral.mLiteral.getSign() == 1, 
-								(EprQuantifiedPredicateAtom) unitLiteral.mLiteral.getAtom(), 
+								groundUnitLiteral.getSign() == 1, 
+								(EprQuantifiedPredicateAtom) groundUnitLiteral.getAtom(), 
 								//							ec.mExceptedPoints, 
 								new EprEqualityAtom[0],
 								ec, 
@@ -368,16 +369,18 @@ public class EprTheory implements ITheory {
 						 * (plan atm: don't propagate EprEqualities)
 						 * --> just propagate the literal through the normal means
 						 */
-						addAtomToDPLLEngine(unitLiteral.mLiteral.getAtom());
-						mPropLitToExplanation.put(unitLiteral.mLiteral, 
+						addAtomToDPLLEngine(groundUnitLiteral.getAtom());
+						mPropLitToExplanation.put(groundUnitLiteral, 
 								ec.getInstantiationOfClauseForCurrentUnitLiteral());
-						mGroundLiteralsToPropagate.add(unitLiteral.mLiteral);
+						mGroundLiteralsToPropagate.add(groundUnitLiteral);
 					} 
 				} else {
-					conflict = mStateManager.setQuantifiedLiteralWithExceptions(unitLiteral.mqlwe);
+					assert unitLiteral instanceof EprQuantifiedLitWExcptns;
+					conflict = mStateManager.setQuantifiedLiteralWithExceptions(
+							(EprQuantifiedLitWExcptns) unitLiteral);
 
 					if (conflict == null)
-						conflict =  setQuantifiedLiteralWEInClauses(unitLiteral.mqlwe);
+						conflict =  setQuantifiedLiteralWEInClauses((EprQuantifiedLitWExcptns) unitLiteral);
 				}
 			}
 		}
