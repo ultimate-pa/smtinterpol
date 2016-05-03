@@ -351,7 +351,6 @@ public class EprNonUnitClause extends EprClause {
 			TTSubstitution sub = liTT.match(slTT, mEqualityManager);
 			if (sub == null)
 				continue;
-//			if (subset(sl.mExceptedPoints, this.mExceptedPoints)) { // is this an efficient solution? --> then mb bring it back some time
 			
 			applySetLiteralToClauseLiteral(li, sl, sub);
 		}
@@ -360,42 +359,46 @@ public class EprNonUnitClause extends EprClause {
 
 	/**
 	 * Assumes 
-	 *  - setLiteral and li have different polarities
+	 *  - setLiteral and clauseLit have different polarities
 	 *  - setLiteral has (just) been set.
-	 *  - li is a literal of this clause
+	 *  - clauseLit is a literal of this clause
 	 *  - sub is the non-null most-general unifier of the two
 	 * Does
-	 *  - update the fulfillabilityStatus of li according to setLiteral being set
+	 *  - update the fulfillabilityStatus of clauseLit according to setLiteral being set
 	 *  - introduce a derived clause consisting of equalities if it is a resolvent of 
-	 *   the clause "setLiteral"  and {li, this.eprEqualityAtoms}
-	 * @param li
+	 *   the clause "setLiteral"  and {clauseLit, this.eprEqualityAtoms}
+	 * @param clauseLit
 	 * @param setLiteral
 	 * @param sub
 	 */
-	public void applySetLiteralToClauseLiteral(Literal li, 
+	public void applySetLiteralToClauseLiteral(Literal clauseLit, 
 			EprUnitClause setLiteral, TTSubstitution sub) {
-		assert mAllLiterals.contains(li);
 
 		Literal setLiteralPredicateLiteral = setLiteral instanceof EprQuantifiedUnitClause ?
 				((EprQuantifiedUnitClause) setLiteral).getPredicateLiteral() : 
 					((EprGroundUnitClause) setLiteral).getLiteral();
+				
+		assert mAllLiterals.contains(clauseLit);
+		assert setLiteralPredicateLiteral.getAtom() instanceof EprPredicateAtom;
+		assert clauseLit.getAtom() instanceof EprPredicateAtom;
+		assert ((EprPredicateAtom) setLiteralPredicateLiteral.getAtom()).eprPredicate.equals(
+				((EprPredicateAtom) clauseLit.getAtom()).eprPredicate);
 
-		boolean polaritiesMatch = li.getSign() == setLiteralPredicateLiteral.getSign();
+		boolean polaritiesMatch = clauseLit.getSign() == setLiteralPredicateLiteral.getSign();
 
 		if (polaritiesMatch) {
-				// same polarity --> check for implication
-				ImplicationStatus impStat = null;
-//				impStat = getImplicationStatus(sub, clauseLit, this.eprEqualityAtoms, 
-//						setEqlwe.getPredicateLiteral(), setEqlwe.eprEqualityAtoms);
-				assert false : "TODO";
+			// same polarity --> check for implication
+			ImplicationStatus impStat = getImplicationStatus(sub, clauseLit, this.eprEqualityAtoms, 
+					setLiteralPredicateLiteral, setLiteral.eprEqualityAtoms);
+			assert false : "TODO";
+//			if (subset(sl.mExceptedPoints, this.mExceptedPoints)) { // is this an efficient solution? --> then mb bring it back some time
 		} else {
-
 			GetResolventStatus grs = new GetResolventStatus(sub, 
 					setLiteralPredicateLiteral,	setLiteral.eprEqualityAtoms,
-					li, eprEqualityAtoms);
+					clauseLit, eprEqualityAtoms);
 			switch (grs.getResolventStatus()) {
 			case Conflict:
-				setLiteralUnfulfillable(li, setLiteral);
+				setLiteralUnfulfillable(clauseLit, setLiteral);
 				break;
 			case ForcesFinite:
 				assert false : "TODO";
@@ -596,7 +599,6 @@ public class EprNonUnitClause extends EprClause {
 				predicateLiterals.add(l);
 		
 		for (Literal clauseLit : predicateLiterals) {
-			boolean clauseLitPositive = clauseLit.getSign() == 1;
 			EprPredicateAtom clauseLitAtom = (EprPredicateAtom) clauseLit.getAtom();
 
 			// do the eprPredicates match? do nothing if they don't
@@ -613,23 +615,23 @@ public class EprNonUnitClause extends EprClause {
 				continue;
 
 			
-			////// analyse the relation of the set unit literal ant the current clause literal
-			boolean polaritiesMatch = clauseLitPositive == setLitPositive;
-
-			if (!polaritiesMatch) {
-				// different polarity --> look at the resolvent
-				applySetLiteralToClauseLiteral(clauseLit, setEqlwe, sub);
-			} else {
-			}
+			applySetLiteralToClauseLiteral(clauseLit, setEqlwe, sub);
 		}
 		return null;
 	}
 
 
 	
-	public ImplicationStatus getImplicationStatus(TTSubstitution sub, Literal clauseLit,
-			EprEqualityAtom[] eprEqualityAtoms, Literal predicateLiteral, EprEqualityAtom[] eprEqualityAtoms2) {
-		// TODO Auto-generated method stub
+	public ImplicationStatus getImplicationStatus(TTSubstitution sub, Literal litA,
+			EprEqualityAtom[] equalitiesA, Literal litB, EprEqualityAtom[] equalitiesB) {
+		assert litA.getSign() == litB.getSign();
+		assert litA.getAtom() instanceof EprPredicateAtom;
+		assert litB.getAtom() instanceof EprPredicateAtom;
+		assert ((EprPredicateAtom) litA.getAtom()).eprPredicate.equals(
+				((EprPredicateAtom) litB.getAtom()).eprPredicate);
+		
+		
+		
 		return null;
 	}
 
@@ -669,7 +671,7 @@ public class EprNonUnitClause extends EprClause {
 			resolvent = 
 					new EprDerivedClause(substEqualities, mTheory, mStateManager, this);
 
-			if (resolvent.isTautology)
+			if (resolvent.isTautology())
 				rs = ResolventStatus.Tautology;
 			else if (resolvent.isConflictClause())
 				rs = ResolventStatus.Conflict;

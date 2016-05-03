@@ -56,7 +56,7 @@ public abstract class EprClause extends Clause {
 	 */
 	HashSet<Literal> mAllLiterals = new HashSet<>();
 	
-	boolean isTautology = false;
+	private boolean isTautology = false;
 
 	Theory mTheory;
 
@@ -123,6 +123,9 @@ public abstract class EprClause extends Clause {
 				isTautology = true;
 			if (l instanceof CCEquality 
 					&& ((CCEquality) l).getLhs().equals(((CCEquality) l).getRhs()))
+				isTautology = true; // l is of the form (= c c)
+			if (l instanceof EprGroundEqualityAtom
+					&& ((EprGroundEqualityAtom) l).getArguments()[0].equals(((EprGroundEqualityAtom) l).getArguments()[1]));
 				isTautology = true; // l is of the form (= c c)
 			mAllLiterals.add(l);
 		}
@@ -585,4 +588,8 @@ public abstract class EprClause extends Clause {
 	public abstract boolean isConflictClause();
 	
 	public abstract EprUnitClause getUnitClauseLiteral();
+	
+	public boolean isTautology() {
+		return isTautology;
+	}
 }
