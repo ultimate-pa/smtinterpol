@@ -157,21 +157,23 @@ public class EprNonUnitClause extends EprClause {
 						this, mTheory, mStateManager);
 				unifiedUnitLiteral = realUnitEqlwe;
 			} else {
-				if (mStateManager.isSubsumedInCurrentState(unifiedUnitLiteral)) { // already set??
+
+				unifiedUnitLiteral = new EprGroundUnitClause(realLiteral, 
+						mTheory, mStateManager, null);
+			}
+			
+//			already set??
+			if (mStateManager.isSubsumedInCurrentState(unifiedUnitLiteral)) { 
 					//TODO
 					assert false : 
 						"this needs more thought.. can we set the clause as fulfilled now??";
 				//					TODO: seems incomplete, maybe we want to propagate other points, then..
 					mUnitLiteral = null;
 					return null; 
-				}
-
-				unifiedUnitLiteral = new EprGroundUnitClause(realLiteral, 
-						mTheory, mStateManager, null);
 			}
 
-//			}
-			mInstantiationOfClauseForCurrentUnitLiteral = (EprNonUnitClause) this.instantiateClause(null, sub);
+			mInstantiationOfClauseForCurrentUnitLiteral = 
+					(EprNonUnitClause) this.instantiateClause(null, sub);
 			mStateManager.addDerivedClause(mInstantiationOfClauseForCurrentUnitLiteral);
 		}
 		return unifiedUnitLiteral;
