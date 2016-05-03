@@ -101,9 +101,13 @@ public class TTSubstitution {
 		return subs.toString();
 	}
 	
-	abstract class SubsPair {
-		Term top;
-		Term bot;
+	public ArrayList<SubsPair> getSubsPairs() {
+		return subs;
+	}
+	
+	public abstract class SubsPair {
+		public final Term top;
+		public final Term bot;
 		public SubsPair(Term top, Term bot) {
 			this.top = top;
 			this.bot = bot;
@@ -115,7 +119,7 @@ public class TTSubstitution {
 		}
 	}
 
-	class EqPair extends SubsPair {
+	public class EqPair extends SubsPair {
 
 		ArrayList<CCEquality> eqPath;
 
@@ -132,9 +136,9 @@ public class TTSubstitution {
 
 	}
 
-	class TPair extends SubsPair {
-		Term t;
-		TermVariable tv;
+	public class TPair extends SubsPair {
+		public final Term t;
+		public final TermVariable tv;
 
 		public TPair(Term top, TermVariable bot) {
 			super(top, bot);

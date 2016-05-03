@@ -2,6 +2,8 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 
 import java.util.HashSet;
 
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprQuantifiedUnitClause;
+
 public class EprPredicateModel {
 
 	EprPredicate mEprPredicate;

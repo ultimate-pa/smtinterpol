@@ -1,10 +1,11 @@
-package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
+package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SharedTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
 
 /**
  * Represents an Atom that is known to the EprTheory.
@@ -49,5 +50,8 @@ public abstract class EprAtom extends DPLLAtom {
 		return mTerm.toStringDirect();
 	}
 	
+	public Term getTerm() {
+		return mTerm;
+	}
 	
 }

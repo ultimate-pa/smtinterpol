@@ -1,4 +1,4 @@
-package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
+package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -19,8 +19,18 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ResolutionNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprQuantifiedPredicateAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprStateManager;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EqualityManager;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution.SubsPair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution.TPair;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprEqualityAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundEqualityAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
 
 /**
  * Represents a clause that contains free variables, i.e., that is implicitly universally quantified.
@@ -45,9 +55,9 @@ public abstract class EprClause extends Clause {
 	
 	enum FulfillabilityStatus { Fulfilled, Fulfillable, Unfulfillable };
 
-	EprEqualityAtom[] eprEqualityAtoms;
-	Literal[] eprQuantifiedPredicateLiterals;
-	Literal[] groundLiterals;
+	protected EprEqualityAtom[] eprEqualityAtoms;
+	protected Literal[] eprQuantifiedPredicateLiterals;
+	protected Literal[] groundLiterals;
 	
 	/**
 	 * used for
@@ -58,7 +68,7 @@ public abstract class EprClause extends Clause {
 	
 	private boolean isTautology = false;
 
-	Theory mTheory;
+	protected Theory mTheory;
 
 	/**
 	 * stores the information from literals of the form "variable = constant".
@@ -239,8 +249,8 @@ public abstract class EprClause extends Clause {
 		}
 
 		for (Literal l : eprEqualityAtoms) {
-			Term p0 = ((ApplicationTerm) ((EprEqualityAtom) l.getAtom()).mTerm).getParameters()[0];
-			Term p1 = ((ApplicationTerm) ((EprEqualityAtom) l.getAtom()).mTerm).getParameters()[1];
+			Term p0 = ((ApplicationTerm) ((EprEqualityAtom) l.getAtom()).getTerm()).getParameters()[0];
+			Term p1 = ((ApplicationTerm) ((EprEqualityAtom) l.getAtom()).getTerm()).getParameters()[1];
 			if (p0 instanceof TermVariable && p1 instanceof TermVariable) {
 				addExceptedEquality((TermVariable) p0, (TermVariable) p1);
 			} else if (p0 instanceof TermVariable) {
@@ -343,7 +353,7 @@ public abstract class EprClause extends Clause {
 		// TODO cache/precompute this
 		ArrayDeque<TermTuple> result = new ArrayDeque<>();
 		for (Literal l : predicateLiterals) {
-			result.add(new TermTuple(((ApplicationTerm) ((EprPredicateAtom) l.getAtom()).mTerm).getParameters()));
+			result.add(new TermTuple(((ApplicationTerm) ((EprPredicateAtom) l.getAtom()).getTerm()).getParameters()));
 
 		}
 		return result;
@@ -542,7 +552,7 @@ public abstract class EprClause extends Clause {
 //		private boolean isSubstitutionExcepted(HashMap<TermVariable, Term> newSubs) {
 		private boolean isSubstitutionExcepted(TTSubstitution newSubs) {
 //			for (Entry<TermVariable, Term> en : newSubs.entrySet()) {
-			for (SubsPair en : newSubs.subs) {
+			for (SubsPair en : newSubs.getSubsPairs()) {
 //				HashSet<ApplicationTerm> epCon = mExceptedPoints.get(en.getKey());
 				if (en instanceof TPair) {
 					TPair tp = (TPair) en;
@@ -591,5 +601,17 @@ public abstract class EprClause extends Clause {
 	
 	public boolean isTautology() {
 		return isTautology;
+	}
+	
+	public Literal[] getQuantifiedPredicateLiterals() {
+		return eprQuantifiedPredicateLiterals;
+	}
+	
+	public Literal[] getGroundLiterals() {
+		return groundLiterals;
+	}
+	
+	public EprEqualityAtom[] getEqualityAtoms() {
+		return eprEqualityAtoms;
 	}
 }

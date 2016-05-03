@@ -1,7 +1,8 @@
-package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
+package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses;
 
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprStateManager;
 
 public abstract class EprUnitClause extends EprClause {
 	
@@ -17,6 +18,10 @@ public abstract class EprUnitClause extends EprClause {
 		  	|| (eprQuantifiedPredicateLiterals.length == 0 && groundLiterals.length == 1) :
 		  		"not a unit clause";
 		mExplanation = explanation;
+	}
+	
+	public EprClause getExplanation() {
+		return mExplanation;
 	}
 
 }

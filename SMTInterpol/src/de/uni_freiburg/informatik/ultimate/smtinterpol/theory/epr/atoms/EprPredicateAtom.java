@@ -1,10 +1,11 @@
-package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
+package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms;
 
 import java.util.ArrayList;
 import java.util.HashSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 
 public abstract class EprPredicateAtom extends EprAtom {
 

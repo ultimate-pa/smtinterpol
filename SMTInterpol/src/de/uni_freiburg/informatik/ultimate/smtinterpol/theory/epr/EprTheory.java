@@ -32,6 +32,14 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.model.SharedTermEvaluator
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprEqualityAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClause;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprGroundUnitClause;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprNonUnitClause;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprQuantifiedUnitClause;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprUnitClause;
 import de.uni_freiburg.informatik.ultimate.util.ScopedHashSet;
 
 public class EprTheory implements ITheory {
@@ -287,7 +295,7 @@ public class EprTheory implements ITheory {
 			conflict = eprPropagate();
 
 			if (conflict != null && (conflict instanceof EprClause) &&
-					((EprClause) conflict).eprQuantifiedPredicateLiterals.length > 0) {
+					((EprClause) conflict).getQuantifiedPredicateLiterals().length > 0) {
 				// the conflict is a proper epr clause --> TODO: ..something about it ..
 				assert false : "the conflict is a proper epr clause --> we cannot give it to DPLL as is";
 			}
@@ -346,12 +354,11 @@ public class EprTheory implements ITheory {
 			if (unitLiteral != null) {
 				System.out.println("EPRDEBUG: found unit clause: " + ec);
 
-//				if (unitLiteral.mLiteral != null) {
 				if (unitLiteral instanceof EprGroundUnitClause) {
 					Literal groundUnitLiteral = ((EprGroundUnitClause) unitLiteral).getLiteral();
 					if (groundUnitLiteral.getAtom() instanceof EprQuantifiedPredicateAtom) {
 						assert false : "do we need this case???";
-						assert ec.eprEqualityAtoms.length == 0;
+						assert ec.getEqualityAtoms().length == 0;
 						EprQuantifiedUnitClause eqlwe = EprHelpers.buildEQLWE(
 								groundUnitLiteral,
 								//							ec.mExceptedPoints, 
@@ -441,7 +448,8 @@ public class EprTheory implements ITheory {
 				if (sub != null) {
 					Literal propLit = eqlwe.getPredicateLiteral().getSign() == 1 ? engineAtom : engineAtom.negate();
 					mGroundLiteralsToPropagate.add(propLit);
-					mPropLitToExplanation.put(propLit, eqlwe.mExplanation.instantiateClause(null, sub));
+					mPropLitToExplanation.put(propLit, 
+							eqlwe.getExplanation().instantiateClause(null, sub));
 				}
 			}
 		}

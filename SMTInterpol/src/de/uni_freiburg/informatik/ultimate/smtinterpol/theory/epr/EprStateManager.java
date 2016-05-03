@@ -15,6 +15,15 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprBaseClause;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClause;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprDerivedClause;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprGroundUnitClause;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprNonUnitClause;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprQuantifiedUnitClause;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprUnitClause;
 
 public class EprStateManager {
 	
@@ -31,8 +40,6 @@ public class EprStateManager {
 	
 	HashSet<EprPredicate> mAllEprPredicates = new HashSet<>();
 	
-//	private HashSet<EprClause> mAllClauses = new HashSet<>();
-
 	public EprStateManager(EqualityManager eqMan, Theory theory, CClosure cClosure) {
 		baseState = new EprState();
 		mEprStateStack.push(baseState);
@@ -67,7 +74,7 @@ public class EprStateManager {
 		for (EprQuantifiedUnitClause l : getSetLiterals(literal.getSign() == 1, atom.eprPredicate)) {
 			TTSubstitution sub = l.getPredicateAtom().getArgumentsAsTermTuple().match(atom.getArgumentsAsTermTuple(), mEqualityManager);
 			if (sub != null) {
-				EprClause conflict =  l.mExplanation.instantiateClause(null, sub);
+				EprClause conflict =  l.getExplanation().instantiateClause(null, sub);
 				return conflict;
 			}
 		}
@@ -167,14 +174,14 @@ public class EprStateManager {
 					TermTuple ttNeg = eqwleNeg.getPredicateAtom().getArgumentsAsTermTuple();
 					TTSubstitution sub = ttNeg.match(ttPos, mEqualityManager);
 					if (sub != null) {
-						return eqwlePos.mExplanation.instantiateClause(null, sub);
+						return eqwlePos.getExplanation().instantiateClause(null, sub);
 					}
 				}
 				
 				for (TermTuple pointNeg : getPoints(false, pred)) {
 					TTSubstitution sub = pointNeg.match(ttPos, mEqualityManager);
 					if (sub != null) {
-						EprClause conflict =  eqwlePos.mExplanation.instantiateClause(null, sub, 
+						EprClause conflict =  eqwlePos.getExplanation().instantiateClause(null, sub, 
 								getDisequalityChainsFromSubstitution(sub, pointNeg.terms, eqwlePos.getPredicateAtom().getArguments()));
 						return conflict;
 					}
@@ -185,7 +192,7 @@ public class EprStateManager {
 					TermTuple ttNeg = eqwleNeg.getPredicateAtom().getArgumentsAsTermTuple();
 					TTSubstitution sub = ttNeg.match(pointPos, mEqualityManager);
 					if (sub != null) {
-						return eqwleNeg.mExplanation.instantiateClause(null, sub);
+						return eqwleNeg.getExplanation().instantiateClause(null, sub);
 					}
 				}
 				
@@ -225,13 +232,6 @@ public class EprStateManager {
 		return result;
 	}
 
-//	public ArrayList<EprQuantifiedLitWExcptns> getSetLiterals() {
-//		ArrayList<EprQuantifiedLitWExcptns> result = new ArrayList<>();
-//		for (EprState es : mEprStateStack)
-//			result.addAll(es.mSetLiterals);
-//		return result;
-//	}
-	
 	public ArrayList<EprQuantifiedUnitClause> getSetLiterals(boolean positive, EprPredicate pred) {
 		//TODO: some caching here?
 		ArrayList<EprQuantifiedUnitClause> result = new ArrayList<>();
@@ -266,8 +266,7 @@ public class EprStateManager {
 	 * @param dc
 	 */
 	public boolean addDerivedClause(EprNonUnitClause dc) {
-//		System.out.println("EPRDEBUG (EprStateManager): adding derived clause " + dc);
-//		mLiteralToClauses.put(dc.getLiteralSet(), dc);
+		System.out.println("EPRDEBUG (EprStateManager): adding derived clause " + dc);
 		return mEprStateStack.peek().addDerivedClause(dc);
 	}
 
