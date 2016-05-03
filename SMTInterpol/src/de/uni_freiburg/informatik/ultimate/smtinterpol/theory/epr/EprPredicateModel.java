@@ -7,25 +7,25 @@ public class EprPredicateModel {
 	EprPredicate mEprPredicate;
 	HashSet<TermTuple> mPositivelySetPoints = new HashSet<>();
 	HashSet<TermTuple> mNegativelySetPoints = new HashSet<>();
-	HashSet<EprQuantifiedLitWExcptns> mPositivelySetQuantifiedLitsWE = new HashSet<>();
-	HashSet<EprQuantifiedLitWExcptns> mNegativelySetQuantifiedLitsWE = new HashSet<>();
+	HashSet<EprQuantifiedUnitClause> mPositivelySetQuantifiedLitsWE = new HashSet<>();
+	HashSet<EprQuantifiedUnitClause> mNegativelySetQuantifiedLitsWE = new HashSet<>();
 
 	public EprPredicateModel(EprPredicate pred) {
 		mEprPredicate = pred;
 	}
 	
-	public void setQuantifiedLitPositive(EprQuantifiedLitWExcptns eqlwe) {
+	public void setQuantifiedLitPositive(EprQuantifiedUnitClause eqlwe) {
 		assert eqlwe.getPredicateLiteral().getSign() == 1;
 		mPositivelySetQuantifiedLitsWE.add(eqlwe);
 	}
 	
-	public void setQuantifiedLitNegative(EprQuantifiedLitWExcptns eqlwe) {
+	public void setQuantifiedLitNegative(EprQuantifiedUnitClause eqlwe) {
 		assert eqlwe.getPredicateLiteral().getSign() != 1;
 		mNegativelySetQuantifiedLitsWE.add(eqlwe);
 	}
 
 	
-	public void unsetQuantifiedLitPositive(EprQuantifiedLitWExcptns eqlwe) {
+	public void unsetQuantifiedLitPositive(EprQuantifiedUnitClause eqlwe) {
 		if (eqlwe.getPredicateLiteral().getSign() == 1)
 			mPositivelySetQuantifiedLitsWE.remove(eqlwe);
 		else

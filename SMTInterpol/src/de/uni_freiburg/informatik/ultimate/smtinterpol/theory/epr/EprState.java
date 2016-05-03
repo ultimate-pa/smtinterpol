@@ -70,7 +70,7 @@ public class EprState {
         	mPredicateToModel.get(pred).setPointNegative(point);
 	}
 
-	public void setQuantifiedLiteralWithExceptions(EprQuantifiedLitWExcptns eqlwe) {
+	public void setQuantifiedLiteralWithExceptions(EprQuantifiedUnitClause eqlwe) {
 		EprPredicate pred = eqlwe.getPredicateAtom().eprPredicate;
 
         if (eqlwe.getPredicateLiteral().getSign() == 1)
@@ -79,7 +79,7 @@ public class EprState {
         	mPredicateToModel.get(pred).setQuantifiedLitNegative(eqlwe);
 	}
 	
-	public void unsetQuantifiedLiteralWithExceptions(EprQuantifiedLitWExcptns eqlwe) {
+	public void unsetQuantifiedLiteralWithExceptions(EprQuantifiedUnitClause eqlwe) {
 		EprPredicate pred = eqlwe.getPredicateAtom().eprPredicate;
 
 		mPredicateToModel.get(pred).unsetQuantifiedLitPositive(eqlwe);

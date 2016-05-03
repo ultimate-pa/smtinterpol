@@ -27,16 +27,18 @@ public class EprStateManager {
 	HashMap<Set<Literal>, EprNonUnitClause> mLiteralToClauses = new HashMap<>();
 	public EqualityManager mEqualityManager;
 	private Theory mTheory;
+	private CClosure mCClosure; //TODO: clean up --> where to carry this through clauses??
 	
 	HashSet<EprPredicate> mAllEprPredicates = new HashSet<>();
 	
 //	private HashSet<EprClause> mAllClauses = new HashSet<>();
 
-	public EprStateManager(EqualityManager eqMan, Theory theory) {
+	public EprStateManager(EqualityManager eqMan, Theory theory, CClosure cClosure) {
 		baseState = new EprState();
 		mEprStateStack.push(baseState);
 		mEqualityManager =  eqMan;
 		mTheory = theory;
+		mCClosure = cClosure;
 	}
 
 	public void beginScope(Literal literal) {
@@ -62,7 +64,7 @@ public class EprStateManager {
 		EprGroundPredicateAtom atom = (EprGroundPredicateAtom) literal.getAtom();
 		
 		// is there a conflict with one of the currently set quantified literals??
-		for (EprQuantifiedLitWExcptns l : getSetLiterals(literal.getSign() == 1, atom.eprPredicate)) {
+		for (EprQuantifiedUnitClause l : getSetLiterals(literal.getSign() == 1, atom.eprPredicate)) {
 			TTSubstitution sub = l.getPredicateAtom().getArgumentsAsTermTuple().match(atom.getArgumentsAsTermTuple(), mEqualityManager);
 			if (sub != null) {
 				EprClause conflict =  l.mExplanation.instantiateClause(null, sub);
@@ -122,7 +124,7 @@ public class EprStateManager {
 		return disequalityChain;
 	}
 	
-	public Clause setQuantifiedLiteralWithExceptions(EprQuantifiedLitWExcptns eqlwe) {
+	public Clause setQuantifiedLiteralWithExceptions(EprQuantifiedUnitClause eqlwe) {
 		System.out.println("EPRDEBUG (EprStateManager): setting Quantified literal: " + eqlwe);
 
 		
@@ -159,9 +161,9 @@ public class EprStateManager {
 		//TODO: make sure that i case of a
 		
 		for (EprPredicate pred : mAllEprPredicates) {
-			for (EprQuantifiedLitWExcptns eqwlePos : getSetLiterals(true, pred)) {
+			for (EprQuantifiedUnitClause eqwlePos : getSetLiterals(true, pred)) {
 				TermTuple ttPos = eqwlePos.getPredicateAtom().getArgumentsAsTermTuple();
-				for (EprQuantifiedLitWExcptns eqwleNeg : getSetLiterals(false, pred)) {
+				for (EprQuantifiedUnitClause eqwleNeg : getSetLiterals(false, pred)) {
 					TermTuple ttNeg = eqwleNeg.getPredicateAtom().getArgumentsAsTermTuple();
 					TTSubstitution sub = ttNeg.match(ttPos, mEqualityManager);
 					if (sub != null) {
@@ -179,7 +181,7 @@ public class EprStateManager {
 				}
 			}
 			for (TermTuple pointPos : getPoints(true, pred)) {
-				for (EprQuantifiedLitWExcptns eqwleNeg : getSetLiterals(false, pred)) {
+				for (EprQuantifiedUnitClause eqwleNeg : getSetLiterals(false, pred)) {
 					TermTuple ttNeg = eqwleNeg.getPredicateAtom().getArgumentsAsTermTuple();
 					TTSubstitution sub = ttNeg.match(pointPos, mEqualityManager);
 					if (sub != null) {
@@ -230,9 +232,9 @@ public class EprStateManager {
 //		return result;
 //	}
 	
-	public ArrayList<EprQuantifiedLitWExcptns> getSetLiterals(boolean positive, EprPredicate pred) {
+	public ArrayList<EprQuantifiedUnitClause> getSetLiterals(boolean positive, EprPredicate pred) {
 		//TODO: some caching here?
-		ArrayList<EprQuantifiedLitWExcptns> result = new ArrayList<>();
+		ArrayList<EprQuantifiedUnitClause> result = new ArrayList<>();
 		for (EprState es : mEprStateStack) {
 			EprPredicateModel model = es.mPredicateToModel.get(pred);
 			if (model == null) //maybe not all eprStates on the stack know the predicate
@@ -246,9 +248,9 @@ public class EprStateManager {
 	
 	}
 
-	public ArrayList<EprQuantifiedLitWExcptns> getSetLiterals(EprPredicate eprPredicate) {
+	public ArrayList<EprQuantifiedUnitClause> getSetLiterals(EprPredicate eprPredicate) {
 		//TODO: some caching here?
-		ArrayList<EprQuantifiedLitWExcptns> result = new ArrayList<>();
+		ArrayList<EprQuantifiedUnitClause> result = new ArrayList<>();
 		result.addAll(getSetLiterals(true, eprPredicate));
 		result.addAll(getSetLiterals(false, eprPredicate));
 		return result;
@@ -356,7 +358,7 @@ public class EprStateManager {
 			boolean isPositive = lit.getSign() == 1;
 			EprPredicateAtom atom = (EprPredicateAtom) lit.getAtom();
 
-			for (EprQuantifiedLitWExcptns sl : this.getSetLiterals(isPositive, atom.eprPredicate)) {
+			for (EprQuantifiedUnitClause sl : this.getSetLiterals(isPositive, atom.eprPredicate)) {
 				TermTuple slTT = sl.getPredicateAtom().getArgumentsAsTermTuple();
 				TermTuple tt = atom.getArgumentsAsTermTuple();
 				TTSubstitution sub = slTT.match(tt, mEqualityManager);
@@ -368,5 +370,9 @@ public class EprStateManager {
 			assert false : "TODO: implement this case";
 			return false;
 		}
+	}
+	
+	public CClosure getCClosure() {
+		return mCClosure;
 	}
 }

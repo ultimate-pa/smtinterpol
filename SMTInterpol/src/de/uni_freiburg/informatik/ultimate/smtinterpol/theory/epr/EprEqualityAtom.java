@@ -47,4 +47,9 @@ public class EprEqualityAtom extends EprAtom {
 //		return null;
 		return mTerm;
 	}
+	
+	@Override
+	public String toString() {
+		return mTerm.toString();
+	}
 }

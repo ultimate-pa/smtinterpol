@@ -89,6 +89,7 @@ public abstract class EprClause extends Clause {
 	
 	EprStateManager mStateManager;
 	EqualityManager mEqualityManager;
+	boolean forcesFiniteModel = false;
 
 	public EprClause(Literal[] literals, Theory theory, EprStateManager stateManager) {
 		super(literals);
@@ -118,7 +119,7 @@ public abstract class EprClause extends Clause {
 		for (Literal l : literals) {
 			if (mAllLiterals.contains(l.negate()))
 				isTautology = true;
-			if (l.equals(new TrueAtom()))
+			if (l instanceof TrueAtom)
 				isTautology = true;
 			if (l instanceof CCEquality 
 					&& ((CCEquality) l).getLhs().equals(((CCEquality) l).getRhs()))
@@ -135,7 +136,8 @@ public abstract class EprClause extends Clause {
 		// do we have quantified equalities but no other quantified literals?
 		if (eprEqualityAtoms.length > 0 
 				&& eprQuantifiedPredicateLiterals.length == 0) {
-			assert false : "TODO: probably do something -- sth with finite models..";
+//			assert false : "TODO: probably do something -- sth with finite models..";
+			forcesFiniteModel = true;
 		}
 		
 
@@ -369,11 +371,13 @@ public abstract class EprClause extends Clause {
 		ArrayList<Literal> newLits = new ArrayList<Literal>();
 		newLits.addAll(Arrays.asList(groundLiterals));
 		for (Literal l : eprEqualityAtoms) {
+//			newLits.add(EprHelpers.applySubstitution(sub, l, mTheory, mStateManager.getCClosure()));
 			newLits.add(EprHelpers.applySubstitution(sub, l, mTheory));
 		}
 		for (Literal l : eprQuantifiedPredicateLiterals) {
 			if (l.equals(otherLit))
 				continue;
+//			newLits.add(EprHelpers.applySubstitution(sub, l, mTheory, mStateManager.getCClosure()));
 			newLits.add(EprHelpers.applySubstitution(sub, l, mTheory));
 		}
 		
@@ -572,6 +576,10 @@ public abstract class EprClause extends Clause {
 
 	public HashSet<Literal> getLiteralSet() {
 		return mAllLiterals;
+	}
+	
+	public boolean forcesFiniteModel() {
+		return forcesFiniteModel;
 	}
 	
 	public abstract boolean isConflictClause();

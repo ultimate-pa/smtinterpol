@@ -31,6 +31,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.model.Model;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.model.SharedTermEvaluator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
 import de.uni_freiburg.informatik.ultimate.util.ScopedHashSet;
 
 public class EprTheory implements ITheory {
@@ -86,12 +87,12 @@ public class EprTheory implements ITheory {
 
 	//	private Term mAlmostAllConstant;
 //	
-	public EprTheory(Theory th, DPLLEngine engine) {
+	public EprTheory(Theory th, DPLLEngine engine, CClosure cClosure) {
 		mTheory = th;
 		mEngine = engine;
 
 		mEqualityManager = new EqualityManager();
-		mStateManager = new EprStateManager(mEqualityManager, mTheory);
+		mStateManager = new EprStateManager(mEqualityManager, mTheory, cClosure);
 	}
 
 	@Override
@@ -351,9 +352,8 @@ public class EprTheory implements ITheory {
 					if (groundUnitLiteral.getAtom() instanceof EprQuantifiedPredicateAtom) {
 						assert false : "do we need this case???";
 						assert ec.eprEqualityAtoms.length == 0;
-						EprQuantifiedLitWExcptns eqlwe = EprHelpers.buildEQLWE(
-								groundUnitLiteral.getSign() == 1, 
-								(EprQuantifiedPredicateAtom) groundUnitLiteral.getAtom(), 
+						EprQuantifiedUnitClause eqlwe = EprHelpers.buildEQLWE(
+								groundUnitLiteral,
 								//							ec.mExceptedPoints, 
 								new EprEqualityAtom[0],
 								ec, 
@@ -375,12 +375,12 @@ public class EprTheory implements ITheory {
 						mGroundLiteralsToPropagate.add(groundUnitLiteral);
 					} 
 				} else {
-					assert unitLiteral instanceof EprQuantifiedLitWExcptns;
+					assert unitLiteral instanceof EprQuantifiedUnitClause;
 					conflict = mStateManager.setQuantifiedLiteralWithExceptions(
-							(EprQuantifiedLitWExcptns) unitLiteral);
+							(EprQuantifiedUnitClause) unitLiteral);
 
 					if (conflict == null)
-						conflict =  setQuantifiedLiteralWEInClauses((EprQuantifiedLitWExcptns) unitLiteral);
+						conflict =  setQuantifiedLiteralWEInClauses((EprQuantifiedUnitClause) unitLiteral);
 				}
 			}
 		}
@@ -408,7 +408,7 @@ public class EprTheory implements ITheory {
 	 * @param eqlwe
 	 * @return
 	 */
-	public EprClause setQuantifiedLiteralWEInClauses(EprQuantifiedLitWExcptns eqlwe) {
+	public EprClause setQuantifiedLiteralWEInClauses(EprQuantifiedUnitClause eqlwe) {
 		EprClause conflict = null;
 		/*
 		 * propagate a quantified predicate

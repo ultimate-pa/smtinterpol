@@ -1,9 +1,10 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 
+import java.util.ArrayList;
+
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom.TrueAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 
 public class EprHelpers {
@@ -15,6 +16,7 @@ public class EprHelpers {
 	 * @param theory
 	 * @return
 	 */
+//	public static Literal applySubstitution(TTSubstitution sub, Literal l, Theory theory, CClosure cClosure) {
 	public static Literal applySubstitution(TTSubstitution sub, Literal l, Theory theory) {
 		boolean isPositive = l.getSign() == 1;
 		DPLLAtom atom = l.getAtom();
@@ -35,14 +37,12 @@ public class EprHelpers {
 			TermTuple newTT = sub.apply(eea.getArgumentsAsTermTuple());
 			ApplicationTerm newTerm = theory.term("=", newTT.terms);
 			DPLLAtom result = null;
-			if (newTerm.getFreeVars().length == 2) {
+			if (newTerm.getFreeVars().length > 0) {
 				result = new EprEqualityAtom(newTerm, 0, l.getAtom().getAssertionStackLevel());//TODO: hash
-			} else if (newTerm.getFreeVars().length == 1) {
-				// we have sth like a=a --> replace with TrueAtom
-				result = new TrueAtom();
+//			} else if (newTerm.getParameters()[0].equals(newTerm.getParameters()[1])) {
 			} else {
-				//				result = new CCEqu
-				throw new UnsupportedOperationException();
+//				TODO: will need a management for these atoms -- so there are no duplicates..
+				return new EprGroundEqualityAtom(newTerm, 0, 0);
 			}
 			return isPositive ? result : result.negate();
 		} else {
@@ -51,19 +51,45 @@ public class EprHelpers {
 		}
 	}
 
-	public static EprQuantifiedLitWExcptns buildEQLWE(
-			boolean isPositive, 
-			EprQuantifiedPredicateAtom atom, 
+	public static EprQuantifiedUnitClause buildEQLWE(
+//			boolean isPositive, 
+//			EprQuantifiedPredicateAtom atom, 
+			Literal quantifiedPredicateLiteral,
 			EprEqualityAtom[] excep,
 			EprClause explanation,
 			Theory theory,
 			EprStateManager stateManager) {
+		assert quantifiedPredicateLiteral.getAtom() instanceof EprQuantifiedPredicateAtom;
+
 		Literal[] lits = new Literal[excep.length + 1];
 		for (int i = 0; i < excep.length; i++) {
 			lits[i] = excep[i];
 		}
-		lits[lits.length - 1] = isPositive ? atom : atom.negate();
+//		lits[lits.length - 1] = isPositive ? atom : atom.negate();
+		lits[lits.length - 1] = quantifiedPredicateLiteral;
 
-		return new EprQuantifiedLitWExcptns(lits, theory, stateManager, explanation);
+		return new EprQuantifiedUnitClause(lits, theory, stateManager, explanation);
+	}
+	
+	/**
+	 * sub is a unifier for the predicateAtoms in setEqlwe and clauseLit.
+	 * Apply sub to the equalities in setEqlwe and eprEqualityAtoms,
+	 * return the result as a clause.
+	 * @param setEqlwe
+	 * @param clauseLit
+	 * @param eprEqualityAtoms
+	 * @param sub
+	 * @return
+	 */
+	public static Literal[] applyUnifierToEqualities(EprEqualityAtom[] eprEqualityAtoms1,
+			EprEqualityAtom[] eprEqualityAtoms2, TTSubstitution sub, Theory theory) {
+		
+		ArrayList<Literal> result = new ArrayList<>();
+		for (EprEqualityAtom eea : eprEqualityAtoms1) 
+			result.add(EprHelpers.applySubstitution(sub, eea, theory));
+		for (EprEqualityAtom eea : eprEqualityAtoms2)
+			result.add(EprHelpers.applySubstitution(sub, eea, theory));
+
+		return result.toArray(new Literal[result.size()]);
 	}
 }

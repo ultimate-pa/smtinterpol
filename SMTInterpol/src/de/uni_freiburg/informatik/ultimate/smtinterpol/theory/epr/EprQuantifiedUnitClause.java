@@ -1,6 +1,7 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map.Entry;
@@ -20,14 +21,16 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprQuantifiedP
  *  
  * @author nutz
  */
-public class EprQuantifiedLitWExcptns extends EprUnitClause {
+public class EprQuantifiedUnitClause extends EprUnitClause {
 	
-	public EprQuantifiedLitWExcptns(Literal[] literals, Theory theory, EprStateManager stateManager,
-			Object explanation) {
+	public EprQuantifiedUnitClause(Literal[] literals, Theory theory, EprStateManager stateManager,
+			EprClause explanation) {
 		super(literals, theory, stateManager, explanation);
 		assert eprQuantifiedPredicateLiterals.length == 1;
 		assert groundLiterals.length == 0;
 		mPredicateLiteral = eprQuantifiedPredicateLiterals[0];
+		mExceptions = eprEqualityAtoms;
+		mAtom = (EprQuantifiedPredicateAtom) mPredicateLiteral.getAtom();
 	}
 
 	Literal mPredicateLiteral;
@@ -38,13 +41,8 @@ public class EprQuantifiedLitWExcptns extends EprUnitClause {
 	// exceptions
 	EprEqualityAtom[] mExceptions;
 
-	// explanation
-	EprClause mExplanation;
-
 	public String toString() {
-		String not = mPredicateLiteral.getSign() == 1 ? "" : "! ";
-//		return  not + mAtom.toString() + "\\" + mExceptedPoints.toString();
-		return  not + mAtom.toString() + "\\" + mExceptions.toString();
+		return  mPredicateLiteral.toString() + "\\" + Arrays.toString(mExceptions);
 	}
 
 	public Literal getPredicateLiteral() {
@@ -55,24 +53,29 @@ public class EprQuantifiedLitWExcptns extends EprUnitClause {
 		return mAtom;
 	}
 	
-	
 	/**
 	 * Computes the clause obtained by applying resolution to this and eqlwe
+	 * 
+	 * Note:
+	 * also allowing the case where the polarities of the two quantified predicate literals
+	 * don't differ
+	 *   --> in that case the result is not really 
 	 * @param eql another EprQuantifiedLitWExcptns, which has the same predicate and different polarity
 	 * @return if there is a unifier: a set of literals representing the resolvent clause.
 	 *         otherwise: null.
 	 */
-	public EprClause resolveAgainst(EprQuantifiedLitWExcptns eqlwe, 
-//			TTSubstitution sub, Theory theory, int stackLevel) {
+	public EprClause resolveAgainst(EprQuantifiedUnitClause eqlwe, 
 			TTSubstitution sub) {
-		assert eqlwe.getPredicateLiteral().getSign() != this.getPredicateLiteral().getSign();
+//		assert eqlwe.getPredicateLiteral().getSign() != this.getPredicateLiteral().getSign();
 		assert eqlwe.mAtom.eprPredicate == this.mAtom.eprPredicate;
 
 		ArrayList<Literal> result = new ArrayList<>();
 		for (EprEqualityAtom eea : mExceptions) {
+//			result.add(EprHelpers.applySubstitution(sub, eea, mTheory, mStateManager.getCClosure()));
 			result.add(EprHelpers.applySubstitution(sub, eea, mTheory));
 		}
 		for (EprEqualityAtom eea : eqlwe.mExceptions) {
+//			result.add(EprHelpers.applySubstitution(sub, eea, mTheory, mStateManager.getCClosure()));
 			result.add(EprHelpers.applySubstitution(sub, eea, mTheory));
 		}
 		return new EprDerivedClause(result.toArray(new Literal[result.size()]), mTheory, mStateManager, this);
@@ -85,7 +88,6 @@ public class EprQuantifiedLitWExcptns extends EprUnitClause {
 	 *         otherwise: null.
 	 */
 	public EprClause resolveAgainst(EprPredicateAtom eqpa, 
-//			TTSubstitution sub, Theory theory, int stackLevel) {
 			TTSubstitution sub) {
 		assert eqpa.eprPredicate == this.mAtom.eprPredicate;
 		
@@ -97,6 +99,7 @@ public class EprQuantifiedLitWExcptns extends EprUnitClause {
 		
 		ArrayList<Literal> result = new ArrayList<>();
 		for (EprEqualityAtom eea : mExceptions) {
+//			result.add(EprHelpers.applySubstitution(sub, eea, mTheory, mStateManager.getCClosure()));
 			result.add(EprHelpers.applySubstitution(sub, eea, mTheory));
 		}
 		return new EprDerivedClause(result.toArray(new Literal[result.size()]), mTheory, mStateManager, this);
@@ -105,10 +108,11 @@ public class EprQuantifiedLitWExcptns extends EprUnitClause {
 
 	public ArrayList<DPLLAtom> substituteInExceptions(
 			TTSubstitution sub, Theory theory) {
-		//TODO: remove the resolveAgainst-uses in favour of this method
+		//TODO: remove the resolveAgainst-uses in favor of this method
 		
 		ArrayList<DPLLAtom> result = new ArrayList<>();
 		for (EprEqualityAtom eea : mExceptions) {
+//			result.add((DPLLAtom) EprHelpers.applySubstitution(sub, eea, theory, mStateManager.getCClosure()));
 			result.add((DPLLAtom) EprHelpers.applySubstitution(sub, eea, theory));
 		}
 		return result;

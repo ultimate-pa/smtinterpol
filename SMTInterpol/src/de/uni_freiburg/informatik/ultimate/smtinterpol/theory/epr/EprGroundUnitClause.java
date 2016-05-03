@@ -6,7 +6,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 public class EprGroundUnitClause extends EprUnitClause {
 
 	public EprGroundUnitClause(Literal literal, Theory theory, 
-			EprStateManager stateManager, Object explanation) {
+			EprStateManager stateManager, EprClause explanation) {
 		super(new Literal[] { literal }, theory, stateManager, explanation);
 
 		assert eprQuantifiedPredicateLiterals.length == 0;

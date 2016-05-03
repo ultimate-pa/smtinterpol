@@ -29,7 +29,6 @@ public class EprNonUnitClause extends EprClause {
 	
 	public EprNonUnitClause(Literal[] literals, Theory theory, EprStateManager stateManager) {
 		super(literals, theory, stateManager);
-		// TODO Auto-generated constructor stub
 		setUp();
 	}
 	
@@ -38,9 +37,8 @@ public class EprNonUnitClause extends EprClause {
 		if (groundLiterals.length == 0
 				&& eprQuantifiedPredicateLiterals.length == 1) {
 			Literal lit = eprQuantifiedPredicateLiterals[0];
-			EprQuantifiedLitWExcptns eqlwe = EprHelpers.buildEQLWE(
-					lit.getSign() == 1, 
-					(EprQuantifiedPredicateAtom) lit.getAtom(), 
+			EprQuantifiedUnitClause eqlwe = EprHelpers.buildEQLWE(
+					lit,
 					eprEqualityAtoms, this,
 					mTheory, mStateManager);
 			mUnitLiteral = eqlwe;
@@ -48,7 +46,7 @@ public class EprNonUnitClause extends EprClause {
 				&& eprQuantifiedPredicateLiterals.length == 0) {
 			if (eprEqualityAtoms.length == 0) {
 				mUnitLiteral = new EprGroundUnitClause(groundLiterals[0], 
-						mTheory, mStateManager, "is this used? (EprClause.SetupClauses)");
+						mTheory, mStateManager, this);
 			} else {
 				assert false : "quantified equalities but not quantified literals: "
 						+ "this should have been caught before";
@@ -90,7 +88,7 @@ public class EprNonUnitClause extends EprClause {
 		// if not, we cannot do a unitpropagation
 		ArrayDeque<HashSet<TermTuple>> conflictPointSets = new ArrayDeque<>();
 		ArrayDeque<TermTuple> pointsFromLiterals = new ArrayDeque<>();
-		EprQuantifiedLitWExcptns quantUnitLit = (EprQuantifiedLitWExcptns) mUnitLiteral;
+		EprQuantifiedUnitClause quantUnitLit = (EprQuantifiedUnitClause) mUnitLiteral;
 
 		for (Literal li : eprQuantifiedPredicateLiterals) {
 			if (li.equals(quantUnitLit.getPredicateLiteral()))
@@ -106,7 +104,7 @@ public class EprNonUnitClause extends EprClause {
 					EprGroundPredicateAtom ua  = (EprGroundPredicateAtom) ((EprGroundUnitClause) ufr).getLiteral().getAtom();
 					conflictPointSets.getLast().add(ua.getArgumentsAsTermTuple());
 				} else {
-					EprQuantifiedLitWExcptns eqlwe = (EprQuantifiedLitWExcptns) ufr;
+					EprQuantifiedUnitClause eqlwe = (EprQuantifiedUnitClause) ufr;
 					if (eqlwe.mExceptions.length == 0) {
 						conflictPointSets.getLast().add(eqlwe.getPredicateAtom().getArgumentsAsTermTuple());
 					} else {
@@ -135,6 +133,7 @@ public class EprNonUnitClause extends EprClause {
 //				unifiedUnitLiteral = new UnFulReason(EprHelpers
 //						.applySubstitution(sub, mUnitLiteral.mLiteral, mTheory)); 
 				Literal substLit = EprHelpers.applySubstitution(sub, 
+//								((EprGroundUnitClause) mUnitLiteral).getLiteral(), mTheory, mStateManager.getCClosure());
 								((EprGroundUnitClause) mUnitLiteral).getLiteral(), mTheory);
 						
 						
@@ -147,10 +146,11 @@ public class EprNonUnitClause extends EprClause {
 					return null; //TODO: seems incomplete, maybe we want to propagate other points, then..
 				}
 			} else {
-				EprQuantifiedLitWExcptns rawUnitEqlwe = (EprQuantifiedLitWExcptns) mUnitLiteral;
+				EprQuantifiedUnitClause rawUnitEqlwe = (EprQuantifiedUnitClause) mUnitLiteral;
 				
 
 				Literal realLiteral = EprHelpers.applySubstitution(sub, 
+//						rawUnitEqlwe.getPredicateLiteral(), mTheory, mStateManager.getCClosure());
 						rawUnitEqlwe.getPredicateLiteral(), mTheory);
 				EprPredicateAtom realAtom = (EprPredicateAtom) realLiteral.getAtom();
 
@@ -169,9 +169,8 @@ public class EprNonUnitClause extends EprClause {
 				
 
 				if (realAtom instanceof EprQuantifiedPredicateAtom) {
-					EprQuantifiedLitWExcptns realUnitEqlwe = EprHelpers.buildEQLWE(
-							realLiteral.getSign() == 1, 
-							(EprQuantifiedPredicateAtom) realAtom, 
+					EprQuantifiedUnitClause realUnitEqlwe = EprHelpers.buildEQLWE(
+							realLiteral,
 							exceptions.toArray(new EprEqualityAtom[exceptions.size()]), 
 							this, mTheory, mStateManager);
 					unifiedUnitLiteral = realUnitEqlwe;
@@ -222,8 +221,7 @@ public class EprNonUnitClause extends EprClause {
 //				} else {
 					if (li instanceof EprQuantifiedPredicateAtom) {
 						mUnitLiteral = //new UnFulReason(
-								EprHelpers.buildEQLWE(li.getSign() == 1, 
-								(EprQuantifiedPredicateAtom) li.getAtom(), eprEqualityAtoms, this,
+								EprHelpers.buildEQLWE(li, eprEqualityAtoms, this,
 								mTheory, mStateManager);
 					} else {
 						assert false : "TODO -- something about finite models";
@@ -331,7 +329,7 @@ public class EprNonUnitClause extends EprClause {
 			"Fulfillability status map is incomplete.";
 	}
 	
-		/**
+	/**
 	 * Given li, a quantified literal of this clause, which uses an uninterpreted predicate, 
 	 * set the status of li to fulfilled/fulfillable/unfulfillable according to which 
 	 * quantified literals are set in the current state (as known to the EprStateManager). 
@@ -347,7 +345,7 @@ public class EprNonUnitClause extends EprClause {
 		EprQuantifiedPredicateAtom liAtom = (EprQuantifiedPredicateAtom) li.getAtom();
 		boolean liPositive = li.getSign() == 1;
 
-		for (EprQuantifiedLitWExcptns sl : mStateManager.getSetLiterals(liAtom.eprPredicate)) {
+		for (EprQuantifiedUnitClause sl : mStateManager.getSetLiterals(liAtom.eprPredicate)) {
 			TermTuple liTT = liAtom.getArgumentsAsTermTuple();
 			TermTuple slTT = sl.getPredicateAtom().getArgumentsAsTermTuple();
 			TTSubstitution sub = liTT.match(slTT, mEqualityManager);
@@ -355,60 +353,76 @@ public class EprNonUnitClause extends EprClause {
 				continue;
 //			if (subset(sl.mExceptedPoints, this.mExceptedPoints)) { // is this an efficient solution? --> then mb bring it back some time
 			
-		
-			if ((sl.getPredicateLiteral().getSign() == 1) == liPositive) {
-				assert false : "TODO..";
-			} else {
-				EprQuantifiedLitWExcptns liEQLWE = 
-					EprHelpers.buildEQLWE(liPositive, 
-							liAtom, 
-							eprEqualityAtoms, null, //explanation should not be used..
-							mTheory, mStateManager);
-				EprClause resolvent  = 
-						sl.resolveAgainst(liEQLWE, sub);
-				
-				if (resolvent.isTautology) {
-					// the eqlwe don't affect each other --> do nothing 
-				} else if (resolvent.isConflictClause()) {
-					setLiteralUnfulfillable(li, sl);
-				} else {
-					ArrayList<Literal> eeas = new ArrayList<>();
-					eeas.addAll(Arrays.asList(resolvent.eprEqualityAtoms));
-					eeas.addAll(Arrays.asList(resolvent.groundLiterals));
-					assert resolvent.eprQuantifiedPredicateLiterals.length == 0;
-					assert resolvent.groundLiterals.length == 0
-							|| resolvent.groundLiterals[0] instanceof CCEquality : 
-								"the resolvent should only consist of equalities, right???";
-					EprNonUnitClause dc = (EprNonUnitClause) this.instantiateClause(li, sub, eeas);
-					mStateManager.addDerivedClause(dc);
-				}
-			}
-
-//				if (sl.mIsPositive == liPositive) {
-//					if (sub.isEmpty() || isUnifierJustARenaming(sub, liTT, slTT)) {
-//						setLiteralFulfilled(li);
-//						return true;
-//					}
-//				} else {
-//					setLiteralUnfulfillable(li, new UnFulReason(sl));
-//					if (!isUnifierJustARenaming(sub, liTT, slTT) && doesUnifierChangeTheClause(sub, this)) {
-//						EprClause dc = instantiateClause(li, sub);
-//						if (!dc.isTautology) {
-//							System.out.println("EPRDEBUG (EprClause): " + sl + " is set. Creating clause " + this + 
-//									". ==> adding derived clause " + this + "\\" + li + " with unifier " + sub);
-//							mStateManager.addDerivedClause(dc); //resolution with the unit-clause {sl}
-//						} else {
-//							System.out.println("EPRDEBUG (EprClause): not adding tautology: " + dc);
-//						}
-//					}
-//					return true;
-//				}
-//			}
+			applySetLiteralToClauseLiteral(li, sl, sub);
 		}
 		return false;
 	}
-	
-		private void setLiteralFulfillable(Literal li) {
+
+	/**
+	 * Assumes 
+	 *  - setLiteral and li have different polarities
+	 *  - setLiteral has (just) been set.
+	 *  - li is a literal of this clause
+	 *  - sub is the non-null most-general unifier of the two
+	 * Does
+	 *  - update the fulfillabilityStatus of li according to setLiteral being set
+	 *  - introduce a derived clause consisting of equalities if it is a resolvent of 
+	 *   the clause "setLiteral"  and {li, this.eprEqualityAtoms}
+	 * @param li
+	 * @param setLiteral
+	 * @param sub
+	 */
+	public void applySetLiteralToClauseLiteral(Literal li, 
+			EprUnitClause setLiteral, TTSubstitution sub) {
+		assert mAllLiterals.contains(li);
+
+		Literal setLiteralPredicateLiteral = setLiteral instanceof EprQuantifiedUnitClause ?
+				((EprQuantifiedUnitClause) setLiteral).getPredicateLiteral() : 
+					((EprGroundUnitClause) setLiteral).getLiteral();
+
+		boolean polaritiesMatch = li.getSign() == setLiteralPredicateLiteral.getSign();
+
+		if (polaritiesMatch) {
+				// same polarity --> check for implication
+				ImplicationStatus impStat = null;
+//				impStat = getImplicationStatus(sub, clauseLit, this.eprEqualityAtoms, 
+//						setEqlwe.getPredicateLiteral(), setEqlwe.eprEqualityAtoms);
+				assert false : "TODO";
+		} else {
+
+			GetResolventStatus grs = new GetResolventStatus(sub, 
+					setLiteralPredicateLiteral,	setLiteral.eprEqualityAtoms,
+					li, eprEqualityAtoms);
+			switch (grs.getResolventStatus()) {
+			case Conflict:
+				setLiteralUnfulfillable(li, setLiteral);
+				break;
+			case ForcesFinite:
+				assert false : "TODO";
+			break;
+			case Ground:
+				//ArrayList<Literal> eeas = new ArrayList<>();
+				//					eeas.addAll(Arrays.asList(resolvent.eprEqualityAtoms));
+				//					eeas.addAll(Arrays.asList(resolvent.groundLiterals));
+				//					assert resolvent.eprQuantifiedPredicateLiterals.length == 0;
+				//					assert resolvent.groundLiterals.length == 0
+				//							|| resolvent.groundLiterals[0] instanceof CCEquality : 
+				//								"the resolvent should only consist of equalities, right???";
+				//					EprNonUnitClause dc = (EprNonUnitClause) this.instantiateClause(li, sub, eeas);
+				//					mStateManager.addDerivedClause(dc);
+				assert false : "TODO (use the above..)";
+			break;
+			case Tautology:
+				// literals don't interfere --> do nothing
+				break;
+			default:
+				assert false : "missing case";
+			break;
+			}
+		}
+	}
+
+	private void setLiteralFulfillable(Literal li) {
 		FulfillabilityStatus oldStatus = mFulfillabilityStatus.get(li);
 		if (oldStatus == FulfillabilityStatus.Fulfilled)
 			mFulfilledLiterals.remove(li);
@@ -452,25 +466,25 @@ public class EprNonUnitClause extends EprClause {
 		ufr.add(reason);
 	}
 	
-	public void setQuantifiedLiteralUnfulfillableBecauseOfGroundLiteral(
-			Literal quantifiedLit, Literal reason) {
-		assert reason.getAtom() instanceof EprGroundPredicateAtom;
-		assert quantifiedLit.getAtom() instanceof EprQuantifiedPredicateAtom;
-		setLiteralUnfulfillable(quantifiedLit, 
-				new EprGroundUnitClause(reason, mTheory, mStateManager, null));
-//		updateLiteralToUnfulfillabilityReasons(quantifiedLit, reason);
-	}
+//	public void setQuantifiedLiteralUnfulfillableBecauseOfGroundLiteral(
+//			Literal quantifiedLit, Literal reason) {
+//		assert reason.getAtom() instanceof EprGroundPredicateAtom;
+//		assert quantifiedLit.getAtom() instanceof EprQuantifiedPredicateAtom;
+//		setLiteralUnfulfillable(quantifiedLit, 
+//				new EprGroundUnitClause(reason, mTheory, mStateManager, null));
+////		updateLiteralToUnfulfillabilityReasons(quantifiedLit, reason);
+//	}
 
 
 
 	/**
 	 * Upgrade the clause state to account for the fact that literal has been set.
-	 * @param literal
+	 * @param setLiteral
 	 */
-	public void setGroundLiteral(Literal literal) {
+	public void setGroundLiteral(Literal setLiteral) {
 		for (Literal li : groundLiterals) {
-			if (literal.getAtom().equals(li.getAtom())) {
-				if (literal.getSign() == li.getSign()) {
+			if (setLiteral.getAtom().equals(li.getAtom())) {
+				if (setLiteral.getSign() == li.getSign()) {
 					setLiteralFulfilled(li);
 				} else {
 //					TODO: is this right? -- "li is its own reason, bc coming from setLiteral or so..
@@ -479,9 +493,10 @@ public class EprNonUnitClause extends EprClause {
 			}
 		}
 		
-		if (literal.getAtom() instanceof EprGroundPredicateAtom) {
-			boolean settingPositive = literal.getSign() == 1;
-			EprGroundPredicateAtom egpa = (EprGroundPredicateAtom) literal.getAtom();
+		if (setLiteral.getAtom() instanceof EprGroundPredicateAtom) {
+			// we have an ground literal that uses an epr predicate
+			boolean settingPositive = setLiteral.getSign() == 1;
+			EprGroundPredicateAtom egpa = (EprGroundPredicateAtom) setLiteral.getAtom();
 			TermTuple point = egpa.getArgumentsAsTermTuple(); 
 			EprPredicate pred = egpa.eprPredicate; 
 
@@ -492,13 +507,20 @@ public class EprNonUnitClause extends EprClause {
 					TermTuple otherPoint = new TermTuple(((EprPredicateAtom) quantifiedLit.getAtom()).getArguments());
 //					HashMap<TermVariable, Term> subs = point.match(otherPoint);
 					TTSubstitution subs = point.match(otherPoint, mEqualityManager);
-					if (oppositeSigns && subs != null) {
-						setQuantifiedLiteralUnfulfillableBecauseOfGroundLiteral(quantifiedLit, literal);
+					
+					
+
+					if (subs != null) {
+						applySetLiteralToClauseLiteral(quantifiedLit, 
+								new EprGroundUnitClause(setLiteral, mTheory, mStateManager, null), 
+								subs);
 					}
 				}
 			}
 		}	
 	}
+
+	
 	
 		/**
 	 * Upgrade the clause state to account for the fact that the setting of literal has been reverted/backtracked.
@@ -563,11 +585,9 @@ public class EprNonUnitClause extends EprClause {
 	 * @param qLiteral
 	 * @return a fresh EprClause that follows from first-order resolution with qLiteral
 	 */
-	public EprClause setQuantifiedLiteral(EprQuantifiedLitWExcptns setEqlwe) {
+	public EprClause setQuantifiedLiteral(EprQuantifiedUnitClause setEqlwe) {
 		boolean setLitPositive = setEqlwe.getPredicateLiteral().getSign() == 1;
 		EprQuantifiedPredicateAtom setLitAtom = setEqlwe.getPredicateAtom();
-//		HashMap<TermVariable, HashSet<ApplicationTerm>> exceptions = eqlwe.mExceptedPoints;
-//		assert exceptions == null || exceptions.isEmpty() : "treat this case!";
 		
 		ArrayList<Literal> predicateLiterals = new ArrayList<>();
 		predicateLiterals.addAll(Arrays.asList(eprQuantifiedPredicateLiterals));
@@ -578,7 +598,6 @@ public class EprNonUnitClause extends EprClause {
 		for (Literal clauseLit : predicateLiterals) {
 			boolean clauseLitPositive = clauseLit.getSign() == 1;
 			EprPredicateAtom clauseLitAtom = (EprPredicateAtom) clauseLit.getAtom();
-			boolean clauseLitIsQuantified = clauseLitAtom instanceof EprQuantifiedPredicateAtom;
 
 			// do the eprPredicates match? do nothing if they don't
 			if (!clauseLitAtom.eprPredicate.equals(setLitAtom.eprPredicate)) 
@@ -593,80 +612,81 @@ public class EprNonUnitClause extends EprClause {
 			if (sub == null)
 				continue;
 
-			if (clauseLitPositive == setLitPositive) {
-				assert false : "TODO..";
+			
+			////// analyse the relation of the set unit literal ant the current clause literal
+			boolean polaritiesMatch = clauseLitPositive == setLitPositive;
+
+			if (!polaritiesMatch) {
+				// different polarity --> look at the resolvent
+				applySetLiteralToClauseLiteral(clauseLit, setEqlwe, sub);
 			} else {
-				EprClause resolvent  = null;
-				if (clauseLitIsQuantified) {
-					EprQuantifiedLitWExcptns liEQLWE = 
-							EprHelpers.buildEQLWE(clauseLitPositive, (EprQuantifiedPredicateAtom) clauseLitAtom, 
-									eprEqualityAtoms, null,//explanation should not be used..
-									mTheory, mStateManager);
-					resolvent  = 
-							setEqlwe.resolveAgainst(liEQLWE, sub);
-				} else {
-					resolvent  = 
-							setEqlwe.resolveAgainst(clauseLitAtom, sub);
-				}
-				
-				
-				if (resolvent.isTautology) {
-					// the eqlwe don't affect each other --> do nothing 
-				} else if (resolvent.isConflictClause()) {
-					setLiteralUnfulfillable(clauseLit, setEqlwe);
-				} else {
-					ArrayList<Literal> eeas = new ArrayList<>();
-					eeas.addAll(Arrays.asList(resolvent.eprEqualityAtoms));
-					EprNonUnitClause dc = (EprNonUnitClause) this.instantiateClause(clauseLit, sub, eeas);
-					mStateManager.addDerivedClause(dc);
-				}
 			}
-//			// if the unifier is trivial, update this clauses' satisfiability status accordingly
-//			boolean unifierTrivial = isUnifierJustARenaming(sub, atomArgs, otherArgs);
-//			if (unifierTrivial) {
-//				
-//				// if the signs match, the clause is fulfilled
-//				if (positive == otherPositive
-//						&& otherIsQuantified) {
-//					setLiteralFulfillable(otherLit);
-////					assert !mFulfilledLiterals.contains(otherAtom);
-//					mFulfilledLiterals.add(otherLit);
-//				} else if (positive != otherPositive
-//						&& otherIsQuantified) {
-//					setLiteralUnfulfillable(otherLit, new UnFulReason(positive ? atom : atom.negate()));
-////					assert !mFulfilledLiterals.contains(otherAtom);
-//				} else if (positive == otherPositive
-//						&& !otherIsQuantified) {
-//					setGroundLiteral(otherLit);
-//				} else {
-//					setLiteralFulfillable(otherLit);
-//				}
-//				//TODO: deal with the case where several literals have the same predicate as qLiteral (factoring, multiple resolutions, ..?)
-//			}
-//
-//			//resolution is possible if the signs don't match
-//			Literal  skippedLit = positive != otherPositive ? otherLit : null;
-//			
-//			// if the unifier is not trivial the new clause is different --> return it
-//			if (!unifierTrivial || skippedLit != null) {
-////				EprClause newClause = instantiateClause(skippedLit, sub);
-//				EprClause newClause = instantiateClause(skippedLit, sub);
-//				mStateManager.addDerivedClause(newClause);
-//				return newClause;
-//			}
-//			
-//			// if this became a conflict clause, we need to return it
-//			if (this.isConflictClause()) {
-//				return this;
-//			}
 		}
 		return null;
 	}
+
+
 	
+	public ImplicationStatus getImplicationStatus(TTSubstitution sub, Literal clauseLit,
+			EprEqualityAtom[] eprEqualityAtoms, Literal predicateLiteral, EprEqualityAtom[] eprEqualityAtoms2) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
 	public boolean isConflictClause() {
 		for (Entry<Literal, FulfillabilityStatus> en : mFulfillabilityStatus.entrySet())
 			if (en.getValue() != FulfillabilityStatus.Unfulfillable)
 				return false;
 		return true;
+	}
+	
+	enum ResolventStatus {
+		Tautology, Conflict, ForcesFinite, Ground
+	}
+
+	enum ImplicationStatus {
+		AImpliesB, BImpliesA, Equivalent, Independent
+	}
+	
+	class GetResolventStatus {
+		ResolventStatus rs;
+		EprClause resolvent;
+
+		GetResolventStatus(TTSubstitution subs, Literal lit1, EprEqualityAtom[] eqAtoms1,
+				Literal lit2, EprEqualityAtom[] eqAtoms2) {
+			assert lit1.getSign() != lit2.getSign();
+			assert lit1.getAtom() instanceof EprPredicateAtom;
+			assert lit2.getAtom() instanceof EprPredicateAtom;
+
+			EprEqualityAtom[] eq1 = lit1.getAtom() instanceof EprQuantifiedPredicateAtom ? 
+					eqAtoms1 : new EprEqualityAtom[0];
+			EprEqualityAtom[] eq2 = lit2.getAtom() instanceof EprQuantifiedPredicateAtom ? 
+					eqAtoms2 : new EprEqualityAtom[0];
+
+
+			Literal[] substEqualities = EprHelpers.applyUnifierToEqualities(
+					eq1, eq2, subs, mTheory);										
+			resolvent = 
+					new EprDerivedClause(substEqualities, mTheory, mStateManager, this);
+
+			if (resolvent.isTautology)
+				rs = ResolventStatus.Tautology;
+			else if (resolvent.isConflictClause())
+				rs = ResolventStatus.Conflict;
+			else if (resolvent.forcesFiniteModel)
+				rs = ResolventStatus.ForcesFinite;
+			else if (resolvent.isGround())
+				rs = ResolventStatus.Ground;
+			else
+				assert false : "unforseen case.. -- what now?";
+		}
+		
+		ResolventStatus getResolventStatus() {
+			return rs;
+		}
+		
+		EprClause getResolvent() {
+			return resolvent;
+		}
 	}
 }

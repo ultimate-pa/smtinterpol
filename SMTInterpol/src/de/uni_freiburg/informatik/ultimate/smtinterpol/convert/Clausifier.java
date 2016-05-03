@@ -2151,7 +2151,8 @@ public class Clausifier {
 
 		if (mEprTheory == null) {
 //			mEprTheory = new EprTheory(this.getTheory());
-			mEprTheory = new EprTheory(mTheory, mEngine);
+			
+			mEprTheory = new EprTheory(mTheory, mEngine, mCClosure);
 			mEngine.addTheory(mEprTheory);
 		}
 	}

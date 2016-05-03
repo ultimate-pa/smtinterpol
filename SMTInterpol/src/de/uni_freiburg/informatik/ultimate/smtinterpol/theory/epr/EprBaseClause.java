@@ -7,7 +7,6 @@ public class EprBaseClause extends EprNonUnitClause {
 
 	public EprBaseClause(Literal[] literals, Theory theory, EprStateManager stateManager) {
 		super(literals, theory, stateManager);
-		// TODO Auto-generated constructor stub
 	}
 
 }
