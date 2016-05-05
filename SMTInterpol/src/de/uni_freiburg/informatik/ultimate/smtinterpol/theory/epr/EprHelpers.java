@@ -6,7 +6,7 @@ import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprEqualityAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClause;
@@ -37,13 +37,13 @@ public class EprHelpers {
 				result = eqpa.eprPredicate.getAtomForPoint(newTT, theory, l.getAtom().getAssertionStackLevel());
 			}
 			return isPositive ? result : result.negate();
-		} else if (atom instanceof EprEqualityAtom) {
-			EprEqualityAtom eea = (EprEqualityAtom) atom;
+		} else if (atom instanceof EprQuantifiedEqualityAtom) {
+			EprQuantifiedEqualityAtom eea = (EprQuantifiedEqualityAtom) atom;
 			TermTuple newTT = sub.apply(eea.getArgumentsAsTermTuple());
 			ApplicationTerm newTerm = theory.term("=", newTT.terms);
 			DPLLAtom result = null;
 			if (newTerm.getFreeVars().length > 0) {
-				result = new EprEqualityAtom(newTerm, 0, l.getAtom().getAssertionStackLevel());//TODO: hash
+				result = new EprQuantifiedEqualityAtom(newTerm, 0, l.getAtom().getAssertionStackLevel());//TODO: hash
 //			} else if (newTerm.getParameters()[0].equals(newTerm.getParameters()[1])) {
 			} else {
 //				TODO: will need a management for these atoms -- so there are no duplicates..
@@ -60,7 +60,7 @@ public class EprHelpers {
 //			boolean isPositive, 
 //			EprQuantifiedPredicateAtom atom, 
 			Literal quantifiedPredicateLiteral,
-			EprEqualityAtom[] excep,
+			EprQuantifiedEqualityAtom[] excep,
 			EprClause explanation,
 			Theory theory,
 			EprStateManager stateManager) {
@@ -86,15 +86,25 @@ public class EprHelpers {
 	 * @param sub
 	 * @return
 	 */
-	public static Literal[] applyUnifierToEqualities(EprEqualityAtom[] eprEqualityAtoms1,
-			EprEqualityAtom[] eprEqualityAtoms2, TTSubstitution sub, Theory theory) {
+	public static Literal[] applyUnifierToEqualities(EprQuantifiedEqualityAtom[] eprEqualityAtoms1,
+			EprQuantifiedEqualityAtom[] eprEqualityAtoms2, TTSubstitution sub, Theory theory) {
 		
 		ArrayList<Literal> result = new ArrayList<>();
-		for (EprEqualityAtom eea : eprEqualityAtoms1) 
+		for (EprQuantifiedEqualityAtom eea : eprEqualityAtoms1) 
 			result.add(EprHelpers.applySubstitution(sub, eea, theory));
-		for (EprEqualityAtom eea : eprEqualityAtoms2)
+		for (EprQuantifiedEqualityAtom eea : eprEqualityAtoms2)
 			result.add(EprHelpers.applySubstitution(sub, eea, theory));
 
 		return result.toArray(new Literal[result.size()]);
+	}
+	
+	public static ArrayList<DPLLAtom> substituteInExceptions(
+			EprQuantifiedEqualityAtom[] equalities, TTSubstitution sub, Theory theory) {
+		
+		ArrayList<DPLLAtom> result = new ArrayList<>();
+		for (EprQuantifiedEqualityAtom eea : equalities) {
+			result.add((DPLLAtom) EprHelpers.applySubstitution(sub, eea, theory));
+		}
+		return result;
 	}
 }

@@ -28,7 +28,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution.SubsPair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution.TPair;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprEqualityAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
 
@@ -55,7 +55,7 @@ public abstract class EprClause extends Clause {
 	
 	enum FulfillabilityStatus { Fulfilled, Fulfillable, Unfulfillable };
 
-	protected EprEqualityAtom[] eprEqualityAtoms;
+	protected EprQuantifiedEqualityAtom[] eprEqualityAtoms;
 	protected Literal[] eprQuantifiedPredicateLiterals;
 	protected Literal[] groundLiterals;
 	
@@ -212,7 +212,7 @@ public abstract class EprClause extends Clause {
 		// TODO: is this (counting then making arrays) more efficient than using
 		// a list?
 		for (Literal l : literals) {
-			if (l.getAtom() instanceof EprEqualityAtom) {
+			if (l.getAtom() instanceof EprQuantifiedEqualityAtom) {
 				// TODO: this assert is probably too strict: we have to allow
 				// disequalities between quantified variables, right?
 				assert l.getSign() == 1 : "Destructive equality reasoning should have eliminated this literal.";
@@ -224,17 +224,17 @@ public abstract class EprClause extends Clause {
 			}
 		}
 
-		eprEqualityAtoms = new EprEqualityAtom[noQuantifiedEqualities];
+		eprEqualityAtoms = new EprQuantifiedEqualityAtom[noQuantifiedEqualities];
 		eprQuantifiedPredicateLiterals = new Literal[noQuantifiedPredicates];
 		groundLiterals = new Literal[noOthers];
 
 		// TODO: reusing the counter as array index may be unnecessarily
 		// confusing..
 		for (Literal l : literals) {
-			if (l.getAtom() instanceof EprEqualityAtom) {
+			if (l.getAtom() instanceof EprQuantifiedEqualityAtom) {
 				assert l.getSign() == 1 : "negated quantified equality should have been removed by DER";
 //				eprEqualityLiterals[--noQuantifiedEqualities] = l;
-				eprEqualityAtoms[--noQuantifiedEqualities] = (EprEqualityAtom) l;
+				eprEqualityAtoms[--noQuantifiedEqualities] = (EprQuantifiedEqualityAtom) l;
 //			} else if (l.getAtom() instanceof EprPredicateAtom) {
 			} else if (l.getAtom() instanceof EprQuantifiedPredicateAtom) {
 				// Have the EprPredicates point to the clauses and literals
@@ -249,8 +249,8 @@ public abstract class EprClause extends Clause {
 		}
 
 		for (Literal l : eprEqualityAtoms) {
-			Term p0 = ((ApplicationTerm) ((EprEqualityAtom) l.getAtom()).getTerm()).getParameters()[0];
-			Term p1 = ((ApplicationTerm) ((EprEqualityAtom) l.getAtom()).getTerm()).getParameters()[1];
+			Term p0 = ((ApplicationTerm) ((EprQuantifiedEqualityAtom) l.getAtom()).getTerm()).getParameters()[0];
+			Term p1 = ((ApplicationTerm) ((EprQuantifiedEqualityAtom) l.getAtom()).getTerm()).getParameters()[1];
 			if (p0 instanceof TermVariable && p1 instanceof TermVariable) {
 				addExceptedEquality((TermVariable) p0, (TermVariable) p1);
 			} else if (p0 instanceof TermVariable) {
@@ -611,7 +611,7 @@ public abstract class EprClause extends Clause {
 		return groundLiterals;
 	}
 	
-	public EprEqualityAtom[] getEqualityAtoms() {
+	public EprQuantifiedEqualityAtom[] getEqualityAtoms() {
 		return eprEqualityAtoms;
 	}
 }

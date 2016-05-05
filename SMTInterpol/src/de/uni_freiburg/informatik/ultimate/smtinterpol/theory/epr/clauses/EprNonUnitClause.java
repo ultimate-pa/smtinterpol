@@ -7,6 +7,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map.Entry;
 
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
@@ -17,7 +20,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprQuantifiedP
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprStateManager;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprEqualityAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
 
@@ -139,11 +143,12 @@ public class EprNonUnitClause extends EprClause {
 					rawUnitEqlwe.getPredicateLiteral(), mTheory);
 			EprPredicateAtom realAtom = (EprPredicateAtom) realLiteral.getAtom();
 
-			ArrayList<EprEqualityAtom> exceptions = new ArrayList<>();
-			ArrayList<DPLLAtom> eqs = rawUnitEqlwe.substituteInExceptions(sub, mTheory);
+			ArrayList<EprQuantifiedEqualityAtom> exceptions = new ArrayList<>();
+			ArrayList<DPLLAtom> eqs = EprHelpers.substituteInExceptions(
+					rawUnitEqlwe.eprEqualityAtoms, sub, mTheory);
 			for (DPLLAtom eq : eqs) {
-				if (eq instanceof EprEqualityAtom) {
-					exceptions.add((EprEqualityAtom) eq);
+				if (eq instanceof EprQuantifiedEqualityAtom) {
+					exceptions.add((EprQuantifiedEqualityAtom) eq);
 				} else if (eq instanceof CCEquality) {
 					assert false : "TODO: do";
 				} else 
@@ -153,7 +158,7 @@ public class EprNonUnitClause extends EprClause {
 			if (realAtom instanceof EprQuantifiedPredicateAtom) {
 				EprQuantifiedUnitClause realUnitEqlwe = EprHelpers.buildEQLWE(
 						realLiteral,
-						exceptions.toArray(new EprEqualityAtom[exceptions.size()]), 
+						exceptions.toArray(new EprQuantifiedEqualityAtom[exceptions.size()]), 
 						this, mTheory, mStateManager);
 				unifiedUnitLiteral = realUnitEqlwe;
 			} else {
@@ -578,16 +583,88 @@ public class EprNonUnitClause extends EprClause {
 
 	
 	public ImplicationStatus getImplicationStatus(TTSubstitution sub, Literal litA,
-			EprEqualityAtom[] equalitiesA, Literal litB, EprEqualityAtom[] equalitiesB) {
+			EprQuantifiedEqualityAtom[] equalitiesA, Literal litB, EprQuantifiedEqualityAtom[] equalitiesB) {
 		assert litA.getSign() == litB.getSign();
 		assert litA.getAtom() instanceof EprPredicateAtom;
 		assert litB.getAtom() instanceof EprPredicateAtom;
 		assert ((EprPredicateAtom) litA.getAtom()).eprPredicate.equals(
 				((EprPredicateAtom) litB.getAtom()).eprPredicate);
 		
+		ArrayList<DPLLAtom> unifiedEqualitiesA = EprHelpers.substituteInExceptions(
+				equalitiesA, sub, mTheory);
+		ArrayList<DPLLAtom> unifiedEqualitiesB = EprHelpers.substituteInExceptions(
+				equalitiesB, sub, mTheory);
+		
+		ArrayList<EprGroundEqualityAtom> unifiedGroundEqualitiesA = 
+				new ArrayList<>();
+		ArrayList<EprGroundEqualityAtom> unifiedGroundEqualitiesB = 
+				new ArrayList<>();
+		// singly quantified equality means: (= x a) or so --> i.e. only one term
+		//   of the two is a variable
+		// doubly quantified is like (= x y)
+		ArrayList<EprQuantifiedEqualityAtom> unifiedSinglyQuantifiedEqualitiesA = 
+				new ArrayList<>();
+		ArrayList<EprQuantifiedEqualityAtom> unifiedSinglyQuantifiedEqualitiesB = 
+				new ArrayList<>();
+		HashMap<TermVariable, HashSet<ApplicationTerm>> unifiedSinglyQuantifiedEqualitiesAasMap =
+				new HashMap<>();
+		HashMap<TermVariable, HashSet<ApplicationTerm>> unifiedSinglyQuantifiedEqualitiesBasMap =
+				new HashMap<>();
+		ArrayList<EprQuantifiedEqualityAtom> unifiedDoublyQuantifiedEqualitiesA = 
+				new ArrayList<>();
+		ArrayList<EprQuantifiedEqualityAtom> unifiedDoublyQuantifiedEqualitiesB = 
+				new ArrayList<>();
+
+		sortEqualities(unifiedEqualitiesA, 
+				unifiedGroundEqualitiesA, 
+				unifiedSinglyQuantifiedEqualitiesA, 
+				unifiedSinglyQuantifiedEqualitiesAasMap,
+				unifiedDoublyQuantifiedEqualitiesA);
+		sortEqualities(unifiedEqualitiesB, 
+				unifiedGroundEqualitiesB, 
+				unifiedSinglyQuantifiedEqualitiesB, 
+				unifiedSinglyQuantifiedEqualitiesBasMap,
+				unifiedDoublyQuantifiedEqualitiesB);
+
+
+
+		
+		
 		
 		
 		return null;
+	}
+
+	private void sortEqualities(ArrayList<DPLLAtom> unsortedEqualities,
+			ArrayList<EprGroundEqualityAtom> groundEqualities,
+			ArrayList<EprQuantifiedEqualityAtom> singlyQuantifiedEqualities,
+			HashMap<TermVariable, HashSet<ApplicationTerm>> singlyQuantifiedEqualitiesAsMap,
+			ArrayList<EprQuantifiedEqualityAtom> doublyQuantifiedEqualities) {
+		for (DPLLAtom eq : unsortedEqualities) {
+			if (eq instanceof EprGroundEqualityAtom) {
+				groundEqualities.add((EprGroundEqualityAtom) eq);
+			} else {
+				EprQuantifiedEqualityAtom qea = (EprQuantifiedEqualityAtom) eq;
+				if (qea.areBothQuantified()) {
+					doublyQuantifiedEqualities.add(qea);
+				} else {
+					singlyQuantifiedEqualities.add(qea);
+
+					// update map
+					TermVariable tv = qea.getLhs() instanceof TermVariable ?
+							(TermVariable) qea.getLhs() : (TermVariable) qea.getRhs();
+					ApplicationTerm at = qea.getLhs() instanceof TermVariable ?
+							(ApplicationTerm) qea.getRhs() : (ApplicationTerm) qea.getLhs();
+
+					HashSet<ApplicationTerm> hs = singlyQuantifiedEqualitiesAsMap.get(tv);
+					if (hs == null) {
+						hs = new HashSet<>();
+						singlyQuantifiedEqualitiesAsMap.put(tv, hs);
+					}
+					hs.add(at);
+				}
+			}
+		}
 	}
 
 	public boolean isConflictClause() {
@@ -609,16 +686,16 @@ public class EprNonUnitClause extends EprClause {
 		ResolventStatus rs;
 		EprClause resolvent;
 
-		GetResolventStatus(TTSubstitution subs, Literal lit1, EprEqualityAtom[] eqAtoms1,
-				Literal lit2, EprEqualityAtom[] eqAtoms2) {
+		GetResolventStatus(TTSubstitution subs, Literal lit1, EprQuantifiedEqualityAtom[] eqAtoms1,
+				Literal lit2, EprQuantifiedEqualityAtom[] eqAtoms2) {
 			assert lit1.getSign() != lit2.getSign();
 			assert lit1.getAtom() instanceof EprPredicateAtom;
 			assert lit2.getAtom() instanceof EprPredicateAtom;
 
-			EprEqualityAtom[] eq1 = lit1.getAtom() instanceof EprQuantifiedPredicateAtom ? 
-					eqAtoms1 : new EprEqualityAtom[0];
-			EprEqualityAtom[] eq2 = lit2.getAtom() instanceof EprQuantifiedPredicateAtom ? 
-					eqAtoms2 : new EprEqualityAtom[0];
+			EprQuantifiedEqualityAtom[] eq1 = lit1.getAtom() instanceof EprQuantifiedPredicateAtom ? 
+					eqAtoms1 : new EprQuantifiedEqualityAtom[0];
+			EprQuantifiedEqualityAtom[] eq2 = lit2.getAtom() instanceof EprQuantifiedPredicateAtom ? 
+					eqAtoms2 : new EprQuantifiedEqualityAtom[0];
 
 
 			Literal[] substEqualities = EprHelpers.applyUnifierToEqualities(

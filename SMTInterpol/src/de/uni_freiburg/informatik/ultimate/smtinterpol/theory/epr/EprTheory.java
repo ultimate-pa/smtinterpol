@@ -33,7 +33,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprAtom;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprEqualityAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprGroundUnitClause;
@@ -124,7 +124,7 @@ public class EprTheory implements ITheory {
 			setGroundLiteralInClauses(literal);
 
 			return null;
-		} else if (atom instanceof EprEqualityAtom 
+		} else if (atom instanceof EprQuantifiedEqualityAtom 
 				|| atom instanceof EprQuantifiedPredicateAtom) {
 			assert false : "DPLLEngine is setting a quantified EprAtom --> this cannot be..";
 			return null;
@@ -175,7 +175,7 @@ public class EprTheory implements ITheory {
 			for (EprNonUnitClause ec : mStateManager.getAllClauses())
 				ec.unsetGroundLiteral(literal);
 
-		} else if (atom instanceof EprEqualityAtom
+		} else if (atom instanceof EprQuantifiedEqualityAtom
 				|| atom instanceof EprQuantifiedPredicateAtom) {
 			assert false : "DPLLEngine is unsetting a quantified EprAtom --> this cannot be..";
 		} else if (atom instanceof CCEquality) {
@@ -253,7 +253,7 @@ public class EprTheory implements ITheory {
 						EprQuantifiedUnitClause eqlwe = EprHelpers.buildEQLWE(
 								groundUnitLiteral,
 								//							ec.mExceptedPoints, 
-								new EprEqualityAtom[0],
+								new EprQuantifiedEqualityAtom[0],
 								ec, 
 								mTheory, mStateManager);
 
@@ -286,7 +286,7 @@ public class EprTheory implements ITheory {
 	}
 
 	public void addAtomToDPLLEngine(DPLLAtom atom) {
-		assert !(atom instanceof EprEqualityAtom || atom instanceof EprQuantifiedPredicateAtom);
+		assert !(atom instanceof EprQuantifiedEqualityAtom || atom instanceof EprQuantifiedPredicateAtom);
 		if (!mAtomsAddedToDPLLEngine.contains(atom)) { //TODO not so nice, with the extra set..
 			mEngine.addAtom(atom);
 			mAtomsAddedToDPLLEngine.add(atom);
@@ -545,7 +545,7 @@ public class EprTheory implements ITheory {
 		if (idx.getFunction().getName().equals("=")) {
 			assert idx.getFreeVars().length > 0;
 		    ApplicationTerm subTerm = applyAlphaRenaming(idx, mCollector);
-			return new EprEqualityAtom(subTerm, hash, assertionStackLevel);
+			return new EprQuantifiedEqualityAtom(subTerm, hash, assertionStackLevel);
 		} else {
 			EprPredicate pred = mFunctionSymbolToEprPredicate.get(idx.getFunction());
 			if (pred == null) {
@@ -622,7 +622,7 @@ public class EprTheory implements ITheory {
 			while (disEquality != null) {
 				currentClause.remove(disEquality);
 
-				TTSubstitution sub = extractSubstitutionFromEquality((EprEqualityAtom) disEquality.getAtom());			
+				TTSubstitution sub = extractSubstitutionFromEquality((EprQuantifiedEqualityAtom) disEquality.getAtom());			
 
 				mResult = new HashSet<>();
 				mIsResultGround = true;
@@ -634,7 +634,7 @@ public class EprTheory implements ITheory {
 						} else {
 							continue; //omit "false"
 						}
-					} else if (sl.getAtom() instanceof EprEqualityAtom ||
+					} else if (sl.getAtom() instanceof EprQuantifiedEqualityAtom ||
 							sl.getAtom() instanceof EprQuantifiedPredicateAtom) {
 						mIsResultGround = false;
 					} else if (sl.getAtom() instanceof EprGroundPredicateAtom ||
@@ -649,7 +649,7 @@ public class EprTheory implements ITheory {
 			}
 		}
 
-		public TTSubstitution extractSubstitutionFromEquality(EprEqualityAtom eea) {
+		public TTSubstitution extractSubstitutionFromEquality(EprQuantifiedEqualityAtom eea) {
 			TermTuple tt = eea.getArgumentsAsTermTuple();
 			TermVariable tv = null;
 			Term t = null;
@@ -665,7 +665,7 @@ public class EprTheory implements ITheory {
 
 		private Literal findDisequality(HashSet<Literal> literals) {
 			for (Literal l : literals) {
-				if (l.getSign() != 1 && l.getAtom() instanceof EprEqualityAtom)
+				if (l.getSign() != 1 && l.getAtom() instanceof EprQuantifiedEqualityAtom)
 					return l;
 			}
 			return null;
@@ -680,7 +680,7 @@ public class EprTheory implements ITheory {
 		 */
 		public Literal getSubstitutedLiteral(TTSubstitution sub, Literal li) {
 			if (li.getAtom() instanceof EprQuantifiedPredicateAtom 
-					|| li.getAtom() instanceof EprEqualityAtom) {
+					|| li.getAtom() instanceof EprQuantifiedEqualityAtom) {
 				boolean liPositive = li.getSign() == 1;
 				TermTuple liTT = ((EprAtom) li.getAtom()).getArgumentsAsTermTuple();
 
@@ -690,7 +690,7 @@ public class EprTheory implements ITheory {
 					return li;
 				}
 
-				if (li.getAtom() instanceof EprEqualityAtom) {
+				if (li.getAtom() instanceof EprQuantifiedEqualityAtom) {
 					if (newTT.isGround()) {
 						if (newTT.terms[0] == newTT.terms[1] && liPositive) {
 							return new DPLLAtom.TrueAtom();
@@ -700,7 +700,7 @@ public class EprTheory implements ITheory {
 						throw new UnsupportedOperationException();// how to obtain a fresh CCEquality???
 //							addAtomToDPLLEngine(ea);
 					} else {
-						EprEqualityAtom eea = new EprEqualityAtom(mTheory.term("=", newTT.terms),
+						EprQuantifiedEqualityAtom eea = new EprQuantifiedEqualityAtom(mTheory.term("=", newTT.terms),
 								0,  //TODO use good hash
 								li.getAtom().getAssertionStackLevel());
 						return liPositive ? eea : eea.negate();

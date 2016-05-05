@@ -15,7 +15,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprStateManager;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprEqualityAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 
 /**
  * Stands for a clause of that contains one quantified literal built from an uninterpreted predicate,
@@ -43,7 +43,7 @@ public class EprQuantifiedUnitClause extends EprUnitClause {
 	private EprQuantifiedPredicateAtom mAtom;
 
 	// exceptions
-	EprEqualityAtom[] mExceptions;
+	EprQuantifiedEqualityAtom[] mExceptions;
 
 	public String toString() {
 		return  mPredicateLiteral.toString() + "\\" + Arrays.toString(mExceptions);
@@ -55,17 +55,6 @@ public class EprQuantifiedUnitClause extends EprUnitClause {
 
 	public EprQuantifiedPredicateAtom getPredicateAtom() {
 		return mAtom;
-	}
-	
-	public ArrayList<DPLLAtom> substituteInExceptions(
-			TTSubstitution sub, Theory theory) {
-		
-		ArrayList<DPLLAtom> result = new ArrayList<>();
-		for (EprEqualityAtom eea : mExceptions) {
-//			result.add((DPLLAtom) EprHelpers.applySubstitution(sub, eea, theory, mStateManager.getCClosure()));
-			result.add((DPLLAtom) EprHelpers.applySubstitution(sub, eea, theory));
-		}
-		return result;
 	}
 
 	@Override

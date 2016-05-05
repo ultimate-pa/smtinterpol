@@ -136,14 +136,17 @@ public class EprStateManager {
 
 		
 		mEprStateStack.peek().setQuantifiedLiteralWithExceptions(eqlwe);
-
+		
+		
 		//TODO: possibly do a more efficient consistency check
 		// i.e. only wrt the currently set literal
 		Clause conflict = checkConsistency();
 		if (conflict != null) {
 			mEprStateStack.peek().unsetQuantifiedLiteralWithExceptions(eqlwe);
 		}
-		
+
+		//TODO:
+		// possibly update all literal states in clauses, right?..
 		return conflict;
 	}
 	
@@ -154,8 +157,15 @@ public class EprStateManager {
 	
 		mEqualityManager.addEquality(lhs, rhs, (CCEquality) eq);
 	
+	
 		// is there a conflict with currently set points or quantifiedy literals?
-		return checkConsistency();
+		Clause conflict = checkConsistency();
+		
+		//TODO:
+		// possibly update all literal states in clauses, right?..
+		//  (..if there is no conflict?..)
+
+		return conflict;
 	}
 	
 	/**

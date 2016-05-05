@@ -5,13 +5,13 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 
-public class EprEqualityAtom extends EprAtom {
+public class EprQuantifiedEqualityAtom extends EprAtom {
 	
 	private final Term lhs;
 	private final Term rhs;
 	private final boolean bothQuantified;
 
-	public EprEqualityAtom(ApplicationTerm term, int hash, int assertionstacklevel) {
+	public EprQuantifiedEqualityAtom(ApplicationTerm term, int hash, int assertionstacklevel) {
 		super(term, hash, assertionstacklevel);
 		assert term.getFunction().getName().equals("=");
 		assert term.getFreeVars().length > 0;
