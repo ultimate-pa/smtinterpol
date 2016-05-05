@@ -53,7 +53,9 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredi
  */
 public abstract class EprClause extends Clause {
 	
-	protected boolean isFreshAlphaRenamed = false;
+	protected final boolean isFreshAlphaRenamed;
+	protected final TTSubstitution mFreshAlphaRenaming;
+
 	
 	enum FulfillabilityStatus { Fulfilled, Fulfillable, Unfulfillable };
 
@@ -106,12 +108,13 @@ public abstract class EprClause extends Clause {
 	boolean forcesFiniteModel = false;
 
 	public EprClause(Literal[] literals, Theory theory, 
-			EprStateManager stateManager, boolean freshAlphaRenamed) {
+			EprStateManager stateManager, boolean freshAlphaRenamed, TTSubstitution freshAlphaRen) {
 		super(literals);
 		mTheory = theory;
 		mStateManager = stateManager;
 		mEqualityManager = stateManager.mEqualityManager;
 		this.isFreshAlphaRenamed = freshAlphaRenamed;
+		this.mFreshAlphaRenaming = freshAlphaRen;
 		setUpClause(literals);
 	}
 
@@ -425,64 +428,16 @@ public abstract class EprClause extends Clause {
 	 * @param sub
 	 * @return
 	 */
-//	private boolean isUnifierTrivial(HashMap<TermVariable, Term> sub, TermTuple tt1, TermTuple tt2) {
 	public static boolean isUnifierJustARenaming(TTSubstitution sub, TermTuple tt1, TermTuple tt2) {
-
-		
-//		if (tt1.applySubstitution(sub).getFreeVars().size() != tt1.getFreeVars().size())
 		if (sub.apply(tt1).getFreeVars().size() != tt1.getFreeVars().size())
 			return false;
-//		if (tt2.applySubstitution(sub).getFreeVars().size() != tt2.getFreeVars().size())
 		if (sub.apply(tt2).getFreeVars().size() != tt2.getFreeVars().size())
 			return false;
 		return true;
 	}
 
-//	/**
-//	 * 
-//	 */
-//	public void updateClauseState(EprStateManager eprStateManager) {
-//		for (EprQuantifiedLitWExcptns eqlwe : eprStateManager.getSetLiterals()) {
-//			setQuantifiedLiteral(eqlwe);
-//		}
-//	}
-	
-//	class UnFulReason {
-//
-//		public UnFulReason(Literal li) {
-//			assert !(li.getAtom() instanceof EprQuantifiedPredicateAtom) : 
-//				"probably better to use an eqlwe in this case";
-//			mLiteral = li;
-//			mqlwe = null;
-//		}
-//
-//		public UnFulReason(EprQuantifiedLitWExcptns qlwe) {
-//			mLiteral = null;
-//			mqlwe = qlwe;
-//		}
-//		
-//		final Literal mLiteral;
-//		final EprQuantifiedLitWExcptns mqlwe;
-//		
-//		/**
-//		 * returns just the literal form this UnFulReason.
-//		 */
-//		public Literal getLiteral() {
-//			if (mLiteral != null)
-//				return mLiteral;
-//			else
-//				return mqlwe.getPredicateLiteral();
-//		}
-//		
-//		@Override
-//		public String toString() {
-//			return mLiteral == null ? mqlwe.toString() : mLiteral.toString();
-//		}
-//	}
-
 	class ComputeInstantiations {
 		private ArrayList<ArrayList<TermTuple>> mAllInstantiations = new ArrayList<>();
-//		private HashMap<HashMap<TermVariable, Term>, ArrayList<ArrayList<TermTuple>>> mSubstitutionToInstantiations = new HashMap<>();
 		private HashMap<TTSubstitution, ArrayList<ArrayList<TermTuple>>> mSubstitutionToInstantiations = new HashMap<>();
 
 		public ComputeInstantiations(ArrayDeque<HashSet<TermTuple>> conflictPointSets, 
@@ -491,7 +446,6 @@ public abstract class EprClause extends Clause {
 			computeInstantiations(new ArrayList<ArrayList<TermTuple>>(), 
 					conflictPointSets, 
 					pointsFromLiterals, 
-//					new HashMap<TermVariable, Term>(), 
 					new TTSubstitution(),
 					true);
 		}
@@ -512,7 +466,6 @@ public abstract class EprClause extends Clause {
 		 */
 		private void computeInstantiations(ArrayList<ArrayList<TermTuple>> partialInstantiations,
 				ArrayDeque<HashSet<TermTuple>> conflictPointSets, ArrayDeque<TermTuple> pointsFromLiterals,
-//				HashMap<TermVariable, Term> substitution, boolean isFirstCall) {
 				TTSubstitution substitution, boolean isFirstCall) {
 			// TODO: might be better to rework this as NonRecursive
 
@@ -526,7 +479,6 @@ public abstract class EprClause extends Clause {
 			TermTuple currentPfl = pointsFromLiterals.pollFirst();
 
 			for (TermTuple tt : currentPoints) {
-//				HashMap<TermVariable, Term> newSubs = new HashMap<TermVariable, Term>(substitution);
 				TTSubstitution newSubs = new TTSubstitution(substitution);
 				newSubs = tt.match(currentPfl, newSubs, mEqualityManager);
 
@@ -547,12 +499,10 @@ public abstract class EprClause extends Clause {
 							instantiationsNew.add(inNew);
 						}
 					}
-//					return computeInstantiations(instantiationsNew, new ArrayDeque<HashSet<TermTuple>>(conflictPointSets),
 					computeInstantiations(instantiationsNew, new ArrayDeque<HashSet<TermTuple>>(conflictPointSets),
 							new ArrayDeque<TermTuple>(pointsFromLiterals), newSubs, false);
 				}
 			}
-//			return new ArrayList<ArrayList<TermTuple>>();
 		}
 
 		/**
@@ -563,15 +513,11 @@ public abstract class EprClause extends Clause {
 		 * 
 		 * returns true iff newSubs corresponds to at least one excepted point
 		 */
-//		private boolean isSubstitutionExcepted(HashMap<TermVariable, Term> newSubs) {
 		private boolean isSubstitutionExcepted(TTSubstitution newSubs) {
-//			for (Entry<TermVariable, Term> en : newSubs.entrySet()) {
 			for (SubsPair en : newSubs.getSubsPairs()) {
-//				HashSet<ApplicationTerm> epCon = mExceptedPoints.get(en.getKey());
 				if (en instanceof TPair) {
 					TPair tp = (TPair) en;
 					HashSet<ApplicationTerm> epCon = mExceptedPoints.get(tp.tv);
-					//				if (epCon != null && epCon.contains(en.getValue()))
 					if (epCon != null && epCon.contains(tp.t))
 						return true;
 				}
@@ -593,7 +539,6 @@ public abstract class EprClause extends Clause {
 		 * @return 
 		 * @return
 		 */
-//		public HashMap<TermVariable, Term> getSubstitution() {
 		public TTSubstitution getSubstitution() {
 			if (mSubstitutionToInstantiations.isEmpty())
 				return null;
@@ -629,15 +574,20 @@ public abstract class EprClause extends Clause {
 		return eprQuantifiedEqualityAtoms;
 	}
 	
-	public abstract EprClause getAlphaRenamedVersion();
+	public abstract EprClause getFreshAlphaRenamedVersion();
 
-	protected ArrayList<Literal> getFreshAlphaRenamedLiterals() {
-		TTSubstitution sub = new TTSubstitution();
+	protected ArrayList<Literal> getFreshAlphaRenamedLiterals(TTSubstitution sub) {
+//		TTSubstitution sub = new TTSubstitution();
 		for (TermVariable fv : this.getFreeVars()) {
 			sub.addSubs(mTheory.createFreshTermVariable(fv.getName(), fv.getSort()), fv);
 		}
 		
 		ArrayList<Literal> newLits = getSubstitutedLiterals(sub);
 		return newLits;
+	}
+	
+	public TTSubstitution getFreshAlphaRenaming() {
+		assert isFreshAlphaRenamed;
+		return mFreshAlphaRenaming;
 	}
 }

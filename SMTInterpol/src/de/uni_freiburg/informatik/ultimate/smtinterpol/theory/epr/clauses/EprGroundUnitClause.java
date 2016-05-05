@@ -3,6 +3,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprStateManager;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution;
 
 public class EprGroundUnitClause extends EprUnitClause {
 
@@ -14,7 +15,8 @@ public class EprGroundUnitClause extends EprUnitClause {
 	public EprGroundUnitClause(Literal literal, Theory theory, 
 			EprStateManager stateManager, EprClause explanation,
 			boolean freshAlphaRenaming) {
-		super(new Literal[] { literal }, theory, stateManager, explanation, freshAlphaRenaming);
+		super(new Literal[] { literal }, theory, stateManager, explanation, 
+				freshAlphaRenaming, new TTSubstitution());
 		assert eprQuantifiedPredicateLiterals.length == 0;
 		assert groundLiterals.length == 1;
 	}
@@ -36,7 +38,7 @@ public class EprGroundUnitClause extends EprUnitClause {
 	}
 
 	@Override
-	public EprClause getAlphaRenamedVersion() {
+	public EprClause getFreshAlphaRenamedVersion() {
 		//TODO: not so nice, somehow
 		return new EprGroundUnitClause(getLiteral(), mTheory, 
 				mStateManager, mExplanation, true);

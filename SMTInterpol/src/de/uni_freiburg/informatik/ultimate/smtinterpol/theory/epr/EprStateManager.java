@@ -179,20 +179,22 @@ public class EprStateManager {
 		
 		for (EprPredicate pred : mAllEprPredicates) {
 			for (EprQuantifiedUnitClause eqwlePos : getSetLiterals(true, pred)) {
-				TermTuple ttPos = eqwlePos.getPredicateAtom().getArgumentsAsTermTuple();
+				EprQuantifiedUnitClause arPosUnit = eqwlePos.getFreshAlphaRenamedVersion();
+				TermTuple ttPos = arPosUnit.getPredicateAtom().getArgumentsAsTermTuple();
 				for (EprQuantifiedUnitClause eqwleNeg : getSetLiterals(false, pred)) {
 					TermTuple ttNeg = eqwleNeg.getPredicateAtom().getArgumentsAsTermTuple();
 					TTSubstitution sub = ttNeg.match(ttPos, mEqualityManager);
 					if (sub != null) {
-						return eqwlePos.getExplanation().instantiateClause(null, sub);
+						return arPosUnit.getExplanation().instantiateClause(null, sub);
 					}
 				}
 				
 				for (TermTuple pointNeg : getPoints(false, pred)) {
 					TTSubstitution sub = pointNeg.match(ttPos, mEqualityManager);
 					if (sub != null) {
-						EprClause conflict =  eqwlePos.getExplanation().instantiateClause(null, sub, 
-								getDisequalityChainsFromSubstitution(sub, pointNeg.terms, eqwlePos.getPredicateAtom().getArguments()));
+						EprClause conflict =  arPosUnit.getExplanation().instantiateClause(null, sub, 
+								getDisequalityChainsFromSubstitution(sub, pointNeg.terms, 
+										arPosUnit.getPredicateAtom().getArguments()));
 						return conflict;
 					}
 				}
@@ -369,7 +371,7 @@ public class EprStateManager {
 			EprPredicateAtom atom = (EprPredicateAtom) lit.getAtom();
 
 			for (EprQuantifiedUnitClause sl : this.getSetLiterals(isPositive, atom.eprPredicate)) {
-				TermTuple slTT = sl.getPredicateAtom().getArgumentsAsTermTuple();
+				TermTuple slTT = sl.getFreshAlphaRenamedVersion().getPredicateAtom().getArgumentsAsTermTuple();
 				TermTuple tt = atom.getArgumentsAsTermTuple();
 				TTSubstitution sub = slTT.match(tt, mEqualityManager);
 				if (slTT.isEqualOrMoreGeneralThan(tt))

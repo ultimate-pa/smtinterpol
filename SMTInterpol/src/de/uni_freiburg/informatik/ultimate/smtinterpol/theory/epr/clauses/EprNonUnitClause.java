@@ -42,8 +42,8 @@ public abstract class EprNonUnitClause extends EprClause {
 	
 	
 	public EprNonUnitClause(Literal[] literals, Theory theory, 
-			EprStateManager stateManager, boolean freshAlphaRenamed) {
-		super(literals, theory, stateManager, freshAlphaRenamed);
+			EprStateManager stateManager, boolean freshAlphaRenamed, TTSubstitution freshAlphaRen) {
+		super(literals, theory, stateManager, freshAlphaRenamed, freshAlphaRen);
 		setUp();
 	}
 	
@@ -327,7 +327,8 @@ public abstract class EprNonUnitClause extends EprClause {
 	private boolean compareToSetQuantifiedLiterals(Literal li) {
 		EprQuantifiedPredicateAtom liAtom = (EprQuantifiedPredicateAtom) li.getAtom();
 
-		for (EprQuantifiedUnitClause sl : mStateManager.getSetLiterals(liAtom.eprPredicate)) {
+		for (EprQuantifiedUnitClause slRaw : mStateManager.getSetLiterals(liAtom.eprPredicate)) {
+			EprQuantifiedUnitClause sl = slRaw.getFreshAlphaRenamedVersion();
 			TermTuple liTT = liAtom.getArgumentsAsTermTuple();
 			TermTuple slTT = sl.getPredicateAtom().getArgumentsAsTermTuple();
 			TTSubstitution sub = liTT.match(slTT, mEqualityManager);
@@ -476,8 +477,8 @@ public abstract class EprNonUnitClause extends EprClause {
 			HashSet<Literal> qo = pred.getQuantifiedOccurences().get(this);
 			if (qo != null) {
 				for (Literal quantifiedLit : qo) {
-					boolean oppositeSigns = (quantifiedLit.getSign() == 1) ^ settingPositive;
-					TermTuple otherPoint = new TermTuple(((EprPredicateAtom) quantifiedLit.getAtom()).getArguments());
+					TermTuple otherPoint = new TermTuple(
+							((EprPredicateAtom) quantifiedLit.getAtom()).getArguments());
 					TTSubstitution subs = point.match(otherPoint, mEqualityManager);
 
 					if (subs != null) {
@@ -551,7 +552,8 @@ public abstract class EprNonUnitClause extends EprClause {
 	 * @param qLiteral
 	 * @return a fresh EprClause that follows from first-order resolution with qLiteral
 	 */
-	public EprClause setQuantifiedLiteral(EprQuantifiedUnitClause setEqlwe) {
+	public EprClause setQuantifiedLiteral(EprQuantifiedUnitClause setEqlweRaw) {
+	 	EprQuantifiedUnitClause setEqlwe = setEqlweRaw.getFreshAlphaRenamedVersion();
 		EprQuantifiedPredicateAtom setLitAtom = setEqlwe.getPredicateAtom();
 		
 		ArrayList<Literal> predicateLiterals = new ArrayList<>();
@@ -726,27 +728,17 @@ public abstract class EprNonUnitClause extends EprClause {
 		}
 	}
 
-	@Override
-	public EprClause getAlphaRenamedVersion() {
-		ArrayList<Literal> newLits = getFreshAlphaRenamedLiterals();
-
-		if (this instanceof EprBaseClause) {
-			return new EprBaseClause(newLits.toArray(new Literal[newLits.size()]), 
-					mTheory, mStateManager, true);
-		} else {
-			assert this instanceof EprDerivedClause;
-			return new EprDerivedClause(newLits.toArray(new Literal[newLits.size()]), 
-					mTheory, mStateManager, true);
-		}
-	}
-
-	public ArrayList<Literal> getFreshAlphaRenamedLiterals() {
-		TTSubstitution sub = new TTSubstitution();
-		for (TermVariable fv : this.getFreeVars()) {
-			sub.addSubs(mTheory.createFreshTermVariable(fv.getName(), fv.getSort()), fv);
-		}
-		
-		ArrayList<Literal> newLits = getSubstitutedLiterals(sub);
-		return newLits;
-	}
+//	@Override
+//	public EprClause getAlphaRenamedVersion() {
+//		ArrayList<Literal> newLits = getFreshAlphaRenamedLiterals();
+//
+//		if (this instanceof EprBaseClause) {
+//			return new EprBaseClause(newLits.toArray(new Literal[newLits.size()]), 
+//					mTheory, mStateManager, true);
+//		} else {
+//			assert this instanceof EprDerivedClause;
+//			return new EprDerivedClause(newLits.toArray(new Literal[newLits.size()]), 
+//					mTheory, mStateManager, true);
+//		}
+//	}
 }

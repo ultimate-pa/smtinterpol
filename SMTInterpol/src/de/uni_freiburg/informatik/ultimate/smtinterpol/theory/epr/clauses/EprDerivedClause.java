@@ -1,8 +1,11 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses;
 
+import java.util.ArrayList;
+
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprStateManager;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution;
 
 public class EprDerivedClause extends EprNonUnitClause {
 	
@@ -14,13 +17,25 @@ public class EprDerivedClause extends EprNonUnitClause {
 
 	public EprDerivedClause(Literal[] literals, Theory theory, 
 			EprStateManager stateManager, Object explanation) {
-		this(literals, theory, stateManager, explanation, false);
+		this(literals, theory, stateManager, explanation, false, null);
 	}
 
 	public EprDerivedClause(Literal[] literals, Theory theory, 
-			EprStateManager stateManager, Object explanation, boolean freshAlphaRenamed) {
-		super(literals, theory, stateManager, freshAlphaRenamed);
-		mExplanation = explanation;
+			EprStateManager stateManager, Object explanation, 
+			boolean freshAlphaRenamed, TTSubstitution freshAlphaRen) {
+		super(literals, theory, stateManager, freshAlphaRenamed, freshAlphaRen);
+		if (freshAlphaRenamed && explanation instanceof EprClause) {
+			mExplanation = ((EprClause) explanation).instantiateClause(freshAlphaRen);
+		} else {
+			mExplanation = explanation;
+		}
 	}
 
+	@Override
+	public EprClause getFreshAlphaRenamedVersion() {
+		TTSubstitution sub = new TTSubstitution();
+		ArrayList<Literal> newLits = getFreshAlphaRenamedLiterals(sub);
+		return new EprDerivedClause(newLits.toArray(new Literal[newLits.size()]), 
+					mTheory, mStateManager, mExplanation, true, sub);
+	}
 }

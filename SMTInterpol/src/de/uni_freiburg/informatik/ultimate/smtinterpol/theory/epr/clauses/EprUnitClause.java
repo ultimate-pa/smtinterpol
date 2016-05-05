@@ -3,6 +3,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprStateManager;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution;
 
 public abstract class EprUnitClause extends EprClause {
 	
@@ -13,12 +14,17 @@ public abstract class EprUnitClause extends EprClause {
 	EprClause mExplanation;
 
 	public EprUnitClause(Literal[] literals, Theory theory, EprStateManager stateManager, 
-			EprClause explanation, boolean freshAlphaRenaming) {
-		super(literals, theory, stateManager, freshAlphaRenaming);
+			EprClause explanation, 
+			boolean freshAlphaRenaming, TTSubstitution freshAlphaRen) {
+		super(literals, theory, stateManager, freshAlphaRenaming, freshAlphaRen);
 		assert (eprQuantifiedPredicateLiterals.length == 1 && groundLiterals.length == 0)
-		  	|| (eprQuantifiedPredicateLiterals.length == 0 && groundLiterals.length == 1) :
-		  		"not a unit clause";
-		mExplanation = explanation;
+		|| (eprQuantifiedPredicateLiterals.length == 0 && groundLiterals.length == 1) :
+			"not a unit clause";
+		if (freshAlphaRenaming) {
+			mExplanation = explanation.instantiateClause(freshAlphaRen);
+		} else {
+			mExplanation = explanation;
+		}
 	}
 	
 	public EprClause getExplanation() {

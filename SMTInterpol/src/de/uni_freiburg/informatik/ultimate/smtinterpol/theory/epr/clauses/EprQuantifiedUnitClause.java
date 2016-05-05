@@ -29,12 +29,12 @@ public class EprQuantifiedUnitClause extends EprUnitClause {
 	
 	public EprQuantifiedUnitClause(Literal[] literals, Theory theory, EprStateManager stateManager,
 			EprClause explanation) {
-		this(literals, theory, stateManager, explanation, false);
+		this(literals, theory, stateManager, explanation, false, null);
 	}
 	
 	public EprQuantifiedUnitClause(Literal[] literals, Theory theory, EprStateManager stateManager,
-			EprClause explanation, boolean freshAlphaRenaming) {
-		super(literals, theory, stateManager, explanation, freshAlphaRenaming);
+			EprClause explanation, boolean freshAlphaRenaming, TTSubstitution freshAlphaRen) {
+		super(literals, theory, stateManager, explanation, freshAlphaRenaming, freshAlphaRen);
 		assert eprQuantifiedPredicateLiterals.length == 1;
 		assert groundLiterals.length == 0;
 		mPredicateLiteral = eprQuantifiedPredicateLiterals[0];
@@ -75,9 +75,10 @@ public class EprQuantifiedUnitClause extends EprUnitClause {
 	}
 
 	@Override
-	public EprClause getAlphaRenamedVersion() {
-		ArrayList<Literal> newLits = getFreshAlphaRenamedLiterals();
+	public EprQuantifiedUnitClause getFreshAlphaRenamedVersion() {
+		TTSubstitution sub = new TTSubstitution();
+		ArrayList<Literal> newLits = getFreshAlphaRenamedLiterals(sub);
 		return new EprQuantifiedUnitClause(newLits.toArray(new Literal[newLits.size()]), 
-				mTheory, mStateManager, mExplanation, true);
+				mTheory, mStateManager, mExplanation, true, sub);
 	}
 }

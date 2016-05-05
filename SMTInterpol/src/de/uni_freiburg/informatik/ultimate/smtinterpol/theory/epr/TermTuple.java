@@ -175,6 +175,7 @@ public class TermTuple {
 	 * @param other
 	 * @return
 	 */
+	@Deprecated
 	public boolean isEqualOrMoreGeneralThan(TermTuple other) {
 		for (int i = 0; i < terms.length; i++) {
 			Term thisT = terms[i];

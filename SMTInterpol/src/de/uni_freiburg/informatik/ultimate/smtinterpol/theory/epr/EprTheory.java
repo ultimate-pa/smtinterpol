@@ -335,7 +335,8 @@ public class EprTheory implements ITheory {
 
 				// is there a unifier?
 				TTSubstitution sub = 
-						engineAtom.getArgumentsAsTermTuple().match(eqlwe.getPredicateAtom().getArgumentsAsTermTuple(), mEqualityManager);
+						engineAtom.getArgumentsAsTermTuple()
+						.match(eqlwe.getPredicateAtom().getArgumentsAsTermTuple(), mEqualityManager);
 				if (sub != null) {
 					Literal propLit = eqlwe.getPredicateLiteral().getSign() == 1 ? engineAtom : engineAtom.negate();
 					mGroundLiteralsToPropagate.add(propLit);
