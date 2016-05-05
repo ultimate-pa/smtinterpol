@@ -7,6 +7,7 @@ import java.util.HashSet;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
+import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
 import de.uni_freiburg.informatik.ultimate.util.HashUtils;
@@ -55,27 +56,14 @@ public class TermTuple {
 		return sb.toString();
 	}
 
-//	/**
-//	 * something like "is unifiable" i think..
-//	 * @param tt
-//	 * @param exceptedConstants
-//	 * @return
-//	 */
-//	public boolean matches(TermTuple tt, HashMap<Integer, ArrayList<ApplicationTerm>> exceptedConstants) {
-//		// TODO Auto-generated method stub
-//		return false;
-//	}
 	
 	
-//	public HashMap<TermVariable, Term> match(TermTuple other) {
 	public TTSubstitution match(TermTuple other,
 			EqualityManager equalityManager) {
-//		return match(other, new HashMap<TermVariable, Term>());
 		return match(other, new TTSubstitution(), equalityManager);
 	}
 
 	/**
-	 * "this" must be a TermTuple over constants.
 	 * @param other A TermTuple that may contain variables and constants
 	 * @param newSubs a substitution that constrains the matching of variables
 	 * @return a possibly more constrained substitution that is a unifier, null if there is no unifier
@@ -88,6 +76,7 @@ public class TermTuple {
 
 		TermTuple thisTT = new TermTuple(terms);
 		TermTuple otherTT = new TermTuple(other.terms);
+//		TermTuple otherTT = alphaRenameFresh(other);
 		
 		TTSubstitution resultSubs = subs; // TODO: or is a copy needed?
 		for (int i = 0; i < this.terms.length; i++) {
@@ -125,6 +114,20 @@ public class TermTuple {
 		return resultSubs;
 	}
 	
+	/**
+	 * 
+	 * @param other
+	 * @param theory
+	 * @return
+	 */
+	private TermTuple alphaRenameFresh(TermTuple other, Theory theory) {
+		TTSubstitution sub = new TTSubstitution();
+		for (TermVariable fv : other.getFreeVars()) {
+			sub.addSubs(theory.createFreshTermVariable(fv.getName(), fv.getSort()), fv);
+		}
+		return sub.apply(other);
+	}
+
 	public boolean onlyContainsConstants() {
 		//TODO cache
 		boolean result = true;
@@ -133,6 +136,7 @@ public class TermTuple {
 		return result;
 	}
 	
+	@Deprecated
 	public TermTuple applySubstitution(HashMap<TermVariable, Term> sub) {
 		Term[] newTerms = new Term[terms.length];
 		for (int i = 0; i < newTerms.length; i++)

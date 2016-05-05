@@ -29,11 +29,16 @@ public class EprQuantifiedUnitClause extends EprUnitClause {
 	
 	public EprQuantifiedUnitClause(Literal[] literals, Theory theory, EprStateManager stateManager,
 			EprClause explanation) {
-		super(literals, theory, stateManager, explanation);
+		this(literals, theory, stateManager, explanation, false);
+	}
+	
+	public EprQuantifiedUnitClause(Literal[] literals, Theory theory, EprStateManager stateManager,
+			EprClause explanation, boolean freshAlphaRenaming) {
+		super(literals, theory, stateManager, explanation, freshAlphaRenaming);
 		assert eprQuantifiedPredicateLiterals.length == 1;
 		assert groundLiterals.length == 0;
 		mPredicateLiteral = eprQuantifiedPredicateLiterals[0];
-		mExceptions = eprEqualityAtoms;
+		mExceptions = eprQuantifiedEqualityAtoms;
 		mAtom = (EprQuantifiedPredicateAtom) mPredicateLiteral.getAtom();
 	}
 
@@ -67,5 +72,12 @@ public class EprQuantifiedUnitClause extends EprUnitClause {
 	public EprUnitClause getUnitClauseLiteral() {
 		assert false : "TODO";
 		return null;
+	}
+
+	@Override
+	public EprClause getAlphaRenamedVersion() {
+		ArrayList<Literal> newLits = getFreshAlphaRenamedLiterals();
+		return new EprQuantifiedUnitClause(newLits.toArray(new Literal[newLits.size()]), 
+				mTheory, mStateManager, mExplanation, true);
 	}
 }

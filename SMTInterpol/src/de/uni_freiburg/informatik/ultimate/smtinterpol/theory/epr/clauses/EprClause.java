@@ -53,9 +53,11 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredi
  */
 public abstract class EprClause extends Clause {
 	
+	protected boolean isFreshAlphaRenamed = false;
+	
 	enum FulfillabilityStatus { Fulfilled, Fulfillable, Unfulfillable };
 
-	protected EprQuantifiedEqualityAtom[] eprEqualityAtoms;
+	protected EprQuantifiedEqualityAtom[] eprQuantifiedEqualityAtoms;
 	protected Literal[] eprQuantifiedPredicateLiterals;
 	protected Literal[] groundLiterals;
 	
@@ -65,6 +67,8 @@ public abstract class EprClause extends Clause {
 	 *  - finding tautologies
 	 */
 	HashSet<Literal> mAllLiterals = new HashSet<>();
+	
+	HashSet<TermVariable> mFreeVars = new HashSet<>();
 	
 	private boolean isTautology = false;
 
@@ -101,11 +105,13 @@ public abstract class EprClause extends Clause {
 	EqualityManager mEqualityManager;
 	boolean forcesFiniteModel = false;
 
-	public EprClause(Literal[] literals, Theory theory, EprStateManager stateManager) {
+	public EprClause(Literal[] literals, Theory theory, 
+			EprStateManager stateManager, boolean freshAlphaRenamed) {
 		super(literals);
 		mTheory = theory;
 		mStateManager = stateManager;
 		mEqualityManager = stateManager.mEqualityManager;
+		this.isFreshAlphaRenamed = freshAlphaRenamed;
 		setUpClause(literals);
 	}
 
@@ -147,16 +153,21 @@ public abstract class EprClause extends Clause {
 		sortLiterals(literals);
 		
 		// do we have quantified equalities but no other quantified literals?
-		if (eprEqualityAtoms.length > 0 
+		if (eprQuantifiedEqualityAtoms.length > 0 
 				&& eprQuantifiedPredicateLiterals.length == 0) {
-//			assert false : "TODO: probably do something -- sth with finite models..";
 			forcesFiniteModel = true;
 		}
 		
-
+		// collect the free vars occuring in this clause
+		for (Literal l : eprQuantifiedPredicateLiterals)
+			mFreeVars.addAll(((EprQuantifiedPredicateAtom) l.getAtom())
+					.getArgumentsAsTermTuple().getFreeVars());
+		for (Literal l : eprQuantifiedEqualityAtoms)
+			mFreeVars.addAll(((EprQuantifiedEqualityAtom) l.getAtom())
+					.getArgumentsAsTermTuple().getFreeVars());
 		
 		//the equalities are handled separately
-		mAllLiterals.removeAll(Arrays.asList(eprEqualityAtoms));
+		mAllLiterals.removeAll(Arrays.asList(eprQuantifiedEqualityAtoms));
 
 	}
 
@@ -176,12 +187,8 @@ public abstract class EprClause extends Clause {
 		return true;
 	}
 
-	private HashSet<TermVariable> getFreeVars() {
-		HashSet<TermVariable> result = new HashSet<>();
-		for (Literal l : eprQuantifiedPredicateLiterals) {
-			result.addAll(((EprQuantifiedPredicateAtom) l.getAtom()).getArgumentsAsTermTuple().getFreeVars());
-		}
-		return result;
+	protected HashSet<TermVariable> getFreeVars() {
+		return mFreeVars;
 	}
 
 	public boolean isGround() {
@@ -224,7 +231,7 @@ public abstract class EprClause extends Clause {
 			}
 		}
 
-		eprEqualityAtoms = new EprQuantifiedEqualityAtom[noQuantifiedEqualities];
+		eprQuantifiedEqualityAtoms = new EprQuantifiedEqualityAtom[noQuantifiedEqualities];
 		eprQuantifiedPredicateLiterals = new Literal[noQuantifiedPredicates];
 		groundLiterals = new Literal[noOthers];
 
@@ -234,7 +241,7 @@ public abstract class EprClause extends Clause {
 			if (l.getAtom() instanceof EprQuantifiedEqualityAtom) {
 				assert l.getSign() == 1 : "negated quantified equality should have been removed by DER";
 //				eprEqualityLiterals[--noQuantifiedEqualities] = l;
-				eprEqualityAtoms[--noQuantifiedEqualities] = (EprQuantifiedEqualityAtom) l;
+				eprQuantifiedEqualityAtoms[--noQuantifiedEqualities] = (EprQuantifiedEqualityAtom) l;
 //			} else if (l.getAtom() instanceof EprPredicateAtom) {
 			} else if (l.getAtom() instanceof EprQuantifiedPredicateAtom) {
 				// Have the EprPredicates point to the clauses and literals
@@ -248,7 +255,7 @@ public abstract class EprClause extends Clause {
 			}
 		}
 
-		for (Literal l : eprEqualityAtoms) {
+		for (Literal l : eprQuantifiedEqualityAtoms) {
 			Term p0 = ((ApplicationTerm) ((EprQuantifiedEqualityAtom) l.getAtom()).getTerm()).getParameters()[0];
 			Term p1 = ((ApplicationTerm) ((EprQuantifiedEqualityAtom) l.getAtom()).getTerm()).getParameters()[1];
 			if (p0 instanceof TermVariable && p1 instanceof TermVariable) {
@@ -359,6 +366,9 @@ public abstract class EprClause extends Clause {
 		return result;
 	}
 
+	public EprClause instantiateClause(TTSubstitution sub) {
+		return instantiateClause(null, sub, null);
+	}
 	/**
 	 * Create a new clause that is gained from applying the substitution sub to all literals in this clause.
 	 * otherLit is omitted (typically because it is the pivot literal of a resolution).
@@ -381,23 +391,27 @@ public abstract class EprClause extends Clause {
 	 * @return
 	 */
 	public EprClause instantiateClause(Literal otherLit, TTSubstitution sub, ArrayList<Literal> additionalLiterals) {
-		ArrayList<Literal> newLits = new ArrayList<Literal>();
-		newLits.addAll(Arrays.asList(groundLiterals));
-		for (Literal l : eprEqualityAtoms) {
-//			newLits.add(EprHelpers.applySubstitution(sub, l, mTheory, mStateManager.getCClosure()));
-			newLits.add(EprHelpers.applySubstitution(sub, l, mTheory));
-		}
-		for (Literal l : eprQuantifiedPredicateLiterals) {
-			if (l.equals(otherLit))
-				continue;
-//			newLits.add(EprHelpers.applySubstitution(sub, l, mTheory, mStateManager.getCClosure()));
-			newLits.add(EprHelpers.applySubstitution(sub, l, mTheory));
-		}
+		ArrayList<Literal> newLits = getSubstitutedLiterals(sub);
+		
+		if (otherLit != null)
+			newLits.remove(otherLit);
 		
 		if (additionalLiterals != null)
 			newLits.addAll(additionalLiterals);
 		
 		return mStateManager.getDerivedClause(new HashSet<Literal>(newLits), mTheory, this);
+	}
+
+	protected ArrayList<Literal> getSubstitutedLiterals(TTSubstitution sub) {
+		ArrayList<Literal> newLits = new ArrayList<Literal>();
+		newLits.addAll(Arrays.asList(groundLiterals));
+		for (Literal l : eprQuantifiedEqualityAtoms) {
+			newLits.add(EprHelpers.applySubstitution(sub, l, mTheory));
+		}
+		for (Literal l : eprQuantifiedPredicateLiterals) {
+			newLits.add(EprHelpers.applySubstitution(sub, l, mTheory));
+		}
+		return newLits;
 	}
 
 
@@ -612,6 +626,18 @@ public abstract class EprClause extends Clause {
 	}
 	
 	public EprQuantifiedEqualityAtom[] getEqualityAtoms() {
-		return eprEqualityAtoms;
+		return eprQuantifiedEqualityAtoms;
+	}
+	
+	public abstract EprClause getAlphaRenamedVersion();
+
+	protected ArrayList<Literal> getFreshAlphaRenamedLiterals() {
+		TTSubstitution sub = new TTSubstitution();
+		for (TermVariable fv : this.getFreeVars()) {
+			sub.addSubs(mTheory.createFreshTermVariable(fv.getName(), fv.getSort()), fv);
+		}
+		
+		ArrayList<Literal> newLits = getSubstitutedLiterals(sub);
+		return newLits;
 	}
 }

@@ -351,6 +351,7 @@ public class EprStateManager {
 	}
 
 	/**
+	 * TODO: rework this some time.
 	 * Checks if the given literal is already set, or if something stronger is set.
 	 * @param unifiedUnitLiteral
 	 * @return

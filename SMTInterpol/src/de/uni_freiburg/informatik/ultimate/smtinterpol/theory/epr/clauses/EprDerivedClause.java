@@ -12,8 +12,14 @@ public class EprDerivedClause extends EprNonUnitClause {
 	 */
 	Object mExplanation;
 
-	public EprDerivedClause(Literal[] literals, Theory theory, EprStateManager stateManager, Object explanation) {
-		super(literals, theory, stateManager);
+	public EprDerivedClause(Literal[] literals, Theory theory, 
+			EprStateManager stateManager, Object explanation) {
+		this(literals, theory, stateManager, explanation, false);
+	}
+
+	public EprDerivedClause(Literal[] literals, Theory theory, 
+			EprStateManager stateManager, Object explanation, boolean freshAlphaRenamed) {
+		super(literals, theory, stateManager, freshAlphaRenamed);
 		mExplanation = explanation;
 	}
 

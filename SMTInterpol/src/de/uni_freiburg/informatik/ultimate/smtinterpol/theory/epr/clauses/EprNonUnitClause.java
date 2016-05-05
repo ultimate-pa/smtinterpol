@@ -1,5 +1,6 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses;
 
+import java.io.ObjectInputStream.GetField;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -25,7 +26,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroun
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
 
-public class EprNonUnitClause extends EprClause {
+public abstract class EprNonUnitClause extends EprClause {
 
 	private EprUnitClause mUnitLiteral;
 	private EprNonUnitClause mInstantiationOfClauseForCurrentUnitLiteral;
@@ -40,8 +41,9 @@ public class EprNonUnitClause extends EprClause {
 
 	
 	
-	public EprNonUnitClause(Literal[] literals, Theory theory, EprStateManager stateManager) {
-		super(literals, theory, stateManager);
+	public EprNonUnitClause(Literal[] literals, Theory theory, 
+			EprStateManager stateManager, boolean freshAlphaRenamed) {
+		super(literals, theory, stateManager, freshAlphaRenamed);
 		setUp();
 	}
 	
@@ -52,12 +54,12 @@ public class EprNonUnitClause extends EprClause {
 			Literal lit = eprQuantifiedPredicateLiterals[0];
 			EprQuantifiedUnitClause eqlwe = EprHelpers.buildEQLWE(
 					lit,
-					eprEqualityAtoms, this,
+					eprQuantifiedEqualityAtoms, this,
 					mTheory, mStateManager);
 			mUnitLiteral = eqlwe;
 		} else if (groundLiterals.length == 1
 				&& eprQuantifiedPredicateLiterals.length == 0) {
-			if (eprEqualityAtoms.length == 0) {
+			if (eprQuantifiedEqualityAtoms.length == 0) {
 				mUnitLiteral = new EprGroundUnitClause(groundLiterals[0], 
 						mTheory, mStateManager, this);
 			} else {
@@ -145,7 +147,7 @@ public class EprNonUnitClause extends EprClause {
 
 			ArrayList<EprQuantifiedEqualityAtom> exceptions = new ArrayList<>();
 			ArrayList<DPLLAtom> eqs = EprHelpers.substituteInExceptions(
-					rawUnitEqlwe.eprEqualityAtoms, sub, mTheory);
+					rawUnitEqlwe.eprQuantifiedEqualityAtoms, sub, mTheory);
 			for (DPLLAtom eq : eqs) {
 				if (eq instanceof EprQuantifiedEqualityAtom) {
 					exceptions.add((EprQuantifiedEqualityAtom) eq);
@@ -216,7 +218,7 @@ public class EprNonUnitClause extends EprClause {
 				assert mUnitLiteral == null : "more than one literals are fulfillable -- something's wrong!";
 				if (li instanceof EprQuantifiedPredicateAtom) {
 					mUnitLiteral = 
-							EprHelpers.buildEQLWE(li, eprEqualityAtoms, this,
+							EprHelpers.buildEQLWE(li, eprQuantifiedEqualityAtoms, this,
 									mTheory, mStateManager);
 				} else {
 					assert false : "TODO -- something about finite models";
@@ -368,14 +370,14 @@ public class EprNonUnitClause extends EprClause {
 
 		if (polaritiesMatch) {
 			// same polarity --> check for implication
-			ImplicationStatus impStat = getImplicationStatus(sub, clauseLit, this.eprEqualityAtoms, 
-					setLiteralPredicateLiteral, setLiteral.eprEqualityAtoms);
+			ImplicationStatus impStat = getImplicationStatus(sub, clauseLit, this.eprQuantifiedEqualityAtoms, 
+					setLiteralPredicateLiteral, setLiteral.eprQuantifiedEqualityAtoms);
 			assert false : "TODO";
 //			if (subset(sl.mExceptedPoints, this.mExceptedPoints)) { // is this an efficient solution? --> then mb bring it back some time
 		} else {
 			GetResolventStatus grs = new GetResolventStatus(sub, 
-					setLiteralPredicateLiteral,	setLiteral.eprEqualityAtoms,
-					clauseLit, eprEqualityAtoms);
+					setLiteralPredicateLiteral,	setLiteral.eprQuantifiedEqualityAtoms,
+					clauseLit, eprQuantifiedEqualityAtoms);
 			switch (grs.getResolventStatus()) {
 			case Conflict:
 				setLiteralUnfulfillable(clauseLit, setLiteral);
@@ -722,5 +724,29 @@ public class EprNonUnitClause extends EprClause {
 		EprClause getResolvent() {
 			return resolvent;
 		}
+	}
+
+	@Override
+	public EprClause getAlphaRenamedVersion() {
+		ArrayList<Literal> newLits = getFreshAlphaRenamedLiterals();
+
+		if (this instanceof EprBaseClause) {
+			return new EprBaseClause(newLits.toArray(new Literal[newLits.size()]), 
+					mTheory, mStateManager, true);
+		} else {
+			assert this instanceof EprDerivedClause;
+			return new EprDerivedClause(newLits.toArray(new Literal[newLits.size()]), 
+					mTheory, mStateManager, true);
+		}
+	}
+
+	public ArrayList<Literal> getFreshAlphaRenamedLiterals() {
+		TTSubstitution sub = new TTSubstitution();
+		for (TermVariable fv : this.getFreeVars()) {
+			sub.addSubs(mTheory.createFreshTermVariable(fv.getName(), fv.getSort()), fv);
+		}
+		
+		ArrayList<Literal> newLits = getSubstitutedLiterals(sub);
+		return newLits;
 	}
 }

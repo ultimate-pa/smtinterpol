@@ -12,8 +12,9 @@ public abstract class EprUnitClause extends EprClause {
 	 */
 	EprClause mExplanation;
 
-	public EprUnitClause(Literal[] literals, Theory theory, EprStateManager stateManager, EprClause explanation) {
-		super(literals, theory, stateManager);
+	public EprUnitClause(Literal[] literals, Theory theory, EprStateManager stateManager, 
+			EprClause explanation, boolean freshAlphaRenaming) {
+		super(literals, theory, stateManager, freshAlphaRenaming);
 		assert (eprQuantifiedPredicateLiterals.length == 1 && groundLiterals.length == 0)
 		  	|| (eprQuantifiedPredicateLiterals.length == 0 && groundLiterals.length == 1) :
 		  		"not a unit clause";
@@ -23,5 +24,4 @@ public abstract class EprUnitClause extends EprClause {
 	public EprClause getExplanation() {
 		return mExplanation;
 	}
-
 }

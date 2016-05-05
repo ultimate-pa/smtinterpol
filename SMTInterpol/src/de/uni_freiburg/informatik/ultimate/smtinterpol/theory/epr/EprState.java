@@ -109,7 +109,7 @@ public class EprState {
 		return addClause(bc, true);
 	}
 	
-	private boolean addClause(EprNonUnitClause c, boolean base) {
+	private boolean addClause(EprClause c, boolean base) {
 		if (c.isConflictClause()) {
 			mConflictClauses.add(c);
 			return true;

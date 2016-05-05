@@ -8,8 +8,13 @@ public class EprGroundUnitClause extends EprUnitClause {
 
 	public EprGroundUnitClause(Literal literal, Theory theory, 
 			EprStateManager stateManager, EprClause explanation) {
-		super(new Literal[] { literal }, theory, stateManager, explanation);
-
+		this(literal, theory, stateManager, explanation, false);
+	}
+	
+	public EprGroundUnitClause(Literal literal, Theory theory, 
+			EprStateManager stateManager, EprClause explanation,
+			boolean freshAlphaRenaming) {
+		super(new Literal[] { literal }, theory, stateManager, explanation, freshAlphaRenaming);
 		assert eprQuantifiedPredicateLiterals.length == 0;
 		assert groundLiterals.length == 1;
 	}
@@ -28,5 +33,12 @@ public class EprGroundUnitClause extends EprUnitClause {
 	public EprUnitClause getUnitClauseLiteral() {
 		assert false : "TODO";
 		return null;
+	}
+
+	@Override
+	public EprClause getAlphaRenamedVersion() {
+		//TODO: not so nice, somehow
+		return new EprGroundUnitClause(getLiteral(), mTheory, 
+				mStateManager, mExplanation, true);
 	}
 }

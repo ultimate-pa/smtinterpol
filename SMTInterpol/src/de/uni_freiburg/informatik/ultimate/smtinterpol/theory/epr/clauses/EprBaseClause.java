@@ -7,7 +7,13 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprStateManage
 public class EprBaseClause extends EprNonUnitClause {
 
 	public EprBaseClause(Literal[] literals, Theory theory, EprStateManager stateManager) {
-		super(literals, theory, stateManager);
+		this(literals, theory, stateManager, false);
 	}
+	
+	public EprBaseClause(Literal[] literals, Theory theory, 
+			EprStateManager stateManager, boolean freshAlpharenamed) {
+		super(literals, theory, stateManager, freshAlpharenamed);
+	}
+
 
 }
