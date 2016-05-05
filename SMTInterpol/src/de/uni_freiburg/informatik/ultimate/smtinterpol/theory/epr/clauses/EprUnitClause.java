@@ -15,16 +15,16 @@ public abstract class EprUnitClause extends EprClause {
 
 	public EprUnitClause(Literal[] literals, Theory theory, EprStateManager stateManager, 
 			EprClause explanation, 
-			boolean freshAlphaRenaming, TTSubstitution freshAlphaRen) {
-		super(literals, theory, stateManager, freshAlphaRenaming, freshAlphaRen);
+			boolean isFreshAlphaRenaming, TTSubstitution freshAlphaRen) {
+		super(literals, theory, stateManager, isFreshAlphaRenaming, freshAlphaRen);
 		assert (eprQuantifiedPredicateLiterals.length == 1 && groundLiterals.length == 0)
 		|| (eprQuantifiedPredicateLiterals.length == 0 && groundLiterals.length == 1) :
 			"not a unit clause";
-		if (freshAlphaRenaming) {
-			mExplanation = explanation.instantiateClause(freshAlphaRen);
-		} else {
+//		if (isFreshAlphaRenaming) {
+//			mExplanation = explanation.getFreshAlphaRenamedVersion(freshAlphaRen);
+//		} else {
 			mExplanation = explanation;
-		}
+//		}
 	}
 	
 	public EprClause getExplanation() {

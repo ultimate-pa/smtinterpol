@@ -39,11 +39,13 @@ public abstract class EprNonUnitClause extends EprClause {
 
 	private HashMap<Literal, HashSet<EprUnitClause>> mLiteralToUnfulfillabilityReasons = new HashMap<>();
 
-	
+	private final EprNonUnitClause mClauseThisIsAFreshAlphaRenamingOf;
 	
 	public EprNonUnitClause(Literal[] literals, Theory theory, 
-			EprStateManager stateManager, boolean freshAlphaRenamed, TTSubstitution freshAlphaRen) {
+			EprStateManager stateManager, boolean freshAlphaRenamed, TTSubstitution freshAlphaRen, EprNonUnitClause clauseThisIsAFreshAlphaRenamingOf) {
 		super(literals, theory, stateManager, freshAlphaRenamed, freshAlphaRen);
+		assert !freshAlphaRenamed || freshAlphaRen != null;
+		mClauseThisIsAFreshAlphaRenamingOf = clauseThisIsAFreshAlphaRenamingOf;
 		setUp();
 	}
 	
@@ -71,11 +73,37 @@ public abstract class EprNonUnitClause extends EprClause {
 		// set fulfillability status
 		mNoFulfillableLiterals = 0;
 
-		setLiteralStates();
+		if (isFreshAlphaRenamed) {
+			// do nothing -- fulfillability is not needed in this case, right??
+//			transferFulfillabilityInfo();
+		} else {
+			setLiteralStates();
+		}
 		
 		if (mNoFulfillableLiterals == 1)
 			searchUnitLiteral();
 
+	}
+
+	public void transferFulfillabilityInfo() {
+		//TODO (if necessary): complete for other fields that are related to fulfillability information
+		
+		// transfer the literalStates of the clause this clause is an alpha renaming of to this clause
+		// (instead of computing the from scratch
+		HashMap<Literal, FulfillabilityStatus> oldFulfillability = mClauseThisIsAFreshAlphaRenamingOf.mFulfillabilityStatus;
+		for (Literal oldClauseQl : mClauseThisIsAFreshAlphaRenamingOf.eprQuantifiedPredicateLiterals) {
+			EprQuantifiedPredicateAtom oldClauseAtom = (EprQuantifiedPredicateAtom) oldClauseQl.getAtom();
+			EprQuantifiedPredicateAtom atomInNewClause = 
+					oldClauseAtom.eprPredicate.getAtomForTermTuple(
+							mFreshAlphaRenaming.apply(
+									oldClauseAtom.getArgumentsAsTermTuple()), mTheory, 0); //TODO assertionStackLevel
+			Literal litInNewClause = oldClauseQl.getSign() == 1 ? atomInNewClause : atomInNewClause.negate();
+			
+			mFulfillabilityStatus.put(litInNewClause, oldFulfillability.get(oldClauseQl));
+		}
+		for (Literal oldClauseGl : mClauseThisIsAFreshAlphaRenamingOf.groundLiterals) {
+			mFulfillabilityStatus.put(oldClauseGl, oldFulfillability.get(oldClauseGl));
+		}
 	}
 	
 	/**
@@ -530,6 +558,7 @@ public abstract class EprNonUnitClause extends EprClause {
 	 * @return true if at least one of the literals of this clause is definitely true.
 	 */
 	public boolean isFulfilled() {
+		assert !isFreshAlphaRenamed;
 		return !mFulfilledLiterals.isEmpty();
 	}
 
@@ -672,6 +701,7 @@ public abstract class EprNonUnitClause extends EprClause {
 	}
 
 	public boolean isConflictClause() {
+		assert !isFreshAlphaRenamed;
 		for (Entry<Literal, FulfillabilityStatus> en : mFulfillabilityStatus.entrySet())
 			if (en.getValue() != FulfillabilityStatus.Unfulfillable)
 				return false;

@@ -551,6 +551,7 @@ public abstract class EprClause extends Clause {
 	}
 	
 	public boolean forcesFiniteModel() {
+		assert !isFreshAlphaRenamed;
 		return forcesFiniteModel;
 	}
 	
@@ -590,4 +591,9 @@ public abstract class EprClause extends Clause {
 		assert isFreshAlphaRenamed;
 		return mFreshAlphaRenaming;
 	}
+
+//	public EprClause getFreshAlphaRenamedVersion(TTSubstitution freshAlphaRen) {
+//		// TODO Auto-generated method stub
+//		return null;
+//	}
 }

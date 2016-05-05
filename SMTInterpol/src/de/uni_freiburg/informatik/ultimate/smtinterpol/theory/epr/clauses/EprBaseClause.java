@@ -10,12 +10,12 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution
 public class EprBaseClause extends EprNonUnitClause {
 
 	public EprBaseClause(Literal[] literals, Theory theory, EprStateManager stateManager) {
-		this(literals, theory, stateManager, false, null);
+		this(literals, theory, stateManager, false, null, null);
 	}
 	
 	public EprBaseClause(Literal[] literals, Theory theory, 
-			EprStateManager stateManager, boolean freshAlpharenamed, TTSubstitution freshAlphaRen) {
-		super(literals, theory, stateManager, freshAlpharenamed, freshAlphaRen);
+			EprStateManager stateManager, boolean freshAlpharenamed, TTSubstitution freshAlphaRen, EprBaseClause clauseThisIsAFreshAlphaRenamingof) {
+		super(literals, theory, stateManager, freshAlpharenamed, freshAlphaRen, clauseThisIsAFreshAlphaRenamingof);
 	}
 
 	@Override
@@ -23,6 +23,6 @@ public class EprBaseClause extends EprNonUnitClause {
 		TTSubstitution sub = new TTSubstitution();
 		ArrayList<Literal> newLits = getFreshAlphaRenamedLiterals(sub);
 		return new EprBaseClause(newLits.toArray(new Literal[newLits.size()]), 
-					mTheory, mStateManager, true, sub);
+					mTheory, mStateManager, true, sub, this);
 	}
 }

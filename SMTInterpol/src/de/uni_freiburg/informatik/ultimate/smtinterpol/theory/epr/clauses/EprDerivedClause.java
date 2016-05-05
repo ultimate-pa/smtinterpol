@@ -17,18 +17,18 @@ public class EprDerivedClause extends EprNonUnitClause {
 
 	public EprDerivedClause(Literal[] literals, Theory theory, 
 			EprStateManager stateManager, Object explanation) {
-		this(literals, theory, stateManager, explanation, false, null);
+		this(literals, theory, stateManager, explanation, false, null, null);
 	}
 
 	public EprDerivedClause(Literal[] literals, Theory theory, 
 			EprStateManager stateManager, Object explanation, 
-			boolean freshAlphaRenamed, TTSubstitution freshAlphaRen) {
-		super(literals, theory, stateManager, freshAlphaRenamed, freshAlphaRen);
-		if (freshAlphaRenamed && explanation instanceof EprClause) {
-			mExplanation = ((EprClause) explanation).instantiateClause(freshAlphaRen);
-		} else {
+			boolean freshAlphaRenamed, TTSubstitution freshAlphaRen, EprDerivedClause clauseThisIsAFreshAlphaRenamingof) {
+		super(literals, theory, stateManager, freshAlphaRenamed, freshAlphaRen, clauseThisIsAFreshAlphaRenamingof);
+//		if (freshAlphaRenamed && explanation instanceof EprClause) {
+//			mExplanation = ((EprClause) explanation).instantiateClause(freshAlphaRen);
+//		} else {
 			mExplanation = explanation;
-		}
+//		}
 	}
 
 	@Override
@@ -36,6 +36,6 @@ public class EprDerivedClause extends EprNonUnitClause {
 		TTSubstitution sub = new TTSubstitution();
 		ArrayList<Literal> newLits = getFreshAlphaRenamedLiterals(sub);
 		return new EprDerivedClause(newLits.toArray(new Literal[newLits.size()]), 
-					mTheory, mStateManager, mExplanation, true, sub);
+					mTheory, mStateManager, mExplanation, true, sub, this);
 	}
 }
