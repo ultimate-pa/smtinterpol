@@ -2512,7 +2512,8 @@ public class Clausifier {
 					lit = atom;
 //					if (!atom.isQuantified)
 					if (atom instanceof EprGroundPredicateAtom)
-						mEngine.addAtom(atom);
+						mEprTheory.addAtomToDPLLEngine(atom);
+//						mEngine.addAtom(atom);
 				} else {
 					// replace a predicate atom "(p x)" by "(p x) = true"
 					SharedTerm st = getSharedTerm(term);

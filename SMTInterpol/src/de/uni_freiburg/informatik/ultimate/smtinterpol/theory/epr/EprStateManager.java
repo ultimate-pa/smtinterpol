@@ -28,7 +28,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprUni
 public class EprStateManager {
 	
 	private Stack<EprState> mEprStateStack = new Stack<EprState>();
-	private Stack<Literal> mLiteralStack = new Stack<Literal>();
+	private Stack<Object> mLiteralStack = new Stack<Object>();
 	
 	private EprState baseState;
 	
@@ -48,7 +48,7 @@ public class EprStateManager {
 		mCClosure = cClosure;
 	}
 
-	public void beginScope(Literal literal) {
+	public void beginScope(Object literal) {
 		mLiteralStack.push(literal);
 		mEprStateStack.push(new EprState(mEprStateStack.peek()));
 	}
@@ -59,10 +59,10 @@ public class EprStateManager {
 	 *  - revert the fulfillability status of the remaining epr-clauses (in lower states)
 	 * @param literal
 	 */
-	public void endScope(Literal literal) {
+	public void endScope(Object literal) {
 		mEprStateStack.pop();
-		Literal popped = mLiteralStack.pop();
-		assert literal == popped;
+		Object popped = mLiteralStack.pop();
+		assert literal.equals(popped);
 		
 	}
 

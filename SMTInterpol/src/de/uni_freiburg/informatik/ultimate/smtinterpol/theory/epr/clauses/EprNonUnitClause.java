@@ -370,6 +370,7 @@ public abstract class EprNonUnitClause extends EprClause {
 
 	/**
 	 * Assumes 
+	 *  - clauseLit is a literal over an EprPredicate
 	 *  - setLiteral and clauseLit have different polarities
 	 *  - setLiteral has (just) been set.
 	 *  - clauseLit is a literal of this clause

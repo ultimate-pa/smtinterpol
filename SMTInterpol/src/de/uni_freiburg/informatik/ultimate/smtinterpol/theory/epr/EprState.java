@@ -68,6 +68,9 @@ public class EprState {
 	public void setPoint(boolean positive, EprGroundPredicateAtom atom) {
 		EprPredicate pred = atom.eprPredicate;
         TermTuple point = new TermTuple(((EprPredicateAtom) atom).getArguments());
+        
+        if (mPredicateToModel.get(pred) == null)
+        	addNewEprPredicate(pred);
 
         if (positive)
         	mPredicateToModel.get(pred).setPointPositive(point);

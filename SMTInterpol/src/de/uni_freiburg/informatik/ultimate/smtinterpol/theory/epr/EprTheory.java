@@ -64,7 +64,7 @@ public class EprTheory implements ITheory {
 	 */
 	private HashMap<Literal, Clause> mPropLitToExplanation = new HashMap<>();
 
-	HashSet<DPLLAtom> mAtomsAddedToDPLLEngine = new HashSet<>();
+	ScopedHashSet<DPLLAtom> mAtomsAddedToDPLLEngine = new ScopedHashSet<>();
 	
 	EqualityManager mEqualityManager;
 
@@ -441,14 +441,15 @@ public class EprTheory implements ITheory {
 
 	@Override
 	public Object push() {
-		// TODO Auto-generated method stub
+		mStateManager.beginScope("push");
+		mAtomsAddedToDPLLEngine.beginScope();
 		return null;
 	}
 
 	@Override
 	public void pop(Object object, int targetlevel) {
-		// TODO Auto-generated method stub
-
+		mStateManager.endScope("push");
+		mAtomsAddedToDPLLEngine.endScope();
 	}
 
 	@Override
@@ -616,9 +617,9 @@ public class EprTheory implements ITheory {
 		}
 		
 		private void applyDER(HashSet<Literal> literals) {
-			HashSet<Literal> currentClause = literals;
-			Literal disEquality = findDisequality(literals);
-			mResult = new HashSet<>(literals);
+			HashSet<Literal> currentClause = new HashSet<>(literals);
+			Literal disEquality = findDisequality(currentClause);
+			mResult = currentClause;
 			mIsResultGround = false;
 			while (disEquality != null) {
 				currentClause.remove(disEquality);
