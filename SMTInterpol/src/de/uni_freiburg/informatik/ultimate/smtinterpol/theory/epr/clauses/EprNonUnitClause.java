@@ -399,10 +399,13 @@ public abstract class EprNonUnitClause extends EprClause {
 
 		if (polaritiesMatch) {
 			// same polarity --> check for implication
-			ImplicationStatus impStat = getImplicationStatus(sub, clauseLit, this.eprQuantifiedEqualityAtoms, 
-					setLiteralPredicateLiteral, setLiteral.eprQuantifiedEqualityAtoms);
-			assert false : "TODO";
-//			if (subset(sl.mExceptedPoints, this.mExceptedPoints)) { // is this an efficient solution? --> then mb bring it back some time
+//			ImplicationStatus impStat = checkImplication(sub, clauseLit, this.eprQuantifiedEqualityAtoms, 
+			boolean setLitImpliesClauseLit = checkImplication(sub,  
+					setLiteralPredicateLiteral, setLiteral.eprQuantifiedEqualityAtoms, 
+					clauseLit, this.eprQuantifiedEqualityAtoms);
+			if (setLitImpliesClauseLit) {
+				setLiteralFulfilled(clauseLit);
+			}
 		} else {
 			GetResolventStatus grs = new GetResolventStatus(sub, 
 					setLiteralPredicateLiteral,	setLiteral.eprQuantifiedEqualityAtoms,
@@ -615,7 +618,18 @@ public abstract class EprNonUnitClause extends EprClause {
 
 
 	
-	public ImplicationStatus getImplicationStatus(TTSubstitution sub, Literal litA,
+	/**
+	 * Answers the question if the following implication holds
+	 *  sub({litA , equalitiesA}) -?-> sub({litB, equalitiesB})
+	 * @param sub
+	 * @param litA
+	 * @param equalitiesA
+	 * @param litB
+	 * @param equalitiesB
+	 * @return
+	 */
+//	public ImplicationStatus getImplicationStatus(TTSubstitution sub, Literal litA,
+	public boolean checkImplication(TTSubstitution sub, Literal litA,
 			EprQuantifiedEqualityAtom[] equalitiesA, Literal litB, EprQuantifiedEqualityAtom[] equalitiesB) {
 		assert litA.getSign() == litB.getSign();
 		assert litA.getAtom() instanceof EprPredicateAtom;
@@ -623,6 +637,15 @@ public abstract class EprNonUnitClause extends EprClause {
 		assert ((EprPredicateAtom) litA.getAtom()).eprPredicate.equals(
 				((EprPredicateAtom) litB.getAtom()).eprPredicate);
 		
+		///// check if the predicate atoms allow/deny implication
+		boolean doesSpecializeAPred = doesUnifierSpecialize(sub, litA);
+		boolean doesSpecializeBPred = doesUnifierSpecialize(sub, litB);
+		
+		if (doesSpecializeBPred)
+			return false;
+		
+		
+		///// check if the equalities allow/deny implication
 		ArrayList<DPLLAtom> unifiedEqualitiesA = EprHelpers.substituteInExceptions(
 				equalitiesA, sub, mTheory);
 		ArrayList<DPLLAtom> unifiedEqualitiesB = EprHelpers.substituteInExceptions(
@@ -658,14 +681,95 @@ public abstract class EprNonUnitClause extends EprClause {
 				unifiedSinglyQuantifiedEqualitiesB, 
 				unifiedSinglyQuantifiedEqualitiesBasMap,
 				unifiedDoublyQuantifiedEqualitiesB);
+		
+		////// handle ground equalities
 
+		//note: if we did not specialize B, we can only have ground equalities on the A side, right??
+		// however: the clause where B came from might have ground equalities... 
+		//  ...?
 
+		if (!unifiedGroundEqualitiesA.isEmpty()) {
+			// this means in effect that the implication holds given the ground equalities do not hold
+			// false is sound
+			// maybe would be more complete to do sth else (ask state manager if they are different ..)
+			// also: if all the ground equalities in A are also present in B (might have to look at the rest of the clause)
+			//       then the implication holds..
+			assert false : "think..";
+			return false;
+		}
+		
+		/////// handle non-ground equalities
+		// (check subset, basically..)
+		boolean singlySubset = true;
+		for (Entry<TermVariable, HashSet<ApplicationTerm>> en1 : unifiedSinglyQuantifiedEqualitiesAasMap.entrySet()) {
+			HashSet<ApplicationTerm> bValue = unifiedSinglyQuantifiedEqualitiesBasMap.get(en1.getKey());
+			if (bValue == null) {
+				singlySubset = false;
+				break;
+			}
+			if (!bValue.containsAll(en1.getValue())) {
+				singlySubset = false;
+				break;
+			}
+		}
+		if (!singlySubset)
+			return false;
+		
+		/////// handle doubly quantified equalities
 
-		
-		
-		
-		
-		return null;
+		// subset check.. 
+		//TODO: verify the thinking here..
+		boolean doublySubset = true;
+		for (EprQuantifiedEqualityAtom eqA : unifiedDoublyQuantifiedEqualitiesA) {
+			boolean isContained = false;
+			for (EprQuantifiedEqualityAtom eqB : unifiedDoublyQuantifiedEqualitiesB) {
+				if (eqA.getTerm().equals(eqB.getTerm()) 
+						|| (eqA.getLhs() == eqB.getRhs() && eqA.getRhs() == eqB.getLhs())) {
+					isContained = true;
+					break;
+				}
+			}
+			if (!isContained) {
+				doublySubset = false;
+				break;
+			}
+		}
+		if (!doublySubset)
+			return false;
+
+		return true;
+	}
+
+	/**
+	 * @param sub
+	 * @param litA
+	 * @return
+	 */
+	private boolean doesUnifierSpecialize(TTSubstitution sub, Literal litA) {
+		TermTuple tt = ((EprPredicateAtom) litA.getAtom()).getArgumentsAsTermTuple();
+		TermTuple subTt = sub.apply(tt);
+		boolean result = false;
+		// check if a variable becomes a constant
+		for (int i = 0; i < tt.terms.length; i++) {
+			if (tt.terms[i] instanceof TermVariable
+					&& subTt.terms[i] instanceof ApplicationTerm)
+				result = true;
+			if (tt.terms[i] instanceof ApplicationTerm
+					&& subTt.terms[i] instanceof ApplicationTerm
+					&& tt.terms[i] != subTt.terms[i])
+				assert false : "what do we do in this case?"; //(no specialisation as long as the equality holds..
+		}
+		// check if two different variables become one (naive implementation..)
+		for (int i = 0; i < tt.terms.length; i++) {
+			for (int j = i + 1; j < tt.terms.length; j++) {
+				if (tt.terms[i] != tt.terms[j]
+						&& tt.terms[i] instanceof TermVariable
+						&& tt.terms[j] instanceof TermVariable
+						&& subTt.terms[i] == subTt.terms[j])
+					return false;
+			}
+		}
+		return result;
 	}
 
 	private void sortEqualities(ArrayList<DPLLAtom> unsortedEqualities,
