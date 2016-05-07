@@ -80,6 +80,9 @@ public class EprState {
 
 	public void setQuantifiedLiteralWithExceptions(EprQuantifiedUnitClause eqlwe) {
 		EprPredicate pred = eqlwe.getPredicateAtom().eprPredicate;
+		
+		if (mPredicateToModel.get(pred) == null)
+			addNewEprPredicate(pred);		
 
         if (eqlwe.getPredicateLiteral().getSign() == 1)
         	mPredicateToModel.get(pred).setQuantifiedLitPositive(eqlwe);

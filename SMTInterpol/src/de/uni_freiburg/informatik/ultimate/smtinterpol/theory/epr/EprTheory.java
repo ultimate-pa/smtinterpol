@@ -570,6 +570,10 @@ public class EprTheory implements ITheory {
 	}
 
 	private ApplicationTerm applyAlphaRenaming(ApplicationTerm idx, Object mCollector) {
+		boolean cutShort = true;
+		if (cutShort)
+			return idx;
+		
 		TermTuple tt = new TermTuple(idx.getParameters());
 
 		HashMap<TermVariable, Term> sub;

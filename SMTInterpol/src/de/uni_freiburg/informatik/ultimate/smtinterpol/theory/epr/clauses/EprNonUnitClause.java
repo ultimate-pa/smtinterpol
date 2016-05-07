@@ -244,7 +244,7 @@ public abstract class EprNonUnitClause extends EprClause {
 				
 			} else if (mFulfillabilityStatus.get(li) == FulfillabilityStatus.Fulfillable) {
 				assert mUnitLiteral == null : "more than one literals are fulfillable -- something's wrong!";
-				if (li instanceof EprQuantifiedPredicateAtom) {
+				if (li.getAtom() instanceof EprQuantifiedPredicateAtom) {
 					mUnitLiteral = 
 							EprHelpers.buildEQLWE(li, eprQuantifiedEqualityAtoms, this,
 									mTheory, mStateManager);

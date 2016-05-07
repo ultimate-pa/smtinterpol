@@ -802,7 +802,7 @@ public class Clausifier {
 					}
 					skolem = mCompiler.transform(skolem);
 					// TODO Annotation processing
-					pushOperation(new AddAsAxiom(skolem, null)); //alex: added arg
+					pushOperation(new AddAsAxiom(mTheory.not(skolem), null)); //alex: added arg
 				} else {
 					//"forall" case
 
