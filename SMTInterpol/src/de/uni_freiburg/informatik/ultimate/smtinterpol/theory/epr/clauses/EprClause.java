@@ -419,14 +419,22 @@ public abstract class EprClause extends Clause {
 		HashSet<EprQuantifiedEqualityAtom> mExceptionsFromClause;
 		HashSet<TTSubstitution> mSubstitutions;
 		
+	
 		public ComputeClauseUnifiers(
-				ArrayDeque<Pair<TermTuple, HashSet<EprUnitClause>>> clauseLitPointToUnfulReasons, 
-				EprQuantifiedEqualityAtom[] exceptedEqualities) { 
+				ArrayList<Literal> literalsToUnify,
+				HashMap<Literal, HashSet<EprUnitClause>> literalToUnfulReason, 
+				EprQuantifiedEqualityAtom[] exceptedEqualities) {
+			
+			ArrayDeque<Pair<TermTuple, HashSet<EprUnitClause>>> clauseLitPointToUnfulReasons = 
+					computeLitTermTupleToUnfulReasons(
+							literalsToUnify,
+							literalToUnfulReason);
+
 			mExceptionsFromClause = new HashSet<>(Arrays.asList(exceptedEqualities));
 			mSubstitutions = new HashSet<>();
 			computeInstantiations(clauseLitPointToUnfulReasons, new TTSubstitution(), true);
 		}
-	
+
 		/**
 		 * 
 		 * @param partialInstantiations the instantiations collected so far (an instantiation is a sequence of points that fit the literals 
@@ -480,6 +488,22 @@ public abstract class EprClause extends Clause {
 			}
 		}
 	
+		private ArrayDeque<Pair<TermTuple, HashSet<EprUnitClause>>> computeLitTermTupleToUnfulReasons(
+				ArrayList<Literal> eprQuantifiedPredicateLiteralsExceptUnitLiteral, 
+				HashMap<Literal, HashSet<EprUnitClause>> mLiteralToUnfulfillabilityReasons) {
+			ArrayDeque<Pair<TermTuple, HashSet<EprUnitClause>>> litTermTupleToUnfulfillabilityReason = new ArrayDeque<>();
+			// we only need to take the quantified literals into account, the ground ones are not "connected" through variables
+			//   (even though substitutions, in our extended sense, including equalities, might apply)
+			for (Literal li : eprQuantifiedPredicateLiteralsExceptUnitLiteral) {
+				EprQuantifiedPredicateAtom liAtom = (EprQuantifiedPredicateAtom) li.getAtom();
+				litTermTupleToUnfulfillabilityReason.add(
+						new Pair<TermTuple, HashSet<EprUnitClause>>(
+								liAtom.getArgumentsAsTermTuple(), 
+								mLiteralToUnfulfillabilityReasons.get(li)));
+			}
+			return litTermTupleToUnfulfillabilityReason;
+		}
+		
 		/**
 		 * checks is the given substitution refers to an instantiation of the
 		 * quantified variables that is excepted through an equality literal in the

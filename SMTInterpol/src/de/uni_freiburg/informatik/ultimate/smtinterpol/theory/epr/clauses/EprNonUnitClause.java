@@ -107,6 +107,24 @@ public abstract class EprNonUnitClause extends EprClause {
 		}
 	}
 	
+	public boolean isConflictClause() {
+		assert !isFreshAlphaRenamed;
+		for (Entry<Literal, FulfillabilityStatus> en : mFulfillabilityStatus.entrySet())
+			if (en.getValue() != FulfillabilityStatus.Unfulfillable)
+				return false;
+		
+		ComputeClauseUnifiers ccu = new ComputeClauseUnifiers(
+				new ArrayList<Literal>(Arrays.asList(eprQuantifiedPredicateLiterals)),
+				mLiteralToUnfulfillabilityReasons, 
+				eprQuantifiedEqualityAtoms);
+		
+		if (ccu.getSubstitutions().isEmpty()) {
+			assert false: "should we do something here? Or just wait for model completion??";
+			return false;
+		}
+		return true;
+	}
+
 	/**
 	 * @return the only literal in the clause that is still fulfillable, null, if there is no such literal
 	 */
@@ -124,27 +142,21 @@ public abstract class EprNonUnitClause extends EprClause {
 			return mUnitLiteral;
 		}
 		
+		assert mUnitLiteral instanceof EprQuantifiedUnitClause : "missed a case";
 		//if the unitLiteral is a quantified literal, then we first have to find out if there is 
 		// a unifier with the conflicts because of which we set the others "unfulfillable"
 		// if not, we cannot do a unitpropagation
 		// TODO: we probably need a kind of caching for this complex part --> otherwise it might get done often, 
 		//  even when the state has not changed, right??
-		EprQuantifiedUnitClause quantUnitLit = (EprQuantifiedUnitClause) mUnitLiteral;
-		ArrayDeque<Pair<TermTuple, HashSet<EprUnitClause>>> litTermTupleToUnfulfillabilityReason = new ArrayDeque<>();
-		// we only need to take the quantified literals into account, the ground ones are not "connected" through variables
-		//   (even though substitutions, in our extended sense, including equalities, might apply)
-		for (Literal li : eprQuantifiedPredicateLiterals) {
-			if (li.equals(quantUnitLit.getPredicateLiteral()))
-				continue;
-			EprQuantifiedPredicateAtom liAtom = (EprQuantifiedPredicateAtom) li.getAtom();
-			litTermTupleToUnfulfillabilityReason.add(
-					new Pair<TermTuple, HashSet<EprUnitClause>>(
-							liAtom.getArgumentsAsTermTuple(), 
-							mLiteralToUnfulfillabilityReasons.get(li)));
-		}
+		ArrayList<Literal> eprQuantifiedPredicateLiteralsExceptUnitLiteral = 
+				new ArrayList<>(Arrays.asList(eprQuantifiedPredicateLiterals));
+		eprQuantifiedPredicateLiteralsExceptUnitLiteral.remove(mUnitLiteral);
+		
 
 		ComputeClauseUnifiers ci = new ComputeClauseUnifiers(
-				litTermTupleToUnfulfillabilityReason, eprQuantifiedEqualityAtoms);
+				eprQuantifiedPredicateLiteralsExceptUnitLiteral,
+				mLiteralToUnfulfillabilityReasons,
+				eprQuantifiedEqualityAtoms);
 
 		if (ci.getSubstitutions().isEmpty()) {
 			mUnitLiteralToInstantiationOfClause = null;
@@ -214,6 +226,8 @@ public abstract class EprNonUnitClause extends EprClause {
 		else
 			return unifiedUnitLiterals.iterator().next();
 	}
+
+
 	
 	/**
 	 * If this is a unit clause, then this yield the explanation clause, which is this clause instantiated in a way
@@ -225,8 +239,7 @@ public abstract class EprNonUnitClause extends EprClause {
 	public EprClause getInstantiationOfClauseForCurrentUnitLiteral(EprUnitClause uc) {
 		return mUnitLiteralToInstantiationOfClause.get(uc);
 	}
-	
-	
+
 	private void searchUnitLiteral() {
 		// that there is exactly one fulfillable literal is a necessary condition for this
 		// clause being a unit clause ..
@@ -833,14 +846,6 @@ public abstract class EprNonUnitClause extends EprClause {
 		}
 	}
 
-	public boolean isConflictClause() {
-		assert !isFreshAlphaRenamed;
-		for (Entry<Literal, FulfillabilityStatus> en : mFulfillabilityStatus.entrySet())
-			if (en.getValue() != FulfillabilityStatus.Unfulfillable)
-				return false;
-		return true;
-	}
-	
 	enum ResolventStatus {
 		Tautology, Conflict, ForcesFinite, Ground
 	}
