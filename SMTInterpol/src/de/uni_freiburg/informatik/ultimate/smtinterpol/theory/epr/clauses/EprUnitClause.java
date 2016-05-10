@@ -4,6 +4,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprStateManager;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
 
 public abstract class EprUnitClause extends EprClause {
 	
@@ -26,6 +27,10 @@ public abstract class EprUnitClause extends EprClause {
 			mExplanation = explanation;
 //		}
 	}
+	
+	public abstract Literal getPredicateLiteral();
+	
+	public abstract EprPredicateAtom getPredicateAtom();
 	
 	public EprClause getExplanation() {
 		return mExplanation;

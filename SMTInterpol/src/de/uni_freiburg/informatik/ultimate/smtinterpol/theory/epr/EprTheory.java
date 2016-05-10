@@ -246,7 +246,7 @@ public class EprTheory implements ITheory {
 				System.out.println("EPRDEBUG: found unit clause: " + ec);
 
 				if (unitLiteral instanceof EprGroundUnitClause) {
-					Literal groundUnitLiteral = ((EprGroundUnitClause) unitLiteral).getLiteral();
+					Literal groundUnitLiteral = ((EprGroundUnitClause) unitLiteral).getPredicateLiteral();
 					if (groundUnitLiteral.getAtom() instanceof EprQuantifiedPredicateAtom) {
 						assert false : "do we need this case???";
 						assert ec.getEqualityAtoms().length == 0;
@@ -269,7 +269,7 @@ public class EprTheory implements ITheory {
 						 */
 						addAtomToDPLLEngine(groundUnitLiteral.getAtom());
 						mPropLitToExplanation.put(groundUnitLiteral, 
-								ec.getInstantiationOfClauseForCurrentUnitLiteral());
+								ec.getInstantiationOfClauseForCurrentUnitLiteral(unitLiteral));
 						mGroundLiteralsToPropagate.add(groundUnitLiteral);
 					} 
 				} else {
@@ -362,6 +362,7 @@ public class EprTheory implements ITheory {
 			// - equalities over a quantified variable and a constant each
 			// - predicates over quantified variables and/or constants
 			// - non-epr literals (in mNotFulfilledEprClauses, they are all false (maybe unset??))
+			assert false : "go over this";
 			Clause conflict = eprClause.check(mStateManager);
 //			checkResult &= conflict == null;
 			if (conflict != null)

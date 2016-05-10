@@ -74,8 +74,10 @@ public class TermTuple {
 			EqualityManager equalityManager) {
 		assert this.arity == other.arity;
 
-		TermTuple thisTT = new TermTuple(terms);
-		TermTuple otherTT = new TermTuple(other.terms);
+//		TermTuple thisTT = new TermTuple(terms);
+//		TermTuple otherTT = new TermTuple(other.terms);
+		TermTuple thisTT = subs.apply(new TermTuple(terms));
+		TermTuple otherTT = subs.apply(new TermTuple(other.terms));
 //		TermTuple otherTT = alphaRenameFresh(other);
 		
 		TTSubstitution resultSubs = subs; // TODO: or is a copy needed?

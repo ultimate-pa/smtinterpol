@@ -3,6 +3,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -20,6 +21,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ResolutionNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers.Pair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprStateManager;
@@ -311,7 +313,7 @@ public abstract class EprClause extends Clause {
 
 //		ArrayList<ArrayList<TermTuple>> instantiations = computeInstantiations(new ArrayList<ArrayList<TermTuple>>(),
 //				conflictPointSets, pointsFromLiterals, new HashMap<TermVariable, Term>(), true);
-		ArrayList<TermTuple> instantiation = new ComputeInstantiations(conflictPointSets, pointsFromLiterals).getInstantiation();
+		ArrayList<TermTuple> instantiation = new ComputeClauseUnifiers(conflictPointSets, pointsFromLiterals, eprQuantifiedEqualityAtoms).getInstantiation();
 		// if there is a fitting instantiation, it directly induces a conflict
 		// clause
 //		if (instantiations.isEmpty()) {
@@ -436,23 +438,115 @@ public abstract class EprClause extends Clause {
 		return true;
 	}
 
-	class ComputeInstantiations {
-		private ArrayList<ArrayList<TermTuple>> mAllInstantiations = new ArrayList<>();
+	/**
+	 * Idea:
+	 *  - We start with a clause where all, or all but one, literals L are labelled as "unfulfillable".
+	 *  - Each unfulfillable literal has one or more reasons of unfulfillability, a reason of unfulfillability is
+	 *     an EprUnitClause that is set in the current state.
+	 *  - We are looking for substitutions that at the same time
+	 *    -- unify all the literals L
+	 *    -- unify each literal in L with one of its conflict points
+	 *    -- don't introduce excepted points 
+	 *        (excepted through a quantified equality literal in the base clause 
+	 *         or in the EprQuantifiedUnitClause of a corresponding conflict point)
+	 * 
+	 * @author alex
+	 *
+	 */
+	class ComputeClauseUnifiers {
 		private HashMap<TTSubstitution, ArrayList<ArrayList<TermTuple>>> mSubstitutionToInstantiations = new HashMap<>();
+		
+		HashSet<EprQuantifiedEqualityAtom> mExceptionsFromClause;
+		HashSet<TTSubstitution> mSubstitutions;
+		
+		public ComputeClauseUnifiers(
+				ArrayDeque<Pair<TermTuple, HashSet<EprUnitClause>>> clauseLitPointToUnfulReasons, 
+				EprQuantifiedEqualityAtom[] exceptedEqualities) { 
+			mExceptionsFromClause = new HashSet<>(Arrays.asList(exceptedEqualities));
+			mSubstitutions = new HashSet<>();
+			computeInstantiations(clauseLitPointToUnfulReasons, new TTSubstitution(), true);
+		}
 
-		public ComputeInstantiations(ArrayDeque<HashSet<TermTuple>> conflictPointSets, 
-				ArrayDeque<TermTuple> pointsFromLiterals) { 
+
+		@Deprecated
+		public ComputeClauseUnifiers(ArrayDeque<HashSet<TermTuple>> conflictPointSets, 
+				ArrayDeque<TermTuple> pointsFromLiterals, EprQuantifiedEqualityAtom[] exceptedEqualities) { 
 
 			computeInstantiations(new ArrayList<ArrayList<TermTuple>>(), 
 					conflictPointSets, 
 					pointsFromLiterals, 
+					exceptedEqualities,
 					new TTSubstitution(),
 					true);
 		}
+		
+		/**
+		 * 
+		 * @param partialInstantiations the instantiations collected so far (an instantiation is a sequence of points that fit the literals 
+		 *           of this clause that have been processed so far)
+		 * @param clauseLitTTToUnfulReasons A list of pairs wher
+		 *    the first entry is a termtuple that comes from a literal in the clause where this is called from
+		 *    the second entry is a list of conflicting EprUnitClauses 
+		 *      --> note that we have to check upfront that these are really conflicting wrt polarity and predicateSymbol
+		 * @param exceptedEqualities Equalities that mark exceptions mad in the clause where the clauseLitTermTuples come from
+		 * @param substitution the unifier of the current instantiation -- further unification may only be a specialization
+		 *                  (new for the unit clause case: this should not necessarily be a substitution that grounds everything.. 
+		 *                      -- computeConflictClause may always ground by adding lambdas, for example..)
+
+		 * @param isFirstCall the first call is special, because there are no instantiations to build upon
+		 */
+		private void computeInstantiations(
+//				ArrayList<ArrayList<TermTuple>> partialInstantiations,
+				ArrayDeque<Pair<TermTuple, HashSet<EprUnitClause>>> clauseLitTTToUnfulReasons,
+				TTSubstitution substitution, boolean isFirstCall) {
+			// TODO: might be better to rework this as NonRecursive
+
+			if (clauseLitTTToUnfulReasons.isEmpty()) {
+//				mSubstitutionToInstantiations.put(substitution, partialInstantiations);
+				return;
+			}
+			
+			Pair<TermTuple, HashSet<EprUnitClause>> currentPair = clauseLitTTToUnfulReasons.pollFirst();
+
+			TermTuple currentClauseLitTT = currentPair.first;
+			HashSet<EprUnitClause> currentUnfulReasons = currentPair.second;
+
+			for (EprUnitClause conflict : currentUnfulReasons) {
+				TTSubstitution newSubs = currentClauseLitTT.match(
+						conflict.getPredicateAtom().getArgumentsAsTermTuple(), 
+						new TTSubstitution(substitution), 
+						mEqualityManager);
+				
+				HashSet<EprQuantifiedEqualityAtom> currentExceptions = 
+						new HashSet<>();
+				currentExceptions.addAll(mExceptionsFromClause);
+				currentExceptions.addAll(Arrays.asList(conflict.eprQuantifiedEqualityAtoms));
+
+				if (newSubs == null) 
+					continue;
+				if (isSubstitutionExcepted(newSubs, currentExceptions)) 
+					continue;
+
+//				ArrayList<ArrayList<TermTuple>> instantiationsNew = new ArrayList<ArrayList<TermTuple>>();
+//				if (isFirstCall) {
+//					ArrayList<TermTuple> l = new ArrayList<TermTuple>();
+//					l.add(currentClauseLitTT);
+//					instantiationsNew.add(l);
+//				} else {
+//					for (ArrayList<TermTuple> in : partialInstantiations) {
+//						ArrayList<TermTuple> inNew = new ArrayList<>(in);
+//						inNew.add(tt);
+//						instantiationsNew.add(inNew);
+//					}
+//				}
+				computeInstantiations(
+						new ArrayDeque<Pair<TermTuple, HashSet<EprUnitClause>>>(clauseLitTTToUnfulReasons),
+						newSubs, 
+						false);
+			}
+		}
 
 		/**
-		 * compute a filtered cross product
-		 * 
 		 * @param partialInstantiations the instantiations collected so far (an instantiation is a sequence of points that fit the literals 
 		 *           of this clause that have been processed so far)
 		 * @param conflictPointSets the points we are essentially building a cross product over
@@ -464,13 +558,15 @@ public abstract class EprClause extends Clause {
 		 * @param isFirstCall the first call is special, because there are no instantiations to build upon
 		 * @return
 		 */
+		@Deprecated
 		private void computeInstantiations(ArrayList<ArrayList<TermTuple>> partialInstantiations,
 				ArrayDeque<HashSet<TermTuple>> conflictPointSets, ArrayDeque<TermTuple> pointsFromLiterals,
+				EprQuantifiedEqualityAtom[] exceptedEqualities,
 				TTSubstitution substitution, boolean isFirstCall) {
 			// TODO: might be better to rework this as NonRecursive
 
 			if (conflictPointSets.isEmpty()) {
-				mAllInstantiations.addAll(partialInstantiations);
+//				mAllInstantiations.addAll(partialInstantiations);
 				mSubstitutionToInstantiations.put(substitution, partialInstantiations);
 				return;
 			}
@@ -482,26 +578,25 @@ public abstract class EprClause extends Clause {
 				TTSubstitution newSubs = new TTSubstitution(substitution);
 				newSubs = tt.match(currentPfl, newSubs, mEqualityManager);
 
-				if (isSubstitutionExcepted(newSubs)) {
+				if (newSubs == null) 
 					continue;
-				}
+				if (isSubstitutionExcepted(newSubs, Arrays.asList(exceptedEqualities))) 
+					continue;
 
-				if (newSubs != null) {
-					ArrayList<ArrayList<TermTuple>> instantiationsNew = new ArrayList<ArrayList<TermTuple>>();
-					if (isFirstCall) {
-						ArrayList<TermTuple> l = new ArrayList<TermTuple>();
-						l.add(tt);
-						instantiationsNew.add(l);
-					} else {
-						for (ArrayList<TermTuple> in : partialInstantiations) {
-							ArrayList<TermTuple> inNew = new ArrayList<>(in);
-							inNew.add(tt);
-							instantiationsNew.add(inNew);
-						}
+				ArrayList<ArrayList<TermTuple>> instantiationsNew = new ArrayList<ArrayList<TermTuple>>();
+				if (isFirstCall) {
+					ArrayList<TermTuple> l = new ArrayList<TermTuple>();
+					l.add(tt);
+					instantiationsNew.add(l);
+				} else {
+					for (ArrayList<TermTuple> in : partialInstantiations) {
+						ArrayList<TermTuple> inNew = new ArrayList<>(in);
+						inNew.add(tt);
+						instantiationsNew.add(inNew);
 					}
-					computeInstantiations(instantiationsNew, new ArrayDeque<HashSet<TermTuple>>(conflictPointSets),
-							new ArrayDeque<TermTuple>(pointsFromLiterals), newSubs, false);
 				}
+				computeInstantiations(instantiationsNew, new ArrayDeque<HashSet<TermTuple>>(conflictPointSets),
+						new ArrayDeque<TermTuple>(pointsFromLiterals), eprQuantifiedEqualityAtoms, newSubs, false);
 			}
 		}
 
@@ -513,14 +608,22 @@ public abstract class EprClause extends Clause {
 		 * 
 		 * returns true iff newSubs corresponds to at least one excepted point
 		 */
-		private boolean isSubstitutionExcepted(TTSubstitution newSubs) {
+//		private boolean isSubstitutionExcepted(TTSubstitution newSubs, EprQuantifiedEqualityAtom[] exceptedEqualities) {
+		private boolean isSubstitutionExcepted(TTSubstitution newSubs, Collection<EprQuantifiedEqualityAtom> exceptedEqualities) {
+			// check exceptions of the form (= x c), i.e., with exactly one quantified variable
 			for (SubsPair en : newSubs.getSubsPairs()) {
-				if (en instanceof TPair) {
-					TPair tp = (TPair) en;
-					HashSet<ApplicationTerm> epCon = mExceptedPoints.get(tp.tv);
-					if (epCon != null && epCon.contains(tp.t))
+				for (EprQuantifiedEqualityAtom eqea : exceptedEqualities) { //TODO: a faster variant
+					if ((en.top == eqea.getLhs() && en.bot == eqea.getRhs())
+							&& (en.bot == eqea.getLhs() && en.top == eqea.getRhs())) {
 						return true;
+					}
 				}
+//				if (en instanceof TPair) {
+//					TPair tp = (TPair) en;
+//					HashSet<ApplicationTerm> epCon = mExceptedPoints.get(tp.tv);
+//					if (epCon != null && epCon.contains(tp.t))
+//						return true;
+//				}
 			}
 			return false;
 		}
@@ -529,20 +632,26 @@ public abstract class EprClause extends Clause {
 		 * Returns some (the first found) instantiation, null if there is none.
 		 * @return
 		 */
+		@Deprecated
 		public ArrayList<TermTuple> getInstantiation() {
-			if (mAllInstantiations.isEmpty())
+			if (mSubstitutionToInstantiations.isEmpty())
 				return null;
-			return mAllInstantiations.get(0);
+			return mSubstitutionToInstantiations.values().iterator().next().get(0);
 		}
 		/**
 		 * Returns some (the first found) substitution, null if there is none.
 		 * @return 
 		 * @return
 		 */
+		@Deprecated
 		public TTSubstitution getSubstitution() {
 			if (mSubstitutionToInstantiations.isEmpty())
 				return null;
 			return mSubstitutionToInstantiations.keySet().iterator().next();
+		}
+		
+		public HashSet<TTSubstitution> getSubstitutions() {
+			return mSubstitutions;
 		}
 	}
 

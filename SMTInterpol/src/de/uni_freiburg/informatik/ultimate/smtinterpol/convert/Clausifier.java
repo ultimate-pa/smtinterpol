@@ -622,14 +622,14 @@ public class Clausifier {
 						isDpllClause = false;
 					}
 					if (isDpllClause) {
-					//alex (end)
+						//alex (end)
 
-					IProofTracker sub = mTracker.getDescendent();
-					sub.intern(at, lit);
-					addClause(new Literal[] {positive ? lit : lit.negate()},
-							null, getProofNewSource(sub.clause(mProofTerm)));
+						IProofTracker sub = mTracker.getDescendent();
+						sub.intern(at, lit);
+						addClause(new Literal[] {positive ? lit : lit.negate()},
+								null, getProofNewSource(sub.clause(mProofTerm)));
 
-					//alex (begin)
+						//alex (begin)
 					} else{
 						//TODO: replace the nulls
 						Literal[] lits = new Literal[] {positive ? lit : lit.negate()};
@@ -1283,7 +1283,7 @@ public class Clausifier {
 				}
 				//alex: when does this happen? --> have to do some something here for EPR..
 				// right now I think this should not happen, because clausification (AddAsAxiom) removes this case
-				throw new UnsupportedOperationException(); 
+//				throw new UnsupportedOperationException(); 
 
 			}
 		}
@@ -1913,10 +1913,11 @@ public class Clausifier {
 		} else {
 		//alex end
 			atom = new NamedAtom(smtFormula, mStackLevel);
+			//alex: do these three lines (all) belong inside this else branch or outside??
+			mEngine.addAtom(atom);
+			mTracker.quoted(smtFormula, atom);
+			mNumAtoms++;
 		}
-		mEngine.addAtom(atom);
-		mTracker.quoted(smtFormula, atom);
-		mNumAtoms++;
 		return atom;
 	}
 

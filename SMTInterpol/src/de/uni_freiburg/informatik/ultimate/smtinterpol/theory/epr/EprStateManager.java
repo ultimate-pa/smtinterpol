@@ -360,7 +360,7 @@ public class EprStateManager {
 	 */
 	public boolean isSubsumedInCurrentState(EprUnitClause euc) { //TODO possibly this needs to work on a QuantifiedLitWExcptns
 		if (euc instanceof EprGroundUnitClause) {
-			Literal lit = ((EprGroundUnitClause) euc).getLiteral();
+			Literal lit = ((EprGroundUnitClause) euc).getPredicateLiteral();
 			if (lit.getAtom().getDecideStatus() == lit) { // is it set in DPLL?
 				return true;
 			}

@@ -4,6 +4,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprStateManager;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 
 public class EprGroundUnitClause extends EprUnitClause {
 
@@ -21,8 +22,12 @@ public class EprGroundUnitClause extends EprUnitClause {
 		assert groundLiterals.length == 1;
 	}
 
-	public Literal getLiteral() {
+	public Literal getPredicateLiteral() {
 		return groundLiterals[0];
+	}
+
+	public EprGroundPredicateAtom getPredicateAtom() {
+		return (EprGroundPredicateAtom) groundLiterals[0].getAtom();
 	}
 
 	@Override
@@ -40,7 +45,7 @@ public class EprGroundUnitClause extends EprUnitClause {
 	@Override
 	public EprClause getFreshAlphaRenamedVersion() {
 		//TODO: not so nice, somehow
-		return new EprGroundUnitClause(getLiteral(), mTheory, 
+		return new EprGroundUnitClause(getPredicateLiteral(), mTheory, 
 				mStateManager, mExplanation, true);
 	}
 }
