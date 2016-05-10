@@ -351,22 +351,99 @@ public class EprTheory implements ITheory {
 
 	@Override
 	public Clause computeConflictClause() {
+
 		System.out.println("EPRDEBUG: computeConflictClause");
-		for (Clause c : mStateManager.getNotFulfilledClauses()) {
-			EprClause eprClause = (EprClause)	c;
+		
+		
+		/*
+		 * new plan (written down on 10.05.2016)
+		 *  (assuming that the internal epr model is consistent at this point)
+		 *  1 check if current model is complete
+		 *    if yes: return sat
+		 *    if no:
+		 *  2 set a EprQuantifiedUnitClause that makes it more complete
+		 *     is there a conflict now?
+		 *    if yes:
+		 *     analyze the conflict and do one of the following
+		 *      - set a different EprQuantifiedUnitClause (for example with added exceptions)
+		 *      - return a ground conflict clause
+		 *    if no:
+		 *     goto 1
+		 */
+		
+		assert false: "TODO";
+		
+		return completeModel();
+		
+		
+//		for (Clause c : mStateManager.getNotFulfilledClauses()) {
+//			EprClause eprClause = (EprClause)	c;
+//			
+//			// an epr clause looks like this:
+//			// x1 =/!= x2 \/ ... \/ xn+1 = c1 ... \/ (P1 ci/xi ... cj/xj) \/ ... \/ (non-EPR literals)
+//			// we have
+//			// - (dis)equalities over two quantified variables
+//			// - equalities over a quantified variable and a constant each
+//			// - predicates over quantified variables and/or constants
+//			// - non-epr literals (in mNotFulfilledEprClauses, they are all false (maybe unset??))
+//			Clause conflict = eprClause.check(mStateManager);
+////			checkResult &= conflict == null;
+//			if (conflict != null)
+//				return conflict;
+//		}
+//		return null;
+	}
+
+	/**
+	 * Called by computeConflictClause().
+	 * Checks if the current model for the epr predicates is complete 
+	 * (i.e. every predicate has a value for every point in it)
+	 * If it is complete (and consistent), returns null (meaning no conflict)
+	 * If the model is not complete, this sets (and possibly backtracks) EprUnitClauses
+	 * until the model is complete, or a ground conflict has been derived.
+	 * In the latter case, the ground conflict is returned.
+	 * @return
+	 */
+	private Clause completeModel() {
+		EprPredicate pred = isEprModelComplete();
+		while (pred != null) {
+			//TODO implement!
+			EprUnitClause completingClause  = getCompletingClause(pred);
 			
-			// an epr clause looks like this:
-			// x1 =/!= x2 \/ ... \/ xn+1 = c1 ... \/ (P1 ci/xi ... cj/xj) \/ ... \/ (non-EPR literals)
-			// we have
-			// - (dis)equalities over two quantified variables
-			// - equalities over a quantified variable and a constant each
-			// - predicates over quantified variables and/or constants
-			// - non-epr literals (in mNotFulfilledEprClauses, they are all false (maybe unset??))
-			assert false : "go over this";
-			Clause conflict = eprClause.check(mStateManager);
-//			checkResult &= conflict == null;
-			if (conflict != null)
-				return conflict;
+			//TODO maybe unite these two methods..
+			//TODO insert "decide point"
+			if (completingClause instanceof EprQuantifiedUnitClause)
+				setQuantifiedLiteralWEInClauses((EprQuantifiedUnitClause) completingClause);
+			else
+				setGroundLiteralInClauses(completingClause.getPredicateLiteral());
+
+
+			pred = isEprModelComplete();
+		}
+		return null;
+	}
+
+	/**
+	 * Assumes that the model of pred is incomplete (i.e., the current state assigns no
+	 * truth value to at least one point).
+	 * Returns a EprUnitClause that does not contradict the current model, and that, 
+	 * when set, extends the current model by at least one point.
+	 * (There might be a lot of heuristics going on here..)
+	 * @param pred An EprPredicate whose model is currently incomplete
+	 * @return an EprUnitClause that, when set, (partially) completes the model of pred
+	 */
+	private EprUnitClause getCompletingClause(EprPredicate pred) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	/**
+	 * 
+	 * @return an EprPredicate whose model is not complete in the current state, null if there is none.
+	 */
+	private EprPredicate isEprModelComplete() {
+		for (EprPredicate pred : mStateManager.getAllEprPredicates()) {
+		// TODO Auto-generated method stub
 		}
 		return null;
 	}

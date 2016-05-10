@@ -387,4 +387,9 @@ public class EprStateManager {
 	public CClosure getCClosure() {
 		return mCClosure;
 	}
+
+	public HashSet<EprPredicate> getAllEprPredicates() {
+		assert false : "TODO: check: is the field updated correctly??";
+		return mAllEprPredicates;
+	}
 }
