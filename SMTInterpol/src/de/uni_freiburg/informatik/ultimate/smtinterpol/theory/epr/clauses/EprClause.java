@@ -288,88 +288,6 @@ public abstract class EprClause extends Clause {
 		exceptions.add(at);
 	}
 
-	/**
-	 * Checks if this clause is fulfilled in the current decide state wrt. the
-	 * EPR theory.
-	 * 
-	 * @return null if this clause is fulfilled, a conflict clause otherwise
-	 */
-	public Clause check(EprStateManager esm) {
-
-		ArrayDeque<HashSet<TermTuple>> conflictPointSets = new ArrayDeque<>();
-
-		for (Literal l : eprQuantifiedPredicateLiterals) {
-			EprPredicateAtom epa = (EprPredicateAtom) l.getAtom();
-			EprPredicate ep = epa.eprPredicate;
-
-			HashSet<TermTuple> potentialConflictPoints = esm.getPoints(l.getSign() == 1, ep);
-
-			conflictPointSets.add(potentialConflictPoints);
-		}
-
-		// TODO: take excepted points into account
-
-		ArrayDeque<TermTuple> pointsFromLiterals = computePointsFromLiterals(eprQuantifiedPredicateLiterals);
-
-//		ArrayList<ArrayList<TermTuple>> instantiations = computeInstantiations(new ArrayList<ArrayList<TermTuple>>(),
-//				conflictPointSets, pointsFromLiterals, new HashMap<TermVariable, Term>(), true);
-		ArrayList<TermTuple> instantiation = new ComputeClauseUnifiers(conflictPointSets, pointsFromLiterals, eprQuantifiedEqualityAtoms).getInstantiation();
-		// if there is a fitting instantiation, it directly induces a conflict
-		// clause
-//		if (instantiations.isEmpty()) {
-		if (instantiation == null) {
-			return null;
-		} else {
-			ArrayList<EprPredicate> predicates = computePredicatesFromLiterals(eprQuantifiedPredicateLiterals);
-			ArrayList<Boolean> polaritites = computePolaritiesFromLiterals(eprQuantifiedPredicateLiterals);
-//			return clauseFromInstantiation(predicates, instantiations.get(0), polaritites);
-			return clauseFromInstantiation(predicates, instantiation, polaritites);
-		}
-	}
-
-	private Clause clauseFromInstantiation(ArrayList<EprPredicate> predicates, ArrayList<TermTuple> points,
-			ArrayList<Boolean> polarities) {
-		ArrayList<Literal> result = new ArrayList<Literal>();
-		for (int i = 0; i < predicates.size(); i++) {
-			// EprPredicateAtom epa = new EprPredicateAtom(
-			// mTheory.term(predicates.get(i).functionSymbol,
-			// points.get(i).terms),
-			// 0, 0, predicates.get(i));//TODO replace 0, 0
-			EprPredicateAtom epa = predicates.get(i).getAtomForPoint(points.get(i));
-
-			result.add(polarities.get(i) ? epa : epa.negate());
-		}
-
-		return new Clause(result.toArray(new Literal[result.size()]));
-	}
-
-	private ArrayList<EprPredicate> computePredicatesFromLiterals(Literal[] eprPredicateLiterals2) {
-		// TODO cache/precompute this
-		ArrayList<EprPredicate> result = new ArrayList<EprPredicate>();
-		for (Literal l : eprPredicateLiterals2) {
-			result.add(((EprPredicateAtom) l.getAtom()).eprPredicate);
-		}
-		return result;
-	}
-
-	private ArrayList<Boolean> computePolaritiesFromLiterals(Literal[] eprPredicateLiterals2) {
-		// TODO cache/precompute this
-		ArrayList<Boolean> result = new ArrayList<Boolean>();
-		for (Literal l : eprPredicateLiterals2) {
-			result.add(l.getSign() == 1);
-		}
-		return result;
-	}
-
-	private ArrayDeque<TermTuple> computePointsFromLiterals(Literal[] predicateLiterals) {
-		// TODO cache/precompute this
-		ArrayDeque<TermTuple> result = new ArrayDeque<>();
-		for (Literal l : predicateLiterals) {
-			result.add(new TermTuple(((ApplicationTerm) ((EprPredicateAtom) l.getAtom()).getTerm()).getParameters()));
-
-		}
-		return result;
-	}
 
 	public EprClause instantiateClause(TTSubstitution sub) {
 		return instantiateClause(null, sub, null);
@@ -466,20 +384,7 @@ public abstract class EprClause extends Clause {
 			mSubstitutions = new HashSet<>();
 			computeInstantiations(clauseLitPointToUnfulReasons, new TTSubstitution(), true);
 		}
-
-
-		@Deprecated
-		public ComputeClauseUnifiers(ArrayDeque<HashSet<TermTuple>> conflictPointSets, 
-				ArrayDeque<TermTuple> pointsFromLiterals, EprQuantifiedEqualityAtom[] exceptedEqualities) { 
-
-			computeInstantiations(new ArrayList<ArrayList<TermTuple>>(), 
-					conflictPointSets, 
-					pointsFromLiterals, 
-					exceptedEqualities,
-					new TTSubstitution(),
-					true);
-		}
-		
+	
 		/**
 		 * 
 		 * @param partialInstantiations the instantiations collected so far (an instantiation is a sequence of points that fit the literals 
@@ -527,76 +432,10 @@ public abstract class EprClause extends Clause {
 				if (isSubstitutionExcepted(newSubs, currentExceptions)) 
 					continue;
 
-//				ArrayList<ArrayList<TermTuple>> instantiationsNew = new ArrayList<ArrayList<TermTuple>>();
-//				if (isFirstCall) {
-//					ArrayList<TermTuple> l = new ArrayList<TermTuple>();
-//					l.add(currentClauseLitTT);
-//					instantiationsNew.add(l);
-//				} else {
-//					for (ArrayList<TermTuple> in : partialInstantiations) {
-//						ArrayList<TermTuple> inNew = new ArrayList<>(in);
-//						inNew.add(tt);
-//						instantiationsNew.add(inNew);
-//					}
-//				}
 				computeInstantiations(
 						new ArrayDeque<Pair<TermTuple, HashSet<EprUnitClause>>>(clauseLitTTToUnfulReasons),
 						newSubs, 
 						false);
-			}
-		}
-
-		/**
-		 * @param partialInstantiations the instantiations collected so far (an instantiation is a sequence of points that fit the literals 
-		 *           of this clause that have been processed so far)
-		 * @param conflictPointSets the points we are essentially building a cross product over
-		 *                   (in the computeConflictClause case those are always ground, not so in the unitClause case)
-		 * @param pointsFromLiterals the literal points (possibly containing variables, coming from the clause) that we match the conflictPoints with
-		 * @param substitution the unifier of the current instantiation -- further unification may only be a specialization
-		 *                  (new for the unit clause case: this should not necessarily be a substitution that grounds everything.. 
-		 *                      -- computeConflictClause may always ground by adding lambdas, for example..)
-		 * @param isFirstCall the first call is special, because there are no instantiations to build upon
-		 * @return
-		 */
-		@Deprecated
-		private void computeInstantiations(ArrayList<ArrayList<TermTuple>> partialInstantiations,
-				ArrayDeque<HashSet<TermTuple>> conflictPointSets, ArrayDeque<TermTuple> pointsFromLiterals,
-				EprQuantifiedEqualityAtom[] exceptedEqualities,
-				TTSubstitution substitution, boolean isFirstCall) {
-			// TODO: might be better to rework this as NonRecursive
-
-			if (conflictPointSets.isEmpty()) {
-//				mAllInstantiations.addAll(partialInstantiations);
-				mSubstitutionToInstantiations.put(substitution, partialInstantiations);
-				return;
-			}
-
-			HashSet<TermTuple> currentPoints = conflictPointSets.pollFirst();
-			TermTuple currentPfl = pointsFromLiterals.pollFirst();
-
-			for (TermTuple tt : currentPoints) {
-				TTSubstitution newSubs = new TTSubstitution(substitution);
-				newSubs = tt.match(currentPfl, newSubs, mEqualityManager);
-
-				if (newSubs == null) 
-					continue;
-				if (isSubstitutionExcepted(newSubs, Arrays.asList(exceptedEqualities))) 
-					continue;
-
-				ArrayList<ArrayList<TermTuple>> instantiationsNew = new ArrayList<ArrayList<TermTuple>>();
-				if (isFirstCall) {
-					ArrayList<TermTuple> l = new ArrayList<TermTuple>();
-					l.add(tt);
-					instantiationsNew.add(l);
-				} else {
-					for (ArrayList<TermTuple> in : partialInstantiations) {
-						ArrayList<TermTuple> inNew = new ArrayList<>(in);
-						inNew.add(tt);
-						instantiationsNew.add(inNew);
-					}
-				}
-				computeInstantiations(instantiationsNew, new ArrayDeque<HashSet<TermTuple>>(conflictPointSets),
-						new ArrayDeque<TermTuple>(pointsFromLiterals), eprQuantifiedEqualityAtoms, newSubs, false);
 			}
 		}
 
@@ -608,7 +447,6 @@ public abstract class EprClause extends Clause {
 		 * 
 		 * returns true iff newSubs corresponds to at least one excepted point
 		 */
-//		private boolean isSubstitutionExcepted(TTSubstitution newSubs, EprQuantifiedEqualityAtom[] exceptedEqualities) {
 		private boolean isSubstitutionExcepted(TTSubstitution newSubs, Collection<EprQuantifiedEqualityAtom> exceptedEqualities) {
 			// check exceptions of the form (= x c), i.e., with exactly one quantified variable
 			for (SubsPair en : newSubs.getSubsPairs()) {
@@ -618,36 +456,8 @@ public abstract class EprClause extends Clause {
 						return true;
 					}
 				}
-//				if (en instanceof TPair) {
-//					TPair tp = (TPair) en;
-//					HashSet<ApplicationTerm> epCon = mExceptedPoints.get(tp.tv);
-//					if (epCon != null && epCon.contains(tp.t))
-//						return true;
-//				}
 			}
 			return false;
-		}
-		
-		/**
-		 * Returns some (the first found) instantiation, null if there is none.
-		 * @return
-		 */
-		@Deprecated
-		public ArrayList<TermTuple> getInstantiation() {
-			if (mSubstitutionToInstantiations.isEmpty())
-				return null;
-			return mSubstitutionToInstantiations.values().iterator().next().get(0);
-		}
-		/**
-		 * Returns some (the first found) substitution, null if there is none.
-		 * @return 
-		 * @return
-		 */
-		@Deprecated
-		public TTSubstitution getSubstitution() {
-			if (mSubstitutionToInstantiations.isEmpty())
-				return null;
-			return mSubstitutionToInstantiations.keySet().iterator().next();
 		}
 		
 		public HashSet<TTSubstitution> getSubstitutions() {

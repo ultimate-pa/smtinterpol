@@ -132,6 +132,7 @@ public abstract class EprNonUnitClause extends EprClause {
 		EprQuantifiedUnitClause quantUnitLit = (EprQuantifiedUnitClause) mUnitLiteral;
 		ArrayDeque<Pair<TermTuple, HashSet<EprUnitClause>>> litTermTupleToUnfulfillabilityReason = new ArrayDeque<>();
 		// we only need to take the quantified literals into account, the ground ones are not "connected" through variables
+		//   (even though substitutions, in our extended sense, including equalities, might apply)
 		for (Literal li : eprQuantifiedPredicateLiterals) {
 			if (li.equals(quantUnitLit.getPredicateLiteral()))
 				continue;
@@ -142,39 +143,9 @@ public abstract class EprNonUnitClause extends EprClause {
 							mLiteralToUnfulfillabilityReasons.get(li)));
 		}
 
-//		ArrayDeque<HashSet<TermTuple>> conflictPointSets = new ArrayDeque<>();
-//		ArrayDeque<TermTuple> pointsFromLiterals = new ArrayDeque<>();
-//
-//		for (Literal li : eprQuantifiedPredicateLiterals) {
-//			if (li.equals(quantUnitLit.getPredicateLiteral()))
-//				continue;
-//			EprQuantifiedPredicateAtom liAtom = (EprQuantifiedPredicateAtom) li.getAtom();
-//			pointsFromLiterals.add(liAtom.getArgumentsAsTermTuple());
-//			conflictPointSets.add(new HashSet<TermTuple>());
-//			HashSet<EprUnitClause> ur = mLiteralToUnfulfillabilityReasons.get(li);
-//			for (EprUnitClause ufr : ur) {
-//				if (ufr instanceof EprGroundUnitClause) {
-//					EprGroundPredicateAtom ua  = 
-//							(EprGroundPredicateAtom) ((EprGroundUnitClause) ufr).getLiteral().getAtom();
-//					conflictPointSets.getLast().add(ua.getArgumentsAsTermTuple());
-//				} else {
-//					EprQuantifiedUnitClause eqlwe = (EprQuantifiedUnitClause) ufr;
-//					if (eqlwe.mExceptions.length == 0) {
-//						conflictPointSets.getLast().add(eqlwe.getPredicateAtom().getArgumentsAsTermTuple());
-//					} else {
-//						//TODO : probably we need to track, and later use the equalities 
-//						// that are created when resolving the literal with its UnFulReason
-//						assert false : "not yet implemented -- what to do with excepted points??";
-//					}
-//				}
-//			}
-//		}
 		ComputeClauseUnifiers ci = new ComputeClauseUnifiers(
 				litTermTupleToUnfulfillabilityReason, eprQuantifiedEqualityAtoms);
-//				conflictPointSets, pointsFromLiterals, eprQuantifiedEqualityAtoms);
-//		TTSubstitution sub = ci.getSubstitution();
 
-//		if (sub == null) {
 		if (ci.getSubstitutions().isEmpty()) {
 			mUnitLiteralToInstantiationOfClause = null;
 			return null; // if there is no unifier, then this clause actually is no unit clause
@@ -198,7 +169,7 @@ public abstract class EprNonUnitClause extends EprClause {
 
 			// compute the substituted exceptions for the unit clause
 			// note that none of these should become "true"/valid 
-			//  -- computation of the substitutions already takes the exceptions into accout for that very reason
+			//  -- computation of the substitutions already takes the exceptions into account for that very reason
 			ArrayList<EprQuantifiedEqualityAtom> exceptions = new ArrayList<>();
 			ArrayList<DPLLAtom> eqs = EprHelpers.substituteInExceptions(
 					rawUnitEqlwe.eprQuantifiedEqualityAtoms, sub, mTheory);
@@ -221,7 +192,6 @@ public abstract class EprNonUnitClause extends EprClause {
 						+ "of the computation of the substitutions (see above..)";
 				unifiedUnitLiteral = realUnitEqlwe;
 			} else {
-
 				unifiedUnitLiteral = new EprGroundUnitClause(realLiteral, 
 						mTheory, mStateManager, null);
 			}
@@ -231,7 +201,8 @@ public abstract class EprNonUnitClause extends EprClause {
 				continue;
 
 			unifiedUnitLiterals.add(unifiedUnitLiteral);
-			// TODO: alternatively we could just remember the substitution for each unit literal here --> this seems a bit "eager"..
+			// TODO: alternatively we could just remember the substitution for each unit literal here 
+			//   --> this here seems a bit "eager"..
 			EprNonUnitClause instantiationOfClause = (EprNonUnitClause) this.instantiateClause(null, sub);
 			mUnitLiteralToInstantiationOfClause.put(unifiedUnitLiteral, instantiationOfClause);
 			// TODO: also: do we need to add the derived clause?? now??
