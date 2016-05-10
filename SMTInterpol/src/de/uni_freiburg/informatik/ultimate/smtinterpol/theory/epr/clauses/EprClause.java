@@ -245,9 +245,7 @@ public abstract class EprClause extends Clause {
 		for (Literal l : literals) {
 			if (l.getAtom() instanceof EprQuantifiedEqualityAtom) {
 				assert l.getSign() == 1 : "negated quantified equality should have been removed by DER";
-//				eprEqualityLiterals[--noQuantifiedEqualities] = l;
 				eprQuantifiedEqualityAtoms[--noQuantifiedEqualities] = (EprQuantifiedEqualityAtom) l;
-//			} else if (l.getAtom() instanceof EprPredicateAtom) {
 			} else if (l.getAtom() instanceof EprQuantifiedPredicateAtom) {
 				// Have the EprPredicates point to the clauses and literals
 				// they occur in.
@@ -292,6 +290,7 @@ public abstract class EprClause extends Clause {
 	public EprClause instantiateClause(TTSubstitution sub) {
 		return instantiateClause(null, sub, null);
 	}
+
 	/**
 	 * Create a new clause that is gained from applying the substitution sub to all literals in this clause.
 	 * otherLit is omitted (typically because it is the pivot literal of a resolution).
@@ -338,8 +337,6 @@ public abstract class EprClause extends Clause {
 	}
 
 
-
-
 	/**
 	 * A unifier (substitution) is trivial wrt. two TermTuples
 	 *   iff 
@@ -354,115 +351,6 @@ public abstract class EprClause extends Clause {
 		if (sub.apply(tt2).getFreeVars().size() != tt2.getFreeVars().size())
 			return false;
 		return true;
-	}
-
-	/**
-	 * Idea:
-	 *  - We start with a clause where all, or all but one, literals L are labelled as "unfulfillable".
-	 *  - Each unfulfillable literal has one or more reasons of unfulfillability, a reason of unfulfillability is
-	 *     an EprUnitClause that is set in the current state.
-	 *  - We are looking for substitutions that at the same time
-	 *    -- unify all the literals L
-	 *    -- unify each literal in L with one of its conflict points
-	 *    -- don't introduce excepted points 
-	 *        (excepted through a quantified equality literal in the base clause 
-	 *         or in the EprQuantifiedUnitClause of a corresponding conflict point)
-	 * 
-	 * @author alex
-	 *
-	 */
-	class ComputeClauseUnifiers {
-		private HashMap<TTSubstitution, ArrayList<ArrayList<TermTuple>>> mSubstitutionToInstantiations = new HashMap<>();
-		
-		HashSet<EprQuantifiedEqualityAtom> mExceptionsFromClause;
-		HashSet<TTSubstitution> mSubstitutions;
-		
-		public ComputeClauseUnifiers(
-				ArrayDeque<Pair<TermTuple, HashSet<EprUnitClause>>> clauseLitPointToUnfulReasons, 
-				EprQuantifiedEqualityAtom[] exceptedEqualities) { 
-			mExceptionsFromClause = new HashSet<>(Arrays.asList(exceptedEqualities));
-			mSubstitutions = new HashSet<>();
-			computeInstantiations(clauseLitPointToUnfulReasons, new TTSubstitution(), true);
-		}
-	
-		/**
-		 * 
-		 * @param partialInstantiations the instantiations collected so far (an instantiation is a sequence of points that fit the literals 
-		 *           of this clause that have been processed so far)
-		 * @param clauseLitTTToUnfulReasons A list of pairs wher
-		 *    the first entry is a termtuple that comes from a literal in the clause where this is called from
-		 *    the second entry is a list of conflicting EprUnitClauses 
-		 *      --> note that we have to check upfront that these are really conflicting wrt polarity and predicateSymbol
-		 * @param exceptedEqualities Equalities that mark exceptions mad in the clause where the clauseLitTermTuples come from
-		 * @param substitution the unifier of the current instantiation -- further unification may only be a specialization
-		 *                  (new for the unit clause case: this should not necessarily be a substitution that grounds everything.. 
-		 *                      -- computeConflictClause may always ground by adding lambdas, for example..)
-
-		 * @param isFirstCall the first call is special, because there are no instantiations to build upon
-		 */
-		private void computeInstantiations(
-//				ArrayList<ArrayList<TermTuple>> partialInstantiations,
-				ArrayDeque<Pair<TermTuple, HashSet<EprUnitClause>>> clauseLitTTToUnfulReasons,
-				TTSubstitution substitution, boolean isFirstCall) {
-			// TODO: might be better to rework this as NonRecursive
-
-			if (clauseLitTTToUnfulReasons.isEmpty()) {
-//				mSubstitutionToInstantiations.put(substitution, partialInstantiations);
-				return;
-			}
-			
-			Pair<TermTuple, HashSet<EprUnitClause>> currentPair = clauseLitTTToUnfulReasons.pollFirst();
-
-			TermTuple currentClauseLitTT = currentPair.first;
-			HashSet<EprUnitClause> currentUnfulReasons = currentPair.second;
-
-			for (EprUnitClause conflict : currentUnfulReasons) {
-				TTSubstitution newSubs = currentClauseLitTT.match(
-						conflict.getPredicateAtom().getArgumentsAsTermTuple(), 
-						new TTSubstitution(substitution), 
-						mEqualityManager);
-				
-				HashSet<EprQuantifiedEqualityAtom> currentExceptions = 
-						new HashSet<>();
-				currentExceptions.addAll(mExceptionsFromClause);
-				currentExceptions.addAll(Arrays.asList(conflict.eprQuantifiedEqualityAtoms));
-
-				if (newSubs == null) 
-					continue;
-				if (isSubstitutionExcepted(newSubs, currentExceptions)) 
-					continue;
-
-				computeInstantiations(
-						new ArrayDeque<Pair<TermTuple, HashSet<EprUnitClause>>>(clauseLitTTToUnfulReasons),
-						newSubs, 
-						false);
-			}
-		}
-
-		/**
-		 * checks is the given substitution refers to an instantiation of the
-		 * quantified variables that is excepted through an equality literal in the
-		 * clause (e.g. the clause says {... v x = c}, then an instantiation that
-		 * maps x to c cannot violate the clause)
-		 * 
-		 * returns true iff newSubs corresponds to at least one excepted point
-		 */
-		private boolean isSubstitutionExcepted(TTSubstitution newSubs, Collection<EprQuantifiedEqualityAtom> exceptedEqualities) {
-			// check exceptions of the form (= x c), i.e., with exactly one quantified variable
-			for (SubsPair en : newSubs.getSubsPairs()) {
-				for (EprQuantifiedEqualityAtom eqea : exceptedEqualities) { //TODO: a faster variant
-					if ((en.top == eqea.getLhs() && en.bot == eqea.getRhs())
-							&& (en.bot == eqea.getLhs() && en.top == eqea.getRhs())) {
-						return true;
-					}
-				}
-			}
-			return false;
-		}
-		
-		public HashSet<TTSubstitution> getSubstitutions() {
-			return mSubstitutions;
-		}
 	}
 
 	public HashSet<Literal> getLiteralSet() {
@@ -509,6 +397,113 @@ public abstract class EprClause extends Clause {
 	public TTSubstitution getFreshAlphaRenaming() {
 		assert isFreshAlphaRenamed;
 		return mFreshAlphaRenaming;
+	}
+
+	/**
+	 * Idea:
+	 *  - We start with a clause where all, or all but one, literals L are labelled as "unfulfillable".
+	 *  - Each unfulfillable literal has one or more reasons of unfulfillability, a reason of unfulfillability is
+	 *     an EprUnitClause that is set in the current state.
+	 *  - We are looking for substitutions that at the same time
+	 *    -- unify all the literals L
+	 *    -- unify each literal in L with one of its conflict points
+	 *    -- don't introduce excepted points 
+	 *        (excepted through a quantified equality literal in the base clause 
+	 *         or in the EprQuantifiedUnitClause of a corresponding conflict point)
+	 * 
+	 * @author alex
+	 *
+	 */
+	class ComputeClauseUnifiers {
+		
+		HashSet<EprQuantifiedEqualityAtom> mExceptionsFromClause;
+		HashSet<TTSubstitution> mSubstitutions;
+		
+		public ComputeClauseUnifiers(
+				ArrayDeque<Pair<TermTuple, HashSet<EprUnitClause>>> clauseLitPointToUnfulReasons, 
+				EprQuantifiedEqualityAtom[] exceptedEqualities) { 
+			mExceptionsFromClause = new HashSet<>(Arrays.asList(exceptedEqualities));
+			mSubstitutions = new HashSet<>();
+			computeInstantiations(clauseLitPointToUnfulReasons, new TTSubstitution(), true);
+		}
+	
+		/**
+		 * 
+		 * @param partialInstantiations the instantiations collected so far (an instantiation is a sequence of points that fit the literals 
+		 *           of this clause that have been processed so far)
+		 * @param clauseLitTTToUnfulReasons A list of pairs wher
+		 *    the first entry is a termtuple that comes from a literal in the clause where this is called from
+		 *    the second entry is a list of conflicting EprUnitClauses 
+		 *      --> note that we have to check upfront that these are really conflicting wrt polarity and predicateSymbol
+		 * @param exceptedEqualities Equalities that mark exceptions mad in the clause where the clauseLitTermTuples come from
+		 * @param substitution the unifier of the current instantiation -- further unification may only be a specialization
+		 *                  (new for the unit clause case: this should not necessarily be a substitution that grounds everything.. 
+		 *                      -- computeConflictClause may always ground by adding lambdas, for example..)
+	
+		 * @param isFirstCall the first call is special, because there are no instantiations to build upon
+		 */
+		private void computeInstantiations(
+				ArrayDeque<Pair<TermTuple, HashSet<EprUnitClause>>> clauseLitTTToUnfulReasons,
+				TTSubstitution substitution, boolean isFirstCall) {
+			// TODO: might be better to rework this as NonRecursive
+	
+			if (clauseLitTTToUnfulReasons.isEmpty()) {
+				mSubstitutions.add(substitution);
+				return;
+			}
+			
+			Pair<TermTuple, HashSet<EprUnitClause>> currentPair = clauseLitTTToUnfulReasons.pollFirst();
+	
+			TermTuple currentClauseLitTT = currentPair.first;
+			HashSet<EprUnitClause> currentUnfulReasons = currentPair.second;
+	
+			for (EprUnitClause conflict : currentUnfulReasons) {
+				TTSubstitution newSubs = currentClauseLitTT.match(
+						conflict.getPredicateAtom().getArgumentsAsTermTuple(), 
+						new TTSubstitution(substitution), 
+						mEqualityManager);
+				
+				HashSet<EprQuantifiedEqualityAtom> currentExceptions = 
+						new HashSet<>();
+				currentExceptions.addAll(mExceptionsFromClause);
+				currentExceptions.addAll(Arrays.asList(conflict.eprQuantifiedEqualityAtoms));
+	
+				if (newSubs == null) 
+					continue;
+				if (isSubstitutionExcepted(newSubs, currentExceptions)) 
+					continue;
+	
+				computeInstantiations(
+						new ArrayDeque<Pair<TermTuple, HashSet<EprUnitClause>>>(clauseLitTTToUnfulReasons),
+						newSubs, 
+						false);
+			}
+		}
+	
+		/**
+		 * checks is the given substitution refers to an instantiation of the
+		 * quantified variables that is excepted through an equality literal in the
+		 * clause (e.g. the clause says {... v x = c}, then an instantiation that
+		 * maps x to c cannot violate the clause)
+		 * 
+		 * returns true iff newSubs corresponds to at least one excepted point
+		 */
+		private boolean isSubstitutionExcepted(TTSubstitution newSubs, Collection<EprQuantifiedEqualityAtom> exceptedEqualities) {
+			// check exceptions of the form (= x c), i.e., with exactly one quantified variable
+			for (SubsPair en : newSubs.getSubsPairs()) {
+				for (EprQuantifiedEqualityAtom eqea : exceptedEqualities) { //TODO: a faster variant
+					if ((en.top == eqea.getLhs() && en.bot == eqea.getRhs())
+							&& (en.bot == eqea.getLhs() && en.top == eqea.getRhs())) {
+						return true;
+					}
+				}
+			}
+			return false;
+		}
+		
+		public HashSet<TTSubstitution> getSubstitutions() {
+			return mSubstitutions;
+		}
 	}
 
 //	public EprClause getFreshAlphaRenamedVersion(TTSubstitution freshAlphaRen) {

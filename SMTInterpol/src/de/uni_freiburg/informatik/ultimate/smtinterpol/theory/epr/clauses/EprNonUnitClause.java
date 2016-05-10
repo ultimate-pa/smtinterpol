@@ -845,10 +845,6 @@ public abstract class EprNonUnitClause extends EprClause {
 		Tautology, Conflict, ForcesFinite, Ground
 	}
 
-	enum ImplicationStatus {
-		AImpliesB, BImpliesA, Equivalent, Independent
-	}
-	
 	class GetResolventStatus {
 		ResolventStatus rs;
 		EprClause resolvent;
@@ -890,18 +886,4 @@ public abstract class EprNonUnitClause extends EprClause {
 			return resolvent;
 		}
 	}
-
-//	@Override
-//	public EprClause getAlphaRenamedVersion() {
-//		ArrayList<Literal> newLits = getFreshAlphaRenamedLiterals();
-//
-//		if (this instanceof EprBaseClause) {
-//			return new EprBaseClause(newLits.toArray(new Literal[newLits.size()]), 
-//					mTheory, mStateManager, true);
-//		} else {
-//			assert this instanceof EprDerivedClause;
-//			return new EprDerivedClause(newLits.toArray(new Literal[newLits.size()]), 
-//					mTheory, mStateManager, true);
-//		}
-//	}
 }
