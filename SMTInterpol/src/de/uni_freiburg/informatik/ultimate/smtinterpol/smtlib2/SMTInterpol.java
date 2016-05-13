@@ -464,7 +464,7 @@ public class SMTInterpol extends NoopScript {
 	
 	private final static Object NAME = new QuotedObject("SMTInterpol");
 	private final static Object AUTHORS = new QuotedObject(
-					"Jochen Hoenicke, Juergen Christ, and Alexander Nutz");
+					"Juergen Christ, Jochen Hoenicke, Alexander Nutz, and Tanja Schindler");
 	private final static Object INTERPOLATION_METHOD = new QuotedObject("tree");
 	// I assume an initial check s.t. first (get-info :status) returns sat
 	private LBool mStatus = LBool.SAT;
