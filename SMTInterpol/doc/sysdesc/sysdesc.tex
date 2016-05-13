@@ -9,9 +9,10 @@
 
 \title{\SI\\{\large Version \version}}
 
-\author{J\"urgen Christ, Jochen Hoenicke\\
-  University of Freiburg\\
-  \texttt{\{christj,hoenicke\}@informatik.uni-freiburg.de}}
+\author{J\"urgen Christ$^1$, Jochen Hoenicke$^2$, Tanja Schindler$^2$\\
+  $^1$~Oracle Software Switzerland\\
+  $^2$~University of Freiburg\\
+  \texttt{\{hoenicke,schindle\}@informatik.uni-freiburg.de}}
 \date{\today}
 
 \begin{document}
@@ -27,9 +28,8 @@ SMTLIB version 1.2 and 2.
 The solver uses variants of standard algorithms for CNF
 conversion~\cite{DBLP:journals/jsc/PlaistedG86}, congruence
 closure~\cite{DBLP:conf/rta/NieuwenhuisO05}, Simplex~\cite{DBLP:conf/cav/DutertreM06} and
-branch-and-cut~\cite{DBLP:conf/cav/DilligDA09}.
-The array decision procedure is based on \emph{weak equivalences} and was
-presented at the SMT workshop 2014.
+branch-and-cut for integer arithmetic~\cite{DBLP:conf/cav/ChristH15,DBLP:conf/cav/DilligDA09}.
+The array decision procedure is based on \emph{weak equivalences}~\cite{DBLP:conf/frocos/ChristH15}.
 %%   A new array decision
 %% procedure based on \emph{weak equivalences} has been added to \SI for this years
 %% competition.  Details about this procedure will be presented at the SMT
@@ -37,14 +37,16 @@ presented at the SMT workshop 2014.
 Theory combination is performed based on partial models produced by the theory
 solvers~\cite{DBLP:journals/entcs/MouraB08}.
 
-The main focus of \SI is the application track where the incremental usage of
-the solver is required.  This track simulates the typical application of \SI
-where a user asks multiple queries.  Unfortunately, the interpolation
-engine~\cite{DBLP:conf/tacas/ChristHN13} of \SI which is the focus of the
-development team of \SI is not tested during SMT-COMP.
+The main focus of \SI is the application track where the incremental
+usage of the solver is required.  This track simulates the typical
+application of \SI where a user asks multiple queries.  The main focus
+of the development team of \SI is the interpolation
+engine~\cite{DBLP:conf/tacas/ChristHN13}.  This makes it useful as a
+backend for software verification tools.  In particular,
+Ultimate\-Automatizer, the winner of the SV-COMP 2016, uses \SI.
 
 \section*{Competition Version}
-The version submitted to the SMT-COMP 2015 is a preliminary release of version
+The version submitted to the SMT-COMP 2016 is a preliminary release of version
 2.2.  This release will include quantifier-free interpolation for the theory
 of arrays which is still missing in the current solver.
 
@@ -54,10 +56,18 @@ Further information about \SI can be found at
 \end{center}
 The sources are available via GitHub
 \begin{center}
-  \url{https://github.com/juergenchrist/smtinterpol}
+  \url{https://github.com/ultimate-pa/smtinterpol}
 \end{center}
 
-Magic Number: $2\,072\,868\,739$
+\section*{Logics, Tracks and Magic Number}
+
+\SI participates in all tracks: the main track, the application track,
+and the unsat core track.  It supports the logics QF\_UF, QF\_IDL,
+QF\_RDL, QF\_LIA, QF\_LRA, QF\_LIRA, QF\_AX and every combinations of
+these logics: QF\_ALIA, QF\_AUFLIA, QF\_AUFLIRA, QF\_UFIDL, QF\_UFLIA,
+QF\_UFLRA.
+
+Magic Number: $3\,536\,504$
 
 \bibliography{sysdec}
 \bibliographystyle{alpha}

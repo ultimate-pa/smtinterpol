@@ -242,23 +242,9 @@
 
 # Run script for SMTInterpol for the STAREXEC cluster
 
-java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/2))m -da -dsa -XX:-UseGCOverheadLimit -jar smtinterpol-comp.jar -no-success "$$@"
-</echo>
-    <chmod file="${tmpdir}/bin/starexec_run_default" perm="a+rx" />
-    <echo file="${tmpdir}/bin/starexec_run_apptrack" append="false">#!/bin/bash
-
-# Run script for SMTInterpol for the STAREXEC cluster
-
 java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/2))m -da -dsa -XX:-UseGCOverheadLimit -jar smtinterpol-comp.jar "$$@"
 </echo>
-    <chmod file="${tmpdir}/bin/starexec_run_apptrack" perm="a+rx" />
-    <echo file="${tmpdir}/bin/starexec_run_paranoid" append="false">#!/bin/bash
-
-# Run script for SMTInterpol for the STAREXEC cluster
-
-java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/2))m -ea -dsa -XX:-UseGCOverheadLimit -jar smtinterpol-comp.jar -w -o model-check-mode -o interpolant-check-mode "$$@"
-</echo>
-    <chmod file="${tmpdir}/bin/starexec_run_paranoid" perm="a+rx" />
+    <chmod file="${tmpdir}/bin/starexec_run_default" perm="a+rx" />
     <echo file="${tmpdir}/starexec_description.txt" append="false">SMTInterpol ${version}</echo>
     <!-- stupid starexec does not like - characters in description -->
     <replace file="${tmpdir}/starexec_description.txt" token="-" value="_"/>
