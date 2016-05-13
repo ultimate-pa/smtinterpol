@@ -483,6 +483,9 @@ public class SMTInterpol extends NoopScript {
 	// encountered.  If it is -1, it means "never"
 	private int mBy0Seen = -1;
 	
+	private long mNextQuickCheck = 1;
+	private long mNumAsserts = 0;
+	
 	// The proof transformation currently used.
 	private AvailableTransformations mProofTransformation =
 		AvailableTransformations.NONE;
@@ -920,9 +923,12 @@ public class SMTInterpol extends NoopScript {
 			 */
 			if (mClausifier.resetBy0Seen() && mBy0Seen == -1)
 				mBy0Seen = mStackLevel;
-			if (!mEngine.quickCheck()) {
-				mLogger.info("Assertion made context inconsistent");
-				return LBool.UNSAT;
+			if (mNumAsserts++ >= mNextQuickCheck) {
+				mNextQuickCheck *= 2;
+				if (!mEngine.quickCheck()) {
+					mLogger.info("Assertion made context inconsistent");
+					return LBool.UNSAT;
+				}
 			}
 		} catch (UnsupportedOperationException ex) {
 			throw new SMTLIBException(ex.getMessage());
