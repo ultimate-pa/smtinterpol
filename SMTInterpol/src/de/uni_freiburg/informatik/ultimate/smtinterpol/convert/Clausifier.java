@@ -20,6 +20,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.convert;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -648,7 +649,7 @@ public class Clausifier {
 
 							ArrayList<Literal[]> allGroundings = mEprTheory.getAllGroundingsOfLastAddedEprClause();
 							for (Literal[] grounding : allGroundings) {
-								System.out.println("EPRDEBUG (Clausifier): adding grounded clause" + grounding); 
+								System.out.println("EPRDEBUG (Clausifier) adding grounded clause: " + Arrays.toString(grounding)); 
 								addClause(grounding, null, null);
 							}
 
@@ -1415,7 +1416,7 @@ public class Clausifier {
 
 						ArrayList<Literal[]> allGroundings = mEprTheory.getAllGroundingsOfLastAddedEprClause();
 						for (Literal[] grounding : allGroundings) {
-							System.out.println("EPRDEBUG (Clausifier): adding grounded clause" + grounding); 
+							System.out.println("EPRDEBUG (Clausifier) adding grounded clause: " + Arrays.toString(grounding)); 
 							addClause(grounding, null, null);
 						}
 
@@ -1791,8 +1792,8 @@ public class Clausifier {
 	private LinArSolve mLASolver;
 	private ArrayTheory mArrayTheory;
 	//alex begin
-	private EprTheory mEprTheory;
-	private boolean mInstantiateEprClauses = true;
+	public EprTheory mEprTheory; //TODO: make private..
+	public boolean mInstantiateEprClauses = true;
 	//alex end
 	
 	private boolean mInstantiationMode;

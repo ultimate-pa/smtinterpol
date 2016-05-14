@@ -67,7 +67,7 @@ public class EprStateManager {
 	public void endScope(Object literal) {
 		mEprStateStack.pop();
 		Object popped = mLiteralStack.pop();
-		assert literal.equals(popped);
+//		assert literal.equals(popped);
 		
 	}
 

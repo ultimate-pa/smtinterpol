@@ -123,12 +123,10 @@ public class EprHelpers {
 					resultAtom = eq.getLiteral();
 				}
 			} else {
-				assert calledFromDER : "should not happen, right??";
+				assert calledFromDER : "not called from DER, but not ground, as it looks"
+						+ " -- should not happen, right??";
 			}
-
 		}
-
-
 		resultLit =  isPositive ? resultAtom : resultAtom.negate();
 		return resultLit;
 	}

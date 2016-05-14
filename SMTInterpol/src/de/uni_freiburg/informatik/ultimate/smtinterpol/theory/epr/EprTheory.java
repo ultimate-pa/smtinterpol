@@ -107,6 +107,8 @@ public class EprTheory implements ITheory {
 	@Override
 	public Clause setLiteral(Literal literal) {
 		System.out.println("EPRDEBUG: setLiteral " + literal);
+		if (mGroundAllMode)
+			return null;
 		
 		mStateManager.beginScope(literal);
 
@@ -179,6 +181,9 @@ public class EprTheory implements ITheory {
 	@Override
 	public void backtrackLiteral(Literal literal) {
 		System.out.println("EPRDEBUG: backtrackLiteral");
+		if (mGroundAllMode)
+			return;
+
 		// .. dual to setLiteral
 		
 		backtrackEprState(literal);
@@ -223,6 +228,8 @@ public class EprTheory implements ITheory {
 	@Override
 	public Clause checkpoint() {
 		System.out.println("EPRDEBUG: checkpoint");
+		if (mGroundAllMode)
+			return null;
 		
 		Clause conflict = null;
 		
@@ -368,9 +375,7 @@ public class EprTheory implements ITheory {
 
 	@Override
 	public Clause computeConflictClause() {
-
 		System.out.println("EPRDEBUG: computeConflictClause");
-		
 		if (mGroundAllMode)
 			return null;
 		
