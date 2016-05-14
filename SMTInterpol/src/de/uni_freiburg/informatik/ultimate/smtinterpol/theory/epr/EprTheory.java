@@ -78,12 +78,14 @@ public class EprTheory implements ITheory {
 
 	private ArrayList<Literal[]> mAllGroundingsOfLastAddedEprClause;
 
+	private CClosure mCClosure;
+
 	public EprTheory(Theory th, DPLLEngine engine, CClosure cClosure, boolean solveThroughGrounding) {
 		mTheory = th;
 		mEngine = engine;
 
 		mEqualityManager = new EqualityManager();
-		mStateManager = new EprStateManager(mEqualityManager, mTheory, cClosure);
+		mStateManager = new EprStateManager(this);
 		mComputeAllInstantiations = solveThroughGrounding;
 	}
 
@@ -225,7 +227,7 @@ public class EprTheory implements ITheory {
 			EprClause realConflict = mStateManager.getConflictClauses().iterator().next();
 			System.out.println("EPRDEBUG (checkpoint): found a conflict: " + realConflict);
 			//TODO: work on explanation..
-			conflict = mStateManager.getDerivedClause(Collections.emptySet(), mTheory, "empty conflict clause");
+			conflict = mStateManager.getDerivedClause(Collections.emptySet(), this, "empty conflict clause");
 		} else {
 			// try unit propagation
 			conflict = eprPropagate();
@@ -264,7 +266,7 @@ public class EprTheory implements ITheory {
 								//							ec.mExceptedPoints, 
 								new EprQuantifiedEqualityAtom[0],
 								ec, 
-								mTheory, mStateManager);
+								this);
 
 						conflict = mStateManager.setQuantifiedLiteralWithExceptions(eqlwe);
 
@@ -884,4 +886,20 @@ public class EprTheory implements ITheory {
 			
 			
 		}
+
+	public Theory getTheory() {
+		return mTheory;
+	}
+	
+	public CClosure getCClosure() {
+		return mCClosure;
+	}
+	
+	public EprStateManager getStateManager() {
+		return mStateManager;
+	}
+	
+	public EqualityManager getEqualityManager() {
+		return mEqualityManager;
+	}
 }

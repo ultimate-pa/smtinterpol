@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprStateManager;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution;
 
 public class EprDerivedClause extends EprNonUnitClause {
@@ -15,15 +16,15 @@ public class EprDerivedClause extends EprNonUnitClause {
 	 */
 	Object mExplanation;
 
-	public EprDerivedClause(Literal[] literals, Theory theory, 
-			EprStateManager stateManager, Object explanation) {
-		this(literals, theory, stateManager, explanation, false, null, null);
+	public EprDerivedClause(Literal[] literals, EprTheory eprTheory, 
+			Object explanation) {
+		this(literals, eprTheory, explanation, false, null, null);
 	}
 
-	public EprDerivedClause(Literal[] literals, Theory theory, 
-			EprStateManager stateManager, Object explanation, 
+	public EprDerivedClause(Literal[] literals, EprTheory eprTheory, 
+			Object explanation, 
 			boolean freshAlphaRenamed, TTSubstitution freshAlphaRen, EprDerivedClause clauseThisIsAFreshAlphaRenamingof) {
-		super(literals, theory, stateManager, freshAlphaRenamed, freshAlphaRen, clauseThisIsAFreshAlphaRenamingof);
+		super(literals, eprTheory, freshAlphaRenamed, freshAlphaRen, clauseThisIsAFreshAlphaRenamingof);
 //		if (freshAlphaRenamed && explanation instanceof EprClause) {
 //			mExplanation = ((EprClause) explanation).instantiateClause(freshAlphaRen);
 //		} else {
@@ -36,6 +37,6 @@ public class EprDerivedClause extends EprNonUnitClause {
 		TTSubstitution sub = new TTSubstitution();
 		ArrayList<Literal> newLits = getFreshAlphaRenamedLiterals(sub);
 		return new EprDerivedClause(newLits.toArray(new Literal[newLits.size()]), 
-					mTheory, mStateManager, mExplanation, true, sub, this);
+					mEprTheory, mExplanation, true, sub, this);
 	}
 }

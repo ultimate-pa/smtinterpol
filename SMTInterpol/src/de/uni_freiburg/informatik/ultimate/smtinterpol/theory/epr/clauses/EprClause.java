@@ -25,6 +25,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers.Pai
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprStateManager;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EqualityManager;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
@@ -105,16 +106,17 @@ public abstract class EprClause extends Clause {
 	 */
 //	private HashMap<Literal, Boolean> mFulfillabilityStatus = new HashMap<Literal, Boolean>();
 	
+	EprTheory mEprTheory;
 	EprStateManager mStateManager;
 	EqualityManager mEqualityManager;
 	boolean forcesFiniteModel = false;
 
-	public EprClause(Literal[] literals, Theory theory, 
-			EprStateManager stateManager, boolean freshAlphaRenamed, TTSubstitution freshAlphaRen) {
+	public EprClause(Literal[] literals, EprTheory eprTheory, boolean freshAlphaRenamed, TTSubstitution freshAlphaRen) {
 		super(literals);
-		mTheory = theory;
-		mStateManager = stateManager;
-		mEqualityManager = stateManager.mEqualityManager;
+		mEprTheory = eprTheory;
+		mTheory = eprTheory.getTheory();
+		mStateManager = eprTheory.getStateManager();
+		mEqualityManager = mStateManager.mEqualityManager;
 		this.isFreshAlphaRenamed = freshAlphaRenamed;
 		this.mFreshAlphaRenaming = freshAlphaRen;
 		setUpClause(literals);
@@ -321,17 +323,17 @@ public abstract class EprClause extends Clause {
 		if (additionalLiterals != null)
 			newLits.addAll(additionalLiterals);
 		
-		return mStateManager.getDerivedClause(new HashSet<Literal>(newLits), mTheory, this);
+		return mStateManager.getDerivedClause(new HashSet<Literal>(newLits), mEprTheory, this);
 	}
 
 	protected ArrayList<Literal> getSubstitutedLiterals(TTSubstitution sub) {
 		ArrayList<Literal> newLits = new ArrayList<Literal>();
 		newLits.addAll(Arrays.asList(groundLiterals));
 		for (Literal l : eprQuantifiedEqualityAtoms) {
-			newLits.add(EprHelpers.applySubstitution(sub, l, mTheory));
+			newLits.add(EprHelpers.applySubstitution(sub, l, mEprTheory));
 		}
 		for (Literal l : eprQuantifiedPredicateLiterals) {
-			newLits.add(EprHelpers.applySubstitution(sub, l, mTheory));
+			newLits.add(EprHelpers.applySubstitution(sub, l, mEprTheory));
 		}
 		return newLits;
 	}

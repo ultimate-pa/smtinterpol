@@ -14,6 +14,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprStateManager;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 
@@ -27,14 +28,14 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuant
  */
 public class EprQuantifiedUnitClause extends EprUnitClause {
 	
-	public EprQuantifiedUnitClause(Literal[] literals, Theory theory, EprStateManager stateManager,
+	public EprQuantifiedUnitClause(Literal[] literals, EprTheory eprTheory,
 			EprClause explanation) {
-		this(literals, theory, stateManager, explanation, false, null);
+		this(literals, eprTheory, explanation, false, null);
 	}
 	
-	public EprQuantifiedUnitClause(Literal[] literals, Theory theory, EprStateManager stateManager,
+	public EprQuantifiedUnitClause(Literal[] literals, EprTheory eprTheory,
 			EprClause explanation, boolean freshAlphaRenaming, TTSubstitution freshAlphaRen) {
-		super(literals, theory, stateManager, explanation, freshAlphaRenaming, freshAlphaRen);
+		super(literals, eprTheory, explanation, freshAlphaRenaming, freshAlphaRen);
 		assert eprQuantifiedPredicateLiterals.length == 1;
 		assert groundLiterals.length == 0;
 		mPredicateLiteral = eprQuantifiedPredicateLiterals[0];
@@ -79,6 +80,6 @@ public class EprQuantifiedUnitClause extends EprUnitClause {
 		TTSubstitution sub = new TTSubstitution();
 		ArrayList<Literal> newLits = getFreshAlphaRenamedLiterals(sub);
 		return new EprQuantifiedUnitClause(newLits.toArray(new Literal[newLits.size()]), 
-				mTheory, mStateManager, mExplanation, true, sub);
+				mEprTheory, mExplanation, true, sub);
 	}
 }

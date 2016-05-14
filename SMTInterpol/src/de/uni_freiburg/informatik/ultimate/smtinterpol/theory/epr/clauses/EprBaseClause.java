@@ -5,17 +5,18 @@ import java.util.ArrayList;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprStateManager;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution;
 
 public class EprBaseClause extends EprNonUnitClause {
 
-	public EprBaseClause(Literal[] literals, Theory theory, EprStateManager stateManager) {
-		this(literals, theory, stateManager, false, null, null);
+	public EprBaseClause(Literal[] literals, EprTheory eprTheory) {
+		this(literals, eprTheory, false, null, null);
 	}
 	
-	public EprBaseClause(Literal[] literals, Theory theory, 
-			EprStateManager stateManager, boolean freshAlpharenamed, TTSubstitution freshAlphaRen, EprBaseClause clauseThisIsAFreshAlphaRenamingof) {
-		super(literals, theory, stateManager, freshAlpharenamed, freshAlphaRen, clauseThisIsAFreshAlphaRenamingof);
+	public EprBaseClause(Literal[] literals, EprTheory eprTheory, 
+			boolean freshAlpharenamed, TTSubstitution freshAlphaRen, EprBaseClause clauseThisIsAFreshAlphaRenamingof) {
+		super(literals, eprTheory, freshAlpharenamed, freshAlphaRen, clauseThisIsAFreshAlphaRenamingof);
 	}
 
 	@Override
@@ -23,6 +24,6 @@ public class EprBaseClause extends EprNonUnitClause {
 		TTSubstitution sub = new TTSubstitution();
 		ArrayList<Literal> newLits = getFreshAlphaRenamedLiterals(sub);
 		return new EprBaseClause(newLits.toArray(new Literal[newLits.size()]), 
-					mTheory, mStateManager, true, sub, this);
+					mEprTheory, true, sub, this);
 	}
 }

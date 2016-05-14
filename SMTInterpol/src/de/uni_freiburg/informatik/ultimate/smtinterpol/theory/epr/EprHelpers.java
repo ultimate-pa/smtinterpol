@@ -42,9 +42,12 @@ public class EprHelpers {
 	 * @return
 	 */
 //	public static Literal applySubstitution(TTSubstitution sub, Literal l, Theory theory, CClosure cClosure) {
-	public static Literal applySubstitution(TTSubstitution sub, Literal l, Theory theory) {
+//	public static Literal applySubstitution(TTSubstitution sub, Literal l, Theory theory) {
+	public static Literal applySubstitution(TTSubstitution sub, Literal l, EprTheory eprTheory) {
 		boolean isPositive = l.getSign() == 1;
 		DPLLAtom atom = l.getAtom();
+		
+		Theory theory = eprTheory.getTheory();
 
 		if (atom instanceof EprQuantifiedPredicateAtom) {
 			EprQuantifiedPredicateAtom eqpa = (EprQuantifiedPredicateAtom) atom;
@@ -82,8 +85,7 @@ public class EprHelpers {
 			Literal quantifiedPredicateLiteral,
 			EprQuantifiedEqualityAtom[] excep,
 			EprClause explanation,
-			Theory theory,
-			EprStateManager stateManager) {
+			EprTheory eprTheory) {
 		assert quantifiedPredicateLiteral.getAtom() instanceof EprQuantifiedPredicateAtom;
 
 		Literal[] lits = new Literal[excep.length + 1];
@@ -93,7 +95,7 @@ public class EprHelpers {
 //		lits[lits.length - 1] = isPositive ? atom : atom.negate();
 		lits[lits.length - 1] = quantifiedPredicateLiteral;
 
-		return new EprQuantifiedUnitClause(lits, theory, stateManager, explanation);
+		return new EprQuantifiedUnitClause(lits, eprTheory, explanation);
 	}
 	
 	/**
@@ -107,23 +109,23 @@ public class EprHelpers {
 	 * @return
 	 */
 	public static Literal[] applyUnifierToEqualities(EprQuantifiedEqualityAtom[] eprEqualityAtoms1,
-			EprQuantifiedEqualityAtom[] eprEqualityAtoms2, TTSubstitution sub, Theory theory) {
+			EprQuantifiedEqualityAtom[] eprEqualityAtoms2, TTSubstitution sub, EprTheory eprTheory) {
 		
 		ArrayList<Literal> result = new ArrayList<>();
 		for (EprQuantifiedEqualityAtom eea : eprEqualityAtoms1) 
-			result.add(EprHelpers.applySubstitution(sub, eea, theory));
+			result.add(EprHelpers.applySubstitution(sub, eea, eprTheory));
 		for (EprQuantifiedEqualityAtom eea : eprEqualityAtoms2)
-			result.add(EprHelpers.applySubstitution(sub, eea, theory));
+			result.add(EprHelpers.applySubstitution(sub, eea, eprTheory));
 
 		return result.toArray(new Literal[result.size()]);
 	}
 	
 	public static ArrayList<DPLLAtom> substituteInExceptions(
-			EprQuantifiedEqualityAtom[] equalities, TTSubstitution sub, Theory theory) {
+			EprQuantifiedEqualityAtom[] equalities, TTSubstitution sub, EprTheory eprTheory) {
 		
 		ArrayList<DPLLAtom> result = new ArrayList<>();
 		for (EprQuantifiedEqualityAtom eea : equalities) {
-			result.add((DPLLAtom) EprHelpers.applySubstitution(sub, eea, theory));
+			result.add((DPLLAtom) EprHelpers.applySubstitution(sub, eea, eprTheory));
 		}
 		return result;
 	}

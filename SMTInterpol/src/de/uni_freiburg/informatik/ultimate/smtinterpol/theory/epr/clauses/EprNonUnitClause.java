@@ -19,6 +19,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers.Pai
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprStateManager;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprAtom;
@@ -49,9 +50,9 @@ public abstract class EprNonUnitClause extends EprClause {
 
 	private final EprNonUnitClause mClauseThisIsAFreshAlphaRenamingOf;
 	
-	public EprNonUnitClause(Literal[] literals, Theory theory, 
-			EprStateManager stateManager, boolean freshAlphaRenamed, TTSubstitution freshAlphaRen, EprNonUnitClause clauseThisIsAFreshAlphaRenamingOf) {
-		super(literals, theory, stateManager, freshAlphaRenamed, freshAlphaRen);
+	public EprNonUnitClause(Literal[] literals, EprTheory eprTheory, 
+			boolean freshAlphaRenamed, TTSubstitution freshAlphaRen, EprNonUnitClause clauseThisIsAFreshAlphaRenamingOf) {
+		super(literals, eprTheory, freshAlphaRenamed, freshAlphaRen);
 		assert !freshAlphaRenamed || freshAlphaRen != null;
 		mClauseThisIsAFreshAlphaRenamingOf = clauseThisIsAFreshAlphaRenamingOf;
 		setUp();
@@ -68,13 +69,13 @@ public abstract class EprNonUnitClause extends EprClause {
 			EprQuantifiedUnitClause eqlwe = EprHelpers.buildEQLWE(
 					lit,
 					eprQuantifiedEqualityAtoms, this,
-					mTheory, mStateManager);
+					mEprTheory);
 			mUnitLiteral = eqlwe;
 		} else if (groundLiterals.length == 1
 				&& eprQuantifiedPredicateLiterals.length == 0) {
 			if (eprQuantifiedEqualityAtoms.length == 0) {
 				mUnitLiteral = new EprGroundUnitClause(groundLiterals[0], 
-						mTheory, mStateManager, this);
+						mEprTheory, this);
 			} else {
 				assert false : "quantified equalities but not quantified literals: "
 						+ "this should have been caught before";
@@ -190,7 +191,7 @@ public abstract class EprNonUnitClause extends EprClause {
 			EprQuantifiedUnitClause rawUnitEqlwe = (EprQuantifiedUnitClause) mUnitLiteral;
 
 			Literal realLiteral = EprHelpers.applySubstitution(sub, 
-					rawUnitEqlwe.getPredicateLiteral(), mTheory);
+					rawUnitEqlwe.getPredicateLiteral(), mEprTheory);
 			EprPredicateAtom realAtom = (EprPredicateAtom) realLiteral.getAtom();
 
 			// compute the substituted exceptions for the unit clause
@@ -198,7 +199,7 @@ public abstract class EprNonUnitClause extends EprClause {
 			//  -- computation of the substitutions already takes the exceptions into account for that very reason
 			ArrayList<EprQuantifiedEqualityAtom> exceptions = new ArrayList<>();
 			ArrayList<DPLLAtom> eqs = EprHelpers.substituteInExceptions(
-					rawUnitEqlwe.eprQuantifiedEqualityAtoms, sub, mTheory);
+					rawUnitEqlwe.eprQuantifiedEqualityAtoms, sub, mEprTheory);
 			for (DPLLAtom eq : eqs) {
 				if (eq instanceof EprQuantifiedEqualityAtom) {
 					exceptions.add((EprQuantifiedEqualityAtom) eq);
@@ -213,13 +214,13 @@ public abstract class EprNonUnitClause extends EprClause {
 				EprQuantifiedUnitClause realUnitEqlwe = EprHelpers.buildEQLWE(
 						realLiteral,
 						exceptions.toArray(new EprQuantifiedEqualityAtom[exceptions.size()]), 
-						this, mTheory, mStateManager);
+						this, mEprTheory);
 				assert !realUnitEqlwe.isTautology() : "probably there's a bug in the exception handling "
 						+ "of the computation of the substitutions (see above..)";
 				unifiedUnitLiteral = realUnitEqlwe;
 			} else {
 				unifiedUnitLiteral = new EprGroundUnitClause(realLiteral, 
-						mTheory, mStateManager, null);
+						mEprTheory, null);
 			}
 
 			//			already set??
@@ -275,7 +276,7 @@ public abstract class EprNonUnitClause extends EprClause {
 				if (li.getAtom() instanceof EprQuantifiedPredicateAtom) {
 					mUnitLiteral = 
 							EprHelpers.buildEQLWE(li, eprQuantifiedEqualityAtoms, this,
-									mTheory, mStateManager);
+									mEprTheory);
 				} else {
 					assert false : "TODO -- something about finite models";
 				}
@@ -309,7 +310,7 @@ public abstract class EprNonUnitClause extends EprClause {
 					EprGroundPredicateAtom opAtom = liAtom.eprPredicate.getAtomForPoint(opPoint);
 					Literal opLit = liPositive ? opAtom.negate() : opAtom;
 					setLiteralUnfulfillable(li, 
-							new EprGroundUnitClause(opLit, mTheory, mStateManager, null));
+							new EprGroundUnitClause(opLit, mEprTheory, null));
 					continue nextLi;
 				}
 			}
@@ -329,7 +330,7 @@ public abstract class EprNonUnitClause extends EprClause {
 				setLiteralFulfilled(li);
 			} else if (liAtom.getDecideStatus() == li.negate()) {
 				setLiteralUnfulfillable(li, 
-						new EprGroundUnitClause(li, mTheory, mStateManager, null));
+						new EprGroundUnitClause(li, mEprTheory, null));
 			} else { //atom is undecided on the DPLL-side (maybe DPLLEngine does not know it??
 				if (liAtom instanceof EprGroundPredicateAtom) {
 					
@@ -354,7 +355,7 @@ public abstract class EprNonUnitClause extends EprClause {
 									egpa.getArgumentsAsTermTuple());
 					Literal opLit = liPositive ? opAtom.negate() : opAtom;
 						setLiteralUnfulfillable(li, 
-								new EprGroundUnitClause(opLit, mTheory, mStateManager, null));
+								new EprGroundUnitClause(opLit, mEprTheory, null));
 						continue;
 					}
 
@@ -526,7 +527,7 @@ public abstract class EprNonUnitClause extends EprClause {
 				setLiteralFulfilled(li);
 			} else {
 				//					TODO: is this right? -- "li is its own reason, bc coming from setLiteral or so..
-				setLiteralUnfulfillable(li, new EprGroundUnitClause(setLiteral, mTheory, mStateManager, null));
+				setLiteralUnfulfillable(li, new EprGroundUnitClause(setLiteral, mEprTheory, null));
 			}
 		}
 		
@@ -545,7 +546,7 @@ public abstract class EprNonUnitClause extends EprClause {
 
 					if (subs != null) {
 						applySetLiteralToClauseLiteral(quantifiedLit, 
-								new EprGroundUnitClause(setLiteral, mTheory, mStateManager, null), 
+								new EprGroundUnitClause(setLiteral, mEprTheory, null), 
 								subs);
 					}
 				}
@@ -703,9 +704,9 @@ public abstract class EprNonUnitClause extends EprClause {
 		
 		///// check if the equalities allow/deny implication
 		ArrayList<DPLLAtom> unifiedEqualitiesA = EprHelpers.substituteInExceptions(
-				equalitiesA, sub, mTheory);
+				equalitiesA, sub, mEprTheory);
 		ArrayList<DPLLAtom> unifiedEqualitiesB = EprHelpers.substituteInExceptions(
-				equalitiesB, sub, mTheory);
+				equalitiesB, sub, mEprTheory);
 		
 		ArrayList<EprGroundEqualityAtom> unifiedGroundEqualitiesA = 
 				new ArrayList<>();
@@ -885,9 +886,9 @@ public abstract class EprNonUnitClause extends EprClause {
 
 
 			Literal[] substEqualities = EprHelpers.applyUnifierToEqualities(
-					eq1, eq2, subs, mTheory);										
+					eq1, eq2, subs, mEprTheory);										
 			resolvent = 
-					new EprDerivedClause(substEqualities, mTheory, mStateManager, this);
+					new EprDerivedClause(substEqualities, mEprTheory, this);
 
 			if (resolvent.isTautology())
 				rs = ResolventStatus.Tautology;

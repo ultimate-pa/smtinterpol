@@ -35,17 +35,19 @@ public class EprStateManager {
 	
 	HashMap<Set<Literal>, EprNonUnitClause> mLiteralToClauses = new HashMap<>();
 	public EqualityManager mEqualityManager;
+	private EprTheory mEprTheory;
 	private Theory mTheory;
 	private CClosure mCClosure; //TODO: clean up --> where to carry this through clauses??
 	
 	HashSet<EprPredicate> mAllEprPredicates = new HashSet<>();
 	
-	public EprStateManager(EqualityManager eqMan, Theory theory, CClosure cClosure) {
+	public EprStateManager(EprTheory eprTheory) {
 		baseState = new EprState();
 		mEprStateStack.push(baseState);
-		mEqualityManager =  eqMan;
-		mTheory = theory;
-		mCClosure = cClosure;
+		mEprTheory = eprTheory;
+		mEqualityManager =  eprTheory.getEqualityManager();
+		mTheory = eprTheory.getTheory();
+		mCClosure = eprTheory.getCClosure();
 	}
 
 	public void beginScope(Object literal) {
@@ -331,7 +333,7 @@ public class EprStateManager {
 	public EprNonUnitClause getBaseClause(Set<Literal> newLits, Theory theory) {
 		EprNonUnitClause result = mLiteralToClauses.get(newLits);
 		if (result == null) {
-			result = new EprBaseClause(newLits.toArray(new Literal[newLits.size()]), theory, this);
+			result = new EprBaseClause(newLits.toArray(new Literal[newLits.size()]), mEprTheory);
 			System.out.println("EPRDEBUG (EprStateManager): creating new base clause " + result);
 			mLiteralToClauses.put(newLits, result);
 		}
@@ -342,10 +344,10 @@ public class EprStateManager {
 	 * makes sure that for the same set of literals only one clause is constructed.
 	 * Note that this may return a EprBaseClause -- if there already is one for the set of Literals
 	 */
-	public EprClause getDerivedClause(Set<Literal> newLits, Theory theory, Object explanation) {
+	public EprClause getDerivedClause(Set<Literal> newLits, EprTheory eprTheory, Object explanation) {
 		EprNonUnitClause result = mLiteralToClauses.get(newLits);
 		if (result == null) {
-			result = new EprDerivedClause(newLits.toArray(new Literal[newLits.size()]), theory, this, explanation);
+			result = new EprDerivedClause(newLits.toArray(new Literal[newLits.size()]), eprTheory, explanation);
 			System.out.println("EPRDEBUG (EprStateManager): creating new derived clause " + result);
 			mLiteralToClauses.put(newLits, result);
 		}
