@@ -648,6 +648,7 @@ public class Clausifier {
 
 							ArrayList<Literal[]> allGroundings = mEprTheory.getAllGroundingsOfLastAddedEprClause();
 							for (Literal[] grounding : allGroundings) {
+								System.out.println("EPRDEBUG (Clausifier): adding grounded clause" + grounding); 
 								addClause(grounding, null, null);
 							}
 
@@ -1414,6 +1415,7 @@ public class Clausifier {
 
 						ArrayList<Literal[]> allGroundings = mEprTheory.getAllGroundingsOfLastAddedEprClause();
 						for (Literal[] grounding : allGroundings) {
+							System.out.println("EPRDEBUG (Clausifier): adding grounded clause" + grounding); 
 							addClause(grounding, null, null);
 						}
 

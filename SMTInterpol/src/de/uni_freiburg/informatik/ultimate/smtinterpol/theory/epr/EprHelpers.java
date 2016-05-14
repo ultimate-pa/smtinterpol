@@ -39,16 +39,20 @@ public class EprHelpers {
 		return result;
 	}	
 	
+	public static Literal applySubstitution(TTSubstitution sub, Literal l, EprTheory eprTheory) {
+		return applySubstitution(sub, l, eprTheory, false);
+	}
 	/**
 	 * Apply the substitution sub to Literal l, return the result
 	 * @param sub
 	 * @param l
 	 * @param theory
+	 * @param calledFromDER the DER-case is special if we are in completeGroundingMode
 	 * @return
 	 */
 //	public static Literal applySubstitution(TTSubstitution sub, Literal l, Theory theory, CClosure cClosure) {
 //	public static Literal applySubstitution(TTSubstitution sub, Literal l, Theory theory) {
-	public static Literal applySubstitution(TTSubstitution sub, Literal l, EprTheory eprTheory) {
+	public static Literal applySubstitution(TTSubstitution sub, Literal l, EprTheory eprTheory, boolean calledFromDER) {
 		boolean isPositive = l.getSign() == 1;
 		DPLLAtom atom = l.getAtom();
 		
@@ -119,7 +123,7 @@ public class EprHelpers {
 					resultAtom = eq.getLiteral();
 				}
 			} else {
-				assert false : "should not happen, right??";
+				assert calledFromDER : "should not happen, right??";
 			}
 
 		}

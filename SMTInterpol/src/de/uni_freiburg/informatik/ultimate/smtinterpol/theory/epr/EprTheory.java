@@ -302,6 +302,8 @@ public class EprTheory implements ITheory {
 
 	public void addAtomToDPLLEngine(DPLLAtom atom) {
 		assert !(atom instanceof EprQuantifiedEqualityAtom || atom instanceof EprQuantifiedPredicateAtom);
+		if (atom instanceof CCEquality)
+			return; //added to engine at creation, right?..
 		if (!mAtomsAddedToDPLLEngine.contains(atom)) { //TODO not so nice, with the extra set..
 			mEngine.addAtom(atom);
 			mAtomsAddedToDPLLEngine.add(atom);
@@ -787,7 +789,8 @@ public class EprTheory implements ITheory {
 					mResult = new HashSet<>();
 					mIsResultGround = true;
 					for (Literal l : currentClause) {
-						Literal sl = getSubstitutedLiteral(sub, l);
+//						Literal sl = getSubstitutedLiteral(sub, l);
+						Literal sl = EprHelpers.applySubstitution(sub, l, EprTheory.this, true);
 						if (sl.getAtom() instanceof TrueAtom) {
 							if (sl.getSign() == 1) {
 								// do nothing (tautology will be detected later)
@@ -800,7 +803,8 @@ public class EprTheory implements ITheory {
 						} else if (sl.getAtom() instanceof EprGroundPredicateAtom ||
 								sl.getAtom() instanceof CCEquality) {
 							addAtomToDPLLEngine(sl.getAtom());
-						}
+						} else
+							assert false : "case not forseen..";
 						mResult.add(sl);
 					}
 					currentClause = mResult;
