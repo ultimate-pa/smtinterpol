@@ -2170,7 +2170,7 @@ public class Clausifier {
 		if (mEprTheory == null) {
 //			mEprTheory = new EprTheory(this.getTheory());
 			
-			mEprTheory = new EprTheory(mTheory, mEngine, mCClosure, mInstantiateEprClauses);
+			mEprTheory = new EprTheory(mTheory, mEngine, mCClosure, this, mInstantiateEprClauses);
 			mEngine.addTheory(mEprTheory);
 		}
 	}
@@ -2517,8 +2517,9 @@ public class Clausifier {
 			if (term.getParameters().length == 0) {
 				lit = createBooleanVar(term);
 			} else {
+				//alex begin
 				// alex: this the right place to get rid of the CClosure predicate conversion in EPR-case?
-				// --> seems to be one of three positions..
+				// --> seems to be one of three positions.. (keyword: predicate-to-function conversion)
 //				if (mTheory.getLogic().isQuantified()) {
 				if (mEprTheory != null && !mInstantiateEprClauses) {
 					// assuming right now that 
@@ -2535,6 +2536,7 @@ public class Clausifier {
 //						mEngine.addAtom(atom);
 				} else {
 					// replace a predicate atom "(p x)" by "(p x) = true"
+					//alex end
 					SharedTerm st = getSharedTerm(term);
 
 					EqualityProxy eq = createEqualityProxy(st, mSharedTrue);

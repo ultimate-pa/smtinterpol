@@ -6,10 +6,15 @@ import java.util.HashSet;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.EqualityProxy;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SharedTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundEqualityAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprQuantifiedUnitClause;
@@ -64,15 +69,44 @@ public class EprHelpers {
 			EprQuantifiedEqualityAtom eea = (EprQuantifiedEqualityAtom) atom;
 			TermTuple newTT = sub.apply(eea.getArgumentsAsTermTuple());
 			ApplicationTerm newTerm = theory.term("=", newTT.terms);
-			DPLLAtom result = null;
+			DPLLAtom resultAtom = null;
 			if (newTerm.getFreeVars().length > 0) {
-				result = new EprQuantifiedEqualityAtom(newTerm, 0, l.getAtom().getAssertionStackLevel());//TODO: hash
+				resultAtom = new EprQuantifiedEqualityAtom(newTerm, 0, l.getAtom().getAssertionStackLevel());//TODO: hash
 //			} else if (newTerm.getParameters()[0].equals(newTerm.getParameters()[1])) {
 			} else {
-//				TODO: will need a management for these atoms -- so there are no duplicates..
+				// TODO: will need a management for these atoms -- so there are no duplicates..
+				//   it's not clear if we want CCEqualities or so, here..
 				return new EprGroundEqualityAtom(newTerm, 0, 0);
 			}
-			return isPositive ? result : result.negate();
+			
+			if (eprTheory.isGroundAllMode()) {
+				// we are in the mode where Epr just computes all the groundings of each
+				// quantified formula
+				// --> thus EprAtoms must become CCEqualities
+				Clausifier clausif = eprTheory.getClausifier();
+				if (resultAtom instanceof EprGroundPredicateAtom) {
+					// basically copied from Clausifier.createBooleanLit()
+					SharedTerm st = clausif.getSharedTerm(((EprGroundPredicateAtom) resultAtom).getTerm());
+
+					EqualityProxy eq = clausif.
+							createEqualityProxy(st, clausif.getSharedTerm(eprTheory.getTheory().mTrue));
+					// Safe since m_Term is neither true nor false
+					assert eq != EqualityProxy.getTrueProxy();
+					assert eq != EqualityProxy.getFalseProxy();
+					resultAtom = eq.getLiteral();	
+				} else if (resultAtom instanceof EprGroundEqualityAtom) {
+					EqualityProxy eq = new EqualityProxy(clausif, 
+							clausif.getSharedTerm(((EprAtom) resultAtom).getArguments()[0]), 
+							clausif.getSharedTerm(((EprAtom) resultAtom).getArguments()[1])
+							);
+					resultAtom = eq.getLiteral();
+				} else {
+					assert false : "should not happen, right??";
+				}
+				
+			}
+			
+			return isPositive ? resultAtom : resultAtom.negate();
 		} else {
 			assert false : "there might be equality replacements";
 			return l;

@@ -18,6 +18,7 @@ import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ClauseDeletionHook;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
@@ -74,19 +75,22 @@ public class EprTheory implements ITheory {
 	 * If this is set to true, EprTheory just computes all groundings for a given quantified clause
 	 * and returns them to the DPLLEngine.
 	 */
-	private final boolean mComputeAllInstantiations;
+	private final boolean mGroundAllMode;
 
 	private ArrayList<Literal[]> mAllGroundingsOfLastAddedEprClause;
 
 	private CClosure mCClosure;
 
-	public EprTheory(Theory th, DPLLEngine engine, CClosure cClosure, boolean solveThroughGrounding) {
+	private Clausifier mClausifier;
+
+	public EprTheory(Theory th, DPLLEngine engine, CClosure cClosure, Clausifier clausifier, boolean solveThroughGrounding) {
 		mTheory = th;
 		mEngine = engine;
+		mClausifier = clausifier;
 
 		mEqualityManager = new EqualityManager();
 		mStateManager = new EprStateManager(this);
-		mComputeAllInstantiations = solveThroughGrounding;
+		mGroundAllMode = solveThroughGrounding;
 	}
 
 	@Override
@@ -620,7 +624,7 @@ public class EprTheory implements ITheory {
 		//TODO: do something about hook and proof..
 		EprNonUnitClause newEprClause = mStateManager.getBaseClause(literals, mTheory);
 		
-		if (mComputeAllInstantiations) {
+		if (mGroundAllMode) {
 			mAllGroundingsOfLastAddedEprClause = newEprClause.computeAllGroundings();
 		} else {
 			mConflict |= mStateManager.addBaseClause(newEprClause);
@@ -901,5 +905,13 @@ public class EprTheory implements ITheory {
 	
 	public EqualityManager getEqualityManager() {
 		return mEqualityManager;
+	}
+	
+	public Clausifier getClausifier() {
+		return mClausifier;
+	}
+	
+	public boolean isGroundAllMode() {
+		return mGroundAllMode;
 	}
 }
