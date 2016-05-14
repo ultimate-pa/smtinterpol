@@ -4,10 +4,13 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.Stack;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
@@ -399,10 +402,22 @@ public class EprStateManager {
 		mEprStateStack.peek().addConstants(constants);
 	}
 	
-	public HashSet<ApplicationTerm> getAllConstants() {
+	public HashSet<ApplicationTerm> getAllConstants(Sort sort) {
 		HashSet<ApplicationTerm> result = new HashSet<>();
-		for (EprState s : mEprStateStack)
-			result.addAll(s.getUsedConstants());
+		//the following comment has the insufficient solution
+		//  -- only the constants we have seen in a clause so far.
+		//     we need all those which are/were/will be used in the current push/pop scope
+		//     --> ask the Theory for all declared functions instead
+//		for (EprState s : mEprStateStack)
+//			result.addAll(s.getUsedConstants());
+		
+		for (Entry<String, FunctionSymbol> en : mTheory.getDeclaredFuns().entrySet()) {
+			FunctionSymbol fs = en.getValue();
+			if (fs.getParameterSorts().length == 0 
+					&& fs.getReturnSort().equals(sort))
+				result.add(mTheory.term(fs));
+		}
+
 		return result;
 	}
 
@@ -415,7 +430,7 @@ public class EprStateManager {
 			ArrayList<TTSubstitution> instsNew = new ArrayList<>();
 			for (TTSubstitution sub : insts) {
 //				for (ApplicationTerm con : allConstantsAsList) {
-				for (ApplicationTerm con : getAllConstants()) {
+				for (ApplicationTerm con : getAllConstants(tv.getSort())) {
 					TTSubstitution newSub = new TTSubstitution(sub);
 					newSub.addSubs(con, tv);
 					instsNew.add(newSub);

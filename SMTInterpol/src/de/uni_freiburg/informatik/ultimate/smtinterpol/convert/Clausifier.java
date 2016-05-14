@@ -648,7 +648,7 @@ public class Clausifier {
 
 							ArrayList<Literal[]> allGroundings = mEprTheory.getAllGroundingsOfLastAddedEprClause();
 							for (Literal[] grounding : allGroundings) {
-								addClause(lits, null, null);
+								addClause(grounding, null, null);
 							}
 
 						}
@@ -1399,10 +1399,25 @@ public class Clausifier {
 					//TODO: replace the nulls
 					Literal[] groundLiteralsAfterDER = mEprTheory.addEprClause(lits, null, null);
 					
-					if (groundLiteralsAfterDER != null)
+//					if (groundLiteralsAfterDER != null)
+					
+					if (groundLiteralsAfterDER != null) {
 						addClause(groundLiteralsAfterDER, null,
 								getProofNewSource(mLeafKind,
 										mSubTracker.clause(mProofTerm)));
+
+//						IProofTracker sub = mTracker.getDescendent();
+//						sub.intern(at, lit);
+//						addClause(groundLiteralsAfterDER, null, getProofNewSource(sub.clause(mProofTerm)));
+					} else if (mInstantiateEprClauses) {
+						// mode for solving Epr by adding all groundings is active
+
+						ArrayList<Literal[]> allGroundings = mEprTheory.getAllGroundingsOfLastAddedEprClause();
+						for (Literal[] grounding : allGroundings) {
+							addClause(grounding, null, null);
+						}
+
+					}
 
 				}
 				//alex (end)
@@ -1719,7 +1734,8 @@ public class Clausifier {
 				// Special cases
 				if (t.getSort() == t.getTheory().getBooleanSort()
 //						&& !mTheory.getLogic().isQuantified()) //alex: we only want these axioms if we do the predicate-to-function conversion
-						&& (mEprTheory == null || mInstantiateEprClauses)) //alex: we only want these axioms if we do the predicate-to-function conversion
+						&& (mEprTheory == null || mInstantiateEprClauses)
+						&& !EprTheory.isQuantifiedEprAtom(t)) //alex: we only want these axioms if we do the predicate-to-function conversion
 					pushOperation(new AddExcludedMiddleAxiom(res));
 				else {
 					FunctionSymbol fs = at.getFunction();
@@ -2521,7 +2537,7 @@ public class Clausifier {
 				// alex: this the right place to get rid of the CClosure predicate conversion in EPR-case?
 				// --> seems to be one of three positions.. (keyword: predicate-to-function conversion)
 //				if (mTheory.getLogic().isQuantified()) {
-				if (mEprTheory != null && !mInstantiateEprClauses) {
+				if ((mEprTheory != null && !mInstantiateEprClauses) || EprTheory.isQuantifiedEprAtom(term)) {
 					// assuming right now that 
 					assert !term.getFunction().getName().equals("not") : "do something for the negated case!";
 

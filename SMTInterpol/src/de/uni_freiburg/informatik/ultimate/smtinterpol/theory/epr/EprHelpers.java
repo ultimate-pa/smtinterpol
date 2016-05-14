@@ -54,63 +54,79 @@ public class EprHelpers {
 		
 		Theory theory = eprTheory.getTheory();
 
+		Literal resultLit = null;
+		DPLLAtom resultAtom = null;
+		
 		if (atom instanceof EprQuantifiedPredicateAtom) {
 			EprQuantifiedPredicateAtom eqpa = (EprQuantifiedPredicateAtom) atom;
 			TermTuple newTT = sub.apply(eqpa.getArgumentsAsTermTuple());
 			ApplicationTerm newTerm = theory.term(eqpa.eprPredicate.functionSymbol, newTT.terms);
-			EprPredicateAtom result = null;
 			if (newTerm.getFreeVars().length > 0) {
-				result = eqpa.eprPredicate.getAtomForTermTuple(newTT, theory, l.getAtom().getAssertionStackLevel());
+				resultAtom = eqpa.eprPredicate.getAtomForTermTuple(newTT, theory, l.getAtom().getAssertionStackLevel());
 			} else {
-				result = eqpa.eprPredicate.getAtomForPoint(newTT, theory, l.getAtom().getAssertionStackLevel());
+				resultAtom = eqpa.eprPredicate.getAtomForPoint(newTT, theory, l.getAtom().getAssertionStackLevel());
 			}
-			return isPositive ? result : result.negate();
+//			resultLit =  isPositive ? resultAtom : resultAtom.negate();
 		} else if (atom instanceof EprQuantifiedEqualityAtom) {
 			EprQuantifiedEqualityAtom eea = (EprQuantifiedEqualityAtom) atom;
 			TermTuple newTT = sub.apply(eea.getArgumentsAsTermTuple());
 			ApplicationTerm newTerm = theory.term("=", newTT.terms);
-			DPLLAtom resultAtom = null;
+//			DPLLAtom resultAtom = null;
 			if (newTerm.getFreeVars().length > 0) {
 				resultAtom = new EprQuantifiedEqualityAtom(newTerm, 0, l.getAtom().getAssertionStackLevel());//TODO: hash
 //			} else if (newTerm.getParameters()[0].equals(newTerm.getParameters()[1])) {
 			} else {
 				// TODO: will need a management for these atoms -- so there are no duplicates..
 				//   it's not clear if we want CCEqualities or so, here..
-				return new EprGroundEqualityAtom(newTerm, 0, 0);
+//				return new EprGroundEqualityAtom(newTerm, 0, 0);
+				resultAtom =  new EprGroundEqualityAtom(newTerm, 0, 0);
 			}
 			
-			if (eprTheory.isGroundAllMode()) {
-				// we are in the mode where Epr just computes all the groundings of each
-				// quantified formula
-				// --> thus EprAtoms must become CCEqualities
-				Clausifier clausif = eprTheory.getClausifier();
-				if (resultAtom instanceof EprGroundPredicateAtom) {
-					// basically copied from Clausifier.createBooleanLit()
-					SharedTerm st = clausif.getSharedTerm(((EprGroundPredicateAtom) resultAtom).getTerm());
-
-					EqualityProxy eq = clausif.
-							createEqualityProxy(st, clausif.getSharedTerm(eprTheory.getTheory().mTrue));
-					// Safe since m_Term is neither true nor false
-					assert eq != EqualityProxy.getTrueProxy();
-					assert eq != EqualityProxy.getFalseProxy();
-					resultAtom = eq.getLiteral();	
-				} else if (resultAtom instanceof EprGroundEqualityAtom) {
-					EqualityProxy eq = new EqualityProxy(clausif, 
-							clausif.getSharedTerm(((EprAtom) resultAtom).getArguments()[0]), 
-							clausif.getSharedTerm(((EprAtom) resultAtom).getArguments()[1])
-							);
-					resultAtom = eq.getLiteral();
-				} else {
-					assert false : "should not happen, right??";
-				}
-				
-			}
 			
-			return isPositive ? resultAtom : resultAtom.negate();
+//			return isPositive ? resultAtom : resultAtom.negate();
 		} else {
 			assert false : "there might be equality replacements";
 			return l;
 		}
+		
+		
+		if (eprTheory.isGroundAllMode()) {
+			// we are in the mode where Epr just computes all the groundings of each
+			// quantified formula
+			// --> thus EprAtoms must become CCEqualities
+			Clausifier clausif = eprTheory.getClausifier();
+			if (resultAtom instanceof EprGroundPredicateAtom) {
+				// basically copied from Clausifier.createBooleanLit()
+				SharedTerm st = clausif.getSharedTerm(((EprGroundPredicateAtom) resultAtom).getTerm());
+
+				EqualityProxy eq = clausif.
+						createEqualityProxy(st, clausif.getSharedTerm(eprTheory.getTheory().mTrue));
+				// Safe since m_Term is neither true nor false
+				assert eq != EqualityProxy.getTrueProxy();
+				assert eq != EqualityProxy.getFalseProxy();
+				resultAtom = eq.getLiteral();	
+			} else if (resultAtom instanceof EprGroundEqualityAtom) {
+				Term t1 = ((EprAtom) resultAtom).getArguments()[0];
+				Term t2 = ((EprAtom) resultAtom).getArguments()[1];
+				if (t1.equals(t2)) {
+					resultAtom = new DPLLAtom.TrueAtom();
+				} else {
+					SharedTerm st1 = clausif.getSharedTerm(((EprAtom) resultAtom).getArguments()[0]);
+					SharedTerm st2 = clausif.getSharedTerm(((EprAtom) resultAtom).getArguments()[1]);
+					EqualityProxy eq = new EqualityProxy(clausif, 
+							st1, 
+							st2);
+					resultAtom = eq.getLiteral();
+				}
+			} else {
+				assert false : "should not happen, right??";
+			}
+
+		}
+
+
+		resultLit =  isPositive ? resultAtom : resultAtom.negate();
+		return resultLit;
 	}
 
 	public static EprQuantifiedUnitClause buildEQLWE(

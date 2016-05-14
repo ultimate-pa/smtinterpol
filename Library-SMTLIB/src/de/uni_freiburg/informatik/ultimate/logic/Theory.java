@@ -1224,4 +1224,8 @@ public class Theory {
 				"@" + tv.getName() + "_skolem_" + mSkolemCounter++,null,
 				EMPTY_SORT_ARRAY,tv.getSort(),null,null,0);
 	}
+
+	public ScopedHashMap<String, FunctionSymbol> getDeclaredFuns() {
+		return mDeclaredFuns;
+	}
 }

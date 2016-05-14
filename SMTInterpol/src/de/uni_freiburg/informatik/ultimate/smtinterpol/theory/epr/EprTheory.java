@@ -369,6 +369,8 @@ public class EprTheory implements ITheory {
 
 		System.out.println("EPRDEBUG: computeConflictClause");
 		
+		if (mGroundAllMode)
+			return null;
 		
 		/*
 		 * new plan (written down on 10.05.2016)

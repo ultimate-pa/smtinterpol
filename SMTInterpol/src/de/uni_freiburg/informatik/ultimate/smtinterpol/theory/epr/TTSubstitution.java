@@ -73,7 +73,11 @@ public class TTSubstitution {
 		if (subs.isEmpty())
 			return tt;
 
-		Term[] newTerms = Arrays.copyOf(tt.terms, tt.terms.length);//new Term[tt.terms.length];
+		Term[] newTerms = new Term[tt.terms.length];
+		for (int i = 0; i < newTerms.length; i++)
+			newTerms[i] = tt.terms[i];
+//		Arrays.copyOf(tt.terms, tt.terms.length);//new Term[tt.terms.length];//makes problems if the copied Array has a more special type
+
 		for (int i = 0; i < tt.terms.length; i++) {
 			for (int j = 0; j < subs.size(); j++) {
 				SubsPair tp = subs.get(j);
