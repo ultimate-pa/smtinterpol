@@ -393,10 +393,34 @@ public class EprStateManager {
 		return mAllEprPredicates;
 	}
 	
+	public void addConstants(HashSet<ApplicationTerm> constants) {
+		mEprStateStack.peek().addConstants(constants);
+	}
+	
 	public HashSet<ApplicationTerm> getAllConstants() {
 		HashSet<ApplicationTerm> result = new HashSet<>();
 		for (EprState s : mEprStateStack)
 			result.addAll(s.getUsedConstants());
 		return result;
+	}
+
+	public ArrayList<TTSubstitution> getAllInstantiations(HashSet<TermVariable> freeVars) {
+		ArrayList<TTSubstitution> insts = new ArrayList<>();
+//		ArrayList<ApplicationTerm> allConstantsAsList = new ArrayList<>(getAllConstants());
+		insts.add(new TTSubstitution());
+
+		for (TermVariable tv : freeVars) {
+			ArrayList<TTSubstitution> instsNew = new ArrayList<>();
+			for (TTSubstitution sub : insts) {
+//				for (ApplicationTerm con : allConstantsAsList) {
+				for (ApplicationTerm con : getAllConstants()) {
+					TTSubstitution newSub = new TTSubstitution(sub);
+					newSub.addSubs(con, tv);
+					instsNew.add(newSub);
+				}
+			}
+			insts = instsNew;
+		}
+		return insts;
 	}
 }

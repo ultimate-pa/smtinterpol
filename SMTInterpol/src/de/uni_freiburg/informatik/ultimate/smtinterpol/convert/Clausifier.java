@@ -67,6 +67,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.ArrayTheo
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAppTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
@@ -621,18 +622,20 @@ public class Clausifier {
 						// we have an EPR-clause
 						isDpllClause = false;
 					}
+					Literal[] lits = new Literal[] {positive ? lit : lit.negate()};
+
 					if (isDpllClause) {
 						//alex (end)
 
 						IProofTracker sub = mTracker.getDescendent();
 						sub.intern(at, lit);
-						addClause(new Literal[] {positive ? lit : lit.negate()},
+						addClause(lits, //alex: change here, too, revert would be to inline "lits"
 								null, getProofNewSource(sub.clause(mProofTerm)));
-
+						
 						//alex (begin)
 					} else{
+						
 						//TODO: replace the nulls
-						Literal[] lits = new Literal[] {positive ? lit : lit.negate()};
 						Literal[] groundLiteralsAfterDER = mEprTheory.addEprClause(lits, null, null);
 						
 						// DER computed an equivalent ground clause --> add it to DPLL
@@ -640,6 +643,14 @@ public class Clausifier {
 							IProofTracker sub = mTracker.getDescendent();
 							sub.intern(at, lit);
 							addClause(groundLiteralsAfterDER, null, getProofNewSource(sub.clause(mProofTerm)));
+						} else if (mInstantiateEprClauses) {
+							// mode for solving Epr by adding all groundings is active
+
+							ArrayList<Literal[]> allGroundings = mEprTheory.getAllGroundingsOfLastAddedEprClause();
+							for (Literal[] grounding : allGroundings) {
+								addClause(lits, null, null);
+							}
+
 						}
 					}
 				//alex (end)
@@ -1707,7 +1718,8 @@ public class Clausifier {
 				ApplicationTerm at = (ApplicationTerm) t;
 				// Special cases
 				if (t.getSort() == t.getTheory().getBooleanSort()
-						&& !mTheory.getLogic().isQuantified()) //alex: we only want these axioms if we do the predicate-to-function conversion
+//						&& !mTheory.getLogic().isQuantified()) //alex: we only want these axioms if we do the predicate-to-function conversion
+						&& (mEprTheory == null || mInstantiateEprClauses)) //alex: we only want these axioms if we do the predicate-to-function conversion
 					pushOperation(new AddExcludedMiddleAxiom(res));
 				else {
 					FunctionSymbol fs = at.getFunction();
@@ -1760,7 +1772,10 @@ public class Clausifier {
 	private CClosure mCClosure;
 	private LinArSolve mLASolver;
 	private ArrayTheory mArrayTheory;
+	//alex begin
 	private EprTheory mEprTheory;
+	private boolean mInstantiateEprClauses = true;
+	//alex end
 	
 	private boolean mInstantiationMode;
 	/**
@@ -2061,12 +2076,13 @@ public class Clausifier {
 //		 *  - the EPR theory should know the whole clause
 //		 *  (the engine will set the non-quantified literals, but it "gets to know them" somewhere else (getLiteral or so)
 //		 */
-//		for (Literal lit : lits) {
-//			if (lit.getSMTFormula(mTheory).getFreeVars().length != 0) {
-//				mEprTheory.addClause(lits, hook, proof);
-//				return;
-//			}
-//		}
+
+
+		// track which constant appear in ground clauses
+		if (mEprTheory!= null) {
+			mEprTheory.addConstants(EprHelpers.collectAppearingConstants(lits, mTheory));
+		}
+
 //		//alex (end)
 		
 		if (mInstantiationMode) {
@@ -2118,7 +2134,8 @@ public class Clausifier {
 			mSharedFalse =	new SharedTerm(this, mTheory.mFalse);
 			mSharedFalse.mCCterm = mCClosure.createAnonTerm(mSharedFalse);
 			mSharedTerms.put(mTheory.mFalse, mSharedFalse);
-			if (!mTheory.getLogic().isQuantified()) {
+//			if (!mTheory.getLogic().isQuantified()) {
+			if (mEprTheory != null && !mInstantiateEprClauses) {
 				//alex: this is only needed for the predicate-to-function conversion, right?
 				Literal[] lits = new Literal[] {
 				mCClosure.createCCEquality(
@@ -2153,7 +2170,7 @@ public class Clausifier {
 		if (mEprTheory == null) {
 //			mEprTheory = new EprTheory(this.getTheory());
 			
-			mEprTheory = new EprTheory(mTheory, mEngine, mCClosure);
+			mEprTheory = new EprTheory(mTheory, mEngine, mCClosure, mInstantiateEprClauses);
 			mEngine.addTheory(mEprTheory);
 		}
 	}
@@ -2502,7 +2519,8 @@ public class Clausifier {
 			} else {
 				// alex: this the right place to get rid of the CClosure predicate conversion in EPR-case?
 				// --> seems to be one of three positions..
-				if (mTheory.getLogic().isQuantified()) {
+//				if (mTheory.getLogic().isQuantified()) {
+				if (mEprTheory != null && !mInstantiateEprClauses) {
 					// assuming right now that 
 					assert !term.getFunction().getName().equals("not") : "do something for the negated case!";
 

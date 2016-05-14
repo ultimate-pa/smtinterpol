@@ -55,6 +55,9 @@ public abstract class EprNonUnitClause extends EprClause {
 		assert !freshAlphaRenamed || freshAlphaRen != null;
 		mClauseThisIsAFreshAlphaRenamingOf = clauseThisIsAFreshAlphaRenamingOf;
 		setUp();
+		
+		mAppearingConstants = 
+				EprHelpers.collectAppearingConstants(literals, mTheory);
 	}
 	
 	private void setUp() {
@@ -92,33 +95,9 @@ public abstract class EprNonUnitClause extends EprClause {
 			searchUnitLiteral();
 
 		
-		collectAppearingConstants();
 	}
 
-	/**
-	 * Goes through all the literals of this clause (including quantified equalities)
-	 * and adds all appearing constants to mAppearingConstants
-	 */
-	private void collectAppearingConstants() {
-		//		for (Literal l : eprQuantifiedEqualityAtoms) {
-//			EprAtom atom = (EprAtom) l.getAtom();
-//			mAppearingConstants.addAll(atom.getArgumentsAsTermTuple().getConstants());
-//		}
-//		for (Literal l : eprQuantifiedEqualityAtoms) {
-//			EprAtom atom = (EprAtom) l.getAtom();
-//			mAppearingConstants.addAll(atom.getArgumentsAsTermTuple().getConstants());
-//		}
-//		for (Literal l : groundLiterals) {
-		for (Literal l : mAllLiterals) {
-			DPLLAtom atom = (DPLLAtom) l.getAtom();
-			Term t = atom.getSMTFormula(mTheory);
-			if (!(t instanceof ApplicationTerm))
-				continue;
-			for (Term p : ((ApplicationTerm) t).getParameters())
-				if (p instanceof ApplicationTerm)
-					mAppearingConstants.add((ApplicationTerm) p);
-		}
-	}
+
 
 	public void transferFulfillabilityInfo() {
 		//TODO (if necessary): complete for other fields that are related to fulfillability information
@@ -929,5 +908,19 @@ public abstract class EprNonUnitClause extends EprClause {
 		EprClause getResolvent() {
 			return resolvent;
 		}
+	}
+
+	public ArrayList<Literal[]> computeAllGroundings() {
+		int arity = this.getFreeVars().size();
+		ArrayList<TTSubstitution> allInstantiations =  
+				mStateManager.getAllInstantiations(this.getFreeVars());
+		
+		ArrayList<Literal[]> result = new ArrayList<>();
+		for (TTSubstitution sub : allInstantiations) {
+			ArrayList<Literal> groundInstList = getSubstitutedLiterals(sub);
+			result.add(groundInstList.toArray(new Literal[groundInstList.size()]));
+		}
+		
+		return result;
 	}
 }

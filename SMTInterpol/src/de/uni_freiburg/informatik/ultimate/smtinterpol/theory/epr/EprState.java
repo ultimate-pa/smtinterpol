@@ -46,8 +46,12 @@ public class EprState {
 	
 
 	/**
-	 * All constants (0-ary ApplicationTerms) that appear in a baseClause that
+	 * All constants (0-ary ApplicationTerms) that appear in a clause (Epr or ground) that
 	 * has been added in this state.
+	 * 
+	 * TODO: 
+	 *   an easier way to obtain this would be to ask the Theory for currently declared
+	 *   constants..
 	 */
 	private HashSet<ApplicationTerm> mUsedConstants = new HashSet<>();
 
@@ -120,7 +124,7 @@ public class EprState {
 	 * @return true if bc is a conflict clause, false otherwise
 	 */
 	public boolean addBaseClause(EprNonUnitClause bc) {
-		mUsedConstants.addAll(bc.getAppearingConstants());
+//		mUsedConstants.addAll(bc.getAppearingConstants());
 		mBaseClauses.add(bc);
 		return addClause(bc, true);
 	}
@@ -152,5 +156,9 @@ public class EprState {
 	
 	public HashSet<ApplicationTerm> getUsedConstants() {
 		return mUsedConstants;
+	}
+
+	public void addConstants(HashSet<ApplicationTerm> constants) {
+		mUsedConstants.addAll(constants);
 	}
 }

@@ -1,8 +1,10 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
@@ -14,6 +16,24 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprQua
 
 public class EprHelpers {
 
+	/**
+	 * Goes through all the given literals 
+	 * and adds all appearing constants to mAppearingConstants
+	 */
+	public static HashSet<ApplicationTerm> collectAppearingConstants(Literal[] literals, Theory theory) {
+		HashSet<ApplicationTerm> result = new HashSet<>();
+		for (Literal l : literals) {
+			DPLLAtom atom = (DPLLAtom) l.getAtom();
+			Term t = atom.getSMTFormula(theory);
+			if (!(t instanceof ApplicationTerm))
+				continue;
+			for (Term p : ((ApplicationTerm) t).getParameters())
+				if (p instanceof ApplicationTerm)
+					result.add((ApplicationTerm) p);
+		}
+		return result;
+	}	
+	
 	/**
 	 * Apply the substitution sub to Literal l, return the result
 	 * @param sub
