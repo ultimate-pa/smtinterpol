@@ -442,8 +442,49 @@ public class EprTheory implements ITheory {
 	 * @return an EprPredicate whose model is not complete in the current state, null if there is none.
 	 */
 	private EprPredicate isEprModelComplete() {
+		
 		for (EprPredicate pred : mStateManager.getAllEprPredicates()) {
-		// TODO Auto-generated method stub
+			int arity = pred.arity;
+			
+			assert arity <= 2;
+
+			
+			if (arity == 2) {
+				ArrayList<EprQuantifiedUnitClause> setQuantifiedLiterals = 
+						mStateManager.getSetLiterals(pred);
+				
+				HashMap<TermVariable, ApplicationTerm> missingPointSets
+					= new HashMap<>();
+				
+				HashMap<ApplicationTerm, ApplicationTerm> missingPoints
+				 	= new HashMap<>();
+				
+				boolean reflexivePointsCovered = false;
+				
+				boolean nonReflexivePointsCovered = false;
+
+				for (EprQuantifiedUnitClause setQLit : setQuantifiedLiterals) {
+					TermTuple tt = setQLit.getPredicateAtom().getArgumentsAsTermTuple();
+//					if (tt.getFreeVars().size() == arity 
+//							&& setQLit.getEqualityAtoms().length == 0) {
+//						// this EprPredicate is covered
+//					}
+					if (tt.terms[0] instanceof TermVariable
+							&& tt.terms[0] == tt.terms[1]) {
+						reflexivePointsCovered = true;
+
+					} else if (tt.terms[0] instanceof TermVariable
+							&& tt.terms[1] instanceof TermVariable
+							&& tt.terms[0] != tt.terms[1]) {
+
+					}
+
+
+				}
+			} else if (arity == 1) {
+				
+			}
+
 		}
 		return null;
 	}

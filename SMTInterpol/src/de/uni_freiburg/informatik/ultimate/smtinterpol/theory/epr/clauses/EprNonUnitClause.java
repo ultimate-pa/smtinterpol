@@ -21,12 +21,19 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprQuantifiedP
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprStateManager;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 
 public abstract class EprNonUnitClause extends EprClause {
+
+	/**
+	 * All constants (0-ary ApplicationTerms) that appear in a literal of this clause.
+	 */
+	private HashSet<ApplicationTerm> mAppearingConstants = new HashSet<>();
+
 
 	private EprUnitClause mUnitLiteral;
 	private HashMap<EprUnitClause, EprNonUnitClause> mUnitLiteralToInstantiationOfClause =
@@ -84,6 +91,33 @@ public abstract class EprNonUnitClause extends EprClause {
 		if (mNoFulfillableLiterals == 1)
 			searchUnitLiteral();
 
+		
+		collectAppearingConstants();
+	}
+
+	/**
+	 * Goes through all the literals of this clause (including quantified equalities)
+	 * and adds all appearing constants to mAppearingConstants
+	 */
+	private void collectAppearingConstants() {
+		//		for (Literal l : eprQuantifiedEqualityAtoms) {
+//			EprAtom atom = (EprAtom) l.getAtom();
+//			mAppearingConstants.addAll(atom.getArgumentsAsTermTuple().getConstants());
+//		}
+//		for (Literal l : eprQuantifiedEqualityAtoms) {
+//			EprAtom atom = (EprAtom) l.getAtom();
+//			mAppearingConstants.addAll(atom.getArgumentsAsTermTuple().getConstants());
+//		}
+//		for (Literal l : groundLiterals) {
+		for (Literal l : mAllLiterals) {
+			DPLLAtom atom = (DPLLAtom) l.getAtom();
+			Term t = atom.getSMTFormula(mTheory);
+			if (!(t instanceof ApplicationTerm))
+				continue;
+			for (Term p : ((ApplicationTerm) t).getParameters())
+				if (p instanceof ApplicationTerm)
+					mAppearingConstants.add((ApplicationTerm) p);
+		}
 	}
 
 	public void transferFulfillabilityInfo() {
@@ -122,6 +156,7 @@ public abstract class EprNonUnitClause extends EprClause {
 			assert false: "should we do something here? Or just wait for model completion??";
 			return false;
 		}
+		//TODO: save the computed substitutions somewhere?
 		return true;
 	}
 
@@ -844,6 +879,10 @@ public abstract class EprNonUnitClause extends EprClause {
 				}
 			}
 		}
+	}
+	
+	public HashSet<ApplicationTerm> getAppearingConstants() {
+		return mAppearingConstants;
 	}
 
 	enum ResolventStatus {

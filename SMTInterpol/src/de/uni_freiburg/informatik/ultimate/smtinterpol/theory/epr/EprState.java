@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map.Entry;
 
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
@@ -42,6 +43,14 @@ public class EprState {
 	HashMap<EprPredicate, EprPredicateModel> mPredicateToModel = new HashMap<>();
 
 	private ArrayList<EprClause> mConflictClauses = new ArrayList<>();
+	
+
+	/**
+	 * All constants (0-ary ApplicationTerms) that appear in a baseClause that
+	 * has been added in this state.
+	 */
+	private HashSet<ApplicationTerm> mUsedConstants = new HashSet<>();
+
 
 	/**
 	 * constructor for the base state
@@ -111,6 +120,7 @@ public class EprState {
 	 * @return true if bc is a conflict clause, false otherwise
 	 */
 	public boolean addBaseClause(EprNonUnitClause bc) {
+		mUsedConstants.addAll(bc.getAppearingConstants());
 		mBaseClauses.add(bc);
 		return addClause(bc, true);
 	}
@@ -138,5 +148,9 @@ public class EprState {
 
 	public ArrayList<EprClause> getConflictClauses() {
 		return mConflictClauses;
+	}
+	
+	public HashSet<ApplicationTerm> getUsedConstants() {
+		return mUsedConstants;
 	}
 }

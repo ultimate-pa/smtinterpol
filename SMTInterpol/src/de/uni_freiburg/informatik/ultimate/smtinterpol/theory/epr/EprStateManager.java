@@ -392,4 +392,11 @@ public class EprStateManager {
 		assert false : "TODO: check: is the field updated correctly??";
 		return mAllEprPredicates;
 	}
+	
+	public HashSet<ApplicationTerm> getAllConstants() {
+		HashSet<ApplicationTerm> result = new HashSet<>();
+		for (EprState s : mEprStateStack)
+			result.addAll(s.getUsedConstants());
+		return result;
+	}
 }

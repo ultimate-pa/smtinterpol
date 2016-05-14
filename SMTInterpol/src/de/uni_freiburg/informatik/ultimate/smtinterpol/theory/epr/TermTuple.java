@@ -166,7 +166,15 @@ public class TermTuple {
 				result.add((TermVariable) t);
 		return result;
 	}
-	
+
+	public HashSet<ApplicationTerm> getConstants() {
+		HashSet<ApplicationTerm> result = new HashSet<>();
+		for (Term t : terms)
+			if (t instanceof ApplicationTerm)
+				result.add((ApplicationTerm) t);
+		return result;
+	}
+
 	public boolean isGround() {
 		return getFreeVars().size() == 0;
 	}
