@@ -25,6 +25,6 @@ distributable:
 distribution:
 	@$(MAKE) FILES=../../../smtinterpol.jar:../../../smtinterpol-src.zip:../../../smtinterpol-comp.jar distributable downloadpage
 	@$(MAKE) all
-	@echo "run scp SMTInterpol/web/html/gen/*.html SMTInterpol/web/html/gen/smtinterpol* <your destination>"
+	@echo "run scp SMTInterpol/web/html/gen/* <your destination>"
 
 .PHONY: all distributable downloadpage distribution

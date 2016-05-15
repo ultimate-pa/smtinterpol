@@ -11,5 +11,5 @@
 (assert (= a b))
 (assert (= (to_real a) x))
 (check-sat)
-(get-model)
+;(get-model)
 (exit)

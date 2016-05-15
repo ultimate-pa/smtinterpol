@@ -2,7 +2,7 @@
 benchmark is designed to be hard for the algorithm by Dillig, Dillig, and Aiken.
 Authors: The SMTInterpol team|)
 (set-info :category "crafted")
-(set-info :status unsat)
+(set-info :status sat)
 (set-logic QF_LIRA)
 (declare-fun x () Int)
 (declare-fun y () Real)

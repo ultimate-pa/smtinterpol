@@ -22,6 +22,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.InputStreamReader;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Reader;
 import java.util.ArrayDeque;
@@ -46,7 +47,7 @@ public class ParseEnvironment {
 	private ExitHook mExitHook;
 	// Initialize this lazily.
 	private Deque<Long> mTiming;
-	private boolean mContinueOnError = true;
+	private boolean mContinueOnError = !Config.COMPETITION;
 
 	private final FrontEndOptions mOptions;
 
@@ -97,7 +98,8 @@ public class ParseEnvironment {
 	
 	public void parseScript(String filename) throws SMTLIBException {
 		File oldcwd = mCwd;
-		Reader reader;
+		Reader reader = null;
+		boolean closeReader = false;
 		try {
 			if (filename.equals("<stdin>")) {
 				reader = new InputStreamReader(System.in);
@@ -108,6 +110,7 @@ public class ParseEnvironment {
 				mCwd = script.getParentFile();
 				try {
 					reader = new FileReader(script);
+					closeReader = true;
 				} catch (FileNotFoundException ex) {
 					throw new SMTLIBException("File not found: " + filename);
 				}
@@ -115,6 +118,13 @@ public class ParseEnvironment {
 			parseStream(reader, filename);
 		} finally {
 			mCwd = oldcwd;
+			if (closeReader) {
+				try {
+					reader.close();
+				} catch (IOException ex) {
+					
+				}
+			}
 		}
 	}
 	
@@ -178,9 +188,7 @@ public class ParseEnvironment {
 			out.print('(');
 			pt.append(out, me.getKey());
 			out.print(' ');
-			pt.append(out, me.getValue().getTheory().getLogic().isIRA()
-					? new IRAConstantFormatter().transform(me.getValue())
-							: me.getValue());
+			pt.append(out, me.getValue());
 			out.print(')');
 			sep = itemSep;
 		}

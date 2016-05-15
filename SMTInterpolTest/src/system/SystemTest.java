@@ -95,16 +95,24 @@ public class SystemTest {
 					Assert.fail(f.getAbsolutePath() + ": " + "unsupported");
 				super.printResponse(response);
 			}
-			
+
 		};
 		pe.parseStream(new FileReader(f), "TestStream");
 	}
 	
 	private boolean shouldExecute(File f) {
 		String fname = f.getName();
-		if (fname.startsWith("tightrhombus")) {
-			String sizestr = fname.substring(fname.lastIndexOf('-') + 1,
-					fname.lastIndexOf('.'));
+		if (fname.startsWith("tightrhombus-lira")) {
+			// remove tightrhombus-lira-xxx-yyy-
+			String sizestr = fname.substring(26, 28); // NOCHECKSTYLE
+			if (sizestr.length() == 2 && !Character.isDigit(sizestr.charAt(1)))
+				sizestr = sizestr.substring(0,1);
+			int size = Integer.parseInt(sizestr);
+			return size < 5;// NOCHECKSTYLE
+		} else if (fname.startsWith("tightrhombus")) {
+			String sizestr = fname.substring(21, 23); // NOCHECKSTYLE
+			if (sizestr.length() == 2 && !Character.isDigit(sizestr.charAt(1)))
+				sizestr = sizestr.substring(0,1);
 			int size = Integer.parseInt(sizestr);
 			return size < 5;// NOCHECKSTYLE
 		}

@@ -29,9 +29,11 @@ import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.BooleanVarAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ITheory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.model.FunctionValue.Index;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.ArrayTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinArSolve;
@@ -108,6 +110,32 @@ public class Model implements de.uni_freiburg.informatik.ultimate.logic.Model {
 		mEval = new ModelEvaluator(this);
 	}
 	
+	public boolean checkTypeValues(LogProxy logger) {
+		boolean correct = true;
+		for (Map.Entry<FunctionSymbol, FunctionValue> me : mFuncVals.entrySet()) {
+			FunctionSymbol fs = me.getKey();
+			if (fs.getReturnSort().getName().equals("Int")) {
+				if (!mNumSorts.get(me.getValue().getDefault()).isIntegral()) {
+					correct = false;
+					if (fs.getParameterSorts().length == 0)
+						logger.fatal("Non-integral value for integer variable "
+								+ fs);
+					else
+						logger.fatal("Non-integral default value for function "
+								+ fs);
+				}
+				for (Map.Entry<Index,Integer> val : me.getValue().values().entrySet()) {
+					if (!mNumSorts.get(val.getValue()).isIntegral()) {
+						correct = false;
+						logger.fatal("Non-integral value for function " + fs
+								+ " at index " + me.getKey());
+					}
+				}
+			}
+		}
+		return correct;
+	}
+
 	public int getFalseIdx() {
 		return mBoolSort.getFalseIdx();
 	}
@@ -118,6 +146,7 @@ public class Model implements de.uni_freiburg.informatik.ultimate.logic.Model {
 	
 	public int extendNumeric(FunctionSymbol fsym, Rational rat) {
 		assert fsym.getReturnSort().isNumericSort();
+		assert !fsym.getReturnSort().getName().equals("Int") || rat.isIntegral();
 		int idx = mNumSorts.extend(rat);
 		mFuncVals.put(fsym, new FunctionValue(idx));
 		return idx;

@@ -4,6 +4,8 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 http://pmd.sourceforge.net/ruleset_2_0_0.xsd">
    <description>Rule set for SMTInterpol</description>
+   <exclude-pattern>.*Lexer.*</exclude-pattern>
+   <exclude-pattern>.*Parser.java</exclude-pattern>
    <rule ref="rulesets/java/basic.xml/JumbledIncrementer"/>
    <rule ref="rulesets/java/basic.xml/UnconditionalIfStatement"/>
    <rule ref="rulesets/java/basic.xml/CollapsibleIfStatements"/>
