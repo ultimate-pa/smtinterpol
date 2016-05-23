@@ -106,9 +106,9 @@ public class EprTheory implements ITheory {
 
 	@Override
 	public Clause setLiteral(Literal literal) {
-		System.out.println("EPRDEBUG: setLiteral " + literal);
 		if (mGroundAllMode)
 			return null;
+		System.out.println("EPRDEBUG: setLiteral " + literal);
 		
 		mStateManager.beginScope(literal);
 
@@ -180,9 +180,9 @@ public class EprTheory implements ITheory {
 
 	@Override
 	public void backtrackLiteral(Literal literal) {
-		System.out.println("EPRDEBUG: backtrackLiteral");
 		if (mGroundAllMode)
 			return;
+		System.out.println("EPRDEBUG: backtrackLiteral");
 
 		// .. dual to setLiteral
 		
@@ -227,9 +227,9 @@ public class EprTheory implements ITheory {
 
 	@Override
 	public Clause checkpoint() {
-		System.out.println("EPRDEBUG: checkpoint");
 		if (mGroundAllMode)
 			return null;
+		System.out.println("EPRDEBUG: checkpoint");
 		
 		Clause conflict = null;
 		
@@ -375,9 +375,9 @@ public class EprTheory implements ITheory {
 
 	@Override
 	public Clause computeConflictClause() {
-		System.out.println("EPRDEBUG: computeConflictClause");
 		if (mGroundAllMode)
 			return null;
+		System.out.println("EPRDEBUG: computeConflictClause");
 		
 		/*
 		 * new plan (written down on 10.05.2016)
@@ -531,6 +531,8 @@ public class EprTheory implements ITheory {
 
 	@Override
 	public Literal getSuggestion() {
+		if (mGroundAllMode)
+			return null;
 		//TODO: think about how to get smart suggestions..
 		System.out.println("EPRDEBUG: getSuggestion");
 		return null;
@@ -548,6 +550,8 @@ public class EprTheory implements ITheory {
 
 	@Override
 	public void increasedDecideLevel(int currentDecideLevel) {
+		if (mGroundAllMode)
+			return;
 		// TODO Auto-generated method stub
 		System.out.println("EPRDEBUG: increasedDecideLevel");
 
@@ -555,6 +559,8 @@ public class EprTheory implements ITheory {
 
 	@Override
 	public void decreasedDecideLevel(int currentDecideLevel) {
+		if (mGroundAllMode)
+			return;
 		// TODO Auto-generated method stub
 		System.out.println("EPRDEBUG: decreasedDecideLevel");
 
@@ -576,6 +582,8 @@ public class EprTheory implements ITheory {
 
 	@Override
 	public void removeAtom(DPLLAtom atom) {
+		if (mGroundAllMode)
+			return;
 		// TODO Auto-generated method stub
 		System.out.println("EPRDEBUG: removeAtom" + atom);
 
