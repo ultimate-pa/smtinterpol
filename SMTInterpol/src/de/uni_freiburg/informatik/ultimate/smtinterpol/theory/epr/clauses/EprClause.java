@@ -23,7 +23,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEqualit
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers.Pair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprStateManager;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EqualityManager;
@@ -32,6 +31,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution.SubsPair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution.TPair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
 

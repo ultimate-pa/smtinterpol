@@ -16,8 +16,6 @@ public class EprQuantifiedEqualityAtom extends EprAtom {
 		assert term.getFunction().getName().equals("=");
 		assert term.getFreeVars().length > 0;
 
-//		this.isQuantified = true;
-		
 		this.lhs = term.getParameters()[0];
 		this.rhs = term.getParameters()[1];
 		

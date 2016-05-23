@@ -1,9 +1,9 @@
-package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
+package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 
 public class EprQuantifiedPredicateAtom extends EprPredicateAtom {
 
