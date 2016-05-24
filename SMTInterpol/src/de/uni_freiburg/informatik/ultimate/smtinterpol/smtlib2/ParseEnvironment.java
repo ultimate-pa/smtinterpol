@@ -309,7 +309,7 @@ public class ParseEnvironment {
 				mVersion25 = false;
 				mLexer.setVersion25(false);
 			} else
-				printError("Unknown SMTLIB version");
+				throw new SMTLIBException("Unknown SMTLIB version");
 		} else if (info.equals(":error-behavior")) {
 			if ("immediate-exit".equals(value))
 				mContinueOnError = false;
