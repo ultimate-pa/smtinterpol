@@ -41,7 +41,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.util.MySymbolFactory;
   private StringBuilder string; // NOPMD
   private MySymbolFactory symFactory;
   private final UnifyHash<BigInteger> bignumbers = new UnifyHash<BigInteger>();
-  private boolean version25 = true;
+  private boolean version25 = false;
   
   public void setVersion25(boolean on) {
     version25 = on;

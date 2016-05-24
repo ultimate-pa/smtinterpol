@@ -55,7 +55,7 @@ public class ParseEnvironment {
 	private boolean mContinueOnError = !Config.COMPETITION;
 	
 	private Lexer mLexer = null;
-	private boolean mVersion25 = true;
+	private boolean mVersion25 = false;
 	
 	public ParseEnvironment(Script script) {
 		this(script, null);
