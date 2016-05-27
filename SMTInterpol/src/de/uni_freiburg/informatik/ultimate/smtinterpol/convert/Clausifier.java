@@ -803,19 +803,27 @@ public class Clausifier {
 					Term[] skolems = new Term[vars.length];
 					for (int i = 0; i < skolems.length; ++i)
 						skolems[i] = t.term(t.skolemize(vars[i]));
+
+					ArrayList<Literal[]> newGroundings = mEprTheory.addSkolemConstants(skolems);
+					for (Literal[] ng : newGroundings) {
+						addClause(ng, null, null);//TODO: hook, proof..
+					}
+	
 					Term skolem;
 //					mUnlet.beginScope();//alex: commented
 					try {
 						mUnlet.addSubstitutions(
 							new ArrayMap<TermVariable, Term>(vars, skolems));
 						Term negSkolem = mUnlet.unlet(qf.getSubformula());
-						skolem = Utils.createNotUntracked(negSkolem); //alex: before: "createNot"
+//						skolem = Utils.createNotUntracked(negSkolem); //alex: before: "createNot"
+						skolem = negSkolem;
 					} finally {
 //						m_Unlet.endScope();
 					}
 					skolem = mCompiler.transform(skolem);
 					// TODO Annotation processing
-					pushOperation(new AddAsAxiom(mTheory.not(skolem), null)); //alex: added arg
+//					pushOperation(new AddAsAxiom(mTheory.not(skolem), null)); //alex: added arg
+					pushOperation(new AddAsAxiom(skolem, null)); //alex: added arg
 				} else {
 					//"forall" case
 
@@ -1066,16 +1074,26 @@ public class Clausifier {
 				
 				// TODO: Correctly implement this once we support quantifiers.
 				// alex: using it -- but is it correct?..
+				
 
 				QuantifiedFormula qf = (QuantifiedFormula) mTerm;
 				assert (qf.getQuantifier() == QuantifiedFormula.EXISTS);
-				if (!mPositive)
-					;// TODO Nothing to do?
-				else {
+				if (mPositive) {
+					BuildClause bc = new BuildClause(qf.getSubformula(), null);
+					// FIXME Is this a tautology?  Do we need a different proof?
+					bc.addLiteral(mAuxLit.negate());
+					pushOperation(bc);
+					pushOperation(new CollectLiterals(qf.getSubformula(), bc));
+				} else {
 					TermVariable[] vars = qf.getVariables();
 					Term[] skolems = new Term[vars.length];
 					for (int i = 0; i < skolems.length; ++i)
 						skolems[i] = t.term(t.skolemize(vars[i]));
+					ArrayList<Literal[]> newGroundings = mEprTheory.addSkolemConstants(skolems);
+					for (Literal[] ng : newGroundings) {
+						addClause(ng, null, null);//TODO: hook, proof..
+					}
+					
 					Term skolem;
 //					mUnlet.beginScope();
 //					try {

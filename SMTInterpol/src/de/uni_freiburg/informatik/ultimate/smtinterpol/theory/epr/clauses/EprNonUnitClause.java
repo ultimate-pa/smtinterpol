@@ -912,12 +912,12 @@ public abstract class EprNonUnitClause extends EprClause {
 		}
 	}
 
-	public ArrayList<Literal[]> computeAllGroundings() {
+	public ArrayList<Literal[]> computeAllGroundings(HashSet<ApplicationTerm> constants) {
 		int arity = this.getFreeVars().size();
 		
 		
 		ArrayList<TTSubstitution> allInstantiations =  
-				mStateManager.getAllInstantiations(this.getFreeVars());
+				mStateManager.getAllInstantiations(this.getFreeVars(), constants);
 		
 		ArrayList<Literal[]> result = new ArrayList<>();
 		for (TTSubstitution sub : allInstantiations) {

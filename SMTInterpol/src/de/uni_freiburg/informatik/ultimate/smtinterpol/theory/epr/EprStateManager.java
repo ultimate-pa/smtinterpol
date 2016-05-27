@@ -398,11 +398,16 @@ public class EprStateManager {
 		return mAllEprPredicates;
 	}
 	
+	/**
+	 * TODO: implement one solution for constant handling!
+	 * @param constants
+	 */
 	public void addConstants(HashSet<ApplicationTerm> constants) {
 		mEprStateStack.peek().addConstants(constants);
 	}
 	
-	public HashSet<ApplicationTerm> getAllConstants(Sort sort) {
+//	public HashSet<ApplicationTerm> getAllConstants(Sort sort) {
+	public HashSet<ApplicationTerm> getAllConstants() {
 		HashSet<ApplicationTerm> result = new HashSet<>();
 		//the following comment has the insufficient solution
 		//  -- only the constants we have seen in a clause so far.
@@ -413,8 +418,8 @@ public class EprStateManager {
 		
 		for (Entry<String, FunctionSymbol> en : mTheory.getDeclaredFuns().entrySet()) {
 			FunctionSymbol fs = en.getValue();
-			if (fs.getParameterSorts().length == 0 
-					&& fs.getReturnSort().equals(sort))
+			if (fs.getParameterSorts().length == 0) 
+//					&& fs.getReturnSort().equals(sort))
 				result.add(mTheory.term(fs));
 		}
 		
@@ -422,7 +427,7 @@ public class EprStateManager {
 		return result;
 	}
 
-	public ArrayList<TTSubstitution> getAllInstantiations(HashSet<TermVariable> freeVars) {
+	public ArrayList<TTSubstitution> getAllInstantiations(HashSet<TermVariable> freeVars, HashSet<ApplicationTerm> constants) {
 		ArrayList<TTSubstitution> insts = new ArrayList<>();
 //		ArrayList<ApplicationTerm> allConstantsAsList = new ArrayList<>(getAllConstants());
 		insts.add(new TTSubstitution());
@@ -431,10 +436,12 @@ public class EprStateManager {
 			ArrayList<TTSubstitution> instsNew = new ArrayList<>();
 			for (TTSubstitution sub : insts) {
 //				for (ApplicationTerm con : allConstantsAsList) {
-				for (ApplicationTerm con : getAllConstants(tv.getSort())) {
-					TTSubstitution newSub = new TTSubstitution(sub);
-					newSub.addSubs(con, tv);
-					instsNew.add(newSub);
+				for (ApplicationTerm con : constants) {
+					if (con.getSort().equals(tv.getSort())) {
+						TTSubstitution newSub = new TTSubstitution(sub);
+						newSub.addSubs(con, tv);
+						instsNew.add(newSub);
+					}
 				}
 			}
 			insts = instsNew;

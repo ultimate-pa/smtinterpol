@@ -647,14 +647,15 @@ public class EprTheory implements ITheory {
 		EprNonUnitClause newEprClause = mStateManager.getBaseClause(literals, mTheory);
 		
 		if (mGroundAllMode) {
-			mAllGroundingsOfLastAddedEprClause = newEprClause.computeAllGroundings();
-		} else {
-			mConflict |= mStateManager.addBaseClause(newEprClause);
-	
-			for (Literal li : lits) {
-				updateLiteralToClauses(li, newEprClause);
-			}
+			mAllGroundingsOfLastAddedEprClause = newEprClause.computeAllGroundings(mStateManager.getAllConstants());
 		}
+//		} else {
+		mConflict |= mStateManager.addBaseClause(newEprClause);
+
+		for (Literal li : lits) {
+			updateLiteralToClauses(li, newEprClause);
+		}
+//		}
 		
 		return null;
 	}
@@ -937,5 +938,33 @@ public class EprTheory implements ITheory {
 	
 	public boolean isGroundAllMode() {
 		return mGroundAllMode;
+	}
+
+	/**
+	 * This is called whenever the Clausifier introduces a new constant term.
+	 * (The only case I can think of now is at skolemization..,
+	 *  but if we want constants handling on-the-fly, we may use this elsewhere, too..)
+	 *  --> in groundAll-mode adding a constant means adding further instantiations of the 
+	 *    EprClauses
+	 * @param skolems
+	 * @return 
+	 */
+	public ArrayList<Literal[]> addSkolemConstants(Term[] skolems) {
+
+		HashSet<ApplicationTerm> constants = new HashSet<ApplicationTerm>();
+		for (Term t : skolems)
+			constants.add((ApplicationTerm) t);
+		
+		mStateManager.addConstants(constants);
+
+		ArrayList<Literal[]> groundings = new ArrayList<>();
+
+		if (mGroundAllMode) {
+			for (EprNonUnitClause c : mStateManager.getAllClauses())  {
+				 groundings.addAll(c.computeAllGroundings(constants));
+			}
+		}
+		
+		return groundings;
 	}
 }
