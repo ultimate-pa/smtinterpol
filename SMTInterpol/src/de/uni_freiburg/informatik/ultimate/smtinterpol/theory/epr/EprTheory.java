@@ -15,6 +15,7 @@ import org.apache.log4j.Logger;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
@@ -92,6 +93,9 @@ public class EprTheory implements ITheory {
 		mEqualityManager = new EqualityManager();
 		mStateManager = new EprStateManager(this);
 		mGroundAllMode = solveThroughGrounding;
+		
+//		if (solveThroughGrounding)
+//			mTheory.declareFunction("__lambda", new Sort[0], mTheory.getBooleanSort());
 	}
 
 	@Override

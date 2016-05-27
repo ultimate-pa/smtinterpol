@@ -28,11 +28,14 @@ public class TermTuple {
 
 	@Override
 	public boolean equals(Object arg0) {
-		if (!(arg0 instanceof TermTuple)) return false;
+		if (!(arg0 instanceof TermTuple)) 
+			return false;
 		TermTuple other = (TermTuple) arg0;
-		if (other.arity != this.arity) return false;
+		if (other.arity != this.arity) 
+			return false;
 		for (int i = 0; i < arity; i++) {
-			if (!other.terms[i].equals(this.terms[i])) return false;
+			if (!other.terms[i].equals(this.terms[i])) 
+				return false;
 		}
 		return true;
 	}

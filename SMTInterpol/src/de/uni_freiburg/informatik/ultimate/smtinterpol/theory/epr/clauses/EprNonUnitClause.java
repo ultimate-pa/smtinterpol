@@ -8,6 +8,7 @@ import java.util.HashSet;
 import java.util.Map.Entry;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
@@ -913,6 +914,8 @@ public abstract class EprNonUnitClause extends EprClause {
 
 	public ArrayList<Literal[]> computeAllGroundings() {
 		int arity = this.getFreeVars().size();
+		
+		
 		ArrayList<TTSubstitution> allInstantiations =  
 				mStateManager.getAllInstantiations(this.getFreeVars());
 		

@@ -417,6 +417,7 @@ public class EprStateManager {
 					&& fs.getReturnSort().equals(sort))
 				result.add(mTheory.term(fs));
 		}
+		
 
 		return result;
 	}
