@@ -84,6 +84,8 @@ public class EprTheory implements ITheory {
 	private CClosure mCClosure;
 
 	private Clausifier mClausifier;
+	
+	private Logger mLogger;
 
 	public EprTheory(Theory th, DPLLEngine engine, CClosure cClosure, Clausifier clausifier, boolean solveThroughGrounding) {
 		mTheory = th;
@@ -93,6 +95,9 @@ public class EprTheory implements ITheory {
 		mEqualityManager = new EqualityManager();
 		mStateManager = new EprStateManager(this);
 		mGroundAllMode = solveThroughGrounding;
+
+		mLogger = clausifier.getLogger();
+		
 		
 //		if (solveThroughGrounding)
 //			mTheory.declareFunction("__lambda", new Sort[0], mTheory.getBooleanSort());
@@ -382,7 +387,7 @@ public class EprTheory implements ITheory {
 	public Clause computeConflictClause() {
 		if (mGroundAllMode)
 			return null;
-		System.out.println("EPRDEBUG: computeConflictClause");
+		mLogger.debug("EPRDEBUG: computeConflictClause");
 		
 		/*
 		 * new plan (written down on 10.05.2016)
@@ -567,21 +572,21 @@ public class EprTheory implements ITheory {
 		if (mGroundAllMode)
 			return;
 		// TODO Auto-generated method stub
-		System.out.println("EPRDEBUG: decreasedDecideLevel");
+		mLogger.debug("EPRDEBUG: decreasedDecideLevel");
 
 	}
 
 	@Override
 	public Clause backtrackComplete() {
 		// TODO Auto-generated method stub
-		System.out.println("EPRDEBUG: backtrackComplete");
+		mLogger.info("EPRDEBUG: backtrackComplete");
 		return null;
 	}
 
 	@Override
 	public void restart(int iteration) {
 		// TODO Auto-generated method stub
-		System.out.println("EPRDEBUG: restart");
+		mLogger.info("EPRDEBUG: restart");
 
 	}
 
@@ -691,6 +696,7 @@ public class EprTheory implements ITheory {
 		//TODO: we should collect all the predicates that are managed by EPR --> implement a check accordingly, here
 		if (function.getName().equals("not")) return false;
 		if (function.getName().equals("or")) return false;
+		if (function.getName().equals("ite")) return false;
 		return true;
 	}
 	
@@ -812,7 +818,7 @@ public class EprTheory implements ITheory {
 						Literal sl = EprHelpers.applySubstitution(sub, l, EprTheory.this, true);
 						if (sl.getAtom() instanceof TrueAtom) {
 							if (sl.getSign() == 1) {
-								// do nothing (tautology will be detected later)
+								// do nothing/just add it to the result (tautology will be detected later)
 							} else {
 								continue; //omit "false"
 							}
@@ -822,6 +828,8 @@ public class EprTheory implements ITheory {
 						} else if (sl.getAtom() instanceof EprGroundPredicateAtom ||
 								sl.getAtom() instanceof CCEquality) {
 							addAtomToDPLLEngine(sl.getAtom());
+						} else if (sl.getAtom() instanceof NamedAtom) {
+							// do nothing/just add it to the result
 						} else
 							assert false : "case not forseen..";
 						mResult.add(sl);
@@ -966,5 +974,9 @@ public class EprTheory implements ITheory {
 		}
 		
 		return groundings;
+	}
+
+	public Logger getLogger() {
+		return mLogger;
 	}
 }

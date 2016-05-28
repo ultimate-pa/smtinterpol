@@ -137,7 +137,7 @@ public class EprStateManager {
 	}
 	
 	public Clause setQuantifiedLiteralWithExceptions(EprQuantifiedUnitClause eqlwe) {
-		System.out.println("EPRDEBUG (EprStateManager): setting Quantified literal: " + eqlwe);
+		mEprTheory.getLogger().debug("EPRDEBUG (EprStateManager): setting Quantified literal: " + eqlwe);
 
 		
 		mEprStateStack.peek().setQuantifiedLiteralWithExceptions(eqlwe);
@@ -283,12 +283,12 @@ public class EprStateManager {
 	 * @param dc
 	 */
 	public boolean addDerivedClause(EprNonUnitClause dc) {
-		System.out.println("EPRDEBUG (EprStateManager): adding derived clause " + dc);
+		mEprTheory.getLogger().debug("EPRDEBUG (EprStateManager): adding derived clause " + dc);
 		return mEprStateStack.peek().addDerivedClause(dc);
 	}
 
 	public boolean addBaseClause(EprNonUnitClause bc) {
-		System.out.println("EPRDEBUG (EprStateManager): adding base clause " + bc);
+		mEprTheory.getLogger().debug("EPRDEBUG (EprStateManager): adding base clause " + bc);
 		return mEprStateStack.peek().addBaseClause(bc);
 	}
 
@@ -337,7 +337,7 @@ public class EprStateManager {
 		EprNonUnitClause result = mLiteralToClauses.get(newLits);
 		if (result == null) {
 			result = new EprBaseClause(newLits.toArray(new Literal[newLits.size()]), mEprTheory);
-			System.out.println("EPRDEBUG (EprStateManager): creating new base clause " + result);
+			mEprTheory.getLogger().debug("EPRDEBUG (EprStateManager): creating new base clause " + result);
 			mLiteralToClauses.put(newLits, result);
 		}
 		return result;
@@ -351,7 +351,7 @@ public class EprStateManager {
 		EprNonUnitClause result = mLiteralToClauses.get(newLits);
 		if (result == null) {
 			result = new EprDerivedClause(newLits.toArray(new Literal[newLits.size()]), eprTheory, explanation);
-			System.out.println("EPRDEBUG (EprStateManager): creating new derived clause " + result);
+			mEprTheory.getLogger().debug("EPRDEBUG (EprStateManager): creating new derived clause " + result);
 			mLiteralToClauses.put(newLits, result);
 		}
 		return result;

@@ -62,6 +62,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.SimpleList;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate.Interpolator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate.SymbolChecker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate.SymbolCollector;
@@ -928,14 +929,9 @@ public class SMTInterpol extends NoopScript {
 			/* We always have to reset the flag, but only need to set the stack
 			 * level if it is not already set. 
 			 */
-			System.out.println("debug: (SMTInterpol.java)");//alex: debugging
-			System.out.print("DPLL clauses:\t\t\t");
-			System.out.println(mEngine.getClauses());//alex: debugging
-			System.out.print("Fulfilled EPR clauses:\t\t");
-			System.out.println(mClausifier.getFulfilledEprClauses());//alex: debugging
-			System.out.print("Unfulfilled EPR clauses:\t");
-			System.out.println(mClausifier.getNotFulfilledEprClauses());//alex: debugging
-//			System.out.println(mEngine.dumpClauses());//alex: debugging
+
+			printClauseSets();//alex, debugging
+
 			if (mClausifier.resetBy0Seen() && mBy0Seen == -1)
 				mBy0Seen = mStackLevel;
 			if (!mEngine.quickCheck()) {
@@ -954,6 +950,18 @@ public class SMTInterpol extends NoopScript {
 			throw exc;
 		}
 		return LBool.UNKNOWN;
+	}
+
+	public void printClauseSets() {
+		mLogger.debug("debug: (SMTInterpol.java)");//alex: debugging
+		mLogger.debug("DPLL clauses:\t\t\t");
+		SimpleList<Clause> clauses = mEngine.getClauses();
+		//System.out.println(clauses);//alex: debugging
+		mLogger.debug("Fulfilled EPR clauses:\t\t");
+		mLogger.debug(mClausifier.getFulfilledEprClauses());//alex: debugging
+		mLogger.debug("Unfulfilled EPR clauses:\t");
+		mLogger.debug(mClausifier.getNotFulfilledEprClauses());//alex: debugging
+			System.out.println(mEngine.dumpClauses());//alex: debugging
 	}
 
 	@Override

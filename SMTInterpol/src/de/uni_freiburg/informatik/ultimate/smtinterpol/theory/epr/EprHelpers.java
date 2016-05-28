@@ -11,6 +11,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.EqualityProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SharedTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.NamedAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprAtom;
@@ -51,8 +52,6 @@ public class EprHelpers {
 	 * @param calledFromDER the DER-case is special if we are in completeGroundingMode
 	 * @return
 	 */
-//	public static Literal applySubstitution(TTSubstitution sub, Literal l, Theory theory, CClosure cClosure) {
-//	public static Literal applySubstitution(TTSubstitution sub, Literal l, Theory theory) {
 	public static Literal applySubstitution(TTSubstitution sub, Literal l, EprTheory eprTheory, boolean calledFromDER) {
 		boolean isPositive = l.getSign() == 1;
 		DPLLAtom atom = l.getAtom();
@@ -90,7 +89,8 @@ public class EprHelpers {
 			
 //			return isPositive ? resultAtom : resultAtom.negate();
 		} else {
-			assert false : "there might be equality replacements";
+			//assert false : "there might be equality replacements"; --> seems idiotic now..
+			// literal is ground, just return it
 			return l;
 		}
 		
