@@ -35,14 +35,14 @@ public class EprPredicate {
 	/**
 	 * Storage to track where this predicate occurs in the formula with at least one quantified argument.
 	 */
-	private HashMap<EprClause, HashSet<Literal>> mQuantifiedOccurences = new HashMap<>();
+	private HashMap<EprClause, HashSet<Literal>> mQuantifiedOccurences = new HashMap<EprClause, HashSet<Literal>>();
 
-	private HashMap<EprClause, HashSet<Literal>> mGroundOccurences = new HashMap<>();
+	private HashMap<EprClause, HashSet<Literal>> mGroundOccurences = new HashMap<EprClause, HashSet<Literal>>();
 	
-	private HashSet<EprGroundPredicateAtom> mDPLLAtoms = new HashSet<>();
+	private HashSet<EprGroundPredicateAtom> mDPLLAtoms = new HashSet<EprGroundPredicateAtom>();
 	
-	private HashMap<TermTuple, EprGroundPredicateAtom> mPointToAtom = new HashMap<>();
-	private HashMap<TermTuple, EprQuantifiedPredicateAtom> mTermTupleToAtom = new HashMap<>();
+	private HashMap<TermTuple, EprGroundPredicateAtom> mPointToAtom = new HashMap<TermTuple, EprGroundPredicateAtom>();
+	private HashMap<TermTuple, EprQuantifiedPredicateAtom> mTermTupleToAtom = new HashMap<TermTuple, EprQuantifiedPredicateAtom>();
 
 	public EprPredicate(FunctionSymbol fs, int arity) {
 		this.functionSymbol = fs;
@@ -54,7 +54,7 @@ public class EprPredicate {
 	public void addQuantifiedOccurence(Literal l, EprClause eprClause) {
 		HashSet<Literal> val = mQuantifiedOccurences.get(eprClause);
 		if (val == null) {
-			val = new HashSet<>();
+			val = new HashSet<Literal>();
 			mQuantifiedOccurences.put(eprClause, val);
 		}
 		val.add(l);
@@ -67,7 +67,7 @@ public class EprPredicate {
 	public void addGroundOccurence(Literal l, EprClause eprClause) {
 		HashSet<Literal> val = mGroundOccurences.get(eprClause);
 		if (val == null) {
-			val = new HashSet<>();
+			val = new HashSet<Literal>();
 			mGroundOccurences.put(eprClause, val);
 		}
 		val.add(l);

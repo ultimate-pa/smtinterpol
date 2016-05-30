@@ -10,8 +10,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEqualit
 
 public class EqualityManager {
 	
-	HashMap<ApplicationTerm, HashSet<ApplicationTerm>> eqGraph = new HashMap<>();
-	HashMap<ApplicationTerm, HashMap<ApplicationTerm, CCEquality>> termPairToEquality = new HashMap<>();
+	HashMap<ApplicationTerm, HashSet<ApplicationTerm>> eqGraph = new HashMap<ApplicationTerm, HashSet<ApplicationTerm>>();
+	HashMap<ApplicationTerm, HashMap<ApplicationTerm, CCEquality>> termPairToEquality = new HashMap<ApplicationTerm, HashMap<ApplicationTerm, CCEquality>>();
 	
 
 	public void addEquality(ApplicationTerm a, ApplicationTerm b, CCEquality e) {
@@ -19,14 +19,14 @@ public class EqualityManager {
 		
 		HashSet<ApplicationTerm> aTargets = eqGraph.get(a);
 		if (aTargets == null) {
-			aTargets = new HashSet<>();
+			aTargets = new HashSet<ApplicationTerm>();
 			eqGraph.put(a, aTargets);
 		}
 		aTargets.add(b);
 
 		HashSet<ApplicationTerm> bTargets = eqGraph.get(b);
 		if (bTargets == null) {
-			bTargets = new HashSet<>();
+			bTargets = new HashSet<ApplicationTerm>();
 			eqGraph.put(b, bTargets);
 		}
 		bTargets.add(a);
@@ -35,14 +35,14 @@ public class EqualityManager {
 	private void updateTermPairToEquality(ApplicationTerm a, ApplicationTerm b, CCEquality e) {
 		HashMap<ApplicationTerm, CCEquality> termToEquality = termPairToEquality.get(a);
 		if (termToEquality == null) {
-			termToEquality = new HashMap<>();
+			termToEquality = new HashMap<ApplicationTerm, CCEquality>();
 			termPairToEquality.put(a, termToEquality);
 		}
 		termToEquality.put(b, e);
 
 		termToEquality = termPairToEquality.get(b);
 		if (termToEquality == null) {
-			termToEquality = new HashMap<>();
+			termToEquality = new HashMap<ApplicationTerm, CCEquality>();
 			termPairToEquality.put(b, termToEquality);
 		}
 		termToEquality.put(a, e);
@@ -66,7 +66,7 @@ public class EqualityManager {
 		for (ApplicationTerm trg : eqGraph.get(a)) {
 			if (!visited.contains(trg)) {
 				visited.add(trg);
-				ArrayList<CCEquality> newPath = new ArrayList<>(pathSoFar);
+				ArrayList<CCEquality> newPath = new ArrayList<CCEquality>(pathSoFar);
 				newPath.add(termPairToEquality.get(a).get(trg));
 				ArrayList<CCEquality> res = isEqualRec(trg, b, newPath, visited);
 				if (res != null)
@@ -84,8 +84,8 @@ public class EqualityManager {
 	 */
 	public ArrayList<CCEquality> isEqual(ApplicationTerm a, ApplicationTerm b) {
 //		ArrayDeque<ApplicationTerm> queue = new ArrayDeque<>();
-		HashSet<ApplicationTerm> visited = new HashSet<>();
-		ArrayList<CCEquality> path = new ArrayList<>();
+		HashSet<ApplicationTerm> visited = new HashSet<ApplicationTerm>();
+		ArrayList<CCEquality> path = new ArrayList<CCEquality>();
 		
 		return isEqualRec(a, b, path, visited);
 		

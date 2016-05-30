@@ -34,12 +34,12 @@ public abstract class EprNonUnitClause extends EprClause {
 	/**
 	 * All constants (0-ary ApplicationTerms) that appear in a literal of this clause.
 	 */
-	private HashSet<ApplicationTerm> mAppearingConstants = new HashSet<>();
+	private HashSet<ApplicationTerm> mAppearingConstants = new HashSet<ApplicationTerm>();
 
 
 	private EprUnitClause mUnitLiteral;
 	private HashMap<EprUnitClause, EprNonUnitClause> mUnitLiteralToInstantiationOfClause =
-			new HashMap<>();
+			new HashMap<EprUnitClause, EprNonUnitClause>();
 
 	private int mNoFulfillableLiterals;
 
@@ -47,7 +47,7 @@ public abstract class EprNonUnitClause extends EprClause {
 	
 	private HashMap<Literal, FulfillabilityStatus> mFulfillabilityStatus = new HashMap<Literal, FulfillabilityStatus>();
 
-	private HashMap<Literal, HashSet<EprUnitClause>> mLiteralToUnfulfillabilityReasons = new HashMap<>();
+	private HashMap<Literal, HashSet<EprUnitClause>> mLiteralToUnfulfillabilityReasons = new HashMap<Literal, HashSet<EprUnitClause>>();
 
 	private final EprNonUnitClause mClauseThisIsAFreshAlphaRenamingOf;
 	
@@ -165,7 +165,7 @@ public abstract class EprNonUnitClause extends EprClause {
 		// TODO: we probably need a kind of caching for this complex part --> otherwise it might get done often, 
 		//  even when the state has not changed, right??
 		ArrayList<Literal> eprQuantifiedPredicateLiteralsExceptUnitLiteral = 
-				new ArrayList<>(Arrays.asList(eprQuantifiedPredicateLiterals));
+				new ArrayList<Literal>(Arrays.asList(eprQuantifiedPredicateLiterals));
 		eprQuantifiedPredicateLiteralsExceptUnitLiteral.remove(mUnitLiteral);
 		
 
@@ -179,7 +179,7 @@ public abstract class EprNonUnitClause extends EprClause {
 			return null; // if there is no unifier, then this clause actually is no unit clause
 		}
 		
-		HashSet<EprUnitClause> unifiedUnitLiterals = new HashSet<>();
+		HashSet<EprUnitClause> unifiedUnitLiterals = new HashSet<EprUnitClause>();
 		
 		for (TTSubstitution sub : ci.getSubstitutions()) {
 
@@ -198,7 +198,7 @@ public abstract class EprNonUnitClause extends EprClause {
 			// compute the substituted exceptions for the unit clause
 			// note that none of these should become "true"/valid 
 			//  -- computation of the substitutions already takes the exceptions into account for that very reason
-			ArrayList<EprQuantifiedEqualityAtom> exceptions = new ArrayList<>();
+			ArrayList<EprQuantifiedEqualityAtom> exceptions = new ArrayList<EprQuantifiedEqualityAtom>();
 			ArrayList<DPLLAtom> eqs = EprHelpers.substituteInExceptions(
 					rawUnitEqlwe.eprQuantifiedEqualityAtoms, sub, mEprTheory);
 			for (DPLLAtom eq : eqs) {
@@ -507,7 +507,7 @@ public abstract class EprNonUnitClause extends EprClause {
 		
 		HashSet<EprUnitClause> ufr = mLiteralToUnfulfillabilityReasons.get(li);
 		if (ufr == null) {
-			ufr = new HashSet<>();
+			ufr = new HashSet<EprUnitClause>();
 			mLiteralToUnfulfillabilityReasons.put(li, ufr);
 		}
 		ufr.add(reason);
@@ -646,7 +646,7 @@ public abstract class EprNonUnitClause extends EprClause {
 	 	EprQuantifiedUnitClause setEqlwe = setEqlweRaw.getFreshAlphaRenamedVersion();
 		EprQuantifiedPredicateAtom setLitAtom = setEqlwe.getPredicateAtom();
 		
-		ArrayList<Literal> predicateLiterals = new ArrayList<>();
+		ArrayList<Literal> predicateLiterals = new ArrayList<Literal>();
 		predicateLiterals.addAll(Arrays.asList(eprQuantifiedPredicateLiterals));
 		for (Literal l : groundLiterals) 
 			if (l instanceof EprGroundPredicateAtom)
@@ -710,24 +710,24 @@ public abstract class EprNonUnitClause extends EprClause {
 				equalitiesB, sub, mEprTheory);
 		
 		ArrayList<EprGroundEqualityAtom> unifiedGroundEqualitiesA = 
-				new ArrayList<>();
+				new ArrayList<EprGroundEqualityAtom>();
 		ArrayList<EprGroundEqualityAtom> unifiedGroundEqualitiesB = 
-				new ArrayList<>();
+				new ArrayList<EprGroundEqualityAtom>();
 		// singly quantified equality means: (= x a) or so --> i.e. only one term
 		//   of the two is a variable
 		// doubly quantified is like (= x y)
 		ArrayList<EprQuantifiedEqualityAtom> unifiedSinglyQuantifiedEqualitiesA = 
-				new ArrayList<>();
+				new ArrayList<EprQuantifiedEqualityAtom>();
 		ArrayList<EprQuantifiedEqualityAtom> unifiedSinglyQuantifiedEqualitiesB = 
-				new ArrayList<>();
+				new ArrayList<EprQuantifiedEqualityAtom>();
 		HashMap<TermVariable, HashSet<ApplicationTerm>> unifiedSinglyQuantifiedEqualitiesAasMap =
-				new HashMap<>();
+				new HashMap<TermVariable, HashSet<ApplicationTerm>>();
 		HashMap<TermVariable, HashSet<ApplicationTerm>> unifiedSinglyQuantifiedEqualitiesBasMap =
-				new HashMap<>();
+				new HashMap<TermVariable, HashSet<ApplicationTerm>>();
 		ArrayList<EprQuantifiedEqualityAtom> unifiedDoublyQuantifiedEqualitiesA = 
-				new ArrayList<>();
+				new ArrayList<EprQuantifiedEqualityAtom>();
 		ArrayList<EprQuantifiedEqualityAtom> unifiedDoublyQuantifiedEqualitiesB = 
-				new ArrayList<>();
+				new ArrayList<EprQuantifiedEqualityAtom>();
 
 		sortEqualities(unifiedEqualitiesA, 
 				unifiedGroundEqualitiesA, 
@@ -853,7 +853,7 @@ public abstract class EprNonUnitClause extends EprClause {
 
 					HashSet<ApplicationTerm> hs = singlyQuantifiedEqualitiesAsMap.get(tv);
 					if (hs == null) {
-						hs = new HashSet<>();
+						hs = new HashSet<ApplicationTerm>();
 						singlyQuantifiedEqualitiesAsMap.put(tv, hs);
 					}
 					hs.add(at);
@@ -919,7 +919,7 @@ public abstract class EprNonUnitClause extends EprClause {
 		ArrayList<TTSubstitution> allInstantiations =  
 				mStateManager.getAllInstantiations(this.getFreeVars(), constants);
 		
-		ArrayList<Literal[]> result = new ArrayList<>();
+		ArrayList<Literal[]> result = new ArrayList<Literal[]>();
 		for (TTSubstitution sub : allInstantiations) {
 			ArrayList<Literal> groundInstList = getSubstitutedLiterals(sub);
 			result.add(groundInstList.toArray(new Literal[groundInstList.size()]));

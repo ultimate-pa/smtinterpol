@@ -71,9 +71,9 @@ public abstract class EprClause extends Clause {
 	 *  - debugging
 	 *  - finding tautologies
 	 */
-	HashSet<Literal> mAllLiterals = new HashSet<>();
+	HashSet<Literal> mAllLiterals = new HashSet<Literal>();
 	
-	HashSet<TermVariable> mFreeVars = new HashSet<>();
+	HashSet<TermVariable> mFreeVars = new HashSet<TermVariable>();
 	
 	private boolean isTautology = false;
 
@@ -88,7 +88,7 @@ public abstract class EprClause extends Clause {
 	HashMap<TermVariable, HashSet<ApplicationTerm>> mExceptedPoints = 
 			new HashMap<TermVariable, HashSet<ApplicationTerm>>();
 	
-	HashSet<TermTuple> exceptedEqualities = new HashSet<>();//TODO: store in a way that better represents symmetry
+	HashSet<TermTuple> exceptedEqualities = new HashSet<TermTuple>();//TODO: store in a way that better represents symmetry
 
 	/**
 	 * Tracks for each literal lit in this clause if, in the current partial
@@ -185,7 +185,7 @@ public abstract class EprClause extends Clause {
 	private static boolean doesUnifierChangeTheClause(TTSubstitution sub, EprClause eprClause) {
 		if (sub.isEmpty())
 			return false;
-		HashSet<TermVariable>  fvIntersection = new HashSet<>(sub.tvSet());
+		HashSet<TermVariable>  fvIntersection = new HashSet<TermVariable>(sub.tvSet());
 		fvIntersection.retainAll(eprClause.getFreeVars());
 		
 		if (fvIntersection.isEmpty())
@@ -282,7 +282,7 @@ public abstract class EprClause extends Clause {
 	private void updateExceptedPoints(TermVariable tv, ApplicationTerm at) {
 		HashSet<ApplicationTerm> exceptions = mExceptedPoints.get(tv);
 		if (exceptions == null) {
-			exceptions = new HashSet<>();
+			exceptions = new HashSet<ApplicationTerm>();
 			mExceptedPoints.put(tv, exceptions);
 		}
 		exceptions.add(at);
@@ -432,8 +432,8 @@ public abstract class EprClause extends Clause {
 							literalsToUnify,
 							literalToUnfulReason);
 
-			mExceptionsFromClause = new HashSet<>(Arrays.asList(exceptedEqualities));
-			mSubstitutions = new HashSet<>();
+			mExceptionsFromClause = new HashSet<EprQuantifiedEqualityAtom>(Arrays.asList(exceptedEqualities));
+			mSubstitutions = new HashSet<TTSubstitution>();
 			computeInstantiations(clauseLitPointToUnfulReasons, new TTSubstitution(), true);
 		}
 
@@ -474,7 +474,7 @@ public abstract class EprClause extends Clause {
 						mEqualityManager);
 				
 				HashSet<EprQuantifiedEqualityAtom> currentExceptions = 
-						new HashSet<>();
+						new HashSet<EprQuantifiedEqualityAtom>();
 				currentExceptions.addAll(mExceptionsFromClause);
 				currentExceptions.addAll(Arrays.asList(conflict.eprQuantifiedEqualityAtoms));
 	
@@ -493,7 +493,7 @@ public abstract class EprClause extends Clause {
 		private ArrayDeque<Pair<TermTuple, HashSet<EprUnitClause>>> computeLitTermTupleToUnfulReasons(
 				ArrayList<Literal> eprQuantifiedPredicateLiteralsExceptUnitLiteral, 
 				HashMap<Literal, HashSet<EprUnitClause>> mLiteralToUnfulfillabilityReasons) {
-			ArrayDeque<Pair<TermTuple, HashSet<EprUnitClause>>> litTermTupleToUnfulfillabilityReason = new ArrayDeque<>();
+			ArrayDeque<Pair<TermTuple, HashSet<EprUnitClause>>> litTermTupleToUnfulfillabilityReason = new ArrayDeque<Pair<TermTuple, HashSet<EprUnitClause>>>();
 			// we only need to take the quantified literals into account, the ground ones are not "connected" through variables
 			//   (even though substitutions, in our extended sense, including equalities, might apply)
 			for (Literal li : eprQuantifiedPredicateLiteralsExceptUnitLiteral) {

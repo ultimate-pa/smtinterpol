@@ -15,11 +15,11 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEqualit
 public class TTSubstitution {
 //	ArrayList<TPair> subs;
 	ArrayList<SubsPair> subs;
-	HashSet<TermVariable> tvSet = new HashSet<>();
+	HashSet<TermVariable> tvSet = new HashSet<TermVariable>();
 	
 	public TTSubstitution() {
 		super();
-		this.subs = new ArrayList<>();
+		this.subs = new ArrayList<SubsPair>();
 	}
 	
 	public TTSubstitution(TermVariable tv, Term t) {

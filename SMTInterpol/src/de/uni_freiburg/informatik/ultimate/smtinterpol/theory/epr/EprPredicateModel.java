@@ -7,10 +7,10 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprQua
 public class EprPredicateModel {
 
 	EprPredicate mEprPredicate;
-	HashSet<TermTuple> mPositivelySetPoints = new HashSet<>();
-	HashSet<TermTuple> mNegativelySetPoints = new HashSet<>();
-	HashSet<EprQuantifiedUnitClause> mPositivelySetQuantifiedLitsWE = new HashSet<>();
-	HashSet<EprQuantifiedUnitClause> mNegativelySetQuantifiedLitsWE = new HashSet<>();
+	HashSet<TermTuple> mPositivelySetPoints = new HashSet<TermTuple>();
+	HashSet<TermTuple> mNegativelySetPoints = new HashSet<TermTuple>();
+	HashSet<EprQuantifiedUnitClause> mPositivelySetQuantifiedLitsWE = new HashSet<EprQuantifiedUnitClause>();
+	HashSet<EprQuantifiedUnitClause> mNegativelySetQuantifiedLitsWE = new HashSet<EprQuantifiedUnitClause>();
 
 	public EprPredicateModel(EprPredicate pred) {
 		mEprPredicate = pred;

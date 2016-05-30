@@ -47,9 +47,9 @@ import de.uni_freiburg.informatik.ultimate.util.ScopedHashSet;
 
 public class EprTheory implements ITheory {
 
-	HashMap<FunctionSymbol, EprPredicate> mFunctionSymbolToEprPredicate = new HashMap<>();
+	HashMap<FunctionSymbol, EprPredicate> mFunctionSymbolToEprPredicate = new HashMap<FunctionSymbol, EprPredicate>();
 
-	HashMap<Literal, HashSet<EprNonUnitClause>> mLiteralToClauses = new HashMap<>();
+	HashMap<Literal, HashSet<EprNonUnitClause>> mLiteralToClauses = new HashMap<Literal, HashSet<EprNonUnitClause>>();
 	
 	ArrayDeque<Literal> mGroundLiteralsToPropagate = new ArrayDeque<Literal>();
 
@@ -65,9 +65,9 @@ public class EprTheory implements ITheory {
 	 * if we propagate a ground literal we have to be able to give a unit clause
 	 * that explains the literal
 	 */
-	private HashMap<Literal, Clause> mPropLitToExplanation = new HashMap<>();
+	private HashMap<Literal, Clause> mPropLitToExplanation = new HashMap<Literal, Clause>();
 
-	ScopedHashSet<DPLLAtom> mAtomsAddedToDPLLEngine = new ScopedHashSet<>();
+	ScopedHashSet<DPLLAtom> mAtomsAddedToDPLLEngine = new ScopedHashSet<DPLLAtom>();
 	
 	EqualityManager mEqualityManager;
 
@@ -248,7 +248,8 @@ public class EprTheory implements ITheory {
 			EprClause realConflict = mStateManager.getConflictClauses().iterator().next();
 			System.out.println("EPRDEBUG (checkpoint): found a conflict: " + realConflict);
 			//TODO: work on explanation..
-			conflict = mStateManager.getDerivedClause(Collections.emptySet(), this, "empty conflict clause");
+			conflict = mStateManager.getDerivedClause(new HashSet<Literal>(0), 
+					this, "empty conflict clause");
 		} else {
 			// try unit propagation
 			conflict = eprPropagate();
@@ -268,7 +269,8 @@ public class EprTheory implements ITheory {
 	private Clause eprPropagate() {
 		Clause conflict = null;
 
-		HashSet<Clause> notFulfilledCopy = new HashSet<>(mStateManager.getNotFulfilledClauses());
+		HashSet<Clause> notFulfilledCopy = new HashSet<Clause>(
+				mStateManager.getNotFulfilledClauses());
 		//unit propagation
 		for (Clause c : notFulfilledCopy) {
 			EprNonUnitClause ec = (EprNonUnitClause) c;
@@ -349,7 +351,7 @@ public class EprTheory implements ITheory {
 		 */
 		// propagate within EprClauses
 		//TODO: possibly optimize (so not all clauses have to be treated)
-		ArrayList<EprClause> toAdd = new ArrayList<>();
+		ArrayList<EprClause> toAdd = new ArrayList<EprClause>();
 		for (EprNonUnitClause otherEc : mStateManager.getAllClauses()) {
 			EprClause conflictClause = otherEc.setQuantifiedLiteral(eqlwe);
 
@@ -487,10 +489,10 @@ public class EprTheory implements ITheory {
 						mStateManager.getSetLiterals(pred);
 				
 				HashMap<TermVariable, ApplicationTerm> missingPointSets
-					= new HashMap<>();
+					= new HashMap<TermVariable, ApplicationTerm>();
 				
 				HashMap<ApplicationTerm, ApplicationTerm> missingPoints
-				 	= new HashMap<>();
+				 	= new HashMap<ApplicationTerm, ApplicationTerm>();
 				
 				boolean reflexivePointsCovered = false;
 				
@@ -701,13 +703,13 @@ public class EprTheory implements ITheory {
 	}
 	
 	public Set<Clause> getFulfilledClauses() {
-		HashSet<Clause> cls = new HashSet<>();
+		HashSet<Clause> cls = new HashSet<Clause>();
 		cls.addAll(mStateManager.getFulfilledClauses());
 		return cls;
 	}
 
 	public Set<Clause> getNotFulfilledClauses() {
-		HashSet<Clause> cls = new HashSet<>();
+		HashSet<Clause> cls = new HashSet<Clause>();
 		cls.addAll(mStateManager.getNotFulfilledClauses());
 		return cls;
 	}
@@ -753,7 +755,7 @@ public class EprTheory implements ITheory {
 		} else {
 			// if mCollector is null, this means we are in a unit clause (i think...), 
 			// and we can just use a fresh substitution
-			sub = new HashMap<>();
+			sub = new HashMap<TermVariable, Term>();
 		}
 
 		for (TermVariable fv : idx.getFreeVars()) {
@@ -802,7 +804,7 @@ public class EprTheory implements ITheory {
 			}
 			
 			private void applyDER(HashSet<Literal> literals) {
-				HashSet<Literal> currentClause = new HashSet<>(literals);
+				HashSet<Literal> currentClause = new HashSet<Literal>(literals);
 				Literal disEquality = findDisequality(currentClause);
 				mResult = currentClause;
 				mIsResultGround = false;
@@ -811,7 +813,7 @@ public class EprTheory implements ITheory {
 	
 					TTSubstitution sub = extractSubstitutionFromEquality((EprQuantifiedEqualityAtom) disEquality.getAtom());			
 	
-					mResult = new HashSet<>();
+					mResult = new HashSet<Literal>();
 					mIsResultGround = true;
 					for (Literal l : currentClause) {
 //						Literal sl = getSubstitutedLiteral(sub, l);
@@ -965,7 +967,7 @@ public class EprTheory implements ITheory {
 		
 		mStateManager.addConstants(constants);
 
-		ArrayList<Literal[]> groundings = new ArrayList<>();
+		ArrayList<Literal[]> groundings = new ArrayList<Literal[]>();
 
 		if (mGroundAllMode) {
 			for (EprNonUnitClause c : mStateManager.getAllClauses())  {

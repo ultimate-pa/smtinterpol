@@ -36,13 +36,13 @@ public class EprStateManager {
 	private EprState baseState;
 	
 	
-	HashMap<Set<Literal>, EprNonUnitClause> mLiteralToClauses = new HashMap<>();
+	HashMap<Set<Literal>, EprNonUnitClause> mLiteralToClauses = new HashMap<Set<Literal>, EprNonUnitClause>();
 	public EqualityManager mEqualityManager;
 	private EprTheory mEprTheory;
 	private Theory mTheory;
 	private CClosure mCClosure; //TODO: clean up --> where to carry this through clauses??
 	
-	HashSet<EprPredicate> mAllEprPredicates = new HashSet<>();
+	HashSet<EprPredicate> mAllEprPredicates = new HashSet<EprPredicate>();
 	
 	public EprStateManager(EprTheory eprTheory) {
 		baseState = new EprState();
@@ -90,7 +90,7 @@ public class EprStateManager {
 			TTSubstitution sub = point.match(atom.getArgumentsAsTermTuple(), mEqualityManager);
 			if (sub != null) {
 				// build conflict clause
-				ArrayList<Literal> confLits = new ArrayList<>();
+				ArrayList<Literal> confLits = new ArrayList<Literal>();
 
 				confLits.add(literal.negate());
 
@@ -123,7 +123,7 @@ public class EprStateManager {
 	 */
 	private ArrayList<Literal> getDisequalityChainsFromSubstitution(TTSubstitution sub, Term[] terms1,
 			Term[] terms2) {
-		ArrayList<Literal> disequalityChain = new ArrayList<>();
+		ArrayList<Literal> disequalityChain = new ArrayList<Literal>();
 		for (int i = 0; i < terms1.length; i++) {
 			if (!(terms1[i] instanceof ApplicationTerm ) || !(terms2[i] instanceof ApplicationTerm)) 
 				continue;
@@ -217,7 +217,7 @@ public class EprStateManager {
 					TTSubstitution sub = pointNeg.match(pointPos, mEqualityManager);
 					if (sub != null) {
 						// build conflict clause
-						ArrayList<Literal> confLits = new ArrayList<>();
+						ArrayList<Literal> confLits = new ArrayList<Literal>();
 
 						confLits.addAll(getDisequalityChainsFromSubstitution(sub, pointPos.terms, pointNeg.terms));
 						
@@ -236,7 +236,7 @@ public class EprStateManager {
 
 	public HashSet<TermTuple> getPoints(boolean positive, EprPredicate pred) {
 		//TODO: some caching here?
-		HashSet<TermTuple> result = new HashSet<>();
+		HashSet<TermTuple> result = new HashSet<TermTuple>();
 		for (EprState es : mEprStateStack) {
 			EprPredicateModel model = es.mPredicateToModel.get(pred);
 			if (model == null) //maybe not all eprStates on the stack know the predicate
@@ -251,7 +251,7 @@ public class EprStateManager {
 
 	public ArrayList<EprQuantifiedUnitClause> getSetLiterals(boolean positive, EprPredicate pred) {
 		//TODO: some caching here?
-		ArrayList<EprQuantifiedUnitClause> result = new ArrayList<>();
+		ArrayList<EprQuantifiedUnitClause> result = new ArrayList<EprQuantifiedUnitClause>();
 		for (EprState es : mEprStateStack) {
 			EprPredicateModel model = es.mPredicateToModel.get(pred);
 			if (model == null) //maybe not all eprStates on the stack know the predicate
@@ -267,7 +267,7 @@ public class EprStateManager {
 
 	public ArrayList<EprQuantifiedUnitClause> getSetLiterals(EprPredicate eprPredicate) {
 		//TODO: some caching here?
-		ArrayList<EprQuantifiedUnitClause> result = new ArrayList<>();
+		ArrayList<EprQuantifiedUnitClause> result = new ArrayList<EprQuantifiedUnitClause>();
 		result.addAll(getSetLiterals(true, eprPredicate));
 		result.addAll(getSetLiterals(false, eprPredicate));
 		return result;
@@ -297,7 +297,7 @@ public class EprStateManager {
 	}
 
 	public HashSet<EprNonUnitClause> getAllClauses() {
-		HashSet<EprNonUnitClause> allClauses = new HashSet<>();
+		HashSet<EprNonUnitClause> allClauses = new HashSet<EprNonUnitClause>();
 		for (EprState es : mEprStateStack) {
 			allClauses.addAll(es.getBaseClauses());
 			allClauses.addAll(es.getDerivedClauses());
@@ -306,7 +306,7 @@ public class EprStateManager {
 	}
 
 	public HashSet<EprNonUnitClause> getFulfilledClauses() {
-		HashSet<EprNonUnitClause> fulfilledClauses = new HashSet<>();
+		HashSet<EprNonUnitClause> fulfilledClauses = new HashSet<EprNonUnitClause>();
 		for (EprNonUnitClause ec : getAllClauses())
 			if (ec.isFulfilled())
 				fulfilledClauses.add(ec);
@@ -314,7 +314,7 @@ public class EprStateManager {
 	}
 	
 	public HashSet<EprNonUnitClause> getNotFulfilledClauses() {
-		HashSet<EprNonUnitClause> notFulfilledClauses = new HashSet<>();
+		HashSet<EprNonUnitClause> notFulfilledClauses = new HashSet<EprNonUnitClause>();
 		for (EprNonUnitClause ec : getAllClauses())
 			if (!ec.isFulfilled())
 				notFulfilledClauses.add(ec);
@@ -322,7 +322,7 @@ public class EprStateManager {
 	}
 
 	public HashSet<EprClause> getConflictClauses() {
-		HashSet<EprClause> result = new HashSet<>();
+		HashSet<EprClause> result = new HashSet<EprClause>();
 		for (EprState es : mEprStateStack) {
 			result.addAll(es.getConflictClauses());
 		}
@@ -408,7 +408,7 @@ public class EprStateManager {
 	
 //	public HashSet<ApplicationTerm> getAllConstants(Sort sort) {
 	public HashSet<ApplicationTerm> getAllConstants() {
-		HashSet<ApplicationTerm> result = new HashSet<>();
+		HashSet<ApplicationTerm> result = new HashSet<ApplicationTerm>();
 		//the following comment has the insufficient solution
 		//  -- only the constants we have seen in a clause so far.
 		//     we need all those which are/were/will be used in the current push/pop scope
@@ -428,12 +428,12 @@ public class EprStateManager {
 	}
 
 	public ArrayList<TTSubstitution> getAllInstantiations(HashSet<TermVariable> freeVars, HashSet<ApplicationTerm> constants) {
-		ArrayList<TTSubstitution> insts = new ArrayList<>();
+		ArrayList<TTSubstitution> insts = new ArrayList<TTSubstitution>();
 //		ArrayList<ApplicationTerm> allConstantsAsList = new ArrayList<>(getAllConstants());
 		insts.add(new TTSubstitution());
 
 		for (TermVariable tv : freeVars) {
-			ArrayList<TTSubstitution> instsNew = new ArrayList<>();
+			ArrayList<TTSubstitution> instsNew = new ArrayList<TTSubstitution>();
 			for (TTSubstitution sub : insts) {
 //				for (ApplicationTerm con : allConstantsAsList) {
 				for (ApplicationTerm con : constants) {

@@ -28,7 +28,7 @@ public class EprHelpers {
 	 * and adds all appearing constants to mAppearingConstants
 	 */
 	public static HashSet<ApplicationTerm> collectAppearingConstants(Literal[] literals, Theory theory) {
-		HashSet<ApplicationTerm> result = new HashSet<>();
+		HashSet<ApplicationTerm> result = new HashSet<ApplicationTerm>();
 		for (Literal l : literals) {
 			DPLLAtom atom = (DPLLAtom) l.getAtom();
 			Term t = atom.getSMTFormula(theory);
@@ -164,7 +164,7 @@ public class EprHelpers {
 	public static Literal[] applyUnifierToEqualities(EprQuantifiedEqualityAtom[] eprEqualityAtoms1,
 			EprQuantifiedEqualityAtom[] eprEqualityAtoms2, TTSubstitution sub, EprTheory eprTheory) {
 		
-		ArrayList<Literal> result = new ArrayList<>();
+		ArrayList<Literal> result = new ArrayList<Literal>();
 		for (EprQuantifiedEqualityAtom eea : eprEqualityAtoms1) 
 			result.add(EprHelpers.applySubstitution(sub, eea, eprTheory));
 		for (EprQuantifiedEqualityAtom eea : eprEqualityAtoms2)
@@ -176,7 +176,7 @@ public class EprHelpers {
 	public static ArrayList<DPLLAtom> substituteInExceptions(
 			EprQuantifiedEqualityAtom[] equalities, TTSubstitution sub, EprTheory eprTheory) {
 		
-		ArrayList<DPLLAtom> result = new ArrayList<>();
+		ArrayList<DPLLAtom> result = new ArrayList<DPLLAtom>();
 		for (EprQuantifiedEqualityAtom eea : equalities) {
 			result.add((DPLLAtom) EprHelpers.applySubstitution(sub, eea, eprTheory));
 		}

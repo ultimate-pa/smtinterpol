@@ -30,19 +30,19 @@ public class EprState {
 	 * TODO: think more about this.
 	 *   -- if the clause is ground, add it to the theory?? Probably not, because we would need to remove it, when popping this state..
 	 */
-	ArrayList<EprNonUnitClause> mDerivedClauses = new ArrayList<>();
+	ArrayList<EprNonUnitClause> mDerivedClauses = new ArrayList<EprNonUnitClause>();
 
 	/**
 	 * Base clauses, i.e., clauses that came in through an assert. 
 	 * (state dependent as soon as we support push/pop
 	 */
-	ArrayList<EprNonUnitClause> mBaseClauses = new ArrayList<>();
+	ArrayList<EprNonUnitClause> mBaseClauses = new ArrayList<EprNonUnitClause>();
 
 //	ArrayList<EprQuantifiedLitWExcptns> mSetLiterals = new ArrayList<>();
 	
-	HashMap<EprPredicate, EprPredicateModel> mPredicateToModel = new HashMap<>();
+	HashMap<EprPredicate, EprPredicateModel> mPredicateToModel = new HashMap<EprPredicate, EprPredicateModel>();
 
-	private ArrayList<EprClause> mConflictClauses = new ArrayList<>();
+	private ArrayList<EprClause> mConflictClauses = new ArrayList<EprClause>();
 	
 
 	/**
@@ -53,7 +53,7 @@ public class EprState {
 	 *   an easier way to obtain this would be to ask the Theory for currently declared
 	 *   constants..
 	 */
-	private HashSet<ApplicationTerm> mUsedConstants = new HashSet<>();
+	private HashSet<ApplicationTerm> mUsedConstants = new HashSet<ApplicationTerm>();
 
 
 	/**

@@ -163,7 +163,7 @@ public class TermTuple {
 	}
 	
 	public HashSet<TermVariable> getFreeVars() {
-		HashSet<TermVariable> result = new HashSet<>();
+		HashSet<TermVariable> result = new HashSet<TermVariable>();
 		for (Term t : terms)
 			if (t instanceof TermVariable)
 				result.add((TermVariable) t);
@@ -171,7 +171,7 @@ public class TermTuple {
 	}
 
 	public HashSet<ApplicationTerm> getConstants() {
-		HashSet<ApplicationTerm> result = new HashSet<>();
+		HashSet<ApplicationTerm> result = new HashSet<ApplicationTerm>();
 		for (Term t : terms)
 			if (t instanceof ApplicationTerm)
 				result.add((ApplicationTerm) t);
