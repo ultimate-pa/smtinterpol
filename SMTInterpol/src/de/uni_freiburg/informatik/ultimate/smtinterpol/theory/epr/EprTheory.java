@@ -688,8 +688,11 @@ public class EprTheory implements ITheory {
 	public static boolean isQuantifiedEprAtom(Term idx) {
 		if (idx.getFreeVars().length > 0) {
 			if (idx instanceof ApplicationTerm) {
-				if (isEprPredicate(((ApplicationTerm) idx).getFunction())) return true;
-				if ((((ApplicationTerm) idx).getFunction()).getName().equals("=")) return true;
+				if (isEprPredicate(((ApplicationTerm) idx).getFunction())) 
+					return true;
+				if ((((ApplicationTerm) idx).getFunction()).getName().equals("=")
+						&& !(((ApplicationTerm) idx).getParameters()[0].getSort().getName().equals("Bool")))
+					return true;
 			}
 		}
 		return false;
@@ -699,7 +702,10 @@ public class EprTheory implements ITheory {
 		//TODO: we should collect all the predicates that are managed by EPR --> implement a check accordingly, here
 		if (function.getName().equals("not")) return false;
 		if (function.getName().equals("or")) return false;
+		if (function.getName().equals("and")) return false;
+		if (function.getName().equals("let")) return false;
 		if (function.getName().equals("ite")) return false;
+		if (function.getName().equals("=")) return false;
 		return true;
 	}
 	
