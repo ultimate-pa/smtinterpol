@@ -11,7 +11,6 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
 
-@Deprecated
 public class TTSubstitution {
 //	ArrayList<TPair> subs;
 	ArrayList<SubsPair> subs;

@@ -653,9 +653,10 @@ public class EprTheory implements ITheory {
 		//TODO: do something about hook and proof..
 		EprNonUnitClause newEprClause = mStateManager.getBaseClause(literals, mTheory);
 		
-		if (mGroundAllMode) {
-			mAllGroundingsOfLastAddedEprClause = newEprClause.computeAllGroundings(mStateManager.getAllConstants());
-		}
+//		if (mGroundAllMode) {
+//			mAllGroundingsOfLastAddedEprClause = 
+//					newEprClause.computeAllGroundings(mStateManager.getAllConstants());
+//		}
 //		} else {
 		mConflict |= mStateManager.addBaseClause(newEprClause);
 
@@ -959,7 +960,8 @@ public class EprTheory implements ITheory {
 	 * @param skolems
 	 * @return 
 	 */
-	public ArrayList<Literal[]> addSkolemConstants(Term[] skolems) {
+//	public ArrayList<Literal[]> addSkolemConstants(Term[] skolems) {
+	public void addSkolemConstants(Term[] skolems) {
 
 		HashSet<ApplicationTerm> constants = new HashSet<ApplicationTerm>();
 		for (Term t : skolems)
@@ -967,15 +969,15 @@ public class EprTheory implements ITheory {
 		
 		mStateManager.addConstants(constants);
 
-		ArrayList<Literal[]> groundings = new ArrayList<Literal[]>();
-
-		if (mGroundAllMode) {
-			for (EprNonUnitClause c : mStateManager.getAllClauses())  {
-				 groundings.addAll(c.computeAllGroundings(constants));
-			}
-		}
-		
-		return groundings;
+//		ArrayList<Literal[]> groundings = new ArrayList<Literal[]>();
+//
+//		if (mGroundAllMode) {
+//			for (EprNonUnitClause c : mStateManager.getAllClauses())  {
+//				 groundings.addAll(c.computeAllGroundings(constants));
+//			}
+//		}
+//		
+//		return groundings;
 	}
 
 	public Logger getLogger() {

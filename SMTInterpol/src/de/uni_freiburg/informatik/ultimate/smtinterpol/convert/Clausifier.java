@@ -647,11 +647,11 @@ public class Clausifier {
 						} else if (mInstantiateEprClauses) {
 							// mode for solving Epr by adding all groundings is active
 
-							ArrayList<Literal[]> allGroundings = mEprTheory.getAllGroundingsOfLastAddedEprClause();
-							for (Literal[] grounding : allGroundings) {
-								System.out.println("EPRDEBUG (Clausifier) adding grounded clause: " + Arrays.toString(grounding)); 
-								addClause(grounding, null, null);
-							}
+//							ArrayList<Literal[]> allGroundings = mEprTheory.getAllGroundingsOfLastAddedEprClause();
+//							for (Literal[] grounding : allGroundings) {
+//								System.out.println("EPRDEBUG (Clausifier) adding grounded clause: " + Arrays.toString(grounding)); 
+//								addClause(grounding, null, null);
+//							}
 
 						}
 					}
@@ -804,10 +804,11 @@ public class Clausifier {
 					for (int i = 0; i < skolems.length; ++i)
 						skolems[i] = t.term(t.skolemize(vars[i]));
 
-					ArrayList<Literal[]> newGroundings = mEprTheory.addSkolemConstants(skolems);
-					for (Literal[] ng : newGroundings) {
-						addClause(ng, null, null);//TODO: hook, proof..
-					}
+					mEprTheory.addSkolemConstants(skolems);
+//					ArrayList<Literal[]> newGroundings = mEprTheory.addSkolemConstants(skolems);
+//					for (Literal[] ng : newGroundings) {
+//						addClause(ng, null, null);//TODO: hook, proof..
+//					}
 	
 					Term skolem;
 //					mUnlet.beginScope();//alex: commented
@@ -1089,10 +1090,12 @@ public class Clausifier {
 					Term[] skolems = new Term[vars.length];
 					for (int i = 0; i < skolems.length; ++i)
 						skolems[i] = t.term(t.skolemize(vars[i]));
-					ArrayList<Literal[]> newGroundings = mEprTheory.addSkolemConstants(skolems);
-					for (Literal[] ng : newGroundings) {
-						addClause(ng, null, null);//TODO: hook, proof..
-					}
+
+					mEprTheory.addSkolemConstants(skolems);
+//					ArrayList<Literal[]> newGroundings = mEprTheory.addSkolemConstants(skolems);
+//					for (Literal[] ng : newGroundings) {
+//						addClause(ng, null, null);//TODO: hook, proof..
+//					}
 					
 					Term skolem;
 //					mUnlet.beginScope();
@@ -1439,14 +1442,14 @@ public class Clausifier {
 //						IProofTracker sub = mTracker.getDescendent();
 //						sub.intern(at, lit);
 //						addClause(groundLiteralsAfterDER, null, getProofNewSource(sub.clause(mProofTerm)));
-					} else if (mInstantiateEprClauses) {
+//					} else if (mInstantiateEprClauses) {
 						// mode for solving Epr by adding all groundings is active
 
-						ArrayList<Literal[]> allGroundings = mEprTheory.getAllGroundingsOfLastAddedEprClause();
-						for (Literal[] grounding : allGroundings) {
-							System.out.println("EPRDEBUG (Clausifier) adding grounded clause: " + Arrays.toString(grounding)); 
-							addClause(grounding, null, null);
-						}
+//						ArrayList<Literal[]> allGroundings = mEprTheory.getAllGroundingsOfLastAddedEprClause();
+//						for (Literal[] grounding : allGroundings) {
+//							System.out.println("EPRDEBUG (Clausifier) adding grounded clause: " + Arrays.toString(grounding)); 
+//							addClause(grounding, null, null);
+//						}
 
 					}
 

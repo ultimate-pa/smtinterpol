@@ -194,7 +194,7 @@ public abstract class EprClause extends Clause {
 		return true;
 	}
 
-	protected HashSet<TermVariable> getFreeVars() {
+	public HashSet<TermVariable> getFreeVars() {
 		return mFreeVars;
 	}
 

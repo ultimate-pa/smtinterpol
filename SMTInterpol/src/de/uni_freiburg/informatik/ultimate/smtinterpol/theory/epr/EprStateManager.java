@@ -1,12 +1,16 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 
+import java.security.spec.MGF1ParameterSpec;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.Stack;
+import java.util.Vector;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
@@ -289,6 +293,11 @@ public class EprStateManager {
 
 	public boolean addBaseClause(EprNonUnitClause bc) {
 		mEprTheory.getLogger().debug("EPRDEBUG (EprStateManager): adding base clause " + bc);
+
+		if (mEprTheory.isGroundAllMode()) {
+			addGroundClausesForNewEprClause(bc);
+		}
+
 		return mEprStateStack.peek().addBaseClause(bc);
 	}
 
@@ -403,6 +412,13 @@ public class EprStateManager {
 	 * @param constants
 	 */
 	public void addConstants(HashSet<ApplicationTerm> constants) {
+		if (mEprTheory.isGroundAllMode()) {
+			for (ApplicationTerm newConstant : constants) {
+				if (!getAllConstants().contains(newConstant))
+					addGroundClausesForNewConstant(newConstant);
+			}
+		}
+		
 		mEprStateStack.peek().addConstants(constants);
 	}
 	
@@ -413,29 +429,91 @@ public class EprStateManager {
 		//  -- only the constants we have seen in a clause so far.
 		//     we need all those which are/were/will be used in the current push/pop scope
 		//     --> ask the Theory for all declared functions instead
-//		for (EprState s : mEprStateStack)
-//			result.addAll(s.getUsedConstants());
+		for (EprState s : mEprStateStack)
+			result.addAll(s.getUsedConstants());
 		
-		for (Entry<String, FunctionSymbol> en : mTheory.getDeclaredFuns().entrySet()) {
-			FunctionSymbol fs = en.getValue();
-			if (fs.getParameterSorts().length == 0) 
-//					&& fs.getReturnSort().equals(sort))
-				result.add(mTheory.term(fs));
-		}
-		
-
+//		for (Entry<String, FunctionSymbol> en : mTheory.getDeclaredFuns().entrySet()) {
+//			FunctionSymbol fs = en.getValue();
+//			if (fs.getParameterSorts().length == 0) 
+////					&& fs.getReturnSort().equals(sort))
+//				result.add(mTheory.term(fs));
+//		}
 		return result;
 	}
 
-	public ArrayList<TTSubstitution> getAllInstantiations(HashSet<TermVariable> freeVars, HashSet<ApplicationTerm> constants) {
+	/**
+	 * Computes all the instantiations of the variables in freeVars that
+	 * are added to the set of instantiations of oldConstants by adding
+	 * newConstant.
+	 * I.e., compute all instantiations of freeVars where newConstant occurs
+	 * at least once.
+	 * 
+	 * @param freeVars
+	 * @param newConstant
+	 * @param oldConstants
+	 * @return
+	 */
+	public ArrayList<TTSubstitution> getAllInstantiationsForNewConstant(
+			HashSet<TermVariable> freeVars, 
+			ApplicationTerm newConstant,
+			HashSet<ApplicationTerm> oldConstants) {
+		
+		ArrayList<TTSubstitution> instsWithNewConstant = 
+				new ArrayList<TTSubstitution>();
+		ArrayList<TTSubstitution> instsWithOutNewConstant = 
+				new ArrayList<TTSubstitution>();
+
+		instsWithNewConstant.add(new TTSubstitution());
+		instsWithOutNewConstant.add(new TTSubstitution());
+
+		for (TermVariable tv : freeVars) {
+			ArrayList<TTSubstitution> instsNewWNC = new ArrayList<TTSubstitution>();
+			ArrayList<TTSubstitution> instsNewWONC = new ArrayList<TTSubstitution>();
+			for (TTSubstitution sub : instsWithNewConstant) {
+				for (ApplicationTerm con : oldConstants) {
+					if (con.getSort().equals(tv.getSort())) {
+						TTSubstitution newSub = new TTSubstitution(sub);
+						newSub.addSubs(con, tv);
+						instsNewWNC.add(newSub);
+					}
+				}
+				if (newConstant.getSort().equals(tv.getSort())) {
+						TTSubstitution newSub = new TTSubstitution(sub);
+						newSub.addSubs(newConstant, tv);
+						instsNewWNC.add(newSub);
+				}
+			}
+
+			for (TTSubstitution sub : instsWithOutNewConstant) {
+				for (ApplicationTerm con : oldConstants) {
+					if (con.getSort().equals(tv.getSort())) {
+						TTSubstitution newSub = new TTSubstitution(sub);
+						newSub.addSubs(con, tv);
+						instsNewWONC.add(newSub);
+					}
+				}
+				if (newConstant.getSort().equals(tv.getSort())) {
+						TTSubstitution newSub = new TTSubstitution(sub);
+						newSub.addSubs(newConstant, tv);
+						instsNewWNC.add(newSub);
+				}
+			}
+
+			instsWithNewConstant = instsNewWNC;
+			instsWithOutNewConstant = instsNewWONC;
+		}
+		return instsWithNewConstant;
+	}
+
+	public ArrayList<TTSubstitution> getAllInstantiations(
+			HashSet<TermVariable> freeVars, 
+			HashSet<ApplicationTerm> constants) {
 		ArrayList<TTSubstitution> insts = new ArrayList<TTSubstitution>();
-//		ArrayList<ApplicationTerm> allConstantsAsList = new ArrayList<>(getAllConstants());
 		insts.add(new TTSubstitution());
 
 		for (TermVariable tv : freeVars) {
 			ArrayList<TTSubstitution> instsNew = new ArrayList<TTSubstitution>();
 			for (TTSubstitution sub : insts) {
-//				for (ApplicationTerm con : allConstantsAsList) {
 				for (ApplicationTerm con : constants) {
 					if (con.getSort().equals(tv.getSort())) {
 						TTSubstitution newSub = new TTSubstitution(sub);
@@ -447,5 +525,44 @@ public class EprStateManager {
 			insts = instsNew;
 		}
 		return insts;
+	}
+	
+	private void addGroundClausesForNewConstant(ApplicationTerm newConstant) {
+		ArrayList<Literal[]> groundings = new ArrayList<Literal[]>();
+		for (EprNonUnitClause c : getAllClauses())  {
+				groundings.addAll(
+						c.computeAllGroundings(
+								getAllInstantiationsForNewConstant(
+										c.getFreeVars(), 
+										newConstant, 
+										this.getAllConstants())));
+		}
+		addGroundClausesToDPLLEngine(groundings);
+	}
+
+	private void addGroundClausesForNewEprClause(EprNonUnitClause newEprClause) {
+		List<Literal[]> groundings = 		
+						newEprClause.computeAllGroundings(
+								getAllInstantiations(
+										newEprClause.getFreeVars(), 
+										this.getAllConstants()));
+		addGroundClausesToDPLLEngine(groundings);
+	}
+
+	private void addGroundClausesToDPLLEngine(List<Literal[]> groundings) {
+		for (Literal[] g : groundings) {
+//			Term[] subforms = new Term[g.length];
+			
+//			for (int i = 0; i < g.length; i++)
+//				subforms[i] = g[i].getSMTFormula(mTheory);
+	
+//			//TODO not totally clear if addFormula is the best way, but addClause(..) has
+//			//  visibility package right now..
+//			Term clause = mTheory.or(subforms);
+//			mEprTheory.getClausifier().addFormula(clause);
+			mEprTheory.getClausifier().getEngine().addFormulaClause(g, null); // TODO: proof (+ hook?)
+			
+			mEprTheory.getLogger().debug("EPRDEBUG (EprStateManager): added ground clause " + Arrays.toString(g));
+		}
 	}
 }

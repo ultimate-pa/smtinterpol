@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map.Entry;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
@@ -912,13 +913,7 @@ public abstract class EprNonUnitClause extends EprClause {
 		}
 	}
 
-	public ArrayList<Literal[]> computeAllGroundings(HashSet<ApplicationTerm> constants) {
-		int arity = this.getFreeVars().size();
-		
-		
-		ArrayList<TTSubstitution> allInstantiations =  
-				mStateManager.getAllInstantiations(this.getFreeVars(), constants);
-		
+	public List<Literal[]> computeAllGroundings(List<TTSubstitution> allInstantiations) {
 		ArrayList<Literal[]> result = new ArrayList<Literal[]>();
 		for (TTSubstitution sub : allInstantiations) {
 			ArrayList<Literal> groundInstList = getSubstitutedLiterals(sub);
@@ -926,5 +921,13 @@ public abstract class EprNonUnitClause extends EprClause {
 		}
 		
 		return result;
+	}
+
+	public List<Literal[]> computeAllGroundings(HashSet<ApplicationTerm> constants) {
+		
+		List<TTSubstitution> allInstantiations =  
+				mStateManager.getAllInstantiations(this.getFreeVars(), constants);
+		
+		return computeAllGroundings(allInstantiations);
 	}
 }

@@ -1225,8 +1225,8 @@ public class Theory {
 				EMPTY_SORT_ARRAY,tv.getSort(),null,null,0);
 	}
 
-	//added by alex..
-	public ScopedHashMap<String, FunctionSymbol> getDeclaredFuns() {
-		return mDeclaredFuns;
-	}
+//	//added by alex..
+//	public ScopedHashMap<String, FunctionSymbol> getDeclaredFuns() {
+//		return mDeclaredFuns;
+//	}
 }
