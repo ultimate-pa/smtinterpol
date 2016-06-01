@@ -688,12 +688,8 @@ public class EprTheory implements ITheory {
 	public static boolean isQuantifiedEprAtom(Term idx) {
 		if (idx.getFreeVars().length > 0) {
 			if (idx instanceof ApplicationTerm) {
-				if (isEprPredicate(((ApplicationTerm) idx).getFunction())) 
-					return true;
-				if ((((ApplicationTerm) idx).getFunction()).getName().equals("=")
-						&& !(((ApplicationTerm) idx).getParameters()[0].getSort().getName().equals("Bool"))) 
-					return true;
-
+				if (isEprPredicate(((ApplicationTerm) idx).getFunction())) return true;
+				if ((((ApplicationTerm) idx).getFunction()).getName().equals("=")) return true;
 			}
 		}
 		return false;
@@ -704,7 +700,6 @@ public class EprTheory implements ITheory {
 		if (function.getName().equals("not")) return false;
 		if (function.getName().equals("or")) return false;
 		if (function.getName().equals("ite")) return false;
-		if (function.getName().equals("=")) return false;
 		return true;
 	}
 	
