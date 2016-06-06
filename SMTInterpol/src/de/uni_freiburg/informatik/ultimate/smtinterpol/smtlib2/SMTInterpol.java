@@ -930,7 +930,9 @@ public class SMTInterpol extends NoopScript {
 			 * level if it is not already set. 
 			 */
 
-			printClauseSets();//alex, debugging
+			boolean printClauseSets = false;
+			if (printClauseSets)
+				printClauseSets();//alex, debugging
 
 			if (mClausifier.resetBy0Seen() && mBy0Seen == -1)
 				mBy0Seen = mStackLevel;
