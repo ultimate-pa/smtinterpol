@@ -967,7 +967,7 @@ public class ArrayTheory implements ITheory {
 		return !propEqualities.isEmpty();
 	}
 	
-	private CCEquality createEquality(CCTerm t1, CCTerm t2) {
+	static  CCEquality createEquality(CCTerm t1, CCTerm t2) {
 		EqualityProxy ep = t1.getFlatTerm().createEquality(t2.getFlatTerm());
 		if (ep == EqualityProxy.getFalseProxy())
 				return null;
