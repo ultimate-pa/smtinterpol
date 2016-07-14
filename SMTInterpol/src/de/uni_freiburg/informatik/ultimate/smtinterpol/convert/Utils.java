@@ -20,6 +20,8 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.convert;
 
 import java.util.LinkedHashSet;
 
+import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
+import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
@@ -84,7 +86,8 @@ public class Utils {
 	 * Otherwise, we remove false, or disjuncts that occur more than once.  The
 	 * result might still be an n-ary or.
 	 * @param args The disjuncts.
-	 * @return Term equivalent to the disjunction of the disjuncts.
+	 * @return Term equivalent to the disjunction of the disjuncts, optionally
+	 *  annotated with the proof that it is equivalent to (or args...).
 	 */
 	public Term createOr(Term... args) {
 		LinkedHashSet<Term> ctx = new LinkedHashSet<Term>();
@@ -93,33 +96,46 @@ public class Utils {
 		Term falseTerm = theory.mFalse;
 		for (Term t : args) {
 			if (t == trueTerm) {
-				mTracker.or(args, t, ProofConstants.RW_OR_TAUT);
-				return t;
+				return mTracker.or(args, t, ProofConstants.RW_OR_TAUT);
 			}
 			if (t != falseTerm) {
 				if (ctx.contains(createNotUntracked(t))) {
-					mTracker.or(args, trueTerm, ProofConstants.RW_OR_TAUT);
-					return trueTerm;
+					return mTracker.or(args, trueTerm, ProofConstants.RW_OR_TAUT);
 				}
 				ctx.add(t);
 			}
 		}
 		// Handle disjunctions of false
 		if (ctx.isEmpty()) {
-			mTracker.or(args, theory.mFalse, ProofConstants.RW_OR_SIMP);
-			return theory.mFalse;
+			return mTracker.or(args, theory.mFalse, ProofConstants.RW_OR_SIMP);
 		}
 		// Handle simplifications to unary or
 		if (ctx.size() == 1) {
 			Term res = ctx.iterator().next();
-			mTracker.or(args, res, ProofConstants.RW_OR_SIMP);
-			return res;
+			return mTracker.or(args, res, ProofConstants.RW_OR_SIMP);
 		}
-		if (ctx.size() == args.length)
-			return theory.term(theory.mOr, args);
+		if (ctx.size() == args.length) {
+			return mTracker.reflexivity(theory.term("or", args));
+		}
+			
 		Term res = theory.term(theory.mOr, ctx.toArray(new Term[ctx.size()]));
-		mTracker.or(args, res, ProofConstants.RW_OR_SIMP);
-		return res;
+		return mTracker.or(args, res, ProofConstants.RW_OR_SIMP);
+	}
+	/**
+	 * Optimize ors.  If true is found in the disjuncts, it is returned.
+	 * Otherwise, we remove false, or disjuncts that occur more than once.  The
+	 * result might still be an n-ary or.
+	 * @param args The disjuncts.
+	 * @return Term equivalent to the disjunction of the disjuncts.
+	 */
+	public Term convertOr(Term orTerm) {
+		assert ((ApplicationTerm) orTerm).getFunction().getName() == "or";
+		return createOr(((ApplicationTerm) orTerm).getParameters());
+	}
+	
+	public Term convertAnd(Term andTerm) {
+		assert ((ApplicationTerm) andTerm).getFunction().getName() == "and";
+		return createAnd(((ApplicationTerm) andTerm).getParameters());
 	}
 	public Term createLeq0(Term arg) {
 		if (arg instanceof SMTAffineTerm) {
@@ -127,16 +143,14 @@ public class Utils {
 			if (at.isConstant()) {
 				Theory t = arg.getTheory();
 				if (at.getConstant().compareTo(Rational.ZERO) > 0) {
-					mTracker.leqSimp(at, t.mFalse, ProofConstants.RW_LEQ_FALSE);
-					return t.mFalse;
+					return mTracker.leqSimp(at, t.mFalse, ProofConstants.RW_LEQ_FALSE);
 				} else {
-					mTracker.leqSimp(at, t.mTrue, ProofConstants.RW_LEQ_TRUE);
-					return t.mTrue;
+					return mTracker.leqSimp(at, t.mTrue, ProofConstants.RW_LEQ_TRUE);
 				}
 			}
 		}
-		return arg.getTheory().term("<=", arg,
-				SMTAffineTerm.create(Rational.ZERO, arg.getSort()));
+		return mTracker.reflexivity(arg.getTheory().term("<=", arg,
+				SMTAffineTerm.create(Rational.ZERO, arg.getSort())));
 	}
 	/**
 	 * Simplify ite terms.  This might destroy the ite if it is Boolean with
@@ -171,7 +185,7 @@ public class Utils {
 		if (trueBranch == theory.mFalse && falseBranch == theory.mTrue) {
 			mTracker.ite(cond, trueBranch, falseBranch, null,
 					ProofConstants.RW_ITE_BOOL_2);
-			return convertNot(cond);
+			return convertNot(theory.term("not", cond));
 		}
 		if (trueBranch == theory.mTrue) {
 			// No need for createOr since we are already sure that we cannot
@@ -185,19 +199,19 @@ public class Utils {
 			// /\ !cond falseBranch => !(\/ cond !falseBranch)
 			mTracker.ite(cond, trueBranch, falseBranch, null,
 					ProofConstants.RW_ITE_BOOL_4);
-			return convertNot(createOr(cond, convertNot(falseBranch)));
+			return convertNot(theory.term("not", createOr(cond, convertNot((theory.term("not", falseBranch))))));
 		}
 		if (falseBranch == theory.mTrue) {
 			// => cond trueBranch => \/ !cond trueBranch
 			mTracker.ite(cond, trueBranch, falseBranch, null,
 					ProofConstants.RW_ITE_BOOL_5);
-			return createOr(convertNot(cond), trueBranch);
+			return createOr(convertNot((theory.term("not", cond))), trueBranch);
 		}
 		if (falseBranch == theory.mFalse) {
 			// /\ cond trueBranch => !(\/ !cond !trueBranch)
 			mTracker.ite(cond, trueBranch, falseBranch, null,
 					ProofConstants.RW_ITE_BOOL_6);
-			return convertNot(createOr(convertNot(cond), convertNot(trueBranch)));
+			return convertNot(theory.term("not", (createOr(convertNot((theory.term("not", cond))), convertNot((theory.term("not", trueBranch)))))));
 		}
 		return theory.term("ite", cond, trueBranch, falseBranch);
 	}
@@ -279,7 +293,7 @@ public class Utils {
 				if (tmpArgs.length == 1)
 					return convertNot(tmpArgs[0]);
 				// take care of (= false false ... false)
-				return convertNot(createOr(tmpArgs));
+				return convertNot((theory.term("not", createOr(tmpArgs))));
 			}
 		} else {
 			for (Term t : args)
@@ -379,7 +393,7 @@ public class Utils {
 			}
 			if (t0 == theory.mTrue) {
 				mTracker.distinct(args, null, ProofConstants.RW_DISTINCT_TRUE);
-				return convertNot(t1);
+				return convertNot((theory.term("not", t1)));
 			}
 			if (t0 == theory.mFalse) {
 				mTracker.distinct(args, t1, ProofConstants.RW_DISTINCT_FALSE);
@@ -387,7 +401,7 @@ public class Utils {
 			}
 			if (t1 == theory.mTrue) {
 				mTracker.distinct(args, null, ProofConstants.RW_DISTINCT_TRUE);
-				return convertNot(t0);
+				return convertNot((theory.term("not", t0)));
 			}
 			if (t1 == theory.mFalse) {
 				mTracker.distinct(args, t0, ProofConstants.RW_DISTINCT_FALSE);
@@ -396,10 +410,10 @@ public class Utils {
 			// Heuristics: Try to find an already negated term
 			if (isNegation(t0)) {
 				mTracker.distinctBoolEq(t0, t1, true);
-				return theory.term("=", convertNot(t0), t1);
+				return theory.term("=", convertNot(theory.term("not", t0)), t1);
 			}
 			mTracker.distinctBoolEq(t0, t1, false);
-			return theory.term("=", t0, convertNot(t1));
+			return theory.term("=", t0, convertNot(theory.term("not", t1)));
 		}
 		LinkedHashSet<Term> tmp = new LinkedHashSet<Term>();
 		for (Term t : args)
@@ -432,14 +446,28 @@ public class Utils {
 		return false;
 	}
 	public Term createAndInplace(Term... args) {
-		assert (args.length > 1) : "Invalid and in simplification";
-		mTracker.removeConnective(args, null, ProofConstants.RW_AND_TO_OR);
-		for (int i = 0; i < args.length; ++i)
-			args[i] = convertNot(args[i]);
-		return convertNot(createOr(args));
+		return createAnd(args);
 	}
 	public Term createAnd(Term... args) {
-		args = args.clone();
-		return createAndInplace(args);
+		assert (args.length > 1) : "Invalid and in simplification";
+		Theory theory = args[0].getTheory();
+		Term[] notArgs = new Term[args.length];
+		for (int i = 0; i < args.length; ++i)
+			notArgs[i] = theory.term("not", args[i]);
+		Term non = theory.term("not", theory.term("or", notArgs));
+		Term notornot = 
+			mTracker.removeConnective(args, non, ProofConstants.RW_AND_TO_OR);
+		Term or = ((ApplicationTerm) mTracker.getTerm(notornot)).getParameters()[0];
+		Term[] argsOr = ((ApplicationTerm) or).getParameters();
+		Term[] convertedArgsOr = new Term[argsOr.length];
+		for (int i = 0; i < argsOr.length; ++i)
+			convertedArgsOr[i] = convertNot(argsOr[i]);
+		Term simpOr = mTracker.congruence(mTracker.reflexivity(or), 
+										  convertedArgsOr);
+		Term convertedOr = convertOr((ApplicationTerm) mTracker.getTerm(simpOr));
+		convertedOr = mTracker.transitivity(simpOr, convertedOr);
+		Term simpNot = mTracker.congruence(notornot, new Term[] { convertedOr });
+		Term convertedNot = convertNot((ApplicationTerm) mTracker.getTerm(simpNot));
+		return mTracker.transitivity(simpNot, convertedNot);
 	}
 }

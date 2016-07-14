@@ -69,9 +69,6 @@ public class TermCompiler extends TermTransformer {
 			mFirst = first;
 		}
 		
-		/* (non-Javadoc)
-		 * @see de.uni_freiburg.informatik.ultimate.logic.NonRecursive.Walker#walk(de.uni_freiburg.informatik.ultimate.logic.NonRecursive)
-		 */
 		@Override
 		public void walk(NonRecursive engine) {
 			TermCompiler compiler = (TermCompiler) engine;
@@ -242,11 +239,13 @@ public class TermCompiler extends TermTransformer {
 				return;
 			}
 			if (fsym == theory.mAnd) {
-				setResult(mUtils.createAnd(args));
+				Term convertedAnd = mUtils.convertAnd((ApplicationTerm) mTracker.getTerm(convertedApp));
+				setResult(mTracker.transitivity(convertedApp, convertedAnd));
 				return;
 			}
 			if (fsym == theory.mOr) {
-				setResult(mUtils.createOr(args));
+				Term convertedOr = mUtils.convertOr((ApplicationTerm) mTracker.getTerm(convertedApp));
+				setResult(mTracker.transitivity(convertedApp, convertedOr));
 				return;
 			}
 			if (fsym == theory.mXor) {
@@ -297,12 +296,14 @@ public class TermCompiler extends TermTransformer {
 				return;
 			}
 			if (fsym.getName().equals(">")) {
-				Term res = SMTAffineTerm.create(args[0])
+				Term argdiff = SMTAffineTerm.create(args[0])
 						.add(SMTAffineTerm.create(Rational.MONE, args[1]))
 						.normalize(this);
-				mTracker.removeConnective(
-						args, res, ProofConstants.RW_GT_TO_LEQ0);
-				setResult(mUtils.convertNot(mUtils.createLeq0(res)));
+				Term step1 = mTracker.removeConnective(
+						args, argdiff, ProofConstants.RW_GT_TO_LEQ0);
+				Term step2 = mUtils.createLeq0(argdiff);
+				Term step3 = mUtils.convertNot(theory.term("not", getTerm(step2)));
+				setResult(mTracker.transitivity(mTracker.congruence(step1, new Term[] { step2 }), step3));
 				return;
 			}
 			if (fsym.getName().equals("<")) {
@@ -604,8 +605,12 @@ public class TermCompiler extends TermTransformer {
 		mBy0Seen = false;
 		return old;
 	}
-	
+
 	public SMTAffineTerm unify(SMTAffineTerm affine) {
 		return mAffineUnifier.unify(affine);
+	}
+	
+	public Term getTerm(Term t) {
+		return mTracker.getTerm(t);
 	}
 }

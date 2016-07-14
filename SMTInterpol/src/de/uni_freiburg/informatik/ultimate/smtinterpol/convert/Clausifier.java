@@ -607,6 +607,7 @@ public class Clausifier {
 				} else if (at.getFunction().getName().equals("=")) {
 					Term lhs = at.getParameters()[0];
 					Term rhs = at.getParameters()[1];
+					Theory theory = at.getTheory();
 					if (lhs.getSort() == t.getBooleanSort()) {
 						BuildClause bc1 = new BuildClause(LeafNode.NO_THEORY);
 						pushOperation(bc1);
@@ -617,7 +618,7 @@ public class Clausifier {
 							pushOperation(new CollectLiterals(lhs, bc1));
 							pushOperation(new CollectLiterals(
 									t2 = new Utils(bc1.getTracker()).
-											convertNot(rhs),
+											convertNot(theory.term("not", rhs)),
 									bc1));
 							bc1.setOrigArgs(lhs, t2);
 						} else {

@@ -28,7 +28,6 @@ import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.NoopProofTracker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.NoopRuleApplicator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TestCaseWithLogger;
@@ -97,7 +96,7 @@ public class TermCompilerTest extends TestCaseWithLogger {
 		Term ex = mSolver.term("not",
 				mSolver.term("or", mSolver.term("not", mA),
 						mSolver.term("not", mB)));
-		Term res = mCompiler.transform(in);
+		Term res = mCompiler.getTerm(mCompiler.transform(in));
 		Assert.assertSame(ex, res);
 		in = mSolver.term("and", mA, mA);
 		res = mCompiler.transform(in);
@@ -124,7 +123,7 @@ public class TermCompilerTest extends TestCaseWithLogger {
 		Assert.assertSame(mSolver.term("not", mC), res);
 		res = mCompiler.transform(mSolver.term("ite", mC, mT, mA));
 		Assert.assertSame(mSolver.term("or", mC, mA), res);
-		res = mCompiler.transform(mSolver.term("ite", mC, mF, mA));
+		res = mCompiler.getTerm(mCompiler.transform(mSolver.term("ite", mC, mF, mA)));
 		Assert.assertSame(
 				mSolver.term("not",
 						mSolver.term("or", mC, mSolver.term("not", mA))),
