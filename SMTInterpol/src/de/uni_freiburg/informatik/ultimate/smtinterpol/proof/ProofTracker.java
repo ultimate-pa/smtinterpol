@@ -725,8 +725,7 @@ public class ProofTracker implements IProofTracker {
 	}
 
 	@Override
-	public void mod(Term x, Term y, Term res,
-			int rule) {
+	public void mod(Term x, Term y, Term res, int rule) {
 		Theory t = x.getTheory();
 		Term mod = t.term(
 				"mod", SMTAffineTerm.cleanup(x), SMTAffineTerm.cleanup(y));
@@ -734,8 +733,7 @@ public class ProofTracker implements IProofTracker {
 	}
 
 	@Override
-	public void div(Term x, Term y, Term res,
-			int rule) {
+	public void div(Term x, Term y, Term res, int rule) {
 		Theory t = x.getTheory();
 		Term mod = t.term(
 				"div", SMTAffineTerm.cleanup(x), SMTAffineTerm.cleanup(y));

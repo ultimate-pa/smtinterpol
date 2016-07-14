@@ -27,6 +27,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.NoopProofTracker;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.NoopRuleApplicator;
 
 /**
  * Destructs equalities over quantified variables.  This class assumes that the
@@ -120,7 +121,7 @@ public class EqualityDestructor extends NonRecursive {
 		run(new SearchEqualities(qbody));
 		return new InternTermTransformer() {
 			
-			Utils mUtils = new Utils(new NoopProofTracker());
+			Utils mUtils = new Utils(new NoopRuleApplicator());
 
 			@Override
 			protected void convert(Term term) {
@@ -142,7 +143,7 @@ public class EqualityDestructor extends NonRecursive {
 				else {
 					Theory t = appTerm.getTheory();
 					if (appTerm.getFunction() == t.mNot)
-						setResult(mUtils.createNot(newArgs[0]));
+						setResult(mUtils.convertNot(newArgs[0]));
 					else if (appTerm.getFunction() == t.mOr)
 						setResult(mUtils.createOr(newArgs));
 					else if (appTerm.getFunction().getName().equals("="))

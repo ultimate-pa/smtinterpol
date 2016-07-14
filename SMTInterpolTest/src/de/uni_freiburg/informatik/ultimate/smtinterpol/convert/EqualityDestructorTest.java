@@ -29,6 +29,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.NoopProofTracker;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.NoopRuleApplicator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TestCaseWithLogger;
 
@@ -54,7 +55,7 @@ public class EqualityDestructorTest extends TestCaseWithLogger {
 		mScript.declareFun("uc2", new Sort[0], mU);
 		mUC1 = mScript.term("uc1");
 		mUC2 = mScript.term("uc2");
-		mCompiler.setProofTracker(new NoopProofTracker());
+		mCompiler.setIRuleApplicator(new NoopRuleApplicator());
 	}
 	
 	/**

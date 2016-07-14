@@ -1,0 +1,74 @@
+ALT:
+
+(@clause 
+	(@eq 
+		(@eq 
+			(@split (! 
+				(@eq 
+					(@asserted (and (not (or a (and a b))) a)) 
+					(@rewrite (! (= (and a b) (not (or (not a) (not b)))) :andToOr)) 
+					(@rewrite (! (= (and (not (or a (not (or (not a) (not b))))) a) (not (or (not (not (or a (not (or (not a) (not b)))))) (not a)))) :andToOr)) 
+					(@rewrite (! (= (not (not (or a (not (or (not a) (not b)))))) (or a (not (or (not a) (not b))))) :notSimp))
+				) :notOr) (not (not a)))
+			
+			(@rewrite (! (= (not (not a)) a) :notSimp))) 
+			(@intern (= a (! a :quoted)))) (! a :quoted)) 
+			
+			
+NEU:
+
+(@clause 
+	(@eq 
+		(@eq 
+			(@split (! 
+				(@eq 
+					(@asserted (and (not (or a (and a b))) a))
+					
+					
+					
+					//	(=
+					//		(and (not (or a (and a b))) a)
+					//		(not or (or a (not (or (not a) (not b)))) (not a)))
+					
+					(@trans
+					
+						//	(=
+						//		(and (not (or a (and a b))) a)
+						//		(and (not (or a (not (or (not a) (not b))))) a))
+					
+						(@cong 
+							(@relf (and (not (or a (and a b))) a))
+						
+							//	(=
+							//		(not (or a (and a b)))
+							//		(not (or a (not (or (not a) (not b))))))
+						
+							(@cong
+								(@refl (not (or a (and a b))))
+							
+								//	(=
+								//		(or a (and a b))
+								//		(or a (not (or (not a) (not b)))))
+							
+								(cong
+									(@refl (or a (and a b)))
+									(@rewrite (! (= (and a b) (not (or (not a) (not b)))) :andToOr)))))
+								
+						//	(=
+						//		(and (not (or a (not (or (not a) (not b))))) a)
+						//		(not or (or a (not (or (not a) (not b)))) (not a))
+						
+						
+						(@cong
+							(@rewrite (! (= (and (not (or a (not (or (not a) (not b))))) a) (not (or (not (not (or a (not (or (not a) (not b)))))) (not a)))) :andToOr)))
+						
+							//	(=
+							//		(or (not (not (or a (not (or (not a) (not b)))))) (not a))
+							//		(or (or a (not (or (not a) (not b)))) (not a)))
+						
+							(@cong 	(@refl (or (not (not (or a (not (or (not a) (not b)))))) (not a)))
+									(@rewrite (! (= (not (not (or a (not (or (not a) (not b)))))) (or a (not (or (not a) (not b))))) :notSimp)))
+				) :notOr) (not (not a)))))
+			
+			(@rewrite (! (= (not (not a)) a) :notSimp))) 
+			(@intern (= a (! a :quoted)))) (! a :quoted)) 

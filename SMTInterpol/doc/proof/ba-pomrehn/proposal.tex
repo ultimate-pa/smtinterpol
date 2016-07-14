@@ -1,0 +1,100 @@
+\documentclass[a4paper]{article}
+\usepackage[ngerman]{babel}
+
+\title{}
+\author{Markus Pomrehn}
+
+\begin{document}
+
+\section{Zusammenfassung}
+
+Generieren eines Beweises für die Umformung von logischen Formeln in
+NNF (Termcompiler) und dann in erfüllbarkeitsäquivalente CNF
+(Plaisted--Greenbaum).
+
+Existierende Beweisgenerierung hat Probleme: Beweisregeln verlangten
+das jedes Vorkommen eines Terms umgeschrieben wird; in machen Fällen
+nicht das, was tatsächlich im Solver passiert.  Beweisregeln schwierig
+zu prüfen, da für jede Ersetzungsregel die gesamte Formel durchlaufen
+werden muss (Aufwand O(n^2), statt O(n)).
+
+\section{Aufgabenbeschreibung}
+
+Neue Beweisregeln einführen, Kongruenz, Reflexivität, Transitivität.
+Ziel ist es jeden Umschreibungsschritt genau zu dokumentieren.
+Prooftracker muss um diese Regeln erweitert werden.  Das Interface zum
+Clausifier muss angepasst werden.
+
+Termcompiler anpassen an neuen Prooftracker und jeden Schritt einzeln
+als Regel einfügen.
+
+Clausifier (addAsAxiom / addAxiom) anpassen.
+
+\section{Arbeitspakete}
+
+\subsection{Einarbeitung}
+
+...kurze Beschreibung...
+
+\paragraph{Ergebnis:}
+Möglichst vollständiges Verständnis vom Code.
+Teil des Kapitels Beweisformat Alt.
+Kapitel: Implementation Alt.
+
+\subsection{Neues Beweisformat}
+
+...kurze Beschreibung...
+
+\paragraph{Ergebnis:}
+Teil des Kapitels Beweisformat Neu.
+Teil des Kapitels Entwurf (Beispiel Beweisgenerierung)
+
+
+\subsection{Implementierung Prooftracker}
+
+\paragraph{Prooftracker umschreiben}
+
+...kurze Beschreibung...
+\paragraph{Compiler anpassen}
+
+...kurze Beschreibung...
+\paragraph{Clausifier anpassen}
+...kurze Beschreibung...
+
+\paragraph{Ergebnis:}
+Kapitel Entwurf fertig, Kapitel Implementierung
+
+\subsection{Optional: Proofverifier anpassen}
+
+.. kurze Beschreibung...
+
+\paragraph{Ergebnis:}
+Kapitel Proofverifikation.
+
+\subsection{Test und Evaluierung}
+
+.. kurze Beschreibung...
+
+\paragraph{Ergebnis:}
+Testfälle, Statistiken,
+Kapitel "Evaluation" in der Bachelorarbeit.
+
+\subsection{Bachelorarbeit aufschreiben}
+
+.. kurze Beschreibung...
+Einführung, Fazit. Rechtschreibfehler beheben.
+
+\paragraph{Ergebnis:}
+Die fertige Bachelorarbeit
+
+
+\section{Zeitplan}
+
+Für jedes Arbeitspaket eine Angabe der Dauer (in Wochen).
+Gantt Diagram??
+
+
+
+\bibliography{references}
+
+\end{document}
