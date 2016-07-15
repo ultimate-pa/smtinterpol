@@ -101,9 +101,6 @@
     <mkdir dir="${dir.workspace}/Library-SMTLIB/release"/>
     <mkdir dir="${dir.workspace}/SMTInterpol/release"/>
     <javac srcdir="${dir.workspace}/Library-SMTLIB/src" destdir="${dir.workspace}/Library-SMTLIB/release" optimize="${optimize}" includeAntRuntime="false" debug="${debug}">
-      <classpath>
-        <pathelement location="${dir.workspace}/SMTInterpol/lib/log4j-1.2.15.jar"/>
-      </classpath>
     </javac>
     <echo message="Build SMTLIB library finished" />
     <javac srcdir="${dir.workspace}/SMTInterpol/src"
@@ -111,7 +108,6 @@
       <exclude name="de/uni_freiburg/informatik/ultimate/smtinterpol/test_generator/**" />
       <exclude name="de/uni_freiburg/informatik/ultimate/smtinterpol/smtcomp/**" />
       <classpath>
-        <pathelement location="${dir.workspace}/SMTInterpol/lib/log4j-1.2.15.jar"/>
         <pathelement location="${dir.workspace}/SMTInterpol/lib/java-cup-12joho.jar"/>
         <pathelement path="${dir.workspace}/Library-SMTLIB/release"/>
       </classpath>
@@ -128,7 +124,6 @@
     <mkdir dir="${dir.workspace}/DeltaDebugger/release"/>
     <javac srcdir="${dir.workspace}/DeltaDebugger/src" destdir="${dir.workspace}/DeltaDebugger/release" optimize="${optimize}" includeAntRuntime="false" debug="${debug}">
       <classpath>
-        <pathelement location="${dir.workspace}/SMTInterpol/lib/log4j-1.2.15.jar"/>
         <pathelement location="${dir.workspace}/SMTInterpol/lib/java-cup-12joho.jar"/>
         <pathelement path="${dir.workspace}/Library-SMTLIB/release"/>
         <pathelement path="${dir.workspace}/SMTInterpol/release"/>
@@ -146,7 +141,6 @@
 	<exclude name="**/test_generator/**" />
 	<exclude name="**/smtcomp/**" />
       </fileset>
-      <zipfileset excludes="META-INF/**" src="${dir.workspace}/SMTInterpol/lib/log4j-1.2.15.jar"/>
       <zipfileset excludes="META-INF/**" src="${dir.workspace}/SMTInterpol/lib/java-cup-12joho.jar"/>
       <fileset dir="${dir.workspace}/Library-SMTLIB/release" />
       <zipfileset file="${dir.workspace}/LICENSE" prefix="" />
@@ -168,7 +162,6 @@
 	<include name="**/util/**" />
       </fileset>
       <fileset dir="${dir.workspace}/DeltaDebugger/release" />
-      <zipfileset excludes="META-INF/**" src="${dir.workspace}/SMTInterpol/lib/log4j-1.2.15.jar"/>
       <zipfileset excludes="META-INF/**" src="${dir.workspace}/SMTInterpol/lib/java-cup-12joho.jar"/>
       <fileset dir="${dir.workspace}/Library-SMTLIB/release" />
       <zipfileset file="${dir.workspace}/LICENSE" prefix="" />
@@ -212,7 +205,6 @@
 	<exclude name="**/test_generator/**" />
 	<exclude name="**/smtcomp/**" />
       </fileset>
-      <zipfileset excludes="META-INF/**" src="${dir.workspace}/SMTInterpol/lib/log4j-1.2.15.jar"/>
       <zipfileset excludes="META-INF/**" src="${dir.workspace}/SMTInterpol/lib/java-cup-12joho.jar"/>
       <fileset dir="${dir.workspace}/Library-SMTLIB/release" />
       <zipfileset file="${dir.workspace}/LICENSE" prefix="" />
@@ -298,7 +290,6 @@ java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/2))m -da -dsa -XX:-UseGCOverheadLimit -j
       destdir="${dir.workspace}/SMTInterpolTest/release" optimize="${optimize}" includeAntRuntime="false" debug="${debug}">
       <classpath>
         <pathelement location="${dir.workspace}/SMTInterpolTest/lib/junit.jar"/>
-        <pathelement location="${dir.workspace}/SMTInterpol/lib/log4j-1.2.15.jar"/>
         <pathelement path="${dir.workspace}/SMTInterpol/release"/>
         <pathelement path="${dir.workspace}/Library-SMTLIB/release"/>
       </classpath>
@@ -318,7 +309,6 @@ java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/2))m -da -dsa -XX:-UseGCOverheadLimit -j
       <classpath>
 	<pathelement location="${dir.workspace}/libs/junit4.jar"/>
 	<pathelement location="${dir.workspace}/libs/ant-junit4.jar"/>
-	<pathelement location="${dir.workspace}/SMTInterpol/lib/log4j-1.2.15.jar"/>
 	<pathelement location="${dir.workspace}/SMTInterpol/lib/java-cup-12joho.jar"/>
 	<pathelement path="${dir.workspace}/Library-SMTLIB/release" />
 	<pathelement path="${dir.workspace}/SMTInterpol/release" />
@@ -350,7 +340,6 @@ java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/2))m -da -dsa -XX:-UseGCOverheadLimit -j
         <classpath>
           <pathelement location="${dir.workspace}/libs/junit4.jar"/>
 	  <pathelement location="${dir.workspace}/libs/ant-junit4.jar"/> 
-	  <pathelement location="${dir.workspace}/SMTInterpol/lib/log4j-1.2.15.jar"/>
 	  <pathelement location="${dir.workspace}/SMTInterpol/lib/java-cup-12joho.jar"/>
 	  <pathelement path="${dir.workspace}/Library-SMTLIB/release" />
 	  <pathelement path="${dir.workspace}/SMTInterpol/release" />

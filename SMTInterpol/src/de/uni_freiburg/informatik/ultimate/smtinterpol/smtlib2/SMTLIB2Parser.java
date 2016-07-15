@@ -21,22 +21,18 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.IParser;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap;
 
 public class SMTLIB2Parser implements IParser {
 
 	@Override
-	public int run(Script solver, String filename) {
+	public int run(Script script, String filename, OptionMap options) {
 		if (filename == null)
 			filename = "<stdin>";
-        ParseEnvironment parseEnv = new ParseEnvironment(solver);
-        try {
-        	// Have to carry this option through
-        	parseEnv.setOption(":regular-output-channel",
-        			solver.getOption(":regular-output-channel"));
-        	parseEnv.setOption(":print-success",
-        			solver.getOption(":print-success"));
-        	parseEnv.setOption(":print-terms-cse",
-        			solver.getOption(":print-terms-cse"));
+
+        ParseEnvironment parseEnv = new ParseEnvironment(script,
+        		options);
+        try {	
         	parseEnv.parseScript(filename);
         } catch (SMTLIBException se) {
         	parseEnv.printError(se.getMessage());

@@ -29,13 +29,12 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
-import org.apache.log4j.Logger;
-
 import de.uni_freiburg.informatik.ultimate.logic.Assignments;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause.WatchList;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom.TrueAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofNode;
@@ -43,7 +42,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ResolutionNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ResolutionNode.Antecedent;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.TerminationRequest;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.CuckooHashSet;
-import de.uni_freiburg.informatik.ultimate.util.DebugMessage;
 import de.uni_freiburg.informatik.ultimate.util.ScopedHashMap;
 
 /**
@@ -52,7 +50,7 @@ import de.uni_freiburg.informatik.ultimate.util.ScopedHashMap;
  *
  */
 public class DPLLEngine {
-	private final Logger mLogger;
+	private final LogProxy mLogger;
 	/* Completeness */
 	public static final int COMPLETE = 0;
 	public static final int INCOMPLETE_QUANTIFIER = 1;
@@ -135,7 +133,7 @@ public class DPLLEngine {
 	private final TerminationRequest mCancel;
 	
 	public DPLLEngine(
-			Theory smtTheory, Logger logger, TerminationRequest cancel) {
+			Theory smtTheory, LogProxy logger, TerminationRequest cancel) {
 		this.mSmtTheory = smtTheory;
 		mCompleteness = COMPLETE;
 		assert(logger != null);
@@ -487,7 +485,7 @@ public class DPLLEngine {
 		if (isProofGenerationEnabled()) {
 			clause.setProof(proof);
 		}
-		mLogger.trace(new DebugMessage("Added clause {0}", clause));
+		mLogger.trace("Added clause %s", clause);
 	}
 	
 	public void learnClause(Clause clause) {
@@ -1057,9 +1055,8 @@ public class DPLLEngine {
 										t.dumpModel(mLogger);
 									if (mLogger.isTraceEnabled())
 									    for (Literal dlit : mDecideStack)
-									        mLogger.trace(
-									                new DebugMessage("{0}: {1}",
-									                    dlit.hashCode(), dlit));
+									        mLogger.trace("%d: %s",
+									                    dlit.hashCode(), dlit);
 								}
 								mHasModel = true;
 								return true;
@@ -1331,7 +1328,7 @@ public class DPLLEngine {
 			}
 		}
 	}
-	public Logger getLogger() {
+	public LogProxy getLogger() {
 		return mLogger;
 	}
 	

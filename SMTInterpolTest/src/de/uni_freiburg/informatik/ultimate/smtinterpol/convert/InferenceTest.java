@@ -24,7 +24,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 
-import org.apache.log4j.Logger;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -39,10 +38,11 @@ import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TestCaseWithLogger;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 
 @RunWith(JUnit4.class)
-public class InferenceTest extends TestCaseWithLogger {
+public class InferenceTest {
 	private final Script mScript;
 	private final Set<TermVariable> mTvs;
 	// (g (ite (P&Q) x y))
@@ -175,7 +175,7 @@ public class InferenceTest extends TestCaseWithLogger {
 						mScript.numeral("10")));
 		Set<TermVariable> int1 = Collections.singleton(i1);
 
-		Logger logger = Logger.getRootLogger();
+		LogProxy logger = new DefaultLogger();
 		TriggerCandidateMap candidates = new TriggerCandidateMap(
 				logger,mTopLevel.getTheory(),singleX);
 		candidates.insert(((QuantifiedFormula)looping).getSubformula());

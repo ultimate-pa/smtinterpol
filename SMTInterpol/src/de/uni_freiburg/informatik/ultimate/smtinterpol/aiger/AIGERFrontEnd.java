@@ -24,8 +24,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigInteger;
 
-import org.apache.log4j.Logger;
-
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet.UnletType;
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
@@ -36,6 +34,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.IParser;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap;
 
 public class AIGERFrontEnd implements IParser {
 	
@@ -358,18 +357,18 @@ public class AIGERFrontEnd implements IParser {
 		parseCommentSection();
 		// Make some space for solving
 		mBuffer = null;
-		Logger.getRootLogger().info("Finished parsing");
+		System.err.println("Finished parsing");
 		Term formula = toTerm(output);
 		if (USE_DEFINITIONS) {
 			FormulaUnLet unlet = new FormulaUnLet(UnletType.EXPAND_DEFINITIONS);
 			mSolver.assertTerm(unlet.unlet(formula));
 		} else
 			mSolver.assertTerm(formula);
-		Logger.getRootLogger().info("Asserted formula");
+		System.err.println("Asserted formula");
 	}
 
 	@Override
-	public int run(Script solver, String filename) {
+	public int run(Script solver, String filename, OptionMap options) {
 		mSolver = solver;
 		if (filename == null) {
 			filename = "<stdin>";

@@ -19,9 +19,6 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.convert;
 
 import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.io.PrintWriter;
 
 import de.uni_freiburg.informatik.ultimate.logic.FormulaLet;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
@@ -29,6 +26,8 @@ import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet.UnletType;
 import de.uni_freiburg.informatik.ultimate.logic.LoggingScript;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.ParseEnvironment;
 
 public class CompilerTest {
@@ -55,7 +54,7 @@ public class CompilerTest {
 	}
 	
 	public static void main(String[] param) throws Exception {
-        int paramctr = 0;
+		int paramctr = 0;
 		String infilename, outfilename;
 		if (paramctr < param.length) {
 			infilename = param[paramctr++];
@@ -71,13 +70,10 @@ public class CompilerTest {
 			usage();
 			return;
 		}
+		DefaultLogger logger = new DefaultLogger();
+		OptionMap options = new OptionMap(logger, true);
 		Script script = new MyLoggingScript(outfilename);
-        ParseEnvironment parseEnv = new ParseEnvironment(script);
-        parseEnv.setOutStream(new PrintWriter(new OutputStream() {
-			@Override public void write(int b) throws IOException {
-				// Disable output
-			}
-		}));
+		ParseEnvironment parseEnv = new ParseEnvironment(script, options);
 		parseEnv.parseScript(infilename);
 		parseEnv.exit();
 	}

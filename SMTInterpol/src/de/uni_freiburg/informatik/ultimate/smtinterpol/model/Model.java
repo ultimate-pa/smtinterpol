@@ -22,8 +22,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import org.apache.log4j.Logger;
-
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
@@ -31,6 +29,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.BooleanVarAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ITheory;
@@ -111,7 +110,7 @@ public class Model implements de.uni_freiburg.informatik.ultimate.logic.Model {
 		mEval = new ModelEvaluator(this);
 	}
 	
-	public boolean checkTypeValues(Logger logger) {
+	public boolean checkTypeValues(LogProxy logger) {
 		boolean correct = true;
 		for (Map.Entry<FunctionSymbol, FunctionValue> me : mFuncVals.entrySet()) {
 			FunctionSymbol fs = me.getKey();

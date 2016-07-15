@@ -443,7 +443,7 @@ stringOption ::= CREGULAROUTPUTCHANNEL | CDIAGNOSTICOUTPUTCHANNEL;
 numeralOption ::= CRANDOMSEED | CVERBOSITY | CTIMEOUT;
 option ::= booleanOption:o bValue:b
            {: try { 
-           		parser.env.setOption(o, b);
+           		parser.env.getScript().setOption(o, b);
            		parser.env.printSuccess();
            	} catch (UnsupportedOperationException uoe) {
            		parser.env.printResponse("unsupported");
@@ -452,7 +452,7 @@ option ::= booleanOption:o bValue:b
            	} :}
          | stringOption:o STRING:s
            {: try {
-           		parser.env.setOption(o, s);
+           		parser.env.getScript().setOption(o, s);
            		parser.env.printSuccess(); 
            	} catch (UnsupportedOperationException uoe) {
            		parser.env.printResponse("unsupported");
@@ -461,7 +461,7 @@ option ::= booleanOption:o bValue:b
            	}:}
          | numeralOption:o NUMERAL:n
            {: try {
-           		parser.env.setOption(o, n);
+           		parser.env.getScript().setOption(o, n);
            		parser.env.printSuccess();
            	} catch (UnsupportedOperationException uoe) {
            		parser.env.printResponse("unsupported");
@@ -470,7 +470,7 @@ option ::= booleanOption:o bValue:b
            	}:}
          | keywordNoOption:k attributeValue?:v
            {: try {
-           		parser.env.setOption(k, v);
+           		parser.env.getScript().setOption(k, v);
            		parser.env.printSuccess();
            	} catch (UnsupportedOperationException uoe) {
            		parser.env.printResponse("unsupported");

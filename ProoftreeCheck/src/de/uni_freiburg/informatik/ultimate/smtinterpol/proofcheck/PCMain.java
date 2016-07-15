@@ -20,6 +20,8 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.proofcheck;
 
 import java.io.File;
 
+import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTLIB2Parser;
 
 /**
@@ -60,7 +62,8 @@ public final class PCMain {
 		ProofChecker checker = new ProofChecker(filenameNoExtension,
 				useIsabelle, prettyOutput, fastProofs, partialProof);
 		checker.setOption(":verbosity", 3);
-		
-		new SMTLIB2Parser().run(checker, args[0]);
+		DefaultLogger logger = new DefaultLogger();
+		OptionMap options = new OptionMap(logger, true);
+		new SMTLIB2Parser().run(checker, args[0], options);
 	}
 }

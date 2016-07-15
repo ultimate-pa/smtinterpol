@@ -20,8 +20,6 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2;
 
 import java.math.BigInteger;
 
-import org.apache.log4j.Level;
-import org.apache.log4j.Logger;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -33,14 +31,14 @@ import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TestCaseWithLogger;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 
 /**
  * A basic test case for the API of SMTInterpol.
  * @author Juergen Christ
  */
 @RunWith(JUnit4.class)
-public class APITest extends TestCaseWithLogger {
+public class APITest {
 	
 	private static class TerminationCounter implements TerminationRequest {
 
@@ -56,15 +54,13 @@ public class APITest extends TestCaseWithLogger {
 		}
 		
 	}
-	public APITest() {
-		super(Level.TRACE);
-	}
+
 	/**
 	 * Test what is possible without a logic...
 	 */
 	@Test
 	public void testNoLogic() {
-		SMTInterpol solver = new SMTInterpol(Logger.getRootLogger());
+		SMTInterpol solver = new SMTInterpol(new DefaultLogger());
 		solver.setOption(":interactive-mode", true);
 		try {
 			solver.sort("Bool");
@@ -112,7 +108,7 @@ public class APITest extends TestCaseWithLogger {
 
 	@Test
 	public void testFaultyLogic() {
-		SMTInterpol solver = new SMTInterpol(Logger.getRootLogger());
+		SMTInterpol solver = new SMTInterpol(new DefaultLogger());
 		try {
 			solver.setLogic("TestLogicThatDoesNotExist");
 			Assert.fail("Could set strange logic!");
@@ -123,7 +119,7 @@ public class APITest extends TestCaseWithLogger {
 	
 	@Test
 	public void testPushPop() {
-		SMTInterpol solver = new SMTInterpol(Logger.getRootLogger());
+		SMTInterpol solver = new SMTInterpol(new DefaultLogger());
 		solver.setLogic(Logics.QF_LIA);
 		try {
 			solver.push(3);// NOCHECKSTYLE
@@ -145,7 +141,7 @@ public class APITest extends TestCaseWithLogger {
 
 	@Test
 	public void testSetOptionLate() {
-		SMTInterpol solver = new SMTInterpol(Logger.getRootLogger());
+		SMTInterpol solver = new SMTInterpol(new DefaultLogger());
 		solver.setLogic(Logics.QF_LIA);
 		try {
 			solver.setOption(":interactive-mode", true);
@@ -187,7 +183,7 @@ public class APITest extends TestCaseWithLogger {
 	
 	@Test
 	public void testSetLogicTwice() {
-		SMTInterpol solver = new SMTInterpol(Logger.getRootLogger());
+		SMTInterpol solver = new SMTInterpol(new DefaultLogger());
 		solver.setLogic(Logics.QF_LIA);
 		try {
 			solver.setLogic(Logics.QF_LIA);
@@ -207,8 +203,8 @@ public class APITest extends TestCaseWithLogger {
 	
 	@Test
 	public void testTermAssertion() {
-		SMTInterpol solver1 = new SMTInterpol(Logger.getRootLogger());
-		SMTInterpol solver2 = new SMTInterpol(Logger.getRootLogger());
+		SMTInterpol solver1 = new SMTInterpol(new DefaultLogger());
+		SMTInterpol solver2 = new SMTInterpol(new DefaultLogger());
 		solver1.setLogic(Logics.QF_LIA);
 		solver2.setLogic(Logics.QF_LIA);
 		solver1.declareFun("x", new Sort[0], solver1.sort("Int"));
@@ -241,7 +237,7 @@ public class APITest extends TestCaseWithLogger {
 	
 	@Test
 	public void testUndeclared() {
-		SMTInterpol solver = new SMTInterpol(Logger.getRootLogger());
+		SMTInterpol solver = new SMTInterpol(new DefaultLogger());
 		solver.setLogic(Logics.QF_LIA);
 		try {
 			solver.term("x");
@@ -260,7 +256,7 @@ public class APITest extends TestCaseWithLogger {
 	@Test
 	public void cancellationRequest() {
 		TerminationCounter tc = new TerminationCounter();
-		SMTInterpol solver = new SMTInterpol(Logger.getRootLogger(), tc);
+		SMTInterpol solver = new SMTInterpol(new DefaultLogger(), tc);
 		solver.setLogic(Logics.CORE);
 		Sort bool = solver.sort("Bool");
 		solver.declareFun("P", new Sort[0], bool);

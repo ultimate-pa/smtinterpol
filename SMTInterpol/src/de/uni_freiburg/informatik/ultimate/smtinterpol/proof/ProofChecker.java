@@ -28,8 +28,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Stack;
 
-import org.apache.log4j.Logger;
-
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
@@ -42,6 +40,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermTransformer;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
 
@@ -204,7 +203,7 @@ public class ProofChecker extends NonRecursive {
 
 	HashSet<Term> mAssertions;
 	Script mSkript;
-	Logger mLogger;
+	LogProxy mLogger;
 	int mError;
 	
 	HashSet<String> mDebug = new HashSet<String>(); // Just for debugging
@@ -217,7 +216,7 @@ public class ProofChecker extends NonRecursive {
 	Stack<Annotation[]> mStackAnnots = new Stack<Annotation[]>();
 	SMTAffineTermTransformer mAffineConverter = new SMTAffineTermTransformer();
 	
-	public ProofChecker(Script script, Logger logger) {
+	public ProofChecker(Script script, LogProxy logger) {
 		mSkript = script;
 		Term[] assertions = script.getAssertions();
 		FormulaUnLet unletter = new FormulaUnLet();

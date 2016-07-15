@@ -1066,7 +1066,7 @@ public class Minimizer {
 			if (verbosity > 0)
 				System.err.println("Got golden exit code: " + goldenExit);
 			ParseScript ps = new ParseScript();
-			ParseEnvironment pe = new ParseEnvironment(ps) {
+			ParseEnvironment pe = new ParseEnvironment(ps, null) {
 
 				@Override
 				public void printSuccess() {

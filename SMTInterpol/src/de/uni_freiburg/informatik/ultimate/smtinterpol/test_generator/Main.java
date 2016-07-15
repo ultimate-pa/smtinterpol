@@ -26,8 +26,8 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.log4j.Logger;
-
+import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.ParseEnvironment;
 
 
@@ -43,7 +43,7 @@ public final class Main {
 
 	public static void main(String[] param) throws IOException, InterruptedException {
 
-		Logger logger = Logger.getRootLogger();
+		DefaultLogger logger = new DefaultLogger();
 		int paramctr = 0;
 
 		// Oday: Read multiple files
@@ -112,8 +112,10 @@ public final class Main {
 			return;
 		}
 		
-		ParseEnvironment env = new ParseEnvironment(benchmark);
-		env.parseScript(filename);
+		// JC: Commented this out since it does not work.  Not sure if it is
+		//     worth refactoring this.
+//		ParseEnvironment env = new ParseEnvironment(benchmark);
+//		env.parseScript(filename);
 	}
 	
 	public static List<String> getFiles(File path) {
