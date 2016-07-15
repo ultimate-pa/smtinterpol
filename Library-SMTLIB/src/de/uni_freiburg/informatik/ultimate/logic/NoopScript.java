@@ -131,13 +131,13 @@ public class NoopScript implements Script {
 			Sort resultSort, Term definition) throws SMTLIBException {
 		if (mTheory == null)
 			throw new SMTLIBException("No logic set!");
-        if (!resultSort.equalsSort(definition.getSort()))
-        	throw new SMTLIBException("Sort mismatch");
-        try {
-        	mTheory.defineFunction(fun, params, definition);
-        } catch (IllegalArgumentException eiae) {
-        	throw new SMTLIBException(eiae.getMessage());
-        }
+		if (!resultSort.equalsSort(definition.getSort()))
+			throw new SMTLIBException("Sort mismatch");
+		try {
+			mTheory.defineFunction(fun, params, definition);
+		} catch (IllegalArgumentException eiae) {
+			throw new SMTLIBException(eiae.getMessage());
+		}
 	}
 
 	@Override
@@ -305,12 +305,12 @@ public class NoopScript implements Script {
 		if (body == null)
 			throw new SMTLIBException("Empty quantifier body");
 		if (patterns != null && patterns.length > 0) {
-	  		Annotation[] annots = new Annotation[patterns.length];
-	  		int i = 0;
-	  		for (Term[] p : patterns) {
-	  			annots[i++] = new Annotation(":pattern", p);
-	  		}
-	  		body = mTheory.annotatedTerm(annots, body);
+			Annotation[] annots = new Annotation[patterns.length];
+			int i = 0;
+			for (Term[] p : patterns) {
+				annots[i++] = new Annotation(":pattern", p);
+			}
+			body = mTheory.annotatedTerm(annots, body);
 		}
 		if (quantor == Script.EXISTS)
 			return mTheory.exists(vars, body);
@@ -332,22 +332,22 @@ public class NoopScript implements Script {
 	public Term annotate(Term t, Annotation... annotations)
 		throws SMTLIBException {
 		if (annotations.length > 0) {
-  			for (Annotation a : annotations) {
-  			    if (a.getKey().equals(":named")) {
-  			    	if (!(a.getValue() instanceof String))
-  			    		throw new SMTLIBException(
-  			    				"Need a string value for :named");
-  			    	if (t.getFreeVars().length != 0)// NOPMD
-  			    		throw new SMTLIBException("Cannot name open terms");
-  			    	else
-  			    	    defineFunInternal((String) a.getValue(), 
-  			    	    	Theory.EMPTY_TERM_VARIABLE_ARRAY, t.getSort(), t);
-  			    }
-  			}
-  			return mTheory.annotatedTerm(annotations, t);
-  		} else {
-  			return t;
-  		}
+			for (Annotation a : annotations) {
+				if (a.getKey().equals(":named")) {
+					if (!(a.getValue() instanceof String))
+						throw new SMTLIBException(
+								"Need a string value for :named");
+					if (t.getFreeVars().length != 0)// NOPMD
+						throw new SMTLIBException("Cannot name open terms");
+					else
+						defineFunInternal((String) a.getValue(), 
+								Theory.EMPTY_TERM_VARIABLE_ARRAY, t.getSort(), t);
+				}
+			}
+			return mTheory.annotatedTerm(annotations, t);
+		} else {
+			return t;
+		}
 	}
 
 	@Override
