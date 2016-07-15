@@ -30,7 +30,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
  * This implementation might serve as a basic for implementing the LogProxy
  * interface interface for different logging systems.
  * @author Juergen Christ
- */ 
+ */
 public class Log4jProxy implements LogProxy {
 
 	/**

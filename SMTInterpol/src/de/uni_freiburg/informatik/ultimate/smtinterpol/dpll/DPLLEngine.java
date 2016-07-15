@@ -1309,12 +1309,12 @@ public class DPLLEngine {
 				else
 					throw new InternalError(
 							"Input clause still blocked, but invalid");
-//				logger.debug(new DebugMessage("Removed clause {0}",input));
+//				logger.debug("Removed clause {0}", input);
 			} else {
 				// Terminate iteration here since only clauses with lower
 				// stacklevel remain.
+//				logger.debug("Keeping input {0}", input);
 				break;
-//				logger.debug(new DebugMessage("Keeping input {0}",input));
 			}
 		}
 		for (int i = 0; i < numpops; ++i)

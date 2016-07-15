@@ -243,7 +243,6 @@ public class SMTInterpol extends NoopScript {
 	private final OptionMap mOptions;
 	private final SolverOptions mSolverOptions;
 	
-	private CheckType mCheckType = CheckType.FULL;
 	private DPLLEngine mEngine;
 	private Clausifier mClausifier;
 	private ScopedArrayList<Term> mAssertions;

@@ -61,7 +61,6 @@ public class OptionMap {
 
 	private final static String DIAG_OUTPUT_CHANNEL_NAME =
 		":diagnostic-output-channel";
-	private final static String DIAG_OUTPUT_CHANNEL_DEFAULT = "stderr";
 	private final static String DIAG_OUTPUT_CHANNEL_DESC =
 		"Where to print diagnostic output to.  Use \"stdout\" for standard "
 			+ "output and \"stderr\" for standard error.";
