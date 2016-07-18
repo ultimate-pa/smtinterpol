@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <project default="all" name="Create Project SMTInterpol" xmlns:jacoco="antlib:org.jacoco.ant" xmlns:artifact="antlib:org.apache.maven.artifact.ant">
   <import file="smtinterpol2-publicapi.xml"/>
-
+  <path id="maven-ant-tasks.classpath" path="libs/maven-ant-tasks-2.1.3.jar" />
+  <typedef resource="org/apache/maven/artifact/ant/antlib.xml" uri="antlib:org.apache.maven.artifact.ant" classpathref="maven-ant-tasks.classpath" />
+  
   <property name="artifactId" value="smtinterpol" />
 
   <!-- Build everything  -->
@@ -415,7 +417,7 @@ java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/2))m -da -dsa -XX:-UseGCOverheadLimit -j
     <!-- There server id in the Maven settings.xml -->
     <property name="ossrh-server-id" value="ossrh" />
 
-    <target name="dist" depends="create_src_jar, smtinterpol-comp.jar, javadoc-jar" description="Generate the distribution">
+    <target name="dist" depends="create_src_jar, smtinterpol-comp.jar, smtinterpol.jar, javadoc-jar" description="Generate the distribution">
         <copy file="${jar.outdir}/${jar.basename}.jar" tofile="${artifactId}-${version}.jar"/>
         <copy file="${jar.outdir}/${jar.basename}-comp.jar" tofile="${artifactId}-${version}-comp.jar"/>
     </target>
