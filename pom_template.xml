@@ -1,14 +1,15 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-
     <modelVersion>4.0.0</modelVersion>
+
     <groupId>de.uni-freiburg.informatik.ultimate</groupId>
     <artifactId>smtinterpol</artifactId>
-    <packaging>jar</packaging>
     <version>VERSION</version>
-    <name>SMTInterpol Solver</name>
-    <description>SMTInterpol interpolating SMT solver</description>
-    <url>http://ultimate.informatik.uni-freiburg.de/smtinterpol/</url>
+	<packaging>jar</packaging>
+	
+    <name>SMTInterpol</name>
+    <description>SMTInterpol is an interpolating SMT solver</description>
+    <url>https://ultimate.informatik.uni-freiburg.de/smtinterpol/</url>
 
     <licenses>
         <license>
@@ -18,11 +19,13 @@
     </licenses>
 
     <organization>
-        <name>ultimate-pa</name>
-        <url>https://monteverdi.informatik.uni-freiburg.de/Website/</url>
+        <name>Ultimate</name>
+        <url>https://ultimate.informatik.uni-freiburg.de</url>
     </organization>
 
     <scm>
+		<connection>scm:git:git://github.com/ultimate-pa/smtinterpol.git</connection>
+		<developerConnection>scm:git:ssh://github.com/ultimate-pa/smtinterpol.git</developerConnection>
         <url>https://github.com/ultimate-pa/smtinterpol</url>
     </scm>
 
@@ -30,23 +33,14 @@
         <developer>
             <name>Jochen Hoenicke</name>
             <email>hoenicke@informatik.uni-freiburg.de</email>
-            <roles>
-                <role>main author</role>
-            </roles>
         </developer>
         <developer>
             <name>Jürgen Christ</name>
             <email>christj@informatik.uni-freiburg.de</email>
-            <roles>
-                <role>main author</role>
-            </roles>
         </developer>
         <developer>
             <name>Alexander Nutz</name>
             <email>nutz@informatik.uni-freiburg.de</email>
-            <roles>
-                <role>main author</role>
-            </roles>
         </developer>
     </developers>
 </project>
