@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<project default="all" name="Create Project SMTInterpol" xmlns:jacoco="antlib:org.jacoco.ant">
+<project default="all" name="Create Project SMTInterpol" xmlns:jacoco="antlib:org.jacoco.ant" xmlns:artifact="antlib:org.apache.maven.artifact.ant">
+  <import file="smtinterpol2-publicapi.xml"/>
+
+  <property name="artifactId" value="smtinterpol" />
 
   <!-- Build everything  -->
   <target name="all">
@@ -179,15 +182,28 @@
     </propertyfile>
     <zip destfile="${jar.outdir}/${jar.basename}-src.zip">
       <zipfileset dir="${dir.workspace}" prefix="SMTInterpol">
-	<include name="**/src/**" />
-	<exclude name="**/test_generator/**" />
-	<exclude name="**/smtcomp/**" />
+        <include name="**/src/**" />
+        <exclude name="**/test_generator/**" />
+        <exclude name="**/smtcomp/**" />
         <include name="**/lib/**" />
         <exclude name="SMTInterpol/web/**" />
-	<exclude name="SMTInterpolSamples/src/de/uni_freiburg/informatik/ultimate/smtinterpol/samples/FlipDecisions.java" />
+        <exclude name="SMTInterpolSamples/src/de/uni_freiburg/informatik/ultimate/smtinterpol/samples/FlipDecisions.java" />
       </zipfileset>
     </zip>
     <delete file="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/Version.properties"/>
+  </target>
+
+  <target name="create_src_jar" depends="get-version">
+      <jar destfile="${jar.outdir}/${artifactId}-${version}-sources.jar">
+          <fileset dir="${dir.workspace}/SMTInterpol" includes="**/*.java">
+            <include name="**/src/**" />
+            <exclude name="**/test_generator/**" />
+            <exclude name="**/smtcomp/**" />
+            <include name="**/lib/**" />
+            <exclude name="SMTInterpol/web/**" />
+            <exclude name="SMTInterpolSamples/src/de/uni_freiburg/informatik/ultimate/smtinterpol/samples/FlipDecisions.java" />
+        </fileset>
+      </jar>
   </target>
 
   <!-- Set the competition flag in Config.java -->
@@ -389,4 +405,75 @@ java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/2))m -da -dsa -XX:-UseGCOverheadLimit -j
     <echo message="See coverage results in ${dir.workspace}/coverage/index.html" />
   </target>
 
+
+    <!-- Defined maven snapshots and staging repository id and url -->
+    <property name="ossrh-snapshots-repository-url"
+        value="https://oss.sonatype.org/content/repositories/snapshots" />
+    <property name="ossrh-staging-repository-url"
+        value="https://oss.sonatype.org/service/local/staging/deploy/maven2" />
+
+    <!-- There server id in the Maven settings.xml -->
+    <property name="ossrh-server-id" value="ossrh" />
+
+    <target name="dist" depends="create_src_jar, smtinterpol-comp.jar, javadoc-jar" description="Generate the distribution">
+        <copy file="${jar.outdir}/${jar.basename}.jar" tofile="${artifactId}-${version}.jar"/>
+        <copy file="${jar.outdir}/${jar.basename}-comp.jar" tofile="${artifactId}-${version}-comp.jar"/>
+    </target>
+
+    <target name="gen-pom" depends="get-version">
+        <copy file="pom_template.xml" tofile="pom.xml"/>
+        <replace file="pom.xml" token="VERSION" value="${version}"/>
+    </target>
+
+    <target name="stage" depends="dist, gen-pom" description="deploy release version to Maven staging repository">
+
+        <!-- Sign and deploy the main artifact. -->
+        <artifact:mvn>
+            <arg value="org.apache.maven.plugins:maven-gpg-plugin:1.3:sign-and-deploy-file" />
+            <arg value="-Durl=${ossrh-staging-repository-url}" />
+            <arg value="-DrepositoryId=${ossrh-server-id}" />
+            <arg value="-DpomFile=pom.xml" />
+            <arg value="-Dfile=${artifactId}-${version}.jar" />
+            <arg value="-Pgpg" />
+        </artifact:mvn>
+
+        <!-- sign and deploy the main artifact w/ comp -->
+        <artifact:mvn>
+            <arg value="org.apache.maven.plugins:maven-gpg-plugin:1.3:sign-and-deploy-file" />
+            <arg value="-Durl=${ossrh-staging-repository-url}" />
+            <arg value="-DrepositoryId=${ossrh-server-id}" />
+            <arg value="-DpomFile=pom.xml" />
+            <arg value="-Dfile=${artifactId}-${version}-comp.jar" />
+            <arg value="-Dclassifier=comp" />
+            <arg value="-Pgpg" />
+        </artifact:mvn>
+
+        <!-- Sign and deploy the sources artifact -->
+        <artifact:mvn>
+            <arg value="org.apache.maven.plugins:maven-gpg-plugin:1.3:sign-and-deploy-file" />
+            <arg value="-Durl=${ossrh-staging-repository-url}" />
+            <arg value="-DrepositoryId=${ossrh-server-id}" />
+            <arg value="-DpomFile=pom.xml" />
+            <arg value="-Dfile=${artifactId}-${version}-sources.jar" />
+            <arg value="-Dclassifier=sources" />
+            <arg value="-Pgpg" />
+        </artifact:mvn>
+
+        <!-- sign and deploy the javadoc artifact -->
+        <artifact:mvn>
+            <arg value="org.apache.maven.plugins:maven-gpg-plugin:1.3:sign-and-deploy-file" />
+            <arg value="-Durl=${ossrh-staging-repository-url}" />
+            <arg value="-DrepositoryId=${ossrh-server-id}" />
+            <arg value="-DpomFile=pom.xml" />
+            <arg value="-Dfile=${artifactId}-${version}-javadoc.jar" />
+            <arg value="-Dclassifier=javadoc" />
+            <arg value="-Pgpg" />
+        </artifact:mvn>
+    </target>
+
+    <target depends="javadoc, get-version" name="javadoc-jar">
+        <jar jarfile="${artifactId}-${version}-javadoc.jar">
+            <fileset dir="doc-smtinterpol" />
+        </jar>
+    </target>
 </project>
