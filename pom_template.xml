@@ -24,8 +24,8 @@
     </organization>
 
     <scm>
-		<connection>scm:git:git://github.com/ultimate-pa/smtinterpol.git</connection>
-		<developerConnection>scm:git:ssh://github.com/ultimate-pa/smtinterpol.git</developerConnection>
+        <connection>scm:git:https://github.com/ultimate-pa/smtinterpol.git</connection>
+        <developerConnection>scm:git:git@github.com:ultimate-pa/smtinterpol.git</developerConnection>
         <url>https://github.com/ultimate-pa/smtinterpol</url>
     </scm>
 
