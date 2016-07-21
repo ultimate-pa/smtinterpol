@@ -766,9 +766,6 @@ public class SMTInterpol extends NoopScript {
 	public Term[] getInterpolants(Term[] partition, int[] startOfSubtree) {
 		if (mEngine == null)
 			throw new SMTLIBException("No logic set!");
-		if (getTheory().getLogic().isArray())
-			throw new UnsupportedOperationException(
-					"Array interpolation not implemented yet");
 		if (!mSolverOptions.isProduceProofs()
 				&& !mSolverOptions.isProduceInterpolants())
 			throw new SMTLIBException(
