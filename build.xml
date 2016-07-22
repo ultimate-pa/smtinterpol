@@ -7,11 +7,7 @@
   <property name="artifactId" value="smtinterpol" />
 
   <!-- Build everything  -->
-  <target name="all">
-    <antcall target="smtinterpol.jar" />
-    <antcall target="smtinterpol-comp.jar" />
-    <antcall target="deltadebugger.jar" />
-  </target>
+  <target name="all" depends="dist"/>
 
   <property file="buildjar.properties"/>
 
@@ -28,6 +24,7 @@
     <exec executable="git" outputproperty="version">
       <arg value="describe"/>
     </exec>
+    <property name="jar.basename" value="${artifactId}-${version}"/>
     <tstamp>
       <format property="build.date" pattern="yyyy-MM-dd"/>
       <format property="build.year" pattern="yyyy"/>
@@ -43,14 +40,14 @@
   <target name="check_smtlib1.cup_current">
     <uptodate property="smtlib1.cup.current">
       <srcfiles dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib" includes="*.cup,*.flex" />
-      <srcfiles file="${dir.workspace}/SMTInterpol/lib/java-cup-12joho.jar"/>
+      <srcfiles file="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.0.jar"/>
       <mapper>
 	<globmapper from="smtlib.cup" to="Parser.java"/>
 	<globmapper from="smtlib.cup" to="LexerSymbols.java"/>
 	<globmapper from="smtlib.flex" to="Lexer.java"/>
-	<globmapper from="java-cup-12joho.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Parser.java"/>
-	<globmapper from="java-cup-12joho.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}LexerSymbols.java"/>
-	<globmapper from="java-cup-12joho.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Lexer.java"/>
+	<globmapper from="jh-javacup-1.0.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Parser.java"/>
+	<globmapper from="jh-javacup-1.0.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}LexerSymbols.java"/>
+	<globmapper from="jh-javacup-1.0.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Lexer.java"/>
       </mapper>
     </uptodate>
   </target>
@@ -63,14 +60,14 @@
   <target name="check_smtlib2.cup_current">
     <uptodate property="smtlib2.cup.current">
       <srcfiles dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2" includes="*.cup,*.flex" />
-      <srcfiles file="${dir.workspace}/SMTInterpol/lib/java-cup-12joho.jar"/>
+      <srcfiles file="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.0.jar"/>
       <mapper>
 	<globmapper from="smtlib.cup" to="Parser.java"/>
 	<globmapper from="smtlib.cup" to="LexerSymbols.java"/>
 	<globmapper from="smtlib.flex" to="Lexer.java"/>
-	<globmapper from="java-cup-12joho.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Parser.java"/>
-	<globmapper from="java-cup-12joho.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}LexerSymbols.java"/>
-	<globmapper from="java-cup-12joho.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Lexer.java"/>
+	<globmapper from="jh-javacup-1.0.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Parser.java"/>
+	<globmapper from="jh-javacup-1.0.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}LexerSymbols.java"/>
+	<globmapper from="jh-javacup-1.0.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Lexer.java"/>
       </mapper>
     </uptodate>
   </target>
@@ -84,14 +81,14 @@
   <target name="check_dimacs.cup_current">
     <uptodate property="dimacs.cup.current">
       <srcfiles dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs" includes="*.cup,*.flex" />
-      <srcfiles file="${dir.workspace}/SMTInterpol/lib/java-cup-12joho.jar"/>
+      <srcfiles file="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.0.jar"/>
       <mapper>
 	<globmapper from="dimacs.cup" to="Parser.java"/>
 	<globmapper from="dimacs.cup" to="LexerSymbols.java"/>
 	<globmapper from="dimacs.flex" to="Lexer.java"/>
-	<globmapper from="java-cup-12joho.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Parser.java"/>
-	<globmapper from="java-cup-12joho.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}LexerSymbols.java"/>
-	<globmapper from="java-cup-12joho.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Lexer.java"/>
+	<globmapper from="jh-javacup-1.0.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Parser.java"/>
+	<globmapper from="jh-javacup-1.0.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}LexerSymbols.java"/>
+	<globmapper from="jh-javacup-1.0.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Lexer.java"/>
       </mapper>
     </uptodate>
   </target>
@@ -113,7 +110,7 @@
       <exclude name="de/uni_freiburg/informatik/ultimate/smtinterpol/test_generator/**" />
       <exclude name="de/uni_freiburg/informatik/ultimate/smtinterpol/smtcomp/**" />
       <classpath>
-        <pathelement location="${dir.workspace}/SMTInterpol/lib/java-cup-12joho.jar"/>
+        <pathelement location="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.0.jar"/>
         <pathelement path="${dir.workspace}/Library-SMTLIB/release"/>
       </classpath>
     </javac>
@@ -129,7 +126,7 @@
     <mkdir dir="${dir.workspace}/DeltaDebugger/release"/>
     <javac srcdir="${dir.workspace}/DeltaDebugger/src" destdir="${dir.workspace}/DeltaDebugger/release" optimize="${optimize}" includeAntRuntime="false" debug="${debug}">
       <classpath>
-        <pathelement location="${dir.workspace}/SMTInterpol/lib/java-cup-12joho.jar"/>
+        <pathelement location="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.0.jar"/>
         <pathelement path="${dir.workspace}/Library-SMTLIB/release"/>
         <pathelement path="${dir.workspace}/SMTInterpol/release"/>
       </classpath>
@@ -137,108 +134,98 @@
   </target>
 
   <!-- Create an executable jar -->
-  <target name="smtinterpol.jar" depends="clean,compile">
+  <target name="smtinterpol.jar">
+    <mkdir dir="${jar.outdir}"/>
+    <antcall target="clean"/>
+    <antcall target="compile"/>
     <jar destfile="${jar.outdir}/${jar.basename}.jar" filesetmanifest="mergewithoutmain">
       <manifest>
         <attribute name="Main-Class" value="de.uni_freiburg.informatik.ultimate.smtinterpol.Main"/>
       </manifest>
-      <fileset dir="${dir.workspace}/SMTInterpol/release">
-	<exclude name="**/test_generator/**" />
-	<exclude name="**/smtcomp/**" />
-      </fileset>
-      <zipfileset excludes="META-INF/**" src="${dir.workspace}/SMTInterpol/lib/java-cup-12joho.jar"/>
-      <fileset dir="${dir.workspace}/Library-SMTLIB/release" />
+      <zipfileset dir="${dir.workspace}/SMTInterpol/release" />
+      <zipfileset dir="${dir.workspace}/Library-SMTLIB/release" />
+      <zipfileset includes="com/github/jhoenicke/javacup/runtime/**" src="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.0.jar"/>
       <zipfileset file="${dir.workspace}/LICENSE" prefix="" />
       <zipfileset file="${dir.workspace}/COPYING" prefix="" />
       <zipfileset file="${dir.workspace}/COPYING.LESSER" prefix="" />
       <zipfileset file="${dir.workspace}/AUTHORS" prefix="" />
-      <zipfileset file="${dir.workspace}/README" prefix="" />
+      <zipfileset file="${dir.workspace}/README.md" prefix="" />
     </jar>
   </target>
 
   <!-- Create deltadebugger jar -->
   <target name="deltadebugger.jar" depends="clean,compiledd">
+    <mkdir dir="${jar.outdir}"/>
     <jar destfile="${jar.outdir}/deltadebugger.jar" filesetmanifest="mergewithoutmain">
       <manifest>
         <attribute name="Main-Class" value="de.uni_freiburg.informatik.ultimate.smtinterpol.delta.Minimizer"/>
       </manifest>
-      <fileset dir="${dir.workspace}/SMTInterpol/release">
-	<include name="**/smtlib2/**" />
-	<include name="**/util/**" />
-      </fileset>
-      <fileset dir="${dir.workspace}/DeltaDebugger/release" />
-      <zipfileset excludes="META-INF/**" src="${dir.workspace}/SMTInterpol/lib/java-cup-12joho.jar"/>
-      <fileset dir="${dir.workspace}/Library-SMTLIB/release" />
+      <zipfileset dir="${dir.workspace}/DeltaDebugger/release" />
+      <zipfileset dir="${dir.workspace}/SMTInterpol/release" />
+      <zipfileset dir="${dir.workspace}/Library-SMTLIB/release" />
+      <zipfileset includes="com/github/jhoenicke/javacup/runtime/**" src="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.0.jar"/>
       <zipfileset file="${dir.workspace}/LICENSE" prefix="" />
       <zipfileset file="${dir.workspace}/COPYING" prefix="" />
       <zipfileset file="${dir.workspace}/COPYING.LESSER" prefix="" />
       <zipfileset file="${dir.workspace}/AUTHORS" prefix="" />
-      <zipfileset file="${dir.workspace}/README" prefix="" />
+      <zipfileset file="${dir.workspace}/README.md" prefix="" />
     </jar>
   </target>
 
-  <!-- Create a source zip -->
-  <target name="create_src_zip" depends="get-version">
+  <target name="javadoc-jar" depends="javadoc, get-version">
+    <mkdir dir="${jar.outdir}" />
+    <jar jarfile="${jar.outdir}/${jar.basename}-javadoc.jar">
+      <fileset dir="doc-smtinterpol" />
+    </jar>
+  </target>
+
+  <!-- Create a source jar -->
+  <target name="create_src_jar" depends="get-version">
+    <mkdir dir="${jar.outdir}"/>
     <propertyfile file="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/Version.properties">
       <entry key="version" value="${version}"/>
     </propertyfile>
-    <zip destfile="${jar.outdir}/${jar.basename}-src.zip">
-      <zipfileset dir="${dir.workspace}" prefix="SMTInterpol">
+    <jar destfile="${jar.outdir}/${jar.basename}-sources.jar">
+      <zipfileset dir="${dir.workspace}" prefix="smtinterpol">
         <include name="**/src/**" />
         <exclude name="**/test_generator/**" />
         <exclude name="**/smtcomp/**" />
-        <include name="**/lib/**" />
+        <include name="SMTInterpol*/lib/**" />
         <exclude name="SMTInterpol/web/**" />
         <exclude name="SMTInterpolSamples/src/de/uni_freiburg/informatik/ultimate/smtinterpol/samples/FlipDecisions.java" />
+	<include name="LICENSE" />
+	<include name="COPYING" />
+	<Include name="COPYING.LESSER" />
+	<include name="AUTHORS" />
+	<include name="README.md" />
       </zipfileset>
-    </zip>
-    <delete file="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/Version.properties"/>
-  </target>
-
-  <target name="create_src_jar" depends="get-version">
-      <jar destfile="${jar.outdir}/${artifactId}-${version}-sources.jar">
-          <fileset dir="${dir.workspace}/SMTInterpol" includes="**/*.java">
-            <include name="**/src/**" />
-            <exclude name="**/test_generator/**" />
-            <exclude name="**/smtcomp/**" />
-            <include name="**/lib/**" />
-            <exclude name="SMTInterpol/web/**" />
-            <exclude name="SMTInterpolSamples/src/de/uni_freiburg/informatik/ultimate/smtinterpol/samples/FlipDecisions.java" />
-        </fileset>
-      </jar>
-  </target>
-
-  <!-- Set the competition flag in Config.java -->
-  <target name="patch_competition">
-    <patch patchfile="${dir.workspace}/competition.patch" reverse="yes" strip="0" />
+    </jar>
   </target>
 
   <!-- Create an executable jar in competition mode -->
-  <target name="smtinterpol-comp.jar" depends="clean,patch_competition,compile">
+  <target name="smtinterpol-comp.jar">
+    <mkdir dir="${jar.outdir}"/>
+    <antcall target="clean"/>
+    <patch patchfile="${dir.workspace}/competition.patch" reverse="yes" strip="0" />
+    <antcall target="compile"/>
     <jar destfile="${jar.outdir}/${jar.basename}-comp.jar" filesetmanifest="mergewithoutmain">
       <manifest>
         <attribute name="Main-Class" value="de.uni_freiburg.informatik.ultimate.smtinterpol.Main"/>
       </manifest>
-      <fileset dir="${dir.workspace}/SMTInterpol/release">
-	<exclude name="**/test_generator/**" />
-	<exclude name="**/smtcomp/**" />
-      </fileset>
-      <zipfileset excludes="META-INF/**" src="${dir.workspace}/SMTInterpol/lib/java-cup-12joho.jar"/>
-      <fileset dir="${dir.workspace}/Library-SMTLIB/release" />
+      <zipfileset dir="${dir.workspace}/SMTInterpol/release" />
+      <zipfileset dir="${dir.workspace}/Library-SMTLIB/release" />
+      <zipfileset includes="com/github/jhoenicke/javacup/runtime/**" src="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.0.jar"/>
       <zipfileset file="${dir.workspace}/LICENSE" prefix="" />
       <zipfileset file="${dir.workspace}/COPYING" prefix="" />
       <zipfileset file="${dir.workspace}/COPYING.LESSER" prefix="" />
       <zipfileset file="${dir.workspace}/AUTHORS" prefix="" />
-      <zipfileset file="${dir.workspace}/README" prefix="" />
+      <zipfileset file="${dir.workspace}/README.md" prefix="" />
     </jar>
     <patch patchfile="${dir.workspace}/competition.patch" strip="0" />
   </target>
 
   <!-- Create a new distribution -->
-  <target name="distribution">
-    <antcall target="smtinterpol.jar" />
-    <antcall target="smtinterpol-comp.jar" />
-    <antcall target="create_src_zip" />
+  <target name="distribution" depends="smtinterpol.jar,smtinterpol-comp.jar,create_src_jar">
     <exec executable="make" dir="SMTInterpol/web/html">
       <arg line="distribution" />
     </exec>
@@ -258,13 +245,10 @@ java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/2))m -da -dsa -XX:-UseGCOverheadLimit -j
     <echo file="${tmpdir}/starexec_description.txt" append="false">SMTInterpol ${version}</echo>
     <!-- stupid starexec does not like - characters in description -->
     <replace file="${tmpdir}/starexec_description.txt" token="-" value="_"/>
-    <antcall target="smtinterpol-comp.jar">
-      <param name="jar.outdir" value="${tmpdir}/bin"/>
-    </antcall>
-    <zip destfile="smtinterpol-${version}.zip"
-         basedir="${tmpdir}" />
+    <copy file="${jar.outdir}/${jar.basename}-comp.jar" tofile="${tmpdir}/bin/smtinterpol-comp.jar"/>
+    <zip destfile="${jar.outdir}/smtinterpol-${version}.zip" basedir="${tmpdir}" />
     <delete failonerror="false" includeemptydirs="true" dir="${tmpdir}"/>
-    <echo>created smtinterpol-${version}.zip</echo>
+    <echo>created ${jar.outdir}/smtinterpol-${version}.zip</echo>
   </target>
 
   <!-- Delete compiled class files -->
@@ -293,9 +277,7 @@ java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/2))m -da -dsa -XX:-UseGCOverheadLimit -j
 
   <!-- Delete the executable jar and the source zip -->
   <target name="distclean" description="Deletes a previously build jar" depends="clean">
-    <delete file="${jar.outdir}/${jar.basename}.jar" failonerror="false"/>
-    <delete file="${jar.outdir}/${jar.basename}-src.zip" failonerror="false"/>
-    <delete file="${jar.outdir}/deltadebugger.jar" failonerror="false"/>
+    <delete dir="${jar.outdir}" />
   </target>
 
   <!-- Clean before creating an executable jar -->
@@ -327,7 +309,7 @@ java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/2))m -da -dsa -XX:-UseGCOverheadLimit -j
       <classpath>
 	<pathelement location="${dir.workspace}/libs/junit4.jar"/>
 	<pathelement location="${dir.workspace}/libs/ant-junit4.jar"/>
-	<pathelement location="${dir.workspace}/SMTInterpol/lib/java-cup-12joho.jar"/>
+	<pathelement location="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.0.jar"/>
 	<pathelement path="${dir.workspace}/Library-SMTLIB/release" />
 	<pathelement path="${dir.workspace}/SMTInterpol/release" />
 	<pathelement path="${dir.tests}/SMTInterpolTest/release" />
@@ -358,7 +340,7 @@ java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/2))m -da -dsa -XX:-UseGCOverheadLimit -j
         <classpath>
           <pathelement location="${dir.workspace}/libs/junit4.jar"/>
 	  <pathelement location="${dir.workspace}/libs/ant-junit4.jar"/> 
-	  <pathelement location="${dir.workspace}/SMTInterpol/lib/java-cup-12joho.jar"/>
+	  <pathelement location="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.0.jar"/>
 	  <pathelement path="${dir.workspace}/Library-SMTLIB/release" />
 	  <pathelement path="${dir.workspace}/SMTInterpol/release" />
 	  <pathelement path="${dir.tests}/SMTInterpolTest/release" />
@@ -408,63 +390,52 @@ java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/2))m -da -dsa -XX:-UseGCOverheadLimit -j
   </target>
 
 
-    <!-- Defined maven snapshots and staging repository id and url -->
-    <property name="ossrh-snapshots-repository-url"
-        value="https://oss.sonatype.org/content/repositories/snapshots" />
-    <property name="ossrh-staging-repository-url"
-        value="https://oss.sonatype.org/service/local/staging/deploy/maven2" />
+  <!-- Defined maven snapshots and staging repository id and url -->
+  <property name="ossrh-snapshots-repository-url"
+            value="https://oss.sonatype.org/content/repositories/snapshots" />
+  <property name="ossrh-staging-repository-url"
+            value="https://oss.sonatype.org/service/local/staging/deploy/maven2" />
+  
+  <!-- There server id in the Maven settings.xml -->
+  <property name="ossrh-server-id" value="ossrh" />
 
-    <!-- There server id in the Maven settings.xml -->
-    <property name="ossrh-server-id" value="ossrh" />
-
-    <target name="dist" depends="create_src_jar, smtinterpol-comp.jar, smtinterpol.jar, javadoc-jar" description="Generate the distribution">
-        <copy file="${jar.outdir}/${jar.basename}.jar" tofile="${artifactId}-${version}.jar"/>
-        <copy file="${jar.outdir}/${jar.basename}-comp.jar" tofile="${artifactId}-${version}-comp.jar"/>
-    </target>
-
-    <target name="gen-pom" depends="get-version">
-        <copy file="pom_template.xml" tofile="pom.xml"/>
-        <replace file="pom.xml" token="VERSION" value="${version}"/>
-    </target>
-
-    <target name="stage" depends="dist, gen-pom" description="deploy release version to Maven staging repository">
-
-        <!-- Sign and deploy the main artifact. -->
-        <artifact:mvn>
-            <arg value="org.apache.maven.plugins:maven-gpg-plugin:1.3:sign-and-deploy-file" />
-            <arg value="-Durl=${ossrh-staging-repository-url}" />
-            <arg value="-DrepositoryId=${ossrh-server-id}" />
-            <arg value="-DpomFile=pom.xml" />
-            <arg value="-Dfile=${artifactId}-${version}.jar" />
-            <arg value="-Pgpg" />
-        </artifact:mvn>
-
-        <!-- Sign and deploy the sources artifact -->
-        <artifact:mvn>
-            <arg value="org.apache.maven.plugins:maven-gpg-plugin:1.3:sign-and-deploy-file" />
-            <arg value="-Durl=${ossrh-staging-repository-url}" />
-            <arg value="-DrepositoryId=${ossrh-server-id}" />
-            <arg value="-DpomFile=pom.xml" />
-            <arg value="-Dfile=${artifactId}-${version}-sources.jar" />
-            <arg value="-Dclassifier=sources" />
-            <arg value="-Pgpg" />
-        </artifact:mvn>
-
-        <!-- sign and deploy the javadoc artifact -->
-        <artifact:mvn>
-            <arg value="org.apache.maven.plugins:maven-gpg-plugin:1.3:sign-and-deploy-file" />
-            <arg value="-Durl=${ossrh-staging-repository-url}" />
-            <arg value="-DrepositoryId=${ossrh-server-id}" />
-            <arg value="-DpomFile=pom.xml" />
-            <arg value="-Dfile=${artifactId}-${version}-javadoc.jar" />
-            <arg value="-Dclassifier=javadoc" />
-            <arg value="-Pgpg" />
-        </artifact:mvn>
-    </target>
-
-    <target depends="javadoc, get-version" name="javadoc-jar">
-        <jar jarfile="${artifactId}-${version}-javadoc.jar">
-            <fileset dir="doc-smtinterpol" />
-        </jar>
-    </target>
+  <target name="dist" depends="create_src_jar, smtinterpol-comp.jar, smtinterpol.jar, javadoc-jar" description="Generate the distribution">
+    <copy file="pom_template.xml" tofile="${jar.outdir}/pom.xml"/>
+    <replace file="${jar.outdir}/pom.xml" token="VERSION" value="${version}"/>
+  </target>
+  
+  <target name="stage" depends="dist" description="deploy release version to Maven staging repository">
+    
+    <!-- Sign and deploy the main artifact. -->
+    <artifact:mvn>
+      <arg value="org.apache.maven.plugins:maven-gpg-plugin:1.3:sign-and-deploy-file" />
+      <arg value="-Durl=${ossrh-staging-repository-url}" />
+      <arg value="-DrepositoryId=${ossrh-server-id}" />
+      <arg value="-DpomFile=${jar.outdir}/pom.xml" />
+      <arg value="-Dfile=${jar.outdir}/${jar.basename}.jar" />
+      <arg value="-Pgpg" />
+    </artifact:mvn>
+    
+    <!-- Sign and deploy the sources artifact -->
+    <artifact:mvn>
+      <arg value="org.apache.maven.plugins:maven-gpg-plugin:1.3:sign-and-deploy-file" />
+      <arg value="-Durl=${ossrh-staging-repository-url}" />
+      <arg value="-DrepositoryId=${ossrh-server-id}" />
+      <arg value="-DpomFile=${jar.outdir}/pom.xml" />
+      <arg value="-Dfile=${jar.outdir}/${jar.basename}-sources.jar" />
+      <arg value="-Dclassifier=sources" />
+      <arg value="-Pgpg" />
+    </artifact:mvn>
+    
+    <!-- sign and deploy the javadoc artifact -->
+    <artifact:mvn>
+      <arg value="org.apache.maven.plugins:maven-gpg-plugin:1.3:sign-and-deploy-file" />
+      <arg value="-Durl=${ossrh-staging-repository-url}" />
+      <arg value="-DrepositoryId=${ossrh-server-id}" />
+      <arg value="-DpomFile=${jar.outdir}/pom.xml" />
+      <arg value="-Dfile=${jar.outdir}/${jar.basename}-javadoc.jar" />
+      <arg value="-Dclassifier=javadoc" />
+      <arg value="-Pgpg" />
+    </artifact:mvn>
+  </target>
 </project>

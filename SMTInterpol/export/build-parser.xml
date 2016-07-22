@@ -20,7 +20,7 @@ along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.
 	<property name="smtinterpol" location="src/de/uni_freiburg/informatik/ultimate/smtinterpol"/>
 	<property name="smtlib" location="${smtinterpol}/smtlib"/>
 	<property name="smtlib2" location="${smtinterpol}/smtlib2"/>
-    <property name="cupJar" location="java-cup-12joho.jar"/>
+    <property name="cupJar" location="jh-javacup-1.0.jar"/>
     <property name="flexJar" location="JFlex.jar"/>
     <description>
         Build File for Compiler Project
@@ -28,13 +28,13 @@ along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.
 
 
     <target name="generate_parsers">
-        <java classname="java_cup.Main" classpath="${cupJar}" fork="true" dir="${smtlib}">
+        <java classname="com.github.jhoenicke.javacup.Main" classpath="${cupJar}" fork="true" dir="${smtlib}">
 			<arg value="smtlib.cup" />
         </java>
         <java jar="${flexJar}" fork="true" dir="${smtlib}">
         	<arg value="smtlib.flex" />
         </java>
-        <java classname="java_cup.Main" classpath="${cupJar}" fork="true" dir="${smtlib2}">
+        <java classname="com.github.jhoenicke.javacup.Main" classpath="${cupJar}" fork="true" dir="${smtlib2}">
 			<arg value="smtlib.cup" />
         </java>
         <java jar="${flexJar}" fork="true" dir="${smtlib2}">
