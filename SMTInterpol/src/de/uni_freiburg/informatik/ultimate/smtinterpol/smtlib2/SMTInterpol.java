@@ -459,85 +459,73 @@ public class SMTInterpol extends NoopScript {
 		LBool result = LBool.UNKNOWN;
 		mReasonUnknown = ReasonUnknown.INCOMPLETE;
 		mEngine.setRandomSeed(mSolverOptions.getRandomSeed());
-		try {
-			if (mSolverOptions.getCheckType().check(mEngine)) {
-				if (mEngine.hasModel()) {
-					result = LBool.SAT;
-					if (mSolverOptions.isModelCheckModeActive()) {
-						mModel = new de.uni_freiburg.informatik.ultimate.
-								smtinterpol.model.Model(
-								mClausifier, getTheory(),
-								mSolverOptions.isModelsPartial());
-						if (mDDFriendly && !mModel.checkTypeValues(mLogger))
-							System.exit(1);
-						for (Term asserted : mAssertions) {
-							Term checkedResult = mModel.evaluate(asserted);
-							if (checkedResult != getTheory().mTrue) {
-								if (mDDFriendly)
-									System.exit(1);
-								mLogger.fatal("Model does not satisfy " 
-										+ asserted.toStringDirect());
-//								for (Term t : getSatisfiedLiterals())
-//									if (m_Model.evaluate(t) != getTheory().TRUE)
-//										m_Logger.fatal("Unsat lit: " + t.toStringDirect());
-							}
+		if (mSolverOptions.getCheckType().check(mEngine)) {
+			if (mEngine.hasModel()) {
+				result = LBool.SAT;
+				if (mSolverOptions.isModelCheckModeActive()) {
+					mModel = new de.uni_freiburg.informatik.ultimate.
+							smtinterpol.model.Model(
+							mClausifier, getTheory(),
+							mSolverOptions.isModelsPartial());
+					if (mDDFriendly && !mModel.checkTypeValues(mLogger))
+						System.exit(1);
+					for (Term asserted : mAssertions) {
+						Term checkedResult = mModel.evaluate(asserted);
+						if (checkedResult != getTheory().mTrue) {
+							if (mDDFriendly)
+								System.exit(1);
+							mLogger.fatal("Model does not satisfy " 
+									+ asserted.toStringDirect());
+//							for (Term t : getSatisfiedLiterals())
+//								if (m_Model.evaluate(t) != getTheory().TRUE)
+//									m_Logger.fatal("Unsat lit: " + t.toStringDirect());
 						}
 					}
-				} else {
-					result = LBool.UNKNOWN;
-					switch(mEngine.getCompleteness()) {
-					case DPLLEngine.COMPLETE:
-						if (mSolverOptions.getCheckType() == CheckType.FULL)
-							throw new InternalError("Complete but no model?");
-						mReasonUnknown = ReasonUnknown.INCOMPLETE;
-						break;
-					case DPLLEngine.INCOMPLETE_MEMOUT:
-						mReasonUnknown = ReasonUnknown.MEMOUT;
-						break;
-					case DPLLEngine.INCOMPLETE_TIMEOUT:
-						mReasonUnknown = ReasonUnknown.TIMEOUT;
-						break;
-					case DPLLEngine.INCOMPLETE_QUANTIFIER:
-					case DPLLEngine.INCOMPLETE_THEORY:
-						mReasonUnknown = ReasonUnknown.INCOMPLETE;
-						break;
-					case DPLLEngine.INCOMPLETE_UNKNOWN:
-						mReasonUnknown = ReasonUnknown.CRASHED;
-						break;
-					case DPLLEngine.INCOMPLETE_CHECK:
-						mReasonUnknown = ReasonUnknown.INCOMPLETE;
-						break;
-					case DPLLEngine.INCOMPLETE_CANCELLED:
-						mReasonUnknown = ReasonUnknown.CANCELLED;
-						break;
-					default:
-						throw new InternalError("Unknown incompleteness reason");
-					}
-					mLogger.info("Got %s as reason to return unknown",
-									mEngine.getCompletenessReason());
 				}
 			} else {
-				result = LBool.UNSAT;
-				if (mSolverOptions.isProofCheckModeActive()) {
-					ProofChecker proofchecker = 
-							new ProofChecker(this, getLogger());
-					if (!proofchecker.check(getProof())) { 
-						if (mDDFriendly)
-							System.exit(2);
-						mLogger.fatal("Proof-checker did not verify");
-					}
+				result = LBool.UNKNOWN;
+				switch(mEngine.getCompleteness()) {
+				case DPLLEngine.COMPLETE:
+					if (mSolverOptions.getCheckType() == CheckType.FULL)
+						throw new InternalError("Complete but no model?");
+					mReasonUnknown = ReasonUnknown.INCOMPLETE;
+					break;
+				case DPLLEngine.INCOMPLETE_MEMOUT:
+					mReasonUnknown = ReasonUnknown.MEMOUT;
+					break;
+				case DPLLEngine.INCOMPLETE_TIMEOUT:
+					mReasonUnknown = ReasonUnknown.TIMEOUT;
+					break;
+				case DPLLEngine.INCOMPLETE_QUANTIFIER:
+				case DPLLEngine.INCOMPLETE_THEORY:
+					mReasonUnknown = ReasonUnknown.INCOMPLETE;
+					break;
+				case DPLLEngine.INCOMPLETE_UNKNOWN:
+					mReasonUnknown = ReasonUnknown.CRASHED;
+					break;
+				case DPLLEngine.INCOMPLETE_CHECK:
+					mReasonUnknown = ReasonUnknown.INCOMPLETE;
+					break;
+				case DPLLEngine.INCOMPLETE_CANCELLED:
+					mReasonUnknown = ReasonUnknown.CANCELLED;
+					break;
+				default:
+					throw new InternalError("Unknown incompleteness reason");
+				}
+				mLogger.info("Got %s as reason to return unknown",
+								mEngine.getCompletenessReason());
+			}
+		} else {
+			result = LBool.UNSAT;
+			if (mSolverOptions.isProofCheckModeActive()) {
+				ProofChecker proofchecker = 
+						new ProofChecker(this, getLogger());
+				if (!proofchecker.check(getProof())) { 
+					if (mDDFriendly)
+						System.exit(2);
+					mLogger.fatal("Proof-checker did not verify");
 				}
 			}
-		} catch (OutOfMemoryError eoom) {
-			// BUGFIX: Don't do this since log4j will produce another OOM.
-//			m_Logger.fatal("OOM during check ",oom);
-			mLogger.outOfMemory("Out of memory during checkSat");
-			mReasonUnknown = ReasonUnknown.MEMOUT;
-		} catch (Throwable ex) {
-			if (mDDFriendly)
-				System.exit(3);// NOCHECKSTYLE
-			mLogger.fatal("Error during check ",ex);
-			mReasonUnknown = ReasonUnknown.CRASHED;
 		}
 		mStatus = result;
 		if (Config.CHECK_STATUS_SET && isStatusSet() 

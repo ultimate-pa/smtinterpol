@@ -1156,20 +1156,14 @@ public class DPLLEngine {
 				}
 			}
 			return true;
-		} catch (OutOfMemoryError eoom) {
-			// BUGFIX: Don't do this.  It will throw another OOM!
-//			logger.fatal("Out of Memory during check", oom);
-			mCompleteness = INCOMPLETE_MEMOUT;
-		} catch (Throwable eUnknown) {
-			mLogger.fatal("Unknown exception during check",eUnknown);
-			mCompleteness = INCOMPLETE_UNKNOWN;
+		} catch (RuntimeException eUnknown) {
 			if (System.getProperty("smtinterpol.ddfriendly") != null)
-				System.exit(3); 
+				System.exit(3);
+			throw eUnknown;
 		} finally {
 			for (ITheory t : mTheories)
 				t.endCheck();
 		}
-		return true;
 	}
 	
 	private final void unlearnClauses(int targetstacklevel) {
