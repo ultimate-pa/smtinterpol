@@ -585,7 +585,9 @@ public class SMTInterpol extends NoopScript {
 			mClausifier.setAssignmentProduction(produceAssignment);
 			mEngine.setProduceAssignments(produceAssignment);
 			mEngine.setRandomSeed(mSolverOptions.getRandomSeed());
-			if (getBooleanOption(":interactive-mode"))
+			if (getBooleanOption(":interactive-mode")
+					|| mSolverOptions.isInterpolantCheckModeActive()
+					|| mSolverOptions.isModelCheckModeActive())
 				mAssertions = new ScopedArrayList<Term>();
 			mOptions.setOnline();
 		} catch (UnsupportedOperationException eLogicUnsupported) {
