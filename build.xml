@@ -134,7 +134,7 @@
   </target>
 
   <!-- Create an executable jar -->
-  <target name="smtinterpol.jar">
+  <target name="smtinterpol.jar" depends="get-version">
     <mkdir dir="${jar.outdir}"/>
     <antcall target="clean"/>
     <antcall target="compile"/>
@@ -202,30 +202,8 @@
     </jar>
   </target>
 
-  <!-- Create an executable jar in competition mode -->
-  <target name="smtinterpol-comp.jar">
-    <mkdir dir="${jar.outdir}"/>
-    <antcall target="clean"/>
-    <patch patchfile="${dir.workspace}/competition.patch" reverse="yes" strip="0" />
-    <antcall target="compile"/>
-    <jar destfile="${jar.outdir}/${jar.basename}-comp.jar" filesetmanifest="mergewithoutmain">
-      <manifest>
-        <attribute name="Main-Class" value="de.uni_freiburg.informatik.ultimate.smtinterpol.Main"/>
-      </manifest>
-      <zipfileset dir="${dir.workspace}/SMTInterpol/release" />
-      <zipfileset dir="${dir.workspace}/Library-SMTLIB/release" />
-      <zipfileset includes="com/github/jhoenicke/javacup/runtime/**" src="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.0.jar"/>
-      <zipfileset file="${dir.workspace}/LICENSE" prefix="" />
-      <zipfileset file="${dir.workspace}/COPYING" prefix="" />
-      <zipfileset file="${dir.workspace}/COPYING.LESSER" prefix="" />
-      <zipfileset file="${dir.workspace}/AUTHORS" prefix="" />
-      <zipfileset file="${dir.workspace}/README.md" prefix="" />
-    </jar>
-    <patch patchfile="${dir.workspace}/competition.patch" strip="0" />
-  </target>
-
   <!-- Create a new distribution -->
-  <target name="distribution" depends="smtinterpol.jar,smtinterpol-comp.jar,create_src_jar">
+  <target name="distribution" depends="smtinterpol.jar,create_src_jar">
     <exec executable="make" dir="SMTInterpol/web/html">
       <arg line="distribution" />
     </exec>
@@ -239,44 +217,39 @@
 
 # Run script for SMTInterpol for the STAREXEC cluster
 
-java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/2))m -da -dsa -XX:-UseGCOverheadLimit -jar smtinterpol-comp.jar "$$@"
+if [ "$#" -gt 1 ]; then
+  # ignore bogus parameters given by starexec
+  set -- "$1"
+fi
+
+java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/2))m -da -dsa -XX:-UseGCOverheadLimit -jar smtinterpol.jar -q -o continue-on-error=false "$$@"
 </echo>
     <chmod file="${tmpdir}/bin/starexec_run_default" perm="a+rx" />
     <echo file="${tmpdir}/starexec_description.txt" append="false">SMTInterpol ${version}</echo>
     <!-- stupid starexec does not like - characters in description -->
     <replace file="${tmpdir}/starexec_description.txt" token="-" value="_"/>
-    <copy file="${jar.outdir}/${jar.basename}-comp.jar" tofile="${tmpdir}/bin/smtinterpol-comp.jar"/>
     <zip destfile="${jar.outdir}/smtinterpol-${version}.zip" basedir="${tmpdir}" />
     <delete failonerror="false" includeemptydirs="true" dir="${tmpdir}"/>
     <echo>created ${jar.outdir}/smtinterpol-${version}.zip</echo>
   </target>
 
   <!-- Delete compiled class files -->
-  <target name="clean" description="Deletes a previous build">
+  <target name="clean" description="Cleans a previous build">
     <echo message="Deleting release trees"/>
     <delete failonerror="false" includeemptydirs="true">
       <fileset dir="${dir.workspace}/SMTInterpol/release"/>
       <fileset dir="${dir.workspace}/Library-SMTLIB/release"/>
       <fileset dir="${dir.workspace}/DeltaDebugger/release"/>
       <fileset dir="${dir.workspace}/SMTInterpolTest/release"/>
+      
+      <filelist dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib" files="Parser.java,Lexer.java,LexerSymbols.java" />
+      <filelist dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2" files="Parser.java,Lexer.java,LexerSymbols.java" />
+      <filelist dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs" files="Parser.java,Lexer.java,LexerSymbols.java" />
     </delete>
   </target>
 
-  <!-- Delete generated parsers -->
-  <target name="clean_parsers" description="Deletes all created parser source files">
-    <delete file="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib/Parser.java" failonerror="false"/>
-    <delete file="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib/Lexer.java" failonerror="false"/>
-    <delete file="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib/LexerSymbols.java" failonerror="false"/>
-    <delete file="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2/Parser.java" failonerror="false"/>
-    <delete file="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2/Lexer.java" failonerror="false"/>
-    <delete file="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2/LexerSymbols.java" failonerror="false"/>
-    <delete file="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs/Parser.java" failonerror="false"/>
-    <delete file="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs/Lexer.java" failonerror="false"/>
-    <delete file="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs/LexerSymbols.java" failonerror="false"/>
-  </target>
-
   <!-- Delete the executable jar and the source zip -->
-  <target name="distclean" description="Deletes a previously build jar" depends="clean">
+  <target name="distclean" description="Cleans a previously build including dist files" depends="clean">
     <delete dir="${jar.outdir}" />
   </target>
 
@@ -399,7 +372,7 @@ java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/2))m -da -dsa -XX:-UseGCOverheadLimit -j
   <!-- There server id in the Maven settings.xml -->
   <property name="ossrh-server-id" value="ossrh" />
 
-  <target name="dist" depends="create_src_jar, smtinterpol-comp.jar, smtinterpol.jar, javadoc-jar" description="Generate the distribution">
+  <target name="dist" depends="create_src_jar, smtinterpol.jar, javadoc-jar" description="Generate the distribution">
     <copy file="pom_template.xml" tofile="${jar.outdir}/pom.xml"/>
     <replace file="${jar.outdir}/pom.xml" token="VERSION" value="${version}"/>
   </target>
