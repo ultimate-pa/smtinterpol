@@ -18,9 +18,11 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.option;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import de.uni_freiburg.informatik.ultimate.logic.QuotedObject;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.ParseEnvironment;
@@ -204,13 +206,14 @@ public class OptionMap {
 		Option o = mOptions.get(option);
 		if (o == null)
 			throw new UnsupportedOperationException();
+		ArrayList<Object> result = new ArrayList<Object>();
+		result.add(":description");
+		result.add(new QuotedObject(o.getDescription()));
+		result.add(":default");
+		result.add(o.defaultValue());
 		if (o.isOnlineModifiable())
-			return new Object[] {
-				":description", o.getDescription(), ":default",
-				o.defaultValue(), ":online-modifiable" };
-		return new Object[] {
-			":description", o.getDescription(), ":default",
-				o.defaultValue() };
+			result.add(":online-modifiable");
+		return result.toArray();
 	}
 	
 	/**

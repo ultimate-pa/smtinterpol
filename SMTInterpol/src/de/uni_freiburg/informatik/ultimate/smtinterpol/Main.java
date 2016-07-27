@@ -134,7 +134,7 @@ public final class Main {
 					value = opt.substring(eq + 1);
 				}
 				try {
-					solver.setOption(":" + name, value);
+					options.set(":" + name, value);
 				} catch (UnsupportedOperationException ex) {
 					System.err.println("Unknown option :" + name + ".");
 					return;

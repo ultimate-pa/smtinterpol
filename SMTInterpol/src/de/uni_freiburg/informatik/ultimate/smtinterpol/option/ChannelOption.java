@@ -72,7 +72,7 @@ public class ChannelOption extends Option {
 
 	@Override
 	public Object defaultValue() {
-		return mDefaultName;
+		return new QuotedObject(mDefaultName);
 	}
 	
 	private void createChannel(String file) {

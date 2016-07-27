@@ -30,13 +30,13 @@ public class SMTLIB2Parser implements IParser {
 		if (filename == null)
 			filename = "<stdin>";
 
-        ParseEnvironment parseEnv = new ParseEnvironment(script,
-        		options);
-        try {	
-        	parseEnv.parseScript(filename);
-        } catch (SMTLIBException se) {
-        	parseEnv.printError(se.getMessage());
-        }
+		ParseEnvironment parseEnv = new ParseEnvironment(script,
+				options);
+		try {
+			parseEnv.parseScript(filename);
+		} catch (SMTLIBException se) {
+			parseEnv.printError(se.getMessage());
+		}
 		return 0;
 	}
 

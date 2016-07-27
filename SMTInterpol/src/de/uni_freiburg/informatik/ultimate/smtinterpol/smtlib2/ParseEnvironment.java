@@ -46,7 +46,6 @@ public class ParseEnvironment {
 	private ExitHook mExitHook;
 	// Initialize this lazily.
 	private Deque<Long> mTiming;
-	private boolean mContinueOnError = !Config.COMPETITION;
 
 	private final FrontEndOptions mOptions;
 
@@ -68,31 +67,31 @@ public class ParseEnvironment {
 	}
 
 	static boolean convertSexp(StringBuilder sb, Object o, int level) {
-        if (o instanceof Object[]) {
-        	if (Config.RESULTS_ONE_PER_LINE && level > 0) {
-        		sb.append(System.getProperty("line.separator"));
-        		for (int i = 0; i < level; ++i)
-        			sb.append(' ');
-        	}
-            sb.append('(');
-            Object[] array = (Object[])o;
-            boolean subarray = false;
-            String sep = "";
-            for (Object el : array) {
-                sb.append(sep);
-                subarray |= convertSexp(sb, el, level + Config.INDENTATION);
-                sep = " ";
-            }
-            if (subarray && Config.RESULTS_ONE_PER_LINE) {
-        		sb.append(System.getProperty("line.separator"));
-        		for (int i = 0; i < level; ++i)
-        			sb.append(' ');
-        	}
-            sb.append(')');
-            return true;
-        } else
-            sb.append(o);
-        return false;
+		if (o instanceof Object[]) {
+			if (Config.RESULTS_ONE_PER_LINE && level > 0) {
+				sb.append(System.getProperty("line.separator"));
+				for (int i = 0; i < level; ++i)
+					sb.append(' ');
+			}
+			sb.append('(');
+			Object[] array = (Object[])o;
+			boolean subarray = false;
+			String sep = "";
+			for (Object el : array) {
+				sb.append(sep);
+				subarray |= convertSexp(sb, el, level + Config.INDENTATION);
+				sep = " ";
+			}
+			if (subarray && Config.RESULTS_ONE_PER_LINE) {
+				sb.append(System.getProperty("line.separator"));
+				for (int i = 0; i < level; ++i)
+					sb.append(' ');
+			}
+			sb.append(')');
+			return true;
+		} else
+			sb.append(o);
+		return false;
 	}
 	
 	public void parseScript(String filename) throws SMTLIBException {
@@ -121,7 +120,6 @@ public class ParseEnvironment {
 				try {
 					reader.close();
 				} catch (IOException ex) {
-					
 				}
 			}
 		}
@@ -171,7 +169,7 @@ public class ParseEnvironment {
 		out.print(message);
 		out.println("\")");
 		out.flush();
-		if (!mContinueOnError)
+		if (!mOptions.continueOnError())
 			System.exit(1);
 	}
 	
@@ -244,15 +242,15 @@ public class ParseEnvironment {
 		StringBuilder sb = new StringBuilder();
 		PrintTerm pt = new PrintTerm();
 		sb.append('(');
-        String sep = "";
-        String itemSep = Config.RESULTS_ONE_PER_LINE 
-        		? System.getProperty("line.separator") + " " : " ";
-        for (Term t : response) {
-            sb.append(sep);
-            pt.append(sb, t);
-            sep = itemSep;
-        }
-        sb.append(')');
+		String sep = "";
+		String itemSep = Config.RESULTS_ONE_PER_LINE 
+				? System.getProperty("line.separator") + " " : " ";
+		for (Term t : response) {
+			sb.append(sep);
+			pt.append(sb, t);
+			sep = itemSep;
+		}
+		sb.append(')');
 		mOptions.getOutChannel().println(sb.toString());
 		mOptions.getOutChannel().flush();
 	}
@@ -268,16 +266,16 @@ public class ParseEnvironment {
 	public void setInfo(String info, Object value) {
 		if (info.equals(":error-behavior")) {
 			if ("immediate-exit".equals(value))
-				mContinueOnError = false;
+				mScript.setOption(":continue-on-error", false);
 			else if ("continued-execution".equals(value))
-				mContinueOnError = true;
+				mScript.setOption(":continue-on-error", true);
 		}
 		mScript.setInfo(info, value);
 	}
 	
 	public Object getInfo(String info) {
 		if (info.equals(":error-behavior"))
-			return mContinueOnError ? "continued-execution" : "immediate-exit";
+			return mOptions.continueOnError() ? "continued-execution" : "immediate-exit";
 		return mScript.getInfo(info);
 	}
 
@@ -298,6 +296,6 @@ public class ParseEnvironment {
 	}
 	
 	public boolean isContinueOnError() {
-		return mContinueOnError;
+		return mOptions.continueOnError();
 	}
 }
