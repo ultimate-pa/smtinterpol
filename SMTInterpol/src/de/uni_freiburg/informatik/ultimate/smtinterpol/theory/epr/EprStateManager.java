@@ -408,44 +408,35 @@ public class EprStateManager {
 	}
 	
 	/**
-	 * TODO: implement one solution for constant handling!
 	 * @param constants
 	 */
 	public void addConstants(HashSet<ApplicationTerm> constants) {
+		HashSet<ApplicationTerm> reallyNewConstants = new HashSet<ApplicationTerm>();
 		if (mEprTheory.isGroundAllMode()) {
 			for (ApplicationTerm newConstant : constants) {
 				if (!getAllConstants().contains(newConstant))
-					addGroundClausesForNewConstant(newConstant);
+					reallyNewConstants.add(newConstant);
 			}
 		}
+		addGroundClausesForNewConstant(reallyNewConstants);
 		
 		mEprStateStack.peek().addConstants(constants);
 	}
 	
-//	public HashSet<ApplicationTerm> getAllConstants(Sort sort) {
 	public HashSet<ApplicationTerm> getAllConstants() {
 		HashSet<ApplicationTerm> result = new HashSet<ApplicationTerm>();
-		//the following comment has the insufficient solution
-		//  -- only the constants we have seen in a clause so far.
-		//     we need all those which are/were/will be used in the current push/pop scope
-		//     --> ask the Theory for all declared functions instead
+
 		for (EprState s : mEprStateStack)
 			result.addAll(s.getUsedConstants());
 		
-//		for (Entry<String, FunctionSymbol> en : mTheory.getDeclaredFuns().entrySet()) {
-//			FunctionSymbol fs = en.getValue();
-//			if (fs.getParameterSorts().length == 0) 
-////					&& fs.getReturnSort().equals(sort))
-//				result.add(mTheory.term(fs));
-//		}
 		return result;
 	}
 
 	/**
 	 * Computes all the instantiations of the variables in freeVars that
-	 * are added to the set of instantiations of oldConstants by adding
-	 * newConstant.
-	 * I.e., compute all instantiations of freeVars where newConstant occurs
+	 * are added to the set of instantiations of oldConstants by adding one
+	 * or more constants from newConstants.
+	 * In other words: compute all instantiations of freeVars where a new constant occurs
 	 * at least once.
 	 * 
 	 * @param freeVars
@@ -455,13 +446,16 @@ public class EprStateManager {
 	 */
 	public ArrayList<TTSubstitution> getAllInstantiationsForNewConstant(
 			HashSet<TermVariable> freeVars, 
-			ApplicationTerm newConstant,
+			HashSet<ApplicationTerm> newConstants,
 			HashSet<ApplicationTerm> oldConstants) {
 		
 		ArrayList<TTSubstitution> instsWithNewConstant = 
 				new ArrayList<TTSubstitution>();
 		ArrayList<TTSubstitution> instsWithOutNewConstant = 
 				new ArrayList<TTSubstitution>();
+		
+		HashSet<ApplicationTerm> allConstants = new HashSet<ApplicationTerm>(oldConstants);
+		allConstants.addAll(newConstants);
 
 		instsWithNewConstant.add(new TTSubstitution());
 		instsWithOutNewConstant.add(new TTSubstitution());
@@ -470,17 +464,12 @@ public class EprStateManager {
 			ArrayList<TTSubstitution> instsNewWNC = new ArrayList<TTSubstitution>();
 			ArrayList<TTSubstitution> instsNewWONC = new ArrayList<TTSubstitution>();
 			for (TTSubstitution sub : instsWithNewConstant) {
-				for (ApplicationTerm con : oldConstants) {
+				for (ApplicationTerm con : allConstants) {
 					if (con.getSort().equals(tv.getSort())) {
 						TTSubstitution newSub = new TTSubstitution(sub);
 						newSub.addSubs(con, tv);
 						instsNewWNC.add(newSub);
 					}
-				}
-				if (newConstant.getSort().equals(tv.getSort())) {
-						TTSubstitution newSub = new TTSubstitution(sub);
-						newSub.addSubs(newConstant, tv);
-						instsNewWNC.add(newSub);
 				}
 			}
 
@@ -492,13 +481,14 @@ public class EprStateManager {
 						instsNewWONC.add(newSub);
 					}
 				}
-				if (newConstant.getSort().equals(tv.getSort())) {
+				for (ApplicationTerm newConstant : newConstants) {
+					if (newConstant.getSort().equals(tv.getSort())) {
 						TTSubstitution newSub = new TTSubstitution(sub);
 						newSub.addSubs(newConstant, tv);
 						instsNewWNC.add(newSub);
+					}
 				}
 			}
-
 			instsWithNewConstant = instsNewWNC;
 			instsWithOutNewConstant = instsNewWONC;
 		}
@@ -527,14 +517,14 @@ public class EprStateManager {
 		return insts;
 	}
 	
-	private void addGroundClausesForNewConstant(ApplicationTerm newConstant) {
+	private void addGroundClausesForNewConstant(HashSet<ApplicationTerm> newConstants) {
 		ArrayList<Literal[]> groundings = new ArrayList<Literal[]>();
 		for (EprNonUnitClause c : getAllClauses())  {
 				groundings.addAll(
 						c.computeAllGroundings(
 								getAllInstantiationsForNewConstant(
 										c.getFreeVars(), 
-										newConstant, 
+										newConstants, 
 										this.getAllConstants())));
 		}
 		addGroundClausesToDPLLEngine(groundings);
@@ -551,15 +541,8 @@ public class EprStateManager {
 
 	private void addGroundClausesToDPLLEngine(List<Literal[]> groundings) {
 		for (Literal[] g : groundings) {
-//			Term[] subforms = new Term[g.length];
-			
-//			for (int i = 0; i < g.length; i++)
-//				subforms[i] = g[i].getSMTFormula(mTheory);
-	
 //			//TODO not totally clear if addFormula is the best way, but addClause(..) has
 //			//  visibility package right now..
-//			Term clause = mTheory.or(subforms);
-//			mEprTheory.getClausifier().addFormula(clause);
 			mEprTheory.getClausifier().getEngine().addFormulaClause(g, null); // TODO: proof (+ hook?)
 			
 			mEprTheory.getLogger().debug("EPRDEBUG (EprStateManager): added ground clause " + Arrays.toString(g));

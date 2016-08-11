@@ -1824,7 +1824,7 @@ public class Clausifier {
 	private ArrayTheory mArrayTheory;
 	//alex begin
 	public EprTheory mEprTheory; //TODO: make private..
-	public boolean mInstantiateEprClauses = true;
+	public static final boolean mInstantiateEprClauses = false;
 	//alex end
 	
 	private boolean mInstantiationMode;
