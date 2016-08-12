@@ -9,7 +9,6 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
 import de.uni_freiburg.informatik.ultimate.util.HashUtils;
 
 public class TermTuple {
@@ -77,11 +76,8 @@ public class TermTuple {
 			EqualityManager equalityManager) {
 		assert this.arity == other.arity;
 
-//		TermTuple thisTT = new TermTuple(terms);
-//		TermTuple otherTT = new TermTuple(other.terms);
 		TermTuple thisTT = subs.apply(new TermTuple(terms));
 		TermTuple otherTT = subs.apply(new TermTuple(other.terms));
-//		TermTuple otherTT = alphaRenameFresh(other);
 		
 		TTSubstitution resultSubs = subs; // TODO: or is a copy needed?
 		for (int i = 0; i < this.terms.length; i++) {

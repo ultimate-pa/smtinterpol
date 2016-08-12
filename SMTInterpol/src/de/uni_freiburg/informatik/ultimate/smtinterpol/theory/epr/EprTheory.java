@@ -624,7 +624,7 @@ public class EprTheory implements ITheory {
 	/**
 	 * Add an EprClause for a given a non-ground set of literals.
 	 * 
-	 * Speciality: apply destructive equality reasoning (DER)
+	 * Specialty: apply destructive equality reasoning (DER)
 	 *  If the clause becomes ground through DER, don't add it as an EprClause, but return the corresponding literals
 	 *   instead (in order to be added as a DPLL clause).
 	 *  Otherwise return null
@@ -638,7 +638,7 @@ public class EprTheory implements ITheory {
 		
 		this.addConstants(EprHelpers.collectAppearingConstants(lits, mTheory));
 
-		ApplyDestructiveEqualityReasioning ader = new ApplyDestructiveEqualityReasioning(lits);
+		ApplyDestructiveEqualityReasoning ader = new ApplyDestructiveEqualityReasoning(lits);
 		
 		if (ader.isResultGround()) {
 			return ader.getResult().toArray(new Literal[ader.getResult().size()]);
@@ -654,7 +654,6 @@ public class EprTheory implements ITheory {
 		for (Literal li : lits) {
 			updateLiteralToClauses(li, newEprClause);
 		}
-//		}
 		
 		return null;
 	}
@@ -838,12 +837,12 @@ public class EprTheory implements ITheory {
 	 *    example: {x != c, x != d, P(x)} will yield the substitution [x <- c, x <- d], which
 	 *           will yield the clause {c != c, c != d, P(c)} which seems right.) //TODO: make sure..
 	 */
-	class ApplyDestructiveEqualityReasioning {
+	class ApplyDestructiveEqualityReasoning {
 
 		HashSet<Literal> mResult;
 		boolean mIsResultGround = true;
 
-		public ApplyDestructiveEqualityReasioning(Literal[] literals) {
+		public ApplyDestructiveEqualityReasoning(Literal[] literals) {
 			applyDER(new HashSet<Literal>(Arrays.asList(literals)));
 		}
 
@@ -966,7 +965,5 @@ public class EprTheory implements ITheory {
 		public boolean isResultGround() {
 			return mIsResultGround;
 		}
-
-
 	}
 }

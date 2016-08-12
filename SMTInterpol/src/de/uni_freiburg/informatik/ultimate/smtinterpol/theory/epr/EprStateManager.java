@@ -1,20 +1,14 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 
-import java.security.spec.MGF1ParameterSpec;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.Stack;
-import java.util.Vector;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
-import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
-import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
@@ -35,6 +29,11 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprUni
 public class EprStateManager {
 	
 	private Stack<EprState> mEprStateStack = new Stack<EprState>();
+	
+	// contains the ground literal currently set by the DPLLEngine for
+	// every scope that was created by EprTheory.setLiteral(), and the 
+	// word "push" for all push scopes
+	// (not used at the moment..)
 	private Stack<Object> mLiteralStack = new Stack<Object>();
 	
 	private EprState baseState;
@@ -44,7 +43,7 @@ public class EprStateManager {
 	public EqualityManager mEqualityManager;
 	private EprTheory mEprTheory;
 	private Theory mTheory;
-	private CClosure mCClosure; //TODO: clean up --> where to carry this through clauses??
+	private CClosure mCClosure;
 	
 	HashSet<EprPredicate> mAllEprPredicates = new HashSet<EprPredicate>();
 	
@@ -72,7 +71,6 @@ public class EprStateManager {
 		mEprStateStack.pop();
 		Object popped = mLiteralStack.pop();
 //		assert literal.equals(popped);
-		
 	}
 
 	public Clause setGroundLiteral(Literal literal) {
@@ -142,10 +140,8 @@ public class EprStateManager {
 	
 	public Clause setQuantifiedLiteralWithExceptions(EprQuantifiedUnitClause eqlwe) {
 		mEprTheory.getLogger().debug("EPRDEBUG (EprStateManager): setting Quantified literal: " + eqlwe);
-
 		
 		mEprStateStack.peek().setQuantifiedLiteralWithExceptions(eqlwe);
-		
 		
 		//TODO: possibly do a more efficient consistency check
 		// i.e. only wrt the currently set literal
@@ -165,7 +161,6 @@ public class EprStateManager {
 		ApplicationTerm rhs = (ApplicationTerm) f.getParameters()[1];
 	
 		mEqualityManager.addEquality(lhs, rhs, (CCEquality) eq);
-	
 	
 		// is there a conflict with currently set points or quantifiedy literals?
 		Clause conflict = checkConsistency();
@@ -232,7 +227,6 @@ public class EprStateManager {
 					}
 				}
 			}
-		
 		}
 
 		return null;
