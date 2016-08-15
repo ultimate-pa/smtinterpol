@@ -1,4 +1,4 @@
-package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
+package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -9,11 +9,13 @@ import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClause;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprNonUnitClause;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprQuantifiedUnitClause;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprClauseOld;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprNonUnitClause;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprQuantifiedUnitClause;
 
 /**
  * Represents a partial model for the parts of the EprTheory 
@@ -42,7 +44,7 @@ public class EprState {
 	
 	HashMap<EprPredicate, EprPredicateModel> mPredicateToModel = new HashMap<EprPredicate, EprPredicateModel>();
 
-	private ArrayList<EprClause> mConflictClauses = new ArrayList<EprClause>();
+	private ArrayList<EprClauseOld> mConflictClauses = new ArrayList<EprClauseOld>();
 	
 
 	/**
@@ -129,7 +131,7 @@ public class EprState {
 		return addClause(bc, true);
 	}
 	
-	private boolean addClause(EprClause c, boolean base) {
+	private boolean addClause(EprClauseOld c, boolean base) {
 		if (c.isConflictClause()) {
 			mConflictClauses.add(c);
 			return true;
@@ -150,7 +152,7 @@ public class EprState {
 		return mBaseClauses;
 	}
 
-	public ArrayList<EprClause> getConflictClauses() {
+	public ArrayList<EprClauseOld> getConflictClauses() {
 		return mConflictClauses;
 	}
 	

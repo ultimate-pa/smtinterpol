@@ -14,12 +14,12 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.NamedAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprClauseOld;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprQuantifiedUnitClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClause;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprQuantifiedUnitClause;
 
 public class EprHelpers {
 
@@ -137,7 +137,7 @@ public class EprHelpers {
 //			EprQuantifiedPredicateAtom atom, 
 			Literal quantifiedPredicateLiteral,
 			EprQuantifiedEqualityAtom[] excep,
-			EprClause explanation,
+			EprClauseOld explanation,
 			EprTheory eprTheory) {
 		assert quantifiedPredicateLiteral.getAtom() instanceof EprQuantifiedPredicateAtom;
 

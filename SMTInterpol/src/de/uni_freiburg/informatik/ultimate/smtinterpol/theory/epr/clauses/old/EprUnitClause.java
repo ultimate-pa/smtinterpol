@@ -1,22 +1,20 @@
-package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses;
+package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old;
 
-import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprStateManager;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
 
-public abstract class EprUnitClause extends EprClause {
+public abstract class EprUnitClause extends EprClauseOld {
 	
 	/**
 	 * The eprClause this clause has been instantiated from.
 	 * TODO: currently this field is duplicate code with EprDerivedClause..
 	 */
-	EprClause mExplanation;
+	EprClauseOld mExplanation;
 
 	public EprUnitClause(Literal[] literals, EprTheory eprTheory,
-			EprClause explanation, 
+			EprClauseOld explanation, 
 			boolean isFreshAlphaRenaming, TTSubstitution freshAlphaRen) {
 		super(literals, eprTheory, isFreshAlphaRenaming, freshAlphaRen);
 		assert (eprQuantifiedPredicateLiterals.length == 1 && groundLiterals.length == 0)
@@ -33,7 +31,7 @@ public abstract class EprUnitClause extends EprClause {
 	
 	public abstract EprPredicateAtom getPredicateAtom();
 	
-	public EprClause getExplanation() {
+	public EprClauseOld getExplanation() {
 		return mExplanation;
 	}
 }

@@ -1,4 +1,4 @@
-package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
+package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel;
 
 public interface IDawgSubstitution {
 

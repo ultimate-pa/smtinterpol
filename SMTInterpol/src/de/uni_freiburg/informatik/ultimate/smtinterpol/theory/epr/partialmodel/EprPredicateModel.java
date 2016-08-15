@@ -1,8 +1,10 @@
-package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
+package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel;
 
 import java.util.HashSet;
 
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprQuantifiedUnitClause;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprQuantifiedUnitClause;
 
 public class EprPredicateModel {
 

@@ -37,12 +37,13 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprClauseOld;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprGroundUnitClause;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprNonUnitClause;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprQuantifiedUnitClause;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprUnitClause;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.EprStateManager;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClause;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprGroundUnitClause;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprNonUnitClause;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprQuantifiedUnitClause;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprUnitClause;
 import de.uni_freiburg.informatik.ultimate.util.ScopedHashSet;
 
 public class EprTheory implements ITheory {
@@ -116,7 +117,7 @@ public class EprTheory implements ITheory {
 			return null;
 		System.out.println("EPRDEBUG: setLiteral " + literal);
 		
-		mStateManager.beginScope(literal);
+//		mStateManager.beginScope(literal);
 
 		// does this literal occur in any of the EprClauses?
 		// --> then check for satisfiability
@@ -241,7 +242,7 @@ public class EprTheory implements ITheory {
 		
 		// have we already a conflict clause in store?
 		if (!mStateManager.getConflictClauses().isEmpty()) {
-			EprClause realConflict = mStateManager.getConflictClauses().iterator().next();
+			EprClauseOld realConflict = mStateManager.getConflictClauses().iterator().next();
 			System.out.println("EPRDEBUG (checkpoint): found a conflict: " + realConflict);
 			//TODO: work on explanation..
 			conflict = mStateManager.getDerivedClause(new HashSet<Literal>(0), 
@@ -250,8 +251,8 @@ public class EprTheory implements ITheory {
 			// try unit propagation
 			conflict = eprPropagate();
 
-			if (conflict != null && (conflict instanceof EprClause) &&
-					((EprClause) conflict).getQuantifiedPredicateLiterals().length > 0) {
+			if (conflict != null && (conflict instanceof EprClauseOld) &&
+					((EprClauseOld) conflict).getQuantifiedPredicateLiterals().length > 0) {
 				// the conflict is a proper epr clause --> TODO: ..something about it ..
 				assert false : "the conflict is a proper epr clause --> we cannot give it to DPLL as is";
 			}
@@ -338,8 +339,8 @@ public class EprTheory implements ITheory {
 	 * @param eqlwe
 	 * @return
 	 */
-	public EprClause setQuantifiedLiteralWEInClauses(EprQuantifiedUnitClause eqlwe) {
-		EprClause conflict = null;
+	public EprClauseOld setQuantifiedLiteralWEInClauses(EprQuantifiedUnitClause eqlwe) {
+		EprClauseOld conflict = null;
 		/*
 		 * propagate a quantified predicate
 		 *  --> rules for first-order resolution apply
@@ -347,9 +348,9 @@ public class EprTheory implements ITheory {
 		 */
 		// propagate within EprClauses
 		//TODO: possibly optimize (so not all clauses have to be treated)
-		ArrayList<EprClause> toAdd = new ArrayList<EprClause>();
+		ArrayList<EprClauseOld> toAdd = new ArrayList<EprClauseOld>();
 		for (EprNonUnitClause otherEc : mStateManager.getAllClauses()) {
-			EprClause conflictClause = otherEc.setQuantifiedLiteral(eqlwe);
+			EprClauseOld conflictClause = otherEc.setQuantifiedLiteral(eqlwe);
 
 			if (conflict == null && conflictClause != null) { // we only return the first conflict we find -- TODO: is that good?..
 				// TODO what if the conflict clause is not ground??
@@ -475,48 +476,48 @@ public class EprTheory implements ITheory {
 	 */
 	private EprPredicate isEprModelComplete() {
 		
-		for (EprPredicate pred : mStateManager.getAllEprPredicates()) {
-			int arity = pred.arity;
-			
-			assert arity <= 2;
-
-			if (arity == 2) {
-				ArrayList<EprQuantifiedUnitClause> setQuantifiedLiterals = 
-						mStateManager.getSetLiterals(pred);
-				
-				HashMap<TermVariable, ApplicationTerm> missingPointSets
-					= new HashMap<TermVariable, ApplicationTerm>();
-				
-				HashMap<ApplicationTerm, ApplicationTerm> missingPoints
-				 	= new HashMap<ApplicationTerm, ApplicationTerm>();
-				
-				boolean reflexivePointsCovered = false;
-				
-				boolean nonReflexivePointsCovered = false;
-
-				for (EprQuantifiedUnitClause setQLit : setQuantifiedLiterals) {
-					TermTuple tt = setQLit.getPredicateAtom().getArgumentsAsTermTuple();
-//					if (tt.getFreeVars().size() == arity 
-//							&& setQLit.getEqualityAtoms().length == 0) {
-//						// this EprPredicate is covered
+//		for (EprPredicate pred : mStateManager.getAllEprPredicates()) {//careful: changed the return type of getAll.. to _Scoped_HashSet..
+//			int arity = pred.arity;
+//			
+//			assert arity <= 2;
+//
+//			if (arity == 2) {
+//				ArrayList<EprQuantifiedUnitClause> setQuantifiedLiterals = 
+//						mStateManager.getSetLiterals(pred);
+//				
+//				HashMap<TermVariable, ApplicationTerm> missingPointSets
+//					= new HashMap<TermVariable, ApplicationTerm>();
+//				
+//				HashMap<ApplicationTerm, ApplicationTerm> missingPoints
+//				 	= new HashMap<ApplicationTerm, ApplicationTerm>();
+//				
+//				boolean reflexivePointsCovered = false;
+//				
+//				boolean nonReflexivePointsCovered = false;
+//
+//				for (EprQuantifiedUnitClause setQLit : setQuantifiedLiterals) {
+//					TermTuple tt = setQLit.getPredicateAtom().getArgumentsAsTermTuple();
+////					if (tt.getFreeVars().size() == arity 
+////							&& setQLit.getEqualityAtoms().length == 0) {
+////						// this EprPredicate is covered
+////					}
+//					if (tt.terms[0] instanceof TermVariable
+//							&& tt.terms[0] == tt.terms[1]) {
+//						reflexivePointsCovered = true;
+//
+//					} else if (tt.terms[0] instanceof TermVariable
+//							&& tt.terms[1] instanceof TermVariable
+//							&& tt.terms[0] != tt.terms[1]) {
+//
 //					}
-					if (tt.terms[0] instanceof TermVariable
-							&& tt.terms[0] == tt.terms[1]) {
-						reflexivePointsCovered = true;
-
-					} else if (tt.terms[0] instanceof TermVariable
-							&& tt.terms[1] instanceof TermVariable
-							&& tt.terms[0] != tt.terms[1]) {
-
-					}
-
-
-				}
-			} else if (arity == 1) {
-				
-			}
-
-		}
+//
+//
+//				}
+//			} else if (arity == 1) {
+//				
+//			}
+//
+//		}
 		return null;
 	}
 
@@ -635,30 +636,36 @@ public class EprTheory implements ITheory {
 	 * @return equivalent ground set of literals if DER obtained one, null otherwise
 	 */
 	public Literal[] addEprClause(Literal[] lits, ClauseDeletionHook hook, ProofNode proof) {
+		//TODO: do something about hook and proof..
 		
+		// we need to track all constants for grounding mode (and other applications??)
 		this.addConstants(EprHelpers.collectAppearingConstants(lits, mTheory));
 
-		ApplyDestructiveEqualityReasoning ader = new ApplyDestructiveEqualityReasoning(lits);
 		
+		// we remove disequalities occuring in the clause through destructive equality reasoning
+		// if the clause is ground afterwards, we just give it back to, the DPLLEngine
+		// otherwise we add it as an EprClause
+		ApplyDestructiveEqualityReasoning ader = new ApplyDestructiveEqualityReasoning(lits);
 		if (ader.isResultGround()) {
 			return ader.getResult().toArray(new Literal[ader.getResult().size()]);
 		} 
-		
 		HashSet<Literal> literals = ader.getResult();
 		
-		//TODO: do something about hook and proof..
-		EprNonUnitClause newEprClause = mStateManager.getBaseClause(literals, mTheory);
+		mStateManager.addClause(literals);
 		
-		mConflict |= mStateManager.addBaseClause(newEprClause);
+//		EprNonUnitClause newEprClause = mStateManager.getBaseClause(literals, mTheory);
+//		mConflict |= mStateManager.addBaseClause(newEprClause);
+		
+//		mConflict |= mStateManager.addBaseClause(newEprClause);
 
-		for (Literal li : lits) {
-			updateLiteralToClauses(li, newEprClause);
-		}
+//		for (Literal li : lits) {
+//			updateLiteralToClauses(li, newEprClause);
+//		}
 		
 		return null;
 	}
 
-	void updateLiteralToClauses(Literal lit, EprNonUnitClause c) {
+	private void updateLiteralToClauses(Literal lit, EprNonUnitClause c) {
 		HashSet<EprNonUnitClause> clauses = mLiteralToClauses.get(lit);
 		if (clauses == null) {
 			clauses = new HashSet<EprNonUnitClause>();
@@ -689,7 +696,6 @@ public class EprTheory implements ITheory {
 	}
 
 	private static boolean isEprPredicate(FunctionSymbol function) {
-		//TODO: we should collect all the predicates that are managed by EPR --> implement a check accordingly, here
 		if (function.getName().equals("not")) return false;
 		if (function.getName().equals("or")) return false;
 		if (function.getName().equals("and")) return false;

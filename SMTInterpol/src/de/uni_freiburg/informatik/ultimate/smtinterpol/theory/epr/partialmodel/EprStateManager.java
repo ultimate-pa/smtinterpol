@@ -1,4 +1,4 @@
-package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
+package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -16,46 +16,102 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EqualityManager;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprBaseClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClause;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprDerivedClause;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprGroundUnitClause;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprNonUnitClause;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprQuantifiedUnitClause;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprUnitClause;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprBaseClause;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprClauseOld;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprDerivedClause;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprGroundUnitClause;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprNonUnitClause;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprQuantifiedUnitClause;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprUnitClause;
+import de.uni_freiburg.informatik.ultimate.util.ScopedHashMap;
+import de.uni_freiburg.informatik.ultimate.util.ScopedHashSet;
 
 public class EprStateManager {
 	
-	private Stack<EprState> mEprStateStack = new Stack<EprState>();
+
+	Stack<EprPushState> mPushStateStack = new Stack<EprPushState>();
 	
-	// contains the ground literal currently set by the DPLLEngine for
-	// every scope that was created by EprTheory.setLiteral(), and the 
-	// word "push" for all push scopes
-	// (not used at the moment..)
-	private Stack<Object> mLiteralStack = new Stack<Object>();
-	
-	private EprState baseState;
-	
-	
-	HashMap<Set<Literal>, EprNonUnitClause> mLiteralToClauses = new HashMap<Set<Literal>, EprNonUnitClause>();
+	ScopedHashMap<Set<Literal>, EprClause> mLiteralsToClause = new ScopedHashMap<Set<Literal>, EprClause>();
+
 	public EqualityManager mEqualityManager;
 	private EprTheory mEprTheory;
 	private Theory mTheory;
 	private CClosure mCClosure;
 	
-	HashSet<EprPredicate> mAllEprPredicates = new HashSet<EprPredicate>();
+	ScopedHashSet<EprPredicate> mAllEprPredicates = new ScopedHashSet<EprPredicate>();
 	
 	public EprStateManager(EprTheory eprTheory) {
-		baseState = new EprState();
-		mEprStateStack.push(baseState);
+//		baseState = new EprState();
+//		mEprStateStack.push(baseState);
+
+		mPushStateStack.add(new EprPushState());
+
 		mEprTheory = eprTheory;
 		mEqualityManager =  eprTheory.getEqualityManager();
 		mTheory = eprTheory.getTheory();
 		mCClosure = eprTheory.getCClosure();
 	}
 
+
+	public void addClause(HashSet<Literal> literals) {
+		EprClause newClause = this.getClause(literals);
+		mPushStateStack.peek().addClause(newClause);
+	}
+	
+	/**
+	 * makes sure that for the same set of literals only one clause is constructed.
+	 * Note that this may return a EprDerivedClause -- if there already is one for the set of Literals
+	 * (copy from the old getBaseClause method)
+	 */
+	private EprClause getClause(Set<Literal> newLits) {
+		EprClause result = mLiteralsToClause.get(newLits);
+		if (result == null) {
+			result = new EprClause(newLits, mEprTheory);
+			mEprTheory.getLogger().debug("EPRDEBUG (EprStateManager): creating new clause " + result);
+			mLiteralsToClause.put(newLits, result);
+		} else {
+			mEprTheory.getLogger().debug("EPRDEBUG (EprStateManager): clause has been added before " + result);
+		}
+		return result;
+	}
+	
+	
+	public void push() {
+		mPushStateStack.push(new EprPushState());
+		mLiteralsToClause.beginScope();
+		mAllEprPredicates.beginScope();
+	}
+	
+	public void pop() {
+		mPushStateStack.pop();
+		mLiteralsToClause.endScope();
+		mAllEprPredicates.endScope();
+	}
+
+	public void addNewEprPredicate(EprPredicate pred) {
+//		 mEprStateStack.peek().addNewEprPredicate(pred);
+//		 mAllEprPredicates.add(pred);
+//		mPushStateStack.peek().addEprPredicate(pred);
+		mAllEprPredicates.add(pred);
+	}
+
+	public ScopedHashSet<EprPredicate> getAllEprPredicates() {
+//		assert false : "TODO: check: is the field updated correctly??";
+//		return mAllEprPredicates;
+		return mAllEprPredicates;
+	}
+	
+	//////////////////////////////////// old, perhaps obsolete, stuff, from here on downwards /////////////////////////////////////////
+	
+	HashMap<Set<Literal>, EprNonUnitClause> mLiteralToClauses = new HashMap<Set<Literal>, EprNonUnitClause>();
 	public void beginScope(Object literal) {
 		mLiteralStack.push(literal);
 		mEprStateStack.push(new EprState(mEprStateStack.peek()));
@@ -72,6 +128,18 @@ public class EprStateManager {
 		Object popped = mLiteralStack.pop();
 //		assert literal.equals(popped);
 	}
+	
+	
+	private Stack<EprState> mEprStateStack = new Stack<EprState>();
+	
+	// contains the ground literal currently set by the DPLLEngine for
+	// every scope that was created by EprTheory.setLiteral(), and the 
+	// word "push" for all push scopes
+	// (not used at the moment..)
+	private Stack<Object> mLiteralStack = new Stack<Object>();
+	
+	private EprState baseState;
+	
 
 	public Clause setGroundLiteral(Literal literal) {
 		
@@ -81,7 +149,7 @@ public class EprStateManager {
 		for (EprQuantifiedUnitClause l : getSetLiterals(literal.getSign() == 1, atom.eprPredicate)) {
 			TTSubstitution sub = l.getPredicateAtom().getArgumentsAsTermTuple().match(atom.getArgumentsAsTermTuple(), mEqualityManager);
 			if (sub != null) {
-				EprClause conflict =  l.getExplanation().instantiateClause(null, sub);
+				EprClauseOld conflict =  l.getExplanation().instantiateClause(null, sub);
 				return conflict;
 			}
 		}
@@ -196,7 +264,7 @@ public class EprStateManager {
 				for (TermTuple pointNeg : getPoints(false, pred)) {
 					TTSubstitution sub = pointNeg.match(ttPos, mEqualityManager);
 					if (sub != null) {
-						EprClause conflict =  arPosUnit.getExplanation().instantiateClause(null, sub, 
+						EprClauseOld conflict =  arPosUnit.getExplanation().instantiateClause(null, sub, 
 								getDisequalityChainsFromSubstitution(sub, pointNeg.terms, 
 										arPosUnit.getPredicateAtom().getArguments()));
 						return conflict;
@@ -271,10 +339,7 @@ public class EprStateManager {
 		return result;
 	}
 
-	public void addNewEprPredicate(EprPredicate pred) {
-		 mEprStateStack.peek().addNewEprPredicate(pred);
-		 mAllEprPredicates.add(pred);
-	}
+
 
 	/**
 	 * Adds a clause that is derivable in the current state.
@@ -324,8 +389,8 @@ public class EprStateManager {
 		return notFulfilledClauses;
 	}
 
-	public HashSet<EprClause> getConflictClauses() {
-		HashSet<EprClause> result = new HashSet<EprClause>();
+	public HashSet<EprClauseOld> getConflictClauses() {
+		HashSet<EprClauseOld> result = new HashSet<EprClauseOld>();
 		for (EprState es : mEprStateStack) {
 			result.addAll(es.getConflictClauses());
 		}
@@ -350,7 +415,7 @@ public class EprStateManager {
 	 * makes sure that for the same set of literals only one clause is constructed.
 	 * Note that this may return a EprBaseClause -- if there already is one for the set of Literals
 	 */
-	public EprClause getDerivedClause(Set<Literal> newLits, EprTheory eprTheory, Object explanation) {
+	public EprClauseOld getDerivedClause(Set<Literal> newLits, EprTheory eprTheory, Object explanation) {
 		EprNonUnitClause result = mLiteralToClauses.get(newLits);
 		if (result == null) {
 			result = new EprDerivedClause(newLits.toArray(new Literal[newLits.size()]), eprTheory, explanation);
@@ -396,10 +461,7 @@ public class EprStateManager {
 		return mCClosure;
 	}
 
-	public HashSet<EprPredicate> getAllEprPredicates() {
-		assert false : "TODO: check: is the field updated correctly??";
-		return mAllEprPredicates;
-	}
+
 	
 	/**
 	 * @param constants
@@ -542,4 +604,8 @@ public class EprStateManager {
 			mEprTheory.getLogger().debug("EPRDEBUG (EprStateManager): added ground clause " + Arrays.toString(g));
 		}
 	}
+	
+	
+
+
 }

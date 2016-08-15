@@ -1,4 +1,4 @@
-package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses;
+package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -19,7 +19,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEqualit
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers.Pair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprStateManager;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
@@ -29,8 +28,9 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroun
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.EprStateManager;
 
-public abstract class EprNonUnitClause extends EprClause {
+public abstract class EprNonUnitClause extends EprClauseOld {
 
 	/**
 	 * All constants (0-ary ApplicationTerms) that appear in a literal of this clause.
@@ -253,7 +253,7 @@ public abstract class EprNonUnitClause extends EprClause {
 	 *  TODO: does not look so nice from the programming point of view..
 	 * @return
 	 */
-	public EprClause getInstantiationOfClauseForCurrentUnitLiteral(EprUnitClause uc) {
+	public EprClauseOld getInstantiationOfClauseForCurrentUnitLiteral(EprUnitClause uc) {
 		return mUnitLiteralToInstantiationOfClause.get(uc);
 	}
 
@@ -643,7 +643,7 @@ public abstract class EprNonUnitClause extends EprClause {
 	 * @param qLiteral
 	 * @return a fresh EprClause that follows from first-order resolution with qLiteral
 	 */
-	public EprClause setQuantifiedLiteral(EprQuantifiedUnitClause setEqlweRaw) {
+	public EprClauseOld setQuantifiedLiteral(EprQuantifiedUnitClause setEqlweRaw) {
 	 	EprQuantifiedUnitClause setEqlwe = setEqlweRaw.getFreshAlphaRenamedVersion();
 		EprQuantifiedPredicateAtom setLitAtom = setEqlwe.getPredicateAtom();
 		
@@ -873,7 +873,7 @@ public abstract class EprNonUnitClause extends EprClause {
 
 	class GetResolventStatus {
 		ResolventStatus rs;
-		EprClause resolvent;
+		EprClauseOld resolvent;
 
 		GetResolventStatus(TTSubstitution subs, Literal lit1, EprQuantifiedEqualityAtom[] eqAtoms1,
 				Literal lit2, EprQuantifiedEqualityAtom[] eqAtoms2) {
@@ -908,7 +908,7 @@ public abstract class EprNonUnitClause extends EprClause {
 			return rs;
 		}
 		
-		EprClause getResolvent() {
+		EprClauseOld getResolvent() {
 			return resolvent;
 		}
 	}

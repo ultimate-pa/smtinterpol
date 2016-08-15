@@ -17,27 +17,32 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClause;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprClauseOld;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
 
 /**
  * Represents an uninterpreted predicate that the EPR theory reasons about.
  * Stores and updates a model for that predicate.
  * If setting a literal leads to a conflict, that conflict is reported.
  * 
- * @author Alexander Nutz
+ * @author nutz
  */
 public class EprPredicate {
 
+	public final int arity;
 	public final FunctionSymbol functionSymbol;
 
-	public final int arity;
+	/**
+	 * Contains all DecideStackLiterals which talk about this EprPredicate.
+	 */
+	private HashSet<DecideStackLiteral> decideStackLiterals;
 	
 	/**
 	 * Storage to track where this predicate occurs in the formula with at least one quantified argument.
 	 */
-	private HashMap<EprClause, HashSet<Literal>> mQuantifiedOccurences = new HashMap<EprClause, HashSet<Literal>>();
+	private HashMap<EprClauseOld, HashSet<Literal>> mQuantifiedOccurences = new HashMap<EprClauseOld, HashSet<Literal>>();
 
-	private HashMap<EprClause, HashSet<Literal>> mGroundOccurences = new HashMap<EprClause, HashSet<Literal>>();
+	private HashMap<EprClauseOld, HashSet<Literal>> mGroundOccurences = new HashMap<EprClauseOld, HashSet<Literal>>();
 	
 	private HashSet<EprGroundPredicateAtom> mDPLLAtoms = new HashSet<EprGroundPredicateAtom>();
 	
@@ -51,7 +56,7 @@ public class EprPredicate {
 	
 
 
-	public void addQuantifiedOccurence(Literal l, EprClause eprClause) {
+	public void addQuantifiedOccurence(Literal l, EprClauseOld eprClause) {
 		HashSet<Literal> val = mQuantifiedOccurences.get(eprClause);
 		if (val == null) {
 			val = new HashSet<Literal>();
@@ -60,11 +65,11 @@ public class EprPredicate {
 		val.add(l);
 	}
 	
-	public HashMap<EprClause, HashSet<Literal>> getQuantifiedOccurences() {
+	public HashMap<EprClauseOld, HashSet<Literal>> getQuantifiedOccurences() {
 		return mQuantifiedOccurences;
 	}
 	
-	public void addGroundOccurence(Literal l, EprClause eprClause) {
+	public void addGroundOccurence(Literal l, EprClauseOld eprClause) {
 		HashSet<Literal> val = mGroundOccurences.get(eprClause);
 		if (val == null) {
 			val = new HashSet<Literal>();
@@ -73,7 +78,7 @@ public class EprPredicate {
 		val.add(l);
 	}
 	
-	public HashMap<EprClause, HashSet<Literal>> getGroundOccurences() {
+	public HashMap<EprClauseOld, HashSet<Literal>> getGroundOccurences() {
 		return mGroundOccurences;
 	}
 

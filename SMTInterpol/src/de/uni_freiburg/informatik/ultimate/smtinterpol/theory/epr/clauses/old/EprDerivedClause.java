@@ -1,12 +1,12 @@
-package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses;
+package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old;
 
 import java.util.ArrayList;
 
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprStateManager;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.EprStateManager;
 
 public class EprDerivedClause extends EprNonUnitClause {
 	
@@ -33,7 +33,7 @@ public class EprDerivedClause extends EprNonUnitClause {
 	}
 
 	@Override
-	public EprClause getFreshAlphaRenamedVersion() {
+	public EprClauseOld getFreshAlphaRenamedVersion() {
 		TTSubstitution sub = new TTSubstitution();
 		ArrayList<Literal> newLits = getFreshAlphaRenamedLiterals(sub);
 		return new EprDerivedClause(newLits.toArray(new Literal[newLits.size()]), 

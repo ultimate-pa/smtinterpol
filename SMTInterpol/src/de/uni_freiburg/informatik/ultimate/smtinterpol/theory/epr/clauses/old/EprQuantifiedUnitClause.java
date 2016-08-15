@@ -1,4 +1,4 @@
-package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses;
+package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -12,11 +12,11 @@ import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprStateManager;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.EprStateManager;
 
 /**
  * Stands for a clause of that contains one quantified literal built from an uninterpreted predicate,
@@ -29,12 +29,12 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuant
 public class EprQuantifiedUnitClause extends EprUnitClause {
 	
 	public EprQuantifiedUnitClause(Literal[] literals, EprTheory eprTheory,
-			EprClause explanation) {
+			EprClauseOld explanation) {
 		this(literals, eprTheory, explanation, false, null);
 	}
 	
 	public EprQuantifiedUnitClause(Literal[] literals, EprTheory eprTheory,
-			EprClause explanation, boolean freshAlphaRenaming, TTSubstitution freshAlphaRen) {
+			EprClauseOld explanation, boolean freshAlphaRenaming, TTSubstitution freshAlphaRen) {
 		super(literals, eprTheory, explanation, freshAlphaRenaming, freshAlphaRen);
 		assert eprQuantifiedPredicateLiterals.length == 1;
 		assert groundLiterals.length == 0;

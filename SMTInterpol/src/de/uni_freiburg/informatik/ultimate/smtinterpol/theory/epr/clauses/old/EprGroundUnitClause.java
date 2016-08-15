@@ -1,21 +1,21 @@
-package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses;
+package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old;
 
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprStateManager;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.EprStateManager;
 
 public class EprGroundUnitClause extends EprUnitClause {
 
 	public EprGroundUnitClause(Literal literal, EprTheory eprTheory, 
-			 EprClause explanation) {
+			 EprClauseOld explanation) {
 		this(literal, eprTheory, explanation, false);
 	}
 	
 	public EprGroundUnitClause(Literal literal, EprTheory eprTheory, 
-			 EprClause explanation,
+			 EprClauseOld explanation,
 			boolean freshAlphaRenaming) {
 		super(new Literal[] { literal }, eprTheory, explanation, 
 				freshAlphaRenaming, new TTSubstitution());
@@ -44,7 +44,7 @@ public class EprGroundUnitClause extends EprUnitClause {
 	}
 
 	@Override
-	public EprClause getFreshAlphaRenamedVersion() {
+	public EprClauseOld getFreshAlphaRenamedVersion() {
 		//TODO: not so nice, somehow
 		return new EprGroundUnitClause(getPredicateLiteral(), mEprTheory, 
 				mExplanation, true);
