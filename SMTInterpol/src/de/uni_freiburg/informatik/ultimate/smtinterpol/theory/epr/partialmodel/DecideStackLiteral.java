@@ -11,12 +11,19 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuant
  */
 public class DecideStackLiteral {
 
-	boolean polarity;
-	EprQuantifiedPredicateAtom atom;
-	
+	boolean mPolarity;
+	EprQuantifiedPredicateAtom mAtom;
 	/**
 	 * Stores all the groundings for which this.atom is decided with this.polarity
 	 * by this DecideStackLiteral
 	 */
-	IDawg dawg;
+	IDawg mDawg;
+	
+	public DecideStackLiteral(boolean polarity, EprQuantifiedPredicateAtom atom, IDawg dawg) {
+		mPolarity = polarity;
+		mAtom = atom;
+		mDawg = dawg;
+	}
+	
+	
 }

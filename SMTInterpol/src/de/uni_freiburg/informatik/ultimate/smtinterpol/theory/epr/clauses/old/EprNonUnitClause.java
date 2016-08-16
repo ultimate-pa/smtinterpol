@@ -111,7 +111,7 @@ public abstract class EprNonUnitClause extends EprClauseOld {
 		for (Literal oldClauseQl : mClauseThisIsAFreshAlphaRenamingOf.eprQuantifiedPredicateLiterals) {
 			EprQuantifiedPredicateAtom oldClauseAtom = (EprQuantifiedPredicateAtom) oldClauseQl.getAtom();
 			EprQuantifiedPredicateAtom atomInNewClause = 
-					oldClauseAtom.eprPredicate.getAtomForTermTuple(
+					oldClauseAtom.getEprPredicate().getAtomForTermTuple(
 							mFreshAlphaRenaming.apply(
 									oldClauseAtom.getArgumentsAsTermTuple()), mTheory, 0); //TODO assertionStackLevel
 			Literal litInNewClause = oldClauseQl.getSign() == 1 ? atomInNewClause : atomInNewClause.negate();
@@ -306,10 +306,10 @@ public abstract class EprNonUnitClause extends EprClauseOld {
 			boolean liPositive = li.getSign() == 1;
 			// we only reach here if none of the quantified literals in the current state 
 			//  fulfilled or contradicted li
-			HashSet<TermTuple> otherPolarityPoints = mStateManager.getPoints(!liPositive, liAtom.eprPredicate);
+			HashSet<TermTuple> otherPolarityPoints = mStateManager.getPoints(!liPositive, liAtom.getEprPredicate());
 			for (TermTuple opPoint : otherPolarityPoints) { // TODO: seems awfully inefficient..
 				if (opPoint.match(liAtom.getArgumentsAsTermTuple(), mEqualityManager) != null) {
-					EprGroundPredicateAtom opAtom = liAtom.eprPredicate.getAtomForPoint(opPoint);
+					EprGroundPredicateAtom opAtom = liAtom.getEprPredicate().getAtomForPoint(opPoint);
 					Literal opLit = liPositive ? opAtom.negate() : opAtom;
 					setLiteralUnfulfillable(li, 
 							new EprGroundUnitClause(opLit, mEprTheory, null));
@@ -344,16 +344,16 @@ public abstract class EprNonUnitClause extends EprClauseOld {
 					EprGroundPredicateAtom egpa = (EprGroundPredicateAtom) liAtom;
 					// compare to points
 					HashSet<TermTuple> samePolarityPoints = mStateManager.getPoints(liPositive, 
-							egpa.eprPredicate);
+							egpa.getEprPredicate());
 					if (samePolarityPoints.contains(egpa.getArgumentsAsTermTuple())) {//TODO: seems inefficient..
 							setLiteralFulfilled(li);
 							continue;
 					}
 					HashSet<TermTuple> otherPolarityPoints = mStateManager.getPoints(liPositive, 
-							((EprGroundPredicateAtom) liAtom).eprPredicate);
+							((EprGroundPredicateAtom) liAtom).getEprPredicate());
 					if (otherPolarityPoints.contains(egpa.getArgumentsAsTermTuple())) {//TODO: seems inefficient..
 					EprGroundPredicateAtom opAtom = ((EprGroundPredicateAtom) liAtom).
-							eprPredicate.getAtomForPoint(
+							getEprPredicate().getAtomForPoint(
 									egpa.getArgumentsAsTermTuple());
 					Literal opLit = liPositive ? opAtom.negate() : opAtom;
 						setLiteralUnfulfillable(li, 
@@ -386,7 +386,7 @@ public abstract class EprNonUnitClause extends EprClauseOld {
 	private boolean compareToSetQuantifiedLiterals(Literal li) {
 		EprQuantifiedPredicateAtom liAtom = (EprQuantifiedPredicateAtom) li.getAtom();
 
-		for (EprQuantifiedUnitClause slRaw : mStateManager.getSetLiterals(liAtom.eprPredicate)) {
+		for (EprQuantifiedUnitClause slRaw : mStateManager.getSetLiterals(liAtom.getEprPredicate())) {
 			EprQuantifiedUnitClause sl = slRaw.getFreshAlphaRenamedVersion();
 			TermTuple liTT = liAtom.getArgumentsAsTermTuple();
 			TermTuple slTT = sl.getPredicateAtom().getArgumentsAsTermTuple();
@@ -424,8 +424,8 @@ public abstract class EprNonUnitClause extends EprClauseOld {
 		assert mAllLiterals.contains(clauseLit);
 		assert setLiteralPredicateLiteral.getAtom() instanceof EprPredicateAtom;
 		assert clauseLit.getAtom() instanceof EprPredicateAtom;
-		assert ((EprPredicateAtom) setLiteralPredicateLiteral.getAtom()).eprPredicate.equals(
-				((EprPredicateAtom) clauseLit.getAtom()).eprPredicate);
+		assert ((EprPredicateAtom) setLiteralPredicateLiteral.getAtom()).getEprPredicate().equals(
+				((EprPredicateAtom) clauseLit.getAtom()).getEprPredicate());
 
 		boolean polaritiesMatch = clauseLit.getSign() == setLiteralPredicateLiteral.getSign();
 
@@ -537,7 +537,7 @@ public abstract class EprNonUnitClause extends EprClauseOld {
 			// we have an ground literal that uses an epr predicate
 			EprGroundPredicateAtom egpa = (EprGroundPredicateAtom) setLiteral.getAtom();
 			TermTuple point = egpa.getArgumentsAsTermTuple(); 
-			EprPredicate pred = egpa.eprPredicate; 
+			EprPredicate pred = egpa.getEprPredicate(); 
 
 			HashSet<Literal> qo = pred.getQuantifiedOccurences().get(this);
 			if (qo != null) {
@@ -657,7 +657,7 @@ public abstract class EprNonUnitClause extends EprClauseOld {
 			EprPredicateAtom clauseLitAtom = (EprPredicateAtom) clauseLit.getAtom();
 
 			// do the eprPredicates match? do nothing if they don't
-			if (!clauseLitAtom.eprPredicate.equals(setLitAtom.eprPredicate)) 
+			if (!clauseLitAtom.getEprPredicate().equals(setLitAtom.getEprPredicate())) 
 				continue;
 
 			// is there a unifier?
@@ -693,8 +693,8 @@ public abstract class EprNonUnitClause extends EprClauseOld {
 		assert litA.getSign() == litB.getSign();
 		assert litA.getAtom() instanceof EprPredicateAtom;
 		assert litB.getAtom() instanceof EprPredicateAtom;
-		assert ((EprPredicateAtom) litA.getAtom()).eprPredicate.equals(
-				((EprPredicateAtom) litB.getAtom()).eprPredicate);
+		assert ((EprPredicateAtom) litA.getAtom()).getEprPredicate().equals(
+				((EprPredicateAtom) litB.getAtom()).getEprPredicate());
 		
 		///// check if the predicate atoms allow/deny implication
 		boolean doesSpecializeAPred = doesUnifierSpecialize(sub, litA);

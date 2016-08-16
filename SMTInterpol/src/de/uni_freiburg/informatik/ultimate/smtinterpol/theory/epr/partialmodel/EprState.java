@@ -81,7 +81,7 @@ public class EprState {
 	 * @return
 	 */
 	public void setPoint(boolean positive, EprGroundPredicateAtom atom) {
-		EprPredicate pred = atom.eprPredicate;
+		EprPredicate pred = atom.getEprPredicate();
         TermTuple point = new TermTuple(((EprPredicateAtom) atom).getArguments());
         
         if (mPredicateToModel.get(pred) == null)
@@ -94,7 +94,7 @@ public class EprState {
 	}
 
 	public void setQuantifiedLiteralWithExceptions(EprQuantifiedUnitClause eqlwe) {
-		EprPredicate pred = eqlwe.getPredicateAtom().eprPredicate;
+		EprPredicate pred = eqlwe.getPredicateAtom().getEprPredicate();
 		
 		if (mPredicateToModel.get(pred) == null)
 			addNewEprPredicate(pred);		
@@ -106,7 +106,7 @@ public class EprState {
 	}
 	
 	public void unsetQuantifiedLiteralWithExceptions(EprQuantifiedUnitClause eqlwe) {
-		EprPredicate pred = eqlwe.getPredicateAtom().eprPredicate;
+		EprPredicate pred = eqlwe.getPredicateAtom().getEprPredicate();
 
 		mPredicateToModel.get(pred).unsetQuantifiedLitPositive(eqlwe);
 	}

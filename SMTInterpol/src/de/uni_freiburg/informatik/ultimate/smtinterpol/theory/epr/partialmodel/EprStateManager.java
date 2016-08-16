@@ -82,33 +82,6 @@ public class EprStateManager {
 	}
 
 
-	public void addClause(HashSet<Literal> literals) {
-		EprClause newClause = this.getClause(literals);
-		mPushStateStack.peek().addClause(newClause);
-		
-		for (Literal li : literals) {
-			updateAtomToClauses(li.getAtom(), newClause);
-		}
-	}
-	
-	/**
-	 * makes sure that for the same set of literals only one clause is constructed.
-	 * Note that this may return a EprDerivedClause -- if there already is one for the set of Literals
-	 * (copy from the old getBaseClause method)
-	 */
-	private EprClause getClause(Set<Literal> newLits) {
-		EprClause result = mLiteralsToClause.get(newLits);
-		if (result == null) {
-			result = new EprClause(newLits, mEprTheory);
-			mEprTheory.getLogger().debug("EPRDEBUG (EprStateManager): creating new clause " + result);
-			mLiteralsToClause.put(newLits, result);
-		} else {
-			mEprTheory.getLogger().debug("EPRDEBUG (EprStateManager): clause has been added before " + result);
-		}
-		return result;
-	}
-	
-	
 	public void push() {
 		mPushStateStack.push(new EprPushState());
 		mLiteralsToClause.beginScope();
@@ -121,70 +94,51 @@ public class EprStateManager {
 		mAllEprPredicates.endScope();
 	}
 
-	public void addNewEprPredicate(EprPredicate pred) {
-//		 mEprStateStack.peek().addNewEprPredicate(pred);
-//		 mAllEprPredicates.add(pred);
-//		mPushStateStack.peek().addEprPredicate(pred);
-		mAllEprPredicates.add(pred);
-	}
-
-	public ScopedHashSet<EprPredicate> getAllEprPredicates() {
-//		assert false : "TODO: check: is the field updated correctly??";
-//		return mAllEprPredicates;
-		return mAllEprPredicates;
-	}
-	
-	public void updateAtomToClauses(DPLLAtom atom, EprClause c) {
-		HashSet<EprClause> clauses = mDPLLAtomToClauses.get(atom);
-		if (clauses == null) {
-			clauses = new HashSet<EprClause>();
-			mDPLLAtomToClauses.put(atom, clauses);
-		}
-		clauses.add(c);
-	}
-	
-	public HashSet<EprClause> getClausesThatContainAtom(DPLLAtom atom) {
-		return mDPLLAtomToClauses.get(atom);
-	}
+	////////////////// 
+	////////////////// methods that change the epr solver state (state of clauses and/or decide stack)
+	////////////////// 
 
 	public Clause setEprGroundLiteral(Literal literal) {
 		
 		EprGroundPredicateAtom atom = (EprGroundPredicateAtom) literal.getAtom();
+		EprPredicate pred = atom.getEprPredicate();
 		
-		// is there a conflict with one of the currently set quantified literals??
-		for (EprQuantifiedUnitClause l : getSetLiterals(literal.getSign() == 1, atom.eprPredicate)) {
-			TTSubstitution sub = l.getPredicateAtom().getArgumentsAsTermTuple().match(atom.getArgumentsAsTermTuple(), mEqualityManager);
-			if (sub != null) {
-				EprClauseOld conflict =  l.getExplanation().instantiateClause(null, sub);
-				return conflict;
-			}
-		}
-		// is there a conflict with one of the currently set points 
-		// (taking into account the current equalities between constants)
-		HashSet<TermTuple> possibleConflictPoints = this.getPoints(literal.getSign() != 1, atom.eprPredicate);
-		for (TermTuple point : possibleConflictPoints) {
-			TTSubstitution sub = point.match(atom.getArgumentsAsTermTuple(), mEqualityManager);
-			if (sub != null) {
-				// build conflict clause
-				ArrayList<Literal> confLits = new ArrayList<Literal>();
-
-				confLits.add(literal.negate());
-
-				EprGroundPredicateAtom atomOfPoint = atom.eprPredicate.getAtomForPoint(point);
-				confLits.add(literal.getSign() != 1 ? atomOfPoint.negate() : atomOfPoint);
-
-				confLits.addAll(getDisequalityChainsFromSubstitution(sub, point.terms, atom.getArguments()));
-				
-				Clause conflict = new Clause(confLits.toArray(new Literal[confLits.size()]));
-				return conflict;
-			}
-		}	
-		
-		// if there is no conflict, set it..
-		mEprStateStack.peek().setPoint(
-				literal.getSign() == 1, 
-				(EprGroundPredicateAtom) literal.getAtom());
 		return null;
+		// old:
+//		// is there a conflict with one of the currently set quantified literals??
+//		for (EprQuantifiedUnitClause l : getSetLiterals(literal.getSign() == 1, atom.eprPredicate)) {
+//			TTSubstitution sub = l.getPredicateAtom().getArgumentsAsTermTuple().match(atom.getArgumentsAsTermTuple(), mEqualityManager);
+//			if (sub != null) {
+//				EprClauseOld conflict =  l.getExplanation().instantiateClause(null, sub);
+//				return conflict;
+//			}
+//		}
+//		// is there a conflict with one of the currently set points 
+//		// (taking into account the current equalities between constants)
+//		HashSet<TermTuple> possibleConflictPoints = this.getPoints(literal.getSign() != 1, atom.eprPredicate);
+//		for (TermTuple point : possibleConflictPoints) {
+//			TTSubstitution sub = point.match(atom.getArgumentsAsTermTuple(), mEqualityManager);
+//			if (sub != null) {
+//				// build conflict clause
+//				ArrayList<Literal> confLits = new ArrayList<Literal>();
+//
+//				confLits.add(literal.negate());
+//
+//				EprGroundPredicateAtom atomOfPoint = atom.eprPredicate.getAtomForPoint(point);
+//				confLits.add(literal.getSign() != 1 ? atomOfPoint.negate() : atomOfPoint);
+//
+//				confLits.addAll(getDisequalityChainsFromSubstitution(sub, point.terms, atom.getArguments()));
+//				
+//				Clause conflict = new Clause(confLits.toArray(new Literal[confLits.size()]));
+//				return conflict;
+//			}
+//		}	
+//		
+//		// if there is no conflict, set it..
+//		mEprStateStack.peek().setPoint(
+//				literal.getSign() == 1, 
+//				(EprGroundPredicateAtom) literal.getAtom());
+//		return null;
 	}
 	
 	public void unsetEprGroundLiteral(Literal literal) {
@@ -225,25 +179,72 @@ public class EprStateManager {
 	
 	//////////////////////////////////// old, perhaps obsolete, stuff, from here on downwards /////////////////////////////////////////
 	
-	HashMap<Set<Literal>, EprNonUnitClause> mLiteralToClauses = new HashMap<Set<Literal>, EprNonUnitClause>();
-	public void beginScope(Object literal) {
-		mLiteralStack.push(literal);
-		mEprStateStack.push(new EprState(mEprStateStack.peek()));
+	public void updateAtomToClauses(DPLLAtom atom, EprClause c) {
+		HashSet<EprClause> clauses = mDPLLAtomToClauses.get(atom);
+		if (clauses == null) {
+			clauses = new HashSet<EprClause>();
+			mDPLLAtomToClauses.put(atom, clauses);
+		}
+		clauses.add(c);
 	}
 
-	/**
-	 * Revert everything that followed from setting literal
-	 *  - pop the corresponding EprState
-	 *  - revert the fulfillability status of the remaining epr-clauses (in lower states)
-	 * @param literal
-	 */
-	public void endScope(Object literal) {
-		mEprStateStack.pop();
-		Object popped = mLiteralStack.pop();
-//		assert literal.equals(popped);
+
+	////////////////// 
+	////////////////// methods for management of basic data structures
+	////////////////// 
+
+	public HashSet<EprClause> getClausesThatContainAtom(DPLLAtom atom) {
+		return mDPLLAtomToClauses.get(atom);
 	}
-	
-	
+
+
+	public void addNewEprPredicate(EprPredicate pred) {
+	//		 mEprStateStack.peek().addNewEprPredicate(pred);
+	//		 mAllEprPredicates.add(pred);
+	//		mPushStateStack.peek().addEprPredicate(pred);
+			mAllEprPredicates.add(pred);
+		}
+
+
+	public ScopedHashSet<EprPredicate> getAllEprPredicates() {
+	//		assert false : "TODO: check: is the field updated correctly??";
+	//		return mAllEprPredicates;
+			return mAllEprPredicates;
+		}
+
+
+	public void addClause(HashSet<Literal> literals) {
+		EprClause newClause = this.getClause(literals);
+		mPushStateStack.peek().addClause(newClause);
+		
+		for (Literal li : literals) {
+			updateAtomToClauses(li.getAtom(), newClause);
+		}
+	}
+
+
+
+	/**
+	 * makes sure that for the same set of literals only one clause is constructed.
+	 * Note that this may return a EprDerivedClause -- if there already is one for the set of Literals
+	 * (copy from the old getBaseClause method)
+	 */
+	private EprClause getClause(Set<Literal> newLits) {
+		EprClause result = mLiteralsToClause.get(newLits);
+		if (result == null) {
+			result = new EprClause(newLits, mEprTheory);
+			mEprTheory.getLogger().debug("EPRDEBUG (EprStateManager): creating new clause " + result);
+			mLiteralsToClause.put(newLits, result);
+		} else {
+			mEprTheory.getLogger().debug("EPRDEBUG (EprStateManager): clause has been added before " + result);
+		}
+		return result;
+	}
+
+
+
+	HashMap<Set<Literal>, EprNonUnitClause> mLiteralToClauses = new HashMap<Set<Literal>, EprNonUnitClause>();
+
 	private Stack<EprState> mEprStateStack = new Stack<EprState>();
 	
 	// contains the ground literal currently set by the DPLLEngine for
@@ -256,6 +257,27 @@ public class EprStateManager {
 	
 
 
+	@Deprecated
+	public void beginScope(Object literal) {
+		mLiteralStack.push(literal);
+		mEprStateStack.push(new EprState(mEprStateStack.peek()));
+	}
+
+	/**
+	 * Revert everything that followed from setting literal
+	 *  - pop the corresponding EprState
+	 *  - revert the fulfillability status of the remaining epr-clauses (in lower states)
+	 * @param literal
+	 */
+	@Deprecated
+	public void endScope(Object literal) {
+		mEprStateStack.pop();
+		Object popped = mLiteralStack.pop();
+//		assert literal.equals(popped);
+	}
+	
+	
+
 
 	/**
 	 * Given a substitution and to Term arrays, computes a list of disequalities as follows:
@@ -267,6 +289,7 @@ public class EprStateManager {
 	 * @return all the equalities that are currently set through the DPLLEngine 
 	 *	         that are needed for the unification of terms1 and terms2
 	 */
+	@Deprecated
 	private ArrayList<Literal> getDisequalityChainsFromSubstitution(TTSubstitution sub, Term[] terms1,
 			Term[] terms2) {
 		ArrayList<Literal> disequalityChain = new ArrayList<Literal>();
@@ -282,6 +305,7 @@ public class EprStateManager {
 		return disequalityChain;
 	}
 	
+	@Deprecated
 	public Clause setQuantifiedLiteralWithExceptions(EprQuantifiedUnitClause eqlwe) {
 		mEprTheory.getLogger().debug("EPRDEBUG (EprStateManager): setting Quantified literal: " + eqlwe);
 		
@@ -299,6 +323,7 @@ public class EprStateManager {
 		return conflict;
 	}
 	
+	@Deprecated
 	public Clause setGroundEquality(CCEquality eq) {
 		ApplicationTerm f = (ApplicationTerm) eq.getSMTFormula(mTheory);
 		ApplicationTerm lhs = (ApplicationTerm) f.getParameters()[0];
@@ -316,6 +341,7 @@ public class EprStateManager {
 		return conflict;
 	}
 	
+	@Deprecated
 	public void unsetGroundEquality(CCEquality eq) {
 		ApplicationTerm f = (ApplicationTerm) eq.getSMTFormula(mTheory);
 		ApplicationTerm lhs = (ApplicationTerm) f.getParameters()[0];
@@ -329,6 +355,7 @@ public class EprStateManager {
 	 * The current state means points that are set and quantified literals that are set.
 	 * @return conflict clause if there is a conflict, null otherwise
 	 */
+	@Deprecated
 	public Clause checkConsistency() {
 		
 		//TODO: make sure that i case of a
@@ -384,6 +411,7 @@ public class EprStateManager {
 		return null;
 	}
 
+	@Deprecated
 	public HashSet<TermTuple> getPoints(boolean positive, EprPredicate pred) {
 		//TODO: some caching here?
 		HashSet<TermTuple> result = new HashSet<TermTuple>();
@@ -399,6 +427,7 @@ public class EprStateManager {
 		return result;
 	}
 
+	@Deprecated
 	public ArrayList<EprQuantifiedUnitClause> getSetLiterals(boolean positive, EprPredicate pred) {
 		//TODO: some caching here?
 		ArrayList<EprQuantifiedUnitClause> result = new ArrayList<EprQuantifiedUnitClause>();
@@ -415,6 +444,7 @@ public class EprStateManager {
 	
 	}
 
+	@Deprecated
 	public ArrayList<EprQuantifiedUnitClause> getSetLiterals(EprPredicate eprPredicate) {
 		//TODO: some caching here?
 		ArrayList<EprQuantifiedUnitClause> result = new ArrayList<EprQuantifiedUnitClause>();
@@ -429,11 +459,13 @@ public class EprStateManager {
 	 * Adds a clause that is derivable in the current state.
 	 * @param dc
 	 */
+	@Deprecated
 	public boolean addDerivedClause(EprNonUnitClause dc) {
 		mEprTheory.getLogger().debug("EPRDEBUG (EprStateManager): adding derived clause " + dc);
 		return mEprStateStack.peek().addDerivedClause(dc);
 	}
 
+	@Deprecated
 	public boolean addBaseClause(EprNonUnitClause bc) {
 		mEprTheory.getLogger().debug("EPRDEBUG (EprStateManager): adding base clause " + bc);
 
@@ -444,10 +476,12 @@ public class EprStateManager {
 		return mEprStateStack.peek().addBaseClause(bc);
 	}
 
+	@Deprecated
 	public ArrayList<EprNonUnitClause> getTopLevelDerivedClauses() {
 		return mEprStateStack.peek().getDerivedClauses();
 	}
 
+	@Deprecated
 	public HashSet<EprNonUnitClause> getAllClauses() {
 		HashSet<EprNonUnitClause> allClauses = new HashSet<EprNonUnitClause>();
 		for (EprState es : mEprStateStack) {
@@ -457,6 +491,7 @@ public class EprStateManager {
 		return allClauses;
 	}
 
+	@Deprecated
 	public HashSet<EprNonUnitClause> getFulfilledClauses() {
 		HashSet<EprNonUnitClause> fulfilledClauses = new HashSet<EprNonUnitClause>();
 		for (EprNonUnitClause ec : getAllClauses())
@@ -465,6 +500,7 @@ public class EprStateManager {
 		return fulfilledClauses;
 	}
 	
+	@Deprecated
 	public HashSet<EprNonUnitClause> getNotFulfilledClauses() {
 		HashSet<EprNonUnitClause> notFulfilledClauses = new HashSet<EprNonUnitClause>();
 		for (EprNonUnitClause ec : getAllClauses())
@@ -473,6 +509,7 @@ public class EprStateManager {
 		return notFulfilledClauses;
 	}
 
+	@Deprecated
 	public HashSet<EprClauseOld> getConflictClauses() {
 		HashSet<EprClauseOld> result = new HashSet<EprClauseOld>();
 		for (EprState es : mEprStateStack) {
@@ -485,6 +522,7 @@ public class EprStateManager {
 	 * makes sure that for the same set of literals only one clause is constructed.
 	 * Note that this may return a EprDerivedClause -- if there already is one for the set of Literals
 	 */
+	@Deprecated
 	public EprNonUnitClause getBaseClause(Set<Literal> newLits, Theory theory) {
 		EprNonUnitClause result = mLiteralToClauses.get(newLits);
 		if (result == null) {
@@ -499,6 +537,7 @@ public class EprStateManager {
 	 * makes sure that for the same set of literals only one clause is constructed.
 	 * Note that this may return a EprBaseClause -- if there already is one for the set of Literals
 	 */
+	@Deprecated
 	public EprClauseOld getDerivedClause(Set<Literal> newLits, EprTheory eprTheory, Object explanation) {
 		EprNonUnitClause result = mLiteralToClauses.get(newLits);
 		if (result == null) {
@@ -515,6 +554,7 @@ public class EprStateManager {
 	 * @param unifiedUnitLiteral
 	 * @return
 	 */
+	@Deprecated
 	public boolean isSubsumedInCurrentState(EprUnitClause euc) { //TODO possibly this needs to work on a QuantifiedLitWExcptns
 		if (euc instanceof EprGroundUnitClause) {
 			Literal lit = ((EprGroundUnitClause) euc).getPredicateLiteral();
@@ -527,7 +567,7 @@ public class EprStateManager {
 			boolean isPositive = lit.getSign() == 1;
 			EprPredicateAtom atom = (EprPredicateAtom) lit.getAtom();
 
-			for (EprQuantifiedUnitClause sl : this.getSetLiterals(isPositive, atom.eprPredicate)) {
+			for (EprQuantifiedUnitClause sl : this.getSetLiterals(isPositive, atom.getEprPredicate())) {
 				TermTuple slTT = sl.getFreshAlphaRenamedVersion().getPredicateAtom().getArgumentsAsTermTuple();
 				TermTuple tt = atom.getArgumentsAsTermTuple();
 				TTSubstitution sub = slTT.match(tt, mEqualityManager);
@@ -541,6 +581,7 @@ public class EprStateManager {
 		}
 	}
 	
+	@Deprecated
 	public CClosure getCClosure() {
 		return mCClosure;
 	}
@@ -550,6 +591,7 @@ public class EprStateManager {
 	/**
 	 * @param constants
 	 */
+	@Deprecated
 	public void addConstants(HashSet<ApplicationTerm> constants) {
 		HashSet<ApplicationTerm> reallyNewConstants = new HashSet<ApplicationTerm>();
 		if (mEprTheory.isGroundAllMode()) {
@@ -563,6 +605,7 @@ public class EprStateManager {
 		mEprStateStack.peek().addConstants(constants);
 	}
 	
+	@Deprecated
 	public HashSet<ApplicationTerm> getAllConstants() {
 		HashSet<ApplicationTerm> result = new HashSet<ApplicationTerm>();
 
@@ -584,6 +627,7 @@ public class EprStateManager {
 	 * @param oldConstants
 	 * @return
 	 */
+	@Deprecated
 	public ArrayList<TTSubstitution> getAllInstantiationsForNewConstant(
 			HashSet<TermVariable> freeVars, 
 			HashSet<ApplicationTerm> newConstants,
@@ -635,6 +679,7 @@ public class EprStateManager {
 		return instsWithNewConstant;
 	}
 
+	@Deprecated
 	public ArrayList<TTSubstitution> getAllInstantiations(
 			HashSet<TermVariable> freeVars, 
 			HashSet<ApplicationTerm> constants) {
@@ -657,6 +702,7 @@ public class EprStateManager {
 		return insts;
 	}
 	
+	@Deprecated
 	private void addGroundClausesForNewConstant(HashSet<ApplicationTerm> newConstants) {
 		ArrayList<Literal[]> groundings = new ArrayList<Literal[]>();
 		for (EprNonUnitClause c : getAllClauses())  {
@@ -670,6 +716,7 @@ public class EprStateManager {
 		addGroundClausesToDPLLEngine(groundings);
 	}
 
+	@Deprecated
 	private void addGroundClausesForNewEprClause(EprNonUnitClause newEprClause) {
 		List<Literal[]> groundings = 		
 						newEprClause.computeAllGroundings(
@@ -679,6 +726,7 @@ public class EprStateManager {
 		addGroundClausesToDPLLEngine(groundings);
 	}
 
+	@Deprecated
 	private void addGroundClausesToDPLLEngine(List<Literal[]> groundings) {
 		for (Literal[] g : groundings) {
 //			//TODO not totally clear if addFormula is the best way, but addClause(..) has
@@ -688,11 +736,5 @@ public class EprStateManager {
 			mEprTheory.getLogger().debug("EPRDEBUG (EprStateManager): added ground clause " + Arrays.toString(g));
 		}
 	}
-
-
-
-
-	
-
 
 }

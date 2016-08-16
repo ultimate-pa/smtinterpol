@@ -9,19 +9,16 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 
 public abstract class EprPredicateAtom extends EprAtom {
 
-	public final EprPredicate eprPredicate;
+	public final EprPredicate mEprPredicate;
 
 	public EprPredicateAtom(ApplicationTerm term, int hash, int assertionstacklevel, EprPredicate pred) {
 		super(term, hash, assertionstacklevel);
 		assert term instanceof ApplicationTerm : "a predicate should always be an _Application_Term";
-		eprPredicate = pred;
+		mEprPredicate = pred;
 //		isQuantified = term.getFreeVars().length > 0;
 	}
 	
-//	public EprPredicate getPredicate() {
-//		return mPredicate;
-//	}
-
-
-
+	public EprPredicate getEprPredicate() {
+		return mEprPredicate;
+	}
 }

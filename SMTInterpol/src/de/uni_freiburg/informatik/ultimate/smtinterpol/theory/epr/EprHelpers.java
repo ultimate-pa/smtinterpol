@@ -64,11 +64,11 @@ public class EprHelpers {
 		if (atom instanceof EprQuantifiedPredicateAtom) {
 			EprQuantifiedPredicateAtom eqpa = (EprQuantifiedPredicateAtom) atom;
 			TermTuple newTT = sub.apply(eqpa.getArgumentsAsTermTuple());
-			ApplicationTerm newTerm = theory.term(eqpa.eprPredicate.functionSymbol, newTT.terms);
+			ApplicationTerm newTerm = theory.term(eqpa.getEprPredicate().functionSymbol, newTT.terms);
 			if (newTerm.getFreeVars().length > 0) {
-				resultAtom = eqpa.eprPredicate.getAtomForTermTuple(newTT, theory, l.getAtom().getAssertionStackLevel());
+				resultAtom = eqpa.getEprPredicate().getAtomForTermTuple(newTT, theory, l.getAtom().getAssertionStackLevel());
 			} else {
-				resultAtom = eqpa.eprPredicate.getAtomForPoint(newTT, theory, l.getAtom().getAssertionStackLevel());
+				resultAtom = eqpa.getEprPredicate().getAtomForPoint(newTT, theory, l.getAtom().getAssertionStackLevel());
 			}
 //			resultLit =  isPositive ? resultAtom : resultAtom.negate();
 		} else if (atom instanceof EprQuantifiedEqualityAtom) {

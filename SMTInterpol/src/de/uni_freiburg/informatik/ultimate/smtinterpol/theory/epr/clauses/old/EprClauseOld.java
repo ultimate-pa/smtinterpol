@@ -251,7 +251,7 @@ public abstract class EprClauseOld extends Clause {
 			} else if (l.getAtom() instanceof EprQuantifiedPredicateAtom) {
 				// Have the EprPredicates point to the clauses and literals
 				// they occur in.
-				EprPredicate pred = ((EprPredicateAtom) l.getAtom()).eprPredicate;
+				EprPredicate pred = ((EprPredicateAtom) l.getAtom()).getEprPredicate();
 				pred.addQuantifiedOccurence(l, this);
 
 				eprQuantifiedPredicateLiterals[--noQuantifiedPredicates] = l;
