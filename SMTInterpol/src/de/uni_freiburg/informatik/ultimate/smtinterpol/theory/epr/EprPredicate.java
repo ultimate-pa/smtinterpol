@@ -18,7 +18,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprClauseOld;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackQuantifiedLiteral;
 
 /**
  * Represents an uninterpreted predicate that the EPR theory reasons about.
@@ -35,7 +35,7 @@ public class EprPredicate {
 	/**
 	 * Contains all DecideStackLiterals which talk about this EprPredicate.
 	 */
-	private HashSet<DecideStackLiteral> decideStackLiterals;
+	private HashSet<DecideStackQuantifiedLiteral> decideStackLiterals;
 	
 	/**
 	 * Storage to track where this predicate occurs in the formula with at least one quantified argument.

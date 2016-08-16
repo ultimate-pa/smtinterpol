@@ -98,10 +98,20 @@ public class EprStateManager {
 	////////////////// methods that change the epr solver state (state of clauses and/or decide stack)
 	////////////////// 
 
+	/**
+	 * Update the state of the epr solver according to a ground epr literal being set.
+	 * This entails
+	 *  - updating the decide stack
+	 *  - triggering updates of clause states for the right clauses (maybe somewhere else..)
+	 * @param literal
+	 * @return
+	 */
 	public Clause setEprGroundLiteral(Literal literal) {
 		
-		EprGroundPredicateAtom atom = (EprGroundPredicateAtom) literal.getAtom();
-		EprPredicate pred = atom.getEprPredicate();
+		mPushStateStack.peek().setEprGroundLiteral();
+
+//		EprGroundPredicateAtom atom = (EprGroundPredicateAtom) literal.getAtom();
+//		EprPredicate pred = atom.getEprPredicate();
 		
 		return null;
 		// old:

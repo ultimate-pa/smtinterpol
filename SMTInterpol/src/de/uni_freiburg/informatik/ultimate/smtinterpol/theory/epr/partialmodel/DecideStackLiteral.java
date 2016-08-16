@@ -1,6 +1,6 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel;
 
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
 
 /**
  * Represents a literal on the DPLL decide stack of the EprTheory.
@@ -12,18 +12,11 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuant
 public class DecideStackLiteral {
 
 	boolean mPolarity;
-	EprQuantifiedPredicateAtom mAtom;
-	/**
-	 * Stores all the groundings for which this.atom is decided with this.polarity
-	 * by this DecideStackLiteral
-	 */
-	IDawg mDawg;
-	
-	public DecideStackLiteral(boolean polarity, EprQuantifiedPredicateAtom atom, IDawg dawg) {
+	EprPredicateAtom mAtom;
+
+	public DecideStackLiteral(boolean polarity, EprPredicateAtom atom) {
 		mPolarity = polarity;
 		mAtom = atom;
-		mDawg = dawg;
 	}
-	
-	
+
 }

@@ -25,10 +25,15 @@ public class EprPushState {
 	 * Contains the segment of the decidestack that is derivable when taking into account
 	 * all the clauses in this push state and the push states below.
 	 */
-	Stack<DecideStackLiteral> mDecideStack = new Stack<DecideStackLiteral>();
+	Stack<DecideStackQuantifiedLiteral> mDecideStack = new Stack<DecideStackQuantifiedLiteral>();
 
 	public void addClause(EprClause newClause) {
 		mClauses.add(newClause);
+	}
+
+	public void setEprGroundLiteral() {
+		// TODO Auto-generated method stub
+		
 	}
 
 //	public void addEprPredicate(EprPredicate ep) {
