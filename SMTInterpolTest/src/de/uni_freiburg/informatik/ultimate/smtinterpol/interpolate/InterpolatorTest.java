@@ -21,7 +21,6 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate;
 import java.util.Collections;
 import java.util.Set;
 
-import org.apache.log4j.Logger;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -31,6 +30,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier.CCTermBuilder;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.EqualityProxy;
@@ -42,10 +42,9 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.LeafNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LAEquality;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TestCaseWithLogger;
 
 @RunWith(JUnit4.class)
-public class InterpolatorTest extends TestCaseWithLogger {
+public class InterpolatorTest {
 	SMTInterpol mSolver;
 	Clausifier mClausifier;
 	Interpolator mInterpolator;
@@ -54,7 +53,7 @@ public class InterpolatorTest extends TestCaseWithLogger {
 	Term mA, mB, mS;
 	
 	public InterpolatorTest() {
-		mSolver = new SMTInterpol(Logger.getRootLogger());
+		mSolver = new SMTInterpol(new DefaultLogger());
 		mSolver.setLogic("QF_UFLRA");
 		mReal = mSolver.sort("Real");
 		mSolver.declareFun("a", new Sort[0], mReal);
@@ -114,8 +113,9 @@ public class InterpolatorTest extends TestCaseWithLogger {
 		@SuppressWarnings("unchecked")
 		Set<String>[] partition = new Set[] { empty, empty };
 		mInterpolator = 
-			new Interpolator(mSolver.getLogger(), mSolver.getTheory(), 
-					partition, mClausifier);
+			new Interpolator(mSolver.getLogger(), mSolver, null,
+					mSolver.getTheory(), 
+					partition, new int[partition.length]);
 		if (abswap) {
 			mInterpolator.addOccurrence(sb, 0);
 			mInterpolator.addOccurrence(sa, 1);

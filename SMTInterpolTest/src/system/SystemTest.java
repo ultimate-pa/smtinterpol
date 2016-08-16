@@ -25,19 +25,19 @@ import java.io.FilenameFilter;
 import java.net.URISyntaxException;
 import java.net.URL;
 
-import org.apache.log4j.Logger;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.ParseEnvironment;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TestCaseWithLogger;
 
 @RunWith(JUnit4.class)
-public class SystemTest extends TestCaseWithLogger {
+public class SystemTest {
 
 	@Test
 	public void testSystem() throws URISyntaxException, FileNotFoundException {
@@ -79,8 +79,10 @@ public class SystemTest extends TestCaseWithLogger {
 	private void performTest(final File f)
 		throws SMTLIBException, FileNotFoundException {
 		System.out.println("Testing " + f.getAbsolutePath());
-		SMTInterpol solver = new SMTInterpol(Logger.getRootLogger(), false);
-		ParseEnvironment pe = new ParseEnvironment(solver) {
+		DefaultLogger logger = new DefaultLogger();
+		OptionMap options = new OptionMap(logger, true);
+		SMTInterpol solver = new SMTInterpol(options);
+		ParseEnvironment pe = new ParseEnvironment(solver, options) {
 
 			@Override
 			public void printError(String message) {

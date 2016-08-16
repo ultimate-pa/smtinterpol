@@ -1,4 +1,4 @@
-BASE ?= sysdesc2014
+BASE ?= sysdesc
 
 VIEWER ?= okular
 
@@ -8,7 +8,7 @@ VIEW: $(BASE).pdf
 	$(VIEWER) $< &
 
 %.pdf: %.tex $(wildcard *.bib)
-	( pdflatex $(basename $<) || exit 1; \
+	( pdflatex -shell-escape $(basename $<) || exit 1; \
 	bibtex $(basename $<) || exit 1; \
 	pdflatex $(basename $<) || exit 1; \
 	latex_count=5 ; \

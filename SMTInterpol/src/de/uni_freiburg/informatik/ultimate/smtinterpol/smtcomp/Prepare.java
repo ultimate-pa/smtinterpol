@@ -21,6 +21,8 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.smtcomp;
 import java.io.FileNotFoundException;
 
 import de.uni_freiburg.informatik.ultimate.logic.Script;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.ExitHook;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.ParseEnvironment;
 
@@ -52,12 +54,16 @@ public class Prepare implements ExitHook {
 			}
 		}
 		Prepare exit = new Prepare();
+		DefaultLogger logger = new DefaultLogger();
+		OptionMap options = new OptionMap(logger, true);
 		while (fileStartIdx < args.length) {
 			StringBuilder target = new StringBuilder(args[fileStartIdx]);
 			// Insert .prep before .smt2
 			target.insert(target.length() - 5, ".prep");// NOCHECKSTYLE
+			options.reset();
 			ParseEnvironment pe = new ParseEnvironment(exit.mScript =
-					new PrepareScript(track, target.toString()), exit);
+					new PrepareScript(track, target.toString()), exit,
+					options);
 			pe.parseScript(args[fileStartIdx]);
 			++fileStartIdx;
 		}

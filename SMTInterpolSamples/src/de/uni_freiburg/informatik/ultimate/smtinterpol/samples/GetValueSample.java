@@ -20,14 +20,13 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.samples;
 
 import java.util.Map;
 
-import org.apache.log4j.Logger;
-
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 
 public final class GetValueSample {
@@ -39,7 +38,7 @@ public final class GetValueSample {
 	public static void main(String[] ignored) {
 		try {
 			// Create a new interaction script
-			Script script = new SMTInterpol(Logger.getRootLogger(), true);
+			Script script = new SMTInterpol(new DefaultLogger());
 			// Enable production of a model
 			script.setOption(":produce-models", true);
 			

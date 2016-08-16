@@ -29,13 +29,12 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
-import org.apache.log4j.Logger;
-
 import de.uni_freiburg.informatik.ultimate.logic.Assignments;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause.WatchList;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom.TrueAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofNode;
@@ -43,7 +42,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ResolutionNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ResolutionNode.Antecedent;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.TerminationRequest;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.CuckooHashSet;
-import de.uni_freiburg.informatik.ultimate.util.DebugMessage;
 import de.uni_freiburg.informatik.ultimate.util.ScopedHashMap;
 
 /**
@@ -52,7 +50,7 @@ import de.uni_freiburg.informatik.ultimate.util.ScopedHashMap;
  *
  */
 public class DPLLEngine {
-	private final Logger mLogger;
+	private final LogProxy mLogger;
 	/* Completeness */
 	public static final int COMPLETE = 0;
 	public static final int INCOMPLETE_QUANTIFIER = 1;
@@ -106,7 +104,6 @@ public class DPLLEngine {
 	private int mNumRandomSplits;
 	
 	private boolean mHasModel;
-	private boolean mStopEngine;
 
 	double mAtomScale = 1 - 1.0 / Config.ATOM_ACTIVITY_FACTOR;
 	double mClsScale = 1 - 1.0 / Config.CLS_ACTIVITY_FACTOR;
@@ -136,7 +133,7 @@ public class DPLLEngine {
 	private final TerminationRequest mCancel;
 	
 	public DPLLEngine(
-			Theory smtTheory, Logger logger, TerminationRequest cancel) {
+			Theory smtTheory, LogProxy logger, TerminationRequest cancel) {
 		this.mSmtTheory = smtTheory;
 		mCompleteness = COMPLETE;
 		assert(logger != null);
@@ -488,7 +485,7 @@ public class DPLLEngine {
 		if (isProofGenerationEnabled()) {
 			clause.setProof(proof);
 		}
-		mLogger.trace(new DebugMessage("Added clause {0}", clause));
+		mLogger.trace("Added clause %s", clause);
 	}
 	
 	public void learnClause(Clause clause) {
@@ -969,7 +966,6 @@ public class DPLLEngine {
 	 */
 	public boolean solve() {
 		mHasModel = false;
-		mStopEngine = mCompleteness == INCOMPLETE_CANCELLED;
 		if (mUnsatClause != null) {
 			mLogger.debug("Using cached unsatisfiability");
 			return false;
@@ -1022,12 +1018,11 @@ public class DPLLEngine {
 			int iteration = 1;
 			int nextRestart = Config.RESTART_FACTOR;
 			long time; 
-			while (!mStopEngine && !isTerminationRequested()) {
+			while (!isTerminationRequested()) {
 				Clause conflict;
 				do {
 					conflict = propagateInternal();
-					if (conflict != null || mStopEngine // NOPMD
-							|| isTerminationRequested())
+					if (conflict != null || isTerminationRequested())
 						break;
 					if (Config.PROFILE_TIME) {
 						time = System.nanoTime();
@@ -1060,9 +1055,8 @@ public class DPLLEngine {
 										t.dumpModel(mLogger);
 									if (mLogger.isTraceEnabled())
 									    for (Literal dlit : mDecideStack)
-									        mLogger.trace(
-									                new DebugMessage("{0}: {1}",
-									                    dlit.hashCode(), dlit));
+									        mLogger.trace("%d: %s",
+									                    dlit.hashCode(), dlit);
 								}
 								mHasModel = true;
 								return true;
@@ -1073,8 +1067,7 @@ public class DPLLEngine {
 						mDecides++;
 						conflict = setLiteral(literal);
 					}
-				} while (conflict == null && !mStopEngine
-						&& !isTerminationRequested());
+				} while (conflict == null && !isTerminationRequested());
 				if (Config.PROFILE_TIME) {
 					time = System.nanoTime();
 					mPropTime += time - lastTime - mSetTime - mBacktrackTime;
@@ -1163,20 +1156,14 @@ public class DPLLEngine {
 				}
 			}
 			return true;
-		} catch (OutOfMemoryError eoom) {
-			// BUGFIX: Don't do this.  It will throw another OOM!
-//			logger.fatal("Out of Memory during check", oom);
-			mCompleteness = INCOMPLETE_MEMOUT;
-		} catch (Throwable eUnknown) {
-			mLogger.fatal("Unknown exception during check",eUnknown);
-			mCompleteness = INCOMPLETE_UNKNOWN;
+		} catch (RuntimeException eUnknown) {
 			if (System.getProperty("smtinterpol.ddfriendly") != null)
-				System.exit(3); 
+				System.exit(3);
+			throw eUnknown;
 		} finally {
 			for (ITheory t : mTheories)
 				t.endCheck();
 		}
-		return true;
 	}
 	
 	private final void unlearnClauses(int targetstacklevel) {
@@ -1316,12 +1303,12 @@ public class DPLLEngine {
 				else
 					throw new InternalError(
 							"Input clause still blocked, but invalid");
-//				logger.debug(new DebugMessage("Removed clause {0}",input));
+//				logger.debug("Removed clause {0}", input);
 			} else {
 				// Terminate iteration here since only clauses with lower
 				// stacklevel remain.
+//				logger.debug("Keeping input {0}", input);
 				break;
-//				logger.debug(new DebugMessage("Keeping input {0}",input));
 			}
 		}
 		for (int i = 0; i < numpops; ++i)
@@ -1335,7 +1322,7 @@ public class DPLLEngine {
 			}
 		}
 	}
-	public Logger getLogger() {
+	public LogProxy getLogger() {
 		return mLogger;
 	}
 	
@@ -1349,9 +1336,6 @@ public class DPLLEngine {
 
 	public boolean hasModel() {
 		return mHasModel && mCompleteness == COMPLETE;
-	}
-	public void stop() {
-		mStopEngine = true;
 	}
 	public void setProofGeneration(boolean enablePG) {
 		mPGenabled = enablePG;

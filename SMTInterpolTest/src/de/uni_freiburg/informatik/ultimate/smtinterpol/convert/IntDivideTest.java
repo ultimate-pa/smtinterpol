@@ -23,7 +23,6 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 
-import org.apache.log4j.Logger;
 import org.junit.Test;
 
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
@@ -31,19 +30,19 @@ import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ClauseDeletionHook;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.TerminationRequest;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TestCaseWithLogger;
 
 /**
  * Test Class for integer divide operators.
  * 
  * @author Jochen Hoenicke
  */
-public final class IntDivideTest extends TestCaseWithLogger {
+public final class IntDivideTest {
 	Theory mTheory;
 	Clausifier mClausifier;
 	Sort mIntSort, mRealSort;
@@ -52,8 +51,7 @@ public final class IntDivideTest extends TestCaseWithLogger {
 	
 	public IntDivideTest() {
 		mTheory = new Theory(Logics.QF_UFLIRA);
-		Logger logger = Logger.getRootLogger();
-		DPLLEngine dpllEngine = new DPLLEngine(mTheory, logger,
+		DPLLEngine dpllEngine = new DPLLEngine(mTheory, new DefaultLogger(),
 				new TerminationRequest() {
 			
 					@Override

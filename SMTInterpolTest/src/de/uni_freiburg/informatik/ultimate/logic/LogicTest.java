@@ -81,7 +81,7 @@ public class LogicTest {
 		Term mul = theory.term("*",
 				theory.rational(new BigInteger("-3"), new BigInteger("7")), i);
 		Assert.assertEquals("(+ x y i j)", sum.toString());
-		Assert.assertEquals("(* (/ (- 3) 7) i)", mul.toString());
+		Assert.assertEquals("(* (/ (- 3.0) 7.0) i)", mul.toString());
 	}
 
 	private Sort bitvec(Theory theory, int len) {

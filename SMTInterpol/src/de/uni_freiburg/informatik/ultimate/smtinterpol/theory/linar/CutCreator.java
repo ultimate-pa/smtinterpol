@@ -610,7 +610,7 @@ public class CutCreator {
 					}
 					if (adjust != 0)
 						quo = quo.add(BigInteger.valueOf(adjust));
-					if (!mURows[i].mTight) //NOPMD
+					if (!mURows[i].mTight) // NOPMD
 						isTight = false;
 					else if (rem.signum() > 0)
 						isTight &= mURows[i].mFixed;

@@ -21,7 +21,6 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar;
 import java.math.BigDecimal;
 import java.util.Map;
 
-import org.apache.log4j.Logger;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -33,8 +32,8 @@ import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TestCaseWithLogger;
 
 /**
  * This test case is designed to test a bug in the selection of possible values
@@ -45,7 +44,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TestCaseWithLogger;
  * @author Juergen Christ
  */
 @RunWith(JUnit4.class)
-public class EpsilonTest extends TestCaseWithLogger {
+public class EpsilonTest {
 
 	private SMTInterpol mSolver;
 	private Term mInputBase;
@@ -54,7 +53,7 @@ public class EpsilonTest extends TestCaseWithLogger {
 	
 	@Before
 	public void setUp() throws Exception {
-		mSolver = new SMTInterpol(Logger.getRootLogger(), false);
+		mSolver = new SMTInterpol(new DefaultLogger());
 		mSolver.setOption(":produce-models", Boolean.TRUE);
 		mSolver.setLogic(Logics.QF_LRA);
 		Sort real = mSolver.sort("Real");

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2012 University of Freiburg
+ * Copyright (C) 2014-2015 University of Freiburg
  *
  * This file is part of SMTInterpol.
  *
@@ -16,28 +16,22 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.
  */
-package de.uni_freiburg.informatik.ultimate.smtinterpol.util;
+package de.uni_freiburg.informatik.ultimate.smtinterpol;
 
-import org.apache.log4j.ConsoleAppender;
-import org.apache.log4j.Level;
-import org.apache.log4j.Logger;
-import org.apache.log4j.SimpleLayout;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
 
-public class TestCaseWithLogger {
-	
-	static { 
-		Logger logger = Logger.getRootLogger();
-		if (!logger.getAllAppenders().hasMoreElements()) {
-			SimpleLayout layout = new SimpleLayout();
-			logger.addAppender(new ConsoleAppender(layout));
-		}
+public final class ChannelUtil {
+	private ChannelUtil() {
+		// hide constructor
 	}
-	
-	protected TestCaseWithLogger() {
-		this(Level.DEBUG);
-	}
-	
-	protected TestCaseWithLogger(Level level) {
-		Logger.getRootLogger().setLevel(level);
+	public static PrintWriter createChannel(String file) throws IOException {
+		if ("stdout".equals(file))
+			return new PrintWriter(System.out);
+		if ("stderr".equals(file))
+			return new PrintWriter(System.err);
+		else
+			return new PrintWriter(new FileWriter(file));
 	}
 }

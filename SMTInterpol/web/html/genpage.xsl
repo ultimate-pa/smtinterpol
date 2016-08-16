@@ -189,6 +189,14 @@ xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns="http://www.w3.org/1999/x
     <br />
   </xsl:template>
 
+  <xsl:template match="version">
+    <xsl:value-of select="$version" />
+  </xsl:template>
+
+  <xsl:template match="versionlink">
+    <a href="smtinterpol-{$version}{@suffix}.jar">smtinterpol-<xsl:value-of select="$version" /><xsl:value-of select="@suffix" />.jar</a><br />(Checksum: <a href="smtinterpol-{$version}{@suffix}.jar.sha">SHA 256</a>)
+  </xsl:template>
+
   <xsl:template match="downloads">
     <table>
       <tr class="headrow">
@@ -211,12 +219,7 @@ xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns="http://www.w3.org/1999/x
 	<xsl:value-of select="./@file" />
       </xsl:element>
       <br />
-      (Checksums:
-      <xsl:element name="a">
-	<xsl:attribute name="href">
-	  <xsl:value-of select="./@file" disable-output-escaping="yes" />.md5</xsl:attribute>	
-	MD5
-      </xsl:element>, 
+      (Checksum:
       <xsl:element name="a">
 	<xsl:attribute name="href">
 	  <xsl:value-of select="./@file" disable-output-escaping="yes" />.sha</xsl:attribute>	

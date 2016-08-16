@@ -19,7 +19,6 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure;
 
 
-import org.apache.log4j.Logger;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -29,6 +28,7 @@ import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.EqualityProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SharedTerm;
@@ -36,7 +36,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier.CCTerm
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.TerminationRequest;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TestCaseWithLogger;
 
 /**
  * Tests the addition of a term congruent to another term and the building
@@ -53,7 +52,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TestCaseWithLogger;
  * @author Juergen Christ
  */
 @RunWith(JUnit4.class)
-public class CongruentAddTest extends TestCaseWithLogger {
+public class CongruentAddTest {
 	Theory mTheory;
 	Clausifier mClausifier;
 	CClosure mEngine;
@@ -66,8 +65,7 @@ public class CongruentAddTest extends TestCaseWithLogger {
 	
 	public CongruentAddTest() {
 		mTheory = new Theory(Logics.QF_UF);
-		Logger logger = Logger.getRootLogger();
-		DPLLEngine dpllEngine = new DPLLEngine(mTheory, logger,
+		DPLLEngine dpllEngine = new DPLLEngine(mTheory, new DefaultLogger(),
 				new TerminationRequest() {
 					
 					@Override

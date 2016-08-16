@@ -18,14 +18,13 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.samples;
 
-import org.apache.log4j.Logger;
-
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.Assignments;
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 
 public final class FlipDecisions {
@@ -37,7 +36,7 @@ public final class FlipDecisions {
 	private static final boolean FLIP_ALL = false;
 	
 	public static void main(String[] unused) throws Exception {
-		Script script = new SMTInterpol(Logger.getRootLogger(), true);
+		Script script = new SMTInterpol(new DefaultLogger());
 		script.setOption(":produce-assignments", true);
 		script.setOption(":verbosity", 2);
 		script.setLogic(Logics.QF_UF);

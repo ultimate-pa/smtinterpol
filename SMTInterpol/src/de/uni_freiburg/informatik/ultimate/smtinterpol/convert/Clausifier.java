@@ -30,8 +30,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 
-import org.apache.log4j.Logger;
-
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
@@ -40,11 +38,13 @@ import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
+import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.BooleanVarAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ClauseDeletionHook;
@@ -789,6 +789,7 @@ public class Clausifier {
 					throw new InternalError("Not implementd: "
 							+ SMTAffineTerm.cleanup(at));
 				}
+			} else if (idx instanceof QuantifiedFormula) {
 				// TODO Fix Quantifiers once supported
 			} else if (idx instanceof QuantifiedFormula) {
 				QuantifiedFormula qf = (QuantifiedFormula) idx;
@@ -845,6 +846,7 @@ public class Clausifier {
 				throw new InternalError(
 						"Don't know how to convert into axiom: "
 						+ SMTAffineTerm.cleanup(mTerm));
+			}
 		}
 		
 	}
@@ -1070,6 +1072,10 @@ public class Clausifier {
 					throw new InternalError("AuxAxiom not implemented: "
 							+ SMTAffineTerm.cleanup(mTerm));
 				}
+			} else if (mTerm instanceof QuantifiedFormula) {
+				// TODO: Correctly implement this once we support quantifiers.
+				throw new SMTLIBException(
+						"Cannot create quantifier in quantifier-free logic");
 			} else {
 				
 				
@@ -1897,7 +1903,7 @@ public class Clausifier {
 	 */
 	private boolean mWarnedFailedPush = false;
 	
-	private final Logger mLogger;
+	private final LogProxy mLogger;
 	/**
 	 * A tracker for proof production.
 	 */
@@ -2332,7 +2338,7 @@ public class Clausifier {
 		return mLASolver;
 	}
 	
-	public Logger getLogger() {
+	public LogProxy getLogger() {
 		return mLogger;
 	}
 	

@@ -21,7 +21,6 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.model;
 import java.math.BigInteger;
 import java.util.Map;
 
-import org.apache.log4j.Logger;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -35,15 +34,15 @@ import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TestCaseWithLogger;
 
 /**
  * Tests for the model production of SMTInterpol.
  * @author Juergen Christ
  */
 @RunWith(JUnit4.class)
-public class ModelTest extends TestCaseWithLogger {
+public class ModelTest {
 	
 	private final String[] mBooleanNames = {
 		"P", "Q", "R", "S"
@@ -56,7 +55,7 @@ public class ModelTest extends TestCaseWithLogger {
 	private static final Sort[] EMPTY_SORT_ARRAY = new Sort[0];
 	
 	private Script setupScript(Logics logic) {
-		Script res = new SMTInterpol(Logger.getRootLogger(), false);
+		Script res = new SMTInterpol(new DefaultLogger());
 		res.setOption(":produce-models", true);
 		res.setLogic(logic);
 		return res;
