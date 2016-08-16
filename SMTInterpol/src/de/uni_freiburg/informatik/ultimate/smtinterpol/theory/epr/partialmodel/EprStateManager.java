@@ -13,6 +13,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
@@ -34,11 +35,24 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.Ep
 import de.uni_freiburg.informatik.ultimate.util.ScopedHashMap;
 import de.uni_freiburg.informatik.ultimate.util.ScopedHashSet;
 
+/**
+ * This class is responsible for managing everything that is connected to the
+ * current decide state of the EprTheory.
+ * This entails:
+ *  - managing the Epr decide stack according to push/pop and setLiteral commands
+ *   as well as internal propagations and decisions
+ *  - telling clauses to update their states (or so..)
+ * 
+ * @author nutz
+ */
 public class EprStateManager {
-	
 
 	Stack<EprPushState> mPushStateStack = new Stack<EprPushState>();
 	
+	/**
+	 * Remembers from which sets of literals an EprClause has already been 
+	 * constructed (and which).
+	 */
 	ScopedHashMap<Set<Literal>, EprClause> mLiteralsToClause = new ScopedHashMap<Set<Literal>, EprClause>();
 
 	public EqualityManager mEqualityManager;
@@ -47,6 +61,13 @@ public class EprStateManager {
 	private CClosure mCClosure;
 	
 	ScopedHashSet<EprPredicate> mAllEprPredicates = new ScopedHashSet<EprPredicate>();
+	
+	/**
+	 * Remembers for each DPLLAtom in which EprClauses it occurs (if any).
+	 */
+	HashMap<DPLLAtom, HashSet<EprClause>> mDPLLAtomToClauses = 
+			new HashMap<DPLLAtom, HashSet<EprClause>>();
+
 	
 	public EprStateManager(EprTheory eprTheory) {
 //		baseState = new EprState();
@@ -64,6 +85,10 @@ public class EprStateManager {
 	public void addClause(HashSet<Literal> literals) {
 		EprClause newClause = this.getClause(literals);
 		mPushStateStack.peek().addClause(newClause);
+		
+		for (Literal li : literals) {
+			updateAtomToClauses(li.getAtom(), newClause);
+		}
 	}
 	
 	/**
@@ -109,39 +134,20 @@ public class EprStateManager {
 		return mAllEprPredicates;
 	}
 	
-	//////////////////////////////////// old, perhaps obsolete, stuff, from here on downwards /////////////////////////////////////////
-	
-	HashMap<Set<Literal>, EprNonUnitClause> mLiteralToClauses = new HashMap<Set<Literal>, EprNonUnitClause>();
-	public void beginScope(Object literal) {
-		mLiteralStack.push(literal);
-		mEprStateStack.push(new EprState(mEprStateStack.peek()));
-	}
-
-	/**
-	 * Revert everything that followed from setting literal
-	 *  - pop the corresponding EprState
-	 *  - revert the fulfillability status of the remaining epr-clauses (in lower states)
-	 * @param literal
-	 */
-	public void endScope(Object literal) {
-		mEprStateStack.pop();
-		Object popped = mLiteralStack.pop();
-//		assert literal.equals(popped);
+	public void updateAtomToClauses(DPLLAtom atom, EprClause c) {
+		HashSet<EprClause> clauses = mDPLLAtomToClauses.get(atom);
+		if (clauses == null) {
+			clauses = new HashSet<EprClause>();
+			mDPLLAtomToClauses.put(atom, clauses);
+		}
+		clauses.add(c);
 	}
 	
-	
-	private Stack<EprState> mEprStateStack = new Stack<EprState>();
-	
-	// contains the ground literal currently set by the DPLLEngine for
-	// every scope that was created by EprTheory.setLiteral(), and the 
-	// word "push" for all push scopes
-	// (not used at the moment..)
-	private Stack<Object> mLiteralStack = new Stack<Object>();
-	
-	private EprState baseState;
-	
+	public HashSet<EprClause> getClausesThatContainAtom(DPLLAtom atom) {
+		return mDPLLAtomToClauses.get(atom);
+	}
 
-	public Clause setGroundLiteral(Literal literal) {
+	public Clause setEprGroundLiteral(Literal literal) {
 		
 		EprGroundPredicateAtom atom = (EprGroundPredicateAtom) literal.getAtom();
 		
@@ -180,6 +186,76 @@ public class EprStateManager {
 				(EprGroundPredicateAtom) literal.getAtom());
 		return null;
 	}
+	
+	public void unsetEprGroundLiteral(Literal literal) {
+		assert false : "TODO: write this method (probably after setGroundLiteral has been written)";
+	}
+	
+	/**
+	 * Inform all the EprClauses that contain the atom (not only the
+	 * literal!) that they have to update their fulfillment state.
+	 */
+	public void updateClausesOnSetDpllLiteral(Literal literal) {
+		HashSet<EprClause> clauses = 
+				this.getClausesThatContainAtom(literal.getAtom());
+		if (clauses != null) {
+			for (EprClause ec : clauses) {
+				ec.updateStateWrtDpllLiteral(literal);
+			}
+		}
+	}
+
+	/**
+	 * Informs the clauses that contain the literal's atom that
+	 * it is backtracked by the DPLLEngine.
+	 * @param literal
+	 */
+	public void updateClausesOnBacktrackDpllLiteral(Literal literal) {
+		HashSet<EprClause> clauses = 
+				this.getClausesThatContainAtom(literal.getAtom());
+		if (clauses != null) {
+			for (EprClause ec : clauses) {
+				ec.backtrackStateWrtDpllLiteral(literal);
+			}
+		}
+	
+	}
+
+
+	
+	//////////////////////////////////// old, perhaps obsolete, stuff, from here on downwards /////////////////////////////////////////
+	
+	HashMap<Set<Literal>, EprNonUnitClause> mLiteralToClauses = new HashMap<Set<Literal>, EprNonUnitClause>();
+	public void beginScope(Object literal) {
+		mLiteralStack.push(literal);
+		mEprStateStack.push(new EprState(mEprStateStack.peek()));
+	}
+
+	/**
+	 * Revert everything that followed from setting literal
+	 *  - pop the corresponding EprState
+	 *  - revert the fulfillability status of the remaining epr-clauses (in lower states)
+	 * @param literal
+	 */
+	public void endScope(Object literal) {
+		mEprStateStack.pop();
+		Object popped = mLiteralStack.pop();
+//		assert literal.equals(popped);
+	}
+	
+	
+	private Stack<EprState> mEprStateStack = new Stack<EprState>();
+	
+	// contains the ground literal currently set by the DPLLEngine for
+	// every scope that was created by EprTheory.setLiteral(), and the 
+	// word "push" for all push scopes
+	// (not used at the moment..)
+	private Stack<Object> mLiteralStack = new Stack<Object>();
+	
+	private EprState baseState;
+	
+
+
 
 	/**
 	 * Given a substitution and to Term arrays, computes a list of disequalities as follows:
@@ -238,6 +314,14 @@ public class EprStateManager {
 		//  (..if there is no conflict?..)
 
 		return conflict;
+	}
+	
+	public void unsetGroundEquality(CCEquality eq) {
+		ApplicationTerm f = (ApplicationTerm) eq.getSMTFormula(mTheory);
+		ApplicationTerm lhs = (ApplicationTerm) f.getParameters()[0];
+		ApplicationTerm rhs = (ApplicationTerm) f.getParameters()[1];
+
+		mEqualityManager.backtrackEquality(lhs, rhs);
 	}
 	
 	/**
@@ -604,7 +688,10 @@ public class EprStateManager {
 			mEprTheory.getLogger().debug("EPRDEBUG (EprStateManager): added ground clause " + Arrays.toString(g));
 		}
 	}
-	
+
+
+
+
 	
 
 

@@ -19,4 +19,18 @@ public class EprClause {
 	}
 
 	Set<ClauseLiteral> literals;
+
+	/**
+	 * This clause is informed that the DPLLEngine has set literal.
+	 * The fulfillmentState of this clause may have to be updated because of this.
+	 * 
+	 * @param literal ground Epr Literal that has been set by DPLLEngine
+	 */
+	public void updateStateWrtDpllLiteral(Literal literal) {
+		assert false : "TODO: implement";
+	}
+
+	public void backtrackStateWrtDpllLiteral(Literal literal) {
+		assert false : "TODO: implement";
+	}
 }
