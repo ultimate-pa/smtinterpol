@@ -7,13 +7,12 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
 
-import org.apache.log4j.Logger;
-
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ClauseDeletionHook;
@@ -73,7 +72,7 @@ public class EprTheory implements ITheory {
 
 	private CClosure mCClosure;
 	private Clausifier mClausifier;
-	private Logger mLogger;
+	private LogProxy mLogger;
 	private Theory mTheory;
 	private DPLLEngine mEngine;
 
@@ -266,16 +265,6 @@ public class EprTheory implements ITheory {
 		//TODO: think about how to get smart suggestions..
 		mLogger.debug("EPRDEBUG: getSuggestion");
 		return null;
-	}
-
-	@Override
-	public void printStatistics(Logger logger) {
-		mLogger.debug("EPRDEBUG: printStatistics");
-	}
-
-	@Override
-	public void dumpModel(Logger logger) {
-		mLogger.debug("EPRDEBUG: dumpmodel");
 	}
 
 	@Override
@@ -552,7 +541,7 @@ public class EprTheory implements ITheory {
 		mStateManager.addConstants(constants);
 	}
 
-	public Logger getLogger() {
+	public LogProxy getLogger() {
 		return mLogger;
 	}
 
@@ -921,6 +910,18 @@ public class EprTheory implements ITheory {
 			pred = isEprModelComplete();
 		}
 		return null;
+	}
+
+	@Override
+	public void printStatistics(LogProxy logger) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void dumpModel(LogProxy logger) {
+		// TODO Auto-generated method stub
+		
 	}
 
 }
