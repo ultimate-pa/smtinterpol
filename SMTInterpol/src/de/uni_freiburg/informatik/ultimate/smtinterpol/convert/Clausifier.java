@@ -790,8 +790,6 @@ public class Clausifier {
 							+ SMTAffineTerm.cleanup(at));
 				}
 			} else if (idx instanceof QuantifiedFormula) {
-				// TODO Fix Quantifiers once supported
-			} else if (idx instanceof QuantifiedFormula) {
 				QuantifiedFormula qf = (QuantifiedFormula) idx;
 				assert qf.getQuantifier() == QuantifiedFormula.EXISTS;
 
@@ -842,7 +840,7 @@ public class Clausifier {
 					//TODO; negating before going on --> treat "not exists not" together, thus we can treat what is inside as universally quantified
 					pushOperation(new AddAsAxiom(mTheory.not(qf.getSubformula()), null));
 				}
-			} else
+			} else {
 				throw new InternalError(
 						"Don't know how to convert into axiom: "
 						+ SMTAffineTerm.cleanup(mTerm));
