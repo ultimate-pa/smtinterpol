@@ -3,7 +3,10 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel;
 import java.util.ArrayList;
 import java.util.Stack;
 
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClause;
 
 /**
@@ -22,8 +25,9 @@ public class EprPushState {
 //	ArrayList<EprPredicate> mEprPredicates = new ArrayList<EprPredicate>();
 	
 	/**
-	 * Contains the segment of the decidestack that is derivable when taking into account
-	 * all the clauses in this push state and the push states below.
+	 * Contains the DecideStackLiterals of the decide stack that have been derived taking into account
+	 * all the clauses in this push state and the push states below and which have not been
+	 * derived in any of the below push states.
 	 */
 	Stack<DecideStackQuantifiedLiteral> mDecideStack = new Stack<DecideStackQuantifiedLiteral>();
 
@@ -31,11 +35,23 @@ public class EprPushState {
 		mClauses.add(newClause);
 	}
 
-	public void setEprGroundLiteral() {
+	public Clause setEprGroundLiteral() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	public void unsetEprGroundLiteral(Literal literal) {
 		// TODO Auto-generated method stub
 		
 	}
 
+	public void setEprClauseLiteral(ClauseLiteral lit) {
+		
+	}
+
+	public void unsetEprClauseLiteral(ClauseLiteral lit) {
+		
+	}
 //	public void addEprPredicate(EprPredicate ep) {
 //		mEprPredicates.add(ep);
 //	}

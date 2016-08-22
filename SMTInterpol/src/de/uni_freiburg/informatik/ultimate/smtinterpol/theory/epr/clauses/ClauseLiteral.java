@@ -1,5 +1,6 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses;
 
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 
 /**
@@ -15,10 +16,30 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 public abstract class ClauseLiteral {
 
 
-	Literal rawLiteral;
+	final Literal mEngineLiteral;
+	final boolean mPolarity;
 	
 	/**
 	 * The clause that this ClauseLiteral is part of
 	 */
-	EprClause clause;
+	EprClause mEprClause;
+	
+	public ClauseLiteral(boolean polarity, DPLLAtom atom, EprClause clause) {
+		mEngineLiteral = polarity ? atom : atom.negate();
+		mPolarity = polarity;
+		mEprClause = clause;
+	}
+	
+	
+	public boolean getPolarity() {
+		return mPolarity;
+	}
+	
+	public Literal getLiteral() {
+		return mEngineLiteral;
+	}
+	
+//	public DPLLAtom getAtom() {
+//		return mAtom;
+//	}
 }

@@ -24,6 +24,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprBaseClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprClauseOld;
@@ -108,12 +109,11 @@ public class EprStateManager {
 	 */
 	public Clause setEprGroundLiteral(Literal literal) {
 		
-		mPushStateStack.peek().setEprGroundLiteral();
+		return mPushStateStack.peek().setEprGroundLiteral();
 
 //		EprGroundPredicateAtom atom = (EprGroundPredicateAtom) literal.getAtom();
 //		EprPredicate pred = atom.getEprPredicate();
 		
-		return null;
 		// old:
 //		// is there a conflict with one of the currently set quantified literals??
 //		for (EprQuantifiedUnitClause l : getSetLiterals(literal.getSign() == 1, atom.eprPredicate)) {
@@ -152,9 +152,17 @@ public class EprStateManager {
 	}
 	
 	public void unsetEprGroundLiteral(Literal literal) {
-		assert false : "TODO: write this method (probably after setGroundLiteral has been written)";
+		mPushStateStack.peek().unsetEprGroundLiteral(literal);
 	}
 	
+	public void setEprClauseLiteral(ClauseLiteral lit) {
+		mPushStateStack.peek().setEprClauseLiteral(lit);
+	}
+
+	public void unsetEprClauseLiteral(ClauseLiteral lit) {
+		mPushStateStack.peek().unsetEprClauseLiteral(lit);
+	}
+
 	/**
 	 * Inform all the EprClauses that contain the atom (not only the
 	 * literal!) that they have to update their fulfillment state.
@@ -186,8 +194,6 @@ public class EprStateManager {
 	}
 
 
-	
-	//////////////////////////////////// old, perhaps obsolete, stuff, from here on downwards /////////////////////////////////////////
 	
 	public void updateAtomToClauses(DPLLAtom atom, EprClause c) {
 		HashSet<EprClause> clauses = mDPLLAtomToClauses.get(atom);
@@ -252,6 +258,8 @@ public class EprStateManager {
 	}
 
 
+	//////////////////////////////////// old, perhaps obsolete stuff, from here on downwards /////////////////////////////////////////
+	
 
 	HashMap<Set<Literal>, EprNonUnitClause> mLiteralToClauses = new HashMap<Set<Literal>, EprNonUnitClause>();
 
