@@ -369,7 +369,7 @@ public class SMTInterpol extends NoopScript {
 	 * @deprecated Use a constructor version without the boolean parameter.
 	 */
 	public SMTInterpol(
-			LogProxy logger, boolean ownLogger, TerminationRequest cancel) {
+			LogProxy logger, boolean ignored, TerminationRequest cancel) {
 		this(logger, cancel);
 	}
 	/**
@@ -401,16 +401,16 @@ public class SMTInterpol extends NoopScript {
 	// Called in ctor => make it final
 	/**
 	 * Unset the logic and clear the assertion stack.  This does not reset
-	 * online modifyable options.
+	 * online modifiable options.
 	 */
 	public final void reset() {
 		super.reset();
 		mEngine = null;
 		mModel = null;
 		mAssertionStackModified = true;
-        if (mAssertions != null)
-        	mAssertions.clear();
-        mOptions.reset();
+		if (mAssertions != null)
+			mAssertions.clear();
+		mOptions.reset();
 	}
 	
 	@Override

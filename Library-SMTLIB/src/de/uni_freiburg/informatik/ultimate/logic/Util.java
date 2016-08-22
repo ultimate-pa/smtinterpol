@@ -41,7 +41,10 @@ public final class Util {
 	 * satisfiable with respect to the current assertion stack of 
 	 * {@code script}.  Only the result from this function can be used since the
 	 * assertion stack will be modified after leaving this function.
-	 * @param term may contain free variables
+	 * @param script the script used to run the check.
+	 * @param term the term to check for satisfiability (possibly containing
+	 *  free variables).
+	 * @return the satisfiability status (SAT, UNSAT or UNKNOWN).
 	 */
 	public static LBool checkSat(Script script, Term term) {
 		script.push(1);
@@ -67,10 +70,13 @@ public final class Util {
 		script.declareFun(name, EMPTY_SORT_ARRAY, resultSort);
 		return script.term(name);
 	}
-	
-	
+
 	/**
-	 * Return slightly simplified version of a negation.
+	 * Return slightly simplified version of (not f).  It removes
+	 * double negation and simplifies (not true) and (not false).
+	 * @param script the Script used to build terms.
+	 * @param f the term to negate
+	 * @return a term logically equivalent to (not f).
 	 */
 	public static Term not(Script script, Term f) {
 		if (f == script.term("true")) return script.term("false");
@@ -82,14 +88,24 @@ public final class Util {
 	}
 
 	/**
-	 * Return slightly simplified version of a conjunction.
+	 * Return slightly simplified version of (and subforms).  It removes
+	 * parameters occuring multiple times, true and false.  It also handles
+	 * the case where there is only one or zero subformulas.
+	 * @param script the Script used to build terms.
+	 * @param subforms the sub formulas that are conjoined.
+	 * @return a term logically equivalent to (and subforms).
 	 */
 	public static Term and(Script script, Term... subforms) {
 		return simplifyAndOr(script, "and", subforms);
 	}
 	
 	/**
-	 * Return slightly simplified version of a disjunction.
+	 * Return slightly simplified version of (or subforms).  It removes
+	 * parameters occuring multiple times, true and false.  It also handles
+	 * the case where there is only one or zero subformulas.
+	 * @param script the Script used to build terms.
+	 * @param subforms the sub formulas that are disjoined.
+	 * @return a term logically equivalent to (or subforms).
 	 */
 	public static Term or(Script script, Term... subforms) {
 		return simplifyAndOr(script, "or", subforms);
@@ -162,30 +178,17 @@ public final class Util {
 			return Util.or(script, Util.not(script, cond), thenPart);
 		return script.term("ite", cond, thenPart, elsePart);
 	}
-	
 
-//	/**
-//	 * Return slightly simplified version of an implication.
-//	 */
-//	public static Term implies(Script script, Term f, Term g)
-//	{ 
-//		if (g == script.term("true") || f == script.term("true")) return g;
-//		if (f == script.term("false")) return script.term("true");
-//		if (g == script.term("false")) return not(script, f);
-//		if( f == g ) return script.term("true");
-//		return script.term("=>", f, g);
-//	}
-	
-	
 	/**
 	 * Create a slightly simplified implies term.  This mainly
 	 * optimizes the special cases where one of the parameters is true or 
 	 * false or if a left-hand-side term occurs more than once.
+	 * It also handles the case where only one subformula is given.
 	 * @param script the script where the term is created.
-	 * @param subforms the terms
+	 * @param subforms the sub formulas.
 	 * @return A simplified version of <code>(=&gt; subforms...)</code>.
 	 */
-	public static Term implies(Script script, Term... subforms)	{
+	public static Term implies(Script script, Term... subforms) {
 		Term trueTerm = script.term("true");
 		Term lastFormula = subforms[subforms.length - 1];
 		if (lastFormula == trueTerm)
