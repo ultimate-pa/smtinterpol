@@ -1427,7 +1427,7 @@ public class DPLLEngine {
 	public Clause getProof() {
 		assert checkValidUnsatClause();
 		Clause empty = mUnsatClause;
-		if (mUnsatClause.getSize() > 0) {
+		if (mUnsatClause != null && mUnsatClause.getSize() > 0) {
 			// We have to remove the assumptions via resolution
 			Antecedent[] antecedents = new Antecedent[mUnsatClause.getSize()];
 			for (int i = 0; i < mUnsatClause.getSize(); ++i) {

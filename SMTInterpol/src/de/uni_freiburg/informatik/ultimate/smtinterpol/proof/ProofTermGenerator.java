@@ -141,7 +141,6 @@ public class ProofTermGenerator extends NonRecursive {
 	}
 	
 	public Term convert(Clause cls) {
-		assert cls.getSize() == 0;
 		assert cls.getProof() != null;
 		run(new Expander(cls));
 		Term res = mConverted.pop();
