@@ -28,9 +28,9 @@ import de.uni_freiburg.informatik.ultimate.logic.Theory.SolverSetup;
  * Simple implementation of a script, that supports building terms and sorts,
  * but does not support setting and getting options, checking for satisfiabilty,
  * or getting any other results.
- * 
+ *
  * This can be used as base class for implementing the script interface.
- *  
+ *
  * @author Jürgen Christ, Jochen Hoenicke
  */
 public class NoopScript implements Script {
@@ -55,8 +55,19 @@ public class NoopScript implements Script {
 	
 	public Theory getTheory() {
 		return mTheory;
-	}	
-	
+	}
+
+	/**
+	 * Check that the symbol does not contain characters that would make
+	 * it impossible to use it in a LoggingScript.  These are | and \.
+	 * @param symbol the symbol to check
+	 * @throws SMTLibException if symbol contains | or \.
+	 */
+	private void checkSymbol(String symbol) throws SMTLIBException {
+		if (symbol.indexOf('|') >= 0 || symbol.indexOf('\\') >= 0)
+			throw new SMTLIBException("Symbol must not contain | or \\");
+	}
+
 	@Override
 	public void setLogic(String logic) throws UnsupportedOperationException {
 		try {
@@ -90,6 +101,7 @@ public class NoopScript implements Script {
 	public void declareSort(String sort, int arity) throws SMTLIBException {
 		if (mTheory == null)
 			throw new SMTLIBException("No logic set!");
+		checkSymbol(sort);
 		try {
 			mTheory.declareSort(sort, arity);
 		} catch (IllegalArgumentException eiae) {
@@ -102,6 +114,7 @@ public class NoopScript implements Script {
 		throws SMTLIBException {
 		if (mTheory == null)
 			throw new SMTLIBException("No logic set!");
+		checkSymbol(sort);
 		try {
 			mTheory.defineSort(sort, sortParams.length, definition);
 		} catch (IllegalArgumentException eiae) {
@@ -114,6 +127,7 @@ public class NoopScript implements Script {
 		throws SMTLIBException {
 		if (mTheory == null)
 			throw new SMTLIBException("No logic set!");
+		checkSymbol(fun);
 		try {
 			mTheory.declareFunction(fun, paramSorts, resultSort);
 		} catch (IllegalArgumentException eiae) {
@@ -124,6 +138,7 @@ public class NoopScript implements Script {
 	@Override
 	public void defineFun(String fun, TermVariable[] params,
 			Sort resultSort, Term definition) throws SMTLIBException {
+		checkSymbol(fun);
 		defineFunInternal(fun, params, resultSort, definition);
 	}
 	
@@ -219,7 +234,7 @@ public class NoopScript implements Script {
 	@Override
 	public void reset() {
 		mTheory = null;
-        mStackLevel = 0;
+		mStackLevel = 0;
 	}
 
 	@Override
@@ -294,6 +309,7 @@ public class NoopScript implements Script {
 		if (sort == null || varname == null)
 			throw new SMTLIBException(
 					"Invalid input to create a term variable");
+		checkSymbol(varname);
 		return mTheory.createTermVariable(varname, sort);
 	}
 
@@ -337,6 +353,7 @@ public class NoopScript implements Script {
 					if (!(a.getValue() instanceof String))
 						throw new SMTLIBException(
 								"Need a string value for :named");
+					checkSymbol((String) a.getValue());
 					if (t.getFreeVars().length != 0)// NOPMD
 						throw new SMTLIBException("Cannot name open terms");
 					else
