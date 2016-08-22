@@ -45,13 +45,12 @@ into Workspace".
 Reporting Bugs
 --------------
 
-There is no bug tracking system for SMTInterpol yet.  Simply send a bug report
-to hoenicke@informatik.uni-freiburg.de with all needed information.  This
-includes:
+You can report bugs using
+[the bug-tracker](https://github.com/ultimate-pa/smtinterpol/issues) at github.
+Please provide all needed information.  This includes:
  -  a description of the bug (e.g., crash, unsoundness, or feature-request),
  -  a way to reproduce the bug (e.g., an interaction log with the solver 
-    via the LoggingScript provided with the sources), and
- -  contact data (e.g., an email address) used for communication.
+    via the LoggingScript provided with the sources).
 
 ```
 (declare-fun in (using) SMTInterpol)
