@@ -55,7 +55,7 @@ public final class PairHashTest {
 						return false;
 					}
 				});
-		mEngine = new CClosure(dpllEngine,null);
+		mEngine = new CClosure(dpllEngine);
 		createtermss();
 		dpllEngine.getLogger().setLoglevel(LogProxy.LOGLEVEL_DEBUG);
 	}

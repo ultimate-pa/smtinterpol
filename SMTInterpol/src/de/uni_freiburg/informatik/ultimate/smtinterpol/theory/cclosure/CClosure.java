@@ -26,7 +26,6 @@ import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SharedTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
@@ -58,16 +57,13 @@ public class CClosure implements ITheory {
 	final ArrayDeque<SymmetricPair<CCAppTerm>> mPendingCongruences =
 		new ArrayDeque<SymmetricPair<CCAppTerm>>();
 	
-	final Clausifier mClausifier;
-	
 	private long mInvertEdgeTime, mEqTime, mCcTime, mSetRepTime;
 	private long mCcCount, mMergeCount;
 	
 	private int mStoreNum, mSelectNum, mDiffNum;
 
-	public CClosure(DPLLEngine engine, Clausifier clausifier) {
+	public CClosure(DPLLEngine engine) {
 		this.mEngine = engine;
-		this.mClausifier = clausifier;
 	}
 	
 	public CCTerm createAnonTerm(SharedTerm flat) {

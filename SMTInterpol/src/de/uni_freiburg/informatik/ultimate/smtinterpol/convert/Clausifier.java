@@ -1904,7 +1904,7 @@ public class Clausifier {
 	
 	private void setupCClosure() {
 		if (mCClosure == null) {
-			mCClosure = new CClosure(mEngine, this);
+			mCClosure = new CClosure(mEngine);
 			mEngine.addTheory(mCClosure);
 			/* If we do not setup the cclosure at the root level, we remove it
 			 * with the corresponding pop since the axiom true != false will be
