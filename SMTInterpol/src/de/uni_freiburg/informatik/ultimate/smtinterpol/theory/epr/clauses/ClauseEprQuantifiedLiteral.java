@@ -12,8 +12,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.IDawg;
 
 public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 
@@ -35,6 +35,8 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	 *  only be non-null between a call to isFulfillable() and getFulfillablePoints()
 	 */
 	IDawg mFulfillablePoints;
+
+	IDawg mFulfilledPoints;
 
 	public ClauseEprQuantifiedLiteral(boolean polarity, EprQuantifiedPredicateAtom atom, 
 			EprClause clause, EprTheory eprTheory) {
@@ -90,13 +92,24 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 
 	@Override
 	protected ClauseLiteralState determineState() {
-		IDawg union = mEprTheory.getDawgFactory().createEmptyDawg(null);//TODO
+		IDawg refutedPoints = mEprTheory.getDawgFactory().createEmptyDawg(null);//TODO
 		for (DecideStackLiteral dsl : mPartiallyConflictingDecideStackLiterals) {
-			union.addAll(dsl.getDawg());
+			refutedPoints.addAll(dsl.getDawg());
 		}
-		mFulfillablePoints = union.complement();
 
-		if (mFulfillablePoints.isEmpty()) {
+		IDawg fulfilledPoints = mEprTheory.getDawgFactory().createEmptyDawg(null);//TODO
+		for (DecideStackLiteral dsl : mPartiallyFulfillingDecideStackLiterals) {
+			fulfilledPoints.addAll(dsl.getDawg());
+		}
+		
+		mFulfillablePoints = refutedPoints.complement();
+		mFulfilledPoints = fulfilledPoints;
+		
+		assert refutedPoints.intersect(fulfilledPoints).isEmpty();
+
+		if (fulfilledPoints.isUniversal()) {
+			return ClauseLiteralState.Fulfilled;
+		} else if (refutedPoints.isUniversal()) {
 			return ClauseLiteralState.Refuted;
 		} else {
 			return ClauseLiteralState.Fulfillable;

@@ -19,8 +19,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroun
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.IDawg;
 
 /**
  * Represents a clause that is only known to the EprTheory.
@@ -46,7 +46,7 @@ public class EprClause {
 	/**
 	 * Stores the variabels occuring in this clause in the order determined by the HashMap mVariableToClauseLitToPositions
 	 */
-	List<TermVariable> mVariables;
+	TermVariable[] mVariables;
 
 	/*
 	 * The following two fields are only used during creation of the clause.
@@ -69,7 +69,8 @@ public class EprClause {
 		mLiterals = Collections.unmodifiableSet(mLiteralsTemp);
 		mVariableToClauseLitToPositions = Collections.unmodifiableMap(mVariableToClauseLitToPositionsTemp);
 
-		mVariables = new ArrayList<TermVariable>(mVariableToClauseLitToPositions.keySet());
+		Set<TermVariable> keySet = mVariableToClauseLitToPositions.keySet();
+		mVariables = keySet.toArray(new TermVariable[keySet.size()]);
 
 		// those ..Temp fields should not be used afterwards..
 		mLiteralsTemp = null;
@@ -289,7 +290,7 @@ public class EprClause {
 		}
 	}
 	
-	public List<TermVariable> getVariables() {
+	public TermVariable[] getVariables() {
 		return mVariables;
 	}
 	

@@ -2,6 +2,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -194,25 +195,33 @@ public class EprStateManager {
 	 * Returns a conflict that the setting of the literal would induce, null if there is none.
 	 * 
 	 * @param literalToBeSet
-	 * @return
+	 * @return an EprClause that is Unit or Conflict if there is one, null otherwise
 	 */
-	private Object updateClausesOnSetDecideStackLiteral(DecideStackQuantifiedLiteral literalToBeSet) {
+	private Set<EprClause> updateClausesOnSetDecideStackLiteral(DecideStackQuantifiedLiteral literalToBeSet) {
 		HashMap<EprClause, HashSet<ClauseEprQuantifiedLiteral>> quantifiedOccurences = 
 				literalToBeSet.getEprPredicate().getQuantifiedOccurences();
 		HashMap<EprClause, HashSet<ClauseEprGroundLiteral>> groundOccurences = 
 				literalToBeSet.getEprPredicate().getGroundOccurences();
 		assert false : "TODO: deal with groundOccurences";
 		
+		
+		Set<EprClause> unitClauses = new HashSet<EprClause>();
+		
 		for (Entry<EprClause, HashSet<ClauseEprQuantifiedLiteral>> en : quantifiedOccurences.entrySet()) {
 			EprClause eprClause = en.getKey();
 			
 			EprClauseState newClauseState = 
 					eprClause.updateStateWrtDecideStackLiteral(literalToBeSet, en.getValue());
+
 			if (newClauseState == EprClauseState.Conflict) {
-				assert false : "TODO: implement";
+				return Collections.singleton(eprClause);
 			} else if (newClauseState == EprClauseState.Unit) {
-				assert false : "TODO: implement";
+				unitClauses.add(eprClause);
 			}
+		}
+		
+		if (! unitClauses.isEmpty()) {
+			return unitClauses;
 		}
 
 		return null;

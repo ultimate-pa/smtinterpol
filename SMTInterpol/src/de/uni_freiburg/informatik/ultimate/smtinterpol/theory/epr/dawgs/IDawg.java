@@ -1,18 +1,18 @@
-package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel;
+package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
 
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
 
-public interface IDawg {
+public interface IDawg<LETTER> {
 	
 	public TermVariable[] getVariables();
 	
-	public IDawgSubstitution join(IDawg other);
+	public IDawgSubstitution join(IDawg<LETTER> other);
 
-	public IDawg complement();
+	public IDawg<LETTER> complement();
 	
-	public IDawg union(IDawg other);
+	public IDawg<LETTER> union(IDawg<LETTER> other);
 	
 	public boolean accepts(TermTuple point);
 
@@ -31,7 +31,7 @@ public interface IDawg {
 	 *  - dawg's arities must be equal
 	 * @param dawg
 	 */
-	public void addAll(IDawg dawg);
+	public void addAll(IDawg<LETTER> dawg);
 
 	public boolean isEmpty();
 
@@ -42,7 +42,7 @@ public interface IDawg {
 	 * @param fp
 	 * @return
 	 */
-	public IDawg intersect(IDawg fp);
+	public IDawg<LETTER> intersect(IDawg<LETTER> fp);
 
-	public void removeAll(IDawg fpOne);
+	public void removeAll(IDawg<LETTER> fpOne);
 }
