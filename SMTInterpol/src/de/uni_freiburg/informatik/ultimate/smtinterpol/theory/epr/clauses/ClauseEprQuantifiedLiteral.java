@@ -8,10 +8,14 @@ import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.IDawg;
 
-public class ClauseEprQuantifiedLiteral extends ClauseLiteral {
+public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 
 	EprQuantifiedPredicateAtom mAtom;
 	
@@ -24,17 +28,20 @@ public class ClauseEprQuantifiedLiteral extends ClauseLiteral {
 	 */
 	Map<Integer, Map<ClauseEprQuantifiedLiteral, Set<Integer>>> identicalVariablePositionsInOtherClauseLiterals = 
 			new HashMap<Integer, Map<ClauseEprQuantifiedLiteral,Set<Integer>>>();
+	
+	/**
+	 * Stores the points where this literal is currently fulfillable.
+	 *  -- this is only updated on an isFulfillable query, so it should
+	 *  only be non-null between a call to isFulfillable() and getFulfillablePoints()
+	 */
+	IDawg mFulfillablePoints;
 
-	public ClauseEprQuantifiedLiteral(boolean polarity, EprQuantifiedPredicateAtom atom, EprClause clause) {
-		super(polarity, atom, clause);
+	public ClauseEprQuantifiedLiteral(boolean polarity, EprQuantifiedPredicateAtom atom, 
+			EprClause clause, EprTheory eprTheory) {
+		super(polarity, atom, clause, eprTheory);
 		mAtom = atom;
 		
-		for (int i = 0; i < atom.getArguments().length; i++) {
-			if (! (atom.getArguments()[i] instanceof TermVariable))
-				continue;
-			TermVariable tv = (TermVariable) atom.getArguments()[i];
-			clause.updateVariableToClauseLitToPosition(tv, this, i);
-		}
+
 	}
 
 	public void addExceptions(Set<EprQuantifiedEqualityAtom> quantifiedEqualities) {
@@ -62,6 +69,37 @@ public class ClauseEprQuantifiedLiteral extends ClauseLiteral {
 				}
 				otherClToIdenticalPos.put(en.getKey(), en.getValue());
 			}
+		}
+	}
+
+	/**
+	 * Returns the points where this literal is fulfillable in the decide state that was current when
+	 * isFulfillable was last called.
+	 * To prevent some misusage, this nulls the field so it is not used twice.
+	 *  --> however this will still be problematic if the state changes between the last call to isFulfillable
+	 *  and this method.
+	 * @return
+	 */
+	public IDawg getFulfillablePoints() {
+		assert mFulfillablePoints != null;
+		IDawg result = mFulfillablePoints;
+		mFulfillablePoints = null;
+		return result;
+	}
+
+
+	@Override
+	protected ClauseLiteralState determineState() {
+		IDawg union = mEprTheory.getDawgFactory().createEmptyDawg(null);//TODO
+		for (DecideStackLiteral dsl : mPartiallyConflictingDecideStackLiterals) {
+			union.addAll(dsl.getDawg());
+		}
+		mFulfillablePoints = union.complement();
+
+		if (mFulfillablePoints.isEmpty()) {
+			return ClauseLiteralState.Refuted;
+		} else {
+			return ClauseLiteralState.Fulfillable;
 		}
 	}
 }

@@ -1,5 +1,7 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel;
 
+import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
 
 /**
@@ -20,6 +22,14 @@ public class DecideStackQuantifiedLiteral extends DecideStackLiteral {
 		super(polarity, atom);
 		mDawg = dawg;
 	}
-	
+
+	public DecideStackQuantifiedLiteral(boolean polarity, EprPredicate eprPredicate, IDawg dawg) {
+		super(polarity, eprPredicate);
+		// TODO do something about eprPredicate and dawg
+	}
+
+	public IDawg getDawg() {
+		return mDawg;
+	}
 	
 }

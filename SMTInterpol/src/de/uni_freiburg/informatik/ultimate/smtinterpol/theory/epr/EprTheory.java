@@ -31,11 +31,13 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprClauseOld;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprGroundUnitClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprNonUnitClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprQuantifiedUnitClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprUnitClause;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DawgFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.EprStateManager;
 import de.uni_freiburg.informatik.ultimate.util.ScopedHashSet;
 
@@ -68,13 +70,15 @@ public class EprTheory implements ITheory {
 	private final boolean mGroundAllMode;
 	private ArrayList<Literal[]> mAllGroundingsOfLastAddedEprClause;
 
-	EprStateManager mStateManager;
+	private EprStateManager mStateManager;
+	private DawgFactory mDawgFactory;
 
 	private CClosure mCClosure;
 	private Clausifier mClausifier;
 	private LogProxy mLogger;
 	private Theory mTheory;
 	private DPLLEngine mEngine;
+
 
 	public EprTheory(Theory th, DPLLEngine engine, CClosure cClosure, Clausifier clausifier, boolean solveThroughGrounding) {
 		mTheory = th;
@@ -84,6 +88,8 @@ public class EprTheory implements ITheory {
 		mEqualityManager = new EqualityManager();
 		mStateManager = new EprStateManager(this);
 		mGroundAllMode = solveThroughGrounding;
+		
+		mDawgFactory = new DawgFactory();
 
 		mLogger = clausifier.getLogger();
 	}
@@ -236,9 +242,34 @@ public class EprTheory implements ITheory {
 		 *     goto 1
 		 */
 		
-		assert false: "TODO";
+//		for (EprClause ec : mStateManager.getAllEprClauses()) {
+//			Clause conflict = ec.getConflict();
+//			if (conflict != null) {
+//				return conflict;
+//			}
+//		}
+
+		boolean allEprPredicatesHaveACompleteModel = false;
+
+		while (! allEprPredicatesHaveACompleteModel) {
+			allEprPredicatesHaveACompleteModel = true;
+			for (EprPredicate ep : mStateManager.getAllEprPredicates()) {
+				Object conflict = ep.completeModel();
+
+				if (conflict == null) {
+					continue;
+//				} else if (conflict instanceof EprClause) {
+//
+				} else if (conflict instanceof Clause) {
+					return (Clause) conflict;
+				} else {
+					allEprPredicatesHaveACompleteModel = false; //here??
+					assert false : "TODO: what can a conflict be, here???";
+				}
+			}
+		}
 		
-		return completeModel();
+		return null;
 	}
 
 	@Override
@@ -435,7 +466,7 @@ public class EprTheory implements ITheory {
 		} else {
 			EprPredicate pred = mFunctionSymbolToEprPredicate.get(idx.getFunction());
 			if (pred == null) {
-				pred = new EprPredicate(idx.getFunction(), idx.getParameters().length);
+				pred = new EprPredicate(idx.getFunction(), idx.getParameters().length, this);
 				mFunctionSymbolToEprPredicate.put(idx.getFunction(), pred);
 				mStateManager.addNewEprPredicate(pred);
 			}
@@ -509,6 +540,10 @@ public class EprTheory implements ITheory {
 	
 	public EprStateManager getStateManager() {
 		return mStateManager;
+	}
+	
+	public DawgFactory getDawgFactory() {
+		return mDawgFactory;
 	}
 	
 	public EqualityManager getEqualityManager() {

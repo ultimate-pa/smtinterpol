@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.Stack;
 
@@ -24,8 +25,11 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseEprGroundLiteral;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseEprQuantifiedLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClause;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClauseState;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprBaseClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprClauseOld;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprDerivedClause;
@@ -164,6 +168,68 @@ public class EprStateManager {
 	}
 
 	/**
+	 *  - assumes that the given literal is not conflicting with the current model of its EprPredicate
+	 *    --> it may however yield a conflict given the current clause set
+	 *     if such a conflict exists, it is returned, otherwise null is returned
+	 * @param decideStackQuantifiedLiteral
+	 * @return 
+	 */
+	public Object setEprDecideStackLiteral(DecideStackQuantifiedLiteral decideStackQuantifiedLiteral) {
+		assert false : "TODO: implement";
+		Object conflict = updateClausesOnSetDecideStackLiteral(decideStackQuantifiedLiteral);
+		if (conflict == null) {
+			mPushStateStack.peek().setDecideStackLiteral(decideStackQuantifiedLiteral);
+		}
+	    return conflict;
+	}
+
+
+	public void unsetEprDecideStackLiteral(DecideStackQuantifiedLiteral decideStackQuantifiedLiteral) {
+		updateClausesOnBacktrackDecideStackLiteral(decideStackQuantifiedLiteral);
+		mPushStateStack.peek().unsetDecideStackLiteral(decideStackQuantifiedLiteral);
+	}
+
+	/**
+	 * Ask the clauses what happens if dcideStackQuantifiedLiteral is set.
+	 * Returns a conflict that the setting of the literal would induce, null if there is none.
+	 * 
+	 * @param literalToBeSet
+	 * @return
+	 */
+	private Object updateClausesOnSetDecideStackLiteral(DecideStackQuantifiedLiteral literalToBeSet) {
+		HashMap<EprClause, HashSet<ClauseEprQuantifiedLiteral>> quantifiedOccurences = 
+				literalToBeSet.getEprPredicate().getQuantifiedOccurences();
+		HashMap<EprClause, HashSet<ClauseEprGroundLiteral>> groundOccurences = 
+				literalToBeSet.getEprPredicate().getGroundOccurences();
+		assert false : "TODO: deal with groundOccurences";
+		
+		for (Entry<EprClause, HashSet<ClauseEprQuantifiedLiteral>> en : quantifiedOccurences.entrySet()) {
+			EprClause eprClause = en.getKey();
+			
+			EprClauseState newClauseState = 
+					eprClause.updateStateWrtDecideStackLiteral(literalToBeSet, en.getValue());
+			if (newClauseState == EprClauseState.Conflict) {
+				assert false : "TODO: implement";
+			} else if (newClauseState == EprClauseState.Unit) {
+				assert false : "TODO: implement";
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * this -might- be unnecessary
+	 *   -- depending on whether the clauses look at the decide stack themselves anyway..
+	 *     --> still unclear.. (TODO)
+	 * @param decideStackQuantifiedLiteral
+	 */
+	private void updateClausesOnBacktrackDecideStackLiteral(DecideStackQuantifiedLiteral decideStackQuantifiedLiteral) {
+		assert false : "TODO: implement";
+	}
+
+
+	/**
 	 * Inform all the EprClauses that contain the atom (not only the
 	 * literal!) that they have to update their fulfillment state.
 	 */
@@ -193,7 +259,21 @@ public class EprStateManager {
 	
 	}
 
+	/**
+	 * Attempts to complete the current partial model (provided by the decides stack)
+	 * for the given EprPredicate.
+	 * Returns null in the case of success and a ground conflict clause otherwise;
+	 * @param ep
+	 * @return
+	 */
+	public Clause completeModelForEprPred(EprPredicate ep) {
+		assert false : "TODO: implement";
+		return null;
+	}
 
+	////////////////// 
+	////////////////// methods for management of basic data structures
+	////////////////// 
 	
 	public void updateAtomToClauses(DPLLAtom atom, EprClause c) {
 		HashSet<EprClause> clauses = mDPLLAtomToClauses.get(atom);
@@ -203,11 +283,6 @@ public class EprStateManager {
 		}
 		clauses.add(c);
 	}
-
-
-	////////////////// 
-	////////////////// methods for management of basic data structures
-	////////////////// 
 
 	public HashSet<EprClause> getClausesThatContainAtom(DPLLAtom atom) {
 		return mDPLLAtomToClauses.get(atom);
@@ -238,8 +313,6 @@ public class EprStateManager {
 		}
 	}
 
-
-
 	/**
 	 * makes sure that for the same set of literals only one clause is constructed.
 	 * Note that this may return a EprDerivedClause -- if there already is one for the set of Literals
@@ -255,6 +328,10 @@ public class EprStateManager {
 			mEprTheory.getLogger().debug("EPRDEBUG (EprStateManager): clause has been added before " + result);
 		}
 		return result;
+	}
+	
+	public Iterable<EprClause> getAllEprClauses() {
+		return new EprClauseIterable(mPushStateStack);
 	}
 
 

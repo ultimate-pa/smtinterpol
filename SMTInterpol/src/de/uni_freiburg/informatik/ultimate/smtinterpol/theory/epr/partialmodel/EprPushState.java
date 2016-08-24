@@ -1,6 +1,8 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel;
 
 import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Stack;
 
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
@@ -55,5 +57,22 @@ public class EprPushState {
 //	public void addEprPredicate(EprPredicate ep) {
 //		mEprPredicates.add(ep);
 //	}
+
+	public List<EprClause> getClauses() {
+		return mClauses;
+	}
+
+	public Iterator<EprClause> getClausesIterator() {
+		return mClauses.iterator();
+	}
+
+	public void setDecideStackLiteral(DecideStackQuantifiedLiteral decideStackQuantifiedLiteral) {
+		mDecideStack.push(decideStackQuantifiedLiteral);
+	}
 	
+	public void unsetDecideStackLiteral(DecideStackQuantifiedLiteral decideStackQuantifiedLiteral) {
+		DecideStackQuantifiedLiteral top = mDecideStack.pop();
+		assert top == decideStackQuantifiedLiteral : "TODO: not yet clear how this will work..";
+	}
+
 }
