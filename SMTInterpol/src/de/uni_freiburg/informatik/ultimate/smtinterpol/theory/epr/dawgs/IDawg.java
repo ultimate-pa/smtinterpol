@@ -1,20 +1,21 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
 
-import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
 
-public interface IDawg<LETTER> {
+public interface IDawg<LETTER, COLNAMES> {
 	
-	public TermVariable[] getVariables();
+	public COLNAMES[] getColnames();
 	
-	public IDawgSubstitution join(IDawg<LETTER> other);
+	public int getArity();
+	
+	public IDawgSubstitution join(IDawg<LETTER, COLNAMES> other);
 
-	public IDawg<LETTER> complement();
+	public IDawg<LETTER, COLNAMES> complement();
 	
-	public IDawg<LETTER> union(IDawg<LETTER> other);
+	public IDawg<LETTER, COLNAMES> union(IDawg<LETTER, COLNAMES> other);
 	
-	public boolean accepts(TermTuple point);
+	public boolean accepts(LETTER[] point);
 
 	/**
 	 * Add one point to this Dawg
@@ -23,7 +24,7 @@ public interface IDawg<LETTER> {
 	 *  - arguments only contains constants
 	 * @param arguments
 	 */
-	public void add(Term[] arguments);
+	public void add(LETTER[] arguments);
 
 	/**
 	 * Add all points of a given Dawg to this Dawg
@@ -31,7 +32,7 @@ public interface IDawg<LETTER> {
 	 *  - dawg's arities must be equal
 	 * @param dawg
 	 */
-	public void addAll(IDawg<LETTER> dawg);
+	public void addAll(IDawg<LETTER, COLNAMES> dawg);
 
 	public boolean isEmpty();
 
@@ -42,7 +43,7 @@ public interface IDawg<LETTER> {
 	 * @param fp
 	 * @return
 	 */
-	public IDawg<LETTER> intersect(IDawg<LETTER> fp);
+	public IDawg<LETTER, COLNAMES> intersect(IDawg<LETTER, COLNAMES> other);
 
-	public void removeAll(IDawg<LETTER> fpOne);
+	public void removeAll(IDawg<LETTER, COLNAMES> other);
 }

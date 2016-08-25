@@ -167,14 +167,17 @@ public class EprPredicate {
 	 */
 	public Object completeModel() {
 		
-		IDawg positivelySetPoints = null;
-		IDawg negativelySetPoints = null;
-		IDawg undecidedPoints = null;
+		IDawg<ApplicationTerm, TermVariable> positivelySetPoints = 
+				mEprTheory.getDawgFactory().createEmptyDawg(arity);
+		IDawg<ApplicationTerm, TermVariable> negativelySetPoints =
+				mEprTheory.getDawgFactory().createEmptyDawg(arity);
+		IDawg<ApplicationTerm, TermVariable> undecidedPoints = 
+				mEprTheory.getDawgFactory().createEmptyDawg(arity);
 
 		for (DecideStackQuantifiedLiteral dsl : mDecideStackLiterals) {
 			if (dsl.getPolarity()) {
-				//positive literal
 				positivelySetPoints.addAll(dsl.getDawg());
+				//positive literal
 			} else {
 				//negative literal
 				negativelySetPoints.addAll(dsl.getDawg());
@@ -185,13 +188,13 @@ public class EprPredicate {
 		for (EprGroundPredicateAtom at : mDPLLAtoms) {
 			if (at.getDecideStatus() == null) {
 				// not yet decided
-				undecidedPoints.add(at.getArguments());
+				undecidedPoints.add(EprHelpers.castTermsToConstants(at.getArguments()));
 			} else if (at.getDecideStatus().getSign() == 1) {
 				// positively set
-				positivelySetPoints.add(at.getArguments());
+				positivelySetPoints.add(EprHelpers.castTermsToConstants(at.getArguments()));
 			} else {
 				// negatively set
-				negativelySetPoints.add(at.getArguments());
+				negativelySetPoints.add(EprHelpers.castTermsToConstants(at.getArguments()));
 			}
 			
 		}
@@ -221,6 +224,12 @@ public class EprPredicate {
 	public void notifyAboutClauseDisposal(EprClause eprClause) {
 		mQuantifiedOccurences.remove(eprClause);
 		mGroundOccurences.remove(eprClause);
+	}
+
+	@Deprecated
+	public void addQuantifiedOccurence(Literal l, EprClauseOld eprClauseOld) {
+		// TODO Auto-generated method stub
+		// only inserted this method to avoid a compiler error in deprecated code
 	}
 
 

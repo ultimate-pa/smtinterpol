@@ -539,7 +539,7 @@ public abstract class EprNonUnitClause extends EprClauseOld {
 			TermTuple point = egpa.getArgumentsAsTermTuple(); 
 			EprPredicate pred = egpa.getEprPredicate(); 
 
-			HashSet<Literal> qo = pred.getQuantifiedOccurences().get(this);
+			HashSet<Literal> qo = null;//changed EprPredicate, old code: pred.getQuantifiedOccurences().get(this);
 			if (qo != null) {
 				for (Literal quantifiedLit : qo) {
 					TermTuple otherPoint = new TermTuple(

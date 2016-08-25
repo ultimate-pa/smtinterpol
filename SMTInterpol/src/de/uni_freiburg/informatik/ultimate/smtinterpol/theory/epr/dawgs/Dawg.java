@@ -3,18 +3,15 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawgLetter.UniversalDawgLetter;
 
-public class Dawg<LETTER> implements IDawg<LETTER> {
+public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	
-	
-	private final TermVariable[] mVariables;
-	
-	private final int mArity;
 	
 	/*
 	 * convention:
@@ -31,9 +28,8 @@ public class Dawg<LETTER> implements IDawg<LETTER> {
 	 */
 	Map<Integer, Map<IDawgLetter<LETTER>, Integer>> transitionRelation;
 
-	public Dawg(TermVariable[] termVariables) {
-		mVariables = termVariables;
-		mArity = termVariables.length;
+	public Dawg(COLNAMES[] termVariables, Set<LETTER> allConstants) {
+		super(termVariables, allConstants);
 		
 		/*
 		 * create as an empty dawg
@@ -75,7 +71,7 @@ public class Dawg<LETTER> implements IDawg<LETTER> {
 	}
 
 	@Override
-	public boolean accepts(TermTuple point) {
+	public boolean accepts(LETTER[] point) {
 		// TODO Auto-generated method stub
 		return false;
 	}
@@ -93,12 +89,7 @@ public class Dawg<LETTER> implements IDawg<LETTER> {
 	}
 
 	@Override
-	public TermVariable[] getVariables() {
-		return mVariables;
-	}
-
-	@Override
-	public void add(Term[] arguments) {
+	public void add(LETTER[] arguments) {
 		// TODO Auto-generated method stub
 	
 	}

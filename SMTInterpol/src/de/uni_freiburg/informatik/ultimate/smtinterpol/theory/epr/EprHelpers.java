@@ -2,6 +2,8 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -191,5 +193,42 @@ public class EprHelpers {
 			first = f;
 			second = s;
 		}
+	}
+
+	/**
+	 * When we are sure (or want to be sure) that a Term array really only contains constants, 
+	 * we make the cast using this method.
+	 * @param arguments
+	 * @return
+	 */
+	public static ApplicationTerm[] castTermsToConstants(Term[] arguments) {
+		ApplicationTerm[] ats = new ApplicationTerm[arguments.length];
+		for (int i = 0; i < arguments.length; i++) {
+			assert arguments[i] instanceof ApplicationTerm &&
+			   ((ApplicationTerm) arguments[i]).getParameters().length == 0 
+			   : "This method should only be called on arrays of constants";
+			ats[i] = (ApplicationTerm) arguments[i];
+		}
+		return ats;
+	}
+	
+	/**
+	 * Given a set S, computes S x S ... x S = S^n
+	 */
+	public static <LETTER> Set<List<LETTER>> computeNCrossproduct(Set<LETTER> baseSet, int n) {
+		Set<List<LETTER>> result = new HashSet<List<LETTER>>();
+		result.add(new ArrayList<LETTER>());
+		for (int i = 0; i < n; i++) {
+			Set<List<LETTER>> newResult = new HashSet<List<LETTER>>();
+			for (List<LETTER> tuple : result) {
+				for (LETTER ltr : baseSet) {
+					List<LETTER> newTuple = new ArrayList<LETTER>(tuple);
+					newTuple.add(ltr);
+					newResult.add(newTuple);
+				}
+			}
+			result = newResult;
+		}
+		return result;
 	}
 }

@@ -53,13 +53,15 @@ import de.uni_freiburg.informatik.ultimate.util.ScopedHashSet;
  */
 public class EprStateManager {
 
-	Stack<EprPushState> mPushStateStack = new Stack<EprPushState>();
+	private Stack<EprPushState> mPushStateStack = new Stack<EprPushState>();
 	
 	/**
 	 * Remembers from which sets of literals an EprClause has already been 
 	 * constructed (and which).
 	 */
-	ScopedHashMap<Set<Literal>, EprClause> mLiteralsToClause = new ScopedHashMap<Set<Literal>, EprClause>();
+	private ScopedHashMap<Set<Literal>, EprClause> mLiteralsToClause = new ScopedHashMap<Set<Literal>, EprClause>();
+
+	private ScopedHashSet<ApplicationTerm> mUsedConstants;
 
 	public EqualityManager mEqualityManager;
 	private EprTheory mEprTheory;
@@ -92,12 +94,14 @@ public class EprStateManager {
 		mPushStateStack.push(new EprPushState());
 		mLiteralsToClause.beginScope();
 		mAllEprPredicates.beginScope();
+		mUsedConstants.beginScope();
 	}
 	
 	public void pop() {
 		mPushStateStack.pop();
 		mLiteralsToClause.endScope();
 		mAllEprPredicates.endScope();
+		mUsedConstants.endScope();
 	}
 
 	////////////////// 
@@ -347,8 +351,10 @@ public class EprStateManager {
 	//////////////////////////////////// old, perhaps obsolete stuff, from here on downwards /////////////////////////////////////////
 	
 
+	@Deprecated
 	HashMap<Set<Literal>, EprNonUnitClause> mLiteralToClauses = new HashMap<Set<Literal>, EprNonUnitClause>();
 
+	@Deprecated
 	private Stack<EprState> mEprStateStack = new Stack<EprState>();
 	
 	// contains the ground literal currently set by the DPLLEngine for
@@ -586,16 +592,6 @@ public class EprStateManager {
 	}
 
 	@Deprecated
-	public HashSet<EprNonUnitClause> getAllClauses() {
-		HashSet<EprNonUnitClause> allClauses = new HashSet<EprNonUnitClause>();
-		for (EprState es : mEprStateStack) {
-			allClauses.addAll(es.getBaseClauses());
-			allClauses.addAll(es.getDerivedClauses());
-		}
-		return allClauses;
-	}
-
-	@Deprecated
 	public HashSet<EprNonUnitClause> getFulfilledClauses() {
 		HashSet<EprNonUnitClause> fulfilledClauses = new HashSet<EprNonUnitClause>();
 		for (EprNonUnitClause ec : getAllClauses())
@@ -692,32 +688,57 @@ public class EprStateManager {
 
 
 	
+	
+	
+	
+	
+	///////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////
+	///////// methods used in the complete grounding method
+	///////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////
+
+	public HashSet<EprNonUnitClause> getAllClauses() {
+		HashSet<EprNonUnitClause> allClauses = new HashSet<EprNonUnitClause>();
+		for (EprState es : mEprStateStack) {
+			allClauses.addAll(es.getBaseClauses());
+			allClauses.addAll(es.getDerivedClauses());
+		}
+		return allClauses;
+	}
+
+
+	public Set<ApplicationTerm> getAllConstants() {
+//		HashSet<ApplicationTerm> result = new HashSet<ApplicationTerm>();
+//	
+//		for (EprState s : mEprStateStack)
+//			result.addAll(s.getUsedConstants());
+//		
+//		return result;
+		return mUsedConstants;
+	}
+
+
 	/**
+	 * Register constants that occur in the smt-script for tracking.
+	 * 
 	 * @param constants
 	 */
-	@Deprecated
 	public void addConstants(HashSet<ApplicationTerm> constants) {
-		HashSet<ApplicationTerm> reallyNewConstants = new HashSet<ApplicationTerm>();
 		if (mEprTheory.isGroundAllMode()) {
+			HashSet<ApplicationTerm> reallyNewConstants = new HashSet<ApplicationTerm>();
 			for (ApplicationTerm newConstant : constants) {
 				if (!getAllConstants().contains(newConstant))
 					reallyNewConstants.add(newConstant);
 			}
-		}
-		addGroundClausesForNewConstant(reallyNewConstants);
-		
-		mEprStateStack.peek().addConstants(constants);
-	}
-	
-	@Deprecated
-	public HashSet<ApplicationTerm> getAllConstants() {
-		HashSet<ApplicationTerm> result = new HashSet<ApplicationTerm>();
 
-		for (EprState s : mEprStateStack)
-			result.addAll(s.getUsedConstants());
+			addGroundClausesForNewConstant(reallyNewConstants);
+		}
 		
-		return result;
+//		mEprStateStack.peek().addConstants(constants);
+		mUsedConstants.addAll(constants);
 	}
+
 
 	/**
 	 * Computes all the instantiations of the variables in freeVars that
@@ -731,11 +752,10 @@ public class EprStateManager {
 	 * @param oldConstants
 	 * @return
 	 */
-	@Deprecated
 	public ArrayList<TTSubstitution> getAllInstantiationsForNewConstant(
-			HashSet<TermVariable> freeVars, 
-			HashSet<ApplicationTerm> newConstants,
-			HashSet<ApplicationTerm> oldConstants) {
+			Set<TermVariable> freeVars, 
+			Set<ApplicationTerm> newConstants,
+			Set<ApplicationTerm> oldConstants) {
 		
 		ArrayList<TTSubstitution> instsWithNewConstant = 
 				new ArrayList<TTSubstitution>();
@@ -783,10 +803,9 @@ public class EprStateManager {
 		return instsWithNewConstant;
 	}
 
-	@Deprecated
 	public ArrayList<TTSubstitution> getAllInstantiations(
-			HashSet<TermVariable> freeVars, 
-			HashSet<ApplicationTerm> constants) {
+			Set<TermVariable> freeVars, 
+			Set<ApplicationTerm> constants) {
 		ArrayList<TTSubstitution> insts = new ArrayList<TTSubstitution>();
 		insts.add(new TTSubstitution());
 
@@ -806,7 +825,6 @@ public class EprStateManager {
 		return insts;
 	}
 	
-	@Deprecated
 	private void addGroundClausesForNewConstant(HashSet<ApplicationTerm> newConstants) {
 		ArrayList<Literal[]> groundings = new ArrayList<Literal[]>();
 		for (EprNonUnitClause c : getAllClauses())  {
@@ -820,7 +838,6 @@ public class EprStateManager {
 		addGroundClausesToDPLLEngine(groundings);
 	}
 
-	@Deprecated
 	private void addGroundClausesForNewEprClause(EprNonUnitClause newEprClause) {
 		List<Literal[]> groundings = 		
 						newEprClause.computeAllGroundings(
@@ -830,7 +847,6 @@ public class EprStateManager {
 		addGroundClausesToDPLLEngine(groundings);
 	}
 
-	@Deprecated
 	private void addGroundClausesToDPLLEngine(List<Literal[]> groundings) {
 		for (Literal[] g : groundings) {
 //			//TODO not totally clear if addFormula is the best way, but addClause(..) has

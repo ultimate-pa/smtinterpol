@@ -61,8 +61,6 @@ public class EprTheory implements ITheory {
 	
 	EqualityManager mEqualityManager;
 
-	private boolean mConflict;
-
 	/**
 	 * If this is set to true, EprTheory just computes all groundings for a given quantified clause
 	 * and returns them to the DPLLEngine.
@@ -71,7 +69,7 @@ public class EprTheory implements ITheory {
 	private ArrayList<Literal[]> mAllGroundingsOfLastAddedEprClause;
 
 	private EprStateManager mStateManager;
-	private DawgFactory mDawgFactory;
+	private DawgFactory<ApplicationTerm, TermVariable> mDawgFactory;
 
 	private CClosure mCClosure;
 	private Clausifier mClausifier;
@@ -89,7 +87,7 @@ public class EprTheory implements ITheory {
 		mStateManager = new EprStateManager(this);
 		mGroundAllMode = solveThroughGrounding;
 		
-		mDawgFactory = new DawgFactory();
+		mDawgFactory = new DawgFactory<ApplicationTerm,TermVariable>(mStateManager.getAllConstants(), this);
 
 		mLogger = clausifier.getLogger();
 	}
@@ -542,7 +540,7 @@ public class EprTheory implements ITheory {
 		return mStateManager;
 	}
 	
-	public DawgFactory getDawgFactory() {
+	public DawgFactory<ApplicationTerm, TermVariable> getDawgFactory() {
 		return mDawgFactory;
 	}
 	
