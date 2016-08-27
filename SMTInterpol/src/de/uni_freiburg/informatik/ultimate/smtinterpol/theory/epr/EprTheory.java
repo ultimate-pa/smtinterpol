@@ -140,6 +140,8 @@ public class EprTheory implements ITheory {
 			}
 
 			// TODO do ground disequalities have an impact for EPR?
+
+			mStateManager.updateClausesOnSetDpllLiteral(literal);
 		} else {
 			// neither an EprAtom nor an Equality
 
@@ -247,27 +249,9 @@ public class EprTheory implements ITheory {
 //			}
 //		}
 
-		boolean allEprPredicatesHaveACompleteModel = false;
 
-		while (! allEprPredicatesHaveACompleteModel) {
-			allEprPredicatesHaveACompleteModel = true;
-			for (EprPredicate ep : mStateManager.getAllEprPredicates()) {
-				Object conflict = ep.completeModel();
-
-				if (conflict == null) {
-					continue;
-//				} else if (conflict instanceof EprClause) {
-//
-				} else if (conflict instanceof Clause) {
-					return (Clause) conflict;
-				} else {
-					allEprPredicatesHaveACompleteModel = false; //here??
-					assert false : "TODO: what can a conflict be, here???";
-				}
-			}
-		}
 		
-		return null;
+		return mStateManager.eprDpllLoop();
 	}
 
 	@Override

@@ -88,6 +88,79 @@ public class EprStateManager {
 		mTheory = eprTheory.getTheory();
 		mCClosure = eprTheory.getCClosure();
 	}
+	
+	public Clause eprDpllLoop() {
+		
+		boolean goOn = true;
+
+		Set<EprClause> conflictsOrUnits = null;
+
+		while (goOn) {
+			
+			// if there is currently no conflict or unit clause, decide something
+			if (conflictsOrUnits == null) {
+				// is the current partial model for the EprPredicates a complete model?
+				DecideStackLiteral nextDecision = isModelComplete();
+				if (nextDecision == null) {
+					// model is complete
+					return null;
+				}
+				
+				if (nextDecision instanceof DecideStackQuantifiedLiteral) {
+					conflictsOrUnits = eprDecide((DecideStackQuantifiedLiteral) nextDecision);
+				} else {
+					assert false : "TODO: treat ground decisions";
+				}
+			}
+			
+			// if we have a unit clause, propagate accordingly
+
+			// if we have a conflict, explain it, learn clauses, undo a decision
+			// if there was no decision, return a grounding of the conflict (perhaps several..)
+		}
+		
+		return null;
+	}
+	
+	/**
+	 *
+	 * @return 	A DecideStackLiteral for an EprPredicate with incomplete model 
+	 *           or null if all EprPredicates have a complete model.
+	 **/
+	private DecideStackLiteral isModelComplete() {
+		for (EprPredicate ep : getAllEprPredicates()) {
+			DecideStackLiteral decision = ep.getNextDecision();
+			if (decision != null) {
+				return decision;
+			}
+		}
+		return null;
+	}
+	
+	
+	private Set<EprClause> eprDecide(DecideStackQuantifiedLiteral nextDecision) {
+		Set<EprClause> conflictsOrUnits = setEprDecideStackLiteral(nextDecision);
+		return conflictsOrUnits;
+//		boolean allEprPredicatesHaveACompleteModel = false;
+//
+//		while (! allEprPredicatesHaveACompleteModel) {
+//			allEprPredicatesHaveACompleteModel = true;
+//			for (EprPredicate ep : mStateManager.getAllEprPredicates()) {
+//				Clause conflict = ep.getNextDecision();
+//
+//				if (conflict == null) {
+//					continue;
+////				} else if (conflict instanceof EprClause) {
+////
+//				} else if (conflict instanceof Clause) {
+//					return (Clause) conflict;
+//				} else {
+//					allEprPredicatesHaveACompleteModel = false; //here??
+//					assert false : "TODO: what can a conflict be, here???";
+//				}
+//			}
+//		}
+	}
 
 
 	public void push() {
@@ -111,53 +184,15 @@ public class EprStateManager {
 	/**
 	 * Update the state of the epr solver according to a ground epr literal being set.
 	 * This entails
-	 *  - updating the decide stack
+	 *  - updating the decide stack --> EDIT: .. not, the ground decide stack is managed by the DPLLEngine
 	 *  - triggering updates of clause states for the right clauses (maybe somewhere else..)
 	 * @param literal
 	 * @return
 	 */
 	public Clause setEprGroundLiteral(Literal literal) {
-		
-		return mPushStateStack.peek().setEprGroundLiteral();
+		Object conflict = mPushStateStack.peek().setEprGroundLiteral();
 
-//		EprGroundPredicateAtom atom = (EprGroundPredicateAtom) literal.getAtom();
-//		EprPredicate pred = atom.getEprPredicate();
-		
-		// old:
-//		// is there a conflict with one of the currently set quantified literals??
-//		for (EprQuantifiedUnitClause l : getSetLiterals(literal.getSign() == 1, atom.eprPredicate)) {
-//			TTSubstitution sub = l.getPredicateAtom().getArgumentsAsTermTuple().match(atom.getArgumentsAsTermTuple(), mEqualityManager);
-//			if (sub != null) {
-//				EprClauseOld conflict =  l.getExplanation().instantiateClause(null, sub);
-//				return conflict;
-//			}
-//		}
-//		// is there a conflict with one of the currently set points 
-//		// (taking into account the current equalities between constants)
-//		HashSet<TermTuple> possibleConflictPoints = this.getPoints(literal.getSign() != 1, atom.eprPredicate);
-//		for (TermTuple point : possibleConflictPoints) {
-//			TTSubstitution sub = point.match(atom.getArgumentsAsTermTuple(), mEqualityManager);
-//			if (sub != null) {
-//				// build conflict clause
-//				ArrayList<Literal> confLits = new ArrayList<Literal>();
-//
-//				confLits.add(literal.negate());
-//
-//				EprGroundPredicateAtom atomOfPoint = atom.eprPredicate.getAtomForPoint(point);
-//				confLits.add(literal.getSign() != 1 ? atomOfPoint.negate() : atomOfPoint);
-//
-//				confLits.addAll(getDisequalityChainsFromSubstitution(sub, point.terms, atom.getArguments()));
-//				
-//				Clause conflict = new Clause(confLits.toArray(new Literal[confLits.size()]));
-//				return conflict;
-//			}
-//		}	
-//		
-//		// if there is no conflict, set it..
-//		mEprStateStack.peek().setPoint(
-//				literal.getSign() == 1, 
-//				(EprGroundPredicateAtom) literal.getAtom());
-//		return null;
+		return null;
 	}
 	
 	public void unsetEprGroundLiteral(Literal literal) {
@@ -179,13 +214,13 @@ public class EprStateManager {
 	 * @param decideStackQuantifiedLiteral
 	 * @return 
 	 */
-	public Object setEprDecideStackLiteral(DecideStackQuantifiedLiteral decideStackQuantifiedLiteral) {
+	public Set<EprClause> setEprDecideStackLiteral(DecideStackQuantifiedLiteral decideStackQuantifiedLiteral) {
 		assert false : "TODO: implement";
-		Object conflict = updateClausesOnSetDecideStackLiteral(decideStackQuantifiedLiteral);
-		if (conflict == null) {
+		Set<EprClause> conflictsOrPropagations = updateClausesOnSetDecideStackLiteral(decideStackQuantifiedLiteral);
+		if (conflictsOrPropagations == null) {
 			mPushStateStack.peek().setDecideStackLiteral(decideStackQuantifiedLiteral);
 		}
-	    return conflict;
+	    return conflictsOrPropagations;
 	}
 
 
@@ -303,19 +338,12 @@ public class EprStateManager {
 
 
 	public void addNewEprPredicate(EprPredicate pred) {
-	//		 mEprStateStack.peek().addNewEprPredicate(pred);
-	//		 mAllEprPredicates.add(pred);
-	//		mPushStateStack.peek().addEprPredicate(pred);
 			mAllEprPredicates.add(pred);
-		}
-
+	}
 
 	public ScopedHashSet<EprPredicate> getAllEprPredicates() {
-	//		assert false : "TODO: check: is the field updated correctly??";
-	//		return mAllEprPredicates;
 			return mAllEprPredicates;
-		}
-
+	}
 
 	public void addClause(HashSet<Literal> literals) {
 		EprClause newClause = this.getClause(literals);
@@ -686,15 +714,11 @@ public class EprStateManager {
 		return mCClosure;
 	}
 
-
-	
-	
-	
 	
 	
 	///////////////////////////////////////////////////////////
 	///////////////////////////////////////////////////////////
-	///////// methods used in the complete grounding method
+	/////// methods used in the complete grounding method
 	///////////////////////////////////////////////////////////
 	///////////////////////////////////////////////////////////
 

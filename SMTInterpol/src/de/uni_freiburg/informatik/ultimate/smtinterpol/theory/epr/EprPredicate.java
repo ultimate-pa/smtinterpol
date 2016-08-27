@@ -22,6 +22,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.Clause
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprClauseOld;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackQuantifiedLiteral;
 
 /**
@@ -33,7 +34,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.D
  */
 public class EprPredicate {
 
-	public final int arity;
+	public final int mArity;
 	public final FunctionSymbol functionSymbol;
 
 	final EprTheory mEprTheory;
@@ -59,7 +60,7 @@ public class EprPredicate {
 
 	public EprPredicate(FunctionSymbol fs, int arity, EprTheory eprTheory) {
 		this.functionSymbol = fs;
-		this.arity = arity;
+		this.mArity = arity;
 		this.mEprTheory = eprTheory;
 	}
 
@@ -157,34 +158,39 @@ public class EprPredicate {
 //	}
 
 	/**
-	 * Attempts to complete the current partial model (provided by the decides stack)
-	 * for this EprPredicate.
-	 * Returns null in the case of success and a ground conflict clause otherwise;
 	 * 
-	 * TODO: Question: what can this return? Only ground clauses? EprClauses? Something that 
-	 *  needs a dawg??
-	 * @return
+	 *  @return null if the model of this predicate is already complete, a DecideStackLiteral
+	 *          otherwise.
 	 */
-	public Object completeModel() {
-		
+	public DecideStackLiteral getNextDecision() {
+		IDawg<ApplicationTerm, TermVariable> undecidedPoints = computeUndecidedPoints();
+
+		if (undecidedPoints.isEmpty()) {
+			return null;
+		} else {
+			return new DecideStackQuantifiedLiteral(true, this, undecidedPoints);
+		}
+	}
+
+	private IDawg<ApplicationTerm, TermVariable> computeUndecidedPoints() {
 		IDawg<ApplicationTerm, TermVariable> positivelySetPoints = 
-				mEprTheory.getDawgFactory().createEmptyDawg(arity);
+				mEprTheory.getDawgFactory().createEmptyDawg(mArity);
 		IDawg<ApplicationTerm, TermVariable> negativelySetPoints =
-				mEprTheory.getDawgFactory().createEmptyDawg(arity);
+				mEprTheory.getDawgFactory().createEmptyDawg(mArity);
 		IDawg<ApplicationTerm, TermVariable> undecidedPoints = 
-				mEprTheory.getDawgFactory().createEmptyDawg(arity);
+				mEprTheory.getDawgFactory().createEmptyDawg(mArity);
 
 		for (DecideStackQuantifiedLiteral dsl : mDecideStackLiterals) {
 			if (dsl.getPolarity()) {
-				positivelySetPoints.addAll(dsl.getDawg());
 				//positive literal
+				positivelySetPoints.addAll(dsl.getDawg());
 			} else {
 				//negative literal
 				negativelySetPoints.addAll(dsl.getDawg());
 			}
 		}
-		
-		// the ground predicates' decide statusses are managed by the DPLLEngine
+
+		// the ground predicates' decide statuses are managed by the DPLLEngine
 		for (EprGroundPredicateAtom at : mDPLLAtoms) {
 			if (at.getDecideStatus() == null) {
 				// not yet decided
@@ -196,23 +202,16 @@ public class EprPredicate {
 				// negatively set
 				negativelySetPoints.add(EprHelpers.castTermsToConstants(at.getArguments()));
 			}
-			
+
 		}
-		
-		IDawg allDecidedPoints = null;
+
+		IDawg<ApplicationTerm, TermVariable> allDecidedPoints = 
+				mEprTheory.getDawgFactory().createEmptyDawg(mArity);
 		allDecidedPoints.addAll(positivelySetPoints);
 		allDecidedPoints.addAll(negativelySetPoints);
-		
+
 		undecidedPoints.addAll(allDecidedPoints.complement());
-		
-		
-		if (undecidedPoints.isEmpty()) {
-			return null;
-		} else {
-			Object conflict = mEprTheory.getStateManager().setEprDecideStackLiteral(
-					new DecideStackQuantifiedLiteral(true, this, undecidedPoints));
-			return conflict;
-		}
+		return undecidedPoints;
 	}
 
 	/**
