@@ -89,6 +89,18 @@ public class EprStateManager {
 		mCClosure = eprTheory.getCClosure();
 	}
 	
+	/**
+	 * Executes a basic DPLL loop starting with the current decide state.
+	 * every iteration of the topmost loop  roughly triggers one rule in the rule-based
+	 * notation of DPLL.
+	 * 
+	 * If this method finds a conflict that goes back to a DPLL (ground) decision that conflict
+	 * is returned.
+	 * If this method terminates without returning a conflict (thus returning null), then the current
+	 * Epr decide state must constitute a complete model for all EprPredicates.
+	 * 
+	 * @return a ground conflict if one is found, null otherwise.
+	 */
 	public Clause eprDpllLoop() {
 		
 		boolean goOn = true;
@@ -111,17 +123,39 @@ public class EprStateManager {
 				} else {
 					assert false : "TODO: treat ground decisions";
 				}
+			} else if (conflictsOrUnits.iterator().next().isConflict()) {
+				// if we have conflicts, explain one (or more), learn clauses, undo a decision
+				// if there was no decision, return a grounding of the conflict (perhaps several..)
+				conflictsOrUnits = eprResolveConflict(conflictsOrUnits);
+				
+			} else if (conflictsOrUnits.iterator().next().isUnit()) {
+				// if we have a unit clause, propagate accordingly
+				conflictsOrUnits = eprPropagate(conflictsOrUnits);
+			} else {
+				assert false : "should not happen";
 			}
 			
-			// if we have a unit clause, propagate accordingly
 
-			// if we have a conflict, explain it, learn clauses, undo a decision
-			// if there was no decision, return a grounding of the conflict (perhaps several..)
 		}
 		
 		return null;
 	}
 	
+	private Set<EprClause> eprResolveConflict(Set<EprClause> conflictsOrUnits) {
+		boolean goOn = true;
+		
+		while (goOn) {
+			
+		}
+
+		return null;
+	}
+
+	private Set<EprClause> eprPropagate(Set<EprClause> conflictsOrUnits) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
 	/**
 	 *
 	 * @return 	A DecideStackLiteral for an EprPredicate with incomplete model 

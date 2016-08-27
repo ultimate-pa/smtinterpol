@@ -12,7 +12,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
  * 
  * @author nutz
  */
-public class DecideStackLiteral {
+public abstract class DecideStackLiteral {
 
 	boolean mPolarity;
 	EprPredicateAtom mAtom;

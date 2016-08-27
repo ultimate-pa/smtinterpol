@@ -12,7 +12,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
  * 
  * @author nutz
  */
-public class DecideStackQuantifiedLiteral extends DecideStackLiteral {
+public abstract class DecideStackQuantifiedLiteral extends DecideStackLiteral {
 
 
 	/**

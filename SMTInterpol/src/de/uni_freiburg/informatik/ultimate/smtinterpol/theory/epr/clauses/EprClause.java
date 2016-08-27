@@ -297,4 +297,14 @@ public class EprClause {
 	public EprClauseState getClauseState() {
 		return mEprClauseState;
 	}
+
+	public boolean isUnit() {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	public boolean isConflict() {
+		// TODO Auto-generated method stub
+		return false;
+	}
 }
