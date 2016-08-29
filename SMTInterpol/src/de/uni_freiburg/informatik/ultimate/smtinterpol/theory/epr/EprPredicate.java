@@ -163,7 +163,7 @@ public class EprPredicate {
 	 *  @return null if the model of this predicate is already complete, a DecideStackLiteral
 	 *          otherwise.
 	 */
-	public DecideStackLiteral getNextDecision() {
+	public DecideStackQuantifiedLiteral getNextDecision() {
 		IDawg<ApplicationTerm, TermVariable> undecidedPoints = computeUndecidedPoints();
 
 		if (undecidedPoints.isEmpty()) {

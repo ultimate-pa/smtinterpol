@@ -23,7 +23,7 @@ public class EprPushState {
 	 * The clauses that came in through assert commands in the push-scope described by 
 	 * this EprPushState
 	 */
-	ArrayList<EprClause> mClauses = new ArrayList<EprClause>();
+	private ArrayList<EprClause> mClauses = new ArrayList<EprClause>();
 	
 //	ArrayList<EprPredicate> mEprPredicates = new ArrayList<EprPredicate>();
 	
@@ -32,7 +32,7 @@ public class EprPushState {
 	 * all the clauses in this push state and the push states below and which have not been
 	 * derived in any of the below push states.
 	 */
-	Stack<DecideStackQuantifiedLiteral> mDecideStack = new Stack<DecideStackQuantifiedLiteral>();
+	private Stack<DecideStackQuantifiedLiteral> mDecideStack = new Stack<DecideStackQuantifiedLiteral>();
 
 	public void addClause(EprClause newClause) {
 		mClauses.add(newClause);
@@ -66,13 +66,29 @@ public class EprPushState {
 	public Iterator<EprClause> getClausesIterator() {
 		return mClauses.iterator();
 	}
+	
+	public Iterator<DecideStackQuantifiedLiteral> getDecideStackLiteralIterator() {
+		return mDecideStack.iterator();
+	}
 
-	public void setDecideStackLiteral(DecideStackQuantifiedLiteral decideStackQuantifiedLiteral) {
+
+	public void pushDecideStackLiteral(DecideStackQuantifiedLiteral decideStackQuantifiedLiteral) {
 		mDecideStack.push(decideStackQuantifiedLiteral);
 	}
 	
-	public void unsetDecideStackLiteral(DecideStackQuantifiedLiteral decideStackQuantifiedLiteral) {
+	public void popDecideStackLiteral(DecideStackQuantifiedLiteral decideStackQuantifiedLiteral) {
 		DecideStackQuantifiedLiteral top = mDecideStack.pop();
 		assert top == decideStackQuantifiedLiteral : "TODO: not yet clear how this will work..";
+	}
+	
+	public DecideStackLiteral peekDecideStack() {
+		return mDecideStack.peek();
+	}
+
+	public DecideStackQuantifiedLiteral popDecideStack() {
+		if (mDecideStack.isEmpty()) {
+			return null;
+		}
+		return mDecideStack.pop();
 	}
 }

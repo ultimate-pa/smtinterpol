@@ -21,6 +21,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuant
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprClauseOld;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprQuantifiedUnitClause;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackQuantifiedLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.EprPushState;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundEqualityAtom;
@@ -236,10 +237,6 @@ public class EprHelpers {
 		return result;
 	}
 	
-	
-	
-		// TODO Auto-generated method stub
-
 	public class EprClauseIterable implements Iterable<EprClause> {
 
 		Iterator<EprPushState> mPushStateStack;
@@ -254,9 +251,7 @@ public class EprHelpers {
 		}
 
 		class EprClauseIterator implements Iterator<EprClause> {
-
 			EprClause mNext;
-
 			Iterator<EprClause> mCurrentPushStateClauseIterator;
 
 			EprClauseIterator() {
@@ -289,7 +284,56 @@ public class EprHelpers {
 				mNext = findNextEprClause();
 				return mNext;
 			}
+		}
+	}
+	
+	public class DecideStackLiteralIterable implements Iterable<DecideStackQuantifiedLiteral> {
 
+		Iterator<EprPushState> mPushStateStack;
+
+		public DecideStackLiteralIterable(Stack<EprPushState> pushStateStack) {
+			mPushStateStack = pushStateStack.iterator();
+		}
+
+		@Override
+		public Iterator<DecideStackQuantifiedLiteral> iterator() {
+			return new DSLIterator();
+		}
+
+		class DSLIterator implements Iterator<DecideStackQuantifiedLiteral> {
+			DecideStackQuantifiedLiteral mNext;
+			Iterator<DecideStackQuantifiedLiteral> mCurrentPushStateClauseIterator;
+
+			DSLIterator() {
+				mNext = findNextEprClause();
+			}
+
+			public DecideStackQuantifiedLiteral findNextEprClause() {
+				if (! mPushStateStack.hasNext()) {
+					return null;
+				}
+				mCurrentPushStateClauseIterator = mPushStateStack.next().getDecideStackLiteralIterator();
+
+				// look for the first push state that has a clause
+				while (! mCurrentPushStateClauseIterator.hasNext()) {
+					if (!mPushStateStack.hasNext()) {
+						return null;
+					}
+					mCurrentPushStateClauseIterator = mPushStateStack.next().getDecideStackLiteralIterator();
+				}
+				return mCurrentPushStateClauseIterator.next();
+			}
+
+			@Override
+			public boolean hasNext() {
+				return mNext != null;
+			}
+
+			@Override
+			public DecideStackQuantifiedLiteral next() {
+				mNext = findNextEprClause();
+				return mNext;
+			}
 		}
 	}
 }

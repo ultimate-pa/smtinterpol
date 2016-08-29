@@ -21,6 +21,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuant
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackPropagatedLiteral;
 
 /**
  * Represents a clause that is only known to the EprTheory.
@@ -296,6 +297,12 @@ public class EprClause {
 	
 	public EprClauseState getClauseState() {
 		return mEprClauseState;
+	}
+	
+	public DecideStackPropagatedLiteral getUnitPropagationLiteral() {
+		assert isUnit() : "this may only be called on unit clauses";
+		assert false : "TODO: implement";
+		return null;
 	}
 
 	public boolean isUnit() {

@@ -19,6 +19,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers.Pair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EqualityManager;
@@ -106,13 +107,26 @@ public class EprStateManager {
 		boolean goOn = true;
 
 		Set<EprClause> conflictsOrUnits = null;
+		Set<EprClause> lastResolvedConflicts = null;
+		DecideStackDecisionLiteral lastBacktrackedLiteral = null;
 
 		while (goOn) {
 			
 			// if there is currently no conflict or unit clause, decide something
 			if (conflictsOrUnits == null) {
-				// is the current partial model for the EprPredicates a complete model?
-				DecideStackLiteral nextDecision = isModelComplete();
+				// there is no conflict and no unit clause
+				
+				DecideStackQuantifiedLiteral nextDecision = null;
+				if (lastResolvedConflicts == null) {
+					// there are no more propagations -- either we need a decision or we're done
+					// is the current partial model for the EprPredicates a complete model?
+					nextDecision = isModelComplete();
+				} else {
+					// we have just backtracked a decision -- the next decision might want to learn from
+					// the corresponding conflicts
+					nextDecision = eprRedecide(lastBacktrackedLiteral, lastResolvedConflicts);
+				}
+
 				if (nextDecision == null) {
 					// model is complete
 					return null;
@@ -123,36 +137,117 @@ public class EprStateManager {
 				} else {
 					assert false : "TODO: treat ground decisions";
 				}
-			} else if (conflictsOrUnits.iterator().next().isConflict()) {
-				// if we have conflicts, explain one (or more), learn clauses, undo a decision
-				// if there was no decision, return a grounding of the conflict (perhaps several..)
-				conflictsOrUnits = eprResolveConflict(conflictsOrUnits);
-				
-			} else if (conflictsOrUnits.iterator().next().isUnit()) {
-				// if we have a unit clause, propagate accordingly
-				conflictsOrUnits = eprPropagate(conflictsOrUnits);
 			} else {
-				assert false : "should not happen";
+				// there is a conflict or unit clause
+
+				EprClause nextConflictOrUnit = conflictsOrUnits.iterator().next();
+
+				if (nextConflictOrUnit.isConflict()) {
+					// if we have conflicts, explain one (or more), learn clauses, undo a decision
+					// if there was no decision, return a grounding of the conflict (perhaps several..)
+					Pair<DecideStackDecisionLiteral, Set<EprClause>> p = eprResolveConflict(conflictsOrUnits);
+					lastBacktrackedLiteral = p.first;
+					lastResolvedConflicts = p.second;
+
+					conflictsOrUnits = null;
+				} else if (nextConflictOrUnit.isUnit()) {
+					// if we have a unit clause, propagate the literal
+					// the set..-method returns the new set of conflicts or units
+					conflictsOrUnits = 
+							setEprDecideStackLiteral(nextConflictOrUnit.getUnitPropagationLiteral());
+				} else {
+					assert false : "should not happen";
+				}
 			}
-			
+
 
 		}
-		
+
 		return null;
 	}
 	
-	private Set<EprClause> eprResolveConflict(Set<EprClause> conflictsOrUnits) {
-		boolean goOn = true;
+	/**
+	 * Resolve the given conflicts, i.e., 
+	 *  - backtrack all unit propagations until the last decision 
+	 *  - explain the conflict accordingly, possibly learn some clauses
+	 *  - return the last decision along with the explanation, so the next decision can be informed by that
+	 *  
+	 * @param conflicts
+	 * @return
+	 */
+	private Pair<DecideStackDecisionLiteral, Set<EprClause>> eprResolveConflict(Set<EprClause> conflicts) {
+		Set<EprClause> currentConflicts = new HashSet<EprClause>(conflicts);
 		
-		while (goOn) {
-			
-		}
+		while (! currentConflicts.isEmpty()) {
+			Set<EprClause> newCurrentConflicts = new HashSet<EprClause>();
+			DecideStackLiteral topMostDecideStackLiteral = popDecideStack();
 
+			// backtrack the literal
+			unsetEprDecideStackLiteral((DecideStackDecisionLiteral) topMostDecideStackLiteral);
+
+			if (topMostDecideStackLiteral instanceof DecideStackDecisionLiteral) {
+				
+				// return the backtracked literal and the conflicts, so the predicate can be redecided
+				return new Pair<DecideStackDecisionLiteral, Set<EprClause>>(
+						(DecideStackDecisionLiteral) topMostDecideStackLiteral, 
+						currentConflicts);
+			} else if (topMostDecideStackLiteral instanceof DecideStackPropagatedLiteral) {
+				for (EprClause conflict : currentConflicts) {
+					assert conflict.isConflict();
+					newCurrentConflicts.add(
+							eprExplainConflict(
+									conflict, 
+									(DecideStackPropagatedLiteral) topMostDecideStackLiteral));
+				}
+			} else {
+				assert false : "should not happen";
+			}
+
+			currentConflicts = newCurrentConflicts;
+		}
+		return null;
+	}
+	
+	private DecideStackQuantifiedLiteral popDecideStack() {
+		EprPushState pushStateWithLastDecideStackLiteral = mPushStateStack.peek();
+		DecideStackQuantifiedLiteral lit = pushStateWithLastDecideStackLiteral.popDecideStack();
+		while (lit == null) {
+			pushStateWithLastDecideStackLiteral = mPushStateStack.iterator().next();
+			lit = pushStateWithLastDecideStackLiteral.popDecideStack();
+		}
+		return lit;
+	}
+
+	/**
+	 * The decide stack literal dsdl lead to the given conflicts.
+	 *  --> make a different decision based on one or more of the following:
+	 *  - the literal itself (do something different)
+	 *  - the conflicts
+	 *  - past decisions on the same literal (that we rememebered)
+	 *  
+	 * If _all_ other decisions have been tried (improbable but possible..), this yields an DecideStackPropagatedLiteral.
+	 * @param dsdl
+	 * @param currentConflicts
+	 * @return 
+	 */
+	private DecideStackQuantifiedLiteral eprRedecide(DecideStackDecisionLiteral dsdl, Set<EprClause> currentConflicts) {
+		// TODO Auto-generated method stub
 		return null;
 	}
 
-	private Set<EprClause> eprPropagate(Set<EprClause> conflictsOrUnits) {
-		// TODO Auto-generated method stub
+	/**
+	 * Explains a conflict given a decide stack literal
+	 *  - if the decide stack literal did not contribute to the conflict (does not contradict one 
+	 *   of the literals in the conflict), return the conflict unchanged (DPLL operation "skip")
+	 *  - otherwise, if the decide stack literal contributed to the conflict, return the resolvent
+	 *    of the conflict and the unit clause responsible for setting the decide stack literal 
+	 *     (DPLL operation "explain")
+	 * @param conflict
+	 * @param propagatedLiteral
+	 * @return the resolvent from the conflict and the reason for the unit propagation of decideStackLiteral
+	 */
+	private EprClause eprExplainConflict(EprClause conflict, DecideStackPropagatedLiteral propagatedLiteral) {
+
 		return null;
 	}
 
@@ -161,9 +256,9 @@ public class EprStateManager {
 	 * @return 	A DecideStackLiteral for an EprPredicate with incomplete model 
 	 *           or null if all EprPredicates have a complete model.
 	 **/
-	private DecideStackLiteral isModelComplete() {
+	private DecideStackQuantifiedLiteral isModelComplete() {
 		for (EprPredicate ep : getAllEprPredicates()) {
-			DecideStackLiteral decision = ep.getNextDecision();
+			DecideStackQuantifiedLiteral decision = ep.getNextDecision();
 			if (decision != null) {
 				return decision;
 			}
@@ -252,7 +347,7 @@ public class EprStateManager {
 		assert false : "TODO: implement";
 		Set<EprClause> conflictsOrPropagations = updateClausesOnSetDecideStackLiteral(decideStackQuantifiedLiteral);
 		if (conflictsOrPropagations == null) {
-			mPushStateStack.peek().setDecideStackLiteral(decideStackQuantifiedLiteral);
+			mPushStateStack.peek().pushDecideStackLiteral(decideStackQuantifiedLiteral);
 		}
 	    return conflictsOrPropagations;
 	}
@@ -260,7 +355,7 @@ public class EprStateManager {
 
 	public void unsetEprDecideStackLiteral(DecideStackQuantifiedLiteral decideStackQuantifiedLiteral) {
 		updateClausesOnBacktrackDecideStackLiteral(decideStackQuantifiedLiteral);
-		mPushStateStack.peek().unsetDecideStackLiteral(decideStackQuantifiedLiteral);
+		mPushStateStack.peek().popDecideStackLiteral(decideStackQuantifiedLiteral);
 	}
 
 	/**
