@@ -31,6 +31,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.Clause
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseEprQuantifiedLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClause;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClauseFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClauseState;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprBaseClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprClauseOld;
@@ -57,12 +58,6 @@ public class EprStateManager {
 
 	private Stack<EprPushState> mPushStateStack = new Stack<EprPushState>();
 	
-	/**
-	 * Remembers from which sets of literals an EprClause has already been 
-	 * constructed (and which).
-	 */
-	private ScopedHashMap<Set<Literal>, EprClause> mLiteralsToClause = new ScopedHashMap<Set<Literal>, EprClause>();
-
 	private ScopedHashSet<ApplicationTerm> mUsedConstants;
 
 	public EqualityManager mEqualityManager;
@@ -78,6 +73,8 @@ public class EprStateManager {
 	HashMap<DPLLAtom, HashSet<EprClause>> mDPLLAtomToClauses = 
 			new HashMap<DPLLAtom, HashSet<EprClause>>();
 
+	private EprClauseFactory mEprClauseFactory;
+
 	
 	public EprStateManager(EprTheory eprTheory) {
 		mPushStateStack.add(new EprPushState());
@@ -86,6 +83,7 @@ public class EprStateManager {
 		mEqualityManager =  eprTheory.getEqualityManager();
 		mTheory = eprTheory.getTheory();
 		mCClosure = eprTheory.getCClosure();
+		mEprClauseFactory = eprTheory.getEprClauseFactory();
 	}
 	
 	/**
@@ -103,9 +101,6 @@ public class EprStateManager {
 	public Clause eprDpllLoop() {
 
 		Set<EprClause> conflictsOrUnits = null;
-//		Set<EprClause> lastResolvedConflicts = null;
-		EprClause lastResolvedConflict = null;
-		DecideStackDecisionLiteral lastBacktrackedLiteral = null;
 
 		while (true) {
 			// if there is currently no conflict or unit clause, decide something
@@ -114,23 +109,23 @@ public class EprStateManager {
 				
 				DecideStackQuantifiedLiteral nextDecision = null;
 //				if (lastResolvedConflicts == null) {
-				if (lastResolvedConflict == null) {
+//				if (lastResolvedConflict == null) {
 					// there are no more propagations -- either we need a decision or we're done
 					// is the current partial model for the EprPredicates a complete model?
-					nextDecision = isModelComplete();
-				} else {
-					// we come from backtracking
-					if (lastBacktrackedLiteral == null) {
-						// we reached the top of the decide stack while backtracking
-						//  --> given the current DPLL decide state, the EprClauses are unsat
-						//  --> return one or more conflict clauses to the DPLLEngine
-						return chooseGroundingFromConflict(lastResolvedConflict);
-					} else {
-						// we have just backtracked a decision -- the next decision might want to learn from
-						// the corresponding conflicts
-						nextDecision = eprRedecide(lastBacktrackedLiteral, lastResolvedConflict);
-					}
-				}
+				nextDecision = isModelComplete();
+//				} else {
+//					// we come from backtracking
+//					if (lastBacktrackedLiteral == null) {
+//						// we reached the top of the decide stack while backtracking
+//						//  --> given the current DPLL decide state, the EprClauses are unsat
+//						//  --> return one or more conflict clauses to the DPLLEngine
+//						return chooseGroundingFromConflict(lastResolvedConflict);
+//					} else {
+//						// we have just backtracked a decision -- the next decision might want to learn from
+//						// the corresponding conflicts
+//						nextDecision = eprRedecide(lastBacktrackedLiteral, lastResolvedConflict);
+//					}
+//				}
 
 				if (nextDecision == null) {
 					// model is complete
@@ -153,7 +148,10 @@ public class EprStateManager {
 					// if there was no decision, return a grounding of the conflict (perhaps several..)
 //					Pair<DecideStackDecisionLiteral, Set<EprClause>> p = 
 //					Pair<DecideStackDecisionLiteral, EprClause> p = 
-							eprResolveConflict(chooseConflict(conflictsOrUnits));
+					EprClause unresolvableConflict = resolveConflict(chooseConflictOrUnit(conflictsOrUnits));
+					if (unresolvableConflict != null) {
+						return chooseGroundingFromConflict(unresolvableConflict);
+					}
 //					lastBacktrackedLiteral = p.first;
 //					lastResolvedConflict = p.second;
 
@@ -161,6 +159,8 @@ public class EprStateManager {
 				} else if (nextConflictOrUnit.isUnit()) {
 					// if we have a unit clause, propagate the literal
 					// the set..-method returns the new set of conflicts or units
+					// TODO: should work like this (one unit prop for every iteration),
+					//   but is there an unnecessary computation involved when determining the clause states again?
 					conflictsOrUnits = 
 							setEprDecideStackLiteral(nextConflictOrUnit.getUnitPropagationLiteral());
 				} else {
@@ -175,7 +175,7 @@ public class EprStateManager {
 	 * @param conflictsOrUnits
 	 * @return
 	 */
-	private EprClause chooseConflict(Set<EprClause> conflictsOrUnits) {
+	private EprClause chooseConflictOrUnit(Set<EprClause> conflictsOrUnits) {
 		return conflictsOrUnits.iterator().next();
 	}
 
@@ -204,18 +204,21 @@ public class EprStateManager {
 	 * @param conflicts
 	 * @return
 	 */
-//	private Pair<DecideStackDecisionLiteral, Set<EprClause>> eprResolveConflict(EprClause conflict) {
-	private Pair<DecideStackDecisionLiteral, EprClause> eprResolveConflict(EprClause conflict) {
-//		Set<EprClause> currentConflicts = new HashSet<EprClause>(conflicts);
+	private EprClause resolveConflict(EprClause conflict) {
 		EprClause currentConflict = conflict;
 		
 		while (true) {
-//			Set<EprClause> newCurrentConflicts = new HashSet<EprClause>();
+			currentConflict = tryFactoring(currentConflict);
+			
+			currentConflict = tryBackjumping(currentConflict);
+			if (currentConflict == null) {
+				return null;
+			}
+
 			DecideStackLiteral topMostDecideStackLiteral = popDecideStack();
 			if (topMostDecideStackLiteral == null) {
 				// we have come to the top of the decide stack --> return the conflict
-//				return new Pair<DecideStackDecisionLiteral, Set<EprClause>>(null, currentConflicts);
-				return new Pair<DecideStackDecisionLiteral, EprClause>(null, currentConflict);
+				return currentConflict;
 			}
 
 			// backtrack the literal
@@ -223,31 +226,42 @@ public class EprStateManager {
 
 			if (topMostDecideStackLiteral instanceof DecideStackDecisionLiteral) {
 				
-				// return the backtracked literal and the conflicts, so the predicate can be redecided
-//				return new Pair<DecideStackDecisionLiteral, Set<EprClause>>(
-				return new Pair<DecideStackDecisionLiteral, EprClause>(
-						(DecideStackDecisionLiteral) topMostDecideStackLiteral, 
-//						currentConflicts);
-						currentConflict);
+				refine(currentConflict);
+				return null;
+
 			} else if (topMostDecideStackLiteral instanceof DecideStackPropagatedLiteral) {
-//				for (EprClause conflict : currentConflicts) {
-//				assert conflict.isConflict();
 				assert currentConflict.isConflict();
-//				newCurrentConflicts.add(
 				currentConflict = 
-						eprExplainConflict(
-//								conflict, 
+						explainConflictOrSkip(
 								currentConflict, 
 								(DecideStackPropagatedLiteral) topMostDecideStackLiteral);
-//				}
+				assert currentConflict.isConflict(); // need to call a determineState here??
+				learnClause(currentConflict);
 			} else {
 				assert false : "should not happen";
 			}
-
-//			currentConflicts = newCurrentConflicts;
 		}
 	}
 	
+	private void refine(EprClause currentConflict) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	private void learnClause(EprClause currentConflict) {
+		addClause(currentConflict);
+	}
+
+	private EprClause tryBackjumping(EprClause currentConflict) {
+		assert false : "TODO: implement";
+		return null;
+	}
+
+	private EprClause tryFactoring(EprClause currentConflict) {
+		assert false : "TODO: implement";
+		return null;
+	}
+
 	private DecideStackQuantifiedLiteral popDecideStack() {
 		EprPushState pushStateWithLastDecideStackLiteral = mPushStateStack.peek();
 		DecideStackQuantifiedLiteral lit = pushStateWithLastDecideStackLiteral.popDecideStack();
@@ -256,53 +270,6 @@ public class EprStateManager {
 			lit = pushStateWithLastDecideStackLiteral.popDecideStack();
 		}
 		return lit;
-	}
-
-	/**
-	 * The decide stack literal dsdl led to the given conflicts.
-	 *  --> make a different decision based on one or more of the following:
-	 *  - the literal itself (do something different)
-	 *  - the conflicts
-	 *  - past decisions on the same literal (that we rememebered)
-	 *  
-	 * If _all_ other decisions have been tried (improbable but possible..), this yields an DecideStackPropagatedLiteral.
-	 * @param dsdl
-	 * @param currentConflicts
-	 * @return 
-	 */
-	private DecideStackQuantifiedLiteral eprRedecide(
-			DecideStackDecisionLiteral dsdl, 
-			EprClause currentConflict) {
-		// TODO: this is not done, and what is done might need a complete rework..
-		
-//		EprPredicate eprPred = dsdl.getEprPredicate();
-//		
-//		// analyze the conflicts 
-//		//  --> all the groundings that led to the conflict have to be set differently..
-//		// in one clause we need disjunction, which is expressed by the list (it's enough if one literal becomes fulfillable)
-//		// over the different clauses we need union
-//		ArrayList<IDawg<ApplicationTerm, TermVariable>> conflictPoints =
-//				new ArrayList<IDawg<ApplicationTerm,TermVariable>>();
-////		conflictPoints.add(
-////				mEprTheory.getDawgFactory().createEmptyDawg(eprPred.getArity()));
-//
-//
-//		
-//		for (EprClause conflict : currentConflicts) {
-//			conflictPoints.add(conflict.getConflictPoints());
-//			ArrayList<IDawg<ApplicationTerm, TermVariable>> newConflictPoints =
-//				new ArrayList<IDawg<ApplicationTerm,TermVariable>>();
-//			Set<ClauseLiteral> conflictLiterals = conflict.getConflictLiterals();
-//			for (ClauseLiteral confLit : conflictLiterals) {
-//				for (IDawg<ApplicationTerm, TermVariable> dawg : conflictPoints) {
-//					IDawg<ApplicationTerm, TermVariable> newDawg = mEprTheory.getDawgFactory().copyDawg(dawg);
-//				}
-//				
-//			}
-//		}
-		
-		
-		return null;
 	}
 
 	/**
@@ -316,9 +283,30 @@ public class EprStateManager {
 	 * @param propagatedLiteral
 	 * @return the resolvent from the conflict and the reason for the unit propagation of decideStackLiteral
 	 */
-	private EprClause eprExplainConflict(EprClause conflict, DecideStackPropagatedLiteral propagatedLiteral) {
-
-		return null;
+	private EprClause explainConflictOrSkip(EprClause conflict, DecideStackPropagatedLiteral propagatedLiteral) {
+		
+		//look for the ClauseLiteral that propagatedLiteral conflicts with
+		Set<ClauseEprQuantifiedLiteral> relevantConfLits = new HashSet<ClauseEprQuantifiedLiteral>();
+		for (ClauseLiteral cl : conflict.getLiterals()) {
+			if (cl instanceof ClauseEprQuantifiedLiteral) {
+				ClauseEprQuantifiedLiteral ceql = (ClauseEprQuantifiedLiteral) cl;
+				if (ceql.getPartiallyConflictingDecideStackLiterals().contains(propagatedLiteral)) {
+					relevantConfLits.add(ceql);
+				}
+			}
+		}
+		
+		if (relevantConfLits.size() > 1) {
+			assert false : "TODO: understand this -- factoring? what if factoring is not applicable??";
+			return null;
+		} else if (relevantConfLits.size() == 1) {
+			// normal explain case --> return the resolvent
+			ClauseEprQuantifiedLiteral conflit = relevantConfLits.iterator().next();
+			return mEprTheory.getEprClauseFactory().createResolvent(conflict, conflit, propagatedLiteral.getReason());
+		} else {
+			//propagatedLiteral has nothing to do with conflictClause --> skip
+			return conflict;
+		}
 	}
 
 	/**
@@ -341,16 +329,16 @@ public class EprStateManager {
 
 	public void push() {
 		mPushStateStack.push(new EprPushState());
-		mLiteralsToClause.beginScope();
 		mAllEprPredicates.beginScope();
 		mUsedConstants.beginScope();
+		mEprClauseFactory.push();
 	}
 	
 	public void pop() {
 		mPushStateStack.pop();
-		mLiteralsToClause.endScope();
 		mAllEprPredicates.endScope();
 		mUsedConstants.endScope();
+		mEprClauseFactory.pop();
 	}
 
 	////////////////// 
@@ -522,30 +510,19 @@ public class EprStateManager {
 	}
 
 	public void addClause(HashSet<Literal> literals) {
-		EprClause newClause = this.getClause(literals);
+		EprClause newClause = mEprTheory.getEprClauseFactory().getClause(literals);
+		addClause(newClause);
+	}
+
+	private void addClause(EprClause newClause) {
 		mPushStateStack.peek().addClause(newClause);
-		
-		for (Literal li : literals) {
-			updateAtomToClauses(li.getAtom(), newClause);
+
+		for (ClauseLiteral cl : newClause.getLiterals()) {
+			updateAtomToClauses(cl.getLiteral().getAtom(), newClause);
 		}
 	}
 
-	/**
-	 * makes sure that for the same set of literals only one clause is constructed.
-	 * Note that this may return a EprDerivedClause -- if there already is one for the set of Literals
-	 * (copy from the old getBaseClause method)
-	 */
-	private EprClause getClause(Set<Literal> newLits) {
-		EprClause result = mLiteralsToClause.get(newLits);
-		if (result == null) {
-			result = new EprClause(newLits, mEprTheory);
-			mEprTheory.getLogger().debug("EPRDEBUG (EprStateManager): creating new clause " + result);
-			mLiteralsToClause.put(newLits, result);
-		} else {
-			mEprTheory.getLogger().debug("EPRDEBUG (EprStateManager): clause has been added before " + result);
-		}
-		return result;
-	}
+
 	
 	public Iterable<EprClause> getAllEprClauses() {
 		return new EprClauseIterable(mPushStateStack);

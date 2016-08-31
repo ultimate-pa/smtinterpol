@@ -22,7 +22,9 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroun
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawgSubstitution;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackPropagatedLiteral;
 
@@ -34,9 +36,13 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.D
  * @author nutz
  */
 public class EprClause {
+	
+	List<TwoWatcher> mTwoWatchers;
+	List<TwoWatcher> mOneWatchers;
 
 	final Set<Literal> mDpllLiterals;
 	final EprTheory mEprTheory;
+	final DawgFactory<ApplicationTerm, TermVariable> mDawgFactory;
 
 	final Set<ClauseLiteral> mLiterals;
 
@@ -73,6 +79,7 @@ public class EprClause {
 	public EprClause(Set<Literal> lits, EprTheory eprTheory) {
 		mDpllLiterals = lits;
 		mEprTheory = eprTheory;
+		mDawgFactory = eprTheory.getDawgFactory();
 
 		// set up the clause..
 
@@ -198,25 +205,60 @@ public class EprClause {
 	/**
 	 * 
 	 * @param dsl
-	 * @param concernedLiterals
+	 * @param literalsWithSamePredicate
 	 * @return
 	 */
 	public EprClauseState updateStateWrtDecideStackLiteral(DecideStackLiteral dsl, 
-			Set<ClauseEprQuantifiedLiteral> concernedLiterals) {
-		
-		boolean wasConflictBefore = isConflict();
+			Set<ClauseEprQuantifiedLiteral> literalsWithSamePredicate) {
 
-		for (ClauseEprQuantifiedLiteral ceql : concernedLiterals) {
+		for (ClauseEprQuantifiedLiteral ceql : literalsWithSamePredicate) {
+			assert ceql.getClause() == this;
 			if (ceql.getPolarity() == dsl.getPolarity()) {
 				ceql.addPartiallyFulfillingDecideStackLiteral(dsl);
 			} else {
 				ceql.addPartiallyConflictingDecideStackLiteral(dsl);
+				
+				// update two watchers
+				for (TwoWatcher tw : mTwoWatchers) {
+					if (tw.mWatchedLiteral != ceql) {
+						continue;
+					}
+
+					IDawg<ApplicationTerm, TermVariable> joinDawg = 
+							mDawgFactory.joinByPosition(tw.getPoints(), dsl.getDawg());
+					if (joinDawg.isEmpty()) {
+						// the dsl does not influence the twoWatcher
+						continue;
+					} else if (dsl.getDawg().supSetEq(tw.getPoints())) {
+						// the dsl resets the twoWatcher completely
+						ClauseLiteral newWatchedLiteral = lookForNewWatchedLiteral(tw);
+						tw.reset(newWatchedLiteral, dsl);
+					} else {
+					}
+				}
+				
 			}
 		}
 
-		determineClauseState();
+//		determineClauseState();
+		
+
 		
 		return mEprClauseState;
+	}
+
+	/**
+	 * 
+	 * @param tw
+	 * @return A set of ClauseLiteral of this clause such that the union of their fulfillable points
+	 *  (we have to take the variables into account) covers the points the TwoWatcher talks about.
+	 *   (if the cardinality of the set is bigger than 1, we will have to split up the TwoWatcher)
+	 */
+	private ClauseLiteral lookForNewWatchedLiteral(TwoWatcher tw) {
+		// for efficiency we should probably avoid splitting the watcher as long as possible..
+		
+		// TODO Auto-generated method stub
+		return null;
 	}
 
 	public void backtrackStateWrtDecideStackLiteral(DecideStackLiteral dsl) {
@@ -313,6 +355,7 @@ public class EprClause {
 			mConflictPoints = pointsWhereNoLiteralsAreFulfillable;
 			return EprClauseState.Conflict;
 		} else if (!pointsWhereOneLiteralIsFulfillable.isEmpty()) {
+//			mUnitPoints = pointsWhereOneLiteralIsFulfillable;
 			return EprClauseState.Unit;
 		} else {
 			assert pointsWhereTwoOrMoreLiteralsAreFulfillable.isUniversal();
@@ -368,5 +411,9 @@ public class EprClause {
 		assert isConflict();
 		assert mConflictPoints != null : "this should have been set somewhere..";
 		return mConflictPoints;
+	}
+
+	public Set<ClauseLiteral> getLiterals() {
+		return mLiterals;
 	}
 }

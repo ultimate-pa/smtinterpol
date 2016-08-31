@@ -5,6 +5,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 
 /**
@@ -111,6 +113,12 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 			mNCrossProduct = EprHelpers.computeNCrossproduct(mAllConstants, mArity);
 		}
 		return mNCrossProduct;
+	}
+
+	@Override
+	public boolean supSetEq(IDawg<ApplicationTerm, TermVariable> points) {
+		// TODO Auto-generated method stub
+		return false;
 	}
 
 }

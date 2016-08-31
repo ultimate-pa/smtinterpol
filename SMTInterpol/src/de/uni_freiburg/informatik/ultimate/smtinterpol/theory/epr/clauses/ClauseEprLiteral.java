@@ -48,6 +48,10 @@ public abstract class ClauseEprLiteral extends ClauseLiteral {
 		assert (! (this instanceof ClauseEprGroundLiteral)) || dsl.talksAboutPoint(this.mEprPredicateAtom.getArguments());
 		mPartiallyFulfillingDecideStackLiterals.add(dsl);
 	}
+	
+	public ScopedHashSet<DecideStackLiteral> getPartiallyConflictingDecideStackLiterals() {
+		return mPartiallyConflictingDecideStackLiterals;
+	}
 
 	public void removePartiallyFulfillingDecideStackLiteral(DecideStackLiteral dsl) {
 		mPartiallyFulfillingDecideStackLiterals.remove(dsl);

@@ -32,6 +32,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroun
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClause;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClauseFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprClauseOld;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprGroundUnitClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprNonUnitClause;
@@ -70,6 +71,7 @@ public class EprTheory implements ITheory {
 
 	private EprStateManager mStateManager;
 	private DawgFactory<ApplicationTerm, TermVariable> mDawgFactory;
+	private EprClauseFactory mClauseFactory;
 
 	private CClosure mCClosure;
 	private Clausifier mClausifier;
@@ -88,6 +90,7 @@ public class EprTheory implements ITheory {
 		mGroundAllMode = solveThroughGrounding;
 		
 		mDawgFactory = new DawgFactory<ApplicationTerm,TermVariable>(mStateManager.getAllConstants(), this);
+		mClauseFactory = new EprClauseFactory(this);
 
 		mLogger = clausifier.getLogger();
 	}
@@ -526,6 +529,10 @@ public class EprTheory implements ITheory {
 	
 	public DawgFactory<ApplicationTerm, TermVariable> getDawgFactory() {
 		return mDawgFactory;
+	}
+	
+	public EprClauseFactory getEprClauseFactory() {
+		return mClauseFactory;
 	}
 	
 	public EqualityManager getEqualityManager() {

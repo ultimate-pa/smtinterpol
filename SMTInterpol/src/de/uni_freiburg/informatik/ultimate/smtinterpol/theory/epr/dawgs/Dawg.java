@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
@@ -104,6 +105,12 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	public void removeAll(IDawg fpOne) {
 		// TODO Auto-generated method stub
 	
+	}
+
+	@Override
+	public boolean supSetEq(IDawg<ApplicationTerm, TermVariable> points) {
+		// TODO Auto-generated method stub
+		return false;
 	}
 
 }

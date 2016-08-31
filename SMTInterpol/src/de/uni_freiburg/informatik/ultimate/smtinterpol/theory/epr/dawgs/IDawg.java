@@ -1,5 +1,6 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
 
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
 
@@ -46,4 +47,6 @@ public interface IDawg<LETTER, COLNAMES> {
 	public IDawg<LETTER, COLNAMES> intersect(IDawg<LETTER, COLNAMES> other);
 
 	public void removeAll(IDawg<LETTER, COLNAMES> other);
+
+	public boolean supSetEq(IDawg<ApplicationTerm, TermVariable> points);
 }

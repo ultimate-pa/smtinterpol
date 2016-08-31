@@ -3,6 +3,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
 
 /**
  * Represents a literal that occurs in an EprClause.
@@ -65,6 +66,16 @@ public abstract class ClauseLiteral {
 	
 	enum ClauseLiteralState {
 		Fulfilled, Fulfillable, Refuted;
+	}
+
+	public EprClause getClause() {
+		return mEprClause;
+	}
+
+
+	public boolean conflictsWith(DecideStackLiteral reason) {
+		// TODO Auto-generated method stub
+		return false;
 	}
 	
 }
