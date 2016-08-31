@@ -31,6 +31,11 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	}
 
 
+	public NaiveDawg(NaiveDawg<LETTER, COLNAMES> nd) {
+		super(nd.mColNames, nd.mAllConstants);
+		mBacking = new HashSet<List<LETTER>>(nd.mBacking);
+	}
+
 	@Override
 	public IDawgSubstitution join(IDawg<LETTER, COLNAMES> other) {
 		// TODO Auto-generated method stub

@@ -1,6 +1,8 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel;
 
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
@@ -52,7 +54,7 @@ public abstract class DecideStackLiteral {
 		return false;
 	}
 
-	public IDawg getDawg() {
+	public IDawg<ApplicationTerm, TermVariable> getDawg() {
 		assert false : "TODO: implement";
 		return null;
 	}

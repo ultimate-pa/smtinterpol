@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
@@ -34,9 +35,9 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	 *  -- this is only updated on an isFulfillable query, so it should
 	 *  only be non-null between a call to isFulfillable() and getFulfillablePoints()
 	 */
-	IDawg mFulfillablePoints;
+	IDawg<ApplicationTerm, TermVariable> mFulfillablePoints;
 
-	IDawg mFulfilledPoints;
+	IDawg<ApplicationTerm, TermVariable> mFulfilledPoints;
 
 	public ClauseEprQuantifiedLiteral(boolean polarity, EprQuantifiedPredicateAtom atom, 
 			EprClause clause, EprTheory eprTheory) {
@@ -82,9 +83,9 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	 *  and this method.
 	 * @return
 	 */
-	public IDawg getFulfillablePoints() {
+	public IDawg<ApplicationTerm, TermVariable> getFulfillablePoints() {
 		assert mFulfillablePoints != null;
-		IDawg result = mFulfillablePoints;
+		IDawg<ApplicationTerm, TermVariable> result = mFulfillablePoints;
 		mFulfillablePoints = null;
 		return result;
 	}
@@ -92,12 +93,12 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 
 	@Override
 	protected ClauseLiteralState determineState() {
-		IDawg refutedPoints = mEprTheory.getDawgFactory().createEmptyDawg(null);//TODO
+		IDawg<ApplicationTerm, TermVariable> refutedPoints = mEprTheory.getDawgFactory().createEmptyDawg(null);//TODO
 		for (DecideStackLiteral dsl : mPartiallyConflictingDecideStackLiterals) {
 			refutedPoints.addAll(dsl.getDawg());
 		}
 
-		IDawg fulfilledPoints = mEprTheory.getDawgFactory().createEmptyDawg(null);//TODO
+		IDawg<ApplicationTerm, TermVariable> fulfilledPoints = mEprTheory.getDawgFactory().createEmptyDawg(null);//TODO
 		for (DecideStackLiteral dsl : mPartiallyFulfillingDecideStackLiterals) {
 			fulfilledPoints.addAll(dsl.getDawg());
 		}

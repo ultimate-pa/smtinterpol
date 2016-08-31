@@ -232,5 +232,9 @@ public class EprPredicate {
 		// only inserted this method to avoid a compiler error in deprecated code
 	}
 
+	public int getArity() {
+		return mArity;
+	}
+
 
 }

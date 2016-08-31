@@ -9,11 +9,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
@@ -55,6 +58,17 @@ public class EprClause {
 	HashMap<TermVariable, Map<ClauseEprQuantifiedLiteral, Set<Integer>>> mVariableToClauseLitToPositionsTemp;
 	Set<ClauseLiteral> mLiteralsTemp;
 	private EprClauseState mEprClauseState;
+	private Set<ClauseLiteral> mConflictLiterals;
+	private IDawg<ApplicationTerm, TermVariable> mConflictPoints;
+	
+	/**
+	 * Used for storing when a quantified literal has a constant in one or more arguments:
+	 *  For P(a, x, b), we will store a ClauseLiteral P(tv_a, x, tv_b) where tv_a and tv_b
+	 *  are fresh TermVariables, while in this map we will store that tv_a is instantiated with
+	 *  a and tv_b analogously.
+	 *  tv_a and tv_b do _not_ occur in 
+	 */
+	private Map<TermVariable, ApplicationTerm> mVariableToConstant;
 
 	public EprClause(Set<Literal> lits, EprTheory eprTheory) {
 		mDpllLiterals = lits;
@@ -105,9 +119,21 @@ public class EprClause {
 				eqpa.getEprPredicate().addQuantifiedOccurence(newL, this);
 				
 				for (int i = 0; i < eqpa.getArguments().length; i++) {
-					if (! (eqpa.getArguments()[i] instanceof TermVariable))
-						continue;
-					TermVariable tv = (TermVariable) eqpa.getArguments()[i];
+//					if (! (eqpa.getArguments()[i] instanceof TermVariable))
+//						continue;
+					Term argI = eqpa.getArguments()[i];
+
+					TermVariable tv = null;
+					if (argI instanceof TermVariable) {
+						tv = (TermVariable) argI;
+					} else if (argI instanceof ApplicationTerm) {
+						ApplicationTerm at = (ApplicationTerm) argI;
+						assert at.getParameters().length == 0;
+						tv = mEprTheory.getTheory().createFreshTermVariable(argI.toString(), argI.getSort());
+						mVariableToConstant.put(tv, at);
+					} else {
+						assert false;
+					}
 					this.updateVariableToClauseLitToPosition(tv, newL, i);
 				}			
 				
@@ -177,6 +203,8 @@ public class EprClause {
 	 */
 	public EprClauseState updateStateWrtDecideStackLiteral(DecideStackLiteral dsl, 
 			Set<ClauseEprQuantifiedLiteral> concernedLiterals) {
+		
+		boolean wasConflictBefore = isConflict();
 
 		for (ClauseEprQuantifiedLiteral ceql : concernedLiterals) {
 			if (ceql.getPolarity() == dsl.getPolarity()) {
@@ -187,6 +215,7 @@ public class EprClause {
 		}
 
 		determineClauseState();
+		
 		return mEprClauseState;
 	}
 
@@ -243,16 +272,15 @@ public class EprClause {
 	 */
 	private EprClauseState determineClauseState() {
 		
-		IDawg pointsWhereNoLiteralsAreFulfillable =
+		IDawg<ApplicationTerm, TermVariable> pointsWhereNoLiteralsAreFulfillable =
+				mEprTheory.getDawgFactory().createFullDawg(mVariables);
+		IDawg<ApplicationTerm, TermVariable> pointsWhereOneLiteralIsFulfillable =
 				mEprTheory.getDawgFactory().createEmptyDawg(mVariables);
-		IDawg pointsWhereOneLiteralIsFulfillable =
-				mEprTheory.getDawgFactory().createEmptyDawg(mVariables);
-		IDawg pointsWhereTwoOrMoreLiteralsAreFulfillable =
+		IDawg<ApplicationTerm, TermVariable> pointsWhereTwoOrMoreLiteralsAreFulfillable =
 				mEprTheory.getDawgFactory().createEmptyDawg(mVariables);
 
 		for (ClauseLiteral cl : mLiterals) {
 
-			
 			if (cl.isFulfilled()) {
 				return EprClauseState.Fulfilled;
 			}
@@ -260,10 +288,10 @@ public class EprClause {
 			if (cl.isFulfillable()) {
 				
 				if (cl instanceof ClauseEprQuantifiedLiteral) {
-					IDawg fp = ((ClauseEprQuantifiedLiteral) cl).getFulfillablePoints();
+					IDawg<ApplicationTerm, TermVariable> fp = ((ClauseEprQuantifiedLiteral) cl).getFulfillablePoints();
 					
-					IDawg fpOne = pointsWhereOneLiteralIsFulfillable.intersect(fp);
-					IDawg fpNo = pointsWhereNoLiteralsAreFulfillable.intersect(fp);
+					IDawg<ApplicationTerm, TermVariable> fpOne = pointsWhereOneLiteralIsFulfillable.intersect(fp);
+					IDawg<ApplicationTerm, TermVariable> fpNo = pointsWhereNoLiteralsAreFulfillable.intersect(fp);
 					
 					pointsWhereTwoOrMoreLiteralsAreFulfillable.addAll(fpOne);
 					pointsWhereOneLiteralIsFulfillable.removeAll(fpOne);
@@ -282,6 +310,7 @@ public class EprClause {
 		}
 		
 		if (!pointsWhereNoLiteralsAreFulfillable.isEmpty()) {
+			mConflictPoints = pointsWhereNoLiteralsAreFulfillable;
 			return EprClauseState.Conflict;
 		} else if (!pointsWhereOneLiteralIsFulfillable.isEmpty()) {
 			return EprClauseState.Unit;
@@ -306,12 +335,38 @@ public class EprClause {
 	}
 
 	public boolean isUnit() {
-		// TODO Auto-generated method stub
-		return false;
+		return mEprClauseState == EprClauseState.Unit;
 	}
 
 	public boolean isConflict() {
 		// TODO Auto-generated method stub
-		return false;
+		return mEprClauseState == EprClauseState.Conflict;
+	}
+
+	public Set<ClauseLiteral> getLiteralsWithEprPred(EprPredicate eprPred) {
+		Set<ClauseLiteral> result = new HashSet<ClauseLiteral>();
+		for (ClauseLiteral cl : mLiterals) {
+			if (cl instanceof ClauseEprLiteral
+					&& ((ClauseEprLiteral)cl).getEprPredicate() == eprPred) {
+				result.add(cl);
+			}
+		}
+		return result;
+	}
+	
+	/**
+	 * Returns the literal(s) that were made unfulfillable when this clause became a conflict.
+	 * @return
+	 */
+	public Set<ClauseLiteral> getConflictLiterals() {
+		assert isConflict();
+		assert mConflictLiterals != null : "this should have been set somewhere..";
+		return mConflictLiterals;
+	}
+	
+	public IDawg<ApplicationTerm, TermVariable> getConflictPoints() {
+		assert isConflict();
+		assert mConflictPoints != null : "this should have been set somewhere..";
+		return mConflictPoints;
 	}
 }

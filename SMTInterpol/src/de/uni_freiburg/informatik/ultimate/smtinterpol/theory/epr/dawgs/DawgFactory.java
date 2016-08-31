@@ -19,12 +19,29 @@ public class DawgFactory<LETTER, COLNAMES> {
 	public IDawg<LETTER, COLNAMES> createEmptyDawg(COLNAMES[] termVariables) {
 		assert termVariables != null;
 		//TODO freeze the current allConstants set, here?? or can it just change transparently?? 
-		return new Dawg<LETTER, COLNAMES>(termVariables, mAllConstants);
+		return new NaiveDawg<LETTER, COLNAMES>(termVariables, mAllConstants);
 	}
 
 	public IDawg<LETTER, COLNAMES> createEmptyDawg(int arity) {
 		assert false : "TODO: implement";
 		return null;
+	}
+
+	/**
+	 * Creates and returns a Dawg that accepts all words in Sigma^n.
+	 * (where n = termVariables.length)
+	 *
+	 * @param termVariables
+	 * @return
+	 */
+	public IDawg<LETTER, COLNAMES> createFullDawg(COLNAMES[] termVariables) {
+		assert termVariables != null;
+		return new NaiveDawg<LETTER, COLNAMES>(termVariables, mAllConstants).complement();
+	}
+
+	public IDawg<LETTER, COLNAMES> copyDawg(IDawg<LETTER, COLNAMES> dawg) {
+		NaiveDawg<LETTER, COLNAMES> nd = (NaiveDawg<LETTER, COLNAMES>) dawg;
+		return new NaiveDawg<LETTER, COLNAMES>(nd);
 	}
 	
 }
