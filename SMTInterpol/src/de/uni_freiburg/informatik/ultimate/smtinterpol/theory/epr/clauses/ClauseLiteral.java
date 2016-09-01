@@ -64,6 +64,15 @@ public abstract class ClauseLiteral {
 //		return mAtom;
 //	}
 	
+	/**
+	 * For ground clause literals this has the usual meanings wrt. the current decide state:
+	 *  - fulfilled: set to true
+	 *  - fulfillable: undecided
+	 *  - refuted: set to false
+	 *  
+	 *  For quantified clause literals fulfilled/refuted means that it is true/false on all points.
+	 *  Fulfillable means everything in between..
+	 */
 	enum ClauseLiteralState {
 		Fulfilled, Fulfillable, Refuted;
 	}

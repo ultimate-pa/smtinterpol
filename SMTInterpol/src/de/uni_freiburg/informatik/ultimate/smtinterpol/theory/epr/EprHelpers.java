@@ -1,10 +1,14 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 
+import java.lang.reflect.Array;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.SortedSet;
 import java.util.Stack;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
@@ -71,7 +75,7 @@ public class EprHelpers {
 		if (atom instanceof EprQuantifiedPredicateAtom) {
 			EprQuantifiedPredicateAtom eqpa = (EprQuantifiedPredicateAtom) atom;
 			TermTuple newTT = sub.apply(eqpa.getArgumentsAsTermTuple());
-			ApplicationTerm newTerm = theory.term(eqpa.getEprPredicate().functionSymbol, newTT.terms);
+			ApplicationTerm newTerm = theory.term(eqpa.getEprPredicate().getFunctionSymbol(), newTT.terms);
 			if (newTerm.getFreeVars().length > 0) {
 				resultAtom = eqpa.getEprPredicate().getAtomForTermTuple(newTT, theory, l.getAtom().getAssertionStackLevel());
 			} else {
@@ -336,4 +340,53 @@ public class EprHelpers {
 			}
 		}
 	}
+
+	public static <COLNAMES> COLNAMES[] applyMapping(
+			COLNAMES[] colnames, Map<COLNAMES, COLNAMES> translation) {
+		assert colnames.length > 0;
+		COLNAMES[] result = colnames.clone();
+		for (int i = 0; i < colnames.length; i++) {
+			COLNAMES newEntry = translation.get(colnames[i]);
+			if (newEntry != null) {
+				result[i] = newEntry;
+			}
+		}
+		return result;
+	}
+	
+	public static <COLNAMES> List<COLNAMES> applyMapping(
+			List<COLNAMES> colnames, Map<COLNAMES, COLNAMES> translation) {
+		assert colnames.size() > 0;
+		List<COLNAMES> result = new ArrayList<COLNAMES>();
+		for (COLNAMES cn : colnames) {
+			COLNAMES newEntry = translation.get(cn);
+			if (newEntry != null) {
+				result.add(newEntry);
+			} else {
+				result.add(cn);
+			}
+		}
+		return result;
+	}
+	
+	
+//	public static <COLNAMES> SortedSet<COLNAMES> applyMapping(
+//			SortedSet<COLNAMES> colnames, Map<COLNAMES, COLNAMES> translation) {
+//		assert colnames.size > 0;
+//		SortedSet<COLNAMES> result = new SortedSet<COLNAMES>(colnames));
+//		for (
+//			COLNAMES newEntry = translation.get(colnames[i]);
+//			if (newEntry != null) {
+//				result[i] = newEntry;
+//			}
+//		}
+//		return result;
+//	}
+	
+//	public static <LETTER, COLNAMES> List<LETTER> convertPointToNewSignature(
+//			List<LETTER> point, Collection<COLNAMES> pointSignature, Collection<COLNAMES> newSignature) {
+//		List<LETTER> result = new ArrayList<LETTER>(newSignature.size());
+//		
+//		return result;
+//	}
 }

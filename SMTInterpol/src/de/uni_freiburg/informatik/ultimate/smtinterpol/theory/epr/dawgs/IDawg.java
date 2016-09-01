@@ -1,12 +1,19 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
 
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.SortedSet;
+
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
 
 public interface IDawg<LETTER, COLNAMES> {
 	
-	public COLNAMES[] getColnames();
+//	public COLNAMES[] getColnames();
+//	public SortedSet<COLNAMES> getColnames();
+	public List<COLNAMES> getColnames();
 	
 	public int getArity();
 	
@@ -49,4 +56,13 @@ public interface IDawg<LETTER, COLNAMES> {
 	public void removeAll(IDawg<LETTER, COLNAMES> other);
 
 	public boolean supSetEq(IDawg<ApplicationTerm, TermVariable> points);
+
+	/**
+	 * Add all the given points of the given Dawg.
+	 * Assumes that the given Dawgs column names are a subset of this Dawg's column names.
+	 * @param d1
+	 */
+	public void addAllWithSubsetSignature(IDawg<LETTER, COLNAMES> d1);
+
+	public IDawg<LETTER, COLNAMES> select(Map<COLNAMES, LETTER> selectMap);
 }

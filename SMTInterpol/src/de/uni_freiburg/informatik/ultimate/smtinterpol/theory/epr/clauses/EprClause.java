@@ -1,6 +1,7 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -8,6 +9,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -37,8 +40,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.D
  */
 public class EprClause {
 	
-	List<TwoWatcher> mTwoWatchers;
-	List<TwoWatcher> mOneWatchers;
 
 	final Set<Literal> mDpllLiterals;
 	final EprTheory mEprTheory;
@@ -56,7 +57,9 @@ public class EprClause {
 	/**
 	 * Stores the variabels occuring in this clause in the order determined by the HashMap mVariableToClauseLitToPositions
 	 */
-	TermVariable[] mVariables;
+	List<TermVariable> mVariables;
+//	SortedSet<TermVariable> mVariables;
+//	TermVariable[] mVariables;
 
 	/*
 	 * The following two fields are only used during creation of the clause.
@@ -67,14 +70,6 @@ public class EprClause {
 	private Set<ClauseLiteral> mConflictLiterals;
 	private IDawg<ApplicationTerm, TermVariable> mConflictPoints;
 	
-	/**
-	 * Used for storing when a quantified literal has a constant in one or more arguments:
-	 *  For P(a, x, b), we will store a ClauseLiteral P(tv_a, x, tv_b) where tv_a and tv_b
-	 *  are fresh TermVariables, while in this map we will store that tv_a is instantiated with
-	 *  a and tv_b analogously.
-	 *  tv_a and tv_b do _not_ occur in 
-	 */
-	private Map<TermVariable, ApplicationTerm> mVariableToConstant;
 
 	public EprClause(Set<Literal> lits, EprTheory eprTheory) {
 		mDpllLiterals = lits;
@@ -92,7 +87,10 @@ public class EprClause {
 		mVariableToClauseLitToPositions = Collections.unmodifiableMap(mVariableToClauseLitToPositionsTemp);
 
 		Set<TermVariable> keySet = mVariableToClauseLitToPositions.keySet();
-		mVariables = keySet.toArray(new TermVariable[keySet.size()]);
+//		mVariables = keySet.toArray(new TermVariable[keySet.size()]);
+//		mVariables = new TreeSet<TermVariable>(eprTheory.getTermVariableComparator());
+//		mVariables.addAll(keySet);
+		mVariables = new ArrayList<TermVariable>(keySet);
 
 		// those ..Temp fields should not be used afterwards..
 		mLiteralsTemp = null;
@@ -125,24 +123,6 @@ public class EprClause {
 				mLiteralsTemp.add(newL);
 				eqpa.getEprPredicate().addQuantifiedOccurence(newL, this);
 				
-				for (int i = 0; i < eqpa.getArguments().length; i++) {
-//					if (! (eqpa.getArguments()[i] instanceof TermVariable))
-//						continue;
-					Term argI = eqpa.getArguments()[i];
-
-					TermVariable tv = null;
-					if (argI instanceof TermVariable) {
-						tv = (TermVariable) argI;
-					} else if (argI instanceof ApplicationTerm) {
-						ApplicationTerm at = (ApplicationTerm) argI;
-						assert at.getParameters().length == 0;
-						tv = mEprTheory.getTheory().createFreshTermVariable(argI.toString(), argI.getSort());
-						mVariableToConstant.put(tv, at);
-					} else {
-						assert false;
-					}
-					this.updateVariableToClauseLitToPosition(tv, newL, i);
-				}			
 				
 				continue;
 			} else if (atom instanceof EprGroundPredicateAtom) {
@@ -217,49 +197,14 @@ public class EprClause {
 				ceql.addPartiallyFulfillingDecideStackLiteral(dsl);
 			} else {
 				ceql.addPartiallyConflictingDecideStackLiteral(dsl);
-				
-				// update two watchers
-				for (TwoWatcher tw : mTwoWatchers) {
-					if (tw.mWatchedLiteral != ceql) {
-						continue;
-					}
-
-					IDawg<ApplicationTerm, TermVariable> joinDawg = 
-							mDawgFactory.joinByPosition(tw.getPoints(), dsl.getDawg());
-					if (joinDawg.isEmpty()) {
-						// the dsl does not influence the twoWatcher
-						continue;
-					} else if (dsl.getDawg().supSetEq(tw.getPoints())) {
-						// the dsl resets the twoWatcher completely
-						ClauseLiteral newWatchedLiteral = lookForNewWatchedLiteral(tw);
-						tw.reset(newWatchedLiteral, dsl);
-					} else {
-					}
-				}
-				
 			}
 		}
 
-//		determineClauseState();
-		
-
+		determineClauseState();
 		
 		return mEprClauseState;
 	}
 
-	/**
-	 * 
-	 * @param tw
-	 * @return A set of ClauseLiteral of this clause such that the union of their fulfillable points
-	 *  (we have to take the variables into account) covers the points the TwoWatcher talks about.
-	 *   (if the cardinality of the set is bigger than 1, we will have to split up the TwoWatcher)
-	 */
-	private ClauseLiteral lookForNewWatchedLiteral(TwoWatcher tw) {
-		// for efficiency we should probably avoid splitting the watcher as long as possible..
-		
-		// TODO Auto-generated method stub
-		return null;
-	}
 
 	public void backtrackStateWrtDecideStackLiteral(DecideStackLiteral dsl) {
 		assert false : "TODO: implement";
@@ -283,7 +228,7 @@ public class EprClause {
 		return mVariableToClauseLitToPositions.get(tv);
 	}
 	
-	private void updateVariableToClauseLitToPosition(TermVariable tv, ClauseEprQuantifiedLiteral ceql, Integer pos) {
+	void updateVariableToClauseLitToPosition(TermVariable tv, ClauseEprQuantifiedLiteral ceql, Integer pos) {
 		Map<ClauseEprQuantifiedLiteral, Set<Integer>> clToPos = mVariableToClauseLitToPositions.get(tv);
 		Set<Integer> positions = null;
 
@@ -314,6 +259,29 @@ public class EprClause {
 	 */
 	private EprClauseState determineClauseState() {
 		
+
+		
+		// we only need to consider points where no literal is decided "true" yet..
+		IDawg<ApplicationTerm, TermVariable> pointsToConsider = 
+				mEprTheory.getDawgFactory().createFullDawg(mVariables);
+		for (ClauseLiteral cl : mLiterals) {
+
+			if (!cl.isFulfilled()) {
+				continue;
+			}
+
+			if (cl instanceof ClauseEprQuantifiedLiteral) {
+				IDawg<ApplicationTerm, TermVariable> clFulfilledPoints = 
+						((ClauseEprQuantifiedLiteral) cl).getFulfilledPoints();
+				pointsToConsider.removeAllWithSubsetSignature(
+						mDawgFactory.renameColumnsOfDawg(clFulfilledPoints, translation)
+								((ClauseEprQuantifiedLiteral) cl).getTranslationForClause()));
+			} else {
+				return EprClauseState.Fulfilled;
+			}
+		}
+		
+		
 		IDawg<ApplicationTerm, TermVariable> pointsWhereNoLiteralsAreFulfillable =
 				mEprTheory.getDawgFactory().createFullDawg(mVariables);
 		IDawg<ApplicationTerm, TermVariable> pointsWhereOneLiteralIsFulfillable =
@@ -323,9 +291,6 @@ public class EprClause {
 
 		for (ClauseLiteral cl : mLiterals) {
 
-			if (cl.isFulfilled()) {
-				return EprClauseState.Fulfilled;
-			}
 			
 			if (cl.isFulfillable()) {
 				
@@ -363,7 +328,9 @@ public class EprClause {
 		}
 	}
 	
-	public TermVariable[] getVariables() {
+//	public TermVariable[] getVariables() {
+//	public SortedSet<TermVariable> getVariables() {
+	public Collection<TermVariable> getVariables() {
 		return mVariables;
 	}
 	

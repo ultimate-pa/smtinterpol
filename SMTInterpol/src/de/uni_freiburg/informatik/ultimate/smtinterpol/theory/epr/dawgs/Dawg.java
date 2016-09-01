@@ -1,5 +1,6 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -12,7 +13,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawgLetter.UniversalDawgLetter;
 
 public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
-	
 	
 	/*
 	 * convention:
@@ -29,7 +29,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	 */
 	Map<Integer, Map<IDawgLetter<LETTER>, Integer>> transitionRelation;
 
-	public Dawg(COLNAMES[] termVariables, Set<LETTER> allConstants) {
+	public Dawg(List<COLNAMES> termVariables, Set<LETTER> allConstants) {
 		super(termVariables, allConstants);
 		
 		/*
@@ -112,5 +112,18 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		// TODO Auto-generated method stub
 		return false;
 	}
+
+	@Override
+	public void addAllWithSubsetSignature(IDawg<LETTER, COLNAMES> d1) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public IDawg<LETTER, COLNAMES> select(Map<COLNAMES, LETTER> selectMap) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
 
 }

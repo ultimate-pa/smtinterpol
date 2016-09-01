@@ -1,8 +1,12 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
@@ -21,12 +25,12 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	Set<List<LETTER>> mBacking;
 	private Set<List<LETTER>> mNCrossProduct;
 	
-	public NaiveDawg(COLNAMES[] termVariables, Set<LETTER> allConstants) {
+	public NaiveDawg(List<COLNAMES> termVariables, Set<LETTER> allConstants) {
 		super(termVariables, allConstants);
 		mBacking = new HashSet<List<LETTER>>();
 	}
 
-	public NaiveDawg(COLNAMES[] termVariables, Set<LETTER> allConstants, 
+	public NaiveDawg(List<COLNAMES> termVariables, Set<LETTER> allConstants, 
 			Set<List<LETTER>> initialLanguage) {
 		super(termVariables, allConstants);
 		mBacking = new HashSet<List<LETTER>>(initialLanguage);
@@ -35,6 +39,12 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 
 	public NaiveDawg(NaiveDawg<LETTER, COLNAMES> nd) {
 		super(nd.mColNames, nd.mAllConstants);
+		mBacking = new HashSet<List<LETTER>>(nd.mBacking);
+	}
+
+//	public NaiveDawg(NaiveDawg<LETTER, COLNAMES> nd, DawgTranslation<COLNAMES> translation) {
+	public NaiveDawg(NaiveDawg<LETTER, COLNAMES> nd, Map<COLNAMES, COLNAMES> translation) {
+		super(EprHelpers.applyMapping(nd.mColNames, translation), nd.mAllConstants);
 		mBacking = new HashSet<List<LETTER>>(nd.mBacking);
 	}
 
@@ -119,6 +129,62 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	public boolean supSetEq(IDawg<ApplicationTerm, TermVariable> points) {
 		// TODO Auto-generated method stub
 		return false;
+	}
+
+	@Override
+	public void addAllWithSubsetSignature(IDawg<LETTER, COLNAMES> d1) {
+		NaiveDawg<LETTER, COLNAMES> nd1 = (NaiveDawg<LETTER, COLNAMES>) d1;
+		for (List<LETTER> pt : nd1.mBacking) {
+			mBacking.addAll(blowUpForCurrentSignature(pt, nd1.mColNames));
+		}
+		
+	}
+
+	private List<List<LETTER>> blowUpForCurrentSignature(List<LETTER> pt, List<COLNAMES> ptSig) {
+		List<List<LETTER>> result = new ArrayList<List<LETTER>>();
+		for (COLNAMES cn : mColNames) {
+			//TODO hacky
+			int posInPtSig = -1;
+			for (int i = 0; i < ptSig.size(); i++) {
+				if (ptSig.get(i) == cn) {
+					posInPtSig = i;
+				}
+			}
+			
+			List<List<LETTER>> newResult = new ArrayList<List<LETTER>>();
+			for (List<LETTER> prefix : result) {
+
+				if (posInPtSig != -1) {
+					ArrayList<LETTER> newPrefix = new ArrayList<LETTER>(prefix);
+					newPrefix.add(pt.get(posInPtSig));
+					newResult.add(newPrefix);
+				} else {
+					for (LETTER c : mAllConstants) {
+						ArrayList<LETTER> newPrefix = new ArrayList<LETTER>(prefix);
+						newPrefix.add(c);
+						newResult.add(newPrefix);
+					}
+				}
+			}
+
+			result = newResult;
+		}
+		return result;
+	}
+
+	@Override
+	public IDawg<LETTER, COLNAMES> select(Map<COLNAMES, LETTER> selectMap) {
+		assert mColNames.containsAll(selectMap.keySet());
+		Set<List<LETTER>> newBacking = new HashSet<List<LETTER>>(mBacking);
+		for (List<LETTER> word : mBacking) {
+			for (Entry<COLNAMES, LETTER> en : selectMap.entrySet()) {
+				int index = mColNameToIndex.get(en.getKey());
+				if (word.get(index) != en.getValue()) {
+					newBacking.remove(word);
+				}
+			}
+		}
+		return new NaiveDawg<LETTER, COLNAMES>(mColNames, mAllConstants, newBacking);
 	}
 
 }

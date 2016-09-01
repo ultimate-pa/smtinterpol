@@ -1975,7 +1975,7 @@ public class Clausifier {
 					"AUX(" + smtFormula.toString() + ")", 
 					paramTypes,
 					mTheory.getBooleanSort());
-			EprPredicate eprPred = new EprPredicate(fs, smtFormula.getFreeVars().length, mEprTheory);
+			EprPredicate eprPred = new EprPredicate(fs, mEprTheory);
 //			atom = new EprQuantifiedPredicateAtom(mTheory.term(fs, smtFormula.getFreeVars()), 
 //					0, mStackLevel, eprPred);	//TODO add good hash value
 			atom = eprPred.getAtomForTermTuple(new TermTuple(smtFormula.getFreeVars()), mTheory, mStackLevel);

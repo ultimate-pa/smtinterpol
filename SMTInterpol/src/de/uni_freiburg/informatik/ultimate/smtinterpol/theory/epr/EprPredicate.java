@@ -3,10 +3,12 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map.Entry;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbolFactory;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
@@ -35,8 +37,15 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.D
  */
 public class EprPredicate {
 
-	public final int mArity;
-	public final FunctionSymbol functionSymbol;
+	private final int mArity;
+	private final FunctionSymbol mFunctionSymbol;
+	
+	
+	/**
+	 * Every predicate symbol has canonical TermVariables for each of its argument positions.
+	 * They form the signature of the corresponding Dawgs on the decide stack.
+	 */
+	private final List<TermVariable> mTermVariablesForArguments;
 
 	final EprTheory mEprTheory;
 	
@@ -59,10 +68,18 @@ public class EprPredicate {
 	private HashMap<TermTuple, EprGroundPredicateAtom> mPointToAtom = new HashMap<TermTuple, EprGroundPredicateAtom>();
 	private HashMap<TermTuple, EprQuantifiedPredicateAtom> mTermTupleToAtom = new HashMap<TermTuple, EprQuantifiedPredicateAtom>();
 
-	public EprPredicate(FunctionSymbol fs, int arity, EprTheory eprTheory) {
-		this.functionSymbol = fs;
-		this.mArity = arity;
+	public EprPredicate(FunctionSymbol fs, EprTheory eprTheory) {
+		this.mFunctionSymbol = fs;
+		this.mArity = fs.getParameterSorts().length;
 		this.mEprTheory = eprTheory;
+
+		this.mTermVariablesForArguments = new ArrayList<TermVariable>(mArity);
+		for (int i = 0; i < mArity; i++) {
+			String tvName = mFunctionSymbol.getName() + "_arg_" + i;
+			mTermVariablesForArguments.add(
+					mEprTheory.getTheory().createFreshTermVariable(tvName, fs.getParameterSorts()[i]));
+			
+		}
 	}
 
 	public void addQuantifiedOccurence(ClauseEprQuantifiedLiteral l, EprClause eprClause) {
@@ -109,7 +126,7 @@ public class EprPredicate {
 		assert point.getFreeVars().size() == 0 : "Use getAtomForTermTuple, if tt is quantified";
 		EprGroundPredicateAtom result = mPointToAtom.get(point);
 		if (result == null) {
-			ApplicationTerm newTerm = mTheory.term(this.functionSymbol, point.terms);
+			ApplicationTerm newTerm = mTheory.term(this.mFunctionSymbol, point.terms);
 			result = new EprGroundPredicateAtom(newTerm, 0, //TODO: hash
 					assertionStackLevel,
 					this);
@@ -134,7 +151,7 @@ public class EprPredicate {
 		EprQuantifiedPredicateAtom result = mTermTupleToAtom.get(tt);
 		
 		if (result == null) {
-			ApplicationTerm newTerm = mTheory.term(this.functionSymbol, tt.terms);
+			ApplicationTerm newTerm = mTheory.term(this.mFunctionSymbol, tt.terms);
 			result = new EprQuantifiedPredicateAtom(newTerm, 0, //TODO: hash
 					assertionStackLevel,
 					this);
@@ -144,7 +161,7 @@ public class EprPredicate {
 	}
 	
 	public String toString() {
-		return "EprPred: " + functionSymbol.getName();
+		return "EprPred: " + mFunctionSymbol.getName();
 	}
 
 	public EprGroundPredicateAtom getAtomForPoint(TermTuple point) {
@@ -235,6 +252,15 @@ public class EprPredicate {
 	public int getArity() {
 		return mArity;
 	}
+
+	public FunctionSymbol getFunctionSymbol() {
+		return mFunctionSymbol;
+	}
+	
+	public List<TermVariable> getTermVariablesForArguments() {
+		return mTermVariablesForArguments;
+	}
+			
 
 
 }

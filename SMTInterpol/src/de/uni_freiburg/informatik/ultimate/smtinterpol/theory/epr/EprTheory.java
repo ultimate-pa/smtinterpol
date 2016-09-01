@@ -3,6 +3,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
@@ -451,7 +452,7 @@ public class EprTheory implements ITheory {
 		} else {
 			EprPredicate pred = mFunctionSymbolToEprPredicate.get(idx.getFunction());
 			if (pred == null) {
-				pred = new EprPredicate(idx.getFunction(), idx.getParameters().length, this);
+				pred = new EprPredicate(idx.getFunction(), this);
 				mFunctionSymbolToEprPredicate.put(idx.getFunction(), pred);
 				mStateManager.addNewEprPredicate(pred);
 			}
@@ -947,5 +948,16 @@ public class EprTheory implements ITheory {
 		// TODO Auto-generated method stub
 		
 	}
+
+//	public Comparator<TermVariable> getTermVariableComparator() {
+//		
+//		return new Comparator<TermVariable>() {
+//
+//			@Override
+//			public int compare(TermVariable o1, TermVariable o2) {
+//				return o1.getName().compareTo(o2.getName());
+//			}
+//		};
+//	}
 
 }
