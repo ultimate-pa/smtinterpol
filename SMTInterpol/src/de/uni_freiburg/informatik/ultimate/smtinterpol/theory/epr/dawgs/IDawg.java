@@ -64,7 +64,12 @@ public interface IDawg<LETTER, COLNAMES> {
 	 */
 	public void addAllWithSubsetSignature(IDawg<LETTER, COLNAMES> d1);
 
-	public void removeAllWithSubsetSignature(IDawg<LETTER, COLNAMES> clFulfilledPoints);
+	/**
+	 * Removes all points from this dawg that, projected to the columns of the argument dawg,
+	 * match at least one of the points in the argument dawg.
+	 * @param clFulfilledPoints
+	 */
+	public void removeAllWithSubsetSignature(IDawg<LETTER, COLNAMES> points);
 
 	public IDawg<LETTER, COLNAMES> select(Map<COLNAMES, LETTER> selectMap);
 

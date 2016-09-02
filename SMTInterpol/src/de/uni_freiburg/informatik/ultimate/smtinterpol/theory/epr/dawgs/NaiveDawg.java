@@ -171,10 +171,11 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	}
 
 	/**
-	 * TODO: set intersection or natural join??
+	 * Set intersection on Dawgs. Assumes that they already share the same signature.
 	 */
 	@Override
 	public IDawg<LETTER, COLNAMES> intersect(IDawg<LETTER, COLNAMES> other) {
+		assert mColNames.equals(other.getColnames());
 		NaiveDawg<LETTER, COLNAMES> naiOther = (NaiveDawg<LETTER, COLNAMES>) other;
 		
 		Set<List<LETTER>> newBacking = new HashSet<List<LETTER>>(mBacking);
@@ -185,6 +186,7 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 
 	@Override
 	public void removeAll(IDawg<LETTER, COLNAMES> other) {
+		assert mColNames.equals(other.getColnames());
 		NaiveDawg<LETTER, COLNAMES> naiOther = (NaiveDawg<LETTER, COLNAMES>) other;
 		mBacking.removeAll(naiOther.mBacking);
 	}
@@ -197,7 +199,8 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	}
 
 	@Override
-	public boolean supSetEq(IDawg<ApplicationTerm, TermVariable> points) {
+	public boolean supSetEq(IDawg<ApplicationTerm, TermVariable> other) {
+		assert mColNames.equals(other.getColnames());
 		// TODO Auto-generated method stub
 		return false;
 	}
@@ -206,6 +209,7 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	public void addAllWithSubsetSignature(IDawg<LETTER, COLNAMES> other) {
 		assert mColNames.containsAll(other.getColnames());
 		NaiveDawg<LETTER, COLNAMES> nd = (NaiveDawg<LETTER, COLNAMES>) other;
+		//TODO: could be done nicer --> only go through the points that actually occur in this.mBacking..
 		for (List<LETTER> pt : nd.mBacking) {
 			mBacking.addAll(blowUpForCurrentSignature(pt, nd.mColNames));
 		}
@@ -216,6 +220,7 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	public void removeAllWithSubsetSignature(IDawg<LETTER, COLNAMES> other) {
 		assert mColNames.containsAll(other.getColnames());
 		NaiveDawg<LETTER, COLNAMES> nd = (NaiveDawg<LETTER, COLNAMES>) other;
+		//TODO: could be done nicer --> only go through the points that actually occur in this.mBacking..
 		for (List<LETTER> pt : nd.mBacking) {
 			mBacking.removeAll(blowUpForCurrentSignature(pt, nd.mColNames));
 		}
