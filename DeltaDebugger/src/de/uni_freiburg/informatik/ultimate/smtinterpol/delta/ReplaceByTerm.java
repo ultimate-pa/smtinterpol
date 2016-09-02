@@ -55,9 +55,10 @@ final class ReplaceByTerm extends Substitution {
 		return null;
 	}
 	
+	@Override
 	public String toString() {
-		StringBuilder sb = new StringBuilder();
-		PrintTerm pt = new PrintTerm();
+		final StringBuilder sb = new StringBuilder();
+		final PrintTerm pt = new PrintTerm();
 		pt.append(sb, getMatch());
 		sb.append(" ==> ");
 		pt.append(sb, mReplacement);

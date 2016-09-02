@@ -36,12 +36,12 @@ public final class FlipDecisions {
 	private static final boolean FLIP_ALL = false;
 	
 	public static void main(String[] unused) throws Exception {
-		Script script = new SMTInterpol(new DefaultLogger());
+		final Script script = new SMTInterpol(new DefaultLogger());
 		script.setOption(":produce-assignments", true);
 		script.setOption(":verbosity", 2);
 		script.setLogic(Logics.QF_UF);
-		Sort[] empty = {};
-		Sort bool = script.sort("Bool");
+		final Sort[] empty = {};
+		final Sort bool = script.sort("Bool");
 		script.declareFun("P", empty, bool);
 		script.declareFun("Q", empty, bool);
 		// (assert (or P Q))
@@ -58,9 +58,9 @@ public final class FlipDecisions {
 		Assignments ass = script.getAssignment();
 		System.err.println("P is " + ass.getAssignment("Pname"));
 		System.err.println("Q is " + ass.getAssignment("Qname"));
-		if (FLIP_ALL)
+		if (FLIP_ALL) {
 			((SMTInterpol) script).flipDecisions();
-		else {
+		} else {
 			((SMTInterpol) script).flipNamedLiteral(
 					Math.random() >= 0.5 ? "Qname" : "Pname");// NOCHECKSTYLE
 		}

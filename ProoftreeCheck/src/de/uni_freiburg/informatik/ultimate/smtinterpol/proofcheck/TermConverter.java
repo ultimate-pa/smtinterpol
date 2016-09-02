@@ -28,9 +28,20 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.regex.Pattern;
 
-import de.uni_freiburg.informatik.ultimate.logic.*;
+import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
+import de.uni_freiburg.informatik.ultimate.logic.Annotation;
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
+import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.LetTerm;
+import de.uni_freiburg.informatik.ultimate.logic.Logics;
+import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
+import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
+import de.uni_freiburg.informatik.ultimate.logic.Rational;
+import de.uni_freiburg.informatik.ultimate.logic.Sort;
+import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proofcheck.LemmaLAConverter.FactorWrapper;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.proofcheck.NamedWrapper;
 
 /**
  * Terms in SMT-LIB syntax must be converted to Isabelle syntax before passing
@@ -191,7 +202,7 @@ class TermConverter extends NonRecursive {
 					 */
 					if (mPrettyOutput) {
 						if (scale > 0) {
-							int point = string.length() - scale;
+							final int point = string.length() - scale;
 							
 							int i = point + 1;
 							for ( ; i < string.length(); ++i) {
@@ -227,7 +238,7 @@ class TermConverter extends NonRecursive {
 						// only ignore a single decimal zero
 						if (scale > 1) {
 							writeString("((");
-							int point = string.length() - scale;
+							final int point = string.length() - scale;
 							writeString(string.substring(0, point - 1));
 							writeString(string.substring(point));
 							fraction = true;
@@ -930,7 +941,7 @@ class TermConverter extends NonRecursive {
 			builder.append('(');
 			builder.append(functionName);
 			builder.append("::");
-			for (Sort paramSort : functionSymbol.getParameterSorts()) {
+			for (final Sort paramSort : functionSymbol.getParameterSorts()) {
 				builder.append(getSingleSortString(paramSort));
 				builder.append(arrow);
 			}
@@ -1031,7 +1042,7 @@ class TermConverter extends NonRecursive {
 	 */
 	public void convertToAppendable(final Term term,
 			final Appendable appendable) {
-		Appendable tmp = mAppendable;
+		final Appendable tmp = mAppendable;
 		mAppendable = appendable;
 		convert(term);
 		mAppendable = tmp;
@@ -1079,12 +1090,12 @@ class TermConverter extends NonRecursive {
 		
 		// variables
 		String plus = "";
-		for (Map.Entry<Term, FactorWrapper> tuple : collection) {
+		for (final Map.Entry<Term, FactorWrapper> tuple : collection) {
 			writeString(plus);
 			plus = " + ";
 			
 			Rational rational = tuple.getValue().mFactor;
-			boolean isNegative = rational.isNegative();
+			final boolean isNegative = rational.isNegative();
 			if (isNegative) {
 				rational = rational.negate();
 			}
@@ -1111,7 +1122,7 @@ class TermConverter extends NonRecursive {
 		
 		// constant
 		if (!constant.equals(Rational.ZERO)) {
-			boolean isNegative = constant.isNegative();
+			final boolean isNegative = constant.isNegative();
 			if (isNegative) {
 				constant = constant.negate();
 			}
@@ -1162,7 +1173,7 @@ class TermConverter extends NonRecursive {
 	private void writeString(final String string) {
 		try {
 			mAppendable.append(string);
-        } catch (IOException e) {
+        } catch (final IOException e) {
             throw new RuntimeException("Appender throws IOException", e);
         }
 	}

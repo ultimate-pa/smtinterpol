@@ -66,13 +66,16 @@ public class OneTermCmd extends AbstractOneTermCmd {
 			/* If we have pre commands, we need to add the definitions since the
 			 * symbols in the term would otherwise not be well defined.
 			 */
-			for (Cmd cmd : mPreCmds)
-				if (cmd.isActive())
+			for (final Cmd cmd : mPreCmds) {
+				if (cmd.isActive()) {
 					cmd.insertDefinitions(context);
+				}
+			}
 		}
 		new DefinitionTracker(context, usedDefs).track(mTerm);
 	}
 	
+	@Override
 	public String toString() {
 		return mCmd.toUpperCase();
 	}

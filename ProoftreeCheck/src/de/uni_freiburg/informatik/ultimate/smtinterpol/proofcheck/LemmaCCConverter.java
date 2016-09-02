@@ -25,7 +25,11 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
 
-import de.uni_freiburg.informatik.ultimate.logic.*;
+import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.Theory;
 
 /**
  * This class is used to convert a lemma of equality (congruence closure, CC).
@@ -93,7 +97,7 @@ public class LemmaCCConverter extends AConverter {
 		 * then (":subpath", transitivity chain explaining a path)^*
 		 */
 		final Object[] annotations =
-				(Object[])((Annotation)lemma.getAnnotations()[0]).getValue();
+				(Object[])lemma.getAnnotations()[0].getValue();
 		
 		/*
 		 * check if there is a positive disjunct and find its position
@@ -430,12 +434,12 @@ public class LemmaCCConverter extends AConverter {
 				writeString("have ");
 				writeString(CC_LEMMA_PREFIX);
 				writeString(Integer.toString(index));
-				if (currentpath.mEqualities.isEmpty())
+				if (currentpath.mEqualities.isEmpty()) {
 					writeString(": \"");
-				else {
+				} else {
 					writeString(": \"[|");
 					String append = "";
-					for (ApplicationTerm equality : currentpath.mEqualities) {
+					for (final ApplicationTerm equality : currentpath.mEqualities) {
 						writeString(append);
 						append = "; ";
 						mConverter.convertToAppendable(equality,
@@ -947,13 +951,13 @@ public class LemmaCCConverter extends AConverter {
 		 * @return true iff data structure is handled correctly
 		 */
 		boolean checkCorrectness() {
-			for (ISubPathStep step : mSteps) {
+			for (final ISubPathStep step : mSteps) {
 				if (step == null) {
 					return false;
 				} else {
 					if (step instanceof CongruenceStep) {
-						CongruenceStep cStep = (CongruenceStep)step;
-						for (CongruenceSubstep substep : cStep.mSubsteps) {
+						final CongruenceStep cStep = (CongruenceStep)step;
+						for (final CongruenceSubstep substep : cStep.mSubsteps) {
 							if (substep == null) {
 								return false;
 							}

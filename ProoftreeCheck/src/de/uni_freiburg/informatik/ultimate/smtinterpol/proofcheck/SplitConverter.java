@@ -20,7 +20,9 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.proofcheck;
 
 import java.util.HashMap;
 
-import de.uni_freiburg.informatik.ultimate.logic.*;
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.Theory;
 
 /**
  * This class is used to convert a split proof node (@split).
@@ -183,7 +185,7 @@ public class SplitConverter extends AConverter {
 					&& (negDisjunction.getParameters()[0]
 							instanceof ApplicationTerm));
 			final ApplicationTerm disjunction = (ApplicationTerm)
-					((ApplicationTerm)negDisjunction).getParameters()[0];
+					negDisjunction.getParameters()[0];
 			assert ((disjunction.getFunction() == mTheory.mOr)
 					&& (disjunction.getParameters().length > 1)
 					&& (result.getFunction() == mTheory.mNot)

@@ -39,7 +39,7 @@ public class GetInterpolants extends Cmd {
 	public void dump(PrintWriter writer) {
 		// Copied from LoggingScript...
 		writer.print("(get-interpolants ");
-		PrintTerm pt = new PrintTerm();
+		final PrintTerm pt = new PrintTerm();
 		pt.append(writer, mPartition[0]);
 		for (int i = 1; i < mPartition.length; ++i) {
 			int prevStart = mSos[i - 1];
@@ -48,8 +48,9 @@ public class GetInterpolants extends Cmd {
 				prevStart = mSos[prevStart - 1];
 			}
 			writer.print(' ');
-			if (mSos[i] == i)
+			if (mSos[i] == i) {
 				writer.print('(');
+			}
 			pt.append(writer, mPartition[i]);
 		}
 		writer.println(')');
@@ -81,6 +82,7 @@ public class GetInterpolants extends Cmd {
 		mOldSos = null;
 	}
 	
+	@Override
 	public String toString() {
 		return "GET_INTERPOLANTS";
 	}

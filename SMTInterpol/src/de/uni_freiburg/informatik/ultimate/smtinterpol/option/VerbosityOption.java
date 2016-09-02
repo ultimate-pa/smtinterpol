@@ -55,16 +55,18 @@ public class VerbosityOption extends Option {
 		} else if (value instanceof String) {
 			try {
 				lvl = Integer.parseInt((String) value);
-			} catch (NumberFormatException enfe) {
+			} catch (final NumberFormatException enfe) {
 				throw new SMTLIBException("Not a valid number: " + value);
 			}
-		} else
+		} else {
 			throw new SMTLIBException("Not a valid number: " + value);
+		}
 		// Normalize value
-		if (lvl < LogProxy.LOGLEVEL_OFF)
+		if (lvl < LogProxy.LOGLEVEL_OFF) {
 			lvl = LogProxy.LOGLEVEL_OFF;
-		else if (lvl > LogProxy.LOGLEVEL_TRACE)
+		} else if (lvl > LogProxy.LOGLEVEL_TRACE) {
 			lvl = LogProxy.LOGLEVEL_TRACE;
+		}
 		mLogger.setLoglevel(lvl);
 	}
 

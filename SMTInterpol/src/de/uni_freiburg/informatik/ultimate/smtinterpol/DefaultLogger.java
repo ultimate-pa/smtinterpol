@@ -67,8 +67,9 @@ public class DefaultLogger implements LogProxy {
 	}
 	
 	private final void log(int lvl, String msg, Object[] params) {
-		if (params.length == 0)
+		if (params.length == 0) {
 			log(lvl, msg);
+		}
 		synchronized (LOCK) {
 			mWriter.print(LEVELS[lvl - 1]);
 			mWriter.print(" - ");
@@ -85,20 +86,23 @@ public class DefaultLogger implements LogProxy {
 
 	@Override
 	public void fatal(String msg, Object... params) {
-		if (isFatalEnabled())
+		if (isFatalEnabled()) {
 			log(LOGLEVEL_FATAL, msg, params);
+		}
 	}
 
 	@Override
 	public void fatal(Object msg) {
-		if (isFatalEnabled())
+		if (isFatalEnabled()) {
 			log(LOGLEVEL_FATAL, msg);
+		}
 	}
 
 	@Override
 	public void outOfMemory(String msg) {
-		if (isFatalEnabled())
+		if (isFatalEnabled()) {
 			log(LOGLEVEL_FATAL, msg);
+		}
 	}
 
 	@Override
@@ -108,14 +112,16 @@ public class DefaultLogger implements LogProxy {
 
 	@Override
 	public void error(String msg, Object... params) {
-		if (isErrorEnabled())
+		if (isErrorEnabled()) {
 			log(LOGLEVEL_ERROR, msg, params);
+		}
 	}
 
 	@Override
 	public void error(Object msg) {
-		if (isErrorEnabled())
+		if (isErrorEnabled()) {
 			log(LOGLEVEL_ERROR, msg);
+		}
 	}
 
 	@Override
@@ -125,14 +131,16 @@ public class DefaultLogger implements LogProxy {
 
 	@Override
 	public void warn(String msg, Object... params) {
-		if (isWarnEnabled())
+		if (isWarnEnabled()) {
 			log(LOGLEVEL_WARN, msg, params);
+		}
 	}
 
 	@Override
 	public void warn(Object msg) {
-		if (isWarnEnabled())
+		if (isWarnEnabled()) {
 			log(LOGLEVEL_WARN, msg);
+		}
 	}
 
 	@Override
@@ -142,14 +150,16 @@ public class DefaultLogger implements LogProxy {
 
 	@Override
 	public void info(String msg, Object... params) {
-		if (isInfoEnabled())
+		if (isInfoEnabled()) {
 			log(LOGLEVEL_INFO, msg, params);
+		}
 	}
 
 	@Override
 	public void info(Object msg) {
-		if (isInfoEnabled())
+		if (isInfoEnabled()) {
 			log(LOGLEVEL_INFO, msg);
+		}
 	}
 
 	@Override
@@ -159,14 +169,16 @@ public class DefaultLogger implements LogProxy {
 
 	@Override
 	public void debug(String msg, Object... params) {
-		if (isDebugEnabled())
+		if (isDebugEnabled()) {
 			log(LOGLEVEL_DEBUG, msg, params);
+		}
 	}
 
 	@Override
 	public void debug(Object msg) {
-		if (isDebugEnabled())
+		if (isDebugEnabled()) {
 			log(LOGLEVEL_DEBUG, msg);
+		}
 	}
 
 	@Override
@@ -176,14 +188,16 @@ public class DefaultLogger implements LogProxy {
 
 	@Override
 	public void trace(String msg, Object... params) {
-		if (isTraceEnabled())
+		if (isTraceEnabled()) {
 			log(LOGLEVEL_TRACE, msg, params);
+		}
 	}
 
 	@Override
 	public void trace(Object msg) {
-		if (isTraceEnabled())
+		if (isTraceEnabled()) {
 			log(LOGLEVEL_TRACE, msg);
+		}
 	}
 
 	@Override

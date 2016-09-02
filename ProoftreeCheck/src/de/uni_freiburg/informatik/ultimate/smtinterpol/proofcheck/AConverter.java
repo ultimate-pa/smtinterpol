@@ -75,7 +75,7 @@ public class AConverter {
 	protected void writeString(String string) {
 		try {
 			mAppendable.append(string);
-        } catch (IOException e) {
+        } catch (final IOException e) {
             throw new RuntimeException("Appender throws IOException", e);
         }
 	}

@@ -38,7 +38,7 @@ public class LoggerOption extends Option {
 	private final void changeLoggerDest(String newdest) {
 		try {
 			mLogger.changeDestination(String.valueOf(newdest));
-		} catch (IOException eio) {
+		} catch (final IOException eio) {
 			throw new SMTLIBException("Could not change logging destination",
 					eio);
 		}
@@ -46,8 +46,9 @@ public class LoggerOption extends Option {
 
 	@Override
 	public void set(Object value) {
-		if (value instanceof QuotedObject)
+		if (value instanceof QuotedObject) {
 			value = ((QuotedObject) value).getValue();
+		}
 		if (mLogger.canChangeDestination()) {
 			changeLoggerDest(String.valueOf(value));
 		} else {
@@ -62,8 +63,9 @@ public class LoggerOption extends Option {
 
 	@Override
 	public void reset() {
-		if (mLogger.canChangeDestination())
+		if (mLogger.canChangeDestination()) {
 			changeLoggerDest(mDefaultDest);
+		}
 	}
 
 	@Override

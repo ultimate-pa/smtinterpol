@@ -41,9 +41,9 @@ public class TermCompilerTest {
 	public TermCompilerTest() {
 		mSolver = new SMTInterpol(new DefaultLogger());
 		mSolver.setLogic(Logics.QF_LIA);
-		Sort boolSort = mSolver.sort("Bool");
-		Sort intSort = mSolver.sort("Int");
-		Sort[] empty = {};
+		final Sort boolSort = mSolver.sort("Bool");
+		final Sort intSort = mSolver.sort("Int");
+		final Sort[] empty = {};
 		mSolver.declareFun("a", empty, boolSort);
 		mSolver.declareFun("b", empty, boolSort);
 		mSolver.declareFun("c", empty, boolSort);
@@ -66,7 +66,7 @@ public class TermCompilerTest {
 	
 	@Test
 	public void testNot() {
-		Term nota = mSolver.term("not", mA);
+		final Term nota = mSolver.term("not", mA);
 		Term res = mCompiler.transform(nota);
 		Assert.assertSame(nota, res);
 		res = mCompiler.transform(mSolver.term("not", nota));
@@ -133,7 +133,7 @@ public class TermCompilerTest {
 		Assert.assertSame(mSolver.term("not", 
 				mSolver.term("or", mSolver.term("not", mC),
 						mSolver.term("not", mA))), res);
-		Term cab = mSolver.term("ite", mC, mA, mB);
+		final Term cab = mSolver.term("ite", mC, mA, mB);
 		res = mCompiler.transform(cab);
 		Assert.assertSame(cab, res);
 	}
@@ -213,7 +213,7 @@ public class TermCompilerTest {
 		Assert.assertSame(mSolver.term("not", mSolver.term("=", mX, mY)), res);
 		in = mSolver.term("distinct", mX, mY, mZ);
 		res = mCompiler.transform(in);
-		Term exp = mSolver.term("not", mSolver.term("or",
+		final Term exp = mSolver.term("not", mSolver.term("or",
 				mSolver.term("=", mX, mY), mSolver.term("=", mX, mZ),
 				mSolver.term("=", mY, mZ)));
 		Assert.assertSame(exp, res);

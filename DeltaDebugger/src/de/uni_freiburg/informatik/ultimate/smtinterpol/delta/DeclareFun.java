@@ -42,7 +42,7 @@ public class DeclareFun extends Cmd {
 		writer.print(PrintTerm.quoteIdentifier(mFun));
 		writer.print(" (");
 		String sep = "";
-		for (Sort p : mParams) {
+		for (final Sort p : mParams) {
 			writer.print(sep);
 			writer.print(p);
 			sep = " ";
@@ -62,6 +62,7 @@ public class DeclareFun extends Cmd {
 		context.put(mFun, this);
 	}
 	
+	@Override
 	public String toString() {
 		return "DECLARE_FUN " + mFun;
 	}

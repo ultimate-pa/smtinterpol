@@ -35,7 +35,7 @@ public class SetterCmd extends Cmd {
 		 * error does not depend on a proof.  Maybe we should implement a
 		 * feature collection...
 		 */
-		boolean isInfo = cmd == "set-info";
+		final boolean isInfo = cmd == "set-info";
 		mCanBeRemoved = !((isInfo && key.equals(":error-behavior")) // NOPMD
 				|| (!isInfo && (key.startsWith(":produce-")
 						|| key.endsWith("-check-mode"))));
@@ -60,6 +60,7 @@ public class SetterCmd extends Cmd {
 		writer.println(')');
 	}
 	
+	@Override
 	public String toString() {
 		return mCmd.toUpperCase();
 	}

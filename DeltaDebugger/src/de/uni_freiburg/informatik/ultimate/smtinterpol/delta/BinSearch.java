@@ -68,7 +68,7 @@ public class BinSearch<E> {
 	 */
 	private void split(int first, int second) {
 		// Split into two new sublists
-		int mid = first / 2 + second / 2
+		final int mid = first / 2 + second / 2
 				+ (first & second & 1);
 		if (mid != first) {
 			mTodo.push(new IntPair(mid, second));
@@ -78,30 +78,34 @@ public class BinSearch<E> {
 
 	public boolean run(Minimizer tester)
 		throws IOException, InterruptedException {
-		if (mList.isEmpty())
+		if (mList.isEmpty()) {
 			return false;
+		}
 		boolean result = false;
 		mTodo.add(new IntPair(0, mList.size()));
 		while (!mTodo.isEmpty()) {
-			IntPair p = mTodo.poll();
-			List<E> sublist = mList.subList(p.mFirst, p.mSecond);
-			if (sublist.isEmpty())
+			final IntPair p = mTodo.poll();
+			final List<E> sublist = mList.subList(p.mFirst, p.mSecond);
+			if (sublist.isEmpty()) {
 				continue;
-			Boolean seen = mDriver.prepare(sublist);
-			boolean success = (seen == null ? tester.test() : seen);
+			}
+			final Boolean seen = mDriver.prepare(sublist);
+			final boolean success = (seen == null ? tester.test() : seen);
 			if (success) {
-				if (seen == null)
+				if (seen == null) {
 					mDriver.success(sublist);
+				}
 				result = true;
 				if (p.mBuddy) {
 					// We already know that the buddy cannot succeed.
 					// Split the buddy to prevent a meaningless test
-					IntPair buddy = mTodo.poll();
+					final IntPair buddy = mTodo.poll();
 					split(buddy.mFirst, buddy.mSecond);
 				}
 			} else {
-				if (seen == null)
+				if (seen == null) {
 					mDriver.failure(sublist);
+				}
 				split(p.mFirst, p.mSecond);
 			}
 		}

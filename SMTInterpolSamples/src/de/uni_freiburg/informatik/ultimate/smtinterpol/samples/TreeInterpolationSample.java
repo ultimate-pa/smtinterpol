@@ -43,16 +43,16 @@ public final class TreeInterpolationSample {
 	
 	public static void main(String[] unused) {
 		// Create a logging proxy
-		DefaultLogger logger = new DefaultLogger();
+		final DefaultLogger logger = new DefaultLogger();
 		// Create an option map to handle all API options.
-		OptionMap options = new OptionMap(logger, true);
+		final OptionMap options = new OptionMap(logger, true);
 		// Create a new solver
-		Script solver = new SMTInterpol(options);
+		final Script solver = new SMTInterpol(options);
 		// Enable interpolant production
 		solver.setOption(":produce-interpolants", Boolean.TRUE);
 		// A parse environment to read from strings.  This is a front end and
 		// thus needs front end options.
-		ParseEnvironment pe = new ParseEnvironment(solver, options);
+		final ParseEnvironment pe = new ParseEnvironment(solver, options);
 		// Disable success messages
 		solver.setOption(":print-success", Boolean.FALSE);
 		solver.setLogic(Logics.QF_LIA);

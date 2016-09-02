@@ -70,8 +70,8 @@ public class InterpolatorTest {
 			boolean clauseswap, boolean litswap,
 			boolean doubleab, boolean addconst, boolean addvar) {
 		addvar = false;
-		Term a = this.mA;
-		Term b = this.mB;
+		final Term a = mA;
+		final Term b = mB;
 		SharedTerm sa = mClausifier.getSharedTerm(a);
 		SharedTerm sb = mClausifier.getSharedTerm(b);
 		if (doubleab || addconst || addvar) {
@@ -92,25 +92,26 @@ public class InterpolatorTest {
 			sa = mClausifier.getSharedTerm(aterm);
 			sb = mClausifier.getSharedTerm(bterm);
 		}
-		CCTermBuilder builder = mClausifier.new CCTermBuilder();
+		final CCTermBuilder builder = mClausifier.new CCTermBuilder();
 		sa.shareWithLinAr(); builder.convert(sa.getTerm());
 		sb.shareWithLinAr(); builder.convert(sb.getTerm());
-		EqualityProxy eq = sa.createEquality(sb);
+		final EqualityProxy eq = sa.createEquality(sb);
 		Assert.assertNotSame(EqualityProxy.getFalseProxy(), eq);
 		Assert.assertNotSame(EqualityProxy.getTrueProxy(), eq);
-		CCEquality cceq = ccswap
+		final CCEquality cceq = ccswap
 				? eq.createCCEquality(sa, sb) : eq.createCCEquality(sb, sa);
-		LAEquality laeq = cceq.getLASharedData();
-		Literal[] lits = 
+		final LAEquality laeq = cceq.getLASharedData();
+		final Literal[] lits = 
 		    clauseswap ? (litswap ? new Literal[] { cceq.negate(), laeq }
 		                          : new Literal[] { laeq, cceq.negate() })
 	                   : (litswap ? new Literal[] { laeq.negate(), cceq }
 	                   			  : new Literal[] { cceq, laeq.negate() });
 
-		Clause clause = new Clause(lits);
+		final Clause clause = new Clause(lits);
 		clause.setProof(new LeafNode(LeafNode.EQ, null));
-		Set<String> empty = Collections.emptySet();
+		final Set<String> empty = Collections.emptySet();
 		@SuppressWarnings("unchecked")
+		final
 		Set<String>[] partition = new Set[] { empty, empty };
 		mInterpolator = 
 			new Interpolator(mSolver.getLogger(), mSolver, null,
@@ -123,51 +124,59 @@ public class InterpolatorTest {
 			mInterpolator.addOccurrence(sa, 0);
 			mInterpolator.addOccurrence(sb, 1);
 		}
-		Interpolant[] interpolants = mInterpolator.interpolate(clause);
-		TermVariable ccVar = mInterpolator.getLiteralInfo(cceq).getMixedVar();
-		TermVariable laVar = mInterpolator.getLiteralInfo(laeq).getMixedVar();
+		final Interpolant[] interpolants = mInterpolator.interpolate(clause);
+		final TermVariable ccVar = mInterpolator.getLiteralInfo(cceq).getMixedVar();
+		final TermVariable laVar = mInterpolator.getLiteralInfo(laeq).getMixedVar();
 		Term var;
-		InterpolatorAffineTerm summands = new InterpolatorAffineTerm();
+		final InterpolatorAffineTerm summands = new InterpolatorAffineTerm();
 		if (clauseswap) {
 			Rational factor = Rational.ONE;
-			if (doubleab)
+			if (doubleab) {
 				factor = Rational.TWO.inverse();
-			if (abswap)
+			}
+			if (abswap) {
 				factor = factor.negate();
+			}
 
 			summands.add(factor, ccVar);
-			if (addvar)
+			if (addvar) {
 				summands.add(factor.negate(), mSolver.term("s"));
+			}
 			if (addconst) {
-				Rational offset = factor.mul(Rational.TWO).negate();
+				final Rational offset = factor.mul(Rational.TWO).negate();
 				summands.add(offset);
 			}
 			var = laVar;
 		} else {
 			Rational factor = Rational.ONE;
-			if (doubleab)
+			if (doubleab) {
 				factor = Rational.TWO;
-			if (abswap)
+			}
+			if (abswap) {
 				factor = factor.negate();
-			if (addvar)
+			}
+			if (addvar) {
 				summands.add(Rational.ONE, mSolver.term("s"));
+			}
 			summands.add(factor, laVar);
 			if (addconst) {
-				Rational offset = Rational.TWO;
+				final Rational offset = Rational.TWO;
 				summands.add(offset);
 			}
 			var = ccVar;
 		}
-		Term rhs = summands.toSMTLib(mSolver.getTheory(), false);
-		Term expected = mSolver.term("=", var, rhs);
+		final Term rhs = summands.toSMTLib(mSolver.getTheory(), false);
+		final Term expected = mSolver.term("=", var, rhs);
 		Assert.assertSame(expected, interpolants[0].mTerm);
 	}
 
 	@Test
 	public void testEq() {
-		for (int i = 0; i < 128; i++)// NOCHECKSTYLE
+		for (int i = 0; i < 128; i++)
+		 {
 			doTestEq((i&1) != 0, (i&2) != 0, (i&4) != 0, (i&8) != 0,// NOCHECKSTYLE
 					(i&16) != 0, (i&32) != 0, (i& 64) != 0);// NOCHECKSTYLE
+		}
 	}
 	
 }

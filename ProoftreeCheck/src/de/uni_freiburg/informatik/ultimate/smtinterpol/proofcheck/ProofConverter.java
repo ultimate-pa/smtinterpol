@@ -22,7 +22,18 @@ import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.HashMap;
 
-import de.uni_freiburg.informatik.ultimate.logic.*;
+import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
+import de.uni_freiburg.informatik.ultimate.logic.Annotation;
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
+import de.uni_freiburg.informatik.ultimate.logic.FormulaLet;
+import de.uni_freiburg.informatik.ultimate.logic.FormulaLet.LetFilter;
+import de.uni_freiburg.informatik.ultimate.logic.LetTerm;
+import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
+import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
+import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
+import de.uni_freiburg.informatik.ultimate.logic.Theory;
 
 /**
  * This class is the front-end for converting an SMTInterpol proof to an
@@ -81,7 +92,7 @@ class ProofConverter extends NonRecursive {
 		mResultStack = new ArrayDeque<Term>();
 		mConverter = converter;
 		mLetHandler = new LetHandler();
-		ComputationSimplifier simplifier = new ComputationSimplifier();
+		final ComputationSimplifier simplifier = new ComputationSimplifier();
 		mResConverter = new ResolutionConverter(appendable, theory,
 				converter, simplifier, fastProofs,
 				lemmaAppendable);
@@ -240,7 +251,7 @@ class ProofConverter extends NonRecursive {
 	 */
 	private class ProofWalker extends NonRecursive.TermWalker {
 		// TermVariable of lemma binding if any, else null
-		private TermVariable mLemma;
+		private final TermVariable mLemma;
 		
 		/**
 		 * @param term the term to be converted next
@@ -439,7 +450,7 @@ class ProofConverter extends NonRecursive {
 			assert (variables.length == values.length);
 			
 			for (int i = variables.length - 1; i >= 0; --i) {
-				TermVariable variable = variables[i];
+				final TermVariable variable = variables[i];
 				converter.enqueueWalker(new LetWalker(variable));
 				
 				// only proof nodes are abbreviated
@@ -480,6 +491,7 @@ class ProofConverter extends NonRecursive {
 		 * @param converter non-recursive converter
 		 * @param variable term variable
 		 */
+		@Override
 		public void walk(NonRecursive converter, TermVariable variable) {
 			final Term lemma = mLetHandler.getLemma(variable);
 			assert (lemma != null);
@@ -521,7 +533,7 @@ class ProofConverter extends NonRecursive {
 				&& (parameters[0] instanceof AnnotatedTerm));
 		final AnnotatedTerm rewrite = (AnnotatedTerm)parameters[0];
 		assert (rewrite.getAnnotations().length == 1);
-		final String annotation = (String)rewrite.getAnnotations()[0].getKey();
+		final String annotation = rewrite.getAnnotations()[0].getKey();
 		assert ((rewrite.getSubterm() instanceof ApplicationTerm)
 				&& (((ApplicationTerm)rewrite.getSubterm()).getFunction().
 						getName() == "=")
@@ -611,6 +623,7 @@ class ProofConverter extends NonRecursive {
 		 * 
 		 * {@inheritDoc}
 		 */
+		@Override
 		public void convert(NonRecursive converter, Term[] parameters,
 				TermVariable lemmaVar) {
 			/**
@@ -697,6 +710,7 @@ class ProofConverter extends NonRecursive {
 		 * @param parameters lemma parameters
 		 * @param lemmaVar term variable of lemma binding if any, else null
 		 */
+		@Override
 		public void convert(NonRecursive converter, Term[] parameters,
 				TermVariable lemmaVar) {
 			assert ((parameters.length == 1)
@@ -747,6 +761,7 @@ class ProofConverter extends NonRecursive {
 		 * @param parameters assertion parameters
 		 * @param lemmaVar term variable of lemma binding if any, else null
 		 */
+		@Override
 		public void convert(final NonRecursive converter,
 				final Term[] parameters, final TermVariable lemmaVar) {
 			assert (parameters.length == 1);
@@ -807,6 +822,7 @@ class ProofConverter extends NonRecursive {
 		 * @param converter non-recursive converter
 		 * @param parameters tautology parameters
 		 */
+		@Override
 		public void convert(NonRecursive converter, Term[] parameters,
 				TermVariable lemmaVar) {
 			assert ((parameters.length == 1)
@@ -1073,7 +1089,7 @@ class ProofConverter extends NonRecursive {
 			final AnnotatedTerm split = (AnnotatedTerm)parameters[0];
 			assert (split.getAnnotations().length == 1);
 			final String annotation = split.getAnnotations()[0].getKey();
-			Term subterm = split.getSubterm();
+			final Term subterm = split.getSubterm();
 			assert (parameters[1] instanceof ApplicationTerm);
 			final ApplicationTerm result = (ApplicationTerm)parameters[1];
 			
@@ -1151,7 +1167,7 @@ class ProofConverter extends NonRecursive {
 	private void writeString(String string) {
 		try {
 			mAppendable.append(string);
-        } catch (IOException e) {
+        } catch (final IOException e) {
             throw new RuntimeException("Appender throws IOException", e);
         }
 	}

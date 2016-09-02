@@ -41,17 +41,17 @@ public final class LogProxySample {
 	
 	public static void main(String[] unused) {
 		// Set up Log4j
-		Logger logger = Logger.getLogger(LogProxySample.class);
+		final Logger logger = Logger.getLogger(LogProxySample.class);
 		logger.addAppender(new WriterAppender(new SimpleLayout(), System.err));
 		
 		// Create and set up the solver
-		SMTInterpol solver = new SMTInterpol(new Log4jProxy(logger));
+		final SMTInterpol solver = new SMTInterpol(new Log4jProxy(logger));
 		solver.setOption(":verbosity", BigInteger.valueOf(5));
 		solver.setLogic(Logics.QF_LIA);
 		
 		// Just a simple usage to produce some logging
-		Sort intSort = solver.sort("Int");
-		Sort[] empty = new Sort[0];
+		final Sort intSort = solver.sort("Int");
+		final Sort[] empty = new Sort[0];
 		solver.declareFun("x", empty, intSort);
 		solver.declareFun("y", empty, intSort);
 		solver.declareFun("z", empty, intSort);

@@ -32,6 +32,7 @@ public class Neutral {
 	public boolean matches(Term t, int pos) {
 		return mTerm == t && mPos == pos;
 	}
+	@Override
 	public String toString() {
 		return mTerm + "@" + mPos;
 	}

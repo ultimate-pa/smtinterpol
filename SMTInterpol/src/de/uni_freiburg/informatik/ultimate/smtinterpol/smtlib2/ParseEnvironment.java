@@ -21,8 +21,8 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
-import java.io.InputStreamReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.io.Reader;
 import java.util.ArrayDeque;
@@ -62,8 +62,9 @@ public class ParseEnvironment {
 		mScript = script;
 		mExitHook = exit;
 		mOptions = options.getFrontEndOptions();
-		if (!mOptions.isFrontEndActive())
+		if (!mOptions.isFrontEndActive()) {
 			throw new IllegalArgumentException("Front End not active!");
+		}
 	}
 	
 	public Script getScript() {
@@ -74,32 +75,35 @@ public class ParseEnvironment {
 		if (o instanceof Object[]) {
 			if (Config.RESULTS_ONE_PER_LINE && level > 0) {
 				sb.append(System.getProperty("line.separator"));
-				for (int i = 0; i < level; ++i)
+				for (int i = 0; i < level; ++i) {
 					sb.append(' ');
+				}
 			}
 			sb.append('(');
-			Object[] array = (Object[])o;
+			final Object[] array = (Object[])o;
 			boolean subarray = false;
 			String sep = "";
-			for (Object el : array) {
+			for (final Object el : array) {
 				sb.append(sep);
 				subarray |= convertSexp(sb, el, level + Config.INDENTATION);
 				sep = " ";
 			}
 			if (subarray && Config.RESULTS_ONE_PER_LINE) {
 				sb.append(System.getProperty("line.separator"));
-				for (int i = 0; i < level; ++i)
+				for (int i = 0; i < level; ++i) {
 					sb.append(' ');
+				}
 			}
 			sb.append(')');
 			return true;
-		} else
+		} else {
 			sb.append(o);
+		}
 		return false;
 	}
 	
 	public void parseScript(String filename) throws SMTLIBException {
-		File oldcwd = mCwd;
+		final File oldcwd = mCwd;
 		Reader reader = null;
 		boolean closeReader = false;
 		try {
@@ -107,13 +111,14 @@ public class ParseEnvironment {
 				reader = new InputStreamReader(System.in);
 			} else {
 				File script = new File(filename);
-				if (!script.isAbsolute())
+				if (!script.isAbsolute()) {
 					script = new File(mCwd, filename);
+				}
 				mCwd = script.getParentFile();
 				try {
 					reader = new FileReader(script);
 					closeReader = true;
-				} catch (FileNotFoundException ex) {
+				} catch (final FileNotFoundException ex) {
 					throw new SMTLIBException("File not found: " + filename);
 				}
 			}
@@ -123,7 +128,7 @@ public class ParseEnvironment {
 			if (closeReader) {
 				try {
 					reader.close();
-				} catch (IOException ex) {
+				} catch (final IOException ex) {
 				}
 			}
 		}
@@ -131,16 +136,16 @@ public class ParseEnvironment {
 	
 	public void parseStream(Reader reader, String streamname)
 	    throws SMTLIBException {
-		MySymbolFactory symfactory = new MySymbolFactory();
-		Lexer last = mLexer;
+		final MySymbolFactory symfactory = new MySymbolFactory();
+		final Lexer last = mLexer;
 		mLexer = new Lexer(reader);
 		mLexer.setSymbolFactory(symfactory);
-		Parser parser = new Parser(mLexer, symfactory);
+		final Parser parser = new Parser(mLexer, symfactory);
 		parser.setFileName(streamname);
 		parser.setParseEnvironment(this);
 		try {
 			parser.parse();
-		} catch (Exception ex) {
+		} catch (final Exception ex) {
 			System.err.println("Unexpected Exception: " + ex);
 			throw new SMTLIBException(ex);
 		} finally {
@@ -149,14 +154,14 @@ public class ParseEnvironment {
 	}
 	
 	public void include(String filename) throws SMTLIBException {
-		ExitHook oldexit = mExitHook;
+		final ExitHook oldexit = mExitHook;
 		mExitHook = new ExitHook() {
 			@Override
 			public void exitHook() {
 				/* ignore exit */
 			}
 		};
-		File oldcwd = mCwd;
+		final File oldcwd = mCwd;
 		parseScript(filename);
 		mCwd = oldcwd;
 		mExitHook = oldexit;
@@ -164,30 +169,31 @@ public class ParseEnvironment {
 	
 	public void printSuccess() {
 		if (mOptions.isPrintSuccess()) {
-			PrintWriter out = mOptions.getOutChannel();
+			final PrintWriter out = mOptions.getOutChannel();
 			out.println("success");
 			out.flush();
 		}
 	}
 	
 	public void printError(String message) {
-		PrintWriter out = mOptions.getOutChannel();
+		final PrintWriter out = mOptions.getOutChannel();
 		out.print("(error \"");
 		out.print(message);
 		out.println("\")");
 		out.flush();
-		if (!mOptions.continueOnError())
+		if (!mOptions.continueOnError()) {
 			System.exit(1);
+		}
 	}
 	
 	public void printValues(Map<Term, Term> values) {
-		PrintTerm pt = new PrintTerm();
-		PrintWriter out = mOptions.getOutChannel();
+		final PrintTerm pt = new PrintTerm();
+		final PrintWriter out = mOptions.getOutChannel();
 		out.print('(');
 		String sep = "";
-		String itemSep = Config.RESULTS_ONE_PER_LINE 
+		final String itemSep = Config.RESULTS_ONE_PER_LINE 
 				? System.getProperty("line.separator") + " " : " "; 
-		for (Map.Entry<Term, Term> me : values.entrySet()) {
+		for (final Map.Entry<Term, Term> me : values.entrySet()) {
 			out.print(sep);
 			out.print('(');
 			pt.append(out, me.getKey());
@@ -201,7 +207,7 @@ public class ParseEnvironment {
 	}
 	
 	public void printResponse(Object response) {
-		PrintWriter out = mOptions.getOutChannel();
+		final PrintWriter out = mOptions.getOutChannel();
 		if (!mOptions.isPrintTermsCSE()) {
 			if (response instanceof Term) {
 				new PrintTerm().append(out, (Term) response);
@@ -215,25 +221,27 @@ public class ParseEnvironment {
 			}
 		}
 		if (response instanceof Object[]) {
-			StringBuilder sb = new StringBuilder();
+			final StringBuilder sb = new StringBuilder();
 			convertSexp(sb, response, 0);
 			out.println(sb.toString());
 		} else if (response instanceof Iterable) {
-			Iterable<?> it = (Iterable<?>) response;
+			final Iterable<?> it = (Iterable<?>) response;
 			out.print("(");
-			for (Object o : it)
+			for (final Object o : it) {
 				printResponse(o);
+			}
 			out.println(")");
-		} else if (response instanceof QuotedObject)
+		} else if (response instanceof QuotedObject) {
 			out.println(((QuotedObject) response).toString(mVersion25));
-		else
+		} else {
 			out.println(response);
+		}
 		out.flush();
 	}
 	
 	public void printInfoResponse(String info, Object response) {
-		PrintWriter out = mOptions.getOutChannel();
-		StringBuilder sb = new StringBuilder();
+		final PrintWriter out = mOptions.getOutChannel();
+		final StringBuilder sb = new StringBuilder();
 		sb.append('(').append(info).append(' ');
 		convertSexp(sb, response, 0);
 		out.println(sb.append(')').toString());
@@ -248,13 +256,13 @@ public class ParseEnvironment {
 	 * @param response The response to print.
 	 */
 	public void printTermResponse(Term[] response) {
-		StringBuilder sb = new StringBuilder();
-		PrintTerm pt = new PrintTerm();
+		final StringBuilder sb = new StringBuilder();
+		final PrintTerm pt = new PrintTerm();
 		sb.append('(');
 		String sep = "";
-		String itemSep = Config.RESULTS_ONE_PER_LINE 
+		final String itemSep = Config.RESULTS_ONE_PER_LINE 
 				? System.getProperty("line.separator") + " " : " ";
-		for (Term t : response) {
+		for (final Term t : response) {
 			sb.append(sep);
 			pt.append(sb, t);
 			sep = itemSep;
@@ -268,47 +276,52 @@ public class ParseEnvironment {
 		if (mExitHook == null) {
 			mScript.exit();
 			Runtime.getRuntime().exit(0);
-		} else
+		} else {
 			mExitHook.exitHook();
+		}
 	}
 	
 	public void setInfo(String info, Object value) {
 		if (info.equals(":smt-lib-version")) {
-			String svalue = String.valueOf(value);
+			final String svalue = String.valueOf(value);
 			if ("2.5".equals(svalue)) {
 				mVersion25 = true;
 				mLexer.setVersion25(true);
 			} else if ("2.0".equals(svalue)) {
 				mVersion25 = false;
 				mLexer.setVersion25(false);
-			} else
+			} else {
 				printError("Unknown SMTLIB version");
+			}
 		} else if (info.equals(":error-behavior")) {
-			if ("immediate-exit".equals(value))
+			if ("immediate-exit".equals(value)) {
 				mScript.setOption(":continue-on-error", false);
-			else if ("continued-execution".equals(value))
+			} else if ("continued-execution".equals(value)) {
 				mScript.setOption(":continue-on-error", true);
+			}
 		}
 		mScript.setInfo(info, value);
 	}
 	
 	public Object getInfo(String info) {
-		if (info.equals(":error-behavior"))
+		if (info.equals(":error-behavior")) {
 			return mOptions.continueOnError() ? "continued-execution" : "immediate-exit";
+		}
 		return mScript.getInfo(info);
 	}
 
 	public void startTiming() {
-		if (mTiming == null)
+		if (mTiming == null) {
 			mTiming = new ArrayDeque<Long>();
+		}
 		mOptions.getOutChannel().print('(');
 		mTiming.push(System.nanoTime());
 	}
 	
 	public void endTiming() {
-		long old = mTiming.pop();
-		long duration = System.nanoTime() - old;
-		double secs = duration / 1000000000.0; // NOCHECKSTYLE
+		final long old = mTiming.pop();
+		final long duration = System.nanoTime() - old;
+		final double secs = duration / 1000000000.0; // NOCHECKSTYLE
 		mOptions.getOutChannel().printf((Locale) null, " :time %.3f)", secs);
 		mOptions.getOutChannel().println();
 		mOptions.getOutChannel().flush();
