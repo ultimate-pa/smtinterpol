@@ -184,6 +184,7 @@ public class SMTInterpol extends NoopScript {
 				declareInternalFunction(theory, "@tautology", bool1, proof, 0);
 				declareInternalFunction(theory, "@lemma", bool1, proof, 0);
 				declareInternalFunction(theory, "@asserted", bool1, proof, 0);
+				declareInternalFunction(theory, "@assumption", bool1, proof, 0);
 			}
 			if (mProofMode > 1) {
 				// Full proofs.
@@ -412,7 +413,14 @@ public class SMTInterpol extends NoopScript {
 			mAssertions.clear();
 		mOptions.reset();
 	}
-	
+
+	public final void resetAssertions() {
+		super.resetAssertions();
+		mAssertionStackModified = true;
+		if (mAssertions != null)
+			mAssertions.clear();
+		setupClausifier(mEngine.getSMTTheory().getLogic());
+	}
 	@Override
 	public void push(int n) throws SMTLIBException {
 		super.push(n);
@@ -447,10 +455,40 @@ public class SMTInterpol extends NoopScript {
 	
 	@Override
 	public LBool checkSat() throws SMTLIBException {
+		return checkSatAssuming();
+	}
+	
+	@Override
+	public LBool checkSatAssuming(Term... assumptions) throws SMTLIBException {
 		if (mEngine == null)
 			throw new SMTLIBException("No logic set!");
 		mModel = null;
 		mAssertionStackModified = false;
+		mEngine.clearAssumptions();
+		if (assumptions != null && assumptions.length != 0) {
+			if (Config.STRONG_USAGE_CHECKS) {
+				// Check that every literal is a Boolean constant or its negation
+				for (Term ass : assumptions) {
+					if (!(ass instanceof ApplicationTerm))
+						throw new SMTLIBException("Assumption is not a boolean constant");
+					ApplicationTerm at = (ApplicationTerm) ass;
+					if (at.getSort() != getTheory().getBooleanSort())
+						throw new SMTLIBException("Assumption is not a boolean constant");
+					if (at.getParameters().length > 1
+							|| (at.getParameters().length == 1 && !at.getFunction().getName().equals("not")))
+						throw new SMTLIBException("Assumption is not a boolean constant");
+				}
+			}
+			// Since checkSatAssuming does not first do bcp and we might have
+			// popped, we manually trigger bcp
+			if (!mEngine.quickCheck())
+				return LBool.UNSAT;
+			Literal[] assumptionlits = new Literal[assumptions.length];
+			for (int i = 0; i < assumptions.length; ++i) {
+				assumptionlits[i] = mClausifier.getCreateLiteral(assumptions[i]);
+			}
+			mEngine.assume(assumptionlits);
+		}
 		long timeout = mSolverOptions.getTimeout();
 		if (timeout > 0) {
 			mCancel.setTimeout(timeout);
@@ -587,9 +625,13 @@ public class SMTInterpol extends NoopScript {
 			mEngine.setRandomSeed(mSolverOptions.getRandomSeed());
 			if (getBooleanOption(":interactive-mode")
 					|| mSolverOptions.isInterpolantCheckModeActive()
-					|| mSolverOptions.isModelCheckModeActive())
+					|| mSolverOptions.isModelCheckModeActive()
+					|| getBooleanOption(":unsat-core-check-mode")
+					|| getBooleanOption(":unsat-assumptions-check-mode"))
 				mAssertions = new ScopedArrayList<Term>();
 			mOptions.setOnline();
+			mEngine.getSMTTheory().setGlobalSymbols(
+					((Boolean) mOptions.get(":global-declarations")).booleanValue());
 		} catch (UnsupportedOperationException eLogicUnsupported) {
 			super.reset();
 			mEngine = null;
@@ -741,7 +783,7 @@ public class SMTInterpol extends NoopScript {
 		}
 		try {
 			ProofTermGenerator generator = new ProofTermGenerator(getTheory());
-			Term res = generator.convert(retrieveProof());
+			Term res = generator.convert(unsat);
 			if (mBy0Seen != -1)
 				res = new Div0Remover().transform(res);
 			return res;
@@ -1010,6 +1052,50 @@ public class SMTInterpol extends NoopScript {
 		return core;
 	}
 
+	
+	@Override
+	public Term[] getUnsatAssumptions()
+	    throws SMTLIBException, UnsupportedOperationException {
+		if (mEngine == null)
+			throw new SMTLIBException("No logic set!");
+		if (!getBooleanOption(":produce-unsat-assumptions"))
+			throw new SMTLIBException(
+					"Set option :produce-unsat-assumptions to true before using get-unsat-assumptions");
+		checkAssertionStackModified();
+		if (!mEngine.inconsistent())
+			throw new SMTLIBException("Logical context not inconsistent!");
+		Literal[] unsatAssumptionLits = mEngine.getUnsatAssumptions();
+		Term[] unsatAssumptions = new Term[unsatAssumptionLits.length];
+		Theory t = getTheory();
+		for (int i = 0; i < unsatAssumptionLits.length; ++i) {
+			unsatAssumptions[i] = unsatAssumptionLits[i].negate().getSMTFormula(t);
+		}
+		if (getBooleanOption(":unsat-assumptions-check-mode")) {
+			SMTInterpol tmpBench = new SMTInterpol(this, null, CopyMode.CURRENT_VALUE);
+			int old = tmpBench.mLogger.getLoglevel();
+			try {
+				tmpBench.mLogger.setLoglevel(LogProxy.LOGLEVEL_ERROR);
+				// Clone the current context
+			    for (Term asserted : mAssertions) {
+					tmpBench.assertTerm(asserted);
+				}
+				for (Term ass : unsatAssumptions)
+					tmpBench.assertTerm(ass);
+				LBool isUnsat = tmpBench.checkSat();
+				if (isUnsat != LBool.UNSAT) {
+					mLogger.error(
+							"Unsat assumptions could not be proven unsat (Result is %s)",
+							isUnsat);
+				}
+			} finally {
+				tmpBench.mLogger.setLoglevel(old);
+				// Not needed for now, but maybe later...
+				tmpBench.exit();
+			}
+		}
+		return unsatAssumptions;
+	}
+
 	@Override
 	public Map<Term, Term> getValue(Term[] terms)
 	    throws SMTLIBException, UnsupportedOperationException {
@@ -1123,6 +1209,7 @@ public class SMTInterpol extends NoopScript {
 	private void modifyAssertionStack() {
 		mAssertionStackModified = true;
 		mModel = null;
+		mEngine.clearAssumptions();
 	}
 	
 	private void buildModel() throws SMTLIBException {

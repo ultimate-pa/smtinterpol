@@ -247,6 +247,19 @@ public class LoggingScript implements Script {
 		mPw.println("(check-sat)");
 		return mScript.checkSat();
 	}
+	
+	@Override
+	public LBool checkSatAssuming(Term... assumptions) throws SMTLIBException {
+		mPw.print("(check-sat-assuming (");
+		String sep = "";
+		for (Term t : assumptions) {
+			mPw.print(sep);
+			mTermPrinter.append(mPw, formatTerm(t));
+			sep = " ";
+		}
+		mPw.println("))");
+		return mScript.checkSatAssuming(assumptions);
+	}
 
 	@Override
 	public Term[] getAssertions() throws SMTLIBException {
@@ -504,5 +517,18 @@ public class LoggingScript implements Script {
 	public void comment(String comment) {
 		mPw.print("; ");
 		mPw.println(comment);
+	}
+
+	@Override
+	public void resetAssertions() {
+		mPw.println("(reset-assertions)");
+		mScript.resetAssertions();
+	}
+
+	@Override
+	public Term[] getUnsatAssumptions() throws SMTLIBException,
+			UnsupportedOperationException {
+		mPw.println("(get-unsat-assumptions)");
+		return mScript.getUnsatAssumptions();
 	}
 }

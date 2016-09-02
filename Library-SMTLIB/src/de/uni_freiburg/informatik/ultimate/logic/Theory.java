@@ -23,7 +23,9 @@ import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashSet;
+import java.util.Map;
 
 import de.uni_freiburg.informatik.ultimate.util.HashUtils;
 import de.uni_freiburg.informatik.ultimate.util.ScopedHashMap;
@@ -116,25 +118,27 @@ public class Theory {
 	 * Cache for bitvector constant function symbols (_ bv123 456).
 	 */
 	private UnifyHash<FunctionSymbol> mBitVecConstCache;
-	
+
 	public final ApplicationTerm mTrue, mFalse;
 	public final FunctionSymbol mAnd, mOr, mNot, mImplies, mXor;
 	public final PolymorphicFunctionSymbol mEquals, mDistinct, mIte;
-	
-	final static Sort[] EMPTY_SORT_ARRAY = {};
+
+	final static Sort[] EMPTY_SORT_ARRAY = Script.EMPTY_SORT_ARRAY;
 	final static TermVariable[] EMPTY_TERM_VARIABLE_ARRAY = {};
-	final static Term[] EMPTY_TERM_ARRAY = {};
+	final static Term[] EMPTY_TERM_ARRAY = Script.EMPTY_TERM_ARRAY;
 	/**
 	 * Pattern for model value variables '{@literal @}digits'.
 	 */
 	private final static String MODEL_VALUE_PATTERN = "@\\d+";
 	private final static String BITVEC_CONST_PATTERN = "bv\\d+";
-	
-	
+
+
 	private int mTvarCtr = 0;
-	
+
 	private int mSkolemCounter = 0;
-	
+
+	private boolean mGlobalDecls;
+
 	public Theory() {
 		mTrue = mFalse = null;
 		mAnd = mOr = mNot = mImplies = mXor = null;
@@ -1344,6 +1348,10 @@ public class Theory {
 		return getFunctionWithResult(name, null, null, paramTypes);
 	}
 	
+	public Map<String, FunctionSymbol> getDeclaredFunctions() {
+		return mDeclaredFuns;
+	}
+	
 	private FunctionSymbol getModelValueSymbol(String name, Sort sort) {
 		int hash = HashUtils.hashJenkins(name.hashCode(), sort);
 		for (FunctionSymbol symb : mModelValueCache.iterateHashCode(hash)) {
@@ -1507,13 +1515,17 @@ public class Theory {
 	/******************** ASSERTION STACK *********************************/
 
 	public void push() {
-		mDeclaredFuns.beginScope();
-		mDeclaredSorts.beginScope();
+		if (!mGlobalDecls) {
+			mDeclaredFuns.beginScope();
+			mDeclaredSorts.beginScope();
+		}
 	}
 
 	public void pop() {
-		mDeclaredFuns.endScope();
-		mDeclaredSorts.endScope();
+		if (!mGlobalDecls) {
+			mDeclaredFuns.endScope();
+			mDeclaredSorts.endScope();
+		}
 	}
 	
 	/******************** SKOLEMIZATION SUPPORT ***************************/
@@ -1521,5 +1533,30 @@ public class Theory {
 		return new FunctionSymbol(
 				"@" + tv.getName() + "_skolem_" + mSkolemCounter++,null,
 				EMPTY_SORT_ARRAY,tv.getSort(),null,null,0);
+	}
+
+	public void resetAssertions() {
+		if (mGlobalDecls)
+			return;
+		while (mDeclaredFuns.getActiveScopeNum() > 1)
+			mDeclaredFuns.endScope();
+		for (Iterator<Map.Entry<String, FunctionSymbol>> it = mDeclaredFuns.entrySet().iterator();
+				it.hasNext(); ) {
+			Map.Entry<String, FunctionSymbol> next = it.next();
+			if (!next.getValue().isIntern())
+				it.remove();
+		}
+		while (mDeclaredSorts.getActiveScopeNum() > 1)
+			mDeclaredSorts.endScope();
+		for (Iterator<Map.Entry<String, SortSymbol>> it = mDeclaredSorts.entrySet().iterator();
+				it.hasNext(); ) {
+			Map.Entry<String, SortSymbol> next = it.next();
+			if (!next.getValue().isIntern())
+				it.remove();
+		}
+	}
+
+	public void setGlobalSymbols(boolean globalDecls) {
+		mGlobalDecls = globalDecls;
 	}
 }

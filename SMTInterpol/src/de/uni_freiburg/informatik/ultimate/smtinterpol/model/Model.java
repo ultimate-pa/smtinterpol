@@ -107,6 +107,16 @@ public class Model implements de.uni_freiburg.informatik.ultimate.logic.Model {
 			cc.fillInModel(this, t, ste);
 		if (array != null)
 			array.fillInModel(this, t, ste);
+		if (!partial) {
+			for (FunctionSymbol fs : t.getDeclaredFunctions().values()) {
+				if (!fs.isIntern() && !mFuncVals.containsKey(fs)) {
+					SortInterpretation si = provideSortInterpretation(fs.getReturnSort());
+					// ensure the sort is inhabited
+					si.ensureCapacity(1);
+					map(fs, 0);
+				}
+			}
+		}
 		mEval = new ModelEvaluator(this);
 	}
 	
@@ -219,14 +229,14 @@ public class Model implements de.uni_freiburg.informatik.ultimate.logic.Model {
 	
 	public String toString() {
 		ModelFormatter mf = new ModelFormatter(mTheory, this);
-		if (!mSorts.isEmpty())
-			mf.appendComment("Sort interpretations");
-		for (Map.Entry<Sort, SortInterpretation> me : mSorts.entrySet())
-			mf.appendSortInterpretation(me.getValue(), me.getKey());
-		// Only if we printed ";; Sort interpretations" we should print the
-		// delimiting comment ";; Function interpretations"
-		if (!mSorts.isEmpty())
-			mf.appendComment("Function interpretations");
+//		if (!mSorts.isEmpty())
+//			mf.appendComment("Sort interpretations");
+//		for (Map.Entry<Sort, SortInterpretation> me : mSorts.entrySet())
+//			mf.appendSortInterpretation(me.getValue(), me.getKey());
+//		// Only if we printed ";; Sort interpretations" we should print the
+//		// delimiting comment ";; Function interpretations"
+//		if (!mSorts.isEmpty())
+//			mf.appendComment("Function interpretations");
 		for (Map.Entry<FunctionSymbol, FunctionValue> me : mFuncVals.entrySet())
 			if (!me.getKey().isIntern())
 				mf.appendValue(me.getKey(), me.getValue(), mTheory);

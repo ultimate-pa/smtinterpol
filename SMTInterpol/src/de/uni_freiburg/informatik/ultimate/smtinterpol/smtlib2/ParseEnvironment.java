@@ -31,6 +31,7 @@ import java.util.Locale;
 import java.util.Map;
 
 import de.uni_freiburg.informatik.ultimate.logic.PrintTerm;
+import de.uni_freiburg.informatik.ultimate.logic.QuotedObject;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -48,6 +49,9 @@ public class ParseEnvironment {
 	private Deque<Long> mTiming;
 
 	private final FrontEndOptions mOptions;
+	
+	private Lexer mLexer = null;
+	private boolean mVersion25 = true;
 
 	public ParseEnvironment(Script script, OptionMap options) {
 		this(script, null, options);
@@ -128,9 +132,10 @@ public class ParseEnvironment {
 	public void parseStream(Reader reader, String streamname)
 	    throws SMTLIBException {
 		MySymbolFactory symfactory = new MySymbolFactory();
-		Lexer lexer = new Lexer(reader);
-		lexer.setSymbolFactory(symfactory);
-		Parser parser = new Parser(lexer, symfactory);
+		Lexer last = mLexer;
+		mLexer = new Lexer(reader);
+		mLexer.setSymbolFactory(symfactory);
+		Parser parser = new Parser(mLexer, symfactory);
 		parser.setFileName(streamname);
 		parser.setParseEnvironment(this);
 		try {
@@ -138,6 +143,8 @@ public class ParseEnvironment {
 		} catch (Exception ex) {
 			System.err.println("Unexpected Exception: " + ex);
 			throw new SMTLIBException(ex);
+		} finally {
+			mLexer = last;
 		}
 	}
 	
@@ -217,7 +224,9 @@ public class ParseEnvironment {
 			for (Object o : it)
 				printResponse(o);
 			out.println(")");
-		} else
+		} else if (response instanceof QuotedObject)
+			out.println(((QuotedObject) response).toString(mVersion25));
+		else
 			out.println(response);
 		out.flush();
 	}
@@ -264,7 +273,17 @@ public class ParseEnvironment {
 	}
 	
 	public void setInfo(String info, Object value) {
-		if (info.equals(":error-behavior")) {
+		if (info.equals(":smt-lib-version")) {
+			String svalue = String.valueOf(value);
+			if ("2.5".equals(svalue)) {
+				mVersion25 = true;
+				mLexer.setVersion25(true);
+			} else if ("2.0".equals(svalue)) {
+				mVersion25 = false;
+				mLexer.setVersion25(false);
+			} else
+				printError("Unknown SMTLIB version");
+		} else if (info.equals(":error-behavior")) {
 			if ("immediate-exit".equals(value))
 				mScript.setOption(":continue-on-error", false);
 			else if ("continued-execution".equals(value))

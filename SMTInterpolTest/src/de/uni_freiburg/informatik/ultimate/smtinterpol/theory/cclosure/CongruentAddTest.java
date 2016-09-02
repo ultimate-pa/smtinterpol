@@ -26,6 +26,7 @@ import org.junit.runners.JUnit4;
 
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
+import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
@@ -89,16 +90,15 @@ public class CongruentAddTest {
 		mH = mTheory.declareFunction("h", paramSort2, sort);
 		mTerms = new CCTerm[6];// NOCHECKSTYLE
 		CCTerm[] EMPTY_PARAMS = new CCTerm[0];
-		Sort[] EMPTY_SORTS = new Sort[0];
 		for (int i = 0; i < 6; ++i) {// NOCHECKSTYLE
 			FunctionSymbol sym = mTheory.declareFunction(
-					"x" + i, EMPTY_SORTS, sort);
+					"x" + i, Script.EMPTY_SORT_ARRAY, sort);
 			mTerms[i]  = mEngine.createFuncTerm(sym, EMPTY_PARAMS,null); 
 		}
-		FunctionSymbol funcd = mTheory.declareFunction("d", EMPTY_SORTS, sort);
-		FunctionSymbol funcc = mTheory.declareFunction("c", EMPTY_SORTS, sort);
-		FunctionSymbol funcb = mTheory.declareFunction("b", EMPTY_SORTS, sort);
-		FunctionSymbol funca = mTheory.declareFunction("a", EMPTY_SORTS, sort);
+		FunctionSymbol funcd = mTheory.declareFunction("d", Script.EMPTY_SORT_ARRAY, sort);
+		FunctionSymbol funcc = mTheory.declareFunction("c", Script.EMPTY_SORT_ARRAY, sort);
+		FunctionSymbol funcb = mTheory.declareFunction("b", Script.EMPTY_SORT_ARRAY, sort);
+		FunctionSymbol funca = mTheory.declareFunction("a", Script.EMPTY_SORT_ARRAY, sort);
 		mD = mEngine.createFuncTerm(funcd, EMPTY_PARAMS, null);
 		mC = mEngine.createFuncTerm(funcc, EMPTY_PARAMS, null);
 		mB = mEngine.createFuncTerm(funcb, EMPTY_PARAMS, null);

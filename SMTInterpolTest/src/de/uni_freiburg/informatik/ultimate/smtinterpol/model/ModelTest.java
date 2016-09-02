@@ -52,8 +52,6 @@ public class ModelTest {
 		"u", "v", "w", "x", "y", "z"
 	};
 	
-	private static final Sort[] EMPTY_SORT_ARRAY = new Sort[0];
-	
 	private Script setupScript(Logics logic) {
 		Script res = new SMTInterpol(new DefaultLogger());
 		res.setOption(":produce-models", true);
@@ -72,7 +70,7 @@ public class ModelTest {
 		Sort bool = script.sort("Bool");
 		int p = -1;
 		for (String name : mBooleanNames) {
-			script.declareFun(name, EMPTY_SORT_ARRAY, bool);
+			script.declareFun(name, Script.EMPTY_SORT_ARRAY, bool);
 			boolTerms[++p] = script.term(name);
 		}
 		script.declareFun("Pred", new Sort[] {bool}, bool);
@@ -205,7 +203,7 @@ public class ModelTest {
 		Sort bool = script.sort("Bool");
 		int p = -1;
 		for (String name : mBooleanNames) {
-			script.declareFun(name, EMPTY_SORT_ARRAY, bool);
+			script.declareFun(name, Script.EMPTY_SORT_ARRAY, bool);
 			boolTerms[++p] = script.term(name);
 		}
 		boolean pos = true;
@@ -241,7 +239,7 @@ public class ModelTest {
 		Sort intSort = script.sort("Int");
 		int p = -1;
 		for (String name : mVarNames) {
-			script.declareFun(name, EMPTY_SORT_ARRAY, intSort);
+			script.declareFun(name, Script.EMPTY_SORT_ARRAY, intSort);
 			intTerms[++p] = script.term(name);
 		}
 		script.assertTerm(script.term("<", intTerms));
@@ -376,7 +374,7 @@ public class ModelTest {
 		Sort realSort = script.sort("Real");
 		int p = -1;
 		for (String name : mVarNames) {
-			script.declareFun(name, EMPTY_SORT_ARRAY, realSort);
+			script.declareFun(name, Script.EMPTY_SORT_ARRAY, realSort);
 			realTerms[++p] = script.term(name);
 		}
 		// Keep realTerms[1] unconstrained => simplifier test
@@ -449,10 +447,10 @@ public class ModelTest {
 		Sort v = script.sort("V");
 		script.declareFun("f", new Sort[] {u}, u);
 		script.declareFun("g", new Sort[] {u}, u);
-		script.declareFun("x", EMPTY_SORT_ARRAY, u);
-		script.declareFun("y", EMPTY_SORT_ARRAY, u);
-		script.declareFun("z1", EMPTY_SORT_ARRAY, v);
-		script.declareFun("z2", EMPTY_SORT_ARRAY, v);
+		script.declareFun("x", Script.EMPTY_SORT_ARRAY, u);
+		script.declareFun("y", Script.EMPTY_SORT_ARRAY, u);
+		script.declareFun("z1", Script.EMPTY_SORT_ARRAY, v);
+		script.declareFun("z2", Script.EMPTY_SORT_ARRAY, v);
 		Term x = script.term("x");
 		Term fx = script.term("f", x);
 		script.assertTerm(script.term("=", x, fx));
@@ -486,8 +484,8 @@ public class ModelTest {
 		Script script = setupScript(Logics.QF_UFLIA);
 		Sort intSort = script.sort("Int");
 		script.declareFun("f", new Sort[] {intSort}, intSort);
-		script.declareFun("x", EMPTY_SORT_ARRAY, intSort);
-		script.declareFun("y", EMPTY_SORT_ARRAY, intSort);
+		script.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		script.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
 		Term x = script.term("x");
 		Term y = script.term("y");
 		Term fx5 = script.term("f", script.term("+", x, script.numeral("5")));
@@ -519,7 +517,7 @@ public class ModelTest {
 		Sort intSort = script.sort("Int");
 		int p = -1;
 		for (String name : mVarNames) {
-			script.declareFun(name, EMPTY_SORT_ARRAY, intSort);
+			script.declareFun(name, Script.EMPTY_SORT_ARRAY, intSort);
 			intTerms[++p] = script.term(name);
 		}
 		for (int i = 0; i < intTerms.length; ++i)

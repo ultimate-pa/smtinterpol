@@ -20,6 +20,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.delta;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.PrintTerm;
+import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
@@ -34,7 +35,6 @@ final class ReplaceByFreshTerm extends Substitution {
 	
 	public final static String FRESH_PREFIX = "@DELTA_DEBUG_FRESH_";
 	private static int freshnum = 0; // NOCHECKSTYLE since not multi-threaded
-	private final static Sort[] EMPTY_SORT_ARRAY = {};
 	
 	private static String getNextFreshName() {
 		return FRESH_PREFIX + (++freshnum);
@@ -48,11 +48,11 @@ final class ReplaceByFreshTerm extends Substitution {
 	@Override
 	public Term apply(Term input) {
 		String funname = getNextFreshName();
-		mAdd = new DeclareFun(funname, EMPTY_SORT_ARRAY, input.getSort());
+		mAdd = new DeclareFun(funname, Script.EMPTY_SORT_ARRAY, input.getSort());
 		Theory t = input.getTheory();
 		return t.term(
 				t.declareFunction(
-						funname, EMPTY_SORT_ARRAY, input.getSort()));
+						funname, Script.EMPTY_SORT_ARRAY, input.getSort()));
 	}
 
 	@Override

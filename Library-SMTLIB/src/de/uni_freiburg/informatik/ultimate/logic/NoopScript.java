@@ -184,6 +184,11 @@ public class NoopScript implements Script {
 	public LBool checkSat() {
 		return LBool.UNKNOWN;
 	}
+	
+	@Override
+	public LBool checkSatAssuming(Term... assumptions) {
+		return LBool.UNKNOWN;
+	}
 
 	@Override
 	public Term[] getAssertions() throws SMTLIBException {
@@ -283,7 +288,7 @@ public class NoopScript implements Script {
 		if (mTheory == null)
 			throw new SMTLIBException("No logic set!");
 		Sort[] sorts =
-				params.length == 0 ? Theory.EMPTY_SORT_ARRAY : new Sort[params.length];
+				params.length == 0 ? Script.EMPTY_SORT_ARRAY : new Sort[params.length];
 		for (int i = 0; i < sorts.length; i++) {
 			sorts[i] = params[i].getSort();
 		}
@@ -468,6 +473,20 @@ public class NoopScript implements Script {
 	@Override
 	public QuotedObject echo(QuotedObject msg) {
 		return msg;
+	}
+
+	@Override
+	public void resetAssertions() {
+		if (mTheory == null)
+			throw new SMTLIBException("No logic set!");
+		mTheory.resetAssertions();
+		mStackLevel = 0;
+	}
+
+	@Override
+	public Term[] getUnsatAssumptions() throws SMTLIBException,
+			UnsupportedOperationException {
+		throw new UnsupportedOperationException();
 	}
 
 }

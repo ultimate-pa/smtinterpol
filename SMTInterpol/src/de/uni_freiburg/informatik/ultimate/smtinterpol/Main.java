@@ -112,7 +112,7 @@ public final class Main {
 			} else if (param[paramctr].equals("-w")) {
 				options.set(":verbosity", LogProxy.LOGLEVEL_WARN);
 			} else if (param[paramctr].equals("-q")) {
-				options.set("verbosity", LogProxy.LOGLEVEL_ERROR);
+				options.set(":verbosity", LogProxy.LOGLEVEL_ERROR);
 			} else if (param[paramctr].equals("-t")
 					&& ++paramctr < param.length) {
 				options.set(":timeout", param[paramctr]);

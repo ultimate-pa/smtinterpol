@@ -29,6 +29,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
+import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -49,16 +50,14 @@ public class EpsilonTest {
 	private SMTInterpol mSolver;
 	private Term mInputBase;
 	
-	private final static Sort[] EMPTY_SORT_ARRAY = {};
-	
 	@Before
 	public void setUp() throws Exception {
 		mSolver = new SMTInterpol(new DefaultLogger());
 		mSolver.setOption(":produce-models", Boolean.TRUE);
 		mSolver.setLogic(Logics.QF_LRA);
 		Sort real = mSolver.sort("Real");
-		mSolver.declareFun("x", EMPTY_SORT_ARRAY, real);
-		mSolver.declareFun("y", EMPTY_SORT_ARRAY, real);
+		mSolver.declareFun("x", Script.EMPTY_SORT_ARRAY, real);
+		mSolver.declareFun("y", Script.EMPTY_SORT_ARRAY, real);
 		Term zero = mSolver.decimal(BigDecimal.ZERO);
 		Term one = mSolver.decimal(BigDecimal.ONE);
 		Term threeovertwo = mSolver.decimal(BigDecimal.valueOf(3).divide(// NOCHECKSTYLE

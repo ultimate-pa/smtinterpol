@@ -83,6 +83,7 @@ public class OptionMap {
 	}
 	
 	private final LinkedHashMap<String, Option> mOptions;
+	private final LinkedHashMap<String, String> mAliases;
 	private final SolverOptions mSolverOptions;
 	private final FrontEndOptions mFrontEndOptions;
 	private final LogProxy mLogger;
@@ -107,6 +108,7 @@ public class OptionMap {
 	 */
 	public OptionMap(LogProxy logger, boolean activeFrontEnd) {
 		mOptions = new LinkedHashMap<String, Option>();
+		mAliases = new LinkedHashMap<String, String>();
 		mSolverOptions = new SolverOptions(this, logger);
 		mLogger = logger;
 		addOption(DIAG_OUTPUT_CHANNEL_NAME, new LoggerOption(
@@ -115,8 +117,10 @@ public class OptionMap {
 		mFrontEndOptions = new FrontEndOptions(this, activeFrontEnd);
 	}
 	
-	private OptionMap(LogProxy logger, LinkedHashMap<String, Option> options) {
+	private OptionMap(LogProxy logger, LinkedHashMap<String, Option> options,
+			LinkedHashMap<String, String> aliases) {
 		mOptions = options;
+		mAliases = aliases;
 		mSolverOptions = new SolverOptions(this);
 		mFrontEndOptions = new FrontEndOptions(this);
 		mLogger = logger;
@@ -156,6 +160,10 @@ public class OptionMap {
 	public void addOption(String name, Option option) {
 		mOptions.put(name, option);
 	}
+
+	public void addAlias(String name, String alias) {
+		mAliases.put(name, alias);
+	}
 	
 	/**
 	 * Get the current value of an option.  If the option is unknown to this
@@ -164,6 +172,8 @@ public class OptionMap {
 	 * @return The current value of this option.
 	 */
 	public Object get(String option) {
+		if (mAliases.containsKey(option))
+			option = mAliases.get(option);
 		Option o = mOptions.get(option);
 		if (o == null)
 			throw new UnsupportedOperationException();
@@ -177,6 +187,8 @@ public class OptionMap {
 	 * @param value
 	 */
 	public void set(String option, Object value) {
+		if (mAliases.containsKey(option))
+			option = mAliases.get(option);
 		Option o = mOptions.get(option);
 		if (o == null)
 			throw new UnsupportedOperationException();
@@ -191,7 +203,13 @@ public class OptionMap {
 	 * @return All known option names.
 	 */
 	public String[] getInfo() {
-		return mOptions.keySet().toArray(new String[mOptions.size()]);
+		String[] res = new String[mOptions.size() + mAliases.size()];
+		int pos = 0;
+		for (String opt : mOptions.keySet())
+			res[pos++] = opt;
+		for (String opt : mAliases.keySet())
+			res[pos++] = opt;
+		return res;
 	}
 	
 	/**
@@ -203,6 +221,8 @@ public class OptionMap {
 	 * @return Information for this option.
 	 */
 	public Object[] getInfo(String option) {
+		if (mAliases.containsKey(option))
+			option = mAliases.get(option);
 		Option o = mOptions.get(option);
 		if (o == null)
 			throw new UnsupportedOperationException();
@@ -242,7 +262,7 @@ public class OptionMap {
 			}
 			options.put(me.getKey(), cpy);
 		}
-		return new OptionMap(mLogger, options);
+		return new OptionMap(mLogger, options, new LinkedHashMap<String, String>(mAliases));
 	}
 	
 	Option getOption(String key) {
