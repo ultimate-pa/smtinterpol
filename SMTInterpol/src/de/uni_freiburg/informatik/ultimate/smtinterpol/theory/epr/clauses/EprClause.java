@@ -8,6 +8,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
@@ -19,6 +20,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundEqualityAtom;
@@ -69,6 +71,7 @@ public class EprClause {
 	private EprClauseState mEprClauseState;
 	private Set<ClauseLiteral> mConflictLiterals;
 	private IDawg<ApplicationTerm, TermVariable> mConflictPoints;
+	private Map<ClauseEprQuantifiedLiteral, IDawg<ApplicationTerm, TermVariable>> mClauseLitToUnitPoints;
 	
 
 	public EprClause(Set<Literal> lits, EprTheory eprTheory) {
@@ -279,8 +282,6 @@ public class EprClause {
 				IDawg<ApplicationTerm, TermVariable> clFulfilledPoints = 
 						((ClauseEprQuantifiedLiteral) cl).getFulfilledPoints();
 				pointsToConsider.removeAllWithSubsetSignature(clFulfilledPoints);
-			} else {
-				return EprClauseState.Fulfilled;
 			}
 		}
 		
@@ -291,35 +292,65 @@ public class EprClause {
 		 *  --> once the computation is complete, this represents the set of groundings that are a conflict.
 		 */
 		IDawg<ApplicationTerm, TermVariable> pointsWhereNoLiteralsAreFulfillable =
-				mEprTheory.getDawgFactory().copyDawg(pointsToConsider);
+				mDawgFactory.copyDawg(pointsToConsider);
 		IDawg<ApplicationTerm, TermVariable> pointsWhereOneLiteralIsFulfillable =
-				mEprTheory.getDawgFactory().createEmptyDawg(mVariables);
+				mDawgFactory.createEmptyDawg(mVariables);
 		IDawg<ApplicationTerm, TermVariable> pointsWhereTwoOrMoreLiteralsAreFulfillable =
-				mEprTheory.getDawgFactory().createEmptyDawg(mVariables);
+				mDawgFactory.createEmptyDawg(mVariables);
+		assert EprHelpers.haveSameSignature(pointsWhereNoLiteralsAreFulfillable,
+				pointsWhereOneLiteralIsFulfillable,
+				pointsWhereTwoOrMoreLiteralsAreFulfillable);
 
+		Map<ClauseEprQuantifiedLiteral, IDawg<ApplicationTerm, TermVariable>> clauseLitToPotentialUnitPoints =
+				new HashMap<ClauseEprQuantifiedLiteral, IDawg<ApplicationTerm,TermVariable>>();
+		
+		
 		for (ClauseLiteral cl : mLiterals) {
 			if (cl.isFulfillable()) {
 				// at leat one point of cl is still undecided (we sorted out fulfilled points before..)
 				
+				Map<ClauseEprQuantifiedLiteral, IDawg<ApplicationTerm, TermVariable>> newClauseLitToPotentialUnitPoints =
+						new HashMap<ClauseEprQuantifiedLiteral, IDawg<ApplicationTerm,TermVariable>>();
+				
+					
 				if (cl instanceof ClauseEprQuantifiedLiteral) {
 					IDawg<ApplicationTerm, TermVariable> fp = ((ClauseEprQuantifiedLiteral) cl).getFulfillablePoints();
 					
+					// some points may not be unit anymore because of this cl
+					for (Entry<ClauseEprQuantifiedLiteral, IDawg<ApplicationTerm, TermVariable>> en 
+							: clauseLitToPotentialUnitPoints.entrySet()) {
+						IDawg<ApplicationTerm, TermVariable> join = mDawgFactory.join(en.getValue(), fp);
+						if (! join.isEmpty()) {
+							newClauseLitToPotentialUnitPoints.put(en.getKey(), join);
+						}
+					}
+					clauseLitToPotentialUnitPoints = newClauseLitToPotentialUnitPoints;
+					
 					IDawg<ApplicationTerm, TermVariable> fpOne = //pointsWhereOneLiteralIsFulfillable.intersect(fp);
 							mDawgFactory.join(pointsWhereOneLiteralIsFulfillable, fp);
-					IDawg<ApplicationTerm, TermVariable> fpNo = pointsWhereNoLiteralsAreFulfillable.intersect(fp);
+					IDawg<ApplicationTerm, TermVariable> fpNo = //pointsWhereNoLiteralsAreFulfillable.intersect(fp);
+							mDawgFactory.join(pointsWhereOneLiteralIsFulfillable, fp);
+					
+					assert EprHelpers.haveSameSignature(fp, fpOne, fpNo, pointsWhereNoLiteralsAreFulfillable);
 					
 					pointsWhereTwoOrMoreLiteralsAreFulfillable.addAll(fpOne);
 					pointsWhereOneLiteralIsFulfillable.removeAll(fpOne);
 					pointsWhereOneLiteralIsFulfillable.addAll(fpNo);
 					pointsWhereNoLiteralsAreFulfillable.removeAll(fpNo);
 					
+					clauseLitToPotentialUnitPoints.put((ClauseEprQuantifiedLiteral) cl, 
+							mDawgFactory.copyDawg(pointsWhereOneLiteralIsFulfillable));
 				} else {
+					clauseLitToPotentialUnitPoints.clear();
+					
 					pointsWhereTwoOrMoreLiteralsAreFulfillable.addAll(pointsWhereOneLiteralIsFulfillable);
 					pointsWhereOneLiteralIsFulfillable = 
 							mEprTheory.getDawgFactory().createEmptyDawg(mVariables);
 					pointsWhereOneLiteralIsFulfillable.addAll(pointsWhereNoLiteralsAreFulfillable);
 					pointsWhereNoLiteralsAreFulfillable =
 							mEprTheory.getDawgFactory().createEmptyDawg(mVariables);
+					
+//					clauseLitToPotentialUnitPoints.put(cl, mDawgFactory.createFullDawg(mVariables));
 				}
 			} else {
 				assert cl.isRefuted();
@@ -330,7 +361,7 @@ public class EprClause {
 			mConflictPoints = pointsWhereNoLiteralsAreFulfillable;
 			return EprClauseState.Conflict;
 		} else if (!pointsWhereOneLiteralIsFulfillable.isEmpty()) {
-//			mUnitPoints = pointsWhereOneLiteralIsFulfillable;
+			mClauseLitToUnitPoints = clauseLitToPotentialUnitPoints;
 			return EprClauseState.Unit;
 		} else {
 			assert pointsWhereTwoOrMoreLiteralsAreFulfillable.isUniversal();
@@ -346,6 +377,15 @@ public class EprClause {
 	
 	public EprClauseState getClauseState() {
 		return mEprClauseState;
+	}
+	
+	/**
+	 * If this clause's state is Unit (i.e., if it is unit on at least one grounding), then this map
+	 * stores which literal is unit on which groundings.
+	 */
+	public Map<ClauseEprQuantifiedLiteral, IDawg<ApplicationTerm, TermVariable>> getClauseLitToUnitPoints() {
+		assert getClauseState() == EprClauseState.Unit;
+		return mClauseLitToUnitPoints;
 	}
 	
 	public DecideStackPropagatedLiteral getUnitPropagationLiteral() {

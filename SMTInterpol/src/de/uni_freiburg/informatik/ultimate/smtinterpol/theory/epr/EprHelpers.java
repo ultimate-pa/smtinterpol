@@ -13,6 +13,7 @@ import java.util.Stack;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.EqualityProxy;
@@ -25,6 +26,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuant
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprClauseOld;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprQuantifiedUnitClause;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackQuantifiedLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.EprPushState;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprAtom;
@@ -375,6 +377,17 @@ public class EprHelpers {
 			result.add((ApplicationTerm) constants[i]);
 		}
 		return result;
+	}
+
+	public static boolean haveSameSignature(IDawg... dawgs) {
+		for (IDawg<ApplicationTerm, TermVariable> d1 : dawgs) {
+			for (IDawg<ApplicationTerm, TermVariable> d2 : dawgs) {
+				if (! d1.getColnames().equals(d2.getColnames())) {
+						return false;
+				}
+			}
+		}
+		return true;
 	}
 	
 	
