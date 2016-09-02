@@ -21,7 +21,8 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.proofcheck;
 import java.util.HashMap;
 import java.util.Map.Entry;
 
-import de.uni_freiburg.informatik.ultimate.logic.*;
+import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 
 /**
  * This class is used to abbreviate a lemma in the proof.
@@ -52,7 +53,7 @@ public class LetHandler {
 	 * @return the number associated with this variable
 	 */
 	public String getNumberString(TermVariable variable) {
-		String name = variable.getName();
+		final String name = variable.getName();
 		assert ((name.startsWith(".cse")) && (name.length() > 4));
 		return name.substring(4);
 	}
@@ -88,11 +89,11 @@ public class LetHandler {
 	
 	@Override
 	public String toString() {
-		StringBuilder builder = new StringBuilder();
+		final StringBuilder builder = new StringBuilder();
 		
 		builder.append('{');
 		String append = "";
-		for (Entry<TermVariable, Term> entry : mLet2Term.entrySet()) {
+		for (final Entry<TermVariable, Term> entry : mLet2Term.entrySet()) {
 			builder.append(append);
 			append = ", ";
 			builder.append(entry.getKey().toString());

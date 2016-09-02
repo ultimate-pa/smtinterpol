@@ -24,6 +24,7 @@ import java.util.Map;
 
 import de.uni_freiburg.informatik.ultimate.logic.QuotedObject;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.ParseEnvironment;
 
@@ -128,7 +129,7 @@ public class OptionMap {
 	}
 	
 	public void started() {
-		for (Option o : mOptions.values()) {
+		for (final Option o : mOptions.values()) {
 			o.started();
 		}
 	}
@@ -172,11 +173,13 @@ public class OptionMap {
 	 * @return The current value of this option.
 	 */
 	public Object get(String option) {
-		if (mAliases.containsKey(option))
+		if (mAliases.containsKey(option)) {
 			option = mAliases.get(option);
-		Option o = mOptions.get(option);
-		if (o == null)
+		}
+		final Option o = mOptions.get(option);
+		if (o == null) {
 			throw new UnsupportedOperationException();
+		}
 		return o.get();
 	}
 	
@@ -187,14 +190,17 @@ public class OptionMap {
 	 * @param value
 	 */
 	public void set(String option, Object value) {
-		if (mAliases.containsKey(option))
+		if (mAliases.containsKey(option)) {
 			option = mAliases.get(option);
-		Option o = mOptions.get(option);
-		if (o == null)
+		}
+		final Option o = mOptions.get(option);
+		if (o == null) {
 			throw new UnsupportedOperationException();
-		if (mOnline && !o.isOnlineModifiable())
+		}
+		if (mOnline && !o.isOnlineModifiable()) {
 			throw new SMTLIBException("Option " + option
 					+ " can only be changed before setting the logic");
+		}
 		o.set(value);
 	}
 	
@@ -203,12 +209,14 @@ public class OptionMap {
 	 * @return All known option names.
 	 */
 	public String[] getInfo() {
-		String[] res = new String[mOptions.size() + mAliases.size()];
+		final String[] res = new String[mOptions.size() + mAliases.size()];
 		int pos = 0;
-		for (String opt : mOptions.keySet())
+		for (final String opt : mOptions.keySet()) {
 			res[pos++] = opt;
-		for (String opt : mAliases.keySet())
+		}
+		for (final String opt : mAliases.keySet()) {
 			res[pos++] = opt;
+		}
 		return res;
 	}
 	
@@ -221,18 +229,21 @@ public class OptionMap {
 	 * @return Information for this option.
 	 */
 	public Object[] getInfo(String option) {
-		if (mAliases.containsKey(option))
+		if (mAliases.containsKey(option)) {
 			option = mAliases.get(option);
-		Option o = mOptions.get(option);
-		if (o == null)
+		}
+		final Option o = mOptions.get(option);
+		if (o == null) {
 			throw new UnsupportedOperationException();
-		ArrayList<Object> result = new ArrayList<Object>();
+		}
+		final ArrayList<Object> result = new ArrayList<Object>();
 		result.add(":description");
 		result.add(new QuotedObject(o.getDescription()));
 		result.add(":default");
 		result.add(o.defaultValue());
-		if (o.isOnlineModifiable())
+		if (o.isOnlineModifiable()) {
 			result.add(":online-modifiable");
+		}
 		return result.toArray();
 	}
 	
@@ -242,20 +253,22 @@ public class OptionMap {
 	 */
 	public void reset() {
 		mOnline = false;
-		for (Option o : mOptions.values())
+		for (final Option o : mOptions.values()) {
 			o.reset();
+		}
 	}
 
 	public OptionMap copy(CopyMode mode) {
-		LinkedHashMap<String, Option> options = new LinkedHashMap<String, Option>();
-		for (Map.Entry<String, Option> me : mOptions.entrySet()) {
-			Option cpy = me.getValue().copy();
+		final LinkedHashMap<String, Option> options = new LinkedHashMap<String, Option>();
+		for (final Map.Entry<String, Option> me : mOptions.entrySet()) {
+			final Option cpy = me.getValue().copy();
 			switch(mode) {
 			case CURRENT_VALUE:
 				break;
 			case RESET_EXCEPT_CHANNELS:
-				if (cpy instanceof VerbosityOption || cpy instanceof ChannelOption)
+				if (cpy instanceof VerbosityOption || cpy instanceof ChannelOption) {
 					break;
+				}
 				// FALLTHROUGH
 			default:
 				cpy.reset();

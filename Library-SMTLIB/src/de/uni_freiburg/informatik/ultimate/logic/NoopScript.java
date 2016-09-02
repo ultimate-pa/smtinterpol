@@ -64,15 +64,16 @@ public class NoopScript implements Script {
 	 * @throws SMTLibException if symbol contains | or \.
 	 */
 	private void checkSymbol(String symbol) throws SMTLIBException {
-		if (symbol.indexOf('|') >= 0 || symbol.indexOf('\\') >= 0)
+		if (symbol.indexOf('|') >= 0 || symbol.indexOf('\\') >= 0) {
 			throw new SMTLIBException("Symbol must not contain | or \\");
+		}
 	}
 
 	@Override
 	public void setLogic(String logic) throws UnsupportedOperationException {
 		try {
 			setLogic(Logics.valueOf(logic));
-		} catch (IllegalArgumentException eLogicUnsupported) {
+		} catch (final IllegalArgumentException eLogicUnsupported) {
 			/* Logic is not in enumeration */
 			throw new UnsupportedOperationException("Logic " + logic 
 					+ " not supported");
@@ -81,8 +82,9 @@ public class NoopScript implements Script {
 	
 	@Override
 	public void setLogic(Logics logic) throws UnsupportedOperationException {
-		if (mTheory != null)
+		if (mTheory != null) {
 			throw new SMTLIBException("Logic already set!");
+		}
 		mTheory = new Theory(logic, mSolverSetup);
 	}
 
@@ -99,12 +101,13 @@ public class NoopScript implements Script {
 
 	@Override
 	public void declareSort(String sort, int arity) throws SMTLIBException {
-		if (mTheory == null)
+		if (mTheory == null) {
 			throw new SMTLIBException("No logic set!");
+		}
 		checkSymbol(sort);
 		try {
 			mTheory.declareSort(sort, arity);
-		} catch (IllegalArgumentException eiae) {
+		} catch (final IllegalArgumentException eiae) {
 			throw new SMTLIBException(eiae.getMessage());
 		}
 	}
@@ -112,12 +115,13 @@ public class NoopScript implements Script {
 	@Override
 	public void defineSort(String sort, Sort[] sortParams, Sort definition)
 		throws SMTLIBException {
-		if (mTheory == null)
+		if (mTheory == null) {
 			throw new SMTLIBException("No logic set!");
+		}
 		checkSymbol(sort);
 		try {
 			mTheory.defineSort(sort, sortParams.length, definition);
-		} catch (IllegalArgumentException eiae) {
+		} catch (final IllegalArgumentException eiae) {
 			throw new SMTLIBException(eiae.getMessage());
 		}
 	}
@@ -125,12 +129,13 @@ public class NoopScript implements Script {
 	@Override
 	public void declareFun(String fun, Sort[] paramSorts, Sort resultSort)
 		throws SMTLIBException {
-		if (mTheory == null)
+		if (mTheory == null) {
 			throw new SMTLIBException("No logic set!");
+		}
 		checkSymbol(fun);
 		try {
 			mTheory.declareFunction(fun, paramSorts, resultSort);
-		} catch (IllegalArgumentException eiae) {
+		} catch (final IllegalArgumentException eiae) {
 			throw new SMTLIBException(eiae.getMessage());
 		}
 	}
@@ -144,35 +149,42 @@ public class NoopScript implements Script {
 	
 	private void defineFunInternal(String fun, TermVariable[] params,
 			Sort resultSort, Term definition) throws SMTLIBException {
-		if (mTheory == null)
+		if (mTheory == null) {
 			throw new SMTLIBException("No logic set!");
-		if (!resultSort.equalsSort(definition.getSort()))
+		}
+		if (!resultSort.equalsSort(definition.getSort())) {
 			throw new SMTLIBException("Sort mismatch");
+		}
 		try {
 			mTheory.defineFunction(fun, params, definition);
-		} catch (IllegalArgumentException eiae) {
+		} catch (final IllegalArgumentException eiae) {
 			throw new SMTLIBException(eiae.getMessage());
 		}
 	}
 
 	@Override
 	public void push(int levels) {
-		if (mTheory == null)
+		if (mTheory == null) {
 			throw new SMTLIBException("No logic set!");
+		}
 		mStackLevel += levels;
-		for (int i = 0; i < levels; i++)
+		for (int i = 0; i < levels; i++) {
 			mTheory.push();
+		}
 	}
 
 	@Override
 	public void pop(int levels) throws SMTLIBException {
-		if (mTheory == null)
+		if (mTheory == null) {
 			throw new SMTLIBException("No logic set!");
-		if (levels > mStackLevel)
+		}
+		if (levels > mStackLevel) {
 			throw new SMTLIBException("Not enough levels on assertion stack");
+		}
 		mStackLevel -= levels;
-		for (int i = 0; i < levels; i++)
+		for (int i = 0; i < levels; i++) {
 			mTheory.pop();
+		}
 	}
 
 	@Override
@@ -246,7 +258,7 @@ public class NoopScript implements Script {
 	public Term[] getInterpolants(Term[] partition) throws SMTLIBException,
 			UnsupportedOperationException {
 		// The default startOfSubtrees is an array with 0's.
-		int[] startOfSubtrees = new int[partition.length];
+		final int[] startOfSubtrees = new int[partition.length];
 		return getInterpolants(partition, startOfSubtrees);
 	}
 
@@ -269,11 +281,13 @@ public class NoopScript implements Script {
 	@Override
 	public Sort sort(String sortname, BigInteger[] indices, Sort... params)
 		throws SMTLIBException {
-		if (mTheory == null)
+		if (mTheory == null) {
 			throw new SMTLIBException("No logic set!");
-		Sort res = mTheory.getSort(sortname, indices, params);
-		if (res == null)
+		}
+		final Sort res = mTheory.getSort(sortname, indices, params);
+		if (res == null) {
 			throw new SMTLIBException("Sort " + sortname + " not declared");
+		}
 		return res;
 	}
 
@@ -285,20 +299,21 @@ public class NoopScript implements Script {
 	@Override
 	public Term term(String funcname, BigInteger[] indices,
 			Sort returnSort, Term... params) throws SMTLIBException {
-		if (mTheory == null)
+		if (mTheory == null) {
 			throw new SMTLIBException("No logic set!");
-		Sort[] sorts =
+		}
+		final Sort[] sorts =
 				params.length == 0 ? Script.EMPTY_SORT_ARRAY : new Sort[params.length];
 		for (int i = 0; i < sorts.length; i++) {
 			sorts[i] = params[i].getSort();
 		}
-		FunctionSymbol fsym = mTheory
+		final FunctionSymbol fsym = mTheory
 				.getFunctionWithResult(funcname, indices, returnSort, sorts);
 		if (fsym == null) {
-			StringBuilder sb = new StringBuilder();
-			PrintTerm pt = new PrintTerm();
+			final StringBuilder sb = new StringBuilder();
+			final PrintTerm pt = new PrintTerm();
 			sb.append("Undeclared function symbol (").append(funcname);
-			for (Sort s: sorts) {
+			for (final Sort s: sorts) {
 				sb.append(' ');
 				pt.append(sb, s);
 			}
@@ -311,9 +326,10 @@ public class NoopScript implements Script {
 	@Override
 	public TermVariable variable(String varname, Sort sort)
 		throws SMTLIBException {
-		if (sort == null || varname == null)
+		if (sort == null || varname == null) {
 			throw new SMTLIBException(
 					"Invalid input to create a term variable");
+		}
 		checkSymbol(varname);
 		return mTheory.createTermVariable(varname, sort);
 	}
@@ -321,31 +337,36 @@ public class NoopScript implements Script {
 	@Override
 	public Term quantifier(int quantor, TermVariable[] vars, Term body,
 			Term[]... patterns) throws SMTLIBException {
-		if (vars.length == 0)
+		if (vars.length == 0) {
 			throw new SMTLIBException("No quantified variables given");
-		if (body == null)
+		}
+		if (body == null) {
 			throw new SMTLIBException("Empty quantifier body");
+		}
 		if (patterns != null && patterns.length > 0) {
-			Annotation[] annots = new Annotation[patterns.length];
+			final Annotation[] annots = new Annotation[patterns.length];
 			int i = 0;
-			for (Term[] p : patterns) {
+			for (final Term[] p : patterns) {
 				annots[i++] = new Annotation(":pattern", p);
 			}
 			body = mTheory.annotatedTerm(annots, body);
 		}
-		if (quantor == Script.EXISTS)
+		if (quantor == Script.EXISTS) {
 			return mTheory.exists(vars, body);
-		if (quantor == Script.FORALL)
+		}
+		if (quantor == Script.FORALL) {
 			return mTheory.forall(vars, body);
+		}
 		throw new SMTLIBException("Unknown Quantifier");
 	}
 
 	@Override
 	public Term let(TermVariable[] vars, Term[] values, Term body)
 		throws SMTLIBException {
-		if (vars.length != values.length)
+		if (vars.length != values.length) {
 			throw new SMTLIBException(
 					"Need exactly one value for every variable");
+		}
 		return mTheory.let(vars, values, body);
 	}
 
@@ -353,17 +374,19 @@ public class NoopScript implements Script {
 	public Term annotate(Term t, Annotation... annotations)
 		throws SMTLIBException {
 		if (annotations.length > 0) {
-			for (Annotation a : annotations) {
+			for (final Annotation a : annotations) {
 				if (a.getKey().equals(":named")) {
-					if (!(a.getValue() instanceof String))
+					if (!(a.getValue() instanceof String)) {
 						throw new SMTLIBException(
 								"Need a string value for :named");
+					}
 					checkSymbol((String) a.getValue());
-					if (t.getFreeVars().length != 0)// NOPMD
+					if (t.getFreeVars().length != 0) {
 						throw new SMTLIBException("Cannot name open terms");
-					else
+					} else {
 						defineFunInternal((String) a.getValue(), 
 								Theory.EMPTY_TERM_VARIABLE_ARRAY, t.getSort(), t);
+					}
 				}
 			}
 			return mTheory.annotatedTerm(annotations, t);
@@ -374,81 +397,96 @@ public class NoopScript implements Script {
 
 	@Override
 	public Term numeral(String num) throws SMTLIBException {
-		if (mTheory == null)
+		if (mTheory == null) {
 			throw new SMTLIBException("No logic set!");
-		if (mTheory.getNumericSort() == null)
+		}
+		if (mTheory.getNumericSort() == null) {
 			throw new SMTLIBException("Logic does not allow numerals");
+		}
 		try {
 			return mTheory.numeral(num);
-		} catch (NumberFormatException enfe) {
+		} catch (final NumberFormatException enfe) {
 			throw new SMTLIBException("Not a numeral: " + num);
 		}
 	}
 	
 	@Override
 	public Term numeral(BigInteger num) throws SMTLIBException {
-		if (mTheory == null)
+		if (mTheory == null) {
 			throw new SMTLIBException("No logic set!");
-		if (mTheory.getNumericSort() == null)
+		}
+		if (mTheory.getNumericSort() == null) {
 			throw new SMTLIBException("Logic does not allow numerals");
+		}
 		return mTheory.numeral(num);
 	}
 
 	@Override
 	public Term decimal(String decimal) throws SMTLIBException {
-		if (mTheory == null)
+		if (mTheory == null) {
 			throw new SMTLIBException("No logic set!");
-		if (mTheory.getRealSort() == null)
+		}
+		if (mTheory.getRealSort() == null) {
 			throw new SMTLIBException("Logic does not allow reals");
+		}
 		try {
 			return mTheory.decimal(decimal);
-		} catch (NumberFormatException enfe) {
+		} catch (final NumberFormatException enfe) {
 			throw new SMTLIBException("Not a decimal: " + decimal);
 		}
 	}
 
 	@Override
 	public Term decimal(BigDecimal decimal) throws SMTLIBException {
-		if (mTheory == null)
+		if (mTheory == null) {
 			throw new SMTLIBException("No logic set!");
-		if (mTheory.getRealSort() == null)
+		}
+		if (mTheory.getRealSort() == null) {
 			throw new SMTLIBException("Logic does not allow reals");
+		}
 		return mTheory.decimal(decimal);
 	}
 
 	@Override
 	public Term string(String str) throws SMTLIBException {
-		if (mTheory == null)
+		if (mTheory == null) {
 			throw new SMTLIBException("No logic set!");
-		if (mTheory.getStringSort() == null)
+		}
+		if (mTheory.getStringSort() == null) {
 			throw new SMTLIBException("Logic does not allow strings");
+		}
 		return mTheory.string(str);
 	}
 
 	@Override
 	public Term hexadecimal(String hex) throws SMTLIBException {
-		if (mTheory == null)
+		if (mTheory == null) {
 			throw new SMTLIBException("No logic set!");
-		Term res = mTheory.hexadecimal(hex);
-		if (res == null)
+		}
+		final Term res = mTheory.hexadecimal(hex);
+		if (res == null) {
 			throw new SMTLIBException("No bitvector logic");
+		}
 		return res;
 	}
 
 	@Override
 	public Term binary(String bin) throws SMTLIBException {
-		if (mTheory == null)
+		if (mTheory == null) {
 			throw new SMTLIBException("No logic set!");
-		Term res = mTheory.binary(bin);
-		if (res == null)
+		}
+		final Term res = mTheory.binary(bin);
+		if (res == null) {
 			throw new SMTLIBException("No bitvector logic");
+		}
 		return res;
 	}
 		
 	@Override
 	public Sort[] sortVariables(String... names) throws SMTLIBException {
-		if (mTheory == null)
+		if (mTheory == null) {
 			throw new SMTLIBException("No logic set!");
+		}
 		return mTheory.createSortVariables(names);
 	}
 	
@@ -477,8 +515,9 @@ public class NoopScript implements Script {
 
 	@Override
 	public void resetAssertions() {
-		if (mTheory == null)
+		if (mTheory == null) {
 			throw new SMTLIBException("No logic set!");
+		}
 		mTheory.resetAssertions();
 		mStackLevel = 0;
 	}

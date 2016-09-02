@@ -45,6 +45,7 @@ public class Log4jProxy implements LogProxy {
 			mFormat = format;
 			mArgs = args;
 		}
+		@Override
 		public String toString() {
 			return String.format(mFormat, mArgs);
 		}
@@ -87,21 +88,28 @@ public class Log4jProxy implements LogProxy {
 
 	@Override
 	public int getLoglevel() {
-		Level lvl = mLogger.getLevel();
-		if (lvl == Level.OFF)
+		final Level lvl = mLogger.getLevel();
+		if (lvl == Level.OFF) {
 			return LogProxy.LOGLEVEL_OFF;
-		if (lvl == Level.FATAL)
+		}
+		if (lvl == Level.FATAL) {
 			return LogProxy.LOGLEVEL_FATAL;
-		if (lvl == Level.ERROR)
+		}
+		if (lvl == Level.ERROR) {
 			return LogProxy.LOGLEVEL_ERROR;
-		if (lvl == Level.WARN)
+		}
+		if (lvl == Level.WARN) {
 			return LogProxy.LOGLEVEL_WARN;
-		if (lvl == Level.INFO)
+		}
+		if (lvl == Level.INFO) {
 			return LogProxy.LOGLEVEL_INFO;
-		if (lvl == Level.DEBUG)
+		}
+		if (lvl == Level.DEBUG) {
 			return LogProxy.LOGLEVEL_DEBUG;
-		if (lvl == Level.TRACE)
+		}
+		if (lvl == Level.TRACE) {
 			return LogProxy.LOGLEVEL_TRACE;
+		}
 		throw new InternalError("Unknown loglevel: " + lvl);
 	}
 

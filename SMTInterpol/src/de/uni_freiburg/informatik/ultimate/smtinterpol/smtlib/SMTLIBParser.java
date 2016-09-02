@@ -33,7 +33,7 @@ public class SMTLIBParser implements IParser {
 	@Override
 	public int run(Script script, String filename, OptionMap options) {
 		try {
-			MySymbolFactory symfactory = new MySymbolFactory();
+			final MySymbolFactory symfactory = new MySymbolFactory();
 			Reader reader;
 			if (filename == null) {
 				filename = "<stdin>";
@@ -41,20 +41,21 @@ public class SMTLIBParser implements IParser {
 			} else {
 				reader = new FileReader(filename);
 			}
-			Lexer lexer = new Lexer(reader);
+			final Lexer lexer = new Lexer(reader);
 			lexer.setSymbolFactory(symfactory);
-			Parser parser = new Parser(lexer, symfactory);
+			final Parser parser = new Parser(lexer, symfactory);
 			parser.setFileName(filename);
 			parser.setSolver(script, false);
 			parser.parse();
-			Term[] interpolants = parser.benchmark.check();
+			final Term[] interpolants = parser.benchmark.check();
 			if (interpolants != null) {
-				for (int i = 0; i < interpolants.length; ++i)
+				for (int i = 0; i < interpolants.length; ++i) {
 					System.out.println("Interpolant "+i+": "+interpolants[i]);
+				}
 			}
 			parser.benchmark.close();
 			return 0;
-		} catch (Exception e) {
+		} catch (final Exception e) {
 			System.err.println(e.getMessage());
 			return 1;
 		}

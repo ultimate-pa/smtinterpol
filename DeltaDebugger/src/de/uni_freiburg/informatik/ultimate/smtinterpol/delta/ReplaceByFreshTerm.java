@@ -21,7 +21,6 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.delta;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.PrintTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
-import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 
@@ -41,15 +40,16 @@ final class ReplaceByFreshTerm extends Substitution {
 	}
 	
 	public static void ensureNotFresh(int num) {
-		if (freshnum <= num)
+		if (freshnum <= num) {
 			freshnum = num + 1;
+		}
 	}
 	
 	@Override
 	public Term apply(Term input) {
-		String funname = getNextFreshName();
+		final String funname = getNextFreshName();
 		mAdd = new DeclareFun(funname, Script.EMPTY_SORT_ARRAY, input.getSort());
-		Theory t = input.getTheory();
+		final Theory t = input.getTheory();
 		return t.term(
 				t.declareFunction(
 						funname, Script.EMPTY_SORT_ARRAY, input.getSort()));
@@ -60,9 +60,10 @@ final class ReplaceByFreshTerm extends Substitution {
 		return mAdd;
 	}
 	
+	@Override
 	public String toString() {
-		StringBuilder sb = new StringBuilder();
-		PrintTerm pt = new PrintTerm();
+		final StringBuilder sb = new StringBuilder();
+		final PrintTerm pt = new PrintTerm();
 		pt.append(sb, getMatch());
 		sb.append(" ==> fresh");
 		return sb.toString();

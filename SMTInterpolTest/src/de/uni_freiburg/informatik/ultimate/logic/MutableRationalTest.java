@@ -23,9 +23,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import de.uni_freiburg.informatik.ultimate.logic.MutableRational;
-import de.uni_freiburg.informatik.ultimate.logic.Rational;
-
 /**
  * Test Class for Rationals.
  * 
@@ -39,7 +36,7 @@ public final class MutableRationalTest {
 	public void testAdd() {
 		for (int i = 0; i < mRationals.length; i++) {
 			for (int j = 0; j < mRationals.length; j++) {
-				MutableRational r1 = new MutableRational(mRationals[i]);
+				final MutableRational r1 = new MutableRational(mRationals[i]);
 				Assert.assertSame(r1, r1.add(mRationals[j]));
 				Assert.assertEquals(mRationals[i] + " + " + mRationals[j],
 						mRationals[i].add(mRationals[j]), r1.toRational());
@@ -51,7 +48,7 @@ public final class MutableRationalTest {
 	public void testMul() {
 		for (int i = 0; i < mRationals.length; i++) {
 			for (int j = 0; j < mRationals.length; j++) {
-				MutableRational r1 = new MutableRational(mRationals[i]);
+				final MutableRational r1 = new MutableRational(mRationals[i]);
 				Assert.assertSame(r1, r1.mul(mRationals[j]));
 				Assert.assertEquals(mRationals[i] + " * " + mRationals[j],
 						mRationals[i].mul(mRationals[j]), r1.toRational());
@@ -76,7 +73,7 @@ public final class MutableRationalTest {
 			Assert.assertEquals(mRationals[i] + ".isNegative()",
 					mRationals[i].isNegative(), r1.isNegative());
 			for (int j = 0; j < mRationals.length; j++) {
-				MutableRational r2 = new MutableRational(mRationals[j]);
+				final MutableRational r2 = new MutableRational(mRationals[j]);
 				Assert.assertEquals(mRationals[i] + " <=> " + mRationals[j],
 						mRationals[i].compareTo(mRationals[j]),
 						r1.compareTo(r2));

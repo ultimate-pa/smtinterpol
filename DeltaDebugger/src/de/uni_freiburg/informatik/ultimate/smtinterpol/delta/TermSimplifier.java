@@ -50,14 +50,17 @@ public class TermSimplifier extends TermTransformer {
 	
 	private boolean isZero(Term t) {
 		if (t instanceof ConstantTerm) {
-			ConstantTerm ct = (ConstantTerm) t;
-			Object val = ct.getValue();
-			if (val instanceof BigInteger)
+			final ConstantTerm ct = (ConstantTerm) t;
+			final Object val = ct.getValue();
+			if (val instanceof BigInteger) {
 				return BigInteger.ZERO.equals(val);
-			if (val instanceof BigDecimal)
+			}
+			if (val instanceof BigDecimal) {
 				return BigDecimal.ZERO.equals(val);
-			if (val instanceof Rational)
+			}
+			if (val instanceof Rational) {
 				return Rational.ZERO.equals(val);
+			}
 		}
 		return false;
 	}
@@ -69,56 +72,63 @@ public class TermSimplifier extends TermTransformer {
 			super.convertApplicationTerm(appTerm, newArgs);
 			return;
 		}
-		Theory t = appTerm.getTheory();
-		FunctionSymbol fs = appTerm.getFunction();
+		final Theory t = appTerm.getTheory();
+		final FunctionSymbol fs = appTerm.getFunction();
 		if (appTerm.getSort() == t.getBooleanSort()) {
 			if (appTerm.getFunction() == t.mAnd 
 					|| appTerm.getFunction() == t.mOr) {
-				Term neutral = fs == t.mAnd ? t.mTrue : t.mFalse;
-				LinkedHashSet<Term> newParams = new LinkedHashSet<Term>();
-				for (Term p : newArgs) {
-					if (p != neutral)
+				final Term neutral = fs == t.mAnd ? t.mTrue : t.mFalse;
+				final LinkedHashSet<Term> newParams = new LinkedHashSet<Term>();
+				for (final Term p : newArgs) {
+					if (p != neutral) {
 						newParams.add(p);
+					}
 				}
 				if (newParams.size() != newArgs.length) {
-					if (newParams.size() == 1)
+					if (newParams.size() == 1) {
 						setResult(newParams.iterator().next());
-					else if (newParams.isEmpty())
+					} else if (newParams.isEmpty()) {
 						setResult(t.term(fs, new Term[] {neutral, neutral}));
-					else
+					} else {
 						setResult(t.term(fs,
 							newParams.toArray(new Term[newParams.size()])));
+					}
 					return;
 				}
 			}
 			setResult(t.term(appTerm.getFunction(), newArgs));
 		} else if (appTerm.getSort().isNumericSort()) {
 			int start = 0;
-			if (fs.getName().equals("-"))
+			if (fs.getName().equals("-")) {
 				start = 1;
-			else if (!fs.getName().equals("+")) {
+			} else if (!fs.getName().equals("+")) {
 				super.convertApplicationTerm(appTerm, newArgs);
 				return;
 			}
-			ArrayList<Term> simp = new ArrayList<Term>();
+			final ArrayList<Term> simp = new ArrayList<Term>();
 			for (int i = 0; i < start; ++i)
+			 {
 				simp.add(newArgs[i]);// NOPMD
-			for ( ; start < newArgs.length; ++start)	{
-				if (!isZero(newArgs[start]))
-					simp.add(newArgs[start]);
 			}
-			if (simp.isEmpty())
+			for ( ; start < newArgs.length; ++start)	{
+				if (!isZero(newArgs[start])) {
+					simp.add(newArgs[start]);
+				}
+			}
+			if (simp.isEmpty()) {
 				setResult(t.term(appTerm.getFunction(),
 						newArgs[0], newArgs[0]));
-			else if (simp.size() == 1)
+			} else if (simp.size() == 1) {
 				setResult(simp.iterator().next());
-			else if (newArgs.length == simp.size())
+			} else if (newArgs.length == simp.size()) {
 				setResult(appTerm.getTheory().term(fs, newArgs));
-			else
+			} else {
 				setResult(appTerm.getTheory().term(fs,
 						simp.toArray(new Term[simp.size()])));
-		} else
+			}
+		} else {
 			super.convertApplicationTerm(appTerm, newArgs);
+		}
 	}
 
 	@Override
@@ -127,26 +137,27 @@ public class TermSimplifier extends TermTransformer {
 			super.postConvertLet(oldLet, newValues, newBody);
 			return;
 		}
-		Set<TermVariable> freeVars = new HashSet<TermVariable>(
+		final Set<TermVariable> freeVars = new HashSet<TermVariable>(
 				Arrays.asList(newBody.getFreeVars()));
-		ArrayList<TermVariable> tvs = new ArrayList<TermVariable>();
-		ArrayList<Term> vals = new ArrayList<Term>();
+		final ArrayList<TermVariable> tvs = new ArrayList<TermVariable>();
+		final ArrayList<Term> vals = new ArrayList<Term>();
 		for (int i = 0; i < newValues.length; ++i) {
-			TermVariable var = oldLet.getVariables()[i];
+			final TermVariable var = oldLet.getVariables()[i];
 			if (freeVars.contains(var)) {
 				tvs.add(var);
 				vals.add(newValues[i]);
 			}
 		}
-		if (tvs.isEmpty())
+		if (tvs.isEmpty()) {
 			setResult(newBody);
-		else if (tvs.size() == newValues.length
-				&& newBody == oldLet.getSubTerm())
+		} else if (tvs.size() == newValues.length
+				&& newBody == oldLet.getSubTerm()) {
 			setResult(oldLet);
-		else
+		} else {
 			setResult(newBody.getTheory().let(
 					tvs.toArray(new TermVariable[tvs.size()]), 
 					vals.toArray(new Term[vals.size()]), newBody));
+		}
 	}
 
 	@Override
@@ -155,19 +166,21 @@ public class TermSimplifier extends TermTransformer {
 			super.postConvertQuantifier(old, newBody);
 			return;
 		}
-		Set<TermVariable> freeVars = new HashSet<TermVariable>(
+		final Set<TermVariable> freeVars = new HashSet<TermVariable>(
 				Arrays.asList(newBody.getFreeVars()));
-		ArrayList<TermVariable> tvs = new ArrayList<TermVariable>();
-		for (TermVariable tv : old.getVariables())
-			if (freeVars.contains(tv))
+		final ArrayList<TermVariable> tvs = new ArrayList<TermVariable>();
+		for (final TermVariable tv : old.getVariables()) {
+			if (freeVars.contains(tv)) {
 				tvs.add(tv);
-		if (tvs.isEmpty())
+			}
+		}
+		if (tvs.isEmpty()) {
 			setResult(newBody);
-		else if (tvs.size() == old.getVariables().length
-				&& newBody == old.getSubformula())
+		} else if (tvs.size() == old.getVariables().length
+				&& newBody == old.getSubformula()) {
 			setResult(old);
-		else {
-			Theory t = old.getTheory();
+		} else {
+			final Theory t = old.getTheory();
 			setResult(old.getQuantifier() == QuantifiedFormula.EXISTS
 					? t.exists(tvs.toArray(
 							new TermVariable[tvs.size()]), newBody)

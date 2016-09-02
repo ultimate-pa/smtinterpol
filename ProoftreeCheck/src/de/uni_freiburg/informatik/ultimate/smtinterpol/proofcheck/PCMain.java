@@ -59,11 +59,11 @@ public final class PCMain {
 		final boolean partialProof =
 				(args.length > 4) ? Boolean.parseBoolean(args[4]) : false;
 		
-		ProofChecker checker = new ProofChecker(filenameNoExtension,
+		final ProofChecker checker = new ProofChecker(filenameNoExtension,
 				useIsabelle, prettyOutput, fastProofs, partialProof);
 		checker.setOption(":verbosity", 3);
-		DefaultLogger logger = new DefaultLogger();
-		OptionMap options = new OptionMap(logger, true);
+		final DefaultLogger logger = new DefaultLogger();
+		final OptionMap options = new OptionMap(logger, true);
 		new SMTLIB2Parser().run(checker, args[0], options);
 	}
 }

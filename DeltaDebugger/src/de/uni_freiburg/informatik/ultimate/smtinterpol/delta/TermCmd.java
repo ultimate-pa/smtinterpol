@@ -35,9 +35,10 @@ public abstract class TermCmd extends Cmd {
 	}
 	
 	protected void addTerms(Term[] ts) {
-		NamedHelper nh = new NamedHelper();
-		for (int i = 0; i < ts.length && !mHasNames; ++i)
+		final NamedHelper nh = new NamedHelper();
+		for (int i = 0; i < ts.length && !mHasNames; ++i) {
 			mHasNames |= nh.checkTerm(ts[i]);
+		}
 	}
 
 	@Override

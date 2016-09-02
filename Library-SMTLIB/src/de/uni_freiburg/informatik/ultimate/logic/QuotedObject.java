@@ -56,10 +56,10 @@ public class QuotedObject {
 	}
 
 	private static String quoteString20(String str) {
-		StringBuilder sb = new StringBuilder();
+		final StringBuilder sb = new StringBuilder();
 		sb.append('\"');
 		for (int i = 0; i < str.length(); i++) {
-			char c = str.charAt(i);
+			final char c = str.charAt(i);
 			switch(c) {
 			case '\\':
 				sb.append("\\\\");
@@ -76,14 +76,15 @@ public class QuotedObject {
 	}
 	
 	private static String quoteString25(String str) {
-		StringBuilder sb = new StringBuilder();
+		final StringBuilder sb = new StringBuilder();
 		sb.append('\"');
 		for (int i = 0; i < str.length(); i++) {
-			char c = str.charAt(i);
-			if (c == '\"')
+			final char c = str.charAt(i);
+			if (c == '\"') {
 				sb.append("\"\"");
-			else
+			} else {
 				sb.append(c);
+			}
 		}
 		return sb.append('\"').toString();
 	}
@@ -93,6 +94,7 @@ public class QuotedObject {
 	 * quotes and converts escape sequences appropriately.
 	 * @return the SMTLIB 2.5 compatible string representation.
 	 */
+	@Override
 	public String toString() {
 		return toString(true);
 	}

@@ -20,6 +20,8 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.option;
 
 import java.io.PrintWriter;
 
+import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.ParseEnvironment;
+
 /**
  * Collection of options specific to the usage of a {@link ParseEnvironment}.
  * @author Juergen Christ

@@ -25,9 +25,9 @@ import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
+import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
-import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 
@@ -45,42 +45,42 @@ public final class CCInterpolationSamples {
 	public static void main(String[] ignored) {
 		try {
 			// Create a new Benchmark to interact with SMTInterpol
-			Script script = new SMTInterpol(new DefaultLogger());
+			final Script script = new SMTInterpol(new DefaultLogger());
 			// Enable proof production (needed for interpolation)
 			script.setOption(":produce-proofs", true);
 			// Don't be too verbose
-			BigInteger verbosity = (BigInteger) script.getOption(":verbosity");
+			final BigInteger verbosity = (BigInteger) script.getOption(":verbosity");
 			script.setOption(":verbosity", verbosity.subtract(BigInteger.ONE));
 			script.setLogic(Logics.QF_UF);
 			script.declareSort("U", 0);
-			Sort U = script.sort("U");
-			Sort[] empty = new Sort[0];
+			final Sort U = script.sort("U");
+			final Sort[] empty = new Sort[0];
 			script.push(1);
 			script.declareFun("a", empty, U);
 			script.declareFun("b", empty, U);
 			script.declareFun("ab1", empty, U);
 			script.declareFun("ab2", empty, U);
-			Term termA = script.term("and",
+			final Term termA = script.term("and",
 					script.term("=", script.term("a"), script.term("ab1")),
 					script.term("=", script.term("a"), script.term("ab2")));
 			// Naming termA as A lets us use this term in the interpolation
-			Term A = script.annotate(termA, new Annotation(":named", "A"));
-			Term termB = script.term("and",
+			final Term A = script.annotate(termA, new Annotation(":named", "A"));
+			final Term termB = script.term("and",
 					script.term("=", script.term("b"), script.term("ab1")),
 					script.term("distinct", script.term("b"),
 							script.term("ab2")));
 			// Naming termB as B lets us use this term in the interpolation
-			Term B = script.annotate(termB, new Annotation(":named", "B"));
+			final Term B = script.annotate(termB, new Annotation(":named", "B"));
 			script.assertTerm(A);
 			script.assertTerm(B);
-			LBool isSat = script.checkSat();
+			final LBool isSat = script.checkSat();
 			if (isSat == LBool.UNSAT) {
 				// Compute interpolant between A and B
-				Term[] partitions = new Term[] {
+				final Term[] partitions = new Term[] {
 					script.term("A"),
 					script.term("B")
 				};
-				Term[] interpolants = script.getInterpolants(partitions);
+				final Term[] interpolants = script.getInterpolants(partitions);
 				System.out.println("Got Interpolants:");
 				System.out.println(Arrays.toString(interpolants));
 			} else {
@@ -90,7 +90,7 @@ public final class CCInterpolationSamples {
 				System.exit(2);
 			}
 			script.pop(1);
-		} catch (SMTLIBException exc) {
+		} catch (final SMTLIBException exc) {
 			bailout(exc);
 		}
 	}

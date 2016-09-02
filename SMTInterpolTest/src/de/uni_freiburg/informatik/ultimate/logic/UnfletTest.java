@@ -25,15 +25,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet.UnletType;
-import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
-import de.uni_freiburg.informatik.ultimate.logic.LetTerm;
-import de.uni_freiburg.informatik.ultimate.logic.Logics;
-import de.uni_freiburg.informatik.ultimate.logic.Sort;
-import de.uni_freiburg.informatik.ultimate.logic.Term;
-import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
-import de.uni_freiburg.informatik.ultimate.logic.Theory;
 
 @RunWith(JUnit4.class)
 public class UnfletTest {
@@ -62,7 +54,7 @@ public class UnfletTest {
 	
 	@Test
 	public void test() {
-		Term letTerm = mTheory.let(arr(mX, mY), arr(mNum1, mNum2),
+		final Term letTerm = mTheory.let(arr(mX, mY), arr(mNum1, mNum2),
 				mTheory.term(mPlus, mX, mY));
 		Assert.assertEquals("(let ((x 1) (y 2)) (+ x y))", letTerm.toStringDirect());
 		Assert.assertEquals("(+ 1 2)", mUnletter.unlet(letTerm).toStringDirect());
@@ -99,7 +91,7 @@ public class UnfletTest {
 	
 	@Test
 	public void testLazy() {
-		Term letTerm = mTheory.let(mX, mY, mTheory.let(mY, mNum1, mX));
+		final Term letTerm = mTheory.let(mX, mY, mTheory.let(mY, mNum1, mX));
 		Assert.assertEquals("(let ((x y)) (let ((y 1)) x))", letTerm.toStringDirect());
 		Assert.assertEquals("y", mUnletter.unlet(letTerm).toStringDirect());
 		Assert.assertEquals("1", mUnletterLazy.unlet(letTerm).toStringDirect());
@@ -132,8 +124,8 @@ public class UnfletTest {
 				mTheory.exists(arr(mY), mTheory.equals(mX, mY)));
 		Assert.assertEquals("(let ((x y) (y z)) (exists ((y Int)) (= x y)))", 
 				letTerm.toStringDirect());
-		Term unlet = mUnletter.unlet(letTerm);
-		String varname =
+		final Term unlet = mUnletter.unlet(letTerm);
+		final String varname =
 				((QuantifiedFormula) unlet).getVariables()[0].toStringDirect();
 		Assert.assertEquals(".unlet.", varname.substring(0, 7));// NOCHECKSTYLE
 		Assert.assertEquals("(exists ((" + varname + " Int)) (= y " + varname + "))", 
@@ -177,15 +169,16 @@ public class UnfletTest {
 
 	@Test
 	public void testCache() {
-		Term[] deepTerm = new Term[100];// NOCHECKSTYLE
+		final Term[] deepTerm = new Term[100];// NOCHECKSTYLE
 		deepTerm[0] = mX;
-		for (int i = 1; i < 100; i++)// NOCHECKSTYLE
+		for (int i = 1; i < 100; i++) {
 			deepTerm[i] = mTheory.term(mPlus, deepTerm[i - 1], deepTerm[i - 1]);
+		}
 		int depth = 0;
 		Term unlet = mUnletter.unlet(mTheory.let(mX, mY, deepTerm[99]));// NOCHECKSTYLE
 		// do not even think of calling toStringDirect here...
 		while ((unlet instanceof ApplicationTerm)) {
-			ApplicationTerm app = (ApplicationTerm) unlet; 
+			final ApplicationTerm app = (ApplicationTerm) unlet; 
 			Assert.assertEquals(mPlus, app.getFunction());
 			Assert.assertEquals(app.getParameters()[0], app.getParameters()[1]);
 			unlet = app.getParameters()[0];
@@ -194,7 +187,7 @@ public class UnfletTest {
 		Assert.assertEquals(mY, unlet);
 		Assert.assertEquals(99, depth);// NOCHECKSTYLE
 
-		Term plusxy = mTheory.term(mPlus, mX, mY);
+		final Term plusxy = mTheory.term(mPlus, mX, mY);
 		
 		Term letTerm = mTheory.let(mX, mZ, mTheory.equals(
 				plusxy, mTheory.let(mX, mY, plusxy)));
@@ -217,10 +210,10 @@ public class UnfletTest {
 	
 	@Test
 	public void testExpand() {
-		Term def = mTheory.term(mPlus, mX, mY);
-		FunctionSymbol plusdef =
+		final Term def = mTheory.term(mPlus, mX, mY);
+		final FunctionSymbol plusdef =
 				mTheory.defineFunction("plus", arr(mX, mY), def);
-		Term defed = mTheory.term(plusdef, mNum1, mNum2);
+		final Term defed = mTheory.term(plusdef, mNum1, mNum2);
 		Assert.assertEquals("(plus 1 2)", defed.toStringDirect());
 		Assert.assertEquals("(+ 1 2)", mUnletterExpand.unlet(defed).toStringDirect());
 	}

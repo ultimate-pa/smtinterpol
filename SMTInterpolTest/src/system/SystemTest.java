@@ -41,9 +41,9 @@ public class SystemTest {
 
 	@Test
 	public void testSystem() throws URISyntaxException, FileNotFoundException {
-		String name = getClass().getPackage().getName();
-		URL url = getClass().getClassLoader().getResource(name);
-		File f = new File(url.toURI());
+		final String name = getClass().getPackage().getName();
+		final URL url = getClass().getClassLoader().getResource(name);
+		final File f = new File(url.toURI());
 		File[] lst = f.getParentFile().getParentFile().listFiles(
 				new FilenameFilter() {
 			
@@ -52,12 +52,13 @@ public class SystemTest {
 						return name.equals("test");
 					}
 				});
-		if (lst == null || lst.length != 1)
+		if (lst == null || lst.length != 1) {
 			return;
-		File testDir = lst[0];
+		}
+		final File testDir = lst[0];
 		lst = testDir.listFiles();
-		for (File dir : lst) {
-			for (File tst: dir.listFiles(new FilenameFilter() {
+		for (final File dir : lst) {
+			for (final File tst: dir.listFiles(new FilenameFilter() {
 				
 				@Override
 				public boolean accept(File dir, String name) {
@@ -66,9 +67,10 @@ public class SystemTest {
 				}
 			})) {
 				try {
-					if (shouldExecute(tst))
+					if (shouldExecute(tst)) {
 						performTest(tst);
-				} catch (SMTLIBException e) {
+					}
+				} catch (final SMTLIBException e) {
 					Assert.fail("File " + tst.getAbsolutePath()
 							+ " produced error:\n" + e.getMessage());
 				}
@@ -79,10 +81,10 @@ public class SystemTest {
 	private void performTest(final File f)
 		throws SMTLIBException, FileNotFoundException {
 		System.out.println("Testing " + f.getAbsolutePath());
-		DefaultLogger logger = new DefaultLogger();
-		OptionMap options = new OptionMap(logger, true);
-		SMTInterpol solver = new SMTInterpol(options);
-		ParseEnvironment pe = new ParseEnvironment(solver, options) {
+		final DefaultLogger logger = new DefaultLogger();
+		final OptionMap options = new OptionMap(logger, true);
+		final SMTInterpol solver = new SMTInterpol(options);
+		final ParseEnvironment pe = new ParseEnvironment(solver, options) {
 
 			@Override
 			public void printError(String message) {
@@ -91,8 +93,9 @@ public class SystemTest {
 
 			@Override
 			public void printResponse(Object response) {
-				if ("unsupported".equals(response))
+				if ("unsupported".equals(response)) {
 					Assert.fail(f.getAbsolutePath() + ": " + "unsupported");
+				}
 				super.printResponse(response);
 			}
 
@@ -101,19 +104,21 @@ public class SystemTest {
 	}
 	
 	private boolean shouldExecute(File f) {
-		String fname = f.getName();
+		final String fname = f.getName();
 		if (fname.startsWith("tightrhombus-lira")) {
 			// remove tightrhombus-lira-xxx-yyy-
 			String sizestr = fname.substring(26, 28); // NOCHECKSTYLE
-			if (sizestr.length() == 2 && !Character.isDigit(sizestr.charAt(1)))
+			if (sizestr.length() == 2 && !Character.isDigit(sizestr.charAt(1))) {
 				sizestr = sizestr.substring(0,1);
-			int size = Integer.parseInt(sizestr);
+			}
+			final int size = Integer.parseInt(sizestr);
 			return size < 5;// NOCHECKSTYLE
 		} else if (fname.startsWith("tightrhombus")) {
 			String sizestr = fname.substring(21, 23); // NOCHECKSTYLE
-			if (sizestr.length() == 2 && !Character.isDigit(sizestr.charAt(1)))
+			if (sizestr.length() == 2 && !Character.isDigit(sizestr.charAt(1))) {
 				sizestr = sizestr.substring(0,1);
-			int size = Integer.parseInt(sizestr);
+			}
+			final int size = Integer.parseInt(sizestr);
 			return size < 5;// NOCHECKSTYLE
 		}
 		return true;

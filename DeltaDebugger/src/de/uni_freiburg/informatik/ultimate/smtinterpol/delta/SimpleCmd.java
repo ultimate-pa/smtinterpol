@@ -47,22 +47,24 @@ public class SimpleCmd extends Cmd {
 		writer.println(')');
 	}
 	
+	@Override
 	public String toString() {
 		return mCmd.toUpperCase();
 	}
 
 	@Override
 	public void checkFeature(Map<String, Cmd> features) {
-		if (mCmd.equals("get-assertions"))
+		if (mCmd.equals("get-assertions")) {
 			features.remove(":interactive-mode");
-		else if (mCmd.equals("get-proof"))
+		} else if (mCmd.equals("get-proof")) {
 			features.remove(":produce-proofs");
-		else if (mCmd.equals("get-model"))
+		} else if (mCmd.equals("get-model")) {
 			features.remove(":produce-models");
-		else if (mCmd.equals("get-unsat-core"))
+		} else if (mCmd.equals("get-unsat-core")) {
 			features.remove(":produce-unsat-cores");
-		else if (mCmd.equals(":get-assignment"))
+		} else if (mCmd.equals(":get-assignment")) {
 			features.remove(":produce-assignments");
+		}
 	}
 
 }

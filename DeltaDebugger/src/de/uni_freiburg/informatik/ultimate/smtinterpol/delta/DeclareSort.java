@@ -49,6 +49,7 @@ public class DeclareSort extends Cmd {
 		return true;
 	}
 	
+	@Override
 	public String toString() {
 		return "DECLARE_SORT " + mSort;
 	}

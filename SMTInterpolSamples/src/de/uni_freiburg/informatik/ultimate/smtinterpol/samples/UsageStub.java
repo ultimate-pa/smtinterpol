@@ -33,7 +33,7 @@ public final class UsageStub {
 
 	public static void main(String[] args) {
 		try {
-			Script s = new SMTInterpol(new DefaultLogger());
+			final Script s = new SMTInterpol(new DefaultLogger());
 			s.setLogic(Logics.QF_LIA);
 			s.declareFun("x", new Sort[0], s.sort("Int"));
 			s.declareFun("y", new Sort[0], s.sort("Int"));
@@ -53,7 +53,7 @@ public final class UsageStub {
 			default:
 				throw new InternalError("WHAT????");
 			}
-		} catch (SMTLIBException ex) {
+		} catch (final SMTLIBException ex) {
 			System.out.println("unknown");
 			ex.printStackTrace(System.err);
 		}

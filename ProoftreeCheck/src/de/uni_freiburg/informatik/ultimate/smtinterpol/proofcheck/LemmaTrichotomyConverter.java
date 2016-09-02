@@ -18,7 +18,12 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.proofcheck;
 
-import de.uni_freiburg.informatik.ultimate.logic.*;
+import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.Sort;
+import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.Theory;
 
 /**
  * This class is used to convert a trichotomy lemma.

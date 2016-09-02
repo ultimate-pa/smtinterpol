@@ -59,23 +59,23 @@ public class InferenceTest {
 		mScript.setLogic(Logics.AUFLIA);
 		// ITE-Lifting
 		mScript.declareSort("U", 0);
-		Sort u = mScript.sort("U");
-		Sort[] binU = new Sort[] { u,u };
-		Sort[] singU = new Sort[] { u };
-		Sort[] emptysorts = new Sort[0];
-		Sort bool = mScript.sort("Bool");
+		final Sort u = mScript.sort("U");
+		final Sort[] binU = new Sort[] { u,u };
+		final Sort[] singU = new Sort[] { u };
+		final Sort[] emptysorts = new Sort[0];
+		final Sort bool = mScript.sort("Bool");
 		mScript.declareFun("f", binU, u);
 		mScript.declareFun("g", singU, bool);
-		TermVariable x = mScript.variable("x", u);
-		TermVariable y = mScript.variable("y", u);
+		final TermVariable x = mScript.variable("x", u);
+		final TermVariable y = mScript.variable("y", u);
 		mScript.declareFun("P", emptysorts, bool);
 		mScript.declareFun("Q", emptysorts, bool);
-		Term pandq = mScript.term("and",
+		final Term pandq = mScript.term("and",
 				mScript.term("P"), mScript.term("Q"));
-		Term porq = mScript.term("or", mScript.term("P"), mScript.term("Q"));
+		final Term porq = mScript.term("or", mScript.term("P"), mScript.term("Q"));
 		
-		Term ite1 = mScript.term("ite", pandq, x, y);
-		Term ite2 = mScript.term("ite", porq, y, x);
+		final Term ite1 = mScript.term("ite", pandq, x, y);
+		final Term ite2 = mScript.term("ite", porq, y, x);
 		mTopLevel = mScript.term("g",ite1);
 		mSubLevel = mScript.term("and", mScript.term("P"),mTopLevel);
 		mDouble = mScript.term("g",mScript.term("f",ite1,ite2));
@@ -87,7 +87,7 @@ public class InferenceTest {
 	
 	@Test
 	public void testITELifting() {
-		InferencePreparation ip =
+		final InferencePreparation ip =
 				new InferencePreparation(mTopLevel.getTheory(),mTvs);
 		Assert.assertEquals("(ite (and P Q) (g x) (g y))",
 				ip.prepare(mTopLevel).toStringDirect());
@@ -102,52 +102,52 @@ public class InferenceTest {
 	@Test
 	public void testPatternInference() {
 		// Pattern inference
-		Sort bool = mScript.sort("Bool");
-		Sort u = mScript.sort("U");
-		Sort[] binU = new Sort[] { u,u };
-		Sort[] singU = new Sort[] { u };
-		TermVariable x = mScript.variable("x", u);
-		TermVariable y = mScript.variable("y", u);
-		TermVariable z = mScript.variable("z", u);
+		final Sort bool = mScript.sort("Bool");
+		final Sort u = mScript.sort("U");
+		final Sort[] binU = new Sort[] { u,u };
+		final Sort[] singU = new Sort[] { u };
+		final TermVariable x = mScript.variable("x", u);
+		final TermVariable y = mScript.variable("y", u);
+		final TermVariable z = mScript.variable("z", u);
 		mScript.declareFun("T", binU, bool);
 		mScript.declareFun("h", singU, u);
 		mScript.declareFun("k", singU, u);
 		Term loopingtrig, nonloopingtrig;
 		// (forall ((x U)) (T (h x) (h (k x)))) Simplify tech report page 44
-		Term looping = mScript.quantifier(Script.FORALL, new TermVariable[]{x}, 
+		final Term looping = mScript.quantifier(Script.FORALL, new TermVariable[]{x}, 
 				mScript.term("T", 
 						loopingtrig = mScript.term("h",x), 
 						mScript.term("h",
 								nonloopingtrig = mScript.term("k",x))));
-		Set<TermVariable> singleX = Collections.singleton(x);
+		final Set<TermVariable> singleX = Collections.singleton(x);
 		Term c, p1, p2;
 		// (forall ((x U) (y U) (z U)) (implies (and (T x y) (T y z)) (T x z)))
-		Term transitivity = mScript.quantifier(Script.FORALL,
+		final Term transitivity = mScript.quantifier(Script.FORALL,
 				new TermVariable[]{x,y,z},
 				mScript.term("=>",
 						mScript.term("and",
 								p1 = mScript.term("T",x,y),
 								p2 = mScript.term("T",y,z)),
 						c = mScript.term("T",x,z)));
-		Set<TermVariable> transitivityVars = new HashSet<TermVariable>();
+		final Set<TermVariable> transitivityVars = new HashSet<TermVariable>();
 		transitivityVars.add(x);
 		transitivityVars.add(y);
 		transitivityVars.add(z);
 		mScript.declareFun("a", new Sort[0], u);
-		Term fa = mScript.term("a");
+		final Term fa = mScript.term("a");
 		// (forall ((x U)) (and (T a a) (T a x)))
 		Term constTrig;
-		Term partiallyConstant = mScript.quantifier(Script.FORALL, 
+		final Term partiallyConstant = mScript.quantifier(Script.FORALL, 
 				new TermVariable[]{x}, 
 				mScript.term("and",
 						mScript.term("T",fa,fa),
 						constTrig = mScript.term("T",fa,x)));
 		// (forall ((i1 Int) (i2 Int)) (= (+ (* 3 i1) (* 5 i2)) 0))
-		Sort intSort = mScript.sort("Int");
-		TermVariable i1 = mScript.variable("i1", intSort);
-		TermVariable i2 = mScript.variable("i2", intSort);
+		final Sort intSort = mScript.sort("Int");
+		final TermVariable i1 = mScript.variable("i1", intSort);
+		final TermVariable i2 = mScript.variable("i2", intSort);
 		// (forall ((i1 Int) (i2 Int)) (= (+ (* 3 i1) (* 5 i2)) 0))
-		Term notrig = mScript.quantifier(Script.FORALL,
+		final Term notrig = mScript.quantifier(Script.FORALL,
 				new TermVariable[]{i1,i2},
 				mScript.term("=",
 						mScript.term("+",
@@ -158,12 +158,12 @@ public class InferenceTest {
 										mScript.numeral("5"),
 										i2)),
 						mScript.numeral("0")));
-		Set<TermVariable> intvars = new HashSet<TermVariable>();
+		final Set<TermVariable> intvars = new HashSet<TermVariable>();
 		intvars.add(i1);
 		intvars.add(i2);
 		mScript.declareFun("fi", new Sort[]{intSort}, intSort);
 		// (forall ((i1 Int)) (= (fi (+ (* 3 i1) 7)) 5))
-		Term notrigcomb = mScript.quantifier(Script.FORALL,
+		final Term notrigcomb = mScript.quantifier(Script.FORALL,
 				new TermVariable[]{i1},
 				mScript.term("=", 
 						mScript.term("fi",
@@ -173,10 +173,10 @@ public class InferenceTest {
 												i1),
 										mScript.numeral("7"))),
 						mScript.numeral("10")));
-		Set<TermVariable> int1 = Collections.singleton(i1);
+		final Set<TermVariable> int1 = Collections.singleton(i1);
 
-		LogProxy logger = new DefaultLogger();
-		TriggerCandidateMap candidates = new TriggerCandidateMap(
+		final LogProxy logger = new DefaultLogger();
+		final TriggerCandidateMap candidates = new TriggerCandidateMap(
 				logger,mTopLevel.getTheory(),singleX);
 		candidates.insert(((QuantifiedFormula)looping).getSubformula());
 		Term[] units = candidates.getAllUnitTriggers();
@@ -184,16 +184,18 @@ public class InferenceTest {
 		Assert.assertNotNull(units);
 		logger.info("For " + looping + " I inferred unit triggers " 
 				+ Arrays.toString(units));
-		int expectedLength = Config.FEATURE_BLOCK_LOOPING_PATTERN ? 1 : 2;
-		Set<Term> unitSet = new HashSet<Term>(expectedLength,1.0f);
-		for (Term t : units)
+		final int expectedLength = Config.FEATURE_BLOCK_LOOPING_PATTERN ? 1 : 2;
+		final Set<Term> unitSet = new HashSet<Term>(expectedLength,1.0f);
+		for (final Term t : units) {
 			unitSet.add(t);
+		}
 		Assert.assertEquals(expectedLength,unitSet.size());
 		Assert.assertTrue("Did not infer nonlooping trigger (k x)",
 				unitSet.contains(nonloopingtrig));
-		if (!Config.FEATURE_BLOCK_LOOPING_PATTERN)
+		if (!Config.FEATURE_BLOCK_LOOPING_PATTERN) {
 			Assert.assertTrue("Did not infer looping trigger (h x) although I should",
 					unitSet.contains(loopingtrig));
+		}
 		candidates.reinit(transitivityVars);
 		candidates.insert(((QuantifiedFormula)transitivity).getSubformula());
 		units = candidates.getAllUnitTriggers();
@@ -203,19 +205,21 @@ public class InferenceTest {
 		Assert.assertNotNull(multi);
 		logger.info("For " + transitivity + " I inferred multi trigger " 
 				+ Arrays.toString(multi));
-		Set<Term> multiSet = new HashSet<Term>(2,1.0f);
-		for (Term t : multi)
+		final Set<Term> multiSet = new HashSet<Term>(2,1.0f);
+		for (final Term t : multi) {
 			multiSet.add(t);
+		}
 		Assert.assertEquals(2, multiSet.size());
-		Iterator<Term> it = multiSet.iterator();
-		Term first = it.next();
-		Term second = it.next();
-		if (first == p1)
+		final Iterator<Term> it = multiSet.iterator();
+		final Term first = it.next();
+		final Term second = it.next();
+		if (first == p1) {
 			Assert.assertTrue("Wrong multi trigger", second == p2 || second == c);
-		else if (first == p2)
+		} else if (first == p2) {
 			Assert.assertTrue("Wrong multi trigger", second == p1 || second == c);
-		else if (first == c)
+		} else if (first == c) {
 			Assert.assertTrue("Wrong multi trigger", second == p1 || second == p2);
+		}
 		candidates.reinit(singleX);
 		candidates.insert(
 				((QuantifiedFormula)partiallyConstant).getSubformula());

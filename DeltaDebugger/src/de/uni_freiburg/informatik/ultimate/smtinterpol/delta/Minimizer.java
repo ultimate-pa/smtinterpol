@@ -42,7 +42,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermTransformer;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.delta.TermSimplifier.Mode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.ParseEnvironment;
-import de.uni_freiburg.informatik.ultimate.util.ScopedHashMap;
+import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
 
 public class Minimizer {
 	
@@ -58,13 +58,13 @@ public class Minimizer {
 		
 		@Override
 		public void run() {
-			byte[] chunk = new byte[CHUNK_SIZE];
+			final byte[] chunk = new byte[CHUNK_SIZE];
 			while (true) {
 				try {
 					synchronized(this) {
 						wait();
 					}
-				} catch (InterruptedException eie) {
+				} catch (final InterruptedException eie) {
 					// Interrupted while waiting for something to do => terminate
 					return;
 				}
@@ -73,8 +73,10 @@ public class Minimizer {
 					return;
 				}
 				try {
-					while (mToReap.read(chunk) != -1) ;
-				} catch (IOException ignored) {
+					while (mToReap.read(chunk) != -1) {
+						;
+					}
+				} catch (final IOException ignored) {
 					// Ignore exception and wait since process died...
 				}
 				mToReap = null;
@@ -91,17 +93,20 @@ public class Minimizer {
 
 		@Override
 		public Boolean prepare(List<Cmd> sublist) {
-			if (mVerbosity > 1)
+			if (mVerbosity > 1) {
 				System.err.println("Trying " + sublist);
-			for (Cmd cmd : sublist)
+			}
+			for (final Cmd cmd : sublist) {
 				cmd.deactivate();
+			}
 			return null;
 		}
 
 		@Override
 		public void failure(List<Cmd> sublist) {
-			for (Cmd cmd : sublist)
+			for (final Cmd cmd : sublist) {
 				cmd.activate();
+			}
 		}
 
 		@Override
@@ -129,26 +134,31 @@ public class Minimizer {
 		
 		@Override
 		public Boolean prepare(List<Substitution> sublist) {
-			SubstitutionApplier applier = new SubstitutionApplier();
-			for (Substitution subst : sublist)
+			final SubstitutionApplier applier = new SubstitutionApplier();
+			for (final Substitution subst : sublist) {
 				subst.activate();
-			if (mVerbosity > 1)
+			}
+			if (mVerbosity > 1) {
 				System.err.println("Active substs: " + sublist);
+			}
 			applier.init(mMgr.getDepth(), mSubsts);
-			Term simp = applier.apply(mCmd.getTerm(mUnletRelet));
-			if (mVerbosity > 1)
+			final Term simp = applier.apply(mCmd.getTerm(mUnletRelet));
+			if (mVerbosity > 1) {
 				System.err.println("simp = " + simp);
-			Boolean res = mSeen.get(simp);
+			}
+			final Boolean res = mSeen.get(simp);
 			if (res != null && !res.booleanValue()) {
-				for (Substitution s : sublist)
+				for (final Substitution s : sublist) {
 					s.deactivate();
+				}
 				return res;
 			}
 			mCmd.setTerm(simp, mUnletRelet);
 			mPres = applier.getAdds();
 			mCmd.appendPreCmds(mPres);
-			if (res != null && res.booleanValue())
+			if (res != null && res.booleanValue()) {
 				success(sublist);
+			}
 			return res;
 		}
 
@@ -157,16 +167,18 @@ public class Minimizer {
 			mSeen.put(mCmd.getTerm(mUnletRelet), Boolean.FALSE);
 			mCmd.removePreCmds(mPres);
 			mCmd.failure();
-			for (Substitution subst : sublist)
+			for (final Substitution subst : sublist) {
 				subst.deactivate();
+			}
 			mPres = null;
 		}
 
 		@Override
 		public void success(List<Substitution> sublist) {
 			mSeen.put(mCmd.getTerm(mUnletRelet), Boolean.TRUE);
-			for (Substitution s : sublist)
+			for (final Substitution s : sublist) {
 				s.success();
+			}
 			mCmd.success();
 			mPres = null;
 		}
@@ -183,36 +195,41 @@ public class Minimizer {
 
 		@Override
 		public Boolean prepare(List<Scope> sublist) {
-			for (Scope s : sublist) {
-				for (int i = s.mFirst; i < s.mLast; ++i)
+			for (final Scope s : sublist) {
+				for (int i = s.mFirst; i < s.mLast; ++i) {
 					mCmds.get(i).deactivate();
-				ScopeCmd sc = (ScopeCmd) mCmds.get(s.mLast);
-				int remScopes = sc.getNumScopes() - s.mReduce;
-				if (remScopes == 0)
+				}
+				final ScopeCmd sc = (ScopeCmd) mCmds.get(s.mLast);
+				final int remScopes = sc.getNumScopes() - s.mReduce;
+				if (remScopes == 0) {
 					sc.deactivate();
-				else
+				} else {
 					sc.tryNumScopes(remScopes);
+				}
 			}
 			return null;
 		}
 
 		@Override
 		public void failure(List<Scope> sublist) {
-			for (Scope s : sublist) {
-				for (int i = s.mFirst; i < s.mLast; ++i)
+			for (final Scope s : sublist) {
+				for (int i = s.mFirst; i < s.mLast; ++i) {
 					mCmds.get(i).activate();
-				ScopeCmd sc = (ScopeCmd) mCmds.get(s.mLast);
-				if (sc.isActive())
+				}
+				final ScopeCmd sc = (ScopeCmd) mCmds.get(s.mLast);
+				if (sc.isActive()) {
 					sc.reset();
-				else
+				} else {
 					sc.activate();
+				}
 			}
 		}
 
 		@Override
 		public void success(List<Scope> sublist) {
-			for (Scope s : sublist)
+			for (final Scope s : sublist) {
 				s.mDeactivated = true;
+			}
 		}
 		
 	}
@@ -227,11 +244,13 @@ public class Minimizer {
 		
 		@Override
 		public Boolean prepare(List<Neutral> sublist) {
-			if (mVerbosity > 1)
+			if (mVerbosity > 1) {
 				System.err.println("Trying " + sublist);
-			Term rem = new NeutralRemover(sublist).removeNeutrals(mCmd.getTerm(mUnletRelet));
-			if (mVerbosity > 1)
+			}
+			final Term rem = new NeutralRemover(sublist).removeNeutrals(mCmd.getTerm(mUnletRelet));
+			if (mVerbosity > 1) {
 				System.err.println("Result: " + rem);
+			}
 			mCmd.setTerm(rem, mUnletRelet);
 			return null;
 		}
@@ -283,12 +302,13 @@ public class Minimizer {
 	}
 	
 	public boolean deltaDebug() throws IOException, InterruptedException {
-		if (mVerbosity > 0)
+		if (mVerbosity > 0) {
 			System.err.println("# commands: " + mCmds.size());
+		}
 		int numRounds = 0;
 		boolean cmds = false, terms = false, bindings = false, neutrals = false,
 				lists = false, ips = false, decls = false;
-		boolean scopes = removeScopes();
+		final boolean scopes = removeScopes();
 		do {
 			cmds = removeCmds();
 			terms = simplifyTerms(true);
@@ -304,24 +324,31 @@ public class Minimizer {
 	//		shrinkCmdList();
 			++numRounds;
 			if (mVerbosity > 0) {
-				if (cmds)
+				if (cmds) {
 					System.err.println("Removed commands");
-				if (terms)
+				}
+				if (terms) {
 					System.err.println("Simplified terms");
-				if (bindings)
+				}
+				if (bindings) {
 					System.err.println("Removed bindings");
-				if (neutrals)
+				}
+				if (neutrals) {
 					System.err.println("Removed neutrals");
-				if (lists)
+				}
+				if (lists) {
 					System.err.println("Simplifed term command lists");
-				if (ips)
+				}
+				if (ips) {
 					System.err.println("Simplified get-interpolants");
-				if (decls)
+				}
+				if (decls) {
 					System.err.println("Removed declarations");
+				}
 			}
 		} while (
 				cmds || terms || bindings || neutrals || lists || ips || decls);
-		boolean features = removeFeatures();
+		final boolean features = removeFeatures();
 		System.err.println("# tests: " + mTestCtr);
 		System.err.println("# successful tests: " + mSuccTestCtr);
 		System.err.println("# rounds: " + numRounds);
@@ -338,42 +365,48 @@ public class Minimizer {
 			mFirst = f;
 		}
 		public void nest(Scope s) {
-			if (mNested == null)
+			if (mNested == null) {
 				mNested = new ArrayList<Scope>();
+			}
 			mNested.add(s);
 		}
 	}
 	
 	private List<Scope> detectScopes() {
-		ArrayDeque<Scope> ppStack = new ArrayDeque<Scope>();
+		final ArrayDeque<Scope> ppStack = new ArrayDeque<Scope>();
 		// All toplevel scopes.
-		List<Scope> res = new ArrayList<Scope>();
+		final List<Scope> res = new ArrayList<Scope>();
 		for (int i = 0; i < mCmds.size(); ++i) {
-			Cmd cmd = mCmds.get(i);
-			if (!cmd.isActive())
+			final Cmd cmd = mCmds.get(i);
+			if (!cmd.isActive()) {
 				continue;
+			}
 			if (cmd instanceof ScopeCmd) {
-				ScopeCmd sc = (ScopeCmd) cmd;
+				final ScopeCmd sc = (ScopeCmd) cmd;
 				if (sc.isScopeStart()) {
-					if (mVerbosity > 1)
+					if (mVerbosity > 1) {
 						System.err.println("Found scope start at " + i);
-					Scope s = new Scope(i);
-					for (int n = 0; n < sc.getNumScopes(); ++n)
-						ppStack.push(s);
-				} else {
-					if (mVerbosity > 1)
-						System.err.println("Found scope end at " + i);
+					}
+					final Scope s = new Scope(i);
 					for (int n = 0; n < sc.getNumScopes(); ++n) {
-						Scope last = ppStack.pop();
-						Scope next = ppStack.peek();
+						ppStack.push(s);
+					}
+				} else {
+					if (mVerbosity > 1) {
+						System.err.println("Found scope end at " + i);
+					}
+					for (int n = 0; n < sc.getNumScopes(); ++n) {
+						final Scope last = ppStack.pop();
+						final Scope next = ppStack.peek();
 						// We have found a scope end...
 						last.mLast = i;
 						last.mReduce = n + 1;
-						if (next == null)
+						if (next == null) {
 							// toplevel scope
 							res.add(last);
-						else if (last != next)
+						} else if (last != next) {
 							next.nest(last);
+						}
 					}
 				}
 			}
@@ -382,87 +415,104 @@ public class Minimizer {
 	}
 	
 	private boolean removeScopes() throws IOException, InterruptedException {
-		if (mVerbosity > 0)
+		if (mVerbosity > 0) {
 			System.err.println("Removing scopes...");
+		}
 		boolean res = false;
-		ArrayDeque<List<Scope>> todo = new ArrayDeque<List<Scope>>();
+		final ArrayDeque<List<Scope>> todo = new ArrayDeque<List<Scope>>();
 		todo.push(detectScopes());
 		while (!todo.isEmpty()) {
-			List<Scope> scopes = todo.pop();
-			BinSearch<Scope> bs = new BinSearch<Scope>(
+			final List<Scope> scopes = todo.pop();
+			final BinSearch<Scope> bs = new BinSearch<Scope>(
 					scopes, new RemoveScopes(mCmds));
 			res |= bs.run(this);
-			for (Scope s : scopes)
-				if (!s.mDeactivated && s.mNested != null)
+			for (final Scope s : scopes) {
+				if (!s.mDeactivated && s.mNested != null) {
 					todo.push(s.mNested);
+				}
+			}
 		}
-		if (mVerbosity > 0)
+		if (mVerbosity > 0) {
 			System.err.println("...done");
+		}
 		return res;
 	}
 	
 	private boolean removeCmds() throws IOException, InterruptedException {
-		if (mVerbosity > 0)
+		if (mVerbosity > 0) {
 			System.err.println("Removing commands...");
-		List<Cmd> cmds = new ArrayList<Cmd>();
+		}
+		final List<Cmd> cmds = new ArrayList<Cmd>();
 		for (int i = 0; i < mCmds.size(); ++i) {
-			Cmd cmd = mCmds.get(i);
-			if (!cmd.isActive())
+			final Cmd cmd = mCmds.get(i);
+			if (!cmd.isActive()) {
 				continue;
+			}
 			if (cmd.canBeRemoved() && !cmd.hasDefinitions()) {
 				cmds.add(cmd);
 			}
 		}
-		boolean res = deactivateCmds(cmds);
-		if (mVerbosity > 0)
+		final boolean res = deactivateCmds(cmds);
+		if (mVerbosity > 0) {
 			System.err.println("...done");
+		}
 		return res;
 	}
 	
 	private boolean deactivateCmds(List<Cmd> toDeactivate)
 		throws IOException, InterruptedException {
-		DeactivateCmds driver = new DeactivateCmds();
-		BinSearch<Cmd> bs = new BinSearch<Cmd>(toDeactivate, driver);
+		final DeactivateCmds driver = new DeactivateCmds();
+		final BinSearch<Cmd> bs = new BinSearch<Cmd>(toDeactivate, driver);
 		return bs.run(this);
 	}
 	
 	private boolean removeDecls() throws IOException, InterruptedException {
-		if (mVerbosity > 0)
+		if (mVerbosity > 0) {
 			System.err.println("Removing unused declarations...");
+		}
 		// Collect used definitions
 		ScopedHashMap<String, Cmd> definitions =
 				new ScopedHashMap<String, Cmd>();
-		Set<Cmd> usedDefs = new HashSet<Cmd>();
-		for (Cmd cmd : mCmds) {
-			if (!cmd.isActive())
+		final Set<Cmd> usedDefs = new HashSet<Cmd>();
+		for (final Cmd cmd : mCmds) {
+			if (!cmd.isActive()) {
 				continue;
+			}
 			cmd.addUsedDefinitions(definitions, usedDefs);
-			if (cmd.hasDefinitions())
+			if (cmd.hasDefinitions()) {
 				cmd.insertDefinitions(definitions);
+			}
 			if (cmd instanceof ScopeCmd) {
-				ScopeCmd scope = (ScopeCmd) cmd;
-				if (scope.isScopeStart())
-					for (int i = 0; i < scope.getNumScopes(); ++i)
+				final ScopeCmd scope = (ScopeCmd) cmd;
+				if (scope.isScopeStart()) {
+					for (int i = 0; i < scope.getNumScopes(); ++i) {
 						definitions.beginScope();
-				else
-					for (int i = 0; i < scope.getNumScopes(); ++i)
+					}
+				} else {
+					for (int i = 0; i < scope.getNumScopes(); ++i) {
 						definitions.endScope();
+					}
+				}
 			}
 		}
 		// Free some space...
 		definitions = null;
 		// Collect unused definitions
-		List<Cmd> unusedDefs = new ArrayList<Cmd>();
-		for (Cmd cmd : mCmds) {
-			if (!cmd.isActive())
+		final List<Cmd> unusedDefs = new ArrayList<Cmd>();
+		for (final Cmd cmd : mCmds) {
+			if (!cmd.isActive()) {
 				continue;
-			if (cmd.hasDefinitions() && !usedDefs.contains(cmd))
+			}
+			if (cmd.hasDefinitions() && !usedDefs.contains(cmd)) {
 				unusedDefs.add(cmd);
+			}
 			if (cmd instanceof AbstractOneTermCmd) {
-				for (Cmd pre : ((AbstractOneTermCmd) cmd).getPreCmds())
+				for (final Cmd pre : ((AbstractOneTermCmd) cmd).getPreCmds()) {
 					if (pre.isActive() && pre.hasDefinitions()
-							&& !usedDefs.contains(pre))
+							&& !usedDefs.contains(pre)) {
 						unusedDefs.add(pre);
+					}
+				}
 			}
 		}
 		boolean res = deactivateCmds(unusedDefs);
@@ -470,28 +520,31 @@ public class Minimizer {
 		// removed completely from the input.  But unfortunately some of these
 		// definitions might be :named annotations and we still need the term!
 		// Try to only remove the annotation.
-		for (Iterator<Cmd> it = unusedDefs.iterator(); it.hasNext(); ) {
-			Cmd next = it.next();
-			if (!next.isActive() || !isNamedAssert(next))
+		for (final Iterator<Cmd> it = unusedDefs.iterator(); it.hasNext(); ) {
+			final Cmd next = it.next();
+			if (!next.isActive() || !isNamedAssert(next)) {
 				it.remove();
+			}
 		}
-		BinSearch<Cmd> bs = new BinSearch<Cmd>(
+		final BinSearch<Cmd> bs = new BinSearch<Cmd>(
 				unusedDefs, new BinSearch.Driver<Cmd>() {
 
 			@Override
 			public Boolean prepare(List<Cmd> sublist) {
-				for (Cmd cmd : sublist) {
-					OneTermCmd tcmd = (OneTermCmd) cmd;
-					Term stripped = new TermTransformer() {
+				for (final Cmd cmd : sublist) {
+					final OneTermCmd tcmd = (OneTermCmd) cmd;
+					final Term stripped = new TermTransformer() {
 
 						@Override
 						public void postConvertAnnotation(AnnotatedTerm old,
 								Annotation[] newAnnots, Term newBody) {
-							ArrayList<Annotation> noNames =
+							final ArrayList<Annotation> noNames =
 									new ArrayList<Annotation>(newAnnots.length);
-							for (Annotation a : newAnnots)
-								if (!a.getKey().equals(":named"))
+							for (final Annotation a : newAnnots) {
+								if (!a.getKey().equals(":named")) {
 									noNames.add(a);
+								}
+							}
 							setResult(noNames.isEmpty() ? newBody
 								: old.getTheory().annotatedTerm(noNames.toArray(
 										new Annotation[noNames.size()]),
@@ -506,20 +559,23 @@ public class Minimizer {
 
 			@Override
 			public void failure(List<Cmd> sublist) {
-				for (Cmd cmd : sublist)
+				for (final Cmd cmd : sublist) {
 					((OneTermCmd) cmd).failure();
+				}
 			}
 
 			@Override
 			public void success(List<Cmd> sublist) {
-				for (Cmd cmd : sublist)
-					((OneTermCmd) cmd).success();				
+				for (final Cmd cmd : sublist) {
+					((OneTermCmd) cmd).success();
+				}				
 			}
 			
 		});// NOCHECKSTYLE
 		res |= bs.run(this); 
-		if (mVerbosity > 0)
+		if (mVerbosity > 0) {
 			System.err.println("...done");
+		}
 		return res;
 	}
 	
@@ -531,13 +587,16 @@ public class Minimizer {
 	
 	private boolean isNamedAssert(Cmd cmd) {
 		if (cmd instanceof OneTermCmd) {
-			OneTermCmd tcmd = (OneTermCmd) cmd;
+			final OneTermCmd tcmd = (OneTermCmd) cmd;
 			if (tcmd.getCmd().equals("assert")
-					&& tcmd.getTerm(false) instanceof AnnotatedTerm)
-				for (Annotation a : ((AnnotatedTerm) tcmd.getTerm(false)).
-						getAnnotations())
-					if (a.getKey().equals(":named"))
+					&& tcmd.getTerm(false) instanceof AnnotatedTerm) {
+				for (final Annotation a : ((AnnotatedTerm) tcmd.getTerm(false)).
+						getAnnotations()) {
+					if (a.getKey().equals(":named")) {
 						return true;
+					}
+				}
+			}
 		}
 		return false;
 	}
@@ -545,19 +604,21 @@ public class Minimizer {
 	private boolean removeUnusedCore(Mode mode)
 		throws IOException, InterruptedException {
 		boolean res = false;
-		TermSimplifier simp = new TermSimplifier(mode);
-		for (Cmd cmd : mCmds) {
-			if (!cmd.isActive() || !(cmd instanceof AbstractOneTermCmd))
+		final TermSimplifier simp = new TermSimplifier(mode);
+		for (final Cmd cmd : mCmds) {
+			if (!cmd.isActive() || !(cmd instanceof AbstractOneTermCmd)) {
 				continue;
-			AbstractOneTermCmd tcmd = (AbstractOneTermCmd) cmd;
-			Term s = simp.transform(tcmd.getTerm(mUnletRelet));
+			}
+			final AbstractOneTermCmd tcmd = (AbstractOneTermCmd) cmd;
+			final Term s = simp.transform(tcmd.getTerm(mUnletRelet));
 			if (s != tcmd.getTerm(mUnletRelet)) {
 				tcmd.setTerm(s, mUnletRelet);
 				if (test()) {
 					res = true;
 					tcmd.success();
-				} else
+				} else {
 					tcmd.failure();
+				}
 			}
 		}
 		return res;
@@ -570,73 +631,82 @@ public class Minimizer {
 	private boolean removeNeutrals() throws IOException, InterruptedException {
 //		return removeUnusedCore(Mode.NEUTRALS);
 		boolean result = false;
-		for (Cmd cmd : mCmds) {
-			if (!cmd.isActive() || !(cmd instanceof AbstractOneTermCmd))
+		for (final Cmd cmd : mCmds) {
+			if (!cmd.isActive() || !(cmd instanceof AbstractOneTermCmd)) {
 				continue;
-			AbstractOneTermCmd tcmd = (AbstractOneTermCmd) cmd;
-			List<Neutral> neutrals = new NeutralDetector().detect(tcmd.getTerm(mUnletRelet));
-			if (neutrals.isEmpty())
+			}
+			final AbstractOneTermCmd tcmd = (AbstractOneTermCmd) cmd;
+			final List<Neutral> neutrals = new NeutralDetector().detect(tcmd.getTerm(mUnletRelet));
+			if (neutrals.isEmpty()) {
 				continue;
-			RemoveNeutrals driver = new RemoveNeutrals(tcmd);
-			BinSearch<Neutral> bs = new BinSearch<Neutral>(neutrals, driver);
+			}
+			final RemoveNeutrals driver = new RemoveNeutrals(tcmd);
+			final BinSearch<Neutral> bs = new BinSearch<Neutral>(neutrals, driver);
 			result |= bs.run(this);
 		}
 		return result;
 	}
 	
 	private boolean simplifyTerms(boolean simpAsserts) throws IOException, InterruptedException {
-		if (mVerbosity > 0)
+		if (mVerbosity > 0) {
 			System.err.println("Simplifying terms...");
+		}
 		boolean res = false;
-		for (Cmd cmd : mCmds) {
+		for (final Cmd cmd : mCmds) {
 			if (!cmd.isActive() || !(cmd instanceof AbstractOneTermCmd)
-					|| (simpAsserts ^ (cmd instanceof OneTermCmd && ((OneTermCmd) cmd).getCmd().equals("assert"))))
+					|| (simpAsserts ^ (cmd instanceof OneTermCmd && ((OneTermCmd) cmd).getCmd().equals("assert")))) {
 				continue;
+			}
 			boolean localres = false;
-			AbstractOneTermCmd tcmd = (AbstractOneTermCmd) cmd;
-			SubstitutionManager substmgr =
+			final AbstractOneTermCmd tcmd = (AbstractOneTermCmd) cmd;
+			final SubstitutionManager substmgr =
 					new SubstitutionManager(tcmd, mUnletRelet);
 			// Try to simplify this one command...
-			if (isUnnamedAssert(tcmd))
+			if (isUnnamedAssert(tcmd)) {
 				// We should not substitute the top level
 				substmgr.deepen();
-			HashMap<Term, Boolean> testCache = new HashMap<Term, Boolean>();
+			}
+			final HashMap<Term, Boolean> testCache = new HashMap<Term, Boolean>();
 			deepen: while (substmgr.deepen()) {// NOCHECKSTYLE
 				List<Substitution> substs;
 				do {
 					substs = substmgr.getSubstitutions();
-					if (substs.isEmpty())
+					if (substs.isEmpty()) {
 						continue deepen;
+					}
 					if (mVerbosity > 1) {
 						System.err.println("Term: " + tcmd.getTerm(false));
 						System.err.println("Substs: " + substs);
 					}
-					SimplifyTerms driver = new SimplifyTerms(
+					final SimplifyTerms driver = new SimplifyTerms(
 							tcmd, substmgr, substs, testCache);
-					BinSearch<Substitution> bs =
+					final BinSearch<Substitution> bs =
 							new BinSearch<Substitution>(substs, driver);
 					localres |= bs.run(this);
 				} while (substmgr.failed());
 			}
 			res |= localres;
 		} // Cmd-loop
-		if (mVerbosity > 0)
+		if (mVerbosity > 0) {
 			System.err.println("...done");
+		}
 		return res;
 	}
 	
 	private Term unfoldAnd(Term p1, Term p2) {
-		ArrayList<Term> conjuncts = new ArrayList<Term>();
+		final ArrayList<Term> conjuncts = new ArrayList<Term>();
 		ApplicationTerm at = (ApplicationTerm) p1;
-		if (at.getFunction() == at.getTheory().mAnd)
+		if (at.getFunction() == at.getTheory().mAnd) {
 			conjuncts.addAll(Arrays.asList(at.getParameters()));
-		else
+		} else {
 			conjuncts.add(p1);
+		}
 		at = (ApplicationTerm) p2;
-		if (at.getFunction() == at.getTheory().mAnd)
+		if (at.getFunction() == at.getTheory().mAnd) {
 			conjuncts.addAll(Arrays.asList(at.getParameters()));
-		else
+		} else {
 			conjuncts.add(p2);
+		}
 		return p1.getTheory().term("and",
 				conjuncts.toArray(new Term[conjuncts.size()]));
 	}
@@ -652,13 +722,14 @@ public class Minimizer {
 	}
 	
 	private void mergeWithChild(GetInterpolants gi, int parent, int child) {
-		int[] sos = gi.getStartOfSubtree();
+		final int[] sos = gi.getStartOfSubtree();
 		int childidx = parent - 1;
-		for (/* Nothing */ ; child > 0; --child)
+		for (/* Nothing */ ; child > 0; --child) {
 			childidx = sos[childidx];
-		Term[] partition = gi.getPartition();
-		Term[] newPartition = new Term[partition.length - 1];
-		int[] newSos = new int[sos.length - 1];
+		}
+		final Term[] partition = gi.getPartition();
+		final Term[] newPartition = new Term[partition.length - 1];
+		final int[] newSos = new int[sos.length - 1];
 		int diff = 0;
 		for (int i = 0; i < partition.length; ++i) {
 			if (i == childidx) {
@@ -691,9 +762,10 @@ public class Minimizer {
 				//@ invariant n == gi.getPartition().length
 				//@ invariant i <= n
 				// invariant n >= 2 see above
-				if (n == 2)
+				if (n == 2) {
 					// No further merge possible!
 					return res;
+				}
 				mergeWithChild(gi, i, child);
 				if (test()) {
 					res = true;
@@ -722,12 +794,14 @@ public class Minimizer {
 		int c = 0;
 		boolean res = false;
 		while (c < conjs.length) {
-			ArrayList<Term> newcs =
+			final ArrayList<Term> newcs =
 					new ArrayList<Term>(conjs.length - 1);
-			for (int j = 0; j < conjs.length; ++j)
-				if (j != c)
+			for (int j = 0; j < conjs.length; ++j) {
+				if (j != c) {
 					newcs.add(conjs[j]);
-			Term[] newPartition = partition.clone();
+				}
+			}
+			final Term[] newPartition = partition.clone();
 			newPartition[idx] = buildAnd(newcs);
 			gi.setNewPartition(newPartition);
 			gi.setNewStartOfSubtree(gi.getStartOfSubtree());
@@ -751,23 +825,26 @@ public class Minimizer {
 		boolean res = false;
 		Term[] partition = gi.getPartition();
 		if (partition.length == 2) {
-			if (isAnd(partition[0]))
+			if (isAnd(partition[0])) {
 				res |= simplifyAndParition(gi, 0);
-			if (isAnd(partition[1]))
+			}
+			if (isAnd(partition[1])) {
 				res |= simplifyAndParition(gi, 1);
+			}
 			return res;
 		}
 		int i = 0;
 		while (i < partition.length) {
 			// Try to remove partition i
 			// 1. complete
-			int newlength = partition.length - 1;
-			if (newlength < 2)
+			final int newlength = partition.length - 1;
+			if (newlength < 2) {
 				// We cannot remove anything anymore!!!
 				return res;
-			Term[] newPartition = new Term[newlength];
-			int[] newSos = new int[newlength];
-			int[] sos = gi.getStartOfSubtree();
+			}
+			final Term[] newPartition = new Term[newlength];
+			final int[] newSos = new int[newlength];
+			final int[] sos = gi.getStartOfSubtree();
 			int diff = 0;
 			for (int j = 0; j < partition.length; ++j) {
 				if (j == i) {
@@ -797,25 +874,29 @@ public class Minimizer {
 	}
 
 	private static ApplicationTerm buildAnd(List<Term> conjs) {
-		if (conjs.isEmpty())
+		if (conjs.isEmpty()) {
 			return null;
-		if (conjs.size() == 1)
+		}
+		if (conjs.size() == 1) {
 			return (ApplicationTerm) conjs.get(0);
+		}
 		return conjs.get(0).getTheory().term(
 				"and", conjs.toArray(new Term[conjs.size()]));
 	}
 	
 	private boolean simplifyGetInterpolants()
 		throws IOException, InterruptedException {
-		if (mVerbosity > 0)
+		if (mVerbosity > 0) {
 			System.err.println("Simplifying get-interpolants...");
+		}
 		boolean res = false;
-		Map<Term, Term> actualNames = new HashMap<Term, Term>();
-		for (Cmd cmd : mCmds) {
-			if (!cmd.isActive())
+		final Map<Term, Term> actualNames = new HashMap<Term, Term>();
+		for (final Cmd cmd : mCmds) {
+			if (!cmd.isActive()) {
 				continue;
+			}
 			if (cmd instanceof GetInterpolants) {
-				GetInterpolants gi = (GetInterpolants) cmd;
+				final GetInterpolants gi = (GetInterpolants) cmd;
 				res |= simplifyInterpolantPartitions(gi);
 				// This should be superseded by simplifyInterpolantPartitions
 //				res |= removeTruePartitions(gi, actualNames);
@@ -823,37 +904,44 @@ public class Minimizer {
 //				res |= mergeSequential(gi);
 				res |= mergeTree(gi);
 			} else if (isNamedAssert(cmd)) {
-				AbstractOneTermCmd tcmd = (AbstractOneTermCmd) cmd;
-				AnnotatedTerm t = (AnnotatedTerm) tcmd.getTerm(false);
-				Term v = t.getSubterm();
-				for (Annotation a : t.getAnnotations())
-					if (a.getKey().equals(":named"))
+				final AbstractOneTermCmd tcmd = (AbstractOneTermCmd) cmd;
+				final AnnotatedTerm t = (AnnotatedTerm) tcmd.getTerm(false);
+				final Term v = t.getSubterm();
+				for (final Annotation a : t.getAnnotations()) {
+					if (a.getKey().equals(":named")) {
 						actualNames.put(
 								t.getTheory().term(a.getValue().toString()), v);
+					}
+				}
 			}
 		}
-		if (mVerbosity > 0)
+		if (mVerbosity > 0) {
 			System.err.println("...done");
+		}
 		return res;
 	}
 	
 	private boolean simplifyTermListCmds()
 		throws IOException, InterruptedException {
-		if (mVerbosity > 0)
+		if (mVerbosity > 0) {
 			System.err.println("Simplifying term list commands...");
-		List<TermListCmd> cmds = new ArrayList<TermListCmd>();
-		for (Cmd cmd : mCmds) {
-			if (!cmd.isActive())
+		}
+		final List<TermListCmd> cmds = new ArrayList<TermListCmd>();
+		for (final Cmd cmd : mCmds) {
+			if (!cmd.isActive()) {
 				continue;
+			}
 			if (cmd instanceof TermListCmd) {
-				TermListCmd tcmd = (TermListCmd) cmd;
-				if (tcmd.getTerms().length > 1)
+				final TermListCmd tcmd = (TermListCmd) cmd;
+				if (tcmd.getTerms().length > 1) {
 					cmds.add(tcmd);
+				}
 			}
 		}
 		if (cmds.isEmpty()) {
-			if (mVerbosity > 0)
+			if (mVerbosity > 0) {
 				System.err.println("...done");
+			}
 			return false;
 		}
 		// Try to reduce number of terms in the list
@@ -862,39 +950,43 @@ public class Minimizer {
 		boolean res = false;
 		while (goon) {
 			goon = false;
-			for (TermListCmd cmd : cmds) {
-				Term[] terms = cmd.getTerms();
-				Term[] newTerms = new Term[terms.length / 2];
+			for (final TermListCmd cmd : cmds) {
+				final Term[] terms = cmd.getTerms();
+				final Term[] newTerms = new Term[terms.length / 2];
 				System.arraycopy(terms, 0, newTerms, 0, newTerms.length);
 				cmd.setNewTerms(newTerms);
 			}
 			if (test()) {
-				for (TermListCmd cmd : cmds)
+				for (final TermListCmd cmd : cmds) {
 					cmd.success();
+				}
 				res = true;
 				goon = true;
 			} else {
 				// We had a failure => Try to reduce to the other half
-				for (TermListCmd cmd : cmds) {
+				for (final TermListCmd cmd : cmds) {
 					cmd.failure();
-					Term[] terms = cmd.getTerms();
-					int len = terms.length - terms.length / 2;
-					Term[] newTerms = new Term[len];
+					final Term[] terms = cmd.getTerms();
+					final int len = terms.length - terms.length / 2;
+					final Term[] newTerms = new Term[len];
 					System.arraycopy(terms, terms.length / 2, newTerms, 0,
 							newTerms.length);
 					cmd.setNewTerms(newTerms);
 				}
 				if (test()) {
-					for (TermListCmd cmd : cmds)
+					for (final TermListCmd cmd : cmds) {
 						cmd.success();
+					}
 					res = true;
 					goon = true;
 				} else {
-					for (TermListCmd cmd : cmds)
+					for (final TermListCmd cmd : cmds) {
 						cmd.failure();
+					}
 					// Both reductions failed => give up
-					if (mVerbosity > 0)
+					if (mVerbosity > 0) {
 						System.err.println("...done");
+					}
 					return res;
 				}
 			}
@@ -904,43 +996,53 @@ public class Minimizer {
 	}
 	
 	private void shrinkCmdList() {
-		if (mVerbosity > 0)
+		if (mVerbosity > 0) {
 			System.err.println("Shrinking command list...");
-		int newsize = 0;
-		for (Iterator<Cmd> it = mCmds.iterator(); it.hasNext(); ) {
-			if (it.next().isActive())
-				++newsize;
 		}
-		if (mVerbosity > 1)
+		int newsize = 0;
+		for (final Iterator<Cmd> it = mCmds.iterator(); it.hasNext(); ) {
+			if (it.next().isActive()) {
+				++newsize;
+			}
+		}
+		if (mVerbosity > 1) {
 			System.err.println(mCmds.size() + " -> " + newsize);
-		List<Cmd> tmp = new ArrayList<Cmd>(newsize);
-		for (Iterator<Cmd> it = mCmds.iterator(); it.hasNext(); ) {
-			Cmd cmd = it.next();
-			if (cmd.isActive())
+		}
+		final List<Cmd> tmp = new ArrayList<Cmd>(newsize);
+		for (final Iterator<Cmd> it = mCmds.iterator(); it.hasNext(); ) {
+			final Cmd cmd = it.next();
+			if (cmd.isActive()) {
 				tmp.add(cmd);
+			}
 		}
 		mCmds = tmp;
-		if (mVerbosity > 0)
+		if (mVerbosity > 0) {
 			System.err.println("...done");
+		}
 	}
 	
 	private boolean removeFeatures() throws IOException, InterruptedException {
-		Map<String, Cmd> features = new HashMap<String, Cmd>();
-		for (Cmd cmd : mCmds)
+		final Map<String, Cmd> features = new HashMap<String, Cmd>();
+		for (final Cmd cmd : mCmds) {
 			if (cmd.isActive()) {
-				String feature = cmd.provideFeature();
+				final String feature = cmd.provideFeature();
 				if (feature != null) {
-					if (mVerbosity > 1)
+					if (mVerbosity > 1) {
 						System.err.println("Found feature " + feature);
+					}
 					features.put(feature, cmd);
 				}
 			}
-		for (Cmd cmd : mCmds)
-			if (cmd.isActive())
+		}
+		for (final Cmd cmd : mCmds) {
+			if (cmd.isActive()) {
 				cmd.checkFeature(features);
-		List<Cmd> featureProvider = new ArrayList<Cmd>(features.values());
-		if (mVerbosity > 1)
+			}
+		}
+		final List<Cmd> featureProvider = new ArrayList<Cmd>(features.values());
+		if (mVerbosity > 1) {
 			System.err.println("Trying to remove features " + featureProvider);
+		}
 		return deactivateCmds(featureProvider);
 	}
 
@@ -952,33 +1054,38 @@ public class Minimizer {
 	 */
 	boolean test() throws IOException, InterruptedException {
 		++mTestCtr;
-		if (mVerbosity > 2)
+		if (mVerbosity > 2) {
 			System.err.println("Dumping...");
+		}
 		dumpCmds();
-		if (mVerbosity > 2)
+		if (mVerbosity > 2) {
 			System.err.println("Testing...");
-		Process p = Runtime.getRuntime().exec(mSolver);
+		}
+		final Process p = Runtime.getRuntime().exec(mSolver);
 		mOut.setToReap(p.getInputStream());
 		mErr.setToReap(p.getErrorStream());
-		int exitVal = p.waitFor();
+		final int exitVal = p.waitFor();
 		if (exitVal == mGoldenExit) {
 			++mSuccTestCtr;
-			if (mVerbosity > 2)
+			if (mVerbosity > 2) {
 				System.err.println("Success");
+			}
 			Files.copy(mTmpFile.toPath(), mResultFile.toPath(),
 					StandardCopyOption.REPLACE_EXISTING);
 			return true;
 		}
-		if (mVerbosity > 2)
+		if (mVerbosity > 2) {
 			System.err.println("Failure");
+		}
 		return false;
 	}
 	
 	private void dumpCmds() throws FileNotFoundException {
-		PrintWriter out = new PrintWriter(mTmpFile);
-		for (Cmd cmd : mCmds) {
-			if (cmd.isActive())
+		final PrintWriter out = new PrintWriter(mTmpFile);
+		for (final Cmd cmd : mCmds) {
+			if (cmd.isActive()) {
 				cmd.dump(out);
+			}
 		}
 		out.flush();
 		out.close();
@@ -999,11 +1106,12 @@ public class Minimizer {
 	}
 	
 	public static void main(String[] args) {
-		if (args.length < 3)// NOCHECKSTYLE
+		if (args.length < 3) {
 			usage();
+		}
 		int goldenExit = 0;
-		String infile = args[0];
-		String outfile = args[1];
+		final String infile = args[0];
+		final String outfile = args[1];
 		int cmdstart = 2;
 		int arg = 2;
 		boolean foundArg = true;
@@ -1016,11 +1124,12 @@ public class Minimizer {
 				++arg;
 				foundArg = true;
 			} else if (args[arg].equals("-golden")) {
-				if (++arg == args.length)
+				if (++arg == args.length) {
 					usage();
+				}
 				try {
 					goldenExit = Integer.parseInt(args[arg]);
-				} catch (NumberFormatException eNAN) {
+				} catch (final NumberFormatException eNAN) {
 					usage();
 				}
 				foundArg = true;
@@ -1033,29 +1142,32 @@ public class Minimizer {
 		}
 		cmdstart = arg;
 		StringBuilder command = new StringBuilder();
-		if (cmdstart >= args.length)
+		if (cmdstart >= args.length) {
 			usage();
-		for (int i = cmdstart; i < args.length; ++i)
+		}
+		for (int i = cmdstart; i < args.length; ++i) {
 			command.append(args[i]).append(' ');
-		File resultFile = new File(outfile);
+		}
+		final File resultFile = new File(outfile);
 		try {
-			File tmpFile = File.createTempFile("minimize", ".smt2");
+			final File tmpFile = File.createTempFile("minimize", ".smt2");
 			tmpFile.deleteOnExit();
-			File input = new File(infile);
+			final File input = new File(infile);
 			command.append(tmpFile.getAbsolutePath());
-			String solver = command.toString();
+			final String solver = command.toString();
 			// Free space
 			command = null;
 			// Start the output reapers
-			OutputReaper out = new OutputReaper();
-			OutputReaper err = new OutputReaper();
+			final OutputReaper out = new OutputReaper();
+			final OutputReaper err = new OutputReaper();
 			out.start();
 			err.start();
 			if (goldenExit == 0) {
 				Files.copy(input.toPath(), tmpFile.toPath(),
 						StandardCopyOption.REPLACE_EXISTING);
-				if (verbosity > 2)
+				if (verbosity > 2) {
 					System.err.println("Starting " + solver);
+				}
 				Process p = Runtime.getRuntime().exec(solver);
 				out.setToReap(p.getInputStream());
 				err.setToReap(p.getErrorStream());
@@ -1063,8 +1175,9 @@ public class Minimizer {
 				// Free space
 				p = null;
 			}
-			if (verbosity > 0)
+			if (verbosity > 0) {
 				System.err.println("Got golden exit code: " + goldenExit);
+			}
 			ParseScript ps = new ParseScript();
 			ParseEnvironment pe = new ParseEnvironment(ps, null) {
 
@@ -1094,28 +1207,31 @@ public class Minimizer {
 				}
 				
 			};
-			if (verbosity > 0)
+			if (verbosity > 0) {
 				System.err.println("Begin parsing");
+			}
 			pe.parseScript(infile);
 			// Free space
 			pe = null;
-			if (verbosity > 0)
+			if (verbosity > 0) {
 				System.err.println("Parsing done");
-			Minimizer mini = new Minimizer(
+			}
+			final Minimizer mini = new Minimizer(
 					ps.getCmds(), goldenExit, tmpFile, resultFile, solver,
 					verbosity, out, err, unletReletMode);
 			// Free space
 			ps = null;
-			if (!mini.deltaDebug())
+			if (!mini.deltaDebug()) {
 				System.err.println("Failed to minimize");
+			}
 			// Gracefully terminate our threads.
 			out.setToReap(null);
 			err.setToReap(null);
 			out.join();
 			err.join();
-		} catch (IOException e) {
+		} catch (final IOException e) {
 			e.printStackTrace();
-		} catch (InterruptedException e) {
+		} catch (final InterruptedException e) {
 			e.printStackTrace();
 		}
 	}

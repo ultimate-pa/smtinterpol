@@ -27,7 +27,14 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Map.Entry;
 
-import de.uni_freiburg.informatik.ultimate.logic.*;
+import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
+import de.uni_freiburg.informatik.ultimate.logic.Annotation;
+import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
+import de.uni_freiburg.informatik.ultimate.logic.Logics;
+import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
+import de.uni_freiburg.informatik.ultimate.logic.Sort;
+import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 
 /**
@@ -86,7 +93,7 @@ public class ProofChecker extends SMTInterpol {
 			mFile = new BufferedWriter(new FileWriter(isaFile));
 			final File lemmaFile = createTheoryFile();
 			mLemmaFile = new BufferedWriter(new FileWriter(lemmaFile));
-		} catch (IOException e) {
+		} catch (final IOException e) {
 			throw new RuntimeException(e);
 		}
 		
@@ -139,10 +146,11 @@ public class ProofChecker extends SMTInterpol {
 		try {
 			// import linear arithmetic theory only when necessary
 			final String imports;
-			if (logic.isArithmetic())
+			if (logic.isArithmetic()) {
 				imports = "XLinearArithmetic";
-			else
+			} else {
 				imports = "XBool";
+			}
 			
 			// main file
 			mFile.append("theory SMTTheory\nimports ");
@@ -157,7 +165,7 @@ public class ProofChecker extends SMTInterpol {
 			mLemmaFile.append("\nimports ");
 			mLemmaFile.append(imports);
 			mLemmaFile.append("\nbegin\n");
-		} catch (IOException e) {
+		} catch (final IOException e) {
 			throw new RuntimeException(e);
 		}
 		
@@ -204,7 +212,7 @@ public class ProofChecker extends SMTInterpol {
 			}
 			mConverter.convertToAppendable(definition, mLemmaFile);
 			mLemmaFile.append("\"\n");
-		} catch (IOException e) {
+		} catch (final IOException e) {
 			throw new RuntimeException(e);
 		}
 	}
@@ -222,7 +230,7 @@ public class ProofChecker extends SMTInterpol {
 			UnsupportedOperationException {
 		if (mPartialProof) {
 			if (term instanceof AnnotatedTerm) {
-				AnnotatedTerm aTerm = (AnnotatedTerm)term;
+				final AnnotatedTerm aTerm = (AnnotatedTerm)term;
 				// unpack :named annotation and pack it into a new one
 				if ((aTerm.getAnnotations().length == 1)
 					&& (aTerm.getAnnotations()[0].getKey().
@@ -248,7 +256,7 @@ public class ProofChecker extends SMTInterpol {
 	 */
 	@Override
 	public LBool checkSat() throws SMTLIBException {
-		LBool result = super.checkSat();
+		final LBool result = super.checkSat();
 		
 		// write unsatisfiability proof
 		if (result == LBool.UNSAT) {
@@ -258,14 +266,14 @@ public class ProofChecker extends SMTInterpol {
 				// convert theorem and proof to a form Isabelle understands
 				convertTheorem();
 				mProofConverter.convert(proof, mAssertion2index);
-			} catch (IOException e) {
+			} catch (final IOException e) {
 				e.printStackTrace();
 				
 				// close the writer before returning
 				try {
 					mFile.close();
 					mLemmaFile.close();
-				} catch (IOException eWriter) {
+				} catch (final IOException eWriter) {
 					eWriter.printStackTrace();
 				}
 			}
@@ -288,7 +296,7 @@ public class ProofChecker extends SMTInterpol {
 			if (mUseIsabelle) {
 				callIsabelle(createIsabelleFile().getName());
 			}
-		} catch (IOException e) {
+		} catch (final IOException e) {
 			e.printStackTrace();
 		}
 		
@@ -325,7 +333,7 @@ public class ProofChecker extends SMTInterpol {
 			} else {
 				mLemmaFile.append("\"");
 			}
-		} catch (IOException e) {
+		} catch (final IOException e) {
 			throw new RuntimeException(e);
 		}
 	}
@@ -344,14 +352,14 @@ public class ProofChecker extends SMTInterpol {
 		mFile.append("assumes ");
 		String append = "";
 		if (mPartialProof) {
-			for (Term term : super.getAssertions()) {
+			for (final Term term : super.getAssertions()) {
 				mFile.append(append);
 				append = "and ";
 				
 				// give the premise a name
 				assert (term instanceof AnnotatedTerm);
-				AnnotatedTerm aTerm = (AnnotatedTerm)term;
-				Annotation[] annotations = aTerm.getAnnotations();
+				final AnnotatedTerm aTerm = (AnnotatedTerm)term;
+				final Annotation[] annotations = aTerm.getAnnotations();
 				assert (annotations.length == 1);
 				assert annotations[0].getKey().equals(PARTIAL_ANNOTATION);
 				
@@ -361,7 +369,7 @@ public class ProofChecker extends SMTInterpol {
 				final LinkedList<NamedWrapper> namedFuns =
 						mConverter.convertAssertion(aTerm.getSubterm());
 				// add functions bound by :named annotation
-				for (NamedWrapper wrapper : namedFuns) {
+				for (final NamedWrapper wrapper : namedFuns) {
 					addNamedBond(wrapper);
 				}
 				
@@ -369,7 +377,7 @@ public class ProofChecker extends SMTInterpol {
 			}
 		} else {
 			assert (mAssertion2index.size() <= super.getAssertions().length);
-			for (Entry<Term, Integer> entry : mAssertion2index.entrySet()) {
+			for (final Entry<Term, Integer> entry : mAssertion2index.entrySet()) {
 				mFile.append(append);
 				append = "and ";
 				
@@ -380,7 +388,7 @@ public class ProofChecker extends SMTInterpol {
 				final LinkedList<NamedWrapper> namedFuns =
 						mConverter.convertAssertion(entry.getKey());
 				// add functions bound by :named annotation
-				for (NamedWrapper wrapper : namedFuns) {
+				for (final NamedWrapper wrapper : namedFuns) {
 					addNamedBond(wrapper);
 				}
 				
@@ -420,7 +428,7 @@ public class ProofChecker extends SMTInterpol {
 			mLemmaFile.append(" == ");
 			mConverter.convertWithTypes(wrapper.mSubterm, mLemmaFile);
 			mLemmaFile.append("\"\n");
-		} catch (IOException e) {
+		} catch (final IOException e) {
 			throw new RuntimeException(e);
 		}
 	}

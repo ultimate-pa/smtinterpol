@@ -48,11 +48,12 @@ public class TermCollector extends NonRecursive {
 
 		@Override
 		public void walk(NonRecursive walker) {
-			Term t = getTerm();
-			if (mDepth == TermCollector.this.mDepth && isReplaceable(t))
+			final Term t = getTerm();
+			if (mDepth == TermCollector.this.mDepth && isReplaceable(t)) {
 				mTerms.add(t);
-			else
+			} else {
 				super.walk(walker);
+			}
 		}
 
 		@Override
@@ -68,14 +69,16 @@ public class TermCollector extends NonRecursive {
 
 		@Override
 		public void walk(NonRecursive walker, ApplicationTerm term) {
-			for (Term p : term.getParameters())
+			for (final Term p : term.getParameters()) {
 				walker.enqueueWalker(new DepthWalker(p, mDepth + 1));
+			}
 		}
 
 		@Override
 		public void walk(NonRecursive walker, LetTerm term) {
-			for (Term v : term.getValues())
+			for (final Term v : term.getValues()) {
 				walker.enqueueWalker(new DepthWalker(v, mDepth + 1));
+			}
 			walker.enqueueWalker(
 					new DepthWalker(term.getSubTerm(), mDepth + 1));
 		}

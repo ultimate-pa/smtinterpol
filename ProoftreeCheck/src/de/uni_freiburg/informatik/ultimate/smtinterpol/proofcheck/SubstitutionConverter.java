@@ -20,7 +20,13 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.proofcheck;
 
 import java.util.ArrayDeque;
 
-import de.uni_freiburg.informatik.ultimate.logic.*;
+import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
+import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
+import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
+import de.uni_freiburg.informatik.ultimate.logic.Theory;
 
 /**
  * This class is used to convert a substitution proof step (@eq).
@@ -144,7 +150,7 @@ public class SubstitutionConverter extends AConverter {
 			// node = new QuantTermNode(null, (QuantifiedFormula)origin);
 		}
 		
-		ArrayDeque<ATermNode> stack =
+		final ArrayDeque<ATermNode> stack =
 				new ArrayDeque<SubstitutionConverter.ATermNode>();
 		stack.push(node);
 		
@@ -294,7 +300,7 @@ public class SubstitutionConverter extends AConverter {
 			} else {
 				// inner term has changed, create new term
 				// fill the parameter array (some elements may be null)
-				Term[] oldParams = mTerm.getParameters();
+				final Term[] oldParams = mTerm.getParameters();
 				for (int i = mReplace.length - 1; i >= 0; --i) {
 					if (mReplace[i] == null) {
 						mReplace[i] = oldParams[i];

@@ -44,25 +44,25 @@ public class AssumptionTest {
 	@Test
 	public void badAssumptions() {
 		if (Config.STRONG_USAGE_CHECKS) {
-			SMTInterpol solver = new SMTInterpol();
+			final SMTInterpol solver = new SMTInterpol();
 			solver.setLogic(Logics.QF_UFLIA);
-			Sort boolsort = solver.sort("Bool");
-			Sort intsort = solver.sort("Int");
+			final Sort boolsort = solver.sort("Bool");
+			final Sort intsort = solver.sort("Int");
 			solver.declareFun("P", Script.EMPTY_SORT_ARRAY, boolsort);
 			solver.declareFun("Q", Script.EMPTY_SORT_ARRAY, boolsort);
 			solver.declareFun("f", new Sort[]{intsort}, intsort);
-			Term p = solver.term("P");
-			Term q = solver.term("Q");
-			Term notp = solver.term("not", p);
-			Term pandq = solver.term("and", p, q);
-			Term zero = solver.numeral(BigInteger.ZERO);
-			Term fzero = solver.term("f", zero);
+			final Term p = solver.term("P");
+			final Term q = solver.term("Q");
+			final Term notp = solver.term("not", p);
+			final Term pandq = solver.term("and", p, q);
+			final Term zero = solver.numeral(BigInteger.ZERO);
+			final Term fzero = solver.term("f", zero);
 			// The actual test
 			// 1) assume zero?
 			try {
 				solver.checkSatAssuming(zero);
 				Assert.fail("Solver did not complain about assuming a numeral");
-			} catch (SMTLIBException expected) {
+			} catch (final SMTLIBException expected) {
 				// This is the expected behaviour!
 				// Do we want to check the error message?
 			}
@@ -70,7 +70,7 @@ public class AssumptionTest {
 			try {
 				solver.checkSatAssuming(pandq);
 				Assert.fail("Solver did not complain about assuming a conjunction");
-			} catch (SMTLIBException expected) {
+			} catch (final SMTLIBException expected) {
 				// This is the expected behaviour!
 				// Do we want to check the error message?
 			}
@@ -78,7 +78,7 @@ public class AssumptionTest {
 			try {
 				solver.checkSatAssuming(fzero);
 				Assert.fail("Solver did not complain about assuming a non-Boolean term");
-			} catch (SMTLIBException expected) {
+			} catch (final SMTLIBException expected) {
 				// This is the expected behaviour!
 				// Do we want to check the error message?
 			}
@@ -98,11 +98,11 @@ public class AssumptionTest {
 	 */
 	@Test
 	public void clearRepeatedAssumptions() {
-		SMTInterpol solver = new SMTInterpol();
+		final SMTInterpol solver = new SMTInterpol();
 		solver.setLogic(Logics.QF_UF);
 		solver.declareFun("P", Script.EMPTY_SORT_ARRAY, solver.sort("Bool"));
-		Term p = solver.term("P");
-		Term notp = solver.term("not", p);
+		final Term p = solver.term("P");
+		final Term notp = solver.term("not", p);
 		LBool isSat = solver.checkSatAssuming(p);
 		Assert.assertSame(LBool.SAT, isSat);
 		isSat = solver.checkSatAssuming(notp);
@@ -114,11 +114,11 @@ public class AssumptionTest {
 	 */
 	@Test
 	public void conflictingAssumptions() {
-		SMTInterpol solver = new SMTInterpol();
+		final SMTInterpol solver = new SMTInterpol();
 		solver.setLogic(Logics.QF_UF);
 		solver.declareFun("P", Script.EMPTY_SORT_ARRAY, solver.sort("Bool"));
-		Term p = solver.term("P");
-		Term notp = solver.term("not", p);
+		final Term p = solver.term("P");
+		final Term notp = solver.term("not", p);
 		LBool isSat = solver.checkSatAssuming(p, notp);
 		Assert.assertSame(LBool.UNSAT, isSat);
 		isSat = solver.checkSatAssuming(notp, p);
@@ -130,14 +130,14 @@ public class AssumptionTest {
 	
 	@Test
 	public void testAssumptionRemoval() {
-		SMTInterpol solver = new SMTInterpol();
+		final SMTInterpol solver = new SMTInterpol();
 		solver.setLogic(Logics.QF_UFLIA);
-		Sort boolsort = solver.sort("Bool");
-		Sort intsort = solver.sort("Int");
+		final Sort boolsort = solver.sort("Bool");
+		final Sort intsort = solver.sort("Int");
 		solver.declareFun("P", Script.EMPTY_SORT_ARRAY, boolsort);
 		solver.declareFun("Q", Script.EMPTY_SORT_ARRAY, boolsort);
-		Term p = solver.term("P");
-		Term q = solver.term("Q");
+		final Term p = solver.term("P");
+		final Term q = solver.term("Q");
 		solver.assertTerm(solver.term("or", p, q));
 		LBool isSat = solver.checkSatAssuming(solver.term("not", p));
 		// Model should be (not p) q (not r)
@@ -151,25 +151,25 @@ public class AssumptionTest {
 	
 	@Test
 	public void modelproduction() {
-		SMTInterpol solver = new SMTInterpol();
+		final SMTInterpol solver = new SMTInterpol();
 		solver.setLogic(Logics.QF_UFLIA);
-		Sort boolsort = solver.sort("Bool");
-		Sort intsort = solver.sort("Int");
+		final Sort boolsort = solver.sort("Bool");
+		final Sort intsort = solver.sort("Int");
 		solver.declareFun("P", Script.EMPTY_SORT_ARRAY, boolsort);
 		solver.declareFun("Q", Script.EMPTY_SORT_ARRAY, boolsort);
-		Term p = solver.term("P");
-		Term q = solver.term("Q");
+		final Term p = solver.term("P");
+		final Term q = solver.term("Q");
 		solver.assertTerm(solver.term("or", p, q));
 		// Check value of assumption
 		LBool isSat = solver.checkSatAssuming(p);
 		Assert.assertSame(LBool.SAT, isSat);
 		// q is essentially undefined, so I don't check it.  Should be false...
-		Term pval = solver.getValue(new Term[] {p}).get(p);
+		final Term pval = solver.getValue(new Term[] {p}).get(p);
 		Assert.assertSame(solver.term("true"), pval);
 		// Check value of assumption and derived values
 		isSat = solver.checkSatAssuming(solver.term("not", p));
 		Assert.assertSame(LBool.SAT, isSat);
-		Map<Term, Term> vals = solver.getValue(new Term[] {p, q});
+		final Map<Term, Term> vals = solver.getValue(new Term[] {p, q});
 		Assert.assertSame(solver.term("false"), vals.get(p));
 		Assert.assertSame(solver.term("true"), vals.get(q));
 		// Check correct unsatisfiability deduction

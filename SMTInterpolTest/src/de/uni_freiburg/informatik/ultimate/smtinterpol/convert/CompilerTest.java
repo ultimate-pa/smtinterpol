@@ -40,6 +40,7 @@ public class CompilerTest {
 			super(filename, false);
 		}
 		
+		@Override
 		public LBool assertTerm(Term term) {
 			term = new FormulaUnLet(UnletType.EXPAND_DEFINITIONS).unlet(term);
 			term = new TermCompiler().transform(term);
@@ -70,10 +71,10 @@ public class CompilerTest {
 			usage();
 			return;
 		}
-		DefaultLogger logger = new DefaultLogger();
-		OptionMap options = new OptionMap(logger, true);
-		Script script = new MyLoggingScript(outfilename);
-		ParseEnvironment parseEnv = new ParseEnvironment(script, options);
+		final DefaultLogger logger = new DefaultLogger();
+		final OptionMap options = new OptionMap(logger, true);
+		final Script script = new MyLoggingScript(outfilename);
+		final ParseEnvironment parseEnv = new ParseEnvironment(script, options);
 		parseEnv.parseScript(infilename);
 		parseEnv.exit();
 	}

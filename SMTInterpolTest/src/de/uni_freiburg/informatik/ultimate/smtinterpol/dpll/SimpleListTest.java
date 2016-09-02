@@ -23,9 +23,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.SimpleList;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.SimpleListable;
-
 @RunWith(JUnit4.class)
 public class SimpleListTest {
 	class Elem extends SimpleListable<Elem> {
@@ -35,6 +32,7 @@ public class SimpleListTest {
 			mVal = i;
 		}
 
+		@Override
 		public String toString() {
 			return String.valueOf(mVal);
 		}
@@ -42,7 +40,7 @@ public class SimpleListTest {
 
 	@Test
 	public void testAppendPrepend() {
-		SimpleList<Elem> l = new SimpleList<Elem>();
+		final SimpleList<Elem> l = new SimpleList<Elem>();
 		l.append(new Elem(3));// NOCHECKSTYLE
 		l.append(new Elem(4));// NOCHECKSTYLE
 		l.prepend(new Elem(2));
@@ -62,7 +60,7 @@ public class SimpleListTest {
 
 	@Test
 	public void testJoinBorder() {
-		SimpleList<Elem> la = new SimpleList<Elem>();
+		final SimpleList<Elem> la = new SimpleList<Elem>();
 		la.prependIntoJoined(new Elem(3), true);// NOCHECKSTYLE
 		la.prependIntoJoined(new Elem(2), true);
 		la.prependIntoJoined(new Elem(1), true);
@@ -72,10 +70,10 @@ public class SimpleListTest {
 
 	@Test
 	public void testLinearJoins() {
-		SimpleList<Elem> la = new SimpleList<Elem>();
-		SimpleList<Elem> lb = new SimpleList<Elem>();
-		SimpleList<Elem> lc = new SimpleList<Elem>();
-		SimpleList<Elem> ld = new SimpleList<Elem>();
+		final SimpleList<Elem> la = new SimpleList<Elem>();
+		final SimpleList<Elem> lb = new SimpleList<Elem>();
+		final SimpleList<Elem> lc = new SimpleList<Elem>();
+		final SimpleList<Elem> ld = new SimpleList<Elem>();
 
 		la.append(new Elem(1));
 		la.append(new Elem(2));
@@ -104,7 +102,7 @@ public class SimpleListTest {
 		Assert.assertTrue(lc.wellformedPart());
 		Assert.assertTrue(ld.wellformedPart());
 
-		Elem e3 = new Elem(3);// NOCHECKSTYLE
+		final Elem e3 = new Elem(3);// NOCHECKSTYLE
 		lc.prependIntoJoined(e3, false);
 		lb.prependIntoJoined(e3, false);
 		la.prependIntoJoined(e3, true);
@@ -115,7 +113,7 @@ public class SimpleListTest {
 		Assert.assertTrue(lc.wellformedPart());
 		Assert.assertTrue(ld.wellformedPart());
 
-		Elem e5 = new Elem(5);// NOCHECKSTYLE
+		final Elem e5 = new Elem(5);// NOCHECKSTYLE
 		ld.prependIntoJoined(e5, false);
 		lc.prependIntoJoined(e5, false);
 		lb.prependIntoJoined(e5, false);
@@ -143,11 +141,11 @@ public class SimpleListTest {
 
 	@Test
 	public void testTreeJoins() {
-		SimpleList<Elem> la = new SimpleList<Elem>();
-		SimpleList<Elem> lb = new SimpleList<Elem>();
-		SimpleList<Elem> lc = new SimpleList<Elem>();
-		SimpleList<Elem> ld = new SimpleList<Elem>();
-		SimpleList<Elem> le = new SimpleList<Elem>();
+		final SimpleList<Elem> la = new SimpleList<Elem>();
+		final SimpleList<Elem> lb = new SimpleList<Elem>();
+		final SimpleList<Elem> lc = new SimpleList<Elem>();
+		final SimpleList<Elem> ld = new SimpleList<Elem>();
+		final SimpleList<Elem> le = new SimpleList<Elem>();
 
 		lb.append(new Elem(1));
 		lb.append(new Elem(2));
@@ -181,7 +179,7 @@ public class SimpleListTest {
 		Assert.assertTrue(ld.wellformedPart());
 		Assert.assertTrue(le.wellformedPart());
 
-		Elem e3 = new Elem(3);// NOCHECKSTYLE
+		final Elem e3 = new Elem(3);// NOCHECKSTYLE
 		lc.prependIntoJoined(e3, false);
 		lb.prependIntoJoined(e3, false);
 		la.prependIntoJoined(e3, true);
@@ -191,7 +189,7 @@ public class SimpleListTest {
 		Assert.assertTrue(lb.wellformedPart());
 		Assert.assertTrue(lc.wellformedPart());
 
-		Elem e5 = new Elem(5);// NOCHECKSTYLE
+		final Elem e5 = new Elem(5);// NOCHECKSTYLE
 		le.prependIntoJoined(e5, false);
 		ld.prependIntoJoined(e5, false);
 		la.prependIntoJoined(e5, true);
