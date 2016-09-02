@@ -46,8 +46,8 @@ public class SubstitutionApplier extends NonRecursive {
 
 		@Override
 		public void walk(NonRecursive engine) {
-			Term converted = mConverted.pop();
-			Term res = converted.getTheory().annotatedTerm(
+			final Term converted = mConverted.pop();
+			final Term res = converted.getTheory().annotatedTerm(
 					mTerm.getAnnotations(), converted);
 			mConverted.push(res);
 		}
@@ -64,10 +64,11 @@ public class SubstitutionApplier extends NonRecursive {
 
 		@Override
 		public void walk(NonRecursive engine) {
-			Term[] newArgs = new Term[mTerm.getParameters().length];
-			for (int i = 0; i < newArgs.length; ++i)
+			final Term[] newArgs = new Term[mTerm.getParameters().length];
+			for (int i = 0; i < newArgs.length; ++i) {
 				newArgs[i] = mConverted.pop();
-			Term res = mTerm.getTheory().term(mTerm.getFunction(), newArgs);
+			}
+			final Term res = mTerm.getTheory().term(mTerm.getFunction(), newArgs);
 			mConverted.push(res);
 		}
 		
@@ -83,11 +84,12 @@ public class SubstitutionApplier extends NonRecursive {
 
 		@Override
 		public void walk(NonRecursive engine) {
-			Term[] newVals = new Term[mTerm.getValues().length];
-			for (int i = 0; i < newVals.length; ++i)
+			final Term[] newVals = new Term[mTerm.getValues().length];
+			for (int i = 0; i < newVals.length; ++i) {
 				newVals[i] = mConverted.pop();
-			Term subform = mConverted.pop();
-			Term res = new CheckClosedTerm().isClosed(subform) ? subform
+			}
+			final Term subform = mConverted.pop();
+			final Term res = new CheckClosedTerm().isClosed(subform) ? subform
 					: mTerm.getTheory().let(
 							mTerm.getVariables(), newVals, subform);
 			mConverted.push(res);
@@ -105,9 +107,9 @@ public class SubstitutionApplier extends NonRecursive {
 		
 		@Override
 		public void walk(NonRecursive engine) {
-			Term subform = mConverted.pop();
-			Theory t = mTerm.getTheory();
-			Term res = new CheckClosedTerm().isClosed(subform) ? subform
+			final Term subform = mConverted.pop();
+			final Theory t = mTerm.getTheory();
+			final Term res = new CheckClosedTerm().isClosed(subform) ? subform
 					: mTerm.getQuantifier() == QuantifiedFormula.EXISTS
 					? t.exists(mTerm.getVariables(), subform)
 						: t.forall(mTerm.getVariables(), subform);
@@ -129,16 +131,18 @@ public class SubstitutionApplier extends NonRecursive {
 		public void walk(NonRecursive walker) {
 			if (mDepth == SubstitutionApplier.this.mDepth) {
 				// Apply substitution
-				boolean expectedTrue = mIt.hasNext();
+				final boolean expectedTrue = mIt.hasNext();
 				assert expectedTrue;
 				if (mSubst != null && mSubst.matches(getTerm())) {
 					if (mSubst.isActive()) {
 						mConverted.push(mSubst.apply(getTerm()));
-						Cmd add = mSubst.getAdditionalCmd(getTerm());
-						if (add != null)
+						final Cmd add = mSubst.getAdditionalCmd(getTerm());
+						if (add != null) {
 							mAdds.add(add);
-					} else
+						}
+					} else {
 						mConverted.push(getTerm());
+					}
 					// We can step here since we found a (possibly deactivated)
 					// match.  If the term does not match, we should not step!
 					stepSubst();
@@ -147,8 +151,9 @@ public class SubstitutionApplier extends NonRecursive {
 					// anything at lower depths.
 					mConverted.push(getTerm());
 				}
-			} else
+			} else {
 				super.walk(walker);
+			}
 		}
 
 		@Override
@@ -166,15 +171,17 @@ public class SubstitutionApplier extends NonRecursive {
 		@Override
 		public void walk(NonRecursive walker, ApplicationTerm term) {
 			walker.enqueueWalker(new ApplicationTermBuilder(term));
-			for (Term p : term.getParameters())
+			for (final Term p : term.getParameters()) {
 				walker.enqueueWalker(new DepthDescender(p, mDepth + 1));
+			}
 		}
 
 		@Override
 		public void walk(NonRecursive walker, LetTerm term) {
 			walker.enqueueWalker(new LetBuilder(term));
-			for (Term v : term.getValues())
+			for (final Term v : term.getValues()) {
 				walker.enqueueWalker(new DepthDescender(v, mDepth + 1));
+			}
 			walker.enqueueWalker(
 					new DepthDescender(term.getSubTerm(), mDepth + 1));
 		}
@@ -204,8 +211,9 @@ public class SubstitutionApplier extends NonRecursive {
 	void stepSubst() {
 		while (mIt.hasNext()) {
 			mSubst = mIt.next();
-			if (!mSubst.isSuccess())
+			if (!mSubst.isSuccess()) {
 				return;
+			}
 		}
 		mSubst = null;
 	}
@@ -223,7 +231,7 @@ public class SubstitutionApplier extends NonRecursive {
 	}
 	
 	public List<Cmd> getAdds() {
-		List<Cmd> res = mAdds;
+		final List<Cmd> res = mAdds;
 		mAdds = new ArrayList<Cmd>();
 		return res;
 	}

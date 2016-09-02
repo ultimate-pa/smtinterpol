@@ -36,7 +36,7 @@ public final class InterpolationUsageStub {
 
 	public static void main(String[] args) {
 		try {
-			Script s = new SMTInterpol(new DefaultLogger());
+			final Script s = new SMTInterpol(new DefaultLogger());
 			s.setOption(":produce-proofs", true);
 			s.setLogic(Logics.QF_LIA);
 			s.declareFun("x", new Sort[0], s.sort("Int"));
@@ -62,7 +62,7 @@ public final class InterpolationUsageStub {
 						s.term("and", s.term("phi_1"), s.term("phi_3")) });
 				System.err.println(interpolants);
 			}
-		} catch (SMTLIBException ex) {
+		} catch (final SMTLIBException ex) {
 			System.out.println("unknown");
 			ex.printStackTrace(System.err);
 		}

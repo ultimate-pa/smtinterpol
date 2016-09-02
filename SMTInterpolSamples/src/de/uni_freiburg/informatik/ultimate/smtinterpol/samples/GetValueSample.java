@@ -38,34 +38,35 @@ public final class GetValueSample {
 	public static void main(String[] ignored) {
 		try {
 			// Create a new interaction script
-			Script script = new SMTInterpol(new DefaultLogger());
+			final Script script = new SMTInterpol(new DefaultLogger());
 			// Enable production of a model
 			script.setOption(":produce-models", true);
 			
 			script.setLogic(Logics.QF_UFLIA);
 			declareStuff(script);
 			// Build the formula f(x) == f(y) /\ i > j
-			Term x = script.term("x");
-			Term y = script.term("y");
-			Term fx = script.term("f", x);
-			Term fy = script.term("f", y);
-			Term i = script.term("i");
-			Term j = script.term("j");
-			Term ufterm = script.term("=", fx, fy);
-			Term laterm = script.term(">", i, j);
-			Term conj = script.term("and", ufterm, laterm);
+			final Term x = script.term("x");
+			final Term y = script.term("y");
+			final Term fx = script.term("f", x);
+			final Term fy = script.term("f", y);
+			final Term i = script.term("i");
+			final Term j = script.term("j");
+			final Term ufterm = script.term("=", fx, fy);
+			final Term laterm = script.term(">", i, j);
+			final Term conj = script.term("and", ufterm, laterm);
 			script.assertTerm(conj);
-			LBool res = script.checkSat();
+			final LBool res = script.checkSat();
 			if (res != LBool.SAT) {
 				System.err.println("Bug in SMTInterpol: Result is " + res);
 				System.exit(2);
 			}
-			Term[] valterms = { x, y, fx, fy, i, j };
-			Map<Term, Term> val = script.getValue(valterms);
-			for (Term t : valterms)
+			final Term[] valterms = { x, y, fx, fy, i, j };
+			final Map<Term, Term> val = script.getValue(valterms);
+			for (final Term t : valterms) {
 				System.out.println("Value for term " + t + " is " + val.get(t));
+			}
 			script.exit();
-		} catch (SMTLIBException exc) {
+		} catch (final SMTLIBException exc) {
 			exc.printStackTrace(System.err);
 			System.exit(1);
 		}
@@ -75,12 +76,12 @@ public final class GetValueSample {
 		// 0-ary sort U is the only sort we use
 		script.declareSort("U", 0);
 		// Variables: x, y of type U; f of type U->U
-		Sort[] empty = {};
-		Sort U = script.sort("U");
+		final Sort[] empty = {};
+		final Sort U = script.sort("U");
 		script.declareFun("x", empty, U);
 		script.declareFun("y", empty, U);
 		script.declareFun("f", new Sort[]{ U }, U);
-		Sort intSort = script.sort("Int");
+		final Sort intSort = script.sort("Int");
 		script.declareFun("i", empty, intSort);
 		script.declareFun("j", empty, intSort);
 	}

@@ -23,29 +23,22 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import de.uni_freiburg.informatik.ultimate.logic.Logics;
-import de.uni_freiburg.informatik.ultimate.logic.Sort;
-import de.uni_freiburg.informatik.ultimate.logic.Term;
-import de.uni_freiburg.informatik.ultimate.logic.TermEquivalence;
-import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
-import de.uni_freiburg.informatik.ultimate.logic.Theory;
-
 @RunWith(JUnit4.class)
 public class TermEquivalenceTest {
 	
 	@Test
 	public void testEq() {
-		Theory theory = new Theory(Logics.AUFLIRA);
+		final Theory theory = new Theory(Logics.AUFLIRA);
 		// (let ((x y)) (forall ((y Int)) (>= y x)))
 		// (let ((z y)) (forall ((w Int)) (>= w z)))
-		Sort intSort = theory.getNumericSort();
-		TermVariable x = theory.createTermVariable("x", intSort);
-		TermVariable y = theory.createTermVariable("y", intSort);
-		TermVariable z = theory.createTermVariable("z", intSort);
-		TermVariable w = theory.createTermVariable("w", intSort);
-		Term lhs = theory.let(x, y, 
+		final Sort intSort = theory.getNumericSort();
+		final TermVariable x = theory.createTermVariable("x", intSort);
+		final TermVariable y = theory.createTermVariable("y", intSort);
+		final TermVariable z = theory.createTermVariable("z", intSort);
+		final TermVariable w = theory.createTermVariable("w", intSort);
+		final Term lhs = theory.let(x, y, 
 				theory.forall(new TermVariable[]{y}, theory.term(">=", y, x)));
-		Term rhs = theory.let(z, y, 
+		final Term rhs = theory.let(z, y, 
 				theory.forall(new TermVariable[]{w}, theory.term(">=", w, z)));
 		Assert.assertTrue(new TermEquivalence().equal(lhs, rhs));
 	}

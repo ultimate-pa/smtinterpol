@@ -21,9 +21,9 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.samples;
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.Model;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
+import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
-import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
@@ -45,7 +45,7 @@ public final class ModelSample {
 	}
 
 	private static Term getSkolem(Script script, Sort sort, int num) {
-		String name = "sk_x" + num;
+		final String name = "sk_x" + num;
 		script.declareFun(name, new Sort[0], sort);
 		return script.term(name);
 	}
@@ -54,29 +54,29 @@ public final class ModelSample {
 		// Counter for the skolem instances
 		int numskolem = 0;
 		// Let SMTInterpol set up the logger for us
-		Script script = new SMTInterpol(new DefaultLogger());
+		final Script script = new SMTInterpol(new DefaultLogger());
 		// Enable model production
 		script.setOption(":produce-models", true);
 		script.setOption(":verbosity", 1);
 		script.setLogic(Logics.QF_UF);
 		// Declare sort U
 		script.declareSort("U", 0);
-		Sort u = script.sort("U");
+		final Sort u = script.sort("U");
 		// Declare constants
-		Sort[] emptySortArray = new Sort[0];
+		final Sort[] emptySortArray = new Sort[0];
 		script.declareFun("c1", emptySortArray, u);
 		script.declareFun("c2", emptySortArray, u);
 		script.declareFun("s1", emptySortArray, u);
 		script.declareFun("s2", emptySortArray, u);
 		script.declareFun("v", emptySortArray, u);
 		// Prepare test term
-		TermVariable x = script.variable("x", u);
-		TermVariable[] var = {x};
-		Term testStub = script.term("or",
+		final TermVariable x = script.variable("x", u);
+		final TermVariable[] var = {x};
+		final Term testStub = script.term("or",
 				script.term("=", script.term("c1"), x),
 				script.term("=", script.term("c2"), x));
 		// Possible Boolean result
-		Term falseTerm = script.term("false");
+		final Term falseTerm = script.term("false");
 		// Assert formulas
 		script.assertTerm(script.term("distinct", script.term("c1"),
 				script.term("c2")));
@@ -90,38 +90,38 @@ public final class ModelSample {
 //				script.term("s2"), script.term("v")));
 		// Refinement loop
 		while (true) {
-			LBool isSat = script.checkSat();
+			final LBool isSat = script.checkSat();
 			if (isSat == LBool.UNSAT) {
 				System.out.println("Formula is unsat");
 				return;
 			}
-			Model model = script.getModel();
-			Term skolem = getSkolem(script, u, numskolem++);
-			Term test = script.let(var, new Term[] {skolem},
+			final Model model = script.getModel();
+			final Term skolem = getSkolem(script, u, numskolem++);
+			final Term test = script.let(var, new Term[] {skolem},
 					script.term("not", testStub));
-			Term evalTest1 = model.evaluate(test);
+			final Term evalTest1 = model.evaluate(test);
 			if (evalTest1 == falseTerm) {
 				System.out.println("Using solver to check model");
-				Term sortConstraint = null;//model.constrainBySort(skolem);
+				final Term sortConstraint = null;//model.constrainBySort(skolem);
 				script.push(1);
 				script.assertTerm(test);
 				script.assertTerm(sortConstraint);
-				LBool mbqitest = script.checkSat();
+				final LBool mbqitest = script.checkSat();
 				if (mbqitest == LBool.UNSAT) {
 					// Recreate the model.
 					script.pop(1);
-					LBool tmp = script.checkSat();
+					final LBool tmp = script.checkSat();
 					assert tmp == LBool.SAT;
 					break;
 				}
-				Model mbqimodel = script.getModel();
-				Term valx = mbqimodel.evaluate(skolem);
+				final Model mbqimodel = script.getModel();
+				final Term valx = mbqimodel.evaluate(skolem);
 				System.out.println("Instantiation: x <- " + valx);
 				script.pop(1);
 				script.assertTerm(script.let(var, new Term[] {valx}, testStub));
 			} else {
 				// We get a new instantiation for (1)
-				Term valx = model.evaluate(skolem);
+				final Term valx = model.evaluate(skolem);
 				System.out.println("Instantiation: x <- " + valx);
 				script.assertTerm(script.let(var, new Term[] {valx}, testStub));
 			}

@@ -37,13 +37,13 @@ public class Incremental {
 	@Test
 	public void testPushPop() throws Exception {
         // Setup theory and formulae
-		Script script = new SMTInterpol(new DefaultLogger());
+		final Script script = new SMTInterpol(new DefaultLogger());
 		script.setLogic(Logics.QF_UFLIA);
-		Sort intSort = script.sort("Int");
+		final Sort intSort = script.sort("Int");
 		script.declareFun("f", new Sort[] {intSort}, intSort);
 		script.declareFun("x", new Sort[]{}, intSort);
 		// (= (f x) (+ 5 7))
-		Term satformula = script.term("=", script.term("f", script.term("x")),
+		final Term satformula = script.term("=", script.term("f", script.term("x")),
 			script.term("+", script.numeral("5"), script.numeral("7")));
 		
 		// Initial: satformula

@@ -40,7 +40,7 @@ public final class GetAssignmentsSample {
 	public static void main(String[] ignored) {
 		try {
 			// Create a new interaction script
-			Script script = new SMTInterpol(new DefaultLogger());
+			final Script script = new SMTInterpol(new DefaultLogger());
 			// Enable production of assignments for Boolean named terms
 			script.setOption(":produce-assignments", true);
 			
@@ -48,21 +48,21 @@ public final class GetAssignmentsSample {
 			declareStuff(script);
 			// Build the formula (f(x) == f(y) /\ x == y) \/ x != y
 			// Name every literal in the formula
-			Term x = script.term("x");
-			Term y = script.term("y");
-			Term fx = script.term("f", x);
-			Term fy = script.term("f", y);
-			Term xeqy = script.term("=", x, y);
-			Term fxeqfy = script.term("=", fx, fy);
-			Term namedxeqy =
+			final Term x = script.term("x");
+			final Term y = script.term("y");
+			final Term fx = script.term("f", x);
+			final Term fy = script.term("f", y);
+			final Term xeqy = script.term("=", x, y);
+			final Term fxeqfy = script.term("=", fx, fy);
+			final Term namedxeqy =
 				script.annotate(xeqy, new Annotation(":named", "xeqy"));
-			Term namedxneqy =
+			final Term namedxneqy =
 				script.annotate(script.term("not", xeqy), 
 						new Annotation(":named", "xneqy"));
-			Term namedfxeqfy =
+			final Term namedfxeqfy =
 				script.annotate(fxeqfy, new Annotation(":named", "fxeqfy"));
-			Term conj = script.term("and", namedfxeqfy, namedxeqy);
-			Term disj = script.term("or", conj, namedxneqy);
+			final Term conj = script.term("and", namedfxeqfy, namedxeqy);
+			final Term disj = script.term("or", conj, namedxneqy);
 			script.assertTerm(disj);
 			LBool res = script.checkSat();
 			if (res != LBool.SAT) {
@@ -70,8 +70,8 @@ public final class GetAssignmentsSample {
 				System.exit(2);
 			}
 			Assignments ass = script.getAssignment();
-			boolean isXEqY = ass.getAssignment("xeqy");
-			boolean isXNeqY = ass.getAssignment("xneqy");
+			final boolean isXEqY = ass.getAssignment("xeqy");
+			final boolean isXNeqY = ass.getAssignment("xneqy");
 			if (isXEqY == isXNeqY) {
 				System.err.println(
 						"Bug in SMTInterpol: x is equal to y and unequal at the same time!");// NOCHECKSTYLE
@@ -84,9 +84,10 @@ public final class GetAssignmentsSample {
 				// === BLOCKING CLAUSE ===
 				// Negate all labels that are assigned true in the current model
 				System.err.println("Blocking clause");
-				HashSet<Term> satLabels = new HashSet<Term>();
-				for (String label : ass.getTrueAssignments())
+				final HashSet<Term> satLabels = new HashSet<Term>();
+				for (final String label : ass.getTrueAssignments()) {
 					satLabels.add(script.term("not", script.term(label)));
+				}
 				// Guard against 1-ary "or"
 				clause = satLabels.size() == 1 ? satLabels.iterator().next()
 					: script.term("or", 
@@ -95,9 +96,10 @@ public final class GetAssignmentsSample {
 				// === ENABLING CLAUSE ===
 				// Add all labels that are assigned false in the current model
 				System.err.println("Enabling clause");
-				HashSet<Term> unsatLabels = new HashSet<Term>();
-				for (String label : ass.getFalseAssignments())
+				final HashSet<Term> unsatLabels = new HashSet<Term>();
+				for (final String label : ass.getFalseAssignments()) {
 					unsatLabels.add(script.term(label));
+				}
 				// Guard against 1-ary "or"
 				clause = unsatLabels.size() == 1
 						? unsatLabels.iterator().next() : script.term("or", 
@@ -120,9 +122,10 @@ public final class GetAssignmentsSample {
 				// === BLOCKING CLAUSE ===
 				// Negate all labels that are assigned true in the current model
 				System.err.println("Blocking clause");
-				HashSet<Term> satLabels = new HashSet<Term>();
-				for (String label : ass.getTrueAssignments())
+				final HashSet<Term> satLabels = new HashSet<Term>();
+				for (final String label : ass.getTrueAssignments()) {
 					satLabels.add(script.term("not", script.term(label)));
+				}
 				// Guard against 1-ary "or"
 				clause = satLabels.size() == 1 ? satLabels.iterator().next()
 					: script.term("or", 
@@ -131,9 +134,10 @@ public final class GetAssignmentsSample {
 				// === ENABLING CLAUSE ===
 				// Add all labels that are assigned false in the current model.
 				System.err.println("Enabling clause");
-				HashSet<Term> unsatLabels = new HashSet<Term>();
-				for (String label : ass.getFalseAssignments())
+				final HashSet<Term> unsatLabels = new HashSet<Term>();
+				for (final String label : ass.getFalseAssignments()) {
 					unsatLabels.add(script.term(label));
+				}
 				// Guard against 1-ary "or"
 				clause = unsatLabels.size() == 1
 					? unsatLabels.iterator().next()
@@ -154,7 +158,7 @@ public final class GetAssignmentsSample {
 			System.out.println(
 					"I found two different models for the boolean part");
 			script.exit();
-		} catch (SMTLIBException exc) {
+		} catch (final SMTLIBException exc) {
 			exc.printStackTrace(System.err);
 			System.exit(1);
 		}
@@ -164,8 +168,8 @@ public final class GetAssignmentsSample {
 		// 0-ary sort U is the only sort we use
 		script.declareSort("U", 0);
 		// Variables: x, y of type U; f of type U->U
-		Sort[] empty = {};
-		Sort U = script.sort("U");
+		final Sort[] empty = {};
+		final Sort U = script.sort("U");
 		script.declareFun("x", empty, U);
 		script.declareFun("y", empty, U);
 		script.declareFun("f", new Sort[]{ U }, U);

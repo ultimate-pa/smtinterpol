@@ -28,8 +28,10 @@ import org.junit.runners.JUnit4;
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.ReasonUnknown;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
-import de.uni_freiburg.informatik.ultimate.logic.Sort;
+import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
+import de.uni_freiburg.informatik.ultimate.logic.Sort;
+import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 
@@ -60,135 +62,135 @@ public class APITest {
 	 */
 	@Test
 	public void testNoLogic() {
-		SMTInterpol solver = new SMTInterpol(new DefaultLogger());
+		final SMTInterpol solver = new SMTInterpol(new DefaultLogger());
 		solver.setOption(":interactive-mode", true);
 		try {
 			solver.sort("Bool");
 			Assert.fail("Could retrieve sort Bool without logic");
-		} catch (SMTLIBException expected) {
+		} catch (final SMTLIBException expected) {
 			System.err.println(expected.getMessage());
 		}
 		try {
 			solver.assertTerm(solver.term("true"));
 			Assert.fail("Could assert true without logic");
-		} catch (SMTLIBException expected) {
+		} catch (final SMTLIBException expected) {
 			System.err.println(expected.getMessage());
 		}
 		try {
 			solver.checkSat();
 			Assert.fail("Could check satisfiability without logic");
-		} catch (SMTLIBException expected) {
+		} catch (final SMTLIBException expected) {
 			System.err.println(expected.getMessage());
 		}
 		try {
 			solver.push(1);
 			Assert.fail("Could push without logic");
-		} catch (SMTLIBException expected) {
+		} catch (final SMTLIBException expected) {
 			System.err.println(expected.getMessage());
 		}
 		try {
 			solver.pop(1);
 			Assert.fail("Could pop without logic");
-		} catch (SMTLIBException expected) {
+		} catch (final SMTLIBException expected) {
 			System.err.println(expected.getMessage());
 		}
 		try {
 			solver.assertTerm(solver.term("true"));
 			Assert.fail("Could assert true without logic");
-		} catch (SMTLIBException expected) {
+		} catch (final SMTLIBException expected) {
 			System.err.println(expected.getMessage());
 		}
 		try {
 			solver.getAssertions();
 			Assert.fail("Could get assertions without logic");
-		} catch (SMTLIBException expected) {
+		} catch (final SMTLIBException expected) {
 			System.err.println(expected.getMessage());
 		}
 	}
 
 	@Test
 	public void testFaultyLogic() {
-		SMTInterpol solver = new SMTInterpol(new DefaultLogger());
+		final SMTInterpol solver = new SMTInterpol(new DefaultLogger());
 		try {
 			solver.setLogic("TestLogicThatDoesNotExist");
 			Assert.fail("Could set strange logic!");
-		} catch (UnsupportedOperationException expected) {
+		} catch (final UnsupportedOperationException expected) {
 			System.err.println(expected.getMessage());
 		}
 	}
 	
 	@Test
 	public void testPushPop() {
-		SMTInterpol solver = new SMTInterpol(new DefaultLogger());
+		final SMTInterpol solver = new SMTInterpol(new DefaultLogger());
 		solver.setLogic(Logics.QF_LIA);
 		try {
 			solver.push(3);// NOCHECKSTYLE
-		} catch (SMTLIBException eUnexpected) {
+		} catch (final SMTLIBException eUnexpected) {
 			Assert.fail(eUnexpected.getMessage());
 		}
 		try {
 			solver.pop(2);// NOCHECKSTYLE
-		} catch (SMTLIBException eUnexpected) {
+		} catch (final SMTLIBException eUnexpected) {
 			Assert.fail(eUnexpected.getMessage());
 		}
 		try {
 			solver.pop(2);// NOCHECKSTYLE
 			Assert.fail("Could pop 4 levels after pushing 3");
-		} catch (SMTLIBException expected) {
+		} catch (final SMTLIBException expected) {
 			System.err.println(expected.getMessage());
 		}
 	}
 
 	@Test
 	public void testSetOptionLate() {
-		SMTInterpol solver = new SMTInterpol(new DefaultLogger());
+		final SMTInterpol solver = new SMTInterpol(new DefaultLogger());
 		solver.setLogic(Logics.QF_LIA);
 		try {
 			solver.setOption(":interactive-mode", true);
 			Assert.fail("Could activate interactive mode after setting logic");
-		} catch (SMTLIBException expected) {
+		} catch (final SMTLIBException expected) {
 			System.err.println(expected.getMessage());
 		}
 		try {
 			solver.setOption(":produce-proofs", true);
 			Assert.fail("Could activate proof production after setting logic");
-		} catch (SMTLIBException expected) {
+		} catch (final SMTLIBException expected) {
 			System.err.println(expected.getMessage());
 		}
 		try {
 			solver.setOption(":produce-unsat-cores", true);
 			Assert.fail("Could activate unsat core production after setting logic");
-		} catch (SMTLIBException expected) {
+		} catch (final SMTLIBException expected) {
 			System.err.println(expected.getMessage());
 		}
 		try {
 			solver.setOption(":produce-assignments", true);
 			Assert.fail("Could activate assignment production after setting logic");
-		} catch (SMTLIBException expected) {
+		} catch (final SMTLIBException expected) {
 			System.err.println(expected.getMessage());
 		}
 		try {
 			solver.setOption(":interpolant-check-mode", true);
 			Assert.fail("Could activate interpolant check mode after setting logic");
-		} catch (SMTLIBException expected) {
+		} catch (final SMTLIBException expected) {
 			System.err.println(expected.getMessage());
 		}
 		try {
 			solver.setOption(":unsat-core-check-mode", true);
 			Assert.fail("Could activate unsat core check mode after setting logic");
-		} catch (SMTLIBException expected) {
+		} catch (final SMTLIBException expected) {
 			System.err.println(expected.getMessage());
 		}
 	}
 	
 	@Test
 	public void testSetLogicTwice() {
-		SMTInterpol solver = new SMTInterpol(new DefaultLogger());
+		final SMTInterpol solver = new SMTInterpol(new DefaultLogger());
 		solver.setLogic(Logics.QF_LIA);
 		try {
 			solver.setLogic(Logics.QF_LIA);
 			Assert.fail("Could set logic a second time");
-		} catch (SMTLIBException expected) {
+		} catch (final SMTLIBException expected) {
 			System.err.println(expected.getMessage());
 		}
 		try {
@@ -196,15 +198,15 @@ public class APITest {
 			solver.assertTerm(solver.term("=", 
 					solver.term("x"), solver.numeral(BigInteger.ZERO)));
 			solver.checkSat();
-		} catch (SMTLIBException eUnexpected) {
+		} catch (final SMTLIBException eUnexpected) {
 			Assert.fail(eUnexpected.getMessage());
 		}
 	}
 	
 	@Test
 	public void testTermAssertion() {
-		SMTInterpol solver1 = new SMTInterpol(new DefaultLogger());
-		SMTInterpol solver2 = new SMTInterpol(new DefaultLogger());
+		final SMTInterpol solver1 = new SMTInterpol(new DefaultLogger());
+		final SMTInterpol solver2 = new SMTInterpol(new DefaultLogger());
 		solver1.setLogic(Logics.QF_LIA);
 		solver2.setLogic(Logics.QF_LIA);
 		solver1.declareFun("x", new Sort[0], solver1.sort("Int"));
@@ -213,13 +215,13 @@ public class APITest {
 			solver1.assertTerm(solver2.term("=",
 					solver2.term("x"), solver2.numeral(BigInteger.ZERO)));
 			Assert.fail("Could assert term created by different solver");
-		} catch (SMTLIBException expected) {
+		} catch (final SMTLIBException expected) {
 			System.err.println(expected.getMessage());
 		}
 		try {
 			solver1.assertTerm(solver1.term("x"));
 			Assert.fail("Could assert non-Boolean term");
-		} catch (SMTLIBException expected) {
+		} catch (final SMTLIBException expected) {
 			System.err.println(expected.getMessage());
 		}
 		if (Config.STRONG_USAGE_CHECKS) {
@@ -227,7 +229,7 @@ public class APITest {
 				solver1.assertTerm(solver1.term("=", solver1.term("x"),
 						solver1.variable("y", solver1.sort("Int"))));
 				Assert.fail("Could assert open term");
-			} catch (SMTLIBException expected) {
+			} catch (final SMTLIBException expected) {
 				System.err.println(expected.getMessage());
 			}
 		} else {
@@ -237,28 +239,28 @@ public class APITest {
 	
 	@Test
 	public void testUndeclared() {
-		SMTInterpol solver = new SMTInterpol(new DefaultLogger());
+		final SMTInterpol solver = new SMTInterpol(new DefaultLogger());
 		solver.setLogic(Logics.QF_LIA);
 		try {
 			solver.term("x");
 			Assert.fail("Could create undeclared term");
-		} catch (SMTLIBException expected) {
+		} catch (final SMTLIBException expected) {
 			System.err.println(expected.getMessage());
 		}
 		try {
 			solver.variable("x", solver.sort("NOTEXISTENT"));
 			Assert.fail("Could create variable with unknown sort");
-		} catch (SMTLIBException expected) {
+		} catch (final SMTLIBException expected) {
 			System.err.println(expected.getMessage());
 		}
 	}
 	
 	@Test
 	public void cancellationRequest() {
-		TerminationCounter tc = new TerminationCounter();
-		SMTInterpol solver = new SMTInterpol(new DefaultLogger(), tc);
+		final TerminationCounter tc = new TerminationCounter();
+		final SMTInterpol solver = new SMTInterpol(new DefaultLogger(), tc);
 		solver.setLogic(Logics.CORE);
-		Sort bool = solver.sort("Bool");
+		final Sort bool = solver.sort("Bool");
 		solver.declareFun("P", new Sort[0], bool);
 		solver.declareFun("Q", new Sort[0], bool);
 		solver.declareFun("R", new Sort[0], bool);
@@ -310,5 +312,54 @@ public class APITest {
 		solver.pop(1);
 		isSat = solver.checkSat();
 		Assert.assertSame(LBool.SAT, isSat);
+	}
+
+	@Test
+	public void testResetAssertions() {
+		final SMTInterpol solver = new SMTInterpol(new DefaultLogger());
+		solver.setLogic(Logics.QF_LIA);
+		solver.declareFun("x", Script.EMPTY_SORT_ARRAY, solver.sort("Int"));
+		solver.assertTerm(solver.term("false"));
+		LBool res = solver.checkSat();
+		Assert.assertSame(res, LBool.UNSAT);
+		try {
+			solver.resetAssertions();
+			res = solver.checkSat();
+			Assert.assertSame(res, LBool.SAT);
+		} catch (final SMTLIBException ese) {
+			Assert.fail(ese.getMessage());
+		} catch (final UnsupportedOperationException eunsupp) {
+			Assert.fail(eunsupp.getMessage());
+		}
+		try {
+			solver.declareFun("x", Script.EMPTY_SORT_ARRAY, solver.sort("Int"));
+		} catch (final SMTLIBException ese) {
+			Assert.fail(ese.getMessage());
+		}
+	}
+	@Test
+	public void testGlobalSymbols() {
+		final SMTInterpol solver = new SMTInterpol(new DefaultLogger());
+		try {
+			solver.setOption(":global-declarations", Boolean.TRUE);
+		} catch (final UnsupportedOperationException eunsupp) {
+			Assert.fail("global-declarations not supported!!!");
+		}
+		solver.setLogic(Logics.QF_LIA);
+		solver.declareFun("x", Script.EMPTY_SORT_ARRAY, solver.sort("Int"));
+		final Term x = solver.term("x");
+		try {
+			solver.resetAssertions();
+		} catch (final SMTLIBException ese) {
+			Assert.fail(ese.getMessage());
+		} catch (final UnsupportedOperationException eunsupp) {
+			Assert.fail(eunsupp.getMessage());
+		}
+		try {
+			final Term x2 = solver.term("x");
+			Assert.assertSame(x, x2);
+		} catch (final SMTLIBException ese) {
+			Assert.fail(ese.getMessage());
+		}
 	}
 }

@@ -42,8 +42,8 @@ public class NeutralRemover extends NonRecursive {
 		}
 		@Override
 		public void walk(NonRecursive engine) {
-			NeutralRemover remover = (NeutralRemover) engine;
-			Term sub = remover.getConverted();
+			final NeutralRemover remover = (NeutralRemover) engine;
+			final Term sub = remover.getConverted();
 			remover.setResult(sub == mAnnot.getSubterm()
 					? mAnnot
 						: mAnnot.getTheory().annotatedTerm(
@@ -62,21 +62,22 @@ public class NeutralRemover extends NonRecursive {
 		}
 		@Override
 		public void walk(NonRecursive engine) {
-			NeutralRemover remover = (NeutralRemover) engine;
-			if (mApp.getParameters().length == 0)
+			final NeutralRemover remover = (NeutralRemover) engine;
+			if (mApp.getParameters().length == 0) {
 				remover.setResult(mApp);
-			else if (mNumParams == 0) {
+			} else if (mNumParams == 0) {
 				// Try to remove the whole term
-				if (mApp.getSort() == mApp.getTheory().getBooleanSort())
+				if (mApp.getSort() == mApp.getTheory().getBooleanSort()) {
 					remover.setResult(mApp.getTheory().mTrue);
-				else
+				} else {
 					remover.setResult(Rational.ZERO.toTerm(mApp.getSort()));
+				}
 			} else if (mNumParams == 1 && mApp.getParameters().length != 1) {
 				// We removed some neutral elements.  The result is already on
 				// the result stack.  Thus, we don't do
 				// remover.setResult(remover.getConverted());
 			} else {
-				Term[] params = remover.getConverted(mNumParams);
+				final Term[] params = remover.getConverted(mNumParams);
 				remover.setResult(mApp.getTheory().term(
 						mApp.getFunction(), params));
 			}
@@ -90,9 +91,9 @@ public class NeutralRemover extends NonRecursive {
 		}
 		@Override
 		public void walk(NonRecursive engine) {
-			NeutralRemover remover = (NeutralRemover) engine;
-			Term[] values = remover.getConverted(mLet.getValues().length);
-			Term sub = remover.getConverted();
+			final NeutralRemover remover = (NeutralRemover) engine;
+			final Term[] values = remover.getConverted(mLet.getValues().length);
+			final Term sub = remover.getConverted();
 			remover.setResult(sub.getTheory().let(
 					mLet.getVariables(), values, sub));
 		}
@@ -105,15 +106,16 @@ public class NeutralRemover extends NonRecursive {
 		}
 		@Override
 		public void walk(NonRecursive engine) {
-			NeutralRemover remover = (NeutralRemover) engine;
-			Term sub = remover.getConverted();
-			Theory t = sub.getTheory();
-			if (sub == mQuant.getSubformula())
+			final NeutralRemover remover = (NeutralRemover) engine;
+			final Term sub = remover.getConverted();
+			final Theory t = sub.getTheory();
+			if (sub == mQuant.getSubformula()) {
 				remover.setResult(mQuant);
-			else if (mQuant.getQuantifier() == QuantifiedFormula.EXISTS)
+			} else if (mQuant.getQuantifier() == QuantifiedFormula.EXISTS) {
 				remover.setResult(t.exists(mQuant.getVariables(), sub));
-			else
+			} else {
 				remover.setResult(t.forall(mQuant.getVariables(), sub));
+			}
 		}
 	}
 
@@ -136,11 +138,11 @@ public class NeutralRemover extends NonRecursive {
 
 		@Override
 		public void walk(NonRecursive walker, ApplicationTerm term) {
-			NeutralRemover remover = (NeutralRemover) walker;
-			BuildApplicationTerm bat = new BuildApplicationTerm(term);
+			final NeutralRemover remover = (NeutralRemover) walker;
+			final BuildApplicationTerm bat = new BuildApplicationTerm(term);
 			walker.enqueueWalker(bat);
 			int paramsPushed = 0;
-			Term[] params = term.getParameters();
+			final Term[] params = term.getParameters();
 			for (int i = 0; i < params.length; ++i) {
 				if (!remover.shouldRemove(term, i)) {
 					walker.enqueueWalker(new NeutralWalker(params[i]));
@@ -153,8 +155,9 @@ public class NeutralRemover extends NonRecursive {
 		@Override
 		public void walk(NonRecursive walker, LetTerm term) {
 			walker.enqueueWalker(new BuildLetTerm(term));
-			for (Term v : term.getValues())
+			for (final Term v : term.getValues()) {
 				walker.enqueueWalker(new NeutralWalker(v));
+			}
 			walker.enqueueWalker(new NeutralWalker(term.getSubTerm()));
 		}
 
@@ -193,9 +196,10 @@ public class NeutralRemover extends NonRecursive {
 	}
 	
 	Term[] getConverted(int num) {
-		Term[] res = new Term[num];
-		for (int i = 0; i < res.length; ++i)
+		final Term[] res = new Term[num];
+		for (int i = 0; i < res.length; ++i) {
 			res[i] = mConverted.pop();
+		}
 		return res;
 	}
 	

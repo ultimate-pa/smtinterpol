@@ -31,8 +31,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.TerminationRequest;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
 
 /**
  * Test Class for Pair Hash.
@@ -47,7 +45,7 @@ public final class PairHashTest {
 	
 	public PairHashTest() {
 		mTheory = new Theory(Logics.QF_UF);
-		DPLLEngine dpllEngine = new DPLLEngine(mTheory, new DefaultLogger(),
+		final DPLLEngine dpllEngine = new DPLLEngine(mTheory, new DefaultLogger(),
 				new TerminationRequest() {
 					
 					@Override
@@ -55,17 +53,17 @@ public final class PairHashTest {
 						return false;
 					}
 				});
-		mEngine = new CClosure(dpllEngine,null);
+		mEngine = new CClosure(dpllEngine);
 		createtermss();
 		dpllEngine.getLogger().setLoglevel(LogProxy.LOGLEVEL_DEBUG);
 	}
 	
 	public void createtermss() {
 		mTheory.declareSort("U", 0);
-		Sort sort = mTheory.getSort("U");
+		final Sort sort = mTheory.getSort("U");
 		mTerms = new CCTerm[100];// NOCHECKSTYLE
 		for (int i = 0; i < 100; i++) {// NOCHECKSTYLE
-			FunctionSymbol sym = mTheory.declareFunction(
+			final FunctionSymbol sym = mTheory.declareFunction(
 					"x" + i, new Sort[0], sort);
 			mTerms[i]  = mEngine.createFuncTerm(sym, new CCTerm[0],null); 
 		}
@@ -96,9 +94,9 @@ public final class PairHashTest {
 		for (int i = 64; i >= 1; i /= 2) {// NOCHECKSTYLE
 			for (int j = (99 / 2 / i) * 2 * i; j >= 0; j -= 2 * i) {// NOCHECKSTYLE
 				if (j+i < 100) {// NOCHECKSTYLE
-					CCTerm lhs = mTerms[j];
-					CCTerm rhs = mTerms[j + i];
-					CCTerm tmp = mEngine.mMerges.pop();
+					final CCTerm lhs = mTerms[j];
+					final CCTerm rhs = mTerms[j + i];
+					final CCTerm tmp = mEngine.mMerges.pop();
 					if (tmp == lhs) {
 						lhs.mRepStar.invertEqualEdges(mEngine);
 						lhs.undoMerge(mEngine, rhs);

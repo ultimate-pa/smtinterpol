@@ -45,34 +45,39 @@ public class RPITest {
 			mSeen = new HashSet<Clause>();
 			mTodo.add(proof);
 			while (!mTodo.isEmpty()) {
-				Clause tmp = mTodo.pop();
-				Clause exp = expected.poll();
+				final Clause tmp = mTodo.pop();
+				final Clause exp = expected.poll();
 				if (!clauseEqual(tmp, exp)) {
 					System.err.println("Expected " + exp);
 					System.err.println("Got " + tmp);
 					return false;
 				}
 				if (mSeen.add(tmp)) {
-					ProofNode pn = tmp.getProof();
+					final ProofNode pn = tmp.getProof();
 					if (!pn.isLeaf()) {
-						ResolutionNode rn = (ResolutionNode) pn;
+						final ResolutionNode rn = (ResolutionNode) pn;
 						mTodo.push(rn.getPrimary());
-						for (Antecedent a : rn.getAntecedents())
+						for (final Antecedent a : rn.getAntecedents()) {
 							mTodo.push(a.mAntecedent);
+						}
 					}
 				}
 			}
 			return true;
 		}
 		private static final boolean clauseEqual(Clause c1, Clause c2) {
-			if (c1.getSize() != c2.getSize())
+			if (c1.getSize() != c2.getSize()) {
 				return false;
-			HashSet<Literal> l1 = new HashSet<Literal>();
-			for (int i = 0; i < c1.getSize(); ++i)
+			}
+			final HashSet<Literal> l1 = new HashSet<Literal>();
+			for (int i = 0; i < c1.getSize(); ++i) {
 				l1.add(c1.getLiteral(i));
-			for (int i = 0; i < c2.getSize(); ++i)
-				if (!l1.remove(c2.getLiteral(i)))
+			}
+			for (int i = 0; i < c2.getSize(); ++i) {
+				if (!l1.remove(c2.getLiteral(i))) {
 					return false;
+				}
+			}
 			return l1.isEmpty();
 		}
 	}
@@ -88,6 +93,7 @@ public class RPITest {
 		public Term getSMTFormula(Theory smtTheory, boolean quoted) {
 			throw new InternalError("Bug in testcase");
 		}
+		@Override
 		public String toString() {
 			return mName;
 		}
@@ -136,12 +142,12 @@ public class RPITest {
 				mEtas[3], new Antecedent[] {// NOCHECKSTYLE
 					new Antecedent(mB.negate(), mEtas[6]),// NOCHECKSTYLE
 					new Antecedent(mA.negate(), mEtas[0])}));
-		Clause empty = new Clause(new Literal[0], new ResolutionNode(mEtas[5],// NOCHECKSTYLE
+		final Clause empty = new Clause(new Literal[0], new ResolutionNode(mEtas[5],// NOCHECKSTYLE
 				new Antecedent[] { new Antecedent(mC.negate(), mEtas[8])}));// NOCHECKSTYLE
-		Clause transformed = AvailableTransformations.RPI.transform(empty);
-		ProofDAGCheck pdc = new ProofDAGCheck();
+		final Clause transformed = AvailableTransformations.RPI.transform(empty);
+		final ProofDAGCheck pdc = new ProofDAGCheck();
 		// Sanity check
-		Queue<Clause> input = new ArrayDeque<Clause>();
+		final Queue<Clause> input = new ArrayDeque<Clause>();
 		input.add(empty);
 		input.add(mEtas[8]);// NOCHECKSTYLE
 		input.add(mEtas[0]);
@@ -154,7 +160,7 @@ public class RPITest {
 		input.add(mEtas[3]);// NOCHECKSTYLE
 		input.add(mEtas[1]);
 		input.add(mEtas[0]);
-		boolean checkDAGCheck = pdc.check(input, empty);
+		final boolean checkDAGCheck = pdc.check(input, empty);
 		Assert.assertTrue(checkDAGCheck);
 		input.clear();
 		input.add(empty);
@@ -167,7 +173,7 @@ public class RPITest {
 		input.add(mEtas[2]);
 		input.add(mEtas[1]);
 		input.add(mEtas[0]);
-		boolean check = new ProofDAGCheck().check(input, transformed);
+		final boolean check = new ProofDAGCheck().check(input, transformed);
 		Assert.assertTrue(check);
 	}
 	
@@ -194,16 +200,16 @@ public class RPITest {
 				mEtas[3], new Antecedent[] {// NOCHECKSTYLE
 					new Antecedent(mB.negate(), mEtas[6]),// NOCHECKSTYLE
 					new Antecedent(mA.negate(), mEtas[0])}));
-		Antecedent[] antes = new Antecedent[] {
+		final Antecedent[] antes = new Antecedent[] {
 			new Antecedent(mA.negate(), mEtas[0]),
 			new Antecedent(mC.negate(), mEtas[8])// NOCHECKSTYLE
 		};
-		Clause empty = new Clause(new Literal[0], new ResolutionNode(mEtas[4],// NOCHECKSTYLE
+		final Clause empty = new Clause(new Literal[0], new ResolutionNode(mEtas[4],// NOCHECKSTYLE
 				antes));
-		Clause transformed = AvailableTransformations.RPI.transform(empty);
-		ProofDAGCheck pdc = new ProofDAGCheck();
+		final Clause transformed = AvailableTransformations.RPI.transform(empty);
+		final ProofDAGCheck pdc = new ProofDAGCheck();
 		// Sanity check
-		Queue<Clause> input = new ArrayDeque<Clause>();
+		final Queue<Clause> input = new ArrayDeque<Clause>();
 		input.add(empty);
 		input.add(mEtas[8]);// NOCHECKSTYLE
 		input.add(mEtas[0]);
@@ -216,7 +222,7 @@ public class RPITest {
 		input.add(mEtas[1]);
 		input.add(mEtas[2]);
 		input.add(mEtas[0]);
-		boolean checkDAGCheck = pdc.check(input, empty);
+		final boolean checkDAGCheck = pdc.check(input, empty);
 		Assert.assertTrue(checkDAGCheck);
 		input.clear();
 		input.add(empty);
@@ -228,7 +234,7 @@ public class RPITest {
 		input.add(mEtas[4]);// NOCHECKSTYLE
 		input.add(mEtas[1]);
 		input.add(mEtas[2]);
-		boolean check = new ProofDAGCheck().check(input, transformed);
+		final boolean check = new ProofDAGCheck().check(input, transformed);
 		Assert.assertTrue(check);
 	}
 	
@@ -258,16 +264,16 @@ public class RPITest {
 				mEtas[7], new Antecedent[] {// NOCHECKSTYLE
 					new Antecedent(mA.negate(), mEtas[0])
 				}));
-		Antecedent[] antes = new Antecedent[] {
+		final Antecedent[] antes = new Antecedent[] {
 			new Antecedent(mA.negate(), mEtas[0]),
 			new Antecedent(mC.negate(), mEtas[8])// NOCHECKSTYLE
 		};
-		Clause empty = new Clause(new Literal[0], new ResolutionNode(mEtas[4],// NOCHECKSTYLE
+		final Clause empty = new Clause(new Literal[0], new ResolutionNode(mEtas[4],// NOCHECKSTYLE
 				antes));
-		Clause transformed = AvailableTransformations.RPI.transform(empty);
-		ProofDAGCheck pdc = new ProofDAGCheck();
+		final Clause transformed = AvailableTransformations.RPI.transform(empty);
+		final ProofDAGCheck pdc = new ProofDAGCheck();
 		// Sanity check
-		Queue<Clause> input = new ArrayDeque<Clause>();
+		final Queue<Clause> input = new ArrayDeque<Clause>();
 		input.add(empty);
 		input.add(mEtas[8]);// NOCHECKSTYLE
 		input.add(mEtas[0]);
@@ -280,7 +286,7 @@ public class RPITest {
 		input.add(mEtas[1]);
 		input.add(mEtas[2]);
 		input.add(mEtas[0]);
-		boolean checkDAGCheck = pdc.check(input, empty);
+		final boolean checkDAGCheck = pdc.check(input, empty);
 		Assert.assertTrue(checkDAGCheck);
 		input.clear();
 		input.add(empty);
@@ -293,41 +299,41 @@ public class RPITest {
 		input.add(mEtas[4]);// NOCHECKSTYLE
 		input.add(mEtas[1]);
 		input.add(mEtas[2]);
-		boolean check = new ProofDAGCheck().check(input, transformed);
+		final boolean check = new ProofDAGCheck().check(input, transformed);
 		Assert.assertTrue(check);
 	}
 	
 	@Test
 	public void testNewExample() {
-		Clause nega = new Clause(new Literal[]{mA.negate()},
+		final Clause nega = new Clause(new Literal[]{mA.negate()},
 				new LeafNode(LeafNode.NO_THEORY,
 						new SourceAnnotation("nega", null)));
-		Clause negb = new Clause(new Literal[]{mB.negate()},
+		final Clause negb = new Clause(new Literal[]{mB.negate()},
 				new LeafNode(LeafNode.NO_THEORY,
 						new SourceAnnotation("negb", null)));
-		Clause ab = new Clause(new Literal[]{mA, mB},
+		final Clause ab = new Clause(new Literal[]{mA, mB},
 				new LeafNode(LeafNode.NO_THEORY,
 						new SourceAnnotation("ab", null)));
-		Clause negbc = new Clause(new Literal[]{mB.negate(), mC},
+		final Clause negbc = new Clause(new Literal[]{mB.negate(), mC},
 				new LeafNode(LeafNode.NO_THEORY,
 						new SourceAnnotation("negbc", null)));
-		Clause bnegc = new Clause(new Literal[]{mB, mC.negate()},
+		final Clause bnegc = new Clause(new Literal[]{mB, mC.negate()},
 				new LeafNode(LeafNode.NO_THEORY,
 						new SourceAnnotation("bnegc", null)));
-		Clause ac = new Clause(new Literal[]{mA, mC},
+		final Clause ac = new Clause(new Literal[]{mA, mC},
 				new ResolutionNode(ab, new Antecedent[] {
 					new Antecedent(mB.negate(), negbc)
 				}));
-		Clause empty = new Clause(new Literal[0],
+		final Clause empty = new Clause(new Literal[0],
 				new ResolutionNode(bnegc, new Antecedent[] {
 					new Antecedent(mC, ac),
 					new Antecedent(mB.negate(), negb),
 					new Antecedent(mA.negate(), nega)
 				}));
-		Clause transformed = AvailableTransformations.RPI.transform(empty);
-		ProofDAGCheck pdc = new ProofDAGCheck();
+		final Clause transformed = AvailableTransformations.RPI.transform(empty);
+		final ProofDAGCheck pdc = new ProofDAGCheck();
 		// Sanity check
-		Queue<Clause> input = new ArrayDeque<Clause>();
+		final Queue<Clause> input = new ArrayDeque<Clause>();
 		input.add(empty);
 		input.add(nega);
 		input.add(negb);
@@ -335,48 +341,48 @@ public class RPITest {
 		input.add(negbc);
 		input.add(ab);
 		input.add(bnegc);
-		boolean checkDAGCheck = pdc.check(input, empty);
+		final boolean checkDAGCheck = pdc.check(input, empty);
 		Assert.assertTrue(checkDAGCheck);
 		input.clear();
 		input.add(empty);
 		input.add(nega);
 		input.add(negb);
 		input.add(ab);
-		boolean check = new ProofDAGCheck().check(input, transformed);
+		final boolean check = new ProofDAGCheck().check(input, transformed);
 		Assert.assertTrue(check);
 	}
 
 	@Test
 	public void testNewExample2() {
-		Clause nega = new Clause(new Literal[]{mA.negate()},
+		final Clause nega = new Clause(new Literal[]{mA.negate()},
 				new LeafNode(LeafNode.NO_THEORY,
 						new SourceAnnotation("nega", null)));
-		Clause negb = new Clause(new Literal[]{mB.negate()},
+		final Clause negb = new Clause(new Literal[]{mB.negate()},
 				new LeafNode(LeafNode.NO_THEORY,
 						new SourceAnnotation("negb", null)));
-		Clause ab = new Clause(new Literal[]{mA, mB},
+		final Clause ab = new Clause(new Literal[]{mA, mB},
 				new LeafNode(LeafNode.NO_THEORY,
 						new SourceAnnotation("ab", null)));
-		Clause negbc = new Clause(new Literal[]{mB.negate(), mC},
+		final Clause negbc = new Clause(new Literal[]{mB.negate(), mC},
 				new LeafNode(LeafNode.NO_THEORY,
 						new SourceAnnotation("negbc", null)));
-		Clause bnegc = new Clause(new Literal[]{mB, mC.negate()},
+		final Clause bnegc = new Clause(new Literal[]{mB, mC.negate()},
 				new LeafNode(LeafNode.NO_THEORY,
 						new SourceAnnotation("bnegc", null)));
-		Clause ac = new Clause(new Literal[]{mA, mC},
+		final Clause ac = new Clause(new Literal[]{mA, mC},
 				new ResolutionNode(ab, new Antecedent[] {
 					new Antecedent(mB.negate(), negbc)
 				}));
-		Clause empty = new Clause(new Literal[0],
+		final Clause empty = new Clause(new Literal[0],
 				new ResolutionNode(ac, new Antecedent[] {
 					new Antecedent(mC.negate(), bnegc),
 					new Antecedent(mB.negate(), negb),
 					new Antecedent(mA.negate(), nega)
 				}));
-		Clause transformed = AvailableTransformations.RPI.transform(empty);
-		ProofDAGCheck pdc = new ProofDAGCheck();
+		final Clause transformed = AvailableTransformations.RPI.transform(empty);
+		final ProofDAGCheck pdc = new ProofDAGCheck();
 		// Sanity check
-		Queue<Clause> input = new ArrayDeque<Clause>();
+		final Queue<Clause> input = new ArrayDeque<Clause>();
 		input.add(empty);
 		input.add(nega);
 		input.add(negb);
@@ -384,14 +390,14 @@ public class RPITest {
 		input.add(ac);
 		input.add(negbc);
 		input.add(ab);
-		boolean checkDAGCheck = pdc.check(input, empty);
+		final boolean checkDAGCheck = pdc.check(input, empty);
 		Assert.assertTrue(checkDAGCheck);
 		input.clear();
 		input.add(empty);
 		input.add(nega);
 		input.add(negb);
 		input.add(ab);
-		boolean check = new ProofDAGCheck().check(input, transformed);
+		final boolean check = new ProofDAGCheck().check(input, transformed);
 		Assert.assertTrue(check);
 	}
 	

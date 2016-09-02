@@ -62,25 +62,26 @@ public class EnumOption<E extends Enum<E>> extends Option {
 		if (value instanceof String) {
 			try {
 				mValue = Enum.valueOf(mClass, (String) value);
-			} catch (IllegalArgumentException ignored) {
+			} catch (final IllegalArgumentException ignored) {
 				// For convenience: Java enum constants usually are ALL UPPER
 				try {
 					mValue = Enum.valueOf(mClass, ((String) value).toUpperCase());
-				} catch (IllegalArgumentException eignored) {
+				} catch (final IllegalArgumentException eignored) {
 					throwException(value);
 				}
 			}
 		} else if (value.getClass().getSuperclass() == mClass) {
 			mValue = (E) value;
-		} else
+		} else {
 			throwException(value);
+		}
 	}
 	private final void throwException(Object value) {
-		StringBuilder sb = new StringBuilder(50); // NOCHECKSTYLE
+		final StringBuilder sb = new StringBuilder(50); // NOCHECKSTYLE
 		sb.append("Illegal value: ").append(value);
 		sb.append(". Only ");
 		String sep = "";
-		for (E val : mClass.getEnumConstants()) {
+		for (final E val : mClass.getEnumConstants()) {
 			sb.append(sep).append(val.name());
 			sep = ", ";
 		}

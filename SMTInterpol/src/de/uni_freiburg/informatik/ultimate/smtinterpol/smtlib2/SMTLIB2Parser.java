@@ -27,14 +27,15 @@ public class SMTLIB2Parser implements IParser {
 
 	@Override
 	public int run(Script script, String filename, OptionMap options) {
-		if (filename == null)
+		if (filename == null) {
 			filename = "<stdin>";
+		}
 
-		ParseEnvironment parseEnv = new ParseEnvironment(script,
+		final ParseEnvironment parseEnv = new ParseEnvironment(script,
 				options);
 		try {
 			parseEnv.parseScript(filename);
-		} catch (SMTLIBException se) {
+		} catch (final SMTLIBException se) {
 			parseEnv.printError(se.getMessage());
 		}
 		return 0;

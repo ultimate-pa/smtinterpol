@@ -89,8 +89,9 @@ public class SolverOptions {
 		options.addOption(":verbosity", new VerbosityOption(logger));
 		options.addOption(TIMEOUT, mTimeout);
 		options.addOption(RANDOM_SEED, mRandomSeed);
-		options.addOption(":interactive-mode", new BooleanOption(false, false,
+		options.addOption(":produce-assertions", new BooleanOption(false, false,
 				"Store asserted formulas for later retrieval."));
+		options.addAlias(":interactive-mode", ":produce-assertions");
 		// model options
 		options.addOption(":produce-models", new BooleanOption(false, true,
 				"Produce models for satisfiable formulas"));
@@ -116,6 +117,12 @@ public class SolverOptions {
 		options.addOption(":unsat-core-check-mode", new BooleanOption(
 				false, false, "Check generated unsat cores"));
 		
+		// unsat assumptions options
+		options.addOption(":produce-unsat-assumptions", new BooleanOption(
+				false, false, "Enable production of unsatisfiable assumptions."));
+		options.addOption(":unsat-assumptions-check-mode", new BooleanOption(
+				false, false, "Check generated unsat assumptions"));
+		
 		// general non-standard options
 		options.addOption(CHECK_TYPE, mCheckType);
 		
@@ -123,6 +130,9 @@ public class SolverOptions {
 		options.addOption(SIMPLIFY_CHECK_TYPE, mSimpCheckType);
 		options.addOption(":simplify-repeatedly", new BooleanOption(true, true,
 				"Simplify until the fixpoint is reached."));
+		
+		options.addOption(":global-declarations", new BooleanOption(false, false,
+				"Make all declared and defined symbols global.  Global symbols survive pop operations."));
 	}
 	
 	@SuppressWarnings("unchecked")

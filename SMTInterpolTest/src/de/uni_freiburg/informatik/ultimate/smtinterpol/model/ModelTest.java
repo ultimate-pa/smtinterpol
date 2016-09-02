@@ -31,9 +31,9 @@ import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.Model;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
+import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
-import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 
@@ -52,10 +52,8 @@ public class ModelTest {
 		"u", "v", "w", "x", "y", "z"
 	};
 	
-	private static final Sort[] EMPTY_SORT_ARRAY = new Sort[0];
-	
 	private Script setupScript(Logics logic) {
-		Script res = new SMTInterpol(new DefaultLogger());
+		final Script res = new SMTInterpol(new DefaultLogger());
 		res.setOption(":produce-models", true);
 		res.setLogic(logic);
 		return res;
@@ -67,12 +65,12 @@ public class ModelTest {
 	
 	@Test
 	public void testBoolean() {
-		Script script = setupScript(Logics.QF_UF);
-		Term[] boolTerms = new Term[mBooleanNames.length];
-		Sort bool = script.sort("Bool");
+		final Script script = setupScript(Logics.QF_UF);
+		final Term[] boolTerms = new Term[mBooleanNames.length];
+		final Sort bool = script.sort("Bool");
 		int p = -1;
-		for (String name : mBooleanNames) {
-			script.declareFun(name, EMPTY_SORT_ARRAY, bool);
+		for (final String name : mBooleanNames) {
+			script.declareFun(name, Script.EMPTY_SORT_ARRAY, bool);
 			boolTerms[++p] = script.term(name);
 		}
 		script.declareFun("Pred", new Sort[] {bool}, bool);
@@ -80,20 +78,20 @@ public class ModelTest {
 		// Test single Boolean terms
 		boolean pos = true;
 		// All even indices are of positive, all odd are of negative polarity.
-		for (Term bt : boolTerms) {
+		for (final Term bt : boolTerms) {
 			script.assertTerm(pos ? bt : script.term("not", bt));
 			pos ^= true;
 		}
-		Term trueTerm = script.term("true");
-		Term falseTerm = script.term("false");
+		final Term trueTerm = script.term("true");
+		final Term falseTerm = script.term("false");
 		script.assertTerm(script.term("Pred", trueTerm));
 		script.assertTerm(script.term("not", script.term("Pred", falseTerm)));
-		LBool isSat = script.checkSat();
+		final LBool isSat = script.checkSat();
 		Assert.assertEquals(LBool.SAT, isSat);
-		Model model = script.getModel();
+		final Model model = script.getModel();
 		pos = true;
-		for (Term bt : boolTerms) {
-			Term val = model.evaluate(bt);
+		for (final Term bt : boolTerms) {
+			final Term val = model.evaluate(bt);
 			Assert.assertEquals(pos ? trueTerm : falseTerm, val);
 			pos ^= true;
 		}
@@ -200,33 +198,33 @@ public class ModelTest {
 	
 	@Test
 	public void testTermITE() {
-		Script script = setupScript(Logics.QF_UF);
-		Term[] boolTerms = new Term[mBooleanNames.length];
-		Sort bool = script.sort("Bool");
+		final Script script = setupScript(Logics.QF_UF);
+		final Term[] boolTerms = new Term[mBooleanNames.length];
+		final Sort bool = script.sort("Bool");
 		int p = -1;
-		for (String name : mBooleanNames) {
-			script.declareFun(name, EMPTY_SORT_ARRAY, bool);
+		for (final String name : mBooleanNames) {
+			script.declareFun(name, Script.EMPTY_SORT_ARRAY, bool);
 			boolTerms[++p] = script.term(name);
 		}
 		boolean pos = true;
 		// All even indices are of positive, all odd are of negative polarity.
-		for (Term bt : boolTerms) {
+		for (final Term bt : boolTerms) {
 			script.assertTerm(pos ? bt : script.term("not", bt));
 			pos ^= true;
 		}
-		Term ite1 = script.term(
+		final Term ite1 = script.term(
 				"ite", boolTerms[0], boolTerms[1], boolTerms[2]);
-		Term ite2 = script.term(
+		final Term ite2 = script.term(
 				"ite", boolTerms[3], boolTerms[2], boolTerms[1]);// NOCHECKSTYLE
 		script.assertTerm(script.term("=", ite1, ite2));
-		LBool isSat = script.checkSat();
+		final LBool isSat = script.checkSat();
 		Assert.assertEquals(LBool.SAT, isSat);
-		Term trueTerm = script.term("true");
-		Term falseTerm = script.term("false");
-		Model model = script.getModel();
+		final Term trueTerm = script.term("true");
+		final Term falseTerm = script.term("false");
+		final Model model = script.getModel();
 		pos = true;
-		for (Term bt : boolTerms) {
-			Term val = model.evaluate(bt);
+		for (final Term bt : boolTerms) {
+			final Term val = model.evaluate(bt);
 			Assert.assertEquals(pos ? trueTerm : falseTerm, val);
 			pos ^= true;
 		}
@@ -236,26 +234,26 @@ public class ModelTest {
 	
 	@Test
 	public void testLIA() {
-		Script script = setupScript(Logics.QF_LIA);
-		Term[] intTerms = new Term[mVarNames.length];
-		Sort intSort = script.sort("Int");
+		final Script script = setupScript(Logics.QF_LIA);
+		final Term[] intTerms = new Term[mVarNames.length];
+		final Sort intSort = script.sort("Int");
 		int p = -1;
-		for (String name : mVarNames) {
-			script.declareFun(name, EMPTY_SORT_ARRAY, intSort);
+		for (final String name : mVarNames) {
+			script.declareFun(name, Script.EMPTY_SORT_ARRAY, intSort);
 			intTerms[++p] = script.term(name);
 		}
 		script.assertTerm(script.term("<", intTerms));
 		LBool isSat = script.checkSat();
 		Assert.assertEquals(LBool.SAT, isSat);
-		Term trueTerm = script.term("true");
-		Term falseTerm = script.term("false");
+		final Term trueTerm = script.term("true");
+		final Term falseTerm = script.term("false");
 		Model model = script.getModel();
 		Assert.assertEquals(Rational.ONE,
 				getConstantTerm(model, script.numeral(BigInteger.ONE)).
 					getValue());
-		ConstantTerm uval = getConstantTerm(model, intTerms[0]);
-		ConstantTerm vval = getConstantTerm(model, intTerms[1]);
-		Rational diff = ((Rational) uval.getValue()).sub(
+		final ConstantTerm uval = getConstantTerm(model, intTerms[0]);
+		final ConstantTerm vval = getConstantTerm(model, intTerms[1]);
+		final Rational diff = ((Rational) uval.getValue()).sub(
 				(Rational) vval.getValue());
 		// We have u < v ==> u - v < 0
 		Assert.assertTrue(diff.compareTo(Rational.ZERO) < 0);
@@ -301,7 +299,7 @@ public class ModelTest {
 		// associativity: w >= v >= u
 		Assert.assertEquals(trueTerm, model.evaluate(
 				script.term(">=", intTerms[2], intTerms[1], intTerms[0])));
-		ConstantTerm wwal = getConstantTerm(model, intTerms[2]);
+		final ConstantTerm wwal = getConstantTerm(model, intTerms[2]);
 		// Test for math operations
 		// + (simple)
 		Rational expected = ((Rational) uval.getValue()).add(
@@ -327,15 +325,15 @@ public class ModelTest {
 		Assert.assertEquals(expected, got.getValue());
 		// Now, I fix the value of a variable to compute the values of div, mod,
 		// (_ divisible n), abs
-		Term xvar = intTerms[4];// NOCHECKSTYLE
-		Term tten = script.numeral(BigInteger.TEN);
-		Term tnine = script.numeral(BigInteger.valueOf(9));// NOCHECKSTYLE
-		Term tmnine = script.numeral(BigInteger.valueOf(-9));// NOCHECKSTYLE
+		final Term xvar = intTerms[4];// NOCHECKSTYLE
+		final Term tten = script.numeral(BigInteger.TEN);
+		final Term tnine = script.numeral(BigInteger.valueOf(9));// NOCHECKSTYLE
+		final Term tmnine = script.numeral(BigInteger.valueOf(-9));// NOCHECKSTYLE
 		script.assertTerm(script.term("=", xvar, tten));
 		isSat = script.checkSat();
 		Assert.assertEquals(LBool.SAT, isSat);
 		model = script.getModel();
-		Rational ten = Rational.valueOf(10, 1);// NOCHECKSTYLE
+		final Rational ten = Rational.valueOf(10, 1);// NOCHECKSTYLE
 		Assert.assertEquals(ten, getConstantTerm(model, xvar).getValue());
 		// div
 		Assert.assertEquals(Rational.ONE, getConstantTerm(model,
@@ -371,12 +369,12 @@ public class ModelTest {
 		// care about the types, we don't have to repeat the simple tests here
 		// New tests needed for /, infinitesimal elements, and tableau
 		// simplification
-		Script script = setupScript(Logics.QF_LRA);
-		Term[] realTerms = new Term[mVarNames.length];
-		Sort realSort = script.sort("Real");
+		final Script script = setupScript(Logics.QF_LRA);
+		final Term[] realTerms = new Term[mVarNames.length];
+		final Sort realSort = script.sort("Real");
 		int p = -1;
-		for (String name : mVarNames) {
-			script.declareFun(name, EMPTY_SORT_ARRAY, realSort);
+		for (final String name : mVarNames) {
+			script.declareFun(name, Script.EMPTY_SORT_ARRAY, realSort);
 			realTerms[++p] = script.term(name);
 		}
 		// Keep realTerms[1] unconstrained => simplifier test
@@ -391,11 +389,11 @@ public class ModelTest {
 		script.assertTerm(script.term("<", realTerms[4],// NOCHECKSTYLE
 				script.term("+", realTerms[3],// NOCHECKSTYLE
 						script.numeral(BigInteger.ONE))));
-		LBool isSat = script.checkSat();
+		final LBool isSat = script.checkSat();
 		Assert.assertEquals(LBool.SAT, isSat);
-		Model model = script.getModel();
-		Rational ten = Rational.valueOf(10, 1);// NOCHECKSTYLE
-		Rational five = Rational.valueOf(5, 1);// NOCHECKSTYLE
+		final Model model = script.getModel();
+		final Rational ten = Rational.valueOf(10, 1);// NOCHECKSTYLE
+		final Rational five = Rational.valueOf(5, 1);// NOCHECKSTYLE
 		Assert.assertEquals(ten, getConstantTerm(model, realTerms[0]).getValue());
 		Assert.assertEquals(ten, getConstantTerm(model, realTerms[1]).getValue());
 		Assert.assertEquals(five, getConstantTerm(model, realTerms[2]).getValue());
@@ -407,14 +405,14 @@ public class ModelTest {
 		Assert.assertEquals(Rational.TWO, getConstantTerm(model,
 				script.term("/", realTerms[0], realTerms[2])).getValue());
 		// Infinitesimal test
-		Rational wval =
+		final Rational wval =
 			(Rational) getConstantTerm(model, realTerms[3]).getValue();// NOCHECKSTYLE
-		Rational xval =
+		final Rational xval =
 			(Rational) getConstantTerm(model, realTerms[4]).getValue();// NOCHECKSTYLE
 		Assert.assertTrue(wval.compareTo(xval) < 0);
 		Assert.assertTrue(!wval.isIntegral() || !xval.isIntegral());
 		// Unused rational variable test
-		Rational unusedVal = (Rational) getConstantTerm(model,
+		final Rational unusedVal = (Rational) getConstantTerm(model,
 				script.term("@0", null, realSort)).getValue();
 		Assert.assertEquals(unusedVal,
 				getConstantTerm(model, realTerms[5]).getValue());// NOCHECKSTYLE
@@ -422,10 +420,10 @@ public class ModelTest {
 	
 	@Test
 	public void testLIRA() {
-		Script script = setupScript(Logics.QF_UFLIRA);
-		LBool isSat = script.checkSat();
+		final Script script = setupScript(Logics.QF_UFLIRA);
+		final LBool isSat = script.checkSat();
 		Assert.assertEquals(LBool.SAT, isSat);
-		Model model = script.getModel();
+		final Model model = script.getModel();
 		// Test to_int floor
 		Assert.assertEquals(Rational.ZERO, getConstantTerm(model, script.term("to_int",
 				script.term("/", script.decimal("1.0"),
@@ -442,30 +440,31 @@ public class ModelTest {
 	
 	@Test
 	public void testUF() {
-		Script script = setupScript(Logics.QF_UF);
+		final Script script = setupScript(Logics.QF_UF);
 		script.declareSort("U", 0);
-		Sort u = script.sort("U");
+		final Sort u = script.sort("U");
 		script.declareSort("V", 0);
-		Sort v = script.sort("V");
+		final Sort v = script.sort("V");
 		script.declareFun("f", new Sort[] {u}, u);
 		script.declareFun("g", new Sort[] {u}, u);
-		script.declareFun("x", EMPTY_SORT_ARRAY, u);
-		script.declareFun("y", EMPTY_SORT_ARRAY, u);
-		script.declareFun("z1", EMPTY_SORT_ARRAY, v);
-		script.declareFun("z2", EMPTY_SORT_ARRAY, v);
-		Term x = script.term("x");
-		Term fx = script.term("f", x);
+		script.declareFun("x", Script.EMPTY_SORT_ARRAY, u);
+		script.declareFun("y", Script.EMPTY_SORT_ARRAY, u);
+		script.declareFun("z1", Script.EMPTY_SORT_ARRAY, v);
+		script.declareFun("z2", Script.EMPTY_SORT_ARRAY, v);
+		final Term x = script.term("x");
+		final Term fx = script.term("f", x);
 		script.assertTerm(script.term("=", x, fx));
-		LBool isSat = script.checkSat();
+		final LBool isSat = script.checkSat();
 		Assert.assertEquals(LBool.SAT, isSat);
-		Model model = script.getModel();
+		final Model model = script.getModel();
 		Term val = model.evaluate(x);
 		Assert.assertEquals(val, model.evaluate(fx));
 		Assert.assertEquals(val, model.evaluate(script.term("f", fx)));
 		// Test for stack overflows in the evaluation
 		Term testTerm = fx;
-		for (int i = 0; i < 1000000; ++i)// NOCHECKSTYLE
+		for (int i = 0; i < 1000000; ++i) {
 			testTerm = script.term("f", testTerm);
+		}
 		Assert.assertEquals(val, model.evaluate(testTerm));
 		// Dynamic completion check
 		// 1. U already has an element in the domain (val)
@@ -475,34 +474,34 @@ public class ModelTest {
 		// 2. V does not have any constrained elements
 		// => all unconstrained elements will map to default (as @0 V)
 		val = script.term("@0", null, v);
-		Term z1 = script.term("z1");
+		final Term z1 = script.term("z1");
 		Assert.assertEquals(val, model.evaluate(z1));
-		Term z2 = script.term("z2");
+		final Term z2 = script.term("z2");
 		Assert.assertEquals(val, model.evaluate(z2));
 	}
 	
 	@Test
 	public void testShared() {
-		Script script = setupScript(Logics.QF_UFLIA);
-		Sort intSort = script.sort("Int");
+		final Script script = setupScript(Logics.QF_UFLIA);
+		final Sort intSort = script.sort("Int");
 		script.declareFun("f", new Sort[] {intSort}, intSort);
-		script.declareFun("x", EMPTY_SORT_ARRAY, intSort);
-		script.declareFun("y", EMPTY_SORT_ARRAY, intSort);
-		Term x = script.term("x");
-		Term y = script.term("y");
-		Term fx5 = script.term("f", script.term("+", x, script.numeral("5")));
-		Rational five = Rational.valueOf(5, 1);// NOCHECKSTYLE
+		script.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		script.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term x = script.term("x");
+		final Term y = script.term("y");
+		final Term fx5 = script.term("f", script.term("+", x, script.numeral("5")));
+		final Rational five = Rational.valueOf(5, 1);// NOCHECKSTYLE
 		script.assertTerm(script.term("=", fx5, x));
 		script.assertTerm(script.term("=", x, script.numeral("5")));
 		script.assertTerm(script.term(">", y, script.numeral(BigInteger.ZERO)));
-		LBool isSat = script.checkSat();
+		final LBool isSat = script.checkSat();
 		Assert.assertEquals(LBool.SAT, isSat);
-		Model model = script.getModel();
+		final Model model = script.getModel();
 		Assert.assertEquals(five, getConstantTerm(model, x).getValue());
 		Assert.assertEquals(five, getConstantTerm(model, fx5).getValue());
-		Rational yval = (Rational) getConstantTerm(model, y).getValue();
+		final Rational yval = (Rational) getConstantTerm(model, y).getValue();
 		// Evaluate f at position x - y + (y+5)
-		Rational yvalminus5 = yval.add(five);
+		final Rational yvalminus5 = yval.add(five);
 		Assert.assertEquals(five,
 				getConstantTerm(model,
 						script.term("f", script.term("+", x,
@@ -514,25 +513,26 @@ public class ModelTest {
 	
 	@Test
 	public void testValuation() {
-		Script script = setupScript(Logics.QF_LIA);
-		Term[] intTerms = new Term[mVarNames.length];
-		Sort intSort = script.sort("Int");
+		final Script script = setupScript(Logics.QF_LIA);
+		final Term[] intTerms = new Term[mVarNames.length];
+		final Sort intSort = script.sort("Int");
 		int p = -1;
-		for (String name : mVarNames) {
-			script.declareFun(name, EMPTY_SORT_ARRAY, intSort);
+		for (final String name : mVarNames) {
+			script.declareFun(name, Script.EMPTY_SORT_ARRAY, intSort);
 			intTerms[++p] = script.term(name);
 		}
-		for (int i = 0; i < intTerms.length; ++i)
+		for (int i = 0; i < intTerms.length; ++i) {
 			script.assertTerm(script.term("=",
 					intTerms[i], script.numeral(BigInteger.valueOf(i))));
-		LBool isSat = script.checkSat();
+		}
+		final LBool isSat = script.checkSat();
 		Assert.assertEquals(LBool.SAT, isSat);
-		Model model = script.getModel();
-		Map<Term, Term> valuation = script.getValue(intTerms);
-		Map<Term, Term> modeleval = model.evaluate(intTerms);
+		final Model model = script.getModel();
+		final Map<Term, Term> valuation = script.getValue(intTerms);
+		final Map<Term, Term> modeleval = model.evaluate(intTerms);
 		for (int i = 0; i < intTerms.length; ++i) {
-			Rational val = Rational.valueOf(i, 1);
-			Term expected = val.toTerm(intSort);
+			final Rational val = Rational.valueOf(i, 1);
+			final Term expected = val.toTerm(intSort);
 			Assert.assertEquals(expected, valuation.get(intTerms[i]));
 			Assert.assertEquals(expected, modeleval.get(intTerms[i]));
 			Assert.assertEquals(expected, model.evaluate(intTerms[i]));

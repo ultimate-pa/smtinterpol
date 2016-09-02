@@ -29,6 +29,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
+import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -49,22 +50,20 @@ public class EpsilonTest {
 	private SMTInterpol mSolver;
 	private Term mInputBase;
 	
-	private final static Sort[] EMPTY_SORT_ARRAY = {};
-	
 	@Before
 	public void setUp() throws Exception {
 		mSolver = new SMTInterpol(new DefaultLogger());
 		mSolver.setOption(":produce-models", Boolean.TRUE);
 		mSolver.setLogic(Logics.QF_LRA);
-		Sort real = mSolver.sort("Real");
-		mSolver.declareFun("x", EMPTY_SORT_ARRAY, real);
-		mSolver.declareFun("y", EMPTY_SORT_ARRAY, real);
-		Term zero = mSolver.decimal(BigDecimal.ZERO);
-		Term one = mSolver.decimal(BigDecimal.ONE);
-		Term threeovertwo = mSolver.decimal(BigDecimal.valueOf(3).divide(// NOCHECKSTYLE
+		final Sort real = mSolver.sort("Real");
+		mSolver.declareFun("x", Script.EMPTY_SORT_ARRAY, real);
+		mSolver.declareFun("y", Script.EMPTY_SORT_ARRAY, real);
+		final Term zero = mSolver.decimal(BigDecimal.ZERO);
+		final Term one = mSolver.decimal(BigDecimal.ONE);
+		final Term threeovertwo = mSolver.decimal(BigDecimal.valueOf(3).divide(// NOCHECKSTYLE
 				BigDecimal.valueOf(2)));
-		Term x = mSolver.term("x");
-		Term y = mSolver.term("y");
+		final Term x = mSolver.term("x");
+		final Term y = mSolver.term("y");
 		mInputBase = mSolver.term("and",
 				mSolver.term("<=", mSolver.term("+", x, y), one),
 				mSolver.term("<", x, zero),
@@ -81,51 +80,51 @@ public class EpsilonTest {
 	
 	@Test
 	public void testEmptyProhibitions() {
-		LBool isSat = mSolver.checkSat();
+		final LBool isSat = mSolver.checkSat();
 		Assert.assertSame(LBool.SAT, isSat);
-		Map<Term, Term> eval = mSolver.getValue(new Term[] {mInputBase});
+		final Map<Term, Term> eval = mSolver.getValue(new Term[] {mInputBase});
 		Assert.assertEquals(1, eval.size());
 		Assert.assertSame(mSolver.term("true"), eval.get(mInputBase));
 	}
 	
 	@Test
 	public void testProhibMiss() {
-		Term second = mSolver.term("not", 
+		final Term second = mSolver.term("not", 
 				mSolver.term("=", 
 						mSolver.term("x"),
 						mSolver.decimal(BigDecimal.ONE)));
 		mSolver.assertTerm(second);
-		LBool isSat = mSolver.checkSat();
+		final LBool isSat = mSolver.checkSat();
 		Assert.assertSame(LBool.SAT, isSat);
-		Map<Term, Term> eval = mSolver.getValue(
+		final Map<Term, Term> eval = mSolver.getValue(
 				new Term[] {mInputBase, second});
 		Assert.assertEquals(2, eval.size());
-		Term trueTerm = mSolver.term("true");
+		final Term trueTerm = mSolver.term("true");
 		Assert.assertSame(trueTerm, eval.get(mInputBase));
 		Assert.assertSame(trueTerm, eval.get(second));
 	}
 	
 	@Test
 	public void testProhibHit() {
-		Term second = mSolver.term("not", 
+		final Term second = mSolver.term("not", 
 				mSolver.term("=", 
 						mSolver.term("+", 
 								mSolver.term("x"), mSolver.term("y")),
 						mSolver.decimal(BigDecimal.ONE.negate())));
 		mSolver.assertTerm(second);
-		LBool isSat = mSolver.checkSat();
+		final LBool isSat = mSolver.checkSat();
 		Assert.assertSame(LBool.SAT, isSat);
-		Map<Term, Term> eval = mSolver.getValue(
+		final Map<Term, Term> eval = mSolver.getValue(
 				new Term[] {mInputBase, second});
 		Assert.assertEquals(2, eval.size());
-		Term trueTerm = mSolver.term("true");
+		final Term trueTerm = mSolver.term("true");
 		Assert.assertSame(trueTerm, eval.get(mInputBase));
 		Assert.assertSame(trueTerm, eval.get(second));
 	}
 	
 	@Test
 	public void testProhibHitLower() {
-		Term second = mSolver.term("and", mSolver.term("not", 
+		final Term second = mSolver.term("and", mSolver.term("not", 
 				mSolver.term("=", 
 						mSolver.term("+", 
 								mSolver.term("x"), mSolver.term("y")),
@@ -135,19 +134,19 @@ public class EpsilonTest {
 						mSolver.decimal(BigDecimal.ONE.negate().divide(
 								BigDecimal.valueOf(2))))));
 		mSolver.assertTerm(second);
-		LBool isSat = mSolver.checkSat();
+		final LBool isSat = mSolver.checkSat();
 		Assert.assertSame(LBool.SAT, isSat);
-		Map<Term, Term> eval = mSolver.getValue(
+		final Map<Term, Term> eval = mSolver.getValue(
 				new Term[] {mInputBase, second});
 		Assert.assertEquals(2, eval.size());
-		Term trueTerm = mSolver.term("true");
+		final Term trueTerm = mSolver.term("true");
 		Assert.assertSame(trueTerm, eval.get(mInputBase));
 		Assert.assertSame(trueTerm, eval.get(second));
 	}
 	
 	@Test
 	public void testProhibHitUpper() {
-		Term second = mSolver.term("and", mSolver.term("not", 
+		final Term second = mSolver.term("and", mSolver.term("not", 
 				mSolver.term("=", 
 						mSolver.term("+", 
 								mSolver.term("x"), mSolver.term("y")),
@@ -156,19 +155,19 @@ public class EpsilonTest {
 						mSolver.term("x"),
 						mSolver.decimal(BigDecimal.valueOf(-2)))));// NOCHECKSTYLE
 		mSolver.assertTerm(second);
-		LBool isSat = mSolver.checkSat();
+		final LBool isSat = mSolver.checkSat();
 		Assert.assertSame(LBool.SAT, isSat);
-		Map<Term, Term> eval = mSolver.getValue(
+		final Map<Term, Term> eval = mSolver.getValue(
 				new Term[] {mInputBase, second});
 		Assert.assertEquals(2, eval.size());
-		Term trueTerm = mSolver.term("true");
+		final Term trueTerm = mSolver.term("true");
 		Assert.assertSame(trueTerm, eval.get(mInputBase));
 		Assert.assertSame(trueTerm, eval.get(second));
 	}
 	
 	@Test
 	public void testProhibHitNegative() {
-		Term second = mSolver.term("and", mSolver.term("not", 
+		final Term second = mSolver.term("and", mSolver.term("not", 
 				mSolver.term("=", 
 						mSolver.term("+", 
 								mSolver.term("x"), mSolver.term("y")),
@@ -177,27 +176,27 @@ public class EpsilonTest {
 						mSolver.term("x"),
 						mSolver.decimal(BigDecimal.ONE))));
 		mSolver.assertTerm(second);
-		LBool isSat = mSolver.checkSat();
+		final LBool isSat = mSolver.checkSat();
 		Assert.assertSame(LBool.SAT, isSat);
-		Map<Term, Term> eval = mSolver.getValue(
+		final Map<Term, Term> eval = mSolver.getValue(
 				new Term[] {mInputBase, second});
 		Assert.assertEquals(2, eval.size());
-		Term trueTerm = mSolver.term("true");
+		final Term trueTerm = mSolver.term("true");
 		Assert.assertSame(trueTerm, eval.get(mInputBase));
 		Assert.assertSame(trueTerm, eval.get(second));
 	}
 	
 	@Test
 	public void testIntervalUpperBound() {
-		Term second = mSolver.term(">",
+		final Term second = mSolver.term(">",
 				mSolver.term("y"), mSolver.decimal(BigDecimal.ONE));
 		mSolver.assertTerm(second);
-		LBool isSat = mSolver.checkSat();
+		final LBool isSat = mSolver.checkSat();
 		Assert.assertSame(LBool.SAT, isSat);
-		Map<Term, Term> eval = mSolver.getValue(
+		final Map<Term, Term> eval = mSolver.getValue(
 				new Term[] {mInputBase, second});
 		Assert.assertEquals(2, eval.size());
-		Term trueTerm = mSolver.term("true");
+		final Term trueTerm = mSolver.term("true");
 		Assert.assertSame(trueTerm, eval.get(mInputBase));
 		Assert.assertSame(trueTerm, eval.get(second));
 	}

@@ -36,18 +36,18 @@ public class AllSatTest {
 
 	@Test
 	public void testAllSat() {
-		SMTInterpol solver = new SMTInterpol(new DefaultLogger());
+		final SMTInterpol solver = new SMTInterpol(new DefaultLogger());
 		solver.setOption(":verbosity", 10);
 		solver.setLogic(Logics.QF_LIA);
-		Sort[] empty = new Sort[0];
-		Sort intSort = solver.sort("Int");
+		final Sort[] empty = new Sort[0];
+		final Sort intSort = solver.sort("Int");
 		solver.declareFun("x", empty, intSort);
 		solver.declareFun("y", empty, intSort);
-		Term zero = solver.numeral(BigInteger.ZERO);
+		final Term zero = solver.numeral(BigInteger.ZERO);
 		solver.assertTerm(solver.term(">=", 
 				solver.term("+", solver.term("x"), solver.term("y")),
 			zero));
-		Term[] important = new Term[] {
+		final Term[] important = new Term[] {
 				solver.term("<", solver.term("x"), zero),
 				solver.term("<", solver.term("y"), zero),
 				solver.term("=",
@@ -58,10 +58,11 @@ public class AllSatTest {
 				solver.term("=", solver.term("x"), solver.term("x"))
 		};
 		int cnt = 0;
-		for (Term[] minterm : solver.checkAllsat(important)) {
+		for (final Term[] minterm : solver.checkAllsat(important)) {
 			System.err.println("Found minterm:");
-			for (Term t : minterm)
+			for (final Term t : minterm) {
 				System.err.println(t);
+			}
 			++cnt;
 		}
 		Assert.assertEquals(3, cnt);// NOCHECKSTYLE

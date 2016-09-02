@@ -43,6 +43,7 @@ public class SetLogic extends Cmd {
 		return false;
 	}
 	
+	@Override
 	public String toString() {
 		return "SET_LOGIC";
 	}

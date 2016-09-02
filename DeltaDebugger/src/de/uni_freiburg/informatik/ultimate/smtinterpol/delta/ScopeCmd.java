@@ -56,6 +56,7 @@ public class ScopeCmd extends Cmd {
 		mNumScopes = mLastNumScopes;
 	}
 	
+	@Override
 	public String toString() {
 		return mCmd.toUpperCase();
 	}

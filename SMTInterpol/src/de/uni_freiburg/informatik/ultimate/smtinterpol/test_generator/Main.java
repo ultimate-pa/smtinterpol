@@ -27,8 +27,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.ParseEnvironment;
 
 
 public final class Main {
@@ -43,7 +41,7 @@ public final class Main {
 
 	public static void main(String[] param) throws IOException, InterruptedException {
 
-		DefaultLogger logger = new DefaultLogger();
+		final DefaultLogger logger = new DefaultLogger();
 		int paramctr = 0;
 
 		// Oday: Read multiple files
@@ -58,7 +56,7 @@ public final class Main {
 			outfile = new PrintWriter(System.out);
 		}
 
-		TBenchmark benchmark = new TBenchmark(logger, outfile);
+		final TBenchmark benchmark = new TBenchmark(logger, outfile);
 		while (paramctr < param.length && param[paramctr].startsWith("-")) {
 			if (param[paramctr].equals("--")) {
 				paramctr++;
@@ -72,7 +70,7 @@ public final class Main {
 			} else if (param[paramctr].equals("-t")
 					&& ++paramctr < param.length) {
 				try {
-					int timeout = Integer.parseInt(param[paramctr]);
+					final int timeout = Integer.parseInt(param[paramctr]);
 					if (timeout < 0) {
 						logger.error("Cannot parse timeout "
 								+ "argument: Negative number");
@@ -80,7 +78,7 @@ public final class Main {
 						benchmark.setOption(":timeout",
 								BigInteger.valueOf(timeout));
 					}
-				} catch (NumberFormatException enfe) {
+				} catch (final NumberFormatException enfe) {
 					logger.error("Cannot parse timeout "
 							+ "argument: Not a number");
 				}
@@ -88,7 +86,7 @@ public final class Main {
 			} else if (param[paramctr].equals("-r")
 					&& ++paramctr < param.length) {
 				try {
-					int seed = Integer.parseInt(param[paramctr]);
+					final int seed = Integer.parseInt(param[paramctr]);
 					if (seed < 0) {
 						logger.error("Cannot parse random seed "
 								+ "argument: Negative number");
@@ -96,7 +94,7 @@ public final class Main {
 						benchmark.setOption(":random-seed",
 								BigInteger.valueOf(seed));
 					}
-				} catch (NumberFormatException enfe) {
+				} catch (final NumberFormatException enfe) {
 					logger.error("Cannot parse random seed "
 							+ "argument: Not a number");
 				}
@@ -119,21 +117,22 @@ public final class Main {
 	}
 	
 	public static List<String> getFiles(File path) {
-		List<String> files = new ArrayList<String>();
+		final List<String> files = new ArrayList<String>();
 
 		if (path.isFile()) {
 			files.add(path.toString());
 			return files;
 		}
-		File [] children = path.listFiles();
+		final File [] children = path.listFiles();
 		
 		for (int i = 0; i < children.length; i++) {
-			if (children[i].isFile())
+			if (children[i].isFile()) {
 				files.add(children[i].toString());
-			else {
-				if (children[i].toString().endsWith(".svn"))
+			} else {
+				if (children[i].toString().endsWith(".svn")) {
 					continue;
-				File sub = new File(children[i].toString());
+				}
+				final File sub = new File(children[i].toString());
 				files.addAll(getFiles(sub));
 			}
 		}

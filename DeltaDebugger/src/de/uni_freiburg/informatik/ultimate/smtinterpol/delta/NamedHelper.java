@@ -26,9 +26,9 @@ import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.LetTerm;
 import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
+import de.uni_freiburg.informatik.ultimate.logic.NonRecursive.TermWalker;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
-import de.uni_freiburg.informatik.ultimate.logic.NonRecursive.TermWalker;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 
 public class NamedHelper {
@@ -45,21 +45,25 @@ public class NamedHelper {
 
 		@Override
 		public void walk(NonRecursive walker, AnnotatedTerm term) {
-			for (Annotation annot : term.getAnnotations())
-				if (annot.getKey().equals(":named"))
+			for (final Annotation annot : term.getAnnotations()) {
+				if (annot.getKey().equals(":named")) {
 					mNames.put(annot.getValue().toString(), mCmd);
+				}
+			}
 		}
 
 		@Override
 		public void walk(NonRecursive walker, ApplicationTerm term) {
-			for (Term t : term.getParameters())
+			for (final Term t : term.getParameters()) {
 				walker.enqueueWalker(new NamedDetector(t));
+			}
 		}
 
 		@Override
 		public void walk(NonRecursive walker, LetTerm term) {
-			for (Term t : term.getValues())
+			for (final Term t : term.getValues()) {
 				walker.enqueueWalker(new NamedDetector(t));
+			}
 			walker.enqueueWalker(new NamedDetector(term.getSubTerm()));
 		}
 
@@ -87,21 +91,25 @@ public class NamedHelper {
 
 		@Override
 		public void walk(NonRecursive walker, AnnotatedTerm term) {
-			for (Annotation annot : term.getAnnotations())
-				if (annot.getKey().equals(":named"))
+			for (final Annotation annot : term.getAnnotations()) {
+				if (annot.getKey().equals(":named")) {
 					mHasNames = true;
+				}
+			}
 		}
 
 		@Override
 		public void walk(NonRecursive walker, ApplicationTerm term) {
-			for (Term t : term.getParameters())
+			for (final Term t : term.getParameters()) {
 				walker.enqueueWalker(new NamedDetector(t));
+			}
 		}
 
 		@Override
 		public void walk(NonRecursive walker, LetTerm term) {
-			for (Term t : term.getValues())
+			for (final Term t : term.getValues()) {
 				walker.enqueueWalker(new NamedDetector(t));
+			}
 			walker.enqueueWalker(new NamedDetector(term.getSubTerm()));
 		}
 

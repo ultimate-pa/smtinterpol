@@ -74,8 +74,8 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.demo;
 
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
-import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
+import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
@@ -104,7 +104,7 @@ public final class Spin2012 {
 		// Hide constructor
 	}
 	public static void main(String[] args) {
-		SMTInterpol script = new SMTInterpol(new DefaultLogger());
+		final SMTInterpol script = new SMTInterpol(new DefaultLogger());
 		script.setOption(":produce-proofs", true);
 		script.setLogic(Logics.QF_UFLIA);
 		script.declareFun("x", new Sort[0], script.sort("Int"));
@@ -130,16 +130,17 @@ public final class Spin2012 {
 						script.term("f", script.term("z")),
 						script.numeral("0"))),
 				new Annotation(":named", "a2")));
-		LBool isSat = script.checkSat();
+		final LBool isSat = script.checkSat();
 		if (isSat == LBool.UNSAT) {
-			Term[] interpolants = script.getInterpolants(
+			final Term[] interpolants = script.getInterpolants(
 					new Term[] {script.term("a1"), script.term("a2")});
 			for (int i = 0; i < interpolants.length; ++i) {
 				System.out.println("Interpolant " + i + ": "
 						+ interpolants[i].toStringDirect());
 			}
-		} else
+		} else {
 			System.out.println("This should not happen!!!");
+		}
 		script.exit();
 	}
 }

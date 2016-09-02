@@ -51,7 +51,7 @@ public final class IntDivideTest {
 	
 	public IntDivideTest() {
 		mTheory = new Theory(Logics.QF_UFLIRA);
-		DPLLEngine dpllEngine = new DPLLEngine(mTheory, new DefaultLogger(),
+		final DPLLEngine dpllEngine = new DPLLEngine(mTheory, new DefaultLogger(),
 				new TerminationRequest() {
 			
 					@Override
@@ -68,7 +68,7 @@ public final class IntDivideTest {
 		};
 		mClausifier.setLogic(Logics.QF_UFLIRA);
 		
-		Sort[] empty = new Sort[0];
+		final Sort[] empty = new Sort[0];
 		mIntSort = mTheory.getSort("Int");
 		mRealSort = mTheory.getSort("Real");
 		mI = mTheory.term(mTheory.declareFunction("i", empty, mIntSort));
@@ -83,31 +83,32 @@ public final class IntDivideTest {
 	@Test
 	@SuppressWarnings("unused")
 	public void testCreateDiv() {
-		Term five = mTheory.numeral(BigInteger.valueOf(5));// NOCHECKSTYLE
-		FunctionSymbol abs = mTheory.getFunction("abs", mIntSort);
-		FunctionSymbol add = mTheory.getFunction("+", mIntSort, mIntSort);
-		FunctionSymbol addr = mTheory.getFunction("+", mRealSort, mRealSort);
-		FunctionSymbol mul = mTheory.getFunction("*", mIntSort, mIntSort);
-		FunctionSymbol div = mTheory.getFunction("div", mIntSort, mIntSort);
-		FunctionSymbol mod = mTheory.getFunction("mod", mIntSort, mIntSort);
-		FunctionSymbol toint = mTheory.getFunction("to_int", mRealSort);
-		FunctionSymbol isint = mTheory.getFunction("is_int", mRealSort);
-		FunctionSymbol toreal = mTheory.getFunction("to_real", mIntSort);
-		Term termDiv = mTheory.term(div, mI, five);
-		Term termMod = mTheory.term(mod, mI, five);
-		Term termAbs = mTheory.term(abs, mJ);
-		Term termToI = mTheory.term(toint, mR);
-		Term termSum = mTheory.term(add,
+		final Term five = mTheory.numeral(BigInteger.valueOf(5));// NOCHECKSTYLE
+		final FunctionSymbol abs = mTheory.getFunction("abs", mIntSort);
+		final FunctionSymbol add = mTheory.getFunction("+", mIntSort, mIntSort);
+		final FunctionSymbol addr = mTheory.getFunction("+", mRealSort, mRealSort);
+		final FunctionSymbol mul = mTheory.getFunction("*", mIntSort, mIntSort);
+		final FunctionSymbol div = mTheory.getFunction("div", mIntSort, mIntSort);
+		final FunctionSymbol mod = mTheory.getFunction("mod", mIntSort, mIntSort);
+		final FunctionSymbol toint = mTheory.getFunction("to_int", mRealSort);
+		final FunctionSymbol isint = mTheory.getFunction("is_int", mRealSort);
+		final FunctionSymbol toreal = mTheory.getFunction("to_real", mIntSort);
+		final Term termDiv = mTheory.term(div, mI, five);
+		final Term termMod = mTheory.term(mod, mI, five);
+		final Term termAbs = mTheory.term(abs, mJ);
+		final Term termToI = mTheory.term(toint, mR);
+		final Term termSum = mTheory.term(add,
 				mTheory.term(mul, mTheory.term(div, mI, five), five),
 				mTheory.term(mod, mI, five),
 				mTheory.term(toint, mR),
 				mTheory.term(abs, mJ));
-		Term formIsInt = 
+		final Term formIsInt = 
 				mTheory.term(isint,
 						mTheory.term(addr, mR, mS, mTheory.term(toreal, mI)));
 		mClausifier.addFormula(formIsInt);
 		System.err.println(formIsInt);
-		for (Literal[] clause : mClauses)
+		for (final Literal[] clause : mClauses) {
 			System.err.println(Arrays.toString(clause));
+		}
 	}
 }

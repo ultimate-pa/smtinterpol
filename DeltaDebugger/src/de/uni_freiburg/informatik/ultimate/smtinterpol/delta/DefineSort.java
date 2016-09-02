@@ -40,7 +40,7 @@ public class DefineSort extends Cmd {
 		writer.print(mSort);
 		writer.print(" (");
 		String sep = "";
-		for (Sort p : mParams) {
+		for (final Sort p : mParams) {
 			writer.print(sep);
 			writer.print(p.getName());
 			sep = " ";
@@ -55,6 +55,7 @@ public class DefineSort extends Cmd {
 		return true;
 	}
 	
+	@Override
 	public String toString() {
 		return "DEFINE_SORT " + mSort;
 	}

@@ -20,7 +20,11 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.proofcheck;
 
 import java.util.HashMap;
 
-import de.uni_freiburg.informatik.ultimate.logic.*;
+import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
+import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.Theory;
 
 /**
  * This class is used to convert a tautology proof node (@tautology).
@@ -691,9 +695,9 @@ public class TautologyConverter extends AConverter {
 			} else if (function == "*") {
 				// factor is > 1 or < -1, use a different rule
 				assert (term.getParameters().length > 1);
-				Term firstFactor = term.getParameters()[0];
+				final Term firstFactor = term.getParameters()[0];
 				if (firstFactor instanceof ApplicationTerm) {
-					ApplicationTerm aFirstFactor =
+					final ApplicationTerm aFirstFactor =
 							(ApplicationTerm)firstFactor;
 					if (aFirstFactor.getFunction().getName() == "-") {
 						assert (aFirstFactor.getParameters().length > 0);

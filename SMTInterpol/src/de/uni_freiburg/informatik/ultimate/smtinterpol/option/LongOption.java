@@ -55,11 +55,12 @@ public class LongOption extends Option {
 		} else if (value instanceof String) {
 			try {
 				mValue = Long.parseLong((String) value);
-			} catch (NumberFormatException enfe) {
+			} catch (final NumberFormatException enfe) {
 				throw new SMTLIBException(enfe.getMessage());
 			}
-		} else
+		} else {
 			throw new SMTLIBException("Not a number: " + value);
+		}
 	}
 	
 	public final long getValue() {

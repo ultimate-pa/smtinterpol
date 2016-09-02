@@ -46,7 +46,7 @@ public class DefineFun extends AbstractOneTermCmd {
 		writer.print("(define-fun ");
 		writer.print(mFun);
 		writer.print(" (");
-		for (TermVariable tv : mParams) {
+		for (final TermVariable tv : mParams) {
 			writer.print('(');
 			writer.print(tv.getName());
 			writer.print(' ');
@@ -65,6 +65,7 @@ public class DefineFun extends AbstractOneTermCmd {
 		context.put(mFun, this);
 	}
 	
+	@Override
 	public String toString() {
 		return "DEFINE_FUN " + mFun;
 	}
