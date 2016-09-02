@@ -100,32 +100,50 @@ public class DawgFactory<LETTER, COLNAMES> {
 			Map<COLNAMES, COLNAMES> translation) {
 		/*
 		 * - align the column names by the translation
-		 * - make a new joint signature
-		 * - create a dawg over the new signature
-		 * - add the points
+		 * - call normal join
 		 */
 		IDawg<LETTER, COLNAMES> rnd2 = 
 				 renameColumnsOfDawg(d2, translation);
 		
-		List<COLNAMES> newSignature = new ArrayList<COLNAMES>(d1.getColnames());
-		for (COLNAMES cn : rnd2.getColnames()) {
-			if (!newSignature.contains(cn)) {
-				newSignature.add(cn);
-			}
-		}
-		
-		// right now: work with NaiveDawgs
-		IDawg<LETTER, COLNAMES> newDawg = 
-				(NaiveDawg<LETTER, COLNAMES>) createEmptyDawg(newSignature);
-		
-		newDawg.addAllWithSubsetSignature(d1);
-		newDawg.addAllWithSubsetSignature(rnd2);
-		
-		return null;
+		return join(d1, rnd2);
+	}
+
+	/**
+	 * Computes a Dawg that represents a natural join on the two input Dawgs. 
+	 * 
+	 * @param d1
+	 * @param d2
+	 * @return
+	 */
+	public IDawg<LETTER, COLNAMES> join(IDawg<LETTER, COLNAMES> d1, IDawg<LETTER, COLNAMES> d2) {
+//		/*
+//		 * - make a new joint signature
+//		 * - create a dawg over the new signature
+//		 * - add the points
+//		 */
+//
+//		List<COLNAMES> newSignature = new ArrayList<COLNAMES>(d1.getColnames());
+//		for (COLNAMES cn : d2.getColnames()) {
+//			if (!newSignature.contains(cn)) {
+//				newSignature.add(cn);
+//			}
+//		}
+//		
+//		// right now: work with NaiveDawgs
+//		IDawg<LETTER, COLNAMES> newDawg = 
+//				(NaiveDawg<LETTER, COLNAMES>) createEmptyDawg(newSignature);
+//		
+//		newDawg.addAllWithSubsetSignature(d1);
+//		newDawg.addAllWithSubsetSignature(d2);
+//		return newDawg;
+		return d1.join(d2);
 	}
 
 	/**
 	 * Create a dawg from the input dawg where only the points are selected that match the given mapping.
+	 * The mappings says for some columns what value they must have.
+	 * (this is a special version of the normal select operation sigma_phi, where phi has the form x=a, 
+	 *  for a column name x and a letter a)
 	 * 
 	 * @param dawg
 	 * @param selectMap (possibly) restricts some COLNAMES in the signature to only one LETTER

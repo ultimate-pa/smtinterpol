@@ -17,7 +17,7 @@ public interface IDawg<LETTER, COLNAMES> {
 	
 	public int getArity();
 	
-	public IDawgSubstitution join(IDawg<LETTER, COLNAMES> other);
+	public IDawg<LETTER, COLNAMES> join(IDawg<LETTER, COLNAMES> other);
 
 	public IDawg<LETTER, COLNAMES> complement();
 	
@@ -32,7 +32,7 @@ public interface IDawg<LETTER, COLNAMES> {
 	 *  - arguments only contains constants
 	 * @param arguments
 	 */
-	public void add(LETTER[] arguments);
+	public void add(List<LETTER> arguments);
 
 	/**
 	 * Add all points of a given Dawg to this Dawg
@@ -64,5 +64,8 @@ public interface IDawg<LETTER, COLNAMES> {
 	 */
 	public void addAllWithSubsetSignature(IDawg<LETTER, COLNAMES> d1);
 
+	public void removeAllWithSubsetSignature(IDawg<LETTER, COLNAMES> clFulfilledPoints);
+
 	public IDawg<LETTER, COLNAMES> select(Map<COLNAMES, LETTER> selectMap);
+
 }

@@ -259,45 +259,53 @@ public class EprClause {
 	 */
 	private EprClauseState determineClauseState() {
 		
-
+		// do we have a literal that is fulfilled (on all points)?
+		for (ClauseLiteral cl : mLiterals) {
+			if (cl.isFulfilled()) {
+				return EprClauseState.Fulfilled;
+			}
+		}
 		
+		// Although the whole literal is not fulfilled, some points may be..
 		// we only need to consider points where no literal is decided "true" yet..
 		IDawg<ApplicationTerm, TermVariable> pointsToConsider = 
 				mEprTheory.getDawgFactory().createFullDawg(mVariables);
 		for (ClauseLiteral cl : mLiterals) {
-
-			if (!cl.isFulfilled()) {
+			if (cl.isRefuted()) {
 				continue;
 			}
 
 			if (cl instanceof ClauseEprQuantifiedLiteral) {
 				IDawg<ApplicationTerm, TermVariable> clFulfilledPoints = 
 						((ClauseEprQuantifiedLiteral) cl).getFulfilledPoints();
-				pointsToConsider.removeAllWithSubsetSignature(
-						mDawgFactory.renameColumnsOfDawg(clFulfilledPoints, translation)
-								((ClauseEprQuantifiedLiteral) cl).getTranslationForClause()));
+				pointsToConsider.removeAllWithSubsetSignature(clFulfilledPoints);
 			} else {
 				return EprClauseState.Fulfilled;
 			}
 		}
 		
 		
+		/**
+		 * The set of all points (over this clause's signature, read: groundings) where no literal of this 
+		 * clause is fulfillable
+		 *  --> once the computation is complete, this represents the set of groundings that are a conflict.
+		 */
 		IDawg<ApplicationTerm, TermVariable> pointsWhereNoLiteralsAreFulfillable =
-				mEprTheory.getDawgFactory().createFullDawg(mVariables);
+				mEprTheory.getDawgFactory().copyDawg(pointsToConsider);
 		IDawg<ApplicationTerm, TermVariable> pointsWhereOneLiteralIsFulfillable =
 				mEprTheory.getDawgFactory().createEmptyDawg(mVariables);
 		IDawg<ApplicationTerm, TermVariable> pointsWhereTwoOrMoreLiteralsAreFulfillable =
 				mEprTheory.getDawgFactory().createEmptyDawg(mVariables);
 
 		for (ClauseLiteral cl : mLiterals) {
-
-			
 			if (cl.isFulfillable()) {
+				// at leat one point of cl is still undecided (we sorted out fulfilled points before..)
 				
 				if (cl instanceof ClauseEprQuantifiedLiteral) {
 					IDawg<ApplicationTerm, TermVariable> fp = ((ClauseEprQuantifiedLiteral) cl).getFulfillablePoints();
 					
-					IDawg<ApplicationTerm, TermVariable> fpOne = pointsWhereOneLiteralIsFulfillable.intersect(fp);
+					IDawg<ApplicationTerm, TermVariable> fpOne = //pointsWhereOneLiteralIsFulfillable.intersect(fp);
+							mDawgFactory.join(pointsWhereOneLiteralIsFulfillable, fp);
 					IDawg<ApplicationTerm, TermVariable> fpNo = pointsWhereNoLiteralsAreFulfillable.intersect(fp);
 					
 					pointsWhereTwoOrMoreLiteralsAreFulfillable.addAll(fpOne);
@@ -313,6 +321,8 @@ public class EprClause {
 					pointsWhereNoLiteralsAreFulfillable =
 							mEprTheory.getDawgFactory().createEmptyDawg(mVariables);
 				}
+			} else {
+				assert cl.isRefuted();
 			}
 		}
 		

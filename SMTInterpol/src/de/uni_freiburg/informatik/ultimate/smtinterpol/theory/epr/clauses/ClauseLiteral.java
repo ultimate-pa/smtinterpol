@@ -45,11 +45,10 @@ public abstract class ClauseLiteral {
 		return mEngineLiteral;
 	}
 
+	//
+	// TODO: these three should not call determineState all the time..
+	//
 
-//	public abstract boolean isFulfillable();
-//
-//	public abstract boolean isFulfilled();
-	
 	public boolean isFulfillable() {
 		return determineState() == ClauseLiteralState.Fulfillable;
 	}
@@ -57,13 +56,12 @@ public abstract class ClauseLiteral {
 	public boolean isFulfilled() {
 		return determineState() == ClauseLiteralState.Fulfilled;
 	}
-	
+
+	public boolean isRefuted() {
+		return determineState() == ClauseLiteralState.Refuted;
+	}
 	protected abstract ClauseLiteralState determineState();
 
-//	public DPLLAtom getAtom() {
-//		return mAtom;
-//	}
-	
 	/**
 	 * For ground clause literals this has the usual meanings wrt. the current decide state:
 	 *  - fulfilled: set to true
@@ -79,12 +77,6 @@ public abstract class ClauseLiteral {
 
 	public EprClause getClause() {
 		return mEprClause;
-	}
-
-
-	public boolean conflictsWith(DecideStackLiteral reason) {
-		// TODO Auto-generated method stub
-		return false;
 	}
 	
 }

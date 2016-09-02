@@ -3,6 +3,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -49,10 +50,80 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	}
 
 	@Override
-	public IDawgSubstitution join(IDawg<LETTER, COLNAMES> other) {
-		// TODO Auto-generated method stub
-		return null;
+	public IDawg<LETTER, COLNAMES> join(IDawg<LETTER, COLNAMES> other) {
+		
+		// union signature
+		Map<COLNAMES, Integer> reverseMap = new HashMap<COLNAMES, Integer>();
+		List<COLNAMES> newSignature = new ArrayList<COLNAMES>();
+		for (int i = 0; i < this.getColnames().size(); i++) {
+			newSignature.add(this.getColnames().get(i));
+			reverseMap.put(this.getColnames().get(i), i);
+		}
+
+		// intersection signature
+		Set<COLNAMES> commonColumns = new HashSet<COLNAMES>();
+
+		for (COLNAMES cn : other.getColnames()) {
+			if (!newSignature.contains(cn)) {
+				newSignature.add(cn);
+			} else {
+				commonColumns.add(cn);
+			}
+		}
+		
+		NaiveDawg<LETTER, COLNAMES> otherNd = (NaiveDawg<LETTER, COLNAMES>) other;
+
+		NaiveDawg<LETTER, COLNAMES> result = 
+				new NaiveDawg<LETTER, COLNAMES>(newSignature, mAllConstants);
+		
+		for (List<LETTER> pointThis : this.mBacking) {
+			for (List<LETTER> pointOther : otherNd.mBacking) {
+				List<LETTER> joinedPoint = new ArrayList<LETTER>(newSignature.size());
+				for (COLNAMES cn : newSignature) {
+					Integer thisColIndex = this.mColNameToIndex.get(cn);
+					Integer otherColIndex = otherNd.mColNameToIndex.get(cn);
+					if (thisColIndex != null 
+							&& otherColIndex != null 
+							&& pointThis.get(thisColIndex) != pointOther.get(otherColIndex)) {
+						// cn is a common column and
+						// the two points don't match on it
+						joinedPoint = null;
+						break;
+					}
+					LETTER lThis = thisColIndex != null ? pointThis.get(thisColIndex) : null;
+					LETTER lOther = otherColIndex != null ? pointOther.get(otherColIndex) : null;
+					assert lThis == null || lOther == null || lThis == lOther;
+					joinedPoint.add(lThis != null ? lThis : lOther);
+				}
+				// if we reach here, the two points do match on all common columns
+				if (joinedPoint != null) {
+					result.add(joinedPoint);
+				}
+//				result.add(buildJoinedPoint(pointThis, this.mColNameToIndex, pointOther, otherNd.mColNameToIndex, newSignature));
+			}
+		}
+		return result;
 	}
+
+	private List<LETTER> buildJoinedPoint(List<LETTER> point1, Map<COLNAMES, Integer> colNameToIndex1,
+			List<LETTER> point2, Map<COLNAMES, Integer> colNameToIndex2, List<COLNAMES> newSignature) {
+		List<LETTER> result = new ArrayList<LETTER>(newSignature.size());
+		for (COLNAMES cn : newSignature) {
+			int index1 = colNameToIndex1.get(cn);
+			LETTER l1 = point1.get(index1);
+			int index2 = colNameToIndex2.get(cn);
+			LETTER l2 = point2.get(index2);
+			assert l1 == null || l2 == null || l1 == l2;
+			if (l1 != null) {
+				result.add(l1);
+			} else {
+				assert l2 != null;
+				result.add(l2);
+			}
+		}
+		return result;
+	}
+
 
 	@Override
 	public IDawg<LETTER, COLNAMES> complement() {
@@ -78,8 +149,8 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	}
 
 	@Override
-	public void add(LETTER[] arguments) {
-		mBacking.add(Arrays.asList(arguments));
+	public void add(List<LETTER> point) {
+		mBacking.add(point);
 	}
 
 	@Override
@@ -132,15 +203,26 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	}
 
 	@Override
-	public void addAllWithSubsetSignature(IDawg<LETTER, COLNAMES> d1) {
-		NaiveDawg<LETTER, COLNAMES> nd1 = (NaiveDawg<LETTER, COLNAMES>) d1;
-		for (List<LETTER> pt : nd1.mBacking) {
-			mBacking.addAll(blowUpForCurrentSignature(pt, nd1.mColNames));
+	public void addAllWithSubsetSignature(IDawg<LETTER, COLNAMES> other) {
+		assert mColNames.containsAll(other.getColnames());
+		NaiveDawg<LETTER, COLNAMES> nd = (NaiveDawg<LETTER, COLNAMES>) other;
+		for (List<LETTER> pt : nd.mBacking) {
+			mBacking.addAll(blowUpForCurrentSignature(pt, nd.mColNames));
 		}
 		
 	}
 
+	@Override
+	public void removeAllWithSubsetSignature(IDawg<LETTER, COLNAMES> other) {
+		assert mColNames.containsAll(other.getColnames());
+		NaiveDawg<LETTER, COLNAMES> nd = (NaiveDawg<LETTER, COLNAMES>) other;
+		for (List<LETTER> pt : nd.mBacking) {
+			mBacking.removeAll(blowUpForCurrentSignature(pt, nd.mColNames));
+		}
+	}
+
 	private List<List<LETTER>> blowUpForCurrentSignature(List<LETTER> pt, List<COLNAMES> ptSig) {
+		assert mColNames.containsAll(ptSig);
 		List<List<LETTER>> result = new ArrayList<List<LETTER>>();
 		for (COLNAMES cn : mColNames) {
 			//TODO hacky

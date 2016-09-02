@@ -212,15 +212,15 @@ public class EprPredicate {
 		for (EprGroundPredicateAtom at : mDPLLAtoms) {
 			if (at.getDecideStatus() == null) {
 				// not yet decided
-				undecidedPoints.add(EprHelpers.castTermsToConstants(at.getArguments()));
+//				undecidedPoints.add(EprHelpers.castTermsToConstants(at.getArguments()));
+				undecidedPoints.add(EprHelpers.convertTermArrayToConstantList(at.getArguments()));
 			} else if (at.getDecideStatus().getSign() == 1) {
 				// positively set
-				positivelySetPoints.add(EprHelpers.castTermsToConstants(at.getArguments()));
+				positivelySetPoints.add(EprHelpers.convertTermArrayToConstantList(at.getArguments()));
 			} else {
 				// negatively set
-				negativelySetPoints.add(EprHelpers.castTermsToConstants(at.getArguments()));
+				negativelySetPoints.add(EprHelpers.convertTermArrayToConstantList(at.getArguments()));
 			}
-
 		}
 
 		IDawg<ApplicationTerm, TermVariable> allDecidedPoints = 

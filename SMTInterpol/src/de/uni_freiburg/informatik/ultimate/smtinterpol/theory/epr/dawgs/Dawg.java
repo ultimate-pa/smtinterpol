@@ -48,7 +48,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	}
 
 	@Override
-	public IDawgSubstitution join(IDawg other) {
+	public IDawg<LETTER, COLNAMES> join(IDawg other) {
 		// TODO Auto-generated method stub
 		return null;
 	}
@@ -90,7 +90,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	}
 
 	@Override
-	public void add(LETTER[] arguments) {
+	public void add(List<LETTER> arguments) {
 		// TODO Auto-generated method stub
 	
 	}
@@ -123,6 +123,12 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	public IDawg<LETTER, COLNAMES> select(Map<COLNAMES, LETTER> selectMap) {
 		// TODO Auto-generated method stub
 		return null;
+	}
+
+	@Override
+	public void removeAllWithSubsetSignature(IDawg<LETTER, COLNAMES> clFulfilledPoints) {
+		// TODO Auto-generated method stub
+		
 	}
 
 

@@ -368,6 +368,14 @@ public class EprHelpers {
 		}
 		return result;
 	}
+
+	public static List<ApplicationTerm> convertTermArrayToConstantList(Term[] constants) {
+	    List<ApplicationTerm> result = new ArrayList<ApplicationTerm>(constants.length);
+		for (int i = 0; i < constants.length; i++) {
+			result.add((ApplicationTerm) constants[i]);
+		}
+		return result;
+	}
 	
 	
 //	public static <COLNAMES> SortedSet<COLNAMES> applyMapping(
