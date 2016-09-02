@@ -6,7 +6,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
-import de.uni_freiburg.informatik.ultimate.util.ScopedHashSet;
+import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
 
 public abstract class ClauseEprLiteral extends ClauseLiteral {
 

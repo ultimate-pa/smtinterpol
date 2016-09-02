@@ -31,7 +31,7 @@ public class DecideStackPropagatedLiteral extends DecideStackQuantifiedLiteral {
 	 * Returns the unit clause that was the reason for setting this propagated decide stack literal.
 	 * @return unit clause
 	 */
-	public ClauseLiteral getReason() {
+	public ClauseLiteral getReasonClauseLit() {
 		return mUnitClauseLiteral;
 	}
 }

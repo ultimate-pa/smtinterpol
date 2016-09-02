@@ -41,8 +41,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.Ep
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprQuantifiedUnitClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprUnitClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
-import de.uni_freiburg.informatik.ultimate.util.ScopedHashMap;
-import de.uni_freiburg.informatik.ultimate.util.ScopedHashSet;
+import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
 
 /**
  * This class is responsible for managing everything that is connected to the
@@ -301,8 +300,8 @@ public class EprStateManager {
 			return null;
 		} else if (relevantConfLits.size() == 1) {
 			// normal explain case --> return the resolvent
-			ClauseEprQuantifiedLiteral conflit = relevantConfLits.iterator().next();
-			return mEprTheory.getEprClauseFactory().createResolvent(conflict, conflit, propagatedLiteral.getReason());
+			ClauseEprQuantifiedLiteral confLit = relevantConfLits.iterator().next();
+			return mEprTheory.getEprClauseFactory().createResolvent(confLit, propagatedLiteral.getReasonClauseLit());
 		} else {
 			//propagatedLiteral has nothing to do with conflictClause --> skip
 			return conflict;

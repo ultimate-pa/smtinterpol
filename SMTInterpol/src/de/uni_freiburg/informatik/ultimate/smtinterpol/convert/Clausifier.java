@@ -82,8 +82,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.MutableAffin
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ArrayMap;
-import de.uni_freiburg.informatik.ultimate.util.ScopedArrayList;
-import de.uni_freiburg.informatik.ultimate.util.ScopedHashMap;
 
 /**
  * Utility to convert an arbitrary term into CNF and insert it into SMTInterpol.
@@ -2251,7 +2249,6 @@ public class Clausifier {
 			mSharedFalse =	new SharedTerm(this, mTheory.mFalse);
 			mSharedFalse.mCCterm = mCClosure.createAnonTerm(mSharedFalse);
 			mSharedTerms.put(mTheory.mFalse, mSharedFalse);
-			final Literal[] lits = new Literal[] {
 //			if (!mTheory.getLogic().isQuantified()) {
 			if (mEprTheory != null && !mInstantiateEprClauses) {
 				//alex: this is only needed for the predicate-to-function conversion, right?

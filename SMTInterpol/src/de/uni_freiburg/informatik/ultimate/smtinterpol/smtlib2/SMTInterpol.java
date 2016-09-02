@@ -709,7 +709,7 @@ public class SMTInterpol extends NoopScript {
 			if (printClauseSets)
 				printClauseSets();//alex, debugging
 
-			if (mClausifier.resetBy0Seen() && mBy0Seen == -1)
+			if (mClausifier.resetBy0Seen() && mBy0Seen == -1) {
 				mBy0Seen = mStackLevel;
 			}
 			if (mNumAsserts++ >= mNextQuickCheck) {
@@ -722,14 +722,12 @@ public class SMTInterpol extends NoopScript {
 		} catch (final UnsupportedOperationException ex) {
 			throw new SMTLIBException(ex.getMessage());
 		} catch (final RuntimeException exc) {
-			if (mDDFriendly)
-			 {
+			if (mDDFriendly) {
 				System.exit(7);// NOCHECKSTYLE
 			}
 			throw exc;
 		} catch (final AssertionError exc) {
-			if (mDDFriendly)
-			 {
+			if (mDDFriendly) {
 				System.exit(7);// NOCHECKSTYLE
 			}
 			throw exc;

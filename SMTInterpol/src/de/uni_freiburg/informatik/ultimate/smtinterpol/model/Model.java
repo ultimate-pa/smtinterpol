@@ -97,8 +97,8 @@ public class Model implements de.uni_freiburg.informatik.ultimate.logic.Model {
 				la = (LinArSolve) theory;
 			} else if (theory instanceof ArrayTheory) {
 				array = (ArrayTheory) theory;
-			else if (theory != cc
-					&& !(theory == clausifier.mEprTheory && Clausifier.mInstantiateEprClauses))
+			} else if (theory != cc
+					&& !(theory == clausifier.mEprTheory && Clausifier.mInstantiateEprClauses)) {
 				throw new InternalError(
 					"Modelproduction for theory not implemented: " + theory);
 			}

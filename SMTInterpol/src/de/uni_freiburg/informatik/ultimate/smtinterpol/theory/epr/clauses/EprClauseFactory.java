@@ -5,7 +5,7 @@ import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
-import de.uni_freiburg.informatik.ultimate.util.ScopedHashMap;
+import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
 
 public class EprClauseFactory {
 	
@@ -23,30 +23,38 @@ public class EprClauseFactory {
 		
 	/**
 	 * 
-	 * @param c1 A clause
-	 * @param conflit A ClauseLiteral of c1, the pivot on the side of c1
-	 * @param clauseLiteral A ClauseLiteral that was used for propagation, 
+	 * @param pivot1 A ClauseLiteral of c1, the pivot on the side of c1
+	 * @param pivot2 A ClauseLiteral that was used for propagation, 
 	 *          its clause is the other clause for the resolution, thie parameter is the pivot on that side
 	 * @return the resolvent of c1 and clauseLiteral.clause with pivot conflit
 	 */
-	public EprClause createResolvent(EprClause c1, ClauseEprQuantifiedLiteral conflit, ClauseLiteral clauseLiteral) {
-//		assert clauseLiteral.mEprClause == c1 : "conflit must appear in c1 (by convention, "
-//				+ "in principle it must appear in one of the clauses..)";
-		EprClause c2 = clauseLiteral.getClause();
+	public EprClause createResolvent(ClauseEprQuantifiedLiteral pivot1, ClauseLiteral pivot2) {
+		assert pivot1.getPolarity() != pivot2.getPolarity();
+		EprClause c1 = pivot1.getClause();
+		EprClause c2 = pivot2.getClause();
 
+		//TODO rework
+		
+		/*
+		 * plan:
+		 *  - compute unifier for the pivot literals
+		 *  - apply the unifier to all literals in one of the clauses
+		 *  - construct the resolvent from the literals
+		 */
 
-		Set<ClauseLiteral> litsForResolvent = new HashSet<ClauseLiteral>();
-		litsForResolvent.addAll(c1.getLiterals());
-		litsForResolvent.remove(conflit);
-		litsForResolvent.addAll(c2.getLiterals());
-		litsForResolvent.remove(clauseLiteral);
-		
-		HashSet<Literal> lfr = new HashSet<Literal>();
-		for (ClauseLiteral cl : litsForResolvent) {
-			lfr.add(cl.getLiteral());
-		}
-		
-		return getClause(lfr);
+//		Set<ClauseLiteral> litsForResolvent = new HashSet<ClauseLiteral>();
+//		litsForResolvent.addAll(c1.getLiterals());
+//		litsForResolvent.remove(pivot1);
+//		litsForResolvent.addAll(c2.getLiterals());
+//		litsForResolvent.remove(pivot2);
+//		
+//		HashSet<Literal> lfr = new HashSet<Literal>();
+//		for (ClauseLiteral cl : litsForResolvent) {
+//			lfr.add(cl.getLiteral());
+//		}
+//		
+//		return getClause(lfr);
+		return null;
 	}
 	
 	/**

@@ -41,7 +41,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.Ep
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprUnitClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.EprStateManager;
-import de.uni_freiburg.informatik.ultimate.util.ScopedHashSet;
+import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
 
 public class EprTheory implements ITheory {
 
