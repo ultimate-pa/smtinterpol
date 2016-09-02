@@ -66,7 +66,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofChecker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofTermGenerator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.PropProofChecker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.UnsatCoreCollector;
-import de.uni_freiburg.informatik.ultimate.util.ScopedArrayList;
+import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
 
 /**
  * Implementation of the 

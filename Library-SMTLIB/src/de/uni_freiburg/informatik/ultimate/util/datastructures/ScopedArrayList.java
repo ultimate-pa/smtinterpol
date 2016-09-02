@@ -16,10 +16,12 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.
  */
-package de.uni_freiburg.informatik.ultimate.util;
+package de.uni_freiburg.informatik.ultimate.util.datastructures;
 
 import java.util.ArrayList;
 import java.util.Iterator;
+
+import de.uni_freiburg.informatik.ultimate.util.ScopeUtils;
 
 
 /**

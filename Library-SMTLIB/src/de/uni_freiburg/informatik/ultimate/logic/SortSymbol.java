@@ -21,7 +21,7 @@ package de.uni_freiburg.informatik.ultimate.logic;
 import java.math.BigInteger;
 import java.util.Arrays;
 
-import de.uni_freiburg.informatik.ultimate.util.UnifyHash;
+import de.uni_freiburg.informatik.ultimate.util.datastructures.UnifyHash;
 
 /**
  * A sort symbol is the name of an SMTLIB sort.  In SMTLIB, sorts can be
@@ -75,7 +75,7 @@ public class SortSymbol {
 	final int mFlags;
 	/**
 	 * The sorts already created from this SortSymbol.
-	 * If m_NumParams is 0, this is the single sort corresponding to
+	 * If mNumParams is 0, this is the single sort corresponding to
 	 * this SortSymbol.  Otherwise this is a UnifyHash containing all
 	 * created sorts.
 	 */
