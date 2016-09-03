@@ -132,5 +132,11 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		
 	}
 
+	@Override
+	protected Iterable<List<LETTER>> listPoints() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
 
 }

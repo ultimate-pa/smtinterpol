@@ -2,15 +2,20 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
+import java.util.TreeSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
@@ -163,11 +168,79 @@ public class DawgFactory<LETTER, COLNAMES> {
 		return dawg.select(selectMap);
 	}
 
-	public IDawg<ApplicationTerm, TermVariable> renameSelectAndProject(
-			IDawg<ApplicationTerm, TermVariable> refutedPoints, Map<TermVariable, Term> mTranslationForClause) {
-		// TODO Auto-generated method stub
-		return null;
+	public IDawg<LETTER, COLNAMES> renameSelectAndProject(
+			IDawg<LETTER, COLNAMES> other, Map<COLNAMES, Object> translation) {
+
+		
+		COLNAMES colNamesInstance = other.getColnames().first();
+		
+		// the signature of the new dawg has only the non-duplicated colnames 
+		// and also omits constants (i.e. objects not of the type COLNAMES)
+		SortedSet<COLNAMES> newSignature = new TreeSet<COLNAMES>(EprHelpers.getColumnNamesComparator());
+		for (Object o : translation.values()) {
+			if (colNamesInstance.getClass().isInstance(o)) {
+				newSignature.add((COLNAMES) o);
+			}
+		}
+		
+		Map<COLNAMES, Integer> newSigColNamesToIndex = EprHelpers.computeColnamesToIndex(newSignature);
+		
+		NaiveDawg<LETTER, COLNAMES> otherNd = (NaiveDawg<LETTER, COLNAMES>) other;
+		Set<List<LETTER>> newBacking = new HashSet<List<LETTER>>();
+		for (List<LETTER> point : otherNd.mBacking) {
+
+			List<LETTER> newPoint = new ArrayList<LETTER>(newSignature.size());
+			// set up the new point (need to fill it, or List.set(..) won't work)
+			for (int i = 0; i < newSignature.size(); i++) {
+				newPoint.add(null);
+			}
+			
+			// tracks if a column name has been seen, and what letter it had been assigned (does select_x=x so to say)
+			Map<COLNAMES, LETTER> variableAssignmentInPoint = new HashMap<COLNAMES, LETTER>();
+			
+			Iterator<COLNAMES> ptColIt = other.getColnames().iterator();
+			for (int i = 0; i < point.size(); i++) {
+				LETTER ptLtr = point.get(i);
+				COLNAMES ptColnameInOldSig = ptColIt.next();
+
+				Object trans = translation.get(ptColnameInOldSig);
+				if (colNamesInstance.getClass().isInstance(trans)) {
+					COLNAMES ptColnameInNewSig = (COLNAMES) trans;
+					
+					LETTER vaip = variableAssignmentInPoint.get(ptColnameInNewSig);
+					if (vaip != null && vaip != ptLtr) {
+						// violation of select_x=x
+						newPoint = null;
+						break;
+					} else {
+						newPoint.set(newSigColNamesToIndex.get(ptColnameInNewSig), ptLtr);
+						// store that at the current oldColumn-name we used letter ptLtr
+						variableAssignmentInPoint.put(ptColnameInOldSig, ptLtr);
+					}
+					
+				} else {
+					// we have a constant in the column where this letter in the point is supposed to "land"
+					// select_x=c so to say..
+					if (ptLtr.equals(trans)) {
+						// the constant matches go on (add nothing to the new point)
+					} else {
+						// point is filtered by the select that checks the constants
+						newPoint = null;
+						break;
+					}
+				}
+
+			}
+			if (newPoint != null) {
+				newBacking.add(newPoint);
+			}
+		}
+
+		NaiveDawg<LETTER, COLNAMES> result = new NaiveDawg<LETTER, COLNAMES>(newSignature, mAllConstants, newBacking);
+		return result;
 	}
+
+	
 
 
 //	public IDawg<LETTER, COLNAMES> translateDawg(IDawg<LETTER, COLNAMES> dawg,
@@ -179,5 +252,74 @@ public class DawgFactory<LETTER, COLNAMES> {
 //		}
 //		return null;
 //	}
+	
+	/**
+	 *  Some tests for the DawgFactory
+	 * @param args
+	 */
+	public static void main(String[] args) {
+		
+		// setup 
+		
+		Set<Character> constants = new HashSet<Character>();
+		constants.add('a');
+		constants.add('b');
+		constants.add('c');
+		
+		
+		DawgFactory<Character, String> df = 
+				new DawgFactory<Character, String>(constants, null);
+		
+		SortedSet<String> colNames1 = new TreeSet<String>();
+		colNames1.add("one");
+		colNames1.add("two");
+//		colNames1.add("three");
+//		colNames1.add("four");
+//		colNames1.add("five");
+		
+		SortedSet<String> colNames2 = new TreeSet<String>();
+		colNames2.add("alpha");
+		colNames2.add("beta");
+		colNames2.add("gamma");
+//		colNames1.add("delta");
+
+
+		IDawg<Character, String> d1 = df.createFullDawg(colNames1);
+		IDawg<Character, String> d2 = df.createEmptyDawg(colNames2);
+		List<Character> word1 = new ArrayList<Character>();
+		word1.add('a');
+		word1.add('a');
+		word1.add('b');
+		d2.add(word1);
+		
+		List<Character> word2 = new ArrayList<Character>();
+		word2.add('a');
+		word2.add('b');
+		word2.add('b');
+		d2.add(word2);
+
+		
+		
+		Map<String, Object> translation3 = new HashMap<String, Object>();
+		translation3.put("alpha", "bla");
+		translation3.put("beta", "bla");
+		translation3.put("gamma", "blub");
+
+		IDawg<Character, String> d3 = df.renameSelectAndProject(d2, translation3);
+		
+		Map<String, Object> translation4 = new HashMap<String, Object>();
+		translation4.put("alpha", "bla");
+		translation4.put("beta", "bla");
+		translation4.put("gamma", 'a');
+
+		IDawg<Character, String> d4 = df.renameSelectAndProject(d2, translation4);
+
+		
+		System.out.println(d1);
+		System.out.println(d2);
+		System.out.println(d3);
+		System.out.println(d4);
+		
+	}
 	
 }

@@ -72,4 +72,36 @@ public abstract class AbstractDawg<LETTER, COLNAMES> implements IDawg<LETTER, CO
 //	}
 	
 	
+	@Override
+	public String toString() {
+		int colWidth = -1;
+		for (COLNAMES cn : getColnames()) {
+			colWidth = colWidth < cn.toString().length() ? cn.toString().length() : colWidth;
+		}
+		
+		colWidth += 2;
+
+
+		StringBuilder sb = new StringBuilder();
+		for (COLNAMES cn : getColnames()) {
+			//TODO formatting
+			sb.append(String.format("%10s", cn));
+		}
+		sb.append("\n");
+		sb.append("\n");
+		
+		for (List<LETTER> pt : this.listPoints()) {
+			for (LETTER ltr : pt) {
+				sb.append(String.format("%10s", ltr));
+			}
+			sb.append("\n");
+		}
+		return sb.toString();
+	}
+
+	/**
+	 * Lists the language of this dawg word by word
+	 * @return
+	 */
+	protected abstract Iterable<List<LETTER>> listPoints() ;
 }

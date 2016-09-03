@@ -3,6 +3,8 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -375,7 +377,7 @@ public class EprHelpers {
 	public static <COLNAMES> SortedSet<COLNAMES> applyMapping(
 			SortedSet<COLNAMES> colnames, Map<COLNAMES, COLNAMES> translation) {
 		assert colnames.size() > 0;
-		SortedSet<COLNAMES> result = new TreeSet<COLNAMES>(colnames.comparator());
+		SortedSet<COLNAMES> result = new TreeSet<COLNAMES>(EprHelpers.getColumnNamesComparator());
 		for (COLNAMES cn : colnames) {
 			COLNAMES newEntry = translation.get(cn);
 			if (newEntry != null) {
@@ -406,7 +408,40 @@ public class EprHelpers {
 		return true;
 	}
 	
-	
+	/**
+	 * Provides a Comparator for the SortedSets we use for the dawg signatures.
+	 * TODO: we really only need one instance of this.. (but what was the best way to have a singleton again?..)
+	 * @return
+	 */
+	public static <COLNAMES> Comparator<COLNAMES> getColumnNamesComparator() {
+		return new Comparator<COLNAMES>() {
+			@Override
+			public int compare(COLNAMES o1, COLNAMES o2) {
+				// we can only deal with TermVariables right now --> otherwise this will throw an exception...
+				if (o1 instanceof TermVariable) {
+					TermVariable tv1 = (TermVariable) o1;
+					TermVariable tv2 = (TermVariable) o2;
+					return tv1.getName().compareTo(tv2.getName());
+				} else if (o1 instanceof String) {
+					return ((String) o1).compareTo((String) o2);
+				}
+
+				return o1.toString().compareTo(o2.toString());//might work for all..
+			}
+		};
+	}
+
+	public static <COLNAMES> Map<COLNAMES, Integer> computeColnamesToIndex(SortedSet<COLNAMES> sortedSet) {
+		Map<COLNAMES, Integer> result = new HashMap<COLNAMES, Integer>();
+		
+		Iterator<COLNAMES> sortedSetIt = sortedSet.iterator();
+		for (int i = 0; i < sortedSet.size(); i++) {
+			result.put(sortedSetIt.next(), i);
+		}
+
+		return result;
+	}
+
 //	public static <COLNAMES> SortedSet<COLNAMES> applyMapping(
 //			SortedSet<COLNAMES> colnames, Map<COLNAMES, COLNAMES> translation) {
 //		assert colnames.size > 0;

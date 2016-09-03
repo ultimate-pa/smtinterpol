@@ -78,7 +78,7 @@ public class EprPredicate {
 		this.mEprTheory = eprTheory;
 
 //		this.mTermVariablesForArguments = new ArrayList<TermVariable>(mArity);
-		TreeSet<TermVariable> tva = new TreeSet<TermVariable>(mEprTheory.getTermVariableComparator());
+		TreeSet<TermVariable> tva = new TreeSet<TermVariable>(EprHelpers.getColumnNamesComparator());
 		for (int i = 0; i < mArity; i++) {
 			String tvName = mFunctionSymbol.getName() + "_arg_" + i;
 			tva.add(

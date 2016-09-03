@@ -14,6 +14,7 @@ import java.util.SortedSet;
 import java.util.TreeSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 
@@ -52,6 +53,10 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 		mBacking = new HashSet<List<LETTER>>(nd.mBacking);
 	}
 
+//	public NaiveDawg(IDawg<LETTER, COLNAMES> other, Map<COLNAMES, Term> translation) {
+//		// TODO Auto-generated constructor stub
+//	}
+
 	@Override
 	public IDawg<LETTER, COLNAMES> join(IDawg<LETTER, COLNAMES> other) {
 		
@@ -64,7 +69,7 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 //			newSignature.add(this.getColnames().get(i));
 ////			reverseMap.put(this.getColnames().get(i), i);
 //		}
-		SortedSet<COLNAMES> newSignature = new TreeSet<COLNAMES>(mColNames.comparator());
+		SortedSet<COLNAMES> newSignature = new TreeSet<COLNAMES>(EprHelpers.getColumnNamesComparator());
 		newSignature.addAll(this.mColNames);
 		newSignature.addAll(other.getColnames());
 
@@ -284,6 +289,11 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 			}
 		}
 		return new NaiveDawg<LETTER, COLNAMES>(mColNames, mAllConstants, newBacking);
+	}
+
+	@Override
+	protected Iterable<List<LETTER>> listPoints() {
+		return mBacking;
 	}
 
 }

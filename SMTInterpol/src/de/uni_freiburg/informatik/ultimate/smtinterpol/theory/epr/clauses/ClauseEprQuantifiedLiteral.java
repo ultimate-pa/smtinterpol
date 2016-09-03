@@ -16,6 +16,7 @@ import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
@@ -87,7 +88,7 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	 * In effect, we use this translation for the unification/natural join with the
 	 * decide stack literals, which have a canonical signature from their EprPredicate. 
 	 */
-	private Map<TermVariable, Term> mTranslationForClause;
+	private Map<TermVariable, Object> mTranslationForClause;
 
 	public ClauseEprQuantifiedLiteral(boolean polarity, EprQuantifiedPredicateAtom atom, 
 			EprClause clause, EprTheory eprTheory) {
@@ -107,7 +108,7 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	private void processAtom(EprQuantifiedPredicateAtom atom) {
 		mArgumentTerms = 
 				new ArrayList<Term>();
-		TreeSet<TermVariable> clSig = new TreeSet<TermVariable>(mEprTheory.getTermVariableComparator());
+		TreeSet<TermVariable> clSig = new TreeSet<TermVariable>(EprHelpers.getColumnNamesComparator());
 
 		for (int i = 0; i < atom.getArguments().length; i++) {
 			Term argI = atom.getArguments()[i];
@@ -262,12 +263,12 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	 * @return map : predicateColumnNames -> clauseColumnNames
 	 */
 //	public DawgTranslation<TermVariable> getTranslationForClause() {
-	private Map<TermVariable, Term> getTranslationForClause() {
+	private Map<TermVariable, Object> getTranslationForClause() {
 
 //		DawgTranslation<TermVariable> dt = new DawgTranslation<TermVariable>();
 //		for ()
-		Map<TermVariable, Term> result = 
-				new HashMap<TermVariable, Term>();
+		Map<TermVariable, Object> result = 
+				new HashMap<TermVariable, Object>();
 		Iterator<TermVariable> predTermVarIt = mAtom.getEprPredicate().getTermVariablesForArguments().iterator();
 		for (int i = 0; i < mArgumentTerms.size(); i++) {
 			Term atomT = mArgumentTerms.get(i);

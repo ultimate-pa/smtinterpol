@@ -88,7 +88,7 @@ public class EprClause {
 
 		Set<TermVariable> keySet = mVariableToClauseLitToPositions.keySet();
 //		mVariables = keySet.toArray(new TermVariable[keySet.size()]);
-		TreeSet<TermVariable> vars = new TreeSet<TermVariable>(eprTheory.getTermVariableComparator());
+		TreeSet<TermVariable> vars = new TreeSet<TermVariable>(EprHelpers.getColumnNamesComparator());
 		vars.addAll(keySet);
 		mVariables = Collections.unmodifiableSortedSet(vars);
 //		mVariables = new ArrayList<TermVariable>(keySet);
