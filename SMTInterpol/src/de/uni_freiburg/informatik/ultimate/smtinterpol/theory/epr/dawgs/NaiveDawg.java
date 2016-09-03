@@ -5,10 +5,13 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
@@ -26,12 +29,12 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	Set<List<LETTER>> mBacking;
 	private Set<List<LETTER>> mNCrossProduct;
 	
-	public NaiveDawg(List<COLNAMES> termVariables, Set<LETTER> allConstants) {
+	public NaiveDawg(SortedSet<COLNAMES> termVariables, Set<LETTER> allConstants) {
 		super(termVariables, allConstants);
 		mBacking = new HashSet<List<LETTER>>();
 	}
 
-	public NaiveDawg(List<COLNAMES> termVariables, Set<LETTER> allConstants, 
+	public NaiveDawg(SortedSet<COLNAMES> termVariables, Set<LETTER> allConstants, 
 			Set<List<LETTER>> initialLanguage) {
 		super(termVariables, allConstants);
 		mBacking = new HashSet<List<LETTER>>(initialLanguage);
@@ -53,23 +56,30 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	public IDawg<LETTER, COLNAMES> join(IDawg<LETTER, COLNAMES> other) {
 		
 		// union signature
-		Map<COLNAMES, Integer> reverseMap = new HashMap<COLNAMES, Integer>();
-		List<COLNAMES> newSignature = new ArrayList<COLNAMES>();
-		for (int i = 0; i < this.getColnames().size(); i++) {
-			newSignature.add(this.getColnames().get(i));
-			reverseMap.put(this.getColnames().get(i), i);
-		}
+//		Map<COLNAMES, Integer> reverseMap = new HashMap<COLNAMES, Integer>();
+//		List<COLNAMES> newSignature = new ArrayList<COLNAMES>();
+//		SortedSet<COLNAMES> newSignature = new TreeSet<COLNAMES>();
+////		SortedSet<COLNAMES> newSignature = new TreeSet<COLNAMES>();
+//		for (int i = 0; i < this.getColnames().size(); i++) {
+//			newSignature.add(this.getColnames().get(i));
+////			reverseMap.put(this.getColnames().get(i), i);
+//		}
+		SortedSet<COLNAMES> newSignature = new TreeSet<COLNAMES>(mColNames.comparator());
+		newSignature.addAll(this.mColNames);
+		newSignature.addAll(other.getColnames());
 
 		// intersection signature
-		Set<COLNAMES> commonColumns = new HashSet<COLNAMES>();
+		SortedSet<COLNAMES> commonColumns = new TreeSet<COLNAMES>(newSignature);
+		commonColumns.retainAll(this.mColNames);
+		commonColumns.retainAll(other.getColnames());
 
-		for (COLNAMES cn : other.getColnames()) {
-			if (!newSignature.contains(cn)) {
-				newSignature.add(cn);
-			} else {
-				commonColumns.add(cn);
-			}
-		}
+//		for (COLNAMES cn : other.getColnames()) {
+//			if (!newSignature.contains(cn)) {
+//				newSignature.add(cn);
+//			} else {
+//				commonColumns.add(cn);
+//			}
+//		}
 		
 		NaiveDawg<LETTER, COLNAMES> otherNd = (NaiveDawg<LETTER, COLNAMES>) other;
 
@@ -106,7 +116,7 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	}
 
 	private List<LETTER> buildJoinedPoint(List<LETTER> point1, Map<COLNAMES, Integer> colNameToIndex1,
-			List<LETTER> point2, Map<COLNAMES, Integer> colNameToIndex2, List<COLNAMES> newSignature) {
+			List<LETTER> point2, Map<COLNAMES, Integer> colNameToIndex2, SortedSet<COLNAMES> newSignature) {
 		List<LETTER> result = new ArrayList<LETTER>(newSignature.size());
 		for (COLNAMES cn : newSignature) {
 			int index1 = colNameToIndex1.get(cn);
@@ -226,14 +236,16 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 		}
 	}
 
-	private List<List<LETTER>> blowUpForCurrentSignature(List<LETTER> pt, List<COLNAMES> ptSig) {
+	private List<List<LETTER>> blowUpForCurrentSignature(List<LETTER> pt, SortedSet<COLNAMES> ptSig) {
 		assert mColNames.containsAll(ptSig);
 		List<List<LETTER>> result = new ArrayList<List<LETTER>>();
 		for (COLNAMES cn : mColNames) {
 			//TODO hacky
 			int posInPtSig = -1;
+			Iterator<COLNAMES> ptSigIt = ptSig.iterator();
 			for (int i = 0; i < ptSig.size(); i++) {
-				if (ptSig.get(i) == cn) {
+//				if (ptSig.get(i) == cn) {
+				if (ptSigIt.next() == cn) {
 					posInPtSig = i;
 				}
 			}

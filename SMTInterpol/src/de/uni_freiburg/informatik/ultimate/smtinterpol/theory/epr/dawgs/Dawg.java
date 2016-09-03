@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -29,7 +30,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	 */
 	Map<Integer, Map<IDawgLetter<LETTER>, Integer>> transitionRelation;
 
-	public Dawg(List<COLNAMES> termVariables, Set<LETTER> allConstants) {
+	public Dawg(SortedSet<COLNAMES> termVariables, Set<LETTER> allConstants) {
 		super(termVariables, allConstants);
 		
 		/*

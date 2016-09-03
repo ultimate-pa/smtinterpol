@@ -949,15 +949,20 @@ public class EprTheory implements ITheory {
 		
 	}
 
-//	public Comparator<TermVariable> getTermVariableComparator() {
-//		
-//		return new Comparator<TermVariable>() {
-//
-//			@Override
-//			public int compare(TermVariable o1, TermVariable o2) {
-//				return o1.getName().compareTo(o2.getName());
-//			}
-//		};
-//	}
+	/**
+	 * Comparator for TermVariables that we need for the SortedSets for the dawg signatures.
+	 * TODO: we really only need one such Comparator object..
+	 * @return
+	 */
+	public static Comparator<TermVariable> getTermVariableComparator() {
+		
+		return new Comparator<TermVariable>() {
+
+			@Override
+			public int compare(TermVariable o1, TermVariable o2) {
+				return o1.getName().compareTo(o2.getName());
+			}
+		};
+	}
 
 }

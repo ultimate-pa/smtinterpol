@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.Stack;
+import java.util.TreeSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -360,6 +361,21 @@ public class EprHelpers {
 			List<COLNAMES> colnames, Map<COLNAMES, COLNAMES> translation) {
 		assert colnames.size() > 0;
 		List<COLNAMES> result = new ArrayList<COLNAMES>();
+		for (COLNAMES cn : colnames) {
+			COLNAMES newEntry = translation.get(cn);
+			if (newEntry != null) {
+				result.add(newEntry);
+			} else {
+				result.add(cn);
+			}
+		}
+		return result;
+	}
+	
+	public static <COLNAMES> SortedSet<COLNAMES> applyMapping(
+			SortedSet<COLNAMES> colnames, Map<COLNAMES, COLNAMES> translation) {
+		assert colnames.size() > 0;
+		SortedSet<COLNAMES> result = new TreeSet<COLNAMES>(colnames.comparator());
 		for (COLNAMES cn : colnames) {
 			COLNAMES newEntry = translation.get(cn);
 			if (newEntry != null) {

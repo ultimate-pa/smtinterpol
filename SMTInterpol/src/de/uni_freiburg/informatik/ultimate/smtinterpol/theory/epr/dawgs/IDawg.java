@@ -12,8 +12,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
 public interface IDawg<LETTER, COLNAMES> {
 	
 //	public COLNAMES[] getColnames();
-//	public SortedSet<COLNAMES> getColnames();
-	public List<COLNAMES> getColnames();
+	public SortedSet<COLNAMES> getColnames();
+//	public List<COLNAMES> getColnames();
 	
 	public int getArity();
 	

@@ -7,6 +7,10 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
 
+/**
+ * 
+ * @author Alexander Nutz
+ */
 public class EprClauseFactory {
 	
 	EprTheory mEprTheory;
@@ -34,6 +38,13 @@ public class EprClauseFactory {
 		EprClause c2 = pivot2.getClause();
 
 		//TODO rework
+		
+		// compute unifying substitution
+		// TODO:
+		// think unification through
+		//  - if all clauses have disjoint free variable sets, would that help?
+		//  - related: are we correctly dealing with literals like P(x, x, y)??
+		
 		
 		/*
 		 * plan:

@@ -21,6 +21,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers.Pair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundEqualityAtom;
@@ -36,38 +37,36 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.D
 /**
  * Represents a clause that is only known to the EprTheory.
  * This means that the clause contains at least one free 
- * (implicitly quantified) variable.
+ * (implicitly forall-quantified) variable.
  * 
- * @author nutz
+ * @author Alexander Nutz
  */
 public class EprClause {
 	
 
-	final Set<Literal> mDpllLiterals;
-	final EprTheory mEprTheory;
-	final DawgFactory<ApplicationTerm, TermVariable> mDawgFactory;
+	private final Set<Literal> mDpllLiterals;
+	private final EprTheory mEprTheory;
+	private final DawgFactory<ApplicationTerm, TermVariable> mDawgFactory;
 
-	final Set<ClauseLiteral> mLiterals;
+	private final Set<ClauseLiteral> mLiterals;
 
 	/**
 	 * Stores for every variable that occurs in the clause for each literal in the
 	 * clause at which position the variable occurs in the literal's atom (if at all).
 	 * This should be the only place where we need to speak about TermVariables..
 	 */
-	final Map<TermVariable, Map<ClauseEprQuantifiedLiteral, Set<Integer>>> mVariableToClauseLitToPositions;
+	private final Map<TermVariable, Map<ClauseEprQuantifiedLiteral, Set<Integer>>> mVariableToClauseLitToPositions;
 	
 	/**
-	 * Stores the variabels occuring in this clause in the order determined by the HashMap mVariableToClauseLitToPositions
+	 * Stores the variables occurring in this clause in the order determined by the HashMap mVariableToClauseLitToPositions
 	 */
-	List<TermVariable> mVariables;
-//	SortedSet<TermVariable> mVariables;
+//	private final List<TermVariable> mVariables;
+	SortedSet<TermVariable> mVariables;
 //	TermVariable[] mVariables;
 
 	/*
 	 * The following two fields are only used during creation of the clause.
 	 */
-	HashMap<TermVariable, Map<ClauseEprQuantifiedLiteral, Set<Integer>>> mVariableToClauseLitToPositionsTemp;
-	Set<ClauseLiteral> mLiteralsTemp;
 	private EprClauseState mEprClauseState;
 	private Set<ClauseLiteral> mConflictLiterals;
 	private IDawg<ApplicationTerm, TermVariable> mConflictPoints;
@@ -81,23 +80,20 @@ public class EprClause {
 
 		// set up the clause..
 
-		mVariableToClauseLitToPositionsTemp = new HashMap<TermVariable, Map<ClauseEprQuantifiedLiteral,Set<Integer>>>();
-		mLiteralsTemp = new HashSet<ClauseLiteral>();
+		Pair<Map<TermVariable, Map<ClauseEprQuantifiedLiteral, Set<Integer>>>, Set<ClauseLiteral>> resPair = 
+				 createClauseLiterals(lits);
 
-		createClauseLiterals(lits);
-
-		mLiterals = Collections.unmodifiableSet(mLiteralsTemp);
-		mVariableToClauseLitToPositions = Collections.unmodifiableMap(mVariableToClauseLitToPositionsTemp);
+		mVariableToClauseLitToPositions = Collections.unmodifiableMap(resPair.first);
+		mLiterals = Collections.unmodifiableSet(resPair.second);
 
 		Set<TermVariable> keySet = mVariableToClauseLitToPositions.keySet();
 //		mVariables = keySet.toArray(new TermVariable[keySet.size()]);
-//		mVariables = new TreeSet<TermVariable>(eprTheory.getTermVariableComparator());
-//		mVariables.addAll(keySet);
-		mVariables = new ArrayList<TermVariable>(keySet);
-
-		// those ..Temp fields should not be used afterwards..
-		mLiteralsTemp = null;
-		mVariableToClauseLitToPositionsTemp = null;
+		TreeSet<TermVariable> vars = new TreeSet<TermVariable>(eprTheory.getTermVariableComparator());
+		vars.addAll(keySet);
+		mVariables = Collections.unmodifiableSortedSet(vars);
+//		mVariables = new ArrayList<TermVariable>(keySet);
+//		mVariables = Collections.unmodifiableList(new ArrayList<TermVariable>(keySet));
+//		mVariables = Collections.unmodifiableSet(new TreeSet<TermVariable>(keySet));
 	}
 
 	/**
@@ -109,9 +105,16 @@ public class EprClause {
 	 *  - detect duplicate literals
 	 * 
 	 * @param lits The (DPLL) literals that this clause is created from.
+	 * @return 
+	 * @return 
 	 */
-	private void createClauseLiterals(Set<Literal> lits) {
-		
+	private Pair<Map<TermVariable, Map<ClauseEprQuantifiedLiteral, Set<Integer>>>, Set<ClauseLiteral>> createClauseLiterals(
+			Set<Literal> lits) {
+
+		HashMap<TermVariable, Map<ClauseEprQuantifiedLiteral, Set<Integer>>> variableToClauseLitToPositions = 
+				new HashMap<TermVariable, Map<ClauseEprQuantifiedLiteral,Set<Integer>>>();
+		HashSet<ClauseLiteral> literalsTemp = new HashSet<ClauseLiteral>();
+
 		Set<EprQuantifiedEqualityAtom> quantifiedEqualities = new HashSet<EprQuantifiedEqualityAtom>();
 
 		for (Literal l : lits) {
@@ -123,7 +126,7 @@ public class EprClause {
 
 				ClauseEprQuantifiedLiteral newL = new ClauseEprQuantifiedLiteral(
 						polarity, eqpa, this, mEprTheory);
-				mLiteralsTemp.add(newL);
+				literalsTemp.add(newL);
 				eqpa.getEprPredicate().addQuantifiedOccurence(newL, this);
 				
 				
@@ -132,7 +135,7 @@ public class EprClause {
 				EprGroundPredicateAtom egpa = (EprGroundPredicateAtom) atom;
 				ClauseEprGroundLiteral newL = new ClauseEprGroundLiteral(
 						polarity, egpa, this, mEprTheory);
-				mLiteralsTemp.add(newL);
+				literalsTemp.add(newL);
 				egpa.getEprPredicate().addGroundOccurence(newL, this);
 				continue;
 			} else if (atom instanceof EprQuantifiedEqualityAtom) {
@@ -150,13 +153,13 @@ public class EprClause {
 //				continue;
 			} else {
 				// atom is a "normal" Atom from the DPLLEngine
-				mLiteralsTemp.add(
+				literalsTemp.add(
 						new ClauseDpllLiteral(polarity, atom, this, mEprTheory));
 				continue;
 			}
 		}
 		
-		for (ClauseLiteral cl : mLiteralsTemp) {
+		for (ClauseLiteral cl : literalsTemp) {
 			if (cl instanceof ClauseEprQuantifiedLiteral) {
 				ClauseEprQuantifiedLiteral ceql = (ClauseEprQuantifiedLiteral) cl;
 				// update all quantified predicate atoms according to the quantified equalities
@@ -168,7 +171,10 @@ public class EprClause {
 			}
 		}
 		
-		assert mLiteralsTemp.size() == mDpllLiterals.size() - quantifiedEqualities.size();
+		assert literalsTemp.size() == mDpllLiterals.size() - quantifiedEqualities.size();
+		
+		return new Pair<Map<TermVariable, Map<ClauseEprQuantifiedLiteral,Set<Integer>>>, Set<ClauseLiteral>>(
+				variableToClauseLitToPositions, literalsTemp);
 	}
 	
 	/**

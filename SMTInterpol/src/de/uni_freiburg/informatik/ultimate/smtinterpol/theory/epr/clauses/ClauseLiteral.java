@@ -1,8 +1,11 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses;
 
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
 
 /**
@@ -18,15 +21,16 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.D
 public abstract class ClauseLiteral {
 
 
-	final Literal mEngineLiteral;
-	final DPLLAtom mAtom;
-	final boolean mPolarity;
-	final EprTheory mEprTheory;
+	protected final Literal mEngineLiteral;
+	protected final DPLLAtom mAtom;
+	protected final boolean mPolarity;
+	protected final EprTheory mEprTheory;
 	
 	/**
 	 * The clause that this ClauseLiteral is part of
 	 */
-	EprClause mEprClause;
+	protected EprClause mEprClause;
+	protected final DawgFactory<ApplicationTerm, TermVariable> mDawgFactory;
 	
 	public ClauseLiteral(boolean polarity, DPLLAtom atom, EprClause clause, EprTheory eprTheory) {
 		mAtom = atom;
@@ -34,6 +38,7 @@ public abstract class ClauseLiteral {
 		mPolarity = polarity;
 		mEprClause = clause;
 		mEprTheory = eprTheory;
+		mDawgFactory = eprTheory.getDawgFactory();
 	}
 	
 	

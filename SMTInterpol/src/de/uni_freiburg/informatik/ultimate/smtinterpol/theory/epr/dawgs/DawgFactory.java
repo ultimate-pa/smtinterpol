@@ -6,8 +6,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseLiteral;
@@ -24,7 +26,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 	}
 
 //	public IDawg<LETTER, COLNAMES> createEmptyDawg(COLNAMES[] termVariables) {
-	public IDawg<LETTER, COLNAMES> createEmptyDawg(List<COLNAMES> termVariables) {
+	public IDawg<LETTER, COLNAMES> createEmptyDawg(SortedSet<COLNAMES> termVariables) {
 		assert termVariables != null;
 		//TODO freeze the current allConstants set, here?? or can it just change transparently?? 
 		return new NaiveDawg<LETTER, COLNAMES>(termVariables, mAllConstants);
@@ -42,7 +44,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 	 * @param termVariables
 	 * @return
 	 */
-	public IDawg<LETTER, COLNAMES> createFullDawg(List<COLNAMES> termVariables) {
+	public IDawg<LETTER, COLNAMES> createFullDawg(SortedSet<COLNAMES> termVariables) {
 		assert termVariables != null;
 		return new NaiveDawg<LETTER, COLNAMES>(termVariables, mAllConstants).complement();
 	}
@@ -56,8 +58,15 @@ public class DawgFactory<LETTER, COLNAMES> {
 	/**
 	 * Returns a dawg that is the same as the input dawg, but the columns have been renamed according 
 	 * to the given map.
-	 * @param dawg
-	 * @param translation
+	 * Note that the map may introduce repetitions in the column names.
+	 *   For example the signature of dawg might be (u, v, w), and the map might be [u -> x, v -> x, w -> y].
+	 *   The consequence is that the signature of the new dawg will be (x, y). We will only take points
+	 *   from the input dawg that have the same entry for u and v.
+	 *     (select + project)
+	 *     
+	 * 
+	 * @param dawg a dawg whose column names are to be changed
+	 * @param translation map that gives every column a new name
 	 * @return
 	 */
 	public IDawg<LETTER, COLNAMES> renameColumnsOfDawg(
@@ -122,7 +131,6 @@ public class DawgFactory<LETTER, COLNAMES> {
 //		 * - add the points
 //		 */
 //
-//		List<COLNAMES> newSignature = new ArrayList<COLNAMES>(d1.getColnames());
 //		for (COLNAMES cn : d2.getColnames()) {
 //			if (!newSignature.contains(cn)) {
 //				newSignature.add(cn);
@@ -149,9 +157,16 @@ public class DawgFactory<LETTER, COLNAMES> {
 	 * @param selectMap (possibly) restricts some COLNAMES in the signature to only one LETTER
 	 * @return
 	 */
+	@Deprecated 
 	public IDawg<ApplicationTerm, TermVariable> select(IDawg<ApplicationTerm, TermVariable> dawg,
 			Map<TermVariable, ApplicationTerm> selectMap) {
 		return dawg.select(selectMap);
+	}
+
+	public IDawg<ApplicationTerm, TermVariable> renameSelectAndProject(
+			IDawg<ApplicationTerm, TermVariable> refutedPoints, Map<TermVariable, Term> mTranslationForClause) {
+		// TODO Auto-generated method stub
+		return null;
 	}
 
 

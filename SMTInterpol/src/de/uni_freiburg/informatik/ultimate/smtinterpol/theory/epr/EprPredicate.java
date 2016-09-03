@@ -1,10 +1,13 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.SortedSet;
+import java.util.TreeSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
@@ -45,7 +48,8 @@ public class EprPredicate {
 	 * Every predicate symbol has canonical TermVariables for each of its argument positions.
 	 * They form the signature of the corresponding Dawgs on the decide stack.
 	 */
-	private final List<TermVariable> mTermVariablesForArguments;
+	private final SortedSet<TermVariable> mTermVariablesForArguments;
+//	private final List<TermVariable> mTermVariablesForArguments;
 
 	final EprTheory mEprTheory;
 	
@@ -73,13 +77,15 @@ public class EprPredicate {
 		this.mArity = fs.getParameterSorts().length;
 		this.mEprTheory = eprTheory;
 
-		this.mTermVariablesForArguments = new ArrayList<TermVariable>(mArity);
+//		this.mTermVariablesForArguments = new ArrayList<TermVariable>(mArity);
+		TreeSet<TermVariable> tva = new TreeSet<TermVariable>(mEprTheory.getTermVariableComparator());
 		for (int i = 0; i < mArity; i++) {
 			String tvName = mFunctionSymbol.getName() + "_arg_" + i;
-			mTermVariablesForArguments.add(
+			tva.add(
 					mEprTheory.getTheory().createFreshTermVariable(tvName, fs.getParameterSorts()[i]));
 			
 		}
+		mTermVariablesForArguments = Collections.unmodifiableSortedSet(tva);
 	}
 
 	public void addQuantifiedOccurence(ClauseEprQuantifiedLiteral l, EprClause eprClause) {
@@ -257,7 +263,8 @@ public class EprPredicate {
 		return mFunctionSymbol;
 	}
 	
-	public List<TermVariable> getTermVariablesForArguments() {
+//	public List<TermVariable> getTermVariablesForArguments() {
+	public SortedSet<TermVariable> getTermVariablesForArguments() {
 		return mTermVariablesForArguments;
 	}
 			
