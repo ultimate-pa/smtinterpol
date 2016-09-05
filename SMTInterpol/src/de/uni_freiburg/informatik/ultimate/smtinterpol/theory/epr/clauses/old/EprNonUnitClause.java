@@ -111,9 +111,9 @@ public abstract class EprNonUnitClause extends EprClauseOld {
 		for (Literal oldClauseQl : mClauseThisIsAFreshAlphaRenamingOf.eprQuantifiedPredicateLiterals) {
 			EprQuantifiedPredicateAtom oldClauseAtom = (EprQuantifiedPredicateAtom) oldClauseQl.getAtom();
 			EprQuantifiedPredicateAtom atomInNewClause = 
-					oldClauseAtom.getEprPredicate().getAtomForQuantifiedTermTuple(
-							mFreshAlphaRenaming.apply(
-									oldClauseAtom.getArgumentsAsTermTuple()), mTheory, 0); //TODO assertionStackLevel
+					(EprQuantifiedPredicateAtom) oldClauseAtom.getEprPredicate().getAtomForTermTuple(
+					mFreshAlphaRenaming.apply(
+							oldClauseAtom.getArgumentsAsTermTuple()), mTheory, 0); //TODO assertionStackLevel
 			Literal litInNewClause = oldClauseQl.getSign() == 1 ? atomInNewClause : atomInNewClause.negate();
 			
 			mFulfillabilityStatus.put(litInNewClause, oldFulfillability.get(oldClauseQl));

@@ -2,6 +2,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseEprLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseLiteral;
@@ -23,9 +24,9 @@ public class DecideStackPropagatedLiteral extends DecideStackQuantifiedLiteral {
 	 */
 	ClauseEprLiteral mUnitClauseLiteral;
 
-	public DecideStackPropagatedLiteral(boolean polarity, EprQuantifiedPredicateAtom atom,
+	public DecideStackPropagatedLiteral(boolean polarity, EprPredicate eprPred,
 			IDawg<ApplicationTerm, TermVariable> dawg, ClauseEprLiteral unitClauseLiteral) {
-		super(polarity, atom, dawg);
+		super(polarity, eprPred, dawg);
 		mUnitClauseLiteral = unitClauseLiteral;
 	}
 

@@ -1,5 +1,6 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel;
 
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 
@@ -19,5 +20,4 @@ public class DecideStackGroundLiteral extends DecideStackLiteral {
 		super(polarity, atom);
 		mPoint = atom.getArgumentsAsTermTuple();
 	}
-
 }

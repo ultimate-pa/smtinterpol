@@ -80,6 +80,8 @@ public class EprTheory implements ITheory {
 	private Theory mTheory;
 	private DPLLEngine mEngine;
 
+	private ArrayDeque<Literal> mGroundDecisionSuggestions = new ArrayDeque<Literal>();
+
 
 	public EprTheory(Theory th, DPLLEngine engine, CClosure cClosure, Clausifier clausifier, boolean solveThroughGrounding) {
 		mTheory = th;
@@ -266,6 +268,10 @@ public class EprTheory implements ITheory {
 		}
 		return null;
 	}
+	
+	public void addGroundLiteralToPropagate(Literal l) {
+		mGroundLiteralsToPropagate.add(l);
+	}
 
 	@Override
 	public Clause getUnitClause(Literal literal) {
@@ -280,8 +286,12 @@ public class EprTheory implements ITheory {
 		if (mGroundAllMode)
 			return null;
 		//TODO: think about how to get smart suggestions..
-		mLogger.debug("EPRDEBUG: getSuggestion");
-		return null;
+//		mLogger.debug("EPRDEBUG: getSuggestion");
+		return mGroundDecisionSuggestions.poll();
+	}
+	
+	public void addGroundDecisionSuggestion(Literal l) {
+		mGroundDecisionSuggestions.add(l);
 	}
 
 	@Override

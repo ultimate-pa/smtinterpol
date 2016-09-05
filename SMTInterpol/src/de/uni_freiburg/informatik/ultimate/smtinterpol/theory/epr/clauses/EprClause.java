@@ -397,11 +397,11 @@ public class EprClause {
 		return mClauseLitToUnitPoints;
 	}
 	
-	public DecideStackPropagatedLiteral getUnitPropagationLiteral() {
-		assert isUnit() : "this may only be called on unit clauses";
-		assert false : "TODO: implement";
-		return null;
-	}
+//	public DecideStackPropagatedLiteral getUnitPropagationLiteral() {
+//		assert isUnit() : "this may only be called on unit clauses";
+//		assert false : "TODO: implement";
+//		return null;
+//	}
 
 	public boolean isUnit() {
 		return mEprClauseState == EprClauseState.Unit;

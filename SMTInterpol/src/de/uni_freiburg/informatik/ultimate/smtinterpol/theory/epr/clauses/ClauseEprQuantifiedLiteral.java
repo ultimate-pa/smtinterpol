@@ -17,6 +17,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers.Pair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
@@ -79,7 +80,17 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	 * In effect, we use this translation for the unification/natural join with the
 	 * decide stack literals, which have a canonical signature from their EprPredicate. 
 	 */
-	private Map<TermVariable, Object> mTranslationForClause;
+	private final Map<TermVariable, Object> mTranslationForClause;
+	
+	
+	/**
+	 * Roughly the reverse of mTranslationForClause.
+	 * Translates from the variable names of the EprClause this ClauseLiteral belongs to into
+	 * the canoncal variable names of the EprPredicate.
+	 * Used for translating from unit clause representation as a dawg over the clause signature
+	 * to a dawg over the predicate's signature.
+	 */
+	private final Map<TermVariable, TermVariable> mTranslationForEprPredicate;
 
 	public ClauseEprQuantifiedLiteral(boolean polarity, EprQuantifiedPredicateAtom atom, 
 			EprClause clause, EprTheory eprTheory) {
@@ -87,8 +98,9 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 		mAtom = atom;
 
 		processAtom(atom);			
-		
-		mTranslationForClause = getTranslationForClause();
+		Pair<Map<TermVariable, Object>, Map<TermVariable, TermVariable>> p = computeDawgSignatureTranslations();
+		mTranslationForClause = p.first;
+		mTranslationForEprPredicate = p.second;
 	}
 
 	/**
@@ -255,22 +267,30 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	 * to the column names of the clause that this ClauseLiteral belongs to.
 	 * @return map : predicateColumnNames -> clauseColumnNames
 	 */
-//	public DawgTranslation<TermVariable> getTranslationForClause() {
-	private Map<TermVariable, Object> getTranslationForClause() {
+	private Pair<Map<TermVariable, Object>, Map<TermVariable, TermVariable>> computeDawgSignatureTranslations() {
 
-//		DawgTranslation<TermVariable> dt = new DawgTranslation<TermVariable>();
-//		for ()
-		Map<TermVariable, Object> result = 
+		Map<TermVariable, TermVariable> clauseToPred = 
+				new HashMap<TermVariable, TermVariable>();
+		Map<TermVariable, Object> predToClause = 
 				new HashMap<TermVariable, Object>();
 		Iterator<TermVariable> predTermVarIt = mAtom.getEprPredicate().getTermVariablesForArguments().iterator();
 		for (int i = 0; i < mArgumentTerms.size(); i++) {
 			Term atomT = mArgumentTerms.get(i);
-			result.put(
-					predTermVarIt.next(),
-					atomT);
+			TermVariable tv = predTermVarIt.next();
+			predToClause.put(tv, atomT);
+			if (atomT instanceof TermVariable) {
+				clauseToPred.put((TermVariable) atomT, tv);
+			}
 		}
-		return result;
+
+
+		return new Pair<Map<TermVariable, Object>, Map<TermVariable, TermVariable>>(predToClause, clauseToPred);
 	}
 	
+	public Map<TermVariable, TermVariable> getTranslationForEprPredicate() {
+		return mTranslationForEprPredicate;
+	}
+
+
 
 }

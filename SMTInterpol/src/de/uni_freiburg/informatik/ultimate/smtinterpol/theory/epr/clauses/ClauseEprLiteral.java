@@ -39,10 +39,18 @@ public abstract class ClauseEprLiteral extends ClauseLiteral {
 	 */
 	protected final List<Term> mArgumentTerms;
 
+	protected final List<Object> mArgumentTermsAsObjects;
+
 	public ClauseEprLiteral(boolean polarity, EprPredicateAtom atom, EprClause clause, EprTheory eprTheory) {
 		super(polarity, atom, clause, eprTheory);
 		mEprPredicateAtom = atom;
 		mArgumentTerms = Collections.unmodifiableList(Arrays.asList(atom.getArguments()));
+
+		List<Object> l =  new ArrayList<Object>();
+		for (Term at : mArgumentTerms) {
+			l.add(at);
+		}
+		mArgumentTermsAsObjects = Collections.unmodifiableList(l);
 	}
 
 
@@ -91,5 +99,13 @@ public abstract class ClauseEprLiteral extends ClauseLiteral {
 
 	public List<Term> getArguments() {
 		return mArgumentTerms;
+	}
+	
+	/**
+	 * Returns the same as getArguments, only in a list of objects
+	 * @return
+	 */
+	public List<Object> getArgumentsAsObjects() {
+		return mArgumentTermsAsObjects;
 	}
 }
