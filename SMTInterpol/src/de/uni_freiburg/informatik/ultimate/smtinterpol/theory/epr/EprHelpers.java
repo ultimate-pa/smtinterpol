@@ -414,21 +414,35 @@ public class EprHelpers {
 	 * @return
 	 */
 	public static <COLNAMES> Comparator<COLNAMES> getColumnNamesComparator() {
-		return new Comparator<COLNAMES>() {
-			@Override
-			public int compare(COLNAMES o1, COLNAMES o2) {
-				// we can only deal with TermVariables right now --> otherwise this will throw an exception...
-				if (o1 instanceof TermVariable) {
-					TermVariable tv1 = (TermVariable) o1;
-					TermVariable tv2 = (TermVariable) o2;
-					return tv1.getName().compareTo(tv2.getName());
-				} else if (o1 instanceof String) {
-					return ((String) o1).compareTo((String) o2);
-				}
+		return ColNameComparator.getInstance();
+	}
+	
+	static class ColNameComparator<COLNAMES> implements Comparator<COLNAMES> {
 
-				return o1.toString().compareTo(o2.toString());//might work for all..
+		private static ColNameComparator instance = new ColNameComparator();
+
+		private ColNameComparator() {
+		}
+		
+		@SuppressWarnings("unchecked")
+		public static <COLNAMES> ColNameComparator<COLNAMES> getInstance() {
+			return instance;
+		}
+
+		@Override
+		public int compare(COLNAMES o1, COLNAMES o2) {
+			// we can only deal with TermVariables and Strings right now --> otherwise this will throw an exception...
+			if (o1 instanceof TermVariable) {
+				TermVariable tv1 = (TermVariable) o1;
+				TermVariable tv2 = (TermVariable) o2;
+				return tv1.getName().compareTo(tv2.getName());
+			} else if (o1 instanceof String) {
+				return ((String) o1).compareTo((String) o2);
 			}
-		};
+
+			return o1.toString().compareTo(o2.toString());//might work for all..
+		}
+		
 	}
 
 	public static <COLNAMES> Map<COLNAMES, Integer> computeColnamesToIndex(SortedSet<COLNAMES> sortedSet) {
