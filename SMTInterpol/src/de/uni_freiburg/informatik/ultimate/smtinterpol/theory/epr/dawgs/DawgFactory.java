@@ -315,6 +315,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 		IDawg<Character, String> d3 = df.renameSelectAndProject(d2, translation3);
 
 		System.out.println("d3: rnsP(d2, {alpha -> bla, beta -> bla, gamma -> blub)");
+		System.out.println("expecting: (bla, blub) {ab}");
 		System.out.println(d3);
 		
 		Map<String, Object> translation4 = new HashMap<String, Object>();
@@ -325,7 +326,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 		IDawg<Character, String> d4 = df.renameSelectAndProject(d2, translation4);
 
 		System.out.println("d4: rnsP(d2, {alpha -> bla, beta -> bla, gamma -> 'a')");
-		System.out.println("expecting: (bla, blub) {a, b}");
+		System.out.println("expecting: (bla) {}");
 		System.out.println(d4);
 
 		Map<String, Object> translation5 = new HashMap<String, Object>();

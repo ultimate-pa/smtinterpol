@@ -457,9 +457,10 @@ public class EprTheory implements ITheory {
 				mStateManager.addNewEprPredicate(pred);
 			}
 			if (idx.getFreeVars().length == 0) {
-				EprGroundPredicateAtom egpa = pred.getAtomForPoint(new TermTuple(idx.getParameters()), 
-						mTheory, 
-						mEngine.getAssertionStackLevel());
+				EprGroundPredicateAtom egpa = 
+						(EprGroundPredicateAtom) pred.getAtomForTermTuple(new TermTuple(idx.getParameters()), 
+								mTheory, 
+								mEngine.getAssertionStackLevel());
 				pred.addDPLLAtom(egpa);
 				return egpa;
 			} else {
@@ -472,7 +473,7 @@ public class EprTheory implements ITheory {
 		}
 	}
 
-	private ApplicationTerm applyAlphaRenaming(ApplicationTerm idx, Object mCollector) {
+	public ApplicationTerm applyAlphaRenaming(ApplicationTerm idx, Object mCollector) {
 		boolean cutShort = true;
 		if (cutShort)
 			return idx;
@@ -690,7 +691,7 @@ public class EprTheory implements ITheory {
 
 					EprAtom ea = null;
 					if (newTT.isGround()) {
-						ea = liPred.getAtomForPoint(newTT, mTheory, li.getAtom().getAssertionStackLevel());
+						ea = liPred.getAtomForTermTuple(newTT, mTheory, li.getAtom().getAssertionStackLevel());
 					} else {
 						ea = liPred.getAtomForTermTuple(newTT, mTheory, li.getAtom().getAssertionStackLevel());
 					}

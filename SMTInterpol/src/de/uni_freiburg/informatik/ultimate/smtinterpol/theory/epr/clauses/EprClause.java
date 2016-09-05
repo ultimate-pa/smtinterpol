@@ -61,7 +61,7 @@ public class EprClause {
 	 * Stores the variables occurring in this clause in the order determined by the HashMap mVariableToClauseLitToPositions
 	 */
 //	private final List<TermVariable> mVariables;
-	SortedSet<TermVariable> mVariables;
+	private SortedSet<TermVariable> mVariables;
 //	TermVariable[] mVariables;
 
 	/*
@@ -96,6 +96,7 @@ public class EprClause {
 //		mVariables = Collections.unmodifiableSet(new TreeSet<TermVariable>(keySet));
 	}
 
+
 	/**
 	 * Set up the clause in terms of our Epr data structures.
 	 * Fills the fields mVariableToClauseLitPositionsTemp and mLiteralsTemp.
@@ -108,12 +109,14 @@ public class EprClause {
 	 * @return 
 	 * @return 
 	 */
-	private Pair<Map<TermVariable, Map<ClauseEprQuantifiedLiteral, Set<Integer>>>, Set<ClauseLiteral>> createClauseLiterals(
-			Set<Literal> lits) {
+	private Pair<
+				Map<TermVariable, Map<ClauseEprQuantifiedLiteral, Set<Integer>>>, 
+				Set<ClauseLiteral>
+				> createClauseLiterals(Set<Literal> lits) {
 
 		HashMap<TermVariable, Map<ClauseEprQuantifiedLiteral, Set<Integer>>> variableToClauseLitToPositions = 
 				new HashMap<TermVariable, Map<ClauseEprQuantifiedLiteral,Set<Integer>>>();
-		HashSet<ClauseLiteral> literalsTemp = new HashSet<ClauseLiteral>();
+		HashSet<ClauseLiteral> literals = new HashSet<ClauseLiteral>();
 
 		Set<EprQuantifiedEqualityAtom> quantifiedEqualities = new HashSet<EprQuantifiedEqualityAtom>();
 
@@ -126,7 +129,7 @@ public class EprClause {
 
 				ClauseEprQuantifiedLiteral newL = new ClauseEprQuantifiedLiteral(
 						polarity, eqpa, this, mEprTheory);
-				literalsTemp.add(newL);
+				literals.add(newL);
 				eqpa.getEprPredicate().addQuantifiedOccurence(newL, this);
 				
 				
@@ -135,7 +138,7 @@ public class EprClause {
 				EprGroundPredicateAtom egpa = (EprGroundPredicateAtom) atom;
 				ClauseEprGroundLiteral newL = new ClauseEprGroundLiteral(
 						polarity, egpa, this, mEprTheory);
-				literalsTemp.add(newL);
+				literals.add(newL);
 				egpa.getEprPredicate().addGroundOccurence(newL, this);
 				continue;
 			} else if (atom instanceof EprQuantifiedEqualityAtom) {
@@ -153,13 +156,13 @@ public class EprClause {
 //				continue;
 			} else {
 				// atom is a "normal" Atom from the DPLLEngine
-				literalsTemp.add(
+				literals.add(
 						new ClauseDpllLiteral(polarity, atom, this, mEprTheory));
 				continue;
 			}
 		}
 		
-		for (ClauseLiteral cl : literalsTemp) {
+		for (ClauseLiteral cl : literals) {
 			if (cl instanceof ClauseEprQuantifiedLiteral) {
 				ClauseEprQuantifiedLiteral ceql = (ClauseEprQuantifiedLiteral) cl;
 				// update all quantified predicate atoms according to the quantified equalities
@@ -171,10 +174,10 @@ public class EprClause {
 			}
 		}
 		
-		assert literalsTemp.size() == mDpllLiterals.size() - quantifiedEqualities.size();
+		assert literals.size() == mDpllLiterals.size() - quantifiedEqualities.size();
 		
 		return new Pair<Map<TermVariable, Map<ClauseEprQuantifiedLiteral,Set<Integer>>>, Set<ClauseLiteral>>(
-				variableToClauseLitToPositions, literalsTemp);
+				variableToClauseLitToPositions, literals);
 	}
 	
 	/**

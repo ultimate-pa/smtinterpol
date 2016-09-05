@@ -64,16 +64,7 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	
 	
 
-	/**
-	 * The TermVariables that this clauseLiterals's atom's arguments have in the clause
-	 * this literal belongs to.
-	 * (typically the same as mAtom.getArguments(), except that constants there have been 
-	 *  replaced by fresh TermVariables
-	 *  EDIT: now we are just keeping the constants here, so this list is practically identical
-	 *   to mAtom.getArguments()
-	 *   We deal with repetitions and constants through mTranslationForClause)
-	 */
-	private List<Term> mArgumentTerms;
+
 
 	/**
 	 * The Dawg signature for the representation of points wrt this Clause literal.
@@ -106,8 +97,8 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	 * @param atom
 	 */
 	private void processAtom(EprQuantifiedPredicateAtom atom) {
-		mArgumentTerms = 
-				new ArrayList<Term>();
+//		mArgumentTerms = 
+//				new ArrayList<Term>();
 		TreeSet<TermVariable> clSig = new TreeSet<TermVariable>(EprHelpers.getColumnNamesComparator());
 
 		for (int i = 0; i < atom.getArguments().length; i++) {
@@ -125,7 +116,9 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 //				assert false;
 //			}
 //			mArgumentTerms.add(tv);
-			mArgumentTerms.add(argI);
+
+//			mArgumentTerms.add(argI);
+
 //			mEprClause.updateVariableToClauseLitToPosition(tv, this, i);
 			if (argI instanceof TermVariable) {
 				mEprClause.updateVariableToClauseLitToPosition((TermVariable) argI, this, i);
@@ -278,4 +271,6 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 		}
 		return result;
 	}
+	
+
 }

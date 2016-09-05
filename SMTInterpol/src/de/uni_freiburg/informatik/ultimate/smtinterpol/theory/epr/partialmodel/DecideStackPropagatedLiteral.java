@@ -3,6 +3,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseEprLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
@@ -18,11 +19,12 @@ public class DecideStackPropagatedLiteral extends DecideStackQuantifiedLiteral {
 	/**
 	 * the clause literal whose clause, together with the prefix of the decide stack is responsible
 	 * for the setting of this literal
+	 * It is always an Epr literal because it contradicts something on the epr decide stack
 	 */
-	ClauseLiteral mUnitClauseLiteral;
+	ClauseEprLiteral mUnitClauseLiteral;
 
 	public DecideStackPropagatedLiteral(boolean polarity, EprQuantifiedPredicateAtom atom,
-			IDawg<ApplicationTerm, TermVariable> dawg, ClauseLiteral unitClauseLiteral) {
+			IDawg<ApplicationTerm, TermVariable> dawg, ClauseEprLiteral unitClauseLiteral) {
 		super(polarity, atom, dawg);
 		mUnitClauseLiteral = unitClauseLiteral;
 	}
@@ -31,7 +33,7 @@ public class DecideStackPropagatedLiteral extends DecideStackQuantifiedLiteral {
 	 * Returns the unit clause that was the reason for setting this propagated decide stack literal.
 	 * @return unit clause
 	 */
-	public ClauseLiteral getReasonClauseLit() {
+	public ClauseEprLiteral getReasonClauseLit() {
 		return mUnitClauseLiteral;
 	}
 }

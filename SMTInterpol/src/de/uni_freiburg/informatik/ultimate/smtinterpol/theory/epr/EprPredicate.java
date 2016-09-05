@@ -21,6 +21,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseEprGroundLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseEprQuantifiedLiteral;
@@ -128,7 +129,7 @@ public class EprPredicate {
 	 * Note: this method assumes that tt only contains constants.
 	 * Use getAtomForTermTuple in order to obtain a quantified atom.
 	 */
-	public EprGroundPredicateAtom getAtomForPoint(TermTuple point, Theory mTheory, int assertionStackLevel) {
+	private EprGroundPredicateAtom getAtomForPoint(TermTuple point, Theory mTheory, int assertionStackLevel) {
 		assert point.getFreeVars().size() == 0 : "Use getAtomForTermTuple, if tt is quantified";
 		EprGroundPredicateAtom result = mPointToAtom.get(point);
 		if (result == null) {
@@ -152,7 +153,7 @@ public class EprPredicate {
 	 * @param assertionStackLevel
 	 * @return
 	 */
-	public EprQuantifiedPredicateAtom getAtomForTermTuple(TermTuple tt, Theory mTheory, int assertionStackLevel) {
+	private EprQuantifiedPredicateAtom getAtomForQuantifiedTermTuple(TermTuple tt, Theory mTheory, int assertionStackLevel) {
 		assert tt.getFreeVars().size() > 0 : "Use getAtomForPoint, if tt is ground";
 		EprQuantifiedPredicateAtom result = mTermTupleToAtom.get(tt);
 		
@@ -166,10 +167,19 @@ public class EprPredicate {
 		return result;
 	}
 	
+	public EprPredicateAtom getAtomForTermTuple(TermTuple tt, Theory mTheory, int assertionStackLevel) {
+		if (tt.getFreeVars().size() > 0) {
+			return getAtomForTermTuple(tt, mTheory, assertionStackLevel);
+		} else {
+			return getAtomForPoint(tt, mTheory, assertionStackLevel);
+		}
+	}
+	
 	public String toString() {
 		return "EprPred: " + mFunctionSymbol.getName();
 	}
 
+	@Deprecated
 	public EprGroundPredicateAtom getAtomForPoint(TermTuple point) {
 		EprGroundPredicateAtom result = mPointToAtom.get(point);
 		assert result != null;

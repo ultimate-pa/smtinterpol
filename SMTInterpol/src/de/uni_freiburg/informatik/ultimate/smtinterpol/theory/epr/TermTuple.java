@@ -104,6 +104,7 @@ public class TermTuple {
 					return null;
 				}
 				resultSubs.addEquality(thisTerm, otherTerm, eqPath);
+				assert false : "TODO: rework/rethink equality handling (now that we switched to CDCL..)";
 			} else {
 				resultSubs.addSubs(termTerm, tvTerm);
 			}

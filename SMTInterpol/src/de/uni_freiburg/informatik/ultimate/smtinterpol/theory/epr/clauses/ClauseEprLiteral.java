@@ -1,7 +1,12 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 
+import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
@@ -23,10 +28,21 @@ public abstract class ClauseEprLiteral extends ClauseLiteral {
 	ScopedHashSet<DecideStackLiteral> mPartiallyFulfillingDecideStackLiterals = 
 			new ScopedHashSet<DecideStackLiteral>();
 
+	/**
+	 * The TermVariables (EDIT and constants) that this clauseLiterals's atom's arguments have in the clause
+	 * this literal belongs to.
+	 * (typically the same as mAtom.getArguments(), except that constants there have been 
+	 *  replaced by fresh TermVariables
+	 *  EDIT: now we are just keeping the constants here, so this list is practically identical
+	 *   to mAtom.getArguments()
+	 *   We deal with repetitions and constants through mTranslationForClause)
+	 */
+	protected final List<Term> mArgumentTerms;
 
 	public ClauseEprLiteral(boolean polarity, EprPredicateAtom atom, EprClause clause, EprTheory eprTheory) {
 		super(polarity, atom, clause, eprTheory);
 		mEprPredicateAtom = atom;
+		mArgumentTerms = Collections.unmodifiableList(Arrays.asList(atom.getArguments()));
 	}
 
 
@@ -71,5 +87,9 @@ public abstract class ClauseEprLiteral extends ClauseLiteral {
 	public void endScope() {
 		mPartiallyConflictingDecideStackLiterals.endScope();
 		mPartiallyFulfillingDecideStackLiterals.endScope();
+	}
+
+	public List<Term> getArguments() {
+		return mArgumentTerms;
 	}
 }
