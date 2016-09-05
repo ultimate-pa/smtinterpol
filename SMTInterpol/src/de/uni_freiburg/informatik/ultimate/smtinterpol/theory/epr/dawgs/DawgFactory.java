@@ -215,7 +215,8 @@ public class DawgFactory<LETTER, COLNAMES> {
 					} else {
 						newPoint.set(newSigColNamesToIndex.get(ptColnameInNewSig), ptLtr);
 						// store that at the current oldColumn-name we used letter ptLtr
-						variableAssignmentInPoint.put(ptColnameInOldSig, ptLtr);
+//						variableAssignmentInPoint.put(ptColnameInOldSig, ptLtr);
+						variableAssignmentInPoint.put(ptColnameInNewSig, ptLtr);
 					}
 					
 				} else {
@@ -285,6 +286,10 @@ public class DawgFactory<LETTER, COLNAMES> {
 
 
 		IDawg<Character, String> d1 = df.createFullDawg(colNames1);
+
+		System.out.println("d1: (one, two), Sigma^*");
+		System.out.println(d1);
+
 		IDawg<Character, String> d2 = df.createEmptyDawg(colNames2);
 		List<Character> word1 = new ArrayList<Character>();
 		word1.add('a');
@@ -298,6 +303,8 @@ public class DawgFactory<LETTER, COLNAMES> {
 		word2.add('b');
 		d2.add(word2);
 
+		System.out.println("d2: (alpha, beta, gamma), { aab, abb } ");
+		System.out.println(d2);
 		
 		
 		Map<String, Object> translation3 = new HashMap<String, Object>();
@@ -306,6 +313,9 @@ public class DawgFactory<LETTER, COLNAMES> {
 		translation3.put("gamma", "blub");
 
 		IDawg<Character, String> d3 = df.renameSelectAndProject(d2, translation3);
+
+		System.out.println("d3: rnsP(d2, {alpha -> bla, beta -> bla, gamma -> blub)");
+		System.out.println(d3);
 		
 		Map<String, Object> translation4 = new HashMap<String, Object>();
 		translation4.put("alpha", "bla");
@@ -314,12 +324,22 @@ public class DawgFactory<LETTER, COLNAMES> {
 
 		IDawg<Character, String> d4 = df.renameSelectAndProject(d2, translation4);
 
-		
-		System.out.println(d1);
-		System.out.println(d2);
-		System.out.println(d3);
+		System.out.println("d4: rnsP(d2, {alpha -> bla, beta -> bla, gamma -> 'a')");
+		System.out.println("expecting: (bla, blub) {a, b}");
 		System.out.println(d4);
-		
+
+		Map<String, Object> translation5 = new HashMap<String, Object>();
+		translation5.put("alpha", "bla");
+		translation5.put("beta", "bla");
+		translation5.put("gamma", 'b');
+
+		IDawg<Character, String> d5 = df.renameSelectAndProject(d2, translation5);
+
+		System.out.println("d5: rnsP(d2, {alpha -> bla, beta -> bla, gamma -> 'b')");
+		System.out.println("expecting: (bla) {a}");
+		System.out.println(d5);
+
+	
 	}
 	
 }
