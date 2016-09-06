@@ -1,6 +1,7 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -24,6 +25,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers.Pair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
@@ -378,9 +380,7 @@ public class EprClause {
 		}
 	}
 	
-//	public TermVariable[] getVariables() {
-//	public SortedSet<TermVariable> getVariables() {
-	public Collection<TermVariable> getVariables() {
+	public SortedSet<TermVariable> getVariables() {
 		return mVariables;
 	}
 	
@@ -441,5 +441,37 @@ public class EprClause {
 
 	public Set<ClauseLiteral> getLiterals() {
 		return mLiterals;
+	}
+	
+	public List<Literal[]> computeAllGroundings(List<TTSubstitution> allInstantiations) {
+		ArrayList<Literal[]> result = new ArrayList<Literal[]>();
+		for (TTSubstitution sub : allInstantiations) {
+			ArrayList<Literal> groundInstList = getSubstitutedLiterals(sub);
+			result.add(groundInstList.toArray(new Literal[groundInstList.size()]));
+		}
+		
+		return result;
+	}
+
+	public List<Literal[]> computeAllGroundings(HashSet<ApplicationTerm> constants) {
+		
+		List<TTSubstitution> allInstantiations =  
+				EprHelpers.getAllInstantiations(getVariables(), constants);
+		
+		return computeAllGroundings(allInstantiations);
+	}
+	
+	protected ArrayList<Literal> getSubstitutedLiterals(TTSubstitution sub) {
+		//		ArrayList<Literal> newLits = new ArrayList<Literal>();
+		//		newLits.addAll(Arrays.asList(groundLiterals));
+		//		for (Literal l : eprQuantifiedEqualityAtoms) {
+		//			newLits.add(EprHelpers.applySubstitution(sub, l, mEprTheory));
+		//		}
+		//		for (Literal l : eprQuantifiedPredicateLiterals) {
+		//			newLits.add(EprHelpers.applySubstitution(sub, l, mEprTheory));
+		//		}
+		//		return newLits;
+		assert false : "TODO reimplement";
+		return null;
 	}
 }

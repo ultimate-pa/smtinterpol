@@ -27,8 +27,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.NamedAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClause;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprClauseOld;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprQuantifiedUnitClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackQuantifiedLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.EprPushState;
@@ -149,25 +147,6 @@ public class EprHelpers {
 		return resultLit;
 	}
 
-	public static EprQuantifiedUnitClause buildEQLWE(
-//			boolean isPositive, 
-//			EprQuantifiedPredicateAtom atom, 
-			Literal quantifiedPredicateLiteral,
-			EprQuantifiedEqualityAtom[] excep,
-			EprClauseOld explanation,
-			EprTheory eprTheory) {
-		assert quantifiedPredicateLiteral.getAtom() instanceof EprQuantifiedPredicateAtom;
-
-		Literal[] lits = new Literal[excep.length + 1];
-		for (int i = 0; i < excep.length; i++) {
-			lits[i] = excep[i];
-		}
-//		lits[lits.length - 1] = isPositive ? atom : atom.negate();
-		lits[lits.length - 1] = quantifiedPredicateLiteral;
-
-		return new EprQuantifiedUnitClause(lits, eprTheory, explanation);
-	}
-	
 	/**
 	 * sub is a unifier for the predicateAtoms in setEqlwe and clauseLit.
 	 * Apply sub to the equalities in setEqlwe and eprEqualityAtoms,
@@ -456,7 +435,90 @@ public class EprHelpers {
 
 		return result;
 	}
+	/**
+	 * Computes all the instantiations of the variables in freeVars that
+	 * are added to the set of instantiations of oldConstants by adding one
+	 * or more constants from newConstants.
+	 * In other words: compute all instantiations of freeVars where a new constant occurs
+	 * at least once.
+	 * 
+	 * @param freeVars
+	 * @param newConstant
+	 * @param oldConstants
+	 * @return
+	 */
+	public static ArrayList<TTSubstitution> getAllInstantiationsForNewConstant(
+			Set<TermVariable> freeVars, 
+			Set<ApplicationTerm> newConstants,
+			Set<ApplicationTerm> oldConstants) {
+		
+		ArrayList<TTSubstitution> instsWithNewConstant = 
+				new ArrayList<TTSubstitution>();
+		ArrayList<TTSubstitution> instsWithOutNewConstant = 
+				new ArrayList<TTSubstitution>();
+		
+		HashSet<ApplicationTerm> allConstants = new HashSet<ApplicationTerm>(oldConstants);
+		allConstants.addAll(newConstants);
 
+		instsWithNewConstant.add(new TTSubstitution());
+		instsWithOutNewConstant.add(new TTSubstitution());
+
+		for (TermVariable tv : freeVars) {
+			ArrayList<TTSubstitution> instsNewWNC = new ArrayList<TTSubstitution>();
+			ArrayList<TTSubstitution> instsNewWONC = new ArrayList<TTSubstitution>();
+			for (TTSubstitution sub : instsWithNewConstant) {
+				for (ApplicationTerm con : allConstants) {
+					if (con.getSort().equals(tv.getSort())) {
+						TTSubstitution newSub = new TTSubstitution(sub);
+						newSub.addSubs(con, tv);
+						instsNewWNC.add(newSub);
+					}
+				}
+			}
+
+			for (TTSubstitution sub : instsWithOutNewConstant) {
+				for (ApplicationTerm con : oldConstants) {
+					if (con.getSort().equals(tv.getSort())) {
+						TTSubstitution newSub = new TTSubstitution(sub);
+						newSub.addSubs(con, tv);
+						instsNewWONC.add(newSub);
+					}
+				}
+				for (ApplicationTerm newConstant : newConstants) {
+					if (newConstant.getSort().equals(tv.getSort())) {
+						TTSubstitution newSub = new TTSubstitution(sub);
+						newSub.addSubs(newConstant, tv);
+						instsNewWNC.add(newSub);
+					}
+				}
+			}
+			instsWithNewConstant = instsNewWNC;
+			instsWithOutNewConstant = instsNewWONC;
+		}
+		return instsWithNewConstant;
+	}
+
+	public static ArrayList<TTSubstitution> getAllInstantiations(
+			Set<TermVariable> freeVars, 
+			Set<ApplicationTerm> constants) {
+		ArrayList<TTSubstitution> insts = new ArrayList<TTSubstitution>();
+		insts.add(new TTSubstitution());
+
+		for (TermVariable tv : freeVars) {
+			ArrayList<TTSubstitution> instsNew = new ArrayList<TTSubstitution>();
+			for (TTSubstitution sub : insts) {
+				for (ApplicationTerm con : constants) {
+					if (con.getSort().equals(tv.getSort())) {
+						TTSubstitution newSub = new TTSubstitution(sub);
+						newSub.addSubs(con, tv);
+						instsNew.add(newSub);
+					}
+				}
+			}
+			insts = instsNew;
+		}
+		return insts;
+	}
 //	public static <COLNAMES> SortedSet<COLNAMES> applyMapping(
 //			SortedSet<COLNAMES> colnames, Map<COLNAMES, COLNAMES> translation) {
 //		assert colnames.size > 0;

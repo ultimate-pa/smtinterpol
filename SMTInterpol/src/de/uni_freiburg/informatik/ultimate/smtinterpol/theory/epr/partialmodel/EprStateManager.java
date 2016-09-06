@@ -20,27 +20,17 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers.Pair;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EqualityManager;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseEprGroundLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseEprQuantifiedLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClauseFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClauseState;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprBaseClause;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprClauseOld;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprDerivedClause;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprGroundUnitClause;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprNonUnitClause;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprQuantifiedUnitClause;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprUnitClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
@@ -569,45 +559,6 @@ public class EprStateManager {
 
 	//////////////////////////////////// old, perhaps obsolete stuff, from here on downwards /////////////////////////////////////////
 	
-
-	@Deprecated
-	HashMap<Set<Literal>, EprNonUnitClause> mLiteralToClauses = new HashMap<Set<Literal>, EprNonUnitClause>();
-
-	@Deprecated
-	private Stack<EprState> mEprStateStack = new Stack<EprState>();
-	
-	// contains the ground literal currently set by the DPLLEngine for
-	// every scope that was created by EprTheory.setLiteral(), and the 
-	// word "push" for all push scopes
-	// (not used at the moment..)
-	private Stack<Object> mLiteralStack = new Stack<Object>();
-	
-	private EprState baseState;
-	
-
-
-	@Deprecated
-	public void beginScope(Object literal) {
-		mLiteralStack.push(literal);
-		mEprStateStack.push(new EprState(mEprStateStack.peek()));
-	}
-
-	/**
-	 * Revert everything that followed from setting literal
-	 *  - pop the corresponding EprState
-	 *  - revert the fulfillability status of the remaining epr-clauses (in lower states)
-	 * @param literal
-	 */
-	@Deprecated
-	public void endScope(Object literal) {
-		mEprStateStack.pop();
-		Object popped = mLiteralStack.pop();
-//		assert literal.equals(popped);
-	}
-	
-	
-
-
 	/**
 	 * Given a substitution and to Term arrays, computes a list of disequalities as follows:
 	 * For every position in the two arrays where the substitution needed an equality for unification, adds 
@@ -633,25 +584,7 @@ public class EprStateManager {
 		}
 		return disequalityChain;
 	}
-	
-	@Deprecated
-	public Clause setQuantifiedLiteralWithExceptions(EprQuantifiedUnitClause eqlwe) {
-		mEprTheory.getLogger().debug("EPRDEBUG (EprStateManager): setting Quantified literal: " + eqlwe);
-		
-		mEprStateStack.peek().setQuantifiedLiteralWithExceptions(eqlwe);
-		
-		//TODO: possibly do a more efficient consistency check
-		// i.e. only wrt the currently set literal
-		Clause conflict = checkConsistency();
-		if (conflict != null) {
-			mEprStateStack.peek().unsetQuantifiedLiteralWithExceptions(eqlwe);
-		}
 
-		//TODO:
-		// possibly update all literal states in clauses, right?..
-		return conflict;
-	}
-	
 	@Deprecated
 	public Clause setGroundEquality(CCEquality eq) {
 		ApplicationTerm f = (ApplicationTerm) eq.getSMTFormula(mTheory);
@@ -661,13 +594,14 @@ public class EprStateManager {
 		mEqualityManager.addEquality(lhs, rhs, (CCEquality) eq);
 	
 		// is there a conflict with currently set points or quantifiedy literals?
-		Clause conflict = checkConsistency();
+//		Clause conflict = checkConsistency();
 		
 		//TODO:
 		// possibly update all literal states in clauses, right?..
 		//  (..if there is no conflict?..)
 
-		return conflict;
+//		return conflict;
+		return null;
 	}
 	
 	@Deprecated
@@ -679,227 +613,7 @@ public class EprStateManager {
 		mEqualityManager.backtrackEquality(lhs, rhs);
 	}
 	
-	/**
-	 * Checks for all eprPredicates if their current state is consistent.
-	 * The current state means points that are set and quantified literals that are set.
-	 * @return conflict clause if there is a conflict, null otherwise
-	 */
-	@Deprecated
-	public Clause checkConsistency() {
-		
-		//TODO: make sure that i case of a
-		
-		for (EprPredicate pred : mAllEprPredicates) {
-			for (EprQuantifiedUnitClause eqwlePos : getSetLiterals(true, pred)) {
-				EprQuantifiedUnitClause arPosUnit = eqwlePos.getFreshAlphaRenamedVersion();
-				TermTuple ttPos = arPosUnit.getPredicateAtom().getArgumentsAsTermTuple();
-				for (EprQuantifiedUnitClause eqwleNeg : getSetLiterals(false, pred)) {
-					TermTuple ttNeg = eqwleNeg.getPredicateAtom().getArgumentsAsTermTuple();
-					TTSubstitution sub = ttNeg.match(ttPos, mEqualityManager);
-					if (sub != null) {
-						return arPosUnit.getExplanation().instantiateClause(null, sub);
-					}
-				}
-				
-				for (TermTuple pointNeg : getPoints(false, pred)) {
-					TTSubstitution sub = pointNeg.match(ttPos, mEqualityManager);
-					if (sub != null) {
-						EprClauseOld conflict =  arPosUnit.getExplanation().instantiateClause(null, sub, 
-								getDisequalityChainsFromSubstitution(sub, pointNeg.terms, 
-										arPosUnit.getPredicateAtom().getArguments()));
-						return conflict;
-					}
-				}
-			}
-			for (TermTuple pointPos : getPoints(true, pred)) {
-				for (EprQuantifiedUnitClause eqwleNeg : getSetLiterals(false, pred)) {
-					TermTuple ttNeg = eqwleNeg.getPredicateAtom().getArgumentsAsTermTuple();
-					TTSubstitution sub = ttNeg.match(pointPos, mEqualityManager);
-					if (sub != null) {
-						return eqwleNeg.getExplanation().instantiateClause(null, sub);
-					}
-				}
-				
-				for (TermTuple pointNeg : getPoints(false, pred)) {
-					TTSubstitution sub = pointNeg.match(pointPos, mEqualityManager);
-					if (sub != null) {
-						// build conflict clause
-						ArrayList<Literal> confLits = new ArrayList<Literal>();
 
-						confLits.addAll(getDisequalityChainsFromSubstitution(sub, pointPos.terms, pointNeg.terms));
-						
-						confLits.add(pred.getAtomForPoint(pointPos).negate());
-						confLits.add(pred.getAtomForPoint(pointNeg));
-
-						return new Clause(confLits.toArray(new Literal[confLits.size()]));
-					}
-				}
-			}
-		}
-
-		return null;
-	}
-
-	@Deprecated
-	public HashSet<TermTuple> getPoints(boolean positive, EprPredicate pred) {
-		//TODO: some caching here?
-		HashSet<TermTuple> result = new HashSet<TermTuple>();
-		for (EprState es : mEprStateStack) {
-			EprPredicateModel model = es.mPredicateToModel.get(pred);
-			if (model == null) //maybe not all eprStates on the stack know the predicate
-				continue;
-			if (positive)
-				result.addAll(model.mPositivelySetPoints);
-			else
-				result.addAll(model.mNegativelySetPoints);
-		}
-		return result;
-	}
-
-	@Deprecated
-	public ArrayList<EprQuantifiedUnitClause> getSetLiterals(boolean positive, EprPredicate pred) {
-		//TODO: some caching here?
-		ArrayList<EprQuantifiedUnitClause> result = new ArrayList<EprQuantifiedUnitClause>();
-		for (EprState es : mEprStateStack) {
-			EprPredicateModel model = es.mPredicateToModel.get(pred);
-			if (model == null) //maybe not all eprStates on the stack know the predicate
-				continue;
-			if (positive)
-				result.addAll(model.mPositivelySetQuantifiedLitsWE);
-			else
-				result.addAll(model.mNegativelySetQuantifiedLitsWE);
-		}
-		return result;
-	
-	}
-
-	@Deprecated
-	public ArrayList<EprQuantifiedUnitClause> getSetLiterals(EprPredicate eprPredicate) {
-		//TODO: some caching here?
-		ArrayList<EprQuantifiedUnitClause> result = new ArrayList<EprQuantifiedUnitClause>();
-		result.addAll(getSetLiterals(true, eprPredicate));
-		result.addAll(getSetLiterals(false, eprPredicate));
-		return result;
-	}
-
-
-
-	/**
-	 * Adds a clause that is derivable in the current state.
-	 * @param dc
-	 */
-	@Deprecated
-	public boolean addDerivedClause(EprNonUnitClause dc) {
-		mEprTheory.getLogger().debug("EPRDEBUG (EprStateManager): adding derived clause " + dc);
-		return mEprStateStack.peek().addDerivedClause(dc);
-	}
-
-	@Deprecated
-	public boolean addBaseClause(EprNonUnitClause bc) {
-		mEprTheory.getLogger().debug("EPRDEBUG (EprStateManager): adding base clause " + bc);
-
-		if (mEprTheory.isGroundAllMode()) {
-			addGroundClausesForNewEprClause(bc);
-		}
-
-		return mEprStateStack.peek().addBaseClause(bc);
-	}
-
-	@Deprecated
-	public ArrayList<EprNonUnitClause> getTopLevelDerivedClauses() {
-		return mEprStateStack.peek().getDerivedClauses();
-	}
-
-	@Deprecated
-	public HashSet<EprNonUnitClause> getFulfilledClauses() {
-		HashSet<EprNonUnitClause> fulfilledClauses = new HashSet<EprNonUnitClause>();
-		for (EprNonUnitClause ec : getAllClauses())
-			if (ec.isFulfilled())
-				fulfilledClauses.add(ec);
-		return fulfilledClauses;
-	}
-	
-	@Deprecated
-	public HashSet<EprNonUnitClause> getNotFulfilledClauses() {
-		HashSet<EprNonUnitClause> notFulfilledClauses = new HashSet<EprNonUnitClause>();
-		for (EprNonUnitClause ec : getAllClauses())
-			if (!ec.isFulfilled())
-				notFulfilledClauses.add(ec);
-		return notFulfilledClauses;
-	}
-
-	@Deprecated
-	public HashSet<EprClauseOld> getConflictClauses() {
-		HashSet<EprClauseOld> result = new HashSet<EprClauseOld>();
-		for (EprState es : mEprStateStack) {
-			result.addAll(es.getConflictClauses());
-		}
-		return result;
-	}
-
-	/**
-	 * makes sure that for the same set of literals only one clause is constructed.
-	 * Note that this may return a EprDerivedClause -- if there already is one for the set of Literals
-	 */
-	@Deprecated
-	public EprNonUnitClause getBaseClause(Set<Literal> newLits, Theory theory) {
-		EprNonUnitClause result = mLiteralToClauses.get(newLits);
-		if (result == null) {
-			result = new EprBaseClause(newLits.toArray(new Literal[newLits.size()]), mEprTheory);
-			mEprTheory.getLogger().debug("EPRDEBUG (EprStateManager): creating new base clause " + result);
-			mLiteralToClauses.put(newLits, result);
-		}
-		return result;
-	}
-	
-	/**
-	 * makes sure that for the same set of literals only one clause is constructed.
-	 * Note that this may return a EprBaseClause -- if there already is one for the set of Literals
-	 */
-	@Deprecated
-	public EprClauseOld getDerivedClause(Set<Literal> newLits, EprTheory eprTheory, Object explanation) {
-		EprNonUnitClause result = mLiteralToClauses.get(newLits);
-		if (result == null) {
-			result = new EprDerivedClause(newLits.toArray(new Literal[newLits.size()]), eprTheory, explanation);
-			mEprTheory.getLogger().debug("EPRDEBUG (EprStateManager): creating new derived clause " + result);
-			mLiteralToClauses.put(newLits, result);
-		}
-		return result;
-	}
-
-	/**
-	 * TODO: rework this some time.
-	 * Checks if the given literal is already set, or if something stronger is set.
-	 * @param unifiedUnitLiteral
-	 * @return
-	 */
-	@Deprecated
-	public boolean isSubsumedInCurrentState(EprUnitClause euc) { //TODO possibly this needs to work on a QuantifiedLitWExcptns
-		if (euc instanceof EprGroundUnitClause) {
-			Literal lit = ((EprGroundUnitClause) euc).getPredicateLiteral();
-			if (lit.getAtom().getDecideStatus() == lit) { // is it set in DPLL?
-				return true;
-			}
-			if (!(lit.getAtom() instanceof EprPredicateAtom))
-				return false;
-
-			boolean isPositive = lit.getSign() == 1;
-			EprPredicateAtom atom = (EprPredicateAtom) lit.getAtom();
-
-			for (EprQuantifiedUnitClause sl : this.getSetLiterals(isPositive, atom.getEprPredicate())) {
-				TermTuple slTT = sl.getFreshAlphaRenamedVersion().getPredicateAtom().getArgumentsAsTermTuple();
-				TermTuple tt = atom.getArgumentsAsTermTuple();
-				TTSubstitution sub = slTT.match(tt, mEqualityManager);
-				if (slTT.isEqualOrMoreGeneralThan(tt))
-					return true;
-			}
-			return false;
-		} else {
-			assert false : "TODO: implement this case";
-			return false;
-		}
-	}
-	
 	@Deprecated
 	public CClosure getCClosure() {
 		return mCClosure;
@@ -913,11 +627,10 @@ public class EprStateManager {
 	///////////////////////////////////////////////////////////
 	///////////////////////////////////////////////////////////
 
-	public HashSet<EprNonUnitClause> getAllClauses() {
-		HashSet<EprNonUnitClause> allClauses = new HashSet<EprNonUnitClause>();
-		for (EprState es : mEprStateStack) {
-			allClauses.addAll(es.getBaseClauses());
-			allClauses.addAll(es.getDerivedClauses());
+	public HashSet<EprClause> getAllClauses() {
+		HashSet<EprClause> allClauses = new HashSet<EprClause>();
+		for (EprPushState es : mPushStateStack) {
+			allClauses.addAll(es.getClauses());
 		}
 		return allClauses;
 	}
@@ -955,109 +668,26 @@ public class EprStateManager {
 	}
 
 
-	/**
-	 * Computes all the instantiations of the variables in freeVars that
-	 * are added to the set of instantiations of oldConstants by adding one
-	 * or more constants from newConstants.
-	 * In other words: compute all instantiations of freeVars where a new constant occurs
-	 * at least once.
-	 * 
-	 * @param freeVars
-	 * @param newConstant
-	 * @param oldConstants
-	 * @return
-	 */
-	public ArrayList<TTSubstitution> getAllInstantiationsForNewConstant(
-			Set<TermVariable> freeVars, 
-			Set<ApplicationTerm> newConstants,
-			Set<ApplicationTerm> oldConstants) {
-		
-		ArrayList<TTSubstitution> instsWithNewConstant = 
-				new ArrayList<TTSubstitution>();
-		ArrayList<TTSubstitution> instsWithOutNewConstant = 
-				new ArrayList<TTSubstitution>();
-		
-		HashSet<ApplicationTerm> allConstants = new HashSet<ApplicationTerm>(oldConstants);
-		allConstants.addAll(newConstants);
 
-		instsWithNewConstant.add(new TTSubstitution());
-		instsWithOutNewConstant.add(new TTSubstitution());
-
-		for (TermVariable tv : freeVars) {
-			ArrayList<TTSubstitution> instsNewWNC = new ArrayList<TTSubstitution>();
-			ArrayList<TTSubstitution> instsNewWONC = new ArrayList<TTSubstitution>();
-			for (TTSubstitution sub : instsWithNewConstant) {
-				for (ApplicationTerm con : allConstants) {
-					if (con.getSort().equals(tv.getSort())) {
-						TTSubstitution newSub = new TTSubstitution(sub);
-						newSub.addSubs(con, tv);
-						instsNewWNC.add(newSub);
-					}
-				}
-			}
-
-			for (TTSubstitution sub : instsWithOutNewConstant) {
-				for (ApplicationTerm con : oldConstants) {
-					if (con.getSort().equals(tv.getSort())) {
-						TTSubstitution newSub = new TTSubstitution(sub);
-						newSub.addSubs(con, tv);
-						instsNewWONC.add(newSub);
-					}
-				}
-				for (ApplicationTerm newConstant : newConstants) {
-					if (newConstant.getSort().equals(tv.getSort())) {
-						TTSubstitution newSub = new TTSubstitution(sub);
-						newSub.addSubs(newConstant, tv);
-						instsNewWNC.add(newSub);
-					}
-				}
-			}
-			instsWithNewConstant = instsNewWNC;
-			instsWithOutNewConstant = instsNewWONC;
-		}
-		return instsWithNewConstant;
-	}
-
-	public ArrayList<TTSubstitution> getAllInstantiations(
-			Set<TermVariable> freeVars, 
-			Set<ApplicationTerm> constants) {
-		ArrayList<TTSubstitution> insts = new ArrayList<TTSubstitution>();
-		insts.add(new TTSubstitution());
-
-		for (TermVariable tv : freeVars) {
-			ArrayList<TTSubstitution> instsNew = new ArrayList<TTSubstitution>();
-			for (TTSubstitution sub : insts) {
-				for (ApplicationTerm con : constants) {
-					if (con.getSort().equals(tv.getSort())) {
-						TTSubstitution newSub = new TTSubstitution(sub);
-						newSub.addSubs(con, tv);
-						instsNew.add(newSub);
-					}
-				}
-			}
-			insts = instsNew;
-		}
-		return insts;
-	}
 	
 	private void addGroundClausesForNewConstant(HashSet<ApplicationTerm> newConstants) {
 		ArrayList<Literal[]> groundings = new ArrayList<Literal[]>();
-		for (EprNonUnitClause c : getAllClauses())  {
+		for (EprClause c : getAllClauses())  {
 				groundings.addAll(
 						c.computeAllGroundings(
-								getAllInstantiationsForNewConstant(
-										c.getFreeVars(), 
+								EprHelpers.getAllInstantiationsForNewConstant(
+										c.getVariables(),
 										newConstants, 
 										this.getAllConstants())));
 		}
 		addGroundClausesToDPLLEngine(groundings);
 	}
 
-	private void addGroundClausesForNewEprClause(EprNonUnitClause newEprClause) {
+	private void addGroundClausesForNewEprClause(EprClause newEprClause) {
 		List<Literal[]> groundings = 		
 						newEprClause.computeAllGroundings(
-								getAllInstantiations(
-										newEprClause.getFreeVars(), 
+								EprHelpers.getAllInstantiations(
+										newEprClause.getVariables(),
 										this.getAllConstants()));
 		addGroundClausesToDPLLEngine(groundings);
 	}

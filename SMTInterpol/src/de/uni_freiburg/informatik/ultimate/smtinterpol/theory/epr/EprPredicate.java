@@ -1,35 +1,23 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
-import java.util.Map.Entry;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
-import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbolFactory;
-import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseEprGroundLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseEprQuantifiedLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClause;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.old.EprClauseOld;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackDecisionLiteral;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackQuantifiedLiteral;
 
 /**
@@ -179,18 +167,6 @@ public class EprPredicate {
 		return "EprPred: " + mFunctionSymbol.getName();
 	}
 
-	@Deprecated
-	public EprGroundPredicateAtom getAtomForPoint(TermTuple point) {
-		EprGroundPredicateAtom result = mPointToAtom.get(point);
-		assert result != null;
-		return result;
-	}
-
-//	public boolean isModelComplete() {
-//		assert false : "TODO: implement";
-//		return false;
-//	}
-
 	/**
 	 * 
 	 *  @return null if the model of this predicate is already complete, a DecideStackLiteral
@@ -257,12 +233,6 @@ public class EprPredicate {
 	public void notifyAboutClauseDisposal(EprClause eprClause) {
 		mQuantifiedOccurences.remove(eprClause);
 		mGroundOccurences.remove(eprClause);
-	}
-
-	@Deprecated
-	public void addQuantifiedOccurence(Literal l, EprClauseOld eprClauseOld) {
-		// TODO Auto-generated method stub
-		// only inserted this method to avoid a compiler error in deprecated code
 	}
 
 	public int getArity() {
