@@ -113,7 +113,7 @@ public class EprStateManager {
 				
 				DecideStackLiteral nextDecision = null;
 
-				nextDecision = isModelComplete();
+				nextDecision = getNextDecision();
 
 				if (nextDecision == null) {
 					// model is complete
@@ -132,72 +132,83 @@ public class EprStateManager {
 							+ "it might be dangerous to return null: if null is returned to computeConflictClause,"
 							+ "this means the EprTheory says there is no conflict and I have a full model..";
 					mEprTheory.addGroundDecisionSuggestion(groundDecision);
-//					mEprTheory.addGroundLiteralToPropagate(nextDecision.);
 					return null;
 				} else {
 					assert false : "should not happen";
 				}
 			} else {
 				// there is a conflict or unit clause
+				
 
-				EprClause nextConflictOrUnit = conflictsOrUnits.iterator().next();
-
-				if (nextConflictOrUnit.isConflict()) {
-					// we have conflicts; explain them, learn clauses, return the explained version of the conflicts
-					// if there was no decision, return a grounding of the conflict (perhaps several..)
-					EprClause unresolvableConflict = resolveConflict(chooseConflictOrUnit(conflictsOrUnits));
-					if (unresolvableConflict != null) {
-						return chooseGroundingFromConflict(unresolvableConflict);
-					}
-
-					conflictsOrUnits = null;
-				} else if (nextConflictOrUnit.isUnit()) {
-					// if we have a unit clause, propagate the literal
-					// the set..-method returns the new set of conflicts or units
-					// TODO: should work like this (one unit prop for every iteration),
-					//   but is there an unnecessary computation involved when determining the clause states again?
-					
-					conflictsOrUnits.remove(nextConflictOrUnit);
-					
-					// one epr unit clause may yield many propagations 
-					// --> iteratively set them, if one produces a conflict, go back to the outer epr dpll loop
-					//     if one produces more unit propagations, it is ok to just add them to conflictsOrUnits, because we
-					//      it contains unit clauses right now..
-					Map<ClauseEprQuantifiedLiteral, IDawg<ApplicationTerm, TermVariable>> clToUps = 
-							nextConflictOrUnit.getClauseLitToUnitPoints();
-					for (Entry<ClauseEprQuantifiedLiteral, IDawg<ApplicationTerm, TermVariable>> en : clToUps.entrySet()) {
-						ClauseEprQuantifiedLiteral cl = en.getKey();
-						IDawg<ApplicationTerm, TermVariable> dawg = en.getValue();
-						DecideStackPropagatedLiteral prop = new DecideStackPropagatedLiteral(
-								cl.getPolarity(), 
-								cl.getEprPredicate(),
-								mDawgFactory.renameColumnsAndRestoreConstants(
-										dawg, 
-										cl.getTranslationForEprPredicate(), 
-										cl.getArgumentsAsObjects(),
-										cl.getEprPredicate().getTermVariablesForArguments()),
-								cl);
-
-						Set<EprClause> newConflictsOrUnits = setEprDecideStackLiteral(prop);
-
-						if (newConflictsOrUnits != null) {
-							if (newConflictsOrUnits.iterator().next().isConflict()) {
-								conflictsOrUnits = newConflictsOrUnits;
-								break;
-							} else if (newConflictsOrUnits.iterator().next().isUnit()) {
-								conflictsOrUnits.addAll(newConflictsOrUnits);
-								break;
-							} else {
-								assert false : "should not happen";
-							}
-						}
-					}
-					
-				} else {
-					assert false : "should not happen";
-				}
+				Clause groundConflict = propagateAndResolve(conflictsOrUnits);
 			}
 		}
+	}
+
+	private Clause propagateAndResolve(Set<EprClause> conflictsOrUnits) {
+		while (conflictsOrUnits != null && !conflictsOrUnits.isEmpty()) {
+
+			EprClause nextConflictOrUnit = conflictsOrUnits.iterator().next(); // just pick any ..
+			conflictsOrUnits.remove(nextConflictOrUnit);
+
+			if (nextConflictOrUnit.isConflict()) {
+				// we have conflicts; explain them, learn clauses, return the explained version of the conflicts
+				// if there was no decision, return a grounding of the conflict (perhaps several..)
+//				EprClause unresolvableConflict = resolveConflict(chooseConflictOrUnit(conflictsOrUnits));
+				EprClause unresolvableConflict = resolveConflict(nextConflictOrUnit);
+				if (unresolvableConflict != null) {
+					return chooseGroundingFromConflict(unresolvableConflict);
+				}
+
+				conflictsOrUnits = null;
+			} else if (nextConflictOrUnit.isUnit()) {
+				// if we have a unit clause, propagate the literal
+				// the set..-method returns the new set of conflicts or units
+				// TODO: should work like this (one unit prop for every iteration),
+				//   but is there an unnecessary computation involved when determining the clause states again?
+
+
+				// one epr unit clause may yield many propagations 
+				// --> iteratively set them, if one produces a conflict, go back to the outer epr dpll loop
+				//     if one produces more unit propagations, it is ok to just add them to conflictsOrUnits, because we
+				//      it contains unit clauses right now..
+				Map<ClauseEprQuantifiedLiteral, IDawg<ApplicationTerm, TermVariable>> clToUps = 
+						nextConflictOrUnit.getClauseLitToUnitPoints();
+				for (Entry<ClauseEprQuantifiedLiteral, IDawg<ApplicationTerm, TermVariable>> en : clToUps.entrySet()) {
+					ClauseEprQuantifiedLiteral cl = en.getKey();
+					IDawg<ApplicationTerm, TermVariable> dawg = en.getValue();
+					DecideStackPropagatedLiteral prop = new DecideStackPropagatedLiteral(
+							cl.getPolarity(), 
+							cl.getEprPredicate(),
+							mDawgFactory.renameColumnsAndRestoreConstants(
+									dawg, 
+									cl.getTranslationForEprPredicate(), 
+									cl.getArgumentsAsObjects(),
+									cl.getEprPredicate().getTermVariablesForArguments()),
+							cl);
+
+					Set<EprClause> newConflictsOrUnits = setEprDecideStackLiteral(prop);
+
+					if (newConflictsOrUnits != null) {
+						if (newConflictsOrUnits.iterator().next().isConflict()) {
+							conflictsOrUnits = newConflictsOrUnits;
+							break;
+						} else if (newConflictsOrUnits.iterator().next().isUnit()) {
+							conflictsOrUnits.addAll(newConflictsOrUnits);
+							break;
+						} else {
+							assert false : "should not happen";
+						}
+					}
+				}
+
+			} else {
+				assert false : "should not happen";
+			}
+		}
+		
+		// at this point all unit propagations have been made and all conflicts resolved (or returned)
+		return null;
 	}
 	
 	/**
@@ -344,7 +355,7 @@ public class EprStateManager {
 	 * @return 	A DecideStackLiteral for an EprPredicate with incomplete model 
 	 *           or null if all EprPredicates have a complete model.
 	 **/
-	private DecideStackQuantifiedLiteral isModelComplete() {
+	private DecideStackQuantifiedLiteral getNextDecision() {
 		for (EprPredicate ep : getAllEprPredicates()) {
 			DecideStackQuantifiedLiteral decision = ep.getNextDecision();
 			if (decision != null) {
@@ -353,9 +364,6 @@ public class EprStateManager {
 		}
 		return null;
 	}
-	
-	
-
 
 	public void push() {
 		mPushStateStack.push(new EprPushState());

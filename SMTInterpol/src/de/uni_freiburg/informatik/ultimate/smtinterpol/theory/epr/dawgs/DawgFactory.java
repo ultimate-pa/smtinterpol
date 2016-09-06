@@ -298,6 +298,8 @@ public class DawgFactory<LETTER, COLNAMES> {
 				COLNAMES newSigColname = translation.get(argList.get(i));
 				if (newSigColname == null) {
 					// argList.get(i) must be a constant, as translation translates all termVariables
+					assert newPoint.get(i) == null :
+						"the translation map must not translate to a colname where the clauseliteral has a constant!";
 					newPoint.set(i, (LETTER) argList.get(i));
 				} else {
 					Integer oldSigIndex = oldSigColnamesToIndex.get(argList.get(i));
@@ -434,8 +436,8 @@ public class DawgFactory<LETTER, COLNAMES> {
 			IDawg<Character, String> d6 = df.renameColumnsAndRestoreConstants(d2, translation6, argList1, newSignature1);
 
 			System.out.println("d6: rnRc(d2, {alpha -> uno, beta -> due, gamma -> tre), "
-					+ "(beta, B, gamma, A, alpha), (uno, due, tre, quattro, cinque)");
-			System.out.println("expecting: (due, cinque, quattro, tre, uno) {aBAba, bBAba}");
+					+ "(beta, B, gamma, A, alpha)" +  newSignature1);
+			System.out.println("expecting: (due, cinque, quattro, tre, uno) {aBbAa, aBbAb}");
 			System.out.println(d6);
 		
 		}

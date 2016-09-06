@@ -283,10 +283,28 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 			}
 		}
 
+		/*
+		 * Note:
+		 * it is an important invariant for DawgFactory.renameColumnsAndRestoreConstants(..) that the map
+		 * clauseToPred's range does not contain a column in the eprPredicate's signature where this 
+		 * clauseLiteral has a constant.
+		 */
+		assert sanitizedClauseToPred(clauseToPred, mArgumentTerms);
 
 		return new Pair<Map<TermVariable, Object>, Map<TermVariable, TermVariable>>(predToClause, clauseToPred);
 	}
 	
+	private boolean sanitizedClauseToPred(Map<TermVariable, TermVariable> clauseToPred, List<Term> mArgumentTerms) {
+		SortedSet<TermVariable> predSig = mEprPredicateAtom.getEprPredicate().getTermVariablesForArguments();
+		Map<TermVariable, Integer> predCnToIndex = EprHelpers.computeColnamesToIndex(predSig);
+		for (TermVariable tv : clauseToPred.values()) {
+			if (mArgumentTerms.get(predCnToIndex.get(tv)) instanceof ApplicationTerm) {
+				return false;
+			}
+		}
+		return true;
+	}
+
 	public Map<TermVariable, TermVariable> getTranslationForEprPredicate() {
 		return mTranslationForEprPredicate;
 	}
