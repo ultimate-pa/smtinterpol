@@ -40,7 +40,13 @@ public class FrontEndOptions {
 
 	FrontEndOptions(OptionMap options) {
 		mPrintSuccess = (BooleanOption) options.getOption(":print-success");
-		mOut = (ChannelOption) options.getOption(REG_OUT_CHANNEL_NAME);
+		Option outChannel = options.getOption(REG_OUT_CHANNEL_NAME);
+		if (outChannel instanceof ChannelOption) {
+			mOut = (ChannelOption) outChannel;
+		} else {
+			/* Frontend is not active */
+			mOut = null;
+		}
 		mPrintTermsCSE = (BooleanOption) options.getOption(":print-terms-cse");
 		mContinueOnError = (BooleanOption) options.getOption(":continue-on-error");
 	}
