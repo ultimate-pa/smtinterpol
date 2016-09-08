@@ -66,10 +66,20 @@ public class EprClause {
 	private SortedSet<TermVariable> mVariables;
 //	TermVariable[] mVariables;
 
+	/**
+	 * If this flag is true, the value of mEprClauseState can be relied on.
+	 * Otherwise the state must be recomputed.
+	 */
+	private boolean mClauseStateIsDirty = true;
+
+	/**
+	 * The current fulfillment state of this epr clause
+	 */
+	private EprClauseState mEprClauseState;
+	
 	/*
 	 * The following two fields are only used during creation of the clause.
 	 */
-	private EprClauseState mEprClauseState;
 	private Set<ClauseLiteral> mConflictLiterals;
 	private IDawg<ApplicationTerm, TermVariable> mConflictPoints;
 	private Map<ClauseEprQuantifiedLiteral, IDawg<ApplicationTerm, TermVariable>> mClauseLitToUnitPoints;
@@ -203,24 +213,31 @@ public class EprClause {
 	 * @return
 	 */
 	public EprClauseState updateStateWrtDecideStackLiteral(DecideStackLiteral dsl, 
-			Set<ClauseEprQuantifiedLiteral> literalsWithSamePredicate) {
+			Set<ClauseEprLiteral> literalsWithSamePredicate) {
+		
+		mClauseStateIsDirty = true;
 
-		for (ClauseEprQuantifiedLiteral ceql : literalsWithSamePredicate) {
-			assert ceql.getClause() == this;
-			if (ceql.getPolarity() == dsl.getPolarity()) {
-				ceql.addPartiallyFulfillingDecideStackLiteral(dsl);
+		for (ClauseEprLiteral cel : literalsWithSamePredicate) {
+			assert cel.getClause() == this;
+			
+			if (cel.isDisjointFrom(dsl.getDawg())) {
+				continue;
+			}
+			
+			if (cel.getPolarity() == dsl.getPolarity()) {
+				cel.addPartiallyFulfillingDecideStackLiteral(dsl);
 			} else {
-				ceql.addPartiallyConflictingDecideStackLiteral(dsl);
+				cel.addPartiallyConflictingDecideStackLiteral(dsl);
 			}
 		}
 
-		determineClauseState();
-		
-		return mEprClauseState;
+		return determineClauseState();
+//		return mEprClauseState;
 	}
 
 
 	public void backtrackStateWrtDecideStackLiteral(DecideStackLiteral dsl) {
+		mClauseStateIsDirty = true;
 		assert false : "TODO: implement";
 	}
 
@@ -229,12 +246,15 @@ public class EprClause {
 	 * The fulfillmentState of this clause may have to be updated because of this.
 	 * 
 	 * @param literal ground Epr Literal that has been set by DPLLEngine
+	 * @return 
 	 */
-	public void updateStateWrtDpllLiteral(Literal literal) {
-		assert false : "TODO: implement";
+	public EprClauseState updateStateWrtDpllLiteral(Literal literal) {
+		mClauseStateIsDirty = true;
+		return determineClauseState();
 	}
 
 	public void backtrackStateWrtDpllLiteral(Literal literal) {
+		mClauseStateIsDirty = true;
 		assert false : "TODO: implement";
 	}
 	
@@ -266,6 +286,8 @@ public class EprClause {
 	 * 
 	 * TODO: this is a rather naive implementation
 	 *   --> can we do something similar to two-watchers??
+	 *   --> other plan: having a multi-valued dawg that count how many literals are fulfillable
+	 *       for each point
 	 * 
 	 * @return a) something that characterized the conflict (TODO: what excactly?) or 
 	 *         b) a unit literal for propagation (may be ground or not)
@@ -368,16 +390,19 @@ public class EprClause {
 			}
 		}
 		
+
 		if (!pointsWhereNoLiteralsAreFulfillable.isEmpty()) {
 			mConflictPoints = pointsWhereNoLiteralsAreFulfillable;
-			return EprClauseState.Conflict;
+			mEprClauseState = EprClauseState.Conflict;
 		} else if (!pointsWhereOneLiteralIsFulfillable.isEmpty()) {
 			mClauseLitToUnitPoints = clauseLitToPotentialUnitPoints;
-			return EprClauseState.Unit;
+			mEprClauseState = EprClauseState.Unit;
 		} else {
 			assert pointsWhereTwoOrMoreLiteralsAreFulfillable.isUniversal();
-			return EprClauseState.Normal;
+			mEprClauseState = EprClauseState.Normal;
 		}
+		mClauseStateIsDirty = false;
+		return mEprClauseState;
 	}
 	
 	public SortedSet<TermVariable> getVariables() {
@@ -385,6 +410,8 @@ public class EprClause {
 	}
 	
 	public EprClauseState getClauseState() {
+		if (mClauseStateIsDirty)
+			return determineClauseState();
 		return mEprClauseState;
 	}
 	
@@ -404,11 +431,14 @@ public class EprClause {
 //	}
 
 	public boolean isUnit() {
+		if (mClauseStateIsDirty)
+			return determineClauseState() == EprClauseState.Unit;
 		return mEprClauseState == EprClauseState.Unit;
 	}
 
 	public boolean isConflict() {
-		// TODO Auto-generated method stub
+		if (mClauseStateIsDirty)
+			return determineClauseState() == EprClauseState.Conflict;
 		return mEprClauseState == EprClauseState.Conflict;
 	}
 
@@ -428,12 +458,14 @@ public class EprClause {
 	 * @return
 	 */
 	public Set<ClauseLiteral> getConflictLiterals() {
+		assert !mClauseStateIsDirty;
 		assert isConflict();
 		assert mConflictLiterals != null : "this should have been set somewhere..";
 		return mConflictLiterals;
 	}
 	
 	public IDawg<ApplicationTerm, TermVariable> getConflictPoints() {
+		assert !mClauseStateIsDirty;
 		assert isConflict();
 		assert mConflictPoints != null : "this should have been set somewhere..";
 		return mConflictPoints;

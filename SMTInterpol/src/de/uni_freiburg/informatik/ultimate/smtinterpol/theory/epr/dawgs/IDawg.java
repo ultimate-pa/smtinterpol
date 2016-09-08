@@ -1,13 +1,11 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.SortedSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
 
 public interface IDawg<LETTER, COLNAMES> {
 	
@@ -23,7 +21,7 @@ public interface IDawg<LETTER, COLNAMES> {
 	
 	public IDawg<LETTER, COLNAMES> union(IDawg<LETTER, COLNAMES> other);
 	
-	public boolean accepts(LETTER[] point);
+	public boolean accepts(List<LETTER> word);
 
 	/**
 	 * Add one point to this Dawg

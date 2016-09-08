@@ -2,6 +2,8 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseEprLiteral;
@@ -36,5 +38,18 @@ public class DecideStackPropagatedLiteral extends DecideStackQuantifiedLiteral {
 	 */
 	public ClauseEprLiteral getReasonClauseLit() {
 		return mUnitClauseLiteral;
+	}
+
+	/**
+	 * Returns a grounding of the Epr unit clause that is the reason for this propagated decide stack literal.
+	 * The grounding is a reason for the earlier propagation of the argument ground literal (that the DPLLEngine
+	 * understands..).
+	 * @param literal
+	 * @return
+	 */
+	public Clause getGroundedReasonUnitClause(Literal literal) {
+		EprClause unitClause = getReasonClauseLit().getClause();
+		assert false : "TODO";
+		return null;
 	}
 }

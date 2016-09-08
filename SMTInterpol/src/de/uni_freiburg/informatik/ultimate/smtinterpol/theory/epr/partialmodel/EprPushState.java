@@ -15,7 +15,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprCla
 /**
  * Created by the stateManager for every push command in the smt script.
  * 
- * @author nutz
+ * @author Alexander Nutz
  */
 public class EprPushState {
 
@@ -38,15 +38,15 @@ public class EprPushState {
 		mClauses.add(newClause);
 	}
 
-	public Clause setEprGroundLiteral() {
-		// TODO Auto-generated method stub
-		return null;
-	}
+//	public Set<EprClause> setEprGroundLiteral() {
+//		// TODO Auto-generated method stub
+//		return null;
+//	}
 
-	public void unsetEprGroundLiteral(Literal literal) {
-		// TODO Auto-generated method stub
-		
-	}
+//	public void unsetEprGroundLiteral(Literal literal) {
+//		// TODO Auto-generated method stub
+//		
+//	}
 
 	public void setEprClauseLiteral(ClauseLiteral lit) {
 		

@@ -159,8 +159,8 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	}
 
 	@Override
-	public boolean accepts(LETTER[] point) {
-		return mBacking.contains(Arrays.asList(point));
+	public boolean accepts(List<LETTER> word) {
+		return mBacking.contains(word);
 	}
 
 	@Override

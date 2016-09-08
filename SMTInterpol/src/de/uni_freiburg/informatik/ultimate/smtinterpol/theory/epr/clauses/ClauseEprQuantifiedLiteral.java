@@ -231,7 +231,8 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 
 		// collect the points in a dawg with the predicate's signature
 		IDawg<ApplicationTerm, TermVariable> fulfilledPoints = 
-				mEprTheory.getDawgFactory().createEmptyDawg(mAtom.getEprPredicate().getTermVariablesForArguments());
+				mEprTheory.getDawgFactory().createEmptyDawg(
+						mAtom.getEprPredicate().getTermVariablesForArguments());
 		for (DecideStackLiteral dsl : mPartiallyFulfillingDecideStackLiterals) {
 			fulfilledPoints.addAll(dsl.getDawg());
 		}
@@ -307,6 +308,11 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 
 	public Map<TermVariable, TermVariable> getTranslationForEprPredicate() {
 		return mTranslationForEprPredicate;
+	}
+
+	@Override
+	public boolean isDisjointFrom(IDawg<ApplicationTerm, TermVariable> dawg) {
+		 return mDawgFactory.renameSelectAndProject(dawg, mTranslationForClause).isEmpty();
 	}
 
 

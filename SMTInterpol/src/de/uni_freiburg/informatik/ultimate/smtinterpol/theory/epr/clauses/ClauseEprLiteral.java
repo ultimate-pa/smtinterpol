@@ -6,10 +6,13 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
 
@@ -108,4 +111,14 @@ public abstract class ClauseEprLiteral extends ClauseLiteral {
 	public List<Object> getArgumentsAsObjects() {
 		return mArgumentTermsAsObjects;
 	}
+
+
+	/**
+	 * Determines if the point(s) this epr literal talks about have an empty intersection
+	 * with the points in the given dawg, i.e., if setting a decide stack literal with the
+	 * given dawg influences the fulfillment state of this clauseLiteral or not.
+	 * @param dawg
+	 * @return true iff the dawg and this literal don't talk about at least one common point.
+	 */
+	public abstract boolean isDisjointFrom(IDawg<ApplicationTerm, TermVariable> dawg) ;
 }

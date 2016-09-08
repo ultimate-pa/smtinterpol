@@ -368,6 +368,13 @@ public class EprHelpers {
 		}
 		return result;
 	}
+	public static List<ApplicationTerm> convertTermListToConstantList(List<Term> constants) {
+	    List<ApplicationTerm> result = new ArrayList<ApplicationTerm>(constants.size());
+		for (Term t : constants) {
+			result.add((ApplicationTerm) t);
+		}
+		return result;
+	}
 
 	public static List<ApplicationTerm> convertTermArrayToConstantList(Term[] constants) {
 	    List<ApplicationTerm> result = new ArrayList<ApplicationTerm>(constants.length);

@@ -73,7 +73,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	}
 
 	@Override
-	public boolean accepts(LETTER[] point) {
+	public boolean accepts(List<LETTER> word) {
 		// TODO Auto-generated method stub
 		return false;
 	}

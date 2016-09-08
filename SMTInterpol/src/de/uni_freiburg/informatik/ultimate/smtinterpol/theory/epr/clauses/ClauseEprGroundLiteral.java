@@ -1,7 +1,11 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses;
 
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 
 public class ClauseEprGroundLiteral extends ClauseEprLiteral {
 	
@@ -25,6 +29,11 @@ public class ClauseEprGroundLiteral extends ClauseEprLiteral {
 			// decided with different polarity
 			return ClauseLiteralState.Refuted;
 		}
+	}
+
+	@Override
+	public boolean isDisjointFrom(IDawg<ApplicationTerm, TermVariable> dawg) {
+		return ! dawg.accepts(EprHelpers.convertTermListToConstantList(mArgumentTerms));
 	}
 	
 }

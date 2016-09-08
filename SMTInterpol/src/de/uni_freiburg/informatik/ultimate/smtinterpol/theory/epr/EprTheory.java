@@ -5,6 +5,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
@@ -33,6 +35,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuant
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClauseFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackPropagatedLiteral;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackQuantifiedLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.EprStateManager;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
 
@@ -40,7 +44,9 @@ public class EprTheory implements ITheory {
 
 	HashMap<FunctionSymbol, EprPredicate> mFunctionSymbolToEprPredicate = new HashMap<FunctionSymbol, EprPredicate>();
 
-	ArrayDeque<Literal> mGroundLiteralsToPropagate = new ArrayDeque<Literal>();
+//	ArrayDeque<Literal> mGroundLiteralsToPropagate = new ArrayDeque<Literal>();
+	Map<Literal, DecideStackPropagatedLiteral> mGroundLiteralsToPropagateToReason = 
+			new HashMap<Literal, DecideStackPropagatedLiteral>();
 
 
 	HashMap<Object, HashMap<TermVariable, Term>> mBuildClauseToAlphaRenamingSub = 
@@ -140,11 +146,11 @@ public class EprTheory implements ITheory {
 
 			// TODO do ground disequalities have an impact for EPR?
 
-			mStateManager.updateClausesOnSetDpllLiteral(literal);
+			mStateManager.setDpllLiteral(literal);
 		} else {
 			// neither an EprAtom nor an Equality
 
-			mStateManager.updateClausesOnSetDpllLiteral(literal);
+			mStateManager.setDpllLiteral(literal);
 	
 		}
 
@@ -241,34 +247,30 @@ public class EprTheory implements ITheory {
 		 *     goto 1
 		 */
 		
-//		for (EprClause ec : mStateManager.getAllEprClauses()) {
-//			Clause conflict = ec.getConflict();
-//			if (conflict != null) {
-//				return conflict;
-//			}
-//		}
-
-
-		
 		return mStateManager.eprDpllLoop();
 	}
 
 	@Override
 	public Literal getPropagatedLiteral() {
-		if (!mGroundLiteralsToPropagate.isEmpty()) {
-			mLogger.debug("EPRDEBUG: getPropagatedLiteral propagating: " + mGroundLiteralsToPropagate.getFirst());
-			return mGroundLiteralsToPropagate.pollFirst();
+		if (mGroundLiteralsToPropagateToReason.isEmpty()) {
+			return null;
 		}
-		return null;
+		Entry<Literal, DecideStackPropagatedLiteral> propLitAndReaon = 
+				mGroundLiteralsToPropagateToReason.entrySet().iterator().next();
+		mLogger.debug("EPRDEBUG: getPropagatedLiteral propagating: " + propLitAndReaon.getKey());
+		//			return mGroundLiteralsToPropagateToReason.pollFirst();
+		return propLitAndReaon.getKey();
+
 	}
 	
-	public void addGroundLiteralToPropagate(Literal l) {
-		mGroundLiteralsToPropagate.add(l);
+	public void addGroundLiteralToPropagate(Literal l, DecideStackPropagatedLiteral reason) {
+		mGroundLiteralsToPropagateToReason.put(l, reason);
 	}
 
 	@Override
 	public Clause getUnitClause(Literal literal) {
-		Clause unitClause = mPropLitToExplanation.get(literal);
+//		Clause unitClause = mPropLitToExplanation.get(literal);
+		Clause unitClause = mGroundLiteralsToPropagateToReason.get(literal).getGroundedReasonUnitClause(literal);
 		mLogger.debug("EPRDEBUG: getUnitClause -- returning " + unitClause);
 		assert unitClause != null;
 		return unitClause;
