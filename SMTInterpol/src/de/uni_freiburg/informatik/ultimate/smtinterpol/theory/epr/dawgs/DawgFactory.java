@@ -37,10 +37,10 @@ public class DawgFactory<LETTER, COLNAMES> {
 		return new NaiveDawg<LETTER, COLNAMES>(termVariables, mAllConstants);
 	}
 
-	public IDawg<LETTER, COLNAMES> createEmptyDawg(int arity) {
-		assert false : "TODO: implement";
-		return null;
-	}
+//	public IDawg<LETTER, COLNAMES> createEmptyDawg(int arity) {
+//		assert false : "TODO: implement";
+//		return null;
+//	}
 
 	/**
 	 * Creates and returns a Dawg that accepts all words in Sigma^n.

@@ -52,12 +52,12 @@ public class EprClause {
 
 	private final Set<ClauseLiteral> mLiterals;
 
-	/**
-	 * Stores for every variable that occurs in the clause for each literal in the
-	 * clause at which position the variable occurs in the literal's atom (if at all).
-	 * This should be the only place where we need to speak about TermVariables..
-	 */
-	private final Map<TermVariable, Map<ClauseEprQuantifiedLiteral, Set<Integer>>> mVariableToClauseLitToPositions;
+//	/**
+//	 * Stores for every variable that occurs in the clause for each literal in the
+//	 * clause at which position the variable occurs in the literal's atom (if at all).
+//	 * This should be the only place where we need to speak about TermVariables..
+//	 */
+//	private final Map<TermVariable, Map<ClauseEprQuantifiedLiteral, Set<Integer>>> mVariableToClauseLitToPositions;
 	
 	/**
 	 * Stores the variables occurring in this clause in the order determined by the HashMap mVariableToClauseLitToPositions
@@ -92,20 +92,18 @@ public class EprClause {
 
 		// set up the clause..
 
-		Pair<Map<TermVariable, Map<ClauseEprQuantifiedLiteral, Set<Integer>>>, Set<ClauseLiteral>> resPair = 
+//		Pair<Map<TermVariable, Map<ClauseEprQuantifiedLiteral, Set<Integer>>>, Set<ClauseLiteral>> resPair = 
+		Pair<SortedSet<TermVariable>, Set<ClauseLiteral>> resPair = 
 				 createClauseLiterals(lits);
 
-		mVariableToClauseLitToPositions = Collections.unmodifiableMap(resPair.first);
+//		mVariableToClauseLitToPositions = Collections.unmodifiableMap(resPair.first);
 		mLiterals = Collections.unmodifiableSet(resPair.second);
 
-		Set<TermVariable> keySet = mVariableToClauseLitToPositions.keySet();
-//		mVariables = keySet.toArray(new TermVariable[keySet.size()]);
-		TreeSet<TermVariable> vars = new TreeSet<TermVariable>(EprHelpers.getColumnNamesComparator());
-		vars.addAll(keySet);
-		mVariables = Collections.unmodifiableSortedSet(vars);
-//		mVariables = new ArrayList<TermVariable>(keySet);
-//		mVariables = Collections.unmodifiableList(new ArrayList<TermVariable>(keySet));
-//		mVariables = Collections.unmodifiableSet(new TreeSet<TermVariable>(keySet));
+//		Set<TermVariable> keySet = mVariableToClauseLitToPositions.keySet();
+////		mVariables = keySet.toArray(new TermVariable[keySet.size()]);
+//		TreeSet<TermVariable> vars = new TreeSet<TermVariable>(EprHelpers.getColumnNamesComparator());
+//		vars.addAll(keySet);
+		mVariables = Collections.unmodifiableSortedSet(resPair.first);
 	}
 
 
@@ -121,13 +119,15 @@ public class EprClause {
 	 * @return 
 	 * @return 
 	 */
-	private Pair<
-				Map<TermVariable, Map<ClauseEprQuantifiedLiteral, Set<Integer>>>, 
-				Set<ClauseLiteral>
-				> createClauseLiterals(Set<Literal> lits) {
+//	private Pair<
+//				Map<TermVariable, Map<ClauseEprQuantifiedLiteral, Set<Integer>>>, 
+//				Set<ClauseLiteral>
+//				> createClauseLiterals(Set<Literal> lits) {
+	private Pair<SortedSet<TermVariable>, Set<ClauseLiteral>> createClauseLiterals(Set<Literal> lits) {
 
-		HashMap<TermVariable, Map<ClauseEprQuantifiedLiteral, Set<Integer>>> variableToClauseLitToPositions = 
-				new HashMap<TermVariable, Map<ClauseEprQuantifiedLiteral,Set<Integer>>>();
+//		HashMap<TermVariable, Map<ClauseEprQuantifiedLiteral, Set<Integer>>> variableToClauseLitToPositions = 
+//				new HashMap<TermVariable, Map<ClauseEprQuantifiedLiteral,Set<Integer>>>();
+		SortedSet<TermVariable> variables = new TreeSet<TermVariable>(EprHelpers.getColumnNamesComparator());
 		HashSet<ClauseLiteral> literals = new HashSet<ClauseLiteral>();
 
 		Set<EprQuantifiedEqualityAtom> quantifiedEqualities = new HashSet<EprQuantifiedEqualityAtom>();
@@ -138,6 +138,10 @@ public class EprClause {
 			
 			if (atom instanceof EprQuantifiedPredicateAtom) {
 				EprQuantifiedPredicateAtom eqpa = (EprQuantifiedPredicateAtom) atom;
+				
+				variables.addAll(
+						Arrays.asList(
+								atom.getSMTFormula(mEprTheory.getTheory()).getFreeVars()));
 
 				ClauseEprQuantifiedLiteral newL = new ClauseEprQuantifiedLiteral(
 						polarity, eqpa, this, mEprTheory);
@@ -181,15 +185,18 @@ public class EprClause {
 				// by excluding the corresponding points in their dawgs
 				ceql.addExceptions(quantifiedEqualities);
 
-				// update the tracking of variable identities between quantified clause literals
-				ceql.updateIdenticalVariablePositions();
+//				// update the tracking of variable identities between quantified clause literals
+//				ceql.updateIdenticalVariablePositions();
 			}
 		}
 		
 		assert literals.size() == mDpllLiterals.size() - quantifiedEqualities.size();
 		
-		return new Pair<Map<TermVariable, Map<ClauseEprQuantifiedLiteral,Set<Integer>>>, Set<ClauseLiteral>>(
-				variableToClauseLitToPositions, literals);
+//		return new Pair<Map<TermVariable, Map<ClauseEprQuantifiedLiteral,Set<Integer>>>, Set<ClauseLiteral>>(
+//				variableToClauseLitToPositions, literals);
+		return new Pair<SortedSet<TermVariable>, Set<ClauseLiteral>>(
+				variables, literals);
+
 	}
 	
 	/**
@@ -217,6 +224,8 @@ public class EprClause {
 		
 		mClauseStateIsDirty = true;
 
+		// update the storage of each clause literal that contains the decide stack literals
+		// the clause literal is affected by
 		for (ClauseEprLiteral cel : literalsWithSamePredicate) {
 			assert cel.getClause() == this;
 			
@@ -232,7 +241,6 @@ public class EprClause {
 		}
 
 		return determineClauseState();
-//		return mEprClauseState;
 	}
 
 
@@ -258,25 +266,25 @@ public class EprClause {
 		assert false : "TODO: implement";
 	}
 	
-	public Map<ClauseEprQuantifiedLiteral, Set<Integer>> getClauseLitToPositions(TermVariable tv) {
-		return mVariableToClauseLitToPositions.get(tv);
-	}
+//	public Map<ClauseEprQuantifiedLiteral, Set<Integer>> getClauseLitToPositions(TermVariable tv) {
+//		return mVariableToClauseLitToPositions.get(tv);
+//	}
 	
-	void updateVariableToClauseLitToPosition(TermVariable tv, ClauseEprQuantifiedLiteral ceql, Integer pos) {
-		Map<ClauseEprQuantifiedLiteral, Set<Integer>> clToPos = mVariableToClauseLitToPositions.get(tv);
-		Set<Integer> positions = null;
-
-		if (clToPos == null) {
-			clToPos = new HashMap<ClauseEprQuantifiedLiteral, Set<Integer>>();
-			positions = new HashSet<Integer>();
-			clToPos.put(ceql, positions);
-			mVariableToClauseLitToPositions.put(tv, clToPos);
-		} else {
-			positions = clToPos.get(ceql);
-		}
-			
-		positions.add(pos);
-	}
+//	void updateVariableToClauseLitToPosition(TermVariable tv, ClauseEprQuantifiedLiteral ceql, Integer pos) {
+//		Map<ClauseEprQuantifiedLiteral, Set<Integer>> clToPos = mVariableToClauseLitToPositions.get(tv);
+//		Set<Integer> positions = null;
+//
+//		if (clToPos == null) {
+//			clToPos = new HashMap<ClauseEprQuantifiedLiteral, Set<Integer>>();
+//			positions = new HashSet<Integer>();
+//			clToPos.put(ceql, positions);
+//			mVariableToClauseLitToPositions.put(tv, clToPos);
+//		} else {
+//			positions = clToPos.get(ceql);
+//		}
+//			
+//		positions.add(pos);
+//	}
 
 	/**
 	 * Checks if, in the current decide state, this EprClause is

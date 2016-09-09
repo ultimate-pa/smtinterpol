@@ -3,6 +3,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
@@ -19,7 +20,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.Clause
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackDecisionLiteral;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackQuantifiedLiteral;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
 
 /**
  * Represents an uninterpreted predicate that the EPR theory reasons about.
@@ -46,7 +47,7 @@ public class EprPredicate {
 	/**
 	 * Contains all DecideStackLiterals which talk about this EprPredicate.
 	 */
-	private HashSet<DecideStackQuantifiedLiteral> mDecideStackLiterals;
+	private Set<DecideStackLiteral> mDecideStackLiterals;
 	
 	/**
 	 * Storage to track where this predicate occurs in the formula with at least one quantified argument.
@@ -158,7 +159,7 @@ public class EprPredicate {
 	
 	public EprPredicateAtom getAtomForTermTuple(TermTuple tt, Theory mTheory, int assertionStackLevel) {
 		if (tt.getFreeVars().size() > 0) {
-			return getAtomForTermTuple(tt, mTheory, assertionStackLevel);
+			return getAtomForQuantifiedTermTuple(tt, mTheory, assertionStackLevel);
 		} else {
 			return getAtomForPoint(tt, mTheory, assertionStackLevel);
 		}
@@ -173,7 +174,7 @@ public class EprPredicate {
 	 *  @return null if the model of this predicate is already complete, a DecideStackLiteral
 	 *          otherwise.
 	 */
-	public DecideStackQuantifiedLiteral getNextDecision() {
+	public DecideStackLiteral getNextDecision() {
 		IDawg<ApplicationTerm, TermVariable> undecidedPoints = computeUndecidedPoints();
 
 		if (undecidedPoints.isEmpty()) {
@@ -185,13 +186,13 @@ public class EprPredicate {
 
 	private IDawg<ApplicationTerm, TermVariable> computeUndecidedPoints() {
 		IDawg<ApplicationTerm, TermVariable> positivelySetPoints = 
-				mEprTheory.getDawgFactory().createEmptyDawg(mArity);
+				mEprTheory.getDawgFactory().createEmptyDawg(mTermVariablesForArguments);
 		IDawg<ApplicationTerm, TermVariable> negativelySetPoints =
-				mEprTheory.getDawgFactory().createEmptyDawg(mArity);
+				mEprTheory.getDawgFactory().createEmptyDawg(mTermVariablesForArguments);
 		IDawg<ApplicationTerm, TermVariable> undecidedPoints = 
-				mEprTheory.getDawgFactory().createEmptyDawg(mArity);
+				mEprTheory.getDawgFactory().createEmptyDawg(mTermVariablesForArguments);
 
-		for (DecideStackQuantifiedLiteral dsl : mDecideStackLiterals) {
+		for (DecideStackLiteral dsl : mDecideStackLiterals) {
 			if (dsl.getPolarity()) {
 				//positive literal
 				positivelySetPoints.addAll(dsl.getDawg());
@@ -217,7 +218,7 @@ public class EprPredicate {
 		}
 
 		IDawg<ApplicationTerm, TermVariable> allDecidedPoints = 
-				mEprTheory.getDawgFactory().createEmptyDawg(mArity);
+				mEprTheory.getDawgFactory().createEmptyDawg(mTermVariablesForArguments);
 		allDecidedPoints.addAll(positivelySetPoints);
 		allDecidedPoints.addAll(negativelySetPoints);
 
@@ -248,7 +249,14 @@ public class EprPredicate {
 	public SortedSet<TermVariable> getTermVariablesForArguments() {
 		return mTermVariablesForArguments;
 	}
-			
+
+	public void addDecideStackLiteral(DecideStackLiteral dsl) {
+		mDecideStackLiterals.add(dsl);
+	}
+
+	public void removeDecideStackLiteral(DecideStackLiteral dsl) {
+		mDecideStackLiterals.remove(dsl);
+	}		
 
 
 }

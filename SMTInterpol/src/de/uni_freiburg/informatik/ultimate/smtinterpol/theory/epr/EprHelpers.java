@@ -28,7 +28,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuant
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackQuantifiedLiteral;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.EprPushState;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundEqualityAtom;
@@ -276,7 +276,7 @@ public class EprHelpers {
 		}
 	}
 	
-	public class DecideStackLiteralIterable implements Iterable<DecideStackQuantifiedLiteral> {
+	public class DecideStackLiteralIterable implements Iterable<DecideStackLiteral> {
 
 		Iterator<EprPushState> mPushStateStack;
 
@@ -285,19 +285,19 @@ public class EprHelpers {
 		}
 
 		@Override
-		public Iterator<DecideStackQuantifiedLiteral> iterator() {
+		public Iterator<DecideStackLiteral> iterator() {
 			return new DSLIterator();
 		}
 
-		class DSLIterator implements Iterator<DecideStackQuantifiedLiteral> {
-			DecideStackQuantifiedLiteral mNext;
-			Iterator<DecideStackQuantifiedLiteral> mCurrentPushStateClauseIterator;
+		class DSLIterator implements Iterator<DecideStackLiteral> {
+			DecideStackLiteral mNext;
+			Iterator<DecideStackLiteral> mCurrentPushStateClauseIterator;
 
 			DSLIterator() {
 				mNext = findNextEprClause();
 			}
 
-			public DecideStackQuantifiedLiteral findNextEprClause() {
+			public DecideStackLiteral findNextEprClause() {
 				if (! mPushStateStack.hasNext()) {
 					return null;
 				}
@@ -319,7 +319,7 @@ public class EprHelpers {
 			}
 
 			@Override
-			public DecideStackQuantifiedLiteral next() {
+			public DecideStackLiteral next() {
 				mNext = findNextEprClause();
 				return mNext;
 			}

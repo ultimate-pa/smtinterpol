@@ -97,77 +97,89 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 		super(polarity, atom, clause, eprTheory);
 		mAtom = atom;
 
-		processAtom(atom);			
+//		processAtom(atom);			
+
+		// compute the signature of a dawg that describes points where this literal has some state
+		SortedSet<TermVariable> vars = new TreeSet<TermVariable>(EprHelpers.getColumnNamesComparator());
+		for (Term arg : atom.getArguments()) {
+			if (arg instanceof TermVariable) {
+				vars.add((TermVariable) arg);
+			}
+		}
+		mDawgSignature = Collections.unmodifiableSortedSet(vars);
+
 		Pair<Map<TermVariable, Object>, Map<TermVariable, TermVariable>> p = computeDawgSignatureTranslations();
 		mTranslationForClause = p.first;
 		mTranslationForEprPredicate = p.second;
 	}
 
-	/**
-	 * Collect all the information from the EprQuantifiedPredicateAtom and store it in a way
-	 * we can use it easily later.
-	 * @param atom
-	 */
-	private void processAtom(EprQuantifiedPredicateAtom atom) {
-//		mArgumentTerms = 
-//				new ArrayList<Term>();
-		TreeSet<TermVariable> clSig = new TreeSet<TermVariable>(EprHelpers.getColumnNamesComparator());
-
-		for (int i = 0; i < atom.getArguments().length; i++) {
-			Term argI = atom.getArguments()[i];
-
-//			TermVariable tv = null;
+//	/**
+//	 * Collect all the information from the EprQuantifiedPredicateAtom and store it in a way
+//	 * we can use it easily later.
+//	 * @param atom
+//	 */
+//	private void processAtom(EprQuantifiedPredicateAtom atom) {
+////		mArgumentTerms = 
+////				new ArrayList<Term>();
+//		TreeSet<TermVariable> clSig = new TreeSet<TermVariable>(EprHelpers.getColumnNamesComparator());
+//
+//		for (int i = 0; i < atom.getArguments().length; i++) {
+//			Term argI = atom.getArguments()[i];
+//
+////			TermVariable tv = null;
+////			if (argI instanceof TermVariable) {
+////				tv = (TermVariable) argI;
+////			} else if (argI instanceof ApplicationTerm) {
+////				ApplicationTerm at = (ApplicationTerm) argI;
+////				assert at.getParameters().length == 0;
+////				tv = mEprTheory.getTheory().createFreshTermVariable(argI.toString(), argI.getSort());
+////				mVariableToConstant.put(tv, at);
+////			} else {
+////				assert false;
+////			}
+////			mArgumentTerms.add(tv);
+//
+////			mArgumentTerms.add(argI);
+//
+////			mEprClause.updateVariableToClauseLitToPosition(tv, this, i);
 //			if (argI instanceof TermVariable) {
-//				tv = (TermVariable) argI;
-//			} else if (argI instanceof ApplicationTerm) {
-//				ApplicationTerm at = (ApplicationTerm) argI;
-//				assert at.getParameters().length == 0;
-//				tv = mEprTheory.getTheory().createFreshTermVariable(argI.toString(), argI.getSort());
-//				mVariableToConstant.put(tv, at);
-//			} else {
-//				assert false;
+////				mEprClause.updateVariableToClauseLitToPosition((TermVariable) argI, this, i);
+//				clSig.add((TermVariable) argI);
 //			}
-//			mArgumentTerms.add(tv);
-
-//			mArgumentTerms.add(argI);
-
-//			mEprClause.updateVariableToClauseLitToPosition(tv, this, i);
-			if (argI instanceof TermVariable) {
-				mEprClause.updateVariableToClauseLitToPosition((TermVariable) argI, this, i);
-				clSig.add((TermVariable) argI);
-			}
-		}
-		
-		mDawgSignature = Collections.unmodifiableSortedSet(clSig);
-	}
+//		}
+//		
+//		mDawgSignature = Collections.unmodifiableSortedSet(clSig);
+//	}
 
 	public void addExceptions(Set<EprQuantifiedEqualityAtom> quantifiedEqualities) {
-		assert false : "TODO: implement";
-	}
-
-	/**
-	 * Fill the map identicalVariablePositionsInOtherClauseLiterals
-	 * (needs to be triggered after all literals have been added to the clause)
-	 */
-	public void updateIdenticalVariablePositions() {
-		for (int i = 0; i < mAtom.getArguments().length; i++) {
-			if (! (mAtom.getArguments()[i] instanceof TermVariable))
-				continue;
-			TermVariable tv = (TermVariable) mAtom.getArguments()[i];
-			Map<ClauseEprQuantifiedLiteral, Set<Integer>> clToPos = mEprClause.getClauseLitToPositions(tv);
-
-			for (Entry<ClauseEprQuantifiedLiteral, Set<Integer>> en : clToPos.entrySet()) {
-				Map<ClauseEprQuantifiedLiteral, Set<Integer>> otherClToIdenticalPos = 
-						identicalVariablePositionsInOtherClauseLiterals.get(i);
-				
-				if (otherClToIdenticalPos == null) {
-					otherClToIdenticalPos = new HashMap<ClauseEprQuantifiedLiteral, Set<Integer>>();
-					identicalVariablePositionsInOtherClauseLiterals.put(i, otherClToIdenticalPos);
-				}
-				otherClToIdenticalPos.put(en.getKey(), en.getValue());
-			}
+		for (EprQuantifiedEqualityAtom eqea : quantifiedEqualities) {
+			assert false : "TODO: implement";
 		}
 	}
+
+//	/**
+//	 * Fill the map identicalVariablePositionsInOtherClauseLiterals
+//	 * (needs to be triggered after all literals have been added to the clause)
+//	 */
+//	public void updateIdenticalVariablePositions() {
+//		for (int i = 0; i < mAtom.getArguments().length; i++) {
+//			if (! (mAtom.getArguments()[i] instanceof TermVariable))
+//				continue;
+//			TermVariable tv = (TermVariable) mAtom.getArguments()[i];
+//			Map<ClauseEprQuantifiedLiteral, Set<Integer>> clToPos = mEprClause.getClauseLitToPositions(tv);
+//
+//			for (Entry<ClauseEprQuantifiedLiteral, Set<Integer>> en : clToPos.entrySet()) {
+//				Map<ClauseEprQuantifiedLiteral, Set<Integer>> otherClToIdenticalPos = 
+//						identicalVariablePositionsInOtherClauseLiterals.get(i);
+//				
+//				if (otherClToIdenticalPos == null) {
+//					otherClToIdenticalPos = new HashMap<ClauseEprQuantifiedLiteral, Set<Integer>>();
+//					identicalVariablePositionsInOtherClauseLiterals.put(i, otherClToIdenticalPos);
+//				}
+//				otherClToIdenticalPos.put(en.getKey(), en.getValue());
+//			}
+//		}
+//	}
 
 	/**
 	 * Returns the points where this literal is fulfillable in the decide state that was current when

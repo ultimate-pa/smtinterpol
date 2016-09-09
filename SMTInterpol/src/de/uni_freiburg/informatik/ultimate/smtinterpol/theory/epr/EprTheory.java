@@ -36,7 +36,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuant
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClauseFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackPropagatedLiteral;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackQuantifiedLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.EprStateManager;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
 
@@ -138,6 +137,7 @@ public class EprTheory implements ITheory {
 			assert false : "DPLLEngine is setting a quantified EprAtom --> this cannot be..";
 
 		} else if (atom instanceof CCEquality) {
+			assert false : "TODO: check handling of equalities";
 			if (literal.getSign() == 1) {
 				CCEquality eq = (CCEquality) atom;
 				
@@ -201,28 +201,7 @@ public class EprTheory implements ITheory {
 		if (mGroundAllMode)
 			return null;
 		mLogger.debug("EPRDEBUG: checkpoint");
-		
-		Clause conflict = null;
-		
-//		// have we already a conflict clause in store?
-//		if (!mStateManager.getConflictClauses().isEmpty()) {
-//			EprClauseOld realConflict = mStateManager.getConflictClauses().iterator().next();
-//			mLogger.debug("EPRDEBUG (checkpoint): found a conflict: " + realConflict);
-//			//TODO: work on explanation..
-//			conflict = mStateManager.getDerivedClause(new HashSet<Literal>(0), 
-//					this, "empty conflict clause");
-//		} else {
-//			// try unit propagation
-//			conflict = eprPropagate();
-//
-//			if (conflict != null && (conflict instanceof EprClauseOld) &&
-//					((EprClauseOld) conflict).getQuantifiedPredicateLiterals().length > 0) {
-//				// the conflict is a proper epr clause --> TODO: ..something about it ..
-//				assert false : "the conflict is a proper epr clause --> we cannot give it to DPLL as is";
-//			}
-//		}
-
-		return conflict;
+		return null;
 	}
 
 	@Override
@@ -280,8 +259,7 @@ public class EprTheory implements ITheory {
 	public Literal getSuggestion() {
 		if (mGroundAllMode)
 			return null;
-		//TODO: think about how to get smart suggestions..
-//		mLogger.debug("EPRDEBUG: getSuggestion");
+		mLogger.debug("EPRDEBUG: getSuggestion");
 		return mGroundDecisionSuggestions.poll();
 	}
 	

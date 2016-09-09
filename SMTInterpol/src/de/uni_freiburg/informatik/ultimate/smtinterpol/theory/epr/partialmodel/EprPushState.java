@@ -32,7 +32,7 @@ public class EprPushState {
 	 * all the clauses in this push state and the push states below and which have not been
 	 * derived in any of the below push states.
 	 */
-	private Stack<DecideStackQuantifiedLiteral> mDecideStack = new Stack<DecideStackQuantifiedLiteral>();
+	private Stack<DecideStackLiteral> mDecideStack = new Stack<DecideStackLiteral>();
 
 	public void addClause(EprClause newClause) {
 		mClauses.add(newClause);
@@ -67,17 +67,17 @@ public class EprPushState {
 		return mClauses.iterator();
 	}
 	
-	public Iterator<DecideStackQuantifiedLiteral> getDecideStackLiteralIterator() {
+	public Iterator<DecideStackLiteral> getDecideStackLiteralIterator() {
 		return mDecideStack.iterator();
 	}
 
 
-	public void pushDecideStackLiteral(DecideStackQuantifiedLiteral decideStackQuantifiedLiteral) {
+	public void pushDecideStackLiteral(DecideStackLiteral decideStackQuantifiedLiteral) {
 		mDecideStack.push(decideStackQuantifiedLiteral);
 	}
 	
-	public void popDecideStackLiteral(DecideStackQuantifiedLiteral decideStackQuantifiedLiteral) {
-		DecideStackQuantifiedLiteral top = mDecideStack.pop();
+	public void popDecideStackLiteral(DecideStackLiteral decideStackQuantifiedLiteral) {
+		DecideStackLiteral top = mDecideStack.pop();
 		assert top == decideStackQuantifiedLiteral : "TODO: not yet clear how this will work..";
 	}
 	
@@ -85,10 +85,12 @@ public class EprPushState {
 		return mDecideStack.peek();
 	}
 
-	public DecideStackQuantifiedLiteral popDecideStack() {
+	public DecideStackLiteral popDecideStack() {
 		if (mDecideStack.isEmpty()) {
 			return null;
 		}
-		return mDecideStack.pop();
+		DecideStackLiteral dsl = mDecideStack.pop();
+		dsl.unregister();
+		return dsl;
 	}
 }

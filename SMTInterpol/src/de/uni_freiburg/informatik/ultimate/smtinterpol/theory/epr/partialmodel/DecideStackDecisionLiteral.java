@@ -12,16 +12,17 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
  * 
  * @author nutz
  */
-public class DecideStackDecisionLiteral extends DecideStackQuantifiedLiteral {
+public class DecideStackDecisionLiteral extends DecideStackLiteral {
 
-	public DecideStackDecisionLiteral(boolean polarity, EprPredicate eprPredicate, IDawg dawg) {
+	public DecideStackDecisionLiteral(boolean polarity, EprPredicate eprPredicate, 
+			IDawg<ApplicationTerm, TermVariable> dawg) {
 		super(polarity, eprPredicate, dawg);
 	}
 
-	public DecideStackDecisionLiteral(boolean polarity, EprQuantifiedPredicateAtom atom,
-			IDawg<ApplicationTerm, TermVariable> dawg) {
-		super(polarity, atom, dawg);
-		// TODO Auto-generated constructor stub
-	}
+//	public DecideStackDecisionLiteral(boolean polarity, EprQuantifiedPredicateAtom atom,
+//			IDawg<ApplicationTerm, TermVariable> dawg) {
+//		super(polarity, atom, dawg);
+//		// TODO Auto-generated constructor stub
+//	}
 
 }

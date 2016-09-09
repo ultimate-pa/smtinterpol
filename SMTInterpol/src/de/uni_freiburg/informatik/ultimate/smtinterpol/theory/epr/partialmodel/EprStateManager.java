@@ -25,6 +25,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EqualityManager;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseEprGroundLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseEprLiteral;
@@ -51,7 +52,7 @@ public class EprStateManager {
 
 	private Stack<EprPushState> mPushStateStack = new Stack<EprPushState>();
 	
-	private ScopedHashSet<ApplicationTerm> mUsedConstants;
+	private ScopedHashSet<ApplicationTerm> mUsedConstants = new ScopedHashSet<ApplicationTerm>();
 
 	public EqualityManager mEqualityManager;
 	private EprTheory mEprTheory;
@@ -108,26 +109,28 @@ public class EprStateManager {
 			}
 
 			// make the decision
-			if (nextDecision instanceof DecideStackQuantifiedLiteral) {
+			if (!nextDecision.isOnePoint()) {
 				//					conflictsOrUnits = 
 				Clause groundConflict = 
 						propagateAndResolve(
-								setEprDecideStackLiteral((DecideStackQuantifiedLiteral) nextDecision));
+								setEprDecideStackLiteral((DecideStackLiteral) nextDecision));
 				if (groundConflict != null) {
 					return groundConflict;
 				}
 
-			} else if (nextDecision instanceof DecideStackGroundLiteral) {
+			} else {
 				// if the next requested decision is ground, suggest it to the DPLLEngine, and give 
 				// back control to the DPLLEngine
-				Literal groundDecision = ((DecideStackGroundLiteral) nextDecision).getLiteral();
+				Literal groundDecision = nextDecision.getEprPredicate()
+						.getAtomForTermTuple(
+								new TermTuple(nextDecision.getPoint().toArray(
+										new ApplicationTerm[nextDecision.getPoint().size()])), // TODO: make nicer
+								mTheory, 0); //TODO assertionstacklevel
 				assert groundDecision.getAtom().getDecideStatus() == null : "If this is not the case, then"
 						+ "it might be dangerous to return null: if null is returned to computeConflictClause,"
 						+ "this means the EprTheory says there is no conflict and I have a full model..";
 				mEprTheory.addGroundDecisionSuggestion(groundDecision);
 				return null;
-			} else {
-				assert false : "should not happen";
 			}
 		}
 	}
@@ -290,9 +293,9 @@ public class EprStateManager {
 		return null;
 	}
 
-	private DecideStackQuantifiedLiteral popDecideStack() {
+	private DecideStackLiteral popDecideStack() {
 		EprPushState pushStateWithLastDecideStackLiteral = mPushStateStack.peek();
-		DecideStackQuantifiedLiteral lit = pushStateWithLastDecideStackLiteral.popDecideStack();
+		DecideStackLiteral lit = pushStateWithLastDecideStackLiteral.popDecideStack();
 		while (lit == null) {
 			pushStateWithLastDecideStackLiteral = mPushStateStack.iterator().next();
 			lit = pushStateWithLastDecideStackLiteral.popDecideStack();
@@ -342,9 +345,9 @@ public class EprStateManager {
 	 * @return 	A DecideStackLiteral for an EprPredicate with incomplete model 
 	 *           or null if all EprPredicates have a complete model.
 	 **/
-	private DecideStackQuantifiedLiteral getNextDecision() {
+	private DecideStackLiteral getNextDecision() {
 		for (EprPredicate ep : getAllEprPredicates()) {
-			DecideStackQuantifiedLiteral decision = ep.getNextDecision();
+			DecideStackLiteral decision = ep.getNextDecision();
 			if (decision != null) {
 				return decision;
 			}
@@ -412,7 +415,7 @@ public class EprStateManager {
 	 * @param decideStackQuantifiedLiteral
 	 * @return 
 	 */
-	public Set<EprClause> setEprDecideStackLiteral(DecideStackQuantifiedLiteral decideStackQuantifiedLiteral) {
+	public Set<EprClause> setEprDecideStackLiteral(DecideStackLiteral decideStackQuantifiedLiteral) {
 		
 		// setting the decideStackLiteral means that we have to set all ground atoms covered by it
 		// in the DPLLEngine
@@ -467,7 +470,7 @@ public class EprStateManager {
 	}
 
 
-	public void unsetEprDecideStackLiteral(DecideStackQuantifiedLiteral decideStackQuantifiedLiteral) {
+	public void unsetEprDecideStackLiteral(DecideStackLiteral decideStackQuantifiedLiteral) {
 		//TODO: remove propagations and suggestions that came from that decide stack literal?!?
 		updateClausesOnBacktrackDecideStackLiteral(decideStackQuantifiedLiteral);
 		mPushStateStack.peek().popDecideStackLiteral(decideStackQuantifiedLiteral);
@@ -480,7 +483,7 @@ public class EprStateManager {
 	 * @param literalToBeSet
 	 * @return an EprClause that is Unit or Conflict if there is one, null otherwise
 	 */
-	private Set<EprClause> updateClausesOnSetDecideStackLiteral(DecideStackQuantifiedLiteral literalToBeSet) {
+	private Set<EprClause> updateClausesOnSetDecideStackLiteral(DecideStackLiteral literalToBeSet) {
 		HashMap<EprClause, HashSet<ClauseEprLiteral>> quantifiedOccurences = 
 				literalToBeSet.getEprPredicate().getQuantifiedOccurences();
 		HashMap<EprClause, HashSet<ClauseEprLiteral>> groundOccurences = 
@@ -527,7 +530,7 @@ public class EprStateManager {
 	 *     --> still unclear.. (TODO)
 	 * @param decideStackQuantifiedLiteral
 	 */
-	private void updateClausesOnBacktrackDecideStackLiteral(DecideStackQuantifiedLiteral decideStackQuantifiedLiteral) {
+	private void updateClausesOnBacktrackDecideStackLiteral(DecideStackLiteral decideStackQuantifiedLiteral) {
 		assert false : "TODO: implement";
 	}
 
@@ -656,10 +659,10 @@ public class EprStateManager {
 	
 		mEqualityManager.addEquality(lhs, rhs, (CCEquality) eq);
 	
+		assert false : "TODO: deal with equalities";
 		// is there a conflict with currently set points or quantifiedy literals?
 //		Clause conflict = checkConsistency();
 		
-		//TODO:
 		// possibly update all literal states in clauses, right?..
 		//  (..if there is no conflict?..)
 

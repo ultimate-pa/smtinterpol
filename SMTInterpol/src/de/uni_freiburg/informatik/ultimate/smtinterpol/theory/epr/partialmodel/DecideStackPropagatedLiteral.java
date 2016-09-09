@@ -17,7 +17,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
  * @author nutz
  *
  */
-public class DecideStackPropagatedLiteral extends DecideStackQuantifiedLiteral {
+public class DecideStackPropagatedLiteral extends DecideStackLiteral {
 	
 	/**
 	 * the clause literal whose clause, together with the prefix of the decide stack is responsible
