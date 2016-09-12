@@ -93,4 +93,13 @@ public class EprPushState {
 		dsl.unregister();
 		return dsl;
 	}
+	
+	@Override
+	public String toString() {
+		StringBuilder sb = new StringBuilder();
+		for (DecideStackLiteral dsl : mDecideStack) {
+			sb.append(dsl.toString());
+		}
+		return sb.toString();
+	}
 }

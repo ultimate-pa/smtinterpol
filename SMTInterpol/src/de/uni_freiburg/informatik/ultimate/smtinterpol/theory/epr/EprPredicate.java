@@ -47,7 +47,8 @@ public class EprPredicate {
 	/**
 	 * Contains all DecideStackLiterals which talk about this EprPredicate.
 	 */
-	private Set<DecideStackLiteral> mDecideStackLiterals;
+	private Set<DecideStackLiteral> mDecideStackLiterals =
+			new HashSet<DecideStackLiteral>();
 	
 	/**
 	 * Storage to track where this predicate occurs in the formula with at least one quantified argument.
@@ -258,5 +259,8 @@ public class EprPredicate {
 		mDecideStackLiterals.remove(dsl);
 	}		
 
+	public Set<DecideStackLiteral> getDecideStackLiterals() {
+		return mDecideStackLiterals;
+	}
 
 }

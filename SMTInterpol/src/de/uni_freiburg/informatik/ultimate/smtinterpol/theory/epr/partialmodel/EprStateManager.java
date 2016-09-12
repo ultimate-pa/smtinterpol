@@ -69,7 +69,7 @@ public class EprStateManager {
 
 	final private EprClauseFactory mEprClauseFactory;
 
-	final private DawgFactory<ApplicationTerm, TermVariable> mDawgFactory;
+	private DawgFactory<ApplicationTerm, TermVariable> mDawgFactory;
 
 	
 	public EprStateManager(EprTheory eprTheory) {
@@ -80,7 +80,7 @@ public class EprStateManager {
 		mTheory = eprTheory.getTheory();
 		mCClosure = eprTheory.getCClosure();
 		mEprClauseFactory = eprTheory.getEprClauseFactory();
-		mDawgFactory = eprTheory.getDawgFactory();
+//		mDawgFactory = eprTheory.getDawgFactory();
 	}
 	
 	/**
@@ -138,59 +138,21 @@ public class EprStateManager {
 	private Clause propagateAndResolve(Set<EprClause> conflictsOrUnits) {
 		while (conflictsOrUnits != null && !conflictsOrUnits.isEmpty()) {
 
-			EprClause nextConflictOrUnit = conflictsOrUnits.iterator().next(); // just pick any ..
-			conflictsOrUnits.remove(nextConflictOrUnit);
+			EprClause currentConflictOrUnit = conflictsOrUnits.iterator().next(); // just pick any ..
+			conflictsOrUnits.remove(currentConflictOrUnit);
 
-			if (nextConflictOrUnit.isConflict()) {
+			if (currentConflictOrUnit.isConflict()) {
 				// we have conflicts; explain them, learn clauses, return the explained version of the conflicts
 				// if there was no decision, return a grounding of the conflict (perhaps several..)
 //				EprClause unresolvableConflict = resolveConflict(chooseConflictOrUnit(conflictsOrUnits));
-				EprClause unresolvableConflict = resolveConflict(nextConflictOrUnit);
+				EprClause unresolvableConflict = resolveConflict(currentConflictOrUnit);
 				if (unresolvableConflict != null) {
 					return chooseGroundingFromConflict(unresolvableConflict);
 				}
 
 				conflictsOrUnits = null;
-			} else if (nextConflictOrUnit.isUnit()) {
-				// if we have a unit clause, propagate the literal
-				// the set..-method returns the new set of conflicts or units
-				// TODO: should work like this (one unit prop for every iteration),
-				//   but is there an unnecessary computation involved when determining the clause states again?
-
-
-				// one epr unit clause may yield many propagations 
-				// --> iteratively set them, if one produces a conflict, go back to the outer epr dpll loop
-				//     if one produces more unit propagations, it is ok to just add them to conflictsOrUnits, because we
-				//      it contains unit clauses right now..
-				Map<ClauseEprQuantifiedLiteral, IDawg<ApplicationTerm, TermVariable>> clToUps = 
-						nextConflictOrUnit.getClauseLitToUnitPoints();
-				for (Entry<ClauseEprQuantifiedLiteral, IDawg<ApplicationTerm, TermVariable>> en : clToUps.entrySet()) {
-					ClauseEprQuantifiedLiteral cl = en.getKey();
-					IDawg<ApplicationTerm, TermVariable> dawg = en.getValue();
-					DecideStackPropagatedLiteral prop = new DecideStackPropagatedLiteral(
-							cl.getPolarity(), 
-							cl.getEprPredicate(),
-							mDawgFactory.renameColumnsAndRestoreConstants(
-									dawg, 
-									cl.getTranslationForEprPredicate(), 
-									cl.getArgumentsAsObjects(),
-									cl.getEprPredicate().getTermVariablesForArguments()),
-							cl);
-
-					Set<EprClause> newConflictsOrUnits = setEprDecideStackLiteral(prop);
-
-					if (newConflictsOrUnits != null) {
-						if (newConflictsOrUnits.iterator().next().isConflict()) {
-							conflictsOrUnits = newConflictsOrUnits;
-							break;
-						} else if (newConflictsOrUnits.iterator().next().isUnit()) {
-							conflictsOrUnits.addAll(newConflictsOrUnits);
-							break;
-						} else {
-							assert false : "should not happen";
-						}
-					}
-				}
+			} else if (currentConflictOrUnit.isUnit()) {
+				conflictsOrUnits = propagateUnitClause(conflictsOrUnits, currentConflictOrUnit);
 
 			} else {
 				assert false : "should not happen";
@@ -199,6 +161,65 @@ public class EprStateManager {
 		
 		// at this point all unit propagations have been made and all conflicts resolved (or returned)
 		return null;
+	}
+
+	/**
+	 * Takes a set of unit clauses, together with one unit clause (not contained in the set)
+	 * and makes a propagation according to the unit clause.
+	 * If a conflict occurs, a singleton with just the conflict clause is returned.
+	 * If additional clauses have been made unit, they are added to the set of unit clauses, and
+	 * the updated set is returned.
+	 * If no clause has been made conflict or unit by the propagation, the unit clause set is 
+	 * returned unchanged.
+	 * 
+	 * @param conflictsOrUnits
+	 * @param unitClause
+	 * @return
+	 */
+	private Set<EprClause> propagateUnitClause(Set<EprClause> conflictsOrUnits, 
+			EprClause unitClause) {
+		Set<EprClause> result = new HashSet<EprClause>(conflictsOrUnits);		
+
+		// if we have a unit clause, propagate the literal
+		// the set..-method returns the new set of conflicts or units
+		// TODO: should work like this (one unit prop for every iteration),
+		//   but is there an unnecessary computation involved when determining the clause states again?
+
+
+		// one epr unit clause may yield many propagations 
+		// --> iteratively set them, if one produces a conflict, go back to the outer epr dpll loop
+		//     if one produces more unit propagations, it is ok to just add them to conflictsOrUnits, because we
+		//      it contains unit clauses right now..
+		Map<ClauseEprQuantifiedLiteral, IDawg<ApplicationTerm, TermVariable>> clToUps = 
+				unitClause.getClauseLitToUnitPoints();
+		for (Entry<ClauseEprQuantifiedLiteral, IDawg<ApplicationTerm, TermVariable>> en : clToUps.entrySet()) {
+			ClauseEprQuantifiedLiteral cl = en.getKey();
+			IDawg<ApplicationTerm, TermVariable> dawg = en.getValue();
+			DecideStackPropagatedLiteral prop = new DecideStackPropagatedLiteral(
+					cl.getPolarity(), 
+					cl.getEprPredicate(),
+					mDawgFactory.renameColumnsAndRestoreConstants(
+							dawg, 
+							cl.getTranslationForEprPredicate(), 
+							cl.getArgumentsAsObjects(),
+							cl.getEprPredicate().getTermVariablesForArguments()),
+					cl);
+
+			Set<EprClause> newConflictsOrUnits = setEprDecideStackLiteral(prop);
+
+			if (newConflictsOrUnits != null) {
+				if (newConflictsOrUnits.iterator().next().isConflict()) {
+					// in case of a conflict further propagations are obsolete
+					return newConflictsOrUnits;
+				} else if (newConflictsOrUnits.iterator().next().isUnit()) {
+					result.addAll(newConflictsOrUnits);
+					break; //TODO: surely break here?
+				} else {
+					assert false : "should not happen";
+				}
+			}
+		}
+		return result;
 	}
 	
 	/**
@@ -233,7 +254,8 @@ public class EprStateManager {
 	 *  - return the last decision along with the explanation, so the next decision can be informed by that
 	 *  
 	 * @param conflicts
-	 * @return
+	 * @return A conflict that cannot be resolved in the EprTheory (given the current DPLL decide stack),
+	 *    null if there exists none.
 	 */
 	private EprClause resolveConflict(EprClause conflict) {
 		EprClause currentConflict = conflict;
@@ -242,6 +264,7 @@ public class EprStateManager {
 			currentConflict = tryFactoring(currentConflict);
 			
 			currentConflict = tryBackjumping(currentConflict);
+
 			if (currentConflict == null) {
 				return null;
 			}
@@ -280,7 +303,7 @@ public class EprStateManager {
 	}
 
 	private void learnClause(EprClause currentConflict) {
-		addClause(currentConflict);
+		addEprClause(currentConflict);
 	}
 
 	private EprClause tryBackjumping(EprClause currentConflict) {
@@ -385,13 +408,60 @@ public class EprStateManager {
 	 * @return
 	 */
 	public Clause setEprGroundLiteral(Literal literal) {
-		
 		//TODO: what do we have to do in the case of an _epr_ ground literal in contrast
 		//  to a normal ground literal???
-		//  --> right now it seems: nothing
-		//  --> an EprPredicate knows which ground atoms exist for it anyway and just goes 
-		//     through them to determine if its model is complete..
-		return propagateAndResolve(updateClausesOnSetDpllLiteral(literal));
+		//  --> the main difference is that it may interact with the epr decide stack
+		//      thus we have to check for contradictions before calling update... (which assumes consistency of the "set points" for each clauseliteral)
+		//   after that we treat it like a decide stack literal (again because of the interactions with other literals over epr predicates)
+		
+		EprGroundPredicateLiteral egpl = new EprGroundPredicateLiteral(literal, mDawgFactory);
+		
+		DecideStackLiteral conflictingDsl = searchConflictingDecideStackLiteral(egpl);
+		
+		// plan:
+		// just remove the conflicting point (option: more points?)
+		// two things need to be done then:
+		//  - going towards the bottom of the stack: look for the next decision that has to be redone to make the
+		//    stack consistent
+		//  - going towards the top of the stack: except the propagations resulting from the point (do others?)
+		// more general question: can/should we retain the stack mostly as is or should/must we rebuild it?
+
+
+		if (conflictingDsl instanceof DecideStackPropagatedLiteral) {
+			// - revert the point of the propagation that contradicts the current setLiteral
+			//   (otherwise, it is a fulfilled and refuted point at the same time in our partial epr model..)
+			// - the unit clause of the propagation will then become a conflict, which we can resolve
+			// question: does it matter that this may be in the middle of the epr decide stack? (although it should be the
+			// topmost one that concerns the given EprPredicate..)
+		} else {
+			// - the literal contradicts a decision the epr theory has made
+			// - redecide on the corresponding point
+			assert false : "what now?";
+		}
+		
+		Set<EprClause> confOrUnits = updateClausesOnSetEprLiteral(egpl);
+		return propagateAndResolve(confOrUnits);
+	}
+
+	/**
+	 * Given an epr ground literal look if there is a decide stack literal that contradicts it.
+	 * (this is called when the DPLLEngine sets an epr literal an we need to know if the two decide stacks
+	 *  of dpll engine and epr theory are still consistent wrt each other)
+	 * Note that the result should be unique here, because on the epr decide stack we don't set points twice
+	 *  (or do we?..)
+	 * @param egpl
+	 * @return the decide stack literal that contradicts egpl if there exists one, null otherwise
+	 */
+	private DecideStackLiteral searchConflictingDecideStackLiteral(EprGroundPredicateLiteral egpl) {
+		// TODO not fully sure if each point is set only once on the epr decide stack
+		//  --> if not, we probably want to 
+		for (DecideStackLiteral dsl : egpl.getEprPredicate().getDecideStackLiterals()) { 
+			if (dsl.getPolarity() != egpl.getPolarity()
+					&& ! egpl.getDawg().intersect(dsl.getDawg()).isEmpty()) {
+				return dsl;
+			}
+		}
+		return null;
 	}
 	
 	public void unsetEprGroundLiteral(Literal literal) {
@@ -460,7 +530,7 @@ public class EprStateManager {
 		// inform the clauses...
 		// check if there is a conflict
 		Set<EprClause> conflictsOrPropagations = 
-				updateClausesOnSetDecideStackLiteral(decideStackQuantifiedLiteral);
+				updateClausesOnSetEprLiteral(decideStackQuantifiedLiteral);
 
 //		if (conflictsOrPropagations == null
 //				|| conflictsOrPropagations.iterator().next().isUnit()) {
@@ -483,35 +553,29 @@ public class EprStateManager {
 	 * @param literalToBeSet
 	 * @return an EprClause that is Unit or Conflict if there is one, null otherwise
 	 */
-	private Set<EprClause> updateClausesOnSetDecideStackLiteral(DecideStackLiteral literalToBeSet) {
+	private Set<EprClause> updateClausesOnSetEprLiteral(IEprLiteral literalToBeSet) {
 		HashMap<EprClause, HashSet<ClauseEprLiteral>> quantifiedOccurences = 
 				literalToBeSet.getEprPredicate().getQuantifiedOccurences();
 		HashMap<EprClause, HashSet<ClauseEprLiteral>> groundOccurences = 
 				literalToBeSet.getEprPredicate().getGroundOccurences();
+
+		HashMap<EprClause, HashSet<ClauseEprLiteral>> allOccurences = 
+				new HashMap<EprClause, HashSet<ClauseEprLiteral>>(quantifiedOccurences);
+		allOccurences.putAll(groundOccurences);
 		
 		Set<EprClause> unitClauses = new HashSet<EprClause>();
-		
-		for (Entry<EprClause, HashSet<ClauseEprLiteral>> en : groundOccurences.entrySet()) {
+	
+//		for (Entry<EprClause, HashSet<ClauseEprLiteral>> en : quantifiedOccurences.entrySet()) {
+		for (Entry<EprClause, HashSet<ClauseEprLiteral>> en : allOccurences.entrySet()) {
 			EprClause eprClause = en.getKey();
 			
 			EprClauseState newClauseState = 
 					eprClause.updateStateWrtDecideStackLiteral(literalToBeSet, en.getValue());
 
 			if (newClauseState == EprClauseState.Conflict) {
-				return Collections.singleton(eprClause);
-			} else if (newClauseState == EprClauseState.Unit) {
-				unitClauses.add(eprClause);
-			}
-		}
-		
-		for (Entry<EprClause, HashSet<ClauseEprLiteral>> en : quantifiedOccurences.entrySet()) {
-			EprClause eprClause = en.getKey();
-			
-			EprClauseState newClauseState = 
-					eprClause.updateStateWrtDecideStackLiteral(literalToBeSet, en.getValue());
-
-			if (newClauseState == EprClauseState.Conflict) {
-				return Collections.singleton(eprClause);
+				Set<EprClause> conflictSet = new HashSet<EprClause>(1);
+				conflictSet.add(eprClause);
+				return conflictSet;
 			} else if (newClauseState == EprClauseState.Unit) {
 				unitClauses.add(eprClause);
 			}
@@ -538,6 +602,9 @@ public class EprStateManager {
 	/**
 	 * Inform all the EprClauses that contain the atom (not only the
 	 * literal!) that they have to update their fulfillment state.
+	 * 
+	 * Note: This is not enough for EprGroundAtoms because they might interfere with 
+	 * quantified literals which don't have the same atom..
 	 */
 	public Set<EprClause> updateClausesOnSetDpllLiteral(Literal literal) {
 		HashSet<EprClause> clauses = 
@@ -579,7 +646,6 @@ public class EprStateManager {
 				ec.backtrackStateWrtDpllLiteral(literal);
 			}
 		}
-	
 	}
 
 	////////////////// 
@@ -603,20 +669,30 @@ public class EprStateManager {
 			return mAllEprPredicates;
 	}
 
-	public void addClause(HashSet<Literal> literals) {
+	/**
+	 * Add a clause coming from the input script.
+	 * @return A ground conflict if adding the given clause directly leads to one.
+	 */
+	public Clause addClause(HashSet<Literal> literals) {
 		EprClause newClause = mEprTheory.getEprClauseFactory().getClause(literals);
-		addClause(newClause);
+		Clause conflict = null;
+		if (newClause.isConflict() || newClause.isUnit()) {
+			conflict = propagateAndResolve(new HashSet<EprClause>(Collections.singleton(newClause)));
+		}
+		addEprClause(newClause);
+		return conflict;
 	}
 
-	private void addClause(EprClause newClause) {
+	/**
+	 * Register an eprClause (coming from input or learned) in the corresponding places...
+	 */
+	private void addEprClause(EprClause newClause) {
 		mPushStateStack.peek().addClause(newClause);
 
 		for (ClauseLiteral cl : newClause.getLiterals()) {
 			updateAtomToClauses(cl.getLiteral().getAtom(), newClause);
 		}
 	}
-
-
 	
 	public Iterable<EprClause> getAllEprClauses() {
 		return new EprClauseIterable(mPushStateStack);
@@ -766,6 +842,15 @@ public class EprStateManager {
 			
 			mEprTheory.getLogger().debug("EPRDEBUG (EprStateManager): added ground clause " + Arrays.toString(g));
 		}
+	}
+
+	/**
+	 * at creation of this state manager, we cannot ask the EprTheory for the dawg factory because that
+	 * dawgFactory's creation needs the allConstats from this state manager..
+	 * @param dawgFactory
+	 */
+	public void setDawgFactory(DawgFactory<ApplicationTerm, TermVariable> dawgFactory) {
+		mDawgFactory = dawgFactory;
 	}
 
 }

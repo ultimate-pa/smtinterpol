@@ -80,11 +80,18 @@ public class EprTheory implements ITheory {
 
 	private ArrayDeque<Literal> mGroundDecisionSuggestions = new ArrayDeque<Literal>();
 
+	/**
+	 * Used to pass over a conflict that came from adding an input clause over to the next call of
+	 * checkpoint()
+	 */
+	private Clause mConflictFromAddingLastClause;
+
 
 	public EprTheory(Theory th, DPLLEngine engine, CClosure cClosure, Clausifier clausifier, boolean solveThroughGrounding) {
 		mTheory = th;
 		mEngine = engine;
 		mClausifier = clausifier;
+
 
 		mEqualityManager = new EqualityManager();
 		mStateManager = new EprStateManager(this);
@@ -92,6 +99,8 @@ public class EprTheory implements ITheory {
 		
 		mDawgFactory = new DawgFactory<ApplicationTerm,TermVariable>(mStateManager.getAllConstants(), this);
 		mClauseFactory = new EprClauseFactory(this);
+		
+		mStateManager.setDawgFactory(mDawgFactory);
 
 		mLogger = clausifier.getLogger();
 	}
@@ -201,6 +210,9 @@ public class EprTheory implements ITheory {
 		if (mGroundAllMode)
 			return null;
 		mLogger.debug("EPRDEBUG: checkpoint");
+		if (mConflictFromAddingLastClause != null) {
+			return mConflictFromAddingLastClause;
+		}
 		return null;
 	}
 
@@ -373,7 +385,13 @@ public class EprTheory implements ITheory {
 		} 
 		HashSet<Literal> literals = ader.getResult();
 		
-		mStateManager.addClause(literals);
+		// a new clause may immediately be a conflict clause, and possibly that
+		// conflict cannot be resolved in the EprTheory 
+		// --> we will return that conflict at the next checkpoint
+		Clause groundConflict = mStateManager.addClause(literals);
+		if (groundConflict != null) {
+			mConflictFromAddingLastClause = groundConflict;
+		}
 		
 		return null;
 	}

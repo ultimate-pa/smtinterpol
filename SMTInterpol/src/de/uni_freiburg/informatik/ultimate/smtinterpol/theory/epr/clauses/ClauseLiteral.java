@@ -84,4 +84,9 @@ public abstract class ClauseLiteral {
 		return mEprClause;
 	}
 	
+	@Override
+	public String toString() {
+		String negate = mPolarity ? "" : "~";
+		return negate + mAtom.toString();
+	}
 }

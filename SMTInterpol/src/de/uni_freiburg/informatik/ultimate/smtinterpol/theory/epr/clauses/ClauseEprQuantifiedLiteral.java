@@ -26,6 +26,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFact
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgTranslation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.IEprLiteral;
 
 public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 
@@ -228,34 +229,23 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 		// collect the points in a dawg with the predicate's signature
 		IDawg<ApplicationTerm, TermVariable> refutedPoints = 
 				mEprTheory.getDawgFactory().createEmptyDawg(mAtom.getEprPredicate().getTermVariablesForArguments());
-		for (DecideStackLiteral dsl : mPartiallyConflictingDecideStackLiterals) {
+		for (IEprLiteral dsl : mPartiallyConflictingDecideStackLiterals) {
 			refutedPoints.addAll(dsl.getDawg());
 		}
 		// right now, the refuted points are in terms of the EprPredicates signature, we need a renaming
 		// and possibly select and projects to match the signature of the ClauseLiteral relative to the clause.
 		refutedPoints = mDawgFactory.renameSelectAndProject(refutedPoints, mTranslationForClause);
 
-//		// rename the dawgs columns so they match the clauseLiteral
-//		refutedPoints = mEprTheory.getDawgFactory().renameColumnsOfDawg(refutedPoints, mTranslationForClause);
-//		// select only lines that match the constants
-//		refutedPoints = mEprTheory.getDawgFactory().select(refutedPoints, mVariableToConstant);
-
-
 		// collect the points in a dawg with the predicate's signature
 		IDawg<ApplicationTerm, TermVariable> fulfilledPoints = 
 				mEprTheory.getDawgFactory().createEmptyDawg(
 						mAtom.getEprPredicate().getTermVariablesForArguments());
-		for (DecideStackLiteral dsl : mPartiallyFulfillingDecideStackLiterals) {
+		for (IEprLiteral dsl : mPartiallyFulfillingDecideStackLiterals) {
 			fulfilledPoints.addAll(dsl.getDawg());
 		}
 		// right now, the refuted points are in terms of the EprPredicates signature, we need a renaming
 		// and possibly select and projects to match the signature of the ClauseLiteral relative to the clause.
-		refutedPoints = mDawgFactory.renameSelectAndProject(refutedPoints, mTranslationForClause);
-
-//		// rename the dawgs columns so they match the clauseLiteral
-//		fulfilledPoints = mEprTheory.getDawgFactory().renameColumnsOfDawg(fulfilledPoints, mTranslationForClause);
-//		// select only lines that match the constants
-//		fulfilledPoints = mEprTheory.getDawgFactory().select(fulfilledPoints, mVariableToConstant);
+		fulfilledPoints = mDawgFactory.renameSelectAndProject(fulfilledPoints, mTranslationForClause);
 
 		mFulfillablePoints = mEprTheory.getDawgFactory().createFullDawg(mDawgSignature);
 

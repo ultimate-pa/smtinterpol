@@ -446,5 +446,24 @@ public class DawgFactory<LETTER, COLNAMES> {
 			System.out.println(d6);
 		
 		}
+
+		public IDawg<LETTER, COLNAMES> createOnePointDawg(
+				SortedSet<COLNAMES> sig, List<LETTER> point) {
+			NaiveDawg<LETTER, COLNAMES> dawg = 
+					new NaiveDawg<LETTER, COLNAMES>(sig, mAllConstants);
+			dawg.add(point);
+			return dawg;
+		}
+
+		public IDawg<LETTER, COLNAMES> addAllWithSubsetSignature(
+				IDawg<LETTER, COLNAMES> baseDawg,
+				IDawg<LETTER, COLNAMES> toBeAdded) {
+			NaiveDawg<LETTER, COLNAMES> nd = new NaiveDawg<LETTER, COLNAMES>(
+					baseDawg.getColnames(), 
+					mAllConstants, 
+					((NaiveDawg<LETTER, COLNAMES>) baseDawg).mBacking);
+			nd.addAllWithSubsetSignature(toBeAdded);
+			return nd;
+		}
 	
 }

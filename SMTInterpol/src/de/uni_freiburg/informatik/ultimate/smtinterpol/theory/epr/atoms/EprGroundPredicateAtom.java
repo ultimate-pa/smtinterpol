@@ -2,8 +2,11 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.IEprLiteral;
 
 public class EprGroundPredicateAtom extends EprPredicateAtom {
 
@@ -18,5 +21,4 @@ public class EprGroundPredicateAtom extends EprPredicateAtom {
 //		return null;
 		return mTerm;
 	}
-
 }

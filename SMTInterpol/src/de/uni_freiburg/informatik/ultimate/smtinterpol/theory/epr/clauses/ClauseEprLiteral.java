@@ -9,11 +9,14 @@ import java.util.Set;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.EprGroundPredicateLiteral;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.IEprLiteral;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
 
 public abstract class ClauseEprLiteral extends ClauseLiteral {
@@ -25,11 +28,12 @@ public abstract class ClauseEprLiteral extends ClauseLiteral {
 	 * least on one point, potentially on many or all points that this literal talks about.
 	 * (e.g. when P(a,x) is on the decide stack it contradicts ~P(y,b) on the point (a,b).)
 	 */
-	ScopedHashSet<DecideStackLiteral> mPartiallyConflictingDecideStackLiterals = 
-			new ScopedHashSet<DecideStackLiteral>();
+	ScopedHashSet<IEprLiteral> mPartiallyConflictingDecideStackLiterals = 
+			new ScopedHashSet<IEprLiteral>();
 	
-	ScopedHashSet<DecideStackLiteral> mPartiallyFulfillingDecideStackLiterals = 
-			new ScopedHashSet<DecideStackLiteral>();
+//	ScopedHashSet<DecideStackLiteral> mPartiallyFulfillingDecideStackLiterals = 
+	ScopedHashSet<IEprLiteral> mPartiallyFulfillingDecideStackLiterals = 
+			new ScopedHashSet<IEprLiteral>();
 
 	/**
 	 * The TermVariables (EDIT and constants) that this clauseLiterals's atom's arguments have in the clause
@@ -62,21 +66,27 @@ public abstract class ClauseEprLiteral extends ClauseLiteral {
 	}
 	
 	
-	public void addPartiallyConflictingDecideStackLiteral(DecideStackLiteral dsl) {
-		assert (! (this instanceof ClauseEprGroundLiteral)) || dsl.talksAboutPoint(this.mEprPredicateAtom.getArguments());
+//	public void addPartiallyConflictingDecideStackLiteral(DecideStackLiteral dsl) {
+	public void addPartiallyConflictingDecideStackLiteral(IEprLiteral dsl) {
+//		assert (! (this instanceof ClauseEprGroundLiteral)) || dsl.talksAboutPoint(this.mEprPredicateAtom.getArguments());
+//		assert !(dsl instanceof EprGroundPredicateLiteral)
+//				|| dsl.getDawg().accepts(EprHelpers.convertTermArrayToConstantList(this.mEprPredicateAtom.getArguments()));
+//		assert !(dsl instanceof DecideStackLiteral)
+//			|| dsl.getDawg().intersect(other)
 		mPartiallyConflictingDecideStackLiterals.add(dsl);
 	}
 
-	public void removePartiallyConflictingDecideStackLiteral(DecideStackLiteral dsl) {
+	public void removePartiallyConflictingDecideStackLiteral(IEprLiteral dsl) {
 		mPartiallyConflictingDecideStackLiterals.remove(dsl);
 	}
 	
-	public void addPartiallyFulfillingDecideStackLiteral(DecideStackLiteral dsl) {
-		assert (! (this instanceof ClauseEprGroundLiteral)) || dsl.talksAboutPoint(this.mEprPredicateAtom.getArguments());
+//	public void addPartiallyFulfillingDecideStackLiteral(DecideStackLiteral dsl) {
+	public void addPartiallyFulfillingDecideStackLiteral(IEprLiteral dsl) {
+//		assert dsl.getDawg().accepts(EprHelpers.convertTermArrayToConstantList(this.mEprPredicateAtom.getArguments()));
 		mPartiallyFulfillingDecideStackLiterals.add(dsl);
 	}
 	
-	public ScopedHashSet<DecideStackLiteral> getPartiallyConflictingDecideStackLiterals() {
+	public ScopedHashSet<IEprLiteral> getPartiallyConflictingDecideStackLiterals() {
 		return mPartiallyConflictingDecideStackLiterals;
 	}
 

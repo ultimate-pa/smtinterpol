@@ -35,6 +35,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawgSubstitution;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackPropagatedLiteral;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.IEprLiteral;
 
 /**
  * Represents a clause that is only known to the EprTheory.
@@ -219,7 +220,8 @@ public class EprClause {
 	 * @param literalsWithSamePredicate
 	 * @return
 	 */
-	public EprClauseState updateStateWrtDecideStackLiteral(DecideStackLiteral dsl, 
+//	public EprClauseState updateStateWrtDecideStackLiteral(DecideStackLiteral dsl, 
+	public EprClauseState updateStateWrtDecideStackLiteral(IEprLiteral dsl, 
 			Set<ClauseEprLiteral> literalsWithSamePredicate) {
 		
 		mClauseStateIsDirty = true;
@@ -368,9 +370,11 @@ public class EprClause {
 					clauseLitToPotentialUnitPoints = newClauseLitToPotentialUnitPoints;
 					
 					IDawg<ApplicationTerm, TermVariable> fpOne = //pointsWhereOneLiteralIsFulfillable.intersect(fp);
-							mDawgFactory.join(pointsWhereOneLiteralIsFulfillable, fp);
+							mDawgFactory.addAllWithSubsetSignature(pointsWhereOneLiteralIsFulfillable, fp);
+//							mDawgFactory.join(pointsWhereOneLiteralIsFulfillable, fp);
 					IDawg<ApplicationTerm, TermVariable> fpNo = //pointsWhereNoLiteralsAreFulfillable.intersect(fp);
-							mDawgFactory.join(pointsWhereOneLiteralIsFulfillable, fp);
+							mDawgFactory.addAllWithSubsetSignature(pointsWhereNoLiteralsAreFulfillable, fp);
+//							mDawgFactory.join(pointsWhereOneLiteralIsFulfillable, fp);
 					
 					assert EprHelpers.haveSameSignature(fp, fpOne, fpNo, pointsWhereNoLiteralsAreFulfillable);
 					
@@ -513,5 +517,21 @@ public class EprClause {
 		//		return newLits;
 		assert false : "TODO reimplement";
 		return null;
+	}
+	
+	@Override
+	public String toString() {
+		StringBuilder sb = new StringBuilder();
+		sb.append("{");
+		String comma = "";
+		
+		for (ClauseLiteral cl : getLiterals()) {
+			sb.append(comma);
+			sb.append(cl.toString());
+			comma = ", ";
+		}
+
+		sb.append("}");
+		return sb.toString();
 	}
 }

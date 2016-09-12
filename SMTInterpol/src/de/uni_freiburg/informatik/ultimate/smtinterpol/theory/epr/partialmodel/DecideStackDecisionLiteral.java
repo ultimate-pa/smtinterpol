@@ -24,5 +24,8 @@ public class DecideStackDecisionLiteral extends DecideStackLiteral {
 //		super(polarity, atom, dawg);
 //		// TODO Auto-generated constructor stub
 //	}
-
+	@Override
+	public String toString() {
+		return "(DSDL: " + (mPolarity ? "" : "~").toString() + mPred.toString() +  ")";
+	}	
 }

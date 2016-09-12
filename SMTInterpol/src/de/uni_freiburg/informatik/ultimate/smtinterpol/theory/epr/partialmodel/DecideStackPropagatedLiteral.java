@@ -52,4 +52,9 @@ public class DecideStackPropagatedLiteral extends DecideStackLiteral {
 		assert false : "TODO";
 		return null;
 	}
+
+	@Override
+	public String toString() {
+		return "(DSPL: " + (mPolarity ? "" : "~").toString() + mPred.toString() +  ")";
+	}	
 }
