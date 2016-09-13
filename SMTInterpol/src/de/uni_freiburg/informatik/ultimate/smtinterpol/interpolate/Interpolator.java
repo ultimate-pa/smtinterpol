@@ -18,7 +18,6 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate;
 
-import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -30,7 +29,9 @@ import java.util.HashSet;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
@@ -44,33 +45,14 @@ import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SharedTerm;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.IAnnotation;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.LeafNode;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofNode;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ResolutionNode;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ResolutionNode.Antecedent;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAnnotation;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.BoundConstraint;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.InfinitNumber;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LAAnnotation;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LAEquality;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinVar;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.MutableAffinTerm;
 
 /**
- * This interpolator computes the interpolants of a refutation
- * for the partitions specified by the user.
- * It works in a non-recursive way
- * on the proof tree generated during SMT solving.
+ * This interpolator computes the interpolants of a refutation for the partitions
+ * specified by the user.
+ * It works in a non-recursive way  on the proof tree generated during SMT solving.
  * 
  * @author Jochen Hoenicke, Tanja Schindler
  *
@@ -108,10 +90,12 @@ public class Interpolator extends NonRecursive {
 	 * </pre>
 	 */
 	int[] mStartOfSubtrees;
-	HashMap<SharedTerm, Occurrence> mSymbolPartition;
-	HashMap<DPLLAtom, LitInfo> mLiteralInfos;
+	HashMap<Term, Occurrence> mSymbolPartition;
 	HashMap<String, Integer> mPartitions;
-	HashMap<Clause, Interpolant[]> mInterpolants;
+	HashMap<Term, LitInfo> mLiteralInfos;
+	HashMap<Term, Interpolant[]> mInterpolants;
+	HashMap<Term,InterpolatorClauseTermInfo> mClauseTermInfos;
+	HashMap<Term,InterpolatorLiteralTermInfo> mLiteralTermInfos;
 	
 	/**
 	 * The interpolants which have already been computed.
@@ -123,28 +107,31 @@ public class Interpolator extends NonRecursive {
 			new ArrayDeque<Interpolant[]>();
 	
 	/**
-	 * This class goes through the nodes of the proof tree
+	 * This class goes through the proof terms of the proof tree
 	 * for the input clause.
-	 * It checks if the interpolant for a clause already exists,
+	 * It checks if the interpolant for a term already exists,
 	 * and if not, it enqueues new walkers depending on the node type.
-	 * @param clause the clause to interpolate
+	 * @param proofTerm the proof term to interpolate
 	 */
 	public static class ProofTreeWalker implements Walker {
-		private final Clause mClause;
-		public ProofTreeWalker(Clause clause){
-			mClause = clause;
+		private final Term mProofTerm;
+		public ProofTreeWalker(Term proofTerm){
+			mProofTerm = proofTerm;
 		}
 		public void walk(NonRecursive engine){
 			Interpolator proofTreeWalker =
 					((Interpolator) engine);
-			if(proofTreeWalker.checkCacheForInterpolants(mClause))
-				return;
-			if (!(mClause.getProof().isLeaf())) {
-				((Interpolator) engine).walkResolutionNode(mClause);
-			}
-			else{
-				((Interpolator) engine).walkLeafNode(mClause);
-			}
+				if(proofTreeWalker.checkCacheForInterpolants(mProofTerm)){
+					return;
+				}
+				InterpolatorClauseTermInfo proofTermInfo =
+								((Interpolator) engine).getClauseTermInfo(mProofTerm);
+				if (proofTermInfo.isResolution()){
+					((Interpolator) engine).walkResolutionNode(mProofTerm);
+				}
+				else{
+					((Interpolator) engine).walkLeafNode(mProofTerm);
+				}
 		}
 	}
 	
@@ -154,11 +141,11 @@ public class Interpolator extends NonRecursive {
 	 * @param the pivot of the resolution step
 	 */
 	public static class CombineInterpolants implements Walker {
-		private final Literal mPivot;
-		public CombineInterpolants(Literal pivot){
+		private final Term mPivot;
+		public CombineInterpolants(Term pivot){
 			mPivot = pivot;
 		}
-		public void walk(NonRecursive engine){
+		public void walk(NonRecursive engine) {
 			((Interpolator) engine).combine(mPivot);
 		}
 	}
@@ -169,12 +156,12 @@ public class Interpolator extends NonRecursive {
 	 * and providing debug messages.
 	 */
 	public static class SummarizeResolution implements Walker{
-		private final Clause mClause;
-		public SummarizeResolution(Clause clause){
-			mClause = clause;
+		private final Term mProofTerm;
+		public SummarizeResolution(Term proofTerm){
+			mProofTerm = proofTerm;
 		}
 		public void walk(NonRecursive engine){
-			((Interpolator) engine).summarize(mClause);
+			((Interpolator) engine).summarize(mProofTerm);
 		}
 	}
 
@@ -195,32 +182,34 @@ public class Interpolator extends NonRecursive {
 		mNumInterpolants = partitions.length - 1;
 
 		mStartOfSubtrees = startOfSubTrees;
-		mSymbolPartition = new HashMap<SharedTerm, Occurrence>();
-		mLiteralInfos = new HashMap<DPLLAtom, LitInfo>();
-		mInterpolants = new HashMap<Clause,Interpolant[]>();
+		mSymbolPartition = new HashMap<Term, Occurrence>();
+		mLiteralInfos = new HashMap<Term, LitInfo>();
+		mInterpolants = new HashMap<Term,Interpolant[]>();
+		mClauseTermInfos = new HashMap<Term,InterpolatorClauseTermInfo>();
+		mLiteralTermInfos = new HashMap<Term,InterpolatorLiteralTermInfo>();
 	}
 	
-	
-	public Term[] getInterpolants(Clause refutation) {
-		colorLiterals(refutation, new HashSet<Clause>());
-		Interpolant[] eqitps = interpolate(refutation);
+	public Term[] getInterpolants(Term proofTree) {
+		colorLiterals(proofTree, new HashSet<Term>());
+		Interpolant[] eqitps = interpolate(proofTree);
 		Term[] itpTerms = new Term[eqitps.length];
 		for (int i = 0; i < eqitps.length; i++) 
 			itpTerms[i] = unfoldLAs(eqitps[i]);
 		return itpTerms;
 	}
 	
-	public Interpolant[] interpolate(Clause clause) {
-		if (mInterpolants.containsKey(clause)){
-			mLogger.debug("Clause {0} has been interpolated before.", clause);
-			return mInterpolants.get(clause);
+	public Interpolant[] interpolate(Term proofTerm) {
+		if (mInterpolants.containsKey(proofTerm)){
+			mLogger.debug("Proof term %s has been interpolated before.", proofTerm.hashCode());
+			return mInterpolants.get(proofTerm);
 		}
-		if (mSmtSolver.isTerminationRequested())
+		if (mSmtSolver.isTerminationRequested()){
 			throw new SMTLIBException("Timeout exceeded");
+		}
 
 		Interpolant[] interpolants = null;
 		
-		run(new ProofTreeWalker(clause));
+		run(new ProofTreeWalker(proofTerm));
 		
 		// collect the final interpolants from the Interpolated stack
 		interpolants = collectInterpolated();
@@ -231,22 +220,26 @@ public class Interpolator extends NonRecursive {
 	 * Enqueue walkers for the single steps in a hyper-resolution step.
 	 * @param clause the resolvent clause
 	 */
-	private void walkResolutionNode(Clause clause){
-		if (mSmtSolver.isTerminationRequested())
+	private void walkResolutionNode(Term proofTerm){
+		if (mSmtSolver.isTerminationRequested()){
 			throw new SMTLIBException("Timeout exceeded");
-		
+		}
+		InterpolatorClauseTermInfo proofTermInfo = getClauseTermInfo(proofTerm);
 		// get primary and antecedents
-		ResolutionNode resNode = (ResolutionNode) clause.getProof();
-		Clause prim = resNode.getPrimary();
-		Antecedent[] assump = resNode.getAntecedents();
-		int antNumber = assump.length;
+		Term prim = proofTermInfo.getPrimary();
 		
-		enqueueWalker(new SummarizeResolution(clause));
+		AnnotatedTerm[] antecedents = proofTermInfo.getAntecedents();
+		int antNumber = antecedents.length;
+		
+		enqueueWalker(new SummarizeResolution(proofTerm));
 		// enqueue walkers for primary and antecedents in reverse order
 		// alternating with Combine walkers
-		for(int i = antNumber-1; i>=0; i--){
-			enqueueWalker(new CombineInterpolants(assump[i].mPivot));
-			enqueueWalker(new ProofTreeWalker(assump[i].mAntecedent));
+		for (int i = antNumber-1; i>=0; i--){
+			Term pivot = (Term) antecedents[i].getAnnotations()[0].getValue();;
+			Term antecedent = antecedents[i].getSubterm();
+			
+			enqueueWalker(new CombineInterpolants(pivot));
+			enqueueWalker(new ProofTreeWalker(antecedent));
 		}
 		enqueueWalker(new ProofTreeWalker(prim));
 	}
@@ -255,63 +248,54 @@ public class Interpolator extends NonRecursive {
 	 * Interpolate a proof tree leaf depending on its type.
 	 * @param clause the clause to interpolate
 	 */
-	private void walkLeafNode(Clause clause){
-		if (mSmtSolver.isTerminationRequested())
+	private void walkLeafNode(Term leaf){
+		if (mSmtSolver.isTerminationRequested()){
 			throw new SMTLIBException("Timeout exceeded");
-		
-		LeafNode leaf = (LeafNode) clause.getProof();
+		}
 		Interpolant[] interpolants = new Interpolant[mNumInterpolants];
-		if  (leaf.getLeafKind() == LeafNode.EQ) {
-			assert clause.getSize() == 2;
-			Literal l1 = clause.getLiteral(0);
-			Literal l2 = clause.getLiteral(1);
-			assert l1.getSign() != l2.getSign();
-			if (l1.getAtom() instanceof LAEquality) {
-				l1 = clause.getLiteral(1);
-				l2 = clause.getLiteral(0);
-			}
-			interpolants = computeEQInterpolant(
-			        (CCEquality) l1.getAtom(),	(LAEquality) l2.getAtom(),
-			            l1.getSign());
-		} else if (leaf.hasSourceAnnotation()) {
-			SourceAnnotation annot = 
-					(SourceAnnotation) leaf.getTheoryAnnotation();
-			int partition = mPartitions.containsKey(annot.getAnnotation())
-					? mPartitions.get(annot.getAnnotation()) : 0;
+		InterpolatorClauseTermInfo leafTermInfo = getClauseTermInfo(leaf);
+		if (leafTermInfo.getLeafKind().equals("@clause")
+						|| leafTermInfo.getLeafKind().equals("@asserted")) {
+			String source = leafTermInfo.getSource();
+			int partition = mPartitions.containsKey(source)
+							? mPartitions.get(source) : 0;
 			interpolants = new Interpolant[mNumInterpolants];
 			for (int i = 0; i < mNumInterpolants; i++) {
 				interpolants[i] = new Interpolant(
 					mStartOfSubtrees[i] <= partition && partition <= i
 					? mTheory.mFalse : mTheory.mTrue); 
 			}
-		} else if  (leaf.getLeafKind() == LeafNode.THEORY_CC) {
-			CCInterpolator ipolator = new CCInterpolator(this);
-			Term[] interpolantTerms = ipolator.computeInterpolants(
-					clause, (CCAnnotation) leaf.getTheoryAnnotation());
-			interpolants = new Interpolant[mNumInterpolants];
-			for (int j = 0; j < mNumInterpolants; j++) { 
-				interpolants[j] = new Interpolant(interpolantTerms[j]);
+		} else if (leafTermInfo.getLeafKind().equals("@lemma")) {
+			if (leafTermInfo.getLemmaType().equals(":EQ")){
+				interpolants = computeEQInterpolant (leaf);
+			} else if  (leafTermInfo.getLemmaType().equals(":CC")) {
+				CCInterpolator ipolator = new CCInterpolator(this);
+				Term[] interpolantTerms = ipolator.computeInterpolants(leaf);
+				interpolants = new Interpolant[mNumInterpolants];
+				for (int j = 0; j < mNumInterpolants; j++) {
+					interpolants[j] = new Interpolant(interpolantTerms[j]);
+				}
+			} else if  (leafTermInfo.getLemmaType().equals(":LA")
+							|| leafTermInfo.getLemmaType().equals(":trichotomy")) {
+				LAInterpolator ipolator = new LAInterpolator(this, leaf);
+				interpolants = ipolator.computeInterpolants();
+			} else {
+				throw new UnsupportedOperationException("Unknown lemma type!");
 			}
-		} else if  (leaf.getLeafKind() == LeafNode.THEORY_LA) {
-			LAInterpolator ipolator =
-					new LAInterpolator(this,
-							(LAAnnotation) leaf.getTheoryAnnotation());
-			interpolants = ipolator.computeInterpolants();
 		} else {
 			throw new UnsupportedOperationException("Cannot interpolate " + leaf);
 		}
 		
-		HashSet<Literal> lits = null;
 		if (Config.DEEP_CHECK_INTERPOLANTS && mCheckingSolver != null) {
-			lits = new HashSet<Literal>();
-			for (int i = 0; i < clause.getSize(); i++)
-				lits.add(clause.getLiteral(i));
+		HashSet<Term> lits = new HashSet<Term>();
+			lits.addAll(leafTermInfo.getLiterals());
 			checkInductivity(lits, interpolants);
 		}
+		
 		// add the interpolants to the stack and the cache
 		mInterpolated.add(interpolants);
-		mInterpolants.put(clause, interpolants);
-		mLogger.debug("Interpolating leaf {0} yields ...", clause);
+		mInterpolants.put(leaf, interpolants);
+		mLogger.debug("Interpolating leaf %s %s yields ...", leaf.hashCode(), leaf);
 		for(int i = 0; i <= mNumInterpolants -1; i++){
 			mLogger.debug(interpolants[i]);
 		}
@@ -322,17 +306,19 @@ public class Interpolator extends NonRecursive {
 	 * depending on the type of the pivot.
 	 * @param pivot the pivot of the resolution step
 	 */
-	private void combine(Literal pivot){
-		LitInfo pivInfo = mLiteralInfos.get(pivot.getAtom());
+	private void combine(Term pivot){
+		InterpolatorLiteralTermInfo pivotTermInfo = getLiteralTermInfo(pivot);
+		Term pivotAtom = pivotTermInfo.getAtom(); 
+		LitInfo pivInfo = mLiteralInfos.get(pivotAtom);
 
 		Interpolant[] assInterp = collectInterpolated();
 		Interpolant[] primInterp = collectInterpolated();
 		Interpolant[] interp = new Interpolant[mNumInterpolants];
 
 		for (int i = 0; i < mNumInterpolants; i++) {
-			mLogger.debug("Pivot {2}{3} on interpolants {0} and {1} gives...",
-						  primInterp[i], assInterp[i],
-						  pivot.getSMTFormula(mTheory), pivInfo);
+			mLogger.debug("Pivot %3$s%4$s on interpolants %1$s and %2$s gives...",
+							  primInterp[i], assInterp[i],
+							  unquote(pivot), pivInfo);
 			if (pivInfo.isALocal(i)) {
 				interp[i] = new Interpolant(mTheory.or(
 				        primInterp[i].mTerm, assInterp[i].mTerm));
@@ -341,13 +327,12 @@ public class Interpolator extends NonRecursive {
 				        primInterp[i].mTerm, assInterp[i].mTerm));
 			} else if (pivInfo.isAB(i)) {
 				interp[i] = new Interpolant(
-						mTheory.ifthenelse(pivot.getSMTFormula(mTheory),
+						mTheory.ifthenelse(unquote(pivot),
 						     primInterp[i].mTerm, assInterp[i].mTerm));
 			} else {
-				if (pivot.getAtom() instanceof CCEquality
-						|| pivot.getAtom() instanceof LAEquality) {
+				if (pivotTermInfo.isCCEquality() || pivotTermInfo.isLAEquality()) {
 					Interpolant eqIpol, neqIpol;
-					if (pivot.getSign() > 0) {
+					if (!pivotTermInfo.isNegated()) {
 						eqIpol = assInterp[i];
 						neqIpol = primInterp[i];
 					} else {
@@ -356,11 +341,11 @@ public class Interpolator extends NonRecursive {
 					}
 					interp[i] = mixedEqInterpolate(
 							eqIpol, neqIpol, pivInfo.mMixedVar);
-				} else if (pivot.getAtom() instanceof BoundConstraint) {
+				} else if (pivotTermInfo.isBoundConstraint()) {	
 					interp[i] = mixedPivotLA(assInterp[i], primInterp[i], pivInfo.mMixedVar);
 				} else {
 					throw new UnsupportedOperationException(
-					        "Cannot handle mixed literal " + pivot);
+					        "Cannot handle mixed literal " + unquote(pivot));
 				}
 			}
 			mLogger.debug(interp[i]);
@@ -373,20 +358,22 @@ public class Interpolator extends NonRecursive {
 	 * Summarize the results of a hyper-resolution step.
 	 * @param clause the interpolated clause
 	 */
-	private void summarize(Clause clause){
+	private void summarize(Term proofTerm){
 		Interpolant[] interpolants = null;
 		interpolants = mInterpolated.getLast();
+		InterpolatorClauseTermInfo proofTermInfo = getClauseTermInfo(proofTerm);
 		
-		HashSet<Literal> lits = null;
 		if (Config.DEEP_CHECK_INTERPOLANTS && mCheckingSolver != null) {
-			lits = new HashSet<Literal>();
-			for (int i = 0; i < clause.getSize(); i++)
-				lits.add(clause.getLiteral(i));
+			HashSet<Term> lits = new HashSet<Term>();
+			if (proofTermInfo.getLiterals().isEmpty()) {
+				proofTermInfo.computeResolutionLiterals(this);
+			}
+			lits.addAll(proofTermInfo.getLiterals());
 			checkInductivity(lits, interpolants);
 		}
 		
-		mInterpolants.put(clause, interpolants);
-		mLogger.debug("...which is the resulting interpolant for clause {0} ", clause);
+		mInterpolants.put(proofTerm, interpolants);
+		mLogger.debug("...which is the resulting interpolant for Term %s ", proofTerm.hashCode());
 	}
 	
 	/**
@@ -402,17 +389,16 @@ public class Interpolator extends NonRecursive {
 	 * @param clause the clause to interpolate
 	 * @return true iff clause has been interpolated before
 	 */
-	public boolean checkCacheForInterpolants(Clause clause){
+	public boolean checkCacheForInterpolants(Term proofTerm){
 		Interpolant[] interpolants = new Interpolant[mNumInterpolants];
-		if (mInterpolants.containsKey(clause)){
-			interpolants = mInterpolants.get(clause);
+		if (mInterpolants.containsKey(proofTerm)){
+			interpolants = mInterpolants.get(proofTerm);
 			//add the interpolant to the interpolated stack
 			mInterpolated.add(interpolants);
 			return true;
 		}
 		return false;
 	}
-	
 	
 	class Occurrence {
 		BitSet mInA;
@@ -506,7 +492,7 @@ public class Interpolator extends NonRecursive {
 		/** 
 		 * Gives for an inequality the A part.
 		 */
-		MutableAffinTerm[] mAPart;
+		InterpolatorAffineTerm[] mAPart;
 
 		public LitInfo() {
 			super();
@@ -524,7 +510,7 @@ public class Interpolator extends NonRecursive {
 			return mLhsOccur;
 		}
 
-		public MutableAffinTerm getAPart(int p) {
+		public InterpolatorAffineTerm getAPart(int p) {
 			return mAPart[p];
 		}
 	}
@@ -540,7 +526,7 @@ public class Interpolator extends NonRecursive {
 		return substitutor.transform(interpolant.mTerm);
 	}
 
-	private void checkInductivity(Collection<Literal> clause, Interpolant[] ipls) {
+	private void checkInductivity(HashSet<Term> literals, Interpolant[] ipls) {
 		int old = mLogger.getLoglevel();// NOPMD
 		mLogger.setLoglevel(LogProxy.LOGLEVEL_ERROR);
 
@@ -552,8 +538,9 @@ public class Interpolator extends NonRecursive {
 		@SuppressWarnings("unchecked") // because Java Generics are broken :(
 		HashMap<TermVariable, Term>[] auxMaps = new HashMap[ipls.length];
 		
-		for (Literal lit : clause) {
-			LitInfo info = getLiteralInfo(lit.getAtom());
+		for (Term lit : literals) {
+			InterpolatorLiteralTermInfo litTermInfo = getLiteralTermInfo(lit);
+			LitInfo info = getLiteralInfo(litTermInfo.getAtom());
 			for (int part = 0; part < ipls.length; part++) {
 				if (info.isMixed(part)) {
 					TermVariable tv = info.mMixedVar;
@@ -584,28 +571,28 @@ public class Interpolator extends NonRecursive {
 			}
 		}
 		
-		
 		for (int part = 0; part < ipls.length; part++) {
 			mCheckingSolver.push(1);
 			for (Entry<String, Integer> entry: mPartitions.entrySet()) {
 				if (entry.getValue() == part)
 					mCheckingSolver.assertTerm(mTheory.term(entry.getKey()));
 			}
-			for (Literal lit : clause) {
-				lit = lit.negate();
-				LitInfo info = mLiteralInfos.get(lit.getAtom());
+			for (Term lit : literals) {
+				lit = computeNegatedTerm(lit);
+				InterpolatorLiteralTermInfo litTermInfo = getLiteralTermInfo(lit);
+				LitInfo info = mLiteralInfos.get(litTermInfo.getAtom());
 				if (info.contains(part)) {
-					mCheckingSolver.assertTerm(lit.getSMTFormula(mTheory));
+					mCheckingSolver.assertTerm(lit);
 				} else if (info.isBLocal(part)) {
 					// nothing to do, literal cannot be mixed in sub-tree.
 				} else if (info.isALocalInSomeChild(part)) {
 					// nothing to do, literal cannot be mixed in node
 					// or some direct children
-				} else if (lit.getAtom() instanceof CCEquality) {
+				} else if (litTermInfo.isCCEquality()) {
 					// handle mixed (dis)equalities.
-					CCEquality cceq = (CCEquality) lit.getAtom();
-					Term lhs = cceq.getLhs().toSMTTerm(mTheory);
-					Term rhs = cceq.getRhs().toSMTTerm(mTheory);
+					ApplicationTerm cceq = (ApplicationTerm) litTermInfo.getAtom();
+					Term lhs = cceq.getParameters()[0];
+					Term rhs = cceq.getParameters()[1];
 					for (int child = part - 1;	child >= mStartOfSubtrees[part]; 
 							child = mStartOfSubtrees[child] - 1) {
 						if (info.isMixed(child)) {
@@ -626,12 +613,15 @@ public class Interpolator extends NonRecursive {
 						}
 						mCheckingSolver.assertTerm(mTheory.term("=", lhs, rhs));
 					} else {
-						mCheckingSolver.assertTerm(mTheory.term(lit.getSign() < 0 ? "distinct" : "=", lhs, rhs));
+						mCheckingSolver.assertTerm(
+									mTheory.term(litTermInfo.isNegated()
+									? "distinct" : "=", lhs, rhs));
 					}
-				} else if (lit.negate() instanceof LAEquality) {
+				} else if (litTermInfo.isLAEquality()) {
 					// handle mixed LA disequalities.
 					InterpolatorAffineTerm at = new InterpolatorAffineTerm();
-					LAEquality eq = (LAEquality) lit.negate();
+					Term eq = computeNegatedTerm(lit);
+					InterpolatorLiteralTermInfo eqTermInfo = getLiteralTermInfo(eq);
 					for (int child = part - 1;	child >= mStartOfSubtrees[part]; 
 							child = mStartOfSubtrees[child] - 1) {
 						if (info.isMixed(child)) {
@@ -644,37 +634,45 @@ public class Interpolator extends NonRecursive {
 						assert (info.mMixedVar != null);
 						at.add(Rational.ONE, info.getAPart(part));
 						at.add(Rational.MONE, auxMaps[part].get(info.mMixedVar));
-						Term t = at.toSMTLib(mTheory, eq.getVar().isInt());
-						Term zero = eq.getVar().isInt() 
-								? mTheory.numeral(BigInteger.ZERO)
-								: mTheory.decimal(BigDecimal.ZERO);
+						boolean isInt = eqTermInfo.isInt();
+						Sort sort = mTheory.getSort(isInt ? "Int" : "Real");
+						Term t = at.toSMTLib(mTheory, isInt);
+						Term zero =
+										Rational.ZERO.toTerm(sort);
 						mCheckingSolver.assertTerm(mTheory.term("=", t, zero));
 					} else {
 						assert !at.isConstant();
-						at.add(Rational.ONE, eq.getVar());
-						at.add(eq.getBound().negate());
-						Term t = at.toSMTLib(mTheory, eq.getVar().isInt());
-						Term zero = eq.getVar().isInt() 
-								? mTheory.numeral(BigInteger.ZERO)
-								: mTheory.decimal(BigDecimal.ZERO);
+						at.add(Rational.ONE, eqTermInfo.getLinVar());
+						at.add(eqTermInfo.getBound());
+						boolean isInt = eqTermInfo.isInt();
+						Sort sort = mTheory.getSort(isInt ? "Int" : "Real");
+						Term t = at.toSMTLib(mTheory, isInt);
+						Term zero =
+										Rational.ZERO.toTerm(sort);
 						mCheckingSolver.assertTerm(mTheory.term("distinct", t, zero));
 					}
 				} else {
 					// handle mixed LA inequalities and equalities.
-					LinVar lv;
+					InterpolatorAffineTerm lv;
 					InfinitNumber bound;
-					if (lit.getAtom() instanceof BoundConstraint) {
-						BoundConstraint bc = (BoundConstraint) lit.getAtom();
-						bound =	lit.getSign() > 0 ? bc.getBound() : bc.getInverseBound();
-						lv = bc.getVar();
+					if (litTermInfo.isBoundConstraint()) {
+						bound = new InfinitNumber(litTermInfo.getBound(),0);
+						// adapt the bound for strict inequalities
+						if (((ApplicationTerm) litTermInfo.getAtom()).getFunction().getName().equals("<")) {
+							bound = bound.sub(litTermInfo.getEpsilon());
+						}
+						// get the inverse bound for negated literals
+						if (litTermInfo.isNegated()){
+							bound = bound.add(litTermInfo.getEpsilon());
+						}
+						lv = litTermInfo.getLinVar();
 					} else  {
-						assert lit.getAtom() instanceof LAEquality;
-						LAEquality eq = (LAEquality) lit;
-						lv = eq.getVar();
-						bound = new InfinitNumber(eq.getBound(), 0);
+						assert litTermInfo.isLAEquality();
+						lv = litTermInfo.getLinVar();
+						bound = new InfinitNumber(litTermInfo.getBound(), 0);
 					}
 
-					// check if literal is mixed in part or some child partiton.
+					// check if literal is mixed in part or some child partition.
 					InterpolatorAffineTerm at = new InterpolatorAffineTerm();
 					for (int child = part - 1;	child >= mStartOfSubtrees[part]; 
 							child = mStartOfSubtrees[child] - 1) {
@@ -693,20 +691,21 @@ public class Interpolator extends NonRecursive {
 						at.add(Rational.ONE, lv);
 						at.add(bound.negate());
 					}
-					if (lit.getAtom() instanceof BoundConstraint) {
-						if (lit.getSign() < 0)
+					if (litTermInfo.isBoundConstraint()) {
+						if (litTermInfo.isNegated()){
 							at.negate();
+						}
 						mCheckingSolver.assertTerm(at.toLeq0(mTheory));
 					} else {
 						boolean isInt = at.isInt();
+						Sort sort = mTheory.getSort(isInt ? "Int" : "Real");
 						Term t = at.toSMTLib(mTheory, isInt);
-						Term zero = isInt 
-								? mTheory.numeral(BigInteger.ZERO)
-								: mTheory.decimal(BigDecimal.ZERO);
+						Term zero =
+										Rational.ZERO.toTerm(sort);
 						Term eqTerm = mTheory.term("=", t, zero);
-						if (!info.isMixed(part)
-							&& lit.getSign() < 0)
+						if (!info.isMixed(part) && litTermInfo.isNegated()){
 							eqTerm = mTheory.term("not", eqTerm);
+						}
 						mCheckingSolver.assertTerm(eqTerm);
 					}
 				}
@@ -723,7 +722,7 @@ public class Interpolator extends NonRecursive {
 		mCheckingSolver.pop(1);
 		mLogger.setLoglevel(old);
 	}
-
+	
 	/**
 	 * Compute the interpolant for a Nelson-Oppen equality clause. This is a
 	 * theory lemma of the form equality implies equality, where one equality
@@ -733,11 +732,18 @@ public class Interpolator extends NonRecursive {
 	 * @param sign the sign of l1 in the conflict clause. This is -1 if
 	 * 	l1 implies l2, and +1 if l2 implies l1. 
 	 */
-	private Interpolant[] computeEQInterpolant(CCEquality ccEq, LAEquality laEq,
-			int sign) {
+	private Interpolant[] computeEQInterpolant(Term eqLemma){
 		Interpolant[] interpolants = null;
-		LitInfo ccInfo = getLiteralInfo(ccEq);
-		LitInfo laInfo = getLiteralInfo(laEq);
+		
+		InterpolatorClauseTermInfo lemmaTermInfo = getClauseTermInfo(eqLemma);
+		Term ccEq = lemmaTermInfo.getCCEq();
+		Term laEq = lemmaTermInfo.getLAEq();
+		InterpolatorLiteralTermInfo ccTermInfo = getLiteralTermInfo(ccEq);
+		InterpolatorLiteralTermInfo laTermInfo = getLiteralTermInfo(laEq);
+		boolean ccIsNeg = ccTermInfo.isNegated();
+		
+		LitInfo ccInfo = getLiteralInfo(ccTermInfo.getAtom());
+		LitInfo laInfo = getLiteralInfo(laTermInfo.getAtom());
 		
 		interpolants = new Interpolant[mNumInterpolants];
 		for (int p = 0; p < mNumInterpolants; p++) {
@@ -748,25 +754,27 @@ public class Interpolator extends NonRecursive {
 				interpolant = mTheory.mTrue; // both literals in B.
 			else {
 				InterpolatorAffineTerm iat = new InterpolatorAffineTerm();
-				Rational factor = ccEq.getLAFactor();
+				Rational factor = lemmaTermInfo.getLAFactor();
 				TermVariable mixed = null;
 				boolean negate = false;
 				// Get A part of ccEq:
+				ApplicationTerm ccEqApp = (ApplicationTerm) ccTermInfo.getAtom();
 				if (ccInfo.isALocal(p)) {
-					iat.add(factor, ccEq.getLhs().getFlatTerm());
-					iat.add(factor.negate(), ccEq.getRhs().getSharedTerm());
-					if (sign == 1)
+					iat.add(factor, termToAffine(ccEqApp.getParameters()[0]));
+					iat.add(factor.negate(), termToAffine(ccEqApp.getParameters()[1]));
+					if (!ccIsNeg)
 						negate = true;
 				} else if (ccInfo.isMixed(p)) {
 					// mixed;
-					if (sign == 1)
+					if (!ccIsNeg) {
 						mixed = ccInfo.getMixedVar();
+					}
 					if (ccInfo.mLhsOccur.isALocal(p)) {
-						iat.add(factor, ccEq.getLhs().getFlatTerm());
+						iat.add(factor, termToAffine(ccEqApp.getParameters()[0]));
 						iat.add(factor.negate(), ccInfo.getMixedVar());
 					} else {
 						iat.add(factor, ccInfo.getMixedVar());
-						iat.add(factor.negate(), ccEq.getRhs().getFlatTerm());
+						iat.add(factor.negate(), termToAffine(ccEqApp.getParameters()[1]));
 					}
 				} else {
 					// both sides in B, A part is empty
@@ -774,13 +782,15 @@ public class Interpolator extends NonRecursive {
 				
 				// Get A part of laEq:
 				if (laInfo.isALocal(p)) {
-					iat.add(Rational.MONE, laEq.getVar());
-					iat.add(laEq.getBound());
-					if (sign == -1)
+					iat.add(Rational.MONE, laTermInfo.getLinVar());
+					iat.add(laTermInfo.getBound());
+					if (ccIsNeg) {
 						negate = true;
+					}
 				} else if (laInfo.isMixed(p)) {
-					if (sign == -1)
+					if (ccIsNeg) {
 						mixed = laInfo.getMixedVar();
+					}
 					iat.add(Rational.MONE, laInfo.getAPart(p));
 					iat.add(Rational.ONE, laInfo.getMixedVar());
 				} else {
@@ -794,8 +804,9 @@ public class Interpolator extends NonRecursive {
 					assert mixedFactor.isIntegral();
 					boolean isInt = mixed.getSort().getName().equals("Int");
 					if (isInt && mixedFactor.abs() != Rational.ONE) { // NOPMD
-						if (mixedFactor.signum() > 0)
+						if (mixedFactor.signum() > 0) {
 							iat.negate();
+						}
 						Term sharedTerm = iat.toSMTLib(mTheory, isInt);
 						interpolant =
 							mTheory.equals(mixed, mTheory.term(
@@ -815,15 +826,15 @@ public class Interpolator extends NonRecursive {
 					}
 				} else {
 					if (iat.isConstant()) {
-						if (iat.getConstant() != InfinitNumber.ZERO)
+						if (iat.getConstant() != InfinitNumber.ZERO) {
 							negate ^= true;
+						}
 						interpolant = negate ? mTheory.mFalse : mTheory.mTrue;
 					} else {
 						boolean isInt = iat.isInt();
+						Sort sort = mTheory.getSort(isInt ? "Int" : "Real");
 						Term term = iat.toSMTLib(mTheory, isInt);
-						Term zero = iat.isInt()
-							? mTheory.numeral(BigInteger.ZERO)
-							: mTheory.decimal(BigDecimal.ZERO);
+						Term zero = Rational.ZERO.toTerm(sort);
 						interpolant = negate ? mTheory.distinct(term, zero)
 									: mTheory.equals(term, zero);
 					}
@@ -833,21 +844,22 @@ public class Interpolator extends NonRecursive {
 		}
 		return interpolants;
 	}
-
-	public void colorLiterals(Clause root, HashSet<Clause> visited) {
-		if (visited.contains(root))
+	
+	public void colorLiterals(Term proofTerm, HashSet<Term> visited) {
+		// TODO non-recursive version
+		if (visited.contains(proofTerm)){
 			return;
-		ProofNode pn = root.getProof();
-		if (pn.isLeaf()) {
-			LeafNode ln = (LeafNode) pn;
-			if (ln.hasSourceAnnotation()) {
-				SourceAnnotation annot = 
-						(SourceAnnotation) ln.getTheoryAnnotation();
-				int partition = mPartitions.containsKey(annot.getAnnotation())
-						? mPartitions.get(annot.getAnnotation()) : 0;
-				for (int i = 0; i < root.getSize(); i++) {
-					Literal lit = root.getLiteral(i);
-					DPLLAtom atom = lit.getAtom();
+		}
+		InterpolatorClauseTermInfo termInfo = getClauseTermInfo(proofTerm);
+		if (!termInfo.isResolution()) {
+			String leafKind = termInfo.getLeafKind();
+			if (leafKind.equals("@clause") || leafKind.equals("@asserted")){
+				String source = termInfo.getSource();
+				int partition = mPartitions.containsKey(source)
+						? mPartitions.get(source) : 0;
+				for (Term literal : termInfo.getLiterals()){
+					InterpolatorLiteralTermInfo litTermInfo = getLiteralTermInfo(literal);
+					Term atom = litTermInfo.getAtom();
 					LitInfo info = mLiteralInfos.get(atom);
 					if (info == null) {
 						info = new LitInfo();
@@ -855,101 +867,99 @@ public class Interpolator extends NonRecursive {
 					}
 					if (!info.contains(partition)) {
 						info.occursIn(partition);
-						if (atom instanceof CCEquality) {
-							CCEquality eq = (CCEquality)atom;
-							addOccurrence(eq.getLhs().getFlatTerm(), partition);
-							addOccurrence(eq.getRhs().getFlatTerm(), partition);
-						} else if (atom instanceof BoundConstraint) {
-							LinVar lv = ((BoundConstraint) atom).getVar();
-							addOccurrence(lv, partition);
-						} else if (atom instanceof LAEquality) {
-							LinVar lv = ((LAEquality) atom).getVar();
-							addOccurrence(lv, partition);
+						HashSet<Term> subTerms = getSubTerms(atom);
+						for (Term sub : subTerms) {
+							if (!(sub instanceof ConstantTerm)) {
+								addOccurrence(sub, source, partition);
+							}
 						}
 					}
 				}
 			}
 		} else {
-			ResolutionNode rn = (ResolutionNode) pn;
-			colorLiterals(rn.getPrimary(), visited);
-			for (Antecedent a : rn.getAntecedents()) {
-				colorLiterals(a.mAntecedent, visited);
+			colorLiterals(termInfo.getPrimary(), visited);
+			for (Term antecedent : termInfo.getAntecedents()){
+				if (antecedent instanceof AnnotatedTerm){
+					antecedent = ((AnnotatedTerm) antecedent).getSubterm();
+				}
+				colorLiterals(antecedent, visited);
 			}
 		}
-		visited.add(root);
+		visited.add(proofTerm);
 	}
-
-	Occurrence getOccurrence(SharedTerm shared) {
-		Occurrence result = mSymbolPartition.get(shared);
+	
+	Occurrence getOccurrence(Term term, String source) {
+		Occurrence result = mSymbolPartition.get(term);
 		if (result == null) {
 			result = new Occurrence();
-			IAnnotation annot = shared.getAnnotation();
 			// TODO Here we need to change something if we have quantifiers.
-			if (annot instanceof SourceAnnotation) {
-				Integer partition = mPartitions.get(
-						((SourceAnnotation) annot).getAnnotation());
+			if (source != null) {
+				Integer partition = mPartitions.get(source);
 				if (partition == null) {
 					for (int p = 0; p < mNumInterpolants;p++)
 						result.occursIn(p);
 				} else
 					result.occursIn(partition);
 			}
-			mSymbolPartition.put(shared, result);
+			mSymbolPartition.put(term, result);
 		}
 		return result;
 	}
 
-	void addOccurrence(SharedTerm term, int part) {
-		getOccurrence(term).occursIn(part);
-		if (term.getTerm() instanceof SMTAffineTerm
-			&& term.getLinVar() != null) {
-			addOccurrence(term.getLinVar(), part);
-		} else {
-			if (term.getTerm() instanceof ApplicationTerm) {
-				ApplicationTerm at = (ApplicationTerm) term.getTerm();
-				if (!at.getFunction().isInterpreted()) {
-					Clausifier c = term.getClausifier();
-					for (Term p : at.getParameters())
-						addOccurrence(c.getSharedTerm(p), part);
-				}
+	void addOccurrence(Term term, String source, int part) {
+		getOccurrence(term, source).occursIn(part);
+		if (term instanceof ApplicationTerm) {
+			ApplicationTerm at = (ApplicationTerm) term;
+			if (!at.getFunction().isInterpreted()) {
+				for (Term p : at.getParameters())
+					addOccurrence(p, source, part);
 			}
 		}
 	}
-
-	void addOccurrence(LinVar var, int part) {
-		if (var.isInitiallyBasic()) {
-			for (LinVar c : var.getLinTerm().keySet())
-				addOccurrence(c.getSharedTerm(), part);
-		} else {
-			addOccurrence(var.getSharedTerm(), part);
+	
+	HashSet<Term> getSubTerms(Term literal) {
+		HashSet<Term> subTerms = new HashSet<Term>();
+		Term term = literal;
+		if (term instanceof ApplicationTerm) {
+			ApplicationTerm appTerm = (ApplicationTerm) term;
+			for (Term sub : appTerm.getParameters()) {
+				subTerms.addAll(getSubTerms(sub));
+			}
 		}
+		subTerms.add(term);
+		return subTerms;
 	}
-
-	LitInfo getLiteralInfo(DPLLAtom lit) {
+	
+	LitInfo getLiteralInfo(Term lit) {
+		assert lit == getLiteralTermInfo(lit).getAtom();
 		LitInfo result = mLiteralInfos.get(lit);
-		if (result == null)
+		if (result == null) {
+			mLogger.info("colorLiteral: " + lit);
 			result = colorMixedLiteral(lit);
+		}
 		return result;
 	}
-
+	
 	/**
 	 * Compute the LitInfo for a mixed Literal.
 	 */
-	public LitInfo colorMixedLiteral(DPLLAtom atom) {
+	public LitInfo colorMixedLiteral(Term atom){
 		LitInfo info = mLiteralInfos.get(atom);
 
 		assert info == null;
+		
+		InterpolatorLiteralTermInfo atomInfo = getLiteralTermInfo(atom);
 
-		ArrayList<SharedTerm> subterms = new ArrayList<SharedTerm>();
+		ArrayList<Term> subterms = new ArrayList<Term>();
 		/* The sort of the auxiliary variable created for this atom.  We need
 		 * this since we internally represent integral constants in LIRA logics
 		 * as Int even if they should have sort Real. 
 		 */
 		Sort auxSort;
-		if (atom instanceof CCEquality) {
-			CCEquality eq = (CCEquality)atom;
-			SharedTerm l = eq.getLhs().getFlatTerm();
-			SharedTerm r = eq.getRhs().getFlatTerm();
+		if (atomInfo.isCCEquality()) {
+			ApplicationTerm eq = (ApplicationTerm) atom;
+			Term l = eq.getParameters()[0];
+			Term r = eq.getParameters()[1];
 			subterms.add(l);
 			subterms.add(r);
 			if (l.getSort() == r.getSort())
@@ -960,23 +970,19 @@ public class Interpolator extends NonRecursive {
 				auxSort = mTheory.getRealSort();
 			}
 		} else {
-			LinVar lv = null;
-			if (atom instanceof BoundConstraint) {
-				lv = ((BoundConstraint) atom).getVar();
-			} else if (atom instanceof LAEquality) {
-				lv = ((LAEquality) atom).getVar();
-			}
-			Collection<LinVar> components;
-			if (lv.isInitiallyBasic()) {
-				components = lv.getLinTerm().keySet();
+			InterpolatorAffineTerm lv = atomInfo.getLinVar();
+			Collection<Term> components;
+			if (lv != null && lv.getSummands().size() > 1) {
+				components = lv.getSummands().keySet();
 			} else {
-				components = Collections.singleton(lv);
+				components = Collections.singleton(
+								((ApplicationTerm) atom).getParameters()[0]);
 			}
 			boolean allInt = true;
-			for (LinVar c : components) {
+			for (Term c : components) {
 				// IRA-Hack
-				allInt &= c.isInt();
-				subterms.add(c.getSharedTerm());
+				allInt &= c.getSort().getName().equals("Int");
+				subterms.add(c);
 			}
 			auxSort = allInt ? mTheory.getNumericSort() : mTheory.getRealSort();
 		}
@@ -991,31 +997,25 @@ public class Interpolator extends NonRecursive {
 
 		info.mMixedVar = mTheory.createFreshTermVariable("litaux", auxSort);
 		
-		if (atom instanceof CCEquality) {
-			CCEquality eq = (CCEquality)atom;
-			info.mLhsOccur = getOccurrence(eq.getLhs().getFlatTerm());
-		} else if (atom instanceof BoundConstraint
-		        || atom instanceof LAEquality) {
-			LinVar lv = null;
-			if (atom instanceof BoundConstraint) 
-				lv = ((BoundConstraint) atom).getVar();
-			else
-				lv = ((LAEquality) atom).getVar();
-			assert lv.isInitiallyBasic() : "Not initially basic: " + lv + " atom: " + atom;
+		if (atomInfo.isCCEquality()) {
+			ApplicationTerm eq = (ApplicationTerm) atom;
+			info.mLhsOccur = getOccurrence(eq.getParameters()[0], null);
+		} else if (atomInfo.isBoundConstraint() || atomInfo.isLAEquality()) {
+			InterpolatorAffineTerm lv = atomInfo.getLinVar();
+			assert (lv.getSummands().size() > 1) : "Not initially basic: " + lv + " atom: " + atom;
 
-			info.mAPart = new MutableAffinTerm[mNumInterpolants];
+			info.mAPart = new InterpolatorAffineTerm[mNumInterpolants];
 			for (int part = 0; part < mNumInterpolants; part++) {
 				if (!info.isMixed(part))
 					continue;
 			
-				MutableAffinTerm sumApart = new MutableAffinTerm();	
-				for (Entry<LinVar, BigInteger> en : lv.getLinTerm().entrySet()) {
-					LinVar var = en.getKey();
+				InterpolatorAffineTerm sumApart = new InterpolatorAffineTerm();	
+				for (Entry<Term, Rational> en : lv.getSummands().entrySet()) {
+					Term var = en.getKey();
 					Occurrence occ = 
-						getOccurrence(en.getKey().getSharedTerm());
+						getOccurrence(var, null);
 					if (occ.isALocal(part)) {
-						Rational coeff = 
-								Rational.valueOf(en.getValue(), BigInteger.ONE);
+						Rational coeff = en.getValue();
 						sumApart.add(coeff, var);
 					}
 				}
@@ -1025,12 +1025,12 @@ public class Interpolator extends NonRecursive {
 		}
 		return info;
 	}
-
-	private LitInfo computeMixedOccurrence(ArrayList<SharedTerm> subterms) {
+	
+	private LitInfo computeMixedOccurrence(ArrayList<Term> subterms) {
 		LitInfo info;
 		BitSet inA = null, inB = null;
-		for (SharedTerm st : subterms) {
-			Occurrence occInfo = getOccurrence(st);
+		for (Term st : subterms) {
+			Occurrence occInfo = getOccurrence(st, null);
 			if (inA == null) {
 				inA = (BitSet) occInfo.mInA.clone(); 
 				inB = (BitSet) occInfo.mInB.clone(); 
@@ -1400,5 +1400,118 @@ public class Interpolator extends NonRecursive {
 			ipolator = new IntegerInterpolator(sgItp.mTerm, mixedVar);
 		Interpolant newI = new Interpolant(ipolator.transform(leqItp.mTerm));
 		return newI;
+	}
+	
+	/**
+	 * Get all the information the interpolator needs for this term.
+	 * Known InterpolatorTermInfos are stored in a HashMap to avoid recalculating
+	 * them.
+	 * This can be used for complex proof terms such as complete resolution steps
+	 * or lemmata, but also for single literals.
+	 */
+	InterpolatorClauseTermInfo getClauseTermInfo(Term term) {
+		if (mClauseTermInfos.containsKey(term)){
+			return mClauseTermInfos.get(term);
+		} else {
+			InterpolatorClauseTermInfo info = new InterpolatorClauseTermInfo();
+			info.computeClauseTermInfo(term);
+			mClauseTermInfos.put(term,info);
+			return info;
+		}
+	}
+	
+	InterpolatorLiteralTermInfo getLiteralTermInfo(Term term) {
+		if (mLiteralTermInfos.containsKey(term)){
+			return mLiteralTermInfos.get(term);
+		} else {
+			InterpolatorLiteralTermInfo info = new InterpolatorLiteralTermInfo();
+			info.computeLiteralTermInfo(term);
+			mLiteralTermInfos.put(term,info);
+			return info;
+		}
+	}
+	
+	/**
+	 * Convert this term to an InterpolatorAffineTerm
+	 */
+	static InterpolatorAffineTerm termToAffine(Term term){
+		if (term instanceof AnnotatedTerm) {
+			term = ((AnnotatedTerm) term).getSubterm();
+		}
+		if (term instanceof ApplicationTerm){
+			ApplicationTerm appTerm = (ApplicationTerm) term;
+			if (!appTerm.getFunction().isIntern()){
+				InterpolatorAffineTerm affine = new InterpolatorAffineTerm();
+				affine.add(Rational.ONE, term);
+				return affine;
+			} else if (appTerm.getFunction().getName().equals("+")){
+				InterpolatorAffineTerm affine = new InterpolatorAffineTerm();
+				for (Term param : appTerm.getParameters()){
+					affine.add(Rational.ONE, termToAffine(param));
+				}
+				return affine;
+			} else if (appTerm.getFunction().getName().equals("*")){
+				Term factorTerm = appTerm.getParameters()[0];
+				boolean isNeg = false;
+				if (factorTerm instanceof ApplicationTerm
+								&& ((ApplicationTerm) factorTerm).getFunction()
+								.getName().equals("-")){
+					factorTerm = ((ApplicationTerm) factorTerm).getParameters()[0];
+					isNeg = true;
+				}
+				assert (factorTerm instanceof ConstantTerm);
+				Rational factor = SMTAffineTerm.create(factorTerm).getConstant();
+				factor = isNeg ? factor.mul(Rational.MONE) : factor;
+				InterpolatorAffineTerm affine = new InterpolatorAffineTerm();
+				affine.add(factor, appTerm.getParameters()[1]);
+				return affine;
+			} else if (appTerm.getFunction().getName().equals("-")){
+				InterpolatorAffineTerm affine = new InterpolatorAffineTerm();
+				affine.add(Rational.MONE, termToAffine(appTerm.getParameters()[0]));
+				return affine;
+			} else {
+				throw new IllegalArgumentException("Cannot create affine term!");
+			}
+		} else if (term instanceof ConstantTerm){
+			InterpolatorAffineTerm affine = new InterpolatorAffineTerm();
+			affine.add(SMTAffineTerm.create(term).getConstant());
+			return affine;
+		} else {
+			throw new IllegalArgumentException("Cannot create affine term!");
+		}
+	}
+	
+	/**
+	 * Compute the negated term.
+	 * Note that this preserves quoted annotations.
+	 */
+	Term computeNegatedTerm(Term term){
+		if (term instanceof ApplicationTerm) {
+			ApplicationTerm appTerm = (ApplicationTerm) term;
+			
+			if (appTerm.getFunction().getName() == "not") {
+				return appTerm.getParameters()[0];
+			}
+		}
+		return term.getTheory().term("not", term);
+	}
+	
+	/**
+	 * Get the unquoted literal.
+	 * The main problem here is that the quote annotation is inside the negation
+	 * for negated literals.
+	 * @param literal
+	 * @return the literal without the quoted annotation
+	 */
+	private Term unquote(Term literal) {
+		Term unquoted;
+		InterpolatorLiteralTermInfo termInfo = getLiteralTermInfo(literal);
+		if (!termInfo.isNegated()){
+			unquoted = termInfo.getAtom();
+		} else {
+			Theory theory = termInfo.getAtom().getTheory();
+			unquoted = theory.term("not",termInfo.getAtom());
+		}
+		return unquoted;
 	}
 }

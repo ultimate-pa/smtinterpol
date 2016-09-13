@@ -850,8 +850,8 @@ public class SMTInterpol extends NoopScript {
 		}
 		Interpolator interpolator =
 			new Interpolator(mLogger, this, tmpBench, getTheory(), parts, startOfSubtree);
-		Clause refutation = retrieveProof();
-		Term[] ipls = interpolator.getInterpolants(refutation);
+		Term proofTree = getProof();
+		Term[] ipls = interpolator.getInterpolants(proofTree);
 		
 		if (mBy0Seen != -1) {
 			Div0Remover rem = new Div0Remover();

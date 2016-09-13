@@ -18,7 +18,6 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate;
 
-import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -241,8 +240,7 @@ public class InterpolatorAffineTerm {
 			negate = t.getFunction("-", numSort);
 		assert (!isInt || mConstant.mA.isIntegral());
 		Term comb = mConstant.mA.equals(Rational.ZERO) ? null 
-				: isInt ? t.numeral(mConstant.mA.numerator())
-				: t.rational(mConstant.mA.numerator(), mConstant.mA.denominator());
+				: mConstant.mA.toTerm(numSort);
 		for (Map.Entry<Term,Rational> me : mSummands.entrySet()) {
 			Term convme = me.getKey();
 			// if affine term is integral it may only add integers.
@@ -256,8 +254,8 @@ public class InterpolatorAffineTerm {
 			if (me.getValue().equals(Rational.MONE)) {
 				convme = t.term(negate, convme);
 			} else if (!me.getValue().equals(Rational.ONE)) {
-				Term convfac = isInt ? t.numeral(me.getValue().numerator())
-						: t.rational(me.getValue().numerator(),me.getValue().denominator());
+				Term convfac =
+						me.getValue().toTerm(numSort);
 				convme = t.term(times, convfac, convme);
 			}
 			if (comb == null)
@@ -266,7 +264,7 @@ public class InterpolatorAffineTerm {
 				comb = t.term(plus, convme, comb);
 		}
 		if (comb == null)
-			return isInt ? t.numeral(BigInteger.ZERO) : t.rational(BigInteger.ZERO, BigInteger.ONE);
+			return Rational.ZERO.toTerm(numSort);
 		return comb;
 	}
 	
@@ -306,23 +304,19 @@ public class InterpolatorAffineTerm {
 			if (me.getValue().equals(Rational.MONE))
 				rcomb.add(convme);
 			else if (me.getValue().signum() < 0) {
-				Rational cf = me.getValue().abs();
-				Term convfac = isInt ? t.numeral(cf.numerator())
-						: t.rational(cf.numerator(),cf.denominator());
+				Term convfac = me.getValue().abs().toTerm(numSort);
 				rcomb.add(t.term(times, convfac, convme));
 			} else if (me.getValue().equals(Rational.ONE))
 				lcomb.add(convme);
 			else if (me.getValue().signum() > 0) {
-				Rational cf = me.getValue();
-				Term convfac = isInt ? t.numeral(cf.numerator())
-						: t.rational(cf.numerator(),cf.denominator());
+				Term convfac =  me.getValue().toTerm(numSort);
 				lcomb.add(t.term(times, convfac, convme));
 			}
 		}
 		InfinitNumber constant = isInt ? mConstant.ceil() : mConstant;
 		if (!constant.mA.equals(Rational.ZERO)) 
-			rcomb.add(isInt ? t.numeral(constant.mA.numerator().negate())
-			        : t.rational(constant.mA.numerator().negate(), constant.mA.denominator()));
+			rcomb.add(
+					constant.mA.negate().toTerm(numSort));
 		if (lcomb.isEmpty() && rcomb.isEmpty())
 			// We either have 0<=0 or 0<0
 			return constant.mEps == 0 ? t.mTrue : t.mFalse;
@@ -330,7 +324,7 @@ public class InterpolatorAffineTerm {
 		Term tlcomb, trcomb;
 		switch (lcomb.size()) {
 		case 0:
-			tlcomb = isInt ? t.numeral(BigInteger.ZERO) : t.decimal(BigDecimal.ZERO);
+			tlcomb = Rational.ZERO.toTerm(numSort);
 			break;
 		case 1:
 			tlcomb = lcomb.get(0);
@@ -340,7 +334,7 @@ public class InterpolatorAffineTerm {
 		}
 		switch (rcomb.size()) {
 		case 0:
-			trcomb = isInt ? t.numeral(BigInteger.ZERO) : t.decimal(BigDecimal.ZERO);
+			trcomb = Rational.ZERO.toTerm(numSort);
 			break;
 		case 1:
 			trcomb = rcomb.get(0);
