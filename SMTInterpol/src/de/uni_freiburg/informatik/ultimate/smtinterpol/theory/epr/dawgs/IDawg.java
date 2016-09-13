@@ -71,4 +71,10 @@ public interface IDawg<LETTER, COLNAMES> extends Iterable<List<LETTER>> {
 
 	public IDawg<LETTER, COLNAMES> select(Map<COLNAMES, LETTER> selectMap);
 
+	/**
+	 * 
+	 * @return true iff the language of this dawg contains exactly one element
+	 */
+	public boolean isSingleton();
+
 }

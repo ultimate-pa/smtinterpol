@@ -301,4 +301,9 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 		return mBacking.iterator();
 	}
 
+	@Override
+	public boolean isSingleton() {
+		return mBacking.size() == 1;
+	}
+
 }

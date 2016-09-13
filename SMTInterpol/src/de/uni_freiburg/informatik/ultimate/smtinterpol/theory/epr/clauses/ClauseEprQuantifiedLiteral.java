@@ -15,11 +15,17 @@ import java.util.TreeSet;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers.Pair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution.SubsPair;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
@@ -317,6 +323,41 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 		 return mDawgFactory.renameSelectAndProject(dawg, mTranslationForClause).isEmpty();
 	}
 
+	/**
+	 * Return a grounding of this clause that is a unit clause which allows to propagate the given literal.
+	 * @param literal a ground literal such that there exists a grounding of this clause 
+	 * 		that is a unit clause where the literal is the only non-refuted literal
+	 * @return a grounding of this clause that is a) unit b) has literal as its only fulfilling literal
+	 */
+	public Clause getUnitGrounding(Literal literal) {
+		DPLLAtom atom = literal.getAtom();
 
+		IDawg<ApplicationTerm, TermVariable> groundingDawg = null;
+
+		EprPredicateAtom epa = (EprPredicateAtom) atom;
+
+		assert epa.getEprPredicate() == this.getEprPredicate();
+
+		Term[] ceqlArgs = this.mArgumentTerms.toArray(new Term[this.mArgumentTerms.size()]);
+		TTSubstitution unifier = epa.getArgumentsAsTermTuple().match(new TermTuple(ceqlArgs), mEprTheory.getEqualityManager());
+		assert unifier != null;
+		
+		// build a selectMap from the unifier --> TODO: make nicer
+		Map<TermVariable, ApplicationTerm> selectMap = new HashMap<TermVariable, ApplicationTerm>();
+		for (SubsPair sp : unifier.getSubsPairs()) {
+			selectMap.put((TermVariable) sp.bot, (ApplicationTerm) sp.top);
+		}
+
+		groundingDawg = getClause().getClauseLitToUnitPoints().get(this);
+		groundingDawg = mDawgFactory.select(groundingDawg, selectMap);
+
+		assert groundingDawg != null && ! groundingDawg.isEmpty();
+
+		//TODO: sample one point from the dawg, so we give a one-point dawg to getGroundings() ?..
+		
+		Set<Clause> groundings = getClause().getGroundings(groundingDawg);
+		
+		return groundings.iterator().next();
+	}
 
 }

@@ -272,7 +272,7 @@ public class EprTheory implements ITheory {
 	@Override
 	public Clause getUnitClause(Literal literal) {
 //		Clause unitClause = mPropLitToExplanation.get(literal);
-		Clause unitClause = mGroundLiteralsToPropagateToReason.get(literal).getClause().getUnitGrounding(literal);
+		Clause unitClause = mGroundLiteralsToPropagateToReason.get(literal).getUnitGrounding(literal);
 		mLogger.debug("EPRDEBUG: getUnitClause -- returning " + unitClause);
 		assert unitClause != null;
 		return unitClause;

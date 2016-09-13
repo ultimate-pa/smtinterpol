@@ -87,14 +87,12 @@ public abstract class DecideStackLiteral implements IEprLiteral {
 	 * @return true iff mDawg's language is a singleton set.
 	 */
 	public boolean isOnePoint() {
-		assert false : "TODO: implement";
-		return false;
+		return mDawg.isSingleton();
 	}
 	
 	public List<ApplicationTerm> getPoint() {
 		assert isOnePoint();
-		assert false : "TODO: implement";
-		return null;
+		return mDawg.iterator().next();
 	}
 	
 	private void register() {

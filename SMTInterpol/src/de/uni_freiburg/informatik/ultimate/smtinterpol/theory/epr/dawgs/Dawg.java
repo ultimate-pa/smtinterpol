@@ -145,5 +145,11 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		return null;
 	}
 
+	@Override
+	public boolean isSingleton() {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
 
 }

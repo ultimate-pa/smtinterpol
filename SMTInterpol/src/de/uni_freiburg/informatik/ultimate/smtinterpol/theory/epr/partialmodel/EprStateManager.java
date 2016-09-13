@@ -628,8 +628,8 @@ public class EprStateManager {
 				// we have a decision decide stack literal 
 				// --> suggest to the DPLLEngine to set it the same way
 				// TODO: not so clear if this is used at all..
-				assert false : "TODO: think this over";
-				mEprTheory.addGroundDecisionSuggestion(groundLiteral);
+//				assert false : "TODO: think this over";
+//				mEprTheory.addGroundDecisionSuggestion(groundLiteral);
 			}
 
 		} else 	if (atom.getDecideStatus() == null 
