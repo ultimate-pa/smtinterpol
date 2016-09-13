@@ -6,6 +6,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,8 +27,10 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers.Pai
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
@@ -78,12 +81,16 @@ public class EprClause {
 	 */
 	private EprClauseState mEprClauseState;
 	
-	/*
-	 * The following two fields are only used during creation of the clause.
-	 */
 	private Set<ClauseLiteral> mConflictLiterals;
 	private IDawg<ApplicationTerm, TermVariable> mConflictPoints;
-	private Map<ClauseEprQuantifiedLiteral, IDawg<ApplicationTerm, TermVariable>> mClauseLitToUnitPoints;
+	
+	/**
+	 * track for a quantified clause literal that is a unit literal in some of the groundings of this clause,
+	 *  which groundings those are
+	 *  (note that we don't need to deal with unquantified eprPredicates here, because if one of them is unit,
+	 *   then always all groundings of this clause are unit)
+	 */
+	private Map<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> mClauseLitToUnitPoints;
 	
 
 	public EprClause(Set<Literal> lits, EprTheory eprTheory) {
@@ -215,13 +222,13 @@ public class EprClause {
 	}
 
 	/**
-	 * 
+	 * Update the necessary data structure that help the clause to determine which state it is in.
+	 *  --> determineState does not work correctly if this has not been called before.
 	 * @param dsl
 	 * @param literalsWithSamePredicate
 	 * @return
 	 */
-//	public EprClauseState updateStateWrtDecideStackLiteral(DecideStackLiteral dsl, 
-	public EprClauseState updateStateWrtDecideStackLiteral(IEprLiteral dsl, 
+	public void updateStateWrtDecideStackLiteral(IEprLiteral dsl, 
 			Set<ClauseEprLiteral> literalsWithSamePredicate) {
 		
 		mClauseStateIsDirty = true;
@@ -241,8 +248,6 @@ public class EprClause {
 				cel.addPartiallyConflictingDecideStackLiteral(dsl);
 			}
 		}
-
-		return determineClauseState();
 	}
 
 
@@ -344,23 +349,23 @@ public class EprClause {
 				pointsWhereOneLiteralIsFulfillable,
 				pointsWhereTwoOrMoreLiteralsAreFulfillable);
 
-		Map<ClauseEprQuantifiedLiteral, IDawg<ApplicationTerm, TermVariable>> clauseLitToPotentialUnitPoints =
-				new HashMap<ClauseEprQuantifiedLiteral, IDawg<ApplicationTerm,TermVariable>>();
+		Map<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> clauseLitToPotentialUnitPoints =
+				new HashMap<ClauseLiteral, IDawg<ApplicationTerm,TermVariable>>();
 		
 		
 		for (ClauseLiteral cl : mLiterals) {
 			if (cl.isFulfillable()) {
 				// at leat one point of cl is still undecided (we sorted out fulfilled points before..)
 				
-				Map<ClauseEprQuantifiedLiteral, IDawg<ApplicationTerm, TermVariable>> newClauseLitToPotentialUnitPoints =
-						new HashMap<ClauseEprQuantifiedLiteral, IDawg<ApplicationTerm,TermVariable>>();
+				Map<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> newClauseLitToPotentialUnitPoints =
+						new HashMap<ClauseLiteral, IDawg<ApplicationTerm,TermVariable>>();
 				
 					
 				if (cl instanceof ClauseEprQuantifiedLiteral) {
 					IDawg<ApplicationTerm, TermVariable> fp = ((ClauseEprQuantifiedLiteral) cl).getFulfillablePoints();
 					
 					// some points may not be unit anymore because of this cl
-					for (Entry<ClauseEprQuantifiedLiteral, IDawg<ApplicationTerm, TermVariable>> en 
+					for (Entry<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> en 
 							: clauseLitToPotentialUnitPoints.entrySet()) {
 						IDawg<ApplicationTerm, TermVariable> join = mDawgFactory.join(en.getValue(), fp);
 						if (! join.isEmpty()) {
@@ -386,7 +391,20 @@ public class EprClause {
 					clauseLitToPotentialUnitPoints.put((ClauseEprQuantifiedLiteral) cl, 
 							mDawgFactory.copyDawg(pointsWhereOneLiteralIsFulfillable));
 				} else {
-					clauseLitToPotentialUnitPoints.clear();
+//					clauseLitToPotentialUnitPoints.clear();
+
+					// we need to do the intersection over all former possible unit points, right?
+					IDawg<ApplicationTerm, TermVariable> inter = mDawgFactory.createFullDawg(mVariables);
+					for (Entry<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> en 
+							: clauseLitToPotentialUnitPoints.entrySet()) {
+						// the current cl does not care about groundings, so the join remains unchanged
+						inter = inter.intersect(en.getValue());
+					}
+					if (! inter.isEmpty()) {
+							newClauseLitToPotentialUnitPoints.put(cl, inter);
+					}
+					clauseLitToPotentialUnitPoints = newClauseLitToPotentialUnitPoints;
+
 					
 					pointsWhereTwoOrMoreLiteralsAreFulfillable.addAll(pointsWhereOneLiteralIsFulfillable);
 					pointsWhereOneLiteralIsFulfillable = 
@@ -431,7 +449,7 @@ public class EprClause {
 	 * If this clause's state is Unit (i.e., if it is unit on at least one grounding), then this map
 	 * stores which literal is unit on which groundings.
 	 */
-	public Map<ClauseEprQuantifiedLiteral, IDawg<ApplicationTerm, TermVariable>> getClauseLitToUnitPoints() {
+	public Map<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> getClauseLitToUnitPoints() {
 		assert getClauseState() == EprClauseState.Unit;
 		return mClauseLitToUnitPoints;
 	}
@@ -533,5 +551,80 @@ public class EprClause {
 
 		sb.append("}");
 		return sb.toString();
+	}
+
+
+	/**
+	 * Return a grounding of this clause that is a unit clause which allows to propagate the given literal.
+	 * @param literal a ground literal such that there exists a grounding of this clause 
+	 * 		that is a unit clause where the literal is the only non-refuted literal
+	 * @return a grounding of this clause that is a) unit b) has literal as its only fulfilling literal
+	 */
+	public Clause getUnitGrounding(Literal literal) {
+		DPLLAtom atom = literal.getAtom();
+
+		IDawg<ApplicationTerm, TermVariable> groundingDawg = null;
+		// find the matching clauseLiteral for the given literal (TODO: what if there are several?)
+		for (Entry<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> en : mClauseLitToUnitPoints.entrySet()) {
+			ClauseLiteral cl = en.getKey();
+			if (cl.getLiteral() == literal) {
+				// the literal is ground
+				assert literal.getAtom().getSMTFormula(mEprTheory.getTheory()).getFreeVars().length == 0;
+				groundingDawg = en.getValue();
+				break;
+			} else if (cl instanceof ClauseEprQuantifiedLiteral
+					&& atom instanceof EprPredicateAtom) {
+				EprPredicateAtom epa = (EprPredicateAtom) atom;
+				ClauseEprQuantifiedLiteral ceql = (ClauseEprQuantifiedLiteral) cl;
+
+				if (epa.getEprPredicate() != ceql.getEprPredicate()) {
+					continue;
+				}
+				Term[] ceqlArgs = ceql.mArgumentTerms.toArray(new Term[ceql.mArgumentTerms.size()]);
+				TTSubstitution unifier = epa.getArgumentsAsTermTuple().match(new TermTuple(ceqlArgs), mEprTheory.getEqualityManager());
+				if (unifier != null) {
+					groundingDawg = en.getValue();
+					break;
+				}
+			}
+		}
+		assert groundingDawg != null && ! groundingDawg.isEmpty();
+
+		//TODO: sample one point from the dawg, so we give a one-point dawg to getGroundings() ?..
+		
+		Set<Clause> groundings = getGroundings(groundingDawg);
+		
+		return groundings.iterator().next();
+	}
+
+
+	public Set<Clause> getGroundings(IDawg<ApplicationTerm, TermVariable> groundingDawg) {
+		assert groundingDawg.getColnames().equals(mVariables) : "signatures don't match";
+
+		Set<Clause> result = new HashSet<Clause>();
+
+		for (List<ApplicationTerm> point : groundingDawg){
+			TTSubstitution sub = new TTSubstitution(groundingDawg.getColnames(), point);
+			List<Literal> groundLits = new ArrayList<Literal>();
+			for (ClauseLiteral cl : getLiterals()) {
+				if (cl instanceof ClauseEprQuantifiedLiteral) {
+					ClauseEprQuantifiedLiteral ceql = (ClauseEprQuantifiedLiteral) cl;
+					Term[] ceqlArgs = ceql.mArgumentTerms.toArray(new Term[ceql.mArgumentTerms.size()]);
+					TermTuple newTT = sub.apply(new TermTuple(ceqlArgs));
+					assert newTT.getFreeVars().size() == 0;
+					EprPredicateAtom at = ceql.getEprPredicate().getAtomForTermTuple(newTT, mEprTheory.getTheory(), 0); //TODO assertionstacklevel
+					
+					Literal newLit = cl.getPolarity() ? at : at.negate();
+
+					groundLits.add(newLit);
+				} else {
+					groundLits.add(cl.getLiteral());
+				}
+			}
+			
+			result.add(new Clause(groundLits.toArray(new Literal[groundLits.size()])));
+		}
+
+		return result;
 	}
 }

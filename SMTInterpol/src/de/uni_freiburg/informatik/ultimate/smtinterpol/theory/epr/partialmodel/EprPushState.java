@@ -76,10 +76,10 @@ public class EprPushState {
 		mDecideStack.push(decideStackQuantifiedLiteral);
 	}
 	
-	public void popDecideStackLiteral(DecideStackLiteral decideStackQuantifiedLiteral) {
-		DecideStackLiteral top = mDecideStack.pop();
-		assert top == decideStackQuantifiedLiteral : "TODO: not yet clear how this will work..";
-	}
+//	public void popDecideStackLiteral(DecideStackLiteral decideStackQuantifiedLiteral) {
+//		DecideStackLiteral top = mDecideStack.pop();
+//		assert top == decideStackQuantifiedLiteral : "TODO: not yet clear how this will work..";
+//	}
 	
 	public DecideStackLiteral peekDecideStack() {
 		return mDecideStack.peek();

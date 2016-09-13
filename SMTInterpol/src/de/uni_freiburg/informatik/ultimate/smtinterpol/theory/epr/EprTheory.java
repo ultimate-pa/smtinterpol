@@ -33,6 +33,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseLiteral;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClauseFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackPropagatedLiteral;
@@ -44,8 +46,10 @@ public class EprTheory implements ITheory {
 	HashMap<FunctionSymbol, EprPredicate> mFunctionSymbolToEprPredicate = new HashMap<FunctionSymbol, EprPredicate>();
 
 //	ArrayDeque<Literal> mGroundLiteralsToPropagate = new ArrayDeque<Literal>();
-	Map<Literal, DecideStackPropagatedLiteral> mGroundLiteralsToPropagateToReason = 
-			new HashMap<Literal, DecideStackPropagatedLiteral>();
+//	Map<Literal, DecideStackPropagatedLiteral> mGroundLiteralsToPropagateToReason = 
+//			new HashMap<Literal, DecideStackPropagatedLiteral>();
+	Map<Literal, ClauseLiteral> mGroundLiteralsToPropagateToReason = 
+			new HashMap<Literal, ClauseLiteral>();
 
 
 	HashMap<Object, HashMap<TermVariable, Term>> mBuildClauseToAlphaRenamingSub = 
@@ -85,6 +89,8 @@ public class EprTheory implements ITheory {
 	 * checkpoint()
 	 */
 	private Clause mConflictFromAddingLastClause;
+
+	private HashSet<Literal> mAlreadyPropagatedLiterals = new HashSet<Literal>();
 
 
 	public EprTheory(Theory th, DPLLEngine engine, CClosure cClosure, Clausifier clausifier, boolean solveThroughGrounding) {
@@ -243,25 +249,30 @@ public class EprTheory implements ITheory {
 
 	@Override
 	public Literal getPropagatedLiteral() {
-		if (mGroundLiteralsToPropagateToReason.isEmpty()) {
-			return null;
+		Literal lit = null;
+		for (Entry<Literal, ClauseLiteral> en : mGroundLiteralsToPropagateToReason.entrySet()) {
+			if (!mAlreadyPropagatedLiterals.contains(en.getKey())) {
+				lit = en.getKey();
+				mAlreadyPropagatedLiterals.add(lit);
+				break;
+			}
 		}
-		Entry<Literal, DecideStackPropagatedLiteral> propLitAndReaon = 
-				mGroundLiteralsToPropagateToReason.entrySet().iterator().next();
-		mLogger.debug("EPRDEBUG: getPropagatedLiteral propagating: " + propLitAndReaon.getKey());
-		//			return mGroundLiteralsToPropagateToReason.pollFirst();
-		return propLitAndReaon.getKey();
 
+		if (lit != null) {
+			mLogger.debug("EPRDEBUG: getPropagatedLiteral propagating: " + lit);
+		}
+		return lit;
 	}
 	
-	public void addGroundLiteralToPropagate(Literal l, DecideStackPropagatedLiteral reason) {
+//	public void addGroundLiteralToPropagate(Literal l, DecideStackPropagatedLiteral reason) {
+	public void addGroundLiteralToPropagate(Literal l, ClauseLiteral reason) {
 		mGroundLiteralsToPropagateToReason.put(l, reason);
 	}
 
 	@Override
 	public Clause getUnitClause(Literal literal) {
 //		Clause unitClause = mPropLitToExplanation.get(literal);
-		Clause unitClause = mGroundLiteralsToPropagateToReason.get(literal).getGroundedReasonUnitClause(literal);
+		Clause unitClause = mGroundLiteralsToPropagateToReason.get(literal).getClause().getUnitGrounding(literal);
 		mLogger.debug("EPRDEBUG: getUnitClause -- returning " + unitClause);
 		assert unitClause != null;
 		return unitClause;

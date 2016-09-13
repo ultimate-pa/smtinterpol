@@ -40,7 +40,6 @@ public class EprPredicate {
 	 * They form the signature of the corresponding Dawgs on the decide stack.
 	 */
 	private final SortedSet<TermVariable> mTermVariablesForArguments;
-//	private final List<TermVariable> mTermVariablesForArguments;
 
 	final EprTheory mEprTheory;
 	
@@ -89,7 +88,7 @@ public class EprPredicate {
 		val.add(l);
 	}
 	
-	public HashMap<EprClause, HashSet<ClauseEprLiteral>> getQuantifiedOccurences() {
+	private HashMap<EprClause, HashSet<ClauseEprLiteral>> getQuantifiedOccurences() {
 		return mQuantifiedOccurences;
 	}
 	
@@ -102,8 +101,20 @@ public class EprPredicate {
 		val.add(l);
 	}
 	
-	public HashMap<EprClause, HashSet<ClauseEprLiteral>> getGroundOccurences() {
+	private HashMap<EprClause, HashSet<ClauseEprLiteral>> getGroundOccurences() {
 		return mGroundOccurences;
+	}
+	
+	public HashMap<EprClause, HashSet<ClauseEprLiteral>> getAllEprClauseOccurences() {
+		HashMap<EprClause, HashSet<ClauseEprLiteral>> quantifiedOccurences = 
+				getQuantifiedOccurences();
+		HashMap<EprClause, HashSet<ClauseEprLiteral>> groundOccurences = 
+				getGroundOccurences();
+
+		HashMap<EprClause, HashSet<ClauseEprLiteral>> allOccurences = 
+				new HashMap<EprClause, HashSet<ClauseEprLiteral>>(quantifiedOccurences);
+		allOccurences.putAll(groundOccurences);
+		return allOccurences;
 	}
 
 	public void addDPLLAtom(EprGroundPredicateAtom egpa) {
@@ -130,6 +141,15 @@ public class EprPredicate {
 					this);
 			mPointToAtom.put(point, result);
 			addDPLLAtom(result);
+			
+			// when we create a new ground atom, we have to inform the DPLLEngine if the EprTheory already knows
+			// something about it
+			for (DecideStackLiteral dsl : this.getDecideStackLiterals()) {
+				EprClause conflict = mEprTheory.getStateManager().setGroundAtomIfCoveredByDecideStackLiteral(dsl, result);
+				if (conflict != null) {
+					assert false : "what now? give to EprTheory somehow so it can be returned by checkpoint??";
+				}
+			}
 		}
 		return result;
 	}
@@ -251,11 +271,19 @@ public class EprPredicate {
 		return mTermVariablesForArguments;
 	}
 
-	public void addDecideStackLiteral(DecideStackLiteral dsl) {
+	/**
+	 * This has to be called when a literal that talks about this EprPredicate is put on the epr decide stack.
+	 * @param dsl
+	 */
+	public void registerDecideStackLiteral(DecideStackLiteral dsl) {
 		mDecideStackLiterals.add(dsl);
 	}
 
-	public void removeDecideStackLiteral(DecideStackLiteral dsl) {
+	/**
+	 * This has to be called when a literal that talks about this EprPredicate is removed from the epr decide stack.
+	 * @param dsl
+	 */
+	public void unregisterDecideStackLiteral(DecideStackLiteral dsl) {
 		mDecideStackLiterals.remove(dsl);
 	}		
 

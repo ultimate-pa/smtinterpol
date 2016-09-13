@@ -16,7 +16,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
  * This special literal consists of a quantified literal together with a 
  * data structure restricting the possible groundings of that literal.
  * 
- * @author nutz
+ * @author Alexander Nutz
  */
 public abstract class DecideStackLiteral implements IEprLiteral {
 
@@ -98,7 +98,7 @@ public abstract class DecideStackLiteral implements IEprLiteral {
 	}
 	
 	private void register() {
-		mPred.addDecideStackLiteral(this);
+		mPred.registerDecideStackLiteral(this);
 	}
 
 	/**
@@ -106,6 +106,6 @@ public abstract class DecideStackLiteral implements IEprLiteral {
 	 * It should purge this dsl from every data structure where it was registered.
 	 */
 	public void unregister() {
-		mPred.removeDecideStackLiteral(this);
+		mPred.unregisterDecideStackLiteral(this);
 	}
 }

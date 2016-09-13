@@ -22,7 +22,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
  * The most naive (or rather simple) Dawg implementation I will be able to imagine.
  * A baseline for other implementations.
  * 
- * @author nutz
+ * @author Alexander Nutz
  * @param <LETTER, COLNAMES>
  */
 public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
@@ -294,6 +294,11 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	@Override
 	protected Iterable<List<LETTER>> listPoints() {
 		return mBacking;
+	}
+
+	@Override
+	public Iterator<List<LETTER>> iterator() {
+		return mBacking.iterator();
 	}
 
 }

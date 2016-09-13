@@ -2,6 +2,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -134,6 +135,12 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 
 	@Override
 	protected Iterable<List<LETTER>> listPoints() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Iterator<List<LETTER>> iterator() {
 		// TODO Auto-generated method stub
 		return null;
 	}

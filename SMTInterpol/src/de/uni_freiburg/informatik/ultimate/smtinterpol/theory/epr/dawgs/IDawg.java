@@ -7,7 +7,7 @@ import java.util.SortedSet;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 
-public interface IDawg<LETTER, COLNAMES> {
+public interface IDawg<LETTER, COLNAMES> extends Iterable<List<LETTER>> {
 	
 //	public COLNAMES[] getColnames();
 	public SortedSet<COLNAMES> getColnames();

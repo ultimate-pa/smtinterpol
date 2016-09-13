@@ -4,7 +4,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Set;
+import java.util.SortedSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -37,6 +40,16 @@ public class TTSubstitution {
 		}
 	}
 	
+	public TTSubstitution(SortedSet<TermVariable> colnames, List<ApplicationTerm> point) {
+		this();
+		assert colnames.size() == point.size();
+		Iterator<TermVariable> colIt = colnames.iterator();
+		for (int i = 0; i < point.size(); i++) {
+			TermVariable colName = colIt.next();
+			addSubs(point.get(i), colName);
+		}
+	}
+
 	public ArrayList<CCEquality> getEqPathForEquality(ApplicationTerm a, ApplicationTerm b) {
 		for (SubsPair sp : subs) {
 			if (sp instanceof EqPair) {
