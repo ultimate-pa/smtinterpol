@@ -42,5 +42,9 @@
             <name>Alexander Nutz</name>
             <email>nutz@informatik.uni-freiburg.de</email>
         </developer>
+        <developer>
+            <name>Tanja Schindler</name>
+            <email>schindle@informatik.uni-freiburg.de</email>
+        </developer>
     </developers>
 </project>
