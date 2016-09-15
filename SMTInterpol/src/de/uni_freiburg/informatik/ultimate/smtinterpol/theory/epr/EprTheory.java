@@ -201,8 +201,17 @@ public class EprTheory implements ITheory {
 			return null;
 		mLogger.debug("EPRDEBUG: checkpoint");
 		if (mConflictFromAddingLastClause != null) {
-			return mConflictFromAddingLastClause;
+			Clause conflict = mConflictFromAddingLastClause;
+			mConflictFromAddingLastClause = null;
+			return conflict;
 		}
+		
+		// tell the state manager to do propagations, and return a conflict if one appears
+		Clause conflict = mStateManager.doPropagations();
+		if (conflict != null) {
+			return conflict;
+		}
+		
 		return null;
 	}
 
@@ -371,8 +380,9 @@ public class EprTheory implements ITheory {
 		// a new clause may immediately be a conflict clause, and possibly that
 		// conflict cannot be resolved in the EprTheory 
 		// --> we will return that conflict at the next checkpoint
-		Clause groundConflict = mStateManager.addClause(literals);
+		Clause groundConflict = mStateManager.createEprClause(literals);
 		if (groundConflict != null) {
+			assert mConflictFromAddingLastClause == null : "we'll probably need a queue for this..";
 			mConflictFromAddingLastClause = groundConflict;
 		}
 		

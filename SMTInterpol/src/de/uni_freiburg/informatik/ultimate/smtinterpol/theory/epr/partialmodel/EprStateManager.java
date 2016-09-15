@@ -1,7 +1,9 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -11,6 +13,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.Stack;
+import java.util.Vector;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -73,6 +76,8 @@ public class EprStateManager {
 
 	private DawgFactory<ApplicationTerm, TermVariable> mDawgFactory;
 
+	private Set<EprClause> mUnitClausesWaitingForPropagation = new HashSet<EprClause>();
+
 	
 	public EprStateManager(EprTheory eprTheory) {
 		mPushStateStack.add(new EprPushState());
@@ -112,14 +117,8 @@ public class EprStateManager {
 
 			// make the decision
 			if (!nextDecision.isOnePoint()) {
-				//					conflictsOrUnits = 
-				Clause groundConflict = 
-						propagateAndResolve(
-								pushEprDecideStack((DecideStackLiteral) nextDecision));
-				if (groundConflict != null) {
-					return groundConflict;
-				}
-
+				Set<EprClause> conflictsOrUnits = pushEprDecideStack((DecideStackLiteral) nextDecision);
+				return resolveConflictOrStoreUnits(conflictsOrUnits);
 			} else {
 				// if the next requested decision is ground, suggest it to the DPLLEngine, and give 
 				// back control to the DPLLEngine
@@ -137,32 +136,32 @@ public class EprStateManager {
 		}
 	}
 
-	private Clause propagateAndResolve(Set<EprClause> conflictsOrUnits) {
-		mLogger.debug("EPRDEBUG: EprStateManager.propagateAndResolve(..): " + conflictsOrUnits);
-		while (conflictsOrUnits != null && !conflictsOrUnits.isEmpty()) {
 
-			EprClause currentConflictOrUnit = conflictsOrUnits.iterator().next(); // just pick any ..
-			conflictsOrUnits.remove(currentConflictOrUnit);
+	/**
+	 * Takes a set of unit epr clauses, applies unit propagation until either a conflict is reached, or 
+	 * no more propagations are possible.
+	 * @param unitClauses a set of epr unit clauses
+	 * @return null or a conflict epr clause
+	 */
+	private EprClause propagateAll(Set<EprClause> unitClauses) {
+		Set<EprClause> conflictsOrUnits = new HashSet<EprClause>(unitClauses);
+		while (conflictsOrUnits != null 
+				&& !conflictsOrUnits.isEmpty() 
+				&& conflictsOrUnits.iterator().next().isUnit()) {
 
-			if (currentConflictOrUnit.isConflict()) {
-				// we have conflicts; explain them, learn clauses, return the explained version of the conflicts
-				// if there was no decision, return a grounding of the conflict (perhaps several..)
-				EprClause unresolvableConflict = resolveConflict(currentConflictOrUnit);
-				if (unresolvableConflict != null) {
-					return chooseGroundingFromConflict(unresolvableConflict);
-				}
+			EprClause currentUnit = conflictsOrUnits.iterator().next(); // just pick any ..
+			conflictsOrUnits.remove(currentUnit);
 
-				conflictsOrUnits = null;
-			} else if (currentConflictOrUnit.isUnit()) {
-				conflictsOrUnits = propagateUnitClause(conflictsOrUnits, currentConflictOrUnit);
-
-			} else {
-				assert false : "should not happen";
-			}
+			conflictsOrUnits = propagateUnitClause(conflictsOrUnits, currentUnit);
 		}
-		
-		// at this point all unit propagations have been made and all conflicts resolved (or returned)
-		return null;
+		assert conflictsOrUnits == null || conflictsOrUnits.isEmpty() 
+				|| (conflictsOrUnits.size() == 1 && conflictsOrUnits.iterator().next().isConflict());
+		// TODO not nice.. rework
+		if (conflictsOrUnits == null || conflictsOrUnits.isEmpty()) {
+			return null;
+		} else {
+			return conflictsOrUnits.iterator().next();
+		}
 	}
 
 	/**
@@ -266,13 +265,12 @@ public class EprStateManager {
 	 * Resolve the given conflicts, i.e., 
 	 *  - backtrack all unit propagations until the last decision 
 	 *  - explain the conflict accordingly, possibly learn some clauses
-	 *  - return the last decision along with the explanation, so the next decision can be informed by that
 	 *  
 	 * @param conflicts
 	 * @return A conflict that cannot be resolved in the EprTheory (given the current DPLL decide stack),
 	 *    null if there exists none.
 	 */
-	private EprClause resolveConflict(EprClause conflict) {
+	private Clause resolveConflict(EprClause conflict) {
 		mLogger.debug("EPRDEBUG: EprStateManager.resolveConflict(..): " + conflict);
 		EprClause currentConflict = conflict;
 		
@@ -288,7 +286,7 @@ public class EprStateManager {
 			DecideStackLiteral topMostDecideStackLiteral = popEprDecideStack();
 			if (topMostDecideStackLiteral == null) {
 				// we have come to the top of the decide stack --> return the conflict
-				return currentConflict;
+				return chooseGroundingFromConflict(currentConflict);
 			}
 
 			// backtrack the literal
@@ -319,7 +317,7 @@ public class EprStateManager {
 	}
 
 	private void learnClause(EprClause currentConflict) {
-		addEprClause(currentConflict);
+		registerEprClause(currentConflict);
 	}
 
 	private EprClause tryBackjumping(EprClause currentConflict) {
@@ -433,7 +431,7 @@ public class EprStateManager {
 		}
 
 		Set<EprClause> confOrUnits = updateClausesOnSetEprLiteral(egpl);
-		return propagateAndResolve(confOrUnits);
+		return resolveConflictOrStoreUnits(confOrUnits);
 	}
 
 	/**
@@ -469,10 +467,9 @@ public class EprStateManager {
 			DecideStackDecisionLiteral newDecision = 
 					new DecideStackDecisionLiteral(
 							conflictingDsl.getPolarity(), conflictingDsl.getEprPredicate(), newDawg);
-			Clause groundConflict = 
-						propagateAndResolve(
-								pushEprDecideStack(newDecision));
-			return groundConflict;
+			
+			Set<EprClause> conflictsOrUnits = pushEprDecideStack(newDecision);
+			return resolveConflictOrStoreUnits(conflictsOrUnits);
 		} else if (conflictingDsl instanceof DecideStackPropagatedLiteral) {
 			// the propagated literal that was the root of the inconsistency has been popped
 			// its reason for propagation should be a conflict now instead of a unit
@@ -482,9 +479,7 @@ public class EprStateManager {
 					egpl, 
 					egpl.getEprPredicate().getAllEprClauseOccurences().get(propReason));
 			assert propReason.isConflict();
-			Clause groundConflict = 
-					propagateAndResolve(new HashSet<EprClause>(Collections.singleton(propReason)));
-			return groundConflict;
+			return resolveConflict(propReason);
 		} else {
 			assert false : "should not happen";
 		}
@@ -547,7 +542,21 @@ public class EprStateManager {
 	}
 	
 	public Clause setDpllLiteral(Literal literal) {
-		return propagateAndResolve(updateClausesOnSetDpllLiteral(literal));
+		Set<EprClause> conflictOrUnits = updateClausesOnSetDpllLiteral(literal);
+		return resolveConflictOrStoreUnits(conflictOrUnits);
+	}
+
+	private Clause resolveConflictOrStoreUnits(Set<EprClause> conflictOrUnits) {
+		if (conflictOrUnits == null || conflictOrUnits.isEmpty()) {
+			return null;
+		}
+		if (conflictOrUnits.iterator().next().isConflict()) {
+			return resolveConflict(conflictOrUnits.iterator().next());
+		}
+		if (conflictOrUnits.iterator().next().isUnit()) {
+			mUnitClausesWaitingForPropagation.addAll(conflictOrUnits);
+		}
+		return null;
 	}
 	
 	public void unsetDpllLiteral(Literal literal) {
@@ -763,25 +772,27 @@ public class EprStateManager {
 	 * Add a clause coming from the input script.
 	 * @return A ground conflict if adding the given clause directly leads to one.
 	 */
-	public Clause addClause(HashSet<Literal> literals) {
+	public Clause createEprClause(HashSet<Literal> literals) {
 		EprClause newClause = mEprTheory.getEprClauseFactory().getEprClause(literals);
-		Clause conflict = null;
-		if (newClause.isConflict() || newClause.isUnit()) {
-			conflict = propagateAndResolve(new HashSet<EprClause>(Collections.singleton(newClause)));
-		}
-		addEprClause(newClause);
-		return conflict;
+		
+		return registerEprClause(newClause);
 	}
 
 	/**
 	 * Register an eprClause (coming from input or learned) in the corresponding places...
+	 * 
+	 * Check if it is unit or a conflict.
+	 * If it is a conflict immediately resolve it (on the epr decide stack) and return a ground conflict
+	 * if the conflict is not resolvable.
+	 * If it is unit, queue it for propagation.
 	 */
-	private void addEprClause(EprClause newClause) {
+	private Clause registerEprClause(EprClause newClause) {
 		mPushStateStack.peek().addClause(newClause);
 
 		for (ClauseLiteral cl : newClause.getLiterals()) {
 			updateAtomToClauses(cl.getLiteral().getAtom(), newClause);
 		}
+		return resolveConflictOrStoreUnits(new HashSet<EprClause>(Collections.singleton(newClause)));
 	}
 	
 	public Iterable<EprClause> getAllEprClauses() {
@@ -937,5 +948,17 @@ public class EprStateManager {
 	 */
 	public void setEprClauseFactory(EprClauseFactory clauseFactory) {
 		mEprClauseFactory = clauseFactory;
+	}
+
+	public Clause doPropagations() {
+		HashSet<EprClause> toProp = new HashSet<EprClause>(mUnitClausesWaitingForPropagation);
+		mUnitClausesWaitingForPropagation = new HashSet<EprClause>();
+		EprClause conflict = propagateAll(toProp);
+		if (conflict == null) {
+			return null;
+		} else {
+			assert conflict.isConflict();
+			return resolveConflict(conflict);
+		}
 	}
 }
