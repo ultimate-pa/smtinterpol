@@ -20,7 +20,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
 public abstract class EprAtom extends DPLLAtom {
 	
 	protected final Term mTerm;
-//	public boolean isQuantified;
 	private TermTuple mArgsAsTermTuple = null;
 
 	public EprAtom(Term term, int hash, int assertionstacklevel) {
@@ -28,17 +27,10 @@ public abstract class EprAtom extends DPLLAtom {
 		this.mTerm = term;
 	}
 
-//	@Override
-//	public Term getSMTFormula(Theory smtTheory, boolean quoted) {
-//		// TODO Auto-generated method stub
-////		return null;
-//		return mTerm;
-//	}
 	public Term[] getArguments() {
 		return ((ApplicationTerm) mTerm).getParameters();
 	}
 	
-
 	public TermTuple getArgumentsAsTermTuple() {
 		if (mArgsAsTermTuple == null)
 			mArgsAsTermTuple = new TermTuple(this.getArguments());
@@ -53,5 +45,4 @@ public abstract class EprAtom extends DPLLAtom {
 	public Term getTerm() {
 		return mTerm;
 	}
-	
 }

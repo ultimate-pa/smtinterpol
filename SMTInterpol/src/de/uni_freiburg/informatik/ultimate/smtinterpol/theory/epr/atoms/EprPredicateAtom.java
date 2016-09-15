@@ -15,7 +15,6 @@ public abstract class EprPredicateAtom extends EprAtom {
 		super(term, hash, assertionstacklevel);
 		assert term instanceof ApplicationTerm : "a predicate should always be an _Application_Term";
 		mEprPredicate = pred;
-//		isQuantified = term.getFreeVars().length > 0;
 	}
 	
 	public EprPredicate getEprPredicate() {

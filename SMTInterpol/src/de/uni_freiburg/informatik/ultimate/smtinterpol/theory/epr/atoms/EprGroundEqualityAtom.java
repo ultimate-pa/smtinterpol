@@ -22,8 +22,6 @@ public class EprGroundEqualityAtom extends EprAtom {
 
 	@Override
 	public Term getSMTFormula(Theory smtTheory, boolean quoted) {
-		// TODO Auto-generated method stub
-		return null;
+		return mTerm;
 	}
-
 }
