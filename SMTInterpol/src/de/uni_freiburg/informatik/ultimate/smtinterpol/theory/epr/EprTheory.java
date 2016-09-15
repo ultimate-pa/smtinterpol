@@ -233,8 +233,10 @@ public class EprTheory implements ITheory {
 	}
 	
 	public void addGroundLiteralToPropagate(Literal l, Clause reason) {
-		// the atom may be new for the dpll engine
-		addAtomToDPLLEngine(l.getAtom());
+		// the atom may be new for the dpll engine -- if it is the grounding of a quantified epr atom
+		if (l.getAtom() instanceof EprAtom) {
+			addAtomToDPLLEngine(l.getAtom());
+		}
 		
 		mLogger.debug("EPRDEBUG: EprTheory.addGroundLiteralToPropagate(..): "
 				+ "literal: " + l + " reason: " + reason);

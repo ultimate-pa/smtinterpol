@@ -300,7 +300,8 @@ public class EprClause {
 		for (ClauseLiteral cl : mLiterals) {
 			if (cl.isFulfilled()) {
 				mClauseStateIsDirty = false;
-				return EprClauseState.Fulfilled;
+				mEprClauseState = EprClauseState.Fulfilled;
+				return mEprClauseState;
 			}
 		}
 		
@@ -368,8 +369,7 @@ public class EprClause {
 				
 				// if the current ClauseLiteral is the last ClauseLiteral, its unit points are exactly the ones that 
 				// moved from noFulfillableLiteral to OneFulfillableLiteral ..
-				clauseLitToPotentialUnitPoints.put((ClauseEprQuantifiedLiteral) cl, 
-						mDawgFactory.copyDawg(toMoveFromNoToOne));
+				clauseLitToPotentialUnitPoints.put(cl, mDawgFactory.copyDawg(toMoveFromNoToOne));
 				// ... however if we later find out for some of these points, that it is fulfilled somewhere else, we 
 				// have to remove it from the list.
 				for (Entry<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> en 

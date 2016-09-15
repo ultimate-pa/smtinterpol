@@ -141,6 +141,7 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 
 	@Override
 	public void addAll(IDawg<LETTER, COLNAMES> other) {
+		super.addAll(other);
 		// assuming that we use NaiveDawgs for all Dawgs..
 		NaiveDawg<LETTER, COLNAMES> naiOther = (NaiveDawg<LETTER, COLNAMES>) other;
 		mBacking.addAll(naiOther.mBacking);
@@ -197,9 +198,9 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 		NaiveDawg<LETTER, COLNAMES> nd = (NaiveDawg<LETTER, COLNAMES>) other;
 		//TODO: could be done nicer --> only go through the points that actually occur in this.mBacking..
 		for (List<LETTER> pt : nd.mBacking) {
-			mBacking.addAll(blowUpForCurrentSignature(pt, nd.mColNames));
+			addWithSubsetSignature(pt, nd.mColNames);
+//			mBacking.addAll(blowUpForCurrentSignature(pt, nd.mColNames));
 		}
-		
 	}
 
 	@Override
@@ -208,14 +209,17 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 		NaiveDawg<LETTER, COLNAMES> nd = (NaiveDawg<LETTER, COLNAMES>) other;
 		//TODO: could be done nicer --> only go through the points that actually occur in this.mBacking..
 		for (List<LETTER> pt : nd.mBacking) {
-			mBacking.removeAll(blowUpForCurrentSignature(pt, nd.mColNames));
+			mBacking.removeAll(blowUpForCurrentSignature(pt, nd.mColNames, mColNames, mAllConstants));
 		}
 	}
 
-	private List<List<LETTER>> blowUpForCurrentSignature(List<LETTER> pt, SortedSet<COLNAMES> ptSig) {
-		assert mColNames.containsAll(ptSig);
+	private static <LETTER, COLNAMES> List<List<LETTER>> blowUpForCurrentSignature(
+			List<LETTER> pt, SortedSet<COLNAMES> ptSig, 
+			SortedSet<COLNAMES> targetSig, Set<LETTER> allConstants) {
+		assert targetSig.containsAll(ptSig);
 		List<List<LETTER>> result = new ArrayList<List<LETTER>>();
-		for (COLNAMES cn : mColNames) {
+		result.add(new ArrayList<LETTER>());
+		for (COLNAMES cn : targetSig) {
 			//TODO hacky
 			int posInPtSig = -1;
 			Iterator<COLNAMES> ptSigIt = ptSig.iterator();
@@ -233,7 +237,7 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 					newPrefix.add(pt.get(posInPtSig));
 					newResult.add(newPrefix);
 				} else {
-					for (LETTER c : mAllConstants) {
+					for (LETTER c : allConstants) {
 						ArrayList<LETTER> newPrefix = new ArrayList<LETTER>(prefix);
 						newPrefix.add(c);
 						newResult.add(newPrefix);
@@ -274,5 +278,9 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	@Override
 	public boolean isSingleton() {
 		return mBacking.size() == 1;
+	}
+
+	public void addWithSubsetSignature(List<LETTER> point, SortedSet<COLNAMES> sig) {
+		mBacking.addAll(blowUpForCurrentSignature(point, sig, mColNames, mAllConstants));
 	}
 }

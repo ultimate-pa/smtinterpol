@@ -93,29 +93,31 @@ public class DawgFactory<LETTER, COLNAMES> {
 	}
 
 	public IDawg<LETTER, COLNAMES> renameSelectAndProject(
-			IDawg<LETTER, COLNAMES> other, Map<COLNAMES, Object> translation) {
+			IDawg<LETTER, COLNAMES> other, Map<COLNAMES, Object> translation, SortedSet<COLNAMES> targetSignature) {
 
-		
 		COLNAMES colNamesInstance = other.getColnames().first();
 		
 		// the signature of the new dawg has only the non-duplicated colnames 
 		// and also omits constants (i.e. objects not of the type COLNAMES)
-		SortedSet<COLNAMES> newSignature = new TreeSet<COLNAMES>(EprHelpers.getColumnNamesComparator());
+		// this signature is before the blowup to targetSignature
+		SortedSet<COLNAMES> newPointSignature = new TreeSet<COLNAMES>(EprHelpers.getColumnNamesComparator());
 		for (Object o : translation.values()) {
 			if (colNamesInstance.getClass().isInstance(o)) {
-				newSignature.add((COLNAMES) o);
+				newPointSignature.add((COLNAMES) o);
 			}
 		}
 		
-		Map<COLNAMES, Integer> newSigColNamesToIndex = EprHelpers.computeColnamesToIndex(newSignature);
+		Map<COLNAMES, Integer> newSigColNamesToIndex = EprHelpers.computeColnamesToIndex(newPointSignature);
 		
 		NaiveDawg<LETTER, COLNAMES> otherNd = (NaiveDawg<LETTER, COLNAMES>) other;
-		Set<List<LETTER>> newBacking = new HashSet<List<LETTER>>();
+//		Set<List<LETTER>> newBacking = new HashSet<List<LETTER>>();
+		NaiveDawg<LETTER, COLNAMES> result = new NaiveDawg<LETTER, COLNAMES>(targetSignature, mAllConstants);
+
 		for (List<LETTER> point : otherNd.mBacking) {
 
-			List<LETTER> newPoint = new ArrayList<LETTER>(newSignature.size());
+			List<LETTER> newPoint = new ArrayList<LETTER>(newPointSignature.size());
 			// set up the new point (need to fill it, or List.set(..) won't work)
-			for (int i = 0; i < newSignature.size(); i++) {
+			for (int i = 0; i < newPointSignature.size(); i++) {
 				newPoint.add(null);
 			}
 			
@@ -156,11 +158,11 @@ public class DawgFactory<LETTER, COLNAMES> {
 
 			}
 			if (newPoint != null) {
-				newBacking.add(newPoint);
+				result.addWithSubsetSignature(newPoint, newPointSignature);
+//				newBacking.add(newPoint);
 			}
 		}
 
-		NaiveDawg<LETTER, COLNAMES> result = new NaiveDawg<LETTER, COLNAMES>(newSignature, mAllConstants, newBacking);
 		return result;
 	}
 
@@ -286,7 +288,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 			translation3.put("beta", "bla");
 			translation3.put("gamma", "blub");
 	
-			IDawg<Character, String> d3 = df.renameSelectAndProject(d2, translation3);
+			IDawg<Character, String> d3 = df.renameSelectAndProject(d2, translation3, d2.getColnames());
 	
 			System.out.println("d3: rnsP(d2, {alpha -> bla, beta -> bla, gamma -> blub)");
 			System.out.println("expecting: (bla, blub) {ab}");
@@ -297,7 +299,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 			translation4.put("beta", "bla");
 			translation4.put("gamma", 'a');
 	
-			IDawg<Character, String> d4 = df.renameSelectAndProject(d2, translation4);
+			IDawg<Character, String> d4 = df.renameSelectAndProject(d2, translation4, d2.getColnames());
 	
 			System.out.println("d4: rnsP(d2, {alpha -> bla, beta -> bla, gamma -> 'a')");
 			System.out.println("expecting: (bla) {}");
@@ -308,7 +310,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 			translation5.put("beta", "bla");
 			translation5.put("gamma", 'b');
 	
-			IDawg<Character, String> d5 = df.renameSelectAndProject(d2, translation5);
+			IDawg<Character, String> d5 = df.renameSelectAndProject(d2, translation5, d2.getColnames());
 	
 			System.out.println("d5: rnsP(d2, {alpha -> bla, beta -> bla, gamma -> 'b')");
 			System.out.println("expecting: (bla) {a}");
