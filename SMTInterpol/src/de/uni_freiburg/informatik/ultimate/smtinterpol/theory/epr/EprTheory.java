@@ -89,6 +89,7 @@ public class EprTheory implements ITheory {
 		mEngine = engine;
 		mClausifier = clausifier;
 
+		mLogger = clausifier.getLogger();
 
 		mEqualityManager = new EqualityManager();
 		mStateManager = new EprStateManager(this);
@@ -100,7 +101,6 @@ public class EprTheory implements ITheory {
 		mStateManager.setDawgFactory(mDawgFactory);
 		mStateManager.setEprClauseFactory(mClauseFactory);
 
-		mLogger = clausifier.getLogger();
 	}
 
 	@Override
@@ -233,6 +233,9 @@ public class EprTheory implements ITheory {
 	}
 	
 	public void addGroundLiteralToPropagate(Literal l, ClauseLiteral reason) {
+		mLogger.debug("EPRDEBUG: EprTheory.addGroundLiteralToPropagate(..): "
+				+ "literal: " + l + " reason: " + reason);
+
 		mGroundLiteralsToPropagateToReason.put(l, reason);
 	}
 

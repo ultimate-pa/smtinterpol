@@ -16,6 +16,7 @@ import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
@@ -58,6 +59,7 @@ public class EprStateManager {
 	private EprTheory mEprTheory;
 	private Theory mTheory;
 	private CClosure mCClosure;
+	private LogProxy mLogger;
 	
 	ScopedHashSet<EprPredicate> mAllEprPredicates = new ScopedHashSet<EprPredicate>();
 	
@@ -80,6 +82,7 @@ public class EprStateManager {
 		mTheory = eprTheory.getTheory();
 		mCClosure = eprTheory.getCClosure();
 		mEprClauseFactory = eprTheory.getEprClauseFactory();
+		mLogger = eprTheory.getLogger();
 	}
 	
 	/**
@@ -135,6 +138,7 @@ public class EprStateManager {
 	}
 
 	private Clause propagateAndResolve(Set<EprClause> conflictsOrUnits) {
+		mLogger.debug("EPRDEBUG: EprStateManager.propagateAndResolve(..): " + conflictsOrUnits);
 		while (conflictsOrUnits != null && !conflictsOrUnits.isEmpty()) {
 
 			EprClause currentConflictOrUnit = conflictsOrUnits.iterator().next(); // just pick any ..
@@ -176,6 +180,7 @@ public class EprStateManager {
 	 */
 	private Set<EprClause> propagateUnitClause(Set<EprClause> conflictsOrUnits, 
 			EprClause unitClause) {
+		mLogger.debug("EPRDEBUG: EprStateManager.propagateUnitClause(..): " + unitClause);
 		assert unitClause.isUnit();
 		Set<EprClause> result = new HashSet<EprClause>(conflictsOrUnits);		
 
@@ -267,6 +272,7 @@ public class EprStateManager {
 	 *    null if there exists none.
 	 */
 	private EprClause resolveConflict(EprClause conflict) {
+		mLogger.debug("EPRDEBUG: EprStateManager.resolveConflict(..): " + conflict);
 		EprClause currentConflict = conflict;
 		
 		while (true) {
@@ -909,7 +915,7 @@ public class EprStateManager {
 //			//  visibility package right now..
 			mEprTheory.getClausifier().getEngine().addFormulaClause(g, null); // TODO: proof (+ hook?)
 			
-			mEprTheory.getLogger().debug("EPRDEBUG (EprStateManager): added ground clause " + Arrays.toString(g));
+			mLogger.debug("EPRDEBUG (EprStateManager): added ground clause " + Arrays.toString(g));
 		}
 	}
 
