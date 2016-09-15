@@ -1,13 +1,10 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
@@ -20,7 +17,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers.Pair;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution.SubsPair;
@@ -28,10 +24,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgTranslation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.IEprLiteral;
 
 public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
@@ -193,7 +186,6 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	 * @return
 	 */
 	public IDawg<ApplicationTerm, TermVariable> getFulfillablePoints() {
-		determineState();
 		assert mFulfillablePoints != null;
 		assert mFulfillablePoints.getColnames().equals(mEprClause.getVariables());
 		IDawg<ApplicationTerm, TermVariable> result = mFulfillablePoints;
@@ -202,7 +194,6 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	}
 
 	public IDawg<ApplicationTerm, TermVariable> getFulfilledPoints() {
-		determineState();
 		assert mFulfilledPoints != null;
 		assert mFulfilledPoints.getColnames().equals(mEprClause.getVariables());
 		IDawg<ApplicationTerm, TermVariable> result = mFulfilledPoints;
@@ -211,7 +202,6 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	}
 
 	public IDawg<ApplicationTerm, TermVariable> getRefutedPoints() {
-		determineState();
 		assert mRefutedPoints != null;
 		assert mRefutedPoints.getColnames().equals(mEprClause.getVariables());
 		IDawg<ApplicationTerm, TermVariable> result = mRefutedPoints;
