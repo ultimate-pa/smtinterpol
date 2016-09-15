@@ -231,7 +231,8 @@ public class EprStateManager {
 				// the unit literal is ground --> store it for propagation to dpll engine, no further effects for epr
 				assert clToUps.entrySet().size() == 1;
 				Entry<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> item = clToUps.entrySet().iterator().next(); //TODO: not nice
-				mEprTheory.addGroundLiteralToPropagate(item.getKey().getLiteral(), cl);
+				Literal propLit = item.getKey().getLiteral();
+				mEprTheory.addGroundLiteralToPropagate(propLit, cl.getUnitGrounding(propLit));
 			}
 		}
 		return result;
@@ -610,7 +611,8 @@ public class EprStateManager {
 									atom.negate();
 			if (dsl instanceof DecideStackPropagatedLiteral) {
 				mEprTheory.addGroundLiteralToPropagate(
-						groundLiteral, ((DecideStackPropagatedLiteral) dsl).getReasonClauseLit());
+						groundLiteral, 
+						((DecideStackPropagatedLiteral) dsl).getReasonClauseLit().getUnitGrounding(groundLiteral));
 			} else {
 				// we have a decision decide stack literal 
 				// --> suggest to the DPLLEngine to set it the same way

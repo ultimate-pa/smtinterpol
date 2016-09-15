@@ -45,8 +45,8 @@ public class EprTheory implements ITheory {
 
 	HashMap<FunctionSymbol, EprPredicate> mFunctionSymbolToEprPredicate = new HashMap<FunctionSymbol, EprPredicate>();
 
-	Map<Literal, ClauseLiteral> mGroundLiteralsToPropagateToReason = 
-			new HashMap<Literal, ClauseLiteral>();
+	Map<Literal, Clause> mGroundLiteralsToPropagateToReason = 
+			new HashMap<Literal, Clause>();
 
 
 	HashMap<Object, HashMap<TermVariable, Term>> mBuildClauseToAlphaRenamingSub = 
@@ -218,7 +218,7 @@ public class EprTheory implements ITheory {
 	@Override
 	public Literal getPropagatedLiteral() {
 		Literal lit = null;
-		for (Entry<Literal, ClauseLiteral> en : mGroundLiteralsToPropagateToReason.entrySet()) {
+		for (Entry<Literal, Clause> en : mGroundLiteralsToPropagateToReason.entrySet()) {
 			if (!mAlreadyPropagatedLiterals.contains(en.getKey())) {
 				lit = en.getKey();
 				mAlreadyPropagatedLiterals.add(lit);
@@ -232,7 +232,10 @@ public class EprTheory implements ITheory {
 		return lit;
 	}
 	
-	public void addGroundLiteralToPropagate(Literal l, ClauseLiteral reason) {
+	public void addGroundLiteralToPropagate(Literal l, Clause reason) {
+		// the atom may be new for the dpll engine
+		addAtomToDPLLEngine(l.getAtom());
+		
 		mLogger.debug("EPRDEBUG: EprTheory.addGroundLiteralToPropagate(..): "
 				+ "literal: " + l + " reason: " + reason);
 
@@ -241,7 +244,7 @@ public class EprTheory implements ITheory {
 
 	@Override
 	public Clause getUnitClause(Literal literal) {
-		Clause unitClause = mGroundLiteralsToPropagateToReason.get(literal).getUnitGrounding(literal);
+		Clause unitClause = mGroundLiteralsToPropagateToReason.get(literal);
 		mLogger.debug("EPRDEBUG: getUnitClause -- returning " + unitClause);
 		assert unitClause != null;
 		return unitClause;
