@@ -214,10 +214,10 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	}
 
 	@Override
-	public boolean supSetEq(IDawg<ApplicationTerm, TermVariable> other) {
+	public boolean supSetEq(IDawg<LETTER, COLNAMES> other) {
 		assert mColNames.equals(other.getColnames());
-		// TODO Auto-generated method stub
-		return false;
+		NaiveDawg<LETTER, COLNAMES> otherNd = (NaiveDawg<LETTER, COLNAMES>) other;
+		return this.mBacking.containsAll(otherNd.mBacking);
 	}
 
 	@Override

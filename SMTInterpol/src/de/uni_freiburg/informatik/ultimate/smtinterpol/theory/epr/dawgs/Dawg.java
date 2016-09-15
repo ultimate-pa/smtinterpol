@@ -1,6 +1,5 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
 
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -8,10 +7,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
 
-import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
-import de.uni_freiburg.informatik.ultimate.logic.Term;
-import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawgLetter.UniversalDawgLetter;
 
 public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
@@ -110,12 +105,6 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	}
 
 	@Override
-	public boolean supSetEq(IDawg<ApplicationTerm, TermVariable> points) {
-		// TODO Auto-generated method stub
-		return false;
-	}
-
-	@Override
 	public void addAllWithSubsetSignature(IDawg<LETTER, COLNAMES> d1) {
 		// TODO Auto-generated method stub
 		
@@ -147,6 +136,12 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 
 	@Override
 	public boolean isSingleton() {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean supSetEq(IDawg<LETTER, COLNAMES> points) {
 		// TODO Auto-generated method stub
 		return false;
 	}

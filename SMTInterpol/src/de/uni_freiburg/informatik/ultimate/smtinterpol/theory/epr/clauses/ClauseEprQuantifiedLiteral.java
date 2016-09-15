@@ -194,6 +194,8 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	 * To prevent some misusage, this nulls the field so it is not used twice.
 	 *  --> however this will still be problematic if the state changes between the last call to isFulfillable
 	 *  and this method.
+	 *  
+	 *  Convention: fulfillablePoints (like refuted and fulfilled points) are returned in the signature of the _clause_!
 	 * @return
 	 */
 	public IDawg<ApplicationTerm, TermVariable> getFulfillablePoints() {
@@ -249,7 +251,7 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 		for (IEprLiteral dsl : mPartiallyFulfillingDecideStackLiterals) {
 			fulfilledPoints.addAll(dsl.getDawg());
 		}
-		// right now, the refuted points are in terms of the EprPredicates signature, we need a renaming
+		// right now, the fulfilled points are in terms of the EprPredicates signature, we need a renaming
 		// and possibly select and projects to match the signature of the ClauseLiteral relative to the clause.
 		fulfilledPoints = mDawgFactory.renameSelectAndProject(fulfilledPoints, mTranslationForClause);
 

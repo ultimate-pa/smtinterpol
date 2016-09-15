@@ -69,7 +69,7 @@ public class EprStateManager {
 	HashMap<DPLLAtom, HashSet<EprClause>> mDPLLAtomToClauses = 
 			new HashMap<DPLLAtom, HashSet<EprClause>>();
 
-	final private EprClauseFactory mEprClauseFactory;
+	private EprClauseFactory mEprClauseFactory;
 
 	private DawgFactory<ApplicationTerm, TermVariable> mDawgFactory;
 
@@ -971,5 +971,15 @@ public class EprStateManager {
 	public void setDawgFactory(DawgFactory<ApplicationTerm, TermVariable> dawgFactory) {
 		mDawgFactory = dawgFactory;
 	}
+
+	/**
+	 * at creation of this state manager, we cannot ask the EprTheory for the clause factory because that
+	 * clauseFactory's creation needs the allConstats from this state manager..
+	 * @param clauseFactory
+	 */
+	public void setEprClauseFactory(EprClauseFactory clauseFactory) {
+		mEprClauseFactory = clauseFactory;
+	}
+
 
 }

@@ -313,6 +313,7 @@ public class EprClause {
 		// do we have a literal that is fulfilled (on all points)?
 		for (ClauseLiteral cl : mLiterals) {
 			if (cl.isFulfilled()) {
+				mClauseStateIsDirty = false;
 				return EprClauseState.Fulfilled;
 			}
 		}
@@ -329,7 +330,8 @@ public class EprClause {
 			if (cl instanceof ClauseEprQuantifiedLiteral) {
 				IDawg<ApplicationTerm, TermVariable> clFulfilledPoints = 
 						((ClauseEprQuantifiedLiteral) cl).getFulfilledPoints();
-				pointsToConsider.removeAllWithSubsetSignature(clFulfilledPoints);
+//				pointsToConsider.removeAllWithSubsetSignature(clFulfilledPoints);
+				pointsToConsider.removeAll(clFulfilledPoints);
 			}
 		}
 		
@@ -355,80 +357,135 @@ public class EprClause {
 		
 		for (ClauseLiteral cl : mLiterals) {
 			if (cl.isFulfillable()) {
-				// at leat one point of cl is still undecided (we sorted out fulfilled points before..)
+				// at least one point of cl is still undecided (we sorted out fulfilled points before..)
 				
-				Map<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> newClauseLitToPotentialUnitPoints =
-						new HashMap<ClauseLiteral, IDawg<ApplicationTerm,TermVariable>>();
+//				Map<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> newClauseLitToPotentialUnitPoints =
+//						new HashMap<ClauseLiteral, IDawg<ApplicationTerm,TermVariable>>();
 				
 					
 				if (cl instanceof ClauseEprQuantifiedLiteral) {
 					IDawg<ApplicationTerm, TermVariable> fp = ((ClauseEprQuantifiedLiteral) cl).getFulfillablePoints();
 					
-					// some points may not be unit anymore because of this cl
-					for (Entry<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> en 
-							: clauseLitToPotentialUnitPoints.entrySet()) {
-						IDawg<ApplicationTerm, TermVariable> join = mDawgFactory.join(en.getValue(), fp);
-						if (! join.isEmpty()) {
-							newClauseLitToPotentialUnitPoints.put(en.getKey(), join);
-						}
-					}
-					clauseLitToPotentialUnitPoints = newClauseLitToPotentialUnitPoints;
+//					// some points may not be unit anymore because of this cl
+//					for (Entry<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> en 
+//							: clauseLitToPotentialUnitPoints.entrySet()) {
+//						IDawg<ApplicationTerm, TermVariable> join = mDawgFactory.join(en.getValue(), fp);
+//						if (! join.isEmpty()) {
+//							newClauseLitToPotentialUnitPoints.put(en.getKey(), join);
+//						}
+//					}
+//					clauseLitToPotentialUnitPoints = newClauseLitToPotentialUnitPoints;
 					
-					IDawg<ApplicationTerm, TermVariable> fpOne = //pointsWhereOneLiteralIsFulfillable.intersect(fp);
-							mDawgFactory.addAllWithSubsetSignature(pointsWhereOneLiteralIsFulfillable, fp);
-//							mDawgFactory.join(pointsWhereOneLiteralIsFulfillable, fp);
-					IDawg<ApplicationTerm, TermVariable> fpNo = //pointsWhereNoLiteralsAreFulfillable.intersect(fp);
-							mDawgFactory.addAllWithSubsetSignature(pointsWhereNoLiteralsAreFulfillable, fp);
-//							mDawgFactory.join(pointsWhereOneLiteralIsFulfillable, fp);
+//					IDawg<ApplicationTerm, TermVariable> fpOne = //pointsWhereOneLiteralIsFulfillable.intersect(fp);
+//							mDawgFactory.addAllWithSubsetSignature(pointsWhereOneLiteralIsFulfillable, fp);
+////							mDawgFactory.join(pointsWhereOneLiteralIsFulfillable, fp);
+//					IDawg<ApplicationTerm, TermVariable> fpNo = //pointsWhereNoLiteralsAreFulfillable.intersect(fp);
+//							mDawgFactory.addAllWithSubsetSignature(pointsWhereNoLiteralsAreFulfillable, fp);
+////							mDawgFactory.join(pointsWhereOneLiteralIsFulfillable, fp);
 					
-					assert EprHelpers.haveSameSignature(fp, fpOne, fpNo, pointsWhereNoLiteralsAreFulfillable);
+					// transfer the fulfillable points from the clause literal signature to the dawg signature
+//					IDawg<ApplicationTerm, TermVariable> fpClauseSig = 
+//							mDawgFactory.addAllWithSubsetSignature(mDawgFactory.createEmptyDawg(mVariables), fp);
 					
-					pointsWhereTwoOrMoreLiteralsAreFulfillable.addAll(fpOne);
-					pointsWhereOneLiteralIsFulfillable.removeAll(fpOne);
-					pointsWhereOneLiteralIsFulfillable.addAll(fpNo);
-					pointsWhereNoLiteralsAreFulfillable.removeAll(fpNo);
+//					assert EprHelpers.haveSameSignature(fp, fpOne, fpNo, pointsWhereNoLiteralsAreFulfillable);
+//					assert EprHelpers.haveSameSignature(fp, fpClauseSig, pointsWhereNoLiteralsAreFulfillable);
 					
+					IDawg<ApplicationTerm, TermVariable> toMoveFromNoToOne = pointsWhereNoLiteralsAreFulfillable.intersect(fp);
+					IDawg<ApplicationTerm, TermVariable> toMoveFromOneToTwo = pointsWhereOneLiteralIsFulfillable.intersect(fp);
+
+					assert EprHelpers.haveSameSignature(toMoveFromNoToOne, toMoveFromOneToTwo, pointsWhereNoLiteralsAreFulfillable);
+
+					pointsWhereNoLiteralsAreFulfillable.removeAll(toMoveFromNoToOne);
+					pointsWhereOneLiteralIsFulfillable.addAll(toMoveFromNoToOne);
+					pointsWhereOneLiteralIsFulfillable.removeAll(toMoveFromOneToTwo);
+					pointsWhereTwoOrMoreLiteralsAreFulfillable.addAll(toMoveFromOneToTwo);
+//						pointsWhereTwoOrMoreLiteralsAreFulfillable.addAll(fpOne);
+//					pointsWhereOneLiteralIsFulfillable.removeAll(fpOne);
+//					pointsWhereOneLiteralIsFulfillable.addAll(fpNo);
+//					pointsWhereNoLiteralsAreFulfillable.removeAll(fpNo);
+//					
+					// if the current ClauseLiteral is the last ClauseLiteral, its unit points are exactly the ones that 
+					// moved from noFulfillableLiteral to OneFulfillableLiteral ..
 					clauseLitToPotentialUnitPoints.put((ClauseEprQuantifiedLiteral) cl, 
-							mDawgFactory.copyDawg(pointsWhereOneLiteralIsFulfillable));
+							mDawgFactory.copyDawg(toMoveFromNoToOne));
+					// ... however if we later find out for some of these points, that it is fulfilled somewhere else, we 
+					// have to remove it from the list.
+					for (Entry<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> en 
+							: clauseLitToPotentialUnitPoints.entrySet()) {				
+						en.getValue().removeAll(toMoveFromOneToTwo);
+					}
 				} else {
 //					clauseLitToPotentialUnitPoints.clear();
 
-					// we need to do the intersection over all former possible unit points, right?
-					IDawg<ApplicationTerm, TermVariable> inter = mDawgFactory.createFullDawg(mVariables);
-					for (Entry<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> en 
-							: clauseLitToPotentialUnitPoints.entrySet()) {
-						// the current cl does not care about groundings, so the join remains unchanged
-						inter = inter.intersect(en.getValue());
-					}
-					if (! inter.isEmpty()) {
-							newClauseLitToPotentialUnitPoints.put(cl, inter);
-					}
-					clauseLitToPotentialUnitPoints = newClauseLitToPotentialUnitPoints;
+//					// we need to do the intersection over all former possible unit points, right?
+//					IDawg<ApplicationTerm, TermVariable> inter = mDawgFactory.createFullDawg(mVariables);
+//					for (Entry<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> en 
+//							: clauseLitToPotentialUnitPoints.entrySet()) {
+//						// the current cl does not care about groundings, so the join remains unchanged
+//						inter = inter.intersect(en.getValue());
+//					}
+//					if (! inter.isEmpty()) {
+//							newClauseLitToPotentialUnitPoints.put(cl, inter);
+//					}
+//					clauseLitToPotentialUnitPoints = newClauseLitToPotentialUnitPoints;
 
-					
-					pointsWhereTwoOrMoreLiteralsAreFulfillable.addAll(pointsWhereOneLiteralIsFulfillable);
-					pointsWhereOneLiteralIsFulfillable = 
-							mEprTheory.getDawgFactory().createEmptyDawg(mVariables);
-					pointsWhereOneLiteralIsFulfillable.addAll(pointsWhereNoLiteralsAreFulfillable);
-					pointsWhereNoLiteralsAreFulfillable =
-							mEprTheory.getDawgFactory().createEmptyDawg(mVariables);
-					
+					// the dawg of the current cl is the full dawg --> intersecting something with the full dawg means copying the something..
+					IDawg<ApplicationTerm, TermVariable> toMoveFromNoToOne = mDawgFactory.copyDawg(pointsWhereNoLiteralsAreFulfillable);
+					IDawg<ApplicationTerm, TermVariable> toMoveFromOneToTwo = mDawgFactory.copyDawg(pointsWhereOneLiteralIsFulfillable);
+
+					assert EprHelpers.haveSameSignature(toMoveFromNoToOne, toMoveFromOneToTwo, pointsWhereNoLiteralsAreFulfillable);
+
+					pointsWhereNoLiteralsAreFulfillable.removeAll(toMoveFromNoToOne);
+					pointsWhereOneLiteralIsFulfillable.addAll(toMoveFromNoToOne);
+					pointsWhereOneLiteralIsFulfillable.removeAll(toMoveFromOneToTwo);
+					pointsWhereTwoOrMoreLiteralsAreFulfillable.addAll(toMoveFromOneToTwo);
+				
+//					pointsWhereTwoOrMoreLiteralsAreFulfillable.addAll(pointsWhereOneLiteralIsFulfillable);
+//					pointsWhereOneLiteralIsFulfillable = 
+//							mEprTheory.getDawgFactory().createEmptyDawg(mVariables);
+//					pointsWhereOneLiteralIsFulfillable.addAll(pointsWhereNoLiteralsAreFulfillable);
+//					pointsWhereNoLiteralsAreFulfillable =
+//							mEprTheory.getDawgFactory().createEmptyDawg(mVariables);
+//					
 //					clauseLitToPotentialUnitPoints.put(cl, mDawgFactory.createFullDawg(mVariables));
+
+					// if the current ClauseLiteral is the last ClauseLiteral, its unit points are exactly the ones that 
+					// moved from noFulfillableLiteral to OneFulfillableLiteral ..
+					clauseLitToPotentialUnitPoints.put((ClauseEprQuantifiedLiteral) cl, 
+							mDawgFactory.copyDawg(toMoveFromNoToOne));
+					// ... however if we later find out for some of these points, that it is fulfilled somewhere else, we 
+					// have to remove it from the list.
+					for (Entry<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> en 
+							: clauseLitToPotentialUnitPoints.entrySet()) {				
+						en.getValue().removeAll(toMoveFromOneToTwo);
+					}
 				}
 			} else {
 				assert cl.isRefuted();
 			}
 		}
 		
+		//remove all empty dawgs from clauseLitToPotentialUnitPoints
+		Map<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> finalClauseLitToUnitPoints =
+						new HashMap<ClauseLiteral, IDawg<ApplicationTerm,TermVariable>>();
+		for (Entry<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> en : clauseLitToPotentialUnitPoints.entrySet()) {
+			if (!en.getValue().isEmpty()) {
+				finalClauseLitToUnitPoints.put(en.getKey(), en.getValue());
+			}
+		}
+
 
 		if (!pointsWhereNoLiteralsAreFulfillable.isEmpty()) {
 			mConflictPoints = pointsWhereNoLiteralsAreFulfillable;
 			mEprClauseState = EprClauseState.Conflict;
 		} else if (!pointsWhereOneLiteralIsFulfillable.isEmpty()) {
-			mClauseLitToUnitPoints = clauseLitToPotentialUnitPoints;
+			mClauseLitToUnitPoints = finalClauseLitToUnitPoints;
 			mEprClauseState = EprClauseState.Unit;
 		} else {
-			assert pointsWhereTwoOrMoreLiteralsAreFulfillable.isUniversal();
+			assert pointsWhereTwoOrMoreLiteralsAreFulfillable.supSetEq(pointsToConsider) 
+				&& pointsToConsider.supSetEq(pointsWhereTwoOrMoreLiteralsAreFulfillable)
+					: "we found no conflict and no unit points, thus all non-fulfilled points must be fulfillable "
+					+ "on two or more literals";
 			mEprClauseState = EprClauseState.Normal;
 		}
 		mClauseStateIsDirty = false;
@@ -450,8 +507,6 @@ public class EprClause {
 	 * stores which literal is unit on which groundings.
 	 */
 	public Map<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> getClauseLitToUnitPoints() {
-		// when we ask for this map to help with explaining, this clauses state may be fulfilled..
-		assert getClauseState() == EprClauseState.Unit || getClauseState() == EprClauseState.Fulfilled;
 		return mClauseLitToUnitPoints;
 	}
 	

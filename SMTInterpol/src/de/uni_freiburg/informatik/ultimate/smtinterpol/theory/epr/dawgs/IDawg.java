@@ -53,7 +53,7 @@ public interface IDawg<LETTER, COLNAMES> extends Iterable<List<LETTER>> {
 
 	public void removeAll(IDawg<LETTER, COLNAMES> other);
 
-	public boolean supSetEq(IDawg<ApplicationTerm, TermVariable> points);
+	public boolean supSetEq(IDawg<LETTER, COLNAMES> points);
 
 	/**
 	 * Add all the given points of the given Dawg.

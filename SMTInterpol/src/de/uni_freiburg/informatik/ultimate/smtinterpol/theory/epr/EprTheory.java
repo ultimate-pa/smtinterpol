@@ -107,6 +107,7 @@ public class EprTheory implements ITheory {
 		mClauseFactory = new EprClauseFactory(this);
 		
 		mStateManager.setDawgFactory(mDawgFactory);
+		mStateManager.setEprClauseFactory(mClauseFactory);
 
 		mLogger = clausifier.getLogger();
 	}
