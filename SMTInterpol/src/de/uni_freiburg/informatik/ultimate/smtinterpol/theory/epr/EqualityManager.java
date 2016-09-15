@@ -1,6 +1,5 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;

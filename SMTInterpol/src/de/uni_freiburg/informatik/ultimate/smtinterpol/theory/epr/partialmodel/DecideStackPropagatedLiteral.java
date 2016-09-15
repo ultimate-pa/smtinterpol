@@ -40,18 +40,6 @@ public class DecideStackPropagatedLiteral extends DecideStackLiteral {
 		return mUnitClauseLiteral;
 	}
 
-//	/**
-//	 * Returns a grounding of the Epr unit clause that is the reason for this propagated decide stack literal.
-//	 * The grounding is a reason for the earlier propagation of the argument ground literal (that the DPLLEngine
-//	 * understands..).
-//	 * @param literal
-//	 * @return
-//	 */
-//	public Clause getGroundedReasonUnitClause(Literal literal) {
-//		EprClause unitClause = getReasonClauseLit().getClause();
-//		return unitClause.getUnitGrounding(literal);
-//	}
-
 	@Override
 	public String toString() {
 		return "(DSPL: " + (mPolarity ? "" : "~").toString() + mPred.toString() +  ")";

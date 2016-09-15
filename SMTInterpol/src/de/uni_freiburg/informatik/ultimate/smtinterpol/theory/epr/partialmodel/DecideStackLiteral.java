@@ -21,7 +21,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 public abstract class DecideStackLiteral implements IEprLiteral {
 
 	boolean mPolarity;
-//	EprPredicateAtom mAtom;
 	EprPredicate mPred;
 	
 	/**
@@ -30,15 +29,6 @@ public abstract class DecideStackLiteral implements IEprLiteral {
 	 */
 	IDawg<ApplicationTerm, TermVariable> mDawg;
 	
-
-//	public DecideStackLiteral(boolean polarity, EprQuantifiedPredicateAtom atom) {
-//		mPolarity = polarity;
-//		mAtom = atom;
-//		mPred = mAtom.getEprPredicate();
-//	}
-
-	
-
 	public DecideStackLiteral(boolean polarity, 
 			EprPredicate pred, IDawg<ApplicationTerm, TermVariable> dawg) {
 		mPolarity = polarity;
@@ -52,14 +42,6 @@ public abstract class DecideStackLiteral implements IEprLiteral {
 	public boolean getPolarity() {
 		return mPolarity;
 	}
-	
-//	public EprPredicateAtom getAtom() {
-//		return mAtom;
-//	}
-//	
-//	public Literal getLiteral() {
-//		return mPolarity ? mAtom : mAtom.negate();
-//	}
 	
 	@Override
 	public EprPredicate getEprPredicate() {

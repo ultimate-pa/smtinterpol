@@ -5,7 +5,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
@@ -29,7 +28,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EqualityManage
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseEprGroundLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseEprLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseEprQuantifiedLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseLiteral;
@@ -82,7 +80,6 @@ public class EprStateManager {
 		mTheory = eprTheory.getTheory();
 		mCClosure = eprTheory.getCClosure();
 		mEprClauseFactory = eprTheory.getEprClauseFactory();
-//		mDawgFactory = eprTheory.getDawgFactory();
 	}
 	
 	/**
@@ -146,7 +143,6 @@ public class EprStateManager {
 			if (currentConflictOrUnit.isConflict()) {
 				// we have conflicts; explain them, learn clauses, return the explained version of the conflicts
 				// if there was no decision, return a grounding of the conflict (perhaps several..)
-//				EprClause unresolvableConflict = resolveConflict(chooseConflictOrUnit(conflictsOrUnits));
 				EprClause unresolvableConflict = resolveConflict(currentConflictOrUnit);
 				if (unresolvableConflict != null) {
 					return chooseGroundingFromConflict(unresolvableConflict);
@@ -255,7 +251,6 @@ public class EprStateManager {
 	 * @param conflicts
 	 * @return
 	 */
-//	private Clause chooseGroundingFromConflicts(Set<EprClause> conflicts) {
 	private Clause chooseGroundingFromConflict(EprClause conflicts) {
 		assert false : "TODO: implement";
 		return null;
@@ -290,7 +285,6 @@ public class EprStateManager {
 			}
 
 			// backtrack the literal
-//			unsetEprDecideStackLiteral((DecideStackDecisionLiteral) topMostDecideStackLiteral);
 			popEprDecideStack();
 
 			if (topMostDecideStackLiteral instanceof DecideStackDecisionLiteral) {
@@ -330,16 +324,6 @@ public class EprStateManager {
 		assert false : "TODO: implement";
 		return null;
 	}
-
-//	private DecideStackLiteral popDecideStack() {
-//		EprPushState pushStateWithLastDecideStackLiteral = mPushStateStack.peek();
-//		DecideStackLiteral lit = pushStateWithLastDecideStackLiteral.popDecideStack();
-//		while (lit == null) {
-//			pushStateWithLastDecideStackLiteral = mPushStateStack.iterator().next();//FIXME iterator goes the wrong way!!
-//			lit = pushStateWithLastDecideStackLiteral.popDecideStack();
-//		}
-//		return lit;
-//	}
 
 	/**
 	 * Explains a conflict given a decide stack literal
@@ -494,7 +478,6 @@ public class EprStateManager {
 			Clause groundConflict = 
 					propagateAndResolve(new HashSet<EprClause>(Collections.singleton(propReason)));
 			return groundConflict;
-//			return null;
 		} else {
 			assert false : "should not happen";
 		}
@@ -589,10 +572,8 @@ public class EprStateManager {
 		Set<EprClause> conflictsOrPropagations = 
 				updateClausesOnSetEprLiteral(dsl);
 
-//		if (conflictsOrPropagations == null
-//				|| conflictsOrPropagations.iterator().next().isUnit()) {
 		mPushStateStack.peek().pushDecideStackLiteral(dsl);
-//		}
+		
 	    return conflictsOrPropagations;
 	}
 
@@ -640,23 +621,11 @@ public class EprStateManager {
 			assert dsl instanceof DecideStackPropagatedLiteral :
 				"we have made a decision that contradicts the state of an eprGroundLiteral in the DPLLEngine"
 				+ " directly. this should not happen.";
-//				return  Collections.singleton(
-//						((DecideStackPropagatedLiteral) dsl)
-//						.getReasonClauseLit().getClause());
 			return ((DecideStackPropagatedLiteral) dsl)
 				.getReasonClauseLit().getClause();
 		}
 		return null;
 	}
-
-
-//	public void unsetEprDecideStackLiteral(DecideStackLiteral decideStackQuantifiedLiteral) {
-//		//TODO: remove propagations and suggestions that came from that decide stack literal?!?
-//		updateClausesOnBacktrackDecideStackLiteral(decideStackQuantifiedLiteral);
-////		mPushStateStack.peek().popDecideStackLiteral(decideStackQuantifiedLiteral);
-//		mPushStateStack.peek().popDecideStack();
-//
-//	}
 
 	/**
 	 * Ask the clauses what happens if dcideStackQuantifiedLiteral is set.
@@ -691,8 +660,6 @@ public class EprStateManager {
 		return null;
 	}
 
-
-
 	/**
 	 * this -might- be unnecessary
 	 *   -- depending on whether the clauses look at the decide stack themselves anyway..
@@ -714,9 +681,7 @@ public class EprStateManager {
 				assert false : "?";
 			}
 		}
-		
 	}
-
 
 	/**
 	 * Inform all the EprClauses that contain the atom (not only the
@@ -742,13 +707,11 @@ public class EprStateManager {
 			} else if (newClauseState == EprClauseState.Unit) {
 				unitClauses.add(ec);
 			}
-			
 		}
 		
 		if (! unitClauses.isEmpty()) {
 			return unitClauses;
 		}
-
 		return null;
 	}
 
@@ -793,7 +756,7 @@ public class EprStateManager {
 	 * @return A ground conflict if adding the given clause directly leads to one.
 	 */
 	public Clause addClause(HashSet<Literal> literals) {
-		EprClause newClause = mEprTheory.getEprClauseFactory().getClause(literals);
+		EprClause newClause = mEprTheory.getEprClauseFactory().getEprClause(literals);
 		Clause conflict = null;
 		if (newClause.isConflict() || newClause.isUnit()) {
 			conflict = propagateAndResolve(new HashSet<EprClause>(Collections.singleton(newClause)));
@@ -816,7 +779,6 @@ public class EprStateManager {
 	public Iterable<EprClause> getAllEprClauses() {
 		return new EprClauseIterable(mPushStateStack);
 	}
-
 
 	//////////////////////////////////// old, perhaps obsolete stuff, from here on downwards /////////////////////////////////////////
 	
@@ -898,15 +860,8 @@ public class EprStateManager {
 
 
 	public Set<ApplicationTerm> getAllConstants() {
-//		HashSet<ApplicationTerm> result = new HashSet<ApplicationTerm>();
-//	
-//		for (EprState s : mEprStateStack)
-//			result.addAll(s.getUsedConstants());
-//		
-//		return result;
 		return mUsedConstants;
 	}
-
 
 	/**
 	 * Register constants that occur in the smt-script for tracking.
@@ -923,14 +878,9 @@ public class EprStateManager {
 
 			addGroundClausesForNewConstant(reallyNewConstants);
 		}
-		
-//		mEprStateStack.peek().addConstants(constants);
 		mUsedConstants.addAll(constants);
 	}
 
-
-
-	
 	private void addGroundClausesForNewConstant(HashSet<ApplicationTerm> newConstants) {
 		ArrayList<Literal[]> groundings = new ArrayList<Literal[]>();
 		for (EprClause c : getAllClauses())  {
@@ -980,6 +930,4 @@ public class EprStateManager {
 	public void setEprClauseFactory(EprClauseFactory clauseFactory) {
 		mEprClauseFactory = clauseFactory;
 	}
-
-
 }

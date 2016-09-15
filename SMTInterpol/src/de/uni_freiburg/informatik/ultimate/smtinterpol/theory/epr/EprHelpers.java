@@ -1,8 +1,6 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 
-import java.lang.reflect.Array;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -23,17 +21,15 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.EqualityProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SharedTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.NamedAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundEqualityAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.EprPushState;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprAtom;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundEqualityAtom;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
 
 public class EprHelpers {
 
@@ -78,31 +74,20 @@ public class EprHelpers {
 		if (atom instanceof EprQuantifiedPredicateAtom) {
 			EprQuantifiedPredicateAtom eqpa = (EprQuantifiedPredicateAtom) atom;
 			TermTuple newTT = sub.apply(eqpa.getArgumentsAsTermTuple());
-			ApplicationTerm newTerm = theory.term(eqpa.getEprPredicate().getFunctionSymbol(), newTT.terms);
-//			if (newTerm.getFreeVars().length > 0) {
-//				resultAtom = eqpa.getEprPredicate().getAtomForQuantifiedTermTuple(newTT, theory, l.getAtom().getAssertionStackLevel());
-//			} else {
-//				resultAtom = eqpa.getEprPredicate().getAtomForPoint(newTT, theory, l.getAtom().getAssertionStackLevel());
-//			}
+
 			resultAtom = eqpa.getEprPredicate().getAtomForTermTuple(newTT, theory, l.getAtom().getAssertionStackLevel());
-//			resultLit =  isPositive ? resultAtom : resultAtom.negate();
 		} else if (atom instanceof EprQuantifiedEqualityAtom) {
 			EprQuantifiedEqualityAtom eea = (EprQuantifiedEqualityAtom) atom;
 			TermTuple newTT = sub.apply(eea.getArgumentsAsTermTuple());
 			ApplicationTerm newTerm = theory.term("=", newTT.terms);
-//			DPLLAtom resultAtom = null;
+			
 			if (newTerm.getFreeVars().length > 0) {
 				resultAtom = new EprQuantifiedEqualityAtom(newTerm, 0, l.getAtom().getAssertionStackLevel());//TODO: hash
-//			} else if (newTerm.getParameters()[0].equals(newTerm.getParameters()[1])) {
 			} else {
 				// TODO: will need a management for these atoms -- so there are no duplicates..
 				//   it's not clear if we want CCEqualities or so, here..
-//				return new EprGroundEqualityAtom(newTerm, 0, 0);
 				resultAtom =  new EprGroundEqualityAtom(newTerm, 0, 0);
 			}
-			
-			
-//			return isPositive ? resultAtom : resultAtom.negate();
 		} else {
 			//assert false : "there might be equality replacements"; --> seems idiotic now..
 			// literal is ground, just return it
@@ -526,23 +511,4 @@ public class EprHelpers {
 		}
 		return insts;
 	}
-//	public static <COLNAMES> SortedSet<COLNAMES> applyMapping(
-//			SortedSet<COLNAMES> colnames, Map<COLNAMES, COLNAMES> translation) {
-//		assert colnames.size > 0;
-//		SortedSet<COLNAMES> result = new SortedSet<COLNAMES>(colnames));
-//		for (
-//			COLNAMES newEntry = translation.get(colnames[i]);
-//			if (newEntry != null) {
-//				result[i] = newEntry;
-//			}
-//		}
-//		return result;
-//	}
-	
-//	public static <LETTER, COLNAMES> List<LETTER> convertPointToNewSignature(
-//			List<LETTER> point, Collection<COLNAMES> pointSignature, Collection<COLNAMES> newSignature) {
-//		List<LETTER> result = new ArrayList<LETTER>(newSignature.size());
-//		
-//		return result;
-//	}
 }

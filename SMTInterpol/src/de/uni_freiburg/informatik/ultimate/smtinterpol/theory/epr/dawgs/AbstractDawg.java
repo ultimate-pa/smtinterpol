@@ -15,13 +15,10 @@ public abstract class AbstractDawg<LETTER, COLNAMES> implements IDawg<LETTER, CO
 	 * Store the column names in a list. By convention this list has no repetitions. 
 	 *  -- we don't use a (sorted) set for this because we store our points in lists
 	 */
-//	protected final List<COLNAMES> mColNames;
-//	protected final COLNAMES[] mColNames;
 	protected final SortedSet<COLNAMES> mColNames;
 	protected final Set<LETTER> mAllConstants;
 	protected final Map<COLNAMES, Integer> mColNameToIndex;
 	
-//	public AbstractDawg(List<COLNAMES> colNames, Set<LETTER> allConstants) {
 	public AbstractDawg(SortedSet<COLNAMES> colNames, Set<LETTER> allConstants) {
 //		assert hasNoRepetitions(colNames) : "convention: we only allow dawgs whose signature has no "
 //				+ "repetitions -- if it had repetitions, we would just omit one column "
@@ -50,7 +47,6 @@ public abstract class AbstractDawg<LETTER, COLNAMES> implements IDawg<LETTER, CO
 	}
 
 	@Override
-//	public List<COLNAMES> getColnames() {
 	public SortedSet<COLNAMES> getColnames() {
 		return mColNames;
 	}
@@ -62,16 +58,9 @@ public abstract class AbstractDawg<LETTER, COLNAMES> implements IDawg<LETTER, CO
 	
 	@Override
 	public void addAll(IDawg<LETTER, COLNAMES> dawg) {
-//		assert Arrays.equals(mColNames, dawg.getColnames());
 		assert mColNames.equals(dawg.getColnames());
 	}
 
-//	@Override
-//	public void addAllWithSubsetSignature(IDawg<LETTER, COLNAMES> d1) {
-//		
-//	}
-	
-	
 	@Override
 	public String toString() {
 		int colWidth = -1;

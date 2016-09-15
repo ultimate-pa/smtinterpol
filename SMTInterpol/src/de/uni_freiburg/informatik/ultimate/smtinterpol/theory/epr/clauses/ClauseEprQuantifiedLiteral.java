@@ -69,10 +69,6 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	IDawg<ApplicationTerm, TermVariable> mFulfilledPoints;
 
 	IDawg<ApplicationTerm, TermVariable> mRefutedPoints;
-	
-	
-
-
 
 	/**
 	 * The Dawg signature for the representation of points wrt this Clause literal.
@@ -103,8 +99,6 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 			EprClause clause, EprTheory eprTheory) {
 		super(polarity, atom, clause, eprTheory);
 		mAtom = atom;
-
-//		processAtom(atom);			
 
 		// compute the signature of a dawg that describes points where this literal has some state
 		SortedSet<TermVariable> vars = new TreeSet<TermVariable>(EprHelpers.getColumnNamesComparator());

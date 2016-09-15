@@ -25,8 +25,6 @@ public class EprPushState {
 	 */
 	private ArrayList<EprClause> mClauses = new ArrayList<EprClause>();
 	
-//	ArrayList<EprPredicate> mEprPredicates = new ArrayList<EprPredicate>();
-	
 	/**
 	 * Contains the DecideStackLiterals of the decide stack that have been derived taking into account
 	 * all the clauses in this push state and the push states below and which have not been
@@ -37,27 +35,6 @@ public class EprPushState {
 	public void addClause(EprClause newClause) {
 		mClauses.add(newClause);
 	}
-
-//	public Set<EprClause> setEprGroundLiteral() {
-//		// TODO Auto-generated method stub
-//		return null;
-//	}
-
-//	public void unsetEprGroundLiteral(Literal literal) {
-//		// TODO Auto-generated method stub
-//		
-//	}
-
-	public void setEprClauseLiteral(ClauseLiteral lit) {
-		
-	}
-
-	public void unsetEprClauseLiteral(ClauseLiteral lit) {
-		
-	}
-//	public void addEprPredicate(EprPredicate ep) {
-//		mEprPredicates.add(ep);
-//	}
 
 	public List<EprClause> getClauses() {
 		return mClauses;
@@ -75,11 +52,6 @@ public class EprPushState {
 	public void pushDecideStackLiteral(DecideStackLiteral decideStackQuantifiedLiteral) {
 		mDecideStack.push(decideStackQuantifiedLiteral);
 	}
-	
-//	public void popDecideStackLiteral(DecideStackLiteral decideStackQuantifiedLiteral) {
-//		DecideStackLiteral top = mDecideStack.pop();
-//		assert top == decideStackQuantifiedLiteral : "TODO: not yet clear how this will work..";
-//	}
 	
 	public DecideStackLiteral peekDecideStack() {
 		return mDecideStack.peek();

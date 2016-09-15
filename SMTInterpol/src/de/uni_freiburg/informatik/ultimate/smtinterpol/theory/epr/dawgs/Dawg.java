@@ -51,19 +51,19 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	}
 
 	@Override
-	public IDawg intersect(IDawg fp) {
+	public IDawg<LETTER, COLNAMES> intersect(IDawg fp) {
 		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
-	public IDawg complement() {
+	public IDawg<LETTER, COLNAMES> complement() {
 		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
-	public IDawg union(IDawg other) {
+	public IDawg<LETTER, COLNAMES> union(IDawg<LETTER, COLNAMES> other) {
 		// TODO Auto-generated method stub
 		return null;
 	}

@@ -178,28 +178,4 @@ public class TermTuple {
 	public boolean isGround() {
 		return getFreeVars().size() == 0;
 	}
-
-	/**
-	 * Are the possible instantiations of this TermTuple a superset of those of 
-	 * the other TermTuple
-	 * @param other
-	 * @return
-	 */
-	@Deprecated
-	public boolean isEqualOrMoreGeneralThan(TermTuple other) {
-		for (int i = 0; i < terms.length; i++) {
-			Term thisT = terms[i];
-			Term otherT = other.terms[i];
-			
-			if (otherT instanceof TermVariable 
-					&& !(thisT instanceof TermVariable)) {
-				return false;
-			}
-		}
-		if (this.getFreeVars().size() < other.getFreeVars().size())
-			return false;
-		//TODO: this is not yet a complete solution
-		// example: P x x y , P x y y --> should say "no" here
-		return true;
-	}
 }

@@ -68,7 +68,6 @@ public class EprPredicate {
 		this.mArity = fs.getParameterSorts().length;
 		this.mEprTheory = eprTheory;
 
-//		this.mTermVariablesForArguments = new ArrayList<TermVariable>(mArity);
 		TreeSet<TermVariable> tva = new TreeSet<TermVariable>(EprHelpers.getColumnNamesComparator());
 		for (int i = 0; i < mArity; i++) {
 			String tvName = mFunctionSymbol.getName() + "_arg_" + i;
@@ -227,7 +226,6 @@ public class EprPredicate {
 		for (EprGroundPredicateAtom at : mDPLLAtoms) {
 			if (at.getDecideStatus() == null) {
 				// not yet decided
-//				undecidedPoints.add(EprHelpers.castTermsToConstants(at.getArguments()));
 				undecidedPoints.add(EprHelpers.convertTermArrayToConstantList(at.getArguments()));
 			} else if (at.getDecideStatus().getSign() == 1) {
 				// positively set
@@ -266,7 +264,6 @@ public class EprPredicate {
 		return mFunctionSymbol;
 	}
 	
-//	public List<TermVariable> getTermVariablesForArguments() {
 	public SortedSet<TermVariable> getTermVariablesForArguments() {
 		return mTermVariablesForArguments;
 	}

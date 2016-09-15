@@ -1,9 +1,6 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -13,9 +10,6 @@ import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
-import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
-import de.uni_freiburg.informatik.ultimate.logic.Term;
-import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 
 /**
@@ -47,28 +41,14 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 		mBacking = new HashSet<List<LETTER>>(nd.mBacking);
 	}
 
-//	public NaiveDawg(NaiveDawg<LETTER, COLNAMES> nd, DawgTranslation<COLNAMES> translation) {
 	public NaiveDawg(NaiveDawg<LETTER, COLNAMES> nd, Map<COLNAMES, COLNAMES> translation) {
 		super(EprHelpers.applyMapping(nd.mColNames, translation), nd.mAllConstants);
 		mBacking = new HashSet<List<LETTER>>(nd.mBacking);
 	}
 
-//	public NaiveDawg(IDawg<LETTER, COLNAMES> other, Map<COLNAMES, Term> translation) {
-//		// TODO Auto-generated constructor stub
-//	}
-
 	@Override
 	public IDawg<LETTER, COLNAMES> join(IDawg<LETTER, COLNAMES> other) {
-		
 		// union signature
-//		Map<COLNAMES, Integer> reverseMap = new HashMap<COLNAMES, Integer>();
-//		List<COLNAMES> newSignature = new ArrayList<COLNAMES>();
-//		SortedSet<COLNAMES> newSignature = new TreeSet<COLNAMES>();
-////		SortedSet<COLNAMES> newSignature = new TreeSet<COLNAMES>();
-//		for (int i = 0; i < this.getColnames().size(); i++) {
-//			newSignature.add(this.getColnames().get(i));
-////			reverseMap.put(this.getColnames().get(i), i);
-//		}
 		SortedSet<COLNAMES> newSignature = new TreeSet<COLNAMES>(EprHelpers.getColumnNamesComparator());
 		newSignature.addAll(this.mColNames);
 		newSignature.addAll(other.getColnames());
@@ -78,14 +58,6 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 		commonColumns.retainAll(this.mColNames);
 		commonColumns.retainAll(other.getColnames());
 
-//		for (COLNAMES cn : other.getColnames()) {
-//			if (!newSignature.contains(cn)) {
-//				newSignature.add(cn);
-//			} else {
-//				commonColumns.add(cn);
-//			}
-//		}
-		
 		NaiveDawg<LETTER, COLNAMES> otherNd = (NaiveDawg<LETTER, COLNAMES>) other;
 
 		NaiveDawg<LETTER, COLNAMES> result = 
@@ -114,7 +86,6 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 				if (joinedPoint != null) {
 					result.add(joinedPoint);
 				}
-//				result.add(buildJoinedPoint(pointThis, this.mColNameToIndex, pointOther, otherNd.mColNameToIndex, newSignature));
 			}
 		}
 		return result;
@@ -249,7 +220,6 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 			int posInPtSig = -1;
 			Iterator<COLNAMES> ptSigIt = ptSig.iterator();
 			for (int i = 0; i < ptSig.size(); i++) {
-//				if (ptSig.get(i) == cn) {
 				if (ptSigIt.next() == cn) {
 					posInPtSig = i;
 				}
@@ -305,5 +275,4 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	public boolean isSingleton() {
 		return mBacking.size() == 1;
 	}
-
 }

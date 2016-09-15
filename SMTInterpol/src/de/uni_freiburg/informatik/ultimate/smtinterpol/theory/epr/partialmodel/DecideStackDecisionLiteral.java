@@ -19,11 +19,6 @@ public class DecideStackDecisionLiteral extends DecideStackLiteral {
 		super(polarity, eprPredicate, dawg);
 	}
 
-//	public DecideStackDecisionLiteral(boolean polarity, EprQuantifiedPredicateAtom atom,
-//			IDawg<ApplicationTerm, TermVariable> dawg) {
-//		super(polarity, atom, dawg);
-//		// TODO Auto-generated constructor stub
-//	}
 	@Override
 	public String toString() {
 		return "(DSDL: " + (mPolarity ? "" : "~").toString() + mPred.toString() +  ")";

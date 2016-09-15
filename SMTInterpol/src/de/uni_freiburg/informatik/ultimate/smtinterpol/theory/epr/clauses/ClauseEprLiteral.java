@@ -31,7 +31,6 @@ public abstract class ClauseEprLiteral extends ClauseLiteral {
 	ScopedHashSet<IEprLiteral> mPartiallyConflictingDecideStackLiterals = 
 			new ScopedHashSet<IEprLiteral>();
 	
-//	ScopedHashSet<DecideStackLiteral> mPartiallyFulfillingDecideStackLiterals = 
 	ScopedHashSet<IEprLiteral> mPartiallyFulfillingDecideStackLiterals = 
 			new ScopedHashSet<IEprLiteral>();
 
@@ -66,13 +65,7 @@ public abstract class ClauseEprLiteral extends ClauseLiteral {
 	}
 	
 	
-//	public void addPartiallyConflictingDecideStackLiteral(DecideStackLiteral dsl) {
 	public void addPartiallyConflictingDecideStackLiteral(IEprLiteral dsl) {
-//		assert (! (this instanceof ClauseEprGroundLiteral)) || dsl.talksAboutPoint(this.mEprPredicateAtom.getArguments());
-//		assert !(dsl instanceof EprGroundPredicateLiteral)
-//				|| dsl.getDawg().accepts(EprHelpers.convertTermArrayToConstantList(this.mEprPredicateAtom.getArguments()));
-//		assert !(dsl instanceof DecideStackLiteral)
-//			|| dsl.getDawg().intersect(other)
 		mPartiallyConflictingDecideStackLiterals.add(dsl);
 	}
 
@@ -80,9 +73,7 @@ public abstract class ClauseEprLiteral extends ClauseLiteral {
 		mPartiallyConflictingDecideStackLiterals.remove(dsl);
 	}
 	
-//	public void addPartiallyFulfillingDecideStackLiteral(DecideStackLiteral dsl) {
 	public void addPartiallyFulfillingDecideStackLiteral(IEprLiteral dsl) {
-//		assert dsl.getDawg().accepts(EprHelpers.convertTermArrayToConstantList(this.mEprPredicateAtom.getArguments()));
 		mPartiallyFulfillingDecideStackLiterals.add(dsl);
 	}
 	

@@ -45,21 +45,12 @@ public class EprTheory implements ITheory {
 
 	HashMap<FunctionSymbol, EprPredicate> mFunctionSymbolToEprPredicate = new HashMap<FunctionSymbol, EprPredicate>();
 
-//	ArrayDeque<Literal> mGroundLiteralsToPropagate = new ArrayDeque<Literal>();
-//	Map<Literal, DecideStackPropagatedLiteral> mGroundLiteralsToPropagateToReason = 
-//			new HashMap<Literal, DecideStackPropagatedLiteral>();
 	Map<Literal, ClauseLiteral> mGroundLiteralsToPropagateToReason = 
 			new HashMap<Literal, ClauseLiteral>();
 
 
 	HashMap<Object, HashMap<TermVariable, Term>> mBuildClauseToAlphaRenamingSub = 
 			new HashMap<Object, HashMap<TermVariable,Term>>();
-
-	/**
-	 * if we propagate a ground literal we have to be able to give a unit clause
-	 * that explains the literal
-	 */
-	private HashMap<Literal, Clause> mPropLitToExplanation = new HashMap<Literal, Clause>();
 
 	ScopedHashSet<DPLLAtom> mAtomsAddedToDPLLEngine = new ScopedHashSet<DPLLAtom>();
 	
@@ -134,14 +125,6 @@ public class EprTheory implements ITheory {
 		if (atom instanceof EprGroundPredicateAtom) {
 			// literal is of the form (P c1 .. cn) (no quantification, but an EprPredicate)
 			// is being set by the DPLLEngine (the quantified EprPredicateAtoms are not known to the DPLLEngine)
-
-			/* plan:
-			 * 
-			 * The unquantified epr literal gets a DecideStackLiteral on the Epr
-			 * decide stack.
-			 * (it is on two decide stacks then - the one from the DPLLEngine 
-			 *  and the one in EprStateManager)
-			 */
 
 			Clause conflict = mStateManager.setEprGroundLiteral(literal);
 			if (conflict != null)
@@ -229,22 +212,6 @@ public class EprTheory implements ITheory {
 			return null;
 		mLogger.debug("EPRDEBUG: computeConflictClause");
 		
-		/*
-		 * plan:
-		 *  (assuming that the internal epr model is consistent at this point)
-		 *  1 check if current model is complete
-		 *    if yes: return sat
-		 *    if no:
-		 *  2 set a EprQuantifiedUnitClause that makes it more complete
-		 *     is there a conflict now?
-		 *    if yes:
-		 *     analyze the conflict and do one of the following
-		 *      - set a different EprQuantifiedUnitClause (for example with added exceptions)
-		 *      - return a ground conflict clause
-		 *    if no:
-		 *     goto 1
-		 */
-		
 		return mStateManager.eprDpllLoop();
 	}
 
@@ -265,14 +232,12 @@ public class EprTheory implements ITheory {
 		return lit;
 	}
 	
-//	public void addGroundLiteralToPropagate(Literal l, DecideStackPropagatedLiteral reason) {
 	public void addGroundLiteralToPropagate(Literal l, ClauseLiteral reason) {
 		mGroundLiteralsToPropagateToReason.put(l, reason);
 	}
 
 	@Override
 	public Clause getUnitClause(Literal literal) {
-//		Clause unitClause = mPropLitToExplanation.get(literal);
 		Clause unitClause = mGroundLiteralsToPropagateToReason.get(literal).getUnitGrounding(literal);
 		mLogger.debug("EPRDEBUG: getUnitClause -- returning " + unitClause);
 		assert unitClause != null;
@@ -333,7 +298,6 @@ public class EprTheory implements ITheory {
 
 	@Override
 	public Object push() {
-//		mStateManager.beginScope("push");
 		mStateManager.push();
 		mAtomsAddedToDPLLEngine.beginScope();
 		return null;
@@ -341,7 +305,6 @@ public class EprTheory implements ITheory {
 
 	@Override
 	public void pop(Object object, int targetlevel) {
-//		mStateManager.endScope("push");
 		for (int i = mClausifier.getStackLevel(); i > targetlevel; i--)
 			mStateManager.pop();
 		mAtomsAddedToDPLLEngine.endScope();
@@ -691,7 +654,6 @@ public class EprTheory implements ITheory {
 							return new DPLLAtom.TrueAtom().negate();
 						}
 						throw new UnsupportedOperationException();// how to obtain a fresh CCEquality???
-						//							addAtomToDPLLEngine(ea);
 					} else {
 						EprQuantifiedEqualityAtom eea = new EprQuantifiedEqualityAtom(mTheory.term("=", newTT.terms),
 								0,  //TODO use good hash

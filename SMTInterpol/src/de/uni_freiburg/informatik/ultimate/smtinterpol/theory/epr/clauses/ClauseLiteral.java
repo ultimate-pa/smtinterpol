@@ -99,43 +99,5 @@ public abstract class ClauseLiteral {
 		return negate + mAtom.toString();
 	}
 	
-
-	
 	public abstract Clause getUnitGrounding(Literal literal) ;
-//	{
-//		DPLLAtom atom = literal.getAtom();
-//
-//		IDawg<ApplicationTerm, TermVariable> groundingDawg = null;
-//		// find the matching clauseLiteral for the given literal (TODO: what if there are several?)
-//		for (Entry<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> en : mClauseLitToUnitPoints.entrySet()) {
-//			ClauseLiteral cl = en.getKey();
-//			if (cl.getLiteral() == literal) {
-//				// the literal is ground
-//				assert literal.getAtom().getSMTFormula(mEprTheory.getTheory()).getFreeVars().length == 0;
-//				groundingDawg = en.getValue();
-//				break;
-//			} else if (cl instanceof ClauseEprQuantifiedLiteral
-//					&& atom instanceof EprPredicateAtom) {
-//				EprPredicateAtom epa = (EprPredicateAtom) atom;
-//				ClauseEprQuantifiedLiteral ceql = (ClauseEprQuantifiedLiteral) cl;
-//
-//				if (epa.getEprPredicate() != ceql.getEprPredicate()) {
-//					continue;
-//				}
-//				Term[] ceqlArgs = ceql.mArgumentTerms.toArray(new Term[ceql.mArgumentTerms.size()]);
-//				TTSubstitution unifier = epa.getArgumentsAsTermTuple().match(new TermTuple(ceqlArgs), mEprTheory.getEqualityManager());
-//				if (unifier != null) {
-//					groundingDawg = en.getValue();
-//					break;
-//				}
-//			}
-//		}
-//		assert groundingDawg != null && ! groundingDawg.isEmpty();
-//
-//		//TODO: sample one point from the dawg, so we give a one-point dawg to getGroundings() ?..
-//		
-//		Set<Clause> groundings = getGroundings(groundingDawg);
-//		
-//		return groundings.iterator().next();
-//	}
 }

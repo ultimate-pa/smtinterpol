@@ -76,9 +76,6 @@ public class EprClauseFactory {
 		// apply the unifier to the literals of c1 and c2, add the unified literals to the resolvent
 		for (ClauseLiteral cl : c2Lits) {
 			assert cl != pivot1 && cl != pivot2;
-//			if (cl == pivot2) {
-//				continue;
-//			}
 
 			if (cl instanceof ClauseEprQuantifiedLiteral) {
 				ClauseEprQuantifiedLiteral clQ = (ClauseEprQuantifiedLiteral) cl;
@@ -87,19 +84,12 @@ public class EprClauseFactory {
 				TermTuple cltt = new TermTuple(clArgs.toArray(new Term[clArgs.size()]));
 				TermTuple unifiedClTt = unifier.apply(cltt);
 				
-//				ClauseEprLiteral newCl = null;
 				Literal newCl = null;
 				if (unifiedClTt.isGround()) {
-//					newCl = new ClauseEprGroundLiteral(cl.getPolarity(),
-//							(EprGroundPredicateAtom) pred.getAtomForTermTuple(unifiedClTt, mEprTheory.getTheory(), 0),  //TODO: deal with assertionstacklevel
-//							null, mEprTheory);
 					EprGroundPredicateAtom atom = (EprGroundPredicateAtom) pred.getAtomForTermTuple(
 							unifiedClTt, mEprTheory.getTheory(), 0);  //TODO: deal with assertionstacklevel
 					newCl = cl.getPolarity() ? atom : atom.negate();
 				} else {
-//					newCl = new ClauseEprQuantifiedLiteral(cl.getPolarity(), 
-//							(EprQuantifiedPredicateAtom) pred.getAtomForTermTuple(unifiedClTt, mEprTheory.getTheory(), 0),  //TODO: deal with assertionstacklevel
-//						null, mEprTheory);
 
 					EprQuantifiedPredicateAtom atom = (EprQuantifiedPredicateAtom) 
 							pred.getAtomForTermTuple(unifiedClTt, mEprTheory.getTheory(), 0);  //TODO: deal with assertionstacklevel
@@ -108,11 +98,6 @@ public class EprClauseFactory {
 					atom = (EprQuantifiedPredicateAtom) mEprTheory.getEprAtom(
 							(ApplicationTerm) atom.getSMTFormula(mEprTheory.getTheory()), 
 							0, 0, alphaRenamingIdentifier);//TODO: deal with assertionstacklevel, hash
-					
-//					Term renamedTerm = mEprTheory.applyAlphaRenaming(
-//							(ApplicationTerm) atom.getSMTFormula(mEprTheory.getTheory()), 
-//							alphaRenamingIdentifier);
-					
 					
 					newCl = cl.getPolarity() ? atom : atom.negate();
 				}
@@ -125,38 +110,6 @@ public class EprClauseFactory {
 		}
 		
 		return new EprClause(resLits, mEprTheory);
-		
-//		c2.getVariables();
-		
-		//TODO rework
-		
-		// compute unifying substitution
-		// TODO:
-		// think unification through
-		//  - if all clauses have disjoint free variable sets, would that help?
-		//  - related: are we correctly dealing with literals like P(x, x, y)??
-		
-		
-		/*
-		 * plan:
-		 *  - compute unifier for the pivot literals
-		 *  - apply the unifier to all literals in one of the clauses
-		 *  - construct the resolvent from the literals
-		 */
-
-//		Set<ClauseLiteral> litsForResolvent = new HashSet<ClauseLiteral>();
-//		litsForResolvent.addAll(c1.getLiterals());
-//		litsForResolvent.remove(pivot1);
-//		litsForResolvent.addAll(c2.getLiterals());
-//		litsForResolvent.remove(pivot2);
-//		
-//		HashSet<Literal> lfr = new HashSet<Literal>();
-//		for (ClauseLiteral cl : litsForResolvent) {
-//			lfr.add(cl.getLiteral());
-//		}
-//		
-//		return getClause(lfr);
-//		return null;
 	}
 	
 	/**
@@ -164,7 +117,7 @@ public class EprClauseFactory {
 	 * Note that this may return a EprDerivedClause -- if there already is one for the set of Literals
 	 * (copy from the old getBaseClause method)
 	 */
-	public EprClause getClause(Set<Literal> newLits) {
+	public EprClause getEprClause(Set<Literal> newLits) {
 		EprClause result = mLiteralsToClause.get(newLits);
 		if (result == null) {
 			result = new EprClause(newLits, mEprTheory);
