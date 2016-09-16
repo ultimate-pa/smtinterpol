@@ -964,8 +964,8 @@ public class SMTInterpol extends NoopScript {
 		}
 		final Interpolator interpolator =
 			new Interpolator(mLogger, this, tmpBench, getTheory(), parts, startOfSubtree);
-		Term proofTree = getProof();
-		Term[] ipls = interpolator.getInterpolants(proofTree);
+		final Term proofTree = getProof();
+		final Term[] ipls = interpolator.getInterpolants(proofTree);
 		
 		if (mBy0Seen != -1) {
 			final Div0Remover rem = new Div0Remover();

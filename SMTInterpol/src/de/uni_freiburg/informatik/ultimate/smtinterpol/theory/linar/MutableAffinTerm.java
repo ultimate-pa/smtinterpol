@@ -236,7 +236,7 @@ public class MutableAffinTerm {
 			if (me.getValue().equals(Rational.MONE)) {
 				convme = t.term(negate, convme);
 			} else if (!me.getValue().equals(Rational.ONE)) {
-				Term convfac = me.getValue().toTerm(numSort);
+				final Term convfac = me.getValue().toTerm(numSort);
 				convme = t.term(times, convfac, convme);
 			}
 			terms[offset++] = convme;
@@ -279,10 +279,10 @@ public class MutableAffinTerm {
 			return mConstant.compareTo(InfinitNumber.ZERO) <= 0 
 				? smtTheory.mTrue : smtTheory.mFalse;
 		}
-		boolean isInt = isInt();
-		Sort sort = smtTheory.getSort(isInt ? "Int" : "Real");
-		String comp = mConstant.mEps == 0 ? "<=" : "<";
-		Term zero = Rational.ZERO.toTerm(sort);
+		final boolean isInt = isInt();
+		final Sort sort = smtTheory.getSort(isInt ? "Int" : "Real");
+		final String comp = mConstant.mEps == 0 ? "<=" : "<";
+		final Term zero = Rational.ZERO.toTerm(sort);
 		final Term res = smtTheory.term(comp, toSMTLib(smtTheory, isInt, quoted), zero);
 		return quoted ? smtTheory.annotatedTerm(NamedAtom.QUOTED, res) : res;
 	}

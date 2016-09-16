@@ -43,7 +43,7 @@ public class InterpolatorClauseTermInfo {
 	/**
 	 * All literals occurring in this term
 	 */
-	private ArrayList<Term> mLiterals;
+	private final ArrayList<Term> mLiterals;
 	
 	private boolean mIsResolution;
 	
@@ -143,12 +143,12 @@ public class InterpolatorClauseTermInfo {
 	 */
 	public void computeResolutionLiterals(Interpolator interpolator){
 		assert mIsResolution;
-		LinkedHashSet<Term> literals = new LinkedHashSet<Term>();
-		InterpolatorClauseTermInfo primInfo = interpolator.mClauseTermInfos.get(mPrimary);
+		final LinkedHashSet<Term> literals = new LinkedHashSet<Term>();
+		final InterpolatorClauseTermInfo primInfo = interpolator.mClauseTermInfos.get(mPrimary);
 		literals.addAll(primInfo.getLiterals());
-		for (AnnotatedTerm antecedent : mAntecedents){
-			Term pivot = computePivot(antecedent);
-			InterpolatorClauseTermInfo antecedentInfo =
+		for (final AnnotatedTerm antecedent : mAntecedents){
+			final Term pivot = computePivot(antecedent);
+			final InterpolatorClauseTermInfo antecedentInfo =
 							interpolator.mClauseTermInfos.get(antecedent.getSubterm());
 			literals.addAll(antecedentInfo.getLiterals());
 			literals.remove(pivot);
@@ -167,8 +167,8 @@ public class InterpolatorClauseTermInfo {
 		} else {
 			resTerm = (ApplicationTerm) term;
 		}
-		Term[] params = resTerm.getParameters();
-		AnnotatedTerm[] antes = new AnnotatedTerm[params.length - 1];
+		final Term[] params = resTerm.getParameters();
+		final AnnotatedTerm[] antes = new AnnotatedTerm[params.length - 1];
 		for (int i = 0; i < params.length -1; i++){
 			antes[i] = (AnnotatedTerm) params[i + 1]; 
 		}
@@ -187,10 +187,10 @@ public class InterpolatorClauseTermInfo {
 		}
 		mIsLeaf = true;
 		mLiterals.addAll(computeLiterals(leafTerm));
-		String leafKind = computeLeafKind(leafTerm);
+		final String leafKind = computeLeafKind(leafTerm);
 		if (leafKind.equals("@lemma")){
 			mLeafKind = "@lemma";
-			String lemmaType = computeLemmaType(leafTerm);
+			final String lemmaType = computeLemmaType(leafTerm);
 			if (lemmaType.equals(":EQ")){
 				computeEQLemmaInfo(leafTerm);
 			} else if (lemmaType.equals(":CC")
@@ -213,7 +213,7 @@ public class InterpolatorClauseTermInfo {
 	 */
 	private void computeEQLemmaInfo(Term term){
 		mLemmaType = ":EQ";
-		Object[] eqParams = computeLiterals(term).toArray();
+		final Object[] eqParams = computeLiterals(term).toArray();
 		Term term1 = (Term) eqParams[0];
 		Term term2 = (Term) eqParams[1];
 		assert ((isNegated(term1) && !isNegated(term2))
@@ -241,7 +241,7 @@ public class InterpolatorClauseTermInfo {
 	 */
 	private void computeLALemmaInfo(Term term){
 		mLemmaType = computeLemmaType(term);
-		AnnotatedTerm inner = (AnnotatedTerm) ((ApplicationTerm) term).getParameters()[0];
+		final AnnotatedTerm inner = (AnnotatedTerm) ((ApplicationTerm) term).getParameters()[0];
 		mFarkasCoeffs = computeCoefficients(inner);
 	}
 
@@ -298,38 +298,38 @@ public class InterpolatorClauseTermInfo {
 	 * Compute the literals of this leaf term
 	 */
 	private LinkedHashSet<Term> computeLiterals(Term term){
-		LinkedHashSet<Term> literals = new LinkedHashSet<Term>();
-		String leafKind = computeLeafKind(term);
+		final LinkedHashSet<Term> literals = new LinkedHashSet<Term>();
+		final String leafKind = computeLeafKind(term);
 		if (leafKind.equals("@lemma")){
-			AnnotatedTerm innerLemma =
+			final AnnotatedTerm innerLemma =
 							(AnnotatedTerm) ((ApplicationTerm) term).getParameters()[0];
-			ApplicationTerm lemmaClause = (ApplicationTerm) innerLemma.getSubterm();
-			for (Term literal : lemmaClause.getParameters()){
+			final ApplicationTerm lemmaClause = (ApplicationTerm) innerLemma.getSubterm();
+			for (final Term literal : lemmaClause.getParameters()){
 				literals.add(literal);
 			}
 		} else if (leafKind.equals("@clause")){
-			AnnotatedTerm annotLit = (AnnotatedTerm)
+			final AnnotatedTerm annotLit = (AnnotatedTerm)
 							((ApplicationTerm) term).getParameters()[1];
-			Term literal = annotLit.getSubterm();
+			final Term literal = annotLit.getSubterm();
 			if (literal instanceof ApplicationTerm
 							&& ((ApplicationTerm) literal).getFunction()
 							.getName().equals("or")){
-				ApplicationTerm appLit = (ApplicationTerm) literal;
-				for(Term arg : appLit.getParameters()){
+				final ApplicationTerm appLit = (ApplicationTerm) literal;
+				for(final Term arg : appLit.getParameters()){
 					literals.add(arg);
 				}
 			} else {
 				literals.add(literal);
 			}
 		} else if (leafKind.equals("@asserted")){
-			AnnotatedTerm annotLit = (AnnotatedTerm)
+			final AnnotatedTerm annotLit = (AnnotatedTerm)
 							((ApplicationTerm) term).getParameters()[0];
-			Term literal = annotLit.getSubterm();
+			final Term literal = annotLit.getSubterm();
 			if (literal instanceof ApplicationTerm
 							&& ((ApplicationTerm) literal).getFunction()
 							.getName().equals("or")){
-				ApplicationTerm appLit = (ApplicationTerm) literal;
-				for(Term arg : appLit.getParameters()){
+				final ApplicationTerm appLit = (ApplicationTerm) literal;
+				for(final Term arg : appLit.getParameters()){
 					literals.add(arg);
 				}
 			} else {
@@ -353,7 +353,7 @@ public class InterpolatorClauseTermInfo {
 	 * For a lemma term, get the theory which created the lemma
 	 */
 	private String computeLemmaType(Term term){
-		AnnotatedTerm innerLemma = (AnnotatedTerm)
+		final AnnotatedTerm innerLemma = (AnnotatedTerm)
 						((ApplicationTerm) term).getParameters()[0];
 		return innerLemma.getAnnotations()[0].getKey();
 	}
@@ -362,7 +362,7 @@ public class InterpolatorClauseTermInfo {
 	 * For a leaf term get the source partition
 	 */
 	private String computeSource(Term proofTerm){
-		String leafKind = computeLeafKind(proofTerm);
+		final String leafKind = computeLeafKind(proofTerm);
 		if (!leafKind.equals("@clause") && !leafKind.equals("@asserted")){
 			return null;
 		}
@@ -383,16 +383,16 @@ public class InterpolatorClauseTermInfo {
 	 * <code>f * (ccEq.getLhs() - ccEq.getRhs()) == laEq.getLhs())</code>
 	 */
 	private Rational computeLAFactor(Term ccEq, Term laEq){
-		InterpolatorAffineTerm ccLeft =
+		final InterpolatorAffineTerm ccLeft =
 						Interpolator.termToAffine(((ApplicationTerm) ccEq).getParameters()[0]);
-		InterpolatorAffineTerm ccRight =
+		final InterpolatorAffineTerm ccRight =
 						Interpolator.termToAffine(((ApplicationTerm) ccEq).getParameters()[1]);
-		InterpolatorAffineTerm ccAffine = new InterpolatorAffineTerm(ccLeft);
+		final InterpolatorAffineTerm ccAffine = new InterpolatorAffineTerm(ccLeft);
 		ccAffine.add(Rational.MONE, ccRight);
-		InterpolatorAffineTerm laAffine =
+		final InterpolatorAffineTerm laAffine =
 						Interpolator.termToAffine(((ApplicationTerm) laEq).getParameters()[0]);
 		Rational factor = laAffine.getGCD().div(ccAffine.getGCD());
-		InterpolatorAffineTerm eqSum = new InterpolatorAffineTerm(ccAffine).mul(factor)
+		final InterpolatorAffineTerm eqSum = new InterpolatorAffineTerm(ccAffine).mul(factor)
 						.add(Rational.MONE, laAffine);
 		if (!eqSum.isConstant() || !eqSum.getConstant().equals(InfinitNumber.ZERO)) {
 			factor = factor.negate();
@@ -406,12 +406,12 @@ public class InterpolatorClauseTermInfo {
 	 * Compute the literals and corresponding Farkas coefficients for this LA lemma
 	 * */
 	private HashMap<Term, Rational> computeCoefficients(AnnotatedTerm annotTerm){
-		Annotation annot = annotTerm.getAnnotations()[0];
-		HashMap<Term, Rational> coeffMap = new HashMap<Term, Rational>();
+		final Annotation annot = annotTerm.getAnnotations()[0];
+		final HashMap<Term, Rational> coeffMap = new HashMap<Term, Rational>();
 		Term term;
 		Rational coeff;
-		Term[] subs = ((ApplicationTerm) annotTerm.getSubterm()).getParameters();
-		Object[] coeffs = (Object[]) annot.getValue();
+		final Term[] subs = ((ApplicationTerm) annotTerm.getSubterm()).getParameters();
+		final Object[] coeffs = (Object[]) annot.getValue();
 		if (coeffs == null){ //trichotomy
 			for (int i = 0; i < 3; i++){
 				term = subs[i];
@@ -437,9 +437,9 @@ public class InterpolatorClauseTermInfo {
 	 * @return
 	 */
 	private Term computeDiseq(Term lemma){
-		AnnotatedTerm inner = (AnnotatedTerm) ((ApplicationTerm) lemma).getParameters()[0];
-		Annotation annotation = inner.getAnnotations()[0];
-		Object value = ((Object[]) annotation.getValue())[0];
+		final AnnotatedTerm inner = (AnnotatedTerm) ((ApplicationTerm) lemma).getParameters()[0];
+		final Annotation annotation = inner.getAnnotations()[0];
+		final Object value = ((Object[]) annotation.getValue())[0];
 		if (value instanceof Term){
 			return (Term) value;
 		}
@@ -452,13 +452,13 @@ public class InterpolatorClauseTermInfo {
 	 * Term arrays are alternating
 	 */
 	private Object[] computePaths(Term lemma){
-		AnnotatedTerm inner = (AnnotatedTerm) ((ApplicationTerm) lemma).getParameters()[0];
-		Annotation annotation = inner.getAnnotations()[0];
-		boolean hasDiseq = ((Object[]) annotation.getValue())[0] instanceof Term;
-		int length = ((Object[]) annotation.getValue()).length - (hasDiseq ? 1 : 0);
-		Object[] paths = new Object[length];
+		final AnnotatedTerm inner = (AnnotatedTerm) ((ApplicationTerm) lemma).getParameters()[0];
+		final Annotation annotation = inner.getAnnotations()[0];
+		final boolean hasDiseq = ((Object[]) annotation.getValue())[0] instanceof Term;
+		final int length = ((Object[]) annotation.getValue()).length - (hasDiseq ? 1 : 0);
+		final Object[] paths = new Object[length];
 		for (int i = 0; i < length; i++){
-			int j = i + (hasDiseq ? 1 : 0);
+			final int j = i + (hasDiseq ? 1 : 0);
 			paths[i] = ((Object[]) annotation.getValue())[j];
 		}
 		return paths;
@@ -500,7 +500,7 @@ public class InterpolatorClauseTermInfo {
 	private boolean isLAEquality(Term atom){
 		if ((atom instanceof ApplicationTerm)){
 			if (((ApplicationTerm) atom).getFunction().getName().equals("=")){
-				Term secondParam = ((ApplicationTerm) atom).getParameters()[1];
+				final Term secondParam = ((ApplicationTerm) atom).getParameters()[1];
 				if ((secondParam instanceof ConstantTerm)){
 					return SMTAffineTerm.create(secondParam).getConstant()
 									.equals(Rational.ZERO);

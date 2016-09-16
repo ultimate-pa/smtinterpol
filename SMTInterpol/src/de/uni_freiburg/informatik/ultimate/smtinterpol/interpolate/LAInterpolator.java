@@ -27,7 +27,6 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate.Interpolator.LitInfo;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.InfinitNumber;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.MutableAffinTerm;
 
 /**
  * The Interpolator for linear arithmetic. This computes the interpolants
@@ -145,11 +144,11 @@ public class LAInterpolator {
 		
 		/* Add the A-part of the literals in this LA lemma.
 		 */
-		InterpolatorClauseTermInfo lemmaTermInfo = mInterpolator.getClauseTermInfo(lemma);
-		for (Entry<Term,Rational> entry : lemmaTermInfo.getFarkasCoeffs().entrySet()) {
-			Term lit = mInterpolator.computeNegatedTerm(entry.getKey());
-			InterpolatorLiteralTermInfo litTermInfo = mInterpolator.getLiteralTermInfo(lit);
-			Rational factor = entry.getValue();
+		final InterpolatorClauseTermInfo lemmaTermInfo = mInterpolator.getClauseTermInfo(lemma);
+		for (final Entry<Term,Rational> entry : lemmaTermInfo.getFarkasCoeffs().entrySet()) {
+			final Term lit = mInterpolator.computeNegatedTerm(entry.getKey());
+			final InterpolatorLiteralTermInfo litTermInfo = mInterpolator.getLiteralTermInfo(lit);
+			final Rational factor = entry.getValue();
 			if (litTermInfo.isBoundConstraint()
 							|| (!litTermInfo.isNegated() && litTermInfo.isLAEquality())) {
 				InfinitNumber bound;
@@ -171,7 +170,7 @@ public class LAInterpolator {
 					lv = litTermInfo.getLinVar();
 					bound = new InfinitNumber(litTermInfo.getBound(), 0);
 				}
-				LitInfo info = mInterpolator.getLiteralInfo(litTermInfo.getAtom());
+				final LitInfo info = mInterpolator.getLiteralInfo(litTermInfo.getAtom());
 				inequalityInfo = info;
 
 				int part = info.mInB.nextClearBit(0);
@@ -197,7 +196,7 @@ public class LAInterpolator {
 			} else if (litTermInfo.isNegated() && litTermInfo.isLAEquality()) {
 				//we have a Trichotomy Clause
 				equality = litTermInfo.getAtom();
-				Term eq = equality;
+				final Term eq = equality;
 				//a trichotomy clause must contain exactly three parts
 				assert lemmaTermInfo.getLiterals().size() == 3;// NOCHECKSTYLE
 				assert equalityInfo == null;
@@ -276,7 +275,7 @@ public class LAInterpolator {
 					 * If a != b is in A, the interpolant is simply a != b.
 					 * If a != b is in B, the interpolant is simply a == b.
 					 */
-					Term thisIpl = equalityInfo.isALocal(part) 
+					final Term thisIpl = equalityInfo.isALocal(part) 
 									? mInterpolator.computeNegatedTerm(equality) : equality;
 					result.mInterpolants[part].mTerm = thisIpl;
 				} else {

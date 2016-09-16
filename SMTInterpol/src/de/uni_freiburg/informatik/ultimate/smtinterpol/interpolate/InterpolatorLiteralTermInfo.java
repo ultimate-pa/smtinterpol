@@ -145,7 +145,7 @@ public class InterpolatorLiteralTermInfo {
 	boolean isLAEquality(Term atom){
 		if ((atom instanceof ApplicationTerm)){
 			if (((ApplicationTerm) atom).getFunction().getName().equals("=")){
-				Term secondParam = ((ApplicationTerm) atom).getParameters()[1];
+				final Term secondParam = ((ApplicationTerm) atom).getParameters()[1];
 				if ((secondParam instanceof ConstantTerm)){
 					return SMTAffineTerm.create(secondParam).getConstant()
 									.equals(Rational.ZERO);
@@ -162,7 +162,7 @@ public class InterpolatorLiteralTermInfo {
 		if (!(atom instanceof ApplicationTerm)){
 			return false;
 		}
-		String func = ((ApplicationTerm) atom).getFunction().getName();
+		final String func = ((ApplicationTerm) atom).getFunction().getName();
 		return (func.equals("<") || func.equals("<="));
 	}
 	
@@ -170,7 +170,7 @@ public class InterpolatorLiteralTermInfo {
 	 * For an LA equality or bound constraint, get the linear variable.
 	 */
 	private InterpolatorAffineTerm computeLinVar(Term laTerm){
-		Term laAtom = computeAtom(laTerm);
+		final Term laAtom = computeAtom(laTerm);
 		InterpolatorAffineTerm linVar = new InterpolatorAffineTerm();
 		Term varTerm = ((ApplicationTerm) laAtom).getParameters()[0];
 		if (varTerm instanceof ApplicationTerm
@@ -179,7 +179,7 @@ public class InterpolatorLiteralTermInfo {
 			if (!computeBound(laTerm).equals(Rational.ZERO)){
 				length -= 1;
 			}
-			Term[] varParams = Arrays.copyOf(((ApplicationTerm) varTerm).getParameters(),
+			final Term[] varParams = Arrays.copyOf(((ApplicationTerm) varTerm).getParameters(),
 							length);
 			if (length == 1){
 				varTerm = varParams[0];
@@ -196,15 +196,15 @@ public class InterpolatorLiteralTermInfo {
 	 * This can also be used to get the constant for LA equalities.
 	 */
 	private Rational computeBound(Term laTerm){
-		ApplicationTerm varTerm = (ApplicationTerm)
+		final ApplicationTerm varTerm = (ApplicationTerm)
 						((ApplicationTerm) laTerm).getParameters()[0];
-		Object[] params = ((ApplicationTerm) varTerm).getParameters();
+		final Object[] params = varTerm.getParameters();
 		ConstantTerm boundTerm = null;
 		boolean isNeg = false;
 		if (params[params.length - 1] instanceof ConstantTerm){
 			boundTerm = (ConstantTerm) params[params.length - 1];
 		} else if (params[params.length - 1] instanceof ApplicationTerm){
-			ApplicationTerm appTerm = ((ApplicationTerm) params[params.length - 1]);
+			final ApplicationTerm appTerm = ((ApplicationTerm) params[params.length - 1]);
 			if (appTerm.getFunction().getName().equals("-")){
 				if (appTerm.getParameters()[0] instanceof ConstantTerm){
 					boundTerm = (ConstantTerm) appTerm.getParameters()[0];

@@ -220,13 +220,13 @@ public class CCInterpolator {
 
 			public Term getBoundTerm(int color) {
 				if (color < mColor) {
-					Term first = this == mHead ? mPath[0] 
+					final Term first = this == mHead ? mPath[0] 
 									: mPath[mPath.length - 1];
 					return first;
 				} else if (color < mMaxColor) {
 					return mTerm[color];
 				} else {
-					Term last = this == mTail ? mPath[0]
+					final Term last = this == mTail ? mPath[0]
 									: mPath[mPath.length - 1];
 					return last;
 				}
@@ -252,20 +252,20 @@ public class CCInterpolator {
 
 			private void mergeCongPath(PathEnd other,ApplicationTerm start,
 							ApplicationTerm end) {
-				FunctionSymbol func = start.getFunction();
+				final FunctionSymbol func = start.getFunction();
 				final int rightColor = mInterpolator
 								.getOccurrence(end, null).getALocalColor();
 				final Occurrence rightOccur = mInterpolator.new Occurrence();
 				rightOccur.occursIn(rightColor);
 				final Occurrence leftOccur = mInterpolator.new Occurrence();
 				leftOccur.occursIn(mColor);
-				int numArgs = func.getParameterSorts().length;
-				PathInfo[] argPaths = new PathInfo[numArgs];
-				PathEnd[] head = new PathEnd[numArgs];
-				PathEnd[] tail = new PathEnd[numArgs];
-				boolean[] isReverse = new boolean[numArgs];
-				Term[] startArgs = start.getParameters();
-				Term[] endArgs = end.getParameters();
+				final int numArgs = func.getParameterSorts().length;
+				final PathInfo[] argPaths = new PathInfo[numArgs];
+				final PathEnd[] head = new PathEnd[numArgs];
+				final PathEnd[] tail = new PathEnd[numArgs];
+				final boolean[] isReverse = new boolean[numArgs];
+				final Term[] startArgs = start.getParameters();
+				final Term[] endArgs = end.getParameters();
 				for (int arg = 0; arg < numArgs; arg++) {
 					argPaths[arg] = startArgs[arg] == endArgs[arg] 
 									? new PathInfo(startArgs[arg])
@@ -275,10 +275,10 @@ public class CCInterpolator {
 									isReverse[arg] = (startArgs[arg] != argPaths[arg].mPath[0]);
 									head[arg] = isReverse[arg] ? argPaths[arg].mTail : argPaths[arg].mHead;
 									tail[arg] = isReverse[arg] ? argPaths[arg].mHead : argPaths[arg].mTail;
-									Term startTerm = startArgs[arg];
+									final Term startTerm = startArgs[arg];
 									head[arg].closeAPath(tail[arg], startTerm, leftOccur);
 									head[arg].openAPath(tail[arg], startTerm, leftOccur);
-									Term endTerm = endArgs[arg];
+									final Term endTerm = endArgs[arg];
 									tail[arg].closeAPath(head[arg], endTerm, rightOccur);
 									tail[arg].openAPath(head[arg], endTerm, rightOccur);
 				}
@@ -386,7 +386,7 @@ public class CCInterpolator {
 			if (mComputed) {
 				return;
 			}
-			Occurrence headOccur = mInterpolator.getOccurrence(mPath[0], null);
+			final Occurrence headOccur = mInterpolator.getOccurrence(mPath[0], null);
 
 			mHead = new PathEnd();
 			mTail = new PathEnd();
@@ -395,9 +395,9 @@ public class CCInterpolator {
 
 
 			for (int i = 0; i < mPath.length - 1; i++) {
-				Term left = mPath[i];
-				Term right = mPath[i + 1];
-				ApplicationTerm lit = 
+				final Term left = mPath[i];
+				final Term right = mPath[i + 1];
+				final ApplicationTerm lit = 
 								mEqualities.get(new SymmetricPair<Term>(left, right));
 				if (lit == null) {
 					mTail.mergeCongPath(mHead, (ApplicationTerm) left,
@@ -527,30 +527,30 @@ public class CCInterpolator {
 
 	public Term[] computeInterpolants(Term proofTerm) {
 		mEqualities = new HashMap<SymmetricPair<Term>, ApplicationTerm>();
-		InterpolatorClauseTermInfo proofTermInfo = mInterpolator.getClauseTermInfo(proofTerm);
-		for (Term literal : proofTermInfo.getLiterals()) {
-			InterpolatorLiteralTermInfo litTermInfo = mInterpolator.getLiteralTermInfo(literal);
+		final InterpolatorClauseTermInfo proofTermInfo = mInterpolator.getClauseTermInfo(proofTerm);
+		for (final Term literal : proofTermInfo.getLiterals()) {
+			final InterpolatorLiteralTermInfo litTermInfo = mInterpolator.getLiteralTermInfo(literal);
 			if (litTermInfo.isNegated()) {
-				ApplicationTerm eq = (ApplicationTerm) litTermInfo.getAtom();
+				final ApplicationTerm eq = (ApplicationTerm) litTermInfo.getAtom();
 				mEqualities.put(new SymmetricPair<Term>(
 								eq.getParameters()[0], eq.getParameters()[1]), eq);
 			}
 		}
 
 		PathInfo mainPath = null;
-		Object[] paths = proofTermInfo.getPaths();
+		final Object[] paths = proofTermInfo.getPaths();
 		for (int i = 1; i < paths.length; i += 2) {
-			Term[] path = (Term[]) paths[i];
-			Term first = (Term) path[0];
-			Term last = (Term) path[path.length - 1];
-			PathInfo pathInfo = new PathInfo(path);
+			final Term[] path = (Term[]) paths[i];
+			final Term first = path[0];
+			final Term last = path[path.length - 1];
+			final PathInfo pathInfo = new PathInfo(path);
 			mPaths.put(new SymmetricPair<Term>(first, last), pathInfo);
 			if (i == 1){
 				mainPath = pathInfo;
 			}
 		}
 		mainPath.interpolatePathInfo();
-		ApplicationTerm diseq = (ApplicationTerm) proofTermInfo.getDiseq();
+		final ApplicationTerm diseq = (ApplicationTerm) proofTermInfo.getDiseq();
 		if (diseq != null){
 			mainPath.addDiseq(diseq);
 		}

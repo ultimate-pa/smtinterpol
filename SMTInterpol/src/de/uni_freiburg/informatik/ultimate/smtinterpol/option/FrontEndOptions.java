@@ -40,7 +40,7 @@ public class FrontEndOptions {
 
 	FrontEndOptions(OptionMap options) {
 		mPrintSuccess = (BooleanOption) options.getOption(":print-success");
-		Option outChannel = options.getOption(REG_OUT_CHANNEL_NAME);
+		final Option outChannel = options.getOption(REG_OUT_CHANNEL_NAME);
 		if (outChannel instanceof ChannelOption) {
 			mOut = (ChannelOption) outChannel;
 		} else {

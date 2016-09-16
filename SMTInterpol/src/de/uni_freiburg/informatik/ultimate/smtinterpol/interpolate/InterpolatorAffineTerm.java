@@ -270,7 +270,7 @@ public class InterpolatorAffineTerm {
 			if (me.getValue().equals(Rational.MONE)) {
 				convme = t.term(negate, convme);
 			} else if (!me.getValue().equals(Rational.ONE)) {
-				Term convfac = me.getValue().toTerm(numSort);
+				final Term convfac = me.getValue().toTerm(numSort);
 				convme = t.term(times, convfac, convme);
 			}
 			if (comb == null) {
@@ -326,12 +326,12 @@ public class InterpolatorAffineTerm {
 			if (me.getValue().equals(Rational.MONE)) {
 				rcomb.add(convme);
 			} else if (me.getValue().signum() < 0) {
-				Term convfac = me.getValue().abs().toTerm(numSort);
+				final Term convfac = me.getValue().abs().toTerm(numSort);
 				rcomb.add(t.term(times, convfac, convme));
 			} else if (me.getValue().equals(Rational.ONE)) {
 				lcomb.add(convme);
 			} else if (me.getValue().signum() > 0) {
-				Term convfac = me.getValue().toTerm(numSort);
+				final Term convfac = me.getValue().toTerm(numSort);
 				lcomb.add(t.term(times, convfac, convme));
 			}
 		}
