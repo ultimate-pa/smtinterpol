@@ -3,6 +3,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
@@ -112,7 +113,13 @@ public class EprPredicate {
 
 		HashMap<EprClause, HashSet<ClauseEprLiteral>> allOccurences = 
 				new HashMap<EprClause, HashSet<ClauseEprLiteral>>(quantifiedOccurences);
-		allOccurences.putAll(groundOccurences);
+		for (Entry<EprClause, HashSet<ClauseEprLiteral>> en : groundOccurences.entrySet()) {
+			if (allOccurences.containsKey(en.getKey())) {
+				allOccurences.get(en.getKey()).addAll(en.getValue());
+			} else {
+				allOccurences.put(en.getKey(), en.getValue());
+			}
+		}
 		return allOccurences;
 	}
 
