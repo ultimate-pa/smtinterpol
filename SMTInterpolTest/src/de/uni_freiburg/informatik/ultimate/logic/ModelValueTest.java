@@ -28,22 +28,22 @@ public class ModelValueTest {
 	
 	@Test
 	public void test() {
-		Script script = new NoopScript();
+		final Script script = new NoopScript();
 		
 		script.setLogic(Logics.QF_AUFLIA);
-		Sort sortInt = script.sort("Int");
+		final Sort sortInt = script.sort("Int");
 		script.declareSort("U", 0);
-		Sort sortU = script.sort("U");
-		Sort sortArray = script.sort("Array", sortInt, sortU);
+		final Sort sortU = script.sort("U");
+		final Sort sortArray = script.sort("Array", sortInt, sortU);
 				
-		Term term123 = script.term("@123", null, sortInt);
-		Term term0Int = script.term("@0", null, sortInt);
-		Term term0U = script.term("@0", null, sortU);
-		Term term0Array = script.term("@0", null, sortArray);
+		final Term term123 = script.term("@123", null, sortInt);
+		final Term term0Int = script.term("@0", null, sortInt);
+		final Term term0U = script.term("@0", null, sortU);
+		final Term term0Array = script.term("@0", null, sortArray);
 
 		// Check that caching of function symbols and application terms works.
 		// Also checks that it works for equal but not same strings.
-		String at = "@";
+		final String at = "@";
 		Assert.assertSame(script.term(at+123, null, sortInt), term123);
 		Assert.assertSame(script.term(at+0, null, sortInt), term0Int);
 		Assert.assertSame(script.term(at+0, null, sortU), term0U);

@@ -45,18 +45,20 @@ public class BooleanOption extends Option {
 	}
 	@Override
 	public void set(Object value) {
-		if (value instanceof Boolean)
+		if (value instanceof Boolean) {
 			mValue = ((Boolean) value).booleanValue();
-		else if (value instanceof String) {
-			String str = (String) value;
-			if ("true".equalsIgnoreCase(str))
+		} else if (value instanceof String) {
+			final String str = (String) value;
+			if ("true".equalsIgnoreCase(str)) {
 				mValue = true;
-			else if ("false".equalsIgnoreCase(str))
+			} else if ("false".equalsIgnoreCase(str)) {
 				mValue = false;
-			else
+			} else {
 				throw new SMTLIBException("Not a Boolean value: " + value);
-		} else
+			}
+		} else {
 			throw new SMTLIBException("Not a Boolean value: " + value);
+		}
 	}
 
 	public final boolean getValue() { // NOPMD

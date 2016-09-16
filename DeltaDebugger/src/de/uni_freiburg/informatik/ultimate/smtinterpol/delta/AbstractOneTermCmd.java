@@ -58,32 +58,39 @@ public abstract class AbstractOneTermCmd extends TermCmd {
 	}
 
 	public void appendPreCmds(List<Cmd> pres) {
-		if (pres == null || pres.isEmpty())
+		if (pres == null || pres.isEmpty()) {
 			return;
-		if (mPreCmds == null)
+		}
+		if (mPreCmds == null) {
 			mPreCmds = pres;
-		else
+		} else {
 			mPreCmds.addAll(pres);
+		}
 	}
 	
 	public void removePreCmds(List<Cmd> pres) {
-		if (pres == null || pres.isEmpty())
+		if (pres == null || pres.isEmpty()) {
 			return;
+		}
 		mPreCmds.removeAll(pres);
-		if (mPreCmds.isEmpty())
+		if (mPreCmds.isEmpty()) {
 			mPreCmds = null;
+		}
 	}
 
 	@Override
 	public void dump(PrintWriter writer) {
-		if (mPreCmds != null)
-			for (Cmd cmd : mPreCmds)
-				if (cmd.isActive())
+		if (mPreCmds != null) {
+			for (final Cmd cmd : mPreCmds) {
+				if (cmd.isActive()) {
 					cmd.dump(writer);
+				}
+			}
+		}
 	}
 
 	public List<Cmd> getPreCmds() {
-		List<Cmd> empty = Collections.emptyList();
+		final List<Cmd> empty = Collections.emptyList();
 		return mPreCmds == null ? empty : mPreCmds;
 	}
 

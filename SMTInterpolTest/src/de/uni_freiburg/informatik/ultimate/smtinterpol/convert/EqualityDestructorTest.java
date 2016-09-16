@@ -62,30 +62,30 @@ public class EqualityDestructorTest {
 	 */
 	@Test
 	public void testDestructToFalse() {
-		Term body = mScript.term("and",
+		final Term body = mScript.term("and",
 				mScript.term("=",
 						mScript.variable("x", mInt), mScript.numeral("3")),
 				mScript.term("<",
 						mScript.variable("x", mInt), mScript.numeral("2")));
-		Term ibody = mCompiler.transform(body);
-		EqualityDestructor ed = new EqualityDestructor();
-		Term dbody = ed.destruct(ibody);
+		final Term ibody = mCompiler.transform(body);
+		final EqualityDestructor ed = new EqualityDestructor();
+		final Term dbody = ed.destruct(ibody);
 		Assert.assertSame(mScript.term("false"), dbody);
 	}
 	
 	@Test
 	public void testDestructInAffineTerm() {
-		Term body = mScript.term("and",
+		final Term body = mScript.term("and",
 				mScript.term("=",
 						mScript.variable("x", mInt), mScript.numeral("3")),
 				mScript.term("<=",
 						mScript.term("+", 
 								mScript.variable("x", mInt), mIC1, mIC2),
 						mScript.numeral("0")));
-		Term ibody = mCompiler.transform(body);
-		EqualityDestructor ed = new EqualityDestructor();
-		Term dbody = SMTAffineTerm.cleanup(ed.destruct(ibody));
-		Term expected = mScript.term("<=",
+		final Term ibody = mCompiler.transform(body);
+		final EqualityDestructor ed = new EqualityDestructor();
+		final Term dbody = SMTAffineTerm.cleanup(ed.destruct(ibody));
+		final Term expected = mScript.term("<=",
 				mScript.term("+", mIC1, mIC2, mScript.numeral("3")),
 				mScript.numeral("0"));
 		Assert.assertSame(expected, dbody);
@@ -93,31 +93,31 @@ public class EqualityDestructorTest {
 	
 	@Test
 	public void testDestructInApplicationTerm() {
-		Term body = mScript.term("and",
+		final Term body = mScript.term("and",
 				mScript.term("=", mScript.variable("x", mU), mUC1),
 				mScript.term("=",mScript.term("f", 
 						mScript.variable("x", mU)),
 					mUC2));
-		Term ibody = mCompiler.transform(body);
-		EqualityDestructor ed = new EqualityDestructor();
-		Term dbody = ed.destruct(ibody);
-		Term expected = mScript.term("=", mScript.term("f", mUC1), mUC2);
+		final Term ibody = mCompiler.transform(body);
+		final EqualityDestructor ed = new EqualityDestructor();
+		final Term dbody = ed.destruct(ibody);
+		final Term expected = mScript.term("=", mScript.term("f", mUC1), mUC2);
 		Assert.assertSame(expected, dbody);
 	}
 	
 	@Test
 	public void testDestructNested() {
-		Term body = mScript.term("and",
+		final Term body = mScript.term("and",
 				mScript.term("=",mScript.term("f", 
 						mScript.variable("x", mU)),
 					mUC2),
 				mScript.term("and",
 						mScript.term("=", mScript.term("f", mUC2), mUC2),
 						mScript.term("=", mScript.variable("x", mU), mUC1)));
-		Term ibody = mCompiler.transform(body);
-		EqualityDestructor ed = new EqualityDestructor();
-		Term dbody = ed.destruct(ibody);
-		Term expected = mScript.term("not",
+		final Term ibody = mCompiler.transform(body);
+		final EqualityDestructor ed = new EqualityDestructor();
+		final Term dbody = ed.destruct(ibody);
+		final Term expected = mScript.term("not",
 				mScript.term("or",
 						mScript.term("not",
 								mScript.term("=", 

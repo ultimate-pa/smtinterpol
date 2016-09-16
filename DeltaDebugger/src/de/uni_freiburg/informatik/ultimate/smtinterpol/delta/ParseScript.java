@@ -190,11 +190,11 @@ public class ParseScript extends NoopScript {
 	
 	private void ensureNotFresh(String fun) {
 		if (fun.startsWith(ReplaceByFreshTerm.FRESH_PREFIX)) {
-			String tail = fun.substring(
+			final String tail = fun.substring(
 					ReplaceByFreshTerm.FRESH_PREFIX.length());
 			try {
 				ReplaceByFreshTerm.ensureNotFresh(Integer.parseInt(tail));
-			} catch (NumberFormatException ignored) {
+			} catch (final NumberFormatException ignored) {
 				// Function symbol will not collide with our fresh symbols.
 			}
 		}

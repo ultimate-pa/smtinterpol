@@ -56,21 +56,22 @@ public class LAEquality extends DPLLAtom {
 		return "[" + hashCode() + "]" + mVar + " != " + mBound;
 	}
 
+	@Override
 	public String toString() {
 		return "[" + hashCode() + "]" + mVar + " == " + mBound;
 	}
 	
 	@Override
 	public Term getSMTFormula(Theory smtTheory, boolean quoted) {
-		MutableAffinTerm at = new MutableAffinTerm();
+		final MutableAffinTerm at = new MutableAffinTerm();
 		at.add(Rational.ONE, mVar);
 		at.add(mBound.negate());
-		boolean isInt = mVar.mIsInt && mBound.isIntegral();
-		Sort s = smtTheory.getSort(isInt ? "Int" : "Real");
-		Sort[] binfunc = {s,s};
-		FunctionSymbol comp =  
+		final boolean isInt = mVar.mIsInt && mBound.isIntegral();
+		final Sort s = smtTheory.getSort(isInt ? "Int" : "Real");
+		final Sort[] binfunc = {s,s};
+		final FunctionSymbol comp =  
 				smtTheory.getFunction("=", binfunc);
-		Term res = smtTheory.term(comp,
+		final Term res = smtTheory.term(comp,
 				at.toSMTLib(smtTheory, isInt, quoted),
 				Rational.ZERO.toTerm(s));
 		return quoted ? smtTheory.annotatedTerm(NamedAtom.QUOTED, res) : res;
@@ -88,9 +89,10 @@ public class LAEquality extends DPLLAtom {
 		return mDependentEqualities;
 	}
 	
+	@Override
 	public boolean equals(Object other) { // NOCHECKSTYLE
 		if (other instanceof LAEquality) {
-			LAEquality o = (LAEquality) other;
+			final LAEquality o = (LAEquality) other;
 			return o.mVar == mVar && o.mBound.equals(mBound);
 		}
 		return false;

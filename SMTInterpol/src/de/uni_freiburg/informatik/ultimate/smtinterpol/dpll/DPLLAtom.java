@@ -42,21 +42,23 @@ public abstract class DPLLAtom extends Literal {
 	public static class NegLiteral extends Literal {
 		public NegLiteral(DPLLAtom atom) {
 			super(~atom.hashCode());//TODO is bit-flipping a good hash??? 
-			this.mAtom = atom;
-			this.mNegated = atom;
+			mAtom = atom;
+			mNegated = atom;
 		}
+		@Override
 		public int getSign() {
 			return -1;
 		}
+		@Override
 		public String toString() {
 			return mAtom.toStringNegated();
 		}
+		@Override
 		public Term getSMTFormula(Theory smtTheory, boolean quoted) {
 			return mAtom.getNegatedSMTFormula(smtTheory, quoted);
 		}
 	}
 	
-
 	int mDecideLevel = -1;
 	int mStackPosition = -1;
 	Literal mDecideStatus;
@@ -66,12 +68,13 @@ public abstract class DPLLAtom extends Literal {
 	Clause.WatchList mBacktrackWatchers = new Clause.WatchList();
 	int mAtomQueueIndex = -1;
 	final int mAssertionstacklevel;
-	
+	private boolean mAssumption;
+
 	public DPLLAtom(int hash, int assertionstacklevel) {
 		super(hash);
-		this.mAtom = this;
-		this.mNegated = new NegLiteral(this);
-		this.mAssertionstacklevel = assertionstacklevel;
+		mAtom = this;
+		mNegated = new NegLiteral(this);
+		mAssertionstacklevel = assertionstacklevel;
 		mLastStatus = mNegated;
 	}
 	
@@ -86,6 +89,7 @@ public abstract class DPLLAtom extends Literal {
 	/**
 	 * Returns 1, since an atom is always positive.
 	 */
+	@Override
 	public int getSign() {
 		return 1;
 	}
@@ -136,4 +140,20 @@ public abstract class DPLLAtom extends Literal {
 	public Literal getPreferredStatus() {
 		return mLastStatus;
 	}
+
+	public void assume() {
+		mAssumption = true;
+	}
+
+	public void unassume() {
+		mAssumption = false;
+	}
+	/**
+	 * Check if the decision status of this atom was assumed.
+	 * @return Was the decision status set by assumption?
+	 */
+	public boolean isAssumption() {
+		return mAssumption;
+	}
+	
 }

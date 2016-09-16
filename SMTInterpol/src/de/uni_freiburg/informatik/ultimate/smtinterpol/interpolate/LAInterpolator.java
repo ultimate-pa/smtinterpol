@@ -27,6 +27,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate.Interpolator.LitInfo;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.InfinitNumber;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.MutableAffinTerm;
 
 /**
  * The Interpolator for linear arithmetic. This computes the interpolants
@@ -123,11 +124,13 @@ public class LAInterpolator {
 			result.mInterpolants[i] = new Interpolant();
 		}
 		
-		InterpolatorAffineTerm[] ipl =
+		final InterpolatorAffineTerm[] ipl =
 				new InterpolatorAffineTerm[mInterpolator.mNumInterpolants + 1];
-		for (int part = 0; part < ipl.length; part++)
+		for (int part = 0; part < ipl.length; part++) {
 			ipl[part] = new InterpolatorAffineTerm();
+		}
 		@SuppressWarnings("unchecked")
+		final
 		ArrayList<TermVariable>[] auxVars = 
 			new ArrayList[mInterpolator.mNumInterpolants];
 		/* these variables are used for trichotomy clauses.
@@ -179,8 +182,9 @@ public class LAInterpolator {
 						ipl[part].add(factor, info.getAPart(part));
 						ipl[part].add(factor.negate(), info.mMixedVar);
 
-						if (auxVars[part] == null)
+						if (auxVars[part] == null) {
 							auxVars[part] = new ArrayList<TermVariable>();
+						}
 						auxVars[part].add(info.mMixedVar);
 					}
 					if (info.isALocal(part)) {
@@ -217,15 +221,16 @@ public class LAInterpolator {
 		 * Save the interpolants computed for this leaf into the result array.
 		 */
 		for (int part = 0; part < auxVars.length; part++) {
-			Rational normFactor = ipl[part].isConstant() ? Rational.ONE
+			final Rational normFactor = ipl[part].isConstant() ? Rational.ONE
 					: ipl[part].getGCD().inverse().abs();
 			ipl[part].mul(normFactor);
 			/* Round up the (negated) constant if all terms in the interpolant
 			 * are known to be integer.  This is sound since
 			 * x <= 0  is equivalent to ceil(x) <= 0.
 			 */
-			if (ipl[part].isInt())
+			if (ipl[part].isInt()) {
 				ipl[part].mConstant = ipl[part].getConstant().ceil();
+			}
 
 			if (auxVars[part] != null) { // NOPMD
 				/* This is a mixed interpolant with auxiliary variables.
@@ -240,7 +245,7 @@ public class LAInterpolator {
 					assert equalityInfo.isMixed(part);
 					assert auxVars[part].size() == 2;
 					assert normFactor == Rational.ONE;
-					InterpolatorAffineTerm less = 
+					final InterpolatorAffineTerm less = 
 						new InterpolatorAffineTerm(ipl[part]).add(
 								InfinitNumber.EPSILON);
 					k = InfinitNumber.ZERO;
@@ -252,13 +257,14 @@ public class LAInterpolator {
 									auxVars[part].iterator().next())));
 				} else {
 					/* Just the inequalities are mixed. */
-					if (ipl[part].isInt())
+					if (ipl[part].isInt()) {
 						k = InfinitNumber.ONE.negate();
-					else
+					} else {
 						k = InfinitNumber.EPSILON.negate();
+					}
 					F = ipl[part].toLeq0(mInterpolator.mTheory);
 				}
-				LATerm laTerm = new LATerm(ipl[part], k, F);
+				final LATerm laTerm = new LATerm(ipl[part], k, F);
 				result.mInterpolants[part].mTerm = laTerm;
 			} else {
 				assert (equalityInfo == null 

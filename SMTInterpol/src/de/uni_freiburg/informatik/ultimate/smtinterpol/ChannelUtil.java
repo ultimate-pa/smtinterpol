@@ -27,11 +27,13 @@ public final class ChannelUtil {
 		// hide constructor
 	}
 	public static PrintWriter createChannel(String file) throws IOException {
-		if ("stdout".equals(file))
+		if ("stdout".equals(file)) {
 			return new PrintWriter(System.out);
-		if ("stderr".equals(file))
+		}
+		if ("stderr".equals(file)) {
 			return new PrintWriter(System.err);
-		else
+		} else {
 			return new PrintWriter(new FileWriter(file));
+		}
 	}
 }

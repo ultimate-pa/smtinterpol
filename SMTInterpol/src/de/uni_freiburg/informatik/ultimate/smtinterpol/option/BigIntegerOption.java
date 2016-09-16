@@ -43,22 +43,24 @@ public class BigIntegerOption extends Option {
 		mDefaultValue = other.mDefaultValue;
 	}
 	
+	@Override
 	public Option copy() {
 		return new BigIntegerOption(this);
 	}
 
 	@Override
 	public void set(Object value) {
-		if (value instanceof BigInteger)
+		if (value instanceof BigInteger) {
 			mValue = (BigInteger) value;
-		else if (value instanceof String) {
+		} else if (value instanceof String) {
 			try {
 				mValue = new BigInteger((String) value);
-			} catch (NumberFormatException enfe) {
+			} catch (final NumberFormatException enfe) {
 				throw new SMTLIBException(enfe.getMessage());
 			}
-		} else
+		} else {
 			throw new SMTLIBException("Not a number: " + value);
+		}
 	}
 
 	public final BigInteger getValue() {

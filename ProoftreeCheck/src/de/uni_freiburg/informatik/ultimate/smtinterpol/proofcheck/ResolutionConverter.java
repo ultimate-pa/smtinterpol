@@ -24,7 +24,12 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 
-import de.uni_freiburg.informatik.ultimate.logic.*;
+import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.Sort;
+import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.Theory;
 
 /**
  * This class is used to convert a resolution proof step.
@@ -271,7 +276,7 @@ public class ResolutionConverter extends AConverter {
 			assert ((first != null) && (first.length > 1));
 			
 			// create a mapping from terms in the first disjunction
-			HashMap<Term, Integer> disjunct2index =
+			final HashMap<Term, Integer> disjunct2index =
 					new HashMap<Term, Integer>((int)(first.length / 0.75) + 1);
 			for (int i = first.length - 1; i > plIndex; --i) {
 				disjunct2index.put(first[i], i);
@@ -285,7 +290,7 @@ public class ResolutionConverter extends AConverter {
 			
 			// create Q pattern
 			int index = first.length - 1;
-			ArrayList<Integer> shared =
+			final ArrayList<Integer> shared =
 					new ArrayList<Integer>(secondSize);
 			int i = -1;
 			while (++i < qDisjuncts.length) {
@@ -315,7 +320,7 @@ public class ResolutionConverter extends AConverter {
 			
 			sharedTerms = new int[shared.size()];
 			i = -1;
-			for (Integer j : shared) {
+			for (final Integer j : shared) {
 				assert (i < sharedTerms.length - 1);
 				sharedTerms[++i] = j;
 			}
@@ -469,7 +474,7 @@ public class ResolutionConverter extends AConverter {
 	 */
 	private ApplicationTerm getTerm(final String name, final Term[] parameters,
 			final Sort[] parameterSorts) {
-		ApplicationTerm result = mTheory.term(name, parameters);
+		final ApplicationTerm result = mTheory.term(name, parameters);
 		
 		if (result == null) {
 			return mTheory.term(
@@ -535,9 +540,9 @@ public class ResolutionConverter extends AConverter {
 		if (mapSize != firstLength - 1) {
 			return false;
 		}
-		HashSet<Term> set = new HashSet<Term>(
+		final HashSet<Term> set = new HashSet<Term>(
 				(int)(qDisjuncts.length / 0.75) + 1);
-		for (Term disjunct : qDisjuncts) {
+		for (final Term disjunct : qDisjuncts) {
 			set.add(disjunct);
 		}
 		return (set.size() == qDisjuncts.length);
@@ -804,7 +809,7 @@ public class ResolutionConverter extends AConverter {
 		// add R terms and find C terms
 		int rIndex = firstSize - 2;
 		final int[] qPattern = pattern.mPattern;
-		ArrayList<Integer> sharedList =
+		final ArrayList<Integer> sharedList =
 				new ArrayList<Integer>(secondDisjuncts.length);
 		int i = 0;
 		for ( ; i < secondSize; ++i) {
@@ -847,7 +852,7 @@ public class ResolutionConverter extends AConverter {
 		}
 		
 		// sort shared terms indices
-		Integer[] shared = new Integer[sharedList.size()];
+		final Integer[] shared = new Integer[sharedList.size()];
 		assert (shared.length == sharedLength);
 		sharedList.toArray(shared);
 		Arrays.sort(shared);
@@ -1055,6 +1060,7 @@ public class ResolutionConverter extends AConverter {
 			return (mPatternWrap.mPLength < 6);
 		}
 		
+		@Override
 		public String toString() {
 			final StringBuilder builder = new StringBuilder();
 			builder.append('{');
@@ -1105,7 +1111,7 @@ public class ResolutionConverter extends AConverter {
 	private void writeLemmaString(String string) {
 		try {
 			mLemmaAppendable.append(string);
-		} catch (IOException e) {
+		} catch (final IOException e) {
 			throw new RuntimeException("Appender throws IOException", e);
 		}
 	}

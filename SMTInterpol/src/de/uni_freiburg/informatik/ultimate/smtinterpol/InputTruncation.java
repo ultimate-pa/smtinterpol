@@ -36,16 +36,16 @@ public final class InputTruncation {
 	 */
 	public static void main(String[] args) {
 		System.setProperty("smtinterpol.ddfriendly", "on");
-		String infile = args[0];
-		String outfile = args[1];
+		final String infile = args[0];
+		final String outfile = args[1];
 		try {
-			DefaultLogger logger = new DefaultLogger();
-			OptionMap options = new OptionMap(logger, true);
-			ParseEnvironment pe = new ParseEnvironment(
+			final DefaultLogger logger = new DefaultLogger();
+			final OptionMap options = new OptionMap(logger, true);
+			final ParseEnvironment pe = new ParseEnvironment(
 					new LoggingScript(new SMTInterpol(logger), outfile, true),
 					options);
 			pe.parseScript(infile);
-		} catch (FileNotFoundException e) {
+		} catch (final FileNotFoundException e) {
 			e.printStackTrace();
 		}
 	}

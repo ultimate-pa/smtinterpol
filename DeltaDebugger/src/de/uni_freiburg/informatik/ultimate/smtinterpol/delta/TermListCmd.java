@@ -47,9 +47,9 @@ public class TermListCmd extends TermCmd {
 		writer.print('(');
 		writer.print(mCmd);
 		writer.print(" (");
-		PrintTerm pt = new PrintTerm();
+		final PrintTerm pt = new PrintTerm();
 		String sep = "";
-		for (Term t : mList) {
+		for (final Term t : mList) {
 			writer.print(sep);
 			pt.append(writer, t);
 			sep = " ";
@@ -60,17 +60,19 @@ public class TermListCmd extends TermCmd {
 
 	@Override
 	public void insertDefinitions(Map<String, Cmd> context) {
-		NamedHelper nh = new NamedHelper();
-		for (Term t : mList)
+		final NamedHelper nh = new NamedHelper();
+		for (final Term t : mList) {
 			nh.addNames(t, context, this);
+		}
 	}
 
 	@Override
 	public void addUsedDefinitions(
 			Map<String, Cmd> context, Set<Cmd> usedDefs) {
-		DefinitionTracker dt = new DefinitionTracker(context, usedDefs);
-		for (Term t : mList)
+		final DefinitionTracker dt = new DefinitionTracker(context, usedDefs);
+		for (final Term t : mList) {
 			dt.track(t);
+		}
 	}
 
 	public Term[] getTerms() {
@@ -90,14 +92,16 @@ public class TermListCmd extends TermCmd {
 		mOldList = null;
 	}
 	
+	@Override
 	public String toString() {
 		return mCmd.toUpperCase();
 	}
 
 	@Override
 	public void checkFeature(Map<String, Cmd> features) {
-		if (mCmd.equals("get-value"))
+		if (mCmd.equals("get-value")) {
 			features.remove(":produce-models");
+		}
 	}
 
 }

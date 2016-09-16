@@ -48,14 +48,14 @@ public class DefinitionExpander extends LoggingScript {
 	 * @param args
 	 */
 	public static void main(String[] args) {
-		String infile = args[0];
-		String outfile = args[1];
-		OptionMap options = new OptionMap(new DefaultLogger(), true);
+		final String infile = args[0];
+		final String outfile = args[1];
+		final OptionMap options = new OptionMap(new DefaultLogger(), true);
 		try {
-			ParseEnvironment pe = new ParseEnvironment(
+			final ParseEnvironment pe = new ParseEnvironment(
 					new DefinitionExpander(outfile), options);
 			pe.parseScript(infile);
-		} catch (FileNotFoundException e) {
+		} catch (final FileNotFoundException e) {
 			e.printStackTrace();
 		}
 	}

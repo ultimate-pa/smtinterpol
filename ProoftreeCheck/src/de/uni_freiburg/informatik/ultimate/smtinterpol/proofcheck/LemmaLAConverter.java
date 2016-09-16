@@ -24,7 +24,15 @@ import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.Map;
 
-import de.uni_freiburg.informatik.ultimate.logic.*;
+import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
+import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.Logics;
+import de.uni_freiburg.informatik.ultimate.logic.Rational;
+import de.uni_freiburg.informatik.ultimate.logic.Sort;
+import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.Theory;
 
 /**
  * This class is used to convert a lemma of linear arithmetic (LA).
@@ -90,13 +98,14 @@ public class LemmaLAConverter extends AConverter {
 		
 		// find the correct theory: integer, real, or mixed
 		final EArith arithType;
-		Logics logic = mTheory.getLogic();
-		if (logic.isIRA())
+		final Logics logic = mTheory.getLogic();
+		if (logic.isIRA()) {
 			arithType = EArith.mixed;
-		else if (logic.hasReals())
+		} else if (logic.hasReals()) {
 			arithType = EArith.real;
-		else
+		} else {
 			arithType = EArith.integer;
+		}
 		
 		// data structure for the literals
 		final IneqInfo ineqs = new IneqInfo(disjuncts.length, factors,
@@ -409,7 +418,7 @@ public class LemmaLAConverter extends AConverter {
 	 * @param index index
 	 */
 	private void deMorgan(final IneqInfo ineqs, final int index) {
-		IneqInfo.IneqLiteral literal = ineqs.mLiterals[index];
+		final IneqInfo.IneqLiteral literal = ineqs.mLiterals[index];
 		
 		/*
 		 * NOTE: The first 'apply rule' works like a later 'apply erule',
@@ -1024,7 +1033,7 @@ public class LemmaLAConverter extends AConverter {
 					final String function = aTerm.getFunction().getName();
 					if (function == "to_real") {
 						assert (aTerm.getParameters().length == 1);
-						map.update((ApplicationTerm)aTerm.getParameters()[0],
+						map.update(aTerm.getParameters()[0],
 								summandFactor.mFactor);
 					} else {
 						map.update(innerTerm, summandFactor.mFactor);
@@ -1066,7 +1075,7 @@ public class LemmaLAConverter extends AConverter {
 		// special rule for mixed case: adding integer and real literals
 		if (arithType == EArith.mixed) {
 			assert (index > 0);
-			boolean secondInt = ineqs.mLiterals[index].mIsIntegral;
+			final boolean secondInt = ineqs.mLiterals[index].mIsIntegral;
 			if (fRes.mFirstInt && (!secondInt)) {
 				writeLemmaString("erule ir_merge_ineqs_");
 				resultIsInt = false;
@@ -1625,7 +1634,7 @@ public class LemmaLAConverter extends AConverter {
 			final StringBuilder builder = new StringBuilder();
 			builder.append('{');
 			if (!mMap.isEmpty()) {
-				for (Map.Entry<Term, FactorWrapper> tuple
+				for (final Map.Entry<Term, FactorWrapper> tuple
 						: mMap.entrySet()) {
 					builder.append(tuple);
 					builder.append(", ");
@@ -1647,7 +1656,7 @@ public class LemmaLAConverter extends AConverter {
 	private void writeLemmaString(String string) {
 		try {
 			mLemmaAppendable.append(string);
-        } catch (IOException e) {
+        } catch (final IOException e) {
             throw new RuntimeException("Appender throws IOException", e);
         }
 	}

@@ -22,7 +22,12 @@ import java.io.IOException;
 import java.math.BigInteger;
 import java.util.HashMap;
 
-import de.uni_freiburg.informatik.ultimate.logic.*;
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
+import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.Sort;
+import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.Theory;
 
 /**
  * This class is used to convert a rewrite proof node (@rewrite).
@@ -854,9 +859,8 @@ public class RewriteConverter extends AConverter {
 							getFunction().getName() == "distinct")
 					&& (((ApplicationTerm)equality.getParameters()[0]).
 							getParameters().length == 2));
-			Term[] distinct = ((ApplicationTerm)((ApplicationTerm)
-					equality).getParameters()[0]).getParameters();
-			Term lhs = distinct[0];
+			final Term[] distinct = ((ApplicationTerm)equality.getParameters()[0]).getParameters();
+			final Term lhs = distinct[0];
 			
 			/* base cases: 'True' and 'False' */
 			if (lhs == mTheory.mTrue) {
@@ -986,7 +990,7 @@ public class RewriteConverter extends AConverter {
 	private class NotSimpRule implements IRule {
 		@Override
 		public String convert(final ApplicationTerm equality) {
-			Term rhs = equality.getParameters()[1];
+			final Term rhs = equality.getParameters()[1];
 			// trivial negation of 'True'
 			if (rhs == mTheory.mFalse) {
 				return "(rule HOL.not_True_eq_False)\n";
@@ -1161,7 +1165,7 @@ public class RewriteConverter extends AConverter {
 					++i;
 					break;
 				} else {
-					boolean isNegated = ((disjunct instanceof ApplicationTerm)
+					final boolean isNegated = ((disjunct instanceof ApplicationTerm)
 							&&
 							((ApplicationTerm)disjunct).getFunction() == not);
 					if (isNegated) {
@@ -1287,7 +1291,7 @@ public class RewriteConverter extends AConverter {
 			assert ((equality.getParameters()[0] instanceof ApplicationTerm)
 					&& (((ApplicationTerm)equality.getParameters()[0]).
 							getFunction().getIndices().length == 1));
-			Term rhs = equality.getParameters()[1];
+			final Term rhs = equality.getParameters()[1];
 			
 			// constant divisible result
 			if (rhs == mTheory.mFalse) {
@@ -1365,7 +1369,7 @@ public class RewriteConverter extends AConverter {
 	 */
 	private ApplicationTerm getTerm(final String name, final Term[] parameters,
 			final Sort[] parameterSorts) {
-		ApplicationTerm result = mTheory.term(name, parameters);
+		final ApplicationTerm result = mTheory.term(name, parameters);
 		
 		if (result == null) {
 			return mTheory.term(
@@ -1438,7 +1442,7 @@ public class RewriteConverter extends AConverter {
 				mLemmaAppendable.append("\"\nby ");
 				
 				mLemmaAppendable.append(mLastPatternProof.mProof);
-	        } catch (IOException e) {
+	        } catch (final IOException e) {
 	            throw new RuntimeException("Appender throws IOException", e);
 	        }
 			

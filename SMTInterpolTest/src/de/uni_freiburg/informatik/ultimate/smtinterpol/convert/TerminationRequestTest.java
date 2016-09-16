@@ -24,8 +24,8 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
-import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
 import de.uni_freiburg.informatik.ultimate.logic.ReasonUnknown;
+import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.TerminationRequest;
 
@@ -49,12 +49,12 @@ public class TerminationRequestTest {
 	
 	@Test
 	public void test() {
-		TerminationRequest cancel = new MyTerminationRequest(0);
-		SMTInterpol smtinterpol = new SMTInterpol(cancel);
+		final TerminationRequest cancel = new MyTerminationRequest(0);
+		final SMTInterpol smtinterpol = new SMTInterpol(cancel);
 		smtinterpol.setOption(":verbosity", 3);
 		smtinterpol.setLogic(Logics.QF_UF);
 		smtinterpol.assertTerm(smtinterpol.term("false"));
-		LBool status = smtinterpol.checkSat();
+		final LBool status = smtinterpol.checkSat();
 		Assert.assertEquals(LBool.UNKNOWN, status);
 		Assert.assertEquals(ReasonUnknown.CANCELLED, 
 				smtinterpol.getInfo(":reason-unknown"));

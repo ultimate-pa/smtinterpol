@@ -55,36 +55,40 @@ public class NeutralDetector extends NonRecursive {
 
 		@Override
 		public void walk(NonRecursive walker, ApplicationTerm term) {
-			NeutralDetector detector = (NeutralDetector) walker;
-			FunctionSymbol fsym = term.getFunction();
-			Theory t = fsym.getTheory();
-			Term[] params = term.getParameters();
+			final NeutralDetector detector = (NeutralDetector) walker;
+			final FunctionSymbol fsym = term.getFunction();
+			final Theory t = fsym.getTheory();
+			final Term[] params = term.getParameters();
 			if (fsym == t.mAnd || fsym == t.mOr) {
-				Term neutral = fsym == t.mAnd ? t.mTrue : t.mFalse;
+				final Term neutral = fsym == t.mAnd ? t.mTrue : t.mFalse;
 				for (int i = 0; i < params.length; ++i) {
-					if (params[i] == neutral)
+					if (params[i] == neutral) {
 						detector.mNeutrals.add(new Neutral(term, i));
-					else
+					} else {
 						detector.enqueueWalker(new NeutralWalker(params[i]));
+					}
 				}
 			} else if (fsym.getName().equals("+") || fsym.getName().equals("-")) {
-				int start = fsym.getName().equals("+") ? 0 : 1;
+				final int start = fsym.getName().equals("+") ? 0 : 1;
 				for (int i = start; i < params.length; ++i) {
-					if (isZero(params[i]))
+					if (isZero(params[i])) {
 						detector.mNeutrals.add(new Neutral(term, i));
-					else
+					} else {
 						detector.enqueueWalker(new NeutralWalker(params[i]));
+					}
 				}
 			} else {
-				for (Term p : params)
+				for (final Term p : params) {
 					detector.enqueueWalker(new NeutralWalker(p));
+				}
 			}
 		}
 
 		@Override
 		public void walk(NonRecursive walker, LetTerm term) {
-			for (Term t : term.getValues())
+			for (final Term t : term.getValues()) {
 				walker.enqueueWalker(new NeutralWalker(t));
+			}
 			walker.enqueueWalker(new NeutralWalker(term.getSubTerm()));
 		}
 
@@ -104,15 +108,18 @@ public class NeutralDetector extends NonRecursive {
 	
 	private static boolean isZero(Term t) {
 		if (t instanceof ConstantTerm) {
-			ConstantTerm ct = (ConstantTerm) t;
-			Object val = ct.getValue();
-			if (val instanceof BigInteger)
+			final ConstantTerm ct = (ConstantTerm) t;
+			final Object val = ct.getValue();
+			if (val instanceof BigInteger) {
 				return BigInteger.ZERO.equals(val);
-			if (val instanceof BigDecimal)
+			}
+			if (val instanceof BigDecimal) {
 				// Bugfix: Don't use equals since it requires equal scale! 
 				return BigDecimal.ZERO.compareTo((BigDecimal) val) == 0;
-			if (val instanceof Rational)
+			}
+			if (val instanceof Rational) {
 				return Rational.ZERO.equals(val);
+			}
 		}
 		return false;
 	}

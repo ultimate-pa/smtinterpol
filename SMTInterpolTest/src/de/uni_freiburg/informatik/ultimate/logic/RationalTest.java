@@ -25,8 +25,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import de.uni_freiburg.informatik.ultimate.logic.Rational;
-
 /**
  * Test Class for Rationals.
  * 
@@ -114,7 +112,7 @@ public final class RationalTest {
 		Assert.assertTrue(Rational.valueOf(1, -Long.MAX_VALUE).isNegative());
 		Assert.assertTrue(!Rational.valueOf(1, Long.MAX_VALUE).isNegative());
 
-		BigInteger large = new BigInteger(
+		final BigInteger large = new BigInteger(
 				"1234567890123456789012345678901234567890");
 		Assert.assertSame(Rational.ZERO, Rational.valueOf(
 				BigInteger.ZERO,	BigInteger.ONE));
@@ -181,9 +179,10 @@ public final class RationalTest {
 		
 		for (int i = 0; i < RATIONALS.length; i++) {
 			if (RATIONALS[i] != Rational.ZERO
-				&& !RATIONALS[i].denominator().equals(BigInteger.ZERO))
+				&& !RATIONALS[i].denominator().equals(BigInteger.ZERO)) {
 				Assert.assertEquals(Rational.ONE,
 						RATIONALS[i].mul(RATIONALS[i].inverse()));
+			}
 			for (int j = i + 1; j < RATIONALS.length; j++) {
 				Assert.assertEquals(RATIONALS[i].mul(RATIONALS[j]),
 						RATIONALS[j].mul(RATIONALS[i]));
@@ -199,9 +198,10 @@ public final class RationalTest {
 			Assert.assertEquals(0, RATIONALS[i].compareTo(RATIONALS[i]));
 			for (int j = i + 1; j < RATIONALS.length; j++) {
 				if (RATIONALS[i] != Rational.NAN
-					&& RATIONALS[j] != Rational.NAN)
+					&& RATIONALS[j] != Rational.NAN) {
 					Assert.assertTrue(RATIONALS[i] + " =<>= " + RATIONALS[j],
 							RATIONALS[i].compareTo(RATIONALS[j]) != 0);
+				}
 				Assert.assertEquals(RATIONALS[i] + " <=> " + RATIONALS[j],
 						RATIONALS[i].compareTo(RATIONALS[j]),
 						-RATIONALS[j].compareTo(RATIONALS[i]));
@@ -212,8 +212,9 @@ public final class RationalTest {
 				     RATIONALS[i].compareTo(Rational.ZERO) < 0);
 			Assert.assertEquals(RATIONALS[i].signum(),
 				     RATIONALS[i].compareTo(Rational.ZERO));
-			if (RATIONALS[i] != Rational.NEGATIVE_INFINITY)
+			if (RATIONALS[i] != Rational.NEGATIVE_INFINITY) {
 				Assert.assertEquals(RATIONALS[i], RATIONALS[i].inverse().inverse());
+			}
 			Assert.assertEquals(RATIONALS[i], RATIONALS[i].negate().negate());
 			Assert.assertEquals(RATIONALS[i],
 					RATIONALS[i].floor().add(RATIONALS[i].frac()));

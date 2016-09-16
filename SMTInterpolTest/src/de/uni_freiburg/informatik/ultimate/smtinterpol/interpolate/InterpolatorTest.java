@@ -70,8 +70,8 @@ public class InterpolatorTest {
 			boolean clauseswap, boolean litswap,
 			boolean doubleab, boolean addconst, boolean addvar) {
 		addvar = false;
-		Term a = this.mA;
-		Term b = this.mB;
+		final Term a = mA;
+		final Term b = mB;
 		InterpolatorAffineTerm aterm =
 						new InterpolatorAffineTerm().add(Rational.ONE, a);
 		InterpolatorAffineTerm bterm = 
@@ -109,8 +109,9 @@ public class InterpolatorTest {
 						new Annotation(":EQ", null)
 					};
 		Term lemma = mTheory.term("@lemma", mTheory.annotatedTerm(mAnnots,clause));
-		Set<String> empty = Collections.emptySet();
+		final Set<String> empty = Collections.emptySet();
 		@SuppressWarnings("unchecked")
+		final
 		Set<String>[] partition = new Set[] { empty, empty };
 		mInterpolator = 
 				new Interpolator(mSolver.getLogger(), mSolver, null, mTheory, 
@@ -131,33 +132,39 @@ public class InterpolatorTest {
 		TermVariable ccVar = mInterpolator.getLiteralInfo(cceq).getMixedVar();
 		TermVariable laVar = mInterpolator.getLiteralInfo(laeq).getMixedVar();
 		Term var;
-		InterpolatorAffineTerm summands = new InterpolatorAffineTerm();
+		final InterpolatorAffineTerm summands = new InterpolatorAffineTerm();
 		if (clauseswap) {
 			Rational factor = Rational.ONE;
-			if (doubleab)
+			if (doubleab) {
 				factor = Rational.TWO.inverse();
-			if (abswap)
+			}
+			if (abswap) {
 				factor = factor.negate();
+			}
 
 			summands.add(factor, ccVar);
-			if (addvar)
+			if (addvar) {
 				summands.add(factor.negate(), mSolver.term("s"));
+			}
 			if (addconst) {
-				Rational offset = factor.mul(Rational.TWO).negate();
+				final Rational offset = factor.mul(Rational.TWO).negate();
 				summands.add(offset);
 			}
 			var = laVar;
 		} else {
 			Rational factor = Rational.ONE;
-			if (doubleab)
+			if (doubleab) {
 				factor = Rational.TWO;
-			if (abswap)
+			}
+			if (abswap) {
 				factor = factor.negate();
-			if (addvar)
+			}
+			if (addvar) {
 				summands.add(Rational.ONE, mSolver.term("s"));
+			}
 			summands.add(factor, laVar);
 			if (addconst) {
-				Rational offset = Rational.TWO;
+				final Rational offset = Rational.TWO;
 				summands.add(offset);
 			}
 			var = ccVar;
@@ -169,9 +176,11 @@ public class InterpolatorTest {
 
 	@Test
 	public void testEq() {
-		for (int i = 0; i < 128; i++)// NOCHECKSTYLE
+		for (int i = 0; i < 128; i++)
+		 {
 			doTestEq((i&1) != 0, (i&2) != 0, (i&4) != 0, (i&8) != 0,// NOCHECKSTYLE
 					(i&16) != 0, (i&32) != 0, (i& 64) != 0);// NOCHECKSTYLE
+		}
 	}
 	
 }

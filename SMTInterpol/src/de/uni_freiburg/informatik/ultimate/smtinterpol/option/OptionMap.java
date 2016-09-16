@@ -24,6 +24,7 @@ import java.util.Map;
 
 import de.uni_freiburg.informatik.ultimate.logic.QuotedObject;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.ParseEnvironment;
 
@@ -83,6 +84,7 @@ public class OptionMap {
 	}
 	
 	private final LinkedHashMap<String, Option> mOptions;
+	private final LinkedHashMap<String, String> mAliases;
 	private final SolverOptions mSolverOptions;
 	private final FrontEndOptions mFrontEndOptions;
 	private final LogProxy mLogger;
@@ -107,6 +109,7 @@ public class OptionMap {
 	 */
 	public OptionMap(LogProxy logger, boolean activeFrontEnd) {
 		mOptions = new LinkedHashMap<String, Option>();
+		mAliases = new LinkedHashMap<String, String>();
 		mSolverOptions = new SolverOptions(this, logger);
 		mLogger = logger;
 		addOption(DIAG_OUTPUT_CHANNEL_NAME, new LoggerOption(
@@ -115,8 +118,10 @@ public class OptionMap {
 		mFrontEndOptions = new FrontEndOptions(this, activeFrontEnd);
 	}
 	
-	private OptionMap(LogProxy logger, LinkedHashMap<String, Option> options) {
+	private OptionMap(LogProxy logger, LinkedHashMap<String, Option> options,
+			LinkedHashMap<String, String> aliases) {
 		mOptions = options;
+		mAliases = aliases;
 		mSolverOptions = new SolverOptions(this);
 		mFrontEndOptions = new FrontEndOptions(this);
 		mLogger = logger;
@@ -124,7 +129,7 @@ public class OptionMap {
 	}
 	
 	public void started() {
-		for (Option o : mOptions.values()) {
+		for (final Option o : mOptions.values()) {
 			o.started();
 		}
 	}
@@ -156,6 +161,10 @@ public class OptionMap {
 	public void addOption(String name, Option option) {
 		mOptions.put(name, option);
 	}
+
+	public void addAlias(String name, String alias) {
+		mAliases.put(name, alias);
+	}
 	
 	/**
 	 * Get the current value of an option.  If the option is unknown to this
@@ -164,9 +173,13 @@ public class OptionMap {
 	 * @return The current value of this option.
 	 */
 	public Object get(String option) {
-		Option o = mOptions.get(option);
-		if (o == null)
+		if (mAliases.containsKey(option)) {
+			option = mAliases.get(option);
+		}
+		final Option o = mOptions.get(option);
+		if (o == null) {
 			throw new UnsupportedOperationException();
+		}
 		return o.get();
 	}
 	
@@ -177,12 +190,17 @@ public class OptionMap {
 	 * @param value
 	 */
 	public void set(String option, Object value) {
-		Option o = mOptions.get(option);
-		if (o == null)
+		if (mAliases.containsKey(option)) {
+			option = mAliases.get(option);
+		}
+		final Option o = mOptions.get(option);
+		if (o == null) {
 			throw new UnsupportedOperationException();
-		if (mOnline && !o.isOnlineModifiable())
+		}
+		if (mOnline && !o.isOnlineModifiable()) {
 			throw new SMTLIBException("Option " + option
 					+ " can only be changed before setting the logic");
+		}
 		o.set(value);
 	}
 	
@@ -191,7 +209,15 @@ public class OptionMap {
 	 * @return All known option names.
 	 */
 	public String[] getInfo() {
-		return mOptions.keySet().toArray(new String[mOptions.size()]);
+		final String[] res = new String[mOptions.size() + mAliases.size()];
+		int pos = 0;
+		for (final String opt : mOptions.keySet()) {
+			res[pos++] = opt;
+		}
+		for (final String opt : mAliases.keySet()) {
+			res[pos++] = opt;
+		}
+		return res;
 	}
 	
 	/**
@@ -203,16 +229,21 @@ public class OptionMap {
 	 * @return Information for this option.
 	 */
 	public Object[] getInfo(String option) {
-		Option o = mOptions.get(option);
-		if (o == null)
+		if (mAliases.containsKey(option)) {
+			option = mAliases.get(option);
+		}
+		final Option o = mOptions.get(option);
+		if (o == null) {
 			throw new UnsupportedOperationException();
-		ArrayList<Object> result = new ArrayList<Object>();
+		}
+		final ArrayList<Object> result = new ArrayList<Object>();
 		result.add(":description");
 		result.add(new QuotedObject(o.getDescription()));
 		result.add(":default");
 		result.add(o.defaultValue());
-		if (o.isOnlineModifiable())
+		if (o.isOnlineModifiable()) {
 			result.add(":online-modifiable");
+		}
 		return result.toArray();
 	}
 	
@@ -222,27 +253,29 @@ public class OptionMap {
 	 */
 	public void reset() {
 		mOnline = false;
-		for (Option o : mOptions.values())
+		for (final Option o : mOptions.values()) {
 			o.reset();
+		}
 	}
 
 	public OptionMap copy(CopyMode mode) {
-		LinkedHashMap<String, Option> options = new LinkedHashMap<String, Option>();
-		for (Map.Entry<String, Option> me : mOptions.entrySet()) {
-			Option cpy = me.getValue().copy();
+		final LinkedHashMap<String, Option> options = new LinkedHashMap<String, Option>();
+		for (final Map.Entry<String, Option> me : mOptions.entrySet()) {
+			final Option cpy = me.getValue().copy();
 			switch(mode) {
 			case CURRENT_VALUE:
 				break;
 			case RESET_EXCEPT_CHANNELS:
-				if (cpy instanceof VerbosityOption || cpy instanceof ChannelOption)
+				if (cpy instanceof VerbosityOption || cpy instanceof ChannelOption) {
 					break;
+				}
 				// FALLTHROUGH
 			default:
 				cpy.reset();
 			}
 			options.put(me.getKey(), cpy);
 		}
-		return new OptionMap(mLogger, options);
+		return new OptionMap(mLogger, options, new LinkedHashMap<String, String>(mAliases));
 	}
 	
 	Option getOption(String key) {

@@ -43,6 +43,7 @@ public class GetterCmd extends Cmd {
 		writer.println(')');
 	}
 	
+	@Override
 	public String toString() {
 		return mCmd.toUpperCase();
 	}

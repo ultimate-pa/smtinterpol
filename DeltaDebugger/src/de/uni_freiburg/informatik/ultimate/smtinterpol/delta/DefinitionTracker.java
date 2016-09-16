@@ -50,17 +50,20 @@ public class DefinitionTracker extends NonRecursive {
 
 		@Override
 		public void walk(NonRecursive walker, ApplicationTerm term) {
-			FunctionSymbol fs = term.getFunction();
-			if (!fs.isIntern())
+			final FunctionSymbol fs = term.getFunction();
+			if (!fs.isIntern()) {
 				track(fs.getName());
-			for (Term p : term.getParameters())
+			}
+			for (final Term p : term.getParameters()) {
 				walker.enqueueWalker(new Walker(p));
+			}
 		}
 
 		@Override
 		public void walk(NonRecursive walker, LetTerm term) {
-			for (Term bound : term.getValues())
+			for (final Term bound : term.getValues()) {
 				walker.enqueueWalker(new Walker(bound));
+			}
 			walker.enqueueWalker(new Walker(term.getSubTerm()));
 		}
 
@@ -89,9 +92,10 @@ public class DefinitionTracker extends NonRecursive {
 	}
 	
 	private void track(String fun) {
-		Cmd definition = mCtx.get(fun);
-		if (definition == null)
+		final Cmd definition = mCtx.get(fun);
+		if (definition == null) {
 			throw new InternalError("No definition found for " + fun);
+		}
 		mUsed.add(definition);
 	}
 }
