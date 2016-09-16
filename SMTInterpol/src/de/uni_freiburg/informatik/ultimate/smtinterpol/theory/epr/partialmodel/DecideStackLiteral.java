@@ -1,6 +1,8 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -9,6 +11,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseEprLiteral;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 
 /**
@@ -28,6 +32,8 @@ public abstract class DecideStackLiteral implements IEprLiteral {
 	 * by this DecideStackLiteral
 	 */
 	IDawg<ApplicationTerm, TermVariable> mDawg;
+	
+	Set<ClauseEprLiteral> mConcernedClauseLiterals = new HashSet<ClauseEprLiteral>();
 	
 	public DecideStackLiteral(boolean polarity, 
 			EprPredicate pred, IDawg<ApplicationTerm, TermVariable> dawg) {
@@ -85,7 +91,16 @@ public abstract class DecideStackLiteral implements IEprLiteral {
 	 * This is called when this dsl is removed from the decide stack.
 	 * It should purge this dsl from every data structure where it was registered.
 	 */
+	@Override
 	public void unregister() {
 		mPred.unregisterDecideStackLiteral(this);
+		for (ClauseEprLiteral cl : mConcernedClauseLiterals) {
+			cl.unregisterIEprLiteral(this);
+		}
+	}
+	
+	@Override
+	public void registerConcernedClauseLiteral(ClauseEprLiteral cel) {
+		mConcernedClauseLiterals.add(cel);
 	}
 }

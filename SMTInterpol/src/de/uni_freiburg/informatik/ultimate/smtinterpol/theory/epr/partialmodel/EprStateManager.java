@@ -78,6 +78,9 @@ public class EprStateManager {
 
 	private Set<EprClause> mUnitClausesWaitingForPropagation = new HashSet<EprClause>();
 
+	private HashMap<Literal, EprGroundPredicateLiteral> mLiteralToEprGroundPredicateLiteral = 
+			new HashMap<Literal, EprGroundPredicateLiteral>();
+
 	
 	public EprStateManager(EprTheory eprTheory) {
 		mPushStateStack.add(new EprPushState());
@@ -146,22 +149,21 @@ public class EprStateManager {
 	private EprClause propagateAll(Set<EprClause> unitClauses) {
 		Set<EprClause> conflictsOrUnits = new HashSet<EprClause>(unitClauses);
 		while (conflictsOrUnits != null 
-				&& !conflictsOrUnits.isEmpty() 
-				&& conflictsOrUnits.iterator().next().isUnit()) {
+				&& !conflictsOrUnits.isEmpty()) {
+			EprClause current = conflictsOrUnits.iterator().next(); // just pick any ..
 
-			EprClause currentUnit = conflictsOrUnits.iterator().next(); // just pick any ..
-			conflictsOrUnits.remove(currentUnit);
+			conflictsOrUnits.remove(current);
 
-			conflictsOrUnits = propagateUnitClause(conflictsOrUnits, currentUnit);
+			Set<EprClause> propResult = propagateUnitClause(conflictsOrUnits, current);
+			
+			if (propResult.iterator().next().isConflict()) {
+				assert propResult.size() == 1;
+				return propResult.iterator().next(); 
+			}
+			assert propResult.iterator().next().isUnit();
+			conflictsOrUnits.addAll(propResult);
 		}
-		assert conflictsOrUnits == null || conflictsOrUnits.isEmpty() 
-				|| (conflictsOrUnits.size() == 1 && conflictsOrUnits.iterator().next().isConflict());
-		// TODO not nice.. rework
-		if (conflictsOrUnits == null || conflictsOrUnits.isEmpty()) {
-			return null;
-		} else {
-			return conflictsOrUnits.iterator().next();
-		}
+		return null;
 	}
 
 	/**
@@ -257,8 +259,9 @@ public class EprStateManager {
 	 * @return
 	 */
 	private Clause chooseGroundingFromConflict(EprClause conflicts) {
-		assert false : "TODO: implement";
-		return null;
+		Set<Clause> conflictGroundings = conflicts.getGroundings(conflicts.getConflictPoints());
+		//TODO: pick smart?
+		return conflictGroundings.iterator().next();
 	}
 
 	/**
@@ -275,9 +278,9 @@ public class EprStateManager {
 		EprClause currentConflict = conflict;
 		
 		while (true) {
-			currentConflict = tryFactoring(currentConflict);
-			
-			currentConflict = tryBackjumping(currentConflict);
+			//TODO .. factoring? backjumping?
+//			currentConflict = tryFactoring(currentConflict);
+//			currentConflict = tryBackjumping(currentConflict);
 
 			if (currentConflict == null) {
 				return null;
@@ -418,7 +421,7 @@ public class EprStateManager {
 		//      thus we have to check for contradictions before calling update... (which assumes consistency of the "set points" for each clauseliteral)
 		//   after that we treat it like a decide stack literal (again because of the interactions with other literals over epr predicates)
 		
-		EprGroundPredicateLiteral egpl = new EprGroundPredicateLiteral(literal, mDawgFactory);
+		EprGroundPredicateLiteral egpl = new EprGroundPredicateLiteral(literal, mDawgFactory, this);
 		
 		DecideStackLiteral conflictingDsl = searchConflictingDecideStackLiteral(egpl);
 		
@@ -538,6 +541,9 @@ public class EprStateManager {
 	}
 	
 	public void unsetEprGroundLiteral(Literal literal) {
+		EprGroundPredicateLiteral egpl = mLiteralToEprGroundPredicateLiteral.get(literal);
+		assert egpl != null;
+		egpl.unregister();
 		updateClausesOnBacktrackDpllLiteral(literal);
 	}
 	
@@ -961,4 +967,9 @@ public class EprStateManager {
 			return resolveConflict(conflict);
 		}
 	}
+
+	public void registerEprGroundPredicateLiteral(EprGroundPredicateLiteral egpl, Literal l) {
+		mLiteralToEprGroundPredicateLiteral.put(l, egpl);
+	}
+
 }

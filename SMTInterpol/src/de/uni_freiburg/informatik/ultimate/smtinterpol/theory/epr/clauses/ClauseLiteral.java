@@ -100,4 +100,5 @@ public abstract class ClauseLiteral {
 	}
 	
 	public abstract Clause getUnitGrounding(Literal literal) ;
+
 }

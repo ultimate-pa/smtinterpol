@@ -65,26 +65,20 @@ public abstract class ClauseEprLiteral extends ClauseLiteral {
 	}
 	
 	
-	public void addPartiallyConflictingDecideStackLiteral(IEprLiteral dsl) {
-		mPartiallyConflictingDecideStackLiterals.add(dsl);
+	public void addPartiallyConflictingDecideStackLiteral(IEprLiteral el) {
+		el.registerConcernedClauseLiteral(this);
+		mPartiallyConflictingDecideStackLiterals.add(el);
 	}
 
-	public void removePartiallyConflictingDecideStackLiteral(IEprLiteral dsl) {
-		mPartiallyConflictingDecideStackLiterals.remove(dsl);
-	}
-	
-	public void addPartiallyFulfillingDecideStackLiteral(IEprLiteral dsl) {
-		mPartiallyFulfillingDecideStackLiterals.add(dsl);
+	public void addPartiallyFulfillingDecideStackLiteral(IEprLiteral el) {
+		el.registerConcernedClauseLiteral(this);
+		mPartiallyFulfillingDecideStackLiterals.add(el);
 	}
 	
 	public ScopedHashSet<IEprLiteral> getPartiallyConflictingDecideStackLiterals() {
 		return mPartiallyConflictingDecideStackLiterals;
 	}
 
-	public void removePartiallyFulfillingDecideStackLiteral(DecideStackLiteral dsl) {
-		mPartiallyFulfillingDecideStackLiterals.remove(dsl);
-	}
-	
 	/**
 	 * notifies the clause about the beginning of a push/pop scope
 	 */
@@ -122,4 +116,11 @@ public abstract class ClauseEprLiteral extends ClauseLiteral {
 	 * @return true iff the dawg and this literal don't talk about at least one common point.
 	 */
 	public abstract boolean isDisjointFrom(IDawg<ApplicationTerm, TermVariable> dawg) ;
+
+	public void unregisterIEprLiteral(IEprLiteral el) {
+		boolean success = false;
+		success |= mPartiallyConflictingDecideStackLiterals.remove(el);
+		success |= mPartiallyFulfillingDecideStackLiterals.remove(el);
+		assert success : "something wrong with the registration??";
+	}
 }

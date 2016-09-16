@@ -188,7 +188,7 @@ public class EprTheory implements ITheory {
 		} else {
 			// neither an EprAtom nor an equality
 
-			mStateManager.updateClausesOnBacktrackDpllLiteral(literal);
+			mStateManager.unsetDpllLiteral(literal);
 
 		}
 //		mLogger.debug("EPRDEBUG: backtrackLiteral, new fulfilled clauses: " + mStateManager.getFulfilledClauses());

@@ -256,7 +256,6 @@ public class EprClause {
 
 	public void backtrackStateWrtDpllLiteral(Literal literal) {
 		mClauseStateIsDirty = true;
-		assert false : "TODO: implement";
 	}
 	
 //	public Map<ClauseEprQuantifiedLiteral, Set<Integer>> getClauseLitToPositions(TermVariable tv) {
@@ -517,7 +516,8 @@ public class EprClause {
 
 		for (List<ApplicationTerm> point : groundingDawg){
 			TTSubstitution sub = new TTSubstitution(groundingDawg.getColnames(), point);
-			List<Literal> groundLits = new ArrayList<Literal>();
+//			List<Literal> groundLits = new ArrayList<Literal>();
+			Set<Literal> groundLits = new HashSet<Literal>();
 			for (ClauseLiteral cl : getLiterals()) {
 				if (cl instanceof ClauseEprQuantifiedLiteral) {
 					ClauseEprQuantifiedLiteral ceql = (ClauseEprQuantifiedLiteral) cl;

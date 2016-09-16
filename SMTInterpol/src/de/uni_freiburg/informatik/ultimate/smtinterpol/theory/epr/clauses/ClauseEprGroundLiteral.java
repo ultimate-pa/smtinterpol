@@ -20,17 +20,42 @@ public class ClauseEprGroundLiteral extends ClauseEprLiteral {
 	}
 
 	@Override
+
 	protected ClauseLiteralState determineState() {
-		assert false : "TODO: what about the DecideStackLiterals that impact this literal? "
-				+ "(fields ClauseEprLiteral.mPartially...)";
 		if (mAtom.getDecideStatus() == null) {
-			// undecided 
+			if (!mPartiallyConflictingDecideStackLiterals.isEmpty()) {
+				assert mPartiallyConflictingDecideStackLiterals.size() == 1 : 
+					"I thought we had the invariant that the epr decide stack literals are disjoint?..";
+				return ClauseLiteralState.Refuted;
+			}
+			if (!mPartiallyFulfillingDecideStackLiterals.isEmpty()) {
+				assert mPartiallyFulfillingDecideStackLiterals.size() == 1 : 
+					"I thought we had the invariant that the epr decide stack literals are disjoint?..";
+				return ClauseLiteralState.Fulfilled;
+			}
+
+			// decided neither by dpll engine nor by epr theory
 			return ClauseLiteralState.Fulfillable;
-		} else if ((mAtom.getDecideStatus() == mAtom) == mPolarity){
+		}
+		
+
+		if ((mAtom.getDecideStatus() == mAtom) == mPolarity){
 			// decided with same polarity
+			if (mPartiallyConflictingDecideStackLiterals != null
+					&& !mPartiallyConflictingDecideStackLiterals.isEmpty()) {
+				mEprTheory.getLogger().debug("EPRDEBUG: ClauseEprGroundLiteral.determineState(): " + this + 
+						" already set as fulfilled by dpll engine, but has a refuting epr decide stack literal --> we must have a conflict");
+			}
+
 			return ClauseLiteralState.Fulfilled;
 		} else {
 			// decided with different polarity
+			assert (mAtom.getDecideStatus() == mAtom) != mPolarity;
+			if  (mPartiallyFulfillingDecideStackLiterals != null
+					&& !mPartiallyFulfillingDecideStackLiterals.isEmpty()) {
+				mEprTheory.getLogger().debug("EPRDEBUG: ClauseEprGroundLiteral.determineState(): " + this + 
+						" already set as refuted by dpll engine, but has a fulfilling epr decide stack literal --> we must have a conflict");
+			}
 			return ClauseLiteralState.Refuted;
 		}
 	}
