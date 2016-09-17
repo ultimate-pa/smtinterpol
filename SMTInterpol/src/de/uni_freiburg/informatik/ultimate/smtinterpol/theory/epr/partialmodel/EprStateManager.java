@@ -141,8 +141,9 @@ public class EprStateManager {
 
 
 	/**
-	 * Takes a set of unit epr clauses, applies unit propagation until either a conflict is reached, or 
+	 * Takes a set of epr clauses, applies unit propagation until either a conflict is reached, or 
 	 * no more propagations are possible.
+	 * The clauses in the input set may have "normal" state, too, we just skip those.
 	 * @param unitClauses a set of epr unit clauses
 	 * @return null or a conflict epr clause
 	 */
@@ -153,6 +154,12 @@ public class EprStateManager {
 			EprClause current = conflictsOrUnits.iterator().next(); // just pick any ..
 
 			conflictsOrUnits.remove(current);
+			
+			if (!current.isUnit()) {
+				// current clause has "normal" state --> ignore it
+				assert !current.isConflict();
+				continue;
+			}
 
 			Set<EprClause> propResult = propagateUnitClause(conflictsOrUnits, current);
 			
@@ -239,15 +246,6 @@ public class EprStateManager {
 		return result;
 	}
 	
-	/**
-	 * We may have several conflict clause, choose one to resolve.
-	 * @param conflictsOrUnits
-	 * @return
-	 */
-	private EprClause chooseConflictOrUnit(Set<EprClause> conflictsOrUnits) {
-		return conflictsOrUnits.iterator().next();
-	}
-
 	/**
 	 * Compute (~choose) a ground conflict clause from the given set of EprConflict clauses
 	 *  (which cannot be resolved by taking back an epr decision because there was none needed to
@@ -458,7 +456,7 @@ public class EprStateManager {
 		
 		
 		if (conflictingDsl instanceof DecideStackDecisionLiteral) {
-			// the old decision has been reverted, make a new one that is consistent\
+			// the old decision has been reverted, make a new one that is consistent
 			// with the setting of egpl
 			
 			// TODO: this is a place for a strategy

@@ -100,7 +100,10 @@ public class EeaaLoggingScript extends LoggingScript {
 
 	@Override
 	public Term term(String funcname, BigInteger[] indices, Sort returnSort, Term... params) throws SMTLIBException {
-		if ("=".equals(funcname)) {
+		// replace all occurrences of "=" by our new equals symbol
+		// except: we don't want to replace the "=" where it is used in the sense of "iff" 
+		// (because we would have to add more congruence atoms then)
+		if ("=".equals(funcname) && !"Bool".equals(params[0].getSort().getName())) { 
 			return term(newEqualsSymbol, indices, returnSort, params);
 		}
 		return super.term(funcname, indices, returnSort, params);
