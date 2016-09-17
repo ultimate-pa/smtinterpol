@@ -13,28 +13,27 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTLIB2Parser;
 
 public class EeaaMain {
 
-	public static void main(String[] args) throws FileNotFoundException {
-		// TODO Auto-generated method stub
-		
+	public static void main(String[] args) {
 		LogProxy logger = new DefaultLogger();
 		
-		String infileName = "C:/data/bin/smt-files/testEq.smt2";
-		String outfileName = "C:/data/bin/smt-files/eeaaOutput.smt2";
+		String infileName = null;
+		String outfileName = null;
+		try {
+			infileName = args[0];
+			outfileName = args[1];
+		} catch (ArrayIndexOutOfBoundsException e) {
+			System.out.println("Please give two arguments -- an input file and and output file (both .smt2)");
+		}
 
-
-//		try {
-//			 loggingScript = new LoggingScript(outfileName, true);
-//		} catch (FileNotFoundException e) {
-//			System.err.println("could not create or find output file");
-//		}
-		
-		//		final DefaultLogger logger = new DefaultLogger();
 		IParser parser = new SMTLIB2Parser();
-//		Script eeaaScript = new EeaaScript();
 		Script noopScript = new NoopScript();
-		LoggingScript loggingScript = new EeaaLoggingScript(noopScript, outfileName, true);
+		LoggingScript loggingScript = null;
+		try {
+			loggingScript = new EeaaLoggingScript(noopScript, outfileName, true);
+		} catch (FileNotFoundException e) {
+			System.out.println("File not found -- please give a valid output file name");
+		}
 
-//		final int exitCode = parser.run(eeaaScript, infileName, new OptionMap(logger, true));
 		final int exitCode = parser.run(loggingScript, infileName, new OptionMap(logger, true));
 		System.exit(exitCode);
 	}
