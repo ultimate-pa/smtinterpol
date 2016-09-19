@@ -4,6 +4,7 @@ import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers.Pair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseEprLiteral;
@@ -27,7 +28,7 @@ public class DecideStackPropagatedLiteral extends DecideStackLiteral {
 	ClauseEprLiteral mUnitClauseLiteral;
 
 	public DecideStackPropagatedLiteral(boolean polarity, EprPredicate eprPred,
-			IDawg<ApplicationTerm, TermVariable> dawg, ClauseEprLiteral unitClauseLiteral, int index) {
+			IDawg<ApplicationTerm, TermVariable> dawg, ClauseEprLiteral unitClauseLiteral, Pair<Integer, Integer> index) {
 		super(polarity, eprPred, dawg, index);
 		mUnitClauseLiteral = unitClauseLiteral;
 	}
@@ -42,6 +43,7 @@ public class DecideStackPropagatedLiteral extends DecideStackLiteral {
 
 	@Override
 	public String toString() {
-		return String.format("(DSProp (%d): %c%b)", mPolarity ? ' ' : '~',  mPred, mIndex);
+		return String.format("(DSDec (%d,%d): %c%b)", 
+				mIndex.indexOfPushState, mIndex.indexOnPushStatesDecideStack, mPolarity ? ' ' : '~',  mPred);
 	}	
 }

@@ -8,6 +8,7 @@ import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers.Pair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
@@ -22,12 +23,19 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
  * 
  * @author Alexander Nutz
  */
-public abstract class DecideStackLiteral implements IEprLiteral {
+public abstract class DecideStackLiteral implements IEprLiteral, Comparable<DecideStackLiteral> {
 	
-	/**
-	 * The index on the decide stack that this DecideStackLiteral has.
-	 */
-	protected final int mIndex;
+//	/**
+//	 * The index on the decide stack of its push state that this DecideStackLiteral has.
+//	 */
+//	protected final int mIndexOnPushStateStack;
+//	
+//	/**
+//	 * The index of the push state on the stateManager's push state stack
+//	 */
+//	protected final int mPushStateStackIndex;
+	
+	protected final DslIndex mIndex;
 
 	protected final boolean mPolarity;
 	protected final EprPredicate mPred;
@@ -40,12 +48,16 @@ public abstract class DecideStackLiteral implements IEprLiteral {
 	
 	protected Set<ClauseEprLiteral> mConcernedClauseLiterals = new HashSet<ClauseEprLiteral>();
 	
+	
+	
 	public DecideStackLiteral(boolean polarity, 
-			EprPredicate pred, IDawg<ApplicationTerm, TermVariable> dawg, int index) {
+			EprPredicate pred, IDawg<ApplicationTerm, TermVariable> dawg, Pair<Integer, Integer> index) {
 		mPolarity = polarity;
 		mPred = pred;
 		mDawg = dawg;
-		mIndex = index;
+//		mPushStateStackIndex = index.first;
+//		mIndexOnPushStateStack = index.second;
+		mIndex = new DslIndex(index.first, index.second);
 		
 		register();
 	}
@@ -110,11 +122,49 @@ public abstract class DecideStackLiteral implements IEprLiteral {
 		mConcernedClauseLiterals.add(cel);
 	}
 	
-	/**
-	 * Returns n iff this is the n-th literal on the epr decide stack
-	 * @return
-	 */
-	public int getIndex() {
+//	/**
+//	 * @return
+//	 */
+//	public int getPushStateDecideStackIndex() {
+//		return mIndexOnPushStateStack;
+//	}
+//	
+//	public int getPushStateIndex() {
+//		return mPushStateStackIndex;
+//	}
+	
+	public DslIndex getIndex() {
 		return mIndex;
+	}
+	
+	@Override
+	public int compareTo(DecideStackLiteral other) {
+		return this.mIndex.compareTo(other.mIndex);
+	}
+	
+	static class DslIndex implements Comparable<DslIndex> {
+		
+		final int indexOfPushState;
+		final int indexOnPushStatesDecideStack;
+		
+		public DslIndex(int indexOfPushState, int indexOfPushStatesDecideStack) {
+			this.indexOfPushState = indexOfPushState;
+			this.indexOnPushStatesDecideStack = indexOfPushStatesDecideStack;
+		}
+
+		/**
+		 * DslIndices are compared lexicographically. First, the index of the push state a dsl is on
+		 * is compared. Only if that is equal the positions of the two literals on that push state's 
+		 * decide stack is compared.
+		 */
+		@Override
+		public int compareTo(DslIndex o) {
+			int comp1 = Integer.compare(this.indexOfPushState, o.indexOfPushState);
+			if (comp1 == 0) {
+				return Integer.compare(this.indexOnPushStatesDecideStack, o.indexOnPushStatesDecideStack);
+			} 
+			return comp1;
+		}
+		
 	}
 }

@@ -2,6 +2,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers.Pair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
@@ -15,12 +16,13 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 public class DecideStackDecisionLiteral extends DecideStackLiteral {
 
 	public DecideStackDecisionLiteral(boolean polarity, EprPredicate eprPredicate, 
-			IDawg<ApplicationTerm, TermVariable> dawg, int index) {
+			IDawg<ApplicationTerm, TermVariable> dawg, Pair<Integer, Integer> index) {
 		super(polarity, eprPredicate, dawg, index);
 	}
 
 	@Override
 	public String toString() {
-		return String.format("(DSDec (%d): %c%b)", mPolarity ? ' ' : '~',  mPred, mIndex);
+		return String.format("(DSDec (%d,%d): %c%b)", 
+				mIndex.indexOfPushState, mIndex.indexOnPushStatesDecideStack, mPolarity ? ' ' : '~',  mPred);
 	}	
 }

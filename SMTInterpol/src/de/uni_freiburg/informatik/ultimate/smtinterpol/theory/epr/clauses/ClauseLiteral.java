@@ -63,18 +63,19 @@ public abstract class ClauseLiteral {
 	// TODO: these three should not call determineState all the time..
 	//
 
-	public boolean isFulfillable() {
-		return determineState() == ClauseLiteralState.Fulfillable;
+	public boolean isFulfillable(DecideStackLiteral decideStackBorder) {
+		return determineState(decideStackBorder) == ClauseLiteralState.Fulfillable;
 	}
 
-	public boolean isFulfilled() {
-		return determineState() == ClauseLiteralState.Fulfilled;
+	public boolean isFulfilled(DecideStackLiteral decideStackBorder) {
+		return determineState(decideStackBorder) == ClauseLiteralState.Fulfilled;
 	}
 
-	public boolean isRefuted() {
-		return determineState() == ClauseLiteralState.Refuted;
+	public boolean isRefuted(DecideStackLiteral decideStackBorder) {
+		return determineState(decideStackBorder) == ClauseLiteralState.Refuted;
 	}
-	protected abstract ClauseLiteralState determineState();
+
+	protected abstract ClauseLiteralState determineState(DecideStackLiteral decideStackBorder);
 
 	/**
 	 * For ground clause literals this has the usual meanings wrt. the current decide state:

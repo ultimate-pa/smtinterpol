@@ -31,6 +31,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuant
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackDecisionLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.IEprLiteral;
 
@@ -73,7 +74,7 @@ public class EprClause {
 	 */
 	private EprClauseState mEprClauseState;
 	
-	private Set<ClauseLiteral> mConflictLiterals;
+//	private Set<ClauseLiteral> mConflictLiterals;
 	private IDawg<ApplicationTerm, TermVariable> mConflictPoints;
 	
 	/**
@@ -83,6 +84,17 @@ public class EprClause {
 	 *   then always all groundings of this clause are unit)
 	 */
 	private Map<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> mClauseLitToUnitPoints;
+	
+	
+	/*
+	 * stuff relative to the decide stack border; done as maps now, but maybe one item each is enough??
+	 */
+	private Map<DecideStackLiteral, Map<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>>> mDecideStackBorderToClauseLitToUnitPoints =
+			new HashMap<DecideStackLiteral, Map<ClauseLiteral,IDawg<ApplicationTerm,TermVariable>>>();
+	private Map<DecideStackLiteral, EprClauseState> mDecideStackBorderToClauseState = 
+			new HashMap<DecideStackLiteral, EprClauseState>();
+	private Map<DecideStackLiteral, IDawg<ApplicationTerm, TermVariable>> mDecideStackBorderToConflictPoints =
+			new HashMap<DecideStackLiteral, IDawg<ApplicationTerm,TermVariable>>();
 	
 
 	public EprClause(Set<Literal> lits, EprTheory eprTheory) {
@@ -251,7 +263,7 @@ public class EprClause {
 	 */
 	public EprClauseState updateStateWrtDpllLiteral(Literal literal) {
 		mClauseStateIsDirty = true;
-		return determineClauseState();
+		return determineClauseState(null);
 	}
 
 	public void backtrackStateWrtDpllLiteral(Literal literal) {
@@ -293,23 +305,24 @@ public class EprClause {
 	 *         b) a unit literal for propagation (may be ground or not)
 	 *         null if it is neither
 	 */
-	private EprClauseState determineClauseState() {
+	private EprClauseState determineClauseState(DecideStackLiteral decideStackBorder) {
 		
 		// do we have a literal that is fulfilled (on all points)?
-		for (ClauseLiteral cl : mLiterals) {
-			if (cl.isFulfilled()) {
-				mClauseStateIsDirty = false;
-				mEprClauseState = EprClauseState.Fulfilled;
-				return mEprClauseState;
+		for (ClauseLiteral cl : getLiterals()) {
+			if (cl.isFulfilled(decideStackBorder)) {
+				setClauseState(decideStackBorder, EprClauseState.Fulfilled);
+//				mClauseStateIsDirty = false;
+//				mEprClauseState = EprClauseState.Fulfilled;
+				return getClauseState(decideStackBorder);
 			}
 		}
 		
 		// Although the whole literal is not fulfilled, some points may be..
 		// we only need to consider points where no literal is decided "true" yet..
 		IDawg<ApplicationTerm, TermVariable> pointsToConsider = 
-				mEprTheory.getDawgFactory().createFullDawg(mVariables);
-		for (ClauseLiteral cl : mLiterals) {
-			if (cl.isRefuted()) {
+				mEprTheory.getDawgFactory().createFullDawg(getVariables());
+		for (ClauseLiteral cl : getLiterals()) {
+			if (cl.isRefuted(decideStackBorder)) {
 				continue;
 			}
 
@@ -330,9 +343,9 @@ public class EprClause {
 		IDawg<ApplicationTerm, TermVariable> pointsWhereNoLiteralsAreFulfillable =
 				mDawgFactory.copyDawg(pointsToConsider);
 		IDawg<ApplicationTerm, TermVariable> pointsWhereOneLiteralIsFulfillable =
-				mDawgFactory.createEmptyDawg(mVariables);
+				mDawgFactory.createEmptyDawg(getVariables());
 		IDawg<ApplicationTerm, TermVariable> pointsWhereTwoOrMoreLiteralsAreFulfillable =
-				mDawgFactory.createEmptyDawg(mVariables);
+				mDawgFactory.createEmptyDawg(getVariables());
 		assert EprHelpers.haveSameSignature(pointsWhereNoLiteralsAreFulfillable,
 				pointsWhereOneLiteralIsFulfillable,
 				pointsWhereTwoOrMoreLiteralsAreFulfillable);
@@ -341,15 +354,16 @@ public class EprClause {
 				new HashMap<ClauseLiteral, IDawg<ApplicationTerm,TermVariable>>();
 		
 		
-		for (ClauseLiteral cl : mLiterals) {
-			if (cl.isFulfillable()) {
+		for (ClauseLiteral cl : getLiterals()) {
+			if (cl.isFulfillable(decideStackBorder)) {
 				// at least one point of cl is still undecided (we sorted out fulfilled points before..)
 				// we move the newly fulfillable points one up in our hierarchy
 				
 				IDawg<ApplicationTerm, TermVariable> toMoveFromNoToOne = null;
 				IDawg<ApplicationTerm, TermVariable> toMoveFromOneToTwo = null;
 				if (cl instanceof ClauseEprQuantifiedLiteral) {
-					IDawg<ApplicationTerm, TermVariable> fp = ((ClauseEprQuantifiedLiteral) cl).getFulfillablePoints();
+					IDawg<ApplicationTerm, TermVariable> fp = 
+							((ClauseEprQuantifiedLiteral) cl).getFulfillablePoints(decideStackBorder);
 
 					toMoveFromNoToOne = pointsWhereNoLiteralsAreFulfillable.intersect(fp);
 					toMoveFromOneToTwo = pointsWhereOneLiteralIsFulfillable.intersect(fp);
@@ -376,7 +390,7 @@ public class EprClause {
 					en.getValue().removeAll(toMoveFromOneToTwo);
 				}
 			} else {
-				assert cl.isRefuted();
+				assert cl.isRefuted(decideStackBorder);
 			}
 		}
 		
@@ -391,31 +405,74 @@ public class EprClause {
 
 
 		if (!pointsWhereNoLiteralsAreFulfillable.isEmpty()) {
-			mConflictPoints = pointsWhereNoLiteralsAreFulfillable;
-			mEprClauseState = EprClauseState.Conflict;
+			setPointsWhereNoLiteralsAreFulfillable(decideStackBorder, pointsWhereNoLiteralsAreFulfillable);
+			setClauseState(decideStackBorder, EprClauseState.Conflict);
 		} else if (!pointsWhereOneLiteralIsFulfillable.isEmpty()) {
-			mClauseLitToUnitPoints = finalClauseLitToUnitPoints;
-			mEprClauseState = EprClauseState.Unit;
+			setClauseLitToUnitPoints(decideStackBorder, finalClauseLitToUnitPoints);
+			setClauseState(decideStackBorder, EprClauseState.Unit);
 		} else {
 			assert pointsWhereTwoOrMoreLiteralsAreFulfillable.supSetEq(pointsToConsider) 
 				&& pointsToConsider.supSetEq(pointsWhereTwoOrMoreLiteralsAreFulfillable)
 					: "we found no conflict and no unit points, thus all non-fulfilled points must be fulfillable "
 					+ "on two or more literals";
-			mEprClauseState = EprClauseState.Normal;
+			setClauseState(decideStackBorder, EprClauseState.Normal);
 		}
-		mClauseStateIsDirty = false;
-		return mEprClauseState;
+		return getClauseState(decideStackBorder);
 	}
 	
+	private void setPointsWhereNoLiteralsAreFulfillable(DecideStackLiteral decideStackBorder,
+		IDawg<ApplicationTerm, TermVariable> pointsWhereNoLiteralsAreFulfillable) {
+		if (decideStackBorder == null) {
+			mConflictPoints = pointsWhereNoLiteralsAreFulfillable;
+		} else {
+			mDecideStackBorderToConflictPoints.put(decideStackBorder, pointsWhereNoLiteralsAreFulfillable);
+		}
+}
+
+
+	private void setClauseLitToUnitPoints(
+			DecideStackLiteral decideStackBorder, 
+			Map<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> finalClauseLitToUnitPoints) {
+		if (decideStackBorder == null) {
+			mClauseLitToUnitPoints = finalClauseLitToUnitPoints;
+		} else {
+			mDecideStackBorderToClauseLitToUnitPoints.put(decideStackBorder, finalClauseLitToUnitPoints);
+			assert mDecideStackBorderToClauseLitToUnitPoints.size() < 10 : "if this is getting big, "
+					+ "we might want to throw old entries away? do we even need more than one?";
+		}
+	}
+
+
+	private EprClauseState getClauseState(DecideStackLiteral decideStackBorder) {
+		if (decideStackBorder == null) {
+			return mEprClauseState;
+		} else {
+			EprClauseState res = mDecideStackBorderToClauseState.get(decideStackBorder);
+			assert res != null;
+			return res;
+		}
+	}
+
+
+	private void setClauseState(DecideStackLiteral decideStackBorder, EprClauseState newState) {
+		if (decideStackBorder == null) {
+			mClauseStateIsDirty = false;
+			mEprClauseState = newState;
+		} else {
+			mDecideStackBorderToClauseState.put(decideStackBorder, newState);
+		}
+	}
+
+
 	public SortedSet<TermVariable> getVariables() {
 		return mVariables;
 	}
 	
-	public EprClauseState getClauseState() {
-		if (mClauseStateIsDirty)
-			return determineClauseState();
-		return mEprClauseState;
-	}
+//	public EprClauseState getClauseState() {
+//		if (mClauseStateIsDirty)
+//			return determineClauseState(null);
+//		return mEprClauseState;
+//	}
 	
 	/**
 	 * If this clause's state is Unit (i.e., if it is unit on at least one grounding), then this map
@@ -426,27 +483,29 @@ public class EprClause {
 	}
 	
 	public boolean isUnit() {
-		if (mClauseStateIsDirty)
-			return determineClauseState() == EprClauseState.Unit;
+		if (mClauseStateIsDirty) {
+			return determineClauseState(null) == EprClauseState.Unit;
+		}
 		return mEprClauseState == EprClauseState.Unit;
 	}
 
 	public boolean isConflict() {
-		if (mClauseStateIsDirty)
-			return determineClauseState() == EprClauseState.Conflict;
+		if (mClauseStateIsDirty) {
+			return determineClauseState(null) == EprClauseState.Conflict;
+		}
 		return mEprClauseState == EprClauseState.Conflict;
 	}
 
-	/**
-	 * Returns the literal(s) that were made unfulfillable when this clause became a conflict.
-	 * @return
-	 */
-	public Set<ClauseLiteral> getConflictLiterals() {
-		assert !mClauseStateIsDirty;
-		assert isConflict();
-		assert mConflictLiterals != null : "this should have been set somewhere..";
-		return mConflictLiterals;
-	}
+//	/**
+//	 * Returns the literal(s) that were made unfulfillable when this clause became a conflict.
+//	 * @return
+//	 */
+//	public Set<ClauseLiteral> getConflictLiterals() {
+//		assert !mClauseStateIsDirty;
+//		assert isConflict();
+//		assert mConflictLiterals != null : "this should have been set somewhere..";
+//		return mConflictLiterals;
+//	}
 	
 	public IDawg<ApplicationTerm, TermVariable> getConflictPoints() {
 		assert !mClauseStateIsDirty;
@@ -608,5 +667,19 @@ public class EprClause {
 		}
 		// when we can't factor, we just return this clause
 		return this;
+	}
+
+
+	public boolean isUnitBelowDecisionPoint(DecideStackDecisionLiteral dsdl) {
+		EprClauseState state = determineClauseState(dsdl);
+		return state == EprClauseState.Unit;
+	}
+
+
+	public Map<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> getClauseLitToUnitPointsBelowDecisionPoint(
+			DecideStackDecisionLiteral dsdl) {
+		Map<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> res = mDecideStackBorderToClauseLitToUnitPoints.get(dsdl);
+		assert res != null;
+		return res;
 	}
 }

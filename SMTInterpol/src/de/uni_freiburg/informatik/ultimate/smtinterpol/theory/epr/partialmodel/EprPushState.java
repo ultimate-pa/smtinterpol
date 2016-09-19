@@ -23,14 +23,20 @@ public class EprPushState {
 	 * The clauses that came in through assert commands in the push-scope described by 
 	 * this EprPushState
 	 */
-	private ArrayList<EprClause> mClauses = new ArrayList<EprClause>();
+	private final ArrayList<EprClause> mClauses = new ArrayList<EprClause>();
 	
 	/**
 	 * Contains the DecideStackLiterals of the decide stack that have been derived taking into account
 	 * all the clauses in this push state and the push states below and which have not been
 	 * derived in any of the below push states.
 	 */
-	private Stack<DecideStackLiteral> mDecideStack = new Stack<DecideStackLiteral>();
+	private final Stack<DecideStackLiteral> mDecideStack = new Stack<DecideStackLiteral>();
+	
+	private final int mIndex;
+	
+	public EprPushState(int index) {
+		mIndex = index;
+	}
 
 	public void addClause(EprClause newClause) {
 		mClauses.add(newClause);
@@ -63,6 +69,7 @@ public class EprPushState {
 		}
 		DecideStackLiteral dsl = mDecideStack.pop();
 		dsl.unregister();
+		assert dsl.getIndex().indexOnPushStatesDecideStack == mDecideStack.size() : "check dsl indices!";
 		return dsl;
 	}
 	
@@ -73,5 +80,13 @@ public class EprPushState {
 			sb.append(dsl.toString());
 		}
 		return sb.toString();
+	}
+	
+	public int getIndex() {
+		return mIndex;
+	}
+	
+	public int getDecideStackHeight() {
+		return mDecideStack.size();
 	}
 }

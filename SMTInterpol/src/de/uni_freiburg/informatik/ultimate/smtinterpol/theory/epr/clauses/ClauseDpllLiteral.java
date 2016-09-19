@@ -15,6 +15,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
 
 public class ClauseDpllLiteral extends ClauseLiteral {
 
@@ -24,8 +25,13 @@ public class ClauseDpllLiteral extends ClauseLiteral {
 		assert !(atom instanceof EprQuantifiedEqualityAtom) : "use different ClauseLiteral";
 	}
 
+	/**
+	 * 
+	 * @param decideStackBorder this parameter is irrelevant for dpll literals because they lie
+	 *   "below" the epr decide stack anyway.
+	 */
 	@Override
-	protected ClauseLiteralState determineState() {
+	protected ClauseLiteralState determineState(DecideStackLiteral decideStackBorder) {
 		if (mAtom.getDecideStatus() == null) {
 			// undecided 
 			return ClauseLiteralState.Fulfillable;

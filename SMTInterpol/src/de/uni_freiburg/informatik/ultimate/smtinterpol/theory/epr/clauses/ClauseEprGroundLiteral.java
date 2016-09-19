@@ -10,6 +10,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
 
 public class ClauseEprGroundLiteral extends ClauseEprLiteral {
 	
@@ -21,7 +22,11 @@ public class ClauseEprGroundLiteral extends ClauseEprLiteral {
 
 	@Override
 
-	protected ClauseLiteralState determineState() {
+	/**
+	 * 
+	 * @param decideStackBorder (not sure if it is safe to ignore this parameter here.. TODO..)
+	 */
+	protected ClauseLiteralState determineState(DecideStackLiteral decideStackBorder) {
 		if (mAtom.getDecideStatus() == null) {
 			if (!mPartiallyConflictingDecideStackLiterals.isEmpty()) {
 				assert mPartiallyConflictingDecideStackLiterals.size() == 1 : 

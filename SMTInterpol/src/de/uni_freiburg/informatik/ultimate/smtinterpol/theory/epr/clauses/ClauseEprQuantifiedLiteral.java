@@ -25,6 +25,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredi
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.EprGroundPredicateLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.IEprLiteral;
 
 public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
@@ -183,9 +185,10 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	 *  and this method.
 	 *  
 	 *  Convention: fulfillablePoints (like refuted and fulfilled points) are returned in the signature of the _clause_!
+	 * @param decideStackBorder 
 	 * @return
 	 */
-	public IDawg<ApplicationTerm, TermVariable> getFulfillablePoints() {
+	public IDawg<ApplicationTerm, TermVariable> getFulfillablePoints(DecideStackLiteral decideStackBorder) {
 		assert mFulfillablePoints != null;
 		assert mFulfillablePoints.getColnames().equals(mEprClause.getVariables());
 		IDawg<ApplicationTerm, TermVariable> result = mFulfillablePoints;
@@ -220,15 +223,21 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	 *  - are immediately selected upon upon to the atoms repetitions of variables, i.e., if we have
 	 *    P(x, x, y), and the predicate signature is P(u, v, w) we only take points that where the entries
 	 *    for u and v are equal. 
+	 *    
+	 *  @param decideStackBorder when determining the state we only look at decide stack literals below the given one
+	 *                   (we look at all when decideStackBorder is null)
 	 */
 	@Override
-	protected ClauseLiteralState determineState() {
+	protected ClauseLiteralState determineState(DecideStackLiteral decideStackBorder) {
 		
 		// collect the points in a dawg with the predicate's signature
 		IDawg<ApplicationTerm, TermVariable> refutedPoints = 
 				mEprTheory.getDawgFactory().createEmptyDawg(mAtom.getEprPredicate().getTermVariablesForArguments());
 		for (IEprLiteral dsl : mPartiallyConflictingDecideStackLiterals) {
-			refutedPoints.addAll(dsl.getDawg());
+			if (dsl instanceof EprGroundPredicateLiteral 
+					|| ((DecideStackLiteral) dsl).compareTo(decideStackBorder) < 0) {
+				refutedPoints.addAll(dsl.getDawg());
+			}
 		}
 		// right now, the refuted points are in terms of the EprPredicates signature, we need a renaming
 		// and possibly select and projects to match the signature of the clause.
@@ -239,7 +248,10 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 				mEprTheory.getDawgFactory().createEmptyDawg(
 						mAtom.getEprPredicate().getTermVariablesForArguments());
 		for (IEprLiteral dsl : mPartiallyFulfillingDecideStackLiterals) {
-			fulfilledPoints.addAll(dsl.getDawg());
+			if (dsl instanceof EprGroundPredicateLiteral 
+					|| ((DecideStackLiteral) dsl).compareTo(decideStackBorder) < 0) {
+				fulfilledPoints.addAll(dsl.getDawg());
+			}
 		}
 		// right now, the fulfilled points are in terms of the EprPredicates signature, we need a renaming
 		// and possibly select and projects to match the signature of the clause.

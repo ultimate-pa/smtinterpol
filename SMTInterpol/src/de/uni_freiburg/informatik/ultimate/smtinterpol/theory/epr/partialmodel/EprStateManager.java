@@ -1,9 +1,7 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -13,7 +11,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.Stack;
-import java.util.Vector;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -26,6 +23,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers.Pair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EqualityManager;
@@ -81,12 +79,11 @@ public class EprStateManager {
 	private HashMap<Literal, EprGroundPredicateLiteral> mLiteralToEprGroundPredicateLiteral = 
 			new HashMap<Literal, EprGroundPredicateLiteral>();
 
-	//private int mDecideStackHeight;
-	private Stack<DecideStackLiteral> globalDecideStack = new Stack<DecideStackLiteral>();
 
+	private Stack<DecideStackDecisionLiteral> mDecisions = new Stack<DecideStackDecisionLiteral>();
 	
 	public EprStateManager(EprTheory eprTheory) {
-		mPushStateStack.add(new EprPushState());
+		mPushStateStack.add(new EprPushState(0));
 
 		mEprTheory = eprTheory;
 		mEqualityManager =  eprTheory.getEqualityManager();
@@ -112,8 +109,7 @@ public class EprStateManager {
 
 		while (true) {
 
-			DslBuilder nextDecision = null;
-			nextDecision = getNextDecision();
+			DslBuilder nextDecision = getNextDecision();
 			if (nextDecision == null) {
 				// model is complete
 				return null;
@@ -121,7 +117,6 @@ public class EprStateManager {
 
 			// make the decision
 			if (!nextDecision.isOnePoint()) {
-//				Set<EprClause> conflictsOrUnits = pushEprDecideStack((DecideStackLiteral) nextDecision);
 				Set<EprClause> conflictsOrUnits = pushEprDecideStack(nextDecision);
 				return resolveConflictOrStoreUnits(conflictsOrUnits);
 			} else {
@@ -283,8 +278,9 @@ public class EprStateManager {
 		while (true) {
 			currentConflict = currentConflict.factorIfPossible();
 
-			boolean backjumpSucceeded = tryBackjumping(currentConflict);
+			boolean backjumpSucceeded = backjumpIfPossible(currentConflict);
 			if (backjumpSucceeded) {
+				// resolved the conflict through backjumping 
 				return null;
 			}
 
@@ -332,8 +328,24 @@ public class EprStateManager {
 		registerEprClause(currentConflict);
 	}
 
-	private boolean tryBackjumping(EprClause currentConflict) {
-		assert false : "TODO: implement";
+	private boolean backjumpIfPossible(EprClause currentConflict) {
+		if (mDecisions.isEmpty()) {
+			return false;
+		}
+		
+		DecideStackDecisionLiteral lastDecision = mDecisions.peek();
+		
+		if (currentConflict.isUnitBelowDecisionPoint(lastDecision)) {
+			// we can backjump
+			
+			/*
+			 * - pop decide stack until lastDecisionPoint
+			 * - push new unit literal
+			 * - return true (for success)
+			 */
+			
+			currentConflict.getClauseLitToUnitPointsBelowDecisionPoint(lastDecision);
+		}
 		return false;
 	}
 
@@ -390,7 +402,7 @@ public class EprStateManager {
 	}
 
 	public void push() {
-		mPushStateStack.push(new EprPushState());
+		mPushStateStack.push(new EprPushState(mPushStateStack.size()));
 		mAllEprPredicates.beginScope();
 		mUsedConstants.beginScope();
 		mEprClauseFactory.push();
@@ -516,10 +528,13 @@ public class EprStateManager {
 			EprPushState currentPushState = pssIt.previous();
 			
 			DecideStackLiteral dsl = currentPushState.popDecideStack();
+			
+			assert dsl.getIndex().indexOfPushState == currentPushState.getIndex() : "check dsl indices!";
 
-			assert dsl.getIndex() == globalDecideStack.size();
-			DecideStackLiteral gdsl = globalDecideStack.pop();
-			assert gdsl == dsl;
+			if (dsl instanceof DecideStackDecisionLiteral) {
+				DecideStackDecisionLiteral dec = mDecisions.pop();
+				assert dec == dsl;
+			}
 
 			if (dsl != null) {
 				updateClausesOnBacktrackDecideStackLiteral(dsl);
@@ -588,12 +603,15 @@ public class EprStateManager {
 	 * @param dsl
 	 * @return 
 	 */
-//	private Set<EprClause> pushEprDecideStack(DecideStackLiteral dsl) {
 	private Set<EprClause> pushEprDecideStack(DslBuilder dslb) {
 		
-		dslb.setIndex(globalDecideStack.size() + 1);
+		dslb.setIndexOnPushStateStack(mPushStateStack.peek().getDecideStackHeight());
+		dslb.setPushStateStackIndex(mPushStateStack.size() - 1);
 		DecideStackLiteral dsl = dslb.build();
-		globalDecideStack.push(dsl);
+		
+		if (dsl instanceof DecideStackDecisionLiteral) {
+			mDecisions.push((DecideStackDecisionLiteral) dsl);
+		}
 		
 		// setting the decideStackLiteral means that we have to set all ground atoms covered by it
 		// in the DPLLEngine
