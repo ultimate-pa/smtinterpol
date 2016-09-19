@@ -141,7 +141,7 @@ public class EprStateManager {
 	/**
 	 * Takes a set of epr clauses, applies unit propagation until either a conflict is reached, or 
 	 * no more propagations are possible.
-	 * The clauses in the input set may have "normal" state, too, we just skip those.
+	 * Some clauses in the input set may have "normal" state, too, we just skip those.
 	 * @param unitClauses a set of epr unit clauses
 	 * @return null or a conflict epr clause
 	 */
@@ -278,11 +278,7 @@ public class EprStateManager {
 		while (true) {
 			currentConflict = currentConflict.factorIfPossible();
 
-			boolean backjumpSucceeded = backjumpIfPossible(currentConflict);
-			if (backjumpSucceeded) {
-				// resolved the conflict through backjumping 
-				return null;
-			}
+			currentConflict = backjumpIfPossible(currentConflict);
 
 			if (currentConflict == null) {
 				return null;
@@ -328,9 +324,21 @@ public class EprStateManager {
 		registerEprClause(currentConflict);
 	}
 
-	private boolean backjumpIfPossible(EprClause currentConflict) {
+	/**
+	 * Checks if the given conflict clause allows backjumping below an epr decision.
+	 * If the argument clause does allow backjumping (i.e. is unit below the last epr decision), we
+	 *  backtrack the decision an propagate accoring to the unit clause that the argument has become.
+	 *  These propagations may result in another conflict, which we then return, or they may just at saturation,
+	 *   then we return null.
+	 * If the argument does not allow backjumping we return it unchanged.
+	 * @param currentConflict a conflict clause
+	 * @return a) the input conflict if backjumping is impossible, 
+	 *         b) another conflict if backjumping and propagation led to it, 
+	 *         c) null if backjumping was done and did not lead to a conflict through unit propagation
+	 */
+	private EprClause backjumpIfPossible(EprClause currentConflict) {
 		if (mDecisions.isEmpty()) {
-			return false;
+			return currentConflict;
 		}
 		
 		DecideStackDecisionLiteral lastDecision = mDecisions.peek();
@@ -338,15 +346,12 @@ public class EprStateManager {
 		if (currentConflict.isUnitBelowDecisionPoint(lastDecision)) {
 			// we can backjump
 			
-			/*
-			 * - pop decide stack until lastDecisionPoint
-			 * - push new unit literal
-			 * - return true (for success)
-			 */
+			popEprDecideStackUntilAndIncluding(lastDecision);
 			
-			currentConflict.getClauseLitToUnitPointsBelowDecisionPoint(lastDecision);
+			// after the changes to the decide stack, is a unit clause --> just propagate accordingly
+			return propagateAll(new HashSet<EprClause>(Collections.singleton(currentConflict)));
 		}
-		return false;
+		return currentConflict;
 	}
 
 	/**
@@ -469,7 +474,7 @@ public class EprStateManager {
 	private Clause resolveDecideStackInconsistency(EprGroundPredicateLiteral egpl, DecideStackLiteral conflictingDsl) {
 		
 		// pop the decide stack above conflictingDsl
-		boolean success = popEprDecideStackUntil(conflictingDsl);	
+		boolean success = popEprDecideStackUntilAndIncluding(conflictingDsl);	
 		assert success;
 		
 		
@@ -505,8 +510,15 @@ public class EprStateManager {
 		}
 		return null;
 	}
+
 	
-	private boolean popEprDecideStackUntil(DecideStackLiteral dsl) {
+	/**
+	 * Pop the decide stack until -and including the argument- dsl is reached.
+	 * 
+	 * @param dsl
+	 * @return true if dsl was on the decide stack false otherwise
+	 */
+	private boolean popEprDecideStackUntilAndIncluding(DecideStackLiteral dsl) {
 		assert dsl != null;
 		while (true) {
 			DecideStackLiteral currentDsl = popEprDecideStack();
@@ -529,7 +541,9 @@ public class EprStateManager {
 			
 			DecideStackLiteral dsl = currentPushState.popDecideStack();
 			
-			assert dsl.getIndex().indexOfPushState == currentPushState.getIndex() : "check dsl indices!";
+			assert dsl == null || 
+					dsl.getIndex().indexOfPushState == currentPushState.getIndex() 
+					: "check dsl indices!";
 
 			if (dsl instanceof DecideStackDecisionLiteral) {
 				DecideStackDecisionLiteral dec = mDecisions.pop();
