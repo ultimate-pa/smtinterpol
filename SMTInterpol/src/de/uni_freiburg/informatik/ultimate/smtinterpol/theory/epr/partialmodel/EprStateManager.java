@@ -313,12 +313,11 @@ public class EprStateManager {
 	}
 	
 	private void refine(EprClause currentConflict) {
-		// TODO Auto-generated method stub
-		
+		assert false : "TODO: implement";
 	}
 
 	public void learnClause(EprClause currentConflict) {
-		// TODO: seems weird, architecture-wise
+		// TODO: as is this method seems weird, architecture-wise
 		// the registration has to be done for any epr clause that we add to our formula
 		// --> just ditch this method, use register.. instead??
 		registerEprClause(currentConflict);
@@ -348,6 +347,7 @@ public class EprStateManager {
 			
 			popEprDecideStackUntilAndIncluding(lastDecision);
 			
+			assert currentConflict.isUnit();
 			// after the changes to the decide stack, is a unit clause --> just propagate accordingly
 			return propagateAll(new HashSet<EprClause>(Collections.singleton(currentConflict)));
 		}
