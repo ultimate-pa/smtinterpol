@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<project default="all" name="Create Project SMTInterpol" xmlns:jacoco="antlib:org.jacoco.ant" xmlns:artifact="antlib:org.apache.maven.artifact.ant">
+<project default="all" name="Create Project SMTInterpol" xmlns:jacoco="antlib:org.jacoco.ant" xmlns:artifact="antlib:org.apache.maven.artifact.ant" xmlns:sonar="antlib:org.sonar.ant">
   <import file="smtinterpol2-publicapi.xml"/>
   <path id="maven-ant-tasks.classpath" path="libs/maven-ant-tasks-2.1.3.jar" />
   <typedef resource="org/apache/maven/artifact/ant/antlib.xml" uri="antlib:org.apache.maven.artifact.ant" classpathref="maven-ant-tasks.classpath" />
@@ -24,6 +24,7 @@
     <exec executable="git" outputproperty="version">
       <arg value="describe"/>
     </exec>
+	<echo>Version is ${version}</echo>
     <property name="jar.basename" value="${artifactId}-${version}"/>
     <tstamp>
       <format property="build.date" pattern="yyyy-MM-dd"/>
@@ -273,6 +274,18 @@ java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/2))m -da -dsa -XX:-UseGCOverheadLimit -j
   <target name="runtests" description="Run junit tests" depends="compile_tests">
     <delete dir="${dir.workspace}/testreports" quiet="true" />
     <mkdir dir="${dir.workspace}/testreports" />
+	
+	<path id="classpath.test">
+	  <fileset file="${dir.workspace}/libs/ant-junit.jar" />
+    </path>
+	    
+	<pathconvert property="testoutput" refid="classpath.test"/>
+	<echo>Using additional libs: ${testoutput}</echo>
+	
+    <taskdef name="junit" classname="org.apache.tools.ant.taskdefs.optional.junit.JUnitTask">
+      <classpath refid="classpath.test"/>
+    </taskdef>
+	
     <junit fork="true" forkmode="once" dir="${dir.workspace}/testreports"
 	   failureProperty="test.failed">
       <assertions>
@@ -305,8 +318,20 @@ java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/2))m -da -dsa -XX:-UseGCOverheadLimit -j
   <target name="runtests-coverage" description="Run junit tests using a coverage analyzer" depends="jacoco-setup,compile_tests" if="jacoco.present">
     <delete dir="${dir.workspace}/testreports" quiet="true" />
     <mkdir dir="${dir.workspace}/testreports" />
+
+    <path id="classpath.test">
+	  <fileset file="${dir.workspace}/libs/ant-junit.jar" />
+    </path>
+	    
+	<pathconvert property="testoutput" refid="classpath.test"/>
+	<echo>Using additional libs: ${testoutput}</echo>
+	
+    <taskdef name="junit" classname="org.apache.tools.ant.taskdefs.optional.junit.JUnitTask">
+      <classpath refid="classpath.test"/>
+    </taskdef>
+
     <jacoco:coverage destfile="${dir.workspace}/testreports/jacoco.exec">
-      <junit fork="true" forkmode="once" dir="${dir.workspace}/testreports" failureProperty="test.failed">
+	  <junit fork="true" forkmode="once" dir="${dir.workspace}/testreports" failureProperty="test.failed">
         <assertions>
 	  <enable />
         </assertions>
@@ -411,4 +436,55 @@ java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/2))m -da -dsa -XX:-UseGCOverheadLimit -j
       <arg value="-Pgpg" />
     </artifact:mvn>
   </target>
+
+  
+  <!-- Define the SonarQube target -->
+  <target name="sonar" depends="compile,get-version,runtests-coverage">
+    <taskdef uri="antlib:org.sonar.ant" resource="org/sonar/ant/antlib.xml">
+  	  <!-- Update from https://sonarsource.bintray.com/Distribution/sonarqube-ant-task/sonarqube-ant-task-2.4.1.jar -->
+  	  <classpath path="${dir.workspace}/sonar/lib/sonarqube-ant-task-2.4.1.jar" />
+    </taskdef>
+
+    <!-- Various properties for the sonar target -->
+    <property name="sonar.host.url" value="http://localhost:9000/sonar" />
+    <property name="sonar.projectKey" value="de.uni_freiburg.informatik.ultimate.smtinterpol" />
+    <property name="sonar.projectName" value="SMTInterpol" />	
+    <property name="sonar.projectVersion" value="${version}" />
+    <property name="sonar.sources" value="${dir.workspace}/SMTInterpol/src,${dir.workspace}/Library-SMTLIB/src" />
+    <property name="sonar.java.binaries" value="${dir.workspace}/SMTInterpol/release,${dir.workspace}/Library-SMTLIB/release" />
+    <property name="sonar.java.libraries" value="${dir.workspace}/SMTInterpol/lib/*.jar" />
+    <property name="sonar.java.test.libraries" value="${dir.workspace}/SMTInterpol/lib/*.jar" />
+    <property name="sonar.java.coveragePlugin" value="jacoco" />
+    <property name="sonar.jacoco.reportPath" value="${dir.workspace}/testreports/jacoco.exec" />
+	
+<!-- 	<resources id="sonar-exclusions">
+	  <fileset file="src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs/Lexer.java" />
+	  <fileset file="src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs/LexerSymbols.java" />
+	  <fileset file="src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs/Parser.java" />
+	  <fileset file="src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib/Lexer.java" />
+	  <fileset file="src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib/LexerSymbols.java" />
+	  <fileset file="src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib/Parser.java" />
+	  <fileset file="src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2/Lexer.java" />
+	  <fileset file="src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2/LexerSymbols.java" />
+	  <fileset file="src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2/Parser.java" />
+    </resources>
+	<pathconvert property="sonar.exclusions" refid="sonar-exclusions" pathsep="," /> -->
+	
+	<property name="sonar.exclusions" value="
+	**/dimacs/Lexer.java,
+	**/dimacs/LexerSymbols.java,
+	**/dimacs/Parser.java,
+	**/smtlib/Lexer.java,
+	**/smtlib/LexerSymbols.java,
+	**/smtlib/Parser.java,
+	**/smtlib2/Lexer.java,
+	**/smtlib2/LexerSymbols.java,
+	**/smtlib2/Parser.java
+	" />
+	<echo>Excluding the following auto-generated files from analysis: ${sonar.exclusions}</echo>
+	
+    <!-- Execute the SonarQube analysis -->
+    <sonar:sonar />
+  </target>
 </project>
+    
