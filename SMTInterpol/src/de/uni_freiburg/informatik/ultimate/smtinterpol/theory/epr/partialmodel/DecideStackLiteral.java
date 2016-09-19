@@ -23,23 +23,29 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
  * @author Alexander Nutz
  */
 public abstract class DecideStackLiteral implements IEprLiteral {
+	
+	/**
+	 * The index on the decide stack that this DecideStackLiteral has.
+	 */
+	protected final int mIndex;
 
-	boolean mPolarity;
-	EprPredicate mPred;
+	protected final boolean mPolarity;
+	protected final EprPredicate mPred;
 	
 	/**
 	 * Stores all the groundings for which this.atom is decided with this.polarity
 	 * by this DecideStackLiteral
 	 */
-	IDawg<ApplicationTerm, TermVariable> mDawg;
+	protected IDawg<ApplicationTerm, TermVariable> mDawg;
 	
-	Set<ClauseEprLiteral> mConcernedClauseLiterals = new HashSet<ClauseEprLiteral>();
+	protected Set<ClauseEprLiteral> mConcernedClauseLiterals = new HashSet<ClauseEprLiteral>();
 	
 	public DecideStackLiteral(boolean polarity, 
-			EprPredicate pred, IDawg<ApplicationTerm, TermVariable> dawg) {
+			EprPredicate pred, IDawg<ApplicationTerm, TermVariable> dawg, int index) {
 		mPolarity = polarity;
 		mPred = pred;
 		mDawg = dawg;
+		mIndex = index;
 		
 		register();
 	}
@@ -102,5 +108,13 @@ public abstract class DecideStackLiteral implements IEprLiteral {
 	@Override
 	public void registerConcernedClauseLiteral(ClauseEprLiteral cel) {
 		mConcernedClauseLiterals.add(cel);
+	}
+	
+	/**
+	 * Returns n iff this is the n-th literal on the epr decide stack
+	 * @return
+	 */
+	public int getIndex() {
+		return mIndex;
 	}
 }

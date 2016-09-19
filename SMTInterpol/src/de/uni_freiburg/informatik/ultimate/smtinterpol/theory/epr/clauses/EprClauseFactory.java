@@ -58,10 +58,6 @@ public class EprClauseFactory {
 		TermTuple p1tt = new TermTuple(pivot1.getArguments().toArray(new Term[arity]));
 		TermTuple p2tt = new TermTuple(pivot2.getArguments().toArray(new Term[arity]));
 		TTSubstitution unifier = p1tt.match(p2tt, mEprTheory.getEqualityManager());
-		
-		
-		Set<Literal> resLits = new HashSet<Literal>();
-
 
 		Set<ClauseLiteral> resCls = new HashSet<ClauseLiteral>();
 		resCls.addAll(c1Lits);
@@ -74,8 +70,73 @@ public class EprClauseFactory {
 		mEprTheory.notifyAboutNewClause(alphaRenamingIdentifier);
 
 		// apply the unifier to the literals of c1 and c2, add the unified literals to the resolvent
-		for (ClauseLiteral cl : c2Lits) {
-			assert cl != pivot1 && cl != pivot2;
+		Set<Literal> resLits = computeUnifiedLiteralsFromClauseLiterals(unifier, resCls, alphaRenamingIdentifier);
+	
+		return getEprClause(resLits);
+	}
+	
+	public EprClause getFactoredClause(ClauseEprQuantifiedLiteral factorLit1, ClauseEprLiteral factorLit2) {
+		assert factorLit1.getPolarity() == factorLit2.getPolarity();
+		
+		EprPredicate flPred = factorLit1.getEprPredicate();
+		assert flPred == factorLit2.getEprPredicate();
+		assert factorLit1.getClause() == factorLit2.getClause();
+		int arity = flPred.getArity();
+		
+		EprClause clause = factorLit1.getClause();
+		
+		Set<ClauseLiteral> cLits = clause.getLiterals();
+		
+		TermTuple p1tt = new TermTuple(factorLit1.getArguments().toArray(new Term[arity]));
+		TermTuple p2tt = new TermTuple(factorLit2.getArguments().toArray(new Term[arity]));
+		TTSubstitution unifier = p1tt.match(p2tt, mEprTheory.getEqualityManager());
+		
+		
+		Set<ClauseLiteral> resCls = new HashSet<ClauseLiteral>();
+		resCls.addAll(cLits);
+		resCls.remove(factorLit2);
+		
+		String alphaRenamingIdentifier = new String("alpha renaming for factoring of clause" 
+				+ clause + " with " + factorLit1 + " and " + factorLit2);
+		mEprTheory.notifyAboutNewClause(alphaRenamingIdentifier);
+	
+		Set<Literal> resLits = computeUnifiedLiteralsFromClauseLiterals(unifier, resCls, alphaRenamingIdentifier);
+		
+		EprClause factor = getEprClause(resLits);
+		mEprTheory.getStateManager().learnClause(factor);//TODO: right now: learn every factor.. is this a good place??
+		return factor;
+	}
+
+	/**
+	 * makes sure that for the same set of literals only one clause is constructed.
+	 * Note that this may return a EprDerivedClause -- if there already is one for the set of Literals
+	 * (copy from the old getBaseClause method)
+	 */
+	public EprClause getEprClause(Set<Literal> newLits) {
+		EprClause result = mLiteralsToClause.get(newLits);
+		if (result == null) {
+			result = new EprClause(newLits, mEprTheory);
+			mEprTheory.getLogger().debug("EPRDEBUG (EprStateManager): creating new clause " + result);
+			mLiteralsToClause.put(newLits, result);
+		} else {
+			mEprTheory.getLogger().debug("EPRDEBUG (EprStateManager): clause has been added before " + result);
+		}
+		return result;
+	}
+	
+	public void push() {
+		mLiteralsToClause.beginScope();
+	}
+	
+	public void pop() {
+		mLiteralsToClause.endScope();
+	}
+
+	private Set<Literal> computeUnifiedLiteralsFromClauseLiterals(TTSubstitution unifier, Set<ClauseLiteral> resCls,
+			String alphaRenamingIdentifier) {
+		// apply the unifier to the literals of c1 and c2, add the unified literals to the resolvent
+		Set<Literal> resLits = new HashSet<Literal>();
+		for (ClauseLiteral cl : resCls) {
 
 			if (cl instanceof ClauseEprQuantifiedLiteral) {
 				ClauseEprQuantifiedLiteral clQ = (ClauseEprQuantifiedLiteral) cl;
@@ -108,32 +169,6 @@ public class EprClauseFactory {
 				resLits.add(cl.getLiteral());
 			}
 		}
-		
-		return new EprClause(resLits, mEprTheory);
-	}
-	
-	/**
-	 * makes sure that for the same set of literals only one clause is constructed.
-	 * Note that this may return a EprDerivedClause -- if there already is one for the set of Literals
-	 * (copy from the old getBaseClause method)
-	 */
-	public EprClause getEprClause(Set<Literal> newLits) {
-		EprClause result = mLiteralsToClause.get(newLits);
-		if (result == null) {
-			result = new EprClause(newLits, mEprTheory);
-			mEprTheory.getLogger().debug("EPRDEBUG (EprStateManager): creating new clause " + result);
-			mLiteralsToClause.put(newLits, result);
-		} else {
-			mEprTheory.getLogger().debug("EPRDEBUG (EprStateManager): clause has been added before " + result);
-		}
-		return result;
-	}
-	
-	public void push() {
-		mLiteralsToClause.beginScope();
-	}
-	
-	public void pop() {
-		mLiteralsToClause.endScope();
+		return resLits;
 	}
 }

@@ -15,12 +15,12 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 public class DecideStackDecisionLiteral extends DecideStackLiteral {
 
 	public DecideStackDecisionLiteral(boolean polarity, EprPredicate eprPredicate, 
-			IDawg<ApplicationTerm, TermVariable> dawg) {
-		super(polarity, eprPredicate, dawg);
+			IDawg<ApplicationTerm, TermVariable> dawg, int index) {
+		super(polarity, eprPredicate, dawg, index);
 	}
 
 	@Override
 	public String toString() {
-		return "(DSDL: " + (mPolarity ? "" : "~").toString() + mPred.toString() +  ")";
+		return String.format("(DSDec (%d): %c%b)", mPolarity ? ' ' : '~',  mPred, mIndex);
 	}	
 }

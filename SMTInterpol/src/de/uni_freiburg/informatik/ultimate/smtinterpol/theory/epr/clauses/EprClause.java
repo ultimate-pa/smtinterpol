@@ -437,17 +437,6 @@ public class EprClause {
 		return mEprClauseState == EprClauseState.Conflict;
 	}
 
-	public Set<ClauseLiteral> getLiteralsWithEprPred(EprPredicate eprPred) {
-		Set<ClauseLiteral> result = new HashSet<ClauseLiteral>();
-		for (ClauseLiteral cl : mLiterals) {
-			if (cl instanceof ClauseEprLiteral
-					&& ((ClauseEprLiteral)cl).getEprPredicate() == eprPred) {
-				result.add(cl);
-			}
-		}
-		return result;
-	}
-	
 	/**
 	 * Returns the literal(s) that were made unfulfillable when this clause became a conflict.
 	 * @return
@@ -538,5 +527,86 @@ public class EprClause {
 		}
 
 		return result;
+	}
+
+
+	/**
+	 * Checks if in the current decide state a factoring of this conflict clause is possible.
+	 * If a factoring is possible, a factored clause is returned.
+	 * Otherwise this clause is returned unchanged.
+	 * 
+	 * @return A factored version of this clause or this clause.
+	 */
+	public EprClause factorIfPossible() {
+		Set<EprPredicate> predsInThisClause = new HashSet<EprPredicate>();
+		for (ClauseLiteral cl : mLiterals) {
+			if (!(cl instanceof ClauseEprQuantifiedLiteral)) {
+				// if the pred only occurs in ground literals we don't need to consider it for factoring
+				// (we already did ground factoring at creation)
+				continue;
+			}
+			ClauseEprQuantifiedLiteral ceql = (ClauseEprQuantifiedLiteral) cl;
+			predsInThisClause.add(ceql.getEprPredicate());
+		}
+
+		for (EprPredicate eprPred : predsInThisClause) {
+			// note that ground occurrences may also contribute to a factoring (but one side has to be quantified)
+			// so the following set should be just right
+			HashSet<ClauseEprLiteral> occurrencesOfSamePredInThisClause = 
+					eprPred.getAllEprClauseOccurences().get(this);
+
+			// collect all relevant types of literals
+			List<ClauseEprQuantifiedLiteral> positiveQuantifiedOccurencesOfPred = 
+					new ArrayList<ClauseEprQuantifiedLiteral>();
+			List<ClauseEprGroundLiteral> positiveGroundOccurencesOfPred = 
+					new ArrayList<ClauseEprGroundLiteral>();
+			List<ClauseEprQuantifiedLiteral> negativeQuantifiedOccurencesOfPred = 
+					new ArrayList<ClauseEprQuantifiedLiteral>();
+			List<ClauseEprGroundLiteral> negativeGroundOccurencesOfPred = 
+					new ArrayList<ClauseEprGroundLiteral>();
+			for (ClauseEprLiteral cel : occurrencesOfSamePredInThisClause) {
+				if (cel.getPolarity()) {
+					if (cel instanceof ClauseEprQuantifiedLiteral) {
+						positiveQuantifiedOccurencesOfPred.add((ClauseEprQuantifiedLiteral) cel);
+					} else {
+						positiveGroundOccurencesOfPred.add((ClauseEprGroundLiteral) cel);
+					}
+				} else {
+					if (cel instanceof ClauseEprQuantifiedLiteral) {
+						negativeQuantifiedOccurencesOfPred.add((ClauseEprQuantifiedLiteral) cel);
+					} else {
+						negativeGroundOccurencesOfPred.add((ClauseEprGroundLiteral) cel);
+					}
+				}
+			}
+			
+			for (int i = 0; i < positiveQuantifiedOccurencesOfPred.size(); i++) {
+				ClauseEprQuantifiedLiteral pqOc = positiveQuantifiedOccurencesOfPred.get(i);
+				for (int j = 0; j < i; j++) {
+					ClauseEprQuantifiedLiteral pqOcOther = positiveQuantifiedOccurencesOfPred.get(j);
+					assert pqOcOther != pqOc;
+					
+					IDawg<ApplicationTerm, TermVariable> intersection = 
+							pqOc.getRefutedPoints().intersect(pqOcOther.getRefutedPoints());
+					
+					if (intersection.isEmpty()) {
+						continue;
+					}
+					// we can actually factor
+					return mEprTheory.getEprClauseFactory().getFactoredClause(pqOc, pqOcOther);
+				}
+
+				for (ClauseEprGroundLiteral pgOc : positiveGroundOccurencesOfPred) {
+					if (! pqOc.getRefutedPoints().accepts(
+							EprHelpers.convertTermListToConstantList(pgOc.getArguments()))) {
+						continue;
+					}
+					// we can actually factor
+					return mEprTheory.getEprClauseFactory().getFactoredClause(pqOc, pgOc);
+				}
+			}
+		}
+		// when we can't factor, we just return this clause
+		return this;
 	}
 }

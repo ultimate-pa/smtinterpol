@@ -22,7 +22,7 @@ public class EeaaMain {
 			infileName = args[0];
 			outfileName = args[1];
 		} catch (ArrayIndexOutOfBoundsException e) {
-			System.out.println("Please give two arguments -- an input file and and output file (both .smt2)");
+			System.out.println("Please give two arguments -- an input file and an output file (both .smt2)");
 		}
 
 		IParser parser = new SMTLIB2Parser();

@@ -22,6 +22,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprCla
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackDecisionLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DslBuilder;
 
 /**
  * Represents an uninterpreted predicate that the EPR theory reasons about.
@@ -201,13 +202,14 @@ public class EprPredicate {
 	 *  @return null if the model of this predicate is already complete, a DecideStackLiteral
 	 *          otherwise.
 	 */
-	public DecideStackLiteral getNextDecision() {
+	public DslBuilder getNextDecision() {
 		IDawg<ApplicationTerm, TermVariable> undecidedPoints = computeUndecidedPoints();
 
 		if (undecidedPoints.isEmpty()) {
 			return null;
 		} else {
-			return new DecideStackDecisionLiteral(true, this, undecidedPoints);
+//			return new DecideStackDecisionLiteral(true, this, undecidedPoints);
+			return new DslBuilder(true, this, undecidedPoints, true);//TODO: what about polarity??
 		}
 	}
 

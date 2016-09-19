@@ -126,10 +126,7 @@ public class EprTheory implements ITheory {
 			// literal is of the form (P c1 .. cn) (no quantification, but an EprPredicate)
 			// is being set by the DPLLEngine (the quantified EprPredicateAtoms are not known to the DPLLEngine)
 
-			Clause conflict = mStateManager.setEprGroundLiteral(literal);
-			if (conflict != null)
-				return conflict; // then act as if the literal is not set, right?
-
+			return mStateManager.setEprGroundLiteral(literal);
 		} else if (atom instanceof EprQuantifiedEqualityAtom 
 				|| atom instanceof EprQuantifiedPredicateAtom) {
 
@@ -145,11 +142,11 @@ public class EprTheory implements ITheory {
 
 			// TODO do ground disequalities have an impact for EPR?
 
-			mStateManager.setDpllLiteral(literal);
+			return mStateManager.setDpllLiteral(literal);
 		} else {
 			// neither an EprAtom nor an Equality
 
-			mStateManager.setDpllLiteral(literal);
+			return	mStateManager.setDpllLiteral(literal);
 	
 		}
 

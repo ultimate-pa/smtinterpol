@@ -81,6 +81,9 @@ public class EprStateManager {
 	private HashMap<Literal, EprGroundPredicateLiteral> mLiteralToEprGroundPredicateLiteral = 
 			new HashMap<Literal, EprGroundPredicateLiteral>();
 
+	//private int mDecideStackHeight;
+	private Stack<DecideStackLiteral> globalDecideStack = new Stack<DecideStackLiteral>();
+
 	
 	public EprStateManager(EprTheory eprTheory) {
 		mPushStateStack.add(new EprPushState());
@@ -109,10 +112,8 @@ public class EprStateManager {
 
 		while (true) {
 
-			DecideStackLiteral nextDecision = null;
-
+			DslBuilder nextDecision = null;
 			nextDecision = getNextDecision();
-
 			if (nextDecision == null) {
 				// model is complete
 				return null;
@@ -120,15 +121,17 @@ public class EprStateManager {
 
 			// make the decision
 			if (!nextDecision.isOnePoint()) {
-				Set<EprClause> conflictsOrUnits = pushEprDecideStack((DecideStackLiteral) nextDecision);
+//				Set<EprClause> conflictsOrUnits = pushEprDecideStack((DecideStackLiteral) nextDecision);
+				Set<EprClause> conflictsOrUnits = pushEprDecideStack(nextDecision);
 				return resolveConflictOrStoreUnits(conflictsOrUnits);
 			} else {
 				// if the next requested decision is ground, suggest it to the DPLLEngine, and give 
 				// back control to the DPLLEngine
-				Literal groundDecision = nextDecision.getEprPredicate()
+				DecideStackLiteral dsl = nextDecision.build();
+				Literal groundDecision = dsl.getEprPredicate()
 						.getAtomForTermTuple(
-								new TermTuple(nextDecision.getPoint().toArray(
-										new ApplicationTerm[nextDecision.getPoint().size()])), // TODO: make nicer
+								new TermTuple(dsl.getPoint().toArray(
+										new ApplicationTerm[dsl.getPoint().size()])), // TODO: make nicer
 								mTheory, 0); //TODO assertionstacklevel
 				assert groundDecision.getAtom().getDecideStatus() == null : "If this is not the case, then"
 						+ "it might be dangerous to return null: if null is returned to computeConflictClause,"
@@ -212,7 +215,8 @@ public class EprStateManager {
 				ClauseEprQuantifiedLiteral ceql = (ClauseEprQuantifiedLiteral) cl;
 				
 				IDawg<ApplicationTerm, TermVariable> dawg = en.getValue();
-				DecideStackPropagatedLiteral prop = new DecideStackPropagatedLiteral(
+//				DecideStackPropagatedLiteral prop = new DecideStackPropagatedLiteral(
+				DslBuilder propB = new DslBuilder(
 						ceql.getPolarity(), 
 						ceql.getEprPredicate(),
 						mDawgFactory.renameColumnsAndRestoreConstants(
@@ -220,9 +224,10 @@ public class EprStateManager {
 								ceql.getTranslationForEprPredicate(), 
 								ceql.getArgumentsAsObjects(),
 								ceql.getEprPredicate().getTermVariablesForArguments()),
-						ceql);
+						ceql,
+						false);
 
-				Set<EprClause> newConflictsOrUnits = pushEprDecideStack(prop);
+				Set<EprClause> newConflictsOrUnits = pushEprDecideStack(propB);
 
 				if (newConflictsOrUnits != null) {
 					if (newConflictsOrUnits.iterator().next().isConflict()) {
@@ -276,9 +281,12 @@ public class EprStateManager {
 		EprClause currentConflict = conflict;
 		
 		while (true) {
-			//TODO .. factoring? backjumping?
-//			currentConflict = tryFactoring(currentConflict);
-//			currentConflict = tryBackjumping(currentConflict);
+			currentConflict = currentConflict.factorIfPossible();
+
+			boolean backjumpSucceeded = tryBackjumping(currentConflict);
+			if (backjumpSucceeded) {
+				return null;
+			}
 
 			if (currentConflict == null) {
 				return null;
@@ -317,18 +325,16 @@ public class EprStateManager {
 		
 	}
 
-	private void learnClause(EprClause currentConflict) {
+	public void learnClause(EprClause currentConflict) {
+		// TODO: seems weird, architecture-wise
+		// the registration has to be done for any epr clause that we add to our formula
+		// --> just ditch this method, use register.. instead??
 		registerEprClause(currentConflict);
 	}
 
-	private EprClause tryBackjumping(EprClause currentConflict) {
+	private boolean tryBackjumping(EprClause currentConflict) {
 		assert false : "TODO: implement";
-		return null;
-	}
-
-	private EprClause tryFactoring(EprClause currentConflict) {
-		assert false : "TODO: implement";
-		return null;
+		return false;
 	}
 
 	/**
@@ -373,9 +379,9 @@ public class EprStateManager {
 	 * @return 	A DecideStackLiteral for an EprPredicate with incomplete model 
 	 *           or null if all EprPredicates have a complete model.
 	 **/
-	private DecideStackLiteral getNextDecision() {
+	private DslBuilder getNextDecision() {
 		for (EprPredicate ep : getAllEprPredicates()) {
-			DecideStackLiteral decision = ep.getNextDecision();
+			DslBuilder decision = ep.getNextDecision();
 			if (decision != null) {
 				return decision;
 			}
@@ -465,9 +471,10 @@ public class EprStateManager {
 					mDawgFactory.copyDawg(conflictingDsl.getDawg());
 			newDawg.removeAll(egpl.getDawg()); // (should be one point only)
 			
-			DecideStackDecisionLiteral newDecision = 
-					new DecideStackDecisionLiteral(
-							conflictingDsl.getPolarity(), conflictingDsl.getEprPredicate(), newDawg);
+//			DecideStackDecisionLiteral newDecision = 
+			DslBuilder newDecision = 
+					new DslBuilder(
+							conflictingDsl.getPolarity(), conflictingDsl.getEprPredicate(), newDawg, true);
 			
 			Set<EprClause> conflictsOrUnits = pushEprDecideStack(newDecision);
 			return resolveConflictOrStoreUnits(conflictsOrUnits);
@@ -509,6 +516,11 @@ public class EprStateManager {
 			EprPushState currentPushState = pssIt.previous();
 			
 			DecideStackLiteral dsl = currentPushState.popDecideStack();
+
+			assert dsl.getIndex() == globalDecideStack.size();
+			DecideStackLiteral gdsl = globalDecideStack.pop();
+			assert gdsl == dsl;
+
 			if (dsl != null) {
 				updateClausesOnBacktrackDecideStackLiteral(dsl);
 				return dsl;
@@ -576,7 +588,12 @@ public class EprStateManager {
 	 * @param dsl
 	 * @return 
 	 */
-	private Set<EprClause> pushEprDecideStack(DecideStackLiteral dsl) {
+//	private Set<EprClause> pushEprDecideStack(DecideStackLiteral dsl) {
+	private Set<EprClause> pushEprDecideStack(DslBuilder dslb) {
+		
+		dslb.setIndex(globalDecideStack.size() + 1);
+		DecideStackLiteral dsl = dslb.build();
+		globalDecideStack.push(dsl);
 		
 		// setting the decideStackLiteral means that we have to set all ground atoms covered by it
 		// in the DPLLEngine
