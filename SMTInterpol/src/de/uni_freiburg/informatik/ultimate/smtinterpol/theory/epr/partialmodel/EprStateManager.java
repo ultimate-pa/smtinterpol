@@ -162,6 +162,10 @@ public class EprStateManager {
 
 			Set<EprClause> propResult = propagateUnitClause(conflictsOrUnits, current);
 			
+			if (propResult.isEmpty()) {
+				continue;
+			}
+			
 			if (propResult.iterator().next().isConflict()) {
 				assert propResult.size() == 1;
 				return propResult.iterator().next(); 
@@ -278,8 +282,10 @@ public class EprStateManager {
 		
 		while (true) {
 			currentConflict = currentConflict.factorIfPossible();
+			assert currentConflict.isConflict();
 
 			currentConflict = backjumpIfPossible(currentConflict);
+			assert currentConflict.isConflict();
 
 			if (currentConflict == null) {
 				return null;
@@ -291,8 +297,8 @@ public class EprStateManager {
 				return chooseGroundingFromConflict(currentConflict);
 			}
 
-			// backtrack the literal
-			popEprDecideStack();
+//			// backtrack the literal
+//			popEprDecideStack();
 
 			if (topMostDecideStackLiteral instanceof DecideStackDecisionLiteral) {
 				assert mDecisions.peek() == topMostDecideStackLiteral : "something wrong with decisions stack";
@@ -801,11 +807,11 @@ public class EprStateManager {
 			
 			eprClause.backtrackStateWrtDecideStackLiteral(dsl);
 
-			if (eprClause.isConflict()) {
-				assert false : "?";
-			} else if (eprClause.isUnit()) {
-				assert false : "?";
-			}
+//			if (eprClause.isConflict()) {
+//				assert false : "?";
+//			} else if (eprClause.isUnit()) {
+//				assert false : "?";
+//			}
 		}
 	}
 

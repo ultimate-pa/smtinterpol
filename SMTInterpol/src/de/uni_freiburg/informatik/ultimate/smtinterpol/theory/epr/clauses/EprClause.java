@@ -251,7 +251,6 @@ public class EprClause {
 
 	public void backtrackStateWrtDecideStackLiteral(DecideStackLiteral dsl) {
 		mClauseStateIsDirty = true;
-		assert false : "TODO: implement";
 	}
 
 	/**
@@ -641,17 +640,27 @@ public class EprClause {
 			
 			for (int i = 0; i < positiveQuantifiedOccurencesOfPred.size(); i++) {
 				ClauseEprQuantifiedLiteral pqOc = positiveQuantifiedOccurencesOfPred.get(i);
+				IDawg<ApplicationTerm, TermVariable> refPointsCurrent = pqOc.getRefutedPoints();
+				IDawg<ApplicationTerm, TermVariable> renamedRefPointsCurrent = mDawgFactory.renameColumnsAndRestoreConstants(refPointsCurrent, 
+						pqOc.getTranslationForEprPredicate(), pqOc.getArgumentsAsObjects(), pqOc.getEprPredicate().getTermVariablesForArguments());
 				for (int j = 0; j < i; j++) {
 					ClauseEprQuantifiedLiteral pqOcOther = positiveQuantifiedOccurencesOfPred.get(j);
 					assert pqOcOther != pqOc;
 					
+					IDawg<ApplicationTerm, TermVariable> refPointsOther = pqOcOther.getRefutedPoints();
+					IDawg<ApplicationTerm, TermVariable> renamedRefPointsOther = mDawgFactory.renameColumnsAndRestoreConstants(refPointsOther, 
+						pqOcOther.getTranslationForEprPredicate(), pqOcOther.getArgumentsAsObjects(), pqOcOther.getEprPredicate().getTermVariablesForArguments());
+
+					
 					IDawg<ApplicationTerm, TermVariable> intersection = 
-							pqOc.getRefutedPoints().intersect(pqOcOther.getRefutedPoints());
+							renamedRefPointsCurrent.intersect(renamedRefPointsOther);
+//							pqOc.getRefutedPoints().intersect(pqOcOther.getRefutedPoints());
 					
 					if (intersection.isEmpty()) {
 						continue;
 					}
 					// we can actually factor
+					mEprTheory.getLogger().debug("EPRDEBUG: (EprClause): factoring " + this);
 					return mEprTheory.getEprClauseFactory().getFactoredClause(pqOc, pqOcOther);
 				}
 
@@ -661,6 +670,7 @@ public class EprClause {
 						continue;
 					}
 					// we can actually factor
+					mEprTheory.getLogger().debug("EPRDEBUG: (EprClause): factoring " + this);
 					return mEprTheory.getEprClauseFactory().getFactoredClause(pqOc, pgOc);
 				}
 			}

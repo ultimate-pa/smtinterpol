@@ -116,10 +116,10 @@ public class EprClauseFactory {
 		EprClause result = mLiteralsToClause.get(newLits);
 		if (result == null) {
 			result = new EprClause(newLits, mEprTheory);
-			mEprTheory.getLogger().debug("EPRDEBUG (EprStateManager): creating new clause " + result);
+			mEprTheory.getLogger().debug("EPRDEBUG (EprClauseFactory): creating new clause " + result);
 			mLiteralsToClause.put(newLits, result);
 		} else {
-			mEprTheory.getLogger().debug("EPRDEBUG (EprStateManager): clause has been added before " + result);
+			mEprTheory.getLogger().debug("EPRDEBUG (EprClauseFactory): clause has been added before " + result);
 		}
 		return result;
 	}

@@ -12,6 +12,7 @@ import java.util.TreeSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.BinaryRelation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseLiteral;
@@ -65,6 +66,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 	 * @param translation map that gives every column a new name
 	 * @return
 	 */
+	@Deprecated
 	public IDawg<LETTER, COLNAMES> renameColumnsOfDawg(
 			IDawg<LETTER, COLNAMES> dawg, Map<COLNAMES, COLNAMES> translation) {
 		NaiveDawg<LETTER, COLNAMES> nd = (NaiveDawg<LETTER, COLNAMES>) dawg;
@@ -92,10 +94,36 @@ public class DawgFactory<LETTER, COLNAMES> {
 		return dawg.select(selectMap);
 	}
 
-	public IDawg<LETTER, COLNAMES> renameSelectAndProject(
-			IDawg<LETTER, COLNAMES> other, Map<COLNAMES, Object> translation, SortedSet<COLNAMES> targetSignature) {
+	/**
+	 * Used for translating from the signature of a DecideStackLiteral to the signature of an EprClause with respect to
+	 * a clause literals signature.
+	 * A DecideStackLiteral has one variable for each argument of the underlying predicate.
+	 * 
+	 * example: 
+	 *  - some DSL says something like P(x_0 x_1 x_2 x_3)
+	 *  - the overall clause signature may be (u v w x y z)
+	 *  - the clause literals arguments may be (v a w v) (i.e. there may be constants, repetitions, and different orderings)
+	 *  
+	 *  the input dawg has the signature of the DSL
+	 *  
+	 *  then we want to change the columns of the input dawg such that they match the clause's signature
+	 *  this entails
+	 *  - renamings -- x_0 -> v, x_2 -> w 
+	 *  - if there are repetitions or constants, we have to select accordingly, in the example we only select points where x_0 = x_3 and x_1 = a
+	 *   --> from this we would get a dawg that describes the points wrt the clause literal
+	 *  - we have to blow up the signature for the whole clause, i.e., for every missing column to the target signature we insert a "X Sigma", i.e.,
+	 *    we compute the cross product
+	 *  
+	 * @param dawg the dawg that is to be transformed
+	 * @param translation a mapping from the variables in the input dawgs signature to other termvariables and/or constants
+	 * @param targetSignature the target signature we want to blow up for in the end
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public IDawg<LETTER, COLNAMES> renameSelectAndBlowup(
+			IDawg<LETTER, COLNAMES> dawg, Map<COLNAMES, Object> translation, SortedSet<COLNAMES> targetSignature) {
 
-		COLNAMES colNamesInstance = other.getColnames().first();
+		COLNAMES colNamesInstance = dawg.getColnames().first();
 		
 		// the signature of the new dawg has only the non-duplicated colnames 
 		// and also omits constants (i.e. objects not of the type COLNAMES)
@@ -107,9 +135,10 @@ public class DawgFactory<LETTER, COLNAMES> {
 			}
 		}
 		
-		Map<COLNAMES, Integer> newSigColNamesToIndex = EprHelpers.computeColnamesToIndex(newPointSignature);
+		// the new signature is repetition-free, so we can use a map
+		Map<COLNAMES, Integer> newSigColNamesToIndex = EprHelpers.computeColnamesToIndex(newPointSignature).getFunction();
 		
-		NaiveDawg<LETTER, COLNAMES> otherNd = (NaiveDawg<LETTER, COLNAMES>) other;
+		NaiveDawg<LETTER, COLNAMES> otherNd = (NaiveDawg<LETTER, COLNAMES>) dawg;
 //		Set<List<LETTER>> newBacking = new HashSet<List<LETTER>>();
 		NaiveDawg<LETTER, COLNAMES> result = new NaiveDawg<LETTER, COLNAMES>(targetSignature, mAllConstants);
 
@@ -124,14 +153,14 @@ public class DawgFactory<LETTER, COLNAMES> {
 			// tracks if a column name has been seen, and what letter it had been assigned (does select_x=x so to say)
 			Map<COLNAMES, LETTER> variableAssignmentInPoint = new HashMap<COLNAMES, LETTER>();
 			
-			Iterator<COLNAMES> ptColIt = other.getColnames().iterator();
+			Iterator<COLNAMES> ptColIt = dawg.getColnames().iterator();
 			for (int i = 0; i < point.size(); i++) {
 				LETTER ptLtr = point.get(i);
 				COLNAMES ptColnameInOldSig = ptColIt.next();
 
-				Object trans = translation.get(ptColnameInOldSig);
-				if (colNamesInstance.getClass().isInstance(trans)) {
-					COLNAMES ptColnameInNewSig = (COLNAMES) trans;
+				Object translatedColumnName = translation.get(ptColnameInOldSig);
+				if (colNamesInstance.getClass().isInstance(translatedColumnName)) {
+					COLNAMES ptColnameInNewSig = (COLNAMES) translatedColumnName;
 					
 					LETTER vaip = variableAssignmentInPoint.get(ptColnameInNewSig);
 					if (vaip != null && vaip != ptLtr) {
@@ -147,7 +176,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 				} else {
 					// we have a constant in the column where this letter in the point is supposed to "land"
 					// select_x=c so to say..
-					if (ptLtr.equals(trans)) {
+					if (ptLtr.equals(translatedColumnName)) {
 						// the constant matches go on (add nothing to the new point)
 					} else {
 						// point is filtered by the select that checks the constants
@@ -168,12 +197,14 @@ public class DawgFactory<LETTER, COLNAMES> {
 
 	/**
 	 * From the input dawg and translation computes a dawg
-	 *  - whose signature is the range of the translation mapping
-	 *  - the input dawg's signature is shorter or of equal length of the new signature
 	 *  - whose points are rearranged according to the new signature
 	 *  - constants in the argList are filled in the corresponding places at every point
 	 *  - we exploit that the order of arglist matches the sorting order of the newSignature 
 	 *    (that is fix for the given eprPredicate)
+	 *  EDIT:
+	 *   Pragmatically spoken this translated a dawg in the signature of an epr clause into a dawg in the signature of 
+	 *   a decide stack literal. For this it uses the information from one clause literal whose predicate matches the 
+	 *   decide stack literal's predicate.
 	 * @param other
 	 * @param translation a map translating the colnames of the old dawg ("other") to the colnames of the new dawg
 	 *                    may not have a preimage for every new colname in the new signature because there constants 
@@ -183,16 +214,22 @@ public class DawgFactory<LETTER, COLNAMES> {
 	 * @param newSignature
 	 * @return
 	 */
+	@SuppressWarnings("unchecked")
 	public IDawg<LETTER, COLNAMES> renameColumnsAndRestoreConstants(
 			IDawg<LETTER, COLNAMES> other, 
+//			BinaryRelation<COLNAMES, COLNAMES> translation, 
 			Map<COLNAMES, COLNAMES> translation, 
 			List<Object> argList, 
 			SortedSet<COLNAMES> newSignature) {
 		
 		assert argList.size() == newSignature.size();
+		
+		Class<? extends Object> colnamesType = newSignature.iterator().next().getClass();
 
-		Map<COLNAMES, Integer> newSigColnamesToIndex = EprHelpers.computeColnamesToIndex(newSignature);
-		Map<COLNAMES, Integer> oldSigColnamesToIndex = EprHelpers.computeColnamesToIndex(other.getColnames());
+		// the signature of a dawg of a decide stack literal does not contain repetitions, right?
+		Map<COLNAMES, Integer> newSigColnamesToIndex = EprHelpers.computeColnamesToIndex(newSignature).getFunction();
+//		BinaryRelation<COLNAMES, Integer> oldSigColnamesToIndex = EprHelpers.computeColnamesToIndex(other.getColnames());
+		Map<COLNAMES, Integer> oldSigColnamesToIndex = EprHelpers.computeColnamesToIndex(other.getColnames()).getFunction();
 
 		Set<List<LETTER>> newBacking = new HashSet<List<LETTER>>();
 		NaiveDawg<LETTER, COLNAMES> otherNd = (NaiveDawg<LETTER, COLNAMES>) other;
@@ -205,19 +242,32 @@ public class DawgFactory<LETTER, COLNAMES> {
 			}
 
 			Iterator<COLNAMES> newSigColIt = newSignature.iterator();
-			for (int i = 0; i < argList.size(); i++) {
+//			for (int i = 0; i < argList.size(); i++) {
+			for (int i = 0; i < newSignature.size(); i++) {
 				// argList provides us with the colname of the old signature or a constant for each position
-				COLNAMES newSigColname = translation.get(argList.get(i));
-				if (newSigColname == null) {
-					// argList.get(i) must be a constant, as translation translates all termVariables
+//				COLNAMES newSigColname = translation.get(argList.get(i));
+				COLNAMES newSigColname = newSigColIt.next();
+//				if (newSigColname == null) {
+				if (!colnamesType.isInstance(argList.get(i))) {
+//					 argList.get(i) must be a constant, as translation translates all termVariables
+					// EDIT: argList.get(i) is a constant (because it is not a colname/termVariable)
 					assert newPoint.get(i) == null :
 						"the translation map must not translate to a colname where the clauseliteral has a constant!";
 					newPoint.set(i, (LETTER) argList.get(i));
 				} else {
-					Integer oldSigIndex = oldSigColnamesToIndex.get(argList.get(i));
-					assert newPoint.get(newSigColnamesToIndex.get(newSigColname)) == null :
-						"the translation map must not translate to a colname where the clauseliteral has a constant!";
-					newPoint.set(newSigColnamesToIndex.get(newSigColname), point.get(oldSigIndex));
+					// we have to look in which place in the new signature the column from the dawg has to be written to
+//					newSigColName = translation.getImage(argList.get(i))
+					LETTER letter = point.get(oldSigColnamesToIndex.get(translation.get(newSigColname)));
+					newPoint.set(i, letter);
+//					for (COLNAMES oldSigColname : oldSigColnamesToIndex.getDomain()) {
+//					for (Integer oldSigIndex : oldSigColnamesToIndex.getImage((COLNAMES) argList.get(i))) {
+//						assert newPoint.get(newSigColnamesToIndex.get(newSigColname)) == null;
+//						newPoint.set(newSigColnamesToIndex.get(newSigColname), point.get(oldSigIndex));
+//					}
+//					Integer oldSigIndex = oldSigColnamesToIndex.get(argList.get(i));
+//					assert newPoint.get(newSigColnamesToIndex.get(newSigColname)) == null :
+//						"the translation map must not translate to a colname where the clauseliteral has a constant!";
+//					newPoint.set(newSigColnamesToIndex.get(newSigColname), point.get(oldSigIndex));
 				}
 			}
 			newBacking.add(newPoint);
@@ -288,7 +338,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 			translation3.put("beta", "bla");
 			translation3.put("gamma", "blub");
 	
-			IDawg<Character, String> d3 = df.renameSelectAndProject(d2, translation3, d2.getColnames());
+			IDawg<Character, String> d3 = df.renameSelectAndBlowup(d2, translation3, d2.getColnames());
 	
 			System.out.println("d3: rnsP(d2, {alpha -> bla, beta -> bla, gamma -> blub)");
 			System.out.println("expecting: (bla, blub) {ab}");
@@ -299,7 +349,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 			translation4.put("beta", "bla");
 			translation4.put("gamma", 'a');
 	
-			IDawg<Character, String> d4 = df.renameSelectAndProject(d2, translation4, d2.getColnames());
+			IDawg<Character, String> d4 = df.renameSelectAndBlowup(d2, translation4, d2.getColnames());
 	
 			System.out.println("d4: rnsP(d2, {alpha -> bla, beta -> bla, gamma -> 'a')");
 			System.out.println("expecting: (bla) {}");
@@ -310,7 +360,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 			translation5.put("beta", "bla");
 			translation5.put("gamma", 'b');
 	
-			IDawg<Character, String> d5 = df.renameSelectAndProject(d2, translation5, d2.getColnames());
+			IDawg<Character, String> d5 = df.renameSelectAndBlowup(d2, translation5, d2.getColnames());
 	
 			System.out.println("d5: rnsP(d2, {alpha -> bla, beta -> bla, gamma -> 'b')");
 			System.out.println("expecting: (bla) {a}");
@@ -318,10 +368,15 @@ public class DawgFactory<LETTER, COLNAMES> {
 	
 			// tests for renameAndRestoreConstants
 			
+//			BinaryRelation<String, String> translation6 = new BinaryRelation<String, String>();
+//			translation6.addPair("alpha", "cinque");
+//			translation6.addPair("beta", "uno");
+//			translation6.addPair("gamma", "quattro");
+	
 			Map<String, String> translation6 = new HashMap<String, String>();
-			translation6.put("alpha", "cinque");
-			translation6.put("beta", "uno");
-			translation6.put("gamma", "quattro");
+			translation6.put("cique", "alpha");
+			translation6.put("uno", "beta");
+			translation6.put("quattro", "gamma");
 			
 			List<Object> argList1 = new ArrayList<Object>();
 			argList1.add("beta");

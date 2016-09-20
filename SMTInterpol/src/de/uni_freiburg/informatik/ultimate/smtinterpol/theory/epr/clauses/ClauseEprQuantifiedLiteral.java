@@ -15,6 +15,7 @@ import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.BinaryRelation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers.Pair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
@@ -87,7 +88,12 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	 * the canoncal variable names of the EprPredicate.
 	 * Used for translating from unit clause representation as a dawg over the clause signature
 	 * to a dawg over the predicate's signature.
+	 * 
+	 * EDIT:
+	 * reversing it, seems more useful
+	 *  maps from dsl signature colname to clause signature colname
 	 */
+//	private final BinaryRelation<TermVariable, TermVariable> mTranslationForEprPredicate;
 	private final Map<TermVariable, TermVariable> mTranslationForEprPredicate;
 
 	public ClauseEprQuantifiedLiteral(boolean polarity, EprQuantifiedPredicateAtom atom, 
@@ -104,6 +110,7 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 		}
 		mDawgSignature = Collections.unmodifiableSortedSet(vars);
 
+//		Pair<Map<TermVariable, Object>, BinaryRelation<TermVariable, TermVariable>> p = computeDawgSignatureTranslations();
 		Pair<Map<TermVariable, Object>, Map<TermVariable, TermVariable>> p = computeDawgSignatureTranslations();
 		mTranslationForClause = p.first;
 		mTranslationForEprPredicate = p.second;
@@ -208,7 +215,7 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 		assert mRefutedPoints != null;
 		assert mRefutedPoints.getColnames().equals(mEprClause.getVariables());
 		IDawg<ApplicationTerm, TermVariable> result = mRefutedPoints;
-		mRefutedPoints = null;
+//		mRefutedPoints = null;
 		return result;
 	}
 
@@ -234,28 +241,30 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 		IDawg<ApplicationTerm, TermVariable> refutedPoints = 
 				mEprTheory.getDawgFactory().createEmptyDawg(mAtom.getEprPredicate().getTermVariablesForArguments());
 		for (IEprLiteral dsl : mPartiallyConflictingDecideStackLiterals) {
-			if (dsl instanceof EprGroundPredicateLiteral 
+			if (decideStackBorder == null 
+					|| dsl instanceof EprGroundPredicateLiteral 
 					|| ((DecideStackLiteral) dsl).compareTo(decideStackBorder) < 0) {
 				refutedPoints.addAll(dsl.getDawg());
 			}
 		}
 		// right now, the refuted points are in terms of the EprPredicates signature, we need a renaming
 		// and possibly select and projects to match the signature of the clause.
-		refutedPoints = mDawgFactory.renameSelectAndProject(refutedPoints, mTranslationForClause, mEprClause.getVariables());
+		refutedPoints = mDawgFactory.renameSelectAndBlowup(refutedPoints, mTranslationForClause, mEprClause.getVariables());
 
 		// collect the points in a dawg with the predicate's signature
 		IDawg<ApplicationTerm, TermVariable> fulfilledPoints = 
 				mEprTheory.getDawgFactory().createEmptyDawg(
 						mAtom.getEprPredicate().getTermVariablesForArguments());
 		for (IEprLiteral dsl : mPartiallyFulfillingDecideStackLiterals) {
-			if (dsl instanceof EprGroundPredicateLiteral 
+			if (decideStackBorder == null 
+					|| dsl instanceof EprGroundPredicateLiteral 
 					|| ((DecideStackLiteral) dsl).compareTo(decideStackBorder) < 0) {
 				fulfilledPoints.addAll(dsl.getDawg());
 			}
 		}
 		// right now, the fulfilled points are in terms of the EprPredicates signature, we need a renaming
 		// and possibly select and projects to match the signature of the clause.
-		fulfilledPoints = mDawgFactory.renameSelectAndProject(fulfilledPoints, mTranslationForClause, mEprClause.getVariables());
+		fulfilledPoints = mDawgFactory.renameSelectAndBlowup(fulfilledPoints, mTranslationForClause, mEprClause.getVariables());
 
 //		mFulfillablePoints = mEprTheory.getDawgFactory().createFullDawg(mDawgSignature);
 		mFulfillablePoints = mEprTheory.getDawgFactory().createFullDawg(mEprClause.getVariables());
@@ -281,8 +290,11 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	 * to the column names of the clause that this ClauseLiteral belongs to.
 	 * @return map : predicateColumnNames -> clauseColumnNames
 	 */
+//	private Pair<Map<TermVariable, Object>, BinaryRelation<TermVariable, TermVariable>> computeDawgSignatureTranslations() {
 	private Pair<Map<TermVariable, Object>, Map<TermVariable, TermVariable>> computeDawgSignatureTranslations() {
 
+//		BinaryRelation<TermVariable, TermVariable> clauseToPred = 
+//				new BinaryRelation<TermVariable, TermVariable>();
 		Map<TermVariable, TermVariable> clauseToPred = 
 				new HashMap<TermVariable, TermVariable>();
 		Map<TermVariable, Object> predToClause = 
@@ -293,39 +305,43 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 			TermVariable tv = predTermVarIt.next();
 			predToClause.put(tv, atomT);
 			if (atomT instanceof TermVariable) {
-				clauseToPred.put((TermVariable) atomT, tv);
+//				clauseToPred.addPair((TermVariable) atomT, tv);
+				clauseToPred.put(tv, (TermVariable) atomT);
 			}
 		}
 
-		/*
-		 * Note:
-		 * it is an important invariant for DawgFactory.renameColumnsAndRestoreConstants(..) that the map
-		 * clauseToPred's range does not contain a column in the eprPredicate's signature where this 
-		 * clauseLiteral has a constant.
-		 */
-		assert sanitizedClauseToPred(clauseToPred, mArgumentTerms);
+//		assert sanitizedClauseToPred(clauseToPred, mArgumentTerms);
 
 		return new Pair<Map<TermVariable, Object>, Map<TermVariable, TermVariable>>(predToClause, clauseToPred);
 	}
-	
-	private boolean sanitizedClauseToPred(Map<TermVariable, TermVariable> clauseToPred, List<Term> mArgumentTerms) {
-		SortedSet<TermVariable> predSig = mEprPredicateAtom.getEprPredicate().getTermVariablesForArguments();
-		Map<TermVariable, Integer> predCnToIndex = EprHelpers.computeColnamesToIndex(predSig);
-		for (TermVariable tv : clauseToPred.values()) {
-			if (mArgumentTerms.get(predCnToIndex.get(tv)) instanceof ApplicationTerm) {
-				return false;
-			}
-		}
-		return true;
-	}
 
+//	/**
+//	 * it is an important invariant for DawgFactory.renameColumnsAndRestoreConstants(..) that the map
+//	 * clauseToPred's range does not contain a column in the eprPredicate's signature where this 
+//	 * clauseLiteral has a constant.
+//	 */
+//	private boolean sanitizedClauseToPred(BinaryRelation<TermVariable, TermVariable> clauseToPred, List<Term> mArgumentTerms) {
+//		SortedSet<TermVariable> predSig = mEprPredicateAtom.getEprPredicate().getTermVariablesForArguments();
+//		BinaryRelation<TermVariable, Integer> predCnToIndex = EprHelpers.computeColnamesToIndex(predSig);
+//		for (TermVariable tv : clauseToPred.get.values()) {
+//			for (Integer i : predCnToIndex.getImage(tv)) {
+//				if (mArgumentTerms.get(i) instanceof ApplicationTerm) {
+////			if (mArgumentTerms.get(predCnToIndex.get(tv)) instanceof ApplicationTerm) {
+//					return false;
+//				}
+//			}
+//		}
+//		return true;
+//	}
+
+//	public BinaryRelation<TermVariable, TermVariable> getTranslationForEprPredicate() {
 	public Map<TermVariable, TermVariable> getTranslationForEprPredicate() {
 		return mTranslationForEprPredicate;
 	}
 
 	@Override
 	public boolean isDisjointFrom(IDawg<ApplicationTerm, TermVariable> dawg) {
-		 return mDawgFactory.renameSelectAndProject(dawg, mTranslationForClause, mEprClause.getVariables()).isEmpty();
+		 return mDawgFactory.renameSelectAndBlowup(dawg, mTranslationForClause, mEprClause.getVariables()).isEmpty();
 	}
 
 	/**
