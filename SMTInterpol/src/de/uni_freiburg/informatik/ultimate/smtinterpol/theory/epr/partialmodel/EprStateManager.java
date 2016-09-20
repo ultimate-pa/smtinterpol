@@ -30,6 +30,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EqualityManage
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseEprGroundLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseEprLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseEprQuantifiedLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseLiteral;
@@ -294,8 +295,20 @@ public class EprStateManager {
 			popEprDecideStack();
 
 			if (topMostDecideStackLiteral instanceof DecideStackDecisionLiteral) {
-				
-				refine(currentConflict);
+				assert mDecisions.peek() == topMostDecideStackLiteral : "something wrong with decisions stack";
+				/*
+				 * Reaching here means that the clause 
+				 *  - contains two instances of the same predicate with the same polarity 
+				 *  which are 
+				 *  1 both refuted by the topmost decision
+				 *  2 disjoint their allowed groundings
+				 *  
+				 *  if 1 would not be the case the clause would not be a conflcit anymore
+				 *  if 2 would not be the case we would have factored
+				 *  
+				 *  --> we need to restrict our decision to set one of the two
+				 */
+				refine((DecideStackDecisionLiteral) topMostDecideStackLiteral, currentConflict);
 				return null;
 
 			} else if (topMostDecideStackLiteral instanceof DecideStackPropagatedLiteral) {
@@ -312,8 +325,49 @@ public class EprStateManager {
 		}
 	}
 	
-	private void refine(EprClause currentConflict) {
-		assert false : "TODO: implement";
+	/**
+	 * The top of the decision stack is a decision and we have a conflict clause.
+	 * Refine that decision such that the conflict clause becomes a unit clause.
+	 * @param topMostDecideStackLiteral 
+	 * @param currentConflict
+	 */
+	private void refine(DecideStackDecisionLiteral topMostDecideStackLiteral, EprClause currentConflict) {
+	
+		// find all clause literals with the same predicate and polarity
+		Set<ClauseEprLiteral> literalsMatchingDecision = new HashSet<ClauseEprLiteral>();
+		for (ClauseLiteral cl : currentConflict.getLiterals()) {
+			if (cl instanceof ClauseEprLiteral) {
+				ClauseEprLiteral cel = (ClauseEprLiteral) cl;
+				if (cel.getPolarity() != topMostDecideStackLiteral.getPolarity()) {
+					continue;
+				}
+				if (cel.getEprPredicate() != topMostDecideStackLiteral.getEprPredicate()) {
+					continue;
+				}
+				literalsMatchingDecision.add(cel);
+			}
+		}
+		// (invariant here: the dawgs of all cl literalsMatchingDecision - the refuted points, 
+		//  as all points are refuted on those dawgs - are all disjoint)
+
+		// pick one literal (TODO: this is a place for a heuristic strategy)
+		ClauseEprLiteral pickedLit = literalsMatchingDecision.iterator().next();
+		//.. and remove its dawg from the decision
+		IDawg<ApplicationTerm, TermVariable> newDawg = mDawgFactory.copyDawg(topMostDecideStackLiteral.getDawg());
+		for (IEprLiteral dsl : pickedLit.getPartiallyConflictingDecideStackLiterals()) {
+			assert EprHelpers.haveSameSignature(dsl.getDawg(), newDawg);
+			newDawg.removeAll(dsl.getDawg());
+		}
+
+		// revert the decision
+		DecideStackLiteral dsdl = popEprDecideStack();
+		assert dsdl == topMostDecideStackLiteral;
+	
+		// make the new decision with the new dawg
+		DslBuilder dslb = new DslBuilder(dsdl.getPolarity(), dsdl.getEprPredicate(), newDawg, true);
+		Set<EprClause> newConflictsOrUnits = pushEprDecideStack(dslb);
+		assert currentConflict.isUnit();
+		resolveConflictOrStoreUnits(newConflictsOrUnits);
 	}
 
 	public void learnClause(EprClause currentConflict) {
@@ -326,7 +380,7 @@ public class EprStateManager {
 	/**
 	 * Checks if the given conflict clause allows backjumping below an epr decision.
 	 * If the argument clause does allow backjumping (i.e. is unit below the last epr decision), we
-	 *  backtrack the decision an propagate accoring to the unit clause that the argument has become.
+	 *  backtrack the decision an propagate according to the unit clause that the argument has become.
 	 *  These propagations may result in another conflict, which we then return, or they may just at saturation,
 	 *   then we return null.
 	 * If the argument does not allow backjumping we return it unchanged.
@@ -349,7 +403,10 @@ public class EprStateManager {
 			
 			assert currentConflict.isUnit();
 			// after the changes to the decide stack, is a unit clause --> just propagate accordingly
-			return propagateAll(new HashSet<EprClause>(Collections.singleton(currentConflict)));
+			// TODO: do we want to propagate here? or should we wait for the next checkpoint 
+//			return propagateAll(new HashSet<EprClause>(Collections.singleton(currentConflict)));
+			mUnitClausesWaitingForPropagation.add(currentConflict);
+			return null;
 		}
 		return currentConflict;
 	}
