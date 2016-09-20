@@ -34,7 +34,6 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 
 	EprQuantifiedPredicateAtom mAtom;
 	
-	
 	/**
 	 * Used for storing when a quantified literal has a constant in one or more arguments:
 	 *  For P(a, x, b), we will store a ClauseLiteral P(tv_a, x, tv_b) where tv_a and tv_b
@@ -93,7 +92,6 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	 * reversing it, seems more useful
 	 *  maps from dsl signature colname to clause signature colname
 	 */
-//	private final BinaryRelation<TermVariable, TermVariable> mTranslationForEprPredicate;
 	private final Map<TermVariable, TermVariable> mTranslationForEprPredicate;
 
 	public ClauseEprQuantifiedLiteral(boolean polarity, EprQuantifiedPredicateAtom atom, 
@@ -110,79 +108,16 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 		}
 		mDawgSignature = Collections.unmodifiableSortedSet(vars);
 
-//		Pair<Map<TermVariable, Object>, BinaryRelation<TermVariable, TermVariable>> p = computeDawgSignatureTranslations();
 		Pair<Map<TermVariable, Object>, Map<TermVariable, TermVariable>> p = computeDawgSignatureTranslations();
 		mTranslationForClause = p.first;
 		mTranslationForEprPredicate = p.second;
 	}
-
-//	/**
-//	 * Collect all the information from the EprQuantifiedPredicateAtom and store it in a way
-//	 * we can use it easily later.
-//	 * @param atom
-//	 */
-//	private void processAtom(EprQuantifiedPredicateAtom atom) {
-////		mArgumentTerms = 
-////				new ArrayList<Term>();
-//		TreeSet<TermVariable> clSig = new TreeSet<TermVariable>(EprHelpers.getColumnNamesComparator());
-//
-//		for (int i = 0; i < atom.getArguments().length; i++) {
-//			Term argI = atom.getArguments()[i];
-//
-////			TermVariable tv = null;
-////			if (argI instanceof TermVariable) {
-////				tv = (TermVariable) argI;
-////			} else if (argI instanceof ApplicationTerm) {
-////				ApplicationTerm at = (ApplicationTerm) argI;
-////				assert at.getParameters().length == 0;
-////				tv = mEprTheory.getTheory().createFreshTermVariable(argI.toString(), argI.getSort());
-////				mVariableToConstant.put(tv, at);
-////			} else {
-////				assert false;
-////			}
-////			mArgumentTerms.add(tv);
-//
-////			mArgumentTerms.add(argI);
-//
-////			mEprClause.updateVariableToClauseLitToPosition(tv, this, i);
-//			if (argI instanceof TermVariable) {
-////				mEprClause.updateVariableToClauseLitToPosition((TermVariable) argI, this, i);
-//				clSig.add((TermVariable) argI);
-//			}
-//		}
-//		
-//		mDawgSignature = Collections.unmodifiableSortedSet(clSig);
-//	}
 
 	public void addExceptions(Set<EprQuantifiedEqualityAtom> quantifiedEqualities) {
 		for (EprQuantifiedEqualityAtom eqea : quantifiedEqualities) {
 			assert false : "TODO: implement";
 		}
 	}
-
-//	/**
-//	 * Fill the map identicalVariablePositionsInOtherClauseLiterals
-//	 * (needs to be triggered after all literals have been added to the clause)
-//	 */
-//	public void updateIdenticalVariablePositions() {
-//		for (int i = 0; i < mAtom.getArguments().length; i++) {
-//			if (! (mAtom.getArguments()[i] instanceof TermVariable))
-//				continue;
-//			TermVariable tv = (TermVariable) mAtom.getArguments()[i];
-//			Map<ClauseEprQuantifiedLiteral, Set<Integer>> clToPos = mEprClause.getClauseLitToPositions(tv);
-//
-//			for (Entry<ClauseEprQuantifiedLiteral, Set<Integer>> en : clToPos.entrySet()) {
-//				Map<ClauseEprQuantifiedLiteral, Set<Integer>> otherClToIdenticalPos = 
-//						identicalVariablePositionsInOtherClauseLiterals.get(i);
-//				
-//				if (otherClToIdenticalPos == null) {
-//					otherClToIdenticalPos = new HashMap<ClauseEprQuantifiedLiteral, Set<Integer>>();
-//					identicalVariablePositionsInOtherClauseLiterals.put(i, otherClToIdenticalPos);
-//				}
-//				otherClToIdenticalPos.put(en.getKey(), en.getValue());
-//			}
-//		}
-//	}
 
 	/**
 	 * Returns the points where this literal is fulfillable in the decide state that was current when
@@ -215,7 +150,6 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 		assert mRefutedPoints != null;
 		assert mRefutedPoints.getColnames().equals(mEprClause.getVariables());
 		IDawg<ApplicationTerm, TermVariable> result = mRefutedPoints;
-//		mRefutedPoints = null;
 		return result;
 	}
 
@@ -266,7 +200,6 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 		// and possibly select and projects to match the signature of the clause.
 		fulfilledPoints = mDawgFactory.renameSelectAndBlowup(fulfilledPoints, mTranslationForClause, mEprClause.getVariables());
 
-//		mFulfillablePoints = mEprTheory.getDawgFactory().createFullDawg(mDawgSignature);
 		mFulfillablePoints = mEprTheory.getDawgFactory().createFullDawg(mEprClause.getVariables());
 
 		mFulfillablePoints.removeAll(fulfilledPoints);
@@ -290,11 +223,8 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	 * to the column names of the clause that this ClauseLiteral belongs to.
 	 * @return map : predicateColumnNames -> clauseColumnNames
 	 */
-//	private Pair<Map<TermVariable, Object>, BinaryRelation<TermVariable, TermVariable>> computeDawgSignatureTranslations() {
 	private Pair<Map<TermVariable, Object>, Map<TermVariable, TermVariable>> computeDawgSignatureTranslations() {
 
-//		BinaryRelation<TermVariable, TermVariable> clauseToPred = 
-//				new BinaryRelation<TermVariable, TermVariable>();
 		Map<TermVariable, TermVariable> clauseToPred = 
 				new HashMap<TermVariable, TermVariable>();
 		Map<TermVariable, Object> predToClause = 
@@ -305,36 +235,13 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 			TermVariable tv = predTermVarIt.next();
 			predToClause.put(tv, atomT);
 			if (atomT instanceof TermVariable) {
-//				clauseToPred.addPair((TermVariable) atomT, tv);
 				clauseToPred.put(tv, (TermVariable) atomT);
 			}
 		}
 
-//		assert sanitizedClauseToPred(clauseToPred, mArgumentTerms);
-
 		return new Pair<Map<TermVariable, Object>, Map<TermVariable, TermVariable>>(predToClause, clauseToPred);
 	}
 
-//	/**
-//	 * it is an important invariant for DawgFactory.renameColumnsAndRestoreConstants(..) that the map
-//	 * clauseToPred's range does not contain a column in the eprPredicate's signature where this 
-//	 * clauseLiteral has a constant.
-//	 */
-//	private boolean sanitizedClauseToPred(BinaryRelation<TermVariable, TermVariable> clauseToPred, List<Term> mArgumentTerms) {
-//		SortedSet<TermVariable> predSig = mEprPredicateAtom.getEprPredicate().getTermVariablesForArguments();
-//		BinaryRelation<TermVariable, Integer> predCnToIndex = EprHelpers.computeColnamesToIndex(predSig);
-//		for (TermVariable tv : clauseToPred.get.values()) {
-//			for (Integer i : predCnToIndex.getImage(tv)) {
-//				if (mArgumentTerms.get(i) instanceof ApplicationTerm) {
-////			if (mArgumentTerms.get(predCnToIndex.get(tv)) instanceof ApplicationTerm) {
-//					return false;
-//				}
-//			}
-//		}
-//		return true;
-//	}
-
-//	public BinaryRelation<TermVariable, TermVariable> getTranslationForEprPredicate() {
 	public Map<TermVariable, TermVariable> getTranslationForEprPredicate() {
 		return mTranslationForEprPredicate;
 	}

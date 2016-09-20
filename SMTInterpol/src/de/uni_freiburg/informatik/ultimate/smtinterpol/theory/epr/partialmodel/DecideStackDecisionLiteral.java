@@ -11,7 +11,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
  * Represents a literal on the decide stack that was set because of a decision of the epr
  * solver (rather than a propagation..).
  * 
- * @author nutz
+ * @author Alexander Nutz
  */
 public class DecideStackDecisionLiteral extends DecideStackLiteral {
 

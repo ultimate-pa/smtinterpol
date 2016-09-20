@@ -170,7 +170,6 @@ public class EprStateManager {
 				assert propResult.size() == 1;
 				return propResult.iterator().next(); 
 			}
-			assert propResult.iterator().next().isUnit();
 			conflictsOrUnits.addAll(propResult);
 		}
 		return null;
@@ -403,13 +402,10 @@ public class EprStateManager {
 		
 		if (currentConflict.isUnitBelowDecisionPoint(lastDecision)) {
 			// we can backjump
-			
 			popEprDecideStackUntilAndIncluding(lastDecision);
 			
 			assert currentConflict.isUnit();
 			// after the changes to the decide stack, is a unit clause --> just propagate accordingly
-			// TODO: do we want to propagate here? or should we wait for the next checkpoint 
-//			return propagateAll(new HashSet<EprClause>(Collections.singleton(currentConflict)));
 			mUnitClausesWaitingForPropagation.add(currentConflict);
 			return null;
 		}
@@ -550,7 +546,6 @@ public class EprStateManager {
 					mDawgFactory.copyDawg(conflictingDsl.getDawg());
 			newDawg.removeAll(egpl.getDawg()); // (should be one point only)
 			
-//			DecideStackDecisionLiteral newDecision = 
 			DslBuilder newDecision = 
 					new DslBuilder(
 							conflictingDsl.getPolarity(), conflictingDsl.getEprPredicate(), newDawg, true);
