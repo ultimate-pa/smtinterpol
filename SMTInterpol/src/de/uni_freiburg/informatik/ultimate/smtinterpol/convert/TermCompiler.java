@@ -568,10 +568,9 @@ public class TermCompiler extends TermTransformer {
 		} else {
 			// We should create (forall (x) (newBody x))
 			// This becomes (not (exists (x) (not (newBody x))))
-			final Term negNewBody = mUtils.createNot(newBody);
 			final Theory t = old.getTheory();
-			final Term res = t.term(t.mNot,
-					t.exists(old.getVariables(), negNewBody));
+			final Term negNewBody = t.not(newBody);
+			final Term res = t.not(t.exists(old.getVariables(), negNewBody));
 			setResult(res);
 		}
 	}

@@ -811,8 +811,10 @@ public class Clausifier {
 					addClause(new Literal[] {positive ? lit : lit.negate()},
 							null, getProofNewSource(sub.clause(mProofTerm)));
 				} else if (at == t.mTrue) {
+					assert positive;
 					// Nothing to do...
 				} else if (at == t.mFalse) {
+					assert positive;
 					addClause(new Literal[0], null,
 							getClauseProof(mProofTerm));
 				} else {
