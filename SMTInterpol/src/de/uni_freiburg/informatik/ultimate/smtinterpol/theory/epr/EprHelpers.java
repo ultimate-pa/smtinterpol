@@ -417,17 +417,14 @@ public class EprHelpers {
 		
 	}
 
-	public static <COLNAMES> BinaryRelation<COLNAMES, Integer> computeColnamesToIndex(SortedSet<COLNAMES> sortedSet) {
-//		Map<COLNAMES, Integer> result = new HashMap<COLNAMES, Integer>();
-		BinaryRelation<COLNAMES, Integer> result = new BinaryRelation<COLNAMES, Integer>();
+	public static <COLNAMES> Map<COLNAMES, Integer> computeColnamesToIndex(SortedSet<COLNAMES> sortedSet) {
+		Map<COLNAMES, Integer> result = new HashMap<COLNAMES, Integer>();
 		
 		Iterator<COLNAMES> sortedSetIt = sortedSet.iterator();
 		for (int i = 0; i < sortedSet.size(); i++) {
 			COLNAMES ithElement = sortedSetIt.next();
-			result.addPair(ithElement, i);
-//			result.put(sortedSetIt.next(), i);
+			result.put(ithElement, i);
 		}
-
 		return result;
 	}
 	/**

@@ -136,7 +136,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 		}
 		
 		// the new signature is repetition-free, so we can use a map
-		Map<COLNAMES, Integer> newSigColNamesToIndex = EprHelpers.computeColnamesToIndex(newPointSignature).getFunction();
+		Map<COLNAMES, Integer> newSigColNamesToIndex = EprHelpers.computeColnamesToIndex(newPointSignature);
 		
 		NaiveDawg<LETTER, COLNAMES> otherNd = (NaiveDawg<LETTER, COLNAMES>) dawg;
 //		Set<List<LETTER>> newBacking = new HashSet<List<LETTER>>();
@@ -217,7 +217,6 @@ public class DawgFactory<LETTER, COLNAMES> {
 	@SuppressWarnings("unchecked")
 	public IDawg<LETTER, COLNAMES> renameColumnsAndRestoreConstants(
 			IDawg<LETTER, COLNAMES> other, 
-//			BinaryRelation<COLNAMES, COLNAMES> translation, 
 			Map<COLNAMES, COLNAMES> translation, 
 			List<Object> argList, 
 			SortedSet<COLNAMES> newSignature) {
@@ -227,9 +226,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 		Class<? extends Object> colnamesType = newSignature.iterator().next().getClass();
 
 		// the signature of a dawg of a decide stack literal does not contain repetitions, right?
-		Map<COLNAMES, Integer> newSigColnamesToIndex = EprHelpers.computeColnamesToIndex(newSignature).getFunction();
-//		BinaryRelation<COLNAMES, Integer> oldSigColnamesToIndex = EprHelpers.computeColnamesToIndex(other.getColnames());
-		Map<COLNAMES, Integer> oldSigColnamesToIndex = EprHelpers.computeColnamesToIndex(other.getColnames()).getFunction();
+		Map<COLNAMES, Integer> oldSigColnamesToIndex = EprHelpers.computeColnamesToIndex(other.getColnames());
 
 		Set<List<LETTER>> newBacking = new HashSet<List<LETTER>>();
 		NaiveDawg<LETTER, COLNAMES> otherNd = (NaiveDawg<LETTER, COLNAMES>) other;
@@ -242,32 +239,16 @@ public class DawgFactory<LETTER, COLNAMES> {
 			}
 
 			Iterator<COLNAMES> newSigColIt = newSignature.iterator();
-//			for (int i = 0; i < argList.size(); i++) {
 			for (int i = 0; i < newSignature.size(); i++) {
-				// argList provides us with the colname of the old signature or a constant for each position
-//				COLNAMES newSigColname = translation.get(argList.get(i));
 				COLNAMES newSigColname = newSigColIt.next();
-//				if (newSigColname == null) {
 				if (!colnamesType.isInstance(argList.get(i))) {
-//					 argList.get(i) must be a constant, as translation translates all termVariables
-					// EDIT: argList.get(i) is a constant (because it is not a colname/termVariable)
+					//argList.get(i) is a constant (because it is not a colname/termVariable)
 					assert newPoint.get(i) == null :
 						"the translation map must not translate to a colname where the clauseliteral has a constant!";
 					newPoint.set(i, (LETTER) argList.get(i));
 				} else {
-					// we have to look in which place in the new signature the column from the dawg has to be written to
-//					newSigColName = translation.getImage(argList.get(i))
 					LETTER letter = point.get(oldSigColnamesToIndex.get(translation.get(newSigColname)));
 					newPoint.set(i, letter);
-//					for (COLNAMES oldSigColname : oldSigColnamesToIndex.getDomain()) {
-//					for (Integer oldSigIndex : oldSigColnamesToIndex.getImage((COLNAMES) argList.get(i))) {
-//						assert newPoint.get(newSigColnamesToIndex.get(newSigColname)) == null;
-//						newPoint.set(newSigColnamesToIndex.get(newSigColname), point.get(oldSigIndex));
-//					}
-//					Integer oldSigIndex = oldSigColnamesToIndex.get(argList.get(i));
-//					assert newPoint.get(newSigColnamesToIndex.get(newSigColname)) == null :
-//						"the translation map must not translate to a colname where the clauseliteral has a constant!";
-//					newPoint.set(newSigColnamesToIndex.get(newSigColname), point.get(oldSigIndex));
 				}
 			}
 			newBacking.add(newPoint);
