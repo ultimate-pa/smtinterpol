@@ -308,9 +308,7 @@ public class EprStateManager {
 				 *  
 				 *  --> we need to restrict our decision to set one of the two
 				 */
-				refine((DecideStackDecisionLiteral) topMostDecideStackLiteral, currentConflict);
-				return null;
-
+				return refine((DecideStackDecisionLiteral) topMostDecideStackLiteral, currentConflict);
 			} else if (topMostDecideStackLiteral instanceof DecideStackPropagatedLiteral) {
 				assert currentConflict.isConflict();
 				currentConflict = 
@@ -330,8 +328,9 @@ public class EprStateManager {
 	 * Refine that decision such that the conflict clause becomes a unit clause.
 	 * @param topMostDecideStackLiteral 
 	 * @param currentConflict
+	 * @return a ground conflict if the new decision immediately led to one
 	 */
-	private void refine(DecideStackDecisionLiteral topMostDecideStackLiteral, EprClause currentConflict) {
+	private Clause refine(DecideStackDecisionLiteral topMostDecideStackLiteral, EprClause currentConflict) {
 	
 		// find all clause literals with the same predicate and polarity
 		Set<ClauseEprLiteral> literalsMatchingDecision = new HashSet<ClauseEprLiteral>();
@@ -367,7 +366,7 @@ public class EprStateManager {
 		DslBuilder dslb = new DslBuilder(dsdl.getPolarity(), dsdl.getEprPredicate(), newDawg, true);
 		Set<EprClause> newConflictsOrUnits = pushEprDecideStack(dslb);
 		assert currentConflict.isUnit();
-		resolveConflictOrStoreUnits(newConflictsOrUnits);
+		return resolveConflictOrStoreUnits(newConflictsOrUnits);
 	}
 
 	public void learnClause(EprClause currentConflict) {
