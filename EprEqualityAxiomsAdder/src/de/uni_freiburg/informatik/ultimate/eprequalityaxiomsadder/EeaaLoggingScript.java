@@ -187,7 +187,7 @@ public class EeaaLoggingScript extends LoggingScript {
 		TermVariable qvar2 = variable("y", s);
 		return quantifier(FORALL, 
 				new TermVariable[] { qvar1, qvar2 }, 
-				term("=>", term(mNewEqualsSymbol, qvar1, qvar2), term(mNewEqualsSymbol, qvar1, qvar2)));
+				term("=>", term(mNewEqualsSymbol, qvar1, qvar2), term(mNewEqualsSymbol, qvar2, qvar1)));
 	}
 
 	private Term buildReflAxiom(Sort s) {
