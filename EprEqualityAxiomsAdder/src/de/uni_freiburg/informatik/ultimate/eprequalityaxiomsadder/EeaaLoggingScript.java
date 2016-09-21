@@ -30,7 +30,7 @@ public class EeaaLoggingScript extends LoggingScript {
 	 * assert or push commands start
 	 *  --> that is where we insert our axioms..
 	 */
-	private boolean mJustLeftDeclarations = true;
+	private boolean mBeforeFirstAssertOrPush = true;
 	
 	/**
 	 * We need to track user-declared sorts and uninterpreted predicates in order to
@@ -47,6 +47,7 @@ public class EeaaLoggingScript extends LoggingScript {
 
 	@Override
 	public void declareSort(String sort, int arity) throws SMTLIBException {
+		assert mBeforeFirstAssertOrPush : "we cannot handle declarations after the first assert or push right now";
 		super.declareSort(sort, arity);
 		assert arity == 0;
 		mDeclaredSorts.add(sort(sort));
@@ -54,6 +55,7 @@ public class EeaaLoggingScript extends LoggingScript {
 
 	@Override
 	public void declareFun(String fun, Sort[] paramSorts, Sort resultSort) throws SMTLIBException {
+		assert mBeforeFirstAssertOrPush : "we cannot handle declarations after the first assert or push right now";
 		if ("Bool".equals(resultSort.getName())) {
 			assert !fun.equals(mNewEqualsSymbol) : "our new equals symbol is used for an epr predicate already";
 			mDeclaredPredicates.put(fun, paramSorts);
@@ -63,33 +65,19 @@ public class EeaaLoggingScript extends LoggingScript {
 
 	@Override
 	public void push(int levels) {
-		if (! mJustLeftDeclarations) {
-			super.push(levels);
-		} else {
-			echo(new QuotedObject("inserting equality axioms and declaration (begin)"));
-			declareEq();
-			insertAxioms();
-			mJustLeftDeclarations = false;
-			echo(new QuotedObject("inserting equality axioms and declaration (end)"));
-			super.push(levels);
+		if (mBeforeFirstAssertOrPush) {
+			declareEqualityAxioms();
 		}
+		super.push(levels);
 	}
 
 	@Override
 	public LBool assertTerm(Term term) throws SMTLIBException {
-		if (! mJustLeftDeclarations) {
-			return super.assertTerm(term);
-		} else {
-			echo(new QuotedObject("inserting equality axioms and declaration (begin)"));
-			declareEq();
-			insertAxioms();
-			mJustLeftDeclarations = false;
-			echo(new QuotedObject("inserting equality axioms and declaration (end)"));
-			return super.assertTerm(term);
+		if (mBeforeFirstAssertOrPush) {
+			declareEqualityAxioms();
 		}
+		return super.assertTerm(term);
 	}
-
-
 
 	@Override
 	public Term term(String funcname, Term... params) throws SMTLIBException {
@@ -116,6 +104,14 @@ public class EeaaLoggingScript extends LoggingScript {
 	}
 
 
+
+	private void declareEqualityAxioms() {
+		echo(new QuotedObject("inserting equality axioms and declaration (begin)"));
+		declareEq();
+		insertAxioms();
+		mBeforeFirstAssertOrPush = false;
+		echo(new QuotedObject("inserting equality axioms and declaration (end)"));
+	}
 
 	private void declareEq() {
 		for (Sort ds : mDeclaredSorts) {
