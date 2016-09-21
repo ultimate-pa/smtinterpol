@@ -29,6 +29,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EqualityManager;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseEprGroundLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseEprLiteral;
@@ -688,11 +689,21 @@ public class EprStateManager {
 		
 		// setting the decideStackLiteral means that we have to set all ground atoms covered by it
 		// in the DPLLEngine
-		for (EprGroundPredicateAtom atom : dsl.getEprPredicate().getDPLLAtoms()) {
-			EprClause conflict = setGroundAtomIfCoveredByDecideStackLiteral(dsl, atom);
-			if (conflict != null) {
-				return new HashSet<EprClause>(Collections.singleton(conflict));
+		// however, if we propagate a ground literal here, we also have to give a ground unit clause for it
+		// creating this ground unit clause may lead to new ground atoms, thus we make a copy to a void
+		// concurrent modification of the list of DPLLAtoms, and repeat until the copy doss not change
+		// TODO: can we do this nicer?
+		boolean newDPLLAtoms = true;
+		while (newDPLLAtoms) {
+			HashSet<EprGroundPredicateAtom> copy = new HashSet<EprGroundPredicateAtom>(dsl.getEprPredicate().getDPLLAtoms());
+//			for (EprGroundPredicateAtom atom : dsl.getEprPredicate().getDPLLAtoms()) {
+			for (EprGroundPredicateAtom atom : copy) {
+				EprClause conflict = setGroundAtomIfCoveredByDecideStackLiteral(dsl, atom);
+				if (conflict != null) {
+					return new HashSet<EprClause>(Collections.singleton(conflict));
+				}
 			}
+			newDPLLAtoms = !copy.equals(dsl.getEprPredicate().getDPLLAtoms());
 		}
 		
 		// inform the clauses...
@@ -719,17 +730,15 @@ public class EprStateManager {
 			EprGroundPredicateAtom atom) {
 		if (! dsl.getDawg().accepts(
 				EprHelpers.convertTermArrayToConstantList(atom.getArguments()))) {
+			// the decide stack literal does not talk about the atom
 			return null;
 		}
 		
 		if (atom.getDecideStatus() == null) {
 			// the atom is undecided in the DPLLEngine
-			// --> propagate it
-			// TODO: we will have to keep the reason for the propagation in store, the DPLLEngine will ask..
+			// --> propagate or suggest it
 			
-			Literal groundLiteral = dsl.getPolarity() ?
-								atom :
-									atom.negate();
+			Literal groundLiteral = dsl.getPolarity() ?	atom : atom.negate();
 //			if (dsl instanceof DecideStackPropagatedLiteral) {
 			if (mDecisions.isEmpty()) {
 				mEprTheory.addGroundLiteralToPropagate(
@@ -1010,6 +1019,7 @@ public class EprStateManager {
 
 			addGroundClausesForNewConstant(reallyNewConstants);
 		}
+		mLogger.debug("EPRDEBUG: (EprStateManager): adding constants " + constants);
 		mUsedConstants.addAll(constants);
 	}
 

@@ -262,8 +262,13 @@ public class EprTheory implements ITheory {
 	public Literal getSuggestion() {
 		if (mGroundAllMode)
 			return null;
-		mLogger.debug("EPRDEBUG: getSuggestion");
-		return mGroundDecisionSuggestions.poll();
+		Literal sug = mGroundDecisionSuggestions.poll();
+		if (sug == null) {
+			mLogger.debug("EPRDEBUG: (EprTheory): getSuggestion -- no literal to suggest");
+		} else {
+			mLogger.debug("EPRDEBUG: (EprTheory): getSuggestion, suggesting " + sug);
+		}
+		return sug;
 	}
 	
 	public void addGroundDecisionSuggestion(Literal l) {

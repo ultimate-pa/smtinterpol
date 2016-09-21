@@ -114,8 +114,11 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	@Override
 	public IDawg<LETTER, COLNAMES> complement() {
 		Set<List<LETTER>> complement = new HashSet<List<LETTER>>(getNCrossProduct());
+		assert EprHelpers.verifySortsOfPoints(complement, getColnames());
 		complement.removeAll(mBacking);
-		return new NaiveDawg<LETTER, COLNAMES>(mColNames, mAllConstants, complement);
+		NaiveDawg<LETTER, COLNAMES> result = new NaiveDawg<LETTER, COLNAMES>(mColNames, mAllConstants, complement);
+		assert EprHelpers.verifySortsOfPoints(result, getColnames());
+		return result;
 	}
 
 	@Override
@@ -136,6 +139,7 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 
 	@Override
 	public void add(List<LETTER> point) {
+		assert EprHelpers.verifySortsOfPoint(point, this.getColnames());
 		mBacking.add(point);
 	}
 
@@ -144,6 +148,7 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 		super.addAll(other);
 		// assuming that we use NaiveDawgs for all Dawgs..
 		NaiveDawg<LETTER, COLNAMES> naiOther = (NaiveDawg<LETTER, COLNAMES>) other;
+		assert EprHelpers.verifySortsOfPoints(naiOther, getColnames());
 		mBacking.addAll(naiOther.mBacking);
 	}
 
@@ -217,6 +222,7 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 			List<LETTER> pt, SortedSet<COLNAMES> ptSig, 
 			SortedSet<COLNAMES> targetSig, Set<LETTER> allConstants) {
 		assert targetSig.containsAll(ptSig);
+		assert pt.size() == ptSig.size();
 		List<List<LETTER>> result = new ArrayList<List<LETTER>>();
 		result.add(new ArrayList<LETTER>());
 		for (COLNAMES cn : targetSig) {

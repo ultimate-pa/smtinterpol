@@ -332,6 +332,7 @@ public class EprClause {
 				pointsToConsider.removeAll(clFulfilledPoints);
 			}
 		}
+		assert EprHelpers.verifySortsOfPoints(pointsToConsider, getVariables());
 		
 		
 		/**
@@ -401,6 +402,10 @@ public class EprClause {
 				finalClauseLitToUnitPoints.put(en.getKey(), en.getValue());
 			}
 		}
+
+		assert EprHelpers.verifySortsOfPoints(pointsWhereNoLiteralsAreFulfillable, getVariables());
+		assert EprHelpers.verifySortsOfPoints(pointsWhereOneLiteralIsFulfillable, getVariables());
+		assert EprHelpers.verifySortsOfPoints(pointsWhereTwoOrMoreLiteralsAreFulfillable, getVariables());
 
 
 		if (!pointsWhereNoLiteralsAreFulfillable.isEmpty()) {
@@ -476,6 +481,7 @@ public class EprClause {
 	/**
 	 * If this clause's state is Unit (i.e., if it is unit on at least one grounding), then this map
 	 * stores which literal is unit on which groundings.
+	 * Note that the dawg is in the clause's signature (not some predicate's)
 	 */
 	public Map<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> getClauseLitToUnitPoints() {
 		return mClauseLitToUnitPoints;

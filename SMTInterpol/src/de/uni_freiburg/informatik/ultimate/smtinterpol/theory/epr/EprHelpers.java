@@ -21,6 +21,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.EqualityProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SharedTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
@@ -42,11 +43,18 @@ public class EprHelpers {
 		for (Literal l : literals) {
 			DPLLAtom atom = (DPLLAtom) l.getAtom();
 			Term t = atom.getSMTFormula(theory);
-			if (!(t instanceof ApplicationTerm))
+			if (!(t instanceof ApplicationTerm)) {
 				continue;
-			for (Term p : ((ApplicationTerm) t).getParameters())
-				if (p instanceof ApplicationTerm)
+			}
+			if (!(atom instanceof EprAtom || atom instanceof CCEquality)) {
+				continue;
+			}
+			for (Term p : ((ApplicationTerm) t).getParameters()) {
+				if (p instanceof ApplicationTerm) {
+					assert ((ApplicationTerm) p).getFunction().getParameterSorts().length == 0;
 					result.add((ApplicationTerm) p);
+				}
+			}
 		}
 		return result;
 	}	
@@ -510,5 +518,45 @@ public class EprHelpers {
 			insts = instsNew;
 		}
 		return insts;
+	}
+	
+	
+	/**
+	 * Checks if the sort of the entries of the points match the sort of their columns
+	 * @param point
+	 * @param colnames
+	 * @return
+	 */
+	public static <LETTER, COLNAMES> boolean verifySortsOfPoints(Iterable<List<LETTER>> points, SortedSet<COLNAMES> colnames) {
+		for (List<LETTER> point : points) {
+			if (!verifySortsOfPoint(point, colnames)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Checks if the sort of the entries of the point match the sort of their columns
+	 * @param point
+	 * @param colnames
+	 * @return
+	 */
+	public static <LETTER, COLNAMES> boolean verifySortsOfPoint(List<LETTER> point, SortedSet<COLNAMES> colnames) {
+		if (!(point.get(0) instanceof ApplicationTerm)
+				|| !(colnames.iterator().next() instanceof TermVariable)) {
+			// this method only applies if Colnames is TermVariable and Letter is ApplicationTerm
+			return true;
+		}
+		Iterator<COLNAMES> colnamesIt = colnames.iterator();
+		for (int i = 0; i< point.size(); i++) {
+			ApplicationTerm pointAtI = (ApplicationTerm) point.get(i);
+			TermVariable colnameTvI = (TermVariable) colnamesIt.next();
+			
+			if (pointAtI.getSort() != colnameTvI.getSort()) {
+				return false;
+			}
+		}
+		return true;
 	}
 }

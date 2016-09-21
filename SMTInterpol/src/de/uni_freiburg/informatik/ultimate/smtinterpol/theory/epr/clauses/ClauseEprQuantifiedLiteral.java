@@ -201,6 +201,7 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 		fulfilledPoints = mDawgFactory.renameSelectAndBlowup(fulfilledPoints, mTranslationForClause, mEprClause.getVariables());
 
 		mFulfillablePoints = mEprTheory.getDawgFactory().createFullDawg(mEprClause.getVariables());
+		assert EprHelpers.verifySortsOfPoints(mFulfillablePoints, mEprClause.getVariables());
 
 		mFulfillablePoints.removeAll(fulfilledPoints);
 		mFulfillablePoints.removeAll(refutedPoints);
@@ -208,6 +209,9 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 		mFulfilledPoints = fulfilledPoints;
 		
 		assert refutedPoints.intersect(fulfilledPoints).isEmpty();
+		assert EprHelpers.verifySortsOfPoints(fulfilledPoints, mEprClause.getVariables());
+		assert EprHelpers.verifySortsOfPoints(refutedPoints, mEprClause.getVariables());
+		assert EprHelpers.verifySortsOfPoints(mFulfillablePoints, mEprClause.getVariables());
 
 		if (fulfilledPoints.isUniversal()) {
 			return ClauseLiteralState.Fulfilled;
@@ -260,8 +264,6 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	public Clause getUnitGrounding(Literal literal) {
 		DPLLAtom atom = literal.getAtom();
 
-		IDawg<ApplicationTerm, TermVariable> groundingDawg = null;
-
 		EprPredicateAtom epa = (EprPredicateAtom) atom;
 
 		assert epa.getEprPredicate() == this.getEprPredicate();
@@ -276,8 +278,8 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 			selectMap.put((TermVariable) sp.bot, (ApplicationTerm) sp.top);
 		}
 
-		groundingDawg = getClause().getClauseLitToUnitPoints().get(this);
-		groundingDawg = mDawgFactory.select(groundingDawg, selectMap);
+		IDawg<ApplicationTerm, TermVariable> unitPoints = getClause().getClauseLitToUnitPoints().get(this);
+		IDawg<ApplicationTerm, TermVariable> groundingDawg = mDawgFactory.select(unitPoints, selectMap);
 
 		assert groundingDawg != null && ! groundingDawg.isEmpty();
 

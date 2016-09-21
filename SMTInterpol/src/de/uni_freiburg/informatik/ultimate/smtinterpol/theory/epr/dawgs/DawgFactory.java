@@ -51,33 +51,6 @@ public class DawgFactory<LETTER, COLNAMES> {
 		return new NaiveDawg<LETTER, COLNAMES>(nd);
 	}
 	
-	
-	/**
-	 * Returns a dawg that is the same as the input dawg, but the columns have been renamed according 
-	 * to the given map.
-	 * Note that the map may introduce repetitions in the column names.
-	 *   For example the signature of dawg might be (u, v, w), and the map might be [u -> x, v -> x, w -> y].
-	 *   The consequence is that the signature of the new dawg will be (x, y). We will only take points
-	 *   from the input dawg that have the same entry for u and v.
-	 *     (select + project)
-	 *     
-	 * 
-	 * @param dawg a dawg whose column names are to be changed
-	 * @param translation map that gives every column a new name
-	 * @return
-	 */
-	@Deprecated
-	public IDawg<LETTER, COLNAMES> renameColumnsOfDawg(
-			IDawg<LETTER, COLNAMES> dawg, Map<COLNAMES, COLNAMES> translation) {
-		NaiveDawg<LETTER, COLNAMES> nd = (NaiveDawg<LETTER, COLNAMES>) dawg;
-		return new NaiveDawg<LETTER, COLNAMES>(nd, translation);
-	}
-
-	public IDawg<LETTER, COLNAMES> createJoinDawg(Map<ClauseLiteral, DecideStackLiteral> mHistory,
-			ClauseLiteral mWatchedLiteral) {
-		// TODO Auto-generated method stub
-		return null;
-	}
 
 	/**
 	 * Create a dawg from the input dawg where only the points are selected that match the given mapping.
@@ -191,7 +164,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 //				newBacking.add(newPoint);
 			}
 		}
-
+		assert EprHelpers.verifySortsOfPoints(result, targetSignature);
 		return result;
 	}
 
@@ -254,8 +227,11 @@ public class DawgFactory<LETTER, COLNAMES> {
 			newBacking.add(newPoint);
 		}
 		
-		return new NaiveDawg<LETTER, COLNAMES>(newSignature, mAllConstants, newBacking);
+		NaiveDawg<LETTER, COLNAMES> result = new NaiveDawg<LETTER, COLNAMES>(newSignature, mAllConstants, newBacking);
+		assert EprHelpers.verifySortsOfPoints(result, newSignature);
+		return result;
 	}
+
 
 	/////////////////////////////////////////////////////////////
 	///////////////// test code /////////////////////////////////
