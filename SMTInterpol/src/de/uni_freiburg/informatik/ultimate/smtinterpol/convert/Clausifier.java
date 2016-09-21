@@ -1106,12 +1106,6 @@ public class Clausifier {
 				}
 			} else if (mTerm instanceof QuantifiedFormula) {
 				// TODO: Correctly implement this once we support quantifiers.
-				throw new SMTLIBException(
-						"Cannot create quantifier in quantifier-free logic");
-			} else {
-				
-				
-				// TODO: Correctly implement this once we support quantifiers.
 				// alex: using it -- but is it correct?..
 				
 
@@ -1154,9 +1148,11 @@ public class Clausifier {
 					pushOperation(bc);
 					pushOperation(new CollectLiterals(skolem, bc));
 				}
+			} else {
+				throw new InternalError("AuxAxiom not implemented: "
+						+ SMTAffineTerm.cleanup(mTerm));
 			}
 		}
-		
 	}
 	
 	private class CreateNegClauseAuxAxioms implements Operation {

@@ -407,6 +407,8 @@ public class EprStateManager {
 			assert currentConflict.isUnit();
 			// after the changes to the decide stack, is a unit clause --> just propagate accordingly
 			mUnitClausesWaitingForPropagation.add(currentConflict);
+			mLogger.debug("EPRDEBUG: (EprStateManager): backjumping, new unit clause/former conflict: " 
+					+ currentConflict + " reverted decision: " + lastDecision);
 			return null;
 		}
 		return currentConflict;
@@ -728,7 +730,8 @@ public class EprStateManager {
 			Literal groundLiteral = dsl.getPolarity() ?
 								atom :
 									atom.negate();
-			if (dsl instanceof DecideStackPropagatedLiteral) {
+//			if (dsl instanceof DecideStackPropagatedLiteral) {
+			if (mDecisions.isEmpty()) {
 				mEprTheory.addGroundLiteralToPropagate(
 						groundLiteral, 
 						((DecideStackPropagatedLiteral) dsl).getReasonClauseLit().getUnitGrounding(groundLiteral));
@@ -737,7 +740,7 @@ public class EprStateManager {
 				// --> suggest to the DPLLEngine to set it the same way
 				// TODO: not so clear if this is used at all..
 //				assert false : "TODO: think this over";
-//				mEprTheory.addGroundDecisionSuggestion(groundLiteral);
+				mEprTheory.addGroundDecisionSuggestion(groundLiteral);
 			}
 
 		} else 	if (atom.getDecideStatus() == null 
