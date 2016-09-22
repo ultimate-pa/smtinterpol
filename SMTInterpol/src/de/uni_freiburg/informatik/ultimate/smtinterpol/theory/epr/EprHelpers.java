@@ -16,9 +16,11 @@ import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.EqualityProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SharedTerm;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
@@ -554,6 +556,29 @@ public class EprHelpers {
 			TermVariable colnameTvI = (TermVariable) colnamesIt.next();
 			
 			if (pointAtI.getSort() != colnameTvI.getSort()) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Checks if, given the contained literal's decide statuses, if the given
+	 * clause is currently a unit claus with the given literal as unit literal.
+	 * @param reason
+	 * @param l
+	 * @return
+	 */
+	public static boolean verifyUnitClause(Clause reason, Literal l, LogProxy logger) {
+		for (int i = 0; i < reason.getSize(); i++) {
+			Literal curLit = reason.getLiteral(i);
+			if (curLit == l && curLit.getAtom().getDecideStatus() != null) {
+				logger.error("EPRDEBUG: (EprHelpers.verifyUnitClause): The unit literal " + l + " is not undecided.");
+				return false;
+			}
+			if (curLit != l && curLit.getAtom().getDecideStatus() != curLit.negate()) {
+				logger.error("EPRDEBUG: (EprHelpers.verifyUnitClause): Literal " + curLit + 
+						" is not the unit literal but is not currently refuted");
 				return false;
 			}
 		}

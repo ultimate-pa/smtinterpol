@@ -82,6 +82,12 @@ public class EprTheory implements ITheory {
 	private Clause mConflictFromAddingLastClause;
 
 	private HashSet<Literal> mAlreadyPropagatedLiterals = new HashSet<Literal>();
+	
+	/*
+	 * some fields used for debugging
+	 */
+	private HashSet<Literal> mLiteralsWaitingToBePropagated = new HashSet<Literal>();
+	private HashSet<Literal> mLiteralsThatAreCurrentlySet = new HashSet<Literal>();
 
 
 	public EprTheory(Theory th, DPLLEngine engine, CClosure cClosure, Clausifier clausifier, boolean solveThroughGrounding) {
@@ -119,6 +125,7 @@ public class EprTheory implements ITheory {
 		if (mGroundAllMode)
 			return null;
 		mLogger.debug("EPRDEBUG: setLiteral " + literal);
+		mLiteralsThatAreCurrentlySet.add(literal);
 		
 		DPLLAtom atom = literal.getAtom();
 		
@@ -163,6 +170,8 @@ public class EprTheory implements ITheory {
 		if (mGroundAllMode)
 			return;
 		mLogger.debug("EPRDEBUG: backtrackLiteral");
+		boolean	success = mLiteralsThatAreCurrentlySet.remove(literal);
+		assert success;
 
 		// .. dual to setLiteral
 		
@@ -228,6 +237,7 @@ public class EprTheory implements ITheory {
 			if (!mAlreadyPropagatedLiterals.contains(en.getKey())) {
 				lit = en.getKey();
 				mAlreadyPropagatedLiterals.add(lit);
+				mLiteralsWaitingToBePropagated.remove(lit);
 				break;
 			}
 		}
@@ -247,6 +257,8 @@ public class EprTheory implements ITheory {
 		mLogger.debug("EPRDEBUG: EprTheory.addGroundLiteralToPropagate(..): "
 				+ "literal: " + l + " reason: " + reason);
 
+//		assert EprHelpers.verifyUnitClause(reason, l);
+		mLiteralsWaitingToBePropagated.add(l);
 		mGroundLiteralsToPropagateToReason.put(l, reason);
 	}
 
@@ -255,6 +267,7 @@ public class EprTheory implements ITheory {
 		Clause unitClause = mGroundLiteralsToPropagateToReason.get(literal);
 		mLogger.debug("EPRDEBUG: getUnitClause -- returning " + unitClause);
 		assert unitClause != null;
+		assert EprHelpers.verifyUnitClause(unitClause, literal, mLogger);
 		return unitClause;
 	}
 

@@ -85,6 +85,7 @@ public class EprClause {
 	 */
 	private Map<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> mClauseLitToUnitPoints;
 	
+	private UnitPropagationData mUnitPropagationData;
 	
 	/*
 	 * stuff relative to the decide stack border; done as maps now, but maybe one item each is enough??
@@ -95,6 +96,7 @@ public class EprClause {
 			new HashMap<DecideStackLiteral, EprClauseState>();
 	private Map<DecideStackLiteral, IDawg<ApplicationTerm, TermVariable>> mDecideStackBorderToConflictPoints =
 			new HashMap<DecideStackLiteral, IDawg<ApplicationTerm,TermVariable>>();
+	private Map<DecideStackLiteral, UnitPropagationData> mDecideStackBorderToUnitPropagationData;
 	
 
 	public EprClause(Set<Literal> lits, EprTheory eprTheory) {
@@ -412,7 +414,9 @@ public class EprClause {
 			setPointsWhereNoLiteralsAreFulfillable(decideStackBorder, pointsWhereNoLiteralsAreFulfillable);
 			setClauseState(decideStackBorder, EprClauseState.Conflict);
 		} else if (!pointsWhereOneLiteralIsFulfillable.isEmpty()) {
-			setClauseLitToUnitPoints(decideStackBorder, finalClauseLitToUnitPoints);
+//			setClauseLitToUnitPoints(decideStackBorder, finalClauseLitToUnitPoints);
+			UnitPropagationData upd = new UnitPropagationData(finalClauseLitToUnitPoints, mDawgFactory);
+			setUnitPropagationData(decideStackBorder, upd);
 			setClauseState(decideStackBorder, EprClauseState.Unit);
 		} else {
 			assert pointsWhereTwoOrMoreLiteralsAreFulfillable.supSetEq(pointsToConsider) 
@@ -424,6 +428,15 @@ public class EprClause {
 		return getClauseState(decideStackBorder);
 	}
 	
+	private void setUnitPropagationData(DecideStackLiteral decideStackBorder, UnitPropagationData upd) {
+		if (decideStackBorder == null) {
+			mUnitPropagationData = upd;
+		} else { 
+			mDecideStackBorderToUnitPropagationData.put(decideStackBorder, upd);
+		}
+	}
+
+
 	private void setPointsWhereNoLiteralsAreFulfillable(DecideStackLiteral decideStackBorder,
 		IDawg<ApplicationTerm, TermVariable> pointsWhereNoLiteralsAreFulfillable) {
 		if (decideStackBorder == null) {
@@ -434,17 +447,17 @@ public class EprClause {
 }
 
 
-	private void setClauseLitToUnitPoints(
-			DecideStackLiteral decideStackBorder, 
-			Map<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> finalClauseLitToUnitPoints) {
-		if (decideStackBorder == null) {
-			mClauseLitToUnitPoints = finalClauseLitToUnitPoints;
-		} else {
-			mDecideStackBorderToClauseLitToUnitPoints.put(decideStackBorder, finalClauseLitToUnitPoints);
-			assert mDecideStackBorderToClauseLitToUnitPoints.size() < 10 : "if this is getting big, "
-					+ "we might want to throw old entries away? do we even need more than one?";
-		}
-	}
+//	private void setClauseLitToUnitPoints(
+//			DecideStackLiteral decideStackBorder, 
+//			Map<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> finalClauseLitToUnitPoints) {
+//		if (decideStackBorder == null) {
+//			mClauseLitToUnitPoints = finalClauseLitToUnitPoints;
+//		} else {
+//			mDecideStackBorderToClauseLitToUnitPoints.put(decideStackBorder, finalClauseLitToUnitPoints);
+//			assert mDecideStackBorderToClauseLitToUnitPoints.size() < 10 : "if this is getting big, "
+//					+ "we might want to throw old entries away? do we even need more than one?";
+//		}
+//	}
 
 
 	private EprClauseState getClauseState(DecideStackLiteral decideStackBorder) {
@@ -478,14 +491,21 @@ public class EprClause {
 //		return mEprClauseState;
 //	}
 	
-	/**
-	 * If this clause's state is Unit (i.e., if it is unit on at least one grounding), then this map
-	 * stores which literal is unit on which groundings.
-	 * Note that the dawg is in the clause's signature (not some predicate's)
-	 */
-	public Map<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> getClauseLitToUnitPoints() {
-		return mClauseLitToUnitPoints;
+	public UnitPropagationData getUnitPropagationData() {
+		assert mUnitPropagationData != null;
+		UnitPropagationData result = mUnitPropagationData;
+		mUnitPropagationData = null;
+		return result;
 	}
+	
+//	/**
+//	 * If this clause's state is Unit (i.e., if it is unit on at least one grounding), then this map
+//	 * stores which literal is unit on which groundings.
+//	 * Note that the dawg is in the clause's signature (not some predicate's)
+//	 */
+//	public Map<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> getClauseLitToUnitPoints() {
+//		return mClauseLitToUnitPoints;
+//	}
 	
 	public boolean isUnit() {
 		if (mClauseStateIsDirty) {

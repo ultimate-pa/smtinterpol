@@ -21,16 +21,30 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 public class DecideStackPropagatedLiteral extends DecideStackLiteral {
 	
 	/**
-	 * the clause literal whose clause, together with the prefix of the decide stack is responsible
+	 * The clause literal whose clause, together with the prefix of the decide stack is responsible
 	 * for the setting of this literal
 	 * It is always an Epr literal because it contradicts something on the epr decide stack
 	 */
-	ClauseEprLiteral mUnitClauseLiteral;
+	private final ClauseEprLiteral mReasonUnitClauseLiteral;
+	
+	private final IDawg<ApplicationTerm, TermVariable> mReasonClauseDawg;
 
 	public DecideStackPropagatedLiteral(boolean polarity, EprPredicate eprPred,
-			IDawg<ApplicationTerm, TermVariable> dawg, ClauseEprLiteral unitClauseLiteral, Pair<Integer, Integer> index) {
-		super(polarity, eprPred, dawg, index);
-		mUnitClauseLiteral = unitClauseLiteral;
+			IDawg<ApplicationTerm, TermVariable> predDawg,
+			ClauseEprLiteral unitClauseLiteral,	IDawg<ApplicationTerm, TermVariable> clauseDawg, 
+			Pair<Integer, Integer> index) {
+		super(polarity, eprPred, predDawg, index);
+		mReasonUnitClauseLiteral = unitClauseLiteral;
+		mReasonClauseDawg = clauseDawg;
+	}
+	
+	/**
+	 * Returns the dawg that contains those groundings of the clause that was the reason for propagation of this literal, which
+	 * correspond to the point where this dsl sets its predicate.
+	 *  -- i.e. the dawg that was the preimage of the renameProjectAndSelect operation that yielded this dsl's dawg.
+	 */
+	public IDawg<ApplicationTerm, TermVariable> getClauseDawg() {
+		return mReasonClauseDawg;
 	}
 
 	/**
@@ -38,7 +52,7 @@ public class DecideStackPropagatedLiteral extends DecideStackLiteral {
 	 * @return unit clause
 	 */
 	public ClauseEprLiteral getReasonClauseLit() {
-		return mUnitClauseLiteral;
+		return mReasonUnitClauseLiteral;
 	}
 
 	@Override

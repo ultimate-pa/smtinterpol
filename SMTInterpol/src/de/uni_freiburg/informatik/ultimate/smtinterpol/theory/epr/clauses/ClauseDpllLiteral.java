@@ -44,16 +44,16 @@ public class ClauseDpllLiteral extends ClauseLiteral {
 		}
 	}
 	
-	public Clause getUnitGrounding(Literal literal) {
-		IDawg<ApplicationTerm, TermVariable> groundingDawg = getClause().getClauseLitToUnitPoints().get(this);
-
-		assert this.getLiteral() == literal;
-		assert literal.getAtom().getSMTFormula(mEprTheory.getTheory()).getFreeVars().length == 0;
-		assert groundingDawg != null && ! groundingDawg.isEmpty();
-
-		//TODO: sample one point from the dawg, so we give a one-point dawg to getGroundings() ?..
-		Set<Clause> groundings = getClause().getGroundings(groundingDawg);
-		
-		return groundings.iterator().next();
-	}
+//	public Clause getUnitGrounding(Literal literal) {
+//		IDawg<ApplicationTerm, TermVariable> groundingDawg = getClause().getClauseLitToUnitPoints().get(this);
+//
+//		assert this.getLiteral() == literal;
+//		assert literal.getAtom().getSMTFormula(mEprTheory.getTheory()).getFreeVars().length == 0;
+//		assert groundingDawg != null && ! groundingDawg.isEmpty();
+//
+//		//TODO: sample one point from the dawg, so we give a one-point dawg to getGroundings() ?..
+//		Set<Clause> groundings = getClause().getGroundings(groundingDawg);
+//		
+//		return groundings.iterator().next();
+//	}
 }

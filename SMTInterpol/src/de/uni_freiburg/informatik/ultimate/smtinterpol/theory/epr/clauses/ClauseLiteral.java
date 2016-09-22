@@ -100,6 +100,6 @@ public abstract class ClauseLiteral {
 		return negate + mAtom.toString();
 	}
 	
-	public abstract Clause getUnitGrounding(Literal literal) ;
+//	public abstract Clause getUnitGrounding(Literal literal) ;
 
 }

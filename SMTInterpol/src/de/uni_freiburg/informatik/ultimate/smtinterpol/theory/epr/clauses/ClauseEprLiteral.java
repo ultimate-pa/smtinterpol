@@ -9,6 +9,8 @@ import java.util.Set;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
@@ -123,4 +125,7 @@ public abstract class ClauseEprLiteral extends ClauseLiteral {
 		success |= mPartiallyFulfillingDecideStackLiterals.remove(el);
 		assert success : "something wrong with the registration??";
 	}
+
+
+	public abstract Clause getGroundingForGroundLiteral(IDawg<ApplicationTerm, TermVariable> dawg, Literal groundLiteral);
 }

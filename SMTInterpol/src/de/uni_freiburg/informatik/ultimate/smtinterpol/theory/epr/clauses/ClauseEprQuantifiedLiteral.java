@@ -255,39 +255,57 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 		 return mDawgFactory.renameSelectAndBlowup(dawg, mTranslationForClause, mEprClause.getVariables()).isEmpty();
 	}
 
-	/**
-	 * Return a grounding of this clause that is a unit clause which allows to propagate the given literal.
-	 * @param literal a ground literal such that there exists a grounding of this clause 
-	 * 		that is a unit clause where the literal is the only non-refuted literal
-	 * @return a grounding of this clause that is a) unit b) has literal as its only fulfilling literal
-	 */
-	public Clause getUnitGrounding(Literal literal) {
-		DPLLAtom atom = literal.getAtom();
-
-		EprPredicateAtom epa = (EprPredicateAtom) atom;
-
-		assert epa.getEprPredicate() == this.getEprPredicate();
-
-		Term[] ceqlArgs = this.mArgumentTerms.toArray(new Term[this.mArgumentTerms.size()]);
-		TTSubstitution unifier = epa.getArgumentsAsTermTuple().match(new TermTuple(ceqlArgs), mEprTheory.getEqualityManager());
-		assert unifier != null;
+	@Override
+	public Clause getGroundingForGroundLiteral(IDawg<ApplicationTerm, TermVariable> dawg, Literal groundLiteral) {
+		ApplicationTerm term = (ApplicationTerm) groundLiteral.getAtom().getSMTFormula(mEprTheory.getTheory());
+		List<ApplicationTerm> args = EprHelpers.convertTermArrayToConstantList(term.getParameters());
 		
-		// build a selectMap from the unifier --> TODO: make nicer
 		Map<TermVariable, ApplicationTerm> selectMap = new HashMap<TermVariable, ApplicationTerm>();
-		for (SubsPair sp : unifier.getSubsPairs()) {
-			selectMap.put((TermVariable) sp.bot, (ApplicationTerm) sp.top);
+		for (int i = 0; i < this.getArguments().size(); i ++) {
+			if (this.getArguments().get(i) instanceof TermVariable) {
+				selectMap.put((TermVariable) this.getArguments().get(i), args.get(i));
+			} else {
+				assert this.getArguments().get(i) == args.get(i);
+			}
 		}
-
-		IDawg<ApplicationTerm, TermVariable> unitPoints = getClause().getClauseLitToUnitPoints().get(this);
-		IDawg<ApplicationTerm, TermVariable> groundingDawg = mDawgFactory.select(unitPoints, selectMap);
-
-		assert groundingDawg != null && ! groundingDawg.isEmpty();
-
-		//TODO: sample one point from the dawg, so we give a one-point dawg to getGroundings() ?..
-		
-		Set<Clause> groundings = getClause().getGroundings(groundingDawg);
-		
+		IDawg<ApplicationTerm, TermVariable> selDawg = dawg.select(selectMap);
+		Set<Clause> groundings = getClause().getGroundings(selDawg);
 		return groundings.iterator().next();
 	}
+
+//	/**
+//	 * Return a grounding of this clause that is a unit clause which allows to propagate the given literal.
+//	 * @param literal a ground literal such that there exists a grounding of this clause 
+//	 * 		that is a unit clause where the literal is the only non-refuted literal
+//	 * @return a grounding of this clause that is a) unit b) has literal as its only fulfilling literal
+//	 */
+//	public Clause getUnitGrounding(Literal literal) {
+//		DPLLAtom atom = literal.getAtom();
+//
+//		EprPredicateAtom epa = (EprPredicateAtom) atom;
+//
+//		assert epa.getEprPredicate() == this.getEprPredicate();
+//
+//		Term[] ceqlArgs = this.mArgumentTerms.toArray(new Term[this.mArgumentTerms.size()]);
+//		TTSubstitution unifier = epa.getArgumentsAsTermTuple().match(new TermTuple(ceqlArgs), mEprTheory.getEqualityManager());
+//		assert unifier != null;
+//		
+//		// build a selectMap from the unifier --> TODO: make nicer
+//		Map<TermVariable, ApplicationTerm> selectMap = new HashMap<TermVariable, ApplicationTerm>();
+//		for (SubsPair sp : unifier.getSubsPairs()) {
+//			selectMap.put((TermVariable) sp.bot, (ApplicationTerm) sp.top);
+//		}
+//
+//		IDawg<ApplicationTerm, TermVariable> unitPoints = getClause().getClauseLitToUnitPoints().get(this);
+//		IDawg<ApplicationTerm, TermVariable> groundingDawg = mDawgFactory.select(unitPoints, selectMap);
+//
+//		assert groundingDawg != null && ! groundingDawg.isEmpty();
+//
+//		//TODO: sample one point from the dawg, so we give a one-point dawg to getGroundings() ?..
+//		
+//		Set<Clause> groundings = getClause().getGroundings(groundingDawg);
+//		
+//		return groundings.iterator().next();
+//	}
 
 }

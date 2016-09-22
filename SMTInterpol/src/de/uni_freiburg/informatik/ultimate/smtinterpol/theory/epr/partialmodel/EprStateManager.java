@@ -38,6 +38,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.Clause
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClauseFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClauseState;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.UnitPropagationData;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
@@ -205,49 +206,71 @@ public class EprStateManager {
 		// --> iteratively set them, if one produces a conflict, go back to the outer epr dpll loop
 		//     if one produces more unit propagations, it is ok to just add them to conflictsOrUnits, because we
 		//      it contains unit clauses right now..
-		Map<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> clToUps = 
-				unitClause.getClauseLitToUnitPoints();
+//		Map<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> clToUps = 
+//				unitClause.getClauseLitToUnitPoints();
+		UnitPropagationData upd = unitClause.getUnitPropagationData();
 		
-		for (Entry<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> en : clToUps.entrySet()) {
-			ClauseLiteral cl = en.getKey();
-			
-			if (cl instanceof ClauseEprQuantifiedLiteral) {
-				ClauseEprQuantifiedLiteral ceql = (ClauseEprQuantifiedLiteral) cl;
-				
-				IDawg<ApplicationTerm, TermVariable> dawg = en.getValue();
-//				DecideStackPropagatedLiteral prop = new DecideStackPropagatedLiteral(
-				DslBuilder propB = new DslBuilder(
-						ceql.getPolarity(), 
-						ceql.getEprPredicate(),
-						mDawgFactory.renameColumnsAndRestoreConstants(
-								dawg, 
-								ceql.getTranslationForEprPredicate(), 
-								ceql.getArgumentsAsObjects(),
-								ceql.getEprPredicate().getTermVariablesForArguments()),
-						ceql,
-						false);
+		for (DslBuilder dslB : upd.mQuantifiedPropagations) {
+			Set<EprClause> newConflictsOrUnits = pushEprDecideStack(dslB);
 
-				Set<EprClause> newConflictsOrUnits = pushEprDecideStack(propB);
-
-				if (newConflictsOrUnits != null) {
-					if (newConflictsOrUnits.iterator().next().isConflict()) {
-						// in case of a conflict further propagations are obsolete
-						return newConflictsOrUnits;
-					} else if (newConflictsOrUnits.iterator().next().isUnit()) {
-						result.addAll(newConflictsOrUnits);
-						break; //TODO: surely break here?
-					} else {
-						assert false : "should not happen";
-					}
+			if (newConflictsOrUnits != null) {
+				if (newConflictsOrUnits.iterator().next().isConflict()) {
+					// in case of a conflict further propagations are obsolete
+					return newConflictsOrUnits;
+				} else if (newConflictsOrUnits.iterator().next().isUnit()) {
+					result.addAll(newConflictsOrUnits);
+					break; //TODO: surely break here?
+				} else {
+					assert false : "should not happen";
 				}
-			} else {
-				// the unit literal is ground --> store it for propagation to dpll engine, no further effects for epr
-				assert clToUps.entrySet().size() == 1;
-				Entry<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> item = clToUps.entrySet().iterator().next(); //TODO: not nice
-				Literal propLit = item.getKey().getLiteral();
-				mEprTheory.addGroundLiteralToPropagate(propLit, cl.getUnitGrounding(propLit));
 			}
 		}
+		
+		for (Entry<Literal, Clause> en : upd.mGroundPropagations.entrySet()) {
+			Literal propLit = en.getKey();
+			mEprTheory.addGroundLiteralToPropagate(propLit, en.getValue());
+		}
+		
+//		for (Entry<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> en : clToUps.entrySet()) {
+//			ClauseLiteral cl = en.getKey();
+//			
+//			if (cl instanceof ClauseEprQuantifiedLiteral) {
+//				ClauseEprQuantifiedLiteral ceql = (ClauseEprQuantifiedLiteral) cl;
+//				
+//				IDawg<ApplicationTerm, TermVariable> dawg = en.getValue();
+////				DecideStackPropagatedLiteral prop = new DecideStackPropagatedLiteral(
+//				DslBuilder propB = new DslBuilder(
+//						ceql.getPolarity(), 
+//						ceql.getEprPredicate(),
+//						mDawgFactory.renameColumnsAndRestoreConstants(
+//								dawg, 
+//								ceql.getTranslationForEprPredicate(), 
+//								ceql.getArgumentsAsObjects(),
+//								ceql.getEprPredicate().getTermVariablesForArguments()),
+//						ceql,
+//						false);
+//
+//				Set<EprClause> newConflictsOrUnits = pushEprDecideStack(propB);
+//
+//				if (newConflictsOrUnits != null) {
+//					if (newConflictsOrUnits.iterator().next().isConflict()) {
+//						// in case of a conflict further propagations are obsolete
+//						return newConflictsOrUnits;
+//					} else if (newConflictsOrUnits.iterator().next().isUnit()) {
+//						result.addAll(newConflictsOrUnits);
+//						break; //TODO: surely break here?
+//					} else {
+//						assert false : "should not happen";
+//					}
+//				}
+//			} else {
+//				// the unit literal is ground --> store it for propagation to dpll engine, no further effects for epr
+//				assert clToUps.entrySet().size() == 1;
+////				Entry<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> item = clToUps.entrySet().iterator().next(); //TODO: not nice
+//				Literal propLit = en.getKey().getLiteral();
+//				mEprTheory.addGroundLiteralToPropagate(propLit, cl.getUnitGrounding(propLit));
+//			}
+//		}
 		return result;
 	}
 	
@@ -741,14 +764,18 @@ public class EprStateManager {
 			Literal groundLiteral = dsl.getPolarity() ?	atom : atom.negate();
 //			if (dsl instanceof DecideStackPropagatedLiteral) {
 			if (mDecisions.isEmpty()) {
+				DecideStackPropagatedLiteral dspl = (DecideStackPropagatedLiteral) dsl;
+				Clause reasonGroundUnitClause =
+						dspl.getReasonClauseLit()
+							.getGroundingForGroundLiteral(dspl.getClauseDawg(), groundLiteral);
+//						((DecideStackPropagatedLiteral) dsl).getReasonClauseLit().getUnitGrounding(groundLiteral)
 				mEprTheory.addGroundLiteralToPropagate(
 						groundLiteral, 
-						((DecideStackPropagatedLiteral) dsl).getReasonClauseLit().getUnitGrounding(groundLiteral));
+						reasonGroundUnitClause);
 			} else {
-				// we have a decision decide stack literal 
-				// --> suggest to the DPLLEngine to set it the same way
-				// TODO: not so clear if this is used at all..
-//				assert false : "TODO: think this over";
+				// there is at least one decision on the epr decide stack
+				// --> the current dsl's decisions may not be forced by the DPLLEngines decide state 
+				// --> suggest to the DPLLEngine to set the literal the same way
 				mEprTheory.addGroundDecisionSuggestion(groundLiteral);
 			}
 

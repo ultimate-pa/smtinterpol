@@ -12,6 +12,7 @@ import java.util.TreeSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.BinaryRelation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
@@ -376,6 +377,10 @@ public class DawgFactory<LETTER, COLNAMES> {
 					((NaiveDawg<LETTER, COLNAMES>) baseDawg).mBacking);
 			nd.addAllWithSubsetSignature(toBeAdded);
 			return nd;
+		}
+
+		public LogProxy getLogger() {
+			return mEprTheory.getLogger();
 		}
 	
 }

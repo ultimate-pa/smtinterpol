@@ -17,6 +17,7 @@ public class DslBuilder {
 	
 	private boolean mIsDecision;
 	private ClauseEprLiteral mReasonUnitClause;
+	private IDawg<ApplicationTerm, TermVariable> mReasonClauseDawg;
 	
 	private DslBuilder(boolean polarity, EprPredicate pred, 
 			IDawg<ApplicationTerm, TermVariable> dawg) {
@@ -34,11 +35,16 @@ public class DslBuilder {
 	}
 	
 	public DslBuilder(boolean polarity, EprPredicate pred, 
-			IDawg<ApplicationTerm, TermVariable> dawg, ClauseEprLiteral reasonUnitClause, boolean isDecision) {
+			IDawg<ApplicationTerm, TermVariable> dawg, 
+			ClauseEprLiteral reasonUnitClause, IDawg<ApplicationTerm, TermVariable> reasonClauseDawg, 
+			boolean isDecision) {
 		this(polarity, pred, dawg);
 		assert !isDecision : "shouldn't we use the other constructor here?";
+		assert pred.getTermVariablesForArguments().equals(dawg.getColnames());
+		assert reasonUnitClause.getClause().getVariables().equals(reasonClauseDawg.getColnames());
 		mIsDecision = isDecision;
 		mReasonUnitClause = reasonUnitClause;
+		mReasonClauseDawg = reasonClauseDawg;
 	}
 	
 	public void setIndexOnPushStateStack(int index) {
@@ -66,7 +72,7 @@ public class DslBuilder {
 			return new DecideStackDecisionLiteral(mPolarity, mPred, mDawg, index);
 		} else {
 			assert mReasonUnitClause != null;
-			return new DecideStackPropagatedLiteral(mPolarity, mPred, mDawg, mReasonUnitClause, index);
+			return new DecideStackPropagatedLiteral(mPolarity, mPred, mDawg, mReasonUnitClause, mReasonClauseDawg, index);
 		}
 	}
 
