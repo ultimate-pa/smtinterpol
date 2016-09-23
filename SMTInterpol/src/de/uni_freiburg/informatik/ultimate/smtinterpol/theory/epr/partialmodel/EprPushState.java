@@ -1,6 +1,7 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -31,6 +32,8 @@ public class EprPushState {
 	 * derived in any of the below push states.
 	 */
 	private final Stack<DecideStackLiteral> mDecideStack = new Stack<DecideStackLiteral>();
+	
+	private final Set<EprGroundPredicateLiteral> mEprGroundPredicateLiterals = new HashSet<EprGroundPredicateLiteral>();
 	
 	private final int mIndex;
 	
@@ -72,6 +75,15 @@ public class EprPushState {
 		assert dsl.getIndex().indexOnPushStatesDecideStack == mDecideStack.size() : "check dsl indices!";
 		return dsl;
 	}
+	
+	public void addEprGroundPredicateLiteral(EprGroundPredicateLiteral egpl) {
+		mEprGroundPredicateLiterals.add(egpl);
+	}
+	
+	public void removeEprGroundPredicateLiteral(EprGroundPredicateLiteral egpl) {
+		mEprGroundPredicateLiterals.remove(egpl);
+	}
+
 	
 	@Override
 	public String toString() {

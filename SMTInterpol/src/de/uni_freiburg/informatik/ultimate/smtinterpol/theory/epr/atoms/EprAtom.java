@@ -1,5 +1,7 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms;
 
+import java.util.Arrays;
+
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
@@ -39,7 +41,11 @@ public abstract class EprAtom extends DPLLAtom {
 
 	@Override
 	public String toString() {
-		return mTerm.toStringDirect();
+		String res =  mTerm.toStringDirect();
+		if (res.contains("AUX")) {
+			return "(AUX " + res.hashCode() + " " + Arrays.toString(((ApplicationTerm) mTerm).getParameters()) + ")";
+		}
+		return res;
 	}
 	
 	public Term getTerm() {

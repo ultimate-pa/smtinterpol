@@ -102,7 +102,7 @@ public abstract class DecideStackLiteral implements IEprLiteral, Comparable<Deci
 	}
 	
 	private void register() {
-		mPred.registerDecideStackLiteral(this);
+		mPred.registerEprLiteral(this);
 	}
 
 	/**
@@ -111,7 +111,7 @@ public abstract class DecideStackLiteral implements IEprLiteral, Comparable<Deci
 	 */
 	@Override
 	public void unregister() {
-		mPred.unregisterDecideStackLiteral(this);
+		mPred.unregisterEprLiteral(this);
 		for (ClauseEprLiteral cl : mConcernedClauseLiterals) {
 			cl.unregisterIEprLiteral(this);
 		}

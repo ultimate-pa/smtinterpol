@@ -169,7 +169,7 @@ public class EprTheory implements ITheory {
 	public void backtrackLiteral(Literal literal) {
 		if (mGroundAllMode)
 			return;
-		mLogger.debug("EPRDEBUG: backtrackLiteral");
+		mLogger.debug("EPRDEBUG: backtrackLiteral " + literal);
 		boolean	success = mLiteralsThatAreCurrentlySet.remove(literal);
 		assert success;
 
@@ -267,7 +267,8 @@ public class EprTheory implements ITheory {
 		Clause unitClause = mGroundLiteralsToPropagateToReason.get(literal);
 		mLogger.debug("EPRDEBUG: getUnitClause -- returning " + unitClause);
 		assert unitClause != null;
-		assert EprHelpers.verifyUnitClause(unitClause, literal, mLogger);
+		assert EprHelpers.verifyUnitClauseAfterPropagation(unitClause, literal, mLogger);
+//		assert EprHelpers.verifyConflictClause(unitClause, mLogger);
 		return unitClause;
 	}
 

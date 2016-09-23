@@ -47,7 +47,9 @@ public class UnitPropagationData {
 				IDawg<ApplicationTerm, TermVariable> groundingDawg = finalClauseLitToUnitPoints.get(cl);
 				Set<Clause> groundings = cl.getClause().getGroundings(groundingDawg);
 				Clause unitGrounding = groundings.iterator().next();
-				assert EprHelpers.verifyUnitClause(unitGrounding, cl.getLiteral(), dawgFactory.getLogger());
+// 				note that the following assert would be wrong (rightfully), because some atoms of the given clause 
+// 				may not be known to the DPLLEngine yet
+//				assert EprHelpers.verifyUnitClause(unitGrounding, cl.getLiteral(), dawgFactory.getLogger());
 				groundPropagations.put(cl.getLiteral(), unitGrounding);
 			}
 		}

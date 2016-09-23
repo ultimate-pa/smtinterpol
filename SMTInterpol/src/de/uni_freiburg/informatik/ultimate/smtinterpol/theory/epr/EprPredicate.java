@@ -23,6 +23,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackDecisionLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DslBuilder;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.IEprLiteral;
 
 /**
  * Represents an uninterpreted predicate that the EPR theory reasons about.
@@ -48,8 +49,8 @@ public class EprPredicate {
 	/**
 	 * Contains all DecideStackLiterals which talk about this EprPredicate.
 	 */
-	private Set<DecideStackLiteral> mDecideStackLiterals =
-			new HashSet<DecideStackLiteral>();
+	private Set<IEprLiteral> mEprLiterals =
+			new HashSet<IEprLiteral>();
 	
 	/**
 	 * Storage to track where this predicate occurs in the formula with at least one quantified argument.
@@ -151,8 +152,11 @@ public class EprPredicate {
 			
 			// when we create a new ground atom, we have to inform the DPLLEngine if the EprTheory already knows
 			// something about it
-			for (DecideStackLiteral dsl : this.getDecideStackLiterals()) {
-				EprClause conflict = mEprTheory.getStateManager().setGroundAtomIfCoveredByDecideStackLiteral(dsl, result);
+			for (IEprLiteral dsl : this.getEprLiterals()) {
+				if (!(dsl instanceof DecideStackLiteral)) {
+					continue;
+				}
+				EprClause conflict = mEprTheory.getStateManager().setGroundAtomIfCoveredByDecideStackLiteral((DecideStackLiteral) dsl, result);
 				if (conflict != null) {
 					assert false : "what now? give to EprTheory somehow so it can be returned by checkpoint??";
 				}
@@ -221,7 +225,7 @@ public class EprPredicate {
 		IDawg<ApplicationTerm, TermVariable> undecidedPoints = 
 				mEprTheory.getDawgFactory().createEmptyDawg(mTermVariablesForArguments);
 
-		for (DecideStackLiteral dsl : mDecideStackLiterals) {
+		for (IEprLiteral dsl : mEprLiterals) {
 			if (dsl.getPolarity()) {
 				//positive literal
 				positivelySetPoints.addAll(dsl.getDawg());
@@ -281,20 +285,20 @@ public class EprPredicate {
 	 * This has to be called when a literal that talks about this EprPredicate is put on the epr decide stack.
 	 * @param dsl
 	 */
-	public void registerDecideStackLiteral(DecideStackLiteral dsl) {
-		mDecideStackLiterals.add(dsl);
+	public void registerEprLiteral(IEprLiteral dsl) {
+		mEprLiterals.add(dsl);
 	}
 
 	/**
 	 * This has to be called when a literal that talks about this EprPredicate is removed from the epr decide stack.
 	 * @param dsl
 	 */
-	public void unregisterDecideStackLiteral(DecideStackLiteral dsl) {
-		mDecideStackLiterals.remove(dsl);
+	public void unregisterEprLiteral(IEprLiteral dsl) {
+		mEprLiterals.remove(dsl);
 	}		
 
-	public Set<DecideStackLiteral> getDecideStackLiterals() {
-		return mDecideStackLiterals;
+	public Set<IEprLiteral> getEprLiterals() {
+		return mEprLiterals;
 	}
 
 }

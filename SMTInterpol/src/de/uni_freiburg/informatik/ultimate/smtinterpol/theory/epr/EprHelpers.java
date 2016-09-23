@@ -545,6 +545,9 @@ public class EprHelpers {
 	 * @return
 	 */
 	public static <LETTER, COLNAMES> boolean verifySortsOfPoint(List<LETTER> point, SortedSet<COLNAMES> colnames) {
+		if (point.size() == 0) {
+			return true;
+		}
 		if (!(point.get(0) instanceof ApplicationTerm)
 				|| !(colnames.iterator().next() instanceof TermVariable)) {
 			// this method only applies if Colnames is TermVariable and Letter is ApplicationTerm
@@ -569,16 +572,29 @@ public class EprHelpers {
 	 * @param l
 	 * @return
 	 */
-	public static boolean verifyUnitClause(Clause reason, Literal l, LogProxy logger) {
+	public static boolean verifyUnitClauseAfterPropagation(Clause reason, Literal l, LogProxy logger) {
 		for (int i = 0; i < reason.getSize(); i++) {
 			Literal curLit = reason.getLiteral(i);
-			if (curLit == l && curLit.getAtom().getDecideStatus() != null) {
-				logger.error("EPRDEBUG: (EprHelpers.verifyUnitClause): The unit literal " + l + " is not undecided.");
+//			if (curLit == l && curLit.getAtom().getDecideStatus() != null) {
+			if (curLit == l && curLit.getAtom().getDecideStatus() != curLit) {
+				logger.error("EPRDEBUG: (EprHelpers.verifyUnitClause): The unit literal " + l + " is not set.");
 				return false;
 			}
 			if (curLit != l && curLit.getAtom().getDecideStatus() != curLit.negate()) {
 				logger.error("EPRDEBUG: (EprHelpers.verifyUnitClause): Literal " + curLit + 
 						" is not the unit literal but is not currently refuted");
+				return false;
+			}
+		}
+		return true;
+	}
+
+	public static boolean verifyConflictClause(Clause conflict, LogProxy logger) {
+		for (int i = 0; i < conflict.getSize(); i++) {
+			Literal curLit = conflict.getLiteral(i);
+			if (curLit.getAtom().getDecideStatus() != curLit.negate()) {
+				logger.error("EPRDEBUG: (EprHelpers.verifyConflictClause): Literal " + curLit + 
+						" is not currently refuted");
 				return false;
 			}
 		}

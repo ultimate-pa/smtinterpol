@@ -60,6 +60,8 @@ public abstract class ClauseEprLiteral extends ClauseLiteral {
 		}
 		mArgumentTermsAsObjects = Collections.unmodifiableList(l);
 	}
+	
+
 
 
 	public EprPredicate getEprPredicate()  {
@@ -67,12 +69,12 @@ public abstract class ClauseEprLiteral extends ClauseLiteral {
 	}
 	
 	
-	public void addPartiallyConflictingDecideStackLiteral(IEprLiteral el) {
+	public void addPartiallyConflictingEprLiteral(IEprLiteral el) {
 		el.registerConcernedClauseLiteral(this);
 		mPartiallyConflictingDecideStackLiterals.add(el);
 	}
 
-	public void addPartiallyFulfillingDecideStackLiteral(IEprLiteral el) {
+	public void addPartiallyFulfillingEprLiteral(IEprLiteral el) {
 		el.registerConcernedClauseLiteral(this);
 		mPartiallyFulfillingDecideStackLiterals.add(el);
 	}

@@ -109,6 +109,8 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 		mDawgSignature = Collections.unmodifiableSortedSet(vars);
 
 		Pair<Map<TermVariable, Object>, Map<TermVariable, TermVariable>> p = computeDawgSignatureTranslations();
+		assert p.first != null;
+		assert p.second != null;
 		mTranslationForClause = p.first;
 		mTranslationForEprPredicate = p.second;
 	}

@@ -112,6 +112,29 @@ public class EprClause {
 		mLiterals = Collections.unmodifiableSet(resPair.second);
 
 		mVariables = Collections.unmodifiableSortedSet(resPair.first);
+		
+		registerFulfillingOrConflictingEprLiteralInClauseLiterals();
+	}
+
+
+	private void registerFulfillingOrConflictingEprLiteralInClauseLiterals() {
+		for (ClauseLiteral cl : getLiterals()) {
+			if (!(cl instanceof ClauseEprLiteral)) {
+				continue;
+			}
+			ClauseEprLiteral cel = (ClauseEprLiteral) cl;
+			for (IEprLiteral dsl : cel.getEprPredicate().getEprLiterals()) {
+				if (cel.isDisjointFrom(dsl.getDawg())) {
+					continue;
+				}
+			
+				if (dsl.getPolarity() == cel.getPolarity()) {
+					cel.addPartiallyFulfillingEprLiteral(dsl);
+				} else {
+					cel.addPartiallyConflictingEprLiteral(dsl);
+				}
+			}	
+		}
 	}
 
 
@@ -243,9 +266,9 @@ public class EprClause {
 			}
 			
 			if (cel.getPolarity() == dsl.getPolarity()) {
-				cel.addPartiallyFulfillingDecideStackLiteral(dsl);
+				cel.addPartiallyFulfillingEprLiteral(dsl);
 			} else {
-				cel.addPartiallyConflictingDecideStackLiteral(dsl);
+				cel.addPartiallyConflictingEprLiteral(dsl);
 			}
 		}
 	}

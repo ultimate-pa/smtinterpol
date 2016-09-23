@@ -40,7 +40,8 @@ public class NamedAtom extends DPLLAtom {
 	public String toString() {
 //		if (!mClean)
 //			cleanup();
-		return SMTAffineTerm.cleanup(mSmtAtom).toString();
+//		return SMTAffineTerm.cleanup(mSmtAtom).toString();
+		return "(NamedAtom-" + this.hashCode() + ")";
 	}
 
 	@Override

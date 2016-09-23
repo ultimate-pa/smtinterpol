@@ -30,6 +30,7 @@ public class EprGroundPredicateLiteral implements IEprLiteral {
 				dawgFactory.createOnePointDawg(
 						mEprPredicate.getTermVariablesForArguments(), 
 						EprHelpers.convertTermArrayToConstantList(mAtom.getArguments()));
+		mEprPredicate.registerEprLiteral(this);
 		stateManager.registerEprGroundPredicateLiteral(this, l);
 	}
 
@@ -55,6 +56,7 @@ public class EprGroundPredicateLiteral implements IEprLiteral {
 
 	@Override
 	public void unregister() {
+		mEprPredicate.unregisterEprLiteral(this);
 		for (ClauseEprLiteral cel : mConcernedClauseLiterals) {
 			cel.unregisterIEprLiteral(this);
 		}

@@ -653,10 +653,13 @@ public class EprStateManager {
 	private DecideStackLiteral searchConflictingDecideStackLiteral(EprGroundPredicateLiteral egpl) {
 		// TODO not fully sure if each point is set only once on the epr decide stack
 		//  --> if not, we probably want to 
-		for (DecideStackLiteral dsl : egpl.getEprPredicate().getDecideStackLiterals()) { 
+		for (IEprLiteral dsl : egpl.getEprPredicate().getEprLiterals()) { 
+			if (!(dsl instanceof DecideStackLiteral)) {
+				continue;
+			}
 			if (dsl.getPolarity() != egpl.getPolarity()
 					&& ! egpl.getDawg().intersect(dsl.getDawg()).isEmpty()) {
-				return dsl;
+				return (DecideStackLiteral) dsl;
 			}
 		}
 		return null;
@@ -1113,6 +1116,7 @@ public class EprStateManager {
 	}
 
 	public void registerEprGroundPredicateLiteral(EprGroundPredicateLiteral egpl, Literal l) {
+		mPushStateStack.peek().addEprGroundPredicateLiteral(egpl);
 		mLiteralToEprGroundPredicateLiteral.put(l, egpl);
 	}
 
