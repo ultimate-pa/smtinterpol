@@ -568,17 +568,35 @@ public class EprHelpers {
 	/**
 	 * Checks if, given the contained literal's decide statuses, if the given
 	 * clause is currently a unit claus with the given literal as unit literal.
+	 * This is the variant where we expect that the unit literal is (still) fulfilled.
 	 * @param reason
 	 * @param l
 	 * @return
 	 */
 	public static boolean verifyUnitClauseAfterPropagation(Clause reason, Literal l, LogProxy logger) {
+		return verifyUnitClause(reason, l, true, logger);
+	}
+	
+	/**
+	 * Checks if, given the contained literal's decide statuses, if the given
+	 * clause is currently a unit claus with the given literal as unit literal.
+	 * This is the variant where we expect that the unit literal is (still) undecided.
+	 */
+	public static boolean verifyUnitClauseBeforePropagation(Clause reason, Literal l, LogProxy logger) {
+		return verifyUnitClause(reason, l, false, logger);
+	}
+
+	public static boolean verifyUnitClause(Clause reason, Literal l, boolean afterPropagation, LogProxy logger) {
 		for (int i = 0; i < reason.getSize(); i++) {
 			Literal curLit = reason.getLiteral(i);
-//			if (curLit == l && curLit.getAtom().getDecideStatus() != null) {
-			if (curLit == l && curLit.getAtom().getDecideStatus() != curLit) {
-				logger.error("EPRDEBUG: (EprHelpers.verifyUnitClause): The unit literal " + l + " is not set.");
-				return false;
+			if (curLit == l) {
+				if (afterPropagation && curLit.getAtom().getDecideStatus() != curLit) {
+					logger.error("EPRDEBUG: (EprHelpers.verifyUnitClause): The unit literal " + l + " is not set.");
+					return false;
+				} else if  (!afterPropagation && curLit.getAtom().getDecideStatus() != null) {
+					logger.error("EPRDEBUG: (EprHelpers.verifyUnitClause): The unit literal " + l + " is not undecided.");
+					return false;
+				}
 			}
 			if (curLit != l && curLit.getAtom().getDecideStatus() != curLit.negate()) {
 				logger.error("EPRDEBUG: (EprHelpers.verifyUnitClause): Literal " + curLit + 

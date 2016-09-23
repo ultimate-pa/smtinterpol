@@ -3,6 +3,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -33,11 +34,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseLiteral;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClauseFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackPropagatedLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.EprStateManager;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
 
@@ -81,12 +79,23 @@ public class EprTheory implements ITheory {
 	 */
 	private Clause mConflictFromAddingLastClause;
 
+	/**
+	 * A queue for literal propagation.
+	 * It is important that literal propagation is done in FIFO-order, because only then it can be guaranteed that
+	 * the reason unit clauses are actually unit at the time of propagation and at the time of explanation.
+	 *   --> when this was mixed up we ran into a bug because some literal was backtracked and later used in an explanation
+	 *      the consequence was that the explanation was not unit anymore.
+	 */
+	private Deque<Literal> mLiteralsWaitingToBePropagated = new ArrayDeque<Literal>();
+
+	/**
+	 * just for debugging purposes
+	 */
 	private HashSet<Literal> mAlreadyPropagatedLiterals = new HashSet<Literal>();
 	
-	/*
-	 * some fields used for debugging
+	/**
+	 * just for debugging purposes
 	 */
-	private HashSet<Literal> mLiteralsWaitingToBePropagated = new HashSet<Literal>();
 	private HashSet<Literal> mLiteralsThatAreCurrentlySet = new HashSet<Literal>();
 
 
@@ -167,11 +176,15 @@ public class EprTheory implements ITheory {
 
 	@Override
 	public void backtrackLiteral(Literal literal) {
-		if (mGroundAllMode)
+		if (mGroundAllMode) {
 			return;
+		}
 		mLogger.debug("EPRDEBUG: backtrackLiteral " + literal);
+
 		boolean	success = mLiteralsThatAreCurrentlySet.remove(literal);
 		assert success;
+		
+		unregisterPropagatedLiteral(literal);
 
 		// .. dual to setLiteral
 		
@@ -197,8 +210,18 @@ public class EprTheory implements ITheory {
 			mStateManager.unsetDpllLiteral(literal);
 
 		}
+		
 //		mLogger.debug("EPRDEBUG: backtrackLiteral, new fulfilled clauses: " + mStateManager.getFulfilledClauses());
 //		mLogger.debug("EPRDEBUG: backtrackLiteral, new not fulfilled clauses: " + mStateManager.getNotFulfilledClauses());
+	}
+
+	/**
+	 * This has to be called, when a literal that was propagated to the dpllengine is backtracked.
+	 * That means that we don't need its explanation unit clause anymore and that it may be set freshly for some other reason later.
+	 * @param literal
+	 */
+	private void unregisterPropagatedLiteral(Literal literal) {
+		mGroundLiteralsToPropagateToReason.remove(literal);
 	}
 
 	@Override
@@ -232,23 +255,27 @@ public class EprTheory implements ITheory {
 
 	@Override
 	public Literal getPropagatedLiteral() {
-		Literal lit = null;
-		for (Entry<Literal, Clause> en : mGroundLiteralsToPropagateToReason.entrySet()) {
-			if (!mAlreadyPropagatedLiterals.contains(en.getKey())) {
-				lit = en.getKey();
-				mAlreadyPropagatedLiterals.add(lit);
-				mLiteralsWaitingToBePropagated.remove(lit);
-				break;
-			}
+		Literal	lit = mLiteralsWaitingToBePropagated.poll();
+		
+		if (lit == null) {
+			return null;
 		}
 
-		if (lit != null) {
-			mLogger.debug("EPRDEBUG: getPropagatedLiteral propagating: " + lit);
-		}
+		Clause reasonUnitClause = mGroundLiteralsToPropagateToReason.get(lit);
+		assert EprHelpers.verifyUnitClauseBeforePropagation(reasonUnitClause, lit, mLogger);
+
+		mAlreadyPropagatedLiterals.add(lit);
+		
+		mLogger.debug("EPRDEBUG: getPropagatedLiteral propagating: " + lit);
 		return lit;
 	}
 	
 	public void addGroundLiteralToPropagate(Literal l, Clause reason) {
+		if (mGroundLiteralsToPropagateToReason.keySet().contains(l)) {
+			mLogger.debug("EPRDEBUG: EprTheory.addGroundLiteralToPropagate: already added: " + l);
+			return;
+		}
+		
 		// the atom may be new for the dpll engine -- if it is the grounding of a quantified epr atom
 		if (l.getAtom() instanceof EprAtom) {
 			addAtomToDPLLEngine(l.getAtom());
@@ -257,7 +284,6 @@ public class EprTheory implements ITheory {
 		mLogger.debug("EPRDEBUG: EprTheory.addGroundLiteralToPropagate(..): "
 				+ "literal: " + l + " reason: " + reason);
 
-//		assert EprHelpers.verifyUnitClause(reason, l);
 		mLiteralsWaitingToBePropagated.add(l);
 		mGroundLiteralsToPropagateToReason.put(l, reason);
 	}
@@ -268,7 +294,7 @@ public class EprTheory implements ITheory {
 		mLogger.debug("EPRDEBUG: getUnitClause -- returning " + unitClause);
 		assert unitClause != null;
 		assert EprHelpers.verifyUnitClauseAfterPropagation(unitClause, literal, mLogger);
-//		assert EprHelpers.verifyConflictClause(unitClause, mLogger);
+		// remove the entry from the map -- seems cleaner..
 		return unitClause;
 	}
 
