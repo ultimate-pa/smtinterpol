@@ -72,7 +72,12 @@ public class EprClauseFactory {
 		// apply the unifier to the literals of c1 and c2, add the unified literals to the resolvent
 		Set<Literal> resLits = computeUnifiedLiteralsFromClauseLiterals(unifier, resCls, alphaRenamingIdentifier);
 	
-		return getEprClause(resLits);
+
+		EprClause resolvent = getEprClause(resLits);
+
+		mEprTheory.getStateManager().learnClause(resolvent);
+		
+		return resolvent;
 	}
 	
 	public EprClause getFactoredClause(ClauseEprQuantifiedLiteral factorLit1, ClauseEprLiteral factorLit2) {
@@ -103,7 +108,7 @@ public class EprClauseFactory {
 		Set<Literal> resLits = computeUnifiedLiteralsFromClauseLiterals(unifier, resCls, alphaRenamingIdentifier);
 		
 		EprClause factor = getEprClause(resLits);
-		mEprTheory.getStateManager().learnClause(factor);//TODO: right now: learn every factor.. is this a good place??
+		mEprTheory.getStateManager().learnClause(factor);
 		return factor;
 	}
 
