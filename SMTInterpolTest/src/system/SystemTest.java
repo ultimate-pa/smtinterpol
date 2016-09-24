@@ -58,6 +58,9 @@ public class SystemTest {
 		final File testDir = lst[0];
 		lst = testDir.listFiles();
 		for (final File dir : lst) {
+			if (!dir.getName().equals("epr")) {
+				continue;
+			}
 			for (final File tst: dir.listFiles(new FilenameFilter() {
 				
 				@Override
