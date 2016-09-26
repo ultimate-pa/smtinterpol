@@ -1,17 +1,16 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel;
 
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.Stack;
-
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
@@ -246,7 +245,6 @@ public class DecideStackManager {
 		}
 
 		// revert the decision
-//		DecideStackLiteral dsdl = popEprDecideStack();
 		DecideStackLiteral dsdl = mDecideStack.popDecideStackLiteral();
 		assert dsdl == topMostDecideStackLiteral;
 	
@@ -341,13 +339,7 @@ public class DecideStackManager {
 		}
 		return null;
 	}
-
 	
-
-	////////////////// 
-	////////////////// methods that change the epr solver state (state of clauses and/or decide stack)
-	////////////////// 
-
 	/**
 	 * 
 	 * plan:
@@ -410,7 +402,6 @@ public class DecideStackManager {
 	private boolean popEprDecideStackUntilAndIncluding(DecideStackLiteral dsl) {
 		assert dsl != null;
 		while (true) {
-//			DecideStackLiteral currentDsl = popEprDecideStack();
 			DecideStackLiteral currentDsl = mDecideStack.popDecideStackLiteral();
 			if (currentDsl == dsl) {
 				return true;
@@ -422,38 +413,6 @@ public class DecideStackManager {
 		}
 	}
 	
-//	private DecideStackLiteral popEprDecideStack() {
-//		
-////		ListIterator<EprPushState> pssIt = mStateManager.mPushStateStack.listIterator(mStateManager.mPushStateStack.size());
-//		
-////		while (pssIt.hasPrevious()) {
-////			EprPushState currentPushState = pssIt.previous();
-////			
-////			DecideStackLiteral dsl = currentPushState.popDecideStack();
-//		
-//		DecideStackEntry dsl = mDecideStack.pop();
-//		
-//		if ()
-//
-//		DecideStackLiteral dsl = mDecideStack.pop();
-//			
-////		assert dsl == null || 
-////				dsl.getIndex().indexOfPushState == currentPushState.getIndex() 
-////				: "check dsl indices!";
-//
-//			if (dsl instanceof DecideStackDecisionLiteral) {
-//				DecideStackDecisionLiteral dec = mDecisions.pop();
-//				assert dec == dsl;
-//			}
-//
-//			if (dsl != null) {
-//				mStateManager.updateClausesOnBacktrackDecideStackLiteral(dsl);
-//				return dsl;
-//			}
-////		}	
-//		return null;
-//	}
-
 	/**
 	 * Given an epr ground literal look if there is a decide stack literal that contradicts it.
 	 * (this is called when the DPLLEngine sets an epr literal an we need to know if the two decide stacks
@@ -501,9 +460,6 @@ public class DecideStackManager {
 	 * @return 
 	 */
 	Set<EprClause> pushEprDecideStack(DslBuilder dslb) {
-		
-//		dslb.setIndexOnPushStateStack(mStateManager.mPushStateStack.peek().getDecideStackHeight());
-//		dslb.setPushStateStackIndex(mStateManager.mPushStateStack.size() - 1);
 		dslb.setDecideStackIndex(mDecideStack.size());
 		DecideStackLiteral dsl = dslb.build();
 		
@@ -520,7 +476,6 @@ public class DecideStackManager {
 		boolean newDPLLAtoms = true;
 		while (newDPLLAtoms) {
 			HashSet<EprGroundPredicateAtom> copy = new HashSet<EprGroundPredicateAtom>(dsl.getEprPredicate().getDPLLAtoms());
-//			for (EprGroundPredicateAtom atom : dsl.getEprPredicate().getDPLLAtoms()) {
 			for (EprGroundPredicateAtom atom : copy) {
 				EprClause conflict = mStateManager.setGroundAtomIfCoveredByDecideStackLiteral(dsl, atom);
 				if (conflict != null) {
@@ -535,15 +490,29 @@ public class DecideStackManager {
 		Set<EprClause> conflictsOrPropagations = 
 				mStateManager.getEprClauseManager().updateClausesOnSetEprLiteral(dsl);
 
-//		mStateManager.mPushStateStack.peek().pushDecideStackLiteral(dsl);
 		mDecideStack.pushDecideStackLiteral(dsl);
 		
 	    return conflictsOrPropagations;
 	}
 
+	/**
+	 * Returns true iff the EprTheory has currently made no own decisions.
+	 * Thus when we derived something in the epr theory, we can propagate it, otherwise
+	 * we can only suggest it..
+	 * @return
+	 */
 	 boolean isDecisionLevel0() {
 		return mDecisions.isEmpty();
-	}
+	 }
+	 
+	 void pushOnSetLiteral(Literal l) {
+		 mDecideStack.pushSetLiteral(l);
+	 }
+	 
+	 void popOnBacktrackLiteral(Literal l) {
+		 mDecideStack.popBacktrackLiteral(l);
+	 }
+
 
 	Clause doPropagations() {
 		HashSet<EprClause> toProp = new HashSet<EprClause>(mUnitClausesWaitingForPropagation);
@@ -579,6 +548,31 @@ public class DecideStackManager {
 		private DecideStackPushMarker lastPushMarker;
 		private DecideStackEntry lastElement;
 		
+		private Map<Literal, DecideStackLiteralMarker> mLiteralToMarker = 
+				new HashMap<Literal, DecideStackLiteralMarker>();
+		
+		/**
+		 * Places a marker for a setLiteral operation in the EprTheory.
+		 */
+		void pushSetLiteral(Literal l) {
+			DecideStackLiteralMarker marker = new DecideStackLiteralMarker(l, mStack.size());
+			mStack.add(marker);
+			assert !mLiteralToMarker.containsKey(l);
+			mLiteralToMarker.put(l, marker);
+		}
+
+		void popBacktrackLiteral(Literal l) {
+			DecideStackLiteralMarker marker = mLiteralToMarker.remove(l);
+			List<DecideStackEntry> suffix = mStack.subList(marker.mIndex, mStack.size());
+			for (DecideStackEntry dse : suffix) {
+				if (dse instanceof DecideStackLiteral) {
+					((DecideStackLiteral) dse).unregister();
+				}
+			}
+			suffix.clear();
+			updateInternalFields();
+		}
+		
 		DecideStackLiteral popDecideStackLiteral() {
 			if (lastNonPushMarker == null) {
 				return null;
@@ -586,6 +580,7 @@ public class DecideStackManager {
 
 			DecideStackLiteral result = lastNonPushMarker;
 			mStack.remove(result);
+			result.unregister();
 
 			updateInternalFields();
 
@@ -610,7 +605,13 @@ public class DecideStackManager {
 			
 
 			List<DecideStackEntry> suffix = mStack.subList(lastPushMarkerIndex, mStack.size());
+			for (DecideStackEntry dse : suffix) {
+				if (dse instanceof DecideStackLiteral) {
+					((DecideStackLiteral) dse).unregister();
+				}
+			}
 			suffix.clear();
+			
 			
 			updateInternalFields();
 		}

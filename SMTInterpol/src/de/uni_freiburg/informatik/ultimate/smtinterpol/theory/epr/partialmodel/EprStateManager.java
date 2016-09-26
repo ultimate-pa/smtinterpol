@@ -217,6 +217,7 @@ public class EprStateManager {
 			}
 		}
 	
+		mDecideStackManager.pushOnSetLiteral(literal);
 		Set<EprClause> confOrUnits = mEprClauseManager.updateClausesOnSetEprLiteral(egpl);
 		return mDecideStackManager.resolveConflictOrStoreUnits(confOrUnits);
 	}
@@ -225,15 +226,18 @@ public class EprStateManager {
 		EprGroundPredicateLiteral egpl = mLiteralToEprGroundPredicateLiteral.get(literal);
 		assert egpl != null;
 		egpl.unregister();
+		mDecideStackManager.popOnBacktrackLiteral(literal);
 		mEprClauseManager.updateClausesOnBacktrackDpllLiteral(literal);
 	}
 
 	public Clause setDpllLiteral(Literal literal) {
+		mDecideStackManager.pushOnSetLiteral(literal);
 		Set<EprClause> conflictOrUnits = mEprClauseManager.updateClausesOnSetDpllLiteral(literal);
 		return mDecideStackManager.resolveConflictOrStoreUnits(conflictOrUnits);
 	}
 
 	public void unsetDpllLiteral(Literal literal) {
+		mDecideStackManager.popOnBacktrackLiteral(literal);
 		mEprClauseManager.updateClausesOnBacktrackDpllLiteral(literal);
 	}
 
@@ -402,7 +406,6 @@ public class EprStateManager {
 			// --> propagate or suggest it
 			
 			Literal groundLiteral = dsl.getPolarity() ?	atom : atom.negate();
-//			if (dsl instanceof DecideStackPropagatedLiteral) {
 			if (mDecideStackManager.isDecisionLevel0()) {
 				DecideStackPropagatedLiteral dspl = (DecideStackPropagatedLiteral) dsl;
 				Clause reasonGroundUnitClause =
