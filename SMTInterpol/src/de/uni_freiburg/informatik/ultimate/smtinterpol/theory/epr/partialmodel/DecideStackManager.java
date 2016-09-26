@@ -1,7 +1,12 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.ListIterator;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -30,14 +35,18 @@ public class DecideStackManager {
 	private final EprTheory mEprTheory;
 	private final EprStateManager mStateManager;
 
-	private Stack<DecideStackDecisionLiteral> mDecisions = new Stack<DecideStackDecisionLiteral>();
+	private final Deque<DecideStackDecisionLiteral> mDecisions = new ArrayDeque<DecideStackDecisionLiteral>();
+	
 
 	private Set<EprClause> mUnitClausesWaitingForPropagation = new HashSet<EprClause>();
+	
+	private EprDecideStack mDecideStack;
 
 	public DecideStackManager(LogProxy logger, EprTheory eprTheory, EprStateManager eprStateManager) { 
 		mLogger = logger;
 		mEprTheory = eprTheory;
 		mStateManager = eprStateManager;
+		mDecideStack = new EprDecideStack();
 	}
 	
 	/**
@@ -167,7 +176,7 @@ public class DecideStackManager {
 				return null;
 			}
 
-			DecideStackLiteral topMostDecideStackLiteral = popEprDecideStack();
+			DecideStackLiteral topMostDecideStackLiteral = mDecideStack.popDecideStackLiteral();
 			if (topMostDecideStackLiteral == null) {
 				// we have come to the top of the decide stack --> return the conflict
 				return chooseGroundingFromConflict(currentConflict);
@@ -237,7 +246,8 @@ public class DecideStackManager {
 		}
 
 		// revert the decision
-		DecideStackLiteral dsdl = popEprDecideStack();
+//		DecideStackLiteral dsdl = popEprDecideStack();
+		DecideStackLiteral dsdl = mDecideStack.popDecideStackLiteral();
 		assert dsdl == topMostDecideStackLiteral;
 	
 		// make the new decision with the new dawg
@@ -400,7 +410,8 @@ public class DecideStackManager {
 	private boolean popEprDecideStackUntilAndIncluding(DecideStackLiteral dsl) {
 		assert dsl != null;
 		while (true) {
-			DecideStackLiteral currentDsl = popEprDecideStack();
+//			DecideStackLiteral currentDsl = popEprDecideStack();
+			DecideStackLiteral currentDsl = mDecideStack.popDecideStackLiteral();
 			if (currentDsl == dsl) {
 				return true;
 			} else if (currentDsl == null) {
@@ -411,31 +422,37 @@ public class DecideStackManager {
 		}
 	}
 	
-	private DecideStackLiteral popEprDecideStack() {
-		
-		ListIterator<EprPushState> pssIt = mStateManager.mPushStateStack.listIterator(mStateManager.mPushStateStack.size());
-		
-		while (pssIt.hasPrevious()) {
-			EprPushState currentPushState = pssIt.previous();
-			
-			DecideStackLiteral dsl = currentPushState.popDecideStack();
-			
-			assert dsl == null || 
-					dsl.getIndex().indexOfPushState == currentPushState.getIndex() 
-					: "check dsl indices!";
-
-			if (dsl instanceof DecideStackDecisionLiteral) {
-				DecideStackDecisionLiteral dec = mDecisions.pop();
-				assert dec == dsl;
-			}
-
-			if (dsl != null) {
-				mStateManager.updateClausesOnBacktrackDecideStackLiteral(dsl);
-				return dsl;
-			}
-		}	
-		return null;
-	}
+//	private DecideStackLiteral popEprDecideStack() {
+//		
+////		ListIterator<EprPushState> pssIt = mStateManager.mPushStateStack.listIterator(mStateManager.mPushStateStack.size());
+//		
+////		while (pssIt.hasPrevious()) {
+////			EprPushState currentPushState = pssIt.previous();
+////			
+////			DecideStackLiteral dsl = currentPushState.popDecideStack();
+//		
+//		DecideStackEntry dsl = mDecideStack.pop();
+//		
+//		if ()
+//
+//		DecideStackLiteral dsl = mDecideStack.pop();
+//			
+////		assert dsl == null || 
+////				dsl.getIndex().indexOfPushState == currentPushState.getIndex() 
+////				: "check dsl indices!";
+//
+//			if (dsl instanceof DecideStackDecisionLiteral) {
+//				DecideStackDecisionLiteral dec = mDecisions.pop();
+//				assert dec == dsl;
+//			}
+//
+//			if (dsl != null) {
+//				mStateManager.updateClausesOnBacktrackDecideStackLiteral(dsl);
+//				return dsl;
+//			}
+////		}	
+//		return null;
+//	}
 
 	/**
 	 * Given an epr ground literal look if there is a decide stack literal that contradicts it.
@@ -485,8 +502,9 @@ public class DecideStackManager {
 	 */
 	Set<EprClause> pushEprDecideStack(DslBuilder dslb) {
 		
-		dslb.setIndexOnPushStateStack(mStateManager.mPushStateStack.peek().getDecideStackHeight());
-		dslb.setPushStateStackIndex(mStateManager.mPushStateStack.size() - 1);
+//		dslb.setIndexOnPushStateStack(mStateManager.mPushStateStack.peek().getDecideStackHeight());
+//		dslb.setPushStateStackIndex(mStateManager.mPushStateStack.size() - 1);
+		dslb.setDecideStackIndex(mDecideStack.size());
 		DecideStackLiteral dsl = dslb.build();
 		
 		if (dsl instanceof DecideStackDecisionLiteral) {
@@ -517,7 +535,8 @@ public class DecideStackManager {
 		Set<EprClause> conflictsOrPropagations = 
 				mStateManager.updateClausesOnSetEprLiteral(dsl);
 
-		mStateManager.mPushStateStack.peek().pushDecideStackLiteral(dsl);
+//		mStateManager.mPushStateStack.peek().pushDecideStackLiteral(dsl);
+		mDecideStack.pushDecideStackLiteral(dsl);
 		
 	    return conflictsOrPropagations;
 	}
@@ -535,6 +554,103 @@ public class DecideStackManager {
 		} else {
 			assert conflict.isConflict();
 			return resolveConflict(conflict);
+		}
+	}
+
+	public void push() {
+		mDecideStack.push();
+	}
+
+	public void pop() {
+		for (DecideStackEntry dse : mDecideStack.peek()) {
+			DecideStackLiteral dsl = (DecideStackLiteral) dse;
+			dsl.unregister();
+		}
+		mDecideStack.pop();
+	}
+	
+	private static class EprDecideStack {
+		private final List<DecideStackEntry> mStack = new LinkedList<DecideStackEntry>();
+		
+		private int lastNonPushMarkerIndex = -1;
+		private int lastPushMarkerIndex = -1;
+		
+		private DecideStackLiteral lastNonPushMarker;
+		private DecideStackPushMarker lastPushMarker;
+		private DecideStackEntry lastElement;
+		
+		DecideStackLiteral popDecideStackLiteral() {
+			if (lastNonPushMarker == null) {
+				return null;
+			}
+
+			DecideStackLiteral result = lastNonPushMarker;
+			mStack.remove(result);
+
+			updateInternalFields();
+
+			return result;
+		}
+		
+		void pushDecideStackLiteral(DecideStackLiteral dsl) {
+			mStack.add(dsl);
+			lastNonPushMarker = dsl;
+			lastNonPushMarkerIndex = mStack.size() - 1;
+		}
+		
+		/**
+		 * Returns the decide stack literals above the last push marker.
+		 */
+		List<DecideStackEntry> peek() {
+			return mStack.subList(lastPushMarkerIndex, mStack.size());
+		}
+
+		void pop() {
+			assert lastPushMarker != null : "already popped all push markers";
+			
+
+			List<DecideStackEntry> suffix = mStack.subList(lastPushMarkerIndex, mStack.size());
+			suffix.clear();
+			
+			updateInternalFields();
+		}
+		
+		void push() {
+			mStack.add(new DecideStackPushMarker());
+		}
+
+		private void updateInternalFields() {
+			// change the fields accordingly -- search for the next non push marker
+			ListIterator<DecideStackEntry> it = mStack.listIterator(mStack.size());
+			lastPushMarker = null;
+			lastNonPushMarker = null;
+			lastPushMarkerIndex = -1;
+			lastNonPushMarkerIndex = -1;
+
+			boolean foundNonPushMarker = false;
+			boolean foundPushMarker = false;
+
+			while (it.hasPrevious()) {
+				DecideStackEntry prev = it.previous();
+				
+				if (!foundPushMarker && prev instanceof DecideStackPushMarker) {
+					lastPushMarker = (DecideStackPushMarker) prev;
+					lastPushMarkerIndex = it.previousIndex() + 1;
+				}
+				
+				if (!foundNonPushMarker && prev instanceof DecideStackLiteral) {
+					lastNonPushMarker = (DecideStackLiteral) prev;
+					lastNonPushMarkerIndex = it.previousIndex() + 1;
+				}
+
+				if (foundPushMarker && foundNonPushMarker) {
+					break;
+				}
+			}
+		}
+		
+		public int size() {
+			return mStack.size();
 		}
 	}
 }

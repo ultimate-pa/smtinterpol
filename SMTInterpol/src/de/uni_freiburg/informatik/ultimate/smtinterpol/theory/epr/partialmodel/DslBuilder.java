@@ -9,8 +9,9 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 
 public class DslBuilder {
 
-	private int mIndexOnPushStateStack = -1;
-	private int mPushStateStackIndex = - 1;
+//	private int mIndexOnPushStateStack = -1;
+//	private int mPushStateStackIndex = - 1;
+	private int mDecideStackIndex = -1;
 	private boolean mPolarity;
 	private EprPredicate mPred;
 	private IDawg<ApplicationTerm, TermVariable> mDawg;
@@ -47,32 +48,39 @@ public class DslBuilder {
 		mReasonClauseDawg = reasonClauseDawg;
 	}
 	
-	public void setIndexOnPushStateStack(int index) {
-		assert mIndexOnPushStateStack == -1 : "index set twice";
-		mIndexOnPushStateStack = index;
-	}
+//	public void setIndexOnPushStateStack(int index) {
+//		assert mIndexOnPushStateStack == -1 : "index set twice";
+//		mIndexOnPushStateStack = index;
+//	}
 
-	/**
-	 * the index on the push state stack of the pushState that this dsl is pushed into
-	 * @param index
-	 */
-	public void setPushStateStackIndex(int index) {
-		assert mPushStateStackIndex == -1 : "index set twice";
-		mPushStateStackIndex = index;
+//	/**
+//	 * the index on the push state stack of the pushState that this dsl is pushed into
+//	 * @param index
+//	 */
+//	public void setPushStateStackIndex(int index) {
+//		assert mPushStateStackIndex == -1 : "index set twice";
+//		mPushStateStackIndex = index;
+//	}
+	
+	public void setDecideStackIndex(int index) {
+		assert mDecideStackIndex == -1 : "index set twice";
+		mDecideStackIndex = index;
 	}
 	
 	public DecideStackLiteral build() {
-		assert mIndexOnPushStateStack != -1;
-		assert mPushStateStackIndex != -1;
-		Pair<Integer, Integer> index = 
-				new Pair<Integer, Integer>(mPushStateStackIndex, mIndexOnPushStateStack);
+//		assert mIndexOnPushStateStack != -1;
+//		assert mPushStateStackIndex != -1;
+		assert mDecideStackIndex != -1 : "index not set";
+//		Pair<Integer, Integer> index = 
+//				new Pair<Integer, Integer>(mPushStateStackIndex, mIndexOnPushStateStack);
 
 		if (mIsDecision) {
 			assert mReasonUnitClause == null;
-			return new DecideStackDecisionLiteral(mPolarity, mPred, mDawg, index);
+			return new DecideStackDecisionLiteral(mPolarity, mPred, mDawg, mDecideStackIndex);
 		} else {
 			assert mReasonUnitClause != null;
-			return new DecideStackPropagatedLiteral(mPolarity, mPred, mDawg, mReasonUnitClause, mReasonClauseDawg, index);
+			return new DecideStackPropagatedLiteral(mPolarity, mPred, mDawg, 
+					mReasonUnitClause, mReasonClauseDawg, mDecideStackIndex);
 		}
 	}
 

@@ -32,7 +32,7 @@ public class DecideStackPropagatedLiteral extends DecideStackLiteral {
 	public DecideStackPropagatedLiteral(boolean polarity, EprPredicate eprPred,
 			IDawg<ApplicationTerm, TermVariable> predDawg,
 			ClauseEprLiteral unitClauseLiteral,	IDawg<ApplicationTerm, TermVariable> clauseDawg, 
-			Pair<Integer, Integer> index) {
+			int index) {
 		super(polarity, eprPred, predDawg, index);
 		mReasonUnitClauseLiteral = unitClauseLiteral;
 		mReasonClauseDawg = clauseDawg;
@@ -57,7 +57,7 @@ public class DecideStackPropagatedLiteral extends DecideStackLiteral {
 
 	@Override
 	public String toString() {
-		return String.format("(DSProp (%d,%d): %c%s)", 
-				mIndex.indexOfPushState, mIndex.indexOnPushStatesDecideStack, (mPolarity ? ' ' : '~'),  mPred);
+		return String.format("(DSProp (%d): %c%s)", 
+				mIndex, (mPolarity ? ' ' : '~'),  mPred);
 	}	
 }

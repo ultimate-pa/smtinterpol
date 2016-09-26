@@ -37,6 +37,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.Clause
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClauseFactory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClauseManager;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClauseState;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.UnitPropagationData;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
@@ -55,7 +56,7 @@ import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
  */
 public class EprStateManager {
 
-	Stack<EprPushState> mPushStateStack = new Stack<EprPushState>();
+//	Stack<EprPushState> mPushStateStack = new Stack<EprPushState>();
 	
 	private ScopedHashSet<ApplicationTerm> mUsedConstants = new ScopedHashSet<ApplicationTerm>();
 
@@ -84,9 +85,10 @@ public class EprStateManager {
 			new HashMap<Literal, EprGroundPredicateLiteral>();
 
 
+	private EprClauseManager mEprClauseManager;
 	
 	public EprStateManager(EprTheory eprTheory) {
-		mPushStateStack.add(new EprPushState(0));
+//		mPushStateStack.add(new EprPushState(0));
 
 		mEprTheory = eprTheory;
 		mEqualityManager =  eprTheory.getEqualityManager();
@@ -95,20 +97,25 @@ public class EprStateManager {
 		mEprClauseFactory = eprTheory.getEprClauseFactory();
 		mLogger = eprTheory.getLogger();
 		mDecideStackManager = new DecideStackManager(mLogger, eprTheory, this);
+		mEprClauseManager = new EprClauseManager();
 	}
 	
 	public void push() {
-		mPushStateStack.push(new EprPushState(mPushStateStack.size()));
+//		mPushStateStack.push(new EprPushState(mPushStateStack.size()));
+		mEprClauseManager.push();
+		mDecideStackManager.push();
 		mAllEprPredicates.beginScope();
 		mUsedConstants.beginScope();
 		mEprClauseFactory.push();
 	}
 
 	public void pop() {
-		EprPushState poppedState = mPushStateStack.pop();
-		for (EprClause c : poppedState.getClauses()) {
-			c.disposeOfClause();
-		}
+//		EprPushState poppedState = mPushStateStack.pop();
+//		for (EprClause c : poppedState.getClauses()) {
+//			c.disposeOfClause();
+//		}
+		mEprClauseManager.pop();
+		mDecideStackManager.pop();
 		mAllEprPredicates.endScope();
 		mUsedConstants.endScope();
 		mEprClauseFactory.pop();
@@ -118,36 +125,15 @@ public class EprStateManager {
 			mAllEprPredicates.add(pred);
 	}
 
-	//////////////////////////////////// old, perhaps obsolete stuff, from here on downwards /////////////////////////////////////////
 	
 	
 	
-	
-	
-	///////////////////////////////////////////////////////////
-	///////////////////////////////////////////////////////////
-	/////// methods used in the complete grounding method
-	///////////////////////////////////////////////////////////
-	///////////////////////////////////////////////////////////
-	
-	public Iterable<EprClause> getAllEprClauses() {
-		return new EprClauseIterable(mPushStateStack);
-	}
+//	public Iterable<EprClause> getAllEprClauses() {
+//		return new EprClauseIterable(mPushStateStack);
+//	}
 
-	//////////////////////////////////// old, perhaps obsolete stuff, from here on downwards /////////////////////////////////////////
-	
-	
-	
-	
-	
-	///////////////////////////////////////////////////////////
-	///////////////////////////////////////////////////////////
-	/////// methods used in the complete grounding method
-	///////////////////////////////////////////////////////////
-	///////////////////////////////////////////////////////////
-	
 	public void registerEprGroundPredicateLiteral(EprGroundPredicateLiteral egpl, Literal l) {
-		mPushStateStack.peek().addEprGroundPredicateLiteral(egpl);
+//		mPushStateStack.peek().addEprGroundPredicateLiteral(egpl);
 		mLiteralToEprGroundPredicateLiteral.put(l, egpl);
 	}
 
@@ -311,20 +297,14 @@ public class EprStateManager {
 	public CClosure getCClosure() {
 		return mCClosure;
 	}
-
-	///////////////////////////////////////////////////////////
-	///////////////////////////////////////////////////////////
-	/////// methods used in the complete grounding method
-	///////////////////////////////////////////////////////////
-	///////////////////////////////////////////////////////////
 	
-	public HashSet<EprClause> getAllClauses() {
-		HashSet<EprClause> allClauses = new HashSet<EprClause>();
-		for (EprPushState es : mPushStateStack) {
-			allClauses.addAll(es.getClauses());
-		}
-		return allClauses;
-	}
+//	public HashSet<EprClause> getAllClauses() {
+//		HashSet<EprClause> allClauses = new HashSet<EprClause>();
+//		for (EprPushState es : mPushStateStack) {
+//			allClauses.addAll(es.getClauses());
+//		}
+//		return allClauses;
+//	}
 
 	public Set<ApplicationTerm> getAllConstants() {
 		return mUsedConstants;
@@ -351,7 +331,7 @@ public class EprStateManager {
 
 	private void addGroundClausesForNewConstant(HashSet<ApplicationTerm> newConstants) {
 		ArrayList<Literal[]> groundings = new ArrayList<Literal[]>();
-		for (EprClause c : getAllClauses())  {
+		for (EprClause c : mEprClauseManager.getAllClauses())  {
 				groundings.addAll(
 						c.computeAllGroundings(
 								EprHelpers.getAllInstantiationsForNewConstant(
@@ -601,21 +581,12 @@ public class EprStateManager {
 	 * If it is unit, queue it for propagation.
 	 */
 	private Clause registerEprClause(EprClause newClause) {
-		mPushStateStack.peek().addClause(newClause);
+//		mPushStateStack.peek().addClause(newClause);
+		mEprClauseManager.addClause(newClause);
 
 		for (ClauseLiteral cl : newClause.getLiterals()) {
 			updateAtomToClauses(cl.getLiteral().getAtom(), newClause);
 		}
 		return mDecideStackManager.resolveConflictOrStoreUnits(new HashSet<EprClause>(Collections.singleton(newClause)));
 	}
-
-	
-	
-	///////////////////////////////////////////////////////////
-	///////////////////////////////////////////////////////////
-	/////// methods used in the complete grounding method
-	///////////////////////////////////////////////////////////
-	///////////////////////////////////////////////////////////
-
-
 }

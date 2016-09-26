@@ -23,7 +23,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
  * 
  * @author Alexander Nutz
  */
-public abstract class DecideStackLiteral implements IEprLiteral, Comparable<DecideStackLiteral> {
+public abstract class DecideStackLiteral extends DecideStackEntry implements IEprLiteral, Comparable<DecideStackLiteral> {
 	
 //	/**
 //	 * The index on the decide stack of its push state that this DecideStackLiteral has.
@@ -35,7 +35,7 @@ public abstract class DecideStackLiteral implements IEprLiteral, Comparable<Deci
 //	 */
 //	protected final int mPushStateStackIndex;
 	
-	protected final DslIndex mIndex;
+	protected final int mIndex;
 
 	protected final boolean mPolarity;
 	protected final EprPredicate mPred;
@@ -51,13 +51,14 @@ public abstract class DecideStackLiteral implements IEprLiteral, Comparable<Deci
 	
 	
 	public DecideStackLiteral(boolean polarity, 
-			EprPredicate pred, IDawg<ApplicationTerm, TermVariable> dawg, Pair<Integer, Integer> index) {
+			EprPredicate pred, IDawg<ApplicationTerm, TermVariable> dawg, int index) {
 		mPolarity = polarity;
 		mPred = pred;
 		mDawg = dawg;
 //		mPushStateStackIndex = index.first;
 //		mIndexOnPushStateStack = index.second;
-		mIndex = new DslIndex(index.first, index.second);
+//		mIndex = new DslIndex(index.first, index.second);
+		mIndex = index;
 		
 		register();
 	}
@@ -133,38 +134,38 @@ public abstract class DecideStackLiteral implements IEprLiteral, Comparable<Deci
 //		return mPushStateStackIndex;
 //	}
 	
-	public DslIndex getIndex() {
+	public int getDecideStackIndex() {
 		return mIndex;
 	}
 	
 	@Override
 	public int compareTo(DecideStackLiteral other) {
-		return this.mIndex.compareTo(other.mIndex);
+//		return this.mIndex.compareTo(other.mIndex);
+		return this.mIndex - other.mIndex;
 	}
 	
-	static class DslIndex implements Comparable<DslIndex> {
-		
-		final int indexOfPushState;
-		final int indexOnPushStatesDecideStack;
-		
-		public DslIndex(int indexOfPushState, int indexOfPushStatesDecideStack) {
-			this.indexOfPushState = indexOfPushState;
-			this.indexOnPushStatesDecideStack = indexOfPushStatesDecideStack;
-		}
-
-		/**
-		 * DslIndices are compared lexicographically. First, the index of the push state a dsl is on
-		 * is compared. Only if that is equal the positions of the two literals on that push state's 
-		 * decide stack is compared.
-		 */
-		@Override
-		public int compareTo(DslIndex o) {
-			int comp1 = Integer.compare(this.indexOfPushState, o.indexOfPushState);
-			if (comp1 == 0) {
-				return Integer.compare(this.indexOnPushStatesDecideStack, o.indexOnPushStatesDecideStack);
-			} 
-			return comp1;
-		}
-		
-	}
+//	static class DslIndex implements Comparable<DslIndex> {
+//		
+//		final int indexOfPushState;
+//		final int indexOnPushStatesDecideStack;
+//		
+//		public DslIndex(int indexOfPushState, int indexOfPushStatesDecideStack) {
+//			this.indexOfPushState = indexOfPushState;
+//			this.indexOnPushStatesDecideStack = indexOfPushStatesDecideStack;
+//		}
+//
+//		/**
+//		 * DslIndices are compared lexicographically. First, the index of the push state a dsl is on
+//		 * is compared. Only if that is equal the positions of the two literals on that push state's 
+//		 * decide stack is compared.
+//		 */
+//		@Override
+//		public int compareTo(DslIndex o) {
+//			int comp1 = Integer.compare(this.indexOfPushState, o.indexOfPushState);
+//			if (comp1 == 0) {
+//				return Integer.compare(this.indexOnPushStatesDecideStack, o.indexOnPushStatesDecideStack);
+//			} 
+//			return comp1;
+//		}
+//	}
 }
