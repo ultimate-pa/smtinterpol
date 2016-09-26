@@ -422,7 +422,7 @@ public class EprTheory implements ITheory {
 		// a new clause may immediately be a conflict clause, and possibly that
 		// conflict cannot be resolved in the EprTheory 
 		// --> we will return that conflict at the next checkpoint
-		Clause groundConflict = mStateManager.createEprClause(literals);
+		Clause groundConflict = mStateManager.getEprClauseManager().createEprClause(literals);
 		if (groundConflict != null) {
 			assert mConflictFromAddingLastClause == null : "we'll probably need a queue for this..";
 			mConflictFromAddingLastClause = groundConflict;

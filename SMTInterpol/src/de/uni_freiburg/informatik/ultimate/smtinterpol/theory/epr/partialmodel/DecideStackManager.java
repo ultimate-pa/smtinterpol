@@ -478,7 +478,7 @@ public class DecideStackManager {
 		return null;
 	}
 	
-	Clause resolveConflictOrStoreUnits(Set<EprClause> conflictOrUnits) {
+	public Clause resolveConflictOrStoreUnits(Set<EprClause> conflictOrUnits) {
 		if (conflictOrUnits == null || conflictOrUnits.isEmpty()) {
 			return null;
 		}
@@ -533,7 +533,7 @@ public class DecideStackManager {
 		// inform the clauses...
 		// check if there is a conflict
 		Set<EprClause> conflictsOrPropagations = 
-				mStateManager.updateClausesOnSetEprLiteral(dsl);
+				mStateManager.getEprClauseManager().updateClausesOnSetEprLiteral(dsl);
 
 //		mStateManager.mPushStateStack.peek().pushDecideStackLiteral(dsl);
 		mDecideStack.pushDecideStackLiteral(dsl);
