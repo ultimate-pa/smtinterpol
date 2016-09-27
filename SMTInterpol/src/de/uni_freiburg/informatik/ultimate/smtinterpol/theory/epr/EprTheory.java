@@ -357,6 +357,7 @@ public class EprTheory implements ITheory {
 
 	@Override
 	public Object push() {
+		mLogger.debug("EPRDEBUG: (EprTheory) PUSH");
 		mStateManager.push();
 		mAtomsAddedToDPLLEngine.beginScope();
 		return null;
@@ -364,6 +365,7 @@ public class EprTheory implements ITheory {
 
 	@Override
 	public void pop(Object object, int targetlevel) {
+		mLogger.debug("EPRDEBUG: (EprTheory) POP");
 		for (int i = mClausifier.getStackLevel(); i > targetlevel; i--)
 			mStateManager.pop();
 		mAtomsAddedToDPLLEngine.endScope();

@@ -12,6 +12,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.IEprLiteral;
+import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
 
 public class EprClauseManager {
@@ -21,8 +22,8 @@ public class EprClauseManager {
 	/**
 	 * Remembers for each DPLLAtom in which EprClauses it occurs (if any).
 	 */
-	HashMap<DPLLAtom, HashSet<EprClause>> mDPLLAtomToClauses = 
-			new HashMap<DPLLAtom, HashSet<EprClause>>();
+	ScopedHashMap<DPLLAtom, HashSet<EprClause>> mDPLLAtomToClauses = 
+			new ScopedHashMap<DPLLAtom, HashSet<EprClause>>();
 
 	private EprTheory mEprTheory;
 //	private EprClauseFactory mEprClauseFactory;	
@@ -34,6 +35,7 @@ public class EprClauseManager {
 	
 	public void push() {
 		mEprClauses.beginScope();
+		mDPLLAtomToClauses.beginScope();
 	}
 	
 	public void pop() {
@@ -41,8 +43,13 @@ public class EprClauseManager {
 		// --> we only want only clauses that were added after the last beginScope
 		for (EprClause ec : mEprClauses.currentScope()) {
 			ec.disposeOfClause();
+			// TODO: nicer??
+//			for (Entry<DPLLAtom, HashSet<EprClause>> en : mDPLLAtomToClauses.entrySet()) {
+//				en.getValue().remove(ec);
+//			}
 		}
 		mEprClauses.endScope();
+		mDPLLAtomToClauses.endScope();
 	}
 
 	public void addClause(EprClause newClause) {

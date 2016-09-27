@@ -98,6 +98,7 @@ public class EprClause {
 			new HashMap<DecideStackLiteral, IDawg<ApplicationTerm,TermVariable>>();
 	private Map<DecideStackLiteral, UnitPropagationData> mDecideStackBorderToUnitPropagationData;
 	
+	private boolean mHasBeenDisposed = false;
 
 	public EprClause(Set<Literal> lits, EprTheory eprTheory) {
 		mDpllLiterals = lits;
@@ -235,13 +236,15 @@ public class EprClause {
 	 * The application I can think of now is a pop command.
 	 */
 	public void disposeOfClause() {
+		assert !mHasBeenDisposed;
 		for (ClauseLiteral cl : mLiterals) {
-			if (cl instanceof ClauseEprQuantifiedLiteral) {
-				ClauseEprQuantifiedLiteral ceql = (ClauseEprQuantifiedLiteral) cl;
-//				ceql.getEprPredicate().removeQuantifiedOccurence(this, )
-				ceql.getEprPredicate().notifyAboutClauseDisposal(this);
+			if (cl instanceof ClauseEprLiteral) {
+				ClauseEprLiteral cel = (ClauseEprLiteral) cl;
+				cel.getEprPredicate().notifyAboutClauseDisposal(this);
 			}
 		}
+		mEprTheory.getStateManager().getDecideStackManager().removeFromUnitClauseSet(this);
+		mHasBeenDisposed = true;
 	}
 
 	/**
@@ -253,6 +256,7 @@ public class EprClause {
 	 */
 	public void updateStateWrtDecideStackLiteral(IEprLiteral dsl, 
 			Set<ClauseEprLiteral> literalsWithSamePredicate) {
+		assert !mHasBeenDisposed;
 		
 		mClauseStateIsDirty = true;
 
@@ -286,11 +290,13 @@ public class EprClause {
 	 * @return 
 	 */
 	public EprClauseState updateStateWrtDpllLiteral(Literal literal) {
+		assert !mHasBeenDisposed;
 		mClauseStateIsDirty = true;
 		return determineClauseState(null);
 	}
 
 	public void backtrackStateWrtDpllLiteral(Literal literal) {
+		assert !mHasBeenDisposed;
 		mClauseStateIsDirty = true;
 	}
 	
@@ -531,6 +537,7 @@ public class EprClause {
 //	}
 	
 	public boolean isUnit() {
+		assert !mHasBeenDisposed;
 		if (mClauseStateIsDirty) {
 			return determineClauseState(null) == EprClauseState.Unit;
 		}
@@ -538,6 +545,7 @@ public class EprClause {
 	}
 
 	public boolean isConflict() {
+		assert !mHasBeenDisposed;
 		if (mClauseStateIsDirty) {
 			return determineClauseState(null) == EprClauseState.Conflict;
 		}
@@ -563,6 +571,7 @@ public class EprClause {
 	}
 
 	public Set<ClauseLiteral> getLiterals() {
+		assert !mHasBeenDisposed;
 		return mLiterals;
 	}
 	

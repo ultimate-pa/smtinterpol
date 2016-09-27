@@ -531,10 +531,10 @@ public class DecideStackManager {
 	}
 
 	public void pop() {
-		for (DecideStackEntry dse : mDecideStack.peek()) {
-			DecideStackLiteral dsl = (DecideStackLiteral) dse;
-			dsl.unregister();
-		}
+//		for (DecideStackEntry dse : mDecideStack.peek()) {
+//			DecideStackLiteral dsl = (DecideStackLiteral) dse;
+//			dsl.unregister();
+//		}
 		mDecideStack.pop();
 	}
 	
@@ -563,6 +563,10 @@ public class DecideStackManager {
 
 		void popBacktrackLiteral(Literal l) {
 			DecideStackLiteralMarker marker = mLiteralToMarker.remove(l);
+			if (marker.mIndex < mStack.size()) {
+				// removed the marker through a pop() before, nothing to do
+				return;
+			}
 			List<DecideStackEntry> suffix = mStack.subList(marker.mIndex, mStack.size());
 			for (DecideStackEntry dse : suffix) {
 				if (dse instanceof DecideStackLiteral) {
@@ -594,10 +598,11 @@ public class DecideStackManager {
 		}
 		
 		/**
-		 * Returns the decide stack literals above the last push marker.
+		 * Returns the decide stack entries above the last push marker.
 		 */
 		List<DecideStackEntry> peek() {
-			return mStack.subList(lastPushMarkerIndex, mStack.size());
+			List<DecideStackEntry> suffix = mStack.subList(lastPushMarkerIndex + 1, mStack.size());
+			return suffix;
 		}
 
 		void pop() {
@@ -617,7 +622,10 @@ public class DecideStackManager {
 		}
 		
 		void push() {
-			mStack.add(new DecideStackPushMarker());
+			DecideStackPushMarker pm = new DecideStackPushMarker();
+			lastPushMarker = pm;
+			lastPushMarkerIndex = mStack.size();
+			mStack.add(pm);
 		}
 
 		private void updateInternalFields() {
@@ -653,5 +661,14 @@ public class DecideStackManager {
 		public int size() {
 			return mStack.size();
 		}
+		
+		@Override
+		public String toString() {
+			return mStack.toString();
+		}
+	}
+
+	public void removeFromUnitClauseSet(EprClause eprClause) {
+		mUnitClausesWaitingForPropagation.remove(eprClause);
 	}
 }
