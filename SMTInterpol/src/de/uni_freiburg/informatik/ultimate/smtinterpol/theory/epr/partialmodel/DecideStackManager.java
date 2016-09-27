@@ -26,6 +26,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.Clause
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.UnitPropagationData;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
+import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
 
 public class DecideStackManager {
 	
@@ -34,7 +35,7 @@ public class DecideStackManager {
 	private final EprTheory mEprTheory;
 	private final EprStateManager mStateManager;
 
-	private final Deque<DecideStackDecisionLiteral> mDecisions = new ArrayDeque<DecideStackDecisionLiteral>();
+//	private final ScopedArrayList<DecideStackDecisionLiteral> mDecisions = new ScopedArrayList<DecideStackDecisionLiteral>();
 	
 
 	private Set<EprClause> mUnitClausesWaitingForPropagation = new HashSet<EprClause>();
@@ -178,11 +179,11 @@ public class DecideStackManager {
 			DecideStackLiteral topMostDecideStackLiteral = mDecideStack.popDecideStackLiteral();
 			if (topMostDecideStackLiteral == null) {
 				// we have come to the top of the decide stack --> return the conflict
-				return chooseGroundingFromConflict(currentConflict);
+				Clause groundConflict = chooseGroundingFromConflict(currentConflict);
+				return groundConflict;
 			}
 
 			if (topMostDecideStackLiteral instanceof DecideStackDecisionLiteral) {
-				assert mDecisions.peek() == topMostDecideStackLiteral : "something wrong with decisions stack";
 				/*
 				 * Reaching here means that the clause 
 				 *  - contains two instances of the same predicate with the same polarity 
@@ -268,11 +269,11 @@ public class DecideStackManager {
 	 *         c) null if backjumping was done and did not lead to a conflict through unit propagation
 	 */
 	private EprClause backjumpIfPossible(EprClause currentConflict) {
-		if (mDecisions.isEmpty()) {
+		if (!mDecideStack.containsDecisions()) {
 			return currentConflict;
 		}
 		
-		DecideStackDecisionLiteral lastDecision = mDecisions.peek();
+		DecideStackDecisionLiteral lastDecision = mDecideStack.getLastDecision();
 		
 		if (currentConflict.isUnitBelowDecisionPoint(lastDecision)) {
 			// we can backjump
@@ -463,10 +464,6 @@ public class DecideStackManager {
 		dslb.setDecideStackIndex(mDecideStack.size());
 		DecideStackLiteral dsl = dslb.build();
 		
-		if (dsl instanceof DecideStackDecisionLiteral) {
-			mDecisions.push((DecideStackDecisionLiteral) dsl);
-		}
-		
 		// setting the decideStackLiteral means that we have to set all ground atoms covered by it
 		// in the DPLLEngine
 		// however, if we propagate a ground literal here, we also have to give a ground unit clause for it
@@ -502,7 +499,7 @@ public class DecideStackManager {
 	 * @return
 	 */
 	 boolean isDecisionLevel0() {
-		return mDecisions.isEmpty();
+		return !mDecideStack.containsDecisions();
 	 }
 	 
 	 void pushOnSetLiteral(Literal l) {
@@ -522,7 +519,8 @@ public class DecideStackManager {
 			return null;
 		} else {
 			assert conflict.isConflict();
-			return resolveConflict(conflict);
+			Clause groundConflict =  resolveConflict(conflict);
+			return groundConflict;
 		}
 	}
 
@@ -538,6 +536,10 @@ public class DecideStackManager {
 		mDecideStack.pop();
 	}
 	
+	public void removeFromUnitClauseSet(EprClause eprClause) {
+		mUnitClausesWaitingForPropagation.remove(eprClause);
+	}
+
 	private static class EprDecideStack {
 		private final List<DecideStackEntry> mStack = new LinkedList<DecideStackEntry>();
 		
@@ -547,6 +549,7 @@ public class DecideStackManager {
 		private DecideStackLiteral lastNonPushMarker;
 		private DecideStackPushMarker lastPushMarker;
 		private DecideStackEntry lastElement;
+		private DecideStackDecisionLiteral lastDecision;
 		
 		private Map<Literal, DecideStackLiteralMarker> mLiteralToMarker = 
 				new HashMap<Literal, DecideStackLiteralMarker>();
@@ -559,6 +562,18 @@ public class DecideStackManager {
 			mStack.add(marker);
 			assert !mLiteralToMarker.containsKey(l);
 			mLiteralToMarker.put(l, marker);
+		}
+
+		public DecideStackDecisionLiteral getLastDecision() {
+			assert lastDecision != null;
+			return lastDecision;
+		}
+
+		/**
+		 * @return true iff the decide stack contains one or more DecideStackDecisionLiterals
+		 */
+		public boolean containsDecisions() {
+			return lastDecision != null;
 		}
 
 		void popBacktrackLiteral(Literal l) {
@@ -595,6 +610,9 @@ public class DecideStackManager {
 			mStack.add(dsl);
 			lastNonPushMarker = dsl;
 			lastNonPushMarkerIndex = mStack.size() - 1;
+			if (dsl instanceof DecideStackDecisionLiteral) {
+				lastDecision = (DecideStackDecisionLiteral) dsl;
+			}
 		}
 		
 		/**
@@ -631,13 +649,10 @@ public class DecideStackManager {
 		private void updateInternalFields() {
 			// change the fields accordingly -- search for the next non push marker
 			ListIterator<DecideStackEntry> it = mStack.listIterator(mStack.size());
-			lastPushMarker = null;
-			lastNonPushMarker = null;
-			lastPushMarkerIndex = -1;
-			lastNonPushMarkerIndex = -1;
 
 			boolean foundNonPushMarker = false;
 			boolean foundPushMarker = false;
+			boolean foundLastDecision = lastDecision == null || lastDecision.mIndex < mStack.size();
 
 			while (it.hasPrevious()) {
 				DecideStackEntry prev = it.previous();
@@ -645,16 +660,34 @@ public class DecideStackManager {
 				if (!foundPushMarker && prev instanceof DecideStackPushMarker) {
 					lastPushMarker = (DecideStackPushMarker) prev;
 					lastPushMarkerIndex = it.previousIndex() + 1;
+					foundPushMarker = true;
 				}
 				
 				if (!foundNonPushMarker && prev instanceof DecideStackLiteral) {
 					lastNonPushMarker = (DecideStackLiteral) prev;
 					lastNonPushMarkerIndex = it.previousIndex() + 1;
+					foundNonPushMarker = true;
+				}
+				
+				if (!foundLastDecision && prev instanceof DecideStackDecisionLiteral) {
+					lastDecision = (DecideStackDecisionLiteral) prev;
+					foundLastDecision = true;
 				}
 
-				if (foundPushMarker && foundNonPushMarker) {
+				if (foundPushMarker && foundNonPushMarker && foundLastDecision) {
 					break;
 				}
+			}
+			if (!foundPushMarker) {
+				lastPushMarker = null;
+				lastPushMarkerIndex = -1;
+			}
+			if (!foundNonPushMarker) {
+				lastNonPushMarker = null;
+				lastNonPushMarkerIndex = -1;
+			}
+			if (!foundLastDecision) {
+				lastDecision = null;
 			}
 		}
 		
@@ -666,9 +699,5 @@ public class DecideStackManager {
 		public String toString() {
 			return mStack.toString();
 		}
-	}
-
-	public void removeFromUnitClauseSet(EprClause eprClause) {
-		mUnitClausesWaitingForPropagation.remove(eprClause);
 	}
 }

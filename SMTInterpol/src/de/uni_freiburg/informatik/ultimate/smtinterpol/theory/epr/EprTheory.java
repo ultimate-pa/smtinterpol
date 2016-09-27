@@ -77,7 +77,7 @@ public class EprTheory implements ITheory {
 	 * Used to pass over a conflict that came from adding an input clause over to the next call of
 	 * checkpoint()
 	 */
-	private Clause mConflictFromAddingLastClause;
+	private Clause mStoredConflict;
 
 	/**
 	 * A queue for literal propagation.
@@ -229,15 +229,33 @@ public class EprTheory implements ITheory {
 		if (mGroundAllMode)
 			return null;
 		mLogger.debug("EPRDEBUG: checkpoint");
-		if (mConflictFromAddingLastClause != null) {
-			Clause conflict = mConflictFromAddingLastClause;
-			mConflictFromAddingLastClause = null;
+
+		assert mLiteralsWaitingToBePropagated.isEmpty() : "have all propagations been done at this point??";
+
+		if (mStoredConflict != null) {
+			Clause conflict = mStoredConflict;
+			mStoredConflict = null;
+			assert EprHelpers.verifyConflictClause(conflict, mLogger);
 			return conflict;
 		}
 		
 		// tell the state manager to do propagations, and return a conflict if one appears
 		Clause conflict = mStateManager.doPropagations();
 		if (conflict != null) {
+			if (! mLiteralsWaitingToBePropagated.isEmpty()) {
+				// the freshly propagated literals may be necessary for the conflict
+				// we have to delay reporting the conflict until those literal have been propagated
+//				assert mStoredConflict == null;
+//				mStoredConflict = conflict;
+//				mLogger.debug("EPRDEBUG: checkpoint: found conflict, but delaying the "
+//						+ "reporting because of non-empty propagation queueue " + conflict);
+				//TODO what do we do with that conflict?..
+				// for now, we just ignore it -- we will find it again.. or another one..
+				// storing it for later reporting does not work as in the commented code above
+				//  --> maybe need to understand the rules how getPropagatedLiterals() and checkpoint() are called..
+				return null;
+				}
+			assert EprHelpers.verifyConflictClause(conflict, mLogger);
 			return conflict;
 		}
 		
@@ -250,7 +268,9 @@ public class EprTheory implements ITheory {
 			return null;
 		mLogger.debug("EPRDEBUG: computeConflictClause");
 		
-		return mStateManager.eprDpllLoop();
+		Clause conflict = mStateManager.eprDpllLoop();
+		assert EprHelpers.verifyConflictClause(conflict, mLogger);
+		return conflict;
 	}
 
 	@Override
@@ -258,6 +278,7 @@ public class EprTheory implements ITheory {
 		Literal	lit = mLiteralsWaitingToBePropagated.poll();
 		
 		if (lit == null) {
+			mLogger.debug("EPRDEBUG: getPropagatedLiteral -- nothing to propagate");
 			return null;
 		}
 
@@ -426,8 +447,8 @@ public class EprTheory implements ITheory {
 		// --> we will return that conflict at the next checkpoint
 		Clause groundConflict = mStateManager.getEprClauseManager().createEprClause(literals);
 		if (groundConflict != null) {
-			assert mConflictFromAddingLastClause == null : "we'll probably need a queue for this..";
-			mConflictFromAddingLastClause = groundConflict;
+			assert mStoredConflict == null : "we'll probably need a queue for this..";
+			mStoredConflict = groundConflict;
 		}
 		
 		return null;

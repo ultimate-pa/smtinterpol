@@ -96,7 +96,8 @@ public class EprClause {
 			new HashMap<DecideStackLiteral, EprClauseState>();
 	private Map<DecideStackLiteral, IDawg<ApplicationTerm, TermVariable>> mDecideStackBorderToConflictPoints =
 			new HashMap<DecideStackLiteral, IDawg<ApplicationTerm,TermVariable>>();
-	private Map<DecideStackLiteral, UnitPropagationData> mDecideStackBorderToUnitPropagationData;
+	private Map<DecideStackLiteral, UnitPropagationData> mDecideStackBorderToUnitPropagationData =
+			new HashMap<DecideStackLiteral, UnitPropagationData>();
 	
 	private boolean mHasBeenDisposed = false;
 

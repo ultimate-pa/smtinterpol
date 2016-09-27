@@ -608,6 +608,9 @@ public class EprHelpers {
 	}
 
 	public static boolean verifyConflictClause(Clause conflict, LogProxy logger) {
+		if (conflict == null) {
+			return true;
+		}
 		for (int i = 0; i < conflict.getSize(); i++) {
 			Literal curLit = conflict.getLiteral(i);
 			if (curLit.getAtom().getDecideStatus() != curLit.negate()) {
