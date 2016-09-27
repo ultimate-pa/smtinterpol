@@ -578,7 +578,7 @@ public class DecideStackManager {
 
 		void popBacktrackLiteral(Literal l) {
 			DecideStackLiteralMarker marker = mLiteralToMarker.remove(l);
-			if (marker.mIndex < mStack.size()) {
+			if (marker.mIndex >= mStack.size()) {
 				// removed the marker through a pop() before, nothing to do
 				return;
 			}
