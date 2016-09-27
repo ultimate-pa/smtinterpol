@@ -99,7 +99,4 @@ public abstract class ClauseLiteral {
 		String negate = mPolarity ? "" : "~";
 		return negate + mAtom.toString();
 	}
-	
-//	public abstract Clause getUnitGrounding(Literal literal) ;
-
 }

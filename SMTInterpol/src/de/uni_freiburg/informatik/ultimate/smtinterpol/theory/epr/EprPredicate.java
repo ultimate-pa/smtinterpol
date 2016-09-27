@@ -30,7 +30,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.I
  * Stores and updates a model for that predicate.
  * If setting a literal leads to a conflict, that conflict is reported.
  * 
- * @author nutz
+ * @author Alexander Nutz
  */
 public class EprPredicate {
 

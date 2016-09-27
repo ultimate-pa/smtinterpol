@@ -1,10 +1,8 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses;
 
-import java.util.List;
 import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
-import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
@@ -84,16 +82,4 @@ public class ClauseEprGroundLiteral extends ClauseEprLiteral {
 		return groundings.iterator().next();
 	}
 
-//	public Clause getUnitGrounding(Literal literal) {
-//		IDawg<ApplicationTerm, TermVariable> groundingDawg = getClause().getClauseLitToUnitPoints().get(this);
-//
-//		assert this.getLiteral() == literal;
-//		assert literal.getAtom().getSMTFormula(mEprTheory.getTheory()).getFreeVars().length == 0;
-//		assert groundingDawg != null && ! groundingDawg.isEmpty();
-//
-//		//TODO: sample one point from the dawg, so we give a one-point dawg to getGroundings() ?..
-//		Set<Clause> groundings = getClause().getGroundings(groundingDawg);
-//		
-//		return groundings.iterator().next();
-//	}
 }

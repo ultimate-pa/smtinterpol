@@ -41,13 +41,13 @@ import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
 
 public class EprTheory implements ITheory {
 
-	HashMap<FunctionSymbol, EprPredicate> mFunctionSymbolToEprPredicate = new HashMap<FunctionSymbol, EprPredicate>();
+	Map<FunctionSymbol, EprPredicate> mFunctionSymbolToEprPredicate = new HashMap<FunctionSymbol, EprPredicate>();
 
 	Map<Literal, Clause> mGroundLiteralsToPropagateToReason = 
 			new HashMap<Literal, Clause>();
 
 
-	HashMap<Object, HashMap<TermVariable, Term>> mBuildClauseToAlphaRenamingSub = 
+	Map<Object, HashMap<TermVariable, Term>> mBuildClauseToAlphaRenamingSub = 
 			new HashMap<Object, HashMap<TermVariable,Term>>();
 
 	ScopedHashSet<DPLLAtom> mAtomsAddedToDPLLEngine = new ScopedHashSet<DPLLAtom>();
@@ -91,12 +91,12 @@ public class EprTheory implements ITheory {
 	/**
 	 * just for debugging purposes
 	 */
-	private HashSet<Literal> mAlreadyPropagatedLiterals = new HashSet<Literal>();
+	private Set<Literal> mAlreadyPropagatedLiterals = new HashSet<Literal>();
 	
 	/**
 	 * just for debugging purposes
 	 */
-	private HashSet<Literal> mLiteralsThatAreCurrentlySet = new HashSet<Literal>();
+	private Set<Literal> mLiteralsThatAreCurrentlySet = new HashSet<Literal>();
 
 
 	public EprTheory(Theory th, DPLLEngine engine, CClosure cClosure, Clausifier clausifier, boolean solveThroughGrounding) {
@@ -115,7 +115,6 @@ public class EprTheory implements ITheory {
 		
 		mStateManager.setDawgFactory(mDawgFactory);
 		mStateManager.setEprClauseFactory(mClauseFactory);
-
 	}
 
 	@Override
@@ -165,12 +164,6 @@ public class EprTheory implements ITheory {
 			return	mStateManager.setDpllLiteral(literal);
 	
 		}
-
-//		mLogger.debug("EPRDEBUG: setLiteral, new fulfilled clauses: " 
-//				+ mStateManager.getFulfilledClauses());
-//		mLogger.debug("EPRDEBUG: setLiteral, new not fulfilled clauses: " 
-//				+ mStateManager.getNotFulfilledClauses());
-
 		return null;
 	}
 
@@ -210,9 +203,6 @@ public class EprTheory implements ITheory {
 			mStateManager.unsetDpllLiteral(literal);
 
 		}
-		
-//		mLogger.debug("EPRDEBUG: backtrackLiteral, new fulfilled clauses: " + mStateManager.getFulfilledClauses());
-//		mLogger.debug("EPRDEBUG: backtrackLiteral, new not fulfilled clauses: " + mStateManager.getNotFulfilledClauses());
 	}
 
 	/**
@@ -489,18 +479,6 @@ public class EprTheory implements ITheory {
 		if (function.getName().equals("=")) 
 			return false;
 		return true;
-	}
-	
-	public Set<Clause> getFulfilledClauses() {
-		HashSet<Clause> cls = new HashSet<Clause>();
-//		cls.addAll(mStateManager.getFulfilledClauses());
-		return cls;
-	}
-
-	public Set<Clause> getNotFulfilledClauses() {
-		HashSet<Clause> cls = new HashSet<Clause>();
-//		cls.addAll(mStateManager.getNotFulfilledClauses());
-		return cls;
 	}
 
 	public EprAtom getEprAtom(ApplicationTerm idx, int hash, int assertionStackLevel, Object mCollector) {

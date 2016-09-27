@@ -51,13 +51,6 @@ public class EprClause {
 
 	private final Set<ClauseLiteral> mLiterals;
 
-//	/**
-//	 * Stores for every variable that occurs in the clause for each literal in the
-//	 * clause at which position the variable occurs in the literal's atom (if at all).
-//	 * This should be the only place where we need to speak about TermVariables..
-//	 */
-//	private final Map<TermVariable, Map<ClauseEprQuantifiedLiteral, Set<Integer>>> mVariableToClauseLitToPositions;
-	
 	/**
 	 * Stores the variables occurring in this clause in the order determined by the HashMap mVariableToClauseLitToPositions
 	 */
@@ -74,7 +67,6 @@ public class EprClause {
 	 */
 	private EprClauseState mEprClauseState;
 	
-//	private Set<ClauseLiteral> mConflictLiterals;
 	private IDawg<ApplicationTerm, TermVariable> mConflictPoints;
 	
 	/**
@@ -152,14 +144,8 @@ public class EprClause {
 	 * @return 
 	 * @return 
 	 */
-//	private Pair<
-//				Map<TermVariable, Map<ClauseEprQuantifiedLiteral, Set<Integer>>>, 
-//				Set<ClauseLiteral>
-//				> createClauseLiterals(Set<Literal> lits) {
 	private Pair<SortedSet<TermVariable>, Set<ClauseLiteral>> createClauseLiterals(Set<Literal> lits) {
 
-//		HashMap<TermVariable, Map<ClauseEprQuantifiedLiteral, Set<Integer>>> variableToClauseLitToPositions = 
-//				new HashMap<TermVariable, Map<ClauseEprQuantifiedLiteral,Set<Integer>>>();
 		SortedSet<TermVariable> variables = new TreeSet<TermVariable>(EprHelpers.getColumnNamesComparator());
 		HashSet<ClauseLiteral> literals = new HashSet<ClauseLiteral>();
 
@@ -225,8 +211,6 @@ public class EprClause {
 		
 		assert literals.size() == mDpllLiterals.size() - quantifiedEqualities.size();
 		
-//		return new Pair<Map<TermVariable, Map<ClauseEprQuantifiedLiteral,Set<Integer>>>, Set<ClauseLiteral>>(
-//				variableToClauseLitToPositions, literals);
 		return new Pair<SortedSet<TermVariable>, Set<ClauseLiteral>>(
 				variables, literals);
 
@@ -301,26 +285,6 @@ public class EprClause {
 		mClauseStateIsDirty = true;
 	}
 	
-//	public Map<ClauseEprQuantifiedLiteral, Set<Integer>> getClauseLitToPositions(TermVariable tv) {
-//		return mVariableToClauseLitToPositions.get(tv);
-//	}
-	
-//	void updateVariableToClauseLitToPosition(TermVariable tv, ClauseEprQuantifiedLiteral ceql, Integer pos) {
-//		Map<ClauseEprQuantifiedLiteral, Set<Integer>> clToPos = mVariableToClauseLitToPositions.get(tv);
-//		Set<Integer> positions = null;
-//
-//		if (clToPos == null) {
-//			clToPos = new HashMap<ClauseEprQuantifiedLiteral, Set<Integer>>();
-//			positions = new HashSet<Integer>();
-//			clToPos.put(ceql, positions);
-//			mVariableToClauseLitToPositions.put(tv, clToPos);
-//		} else {
-//			positions = clToPos.get(ceql);
-//		}
-//			
-//		positions.add(pos);
-//	}
-
 	/**
 	 * Checks if, in the current decide state, this EprClause is
 	 *  a) a conflict clause or
@@ -360,7 +324,6 @@ public class EprClause {
 			if (cl instanceof ClauseEprQuantifiedLiteral) {
 				IDawg<ApplicationTerm, TermVariable> clFulfilledPoints = 
 						((ClauseEprQuantifiedLiteral) cl).getFulfilledPoints();
-//				pointsToConsider.removeAllWithSubsetSignature(clFulfilledPoints);
 				pointsToConsider.removeAll(clFulfilledPoints);
 			}
 		}
@@ -444,7 +407,6 @@ public class EprClause {
 			setPointsWhereNoLiteralsAreFulfillable(decideStackBorder, pointsWhereNoLiteralsAreFulfillable);
 			setClauseState(decideStackBorder, EprClauseState.Conflict);
 		} else if (!pointsWhereOneLiteralIsFulfillable.isEmpty()) {
-//			setClauseLitToUnitPoints(decideStackBorder, finalClauseLitToUnitPoints);
 			UnitPropagationData upd = new UnitPropagationData(finalClauseLitToUnitPoints, mDawgFactory);
 			setUnitPropagationData(decideStackBorder, upd);
 			setClauseState(decideStackBorder, EprClauseState.Unit);
@@ -474,21 +436,7 @@ public class EprClause {
 		} else {
 			mDecideStackBorderToConflictPoints.put(decideStackBorder, pointsWhereNoLiteralsAreFulfillable);
 		}
-}
-
-
-//	private void setClauseLitToUnitPoints(
-//			DecideStackLiteral decideStackBorder, 
-//			Map<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> finalClauseLitToUnitPoints) {
-//		if (decideStackBorder == null) {
-//			mClauseLitToUnitPoints = finalClauseLitToUnitPoints;
-//		} else {
-//			mDecideStackBorderToClauseLitToUnitPoints.put(decideStackBorder, finalClauseLitToUnitPoints);
-//			assert mDecideStackBorderToClauseLitToUnitPoints.size() < 10 : "if this is getting big, "
-//					+ "we might want to throw old entries away? do we even need more than one?";
-//		}
-//	}
-
+	}
 
 	private EprClauseState getClauseState(DecideStackLiteral decideStackBorder) {
 		if (decideStackBorder == null) {
@@ -499,7 +447,6 @@ public class EprClause {
 			return res;
 		}
 	}
-
 
 	private void setClauseState(DecideStackLiteral decideStackBorder, EprClauseState newState) {
 		if (decideStackBorder == null) {
@@ -515,27 +462,12 @@ public class EprClause {
 		return mVariables;
 	}
 	
-//	public EprClauseState getClauseState() {
-//		if (mClauseStateIsDirty)
-//			return determineClauseState(null);
-//		return mEprClauseState;
-//	}
-	
 	public UnitPropagationData getUnitPropagationData() {
 		assert mUnitPropagationData != null;
 		UnitPropagationData result = mUnitPropagationData;
 		mUnitPropagationData = null;
 		return result;
 	}
-	
-//	/**
-//	 * If this clause's state is Unit (i.e., if it is unit on at least one grounding), then this map
-//	 * stores which literal is unit on which groundings.
-//	 * Note that the dawg is in the clause's signature (not some predicate's)
-//	 */
-//	public Map<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> getClauseLitToUnitPoints() {
-//		return mClauseLitToUnitPoints;
-//	}
 	
 	public boolean isUnit() {
 		assert !mHasBeenDisposed;
@@ -553,17 +485,6 @@ public class EprClause {
 		return mEprClauseState == EprClauseState.Conflict;
 	}
 
-//	/**
-//	 * Returns the literal(s) that were made unfulfillable when this clause became a conflict.
-//	 * @return
-//	 */
-//	public Set<ClauseLiteral> getConflictLiterals() {
-//		assert !mClauseStateIsDirty;
-//		assert isConflict();
-//		assert mConflictLiterals != null : "this should have been set somewhere..";
-//		return mConflictLiterals;
-//	}
-	
 	public IDawg<ApplicationTerm, TermVariable> getConflictPoints() {
 		assert !mClauseStateIsDirty;
 		assert isConflict();
@@ -622,7 +543,6 @@ public class EprClause {
 
 		for (List<ApplicationTerm> point : groundingDawg){
 			TTSubstitution sub = new TTSubstitution(groundingDawg.getColnames(), point);
-//			List<Literal> groundLits = new ArrayList<Literal>();
 			Set<Literal> groundLits = new HashSet<Literal>();
 			for (ClauseLiteral cl : getLiterals()) {
 				if (cl instanceof ClauseEprQuantifiedLiteral) {
@@ -713,7 +633,6 @@ public class EprClause {
 					
 					IDawg<ApplicationTerm, TermVariable> intersection = 
 							renamedRefPointsCurrent.intersect(renamedRefPointsOther);
-//							pqOc.getRefutedPoints().intersect(pqOcOther.getRefutedPoints());
 					
 					if (intersection.isEmpty()) {
 						continue;

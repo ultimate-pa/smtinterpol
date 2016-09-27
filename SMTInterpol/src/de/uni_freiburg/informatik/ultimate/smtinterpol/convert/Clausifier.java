@@ -2750,16 +2750,6 @@ public class Clausifier {
 	}
 
 	//alex (begin)
-//	public List<Clause> getFulfilledEprClauses() {
-	public Set<Clause> getFulfilledEprClauses() {
-		return mEprTheory.getFulfilledClauses();
-	}
-
-//	public List<Clause> getNotFulfilledEprClauses() {
-	public Set<Clause> getNotFulfilledEprClauses() {
-		return mEprTheory.getNotFulfilledClauses();
-	}
-	
 	public EprTheory getEprTheory() {
 		return mEprTheory;
 	}

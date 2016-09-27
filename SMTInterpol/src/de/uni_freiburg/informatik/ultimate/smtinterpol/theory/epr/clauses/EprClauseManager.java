@@ -26,8 +26,6 @@ public class EprClauseManager {
 			new ScopedHashMap<DPLLAtom, HashSet<EprClause>>();
 
 	private EprTheory mEprTheory;
-//	private EprClauseFactory mEprClauseFactory;	
-	
 	
 	public EprClauseManager(EprTheory eprTheory) {
 		mEprTheory = eprTheory;
@@ -39,14 +37,8 @@ public class EprClauseManager {
 	}
 	
 	public void pop() {
-		//TODO: is currentScope what we want here?? 
-		// --> we only want only clauses that were added after the last beginScope
 		for (EprClause ec : mEprClauses.currentScope()) {
 			ec.disposeOfClause();
-			// TODO: nicer??
-//			for (Entry<DPLLAtom, HashSet<EprClause>> en : mDPLLAtomToClauses.entrySet()) {
-//				en.getValue().remove(ec);
-//			}
 		}
 		mEprClauses.endScope();
 		mDPLLAtomToClauses.endScope();
@@ -107,12 +99,6 @@ public class EprClauseManager {
 			EprClause eprClause = en.getKey();
 			
 			eprClause.backtrackStateWrtDecideStackLiteral(dsl);
-
-//			if (eprClause.isConflict()) {
-//				assert false : "?";
-//			} else if (eprClause.isUnit()) {
-//				assert false : "?";
-//			}
 		}
 	}
 
@@ -191,7 +177,6 @@ public class EprClauseManager {
 	 * If it is unit, queue it for propagation.
 	 */
 	public Clause registerEprClause(EprClause newClause) {
-//		mPushStateStack.peek().addClause(newClause);
 		addClause(newClause);
 
 		for (ClauseLiteral cl : newClause.getLiterals()) {

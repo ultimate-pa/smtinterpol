@@ -56,8 +56,6 @@ import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
  */
 public class EprStateManager {
 
-//	Stack<EprPushState> mPushStateStack = new Stack<EprPushState>();
-	
 	private ScopedHashSet<ApplicationTerm> mUsedConstants = new ScopedHashSet<ApplicationTerm>();
 
 	public EqualityManager mEqualityManager;
@@ -67,12 +65,6 @@ public class EprStateManager {
 	private LogProxy mLogger;
 	
 	ScopedHashSet<EprPredicate> mAllEprPredicates = new ScopedHashSet<EprPredicate>();
-	
-//	/**
-//	 * Remembers for each DPLLAtom in which EprClauses it occurs (if any).
-//	 */
-//	HashMap<DPLLAtom, HashSet<EprClause>> mDPLLAtomToClauses = 
-//			new HashMap<DPLLAtom, HashSet<EprClause>>();
 	
 	private final DecideStackManager mDecideStackManager;
 
@@ -88,8 +80,6 @@ public class EprStateManager {
 	private EprClauseManager mEprClauseManager;
 	
 	public EprStateManager(EprTheory eprTheory) {
-//		mPushStateStack.add(new EprPushState(0));
-
 		mEprTheory = eprTheory;
 		mEqualityManager =  eprTheory.getEqualityManager();
 		mTheory = eprTheory.getTheory();
@@ -101,7 +91,6 @@ public class EprStateManager {
 	}
 	
 	public void push() {
-//		mPushStateStack.push(new EprPushState(mPushStateStack.size()));
 		mEprClauseManager.push();
 		mDecideStackManager.push();
 		mAllEprPredicates.beginScope();
@@ -110,10 +99,6 @@ public class EprStateManager {
 	}
 
 	public void pop() {
-//		EprPushState poppedState = mPushStateStack.pop();
-//		for (EprClause c : poppedState.getClauses()) {
-//			c.disposeOfClause();
-//		}
 		mEprClauseManager.pop();
 		mDecideStackManager.pop();
 		mAllEprPredicates.endScope();
@@ -125,15 +110,7 @@ public class EprStateManager {
 			mAllEprPredicates.add(pred);
 	}
 
-	
-	
-	
-//	public Iterable<EprClause> getAllEprClauses() {
-//		return new EprClauseIterable(mPushStateStack);
-//	}
-
 	public void registerEprGroundPredicateLiteral(EprGroundPredicateLiteral egpl, Literal l) {
-//		mPushStateStack.peek().addEprGroundPredicateLiteral(egpl);
 		mLiteralToEprGroundPredicateLiteral.put(l, egpl);
 	}
 
@@ -186,10 +163,6 @@ public class EprStateManager {
 		}
 	}
 
-	////////////////// 
-	////////////////// methods that change the epr solver state (state of clauses and/or decide stack)
-	////////////////// 
-	
 	/**
 	 * Update the state of the epr solver according to a ground epr literal being set.
 	 * This entails
@@ -199,10 +172,8 @@ public class EprStateManager {
 	 * @return
 	 */
 	public Clause setEprGroundLiteral(Literal literal) {
-		//TODO: what do we have to do in the case of an _epr_ ground literal in contrast
-		//  to a normal ground literal???
-		//  --> the main difference is that it may interact with the epr decide stack
-		//      thus we have to check for contradictions before calling update... (which assumes consistency of the "set points" for each clauseliteral)
+		// the main difference to a non-epr ground literal is that this literal may interact with the epr decide stack
+		//   thus we have to check for contradictions before calling update... (which assumes consistency of the "set points" for each clauseliteral)
 		//   after that we treat it like a decide stack literal (again because of the interactions with other literals over epr predicates)
 		
 		EprGroundPredicateLiteral egpl = new EprGroundPredicateLiteral(literal, mDawgFactory, this);
@@ -299,14 +270,6 @@ public class EprStateManager {
 	public CClosure getCClosure() {
 		return mCClosure;
 	}
-	
-//	public HashSet<EprClause> getAllClauses() {
-//		HashSet<EprClause> allClauses = new HashSet<EprClause>();
-//		for (EprPushState es : mPushStateStack) {
-//			allClauses.addAll(es.getClauses());
-//		}
-//		return allClauses;
-//	}
 
 	public Set<ApplicationTerm> getAllConstants() {
 		return mUsedConstants;
@@ -411,7 +374,6 @@ public class EprStateManager {
 				Clause reasonGroundUnitClause =
 						dspl.getReasonClauseLit()
 							.getGroundingForGroundLiteral(dspl.getClauseDawg(), groundLiteral);
-//						((DecideStackPropagatedLiteral) dsl).getReasonClauseLit().getUnitGrounding(groundLiteral)
 				mEprTheory.addGroundLiteralToPropagate(
 						groundLiteral, 
 						reasonGroundUnitClause);

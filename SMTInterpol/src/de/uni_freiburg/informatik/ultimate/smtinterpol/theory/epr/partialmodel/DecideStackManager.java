@@ -1,8 +1,6 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel;
 
-import java.util.ArrayDeque;
 import java.util.Collections;
-import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -11,6 +9,7 @@ import java.util.ListIterator;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
@@ -26,7 +25,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.Clause
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.UnitPropagationData;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
-import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
 
 public class DecideStackManager {
 	
@@ -34,9 +32,6 @@ public class DecideStackManager {
 	private final LogProxy mLogger;
 	private final EprTheory mEprTheory;
 	private final EprStateManager mStateManager;
-
-//	private final ScopedArrayList<DecideStackDecisionLiteral> mDecisions = new ScopedArrayList<DecideStackDecisionLiteral>();
-	
 
 	private Set<EprClause> mUnitClausesWaitingForPropagation = new HashSet<EprClause>();
 	
@@ -529,10 +524,6 @@ public class DecideStackManager {
 	}
 
 	public void pop() {
-//		for (DecideStackEntry dse : mDecideStack.peek()) {
-//			DecideStackLiteral dsl = (DecideStackLiteral) dse;
-//			dsl.unregister();
-//		}
 		mDecideStack.pop();
 	}
 	

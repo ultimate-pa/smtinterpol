@@ -35,16 +35,6 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	EprQuantifiedPredicateAtom mAtom;
 	
 	/**
-	 * Used for storing when a quantified literal has a constant in one or more arguments:
-	 *  For P(a, x, b), we will store a ClauseLiteral P(tv_a, x, tv_b) where tv_a and tv_b
-	 *  are fresh TermVariables, while in this map we will store that tv_a is instantiated with
-	 *  a and tv_b analogously.
-	 *  tv_a and tv_b do _not_ occur in 
-	 */
-	private Map<TermVariable, ApplicationTerm> mVariableToConstant;
-
-	
-	/**
 	 * stores variable identities between different quantified literals in the same clause
 	 * (for example would remember that in the clause {P(x, y), Q(y, z)} the second position of
 	 *  the P-literal and the first position of the Q-literal have the same variable)
@@ -274,40 +264,4 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 		Set<Clause> groundings = getClause().getGroundings(selDawg);
 		return groundings.iterator().next();
 	}
-
-//	/**
-//	 * Return a grounding of this clause that is a unit clause which allows to propagate the given literal.
-//	 * @param literal a ground literal such that there exists a grounding of this clause 
-//	 * 		that is a unit clause where the literal is the only non-refuted literal
-//	 * @return a grounding of this clause that is a) unit b) has literal as its only fulfilling literal
-//	 */
-//	public Clause getUnitGrounding(Literal literal) {
-//		DPLLAtom atom = literal.getAtom();
-//
-//		EprPredicateAtom epa = (EprPredicateAtom) atom;
-//
-//		assert epa.getEprPredicate() == this.getEprPredicate();
-//
-//		Term[] ceqlArgs = this.mArgumentTerms.toArray(new Term[this.mArgumentTerms.size()]);
-//		TTSubstitution unifier = epa.getArgumentsAsTermTuple().match(new TermTuple(ceqlArgs), mEprTheory.getEqualityManager());
-//		assert unifier != null;
-//		
-//		// build a selectMap from the unifier --> TODO: make nicer
-//		Map<TermVariable, ApplicationTerm> selectMap = new HashMap<TermVariable, ApplicationTerm>();
-//		for (SubsPair sp : unifier.getSubsPairs()) {
-//			selectMap.put((TermVariable) sp.bot, (ApplicationTerm) sp.top);
-//		}
-//
-//		IDawg<ApplicationTerm, TermVariable> unitPoints = getClause().getClauseLitToUnitPoints().get(this);
-//		IDawg<ApplicationTerm, TermVariable> groundingDawg = mDawgFactory.select(unitPoints, selectMap);
-//
-//		assert groundingDawg != null && ! groundingDawg.isEmpty();
-//
-//		//TODO: sample one point from the dawg, so we give a one-point dawg to getGroundings() ?..
-//		
-//		Set<Clause> groundings = getClause().getGroundings(groundingDawg);
-//		
-//		return groundings.iterator().next();
-//	}
-
 }
