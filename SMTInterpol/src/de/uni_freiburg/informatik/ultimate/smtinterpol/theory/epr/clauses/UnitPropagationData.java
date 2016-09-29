@@ -36,7 +36,7 @@ public class UnitPropagationData {
 						ceql.getEprPredicate(),
 						dawgFactory.renameColumnsAndRestoreConstants(
 								en.getValue(), 
-								ceql.getTranslationForEprPredicate(), 
+								ceql.getTranslationFromClauseToEprPredicate(), 
 								ceql.getArgumentsAsObjects(),
 								ceql.getEprPredicate().getTermVariablesForArguments()),
 						ceql,

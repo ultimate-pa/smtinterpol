@@ -87,6 +87,10 @@ public class DawgFactory<LETTER, COLNAMES> {
 	 *   --> from this we would get a dawg that describes the points wrt the clause literal
 	 *  - we have to blow up the signature for the whole clause, i.e., for every missing column to the target signature we insert a "X Sigma", i.e.,
 	 *    we compute the cross product
+	 *    
+	 *    
+	 * In short, and in the applications of the EprTheory, this translates a Dawg with the signature of an EprPredicate to a Dawg with the signature
+	 * of a clause (accoring to the given translation mapping that is stored in each ClauseEprQuantifiedPredicate)
 	 *  
 	 * @param dawg the dawg that is to be transformed
 	 * @param translation a mapping from the variables in the input dawgs signature to other termvariables and/or constants

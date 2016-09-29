@@ -306,8 +306,6 @@ public class EprClause {
 		for (ClauseLiteral cl : getLiterals()) {
 			if (cl.isFulfilled(decideStackBorder)) {
 				setClauseState(decideStackBorder, EprClauseState.Fulfilled);
-//				mClauseStateIsDirty = false;
-//				mEprClauseState = EprClauseState.Fulfilled;
 				return getClauseState(decideStackBorder);
 			}
 		}
@@ -354,8 +352,8 @@ public class EprClause {
 				// at least one point of cl is still undecided (we sorted out fulfilled points before..)
 				// we move the newly fulfillable points one up in our hierarchy
 				
-				IDawg<ApplicationTerm, TermVariable> toMoveFromNoToOne = null;
-				IDawg<ApplicationTerm, TermVariable> toMoveFromOneToTwo = null;
+				IDawg<ApplicationTerm, TermVariable> toMoveFromNoToOne;
+				IDawg<ApplicationTerm, TermVariable> toMoveFromOneToTwo;
 				if (cl instanceof ClauseEprQuantifiedLiteral) {
 					IDawg<ApplicationTerm, TermVariable> fp = 
 							((ClauseEprQuantifiedLiteral) cl).getFulfillablePoints(decideStackBorder);
@@ -624,14 +622,14 @@ public class EprClause {
 				ClauseEprQuantifiedLiteral pqOc = positiveQuantifiedOccurencesOfPred.get(i);
 				IDawg<ApplicationTerm, TermVariable> refPointsCurrent = pqOc.getRefutedPoints();
 				IDawg<ApplicationTerm, TermVariable> renamedRefPointsCurrent = mDawgFactory.renameColumnsAndRestoreConstants(refPointsCurrent, 
-						pqOc.getTranslationForEprPredicate(), pqOc.getArgumentsAsObjects(), pqOc.getEprPredicate().getTermVariablesForArguments());
+						pqOc.getTranslationFromClauseToEprPredicate(), pqOc.getArgumentsAsObjects(), pqOc.getEprPredicate().getTermVariablesForArguments());
 				for (int j = 0; j < i; j++) {
 					ClauseEprQuantifiedLiteral pqOcOther = positiveQuantifiedOccurencesOfPred.get(j);
 					assert pqOcOther != pqOc;
 					
 					IDawg<ApplicationTerm, TermVariable> refPointsOther = pqOcOther.getRefutedPoints();
 					IDawg<ApplicationTerm, TermVariable> renamedRefPointsOther = mDawgFactory.renameColumnsAndRestoreConstants(refPointsOther, 
-						pqOcOther.getTranslationForEprPredicate(), pqOcOther.getArgumentsAsObjects(), pqOcOther.getEprPredicate().getTermVariablesForArguments());
+						pqOcOther.getTranslationFromClauseToEprPredicate(), pqOcOther.getArgumentsAsObjects(), pqOcOther.getEprPredicate().getTermVariablesForArguments());
 
 					
 					IDawg<ApplicationTerm, TermVariable> intersection = 

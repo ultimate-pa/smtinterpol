@@ -165,13 +165,13 @@ public class DecideStackManager {
 			assert currentConflict.isConflict();
 
 			currentConflict = backjumpIfPossible(currentConflict);
-			assert currentConflict.isConflict();
+			assert currentConflict == null || currentConflict.isConflict();
 
 			if (currentConflict == null) {
 				return null;
 			}
 
-			DecideStackLiteral topMostDecideStackLiteral = mDecideStack.popDecideStackLiteral();
+			DecideStackLiteral topMostDecideStackLiteral = mDecideStack.peekDecideStackLiteral();
 			if (topMostDecideStackLiteral == null) {
 				// we have come to the top of the decide stack --> return the conflict
 				Clause groundConflict = chooseGroundingFromConflict(currentConflict);
@@ -192,16 +192,18 @@ public class DecideStackManager {
 				 *  
 				 *  --> we need to restrict our decision to set one of the two
 				 */
+				mDecideStack.popDecideStackLiteral();
 				Clause groundConflictOrNull = refine((DecideStackDecisionLiteral) topMostDecideStackLiteral, currentConflict);
 				assert EprHelpers.verifyConflictClause(groundConflictOrNull, mLogger);
 				return groundConflictOrNull;
 			} else if (topMostDecideStackLiteral instanceof DecideStackPropagatedLiteral) {
-				assert currentConflict.isConflict();
 				currentConflict = 
 						explainConflictOrSkip(
 								currentConflict, 
 								(DecideStackPropagatedLiteral) topMostDecideStackLiteral);
-				assert currentConflict.isConflict(); // need to call a determineState here??
+				// now the conflict does not depend on the topMostDecideStackLiteral (anymore), thus we can pop the decide stack.. 
+				mDecideStack.popDecideStackLiteral();
+				assert currentConflict.isConflict();
 			} else {
 				assert false : "should not happen";
 			}
@@ -294,8 +296,10 @@ public class DecideStackManager {
 	 *  - otherwise, if the decide stack literal contributed to the conflict, return the resolvent
 	 *    of the conflict and the unit clause responsible for setting the decide stack literal 
 	 *     (DPLL operation "explain")
-	 * @param conflict
-	 * @param propagatedLiteral
+	 *     
+	 *   Note that this does nothing to the decide stack.
+	 * @param conflict the current conflict clause
+	 * @param propagatedLiteral the current top of the decide stack.
 	 * @return the resolvent from the conflict and the reason for the unit propagation of decideStackLiteral
 	 */
 	private EprClause explainConflictOrSkip(EprClause conflict, DecideStackPropagatedLiteral propagatedLiteral) {
@@ -303,12 +307,23 @@ public class DecideStackManager {
 		//look for the ClauseLiteral that propagatedLiteral conflicts with
 		Set<ClauseEprQuantifiedLiteral> relevantConfLits = new HashSet<ClauseEprQuantifiedLiteral>();
 		for (ClauseLiteral cl : conflict.getLiterals()) {
-			if (cl instanceof ClauseEprQuantifiedLiteral) {
-				ClauseEprQuantifiedLiteral ceql = (ClauseEprQuantifiedLiteral) cl;
-				if (ceql.getPartiallyConflictingDecideStackLiterals().contains(propagatedLiteral)) {
-					relevantConfLits.add(ceql);
-				}
+			if (!(cl instanceof ClauseEprQuantifiedLiteral)) {
+				continue;
 			}
+			ClauseEprQuantifiedLiteral ceql = (ClauseEprQuantifiedLiteral) cl;
+			if (!(ceql.getPartiallyConflictingDecideStackLiterals().contains(propagatedLiteral))) {
+				continue;
+			}
+			IDawg<ApplicationTerm, TermVariable> propLitDawgInClauseSignature = 
+					mEprTheory.getDawgFactory().renameSelectAndBlowup(
+							propagatedLiteral.getDawg(), 
+							ceql.getTranslationFromEprPredicateToClause(), 
+							conflict.getVariables());
+			IDawg<ApplicationTerm, TermVariable> intersection = propLitDawgInClauseSignature.intersect(conflict.getConflictPoints());
+			if (intersection.isEmpty()) {
+				continue;
+			}
+			relevantConfLits.add(ceql);
 		}
 		
 		if (relevantConfLits.size() > 1) {
@@ -317,7 +332,9 @@ public class DecideStackManager {
 		} else if (relevantConfLits.size() == 1) {
 			// normal explain case --> return the resolvent
 			ClauseEprQuantifiedLiteral confLit = relevantConfLits.iterator().next();
-			return mEprTheory.getEprClauseFactory().createResolvent(confLit, propagatedLiteral.getReasonClauseLit());
+			EprClause resolvent = mEprTheory.getEprClauseFactory().createResolvent(confLit, propagatedLiteral.getReasonClauseLit());
+			assert resolvent.isConflict();
+			return resolvent;
 		} else {
 			//propagatedLiteral has nothing to do with conflictClause --> skip
 			return conflict;
@@ -538,10 +555,10 @@ public class DecideStackManager {
 	private static class EprDecideStack {
 		private final List<DecideStackEntry> mStack = new LinkedList<DecideStackEntry>();
 		
-		private int lastNonPushMarkerIndex = -1;
+		private int lastNonMarkerIndex = -1;
 		private int lastPushMarkerIndex = -1;
 		
-		private DecideStackLiteral lastNonPushMarker;
+		private DecideStackLiteral lastNonMarker;
 		private DecideStackPushMarker lastPushMarker;
 		private DecideStackEntry lastElement;
 		private DecideStackDecisionLiteral lastDecision;
@@ -587,12 +604,16 @@ public class DecideStackManager {
 			updateInternalFields();
 		}
 		
+		DecideStackLiteral peekDecideStackLiteral() {
+			return lastNonMarker;
+		}
+
 		DecideStackLiteral popDecideStackLiteral() {
-			if (lastNonPushMarker == null) {
+			if (lastNonMarker == null) {
 				return null;
 			}
 
-			DecideStackLiteral result = lastNonPushMarker;
+			DecideStackLiteral result = lastNonMarker;
 			mStack.remove(result);
 			result.unregister();
 
@@ -603,8 +624,8 @@ public class DecideStackManager {
 		
 		void pushDecideStackLiteral(DecideStackLiteral dsl) {
 			mStack.add(dsl);
-			lastNonPushMarker = dsl;
-			lastNonPushMarkerIndex = mStack.size() - 1;
+			lastNonMarker = dsl;
+			lastNonMarkerIndex = mStack.size() - 1;
 			if (dsl instanceof DecideStackDecisionLiteral) {
 				lastDecision = (DecideStackDecisionLiteral) dsl;
 			}
@@ -659,8 +680,8 @@ public class DecideStackManager {
 				}
 				
 				if (!foundNonPushMarker && prev instanceof DecideStackLiteral) {
-					lastNonPushMarker = (DecideStackLiteral) prev;
-					lastNonPushMarkerIndex = it.previousIndex() + 1;
+					lastNonMarker = (DecideStackLiteral) prev;
+					lastNonMarkerIndex = it.previousIndex() + 1;
 					foundNonPushMarker = true;
 				}
 				
@@ -678,8 +699,8 @@ public class DecideStackManager {
 				lastPushMarkerIndex = -1;
 			}
 			if (!foundNonPushMarker) {
-				lastNonPushMarker = null;
-				lastNonPushMarkerIndex = -1;
+				lastNonMarker = null;
+				lastNonMarkerIndex = -1;
 			}
 			if (!foundLastDecision) {
 				lastDecision = null;

@@ -237,9 +237,15 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 		return new Pair<Map<TermVariable, Object>, Map<TermVariable, TermVariable>>(predToClause, clauseToPred);
 	}
 
-	public Map<TermVariable, TermVariable> getTranslationForEprPredicate() {
+	public Map<TermVariable, TermVariable> getTranslationFromClauseToEprPredicate() {
 		return mTranslationForEprPredicate;
 	}
+	
+	public Map<TermVariable, Object> getTranslationFromEprPredicateToClause() {
+		return mTranslationForClause;
+	}
+
+
 
 	@Override
 	public boolean isDisjointFrom(IDawg<ApplicationTerm, TermVariable> dawg) {
