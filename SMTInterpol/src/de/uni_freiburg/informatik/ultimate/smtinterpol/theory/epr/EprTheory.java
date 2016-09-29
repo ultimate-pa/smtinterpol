@@ -519,9 +519,9 @@ public class EprTheory implements ITheory {
 	}
 
 	public ApplicationTerm applyAlphaRenaming(ApplicationTerm idx, Object mCollector) {
-		boolean cutShort = true;
-		if (cutShort)
-			return idx;
+//		boolean cutShort = false;
+//		if (cutShort)
+//			return idx;
 		
 		TermTuple tt = new TermTuple(idx.getParameters());
 
@@ -530,6 +530,10 @@ public class EprTheory implements ITheory {
 		// --> we need to apply the same substitution in every literal of the clause..
 		if (mCollector != null) {
 			sub = mBuildClauseToAlphaRenamingSub.get(mCollector);
+			if (sub == null) {
+				sub = new HashMap<TermVariable, Term>();
+				mBuildClauseToAlphaRenamingSub.put(mCollector, sub);
+			}
 		} else {
 			// if mCollector is null, this means we are in a unit clause (i think...), 
 			// and we can just use a fresh substitution
