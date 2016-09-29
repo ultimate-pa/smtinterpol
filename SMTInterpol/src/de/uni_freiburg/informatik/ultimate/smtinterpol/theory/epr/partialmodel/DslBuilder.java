@@ -1,11 +1,14 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel;
 
+import java.util.List;
+
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers.Pair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseEprLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
+import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
 
 public class DslBuilder {
 
@@ -86,5 +89,15 @@ public class DslBuilder {
 
 	public boolean isOnePoint() {
 		return mDawg.isSingleton();
+	}
+
+	public EprPredicate getEprPredicate() {
+		assert mDawg.isSingleton() : "this is only expected in case we want to build a ground literal instead";
+		return mPred;
+	}
+
+	public List<ApplicationTerm> getPoint() {
+		assert isOnePoint() : "this is only expected in case we want to build a ground literal instead";
+		return mDawg.iterator().next();
 	}
 }

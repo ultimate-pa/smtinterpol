@@ -524,6 +524,7 @@ public class DecideStackManager {
 	}
 
 	public void pop() {
+		mUnitClausesWaitingForPropagation.clear();
 		mDecideStack.pop();
 	}
 	

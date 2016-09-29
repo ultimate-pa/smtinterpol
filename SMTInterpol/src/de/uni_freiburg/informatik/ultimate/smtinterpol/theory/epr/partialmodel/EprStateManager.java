@@ -148,11 +148,10 @@ public class EprStateManager {
 			} else {
 				// if the next requested decision is ground, suggest it to the DPLLEngine, and give 
 				// back control to the DPLLEngine
-				DecideStackLiteral dsl = nextDecision.build();
-				Literal groundDecision = dsl.getEprPredicate()
+				Literal groundDecision = nextDecision.getEprPredicate()
 						.getAtomForTermTuple(
-								new TermTuple(dsl.getPoint().toArray(
-										new ApplicationTerm[dsl.getPoint().size()])), // TODO: make nicer
+								new TermTuple(nextDecision.getPoint().toArray(
+										new ApplicationTerm[nextDecision.getPoint().size()])), // TODO: make nicer
 								mTheory, 0); //TODO assertionstacklevel
 				assert groundDecision.getAtom().getDecideStatus() == null : "If this is not the case, then"
 						+ "it might be dangerous to return null: if null is returned to computeConflictClause,"
