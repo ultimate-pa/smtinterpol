@@ -175,6 +175,7 @@ public class DecideStackManager {
 			if (topMostDecideStackLiteral == null) {
 				// we have come to the top of the decide stack --> return the conflict
 				Clause groundConflict = chooseGroundingFromConflict(currentConflict);
+				assert EprHelpers.verifyConflictClause(groundConflict, mLogger);
 				return groundConflict;
 			}
 
@@ -191,7 +192,9 @@ public class DecideStackManager {
 				 *  
 				 *  --> we need to restrict our decision to set one of the two
 				 */
-				return refine((DecideStackDecisionLiteral) topMostDecideStackLiteral, currentConflict);
+				Clause groundConflictOrNull = refine((DecideStackDecisionLiteral) topMostDecideStackLiteral, currentConflict);
+				assert EprHelpers.verifyConflictClause(groundConflictOrNull, mLogger);
+				return groundConflictOrNull;
 			} else if (topMostDecideStackLiteral instanceof DecideStackPropagatedLiteral) {
 				assert currentConflict.isConflict();
 				currentConflict = 

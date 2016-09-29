@@ -27,6 +27,7 @@ public class ClauseEprGroundLiteral extends ClauseEprLiteral {
 	 * @param decideStackBorder (not sure if it is safe to ignore this parameter here.. TODO..)
 	 */
 	protected ClauseLiteralState determineState(DecideStackLiteral decideStackBorder) {
+		mIsStateDirty = false;
 		if (mAtom.getDecideStatus() == null) {
 			if (!mPartiallyConflictingDecideStackLiterals.isEmpty()) {
 				assert mPartiallyConflictingDecideStackLiterals.size() == 1 : 

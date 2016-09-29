@@ -22,18 +22,24 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.I
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
 
 public abstract class ClauseEprLiteral extends ClauseLiteral {
+	
+	/**
+	 * Flag is set if the fields that are used to determine the state (fulfilled/fulfillable/refuted points)
+	 * of this ClauseLiteral have been changed since the last computation of that state.
+	 */
+	protected boolean mIsStateDirty = true;
 
-	EprPredicateAtom mEprPredicateAtom;
+	protected final EprPredicateAtom mEprPredicateAtom;
 	
 	/**
 	 * The literals on the current epr decide stack that contradict this literal at
 	 * least on one point, potentially on many or all points that this literal talks about.
 	 * (e.g. when P(a,x) is on the decide stack it contradicts ~P(y,b) on the point (a,b).)
 	 */
-	ScopedHashSet<IEprLiteral> mPartiallyConflictingDecideStackLiterals = 
+	protected final ScopedHashSet<IEprLiteral> mPartiallyConflictingDecideStackLiterals = 
 			new ScopedHashSet<IEprLiteral>();
 	
-	ScopedHashSet<IEprLiteral> mPartiallyFulfillingDecideStackLiterals = 
+	protected final ScopedHashSet<IEprLiteral> mPartiallyFulfillingDecideStackLiterals = 
 			new ScopedHashSet<IEprLiteral>();
 
 	/**
@@ -61,26 +67,26 @@ public abstract class ClauseEprLiteral extends ClauseLiteral {
 		mArgumentTermsAsObjects = Collections.unmodifiableList(l);
 	}
 	
-
-
-
 	public EprPredicate getEprPredicate()  {
 		return  mEprPredicateAtom.getEprPredicate();
 	}
 	
-	
 	public void addPartiallyConflictingEprLiteral(IEprLiteral el) {
 		el.registerConcernedClauseLiteral(this);
 		mPartiallyConflictingDecideStackLiterals.add(el);
+		mIsStateDirty = true;
+		mEprClause.mClauseStateIsDirty = true;
 	}
 
 	public void addPartiallyFulfillingEprLiteral(IEprLiteral el) {
 		el.registerConcernedClauseLiteral(this);
 		mPartiallyFulfillingDecideStackLiterals.add(el);
+		mIsStateDirty = true;
+		mEprClause.mClauseStateIsDirty = true;
 	}
 	
-	public ScopedHashSet<IEprLiteral> getPartiallyConflictingDecideStackLiterals() {
-		return mPartiallyConflictingDecideStackLiterals;
+	public Set<IEprLiteral> getPartiallyConflictingDecideStackLiterals() {
+		return Collections.unmodifiableSet(mPartiallyConflictingDecideStackLiterals);
 	}
 
 	/**
@@ -97,6 +103,8 @@ public abstract class ClauseEprLiteral extends ClauseLiteral {
 	public void endScope() {
 		mPartiallyConflictingDecideStackLiterals.endScope();
 		mPartiallyFulfillingDecideStackLiterals.endScope();
+		mIsStateDirty = true;
+		mEprClause.mClauseStateIsDirty = true;
 	}
 
 	public List<Term> getArguments() {
@@ -126,6 +134,8 @@ public abstract class ClauseEprLiteral extends ClauseLiteral {
 		success |= mPartiallyConflictingDecideStackLiterals.remove(el);
 		success |= mPartiallyFulfillingDecideStackLiterals.remove(el);
 		assert success : "something wrong with the registration??";
+		mIsStateDirty = true;
+		mEprClause.mClauseStateIsDirty = true;
 	}
 
 

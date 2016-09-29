@@ -60,7 +60,7 @@ public class EprClause {
 	 * If this flag is true, the value of mEprClauseState can be relied on.
 	 * Otherwise the state must be recomputed.
 	 */
-	private boolean mClauseStateIsDirty = true;
+	boolean mClauseStateIsDirty = true;
 
 	/**
 	 * The current fulfillment state of this epr clause
@@ -550,7 +550,10 @@ public class EprClause {
 					Term[] ceqlArgs = ceql.mArgumentTerms.toArray(new Term[ceql.mArgumentTerms.size()]);
 					TermTuple newTT = sub.apply(new TermTuple(ceqlArgs));
 					assert newTT.getFreeVars().size() == 0;
-					EprPredicateAtom at = ceql.getEprPredicate().getAtomForTermTuple(newTT, mEprTheory.getTheory(), 0); //TODO assertionstacklevel
+					EprPredicateAtom at = ceql.getEprPredicate().getAtomForTermTuple(
+							newTT, 
+							mEprTheory.getTheory(), 
+							mEprTheory.getClausifier().getStackLevel());
 					
 					Literal newLit = cl.getPolarity() ? at : at.negate();
 

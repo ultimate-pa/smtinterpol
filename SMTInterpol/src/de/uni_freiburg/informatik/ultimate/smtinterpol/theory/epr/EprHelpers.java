@@ -85,7 +85,7 @@ public class EprHelpers {
 			EprQuantifiedPredicateAtom eqpa = (EprQuantifiedPredicateAtom) atom;
 			TermTuple newTT = sub.apply(eqpa.getArgumentsAsTermTuple());
 
-			resultAtom = eqpa.getEprPredicate().getAtomForTermTuple(newTT, theory, l.getAtom().getAssertionStackLevel());
+			resultAtom = eqpa.getEprPredicate().getAtomForTermTuple(newTT, theory, eprTheory.getClausifier().getStackLevel());
 		} else if (atom instanceof EprQuantifiedEqualityAtom) {
 			EprQuantifiedEqualityAtom eea = (EprQuantifiedEqualityAtom) atom;
 			TermTuple newTT = sub.apply(eea.getArgumentsAsTermTuple());
@@ -96,7 +96,8 @@ public class EprHelpers {
 			} else {
 				// TODO: will need a management for these atoms -- so there are no duplicates..
 				//   it's not clear if we want CCEqualities or so, here..
-				resultAtom =  new EprGroundEqualityAtom(newTerm, 0, 0);
+				int assertionStackLevel = eprTheory.getClausifier().getStackLevel();
+				resultAtom =  new EprGroundEqualityAtom(newTerm, 0, assertionStackLevel);
 			}
 		} else {
 			//assert false : "there might be equality replacements"; --> seems idiotic now..

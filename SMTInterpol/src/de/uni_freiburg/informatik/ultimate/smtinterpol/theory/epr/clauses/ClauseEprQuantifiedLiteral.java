@@ -123,23 +123,21 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	 * @return
 	 */
 	public IDawg<ApplicationTerm, TermVariable> getFulfillablePoints(DecideStackLiteral decideStackBorder) {
-		assert mFulfillablePoints != null;
+		assert !mIsStateDirty;
 		assert mFulfillablePoints.getColnames().equals(mEprClause.getVariables());
 		IDawg<ApplicationTerm, TermVariable> result = mFulfillablePoints;
-		mFulfillablePoints = null;
 		return result;
 	}
 
 	public IDawg<ApplicationTerm, TermVariable> getFulfilledPoints() {
-		assert mFulfilledPoints != null;
+		assert !mIsStateDirty;
 		assert mFulfilledPoints.getColnames().equals(mEprClause.getVariables());
 		IDawg<ApplicationTerm, TermVariable> result = mFulfilledPoints;
-		mFulfilledPoints = null;
 		return result;
 	}
 
 	public IDawg<ApplicationTerm, TermVariable> getRefutedPoints() {
-		assert mRefutedPoints != null;
+		assert !mIsStateDirty;
 		assert mRefutedPoints.getColnames().equals(mEprClause.getVariables());
 		IDawg<ApplicationTerm, TermVariable> result = mRefutedPoints;
 		return result;
@@ -162,7 +160,8 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	 */
 	@Override
 	protected ClauseLiteralState determineState(DecideStackLiteral decideStackBorder) {
-		
+		mIsStateDirty = false;
+
 		// collect the points in a dawg with the predicate's signature
 		IDawg<ApplicationTerm, TermVariable> refutedPoints = 
 				mEprTheory.getDawgFactory().createEmptyDawg(mAtom.getEprPredicate().getTermVariablesForArguments());

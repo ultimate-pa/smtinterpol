@@ -141,7 +141,9 @@ public class EprTheory implements ITheory {
 			// literal is of the form (P c1 .. cn) (no quantification, but an EprPredicate)
 			// is being set by the DPLLEngine (the quantified EprPredicateAtoms are not known to the DPLLEngine)
 
-			return mStateManager.setEprGroundLiteral(literal);
+			Clause conflictOrNull = mStateManager.setEprGroundLiteral(literal);
+			assert EprHelpers.verifyConflictClause(conflictOrNull, mLogger);
+			return conflictOrNull;
 		} else if (atom instanceof EprQuantifiedEqualityAtom 
 				|| atom instanceof EprQuantifiedPredicateAtom) {
 
@@ -152,17 +154,22 @@ public class EprTheory implements ITheory {
 			if (literal.getSign() == 1) {
 				CCEquality eq = (CCEquality) atom;
 				
-				return mStateManager.setGroundEquality((CCEquality) atom);
+				Clause conflictOrNull = mStateManager.setGroundEquality((CCEquality) atom);
+				assert EprHelpers.verifyConflictClause(conflictOrNull, mLogger);
+				return conflictOrNull;
 			}
 
 			// TODO do ground disequalities have an impact for EPR?
 
-			return mStateManager.setDpllLiteral(literal);
+			Clause conflictOrNull = mStateManager.setDpllLiteral(literal);
+			assert EprHelpers.verifyConflictClause(conflictOrNull, mLogger);
+			return conflictOrNull;
 		} else {
 			// neither an EprAtom nor an Equality
 
-			return	mStateManager.setDpllLiteral(literal);
-	
+			Clause conflictOrNull = mStateManager.setDpllLiteral(literal);
+			assert EprHelpers.verifyConflictClause(conflictOrNull, mLogger);
+			return conflictOrNull;
 		}
 		return null;
 	}
@@ -498,7 +505,7 @@ public class EprTheory implements ITheory {
 				EprGroundPredicateAtom egpa = 
 						(EprGroundPredicateAtom) pred.getAtomForTermTuple(new TermTuple(idx.getParameters()), 
 								mTheory, 
-								mEngine.getAssertionStackLevel());
+								assertionStackLevel);
 				pred.addDPLLAtom(egpa);
 				return egpa;
 			} else {
@@ -728,9 +735,9 @@ public class EprTheory implements ITheory {
 
 					EprAtom ea = null;
 					if (newTT.isGround()) {
-						ea = liPred.getAtomForTermTuple(newTT, mTheory, li.getAtom().getAssertionStackLevel());
+						ea = liPred.getAtomForTermTuple(newTT, mTheory, getClausifier().getStackLevel());
 					} else {
-						ea = liPred.getAtomForTermTuple(newTT, mTheory, li.getAtom().getAssertionStackLevel());
+						ea = liPred.getAtomForTermTuple(newTT, mTheory, getClausifier().getStackLevel());
 					}
 					return liPositive ? ea : ea.negate();
 				}

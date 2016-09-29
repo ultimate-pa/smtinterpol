@@ -153,17 +153,19 @@ public class EprClauseFactory {
 				Literal newCl = null;
 				if (unifiedClTt.isGround()) {
 					EprGroundPredicateAtom atom = (EprGroundPredicateAtom) pred.getAtomForTermTuple(
-							unifiedClTt, mEprTheory.getTheory(), 0);  //TODO: deal with assertionstacklevel
+							unifiedClTt, mEprTheory.getTheory(), mEprTheory.getClausifier().getStackLevel());
 					newCl = cl.getPolarity() ? atom : atom.negate();
 				} else {
 
 					EprQuantifiedPredicateAtom atom = (EprQuantifiedPredicateAtom) 
-							pred.getAtomForTermTuple(unifiedClTt, mEprTheory.getTheory(), 0);  //TODO: deal with assertionstacklevel
+							pred.getAtomForTermTuple(unifiedClTt, 
+									mEprTheory.getTheory(), 
+									mEprTheory.getClausifier().getStackLevel());
 					
 					// apply alpha renaming
 					atom = (EprQuantifiedPredicateAtom) mEprTheory.getEprAtom(
 							(ApplicationTerm) atom.getSMTFormula(mEprTheory.getTheory()), 
-							0, 0, alphaRenamingIdentifier);//TODO: deal with assertionstacklevel, hash
+							0, mEprTheory.getClausifier().getStackLevel(), alphaRenamingIdentifier);
 					
 					newCl = cl.getPolarity() ? atom : atom.negate();
 				}

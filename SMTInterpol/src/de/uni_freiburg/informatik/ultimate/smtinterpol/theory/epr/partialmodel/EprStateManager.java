@@ -150,9 +150,10 @@ public class EprStateManager {
 				// back control to the DPLLEngine
 				Literal groundDecision = nextDecision.getEprPredicate()
 						.getAtomForTermTuple(
-								new TermTuple(nextDecision.getPoint().toArray(
-										new ApplicationTerm[nextDecision.getPoint().size()])), // TODO: make nicer
-								mTheory, 0); //TODO assertionstacklevel
+								new TermTuple(
+										nextDecision.getPoint().toArray(new ApplicationTerm[nextDecision.getPoint().size()])), // TODO: make nicer
+								mTheory, 
+								mEprTheory.getClausifier().getStackLevel());
 				assert groundDecision.getAtom().getDecideStatus() == null : "If this is not the case, then"
 						+ "it might be dangerous to return null: if null is returned to computeConflictClause,"
 						+ "this means the EprTheory says there is no conflict and I have a full model..";
