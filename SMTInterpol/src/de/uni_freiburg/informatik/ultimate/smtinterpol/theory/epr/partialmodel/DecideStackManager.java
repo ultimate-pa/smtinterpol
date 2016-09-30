@@ -3,6 +3,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
@@ -197,13 +198,13 @@ public class DecideStackManager {
 				assert EprHelpers.verifyConflictClause(groundConflictOrNull, mLogger);
 				return groundConflictOrNull;
 			} else if (topMostDecideStackLiteral instanceof DecideStackPropagatedLiteral) {
-				currentConflict = 
-						explainConflictOrSkip(
-								currentConflict, 
-								(DecideStackPropagatedLiteral) topMostDecideStackLiteral);
+				EprClause newConflict = explainConflictOrSkip(
+						currentConflict, 
+						(DecideStackPropagatedLiteral) topMostDecideStackLiteral);
 				// now the conflict does not depend on the topMostDecideStackLiteral (anymore), thus we can pop the decide stack.. 
 				mDecideStack.popDecideStackLiteral();
-				assert currentConflict.isConflict();
+				assert newConflict.isConflict();
+				currentConflict = newConflict;
 			} else {
 				assert false : "should not happen";
 			}
@@ -476,7 +477,7 @@ public class DecideStackManager {
 	 * @return 
 	 */
 	Set<EprClause> pushEprDecideStack(DslBuilder dslb) {
-		dslb.setDecideStackIndex(mDecideStack.size());
+		dslb.setDecideStackIndex(mDecideStack.height() + 1);
 		DecideStackLiteral dsl = dslb.build();
 		
 		// setting the decideStackLiteral means that we have to set all ground atoms covered by it
@@ -551,6 +552,11 @@ public class DecideStackManager {
 	public void removeFromUnitClauseSet(EprClause eprClause) {
 		mUnitClausesWaitingForPropagation.remove(eprClause);
 	}
+	
+	@Override
+	public String toString() {
+		return "DSM: " + mDecideStack;
+	}
 
 	private static class EprDecideStack {
 		private final List<DecideStackEntry> mStack = new LinkedList<DecideStackEntry>();
@@ -563,17 +569,19 @@ public class DecideStackManager {
 		private DecideStackEntry lastElement;
 		private DecideStackDecisionLiteral lastDecision;
 		
-		private Map<Literal, DecideStackLiteralMarker> mLiteralToMarker = 
-				new HashMap<Literal, DecideStackLiteralMarker>();
+		private Map<Literal, DecideStackSetLiteralMarker> mLiteralToMarker = 
+				new HashMap<Literal, DecideStackSetLiteralMarker>();
 		
 		/**
-		 * Places a marker for a setLiteral operation in the EprTheory.
+		 * Places a marker for a setLiteral operation. (When the DPLLEngine sets a literal..)
 		 */
 		void pushSetLiteral(Literal l) {
-			DecideStackLiteralMarker marker = new DecideStackLiteralMarker(l, mStack.size());
+			DecideStackSetLiteralMarker marker = new DecideStackSetLiteralMarker(l, height() + 1);
+			lastElement = marker;
 			mStack.add(marker);
 			assert !mLiteralToMarker.containsKey(l);
 			mLiteralToMarker.put(l, marker);
+			assert checkDecideStackInvariants();
 		}
 
 		public DecideStackDecisionLiteral getLastDecision() {
@@ -589,12 +597,12 @@ public class DecideStackManager {
 		}
 
 		void popBacktrackLiteral(Literal l) {
-			DecideStackLiteralMarker marker = mLiteralToMarker.remove(l);
-			if (marker.mIndex >= mStack.size()) {
+			DecideStackSetLiteralMarker marker = mLiteralToMarker.remove(l);
+			if (marker.nr >= height()) {
 				// removed the marker through a pop() before, nothing to do
 				return;
 			}
-			List<DecideStackEntry> suffix = mStack.subList(marker.mIndex, mStack.size());
+			List<DecideStackEntry> suffix = mStack.subList(mStack.indexOf(marker), mStack.size());
 			for (DecideStackEntry dse : suffix) {
 				if (dse instanceof DecideStackLiteral) {
 					((DecideStackLiteral) dse).unregister();
@@ -602,6 +610,7 @@ public class DecideStackManager {
 			}
 			suffix.clear();
 			updateInternalFields();
+			assert checkDecideStackInvariants();
 		}
 		
 		DecideStackLiteral peekDecideStackLiteral() {
@@ -619,6 +628,7 @@ public class DecideStackManager {
 
 			updateInternalFields();
 
+			assert checkDecideStackInvariants();
 			return result;
 		}
 		
@@ -626,9 +636,11 @@ public class DecideStackManager {
 			mStack.add(dsl);
 			lastNonMarker = dsl;
 			lastNonMarkerIndex = mStack.size() - 1;
+			lastElement = dsl;
 			if (dsl instanceof DecideStackDecisionLiteral) {
 				lastDecision = (DecideStackDecisionLiteral) dsl;
 			}
+			assert checkDecideStackInvariants();
 		}
 		
 		/**
@@ -653,22 +665,30 @@ public class DecideStackManager {
 			
 			
 			updateInternalFields();
+			assert checkDecideStackInvariants();
 		}
 		
 		void push() {
-			DecideStackPushMarker pm = new DecideStackPushMarker();
+			DecideStackPushMarker pm = new DecideStackPushMarker(height() + 1);
 			lastPushMarker = pm;
 			lastPushMarkerIndex = mStack.size();
+			lastElement = pm;
 			mStack.add(pm);
+			assert checkDecideStackInvariants();
 		}
 
+		/**
+		 * update the fields that track some relevant stack positions after one of the pop operations.
+		 */
 		private void updateInternalFields() {
 			// change the fields accordingly -- search for the next non push marker
 			ListIterator<DecideStackEntry> it = mStack.listIterator(mStack.size());
+			
+			lastElement = mStack.isEmpty() ? null : mStack.get(mStack.size() - 1);
 
 			boolean foundNonPushMarker = false;
 			boolean foundPushMarker = false;
-			boolean foundLastDecision = lastDecision == null || lastDecision.mIndex < mStack.size();
+			boolean foundLastDecision = lastDecision == null || lastDecision.nr < height();
 
 			while (it.hasPrevious()) {
 				DecideStackEntry prev = it.previous();
@@ -705,15 +725,51 @@ public class DecideStackManager {
 			if (!foundLastDecision) {
 				lastDecision = null;
 			}
+			assert checkDecideStackInvariants();
 		}
 		
-		public int size() {
-			return mStack.size();
+		/**
+		 * Returns the index of the topmost entry on the decide stack (this is not identical with
+		 * the number of elements on the stack, because we sometimes pop in the middle!).
+		 * @return
+		 */
+		public int height() {
+			return lastElement == null ? 0 : lastElement.nr;
 		}
 		
 		@Override
 		public String toString() {
-			return mStack.toString();
+			StringBuilder sb = new StringBuilder();
+			for (DecideStackEntry dse : mStack) {
+				sb.append(dse.toString());
+				sb.append("\n");
+			}
+			return sb.toString();
+		}
+		
+		/**
+		 * Method used for asserts.
+		 */
+		private boolean checkDecideStackInvariants() {
+			boolean result = true;
+			
+			result &= height() >= mStack.size();
+			assert result;
+			
+			Iterator<DecideStackEntry> it = mStack.iterator();
+			DecideStackEntry currentEntry = null;
+			for (int i = 0; i < mStack.size(); i++) {
+				DecideStackEntry lastEntry = currentEntry;
+				currentEntry = it.next();
+				
+				result &= lastEntry == null || lastEntry.nr < currentEntry.nr;
+				assert result;
+				
+				result &= currentEntry.nr >= i;
+				assert result;
+			}
+			
+			return result;
 		}
 	}
 }

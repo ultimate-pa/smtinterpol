@@ -63,27 +63,35 @@ public abstract class AbstractDawg<LETTER, COLNAMES> implements IDawg<LETTER, CO
 
 	@Override
 	public String toString() {
-		int colWidth = -1;
-		for (COLNAMES cn : getColnames()) {
-			colWidth = colWidth < cn.toString().length() ? cn.toString().length() : colWidth;
-		}
-		
-		colWidth += 2;
+//		int colWidth = -1;
+//		for (COLNAMES cn : getColnames()) {
+//			colWidth = colWidth < cn.toString().length() ? cn.toString().length() : colWidth;
+//		}
+//		colWidth += 2;
 
+		int displayLength = 20;
 
 		StringBuilder sb = new StringBuilder();
+
+		sb.append("<");
 		for (COLNAMES cn : getColnames()) {
-			//TODO formatting
-			sb.append(String.format("%10s", cn));
+			sb.append(cn);
 		}
-		sb.append("\n");
-		sb.append("\n");
+		sb.append(">  ");
 		
 		for (List<LETTER> pt : this.listPoints()) {
-			for (LETTER ltr : pt) {
-				sb.append(String.format("%10s", ltr));
+//			for (LETTER ltr : pt) {
+//				sb.append(String.format("%10s", ltr));
+//			}
+//			sb.append("\n");
+//			if (sb.length() < displayLength) {
+			if (displayLength > 0) {
+				sb.append(pt);
+				displayLength -= pt.toString().length();
 			}
-			sb.append("\n");
+		}
+		if (displayLength <= 0) {
+			sb.append("..");
 		}
 		return sb.toString();
 	}

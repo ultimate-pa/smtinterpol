@@ -22,7 +22,7 @@ public class DecideStackDecisionLiteral extends DecideStackLiteral {
 
 	@Override
 	public String toString() {
-		return String.format("(DSDec (%d): %c%s)", 
-				mIndex, (mPolarity ? ' ' : '~'),  mPred);
+		return String.format("(DSDec (%d): %c%s %s)", 
+				nr, (mPolarity ? ' ' : '~'),  mPred, mDawg);
 	}	
 }

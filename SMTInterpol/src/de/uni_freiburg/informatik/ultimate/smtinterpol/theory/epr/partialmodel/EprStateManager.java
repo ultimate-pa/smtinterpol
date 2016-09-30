@@ -398,11 +398,14 @@ public class EprStateManager {
 		return null;
 	}
 
-	public void learnClause(EprClause currentConflict) {
+	public void learnClause(EprClause clauseToLearn) {
 		// TODO: as is this method seems weird, architecture-wise
 		// the registration has to be done for any epr clause that we add to our formula
 		// --> just ditch this method, use register.. instead??
-		mEprClauseManager.registerEprClause(currentConflict);
+
+		mEprTheory.getLogger().debug("EPRDEBUG: (EprClauseManager) learning new EprClause: " + clauseToLearn);
+
+		mEprClauseManager.registerEprClause(clauseToLearn);
 	}
 
 	public ScopedHashSet<EprPredicate> getAllEprPredicates() {

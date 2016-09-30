@@ -35,8 +35,6 @@ public abstract class DecideStackLiteral extends DecideStackEntry implements IEp
 //	 */
 //	protected final int mPushStateStackIndex;
 	
-	protected final int mIndex;
-
 	protected final boolean mPolarity;
 	protected final EprPredicate mPred;
 	
@@ -52,13 +50,13 @@ public abstract class DecideStackLiteral extends DecideStackEntry implements IEp
 	
 	public DecideStackLiteral(boolean polarity, 
 			EprPredicate pred, IDawg<ApplicationTerm, TermVariable> dawg, int index) {
+		super(index);
 		mPolarity = polarity;
 		mPred = pred;
 		mDawg = dawg;
 //		mPushStateStackIndex = index.first;
 //		mIndexOnPushStateStack = index.second;
 //		mIndex = new DslIndex(index.first, index.second);
-		mIndex = index;
 		
 		register();
 	}
@@ -134,14 +132,14 @@ public abstract class DecideStackLiteral extends DecideStackEntry implements IEp
 //		return mPushStateStackIndex;
 //	}
 	
-	public int getDecideStackIndex() {
-		return mIndex;
-	}
+//	public int getDecideStackIndex() {
+//		return mIndex;
+//	}
 	
 	@Override
 	public int compareTo(DecideStackLiteral other) {
 //		return this.mIndex.compareTo(other.mIndex);
-		return this.mIndex - other.mIndex;
+		return this.nr - other.nr;
 	}
 	
 //	static class DslIndex implements Comparable<DslIndex> {

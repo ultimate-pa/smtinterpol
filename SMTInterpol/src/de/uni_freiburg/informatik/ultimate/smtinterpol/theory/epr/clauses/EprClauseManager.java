@@ -9,6 +9,7 @@ import java.util.Set;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.IEprLiteral;
@@ -164,25 +165,33 @@ public class EprClauseManager {
 	 */
 	public Clause createEprClause(HashSet<Literal> literals) {
 		EprClause newClause = mEprTheory.getEprClauseFactory().getEprClause(literals);
+
+		mEprTheory.getLogger().debug("EPRDEBUG: (EprClauseManager) creating new EprClause from input assert: " + newClause);
 		
-		return registerEprClause(newClause);
+		registerEprClause(newClause);
+		
+		if (newClause.isConflict()) {
+			Clause conflict = mEprTheory.getStateManager().getDecideStackManager()
+					.resolveConflictOrStoreUnits(new HashSet<EprClause>(Collections.singleton(newClause)));
+			assert EprHelpers.verifyConflictClause(conflict, mEprTheory.getLogger());
+			return conflict;
+		}
+		return null;
 	}
 
 	/**
 	 * Register an eprClause (coming from input or learned) in the corresponding places...
-	 * 
-	 * Check if it is unit or a conflict.
-	 * If it is a conflict immediately resolve it (on the epr decide stack) and return a ground conflict
-	 * if the conflict is not resolvable.
-	 * If it is unit, queue it for propagation.
 	 */
-	public Clause registerEprClause(EprClause newClause) {
+	public void registerEprClause(EprClause newClause) {
 		addClause(newClause);
 
 		for (ClauseLiteral cl : newClause.getLiterals()) {
 			updateAtomToClauses(cl.getLiteral().getAtom(), newClause);
 		}
-		return mEprTheory.getStateManager().getDecideStackManager()
-				.resolveConflictOrStoreUnits(new HashSet<EprClause>(Collections.singleton(newClause)));
+		
+//		Clause conflict = mEprTheory.getStateManager().getDecideStackManager()
+//				.resolveConflictOrStoreUnits(new HashSet<EprClause>(Collections.singleton(newClause)));
+//		assert EprHelpers.verifyConflictClause(conflict, mEprTheory.getLogger());
+//		return conflict;
 	}
 }

@@ -57,7 +57,7 @@ public class DecideStackPropagatedLiteral extends DecideStackLiteral {
 
 	@Override
 	public String toString() {
-		return String.format("(DSProp (%d): %c%s)", 
-				mIndex, (mPolarity ? ' ' : '~'),  mPred);
+		return String.format("(DSProp (%d): %c%s %s)", 
+				nr, (mPolarity ? ' ' : '~'),  mPred, mDawg);
 	}	
 }

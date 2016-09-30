@@ -618,44 +618,75 @@ public class EprClause {
 				}
 			}
 			
-			for (int i = 0; i < positiveQuantifiedOccurencesOfPred.size(); i++) {
-				ClauseEprQuantifiedLiteral pqOc = positiveQuantifiedOccurencesOfPred.get(i);
-				IDawg<ApplicationTerm, TermVariable> refPointsCurrent = pqOc.getRefutedPoints();
-				IDawg<ApplicationTerm, TermVariable> renamedRefPointsCurrent = mDawgFactory.renameColumnsAndRestoreConstants(refPointsCurrent, 
-						pqOc.getTranslationFromClauseToEprPredicate(), pqOc.getArgumentsAsObjects(), pqOc.getEprPredicate().getTermVariablesForArguments());
-				for (int j = 0; j < i; j++) {
-					ClauseEprQuantifiedLiteral pqOcOther = positiveQuantifiedOccurencesOfPred.get(j);
-					assert pqOcOther != pqOc;
-					
-					IDawg<ApplicationTerm, TermVariable> refPointsOther = pqOcOther.getRefutedPoints();
-					IDawg<ApplicationTerm, TermVariable> renamedRefPointsOther = mDawgFactory.renameColumnsAndRestoreConstants(refPointsOther, 
-						pqOcOther.getTranslationFromClauseToEprPredicate(), pqOcOther.getArgumentsAsObjects(), pqOcOther.getEprPredicate().getTermVariablesForArguments());
+			EprClause factorPos = factorWithPolarity(positiveQuantifiedOccurencesOfPred, positiveGroundOccurencesOfPred);
+			if (factorPos != null) {
+				assert factorPos.isConflict();
+				return factorPos;
+			}
 
-					
-					IDawg<ApplicationTerm, TermVariable> intersection = 
-							renamedRefPointsCurrent.intersect(renamedRefPointsOther);
-					
-					if (intersection.isEmpty()) {
-						continue;
-					}
-					// we can actually factor
-					mEprTheory.getLogger().debug("EPRDEBUG: (EprClause): factoring " + this);
-					return mEprTheory.getEprClauseFactory().getFactoredClause(pqOc, pqOcOther);
-				}
-
-				for (ClauseEprGroundLiteral pgOc : positiveGroundOccurencesOfPred) {
-					if (! pqOc.getRefutedPoints().accepts(
-							EprHelpers.convertTermListToConstantList(pgOc.getArguments()))) {
-						continue;
-					}
-					// we can actually factor
-					mEprTheory.getLogger().debug("EPRDEBUG: (EprClause): factoring " + this);
-					return mEprTheory.getEprClauseFactory().getFactoredClause(pqOc, pgOc);
-				}
+			EprClause factorNeg = factorWithPolarity(negativeQuantifiedOccurencesOfPred, negativeGroundOccurencesOfPred);
+			if (factorNeg != null) {
+				assert factorNeg.isConflict();
+				return factorNeg;
 			}
 		}
 		// when we can't factor, we just return this clause
 		return this;
+	}
+
+
+	private EprClause factorWithPolarity(List<ClauseEprQuantifiedLiteral> positiveQuantifiedOccurencesOfPred,
+			List<ClauseEprGroundLiteral> positiveGroundOccurencesOfPred) {
+		for (int i = 0; i < positiveQuantifiedOccurencesOfPred.size(); i++) {
+			ClauseEprQuantifiedLiteral pqOc = positiveQuantifiedOccurencesOfPred.get(i);
+//			IDawg<ApplicationTerm, TermVariable> refPointsCurrent = pqOc.getRefutedPoints();
+//			IDawg<ApplicationTerm, TermVariable> renamedRefPointsCurrent = mDawgFactory.renameColumnsAndRestoreConstants(refPointsCurrent, 
+//					pqOc.getTranslationFromClauseToEprPredicate(), pqOc.getArgumentsAsObjects(), pqOc.getEprPredicate().getTermVariablesForArguments());
+			IDawg<ApplicationTerm, TermVariable> conflictPointsCurrent = 
+					mDawgFactory.renameColumnsAndRestoreConstants(
+							getConflictPoints(), 
+							pqOc.getTranslationFromClauseToEprPredicate(), 
+							pqOc.getArgumentsAsObjects(), 
+							pqOc.getEprPredicate().getTermVariablesForArguments());
+			for (int j = 0; j < i; j++) {
+				ClauseEprQuantifiedLiteral pqOcOther = positiveQuantifiedOccurencesOfPred.get(j);
+				assert pqOcOther != pqOc;
+				
+//				IDawg<ApplicationTerm, TermVariable> refPointsOther = pqOcOther.getRefutedPoints();
+//				IDawg<ApplicationTerm, TermVariable> renamedRefPointsOther = mDawgFactory.renameColumnsAndRestoreConstants(refPointsOther, 
+//					pqOcOther.getTranslationFromClauseToEprPredicate(), pqOcOther.getArgumentsAsObjects(), pqOcOther.getEprPredicate().getTermVariablesForArguments());
+				
+				IDawg<ApplicationTerm, TermVariable> conflictPointsOther = 
+					mDawgFactory.renameColumnsAndRestoreConstants(
+							getConflictPoints(), 
+							pqOcOther.getTranslationFromClauseToEprPredicate(), 
+							pqOcOther.getArgumentsAsObjects(), 
+							pqOcOther.getEprPredicate().getTermVariablesForArguments());
+
+				
+				IDawg<ApplicationTerm, TermVariable> intersection = 
+						conflictPointsCurrent.intersect(conflictPointsOther);
+//						renamedRefPointsCurrent.intersect(renamedRefPointsOther);
+				
+				if (intersection.isEmpty()) {
+					continue;
+				}
+				// we can actually factor
+				mEprTheory.getLogger().debug("EPRDEBUG: (EprClause): factoring " + this);
+				return mEprTheory.getEprClauseFactory().getFactoredClause(pqOc, pqOcOther);
+			}
+
+			for (ClauseEprGroundLiteral pgOc : positiveGroundOccurencesOfPred) {
+				if (! pqOc.getRefutedPoints().accepts(
+						EprHelpers.convertTermListToConstantList(pgOc.getArguments()))) {
+					continue;
+				}
+				// we can actually factor
+				mEprTheory.getLogger().debug("EPRDEBUG: (EprClause): factoring " + this);
+				return mEprTheory.getEprClauseFactory().getFactoredClause(pqOc, pgOc);
+			}
+		}
+		return null;
 	}
 
 
