@@ -2024,11 +2024,11 @@ public class Clausifier {
 					"AUX(" + smtFormula.toString() + ")", 
 					paramTypes,
 					mTheory.getBooleanSort());
-			ApplicationTerm auxTerm = mTheory.term(fs, smtFormula.getFreeVars());
-			atom = mEprTheory.getEprAtom(auxTerm, 0, mStackLevel, null);
+//			ApplicationTerm auxTerm = mTheory.term(fs, smtFormula.getFreeVars());
+//			atom = mEprTheory.getEprAtom(auxTerm, 0, mStackLevel, null);
 
-//			EprPredicate eprPred = new EprPredicate(fs, mEprTheory);
-//			atom = eprPred.getAtomForTermTuple(new TermTuple(smtFormula.getFreeVars()), mTheory, mStackLevel);
+			EprPredicate eprPred = new EprPredicate(fs, mEprTheory);
+			atom = eprPred.getAtomForTermTuple(new TermTuple(smtFormula.getFreeVars()), mTheory, mStackLevel);
 		} else {
 		//alex end
 			atom = new NamedAtom(smtFormula, mStackLevel);
