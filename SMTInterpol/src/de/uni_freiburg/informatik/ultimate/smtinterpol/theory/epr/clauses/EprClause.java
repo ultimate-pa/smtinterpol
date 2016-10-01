@@ -69,14 +69,6 @@ public class EprClause {
 	
 	private IDawg<ApplicationTerm, TermVariable> mConflictPoints;
 	
-	/**
-	 * track for a quantified clause literal that is a unit literal in some of the groundings of this clause,
-	 *  which groundings those are
-	 *  (note that we don't need to deal with unquantified eprPredicates here, because if one of them is unit,
-	 *   then always all groundings of this clause are unit)
-	 */
-	private Map<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> mClauseLitToUnitPoints;
-	
 	private UnitPropagationData mUnitPropagationData;
 	
 	/*
@@ -203,9 +195,6 @@ public class EprClause {
 				// update all quantified predicate atoms according to the quantified equalities
 				// by excluding the corresponding points in their dawgs
 				ceql.addExceptions(quantifiedEqualities);
-
-//				// update the tracking of variable identities between quantified clause literals
-//				ceql.updateIdenticalVariablePositions();
 			}
 		}
 		
@@ -642,9 +631,6 @@ public class EprClause {
 
 		for (int i = 0; i < positiveQuantifiedOccurencesOfPred.size(); i++) {
 			ClauseEprQuantifiedLiteral pqOc = positiveQuantifiedOccurencesOfPred.get(i);
-//			IDawg<ApplicationTerm, TermVariable> refPointsCurrent = pqOc.getRefutedPoints();
-//			IDawg<ApplicationTerm, TermVariable> renamedRefPointsCurrent = mDawgFactory.renameColumnsAndRestoreConstants(refPointsCurrent, 
-//					pqOc.getTranslationFromClauseToEprPredicate(), pqOc.getArgumentsAsObjects(), pqOc.getEprPredicate().getTermVariablesForArguments());
 			IDawg<ApplicationTerm, TermVariable> conflictPointsCurrent = 
 					mDawgFactory.renameColumnsAndRestoreConstants(
 							getConflictPoints(), 
@@ -655,21 +641,15 @@ public class EprClause {
 				ClauseEprQuantifiedLiteral pqOcOther = positiveQuantifiedOccurencesOfPred.get(j);
 				assert pqOcOther != pqOc;
 				
-//				IDawg<ApplicationTerm, TermVariable> refPointsOther = pqOcOther.getRefutedPoints();
-//				IDawg<ApplicationTerm, TermVariable> renamedRefPointsOther = mDawgFactory.renameColumnsAndRestoreConstants(refPointsOther, 
-//					pqOcOther.getTranslationFromClauseToEprPredicate(), pqOcOther.getArgumentsAsObjects(), pqOcOther.getEprPredicate().getTermVariablesForArguments());
-				
 				IDawg<ApplicationTerm, TermVariable> conflictPointsOther = 
 					mDawgFactory.renameColumnsAndRestoreConstants(
 							getConflictPoints(), 
 							pqOcOther.getTranslationFromClauseToEprPredicate(), 
 							pqOcOther.getArgumentsAsObjects(), 
 							pqOcOther.getEprPredicate().getTermVariablesForArguments());
-
 				
 				IDawg<ApplicationTerm, TermVariable> intersection = 
 						conflictPointsCurrent.intersect(conflictPointsOther);
-//						renamedRefPointsCurrent.intersect(renamedRefPointsOther);
 				
 				if (intersection.isEmpty()) {
 					continue;

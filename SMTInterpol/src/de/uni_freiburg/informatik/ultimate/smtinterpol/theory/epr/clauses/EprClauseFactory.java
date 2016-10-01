@@ -194,11 +194,6 @@ public class EprClauseFactory {
 									mEprTheory.getTheory(), 
 									mEprTheory.getClausifier().getStackLevel());
 					
-//					// apply alpha renaming
-//					atom = (EprQuantifiedPredicateAtom) mEprTheory.getEprAtom(
-//							(ApplicationTerm) atom.getSMTFormula(mEprTheory.getTheory()), 
-//							0, mEprTheory.getClausifier().getStackLevel(), alphaRenamingIdentifier);
-					
 					newCl = cl.getPolarity() ? atom : atom.negate();
 				}
 				resLits.add(newCl);
@@ -211,22 +206,19 @@ public class EprClauseFactory {
 		return resLits;
 	}
 	
-	public EprAtom applyAlphaRenaming(EprAtom atom, Object mCollector) {
-//		boolean cutShort = false;
-//		if (cutShort)
-//			return idx;
+	public EprAtom applyAlphaRenaming(EprAtom atom, Object identifier) {
 		assert atom instanceof EprQuantifiedPredicateAtom || atom instanceof EprQuantifiedEqualityAtom;
 
 		TermTuple tt = atom.getArgumentsAsTermTuple();
 
 		HashMap<TermVariable, Term> sub;
-		// mCollector is a BuildClause-Object 
+		// mCollector is some object that is unique to the clause
 		// --> we need to apply the same substitution in every literal of the clause..
-		if (mCollector != null) {
-			sub = mBuildClauseToAlphaRenamingSub.get(mCollector);
+		if (identifier != null) {
+			sub = mBuildClauseToAlphaRenamingSub.get(identifier);
 			if (sub == null) {
 				sub = new HashMap<TermVariable, Term>();
-				mBuildClauseToAlphaRenamingSub.put(mCollector, sub);
+				mBuildClauseToAlphaRenamingSub.put(identifier, sub);
 			}
 		} else {
 			assert false;

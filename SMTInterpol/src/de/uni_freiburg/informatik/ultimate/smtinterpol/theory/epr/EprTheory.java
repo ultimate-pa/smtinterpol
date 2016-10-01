@@ -46,10 +46,6 @@ public class EprTheory implements ITheory {
 	Map<Literal, Clause> mGroundLiteralsToPropagateToReason = 
 			new HashMap<Literal, Clause>();
 
-
-//	Map<Object, HashMap<TermVariable, Term>> mBuildClauseToAlphaRenamingSub = 
-//			new HashMap<Object, HashMap<TermVariable,Term>>();
-
 	ScopedHashSet<DPLLAtom> mAtomsAddedToDPLLEngine = new ScopedHashSet<DPLLAtom>();
 	
 	EqualityManager mEqualityManager;
@@ -240,18 +236,12 @@ public class EprTheory implements ITheory {
 		Clause conflict = mStateManager.doPropagations();
 		if (conflict != null) {
 			if (! mLiteralsWaitingToBePropagated.isEmpty()) {
-				// the freshly propagated literals may be necessary for the conflict
-				// we have to delay reporting the conflict until those literal have been propagated
-//				assert mStoredConflict == null;
-//				mStoredConflict = conflict;
-//				mLogger.debug("EPRDEBUG: checkpoint: found conflict, but delaying the "
-//						+ "reporting because of non-empty propagation queueue " + conflict);
 				//TODO what do we do with that conflict?..
+				// (it may only be a conflict to the DPLLEngine after those literals have been propagated)
 				// for now, we just ignore it -- we will find it again.. or another one..
-				// storing it for later reporting does not work as in the commented code above
-				//  --> maybe need to understand the rules how getPropagatedLiterals() and checkpoint() are called..
+				//  --> maybe need to understand the rules better how getPropagatedLiterals() and checkpoint() are called..
 				return null;
-				}
+			}
 			assert EprHelpers.verifyConflictClause(conflict, mLogger);
 			return conflict;
 		}
@@ -526,38 +516,6 @@ public class EprTheory implements ITheory {
 		return pred;
 	}
 
-//	public ApplicationTerm applyAlphaRenaming(ApplicationTerm idx, Object mCollector) {
-////		boolean cutShort = false;
-////		if (cutShort)
-////			return idx;
-//		
-//		TermTuple tt = new TermTuple(idx.getParameters());
-//
-//		HashMap<TermVariable, Term> sub;
-//		// mCollector is a BuildClause-Object 
-//		// --> we need to apply the same substitution in every literal of the clause..
-//		if (mCollector != null) {
-//			sub = mBuildClauseToAlphaRenamingSub.get(mCollector);
-//			if (sub == null) {
-//				sub = new HashMap<TermVariable, Term>();
-//				mBuildClauseToAlphaRenamingSub.put(mCollector, sub);
-//			}
-//		} else {
-//			// if mCollector is null, this means we are in a unit clause (i think...), 
-//			// and we can just use a fresh substitution
-//			sub = new HashMap<TermVariable, Term>();
-//		}
-//
-//		for (TermVariable fv : idx.getFreeVars()) {
-//			if (sub.containsKey(fv))
-//				continue;
-//			sub.put(fv, mTheory.createFreshTermVariable(fv.getName(), fv.getSort()));
-//		}
-//		TermTuple ttSub = tt.applySubstitution(sub);
-//		ApplicationTerm subTerm = mTheory.term(idx.getFunction(), ttSub.terms);
-//		return subTerm;
-//	}
-
 	public void notifyAboutNewClause(Object buildClause) {
 		// TODO: probably remove
 //		mBuildClauseToAlphaRenamingSub.put(buildClause, new HashMap<TermVariable, Term>());
@@ -661,7 +619,6 @@ public class EprTheory implements ITheory {
 				mResult = new HashSet<Literal>();
 				mIsResultGround = true;
 				for (Literal l : currentClause) {
-					//						Literal sl = getSubstitutedLiteral(sub, l);
 					Literal sl = EprHelpers.applySubstitution(sub, l, EprTheory.this, true);
 					if (sl.getAtom() instanceof TrueAtom) {
 						if (sl.getSign() == 1) {
@@ -743,7 +700,6 @@ public class EprTheory implements ITheory {
 						return liPositive ? eea : eea.negate();
 					}
 				} else {
-					// li.getAtom() is an EprQuantifiedPredicateAtom
 					EprPredicate liPred = ((EprQuantifiedPredicateAtom) li.getAtom()).getEprPredicate();
 
 					EprAtom ea = null;
