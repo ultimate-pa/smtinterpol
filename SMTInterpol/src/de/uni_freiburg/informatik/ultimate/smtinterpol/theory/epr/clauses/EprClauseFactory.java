@@ -36,14 +36,6 @@ public class EprClauseFactory {
 	 */
 	private ScopedHashMap<Set<Literal>, EprClause> mLiteralsToClause = new ScopedHashMap<Set<Literal>, EprClause>();
 	
-	/**
-	 * Used for alpha renaming, may be obsolete after some more reworking.
-	 */
-	private Integer clauseCounter = 0;
-	private Map<Object, HashMap<TermVariable, Term>> mBuildClauseToAlphaRenamingSub = 
-			new HashMap<Object, HashMap<TermVariable,Term>>();
-
-	
 	public EprClauseFactory(EprTheory eprTheory) {
 		mEprTheory = eprTheory;
 	}
@@ -137,18 +129,7 @@ public class EprClauseFactory {
 	 */
 	public EprClause getEprClause(Set<Literal> literals) {
 		
-		Set<Literal> alphaRenamedLiterals = new HashSet<Literal>();
-		for (Literal l : literals) {
-			if (l.getAtom() instanceof EprQuantifiedEqualityAtom 
-					|| l.getAtom() instanceof EprQuantifiedPredicateAtom) {
-				EprAtom arAtom = applyAlphaRenaming((EprAtom) l.getAtom(), clauseCounter);
-				Literal arLiteral = l.getSign() == 1 ? arAtom : arAtom.negate();
-				alphaRenamedLiterals.add(arLiteral);
-			} else {
-				alphaRenamedLiterals.add(l);
-			}
-		}
-		clauseCounter++;
+		Set<Literal> alphaRenamedLiterals = alphaRenameLiterals(literals);
 		
 		EprClause result = mLiteralsToClause.get(alphaRenamedLiterals);
 		if (result == null) {
@@ -160,7 +141,7 @@ public class EprClauseFactory {
 		}
 		return result;
 	}
-	
+
 	public void push() {
 		mLiteralsToClause.beginScope();
 	}
@@ -206,27 +187,31 @@ public class EprClauseFactory {
 		return resLits;
 	}
 	
-	public EprAtom applyAlphaRenaming(EprAtom atom, Object identifier) {
-		assert atom instanceof EprQuantifiedPredicateAtom || atom instanceof EprQuantifiedEqualityAtom;
-
-		TermTuple tt = atom.getArgumentsAsTermTuple();
-
-		HashMap<TermVariable, Term> sub;
-		// mCollector is some object that is unique to the clause
-		// --> we need to apply the same substitution in every literal of the clause..
-		if (identifier != null) {
-			sub = mBuildClauseToAlphaRenamingSub.get(identifier);
-			if (sub == null) {
-				sub = new HashMap<TermVariable, Term>();
-				mBuildClauseToAlphaRenamingSub.put(identifier, sub);
+	/**
+	 * Applies alpha renaming to a set of literals assuming they will form one clause.
+	 *  --> keeps one substitution that is applied to all literals and updated when a new
+	 *    free variable is encountered.
+	 * @param literals
+	 * @return
+	 */
+	private Set<Literal> alphaRenameLiterals(Set<Literal> literals) {
+		Set<Literal> alphaRenamedLiterals = new HashSet<Literal>();
+		Map<TermVariable, Term> substitution = new HashMap<TermVariable, Term>();
+		for (Literal l : literals) {
+			if (l.getAtom() instanceof EprQuantifiedEqualityAtom 
+					|| l.getAtom() instanceof EprQuantifiedPredicateAtom) {
+				EprAtom arAtom = applyAlphaRenamingToQuantifiedEprAtom((EprAtom) l.getAtom(), substitution);
+				Literal arLiteral = l.getSign() == 1 ? arAtom : arAtom.negate();
+				alphaRenamedLiterals.add(arLiteral);
+			} else {
+				alphaRenamedLiterals.add(l);
 			}
-		} else {
-			assert false;
-			sub = null;
-//			// if mCollector is null, this means we are in a unit clause (i think...), 
-//			// and we can just use a fresh substitution
-//			sub = new HashMap<TermVariable, Term>();
 		}
+		return alphaRenamedLiterals;
+	}
+
+	private EprAtom applyAlphaRenamingToQuantifiedEprAtom(EprAtom atom, Map<TermVariable, Term> sub) {
+		assert atom instanceof EprQuantifiedPredicateAtom || atom instanceof EprQuantifiedEqualityAtom;
 
 		for (Term t : atom.getArguments()) {
 			if ((t instanceof ApplicationTerm) || sub.containsKey(t)) {
@@ -235,6 +220,8 @@ public class EprClauseFactory {
 			TermVariable tv = (TermVariable) t;
 			sub.put(tv, mEprTheory.getTheory().createFreshTermVariable(tv.getName(), tv.getSort()));
 		}
+
+		TermTuple tt = atom.getArgumentsAsTermTuple();
 		TermTuple ttSub = tt.applySubstitution(sub);
 		FunctionSymbol fs = ((ApplicationTerm) atom.getSMTFormula(mEprTheory.getTheory())).getFunction();
 		ApplicationTerm subTerm = mEprTheory.getTheory().term(fs, ttSub.terms);

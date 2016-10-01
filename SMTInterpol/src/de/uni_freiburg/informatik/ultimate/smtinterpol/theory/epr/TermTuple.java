@@ -3,6 +3,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -138,8 +139,7 @@ public class TermTuple {
 		return result;
 	}
 	
-	@Deprecated
-	public TermTuple applySubstitution(HashMap<TermVariable, Term> sub) {
+	public TermTuple applySubstitution(Map<TermVariable, Term> sub) {
 		Term[] newTerms = new Term[terms.length];
 		for (int i = 0; i < newTerms.length; i++)
 			if (terms[i] instanceof TermVariable
