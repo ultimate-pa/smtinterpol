@@ -484,7 +484,9 @@ public class EprClause {
 	}
 
 	public IDawg<ApplicationTerm, TermVariable> getConflictPoints() {
-		assert !mClauseStateIsDirty;
+		if (mClauseStateIsDirty) {
+			determineClauseState(null);
+		}
 		assert isConflict();
 		assert mConflictPoints != null : "this should have been set somewhere..";
 		return mConflictPoints;
@@ -637,6 +639,7 @@ public class EprClause {
 
 	private EprClause factorWithPolarity(List<ClauseEprQuantifiedLiteral> positiveQuantifiedOccurencesOfPred,
 			List<ClauseEprGroundLiteral> positiveGroundOccurencesOfPred) {
+
 		for (int i = 0; i < positiveQuantifiedOccurencesOfPred.size(); i++) {
 			ClauseEprQuantifiedLiteral pqOc = positiveQuantifiedOccurencesOfPred.get(i);
 //			IDawg<ApplicationTerm, TermVariable> refPointsCurrent = pqOc.getRefutedPoints();

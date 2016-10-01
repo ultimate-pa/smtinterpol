@@ -143,6 +143,7 @@ public class DecideStackManager {
 	 * @return
 	 */
 	private Clause chooseGroundingFromConflict(EprClause conflicts) {
+		
 		Set<Clause> conflictGroundings = conflicts.getGroundings(conflicts.getConflictPoints());
 		//TODO: pick smart?
 		return conflictGroundings.iterator().next();
