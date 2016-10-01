@@ -1,18 +1,24 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
 
@@ -29,6 +35,14 @@ public class EprClauseFactory {
 	 * constructed (and which).
 	 */
 	private ScopedHashMap<Set<Literal>, EprClause> mLiteralsToClause = new ScopedHashMap<Set<Literal>, EprClause>();
+	
+	/**
+	 * Used for alpha renaming, may be obsolete after some more reworking.
+	 */
+	private Integer clauseCounter = 0;
+	private Map<Object, HashMap<TermVariable, Term>> mBuildClauseToAlphaRenamingSub = 
+			new HashMap<Object, HashMap<TermVariable,Term>>();
+
 	
 	public EprClauseFactory(EprTheory eprTheory) {
 		mEprTheory = eprTheory;
@@ -113,16 +127,34 @@ public class EprClauseFactory {
 	}
 
 	/**
-	 * makes sure that for the same set of literals only one clause is constructed.
-	 * Note that this may return a EprDerivedClause -- if there already is one for the set of Literals
-	 * (copy from the old getBaseClause method)
+	 * Makes sure that for the same set of literals only one clause is constructed.
+	 * Also applies alpha renaming sucht that the free variables of every newly created EprClause
+	 * are not used by any other EprClause (necessary to obtain the -most general- unifier for first-
+	 * order resolution).
+	 * 
+	 * TODO: it would be even better if instead of "same set of literals" the criterion would be
+	 *    "same set of literals modulo alpha renaming".
 	 */
-	public EprClause getEprClause(Set<Literal> newLits) {
-		EprClause result = mLiteralsToClause.get(newLits);
+	public EprClause getEprClause(Set<Literal> literals) {
+		
+		Set<Literal> alphaRenamedLiterals = new HashSet<Literal>();
+		for (Literal l : literals) {
+			if (l.getAtom() instanceof EprQuantifiedEqualityAtom 
+					|| l.getAtom() instanceof EprQuantifiedPredicateAtom) {
+				EprAtom arAtom = applyAlphaRenaming((EprAtom) l.getAtom(), clauseCounter);
+				Literal arLiteral = l.getSign() == 1 ? arAtom : arAtom.negate();
+				alphaRenamedLiterals.add(arLiteral);
+			} else {
+				alphaRenamedLiterals.add(l);
+			}
+		}
+		clauseCounter++;
+		
+		EprClause result = mLiteralsToClause.get(alphaRenamedLiterals);
 		if (result == null) {
-			result = new EprClause(newLits, mEprTheory);
+			result = new EprClause(alphaRenamedLiterals, mEprTheory);
 			mEprTheory.getLogger().debug("EPRDEBUG (EprClauseFactory): creating new clause " + result);
-			mLiteralsToClause.put(newLits, result);
+			mLiteralsToClause.put(alphaRenamedLiterals, result);
 		} else {
 			mEprTheory.getLogger().debug("EPRDEBUG (EprClauseFactory): clause has been added before " + result);
 		}
@@ -162,10 +194,10 @@ public class EprClauseFactory {
 									mEprTheory.getTheory(), 
 									mEprTheory.getClausifier().getStackLevel());
 					
-					// apply alpha renaming
-					atom = (EprQuantifiedPredicateAtom) mEprTheory.getEprAtom(
-							(ApplicationTerm) atom.getSMTFormula(mEprTheory.getTheory()), 
-							0, mEprTheory.getClausifier().getStackLevel(), alphaRenamingIdentifier);
+//					// apply alpha renaming
+//					atom = (EprQuantifiedPredicateAtom) mEprTheory.getEprAtom(
+//							(ApplicationTerm) atom.getSMTFormula(mEprTheory.getTheory()), 
+//							0, mEprTheory.getClausifier().getStackLevel(), alphaRenamingIdentifier);
 					
 					newCl = cl.getPolarity() ? atom : atom.negate();
 				}
@@ -177,5 +209,44 @@ public class EprClauseFactory {
 			}
 		}
 		return resLits;
+	}
+	
+	public EprAtom applyAlphaRenaming(EprAtom atom, Object mCollector) {
+//		boolean cutShort = false;
+//		if (cutShort)
+//			return idx;
+		assert atom instanceof EprQuantifiedPredicateAtom || atom instanceof EprQuantifiedEqualityAtom;
+
+		TermTuple tt = atom.getArgumentsAsTermTuple();
+
+		HashMap<TermVariable, Term> sub;
+		// mCollector is a BuildClause-Object 
+		// --> we need to apply the same substitution in every literal of the clause..
+		if (mCollector != null) {
+			sub = mBuildClauseToAlphaRenamingSub.get(mCollector);
+			if (sub == null) {
+				sub = new HashMap<TermVariable, Term>();
+				mBuildClauseToAlphaRenamingSub.put(mCollector, sub);
+			}
+		} else {
+			assert false;
+			sub = null;
+//			// if mCollector is null, this means we are in a unit clause (i think...), 
+//			// and we can just use a fresh substitution
+//			sub = new HashMap<TermVariable, Term>();
+		}
+
+		for (Term t : atom.getArguments()) {
+			if ((t instanceof ApplicationTerm) || sub.containsKey(t)) {
+				continue;
+			}
+			TermVariable tv = (TermVariable) t;
+			sub.put(tv, mEprTheory.getTheory().createFreshTermVariable(tv.getName(), tv.getSort()));
+		}
+		TermTuple ttSub = tt.applySubstitution(sub);
+		FunctionSymbol fs = ((ApplicationTerm) atom.getSMTFormula(mEprTheory.getTheory())).getFunction();
+		ApplicationTerm subTerm = mEprTheory.getTheory().term(fs, ttSub.terms);
+		EprAtom subAtom = mEprTheory.getEprAtom(subTerm, 0, mEprTheory.getClausifier().getStackLevel()); //TODO hash
+		return subAtom;
 	}
 }

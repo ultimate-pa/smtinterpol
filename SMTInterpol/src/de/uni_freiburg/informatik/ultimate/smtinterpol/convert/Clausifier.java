@@ -1253,7 +1253,7 @@ public class Clausifier {
 					//     (i.e. only the EPR-theory, not the DPLLEngine, will know it)
 					mCollector.getTracker().save();
 //					DPLLAtom eqAtom = eq.getLiteral();
-					DPLLAtom eprAtom = mEprTheory.getEprAtom((ApplicationTerm) idx, 0, mEngine.getAssertionStackLevel(), mCollector);
+					DPLLAtom eprAtom = mEprTheory.getEprAtom((ApplicationTerm) idx, 0, mEngine.getAssertionStackLevel());
 //					mCollector.getTracker().eq(lhs, rhs, eqAtom);
 					mCollector.addLiteral(
 							positive ? eprAtom : eprAtom.negate(), mTerm);
@@ -2024,11 +2024,11 @@ public class Clausifier {
 					"AUX(" + smtFormula.toString() + ")", 
 					paramTypes,
 					mTheory.getBooleanSort());
-//			ApplicationTerm auxTerm = mTheory.term(fs, smtFormula.getFreeVars());
-//			atom = mEprTheory.getEprAtom(auxTerm, 0, mStackLevel, null);
+			ApplicationTerm auxTerm = mTheory.term(fs, smtFormula.getFreeVars());
+			atom = mEprTheory.getEprAtom(auxTerm, 0, mStackLevel);
 
-			EprPredicate eprPred = new EprPredicate(fs, mEprTheory);
-			atom = eprPred.getAtomForTermTuple(new TermTuple(smtFormula.getFreeVars()), mTheory, mStackLevel);
+//			EprPredicate eprPred = new EprPredicate(fs, mEprTheory);
+//			atom = eprPred.getAtomForTermTuple(new TermTuple(smtFormula.getFreeVars()), mTheory, mStackLevel);
 		} else {
 		//alex end
 			atom = new NamedAtom(smtFormula, mStackLevel);
@@ -2656,7 +2656,7 @@ public class Clausifier {
 
 					//FIXME: how to tell getEprAtom which clause we are in????
 //					EprAtom atom = mEprTheory.getEprAtom(term, 0, mEngine.getAssertionStackLevel());//TODO: replace 0 by hash value
-					EprAtom atom = mEprTheory.getEprAtom(term, 0, mEngine.getAssertionStackLevel(), null);//TODO: replace 0 by hash value
+					EprAtom atom = mEprTheory.getEprAtom(term, 0, mStackLevel);//TODO: replace 0 by hash value
 
 					lit = atom;
 //					if (!atom.isQuantified)

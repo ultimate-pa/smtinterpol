@@ -47,8 +47,8 @@ public class EprTheory implements ITheory {
 			new HashMap<Literal, Clause>();
 
 
-	Map<Object, HashMap<TermVariable, Term>> mBuildClauseToAlphaRenamingSub = 
-			new HashMap<Object, HashMap<TermVariable,Term>>();
+//	Map<Object, HashMap<TermVariable, Term>> mBuildClauseToAlphaRenamingSub = 
+//			new HashMap<Object, HashMap<TermVariable,Term>>();
 
 	ScopedHashSet<DPLLAtom> mAtomsAddedToDPLLEngine = new ScopedHashSet<DPLLAtom>();
 	
@@ -489,18 +489,15 @@ public class EprTheory implements ITheory {
 		return true;
 	}
 
-	public EprAtom getEprAtom(ApplicationTerm idx, int hash, int assertionStackLevel, Object mCollector) {
+	public EprAtom getEprAtom(ApplicationTerm idx, int hash, int assertionStackLevel) {
 		if (idx.getFunction().getName().equals("=")) {
 			assert idx.getFreeVars().length > 0;
-		    ApplicationTerm subTerm = applyAlphaRenaming(idx, mCollector);
-			return new EprQuantifiedEqualityAtom(subTerm, hash, assertionStackLevel);
+//		    ApplicationTerm subTerm = applyAlphaRenaming(idx, mCollector);
+			return new EprQuantifiedEqualityAtom(idx, hash, assertionStackLevel);
 		} else {
-			EprPredicate pred = mFunctionSymbolToEprPredicate.get(idx.getFunction());
-			if (pred == null) {
-				pred = new EprPredicate(idx.getFunction(), this);
-				mFunctionSymbolToEprPredicate.put(idx.getFunction(), pred);
-				mStateManager.addNewEprPredicate(pred);
-			}
+
+			EprPredicate pred = getEprPredicate(idx.getFunction());
+
 			if (idx.getFreeVars().length == 0) {
 				EprGroundPredicateAtom egpa = 
 						(EprGroundPredicateAtom) pred.getAtomForTermTuple(new TermTuple(idx.getParameters()), 
@@ -509,49 +506,61 @@ public class EprTheory implements ITheory {
 				pred.addDPLLAtom(egpa);
 				return egpa;
 			} else {
-				ApplicationTerm substitutedTerm = applyAlphaRenaming(idx, mCollector);
+//				ApplicationTerm substitutedTerm = applyAlphaRenaming(idx, mCollector);
 				return pred.getAtomForTermTuple(
-						new TermTuple(substitutedTerm.getParameters()), 
+						new TermTuple(idx.getParameters()), 
+//						new TermTuple(substitutedTerm.getParameters()), 
 						mTheory, 
 						assertionStackLevel);
 			}
 		}
 	}
 
-	public ApplicationTerm applyAlphaRenaming(ApplicationTerm idx, Object mCollector) {
-//		boolean cutShort = false;
-//		if (cutShort)
-//			return idx;
-		
-		TermTuple tt = new TermTuple(idx.getParameters());
-
-		HashMap<TermVariable, Term> sub;
-		// mCollector is a BuildClause-Object 
-		// --> we need to apply the same substitution in every literal of the clause..
-		if (mCollector != null) {
-			sub = mBuildClauseToAlphaRenamingSub.get(mCollector);
-			if (sub == null) {
-				sub = new HashMap<TermVariable, Term>();
-				mBuildClauseToAlphaRenamingSub.put(mCollector, sub);
-			}
-		} else {
-			// if mCollector is null, this means we are in a unit clause (i think...), 
-			// and we can just use a fresh substitution
-			sub = new HashMap<TermVariable, Term>();
+	private EprPredicate getEprPredicate(FunctionSymbol fs) {
+		EprPredicate pred = mFunctionSymbolToEprPredicate.get(fs);
+		if (pred == null) {
+			pred = new EprPredicate(fs, this);
+			mFunctionSymbolToEprPredicate.put(fs, pred);
+			mStateManager.addNewEprPredicate(pred);
 		}
-
-		for (TermVariable fv : idx.getFreeVars()) {
-			if (sub.containsKey(fv))
-				continue;
-			sub.put(fv, mTheory.createFreshTermVariable(fv.getName(), fv.getSort()));
-		}
-		TermTuple ttSub = tt.applySubstitution(sub);
-		ApplicationTerm subTerm = mTheory.term(idx.getFunction(), ttSub.terms);
-		return subTerm;
+		return pred;
 	}
 
+//	public ApplicationTerm applyAlphaRenaming(ApplicationTerm idx, Object mCollector) {
+////		boolean cutShort = false;
+////		if (cutShort)
+////			return idx;
+//		
+//		TermTuple tt = new TermTuple(idx.getParameters());
+//
+//		HashMap<TermVariable, Term> sub;
+//		// mCollector is a BuildClause-Object 
+//		// --> we need to apply the same substitution in every literal of the clause..
+//		if (mCollector != null) {
+//			sub = mBuildClauseToAlphaRenamingSub.get(mCollector);
+//			if (sub == null) {
+//				sub = new HashMap<TermVariable, Term>();
+//				mBuildClauseToAlphaRenamingSub.put(mCollector, sub);
+//			}
+//		} else {
+//			// if mCollector is null, this means we are in a unit clause (i think...), 
+//			// and we can just use a fresh substitution
+//			sub = new HashMap<TermVariable, Term>();
+//		}
+//
+//		for (TermVariable fv : idx.getFreeVars()) {
+//			if (sub.containsKey(fv))
+//				continue;
+//			sub.put(fv, mTheory.createFreshTermVariable(fv.getName(), fv.getSort()));
+//		}
+//		TermTuple ttSub = tt.applySubstitution(sub);
+//		ApplicationTerm subTerm = mTheory.term(idx.getFunction(), ttSub.terms);
+//		return subTerm;
+//	}
+
 	public void notifyAboutNewClause(Object buildClause) {
-		mBuildClauseToAlphaRenamingSub.put(buildClause, new HashMap<TermVariable, Term>());
+		// TODO: probably remove
+//		mBuildClauseToAlphaRenamingSub.put(buildClause, new HashMap<TermVariable, Term>());
 	}
 	
 	/**
