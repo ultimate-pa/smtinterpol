@@ -49,7 +49,7 @@ public class EprClauseFactory {
 	 *           pivot2 is an epr literal that contradicts pivot1, it may be ground
 	 * @return the resolvent of pivot1.getEprClause and pivot1.getEprClause with pivot1 and pivot2 as pivots
 	 */
-	public EprClause createResolvent(ClauseEprQuantifiedLiteral pivot1, ClauseEprLiteral pivot2) {
+	public EprClause createResolvent(ClauseEprLiteral pivot1, ClauseEprLiteral pivot2) {
 		assert pivot1.getPolarity() != pivot2.getPolarity();
 		
 		int arity = pivot1.getArguments().size();

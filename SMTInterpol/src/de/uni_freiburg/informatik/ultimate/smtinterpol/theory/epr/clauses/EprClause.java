@@ -626,30 +626,30 @@ public class EprClause {
 	}
 
 
-	private EprClause factorWithPolarity(List<ClauseEprQuantifiedLiteral> positiveQuantifiedOccurencesOfPred,
-			List<ClauseEprGroundLiteral> positiveGroundOccurencesOfPred) {
+	private EprClause factorWithPolarity(List<ClauseEprQuantifiedLiteral> quantifiedOccurencesOfPred,
+			List<ClauseEprGroundLiteral> groundOccurencesOfPred) {
 
-		for (int i = 0; i < positiveQuantifiedOccurencesOfPred.size(); i++) {
-			ClauseEprQuantifiedLiteral pqOc = positiveQuantifiedOccurencesOfPred.get(i);
-			IDawg<ApplicationTerm, TermVariable> conflictPointsCurrent = 
-					mDawgFactory.renameColumnsAndRestoreConstants(
+		for (int i = 0; i < quantifiedOccurencesOfPred.size(); i++) {
+			ClauseEprQuantifiedLiteral pqOc = quantifiedOccurencesOfPred.get(i);
+			IDawg<ApplicationTerm, TermVariable> refutedPointsOfCurrentCandidateLiteral = 
+					mDawgFactory.translateClauseSigToPredSig(
 							getConflictPoints(), 
 							pqOc.getTranslationFromClauseToEprPredicate(), 
 							pqOc.getArgumentsAsObjects(), 
 							pqOc.getEprPredicate().getTermVariablesForArguments());
 			for (int j = 0; j < i; j++) {
-				ClauseEprQuantifiedLiteral pqOcOther = positiveQuantifiedOccurencesOfPred.get(j);
+				ClauseEprQuantifiedLiteral pqOcOther = quantifiedOccurencesOfPred.get(j);
 				assert pqOcOther != pqOc;
 				
-				IDawg<ApplicationTerm, TermVariable> conflictPointsOther = 
-					mDawgFactory.renameColumnsAndRestoreConstants(
+				IDawg<ApplicationTerm, TermVariable> refutedPointsOfOtherCandidateLiteral = 
+					mDawgFactory.translateClauseSigToPredSig(
 							getConflictPoints(), 
 							pqOcOther.getTranslationFromClauseToEprPredicate(), 
 							pqOcOther.getArgumentsAsObjects(), 
 							pqOcOther.getEprPredicate().getTermVariablesForArguments());
 				
 				IDawg<ApplicationTerm, TermVariable> intersection = 
-						conflictPointsCurrent.intersect(conflictPointsOther);
+						refutedPointsOfCurrentCandidateLiteral.intersect(refutedPointsOfOtherCandidateLiteral);
 				
 				if (intersection.isEmpty()) {
 					continue;
@@ -659,11 +659,14 @@ public class EprClause {
 				return mEprTheory.getEprClauseFactory().getFactoredClause(pqOc, pqOcOther);
 			}
 
-			for (ClauseEprGroundLiteral pgOc : positiveGroundOccurencesOfPred) {
-				if (! pqOc.getRefutedPoints().accepts(
+			for (ClauseEprGroundLiteral pgOc : groundOccurencesOfPred) {
+				// there is only one refuted point of the other candidate literal here
+				if (! refutedPointsOfCurrentCandidateLiteral.accepts(
 						EprHelpers.convertTermListToConstantList(pgOc.getArguments()))) {
+					// the candidate literals are not unifiable
 					continue;
 				}
+				
 				// we can actually factor
 				mEprTheory.getLogger().debug("EPRDEBUG: (EprClause): factoring " + this);
 				return mEprTheory.getEprClauseFactory().getFactoredClause(pqOc, pgOc);

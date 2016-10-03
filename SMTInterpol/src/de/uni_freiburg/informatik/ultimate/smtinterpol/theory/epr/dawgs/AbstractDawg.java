@@ -55,6 +55,7 @@ public abstract class AbstractDawg<LETTER, COLNAMES> implements IDawg<LETTER, CO
 	public int getArity() {
 		return mArity;
 	}
+
 	
 	@Override
 	public void addAll(IDawg<LETTER, COLNAMES> dawg) {

@@ -134,6 +134,7 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 
 	@Override
 	public boolean accepts(List<LETTER> word) {
+		assert mArity == word.size();
 		return mBacking.contains(word);
 	}
 

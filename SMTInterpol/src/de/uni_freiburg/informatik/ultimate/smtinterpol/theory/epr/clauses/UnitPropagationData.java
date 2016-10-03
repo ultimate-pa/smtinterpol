@@ -34,7 +34,7 @@ public class UnitPropagationData {
 				DslBuilder propB = new DslBuilder(
 						ceql.getPolarity(), 
 						ceql.getEprPredicate(),
-						dawgFactory.renameColumnsAndRestoreConstants(
+						dawgFactory.translateClauseSigToPredSig(
 								en.getValue(), 
 								ceql.getTranslationFromClauseToEprPredicate(), 
 								ceql.getArgumentsAsObjects(),

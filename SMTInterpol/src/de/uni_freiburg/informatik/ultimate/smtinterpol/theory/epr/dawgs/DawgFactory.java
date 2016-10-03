@@ -98,7 +98,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 	 * @return
 	 */
 	@SuppressWarnings("unchecked")
-	public IDawg<LETTER, COLNAMES> renameSelectAndBlowup(
+	public IDawg<LETTER, COLNAMES> translatePredSigToClauseSig(
 			IDawg<LETTER, COLNAMES> dawg, Map<COLNAMES, Object> translation, SortedSet<COLNAMES> targetSignature) {
 
 		COLNAMES colNamesInstance = dawg.getColnames().first();
@@ -193,7 +193,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 	 * @return
 	 */
 	@SuppressWarnings("unchecked")
-	public IDawg<LETTER, COLNAMES> renameColumnsAndRestoreConstants(
+	public IDawg<LETTER, COLNAMES> translateClauseSigToPredSig(
 			IDawg<LETTER, COLNAMES> other, 
 			Map<COLNAMES, COLNAMES> translation, 
 			List<Object> argList, 
@@ -300,7 +300,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 			translation3.put("beta", "bla");
 			translation3.put("gamma", "blub");
 	
-			IDawg<Character, String> d3 = df.renameSelectAndBlowup(d2, translation3, d2.getColnames());
+			IDawg<Character, String> d3 = df.translatePredSigToClauseSig(d2, translation3, d2.getColnames());
 	
 			System.out.println("d3: rnsP(d2, {alpha -> bla, beta -> bla, gamma -> blub)");
 			System.out.println("expecting: (bla, blub) {ab}");
@@ -311,7 +311,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 			translation4.put("beta", "bla");
 			translation4.put("gamma", 'a');
 	
-			IDawg<Character, String> d4 = df.renameSelectAndBlowup(d2, translation4, d2.getColnames());
+			IDawg<Character, String> d4 = df.translatePredSigToClauseSig(d2, translation4, d2.getColnames());
 	
 			System.out.println("d4: rnsP(d2, {alpha -> bla, beta -> bla, gamma -> 'a')");
 			System.out.println("expecting: (bla) {}");
@@ -322,7 +322,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 			translation5.put("beta", "bla");
 			translation5.put("gamma", 'b');
 	
-			IDawg<Character, String> d5 = df.renameSelectAndBlowup(d2, translation5, d2.getColnames());
+			IDawg<Character, String> d5 = df.translatePredSigToClauseSig(d2, translation5, d2.getColnames());
 	
 			System.out.println("d5: rnsP(d2, {alpha -> bla, beta -> bla, gamma -> 'b')");
 			System.out.println("expecting: (bla) {a}");
@@ -355,7 +355,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 			newSignature1.add("cinque");
 
 			
-			IDawg<Character, String> d6 = df.renameColumnsAndRestoreConstants(d2, translation6, argList1, newSignature1);
+			IDawg<Character, String> d6 = df.translateClauseSigToPredSig(d2, translation6, argList1, newSignature1);
 
 			System.out.println("d6: rnRc(d2, {alpha -> uno, beta -> due, gamma -> tre), "
 					+ "(beta, B, gamma, A, alpha)" +  newSignature1);

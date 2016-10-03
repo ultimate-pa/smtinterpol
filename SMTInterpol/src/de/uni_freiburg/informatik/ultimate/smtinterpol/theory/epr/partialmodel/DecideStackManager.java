@@ -307,25 +307,33 @@ public class DecideStackManager {
 	private EprClause explainConflictOrSkip(EprClause conflict, DecideStackPropagatedLiteral propagatedLiteral) {
 		
 		//look for the ClauseLiteral that propagatedLiteral conflicts with
-		Set<ClauseEprQuantifiedLiteral> relevantConfLits = new HashSet<ClauseEprQuantifiedLiteral>();
+		Set<ClauseEprLiteral> relevantConfLits = new HashSet<ClauseEprLiteral>();
 		for (ClauseLiteral cl : conflict.getLiterals()) {
-			if (!(cl instanceof ClauseEprQuantifiedLiteral)) {
+			if (!(cl instanceof ClauseEprLiteral)) {
 				continue;
 			}
-			ClauseEprQuantifiedLiteral ceql = (ClauseEprQuantifiedLiteral) cl;
-			if (!(ceql.getPartiallyConflictingDecideStackLiterals().contains(propagatedLiteral))) {
+			ClauseEprLiteral cel = (ClauseEprLiteral) cl;
+			if (!(cel.getPartiallyConflictingDecideStackLiterals().contains(propagatedLiteral))) {
 				continue;
 			}
-			IDawg<ApplicationTerm, TermVariable> propLitDawgInClauseSignature = 
-					mEprTheory.getDawgFactory().renameSelectAndBlowup(
-							propagatedLiteral.getDawg(), 
-							ceql.getTranslationFromEprPredicateToClause(), 
-							conflict.getVariables());
-			IDawg<ApplicationTerm, TermVariable> intersection = propLitDawgInClauseSignature.intersect(conflict.getConflictPoints());
-			if (intersection.isEmpty()) {
-				continue;
+			
+			if (cel instanceof ClauseEprQuantifiedLiteral) {
+				ClauseEprQuantifiedLiteral ceql = (ClauseEprQuantifiedLiteral) cel;
+				IDawg<ApplicationTerm, TermVariable> propLitDawgInClauseSignature = 
+						mEprTheory.getDawgFactory().translatePredSigToClauseSig(
+								propagatedLiteral.getDawg(), 
+								ceql.getTranslationFromEprPredicateToClause(), 
+								conflict.getVariables());
+				IDawg<ApplicationTerm, TermVariable> intersection = propLitDawgInClauseSignature.intersect(conflict.getConflictPoints());
+				if (intersection.isEmpty()) {
+					continue;
+				}
+				relevantConfLits.add(cel);
+			} else {
+				// cel is a ground epr literal, and the propagatedLiteral is listed in partially conflicting literals 
+				// with cel -- this means they conflict on all conflict points (because all variables are "don't care for cel).
+				relevantConfLits.add(cel);
 			}
-			relevantConfLits.add(ceql);
 		}
 		
 		if (relevantConfLits.size() > 1) {
@@ -333,7 +341,7 @@ public class DecideStackManager {
 			return null;
 		} else if (relevantConfLits.size() == 1) {
 			// normal explain case --> return the resolvent
-			ClauseEprQuantifiedLiteral confLit = relevantConfLits.iterator().next();
+			ClauseEprLiteral confLit = relevantConfLits.iterator().next();
 			EprClause resolvent = mEprTheory.getEprClauseFactory().createResolvent(confLit, propagatedLiteral.getReasonClauseLit());
 			assert resolvent.isConflict();
 			return resolvent;

@@ -124,21 +124,24 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	 */
 	public IDawg<ApplicationTerm, TermVariable> getFulfillablePoints(DecideStackLiteral decideStackBorder) {
 		assert !mIsStateDirty;
-		assert mFulfillablePoints.getColnames().equals(mEprClause.getVariables());
+		assert mFulfillablePoints.getColnames().equals(mEprClause.getVariables()) :
+			"fulfillable points must be given in clause signature";
 		IDawg<ApplicationTerm, TermVariable> result = mFulfillablePoints;
 		return result;
 	}
 
 	public IDawg<ApplicationTerm, TermVariable> getFulfilledPoints() {
 		assert !mIsStateDirty;
-		assert mFulfilledPoints.getColnames().equals(mEprClause.getVariables());
+		assert mFulfilledPoints.getColnames().equals(mEprClause.getVariables()) :
+			"fulfilled points must be given in clause signature";
 		IDawg<ApplicationTerm, TermVariable> result = mFulfilledPoints;
 		return result;
 	}
 
 	public IDawg<ApplicationTerm, TermVariable> getRefutedPoints() {
 		assert !mIsStateDirty;
-		assert mRefutedPoints.getColnames().equals(mEprClause.getVariables());
+		assert mRefutedPoints.getColnames().equals(mEprClause.getVariables()) : 
+			"refuted points must be given in clause signature";
 		IDawg<ApplicationTerm, TermVariable> result = mRefutedPoints;
 		return result;
 	}
@@ -174,7 +177,7 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 		}
 		// right now, the refuted points are in terms of the EprPredicates signature, we need a renaming
 		// and possibly select and projects to match the signature of the clause.
-		refutedPoints = mDawgFactory.renameSelectAndBlowup(refutedPoints, mTranslationForClause, mEprClause.getVariables());
+		refutedPoints = mDawgFactory.translatePredSigToClauseSig(refutedPoints, mTranslationForClause, mEprClause.getVariables());
 
 		// collect the points in a dawg with the predicate's signature
 		IDawg<ApplicationTerm, TermVariable> fulfilledPoints = 
@@ -189,7 +192,7 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 		}
 		// right now, the fulfilled points are in terms of the EprPredicates signature, we need a renaming
 		// and possibly select and projects to match the signature of the clause.
-		fulfilledPoints = mDawgFactory.renameSelectAndBlowup(fulfilledPoints, mTranslationForClause, mEprClause.getVariables());
+		fulfilledPoints = mDawgFactory.translatePredSigToClauseSig(fulfilledPoints, mTranslationForClause, mEprClause.getVariables());
 
 		mFulfillablePoints = mEprTheory.getDawgFactory().createFullDawg(mEprClause.getVariables());
 		assert EprHelpers.verifySortsOfPoints(mFulfillablePoints, mEprClause.getVariables());
@@ -249,7 +252,7 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 
 	@Override
 	public boolean isDisjointFrom(IDawg<ApplicationTerm, TermVariable> dawg) {
-		 return mDawgFactory.renameSelectAndBlowup(dawg, mTranslationForClause, mEprClause.getVariables()).isEmpty();
+		 return mDawgFactory.translatePredSigToClauseSig(dawg, mTranslationForClause, mEprClause.getVariables()).isEmpty();
 	}
 
 	@Override
