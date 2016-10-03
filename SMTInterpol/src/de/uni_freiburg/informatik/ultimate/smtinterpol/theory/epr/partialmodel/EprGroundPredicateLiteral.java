@@ -13,6 +13,18 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.Clause
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 
+/**
+ * An EprGroundPredicateLiteral is a representation of a literal that is set by the DPLLEngine which uses an
+ * epr predicate, and thus has special relevance to the epr theory, compared to other Literals
+ * 
+ * Properties:
+ *  - is known to the DPLLEngine (in the form of a "Literal" object)
+ *  - is similar to a decide stack literal insofar it contributes to the union dawg of an epr predicate 
+ *    (which describes the current partial model for that predicate)
+ *    --> this property is described by the interface IEprLiteral
+ * 
+ * @author Alexander Nutz
+ */
 public class EprGroundPredicateLiteral implements IEprLiteral {
 	
 	private final EprGroundPredicateAtom mAtom;

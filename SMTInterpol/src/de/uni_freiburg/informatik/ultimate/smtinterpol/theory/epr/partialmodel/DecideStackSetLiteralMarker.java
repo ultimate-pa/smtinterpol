@@ -2,9 +2,15 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel;
 
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 
+/**
+ * Represents an entry in the epr decide stack which marks the setting of a literal through the dpll engine
+ * at that point.
+ *  
+ * @author Alexander Nutz
+ */
 public class DecideStackSetLiteralMarker extends DecideStackEntry {
 
-	final Literal mLiteral;
+	private final Literal mLiteral;
 	
 	public DecideStackSetLiteralMarker(Literal l, int index) {
 		super(index);

@@ -10,10 +10,14 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.Clause
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
 
+/**
+ * Used to build a decide stack literal incrementally.
+ * The builder is mutable so the decide stack literal can be immutable..
+ * 
+ * @author Alexander Nutz
+ */
 public class DslBuilder {
 
-//	private int mIndexOnPushStateStack = -1;
-//	private int mPushStateStackIndex = - 1;
 	private int mDecideStackIndex = -1;
 	private boolean mPolarity;
 	private EprPredicate mPred;
@@ -51,31 +55,14 @@ public class DslBuilder {
 		mReasonClauseDawg = reasonClauseDawg;
 	}
 	
-//	public void setIndexOnPushStateStack(int index) {
-//		assert mIndexOnPushStateStack == -1 : "index set twice";
-//		mIndexOnPushStateStack = index;
-//	}
 
-//	/**
-//	 * the index on the push state stack of the pushState that this dsl is pushed into
-//	 * @param index
-//	 */
-//	public void setPushStateStackIndex(int index) {
-//		assert mPushStateStackIndex == -1 : "index set twice";
-//		mPushStateStackIndex = index;
-//	}
-	
 	public void setDecideStackIndex(int index) {
 		assert mDecideStackIndex == -1 : "index set twice";
 		mDecideStackIndex = index;
 	}
 	
 	public DecideStackLiteral build() {
-//		assert mIndexOnPushStateStack != -1;
-//		assert mPushStateStackIndex != -1;
 		assert mDecideStackIndex != -1 : "index not set";
-//		Pair<Integer, Integer> index = 
-//				new Pair<Integer, Integer>(mPushStateStackIndex, mIndexOnPushStateStack);
 
 		if (mIsDecision) {
 			assert mReasonUnitClause == null;
