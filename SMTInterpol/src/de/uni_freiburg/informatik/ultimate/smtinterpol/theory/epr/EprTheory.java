@@ -217,16 +217,26 @@ public class EprTheory implements ITheory {
 		assert !mLiteralsWaitingToBePropagated.contains(literal) : ".. right?..";
 		mGroundLiteralsToPropagateToReason.remove(literal);
 		
+		Set<Literal> literalsRemovedBecauseLiteralWasInReason = new HashSet<Literal>();
+		
 		Map<Literal, Clause> newGltoptr = new HashMap<Literal, Clause>();
 		for (Entry<Literal, Clause> en : mGroundLiteralsToPropagateToReason.entrySet()) {
 			if (en.getValue().contains(literal.negate())) {
 				// propagation is no more possible because backtracking made the reason clause non-unit.
 				mLiteralsWaitingToBePropagated.remove(en.getKey());
+				literalsRemovedBecauseLiteralWasInReason.add(en.getKey());
 				continue;
 			}
 			newGltoptr.put(en.getKey(), en.getValue());
 		}
 		mGroundLiteralsToPropagateToReason = newGltoptr;
+		
+		// the literals we removed need to be unregistered, too (they may themselves contribute
+		// to a (former) reason unit clause not being unit anymore..) 
+		//  deeper reason: propagations may base on other propagations
+		for (Literal rl : literalsRemovedBecauseLiteralWasInReason) {
+			unregisterPropagatedLiteral(rl);
+		}
 	}
 
 	@Override
