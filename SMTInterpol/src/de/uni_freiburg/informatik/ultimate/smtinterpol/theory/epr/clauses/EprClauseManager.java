@@ -45,10 +45,6 @@ public class EprClauseManager {
 		mDPLLAtomToClauses.endScope();
 	}
 
-	public void addClause(EprClause newClause) {
-		mEprClauses.add(newClause);
-	}
-
 	public Iterable<EprClause> getAllClauses() {
 		return mEprClauses;
 	}
@@ -106,9 +102,6 @@ public class EprClauseManager {
 	/**
 	 * Inform all the EprClauses that contain the atom (not only the
 	 * literal!) that they have to update their fulfillment state.
-	 * 
-	 * Note: This is not enough for EprGroundAtoms because they might interfere with 
-	 * quantified literals which don't have the same atom..
 	 */
 	public Set<EprClause> updateClausesOnSetDpllLiteral(Literal literal) {
 		HashSet<EprClause> clauses = 
@@ -180,18 +173,13 @@ public class EprClauseManager {
 	}
 
 	/**
-	 * Register an eprClause (coming from input or learned) in the corresponding places...
+	 * Register an eprClause (coming from input or learned) in the corresponding stores.
 	 */
 	public void registerEprClause(EprClause newClause) {
-		addClause(newClause);
+		mEprClauses.add(newClause);
 
 		for (ClauseLiteral cl : newClause.getLiterals()) {
 			updateAtomToClauses(cl.getLiteral().getAtom(), newClause);
 		}
-		
-//		Clause conflict = mEprTheory.getStateManager().getDecideStackManager()
-//				.resolveConflictOrStoreUnits(new HashSet<EprClause>(Collections.singleton(newClause)));
-//		assert EprHelpers.verifyConflictClause(conflict, mEprTheory.getLogger());
-//		return conflict;
 	}
 }

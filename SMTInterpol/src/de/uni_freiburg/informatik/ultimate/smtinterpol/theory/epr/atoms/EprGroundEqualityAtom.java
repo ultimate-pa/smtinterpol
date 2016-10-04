@@ -11,7 +11,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Theory;
  * Note that this does not extend EprEqualityAtom because that is assumed to represent
  * a quantified equality.
  * 
- * @author nutz
+ * @author Alexander Nutz
  *
  */
 public class EprGroundEqualityAtom extends EprAtom {

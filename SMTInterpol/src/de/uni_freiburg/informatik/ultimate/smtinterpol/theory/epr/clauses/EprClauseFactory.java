@@ -218,7 +218,12 @@ public class EprClauseFactory {
 				continue;
 			}
 			TermVariable tv = (TermVariable) t;
-			sub.put(tv, mEprTheory.getTheory().createFreshTermVariable(tv.getName(), tv.getSort()));
+			String newTvNamePrefix = tv.getName();
+			newTvNamePrefix = newTvNamePrefix.replaceAll("\\.\\d+", "");
+//			int lastDot = tv.getName().lastIndexOf(".");
+//			newTvNamePrefix = lastDot > 0 ? newTvNamePrefix.substring(lastDot) : newTvNamePrefix;
+//			newTvNamePrefix.replace(".", "");
+			sub.put(tv, mEprTheory.getTheory().createFreshTermVariable(newTvNamePrefix, tv.getSort()));
 		}
 
 		TermTuple tt = atom.getArgumentsAsTermTuple();

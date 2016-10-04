@@ -7,6 +7,14 @@ import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
 
+/**
+ * Contains stuff that is expected to be common to all Dawg implementations.
+ * 
+ * @author Alexander Nutz
+ *
+ * @param <LETTER>
+ * @param <COLNAMES>
+ */
 public abstract class AbstractDawg<LETTER, COLNAMES> implements IDawg<LETTER, COLNAMES> {
 	
 	protected final int mArity;

@@ -205,7 +205,6 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 		//TODO: could be done nicer --> only go through the points that actually occur in this.mBacking..
 		for (List<LETTER> pt : nd.mBacking) {
 			addWithSubsetSignature(pt, nd.mColNames);
-//			mBacking.addAll(blowUpForCurrentSignature(pt, nd.mColNames));
 		}
 	}
 

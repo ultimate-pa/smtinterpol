@@ -37,14 +37,14 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.I
 
 /**
  * Represents a clause that is only known to the EprTheory.
- * This means that the clause contains at least one free 
- * (implicitly forall-quantified) variable.
+ * This means that the clause typically contains at least one free 
+ * (implicitly forall-quantified) variable -- exceptions, i.e. ground EprClauses may occur through
+ * factoring or resolution.
  * 
  * @author Alexander Nutz
  */
 public class EprClause {
 	
-
 	private final Set<Literal> mDpllLiterals;
 	private final EprTheory mEprTheory;
 	private final DawgFactory<ApplicationTerm, TermVariable> mDawgFactory;

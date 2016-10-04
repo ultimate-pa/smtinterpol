@@ -117,20 +117,6 @@ public class TermTuple {
 		return resultSubs;
 	}
 	
-	/**
-	 * 
-	 * @param other
-	 * @param theory
-	 * @return
-	 */
-	private TermTuple alphaRenameFresh(TermTuple other, Theory theory) {
-		TTSubstitution sub = new TTSubstitution();
-		for (TermVariable fv : other.getFreeVars()) {
-			sub.addSubs(theory.createFreshTermVariable(fv.getName(), fv.getSort()), fv);
-		}
-		return sub.apply(other);
-	}
-
 	public boolean onlyContainsConstants() {
 		//TODO cache
 		boolean result = true;

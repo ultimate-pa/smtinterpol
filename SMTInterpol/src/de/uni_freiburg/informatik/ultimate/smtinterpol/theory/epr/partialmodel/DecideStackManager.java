@@ -27,6 +27,11 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprCla
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.UnitPropagationData;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 
+/**
+ * Contains the procedures that manipulate the epr decide stack.
+ * 
+ * @author Alexander Nutz
+ */
 public class DecideStackManager {
 	
 
