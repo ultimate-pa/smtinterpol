@@ -83,8 +83,11 @@ public abstract class AbstractDawg<LETTER, COLNAMES> implements IDawg<LETTER, CO
 		StringBuilder sb = new StringBuilder();
 
 		sb.append("<");
+		String comma = "";
 		for (COLNAMES cn : getColnames()) {
+			sb.append(comma);
 			sb.append(cn);
+			comma = ", ";
 		}
 		sb.append(">  ");
 		

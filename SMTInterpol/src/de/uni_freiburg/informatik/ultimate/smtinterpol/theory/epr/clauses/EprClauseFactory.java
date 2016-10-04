@@ -114,6 +114,7 @@ public class EprClauseFactory {
 		Set<Literal> resLits = computeUnifiedLiteralsFromClauseLiterals(unifier, resCls, alphaRenamingIdentifier);
 		
 		EprClause factor = getEprClause(resLits);
+		assert factor.isConflict();
 		mEprTheory.getStateManager().learnClause(factor);
 		return factor;
 	}
@@ -138,6 +139,7 @@ public class EprClauseFactory {
 			mLiteralsToClause.put(alphaRenamedLiterals, result);
 		} else {
 			mEprTheory.getLogger().debug("EPRDEBUG (EprClauseFactory): clause has been added before " + result);
+			result.mClauseStateIsDirty = true;
 		}
 		return result;
 	}
@@ -219,10 +221,10 @@ public class EprClauseFactory {
 			}
 			TermVariable tv = (TermVariable) t;
 			String newTvNamePrefix = tv.getName();
+			// createFreshTermvariable adds a "." in front and something like ".123" after the given prefix
+			//  --> after some iterations this becomes long, so we trim a little
 			newTvNamePrefix = newTvNamePrefix.replaceAll("\\.\\d+", "");
-//			int lastDot = tv.getName().lastIndexOf(".");
-//			newTvNamePrefix = lastDot > 0 ? newTvNamePrefix.substring(lastDot) : newTvNamePrefix;
-//			newTvNamePrefix.replace(".", "");
+			newTvNamePrefix = newTvNamePrefix.replaceAll("\\.(\\.)+", "");
 			sub.put(tv, mEprTheory.getTheory().createFreshTermVariable(newTvNamePrefix, tv.getSort()));
 		}
 

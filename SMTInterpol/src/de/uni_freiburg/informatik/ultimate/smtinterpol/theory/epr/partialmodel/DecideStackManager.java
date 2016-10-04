@@ -341,17 +341,32 @@ public class DecideStackManager {
 			}
 		}
 		
-		if (relevantConfLits.size() > 1) {
-			assert false : "TODO: understand this -- factoring? what if factoring is not applicable??";
-			return null;
-		} else if (relevantConfLits.size() == 1) {
-			// normal explain case --> return the resolvent
+		if (relevantConfLits.size() >= 1) {
+			// explain case, do resolution with the reason clause of the propagated literal
+
+			/*
+			 * An example for a legitimate case with more than one relevantConfLit is:
+			 *  propagatedLiteral: EQ, (reflexive points)
+			 *   (happens for example in orr-sanitized-eeaa/csll_is_h_on_cycle.imp.smt2, in the second push block)
+			 *  conflict clause, with conflict grounding:  {..., EQ(i, i), EQ(j, j), ...}
+			 *   --> the point (i, i), (j, j) may be instantiated from different quantified variables, the conflict point
+			 *       leads to that instantiation
+			 *   --> we cannot factor here
+			 *   Solution: we just do a resolution/explain for each relevantConfLit
+			 */
+			EprClause resolvent = null;
 			ClauseEprLiteral confLit = relevantConfLits.iterator().next();
-			EprClause resolvent = mEprTheory.getEprClauseFactory().createResolvent(confLit, propagatedLiteral.getReasonClauseLit());
+			resolvent = mEprTheory.getEprClauseFactory().createResolvent(confLit, propagatedLiteral.getReasonClauseLit());
 			assert resolvent.isConflict();
+
+			if (relevantConfLits.size() > 1) {
+				resolvent = explainConflictOrSkip(resolvent, propagatedLiteral);
+				assert resolvent.isConflict();
+			}
+			assert resolvent != null;
 			return resolvent;
 		} else {
-			//propagatedLiteral has nothing to do with conflictClause --> skip
+			// skip case -- propagatedLiteral has nothing to do with conflictClause
 			return conflict;
 		}
 	}

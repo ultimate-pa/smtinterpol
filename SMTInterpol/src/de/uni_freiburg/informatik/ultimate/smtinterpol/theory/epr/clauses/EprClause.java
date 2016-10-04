@@ -656,7 +656,9 @@ public class EprClause {
 				}
 				// we can actually factor
 				mEprTheory.getLogger().debug("EPRDEBUG: (EprClause): factoring " + this);
-				return mEprTheory.getEprClauseFactory().getFactoredClause(pqOc, pqOcOther);
+				EprClause factor = mEprTheory.getEprClauseFactory().getFactoredClause(pqOc, pqOcOther);
+				assert factor.isConflict() : "we only factor conflicts";
+				return factor;
 			}
 
 			for (ClauseEprGroundLiteral pgOc : groundOccurencesOfPred) {
@@ -669,7 +671,9 @@ public class EprClause {
 				
 				// we can actually factor
 				mEprTheory.getLogger().debug("EPRDEBUG: (EprClause): factoring " + this);
-				return mEprTheory.getEprClauseFactory().getFactoredClause(pqOc, pgOc);
+				EprClause factor = mEprTheory.getEprClauseFactory().getFactoredClause(pqOc, pgOc);
+				assert factor.isConflict() : "we only factor conflicts";
+				return factor;
 			}
 		}
 		return null;

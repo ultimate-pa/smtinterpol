@@ -43,7 +43,8 @@ public abstract class EprAtom extends DPLLAtom {
 	public String toString() {
 		String res =  mTerm.toStringDirect();
 		if (res.contains("AUX")) {
-			return "(AUX " + res.hashCode() + " " + Arrays.toString(((ApplicationTerm) mTerm).getParameters()) + ")";
+			EprPredicateAtom predAtom = (EprPredicateAtom) this;
+			return "(AUX " + predAtom.getEprPredicate().hashCode() + " " + Arrays.toString(((ApplicationTerm) mTerm).getParameters()) + ")";
 		}
 		return res;
 	}
