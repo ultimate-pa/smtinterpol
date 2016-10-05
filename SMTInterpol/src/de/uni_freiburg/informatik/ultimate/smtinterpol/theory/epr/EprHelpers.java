@@ -2,6 +2,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -571,7 +572,7 @@ public class EprHelpers {
 	 * @return
 	 */
 	public static boolean verifyUnitClauseAfterPropagation(Clause reason, Literal l, LogProxy logger) {
-		return verifyUnitClause(reason, l, true, logger);
+		return verifyUnitClause(reason, l, true, null, logger);
 	}
 	
 	/**
@@ -580,10 +581,11 @@ public class EprHelpers {
 	 * This is the variant where we expect that the unit literal is (still) undecided.
 	 */
 	public static boolean verifyUnitClauseBeforePropagation(Clause reason, Literal l, LogProxy logger) {
-		return verifyUnitClause(reason, l, false, logger);
+		return verifyUnitClause(reason, l, false, null, logger);
 	}
 
-	public static boolean verifyUnitClause(Clause reason, Literal l, boolean afterPropagation, LogProxy logger) {
+	public static boolean verifyUnitClause(Clause reason, Literal l, boolean afterPropagation, 
+			Deque<Literal> literalsWaitingToBePropagated, LogProxy logger) {
 		for (int i = 0; i < reason.getSize(); i++) {
 			Literal curLit = reason.getLiteral(i);
 			if (curLit == l) {
@@ -594,11 +596,18 @@ public class EprHelpers {
 					logger.error("EPRDEBUG: (EprHelpers.verifyUnitClause): The unit literal " + l + " is not undecided.");
 					return false;
 				}
-			}
-			if (curLit != l && curLit.getAtom().getDecideStatus() != curLit.negate()) {
-				logger.error("EPRDEBUG: (EprHelpers.verifyUnitClause): Literal " + curLit + 
-						" is not the unit literal but is not currently refuted");
-				return false;
+			} else {
+				//curLit != l
+
+				boolean refutedInDPLLEngine = curLit.getAtom().getDecideStatus() == curLit.negate();
+				boolean refutationQueuedForPropagation = literalsWaitingToBePropagated != null 
+						&& literalsWaitingToBePropagated.contains(curLit.negate());
+						
+				if (!refutedInDPLLEngine && !refutationQueuedForPropagation) {
+					logger.error("EPRDEBUG: (EprHelpers.verifyUnitClause): Literal " + curLit + 
+							" is not the unit literal but is not currently refuted");
+					return false;
+				}
 			}
 		}
 		return true;
@@ -617,5 +626,30 @@ public class EprHelpers {
 			}
 		}
 		return true;
+	}
+
+	public static boolean verifyUnitClauseAtEnqueue(Literal l, Clause reason,
+			Deque<Literal> mLiteralsWaitingToBePropagated, LogProxy logger) {
+//		for (int i = 0; i < reason.getSize(); i++) {
+//			Literal curLit = reason.getLiteral(i);
+//			
+//			if (curLit == l) {
+//				if (afterPropagation && curLit.getAtom().getDecideStatus() != curLit) {
+//					logger.error("EPRDEBUG: (EprHelpers.verifyUnitClause): The unit literal " + l + " is not set.");
+//					return false;
+//				} else if  (!afterPropagation && curLit.getAtom().getDecideStatus() != null) {
+//					logger.error("EPRDEBUG: (EprHelpers.verifyUnitClause): The unit literal " + l + " is not undecided.");
+//					return false;
+//				}
+//			}
+//			if (curLit != l && curLit.getAtom().getDecideStatus() != curLit.negate()) {
+//				logger.error("EPRDEBUG: (EprHelpers.verifyUnitClause): Literal " + curLit + 
+//						" is not the unit literal but is not currently refuted");
+//				return false;
+//			}
+//
+//		}
+
+		return verifyUnitClause(reason, l, false, mLiteralsWaitingToBePropagated, logger);
 	}
 }

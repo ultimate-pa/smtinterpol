@@ -313,6 +313,8 @@ public class EprTheory implements ITheory {
 		
 		mLogger.debug("EPRDEBUG: EprTheory.addGroundLiteralToPropagate(..): "
 				+ "literal: " + l + " reason: " + reason);
+		
+		assert EprHelpers.verifyUnitClauseAtEnqueue(l, reason, mLiteralsWaitingToBePropagated, mLogger);
 
 		mLiteralsWaitingToBePropagated.add(l);
 		mGroundLiteralsToPropagateToReason.put(l, reason);

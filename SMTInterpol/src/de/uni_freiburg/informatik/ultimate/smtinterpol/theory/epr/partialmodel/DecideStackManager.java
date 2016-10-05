@@ -509,12 +509,14 @@ public class DecideStackManager {
 		dslb.setDecideStackIndex(mDecideStack.height() + 1);
 		DecideStackLiteral dsl = dslb.build();
 		
-		// setting the decideStackLiteral means that we have to set all ground atoms covered by it
-		// in the DPLLEngine
-		// however, if we propagate a ground literal here, we also have to give a ground unit clause for it
-		// creating this ground unit clause may lead to new ground atoms, thus we make a copy to a void
-		// concurrent modification of the list of DPLLAtoms, and repeat until the copy doss not change
-		// TODO: can we do this nicer?
+		/* 
+		 * setting the decideStackLiteral means that we have to set all ground atoms covered by it
+		 * in the DPLLEngine
+		 * however, if we propagate a ground literal here, we also have to give a ground unit clause for it
+		 * creating this ground unit clause may lead to new ground atoms, thus we make a copy to a void
+		 * concurrent modification of the list of DPLLAtoms, and repeat until the copy doss not change
+		 * TODO: can we do this nicer?
+		 */
 		boolean newDPLLAtoms = true;
 		while (newDPLLAtoms) {
 			HashSet<EprGroundPredicateAtom> copy = new HashSet<EprGroundPredicateAtom>(dsl.getEprPredicate().getDPLLAtoms());
