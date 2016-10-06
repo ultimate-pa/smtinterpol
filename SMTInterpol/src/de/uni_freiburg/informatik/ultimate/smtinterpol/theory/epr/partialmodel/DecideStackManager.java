@@ -47,7 +47,7 @@ public class DecideStackManager {
 		mLogger = logger;
 		mEprTheory = eprTheory;
 		mStateManager = eprStateManager;
-		mDecideStack = new EprDecideStack();
+		mDecideStack = new EprDecideStack(mLogger);
 	}
 	
 	/**
@@ -508,13 +508,21 @@ public class DecideStackManager {
 	Set<EprClause> pushEprDecideStack(DslBuilder dslb) {
 		dslb.setDecideStackIndex(mDecideStack.height() + 1);
 		DecideStackLiteral dsl = dslb.build();
+
+		/*
+		 * We need to do the interal push operation first, because otherwise the 
+		 * coming operations (setting covered atoms, updating the clause states)
+		 * encounter an inconsistent state (i.e. a decide stack literal being registered in 
+		 * an epr predicate but not present on the decide stack).
+		 */
+		mDecideStack.pushDecideStackLiteral(dsl);
 		
 		/* 
 		 * setting the decideStackLiteral means that we have to set all ground atoms covered by it
 		 * in the DPLLEngine
 		 * however, if we propagate a ground literal here, we also have to give a ground unit clause for it
 		 * creating this ground unit clause may lead to new ground atoms, thus we make a copy to a void
-		 * concurrent modification of the list of DPLLAtoms, and repeat until the copy doss not change
+		 * concurrent modification of the list of DPLLAtoms, and repeat until the copy does not change
 		 * TODO: can we do this nicer?
 		 */
 		boolean newDPLLAtoms = true;
@@ -529,12 +537,12 @@ public class DecideStackManager {
 			newDPLLAtoms = !copy.equals(dsl.getEprPredicate().getDPLLAtoms());
 		}
 		
+
 		// inform the clauses...
 		// check if there is a conflict
 		Set<EprClause> conflictsOrPropagations = 
 				mStateManager.getEprClauseManager().updateClausesOnSetEprLiteral(dsl);
 
-		mDecideStack.pushDecideStackLiteral(dsl);
 		
 	    return conflictsOrPropagations;
 	}
@@ -584,6 +592,23 @@ public class DecideStackManager {
 		mUnitClausesWaitingForPropagation.remove(eprClause);
 	}
 	
+	/**
+	 * When mEprliterals are accessed from the outside, verify if they satisfy some consistency criteria..
+	 * @return
+	 */
+	public boolean verifyEprLiterals(Set<IEprLiteral> eprLiterals) {
+		// checks: is every decide stack literal actually present on the decide stack?
+		for (IEprLiteral el : eprLiterals) {
+			if (el instanceof DecideStackLiteral
+					&& !mDecideStack.mStack.contains(el)) {
+				mLogger.debug("EPRDEBUG: DecideStackManager.verifyEprLiterals: the decide stack literal " + el + 
+						" is listed by its EprPredicate, but is not present on the decide stack.");
+				return false;
+			}
+		}
+		return true;
+	}
+	
 	@Override
 	public String toString() {
 		return "DSM: " + mDecideStack;
@@ -603,10 +628,17 @@ public class DecideStackManager {
 		private Map<Literal, DecideStackSetLiteralMarker> mLiteralToMarker = 
 				new HashMap<Literal, DecideStackSetLiteralMarker>();
 		
+		private final LogProxy mLogger;
+		
+		public EprDecideStack(LogProxy logger) {
+			mLogger = logger;
+		}
+
 		/**
 		 * Places a marker for a setLiteral operation. (When the DPLLEngine sets a literal..)
 		 */
 		void pushSetLiteral(Literal l) {
+			mLogger.debug("EPRDEBUG: EprDecideStack.pushSetLiteral(" + l + ")");
 			DecideStackSetLiteralMarker marker = new DecideStackSetLiteralMarker(l, height() + 1);
 			lastElement = marker;
 			mStack.add(marker);
@@ -628,6 +660,7 @@ public class DecideStackManager {
 		}
 
 		void popBacktrackLiteral(Literal l) {
+			mLogger.debug("EPRDEBUG: EprDecideStack.popBacktrackLiteral(" + l + ")");
 			DecideStackSetLiteralMarker marker = mLiteralToMarker.remove(l);
 			if (marker.nr >= height()) {
 				// removed the marker through a pop() before, nothing to do
@@ -649,6 +682,7 @@ public class DecideStackManager {
 		}
 
 		DecideStackLiteral popDecideStackLiteral() {
+			mLogger.debug("EPRDEBUG: EprDecideStack.popDecideStackLiteral()");
 			if (lastNonMarker == null) {
 				return null;
 			}
@@ -664,6 +698,7 @@ public class DecideStackManager {
 		}
 		
 		void pushDecideStackLiteral(DecideStackLiteral dsl) {
+			mLogger.debug("EPRDEBUG: EprDecideStack.pushDecideStackLiteral()");
 			mStack.add(dsl);
 			lastNonMarker = dsl;
 			lastNonMarkerIndex = mStack.size() - 1;
@@ -684,7 +719,7 @@ public class DecideStackManager {
 
 		void pop() {
 			assert lastPushMarker != null : "already popped all push markers";
-			
+			mLogger.debug("EPRDEBUG: EprDecideStack.pop()");
 
 			List<DecideStackEntry> suffix = mStack.subList(lastPushMarkerIndex, mStack.size());
 			for (DecideStackEntry dse : suffix) {
@@ -700,6 +735,8 @@ public class DecideStackManager {
 		}
 		
 		void push() {
+			mLogger.debug("EPRDEBUG: EprDecideStack.push()");
+
 			DecideStackPushMarker pm = new DecideStackPushMarker(height() + 1);
 			lastPushMarker = pm;
 			lastPushMarkerIndex = mStack.size();

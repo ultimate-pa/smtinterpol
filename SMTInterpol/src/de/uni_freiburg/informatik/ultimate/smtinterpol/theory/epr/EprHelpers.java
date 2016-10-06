@@ -30,6 +30,10 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroun
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.EprGroundPredicateLiteral;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.IEprLiteral;
+import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
 
 public class EprHelpers {
 
@@ -651,5 +655,33 @@ public class EprHelpers {
 //		}
 
 		return verifyUnitClause(reason, l, false, mLiteralsWaitingToBePropagated, logger);
+	}
+
+	public static boolean verifyThatDpllAndEprDecideStackAreConsistent(ScopedHashSet<EprPredicate> allEprPredicates, LogProxy logger) {
+		for (EprPredicate pred : allEprPredicates) {
+			for (IEprLiteral el : pred.getEprLiterals()) {
+				for (EprGroundPredicateAtom at : pred.getDPLLAtoms()) {
+					List<ApplicationTerm> atArgs = convertTermArrayToConstantList(at.getArguments());
+					if (!el.getDawg().accepts(atArgs)) {
+						// different arguments
+						continue;
+					}
+					// arguments match
+					if (at.getDecideStatus() == null) {
+						logger.debug("EPRDEBUG: EprHelpers.verifyThatDpllAndEprDecideStackAreConsistent: DPLLEngine: " + at + 
+								" undecided; EprTheory: " + at + " is set with polarity " + el.getPolarity());
+						return false;
+					}
+
+					if ((at.getDecideStatus().getSign() == 1) != el.getPolarity()) {
+						logger.debug("EPRDEBUG: EprHelpers.verifyThatDpllAndEprDecideStackAreConsistent: DPLLEngine: " + at + 
+								" is set with polarity " + at.getSign() == 1 + 
+								"; EprTheory: " + at + " is set with polarity " + el.getPolarity());
+						return false;
+					}
+				}
+			}
+		}
+		return true;
 	}
 }

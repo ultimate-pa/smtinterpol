@@ -194,11 +194,28 @@ public class EprStateManager {
 	}
 
 	public void unsetEprGroundLiteral(Literal literal) {
+		assert literal.getAtom() instanceof EprGroundPredicateAtom;
+
 		EprGroundPredicateLiteral egpl = mLiteralToEprGroundPredicateLiteral.get(literal);
 		assert egpl != null;
+		EprPredicate pred = egpl.getEprPredicate();
 		egpl.unregister();
 		mDecideStackManager.popOnBacktrackLiteral(literal);
 		mEprClauseManager.updateClausesOnBacktrackDpllLiteral(literal);
+		
+//		/*
+//		 * The backtracked literal may still follow from something on the epr decide stack
+//		 *  --> in that case we immediately propagate it "back" to the dpll engine
+//		 */
+//		for (IEprLiteral el : pred.getEprLiterals()) {
+//			if (el instanceof EprGroundPredicateLiteral) {
+//				assert el != egpl : "we just backtracked the literal " + el + " it should have been unregistered";
+//				continue;
+//			}
+//			EprClause conflict = mEprTheory.getStateManager().setGroundAtomIfCoveredByDecideStackLiteral(
+//					(DecideStackLiteral) el, (EprGroundPredicateAtom) literal.getAtom());
+//			assert conflict == null : literal + " was just backtracked -- so there should not be a conflict, right?..";
+//		}
 	}
 
 	public Clause setDpllLiteral(Literal literal) {
@@ -374,6 +391,7 @@ public class EprStateManager {
 				Clause reasonGroundUnitClause =
 						dspl.getReasonClauseLit()
 							.getGroundingForGroundLiteral(dspl.getClauseDawg(), groundLiteral);
+				mLogger.debug("EPRDEBUG: EprStateManager.setGroundAtomIfCovered..");
 				mEprTheory.addGroundLiteralToPropagate(
 						groundLiteral, 
 						reasonGroundUnitClause);

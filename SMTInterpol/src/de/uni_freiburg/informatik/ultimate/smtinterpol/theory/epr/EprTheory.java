@@ -34,9 +34,13 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClauseFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.EprGroundPredicateLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.EprStateManager;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.IEprLiteral;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
 
 public class EprTheory implements ITheory {
@@ -180,9 +184,8 @@ public class EprTheory implements ITheory {
 		boolean	success = mLiteralsThatAreCurrentlySet.remove(literal);
 		assert success;
 		
-		unregisterPropagatedLiteral(literal);
+		unregisterPropagatedLiteralIfNecessary(literal);
 
-		// .. dual to setLiteral
 		
 		// update the fulfillment states of the remaining clauses
 		DPLLAtom atom = literal.getAtom();
@@ -213,8 +216,16 @@ public class EprTheory implements ITheory {
 	 * That means that we don't need its explanation unit clause anymore and that it may be set freshly for some other reason later.
 	 * @param literal
 	 */
-	private void unregisterPropagatedLiteral(Literal literal) {
+	private void unregisterPropagatedLiteralIfNecessary(Literal literal) {
+		Clause oldReason = mGroundLiteralsToPropagateToReason.get(literal);
+		if (oldReason == null) {
+			// no reason present --> was not propagated --> no need to unregister
+			return;
+		}
+		mLogger.debug("EPRDEBUG: unregisterPropagatedLiteral " + literal + 
+				", old reason: " + oldReason);
 		assert !mLiteralsWaitingToBePropagated.contains(literal) : ".. right?..";
+		
 		mGroundLiteralsToPropagateToReason.remove(literal);
 		
 		Set<Literal> literalsRemovedBecauseLiteralWasInReason = new HashSet<Literal>();
@@ -231,11 +242,30 @@ public class EprTheory implements ITheory {
 		}
 		mGroundLiteralsToPropagateToReason = newGltoptr;
 		
+//		/*
+//		 * The unregistered literal may still follow from something on the epr decide stack
+//		 *  --> in that case we immediately propagate it "back" to the dpll engine
+//		 */
+//		if (literal.getAtom() instanceof EprGroundPredicateAtom) {
+//			EprGroundPredicateAtom egpa = (EprGroundPredicateAtom) literal.getAtom();
+//			EprPredicate pred = egpa.getEprPredicate();
+//			for (IEprLiteral el : pred.getEprLiterals()) {
+//				if (el instanceof EprGroundPredicateLiteral) {
+////					assert el != egpl : "we just backtracked the literal " + el + " it should have been unregistered";
+//					continue;
+//				}
+//				EprClause conflict = getStateManager().setGroundAtomIfCoveredByDecideStackLiteral(
+//						(DecideStackLiteral) el, (EprGroundPredicateAtom) literal.getAtom());
+//				assert conflict == null : literal + " was just backtracked -- so there should not be a conflict, right?..";
+//			}	
+//		}
+		
+		
 		// the literals we removed need to be unregistered, too (they may themselves contribute
 		// to a (former) reason unit clause not being unit anymore..) 
 		//  deeper reason: propagations may base on other propagations
 		for (Literal rl : literalsRemovedBecauseLiteralWasInReason) {
-			unregisterPropagatedLiteral(rl);
+			unregisterPropagatedLiteralIfNecessary(rl);
 		}
 	}
 
@@ -244,6 +274,7 @@ public class EprTheory implements ITheory {
 		if (mGroundAllMode)
 			return null;
 		mLogger.debug("EPRDEBUG: checkpoint");
+		assert EprHelpers.verifyThatDpllAndEprDecideStackAreConsistent(mStateManager.getAllEprPredicates(), mLogger);
 
 		assert mLiteralsWaitingToBePropagated.isEmpty() : "have all propagations been done at this point??";
 

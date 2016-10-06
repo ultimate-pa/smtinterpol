@@ -1,5 +1,6 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -198,7 +199,12 @@ public class EprPredicate {
 	}
 	
 	public String toString() {
-		return "EprPred: " + mFunctionSymbol.getName();
+		
+		String res = "EprPred: " + mFunctionSymbol.getName();
+		if (res.contains("AUX")) {
+			return "EprPred: (AUX " + this.hashCode() + ")";
+		}
+		return res;	
 	}
 
 	/**
@@ -298,7 +304,10 @@ public class EprPredicate {
 	}		
 
 	public Set<IEprLiteral> getEprLiterals() {
+		assert mEprTheory.getStateManager().getDecideStackManager().verifyEprLiterals(mEprLiterals);
 		return mEprLiterals;
 	}
+
+
 
 }

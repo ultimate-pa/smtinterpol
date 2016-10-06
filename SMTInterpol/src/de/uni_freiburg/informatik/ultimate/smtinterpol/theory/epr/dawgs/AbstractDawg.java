@@ -86,7 +86,12 @@ public abstract class AbstractDawg<LETTER, COLNAMES> implements IDawg<LETTER, CO
 		String comma = "";
 		for (COLNAMES cn : getColnames()) {
 			sb.append(comma);
-			sb.append(cn);
+			
+			String cns = cn.toString();
+			if (cns.contains("AUX")) {
+				cns = "(AUX ...)";
+			}
+			sb.append(cns);
 			comma = ", ";
 		}
 		sb.append(">  ");
