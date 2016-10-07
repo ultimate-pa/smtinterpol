@@ -197,45 +197,12 @@ public class EprStateManager {
 		assert literal.getAtom() instanceof EprGroundPredicateAtom;
 
 		mDecideStackManager.popOnBacktrackLiteral(literal);
+
 		EprGroundPredicateLiteral egpl = mLiteralToEprGroundPredicateLiteral.get(literal);
 		assert egpl != null;
 		egpl.unregister();
 		mDecideStackManager.popReasonsOnBacktrackEprGroundLiteral(egpl);
 		mEprClauseManager.updateClausesOnBacktrackDpllLiteral(literal);
-		
-		EprPredicate pred = egpl.getEprPredicate();
-//		/*
-//		 * The backtracked literal may still follow from something on the epr decide stack
-//		 *  --> in that case we immediately propagate it "back" to the dpll engine
-//		 */
-//		for (IEprLiteral el : pred.getEprLiterals()) {
-//			if (el instanceof EprGroundPredicateLiteral) {
-//				assert el != egpl : "we just backtracked the literal " + el + " it should have been unregistered";
-//				continue;
-//			}
-//			EprClause conflict = mEprTheory.getStateManager().setGroundAtomIfCoveredByDecideStackLiteral(
-//					(DecideStackLiteral) el, (EprGroundPredicateAtom) literal.getAtom());
-//			assert conflict == null : literal + " was just backtracked -- so there should not be a conflict, right?..";
-//		}
-		/*
-		 * The backtracked literal may still follow from something on the epr decide stack
-		 *  --> in that case we immediately propagate it "back" to the dpll engine
-		 */
-//		for (IEprLiteral el : pred.getEprLiterals()) {
-//			assert egpl.getDawg().isSingleton();
-//
-//			if (el instanceof EprGroundPredicateLiteral) {
-//				// TODO: not sure about this assertion
-//				assert el != egpl : "we just backtracked the literal " + el + " it should have been unregistered";
-//				continue;
-//			}
-//			
-//			List<ApplicationTerm> point = egpl.getDawg().iterator().next();
-//			if (!el.getDawg().accepts(point)) {
-//				continue;
-//			}
-//			assert el.getPolarity() == (literal.getSign() == 1);
-//		}
 	}
 
 	public Clause setDpllLiteral(Literal literal) {

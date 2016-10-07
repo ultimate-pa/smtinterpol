@@ -108,10 +108,12 @@ public class DecideStackManager {
 		// if we have a unit clause, propagate the literal
 		// the set..-method returns the new set of conflicts or units
 
-		// one epr unit clause may yield many propagations 
-		// --> iteratively set them, if one produces a conflict, go back to the outer epr dpll loop
-		//     if one produces more unit propagations, it is ok to just add them to conflictsOrUnits, because we
-		//      it contains unit clauses right now..
+		/*
+		 * one epr unit clause may yield many propagations 
+		 * --> iteratively set them, if one produces a conflict, go back to the outer epr dpll loop
+		 *     if one produces more unit propagations, it is ok to just add them to conflictsOrUnits, because we
+		 *      it contains unit clauses right now..
+		 */
 		UnitPropagationData upd = unitClause.getUnitPropagationData();
 		
 		for (DslBuilder dslB : upd.mQuantifiedPropagations) {
@@ -335,8 +337,10 @@ public class DecideStackManager {
 				}
 				relevantConfLits.add(cel);
 			} else {
-				// cel is a ground epr literal, and the propagatedLiteral is listed in partially conflicting literals 
-				// with cel -- this means they conflict on all conflict points (because all variables are "don't care for cel).
+				/*
+				 * cel is a ground epr literal, and the propagatedLiteral is listed in partially conflicting literals with cel 
+				 * -- this means they conflict on all conflict points (because all variables are "don't care for cel).
+				 */
 				relevantConfLits.add(cel);
 			}
 		}
@@ -423,9 +427,11 @@ public class DecideStackManager {
 			Set<EprClause> conflictsOrUnits = pushEprDecideStack(newDecision);
 			return resolveConflictOrStoreUnits(conflictsOrUnits);
 		} else if (conflictingDsl instanceof DecideStackPropagatedLiteral) {
-			// the propagated literal that was the root of the inconsistency has been popped
-			// its reason for propagation should be a conflict now instead of a unit
-			// resolve that conflict
+			/* 
+			 * the propagated literal that was the root of the inconsistency has been popped
+			 * its reason for propagation should be a conflict now instead of a unit
+			 * resolve that conflict
+			 */
 			EprClause propReason = ((DecideStackPropagatedLiteral) conflictingDsl).getReasonClauseLit().getClause();
 			propReason.updateStateWrtDecideStackLiteral(
 					egpl, 

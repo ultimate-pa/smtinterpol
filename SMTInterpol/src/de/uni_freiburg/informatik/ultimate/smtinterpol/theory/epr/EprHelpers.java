@@ -668,10 +668,10 @@ public class EprHelpers {
 						continue;
 					}
 					// arguments match
+
 					if (at.getDecideStatus() == null) {
 						logger.debug("EPRDEBUG: EprHelpers.verify..DpllAndEprDecideStack..: DPLLEngine: " + at + 
 								" undecided; EprTheory: " + at + " is set with polarity " + el.getPolarity());
-//						return false;
 						result = false;
 						continue;
 					}
@@ -680,13 +680,11 @@ public class EprHelpers {
 						logger.debug("EPRDEBUG: EprHelpers.verifyThatDpllAndEprDecideStackAreConsistent: DPLLEngine: " + at + 
 								" is set with polarity " + at.getSign() == 1 + 
 								"; EprTheory: " + at + " is set with polarity " + el.getPolarity());
-//						return false;
 						result = false;
 					}
 				}
 			}
 		}
-//		return true;
 		return result;
 	}
 }

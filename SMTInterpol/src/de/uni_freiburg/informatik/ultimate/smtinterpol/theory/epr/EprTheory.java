@@ -220,16 +220,15 @@ public class EprTheory implements ITheory {
 	 */
 	private void unregisterPropagatedLiteralIfNecessary(Literal literal) {
 		Clause oldReason = mGroundLiteralsToPropagateToReason.get(literal);
-		if (oldReason == null) {
+		if (oldReason != null) {
 			// no reason present --> was not propagated --> no need to unregister
-			return;
+			mLogger.debug("EPRDEBUG: unregisterPropagatedLiteral -- removing reason " + literal + 
+					", old reason: " + oldReason);
+			mGroundLiteralsToPropagateToReason.remove(literal);
 		}
-		mLogger.debug("EPRDEBUG: unregisterPropagatedLiteral " + literal + 
-				", old reason: " + oldReason);
 		assert !mLiteralsWaitingToBePropagated.contains(literal) : ".. right?..";
 		
-		mGroundLiteralsToPropagateToReason.remove(literal);
-		
+
 		Set<Literal> literalsRemovedBecauseLiteralWasInReason = new HashSet<Literal>();
 		
 		Map<Literal, Clause> newGltoptr = new HashMap<Literal, Clause>();
@@ -238,34 +237,20 @@ public class EprTheory implements ITheory {
 				// propagation is no more possible because backtracking made the reason clause non-unit.
 				mLiteralsWaitingToBePropagated.remove(en.getKey());
 				literalsRemovedBecauseLiteralWasInReason.add(en.getKey());
+				mLogger.debug("EPRDEBUG: unregisterPropagatedLiteral -- removing propagation where a part of "
+						+ "the reason was backtracked " + en.getKey());
 				continue;
 			}
 			newGltoptr.put(en.getKey(), en.getValue());
 		}
 		mGroundLiteralsToPropagateToReason = newGltoptr;
 		
-//		/*
-//		 * The unregistered literal may still follow from something on the epr decide stack
-//		 *  --> in that case we immediately propagate it "back" to the dpll engine
-//		 */
-//		if (literal.getAtom() instanceof EprGroundPredicateAtom) {
-//			EprGroundPredicateAtom egpa = (EprGroundPredicateAtom) literal.getAtom();
-//			EprPredicate pred = egpa.getEprPredicate();
-//			for (IEprLiteral el : pred.getEprLiterals()) {
-//				if (el instanceof EprGroundPredicateLiteral) {
-////					assert el != egpl : "we just backtracked the literal " + el + " it should have been unregistered";
-//					continue;
-//				}
-//				EprClause conflict = getStateManager().setGroundAtomIfCoveredByDecideStackLiteral(
-//						(DecideStackLiteral) el, (EprGroundPredicateAtom) literal.getAtom());
-//				assert conflict == null : literal + " was just backtracked -- so there should not be a conflict, right?..";
-//			}	
-//		}
 		
-		
-		// the literals we removed need to be unregistered, too (they may themselves contribute
-		// to a (former) reason unit clause not being unit anymore..) 
-		//  deeper reason: propagations may base on other propagations
+		/* 
+		 * the literals we removed need to be unregistered, too (they may themselves contribute
+		 * to a (former) reason unit clause not being unit anymore..) 
+		 *  deeper reason: propagations may base on other propagations
+		 */
 		for (Literal rl : literalsRemovedBecauseLiteralWasInReason) {
 			unregisterPropagatedLiteralIfNecessary(rl);
 		}
