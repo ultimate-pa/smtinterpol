@@ -209,6 +209,8 @@ public class EprTheory implements ITheory {
 			mStateManager.unsetDpllLiteral(literal);
 
 		}
+		
+		assert EprHelpers.verifyThatDpllAndEprDecideStackAreConsistent(mStateManager.getAllEprPredicates(), mLogger);
 	}
 
 	/**

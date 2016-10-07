@@ -658,6 +658,7 @@ public class EprHelpers {
 	}
 
 	public static boolean verifyThatDpllAndEprDecideStackAreConsistent(ScopedHashSet<EprPredicate> allEprPredicates, LogProxy logger) {
+		boolean result = true;
 		for (EprPredicate pred : allEprPredicates) {
 			for (IEprLiteral el : pred.getEprLiterals()) {
 				for (EprGroundPredicateAtom at : pred.getDPLLAtoms()) {
@@ -668,20 +669,24 @@ public class EprHelpers {
 					}
 					// arguments match
 					if (at.getDecideStatus() == null) {
-						logger.debug("EPRDEBUG: EprHelpers.verifyThatDpllAndEprDecideStackAreConsistent: DPLLEngine: " + at + 
+						logger.debug("EPRDEBUG: EprHelpers.verify..DpllAndEprDecideStack..: DPLLEngine: " + at + 
 								" undecided; EprTheory: " + at + " is set with polarity " + el.getPolarity());
-						return false;
+//						return false;
+						result = false;
+						continue;
 					}
 
 					if ((at.getDecideStatus().getSign() == 1) != el.getPolarity()) {
 						logger.debug("EPRDEBUG: EprHelpers.verifyThatDpllAndEprDecideStackAreConsistent: DPLLEngine: " + at + 
 								" is set with polarity " + at.getSign() == 1 + 
 								"; EprTheory: " + at + " is set with polarity " + el.getPolarity());
-						return false;
+//						return false;
+						result = false;
 					}
 				}
 			}
 		}
-		return true;
+//		return true;
+		return result;
 	}
 }

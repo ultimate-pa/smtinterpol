@@ -561,10 +561,55 @@ public class DecideStackManager {
 		 mDecideStack.pushSetLiteral(l);
 	 }
 	 
+	 /**
+	  * Pops the epr decide stack until the set literal marker belonging to the
+	  * given literal.
+	  * @param l
+	  */
 	 void popOnBacktrackLiteral(Literal l) {
 		 mDecideStack.popBacktrackLiteral(l);
 	 }
 
+
+	 /**
+	  * When the dpll engine pops an epr ground predicate literal, we may have to pop further
+	  * than to its marker.
+	  * We also need to pop until the epr decide stack literal that covers the literal and thus was the
+	  * reason for its propagation.
+	  * If we did not do this, we would end up with inconsistent dpll/epr decide stack state.
+	  */
+	 void popReasonsOnBacktrackEprGroundLiteral(EprGroundPredicateLiteral egpl) {
+		 
+		 assert egpl.getDawg().isSingleton();
+		 for (IEprLiteral el : egpl.getEprPredicate().getEprLiterals()) {
+			 if (el instanceof EprGroundPredicateLiteral) {
+				 assert el != egpl : "we just backtracked the literal " + egpl + " it should have been unregistered";
+				 // we have a different ground predicate literal -- two epr ground predicate literals, that are on the decide stack
+				 // don't talk to each other (otherwise the decide stack has redundancy or is inconsistent)
+				 assert el.getDawg().intersect(egpl.getDawg()).isEmpty() : "redundancy or inconsistency in decide stack before backtrack";
+				 continue;
+			 }
+			 // el is a DecideStackLiteral
+			 DecideStackLiteral dsl = (DecideStackLiteral) el;
+
+			 
+			 List<ApplicationTerm> point = egpl.getDawg().iterator().next();
+			 if (!dsl.getDawg().accepts(point)) {
+				 // el does not talk about the point egpl is concerned with
+				 continue;
+			 }
+			 // el talks about egpl's point --> we need to pop the decide stack until el
+			
+			 assert el.getPolarity() == egpl.getPolarity() : "epr decide stack was inconsistent before backtrack.";
+			
+			 mLogger.debug("EPRDEBUG: DecideStackManager.popReasonsOnBacktrack..(..): "
+			 		+ "needed to pop further than setLiteralMarker, until reason DecideStackLiteral: " + dsl);
+			 this.popEprDecideStackUntilAndIncluding(dsl);
+			 // there can be only one reason (unless the epr decide stack is has redundancies in the DecideStackLiterals)
+			 // so we can return at this point
+			 return;
+		 }
+	}
 
 	Clause doPropagations() {
 		HashSet<EprClause> toProp = new HashSet<EprClause>(mUnitClausesWaitingForPropagation);
