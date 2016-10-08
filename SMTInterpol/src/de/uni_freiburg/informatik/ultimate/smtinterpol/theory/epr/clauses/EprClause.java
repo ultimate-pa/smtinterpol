@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -18,6 +19,7 @@ import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.BinaryRelation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers.Pair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
@@ -531,31 +533,49 @@ public class EprClause {
 		Set<Clause> result = new HashSet<Clause>();
 
 		for (List<ApplicationTerm> point : groundingDawg){
-			TTSubstitution sub = new TTSubstitution(groundingDawg.getColnames(), point);
-			Set<Literal> groundLits = new HashSet<Literal>();
-			for (ClauseLiteral cl : getLiterals()) {
-				if (cl instanceof ClauseEprQuantifiedLiteral) {
-					ClauseEprQuantifiedLiteral ceql = (ClauseEprQuantifiedLiteral) cl;
-					Term[] ceqlArgs = ceql.mArgumentTerms.toArray(new Term[ceql.mArgumentTerms.size()]);
-					TermTuple newTT = sub.apply(new TermTuple(ceqlArgs));
-					assert newTT.getFreeVars().size() == 0;
-					EprPredicateAtom at = ceql.getEprPredicate().getAtomForTermTuple(
-							newTT, 
-							mEprTheory.getTheory(), 
-							mEprTheory.getClausifier().getStackLevel());
-					
-					Literal newLit = cl.getPolarity() ? at : at.negate();
-
-					groundLits.add(newLit);
-				} else {
-					groundLits.add(cl.getLiteral());
-				}
-			}
+			Set<Literal> groundLits = getGroundingForPoint(point).getDomain();
 			
 			result.add(new Clause(groundLits.toArray(new Literal[groundLits.size()])));
 		}
 
 		return result;
+	}
+
+
+	/**
+	 * Obtains a grounding of the clause for one point.
+	 * The point needs to be in the clause's signature.
+	 * Also tracks which instantiation comes from which ClauseLiteral -- which is useful for observing if a factoring has occurred.
+	 * @param point
+	 * @return
+	 */
+	private BinaryRelation<Literal, ClauseLiteral> getGroundingForPoint(List<ApplicationTerm> point) {
+		TTSubstitution sub = new TTSubstitution(mVariables, point);
+		Set<Literal> groundLits = new HashSet<Literal>();
+//		Map<ClauseEprQuantifiedLiteral, Literal> quantifiedLitToInstantiation
+		BinaryRelation<Literal, ClauseLiteral> instantiationToClauseLiteral = 
+				new BinaryRelation<Literal, ClauseLiteral>();
+		for (ClauseLiteral cl : getLiterals()) {
+			if (cl instanceof ClauseEprQuantifiedLiteral) {
+				ClauseEprQuantifiedLiteral ceql = (ClauseEprQuantifiedLiteral) cl;
+				Term[] ceqlArgs = ceql.mArgumentTerms.toArray(new Term[ceql.mArgumentTerms.size()]);
+				TermTuple newTT = sub.apply(new TermTuple(ceqlArgs));
+				assert newTT.getFreeVars().size() == 0;
+				EprPredicateAtom at = ceql.getEprPredicate().getAtomForTermTuple(
+						newTT, 
+						mEprTheory.getTheory(), 
+						mEprTheory.getClausifier().getStackLevel());
+				
+				Literal newLit = cl.getPolarity() ? at : at.negate();
+
+				instantiationToClauseLiteral.addPair(newLit, ceql);
+				groundLits.add(newLit);
+			} else {
+				instantiationToClauseLiteral.addPair(cl.getLiteral(), cl);
+				groundLits.add(cl.getLiteral());
+			}
+		}
+		return instantiationToClauseLiteral;
 	}
 
 
@@ -567,124 +587,53 @@ public class EprClause {
 	 * @return A factored version of this clause or this clause.
 	 */
 	public EprClause factorIfPossible() {
-		Set<EprPredicate> predsInThisClause = new HashSet<EprPredicate>();
-		for (ClauseLiteral cl : mLiterals) {
-			if (!(cl instanceof ClauseEprQuantifiedLiteral)) {
-				// if the pred only occurs in ground literals we don't need to consider it for factoring
-				// (we already did ground factoring at creation)
-				continue;
-			}
-			ClauseEprQuantifiedLiteral ceql = (ClauseEprQuantifiedLiteral) cl;
-			predsInThisClause.add(ceql.getEprPredicate());
-		}
-
-		for (EprPredicate eprPred : predsInThisClause) {
-			// note that ground occurrences may also contribute to a factoring (but one side has to be quantified)
-			// so the following set should be just right
-			HashSet<ClauseEprLiteral> occurrencesOfSamePredInThisClause = 
-					eprPred.getAllEprClauseOccurences().get(this);
-
-			// collect all relevant types of literals
-			List<ClauseEprQuantifiedLiteral> positiveQuantifiedOccurencesOfPred = 
-					new ArrayList<ClauseEprQuantifiedLiteral>();
-			List<ClauseEprGroundLiteral> positiveGroundOccurencesOfPred = 
-					new ArrayList<ClauseEprGroundLiteral>();
-			List<ClauseEprQuantifiedLiteral> negativeQuantifiedOccurencesOfPred = 
-					new ArrayList<ClauseEprQuantifiedLiteral>();
-			List<ClauseEprGroundLiteral> negativeGroundOccurencesOfPred = 
-					new ArrayList<ClauseEprGroundLiteral>();
-			for (ClauseEprLiteral cel : occurrencesOfSamePredInThisClause) {
-				if (cel.getPolarity()) {
-					if (cel instanceof ClauseEprQuantifiedLiteral) {
-						positiveQuantifiedOccurencesOfPred.add((ClauseEprQuantifiedLiteral) cel);
-					} else {
-						positiveGroundOccurencesOfPred.add((ClauseEprGroundLiteral) cel);
-					}
-				} else {
-					if (cel instanceof ClauseEprQuantifiedLiteral) {
-						negativeQuantifiedOccurencesOfPred.add((ClauseEprQuantifiedLiteral) cel);
-					} else {
-						negativeGroundOccurencesOfPred.add((ClauseEprGroundLiteral) cel);
+		assert this.isConflict();
+		
+		for (List<ApplicationTerm> cp : getConflictPoints()) {
+			BinaryRelation<Literal, ClauseLiteral> cpg = getGroundingForPoint(cp);
+			
+			for (Literal groundLit : cpg.getDomain()) {
+				Set<ClauseLiteral> preGroundingClauseLits = cpg.getImage(groundLit);
+				if (preGroundingClauseLits.size() == 1) {
+					// no factoring occurred for that literal
+					continue;
+				}
+				assert preGroundingClauseLits.size() > 1;
+				/*
+				 *  factoring occurred for that literal
+				 *  that literal is a conflict grounding of this conflict epr clause
+				 *  --> we can factor this conflict epr clause
+				 */
+				assert preGroundingClauseLits.size() == 2 : "TODO: deal with factoring for more that two literals";
+				ClauseEprQuantifiedLiteral ceql = null;
+				ClauseEprLiteral cel = null;
+				for (ClauseLiteral cl : preGroundingClauseLits) {
+					assert cl instanceof ClauseEprLiteral;
+					if (ceql == null && cl instanceof ClauseEprQuantifiedLiteral) {
+						ceql = (ClauseEprQuantifiedLiteral) cl;
+					} else if (cel == null && 
+							(ceql != null || !(cl instanceof ClauseEprQuantifiedLiteral))) {
+						cel = (ClauseEprLiteral) cl;
 					}
 				}
-			}
-			
-			EprClause factorPos = factorWithPolarity(positiveQuantifiedOccurencesOfPred, positiveGroundOccurencesOfPred);
-			if (factorPos != null) {
-				assert factorPos.isConflict();
-				return factorPos;
-			}
+				assert cel != null && ceql != null && !cel.equals(ceql);
 
-			EprClause factorNeg = factorWithPolarity(negativeQuantifiedOccurencesOfPred, negativeGroundOccurencesOfPred);
-			if (factorNeg != null) {
-				assert factorNeg.isConflict();
-				return factorNeg;
+				
+				mEprTheory.getLogger().debug("EPRDEBUG: (EprClause): factoring " + this);
+				EprClause factor = mEprTheory.getEprClauseFactory().getFactoredClause(ceql, cel);
+				assert factor.isConflict() : "we only factor conflicts -- we should get a conflict out, too.";
+				return factor;					
 			}
 		}
+
 		// when we can't factor, we just return this clause
 		return this;
 	}
-
-
-	private EprClause factorWithPolarity(List<ClauseEprQuantifiedLiteral> quantifiedOccurencesOfPred,
-			List<ClauseEprGroundLiteral> groundOccurencesOfPred) {
-
-		for (int i = 0; i < quantifiedOccurencesOfPred.size(); i++) {
-			ClauseEprQuantifiedLiteral pqOc = quantifiedOccurencesOfPred.get(i);
-			IDawg<ApplicationTerm, TermVariable> refutedPointsOfCurrentCandidateLiteral = 
-					mDawgFactory.translateClauseSigToPredSig(
-							getConflictPoints(), 
-							pqOc.getTranslationFromClauseToEprPredicate(), 
-							pqOc.getArgumentsAsObjects(), 
-							pqOc.getEprPredicate().getTermVariablesForArguments());
-			for (int j = 0; j < i; j++) {
-				ClauseEprQuantifiedLiteral pqOcOther = quantifiedOccurencesOfPred.get(j);
-				assert pqOcOther != pqOc;
-				
-				IDawg<ApplicationTerm, TermVariable> refutedPointsOfOtherCandidateLiteral = 
-					mDawgFactory.translateClauseSigToPredSig(
-							getConflictPoints(), 
-							pqOcOther.getTranslationFromClauseToEprPredicate(), 
-							pqOcOther.getArgumentsAsObjects(), 
-							pqOcOther.getEprPredicate().getTermVariablesForArguments());
-				
-				IDawg<ApplicationTerm, TermVariable> intersection = 
-						refutedPointsOfCurrentCandidateLiteral.intersect(refutedPointsOfOtherCandidateLiteral);
-				
-				if (intersection.isEmpty()) {
-					continue;
-				}
-				// we can actually factor
-				mEprTheory.getLogger().debug("EPRDEBUG: (EprClause): factoring " + this);
-				EprClause factor = mEprTheory.getEprClauseFactory().getFactoredClause(pqOc, pqOcOther);
-				assert factor.isConflict() : "we only factor conflicts";
-				return factor;
-			}
-
-			for (ClauseEprGroundLiteral pgOc : groundOccurencesOfPred) {
-				// there is only one refuted point of the other candidate literal here
-				if (! refutedPointsOfCurrentCandidateLiteral.accepts(
-						EprHelpers.convertTermListToConstantList(pgOc.getArguments()))) {
-					// the candidate literals are not unifiable
-					continue;
-				}
-				
-				// we can actually factor
-				mEprTheory.getLogger().debug("EPRDEBUG: (EprClause): factoring " + this);
-				EprClause factor = mEprTheory.getEprClauseFactory().getFactoredClause(pqOc, pgOc);
-				assert factor.isConflict() : "we only factor conflicts";
-				return factor;
-			}
-		}
-		return null;
-	}
-
 
 	public boolean isUnitBelowDecisionPoint(DecideStackDecisionLiteral dsdl) {
 		EprClauseState state = determineClauseState(dsdl);
 		return state == EprClauseState.Unit;
 	}
-
 
 	public Map<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> getClauseLitToUnitPointsBelowDecisionPoint(
 			DecideStackDecisionLiteral dsdl) {

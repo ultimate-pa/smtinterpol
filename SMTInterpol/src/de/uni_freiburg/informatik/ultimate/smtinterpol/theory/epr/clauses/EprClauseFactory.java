@@ -76,7 +76,7 @@ public class EprClauseFactory {
 		mEprTheory.notifyAboutNewClause(alphaRenamingIdentifier);
 
 		// apply the unifier to the literals of c1 and c2, add the unified literals to the resolvent
-		Set<Literal> resLits = computeUnifiedLiteralsFromClauseLiterals(unifier, resCls, alphaRenamingIdentifier);
+		Set<Literal> resLits = computeUnifiedLiteralsFromClauseLiterals(unifier, resCls);
 	
 
 		EprClause resolvent = getEprClause(resLits);
@@ -111,7 +111,7 @@ public class EprClauseFactory {
 				+ clause + " with " + factorLit1 + " and " + factorLit2);
 		mEprTheory.notifyAboutNewClause(alphaRenamingIdentifier);
 	
-		Set<Literal> resLits = computeUnifiedLiteralsFromClauseLiterals(unifier, resCls, alphaRenamingIdentifier);
+		Set<Literal> resLits = computeUnifiedLiteralsFromClauseLiterals(unifier, resCls);
 		
 		EprClause factor = getEprClause(resLits);
 		assert factor.isConflict();
@@ -152,8 +152,7 @@ public class EprClauseFactory {
 		mLiteralsToClause.endScope();
 	}
 
-	private Set<Literal> computeUnifiedLiteralsFromClauseLiterals(TTSubstitution unifier, Set<ClauseLiteral> resCls,
-			String alphaRenamingIdentifier) {
+	private Set<Literal> computeUnifiedLiteralsFromClauseLiterals(TTSubstitution unifier, Set<ClauseLiteral> resCls) {
 		// apply the unifier to the literals of c1 and c2, add the unified literals to the resolvent
 		Set<Literal> resLits = new HashSet<Literal>();
 		for (ClauseLiteral cl : resCls) {
