@@ -7,6 +7,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
 
+import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
+
 /**
  * Contains stuff that is expected to be common to all Dawg implementations.
  * 
@@ -18,6 +20,7 @@ import java.util.SortedSet;
 public abstract class AbstractDawg<LETTER, COLNAMES> implements IDawg<LETTER, COLNAMES> {
 	
 	protected final int mArity;
+	protected final LogProxy mLogger;
 	
 	/**
 	 * Store the column names in a list. By convention this list has no repetitions. 
@@ -27,13 +30,14 @@ public abstract class AbstractDawg<LETTER, COLNAMES> implements IDawg<LETTER, CO
 	protected final Set<LETTER> mAllConstants;
 	protected final Map<COLNAMES, Integer> mColNameToIndex;
 	
-	public AbstractDawg(SortedSet<COLNAMES> colNames, Set<LETTER> allConstants) {
+	public AbstractDawg(SortedSet<COLNAMES> colNames, Set<LETTER> allConstants, LogProxy logger) {
 //		assert hasNoRepetitions(colNames) : "convention: we only allow dawgs whose signature has no "
 //				+ "repetitions -- if it had repetitions, we would just omit one column "
 //				+ "(..and select the matching points only)";
 		mColNames = colNames;
 		mArity = colNames.size();
 		mAllConstants = allConstants;
+		mLogger = logger;
 		
 		mColNameToIndex = new HashMap<COLNAMES, Integer>();
 		Iterator<COLNAMES> it = mColNames.iterator();

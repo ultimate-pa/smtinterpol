@@ -21,18 +21,20 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.D
 
 public class DawgFactory<LETTER, COLNAMES> {
 	
-	EprTheory mEprTheory;
+	private final EprTheory mEprTheory;
 	Set<LETTER> mAllConstants;
-	
+	private LogProxy mLogger;
+
 	public DawgFactory(Set<LETTER> allConstants, EprTheory eprTheory) {
 		mEprTheory = eprTheory;
 		mAllConstants = allConstants;
+		mLogger = eprTheory.getLogger();
 	}
 
 	public IDawg<LETTER, COLNAMES> createEmptyDawg(SortedSet<COLNAMES> termVariables) {
 		assert termVariables != null;
 		//TODO freeze the current allConstants set, here?? or can it just change transparently?? 
-		return new NaiveDawg<LETTER, COLNAMES>(termVariables, mAllConstants);
+		return new NaiveDawg<LETTER, COLNAMES>(termVariables, mAllConstants, mLogger);
 	}
 
 	/**
@@ -44,12 +46,12 @@ public class DawgFactory<LETTER, COLNAMES> {
 	 */
 	public IDawg<LETTER, COLNAMES> createFullDawg(SortedSet<COLNAMES> termVariables) {
 		assert termVariables != null;
-		return new NaiveDawg<LETTER, COLNAMES>(termVariables, mAllConstants).complement();
+		return new NaiveDawg<LETTER, COLNAMES>(termVariables, mAllConstants, mLogger).complement();
 	}
 
 	public IDawg<LETTER, COLNAMES> copyDawg(IDawg<LETTER, COLNAMES> dawg) {
 		NaiveDawg<LETTER, COLNAMES> nd = (NaiveDawg<LETTER, COLNAMES>) dawg;
-		return new NaiveDawg<LETTER, COLNAMES>(nd);
+		return new NaiveDawg<LETTER, COLNAMES>(nd, mLogger);
 	}
 	
 
@@ -118,7 +120,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 		
 		NaiveDawg<LETTER, COLNAMES> otherNd = (NaiveDawg<LETTER, COLNAMES>) dawg;
 //		Set<List<LETTER>> newBacking = new HashSet<List<LETTER>>();
-		NaiveDawg<LETTER, COLNAMES> result = new NaiveDawg<LETTER, COLNAMES>(targetSignature, mAllConstants);
+		NaiveDawg<LETTER, COLNAMES> result = new NaiveDawg<LETTER, COLNAMES>(targetSignature, mAllConstants, mLogger);
 
 		for (List<LETTER> point : otherNd.mBacking) {
 
@@ -232,7 +234,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 			newBacking.add(newPoint);
 		}
 		
-		NaiveDawg<LETTER, COLNAMES> result = new NaiveDawg<LETTER, COLNAMES>(newSignature, mAllConstants, newBacking);
+		NaiveDawg<LETTER, COLNAMES> result = new NaiveDawg<LETTER, COLNAMES>(newSignature, mAllConstants, newBacking, mLogger);
 		assert EprHelpers.verifySortsOfPoints(result, newSignature);
 		return result;
 	}
@@ -367,7 +369,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 		public IDawg<LETTER, COLNAMES> createOnePointDawg(
 				SortedSet<COLNAMES> sig, List<LETTER> point) {
 			NaiveDawg<LETTER, COLNAMES> dawg = 
-					new NaiveDawg<LETTER, COLNAMES>(sig, mAllConstants);
+					new NaiveDawg<LETTER, COLNAMES>(sig, mAllConstants, mLogger);
 			dawg.add(point);
 			return dawg;
 		}
@@ -378,13 +380,14 @@ public class DawgFactory<LETTER, COLNAMES> {
 			NaiveDawg<LETTER, COLNAMES> nd = new NaiveDawg<LETTER, COLNAMES>(
 					baseDawg.getColnames(), 
 					mAllConstants, 
-					((NaiveDawg<LETTER, COLNAMES>) baseDawg).mBacking);
+					((NaiveDawg<LETTER, COLNAMES>) baseDawg).mBacking, 
+					mLogger);
 			nd.addAllWithSubsetSignature(toBeAdded);
 			return nd;
 		}
 
 		public LogProxy getLogger() {
-			return mEprTheory.getLogger();
+			return mLogger;
 		}
 	
 }

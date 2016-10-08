@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
 
+import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawgLetter.UniversalDawgLetter;
 
 public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
@@ -26,8 +27,8 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	 */
 	Map<Integer, Map<IDawgLetter<LETTER>, Integer>> transitionRelation;
 
-	public Dawg(SortedSet<COLNAMES> termVariables, Set<LETTER> allConstants) {
-		super(termVariables, allConstants);
+	public Dawg(SortedSet<COLNAMES> termVariables, Set<LETTER> allConstants, LogProxy logger) {
+		super(termVariables, allConstants, logger);
 		
 		/*
 		 * create as an empty dawg

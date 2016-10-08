@@ -10,6 +10,7 @@ import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
+import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 
 /**
@@ -24,25 +25,25 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	Set<List<LETTER>> mBacking;
 	private Set<List<LETTER>> mNCrossProduct;
 	
-	public NaiveDawg(SortedSet<COLNAMES> termVariables, Set<LETTER> allConstants) {
-		super(termVariables, allConstants);
+	public NaiveDawg(SortedSet<COLNAMES> termVariables, Set<LETTER> allConstants, LogProxy logger) {
+		super(termVariables, allConstants, logger);
 		mBacking = new HashSet<List<LETTER>>();
 	}
 
 	public NaiveDawg(SortedSet<COLNAMES> termVariables, Set<LETTER> allConstants, 
-			Set<List<LETTER>> initialLanguage) {
-		super(termVariables, allConstants);
+			Set<List<LETTER>> initialLanguage, LogProxy logger) {
+		super(termVariables, allConstants, logger);
 		mBacking = new HashSet<List<LETTER>>(initialLanguage);
 	}
 
 
-	public NaiveDawg(NaiveDawg<LETTER, COLNAMES> nd) {
-		super(nd.mColNames, nd.mAllConstants);
+	public NaiveDawg(NaiveDawg<LETTER, COLNAMES> nd, LogProxy logger) {
+		super(nd.mColNames, nd.mAllConstants, logger);
 		mBacking = new HashSet<List<LETTER>>(nd.mBacking);
 	}
 
-	public NaiveDawg(NaiveDawg<LETTER, COLNAMES> nd, Map<COLNAMES, COLNAMES> translation) {
-		super(EprHelpers.applyMapping(nd.mColNames, translation), nd.mAllConstants);
+	public NaiveDawg(NaiveDawg<LETTER, COLNAMES> nd, Map<COLNAMES, COLNAMES> translation, LogProxy logger) {
+		super(EprHelpers.applyMapping(nd.mColNames, translation), nd.mAllConstants, logger);
 		mBacking = new HashSet<List<LETTER>>(nd.mBacking);
 	}
 
@@ -61,7 +62,7 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 		NaiveDawg<LETTER, COLNAMES> otherNd = (NaiveDawg<LETTER, COLNAMES>) other;
 
 		NaiveDawg<LETTER, COLNAMES> result = 
-				new NaiveDawg<LETTER, COLNAMES>(newSignature, mAllConstants);
+				new NaiveDawg<LETTER, COLNAMES>(newSignature, mAllConstants, mLogger);
 		
 		for (List<LETTER> pointThis : this.mBacking) {
 			for (List<LETTER> pointOther : otherNd.mBacking) {
@@ -116,7 +117,7 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 		Set<List<LETTER>> complement = new HashSet<List<LETTER>>(getNCrossProduct());
 		assert EprHelpers.verifySortsOfPoints(complement, getColnames());
 		complement.removeAll(mBacking);
-		NaiveDawg<LETTER, COLNAMES> result = new NaiveDawg<LETTER, COLNAMES>(mColNames, mAllConstants, complement);
+		NaiveDawg<LETTER, COLNAMES> result = new NaiveDawg<LETTER, COLNAMES>(mColNames, mAllConstants, complement, mLogger);
 		assert EprHelpers.verifySortsOfPoints(result, getColnames());
 		return result;
 	}
@@ -126,7 +127,7 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 		assert other.getColnames().equals(getColnames()) : "incompatible column names";
 
 		NaiveDawg<LETTER, COLNAMES> newDawg = 
-				new NaiveDawg<LETTER, COLNAMES>(mColNames, mAllConstants, mBacking);
+				new NaiveDawg<LETTER, COLNAMES>(mColNames, mAllConstants, mBacking, mLogger);
 		newDawg.addAll(other);
 
 		return newDawg;
@@ -174,7 +175,7 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 		Set<List<LETTER>> newBacking = new HashSet<List<LETTER>>(mBacking);
 		newBacking.retainAll(naiOther.mBacking);
 		
-		return new NaiveDawg<LETTER, COLNAMES>(mColNames, mAllConstants, newBacking);
+		return new NaiveDawg<LETTER, COLNAMES>(mColNames, mAllConstants, newBacking, mLogger);
 	}
 
 	@Override
@@ -186,7 +187,7 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	
 	private Set<List<LETTER>> getNCrossProduct() {
 		if (mNCrossProduct == null) {
-			mNCrossProduct = EprHelpers.computeNCrossproduct(mAllConstants, mArity);
+			mNCrossProduct = EprHelpers.computeNCrossproduct(mAllConstants, mArity, mLogger);
 		}
 		return mNCrossProduct;
 	}
@@ -268,7 +269,7 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 				}
 			}
 		}
-		return new NaiveDawg<LETTER, COLNAMES>(mColNames, mAllConstants, newBacking);
+		return new NaiveDawg<LETTER, COLNAMES>(mColNames, mAllConstants, newBacking, mLogger);
 	}
 
 	@Override

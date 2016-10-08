@@ -206,7 +206,8 @@ public class EprHelpers {
 	/**
 	 * Given a set S, computes S x S ... x S = S^n
 	 */
-	public static <LETTER> Set<List<LETTER>> computeNCrossproduct(Set<LETTER> baseSet, int n) {
+	public static <LETTER> Set<List<LETTER>> computeNCrossproduct(Set<LETTER> baseSet, int n, LogProxy logger) {
+		logger.debug("EPRDEBUG: EprHelpers.computeNCrossproduct N = " + n + " baseSet size = " + baseSet.size());
 		Set<List<LETTER>> result = new HashSet<List<LETTER>>();
 		result.add(new ArrayList<LETTER>());
 		for (int i = 0; i < n; i++) {
