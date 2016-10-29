@@ -67,6 +67,15 @@ public interface IDawg<LETTER, COLNAMES> extends Iterable<List<LETTER>> {
 	 */
 	public void removeAllWithSubsetSignature(IDawg<LETTER, COLNAMES> points);
 
+	/**
+	 * Return a dawg where only the points are selected that match the given mapping.
+	 * The mappings says for some columns what value they must have.
+	 * (this is a special version of the normal select operation sigma_phi, where phi has the form x=a, 
+	 *  for a column name x and a letter a)
+	 * 
+	 * @param selectMap restricts some COLNAMES in the signature to only one LETTER
+	 * @return
+	 */
 	public IDawg<LETTER, COLNAMES> select(Map<COLNAMES, LETTER> selectMap);
 
 	/**

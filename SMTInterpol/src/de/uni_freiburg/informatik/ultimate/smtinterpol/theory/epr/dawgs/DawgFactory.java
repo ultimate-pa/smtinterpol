@@ -49,26 +49,19 @@ public class DawgFactory<LETTER, COLNAMES> {
 		return new NaiveDawg<LETTER, COLNAMES>(termVariables, mAllConstants, mLogger).complement();
 	}
 
+	public IDawg<LETTER, COLNAMES> createOnePointDawg(
+			SortedSet<COLNAMES> sig, List<LETTER> point) {
+		NaiveDawg<LETTER, COLNAMES> dawg = 
+				new NaiveDawg<LETTER, COLNAMES>(sig, mAllConstants, mLogger);
+		dawg.add(point);
+		return dawg;
+	}
+
 	public IDawg<LETTER, COLNAMES> copyDawg(IDawg<LETTER, COLNAMES> dawg) {
 		NaiveDawg<LETTER, COLNAMES> nd = (NaiveDawg<LETTER, COLNAMES>) dawg;
 		return new NaiveDawg<LETTER, COLNAMES>(nd, mLogger);
 	}
 	
-
-	/**
-	 * Create a dawg from the input dawg where only the points are selected that match the given mapping.
-	 * The mappings says for some columns what value they must have.
-	 * (this is a special version of the normal select operation sigma_phi, where phi has the form x=a, 
-	 *  for a column name x and a letter a)
-	 * 
-	 * @param dawg
-	 * @param selectMap (possibly) restricts some COLNAMES in the signature to only one LETTER
-	 * @return
-	 */
-	public IDawg<ApplicationTerm, TermVariable> select(IDawg<ApplicationTerm, TermVariable> dawg,
-			Map<TermVariable, ApplicationTerm> selectMap) {
-		return dawg.select(selectMap);
-	}
 
 	/**
 	 * Used for translating from the signature of a DecideStackLiteral to the signature of an EprClause with respect to
@@ -240,7 +233,11 @@ public class DawgFactory<LETTER, COLNAMES> {
 	}
 
 
-	/////////////////////////////////////////////////////////////
+	public LogProxy getLogger() {
+		return mLogger;
+	}
+
+		/////////////////////////////////////////////////////////////
 	///////////////// test code /////////////////////////////////
 	/////////////////////////////////////////////////////////////
 		/**
@@ -364,30 +361,6 @@ public class DawgFactory<LETTER, COLNAMES> {
 			System.out.println("expecting: (due, cinque, quattro, tre, uno) {aBbAa, aBbAb}");
 			System.out.println(d6);
 		
-		}
-
-		public IDawg<LETTER, COLNAMES> createOnePointDawg(
-				SortedSet<COLNAMES> sig, List<LETTER> point) {
-			NaiveDawg<LETTER, COLNAMES> dawg = 
-					new NaiveDawg<LETTER, COLNAMES>(sig, mAllConstants, mLogger);
-			dawg.add(point);
-			return dawg;
-		}
-
-		public IDawg<LETTER, COLNAMES> addAllWithSubsetSignature(
-				IDawg<LETTER, COLNAMES> baseDawg,
-				IDawg<LETTER, COLNAMES> toBeAdded) {
-			NaiveDawg<LETTER, COLNAMES> nd = new NaiveDawg<LETTER, COLNAMES>(
-					baseDawg.getColnames(), 
-					mAllConstants, 
-					((NaiveDawg<LETTER, COLNAMES>) baseDawg).mBacking, 
-					mLogger);
-			nd.addAllWithSubsetSignature(toBeAdded);
-			return nd;
-		}
-
-		public LogProxy getLogger() {
-			return mLogger;
 		}
 	
 }

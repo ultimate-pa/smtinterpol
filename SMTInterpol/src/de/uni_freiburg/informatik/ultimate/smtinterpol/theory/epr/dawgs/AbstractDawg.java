@@ -31,9 +31,6 @@ public abstract class AbstractDawg<LETTER, COLNAMES> implements IDawg<LETTER, CO
 	protected final Map<COLNAMES, Integer> mColNameToIndex;
 	
 	public AbstractDawg(SortedSet<COLNAMES> colNames, Set<LETTER> allConstants, LogProxy logger) {
-//		assert hasNoRepetitions(colNames) : "convention: we only allow dawgs whose signature has no "
-//				+ "repetitions -- if it had repetitions, we would just omit one column "
-//				+ "(..and select the matching points only)";
 		mColNames = colNames;
 		mArity = colNames.size();
 		mAllConstants = allConstants;
@@ -45,17 +42,6 @@ public abstract class AbstractDawg<LETTER, COLNAMES> implements IDawg<LETTER, CO
 			COLNAMES cn = it.next();
 			mColNameToIndex.put(cn, i);
 		}
-	}
-
-	private boolean hasNoRepetitions(List<COLNAMES> colNames) {
-		for (int i = 0; i < colNames.size(); i++) {
-			for (int j = 0; j < i; j++) {
-				if (colNames.get(j).equals(colNames.get(i))) {
-					return false;
-				}
-			}
-		}
-		return true;
 	}
 
 	@Override
