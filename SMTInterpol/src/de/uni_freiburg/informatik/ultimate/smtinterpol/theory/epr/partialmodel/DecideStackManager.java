@@ -306,7 +306,7 @@ public class DecideStackManager {
 	 *    of the conflict and the unit clause responsible for setting the decide stack literal 
 	 *     (DPLL operation "explain")
 	 *     
-	 *   Note that this does nothing to the decide stack.
+	 *   Note that this method does nothing to the decide stack.
 	 * @param conflict the current conflict clause
 	 * @param propagatedLiteral the current top of the decide stack.
 	 * @return the resolvent from the conflict and the reason for the unit propagation of decideStackLiteral
@@ -317,10 +317,12 @@ public class DecideStackManager {
 		Set<ClauseEprLiteral> relevantConfLits = new HashSet<ClauseEprLiteral>();
 		for (ClauseLiteral cl : conflict.getLiterals()) {
 			if (!(cl instanceof ClauseEprLiteral)) {
+				// cl's predicate is not an epr predicate, the decide stack only talks about epr predicates
 				continue;
 			}
 			ClauseEprLiteral cel = (ClauseEprLiteral) cl;
 			if (!(cel.getPartiallyConflictingDecideStackLiterals().contains(propagatedLiteral))) {
+				// propagatedLiteral does not conflict with the current ClauseLiteral (cl)
 				continue;
 			}
 			
@@ -331,7 +333,8 @@ public class DecideStackManager {
 								propagatedLiteral.getDawg(), 
 								ceql.getTranslationFromEprPredicateToClause(), 
 								conflict.getVariables());
-				IDawg<ApplicationTerm, TermVariable> intersection = propLitDawgInClauseSignature.intersect(conflict.getConflictPoints());
+				IDawg<ApplicationTerm, TermVariable> intersection = 
+						propLitDawgInClauseSignature.intersect(conflict.getConflictPoints());
 				if (intersection.isEmpty()) {
 					continue;
 				}
@@ -470,12 +473,11 @@ public class DecideStackManager {
 	 * (this is called when the DPLLEngine sets an epr literal an we need to know if the two decide stacks
 	 *  of dpll engine and epr theory are still consistent wrt each other)
 	 * Note that the result should be unique here, because on the epr decide stack we don't set points twice
-	 *  (or do we?..)
 	 * @param egpl
 	 * @return the decide stack literal that contradicts egpl if there exists one, null otherwise
 	 */
 	DecideStackLiteral searchConflictingDecideStackLiteral(EprGroundPredicateLiteral egpl) {
-		// TODO not fully sure if each point is set only once on the epr decide stack
+		// TODO not fully sure if each point is set at most only once on the epr decide stack
 		//  --> if not, we probably want to 
 		for (IEprLiteral dsl : egpl.getEprPredicate().getEprLiterals()) { 
 			if (!(dsl instanceof DecideStackLiteral)) {

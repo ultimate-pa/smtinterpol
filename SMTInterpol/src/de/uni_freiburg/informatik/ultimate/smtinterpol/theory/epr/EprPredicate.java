@@ -155,6 +155,7 @@ public class EprPredicate {
 			// something about it
 			for (IEprLiteral dsl : this.getEprLiterals()) {
 				if (!(dsl instanceof DecideStackLiteral)) {
+					// we have an EprGroundPredicateLiteral --> the DPLLEngine already knows about it..
 					continue;
 				}
 				EprClause conflict = mEprTheory.getStateManager().setGroundAtomIfCoveredByDecideStackLiteral((DecideStackLiteral) dsl, result);
