@@ -24,6 +24,12 @@ public class DawgFactory<LETTER, COLNAMES> {
 	private final EprTheory mEprTheory;
 	Set<LETTER> mAllConstants;
 	private LogProxy mLogger;
+	
+	
+	/**
+	 * Use naive Dawg implementation ("normal" one otherwise)
+	 */
+	private boolean mUseNaiveDawgs = true;
 
 	public DawgFactory(Set<LETTER> allConstants, EprTheory eprTheory) {
 		mEprTheory = eprTheory;
@@ -34,7 +40,12 @@ public class DawgFactory<LETTER, COLNAMES> {
 	public IDawg<LETTER, COLNAMES> createEmptyDawg(SortedSet<COLNAMES> termVariables) {
 		assert termVariables != null;
 		//TODO freeze the current allConstants set, here?? or can it just change transparently?? 
-		return new NaiveDawg<LETTER, COLNAMES>(termVariables, mAllConstants, mLogger);
+		
+		if (mUseNaiveDawgs) {
+			return new NaiveDawg<LETTER, COLNAMES>(termVariables, mAllConstants, mLogger);
+		} else {
+			return null;
+		}
 	}
 
 	/**
@@ -46,20 +57,32 @@ public class DawgFactory<LETTER, COLNAMES> {
 	 */
 	public IDawg<LETTER, COLNAMES> createFullDawg(SortedSet<COLNAMES> termVariables) {
 		assert termVariables != null;
-		return new NaiveDawg<LETTER, COLNAMES>(termVariables, mAllConstants, mLogger).complement();
+		if (mUseNaiveDawgs) {
+			return new NaiveDawg<LETTER, COLNAMES>(termVariables, mAllConstants, mLogger).complement();
+		} else {
+			return null;
+		}
 	}
 
 	public IDawg<LETTER, COLNAMES> createOnePointDawg(
 			SortedSet<COLNAMES> sig, List<LETTER> point) {
-		NaiveDawg<LETTER, COLNAMES> dawg = 
-				new NaiveDawg<LETTER, COLNAMES>(sig, mAllConstants, mLogger);
-		dawg.add(point);
-		return dawg;
+		if (mUseNaiveDawgs) {
+			NaiveDawg<LETTER, COLNAMES> dawg = 
+					new NaiveDawg<LETTER, COLNAMES>(sig, mAllConstants, mLogger);
+			dawg.add(point);
+			return dawg;
+		} else {
+			return null;
+		}
 	}
 
 	public IDawg<LETTER, COLNAMES> copyDawg(IDawg<LETTER, COLNAMES> dawg) {
-		NaiveDawg<LETTER, COLNAMES> nd = (NaiveDawg<LETTER, COLNAMES>) dawg;
-		return new NaiveDawg<LETTER, COLNAMES>(nd, mLogger);
+		if (mUseNaiveDawgs) {
+			NaiveDawg<LETTER, COLNAMES> nd = (NaiveDawg<LETTER, COLNAMES>) dawg;
+			return new NaiveDawg<LETTER, COLNAMES>(nd, mLogger);
+		} else {
+			return null;
+		}
 	}
 	
 
@@ -92,81 +115,16 @@ public class DawgFactory<LETTER, COLNAMES> {
 	 * @param targetSignature the target signature we want to blow up for in the end
 	 * @return
 	 */
-	@SuppressWarnings("unchecked")
 	public IDawg<LETTER, COLNAMES> translatePredSigToClauseSig(
 			IDawg<LETTER, COLNAMES> dawg, Map<COLNAMES, Object> translation, SortedSet<COLNAMES> targetSignature) {
-
-		COLNAMES colNamesInstance = dawg.getColnames().first();
-		
-		// the signature of the new dawg has only the non-duplicated colnames 
-		// and also omits constants (i.e. objects not of the type COLNAMES)
-		// this signature is before the blowup to targetSignature
-		SortedSet<COLNAMES> newPointSignature = new TreeSet<COLNAMES>(EprHelpers.getColumnNamesComparator());
-		for (Object o : translation.values()) {
-			if (colNamesInstance.getClass().isInstance(o)) {
-				newPointSignature.add((COLNAMES) o);
-			}
+		if (mUseNaiveDawgs) {
+			return dawg.translatePredSigToClauseSig(translation, targetSignature);
+		} else {
+			return null;
 		}
-		
-		// the new signature is repetition-free, so we can use a map
-		Map<COLNAMES, Integer> newSigColNamesToIndex = EprHelpers.computeColnamesToIndex(newPointSignature);
-		
-		NaiveDawg<LETTER, COLNAMES> otherNd = (NaiveDawg<LETTER, COLNAMES>) dawg;
-//		Set<List<LETTER>> newBacking = new HashSet<List<LETTER>>();
-		NaiveDawg<LETTER, COLNAMES> result = new NaiveDawg<LETTER, COLNAMES>(targetSignature, mAllConstants, mLogger);
-
-		for (List<LETTER> point : otherNd.mBacking) {
-
-			List<LETTER> newPoint = new ArrayList<LETTER>(newPointSignature.size());
-			// set up the new point (need to fill it, or List.set(..) won't work)
-			for (int i = 0; i < newPointSignature.size(); i++) {
-				newPoint.add(null);
-			}
-			
-			// tracks if a column name has been seen, and what letter it had been assigned (does select_x=x so to say)
-			Map<COLNAMES, LETTER> variableAssignmentInPoint = new HashMap<COLNAMES, LETTER>();
-			
-			Iterator<COLNAMES> ptColIt = dawg.getColnames().iterator();
-			for (int i = 0; i < point.size(); i++) {
-				LETTER ptLtr = point.get(i);
-				COLNAMES ptColnameInOldSig = ptColIt.next();
-
-				Object translatedColumnName = translation.get(ptColnameInOldSig);
-				if (colNamesInstance.getClass().isInstance(translatedColumnName)) {
-					COLNAMES ptColnameInNewSig = (COLNAMES) translatedColumnName;
-					
-					LETTER vaip = variableAssignmentInPoint.get(ptColnameInNewSig);
-					if (vaip != null && vaip != ptLtr) {
-						// violation of select_x=x
-						newPoint = null;
-						break;
-					} else {
-						newPoint.set(newSigColNamesToIndex.get(ptColnameInNewSig), ptLtr);
-						// store that at the current oldColumn-name we used letter ptLtr
-						variableAssignmentInPoint.put(ptColnameInNewSig, ptLtr);
-					}
-					
-				} else {
-					// we have a constant in the column where this letter in the point is supposed to "land"
-					// select_x=c so to say..
-					if (ptLtr.equals(translatedColumnName)) {
-						// the constant matches go on (add nothing to the new point)
-					} else {
-						// point is filtered by the select that checks the constants
-						newPoint = null;
-						break;
-					}
-				}
-
-			}
-			if (newPoint != null) {
-				result.addWithSubsetSignature(newPoint, newPointSignature);
-//				newBacking.add(newPoint);
-			}
-		}
-		assert EprHelpers.verifySortsOfPoints(result, targetSignature);
-		return result;
 	}
+
+
 
 	/**
 	 * From the input dawg and translation computes a dawg
@@ -187,57 +145,21 @@ public class DawgFactory<LETTER, COLNAMES> {
 	 * @param newSignature
 	 * @return
 	 */
-	@SuppressWarnings("unchecked")
 	public IDawg<LETTER, COLNAMES> translateClauseSigToPredSig(
 			IDawg<LETTER, COLNAMES> other, 
 			Map<COLNAMES, COLNAMES> translation, 
 			List<Object> argList, 
 			SortedSet<COLNAMES> newSignature) {
-		
-		assert argList.size() == newSignature.size();
-		
-		Class<? extends Object> colnamesType = newSignature.iterator().next().getClass();
-
-		// the signature of a dawg of a decide stack literal does not contain repetitions, right?
-		Map<COLNAMES, Integer> oldSigColnamesToIndex = EprHelpers.computeColnamesToIndex(other.getColnames());
-
-		Set<List<LETTER>> newBacking = new HashSet<List<LETTER>>();
-		NaiveDawg<LETTER, COLNAMES> otherNd = (NaiveDawg<LETTER, COLNAMES>) other;
-		
-		for (List<LETTER> point : otherNd.mBacking) {
-			List<LETTER> newPoint = new ArrayList<LETTER>(newSignature.size());
-			// add placeholders so we can later use List.set(..)
-			for (int i = 0; i < newSignature.size(); i++) {
-				newPoint.add(null);
-			}
-
-			Iterator<COLNAMES> newSigColIt = newSignature.iterator();
-			for (int i = 0; i < newSignature.size(); i++) {
-				COLNAMES newSigColname = newSigColIt.next();
-				if (!colnamesType.isInstance(argList.get(i))) {
-					//argList.get(i) is a constant (because it is not a colname/termVariable)
-					assert newPoint.get(i) == null :
-						"the translation map must not translate to a colname where the clauseliteral has a constant!";
-					newPoint.set(i, (LETTER) argList.get(i));
-				} else {
-					LETTER letter = point.get(oldSigColnamesToIndex.get(translation.get(newSigColname)));
-					newPoint.set(i, letter);
-				}
-			}
-			newBacking.add(newPoint);
-		}
-		
-		NaiveDawg<LETTER, COLNAMES> result = new NaiveDawg<LETTER, COLNAMES>(newSignature, mAllConstants, newBacking, mLogger);
-		assert EprHelpers.verifySortsOfPoints(result, newSignature);
-		return result;
+		return other.translateClauseSigToPredSig(translation, argList, newSignature);
 	}
-
+	
+	
 
 	public LogProxy getLogger() {
 		return mLogger;
 	}
 
-		/////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////
 	///////////////// test code /////////////////////////////////
 	/////////////////////////////////////////////////////////////
 		/**

@@ -8,7 +8,7 @@ import java.util.Set;
 import java.util.SortedSet;
 
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawgLetter.UniversalDawgLetter;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgLetter.UniversalDawgLetter;
 
 public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	
@@ -25,7 +25,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	 * Transition relation of the finite automaton as a nested map.
 	 *  --> there are more efficient solutions, probably TODO
 	 */
-	Map<Integer, Map<IDawgLetter<LETTER>, Integer>> transitionRelation;
+	Map<Integer, Map<DawgLetter<LETTER>, Integer>> transitionRelation;
 
 	public Dawg(SortedSet<COLNAMES> termVariables, Set<LETTER> allConstants, LogProxy logger) {
 		super(termVariables, allConstants, logger);
@@ -36,35 +36,23 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		addTransition(0, UniversalDawgLetter.INSTANCE, -1);
 	}
 
-	private void addTransition(int i, IDawgLetter<LETTER> dawgLetter, int j) {
-		Map<IDawgLetter<LETTER>, Integer> letterToTarget = transitionRelation.get(i);
+	private void addTransition(int i, DawgLetter<LETTER> dawgLetter, int j) {
+		Map<DawgLetter<LETTER>, Integer> letterToTarget = transitionRelation.get(i);
 		if (letterToTarget == null) {
-			letterToTarget = new HashMap<IDawgLetter<LETTER>, Integer>();
+			letterToTarget = new HashMap<DawgLetter<LETTER>, Integer>();
 			transitionRelation.put(i, letterToTarget);
 		}
 		letterToTarget.put(dawgLetter, j);
 	}
 
 	@Override
-	public IDawg<LETTER, COLNAMES> join(IDawg other) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public IDawg<LETTER, COLNAMES> intersect(IDawg fp) {
+	public IDawg<LETTER, COLNAMES> intersect(IDawg<LETTER, COLNAMES> fp) {
 		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
 	public IDawg<LETTER, COLNAMES> complement() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public IDawg<LETTER, COLNAMES> union(IDawg<LETTER, COLNAMES> other) {
 		// TODO Auto-generated method stub
 		return null;
 	}
@@ -106,21 +94,9 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	}
 
 	@Override
-	public void addAllWithSubsetSignature(IDawg<LETTER, COLNAMES> d1) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
 	public IDawg<LETTER, COLNAMES> select(Map<COLNAMES, LETTER> selectMap) {
 		// TODO Auto-generated method stub
 		return null;
-	}
-
-	@Override
-	public void removeAllWithSubsetSignature(IDawg<LETTER, COLNAMES> clFulfilledPoints) {
-		// TODO Auto-generated method stub
-		
 	}
 
 	@Override
@@ -147,5 +123,17 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		return false;
 	}
 
+	@Override
+	public IDawg<LETTER, COLNAMES> translatePredSigToClauseSig(Map<COLNAMES, Object> translation,
+			SortedSet<COLNAMES> targetSignature) {
+		// TODO Auto-generated method stub
+		return null;
+	}
 
+	@Override
+	public IDawg<LETTER, COLNAMES> translateClauseSigToPredSig(Map<COLNAMES, COLNAMES> translation,
+			List<Object> argList, SortedSet<COLNAMES> newSignature) {
+		// TODO Auto-generated method stub
+		return null;
+	}
 }

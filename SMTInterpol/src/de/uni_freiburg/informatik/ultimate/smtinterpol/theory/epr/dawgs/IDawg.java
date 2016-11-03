@@ -13,11 +13,11 @@ public interface IDawg<LETTER, COLNAMES> extends Iterable<List<LETTER>> {
 	
 	public int getArity();
 	
-	public IDawg<LETTER, COLNAMES> join(IDawg<LETTER, COLNAMES> other);
+//	public IDawg<LETTER, COLNAMES> join(IDawg<LETTER, COLNAMES> other);
 
 	public IDawg<LETTER, COLNAMES> complement();
 	
-	public IDawg<LETTER, COLNAMES> union(IDawg<LETTER, COLNAMES> other);
+//	public IDawg<LETTER, COLNAMES> union(IDawg<LETTER, COLNAMES> other);
 	
 	public boolean accepts(List<LETTER> word);
 
@@ -53,19 +53,19 @@ public interface IDawg<LETTER, COLNAMES> extends Iterable<List<LETTER>> {
 
 	public boolean supSetEq(IDawg<LETTER, COLNAMES> points);
 
-	/**
-	 * Add all the given points of the given Dawg.
-	 * Assumes that the given Dawgs column names are a subset of this Dawg's column names.
-	 * @param d1
-	 */
-	public void addAllWithSubsetSignature(IDawg<LETTER, COLNAMES> d1);
+//	/**
+//	 * Add all the given points of the given Dawg.
+//	 * Assumes that the given Dawgs column names are a subset of this Dawg's column names.
+//	 * @param d1
+//	 */
+//	public void addAllWithSubsetSignature(IDawg<LETTER, COLNAMES> d1);
 
-	/**
-	 * Removes all points from this dawg that, projected to the columns of the argument dawg,
-	 * match at least one of the points in the argument dawg.
-	 * @param clFulfilledPoints
-	 */
-	public void removeAllWithSubsetSignature(IDawg<LETTER, COLNAMES> points);
+//	/**
+//	 * Removes all points from this dawg that, projected to the columns of the argument dawg,
+//	 * match at least one of the points in the argument dawg.
+//	 * @param clFulfilledPoints
+//	 */
+//	public void removeAllWithSubsetSignature(IDawg<LETTER, COLNAMES> points);
 
 	/**
 	 * Return a dawg where only the points are selected that match the given mapping.
@@ -83,5 +83,11 @@ public interface IDawg<LETTER, COLNAMES> extends Iterable<List<LETTER>> {
 	 * @return true iff the language of this dawg contains exactly one element
 	 */
 	public boolean isSingleton();
+
+	public IDawg<LETTER, COLNAMES> translatePredSigToClauseSig(Map<COLNAMES, Object> translation,
+			SortedSet<COLNAMES> targetSignature);
+
+	public IDawg<LETTER, COLNAMES> translateClauseSigToPredSig(
+			Map<COLNAMES, COLNAMES> translation, List<Object> argList, SortedSet<COLNAMES> newSignature);
 
 }

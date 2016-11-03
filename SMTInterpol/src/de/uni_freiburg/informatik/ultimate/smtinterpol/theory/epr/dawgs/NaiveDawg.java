@@ -1,6 +1,7 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -47,50 +48,50 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 		mBacking = new HashSet<List<LETTER>>(nd.mBacking);
 	}
 
-	@Override
-	public IDawg<LETTER, COLNAMES> join(IDawg<LETTER, COLNAMES> other) {
-		// union signature
-		SortedSet<COLNAMES> newSignature = new TreeSet<COLNAMES>(EprHelpers.getColumnNamesComparator());
-		newSignature.addAll(this.mColNames);
-		newSignature.addAll(other.getColnames());
-
-		// intersection signature
-		SortedSet<COLNAMES> commonColumns = new TreeSet<COLNAMES>(newSignature);
-		commonColumns.retainAll(this.mColNames);
-		commonColumns.retainAll(other.getColnames());
-
-		NaiveDawg<LETTER, COLNAMES> otherNd = (NaiveDawg<LETTER, COLNAMES>) other;
-
-		NaiveDawg<LETTER, COLNAMES> result = 
-				new NaiveDawg<LETTER, COLNAMES>(newSignature, mAllConstants, mLogger);
-		
-		for (List<LETTER> pointThis : this.mBacking) {
-			for (List<LETTER> pointOther : otherNd.mBacking) {
-				List<LETTER> joinedPoint = new ArrayList<LETTER>(newSignature.size());
-				for (COLNAMES cn : newSignature) {
-					Integer thisColIndex = this.mColNameToIndex.get(cn);
-					Integer otherColIndex = otherNd.mColNameToIndex.get(cn);
-					if (thisColIndex != null 
-							&& otherColIndex != null 
-							&& pointThis.get(thisColIndex) != pointOther.get(otherColIndex)) {
-						// cn is a common column and
-						// the two points don't match on it
-						joinedPoint = null;
-						break;
-					}
-					LETTER lThis = thisColIndex != null ? pointThis.get(thisColIndex) : null;
-					LETTER lOther = otherColIndex != null ? pointOther.get(otherColIndex) : null;
-					assert lThis == null || lOther == null || lThis == lOther;
-					joinedPoint.add(lThis != null ? lThis : lOther);
-				}
-				// if we reach here, the two points do match on all common columns
-				if (joinedPoint != null) {
-					result.add(joinedPoint);
-				}
-			}
-		}
-		return result;
-	}
+//	@Override
+//	public IDawg<LETTER, COLNAMES> join(IDawg<LETTER, COLNAMES> other) {
+//		// union signature
+//		SortedSet<COLNAMES> newSignature = new TreeSet<COLNAMES>(EprHelpers.getColumnNamesComparator());
+//		newSignature.addAll(this.mColNames);
+//		newSignature.addAll(other.getColnames());
+//
+//		// intersection signature
+//		SortedSet<COLNAMES> commonColumns = new TreeSet<COLNAMES>(newSignature);
+//		commonColumns.retainAll(this.mColNames);
+//		commonColumns.retainAll(other.getColnames());
+//
+//		NaiveDawg<LETTER, COLNAMES> otherNd = (NaiveDawg<LETTER, COLNAMES>) other;
+//
+//		NaiveDawg<LETTER, COLNAMES> result = 
+//				new NaiveDawg<LETTER, COLNAMES>(newSignature, mAllConstants, mLogger);
+//		
+//		for (List<LETTER> pointThis : this.mBacking) {
+//			for (List<LETTER> pointOther : otherNd.mBacking) {
+//				List<LETTER> joinedPoint = new ArrayList<LETTER>(newSignature.size());
+//				for (COLNAMES cn : newSignature) {
+//					Integer thisColIndex = this.mColNameToIndex.get(cn);
+//					Integer otherColIndex = otherNd.mColNameToIndex.get(cn);
+//					if (thisColIndex != null 
+//							&& otherColIndex != null 
+//							&& pointThis.get(thisColIndex) != pointOther.get(otherColIndex)) {
+//						// cn is a common column and
+//						// the two points don't match on it
+//						joinedPoint = null;
+//						break;
+//					}
+//					LETTER lThis = thisColIndex != null ? pointThis.get(thisColIndex) : null;
+//					LETTER lOther = otherColIndex != null ? pointOther.get(otherColIndex) : null;
+//					assert lThis == null || lOther == null || lThis == lOther;
+//					joinedPoint.add(lThis != null ? lThis : lOther);
+//				}
+//				// if we reach here, the two points do match on all common columns
+//				if (joinedPoint != null) {
+//					result.add(joinedPoint);
+//				}
+//			}
+//		}
+//		return result;
+//	}
 
 	private List<LETTER> buildJoinedPoint(List<LETTER> point1, Map<COLNAMES, Integer> colNameToIndex1,
 			List<LETTER> point2, Map<COLNAMES, Integer> colNameToIndex2, SortedSet<COLNAMES> newSignature) {
@@ -122,16 +123,16 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 		return result;
 	}
 
-	@Override
-	public IDawg<LETTER, COLNAMES> union(IDawg<LETTER, COLNAMES> other) {
-		assert other.getColnames().equals(getColnames()) : "incompatible column names";
-
-		NaiveDawg<LETTER, COLNAMES> newDawg = 
-				new NaiveDawg<LETTER, COLNAMES>(mColNames, mAllConstants, mBacking, mLogger);
-		newDawg.addAll(other);
-
-		return newDawg;
-	}
+//	@Override
+//	public IDawg<LETTER, COLNAMES> union(IDawg<LETTER, COLNAMES> other) {
+//		assert other.getColnames().equals(getColnames()) : "incompatible column names";
+//
+//		NaiveDawg<LETTER, COLNAMES> newDawg = 
+//				new NaiveDawg<LETTER, COLNAMES>(mColNames, mAllConstants, mBacking, mLogger);
+//		newDawg.addAll(other);
+//
+//		return newDawg;
+//	}
 
 	@Override
 	public boolean accepts(List<LETTER> word) {
@@ -199,25 +200,25 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 		return this.mBacking.containsAll(otherNd.mBacking);
 	}
 
-	@Override
-	public void addAllWithSubsetSignature(IDawg<LETTER, COLNAMES> other) {
-		assert mColNames.containsAll(other.getColnames());
-		NaiveDawg<LETTER, COLNAMES> nd = (NaiveDawg<LETTER, COLNAMES>) other;
-		//TODO: could be done nicer --> only go through the points that actually occur in this.mBacking..
-		for (List<LETTER> pt : nd.mBacking) {
-			addWithSubsetSignature(pt, nd.mColNames);
-		}
-	}
+//	@Override
+//	public void addAllWithSubsetSignature(IDawg<LETTER, COLNAMES> other) {
+//		assert mColNames.containsAll(other.getColnames());
+//		NaiveDawg<LETTER, COLNAMES> nd = (NaiveDawg<LETTER, COLNAMES>) other;
+//		//TODO: could be done nicer --> only go through the points that actually occur in this.mBacking..
+//		for (List<LETTER> pt : nd.mBacking) {
+//			addWithSubsetSignature(pt, nd.mColNames);
+//		}
+//	}
 
-	@Override
-	public void removeAllWithSubsetSignature(IDawg<LETTER, COLNAMES> other) {
-		assert mColNames.containsAll(other.getColnames());
-		NaiveDawg<LETTER, COLNAMES> nd = (NaiveDawg<LETTER, COLNAMES>) other;
-		//TODO: could be done nicer --> only go through the points that actually occur in this.mBacking..
-		for (List<LETTER> pt : nd.mBacking) {
-			mBacking.removeAll(blowUpForCurrentSignature(pt, nd.mColNames, mColNames, mAllConstants));
-		}
-	}
+//	@Override
+//	public void removeAllWithSubsetSignature(IDawg<LETTER, COLNAMES> other) {
+//		assert mColNames.containsAll(other.getColnames());
+//		NaiveDawg<LETTER, COLNAMES> nd = (NaiveDawg<LETTER, COLNAMES>) other;
+//		//TODO: could be done nicer --> only go through the points that actually occur in this.mBacking..
+//		for (List<LETTER> pt : nd.mBacking) {
+//			mBacking.removeAll(blowUpForCurrentSignature(pt, nd.mColNames, mColNames, mAllConstants));
+//		}
+//	}
 
 	private static <LETTER, COLNAMES> List<List<LETTER>> blowUpForCurrentSignature(
 			List<LETTER> pt, SortedSet<COLNAMES> ptSig, 
@@ -290,4 +291,128 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	public void addWithSubsetSignature(List<LETTER> point, SortedSet<COLNAMES> sig) {
 		mBacking.addAll(blowUpForCurrentSignature(point, sig, mColNames, mAllConstants));
 	}
+	
+	
+	@Override
+	@SuppressWarnings("unchecked")
+	public IDawg<LETTER, COLNAMES> translatePredSigToClauseSig(
+			Map<COLNAMES, Object> translation, SortedSet<COLNAMES> targetSignature) {
+
+		COLNAMES colNamesInstance = this.getColnames().first();
+		
+		// the signature of the new dawg has only the non-duplicated colnames 
+		// and also omits constants (i.e. objects not of the type COLNAMES)
+		// this signature is before the blowup to targetSignature
+		SortedSet<COLNAMES> newPointSignature = new TreeSet<COLNAMES>(EprHelpers.getColumnNamesComparator());
+		for (Object o : translation.values()) {
+			if (colNamesInstance.getClass().isInstance(o)) {
+				newPointSignature.add((COLNAMES) o);
+			}
+		}
+		
+		// the new signature is repetition-free, so we can use a map
+		Map<COLNAMES, Integer> newSigColNamesToIndex = EprHelpers.computeColnamesToIndex(newPointSignature);
+		
+		NaiveDawg<LETTER, COLNAMES> otherNd = this;
+//		Set<List<LETTER>> newBacking = new HashSet<List<LETTER>>();
+		NaiveDawg<LETTER, COLNAMES> result = new NaiveDawg<LETTER, COLNAMES>(targetSignature, mAllConstants, mLogger);
+
+		for (List<LETTER> point : otherNd.mBacking) {
+
+			List<LETTER> newPoint = new ArrayList<LETTER>(newPointSignature.size());
+			// set up the new point (need to fill it, or List.set(..) won't work)
+			for (int i = 0; i < newPointSignature.size(); i++) {
+				newPoint.add(null);
+			}
+			
+			// tracks if a column name has been seen, and what letter it had been assigned (does select_x=x so to say)
+			Map<COLNAMES, LETTER> variableAssignmentInPoint = new HashMap<COLNAMES, LETTER>();
+			
+			Iterator<COLNAMES> ptColIt = this.getColnames().iterator();
+			for (int i = 0; i < point.size(); i++) {
+				LETTER ptLtr = point.get(i);
+				COLNAMES ptColnameInOldSig = ptColIt.next();
+
+				Object translatedColumnName = translation.get(ptColnameInOldSig);
+				if (colNamesInstance.getClass().isInstance(translatedColumnName)) {
+					COLNAMES ptColnameInNewSig = (COLNAMES) translatedColumnName;
+					
+					LETTER vaip = variableAssignmentInPoint.get(ptColnameInNewSig);
+					if (vaip != null && vaip != ptLtr) {
+						// violation of select_x=x
+						newPoint = null;
+						break;
+					} else {
+						newPoint.set(newSigColNamesToIndex.get(ptColnameInNewSig), ptLtr);
+						// store that at the current oldColumn-name we used letter ptLtr
+						variableAssignmentInPoint.put(ptColnameInNewSig, ptLtr);
+					}
+					
+				} else {
+					// we have a constant in the column where this letter in the point is supposed to "land"
+					// select_x=c so to say..
+					if (ptLtr.equals(translatedColumnName)) {
+						// the constant matches go on (add nothing to the new point)
+					} else {
+						// point is filtered by the select that checks the constants
+						newPoint = null;
+						break;
+					}
+				}
+
+			}
+			if (newPoint != null) {
+				result.addWithSubsetSignature(newPoint, newPointSignature);
+//				newBacking.add(newPoint);
+			}
+		}
+		assert EprHelpers.verifySortsOfPoints(result, targetSignature);
+		return result;
+	}
+	
+	@Override
+	@SuppressWarnings("unchecked")
+	public IDawg<LETTER, COLNAMES> translateClauseSigToPredSig(
+			Map<COLNAMES, COLNAMES> translation, 
+			List<Object> argList, 
+			SortedSet<COLNAMES> newSignature) {
+		
+		assert argList.size() == newSignature.size();
+		
+		Class<? extends Object> colnamesType = newSignature.iterator().next().getClass();
+
+		// the signature of a dawg of a decide stack literal does not contain repetitions, right?
+		Map<COLNAMES, Integer> oldSigColnamesToIndex = EprHelpers.computeColnamesToIndex(this.getColnames());
+
+		Set<List<LETTER>> newBacking = new HashSet<List<LETTER>>();
+		NaiveDawg<LETTER, COLNAMES> otherNd = (NaiveDawg<LETTER, COLNAMES>) this;
+		
+		for (List<LETTER> point : otherNd.mBacking) {
+			List<LETTER> newPoint = new ArrayList<LETTER>(newSignature.size());
+			// add placeholders so we can later use List.set(..)
+			for (int i = 0; i < newSignature.size(); i++) {
+				newPoint.add(null);
+			}
+
+			Iterator<COLNAMES> newSigColIt = newSignature.iterator();
+			for (int i = 0; i < newSignature.size(); i++) {
+				COLNAMES newSigColname = newSigColIt.next();
+				if (!colnamesType.isInstance(argList.get(i))) {
+					//argList.get(i) is a constant (because it is not a colname/termVariable)
+					assert newPoint.get(i) == null :
+						"the translation map must not translate to a colname where the clauseliteral has a constant!";
+					newPoint.set(i, (LETTER) argList.get(i));
+				} else {
+					LETTER letter = point.get(oldSigColnamesToIndex.get(translation.get(newSigColname)));
+					newPoint.set(i, letter);
+				}
+			}
+			newBacking.add(newPoint);
+		}
+		
+		NaiveDawg<LETTER, COLNAMES> result = new NaiveDawg<LETTER, COLNAMES>(newSignature, mAllConstants, newBacking, mLogger);
+		assert EprHelpers.verifySortsOfPoints(result, newSignature);
+		return result;
+	}
+
 }
