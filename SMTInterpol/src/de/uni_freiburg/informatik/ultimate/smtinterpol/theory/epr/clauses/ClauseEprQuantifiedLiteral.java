@@ -199,8 +199,10 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 		mFulfillablePoints = mEprTheory.getDawgFactory().createFullDawg(mEprClause.getVariables());
 		assert EprHelpers.verifySortsOfPoints(mFulfillablePoints, mEprClause.getVariables());
 
-		mFulfillablePoints.removeAll(fulfilledPoints);
-		mFulfillablePoints.removeAll(refutedPoints);
+//		mFulfillablePoints.removeAll(fulfilledPoints);
+		mFulfillablePoints = mFulfillablePoints.difference(fulfilledPoints);
+//		mFulfillablePoints.removeAll(refutedPoints);
+		mFulfillablePoints = mFulfillablePoints.difference(refutedPoints);
 		mRefutedPoints = refutedPoints;
 		mFulfilledPoints = fulfilledPoints;
 		

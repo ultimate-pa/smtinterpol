@@ -175,7 +175,8 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		// look for an outgoing edge with a DawgLetter that matches ltr
 		for (Entry<DawgLetter<LETTER, COLNAMES>, DawgState> en : letterToTarget.entrySet()) {
 			DawgLetter<LETTER, COLNAMES> dl = en.getKey();
-			if (dl.matches(ltr, word)) {
+			if (dl.matches(ltr, word, mColNameToIndex)) {
+				// dl allows a transition with ltr
 				return en.getValue();
 			}
 		}
@@ -195,18 +196,6 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 
 	@Override
 	public void add(List<LETTER> arguments) {
-		// TODO Auto-generated method stub
-	
-	}
-
-//	@Override
-//	public void addAll(IDawg dawg) {
-//		// TODO Auto-generated method stub
-//	
-//	}
-
-	@Override
-	public void removeAll(IDawg fpOne) {
 		// TODO Auto-generated method stub
 	
 	}
@@ -251,6 +240,15 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	@Override
 	public IDawg<LETTER, COLNAMES> translateClauseSigToPredSig(Map<COLNAMES, COLNAMES> translation,
 			List<Object> argList, SortedSet<COLNAMES> newSignature) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+
+
+
+	@Override
+	public IDawg<LETTER, COLNAMES> difference(IDawg<LETTER, COLNAMES> other) {
 		// TODO Auto-generated method stub
 		return null;
 	}

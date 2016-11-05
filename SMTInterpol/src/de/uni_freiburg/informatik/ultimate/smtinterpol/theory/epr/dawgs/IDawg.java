@@ -54,8 +54,10 @@ public interface IDawg<LETTER, COLNAMES> extends Iterable<List<LETTER>> {
 	 * @return
 	 */
 	public IDawg<LETTER, COLNAMES> intersect(IDawg<LETTER, COLNAMES> other);
+	
+	public IDawg<LETTER, COLNAMES> difference(IDawg<LETTER, COLNAMES> other);
 
-	public void removeAll(IDawg<LETTER, COLNAMES> other);
+//	public void removeAll(IDawg<LETTER, COLNAMES> other);
 
 	public boolean supSetEq(IDawg<LETTER, COLNAMES> points);
 

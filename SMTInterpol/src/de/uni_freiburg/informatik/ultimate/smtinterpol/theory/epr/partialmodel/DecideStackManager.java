@@ -251,7 +251,7 @@ public class DecideStackManager {
 		IDawg<ApplicationTerm, TermVariable> newDawg = mEprTheory.getDawgFactory().copyDawg(topMostDecideStackLiteral.getDawg());
 		for (IEprLiteral dsl : pickedLit.getPartiallyConflictingDecideStackLiterals()) {
 			assert EprHelpers.haveSameSignature(dsl.getDawg(), newDawg);
-			newDawg.removeAll(dsl.getDawg());
+			newDawg = newDawg.difference(dsl.getDawg());
 		}
 
 		// revert the decision
@@ -421,7 +421,7 @@ public class DecideStackManager {
 			// right now: make decision as before, except for that one point
 			IDawg<ApplicationTerm, TermVariable> newDawg = 
 					mEprTheory.getDawgFactory().copyDawg(conflictingDsl.getDawg());
-			newDawg.removeAll(egpl.getDawg()); // (should be one point only)
+			newDawg = newDawg.difference(egpl.getDawg()); // (should be one point only)
 			
 			DslBuilder newDecision = 
 					new DslBuilder(

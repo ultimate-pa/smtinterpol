@@ -3,6 +3,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -72,14 +73,23 @@ public class DawgLetter<LETTER, COLNAMES> {
 		return mDawgLetterFactory.getDawgLetter(mNewLetters, mEqualColnames, mUnequalColnames);
 	}
 
-	public boolean matches(LETTER ltr, List<LETTER> word) {
+	public boolean matches(LETTER ltr, List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex) {
 		if (!mLetters.contains(ltr)) {
 			return false;
 		}
-//		if (mEqualColnames.)
-		//TODO complete
-		
-		return false;
+		for (COLNAMES cn : mEqualColnames) {
+			Integer cnIndex = colnamesToIndex.get(cn);
+			if (word.get(cnIndex) != ltr) {
+				return false;
+			}
+		}
+		for (COLNAMES cn : mUnequalColnames) {
+			Integer cnIndex = colnamesToIndex.get(cn);
+			if (word.get(cnIndex) == ltr) {
+				return false;
+			}
+		}
+		return true;
 	}
 }
 
@@ -110,7 +120,7 @@ class EmptyDawgLetter<LETTER, COLNAMES> extends DawgLetter<LETTER, COLNAMES> {
 	}
 
 	@Override
-	public boolean matches(LETTER ltr, List<LETTER> word) {
+	public boolean matches(LETTER ltr, List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex) {
 		return false;
 	}
 }
@@ -141,7 +151,7 @@ class UniversalDawgLetter<LETTER, COLNAMES> extends DawgLetter<LETTER, COLNAMES>
 	}
 	
 	@Override
-	public boolean matches(LETTER ltr, List<LETTER> word) {
+	public boolean matches(LETTER ltr, List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex) {
 		return true;
 	}
 }

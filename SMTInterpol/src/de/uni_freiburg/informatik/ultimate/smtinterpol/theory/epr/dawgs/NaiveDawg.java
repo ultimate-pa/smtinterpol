@@ -179,12 +179,12 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 		return new NaiveDawg<LETTER, COLNAMES>(mColNames, mAllConstants, newBacking, mLogger);
 	}
 
-	@Override
-	public void removeAll(IDawg<LETTER, COLNAMES> other) {
-		assert mColNames.equals(other.getColnames());
-		NaiveDawg<LETTER, COLNAMES> naiOther = (NaiveDawg<LETTER, COLNAMES>) other;
-		mBacking.removeAll(naiOther.mBacking);
-	}
+//	@Override
+//	public void removeAll(IDawg<LETTER, COLNAMES> other) {
+//		assert mColNames.equals(other.getColnames());
+//		NaiveDawg<LETTER, COLNAMES> naiOther = (NaiveDawg<LETTER, COLNAMES>) other;
+//		mBacking.removeAll(naiOther.mBacking);
+//	}
 	
 	private Set<List<LETTER>> getNCrossProduct() {
 		if (mNCrossProduct == null) {
@@ -420,6 +420,16 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 		HashSet<List<LETTER>> newBacking = new HashSet<List<LETTER>>(mBacking);
 		newBacking.addAll(((NaiveDawg<LETTER, COLNAMES>)other).mBacking);
 		return new NaiveDawg<LETTER, COLNAMES>(mColNames, mAllConstants, newBacking, mLogger);
+	}
+
+	@Override
+	public IDawg<LETTER, COLNAMES> difference(IDawg<LETTER, COLNAMES> other) {
+		assert mColNames.equals(other.getColnames());
+		NaiveDawg<LETTER, COLNAMES> naiOther = (NaiveDawg<LETTER, COLNAMES>) other;
+		Set<List<LETTER>> newBacking = new HashSet<List<LETTER>>(mBacking);
+		newBacking.removeAll(naiOther.mBacking);
+		return new NaiveDawg<LETTER, COLNAMES>(
+				getColnames(), mAllConstants, newBacking, mLogger);
 	}
 
 }

@@ -313,7 +313,8 @@ public class EprClause {
 			if (cl instanceof ClauseEprQuantifiedLiteral) {
 				IDawg<ApplicationTerm, TermVariable> clFulfilledPoints = 
 						((ClauseEprQuantifiedLiteral) cl).getFulfilledPoints();
-				pointsToConsider.removeAll(clFulfilledPoints);
+//				pointsToConsider.removeAll(clFulfilledPoints);
+				pointsToConsider = pointsToConsider.difference(clFulfilledPoints);
 			}
 		}
 		assert EprHelpers.verifySortsOfPoints(pointsToConsider, getVariables());
@@ -359,22 +360,30 @@ public class EprClause {
 				
 				assert EprHelpers.haveSameSignature(toMoveFromNoToOne, toMoveFromOneToTwo, pointsWhereNoLiteralsAreFulfillable);
 
-				pointsWhereNoLiteralsAreFulfillable.removeAll(toMoveFromNoToOne);
-//				pointsWhereOneLiteralIsFulfillable.addAll(toMoveFromNoToOne);
-				pointsWhereOneLiteralIsFulfillable = pointsWhereOneLiteralIsFulfillable.union(toMoveFromNoToOne);
-				pointsWhereOneLiteralIsFulfillable.removeAll(toMoveFromOneToTwo);
-//				pointsWhereTwoOrMoreLiteralsAreFulfillable.addAll(toMoveFromOneToTwo);
-				pointsWhereTwoOrMoreLiteralsAreFulfillable = pointsWhereTwoOrMoreLiteralsAreFulfillable.union(toMoveFromOneToTwo);
+				pointsWhereNoLiteralsAreFulfillable = 
+						pointsWhereNoLiteralsAreFulfillable.difference(toMoveFromNoToOne);
+				pointsWhereOneLiteralIsFulfillable = 
+						pointsWhereOneLiteralIsFulfillable.union(toMoveFromNoToOne);
+				pointsWhereOneLiteralIsFulfillable = 
+						pointsWhereOneLiteralIsFulfillable.difference(toMoveFromOneToTwo);
+				pointsWhereTwoOrMoreLiteralsAreFulfillable = 
+						pointsWhereTwoOrMoreLiteralsAreFulfillable.union(toMoveFromOneToTwo);
 				
 				// if the current ClauseLiteral is the last ClauseLiteral, its unit points are exactly the ones that 
 				// moved from noFulfillableLiteral to OneFulfillableLiteral ..
 				clauseLitToPotentialUnitPoints.put(cl, mDawgFactory.copyDawg(toMoveFromNoToOne));
 				// ... however if we later find out for some of these points, that it is fulfilled somewhere else, we 
 				// have to remove it from the list.
+				Map<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> newClauseLitToPotentialUnitPoints = 
+						new HashMap<ClauseLiteral, IDawg<ApplicationTerm,TermVariable>>();
 				for (Entry<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> en 
 						: clauseLitToPotentialUnitPoints.entrySet()) {				
-					en.getValue().removeAll(toMoveFromOneToTwo);
+//					en.getValue().removeAll(toMoveFromOneToTwo);
+					newClauseLitToPotentialUnitPoints.put(
+							en.getKey(), 
+							en.getValue().difference(toMoveFromOneToTwo));
 				}
+				clauseLitToPotentialUnitPoints = newClauseLitToPotentialUnitPoints;
 			} else {
 				assert cl.isRefuted(decideStackBorder);
 			}
