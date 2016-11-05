@@ -26,6 +26,8 @@ public class DawgFactory<LETTER, COLNAMES> {
 	private LogProxy mLogger;
 	
 	
+	DawgLetterFactory<LETTER, COLNAMES> mDawgLetterFactory;
+	
 	/**
 	 * Use naive Dawg implementation ("normal" one otherwise)
 	 */
@@ -35,6 +37,10 @@ public class DawgFactory<LETTER, COLNAMES> {
 		mEprTheory = eprTheory;
 		mAllConstants = allConstants;
 		mLogger = eprTheory.getLogger();
+
+		if (!mUseNaiveDawgs) {
+			mDawgLetterFactory = new DawgLetterFactory<LETTER, COLNAMES>(mAllConstants);
+		}
 	}
 
 	public IDawg<LETTER, COLNAMES> createEmptyDawg(SortedSet<COLNAMES> termVariables) {
@@ -44,7 +50,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 		if (mUseNaiveDawgs) {
 			return new NaiveDawg<LETTER, COLNAMES>(termVariables, mAllConstants, mLogger);
 		} else {
-			return null;
+			return new Dawg<LETTER, COLNAMES>(termVariables, mAllConstants, mLogger);
 		}
 	}
 
@@ -60,7 +66,8 @@ public class DawgFactory<LETTER, COLNAMES> {
 		if (mUseNaiveDawgs) {
 			return new NaiveDawg<LETTER, COLNAMES>(termVariables, mAllConstants, mLogger).complement();
 		} else {
-			return null;
+			return new Dawg<LETTER, COLNAMES>(termVariables, mAllConstants,  true, 
+					mLogger, mDawgLetterFactory);
 		}
 	}
 

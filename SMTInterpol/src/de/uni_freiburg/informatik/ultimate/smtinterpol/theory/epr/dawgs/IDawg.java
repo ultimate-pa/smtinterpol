@@ -36,7 +36,13 @@ public interface IDawg<LETTER, COLNAMES> extends Iterable<List<LETTER>> {
 	 *  - dawg's arities must be equal
 	 * @param dawg
 	 */
-	public void addAll(IDawg<LETTER, COLNAMES> dawg);
+//	public void addAll(IDawg<LETTER, COLNAMES> dawg);
+	
+	/**
+	 * Returns a new Dawg that recognizes the union language of this dawg and the
+	 * argument Dawg.
+	 */
+	public IDawg<LETTER, COLNAMES> union(IDawg<LETTER, COLNAMES> other);
 
 	public boolean isEmpty();
 

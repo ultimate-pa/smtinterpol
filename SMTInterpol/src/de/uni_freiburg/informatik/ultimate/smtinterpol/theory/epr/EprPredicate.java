@@ -235,10 +235,12 @@ public class EprPredicate {
 		for (IEprLiteral dsl : mEprLiterals) {
 			if (dsl.getPolarity()) {
 				//positive literal
-				positivelySetPoints.addAll(dsl.getDawg());
+//				positivelySetPoints.addAll(dsl.getDawg());
+				positivelySetPoints = positivelySetPoints.union(dsl.getDawg());
 			} else {
 				//negative literal
-				negativelySetPoints.addAll(dsl.getDawg());
+//				negativelySetPoints.addAll(dsl.getDawg());
+				negativelySetPoints = negativelySetPoints.union(dsl.getDawg());
 			}
 		}
 
@@ -258,10 +260,13 @@ public class EprPredicate {
 
 		IDawg<ApplicationTerm, TermVariable> allDecidedPoints = 
 				mEprTheory.getDawgFactory().createEmptyDawg(mTermVariablesForArguments);
-		allDecidedPoints.addAll(positivelySetPoints);
-		allDecidedPoints.addAll(negativelySetPoints);
+//		allDecidedPoints.addAll(positivelySetPoints);
+		allDecidedPoints = allDecidedPoints.union(positivelySetPoints);
+//		allDecidedPoints.addAll(negativelySetPoints);
+		allDecidedPoints = allDecidedPoints.union(negativelySetPoints);
 
-		undecidedPoints.addAll(allDecidedPoints.complement());
+//		undecidedPoints.addAll(allDecidedPoints.complement());
+		undecidedPoints = undecidedPoints.union(allDecidedPoints.complement());
 		return undecidedPoints;
 	}
 

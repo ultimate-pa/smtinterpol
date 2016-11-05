@@ -55,10 +55,10 @@ public abstract class AbstractDawg<LETTER, COLNAMES> implements IDawg<LETTER, CO
 	}
 
 	
-	@Override
-	public void addAll(IDawg<LETTER, COLNAMES> dawg) {
-		assert mColNames.equals(dawg.getColnames());
-	}
+//	@Override
+//	public void addAll(IDawg<LETTER, COLNAMES> dawg) {
+//		assert mColNames.equals(dawg.getColnames());
+//	}
 
 	@Override
 	public String toString() {

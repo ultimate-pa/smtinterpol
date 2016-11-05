@@ -172,7 +172,8 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 			if (decideStackBorder == null 
 					|| dsl instanceof EprGroundPredicateLiteral 
 					|| ((DecideStackLiteral) dsl).compareTo(decideStackBorder) < 0) {
-				refutedPoints.addAll(dsl.getDawg());
+//				refutedPoints.addAll(dsl.getDawg());
+				refutedPoints = refutedPoints.union(dsl.getDawg());
 			}
 		}
 		// right now, the refuted points are in terms of the EprPredicates signature, we need a renaming
@@ -187,7 +188,8 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 			if (decideStackBorder == null 
 					|| dsl instanceof EprGroundPredicateLiteral 
 					|| ((DecideStackLiteral) dsl).compareTo(decideStackBorder) < 0) {
-				fulfilledPoints.addAll(dsl.getDawg());
+//				fulfilledPoints.addAll(dsl.getDawg());
+				fulfilledPoints = fulfilledPoints.union(dsl.getDawg());
 			}
 		}
 		// right now, the fulfilled points are in terms of the EprPredicates signature, we need a renaming

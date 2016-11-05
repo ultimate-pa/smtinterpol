@@ -146,14 +146,14 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 		mBacking.add(point);
 	}
 
-	@Override
-	public void addAll(IDawg<LETTER, COLNAMES> other) {
-		super.addAll(other);
-		// assuming that we use NaiveDawgs for all Dawgs..
-		NaiveDawg<LETTER, COLNAMES> naiOther = (NaiveDawg<LETTER, COLNAMES>) other;
-		assert EprHelpers.verifySortsOfPoints(naiOther, getColnames());
-		mBacking.addAll(naiOther.mBacking);
-	}
+//	@Override
+//	public void addAll(IDawg<LETTER, COLNAMES> other) {
+//		super.addAll(other);
+//		// assuming that we use NaiveDawgs for all Dawgs..
+//		NaiveDawg<LETTER, COLNAMES> naiOther = (NaiveDawg<LETTER, COLNAMES>) other;
+//		assert EprHelpers.verifySortsOfPoints(naiOther, getColnames());
+//		mBacking.addAll(naiOther.mBacking);
+//	}
 
 	@Override
 	public boolean isEmpty() {
@@ -413,6 +413,13 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 		NaiveDawg<LETTER, COLNAMES> result = new NaiveDawg<LETTER, COLNAMES>(newSignature, mAllConstants, newBacking, mLogger);
 		assert EprHelpers.verifySortsOfPoints(result, newSignature);
 		return result;
+	}
+
+	@Override
+	public IDawg<LETTER, COLNAMES> union(IDawg<LETTER, COLNAMES> other) {
+		HashSet<List<LETTER>> newBacking = new HashSet<List<LETTER>>(mBacking);
+		newBacking.addAll(((NaiveDawg<LETTER, COLNAMES>)other).mBacking);
+		return new NaiveDawg<LETTER, COLNAMES>(mColNames, mAllConstants, newBacking, mLogger);
 	}
 
 }

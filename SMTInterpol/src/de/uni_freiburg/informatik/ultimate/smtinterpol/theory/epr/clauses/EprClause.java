@@ -360,9 +360,11 @@ public class EprClause {
 				assert EprHelpers.haveSameSignature(toMoveFromNoToOne, toMoveFromOneToTwo, pointsWhereNoLiteralsAreFulfillable);
 
 				pointsWhereNoLiteralsAreFulfillable.removeAll(toMoveFromNoToOne);
-				pointsWhereOneLiteralIsFulfillable.addAll(toMoveFromNoToOne);
+//				pointsWhereOneLiteralIsFulfillable.addAll(toMoveFromNoToOne);
+				pointsWhereOneLiteralIsFulfillable = pointsWhereOneLiteralIsFulfillable.union(toMoveFromNoToOne);
 				pointsWhereOneLiteralIsFulfillable.removeAll(toMoveFromOneToTwo);
-				pointsWhereTwoOrMoreLiteralsAreFulfillable.addAll(toMoveFromOneToTwo);
+//				pointsWhereTwoOrMoreLiteralsAreFulfillable.addAll(toMoveFromOneToTwo);
+				pointsWhereTwoOrMoreLiteralsAreFulfillable = pointsWhereTwoOrMoreLiteralsAreFulfillable.union(toMoveFromOneToTwo);
 				
 				// if the current ClauseLiteral is the last ClauseLiteral, its unit points are exactly the ones that 
 				// moved from noFulfillableLiteral to OneFulfillableLiteral ..
