@@ -421,7 +421,7 @@ public class DecideStackManager {
 			// right now: make decision as before, except for that one point
 			IDawg<ApplicationTerm, TermVariable> newDawg = 
 					mEprTheory.getDawgFactory().copyDawg(conflictingDsl.getDawg());
-			newDawg = newDawg.difference(egpl.getDawg()); // (should be one point only)
+			newDawg = newDawg.difference(egpl.getDawg()); 
 			
 			DslBuilder newDecision = 
 					new DslBuilder(

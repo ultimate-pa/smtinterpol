@@ -44,7 +44,6 @@ public class DawgLetter<LETTER, COLNAMES> {
 
 		Set<LETTER> newLetters = new HashSet<LETTER>(mDawgLetterFactory.getAllConstants());
 		newLetters.removeAll(mLetters);
-		
 	
 		Set<DawgLetter<LETTER, COLNAMES>> result = new HashSet<DawgLetter<LETTER,COLNAMES>>();
 		
@@ -58,6 +57,16 @@ public class DawgLetter<LETTER, COLNAMES> {
 			result.add(mDawgLetterFactory.getDawgLetter(
 					mDawgLetterFactory.getAllConstants(), Collections.singleton(cn), es));
 		}	
+		return result;
+	}
+	
+
+	public Set<DawgLetter<LETTER, COLNAMES>> difference(DawgLetter<LETTER, COLNAMES> other) {
+		Set<DawgLetter<LETTER, COLNAMES>> result = new HashSet<DawgLetter<LETTER,COLNAMES>>();
+		Set<DawgLetter<LETTER, COLNAMES>> otherComplement = other.complement();
+		for (DawgLetter<LETTER, COLNAMES> oce : otherComplement) {
+			result.add(this.intersect(oce));
+		}
 		return result;
 	}
 
@@ -91,6 +100,22 @@ public class DawgLetter<LETTER, COLNAMES> {
 		}
 		return true;
 	}
+	
+	/**
+	 * If this DawgLetter's mLetters-set contains ltr, return a DawgLetter with
+	 *  mLetters = {ltr}, and the rest unchanged.
+	 * Otherwise (ltr is not contained in mLetters), return null.
+	 * 
+	 * @param ltr
+	 * @return
+	 */
+	public DawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER ltr) {
+		if (!mLetters.contains(ltr)) {
+			return null;
+		}
+		return mDawgLetterFactory.getDawgLetter(
+				Collections.singleton(ltr), mEqualColnames, mUnequalColnames);
+	}
 }
 
 /**
@@ -120,8 +145,18 @@ class EmptyDawgLetter<LETTER, COLNAMES> extends DawgLetter<LETTER, COLNAMES> {
 	}
 
 	@Override
+	public Set<DawgLetter<LETTER, COLNAMES>> difference(DawgLetter<LETTER, COLNAMES> other) {
+		return Collections.singleton((DawgLetter<LETTER, COLNAMES>) this);
+	}
+
+	@Override
 	public boolean matches(LETTER ltr, List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex) {
 		return false;
+	}
+
+	@Override
+	public DawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER ltr) {
+		return null;
 	}
 }
 
@@ -151,7 +186,17 @@ class UniversalDawgLetter<LETTER, COLNAMES> extends DawgLetter<LETTER, COLNAMES>
 	}
 	
 	@Override
+	public Set<DawgLetter<LETTER, COLNAMES>> difference(DawgLetter<LETTER, COLNAMES> other) {
+		return other.complement();
+	}
+	
+	@Override
 	public boolean matches(LETTER ltr, List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex) {
 		return true;
+	}
+	
+	@Override
+	public DawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER ltr) {
+		return mDawgLetterFactory.createSingletonSetDawgLetter(ltr);
 	}
 }

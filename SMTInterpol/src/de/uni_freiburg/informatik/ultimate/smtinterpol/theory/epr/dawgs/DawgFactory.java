@@ -26,7 +26,8 @@ public class DawgFactory<LETTER, COLNAMES> {
 	private LogProxy mLogger;
 	
 	
-	DawgLetterFactory<LETTER, COLNAMES> mDawgLetterFactory;
+	private final DawgLetterFactory<LETTER, COLNAMES> mDawgLetterFactory;
+	private final DawgStateFactory mDawgStateFactory;
 	
 	/**
 	 * Use naive Dawg implementation ("normal" one otherwise)
@@ -38,8 +39,12 @@ public class DawgFactory<LETTER, COLNAMES> {
 		mAllConstants = allConstants;
 		mLogger = eprTheory.getLogger();
 
-		if (!mUseNaiveDawgs) {
+		if (mUseNaiveDawgs) {
+			mDawgStateFactory = null;
+			mDawgLetterFactory = null;
+		} else {
 			mDawgLetterFactory = new DawgLetterFactory<LETTER, COLNAMES>(mAllConstants);
+			mDawgStateFactory = new DawgStateFactory();
 		}
 	}
 
@@ -50,7 +55,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 		if (mUseNaiveDawgs) {
 			return new NaiveDawg<LETTER, COLNAMES>(termVariables, mAllConstants, mLogger);
 		} else {
-			return new Dawg<LETTER, COLNAMES>(termVariables, mAllConstants, mLogger);
+			return new Dawg<LETTER, COLNAMES>(termVariables, mAllConstants, mLogger, mDawgStateFactory);
 		}
 	}
 
@@ -67,7 +72,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 			return new NaiveDawg<LETTER, COLNAMES>(termVariables, mAllConstants, mLogger).complement();
 		} else {
 			return new Dawg<LETTER, COLNAMES>(termVariables, mAllConstants,  true, 
-					mLogger, mDawgLetterFactory);
+					mLogger, mDawgLetterFactory, mDawgStateFactory);
 		}
 	}
 
@@ -79,7 +84,8 @@ public class DawgFactory<LETTER, COLNAMES> {
 			dawg.add(point);
 			return dawg;
 		} else {
-			return null;
+			return new Dawg<LETTER, COLNAMES>(sig, 
+					mAllConstants, point, mLogger, mDawgLetterFactory, mDawgStateFactory);
 		}
 	}
 
