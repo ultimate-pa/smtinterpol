@@ -102,4 +102,68 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 	public Set<LETTER> getAllConstants() {
 		return mAllConstants;
 	}
+
+	/**
+	 * Takes a set of DawgLetters and returns a set of DawgLetters that represents the complement
+	 * of the LETTERs represented by the input set.
+	 * 
+	 * Conceptually a set of DawgLetters is a kind of DNF (a DawgLetter is a cube with one set-constraint
+	 * and some equality and inequality constraints).
+	 * This method has to negate the DNF and bring the result into DNF again.
+	 * 
+	 * @param outgoingDawgLetters
+	 * @return
+	 */
+	public Set<DawgLetter<LETTER, COLNAMES>> complementDawgLetterSet(
+			Set<DawgLetter<LETTER, COLNAMES>> dawgLetters) {
+		
+		Set<DawgLetter<LETTER, COLNAMES>> result = new HashSet<DawgLetter<LETTER,COLNAMES>>();
+		result.add(mUniversalDawgLetter);
+		for (DawgLetter<LETTER, COLNAMES> dl: dawgLetters) {
+			Set<DawgLetter<LETTER, COLNAMES>> newResult = new HashSet<DawgLetter<LETTER,COLNAMES>>();
+			
+			for (DawgLetter<LETTER, COLNAMES> dlRes : result) {
+				
+				{
+					HashSet<LETTER> newLetters = new HashSet<LETTER>(dlRes.getLetters());
+					newLetters.retainAll(dl.getLetters());
+					DawgLetter<LETTER, COLNAMES> newDl1 = 
+							new DawgLetter<LETTER, COLNAMES>(
+									newLetters, 
+									dlRes.getEqualColnames(), 
+									dlRes.getUnequalColnames(), 
+									this);
+					newResult.add(newDl1);
+				}
+				
+				for (COLNAMES eq : dlRes.getEqualColnames()) {
+					Set<COLNAMES> newEquals = new HashSet<COLNAMES>(dlRes.getEqualColnames());
+					newEquals.add(eq);
+					DawgLetter<LETTER, COLNAMES> newDl2 = 
+							new DawgLetter<LETTER, COLNAMES>(
+								dlRes.getLetters(), 
+								newEquals, 
+								dlRes.getUnequalColnames(), 
+								this);
+					newResult.add(newDl2);
+				}
+
+				for (COLNAMES unEq : dlRes.getUnequalColnames()) {
+					Set<COLNAMES> newUnequals = new HashSet<COLNAMES>(dlRes.getUnequalColnames());
+					newUnequals.add(unEq);
+					DawgLetter<LETTER, COLNAMES> newDl3 = 
+							new DawgLetter<LETTER, COLNAMES>(
+								dlRes.getLetters(), 
+								dlRes.getEqualColnames(), 
+								newUnequals, 
+								this);
+					newResult.add(newDl3);
+				}
+				
+			}
+			result = newResult;
+		}
+		
+		return result;
+	}
 }

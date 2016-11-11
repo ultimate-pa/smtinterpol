@@ -25,7 +25,11 @@ public class DawgLetter<LETTER, COLNAMES> {
 	
 	final DawgLetterFactory<LETTER, COLNAMES> mDawgLetterFactory;
 
-	public DawgLetter(DawgLetterFactory<LETTER, COLNAMES> dlf) {
+	/**
+	 * used only for the empty and universal DawgLetter right now.
+	 * @param dlf
+	 */
+	DawgLetter(DawgLetterFactory<LETTER, COLNAMES> dlf) {
 		mDawgLetterFactory = dlf;
 		mLetters = null;
 		mEqualColnames = null;
@@ -38,6 +42,14 @@ public class DawgLetter<LETTER, COLNAMES> {
 		mLetters = Collections.unmodifiableSet(newLetters);
 		mEqualColnames = Collections.unmodifiableSet(equalColnames);
 		mUnequalColnames = Collections.unmodifiableSet(inequalColnames);
+		assert equalsAndUnequalsDisjoint() : "equalities and inequalities contradict "
+				+ "-- this should be replaced by the empty dawg letter";
+	}
+
+	private boolean equalsAndUnequalsDisjoint() {
+		Set<COLNAMES> intersection = new HashSet<COLNAMES>(mEqualColnames);
+		intersection.retainAll(mUnequalColnames);
+		return intersection.isEmpty();
 	}
 
 	public Set<DawgLetter<LETTER, COLNAMES>> complement() {
@@ -115,6 +127,18 @@ public class DawgLetter<LETTER, COLNAMES> {
 		}
 		return mDawgLetterFactory.getDawgLetter(
 				Collections.singleton(ltr), mEqualColnames, mUnequalColnames);
+	}
+
+	public Set<LETTER> getLetters() {
+		return mLetters;
+	}
+
+	public Set<COLNAMES> getEqualColnames() {
+		return mEqualColnames;
+	}
+
+	public Set<COLNAMES> getUnequalColnames() {
+		return mUnequalColnames;
 	}
 }
 

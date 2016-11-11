@@ -59,4 +59,8 @@ public class DawgStateFactory {
 		}
 	}
 
+	public DawgState createDawgState() {
+		return new DawgState();
+	}
+
 }

@@ -1,6 +1,10 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
 
 public class DawgState {
+	
+	public DawgState() {
+		
+	}
 
 }
 

@@ -80,6 +80,8 @@ public interface IDawg<LETTER, COLNAMES> extends Iterable<List<LETTER>> {
 	 * The mappings says for some columns what value they must have.
 	 * (this is a special version of the normal select operation sigma_phi, where phi has the form x=a, 
 	 *  for a column name x and a letter a)
+	 *  Note that this does no project operation. The signature of the output dawg is the same as the 
+	 *  signature of the input dawg (this Dawg).
 	 * 
 	 * @param selectMap restricts some COLNAMES in the signature to only one LETTER
 	 * @return
