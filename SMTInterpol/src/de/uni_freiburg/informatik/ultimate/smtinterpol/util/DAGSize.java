@@ -18,11 +18,8 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.util;
 
-import java.util.AbstractSet;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Set;
+import java.util.HashMap;
+import java.util.Map;
 
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
@@ -35,6 +32,21 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 
 public class DAGSize extends NonRecursive {
+	
+	private class TreeSizeCache implements NonRecursive.Walker {
+		long mSizeBefore = 0;
+		Term mTerm;
+
+		public TreeSizeCache(Term term) {
+			mSizeBefore = mSize;
+			mTerm = term;
+		}
+
+		@Override
+		public void walk(NonRecursive walker) {
+			mCache.put(mTerm, mSize - mSizeBefore);
+		}
+	}
 
 	private class TermOnceWalker extends NonRecursive.TermWalker {
 
@@ -44,10 +56,18 @@ public class DAGSize extends NonRecursive {
 
 		@Override
 		public void walk(NonRecursive walker) {
-			if (mSeen.add(mTerm)) {
-				++mSize;
-				super.walk(walker);
+			if (mCache.containsKey(mTerm)) {
+				if (mComputeTreeSize)
+					mSize += mCache.get(mTerm);
+				return;
 			}
+			if (mComputeTreeSize) {
+				enqueueWalker(new TreeSizeCache(mTerm));
+			} else {
+				mCache.put(mTerm, Long.valueOf(0));
+			}
+			++mSize;
+			super.walk(walker);
 		}
 
 		@Override
@@ -80,60 +100,35 @@ public class DAGSize extends NonRecursive {
 
 		@Override
 		public void walk(NonRecursive walker, TermVariable term) {
-			// TODO Do we want to count this???  It is unified...
 			// No subterms to enqueue
 		}
-		
 	}
-	
-	private final static class ConstantEmptySet extends AbstractSet<Term> {
-		
-		private final static Set<Term> EMPTY = new ConstantEmptySet();
 
-		@Override
-		public Iterator<Term> iterator() {
-			// Collections.emptyIterator() is Java 1.7!!!
-			return Collections.<Term>emptySet().iterator();
-		}
-
-		@Override
-		public int size() {
-			return 0;
-		}
-
-		@Override
-		public boolean add(Term e) {
-			// Intentionally break the contract of add...
-			return true;
-		}
-		
-	}
-	
-	private Set<Term> mSeen;
-	private int mSize;
+	private Map<Term, Long> mCache;
+	private boolean mComputeTreeSize;
+	private long mSize;
 	
 	public DAGSize() {
-		mSeen = new HashSet<Term>();
+		mCache = new HashMap<Term, Long>();
 		mSize = 0;
 	}
 	
 	@Override
 	public void reset() {
 		super.reset();
-		mSeen.clear();
+		mCache.clear();
 		mSize = 0;
 	}
 	
 	public int size(Term term) {
+		mComputeTreeSize = false;
 		run(new TermOnceWalker(new FormulaUnLet().unlet(term)));
-		return mSize;
+		return (int) mSize;
 	}
 	
-	public int treesize(Term term) {
-		final Set<Term> old = mSeen;
-		mSeen = ConstantEmptySet.EMPTY;
+	public long treesize(Term term) {
+		mComputeTreeSize = true;
 		run(new TermOnceWalker(new FormulaUnLet().unlet(term)));
-		mSeen = old;
 		return mSize;
 	}
 }
