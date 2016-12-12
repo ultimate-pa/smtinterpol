@@ -30,6 +30,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate.Interpolator.LitInfo;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate.Interpolator.Occurrence;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate.InterpolatorClauseTermInfo.ProofPath;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.Coercion;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
 
@@ -65,7 +66,7 @@ public class CCInterpolator {
 
 	/** 
 	 * Compute the A-local child partition.  This is the child, that is
-	 * A-local to the occurence.  This function returns -1 if all childs 
+	 * A-local to the occurrence.  This function returns -1 if all children 
 	 * are in B.
 	 */
 	private int getChild(int color, Occurrence occur) {
@@ -116,7 +117,7 @@ public class CCInterpolator {
 			 * partition that is not in m_hasABPath, i.e. the first for which
 			 * only a continuous A-path but not a continuous B-path exists.  
 			 */
-			int         mColor;
+			int mColor;
 			/**
 			 * For each partition on the path from m_Color to m_MaxColor this
 			 * gives the term that ends the first A-local chain of equalities.
@@ -478,11 +479,7 @@ public class CCInterpolator {
 									mHead.getBoundTerm(mHead.mColor),
 									mTail.getBoundTerm(mMaxColor)));
 					addInterpolantClause(mHead.mColor, mHead.mPre[mHead.mColor]);
-					int parent = mHead.mColor + 1;
-					while (mInterpolator.mStartOfSubtrees[parent] > mHead.mColor) {
-						parent++;
-					}
-					mHead.mColor = parent;
+					mHead.mColor = getParent(mHead.mColor);
 				} else if (mHead.mColor == mTail.mColor) {
 					mHead.addAllPre(mHead.mColor, mTail);
 					mTail.mPre[mTail.mColor] = null;
@@ -492,22 +489,13 @@ public class CCInterpolator {
 										mTail.getBoundTerm(mHead.mColor)));
 					}
 					addInterpolantClause(mHead.mColor, mHead.mPre[mHead.mColor]);
-					int parent = mHead.mColor + 1;
-					while (mInterpolator.mStartOfSubtrees[parent] > mHead.mColor) {
-						parent++;
-					}
-					mHead.mColor = parent;
-					mTail.mColor = parent;
+					mHead.mColor = mTail.mColor = getParent(mHead.mColor);
 				} else {
 					mTail.addPre(mTail.mColor, Coercion.buildEq(
 									mHead.getBoundTerm(mMaxColor),
 									mTail.getBoundTerm(mTail.mColor)));
 					addInterpolantClause(mTail.mColor, mTail.mPre[mTail.mColor]);
-					int parent = mTail.mColor + 1;
-					while (mInterpolator.mStartOfSubtrees[parent] > mTail.mColor) {
-						parent++;
-					}
-					mTail.mColor = parent;
+					mTail.mColor = getParent(mTail.mColor);
 				}
 			}
 		}
@@ -538,14 +526,14 @@ public class CCInterpolator {
 		}
 
 		PathInfo mainPath = null;
-		final Object[] paths = proofTermInfo.getPaths();
-		for (int i = 1; i < paths.length; i += 2) {
-			final Term[] path = (Term[]) paths[i];
+		final ProofPath[] paths = proofTermInfo.getPaths();
+		for (int i = 0; i < paths.length; i ++) {
+			final Term[] path = paths[i].getPath();
 			final Term first = path[0];
 			final Term last = path[path.length - 1];
 			final PathInfo pathInfo = new PathInfo(path);
 			mPaths.put(new SymmetricPair<Term>(first, last), pathInfo);
-			if (i == 1){
+			if (i == 0){
 				mainPath = pathInfo;
 			}
 		}

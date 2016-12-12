@@ -175,16 +175,19 @@ public class InterpolatorLiteralTermInfo {
 		Term varTerm = ((ApplicationTerm) laAtom).getParameters()[0];
 		if (varTerm instanceof ApplicationTerm
 						&& ((ApplicationTerm) varTerm).getFunction().isIntern()){
-			int length = ((ApplicationTerm) varTerm).getParameters().length;
-			if (!computeBound(laTerm).equals(Rational.ZERO)){
-				length -= 1;
-			}
-			final Term[] varParams = Arrays.copyOf(((ApplicationTerm) varTerm).getParameters(),
-							length);
-			if (length == 1){
-				varTerm = varParams[0];
-			} else {
-				varTerm = varTerm.getTheory().term("+", varParams);
+			String function = ((ApplicationTerm) varTerm).getFunction().getName();
+			if (function.equals("+") || function.equals("-") || function.equals("*")) {
+				int length = ((ApplicationTerm) varTerm).getParameters().length;
+				if (!computeBound(laTerm).equals(Rational.ZERO)){
+					length -= 1;
+				}
+				final Term[] varParams = Arrays.copyOf(((ApplicationTerm) varTerm).getParameters(),
+						length);
+				if (length == 1){
+					varTerm = varParams[0];
+				} else {
+					varTerm = varTerm.getTheory().term("+", varParams);
+				}
 			}
 		}
 		linVar = Interpolator.termToAffine(varTerm);

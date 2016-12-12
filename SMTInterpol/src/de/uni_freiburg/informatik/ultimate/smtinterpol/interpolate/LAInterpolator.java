@@ -146,7 +146,7 @@ public class LAInterpolator {
 		 */
 		final InterpolatorClauseTermInfo lemmaTermInfo = mInterpolator.getClauseTermInfo(lemma);
 		for (final Entry<Term,Rational> entry : lemmaTermInfo.getFarkasCoeffs().entrySet()) {
-			final Term lit = mInterpolator.computeNegatedTerm(entry.getKey());
+			final Term lit = mInterpolator.mTheory.not(entry.getKey());
 			final InterpolatorLiteralTermInfo litTermInfo = mInterpolator.getLiteralTermInfo(lit);
 			final Rational factor = entry.getValue();
 			if (litTermInfo.isBoundConstraint()
@@ -276,7 +276,7 @@ public class LAInterpolator {
 					 * If a != b is in B, the interpolant is simply a == b.
 					 */
 					final Term thisIpl = equalityInfo.isALocal(part) 
-									? mInterpolator.computeNegatedTerm(equality) : equality;
+									? mInterpolator.mTheory.not(equality) : equality;
 					result.mInterpolants[part].mTerm = thisIpl;
 				} else {
 					result.mInterpolants[part].mTerm = 

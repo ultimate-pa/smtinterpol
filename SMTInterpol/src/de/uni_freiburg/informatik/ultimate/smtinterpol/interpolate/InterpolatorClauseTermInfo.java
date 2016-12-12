@@ -82,8 +82,7 @@ public class InterpolatorClauseTermInfo {
 	/**
 	 * The paths in CC and array lemmata
 	 */
-	private Object[] mPaths;
-	
+	private ProofPath[] mPaths;
 	/**
 	 * The CC equality in this EQ lemma
 	 */
@@ -103,6 +102,38 @@ public class InterpolatorClauseTermInfo {
 	 * The Literals of this LA lemma and their corresponding Farkas coefficients
 	 */
 	private HashMap<Term,Rational> mFarkasCoeffs;
+	
+
+	/**
+	 * This class is used to store subpaths and weakpaths of CC and array lemmas
+	 * in a way convenient for the interpolation procedure.
+	 * It stores the path index for weakpaths (null for subpaths) and the path
+	 * as an array of terms.
+	 * This is the equivalent of ArrayAnnotation.IndexedPath with Terms instead of CCTerms.
+	 */
+	class ProofPath {
+		private final Term mPathIndex;
+		private final Term[] mPath;
+		
+		private ProofPath(String type, Object path) {
+			if (type.equals(":subpath")) {
+				assert (path instanceof Term[]);
+				mPathIndex = null;
+				mPath = (Term[]) path;
+			} else {
+				assert (path instanceof Object[]);
+				assert (((Object[]) path)[0] instanceof Term && ((Object[]) path)[1] instanceof Term[]);
+				mPathIndex = (Term) ((Object[]) path)[0];
+				mPath = (Term[]) ((Object[]) path)[1];
+			}
+		}
+		public Term getIndex() {
+			return mPathIndex;
+		}
+		public Term[] getPath() {
+			return mPath;
+		}
+	}
 	
 	public InterpolatorClauseTermInfo(){
 		mIsResolution = false;
@@ -152,7 +183,7 @@ public class InterpolatorClauseTermInfo {
 							interpolator.mClauseTermInfos.get(antecedent.getSubterm());
 			literals.addAll(antecedentInfo.getLiterals());
 			literals.remove(pivot);
-			literals.remove(interpolator.computeNegatedTerm(pivot));
+			literals.remove(interpolator.mTheory.not(pivot));
 		}
 		mLiterals.addAll(literals);
 	}
@@ -451,15 +482,18 @@ public class InterpolatorClauseTermInfo {
 	 * @return paths an array where the strings ":subpath"/":weakpath" and
 	 * Term arrays are alternating
 	 */
-	private Object[] computePaths(Term lemma){
+	private ProofPath[] computePaths(Term lemma){
 		final AnnotatedTerm inner = (AnnotatedTerm) ((ApplicationTerm) lemma).getParameters()[0];
 		final Annotation annotation = inner.getAnnotations()[0];
+		assert annotation.getValue() instanceof Object[];
 		final boolean hasDiseq = ((Object[]) annotation.getValue())[0] instanceof Term;
-		final int length = ((Object[]) annotation.getValue()).length - (hasDiseq ? 1 : 0);
-		final Object[] paths = new Object[length];
+		final int length = (((Object[]) annotation.getValue()).length - (hasDiseq ? 1 : 0))/2;
+		final ProofPath[] paths = new ProofPath[length];
 		for (int i = 0; i < length; i++){
-			final int j = i + (hasDiseq ? 1 : 0);
-			paths[i] = ((Object[]) annotation.getValue())[j];
+			final int j = 2*i + (hasDiseq ? 1 : 0);
+			String type = (String) ((Object[]) annotation.getValue())[j];
+			Object[] path = (Object[]) ((Object[]) annotation.getValue())[j+1];
+			paths[i] = new ProofPath(type,path);
 		}
 		return paths;
 	}
@@ -546,7 +580,7 @@ public class InterpolatorClauseTermInfo {
 		return mDiseq;
 	}
 
-	public Object[] getPaths() {
+	public ProofPath[] getPaths() {
 		return mPaths;
 	}
 

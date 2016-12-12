@@ -109,7 +109,7 @@ public class ArrayAnnotation extends CCAnnotation {
 	 * This class is used to keep together paths and their indices
 	 * (i.e. null for subpaths, and weakpathindex else).
 	 */
-	public class IndexedPath{
+	class IndexedPath{
 		private final CCTerm mIndex;
 		private final CCTerm[] mPath;
 		public IndexedPath(CCTerm index, CCTerm[] path){
@@ -452,9 +452,19 @@ public class ArrayAnnotation extends CCAnnotation {
 	 */
 	private LinkedHashSet<IndexedPath> findMainPaths(){
 		final LinkedHashSet<IndexedPath> mainPaths = new LinkedHashSet<IndexedPath>();
-		final IndexedPath firstSubPath = (mIndexedPaths[0].getIndex() == null) ?
+		IndexedPath firstSubPath = (mIndexedPaths[0].getIndex() == null) ?
 				mIndexedPaths[0] : null;
 		if (firstSubPath != null){
+			// for read-over-weakeq, outsource congruences in the index path
+			if (mRule.getKind().equals(":read-over-weakeq")) {
+				if (firstSubPath.getPath().length > 2) {
+					firstSubPath = new IndexedPath(null, new CCTerm[]{firstSubPath.getPath()[0],
+							firstSubPath.getPath()[firstSubPath.getPath().length - 1]});
+					final ProofInfo pathInfo = new ProofInfo();
+					pathInfo.collectProofInfoOnePath(firstSubPath);
+					mPathProofMap.put(firstSubPath, pathInfo);
+				}
+			}
 			mainPaths.add(firstSubPath);
 		}
 		for (int i = 0; i < mIndexedPaths.length; i++){
@@ -802,6 +812,13 @@ public class ArrayAnnotation extends CCAnnotation {
 		final LinkedHashSet<SymmetricPair<CCTerm>> ccPaths =
 						new LinkedHashSet<SymmetricPair<CCTerm>>();
 		if (! (firstTerm instanceof CCAppTerm && secondTerm instanceof CCAppTerm)){
+			// Test. this happens if we outsource congruences from the indexpath in read-ocver-weakeq
+			final SymmetricPair<CCTerm> termPair = new SymmetricPair<CCTerm>(firstTerm, secondTerm);
+			if (mSubPathMap.containsKey(termPair)) {
+				ccPaths.add(termPair);
+				return ccPaths;
+			}
+			//
 			return null;
 		}
 		CCTerm first = firstTerm;

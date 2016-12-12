@@ -105,9 +105,7 @@ public class Interpolator extends NonRecursive {
 	/**
 	 * This class goes through the proof terms of the proof tree for the input clause. It checks if the interpolant for
 	 * a term already exists, and if not, it enqueues new walkers depending on the node type.
-	 * 
-	 * @param proofTerm
-	 *            the proof term to interpolate
+	 * @param proofTerm the proof term to interpolate
 	 */
 	public static class ProofTreeWalker implements Walker {
 		private final Term mProofTerm;
@@ -134,9 +132,7 @@ public class Interpolator extends NonRecursive {
 	/**
 	 * This class combines the interpolants preceding a resolution step and adds the interpolant of the resolvent to the
 	 * Interpolated stack.
-	 * 
-	 * @param the
-	 *            pivot of the resolution step
+	 * @param the pivot of the resolution step
 	 */
 	public static class CombineInterpolants implements Walker {
 		private final Term mPivot;
@@ -221,9 +217,7 @@ public class Interpolator extends NonRecursive {
 
 	/**
 	 * Enqueue walkers for the single steps in a hyper-resolution step.
-	 * 
-	 * @param clause
-	 *            the resolvent clause
+	 * @param clause the resolvent clause
 	 */
 	private void walkResolutionNode(Term proofTerm) {
 		if (mSmtSolver.isTerminationRequested()) {
@@ -498,6 +492,9 @@ public class Interpolator extends NonRecursive {
 	}
 
 	class LitInfo extends Occurrence {
+		/**
+		 * The mixed variable for mixed literals (in at least one partition).
+		 */
 		TermVariable mMixedVar;
 		/**
 		 * Tells for an equality whether the A part is the Lhs or the Rhs.
@@ -597,7 +594,7 @@ public class Interpolator extends NonRecursive {
 				}
 			}
 			for (Term lit : literals) {
-				lit = computeNegatedTerm(lit);
+				lit = mTheory.not(lit);
 				final InterpolatorLiteralTermInfo litTermInfo = getLiteralTermInfo(lit);
 				final LitInfo info = mLiteralInfos.get(litTermInfo.getAtom());
 				if (info.contains(part)) {
@@ -636,7 +633,7 @@ public class Interpolator extends NonRecursive {
 				} else if (litTermInfo.isLAEquality()) {
 					// handle mixed LA disequalities.
 					final InterpolatorAffineTerm at = new InterpolatorAffineTerm();
-					final Term eq = computeNegatedTerm(lit);
+					final Term eq = mTheory.not(lit);
 					final InterpolatorLiteralTermInfo eqTermInfo = getLiteralTermInfo(eq);
 					for (int child = part - 1; child >= mStartOfSubtrees[part]; child = mStartOfSubtrees[child] - 1) {
 						if (info.isMixed(child)) {
@@ -737,13 +734,9 @@ public class Interpolator extends NonRecursive {
 	/**
 	 * Compute the interpolant for a Nelson-Oppen equality clause. This is a theory lemma of the form equality implies
 	 * equality, where one equality is congruence closure and one is linear arithmetic.
-	 * 
-	 * @param ccEq
-	 *            the congruence closure equality atom
-	 * @param laEq
-	 *            the linear arithmetic equality atom
-	 * @param sign
-	 *            the sign of l1 in the conflict clause. This is -1 if l1 implies l2, and +1 if l2 implies l1.
+	 * @param ccEq the congruence closure equality atom
+	 * @param laEq the linear arithmetic equality atom
+	 * @param sign the sign of l1 in the conflict clause. This is -1 if l1 implies l2, and +1 if l2 implies l1.
 	 */
 	private Interpolant[] computeEQInterpolant(Term eqLemma) {
 		Interpolant[] interpolants = null;
@@ -1490,7 +1483,9 @@ public class Interpolator extends NonRecursive {
 				affine.add(Rational.MONE, termToAffine(appTerm.getParameters()[0]));
 				return affine;
 			} else {
-				throw new IllegalArgumentException("Cannot create affine term!");
+				final InterpolatorAffineTerm affine = new InterpolatorAffineTerm();
+				affine.add(Rational.ONE, term);
+				return affine;
 			}
 		} else if (term instanceof ConstantTerm) {
 			final InterpolatorAffineTerm affine = new InterpolatorAffineTerm();
@@ -1499,20 +1494,6 @@ public class Interpolator extends NonRecursive {
 		} else {
 			throw new IllegalArgumentException("Cannot create affine term!");
 		}
-	}
-
-	/**
-	 * Compute the negated term. Note that this preserves quoted annotations.
-	 */
-	Term computeNegatedTerm(Term term) {
-		if (term instanceof ApplicationTerm) {
-			final ApplicationTerm appTerm = (ApplicationTerm) term;
-
-			if (appTerm.getFunction().getName() == "not") {
-				return appTerm.getParameters()[0];
-			}
-		}
-		return term.getTheory().term("not", term);
 	}
 
 	/**
