@@ -296,7 +296,7 @@ public class CCInterpolator {
 					for (int i = 0; i < numArgs; i++) {
 						if (color < argPaths[i].mMaxColor) {
 							addPre(color,
-									Coercion.buildDistinct(head[i].getBoundTerm(color), tail[i].getBoundTerm(color)));
+									mTheory.not(Coercion.buildEq(head[i].getBoundTerm(color), tail[i].getBoundTerm(color))));
 						}
 						addAllPre(color, head[i]);
 						addAllPre(color, tail[i]);
@@ -450,8 +450,8 @@ public class CCInterpolator {
 					mHead.addAllPre(mHead.mColor, mTail);
 					mTail.mPre[mTail.mColor] = null;
 					if (mHead.mColor < mMaxColor) {
-						mHead.addPre(mHead.mColor, Coercion.buildDistinct(mHead.getBoundTerm(mHead.mColor),
-								mTail.getBoundTerm(mHead.mColor)));
+						mHead.addPre(mHead.mColor, mTheory.not(Coercion.buildEq(mHead.getBoundTerm(mHead.mColor),
+								mTail.getBoundTerm(mHead.mColor))));
 					}
 					addInterpolantClause(mHead.mColor, mHead.mPre[mHead.mColor]);
 					mHead.mColor = mTail.mColor = getParent(mHead.mColor);

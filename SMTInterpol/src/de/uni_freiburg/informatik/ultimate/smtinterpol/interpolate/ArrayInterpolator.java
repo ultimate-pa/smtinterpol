@@ -33,8 +33,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate.InterpolatorC
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
 
 /**
- * The interpolator for the theory of arrays. At the moment, it can only deal with read-over-weakeq lemmas;
- * extensionality is not yet supported
+ * The interpolator for the theory of arrays. At the moment, it can deal with read-over-weakeq lemmas only;
+ * extensionality is not yet supported.
  * 
  * @author Tanja Schindler, Jochen Hoenicke
  */
@@ -45,9 +45,7 @@ public class ArrayInterpolator {
 	private final Theory mTheory;
 	private final int mNumInterpolants;
 	/**
-	 * The conjuncts and disjuncts that build the interpolants. They are mapped to "and" or "or" to remember how they
-	 * have to be connected in the end. For read-over-weakeq, all "and" connections are at the outside due to the way
-	 * the interpolants are derived.
+	 * The conjuncts and disjuncts that build the interpolants, mapped to "and"/"or" to remember how to connect them.
 	 */
 	private final Map<Term, String>[] mInterpolants;
 	
@@ -121,11 +119,7 @@ public class ArrayInterpolator {
 		}
 		
 		Term[] interpolants = new Term[mNumInterpolants];
-		// if (mLemmaInfo.getLemmaType().equals(":read-over-weakeq")) {
 		interpolants = computeReadOverWeakeqInterpolants(proofTerm);
-		// } else if (mLemmaInfo.getLemmaType().equals(":weakeq-ext")) {
-		// interpolants = computeWeakeqExtInterpolants(proofTerm);
-		// }
 		return interpolants;
 	}
 	
@@ -134,9 +128,9 @@ public class ArrayInterpolator {
 	 * (strong) path of length 2 for the index equality "i = j" unless the disequality is of form "a[i] != b[i]", and a
 	 * weak path from array "a" to array "b" consisting of equality or store steps with store operations only at indices
 	 * different from the weakpath index, which is one of the select indices. There are basically three cases for
-	 * interpolation: either (i) there is a shared index term -> terms of the form "s1[x]=s2[x]" or "s1[x]!=s2[x]" can
-	 * be built; or the index equality is (ii) A-local -> terms of the form "nweq(s1,s2,k,F(·))" are built for B paths;
-	 * or the index equality is (iii) B-local -> terms of the form "weq(s1,s2,k,F(·))" are built for A paths.
+	 * interpolation: either (i) there is a shared index term -> terms of the form "s1[x]=s2[x]" or "s1[x]!=s2[x]" are
+	 * built; or the index equality is (ii) A-local -> terms of the form "nweq(s1,s2,k,F(·))" are built for B paths; or
+	 * the index equality is (iii) B-local -> terms of the form "weq(s1,s2,k,F(·))" are built for A paths.
 	 * 
 	 * @param proofTerm
 	 *            The lemma which interpolants are calculated for.
@@ -187,11 +181,11 @@ public class ArrayInterpolator {
 	}
 	
 	/**
-	 * Determine for all partitions whether there exists a shared select index. This can be - the weakpathindex, if no
-	 * index equality exists - the mixed variable, if the index equality is mixed - the weakpathindex, if the index
-	 * equality is local or shared or - the other select index, if the index equality is A- or B-local, and
-	 * weakpathindex is not shared. Note: if both select indices are shared, we take weakpathindex. This information is
-	 * used during interpolation to determine the partitions where a "simple" interpolant can be built.
+	 * Determine for all partitions whether there exists a shared select index. This can be the weakpathindex, if no
+	 * index equality exists; the mixed variable, if the index equality is mixed; the weakpathindex, if the index
+	 * equality is local or shared; the other select index, if the index equality is A- or B-local, and weakpathindex is
+	 * not shared. Note: if both select indices are shared, take weakpathindex. This information is used during
+	 * interpolation to determine the partitions where a "simple" interpolant can be built.
 	 */
 	private void calculateSharedSelectIndices() {
 		mSelectIndex = new Term[mNumInterpolants];
@@ -229,9 +223,9 @@ public class ArrayInterpolator {
 	}
 	
 	/**
-	 * For read-over-weakeq, the index equality has to be included in the interpolant for the following cases: if both
-	 * indices are shared and either a) it is A-local and the main diseq is mixed or B -> it is added as conjunct to the
-	 * interpolant, or b) it is B-local and the main diseq is A -> it is a premise for the path summaries
+	 * For read-over-weakeq, the index equality has to be included in the interpolant if both indices are shared and
+	 * either a) it is A-local and the main diseq is mixed or B -> it is added as conjunct to the interpolant, or b) it
+	 * is B-local and the main diseq is A -> it is a premise for the path summaries
 	 */
 	private void addIndexEquality() {
 		final LitInfo info = mInterpolator.getLiteralInfo(mIndexEquality);
@@ -239,7 +233,7 @@ public class ArrayInterpolator {
 				: mIndexEquality.getParameters()[0].equals(mStorePath.getIndex()) ? mIndexEquality.getParameters()[1]
 						: mIndexEquality.getParameters()[0];
 		final Occurrence otherIndexOccur = mInterpolator.getOccurrence(otherIndex, null);
-		for (int color = 0; color < mNumInterpolants; color++) { // actually not for all colors
+		for (int color = 0; color < mNumInterpolants; color++) {
 			if (mSelectIndex[color] != null) {
 				if (info.isALocal(color) && otherIndexOccur.isAB(color)) {
 					if (!mDiseqInfo.isALocal(color)) {
@@ -319,13 +313,13 @@ public class ArrayInterpolator {
 	 * Build a select equality to summarize an inner A-path in the simple case for read-over-weakeq.
 	 * 
 	 * @param pre
-	 *            The premise for the select equality to hold (negated, to add it as disjunct).
+	 *            the premise for the select equality to hold (negated, to add it as disjunct).
 	 * @param left
-	 *            The shared array at the left path end.
+	 *            the shared array at the left path end.
 	 * @param right
-	 *            The shared array at the right path end.
+	 *            the shared array at the right path end.
 	 * @param index
-	 *            The shared index for which the arrays match, i.e. the shared term for the weakpath index.
+	 *            the shared index for which the arrays match, i.e. the shared term for the weakpath index.
 	 * @return an interpolant term of the form "¬pre \/ left[index]=right[index]"
 	 */
 	private Term buildSelectEqTerm(Set<Term> pre, Term left, Term right, Term index) {
@@ -343,9 +337,9 @@ public class ArrayInterpolator {
 	 * @param color
 	 *            the current partition
 	 * @param left
-	 *            the array at the left path end
+	 *            the shared array at the left path end
 	 * @param right
-	 *            the array at the right path end
+	 *            the shared array at the right path end
 	 * @param order
 	 *            the order of weak equality, i.e. the maximum number of differences between left and right
 	 * @param indexDiseqs
@@ -375,6 +369,7 @@ public class ArrayInterpolator {
 			indexTerms.add(mTheory.equals(index, diff));
 		}
 		Term fTerm = mTheory.or(indexTerms.toArray(new Term[indexTerms.size()]));
+		
 		return mTheory.or(arrayEq, mTheory.and(inner, fTerm));
 	}
 	
@@ -424,10 +419,6 @@ public class ArrayInterpolator {
 		Term fTerm = mTheory.and(indexTerms.toArray(new Term[indexTerms.size()]));
 		return mTheory.and(arrayDiseq, mTheory.or(inner, fTerm));
 	}
-	/*
-	 * *****************************************************************************************************************
-	 * *
-	 */
 	
 	class WeakPathInfo {
 		Term mPathIndex;
@@ -437,19 +428,18 @@ public class ArrayInterpolator {
 		 */
 		BitSet mHasABPath;
 		/**
-		 * The first partition for which the path from start to end is A-local. This is m_numInterpolants, if there is
-		 * no such partition. If m_hasABPath is not empty, this value is undefined; we set it to the root of the
-		 * m_hasABPath tree, which equals the two mColor of the head and tail node.
+		 * The first partition for which the path from start to end is A-local. This is mNumInterpolants, if there is no
+		 * such partition. If mHasABPath is not empty, this value is undefined; we set it to the root of the mHasABPath
+		 * tree, which equals the two mColor of the head and tail node.
 		 */
 		int mMaxColor;
 		/**
-		 * When interpolating mPath, this stores the information (that has not yet been processed) viewing the path from
-		 * mPath[0] to the current position.
+		 * When interpolating mPath, this stores the information for a path which is not yet closed at the left side.
 		 */
 		WeakPathEnd mHead;
 		/**
-		 * When interpolating mPath, this stores the information (that has not yet been processed) viewing the path from
-		 * the current position to mPath[0].
+		 * When interpolating mPath, this stores the information for a path which is closed at the left side but still
+		 * open on the right side.
 		 */
 		WeakPathEnd mTail;
 		
@@ -464,20 +454,22 @@ public class ArrayInterpolator {
 		}
 		
 		/**
-		 * Calculate the interpolants for this path for all partitions.
+		 * Calculate the interpolants for the complete weakpath and all partitions.
 		 */
 		public void interpolatePathInfoReadOverWeakeq() {
 			if (mComputed) {
 				return;
 			}
-			final Term[] mainSelects = ((ApplicationTerm) mLemmaInfo.getDiseq()).getParameters();
-			final Term headSelect = getArrayFromSelect((ApplicationTerm) mainSelects[0]).equals(mPath[0])
-					? mainSelects[0] : mainSelects[1];
-			final Occurrence headOccur = mInterpolator.getOccurrence(headSelect, null);
 			
 			mHead = new WeakPathEnd();
 			mTail = new WeakPathEnd();
-			// Determine whether to start with A or B or AB.
+			
+			final Term[] mainSelects = ((ApplicationTerm) mLemmaInfo.getDiseq()).getParameters();
+			
+			// Determine whether to start with A or B or AB and open A paths accordingly.
+			final Term headSelect = getArrayFromSelect((ApplicationTerm) mainSelects[0]).equals(mPath[0])
+					? mainSelects[0] : mainSelects[1];
+			final Occurrence headOccur = mInterpolator.getOccurrence(headSelect, null);
 			mTail.closeAPath(mHead, null, headOccur);
 			mTail.openAPath(mHead, null, headOccur);
 			
@@ -493,8 +485,7 @@ public class ArrayInterpolator {
 				if (lit == null) {
 					// A store step can only open or close a path at term "a" if "a" is the left term;
 					// after this, we store the index disequality "storeindex != weakpathindex" for the interpolant if
-					// it is
-					// mixed, or if it is A-local on a B-local path or vice versa.
+					// it is mixed, or if it is A-local on a B-local path or vice versa.
 					Term storeTerm =
 							isStoreTerm(left) && getArrayFromStore((ApplicationTerm) left).equals(right) ? left : right;
 					Term arrayTerm = storeTerm.equals(left) ? right : left;
@@ -519,14 +510,16 @@ public class ArrayInterpolator {
 					}
 				}
 			}
+			
 			// Determine whether the path can be closed at mPath[mPath.length-1].
 			// This is the case when tailSelect is in A (resp. B) while we are currently in B (resp. A).
 			final Term tailSelect = headSelect.equals(mainSelects[0]) ? mainSelects[1] : mainSelects[0];
 			final Occurrence tailOccur = mInterpolator.getOccurrence(tailSelect, null);
 			mTail.closeAPath(mHead, mPath[mPath.length - 1], tailOccur);
 			mTail.openAPath(mHead, mPath[mPath.length - 1], tailOccur);
+			
 			// Paths which are still open at mPath[0] or mPath[mPath.length - 1] have to be closed using the main diseq.
-			// Note that we might need shared terms in the case where we build select equalities.
+			// Note that we might need mixed vars in the case where we build select equalities.
 			closeReadOverWeakeq();
 			
 			mComputed = true;
@@ -536,16 +529,14 @@ public class ArrayInterpolator {
 		 * Close the outer paths which are still open at the left or right end. There is nothing to do in the cases
 		 * where we don't have a shared index, because if there was an A local outer path in the B-local case (or vice
 		 * versa), it has already been closed by using either head- or tailOccur. For partitions where the main diseq is
-		 * mixed, only open A-paths have to be included, therefore it is enough to consider the partitions on the way
-		 * from mHead.mColor to mTail.mColor (except for their lca partition). For partitions where the main diseq is
-		 * A(resp. B)-local or shared and a shared select index exists, B(resp. A)-local and mixed index diseqs on outer
-		 * A(resp. B)-paths have to be added to the interpolant as premise (resp. conjunct).
+		 * mixed, we have to close all the partitions on the way from mHead.mColor to mTail.mColor (except for their lca
+		 * partition). For partitions where the main diseq is A(resp. B)-local or shared and a shared select index
+		 * exists, B(resp. A)-local and mixed index diseqs on outer A(resp. B)-paths have to be added to the interpolant
+		 * as premise (resp. conjunct).
 		 */
-		
 		private void closeReadOverWeakeq() {
-			// First, close the paths in partitions where the main diseq is mixed;
-			// or where it is shared and one of the outer paths is in A and the other one in B.
-			// Here, select equalities are built.
+			// First, close the paths in partitions where the main diseq is mixed, or where it is shared and one of the
+			// outer paths is in A and the other one in B => select equalities are built.
 			while (mHead.mColor < mNumInterpolants || mTail.mColor < mNumInterpolants) {
 				if (mHead.mColor < mTail.mColor) { // the left outer path is an A-path
 					final int color = mHead.mColor;
@@ -567,13 +558,13 @@ public class ArrayInterpolator {
 					mTail.mColor = getParent(mTail.mColor);
 				}
 			}
-			// Then, close the paths for partitions where the outer open paths and the main diseq are both in A (or B).
+			// Then, close the paths for partitions where the outer open paths and the main diseq are all in A (or B).
 			// Here, only index disequalities are added.
 			for (int color = 0; color < mNumInterpolants; color++) {
 				if (mSelectIndex[color] == null) { // Nothing to do in the cases where no shared select index exists.
 					continue;
 				}
-				if (mHead.mIndexDiseqs[color] == null && mTail.mIndexDiseqs[color] == null) {
+				if (mHead.mIndexDiseqs[color] == null && mTail.mIndexDiseqs[color] == null) { // No index diseqs to add.
 					continue;
 				}
 				final Term index = mSelectIndex[color];
@@ -599,7 +590,7 @@ public class ArrayInterpolator {
 					mHead.mIndexDiseqs[color] = mTail.mIndexDiseqs[color] = null;
 				}
 				if (mDiseqInfo.isBorShared(color)) {
-					// B-local paths must be closed, A-local ones are already, latest in the 1st part.
+					// B-local paths must be closed, A-local ones are already, at the latest in the 1st part.
 					assert mHead.mTerm[color] == null || mTail.mTerm[color] == null; // one of the outer paths is in B
 					// Add the A part of the diseqs as conjunct to the interpolant
 					for (ApplicationTerm diseq : allDiseqs.keySet()) {
@@ -622,9 +613,9 @@ public class ArrayInterpolator {
 		
 		class WeakPathEnd {
 			/**
-			 * The first partition for which there is an A-local prefix of the path. If m_hasABPath is non-empty, this
-			 * is the first partition that is not in m_hasABPath, i.e. the first for which only a continuous A-path but
-			 * not a continuous B-path exists.
+			 * The first partition for which there is an A-local prefix of the path. If mHasABPath is non-empty, this is
+			 * the first partition that is not in mHasABPath, i.e. the first for which only a continuous A-path but not
+			 * a continuous B-path exists.
 			 */
 			int mColor;
 			/**
@@ -662,7 +653,7 @@ public class ArrayInterpolator {
 			public void openAPath(WeakPathEnd other, Term boundary, Occurrence occur) {
 				while (true) {
 					final int child = getChild(mColor, occur);
-					/* if there is no A-local child, we are done. */
+					// if there is no A-local child, we are done.
 					if (child < 0) {
 						break;
 					}
@@ -674,11 +665,12 @@ public class ArrayInterpolator {
 			/**
 			 * Close the A path for partition color. This is called when we add a term to the chain that is B-local for
 			 * the current mColor. We set mColor to the parent node. We also close the open path on mColor or open a new
-			 * one and increment mMaxColor if such a path was not yet open.
+			 * one and increment mMaxColor if such a path was not yet open. Note that closing an A path opens a B path
+			 * at the same time.
 			 * 
 			 * @param other
 			 *            the other PathEnd
-			 * @param boundaryTerm
+			 * @param boundary
 			 *            the boundary term for opening/closing the path.
 			 */
 			private void closeSingleAPath(WeakPathEnd other, Term boundary) {
@@ -686,8 +678,8 @@ public class ArrayInterpolator {
 				assert mHasABPath.isEmpty();
 				final int color = mColor;
 				mColor = getParent(color);
-				if (color < mMaxColor) { // ...then the path is already closed at the left side.
-					// Add the interpolant clause for this A segment.
+				if (color < mMaxColor) { // the path is already closed at the left side
+					// Add the interpolant clause for this A path.
 					addInterpolantClauseAPath(color, boundary);
 					mTerm[color] = null;
 				} else {
@@ -704,11 +696,12 @@ public class ArrayInterpolator {
 			/**
 			 * Open a new A path. This is called when a term is added that is A local in child, where child is a child
 			 * of mColor. We start a new A path on child. If we have still slack, since mHasABPath contains child, we
-			 * don't have to open the path and just set mMaxColor to child.
+			 * don't have to open the path and just set mMaxColor to child. Note that opening an A path closes a B path
+			 * at the same time.
 			 * 
 			 * @param other
 			 *            the other path end.
-			 * @param boundaryTerm
+			 * @param boundary
 			 *            the term that starts the new A path.
 			 * @param child
 			 *            the child of mColor for which the added term is A local.
@@ -722,7 +715,7 @@ public class ArrayInterpolator {
 					// Keep only those below the current child.
 					mHasABPath.and(subtree);
 				} else {
-					// Open a new A-path.
+					// Open a new A path.
 					mTerm[child] = boundary;
 					mColor = child;
 					// Add an interpolant clause for partitions where this closes a B path
@@ -737,8 +730,8 @@ public class ArrayInterpolator {
 			
 			/**
 			 * Add the disequality between the weakpath index and a store index. There are three cases where it has to
-			 * be included in the interpolant: (i) the disequality is mixed. (ii) the disequality is A local on a B
-			 * local path segment (iii) the disequality is B local on an A local path segment Note: We might not know
+			 * be included in the interpolant: (i) the disequality is mixed, (ii) the disequality is A local on a B
+			 * local path segment, (iii) the disequality is B local on an A local path segment. Note: We might not know
 			 * yet if we are on an A or B path, namely if we have not yet closed any path end. If the index diseq is
 			 * A(resp. B)-local in such a partition, we make the path also A(resp. B)-local to avoid having to include
 			 * the index disequality.
@@ -756,7 +749,7 @@ public class ArrayInterpolator {
 				ApplicationTerm diseq = mDisequalities.get(new SymmetricPair<Term>(storeIndex, mPathIndex));
 				LitInfo diseqInfo = mInterpolator.getLiteralInfo(diseq);
 				
-				// The diseq has to be added to all partitions where it is mixed, and all partitions that lie on the
+				// The diseq has to be added to all partitions where it is mixed and all partitions that lie on the
 				// tree path between the partition of the diseq and the partition of the store term.
 				// In nodes under the lca which are not on the way, both are in B, in nodes above the lca both are in A,
 				// and in both cases there is nothing to do.
@@ -813,17 +806,17 @@ public class ArrayInterpolator {
 			}
 			
 			/**
-			 * Add the index diseq to one partition. If the path is still open at the other path end, i.e. if
-			 * other.mLastChange[color] is still null, we have to store the diseq in the other pathend, else in this
-			 * one.
+			 * Add the index disequality to one partition.
 			 */
 			private void addIndexDiseqOneColor(WeakPathEnd other, ApplicationTerm diseq, LitInfo diseqInfo, int color) {
+				// If the path is still open at the other path end, i.e. if other.mLastChange[color] is still null, we
+				// have to store the diseq in the other pathend
 				if (other.mLastChange[color] == null) {
 					if (other.mIndexDiseqs[color] == null) {
 						other.mIndexDiseqs[color] = new HashMap<ApplicationTerm, LitInfo>();
 					}
 					other.mIndexDiseqs[color].put(diseq, diseqInfo);
-				} else {
+				} else { // else in this one.
 					if (mIndexDiseqs[color] == null) {
 						mIndexDiseqs[color] = new HashMap<ApplicationTerm, LitInfo>();
 					}
@@ -835,11 +828,10 @@ public class ArrayInterpolator {
 			 * Add an interpolant clause for a closed A path. Case 1 (shared select index): a) (mDiseq A-local): B-local
 			 * index diseqs are a premise for all interpolant parts summarizing A paths. b) (else): the conjunction of
 			 * all B-local or the B-part of mixed index diseqs on this path is a premise for the arrays at the path ends
-			 * to coincide at weakpathindex -> interpolant of the form "i!=k1/\.../\i!=kn->start[i]=end[i]". Case 2
-			 * (A-local, no shared select index): Nothing to do, discard collected indices (there should be none) Case 3
-			 * (B-local, no shared select index): Summarize the path by a WEQ term stating that the arrays at the path
-			 * end differ at most at k locations (k= # of B-local and mixed index diseqs on the path) which are all
-			 * different from weakpathindex.
+			 * to coincide at weakpathindex => interpolant of the form "i!=k1/\.../\i!=kn->start[i]=end[i]". Case 2
+			 * (A-local, no shared select index): Nothing to do. Case 3 (B-local, no shared select index): Summarize the
+			 * path by a WEQ term stating that the arrays at the path end differ at most at k locations (k= # of B-local
+			 * and mixed index diseqs on the path) which are all different from weakpathindex.
 			 */
 			private void addInterpolantClauseAPath(int color, Term boundary) {
 				Term left = mLastChange[color];
@@ -888,11 +880,11 @@ public class ArrayInterpolator {
 			/**
 			 * Add an interpolant clause for a closed B path. Case 1 (shared select index): A-local and the A part of
 			 * mixed index disequalities are added as conjunct to the entire lemma interpolant. a) Additionally, for
-			 * mDiseq A-local: Summarize the path by stating that the arrays at the path ends differ at weakpathindex ->
+			 * mDiseq A-local: Summarize the path by stating that the arrays at the path ends differ at weakpathindex =>
 			 * interpolant conjunct of the form "start[i] != end[i]". Case 2 (A-local, no shared select index):
 			 * Summarize the path by an NWEQ term stating that the arrays at the path end differ at least at k locations
 			 * (k= # B-local and mixed index diseqs on the path) of which (at least) one equals the weakpathindex. Case
-			 * 3 (B-local, no shared select index): Nothing to do, discard collected indices (there should be none)
+			 * 3 (B-local, no shared select index): Nothing to do.
 			 */
 			private void addInterpolantClauseBPath(int color, Term boundary) {
 				Term left = mLastChange[color];
@@ -934,7 +926,7 @@ public class ArrayInterpolator {
 			
 			/**
 			 * Add an interpolant clause for an A path ending at the very left or very right path end. This is only
-			 * needed for partitions where the main disequality is mixed or shared. -> interpolant conjunct of the form
+			 * used for partitions where the main disequality is mixed or shared. => interpolant conjunct of the form
 			 * "i!=k1/\.../\i!=kn->start[i]=end[i]" Note that one needs the mixedVar here if mDiseqInfo.isMixed(color).
 			 * 
 			 * @param color
@@ -977,7 +969,7 @@ public class ArrayInterpolator {
 			
 			/**
 			 * Add an interpolant clause for a B path ending at the very left or very right path end. This is only
-			 * needed for partitions where mDiseq is mixed or in B.
+			 * needed for partitions where mDiseq is mixed or shared.
 			 * 
 			 * @param color
 			 *            the current partition
@@ -992,7 +984,7 @@ public class ArrayInterpolator {
 							final Term otherIndex = diseqInfo.getMixedVar() != null ? diseqInfo.getMixedVar()
 									: diseq.getParameters()[0].equals(mStorePath.getIndex()) ? diseq.getParameters()[1]
 											: diseq.getParameters()[0];
-							// If the diseq is mixed, the A projection is an equality
+							// If the diseq is mixed, the A projection is a positive EQ-term
 							Term diseqInSharedTerms = mTheory.equals(index, otherIndex);
 							// else we have a disequality
 							if (!diseqInfo.isMixed(color)) {

@@ -638,7 +638,11 @@ public class Interpolator extends NonRecursive {
 						}
 						mCheckingSolver.assertTerm(mTheory.term("=", lhs, rhs));
 					} else {
-						mCheckingSolver.assertTerm(mTheory.term(litTermInfo.isNegated() ? "distinct" : "=", lhs, rhs));
+						if (litTermInfo.isNegated()) {
+							mCheckingSolver.assertTerm(mTheory.not(mTheory.equals(lhs, rhs)));
+						} else {
+							mCheckingSolver.assertTerm(mTheory.equals(lhs, rhs)) ;
+						}
 					}
 				} else if (litTermInfo.isLAEquality()) {
 					// handle mixed LA disequalities.
@@ -669,7 +673,7 @@ public class Interpolator extends NonRecursive {
 						final Sort sort = mTheory.getSort(isInt ? "Int" : "Real");
 						final Term t = at.toSMTLib(mTheory, isInt);
 						final Term zero = Rational.ZERO.toTerm(sort);
-						mCheckingSolver.assertTerm(mTheory.term("distinct", t, zero));
+						mCheckingSolver.assertTerm(mTheory.not(mTheory.equals(t, zero)));
 					}
 				} else {
 					// handle mixed LA inequalities and equalities.
@@ -850,7 +854,7 @@ public class Interpolator extends NonRecursive {
 						final Sort sort = mTheory.getSort(isInt ? "Int" : "Real");
 						final Term term = iat.toSMTLib(mTheory, isInt);
 						final Term zero = Rational.ZERO.toTerm(sort);
-						interpolant = negate ? mTheory.distinct(term, zero) : mTheory.equals(term, zero);
+						interpolant = negate ? mTheory.not(mTheory.equals(term, zero)) : mTheory.equals(term, zero);
 					}
 				}
 			}
