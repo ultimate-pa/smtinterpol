@@ -55,7 +55,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 		if (mUseNaiveDawgs) {
 			return new NaiveDawg<LETTER, COLNAMES>(termVariables, mAllConstants, mLogger);
 		} else {
-			return new Dawg<LETTER, COLNAMES>(termVariables, mAllConstants, mLogger, mDawgStateFactory);
+			return new Dawg<LETTER, COLNAMES>(termVariables, mAllConstants, mLogger, this);
 		}
 	}
 
@@ -72,7 +72,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 			return new NaiveDawg<LETTER, COLNAMES>(termVariables, mAllConstants, mLogger).complement();
 		} else {
 			return new Dawg<LETTER, COLNAMES>(termVariables, mAllConstants,  true, 
-					mLogger, mDawgLetterFactory, mDawgStateFactory);
+					mLogger, this);
 		}
 	}
 
@@ -113,28 +113,43 @@ public class DawgFactory<LETTER, COLNAMES> {
 	 *  
 	 *  then we want to change the columns of the input dawg such that they match the clause's signature
 	 *  this entails
-	 *  - renamings -- x_0 -> v, x_2 -> w 
-	 *  - if there are repetitions or constants, we have to select accordingly, in the example we only select points where x_0 = x_3 and x_1 = a
+	 *  - renamings -- x_0 -> v, x_2 -> w
+	 *  - if there are repetitions or constants, we have to select accordingly, in the example we only select points 
+	 *   where x_0 = x_3 and x_1 = a
 	 *   --> from this we would get a dawg that describes the points wrt the clause literal
-	 *  - we have to blow up the signature for the whole clause, i.e., for every missing column to the target signature we insert a "X Sigma", i.e.,
-	 *    we compute the cross product
+	 *  - we have to blow up the signature for the whole clause, i.e., for every missing column to the target signature we 
+	 *   insert a "X Sigma", i.e., we compute the cross product with the whole set of constants
 	 *    
 	 *    
 	 * In short, and in the applications of the EprTheory, this translates a Dawg with the signature of an EprPredicate to a Dawg with the signature
-	 * of a clause (accoring to the given translation mapping that is stored in each ClauseEprQuantifiedPredicate)
+	 * of a clause (according to the given translation mapping that is stored in each ClauseEprQuantifiedPredicate)
 	 *  
 	 * @param dawg the dawg that is to be transformed
-	 * @param translation a mapping from the variables in the input dawgs signature to other termvariables and/or constants
+	 * @param translation a mapping from the variables in the input Dawgs signature to other TermVariables and/or constants
 	 * @param targetSignature the target signature we want to blow up for in the end
 	 * @return
 	 */
 	public IDawg<LETTER, COLNAMES> translatePredSigToClauseSig(
-			IDawg<LETTER, COLNAMES> dawg, Map<COLNAMES, Object> translation, SortedSet<COLNAMES> targetSignature) {
-		if (mUseNaiveDawgs) {
-			return dawg.translatePredSigToClauseSig(translation, targetSignature);
-		} else {
-			return null;
-		}
+			IDawg<LETTER, COLNAMES> dawg, 
+			Map<COLNAMES, COLNAMES> translationCnToCn, 
+			Map<COLNAMES, LETTER> translationCnToLtr, 
+			SortedSet<COLNAMES> targetSignature) {
+		
+//		// split the translation into its parts.. 
+//		// TODO: probably better not join them in the first place..
+//		Map<COLNAMES, COLNAMES> cnToCn = new HashMap<COLNAMES, COLNAMES>();
+//		for (Object en : translation) {
+//			
+//		}
+//		
+//		
+//		Map<COLNAMES, LETTER> cnToLtr = new HashMap<COLNAMES, LETTER>();
+		
+//		if (mUseNaiveDawgs) {
+		return dawg.translatePredSigToClauseSig(translationCnToCn, translationCnToLtr, targetSignature);
+//		} else {
+//			return null;
+//		}
 	}
 
 
@@ -229,38 +244,38 @@ public class DawgFactory<LETTER, COLNAMES> {
 			
 			// tests for renameSelectAndProject
 			
-			Map<String, Object> translation3 = new HashMap<String, Object>();
-			translation3.put("alpha", "bla");
-			translation3.put("beta", "bla");
-			translation3.put("gamma", "blub");
+//			Map<String, Object> translation3 = new HashMap<String, Object>();
+//			translation3.put("alpha", "bla");
+//			translation3.put("beta", "bla");
+//			translation3.put("gamma", "blub");
+//	
+//			IDawg<Character, String> d3 = df.translatePredSigToClauseSig(d2, translation3, d2.getColnames());
+//	
+//			System.out.println("d3: rnsP(d2, {alpha -> bla, beta -> bla, gamma -> blub)");
+//			System.out.println("expecting: (bla, blub) {ab}");
+//			System.out.println(d3);
+//			
+//			Map<String, Object> translation4 = new HashMap<String, Object>();
+//			translation4.put("alpha", "bla");
+//			translation4.put("beta", "bla");
+//			translation4.put("gamma", 'a');
+//	
+//			IDawg<Character, String> d4 = df.translatePredSigToClauseSig(d2, translation4, d2.getColnames());
+//	
+//			System.out.println("d4: rnsP(d2, {alpha -> bla, beta -> bla, gamma -> 'a')");
+//			System.out.println("expecting: (bla) {}");
+//			System.out.println(d4);
+//	
+//			Map<String, Object> translation5 = new HashMap<String, Object>();
+//			translation5.put("alpha", "bla");
+//			translation5.put("beta", "bla");
+//			translation5.put("gamma", 'b');
+//	
+//			IDawg<Character, String> d5 = df.translatePredSigToClauseSig(d2, translation5, d2.getColnames());
 	
-			IDawg<Character, String> d3 = df.translatePredSigToClauseSig(d2, translation3, d2.getColnames());
-	
-			System.out.println("d3: rnsP(d2, {alpha -> bla, beta -> bla, gamma -> blub)");
-			System.out.println("expecting: (bla, blub) {ab}");
-			System.out.println(d3);
-			
-			Map<String, Object> translation4 = new HashMap<String, Object>();
-			translation4.put("alpha", "bla");
-			translation4.put("beta", "bla");
-			translation4.put("gamma", 'a');
-	
-			IDawg<Character, String> d4 = df.translatePredSigToClauseSig(d2, translation4, d2.getColnames());
-	
-			System.out.println("d4: rnsP(d2, {alpha -> bla, beta -> bla, gamma -> 'a')");
-			System.out.println("expecting: (bla) {}");
-			System.out.println(d4);
-	
-			Map<String, Object> translation5 = new HashMap<String, Object>();
-			translation5.put("alpha", "bla");
-			translation5.put("beta", "bla");
-			translation5.put("gamma", 'b');
-	
-			IDawg<Character, String> d5 = df.translatePredSigToClauseSig(d2, translation5, d2.getColnames());
-	
-			System.out.println("d5: rnsP(d2, {alpha -> bla, beta -> bla, gamma -> 'b')");
-			System.out.println("expecting: (bla) {a}");
-			System.out.println(d5);
+//			System.out.println("d5: rnsP(d2, {alpha -> bla, beta -> bla, gamma -> 'b')");
+//			System.out.println("expecting: (bla) {a}");
+//			System.out.println(d5);
 	
 			// tests for renameAndRestoreConstants
 			
@@ -296,6 +311,14 @@ public class DawgFactory<LETTER, COLNAMES> {
 			System.out.println("expecting: (due, cinque, quattro, tre, uno) {aBbAa, aBbAb}");
 			System.out.println(d6);
 		
+		}
+
+		public DawgLetterFactory<LETTER, COLNAMES> getDawgLetterFactory() {
+			return mDawgLetterFactory;
+		}
+
+		public DawgStateFactory getDawgStateFactory() {
+			return mDawgStateFactory;
 		}
 	
 }

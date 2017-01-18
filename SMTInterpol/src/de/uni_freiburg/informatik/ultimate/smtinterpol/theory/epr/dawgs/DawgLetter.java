@@ -42,6 +42,7 @@ public class DawgLetter<LETTER, COLNAMES> {
 		mLetters = Collections.unmodifiableSet(newLetters);
 		mEqualColnames = Collections.unmodifiableSet(equalColnames);
 		mUnequalColnames = Collections.unmodifiableSet(inequalColnames);
+		assert !mLetters.isEmpty() : "this letter is equivalent to the empty letter";
 		assert equalsAndUnequalsDisjoint() : "equalities and inequalities contradict "
 				+ "-- this should be replaced by the empty dawg letter";
 	}

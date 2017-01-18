@@ -127,16 +127,22 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 				{
 					HashSet<LETTER> newLetters = new HashSet<LETTER>(dlRes.getLetters());
 					newLetters.retainAll(dl.getLetters());
-					DawgLetter<LETTER, COLNAMES> newDl1 = 
-							new DawgLetter<LETTER, COLNAMES>(
-									newLetters, 
-									dlRes.getEqualColnames(), 
-									dlRes.getUnequalColnames(), 
-									this);
-					newResult.add(newDl1);
+					if (!newLetters.isEmpty()) {
+						DawgLetter<LETTER, COLNAMES> newDl1 = 
+								new DawgLetter<LETTER, COLNAMES>(
+										newLetters, 
+										dlRes.getEqualColnames(), 
+										dlRes.getUnequalColnames(), 
+										this);
+						newResult.add(newDl1);
+					}
 				}
 				
 				for (COLNAMES eq : dlRes.getEqualColnames()) {
+					if (dlRes.getUnequalColnames().contains(eq)) {
+						// DawgLetter would be empty
+						continue;
+					}
 					Set<COLNAMES> newEquals = new HashSet<COLNAMES>(dlRes.getEqualColnames());
 					newEquals.add(eq);
 					DawgLetter<LETTER, COLNAMES> newDl2 = 
@@ -149,6 +155,10 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 				}
 
 				for (COLNAMES unEq : dlRes.getUnequalColnames()) {
+					if (dlRes.getEqualColnames().contains(unEq)) {
+						// DawgLetter would be empty
+						continue;
+					}
 					Set<COLNAMES> newUnequals = new HashSet<COLNAMES>(dlRes.getUnequalColnames());
 					newUnequals.add(unEq);
 					DawgLetter<LETTER, COLNAMES> newDl3 = 

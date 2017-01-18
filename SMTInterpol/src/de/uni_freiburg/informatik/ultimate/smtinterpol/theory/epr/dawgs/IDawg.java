@@ -4,9 +4,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.SortedSet;
 
-import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
-import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
-
 public interface IDawg<LETTER, COLNAMES> extends Iterable<List<LETTER>> {
 	
 	public SortedSet<COLNAMES> getColnames();
@@ -59,21 +56,12 @@ public interface IDawg<LETTER, COLNAMES> extends Iterable<List<LETTER>> {
 
 //	public void removeAll(IDawg<LETTER, COLNAMES> other);
 
+	/**
+	 * Corresponds to the "superset or equal" set operation.
+	 * @param points
+	 * @return
+	 */
 	public boolean supSetEq(IDawg<LETTER, COLNAMES> points);
-
-//	/**
-//	 * Add all the given points of the given Dawg.
-//	 * Assumes that the given Dawgs column names are a subset of this Dawg's column names.
-//	 * @param d1
-//	 */
-//	public void addAllWithSubsetSignature(IDawg<LETTER, COLNAMES> d1);
-
-//	/**
-//	 * Removes all points from this dawg that, projected to the columns of the argument dawg,
-//	 * match at least one of the points in the argument dawg.
-//	 * @param clFulfilledPoints
-//	 */
-//	public void removeAllWithSubsetSignature(IDawg<LETTER, COLNAMES> points);
 
 	/**
 	 * Return a dawg where only the points are selected that match the given mapping.
@@ -94,9 +82,24 @@ public interface IDawg<LETTER, COLNAMES> extends Iterable<List<LETTER>> {
 	 */
 	public boolean isSingleton();
 
-	public IDawg<LETTER, COLNAMES> translatePredSigToClauseSig(Map<COLNAMES, Object> translation,
+	/**
+	 * 
+	 * @param translation Maps colnames of the predicate signature to colnames of the clause signature and constants
+	 * @param targetSignature the signature of the clause
+	 * @return
+	 */
+	public IDawg<LETTER, COLNAMES> translatePredSigToClauseSig(
+			Map<COLNAMES, COLNAMES> translationColnameToColname,
+			Map<COLNAMES, LETTER> translationColnameToLetter,
 			SortedSet<COLNAMES> targetSignature);
 
+	/**
+	 * 
+	 * @param translation maps colnames of the clause signature to colnames in the  predicate's signature
+	 * @param argList the arguments of the ClauseLiteral that has the predicate whose signature we want to translate to
+	 * @param newSignature the predicate's signature
+	 * @return
+	 */
 	public IDawg<LETTER, COLNAMES> translateClauseSigToPredSig(
 			Map<COLNAMES, COLNAMES> translation, List<Object> argList, SortedSet<COLNAMES> newSignature);
 

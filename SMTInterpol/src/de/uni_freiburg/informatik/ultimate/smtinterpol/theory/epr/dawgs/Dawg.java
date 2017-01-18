@@ -8,7 +8,10 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.SortedSet;
+import java.util.stream.Collectors;
 
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 
 public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
@@ -38,6 +41,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	 */
 	private final Map<DawgState, Map<DawgLetter<LETTER, COLNAMES>, DawgState>> mTransitionRelation;
 	private final DawgLetterFactory<LETTER, COLNAMES> mDawgLetterFactory;
+	private DawgFactory<LETTER, COLNAMES> mDawgFactory;
 	
 	/**
 	 * Create an empty dawg
@@ -46,10 +50,11 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	 * @param logger
 	 */
 	public Dawg(SortedSet<COLNAMES> colnames, Set<LETTER> allConstants, LogProxy logger, 
-			DawgLetterFactory<LETTER, COLNAMES> dawgLetterFactory, DawgStateFactory dsf) {
+			DawgFactory<LETTER, COLNAMES> df) {
 		super(colnames, allConstants, logger);
-		mDawgStateFactory = dsf;
-		mDawgLetterFactory = dawgLetterFactory;
+		mDawgFactory = df;
+		mDawgStateFactory = df.getDawgStateFactory();
+		mDawgLetterFactory = df.getDawgLetterFactory();
 		
 		mTransitionRelation = new HashMap<DawgState, Map<DawgLetter<LETTER,COLNAMES>,DawgState>>();
 		
@@ -70,11 +75,12 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	 * @param fullDawg
 	 */
 	public Dawg(SortedSet<COLNAMES> colnames, Set<LETTER> allConstants, boolean fullDawg, 
-			LogProxy logger, DawgLetterFactory<LETTER, COLNAMES> dawgLetterFactory, DawgStateFactory dsf) {
+			LogProxy logger, DawgFactory<LETTER, COLNAMES> df) {
 		super(colnames, allConstants, logger);
 		assert fullDawg : "use other constructor for empty dawg";
-		mDawgStateFactory = dsf;
-		mDawgLetterFactory = dawgLetterFactory;
+		mDawgFactory = df;
+		mDawgStateFactory = df.getDawgStateFactory();
+		mDawgLetterFactory = df.getDawgLetterFactory();
 		
 		mInitialState = mDawgStateFactory.createDawgState();
 
@@ -83,7 +89,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		DawgState currentState = mInitialState;
 		for (int i = 0; i < colnames.size(); i++) {
 			DawgState nextState = mDawgStateFactory.createDawgState();
-			addTransition(currentState, dawgLetterFactory.getUniversalDawgLetter(), nextState);
+			addTransition(currentState, mDawgLetterFactory.getUniversalDawgLetter(), nextState);
 			currentState = nextState;
 		}
 //		mFinalState = currentState;
@@ -158,6 +164,10 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 
 
 
+	/**
+	 * Compute and return a Dawg that represents the complement of the input dawg's language.
+	 * (in Sigma^n, where Sigma = allConstants and n = |colnames|)
+	 */
 	@Override
 	public IDawg<LETTER, COLNAMES> complement() {
 		/*
@@ -181,6 +191,10 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		
 		DawgState nextLevelFormerSinkState = null;
 		
+		
+		//TODO:
+		// - double check
+		
 		for (int i = 0; i < this.getColnames().size(); i++) {
 			Set<DawgState> nextStates = new HashSet<DawgState>();
 			
@@ -200,6 +214,12 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 				 * the old transitions stay intact (except for the ones leading to the final state
 				 */
 				for (Entry<DawgLetter<LETTER, COLNAMES>, DawgState> letterAndState : oldLetterToDawgState.entrySet()) {
+					if (i == this.getColnames().size() - 1) {
+						// we are in the last column
+						// the old transitions lead to the old final state(s)
+						// --> omit those
+						break;
+					}
 					outgoingDawgLetters.add(letterAndState.getKey());
 					nextStates.add(letterAndState.getValue());
 					addTransition(newTransitionRelation, cs, letterAndState.getKey(), letterAndState.getValue());
@@ -358,26 +378,113 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	}
 
 	@Override
-	public boolean supSetEq(IDawg<LETTER, COLNAMES> points) {
-		// TODO Auto-generated method stub
-		return false;
+	public boolean supSetEq(IDawg<LETTER, COLNAMES> other) {
+		// TODO: think about optimizations
+		return this.complement().intersect(other).isEmpty();
 	}
 
+	@SuppressWarnings("unchecked")
 	@Override
-	public IDawg<LETTER, COLNAMES> translatePredSigToClauseSig(Map<COLNAMES, Object> translation,
+	public IDawg<LETTER, COLNAMES> translatePredSigToClauseSig(
+			Map<COLNAMES, Object> translation,
 			SortedSet<COLNAMES> targetSignature) {
+		/*
+		 * algorithmic plan:
+		 *  - basic operations:
+		 *    reorder & rename
+		 *    select & project
+		 *    blowup (or: multiple insert column operations..)
+		 */
+		
+		
+		/*
+		 * 0. preprocess translation 
+		 */
+		
+		Map<COLNAMES, LETTER> transColToConstants = new HashMap<COLNAMES, LETTER>();
+		for (Entry<COLNAMES, Object> en : translation.entrySet()) {
+//			if (en.getValue() instanceof COLNAMES) { // TODO
+//				continue;
+//			}
+			// en.getValue() is a constant -- select the dawg accordingly
+			transColToConstants.put(en.getKey(), (LETTER) en.getValue());
+		}
+
+		
+		
+		Dawg<LETTER, COLNAMES> result = (Dawg<LETTER, COLNAMES>) mDawgFactory.copyDawg(this);
+		
+		/*
+		 * 1. select according to constants in the image of translation
+		 */
+		result = (Dawg<LETTER, COLNAMES>) result.select(transColToConstants);
+		
+		/*
+		 * 2. project selected columns away
+		 */
+		for (Entry<COLNAMES, LETTER> en : transColToConstants.entrySet()) {
+			result = (Dawg<LETTER, COLNAMES>) result.projectColumnAway(en.getKey());
+		}
+		
+		/*
+		 * 3. reorder Dawg according to variables in the image of translation
+		 */
+		
+		
 		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
-	public IDawg<LETTER, COLNAMES> translateClauseSigToPredSig(Map<COLNAMES, COLNAMES> translation,
+	public IDawg<LETTER, COLNAMES> translateClauseSigToPredSig(
+			Map<COLNAMES, COLNAMES> translation,
 			List<Object> argList, SortedSet<COLNAMES> newSignature) {
+		/*
+		 * algorithmic plan:
+		 *  - basic operations:
+		 *   insert column (for constants in argList)
+		 *   reorder & rename (match order from argList to order in newSignature)
+		 *   
+		 *   
+		 */
 		// TODO Auto-generated method stub
+		return null;
+	}
+	
+	private IDawg<LETTER, COLNAMES> projectColumnAway(
+			COLNAMES column) {
+		assert false : "TODO: implement";
+		return null;
+	}
+
+	/**
+	 * Renames columns of the input dawg according to the given renaming.
+	 * The reordering is given implicitly through the renaming because the colnames are sorted automatically.
+	 * @param other
+	 * @param renaming
+	 * @return
+	 */
+	private IDawg<LETTER, COLNAMES> reorderAndRename(
+			IDawg<LETTER, COLNAMES> other, Map<COLNAMES, COLNAMES> renaming) {
+		assert false : "TODO: implement";
 		return null;
 	}
 
 
+	/**
+	 * We insert a column into the dawg. In that column, by convention, only one DawgLetter 
+	 * labels all the edges. (Should be enough for our purposes..)
+	 * 
+	 * @param other
+	 * @param columnName the name of the fresh column
+	 * @param columnLetter the letter that is accepted in the fresh column
+	 * @return
+	 */
+	private IDawg<LETTER, COLNAMES> insertColumn(
+			IDawg<LETTER, COLNAMES> other, COLNAMES columnName, DawgLetter<LETTER, COLNAMES> columnLetter) {
+		assert false : "TODO: implement";
+		return null;
+	}
 
 
 	@Override

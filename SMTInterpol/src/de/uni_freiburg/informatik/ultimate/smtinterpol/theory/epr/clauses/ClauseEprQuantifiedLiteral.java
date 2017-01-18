@@ -98,11 +98,28 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 		}
 		mDawgSignature = Collections.unmodifiableSortedSet(vars);
 
-		Pair<Map<TermVariable, Object>, Map<TermVariable, TermVariable>> p = computeDawgSignatureTranslations();
-		assert p.first != null;
-		assert p.second != null;
-		mTranslationForClause = p.first;
-		mTranslationForEprPredicate = p.second;
+//		Pair<Map<TermVariable, Object>, Map<TermVariable, TermVariable>> p = computeDawgSignatureTranslations();
+//		assert p.first != null;
+//		assert p.second != null;
+//		mTranslationForClause = p.first;
+//		mTranslationForEprPredicate = p.second;
+		
+		
+		Map<TermVariable, TermVariable> clauseToPred = 
+				new HashMap<TermVariable, TermVariable>();
+		Map<TermVariable, Object> predToClause = 
+				new HashMap<TermVariable, Object>();
+		Iterator<TermVariable> predTermVarIt = mAtom.getEprPredicate().getTermVariablesForArguments().iterator();
+		for (int i = 0; i < mArgumentTerms.size(); i++) {
+			Term atomT = mArgumentTerms.get(i);
+			TermVariable tv = predTermVarIt.next();
+			predToClause.put(tv, atomT);
+			if (atomT instanceof TermVariable) {
+				clauseToPred.put(tv, (TermVariable) atomT);
+			}
+		}
+		mTranslationForClause = Collections.unmodifiableMap(predToClause);
+		mTranslationForEprPredicate = Collections.unmodifiableMap(clauseToPred);
 	}
 
 	public void addExceptions(Set<EprQuantifiedEqualityAtom> quantifiedEqualities) {
@@ -254,6 +271,7 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 
 	@Override
 	public boolean isDisjointFrom(IDawg<ApplicationTerm, TermVariable> dawg) {
+		??
 		 return mDawgFactory.translatePredSigToClauseSig(dawg, mTranslationForClause, mEprClause.getVariables()).isEmpty();
 	}
 

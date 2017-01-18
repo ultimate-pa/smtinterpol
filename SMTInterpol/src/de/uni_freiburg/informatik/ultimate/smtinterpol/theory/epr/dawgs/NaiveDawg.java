@@ -296,19 +296,22 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	@Override
 	@SuppressWarnings("unchecked")
 	public IDawg<LETTER, COLNAMES> translatePredSigToClauseSig(
-			Map<COLNAMES, Object> translation, SortedSet<COLNAMES> targetSignature) {
+			Map<COLNAMES, COLNAMES> translationColnameToColname,
+			Map<COLNAMES, LETTER> translationColnameToLetter,
+			SortedSet<COLNAMES> targetSignature) {
 
-		COLNAMES colNamesInstance = this.getColnames().first();
+//		COLNAMES colNamesInstance = this.getColnames().first();
 		
 		// the signature of the new dawg has only the non-duplicated colnames 
 		// and also omits constants (i.e. objects not of the type COLNAMES)
 		// this signature is before the blowup to targetSignature
 		SortedSet<COLNAMES> newPointSignature = new TreeSet<COLNAMES>(EprHelpers.getColumnNamesComparator());
-		for (Object o : translation.values()) {
-			if (colNamesInstance.getClass().isInstance(o)) {
-				newPointSignature.add((COLNAMES) o);
-			}
-		}
+		newPointSignature.addAll(translationColnameToColname.values());
+//		for (Object o : translation.values()) {
+//			if (colNamesInstance.getClass().isInstance(o)) {
+//				newPointSignature.add((COLNAMES) o);
+//			}
+//		}
 		
 		// the new signature is repetition-free, so we can use a map
 		Map<COLNAMES, Integer> newSigColNamesToIndex = EprHelpers.computeColnamesToIndex(newPointSignature);
@@ -333,9 +336,12 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 				LETTER ptLtr = point.get(i);
 				COLNAMES ptColnameInOldSig = ptColIt.next();
 
-				Object translatedColumnName = translation.get(ptColnameInOldSig);
-				if (colNamesInstance.getClass().isInstance(translatedColumnName)) {
-					COLNAMES ptColnameInNewSig = (COLNAMES) translatedColumnName;
+//				Object translatedColumnName = translation.get(ptColnameInOldSig);
+//				if (colNamesInstance.getClass().isInstance(translatedColumnName)) {
+				COLNAMES colnameTranslation = translationColnameToColname.get(ptColnameInOldSig);
+				LETTER letterTranslation = translationColnameToLetter.get(ptColnameInOldSig);
+				if (colnameTranslation != null) {
+					COLNAMES ptColnameInNewSig = colnameTranslation;
 					
 					LETTER vaip = variableAssignmentInPoint.get(ptColnameInNewSig);
 					if (vaip != null && vaip != ptLtr) {
@@ -348,18 +354,19 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 						variableAssignmentInPoint.put(ptColnameInNewSig, ptLtr);
 					}
 					
-				} else {
+				} else if (letterTranslation != null) {
 					// we have a constant in the column where this letter in the point is supposed to "land"
 					// select_x=c so to say..
-					if (ptLtr.equals(translatedColumnName)) {
+					if (ptLtr.equals(letterTranslation)) {
 						// the constant matches go on (add nothing to the new point)
 					} else {
 						// point is filtered by the select that checks the constants
 						newPoint = null;
 						break;
 					}
+				} else {
+					assert false : "should not happen";
 				}
-
 			}
 			if (newPoint != null) {
 				result.addWithSubsetSignature(newPoint, newPointSignature);
