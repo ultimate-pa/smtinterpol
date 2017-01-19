@@ -386,7 +386,8 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	@SuppressWarnings("unchecked")
 	@Override
 	public IDawg<LETTER, COLNAMES> translatePredSigToClauseSig(
-			Map<COLNAMES, Object> translation,
+			Map<COLNAMES, COLNAMES> translationVariables,
+			Map<COLNAMES, LETTER> translationConstants,
 			SortedSet<COLNAMES> targetSignature) {
 		/*
 		 * algorithmic plan:
@@ -402,13 +403,13 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		 */
 		
 		Map<COLNAMES, LETTER> transColToConstants = new HashMap<COLNAMES, LETTER>();
-		for (Entry<COLNAMES, Object> en : translation.entrySet()) {
-//			if (en.getValue() instanceof COLNAMES) { // TODO
-//				continue;
-//			}
-			// en.getValue() is a constant -- select the dawg accordingly
-			transColToConstants.put(en.getKey(), (LETTER) en.getValue());
-		}
+//		for (Entry<COLNAMES, Object> en : translation.entrySet()) {
+////			if (en.getValue() instanceof COLNAMES) { // TODO
+////				continue;
+////			}
+//			// en.getValue() is a constant -- select the dawg accordingly
+//			transColToConstants.put(en.getKey(), (LETTER) en.getValue());
+//		}
 
 		
 		

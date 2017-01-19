@@ -68,7 +68,8 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	 * In effect, we use this translation for the unification/natural join with the
 	 * decide stack literals, which have a canonical signature from their EprPredicate. 
 	 */
-	private final Map<TermVariable, Object> mTranslationForClause;
+	private final Map<TermVariable, ApplicationTerm> mTranslationForClauseTvToConstants;
+	private final Map<TermVariable, TermVariable> mTranslationForClauseTvToVariables;
 	
 	
 	/**
@@ -107,18 +108,25 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 		
 		Map<TermVariable, TermVariable> clauseToPred = 
 				new HashMap<TermVariable, TermVariable>();
-		Map<TermVariable, Object> predToClause = 
-				new HashMap<TermVariable, Object>();
+		Map<TermVariable, ApplicationTerm> predToClauseConstants = 
+				new HashMap<TermVariable, ApplicationTerm>();
+		Map<TermVariable, TermVariable> predToClauseVariables = 
+				new HashMap<TermVariable, TermVariable>();
 		Iterator<TermVariable> predTermVarIt = mAtom.getEprPredicate().getTermVariablesForArguments().iterator();
 		for (int i = 0; i < mArgumentTerms.size(); i++) {
 			Term atomT = mArgumentTerms.get(i);
 			TermVariable tv = predTermVarIt.next();
-			predToClause.put(tv, atomT);
+			if (atomT instanceof ApplicationTerm) {
+				predToClauseConstants.put(tv, (ApplicationTerm) atomT);
+			}
 			if (atomT instanceof TermVariable) {
+				predToClauseVariables.put(tv, (TermVariable) atomT);
 				clauseToPred.put(tv, (TermVariable) atomT);
 			}
 		}
-		mTranslationForClause = Collections.unmodifiableMap(predToClause);
+//		mTranslationForClause = Collections.unmodifiableMap(predToClause);
+		mTranslationForClauseTvToConstants = Collections.unmodifiableMap(predToClauseConstants);
+		mTranslationForClauseTvToVariables = Collections.unmodifiableMap(predToClauseVariables);
 		mTranslationForEprPredicate = Collections.unmodifiableMap(clauseToPred);
 	}
 
@@ -195,7 +203,11 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 		}
 		// right now, the refuted points are in terms of the EprPredicates signature, we need a renaming
 		// and possibly select and projects to match the signature of the clause.
-		refutedPoints = mDawgFactory.translatePredSigToClauseSig(refutedPoints, mTranslationForClause, mEprClause.getVariables());
+		refutedPoints = mDawgFactory.translatePredSigToClauseSig(
+				refutedPoints, 
+				mTranslationForClauseTvToVariables, 
+				mTranslationForClauseTvToConstants, 
+				mEprClause.getVariables());
 
 		// collect the points in a dawg with the predicate's signature
 		IDawg<ApplicationTerm, TermVariable> fulfilledPoints = 
@@ -211,7 +223,11 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 		}
 		// right now, the fulfilled points are in terms of the EprPredicates signature, we need a renaming
 		// and possibly select and projects to match the signature of the clause.
-		fulfilledPoints = mDawgFactory.translatePredSigToClauseSig(fulfilledPoints, mTranslationForClause, mEprClause.getVariables());
+		fulfilledPoints = mDawgFactory.translatePredSigToClauseSig(
+				fulfilledPoints,
+				mTranslationForClauseTvToVariables, 
+				mTranslationForClauseTvToConstants, 
+				mEprClause.getVariables());
 
 		mFulfillablePoints = mEprTheory.getDawgFactory().createFullDawg(mEprClause.getVariables());
 		assert EprHelpers.verifySortsOfPoints(mFulfillablePoints, mEprClause.getVariables());
@@ -263,16 +279,21 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 		return mTranslationForEprPredicate;
 	}
 	
-	public Map<TermVariable, Object> getTranslationFromEprPredicateToClause() {
-		return mTranslationForClause;
+	public Map<TermVariable, ApplicationTerm> getTranslationFromEprPredicateToClauseConstants() {
+		return mTranslationForClauseTvToConstants;
 	}
 
-
+	public Map<TermVariable, TermVariable> getTranslationFromEprPredicateToClauseVariables() {
+		return mTranslationForClauseTvToVariables;
+	}
 
 	@Override
 	public boolean isDisjointFrom(IDawg<ApplicationTerm, TermVariable> dawg) {
-		??
-		 return mDawgFactory.translatePredSigToClauseSig(dawg, mTranslationForClause, mEprClause.getVariables()).isEmpty();
+		 return mDawgFactory.translatePredSigToClauseSig(
+				 dawg, 
+				 mTranslationForClauseTvToVariables, 
+				 mTranslationForClauseTvToConstants, 
+				 mEprClause.getVariables()).isEmpty();
 	}
 
 	@Override

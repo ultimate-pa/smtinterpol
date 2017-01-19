@@ -331,7 +331,8 @@ public class DecideStackManager {
 				IDawg<ApplicationTerm, TermVariable> propLitDawgInClauseSignature = 
 						mEprTheory.getDawgFactory().translatePredSigToClauseSig(
 								propagatedLiteral.getDawg(), 
-								ceql.getTranslationFromEprPredicateToClause(), 
+								ceql.getTranslationFromEprPredicateToClauseVariables(),
+								ceql.getTranslationFromEprPredicateToClauseConstants(),
 								conflict.getVariables());
 				IDawg<ApplicationTerm, TermVariable> intersection = 
 						propLitDawgInClauseSignature.intersect(conflict.getConflictPoints());
