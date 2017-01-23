@@ -6,17 +6,17 @@ import java.util.SortedSet;
 
 public interface IDawg<LETTER, COLNAMES> extends Iterable<List<LETTER>> {
 	
-	public SortedSet<COLNAMES> getColnames();
+	SortedSet<COLNAMES> getColnames();
 	
-	public int getArity();
+	int getArity();
 	
 //	public IDawg<LETTER, COLNAMES> join(IDawg<LETTER, COLNAMES> other);
 
-	public IDawg<LETTER, COLNAMES> complement();
+	IDawg<LETTER, COLNAMES> complement();
 	
 //	public IDawg<LETTER, COLNAMES> union(IDawg<LETTER, COLNAMES> other);
 	
-	public boolean accepts(List<LETTER> word);
+	boolean accepts(List<LETTER> word);
 
 	/**
 	 * Add one point to this Dawg
@@ -25,7 +25,7 @@ public interface IDawg<LETTER, COLNAMES> extends Iterable<List<LETTER>> {
 	 *  - arguments only contains constants
 	 * @param arguments
 	 */
-	public void add(List<LETTER> arguments);
+	void add(List<LETTER> arguments);
 
 	/**
 	 * Add all points of a given Dawg to this Dawg
@@ -39,20 +39,20 @@ public interface IDawg<LETTER, COLNAMES> extends Iterable<List<LETTER>> {
 	 * Returns a new Dawg that recognizes the union language of this dawg and the
 	 * argument Dawg.
 	 */
-	public IDawg<LETTER, COLNAMES> union(IDawg<LETTER, COLNAMES> other);
+	IDawg<LETTER, COLNAMES> union(IDawg<LETTER, COLNAMES> other);
 
-	public boolean isEmpty();
+	boolean isEmpty();
 
-	public boolean isUniversal();
+	boolean isUniversal();
 
 	/**
 	 * same as join??
 	 * @param fp
 	 * @return
 	 */
-	public IDawg<LETTER, COLNAMES> intersect(IDawg<LETTER, COLNAMES> other);
+	IDawg<LETTER, COLNAMES> intersect(IDawg<LETTER, COLNAMES> other);
 	
-	public IDawg<LETTER, COLNAMES> difference(IDawg<LETTER, COLNAMES> other);
+	IDawg<LETTER, COLNAMES> difference(IDawg<LETTER, COLNAMES> other);
 
 //	public void removeAll(IDawg<LETTER, COLNAMES> other);
 
@@ -61,7 +61,7 @@ public interface IDawg<LETTER, COLNAMES> extends Iterable<List<LETTER>> {
 	 * @param points
 	 * @return
 	 */
-	public boolean supSetEq(IDawg<LETTER, COLNAMES> points);
+	boolean supSetEq(IDawg<LETTER, COLNAMES> points);
 
 	/**
 	 * Return a dawg where only the points are selected that match the given mapping.
@@ -74,13 +74,13 @@ public interface IDawg<LETTER, COLNAMES> extends Iterable<List<LETTER>> {
 	 * @param selectMap restricts some COLNAMES in the signature to only one LETTER
 	 * @return
 	 */
-	public IDawg<LETTER, COLNAMES> select(Map<COLNAMES, LETTER> selectMap);
+	IDawg<LETTER, COLNAMES> select(Map<COLNAMES, LETTER> selectMap);
 
 	/**
 	 * 
 	 * @return true iff the language of this dawg contains exactly one element
 	 */
-	public boolean isSingleton();
+	boolean isSingleton();
 
 	/**
 	 * 
@@ -88,19 +88,24 @@ public interface IDawg<LETTER, COLNAMES> extends Iterable<List<LETTER>> {
 	 * @param targetSignature the signature of the clause
 	 * @return
 	 */
-	public IDawg<LETTER, COLNAMES> translatePredSigToClauseSig(
+	IDawg<LETTER, COLNAMES> translatePredSigToClauseSig(
 			Map<COLNAMES, COLNAMES> translationColnameToColname,
 			Map<COLNAMES, LETTER> translationColnameToLetter,
 			SortedSet<COLNAMES> targetSignature);
 
 	/**
+	 * There are three main "players" in this operation:
+	 *  <li> a Dawg with the signature of a given clause (this)
+	 *  <li> a ClauseLiteral with some EprPredicate and some arguments (argList, EprPredicate has been matched elsewhere)
+	 *  <li> a DecideStackLiteral over the same EprPredicate as the ClauseLiteral's 
+	 *    the resulting Dawg's signature will be that of the DecideStackLiteral (given as newSignature)
 	 * 
 	 * @param translation maps colnames of the clause signature to colnames in the  predicate's signature
 	 * @param argList the arguments of the ClauseLiteral that has the predicate whose signature we want to translate to
 	 * @param newSignature the predicate's signature
 	 * @return
 	 */
-	public IDawg<LETTER, COLNAMES> translateClauseSigToPredSig(
+	IDawg<LETTER, COLNAMES> translateClauseSigToPredSig(
 			Map<COLNAMES, COLNAMES> translation, List<Object> argList, SortedSet<COLNAMES> newSignature);
 
 }

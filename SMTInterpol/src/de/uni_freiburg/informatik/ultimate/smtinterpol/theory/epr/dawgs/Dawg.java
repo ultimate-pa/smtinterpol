@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
@@ -63,9 +64,6 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		mIsUniversal = true;
 		mIsEmpty = false;
 	}
-
-	
-
 
 	/**
 	 * Creates a dawg that accepts all words of the given signature.
@@ -396,44 +394,26 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		 *    select & project
 		 *    blowup (or: multiple insert column operations..)
 		 */
-		
-		
-		/*
-		 * 0. preprocess translation 
-		 */
-		
-		Map<COLNAMES, LETTER> transColToConstants = new HashMap<COLNAMES, LETTER>();
-//		for (Entry<COLNAMES, Object> en : translation.entrySet()) {
-////			if (en.getValue() instanceof COLNAMES) { // TODO
-////				continue;
-////			}
-//			// en.getValue() is a constant -- select the dawg accordingly
-//			transColToConstants.put(en.getKey(), (LETTER) en.getValue());
-//		}
-
-		
-		
 		Dawg<LETTER, COLNAMES> result = (Dawg<LETTER, COLNAMES>) mDawgFactory.copyDawg(this);
 		
 		/*
 		 * 1. select according to constants in the image of translation
 		 */
-		result = (Dawg<LETTER, COLNAMES>) result.select(transColToConstants);
+		result = (Dawg<LETTER, COLNAMES>) result.select(translationConstants);
 		
 		/*
 		 * 2. project selected columns away
 		 */
-		for (Entry<COLNAMES, LETTER> en : transColToConstants.entrySet()) {
+		for (Entry<COLNAMES, LETTER> en : translationConstants.entrySet()) {
 			result = (Dawg<LETTER, COLNAMES>) result.projectColumnAway(en.getKey());
 		}
 		
 		/*
 		 * 3. reorder Dawg according to variables in the image of translation
 		 */
+		result = result.reorderAndRename(translationVariables);
 		
-		
-		// TODO Auto-generated method stub
-		return null;
+		return result;
 	}
 
 	@Override
@@ -445,14 +425,55 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		 *  - basic operations:
 		 *   insert column (for constants in argList)
 		 *   reorder & rename (match order from argList to order in newSignature)
-		 *   
-		 *   
 		 */
-		// TODO Auto-generated method stub
-		return null;
+	
+		Class<? extends Object> colNamesType = newSignature.iterator().next().getClass();
+		Dawg<LETTER, COLNAMES> result = (Dawg<LETTER, COLNAMES>) mDawgFactory.copyDawg(this);
+		
+		/*
+		 * the information in newSignature is redundant
+		 *  use it for an assertion here
+		 */
+		assert new TreeSet<COLNAMES>(translation.values()).equals(newSignature);
+		
+		
+		/*
+		 * 1. project away all columns that we do not need (we only need those that occur
+		 *  in the ClauseLiteral
+		 */
+		for (COLNAMES colname : mColNames) {
+			if (!translation.containsKey(colname)) {
+				assert !argList.contains(colname);
+				result = result.projectColumnAway(colname);
+			}
+		}
+		
+		/*
+		 * 2. reorder an rename the remaining columns
+		 */
+		result = reorderAndRename(translation);
+		
+		/*
+		 * 3. for the constants in argList: insert a column into the dawg where precisely that constant is 
+		 *   accepted.
+		 */
+		Iterator<COLNAMES> newSigIt = newSignature.iterator();
+		for (int i = 0; i < argList.size(); i++) {
+			Object arg = argList.get(i);
+			COLNAMES newSigColname = newSigIt.next();
+			if (colNamesType.isInstance(arg)) {
+				// arg is a COLNAME (typically a TermVariable)
+				assert newSigColname == translation.get(arg);
+			} else {
+				// arg must be a LETTER (typically a constant 0-ary ApplicationTerm)
+				insertColumn(newSigColname, mDawgLetterFactory.createSingletonSetDawgLetter((LETTER) arg));
+			}
+		}
+		
+		return result;
 	}
 	
-	private IDawg<LETTER, COLNAMES> projectColumnAway(
+	private Dawg<LETTER, COLNAMES> projectColumnAway(
 			COLNAMES column) {
 		assert false : "TODO: implement";
 		return null;
@@ -465,8 +486,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	 * @param renaming
 	 * @return
 	 */
-	private IDawg<LETTER, COLNAMES> reorderAndRename(
-			IDawg<LETTER, COLNAMES> other, Map<COLNAMES, COLNAMES> renaming) {
+	private Dawg<LETTER, COLNAMES> reorderAndRename(Map<COLNAMES, COLNAMES> renaming) {
 		assert false : "TODO: implement";
 		return null;
 	}
@@ -481,8 +501,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	 * @param columnLetter the letter that is accepted in the fresh column
 	 * @return
 	 */
-	private IDawg<LETTER, COLNAMES> insertColumn(
-			IDawg<LETTER, COLNAMES> other, COLNAMES columnName, DawgLetter<LETTER, COLNAMES> columnLetter) {
+	private IDawg<LETTER, COLNAMES> insertColumn(COLNAMES columnName, DawgLetter<LETTER, COLNAMES> columnLetter) {
 		assert false : "TODO: implement";
 		return null;
 	}

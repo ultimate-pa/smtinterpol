@@ -417,7 +417,8 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 			newBacking.add(newPoint);
 		}
 		
-		NaiveDawg<LETTER, COLNAMES> result = new NaiveDawg<LETTER, COLNAMES>(newSignature, mAllConstants, newBacking, mLogger);
+		NaiveDawg<LETTER, COLNAMES> result = 
+				new NaiveDawg<LETTER, COLNAMES>(newSignature, mAllConstants, newBacking, mLogger);
 		assert EprHelpers.verifySortsOfPoints(result, newSignature);
 		return result;
 	}
