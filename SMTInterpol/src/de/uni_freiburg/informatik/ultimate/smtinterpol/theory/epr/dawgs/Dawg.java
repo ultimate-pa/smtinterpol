@@ -42,7 +42,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	 */
 	private final Map<DawgState, Map<DawgLetter<LETTER, COLNAMES>, DawgState>> mTransitionRelation;
 	private final DawgLetterFactory<LETTER, COLNAMES> mDawgLetterFactory;
-	private DawgFactory<LETTER, COLNAMES> mDawgFactory;
+	private final DawgFactory<LETTER, COLNAMES> mDawgFactory;
 	
 	/**
 	 * Create an empty dawg
@@ -105,12 +105,16 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	 */
 	public Dawg(SortedSet<COLNAMES> colnames, Set<LETTER> allConstants, List<LETTER> word, 
 			LogProxy logger, 
-			DawgLetterFactory<LETTER, COLNAMES> dawgLetterFactory, DawgStateFactory dsf) {
+			DawgFactory<LETTER, COLNAMES> df) {
+//			DawgLetterFactory<LETTER, COLNAMES> dawgLetterFactory, DawgStateFactory dsf) {
 		super(colnames, allConstants, logger);
 		
-		mDawgStateFactory = dsf;
-		
-		mDawgLetterFactory = dawgLetterFactory;
+		mDawgFactory = df;
+		mDawgStateFactory = df.getDawgStateFactory();
+		mDawgLetterFactory = df.getDawgLetterFactory();
+	
+//		mDawgStateFactory = dsf;
+//		mDawgLetterFactory = dawgLetterFactory;
 
 		mTransitionRelation = new HashMap<DawgState, Map<DawgLetter<LETTER,COLNAMES>,DawgState>>();
 
@@ -120,7 +124,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 
 		for (int i = 0; i < colnames.size(); i++) {
 			DawgState nextState =  mDawgStateFactory.createDawgState();
-			DawgLetter<LETTER, COLNAMES> dl = dawgLetterFactory.createSingletonSetDawgLetter(word.get(i));
+			DawgLetter<LETTER, COLNAMES> dl = mDawgLetterFactory.createSingletonSetDawgLetter(word.get(i));
 			addTransition(currentState, dl, nextState);
 			currentState = nextState;
 		}
@@ -132,12 +136,17 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	
 	Dawg(SortedSet<COLNAMES> colnames, Set<LETTER> allConstants, 
 			LogProxy logger, 
-			DawgStateFactory dsf, 
 			Map<DawgState, Map<DawgLetter<LETTER, COLNAMES>, DawgState>> tr, 
-			DawgLetterFactory<LETTER, COLNAMES> dawgLetterFactory) {
+			DawgFactory<LETTER, COLNAMES> df) {
 		super(colnames, allConstants, logger);
-		mDawgLetterFactory = dawgLetterFactory;
-		mDawgStateFactory = dsf;
+		
+		mDawgFactory = df;
+		mDawgStateFactory = df.getDawgStateFactory();
+		mDawgLetterFactory = df.getDawgLetterFactory();
+	
+
+//		mDawgLetterFactory = dawgLetterFactory;
+//		mDawgStateFactory = dsf;
 		mTransitionRelation = tr;
 
 		mIsUniversal = false;
@@ -149,14 +158,14 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	@Override
 	public IDawg<LETTER, COLNAMES> intersect(IDawg<LETTER, COLNAMES> other) {
 		return new UnionOrIntersectionDawgBuilder<LETTER, COLNAMES>(
-				this, (Dawg<LETTER, COLNAMES>) other,	mDawgLetterFactory, mDawgStateFactory).buildIntersection();
+				this, (Dawg<LETTER, COLNAMES>) other, mDawgFactory).buildIntersection();
 
 	}
 
 	@Override
 	public IDawg<LETTER, COLNAMES> union(IDawg<LETTER, COLNAMES> other) {
 		return new UnionOrIntersectionDawgBuilder<LETTER, COLNAMES>(
-				this, (Dawg<LETTER, COLNAMES>) other,	mDawgLetterFactory, mDawgStateFactory).buildUnion();
+				this, (Dawg<LETTER, COLNAMES>) other, mDawgFactory).buildUnion();
 	}
 
 
@@ -238,7 +247,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		}
 		
 		return new Dawg<LETTER, COLNAMES>(
-				mColNames, mAllConstants, mLogger, mDawgStateFactory, newTransitionRelation, mDawgLetterFactory);
+				mColNames, mAllConstants, mLogger, newTransitionRelation, mDawgFactory);
 	}
 
 	@Override
@@ -430,11 +439,8 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		Class<? extends Object> colNamesType = newSignature.iterator().next().getClass();
 		Dawg<LETTER, COLNAMES> result = (Dawg<LETTER, COLNAMES>) mDawgFactory.copyDawg(this);
 		
-		/*
-		 * the information in newSignature is redundant
-		 *  use it for an assertion here
-		 */
-		assert new TreeSet<COLNAMES>(translation.values()).equals(newSignature);
+		// assert new TreeSet<COLNAMES>(translation.values()).equals(newSignature); --> this assertion is wrong
+		// because translation does not account for constants (LETTERs) in the argList
 		
 		
 		/*
@@ -534,13 +540,17 @@ class UnionOrIntersectionDawgBuilder<LETTER, COLNAMES> {
 	private final Dawg<LETTER, COLNAMES> mFirst;
 	private final Dawg<LETTER, COLNAMES> mSecond;
 	private final DawgLetterFactory<LETTER, COLNAMES> mDawgLetterFactory;
+	private final DawgFactory<LETTER, COLNAMES> mDawgFactory;
 
 	UnionOrIntersectionDawgBuilder(Dawg<LETTER, COLNAMES> first, Dawg<LETTER, COLNAMES> second, 
-			DawgLetterFactory<LETTER, COLNAMES> dlf, DawgStateFactory dsf) {
+//			DawgLetterFactory<LETTER, COLNAMES> dlf, DawgStateFactory dsf) {
+			DawgFactory<LETTER, COLNAMES> df) {
 		assert first.mColNames.equals(second.mColNames) : "signatures don't match!";
-		
-		mDawgLetterFactory = dlf;
-		mDawgStateFactory = dsf;
+		mDawgFactory = df;
+		mDawgStateFactory = df.getDawgStateFactory();
+		mDawgLetterFactory = df.getDawgLetterFactory();
+//		mDawgLetterFactory = dlf;
+//		mDawgStateFactory = dsf;
 		
 		mFirst = first; 
 		mSecond = second;
@@ -639,7 +649,7 @@ class UnionOrIntersectionDawgBuilder<LETTER, COLNAMES> {
 		}
 		
 		return new Dawg<LETTER, COLNAMES>(mFirst.getColnames(), mFirst.getAllConstants(), 
-				mFirst.getLogger(),  mDawgStateFactory, mTransitionRelation, mDawgLetterFactory);
+				mFirst.getLogger(),  mTransitionRelation, mDawgFactory);
 	}
 	
 	private void addTransition(DawgState source, DawgLetter<LETTER, COLNAMES> dawgLetter, DawgState target) {

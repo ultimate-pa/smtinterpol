@@ -85,7 +85,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 			return dawg;
 		} else {
 			return new Dawg<LETTER, COLNAMES>(sig, 
-					mAllConstants, point, mLogger, mDawgLetterFactory, mDawgStateFactory);
+					mAllConstants, point, mLogger, this);
 		}
 	}
 
