@@ -135,21 +135,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 			Map<COLNAMES, LETTER> translationCnToLtr, 
 			SortedSet<COLNAMES> targetSignature) {
 		
-//		// split the translation into its parts.. 
-//		// TODO: probably better not join them in the first place..
-//		Map<COLNAMES, COLNAMES> cnToCn = new HashMap<COLNAMES, COLNAMES>();
-//		for (Object en : translation) {
-//			
-//		}
-//		
-//		
-//		Map<COLNAMES, LETTER> cnToLtr = new HashMap<COLNAMES, LETTER>();
-		
-//		if (mUseNaiveDawgs) {
 		return dawg.translatePredSigToClauseSig(translationCnToCn, translationCnToLtr, targetSignature);
-//		} else {
-//			return null;
-//		}
 	}
 
 
