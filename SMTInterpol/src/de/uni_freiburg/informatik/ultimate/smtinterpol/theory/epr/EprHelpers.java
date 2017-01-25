@@ -425,7 +425,8 @@ public class EprHelpers {
 				return ((String) o1).compareTo((String) o2);
 			}
 
-			return o1.toString().compareTo(o2.toString());//might work for all..
+			throw new UnsupportedOperationException("unexpected comparator call");
+//			return o1.toString().compareTo(o2.toString());//might work for all..
 		}
 		
 	}

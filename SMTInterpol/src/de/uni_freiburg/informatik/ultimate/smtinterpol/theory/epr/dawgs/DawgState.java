@@ -6,6 +6,10 @@ public class DawgState {
 		
 	}
 
+	@Override
+	public String toString() {
+		return "DawgState#" + this.hashCode();
+	}
 }
 
 class PairDawgState extends DawgState {
@@ -39,5 +43,10 @@ class PairDawgState extends DawgState {
 	
 	DawgState getSecond() {
 		return mSecond;
+	}
+	
+	@Override
+	public String toString() {
+		return "PairDawgState(#" + mFirst.hashCode() + ",#" + mSecond.hashCode() + ")";
 	}
 }

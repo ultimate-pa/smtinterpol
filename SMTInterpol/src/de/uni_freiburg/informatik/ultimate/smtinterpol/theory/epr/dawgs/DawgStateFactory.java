@@ -5,6 +5,15 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * 
+ * Manages DawgStates
+ *  <li> creates fresh states
+ *  <li> creates and manages PairDawgStates (keeps them unique)
+ * 
+ * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
+ *
+ */
 public class DawgStateFactory {
 	
 	Map<DawgState, Map<DawgState, PairDawgState>> mDSToDSToPDS = 
@@ -20,7 +29,7 @@ public class DawgStateFactory {
 	 */
 	Map<DawgState, PairDawgState> mSecondHalfSinkStates = new HashMap<DawgState, PairDawgState>();
 
-	PairDawgState createPairDawgState(DawgState first, DawgState second) {
+	PairDawgState getOrCreatePairDawgState(DawgState first, DawgState second) {
 		
 		Map<DawgState, PairDawgState> dsToPds = mDSToDSToPDS.get(first);
 	
@@ -39,7 +48,7 @@ public class DawgStateFactory {
 		return pds;
 	}
 
-	PairDawgState createPairDawgState(DawgState value, boolean firstIsSink, boolean secondIsSink) {
+	PairDawgState getOrCreatePairDawgState(DawgState value, boolean firstIsSink, boolean secondIsSink) {
 		assert firstIsSink != secondIsSink;
 		
 		if (firstIsSink) {

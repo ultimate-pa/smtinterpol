@@ -213,6 +213,14 @@ public class NestedMap2<K1, K2, V> {
 		return mK1ToK2ToV.isEmpty();
 	}
 
+	/**
+	 * Retrieves all the incoming edges for one state.
+	 * TODO: this implementation is rather inefficient, 
+	 *   one could introduce additional "backwards"-HashMaps to speed this up..
+	 *   
+	 * @param stateLeft
+	 * @return
+	 */
 	public Set<Pair<K1, K2>> getInverse(DawgState stateLeft) {
 		Set<Pair<K1, K2>> result = new HashSet<Pair<K1,K2>>();
 		for (Entry<K1, Map<K2, V>> en1 : mK1ToK2ToV.entrySet()) {
