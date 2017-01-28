@@ -30,7 +30,8 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	 * the sink state is "-1"
 	 */
 	
-	DawgState mInitialState;
+	final DawgState mInitialState;
+//	final Set<DawgState> mInitialStates;
 //	DawgState mFinalState;
 	
 //	// TODO: do we need a sink state?
@@ -65,6 +66,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		
 		mTransitionRelation = new NestedMap2<DawgState, DawgLetter<LETTER,COLNAMES>,DawgState>();
 		
+//		mInitialStates =  Collections.singleton(mDawgStateFactory.createDawgState());
 		mInitialState =  mDawgStateFactory.createDawgState();
 		
 		mIsUniversal = true;
@@ -86,11 +88,14 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		mDawgStateFactory = df.getDawgStateFactory();
 		mDawgLetterFactory = df.getDawgLetterFactory();
 		
-		mInitialState = mDawgStateFactory.createDawgState();
+//		mInitialStates =  Collections.singleton(mDawgStateFactory.createDawgState());
+		mInitialState =  mDawgStateFactory.createDawgState();
 
 		mTransitionRelation = new NestedMap2<DawgState, DawgLetter<LETTER,COLNAMES>,DawgState>();
 		
+//		DawgState currentState = mInitialStates.iterator().next();
 		DawgState currentState = mInitialState;
+
 		for (int i = 0; i < colnames.size(); i++) {
 			DawgState nextState = mDawgStateFactory.createDawgState();
 			mTransitionRelation.put(currentState, mDawgLetterFactory.getUniversalDawgLetter(), nextState);
@@ -119,8 +124,10 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 
 		mTransitionRelation = new NestedMap2<DawgState, DawgLetter<LETTER,COLNAMES>,DawgState>();
 
+//		mInitialStates =  Collections.singleton(mDawgStateFactory.createDawgState());
 		mInitialState =  mDawgStateFactory.createDawgState();
 		
+//		DawgState currentState = mInitialStates.iterator().next();
 		DawgState currentState = mInitialState;
 
 		for (int i = 0; i < colnames.size(); i++) {
@@ -134,15 +141,19 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		mIsEmpty = false;
 	}
 	
-	Dawg(SortedSet<COLNAMES> colnames, Set<LETTER> allConstants, 
-			LogProxy logger, 
-			NestedMap2<DawgState, DawgLetter<LETTER, COLNAMES>, DawgState> tr, 
-			DawgFactory<LETTER, COLNAMES> df) {
+	Dawg(final SortedSet<COLNAMES> colnames, Set<LETTER> allConstants, 
+			final LogProxy logger, 
+			final NestedMap2<DawgState, DawgLetter<LETTER, COLNAMES>, DawgState> tr, 
+//			final Set<DawgState> initialStates,
+			final DawgState initialState,
+			final DawgFactory<LETTER, COLNAMES> df) {
 		super(colnames, allConstants, logger);
 		
 		mDawgFactory = df;
 		mDawgStateFactory = df.getDawgStateFactory();
 		mDawgLetterFactory = df.getDawgLetterFactory();
+//		mInitialStates = initialStates;
+		mInitialState = initialState;
 	
 		mTransitionRelation = tr;
 
@@ -190,6 +201,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		
 		
 		Set<DawgState> currentStates = new HashSet<DawgState>();
+//		currentStates.addAll(mInitialStates);
 		currentStates.add(mInitialState);
 		
 		DawgState nextLevelFormerSinkState = null;
@@ -243,7 +255,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		}
 		
 		return new Dawg<LETTER, COLNAMES>(
-				mColNames, mAllConstants, mLogger, newTransitionRelation, mDawgFactory);
+				mColNames, mAllConstants, mLogger, newTransitionRelation, mInitialState, mDawgFactory);
 	}
 
 	@Override
@@ -345,7 +357,8 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			}
 			currentColnamesPrestates = newCurrentColnamesPrestates;
 		}
-		return new Dawg<LETTER, COLNAMES>(mColNames, mAllConstants, mLogger, newTransitionRelation, mDawgFactory);
+		return new Dawg<LETTER, COLNAMES>(mColNames, mAllConstants, mLogger, newTransitionRelation, 
+				mInitialState, mDawgFactory);
 	}
 
 	@Override
@@ -463,8 +476,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		return result;
 	}
 	
-	private Dawg<LETTER, COLNAMES> projectColumnAway(
-			COLNAMES column) {
+	private Dawg<LETTER, COLNAMES> projectColumnAway(final COLNAMES column) {
 		if (!mColNames.contains(column)) {
 			return this;
 		}
@@ -476,6 +488,9 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		 *  
 		 */
 		Set<DawgState> leftOfColumn = obtainStatesLeftOfColumn(column);
+		
+		assert !leftOfColumn.contains(mInitialState) : 
+			"TODO : treat special case where we project away leftmost column";
 		
 		NestedMap2<DawgState, DawgLetter<LETTER, COLNAMES>, DawgState> newTransitionRelation
 		 	= new NestedMap2<DawgState, DawgLetter<LETTER,COLNAMES>, DawgState>();
@@ -508,7 +523,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		newColnames.addAll(mColNames);
 		newColnames.remove(column);
 		final Dawg<LETTER, COLNAMES> result = new Dawg<LETTER, COLNAMES>(
-				newColnames, mAllConstants, mLogger, newTransitionRelation, mDawgFactory);
+				newColnames, mAllConstants, mLogger, newTransitionRelation, mInitialState, mDawgFactory);
 
 		return result;
 	}
@@ -573,7 +588,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			newColNames.remove(oldColName);
 			newColNames.add(newColName);
 			return new Dawg<LETTER, COLNAMES>(newColNames, 
-					mAllConstants, mLogger, mTransitionRelation.copy(), mDawgFactory);
+					mAllConstants, mLogger, mTransitionRelation.copy(), mInitialState, mDawgFactory);
 		}
 		
 		/*
@@ -604,6 +619,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		 * the states one column before the states directly left of oldColumn
 		 *  the algorithm in step 2 start on these states
 		 */
+		final DawgState newInitialState;
 		Set<DawgState> statesBeforeOldColumnLeftStates = null;
 		{
 			final Iterator<COLNAMES> oldColIterator;
@@ -614,20 +630,22 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			}
 			boolean hitStatesBeforeOldColumn = false;
 
-			Set<DawgState> currentStates = new HashSet<DawgState>();
-			if (movesToTheRight) {
-				currentStates.add(mInitialState);
-			} else {
-				// TODO: add all final states
-				assert false : "TODO";
-			}
-
 			final COLNAMES nextColName0 = oldColIterator.next();
 			if (nextColName0.equals(oldColName)) {
 				// when oldColum is the first column, this is a special case
 				// we mark this by setting statesBeforeOldColumnLeftStates to null
 				statesBeforeOldColumnLeftStates = null;
+				newInitialState = mDawgStateFactory.createDawgState();
 			} else {
+				newInitialState = mInitialState;
+				Set<DawgState> currentStates = new HashSet<DawgState>();
+				if (movesToTheRight) {
+					currentStates.add(mInitialState);
+				} else {
+					// TODO: add all final states
+					assert false : "TODO";
+				}
+
 				while (true) {
 
 					// nextColName is updated before currentStates 
@@ -684,6 +702,10 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			// special case: the oldColumn is the first column
 			// TODO: implement this special case
 			assert false : "TODO";
+//			for (Entry<DawgLetter<LETTER, COLNAMES>, DawgState> edgeFromInitialToNextState : 
+//				mTransitionRelation.get(mInitialState).entrySet()) {
+//				mergedStates.add(new PairDawgState(newInitialState, s));
+//			}
 		} else {
 			for (DawgState leftLeftState : statesBeforeOldColumnLeftStates) {
 				for (Entry<DawgLetter<LETTER, COLNAMES>, DawgState> edgeFromLeftLeftStateToLeftState : 
@@ -723,7 +745,6 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 					// TODO treat this case
 					assert false : "TODO";
 				}
-				
 				connectThroughCopiedSubDawg(mergedState, tripleState, mTransitionRelation, newTransitionRelation);
 			}
 		}
@@ -776,7 +797,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		newColNames.add(newColName);
 		
 		return new Dawg<LETTER, COLNAMES>(newColNames, 
-				mAllConstants, mLogger, newTransitionRelation, mDawgFactory);
+				mAllConstants, mLogger, newTransitionRelation, newInitialState, mDawgFactory);
 	}
 
 	private static <LETTER, COLNAMES> Set<DawgLetter<LETTER, COLNAMES>> getConnectingLetters(DawgState first, DawgState second,
@@ -800,9 +821,9 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			NestedMap2<DawgState, DawgLetter<LETTER, COLNAMES>, DawgState> oldTransitionRelation,
 			NestedMap2<DawgState, DawgLetter<LETTER, COLNAMES>, DawgState> newTransitionRelation) {
 		
-		DawgState subDawgSourceInOldGraph = mergedState.getSecond();
+		final DawgState subDawgSourceInOldGraph = mergedState.getSecond();
 		
-		DawgState subDawgTargetInOldGraph = tripleState.getSecond();
+		final DawgState subDawgTargetInOldGraph = tripleState.getSecond();
 		
 		Set<DawgState> currentStatesInOldGraph = new HashSet<DawgState>();
 		currentStatesInOldGraph.add(subDawgSourceInOldGraph);
@@ -945,7 +966,8 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		final TreeSet<COLNAMES> newSignature = new TreeSet<COLNAMES>(EprHelpers.getColumnNamesComparator());
 		newSignature.addAll(mColNames);
 		newSignature.add(columnName);
-		return new Dawg<LETTER, COLNAMES>(newSignature, mAllConstants, mLogger, newTransitionRelation, mDawgFactory);
+		return new Dawg<LETTER, COLNAMES>(newSignature, mAllConstants, mLogger, newTransitionRelation, 
+				mInitialState, mDawgFactory);
 	}
 
 	private COLNAMES findRightNeighbourColumn(final COLNAMES columnName) {
@@ -1095,6 +1117,6 @@ class UnionOrIntersectionDawgBuilder<LETTER, COLNAMES> {
 		}
 		
 		return new Dawg<LETTER, COLNAMES>(mFirst.getColnames(), mFirst.getAllConstants(), 
-				mFirst.getLogger(),  mTransitionRelation, mDawgFactory);
+				mFirst.getLogger(),  mTransitionRelation, mUnionInitialState, mDawgFactory);
 	}
 }
