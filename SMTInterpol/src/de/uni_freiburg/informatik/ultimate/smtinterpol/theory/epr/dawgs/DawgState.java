@@ -19,6 +19,8 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
 
+import java.util.Set;
+
 public class DawgState {
 	
 	public DawgState() {
@@ -68,4 +70,24 @@ class PairDawgState extends DawgState {
 	public String toString() {
 		return "PairDawgState(#" + mFirst.hashCode() + ",#" + mSecond.hashCode() + ")";
 	}
+}
+
+class SetDawgState extends DawgState {
+	
+	private final Set<DawgState> mDawgStates;
+	
+	SetDawgState(Set<DawgState> dawgStates) {
+		mDawgStates = dawgStates;
+	}
+	
+	Set<DawgState> getInnerStates() {
+		return mDawgStates;
+	}
+
+	@Override
+	public String toString() {
+		return "SetDawgState:" + mDawgStates;
+	}
+	
+	
 }

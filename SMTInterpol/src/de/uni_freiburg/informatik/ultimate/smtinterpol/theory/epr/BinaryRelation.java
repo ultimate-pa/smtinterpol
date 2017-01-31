@@ -19,11 +19,16 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers.Pair;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgLetter;
 
 public class BinaryRelation<T, U> {
 
@@ -71,6 +76,26 @@ public class BinaryRelation<T, U> {
 		return result;
 	}
 	
+	public Set<T> getPreImage(U u) {
+		Set<T> result = new HashSet<T>();
+		//TODO: this could be sped up significantly by adding a "reverse" HashMap
+		for (T d : getDomain()) {
+			if (getImage(d).contains(u)) {
+				result.add(d);
+			}
+		}
+		return result;
+	}
+	
+//	public Iterable<Pair<T, U>> getPairs() {
+//		List<Pair<T, U>> result = new ArrayList<Pair<T, U>>();
+//		for (T d : getDomain()) {
+//			for (U im : getImage(d)) {
+//				result.add(arg0)
+//			}
+//		}
+//	}
+	
 	@Override
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
@@ -81,5 +106,12 @@ public class BinaryRelation<T, U> {
 		}
 //		return mBacking.toString();
 		return sb.toString();
+	}
+
+	public void removePair(T t, U u) {
+		Set<U> image = mBacking.get(t);
+		if (image != null) {
+			image.remove(u);
+		}
 	}
 }

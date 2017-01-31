@@ -33,6 +33,21 @@ import java.util.TreeSet;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 
+/**
+ * 
+ * 
+ * Conventions about Dawgs:
+ *  <li> The DawgLetters at the outgoing transition of one DawgState are all disjoint. 
+ *    i.e. the Dawg is deterministic in the usual sense.
+ *    In particular there are no two outgoing edges with the same DawgLetter at any DawgState
+ *  
+ * 
+ * 
+ * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
+ *
+ * @param <LETTER>
+ * @param <COLNAMES>
+ */
 public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	
 	/*

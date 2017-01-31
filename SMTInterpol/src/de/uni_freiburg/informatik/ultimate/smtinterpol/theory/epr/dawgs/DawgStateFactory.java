@@ -48,6 +48,8 @@ public class DawgStateFactory {
 	 */
 	Map<DawgState, PairDawgState> mSecondHalfSinkStates = new HashMap<DawgState, PairDawgState>();
 
+	private Map<Set<DawgState>, SetDawgState> mDawgStateSetToSetDawgState;
+
 	PairDawgState getOrCreatePairDawgState(DawgState first, DawgState second) {
 		
 		Map<DawgState, PairDawgState> dsToPds = mDSToDSToPDS.get(first);
@@ -85,6 +87,15 @@ public class DawgStateFactory {
 			}
 			return ds;
 		}
+	}
+	
+	SetDawgState getOrCreateSetDawgState(Set<DawgState> dawgStates) {
+		SetDawgState result = mDawgStateSetToSetDawgState.get(dawgStates);
+		if (result == null) {
+			result = new SetDawgState(dawgStates);
+			mDawgStateSetToSetDawgState.put(dawgStates, result);
+		}
+		return result;
 	}
 
 	public DawgState createDawgState() {
