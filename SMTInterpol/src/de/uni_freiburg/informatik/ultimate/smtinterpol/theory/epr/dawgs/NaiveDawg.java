@@ -313,7 +313,6 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	
 	
 	@Override
-	@SuppressWarnings("unchecked")
 	public IDawg<LETTER, COLNAMES> translatePredSigToClauseSig(
 			Map<COLNAMES, COLNAMES> translationColnameToColname,
 			Map<COLNAMES, LETTER> translationColnameToLetter,

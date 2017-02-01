@@ -19,12 +19,10 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
 
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -71,7 +69,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	private boolean mIsEmpty;
 	private boolean mIsUniversal;
 	
-	private final DawgStateFactory mDawgStateFactory;
+	private final DawgStateFactory<LETTER, COLNAMES> mDawgStateFactory;
 	
 	/**
 	 * Transition relation of the finite automaton as a nested map.
@@ -443,7 +441,6 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		return this.complement().intersect(other).isEmpty();
 	}
 
-	@SuppressWarnings("unchecked")
 	@Override
 	public IDawg<LETTER, COLNAMES> translatePredSigToClauseSig(
 			Map<COLNAMES, COLNAMES> translationVariables,

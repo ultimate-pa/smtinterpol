@@ -8,7 +8,7 @@ import java.util.Map.Entry;
 public class UnionOrIntersectionDawgBuilder<LETTER, COLNAMES> {
 	
 	private final DawgState mUnionInitialState;
-	private final DawgStateFactory mDawgStateFactory;
+	private final DawgStateFactory<LETTER, COLNAMES> mDawgStateFactory;
 	private final NestedMap2<DawgState, DawgLetter<LETTER, COLNAMES>, DawgState> mTransitionRelation;
 	private final Dawg<LETTER, COLNAMES> mFirst;
 	private final Dawg<LETTER, COLNAMES> mSecond;

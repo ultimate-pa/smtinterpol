@@ -22,8 +22,6 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
 import java.util.HashMap;
 import java.util.Map;
 
-import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
-
 public class DawgTranslation<COLNAMES> {
 	
 	

@@ -22,21 +22,15 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
-import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
-import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.BinaryRelation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseLiteral;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
 
 public class DawgFactory<LETTER, COLNAMES> {
 	
@@ -46,7 +40,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 	
 	
 	private final DawgLetterFactory<LETTER, COLNAMES> mDawgLetterFactory;
-	private final DawgStateFactory mDawgStateFactory;
+	private final DawgStateFactory<LETTER, COLNAMES> mDawgStateFactory;
 	
 	/**
 	 * Use naive Dawg implementation ("normal" one otherwise)
@@ -63,7 +57,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 			mDawgLetterFactory = null;
 		} else {
 			mDawgLetterFactory = new DawgLetterFactory<LETTER, COLNAMES>(mAllConstants);
-			mDawgStateFactory = new DawgStateFactory();
+			mDawgStateFactory = new DawgStateFactory<LETTER, COLNAMES>();
 		}
 	}
 

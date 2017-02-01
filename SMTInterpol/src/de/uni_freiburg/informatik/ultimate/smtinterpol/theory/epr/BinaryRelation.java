@@ -19,16 +19,11 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers.Pair;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgLetter;
 
 public class BinaryRelation<T, U> {
 

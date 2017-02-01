@@ -49,8 +49,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroun
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.EprGroundPredicateLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.IEprLiteral;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
 
@@ -401,7 +399,7 @@ public class EprHelpers {
 		return result;
 	}
 
-	public static boolean haveSameSignature(IDawg... dawgs) {
+	public static boolean haveSameSignature(IDawg<ApplicationTerm, TermVariable>... dawgs) {
 		for (IDawg<ApplicationTerm, TermVariable> d1 : dawgs) {
 			for (IDawg<ApplicationTerm, TermVariable> d2 : dawgs) {
 				if (! d1.getColnames().equals(d2.getColnames())) {

@@ -1,10 +1,7 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
 
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.SortedSet;
@@ -15,7 +12,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.BinaryRelation
 public class DeterminizeDawg<LETTER, COLNAMES> {
 	
 	private final DawgFactory<LETTER, COLNAMES> mDawgFactory;
-	private final DawgStateFactory mDawgStateFactory;
+	private final DawgStateFactory<LETTER, COLNAMES> mDawgStateFactory;
 	private final DawgLetterFactory<LETTER, COLNAMES> mDawgLetterFactory;
 
 	private SetDawgState mResultInitialState;
