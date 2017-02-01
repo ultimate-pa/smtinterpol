@@ -322,7 +322,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 			return mDawgLetterFactory;
 		}
 
-		public DawgStateFactory getDawgStateFactory() {
+		public DawgStateFactory<LETTER, COLNAMES> getDawgStateFactory() {
 			return mDawgStateFactory;
 		}
 	

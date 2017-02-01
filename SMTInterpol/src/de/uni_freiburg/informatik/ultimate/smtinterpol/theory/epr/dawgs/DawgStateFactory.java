@@ -33,7 +33,7 @@ import java.util.Set;
  * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
  *
  */
-public class DawgStateFactory {
+public class DawgStateFactory<LETTER, COLNAMES> {
 	
 	Map<DawgState, Map<DawgState, PairDawgState>> mDSToDSToPDS = 
 			new HashMap<DawgState, Map<DawgState,PairDawgState>>();
@@ -46,9 +46,13 @@ public class DawgStateFactory {
 	/**
 	 * the second state is teh sink state
 	 */
-	Map<DawgState, PairDawgState> mSecondHalfSinkStates = new HashMap<DawgState, PairDawgState>();
+	private final Map<DawgState, PairDawgState> mSecondHalfSinkStates = new HashMap<DawgState, PairDawgState>();
 
 	private Map<Set<DawgState>, SetDawgState> mDawgStateSetToSetDawgState;
+
+	private final NestedMap3<DawgLetter<LETTER, COLNAMES>, COLNAMES, DawgState, RenameAndReorderDawgState<LETTER, COLNAMES>> 
+		mLetterToColNameToDawgStateToRenameAndReorderDawgState = 
+		new NestedMap3<DawgLetter<LETTER, COLNAMES>, COLNAMES, DawgState, RenameAndReorderDawgState<LETTER,COLNAMES>>();
 
 	PairDawgState getOrCreatePairDawgState(DawgState first, DawgState second) {
 		
@@ -100,6 +104,17 @@ public class DawgStateFactory {
 
 	public DawgState createDawgState() {
 		return new DawgState();
+	}
+
+	public RenameAndReorderDawgState<LETTER, COLNAMES> getReorderAndRenameDawgState(DawgLetter<LETTER, COLNAMES> key, 
+			COLNAMES newRightNeighbour,	DawgState value) {
+		RenameAndReorderDawgState<LETTER, COLNAMES> result = 
+				mLetterToColNameToDawgStateToRenameAndReorderDawgState.get(key, newRightNeighbour, value);
+		if (result == null) {
+			result = new RenameAndReorderDawgState<LETTER, COLNAMES>(key, newRightNeighbour, value);
+			mLetterToColNameToDawgStateToRenameAndReorderDawgState.put(key, newRightNeighbour, value, result);
+		}
+		return result;
 	}
 
 }

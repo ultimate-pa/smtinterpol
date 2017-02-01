@@ -88,6 +88,30 @@ class SetDawgState extends DawgState {
 	public String toString() {
 		return "SetDawgState:" + mDawgStates;
 	}
-	
+}
+
+class RenameAndReorderDawgState<LETTER, COLNAMES> extends DawgState { 
+
+	private final DawgLetter<LETTER, COLNAMES> mLetter;
+	private final COLNAMES mColumn;
+	private final DawgState mInnerState;
+
+	public RenameAndReorderDawgState(DawgLetter<LETTER, COLNAMES> letter, COLNAMES column, DawgState innerDawgState) {
+		this.mLetter = letter;
+		this.mColumn = column;
+		this.mInnerState = innerDawgState;
+	}
+
+	public DawgLetter<LETTER, COLNAMES> getLetter() {
+		return mLetter;
+	}
+
+	public COLNAMES getColumn() {
+		return mColumn;
+	}
+
+	public DawgState getInnerState() {
+		return mInnerState;
+	}
 	
 }
