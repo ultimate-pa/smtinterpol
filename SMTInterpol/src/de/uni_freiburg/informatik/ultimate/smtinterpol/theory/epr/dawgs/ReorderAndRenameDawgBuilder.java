@@ -97,7 +97,7 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 		 * the states one column before the states directly left of oldColumn
 		 *  the algorithm in step 2 start on these states
 		 */
-		Set<DawgState> statesBeforeOldColumnLeftStates = null;
+		Set<DawgState> statesBeforeOldColumnPreStates = null;
 		{
 			final Iterator<COLNAMES> oldColIterator;
 			if (movesToTheRight) {
@@ -112,15 +112,14 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 				// when oldColum is the first column, this is a special case
 				// we mark this by setting statesBeforeOldColumnLeftStates to null
 				
-				statesBeforeOldColumnLeftStates = null;
+				statesBeforeOldColumnPreStates = null;
 			} else {
 				mResultInitialStates = Collections.singleton(mInputDawg.getInitialState());
 				Set<DawgState> currentStates = new HashSet<DawgState>();
 				if (movesToTheRight) {
 					currentStates.add(mInputDawg.getInitialState());
 				} else {
-					// TODO: add all final states
-					assert false : "TODO";
+					currentStates.addAll(mInputDawg.getFinalStates());
 				}
 
 				while (true) {
@@ -132,18 +131,54 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 					if (hitStatesBeforeOldColumn) {
 						// when currentColumn has arrived at oldColumn, we don't copy the edges (as they
 						// will be redirected to fresh states in step 2
-						statesBeforeOldColumnLeftStates = currentStates;
+						statesBeforeOldColumnPreStates = currentStates;
 						break;
 					}
 
 					final Set<DawgState> newCurrentStates = new HashSet<DawgState>();
 					// add the edges from the old graph in the column before currentColumn
 					for (DawgState currentState : currentStates) {
-						for (Entry<DawgLetter<LETTER, COLNAMES>, DawgState> outGoingEdge : 
-							mInputDawg.getTransitionRelation().get(currentState).entrySet()) {
-							newCurrentStates.add(outGoingEdge.getValue());
-							newTransitionRelation.put(currentState, outGoingEdge.getKey(), outGoingEdge.getValue());
+
+						if (movesToTheRight) {
+							/*
+							 * obtain outgoing edges from currentState
+							 */
+							final Set<Pair<DawgLetter<LETTER, COLNAMES>, DawgState>> edgeSet = 
+								new HashSet<Pair<DawgLetter<LETTER,COLNAMES>,DawgState>>();
+							for (Entry<DawgLetter<LETTER, COLNAMES>, DawgState> en : 
+								mInputDawg.getTransitionRelation().get(currentState).entrySet()) {
+								edgeSet.add(new Pair<DawgLetter<LETTER,COLNAMES>, DawgState>(en.getKey(), en.getValue()));
+							}
+							
+							/*
+							 * update new transition relation and currentStates
+							 */
+							for (Pair<DawgLetter<LETTER, COLNAMES>, DawgState> outGoingEdge : edgeSet) {
+								newCurrentStates.add(outGoingEdge.getSecond());
+								newTransitionRelation.put(currentState, outGoingEdge.getFirst(), outGoingEdge.getSecond());
+							}
+						} else {
+							/*
+							 * obtain incoming edges to currentState
+							 */
+							final Set<Pair<DawgLetter<LETTER, COLNAMES>, DawgState>> edgeSet = 
+								new HashSet<Pair<DawgLetter<LETTER,COLNAMES>,DawgState>>();
+							for (Pair<DawgState, DawgLetter<LETTER, COLNAMES>> p : 
+								mInputDawg.getTransitionRelation().getInverse(currentState)) {
+								edgeSet.add(
+										new Pair<DawgLetter<LETTER,COLNAMES>, DawgState>(p.getSecond(), p.getFirst()));
+							}
+
+							/*
+							 * update new transition relation and currentStates
+							 */
+							for (Pair<DawgLetter<LETTER, COLNAMES>, DawgState> outGoingEdge : edgeSet) {
+								newCurrentStates.add(outGoingEdge.getSecond());
+								newTransitionRelation.put(outGoingEdge.getSecond(), outGoingEdge.getFirst(), currentState);
+							}
 						}
+
+
 					}
 					currentStates = newCurrentStates;
 				}
@@ -175,33 +210,42 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 		 *  add the edges leading to them, store them 
 		 */
 		final Set<PairDawgState> mergedStates = new HashSet<PairDawgState>();
-		if (statesBeforeOldColumnLeftStates == null) {
+		if (statesBeforeOldColumnPreStates == null) {
 			// special case: the oldColumn is the first column
-			for (Entry<DawgLetter<LETTER, COLNAMES>, DawgState> edgeFromInitialToNextState : 
-				mInputDawg.getTransitionRelation().get(mInputDawg.getInitialState()).entrySet()) {
-				final PairDawgState mergedState = 
-						new PairDawgState(mInputDawg.getInitialState(), edgeFromInitialToNextState.getValue());
-				mergedStates.add(mergedState);
-				mResultInitialStates.add(mergedState);
+			if (movesToTheRight) {
+				for (Entry<DawgLetter<LETTER, COLNAMES>, DawgState> edgeFromInitialToNextState : 
+					mInputDawg.getTransitionRelation().get(mInputDawg.getInitialState()).entrySet()) {
+					final PairDawgState mergedState = 
+							new PairDawgState(mInputDawg.getInitialState(), edgeFromInitialToNextState.getValue());
+					mergedStates.add(mergedState);
+					mResultInitialStates.add(mergedState);
+				}
+			} else {
+				// TODO
 			}
 		} else {
-			for (DawgState leftLeftState : statesBeforeOldColumnLeftStates) {
-				for (Entry<DawgLetter<LETTER, COLNAMES>, DawgState> edgeFromLeftLeftStateToLeftState : 
-					mInputDawg.getTransitionRelation().get(leftLeftState).entrySet()) {
+			if (movesToTheRight) {
+				for (DawgState prePreState : statesBeforeOldColumnPreStates) {
+					for (Entry<DawgLetter<LETTER, COLNAMES>, DawgState> edgeFromPrePreStateToPreState : 
+						mInputDawg.getTransitionRelation().get(prePreState).entrySet()) {
 
-					final DawgState stateLeft = edgeFromLeftLeftStateToLeftState.getValue();
+						final DawgState stateLeft = edgeFromPrePreStateToPreState.getValue();
 
-					for (Entry<DawgLetter<LETTER, COLNAMES>, DawgState> edgeInOldColumn : 
-						mInputDawg.getTransitionRelation().get(stateLeft).entrySet()) {
+						for (Entry<DawgLetter<LETTER, COLNAMES>, DawgState> edgeInOldColumn : 
+							mInputDawg.getTransitionRelation().get(stateLeft).entrySet()) {
 
-						final PairDawgState newEdgeTarget =  // the state ("s, t")
-								mDawgStateFactory.getOrCreatePairDawgState(stateLeft, edgeInOldColumn.getValue());
-						mergedStates.add(newEdgeTarget);
+							final PairDawgState newEdgeTarget =  // the state ("s, t")
+									mDawgStateFactory.getOrCreatePairDawgState(stateLeft, edgeInOldColumn.getValue());
+							mergedStates.add(newEdgeTarget);
 
-						newTransitionRelation.put(leftLeftState, edgeFromLeftLeftStateToLeftState.getKey(), newEdgeTarget);
+							newTransitionRelation.put(prePreState, edgeFromPrePreStateToPreState.getKey(), newEdgeTarget);
+						}
 					}
 				}
+			} else {
+				// TODO
 			}
+			
 		}
 	
 		/*

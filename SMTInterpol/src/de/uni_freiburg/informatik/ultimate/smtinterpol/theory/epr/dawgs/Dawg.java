@@ -19,6 +19,8 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -79,6 +81,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	
 	private final DawgLetterFactory<LETTER, COLNAMES> mDawgLetterFactory;
 	private final DawgFactory<LETTER, COLNAMES> mDawgFactory;
+	private final Set<DawgState> mFinalStates;
 	
 	/**
 	 * Create an empty dawg
@@ -97,6 +100,8 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		
 //		mInitialStates =  Collections.singleton(mDawgStateFactory.createDawgState());
 		mInitialState =  mDawgStateFactory.createDawgState();
+		
+		mFinalStates = Collections.emptySet();
 		
 		mIsUniversal = true;
 		mIsEmpty = false;
@@ -130,6 +135,8 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			mTransitionRelation.put(currentState, mDawgLetterFactory.getUniversalDawgLetter(), nextState);
 			currentState = nextState;
 		}
+		mFinalStates = new HashSet<DawgState>();
+		mFinalStates.add(currentState);
 		
 		mIsUniversal = true;
 		mIsEmpty = false;
@@ -165,6 +172,8 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			mTransitionRelation.put(currentState, dl, nextState);
 			currentState = nextState;
 		}
+		mFinalStates = new HashSet<DawgState>();
+		mFinalStates.add(currentState);
 		
 		mIsUniversal = false;
 		mIsEmpty = false;
@@ -185,12 +194,29 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		mInitialState = initialState;
 	
 		mTransitionRelation = tr;
+		
+		mFinalStates = computeFinalStates();
 
 		mIsUniversal = false;
 		mIsEmpty = false;
 	}
 
 
+
+	private Set<DawgState> computeFinalStates() {
+		Set<DawgState> currentStates = new HashSet<DawgState>();
+		currentStates.add(mInitialState);
+		for (int i = 0; i < mColNames.size(); i++) {
+			final Set<DawgState> newCurrentStates = new HashSet<DawgState>();
+			for (DawgState cs : currentStates) {
+				for (Entry<DawgLetter<LETTER, COLNAMES>, DawgState> outEdge : mTransitionRelation.get(cs).entrySet()) {
+					newCurrentStates.add(outEdge.getValue());
+				}
+			}
+			currentStates = newCurrentStates;
+		}
+		return Collections.unmodifiableSet(currentStates);
+	}
 
 	@Override
 	public IDawg<LETTER, COLNAMES> intersect(IDawg<LETTER, COLNAMES> other) {
@@ -728,6 +754,11 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 
 	public DawgState getInitialState() {
 		return mInitialState;
+	}
+
+	public Set<DawgState> getFinalStates() {
+		assert mFinalStates != null;
+		return mFinalStates;
 	}
 }
 
