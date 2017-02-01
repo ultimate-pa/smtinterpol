@@ -160,9 +160,10 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	}
 
 	@Override
-	public void add(List<LETTER> point) {
+	public IDawg<LETTER, COLNAMES> add(List<LETTER> point) {
 		assert EprHelpers.verifySortsOfPoint(point, this.getColnames());
 		mBacking.add(point);
+		return this;
 	}
 
 //	@Override

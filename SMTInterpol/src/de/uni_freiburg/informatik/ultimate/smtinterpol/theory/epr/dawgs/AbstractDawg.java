@@ -49,6 +49,10 @@ public abstract class AbstractDawg<LETTER, COLNAMES> implements IDawg<LETTER, CO
 	protected final Set<LETTER> mAllConstants;
 	protected final Map<COLNAMES, Integer> mColNameToIndex;
 	
+	public Map<COLNAMES, Integer> getColNameToIndex() {
+		return mColNameToIndex;
+	}
+
 	public AbstractDawg(SortedSet<COLNAMES> colNames, Set<LETTER> allConstants, LogProxy logger) {
 		mColNames = colNames;
 		mArity = colNames.size();

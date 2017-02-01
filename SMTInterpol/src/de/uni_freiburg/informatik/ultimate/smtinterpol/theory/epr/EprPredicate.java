@@ -265,13 +265,13 @@ public class EprPredicate {
 		for (EprGroundPredicateAtom at : mDPLLAtoms) {
 			if (at.getDecideStatus() == null) {
 				// not yet decided
-				undecidedPoints.add(EprHelpers.convertTermArrayToConstantList(at.getArguments()));
+				undecidedPoints = undecidedPoints.add(EprHelpers.convertTermArrayToConstantList(at.getArguments()));
 			} else if (at.getDecideStatus().getSign() == 1) {
 				// positively set
-				positivelySetPoints.add(EprHelpers.convertTermArrayToConstantList(at.getArguments()));
+				positivelySetPoints = positivelySetPoints.add(EprHelpers.convertTermArrayToConstantList(at.getArguments()));
 			} else {
 				// negatively set
-				negativelySetPoints.add(EprHelpers.convertTermArrayToConstantList(at.getArguments()));
+				negativelySetPoints = negativelySetPoints.add(EprHelpers.convertTermArrayToConstantList(at.getArguments()));
 			}
 		}
 

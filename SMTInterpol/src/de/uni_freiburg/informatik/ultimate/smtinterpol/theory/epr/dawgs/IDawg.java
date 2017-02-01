@@ -44,7 +44,7 @@ public interface IDawg<LETTER, COLNAMES> extends Iterable<List<LETTER>> {
 	 *  - arguments only contains constants
 	 * @param arguments
 	 */
-	void add(List<LETTER> arguments);
+	IDawg<LETTER, COLNAMES> add(List<LETTER> arguments);
 
 	/**
 	 * Add all points of a given Dawg to this Dawg

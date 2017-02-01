@@ -107,7 +107,13 @@ public class DawgFactory<LETTER, COLNAMES> {
 			NaiveDawg<LETTER, COLNAMES> nd = (NaiveDawg<LETTER, COLNAMES>) dawg;
 			return new NaiveDawg<LETTER, COLNAMES>(nd, mLogger);
 		} else {
-			return null;
+			return new Dawg<LETTER, COLNAMES>(
+					this, 
+					dawg.getColnames(), 
+					mAllConstants, 
+					mLogger, 
+					((Dawg<LETTER, COLNAMES>) dawg).getTransitionRelation().copy(), 
+					((Dawg<LETTER, COLNAMES>) dawg).getInitialState());
 		}
 	}
 	
@@ -230,13 +236,13 @@ public class DawgFactory<LETTER, COLNAMES> {
 			word1.add('a');
 			word1.add('a');
 			word1.add('b');
-			d2.add(word1);
+			d2 = d2.add(word1);
 			
 			List<Character> word2 = new ArrayList<Character>();
 			word2.add('a');
 			word2.add('b');
 			word2.add('b');
-			d2.add(word2);
+			d2 = d2.add(word2);
 	
 			System.out.println("d2: (alpha, beta, gamma), { aab, abb } ");
 			System.out.println(d2);

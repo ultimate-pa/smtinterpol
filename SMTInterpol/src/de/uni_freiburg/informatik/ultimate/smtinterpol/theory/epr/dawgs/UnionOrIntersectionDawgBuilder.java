@@ -118,7 +118,7 @@ public class UnionOrIntersectionDawgBuilder<LETTER, COLNAMES> {
 			currentStates = nextStates;
 		}
 		
-		return new Dawg<LETTER, COLNAMES>(mFirst.getColnames(), mFirst.getAllConstants(), 
-				mFirst.getLogger(),  mTransitionRelation, mUnionInitialState, mDawgFactory);
+		return new Dawg<LETTER, COLNAMES>(mDawgFactory, mFirst.getColnames(), 
+				mFirst.getAllConstants(),  mFirst.getLogger(), mTransitionRelation, mUnionInitialState);
 	}
 }

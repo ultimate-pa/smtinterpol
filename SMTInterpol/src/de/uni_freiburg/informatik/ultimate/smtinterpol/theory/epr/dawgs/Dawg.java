@@ -177,12 +177,12 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		mIsEmpty = false;
 	}
 	
-	Dawg(final SortedSet<COLNAMES> colnames, Set<LETTER> allConstants, 
+	Dawg(final DawgFactory<LETTER, COLNAMES> df, final SortedSet<COLNAMES> colnames, 
+			Set<LETTER> allConstants, 
 			final LogProxy logger, 
-			final NestedMap2<DawgState, DawgLetter<LETTER, COLNAMES>, DawgState> tr, 
-//			final Set<DawgState> initialStates,
-			final DawgState initialState,
-			final DawgFactory<LETTER, COLNAMES> df) {
+final NestedMap2<DawgState, DawgLetter<LETTER, COLNAMES>, DawgState> tr,
+			//			final Set<DawgState> initialStates,
+			final DawgState initialState) {
 		super(colnames, allConstants, logger);
 		
 		mDawgFactory = df;
@@ -308,7 +308,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		}
 		
 		return new Dawg<LETTER, COLNAMES>(
-				mColNames, mAllConstants, mLogger, newTransitionRelation, mInitialState, mDawgFactory);
+				mDawgFactory, mColNames, mAllConstants, mLogger, newTransitionRelation, mInitialState);
 	}
 
 	@Override
@@ -355,9 +355,8 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	}
 
 	@Override
-	public void add(List<LETTER> arguments) {
-		// TODO Auto-generated method stub
-		assert false : "TODO";
+	public IDawg<LETTER, COLNAMES> add(List<LETTER> arguments) {
+		return new AddWordDawgBuilder(mDawgFactory, this, arguments).build();
 	}
 
 	@Override
@@ -410,8 +409,8 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			}
 			currentColnamesPrestates = newCurrentColnamesPrestates;
 		}
-		return new Dawg<LETTER, COLNAMES>(mColNames, mAllConstants, mLogger, newTransitionRelation, 
-				mInitialState, mDawgFactory);
+		return new Dawg<LETTER, COLNAMES>(mDawgFactory, mColNames, mAllConstants, mLogger, 
+				newTransitionRelation, mInitialState);
 	}
 
 	@Override
@@ -575,7 +574,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		newColnames.addAll(mColNames);
 		newColnames.remove(column);
 		final Dawg<LETTER, COLNAMES> result = new Dawg<LETTER, COLNAMES>(
-				newColnames, mAllConstants, mLogger, newTransitionRelation, mInitialState, mDawgFactory);
+				mDawgFactory, newColnames, mAllConstants, mLogger, newTransitionRelation, mInitialState);
 
 		return result;
 	}
@@ -607,11 +606,11 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	 * @return
 	 */
 	private Dawg<LETTER, COLNAMES> reorderAndRename(Map<COLNAMES, COLNAMES> renaming) {
-		Dawg<LETTER, COLNAMES> result = (Dawg<LETTER, COLNAMES>) mDawgFactory.copyDawg(this);
+//		Dawg<LETTER, COLNAMES> result = (Dawg<LETTER, COLNAMES>) mDawgFactory.copyDawg(this);
+		Dawg<LETTER, COLNAMES> result = this;
 		for (Entry<COLNAMES, COLNAMES> en : renaming.entrySet()) {
-//			result = reorderAndRename(en.getKey(), en.getValue());
 			result = new ReorderAndRenameDawgBuilder<LETTER, COLNAMES>(mDawgFactory, 
-						this, 
+						result, 
 						en.getKey(), 
 						en.getValue())
 					.build();
@@ -713,8 +712,8 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		final TreeSet<COLNAMES> newSignature = new TreeSet<COLNAMES>(EprHelpers.getColumnNamesComparator());
 		newSignature.addAll(mColNames);
 		newSignature.add(columnName);
-		return new Dawg<LETTER, COLNAMES>(newSignature, mAllConstants, mLogger, newTransitionRelation, 
-				mInitialState, mDawgFactory);
+		return new Dawg<LETTER, COLNAMES>(mDawgFactory, newSignature, mAllConstants, mLogger, 
+				newTransitionRelation, mInitialState);
 	}
 
 	COLNAMES findRightNeighbourColumn(final COLNAMES columnName) {
