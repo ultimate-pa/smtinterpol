@@ -45,7 +45,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 	/**
 	 * Use naive Dawg implementation ("normal" one otherwise)
 	 */
-	private boolean mUseNaiveDawgs = true;
+	private boolean mUseNaiveDawgs = false;
 
 	public DawgFactory(Set<LETTER> allConstants, EprTheory eprTheory) {
 		mEprTheory = eprTheory;

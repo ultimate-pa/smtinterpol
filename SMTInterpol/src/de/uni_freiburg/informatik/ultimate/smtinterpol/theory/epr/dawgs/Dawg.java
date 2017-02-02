@@ -188,6 +188,10 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		while (!currentStates.isEmpty()) {
 			final Set<DawgState> newCurrentStates = new HashSet<DawgState>();
 			for (DawgState cs : currentStates) {
+				if (mTransitionRelation.get(cs) == null) {
+					continue;
+				}
+				
 				final Set<IDawgLetter<LETTER, COLNAMES>> outLetters = new HashSet<IDawgLetter<LETTER,COLNAMES>>();
 				for (Entry<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge : 
 					mTransitionRelation.get(cs).entrySet()) {
@@ -213,6 +217,9 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		for (int i = 0; i < mColNames.size(); i++) {
 			final Set<DawgState> newCurrentStates = new HashSet<DawgState>();
 			for (DawgState cs : currentStates) {
+				if (mTransitionRelation.get(cs) == null) {
+					continue;
+				}
 				for (Entry<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge : mTransitionRelation.get(cs).entrySet()) {
 					newCurrentStates.add(outEdge.getValue());
 				}
@@ -584,9 +591,9 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		return result;
 	}
 
-	Set<DawgState> obtainStatesLeftOfColumn(COLNAMES colName) {
-		assert mColNameToIndex.get(colName) != null : "column does not exist in this Dawg";
-		return obtainStatesLeftOfColumn(mColNameToIndex.get(colName));
+	Set<DawgState> obtainStatesLeftOfColumn(COLNAMES rightNeighbourColumn) {
+		assert mColNameToIndex.get(rightNeighbourColumn) != null : "column does not exist in this Dawg";
+		return obtainStatesLeftOfColumn(mColNameToIndex.get(rightNeighbourColumn));
 	}
 
 	Set<DawgState> obtainStatesLeftOfColumn(int columnIndex) {
@@ -675,9 +682,13 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		 * find the position in this Dawg's signature where the new column must be inserted
 		 */
 		COLNAMES rightNeighBourColumn = findRightNeighbourColumn(columnName);
-		
-		//TODO: debug the above computation
-		final Set<DawgState> statesLeftOfColumn = obtainStatesLeftOfColumn(rightNeighBourColumn);
+
+		final Set<DawgState> statesLeftOfColumn;
+		if (rightNeighBourColumn == null) {
+			statesLeftOfColumn = getFinalStates();
+		} else {
+			statesLeftOfColumn = obtainStatesLeftOfColumn(rightNeighBourColumn);
+		}
 		
 		/*
 		 * we split each of the states where the column is to be inserted into two
@@ -721,16 +732,23 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 				newTransitionRelation, mInitialState);
 	}
 
+	/**
+	 * Computes the smallest column in this Dawg's signature that is bigger than the given column.
+	 * Returns null if the given column is bigger or equal than all columns in this Dawg's signature.
+	 * 
+	 * @param columnName
+	 * @return
+	 */
 	COLNAMES findRightNeighbourColumn(final COLNAMES columnName) {
 		COLNAMES rightNeighBourColumn = null;
 		for (COLNAMES col : mColNames) {
-			if (mColNames.comparator().compare(columnName, col) > 0) {
+			if (mColNames.comparator().compare(col, columnName) > 0) {
 				// columName will be inserted directly left from col
 				rightNeighBourColumn = col;
 				break;
 			}
 		}
-		assert rightNeighBourColumn != null;
+		assert rightNeighBourColumn != null || mColNames.comparator().compare(mColNames.last(), columnName) < 0;
 		return rightNeighBourColumn;
 	}
 
