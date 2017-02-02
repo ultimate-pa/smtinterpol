@@ -32,6 +32,13 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 
+/**
+ * 
+ * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
+ *
+ * @param <LETTER>
+ * @param <COLNAMES>
+ */
 public class DawgFactory<LETTER, COLNAMES> {
 	
 	private final EprTheory mEprTheory;

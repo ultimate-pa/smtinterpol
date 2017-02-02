@@ -22,6 +22,12 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * 
+ * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
+ *
+ * @param <COLNAMES>
+ */
 public class DawgTranslation<COLNAMES> {
 	
 	

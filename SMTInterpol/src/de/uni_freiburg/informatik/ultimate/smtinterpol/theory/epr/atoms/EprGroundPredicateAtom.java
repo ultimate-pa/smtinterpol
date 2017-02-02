@@ -24,6 +24,11 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 
+/**
+ * 
+ * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
+ *
+ */
 public class EprGroundPredicateAtom extends EprPredicateAtom {
 
 	public EprGroundPredicateAtom(ApplicationTerm term, int hash, int assertionstacklevel, EprPredicate pred) {

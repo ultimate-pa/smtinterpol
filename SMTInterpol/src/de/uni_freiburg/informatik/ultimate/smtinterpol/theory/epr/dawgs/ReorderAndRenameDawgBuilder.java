@@ -32,6 +32,13 @@ import java.util.Map.Entry;
 
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 
+/**
+ * 
+ * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
+ *
+ * @param <LETTER>
+ * @param <COLNAMES>
+ */
 public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 	
 	private final Dawg<LETTER, COLNAMES> mInputDawg;

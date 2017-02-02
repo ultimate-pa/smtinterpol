@@ -22,6 +22,13 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
 import java.util.List;
 import java.util.Map.Entry;
 
+/**
+ * 
+ * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
+ *
+ * @param <LETTER>
+ * @param <COLNAMES>
+ */
 public class AddWordDawgBuilder<LETTER, COLNAMES> {
 
 	private final DawgFactory<LETTER, COLNAMES> mDawgFactory;

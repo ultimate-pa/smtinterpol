@@ -23,6 +23,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.SortedSet;
 
+/**
+ * 
+ * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
+ *
+ * @param <LETTER>
+ * @param <COLNAMES>
+ */
 public interface IDawg<LETTER, COLNAMES> extends Iterable<List<LETTER>> {
 	
 	SortedSet<COLNAMES> getColnames();

@@ -28,6 +28,13 @@ import java.util.SortedSet;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.BinaryRelation;
 
+/**
+ * 
+ * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
+ *
+ * @param <LETTER>
+ * @param <COLNAMES>
+ */
 public class DeterminizeDawg<LETTER, COLNAMES> {
 	
 	private final DawgFactory<LETTER, COLNAMES> mDawgFactory;

@@ -25,6 +25,13 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+/**
+ * 
+ * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
+ *
+ * @param <T>
+ * @param <U>
+ */
 public class BinaryRelation<T, U> {
 
 	private final Map<T, Set<U>> mBacking = new HashMap<T, Set<U>>();

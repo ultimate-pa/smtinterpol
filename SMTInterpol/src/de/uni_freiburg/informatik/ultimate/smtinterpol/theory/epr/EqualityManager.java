@@ -26,6 +26,11 @@ import java.util.HashSet;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
 
+/**
+ * 
+ * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
+ *
+ */
 public class EqualityManager {
 	
 	HashMap<ApplicationTerm, HashSet<ApplicationTerm>> eqGraph = new HashMap<ApplicationTerm, HashSet<ApplicationTerm>>();

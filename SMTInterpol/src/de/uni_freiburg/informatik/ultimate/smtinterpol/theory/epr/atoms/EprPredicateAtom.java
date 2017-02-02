@@ -22,6 +22,11 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 
+/**
+ * 
+ * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
+ *
+ */
 public abstract class EprPredicateAtom extends EprAtom {
 
 	public final EprPredicate mEprPredicate;
