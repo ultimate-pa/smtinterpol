@@ -297,6 +297,12 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 		
 		mResultColnames = newColNames;
 		mResultTransitionRelation = newTransitionRelation;
+		
+		if (!mDawgLetterFactory.useSimpleDawgLetters()) {
+			// TODO
+			assert false : "TODO: the equals-colnames of the DawgLetters may need updating";
+		}
+		
 	}
 
 	private Set<DawgState> step1(boolean movesToTheRight,
