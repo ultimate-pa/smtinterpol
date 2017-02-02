@@ -37,8 +37,8 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 	UniversalDawgLetterWithEqualities<LETTER, COLNAMES> mUniversalDawgLetterWithEqualities
 	 	= new UniversalDawgLetterWithEqualities<LETTER, COLNAMES>(this);
 
-	Set<DawgLetter<LETTER, COLNAMES>> mUniversalDawgLetterSingleton;
-	Set<DawgLetter<LETTER, COLNAMES>> mEmptyDawgLetterSingleton;
+	Set<IDawgLetter<LETTER, COLNAMES>> mUniversalDawgLetterSingleton;
+	Set<IDawgLetter<LETTER, COLNAMES>> mEmptyDawgLetterSingleton;
 	
 	Map<Set<LETTER>, SimpleDawgLetter<LETTER, COLNAMES>> mLettersToSimpleDawgLetter
 		 = new HashMap<Set<LETTER>, SimpleDawgLetter<LETTER,COLNAMES>>();
@@ -57,11 +57,11 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 
 		mUniversalDawgLetter = new UniversalDawgLetter<LETTER, COLNAMES>(this);
 		mEmptyDawgLetter = new EmptyDawgLetter<LETTER, COLNAMES>(this);
-		mEmptyDawgLetterSingleton = Collections.singleton((DawgLetter<LETTER, COLNAMES>) mEmptyDawgLetter);
-		mUniversalDawgLetterSingleton = Collections.singleton((DawgLetter<LETTER, COLNAMES>) mUniversalDawgLetter);
+		mEmptyDawgLetterSingleton = Collections.singleton((IDawgLetter<LETTER, COLNAMES>) mEmptyDawgLetter);
+		mUniversalDawgLetterSingleton = Collections.singleton((IDawgLetter<LETTER, COLNAMES>) mUniversalDawgLetter);
 	}
 
-	public DawgLetter<LETTER, COLNAMES> createSingletonSetDawgLetter(LETTER element) {
+	public IDawgLetter<LETTER, COLNAMES> createSingletonSetDawgLetter(LETTER element) {
 		if (useSimpleDawgLetters()) {
 			return getSimpleDawgLetter(Collections.singleton(element));
 		} else {
@@ -70,7 +70,7 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 		}
 	}
 	
-	DawgLetter<LETTER, COLNAMES> getUniversalDawgLetter() {
+	IDawgLetter<LETTER, COLNAMES> getUniversalDawgLetter() {
 		if (useSimpleDawgLetters()) {
 			return mUniversalDawgLetter;
 		} else {
@@ -78,7 +78,7 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 		}
 	}
 	
-	DawgLetter<LETTER, COLNAMES> getEmptyDawgLetter() {
+	IDawgLetter<LETTER, COLNAMES> getEmptyDawgLetter() {
 		if (useSimpleDawgLetters()) {
 			return mEmptyDawgLetter;
 		} else {
@@ -126,29 +126,29 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 	 * @param outgoingDawgLetters
 	 * @return
 	 */
-	public Set<DawgLetter<LETTER, COLNAMES>> complementDawgLetterSet(
-			Set<DawgLetter<LETTER, COLNAMES>> dawgLetters) {
+	public Set<IDawgLetter<LETTER, COLNAMES>> complementDawgLetterSet(
+			Set<IDawgLetter<LETTER, COLNAMES>> dawgLetters) {
 		if (useSimpleDawgLetters()) {
 			final Set<LETTER> resultLetters = new HashSet<LETTER>();
 			resultLetters.addAll(mAllConstants);
-			for (DawgLetter<LETTER, COLNAMES> dl : dawgLetters) {
+			for (IDawgLetter<LETTER, COLNAMES> dl : dawgLetters) {
 				final SimpleDawgLetter<LETTER, COLNAMES> sdl = (SimpleDawgLetter<LETTER, COLNAMES>) dl;
 				resultLetters.removeAll(sdl.getLetters());
 			}
 
-			DawgLetter<LETTER, COLNAMES> resultDl = getSimpleDawgLetter(resultLetters);
+			IDawgLetter<LETTER, COLNAMES> resultDl = getSimpleDawgLetter(resultLetters);
 			return Collections.singleton(resultDl);
 		} else {
 
-			Set<DawgLetter<LETTER, COLNAMES>> result = new HashSet<DawgLetter<LETTER,COLNAMES>>();
+			Set<IDawgLetter<LETTER, COLNAMES>> result = new HashSet<IDawgLetter<LETTER,COLNAMES>>();
 			result.add(mUniversalDawgLetterWithEqualities);
 
-			for (DawgLetter<LETTER, COLNAMES> dln: dawgLetters) {
+			for (IDawgLetter<LETTER, COLNAMES> dln: dawgLetters) {
 				DawgLetterWithEqualities<LETTER, COLNAMES> dl = (DawgLetterWithEqualities<LETTER, COLNAMES>) dln;
 
-				Set<DawgLetter<LETTER, COLNAMES>> newResult = new HashSet<DawgLetter<LETTER,COLNAMES>>();
+				Set<IDawgLetter<LETTER, COLNAMES>> newResult = new HashSet<IDawgLetter<LETTER,COLNAMES>>();
 
-				for (DawgLetter<LETTER, COLNAMES> dlResN : result) {
+				for (IDawgLetter<LETTER, COLNAMES> dlResN : result) {
 					DawgLetterWithEqualities<LETTER, COLNAMES> dlRes = (DawgLetterWithEqualities<LETTER, COLNAMES>) dlResN;
 
 					{
@@ -205,14 +205,14 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 		}
 	}
 
-	public boolean isUniversal(Set<DawgLetter<LETTER, COLNAMES>> outLetters) {
+	public boolean isUniversal(Set<IDawgLetter<LETTER, COLNAMES>> outLetters) {
 		// TODO Auto-generated method stub
 		assert false : "TODO";
 		return false;
 	}
 
-	public DawgLetter<LETTER, COLNAMES> getSimpleDawgLetter(Set<LETTER> letters) {
-		DawgLetter<LETTER, COLNAMES> result = mLettersToSimpleDawgLetter.get(letters);
+	public IDawgLetter<LETTER, COLNAMES> getSimpleDawgLetter(Set<LETTER> letters) {
+		IDawgLetter<LETTER, COLNAMES> result = mLettersToSimpleDawgLetter.get(letters);
 		if (result == null) {
 			result = new SimpleDawgLetter<LETTER, COLNAMES>(this, letters);
 			mLettersToSimpleDawgLetter.put(letters, (SimpleDawgLetter<LETTER, COLNAMES>) result);
@@ -234,7 +234,7 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
  * @param <LETTER>
  * @param <COLNAMES>
  */
-class EmptyDawgLetter<LETTER, COLNAMES> implements DawgLetter<LETTER, COLNAMES> {
+class EmptyDawgLetter<LETTER, COLNAMES> implements IDawgLetter<LETTER, COLNAMES> {
 
 	private final DawgLetterFactory<LETTER, COLNAMES> mDawgLetterFactory;
 
@@ -243,18 +243,18 @@ class EmptyDawgLetter<LETTER, COLNAMES> implements DawgLetter<LETTER, COLNAMES> 
 	}
 
 	@Override
-	public Set<DawgLetter<LETTER, COLNAMES>> complement() {
+	public Set<IDawgLetter<LETTER, COLNAMES>> complement() {
 		return Collections.singleton(mDawgLetterFactory.getUniversalDawgLetter());
 	}
 
 	@Override
-	public DawgLetter<LETTER, COLNAMES> intersect(DawgLetter<LETTER, COLNAMES> other) {
+	public IDawgLetter<LETTER, COLNAMES> intersect(IDawgLetter<LETTER, COLNAMES> other) {
 		return this;
 	}
 
 	@Override
-	public Set<DawgLetter<LETTER, COLNAMES>> difference(DawgLetter<LETTER, COLNAMES> other) {
-		return Collections.singleton((DawgLetter<LETTER, COLNAMES>) this);
+	public Set<IDawgLetter<LETTER, COLNAMES>> difference(IDawgLetter<LETTER, COLNAMES> other) {
+		return Collections.singleton((IDawgLetter<LETTER, COLNAMES>) this);
 	}
 
 	@Override
@@ -263,7 +263,7 @@ class EmptyDawgLetter<LETTER, COLNAMES> implements DawgLetter<LETTER, COLNAMES> 
 	}
 
 	@Override
-	public DawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER ltr) {
+	public IDawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER ltr) {
 		assert false;
 		return null;
 	}
@@ -278,7 +278,7 @@ class EmptyDawgLetter<LETTER, COLNAMES> implements DawgLetter<LETTER, COLNAMES> 
  * @param <LETTER>
  * @param <COLNAMES>
  */
-class UniversalDawgLetter<LETTER, COLNAMES> implements DawgLetter<LETTER, COLNAMES> {
+class UniversalDawgLetter<LETTER, COLNAMES> implements IDawgLetter<LETTER, COLNAMES> {
 
 	private final DawgLetterFactory<LETTER, COLNAMES> mDawgLetterFactory;
 
@@ -287,17 +287,17 @@ class UniversalDawgLetter<LETTER, COLNAMES> implements DawgLetter<LETTER, COLNAM
 	}
 
 	@Override
-	public Set<DawgLetter<LETTER, COLNAMES>> complement() {
+	public Set<IDawgLetter<LETTER, COLNAMES>> complement() {
 		return Collections.singleton(mDawgLetterFactory.getEmptyDawgLetter());
 	}
 
 	@Override
-	public DawgLetter<LETTER, COLNAMES> intersect(DawgLetter<LETTER, COLNAMES> other) {
+	public IDawgLetter<LETTER, COLNAMES> intersect(IDawgLetter<LETTER, COLNAMES> other) {
 		return other;
 	}
 	
 	@Override
-	public Set<DawgLetter<LETTER, COLNAMES>> difference(DawgLetter<LETTER, COLNAMES> other) {
+	public Set<IDawgLetter<LETTER, COLNAMES>> difference(IDawgLetter<LETTER, COLNAMES> other) {
 		return other.complement();
 	}
 	
@@ -307,7 +307,7 @@ class UniversalDawgLetter<LETTER, COLNAMES> implements DawgLetter<LETTER, COLNAM
 	}
 	
 	@Override
-	public DawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER ltr) {
+	public IDawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER ltr) {
 		return mDawgLetterFactory.createSingletonSetDawgLetter(ltr);
 	}
 }

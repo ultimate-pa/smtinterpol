@@ -17,7 +17,7 @@ import java.util.Map;
  * @param <LETTER>
  * @param <COLNAMES>
  */
-public class DawgLetterWithEqualities<LETTER, COLNAMES> implements DawgLetter<LETTER, COLNAMES> {
+public class DawgLetterWithEqualities<LETTER, COLNAMES> implements IDawgLetter<LETTER, COLNAMES> {
 	
 	private final Set<LETTER> mLetters;
 	private final Set<COLNAMES> mEqualColnames;
@@ -54,12 +54,12 @@ public class DawgLetterWithEqualities<LETTER, COLNAMES> implements DawgLetter<LE
 	}
 
 	@Override
-	public Set<DawgLetter<LETTER, COLNAMES>> complement() {
+	public Set<IDawgLetter<LETTER, COLNAMES>> complement() {
 
 		Set<LETTER> newLetters = new HashSet<LETTER>(mDawgLetterFactory.getAllConstants());
 		newLetters.removeAll(mLetters);
 	
-		Set<DawgLetter<LETTER, COLNAMES>> result = new HashSet<DawgLetter<LETTER,COLNAMES>>();
+		Set<IDawgLetter<LETTER, COLNAMES>> result = new HashSet<IDawgLetter<LETTER,COLNAMES>>();
 		
 		for (COLNAMES cn : mEqualColnames) {
 			Set<COLNAMES> es = Collections.emptySet();
@@ -76,17 +76,17 @@ public class DawgLetterWithEqualities<LETTER, COLNAMES> implements DawgLetter<LE
 	
 
 	@Override
-	public Set<DawgLetter<LETTER, COLNAMES>> difference(DawgLetter<LETTER, COLNAMES> other) {
-		Set<DawgLetter<LETTER, COLNAMES>> result = new HashSet<DawgLetter<LETTER,COLNAMES>>();
-		Set<DawgLetter<LETTER, COLNAMES>> otherComplement = other.complement();
-		for (DawgLetter<LETTER, COLNAMES> oce : otherComplement) {
+	public Set<IDawgLetter<LETTER, COLNAMES>> difference(IDawgLetter<LETTER, COLNAMES> other) {
+		Set<IDawgLetter<LETTER, COLNAMES>> result = new HashSet<IDawgLetter<LETTER,COLNAMES>>();
+		Set<IDawgLetter<LETTER, COLNAMES>> otherComplement = other.complement();
+		for (IDawgLetter<LETTER, COLNAMES> oce : otherComplement) {
 			result.add(this.intersect(oce));
 		}
 		return result;
 	}
 
 	@Override
-	public DawgLetter<LETTER, COLNAMES> intersect(DawgLetter<LETTER, COLNAMES> other) {
+	public IDawgLetter<LETTER, COLNAMES> intersect(IDawgLetter<LETTER, COLNAMES> other) {
 		DawgLetterWithEqualities<LETTER, COLNAMES> otherDlwe = (DawgLetterWithEqualities<LETTER, COLNAMES>) other;
 		Set<LETTER> mNewLetters = new HashSet<LETTER>(mLetters);
 		Set<COLNAMES> mNewEqualColnames = new HashSet<COLNAMES>(mEqualColnames);
@@ -127,7 +127,7 @@ public class DawgLetterWithEqualities<LETTER, COLNAMES> implements DawgLetter<LE
 	 * @param ltr
 	 * @return
 	 */
-	public DawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER ltr) {
+	public IDawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER ltr) {
 		if (!mLetters.contains(ltr)) {
 			return null;
 		}
@@ -165,18 +165,18 @@ class EmptyDawgLetterWithEqualities<LETTER, COLNAMES> extends DawgLetterWithEqua
 	}
 
 	@Override
-	public Set<DawgLetter<LETTER, COLNAMES>> complement() {
+	public Set<IDawgLetter<LETTER, COLNAMES>> complement() {
 		return Collections.singleton(mDawgLetterFactory.getUniversalDawgLetter());
 	}
 
 	@Override
-	public DawgLetter<LETTER, COLNAMES> intersect(DawgLetter<LETTER, COLNAMES> other) {
+	public IDawgLetter<LETTER, COLNAMES> intersect(IDawgLetter<LETTER, COLNAMES> other) {
 		return this;
 	}
 
 	@Override
-	public Set<DawgLetter<LETTER, COLNAMES>> difference(DawgLetter<LETTER, COLNAMES> other) {
-		return Collections.singleton((DawgLetter<LETTER, COLNAMES>) this);
+	public Set<IDawgLetter<LETTER, COLNAMES>> difference(IDawgLetter<LETTER, COLNAMES> other) {
+		return Collections.singleton((IDawgLetter<LETTER, COLNAMES>) this);
 	}
 
 	@Override
@@ -185,7 +185,7 @@ class EmptyDawgLetterWithEqualities<LETTER, COLNAMES> extends DawgLetterWithEqua
 	}
 
 	@Override
-	public DawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER ltr) {
+	public IDawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER ltr) {
 		return null;
 	}
 }
@@ -206,17 +206,17 @@ class UniversalDawgLetterWithEqualities<LETTER, COLNAMES> extends  DawgLetterWit
 	}
 
 	@Override
-	public Set<DawgLetter<LETTER, COLNAMES>> complement() {
+	public Set<IDawgLetter<LETTER, COLNAMES>> complement() {
 		return Collections.singleton(mDawgLetterFactory.getEmptyDawgLetter());
 	}
 
 	@Override
-	public DawgLetter<LETTER, COLNAMES> intersect(DawgLetter<LETTER, COLNAMES> other) {
+	public IDawgLetter<LETTER, COLNAMES> intersect(IDawgLetter<LETTER, COLNAMES> other) {
 		return other;
 	}
 	
 	@Override
-	public Set<DawgLetter<LETTER, COLNAMES>> difference(DawgLetter<LETTER, COLNAMES> other) {
+	public Set<IDawgLetter<LETTER, COLNAMES>> difference(IDawgLetter<LETTER, COLNAMES> other) {
 		return other.complement();
 	}
 	
@@ -226,7 +226,7 @@ class UniversalDawgLetterWithEqualities<LETTER, COLNAMES> extends  DawgLetterWit
 	}
 	
 	@Override
-	public DawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER ltr) {
+	public IDawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER ltr) {
 		return mDawgLetterFactory.createSingletonSetDawgLetter(ltr);
 	}
 }

@@ -24,16 +24,16 @@ import java.util.Map;
 import java.util.Set;
 
 
-interface DawgLetter<LETTER, COLNAMES> {
+interface IDawgLetter<LETTER, COLNAMES> {
 	
 	
-	Set<DawgLetter<LETTER, COLNAMES>> complement();
+	Set<IDawgLetter<LETTER, COLNAMES>> complement();
 
-	Set<DawgLetter<LETTER, COLNAMES>> difference(DawgLetter<LETTER, COLNAMES> other);
+	Set<IDawgLetter<LETTER, COLNAMES>> difference(IDawgLetter<LETTER, COLNAMES> other);
 
-	DawgLetter<LETTER, COLNAMES> intersect(DawgLetter<LETTER, COLNAMES> other);
+	IDawgLetter<LETTER, COLNAMES> intersect(IDawgLetter<LETTER, COLNAMES> other);
 
 	boolean matches(LETTER ltr, List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex);
 
-	DawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER selectLetter);
+	IDawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER selectLetter);
 }

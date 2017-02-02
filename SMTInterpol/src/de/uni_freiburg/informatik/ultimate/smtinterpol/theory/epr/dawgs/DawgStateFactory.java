@@ -49,9 +49,9 @@ public class DawgStateFactory<LETTER, COLNAMES> {
 
 	private Map<Set<DawgState>, SetDawgState> mDawgStateSetToSetDawgState;
 
-	private final NestedMap3<DawgLetter<LETTER, COLNAMES>, COLNAMES, DawgState, RenameAndReorderDawgState<LETTER, COLNAMES>> 
+	private final NestedMap3<IDawgLetter<LETTER, COLNAMES>, COLNAMES, DawgState, RenameAndReorderDawgState<LETTER, COLNAMES>> 
 		mLetterToColNameToDawgStateToRenameAndReorderDawgState = 
-		new NestedMap3<DawgLetter<LETTER, COLNAMES>, COLNAMES, DawgState, RenameAndReorderDawgState<LETTER,COLNAMES>>();
+		new NestedMap3<IDawgLetter<LETTER, COLNAMES>, COLNAMES, DawgState, RenameAndReorderDawgState<LETTER,COLNAMES>>();
 
 	PairDawgState getOrCreatePairDawgState(DawgState first, DawgState second) {
 		
@@ -105,7 +105,7 @@ public class DawgStateFactory<LETTER, COLNAMES> {
 		return new DawgState();
 	}
 
-	public RenameAndReorderDawgState<LETTER, COLNAMES> getReorderAndRenameDawgState(DawgLetter<LETTER, COLNAMES> key, 
+	public RenameAndReorderDawgState<LETTER, COLNAMES> getReorderAndRenameDawgState(IDawgLetter<LETTER, COLNAMES> key, 
 			COLNAMES newRightNeighbour,	DawgState value) {
 		RenameAndReorderDawgState<LETTER, COLNAMES> result = 
 				mLetterToColNameToDawgStateToRenameAndReorderDawgState.get(key, newRightNeighbour, value);

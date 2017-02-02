@@ -16,11 +16,11 @@ public class DeterminizeDawg<LETTER, COLNAMES> {
 	private final DawgLetterFactory<LETTER, COLNAMES> mDawgLetterFactory;
 
 	private SetDawgState mResultInitialState;
-	private NestedMap2<DawgState, DawgLetter<LETTER, COLNAMES>, DawgState> mResultTransitionRelation;
+	private NestedMap2<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> mResultTransitionRelation;
 	private SortedSet<COLNAMES> mColnames;
 	private Set<LETTER> mAllConstants;
 	private LogProxy mLogger;
-	private NestedMap2<DawgState, DawgLetter<LETTER, COLNAMES>, DawgState> mInputTransitionRelation;
+	private NestedMap2<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> mInputTransitionRelation;
 	private Set<DawgState> mInputInitialStates;
 
 
@@ -39,7 +39,7 @@ public class DeterminizeDawg<LETTER, COLNAMES> {
 	public DeterminizeDawg(SortedSet<COLNAMES> colnames, 
 			Set<LETTER> allConstants, 
 			LogProxy logger,
-			NestedMap2<DawgState, DawgLetter<LETTER, COLNAMES>, DawgState> transitionRelation,
+			NestedMap2<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> transitionRelation,
 			Set<DawgState> initialStates, 
 			DawgFactory<LETTER, COLNAMES> dawgFactory) {
 		this.mColnames = colnames;
@@ -56,31 +56,31 @@ public class DeterminizeDawg<LETTER, COLNAMES> {
 	private void determinize() {
 		mResultInitialState = mDawgStateFactory.getOrCreateSetDawgState(mInputInitialStates);
 		
-		mResultTransitionRelation = new NestedMap2<DawgState, DawgLetter<LETTER,COLNAMES>, DawgState>();
+		mResultTransitionRelation = new NestedMap2<DawgState, IDawgLetter<LETTER,COLNAMES>, DawgState>();
 		
 		ArrayDeque<SetDawgState> worklist = new ArrayDeque<SetDawgState>();
 		worklist.add(mResultInitialState);
 		while (true) {
 			final SetDawgState currentSetState = worklist.pop();
 		
-			BinaryRelation<DawgLetter<LETTER, COLNAMES>, DawgLetter<LETTER, COLNAMES>> occuringDawgLetterToDividedDawgLetters =
+			BinaryRelation<IDawgLetter<LETTER, COLNAMES>, IDawgLetter<LETTER, COLNAMES>> occuringDawgLetterToDividedDawgLetters =
 					divideDawgLetters(currentSetState.getInnerStates());
 			
 			
-			BinaryRelation<DawgLetter<LETTER, COLNAMES>, DawgState> dividedDawgLetterToTargetStates =
-					new BinaryRelation<DawgLetter<LETTER,COLNAMES>, DawgState>();
+			BinaryRelation<IDawgLetter<LETTER, COLNAMES>, DawgState> dividedDawgLetterToTargetStates =
+					new BinaryRelation<IDawgLetter<LETTER,COLNAMES>, DawgState>();
 			
 			
-			for (DawgLetter<LETTER, COLNAMES> odl : occuringDawgLetterToDividedDawgLetters.getDomain()) {
+			for (IDawgLetter<LETTER, COLNAMES> odl : occuringDawgLetterToDividedDawgLetters.getDomain()) {
 				for (DawgState state : currentSetState.getInnerStates()) {
 					final DawgState targetState = mInputTransitionRelation.get(state, odl);
-					for (DawgLetter<LETTER, COLNAMES> ddl : occuringDawgLetterToDividedDawgLetters.getImage(odl)) {
+					for (IDawgLetter<LETTER, COLNAMES> ddl : occuringDawgLetterToDividedDawgLetters.getImage(odl)) {
 						dividedDawgLetterToTargetStates.addPair(ddl, targetState);
 					}
 				}
 			}
 			
-			for (DawgLetter<LETTER, COLNAMES> ddl : dividedDawgLetterToTargetStates.getDomain()) {
+			for (IDawgLetter<LETTER, COLNAMES> ddl : dividedDawgLetterToTargetStates.getDomain()) {
 				 final SetDawgState targetSetState = mDawgStateFactory.getOrCreateSetDawgState(
 						 dividedDawgLetterToTargetStates.getImage(ddl));
 				 mResultTransitionRelation.put(currentSetState, ddl, targetSetState);
@@ -99,20 +99,20 @@ public class DeterminizeDawg<LETTER, COLNAMES> {
 	 * @param dawgStates
 	 * @return
 	 */
-	private BinaryRelation<DawgLetter<LETTER, COLNAMES>, DawgLetter<LETTER, COLNAMES>> divideDawgLetters(
+	private BinaryRelation<IDawgLetter<LETTER, COLNAMES>, IDawgLetter<LETTER, COLNAMES>> divideDawgLetters(
 			Set<DawgState> dawgStates) {
 		
 		/*
 		 * In this relation we keep the mapping between the original states and the (partially) split states.
 		 */
-		final BinaryRelation<DawgLetter<LETTER, COLNAMES>, DawgLetter<LETTER, COLNAMES>> result = 
-				new BinaryRelation<DawgLetter<LETTER,COLNAMES>, DawgLetter<LETTER,COLNAMES>>();
+		final BinaryRelation<IDawgLetter<LETTER, COLNAMES>, IDawgLetter<LETTER, COLNAMES>> result = 
+				new BinaryRelation<IDawgLetter<LETTER,COLNAMES>, IDawgLetter<LETTER,COLNAMES>>();
 	
 		
-		final Set<DawgLetter<LETTER, COLNAMES>> originalDawgLetters = new HashSet<DawgLetter<LETTER,COLNAMES>>();
+		final Set<IDawgLetter<LETTER, COLNAMES>> originalDawgLetters = new HashSet<IDawgLetter<LETTER,COLNAMES>>();
 		for (DawgState state : dawgStates) {
-			for (Entry<DawgLetter<LETTER, COLNAMES>, DawgState> outEdge : mInputTransitionRelation.get(state).entrySet()) {
-				final DawgLetter<LETTER, COLNAMES> originalDawgLetter = outEdge.getKey();
+			for (Entry<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge : mInputTransitionRelation.get(state).entrySet()) {
+				final IDawgLetter<LETTER, COLNAMES> originalDawgLetter = outEdge.getKey();
 				originalDawgLetters.add(originalDawgLetter);
 				result.addPair(originalDawgLetter, originalDawgLetter);
 			}
@@ -127,9 +127,9 @@ public class DeterminizeDawg<LETTER, COLNAMES> {
 		 *   - search for two intersecting letters l1, l2, break if there are none
 		 *   - remove l1, l2, add the letters l1\l2, l1 \cap l2, l2\l1 to the worklist
 		 */
-		Set<DawgLetter<LETTER, COLNAMES>> worklist = new HashSet<DawgLetter<LETTER, COLNAMES>>(originalDawgLetters);
+		Set<IDawgLetter<LETTER, COLNAMES>> worklist = new HashSet<IDawgLetter<LETTER, COLNAMES>>(originalDawgLetters);
 		while (true) {
-			Pair<DawgLetter<LETTER, COLNAMES>, DawgLetter<LETTER, COLNAMES>> intersectingPair = 
+			Pair<IDawgLetter<LETTER, COLNAMES>, IDawgLetter<LETTER, COLNAMES>> intersectingPair = 
 					findIntersectingPair(worklist);
 			if (intersectingPair == null) {
 				// all DawgLetters in worklist are pairwise disjoint or identical --> we're done
@@ -142,37 +142,37 @@ public class DeterminizeDawg<LETTER, COLNAMES> {
 			/*
 			 * update the worklist
 			 */
-			final DawgLetter<LETTER, COLNAMES> intersection = intersectingPair.getFirst().intersect(intersectingPair.getSecond());
+			final IDawgLetter<LETTER, COLNAMES> intersection = intersectingPair.getFirst().intersect(intersectingPair.getSecond());
 			assert !intersection.equals(mDawgLetterFactory.getEmptyDawgLetter());
 			worklist.add(intersection);
 			
-			final Set<DawgLetter<LETTER, COLNAMES>> difference1 = 
+			final Set<IDawgLetter<LETTER, COLNAMES>> difference1 = 
 					intersectingPair.getFirst().difference(intersectingPair.getSecond());
 			worklist.addAll(difference1);
 
-			final Set<DawgLetter<LETTER, COLNAMES>> difference2 = 
+			final Set<IDawgLetter<LETTER, COLNAMES>> difference2 = 
 					intersectingPair.getSecond().difference(intersectingPair.getFirst());
 			worklist.addAll(difference2);
 
 			/*
 			 * update the result map
 			 */
-			Set<DawgLetter<LETTER, COLNAMES>> firstPreImage = result.getPreImage(intersectingPair.getFirst());
-			Set<DawgLetter<LETTER, COLNAMES>> secondPreImage = result.getPreImage(intersectingPair.getSecond());
+			Set<IDawgLetter<LETTER, COLNAMES>> firstPreImage = result.getPreImage(intersectingPair.getFirst());
+			Set<IDawgLetter<LETTER, COLNAMES>> secondPreImage = result.getPreImage(intersectingPair.getSecond());
 			
-			for (DawgLetter<LETTER, COLNAMES> originalLetter : firstPreImage) {
+			for (IDawgLetter<LETTER, COLNAMES> originalLetter : firstPreImage) {
 				result.removePair(originalLetter, intersectingPair.getFirst());
 				result.addPair(originalLetter, intersection);
-				for (DawgLetter<LETTER, COLNAMES> dl : difference1) {
+				for (IDawgLetter<LETTER, COLNAMES> dl : difference1) {
 					assert dl != null;
 					assert !dl.equals(mDawgLetterFactory.getEmptyDawgLetter()) : "TODO: treat this case";
 					result.addPair(originalLetter, dl);
 				}
 			}
-			for (DawgLetter<LETTER, COLNAMES> originalLetter : secondPreImage) {
+			for (IDawgLetter<LETTER, COLNAMES> originalLetter : secondPreImage) {
 				result.removePair(originalLetter, intersectingPair.getSecond());
 				result.addPair(originalLetter, intersection);
-				for (DawgLetter<LETTER, COLNAMES> dl : difference2) {
+				for (IDawgLetter<LETTER, COLNAMES> dl : difference2) {
 					assert dl != null;
 					assert !dl.equals(mDawgLetterFactory.getEmptyDawgLetter()) : "TODO: treat this case";
 					result.addPair(originalLetter, dl);
@@ -227,17 +227,17 @@ public class DeterminizeDawg<LETTER, COLNAMES> {
 	 * @param letters
 	 * @return
 	 */
-	private Pair<DawgLetter<LETTER, COLNAMES>, DawgLetter<LETTER, COLNAMES>> findIntersectingPair(
-			Set<DawgLetter<LETTER, COLNAMES>> letters) {
-		for (DawgLetter<LETTER, COLNAMES> l1 : letters) {
-			for (DawgLetter<LETTER, COLNAMES> l2 : letters) {
+	private Pair<IDawgLetter<LETTER, COLNAMES>, IDawgLetter<LETTER, COLNAMES>> findIntersectingPair(
+			Set<IDawgLetter<LETTER, COLNAMES>> letters) {
+		for (IDawgLetter<LETTER, COLNAMES> l1 : letters) {
+			for (IDawgLetter<LETTER, COLNAMES> l2 : letters) {
 				if (l1.equals(l2)) {
 					continue;
 				}
 				if (l1.intersect(l2).equals(mDawgLetterFactory.getEmptyDawgLetter())) {
 					continue;
 				}
-				return new Pair<DawgLetter<LETTER,COLNAMES>, DawgLetter<LETTER,COLNAMES>>(l1, l2);
+				return new Pair<IDawgLetter<LETTER,COLNAMES>, IDawgLetter<LETTER,COLNAMES>>(l1, l2);
 			}
 		}
 		return null;

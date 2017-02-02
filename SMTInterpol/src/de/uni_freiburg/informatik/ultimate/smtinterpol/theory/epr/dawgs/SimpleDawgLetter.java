@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class SimpleDawgLetter<LETTER, COLNAMES> implements DawgLetter<LETTER, COLNAMES> {
+public class SimpleDawgLetter<LETTER, COLNAMES> implements IDawgLetter<LETTER, COLNAMES> {
 	
 	private final Set<LETTER> mLetters;
 	private final DawgLetterFactory<LETTER, COLNAMES> mDawgLetterFactory;
@@ -17,7 +17,7 @@ public class SimpleDawgLetter<LETTER, COLNAMES> implements DawgLetter<LETTER, CO
 	}
 
 	@Override
-	public Set<DawgLetter<LETTER, COLNAMES>> complement() {
+	public Set<IDawgLetter<LETTER, COLNAMES>> complement() {
 		final Set<LETTER> resultLetters = new HashSet<LETTER>();
 		resultLetters.addAll(mDawgLetterFactory.getAllConstants());
 		resultLetters.removeAll(mLetters);
@@ -26,7 +26,7 @@ public class SimpleDawgLetter<LETTER, COLNAMES> implements DawgLetter<LETTER, CO
 	}
 
 	@Override
-	public Set<DawgLetter<LETTER, COLNAMES>> difference(DawgLetter<LETTER, COLNAMES> other) {
+	public Set<IDawgLetter<LETTER, COLNAMES>> difference(IDawgLetter<LETTER, COLNAMES> other) {
 		SimpleDawgLetter<LETTER, COLNAMES> otherSdl = (SimpleDawgLetter<LETTER, COLNAMES>) other;
 		final Set<LETTER> resultLetters = new HashSet<LETTER>();
 		resultLetters.addAll(mLetters);
@@ -36,7 +36,7 @@ public class SimpleDawgLetter<LETTER, COLNAMES> implements DawgLetter<LETTER, CO
 	}
 
 	@Override
-	public DawgLetter<LETTER, COLNAMES> intersect(DawgLetter<LETTER, COLNAMES> other) {
+	public IDawgLetter<LETTER, COLNAMES> intersect(IDawgLetter<LETTER, COLNAMES> other) {
 		SimpleDawgLetter<LETTER, COLNAMES> otherSdl = (SimpleDawgLetter<LETTER, COLNAMES>) other;
 		final Set<LETTER> resultLetters = new HashSet<LETTER>();
 		resultLetters.addAll(mLetters);
@@ -55,7 +55,7 @@ public class SimpleDawgLetter<LETTER, COLNAMES> implements DawgLetter<LETTER, CO
 	}
 
 	@Override
-	public DawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER selectLetter) {
+	public IDawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER selectLetter) {
 		return mDawgLetterFactory.getSimpleDawgLetter(Collections.singleton(selectLetter));
 	}
 }

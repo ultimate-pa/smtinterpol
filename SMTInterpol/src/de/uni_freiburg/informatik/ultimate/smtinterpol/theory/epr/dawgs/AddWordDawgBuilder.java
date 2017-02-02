@@ -8,7 +8,7 @@ public class AddWordDawgBuilder<LETTER, COLNAMES> {
 	private final DawgFactory<LETTER, COLNAMES> mDawgFactory;
 	private final Dawg<LETTER, COLNAMES> mInputDawg;
 	private final List<LETTER> mWordToAdd;
-	private NestedMap2<DawgState, DawgLetter<LETTER, COLNAMES>, DawgState> mNewTransitionRelation;
+	private NestedMap2<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> mNewTransitionRelation;
 
 	public AddWordDawgBuilder(DawgFactory<LETTER, COLNAMES> dawgFactory, Dawg<LETTER, COLNAMES> dawg,
 			List<LETTER> word) {
@@ -21,7 +21,7 @@ public class AddWordDawgBuilder<LETTER, COLNAMES> {
 	private void addWord() {
 		DawgState currentState = mInputDawg.getInitialState();
 		for (LETTER letter : mWordToAdd) {
-			for (Entry<DawgLetter<LETTER, COLNAMES>, DawgState> outEdge : 
+			for (Entry<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge : 
 				mInputDawg.getTransitionRelation().get(currentState).entrySet()) {
 				if (outEdge.getKey().matches(letter, mWordToAdd, mInputDawg.getColNameToIndex())) {
 					// we already have a transition for the current letter
@@ -33,7 +33,7 @@ public class AddWordDawgBuilder<LETTER, COLNAMES> {
 					// the given word suffix..
 					
 					final DawgState newState = mDawgFactory.getDawgStateFactory().createDawgState();
-					final DawgLetter<LETTER, COLNAMES> newLetter = mDawgFactory.getDawgLetterFactory()
+					final IDawgLetter<LETTER, COLNAMES> newLetter = mDawgFactory.getDawgLetterFactory()
 							.createSingletonSetDawgLetter(letter);
 					mNewTransitionRelation.put(currentState, newLetter, newState);
 					currentState = newState;
