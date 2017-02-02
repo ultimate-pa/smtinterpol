@@ -50,21 +50,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
  */
 public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	
-	/*
-	 * convention:
-	 * states are just integers
-	 * 
-	 * the initial state is "0"
-	 * the accepting state is <mArity>
-	 * the sink state is "-1"
-	 */
-	
 	final DawgState mInitialState;
-//	final Set<DawgState> mInitialStates;
-//	DawgState mFinalState;
-	
-//	// TODO: do we need a sink state?
-//	DawgState mSinkState;
 	
 	private boolean mIsEmpty;
 	private boolean mIsUniversal;
@@ -74,7 +60,6 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	/**
 	 * Transition relation of the finite automaton as a nested map.
 	 */
-//	private final Map<DawgState, Map<DawgLetter<LETTER, COLNAMES>, DawgState>> mTransitionRelation;
 	private final NestedMap2<DawgState, DawgLetter<LETTER, COLNAMES>, DawgState> mTransitionRelation;
 	
 	private final DawgLetterFactory<LETTER, COLNAMES> mDawgLetterFactory;
@@ -96,13 +81,12 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		
 		mTransitionRelation = new NestedMap2<DawgState, DawgLetter<LETTER,COLNAMES>,DawgState>();
 		
-//		mInitialStates =  Collections.singleton(mDawgStateFactory.createDawgState());
 		mInitialState =  mDawgStateFactory.createDawgState();
 		
 		mFinalStates = Collections.emptySet();
 		
-		mIsUniversal = true;
-		mIsEmpty = false;
+		mIsUniversal = false;
+		mIsEmpty = true;
 	}
 
 	/**
@@ -120,12 +104,10 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		mDawgStateFactory = df.getDawgStateFactory();
 		mDawgLetterFactory = df.getDawgLetterFactory();
 		
-//		mInitialStates =  Collections.singleton(mDawgStateFactory.createDawgState());
 		mInitialState =  mDawgStateFactory.createDawgState();
 
 		mTransitionRelation = new NestedMap2<DawgState, DawgLetter<LETTER,COLNAMES>,DawgState>();
 		
-//		DawgState currentState = mInitialStates.iterator().next();
 		DawgState currentState = mInitialState;
 
 		for (int i = 0; i < colnames.size(); i++) {
@@ -158,10 +140,8 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 
 		mTransitionRelation = new NestedMap2<DawgState, DawgLetter<LETTER,COLNAMES>,DawgState>();
 
-//		mInitialStates =  Collections.singleton(mDawgStateFactory.createDawgState());
 		mInitialState =  mDawgStateFactory.createDawgState();
 		
-//		DawgState currentState = mInitialStates.iterator().next();
 		DawgState currentState = mInitialState;
 
 		for (int i = 0; i < colnames.size(); i++) {
@@ -180,26 +160,52 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	Dawg(final DawgFactory<LETTER, COLNAMES> df, final SortedSet<COLNAMES> colnames, 
 			Set<LETTER> allConstants, 
 			final LogProxy logger, 
-final NestedMap2<DawgState, DawgLetter<LETTER, COLNAMES>, DawgState> tr,
-			//			final Set<DawgState> initialStates,
+			final NestedMap2<DawgState, DawgLetter<LETTER, COLNAMES>, DawgState> tr,
 			final DawgState initialState) {
 		super(colnames, allConstants, logger);
 		
 		mDawgFactory = df;
 		mDawgStateFactory = df.getDawgStateFactory();
 		mDawgLetterFactory = df.getDawgLetterFactory();
-//		mInitialStates = initialStates;
+		
 		mInitialState = initialState;
 	
 		mTransitionRelation = tr;
 		
 		mFinalStates = computeFinalStates();
 
-		mIsUniversal = false;
+		mIsUniversal = checkUniversality();
 		mIsEmpty = false;
 	}
 
 
+
+	private boolean checkUniversality() {
+		
+		Set<DawgState> currentStates = new HashSet<DawgState>();
+		currentStates.add(mInitialState);
+		
+		while (!currentStates.isEmpty()) {
+			final Set<DawgState> newCurrentStates = new HashSet<DawgState>();
+			for (DawgState cs : currentStates) {
+				final Set<DawgLetter<LETTER, COLNAMES>> outLetters = new HashSet<DawgLetter<LETTER,COLNAMES>>();
+				for (Entry<DawgLetter<LETTER, COLNAMES>, DawgState> outEdge : 
+					mTransitionRelation.get(cs).entrySet()) {
+					
+					outLetters.add(outEdge.getKey());
+					newCurrentStates.add(outEdge.getValue());
+				}
+				
+				if (!mDawgLetterFactory.isUniversal(outLetters)) {
+					return false;
+				}
+				
+			}
+			currentStates = newCurrentStates;
+		}
+		
+		return true;
+	}
 
 	private Set<DawgState> computeFinalStates() {
 		Set<DawgState> currentStates = new HashSet<DawgState>();
@@ -254,7 +260,6 @@ final NestedMap2<DawgState, DawgLetter<LETTER, COLNAMES>, DawgState> tr,
 		
 		
 		Set<DawgState> currentStates = new HashSet<DawgState>();
-//		currentStates.addAll(mInitialStates);
 		currentStates.add(mInitialState);
 		
 		DawgState nextLevelFormerSinkState = null;
@@ -356,7 +361,7 @@ final NestedMap2<DawgState, DawgLetter<LETTER, COLNAMES>, DawgState> tr,
 
 	@Override
 	public IDawg<LETTER, COLNAMES> add(List<LETTER> arguments) {
-		return new AddWordDawgBuilder(mDawgFactory, this, arguments).build();
+		return new AddWordDawgBuilder<LETTER, COLNAMES>(mDawgFactory, this, arguments).build();
 	}
 
 	@Override

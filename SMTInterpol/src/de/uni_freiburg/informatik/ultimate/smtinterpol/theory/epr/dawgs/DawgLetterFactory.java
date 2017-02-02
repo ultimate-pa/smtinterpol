@@ -194,4 +194,10 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 		
 		return result;
 	}
+
+	public boolean isUniversal(Set<DawgLetter<LETTER, COLNAMES>> outLetters) {
+		// TODO Auto-generated method stub
+		assert false : "TODO";
+		return false;
+	}
 }
