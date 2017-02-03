@@ -272,8 +272,8 @@ public class DeterminizeDawg<LETTER, COLNAMES> {
 	public Dawg<LETTER, COLNAMES> build() {
 		assert mResultTransitionRelation != null;
 		assert mResultInitialState != null;
-		return new Dawg<LETTER, COLNAMES>(mDawgFactory, mColnames, 
-				mAllConstants, mLogger, mResultTransitionRelation, mResultInitialState);
+		return new Dawg<LETTER, COLNAMES>(mDawgFactory, mLogger, 
+				mAllConstants, mColnames, mResultTransitionRelation, mResultInitialState);
 	}
 
 

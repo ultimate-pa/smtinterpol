@@ -321,7 +321,7 @@ public class EprClause {
 		// Although the whole literal is not fulfilled, some points may be..
 		// we only need to consider points where no literal is decided "true" yet..
 		IDawg<ApplicationTerm, TermVariable> pointsToConsider = 
-				mEprTheory.getDawgFactory().createFullDawg(getVariables());
+				mEprTheory.getDawgFactory().getUniversalDawg(getVariables());
 		for (ClauseLiteral cl : getLiterals()) {
 			if (cl.isRefuted(decideStackBorder)) {
 				continue;
@@ -345,9 +345,9 @@ public class EprClause {
 		IDawg<ApplicationTerm, TermVariable> pointsWhereNoLiteralsAreFulfillable =
 				mDawgFactory.copyDawg(pointsToConsider);
 		IDawg<ApplicationTerm, TermVariable> pointsWhereOneLiteralIsFulfillable =
-				mDawgFactory.createEmptyDawg(getVariables());
+				mDawgFactory.getEmptyDawg(getVariables());
 		IDawg<ApplicationTerm, TermVariable> pointsWhereTwoOrMoreLiteralsAreFulfillable =
-				mDawgFactory.createEmptyDawg(getVariables());
+				mDawgFactory.getEmptyDawg(getVariables());
 		assert EprHelpers.haveSameSignature(pointsWhereNoLiteralsAreFulfillable,
 				pointsWhereOneLiteralIsFulfillable,
 				pointsWhereTwoOrMoreLiteralsAreFulfillable);

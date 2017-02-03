@@ -711,4 +711,18 @@ public class EprHelpers {
 		}
 		return result;
 	}
+
+	public static <COLNAMES> SortedSet<COLNAMES> transformSignature(final SortedSet<COLNAMES> colNames,
+			final Map<COLNAMES, COLNAMES> renaming) {
+		final SortedSet<COLNAMES> result = new TreeSet<COLNAMES>(EprHelpers.getColumnNamesComparator());
+		for (COLNAMES oldCol : colNames) {
+			final COLNAMES newCol = renaming.get(oldCol);
+			if (newCol == null) {
+				result.add(oldCol);
+			} else {
+				result.add(newCol);
+			}
+		}
+		return result;
+	}
 }

@@ -20,6 +20,7 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
 
 import java.util.Set;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -164,6 +165,13 @@ public class DawgLetterWithEqualities<LETTER, COLNAMES> implements IDawgLetter<L
 
 	public Set<COLNAMES> getUnequalColnames() {
 		return mUnequalColnames;
+	}
+
+	@Override
+	public Collection<LETTER> allLettersThatMatch(List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex) {
+		// TODO Auto-generated method stub
+		assert false : "TODO";
+		return null;
 	}
 }
 

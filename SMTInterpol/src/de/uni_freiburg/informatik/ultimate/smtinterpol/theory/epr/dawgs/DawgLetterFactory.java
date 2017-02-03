@@ -19,6 +19,7 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -213,6 +214,15 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 	}
 
 	public boolean isUniversal(Set<IDawgLetter<LETTER, COLNAMES>> outLetters) {
+		if (outLetters.size() == 1 && outLetters.iterator().next() instanceof EmptyDawgLetter<?, ?>) {
+			return false;
+		}
+		if (outLetters.size() == 1 && outLetters.iterator().next() instanceof UniversalDawgLetter<?, ?>) {
+			return true;
+		}
+		if (outLetters.size() == 1 && outLetters.iterator().next() instanceof SimpleDawgLetter<?, ?>) {
+			return ((SimpleDawgLetter<LETTER, COLNAMES>) outLetters.iterator().next()).getLetters().equals(mAllConstants);
+		}
 		// TODO Auto-generated method stub
 		assert false : "TODO";
 		return false;
@@ -274,6 +284,11 @@ class EmptyDawgLetter<LETTER, COLNAMES> implements IDawgLetter<LETTER, COLNAMES>
 		assert false;
 		return null;
 	}
+
+	@Override
+	public Collection<LETTER> allLettersThatMatch(List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex) {
+		return Collections.emptySet();
+	}
 }
 
 /**
@@ -316,5 +331,10 @@ class UniversalDawgLetter<LETTER, COLNAMES> implements IDawgLetter<LETTER, COLNA
 	@Override
 	public IDawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER ltr) {
 		return mDawgLetterFactory.createSingletonSetDawgLetter(ltr);
+	}
+
+	@Override
+	public Collection<LETTER> allLettersThatMatch(List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex) {
+		return mDawgLetterFactory.getAllConstants();
 	}
 }

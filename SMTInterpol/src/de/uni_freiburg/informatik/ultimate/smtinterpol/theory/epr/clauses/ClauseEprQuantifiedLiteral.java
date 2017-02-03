@@ -210,7 +210,7 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 
 		// collect the points in a dawg with the predicate's signature
 		IDawg<ApplicationTerm, TermVariable> refutedPoints = 
-				mEprTheory.getDawgFactory().createEmptyDawg(mAtom.getEprPredicate().getTermVariablesForArguments());
+				mEprTheory.getDawgFactory().getEmptyDawg(mAtom.getEprPredicate().getTermVariablesForArguments());
 		for (IEprLiteral dsl : mPartiallyConflictingDecideStackLiterals) {
 			if (decideStackBorder == null 
 					|| dsl instanceof EprGroundPredicateLiteral 
@@ -229,7 +229,7 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 
 		// collect the points in a dawg with the predicate's signature
 		IDawg<ApplicationTerm, TermVariable> fulfilledPoints = 
-				mEprTheory.getDawgFactory().createEmptyDawg(
+				mEprTheory.getDawgFactory().getEmptyDawg(
 						mAtom.getEprPredicate().getTermVariablesForArguments());
 		for (IEprLiteral dsl : mPartiallyFulfillingDecideStackLiterals) {
 			if (decideStackBorder == null 
@@ -247,7 +247,7 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 				mTranslationForClauseTvToConstants, 
 				mEprClause.getVariables());
 
-		mFulfillablePoints = mEprTheory.getDawgFactory().createFullDawg(mEprClause.getVariables());
+		mFulfillablePoints = mEprTheory.getDawgFactory().getUniversalDawg(mEprClause.getVariables());
 		assert EprHelpers.verifySortsOfPoints(mFulfillablePoints, mEprClause.getVariables());
 
 		mFulfillablePoints = mFulfillablePoints.difference(fulfilledPoints);

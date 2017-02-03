@@ -243,11 +243,11 @@ public class EprPredicate {
 
 	private IDawg<ApplicationTerm, TermVariable> computeUndecidedPoints() {
 		IDawg<ApplicationTerm, TermVariable> positivelySetPoints = 
-				mEprTheory.getDawgFactory().createEmptyDawg(mTermVariablesForArguments);
+				mEprTheory.getDawgFactory().getEmptyDawg(mTermVariablesForArguments);
 		IDawg<ApplicationTerm, TermVariable> negativelySetPoints =
-				mEprTheory.getDawgFactory().createEmptyDawg(mTermVariablesForArguments);
+				mEprTheory.getDawgFactory().getEmptyDawg(mTermVariablesForArguments);
 		IDawg<ApplicationTerm, TermVariable> undecidedPoints = 
-				mEprTheory.getDawgFactory().createEmptyDawg(mTermVariablesForArguments);
+				mEprTheory.getDawgFactory().getEmptyDawg(mTermVariablesForArguments);
 
 		for (IEprLiteral dsl : mEprLiterals) {
 			if (dsl.getPolarity()) {
@@ -276,7 +276,7 @@ public class EprPredicate {
 		}
 
 		IDawg<ApplicationTerm, TermVariable> allDecidedPoints = 
-				mEprTheory.getDawgFactory().createEmptyDawg(mTermVariablesForArguments);
+				mEprTheory.getDawgFactory().getEmptyDawg(mTermVariablesForArguments);
 //		allDecidedPoints.addAll(positivelySetPoints);
 		allDecidedPoints = allDecidedPoints.union(positivelySetPoints);
 //		allDecidedPoints.addAll(negativelySetPoints);

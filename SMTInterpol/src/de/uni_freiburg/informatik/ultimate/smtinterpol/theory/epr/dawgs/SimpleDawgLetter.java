@@ -19,6 +19,7 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -83,5 +84,15 @@ public class SimpleDawgLetter<LETTER, COLNAMES> implements IDawgLetter<LETTER, C
 	@Override
 	public IDawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER selectLetter) {
 		return mDawgLetterFactory.getSimpleDawgLetter(Collections.singleton(selectLetter));
+	}
+
+	@Override
+	public Collection<LETTER> allLettersThatMatch(List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex) {
+		return getLetters();
+	}
+	
+	@Override
+	public String toString() {
+		return "SimpleDawgLetter: " + getLetters();
 	}
 }

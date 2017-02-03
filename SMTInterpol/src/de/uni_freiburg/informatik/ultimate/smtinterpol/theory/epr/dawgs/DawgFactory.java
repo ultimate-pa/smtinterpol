@@ -28,6 +28,8 @@ import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
@@ -54,6 +56,11 @@ public class DawgFactory<LETTER, COLNAMES> {
 	 */
 	private boolean mUseNaiveDawgs = false;
 
+	private final Map<SortedSet<COLNAMES>, IDawg<LETTER, COLNAMES>> mEmptyDawgs = 
+			new HashMap<SortedSet<COLNAMES>, IDawg<LETTER,COLNAMES>>();
+	private final Map<SortedSet<COLNAMES>, IDawg<LETTER, COLNAMES>> mUniversalDawgs = 
+			new HashMap<SortedSet<COLNAMES>, IDawg<LETTER, COLNAMES>>();
+
 	public DawgFactory(Set<LETTER> allConstants, EprTheory eprTheory) {
 		mEprTheory = eprTheory;
 		mAllConstants = allConstants;
@@ -68,14 +75,14 @@ public class DawgFactory<LETTER, COLNAMES> {
 		}
 	}
 
-	public IDawg<LETTER, COLNAMES> createEmptyDawg(SortedSet<COLNAMES> termVariables) {
+	private IDawg<LETTER, COLNAMES> createEmptyDawg(SortedSet<COLNAMES> termVariables) {
 		assert termVariables != null;
 		//TODO freeze the current allConstants set, here?? or can it just change transparently?? 
 		
 		if (mUseNaiveDawgs) {
 			return new NaiveDawg<LETTER, COLNAMES>(termVariables, mAllConstants, mLogger);
 		} else {
-			return new Dawg<LETTER, COLNAMES>(termVariables, mAllConstants, mLogger, this);
+			return new Dawg<LETTER, COLNAMES>(this, mLogger, mAllConstants, termVariables);
 		}
 	}
 
@@ -86,13 +93,13 @@ public class DawgFactory<LETTER, COLNAMES> {
 	 * @param termVariables
 	 * @return
 	 */
-	public IDawg<LETTER, COLNAMES> createFullDawg(SortedSet<COLNAMES> termVariables) {
+	private IDawg<LETTER, COLNAMES> createFullDawg(SortedSet<COLNAMES> termVariables) {
 		assert termVariables != null;
 		if (mUseNaiveDawgs) {
 			return new NaiveDawg<LETTER, COLNAMES>(termVariables, mAllConstants, mLogger).complement();
 		} else {
-			return new Dawg<LETTER, COLNAMES>(termVariables, mAllConstants,  true, 
-					mLogger, this);
+			return new Dawg<LETTER, COLNAMES>(this, mLogger,  mAllConstants, 
+					termVariables, true);
 		}
 	}
 
@@ -104,8 +111,8 @@ public class DawgFactory<LETTER, COLNAMES> {
 			dawg.add(point);
 			return dawg;
 		} else {
-			return new Dawg<LETTER, COLNAMES>(sig, 
-					mAllConstants, point, mLogger, this);
+			return new Dawg<LETTER, COLNAMES>(this, 
+					mLogger, mAllConstants, sig, point);
 		}
 	}
 
@@ -114,11 +121,20 @@ public class DawgFactory<LETTER, COLNAMES> {
 			NaiveDawg<LETTER, COLNAMES> nd = (NaiveDawg<LETTER, COLNAMES>) dawg;
 			return new NaiveDawg<LETTER, COLNAMES>(nd, mLogger);
 		} else {
+			if (dawg.isEmpty()) {
+//				return new Dawg<LETTER, COLNAMES>(this, mLogger, mAllConstants, dawg.getColnames());
+//				return createEmptyDawg(dawg.getColnames());
+				return dawg;
+			}
+			if (dawg.isUniversal()) {
+//				return new Dawg<LETTER, COLNAMES>(this, mLogger, mAllConstants, dawg.getColnames(), true);
+				return dawg;
+			}
 			return new Dawg<LETTER, COLNAMES>(
 					this, 
-					dawg.getColnames(), 
-					mAllConstants, 
 					mLogger, 
+					mAllConstants, 
+					dawg.getColnames(), 
 					((Dawg<LETTER, COLNAMES>) dawg).getTransitionRelation().copy(), 
 					((Dawg<LETTER, COLNAMES>) dawg).getInitialState());
 		}
@@ -331,6 +347,24 @@ public class DawgFactory<LETTER, COLNAMES> {
 
 		public DawgStateFactory<LETTER, COLNAMES> getDawgStateFactory() {
 			return mDawgStateFactory;
+		}
+
+		public IDawg<LETTER, COLNAMES> getEmptyDawg(SortedSet<COLNAMES> termVariablesForArguments) {
+			IDawg<LETTER, COLNAMES> result = mEmptyDawgs.get(termVariablesForArguments);
+			if (result == null) {
+				result = createEmptyDawg(termVariablesForArguments);
+				mEmptyDawgs.put(termVariablesForArguments, result);
+			}
+			return result;
+		}
+
+		public IDawg<LETTER, COLNAMES> getUniversalDawg(SortedSet<COLNAMES> termVariablesForArguments) {
+			IDawg<LETTER, COLNAMES> result = mUniversalDawgs.get(termVariablesForArguments);
+			if (result == null) {
+				result = createFullDawg(termVariablesForArguments);
+				mUniversalDawgs.put(termVariablesForArguments, result);
+			}
+			return result;
 		}
 	
 }

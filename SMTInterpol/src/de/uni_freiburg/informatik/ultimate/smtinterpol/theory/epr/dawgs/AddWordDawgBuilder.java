@@ -73,8 +73,8 @@ public class AddWordDawgBuilder<LETTER, COLNAMES> {
 	public Dawg<LETTER, COLNAMES> build() {
 		assert mNewTransitionRelation != null;
 		return new Dawg<LETTER, COLNAMES>(mDawgFactory, 
-				mInputDawg.getColnames(), mInputDawg.getAllConstants(), 
-				mInputDawg.getLogger(), mNewTransitionRelation, mInputDawg.getInitialState());
+				mInputDawg.getLogger(), mInputDawg.getAllConstants(), 
+				mInputDawg.getColnames(), mNewTransitionRelation, mInputDawg.getInitialState());
 	}
 
 }
