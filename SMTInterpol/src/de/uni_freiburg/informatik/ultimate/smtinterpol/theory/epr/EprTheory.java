@@ -118,6 +118,13 @@ public class EprTheory implements ITheory {
 	 */
 	private Set<Literal> mLiteralsThatAreCurrentlySet = new HashSet<Literal>();
 
+	/**
+	 * Super constructor for EprTheoryMock (for testing).
+	 */
+	public EprTheory(LogProxy logger) {
+		mLogger = logger;
+		mGroundAllMode = false;
+	}
 
 	public EprTheory(Theory th, DPLLEngine engine, CClosure cClosure, Clausifier clausifier, boolean solveThroughGrounding) {
 		mTheory = th;
@@ -130,7 +137,7 @@ public class EprTheory implements ITheory {
 		mStateManager = new EprStateManager(this);
 		mGroundAllMode = solveThroughGrounding;
 		
-		mDawgFactory = new DawgFactory<ApplicationTerm,TermVariable>(mStateManager.getAllConstants(), this);
+		mDawgFactory = new DawgFactory<ApplicationTerm,TermVariable>(this, mStateManager.getAllConstants());
 		mClauseFactory = new EprClauseFactory(this);
 		
 		mStateManager.setDawgFactory(mDawgFactory);

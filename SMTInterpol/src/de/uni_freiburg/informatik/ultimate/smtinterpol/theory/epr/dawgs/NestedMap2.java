@@ -28,6 +28,7 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -204,7 +205,7 @@ public class NestedMap2<K1, K2, V> {
 	public NestedMap2<K1, K2, V> copy() {
 		final NestedMap2<K1, K2, V> result = new NestedMap2<K1, K2, V>();
 		for (final K1 k1 : this.keySet()) {
-			mK1ToK2ToV.put(k1, new HashMap<K2, V>(this.get(k1)));
+			result.mK1ToK2ToV.put(k1, new HashMap<K2, V>(this.get(k1)));
 		}
 		return result;
 	}
@@ -231,6 +232,19 @@ public class NestedMap2<K1, K2, V> {
 			}
 		}
 		return result;
+	}
+
+	public Set<Pair<K2, V>> getOutEdgeSet(K1 state) {
+		Map<K2, V> innerMap = mK1ToK2ToV.get(state);
+		if (innerMap == null) {
+			return Collections.emptySet();
+		} else {
+			Set<Pair<K2, V>> result = new HashSet<Pair<K2,V>>();
+			for (Entry<K2, V> en : innerMap.entrySet()) {
+				result.add(new Pair<K2, V>(en.getKey(), en.getValue()));
+			}
+			return result;
+		}
 	}
 	
 	

@@ -139,7 +139,7 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 			}
 			if (atomT instanceof TermVariable) {
 				predToClauseVariables.put(tv, (TermVariable) atomT);
-				clauseToPred.put(tv, (TermVariable) atomT);
+				clauseToPred.put((TermVariable) atomT, tv);
 			}
 		}
 //		mTranslationForClause = Collections.unmodifiableMap(predToClause);

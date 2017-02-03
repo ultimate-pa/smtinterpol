@@ -86,7 +86,7 @@ public class NestedMap3<K1, K2, K3, V> {
 	public NestedMap3<K1, K2, K3, V> copy() {
 		NestedMap3<K1, K2, K3, V> result = new NestedMap3<K1, K2, K3, V>();
 		for (K1 k1 : this.keySet()) {
-			mK1ToK2ToK3V.put(k1, this.get(k1).copy());
+			result.mK1ToK2ToK3V.put(k1, this.get(k1).copy());
 		}
 		return result;
 	}

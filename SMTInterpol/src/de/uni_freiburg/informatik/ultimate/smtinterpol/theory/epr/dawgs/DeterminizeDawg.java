@@ -137,8 +137,8 @@ public class DeterminizeDawg<LETTER, COLNAMES> {
 		
 		final Set<IDawgLetter<LETTER, COLNAMES>> originalDawgLetters = new HashSet<IDawgLetter<LETTER,COLNAMES>>();
 		for (DawgState state : dawgStates) {
-			for (Entry<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge : mInputTransitionRelation.get(state).entrySet()) {
-				final IDawgLetter<LETTER, COLNAMES> originalDawgLetter = outEdge.getKey();
+			for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge : mInputTransitionRelation.getOutEdgeSet(state)) {
+				final IDawgLetter<LETTER, COLNAMES> originalDawgLetter = outEdge.getFirst();
 				originalDawgLetters.add(originalDawgLetter);
 				result.addPair(originalDawgLetter, originalDawgLetter);
 			}

@@ -193,16 +193,13 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		while (!currentStates.isEmpty()) {
 			final Set<DawgState> newCurrentStates = new HashSet<DawgState>();
 			for (DawgState cs : currentStates) {
-				if (mTransitionRelation.get(cs) == null) {
-					continue;
-				}
-				
+			
 				final Set<IDawgLetter<LETTER, COLNAMES>> outLetters = new HashSet<IDawgLetter<LETTER,COLNAMES>>();
-				for (Entry<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge : 
-					mTransitionRelation.get(cs).entrySet()) {
+				for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge : 
+					mTransitionRelation.getOutEdgeSet(cs)) {
 					
-					outLetters.add(outEdge.getKey());
-					newCurrentStates.add(outEdge.getValue());
+					outLetters.add(outEdge.getFirst());
+					newCurrentStates.add(outEdge.getSecond());
 				}
 				
 				if (!mDawgLetterFactory.isUniversal(outLetters)) {
@@ -222,11 +219,11 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		for (int i = 0; i < mColNames.size(); i++) {
 			final Set<DawgState> newCurrentStates = new HashSet<DawgState>();
 			for (DawgState cs : currentStates) {
-				if (mTransitionRelation.get(cs) == null) {
-					continue;
-				}
-				for (Entry<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge : mTransitionRelation.get(cs).entrySet()) {
-					newCurrentStates.add(outEdge.getValue());
+//				if (mTransitionRelation.get(cs) == null) {
+//					continue;
+//				}
+				for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge : mTransitionRelation.getOutEdgeSet(cs)) {
+					newCurrentStates.add(outEdge.getSecond());
 				}
 			}
 			currentStates = newCurrentStates;
@@ -302,7 +299,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 					lastLevelFormerSinkState, mDawgLetterFactory.getUniversalDawgLetter(), nextLevelFormerSinkState);
 
 			for (DawgState cs : currentStates) {
-				Map<IDawgLetter<LETTER, COLNAMES>, DawgState> oldLetterToDawgState = mTransitionRelation.get(cs);
+//				Map<IDawgLetter<LETTER, COLNAMES>, DawgState> oldLetterToDawgState = mTransitionRelation.get(cs);
 
 				
 				Set<IDawgLetter<LETTER, COLNAMES>> outgoingDawgLetters = new HashSet<IDawgLetter<LETTER,COLNAMES>>();
@@ -310,16 +307,17 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 				/*
 				 * the old transitions stay intact (except for the ones leading to the final state
 				 */
-				for (Entry<IDawgLetter<LETTER, COLNAMES>, DawgState> letterAndState : oldLetterToDawgState.entrySet()) {
+//				for (Entry<IDawgLetter<LETTER, COLNAMES>, DawgState> letterAndState : oldLetterToDawgState.entrySet()) {
+				for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> letterAndState : mTransitionRelation.getOutEdgeSet(cs)) {
 					if (i == this.getColnames().size() - 1) {
 						// we are in the last column
 						// the old transitions lead to the old final state(s)
 						// --> omit those
 						break;
 					}
-					outgoingDawgLetters.add(letterAndState.getKey());
-					nextStates.add(letterAndState.getValue());
-					newTransitionRelation.put(cs, letterAndState.getKey(), letterAndState.getValue());
+					outgoingDawgLetters.add(letterAndState.getFirst());
+					nextStates.add(letterAndState.getSecond());
+					newTransitionRelation.put(cs, letterAndState.getFirst(), letterAndState.getSecond());
 				}
 				
 				/*
@@ -356,17 +354,12 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	}
 
 	private DawgState makeTransition(DawgState source, LETTER ltr, List<LETTER> word) {
-		Map<IDawgLetter<LETTER, COLNAMES>, DawgState> letterToTarget = mTransitionRelation.get(source);
-		if (letterToTarget == null) {
-			// source state has no outgoing edges
-			return null;
-		}
 		// look for an outgoing edge with a DawgLetter that matches ltr
-		for (Entry<IDawgLetter<LETTER, COLNAMES>, DawgState> en : letterToTarget.entrySet()) {
-			IDawgLetter<LETTER, COLNAMES> dl = en.getKey();
+		for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> en : mTransitionRelation.getOutEdgeSet(source)) {
+			IDawgLetter<LETTER, COLNAMES> dl = en.getFirst();
 			if (dl.matches(ltr, word, mColNameToIndex)) {
 				// dl allows a transition with ltr
-				return en.getValue();
+				return en.getSecond();
 			}
 		}
 		// could not find a viable transition
@@ -404,26 +397,20 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			
 			Set<DawgState> newCurrentColnamesPrestates = new HashSet<DawgState>();
 			for (DawgState ccp : currentColnamesPrestates) {
-				Map<IDawgLetter<LETTER, COLNAMES>, DawgState> letterToState = mTransitionRelation.get(ccp);
-
-				if (letterToState == null) {
-					continue;
-				}
-				
-				for (Entry<IDawgLetter<LETTER, COLNAMES>, DawgState> lts : letterToState.entrySet()) {
+				for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> lts : mTransitionRelation.getOutEdgeSet(ccp)) {
 					LETTER selectLetter = selectMap.get(cn);
 					if (selectLetter == null) {
 						// no select constraint 
 						// --> retain all transition and get the states before the next column
 //						newLetterToState.put(lts.getKey(), lts.getValue());
-						newTransitionRelation.put(ccp, lts.getKey(), lts.getValue());
-						newCurrentColnamesPrestates.add(lts.getValue());
+						newTransitionRelation.put(ccp, lts.getFirst(), lts.getSecond());
+						newCurrentColnamesPrestates.add(lts.getSecond());
 					} else {
 						// we have a select constraint
 						// --> Dawg edges that don't allow the select letter are removed
 						// --> Dawg edges that allow the select letter are constrained to only that letter; (un)equals
 						//   constraints remain untouched for those
-						IDawgLetter<LETTER, COLNAMES> dawgLetter = lts.getKey();
+						IDawgLetter<LETTER, COLNAMES> dawgLetter = lts.getFirst();
 						
 						IDawgLetter<LETTER, COLNAMES> restrictedDL = dawgLetter.restrictToLetter(selectLetter);
 
@@ -434,8 +421,8 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 							// dawgLetter does allow transitions with selectLetter
 							// --> replace the label of the transition by the restricted letter
 //							newLetterToState.put(restrictedDL, lts.getValue());
-							newTransitionRelation.put(ccp, restrictedDL, lts.getValue());
-							newCurrentColnamesPrestates.add(lts.getValue());
+							newTransitionRelation.put(ccp, restrictedDL, lts.getSecond());
+							newCurrentColnamesPrestates.add(lts.getSecond());
 						}
 					}
 				}
@@ -468,12 +455,12 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			
 			for (DawgState cs : currentStates) {
 				assert !getFinalStates().contains(cs);
-				for (Entry<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge : 
-						mTransitionRelation.get(cs).entrySet()) {
-					newCurrentStates.add(outEdge.getValue());
+				for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge : 
+						mTransitionRelation.getOutEdgeSet(cs)) {
+					newCurrentStates.add(outEdge.getSecond());
 					
 					for (List<LETTER> prefix : result) {
-						for (LETTER letter : outEdge.getKey().allLettersThatMatch(prefix, mColNameToIndex)) {
+						for (LETTER letter : outEdge.getFirst().allLettersThatMatch(prefix, mColNameToIndex)) {
 							List<LETTER> newPrefix = new ArrayList<LETTER>(prefix);
 							newPrefix.add(letter);
 							newResult.add(newPrefix);
@@ -608,7 +595,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		/*
 		 * 2. reorder an rename the remaining columns
 		 */
-		result = reorderAndRename(translation);
+		result = result.reorderAndRename(translation);
 		
 		/*
 		 * 3. for the constants in argList: insert a column into the dawg where precisely that constant is 
@@ -652,11 +639,11 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		for (DawgState stateLeft : leftOfColumn) {
 			for (Pair<DawgState, IDawgLetter<LETTER, COLNAMES>> edgeLeadingToStateLeft : 
 				mTransitionRelation.getInverse(stateLeft)) {
-				for (Entry<IDawgLetter<LETTER, COLNAMES>, DawgState> edgeLeadingFromStateLeftToAStateRight : 
-					mTransitionRelation.get(stateLeft).entrySet()) {
+				for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> edgeLeadingFromStateLeftToAStateRight : 
+					mTransitionRelation.getOutEdgeSet(stateLeft)) {
 					newTransitionRelation.put(edgeLeadingToStateLeft.getFirst(), 
 							edgeLeadingToStateLeft.getSecond(), 
-							edgeLeadingFromStateLeftToAStateRight.getValue());
+							edgeLeadingFromStateLeftToAStateRight.getSecond());
 				}
 			}
 		}
@@ -694,7 +681,9 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			Set<DawgState> newResult = new HashSet<DawgState>();
 			for (DawgState state : result) {
 				// add all successor states without considering the letter
-				newResult.addAll(mTransitionRelation.get(state).values());
+				if (mTransitionRelation.get(state) != null) {
+					newResult.addAll(mTransitionRelation.get(state).values());
+				}
 			}
 			result = newResult;
 		}
@@ -752,8 +741,8 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		while(!currentStates.isEmpty()) {
 			final Set<DawgState> newCurrentStates = new HashSet<DawgState>();
 			for (DawgState state : currentStates) {
-				for (Entry<IDawgLetter<LETTER, COLNAMES>, DawgState> outgoingEdge : graph.get(state).entrySet()) {
-					final DawgState edgeTarget = outgoingEdge.getValue();
+				for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outgoingEdge : graph.getOutEdgeSet(state)) {
+					final DawgState edgeTarget = outgoingEdge.getSecond();
 					if (edgeTarget.equals(targetState)) {
 						return true;
 					}
@@ -820,10 +809,10 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 				newTransitionRelation.put(incomingTransition.getFirst(), 
 						incomingTransition.getSecond(), en.getValue().getFirst());
 			}
-			for (Entry<IDawgLetter<LETTER, COLNAMES>, DawgState> outgoingTransition : 
-				mTransitionRelation.get(en.getKey()).entrySet()) {
+			for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outgoingTransition : 
+				mTransitionRelation.getOutEdgeSet(en.getKey())) {
 				newTransitionRelation.put(en.getValue().getSecond(), 
-						outgoingTransition.getKey(), outgoingTransition.getValue());
+						outgoingTransition.getFirst(), outgoingTransition.getSecond());
 			}
 		}
 		

@@ -43,7 +43,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
  */
 public class DawgFactory<LETTER, COLNAMES> {
 	
-	private final EprTheory mEprTheory;
+//	private final EprTheory mEprTheory;
 	Set<LETTER> mAllConstants;
 	private LogProxy mLogger;
 	
@@ -61,8 +61,8 @@ public class DawgFactory<LETTER, COLNAMES> {
 	private final Map<SortedSet<COLNAMES>, IDawg<LETTER, COLNAMES>> mUniversalDawgs = 
 			new HashMap<SortedSet<COLNAMES>, IDawg<LETTER, COLNAMES>>();
 
-	public DawgFactory(Set<LETTER> allConstants, EprTheory eprTheory) {
-		mEprTheory = eprTheory;
+	public DawgFactory(EprTheory eprTheory, Set<LETTER> allConstants) {
+//		mEprTheory = eprTheory;
 		mAllConstants = allConstants;
 		mLogger = eprTheory.getLogger();
 
@@ -215,131 +215,131 @@ public class DawgFactory<LETTER, COLNAMES> {
 		return mLogger;
 	}
 
-	/////////////////////////////////////////////////////////////
-	///////////////// test code /////////////////////////////////
-	/////////////////////////////////////////////////////////////
-		/**
-		 *  Some tests for the DawgFactory
-		 * @param args
-		 */
-		public static void main(String[] args) {
-			
-			// setup 
-			
-			Set<Character> constants = new HashSet<Character>();
-			constants.add('a');
-			constants.add('b');
-			constants.add('c');
-			
-			
-			DawgFactory<Character, String> df = 
-					new DawgFactory<Character, String>(constants, null);
-			
-			SortedSet<String> colNames1 = new TreeSet<String>();
-			colNames1.add("one");
-			colNames1.add("two");
-	//		colNames1.add("three");
-	//		colNames1.add("four");
-	//		colNames1.add("five");
-			
-			SortedSet<String> colNames2 = new TreeSet<String>();
-			colNames2.add("alpha");
-			colNames2.add("beta");
-			colNames2.add("gamma");
-	//		colNames1.add("delta");
-	
-	
-			IDawg<Character, String> d1 = df.createFullDawg(colNames1);
-	
-			System.out.println("d1: (one, two), Sigma^*");
-			System.out.println(d1);
-	
-			IDawg<Character, String> d2 = df.createEmptyDawg(colNames2);
-			List<Character> word1 = new ArrayList<Character>();
-			word1.add('a');
-			word1.add('a');
-			word1.add('b');
-			d2 = d2.add(word1);
-			
-			List<Character> word2 = new ArrayList<Character>();
-			word2.add('a');
-			word2.add('b');
-			word2.add('b');
-			d2 = d2.add(word2);
-	
-			System.out.println("d2: (alpha, beta, gamma), { aab, abb } ");
-			System.out.println(d2);
-			
-			// tests for renameSelectAndProject
-			
-//			Map<String, Object> translation3 = new HashMap<String, Object>();
-//			translation3.put("alpha", "bla");
-//			translation3.put("beta", "bla");
-//			translation3.put("gamma", "blub");
-//	
-//			IDawg<Character, String> d3 = df.translatePredSigToClauseSig(d2, translation3, d2.getColnames());
-//	
-//			System.out.println("d3: rnsP(d2, {alpha -> bla, beta -> bla, gamma -> blub)");
-//			System.out.println("expecting: (bla, blub) {ab}");
-//			System.out.println(d3);
+//	/////////////////////////////////////////////////////////////
+//	///////////////// test code /////////////////////////////////
+//	/////////////////////////////////////////////////////////////
+//		/**
+//		 *  Some tests for the DawgFactory
+//		 * @param args
+//		 */
+//		public static void main(String[] args) {
 //			
-//			Map<String, Object> translation4 = new HashMap<String, Object>();
-//			translation4.put("alpha", "bla");
-//			translation4.put("beta", "bla");
-//			translation4.put("gamma", 'a');
+//			// setup 
+//			
+//			Set<Character> constants = new HashSet<Character>();
+//			constants.add('a');
+//			constants.add('b');
+//			constants.add('c');
+//			
+//			
+//			DawgFactory<Character, String> df = 
+//					new DawgFactory<Character, String>(constants, null);
+//			
+//			SortedSet<String> colNames1 = new TreeSet<String>();
+//			colNames1.add("one");
+//			colNames1.add("two");
+//	//		colNames1.add("three");
+//	//		colNames1.add("four");
+//	//		colNames1.add("five");
+//			
+//			SortedSet<String> colNames2 = new TreeSet<String>();
+//			colNames2.add("alpha");
+//			colNames2.add("beta");
+//			colNames2.add("gamma");
+//	//		colNames1.add("delta");
 //	
-//			IDawg<Character, String> d4 = df.translatePredSigToClauseSig(d2, translation4, d2.getColnames());
 //	
-//			System.out.println("d4: rnsP(d2, {alpha -> bla, beta -> bla, gamma -> 'a')");
-//			System.out.println("expecting: (bla) {}");
-//			System.out.println(d4);
+//			IDawg<Character, String> d1 = df.createFullDawg(colNames1);
 //	
-//			Map<String, Object> translation5 = new HashMap<String, Object>();
-//			translation5.put("alpha", "bla");
-//			translation5.put("beta", "bla");
-//			translation5.put("gamma", 'b');
+//			System.out.println("d1: (one, two), Sigma^*");
+//			System.out.println(d1);
 //	
-//			IDawg<Character, String> d5 = df.translatePredSigToClauseSig(d2, translation5, d2.getColnames());
-	
-//			System.out.println("d5: rnsP(d2, {alpha -> bla, beta -> bla, gamma -> 'b')");
-//			System.out.println("expecting: (bla) {a}");
-//			System.out.println(d5);
-	
-			// tests for renameAndRestoreConstants
-			
-//			BinaryRelation<String, String> translation6 = new BinaryRelation<String, String>();
-//			translation6.addPair("alpha", "cinque");
-//			translation6.addPair("beta", "uno");
-//			translation6.addPair("gamma", "quattro");
-	
-			Map<String, String> translation6 = new HashMap<String, String>();
-			translation6.put("cique", "alpha");
-			translation6.put("uno", "beta");
-			translation6.put("quattro", "gamma");
-			
-			List<Object> argList1 = new ArrayList<Object>();
-			argList1.add("beta");
-			argList1.add('B');
-			argList1.add("gamma");
-			argList1.add('A');
-			argList1.add("alpha");
-			
-			SortedSet<String> newSignature1 = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
-			newSignature1.add("uno");
-			newSignature1.add("due");
-			newSignature1.add("tre");
-			newSignature1.add("quattro");
-			newSignature1.add("cinque");
-
-			
-			IDawg<Character, String> d6 = df.translateClauseSigToPredSig(d2, translation6, argList1, newSignature1);
-
-			System.out.println("d6: rnRc(d2, {alpha -> uno, beta -> due, gamma -> tre), "
-					+ "(beta, B, gamma, A, alpha)" +  newSignature1);
-			System.out.println("expecting: (due, cinque, quattro, tre, uno) {aBbAa, aBbAb}");
-			System.out.println(d6);
-		
-		}
+//			IDawg<Character, String> d2 = df.createEmptyDawg(colNames2);
+//			List<Character> word1 = new ArrayList<Character>();
+//			word1.add('a');
+//			word1.add('a');
+//			word1.add('b');
+//			d2 = d2.add(word1);
+//			
+//			List<Character> word2 = new ArrayList<Character>();
+//			word2.add('a');
+//			word2.add('b');
+//			word2.add('b');
+//			d2 = d2.add(word2);
+//	
+//			System.out.println("d2: (alpha, beta, gamma), { aab, abb } ");
+//			System.out.println(d2);
+//			
+//			// tests for renameSelectAndProject
+//			
+////			Map<String, Object> translation3 = new HashMap<String, Object>();
+////			translation3.put("alpha", "bla");
+////			translation3.put("beta", "bla");
+////			translation3.put("gamma", "blub");
+////	
+////			IDawg<Character, String> d3 = df.translatePredSigToClauseSig(d2, translation3, d2.getColnames());
+////	
+////			System.out.println("d3: rnsP(d2, {alpha -> bla, beta -> bla, gamma -> blub)");
+////			System.out.println("expecting: (bla, blub) {ab}");
+////			System.out.println(d3);
+////			
+////			Map<String, Object> translation4 = new HashMap<String, Object>();
+////			translation4.put("alpha", "bla");
+////			translation4.put("beta", "bla");
+////			translation4.put("gamma", 'a');
+////	
+////			IDawg<Character, String> d4 = df.translatePredSigToClauseSig(d2, translation4, d2.getColnames());
+////	
+////			System.out.println("d4: rnsP(d2, {alpha -> bla, beta -> bla, gamma -> 'a')");
+////			System.out.println("expecting: (bla) {}");
+////			System.out.println(d4);
+////	
+////			Map<String, Object> translation5 = new HashMap<String, Object>();
+////			translation5.put("alpha", "bla");
+////			translation5.put("beta", "bla");
+////			translation5.put("gamma", 'b');
+////	
+////			IDawg<Character, String> d5 = df.translatePredSigToClauseSig(d2, translation5, d2.getColnames());
+//	
+////			System.out.println("d5: rnsP(d2, {alpha -> bla, beta -> bla, gamma -> 'b')");
+////			System.out.println("expecting: (bla) {a}");
+////			System.out.println(d5);
+//	
+//			// tests for renameAndRestoreConstants
+//			
+////			BinaryRelation<String, String> translation6 = new BinaryRelation<String, String>();
+////			translation6.addPair("alpha", "cinque");
+////			translation6.addPair("beta", "uno");
+////			translation6.addPair("gamma", "quattro");
+//	
+//			Map<String, String> translation6 = new HashMap<String, String>();
+//			translation6.put("cique", "alpha");
+//			translation6.put("uno", "beta");
+//			translation6.put("quattro", "gamma");
+//			
+//			List<Object> argList1 = new ArrayList<Object>();
+//			argList1.add("beta");
+//			argList1.add('B');
+//			argList1.add("gamma");
+//			argList1.add('A');
+//			argList1.add("alpha");
+//			
+//			SortedSet<String> newSignature1 = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
+//			newSignature1.add("uno");
+//			newSignature1.add("due");
+//			newSignature1.add("tre");
+//			newSignature1.add("quattro");
+//			newSignature1.add("cinque");
+//
+//			
+//			IDawg<Character, String> d6 = df.translateClauseSigToPredSig(d2, translation6, argList1, newSignature1);
+//
+//			System.out.println("d6: rnRc(d2, {alpha -> uno, beta -> due, gamma -> tre), "
+//					+ "(beta, B, gamma, A, alpha)" +  newSignature1);
+//			System.out.println("expecting: (due, cinque, quattro, tre, uno) {aBbAa, aBbAb}");
+//			System.out.println(d6);
+//		
+//		}
 
 		public DawgLetterFactory<LETTER, COLNAMES> getDawgLetterFactory() {
 			return mDawgLetterFactory;
@@ -349,20 +349,20 @@ public class DawgFactory<LETTER, COLNAMES> {
 			return mDawgStateFactory;
 		}
 
-		public IDawg<LETTER, COLNAMES> getEmptyDawg(SortedSet<COLNAMES> termVariablesForArguments) {
-			IDawg<LETTER, COLNAMES> result = mEmptyDawgs.get(termVariablesForArguments);
+		public IDawg<LETTER, COLNAMES> getEmptyDawg(SortedSet<COLNAMES> signature) {
+			IDawg<LETTER, COLNAMES> result = mEmptyDawgs.get(signature);
 			if (result == null) {
-				result = createEmptyDawg(termVariablesForArguments);
-				mEmptyDawgs.put(termVariablesForArguments, result);
+				result = createEmptyDawg(signature);
+				mEmptyDawgs.put(signature, result);
 			}
 			return result;
 		}
 
-		public IDawg<LETTER, COLNAMES> getUniversalDawg(SortedSet<COLNAMES> termVariablesForArguments) {
-			IDawg<LETTER, COLNAMES> result = mUniversalDawgs.get(termVariablesForArguments);
+		public IDawg<LETTER, COLNAMES> getUniversalDawg(SortedSet<COLNAMES> signature) {
+			IDawg<LETTER, COLNAMES> result = mUniversalDawgs.get(signature);
 			if (result == null) {
-				result = createFullDawg(termVariablesForArguments);
-				mUniversalDawgs.put(termVariablesForArguments, result);
+				result = createFullDawg(signature);
+				mUniversalDawgs.put(signature, result);
 			}
 			return result;
 		}

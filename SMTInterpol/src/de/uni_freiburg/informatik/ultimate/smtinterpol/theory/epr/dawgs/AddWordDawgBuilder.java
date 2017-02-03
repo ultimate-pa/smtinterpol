@@ -34,7 +34,7 @@ public class AddWordDawgBuilder<LETTER, COLNAMES> {
 	private final DawgFactory<LETTER, COLNAMES> mDawgFactory;
 	private final Dawg<LETTER, COLNAMES> mInputDawg;
 	private final List<LETTER> mWordToAdd;
-	private NestedMap2<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> mNewTransitionRelation;
+	private IDawg<LETTER, COLNAMES> mResultDawg;
 
 	public AddWordDawgBuilder(DawgFactory<LETTER, COLNAMES> dawgFactory, Dawg<LETTER, COLNAMES> dawg,
 			List<LETTER> word) {
@@ -45,36 +45,46 @@ public class AddWordDawgBuilder<LETTER, COLNAMES> {
 	}
 
 	private void addWord() {
-		DawgState currentState = mInputDawg.getInitialState();
-		for (LETTER letter : mWordToAdd) {
-			for (Entry<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge : 
-				mInputDawg.getTransitionRelation().get(currentState).entrySet()) {
-				if (outEdge.getKey().matches(letter, mWordToAdd, mInputDawg.getColNameToIndex())) {
-					// we already have a transition for the current letter
-					// (assumption: the Dawg is deterministic in the sense that outgoing DawgLetters of one 
-					//  state don't intersect)
-					currentState = outEdge.getValue();
-				} else {
-					// we need a fresh transition (effectively building one fresh "tail" for the dawg for
-					// the given word suffix..
-					
-					final DawgState newState = mDawgFactory.getDawgStateFactory().createDawgState();
-					final IDawgLetter<LETTER, COLNAMES> newLetter = mDawgFactory.getDawgLetterFactory()
-							.createSingletonSetDawgLetter(letter);
-					mNewTransitionRelation.put(currentState, newLetter, newState);
-					currentState = newState;
+		if (mInputDawg.isEmpty()) {
+			mResultDawg = mDawgFactory.createOnePointDawg(mInputDawg.getColnames(), mWordToAdd);
+		} else {
+			final NestedMap2<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> newTransitionRelation = 
+					mInputDawg.getTransitionRelation().copy();
+			DawgState currentState = mInputDawg.getInitialState();
+			for (LETTER letter : mWordToAdd) {
+//				for (Entry<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge : 
+//					mInputDawg.getTransitionRelation().get(currentState).entrySet()) {
+				for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge : 
+					newTransitionRelation.getOutEdgeSet(currentState)) {
+					if (outEdge.getFirst().matches(letter, mWordToAdd, mInputDawg.getColNameToIndex())) {
+						// we already have a transition for the current letter
+						// (assumption: the Dawg is deterministic in the sense that outgoing DawgLetters of one 
+						//  state don't intersect)
+						currentState = outEdge.getSecond();
+					} else {
+						// we need a fresh transition (effectively building one fresh "tail" for the dawg for
+						// the given word suffix..
+
+						final DawgState newState = mDawgFactory.getDawgStateFactory().createDawgState();
+						final IDawgLetter<LETTER, COLNAMES> newLetter = mDawgFactory.getDawgLetterFactory()
+								.createSingletonSetDawgLetter(letter);
+						newTransitionRelation.put(currentState, newLetter, newState);
+						currentState = newState;
+					}
 				}
+
 			}
-			
+
+			mResultDawg = new Dawg<LETTER, COLNAMES>(mDawgFactory, 
+					mInputDawg.getLogger(), mInputDawg.getAllConstants(), 
+					mInputDawg.getColnames(), newTransitionRelation, mInputDawg.getInitialState());
+
 		}
-		
 	}
 
-	public Dawg<LETTER, COLNAMES> build() {
-		assert mNewTransitionRelation != null;
-		return new Dawg<LETTER, COLNAMES>(mDawgFactory, 
-				mInputDawg.getLogger(), mInputDawg.getAllConstants(), 
-				mInputDawg.getColnames(), mNewTransitionRelation, mInputDawg.getInitialState());
+	public IDawg<LETTER, COLNAMES> build() {
+		assert mResultDawg != null;
+		return mResultDawg;
 	}
 
 }
