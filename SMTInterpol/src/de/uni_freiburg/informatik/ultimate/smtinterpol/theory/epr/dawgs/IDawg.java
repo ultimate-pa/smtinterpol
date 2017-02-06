@@ -133,5 +133,12 @@ public interface IDawg<LETTER, COLNAMES> extends Iterable<List<LETTER>> {
 	 */
 	IDawg<LETTER, COLNAMES> translateClauseSigToPredSig(
 			Map<COLNAMES, COLNAMES> translation, List<Object> argList, SortedSet<COLNAMES> newSignature);
+	/**
+	 * Lists the language of this dawg word by word
+	 * 
+	 * Beware: the space complexity of this method is equal to the size of the dawgs language
+	 * @return
+	 */
+	Iterable<List<LETTER>> listPoints();
 
 }

@@ -145,6 +145,9 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 			}
 
 			IDawgLetter<LETTER, COLNAMES> resultDl = getSimpleDawgLetter(resultLetters);
+			if (resultDl instanceof EmptyDawgLetter<?, ?>) {
+				return Collections.emptySet();
+			}
 			return Collections.singleton(resultDl);
 		} else {
 
@@ -229,8 +232,16 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 		if (outLetters.size() > 1 && outLetters.iterator().next() instanceof SimpleDawgLetter<?, ?>) {
 			Set<LETTER> union = new HashSet<LETTER>();
 			for (IDawgLetter<LETTER, COLNAMES> outLetter : outLetters) {
-				SimpleDawgLetter<LETTER, COLNAMES> sdl = (SimpleDawgLetter<LETTER, COLNAMES>) outLetter;
-				union.addAll(sdl.getLetters());
+				if (outLetter instanceof SimpleDawgLetter<?, ?>) {
+					SimpleDawgLetter<LETTER, COLNAMES> sdl = (SimpleDawgLetter<LETTER, COLNAMES>) outLetter;
+					union.addAll(sdl.getLetters());
+				} else if (outLetter instanceof UniversalDawgLetter) {
+					assert false : "a universal dawg letter and another one?";
+				} else if (outLetter instanceof EmptyDawgLetter<?, ?>) {
+					// do nothing
+				} else {
+					assert false : "unexpected mixing of DawgLetter types";
+				}
 			}
 			return union.equals(mAllConstants);
 		}
@@ -239,6 +250,12 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 	}
 
 	public IDawgLetter<LETTER, COLNAMES> getSimpleDawgLetter(Set<LETTER> letters) {
+		if (letters.isEmpty()) {
+			 return getEmptyDawgLetter();
+		}
+		if (letters.equals(mAllConstants)) {
+			return getUniversalDawgLetter();
+		}
 		IDawgLetter<LETTER, COLNAMES> result = mLettersToSimpleDawgLetter.get(letters);
 		if (result == null) {
 			result = new SimpleDawgLetter<LETTER, COLNAMES>(this, letters);
@@ -299,6 +316,11 @@ class EmptyDawgLetter<LETTER, COLNAMES> implements IDawgLetter<LETTER, COLNAMES>
 	public Collection<LETTER> allLettersThatMatch(List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex) {
 		return Collections.emptySet();
 	}
+	
+	@Override
+	public String toString() {
+		return "EmptyDawgLetter";
+	}
 }
 
 /**
@@ -346,5 +368,10 @@ class UniversalDawgLetter<LETTER, COLNAMES> implements IDawgLetter<LETTER, COLNA
 	@Override
 	public Collection<LETTER> allLettersThatMatch(List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex) {
 		return mDawgLetterFactory.getAllConstants();
+	}
+
+	@Override
+	public String toString() {
+		return "UniversalDawgLetter";
 	}
 }

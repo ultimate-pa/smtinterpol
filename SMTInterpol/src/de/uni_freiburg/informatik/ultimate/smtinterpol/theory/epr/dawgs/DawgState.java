@@ -34,7 +34,7 @@ public class DawgState {
 
 	@Override
 	public String toString() {
-		return "DawgState#" + this.hashCode();
+		return "DawgState#" + Integer.toString(this.hashCode()).substring(0, 4);
 	}
 }
 

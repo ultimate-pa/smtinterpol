@@ -67,6 +67,8 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	private final DawgLetterFactory<LETTER, COLNAMES> mDawgLetterFactory;
 	private final DawgFactory<LETTER, COLNAMES> mDawgFactory;
 	private final Set<DawgState> mFinalStates;
+
+	private final boolean mIsSingleton;
 	
 	/**
 	 * Create an empty dawg
@@ -91,6 +93,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		
 		mIsUniversal = false;
 		mIsEmpty = true;
+		mIsSingleton = false;
 	}
 
 	/**
@@ -124,6 +127,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		
 		mIsUniversal = true;
 		mIsEmpty = false;
+		mIsSingleton = false;
 	}
 
 	/**
@@ -159,6 +163,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		
 		mIsUniversal = false;
 		mIsEmpty = false;
+		mIsSingleton = true;
 	}
 	
 	Dawg(final DawgFactory<LETTER, COLNAMES> df, 
@@ -180,17 +185,67 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		mFinalStates = computeFinalStates();
 
 		mIsUniversal = checkUniversality();
+//		mIsEmpty = checkEmptiness();
 		mIsEmpty = false;
+		mIsSingleton = checkIsSingleton();
+		
+		assert isDeterministic();
 	}
 
 
+
+	private boolean checkEmptiness() {
+		for (List<LETTER> point : listPoints()) {
+			return false;
+		}
+		return true;
+	}
+
+	/**
+	 * algorithmic plan:
+	 *  try to sample two words from the language through a depth first search
+	 * @return
+	 */
+	private boolean checkIsSingleton() {
+		int counter = 0;
+		for (List<LETTER> point : listPoints()) {
+			counter++;
+			if (counter == 2) {
+				return false;
+			}
+		}
+		return counter == 1;
+//		return new ArrayList<List<LETTER>>(listPoints()).size() == 1;
+//		final Set<DawgState> currentStates = new HashSet<DawgState>();
+//		currentStates.add(mInitialState);
+
+		
+		// sample first word
+//		List<LETTER> firstWord = null;
+//		List<IDawgLetter<LETTER, COLNAMES>> firstPath = null;
+//		{
+//			DawgState currentState = mInitialState;
+//			for (COLNAMES col : mColNames) {
+//				Set<Pair<IDawgLetter<LETTER, COLNAMES>, DawgState>> outEdges = 
+//						mTransitionRelation.getOutEdgeSet(currentState);
+//				outEdges.iterator().next().getSecond();
+//				currentState = 
+//				firstPath.add(e)
+//
+//			}
+//		}
+//
+//		// sample another word that is not the first
+//		return false;
+	}
 
 	private boolean checkUniversality() {
 		
 		Set<DawgState> currentStates = new HashSet<DawgState>();
 		currentStates.add(mInitialState);
 		
-		while (!currentStates.isEmpty()) {
+//		while (!currentStates.isEmpty()) {
+		for (int i = 0; i < mColNames.size(); i++) {
 			final Set<DawgState> newCurrentStates = new HashSet<DawgState>();
 			for (DawgState cs : currentStates) {
 			
@@ -209,6 +264,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			}
 			currentStates = newCurrentStates;
 		}
+		assert currentStates.equals(mFinalStates);
 		
 		return true;
 	}
@@ -294,30 +350,30 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			
 			DawgState lastLevelFormerSinkState = nextLevelFormerSinkState;
 			nextLevelFormerSinkState = mDawgStateFactory.createDawgState();
-			nextStates.add(nextLevelFormerSinkState);
-			newTransitionRelation.put(
-					lastLevelFormerSinkState, mDawgLetterFactory.getUniversalDawgLetter(), nextLevelFormerSinkState);
+//			nextStates.add(nextLevelFormerSinkState);
+			if (i > 0) {
+				newTransitionRelation.put(
+						lastLevelFormerSinkState, mDawgLetterFactory.getUniversalDawgLetter(), nextLevelFormerSinkState);
+			}
 
 			for (DawgState cs : currentStates) {
-//				Map<IDawgLetter<LETTER, COLNAMES>, DawgState> oldLetterToDawgState = mTransitionRelation.get(cs);
-
-				
-				Set<IDawgLetter<LETTER, COLNAMES>> outgoingDawgLetters = new HashSet<IDawgLetter<LETTER,COLNAMES>>();
+				final Set<IDawgLetter<LETTER, COLNAMES>> outgoingDawgLetters = new HashSet<IDawgLetter<LETTER,COLNAMES>>();
 
 				/*
 				 * the old transitions stay intact (except for the ones leading to the final state
 				 */
-//				for (Entry<IDawgLetter<LETTER, COLNAMES>, DawgState> letterAndState : oldLetterToDawgState.entrySet()) {
 				for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> letterAndState : mTransitionRelation.getOutEdgeSet(cs)) {
-					if (i == this.getColnames().size() - 1) {
-						// we are in the last column
-						// the old transitions lead to the old final state(s)
-						// --> omit those
-						break;
-					}
+//					if (i == this.getColnames().size() - 1) {
+//						// we are in the last column
+//						// the old transitions lead to the old final state(s)
+//						// --> omit those
+//						break;
+//					}
 					outgoingDawgLetters.add(letterAndState.getFirst());
-					nextStates.add(letterAndState.getSecond());
-					newTransitionRelation.put(cs, letterAndState.getFirst(), letterAndState.getSecond());
+					if (i != this.getColnames().size() - 1) {
+						nextStates.add(letterAndState.getSecond());
+						newTransitionRelation.put(cs, letterAndState.getFirst(), letterAndState.getSecond());
+					}
 				}
 				
 				/*
@@ -434,7 +490,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	}
 
 	@Override
-	protected Iterable<List<LETTER>> listPoints() {
+	public Iterable<List<LETTER>> listPoints() {
 		if (isEmpty()) {
 			return Collections.emptySet();
 		}
@@ -444,7 +500,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		}
 		
 		
-		Set<List<LETTER>> result = new TreeSet<List<LETTER>>();
+		Set<List<LETTER>> result = new TreeSet<List<LETTER>>(); // using a TreeSet for nicer (sorted) output
 		
 		Set<DawgState> currentStates = new HashSet<DawgState>();
 		currentStates.add(mInitialState);
@@ -519,9 +575,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 
 	@Override
 	public boolean isSingleton() {
-		// TODO Auto-generated method stub
-		assert false : "TODO - when we need it";
-		return false;
+		return mIsSingleton;
 	}
 
 	@Override
@@ -893,6 +947,28 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		sb.append(mTransitionRelation);
 		
 		return sb.toString();
+	}
+	
+	/**
+	 * Returns true iff in this dawg all the outgoing dawgLetters of one state are disjoint.
+	 * @return
+	 */
+	private boolean isDeterministic() {
+		for (DawgState state : mTransitionRelation.keySet()) {
+			List<Pair<IDawgLetter<LETTER, COLNAMES>, DawgState>> outEdges = 
+					new ArrayList<Pair<IDawgLetter<LETTER, COLNAMES>, DawgState>>(mTransitionRelation.getOutEdgeSet(state));
+			for (int i = 0; i < outEdges.size(); i++) {
+				Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> edge1 = outEdges.get(i);
+				for (int j = 0; j < i; j++) {
+					Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> edge2 = outEdges.get(j);
+					
+					if (!(edge1.getFirst().intersect(edge2.getFirst()) instanceof EmptyDawgLetter)) {
+						return false;
+					}
+				}
+			}
+		}
+		return true;
 	}
 }
 

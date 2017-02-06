@@ -68,7 +68,7 @@ public class SimpleDawgLetter<LETTER, COLNAMES> implements IDawgLetter<LETTER, C
 		final Set<LETTER> resultLetters = new HashSet<LETTER>();
 		resultLetters.addAll(mLetters);
 		resultLetters.retainAll(otherSdl.mLetters);
-	
+
 		return mDawgLetterFactory.getSimpleDawgLetter(resultLetters);
 	}
 

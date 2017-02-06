@@ -54,6 +54,7 @@ public class AddWordDawgBuilder<LETTER, COLNAMES> {
 			for (LETTER letter : mWordToAdd) {
 //				for (Entry<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge : 
 //					mInputDawg.getTransitionRelation().get(currentState).entrySet()) {
+				boolean foundAMatchingEdge = false;
 				for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge : 
 					newTransitionRelation.getOutEdgeSet(currentState)) {
 					if (outEdge.getFirst().matches(letter, mWordToAdd, mInputDawg.getColNameToIndex())) {
@@ -61,7 +62,12 @@ public class AddWordDawgBuilder<LETTER, COLNAMES> {
 						// (assumption: the Dawg is deterministic in the sense that outgoing DawgLetters of one 
 						//  state don't intersect)
 						currentState = outEdge.getSecond();
-					} else {
+						foundAMatchingEdge = true;
+						break;
+					}
+				}
+				
+				if (!foundAMatchingEdge) {
 						// we need a fresh transition (effectively building one fresh "tail" for the dawg for
 						// the given word suffix..
 
@@ -70,9 +76,7 @@ public class AddWordDawgBuilder<LETTER, COLNAMES> {
 								.createSingletonSetDawgLetter(letter);
 						newTransitionRelation.put(currentState, newLetter, newState);
 						currentState = newState;
-					}
 				}
-
 			}
 
 			mResultDawg = new Dawg<LETTER, COLNAMES>(mDawgFactory, 

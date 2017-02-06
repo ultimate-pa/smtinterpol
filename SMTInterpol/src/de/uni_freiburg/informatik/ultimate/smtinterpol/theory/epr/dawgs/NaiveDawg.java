@@ -294,7 +294,7 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	}
 
 	@Override
-	protected Iterable<List<LETTER>> listPoints() {
+	public Iterable<List<LETTER>> listPoints() {
 		return mBacking;
 	}
 

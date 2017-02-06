@@ -125,10 +125,4 @@ public abstract class AbstractDawg<LETTER, COLNAMES> implements IDawg<LETTER, CO
 		}
 		return sb.toString();
 	}
-
-	/**
-	 * Lists the language of this dawg word by word
-	 * @return
-	 */
-	protected abstract Iterable<List<LETTER>> listPoints() ;
 }
