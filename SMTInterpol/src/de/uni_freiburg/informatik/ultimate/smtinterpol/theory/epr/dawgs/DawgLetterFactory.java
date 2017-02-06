@@ -216,7 +216,7 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 		}
 	}
 
-	public boolean isUniversal(Set<IDawgLetter<LETTER, COLNAMES>> outLetters) {
+	public static <LETTER, COLNAMES> boolean isUniversal(Set<IDawgLetter<LETTER, COLNAMES>> outLetters, Set<LETTER> allConstants) {
 		if (outLetters.size() == 0) {
 			return false;
 		}
@@ -227,7 +227,7 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 			return true;
 		}
 		if (outLetters.size() == 1 && outLetters.iterator().next() instanceof SimpleDawgLetter<?, ?>) {
-			return ((SimpleDawgLetter<LETTER, COLNAMES>) outLetters.iterator().next()).getLetters().equals(mAllConstants);
+			return ((SimpleDawgLetter<LETTER, COLNAMES>) outLetters.iterator().next()).getLetters().equals(allConstants);
 		}
 		if (outLetters.size() > 1 && outLetters.iterator().next() instanceof SimpleDawgLetter<?, ?>) {
 			Set<LETTER> union = new HashSet<LETTER>();
@@ -243,7 +243,7 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 					assert false : "unexpected mixing of DawgLetter types";
 				}
 			}
-			return union.equals(mAllConstants);
+			return union.equals(allConstants);
 		}
 		assert false : "TODO";
 		return false;
