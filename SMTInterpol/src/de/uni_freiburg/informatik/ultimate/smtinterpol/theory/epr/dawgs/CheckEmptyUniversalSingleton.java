@@ -126,9 +126,12 @@ public class CheckEmptyUniversalSingleton<LETTER, COLNAMES> {
 	}
 
 	/**
+	 * At each call looks for a fresh (not yet returned) path trough the graph from a final state to 
+	 * the initial state.
+	 * 
 	 * Convention: the sampled path is in reverse order, i.e., goes from final to initial state.
 	 * @param finalState
-	 * @return
+	 * @return A path from final to initial state, that has not yet been returned, null if there is none.
 	 */
 	private List<IDawgLetter<LETTER, COLNAMES>> samplePath(DawgState finalState) {
 		DawgState currentState = finalState;
@@ -138,11 +141,11 @@ public class CheckEmptyUniversalSingleton<LETTER, COLNAMES> {
 
 			boolean foundNewSuffix = false;
 			for (Pair<DawgState, IDawgLetter<LETTER, COLNAMES>> inEdge : mTransitionRelation.getInverse(finalState)) {
-				List<IDawgLetter<LETTER, COLNAMES>> hypotheticNewSuffix = 
+				List<IDawgLetter<LETTER, COLNAMES>> hypotheticalNewSuffix = 
 						new ArrayList<IDawgLetter<LETTER,COLNAMES>>(currentSuffix);
-				hypotheticNewSuffix.add(inEdge.getSecond());
-				if (!mVisitedSuffixes.contains(hypotheticNewSuffix)) {
-					currentSuffix = hypotheticNewSuffix;
+				hypotheticalNewSuffix.add(inEdge.getSecond());
+				if (!mVisitedSuffixes.contains(hypotheticalNewSuffix)) {
+					currentSuffix = hypotheticalNewSuffix;
 					currentState = inEdge.getFirst();
 					mVisitedSuffixes.add(currentSuffix);
 					foundNewSuffix = true;
