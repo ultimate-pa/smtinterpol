@@ -33,6 +33,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.BinaryRelation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers.Pair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
@@ -101,7 +102,7 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	 * reversing it, seems more useful
 	 *  maps from dsl signature colname to clause signature colname
 	 */
-	private final Map<TermVariable, TermVariable> mTranslationForEprPredicate;
+	private final BinaryRelation<TermVariable, TermVariable> mTranslationForEprPredicate;
 
 	public ClauseEprQuantifiedLiteral(boolean polarity, EprQuantifiedPredicateAtom atom, 
 			EprClause clause, EprTheory eprTheory) {
@@ -124,8 +125,8 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 //		mTranslationForEprPredicate = p.second;
 		
 		
-		Map<TermVariable, TermVariable> clauseToPred = 
-				new HashMap<TermVariable, TermVariable>();
+		BinaryRelation<TermVariable, TermVariable> clauseToPred = 
+				new BinaryRelation<TermVariable, TermVariable>();
 		Map<TermVariable, ApplicationTerm> predToClauseConstants = 
 				new HashMap<TermVariable, ApplicationTerm>();
 		Map<TermVariable, TermVariable> predToClauseVariables = 
@@ -139,13 +140,13 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 			}
 			if (atomT instanceof TermVariable) {
 				predToClauseVariables.put(tv, (TermVariable) atomT);
-				clauseToPred.put((TermVariable) atomT, tv);
+				clauseToPred.addPair((TermVariable) atomT, tv);
 			}
 		}
 //		mTranslationForClause = Collections.unmodifiableMap(predToClause);
 		mTranslationForClauseTvToConstants = Collections.unmodifiableMap(predToClauseConstants);
 		mTranslationForClauseTvToVariables = Collections.unmodifiableMap(predToClauseVariables);
-		mTranslationForEprPredicate = Collections.unmodifiableMap(clauseToPred);
+		mTranslationForEprPredicate = clauseToPred;
 	}
 
 	public void addExceptions(Set<EprQuantifiedEqualityAtom> quantifiedEqualities) {
@@ -293,7 +294,7 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 		return new Pair<Map<TermVariable, Object>, Map<TermVariable, TermVariable>>(predToClause, clauseToPred);
 	}
 
-	public Map<TermVariable, TermVariable> getTranslationFromClauseToEprPredicate() {
+	public BinaryRelation<TermVariable, TermVariable> getTranslationFromClauseToEprPredicate() {
 		return mTranslationForEprPredicate;
 	}
 	

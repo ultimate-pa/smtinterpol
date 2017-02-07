@@ -711,7 +711,45 @@ public class EprHelpers {
 		}
 		return result;
 	}
+	/**
+	 * Transforms a signature according to the given translation.
+	 * <p>
+	 * The translation is a map from  column names in the old signature to sets of column names in the new signature.
+	 * If a column name in the old signature is not mentioned in the translation, it is left unchanged (thus will
+	 * occur in the new signature).
+	 * If an "old" column name is mapped to more than one column name, the "old" column name is removed and the new ones
+	 * are added to the new signature.
+	 * 
+	 * @param colNames
+	 * @param renaming
+	 * @return
+	 */
+	public static <COLNAMES> SortedSet<COLNAMES> transformSignature(final SortedSet<COLNAMES> colNames,
+			final BinaryRelation<COLNAMES, COLNAMES> renaming) {
+		final SortedSet<COLNAMES> result = new TreeSet<COLNAMES>(EprHelpers.getColumnNamesComparator());
+		for (COLNAMES oldCol : colNames) {
+			final Set<COLNAMES> newCols = renaming.getImage(oldCol);
+			if (newCols == null) {
+				result.add(oldCol);
+			}
+			for (COLNAMES newCol : newCols) {
+				result.add(newCol);
+			}
+		}
+		return result;
+	}
 
+	/**
+	 * Transforms a signature according to the given translation.
+	 * <p>
+	 * The translation is a map from column names in the old signature to column names in the new signature.
+	 * If a column name in the old signature is not mentioned in the translation, it is left unchanged (thus will
+	 * occur in the new signature).
+	 * 
+	 * @param colNames
+	 * @param renaming
+	 * @return
+	 */
 	public static <COLNAMES> SortedSet<COLNAMES> transformSignature(final SortedSet<COLNAMES> colNames,
 			final Map<COLNAMES, COLNAMES> renaming) {
 		final SortedSet<COLNAMES> result = new TreeSet<COLNAMES>(EprHelpers.getColumnNamesComparator());

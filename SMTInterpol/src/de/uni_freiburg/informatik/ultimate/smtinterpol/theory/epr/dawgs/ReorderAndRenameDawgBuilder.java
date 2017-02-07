@@ -121,12 +121,7 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 		
 		final NestedMap2<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> newTransitionRelation = 
 				new NestedMap2<DawgState, IDawgLetter<LETTER,COLNAMES>, DawgState>();
-		/*
-		 * step 1:
-		 *  build the new transition relation as a copy of the old transition relation until we hit
-		 *  the states just before the oldColumn, don't add the edges to these states
-		 */
-		
+	
 		final Iterator<COLNAMES> oldColIterator;
 		if (movesToTheRight) {
 			oldColIterator = mInputDawg.getColnames().iterator();
@@ -134,7 +129,13 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 			oldColIterator = new LinkedList<COLNAMES>(mInputDawg.getColnames()).descendingIterator();
 		}
 
-		final Set<DawgState> statesBeforeOldColumnPreStates = step1(movesToTheRight, newTransitionRelation, oldColIterator);
+		/*
+		 * step 1:
+		 *  build the new transition relation as a copy of the old transition relation until we hit
+		 *  the states just before the oldColumn, don't add the edges to these states
+		 */
+		final Set<DawgState> statesBeforeOldColumnPreStates = reconstructUntilOldColumn(movesToTheRight, 
+				newTransitionRelation, oldColIterator);
 		
 		/*
 		 * Step 2:
@@ -149,7 +150,7 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 		 * 
 		 * create the first column of RenameAndReorderDawgStates
 		 */
-		final Set<RenameAndReorderDawgState<LETTER, COLNAMES>> firstRnRStates = step2a(newRightNeighbour,
+		final Set<RenameAndReorderDawgState<LETTER, COLNAMES>> firstRnRStates = createFirstRnRStates(newRightNeighbour,
 				movesToTheRight, newTransitionRelation, oldColIterator, statesBeforeOldColumnPreStates);
 	
 		/*
@@ -157,7 +158,7 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 		 *  add transitions for the columns between oldColumn and newColumn based on the old transition relation
 		 *  and the rnrStates
 		 */
-		final Set<DawgState> splitPostStates = step2b(newRightNeighbour, movesToTheRight, newTransitionRelation, 
+		final Set<DawgState> splitPostStates = constructRnrPart(newRightNeighbour, movesToTheRight, newTransitionRelation, 
 				oldColIterator, firstRnRStates);
 
 		/*
@@ -210,7 +211,7 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 		
 	}
 
-	private Set<DawgState> step2b(final COLNAMES newRightNeighbour, final boolean movesToTheRight,
+	private Set<DawgState> constructRnrPart(final COLNAMES newRightNeighbour, final boolean movesToTheRight,
 			final NestedMap2<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> newTransitionRelation,
 			final Iterator<COLNAMES> oldColIterator,
 			final Set<RenameAndReorderDawgState<LETTER, COLNAMES>> firstRnRStates) {
@@ -285,7 +286,10 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 		}
 	}
 
-	private Set<RenameAndReorderDawgState<LETTER, COLNAMES>> step2a(final COLNAMES newRightNeighbour,
+	/**
+	 * create the first column of RenameAndReorderDawgStates
+	 */
+	private Set<RenameAndReorderDawgState<LETTER, COLNAMES>> createFirstRnRStates(final COLNAMES newRightNeighbour,
 			final boolean movesToTheRight,
 			final NestedMap2<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> newTransitionRelation,
 			final Iterator<COLNAMES> oldColIterator, final Set<DawgState> statesBeforeOldColumnPreStates) {
@@ -364,7 +368,12 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 		return firstRnRStates;
 	}
 
-	private Set<DawgState> step1(boolean movesToTheRight,
+
+	/**
+	 *  builds the new transition relation as a copy of the old transition relation until we hit
+	 *  the states just before the oldColumn, returns the last column of states before the old column
+	 */
+	private Set<DawgState> reconstructUntilOldColumn(boolean movesToTheRight,
 			NestedMap2<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> newTransitionRelation, 
 			Iterator<COLNAMES> oldColIterator) {
 		/**
@@ -454,195 +463,6 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 			
 		}
 		return statesBeforeOldColumnPreStates;
-	}
-
-	private Set<DawgState> step2Old(COLNAMES newRightNeighbour, boolean movesToTheRight,
-			NestedMap2<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> newTransitionRelation,
-			Set<DawgState> statesBeforeOldColumnPreStates) {
-		/*
-		 * step 2:
-		 *  build the graph between the oldColumn and the insertion point of the new
-		 *  column as follows.
-		 * 
-		 *  pseudocode:
-		 *  input: source column src, target column trg (insert to the right of trg)
-         *    for each edge (s, l, t) in src:
-         *      create a fresh state ("s,t")
-         *      each edge that led to s now leads to ("s,t")
-         *    
-         *      for each state q right of the target column:
-         *        create a fresh state ("s,t,q")
-         *        connect the states ("s,t") and ("s,t,q") through a copy the subgraph between t and q
-         *        connect the states ("s,t,q") and q through an edge labelled l
-		 */
-		
-		/*
-		 * step 2a:
-		 *  create the ("s,t")-states (also called mergedStates because they stand for two states connected by
-		 *   and edge in oldColumn that are now one state), 
-		 *  add the edges leading to them, store them 
-		 */
-		final Set<PairDawgState> mergedStates = new HashSet<PairDawgState>();
-		if (statesBeforeOldColumnPreStates == null) {
-			// special case: the oldColumn is the first column
-			if (movesToTheRight) {
-				for (Entry<IDawgLetter<LETTER, COLNAMES>, DawgState> edgeFromInitialToNextState : 
-					mInputDawg.getTransitionRelation().get(mInputDawg.getInitialState()).entrySet()) {
-					final PairDawgState mergedState = 
-							new PairDawgState(mInputDawg.getInitialState(), edgeFromInitialToNextState.getValue());
-					mergedStates.add(mergedState);
-					mResultInitialStates.add(mergedState);
-				}
-			} else {
-				// TODO
-			}
-		} else {
-			if (movesToTheRight) {
-				for (DawgState prePreState : statesBeforeOldColumnPreStates) {
-					for (Entry<IDawgLetter<LETTER, COLNAMES>, DawgState> edgeFromPrePreStateToPreState : 
-						mInputDawg.getTransitionRelation().get(prePreState).entrySet()) {
-
-						final DawgState stateLeft = edgeFromPrePreStateToPreState.getValue();
-
-						for (Entry<IDawgLetter<LETTER, COLNAMES>, DawgState> edgeInOldColumn : 
-							mInputDawg.getTransitionRelation().get(stateLeft).entrySet()) {
-
-							final PairDawgState newEdgeTarget =  // the state ("s, t")
-									mDawgStateFactory.getOrCreatePairDawgState(stateLeft, edgeInOldColumn.getValue());
-							mergedStates.add(newEdgeTarget);
-
-							newTransitionRelation.put(prePreState, edgeFromPrePreStateToPreState.getKey(), newEdgeTarget);
-						}
-					}
-				}
-			} else {
-				// TODO
-			}
-			
-		}
-	
-		/*
-		 * step 2b:
-		 * - Create the "tripleStates" ("s,t,q"), each from a mergedState and a "splitState"
-		 *   a splitState is a state in the state-column left of the "newRightNeighbour"-column.
-		 * - connect each mergedState ("s,t") with its tripleState ("s,t,q") through a copy of the the subgraph that 
-		 *   connects t and q in the original Dawg
-		 * - collect all the tripleStates"
-		 *  
-		 */
-		final Set<PairDawgState> tripleStates = new HashSet<PairDawgState>();
-		for (PairDawgState mergedState : mergedStates) {
-			for (DawgState splitState : mInputDawg.obtainStatesLeftOfColumn(newRightNeighbour)) {
-				final PairDawgState tripleState = mDawgStateFactory.getOrCreatePairDawgState(mergedState, splitState);
-				tripleStates.add(tripleState);
-				
-				if (!Dawg.isReachableFrom(mergedState.getSecond(), tripleState.getSecond(), mInputDawg.getTransitionRelation())) {
-					// TODO treat this case
-					assert false : "TODO";
-				}
-				connectThroughCopiedSubDawg(mergedState, tripleState, mInputDawg.getTransitionRelation(), newTransitionRelation);
-			}
-		}
-		
-		/*
-		 * step 2c:
-		 *  - connect each tripleState ((s,t),q) with its last entry q through an edge labelled with the letter
-		 *    that labelled the edge (s,t) in the original graph
-		 *  - collect the states q, also called the splitRightStates, (the tripleStates would be the splitLeftStates
-		 *    in that logic) in order to go on from there
-		 */
-		final Set<DawgState> splitRightStates = new HashSet<DawgState>();
-		for (PairDawgState tripleState : tripleStates) {
-			final PairDawgState mergedState = (PairDawgState) tripleState.getFirst();
-			final Set<IDawgLetter<LETTER, COLNAMES>> connectingLetters = 
-					getConnectingLetters(mergedState.getFirst(), mergedState.getSecond(), mInputDawg.getTransitionRelation());
-			final DawgState splitRightState = tripleState.getSecond();
-			splitRightStates.add(splitRightState);
-			for (IDawgLetter<LETTER, COLNAMES> connectingLetter : connectingLetters) {
-				newTransitionRelation.put(tripleState, connectingLetter, splitRightState);
-			}
-		}
-		return splitRightStates;
-	}
-
-	private static <LETTER, COLNAMES> Set<IDawgLetter<LETTER, COLNAMES>> getConnectingLetters(DawgState first, DawgState second,
-			NestedMap2<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> transitionRelation) {
-		final Set<IDawgLetter<LETTER, COLNAMES>> result = new HashSet<IDawgLetter<LETTER,COLNAMES>>();
-		for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge : transitionRelation.getOutEdgeSet(first)) {
-			if (outEdge.getSecond().equals(second)) {
-				result.add(outEdge.getFirst());
-			}
-		}
-		return result;
-	}
-
-	/**
-	 * Consider the last entries of mergedState and tripleState, t and q.
-	 * Compute the SubDawg that connects t and q in oldTransitionRelation.
-	 * Make a copy of that SubDawg (with all new states) and connect mergedState and tripleState
-	 * by it in newTransitionRelation.
-	 * 
-	 * @param mergedState
-	 * @param tripleState
-	 * @param oldTransitionRelation
-	 * @param newTransitionRelation This is the graph that is updated in this method.
-	 */
-	private void connectThroughCopiedSubDawg(PairDawgState mergedState, PairDawgState tripleState,
-			NestedMap2<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> oldTransitionRelation,
-			NestedMap2<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> newTransitionRelation) {
-		
-		final DawgState subDawgSourceInOldGraph = mergedState.getSecond();
-		
-		final DawgState subDawgTargetInOldGraph = tripleState.getSecond();
-		
-		Set<DawgState> currentStatesInOldGraph = new HashSet<DawgState>();
-		currentStatesInOldGraph.add(subDawgSourceInOldGraph);
-
-		final Map<DawgState, DawgState> oldStateToNewState = new HashMap<DawgState, DawgState>();
-		oldStateToNewState.put(subDawgSourceInOldGraph, mergedState);
-		oldStateToNewState.put(subDawgTargetInOldGraph, tripleState);
-
-		boolean hasReachedSubDawgTarget = false;
-
-		while (!hasReachedSubDawgTarget) { // moves through the columns
-			final Set<DawgState> newCurrentStatesInOldGraph = new HashSet<DawgState>();
-
-			for (DawgState state : currentStatesInOldGraph) {
-				final DawgState newSourceState = oldStateToNewState.get(state);
-				assert newSourceState != null;
-				
-				for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outgoingEdge : 
-						oldTransitionRelation.getOutEdgeSet(state)) {
-
-					final DawgState oldTargetState = outgoingEdge.getSecond();
-					if (!Dawg.isReachableFrom(oldTargetState, subDawgTargetInOldGraph, oldTransitionRelation)) {
-						// the target state of the subDawg cannot be reached if we take the current outgoingEdge
-						//  --> don't add the edge to the new subDawg
-						continue;
-					}
-
-					newCurrentStatesInOldGraph.add(oldTargetState);
-
-					if (oldTargetState.equals(subDawgTargetInOldGraph)) {
-						hasReachedSubDawgTarget = true;
-					}
-
-					// we only want one copy for each old state
-					DawgState newTargetState = 
-							oldStateToNewState.get(oldTargetState);
-					if (newTargetState == null) {
-						newTargetState = mDawgStateFactory.createDawgState();
-						oldStateToNewState.put(outgoingEdge.getSecond(), newTargetState);
-					}
-					
-					// create the new transition
-					newTransitionRelation.put(newSourceState, outgoingEdge.getFirst(), newTargetState);
-				}
-			
-			
-			}
-			currentStatesInOldGraph = newCurrentStatesInOldGraph;
-		}
 	}
 
 	public Dawg<LETTER, COLNAMES> build() {

@@ -31,6 +31,7 @@ import java.util.TreeSet;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.BinaryRelation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 
@@ -193,7 +194,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 	 *   a decide stack literal. For this it uses the information from one clause literal whose predicate matches the 
 	 *   decide stack literal's predicate.
 	 * @param other
-	 * @param translation a map translating the colnames of the old dawg ("other") to the colnames of the new dawg
+	 * @param binaryRelation a map translating the colnames of the old dawg ("other") to the colnames of the new dawg
 	 *                    may not have a preimage for every new colname in the new signature because there constants 
 	 *                    from argList are filled in
 	 *                     (could be computed from arglist, right?..)
@@ -203,10 +204,10 @@ public class DawgFactory<LETTER, COLNAMES> {
 	 */
 	public IDawg<LETTER, COLNAMES> translateClauseSigToPredSig(
 			IDawg<LETTER, COLNAMES> other, 
-			Map<COLNAMES, COLNAMES> translation, 
+			BinaryRelation<COLNAMES, COLNAMES> binaryRelation, 
 			List<Object> argList, 
 			SortedSet<COLNAMES> newSignature) {
-		return other.translateClauseSigToPredSig(translation, argList, newSignature);
+		return other.translateClauseSigToPredSig(binaryRelation, argList, newSignature);
 	}
 	
 	

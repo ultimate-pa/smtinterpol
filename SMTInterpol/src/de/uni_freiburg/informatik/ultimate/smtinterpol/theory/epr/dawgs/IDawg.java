@@ -23,6 +23,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.SortedSet;
 
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.BinaryRelation;
+
 /**
  * 
  * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
@@ -126,13 +128,13 @@ public interface IDawg<LETTER, COLNAMES> extends Iterable<List<LETTER>> {
 	 *  <li> a DecideStackLiteral over the same EprPredicate as the ClauseLiteral's 
 	 *    the resulting Dawg's signature will be that of the DecideStackLiteral (given as newSignature)
 	 * 
-	 * @param translation maps colnames of the clause signature to colnames in the  predicate's signature
+	 * @param binaryRelation maps colnames of the clause signature to colnames in the  predicate's signature
 	 * @param argList the arguments of the ClauseLiteral that has the predicate whose signature we want to translate to
 	 * @param newSignature the predicate's signature
 	 * @return
 	 */
 	IDawg<LETTER, COLNAMES> translateClauseSigToPredSig(
-			Map<COLNAMES, COLNAMES> translation, List<Object> argList, SortedSet<COLNAMES> newSignature);
+			BinaryRelation<COLNAMES, COLNAMES> binaryRelation, List<Object> argList, SortedSet<COLNAMES> newSignature);
 	/**
 	 * Lists the language of this dawg word by word
 	 * 

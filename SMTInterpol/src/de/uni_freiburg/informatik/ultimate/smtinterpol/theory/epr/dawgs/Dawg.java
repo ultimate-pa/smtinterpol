@@ -631,7 +631,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 
 	@Override
 	public IDawg<LETTER, COLNAMES> translateClauseSigToPredSig(
-			Map<COLNAMES, COLNAMES> translation,
+			BinaryRelation<COLNAMES, COLNAMES> translation,
 			List<Object> argList, SortedSet<COLNAMES> newSignature) {
 		/*
 		 * algorithmic plan:
@@ -651,7 +651,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		 *  in the ClauseLiteral
 		 */
 		for (COLNAMES colname : mColNames) {
-			if (!translation.containsKey(colname)) {
+			if (!translation.getDomain().contains(colname)) {
 				assert !argList.contains(colname);
 				result = result.projectColumnAway(colname);
 			}
@@ -672,7 +672,8 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			COLNAMES newSigColname = newSigIt.next();
 			if (colNamesType.isInstance(arg)) {
 				// arg is a COLNAME (typically a TermVariable)
-				assert newSigColname == translation.get(arg);
+//				assert newSigColname == translation.get(arg);
+				assert translation.getImage((COLNAMES) arg).contains(newSigColname);
 			} else {
 				// arg must be a LETTER (typically a constant 0-ary ApplicationTerm)
 				insertColumn(newSigColname, mDawgLetterFactory.createSingletonSetDawgLetter((LETTER) arg));
@@ -753,6 +754,86 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			result = newResult;
 		}
 		return result;
+	}
+	
+		/**
+	 * Renames columns of the input dawg according to the given renaming.
+	 * The reordering is given implicitly through the renaming because the colnames are sorted automatically.
+	 * @param other
+	 * @param renaming
+	 * @return
+	 */
+	private Dawg<LETTER, COLNAMES> reorderAndRename(BinaryRelation<COLNAMES, COLNAMES> renaming) {
+//		Dawg<LETTER, COLNAMES> result = (Dawg<LETTER, COLNAMES>) mDawgFactory.copyDawg(this);
+		
+		if (this.isEmpty() || this.isUniversal()) {
+			// for an empty or universal dawg we just return a fresh dawg with the new signature
+			SortedSet<COLNAMES> newSignature = EprHelpers.transformSignature(mColNames, renaming);
+			if (this.isEmpty()) {
+				return (Dawg<LETTER, COLNAMES>) mDawgFactory.getEmptyDawg(newSignature);
+			} else {
+				return (Dawg<LETTER, COLNAMES>) mDawgFactory.getUniversalDawg(newSignature);
+			}
+		}
+
+		Dawg<LETTER, COLNAMES> result = this;
+		for (COLNAMES oldcol : renaming.getDomain()) {
+			Set<COLNAMES> newCols = renaming.getImage(oldcol);
+			if (newCols.size() == 1) {
+				result = new ReorderAndRenameDawgBuilder<LETTER, COLNAMES>(mDawgFactory, 
+						result, 
+						oldcol, 
+						newCols.iterator().next())
+					.build();
+			} else {
+				/*
+				 *  we make the renaming for the first newCol and then trigger "column duplication"
+				 *  for the others
+				 */
+				Iterator<COLNAMES> newColIt = newCols.iterator();
+				
+				COLNAMES firstCol = newColIt.next();
+				result = new ReorderAndRenameDawgBuilder<LETTER, COLNAMES>(mDawgFactory, 
+						result, 
+						oldcol, 
+						firstCol)
+					.build();
+
+				while (newColIt.hasNext()) {
+					COLNAMES currentNewCol = newColIt.next();
+					result = duplicateColumn(result, firstCol, currentNewCol);
+//					result = new ReorderAndRenameDawgBuilder<LETTER, COLNAMES>(mDawgFactory, 
+//							result, 
+//							en.getKey(), 
+//							en.getValue())
+//							.build();
+				}
+			}
+		}
+//		for (Entry<COLNAMES, COLNAMES> en : renaming.entrySet()) {
+//			result = new ReorderAndRenameDawgBuilder<LETTER, COLNAMES>(mDawgFactory, 
+//						result, 
+//						en.getKey(), 
+//						en.getValue())
+//					.build();
+//		}
+		return result;
+	}
+	
+
+	private Dawg<LETTER, COLNAMES> duplicateColumn(Dawg<LETTER, COLNAMES> result, COLNAMES firstCol,
+				COLNAMES currentNewCol) {
+		if (mDawgLetterFactory.useSimpleDawgLetters()) {
+			
+			return null;
+		} else {
+			/*
+			 * this is the "easy case" as our non-simple dawg-letters allow equality-constraints
+			 */
+			//TODO
+			assert false : "TODO: implement";
+			return null;
+		}
 	}
 
 	/**
