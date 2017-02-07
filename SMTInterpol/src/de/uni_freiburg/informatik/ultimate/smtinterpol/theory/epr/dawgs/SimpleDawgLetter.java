@@ -39,6 +39,7 @@ public class SimpleDawgLetter<LETTER, COLNAMES> implements IDawgLetter<LETTER, C
 	private final DawgLetterFactory<LETTER, COLNAMES> mDawgLetterFactory;
 	
 	public SimpleDawgLetter(DawgLetterFactory<LETTER, COLNAMES> dlf, Set<LETTER> letters) {
+		assert letters.size() > 0 : "use EmptyDawgLetter instead";
 		mDawgLetterFactory = dlf;
 		mLetters = letters;
 	}

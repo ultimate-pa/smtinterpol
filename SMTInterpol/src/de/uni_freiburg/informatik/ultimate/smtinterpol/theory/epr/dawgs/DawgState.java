@@ -73,7 +73,11 @@ class PairDawgState extends DawgState {
 	
 	@Override
 	public String toString() {
-		return "PairDawgState(#" + mFirst.hashCode() + ",#" + mSecond.hashCode() + ")";
+//		return "PairDawgState(#" + mFirst.hashCode() + ",#" + mSecond.hashCode() + ")";
+		return String.format("PairDawgState%d(#%d,#%d)", 
+				this.hashCode() % 10000,
+				mFirst.hashCode() % 10000,
+				mSecond.hashCode() % 10000);
 	}
 }
 

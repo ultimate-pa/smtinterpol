@@ -6,6 +6,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Stack;
+
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.BinaryRelation;
 
 
 public class CheckEmptyUniversalSingleton<LETTER, COLNAMES> {
@@ -24,6 +27,14 @@ public class CheckEmptyUniversalSingleton<LETTER, COLNAMES> {
 //	private final Map<DawgState, Pair<DawgState, IDawgLetter<LETTER, COLNAMES>>> mDawgStateToVisitedInEdge = 
 //			new HashMap<DawgState, Pair<DawgState,IDawgLetter<LETTER,COLNAMES>>>();
 	
+	
+	Stack<DawgState> mSamplePathOpenStates = new Stack<DawgState>();
+	Set<DawgState> mSamplePathVisitedStates = new HashSet<DawgState>();
+	
+	BinaryRelation<DawgState, List<IDawgLetter<LETTER,COLNAMES>>> mOpenStateToPaths = 
+			new BinaryRelation<DawgState, List<IDawgLetter<LETTER,COLNAMES>>>();
+	
+	Set<List<IDawgLetter<LETTER,COLNAMES>>> mSampledPaths = new HashSet<List<IDawgLetter<LETTER,COLNAMES>>>();
 	Set<List<IDawgLetter<LETTER,COLNAMES>>> mVisitedSuffixes = new HashSet<List<IDawgLetter<LETTER,COLNAMES>>>();
 	
 
@@ -86,23 +97,34 @@ public class CheckEmptyUniversalSingleton<LETTER, COLNAMES> {
 		if (finalStates.size() != 1) {
 			return false;
 		}
-		final DawgState finalState = finalStates.iterator().next();
+//		final DawgState finalState = finalStates.iterator().next();
 
-		boolean foundSingletonPath = false;
+		boolean foundSingletonPathBefore = false;
+		
+		
+		for (DawgState finalState : finalStates) {
+			mSamplePathOpenStates.add(finalState);
+			mOpenStateToPaths.addPair(finalState, new ArrayList<IDawgLetter<LETTER,COLNAMES>>());
+		}
+
+		
 		// iteratively reconstruct paths from initial state to final state
 		while (true) {
 			
-			List<IDawgLetter<LETTER, COLNAMES>> path = samplePath(finalState);
+			List<IDawgLetter<LETTER, COLNAMES>> path = samplePath();
 
-			if (path == null && foundSingletonPath) {
+			if (path == null && !foundSingletonPathBefore) {
+				return false;
+			}
+			if (path == null && foundSingletonPathBefore) {
 				return true;
 			}
-			if (path != null && foundSingletonPath) {
+			if (path != null && foundSingletonPathBefore) {
 				return false;
 			}
 			
 			if (isPathSingleton(path)) {
-				foundSingletonPath = true;
+				foundSingletonPathBefore = true;
 			} else {
 				return false;
 			}
@@ -112,6 +134,10 @@ public class CheckEmptyUniversalSingleton<LETTER, COLNAMES> {
 	private boolean isPathSingleton(List<IDawgLetter<LETTER, COLNAMES>> path) {
 		if (mDawgFactory.getDawgLetterFactory().useSimpleDawgLetters()) {
 			for (IDawgLetter<LETTER, COLNAMES> ltr : path) {
+				assert !(ltr instanceof EmptyDawgLetter);
+				if (ltr instanceof UniversalDawgLetter) {
+					return false;
+				}
 				SimpleDawgLetter<LETTER, COLNAMES> sdl = (SimpleDawgLetter<LETTER, COLNAMES>) ltr;
 				if (sdl.getLetters().size() != 1) {
 					return false;
@@ -133,34 +159,44 @@ public class CheckEmptyUniversalSingleton<LETTER, COLNAMES> {
 	 * @param finalState
 	 * @return A path from final to initial state, that has not yet been returned, null if there is none.
 	 */
-	private List<IDawgLetter<LETTER, COLNAMES>> samplePath(DawgState finalState) {
-		DawgState currentState = finalState;
-		List<IDawgLetter<LETTER, COLNAMES>> currentSuffix = new ArrayList<IDawgLetter<LETTER,COLNAMES>>();
+	private List<IDawgLetter<LETTER, COLNAMES>> samplePath() {
 
-		while (true) {
+		while (!mSamplePathOpenStates.isEmpty()) {
+			DawgState currentState = mSamplePathOpenStates.pop();
+			
+			if (currentState.equals(mInitialState)) {
+				 for (List<IDawgLetter<LETTER, COLNAMES>> path : mOpenStateToPaths.getImage(mInitialState)) {
+					 if (mSampledPaths.contains(path)) {
+						 continue;
+					 }
+					 mSampledPaths.add(path);
+					 return path;
+				 }
+				 continue;
+			}
 
-			boolean foundNewSuffix = false;
-			for (Pair<DawgState, IDawgLetter<LETTER, COLNAMES>> inEdge : mTransitionRelation.getInverse(finalState)) {
-				List<IDawgLetter<LETTER, COLNAMES>> hypotheticalNewSuffix = 
-						new ArrayList<IDawgLetter<LETTER,COLNAMES>>(currentSuffix);
-				hypotheticalNewSuffix.add(inEdge.getSecond());
-				if (!mVisitedSuffixes.contains(hypotheticalNewSuffix)) {
-					currentSuffix = hypotheticalNewSuffix;
-					currentState = inEdge.getFirst();
-					mVisitedSuffixes.add(currentSuffix);
-					foundNewSuffix = true;
+			for (Pair<DawgState, IDawgLetter<LETTER, COLNAMES>> inEdge : mTransitionRelation.getInverse(currentState)) {
+
+				final DawgState targetState = inEdge.getFirst();
+			
+				boolean foundNewSuffix = false;
+				for (List<IDawgLetter<LETTER, COLNAMES>> path : mOpenStateToPaths.getImage(currentState)) {
+					List<IDawgLetter<LETTER, COLNAMES>> newPath = new ArrayList<IDawgLetter<LETTER, COLNAMES>>(path);
+					newPath.add(inEdge.getSecond());
+
+					if (!mVisitedSuffixes.contains(newPath)) {
+						mOpenStateToPaths.addPair(targetState, newPath);
+						foundNewSuffix = true;
+					}
+				}
+				if (foundNewSuffix) {
+					mSamplePathOpenStates.push(targetState);
 				}
 			}
 			
-			if (!foundNewSuffix) {
-				return null;
-			}
-			
-			if (currentState.equals(mInitialState)) {
-				return currentSuffix;
-			}
-
+			mSamplePathVisitedStates.add(currentState);
 		}
+		return null;
 	}
 
 	public boolean isEmpty() {

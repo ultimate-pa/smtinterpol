@@ -44,6 +44,12 @@ public class DawgTest {
 	private IDawg<String, Integer> dawg4;
 	private IDawg<String, Integer> dawg5;
 	private IDawg<String, Integer> dawg6;
+	private IDawg<String, Integer> dawg7;
+	private IDawg<String, Integer> dawg8;
+	private IDawg<String, Integer> dawg9;
+	private IDawg<String, Integer> dawg10;
+	private IDawg<String, Integer> dawg11;
+	private IDawg<String, Integer> dawg12;
 
 	Set<String> getAllConstants() {
 		Set<String> result = new HashSet<String>();
@@ -90,6 +96,7 @@ public class DawgTest {
 		dawg3 = dawg3.add(word6);
 		dawg3 = dawg3.add(word7);
 		dawg3 = dawg3.add(word8);
+		dawg7 = dawg3;
 		dawg3 = dawg3.add(word9);
 		
 		dawg4 = dawg2.add(word2);
@@ -101,6 +108,22 @@ public class DawgTest {
 //		dawg5 = dawg5.add(word7);
 		
 		dawg6 = dawg3.complement();
+		
+		dawg8 = dawg7.complement();
+//		dawg8 = null;
+		
+		dawg9 = dawgFactory.getEmptyDawg(signature1);
+		dawg9 = dawg9.add(word1);
+		dawg9 = dawg9.add(word2);
+		
+		dawg10 = dawgFactory.getEmptyDawg(signature1);
+		dawg10 = dawg10.add(word2);
+		dawg10 = dawg10.add(word3);
+		
+		dawg11 = dawg9.intersect(dawg10);
+		
+		dawg12 = dawg11.complement();
+		dawg12 = dawg12.add(word2);
 	}
 
 	@Test
@@ -142,6 +165,31 @@ public class DawgTest {
 	@Test
 	public void testDawg6() {
 		assertTrue(dawg6.isEmpty());
+	}
+	
+	@Test
+	public void testDawg7() {
+		assertFalse(dawg7.isEmpty());
+		assertFalse(dawg7.isUniversal());
+		assertFalse(dawg7.isSingleton());
+		assertFalse(dawg7.accepts(word9));
+	}
+	
+	@Test
+	public void testDawg8() {
+		assertTrue(dawg8.isSingleton());
+		assertTrue(dawg8.accepts(word9));
+	}
+	
+	@Test
+	public void testDawg11() {
+		assertTrue(dawg11.isSingleton());
+		assertTrue(dawg11.accepts(word2));
+	}
+
+	@Test
+	public void testDawg12() {
+		assertTrue(dawg12.isUniversal());
 	}
 }
 
