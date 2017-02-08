@@ -33,6 +33,13 @@ import java.util.Map.Entry;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 
 /**
+ * Builds a dawg from an input dawg according to a rule.
+ * 
+ * Has two modes 
+ *  - reorderAndRename: renames a column in the dawg and, if its position moves, transforms the Dawg accordingly
+ *    to accept the corresponding permutation language
+ *  - duplication mode: duplicates a column, i.e. inserts a new column into the dawg that accepts the same letter
+ *     as the duplicated column in each word
  * 
  * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
  *
@@ -318,7 +325,11 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 		final Set<RenameAndReorderDawgState<LETTER,COLNAMES>> firstRnRStates = 
 				new HashSet<RenameAndReorderDawgState<LETTER,COLNAMES>>();
 		if (statesBeforeOldColumnPreStates == null) {
-			// special case: the oldColumn is the first column
+			/*
+			 *  special case: the oldColumn is the first column
+			 *   this means we may have more than one initial state in the result
+			 */
+			mResultInitialStates = new HashSet<DawgState>();
 			if (movesToTheRight) {
 				for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> edgeFromInitialToNextState : 
 					mInputDawg.getTransitionRelation().getOutEdgeSet(mInputDawg.getInitialState())) {

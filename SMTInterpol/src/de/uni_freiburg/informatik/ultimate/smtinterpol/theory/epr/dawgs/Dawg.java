@@ -189,10 +189,6 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		mIsEmpty = ceus.isEmpty();
 		mIsSingleton = ceus.isSingleton();
 		mIsUniversal = ceus.isUniversal();
-//		mIsUniversal = checkUniversality();
-////		mIsEmpty = checkEmptiness();
-//		mIsEmpty = false;
-//		mIsSingleton = checkIsSingleton();
 		
 		assert !containsEmptyDawgLetters(mTransitionRelation) : "transition relation contains an emptyDawgLetter"
 				+ " -- EmptyDawgLetters should only used in operations on DawgLetters, not in a Dawg";

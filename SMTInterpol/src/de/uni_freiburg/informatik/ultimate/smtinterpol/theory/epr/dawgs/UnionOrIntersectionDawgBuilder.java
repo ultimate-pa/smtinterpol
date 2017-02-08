@@ -81,22 +81,23 @@ public class UnionOrIntersectionDawgBuilder<LETTER, COLNAMES> {
 			for (PairDawgState cs : currentStates) {
 				
 				if (!cs.mFirstIsSink && !cs.mSecondIsSink) {
-					Map<IDawgLetter<LETTER, COLNAMES>, DawgState> firstLetterToTarget = 
-							mFirstInputDawg.getTransitionRelation().get(cs.getFirst());
-					Map<IDawgLetter<LETTER, COLNAMES>, DawgState> secondLetterToTarget = 
-							mSecondInputDawg.getTransitionRelation().get(cs.getSecond());
 
-					for (Entry<IDawgLetter<LETTER, COLNAMES>, DawgState> firstEn : firstLetterToTarget.entrySet()) {
-						IDawgLetter<LETTER, COLNAMES> firstDl = firstEn.getKey();
-						for (Entry<IDawgLetter<LETTER, COLNAMES>, DawgState> secondEn : secondLetterToTarget.entrySet()) {
-							IDawgLetter<LETTER, COLNAMES> secondDl = secondEn.getKey();
+					for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> firstOutEdge :
+						mFirstInputDawg.getTransitionRelation().getOutEdgeSet(cs.getFirst())) {
+						final IDawgLetter<LETTER, COLNAMES> firstDl = firstOutEdge.getFirst();
+						final DawgState firstTarget = firstOutEdge.getSecond();
+
+						for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> secondOutEdge :
+							mSecondInputDawg.getTransitionRelation().getOutEdgeSet(cs.getSecond())) {
+							final IDawgLetter<LETTER, COLNAMES> secondDl = secondOutEdge.getFirst();
+							final DawgState secondTarget = secondOutEdge.getSecond();
 
 							IDawgLetter<LETTER, COLNAMES> intersectionDl = firstDl.intersect(secondDl);
 
 							if (intersectionDl != null && !(intersectionDl instanceof EmptyDawgLetter)) {
 								// dawgletters do intersect --> add transition and new state
 								PairDawgState newState = mDawgStateFactory.getOrCreatePairDawgState(
-										firstEn.getValue(), secondEn.getValue());
+										firstTarget, secondTarget);
 
 								nextStates.add(newState);
 								mResultTransitionRelation.put(cs, intersectionDl, newState);
@@ -105,7 +106,7 @@ public class UnionOrIntersectionDawgBuilder<LETTER, COLNAMES> {
 							if (doUnion) {
 								Set<IDawgLetter<LETTER, COLNAMES>> firstWithoutSecondDls = firstDl.difference(secondDl);
 								if (!firstWithoutSecondDls.isEmpty()) {
-									PairDawgState fwsDs = mDawgStateFactory.getOrCreatePairDawgState(firstEn.getValue(), false, true);
+									PairDawgState fwsDs = mDawgStateFactory.getOrCreatePairDawgState(firstTarget, false, true);
 									nextStates.add(fwsDs);
 									for (IDawgLetter<LETTER, COLNAMES> dl : firstWithoutSecondDls) {
 										mResultTransitionRelation.put(cs, dl, fwsDs);
@@ -114,7 +115,7 @@ public class UnionOrIntersectionDawgBuilder<LETTER, COLNAMES> {
 
 								Set<IDawgLetter<LETTER, COLNAMES>> secondWithoutFirstDls = secondDl.difference(firstDl);
 								if (!secondWithoutFirstDls.isEmpty()) {
-									PairDawgState swfDs = new PairDawgState(secondEn.getValue(), true, false);
+									PairDawgState swfDs = new PairDawgState(secondTarget, true, false);
 									nextStates.add(swfDs);
 									for (IDawgLetter<LETTER, COLNAMES> dl : secondWithoutFirstDls) {
 										mResultTransitionRelation.put(cs, dl, swfDs);
@@ -124,20 +125,19 @@ public class UnionOrIntersectionDawgBuilder<LETTER, COLNAMES> {
 						}
 					}
 				} else if (doUnion && cs.mFirstIsSink) {
-					Map<IDawgLetter<LETTER, COLNAMES>, DawgState> firstLetterToTarget = 
-							mFirstInputDawg.getTransitionRelation().get(cs.getFirst());
-					for (Entry<IDawgLetter<LETTER, COLNAMES>, DawgState> firstEn : firstLetterToTarget.entrySet()) {
-						PairDawgState ds = mDawgStateFactory.getOrCreatePairDawgState(firstEn.getValue(), true, false);
+					for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> firstOutEdge : 
+						mFirstInputDawg.getTransitionRelation().getOutEdgeSet(cs.getFirst())) {
+
+						PairDawgState ds = mDawgStateFactory.getOrCreatePairDawgState(firstOutEdge.getSecond(), true, false);
 						nextStates.add(ds);
-						mResultTransitionRelation.put(cs, firstEn.getKey(), ds);
+						mResultTransitionRelation.put(cs, firstOutEdge.getFirst(), ds);
 					}
 				} else if (doUnion && cs.mSecondIsSink) {
-					Map<IDawgLetter<LETTER, COLNAMES>, DawgState> secondLetterToTarget = 
-							mSecondInputDawg.getTransitionRelation().get(cs.getSecond());
-					for (Entry<IDawgLetter<LETTER, COLNAMES>, DawgState> secondEn : secondLetterToTarget.entrySet()) {
-						PairDawgState ds = mDawgStateFactory.getOrCreatePairDawgState(secondEn.getValue(), false, true);
+					for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> secondOutEdge : 
+						mSecondInputDawg.getTransitionRelation().getOutEdgeSet(cs.getSecond())) {
+						PairDawgState ds = mDawgStateFactory.getOrCreatePairDawgState(secondOutEdge.getSecond(), false, true);
 						nextStates.add(ds);
-						mResultTransitionRelation.put(cs, secondEn.getKey(), ds);
+						mResultTransitionRelation.put(cs, secondOutEdge.getFirst(), ds);
 					}
 				}
 			}

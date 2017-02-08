@@ -43,8 +43,8 @@ class PairDawgState extends DawgState {
 	final DawgState mFirst;
 	final DawgState mSecond;
 	
-	boolean mFirstIsSink;
-	boolean mSecondIsSink;
+	final boolean mFirstIsSink;
+	final boolean mSecondIsSink;
 	
 	PairDawgState(DawgState s, boolean firstIsSink, boolean secondIsSink) {
 		assert firstIsSink != secondIsSink;
@@ -52,13 +52,20 @@ class PairDawgState extends DawgState {
 		if (firstIsSink) {
 			mFirst = null;
 			mSecond = s;
+			mFirstIsSink = true;
+			mSecondIsSink = false;
 		} else {
 			mFirst = s;
 			mSecond = null;
+			mFirstIsSink = false;
+			mSecondIsSink = true;
 		}
 	}
 
 	PairDawgState(DawgState f, DawgState s) {
+		assert f != null && s != null;
+		mFirstIsSink = false;
+		mSecondIsSink = false;
 		mFirst = f;
 		mSecond = s;
 	}
@@ -76,8 +83,8 @@ class PairDawgState extends DawgState {
 //		return "PairDawgState(#" + mFirst.hashCode() + ",#" + mSecond.hashCode() + ")";
 		return String.format("PairDawgState%d(#%d,#%d)", 
 				this.hashCode() % 10000,
-				mFirst.hashCode() % 10000,
-				mSecond.hashCode() % 10000);
+				mFirstIsSink ? -1 : mFirst.hashCode() % 10000,
+				mSecondIsSink ? -1 : mSecond.hashCode() % 10000);
 	}
 }
 

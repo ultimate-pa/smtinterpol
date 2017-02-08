@@ -445,6 +445,8 @@ public class EprHelpers {
 				return tv1.getName().compareTo(tv2.getName());
 			} else if (o1 instanceof String) {
 				return ((String) o1).compareTo((String) o2);
+			} else if (o1 instanceof Integer) {
+				return ((Integer) o1).compareTo((Integer) o2);
 			}
 
 			throw new UnsupportedOperationException("unexpected comparator call");

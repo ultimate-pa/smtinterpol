@@ -75,6 +75,8 @@ public class DawgTestSetOperations {
 	private IDawg<String, Integer> dawg10;
 	private IDawg<String, Integer> dawg11;
 	private IDawg<String, Integer> dawg12;
+	private IDawg<String, Integer> dawg13;
+	private IDawg<String, Integer> dawg14;
 
 	Set<String> getAllConstants() {
 		Set<String> result = new HashSet<String>();
@@ -149,6 +151,18 @@ public class DawgTestSetOperations {
 		
 		dawg12 = dawg11.complement();
 		dawg12 = dawg12.add(word_ab);
+		
+		dawg13 = dawgFactory.createOnePointDawg(signature1, word_ba);
+		dawg13 = dawg13.add(word_bb);
+		dawg13 = dawg13.add(word_bc);
+		dawg13 = dawg13.add(word_ca);
+		dawg13 = dawg13.add(word_cb);
+		dawg13 = dawg13.add(word_cc);
+
+		
+		dawg14 = dawg9.union(dawg10);
+		dawg14 = dawg14.union(dawg13);
+
 	}
 
 	@Test
@@ -216,6 +230,12 @@ public class DawgTestSetOperations {
 	public void testDawg12() {
 		assertTrue(dawg12.isUniversal());
 	}
+	
+	@Test
+	public void testDawg13() {
+		assertTrue(dawg14.isUniversal());
+	}
+	
 }
 
 class EprTheoryMock extends EprTheory {

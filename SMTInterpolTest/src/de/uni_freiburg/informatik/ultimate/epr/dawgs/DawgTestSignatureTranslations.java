@@ -37,6 +37,7 @@ import org.junit.runners.JUnit4;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.BinaryRelation;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
@@ -89,12 +90,16 @@ public class DawgTestSignatureTranslations {
 		word_cc = Arrays.asList(new String[] { "c", "c" });
 
 
-		SortedSet<Integer> signature1 = new TreeSet<Integer>(Arrays.asList(new Integer[] { 1, 2 }));
+		SortedSet<Integer> signature1 = new TreeSet<Integer>(EprHelpers.getColumnNamesComparator());
+		signature1.addAll(Arrays.asList(new Integer[] { 1, 2 }));
+		
 		dawg1 = dawgFactory.getEmptyDawg(signature1);
 		dawg1 = dawg1.add(word_ba);
 		dawg1 = dawg1.add(word_ca);
 				
-		SortedSet<Integer> signature2 = new TreeSet<Integer>(Arrays.asList(new Integer[] { 10, 20, 30 }));
+		SortedSet<Integer> signature2 = new TreeSet<Integer>(EprHelpers.getColumnNamesComparator());
+		signature2.addAll(Arrays.asList(new Integer[] { 10, 20, 30 }));
+
 		BinaryRelation<Integer, Integer> translation1 = new BinaryRelation<Integer, Integer>();
 		translation1.addPair(1, 20);
 		translation1.addPair(1, 30);
