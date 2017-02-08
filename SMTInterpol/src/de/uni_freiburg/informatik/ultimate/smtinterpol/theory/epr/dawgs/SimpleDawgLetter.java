@@ -49,7 +49,10 @@ public class SimpleDawgLetter<LETTER, COLNAMES> implements IDawgLetter<LETTER, C
 		final Set<LETTER> resultLetters = new HashSet<LETTER>();
 		resultLetters.addAll(mDawgLetterFactory.getAllConstants());
 		resultLetters.removeAll(mLetters);
-		
+
+		if (resultLetters.isEmpty()) {
+			return Collections.emptySet();
+		}
 		return Collections.singleton(mDawgLetterFactory.getSimpleDawgLetter(resultLetters));
 	}
 
@@ -60,6 +63,9 @@ public class SimpleDawgLetter<LETTER, COLNAMES> implements IDawgLetter<LETTER, C
 		resultLetters.addAll(mLetters);
 		resultLetters.removeAll(otherSdl.mLetters);
 	
+		if (resultLetters.isEmpty()) {
+			return Collections.emptySet();
+		}
 		return Collections.singleton(mDawgLetterFactory.getSimpleDawgLetter(resultLetters));
 	}
 
