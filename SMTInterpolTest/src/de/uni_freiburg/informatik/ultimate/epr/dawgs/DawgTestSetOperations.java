@@ -1,3 +1,22 @@
+/*
+ * Copyright (C) 2017 Alexander Nutz (nutz@informatik.uni-freiburg.de)
+ * Copyright (C) 2017 University of Freiburg
+ *
+ * This file is part of SMTInterpol.
+ *
+ * SMTInterpol is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * SMTInterpol is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.
+ */
 package de.uni_freiburg.informatik.ultimate.epr.dawgs;
 
 import static org.junit.Assert.*;
@@ -25,22 +44,28 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 
+/**
+ * Tests for the standard set operations on dawgs.
+ * 
+ * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
+ *
+ */
 @RunWith(JUnit4.class)
-public class DawgTest {
+public class DawgTestSetOperations {
 	
 	private IDawg<String, Integer> dawg1;
 	private TreeSet<Integer> signature1;
-	private List<String> word1;
+	private List<String> word_aa;
 	private IDawg<String, Integer> dawg2;
-	private List<String> word3;
-	private List<String> word4;
-	private List<String> word5;
-	private List<String> word6;
-	private List<String> word7;
-	private List<String> word8;
-	private List<String> word9;
+	private List<String> word_ac;
+	private List<String> word_ba;
+	private List<String> word_bb;
+	private List<String> word_bc;
+	private List<String> word_ca;
+	private List<String> word_cb;
+	private List<String> word_cc;
 	private IDawg<String, Integer> dawg3;
-	private List<String> word2;
+	private List<String> word_ab;
 	private IDawg<String, Integer> dawg4;
 	private IDawg<String, Integer> dawg5;
 	private IDawg<String, Integer> dawg6;
@@ -76,33 +101,33 @@ public class DawgTest {
 		signature1 = new TreeSet<Integer>(Arrays.asList(new Integer[] { 1, 2 }));
 		dawg1 = dawgFactory.getEmptyDawg(signature1);
 		
-		word1 = Arrays.asList(new String[] { "a", "a" });
-		dawg2 = dawg1.add(word1);
+		word_aa = Arrays.asList(new String[] { "a", "a" });
+		dawg2 = dawg1.add(word_aa);
 
-		word2 = Arrays.asList(new String[] { "a", "b" });
+		word_ab = Arrays.asList(new String[] { "a", "b" });
 		
-		word3 = Arrays.asList(new String[] { "a", "c" });
-		word4 = Arrays.asList(new String[] { "b", "a" });
-		word5 = Arrays.asList(new String[] { "b", "b" });
-		word6 = Arrays.asList(new String[] { "b", "c" });
-		word7 = Arrays.asList(new String[] { "c", "a" });
-		word8 = Arrays.asList(new String[] { "c", "b" });
-		word9 = Arrays.asList(new String[] { "c", "c" });
+		word_ac = Arrays.asList(new String[] { "a", "c" });
+		word_ba = Arrays.asList(new String[] { "b", "a" });
+		word_bb = Arrays.asList(new String[] { "b", "b" });
+		word_bc = Arrays.asList(new String[] { "b", "c" });
+		word_ca = Arrays.asList(new String[] { "c", "a" });
+		word_cb = Arrays.asList(new String[] { "c", "b" });
+		word_cc = Arrays.asList(new String[] { "c", "c" });
 
-		dawg3 = dawg2.add(word2);
-		dawg3 = dawg3.add(word3);
-		dawg3 = dawg3.add(word4);
-		dawg3 = dawg3.add(word5);
-		dawg3 = dawg3.add(word6);
-		dawg3 = dawg3.add(word7);
-		dawg3 = dawg3.add(word8);
+		dawg3 = dawg2.add(word_ab);
+		dawg3 = dawg3.add(word_ac);
+		dawg3 = dawg3.add(word_ba);
+		dawg3 = dawg3.add(word_bb);
+		dawg3 = dawg3.add(word_bc);
+		dawg3 = dawg3.add(word_ca);
+		dawg3 = dawg3.add(word_cb);
 		dawg7 = dawg3;
-		dawg3 = dawg3.add(word9);
+		dawg3 = dawg3.add(word_cc);
 		
-		dawg4 = dawg2.add(word2);
-		dawg4 = dawg4.add(word3);
+		dawg4 = dawg2.add(word_ab);
+		dawg4 = dawg4.add(word_ac);
 		
-		dawg5 = dawg4.add(word4);
+		dawg5 = dawg4.add(word_ba);
 //		dawg5 = dawg5.add(word5);
 //		dawg5 = dawg5.add(word6);
 //		dawg5 = dawg5.add(word7);
@@ -113,17 +138,17 @@ public class DawgTest {
 //		dawg8 = null;
 		
 		dawg9 = dawgFactory.getEmptyDawg(signature1);
-		dawg9 = dawg9.add(word1);
-		dawg9 = dawg9.add(word2);
+		dawg9 = dawg9.add(word_aa);
+		dawg9 = dawg9.add(word_ab);
 		
 		dawg10 = dawgFactory.getEmptyDawg(signature1);
-		dawg10 = dawg10.add(word2);
-		dawg10 = dawg10.add(word3);
+		dawg10 = dawg10.add(word_ab);
+		dawg10 = dawg10.add(word_ac);
 		
 		dawg11 = dawg9.intersect(dawg10);
 		
 		dawg12 = dawg11.complement();
-		dawg12 = dawg12.add(word2);
+		dawg12 = dawg12.add(word_ab);
 	}
 
 	@Test
@@ -136,8 +161,8 @@ public class DawgTest {
 	public void testDawg2() {
 		assertFalse(dawg2.isEmpty());
 		assertFalse(dawg2.isUniversal());
-		assertTrue(dawg2.accepts(word1));
-		assertFalse(dawg2.accepts(word2));
+		assertTrue(dawg2.accepts(word_aa));
+		assertFalse(dawg2.accepts(word_ab));
 		assertTrue(dawg2.isSingleton());
 	}
 
@@ -148,16 +173,16 @@ public class DawgTest {
 
 	@Test
 	public void testDawg4() {
-		assertTrue(dawg4.accepts(word2));
-		assertTrue(dawg4.accepts(word3));
-		assertFalse(dawg4.accepts(word4));
+		assertTrue(dawg4.accepts(word_ab));
+		assertTrue(dawg4.accepts(word_ac));
+		assertFalse(dawg4.accepts(word_ba));
 	}
 	
 	@Test
 	public void testDawg5() {
 		dawg5.listPoints();
-		assertTrue(dawg5.accepts(word1));
-		assertTrue(dawg5.accepts(word4));
+		assertTrue(dawg5.accepts(word_aa));
+		assertTrue(dawg5.accepts(word_ba));
 //		assertTrue(dawg5.accepts(word5));
 //		assertTrue(dawg5.accepts(word6));
 	}
@@ -172,19 +197,19 @@ public class DawgTest {
 		assertFalse(dawg7.isEmpty());
 		assertFalse(dawg7.isUniversal());
 		assertFalse(dawg7.isSingleton());
-		assertFalse(dawg7.accepts(word9));
+		assertFalse(dawg7.accepts(word_cc));
 	}
 	
 	@Test
 	public void testDawg8() {
 		assertTrue(dawg8.isSingleton());
-		assertTrue(dawg8.accepts(word9));
+		assertTrue(dawg8.accepts(word_cc));
 	}
 	
 	@Test
 	public void testDawg11() {
 		assertTrue(dawg11.isSingleton());
-		assertTrue(dawg11.accepts(word2));
+		assertTrue(dawg11.accepts(word_ab));
 	}
 
 	@Test
