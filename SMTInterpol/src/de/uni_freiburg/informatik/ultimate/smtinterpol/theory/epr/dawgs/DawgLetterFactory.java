@@ -78,7 +78,7 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 		}
 	}
 	
-	IDawgLetter<LETTER, COLNAMES> getUniversalDawgLetter() {
+	public IDawgLetter<LETTER, COLNAMES> getUniversalDawgLetter() {
 		if (useSimpleDawgLetters()) {
 			return mUniversalDawgLetter;
 		} else {
@@ -86,7 +86,7 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 		}
 	}
 	
-	IDawgLetter<LETTER, COLNAMES> getEmptyDawgLetter() {
+	public IDawgLetter<LETTER, COLNAMES> getEmptyDawgLetter() {
 		if (useSimpleDawgLetters()) {
 			return mEmptyDawgLetter;
 		} else {
