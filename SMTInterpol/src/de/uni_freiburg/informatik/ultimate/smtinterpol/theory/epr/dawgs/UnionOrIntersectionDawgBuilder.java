@@ -124,7 +124,7 @@ public class UnionOrIntersectionDawgBuilder<LETTER, COLNAMES> {
 							}
 						}
 					}
-				} else if (doUnion && cs.mFirstIsSink) {
+				} else if (doUnion && cs.mSecondIsSink) {
 					for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> firstOutEdge : 
 						mFirstInputDawg.getTransitionRelation().getOutEdgeSet(cs.getFirst())) {
 
@@ -132,7 +132,7 @@ public class UnionOrIntersectionDawgBuilder<LETTER, COLNAMES> {
 						nextStates.add(ds);
 						mResultTransitionRelation.put(cs, firstOutEdge.getFirst(), ds);
 					}
-				} else if (doUnion && cs.mSecondIsSink) {
+				} else if (doUnion && cs.mFirstIsSink) {
 					for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> secondOutEdge : 
 						mSecondInputDawg.getTransitionRelation().getOutEdgeSet(cs.getSecond())) {
 						PairDawgState ds = mDawgStateFactory.getOrCreatePairDawgState(secondOutEdge.getSecond(), false, true);
