@@ -31,6 +31,7 @@ import java.util.SortedSet;
 import java.util.TreeSet;
 
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.BinaryRelation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 
 /**
@@ -399,7 +400,7 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	@Override
 	@SuppressWarnings("unchecked")
 	public IDawg<LETTER, COLNAMES> translateClauseSigToPredSig(
-			Map<COLNAMES, COLNAMES> translation, 
+			BinaryRelation<COLNAMES, COLNAMES> translation, 
 			List<Object> argList, 
 			SortedSet<COLNAMES> newSignature) {
 		
@@ -429,10 +430,15 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 						"the translation map must not translate to a colname where the clauseliteral has a constant!";
 					newPoint.set(i, (LETTER) argList.get(i));
 				} else {
-					LETTER letter = point.get(oldSigColnamesToIndex.get(translation.get(newSigColname)));
+					Set<COLNAMES> oldSigColnames = translation.getPreImage(newSigColname);
+					assert oldSigColnames.size() == 1;
+					final COLNAMES oldSigColname = oldSigColnames.iterator().next();
+					LETTER letter = point.get(oldSigColnamesToIndex.get(oldSigColname));
 					newPoint.set(i, letter);
 				}
 			}
+			
+			
 			newBacking.add(newPoint);
 		}
 		
