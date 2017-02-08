@@ -801,7 +801,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 
 				while (newColIt.hasNext()) {
 					COLNAMES currentNewCol = newColIt.next();
-					result = duplicateColumn(result, firstCol, currentNewCol);
+					result = result.duplicateColumn(firstCol, currentNewCol);
 //					result = new ReorderAndRenameDawgBuilder<LETTER, COLNAMES>(mDawgFactory, 
 //							result, 
 //							en.getKey(), 
@@ -821,11 +821,12 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	}
 	
 
-	private Dawg<LETTER, COLNAMES> duplicateColumn(Dawg<LETTER, COLNAMES> result, COLNAMES firstCol,
+	private Dawg<LETTER, COLNAMES> duplicateColumn(COLNAMES firstCol,
 				COLNAMES currentNewCol) {
 		if (mDawgLetterFactory.useSimpleDawgLetters()) {
-			
-			return null;
+			return new ReorderAndRenameDawgBuilder<LETTER, COLNAMES>(mDawgFactory, 
+					this, firstCol, currentNewCol, true)
+					.build();
 		} else {
 			/*
 			 * this is the "easy case" as our non-simple dawg-letters allow equality-constraints
