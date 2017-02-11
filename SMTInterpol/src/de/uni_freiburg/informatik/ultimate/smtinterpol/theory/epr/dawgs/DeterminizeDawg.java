@@ -86,7 +86,7 @@ public class DeterminizeDawg<LETTER, COLNAMES> {
 		
 		ArrayDeque<SetDawgState> worklist = new ArrayDeque<SetDawgState>();
 		worklist.add(mResultInitialState);
-		while (true) {
+		while (!worklist.isEmpty()) {
 			final SetDawgState currentSetState = worklist.pop();
 		
 			BinaryRelation<IDawgLetter<LETTER, COLNAMES>, IDawgLetter<LETTER, COLNAMES>> occuringDawgLetterToDividedDawgLetters =
@@ -215,42 +215,6 @@ public class DeterminizeDawg<LETTER, COLNAMES> {
 				}
 			}
 		}
-		
-//		final BinaryRelation<DawgLetter<LETTER, COLNAMES>, DawgLetter<LETTER, COLNAMES>> 
-//			originalLetterToIntersectingNonIdenticalLetters = 
-//				new BinaryRelation<DawgLetter<LETTER,COLNAMES>, DawgLetter<LETTER,COLNAMES>>();
-
-//		final List<DawgState> dawgStateList = new ArrayList<DawgState>(dawgStates);
-//		for (int i = 0; i < dawgStateList.size(); i++) {
-//			final DawgState dawgState1 = dawgStateList.get(i);
-//			for (int j = 0; j < i; j++) {
-//				final DawgState dawgState2 = dawgStateList.get(j);
-//				for (DawgLetter<LETTER, COLNAMES> outgoingLetter1 : mInputTransitionRelation.get(dawgState1).keySet()) {
-//					for (DawgLetter<LETTER, COLNAMES> outgoingLetter2 : mInputTransitionRelation.get(dawgState2).keySet()) {
-//						if (outgoingLetter1.equals(outgoingLetter2)) {
-//							// the letters are identical --> no need to do anything
-//							continue;
-//						}
-//						final DawgLetter<LETTER, COLNAMES> intersection = outgoingLetter1.intersect(outgoingLetter2);
-//						if (intersection.equals(mDawgLetterFactory.getEmptyDawgLetter())) {
-//							// the letters don't intersect --> no need to do anything
-//							continue;
-//						}
-////						originalLetterToIntersectingNonIdenticalLetters.addPair(outgoingLetter1, outgoingLetter2);
-//						/*
-//						 * Essentially, we have two sets that intersect. Say the sets are A and B, and the intersection 
-//						 * is I.
-//						 * Add to the result for the original DawgLetter (corresponding to A) the sets A\I and I.
-//						 */
-//						result.addPair(outgoingLetter1, intersection);
-//						final Set<DawgLetter<LETTER, COLNAMES>> difference = outgoingLetter1.difference(outgoingLetter2);
-//						for (DawgLetter<LETTER, COLNAMES> letter : difference) {
-//							result.addPair(outgoingLetter1, letter);
-//						}
-//					}
-//				}
-//			}
-//		}
 
 		return result;
 	}

@@ -47,7 +47,7 @@ public class DawgStateFactory<LETTER, COLNAMES> {
 	 */
 	private final Map<DawgState, PairDawgState> mSecondHalfSinkStates = new HashMap<DawgState, PairDawgState>();
 
-	private Map<Set<DawgState>, SetDawgState> mDawgStateSetToSetDawgState;
+	private Map<Set<DawgState>, SetDawgState> mDawgStateSetToSetDawgState = new HashMap<Set<DawgState>, SetDawgState>();
 
 	private final NestedMap3<IDawgLetter<LETTER, COLNAMES>, COLNAMES, DawgState, RenameAndReorderDawgState<LETTER, COLNAMES>> 
 		mLetterToColNameToDawgStateToRenameAndReorderDawgState = 

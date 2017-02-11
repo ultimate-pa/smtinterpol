@@ -84,5 +84,19 @@ public class HashRelation3<K1, K2, K3> {
 		 }
 	}
 
+	@Override
+	public String toString() {
+		StringBuilder sb = new StringBuilder();
+		
+		for (K1 k1 : projectToFst()) {
+			for (K2 k2 : projectToSnd(k1)) {
+				for (K3 k3 : projectToTrd(k1, k2)) {
+					sb.append(String.format("(%s, %s, %s)\n", k1, k2, k3));
+				}
+			}
+		}
+		
+		return sb.toString();
+	}
 
 }
