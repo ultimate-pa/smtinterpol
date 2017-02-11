@@ -253,7 +253,7 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 			splitPostStates = new HashSet<DawgState>();
 			
 			// oldColIterator will give us the column directly after the moved column at this point
-			COLNAMES currentColNameInOldSignature = oldColIterator.next();
+//			COLNAMES currentColNameInOldSignature = oldColIterator.next();
 			
 			Set<RenameAndReorderDawgState<LETTER, COLNAMES>> currentRnRStates = 
 					firstRnRStates;
@@ -265,7 +265,7 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 					break;
 				}
 				
-				currentColNameInOldSignature = oldColIterator.next();
+				COLNAMES currentColNameInOldSignature = oldColIterator.next();
 
 				if (currentColNameInOldSignature.equals(newRightNeighbour)) {
 					splitColumn(movesToTheRight, newTransitionRelation, splitPostStates, currentRnRStates);

@@ -113,6 +113,7 @@ public class DeterminizeDawg<LETTER, COLNAMES> {
 				 final SetDawgState targetSetState = mDawgStateFactory.getOrCreateSetDawgState(
 						 dividedDawgLetterToTargetStates.getImage(ddl));
 				 mResultTransitionRelation.put(currentSetState, ddl, targetSetState);
+				 worklist.addFirst(targetSetState);
 			}
 		}
 	}

@@ -180,6 +180,7 @@ public class DawgTestSignatureTranslations {
 				.build();
 		
 		assertTrue(dawg4.accepts(word_aaaaa));
+//		assertTrue(dawg4.accepts(word_bbcab));
 		assertTrue(dawg4.accepts(word_acbab));
 		assertTrue(dawg4.accepts(word_accac));
 		
