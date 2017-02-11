@@ -19,9 +19,8 @@
  */
 package de.uni_freiburg.informatik.ultimate.epr.dawgs;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertTrue;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -39,8 +38,10 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.BinaryRelation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.Dawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.ReorderAndRenameDawgBuilder;
 
 @RunWith(JUnit4.class)
 public class DawgTestSignatureTranslations {
@@ -56,6 +57,18 @@ public class DawgTestSignatureTranslations {
 	private List<String> word_cb;
 	private List<String> word_cc;
 	private Object dawg2;
+	private List<String> word_aaaaa;
+	private List<String> word_aaacb;
+	private List<String> word_aacbb;
+	private List<String> word_aaccc;
+	private List<String> word_acbaa;
+	private List<String> word_acbcb;
+	private List<String> word_babaa;
+	private List<String> word_babcb;
+	private IDawg<String, String> dawg3;
+	private List<String> word_aacab;
+	private List<String> word_acbab;
+	private List<String> word_accac;
 
 	Set<String> getAllConstants() {
 		Set<String> result = new HashSet<String>();
@@ -75,7 +88,7 @@ public class DawgTestSignatureTranslations {
 
 	@Before
 	public void setup() {
-		DawgFactory<String, Integer> dawgFactory = 
+		DawgFactory<String, Integer> dawgFactoryStringInteger = 
 				new DawgFactory<String, Integer>(getEprTheory(), getAllConstants());
 		
 		
@@ -93,7 +106,7 @@ public class DawgTestSignatureTranslations {
 		SortedSet<Integer> signature1 = new TreeSet<Integer>(EprHelpers.getColumnNamesComparator());
 		signature1.addAll(Arrays.asList(new Integer[] { 1, 2 }));
 		
-		dawg1 = dawgFactory.getEmptyDawg(signature1);
+		dawg1 = dawgFactoryStringInteger.getEmptyDawg(signature1);
 		dawg1 = dawg1.add(word_ba);
 		dawg1 = dawg1.add(word_ca);
 				
@@ -105,18 +118,71 @@ public class DawgTestSignatureTranslations {
 		translation1.addPair(1, 30);
 		translation1.addPair(2, 10);
 
-		List<Object> argList1 = Arrays.asList(new Object[] { 1, 2 });
+		List<Object> argList1 = Arrays.asList(new Object[] { 1, 1, 2 });
 		
 
-		dawg2 = dawg1.translateClauseSigToPredSig(translation1, argList1, signature2);
+//		dawg2 = dawg1.translateClauseSigToPredSig(translation1, argList1, signature2);
 				
-
-
 	}
 	
 	@Test
 	public void test1() {
 		assertTrue(dawg1.accepts(word_ba));
+		assertTrue(dawg1.accepts(word_ca));
 		
 	}
+	
+	@Test
+	public void test2() {
+		/*
+		 *  example from the whiteboard
+		 *   --> not the smallest example but should avoid special cases like "move first column"
+		 */
+		DawgFactory<String, String> dawgFactoryStringString = 
+				new DawgFactory<String, String>(getEprTheory(), getAllConstants());
+
+		word_aaaaa = Arrays.asList(new String[] { "a", "a", "a", "a", "a" });
+		word_aaacb = Arrays.asList(new String[] { "a", "a", "a", "c", "b" });
+		word_aacbb = Arrays.asList(new String[] { "a", "a", "c", "b", "b" });
+		word_aaccc = Arrays.asList(new String[] { "a", "a", "c", "c", "c" });
+		word_acbaa = Arrays.asList(new String[] { "a", "c", "b", "a", "a" });
+		word_acbcb = Arrays.asList(new String[] { "a", "c", "b", "c", "b" });
+		word_babaa = Arrays.asList(new String[] { "b", "a", "b", "a", "a" });
+		word_babcb = Arrays.asList(new String[] { "b", "a", "b", "c", "b" });
+
+		word_aacab = Arrays.asList(new String[] { "a", "a", "c", "a", "b" });
+		word_acbab = Arrays.asList(new String[] { "a", "c", "b", "a", "b" });
+		word_accac = Arrays.asList(new String[] { "a", "c", "c", "a", "c" });
+		
+		SortedSet<String> signature3 = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
+		signature3.addAll(Arrays.asList(new String[] { "u", "v", "w", "x", "z"}));
+		
+		SortedSet<String> signature4 = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
+		signature4.addAll(Arrays.asList(new String[] { "u", "w", "x", "y", "z" }));
+		
+		dawg3 = dawgFactoryStringString.getEmptyDawg(signature3);
+		dawg3 = dawg3.add(word_aaaaa);
+		dawg3 = dawg3.add(word_aaacb);
+		dawg3 = dawg3.add(word_aacbb);
+		dawg3 = dawg3.add(word_aaccc);
+		dawg3 = dawg3.add(word_acbaa);
+		dawg3 = dawg3.add(word_acbcb);
+		dawg3 = dawg3.add(word_babaa);
+		dawg3 = dawg3.add(word_babcb);
+		
+		dawg3 = dawg3.add(word_aacab);
+
+		Dawg<String, String> dawg4 = new ReorderAndRenameDawgBuilder<String, String>(
+					dawgFactoryStringString, 
+					(Dawg<String, String>) dawg3, 
+					"v", 
+					"y")
+				.build();
+		
+		assertTrue(dawg4.accepts(word_aaaaa));
+		assertTrue(dawg4.accepts(word_acbab));
+		assertTrue(dawg4.accepts(word_accac));
+		
+	}
+	
 }
