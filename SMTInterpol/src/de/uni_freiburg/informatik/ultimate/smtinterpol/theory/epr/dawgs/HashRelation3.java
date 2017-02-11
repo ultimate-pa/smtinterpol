@@ -40,6 +40,23 @@ import java.util.Set;
 public class HashRelation3<K1, K2, K3> {
 	private final NestedMap3<K1, K2, K3, IsContained> mBackingMap = new NestedMap3<K1, K2, K3, IsContained>();
 	
+	/**
+	 * Creates a HashRelation3 form a nestedMap2
+	 * (that relation will have the fuction property..)
+	 */
+	public HashRelation3(
+			NestedMap2<K1, K2, K3> map) {
+		for (Triple<K1, K2, K3> triple : map.entrySet()) {
+			addTriple(triple.getFirst(), triple.getSecond(), triple.getThird());
+		}
+	}
+
+	/**
+	 * constructor for empty relation
+	 */
+	public HashRelation3() {
+	}
+
 	public boolean addTriple(K1 fst, K2 snd, K3 trd) {
 		final IsContained isContained = mBackingMap.put(fst, snd, trd, IsContained.IsContained);
 		return isContained == IsContained.IsContained;

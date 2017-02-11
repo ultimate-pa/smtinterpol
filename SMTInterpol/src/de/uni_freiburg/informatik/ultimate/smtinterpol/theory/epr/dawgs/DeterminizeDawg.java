@@ -46,7 +46,7 @@ public class DeterminizeDawg<LETTER, COLNAMES> {
 	private SortedSet<COLNAMES> mColnames;
 	private Set<LETTER> mAllConstants;
 	private LogProxy mLogger;
-	private NestedMap2<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> mInputTransitionRelation;
+	private HashRelation3<DawgState,IDawgLetter<LETTER,COLNAMES>,DawgState> mInputTransitionRelation;
 	private Set<DawgState> mInputInitialStates;
 
 
@@ -58,20 +58,20 @@ public class DeterminizeDawg<LETTER, COLNAMES> {
 	 * @param colnames
 	 * @param allConstants
 	 * @param logger
-	 * @param transitionRelation
+	 * @param resultTransitionRelation
 	 * @param initialStates
 	 * @param dawgFactory
 	 */
 	public DeterminizeDawg(SortedSet<COLNAMES> colnames, 
 			Set<LETTER> allConstants, 
 			LogProxy logger,
-			NestedMap2<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> transitionRelation,
+			HashRelation3<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> resultTransitionRelation,
 			Set<DawgState> initialStates, 
 			DawgFactory<LETTER, COLNAMES> dawgFactory) {
 		this.mColnames = colnames;
 		this.mAllConstants = allConstants;
 		this.mLogger = logger;
-		this.mInputTransitionRelation = transitionRelation;
+		this.mInputTransitionRelation = resultTransitionRelation;
 		this.mInputInitialStates = initialStates;
 		this.mDawgFactory = dawgFactory;
 		this.mDawgLetterFactory = dawgFactory.getDawgLetterFactory();
@@ -99,9 +99,12 @@ public class DeterminizeDawg<LETTER, COLNAMES> {
 			
 			for (IDawgLetter<LETTER, COLNAMES> odl : occuringDawgLetterToDividedDawgLetters.getDomain()) {
 				for (DawgState state : currentSetState.getInnerStates()) {
-					final DawgState targetState = mInputTransitionRelation.get(state, odl);
-					for (IDawgLetter<LETTER, COLNAMES> ddl : occuringDawgLetterToDividedDawgLetters.getImage(odl)) {
-						dividedDawgLetterToTargetStates.addPair(ddl, targetState);
+//					final DawgState targetState = mInputTransitionRelation.get(state, odl);
+					final Set<DawgState> targetStates = mInputTransitionRelation.projectToTrd(state, odl);
+					for (DawgState targetState : targetStates) {
+						for (IDawgLetter<LETTER, COLNAMES> ddl : occuringDawgLetterToDividedDawgLetters.getImage(odl)) {
+							dividedDawgLetterToTargetStates.addPair(ddl, targetState);
+						}
 					}
 				}
 			}
@@ -136,11 +139,18 @@ public class DeterminizeDawg<LETTER, COLNAMES> {
 	
 		
 		final Set<IDawgLetter<LETTER, COLNAMES>> originalDawgLetters = new HashSet<IDawgLetter<LETTER,COLNAMES>>();
-		for (DawgState state : dawgStates) {
-			for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge : mInputTransitionRelation.getOutEdgeSet(state)) {
-				final IDawgLetter<LETTER, COLNAMES> originalDawgLetter = outEdge.getFirst();
-				originalDawgLetters.add(originalDawgLetter);
-				result.addPair(originalDawgLetter, originalDawgLetter);
+//		for (DawgState state : dawgStates) {
+//			for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge : 
+//					mInputTransitionRelation.getOutEdgeSet(state)) {
+		for (DawgState source : mInputTransitionRelation.projectToFst()) {
+			for (IDawgLetter<LETTER, COLNAMES> letter : mInputTransitionRelation.projectToSnd(source)) {
+				for (DawgState target : mInputTransitionRelation.projectToTrd(source, letter)) {
+//					final IDawgLetter<LETTER, COLNAMES> originalDawgLetter = outEdge.getFirst();
+//					originalDawgLetters.add(originalDawgLetter);
+					originalDawgLetters.add(letter);
+//					result.addPair(originalDawgLetter, originalDawgLetter);
+					result.addPair(letter, letter);
+				}
 			}
 		}
 		
