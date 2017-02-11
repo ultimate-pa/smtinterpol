@@ -34,7 +34,7 @@ public class DawgState {
 
 	@Override
 	public String toString() {
-		return "DawgState#" + Integer.toString(this.hashCode()).substring(0, 4);
+		return String.format("DawgState#%d", this.hashCode() % 10000);
 	}
 }
 
@@ -152,5 +152,13 @@ class RenameAndReorderDawgState<LETTER, COLNAMES> extends DawgState {
 	public DawgState getInnerState() {
 		return mInnerState;
 	}
-	
+
+	@Override
+	public String toString() {
+		return String.format("RnRDawgState#%d(%s --> %s, %s)", 
+				this.hashCode() % 10000, 
+				mLetter, 
+				mRightNeighbourColumn, 
+				mInnerState);
+	}
 }

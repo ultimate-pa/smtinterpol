@@ -629,6 +629,8 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	public IDawg<LETTER, COLNAMES> translateClauseSigToPredSig(
 			BinaryRelation<COLNAMES, COLNAMES> translation,
 			List<Object> argList, SortedSet<COLNAMES> newSignature) {
+		assert argList.size() == newSignature.size();
+		
 		/*
 		 * algorithmic plan:
 		 *  - basic operations:
@@ -752,7 +754,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		return result;
 	}
 	
-		/**
+	/**
 	 * Renames columns of the input dawg according to the given renaming.
 	 * The reordering is given implicitly through the renaming because the colnames are sorted automatically.
 	 * @param other
@@ -760,11 +762,11 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	 * @return
 	 */
 	private Dawg<LETTER, COLNAMES> reorderAndRename(BinaryRelation<COLNAMES, COLNAMES> renaming) {
-//		Dawg<LETTER, COLNAMES> result = (Dawg<LETTER, COLNAMES>) mDawgFactory.copyDawg(this);
+		assert !renaming.getDomain().isEmpty();
 		
 		if (this.isEmpty() || this.isUniversal()) {
 			// for an empty or universal dawg we just return a fresh dawg with the new signature
-			SortedSet<COLNAMES> newSignature = EprHelpers.transformSignature(mColNames, renaming);
+			final SortedSet<COLNAMES> newSignature = EprHelpers.transformSignature(mColNames, renaming);
 			if (this.isEmpty()) {
 				return (Dawg<LETTER, COLNAMES>) mDawgFactory.getEmptyDawg(newSignature);
 			} else {
@@ -772,12 +774,12 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			}
 		}
 
-		Dawg<LETTER, COLNAMES> result = this;
+		Dawg<LETTER, COLNAMES> result = null;
 		for (COLNAMES oldcol : renaming.getDomain()) {
 			Set<COLNAMES> newCols = renaming.getImage(oldcol);
 			if (newCols.size() == 1) {
 				result = new ReorderAndRenameDawgBuilder<LETTER, COLNAMES>(mDawgFactory, 
-						result, 
+						this, 
 						oldcol, 
 						newCols.iterator().next())
 					.build();
@@ -790,7 +792,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 				
 				COLNAMES firstCol = newColIt.next();
 				result = new ReorderAndRenameDawgBuilder<LETTER, COLNAMES>(mDawgFactory, 
-						result, 
+						this, 
 						oldcol, 
 						firstCol)
 					.build();
@@ -798,21 +800,9 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 				while (newColIt.hasNext()) {
 					COLNAMES currentNewCol = newColIt.next();
 					result = result.duplicateColumn(firstCol, currentNewCol);
-//					result = new ReorderAndRenameDawgBuilder<LETTER, COLNAMES>(mDawgFactory, 
-//							result, 
-//							en.getKey(), 
-//							en.getValue())
-//							.build();
 				}
 			}
 		}
-//		for (Entry<COLNAMES, COLNAMES> en : renaming.entrySet()) {
-//			result = new ReorderAndRenameDawgBuilder<LETTER, COLNAMES>(mDawgFactory, 
-//						result, 
-//						en.getKey(), 
-//						en.getValue())
-//					.build();
-//		}
 		return result;
 	}
 	

@@ -175,10 +175,10 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 		final Set<RenameAndReorderDawgState<LETTER, COLNAMES>> firstRnRStates;
 		if (mDuplicationMode) {
 			firstRnRStates = createFirstRnRStatesInDuplicationMode(newRightNeighbour,
-					movesToTheRight, newTransitionRelation, oldColIterator, statesBeforeOldColumnPreStates);
+					movesToTheRight, newTransitionRelation, statesBeforeOldColumnPreStates);
 		} else {
 			firstRnRStates = createFirstRnRStates(newRightNeighbour,
-					movesToTheRight, newTransitionRelation, oldColIterator, statesBeforeOldColumnPreStates);
+					movesToTheRight, newTransitionRelation, statesBeforeOldColumnPreStates);
 		}
 	
 		/*
@@ -239,15 +239,17 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 		
 	}
 
-	private Set<DawgState> constructRnrPart(final COLNAMES newRightNeighbour, final boolean movesToTheRight,
+	private Set<DawgState> constructRnrPart(final COLNAMES newRightNeighbour, 
+			final boolean movesToTheRight,
 			final NestedMap2<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> newTransitionRelation,
 			final Iterator<COLNAMES> oldColIterator,
 			final Set<RenameAndReorderDawgState<LETTER, COLNAMES>> firstRnRStates) {
 		final Set<DawgState> splitPostStates;
 		{
 			splitPostStates = new HashSet<DawgState>();
+			
+			// oldColIterator will give us the column directly after the moved column at this point
 			COLNAMES currentColNameInOldSignature = oldColIterator.next();
-			assert currentColNameInOldSignature.equals(mOldColname);
 			
 			Set<RenameAndReorderDawgState<LETTER, COLNAMES>> currentRnRStates = 
 					firstRnRStates;
@@ -316,12 +318,15 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 
 	/**
 	 * create the first column of RenameAndReorderDawgStates
+	 * 
+	 * Note that this method does not call the oldColIterator.next() (which rests on the 
+	 *  column after the moved column at this point).
 	 */
 	private Set<RenameAndReorderDawgState<LETTER, COLNAMES>> createFirstRnRStates(final COLNAMES newRightNeighbour,
 			final boolean movesToTheRight,
 			final NestedMap2<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> newTransitionRelation,
-			final Iterator<COLNAMES> oldColIterator, 
 			final Set<DawgState> statesBeforeOldColumnPreStates) {
+
 		final Set<RenameAndReorderDawgState<LETTER,COLNAMES>> firstRnRStates = 
 				new HashSet<RenameAndReorderDawgState<LETTER,COLNAMES>>();
 		if (statesBeforeOldColumnPreStates == null) {
@@ -357,20 +362,20 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 		} else {
 			if (movesToTheRight) {
 				for (DawgState prePreState : statesBeforeOldColumnPreStates) {
-					for (Entry<IDawgLetter<LETTER, COLNAMES>, DawgState> edgeFromPrePreStateToPreState : 
-						mInputDawg.getTransitionRelation().get(prePreState).entrySet()) {
+					for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> edgeFromPrePreStateToPreState : 
+						mInputDawg.getTransitionRelation().getOutEdgeSet(prePreState)) {
 
-						final DawgState stateLeft = edgeFromPrePreStateToPreState.getValue();
+						final DawgState stateLeft = edgeFromPrePreStateToPreState.getSecond();
 
-						for (Entry<IDawgLetter<LETTER, COLNAMES>, DawgState> edgeInOldColumn : 
-							mInputDawg.getTransitionRelation().get(stateLeft).entrySet()) {
+						for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> edgeInOldColumn : 
+							mInputDawg.getTransitionRelation().getOutEdgeSet(stateLeft)) {
 
 							final RenameAndReorderDawgState<LETTER, COLNAMES> newEdgeTarget =
 									mDawgStateFactory.getReorderAndRenameDawgState(
-											edgeInOldColumn.getKey(), newRightNeighbour, edgeInOldColumn.getValue());
+											edgeInOldColumn.getFirst(), newRightNeighbour, edgeInOldColumn.getSecond());
 							firstRnRStates.add(newEdgeTarget);
 
-							newTransitionRelation.put(prePreState, edgeFromPrePreStateToPreState.getKey(), newEdgeTarget);
+							newTransitionRelation.put(prePreState, edgeFromPrePreStateToPreState.getFirst(), newEdgeTarget);
 						}
 					}
 				}
@@ -395,8 +400,6 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 				}
 
 			}
-			// skip the moved column in the old signature
-			oldColIterator.next();
 		}
 		return firstRnRStates;
 	}
@@ -406,7 +409,6 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 		final COLNAMES newRightNeighbour, 
 		final boolean movesToTheRight,
 		final NestedMap2<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> newTransitionRelation,
-		final Iterator<COLNAMES> oldColIterator, 
 		final Set<DawgState> statesBeforeOldColumnPreStates) {
 		
 		/*

@@ -94,12 +94,16 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	/**
 	 * Roughly the reverse of mTranslationForClause.
 	 * Translates from the variable names of the EprClause this ClauseLiteral belongs to into
-	 * the canoncal variable names of the EprPredicate.
+	 * the canonical variable names of the EprPredicate.
 	 * Used for translating from unit clause representation as a dawg over the clause signature
-	 * to a dawg over the predicate's signature.
+	 * to a Dawg over the predicate's signature.
 	 * 
 	 * EDIT:
 	 * reversing it, seems more useful
+	 * 
+	 * EDIT:
+	 *  undid the reversing, using BinaryRelation instead
+	 * 
 	 *  maps from dsl signature colname to clause signature colname
 	 */
 	private final BinaryRelation<TermVariable, TermVariable> mTranslationForEprPredicate;
