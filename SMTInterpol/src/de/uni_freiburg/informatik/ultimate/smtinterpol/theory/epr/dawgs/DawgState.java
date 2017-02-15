@@ -102,7 +102,7 @@ class SetDawgState extends DawgState {
 
 	@Override
 	public String toString() {
-		return "SetDawgState:" + mDawgStates;
+		return String.format("SetDawgState%d:%s", this.hashCode() % 10000, mDawgStates);
 	}
 }
 

@@ -78,11 +78,6 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 		this(dawgFactory, dawg, oldColumn, newColumn, false);
 	}
 
-//	public ReorderAndRenameDawgBuilder(DawgFactory<LETTER, COLNAMES> dawgFactory, Dawg<LETTER, COLNAMES> dawg,
-//			COLNAMES oldColumn, COLNAMES newColumn, boolean) {
-//
-//	}
-
 	private void reorderAndRename() {
 		/*
 		 * case 0:
@@ -146,6 +141,10 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 			movesToTheRight = EprHelpers.getColumnNamesComparator().compare(oldRightNeighbour, newRightNeighbour) < 0;
 		}
 		
+		COLNAMES newPostNeighbour = movesToTheRight ? 
+				newRightNeighbour : 
+					mInputDawg.findLeftNeighbourColumn(mNewColname);
+		
 		final HashRelation3<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> newTransitionRelation = 
 				new HashRelation3<DawgState, IDawgLetter<LETTER,COLNAMES>, DawgState>();
 	
@@ -164,6 +163,7 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 		final Set<DawgState> statesBeforeOldColumnPreStates = reconstructUntilOldColumn(movesToTheRight, 
 				newTransitionRelation, oldColIterator);
 		
+	
 		/*
 		 * Step 2:
 		 *  algorithmic plan:
@@ -178,10 +178,10 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 		 */
 		final Set<RenameAndReorderDawgState<LETTER, COLNAMES>> firstRnRStates;
 		if (mDuplicationMode) {
-			firstRnRStates = createFirstRnRStatesInDuplicationMode(newRightNeighbour,
+			firstRnRStates = createFirstRnRStatesInDuplicationMode(newPostNeighbour,
 					movesToTheRight, newTransitionRelation, statesBeforeOldColumnPreStates);
 		} else {
-			firstRnRStates = createFirstRnRStates(newRightNeighbour,
+			firstRnRStates = createFirstRnRStates(newPostNeighbour,
 					movesToTheRight, newTransitionRelation, statesBeforeOldColumnPreStates);
 		}
 	
@@ -190,7 +190,7 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 		 *  add transitions for the columns between oldColumn and newColumn based on the old transition relation
 		 *  and the rnrStates
 		 */
-		final Set<DawgState> splitPostStates = constructRnrPart(newRightNeighbour, movesToTheRight, newTransitionRelation, 
+		final Set<DawgState> splitPostStates = constructRnrPart(newPostNeighbour, movesToTheRight, newTransitionRelation, 
 				oldColIterator, firstRnRStates);
 
 		/*
@@ -199,6 +199,7 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 		 */
 		{
 			Set<DawgState> currentStates = new HashSet<DawgState>(splitPostStates);
+			Set<DawgState> lastStates = null;
 			while(!currentStates.isEmpty()) {
 				final Set<DawgState> newCurrentStates = new HashSet<DawgState>();
 				
@@ -217,10 +218,11 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 						}
 					}
 				}
+				lastStates = currentStates;
 				currentStates = newCurrentStates;
 			}
 			if (!movesToTheRight) {
-				mResultInitialStates = Collections.unmodifiableSet(currentStates);
+				mResultInitialStates = Collections.unmodifiableSet(lastStates);
 			}
 		}
 		
@@ -261,6 +263,7 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 				if (!oldColIterator.hasNext()) {
 					// the split states are the final states.
 					assert newRightNeighbour == null;
+					assert movesToTheRight;
 					splitColumn(movesToTheRight, newTransitionRelation, splitPostStates, currentRnRStates);
 					break;
 				}
@@ -391,12 +394,12 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 
 						final DawgState stateRight = edgeFromPrePreStateToPreState.getFirst();
 
-						for (Entry<IDawgLetter<LETTER, COLNAMES>, DawgState> edgeInOldColumn : 
-							mInputDawg.getTransitionRelation().get(stateRight).entrySet()) {
+						for (Pair<DawgState, IDawgLetter<LETTER, COLNAMES>> edgeInOldColumn : 
+							mInputDawg.getTransitionRelation().getInverse(stateRight)) {
 
 							final RenameAndReorderDawgState<LETTER, COLNAMES> newEdgeSource =
 									mDawgStateFactory.getReorderAndRenameDawgState(
-											edgeInOldColumn.getKey(), newRightNeighbour, edgeInOldColumn.getValue());
+											edgeInOldColumn.getSecond(), newRightNeighbour, edgeInOldColumn.getFirst());
 							firstRnRStates.add(newEdgeSource);
 
 							newTransitionRelation.addTriple(newEdgeSource, edgeFromPrePreStateToPreState.getSecond(), prePreState);

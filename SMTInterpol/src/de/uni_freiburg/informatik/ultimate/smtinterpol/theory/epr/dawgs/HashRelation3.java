@@ -86,6 +86,9 @@ public class HashRelation3<K1, K2, K3> {
 
 	@Override
 	public String toString() {
+		if (mBackingMap.keySet().isEmpty()) {
+			return "Empty Hashrelation3";
+		}
 		StringBuilder sb = new StringBuilder();
 		
 		for (K1 k1 : projectToFst()) {
@@ -98,5 +101,4 @@ public class HashRelation3<K1, K2, K3> {
 		
 		return sb.toString();
 	}
-
 }

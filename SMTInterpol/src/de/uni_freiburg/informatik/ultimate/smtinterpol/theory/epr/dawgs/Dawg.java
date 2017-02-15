@@ -83,10 +83,8 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		mDawgStateFactory = df.getDawgStateFactory();
 		mDawgLetterFactory = df.getDawgLetterFactory();
 		
-//		mTransitionRelation = new NestedMap2<DawgState, IDawgLetter<LETTER,COLNAMES>,DawgState>();
 		mTransitionRelation = null;
 		
-//		mInitialState =  mDawgStateFactory.createDawgState();
 		mInitialState =  null;
 		
 		mFinalStates = Collections.emptySet();
@@ -208,74 +206,6 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		return false;
 	}
 
-//	/**
-//	 * algorithmic plan:
-//	 *  try to sample two words from the language through a depth first search
-//	 * @return
-//	 */
-//	private boolean checkIsSingleton() {
-//		int counter = 0;
-//		for (List<LETTER> point : listPoints()) {
-//			counter++;
-//			if (counter == 2) {
-//				return false;
-//			}
-//		}
-//		return counter == 1;
-////		return new ArrayList<List<LETTER>>(listPoints()).size() == 1;
-////		final Set<DawgState> currentStates = new HashSet<DawgState>();
-////		currentStates.add(mInitialState);
-//
-//		
-//		// sample first word
-////		List<LETTER> firstWord = null;
-////		List<IDawgLetter<LETTER, COLNAMES>> firstPath = null;
-////		{
-////			DawgState currentState = mInitialState;
-////			for (COLNAMES col : mColNames) {
-////				Set<Pair<IDawgLetter<LETTER, COLNAMES>, DawgState>> outEdges = 
-////						mTransitionRelation.getOutEdgeSet(currentState);
-////				outEdges.iterator().next().getSecond();
-////				currentState = 
-////				firstPath.add(e)
-////
-////			}
-////		}
-////
-////		// sample another word that is not the first
-////		return false;
-//	}
-
-//	private boolean checkUniversality() {
-//		
-//		Set<DawgState> currentStates = new HashSet<DawgState>();
-//		currentStates.add(mInitialState);
-//		
-////		while (!currentStates.isEmpty()) {
-//		for (int i = 0; i < mColNames.size(); i++) {
-//			final Set<DawgState> newCurrentStates = new HashSet<DawgState>();
-//			for (DawgState cs : currentStates) {
-//			
-//				final Set<IDawgLetter<LETTER, COLNAMES>> outLetters = new HashSet<IDawgLetter<LETTER,COLNAMES>>();
-//				for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge : 
-//					mTransitionRelation.getOutEdgeSet(cs)) {
-//					
-//					outLetters.add(outEdge.getFirst());
-//					newCurrentStates.add(outEdge.getSecond());
-//				}
-//				
-//				if (!mDawgLetterFactory.isUniversal(outLetters)) {
-//					return false;
-//				}
-//				
-//			}
-//			currentStates = newCurrentStates;
-//		}
-//		assert currentStates.equals(mFinalStates);
-//		
-//		return true;
-//	}
-
 	private Set<DawgState> computeFinalStates() {
 		Set<DawgState> currentStates = new HashSet<DawgState>();
 		currentStates.add(mInitialState);
@@ -291,7 +221,24 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			}
 			currentStates = newCurrentStates;
 		}
+		assert finalStatesHaveNoOutgoingEdges(currentStates) == null : 
+			String.format("computed %s as a final state but it has outgoing edges", 
+					finalStatesHaveNoOutgoingEdges(currentStates));
 		return Collections.unmodifiableSet(currentStates);
+	}
+
+	/**
+	 * 
+	 * @param finalStates
+	 * @return a final state that has at least one outgoing edge, null if there is none
+	 */
+	private DawgState finalStatesHaveNoOutgoingEdges(Set<DawgState> finalStates) {
+		for (DawgState finalState : finalStates) {
+			if (mTransitionRelation.get(finalState) != null && !mTransitionRelation.get(finalState).isEmpty()) {
+				return finalState;
+			}
+		}
+		return null;
 	}
 
 	@Override
@@ -403,6 +350,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 
 	@Override
 	public boolean accepts(List<LETTER> word) {
+		assert word.size() == mColNames.size() : "word length does not match this graphs signature length";
 		DawgState currentState = mInitialState;
 		for (LETTER ltr : word) {
 			DawgState nextState = makeTransition(currentState, ltr, word);
@@ -412,6 +360,8 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			currentState = nextState;
 		}
 		//we have read the complete word
+		assert mFinalStates.contains(currentState) : 
+			"word has been read fully but we are not in a final state?? this should not happen";
 		assert currentState != null;
 		return true;
 	}
@@ -956,27 +906,6 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 				newTransitionRelation, mInitialState);
 	}
 
-	/**
-	 * Computes the smallest column in this Dawg's signature that is bigger than the given column.
-	 * Returns null if the given column is bigger or equal than all columns in this Dawg's signature.
-	 * 
-	 * @param columnName
-	 * @return
-	 */
-	COLNAMES findRightNeighbourColumn(final COLNAMES columnName) {
-		COLNAMES rightNeighBourColumn = null;
-		for (COLNAMES col : mColNames) {
-			if (mColNames.comparator().compare(col, columnName) > 0) {
-				// columName will be inserted directly left from col
-				rightNeighBourColumn = col;
-				break;
-			}
-		}
-		assert rightNeighBourColumn != null || mColNames.comparator().compare(mColNames.last(), columnName) < 0;
-		return rightNeighBourColumn;
-	}
-
-
 	@Override
 	public IDawg<LETTER, COLNAMES> difference(IDawg<LETTER, COLNAMES> other) {
 		if (this.isEmpty()) {
@@ -1050,6 +979,31 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			}
 		}
 		return true;
+	}
+
+	/**
+	 * Computes the smallest column in this Dawg's signature that is bigger than the given column.
+	 * Returns null if the given column is bigger or equal than all columns in this Dawg's signature.
+	 * 
+	 * @param columnName
+	 * @return
+	 */
+	public COLNAMES findRightNeighbourColumn(final COLNAMES columnName) {
+		COLNAMES rightNeighBourColumn = null;
+		for (COLNAMES col : mColNames) {
+			if (mColNames.comparator().compare(col, columnName) > 0) {
+				// columName will be inserted directly left from col
+				rightNeighBourColumn = col;
+				break;
+			}
+		}
+		assert rightNeighBourColumn != null || mColNames.comparator().compare(mColNames.last(), columnName) < 0;
+		return rightNeighBourColumn;
+	}
+
+	public COLNAMES findLeftNeighbourColumn(COLNAMES newColname) {
+		COLNAMES rightNeighbour = findRightNeighbourColumn(newColname);
+		return mColNames.headSet(rightNeighbour).last();
 	}
 	
 
