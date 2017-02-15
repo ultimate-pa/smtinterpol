@@ -323,13 +323,13 @@ public class DawgTestSignatureTranslations {
 		 * words that should be in the transformed automaton
 		 */
 		List<String> word_acaab = Arrays.asList(new String[] { "a", "c", "a", "a", "b" });
-		List<String> word_acbab = Arrays.asList(new String[] { "a", "c", "b", "a", "b" });
-		List<String> word_accac = Arrays.asList(new String[] { "a", "c", "c", "a", "c" });
-		List<String> word_abaca = Arrays.asList(new String[] { "a", "b", "a", "c", "a" });
-		List<String> word_abccb = Arrays.asList(new String[] { "a", "b", "c", "c", "b" });
-		List<String> word_bbaaa = Arrays.asList(new String[] { "b", "b", "a", "a", "a" });
-		List<String> word_bbcab = Arrays.asList(new String[] { "b", "b", "c", "a", "b" });
-		
+		List<String> word_abacb = Arrays.asList(new String[] { "a", "b", "a", "c", "b" });
+		List<String> word_acacc = Arrays.asList(new String[] { "a", "c", "a", "c", "c" });
+		List<String> word_aacba = Arrays.asList(new String[] { "a", "a", "c", "b", "a" });
+		List<String> word_accbb = Arrays.asList(new String[] { "a", "c", "c", "b", "b" });
+		List<String> word_baaba = Arrays.asList(new String[] { "b", "a", "a", "b", "a" });
+		List<String> word_bcabb = Arrays.asList(new String[] { "b", "c", "a", "b", "b" });
+	
 		SortedSet<String> signature3 = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signature3.addAll(Arrays.asList(new String[] { "u", "w", "x", "y", "z" }));
 		
@@ -341,6 +341,7 @@ public class DawgTestSignatureTranslations {
 		dawg3 = dawg3.add(word_aaacb);
 		dawg3 = dawg3.add(word_aacbb);
 		dawg3 = dawg3.add(word_aaccc);
+
 		dawg3 = dawg3.add(word_acbaa);
 		dawg3 = dawg3.add(word_acbcb);
 		dawg3 = dawg3.add(word_babaa);
@@ -354,14 +355,70 @@ public class DawgTestSignatureTranslations {
 					"v")
 				.build();
 		
-//		assertTrue(dawg4.accepts(word_aaaaa));
-//		assertTrue(dawg4.accepts(word_acaab));
-//		assertTrue(dawg4.accepts(word_acbab));
-//		assertTrue(dawg4.accepts(word_abaca));
-//		assertTrue(dawg4.accepts(word_accac));
-//		assertTrue(dawg4.accepts(word_abccb));
-//		assertTrue(dawg4.accepts(word_bbaaa));
-//		assertTrue(dawg4.accepts(word_bbcab));
+		assertTrue(dawg4.accepts(word_aaaaa));
+		assertTrue(dawg4.accepts(word_acaab));
+		assertTrue(dawg4.accepts(word_abacb));
+		assertTrue(dawg4.accepts(word_acacc));
+		assertTrue(dawg4.accepts(word_aacba));
+		assertTrue(dawg4.accepts(word_accbb));
+		assertTrue(dawg4.accepts(word_baaba));
+		assertTrue(dawg4.accepts(word_bcabb));
 	}
+	
+	/**
+	 * Example for RenameAndReorder which
+	 *  - moves from right to left
+	 *  - source column is at the very end
+	 *  - target column is not at the very start
+	 * 
+	 */
+	@Test
+	public void test6() {
+//		DawgFactory<String, String> dawgFactoryStringString = 
+//				new DawgFactory<String, String>(getEprTheory(), getAllConstants());
+//		
+//		SortedSet<String> signaturePre = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
+//		signaturePre.addAll(Arrays.asList(new String[] { "u", "v", "x"}));
+//		
+//		SortedSet<String> signaturePost = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
+//		signaturePost.addAll(Arrays.asList(new String[] { "v", "w", "x"}));
+//	
+//
+//		/*
+//		 * word in the original automaton
+//		 */
+//		List<String> word_aaa = Arrays.asList(new String[] { "a", "a", "a" });
+//		List<String> word_abb = Arrays.asList(new String[] { "a", "b", "b" });
+//		List<String> word_abc = Arrays.asList(new String[] { "a", "b", "c" });
+//		List<String> word_caa = Arrays.asList(new String[] { "c", "a", "a" });
+//
+//		/*
+//		 * words that should be in the transformed automaton
+//		 */
+//		List<String> word_bab = Arrays.asList(new String[] { "b", "a", "b" });
+//		List<String> word_bac = Arrays.asList(new String[] { "b", "a", "c" });
+//		List<String> word_aca = Arrays.asList(new String[] { "a", "c", "a" });
+//
+//
+//	
+//		dawg3 = dawgFactoryStringString.getEmptyDawg(signaturePre);
+//		dawg3 = dawg3.add(word_aaa);
+//		dawg3 = dawg3.add(word_abb);
+//		dawg3 = dawg3.add(word_abc);
+//		dawg3 = dawg3.add(word_caa);
+//
+//		Dawg<String, String> dawg4 = new ReorderAndRenameDawgBuilder<String, String>(
+//					dawgFactoryStringString, 
+//					(Dawg<String, String>) dawg3, 
+//					"u", 
+//					"w")
+//				.build();
+//		
+//		assertTrue(dawg4.accepts(word_aaa));
+//		assertTrue(dawg4.accepts(word_bab));
+//		assertTrue(dawg4.accepts(word_bac));
+//		assertTrue(dawg4.accepts(word_aca));
+	}
+	
 	
 }
