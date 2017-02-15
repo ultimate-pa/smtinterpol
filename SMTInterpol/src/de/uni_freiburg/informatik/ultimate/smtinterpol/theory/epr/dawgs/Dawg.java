@@ -997,7 +997,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 				break;
 			}
 		}
-		assert rightNeighBourColumn != null || mColNames.comparator().compare(mColNames.last(), columnName) < 0;
+		assert rightNeighBourColumn != null || mColNames.comparator().compare(mColNames.last(), columnName) <= 0;
 		return rightNeighBourColumn;
 	}
 
