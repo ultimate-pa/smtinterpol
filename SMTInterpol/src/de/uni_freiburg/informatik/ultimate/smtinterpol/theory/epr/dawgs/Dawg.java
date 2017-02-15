@@ -1003,6 +1003,9 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 
 	public COLNAMES findLeftNeighbourColumn(COLNAMES newColname) {
 		COLNAMES rightNeighbour = findRightNeighbourColumn(newColname);
+		if (rightNeighbour == null) {
+			return mColNames.last();
+		}
 		return mColNames.headSet(rightNeighbour).last();
 	}
 	
