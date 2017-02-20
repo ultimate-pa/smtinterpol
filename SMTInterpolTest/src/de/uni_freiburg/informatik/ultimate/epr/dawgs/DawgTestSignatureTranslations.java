@@ -408,7 +408,7 @@ public class DawgTestSignatureTranslations {
 		assertTrue(dawg4.accepts(word_acb));
 	}
 	
-		/**
+	/**
 	 * Example for RenameAndReorder which
 	 *  - moves from right to left
 	 *  - source column is at the very end
@@ -500,6 +500,52 @@ public class DawgTestSignatureTranslations {
 					(Dawg<String, String>) dawg3, 
 					"v", 
 					"w",
+					true)
+				.build();
+		
+		assertTrue(dawg4.getColnames().equals(signaturePost));
+		assertTrue(dawg4.accepts(word_abb));
+	}
+	
+	
+	/**
+	 * Example for RenameAndReorder in duplication mode
+	 *  - moves from right to left
+	 *  - source column is at the very end
+	 *  - target column is in the middle
+	 * 
+	 */
+	@Test
+	public void test9() {
+		DawgFactory<String, String> dawgFactoryStringString = 
+				new DawgFactory<String, String>(getEprTheory(), getAllConstants());
+		
+		SortedSet<String> signaturePre = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
+		signaturePre.addAll(Arrays.asList(new String[] { "u", "w"}));
+		
+		SortedSet<String> signaturePost = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
+		signaturePost.addAll(Arrays.asList(new String[] { "u", "v", "w"}));
+	
+
+		/*
+		 * word in the original automaton
+		 */
+		List<String> word_ab = Arrays.asList(new String[] { "a", "b" });
+
+		/*
+		 * words that should be in the transformed automaton
+		 */
+		List<String> word_abb = Arrays.asList(new String[] { "a", "b", "b" });
+
+
+		dawg3 = dawgFactoryStringString.getEmptyDawg(signaturePre);
+		dawg3 = dawg3.add(word_ab);
+
+		Dawg<String, String> dawg4 = new ReorderAndRenameDawgBuilder<String, String>(
+					dawgFactoryStringString, 
+					(Dawg<String, String>) dawg3, 
+					"w", 
+					"v",
 					true)
 				.build();
 		

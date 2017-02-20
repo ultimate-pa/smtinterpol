@@ -439,24 +439,32 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 		
 		/*
 		 *  reconstruct one more column
+		 *   --> but only if we are not starting in the first/last column
+		 *    (the column reconstructed is the one where in normal, non-duplication mode the edges would be bent towards the
+		 *     merged states)
 		 */
-		final Set<DawgState> statesBeforeDuplicatedColumn = new HashSet<DawgState>();
-		if (movesToTheRight) {
-			for (DawgState preState : sanitizedStatesBeforeOldColumnPreStates) {
-				for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge : 
+		final Set<DawgState> statesBeforeDuplicatedColumn;
+		if (statesBeforeOldColumnPreStates != null) {
+			statesBeforeDuplicatedColumn = new HashSet<DawgState>();
+			if (movesToTheRight) {
+				for (DawgState preState : sanitizedStatesBeforeOldColumnPreStates) {
+					for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge : 
 						mInputDawg.getTransitionRelation().getOutEdgeSet(preState)) {
-					newTransitionRelation.addTriple(preState, outEdge.getFirst(), outEdge.getSecond());
-					statesBeforeDuplicatedColumn.add(outEdge.getSecond());
+						newTransitionRelation.addTriple(preState, outEdge.getFirst(), outEdge.getSecond());
+						statesBeforeDuplicatedColumn.add(outEdge.getSecond());
+					}
 				}
+			} else {
+				for (DawgState preState : sanitizedStatesBeforeOldColumnPreStates) {
+					for (Pair<DawgState, IDawgLetter<LETTER, COLNAMES>> inEdge : 
+						mInputDawg.getTransitionRelation().getInverse(preState)) {
+						newTransitionRelation.addTriple(inEdge.getFirst(), inEdge.getSecond(), preState);
+						statesBeforeDuplicatedColumn.add(preState);
+					}
+				}		
 			}
 		} else {
-			for (DawgState preState : sanitizedStatesBeforeOldColumnPreStates) {
-				for (Pair<DawgState, IDawgLetter<LETTER, COLNAMES>> inEdge : 
-						mInputDawg.getTransitionRelation().getInverse(preState)) {
-					newTransitionRelation.addTriple(inEdge.getFirst(), inEdge.getSecond(), preState);
-					statesBeforeDuplicatedColumn.add(inEdge.getFirst());
-				}
-			}		
+			statesBeforeDuplicatedColumn = sanitizedStatesBeforeOldColumnPreStates;
 		}
 		
 		/*

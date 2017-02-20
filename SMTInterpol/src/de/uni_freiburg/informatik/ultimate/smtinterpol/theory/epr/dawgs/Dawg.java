@@ -951,7 +951,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		}
 	
 		final StringBuilder sb = new StringBuilder();
-		sb.append("Dawg:\n");
+		sb.append("Dawg, initial state: " + mInitialState + ", transitionrelation:\n");
 		for (Triple<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> edge : mTransitionRelation.entrySet()) {
 			sb.append(edge + "\n");
 		}
