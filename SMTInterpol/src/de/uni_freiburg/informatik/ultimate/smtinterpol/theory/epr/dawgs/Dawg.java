@@ -621,7 +621,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			if (colNamesType.isInstance(arg)) {
 				// arg is a COLNAME (typically a TermVariable)
 //				assert newSigColname == translation.get(arg);
-				assert translation.getImage((COLNAMES) arg).contains(newSigColname);
+//				assert translation.getImage((COLNAMES) arg).contains(newSigColname);
 			} else {
 				// arg must be a LETTER (typically a constant 0-ary ApplicationTerm)
 				insertColumn(newSigColname, mDawgLetterFactory.createSingletonSetDawgLetter((LETTER) arg));
@@ -724,12 +724,12 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			}
 		}
 
-		Dawg<LETTER, COLNAMES> result = null;
+		Dawg<LETTER, COLNAMES> result = (Dawg<LETTER, COLNAMES>) mDawgFactory.copyDawg(this);
 		for (COLNAMES oldcol : renaming.getDomain()) {
 			Set<COLNAMES> newCols = renaming.getImage(oldcol);
 			if (newCols.size() == 1) {
 				result = new ReorderAndRenameDawgBuilder<LETTER, COLNAMES>(mDawgFactory, 
-						this, 
+						result, 
 						oldcol, 
 						newCols.iterator().next())
 					.build();
@@ -742,7 +742,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 				
 				COLNAMES firstCol = newColIt.next();
 				result = new ReorderAndRenameDawgBuilder<LETTER, COLNAMES>(mDawgFactory, 
-						this, 
+						result, 
 						oldcol, 
 						firstCol)
 					.build();
