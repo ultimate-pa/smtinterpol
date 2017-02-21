@@ -178,7 +178,9 @@ public class DawgFactory<LETTER, COLNAMES> {
 			Map<COLNAMES, LETTER> translationCnToLtr, 
 			SortedSet<COLNAMES> targetSignature) {
 		
-		return dawg.translatePredSigToClauseSig(translationCnToCn, translationCnToLtr, targetSignature);
+		IDawg<LETTER, COLNAMES> result = dawg.translatePredSigToClauseSig(translationCnToCn, translationCnToLtr, targetSignature);
+		assert result.getColnames().equals(targetSignature);
+		return result;
 	}
 
 

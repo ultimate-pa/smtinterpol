@@ -263,7 +263,10 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 		assert refutedPoints.intersect(fulfilledPoints).isEmpty();
 		assert EprHelpers.verifySortsOfPoints(fulfilledPoints, mEprClause.getVariables());
 		assert EprHelpers.verifySortsOfPoints(refutedPoints, mEprClause.getVariables());
-		assert EprHelpers.verifySortsOfPoints(mFulfillablePoints, mEprClause.getVariables());
+
+		assert mFulfillablePoints.getColnames().equals(mEprClause.getVariables());
+		assert mFulfilledPoints.getColnames().equals(mEprClause.getVariables());
+		assert mRefutedPoints.getColnames().equals(mEprClause.getVariables());
 
 		if (fulfilledPoints.isUniversal()) {
 			return ClauseLiteralState.Fulfilled;

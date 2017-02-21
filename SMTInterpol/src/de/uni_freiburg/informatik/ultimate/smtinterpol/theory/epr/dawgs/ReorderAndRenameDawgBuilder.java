@@ -143,7 +143,7 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 			movesToTheRight = EprHelpers.getColumnNamesComparator().compare(oldRightNeighbour, newRightNeighbour) < 0;
 		}
 		
-		COLNAMES newPostNeighbour = movesToTheRight ? 
+		final COLNAMES newPostNeighbour = movesToTheRight ? 
 				newRightNeighbour : 
 					mInputDawg.findLeftNeighbourColumn(mNewColname);
 		

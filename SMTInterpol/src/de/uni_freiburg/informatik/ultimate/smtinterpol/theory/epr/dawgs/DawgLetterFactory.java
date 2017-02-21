@@ -69,7 +69,7 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 		mUniversalDawgLetterSingleton = Collections.singleton((IDawgLetter<LETTER, COLNAMES>) mUniversalDawgLetter);
 	}
 
-	public IDawgLetter<LETTER, COLNAMES> createSingletonSetDawgLetter(LETTER element) {
+	public IDawgLetter<LETTER, COLNAMES> getOrCreateSingletonSetDawgLetter(LETTER element) {
 		if (useSimpleDawgLetters()) {
 			return getSimpleDawgLetter(Collections.singleton(element));
 		} else {
@@ -137,6 +137,12 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 	public Set<IDawgLetter<LETTER, COLNAMES>> complementDawgLetterSet(
 			Set<IDawgLetter<LETTER, COLNAMES>> dawgLetters) {
 		if (useSimpleDawgLetters()) {
+			if (dawgLetters.iterator().next() instanceof UniversalDawgLetter<?, ?>) {
+				assert dawgLetters.size() == 1 : "should normalize this, right?..";
+				return Collections.emptySet();
+			}
+			
+			
 			final Set<LETTER> resultLetters = new HashSet<LETTER>();
 			resultLetters.addAll(mAllConstants);
 			for (IDawgLetter<LETTER, COLNAMES> dl : dawgLetters) {
@@ -362,7 +368,7 @@ class UniversalDawgLetter<LETTER, COLNAMES> implements IDawgLetter<LETTER, COLNA
 	
 	@Override
 	public IDawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER ltr) {
-		return mDawgLetterFactory.createSingletonSetDawgLetter(ltr);
+		return mDawgLetterFactory.getOrCreateSingletonSetDawgLetter(ltr);
 	}
 
 	@Override
