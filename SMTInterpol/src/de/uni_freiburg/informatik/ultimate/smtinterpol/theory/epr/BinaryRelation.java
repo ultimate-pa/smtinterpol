@@ -19,6 +19,7 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -35,6 +36,23 @@ import java.util.Set;
 public class BinaryRelation<T, U> {
 
 	private final Map<T, Set<U>> mBacking = new HashMap<T, Set<U>>();
+	
+	public BinaryRelation() {
+		// default constructor necessary because there is another one
+	}
+
+	/**
+	 * Constructs a binary relation from a map (the binary relation will be "rechtseindeutig").
+	 * Note that, as it is implemented now, this map will be unmodifiable (because we use Collections.singleton),
+	 *  i.e. addPair calls will crash.
+	 * 
+	 * @param map
+	 */
+	public BinaryRelation(Map<T, U> map) {
+		for (Entry<T, U> en : map.entrySet()) {
+			mBacking.put(en.getKey(), Collections.singleton(en.getValue()));
+		}
+	}
 
 	public void addPair(T t, U u) {
         Set<U> set = mBacking.get(t);

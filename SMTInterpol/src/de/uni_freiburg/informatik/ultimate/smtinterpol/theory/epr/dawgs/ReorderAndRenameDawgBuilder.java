@@ -78,6 +78,8 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 				+ " what does that mean?";
 		assert mergeMode || !inputDawg.getColnames().contains(newColumn) : "we are not in merge mode and "
 				+ "the new column is already in the input dawg's signature.";
+		assert !mergeMode || inputDawg.getColnames().contains(newColumn) : " we are in merge mode but the target column is not part"
+				+ " of the input dawg's signature";
 		mInputDawg = inputDawg;
 		mDawgFactory = dawgFactory;
 		mDawgStateFactory = dawgFactory.getDawgStateFactory();
@@ -124,7 +126,9 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 		 */
 		if(mOldColname.equals(mNewColname)) {
 			
-			assert !mDuplicationMode : "does this make sense?";
+			assert false : "does this make sense?/should we catch this outside?";
+//			assert !mDuplicationMode : "does this make sense?";
+//			assert !mMergeMode : "does this make sense?";
 			
 			mResultTransitionRelation = 
 					new HashRelation3<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState>(
@@ -141,7 +145,7 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 		 * case 1: the renaming does not move the column 
 		 *  --> we just need to rename the column and are done
 		 */
-		if (!mDuplicationMode // in duplication mode we don't need a special case for this
+		if (!mMergeMode && !mDuplicationMode // in duplication and merge mode we don't need a special case for this
 				&& (newRightNeighbour == oldRightNeighbour // we need "=="-check for the null case
 					|| (newRightNeighbour != null && newRightNeighbour.equals(oldRightNeighbour)))) {
 			SortedSet<COLNAMES> newColNames = new TreeSet<COLNAMES>(EprHelpers.getColumnNamesComparator());
@@ -181,9 +185,26 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 			movesToTheRight = EprHelpers.getColumnNamesComparator().compare(oldRightNeighbour, newRightNeighbour) < 0;
 		}
 		
-		final COLNAMES newPostNeighbour = movesToTheRight ? 
-				newRightNeighbour : 
-					mInputDawg.findLeftNeighbourColumn(mNewColname);
+//		final COLNAMES newPostNeighbour = movesToTheRight ? 
+//				newRightNeighbour : 
+//					mInputDawg.findLeftNeighbourColumn(mNewColname);
+
+		final COLNAMES newPostNeighbour;
+		if (movesToTheRight) {
+			if (mMergeMode) {
+				// merge mode means we want to stop one column earlier
+				newPostNeighbour = mInputDawg.findLeftNeighbourColumn(mNewColname);
+			} else {
+				newPostNeighbour = newRightNeighbour;
+			}
+		} else {
+			if (mMergeMode) {
+				// merge mode means we want to stop one column earlier
+				newPostNeighbour = newRightNeighbour;
+			} else {
+				newPostNeighbour = mInputDawg.findLeftNeighbourColumn(mNewColname);
+			}
+		}
 		
 		final HashRelation3<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> newTransitionRelation = 
 				new HashRelation3<DawgState, IDawgLetter<LETTER,COLNAMES>, DawgState>();
@@ -229,6 +250,9 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 		 * Step 2b
 		 *  add transitions for the columns between oldColumn and newColumn based on the old transition relation
 		 *  and the rnrStates
+		 *  
+		 *  also constructs the transition back to normal non-rnr-states by splitting at the target column and inserting
+		 *  the letters from the RnR-states
 		 */
 		final Set<DawgState> splitPostStates = constructRnrPart(newPostNeighbour, movesToTheRight, newTransitionRelation, 
 				oldColIterator, firstRnRStates);
@@ -292,64 +316,109 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 			final HashRelation3<DawgState,IDawgLetter<LETTER,COLNAMES>,DawgState> newTransitionRelation,
 			final Iterator<COLNAMES> oldColIterator,
 			final Set<RenameAndReorderDawgState<LETTER, COLNAMES>> firstRnRStates) {
-		final Set<DawgState> splitPostStates;
-		{
-			splitPostStates = new HashSet<DawgState>();
 			
-			// oldColIterator will give us the column directly after the moved column at this point
-//			COLNAMES currentColNameInOldSignature = oldColIterator.next();
-			
-			Set<RenameAndReorderDawgState<LETTER, COLNAMES>> currentRnRStates = 
-					firstRnRStates;
-			while (true) {
-				if (!oldColIterator.hasNext()) {
-					// the split states are the final states.
-					assert newPostNeighbour == null;
-					assert movesToTheRight;
-					splitColumn(movesToTheRight, newTransitionRelation, splitPostStates, currentRnRStates);
-					break;
+		Set<RenameAndReorderDawgState<LETTER, COLNAMES>> currentRnRStates = 
+				firstRnRStates;
+		while (true) {
+			if (!oldColIterator.hasNext()) {
+				// the split states are the final states.
+				assert newPostNeighbour == null;
+				assert movesToTheRight;
+				if (mMergeMode) {
+					return mergeColumn(movesToTheRight, newTransitionRelation, currentRnRStates);
+				} else {
+					return splitColumn(movesToTheRight, newTransitionRelation, currentRnRStates);
 				}
-				
-				COLNAMES currentColNameInOldSignature = oldColIterator.next();
+			}
 
-				if (currentColNameInOldSignature.equals(newPostNeighbour)) {
-					splitColumn(movesToTheRight, newTransitionRelation, splitPostStates, currentRnRStates);
-					break;
+			COLNAMES currentColNameInOldSignature = oldColIterator.next();
+
+			// merge mode stops one column earlier -- that has to be detected here
+			if ((mMergeMode && !oldColIterator.hasNext()) 
+					|| currentColNameInOldSignature.equals(newPostNeighbour)) {
+				if (mMergeMode) {
+					return mergeColumn(movesToTheRight, newTransitionRelation, currentRnRStates);
+				} else {
+					return splitColumn(movesToTheRight, newTransitionRelation, currentRnRStates);
 				}
-				
-				final Set<RenameAndReorderDawgState<LETTER, COLNAMES>> newCurrentRnRStates = 
-						new HashSet<RenameAndReorderDawgState<LETTER,COLNAMES>>();
-				
-				for (RenameAndReorderDawgState<LETTER, COLNAMES> rnrState : currentRnRStates) {
-					if (movesToTheRight) {
-						for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdgeOfInnerState : 
-							mInputDawg.getTransitionRelation().getOutEdgeSet(rnrState.getInnerState())) {
-							final RenameAndReorderDawgState<LETTER, COLNAMES> newTargetState = 
-									mDawgStateFactory.getReorderAndRenameDawgState(
-											rnrState.getLetter(), rnrState.getColumn(), outEdgeOfInnerState.getSecond());
-							newCurrentRnRStates.add(newTargetState);
-							newTransitionRelation.addTriple(rnrState, outEdgeOfInnerState.getFirst(), newTargetState);
-						}
-					} else {
-						for (Pair<DawgState, IDawgLetter<LETTER, COLNAMES>> inEdgeOfInnerState : 
-							mInputDawg.getTransitionRelation().getInverse(rnrState.getInnerState())) {
-							final RenameAndReorderDawgState<LETTER, COLNAMES> newSourceState = 
-									mDawgStateFactory.getReorderAndRenameDawgState(
-											rnrState.getLetter(), rnrState.getColumn(), inEdgeOfInnerState.getFirst());
-							newCurrentRnRStates.add(newSourceState);
-							newTransitionRelation.addTriple(newSourceState, inEdgeOfInnerState.getSecond(), rnrState);
-						}
+			}
+
+			final Set<RenameAndReorderDawgState<LETTER, COLNAMES>> newCurrentRnRStates = 
+					new HashSet<RenameAndReorderDawgState<LETTER,COLNAMES>>();
+
+			for (RenameAndReorderDawgState<LETTER, COLNAMES> rnrState : currentRnRStates) {
+				if (movesToTheRight) {
+					for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdgeOfInnerState : 
+						mInputDawg.getTransitionRelation().getOutEdgeSet(rnrState.getInnerState())) {
+						final RenameAndReorderDawgState<LETTER, COLNAMES> newTargetState = 
+								mDawgStateFactory.getReorderAndRenameDawgState(
+										rnrState.getLetter(), rnrState.getColumn(), outEdgeOfInnerState.getSecond());
+						newCurrentRnRStates.add(newTargetState);
+						newTransitionRelation.addTriple(rnrState, outEdgeOfInnerState.getFirst(), newTargetState);
+					}
+				} else {
+					for (Pair<DawgState, IDawgLetter<LETTER, COLNAMES>> inEdgeOfInnerState : 
+						mInputDawg.getTransitionRelation().getInverse(rnrState.getInnerState())) {
+						final RenameAndReorderDawgState<LETTER, COLNAMES> newSourceState = 
+								mDawgStateFactory.getReorderAndRenameDawgState(
+										rnrState.getLetter(), rnrState.getColumn(), inEdgeOfInnerState.getFirst());
+						newCurrentRnRStates.add(newSourceState);
+						newTransitionRelation.addTriple(newSourceState, inEdgeOfInnerState.getSecond(), rnrState);
 					}
 				}
-				currentRnRStates = newCurrentRnRStates;
 			}
+			currentRnRStates = newCurrentRnRStates;
 		}
-		return splitPostStates;
 	}
 
-	private void splitColumn(final boolean movesToTheRight,
+	private Set<DawgState> mergeColumn(boolean movesToTheRight,
+			final HashRelation3<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> newTransitionRelation,
+			final Set<RenameAndReorderDawgState<LETTER, COLNAMES>> currentRnRStates) {
+		final Set<DawgState> mergePostStates = new HashSet<DawgState>();
+		/*
+		 * the given rnrStates are those just before the column that should be merged into
+		 *  plan:
+		 *   from each rnrState s
+		 *    take the inner state of s and pick its outgoing transition that matches the letter of s (if existent), and 
+		 *     add the corresponding edge from s to the targetState, add the targetState to the mergePostStates
+		 */
+		for (RenameAndReorderDawgState<LETTER, COLNAMES> rnrState : currentRnRStates) {
+			
+			DawgState innerState = rnrState.getInnerState();
+			
+			if (movesToTheRight) {
+				for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> innerStateOutEdge : 
+					mInputDawg.getTransitionRelation().getOutEdgeSet(innerState)) {
+					if (innerStateOutEdge.getFirst().intersect(rnrState.getLetter()) instanceof EmptyDawgLetter) {
+						continue;
+					}
+					
+					final DawgState targetState = innerStateOutEdge.getSecond();
+					newTransitionRelation.addTriple(rnrState, rnrState.getLetter(), targetState);
+					mergePostStates.add(targetState);
+				}
+			} else {
+				for (Pair<DawgState, IDawgLetter<LETTER, COLNAMES>> innerStateInEdge : 
+					mInputDawg.getTransitionRelation().getInverse(innerState)) {
+
+					if (innerStateInEdge.getSecond().intersect(rnrState.getLetter()) instanceof EmptyDawgLetter) {
+						continue;
+					}
+					
+					final DawgState sourceState = innerStateInEdge.getFirst();
+					newTransitionRelation.addTriple(sourceState, rnrState.getLetter(), rnrState);
+					mergePostStates.add(sourceState);
+				}
+			}
+		}
+		return mergePostStates;
+	}
+
+	private Set<DawgState> splitColumn(final boolean movesToTheRight,
 			final HashRelation3<DawgState,IDawgLetter<LETTER,COLNAMES>,DawgState> newTransitionRelation,
-			final Set<DawgState> splitPostStates, Set<RenameAndReorderDawgState<LETTER, COLNAMES>> currentRnRStates) {
+			final Set<RenameAndReorderDawgState<LETTER, COLNAMES>> currentRnRStates) {
+		final Set<DawgState> splitPostStates = new HashSet<DawgState>();
+		
 		/*
 		 * split the states in this column and insert the letter of the corresponding
 		 * rnrState
@@ -363,6 +432,7 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 			}
 			splitPostStates.add(normalTargetState);
 		}
+		return splitPostStates;
 	}
 
 	/**

@@ -43,8 +43,104 @@ public class DawgTestMergeColumns {
 	 *  - moves from left to right
 	 *  - source column is not at the very start
 	 *  - target column is not at the very end
+	 *  - just one word in pre dawg
+	 *  - no word expected in post dawg
 	 * 
-	 *  (the inverse transformation of test2)
+	 */
+	@Test
+	public void test1a() {
+		Set<String> allConstants = new HashSet<String>(Arrays.asList(new String[] { "a", "b", "c", "d", "e" }));
+
+		DawgFactory<String, String> dawgFactoryStringString = 
+				new DawgFactory<String, String>(getEprTheory(), allConstants);
+
+		/*
+		 * words in the original automaton
+		 */
+		List<String> word_abcde = Arrays.asList(new String[] { "a", "b", "c", "d", "e" });
+
+		/*
+		 * words that should be in the transformed automaton
+		 */
+		SortedSet<String> signature3 = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
+		signature3.addAll(Arrays.asList(new String[] { "u", "v", "w", "x", "z"}));
+
+		SortedSet<String> signature4 = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
+		signature4.addAll(Arrays.asList(new String[] { "u", "w", "x", "z"}));
+
+		IDawg<String, String> dawg3 = dawgFactoryStringString.getEmptyDawg(signature3);
+		dawg3 = dawg3.add(word_abcde);
+
+
+		Dawg<String, String> dawg4 = new ReorderAndRenameDawgBuilder<String, String>(
+				dawgFactoryStringString, 
+				(Dawg<String, String>) dawg3, 
+				"v", 
+				"x",
+				false,
+				true)
+				.build();
+
+		assertTrue(dawg4.getColnames().equals(signature4));
+		assertTrue(dawg4.isEmpty());
+	}
+	
+	/**
+	 * Example for RenameAndReorder in merge mode
+	 *  - moves from left to right
+	 *  - source column is not at the very start
+	 *  - target column is not at the very end
+	 *  - just one word in pre dawg
+	 *  - one word expected in post dawg
+	 * 
+	 */
+	@Test
+	public void test1b() {
+		Set<String> allConstants = new HashSet<String>(Arrays.asList(new String[] { "a", "b", "c", "d", "e" }));
+
+		DawgFactory<String, String> dawgFactoryStringString = 
+				new DawgFactory<String, String>(getEprTheory(), allConstants);
+
+		/*
+		 * words in the original automaton
+		 */
+		List<String> word_abcbe = Arrays.asList(new String[] { "a", "b", "c", "b", "e" });
+
+		/*
+		 * words that should be in the transformed automaton
+		 */
+		List<String> word_acbe = Arrays.asList(new String[] { "a", "c", "b", "e" });
+
+		SortedSet<String> signature3 = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
+		signature3.addAll(Arrays.asList(new String[] { "u", "v", "w", "x", "z"}));
+
+		SortedSet<String> signature4 = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
+		signature4.addAll(Arrays.asList(new String[] { "u", "w", "x", "z"}));
+
+		IDawg<String, String> dawg3 = dawgFactoryStringString.getEmptyDawg(signature3);
+		dawg3 = dawg3.add(word_abcbe);
+
+
+		Dawg<String, String> dawg4 = new ReorderAndRenameDawgBuilder<String, String>(
+				dawgFactoryStringString, 
+				(Dawg<String, String>) dawg3, 
+				"v", 
+				"x",
+				false,
+				true)
+				.build();
+
+		assertTrue(dawg4.getColnames().equals(signature4));
+		assertTrue(dawg4.accepts(word_acbe));
+	}
+	
+	
+	/**
+	 * Example for RenameAndReorder in merge mode
+	 *  - moves from left to right
+	 *  - source column is not at the very start
+	 *  - target column is not at the very end
+	 * 
 	 */
 	@Test
 	public void test1() {
@@ -57,15 +153,15 @@ public class DawgTestMergeColumns {
 		 * words in the original automaton
 		 */
 		List<String> word_abcde = Arrays.asList(new String[] { "a", "b", "c", "d", "e" });
-		List<String> word_abcbe = Arrays.asList(new String[] { "a", "b", "c", "d", "e" });
-		List<String> word_cccca = Arrays.asList(new String[] { "a", "b", "c", "d", "e" });
-		List<String> word_caaac = Arrays.asList(new String[] { "a", "b", "c", "d", "e" });
-		List<String> word_caabb = Arrays.asList(new String[] { "a", "b", "c", "d", "e" });
+		List<String> word_abcbe = Arrays.asList(new String[] { "a", "b", "c", "b", "e" });
+		List<String> word_cccca = Arrays.asList(new String[] { "c", "c", "c", "c", "a" });
+		List<String> word_caaac = Arrays.asList(new String[] { "c", "a", "a", "a", "c" });
+		List<String> word_caabb = Arrays.asList(new String[] { "c", "a", "a", "b", "b" });
 
 		/*
 		 * words that should be in the transformed automaton
 		 */
-		List<String> word_abce = Arrays.asList(new String[] { "a", "b", "c", "e" });
+		List<String> word_acbe = Arrays.asList(new String[] { "a", "c", "b", "e" });
 		List<String> word_ccca = Arrays.asList(new String[] { "c", "c", "c", "a" });
 		List<String> word_caac = Arrays.asList(new String[] { "c", "a", "a", "c" });
 
@@ -77,16 +173,23 @@ public class DawgTestMergeColumns {
 		
 		IDawg<String, String> dawg3 = dawgFactoryStringString.getEmptyDawg(signature3);
 		dawg3 = dawg3.add(word_abcde);
+		dawg3 = dawg3.add(word_abcbe);
+		dawg3 = dawg3.add(word_cccca);
+		dawg3 = dawg3.add(word_caaac);
+		dawg3 = dawg3.add(word_caabb);
+
 
 		Dawg<String, String> dawg4 = new ReorderAndRenameDawgBuilder<String, String>(
 					dawgFactoryStringString, 
 					(Dawg<String, String>) dawg3, 
 					"v", 
-					"x")
+					"x",
+					false,
+					true)
 				.build();
 
 		assertTrue(dawg4.getColnames().equals(signature4));
-		assertTrue(dawg4.accepts(word_abce));
+		assertTrue(dawg4.accepts(word_acbe));
 		assertTrue(dawg4.accepts(word_ccca));
 		assertTrue(dawg4.accepts(word_caac));
 	}
@@ -107,7 +210,7 @@ public class DawgTestMergeColumns {
 		signaturePre.addAll(Arrays.asList(new String[] { "u", "v", "w"}));
 		
 		SortedSet<String> signaturePost = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
-		signaturePost.addAll(Arrays.asList(new String[] { "u", "v" }));
+		signaturePost.addAll(Arrays.asList(new String[] { "u", "w" }));
 	
 
 		/*
@@ -165,7 +268,7 @@ public class DawgTestMergeColumns {
 		signaturePre.addAll(Arrays.asList(new String[] { "u", "v", "w"}));
 		
 		SortedSet<String> signaturePost = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
-		signaturePost.addAll(Arrays.asList(new String[] { "v", "w" }));
+		signaturePost.addAll(Arrays.asList(new String[] { "u", "w" }));
 	
 
 		/*

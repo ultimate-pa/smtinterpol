@@ -770,11 +770,25 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		for (COLNAMES oldcol : renaming.getDomain()) {
 			Set<COLNAMES> newCols = renaming.getImage(oldcol);
 			if (newCols.size() == 1) {
-				result = new ReorderAndRenameDawgBuilder<LETTER, COLNAMES>(mDawgFactory, 
-						result, 
-						oldcol, 
-						newCols.iterator().next())
-					.build();
+				final COLNAMES newCol = newCols.iterator().next();
+				// we currently assume that merging can only happen when there is only one newCol
+				if (result.getColnames().contains(newCol)) {
+					// merge case
+					result = new ReorderAndRenameDawgBuilder<LETTER, COLNAMES>(mDawgFactory, 
+							result, 
+							oldcol, 
+							newCol,
+							false,
+							true)
+						.build();
+				} else {
+					// normal (i.e. move column) case
+					result = new ReorderAndRenameDawgBuilder<LETTER, COLNAMES>(mDawgFactory, 
+							result, 
+							oldcol, 
+							newCol)
+						.build();
+				}
 			} else {
 				/*
 				 *  we make the renaming for the first newCol and then trigger "column duplication"
@@ -782,22 +796,67 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 				 */
 				Iterator<COLNAMES> newColIt = newCols.iterator();
 				
-				COLNAMES firstCol = newColIt.next();
+				COLNAMES firstNewCol = newColIt.next();
+				assert !result.getColnames().contains(firstNewCol) : "do we mix merge and duplication??";
 				result = new ReorderAndRenameDawgBuilder<LETTER, COLNAMES>(mDawgFactory, 
 						result, 
 						oldcol, 
-						firstCol)
+						firstNewCol)
 					.build();
 
 				while (newColIt.hasNext()) {
 					COLNAMES currentNewCol = newColIt.next();
-					result = result.duplicateColumn(firstCol, currentNewCol);
+					assert !result.getColnames().contains(currentNewCol) : "do we mix merge and duplication??";
+					result = result.duplicateColumn(firstNewCol, currentNewCol);
 				}
 			}
 		}
 		return result;
 	}
 	
+
+	/**
+		 * Renames columns of the input dawg according to the given renaming.
+		 * The reordering is given implicitly through the renaming because the colnames are sorted automatically.
+		 * @param other
+		 * @param renaming
+		 * @return
+		 */
+		private Dawg<LETTER, COLNAMES> reorderAndRename(Map<COLNAMES, COLNAMES> renaming) {
+			return reorderAndRename(new BinaryRelation<COLNAMES, COLNAMES>(renaming));
+//	//		Dawg<LETTER, COLNAMES> result = (Dawg<LETTER, COLNAMES>) mDawgFactory.copyDawg(this);
+//			
+//			if (this.isEmpty() || this.isUniversal()) {
+//				// for an empty or universal dawg we just return a fresh dawg with the new signature
+//				SortedSet<COLNAMES> newSignature = EprHelpers.transformSignature(mColNames, renaming);
+//				if (this.isEmpty()) {
+//					return (Dawg<LETTER, COLNAMES>) mDawgFactory.getEmptyDawg(newSignature);
+//				} else {
+//					return (Dawg<LETTER, COLNAMES>) mDawgFactory.getUniversalDawg(newSignature);
+//				}
+//			}
+//	
+//			Dawg<LETTER, COLNAMES> result = this;
+//			for (Entry<COLNAMES, COLNAMES> en : renaming.entrySet()) {
+//				if (result.getColnames().contains(en.getValue())) {
+//					/*
+//					 *  the renaming target column is already contained in the dawg's signature
+//					 *   this means we have to "merge" the columns, i.e., delete the old column and
+//					 *    leave only tuples in the language where the two agreed on the same letter
+//					 */
+//	
+//					
+//				} else {
+//					// normal renaming case
+//					result = new ReorderAndRenameDawgBuilder<LETTER, COLNAMES>(mDawgFactory, 
+//							result, 
+//							en.getKey(), 
+//							en.getValue())
+//							.build();
+//				}
+//			}
+//			return result;
+		}
 
 	private Dawg<LETTER, COLNAMES> duplicateColumn(COLNAMES firstCol,
 				COLNAMES currentNewCol) {
@@ -814,51 +873,6 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			return null;
 		}
 	}
-
-	/**
-	 * Renames columns of the input dawg according to the given renaming.
-	 * The reordering is given implicitly through the renaming because the colnames are sorted automatically.
-	 * @param other
-	 * @param renaming
-	 * @return
-	 */
-	private Dawg<LETTER, COLNAMES> reorderAndRename(Map<COLNAMES, COLNAMES> renaming) {
-//		Dawg<LETTER, COLNAMES> result = (Dawg<LETTER, COLNAMES>) mDawgFactory.copyDawg(this);
-		
-		if (this.isEmpty() || this.isUniversal()) {
-			// for an empty or universal dawg we just return a fresh dawg with the new signature
-			SortedSet<COLNAMES> newSignature = EprHelpers.transformSignature(mColNames, renaming);
-			if (this.isEmpty()) {
-				return (Dawg<LETTER, COLNAMES>) mDawgFactory.getEmptyDawg(newSignature);
-			} else {
-				return (Dawg<LETTER, COLNAMES>) mDawgFactory.getUniversalDawg(newSignature);
-			}
-		}
-
-		Dawg<LETTER, COLNAMES> result = this;
-		for (Entry<COLNAMES, COLNAMES> en : renaming.entrySet()) {
-			if (result.getColnames().contains(en.getValue())) {
-				/*
-				 *  the renaming target column is already contained in the dawg's signature
-				 *   this means we have to "merge" the columns, i.e., delete the old column and
-				 *    leave only tuples in the language where the two agreed on the same letter
-				 */
-
-				
-			} else {
-				// normal renaming case
-				result = new ReorderAndRenameDawgBuilder<LETTER, COLNAMES>(mDawgFactory, 
-						result, 
-						en.getKey(), 
-						en.getValue())
-						.build();
-			}
-		}
-		return result;
-	}
-
-
-	
 
 	/**
 	 * Determines if there is a path from sourceState to targetState in graph.
