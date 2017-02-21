@@ -837,11 +837,22 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 
 		Dawg<LETTER, COLNAMES> result = this;
 		for (Entry<COLNAMES, COLNAMES> en : renaming.entrySet()) {
-			result = new ReorderAndRenameDawgBuilder<LETTER, COLNAMES>(mDawgFactory, 
+			if (result.getColnames().contains(en.getValue())) {
+				/*
+				 *  the renaming target column is already contained in the dawg's signature
+				 *   this means we have to "merge" the columns, i.e., delete the old column and
+				 *    leave only tuples in the language where the two agreed on the same letter
+				 */
+
+				
+			} else {
+				// normal renaming case
+				result = new ReorderAndRenameDawgBuilder<LETTER, COLNAMES>(mDawgFactory, 
 						result, 
 						en.getKey(), 
 						en.getValue())
-					.build();
+						.build();
+			}
 		}
 		return result;
 	}

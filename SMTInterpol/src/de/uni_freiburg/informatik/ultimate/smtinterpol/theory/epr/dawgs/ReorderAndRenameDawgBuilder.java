@@ -55,27 +55,65 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 	private final COLNAMES mOldColname;
 	private final COLNAMES mNewColname;
 	private final boolean mDuplicationMode;
+	private final boolean mMergeMode;
 
-//	private DawgState mResultInitialState;
+	
 	private Set<DawgState> mResultInitialStates;
 	private HashRelation3<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> mResultTransitionRelation;
 	private SortedSet<COLNAMES> mResultColnames;
 
-	public ReorderAndRenameDawgBuilder(DawgFactory<LETTER, COLNAMES> dawgFactory, Dawg<LETTER, COLNAMES> dawg,
-			COLNAMES oldColumn, COLNAMES newColumn, boolean duplicationMode) {
-		mInputDawg = dawg;
+	/**
+	 * 
+	 * @param dawgFactory
+	 * @param inputDawg
+	 * @param oldColumn
+	 * @param newColumn
+	 * @param duplicationMode special mode of this class which does not move a column but copies it
+	 * @param mergeMode special mode of this class which merges a column with another one
+	 */
+	public ReorderAndRenameDawgBuilder(DawgFactory<LETTER, COLNAMES> dawgFactory, Dawg<LETTER, COLNAMES> inputDawg,
+			COLNAMES oldColumn, COLNAMES newColumn, boolean duplicationMode, boolean mergeMode) {
+		assert !duplicationMode || !mergeMode : "duplicationMode and mergeMode flags set --> make no sense";
+		assert inputDawg.getColnames().contains(oldColumn) : "the old column is not part of the input dawg's signature;"
+				+ " what does that mean?";
+		assert mergeMode || !inputDawg.getColnames().contains(newColumn) : "we are not in merge mode and "
+				+ "the new column is already in the input dawg's signature.";
+		mInputDawg = inputDawg;
 		mDawgFactory = dawgFactory;
 		mDawgStateFactory = dawgFactory.getDawgStateFactory();
 		mDawgLetterFactory = dawgFactory.getDawgLetterFactory();
 		mOldColname = oldColumn;
 		mNewColname = newColumn;
 		mDuplicationMode = duplicationMode;
+		mMergeMode = mergeMode;
 		reorderAndRename();
 	}
+	
+	/**
+	 * constructor for duplication mode (i.e. copying a column)
+	 * 
+	 * @param dawgFactory
+	 * @param dawg
+	 * @param oldColumn
+	 * @param newColumn
+	 * @param duplicationMode
+	 */
+	public ReorderAndRenameDawgBuilder(DawgFactory<LETTER, COLNAMES> dawgFactory, Dawg<LETTER, COLNAMES> dawg,
+			COLNAMES oldColumn, COLNAMES newColumn, boolean duplicationMode) {
+		this(dawgFactory, dawg, oldColumn, newColumn, true, false);
+		assert duplicationMode : "use other constructor!";
+	}
 
+	/**
+	 * constructor for normal mode (i.e., moving/renaming a column)
+	 * @param dawgFactory
+	 * @param dawg
+	 * @param oldColumn
+	 * @param newColumn
+	 */
 	public ReorderAndRenameDawgBuilder(DawgFactory<LETTER, COLNAMES> dawgFactory, Dawg<LETTER, COLNAMES> dawg,
 			COLNAMES oldColumn, COLNAMES newColumn) {
-		this(dawgFactory, dawg, oldColumn, newColumn, false);
+		this(dawgFactory, dawg, oldColumn, newColumn, false, false);
 	}
 
 	private void reorderAndRename() {
