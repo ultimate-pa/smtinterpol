@@ -22,6 +22,9 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
+
 import java.util.Map.Entry;
 
 /**
@@ -110,6 +113,7 @@ public class UnionOrIntersectionDawgBuilder<LETTER, COLNAMES> {
 									nextStates.add(fwsDs);
 									for (IDawgLetter<LETTER, COLNAMES> dl : firstWithoutSecondDls) {
 										mResultTransitionRelation.put(cs, dl, fwsDs);
+										assert EprHelpers.isDeterministic(mResultTransitionRelation);
 									}
 								}
 
@@ -119,6 +123,7 @@ public class UnionOrIntersectionDawgBuilder<LETTER, COLNAMES> {
 									nextStates.add(swfDs);
 									for (IDawgLetter<LETTER, COLNAMES> dl : secondWithoutFirstDls) {
 										mResultTransitionRelation.put(cs, dl, swfDs);
+										assert EprHelpers.isDeterministic(mResultTransitionRelation);
 									}
 								}
 							}
@@ -128,16 +133,18 @@ public class UnionOrIntersectionDawgBuilder<LETTER, COLNAMES> {
 					for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> firstOutEdge : 
 						mFirstInputDawg.getTransitionRelation().getOutEdgeSet(cs.getFirst())) {
 
-						PairDawgState ds = mDawgStateFactory.getOrCreatePairDawgState(firstOutEdge.getSecond(), true, false);
+						PairDawgState ds = mDawgStateFactory.getOrCreatePairDawgState(firstOutEdge.getSecond(), false, true);
 						nextStates.add(ds);
 						mResultTransitionRelation.put(cs, firstOutEdge.getFirst(), ds);
+						assert EprHelpers.isDeterministic(mResultTransitionRelation);
 					}
 				} else if (doUnion && cs.mFirstIsSink) {
 					for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> secondOutEdge : 
 						mSecondInputDawg.getTransitionRelation().getOutEdgeSet(cs.getSecond())) {
-						PairDawgState ds = mDawgStateFactory.getOrCreatePairDawgState(secondOutEdge.getSecond(), false, true);
+						PairDawgState ds = mDawgStateFactory.getOrCreatePairDawgState(secondOutEdge.getSecond(), true, false);
 						nextStates.add(ds);
 						mResultTransitionRelation.put(cs, secondOutEdge.getFirst(), ds);
+						assert EprHelpers.isDeterministic(mResultTransitionRelation);
 					}
 				}
 			}
