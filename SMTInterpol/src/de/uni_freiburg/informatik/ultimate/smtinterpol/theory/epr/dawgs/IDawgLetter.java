@@ -31,8 +31,8 @@ import java.util.Set;
  * @param <LETTER>
  * @param <COLNAMES>
  */
-interface IDawgLetter<LETTER, COLNAMES> {
-	
+public interface IDawgLetter<LETTER, COLNAMES> {
+		
 	
 	Set<IDawgLetter<LETTER, COLNAMES>> complement();
 

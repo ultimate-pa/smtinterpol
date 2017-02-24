@@ -137,11 +137,14 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 	public Set<IDawgLetter<LETTER, COLNAMES>> complementDawgLetterSet(
 			Set<IDawgLetter<LETTER, COLNAMES>> dawgLetters) {
 		if (useSimpleDawgLetters()) {
+			if (dawgLetters.isEmpty()) {
+				return Collections.singleton(getUniversalDawgLetter());
+			}
+			
 			if (dawgLetters.iterator().next() instanceof UniversalDawgLetter<?, ?>) {
 				assert dawgLetters.size() == 1 : "should normalize this, right?..";
 				return Collections.emptySet();
 			}
-			
 			
 			final Set<LETTER> resultLetters = new HashSet<LETTER>();
 			resultLetters.addAll(mAllConstants);
@@ -272,112 +275,5 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 	
 	public boolean useSimpleDawgLetters() {
 		return true;
-	}
-}
-/**
- * A DawgLetter that captures no LETTER.
- * (probably this should not occur in any Dawg, but only as an intermediate result during construction
- *  -- an edge labelled with this letter should be omitted)
- * 
- * @author Alexander Nutz
- *
- * @param <LETTER>
- * @param <COLNAMES>
- */
-class EmptyDawgLetter<LETTER, COLNAMES> implements IDawgLetter<LETTER, COLNAMES> {
-
-	private final DawgLetterFactory<LETTER, COLNAMES> mDawgLetterFactory;
-
-	EmptyDawgLetter(DawgLetterFactory<LETTER, COLNAMES> dlf) {
-		mDawgLetterFactory = dlf;
-	}
-
-	@Override
-	public Set<IDawgLetter<LETTER, COLNAMES>> complement() {
-		return Collections.singleton(mDawgLetterFactory.getUniversalDawgLetter());
-	}
-
-	@Override
-	public IDawgLetter<LETTER, COLNAMES> intersect(IDawgLetter<LETTER, COLNAMES> other) {
-		return this;
-	}
-
-	@Override
-	public Set<IDawgLetter<LETTER, COLNAMES>> difference(IDawgLetter<LETTER, COLNAMES> other) {
-		return Collections.singleton((IDawgLetter<LETTER, COLNAMES>) this);
-	}
-
-	@Override
-	public boolean matches(LETTER ltr, List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex) {
-		return false;
-	}
-
-	@Override
-	public IDawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER ltr) {
-		assert false;
-		return null;
-	}
-
-	@Override
-	public Collection<LETTER> allLettersThatMatch(List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex) {
-		return Collections.emptySet();
-	}
-	
-	@Override
-	public String toString() {
-		return "EmptyDawgLetter";
-	}
-}
-
-/**
- * A DawgLetter that captures all LETTERs.
- * (i.e. the DawgLetter whose LETTER-set is "allConstants", and whose (un)equals-sets are empty)
- * 
- * @author Alexander Nutz
- *
- * @param <LETTER>
- * @param <COLNAMES>
- */
-class UniversalDawgLetter<LETTER, COLNAMES> implements IDawgLetter<LETTER, COLNAMES> {
-
-	private final DawgLetterFactory<LETTER, COLNAMES> mDawgLetterFactory;
-
-	UniversalDawgLetter(DawgLetterFactory<LETTER, COLNAMES> dlf) {
-		mDawgLetterFactory = dlf;
-	}
-
-	@Override
-	public Set<IDawgLetter<LETTER, COLNAMES>> complement() {
-		return Collections.singleton(mDawgLetterFactory.getEmptyDawgLetter());
-	}
-
-	@Override
-	public IDawgLetter<LETTER, COLNAMES> intersect(IDawgLetter<LETTER, COLNAMES> other) {
-		return other;
-	}
-	
-	@Override
-	public Set<IDawgLetter<LETTER, COLNAMES>> difference(IDawgLetter<LETTER, COLNAMES> other) {
-		return other.complement();
-	}
-	
-	@Override
-	public boolean matches(LETTER ltr, List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex) {
-		return true;
-	}
-	
-	@Override
-	public IDawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER ltr) {
-		return mDawgLetterFactory.getOrCreateSingletonSetDawgLetter(ltr);
-	}
-
-	@Override
-	public Collection<LETTER> allLettersThatMatch(List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex) {
-		return mDawgLetterFactory.getAllConstants();
-	}
-
-	@Override
-	public String toString() {
-		return "UniversalDawgLetter";
 	}
 }

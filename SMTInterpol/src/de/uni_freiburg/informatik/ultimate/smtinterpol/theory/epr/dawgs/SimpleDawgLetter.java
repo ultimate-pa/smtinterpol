@@ -71,6 +71,12 @@ public class SimpleDawgLetter<LETTER, COLNAMES> implements IDawgLetter<LETTER, C
 
 	@Override
 	public IDawgLetter<LETTER, COLNAMES> intersect(IDawgLetter<LETTER, COLNAMES> other) {
+		if (other instanceof UniversalDawgLetter) {
+			return this;
+		}
+		if (other instanceof EmptyDawgLetter) {
+			return other;
+		}
 		SimpleDawgLetter<LETTER, COLNAMES> otherSdl = (SimpleDawgLetter<LETTER, COLNAMES>) other;
 		final Set<LETTER> resultLetters = new HashSet<LETTER>();
 		resultLetters.addAll(mLetters);

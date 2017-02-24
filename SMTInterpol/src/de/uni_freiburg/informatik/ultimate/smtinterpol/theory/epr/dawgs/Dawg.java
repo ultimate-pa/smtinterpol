@@ -190,7 +190,8 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		
 		assert !containsEmptyDawgLetters(mTransitionRelation) : "transition relation contains an emptyDawgLetter"
 				+ " -- EmptyDawgLetters should only used in operations on DawgLetters, not in a Dawg";
-		assert isDeterministic();
+		assert EprHelpers.isDeterministic(mTransitionRelation);
+		assert !EprHelpers.hasDisconnectedTransitions(transitionRelation, initialState);
 	}
 
 	private boolean containsEmptyDawgLetters(
@@ -1046,27 +1047,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		return sb.toString();
 	}
 	
-	/**
-	 * Returns true iff in this dawg all the outgoing dawgLetters of one state are disjoint.
-	 * @return
-	 */
-	private boolean isDeterministic() {
-		for (DawgState state : mTransitionRelation.keySet()) {
-			List<Pair<IDawgLetter<LETTER, COLNAMES>, DawgState>> outEdges = 
-					new ArrayList<Pair<IDawgLetter<LETTER, COLNAMES>, DawgState>>(mTransitionRelation.getOutEdgeSet(state));
-			for (int i = 0; i < outEdges.size(); i++) {
-				Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> edge1 = outEdges.get(i);
-				for (int j = 0; j < i; j++) {
-					Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> edge2 = outEdges.get(j);
-					
-					if (!(edge1.getFirst().intersect(edge2.getFirst()) instanceof EmptyDawgLetter)) {
-						return false;
-					}
-				}
-			}
-		}
-		return true;
-	}
+
 
 	/**
 	 * Computes the smallest column in this Dawg's signature that is bigger than the given column.
@@ -1088,10 +1069,20 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		return rightNeighBourColumn;
 	}
 
+	/**
+	 * 
+	 * Returns null if the given column is lower or equal than all columns in this Dawg's signature.
+	 * 
+	 * @param newColname
+	 * @return
+	 */
 	public COLNAMES findLeftNeighbourColumn(COLNAMES newColname) {
 		COLNAMES rightNeighbour = findRightNeighbourColumn(newColname);
 		if (rightNeighbour == null) {
 			return mColNames.last();
+		}
+		if (mColNames.first().equals(rightNeighbour)) {
+			return null;
 		}
 		return mColNames.headSet(rightNeighbour).last();
 	}

@@ -40,6 +40,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
@@ -235,7 +236,40 @@ public class DawgTestSetOperations {
 	public void testDawg13() {
 		assertTrue(dawg14.isUniversal());
 	}
-	
+
+	/**
+	 * test where teh dawg is created by constructing the transitions "by hand"
+	 */
+	@Test
+	public void test14() {
+//		Set<String> allConstants = new HashSet<String>(Arrays.asList(new String[] { "a", "b", "c", "d", "e" }));
+//		
+//		DawgFactory<String, String> dawgFactoryStringString = 
+//				new DawgFactory<String, String>(getEprTheory(), allConstants);
+//
+//		/*
+//		 * words in the first automaton
+//		 */
+//		List<String> word_ab = Arrays.asList(new String[] { "a", "b", "c", "d", "e" });
+//		
+//		/*
+//		 * words in the first automaton
+//		 */
+//		List<String> word_abcde = Arrays.asList(new String[] { "a", "b", "c", "d", "e" });
+//
+//
+//
+//		/*
+//		 * words that should be in the transformed automaton
+//		 */
+//		List<String> word_adbce = Arrays.asList(new String[] { "a", "d", "b", "c", "e" });
+//		
+//		new Dawg
+//
+//		SortedSet<String> signature3 = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
+//		signature3.addAll(Arrays.asList(new String[] { "u", "w", "x", "y", "z" }));
+
+	}
 }
 
 class EprTheoryMock extends EprTheory {
