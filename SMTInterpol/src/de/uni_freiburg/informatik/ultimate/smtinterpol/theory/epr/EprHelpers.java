@@ -48,7 +48,13 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroun
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgState;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.EmptyDawgLetter;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawgLetter;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.NestedMap2;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.Pair;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.Triple;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.IEprLiteral;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
 
@@ -198,15 +204,15 @@ public class EprHelpers {
 		return result;
 	}
 	
-	public static class Pair<T,U> {
-		public final T first;
-		public final U second;
-		
-		public Pair(T f, U s) {
-			first = f;
-			second = s;
-		}
-	}
+//	public static class Pair<T,U> {
+//		public final T first;
+//		public final U second;
+//		
+//		public Pair(T f, U s) {
+//			first = f;
+//			second = s;
+//		}
+//	}
 
 	/**
 	 * When we are sure (or want to be sure) that a Term array really only contains constants, 
@@ -229,7 +235,7 @@ public class EprHelpers {
 	 * Given a set S, computes S x S ... x S = S^n
 	 */
 	public static <LETTER> Set<List<LETTER>> computeNCrossproduct(Set<LETTER> baseSet, int n, LogProxy logger) {
-		logger.debug("EPRDEBUG: EprHelpers.computeNCrossproduct N = " + n + " baseSet size = " + baseSet.size());
+//		logger.debug("EPRDEBUG: EprHelpers.computeNCrossproduct N = " + n + " baseSet size = " + baseSet.size());
 		Set<List<LETTER>> result = new HashSet<List<LETTER>>();
 		result.add(new ArrayList<LETTER>());
 		for (int i = 0; i < n; i++) {
@@ -765,4 +771,72 @@ public class EprHelpers {
 		}
 		return result;
 	}
+	
+	/**
+	 * Returns true iff in this dawg all the outgoing dawgLetters of one state are disjoint.
+	 * @param transitionRelation 
+	 * @return
+	 */
+	public static <LETTER, COLNAMES> boolean isDeterministic(
+			NestedMap2<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> transitionRelation) {
+		for (DawgState state : transitionRelation.keySet()) {
+			List<Pair<IDawgLetter<LETTER, COLNAMES>, DawgState>> outEdges = 
+					new ArrayList<Pair<IDawgLetter<LETTER, COLNAMES>, DawgState>>(transitionRelation.getOutEdgeSet(state));
+			for (int i = 0; i < outEdges.size(); i++) {
+				Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> edge1 = outEdges.get(i);
+				for (int j = 0; j < i; j++) {
+					Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> edge2 = outEdges.get(j);
+					
+					if (!(edge1.getFirst().intersect(edge2.getFirst()) instanceof EmptyDawgLetter)) {
+						return false;
+					}
+				}
+			}
+		}
+		return true;
+	}
+	
+	
+	/**
+	 * Checks for a given transition relation and dawg state (usually the initial state of the dawg
+	 * the transition relation occurs) if every transition in the relation is reachable from the state
+	 * (in the normal direction, no backwards search is done)
+	 * 
+	 * @param transitionRelation
+	 * @return
+	 */
+	public static <LETTER, COLNAMES> boolean hasDisconnectedTransitions(
+			NestedMap2<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> transitionRelation,
+			DawgState state) {
+		
+		final Set<Triple<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState>> reachableTransitions = 
+				new HashSet<Triple<DawgState,IDawgLetter<LETTER,COLNAMES>,DawgState>>();
+		
+		Set<DawgState> currentStates = new HashSet<DawgState>();
+		currentStates.add(state);
+		
+		while (!currentStates.isEmpty()) {
+			final Set<DawgState> nextStates = new HashSet<DawgState>();
+			for (DawgState cs : currentStates) {
+				for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge : transitionRelation.getOutEdgeSet(cs)) {
+					nextStates.add(outEdge.getSecond());
+					reachableTransitions.add(
+							new Triple<DawgState, IDawgLetter<LETTER,COLNAMES>, DawgState>(
+									cs, outEdge.getFirst(), outEdge.getSecond()));
+				}
+			}
+			currentStates = nextStates;
+		}
+
+		final Iterable<Triple<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState>> allTransitions = 
+				transitionRelation.entrySet();
+		for (Triple<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> trans : allTransitions) {
+			if (!reachableTransitions.contains(trans)) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+	
 }
