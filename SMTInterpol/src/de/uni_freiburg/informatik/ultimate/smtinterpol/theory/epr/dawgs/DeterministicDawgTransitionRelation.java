@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2014-2015 Jan Leike (leike@informatik.uni-freiburg.de)
  * Copyright (C) 2014-2015 Matthias Heizmann (heizmann@informatik.uni-freiburg.de)
+ * Copyright (C) 2017 Alexander Nutz (nutz@informatik.uni-freiburg.de)
  * Copyright (C) 2012-2015 University of Freiburg
  * 
  * This file is part of the ULTIMATE Util Library.
@@ -38,7 +39,10 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 
 /**
- * TODO: comment
+ * Represents the transition relation of a deterministic dawg.
+ * 
+ * Adapted from NestedMap2 from the Ultimate Util library from the Ultimate framework.
+ * 
  * @author Matthias Heizmann
  * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
  *
@@ -46,7 +50,6 @@ import java.util.Set;
  * @param <K2>
  * @param <V>
  */
-//public class NestedMap2<K1, K2, V> {
 public class DeterministicDawgTransitionRelation<K1, K2, V> {
 	
 	private final Map<K1, Map<K2, V>> mK1ToK2ToV = new HashMap<K1, Map<K2, V>>();
