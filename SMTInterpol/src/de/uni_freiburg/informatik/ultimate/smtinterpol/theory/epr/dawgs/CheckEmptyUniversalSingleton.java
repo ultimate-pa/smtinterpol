@@ -21,7 +21,7 @@ public class CheckEmptyUniversalSingleton<LETTER, COLNAMES> {
 	private final Set<LETTER> mAllConstants;
 	private final int mNoColumns;
 	private final DawgState mInitialState;
-	private final NestedMap2<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> mTransitionRelation;
+	private final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> mTransitionRelation;
 	private final DawgFactory<LETTER, COLNAMES> mDawgFactory;
 	
 //	private final Map<DawgState, Pair<DawgState, IDawgLetter<LETTER, COLNAMES>>> mDawgStateToVisitedInEdge = 
@@ -39,7 +39,7 @@ public class CheckEmptyUniversalSingleton<LETTER, COLNAMES> {
 	
 
 	public CheckEmptyUniversalSingleton(DawgFactory<LETTER, COLNAMES> dawgFactory, Set<LETTER> allConstants, int size, 
-			DawgState initialState,	NestedMap2<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> transitionRelation) {
+			DawgState initialState,	DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> transitionRelation) {
 		mDawgFactory = dawgFactory;
 		mAllConstants = allConstants;
 		mNoColumns = size;

@@ -48,7 +48,7 @@ public class AddWordDawgBuilder<LETTER, COLNAMES> {
 		if (mInputDawg.isEmpty()) {
 			mResultDawg = mDawgFactory.createOnePointDawg(mInputDawg.getColnames(), mWordToAdd);
 		} else {
-			final NestedMap2<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> newTransitionRelation = 
+			final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> newTransitionRelation = 
 					mInputDawg.getTransitionRelation().copy();
 			DawgState currentState = mInputDawg.getInitialState();
 			for (LETTER letter : mWordToAdd) {

@@ -19,8 +19,6 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
 
-import java.util.Set;
-
 /**
  * 
  * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
@@ -35,74 +33,6 @@ public class DawgState {
 	@Override
 	public String toString() {
 		return String.format("DawgState#%d", this.hashCode() % 10000);
-	}
-}
-
-class PairDawgState extends DawgState {
-
-	final DawgState mFirst;
-	final DawgState mSecond;
-	
-	final boolean mFirstIsSink;
-	final boolean mSecondIsSink;
-	
-	PairDawgState(DawgState s, boolean firstIsSink, boolean secondIsSink) {
-		assert firstIsSink != secondIsSink;
-		
-		if (firstIsSink) {
-			mFirst = null;
-			mSecond = s;
-			mFirstIsSink = true;
-			mSecondIsSink = false;
-		} else {
-			mFirst = s;
-			mSecond = null;
-			mFirstIsSink = false;
-			mSecondIsSink = true;
-		}
-	}
-
-	PairDawgState(DawgState f, DawgState s) {
-		assert f != null && s != null;
-		mFirstIsSink = false;
-		mSecondIsSink = false;
-		mFirst = f;
-		mSecond = s;
-	}
-	
-	DawgState getFirst() {
-		return mFirst;
-	}
-	
-	DawgState getSecond() {
-		return mSecond;
-	}
-	
-	@Override
-	public String toString() {
-//		return "PairDawgState(#" + mFirst.hashCode() + ",#" + mSecond.hashCode() + ")";
-		return String.format("PairDawgState%d(#%d,#%d)", 
-				this.hashCode() % 10000,
-				mFirstIsSink ? -1 : mFirst.hashCode() % 10000,
-				mSecondIsSink ? -1 : mSecond.hashCode() % 10000);
-	}
-}
-
-class SetDawgState extends DawgState {
-	
-	private final Set<DawgState> mDawgStates;
-	
-	SetDawgState(Set<DawgState> dawgStates) {
-		mDawgStates = dawgStates;
-	}
-	
-	Set<DawgState> getInnerStates() {
-		return mDawgStates;
-	}
-
-	@Override
-	public String toString() {
-		return String.format("SetDawgState%d:%s", this.hashCode() % 10000, mDawgStates);
 	}
 }
 

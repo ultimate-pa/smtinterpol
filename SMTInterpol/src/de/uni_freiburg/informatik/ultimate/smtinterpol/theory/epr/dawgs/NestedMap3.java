@@ -41,20 +41,20 @@ import java.util.Set;
  */
 public class NestedMap3<K1, K2, K3, V> {
 	
-	private final Map<K1, NestedMap2<K2, K3, V>> mK1ToK2ToK3V = 
-			new HashMap<K1, NestedMap2<K2, K3, V>>();
+	private final Map<K1, DeterministicDawgTransitionRelation<K2, K3, V>> mK1ToK2ToK3V = 
+			new HashMap<K1, DeterministicDawgTransitionRelation<K2, K3, V>>();
 	
 	public V put(K1 key1, K2 key2, K3 key3, V value) {
-		NestedMap2<K2, K3, V> k2tok3toV = mK1ToK2ToK3V.get(key1);
+		DeterministicDawgTransitionRelation<K2, K3, V> k2tok3toV = mK1ToK2ToK3V.get(key1);
 		if (k2tok3toV == null) {
-			k2tok3toV = new NestedMap2<K2, K3, V>();
+			k2tok3toV = new DeterministicDawgTransitionRelation<K2, K3, V>();
 			mK1ToK2ToK3V.put(key1, k2tok3toV);
 		}
 		return k2tok3toV.put(key2, key3, value);
 	}
 	
 	public V get(K1 key1, K2 key2, K3 key3) {
-		final NestedMap2<K2, K3, V> k2tok3toV = mK1ToK2ToK3V.get(key1);
+		final DeterministicDawgTransitionRelation<K2, K3, V> k2tok3toV = mK1ToK2ToK3V.get(key1);
 		if (k2tok3toV == null) {
 			return null;
 		} else {
@@ -63,7 +63,7 @@ public class NestedMap3<K1, K2, K3, V> {
 	}
 	
 	public Map<K3, V> get(K1 key1, K2 key2) {
-		final NestedMap2<K2, K3, V> k2toV = mK1ToK2ToK3V.get(key1);
+		final DeterministicDawgTransitionRelation<K2, K3, V> k2toV = mK1ToK2ToK3V.get(key1);
 		if (k2toV == null) {
 			return null;
 		} else {
@@ -71,7 +71,7 @@ public class NestedMap3<K1, K2, K3, V> {
 		}
 	}
 	
-	public NestedMap2<K2, K3, V> get(K1 key1) {
+	public DeterministicDawgTransitionRelation<K2, K3, V> get(K1 key1) {
 		return mK1ToK2ToK3V.get(key1);
 	}
 	

@@ -40,12 +40,14 @@ import java.util.Set;
 /**
  * TODO: comment
  * @author Matthias Heizmann
+ * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
  *
  * @param <K1>
  * @param <K2>
  * @param <V>
  */
-public class NestedMap2<K1, K2, V> {
+//public class NestedMap2<K1, K2, V> {
+public class DeterministicDawgTransitionRelation<K1, K2, V> {
 	
 	private final Map<K1, Map<K2, V>> mK1ToK2ToV = new HashMap<K1, Map<K2, V>>();
 	
@@ -55,6 +57,7 @@ public class NestedMap2<K1, K2, V> {
 			k2toV = new HashMap<K2, V>();
 			mK1ToK2ToV.put(key1, k2toV);
 		}
+		assert !k2toV.containsKey(key2) : "we don't expect that put overwrites something, here --> catch this case outside!";
 		return k2toV.put(key2, value);
 	}
 	
@@ -141,7 +144,7 @@ public class NestedMap2<K1, K2, V> {
 		return result;
 	}
 
-	public void addAll(final NestedMap2<K1, K2, V> nestedMap) {
+	public void addAll(final DeterministicDawgTransitionRelation<K1, K2, V> nestedMap) {
 		for (final Triple<K1, K2, V> triple : nestedMap.entrySet()) {
 			this.put(triple.getFirst(), triple.getSecond(), triple.getThird());
 		}
@@ -162,7 +165,12 @@ public class NestedMap2<K1, K2, V> {
 
 	@Override
 	public String toString() {
-		return mK1ToK2ToV.toString();
+//		return mK1ToK2ToV.toString();
+		final StringBuilder sb = new StringBuilder();
+		for (Triple<K1, K2, V> edge : this.entrySet()) {
+			sb.append(edge + "\n");
+		}
+		return sb.toString();
 	}
 	
 	public void clear() {
@@ -193,7 +201,7 @@ public class NestedMap2<K1, K2, V> {
 			return false;
 		if (getClass() != obj.getClass())
 			return false;
-		final NestedMap2 other = (NestedMap2) obj;
+		final DeterministicDawgTransitionRelation other = (DeterministicDawgTransitionRelation) obj;
 		if (mK1ToK2ToV == null) {
 			if (other.mK1ToK2ToV != null)
 				return false;
@@ -202,8 +210,8 @@ public class NestedMap2<K1, K2, V> {
 		return true;
 	}
 
-	public NestedMap2<K1, K2, V> copy() {
-		final NestedMap2<K1, K2, V> result = new NestedMap2<K1, K2, V>();
+	public DeterministicDawgTransitionRelation<K1, K2, V> copy() {
+		final DeterministicDawgTransitionRelation<K1, K2, V> result = new DeterministicDawgTransitionRelation<K1, K2, V>();
 		for (final K1 k1 : this.keySet()) {
 			result.mK1ToK2ToV.put(k1, new HashMap<K2, V>(this.get(k1)));
 		}

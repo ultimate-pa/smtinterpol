@@ -42,7 +42,7 @@ public class DeterminizeDawg<LETTER, COLNAMES> {
 	private final DawgLetterFactory<LETTER, COLNAMES> mDawgLetterFactory;
 
 	private SetDawgState mResultInitialState;
-	private NestedMap2<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> mResultTransitionRelation;
+	private DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> mResultTransitionRelation;
 	private SortedSet<COLNAMES> mColnames;
 	private Set<LETTER> mAllConstants;
 	private LogProxy mLogger;
@@ -82,7 +82,7 @@ public class DeterminizeDawg<LETTER, COLNAMES> {
 	private void determinize() {
 		mResultInitialState = mDawgStateFactory.getOrCreateSetDawgState(mInputInitialStates);
 		
-		mResultTransitionRelation = new NestedMap2<DawgState, IDawgLetter<LETTER,COLNAMES>, DawgState>();
+		mResultTransitionRelation = new DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER,COLNAMES>, DawgState>();
 		
 		ArrayDeque<SetDawgState> worklist = new ArrayDeque<SetDawgState>();
 		worklist.add(mResultInitialState);

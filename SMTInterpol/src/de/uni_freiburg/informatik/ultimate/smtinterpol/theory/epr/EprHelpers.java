@@ -52,8 +52,9 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgStat
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.EmptyDawgLetter;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawgLetter;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.NestedMap2;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DeterministicDawgTransitionRelation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.Pair;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.PairDawgState;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.Triple;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.IEprLiteral;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
@@ -778,7 +779,7 @@ public class EprHelpers {
 	 * @return
 	 */
 	public static <LETTER, COLNAMES> boolean isDeterministic(
-			NestedMap2<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> transitionRelation) {
+			DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> transitionRelation) {
 		for (DawgState state : transitionRelation.keySet()) {
 			List<Pair<IDawgLetter<LETTER, COLNAMES>, DawgState>> outEdges = 
 					new ArrayList<Pair<IDawgLetter<LETTER, COLNAMES>, DawgState>>(transitionRelation.getOutEdgeSet(state));
@@ -806,7 +807,7 @@ public class EprHelpers {
 	 * @return
 	 */
 	public static <LETTER, COLNAMES> boolean hasDisconnectedTransitions(
-			NestedMap2<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> transitionRelation,
+			DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> transitionRelation,
 			DawgState state) {
 		
 		final Set<Triple<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState>> reachableTransitions = 
@@ -835,8 +836,36 @@ public class EprHelpers {
 				return true;
 			}
 		}
-
 		return false;
+	}
+
+	public static <LETTER, COLNAMES> boolean areStatesUnreachable(
+			DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> transitionRelation,
+			DawgState initialState,
+			Set<PairDawgState> statesToCheck) {
+
+		final Set<DawgState> statesNotYetShownReachable = new HashSet<DawgState>(statesToCheck);		
+
+		Set<DawgState> currentStates = new HashSet<DawgState>();
+		currentStates.add(initialState);
+		statesNotYetShownReachable.remove(initialState);
+		
+		while (!currentStates.isEmpty()) {
+			final Set<DawgState> nextStates = new HashSet<DawgState>();
+			for (DawgState cs : currentStates) {
+				for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge : transitionRelation.getOutEdgeSet(cs)) {
+					statesNotYetShownReachable.remove(outEdge.getSecond());
+					nextStates.add(outEdge.getSecond());
+				}
+			}
+			currentStates = nextStates;
+		}
+
+		if (statesNotYetShownReachable.isEmpty()) {
+			return false;
+		} else {
+			return true;
+		}
 	}
 	
 }
