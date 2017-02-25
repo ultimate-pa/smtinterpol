@@ -290,25 +290,26 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		 */
 		final NestedMap2<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> newTransitionRelation
 				= new NestedMap2<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState>();
-
-		
 		
 		Set<DawgState> currentStates = new HashSet<DawgState>();
 		currentStates.add(mInitialState);
 		
 		DawgState nextLevelFormerSinkState = null;
-		
-		
-		//TODO:
-		// - double check
+
+		/*
+		 * the "formersinkstates" are reachable as soon as there is a state in the previous
+		 * column whose outgoing transitions are not total
+		 */
+		boolean formerSinkStatesAreReachable = false;
 		
 		for (int i = 0; i < this.getColnames().size(); i++) {
-			Set<DawgState> nextStates = new HashSet<DawgState>();
+			final Set<DawgState> nextStates = new HashSet<DawgState>();
 			
-			DawgState lastLevelFormerSinkState = nextLevelFormerSinkState;
+			final DawgState lastLevelFormerSinkState = nextLevelFormerSinkState;
 			nextLevelFormerSinkState = mDawgStateFactory.createDawgState();
-//			nextStates.add(nextLevelFormerSinkState);
-			if (i > 0) {
+			
+//			if (i > 0) {
+			if (formerSinkStatesAreReachable) {
 				newTransitionRelation.put(
 						lastLevelFormerSinkState, mDawgLetterFactory.getUniversalDawgLetter(), nextLevelFormerSinkState);
 			}
@@ -320,12 +321,6 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 				 * the old transitions stay intact (except for the ones leading to the final state
 				 */
 				for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> letterAndState : mTransitionRelation.getOutEdgeSet(cs)) {
-//					if (i == this.getColnames().size() - 1) {
-//						// we are in the last column
-//						// the old transitions lead to the old final state(s)
-//						// --> omit those
-//						break;
-//					}
 					outgoingDawgLetters.add(letterAndState.getFirst());
 					if (i != this.getColnames().size() - 1) {
 						nextStates.add(letterAndState.getSecond());
@@ -337,10 +332,11 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 				 * collects all the DawgLetters that do not have a transition from the current state
 				 * those lead to the "former sink state"
 				 */
-				Set<IDawgLetter<LETTER, COLNAMES>> complementDawgLetters = 
+				final Set<IDawgLetter<LETTER, COLNAMES>> complementDawgLetters = 
 						mDawgLetterFactory.complementDawgLetterSet(outgoingDawgLetters);
 				for (IDawgLetter<LETTER, COLNAMES> cdl : complementDawgLetters) {
 					newTransitionRelation.put(cs, cdl, nextLevelFormerSinkState);
+					formerSinkStatesAreReachable = true;
 				}
 	
 			}
