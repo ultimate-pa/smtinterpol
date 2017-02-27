@@ -58,6 +58,15 @@ public class SimpleDawgLetter<LETTER, COLNAMES> implements IDawgLetter<LETTER, C
 
 	@Override
 	public Set<IDawgLetter<LETTER, COLNAMES>> difference(IDawgLetter<LETTER, COLNAMES> other) {
+		if (other instanceof UniversalDawgLetter<?, ?>) {
+//			return mDawgLetterFactory.getEmptyDawgLetter();
+			return Collections.emptySet();
+		}
+		if (other instanceof EmptyDawgLetter<?, ?>) {
+			return Collections.singleton((IDawgLetter<LETTER, COLNAMES>) this);
+		}
+		
+		
 		SimpleDawgLetter<LETTER, COLNAMES> otherSdl = (SimpleDawgLetter<LETTER, COLNAMES>) other;
 		final Set<LETTER> resultLetters = new HashSet<LETTER>();
 		resultLetters.addAll(mLetters);

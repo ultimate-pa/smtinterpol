@@ -23,6 +23,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.BinaryRelation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 
 import java.util.Map.Entry;
@@ -84,65 +85,98 @@ public class UnionOrIntersectionDawgBuilder<LETTER, COLNAMES> {
 			for (PairDawgState cs : currentStates) {
 				
 				if (!cs.mFirstIsSink && !cs.mSecondIsSink) {
+					
+					final BinaryRelation<IDawgLetter<LETTER, COLNAMES>, IDawgLetter<LETTER, COLNAMES>> dividedDawgLetters = 
+							EprHelpers.divideDawgLetters(mDawgLetterFactory, 
+									cs.getFirst(), 
+									cs.getSecond(),
+									mFirstInputDawg.getTransitionRelation(), 
+									mSecondInputDawg.getTransitionRelation());
+					
+					for (IDawgLetter<LETTER, COLNAMES> origDl : dividedDawgLetters.getDomain()) {
+						final DawgState firstTargetWithOrigDl = mFirstInputDawg.getTransitionRelation().get(cs.getFirst(), origDl);
+						final DawgState secondTargetWithOrigDl = mSecondInputDawg.getTransitionRelation().get(cs.getSecond(), origDl);
+						assert firstTargetWithOrigDl != null || secondTargetWithOrigDl != null;
 
-					for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> firstOutEdge :
-						mFirstInputDawg.getTransitionRelation().getOutEdgeSet(cs.getFirst())) {
-						final IDawgLetter<LETTER, COLNAMES> firstDl = firstOutEdge.getFirst();
-						final DawgState firstTarget = firstOutEdge.getSecond();
-
-						for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> secondOutEdge :
-							mSecondInputDawg.getTransitionRelation().getOutEdgeSet(cs.getSecond())) {
-							final IDawgLetter<LETTER, COLNAMES> secondDl = secondOutEdge.getFirst();
-							final DawgState secondTarget = secondOutEdge.getSecond();
-
-							IDawgLetter<LETTER, COLNAMES> intersectionDl = firstDl.intersect(secondDl);
-
-							if (intersectionDl != null && !(intersectionDl instanceof EmptyDawgLetter)) {
-								// dawgletters do intersect --> add transition and new state
+						for (IDawgLetter<LETTER, COLNAMES> dividedDl : dividedDawgLetters.getImage(origDl)) {
+							
+							if (firstTargetWithOrigDl != null && secondTargetWithOrigDl != null) {
 								final PairDawgState newState = mDawgStateFactory.getOrCreatePairDawgState(
-										firstTarget, secondTarget);
-
+										firstTargetWithOrigDl, secondTargetWithOrigDl);
 								nextStates.add(newState);
-								mResultTransitionRelation.put(cs, intersectionDl, newState);
-								assert !EprHelpers.areStatesUnreachable(mResultTransitionRelation, mResultInitialState, nextStates);
-								assert EprHelpers.isDeterministic(mResultTransitionRelation);
-								assert !EprHelpers.hasDisconnectedTransitions(mResultTransitionRelation, 
-												mResultInitialState);
-							}
-
-							/**
-							 * If, in union mode, one of the input dawgs makes a transition that the other cannot make
-							 * we make that transition to a special PairDawgState where one of the dawgs is in a sink state
-							 */
-							if (doUnion) {
-								final Set<IDawgLetter<LETTER, COLNAMES>> firstWithoutSecondDls = firstDl.difference(secondDl);
-								if (!firstWithoutSecondDls.isEmpty()) {
-									final PairDawgState fwsDs = mDawgStateFactory.getOrCreatePairDawgState(firstTarget, false, true);
-									nextStates.add(fwsDs);
-									for (IDawgLetter<LETTER, COLNAMES> dl : firstWithoutSecondDls) {
-										mResultTransitionRelation.put(cs, dl, fwsDs);
-										assert !EprHelpers.areStatesUnreachable(mResultTransitionRelation, mResultInitialState, nextStates);
-										assert EprHelpers.isDeterministic(mResultTransitionRelation);
-										assert !EprHelpers.hasDisconnectedTransitions(mResultTransitionRelation, 
-												mResultInitialState);
-									}
-								}
-
-								final Set<IDawgLetter<LETTER, COLNAMES>> secondWithoutFirstDls = secondDl.difference(firstDl);
-								if (!secondWithoutFirstDls.isEmpty()) {
-									final PairDawgState swfDs = mDawgStateFactory.getOrCreatePairDawgState(secondTarget, true, false);
-									nextStates.add(swfDs);
-									for (IDawgLetter<LETTER, COLNAMES> dl : secondWithoutFirstDls) {
-										mResultTransitionRelation.put(cs, dl, swfDs);
-										assert !EprHelpers.areStatesUnreachable(mResultTransitionRelation, mResultInitialState, nextStates);
-										assert EprHelpers.isDeterministic(mResultTransitionRelation);
-										assert !EprHelpers.hasDisconnectedTransitions(mResultTransitionRelation, 
-												mResultInitialState);
-									}
-								}
+								mResultTransitionRelation.put(cs, dividedDl, newState);
+							} else if (doUnion && firstTargetWithOrigDl == null && secondTargetWithOrigDl != null) {
+								final PairDawgState newState = mDawgStateFactory.getOrCreatePairDawgState(
+										secondTargetWithOrigDl, true, false);
+								nextStates.add(newState);
+								mResultTransitionRelation.put(cs, dividedDl, newState);
+							} else if (doUnion && firstTargetWithOrigDl != null && secondTargetWithOrigDl == null) {
+								final PairDawgState newState = mDawgStateFactory.getOrCreatePairDawgState(
+										firstTargetWithOrigDl, false, true);
+								nextStates.add(newState);
+								mResultTransitionRelation.put(cs, dividedDl, newState);
 							}
 						}
 					}
+
+//					for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> firstOutEdge :
+//						mFirstInputDawg.getTransitionRelation().getOutEdgeSet(cs.getFirst())) {
+//						final IDawgLetter<LETTER, COLNAMES> firstDl = firstOutEdge.getFirst();
+//						final DawgState firstTarget = firstOutEdge.getSecond();
+//
+//						for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> secondOutEdge :
+//							mSecondInputDawg.getTransitionRelation().getOutEdgeSet(cs.getSecond())) {
+//							final IDawgLetter<LETTER, COLNAMES> secondDl = secondOutEdge.getFirst();
+//							final DawgState secondTarget = secondOutEdge.getSecond();
+//
+//							IDawgLetter<LETTER, COLNAMES> intersectionDl = firstDl.intersect(secondDl);
+//
+//							if (intersectionDl != null && !(intersectionDl instanceof EmptyDawgLetter)) {
+//								// dawgletters do intersect --> add transition and new state
+//								final PairDawgState newState = mDawgStateFactory.getOrCreatePairDawgState(
+//										firstTarget, secondTarget);
+//
+//								nextStates.add(newState);
+//								mResultTransitionRelation.put(cs, intersectionDl, newState);
+//								assert !EprHelpers.areStatesUnreachable(mResultTransitionRelation, mResultInitialState, nextStates);
+//								assert EprHelpers.isDeterministic(mResultTransitionRelation);
+//								assert !EprHelpers.hasDisconnectedTransitions(mResultTransitionRelation, 
+//												mResultInitialState);
+//							}
+//
+//							/**
+//							 * If, in union mode, one of the input dawgs makes a transition that the other cannot make
+//							 * we make that transition to a special PairDawgState where one of the dawgs is in a sink state
+//							 */
+//							if (doUnion) {
+//								final Set<IDawgLetter<LETTER, COLNAMES>> firstWithoutSecondDls = firstDl.difference(secondDl);
+//								if (!firstWithoutSecondDls.isEmpty()) {
+//									final PairDawgState fwsDs = mDawgStateFactory.getOrCreatePairDawgState(firstTarget, false, true);
+//									nextStates.add(fwsDs);
+//									for (IDawgLetter<LETTER, COLNAMES> dl : firstWithoutSecondDls) {
+//										mResultTransitionRelation.put(cs, dl, fwsDs);
+//										assert !EprHelpers.areStatesUnreachable(mResultTransitionRelation, mResultInitialState, nextStates);
+//										assert EprHelpers.isDeterministic(mResultTransitionRelation);
+//										assert !EprHelpers.hasDisconnectedTransitions(mResultTransitionRelation, 
+//												mResultInitialState);
+//									}
+//								}
+//
+//								final Set<IDawgLetter<LETTER, COLNAMES>> secondWithoutFirstDls = secondDl.difference(firstDl);
+//								if (!secondWithoutFirstDls.isEmpty()) {
+//									final PairDawgState swfDs = mDawgStateFactory.getOrCreatePairDawgState(secondTarget, true, false);
+//									nextStates.add(swfDs);
+//									for (IDawgLetter<LETTER, COLNAMES> dl : secondWithoutFirstDls) {
+//										mResultTransitionRelation.put(cs, dl, swfDs);
+//										assert !EprHelpers.areStatesUnreachable(mResultTransitionRelation, mResultInitialState, nextStates);
+//										assert EprHelpers.isDeterministic(mResultTransitionRelation);
+//										assert !EprHelpers.hasDisconnectedTransitions(mResultTransitionRelation, 
+//												mResultInitialState);
+//									}
+//								}
+//							}
+//						}
+//					}
 				} else if (doUnion && cs.mSecondIsSink) {
 					for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> firstOutEdge : 
 						mFirstInputDawg.getTransitionRelation().getOutEdgeSet(cs.getFirst())) {

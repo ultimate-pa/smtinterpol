@@ -100,7 +100,6 @@ public class DeterminizeDawg<LETTER, COLNAMES> {
 			
 			for (IDawgLetter<LETTER, COLNAMES> odl : occuringDawgLetterToDividedDawgLetters.getDomain()) {
 				for (DawgState state : currentSetState.getInnerStates()) {
-//					final DawgState targetState = mInputTransitionRelation.get(state, odl);
 					final Set<DawgState> targetStates = mInputTransitionRelation.projectToTrd(state, odl);
 					for (DawgState targetState : targetStates) {
 						for (IDawgLetter<LETTER, COLNAMES> ddl : occuringDawgLetterToDividedDawgLetters.getImage(odl)) {

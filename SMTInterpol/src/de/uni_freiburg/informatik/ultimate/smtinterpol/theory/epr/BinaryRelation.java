@@ -121,7 +121,7 @@ public class BinaryRelation<T, U> {
 		StringBuilder sb = new StringBuilder();
 		for (Entry<T, Set<U>> en : mBacking.entrySet()) {
 			for (U el : en.getValue()) {
-				sb.append("(" + en.getKey() + ", " + el + ") ");
+				sb.append("(" + en.getKey() + ", " + el + ")\n");
 			}
 		}
 //		return mBacking.toString();

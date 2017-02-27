@@ -27,6 +27,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
@@ -50,11 +51,11 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuant
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgLetterFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgState;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DeterministicDawgTransitionRelation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.EmptyDawgLetter;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.HashRelation3;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawgLetter;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DeterministicDawgTransitionRelation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.Pair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.PairDawgState;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.Triple;
@@ -901,9 +902,48 @@ public class EprHelpers {
 		}
 		return divideDawgLetters(dawgLetterFactory, dawgStates, allOutgoingDawgLetters);
 	}
+	
+	
+	/**
+	 * Variant of this method used by union (instead of deteminization)
+	 * 
+	 * @param dawgLetterFactory 
+	 * 
+	 * @param dawgStates
+	 * @param firstTransitionRelation 
+	 * @return 
+	 * @return
+	 */
+	public static <LETTER, COLNAMES>  BinaryRelation<IDawgLetter<LETTER, COLNAMES>, IDawgLetter<LETTER, COLNAMES>> 
+				divideDawgLetters(DawgLetterFactory<LETTER, COLNAMES> dawgLetterFactory, 
+			DawgState first,
+			DawgState second,
+			DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> firstTransitionRelation,
+			DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> secondTransitionRelation) {
 		
+		final Set<DawgState> dawgStates = new HashSet<DawgState>();
+		dawgStates.add(first);
+		dawgStates.add(second);
+
+//		final Set<IDawgLetter<LETTER, COLNAMES>> allOutgoingDawgLetters = new HashSet<IDawgLetter<LETTER,COLNAMES>>();
+//		for (Triple<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> edge : firstTransitionRelation.entrySet()) {
+//					allOutgoingDawgLetters.add(edge.getSecond());
+//		}
+//		for (Triple<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> edge : secondTransitionRelation.entrySet()) {
+//					allOutgoingDawgLetters.add(edge.getSecond());
+//		}
+		final Set<IDawgLetter<LETTER, COLNAMES>> allOutgoingDawgLetters = new HashSet<IDawgLetter<LETTER,COLNAMES>>();
+		for (Entry<IDawgLetter<LETTER, COLNAMES>, DawgState> edge : firstTransitionRelation.get(first).entrySet()) {
+			allOutgoingDawgLetters.add(edge.getKey());
+		}
+		for (Entry<IDawgLetter<LETTER, COLNAMES>, DawgState> edge : secondTransitionRelation.get(second).entrySet()) {
+			allOutgoingDawgLetters.add(edge.getKey());
+		}
+	
+		return divideDawgLetters(dawgLetterFactory, dawgStates, allOutgoingDawgLetters);
+	}
 		
-	public static <LETTER, COLNAMES> BinaryRelation<IDawgLetter<LETTER, COLNAMES>, IDawgLetter<LETTER, COLNAMES>> divideDawgLetters(
+	private static <LETTER, COLNAMES> BinaryRelation<IDawgLetter<LETTER, COLNAMES>, IDawgLetter<LETTER, COLNAMES>> divideDawgLetters(
 			DawgLetterFactory<LETTER, COLNAMES> dawgLetterFactory, 
 			Set<DawgState> dawgStates, 
 			Set<IDawgLetter<LETTER, COLNAMES>> allOutgoingDawgLetters) {
@@ -1004,5 +1044,7 @@ public class EprHelpers {
 		}
 		return null;
 	}
+
+
 	
 }
