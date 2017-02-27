@@ -426,7 +426,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 						
 						IDawgLetter<LETTER, COLNAMES> restrictedDL = dawgLetter.restrictToLetter(selectLetter);
 
-						if (restrictedDL == null) {
+						if (restrictedDL == null || restrictedDL instanceof EmptyDawgLetter<?, ?>) {
 							// dawgLetter does not allow transitions with selectLetter
 							// --> omit transition
 						} else {

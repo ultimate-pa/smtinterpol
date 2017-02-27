@@ -105,7 +105,11 @@ public class SimpleDawgLetter<LETTER, COLNAMES> implements IDawgLetter<LETTER, C
 
 	@Override
 	public IDawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER selectLetter) {
-		return mDawgLetterFactory.getSimpleDawgLetter(Collections.singleton(selectLetter));
+		if (mLetters.contains(selectLetter)) {
+			return mDawgLetterFactory.getSimpleDawgLetter(Collections.singleton(selectLetter));
+		} else {
+			return mDawgLetterFactory.getEmptyDawgLetter();
+		}
 	}
 
 	@Override

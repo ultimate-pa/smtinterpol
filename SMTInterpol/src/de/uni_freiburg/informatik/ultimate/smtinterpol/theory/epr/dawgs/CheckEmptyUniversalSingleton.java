@@ -11,6 +11,17 @@ import java.util.Stack;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.BinaryRelation;
 
 
+/**
+ * Given a transition relation and an initial state, checks if the corresponding Dawg is
+ *  - empty
+ *  - universal
+ *  - a singleton (i.e. accepts exactly one word)
+ * 
+ * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
+ *
+ * @param <LETTER>
+ * @param <COLNAMES>
+ */
 public class CheckEmptyUniversalSingleton<LETTER, COLNAMES> {
 
 
