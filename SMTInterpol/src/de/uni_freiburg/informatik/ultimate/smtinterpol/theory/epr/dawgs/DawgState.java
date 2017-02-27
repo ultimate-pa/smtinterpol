@@ -89,6 +89,6 @@ class RenameAndReorderDawgState<LETTER, COLNAMES> extends DawgState {
 				this.hashCode() % 10000, 
 				mLetter, 
 				mRightNeighbourColumn, 
-				mInnerState);
+				mInnerState.hashCode() % 10000);
 	}
 }

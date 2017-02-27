@@ -572,7 +572,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		result = result.reorderAndRename(translationVariables);
 		
 		/*
-		 * 4. columns that are still missing from teh signature are "don't care"
+		 * 4. columns that are still missing from the signature are "don't care"
 		 */
 		SortedSet<COLNAMES> remainingColumns = new TreeSet<COLNAMES>(EprHelpers.getColumnNamesComparator());
 		remainingColumns.addAll(targetSignature);
@@ -918,19 +918,11 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		newSignature.add(columnName);
 		
 		if (this.isEmpty()) {
-//			/*
-//			 *  this case is special because we don't keep a transition relation for the empty dawg
-//			 *   --> we create a dawg with just one column with columnLetter by hand..
-//			 */
-//			
-//			NestedMap2<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> newTransitionRelation = 
-//					new NestedMap2<DawgState, IDawgLetter<LETTER,COLNAMES>, DawgState>();
-//			DawgState initialState = mDawgStateFactory.createDawgState();
-//			DawgState finalState = mDawgStateFactory.createDawgState();
-//			newTransitionRelation.put(initialState, columnLetter, finalState);
-//
-//			return new Dawg<LETTER, COLNAMES>(mDawgFactory, mLogger, mAllConstants, newSignature, 
-//					newTransitionRelation, mInitialState);
+			/*
+			 *  this case is special because we don't keep a transition relation for the empty dawg
+			 *   the empty dawg remains empty (intuitively the insert operation inserts something into every 
+			 *     word in the language, thus does nothing if the language is empty)
+			 */
 			return mDawgFactory.getEmptyDawg(newSignature);
 		}
 
@@ -949,6 +941,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			statesLeftOfColumn = obtainStatesLeftOfColumn(rightNeighBourColumn);
 		}
 		
+	
 		/*
 		 * we split each of the states where the column is to be inserted into two
 		 * 
@@ -965,6 +958,18 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 							newStateRight));
 			newTransitionRelation.put(newStateLeft, columnLetter, newStateRight);
 		}
+		
+		
+		final DawgState newInitialState;
+		if (statesLeftOfColumn.size() == 1 
+				&& statesLeftOfColumn.iterator().next().equals(mInitialState)) {
+			// we are splitting the leftmost column --> the initial state needs to be changed
+			newInitialState = splitOldStateToNewSplitStatePair.get(mInitialState).getFirst();
+		} else {
+			// we are splitting a non-leftmost coolumn --> the initial state remains unchanged
+			newInitialState = mInitialState;
+		}
+	
 		
 		/*
 		 * incoming transitions of the old split state now go to its left newState
@@ -984,9 +989,34 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			}
 		}
 		
+		/*
+		 * For all columns other than the one we are splitting we need to copy the transitions
+		 * from the original dawg's (this) transition relation.
+		 */
+		final Integer newColIndex = rightNeighBourColumn == null 
+				? newSignature.size() - 1 
+						: mColNameToIndex.get(rightNeighBourColumn);
+		Set<DawgState> currentStates = new HashSet<DawgState>();
+		currentStates.add(mInitialState);
+		for (int i = 0; i < mColNames.size(); i++) {
+			final Set<DawgState> nextStates = new HashSet<DawgState>();
+			
+			for (DawgState cs : currentStates) {
+				for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> edge : mTransitionRelation.getOutEdgeSet(cs)) {
+					nextStates.add(edge.getSecond());
+//					if (newColIndex <= i - 1 && i <= newColIndex) {
+					if (statesLeftOfColumn.contains(cs) || statesLeftOfColumn.contains(edge.getSecond())) {
+						// around the inserted column we don't need to do anything here
+						continue; 
+					}
+					newTransitionRelation.put(cs, edge.getFirst(), edge.getSecond());
+				}
+			}
+			currentStates = nextStates;
+		}
 
 		return new Dawg<LETTER, COLNAMES>(mDawgFactory, mLogger, mAllConstants, newSignature, 
-				newTransitionRelation, mInitialState);
+				newTransitionRelation, newInitialState);
 	}
 
 	@Override
