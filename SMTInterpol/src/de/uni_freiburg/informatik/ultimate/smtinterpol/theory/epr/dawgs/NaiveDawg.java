@@ -295,7 +295,7 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	}
 
 	@Override
-	public Iterable<List<LETTER>> listPoints() {
+	public Iterable<List<LETTER>> getAllPointsSorted() {
 		return mBacking;
 	}
 

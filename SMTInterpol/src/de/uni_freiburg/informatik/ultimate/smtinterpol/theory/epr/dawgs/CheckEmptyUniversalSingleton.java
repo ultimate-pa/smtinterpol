@@ -35,18 +35,14 @@ public class CheckEmptyUniversalSingleton<LETTER, COLNAMES> {
 	private final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> mTransitionRelation;
 	private final DawgFactory<LETTER, COLNAMES> mDawgFactory;
 	
-//	private final Map<DawgState, Pair<DawgState, IDawgLetter<LETTER, COLNAMES>>> mDawgStateToVisitedInEdge = 
-//			new HashMap<DawgState, Pair<DawgState,IDawgLetter<LETTER,COLNAMES>>>();
+//	private final Stack<DawgState> mSamplePathOpenStates = new Stack<DawgState>();
+//	private final Set<DawgState> mSamplePathVisitedStates = new HashSet<DawgState>();
 	
+//	BinaryRelation<DawgState, List<IDawgLetter<LETTER,COLNAMES>>> mOpenStateToPaths = 
+//			new BinaryRelation<DawgState, List<IDawgLetter<LETTER,COLNAMES>>>();
 	
-	Stack<DawgState> mSamplePathOpenStates = new Stack<DawgState>();
-	Set<DawgState> mSamplePathVisitedStates = new HashSet<DawgState>();
-	
-	BinaryRelation<DawgState, List<IDawgLetter<LETTER,COLNAMES>>> mOpenStateToPaths = 
-			new BinaryRelation<DawgState, List<IDawgLetter<LETTER,COLNAMES>>>();
-	
-	Set<List<IDawgLetter<LETTER,COLNAMES>>> mSampledPaths = new HashSet<List<IDawgLetter<LETTER,COLNAMES>>>();
-	Set<List<IDawgLetter<LETTER,COLNAMES>>> mVisitedSuffixes = new HashSet<List<IDawgLetter<LETTER,COLNAMES>>>();
+//	Set<List<IDawgLetter<LETTER,COLNAMES>>> mSampledPaths = new HashSet<List<IDawgLetter<LETTER,COLNAMES>>>();
+//	Set<List<IDawgLetter<LETTER,COLNAMES>>> mVisitedSuffixes = new HashSet<List<IDawgLetter<LETTER,COLNAMES>>>();
 	
 
 	public CheckEmptyUniversalSingleton(DawgFactory<LETTER, COLNAMES> dawgFactory, Set<LETTER> allConstants, int size, 
@@ -85,133 +81,151 @@ public class CheckEmptyUniversalSingleton<LETTER, COLNAMES> {
 				
 			}
 			
-			if (i == mNoColumns - 1) {
-				/*
-				 * by construction all states in newCurrentStates are reachable from the initial state
-				 *  --> the language is empty iff those are empty after visiting the last column
-				 */
-				if (newCurrentStates.isEmpty()) {
-					assert mIsUniversal == false;
-					mIsEmpty = true;
-					mIsSingleton = false;
-				} else {
-					mIsEmpty = false;
-					// check if we have a singleton
-					mIsSingleton = checkSingleton(newCurrentStates);
-				}
-			}
+//			if (i == mNoColumns - 1) {
+//				/*
+//				 * by construction all states in newCurrentStates are reachable from the initial state
+//				 *  --> the language is empty iff those are empty after visiting the last column
+//				 */
+//				if (newCurrentStates.isEmpty()) {
+//					assert mIsUniversal == false;
+//					mIsEmpty = true;
+//					mIsSingleton = false;
+//				} else {
+//					mIsEmpty = false;
+//					// check if we have a singleton
+//					mIsSingleton = checkSingleton(newCurrentStates);
+//				}
+//			}
 			currentStates = newCurrentStates;
 		}
-	}
-
-	private boolean checkSingleton(Set<DawgState> finalStates) {
-		if (finalStates.size() != 1) {
-			return false;
-		}
-//		final DawgState finalState = finalStates.iterator().next();
-
-		boolean foundSingletonPathBefore = false;
 		
-		
-		for (DawgState finalState : finalStates) {
-			mSamplePathOpenStates.add(finalState);
-			mOpenStateToPaths.addPair(finalState, new ArrayList<IDawgLetter<LETTER,COLNAMES>>());
-		}
-
-		
-		// iteratively reconstruct paths from initial state to final state
-		while (true) {
-			
-			List<IDawgLetter<LETTER, COLNAMES>> path = samplePath();
-
-			if (path == null && !foundSingletonPathBefore) {
-				return false;
-			}
-			if (path == null && foundSingletonPathBefore) {
-				return true;
-			}
-			if (path != null && foundSingletonPathBefore) {
-				return false;
-			}
-			
-			if (isPathSingleton(path)) {
-				foundSingletonPathBefore = true;
-			} else {
-				return false;
-			}
-		}
-	}
-
-	private boolean isPathSingleton(List<IDawgLetter<LETTER, COLNAMES>> path) {
-		if (mDawgFactory.getDawgLetterFactory().useSimpleDawgLetters()) {
-			for (IDawgLetter<LETTER, COLNAMES> ltr : path) {
-				assert !(ltr instanceof EmptyDawgLetter);
-				if (ltr instanceof UniversalDawgLetter) {
-					return false;
-				}
-				SimpleDawgLetter<LETTER, COLNAMES> sdl = (SimpleDawgLetter<LETTER, COLNAMES>) ltr;
-				if (sdl.getLetters().size() != 1) {
-					return false;
-				}
-			}
-			return true;
+		/*
+		 * emptiness and being singleton can be checked easily using the iterator.
+		 */
+		final DawgIterator<LETTER, COLNAMES> it = 
+				new DawgIterator<LETTER, COLNAMES>(mNoColumns, mTransitionRelation, mInitialState);
+		if (!it.hasNext()) {
+			mIsEmpty = true;
+			mIsSingleton = false;
+			return;
 		} else {
-			// TODO
-			assert false : "TODO";
-			return false;
+			mIsEmpty = false;
+		}
+		final List<LETTER> firstWord = it.next();
+		assert firstWord != null;
+		assert firstWord.size() == mNoColumns;
+		if (!it.hasNext()) {
+			mIsSingleton = false;
+		} else {
+			mIsSingleton = true;
 		}
 	}
 
-	/**
-	 * At each call looks for a fresh (not yet returned) path trough the graph from a final state to 
-	 * the initial state.
-	 * 
-	 * Convention: the sampled path is in reverse order, i.e., goes from final to initial state.
-	 * @param finalState
-	 * @return A path from final to initial state, that has not yet been returned, null if there is none.
-	 * 
-	 * 
-	 * TODO: simplify this once Dawg.iterator() works!
-	 */
-	private List<IDawgLetter<LETTER, COLNAMES>> samplePath() {
+//	private boolean checkSingleton(Set<DawgState> finalStates) {
+//		if (finalStates.size() != 1) {
+//			return false;
+//		}
+////		final DawgState finalState = finalStates.iterator().next();
+//
+//		boolean foundSingletonPathBefore = false;
+//		
+//		
+//		for (DawgState finalState : finalStates) {
+//			mSamplePathOpenStates.add(finalState);
+//			mOpenStateToPaths.addPair(finalState, new ArrayList<IDawgLetter<LETTER,COLNAMES>>());
+//		}
+//
+//		
+//		// iteratively reconstruct paths from initial state to final state
+//		while (true) {
+//			
+//			List<IDawgLetter<LETTER, COLNAMES>> path = samplePath();
+//
+//			if (path == null && !foundSingletonPathBefore) {
+//				return false;
+//			}
+//			if (path == null && foundSingletonPathBefore) {
+//				return true;
+//			}
+//			if (path != null && foundSingletonPathBefore) {
+//				return false;
+//			}
+//			
+//			if (isPathSingleton(path)) {
+//				foundSingletonPathBefore = true;
+//			} else {
+//				return false;
+//			}
+//		}
+//	}
 
-		while (!mSamplePathOpenStates.isEmpty()) {
-			DawgState currentState = mSamplePathOpenStates.pop();
-			
-			if (currentState.equals(mInitialState)) {
-				 for (List<IDawgLetter<LETTER, COLNAMES>> path : mOpenStateToPaths.getImage(mInitialState)) {
-					 if (mSampledPaths.contains(path)) {
-						 continue;
-					 }
-					 mSampledPaths.add(path);
-					 return path;
-				 }
-				 continue;
-			}
+//	private boolean isPathSingleton(List<IDawgLetter<LETTER, COLNAMES>> path) {
+//		if (mDawgFactory.getDawgLetterFactory().useSimpleDawgLetters()) {
+//			for (IDawgLetter<LETTER, COLNAMES> ltr : path) {
+//				assert !(ltr instanceof EmptyDawgLetter);
+//				if (ltr instanceof UniversalDawgLetter) {
+//					return false;
+//				}
+//				SimpleDawgLetter<LETTER, COLNAMES> sdl = (SimpleDawgLetter<LETTER, COLNAMES>) ltr;
+//				if (sdl.getLetters().size() != 1) {
+//					return false;
+//				}
+//			}
+//			return true;
+//		} else {
+//			// TODO
+//			assert false : "TODO";
+//			return false;
+//		}
+//	}
 
-			for (Pair<DawgState, IDawgLetter<LETTER, COLNAMES>> inEdge : mTransitionRelation.getInverse(currentState)) {
-
-				final DawgState targetState = inEdge.getFirst();
-			
-				boolean foundNewSuffix = false;
-				for (List<IDawgLetter<LETTER, COLNAMES>> path : mOpenStateToPaths.getImage(currentState)) {
-					List<IDawgLetter<LETTER, COLNAMES>> newPath = new ArrayList<IDawgLetter<LETTER, COLNAMES>>(path);
-					newPath.add(inEdge.getSecond());
-
-					if (!mVisitedSuffixes.contains(newPath)) {
-						mOpenStateToPaths.addPair(targetState, newPath);
-						foundNewSuffix = true;
-					}
-				}
-				if (foundNewSuffix) {
-					mSamplePathOpenStates.push(targetState);
-				}
-			}
-			
-			mSamplePathVisitedStates.add(currentState);
-		}
-		return null;
-	}
+//	/**
+//	 * At each call looks for a fresh (not yet returned) path trough the graph from a final state to 
+//	 * the initial state.
+//	 * 
+//	 * Convention: the sampled path is in reverse order, i.e., goes from final to initial state.
+//	 * @param finalState
+//	 * @return A path from final to initial state, that has not yet been returned, null if there is none.
+//	 */
+//	private List<IDawgLetter<LETTER, COLNAMES>> samplePath() {
+//
+//		while (!mSamplePathOpenStates.isEmpty()) {
+//			DawgState currentState = mSamplePathOpenStates.pop();
+//			
+//			if (currentState.equals(mInitialState)) {
+//				 for (List<IDawgLetter<LETTER, COLNAMES>> path : mOpenStateToPaths.getImage(mInitialState)) {
+//					 if (mSampledPaths.contains(path)) {
+//						 continue;
+//					 }
+//					 mSampledPaths.add(path);
+//					 return path;
+//				 }
+//				 continue;
+//			}
+//
+//			for (Pair<DawgState, IDawgLetter<LETTER, COLNAMES>> inEdge : mTransitionRelation.getInverse(currentState)) {
+//
+//				final DawgState targetState = inEdge.getFirst();
+//			
+//				boolean foundNewSuffix = false;
+//				for (List<IDawgLetter<LETTER, COLNAMES>> path : mOpenStateToPaths.getImage(currentState)) {
+//					List<IDawgLetter<LETTER, COLNAMES>> newPath = new ArrayList<IDawgLetter<LETTER, COLNAMES>>(path);
+//					newPath.add(inEdge.getSecond());
+//
+//					if (!mVisitedSuffixes.contains(newPath)) {
+//						mOpenStateToPaths.addPair(targetState, newPath);
+//						foundNewSuffix = true;
+//					}
+//				}
+//				if (foundNewSuffix) {
+//					mSamplePathOpenStates.push(targetState);
+//				}
+//			}
+//			
+//			mSamplePathVisitedStates.add(currentState);
+//		}
+//		return null;
+//	}
 
 	public boolean isEmpty() {
 		return mIsEmpty;

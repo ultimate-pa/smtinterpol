@@ -29,7 +29,7 @@ import java.util.SortedSet;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 
 /**
- * Contains stuff that is expected to be common to all Dawg implementations.
+ * 
  * 
  * @author Alexander Nutz
  *
@@ -78,19 +78,8 @@ public abstract class AbstractDawg<LETTER, COLNAMES> implements IDawg<LETTER, CO
 	}
 
 	
-//	@Override
-//	public void addAll(IDawg<LETTER, COLNAMES> dawg) {
-//		assert mColNames.equals(dawg.getColnames());
-//	}
-
 	@Override
 	public String toString() {
-//		int colWidth = -1;
-//		for (COLNAMES cn : getColnames()) {
-//			colWidth = colWidth < cn.toString().length() ? cn.toString().length() : colWidth;
-//		}
-//		colWidth += 2;
-
 		int displayLength = 20;
 
 		StringBuilder sb = new StringBuilder();
@@ -109,7 +98,7 @@ public abstract class AbstractDawg<LETTER, COLNAMES> implements IDawg<LETTER, CO
 		}
 		sb.append(">  ");
 		
-		for (List<LETTER> pt : this.listPoints()) {
+		for (List<LETTER> pt : this.getAllPointsSorted()) {
 //			for (LETTER ltr : pt) {
 //				sb.append(String.format("%10s", ltr));
 //			}

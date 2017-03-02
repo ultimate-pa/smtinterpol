@@ -141,6 +141,6 @@ public interface IDawg<LETTER, COLNAMES> extends Iterable<List<LETTER>> {
 	 * Beware: the space complexity of this method is equal to the size of the dawgs language
 	 * @return
 	 */
-	Iterable<List<LETTER>> listPoints();
+	Iterable<List<LETTER>> getAllPointsSorted();
 
 }

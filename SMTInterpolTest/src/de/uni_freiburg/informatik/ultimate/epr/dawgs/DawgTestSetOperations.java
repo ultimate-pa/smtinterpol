@@ -195,7 +195,6 @@ public class DawgTestSetOperations {
 	
 	@Test
 	public void testDawg5() {
-		dawg5.listPoints();
 		assertTrue(dawg5.accepts(word_aa));
 		assertTrue(dawg5.accepts(word_ba));
 //		assertTrue(dawg5.accepts(word5));

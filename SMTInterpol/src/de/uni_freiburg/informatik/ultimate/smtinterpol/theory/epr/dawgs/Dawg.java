@@ -455,7 +455,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	}
 
 	@Override
-	public Iterable<List<LETTER>> listPoints() {
+	public Iterable<List<LETTER>> getAllPointsSorted() {
 		if (isEmpty()) {
 			return Collections.emptySet();
 		}
@@ -469,196 +469,10 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 																// nicer
 																// (sorted)
 																// output
-
 		for (List<LETTER> point : this) {
 			result.add(point);
 		}
-
-		// Set<DawgState> currentStates = new HashSet<DawgState>();
-		// currentStates.add(mInitialState);
-		// while (!currentStates.equals(getFinalStates())) {
-		//
-		// final Set<DawgState> newCurrentStates = new HashSet<DawgState>();
-		// final Set<List<LETTER>> newResult = new TreeSet<List<LETTER>>();
-		//
-		// for (DawgState cs : currentStates) {
-		// assert !getFinalStates().contains(cs);
-		// for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge :
-		// mTransitionRelation.getOutEdgeSet(cs)) {
-		// newCurrentStates.add(outEdge.getSecond());
-		//
-		// for (List<LETTER> prefix : result) {
-		// for (LETTER letter : outEdge.getFirst().allLettersThatMatch(prefix,
-		// mColNameToIndex)) {
-		// List<LETTER> newPrefix = new ArrayList<LETTER>(prefix);
-		// newPrefix.add(letter);
-		// newResult.add(newPrefix);
-		// }
-		// }
-		// }
-		// }
-		//
-		// result = newResult;
-		// currentStates = newCurrentStates;
-		//
-		// }
-
 		return result;
-	}
-
-	@Override
-	public Iterator<List<LETTER>> iterator() {
-		return new Iterator<List<LETTER>>() {
-
-			final Stack<DawgPath> mOpenIncompleteDawgPaths = new Stack<DawgPath>();
-			final Deque<DawgPath> mOpenCompleteDawgPaths = new ArrayDeque<DawgPath>();
-			Iterator<List<LETTER>> mCurrentCompleteDawgPathIterator;
-			{
-				/*
-				 * initialize the dawg path sets with all the outgoing edges of the initial state
-				 */
-				for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge : 
-						mTransitionRelation.getOutEdgeSet(mInitialState)) {
-					final DawgPath newPath = new DawgPath(mInitialState, outEdge.getFirst(), outEdge.getSecond());
-					if (newPath.isComplete()) {
-						mOpenCompleteDawgPaths.addLast(newPath);
-					}
-					mOpenIncompleteDawgPaths.push(newPath);
-				}
-			}
-			
-
-			@Override
-			public boolean hasNext() {
-				if (mCurrentCompleteDawgPathIterator != null && mCurrentCompleteDawgPathIterator.hasNext()) {
-					return true;
-				}
-				if (!mOpenCompleteDawgPaths.isEmpty()) {
-					mCurrentCompleteDawgPathIterator = mOpenCompleteDawgPaths.pop().iterator();
-					assert mCurrentCompleteDawgPathIterator.hasNext();
-					return true;
-				}
-				// we need to search for a new complete DawgPath
-				DawgPath newCompletePath = lookForNewCompletePath();
-				if (newCompletePath == null) {
-					return false;
-				} else {
-					mOpenCompleteDawgPaths.addLast(newCompletePath);
-					assert mOpenCompleteDawgPaths.peekLast().iterator().hasNext();
-					return true;
-				}
-			}
-
-			private DawgPath lookForNewCompletePath() {
-				while (true) {
-					final DawgPath dawgPath = mOpenIncompleteDawgPaths.pop();
-					assert !dawgPath.isComplete();
-					
-					for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge : 
-						getTransitionRelation().getOutEdgeSet(dawgPath.lastState())) {
-						
-						final DawgPath newPath = dawgPath.cons(dawgPath.lastState(), 
-								outEdge.getFirst(), 
-								outEdge.getSecond());
-						
-						if (newPath.isComplete()) {
-							return newPath;
-						}
-						
-						mOpenIncompleteDawgPaths.push(newPath);
-					}
-				}
-			}
-
-			@Override
-			public List<LETTER> next() {
-				
-				if (mCurrentCompleteDawgPathIterator != null && mCurrentCompleteDawgPathIterator.hasNext()) {
-					return mCurrentCompleteDawgPathIterator.next();
-				}
-				
-				if (!mOpenCompleteDawgPaths.isEmpty()) {
-					DawgPath completePath = mOpenCompleteDawgPaths.pop();
-					mCurrentCompleteDawgPathIterator = completePath.iterator();
-					assert mCurrentCompleteDawgPathIterator.hasNext() : "is there an empty letter on the path??";
-					return mCurrentCompleteDawgPathIterator.next();
-				}
-				
-				assert false : "hasNext should ensure that we don't reach here";
-				
-				return null;
-			}
-			
-			class DawgPath implements Iterable<List<LETTER>>{
-				
-				List<Triple<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState>> mEdges = 
-						new ArrayList<Triple<DawgState,IDawgLetter<LETTER,COLNAMES>,DawgState>>();
-				
-				/**
-				 * Creates a DawgPath of length one. The edge is constructed from the arguments.
-				 * @param source
-				 * @param letter
-				 * @param target
-				 */
-				DawgPath(DawgState source, IDawgLetter<LETTER, COLNAMES> letter, DawgState target) {
-					addEdge(source, letter, target);
-				}
-				
-				/**
-				 * copy constructor
-				 */
-				DawgPath(DawgPath original) {
-					for (Triple<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> edge : original.mEdges) {
-						mEdges.add(edge);
-					}
-				}
-				
-				/**
-				 * return true iff this DawgPath ends at a final state
-				 * (i.e. it has the length of the corresponding dawg's signature)
-				 * 
-				 * @return
-				 */
-				boolean isComplete() {
-					return mEdges.size() == mColNames.size();
-				}
-				
-				DawgPath cons(DawgState source, IDawgLetter<LETTER, COLNAMES> letter, DawgState target) {
-					DawgPath result = new DawgPath(this);
-					result.addEdge(source, letter, target);
-					return result;
-				}
-				
-				private void addEdge(DawgState source, IDawgLetter<LETTER, COLNAMES> letter, DawgState target) {
-					mEdges.add(new Triple<DawgState, IDawgLetter<LETTER,COLNAMES>, DawgState>(source, letter, target));
-				}
-				
-				DawgState lastState() {
-					return mEdges.get(mEdges.size() - 1).getThird();
-					
-				}
-
-				@Override
-				public Iterator<List<LETTER>> iterator() {
-					return new Iterator<List<LETTER>>() {
-
-						@Override
-						public boolean hasNext() {
-							// TODO Auto-generated method stub
-							return false;
-						}
-
-						@Override
-						public List<LETTER> next() {
-							// TODO Auto-generated method stub
-							return null;
-						}
-
-					};
-				}
-			}
-
-		};
 	}
 
 	@Override
@@ -1245,4 +1059,8 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		return mColNames.headSet(rightNeighbour).last();
 	}
 
+	@Override
+	public Iterator<List<LETTER>> iterator() {
+		return new DawgIterator<LETTER, COLNAMES>(mColNames.size(), mTransitionRelation, mInitialState);
+	}
 }
