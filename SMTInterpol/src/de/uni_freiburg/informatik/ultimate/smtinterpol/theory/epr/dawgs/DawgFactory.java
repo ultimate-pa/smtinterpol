@@ -63,7 +63,6 @@ public class DawgFactory<LETTER, COLNAMES> {
 			new HashMap<SortedSet<COLNAMES>, IDawg<LETTER, COLNAMES>>();
 
 	public DawgFactory(EprTheory eprTheory, Set<LETTER> allConstants) {
-//		mEprTheory = eprTheory;
 		mAllConstants = allConstants;
 		mLogger = eprTheory.getLogger();
 
@@ -71,19 +70,19 @@ public class DawgFactory<LETTER, COLNAMES> {
 			mDawgStateFactory = null;
 			mDawgLetterFactory = null;
 		} else {
-			mDawgLetterFactory = new DawgLetterFactory<LETTER, COLNAMES>(mAllConstants);
+			mDawgLetterFactory = new DawgLetterFactory<LETTER, COLNAMES>(this);
 			mDawgStateFactory = new DawgStateFactory<LETTER, COLNAMES>();
 		}
 	}
 
 	private IDawg<LETTER, COLNAMES> createEmptyDawg(SortedSet<COLNAMES> termVariables) {
 		assert termVariables != null;
-		//TODO freeze the current allConstants set, here?? or can it just change transparently?? 
 		
 		if (mUseNaiveDawgs) {
+			// TODO: when using naive dawgs we cannot cope with later changes to mAllConstants..
 			return new NaiveDawg<LETTER, COLNAMES>(termVariables, mAllConstants, mLogger);
 		} else {
-			return new Dawg<LETTER, COLNAMES>(this, mLogger, mAllConstants, termVariables);
+			return new Dawg<LETTER, COLNAMES>(this, mLogger, termVariables);
 		}
 	}
 
@@ -99,7 +98,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 		if (mUseNaiveDawgs) {
 			return new NaiveDawg<LETTER, COLNAMES>(termVariables, mAllConstants, mLogger).complement();
 		} else {
-			return new Dawg<LETTER, COLNAMES>(this, mLogger,  mAllConstants, 
+			return new Dawg<LETTER, COLNAMES>(this, mLogger,
 					termVariables, true);
 		}
 	}
@@ -113,7 +112,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 			return dawg;
 		} else {
 			return new Dawg<LETTER, COLNAMES>(this, 
-					mLogger, mAllConstants, sig, point);
+					mLogger, sig, point);
 		}
 	}
 
@@ -134,7 +133,6 @@ public class DawgFactory<LETTER, COLNAMES> {
 			return new Dawg<LETTER, COLNAMES>(
 					this, 
 					mLogger, 
-					mAllConstants, 
 					dawg.getColnames(), 
 					((Dawg<LETTER, COLNAMES>) dawg).getTransitionRelation().copy(), 
 					((Dawg<LETTER, COLNAMES>) dawg).getInitialState());
@@ -368,6 +366,10 @@ public class DawgFactory<LETTER, COLNAMES> {
 				mUniversalDawgs.put(signature, result);
 			}
 			return result;
+		}
+
+		public Set<LETTER> getAllConstants() {
+			return mAllConstants;
 		}
 	
 }

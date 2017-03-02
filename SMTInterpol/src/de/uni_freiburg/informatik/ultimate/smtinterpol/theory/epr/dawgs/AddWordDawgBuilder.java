@@ -79,8 +79,7 @@ public class AddWordDawgBuilder<LETTER, COLNAMES> {
 				}
 			}
 
-			mResultDawg = new Dawg<LETTER, COLNAMES>(mDawgFactory, 
-					mInputDawg.getLogger(), mInputDawg.getAllConstants(), 
+			mResultDawg = new Dawg<LETTER, COLNAMES>(mDawgFactory, mInputDawg.getLogger(),
 					mInputDawg.getColnames(), newTransitionRelation, mInputDawg.getInitialState());
 
 		}

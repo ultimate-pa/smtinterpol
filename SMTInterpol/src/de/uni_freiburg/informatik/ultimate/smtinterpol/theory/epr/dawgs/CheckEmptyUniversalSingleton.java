@@ -23,16 +23,14 @@ public class CheckEmptyUniversalSingleton<LETTER, COLNAMES> {
 	private boolean mIsSingleton;
 	private boolean mIsUniversal;
 
-	private final Set<LETTER> mAllConstants;
 	private final int mNoColumns;
 	private final DawgState mInitialState;
 	private final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> mTransitionRelation;
 	private final DawgFactory<LETTER, COLNAMES> mDawgFactory;
 
-	public CheckEmptyUniversalSingleton(DawgFactory<LETTER, COLNAMES> dawgFactory, Set<LETTER> allConstants, int size, 
+	public CheckEmptyUniversalSingleton(DawgFactory<LETTER, COLNAMES> dawgFactory, int size, 
 			DawgState initialState,	DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> transitionRelation) {
 		mDawgFactory = dawgFactory;
-		mAllConstants = allConstants;
 		mNoColumns = size;
 		mInitialState =initialState;
 		mTransitionRelation = transitionRelation;
@@ -59,7 +57,7 @@ public class CheckEmptyUniversalSingleton<LETTER, COLNAMES> {
 					newCurrentStates.add(outEdge.getSecond());
 				}
 				
-				if (!DawgLetterFactory.isUniversal(outLetters, mAllConstants)) {
+				if (!DawgLetterFactory.isUniversal(outLetters)) {
 					mIsUniversal = false;
 				}
 				

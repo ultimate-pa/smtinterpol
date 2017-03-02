@@ -53,17 +53,16 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 	private Map<Set<LETTER>, SimpleComplementDawgLetter<LETTER, COLNAMES>> mLettersToSimpleComplementDawgLetter
 		 = new HashMap<Set<LETTER>, SimpleComplementDawgLetter<LETTER,COLNAMES>>();
 	
-	Set<LETTER> mAllConstants;
-	
 	NestedMap3<Set<LETTER>, Set<COLNAMES>, Set<COLNAMES>, DawgLetterWithEqualities<LETTER, COLNAMES>> mKnownDawgLetters;
+
+	private final DawgFactory<LETTER, COLNAMES> mDawgFactory;
 	
 
-	public DawgLetterFactory(Set<LETTER> allConstants) {
-		mAllConstants = allConstants;
+	public DawgLetterFactory(DawgFactory<LETTER, COLNAMES> dawgFactory) {
+		mDawgFactory = dawgFactory;
 		
 		mKnownDawgLetters = 
 				new NestedMap3<Set<LETTER>, Set<COLNAMES>, Set<COLNAMES>, DawgLetterWithEqualities<LETTER,COLNAMES>>();
-//				new HashMap<Set<LETTER>, Map<Set<COLNAMES>, Map<Set<COLNAMES>, DawgLetter<LETTER, COLNAMES>>>>();
 
 		mUniversalDawgLetter = new UniversalDawgLetter<LETTER, COLNAMES>(this);
 		mEmptyDawgLetter = new EmptyDawgLetter<LETTER, COLNAMES>(this);
@@ -104,11 +103,11 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 			return mEmptyDawgLetterWithEqualities;
 		}
 		
-		if (newLetters.equals(mAllConstants) 
-				&& equalColnames.isEmpty() 
-				&& inequalColnames.isEmpty()) {
-			return mUniversalDawgLetterWithEqualities;
-		}
+//		if (newLetters.equals(mAllConstants) 
+//				&& equalColnames.isEmpty() 
+//				&& inequalColnames.isEmpty()) {
+//			return mUniversalDawgLetterWithEqualities;
+//		}
 		
 		DawgLetterWithEqualities<LETTER, COLNAMES> result = mKnownDawgLetters.get(newLetters, equalColnames, inequalColnames);
 		if (result == null) {
@@ -120,7 +119,7 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 	}
 	
 	public Set<LETTER> getAllConstants() {
-		return mAllConstants;
+		return mDawgFactory.getAllConstants();
 	}
 	
 
@@ -148,19 +147,33 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 				return Collections.emptySet();
 			}
 			
-			final Set<LETTER> resultLetters = new HashSet<LETTER>();
-			resultLetters.addAll(mAllConstants);
+			IDawgLetter<LETTER, COLNAMES> resultDl = getUniversalDawgLetter();
 			for (IDawgLetter<LETTER, COLNAMES> dl : dawgLetters) {
-				final SimpleDawgLetter<LETTER, COLNAMES> sdl = (SimpleDawgLetter<LETTER, COLNAMES>) dl;
-				resultLetters.removeAll(sdl.getLetters());
+				final Set<IDawgLetter<LETTER, COLNAMES>> dlComplement = dl.complement();
+				assert dlComplement.size() == 1 : "should hold in the simpleDawgLetter case, right?";
+				resultDl = resultDl.intersect(dlComplement.iterator().next());
 			}
-
-			IDawgLetter<LETTER, COLNAMES> resultDl = getSimpleDawgLetter(resultLetters);
+//			
+//			final Set<LETTER> resultLetters = new HashSet<LETTER>();
+//			resultLetters.addAll(getAllConstants());
+//			for (IDawgLetter<LETTER, COLNAMES> dl : dawgLetters) {
+//				if (dl instanceof SimpleDawgLetter<?, ?>) {
+//					resultLetters.removeAll(((SimpleDawgLetter<LETTER, COLNAMES>) dl).getLetters());
+//					
+//				} else if (dl instanceof SimpleComplementDawgLetter<?, ?>) {
+//
+//				} else {
+//					assert false : "treat this case?";
+//				}
+//			}
+//
+//			IDawgLetter<LETTER, COLNAMES> resultDl = getSimpleDawgLetter(resultLetters);
 			if (resultDl instanceof EmptyDawgLetter<?, ?>) {
 				return Collections.emptySet();
 			}
 			return Collections.singleton(resultDl);
 		} else {
+			// TODO: wouldn't it be simple to use the intersect and complement operations, like above??
 
 			Set<IDawgLetter<LETTER, COLNAMES>> result = new HashSet<IDawgLetter<LETTER,COLNAMES>>();
 			result.add(mUniversalDawgLetterWithEqualities);
@@ -227,25 +240,34 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 		}
 	}
 
-	public static <LETTER, COLNAMES> boolean isUniversal(Set<IDawgLetter<LETTER, COLNAMES>> outLetters, Set<LETTER> allConstants) {
-		if (outLetters.size() == 0) {
+	/**
+	 * 
+	 * @param letters an implicitly disjunctive set of DawgLetters
+	 * @return
+	 */
+	public static <LETTER, COLNAMES> boolean isUniversal(Set<IDawgLetter<LETTER, COLNAMES>> letters) {
+		if (letters.size() == 0) {
 			return false;
 		}
-		if (outLetters.size() == 1 && outLetters.iterator().next() instanceof EmptyDawgLetter<?, ?>) {
+		if (letters.size() == 1 && letters.iterator().next() instanceof EmptyDawgLetter<?, ?>) {
 			return false;
 		}
-		if (outLetters.size() == 1 && outLetters.iterator().next() instanceof UniversalDawgLetter<?, ?>) {
+		if (letters.size() == 1 && letters.iterator().next() instanceof UniversalDawgLetter<?, ?>) {
 			return true;
 		}
-		if (outLetters.size() == 1 && outLetters.iterator().next() instanceof SimpleDawgLetter<?, ?>) {
-			return ((SimpleDawgLetter<LETTER, COLNAMES>) outLetters.iterator().next()).getLetters().equals(allConstants);
-		}
-		if (outLetters.size() > 1 && outLetters.iterator().next() instanceof SimpleDawgLetter<?, ?>) {
-			Set<LETTER> union = new HashSet<LETTER>();
-			for (IDawgLetter<LETTER, COLNAMES> outLetter : outLetters) {
+		if (letters.size() >= 1 && letters.iterator().next() instanceof SimpleDawgLetter<?, ?>) {
+			/**
+			 * the DawgLetters are universal (as a disjunction) if and only if the SimpleDawgLetters
+			 * and the SimpleComplementDawgLetters complement each other perfectly.
+			 */
+			Set<LETTER> unionNormal = new HashSet<LETTER>();
+			Set<LETTER> unionComplement = new HashSet<LETTER>();
+			for (IDawgLetter<LETTER, COLNAMES> outLetter : letters) {
 				if (outLetter instanceof SimpleDawgLetter<?, ?>) {
-					SimpleDawgLetter<LETTER, COLNAMES> sdl = (SimpleDawgLetter<LETTER, COLNAMES>) outLetter;
-					union.addAll(sdl.getLetters());
+					unionNormal.addAll(((SimpleDawgLetter<LETTER, COLNAMES>) outLetter).getLetters());
+				} else if (outLetter instanceof SimpleComplementDawgLetter<?, ?>) {
+					unionComplement.addAll(
+							((SimpleComplementDawgLetter<LETTER, COLNAMES>) outLetter).getComplementLetters());
 				} else if (outLetter instanceof UniversalDawgLetter) {
 					assert false : "a universal dawg letter and another one?";
 				} else if (outLetter instanceof EmptyDawgLetter<?, ?>) {
@@ -254,7 +276,7 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 					assert false : "unexpected mixing of DawgLetter types";
 				}
 			}
-			return union.equals(allConstants);
+			return unionNormal.equals(unionComplement);
 		}
 		assert false : "TODO";
 		return false;

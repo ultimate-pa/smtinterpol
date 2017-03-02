@@ -80,9 +80,9 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	 * @param allConstants
 	 * @param colnames
 	 */
-	public Dawg(DawgFactory<LETTER, COLNAMES> df, LogProxy logger, Set<LETTER> allConstants,
+	public Dawg(DawgFactory<LETTER, COLNAMES> df, LogProxy logger,
 			SortedSet<COLNAMES> colnames) {
-		super(colnames, allConstants, logger);
+		super(colnames, logger);
 		mDawgFactory = df;
 		mDawgStateFactory = df.getDawgStateFactory();
 		mDawgLetterFactory = df.getDawgLetterFactory();
@@ -106,9 +106,9 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	 * @param colnames
 	 * @param fullDawg
 	 */
-	public Dawg(DawgFactory<LETTER, COLNAMES> df, LogProxy logger, Set<LETTER> allConstants,
+	public Dawg(DawgFactory<LETTER, COLNAMES> df, LogProxy logger,
 			SortedSet<COLNAMES> colnames, boolean fullDawg) {
-		super(colnames, allConstants, logger);
+		super(colnames, logger);
 		assert fullDawg : "use other constructor for empty dawg";
 		mDawgFactory = df;
 		mDawgStateFactory = df.getDawgStateFactory();
@@ -141,9 +141,9 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	 * @param colnames
 	 * @param fullDawg
 	 */
-	public Dawg(final DawgFactory<LETTER, COLNAMES> df, final LogProxy logger, final Set<LETTER> allConstants,
+	public Dawg(final DawgFactory<LETTER, COLNAMES> df, final LogProxy logger,// final Set<LETTER> allConstants,
 			final SortedSet<COLNAMES> colnames, final List<LETTER> word) {
-		super(colnames, allConstants, logger);
+		super(colnames, logger);
 
 		mDawgFactory = df;
 		mDawgStateFactory = df.getDawgStateFactory();
@@ -169,11 +169,11 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		mIsSingleton = true;
 	}
 
-	Dawg(final DawgFactory<LETTER, COLNAMES> df, final LogProxy logger, final Set<LETTER> allConstants,
+	Dawg(final DawgFactory<LETTER, COLNAMES> df, final LogProxy logger, 
 			final SortedSet<COLNAMES> colnames,
 			final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> transitionRelation,
 			final DawgState initialState) {
-		super(colnames, allConstants, logger);
+		super(colnames, logger);
 
 		mDawgFactory = df;
 		mDawgStateFactory = df.getDawgStateFactory();
@@ -186,7 +186,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		mFinalStates = computeFinalStates();
 
 		CheckEmptyUniversalSingleton<LETTER, COLNAMES> ceus = new CheckEmptyUniversalSingleton<LETTER, COLNAMES>(
-				mDawgFactory, allConstants, colnames.size(), initialState, transitionRelation);
+				mDawgFactory, colnames.size(), initialState, transitionRelation);
 		mIsEmpty = ceus.isEmpty();
 		mIsSingleton = ceus.isSingleton();
 		mIsUniversal = ceus.isUniversal();
@@ -346,7 +346,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			currentStates = nextStates;
 		}
 
-		return new Dawg<LETTER, COLNAMES>(mDawgFactory, mLogger, mAllConstants, mColNames, newTransitionRelation,
+		return new Dawg<LETTER, COLNAMES>(mDawgFactory, mLogger, mColNames, newTransitionRelation,
 				mInitialState);
 	}
 
@@ -450,7 +450,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			}
 			currentColnamesPrestates = newCurrentColnamesPrestates;
 		}
-		return new Dawg<LETTER, COLNAMES>(mDawgFactory, mLogger, mAllConstants, mColNames, newTransitionRelation,
+		return new Dawg<LETTER, COLNAMES>(mDawgFactory, mLogger, mColNames, newTransitionRelation,
 				mInitialState);
 	}
 
@@ -659,7 +659,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			newTransitionRelation.put(edge.getFirst(), edge.getSecond(), edge.getThird());
 		}
 
-		final Dawg<LETTER, COLNAMES> result = new Dawg<LETTER, COLNAMES>(mDawgFactory, mLogger, mAllConstants,
+		final Dawg<LETTER, COLNAMES> result = new Dawg<LETTER, COLNAMES>(mDawgFactory, mLogger, 
 				newColnames, newTransitionRelation, mInitialState);
 
 		return result;
@@ -963,7 +963,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			currentStates = nextStates;
 		}
 
-		return new Dawg<LETTER, COLNAMES>(mDawgFactory, mLogger, mAllConstants, newSignature, newTransitionRelation,
+		return new Dawg<LETTER, COLNAMES>(mDawgFactory, mLogger, newSignature, newTransitionRelation,
 				newInitialState);
 	}
 
@@ -987,7 +987,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	}
 
 	Set<LETTER> getAllConstants() {
-		return mAllConstants;
+		return mDawgFactory.getAllConstants();
 	}
 
 	LogProxy getLogger() {

@@ -206,6 +206,6 @@ public class UnionOrIntersectionDawgBuilder<LETTER, COLNAMES> {
 		}
 		
 		return new Dawg<LETTER, COLNAMES>(mDawgFactory, mFirstInputDawg.getLogger(), 
-				mFirstInputDawg.getAllConstants(),  mFirstInputDawg.getColnames(), mResultTransitionRelation, mResultInitialState);
+				 mFirstInputDawg.getColnames(), mResultTransitionRelation, mResultInitialState);
 	}
 }

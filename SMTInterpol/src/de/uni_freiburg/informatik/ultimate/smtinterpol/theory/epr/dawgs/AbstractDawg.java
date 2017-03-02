@@ -46,17 +46,15 @@ public abstract class AbstractDawg<LETTER, COLNAMES> implements IDawg<LETTER, CO
 	 *  -- we don't use a (sorted) set for this because we store our points in lists
 	 */
 	protected final SortedSet<COLNAMES> mColNames;
-	protected final Set<LETTER> mAllConstants;
 	protected final Map<COLNAMES, Integer> mColNameToIndex;
 	
 	public Map<COLNAMES, Integer> getColNameToIndex() {
 		return mColNameToIndex;
 	}
 
-	public AbstractDawg(SortedSet<COLNAMES> colNames, Set<LETTER> allConstants, LogProxy logger) {
+	public AbstractDawg(SortedSet<COLNAMES> colNames, LogProxy logger) {
 		mColNames = colNames;
 		mArity = colNames.size();
-		mAllConstants = allConstants;
 		mLogger = logger;
 		
 		mColNameToIndex = new HashMap<COLNAMES, Integer>();

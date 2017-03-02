@@ -45,26 +45,31 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	
 	Set<List<LETTER>> mBacking;
 	private Set<List<LETTER>> mNCrossProduct;
+	private final Set<LETTER> mAllConstants;
 	
 	public NaiveDawg(SortedSet<COLNAMES> termVariables, Set<LETTER> allConstants, LogProxy logger) {
-		super(termVariables, allConstants, logger);
+		super(termVariables, logger);
+		mAllConstants = allConstants;
 		mBacking = new HashSet<List<LETTER>>();
 	}
 
 	public NaiveDawg(SortedSet<COLNAMES> termVariables, Set<LETTER> allConstants, 
 			Set<List<LETTER>> initialLanguage, LogProxy logger) {
-		super(termVariables, allConstants, logger);
+		super(termVariables, logger);
+		mAllConstants = allConstants;
 		mBacking = new HashSet<List<LETTER>>(initialLanguage);
 	}
 
 
 	public NaiveDawg(NaiveDawg<LETTER, COLNAMES> nd, LogProxy logger) {
-		super(nd.mColNames, nd.mAllConstants, logger);
+		super(nd.mColNames, logger);
+		mAllConstants = nd.mAllConstants;
 		mBacking = new HashSet<List<LETTER>>(nd.mBacking);
 	}
 
 	public NaiveDawg(NaiveDawg<LETTER, COLNAMES> nd, Map<COLNAMES, COLNAMES> translation, LogProxy logger) {
-		super(EprHelpers.applyMapping(nd.mColNames, translation), nd.mAllConstants, logger);
+		super(EprHelpers.applyMapping(nd.mColNames, translation), logger);
+		mAllConstants = nd.mAllConstants;
 		mBacking = new HashSet<List<LETTER>>(nd.mBacking);
 	}
 

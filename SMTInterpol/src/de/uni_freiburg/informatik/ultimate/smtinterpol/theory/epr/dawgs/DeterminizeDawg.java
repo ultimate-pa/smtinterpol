@@ -123,7 +123,7 @@ public class DeterminizeDawg<LETTER, COLNAMES> {
 		assert mResultTransitionRelation != null;
 		assert mResultInitialState != null;
 		return new Dawg<LETTER, COLNAMES>(mDawgFactory, mLogger, 
-				mAllConstants, mColnames, mResultTransitionRelation, mResultInitialState);
+				mColnames, mResultTransitionRelation, mResultInitialState);
 	}
 
 
