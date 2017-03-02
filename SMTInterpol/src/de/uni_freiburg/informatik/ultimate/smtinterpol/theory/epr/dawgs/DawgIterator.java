@@ -159,7 +159,9 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 					Iterator<LETTER> letterIt = mEdges.get(0).getSecond().allLettersThatMatch(emptyPrefix, null)
 							.iterator();//TODO do something about null/colNamesToIndex
 					assert letterIt.hasNext();
+//					if (letterIt.hasNext()) {
 					mOpenClps.push(new ColumnLetterPrefix(emptyPrefix, letterIt.next(), letterIt));
+//					}
 				}
 				
 				List<LETTER> mNextWord;

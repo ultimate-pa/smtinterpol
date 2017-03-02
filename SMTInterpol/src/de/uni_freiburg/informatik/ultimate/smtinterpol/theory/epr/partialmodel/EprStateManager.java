@@ -138,8 +138,7 @@ public class EprStateManager {
 	public Clause eprDpllLoop() {
 	
 		while (true) {
-	
-			DslBuilder nextDecision = mDecideStackManager.getNextDecision();
+			final DslBuilder nextDecision = mDecideStackManager.getNextDecision();
 			if (nextDecision == null) {
 				// model is complete
 				return null;
