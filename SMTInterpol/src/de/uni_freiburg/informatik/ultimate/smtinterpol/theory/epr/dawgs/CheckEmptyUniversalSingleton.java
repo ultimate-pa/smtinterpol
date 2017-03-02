@@ -169,6 +169,9 @@ public class CheckEmptyUniversalSingleton<LETTER, COLNAMES> {
 	 * Convention: the sampled path is in reverse order, i.e., goes from final to initial state.
 	 * @param finalState
 	 * @return A path from final to initial state, that has not yet been returned, null if there is none.
+	 * 
+	 * 
+	 * TODO: simplify this once Dawg.iterator() works!
 	 */
 	private List<IDawgLetter<LETTER, COLNAMES>> samplePath() {
 
