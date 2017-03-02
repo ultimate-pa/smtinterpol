@@ -42,6 +42,16 @@ public interface IDawgLetter<LETTER, COLNAMES> {
 
 	boolean matches(LETTER ltr, List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex);
 	
+	/**
+	 * This method is special in that it needs the current AllConstants set.
+	 * It is (and perhaps should be) only used in DawgIterator.
+	 *  -- and possibly in other locations where it is obviously necessary to know what the
+	 *    constants are, currently..
+	 * 
+	 * @param word
+	 * @param colnamesToIndex
+	 * @return
+	 */
 	Collection<LETTER> allLettersThatMatch(List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex);
 
 	IDawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER selectLetter);

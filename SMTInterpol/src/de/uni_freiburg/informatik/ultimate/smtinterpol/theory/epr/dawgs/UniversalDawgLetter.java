@@ -45,7 +45,7 @@ public class UniversalDawgLetter<LETTER, COLNAMES> implements IDawgLetter<LETTER
 	
 	@Override
 	public IDawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER ltr) {
-		return mDawgLetterFactory.getOrCreateSingletonSetDawgLetter(ltr);
+		return mDawgLetterFactory.getSingletonSetDawgLetter(ltr);
 	}
 
 	@Override

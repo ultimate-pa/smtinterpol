@@ -73,7 +73,7 @@ public class AddWordDawgBuilder<LETTER, COLNAMES> {
 
 						final DawgState newState = mDawgFactory.getDawgStateFactory().createDawgState();
 						final IDawgLetter<LETTER, COLNAMES> newLetter = mDawgFactory.getDawgLetterFactory()
-								.getOrCreateSingletonSetDawgLetter(letter);
+								.getSingletonSetDawgLetter(letter);
 						newTransitionRelation.put(currentState, newLetter, newState);
 						currentState = newState;
 				}

@@ -50,6 +50,8 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 	
 	Map<Set<LETTER>, SimpleDawgLetter<LETTER, COLNAMES>> mLettersToSimpleDawgLetter
 		 = new HashMap<Set<LETTER>, SimpleDawgLetter<LETTER,COLNAMES>>();
+	private Map<Set<LETTER>, SimpleComplementDawgLetter<LETTER, COLNAMES>> mLettersToSimpleComplementDawgLetter
+		 = new HashMap<Set<LETTER>, SimpleComplementDawgLetter<LETTER,COLNAMES>>();
 	
 	Set<LETTER> mAllConstants;
 	
@@ -69,7 +71,7 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 		mUniversalDawgLetterSingleton = Collections.singleton((IDawgLetter<LETTER, COLNAMES>) mUniversalDawgLetter);
 	}
 
-	public IDawgLetter<LETTER, COLNAMES> getOrCreateSingletonSetDawgLetter(LETTER element) {
+	public IDawgLetter<LETTER, COLNAMES> getSingletonSetDawgLetter(LETTER element) {
 		if (useSimpleDawgLetters()) {
 			return getSimpleDawgLetter(Collections.singleton(element));
 		} else {
@@ -262,9 +264,7 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 		if (letters.isEmpty()) {
 			 return getEmptyDawgLetter();
 		}
-		if (letters.equals(mAllConstants)) {
-			return getUniversalDawgLetter();
-		}
+		
 		IDawgLetter<LETTER, COLNAMES> result = mLettersToSimpleDawgLetter.get(letters);
 		if (result == null) {
 			result = new SimpleDawgLetter<LETTER, COLNAMES>(this, letters);
@@ -273,6 +273,19 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 		return result;
 	}
 	
+	public IDawgLetter<LETTER, COLNAMES> getSimpleComplementDawgLetter(Set<LETTER> letters) {
+		if (letters.isEmpty()) {
+			 return getUniversalDawgLetter();
+		}
+		
+		IDawgLetter<LETTER, COLNAMES> result = mLettersToSimpleComplementDawgLetter.get(letters);
+		if (result == null) {
+			result = new SimpleComplementDawgLetter<LETTER, COLNAMES>(this, letters);
+			mLettersToSimpleComplementDawgLetter.put(letters, (SimpleComplementDawgLetter<LETTER, COLNAMES>) result);
+		}
+		return result;
+	}
+
 	public boolean useSimpleDawgLetters() {
 		return true;
 	}

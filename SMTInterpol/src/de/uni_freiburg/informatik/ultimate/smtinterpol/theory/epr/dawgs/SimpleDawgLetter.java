@@ -58,40 +58,29 @@ public class SimpleDawgLetter<LETTER, COLNAMES> implements IDawgLetter<LETTER, C
 
 	@Override
 	public Set<IDawgLetter<LETTER, COLNAMES>> difference(IDawgLetter<LETTER, COLNAMES> other) {
-		if (other instanceof UniversalDawgLetter<?, ?>) {
-//			return mDawgLetterFactory.getEmptyDawgLetter();
-			return Collections.emptySet();
-		}
-		if (other instanceof EmptyDawgLetter<?, ?>) {
-			return Collections.singleton((IDawgLetter<LETTER, COLNAMES>) this);
-		}
-		
-		
-		SimpleDawgLetter<LETTER, COLNAMES> otherSdl = (SimpleDawgLetter<LETTER, COLNAMES>) other;
-		final Set<LETTER> resultLetters = new HashSet<LETTER>();
-		resultLetters.addAll(mLetters);
-		resultLetters.removeAll(otherSdl.mLetters);
-	
-		if (resultLetters.isEmpty()) {
-			return Collections.emptySet();
-		}
-		return Collections.singleton(mDawgLetterFactory.getSimpleDawgLetter(resultLetters));
+		final Set<IDawgLetter<LETTER, COLNAMES>> otherComplement = other.complement();
+		assert otherComplement.size() == 1 : "should be the case for simpleDawgLetters, right?";
+		return Collections.singleton(this.intersect(otherComplement.iterator().next()));
 	}
 
 	@Override
 	public IDawgLetter<LETTER, COLNAMES> intersect(IDawgLetter<LETTER, COLNAMES> other) {
-		if (other instanceof UniversalDawgLetter) {
+		if (other instanceof UniversalDawgLetter<?, ?>) {
 			return this;
-		}
-		if (other instanceof EmptyDawgLetter) {
+		} else if (other instanceof EmptyDawgLetter<?, ?>) {
 			return other;
-		}
-		SimpleDawgLetter<LETTER, COLNAMES> otherSdl = (SimpleDawgLetter<LETTER, COLNAMES>) other;
-		final Set<LETTER> resultLetters = new HashSet<LETTER>();
-		resultLetters.addAll(mLetters);
-		resultLetters.retainAll(otherSdl.mLetters);
-
-		return mDawgLetterFactory.getSimpleDawgLetter(resultLetters);
+		} else if (other instanceof SimpleDawgLetter<?, ?>) {
+			final Set<LETTER> resultLetters = new HashSet<LETTER>(mLetters);
+			resultLetters.retainAll(((SimpleDawgLetter<LETTER, COLNAMES>) other).getLetters());
+			return mDawgLetterFactory.getSimpleDawgLetter(resultLetters);
+		} else if (other instanceof SimpleComplementDawgLetter<?, ?>) {
+			final Set<LETTER> resultLetters = new HashSet<LETTER>(mLetters);
+			resultLetters.removeAll(((SimpleComplementDawgLetter<LETTER, COLNAMES>) other).getComplementLetters());
+			return mDawgLetterFactory.getSimpleDawgLetter(resultLetters);
+		} else {
+			assert false : "not expected";
+			return null;
+		}	
 	}
 
 	@Override

@@ -157,7 +157,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 
 		for (int i = 0; i < colnames.size(); i++) {
 			DawgState nextState = mDawgStateFactory.createDawgState();
-			IDawgLetter<LETTER, COLNAMES> dl = mDawgLetterFactory.getOrCreateSingletonSetDawgLetter(word.get(i));
+			IDawgLetter<LETTER, COLNAMES> dl = mDawgLetterFactory.getSingletonSetDawgLetter(word.get(i));
 			mTransitionRelation.put(currentState, dl, nextState);
 			currentState = nextState;
 		}
@@ -578,7 +578,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			} else {
 				// arg must be a LETTER (typically a constant 0-ary
 				// ApplicationTerm)
-				insertColumn(newSigColname, mDawgLetterFactory.getOrCreateSingletonSetDawgLetter((LETTER) arg));
+				insertColumn(newSigColname, mDawgLetterFactory.getSingletonSetDawgLetter((LETTER) arg));
 			}
 		}
 

@@ -254,6 +254,6 @@ class UniversalDawgLetterWithEqualities<LETTER, COLNAMES> extends  DawgLetterWit
 	
 	@Override
 	public IDawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER ltr) {
-		return mDawgLetterFactory.getOrCreateSingletonSetDawgLetter(ltr);
+		return mDawgLetterFactory.getSingletonSetDawgLetter(ltr);
 	}
 }
