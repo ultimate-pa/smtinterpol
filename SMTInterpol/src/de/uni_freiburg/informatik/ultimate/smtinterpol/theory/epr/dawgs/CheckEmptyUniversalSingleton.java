@@ -86,7 +86,7 @@ public class CheckEmptyUniversalSingleton<LETTER, COLNAMES> {
 		final List<LETTER> firstWord = it.next();
 		assert firstWord != null;
 		assert firstWord.size() == mNoColumns;
-		if (!it.hasNext()) {
+		if (it.hasNext()) {
 			mIsSingleton = false;
 		} else {
 			mIsSingleton = true;

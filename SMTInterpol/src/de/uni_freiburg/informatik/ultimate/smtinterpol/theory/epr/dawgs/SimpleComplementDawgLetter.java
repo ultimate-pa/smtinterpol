@@ -89,4 +89,9 @@ public class SimpleComplementDawgLetter<LETTER, COLNAMES> implements IDawgLetter
 	public Set<LETTER> getComplementLetters() {
 		return mComplementSet;
 	}
+	
+	@Override
+	public String toString() {
+		return "SimpleCompDL: " + mComplementSet;
+	}
 }

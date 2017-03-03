@@ -17,6 +17,7 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 	final Stack<DawgPath> mOpenIncompleteDawgPaths = new Stack<DawgPath>();
 	final Deque<DawgPath> mOpenCompleteDawgPaths = new ArrayDeque<DawgPath>();
 	Iterator<List<LETTER>> mCurrentCompleteDawgPathIterator;
+	private final boolean mIsDawgEmpty;
 
 
 	public DawgIterator(int noColumns,
@@ -26,21 +27,30 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 		mTransitionRelation = transitionRelation;
 		mInitialState = initialState;
 		
+		assert (mTransitionRelation == null) == (mInitialState == null);
+		
+		mIsDawgEmpty = mTransitionRelation == null;
+
 		/*
 		 * initialize the dawg path sets with all the outgoing edges of the initial state
 		 */
-		for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge : 
-			mTransitionRelation.getOutEdgeSet(mInitialState)) {
-			final DawgPath newPath = new DawgPath(mInitialState, outEdge.getFirst(), outEdge.getSecond());
-			if (newPath.isComplete()) {
-				mOpenCompleteDawgPaths.addLast(newPath);
+		if (!mIsDawgEmpty) {
+			for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge : 
+				mTransitionRelation.getOutEdgeSet(mInitialState)) {
+				final DawgPath newPath = new DawgPath(mInitialState, outEdge.getFirst(), outEdge.getSecond());
+				if (newPath.isComplete()) {
+					mOpenCompleteDawgPaths.addLast(newPath);
+				}
+				mOpenIncompleteDawgPaths.push(newPath);
 			}
-			mOpenIncompleteDawgPaths.push(newPath);
 		}
 	}
 
 	@Override
 	public boolean hasNext() {
+		if (mIsDawgEmpty) {
+			return false; 
+		}
 		if (mCurrentCompleteDawgPathIterator != null && mCurrentCompleteDawgPathIterator.hasNext()) {
 			return true;
 		}
@@ -50,18 +60,23 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 			return true;
 		}
 		// we need to search for a new complete DawgPath
-		DawgPath newCompletePath = lookForNewCompletePath();
-		if (newCompletePath == null) {
-			return false;
-		} else {
-			mOpenCompleteDawgPaths.addLast(newCompletePath);
-			assert mOpenCompleteDawgPaths.peekLast().iterator().hasNext();
-			return true;
+		while (true) {
+			DawgPath newCompletePath = lookForNewCompletePath();
+			if (newCompletePath == null) {
+				return false;
+			} else if (!newCompletePath.iterator().hasNext()) {
+				// the completed DawgPath is empty (relative to the current AllConstants)
+				// --> go through the loop again..
+			} else {
+				mOpenCompleteDawgPaths.addLast(newCompletePath);
+				assert mOpenCompleteDawgPaths.peekLast().iterator().hasNext();
+				return true;
+			}
 		}
 	}
 
 	private DawgPath lookForNewCompletePath() {
-		while (true) {
+		while (!mOpenIncompleteDawgPaths.isEmpty()) {
 			final DawgPath dawgPath = mOpenIncompleteDawgPaths.pop();
 			assert !dawgPath.isComplete();
 
@@ -79,6 +94,7 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 				mOpenIncompleteDawgPaths.push(newPath);
 			}
 		}
+		return null;
 	}
 
 	@Override
@@ -172,10 +188,14 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 					List<LETTER> emptyPrefix = Collections.emptyList();
 					Iterator<LETTER> letterIt = mEdges.get(0).getSecond().allLettersThatMatch(emptyPrefix, null)
 							.iterator();//TODO do something about null/colNamesToIndex
-					assert letterIt.hasNext();
-//					if (letterIt.hasNext()) {
-					mOpenClps.push(new ColumnLetterPrefix(emptyPrefix, letterIt.next(), letterIt));
-//					}
+//					assert letterIt.hasNext();
+					/*
+					 *  it can happen that we have a dawgPath without any words because a complementDawgLetter may be
+					 *  empty relative to the current AllConstants (but not absolutely empty, as constants may be added..)
+					 */
+					if (letterIt.hasNext()) {
+						mOpenClps.push(new ColumnLetterPrefix(emptyPrefix, letterIt.next(), letterIt));
+					}
 				}
 				
 				List<LETTER> mNextWord;
@@ -198,10 +218,12 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 					if (mNextWord == null) {
 						final List<LETTER> result = sampleWord();
 						assert result != null : "no more words available, should have been checked via hasNext()";
+						assert result.size() == mNoColumns;
 						return result;
 					}
 					final List<LETTER> result = mNextWord;
 					mNextWord = null;
+					assert result.size() == mNoColumns;
 					return result;
 				}
 				
@@ -217,10 +239,12 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 							Iterator<LETTER> horiNextLetterIt = mEdges.get(currentClp.getColumnIndex() + 1)
 									.getSecond().allLettersThatMatch(currentClp.getPrefix(), null)
 									.iterator();//TODO do something about null/colNamesToIndex
-							assert horiNextLetterIt.hasNext() : "do we have an empty dawgLetter?";
-							ColumnLetterPrefix horizontalNewClp = 
-									new ColumnLetterPrefix(currentClp.getPrefix(), horiNextLetterIt.next(), horiNextLetterIt);
-							mOpenClps.push(horizontalNewClp);
+//							assert horiNextLetterIt.hasNext() : "do we have an empty dawgLetter?";
+							if (horiNextLetterIt.hasNext()) {
+								ColumnLetterPrefix horizontalNewClp = 
+										new ColumnLetterPrefix(currentClp.getPrefix(), horiNextLetterIt.next(), horiNextLetterIt);
+								mOpenClps.push(horizontalNewClp);
+							}
 							
 							if (currentClp.getLetterIterator().hasNext()) {
 								final ColumnLetterPrefix verticalNewClp = 
@@ -238,6 +262,7 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 												currentClp.getLetterIterator().next(), currentClp.getLetterIterator());
 								mOpenClps.push(newClp);
 							}
+							assert resultWord.size() == mNoColumns;
 							return resultWord;
 						}
 					}
@@ -255,7 +280,7 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 					}
 
 					int getColumnIndex() {
-						return mPrefix.size();
+						return mPrefix.size() - 1;
 					}
 					
 					LETTER lastLetter() {

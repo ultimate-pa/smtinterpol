@@ -255,7 +255,9 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 		if (letters.size() == 1 && letters.iterator().next() instanceof UniversalDawgLetter<?, ?>) {
 			return true;
 		}
-		if (letters.size() >= 1 && letters.iterator().next() instanceof SimpleDawgLetter<?, ?>) {
+		if (letters.size() >= 1 && 
+				(letters.iterator().next() instanceof SimpleDawgLetter<?, ?>
+			|| letters.iterator().next() instanceof SimpleComplementDawgLetter<?, ?>)) {
 			/**
 			 * the DawgLetters are universal (as a disjunction) if and only if the SimpleDawgLetters
 			 * and the SimpleComplementDawgLetters complement each other perfectly.
