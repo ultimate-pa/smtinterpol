@@ -150,6 +150,20 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 		}
 
 		@Override
+		public String toString() {
+			final StringBuilder sb = new StringBuilder();
+			
+			sb.append(mEdges.get(0).getFirst());
+			
+			for (Triple<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> edge : mEdges) {
+				sb.append(String.format(" --%s--> %s" , edge.getSecond(), edge.getThird()));
+			}
+			
+			return sb.toString();
+		}
+		
+		
+		@Override
 		public Iterator<List<LETTER>> iterator() {
 			return new Iterator<List<LETTER>>() {
 				
@@ -168,6 +182,9 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 
 				@Override
 				public boolean hasNext() {
+					if (mNextWord != null) {
+						return true;
+					}
 					List<LETTER> newWord = sampleWord();
 					if (newWord == null) {
 						return false;

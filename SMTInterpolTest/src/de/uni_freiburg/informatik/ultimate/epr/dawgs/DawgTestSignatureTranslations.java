@@ -66,7 +66,8 @@ public class DawgTestSignatureTranslations {
 	public void test1() {
 		
 		DawgFactory<String, Integer> dawgFactoryStringInteger = 
-				new DawgFactory<String, Integer>(getEprTheory(), getAllConstants());
+				new DawgFactory<String, Integer>(getEprTheory());
+		dawgFactoryStringInteger.addConstants(getAllConstants());
 		
 		
 		List<String> word_aa = Arrays.asList(new String[] { "a", "a" });

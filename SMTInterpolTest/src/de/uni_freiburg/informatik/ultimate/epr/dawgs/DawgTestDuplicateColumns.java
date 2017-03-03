@@ -49,7 +49,8 @@ public class DawgTestDuplicateColumns {
 	@Test
 	public void test8() {
 		DawgFactory<String, String> dawgFactoryStringString = 
-				new DawgFactory<String, String>(getEprTheory(), getAllConstants());
+				new DawgFactory<String, String>(getEprTheory());
+		dawgFactoryStringString.addConstants(getAllConstants());
 		
 		SortedSet<String> signaturePre = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signaturePre.addAll(Arrays.asList(new String[] { "u", "v"}));
@@ -96,7 +97,8 @@ public class DawgTestDuplicateColumns {
 	@Test
 	public void test9() {
 		DawgFactory<String, String> dawgFactoryStringString = 
-				new DawgFactory<String, String>(getEprTheory(), getAllConstants());
+				new DawgFactory<String, String>(getEprTheory());
+		dawgFactoryStringString.addConstants(getAllConstants());
 		
 		SortedSet<String> signaturePre = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signaturePre.addAll(Arrays.asList(new String[] { "u", "w"}));
@@ -142,7 +144,7 @@ public class DawgTestDuplicateColumns {
 	@Test
 	public void test10() {
 		DawgFactory<String, String> dawgFactoryStringString = 
-				new DawgFactory<String, String>(getEprTheory(), getAllConstants());
+				new DawgFactory<String, String>(getEprTheory());
 		
 		SortedSet<String> signaturePre = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signaturePre.addAll(Arrays.asList(new String[] { "u", "v"}));
@@ -197,7 +199,8 @@ public class DawgTestDuplicateColumns {
 	@Test
 	public void test11() {
 		DawgFactory<String, String> dawgFactoryStringString = 
-				new DawgFactory<String, String>(getEprTheory(), getAllConstants());
+				new DawgFactory<String, String>(getEprTheory());
+		dawgFactoryStringString.addConstants(getAllConstants());
 
 		SortedSet<String> signaturePre = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signaturePre.addAll(Arrays.asList(new String[] { "u", "w"}));

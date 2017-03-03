@@ -460,8 +460,9 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			return Collections.emptySet();
 
 		}
-		// using a TreeSet for nicer (sorted) output
-		final Set<List<LETTER>> result = new TreeSet<List<LETTER>>(); 
+//		// using a TreeSet for nicer (sorted) output
+//		final Set<List<LETTER>> result = new TreeSet<List<LETTER>>(); 
+		final Set<List<LETTER>> result = new HashSet<List<LETTER>>(); 
 		for (List<LETTER> point : this) {
 			result.add(point);
 		}

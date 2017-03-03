@@ -22,6 +22,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -31,6 +32,7 @@ import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
@@ -133,15 +135,26 @@ public class EprTheory implements ITheory {
 
 		mLogger = clausifier.getLogger();
 
+		mDawgFactory = new DawgFactory<ApplicationTerm,TermVariable>(this);
+		
+		mDawgFactory.addConstants(Collections.singleton(createDefaultConstant()));
+		
+		mClauseFactory = new EprClauseFactory(this);
+
 		mEqualityManager = new EqualityManager();
-		mStateManager = new EprStateManager(this);
+		mStateManager = new EprStateManager(this, mDawgFactory, mClauseFactory);
 		mGroundAllMode = solveThroughGrounding;
 		
-		mDawgFactory = new DawgFactory<ApplicationTerm,TermVariable>(this);
-		mClauseFactory = new EprClauseFactory(this);
 		
-		mStateManager.setDawgFactory(mDawgFactory);
-		mStateManager.setEprClauseFactory(mClauseFactory);
+//		mStateManager.setEprClauseFactory(mClauseFactory);
+	}
+
+	private ApplicationTerm createDefaultConstant() {
+		FunctionSymbol fs = mTheory.declareFunction(
+					"(defaultConstant)", new Sort[0],
+					mTheory.getBooleanSort());
+		ApplicationTerm defaultTerm = mTheory.term(fs);
+		return defaultTerm;
 	}
 
 	@Override

@@ -71,9 +71,9 @@ public class EprStateManager {
 	
 	private final DecideStackManager mDecideStackManager;
 
-	private EprClauseFactory mEprClauseFactory;
+	private final EprClauseFactory mEprClauseFactory;
 
-	private DawgFactory<ApplicationTerm, TermVariable> mDawgFactory;
+	private final DawgFactory<ApplicationTerm, TermVariable> mDawgFactory;
 
 
 	private HashMap<Literal, EprGroundPredicateLiteral> mLiteralToEprGroundPredicateLiteral = 
@@ -82,15 +82,16 @@ public class EprStateManager {
 
 	private EprClauseManager mEprClauseManager;
 	
-	public EprStateManager(EprTheory eprTheory) {
+	public EprStateManager(EprTheory eprTheory, DawgFactory<ApplicationTerm, TermVariable> dawgFactory, EprClauseFactory clauseFactory) {
 		mEprTheory = eprTheory;
 		mEqualityManager =  eprTheory.getEqualityManager();
 		mTheory = eprTheory.getTheory();
 		mCClosure = eprTheory.getCClosure();
-		mEprClauseFactory = eprTheory.getEprClauseFactory();
 		mLogger = eprTheory.getLogger();
 		mDecideStackManager = new DecideStackManager(mLogger, eprTheory, this);
 		mEprClauseManager = new EprClauseManager(mEprTheory);
+		mEprClauseFactory = clauseFactory;
+		mDawgFactory = dawgFactory;
 	}
 	
 	public void push() {
@@ -332,23 +333,14 @@ public class EprStateManager {
 			}
 		}
 
-	/**
-	 * at creation of this state manager, we cannot ask the EprTheory for the dawg factory because that
-	 * dawgFactory's creation needs the allConstats from this state manager..
-	 * @param dawgFactory
-	 */
-	public void setDawgFactory(DawgFactory<ApplicationTerm, TermVariable> dawgFactory) {
-		mDawgFactory = dawgFactory;
-	}
-
-	/**
-	 * at creation of this state manager, we cannot ask the EprTheory for the clause factory because that
-	 * clauseFactory's creation needs the allConstats from this state manager..
-	 * @param clauseFactory
-	 */
-	public void setEprClauseFactory(EprClauseFactory clauseFactory) {
-		mEprClauseFactory = clauseFactory;
-	}
+//	/**
+//	 * at creation of this state manager, we cannot ask the EprTheory for the clause factory because that
+//	 * clauseFactory's creation needs the allConstats from this state manager..
+//	 * @param clauseFactory
+//	 */
+//	public void setEprClauseFactory(EprClauseFactory clauseFactory) {
+//		mEprClauseFactory = clauseFactory;
+//	}
 
 	
 

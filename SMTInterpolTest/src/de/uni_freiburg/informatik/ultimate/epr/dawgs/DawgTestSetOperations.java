@@ -99,7 +99,8 @@ public class DawgTestSetOperations {
 	public void setup() {
 		
 		DawgFactory<String, Integer> dawgFactory = 
-				new DawgFactory<String, Integer>(getEprTheory(), getAllConstants());
+				new DawgFactory<String, Integer>(getEprTheory());
+		dawgFactory.addConstants(getAllConstants());
 
 		signature1 = new TreeSet<Integer>(Arrays.asList(new Integer[] { 1, 2 }));
 		dawg1 = dawgFactory.getEmptyDawg(signature1);
