@@ -61,13 +61,13 @@ import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
 public class EprStateManager {
 
 
-	public EqualityManager mEqualityManager;
-	private EprTheory mEprTheory;
-	private Theory mTheory;
-	private CClosure mCClosure;
-	private LogProxy mLogger;
+	public final EqualityManager mEqualityManager;
+	private final EprTheory mEprTheory;
+	private final Theory mTheory;
+	private final CClosure mCClosure;
+	private final LogProxy mLogger;
 	
-	ScopedHashSet<EprPredicate> mAllEprPredicates = new ScopedHashSet<EprPredicate>();
+	private final ScopedHashSet<EprPredicate> mAllEprPredicates = new ScopedHashSet<EprPredicate>();
 	
 	private final DecideStackManager mDecideStackManager;
 
@@ -406,7 +406,7 @@ public class EprStateManager {
 	}
 
 	public void learnClause(EprClause clauseToLearn) {
-		// TODO: as is this method seems weird, architecture-wise
+		// TODO: as is, this method seems weird, architecture-wise
 		// the registration has to be done for any epr clause that we add to our formula
 		// --> just ditch this method, use register.. instead??
 

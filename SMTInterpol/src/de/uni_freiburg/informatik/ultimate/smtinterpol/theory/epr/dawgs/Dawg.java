@@ -458,17 +458,10 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	public Iterable<List<LETTER>> getAllPointsSorted() {
 		if (isEmpty()) {
 			return Collections.emptySet();
-		}
 
-		if (isUniversal()) {
-			return EprHelpers.computeNCrossproduct(getAllConstants(), mColNames.size(), mLogger);
 		}
-
-		Set<List<LETTER>> result = new TreeSet<List<LETTER>>(); // using a
-																// TreeSet for
-																// nicer
-																// (sorted)
-																// output
+		// using a TreeSet for nicer (sorted) output
+		final Set<List<LETTER>> result = new TreeSet<List<LETTER>>(); 
 		for (List<LETTER> point : this) {
 			result.add(point);
 		}
@@ -526,6 +519,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		return result;
 	}
 
+	@SuppressWarnings("unchecked")
 	@Override
 	public IDawg<LETTER, COLNAMES> translateClauseSigToPredSig(BinaryRelation<COLNAMES, COLNAMES> translation,
 			List<Object> argList, SortedSet<COLNAMES> newSignature) {
@@ -759,47 +753,6 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	 */
 	private Dawg<LETTER, COLNAMES> reorderAndRename(Map<COLNAMES, COLNAMES> renaming) {
 		return reorderAndRename(new BinaryRelation<COLNAMES, COLNAMES>(renaming));
-		// // Dawg<LETTER, COLNAMES> result = (Dawg<LETTER, COLNAMES>)
-		// mDawgFactory.copyDawg(this);
-		//
-		// if (this.isEmpty() || this.isUniversal()) {
-		// // for an empty or universal dawg we just return a fresh dawg with
-		// the new signature
-		// SortedSet<COLNAMES> newSignature =
-		// EprHelpers.transformSignature(mColNames, renaming);
-		// if (this.isEmpty()) {
-		// return (Dawg<LETTER, COLNAMES>)
-		// mDawgFactory.getEmptyDawg(newSignature);
-		// } else {
-		// return (Dawg<LETTER, COLNAMES>)
-		// mDawgFactory.getUniversalDawg(newSignature);
-		// }
-		// }
-		//
-		// Dawg<LETTER, COLNAMES> result = this;
-		// for (Entry<COLNAMES, COLNAMES> en : renaming.entrySet()) {
-		// if (result.getColnames().contains(en.getValue())) {
-		// /*
-		// * the renaming target column is already contained in the dawg's
-		// signature
-		// * this means we have to "merge" the columns, i.e., delete the old
-		// column and
-		// * leave only tuples in the language where the two agreed on the same
-		// letter
-		// */
-		//
-		//
-		// } else {
-		// // normal renaming case
-		// result = new ReorderAndRenameDawgBuilder<LETTER,
-		// COLNAMES>(mDawgFactory,
-		// result,
-		// en.getKey(),
-		// en.getValue())
-		// .build();
-		// }
-		// }
-		// return result;
 	}
 
 	private Dawg<LETTER, COLNAMES> duplicateColumn(COLNAMES firstCol, COLNAMES currentNewCol) {

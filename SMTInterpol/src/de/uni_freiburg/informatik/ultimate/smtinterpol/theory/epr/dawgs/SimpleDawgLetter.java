@@ -46,14 +46,7 @@ public class SimpleDawgLetter<LETTER, COLNAMES> implements IDawgLetter<LETTER, C
 
 	@Override
 	public Set<IDawgLetter<LETTER, COLNAMES>> complement() {
-		final Set<LETTER> resultLetters = new HashSet<LETTER>();
-		resultLetters.addAll(mDawgLetterFactory.getAllConstants());
-		resultLetters.removeAll(mLetters);
-
-		if (resultLetters.isEmpty()) {
-			return Collections.emptySet();
-		}
-		return Collections.singleton(mDawgLetterFactory.getSimpleDawgLetter(resultLetters));
+		return Collections.singleton(mDawgLetterFactory.getSimpleComplementDawgLetter(mLetters));
 	}
 
 	@Override

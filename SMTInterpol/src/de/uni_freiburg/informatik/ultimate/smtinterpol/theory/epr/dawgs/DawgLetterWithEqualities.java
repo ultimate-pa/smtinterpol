@@ -75,6 +75,7 @@ public class DawgLetterWithEqualities<LETTER, COLNAMES> implements IDawgLetter<L
 
 	@Override
 	public Set<IDawgLetter<LETTER, COLNAMES>> complement() {
+		// TODO: get rid of AllConstants. Will need a symbolic complement representation..
 
 		Set<LETTER> newLetters = new HashSet<LETTER>(mDawgLetterFactory.getAllConstants());
 		newLetters.removeAll(mLetters);
