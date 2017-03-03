@@ -45,7 +45,6 @@ public class DeterminizeDawg<LETTER, COLNAMES> {
 	private SetDawgState mResultInitialState;
 	private DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> mResultTransitionRelation;
 	private SortedSet<COLNAMES> mColnames;
-	private Set<LETTER> mAllConstants;
 	private LogProxy mLogger;
 	private HashRelation3<DawgState,IDawgLetter<LETTER,COLNAMES>,DawgState> mInputTransitionRelation;
 	private Set<DawgState> mInputInitialStates;
@@ -64,13 +63,11 @@ public class DeterminizeDawg<LETTER, COLNAMES> {
 	 * @param dawgFactory
 	 */
 	public DeterminizeDawg(SortedSet<COLNAMES> colnames, 
-			Set<LETTER> allConstants, 
 			LogProxy logger,
 			HashRelation3<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> inputTransitionRelation,
 			Set<DawgState> inputInitialStates, 
 			DawgFactory<LETTER, COLNAMES> dawgFactory) {
 		this.mColnames = colnames;
-		this.mAllConstants = allConstants;
 		this.mLogger = logger;
 		this.mInputTransitionRelation = inputTransitionRelation;
 		this.mInputInitialStates = inputInitialStates;

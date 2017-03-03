@@ -709,7 +709,6 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 		assert mResultTransitionRelation != null;
 		assert mResultInitialStates != null;
 		return new DeterminizeDawg<LETTER, COLNAMES>(mResultColnames, 
-				mInputDawg.getAllConstants(), 
 				mInputDawg.getLogger(), 
 				mResultTransitionRelation,
 				mResultInitialStates,

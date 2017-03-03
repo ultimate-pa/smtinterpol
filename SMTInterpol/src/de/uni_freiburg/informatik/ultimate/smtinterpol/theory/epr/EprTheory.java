@@ -137,7 +137,7 @@ public class EprTheory implements ITheory {
 		mStateManager = new EprStateManager(this);
 		mGroundAllMode = solveThroughGrounding;
 		
-		mDawgFactory = new DawgFactory<ApplicationTerm,TermVariable>(this, mStateManager.getAllConstants());
+		mDawgFactory = new DawgFactory<ApplicationTerm,TermVariable>(this);
 		mClauseFactory = new EprClauseFactory(this);
 		
 		mStateManager.setDawgFactory(mDawgFactory);

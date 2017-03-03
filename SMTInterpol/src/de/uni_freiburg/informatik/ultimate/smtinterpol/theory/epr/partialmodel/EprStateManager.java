@@ -60,7 +60,6 @@ import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
  */
 public class EprStateManager {
 
-	private ScopedHashSet<ApplicationTerm> mUsedConstants = new ScopedHashSet<ApplicationTerm>();
 
 	public EqualityManager mEqualityManager;
 	private EprTheory mEprTheory;
@@ -98,7 +97,7 @@ public class EprStateManager {
 		mEprClauseManager.push();
 		mDecideStackManager.push();
 		mAllEprPredicates.beginScope();
-		mUsedConstants.beginScope();
+		mDawgFactory.push();
 		mEprClauseFactory.push();
 	}
 
@@ -106,7 +105,7 @@ public class EprStateManager {
 		mEprClauseManager.pop();
 		mDecideStackManager.pop();
 		mAllEprPredicates.endScope();
-		mUsedConstants.endScope();
+		mDawgFactory.pop();
 		mEprClauseFactory.pop();
 	}
 
@@ -279,7 +278,7 @@ public class EprStateManager {
 	}
 
 	public Set<ApplicationTerm> getAllConstants() {
-		return mUsedConstants;
+		return mDawgFactory.getAllConstants();
 	}
 
 	/**
@@ -298,7 +297,7 @@ public class EprStateManager {
 			addGroundClausesForNewConstant(reallyNewConstants);
 		}
 		mLogger.debug("EPRDEBUG: (EprStateManager): adding constants " + constants);
-		mUsedConstants.addAll(constants);
+		mDawgFactory.addConstants(constants);
 	}
 
 	private void addGroundClausesForNewConstant(HashSet<ApplicationTerm> newConstants) {
