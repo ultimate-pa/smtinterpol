@@ -4,16 +4,16 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
 
 public class EprTestHelpers {
 
 	public static <LETTER, COLNAMES> void addConstantsWDefaultSort(
 			DawgFactory<LETTER, COLNAMES> dawgFactoryStringString, Collection<LETTER> constants) {
-		String sortString = "sort";
 		
 		for (LETTER constant : constants) {
-			dawgFactoryStringString.addConstant(sortString, constant);
+			dawgFactoryStringString.addConstant(EprHelpers.getDummySortId(), constant);
 		}
 	}
 

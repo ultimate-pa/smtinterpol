@@ -1062,15 +1062,22 @@ public class EprHelpers {
 		return true;
 	}
 
+	/**
+	 * right now we only have different sorts when our colnames are of type TermVariable,
+	 * otherwise we just have one dummy-String as Sort-Identifier.
+	 */
 	public static <COLNAMES> Object extractSortFromColname(COLNAMES cn) {
 		if (TermVariable.class.isInstance(cn)) {
 			TermVariable at = (TermVariable) cn;
 			return at.getSort();
 		}
-		assert false : "what to do here? (should only happen in unit-tests, right?)";
-		return null;
+//		assert false : "what to do here? (should only happen in unit-tests, right?)";
+		return getDummySortId();
 	}
 
 
+	public static Object getDummySortId() {
+		return "dummySort";
+	}
 	
 }
