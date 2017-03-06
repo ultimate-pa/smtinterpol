@@ -239,4 +239,67 @@ public class DawgTestDuplicateColumns {
 		assertTrue(dawg4.accepts(word_bbb));
 
 	}
+	
+	
+	/**
+	 * Example for RenameAndReorder in duplication mode
+	 *  aimed to check that edges with set-DawgLetters are split up correctly 
+	 *   (e.g. an edge that could be taken with {a,b} that is duplicated does not lead to (a b) being accepted)
+	 * 
+	 */
+	@Test
+	public void test12() {
+		DawgFactory<String, String> dawgFactoryStringString = 
+				new DawgFactory<String, String>(getEprTheory());
+
+		EprTestHelpers.addConstantsWDefaultSort(dawgFactoryStringString, EprTestHelpers.constantsAbc());
+
+		SortedSet<String> signaturePre = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
+		signaturePre.addAll(Arrays.asList(new String[] { "u",}));
+		
+		SortedSet<String> signaturePost = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
+		signaturePost.addAll(Arrays.asList(new String[] { "u", "v"}));
+
+		/*
+		 * word in the original automaton
+		 */
+		List<String> word_a = Arrays.asList(new String[] { "a" });
+		List<String> word_b = Arrays.asList(new String[] { "b" });
+		List<String> word_c = Arrays.asList(new String[] { "c" });
+
+		/*
+		 * words that should be in the transformed automaton
+		 */
+		List<String> word_aa = Arrays.asList(new String[] { "a", "a" });
+		List<String> word_bb = Arrays.asList(new String[] { "b", "b" });
+
+		/*
+		 * words that should not be in the transformed automaton
+		 */
+		List<String> word_ab = Arrays.asList(new String[] { "a", "b" });
+		List<String> word_ba = Arrays.asList(new String[] { "b", "a" });
+
+
+		IDawg<String, String> dawgPre = dawgFactoryStringString.getUniversalDawg(signaturePre);
+		
+		assertTrue(dawgPre.accepts(word_a));
+		assertTrue(dawgPre.accepts(word_b));
+		assertTrue(dawgPre.accepts(word_c));
+		
+
+		Dawg<String, String> dawgPost = new ReorderAndRenameDawgBuilder<String, String>(
+					dawgFactoryStringString, 
+					(Dawg<String, String>) dawgPre, 
+					"u", 
+					"v",
+					true)
+				.build();
+		
+		assertTrue(dawgPost.getColNames().equals(signaturePost));
+		assertTrue(dawgPost.accepts(word_aa));
+		assertTrue(dawgPost.accepts(word_bb));
+		assertFalse(dawgPost.accepts(word_ab));
+		assertFalse(dawgPost.accepts(word_ba));
+
+	}
 }
