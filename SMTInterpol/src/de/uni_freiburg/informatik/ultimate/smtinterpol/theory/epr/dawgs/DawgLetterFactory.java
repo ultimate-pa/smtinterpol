@@ -142,7 +142,9 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 	}
 	
 	public Set<LETTER> getAllConstants(Object sortId) {
-		return mDawgFactory.getAllConstants(sortId);
+		Set<LETTER> result = mDawgFactory.getAllConstants(sortId);
+		assert result != null;
+		return result;
 	}
 
 	/**

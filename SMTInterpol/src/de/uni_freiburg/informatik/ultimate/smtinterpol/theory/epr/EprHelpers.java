@@ -1039,10 +1039,9 @@ public class EprHelpers {
 				if (l1.equals(l2)) {
 					continue;
 				}
-				assert !(l1.intersect(l2) instanceof EmptyDawgLetter<?, ?>) : "should we allow this?";
-//				if (l1.intersect(l2).equals(dawgLetterFactory.getEmptyDawgLetter())) {
-//					continue;
-//				}
+				if (l1.intersect(l2) instanceof EmptyDawgLetter<?, ?>) {
+					continue;
+				}
 				return new Pair<IDawgLetter<LETTER,COLNAMES>, IDawgLetter<LETTER,COLNAMES>>(l1, l2);
 			}
 		}
@@ -1064,9 +1063,8 @@ public class EprHelpers {
 	}
 
 	public static <COLNAMES> Object extractSortFromColname(COLNAMES cn) {
-		Class<? extends Object> cnClass = cn.getClass();
-		if (cnClass.isInstance(ApplicationTerm.class)) {
-			ApplicationTerm at = (ApplicationTerm) cn;
+		if (TermVariable.class.isInstance(cn)) {
+			TermVariable at = (TermVariable) cn;
 			return at.getSort();
 		}
 		assert false : "what to do here? (should only happen in unit-tests, right?)";

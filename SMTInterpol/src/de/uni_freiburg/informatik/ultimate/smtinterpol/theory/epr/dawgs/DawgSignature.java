@@ -12,10 +12,10 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 
 public class DawgSignature<COLNAMES> {
 	
-	private SortedSet<COLNAMES> mColNames;
-	private Map<COLNAMES, Integer> mColNameToIndex;
-	private Map<COLNAMES, Object> mColnameToSortId;
-	private List<Object> mColumnSorts;
+	private final SortedSet<COLNAMES> mColNames;
+	private final Map<COLNAMES, Integer> mColNameToIndex;
+	private final Map<COLNAMES, Object> mColnameToSortId;
+	private final List<Object> mColumnSorts;
 	
 	public DawgSignature(SortedSet<COLNAMES> colNames) {
 		mColNames = colNames;
@@ -45,7 +45,10 @@ public class DawgSignature<COLNAMES> {
 	}
 
 	public Object getSortForColname(COLNAMES colName) {
-		return mColnameToSortId.get(colName);
+		assert mColNames.contains(colName);
+		Object result = mColnameToSortId.get(colName);
+		assert result != null;
+		return result;
 	}
 
 	public List<Object> getColumnSorts() {
@@ -56,4 +59,12 @@ public class DawgSignature<COLNAMES> {
 		return mColNames.size();
 	}
 
+	@Override
+	public boolean equals(Object other) {
+		if (!(other instanceof DawgSignature<?>)) {
+			return false;
+		}
+		
+		return ((DawgSignature<?>) other).getColNames().equals(mColNames);
+	}
 }

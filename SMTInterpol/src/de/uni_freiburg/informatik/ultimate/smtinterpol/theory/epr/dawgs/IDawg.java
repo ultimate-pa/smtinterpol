@@ -34,6 +34,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.BinaryRelation
  */
 public interface IDawg<LETTER, COLNAMES> extends Iterable<List<LETTER>> {
 	
+	DawgSignature<COLNAMES> getSignature();
+	
 	SortedSet<COLNAMES> getColNames();
 	
 //	int getArity();

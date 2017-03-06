@@ -63,6 +63,11 @@ public abstract class AbstractDawg<LETTER, COLNAMES> implements IDawg<LETTER, CO
 		mLogger = logger;
 
 	}
+	
+	@Override
+	public DawgSignature<COLNAMES> getSignature() {
+		return mSignature;
+	}
 
 	@Override
 	public SortedSet<COLNAMES> getColNames() {

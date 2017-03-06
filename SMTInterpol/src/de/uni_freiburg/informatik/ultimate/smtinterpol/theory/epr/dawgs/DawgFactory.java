@@ -59,8 +59,8 @@ public class DawgFactory<LETTER, COLNAMES> {
 	private final Map<SortedSet<COLNAMES>, IDawg<LETTER, COLNAMES>> mUniversalDawgs = 
 			new HashMap<SortedSet<COLNAMES>, IDawg<LETTER, COLNAMES>>();
 
-	private final ScopedHashMap<String, Set<LETTER>> mAllKnownConstants = new ScopedHashMap<String, Set<LETTER>>();
-	private final ScopedHashSet<String> mAllKnownSorts = new ScopedHashSet<String>();
+	private final ScopedHashMap<Object, Set<LETTER>> mAllKnownConstants = new ScopedHashMap<Object, Set<LETTER>>();
+//	private final ScopedHashSet<String> mAllKnownSorts = new ScopedHashSet<String>();
 
 	public DawgFactory(EprTheory eprTheory) {
 //		mEprStateManager = stateManager;
@@ -378,20 +378,22 @@ public class DawgFactory<LETTER, COLNAMES> {
 //		}
 		
 		public Set<LETTER> getAllConstants(Object sortId) {
-			return mAllKnownConstants.get(sortId);
+			Set<LETTER> result = mAllKnownConstants.get(sortId);
+			assert result != null;
+			return result;
 		}
 
 		public void push() {
 			mAllKnownConstants.beginScope();
-			mAllKnownSorts.beginScope();
+//			mAllKnownSorts.beginScope();
 		}
 
 		public void pop() {
 			mAllKnownConstants.endScope();
-			mAllKnownSorts.endScope();
+//			mAllKnownSorts.endScope();
 		}
 
-		public void addConstant(String sortId, LETTER constant) {
+		public void addConstant(Object sortId, LETTER constant) {
 //			mAllKnownConstants.addAll(constants);
 			Set<LETTER> set = mAllKnownConstants.get(sortId);
 			if (set == null) {
@@ -401,8 +403,8 @@ public class DawgFactory<LETTER, COLNAMES> {
 			set.add(constant);
 		}
 	
-		public void addSort(String sortId) {
-			mAllKnownSorts.add(sortId);
-		}
+//		public void addSort(String sortId) {
+//			mAllKnownSorts.add(sortId);
+//		}
 
 }

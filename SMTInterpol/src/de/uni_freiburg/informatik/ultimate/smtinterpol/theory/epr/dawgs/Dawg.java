@@ -282,9 +282,18 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	 */
 	@Override
 	public IDawg<LETTER, COLNAMES> complement() {
+		if (this.isEmpty()) {
+			return mDawgFactory.getUniversalDawg(getColNames());
+		}
+		if (this.isUniversal()) {
+			return mDawgFactory.getEmptyDawg(getColNames());
+		}
+		
 		/*
-		 * algorithmic plan: - as usual: iterate through state "level by level"
-		 * (or column by column) - in principle this performs a completion of
+		 * algorithmic plan: 
+		 * <li> as usual: iterate through state "level by level"
+		 * (or column by column) 
+		 * <li> in principle this performs a completion of
 		 * the automaton viewed as a DFA, with some changes: -- the complement
 		 * we want to compute is the complement in Sigma^|colnames|, not Sigma^*
 		 * -- thus we do not introduce loops, instead we have a sink state
@@ -517,10 +526,10 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		remainingColumns.removeAll(translationVariables.values());
 		for (COLNAMES col : remainingColumns) {
 			result = (Dawg<LETTER, COLNAMES>) result.insertColumn(col, 
-					mDawgLetterFactory.getUniversalDawgLetter(mSignature.getSortForColname(col)));
+					mDawgLetterFactory.getUniversalDawgLetter(EprHelpers.extractSortFromColname(col)));
 		}
 
-		assert result.getColNames().equals(targetSignature);
+		assert result.getSignature().equals(targetSignature);
 		return result;
 	}
 

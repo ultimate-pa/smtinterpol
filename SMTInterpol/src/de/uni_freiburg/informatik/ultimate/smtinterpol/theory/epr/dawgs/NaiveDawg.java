@@ -46,15 +46,15 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	
 	Set<List<LETTER>> mBacking;
 	private Set<List<LETTER>> mNCrossProduct;
-	private final ScopedHashMap<String, Set<LETTER>> mAllConstants;
+	private final ScopedHashMap<Object, Set<LETTER>> mAllConstants;
 	
-	public NaiveDawg(SortedSet<COLNAMES> termVariables, ScopedHashMap<String, Set<LETTER>> allConstants, LogProxy logger) {
+	public NaiveDawg(SortedSet<COLNAMES> termVariables, ScopedHashMap<Object, Set<LETTER>> allConstants, LogProxy logger) {
 		super(termVariables, logger);
 		mAllConstants = allConstants;
 		mBacking = new HashSet<List<LETTER>>();
 	}
 
-	public NaiveDawg(SortedSet<COLNAMES> termVariables, ScopedHashMap<String, Set<LETTER>> allConstants, 
+	public NaiveDawg(SortedSet<COLNAMES> termVariables, ScopedHashMap<Object, Set<LETTER>> allConstants, 
 			Set<List<LETTER>> initialLanguage, LogProxy logger) {
 		super(termVariables, logger);
 		mAllConstants = allConstants;

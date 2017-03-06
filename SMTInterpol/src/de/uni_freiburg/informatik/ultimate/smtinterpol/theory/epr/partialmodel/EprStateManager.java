@@ -121,6 +121,10 @@ public class EprStateManager {
 
 	public void addNewEprPredicate(EprPredicate pred) {
 			mAllEprPredicates.add(pred);
+			
+			for (Sort pSort : pred.getFunctionSymbol().getParameterSorts()) {
+				registerSort(pSort);
+			}
 	}
 
 	public void registerEprGroundPredicateLiteral(EprGroundPredicateLiteral egpl, Literal l) {
@@ -319,7 +323,7 @@ public class EprStateManager {
 	private void registerSort(Sort sort) {
 		final boolean alreadyPresent = !mKnownSorts.add(sort);
 		if (!alreadyPresent) {
-			mDawgFactory.addConstant(sort.getName(), createDefaultConstant(sort));
+			mDawgFactory.addConstant(sort, createDefaultConstant(sort));
 		}
 	}
 
