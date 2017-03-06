@@ -40,8 +40,9 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 				final DawgPath newPath = new DawgPath(mInitialState, outEdge.getFirst(), outEdge.getSecond());
 				if (newPath.isComplete()) {
 					mOpenCompleteDawgPaths.addLast(newPath);
+				} else {
+					mOpenIncompleteDawgPaths.push(newPath);
 				}
-				mOpenIncompleteDawgPaths.push(newPath);
 			}
 		}
 	}
