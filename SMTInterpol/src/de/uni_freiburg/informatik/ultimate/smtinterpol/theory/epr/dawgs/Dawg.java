@@ -709,7 +709,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	private Dawg<LETTER, COLNAMES> reorderAndRename(BinaryRelation<COLNAMES, COLNAMES> renaming) {
 		assert !renaming.getDomain().isEmpty();
 
-		if (this.isEmpty() || this.isUniversal()) {
+		if (this.isEmpty() || (this.isUniversal() && renaming.isFunction() && renaming.isInjective())) {
 			// for an empty or universal dawg we just return a fresh dawg with
 			// the new signature
 			final SortedSet<COLNAMES> newSignature = EprHelpers.transformSignature(mSignature.getColNames(), renaming);
@@ -725,9 +725,10 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			Set<COLNAMES> newCols = renaming.getImage(oldcol);
 			if (newCols.size() == 1) {
 				final COLNAMES newCol = newCols.iterator().next();
-				// we currently assume that merging can only happen when there
-				// is only one newCol
 				if (result.getColNames().contains(newCol)) {
+					// we currently assume that merging can only happen when there
+					// is only one newCol
+					assert renaming.isFunction();
 					// merge case
 					result = new ReorderAndRenameDawgBuilder<LETTER, COLNAMES>(mDawgFactory, result, oldcol, newCol,
 							false, true).build();

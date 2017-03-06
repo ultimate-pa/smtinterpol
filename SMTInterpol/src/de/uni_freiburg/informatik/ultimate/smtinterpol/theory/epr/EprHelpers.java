@@ -509,7 +509,7 @@ public class EprHelpers {
 			ArrayList<TTSubstitution> instsNewWONC = new ArrayList<TTSubstitution>();
 			for (TTSubstitution sub : instsWithNewConstant) {
 				for (ApplicationTerm con : allConstants) {
-					if (con.getSort().equals(tv.getSort())) {
+					if (con.getSort().getRealSort() == tv.getSort().getRealSort()) {
 						TTSubstitution newSub = new TTSubstitution(sub);
 						newSub.addSubs(con, tv);
 						instsNewWNC.add(newSub);
@@ -549,7 +549,7 @@ public class EprHelpers {
 			ArrayList<TTSubstitution> instsNew = new ArrayList<TTSubstitution>();
 			for (TTSubstitution sub : insts) {
 				for (ApplicationTerm con : constants) {
-					if (con.getSort().equals(tv.getSort())) {
+					if (con.getSort().getRealSort() == tv.getSort().getRealSort()) {
 						TTSubstitution newSub = new TTSubstitution(sub);
 						newSub.addSubs(con, tv);
 						instsNew.add(newSub);
@@ -597,7 +597,7 @@ public class EprHelpers {
 			ApplicationTerm pointAtI = (ApplicationTerm) point.get(i);
 			TermVariable colnameTvI = (TermVariable) colnamesIt.next();
 			
-			if (pointAtI.getSort() != colnameTvI.getSort()) {
+			if (pointAtI.getSort().getRealSort() != colnameTvI.getSort().getRealSort()) {
 				return false;
 			}
 		}

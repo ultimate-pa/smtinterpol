@@ -134,4 +134,22 @@ public class BinaryRelation<T, U> {
 			image.remove(u);
 		}
 	}
+
+	/**
+	 * checks if this relation is left-unique or injective if it is a function..
+	 * @return
+	 */
+	public boolean isInjective() {
+		for (Entry<T, Set<U>> en1 : mBacking.entrySet()) {
+			for (Entry<T, Set<U>> en2 : mBacking.entrySet()) {
+				Set<U> intersection = new HashSet<U>(en1.getValue());
+				intersection.retainAll(en2.getValue());
+					
+				if (!intersection.isEmpty()) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
 }

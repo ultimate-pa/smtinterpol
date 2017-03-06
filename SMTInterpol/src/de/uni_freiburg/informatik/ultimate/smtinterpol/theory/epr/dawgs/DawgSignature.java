@@ -67,4 +67,9 @@ public class DawgSignature<COLNAMES> {
 		
 		return ((DawgSignature<?>) other).getColNames().equals(mColNames);
 	}
+	
+	@Override
+	public String toString() {
+		return "DawgSignature: " + mColNames.toString();
+	}
 }

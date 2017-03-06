@@ -304,7 +304,7 @@ public class EprStateManager {
 		if (mEprTheory.isGroundAllMode()) {
 			HashSet<ApplicationTerm> reallyNewConstants = new HashSet<ApplicationTerm>();
 			for (ApplicationTerm newConstant : constants) {
-				if (!mDawgFactory.getAllConstants(newConstant.getSort().getName()).contains(newConstant))
+				if (!mDawgFactory.getAllConstants(newConstant.getSort().getRealSort()).contains(newConstant))
 					reallyNewConstants.add(newConstant);
 			}
 	
@@ -314,9 +314,9 @@ public class EprStateManager {
 
 //		mDawgFactory.addConstants(constants);
 		for (ApplicationTerm constant : constants) {
-			Sort sort = constant.getSort();
+			Sort sort = constant.getSort().getRealSort();
 			registerSort(sort);
-			mDawgFactory.addConstant(sort.getName(), constant);
+			mDawgFactory.addConstant(sort, constant);
 		}
 	}
 	
@@ -325,6 +325,16 @@ public class EprStateManager {
 		if (!alreadyPresent) {
 			mDawgFactory.addConstant(sort, createDefaultConstant(sort));
 		}
+		assert allKnownSortsAreRealSorts(mKnownSorts);
+	}
+
+	private boolean allKnownSortsAreRealSorts(ScopedHashSet<Sort> knownSorts) {
+		for (Sort ks : knownSorts) {
+			if (ks != ks.getRealSort()) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	private ApplicationTerm createDefaultConstant(Sort sort) {

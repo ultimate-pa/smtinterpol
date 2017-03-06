@@ -249,7 +249,8 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 							
 							if (currentClp.getLetterIterator().hasNext()) {
 								final ColumnLetterPrefix verticalNewClp = 
-										new ColumnLetterPrefix(currentClp.getPrefix().subList(0, mNoColumns - 2), 
+										new ColumnLetterPrefix(
+												currentClp.getPrefix().subList(0, currentClp.getPrefix().size() - 1), 
 												currentClp.getLetterIterator().next(), currentClp.getLetterIterator());
 								mOpenClps.push(verticalNewClp);
 							}
@@ -259,7 +260,8 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 							List<LETTER> resultWord = currentClp.mPrefix;
 							if (currentClp.getLetterIterator().hasNext()) {
 								ColumnLetterPrefix newClp = 
-										new ColumnLetterPrefix(currentClp.getPrefix().subList(0, mNoColumns - 2), 
+										new ColumnLetterPrefix(
+												currentClp.getPrefix().subList(0, currentClp.getPrefix().size() - 1), 
 												currentClp.getLetterIterator().next(), currentClp.getLetterIterator());
 								mOpenClps.push(newClp);
 							}
