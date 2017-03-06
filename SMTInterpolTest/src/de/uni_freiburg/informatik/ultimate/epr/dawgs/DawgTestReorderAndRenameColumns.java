@@ -51,7 +51,7 @@ public class DawgTestReorderAndRenameColumns {
 	public void test2() {
 		DawgFactory<String, String> dawgFactoryStringString = 
 				new DawgFactory<String, String>(getEprTheory());
-		dawgFactoryStringString.addConstants(getAllConstants());
+		EprTestHelpers.addConstantsWDefaultSort(dawgFactoryStringString, EprTestHelpers.constantsAbc());
 
 		/*
 		 * words in the original automaton
@@ -119,7 +119,7 @@ public class DawgTestReorderAndRenameColumns {
 	public void test3() {
 		DawgFactory<String, String> dawgFactoryStringString = 
 				new DawgFactory<String, String>(getEprTheory());
-		dawgFactoryStringString.addConstants(getAllConstants());
+		EprTestHelpers.addConstantsWDefaultSort(dawgFactoryStringString, EprTestHelpers.constantsAbc());
 		
 		SortedSet<String> signaturePre = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signaturePre.addAll(Arrays.asList(new String[] { "u", "v", "x"}));
@@ -178,7 +178,7 @@ public class DawgTestReorderAndRenameColumns {
 		
 		DawgFactory<String, String> dawgFactoryStringString = 
 				new DawgFactory<String, String>(getEprTheory());
-		dawgFactoryStringString.addConstants(allConstants);
+		EprTestHelpers.addConstantsWDefaultSort(dawgFactoryStringString, EprTestHelpers.constantsAbcde());
 
 		/*
 		 * words in the original automaton
@@ -224,7 +224,7 @@ public class DawgTestReorderAndRenameColumns {
 		
 		DawgFactory<String, String> dawgFactoryStringString = 
 				new DawgFactory<String, String>(getEprTheory());
-		dawgFactoryStringString.addConstants(getAllConstants());
+		EprTestHelpers.addConstantsWDefaultSort(dawgFactoryStringString, EprTestHelpers.constantsAbc());
 
 		/*
 		 * words in the original automaton
@@ -296,7 +296,7 @@ public class DawgTestReorderAndRenameColumns {
 	public void test6() {
 		DawgFactory<String, String> dawgFactoryStringString = 
 				new DawgFactory<String, String>(getEprTheory());
-		dawgFactoryStringString.addConstants(getAllConstants());
+		EprTestHelpers.addConstantsWDefaultSort(dawgFactoryStringString, EprTestHelpers.constantsAbc());
 		
 		SortedSet<String> signaturePre = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signaturePre.addAll(Arrays.asList(new String[] { "u", "w", "x"}));
@@ -340,7 +340,7 @@ public class DawgTestReorderAndRenameColumns {
 	public void test7() {
 		DawgFactory<String, String> dawgFactoryStringString = 
 				new DawgFactory<String, String>(getEprTheory());
-		dawgFactoryStringString.addConstants(getAllConstants());
+		EprTestHelpers.addConstantsWDefaultSort(dawgFactoryStringString, EprTestHelpers.constantsAbc());
 		
 		SortedSet<String> signaturePre = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signaturePre.addAll(Arrays.asList(new String[] { "u", "w", "x"}));

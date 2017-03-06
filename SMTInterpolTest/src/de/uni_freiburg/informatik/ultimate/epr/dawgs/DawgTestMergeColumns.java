@@ -22,14 +22,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.ReorderA
 
 public class DawgTestMergeColumns {
 
-	Set<String> getAllConstants() {
-		Set<String> result = new HashSet<String>();
-		result.add("a");
-		result.add("b");
-		result.add("c");
-		return result;
-	}
-
 	private EprTheory getEprTheory() {
 		return new EprTheoryMock(getLogger());
 	}
@@ -49,11 +41,12 @@ public class DawgTestMergeColumns {
 	 */
 	@Test
 	public void test1a() {
-		Set<String> allConstants = new HashSet<String>(Arrays.asList(new String[] { "a", "b", "c", "d", "e" }));
+//		Set<String> allConstants = new HashSet<String>(Arrays.asList(new String[] { "a", "b", "c", "d", "e" }));
 
 		DawgFactory<String, String> dawgFactoryStringString = 
 				new DawgFactory<String, String>(getEprTheory());
-		dawgFactoryStringString.addConstants(allConstants);
+//		dawgFactoryStringString.addConstants(allConstants);
+		EprTestHelpers.addConstantsWDefaultSort(dawgFactoryStringString, EprTestHelpers.constantsAbcde());
 
 		/*
 		 * words in the original automaton
@@ -82,7 +75,7 @@ public class DawgTestMergeColumns {
 				true)
 				.build();
 
-		assertTrue(dawg4.getColnames().equals(signature4));
+		assertTrue(dawg4.getColNames().equals(signature4));
 		assertTrue(dawg4.isEmpty());
 	}
 	
@@ -97,11 +90,10 @@ public class DawgTestMergeColumns {
 	 */
 	@Test
 	public void test1b() {
-		Set<String> allConstants = new HashSet<String>(Arrays.asList(new String[] { "a", "b", "c", "d", "e" }));
 
 		DawgFactory<String, String> dawgFactoryStringString = 
 				new DawgFactory<String, String>(getEprTheory());
-		dawgFactoryStringString.addConstants(allConstants);
+		EprTestHelpers.addConstantsWDefaultSort(dawgFactoryStringString, EprTestHelpers.constantsAbcde());
 
 		/*
 		 * words in the original automaton
@@ -132,7 +124,7 @@ public class DawgTestMergeColumns {
 				true)
 				.build();
 
-		assertTrue(dawg4.getColnames().equals(signature4));
+		assertTrue(dawg4.getColNames().equals(signature4));
 		assertTrue(dawg4.accepts(word_acbe));
 	}
 	
@@ -146,11 +138,10 @@ public class DawgTestMergeColumns {
 	 */
 	@Test
 	public void test1() {
-		Set<String> allConstants = new HashSet<String>(Arrays.asList(new String[] { "a", "b", "c", "d", "e" }));
 		
 		DawgFactory<String, String> dawgFactoryStringString = 
 				new DawgFactory<String, String>(getEprTheory());
-		dawgFactoryStringString.addConstants(allConstants);
+		EprTestHelpers.addConstantsWDefaultSort(dawgFactoryStringString, EprTestHelpers.constantsAbcde());
 
 
 		/*
@@ -192,7 +183,7 @@ public class DawgTestMergeColumns {
 					true)
 				.build();
 
-		assertTrue(dawg4.getColnames().equals(signature4));
+		assertTrue(dawg4.getColNames().equals(signature4));
 		assertTrue(dawg4.accepts(word_acbe));
 		assertTrue(dawg4.accepts(word_ccca));
 		assertTrue(dawg4.accepts(word_caac));
@@ -209,7 +200,7 @@ public class DawgTestMergeColumns {
 	public void test2() {
 		DawgFactory<String, String> dawgFactoryStringString = 
 				new DawgFactory<String, String>(getEprTheory());
-		dawgFactoryStringString.addConstants(getAllConstants());
+		EprTestHelpers.addConstantsWDefaultSort(dawgFactoryStringString, EprTestHelpers.constantsAbc());
 		
 		SortedSet<String> signaturePre = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signaturePre.addAll(Arrays.asList(new String[] { "u", "v", "w"}));
@@ -252,7 +243,7 @@ public class DawgTestMergeColumns {
 					true)
 				.build();
 		
-		assertTrue(dawg4.getColnames().equals(signaturePost));
+		assertTrue(dawg4.getColNames().equals(signaturePost));
 		assertTrue(dawg4.accepts(word_aa));
 		assertTrue(dawg4.accepts(word_ab));
 		assertTrue(dawg4.accepts(word_ca));
@@ -268,7 +259,7 @@ public class DawgTestMergeColumns {
 	public void test3() {
 		DawgFactory<String, String> dawgFactoryStringString = 
 				new DawgFactory<String, String>(getEprTheory());
-		dawgFactoryStringString.addConstants(getAllConstants());
+		EprTestHelpers.addConstantsWDefaultSort(dawgFactoryStringString, EprTestHelpers.constantsAbc());
 		
 		SortedSet<String> signaturePre = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signaturePre.addAll(Arrays.asList(new String[] { "u", "v", "w"}));
@@ -311,7 +302,7 @@ public class DawgTestMergeColumns {
 					true)
 				.build();
 		
-		assertTrue(dawg4.getColnames().equals(signaturePost));
+		assertTrue(dawg4.getColNames().equals(signaturePost));
 		assertTrue(dawg4.accepts(word_aa));
 		assertTrue(dawg4.accepts(word_ba));
 		assertTrue(dawg4.accepts(word_ca));

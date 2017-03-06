@@ -47,7 +47,7 @@ public class UnionOrIntersectionDawgBuilder<LETTER, COLNAMES> {
 
 	UnionOrIntersectionDawgBuilder(Dawg<LETTER, COLNAMES> first, Dawg<LETTER, COLNAMES> second, 
 			DawgFactory<LETTER, COLNAMES> df) {
-		assert first.mColNames.equals(second.mColNames) : "signatures don't match!";
+		assert first.mSignature.equals(second.mSignature) : "signatures don't match!";
 		mDawgFactory = df;
 		mDawgStateFactory = df.getDawgStateFactory();
 		mDawgLetterFactory = df.getDawgLetterFactory();
@@ -79,7 +79,7 @@ public class UnionOrIntersectionDawgBuilder<LETTER, COLNAMES> {
 		Set<PairDawgState> currentStates = new HashSet<PairDawgState>();
 		currentStates.add((PairDawgState) mResultInitialState);
 		
-		for (int i = 0; i < mFirstInputDawg.getColnames().size(); i++) {
+		for (int i = 0; i < mFirstInputDawg.getColNames().size(); i++) {
 			final Set<PairDawgState> nextStates = new HashSet<PairDawgState>();
 			
 			for (PairDawgState cs : currentStates) {
@@ -206,6 +206,6 @@ public class UnionOrIntersectionDawgBuilder<LETTER, COLNAMES> {
 		}
 		
 		return new Dawg<LETTER, COLNAMES>(mDawgFactory, mFirstInputDawg.getLogger(), 
-				 mFirstInputDawg.getColnames(), mResultTransitionRelation, mResultInitialState);
+				 mFirstInputDawg.getColNames(), mResultTransitionRelation, mResultInitialState);
 	}
 }

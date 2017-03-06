@@ -65,8 +65,8 @@ public class DslBuilder {
 			boolean isDecision) {
 		this(polarity, pred, dawg);
 		assert !isDecision : "shouldn't we use the other constructor here?";
-		assert pred.getTermVariablesForArguments().equals(dawg.getColnames());
-		assert reasonUnitClause.getClause().getVariables().equals(reasonClauseDawg.getColnames());
+		assert pred.getTermVariablesForArguments().equals(dawg.getColNames());
+		assert reasonUnitClause.getClause().getVariables().equals(reasonClauseDawg.getColNames());
 		mIsDecision = isDecision;
 		mReasonUnitClause = reasonUnitClause;
 		mReasonClauseDawg = reasonClauseDawg;

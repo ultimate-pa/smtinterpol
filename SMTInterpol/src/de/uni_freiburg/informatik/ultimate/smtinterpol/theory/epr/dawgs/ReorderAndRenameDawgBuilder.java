@@ -74,11 +74,11 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 	public ReorderAndRenameDawgBuilder(DawgFactory<LETTER, COLNAMES> dawgFactory, Dawg<LETTER, COLNAMES> inputDawg,
 			COLNAMES oldColumn, COLNAMES newColumn, boolean duplicationMode, boolean mergeMode) {
 		assert !duplicationMode || !mergeMode : "duplicationMode and mergeMode flags set --> make no sense";
-		assert inputDawg.getColnames().contains(oldColumn) : "the old column is not part of the input dawg's signature;"
+		assert inputDawg.getColNames().contains(oldColumn) : "the old column is not part of the input dawg's signature;"
 				+ " what does that mean?";
-		assert mergeMode || !inputDawg.getColnames().contains(newColumn) : "we are not in merge mode and "
+		assert mergeMode || !inputDawg.getColNames().contains(newColumn) : "we are not in merge mode and "
 				+ "the new column is already in the input dawg's signature.";
-		assert !mergeMode || inputDawg.getColnames().contains(newColumn) : " we are in merge mode but the target column is not part"
+		assert !mergeMode || inputDawg.getColNames().contains(newColumn) : " we are in merge mode but the target column is not part"
 				+ " of the input dawg's signature";
 		mInputDawg = inputDawg;
 		mDawgFactory = dawgFactory;
@@ -134,7 +134,7 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 					new HashRelation3<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState>(
 							mInputDawg.getTransitionRelation());
 			mResultInitialStates = Collections.singleton(mInputDawg.getInitialState());
-			mResultColnames = mInputDawg.getColnames();
+			mResultColnames = mInputDawg.getColNames();
 			return;
 		}
 
@@ -149,7 +149,7 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 				&& (newRightNeighbour == oldRightNeighbour // we need "=="-check for the null case
 					|| (newRightNeighbour != null && newRightNeighbour.equals(oldRightNeighbour)))) {
 			SortedSet<COLNAMES> newColNames = new TreeSet<COLNAMES>(EprHelpers.getColumnNamesComparator());
-			newColNames.addAll(mInputDawg.getColnames());
+			newColNames.addAll(mInputDawg.getColNames());
 			newColNames.remove(mOldColname);
 			newColNames.add(mNewColname);
 			mResultColnames = newColNames;
@@ -211,9 +211,9 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 	
 		final Iterator<COLNAMES> oldColIterator;
 		if (movesToTheRight) {
-			oldColIterator = mInputDawg.getColnames().iterator();
+			oldColIterator = mInputDawg.getColNames().iterator();
 		} else {
-			oldColIterator = new LinkedList<COLNAMES>(mInputDawg.getColnames()).descendingIterator();
+			oldColIterator = new LinkedList<COLNAMES>(mInputDawg.getColNames()).descendingIterator();
 		}
 
 		/*
@@ -294,7 +294,7 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 		 * step 4: compute new signature
 		 */
 		SortedSet<COLNAMES> newColNames = new TreeSet<COLNAMES>(EprHelpers.getColumnNamesComparator());
-		newColNames.addAll(mInputDawg.getColnames());
+		newColNames.addAll(mInputDawg.getColNames());
 		if (!mDuplicationMode) {
 			newColNames.remove(mOldColname);
 		}

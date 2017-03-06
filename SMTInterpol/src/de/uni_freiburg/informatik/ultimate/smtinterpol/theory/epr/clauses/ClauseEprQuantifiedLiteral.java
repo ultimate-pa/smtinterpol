@@ -172,7 +172,7 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	 */
 	public IDawg<ApplicationTerm, TermVariable> getFulfillablePoints(DecideStackLiteral decideStackBorder) {
 		assert !mIsStateDirty;
-		assert mFulfillablePoints.getColnames().equals(mEprClause.getVariables()) :
+		assert mFulfillablePoints.getColNames().equals(mEprClause.getVariables()) :
 			"fulfillable points must be given in clause signature";
 		IDawg<ApplicationTerm, TermVariable> result = mFulfillablePoints;
 		return result;
@@ -180,7 +180,7 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 
 	public IDawg<ApplicationTerm, TermVariable> getFulfilledPoints() {
 		assert !mIsStateDirty;
-		assert mFulfilledPoints.getColnames().equals(mEprClause.getVariables()) :
+		assert mFulfilledPoints.getColNames().equals(mEprClause.getVariables()) :
 			"fulfilled points must be given in clause signature";
 		IDawg<ApplicationTerm, TermVariable> result = mFulfilledPoints;
 		return result;
@@ -188,7 +188,7 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 
 	public IDawg<ApplicationTerm, TermVariable> getRefutedPoints() {
 		assert !mIsStateDirty;
-		assert mRefutedPoints.getColnames().equals(mEprClause.getVariables()) : 
+		assert mRefutedPoints.getColNames().equals(mEprClause.getVariables()) : 
 			"refuted points must be given in clause signature";
 		IDawg<ApplicationTerm, TermVariable> result = mRefutedPoints;
 		return result;
@@ -264,9 +264,9 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 		assert EprHelpers.verifySortsOfPoints(fulfilledPoints, mEprClause.getVariables());
 		assert EprHelpers.verifySortsOfPoints(refutedPoints, mEprClause.getVariables());
 
-		assert mFulfillablePoints.getColnames().equals(mEprClause.getVariables());
-		assert mFulfilledPoints.getColnames().equals(mEprClause.getVariables());
-		assert mRefutedPoints.getColnames().equals(mEprClause.getVariables());
+		assert mFulfillablePoints.getColNames().equals(mEprClause.getVariables());
+		assert mFulfilledPoints.getColNames().equals(mEprClause.getVariables());
+		assert mRefutedPoints.getColNames().equals(mEprClause.getVariables());
 
 		if (fulfilledPoints.isUniversal()) {
 			return ClauseLiteralState.Fulfilled;

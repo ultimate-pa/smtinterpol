@@ -137,7 +137,7 @@ public class EprTheory implements ITheory {
 
 		mDawgFactory = new DawgFactory<ApplicationTerm,TermVariable>(this);
 		
-		mDawgFactory.addConstants(Collections.singleton(createDefaultConstant()));
+//		mDawgFactory.addConstants(Collections.singleton(createDefaultConstant()));
 		
 		mClauseFactory = new EprClauseFactory(this);
 
@@ -147,14 +147,6 @@ public class EprTheory implements ITheory {
 		
 		
 //		mStateManager.setEprClauseFactory(mClauseFactory);
-	}
-
-	private ApplicationTerm createDefaultConstant() {
-		FunctionSymbol fs = mTheory.declareFunction(
-					"(defaultConstant)", new Sort[0],
-					mTheory.getBooleanSort());
-		ApplicationTerm defaultTerm = mTheory.term(fs);
-		return defaultTerm;
 	}
 
 	@Override
@@ -610,6 +602,7 @@ public class EprTheory implements ITheory {
 	public void addConstants(HashSet<ApplicationTerm> constants) {
 		mStateManager.addConstants(constants);
 	}
+	
 
 	public ArrayList<Literal[]> getAllGroundingsOfLastAddedEprClause() {
 		return mAllGroundingsOfLastAddedEprClause;

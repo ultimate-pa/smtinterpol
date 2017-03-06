@@ -40,19 +40,12 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.Dawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgSignature;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.ReorderAndRenameDawgBuilder;
 
 @RunWith(JUnit4.class)
 public class DawgTestSignatureTranslations {
-
-	Set<String> getAllConstants() {
-		Set<String> result = new HashSet<String>();
-		result.add("a");
-		result.add("b");
-		result.add("c");
-		return result;
-	}
 
 	private EprTheory getEprTheory() {
 		return new EprTheoryMock(getLogger());
@@ -67,7 +60,8 @@ public class DawgTestSignatureTranslations {
 		
 		DawgFactory<String, Integer> dawgFactoryStringInteger = 
 				new DawgFactory<String, Integer>(getEprTheory());
-		dawgFactoryStringInteger.addConstants(getAllConstants());
+		EprTestHelpers.addConstantsWDefaultSort(dawgFactoryStringInteger, EprTestHelpers.constantsAbc());
+
 		
 		
 		List<String> word_aa = Arrays.asList(new String[] { "a", "a" });
@@ -102,9 +96,10 @@ public class DawgTestSignatureTranslations {
 		List<Object> argList1 = Arrays.asList(new Object[] { 1, 1, 2 });
 		
 
-		IDawg<String, Integer> dawg2 = dawg1.translateClauseSigToPredSig(translation1, argList1, signature2);
+		IDawg<String, Integer> dawg2 = dawg1.translateClauseSigToPredSig(translation1, 
+				argList1, new DawgSignature<Integer>(signature2));
 				
-		assertTrue(dawg2.getColnames().equals(signature2));
+		assertTrue(dawg2.getColNames().equals(signature2));
 		
 		assertTrue(dawg2.accepts(Arrays.asList(new String[] { "a", "b", "b" })));
 		assertTrue(dawg2.accepts(Arrays.asList(new String[] { "a", "c", "c" })));

@@ -37,7 +37,7 @@ import java.util.Map;
  * @param <LETTER>
  * @param <COLNAMES>
  */
-public class DawgLetterWithEqualities<LETTER, COLNAMES> implements IDawgLetter<LETTER, COLNAMES> {
+public class DawgLetterWithEqualities<LETTER, COLNAMES> extends AbstractSimpleDawgLetter<LETTER, COLNAMES> {
 	
 	private final Set<LETTER> mLetters;
 	private final Set<COLNAMES> mEqualColnames;
@@ -49,7 +49,8 @@ public class DawgLetterWithEqualities<LETTER, COLNAMES> implements IDawgLetter<L
 	 * used only for the empty and universal DawgLetter right now.
 	 * @param dlf
 	 */
-	DawgLetterWithEqualities(DawgLetterFactory<LETTER, COLNAMES> dlf) {
+	DawgLetterWithEqualities(DawgLetterFactory<LETTER, COLNAMES> dlf, Object sortId) {
+		super(sortId);
 		mDawgLetterFactory = dlf;
 		mLetters = null;
 		mEqualColnames = null;
@@ -57,7 +58,8 @@ public class DawgLetterWithEqualities<LETTER, COLNAMES> implements IDawgLetter<L
 	}
 	
 	public DawgLetterWithEqualities(Set<LETTER> newLetters, Set<COLNAMES> equalColnames, Set<COLNAMES> inequalColnames,
-			DawgLetterFactory<LETTER, COLNAMES> dawgLetterFactory) {
+			DawgLetterFactory<LETTER, COLNAMES> dawgLetterFactory, Object sortId) {
+		super(sortId);
 		mDawgLetterFactory = dawgLetterFactory;
 		mLetters = Collections.unmodifiableSet(newLetters);
 		mEqualColnames = Collections.unmodifiableSet(equalColnames);
@@ -76,23 +78,25 @@ public class DawgLetterWithEqualities<LETTER, COLNAMES> implements IDawgLetter<L
 	@Override
 	public Set<IDawgLetter<LETTER, COLNAMES>> complement() {
 		// TODO: get rid of AllConstants. Will need a symbolic complement representation..
+		assert false : "TODO";
 
-		Set<LETTER> newLetters = new HashSet<LETTER>(mDawgLetterFactory.getAllConstants());
-		newLetters.removeAll(mLetters);
-	
-		Set<IDawgLetter<LETTER, COLNAMES>> result = new HashSet<IDawgLetter<LETTER,COLNAMES>>();
-		
-		for (COLNAMES cn : mEqualColnames) {
-			Set<COLNAMES> es = Collections.emptySet();
-			result.add(mDawgLetterFactory.getDawgLetter(
-					mDawgLetterFactory.getAllConstants(), es,  Collections.singleton(cn)));
-		}
-		for (COLNAMES cn : mUnequalColnames) {
-			Set<COLNAMES> es = Collections.emptySet();
-			result.add(mDawgLetterFactory.getDawgLetter(
-					mDawgLetterFactory.getAllConstants(), Collections.singleton(cn), es));
-		}	
-		return result;
+//		Set<LETTER> newLetters = new HashSet<LETTER>(mDawgLetterFactory.getAllConstants());
+//		newLetters.removeAll(mLetters);
+//	
+//		Set<IDawgLetter<LETTER, COLNAMES>> result = new HashSet<IDawgLetter<LETTER,COLNAMES>>();
+//		
+//		for (COLNAMES cn : mEqualColnames) {
+//			Set<COLNAMES> es = Collections.emptySet();
+//			result.add(mDawgLetterFactory.getDawgLetter(
+//					mDawgLetterFactory.getAllConstants(), es,  Collections.singleton(cn)));
+//		}
+//		for (COLNAMES cn : mUnequalColnames) {
+//			Set<COLNAMES> es = Collections.emptySet();
+//			result.add(mDawgLetterFactory.getDawgLetter(
+//					mDawgLetterFactory.getAllConstants(), Collections.singleton(cn), es));
+//		}	
+//		return result;
+		return null;
 	}
 	
 
@@ -117,7 +121,7 @@ public class DawgLetterWithEqualities<LETTER, COLNAMES> implements IDawgLetter<L
 		mNewEqualColnames.addAll(otherDlwe.mEqualColnames);
 		mNewUnequalColnames.addAll(otherDlwe.mUnequalColnames);
 		
-		return mDawgLetterFactory.getDawgLetter(mNewLetters, mEqualColnames, mUnequalColnames);
+		return mDawgLetterFactory.getDawgLetter(mNewLetters, mEqualColnames, mUnequalColnames, mSortId);
 	}
 
 	@Override
@@ -150,10 +154,10 @@ public class DawgLetterWithEqualities<LETTER, COLNAMES> implements IDawgLetter<L
 	 */
 	public IDawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER ltr) {
 		if (!mLetters.contains(ltr)) {
-			return null;
+			return mDawgLetterFactory.getEmptyDawgLetter(mSortId);
 		}
 		return mDawgLetterFactory.getDawgLetter(
-				Collections.singleton(ltr), mEqualColnames, mUnequalColnames);
+				Collections.singleton(ltr), mEqualColnames, mUnequalColnames, mSortId);
 	}
 
 	public Set<LETTER> getLetters() {
@@ -174,6 +178,13 @@ public class DawgLetterWithEqualities<LETTER, COLNAMES> implements IDawgLetter<L
 		assert false : "TODO";
 		return null;
 	}
+
+	@Override
+	public String getSortId() {
+		// TODO Auto-generated method stub
+		assert false;
+		return null;
+	}
 }
 
 /**
@@ -188,13 +199,13 @@ public class DawgLetterWithEqualities<LETTER, COLNAMES> implements IDawgLetter<L
  */
 class EmptyDawgLetterWithEqualities<LETTER, COLNAMES> extends DawgLetterWithEqualities<LETTER, COLNAMES> {
 
-	EmptyDawgLetterWithEqualities(DawgLetterFactory<LETTER, COLNAMES> dlf) {
-		super(dlf);
+	EmptyDawgLetterWithEqualities(DawgLetterFactory<LETTER, COLNAMES> dlf, Object sortId) {
+		super(dlf, sortId);
 	}
 
 	@Override
 	public Set<IDawgLetter<LETTER, COLNAMES>> complement() {
-		return Collections.singleton(mDawgLetterFactory.getUniversalDawgLetter());
+		return Collections.singleton(mDawgLetterFactory.getUniversalDawgLetter(mSortId));
 	}
 
 	@Override
@@ -229,13 +240,13 @@ class EmptyDawgLetterWithEqualities<LETTER, COLNAMES> extends DawgLetterWithEqua
  */
 class UniversalDawgLetterWithEqualities<LETTER, COLNAMES> extends  DawgLetterWithEqualities<LETTER, COLNAMES> {
 
-	UniversalDawgLetterWithEqualities(DawgLetterFactory<LETTER, COLNAMES> dlf) {
-		super(dlf);
+	UniversalDawgLetterWithEqualities(DawgLetterFactory<LETTER, COLNAMES> dlf, Object sortId) {
+		super(dlf, sortId);
 	}
 
 	@Override
 	public Set<IDawgLetter<LETTER, COLNAMES>> complement() {
-		return Collections.singleton(mDawgLetterFactory.getEmptyDawgLetter());
+		return Collections.singleton(mDawgLetterFactory.getEmptyDawgLetter(mSortId));
 	}
 
 	@Override
@@ -255,6 +266,6 @@ class UniversalDawgLetterWithEqualities<LETTER, COLNAMES> extends  DawgLetterWit
 	
 	@Override
 	public IDawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER ltr) {
-		return mDawgLetterFactory.getSingletonSetDawgLetter(ltr);
+		return mDawgLetterFactory.getSingletonSetDawgLetter(ltr, mSortId);
 	}
 }

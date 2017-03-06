@@ -3,9 +3,7 @@ package de.uni_freiburg.informatik.ultimate.epr.dawgs;
 import static org.junit.Assert.*;
 
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
@@ -21,15 +19,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.ReorderAndRenameDawgBuilder;
 
 public class DawgTestDuplicateColumns {
-
-	Set<String> getAllConstants() {
-		Set<String> result = new HashSet<String>();
-		result.add("a");
-		result.add("b");
-		result.add("c");
-		return result;
-	}
-
+	
 	private EprTheory getEprTheory() {
 		return new EprTheoryMock(getLogger());
 	}
@@ -50,7 +40,10 @@ public class DawgTestDuplicateColumns {
 	public void test8() {
 		DawgFactory<String, String> dawgFactoryStringString = 
 				new DawgFactory<String, String>(getEprTheory());
-		dawgFactoryStringString.addConstants(getAllConstants());
+		
+
+		EprTestHelpers.addConstantsWDefaultSort(dawgFactoryStringString, EprTestHelpers.constantsAbc());
+//		dawgFactoryStringString.addConstants(getAllConstants());
 		
 		SortedSet<String> signaturePre = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signaturePre.addAll(Arrays.asList(new String[] { "u", "v"}));
@@ -81,7 +74,7 @@ public class DawgTestDuplicateColumns {
 					true)
 				.build();
 		
-		assertTrue(dawg4.getColnames().equals(signaturePost));
+		assertTrue(dawg4.getColNames().equals(signaturePost));
 		assertTrue(dawg4.accepts(word_abb));
 	}
 	
@@ -98,7 +91,9 @@ public class DawgTestDuplicateColumns {
 	public void test9() {
 		DawgFactory<String, String> dawgFactoryStringString = 
 				new DawgFactory<String, String>(getEprTheory());
-		dawgFactoryStringString.addConstants(getAllConstants());
+
+		EprTestHelpers.addConstantsWDefaultSort(dawgFactoryStringString, EprTestHelpers.constantsAbc());
+//		dawgFactoryStringString.addConstants(getAllConstants());
 		
 		SortedSet<String> signaturePre = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signaturePre.addAll(Arrays.asList(new String[] { "u", "w"}));
@@ -128,7 +123,7 @@ public class DawgTestDuplicateColumns {
 					true)
 				.build();
 		
-		assertTrue(dawg4.getColnames().equals(signaturePost));
+		assertTrue(dawg4.getColNames().equals(signaturePost));
 		assertTrue(dawg4.accepts(word_abb));
 	}
 	
@@ -181,7 +176,7 @@ public class DawgTestDuplicateColumns {
 					true)
 				.build();
 		
-		assertTrue(dawg4.getColnames().equals(signaturePost));
+		assertTrue(dawg4.getColNames().equals(signaturePost));
 		assertTrue(dawg4.accepts(word_abb));
 		assertTrue(dawg4.accepts(word_baa));
 		assertTrue(dawg4.accepts(word_bbb));
@@ -200,7 +195,9 @@ public class DawgTestDuplicateColumns {
 	public void test11() {
 		DawgFactory<String, String> dawgFactoryStringString = 
 				new DawgFactory<String, String>(getEprTheory());
-		dawgFactoryStringString.addConstants(getAllConstants());
+
+		EprTestHelpers.addConstantsWDefaultSort(dawgFactoryStringString, EprTestHelpers.constantsAbc());
+//		dawgFactoryStringString.addConstants(getAllConstants());
 
 		SortedSet<String> signaturePre = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signaturePre.addAll(Arrays.asList(new String[] { "u", "w"}));
@@ -236,7 +233,7 @@ public class DawgTestDuplicateColumns {
 					true)
 				.build();
 		
-		assertTrue(dawg4.getColnames().equals(signaturePost));
+		assertTrue(dawg4.getColNames().equals(signaturePost));
 		assertTrue(dawg4.accepts(word_abb));
 		assertTrue(dawg4.accepts(word_baa));
 		assertTrue(dawg4.accepts(word_bbb));

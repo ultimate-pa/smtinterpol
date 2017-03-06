@@ -49,6 +49,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroun
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.AbstractSimpleDawgLetter;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgLetterFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgState;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DeterministicDawgTransitionRelation;
@@ -417,7 +418,7 @@ public class EprHelpers {
 	public static boolean haveSameSignature(IDawg<ApplicationTerm, TermVariable>... dawgs) {
 		for (IDawg<ApplicationTerm, TermVariable> d1 : dawgs) {
 			for (IDawg<ApplicationTerm, TermVariable> d2 : dawgs) {
-				if (! d1.getColnames().equals(d2.getColnames())) {
+				if (! d1.getColNames().equals(d2.getColNames())) {
 						return false;
 				}
 			}
@@ -975,12 +976,14 @@ public class EprHelpers {
 			worklist.remove(intersectingPair.getFirst());
 			worklist.remove(intersectingPair.getSecond());
 			
+			assert intersectingPair.getFirst().getSortId().equals(intersectingPair.getSecond().getSortId());
+			
 
 			/*
 			 * update the worklist
 			 */
 			final IDawgLetter<LETTER, COLNAMES> intersection = intersectingPair.getFirst().intersect(intersectingPair.getSecond());
-			assert !intersection.equals(dawgLetterFactory.getEmptyDawgLetter());
+			assert !(intersection instanceof EmptyDawgLetter<?, ?>);
 			worklist.add(intersection);
 			
 			final Set<IDawgLetter<LETTER, COLNAMES>> difference1 = 
@@ -1002,7 +1005,7 @@ public class EprHelpers {
 				result.addPair(originalLetter, intersection);
 				for (IDawgLetter<LETTER, COLNAMES> dl : difference1) {
 					assert dl != null;
-					assert !dl.equals(dawgLetterFactory.getEmptyDawgLetter()) : "TODO: treat this case";
+					assert !(dl instanceof EmptyDawgLetter<?, ?>) : "TODO: treat this case";
 					result.addPair(originalLetter, dl);
 				}
 			}
@@ -1011,7 +1014,7 @@ public class EprHelpers {
 				result.addPair(originalLetter, intersection);
 				for (IDawgLetter<LETTER, COLNAMES> dl : difference2) {
 					assert dl != null;
-					assert !dl.equals(dawgLetterFactory.getEmptyDawgLetter()) : "TODO: treat this case";
+					assert !(dl instanceof EmptyDawgLetter<?, ?>) : "TODO: treat this case";
 					result.addPair(originalLetter, dl);
 				}
 			}
@@ -1036,12 +1039,37 @@ public class EprHelpers {
 				if (l1.equals(l2)) {
 					continue;
 				}
-				if (l1.intersect(l2).equals(dawgLetterFactory.getEmptyDawgLetter())) {
-					continue;
-				}
+				assert !(l1.intersect(l2) instanceof EmptyDawgLetter<?, ?>) : "should we allow this?";
+//				if (l1.intersect(l2).equals(dawgLetterFactory.getEmptyDawgLetter())) {
+//					continue;
+//				}
 				return new Pair<IDawgLetter<LETTER,COLNAMES>, IDawgLetter<LETTER,COLNAMES>>(l1, l2);
 			}
 		}
+		return null;
+	}
+
+	public static <LETTER, COLNAMES> boolean dawgLettersHaveSameSort(Set<IDawgLetter<LETTER, COLNAMES>> dawgLetters) {
+		Object firstOccurringSort = null;
+		for (IDawgLetter<LETTER, COLNAMES> dl : dawgLetters) {
+			AbstractSimpleDawgLetter<LETTER, COLNAMES> adl = (AbstractSimpleDawgLetter<LETTER, COLNAMES>) dl;
+			if (firstOccurringSort == null) {
+				firstOccurringSort = adl.getSortId();
+			}
+			if (!firstOccurringSort.equals(adl.getSortId())) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	public static <COLNAMES> Object extractSortFromColname(COLNAMES cn) {
+		Class<? extends Object> cnClass = cn.getClass();
+		if (cnClass.isInstance(ApplicationTerm.class)) {
+			ApplicationTerm at = (ApplicationTerm) cn;
+			return at.getSort();
+		}
+		assert false : "what to do here? (should only happen in unit-tests, right?)";
 		return null;
 	}
 

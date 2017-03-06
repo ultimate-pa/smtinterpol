@@ -27,6 +27,8 @@ import java.util.List;
 import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
@@ -81,6 +83,11 @@ public class EprStateManager {
 
 
 	private EprClauseManager mEprClauseManager;
+
+	/**
+	 * All the sorts that we currently track constants of.
+	 */
+	final ScopedHashSet<Sort> mKnownSorts = new ScopedHashSet<Sort>();
 	
 	public EprStateManager(EprTheory eprTheory, DawgFactory<ApplicationTerm, TermVariable> dawgFactory, EprClauseFactory clauseFactory) {
 		mEprTheory = eprTheory;
@@ -100,6 +107,7 @@ public class EprStateManager {
 		mAllEprPredicates.beginScope();
 		mDawgFactory.push();
 		mEprClauseFactory.push();
+		mKnownSorts.beginScope();
 	}
 
 	public void pop() {
@@ -108,6 +116,7 @@ public class EprStateManager {
 		mAllEprPredicates.endScope();
 		mDawgFactory.pop();
 		mEprClauseFactory.pop();
+		mKnownSorts.endScope();
 	}
 
 	public void addNewEprPredicate(EprPredicate pred) {
@@ -278,9 +287,9 @@ public class EprStateManager {
 		return mCClosure;
 	}
 
-	public Set<ApplicationTerm> getAllConstants() {
-		return mDawgFactory.getAllConstants();
-	}
+//	public Set<ApplicationTerm> getAllConstants() {
+//		return mDawgFactory.getAllConstants();
+//	}
 
 	/**
 	 * Register constants that occur in the smt-script for tracking.
@@ -291,36 +300,58 @@ public class EprStateManager {
 		if (mEprTheory.isGroundAllMode()) {
 			HashSet<ApplicationTerm> reallyNewConstants = new HashSet<ApplicationTerm>();
 			for (ApplicationTerm newConstant : constants) {
-				if (!getAllConstants().contains(newConstant))
+				if (!mDawgFactory.getAllConstants(newConstant.getSort().getName()).contains(newConstant))
 					reallyNewConstants.add(newConstant);
 			}
 	
 			addGroundClausesForNewConstant(reallyNewConstants);
 		}
 		mLogger.debug("EPRDEBUG: (EprStateManager): adding constants " + constants);
-		mDawgFactory.addConstants(constants);
+
+//		mDawgFactory.addConstants(constants);
+		for (ApplicationTerm constant : constants) {
+			Sort sort = constant.getSort();
+			registerSort(sort);
+			mDawgFactory.addConstant(sort.getName(), constant);
+		}
+	}
+	
+	private void registerSort(Sort sort) {
+		final boolean alreadyPresent = !mKnownSorts.add(sort);
+		if (!alreadyPresent) {
+			mDawgFactory.addConstant(sort.getName(), createDefaultConstant(sort));
+		}
+	}
+
+	private ApplicationTerm createDefaultConstant(Sort sort) {
+		final FunctionSymbol fs = mTheory.declareFunction(
+					"(defaultConstant)", new Sort[0], sort);
+		final ApplicationTerm defaultTerm = mTheory.term(fs);
+		return defaultTerm;
 	}
 
 	private void addGroundClausesForNewConstant(HashSet<ApplicationTerm> newConstants) {
 		ArrayList<Literal[]> groundings = new ArrayList<Literal[]>();
 		for (EprClause c : mEprClauseManager.getAllClauses())  {
-				groundings.addAll(
-						c.computeAllGroundings(
-								EprHelpers.getAllInstantiationsForNewConstant(
-										c.getVariables(),
-										newConstants, 
-										this.getAllConstants())));
+			assert false : "TODO: restore below code"; // TODO
+//				groundings.addAll(
+//						c.computeAllGroundings(
+//								EprHelpers.getAllInstantiationsForNewConstant(
+//										c.getVariables(),
+//										newConstants, 
+//										this.getAllConstants())));
 		}
 		addGroundClausesToDPLLEngine(groundings);
 	}
 
 	private void addGroundClausesForNewEprClause(EprClause newEprClause) {
-		List<Literal[]> groundings = 		
-						newEprClause.computeAllGroundings(
-								EprHelpers.getAllInstantiations(
-										newEprClause.getVariables(),
-										this.getAllConstants()));
-		addGroundClausesToDPLLEngine(groundings);
+		assert false : "TODO: restore below code"; // TODO
+//		List<Literal[]> groundings = 		
+//						newEprClause.computeAllGroundings(
+//								EprHelpers.getAllInstantiations(
+//										newEprClause.getVariables(),
+//										this.getAllConstants()));
+//		addGroundClausesToDPLLEngine(groundings);
 	}
 
 	private void addGroundClausesToDPLLEngine(List<Literal[]> groundings) {

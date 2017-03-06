@@ -27,6 +27,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
+
 /**
  * 
  * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
@@ -37,23 +39,23 @@ import java.util.Set;
 public class DawgLetterFactory<LETTER, COLNAMES> {
 	
 	
-	UniversalDawgLetter<LETTER, COLNAMES> mUniversalDawgLetter;
-	EmptyDawgLetter<LETTER, COLNAMES> mEmptyDawgLetter;
+	Map<Object, UniversalDawgLetter<LETTER, COLNAMES>> mUniversalDawgLetter;
+	Map<Object, EmptyDawgLetter<LETTER, COLNAMES>> mEmptyDawgLetter;
 
-	EmptyDawgLetterWithEqualities<LETTER, COLNAMES> mEmptyDawgLetterWithEqualities
-	 	= new EmptyDawgLetterWithEqualities<LETTER, COLNAMES>(this);
-	UniversalDawgLetterWithEqualities<LETTER, COLNAMES> mUniversalDawgLetterWithEqualities
-	 	= new UniversalDawgLetterWithEqualities<LETTER, COLNAMES>(this);
+	Map<Object, EmptyDawgLetterWithEqualities<LETTER, COLNAMES>> mEmptyDawgLetterWithEqualities
+		= new HashMap<Object, EmptyDawgLetterWithEqualities<LETTER,COLNAMES>>();
+//	 	= new EmptyDawgLetterWithEqualities<LETTER, COLNAMES>(this);
+	Map<Object, UniversalDawgLetterWithEqualities<LETTER, COLNAMES>> mUniversalDawgLetterWithEqualities
+		= new HashMap<Object, UniversalDawgLetterWithEqualities<LETTER,COLNAMES>>();
+//	 	= new UniversalDawgLetterWithEqualities<LETTER, COLNAMES>(this);
 
-	Set<IDawgLetter<LETTER, COLNAMES>> mUniversalDawgLetterSingleton;
-	Set<IDawgLetter<LETTER, COLNAMES>> mEmptyDawgLetterSingleton;
 	
-	Map<Set<LETTER>, SimpleDawgLetter<LETTER, COLNAMES>> mLettersToSimpleDawgLetter
+	private final Map<Set<LETTER>, SimpleDawgLetter<LETTER, COLNAMES>> mLettersToSimpleDawgLetter
 		 = new HashMap<Set<LETTER>, SimpleDawgLetter<LETTER,COLNAMES>>();
-	private Map<Set<LETTER>, SimpleComplementDawgLetter<LETTER, COLNAMES>> mLettersToSimpleComplementDawgLetter
+	private final Map<Set<LETTER>, SimpleComplementDawgLetter<LETTER, COLNAMES>> mLettersToSimpleComplementDawgLetter
 		 = new HashMap<Set<LETTER>, SimpleComplementDawgLetter<LETTER,COLNAMES>>();
 	
-	NestedMap3<Set<LETTER>, Set<COLNAMES>, Set<COLNAMES>, DawgLetterWithEqualities<LETTER, COLNAMES>> mKnownDawgLetters;
+	NestedMap3<Set<LETTER>, Set<COLNAMES>, Set<COLNAMES>, DawgLetterWithEqualities<LETTER, COLNAMES>> mKnownDawgLettersWE;
 
 	private final DawgFactory<LETTER, COLNAMES> mDawgFactory;
 	
@@ -61,46 +63,67 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 	public DawgLetterFactory(DawgFactory<LETTER, COLNAMES> dawgFactory) {
 		mDawgFactory = dawgFactory;
 		
-		mKnownDawgLetters = 
+		mKnownDawgLettersWE = 
 				new NestedMap3<Set<LETTER>, Set<COLNAMES>, Set<COLNAMES>, DawgLetterWithEqualities<LETTER,COLNAMES>>();
 
-		mUniversalDawgLetter = new UniversalDawgLetter<LETTER, COLNAMES>(this);
-		mEmptyDawgLetter = new EmptyDawgLetter<LETTER, COLNAMES>(this);
-		mEmptyDawgLetterSingleton = Collections.singleton((IDawgLetter<LETTER, COLNAMES>) mEmptyDawgLetter);
-		mUniversalDawgLetterSingleton = Collections.singleton((IDawgLetter<LETTER, COLNAMES>) mUniversalDawgLetter);
+//		mUniversalDawgLetter = new UniversalDawgLetter<LETTER, COLNAMES>(this);
+		mUniversalDawgLetter = new HashMap<Object, UniversalDawgLetter<LETTER,COLNAMES>>();
+//		mEmptyDawgLetter = new EmptyDawgLetter<LETTER, COLNAMES>(this);
+		mEmptyDawgLetter = new HashMap<Object, EmptyDawgLetter<LETTER,COLNAMES>>();
 	}
 
-	public IDawgLetter<LETTER, COLNAMES> getSingletonSetDawgLetter(LETTER element) {
+	public IDawgLetter<LETTER, COLNAMES> getSingletonSetDawgLetter(LETTER element, Object sortId) {
 		if (useSimpleDawgLetters()) {
-			return getSimpleDawgLetter(Collections.singleton(element));
+			return getSimpleDawgLetter(Collections.singleton(element), sortId);
 		} else {
 			Set<COLNAMES> es = Collections.emptySet();
-			return getDawgLetter(Collections.singleton(element), es, es);
+			return getDawgLetter(Collections.singleton(element), es, es, sortId);
 		}
 	}
 	
-	public IDawgLetter<LETTER, COLNAMES> getUniversalDawgLetter() {
+	public IDawgLetter<LETTER, COLNAMES> getUniversalDawgLetter(Object sortId) {
 		if (useSimpleDawgLetters()) {
-			return mUniversalDawgLetter;
+			UniversalDawgLetter<LETTER, COLNAMES> result = mUniversalDawgLetter.get(sortId);
+			if (result == null) {
+				result = new UniversalDawgLetter<LETTER, COLNAMES>(this, sortId);
+				mUniversalDawgLetter.put(sortId, result);
+			}
+			return result;
 		} else {
-			return mUniversalDawgLetterWithEqualities;
+			UniversalDawgLetterWithEqualities<LETTER, COLNAMES> result = mUniversalDawgLetterWithEqualities.get(sortId);
+			if (result == null) {
+				result = new UniversalDawgLetterWithEqualities<LETTER, COLNAMES>(this, sortId);
+				mUniversalDawgLetterWithEqualities.put(sortId, result);
+			}
+			return result;
+
 		}
 	}
 	
-	public IDawgLetter<LETTER, COLNAMES> getEmptyDawgLetter() {
+	public IDawgLetter<LETTER, COLNAMES> getEmptyDawgLetter(Object sortId) {
 		if (useSimpleDawgLetters()) {
-			return mEmptyDawgLetter;
+			EmptyDawgLetter<LETTER, COLNAMES> result = mEmptyDawgLetter.get(sortId);
+			if (result == null) {
+				result = new EmptyDawgLetter<LETTER, COLNAMES>(this, sortId);
+				mEmptyDawgLetter.put(sortId, result);
+			}
+			return result;
 		} else {
-			return mEmptyDawgLetterWithEqualities;
+			EmptyDawgLetterWithEqualities<LETTER, COLNAMES> result = mEmptyDawgLetterWithEqualities.get(sortId);
+			if (result == null) {
+				result = new EmptyDawgLetterWithEqualities<LETTER, COLNAMES>(this, sortId);
+				mEmptyDawgLetterWithEqualities.put(sortId, result);
+			}
+			return result;
 		}
 	}
 
 	public DawgLetterWithEqualities<LETTER, COLNAMES> getDawgLetter(Set<LETTER> newLetters, Set<COLNAMES> equalColnames,
-			Set<COLNAMES> inequalColnames) {
+			Set<COLNAMES> inequalColnames, Object sortId) {
 
 		if (newLetters.isEmpty()) {
 			// if the set of LETTERs is empty, the (in)equalities don't matter
-			return mEmptyDawgLetterWithEqualities;
+			return (DawgLetterWithEqualities<LETTER, COLNAMES>) getEmptyDawgLetter(sortId);
 		}
 		
 //		if (newLetters.equals(mAllConstants) 
@@ -109,20 +132,18 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 //			return mUniversalDawgLetterWithEqualities;
 //		}
 		
-		DawgLetterWithEqualities<LETTER, COLNAMES> result = mKnownDawgLetters.get(newLetters, equalColnames, inequalColnames);
+		DawgLetterWithEqualities<LETTER, COLNAMES> result = mKnownDawgLettersWE.get(newLetters, equalColnames, inequalColnames);
 		if (result == null) {
-			result = new DawgLetterWithEqualities<LETTER, COLNAMES>(newLetters, equalColnames, inequalColnames, this);
-			mKnownDawgLetters.put(newLetters, equalColnames, inequalColnames, result);
+			result = new DawgLetterWithEqualities<LETTER, COLNAMES>(newLetters, equalColnames, inequalColnames, this, sortId);
+			mKnownDawgLettersWE.put(newLetters, equalColnames, inequalColnames, result);
 		}
 		
 		return result;
 	}
 	
-	public Set<LETTER> getAllConstants() {
-		return mDawgFactory.getAllConstants();
+	public Set<LETTER> getAllConstants(Object sortId) {
+		return mDawgFactory.getAllConstants(sortId);
 	}
-	
-
 
 	/**
 	 * Takes a set of DawgLetters and returns a set of DawgLetters that represents the complement
@@ -137,9 +158,14 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 	 */
 	public Set<IDawgLetter<LETTER, COLNAMES>> complementDawgLetterSet(
 			Set<IDawgLetter<LETTER, COLNAMES>> dawgLetters) {
+		assert EprHelpers.dawgLettersHaveSameSort(dawgLetters);
+		assert !dawgLetters.isEmpty() : "do we need this case??";
+		Object sortId = ((AbstractSimpleDawgLetter<LETTER, COLNAMES>) dawgLetters.iterator().next()).getSortId();
+
 		if (useSimpleDawgLetters()) {
+
 			if (dawgLetters.isEmpty()) {
-				return Collections.singleton(getUniversalDawgLetter());
+				return Collections.singleton(getUniversalDawgLetter(sortId));
 			}
 			
 			if (dawgLetters.iterator().next() instanceof UniversalDawgLetter<?, ?>) {
@@ -147,7 +173,7 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 				return Collections.emptySet();
 			}
 			
-			IDawgLetter<LETTER, COLNAMES> resultDl = getUniversalDawgLetter();
+			IDawgLetter<LETTER, COLNAMES> resultDl = getUniversalDawgLetter(sortId);
 			for (IDawgLetter<LETTER, COLNAMES> dl : dawgLetters) {
 				final Set<IDawgLetter<LETTER, COLNAMES>> dlComplement = dl.complement();
 				assert dlComplement.size() == 1 : "should hold in the simpleDawgLetter case, right?";
@@ -176,7 +202,7 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 			// TODO: wouldn't it be simple to use the intersect and complement operations, like above??
 
 			Set<IDawgLetter<LETTER, COLNAMES>> result = new HashSet<IDawgLetter<LETTER,COLNAMES>>();
-			result.add(mUniversalDawgLetterWithEqualities);
+			result.add(getUniversalDawgLetter(sortId));
 
 			for (IDawgLetter<LETTER, COLNAMES> dln: dawgLetters) {
 				DawgLetterWithEqualities<LETTER, COLNAMES> dl = (DawgLetterWithEqualities<LETTER, COLNAMES>) dln;
@@ -195,7 +221,8 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 											newLetters, 
 											dlRes.getEqualColnames(), 
 											dlRes.getUnequalColnames(), 
-											this);
+											this,
+											sortId);
 							newResult.add(newDl1);
 						}
 					}
@@ -212,7 +239,8 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 										dlRes.getLetters(), 
 										newEquals, 
 										dlRes.getUnequalColnames(), 
-										this);
+										this,
+										sortId);
 						newResult.add(newDl2);
 					}
 
@@ -228,7 +256,8 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 										dlRes.getLetters(), 
 										dlRes.getEqualColnames(), 
 										newUnequals, 
-										this);
+										this,
+										sortId);
 						newResult.add(newDl3);
 					}
 
@@ -284,27 +313,27 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 		return false;
 	}
 
-	public IDawgLetter<LETTER, COLNAMES> getSimpleDawgLetter(Set<LETTER> letters) {
+	public IDawgLetter<LETTER, COLNAMES> getSimpleDawgLetter(Set<LETTER> letters, Object sortId) {
 		if (letters.isEmpty()) {
-			 return getEmptyDawgLetter();
+			 return getEmptyDawgLetter(sortId);
 		}
 		
 		IDawgLetter<LETTER, COLNAMES> result = mLettersToSimpleDawgLetter.get(letters);
 		if (result == null) {
-			result = new SimpleDawgLetter<LETTER, COLNAMES>(this, letters);
+			result = new SimpleDawgLetter<LETTER, COLNAMES>(this, letters, sortId);
 			mLettersToSimpleDawgLetter.put(letters, (SimpleDawgLetter<LETTER, COLNAMES>) result);
 		}
 		return result;
 	}
 	
-	public IDawgLetter<LETTER, COLNAMES> getSimpleComplementDawgLetter(Set<LETTER> letters) {
+	public IDawgLetter<LETTER, COLNAMES> getSimpleComplementDawgLetter(Set<LETTER> letters, Object sortId) {
 		if (letters.isEmpty()) {
-			 return getUniversalDawgLetter();
+			 return getUniversalDawgLetter(sortId);
 		}
 		
 		IDawgLetter<LETTER, COLNAMES> result = mLettersToSimpleComplementDawgLetter.get(letters);
 		if (result == null) {
-			result = new SimpleComplementDawgLetter<LETTER, COLNAMES>(this, letters);
+			result = new SimpleComplementDawgLetter<LETTER, COLNAMES>(this, letters, sortId);
 			mLettersToSimpleComplementDawgLetter.put(letters, (SimpleComplementDawgLetter<LETTER, COLNAMES>) result);
 		}
 		return result;

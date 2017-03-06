@@ -26,9 +26,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
 
+import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.BinaryRelation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
+import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
 
 /**
@@ -57,9 +59,8 @@ public class DawgFactory<LETTER, COLNAMES> {
 	private final Map<SortedSet<COLNAMES>, IDawg<LETTER, COLNAMES>> mUniversalDawgs = 
 			new HashMap<SortedSet<COLNAMES>, IDawg<LETTER, COLNAMES>>();
 
-//	private final EprStateManager mEprStateManager;
-	
-	private final ScopedHashSet<LETTER> mUsedConstants = new ScopedHashSet<LETTER>();
+	private final ScopedHashMap<String, Set<LETTER>> mAllKnownConstants = new ScopedHashMap<String, Set<LETTER>>();
+	private final ScopedHashSet<String> mAllKnownSorts = new ScopedHashSet<String>();
 
 	public DawgFactory(EprTheory eprTheory) {
 //		mEprStateManager = stateManager;
@@ -79,7 +80,8 @@ public class DawgFactory<LETTER, COLNAMES> {
 		
 		if (mUseNaiveDawgs) {
 			// TODO: when using naive dawgs we cannot cope with later changes to mAllConstants..
-			return new NaiveDawg<LETTER, COLNAMES>(termVariables, getAllConstants(), mLogger);
+//			return new NaiveDawg<LETTER, COLNAMES>(termVariables, getAllConstants(), mLogger);
+			return new NaiveDawg<LETTER, COLNAMES>(termVariables, mAllKnownConstants, mLogger);
 		} else {
 			return new Dawg<LETTER, COLNAMES>(this, mLogger, termVariables);
 		}
@@ -95,7 +97,8 @@ public class DawgFactory<LETTER, COLNAMES> {
 	private IDawg<LETTER, COLNAMES> createFullDawg(SortedSet<COLNAMES> termVariables) {
 		assert termVariables != null;
 		if (mUseNaiveDawgs) {
-			return new NaiveDawg<LETTER, COLNAMES>(termVariables, getAllConstants(), mLogger).complement();
+//			return new NaiveDawg<LETTER, COLNAMES>(termVariables, getAllConstants(), mLogger).complement();
+			return new NaiveDawg<LETTER, COLNAMES>(termVariables, mAllKnownConstants, mLogger).complement();
 		} else {
 			return new Dawg<LETTER, COLNAMES>(this, mLogger,
 					termVariables, true);
@@ -106,7 +109,8 @@ public class DawgFactory<LETTER, COLNAMES> {
 			SortedSet<COLNAMES> sig, List<LETTER> point) {
 		if (mUseNaiveDawgs) {
 			NaiveDawg<LETTER, COLNAMES> dawg = 
-					new NaiveDawg<LETTER, COLNAMES>(sig, getAllConstants(), mLogger);
+//					new NaiveDawg<LETTER, COLNAMES>(sig, getAllConstants(), mLogger);
+					new NaiveDawg<LETTER, COLNAMES>(sig, mAllKnownConstants, mLogger);
 			dawg.add(point);
 			return dawg;
 		} else {
@@ -132,7 +136,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 			return new Dawg<LETTER, COLNAMES>(
 					this, 
 					mLogger, 
-					dawg.getColnames(), 
+					dawg.getColNames(), 
 					((Dawg<LETTER, COLNAMES>) dawg).getTransitionRelation().copy(), 
 					((Dawg<LETTER, COLNAMES>) dawg).getInitialState());
 		}
@@ -175,8 +179,9 @@ public class DawgFactory<LETTER, COLNAMES> {
 			Map<COLNAMES, LETTER> translationCnToLtr, 
 			SortedSet<COLNAMES> targetSignature) {
 		
-		IDawg<LETTER, COLNAMES> result = dawg.translatePredSigToClauseSig(translationCnToCn, translationCnToLtr, targetSignature);
-		assert result.getColnames().equals(targetSignature);
+		IDawg<LETTER, COLNAMES> result = dawg.translatePredSigToClauseSig(translationCnToCn, 
+				translationCnToLtr, new DawgSignature<COLNAMES>(targetSignature));
+		assert result.getColNames().equals(targetSignature);
 		return result;
 	}
 
@@ -206,7 +211,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 			BinaryRelation<COLNAMES, COLNAMES> binaryRelation, 
 			List<Object> argList, 
 			SortedSet<COLNAMES> newSignature) {
-		return other.translateClauseSigToPredSig(binaryRelation, argList, newSignature);
+		return other.translateClauseSigToPredSig(binaryRelation, argList, new DawgSignature<COLNAMES>(newSignature));
 	}
 	
 	
@@ -367,21 +372,37 @@ public class DawgFactory<LETTER, COLNAMES> {
 			return result;
 		}
 
-		public Set<LETTER> getAllConstants() {
-			return mUsedConstants;
+//		@Deprecated
+//		public ScopedHashMap<String, Set<LETTER>> getAllConstants() {
+//			return mAllKnownConstants;
+//		}
+		
+		public Set<LETTER> getAllConstants(Object sortId) {
+			return mAllKnownConstants.get(sortId);
 		}
 
 		public void push() {
-			mUsedConstants.beginScope();
-			
+			mAllKnownConstants.beginScope();
+			mAllKnownSorts.beginScope();
 		}
 
 		public void pop() {
-			mUsedConstants.endScope();
+			mAllKnownConstants.endScope();
+			mAllKnownSorts.endScope();
 		}
 
-		public void addConstants(Set<LETTER> constants) {
-			mUsedConstants.addAll(constants);
+		public void addConstant(String sortId, LETTER constant) {
+//			mAllKnownConstants.addAll(constants);
+			Set<LETTER> set = mAllKnownConstants.get(sortId);
+			if (set == null) {
+				set = new HashSet<LETTER>();
+				mAllKnownConstants.put(sortId, set);
+			}
+			set.add(constant);
 		}
 	
+		public void addSort(String sortId) {
+			mAllKnownSorts.add(sortId);
+		}
+
 }

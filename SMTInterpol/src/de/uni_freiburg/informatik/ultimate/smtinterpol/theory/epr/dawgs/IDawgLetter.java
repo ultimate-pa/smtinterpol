@@ -33,6 +33,7 @@ import java.util.Set;
  */
 public interface IDawgLetter<LETTER, COLNAMES> {
 		
+	Object getSortId();
 	
 	Set<IDawgLetter<LETTER, COLNAMES>> complement();
 
@@ -43,6 +44,10 @@ public interface IDawgLetter<LETTER, COLNAMES> {
 	boolean matches(LETTER ltr, List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex);
 	
 	/**
+	 * Returns all LETTERs (typically constants) that this DawgLetter refers to (and that are
+	 *  currently known, see below).
+	 * 
+	 * NOTE:
 	 * This method is special in that it needs the current AllConstants set.
 	 * It is (and perhaps should be) only used in DawgIterator.
 	 *  -- and possibly in other locations where it is obviously necessary to know what the

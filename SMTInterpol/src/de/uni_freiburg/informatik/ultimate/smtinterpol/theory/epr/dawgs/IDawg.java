@@ -34,9 +34,9 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.BinaryRelation
  */
 public interface IDawg<LETTER, COLNAMES> extends Iterable<List<LETTER>> {
 	
-	SortedSet<COLNAMES> getColnames();
+	SortedSet<COLNAMES> getColNames();
 	
-	int getArity();
+//	int getArity();
 	
 //	public IDawg<LETTER, COLNAMES> join(IDawg<LETTER, COLNAMES> other);
 
@@ -119,7 +119,7 @@ public interface IDawg<LETTER, COLNAMES> extends Iterable<List<LETTER>> {
 	IDawg<LETTER, COLNAMES> translatePredSigToClauseSig(
 			Map<COLNAMES, COLNAMES> translationColnameToColname,
 			Map<COLNAMES, LETTER> translationColnameToLetter,
-			SortedSet<COLNAMES> targetSignature);
+			DawgSignature<COLNAMES> targetSignature);
 
 	/**
 	 * There are three main "players" in this operation:
@@ -134,7 +134,7 @@ public interface IDawg<LETTER, COLNAMES> extends Iterable<List<LETTER>> {
 	 * @return
 	 */
 	IDawg<LETTER, COLNAMES> translateClauseSigToPredSig(
-			BinaryRelation<COLNAMES, COLNAMES> binaryRelation, List<Object> argList, SortedSet<COLNAMES> newSignature);
+			BinaryRelation<COLNAMES, COLNAMES> binaryRelation, List<Object> argList, DawgSignature<COLNAMES> newSignature);
 	/**
 	 * Lists the language of this dawg word by word
 	 * 

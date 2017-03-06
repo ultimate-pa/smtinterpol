@@ -33,6 +33,7 @@ import java.util.TreeSet;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.BinaryRelation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
+import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
 
 /**
  * The most naive (or rather simple) Dawg implementation I will be able to imagine.
@@ -45,15 +46,15 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	
 	Set<List<LETTER>> mBacking;
 	private Set<List<LETTER>> mNCrossProduct;
-	private final Set<LETTER> mAllConstants;
+	private final ScopedHashMap<String, Set<LETTER>> mAllConstants;
 	
-	public NaiveDawg(SortedSet<COLNAMES> termVariables, Set<LETTER> allConstants, LogProxy logger) {
+	public NaiveDawg(SortedSet<COLNAMES> termVariables, ScopedHashMap<String, Set<LETTER>> allConstants, LogProxy logger) {
 		super(termVariables, logger);
 		mAllConstants = allConstants;
 		mBacking = new HashSet<List<LETTER>>();
 	}
 
-	public NaiveDawg(SortedSet<COLNAMES> termVariables, Set<LETTER> allConstants, 
+	public NaiveDawg(SortedSet<COLNAMES> termVariables, ScopedHashMap<String, Set<LETTER>> allConstants, 
 			Set<List<LETTER>> initialLanguage, LogProxy logger) {
 		super(termVariables, logger);
 		mAllConstants = allConstants;
@@ -62,13 +63,13 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 
 
 	public NaiveDawg(NaiveDawg<LETTER, COLNAMES> nd, LogProxy logger) {
-		super(nd.mColNames, logger);
+		super(nd.getColNames(), logger);
 		mAllConstants = nd.mAllConstants;
 		mBacking = new HashSet<List<LETTER>>(nd.mBacking);
 	}
 
 	public NaiveDawg(NaiveDawg<LETTER, COLNAMES> nd, Map<COLNAMES, COLNAMES> translation, LogProxy logger) {
-		super(EprHelpers.applyMapping(nd.mColNames, translation), logger);
+		super(EprHelpers.applyMapping(nd.getColNames(), translation), logger);
 		mAllConstants = nd.mAllConstants;
 		mBacking = new HashSet<List<LETTER>>(nd.mBacking);
 	}
@@ -141,10 +142,10 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	@Override
 	public IDawg<LETTER, COLNAMES> complement() {
 		Set<List<LETTER>> complement = new HashSet<List<LETTER>>(getNCrossProduct());
-		assert EprHelpers.verifySortsOfPoints(complement, getColnames());
+		assert EprHelpers.verifySortsOfPoints(complement, getColNames());
 		complement.removeAll(mBacking);
-		NaiveDawg<LETTER, COLNAMES> result = new NaiveDawg<LETTER, COLNAMES>(mColNames, mAllConstants, complement, mLogger);
-		assert EprHelpers.verifySortsOfPoints(result, getColnames());
+		NaiveDawg<LETTER, COLNAMES> result = new NaiveDawg<LETTER, COLNAMES>(getColNames(), mAllConstants, complement, mLogger);
+		assert EprHelpers.verifySortsOfPoints(result, getColNames());
 		return result;
 	}
 
@@ -161,13 +162,13 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 
 	@Override
 	public boolean accepts(List<LETTER> word) {
-		assert mArity == word.size();
+		assert mSignature.size() == word.size();
 		return mBacking.contains(word);
 	}
 
 	@Override
 	public IDawg<LETTER, COLNAMES> add(List<LETTER> point) {
-		assert EprHelpers.verifySortsOfPoint(point, this.getColnames());
+		assert EprHelpers.verifySortsOfPoint(point, this.getColNames());
 		mBacking.add(point);
 		return this;
 	}
@@ -196,13 +197,13 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	 */
 	@Override
 	public IDawg<LETTER, COLNAMES> intersect(IDawg<LETTER, COLNAMES> other) {
-		assert mColNames.equals(other.getColnames());
+		assert getColNames().equals(other.getColNames());
 		NaiveDawg<LETTER, COLNAMES> naiOther = (NaiveDawg<LETTER, COLNAMES>) other;
 		
 		Set<List<LETTER>> newBacking = new HashSet<List<LETTER>>(mBacking);
 		newBacking.retainAll(naiOther.mBacking);
 		
-		return new NaiveDawg<LETTER, COLNAMES>(mColNames, mAllConstants, newBacking, mLogger);
+		return new NaiveDawg<LETTER, COLNAMES>(getColNames(), mAllConstants, newBacking, mLogger);
 	}
 
 //	@Override
@@ -214,14 +215,15 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	
 	private Set<List<LETTER>> getNCrossProduct() {
 		if (mNCrossProduct == null) {
-			mNCrossProduct = EprHelpers.computeNCrossproduct(mAllConstants, mArity, mLogger);
+			assert false : "TODO: restore below functionality";
+//			mNCrossProduct = EprHelpers.computeNCrossproduct(mAllConstants, mArity, mLogger);
 		}
 		return mNCrossProduct;
 	}
 
 	@Override
 	public boolean supSetEq(IDawg<LETTER, COLNAMES> other) {
-		assert mColNames.equals(other.getColnames());
+		assert getColNames().equals(other.getColNames());
 		NaiveDawg<LETTER, COLNAMES> otherNd = (NaiveDawg<LETTER, COLNAMES>) other;
 		return this.mBacking.containsAll(otherNd.mBacking);
 	}
@@ -286,17 +288,17 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 
 	@Override
 	public IDawg<LETTER, COLNAMES> select(Map<COLNAMES, LETTER> selectMap) {
-		assert mColNames.containsAll(selectMap.keySet());
+		assert getColNames().containsAll(selectMap.keySet());
 		Set<List<LETTER>> newBacking = new HashSet<List<LETTER>>(mBacking);
 		for (List<LETTER> word : mBacking) {
 			for (Entry<COLNAMES, LETTER> en : selectMap.entrySet()) {
-				int index = mColNameToIndex.get(en.getKey());
+				int index = getColNameToIndex().get(en.getKey());
 				if (word.get(index) != en.getValue()) {
 					newBacking.remove(word);
 				}
 			}
 		}
-		return new NaiveDawg<LETTER, COLNAMES>(mColNames, mAllConstants, newBacking, mLogger);
+		return new NaiveDawg<LETTER, COLNAMES>(getColNames(), mAllConstants, newBacking, mLogger);
 	}
 
 	@Override
@@ -315,7 +317,8 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	}
 
 	public void addWithSubsetSignature(List<LETTER> point, SortedSet<COLNAMES> sig) {
-		mBacking.addAll(blowUpForCurrentSignature(point, sig, mColNames, mAllConstants));
+		assert false : "TODO: restore below functionality";
+//		mBacking.addAll(blowUpForCurrentSignature(point, sig, mColNames, mAllConstants));
 	}
 	
 	
@@ -323,7 +326,7 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	public IDawg<LETTER, COLNAMES> translatePredSigToClauseSig(
 			Map<COLNAMES, COLNAMES> translationColnameToColname,
 			Map<COLNAMES, LETTER> translationColnameToLetter,
-			SortedSet<COLNAMES> targetSignature) {
+			DawgSignature<COLNAMES> targetSignature) {
 
 //		COLNAMES colNamesInstance = this.getColnames().first();
 		
@@ -343,7 +346,7 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 		
 		NaiveDawg<LETTER, COLNAMES> otherNd = this;
 //		Set<List<LETTER>> newBacking = new HashSet<List<LETTER>>();
-		NaiveDawg<LETTER, COLNAMES> result = new NaiveDawg<LETTER, COLNAMES>(targetSignature, mAllConstants, mLogger);
+		NaiveDawg<LETTER, COLNAMES> result = new NaiveDawg<LETTER, COLNAMES>(targetSignature.getColNames(), mAllConstants, mLogger);
 
 		for (List<LETTER> point : otherNd.mBacking) {
 
@@ -356,7 +359,7 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 			// tracks if a column name has been seen, and what letter it had been assigned (does select_x=x so to say)
 			Map<COLNAMES, LETTER> variableAssignmentInPoint = new HashMap<COLNAMES, LETTER>();
 			
-			Iterator<COLNAMES> ptColIt = this.getColnames().iterator();
+			Iterator<COLNAMES> ptColIt = this.getColNames().iterator();
 			for (int i = 0; i < point.size(); i++) {
 				LETTER ptLtr = point.get(i);
 				COLNAMES ptColnameInOldSig = ptColIt.next();
@@ -398,7 +401,7 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 //				newBacking.add(newPoint);
 			}
 		}
-		assert EprHelpers.verifySortsOfPoints(result, targetSignature);
+		assert EprHelpers.verifySortsOfPoints(result, targetSignature.getColNames());
 		return result;
 	}
 	
@@ -407,14 +410,14 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	public IDawg<LETTER, COLNAMES> translateClauseSigToPredSig(
 			BinaryRelation<COLNAMES, COLNAMES> translation, 
 			List<Object> argList, 
-			SortedSet<COLNAMES> newSignature) {
+			DawgSignature<COLNAMES> newSignature) {
 		
 		assert argList.size() == newSignature.size();
 		
-		Class<? extends Object> colnamesType = newSignature.iterator().next().getClass();
+		Class<? extends Object> colnamesType = newSignature.getColNames().iterator().next().getClass();
 
 		// the signature of a dawg of a decide stack literal does not contain repetitions, right?
-		Map<COLNAMES, Integer> oldSigColnamesToIndex = EprHelpers.computeColnamesToIndex(this.getColnames());
+		Map<COLNAMES, Integer> oldSigColnamesToIndex = EprHelpers.computeColnamesToIndex(this.getColNames());
 
 		Set<List<LETTER>> newBacking = new HashSet<List<LETTER>>();
 		NaiveDawg<LETTER, COLNAMES> otherNd = (NaiveDawg<LETTER, COLNAMES>) this;
@@ -426,7 +429,7 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 				newPoint.add(null);
 			}
 
-			Iterator<COLNAMES> newSigColIt = newSignature.iterator();
+			Iterator<COLNAMES> newSigColIt = newSignature.getColNames().iterator();
 			for (int i = 0; i < newSignature.size(); i++) {
 				COLNAMES newSigColname = newSigColIt.next();
 				if (!colnamesType.isInstance(argList.get(i))) {
@@ -448,8 +451,8 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 		}
 		
 		NaiveDawg<LETTER, COLNAMES> result = 
-				new NaiveDawg<LETTER, COLNAMES>(newSignature, mAllConstants, newBacking, mLogger);
-		assert EprHelpers.verifySortsOfPoints(result, newSignature);
+				new NaiveDawg<LETTER, COLNAMES>(newSignature.getColNames(), mAllConstants, newBacking, mLogger);
+		assert EprHelpers.verifySortsOfPoints(result, newSignature.getColNames());
 		return result;
 	}
 
@@ -457,17 +460,17 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	public IDawg<LETTER, COLNAMES> union(IDawg<LETTER, COLNAMES> other) {
 		HashSet<List<LETTER>> newBacking = new HashSet<List<LETTER>>(mBacking);
 		newBacking.addAll(((NaiveDawg<LETTER, COLNAMES>)other).mBacking);
-		return new NaiveDawg<LETTER, COLNAMES>(mColNames, mAllConstants, newBacking, mLogger);
+		return new NaiveDawg<LETTER, COLNAMES>(getColNames(), mAllConstants, newBacking, mLogger);
 	}
 
 	@Override
 	public IDawg<LETTER, COLNAMES> difference(IDawg<LETTER, COLNAMES> other) {
-		assert mColNames.equals(other.getColnames());
+		assert getColNames().equals(other.getColNames());
 		NaiveDawg<LETTER, COLNAMES> naiOther = (NaiveDawg<LETTER, COLNAMES>) other;
 		Set<List<LETTER>> newBacking = new HashSet<List<LETTER>>(mBacking);
 		newBacking.removeAll(naiOther.mBacking);
 		return new NaiveDawg<LETTER, COLNAMES>(
-				getColnames(), mAllConstants, newBacking, mLogger);
+				getColNames(), mAllConstants, newBacking, mLogger);
 	}
 
 }

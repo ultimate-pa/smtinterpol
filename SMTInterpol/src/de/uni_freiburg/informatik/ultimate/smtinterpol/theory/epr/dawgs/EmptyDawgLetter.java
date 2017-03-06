@@ -16,17 +16,18 @@ import java.util.Set;
  * @param <LETTER>
  * @param <COLNAMES>
  */
-public class EmptyDawgLetter<LETTER, COLNAMES> implements IDawgLetter<LETTER, COLNAMES> {
+public class EmptyDawgLetter<LETTER, COLNAMES> extends AbstractSimpleDawgLetter<LETTER, COLNAMES> {
 
 	private final DawgLetterFactory<LETTER, COLNAMES> mDawgLetterFactory;
 
-	EmptyDawgLetter(DawgLetterFactory<LETTER, COLNAMES> dlf) {
+	EmptyDawgLetter(DawgLetterFactory<LETTER, COLNAMES> dlf, Object sortId) {
+		super(sortId);
 		mDawgLetterFactory = dlf;
 	}
 
 	@Override
 	public Set<IDawgLetter<LETTER, COLNAMES>> complement() {
-		return Collections.singleton(mDawgLetterFactory.getUniversalDawgLetter());
+		return Collections.singleton(mDawgLetterFactory.getUniversalDawgLetter(mSortId));
 	}
 
 	@Override

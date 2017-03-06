@@ -15,17 +15,18 @@ import java.util.Set;
  * @param <LETTER>
  * @param <COLNAMES>
  */
-public class UniversalDawgLetter<LETTER, COLNAMES> implements IDawgLetter<LETTER, COLNAMES> {
+public class UniversalDawgLetter<LETTER, COLNAMES> extends AbstractSimpleDawgLetter<LETTER, COLNAMES> {
 
 	private final DawgLetterFactory<LETTER, COLNAMES> mDawgLetterFactory;
 
-	UniversalDawgLetter(DawgLetterFactory<LETTER, COLNAMES> dlf) {
+	UniversalDawgLetter(DawgLetterFactory<LETTER, COLNAMES> dlf, Object sortId) {
+		super(sortId);
 		mDawgLetterFactory = dlf;
 	}
 
 	@Override
 	public Set<IDawgLetter<LETTER, COLNAMES>> complement() {
-		return Collections.singleton(mDawgLetterFactory.getEmptyDawgLetter());
+		return Collections.singleton(mDawgLetterFactory.getEmptyDawgLetter(mSortId));
 	}
 
 	@Override
@@ -45,12 +46,12 @@ public class UniversalDawgLetter<LETTER, COLNAMES> implements IDawgLetter<LETTER
 	
 	@Override
 	public IDawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER ltr) {
-		return mDawgLetterFactory.getSingletonSetDawgLetter(ltr);
+		return mDawgLetterFactory.getSingletonSetDawgLetter(ltr, mSortId);
 	}
 
 	@Override
 	public Collection<LETTER> allLettersThatMatch(List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex) {
-		return mDawgLetterFactory.getAllConstants();
+		return mDawgLetterFactory.getAllConstants(mSortId);
 	}
 
 	@Override

@@ -79,13 +79,6 @@ public class DawgTestSetOperations {
 	private IDawg<String, Integer> dawg13;
 	private IDawg<String, Integer> dawg14;
 
-	Set<String> getAllConstants() {
-		Set<String> result = new HashSet<String>();
-		result.add("a");
-		result.add("b");
-		result.add("c");
-		return result;
-	}
 
 	private EprTheory getEprTheory() {
 		return new EprTheoryMock(getLogger());
@@ -100,7 +93,7 @@ public class DawgTestSetOperations {
 		
 		DawgFactory<String, Integer> dawgFactory = 
 				new DawgFactory<String, Integer>(getEprTheory());
-		dawgFactory.addConstants(getAllConstants());
+		EprTestHelpers.addConstantsWDefaultSort(dawgFactory, EprTestHelpers.constantsAbc());
 
 		signature1 = new TreeSet<Integer>(Arrays.asList(new Integer[] { 1, 2 }));
 		dawg1 = dawgFactory.getEmptyDawg(signature1);

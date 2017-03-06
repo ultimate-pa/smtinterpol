@@ -19,6 +19,7 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map.Entry;
 
@@ -46,12 +47,14 @@ public class AddWordDawgBuilder<LETTER, COLNAMES> {
 
 	private void addWord() {
 		if (mInputDawg.isEmpty()) {
-			mResultDawg = mDawgFactory.createOnePointDawg(mInputDawg.getColnames(), mWordToAdd);
+			mResultDawg = mDawgFactory.createOnePointDawg(mInputDawg.getColNames(), mWordToAdd);
 		} else {
 			final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> newTransitionRelation = 
 					mInputDawg.getTransitionRelation().copy();
 			DawgState currentState = mInputDawg.getInitialState();
+			Iterator<Object> columnSortIt = mInputDawg.getColumnSorts().iterator();
 			for (LETTER letter : mWordToAdd) {
+				Object currentColumnSort = columnSortIt.next();
 //				for (Entry<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge : 
 //					mInputDawg.getTransitionRelation().get(currentState).entrySet()) {
 				boolean foundAMatchingEdge = false;
@@ -73,14 +76,15 @@ public class AddWordDawgBuilder<LETTER, COLNAMES> {
 
 						final DawgState newState = mDawgFactory.getDawgStateFactory().createDawgState();
 						final IDawgLetter<LETTER, COLNAMES> newLetter = mDawgFactory.getDawgLetterFactory()
-								.getSingletonSetDawgLetter(letter);
+								.getSingletonSetDawgLetter(letter, currentColumnSort);
 						newTransitionRelation.put(currentState, newLetter, newState);
 						currentState = newState;
 				}
 			}
+			assert !columnSortIt.hasNext();
 
 			mResultDawg = new Dawg<LETTER, COLNAMES>(mDawgFactory, mInputDawg.getLogger(),
-					mInputDawg.getColnames(), newTransitionRelation, mInputDawg.getInitialState());
+					mInputDawg.getColNames(), newTransitionRelation, mInputDawg.getInitialState());
 
 		}
 	}

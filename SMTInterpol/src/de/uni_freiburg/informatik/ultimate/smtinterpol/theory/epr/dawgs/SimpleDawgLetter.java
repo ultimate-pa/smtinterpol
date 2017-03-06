@@ -33,12 +33,13 @@ import java.util.Set;
  * @param <LETTER>
  * @param <COLNAMES>
  */
-public class SimpleDawgLetter<LETTER, COLNAMES> implements IDawgLetter<LETTER, COLNAMES> {
+public class SimpleDawgLetter<LETTER, COLNAMES> extends AbstractSimpleDawgLetter<LETTER, COLNAMES> {
 	
 	private final Set<LETTER> mLetters;
 	private final DawgLetterFactory<LETTER, COLNAMES> mDawgLetterFactory;
 	
-	public SimpleDawgLetter(DawgLetterFactory<LETTER, COLNAMES> dlf, Set<LETTER> letters) {
+	public SimpleDawgLetter(DawgLetterFactory<LETTER, COLNAMES> dlf, Set<LETTER> letters, Object sortId) {
+		super(sortId);
 		assert letters.size() > 0 : "use EmptyDawgLetter instead";
 		mDawgLetterFactory = dlf;
 		mLetters = letters;
@@ -46,7 +47,7 @@ public class SimpleDawgLetter<LETTER, COLNAMES> implements IDawgLetter<LETTER, C
 
 	@Override
 	public Set<IDawgLetter<LETTER, COLNAMES>> complement() {
-		return Collections.singleton(mDawgLetterFactory.getSimpleComplementDawgLetter(mLetters));
+		return Collections.singleton(mDawgLetterFactory.getSimpleComplementDawgLetter(mLetters, mSortId));
 	}
 
 	@Override
@@ -65,11 +66,11 @@ public class SimpleDawgLetter<LETTER, COLNAMES> implements IDawgLetter<LETTER, C
 		} else if (other instanceof SimpleDawgLetter<?, ?>) {
 			final Set<LETTER> resultLetters = new HashSet<LETTER>(mLetters);
 			resultLetters.retainAll(((SimpleDawgLetter<LETTER, COLNAMES>) other).getLetters());
-			return mDawgLetterFactory.getSimpleDawgLetter(resultLetters);
+			return mDawgLetterFactory.getSimpleDawgLetter(resultLetters, mSortId);
 		} else if (other instanceof SimpleComplementDawgLetter<?, ?>) {
 			final Set<LETTER> resultLetters = new HashSet<LETTER>(mLetters);
 			resultLetters.removeAll(((SimpleComplementDawgLetter<LETTER, COLNAMES>) other).getComplementLetters());
-			return mDawgLetterFactory.getSimpleDawgLetter(resultLetters);
+			return mDawgLetterFactory.getSimpleDawgLetter(resultLetters, mSortId);
 		} else {
 			assert false : "not expected";
 			return null;
@@ -88,9 +89,9 @@ public class SimpleDawgLetter<LETTER, COLNAMES> implements IDawgLetter<LETTER, C
 	@Override
 	public IDawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER selectLetter) {
 		if (mLetters.contains(selectLetter)) {
-			return mDawgLetterFactory.getSimpleDawgLetter(Collections.singleton(selectLetter));
+			return mDawgLetterFactory.getSimpleDawgLetter(Collections.singleton(selectLetter), mSortId);
 		} else {
-			return mDawgLetterFactory.getEmptyDawgLetter();
+			return mDawgLetterFactory.getEmptyDawgLetter(mSortId);
 		}
 	}
 

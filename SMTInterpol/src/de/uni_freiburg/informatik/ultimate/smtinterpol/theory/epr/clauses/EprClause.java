@@ -556,7 +556,7 @@ public class EprClause {
 	}
 
 	public Set<Clause> getGroundings(IDawg<ApplicationTerm, TermVariable> groundingDawg) {
-		assert groundingDawg.getColnames().equals(mVariables) : "signatures don't match";
+		assert groundingDawg.getColNames().equals(mVariables) : "signatures don't match";
 
 		Set<Clause> result = new HashSet<Clause>();
 
