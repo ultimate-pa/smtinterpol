@@ -78,8 +78,6 @@ public class EprTheory implements ITheory {
 	private ArrayList<Literal[]> mAllGroundingsOfLastAddedEprClause;
 
 
-	private final boolean mUseDeclaredConstantsAsAllConstants;
-
 	private EprStateManager mStateManager;
 	private DawgFactory<ApplicationTerm, TermVariable> mDawgFactory;
 	private EprClauseFactory mClauseFactory;
@@ -123,7 +121,6 @@ public class EprTheory implements ITheory {
 	 */
 	public EprTheory(LogProxy logger) {
 		mLogger = logger;
-		mUseDeclaredConstantsAsAllConstants = false;
 	}
 
 	public EprTheory(Theory th, DPLLEngine engine, CClosure cClosure, Clausifier clausifier) {
@@ -142,9 +139,6 @@ public class EprTheory implements ITheory {
 		mEqualityManager = new EqualityManager();
 		mStateManager = new EprStateManager(this, mDawgFactory, mClauseFactory);
 
-		mUseDeclaredConstantsAsAllConstants = true;
-
-		// mStateManager.setEprClauseFactory(mClauseFactory);
 	}
 
 	@Override
