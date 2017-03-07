@@ -140,7 +140,7 @@ public class EprHelpers {
 		}
 		
 		
-		if (eprTheory.isGroundAllMode()) {
+		if (EprTheorySettings.FullInstatiationMode) {
 			// we are in the mode where Epr just computes all the groundings of each
 			// quantified formula
 			// --> thus EprAtoms must become CCEqualities

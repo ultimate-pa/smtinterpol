@@ -40,6 +40,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheorySettings;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EqualityManager;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
@@ -301,7 +302,7 @@ public class EprStateManager {
 	 * @param constants
 	 */
 	public void addConstants(HashSet<ApplicationTerm> constants) {
-		if (mEprTheory.isGroundAllMode()) {
+		if (EprTheorySettings.FullInstatiationMode) {
 			HashSet<ApplicationTerm> reallyNewConstants = new HashSet<ApplicationTerm>();
 			for (ApplicationTerm newConstant : constants) {
 				if (!mDawgFactory.getAllConstants(newConstant.getSort().getRealSort()).contains(newConstant))

@@ -65,6 +65,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheorySettings;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
@@ -663,7 +664,7 @@ public class Clausifier {
 							IProofTracker sub = mTracker.getDescendent();
 							sub.intern(at, lit);
 							addClause(groundLiteralsAfterDER, null, getProofNewSource(sub.clause(mProofTerm)));
-						} else if (mInstantiateEprClauses) {
+						} else if (EprTheorySettings.FullInstatiationMode) {
 							// mode for solving Epr by adding all groundings is active
 
 //							ArrayList<Literal[]> allGroundings = mEprTheory.getAllGroundingsOfLastAddedEprClause();
@@ -1811,7 +1812,7 @@ public class Clausifier {
 				// Special cases
 				if (t.getSort() == t.getTheory().getBooleanSort()
 //						&& !mTheory.getLogic().isQuantified()) //alex: we only want these axioms if we do the predicate-to-function conversion
-						&& (mEprTheory == null || mInstantiateEprClauses)
+						&& (mEprTheory == null || EprTheorySettings.FullInstatiationMode)
 						&& !EprTheory.isQuantifiedEprAtom(t)) { //alex: we only want these axioms if we do the predicate-to-function conversion
 					pushOperation(new AddExcludedMiddleAxiom(res));
 				} else {
@@ -1869,7 +1870,6 @@ public class Clausifier {
 	private ArrayTheory mArrayTheory;
 	//alex begin
 	public EprTheory mEprTheory; //TODO: make private..
-	public static final boolean mInstantiateEprClauses = false;
 	//alex end
 	
 	private boolean mInstantiationMode;
@@ -2241,7 +2241,7 @@ public class Clausifier {
 			mSharedFalse.mCCterm = mCClosure.createAnonTerm(mSharedFalse);
 			mSharedTerms.put(mTheory.mFalse, mSharedFalse);
 //			if (!mTheory.getLogic().isQuantified()) {
-			if (mEprTheory != null && !mInstantiateEprClauses) {
+			if (mEprTheory != null && !EprTheorySettings.FullInstatiationMode) {
 				//alex: this is only needed for the predicate-to-function conversion, right?
 				Literal[] lits = new Literal[] {
 				mCClosure.createCCEquality(
@@ -2276,7 +2276,7 @@ public class Clausifier {
 		if (mEprTheory == null) {
 //			mEprTheory = new EprTheory(this.getTheory());
 			
-			mEprTheory = new EprTheory(mTheory, mEngine, mCClosure, this, mInstantiateEprClauses);
+			mEprTheory = new EprTheory(mTheory, mEngine, mCClosure, this);
 			mEngine.addTheory(mEprTheory);
 		}
 	}
@@ -2642,7 +2642,7 @@ public class Clausifier {
 				// alex: this the right place to get rid of the CClosure predicate conversion in EPR-case?
 				// --> seems to be one of three positions.. (keyword: predicate-to-function conversion)
 //				if (mTheory.getLogic().isQuantified()) {
-				if ((mEprTheory != null && !mInstantiateEprClauses) || EprTheory.isQuantifiedEprAtom(term)) {
+				if ((mEprTheory != null && !EprTheorySettings.FullInstatiationMode) || EprTheory.isQuantifiedEprAtom(term)) {
 					// assuming right now that 
 					assert !term.getFunction().getName().equals("not") : "do something for the negated case!";
 
