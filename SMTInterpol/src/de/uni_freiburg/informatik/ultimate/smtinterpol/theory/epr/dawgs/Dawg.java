@@ -782,9 +782,10 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			 * this is the "easy case" as our non-simple dawg-letters allow
 			 * equality-constraints
 			 */
-			// TODO
-			assert false : "TODO: implement";
-			return null;
+			final Set<COLNAMES> emptyColnamesSet = Collections.emptySet();
+			UniversalDawgLetterWithEqualities<LETTER, COLNAMES> duplicationDawgLetter = mDawgLetterFactory.getUniversalDawgLetterWithEqualities(
+					Collections.singleton(firstCol), emptyColnamesSet, mSignature.getSortForColname(currentNewCol));
+			return this.insertColumn(currentNewCol, duplicationDawgLetter);
 		}
 	}
 
@@ -831,7 +832,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	 *            the letter that is accepted in the fresh column
 	 * @return
 	 */
-	private IDawg<LETTER, COLNAMES> insertColumn(final COLNAMES columnName,
+	private Dawg<LETTER, COLNAMES> insertColumn(final COLNAMES columnName,
 			final IDawgLetter<LETTER, COLNAMES> columnLetter) {
 
 		final TreeSet<COLNAMES> newSignature = new TreeSet<COLNAMES>(EprHelpers.getColumnNamesComparator());
@@ -845,10 +846,11 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			 * insert operation inserts something into every word in the
 			 * language, thus does nothing if the language is empty)
 			 */
-			return mDawgFactory.getEmptyDawg(newSignature);
+			return (Dawg<LETTER, COLNAMES>) mDawgFactory.getEmptyDawg(newSignature);
 		}
 
-		final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> newTransitionRelation = new DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState>();
+		final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> newTransitionRelation = 
+				new DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState>();
 
 		/*
 		 * find the position in this Dawg's signature where the new column must
