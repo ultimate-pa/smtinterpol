@@ -206,9 +206,9 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			if (triple.getSecond() instanceof EmptyDawgLetter<?, ?>) {
 				return true;
 			}
-			if (triple.getSecond() instanceof EmptyDawgLetterWithEqualities<?, ?>) {
-				return true;
-			}
+//			if (triple.getSecond() instanceof EmptyDawgLetterWithEqualities<?, ?>) {
+//				return true;
+//			}
 		}
 		return false;
 	}
@@ -404,8 +404,9 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	}
 
 	@Override
-	public IDawg<LETTER, COLNAMES> add(List<LETTER> arguments) {
-		return new AddWordDawgBuilder<LETTER, COLNAMES>(mDawgFactory, this, arguments).build();
+	public IDawg<LETTER, COLNAMES> add(List<LETTER> word) {
+		return this.union(mDawgFactory.createOnePointDawg(getColNames(), word));
+//		return new AddWordDawgBuilder<LETTER, COLNAMES>(mDawgFactory, this, arguments).build();
 	}
 
 	@Override

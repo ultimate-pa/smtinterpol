@@ -25,11 +25,14 @@ import java.util.Map.Entry;
 
 /**
  * 
+ * 
+ * 
  * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
  *
  * @param <LETTER>
  * @param <COLNAMES>
  */
+@Deprecated
 public class AddWordDawgBuilder<LETTER, COLNAMES> {
 
 	private final DawgFactory<LETTER, COLNAMES> mDawgFactory;
@@ -39,6 +42,11 @@ public class AddWordDawgBuilder<LETTER, COLNAMES> {
 
 	public AddWordDawgBuilder(DawgFactory<LETTER, COLNAMES> dawgFactory, Dawg<LETTER, COLNAMES> dawg,
 			List<LETTER> word) {
+		/*
+		 * as is this algorithm only works for a very restricted set of graphs.
+		 */
+		assert false : "TODO: rework this!";
+			
 		mDawgFactory = dawgFactory;
 		mInputDawg = dawg;
 		mWordToAdd = word;
@@ -71,14 +79,27 @@ public class AddWordDawgBuilder<LETTER, COLNAMES> {
 				}
 				
 				if (!foundAMatchingEdge) {
-						// we need a fresh transition (effectively building one fresh "tail" for the dawg for
-						// the given word suffix..
+					// we need a fresh transition (effectively building one fresh "tail" for the dawg for
+					// the given word suffix..
+					
 
-						final DawgState newState = mDawgFactory.getDawgStateFactory().createDawgState();
-						final IDawgLetter<LETTER, COLNAMES> newLetter = mDawgFactory.getDawgLetterFactory()
-								.getSingletonSetDawgLetter(letter, currentColumnSort);
-						newTransitionRelation.put(currentState, newLetter, newState);
-						currentState = newState;
+					/*
+					 * we may need to edit another edge here to keep the automaton deterministic, right?..
+					 *  --> say we have automaton s1 -{a, b}-> s2 -{a, b}_(=1)-> s3 (accepting aa, bb)
+					 *      and we add word ab
+					 *      then we should get s1 -{a, b}-> s2 -
+					 *     
+					 * 
+					 */
+					assert false : "TODO";
+
+
+
+					final DawgState newState = mDawgFactory.getDawgStateFactory().createDawgState();
+					final IDawgLetter<LETTER, COLNAMES> newLetter = mDawgFactory.getDawgLetterFactory()
+							.getSingletonSetDawgLetter(letter, currentColumnSort);
+					newTransitionRelation.put(currentState, newLetter, newState);
+					currentState = newState;
 				}
 			}
 			assert !columnSortIt.hasNext();

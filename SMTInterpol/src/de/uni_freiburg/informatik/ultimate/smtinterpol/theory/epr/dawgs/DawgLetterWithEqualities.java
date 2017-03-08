@@ -187,85 +187,85 @@ public class DawgLetterWithEqualities<LETTER, COLNAMES> extends AbstractSimpleDa
 	}
 }
 
-/**
- * A DawgLetter that captures no LETTER.
- * (probably this should not occur in any Dawg, but only as an intermediate result during construction
- *  -- an edge labelled with this letter should be omitted)
- * 
- * @author Alexander Nutz
- *
- * @param <LETTER>
- * @param <COLNAMES>
- */
-class EmptyDawgLetterWithEqualities<LETTER, COLNAMES> extends DawgLetterWithEqualities<LETTER, COLNAMES> {
-
-	EmptyDawgLetterWithEqualities(DawgLetterFactory<LETTER, COLNAMES> dlf, Object sortId) {
-		super(dlf, sortId);
-	}
-
-	@Override
-	public Set<IDawgLetter<LETTER, COLNAMES>> complement() {
-		return Collections.singleton(mDawgLetterFactory.getUniversalDawgLetter(mSortId));
-	}
-
-	@Override
-	public IDawgLetter<LETTER, COLNAMES> intersect(IDawgLetter<LETTER, COLNAMES> other) {
-		return this;
-	}
-
-	@Override
-	public Set<IDawgLetter<LETTER, COLNAMES>> difference(IDawgLetter<LETTER, COLNAMES> other) {
-		return Collections.singleton((IDawgLetter<LETTER, COLNAMES>) this);
-	}
-
-	@Override
-	public boolean matches(LETTER ltr, List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex) {
-		return false;
-	}
-
-	@Override
-	public IDawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER ltr) {
-		return null;
-	}
-}
-
-/**
- * A DawgLetter that captures all LETTERs.
- * (i.e. the DawgLetter whose LETTER-set is "allConstants", and whose (un)equals-sets are empty)
- * 
- * @author Alexander Nutz
- *
- * @param <LETTER>
- * @param <COLNAMES>
- */
-class UniversalDawgLetterWithEqualities<LETTER, COLNAMES> extends  DawgLetterWithEqualities<LETTER, COLNAMES> {
-
-	UniversalDawgLetterWithEqualities(DawgLetterFactory<LETTER, COLNAMES> dlf, Object sortId) {
-		super(dlf, sortId);
-	}
-
-	@Override
-	public Set<IDawgLetter<LETTER, COLNAMES>> complement() {
-		return Collections.singleton(mDawgLetterFactory.getEmptyDawgLetter(mSortId));
-	}
-
-	@Override
-	public IDawgLetter<LETTER, COLNAMES> intersect(IDawgLetter<LETTER, COLNAMES> other) {
-		return other;
-	}
-	
-	@Override
-	public Set<IDawgLetter<LETTER, COLNAMES>> difference(IDawgLetter<LETTER, COLNAMES> other) {
-		return other.complement();
-	}
-	
-	@Override
-	public boolean matches(LETTER ltr, List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex) {
-		return true;
-	}
-	
-	@Override
-	public IDawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER ltr) {
-		return mDawgLetterFactory.getSingletonSetDawgLetter(ltr, mSortId);
-	}
-}
+///**
+// * A DawgLetter that captures no LETTER.
+// * (probably this should not occur in any Dawg, but only as an intermediate result during construction
+// *  -- an edge labelled with this letter should be omitted)
+// * 
+// * @author Alexander Nutz
+// *
+// * @param <LETTER>
+// * @param <COLNAMES>
+// */
+//class EmptyDawgLetterWithEqualities<LETTER, COLNAMES> extends DawgLetterWithEqualities<LETTER, COLNAMES> {
+//
+//	EmptyDawgLetterWithEqualities(DawgLetterFactory<LETTER, COLNAMES> dlf, Object sortId) {
+//		super(dlf, sortId);
+//	}
+//
+//	@Override
+//	public Set<IDawgLetter<LETTER, COLNAMES>> complement() {
+//		return Collections.singleton(mDawgLetterFactory.getUniversalDawgLetter(mSortId));
+//	}
+//
+//	@Override
+//	public IDawgLetter<LETTER, COLNAMES> intersect(IDawgLetter<LETTER, COLNAMES> other) {
+//		return this;
+//	}
+//
+//	@Override
+//	public Set<IDawgLetter<LETTER, COLNAMES>> difference(IDawgLetter<LETTER, COLNAMES> other) {
+//		return Collections.singleton((IDawgLetter<LETTER, COLNAMES>) this);
+//	}
+//
+//	@Override
+//	public boolean matches(LETTER ltr, List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex) {
+//		return false;
+//	}
+//
+//	@Override
+//	public IDawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER ltr) {
+//		return null;
+//	}
+//}
+//
+///**
+// * A DawgLetter that captures all LETTERs.
+// * (i.e. the DawgLetter whose LETTER-set is "allConstants", and whose (un)equals-sets are empty)
+// * 
+// * @author Alexander Nutz
+// *
+// * @param <LETTER>
+// * @param <COLNAMES>
+// */
+//class UniversalDawgLetterWithEqualities<LETTER, COLNAMES> extends  DawgLetterWithEqualities<LETTER, COLNAMES> {
+//
+//	UniversalDawgLetterWithEqualities(DawgLetterFactory<LETTER, COLNAMES> dlf, Object sortId) {
+//		super(dlf, sortId);
+//	}
+//
+//	@Override
+//	public Set<IDawgLetter<LETTER, COLNAMES>> complement() {
+//		return Collections.singleton(mDawgLetterFactory.getEmptyDawgLetter(mSortId));
+//	}
+//
+//	@Override
+//	public IDawgLetter<LETTER, COLNAMES> intersect(IDawgLetter<LETTER, COLNAMES> other) {
+//		return other;
+//	}
+//	
+//	@Override
+//	public Set<IDawgLetter<LETTER, COLNAMES>> difference(IDawgLetter<LETTER, COLNAMES> other) {
+//		return other.complement();
+//	}
+//	
+//	@Override
+//	public boolean matches(LETTER ltr, List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex) {
+//		return true;
+//	}
+//	
+//	@Override
+//	public IDawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER ltr) {
+//		return mDawgLetterFactory.getSingletonSetDawgLetter(ltr, mSortId);
+//	}
+//}

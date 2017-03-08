@@ -132,8 +132,6 @@ public class EprTheory implements ITheory {
 
 		mDawgFactory = new DawgFactory<ApplicationTerm, TermVariable>(this);
 
-		// mDawgFactory.addConstants(Collections.singleton(createDefaultConstant()));
-
 		mClauseFactory = new EprClauseFactory(this);
 
 		mEqualityManager = new EqualityManager();
@@ -154,8 +152,9 @@ public class EprTheory implements ITheory {
 
 	@Override
 	public Clause setLiteral(Literal literal) {
-		if (EprTheorySettings.FullInstatiationMode)
+		if (EprTheorySettings.FullInstatiationMode) {
 			return null;
+		}
 		mLogger.debug("EPRDEBUG: setLiteral " + literal);
 		mLiteralsThatAreCurrentlySet.add(literal);
 
@@ -177,8 +176,6 @@ public class EprTheory implements ITheory {
 		} else if (atom instanceof CCEquality) {
 			assert false : "TODO: check handling of equalities";
 			if (literal.getSign() == 1) {
-				CCEquality eq = (CCEquality) atom;
-
 				Clause conflictOrNull = mStateManager.setGroundEquality((CCEquality) atom);
 				assert EprHelpers.verifyConflictClause(conflictOrNull, mLogger);
 				return conflictOrNull;

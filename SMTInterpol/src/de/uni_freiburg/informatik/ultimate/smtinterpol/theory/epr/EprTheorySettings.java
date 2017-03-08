@@ -7,6 +7,11 @@ public class EprTheorySettings {
 	 * and returns them to the DPLLEngine.
 	 */
 	public static final boolean FullInstatiationMode = false;
+	
+	/**
+	 * 
+	 */
+	public static final boolean UseSimpleDawgLetters = false;
 
 	/**
 	 * If this is true, we use all constants declared before the first assert as
