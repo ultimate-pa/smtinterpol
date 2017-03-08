@@ -1,9 +1,13 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
 
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 
 public class UniversalDawgLetterWithEqualities<LETTER, COLNAMES> extends AbstractDawgLetterWithEqualities<LETTER, COLNAMES> {
 	
@@ -14,32 +18,84 @@ public class UniversalDawgLetterWithEqualities<LETTER, COLNAMES> extends Abstrac
 
 	@Override
 	public Set<IDawgLetter<LETTER, COLNAMES>> complement() {
-		// TODO Auto-generated method stub
-		return null;
+		final Set<IDawgLetter<LETTER, COLNAMES>> result = new HashSet<IDawgLetter<LETTER,COLNAMES>>();
+		
+		// only needed because of java typing business..
+		Set<COLNAMES> emptyColnames = Collections.emptySet();
+		
+		// (no set constraint needs to be added)
+		
+		// add the negated equality constraints
+		for (COLNAMES eq : mEqualColnames) {
+			result.add(mDawgLetterFactory.getUniversalDawgLetterWithEqualities(emptyColnames, 
+					Collections.singleton(eq), mSortId));
+		}
+
+		// add the negated disequality constraints
+		for (COLNAMES deq : mUnequalColnames) {
+			result.add(mDawgLetterFactory.getUniversalDawgLetterWithEqualities(Collections.singleton(deq), 
+					emptyColnames, mSortId));
+		}
+
+		return result;
 	}
 
 	@Override
 	public IDawgLetter<LETTER, COLNAMES> intersect(IDawgLetter<LETTER, COLNAMES> other) {
-		// TODO Auto-generated method stub
-		return null;
+		if (other instanceof UniversalDawgLetter<?, ?>) {
+			return this;
+		} else if (other instanceof EmptyDawgLetter<?, ?>) {
+			return other;
+		} 
+		
+		if (!(other instanceof AbstractDawgLetterWithEqualities<?, ?>)) {
+			assert false : "?";
+			return null;
+		}
+		
+		/*
+		 * compute new equality constraints
+		 */
+		final Set<COLNAMES> newEqualColnames = EprHelpers.computeUnionSet(mEqualColnames, 
+				((AbstractDawgLetterWithEqualities<LETTER, COLNAMES>) other).mEqualColnames);
+		final Set<COLNAMES> newUnequalColnames = EprHelpers.computeUnionSet(mUnequalColnames, 
+				((AbstractDawgLetterWithEqualities<LETTER, COLNAMES>) other).mUnequalColnames);
+		if (!EprHelpers.isIntersectionEmpty(newEqualColnames, newUnequalColnames)) {
+			return mDawgLetterFactory.getEmptyDawgLetter(mSortId);
+		}
+		
+		/*
+		 * compute new set constraint
+		 */
+		if (other instanceof UniversalDawgLetterWithEqualities<?, ?>) {
+			return mDawgLetterFactory.getUniversalDawgLetterWithEqualities(newEqualColnames, newUnequalColnames, mSortId);
+		} else if (other instanceof DawgLetterWithEqualities<?, ?>) {
+			final DawgLetterWithEqualities<LETTER, COLNAMES> otherDlwe = (DawgLetterWithEqualities<LETTER, COLNAMES>) other;
+			return mDawgLetterFactory.getDawgLetterWithEqualities(otherDlwe.mLetters, 
+					newEqualColnames, newUnequalColnames, mSortId);
+		} else if (other instanceof ComplementDawgLetterWithEqualities<?, ?>) {
+			final ComplementDawgLetterWithEqualities<LETTER, COLNAMES> otherDlwe = 
+					(ComplementDawgLetterWithEqualities<LETTER, COLNAMES>) other;
+			return mDawgLetterFactory.getComplementDawgLetterWithEqualities(
+					otherDlwe.mComplementLetters, newEqualColnames, newUnequalColnames, mSortId);
+		} else {
+			assert false : "forgot a case?";
+			return null;
+		}
+		
 	}
 
-	@Override
-	public boolean matches(LETTER ltr, List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex) {
-		// TODO Auto-generated method stub
-		return false;
-	}
+//	@Override
+//	public boolean matches(LETTER ltr, List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex) {
+//		// TODO Auto-generated method stub
+//		return false;
+//	}
 
-	@Override
-	public Collection<LETTER> allLettersThatMatch(List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex) {
-		// TODO Auto-generated method stub
-		return null;
-	}
 
 	@Override
 	public IDawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER selectLetter) {
-		// TODO Auto-generated method stub
-		return null;
+		return mDawgLetterFactory.getDawgLetterWithEqualities(
+				Collections.singleton(selectLetter), mEqualColnames, mUnequalColnames, mSortId);
 	}
 
 }

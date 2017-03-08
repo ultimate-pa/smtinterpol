@@ -105,7 +105,7 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 		return result;
 	}
 
-	public AbstractDawgLetter<LETTER, COLNAMES> getComplementDawgLetter(Set<LETTER> complementLetters, Set<COLNAMES> equalColnames,
+	public AbstractDawgLetter<LETTER, COLNAMES> getComplementDawgLetterWithEqualities(Set<LETTER> complementLetters, Set<COLNAMES> equalColnames,
 			Set<COLNAMES> inequalColnames, Object sortId) {
 		if (complementLetters.isEmpty()) {
 			return getUniversalDawgLetterWithEqualities(equalColnames, inequalColnames, sortId);

@@ -1081,11 +1081,18 @@ public class EprHelpers {
 	}
 	
 	
-	public static <COLNAMES> Set<COLNAMES> computeUnionSet(Set<COLNAMES> equalColnames,
-			Set<COLNAMES> equalColnames2) {
-		Set<COLNAMES> result = new HashSet<COLNAMES>();
-		result.addAll(equalColnames);
-		result.addAll(equalColnames2);
+	public static <COLNAMES> Set<COLNAMES> computeUnionSet(Set<COLNAMES> set1, Set<COLNAMES> set2) {
+		final Set<COLNAMES> result = new HashSet<COLNAMES>();
+		result.addAll(set1);
+		result.addAll(set2);
 		return result;
 	}
+
+	public static <COLNAMES> boolean isIntersectionEmpty(Set<COLNAMES> set1, Set<COLNAMES> set2) {
+		final Set<COLNAMES> result = new HashSet<COLNAMES>();
+		result.addAll(set1);
+		result.retainAll(set2);
+		return result.isEmpty();
+	}
+
 }

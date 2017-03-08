@@ -84,26 +84,6 @@ public class ComplementDawgLetterWithEqualities<LETTER, COLNAMES> extends Abstra
 			return null;
 		}
 		
-
-		/*
-		 * compute new set constraint
-		 */
-		final Set<LETTER> newLetters = new HashSet<LETTER>();
-		 //TODO..
-		
-		if (other instanceof UniversalDawgLetterWithEqualities<?, ?>) {
-			// no further set constraints --> do nothing
-		} else if (other instanceof DawgLetterWithEqualities<?, ?>) {
-			final DawgLetterWithEqualities<LETTER, COLNAMES> otherDlwe = (DawgLetterWithEqualities<LETTER, COLNAMES>) other;
-			newLetters.retainAll(otherDlwe.mLetters);
-		} else if (other instanceof ComplementDawgLetterWithEqualities<?, ?>) {
-			final ComplementDawgLetterWithEqualities<LETTER, COLNAMES> otherDlwe = 
-					(ComplementDawgLetterWithEqualities<LETTER, COLNAMES>) other;
-			newLetters.removeAll(otherDlwe.mComplementLetters);
-		} else {
-			assert false : "forgot a case?";
-		}
-		
 		/*
 		 * compute new equality constraints
 		 */
@@ -111,26 +91,48 @@ public class ComplementDawgLetterWithEqualities<LETTER, COLNAMES> extends Abstra
 				((AbstractDawgLetterWithEqualities<LETTER, COLNAMES>) other).mEqualColnames);
 		final Set<COLNAMES> newUnequalColnames = EprHelpers.computeUnionSet(mUnequalColnames, 
 				((AbstractDawgLetterWithEqualities<LETTER, COLNAMES>) other).mUnequalColnames);
-		
-		return mDawgLetterFactory.getComplementDawgLetter(newLetters, newEqualColnames, newUnequalColnames, mSortId);
+		if (!EprHelpers.isIntersectionEmpty(newEqualColnames, newUnequalColnames)) {
+			return mDawgLetterFactory.getEmptyDawgLetter(mSortId);
+		}
+
+		/*
+		 * compute new set constraint
+		 */
+		if (other instanceof UniversalDawgLetterWithEqualities<?, ?>) {
+			// no further set constraints --> do nothing
+			return mDawgLetterFactory.getComplementDawgLetterWithEqualities(mComplementLetters, newEqualColnames, newUnequalColnames, mSortId);
+		} else if (other instanceof DawgLetterWithEqualities<?, ?>) {
+			// using the non-complement DawgLetter's intersect seems most elegant here..
+			return other.intersect(this);
+		} else if (other instanceof ComplementDawgLetterWithEqualities<?, ?>) {
+			final Set<LETTER> newComplementLetters = new HashSet<LETTER>();
+			final ComplementDawgLetterWithEqualities<LETTER, COLNAMES> otherDlwe = 
+					(ComplementDawgLetterWithEqualities<LETTER, COLNAMES>) other;
+			newComplementLetters.addAll(this.mComplementLetters);
+			newComplementLetters.addAll(otherDlwe.mComplementLetters);
+
+			return mDawgLetterFactory.getComplementDawgLetterWithEqualities(newComplementLetters, newEqualColnames, newUnequalColnames, mSortId);
+		} else {
+			assert false : "forgot a case?";
+			return null;
+		}
 	}
 
 	@Override
 	public boolean matches(LETTER ltr, List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex) {
-		// TODO Auto-generated method stub
-		return false;
-	}
-
-	@Override
-	public Collection<LETTER> allLettersThatMatch(List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex) {
-		// TODO Auto-generated method stub
-		return null;
+		if (mComplementLetters.contains(ltr)) {
+			return false;
+		}
+		return super.matches(ltr, word, colnamesToIndex);
 	}
 
 	@Override
 	public IDawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER selectLetter) {
-		// TODO Auto-generated method stub
-		return null;
+		if (mComplementLetters.contains(selectLetter)) {
+			return mDawgLetterFactory.getEmptyDawgLetter(mSortId);
+		}
+		return mDawgLetterFactory.getDawgLetterWithEqualities(
+				Collections.singleton(selectLetter), mEqualColnames, mUnequalColnames, mSortId);
 	}
 
 }

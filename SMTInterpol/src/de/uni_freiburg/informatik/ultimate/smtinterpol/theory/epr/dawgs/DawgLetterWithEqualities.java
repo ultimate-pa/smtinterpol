@@ -73,7 +73,7 @@ public class DawgLetterWithEqualities<LETTER, COLNAMES> extends AbstractDawgLett
 		Set<COLNAMES> emptyColnames = Collections.emptySet();
 
 		// add the set-constraint not S
-		result.add(mDawgLetterFactory.getComplementDawgLetter(mLetters, emptyColnames, emptyColnames, mSortId));
+		result.add(mDawgLetterFactory.getComplementDawgLetterWithEqualities(mLetters, emptyColnames, emptyColnames, mSortId));
 		
 		// add the negated equality constraints
 		for (COLNAMES eq : mEqualColnames) {
@@ -104,6 +104,17 @@ public class DawgLetterWithEqualities<LETTER, COLNAMES> extends AbstractDawgLett
 		}
 		
 		/*
+		 * compute new equality constraints
+		 */
+		final Set<COLNAMES> newEqualColnames = EprHelpers.computeUnionSet(mEqualColnames, 
+				((AbstractDawgLetterWithEqualities<LETTER, COLNAMES>) other).mEqualColnames);
+		final Set<COLNAMES> newUnequalColnames = EprHelpers.computeUnionSet(mUnequalColnames, 
+				((AbstractDawgLetterWithEqualities<LETTER, COLNAMES>) other).mUnequalColnames);
+		if (!EprHelpers.isIntersectionEmpty(newEqualColnames, newUnequalColnames)) {
+			return mDawgLetterFactory.getEmptyDawgLetter(mSortId);
+		}
+		
+		/*
 		 * compute new set constraint
 		 */
 		final Set<LETTER> newLetters = new HashSet<LETTER>(mLetters);
@@ -120,37 +131,15 @@ public class DawgLetterWithEqualities<LETTER, COLNAMES> extends AbstractDawgLett
 			assert false : "forgot a case?";
 		}
 		
-		/*
-		 * compute new equality constraints
-		 */
-		final Set<COLNAMES> newEqualColnames = EprHelpers.computeUnionSet(mEqualColnames, 
-				((AbstractDawgLetterWithEqualities<LETTER, COLNAMES>) other).mEqualColnames);
-		final Set<COLNAMES> newUnequalColnames = EprHelpers.computeUnionSet(mUnequalColnames, 
-				((AbstractDawgLetterWithEqualities<LETTER, COLNAMES>) other).mUnequalColnames);
-		
 		return mDawgLetterFactory.getDawgLetterWithEqualities(newLetters, newEqualColnames, newUnequalColnames, mSortId);
 	}
-
-
 
 	@Override
 	public boolean matches(LETTER ltr, List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex) {
 		if (!mLetters.contains(ltr)) {
 			return false;
 		}
-		for (COLNAMES cn : mEqualColnames) {
-			Integer cnIndex = colnamesToIndex.get(cn);
-			if (word.get(cnIndex) != ltr) {
-				return false;
-			}
-		}
-		for (COLNAMES cn : mUnequalColnames) {
-			Integer cnIndex = colnamesToIndex.get(cn);
-			if (word.get(cnIndex) == ltr) {
-				return false;
-			}
-		}
-		return true;
+		return super.matches(ltr, word, colnamesToIndex);
 	}
 	
 	/**
@@ -169,14 +158,5 @@ public class DawgLetterWithEqualities<LETTER, COLNAMES> extends AbstractDawgLett
 				Collections.singleton(ltr), mEqualColnames, mUnequalColnames, mSortId);
 	}
 
-	@Override
-	public Collection<LETTER> allLettersThatMatch(List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex) {
-		final Set<LETTER> result = new HashSet<LETTER>();
-		for (LETTER constant : mDawgLetterFactory.getAllConstants(mSortId)) {
-			if (this.matches(constant, word, colnamesToIndex)) {
-				result.add(constant);
-			}
-		}
-		return result;
-	}
+
 }
