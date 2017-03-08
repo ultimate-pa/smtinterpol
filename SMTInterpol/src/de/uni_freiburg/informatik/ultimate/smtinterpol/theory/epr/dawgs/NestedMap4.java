@@ -1,5 +1,7 @@
+
 /*
- * Copyright (C) 2014-2015 Matthias Heizmann (heizmann@informatik.uni-freiburg.de)
+ * Copyright (C) 2015 Alexander Nutz (nutz@informatik.uni-freiburg.de)
+ * Copyright (C) 2015 Matthias Heizmann (heizmann@informatik.uni-freiburg.de)
  * Copyright (C) 2012-2015 University of Freiburg
  * 
  * This file is part of the ULTIMATE Util Library.
@@ -28,7 +30,6 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * TODO: comment
@@ -39,55 +40,30 @@ import java.util.Set;
  * @param <K3>
  * @param <V>
  */
-public class NestedMap3<K1, K2, K3, V> {
+public class NestedMap4<K1, K2, K3, K4, V> {
 	
-	private final Map<K1, NestedMap2<K2, K3, V>> mK1ToK2ToK3V = 
-			new HashMap<K1, NestedMap2<K2, K3, V>>();
+	private final Map<K1, NestedMap3<K2, K3, K4, V>> mK1ToK2ToK3ToK4V = 
+			new HashMap<K1, NestedMap3<K2, K3, K4, V>>();
 	
-	public V put(K1 key1, K2 key2, K3 key3, V value) {
-		NestedMap2<K2, K3, V> k2tok3toV = mK1ToK2ToK3V.get(key1);
-		if (k2tok3toV == null) {
-			k2tok3toV = new NestedMap2<K2, K3, V>();
-			mK1ToK2ToK3V.put(key1, k2tok3toV);
+	public V put(K1 key1, K2 key2, K3 key3, K4 key4, V value) {
+		NestedMap3<K2, K3, K4, V> k2tok3tok4toV = mK1ToK2ToK3ToK4V.get(key1);
+		if (k2tok3tok4toV == null) {
+			k2tok3tok4toV = new NestedMap3<K2, K3, K4, V>();
+			mK1ToK2ToK3ToK4V.put(key1, k2tok3tok4toV);
 		}
-		return k2tok3toV.put(key2, key3, value);
+		return k2tok3tok4toV.put(key2, key3, key4, value);
 	}
 	
-	public V get(K1 key1, K2 key2, K3 key3) {
-		final NestedMap2<K2, K3, V> k2tok3toV = mK1ToK2ToK3V.get(key1);
-		if (k2tok3toV == null) {
+	public V get(K1 key1, K2 key2, K3 key3, K4 key4) {
+		final NestedMap3<K2, K3, K4, V> k2tok3tok4toV = mK1ToK2ToK3ToK4V.get(key1);
+		if (k2tok3tok4toV == null) {
 			return null;
 		} else {
-			return k2tok3toV.get(key2, key3);
+			return k2tok3tok4toV.get(key2, key3, key4);
 		}
-	}
-	
-	public Map<K3, V> get(K1 key1, K2 key2) {
-		final NestedMap2<K2, K3, V> k2toV = mK1ToK2ToK3V.get(key1);
-		if (k2toV == null) {
-			return null;
-		} else {
-			return k2toV.get(key2);
-		}
-	}
-	
-	public NestedMap2<K2, K3, V> get(K1 key1) {
-		return mK1ToK2ToK3V.get(key1);
-	}
-	
-	public Set<K1> keySet() {
-		return mK1ToK2ToK3V.keySet();
 	}
 	
 	public void clear() {
-		mK1ToK2ToK3V.clear();
+		mK1ToK2ToK3ToK4V.clear();
 	}
-	
-//	public NestedMap3<K1, K2, K3, V> copy() {
-//		NestedMap3<K1, K2, K3, V> result = new NestedMap3<K1, K2, K3, V>();
-//		for (K1 k1 : this.keySet()) {
-//			result.mK1ToK2ToK3V.put(k1, this.get(k1).copy());
-//		}
-//		return result;
-//	}
 }

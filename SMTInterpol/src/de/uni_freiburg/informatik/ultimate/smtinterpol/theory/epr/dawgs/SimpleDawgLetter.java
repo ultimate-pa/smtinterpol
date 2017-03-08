@@ -33,15 +33,13 @@ import java.util.Set;
  * @param <LETTER>
  * @param <COLNAMES>
  */
-public class SimpleDawgLetter<LETTER, COLNAMES> extends AbstractSimpleDawgLetter<LETTER, COLNAMES> {
+public class SimpleDawgLetter<LETTER, COLNAMES> extends AbstractDawgLetter<LETTER, COLNAMES> {
 	
 	private final Set<LETTER> mLetters;
-	private final DawgLetterFactory<LETTER, COLNAMES> mDawgLetterFactory;
 	
 	public SimpleDawgLetter(DawgLetterFactory<LETTER, COLNAMES> dlf, Set<LETTER> letters, Object sortId) {
-		super(sortId);
+		super(dlf, sortId);
 		assert letters.size() > 0 : "use EmptyDawgLetter instead";
-		mDawgLetterFactory = dlf;
 		mLetters = letters;
 	}
 
@@ -50,16 +48,16 @@ public class SimpleDawgLetter<LETTER, COLNAMES> extends AbstractSimpleDawgLetter
 		return Collections.singleton(mDawgLetterFactory.getSimpleComplementDawgLetter(mLetters, mSortId));
 	}
 
-	@Override
-	public Set<IDawgLetter<LETTER, COLNAMES>> difference(IDawgLetter<LETTER, COLNAMES> other) {
-		final Set<IDawgLetter<LETTER, COLNAMES>> otherComplement = other.complement();
-		assert otherComplement.size() == 1 : "should be the case for simpleDawgLetters, right?";
-		IDawgLetter<LETTER, COLNAMES> resultDl = this.intersect(otherComplement.iterator().next());
-		if (resultDl instanceof EmptyDawgLetter<?, ?>) {
-			return Collections.emptySet();
-		}
-		return Collections.singleton(resultDl);
-	}
+//	@Override
+//	public Set<IDawgLetter<LETTER, COLNAMES>> difference(IDawgLetter<LETTER, COLNAMES> other) {
+//		final Set<IDawgLetter<LETTER, COLNAMES>> otherComplement = other.complement();
+//		assert otherComplement.size() == 1 : "should be the case for simpleDawgLetters, right?";
+//		IDawgLetter<LETTER, COLNAMES> resultDl = this.intersect(otherComplement.iterator().next());
+//		if (resultDl instanceof EmptyDawgLetter<?, ?>) {
+//			return Collections.emptySet();
+//		}
+//		return Collections.singleton(resultDl);
+//	}
 
 	@Override
 	public IDawgLetter<LETTER, COLNAMES> intersect(IDawgLetter<LETTER, COLNAMES> other) {

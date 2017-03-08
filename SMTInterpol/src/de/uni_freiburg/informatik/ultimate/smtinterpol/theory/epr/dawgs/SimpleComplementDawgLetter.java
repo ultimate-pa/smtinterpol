@@ -7,10 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class SimpleComplementDawgLetter<LETTER, COLNAMES> extends AbstractSimpleDawgLetter<LETTER, COLNAMES> {
-	
-	final DawgLetterFactory<LETTER, COLNAMES> mDawgLetterFactory;
-
+public class SimpleComplementDawgLetter<LETTER, COLNAMES> extends AbstractDawgLetter<LETTER, COLNAMES> {
 	
 	/**
 	 * the letters that are not matched by this DawgLetter
@@ -20,10 +17,8 @@ public class SimpleComplementDawgLetter<LETTER, COLNAMES> extends AbstractSimple
 
 	public SimpleComplementDawgLetter(DawgLetterFactory<LETTER, COLNAMES> dawgLetterFactory,
 			Set<LETTER> complementSet, Object sortId) {
-		super(sortId);
+		super(dawgLetterFactory, sortId);
 		assert !complementSet.isEmpty();
-
-		mDawgLetterFactory = dawgLetterFactory;
 		mComplementSet = complementSet;
 	}
 
@@ -32,16 +27,16 @@ public class SimpleComplementDawgLetter<LETTER, COLNAMES> extends AbstractSimple
 		return Collections.singleton(mDawgLetterFactory.getSimpleDawgLetter(mComplementSet, mSortId));
 	}
 
-	@Override
-	public Set<IDawgLetter<LETTER, COLNAMES>> difference(IDawgLetter<LETTER, COLNAMES> other) {
-		final Set<IDawgLetter<LETTER, COLNAMES>> otherComplement = other.complement();
-		assert otherComplement.size() == 1 : "should be the case for simpleDawgLetters, right?";
-		final IDawgLetter<LETTER, COLNAMES> resultDl = this.intersect(otherComplement.iterator().next());
-		if (resultDl instanceof EmptyDawgLetter<?, ?>) {
-			return Collections.emptySet();
-		}
-		return Collections.singleton(resultDl);
-	}
+//	@Override
+//	public Set<IDawgLetter<LETTER, COLNAMES>> difference(IDawgLetter<LETTER, COLNAMES> other) {
+//		final Set<IDawgLetter<LETTER, COLNAMES>> otherComplement = other.complement();
+//		assert otherComplement.size() == 1 : "should be the case for simpleDawgLetters, right?";
+//		final IDawgLetter<LETTER, COLNAMES> resultDl = this.intersect(otherComplement.iterator().next());
+//		if (resultDl instanceof EmptyDawgLetter<?, ?>) {
+//			return Collections.emptySet();
+//		}
+//		return Collections.singleton(resultDl);
+//	}
 
 	@Override
 	public IDawgLetter<LETTER, COLNAMES> intersect(IDawgLetter<LETTER, COLNAMES> other) {

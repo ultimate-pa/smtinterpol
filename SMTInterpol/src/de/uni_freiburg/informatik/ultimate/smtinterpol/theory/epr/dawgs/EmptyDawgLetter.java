@@ -16,18 +16,15 @@ import java.util.Set;
  * @param <LETTER>
  * @param <COLNAMES>
  */
-public class EmptyDawgLetter<LETTER, COLNAMES> extends AbstractSimpleDawgLetter<LETTER, COLNAMES> {
-
-	private final DawgLetterFactory<LETTER, COLNAMES> mDawgLetterFactory;
+public class EmptyDawgLetter<LETTER, COLNAMES> extends AbstractDawgLetter<LETTER, COLNAMES> {
 
 	EmptyDawgLetter(DawgLetterFactory<LETTER, COLNAMES> dlf, Object sortId) {
-		super(sortId);
-		mDawgLetterFactory = dlf;
+		super(dlf, sortId);
 	}
 
 	@Override
 	public Set<IDawgLetter<LETTER, COLNAMES>> complement() {
-		return Collections.singleton(mDawgLetterFactory.getUniversalDawgLetter(mSortId));
+		return Collections.singleton((IDawgLetter<LETTER, COLNAMES>) mDawgLetterFactory.getUniversalDawgLetter(mSortId));
 	}
 
 	@Override
@@ -35,10 +32,11 @@ public class EmptyDawgLetter<LETTER, COLNAMES> extends AbstractSimpleDawgLetter<
 		return this;
 	}
 
-	@Override
-	public Set<IDawgLetter<LETTER, COLNAMES>> difference(IDawgLetter<LETTER, COLNAMES> other) {
-		return Collections.singleton((IDawgLetter<LETTER, COLNAMES>) this);
-	}
+//	@Override
+//	public Set<IDawgLetter<LETTER, COLNAMES>> difference(IDawgLetter<LETTER, COLNAMES> other) {
+////		return Collections.singleton((IDawgLetter<LETTER, COLNAMES>) this);
+//		return Collections.singleton((IDawgLetter<LETTER, COLNAMES>) this);
+//	}
 
 	@Override
 	public boolean matches(LETTER ltr, List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex) {

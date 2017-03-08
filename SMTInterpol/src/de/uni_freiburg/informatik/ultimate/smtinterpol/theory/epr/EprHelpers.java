@@ -49,7 +49,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroun
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.AbstractSimpleDawgLetter;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.AbstractDawgLetter;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgLetterFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgState;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DeterministicDawgTransitionRelation;
@@ -1051,7 +1051,7 @@ public class EprHelpers {
 	public static <LETTER, COLNAMES> boolean dawgLettersHaveSameSort(Set<IDawgLetter<LETTER, COLNAMES>> dawgLetters) {
 		Object firstOccurringSort = null;
 		for (IDawgLetter<LETTER, COLNAMES> dl : dawgLetters) {
-			AbstractSimpleDawgLetter<LETTER, COLNAMES> adl = (AbstractSimpleDawgLetter<LETTER, COLNAMES>) dl;
+			AbstractDawgLetter<LETTER, COLNAMES> adl = (AbstractDawgLetter<LETTER, COLNAMES>) dl;
 			if (firstOccurringSort == null) {
 				firstOccurringSort = adl.getSortId();
 			}
@@ -1080,4 +1080,12 @@ public class EprHelpers {
 		return "dummySort";
 	}
 	
+	
+	public static <COLNAMES> Set<COLNAMES> computeUnionSet(Set<COLNAMES> equalColnames,
+			Set<COLNAMES> equalColnames2) {
+		Set<COLNAMES> result = new HashSet<COLNAMES>();
+		result.addAll(equalColnames);
+		result.addAll(equalColnames2);
+		return result;
+	}
 }

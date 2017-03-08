@@ -67,7 +67,7 @@ public class HashRelation3<K1, K2, K3> {
 	}
 	
 	public Set<K2> projectToSnd(K1 k1) {
-		 final DeterministicDawgTransitionRelation<K2, K3, IsContained> snd2trd2ic = mBackingMap.get(k1);
+		 final NestedMap2<K2, K3, IsContained> snd2trd2ic = mBackingMap.get(k1);
 		 if (snd2trd2ic == null) {
 			 return Collections.emptySet();
 		 } else {
