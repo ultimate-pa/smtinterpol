@@ -19,11 +19,9 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
 
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -67,9 +65,6 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 			Set<COLNAMES>, 
 			UniversalDawgLetterWithEqualities<LETTER, COLNAMES>> mUniversalDawgLettersWithEqualitiesStore = 
 				new NestedMap3<Object, Set<COLNAMES>, Set<COLNAMES>, UniversalDawgLetterWithEqualities<LETTER,COLNAMES>>();
-
-
-
 
 	private final DawgFactory<LETTER, COLNAMES> mDawgFactory;
 	
@@ -173,7 +168,7 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 		assert !dawgLetters.isEmpty() : "do we need this case??";
 		Object sortId = ((AbstractDawgLetter<LETTER, COLNAMES>) dawgLetters.iterator().next()).getSortId();
 
-//		if (useSimpleDawgLetters()) {
+		if (useSimpleDawgLetters()) {
 
 			if (dawgLetters.isEmpty()) {
 				return Collections.singleton((IDawgLetter<LETTER, COLNAMES>) getUniversalDawgLetter(sortId));
@@ -187,82 +182,100 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 			IDawgLetter<LETTER, COLNAMES> resultDl = getUniversalDawgLetter(sortId);
 			for (IDawgLetter<LETTER, COLNAMES> dl : dawgLetters) {
 				final Set<IDawgLetter<LETTER, COLNAMES>> dlComplement = dl.complement();
-				assert dlComplement.size() == 1 : "should hold in the simpleDawgLetter case, right?"; // TODO
+				assert dlComplement.size() == 1 : "should hold in the simpleDawgLetter case, right?";
 				resultDl = resultDl.intersect(dlComplement.iterator().next());
 			}
 			if (resultDl instanceof EmptyDawgLetter<?, ?>) {
 				return Collections.emptySet();
 			}
 			return Collections.singleton(resultDl);
-//		} else {
-//			// TODO: wouldn't it be simple to use the intersect and complement operations, like above??
-//
-//			Set<IDawgLetter<LETTER, COLNAMES>> result = new HashSet<IDawgLetter<LETTER,COLNAMES>>();
-//			result.add(getUniversalDawgLetter(sortId));
-//
-//			for (IDawgLetter<LETTER, COLNAMES> dln: dawgLetters) {
-//				DawgLetterWithEqualities<LETTER, COLNAMES> dl = (DawgLetterWithEqualities<LETTER, COLNAMES>) dln;
-//
-//				Set<IDawgLetter<LETTER, COLNAMES>> newResult = new HashSet<IDawgLetter<LETTER,COLNAMES>>();
-//
-//				for (IDawgLetter<LETTER, COLNAMES> dlResN : result) {
-//					DawgLetterWithEqualities<LETTER, COLNAMES> dlRes = (DawgLetterWithEqualities<LETTER, COLNAMES>) dlResN;
-//
-//					{
-//						HashSet<LETTER> newLetters = new HashSet<LETTER>(dlRes.getLetters());
-//						newLetters.retainAll(dl.getLetters());
-//						if (!newLetters.isEmpty()) {
-//							DawgLetterWithEqualities<LETTER, COLNAMES> newDl1 = 
-//									new DawgLetterWithEqualities<LETTER, COLNAMES>(
-//											newLetters, 
-//											dlRes.getEqualColnames(), 
-//											dlRes.getUnequalColnames(), 
-//											this,
-//											sortId);
-//							newResult.add(newDl1);
-//						}
-//					}
-//
-//					for (COLNAMES eq : dlRes.getEqualColnames()) {
-//						if (dlRes.getUnequalColnames().contains(eq)) {
-//							// DawgLetter would be empty
-//							continue;
-//						}
-//						Set<COLNAMES> newEquals = new HashSet<COLNAMES>(dlRes.getEqualColnames());
-//						newEquals.add(eq);
-//						DawgLetterWithEqualities<LETTER, COLNAMES> newDl2 = 
-//								new DawgLetterWithEqualities<LETTER, COLNAMES>(
-//										dlRes.getLetters(), 
-//										newEquals, 
-//										dlRes.getUnequalColnames(), 
-//										this,
-//										sortId);
-//						newResult.add(newDl2);
-//					}
-//
-//					for (COLNAMES unEq : dlRes.getUnequalColnames()) {
-//						if (dlRes.getEqualColnames().contains(unEq)) {
-//							// DawgLetter would be empty
-//							continue;
-//						}
-//						Set<COLNAMES> newUnequals = new HashSet<COLNAMES>(dlRes.getUnequalColnames());
-//						newUnequals.add(unEq);
-//						DawgLetterWithEqualities<LETTER, COLNAMES> newDl3 = 
-//								new DawgLetterWithEqualities<LETTER, COLNAMES>(
-//										dlRes.getLetters(), 
-//										dlRes.getEqualColnames(), 
-//										newUnequals, 
-//										this,
-//										sortId);
-//						newResult.add(newDl3);
-//					}
-//
-//				}
-//				result = newResult;
-//			}
-//
-//			return result;
-//		}
+		} else {
+
+			Set<IDawgLetter<LETTER, COLNAMES>> result = new HashSet<IDawgLetter<LETTER,COLNAMES>>();
+			result.add(getUniversalDawgLetter(sortId));
+
+			for (IDawgLetter<LETTER, COLNAMES> currentDawgLetter: dawgLetters) {
+
+				final Set<IDawgLetter<LETTER, COLNAMES>> newResult = new HashSet<IDawgLetter<LETTER,COLNAMES>>();
+
+				/*
+				 * for every dawgLetter d in the intermediate result and every constraint c in the current dawgLetter,
+				 * 	add a new DawgLetter to the newResult
+				 *   the new DawgLetter is the conjunction of the constraints in d with _not_ c.
+				 */
+				for (IDawgLetter<LETTER, COLNAMES> dawgLetterInIntermediateResult : result) {
+					
+					for (IDawgLetter<LETTER, COLNAMES> singleConstraintDlFromCurrentDl : currentDawgLetter.complement()) {
+						newResult.add(dawgLetterInIntermediateResult.intersect(singleConstraintDlFromCurrentDl));
+					}
+					
+
+					//					DawgLetterWithEqualities<LETTER, COLNAMES> dlRes = (DawgLetterWithEqualities<LETTER, COLNAMES>) dawgLetterInIntermediateResult;
+					//				final DawgLetterWithEqualities<LETTER, COLNAMES> dl = (DawgLetterWithEqualities<LETTER, COLNAMES>) currentDawgLetter;
+					//					/*
+					//					 * deal with set constraint
+					//					 */
+					//					{
+					//						final Set<LETTER> newLetters = new HashSet<LETTER>(dlRes.mLetters);
+					//						newLetters.retainAll(dl.mLetters);
+					//						if (!newLetters.isEmpty()) {
+					//							DawgLetterWithEqualities<LETTER, COLNAMES> newDl1 = 
+					//									new DawgLetterWithEqualities<LETTER, COLNAMES>(
+					//											newLetters, 
+					//											dlRes.mEqualColnames,
+					//											dlRes.mUnequalColnames, 
+					//											this,
+					//											sortId);
+					//							newResult.add(newDl1);
+					//						}
+					//					}
+					//
+					//					/*
+					//					 * deal with equality constraints
+					//					 */
+					//					for (COLNAMES eq : dlRes.mEqualColnames) {
+					//						if (dlRes.mUnequalColnames.contains(eq)) {
+					//							// DawgLetter would be empty
+					//							continue;
+					//						}
+					//						Set<COLNAMES> newEquals = new HashSet<COLNAMES>(dlRes.mEqualColnames);
+					//						newEquals.add(eq);
+					//						DawgLetterWithEqualities<LETTER, COLNAMES> newDl2 = 
+					//								new DawgLetterWithEqualities<LETTER, COLNAMES>(
+					//										dlRes.mLetters, 
+					//										newEquals, 
+					//										dlRes.mUnequalColnames, 
+					//										this,
+					//										sortId);
+					//						newResult.add(newDl2);
+					//					}
+					//
+					//					/*
+					//					 * deal with inequality constraints
+					//					 */
+					//					for (COLNAMES unEq : dlRes.mUnequalColnames) {
+					//						if (dlRes.mEqualColnames.contains(unEq)) {
+					//							// DawgLetter would be empty
+					//							continue;
+					//						}
+					//						Set<COLNAMES> newUnequals = new HashSet<COLNAMES>(dlRes.mUnequalColnames);
+					//						newUnequals.add(unEq);
+					//						DawgLetterWithEqualities<LETTER, COLNAMES> newDl3 = 
+					//								new DawgLetterWithEqualities<LETTER, COLNAMES>(
+					//										dlRes.mLetters, 
+					//										dlRes.mEqualColnames, 
+					//										newUnequals, 
+					//										this,
+					//										sortId);
+					//						newResult.add(newDl3);
+					//					}
+
+				}
+				result = newResult;
+			}
+
+			return result;
+		}
 	}
 
 	/**
