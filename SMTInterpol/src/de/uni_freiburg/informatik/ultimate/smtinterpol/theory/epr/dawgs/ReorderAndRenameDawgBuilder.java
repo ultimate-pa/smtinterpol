@@ -328,6 +328,11 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 
 	private IDawgLetter<LETTER, COLNAMES> updateColnames(IDawgLetter<LETTER, COLNAMES> p2, COLNAMES oldColname,
 			COLNAMES newColname) {
+		if (p2 instanceof UniversalDawgLetter<?, ?>) {
+			return p2;
+		}
+		assert !(p2 instanceof EmptyDawgLetter<?, ?>);
+		
 		// this method assumes that p2 is castable --> if this crashes, catch it outside
 		final AbstractDawgLetterWithEqualities<LETTER, COLNAMES> adlwe = 
 				(AbstractDawgLetterWithEqualities<LETTER, COLNAMES>) p2;
@@ -758,13 +763,10 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 								newTransitionRelation.addTriple(outGoingEdge.getSecond(), outGoingEdge.getFirst(), currentState);
 							}
 						}
-
-
 					}
 					currentStates = newCurrentStates;
 				}
 			}
-			
 		}
 		return statesBeforeOldColumnPreStates;
 	}
@@ -779,7 +781,4 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 				mResultInitialStates,
 				mDawgFactory).build();
 	}
-
-
-
 }

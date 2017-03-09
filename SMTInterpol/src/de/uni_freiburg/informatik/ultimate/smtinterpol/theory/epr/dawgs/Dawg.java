@@ -783,8 +783,10 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			 * equality-constraints
 			 */
 			final Set<COLNAMES> emptyColnamesSet = Collections.emptySet();
-			UniversalDawgLetterWithEqualities<LETTER, COLNAMES> duplicationDawgLetter = mDawgLetterFactory.getUniversalDawgLetterWithEqualities(
-					Collections.singleton(firstCol), emptyColnamesSet, mSignature.getSortForColname(currentNewCol));
+			final UniversalDawgLetterWithEqualities<LETTER, COLNAMES> duplicationDawgLetter = 
+					mDawgLetterFactory.getUniversalDawgLetterWithEqualities(
+							Collections.singleton(firstCol), emptyColnamesSet, mSignature.getSortForColname(firstCol));
+			assert mSignature.getSortForColname(firstCol).equals(EprHelpers.extractSortFromColname(currentNewCol));
 			return this.insertColumn(currentNewCol, duplicationDawgLetter);
 		}
 	}
