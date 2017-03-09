@@ -98,4 +98,8 @@ public class UniversalDawgLetterWithEqualities<LETTER, COLNAMES> extends Abstrac
 				Collections.singleton(selectLetter), mEqualColnames, mUnequalColnames, mSortId);
 	}
 
+	@Override
+	public String toString() {
+		return String.format("UniversalDawgLetterWE: %s", printedEqualityConstraints());
+	}
 }

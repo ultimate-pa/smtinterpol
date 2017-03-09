@@ -135,4 +135,8 @@ public class ComplementDawgLetterWithEqualities<LETTER, COLNAMES> extends Abstra
 				Collections.singleton(selectLetter), mEqualColnames, mUnequalColnames, mSortId);
 	}
 
+	@Override
+	public String toString() {
+		return String.format("ComplementDawgLetter: %s, %s", mComplementLetters, printedEqualityConstraints());
+	}
 }

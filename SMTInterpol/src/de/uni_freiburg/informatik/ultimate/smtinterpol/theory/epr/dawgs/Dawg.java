@@ -189,7 +189,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		mFinalStates = computeFinalStates();
 
 		CheckEmptyUniversalSingleton<LETTER, COLNAMES> ceus = new CheckEmptyUniversalSingleton<LETTER, COLNAMES>(
-				mDawgFactory, colnames.size(), initialState, transitionRelation);
+				mDawgFactory, initialState, transitionRelation, mSignature);
 		mIsEmpty = ceus.isEmpty();
 		mIsSingleton = ceus.isSingleton();
 		mIsUniversal = ceus.isUniversal();
@@ -988,7 +988,8 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		}
 
 		final StringBuilder sb = new StringBuilder();
-		sb.append("Dawg, initial state: " + mInitialState + ", transitionrelation:\n");
+		sb.append(String.format(
+				"Dawg, initial state: %s, signature: %s, transitionrelation:\n", mInitialState, mSignature));
 		sb.append(mTransitionRelation.toString());
 
 		return sb.toString();
@@ -1036,7 +1037,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 
 	@Override
 	public Iterator<List<LETTER>> iterator() {
-		return new DawgIterator<LETTER, COLNAMES>(mSignature.getColNames().size(), mTransitionRelation, mInitialState);
+		return new DawgIterator<LETTER, COLNAMES>(mTransitionRelation, mInitialState, mSignature);
 	}
 
 	public List<Object> getColumnSorts() {

@@ -19,12 +19,8 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.SortedSet;
 
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
@@ -39,17 +35,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
  */
 public abstract class AbstractDawg<LETTER, COLNAMES> implements IDawg<LETTER, COLNAMES> {
 	
-//	protected final int mArity;
 	protected final LogProxy mLogger;
-
-//	private final Map<COLNAMES, Object> mColnameToSortId = new HashMap<COLNAMES, Object>();
-//	
-//	/**
-//	 * Store the column names in a list. By convention this list has no repetitions. 
-//	 *  -- we don't use a (sorted) set for this because we store our points in lists
-//	 */
-//	protected final SortedSet<COLNAMES> mColNames;
-//	protected final Map<COLNAMES, Integer> mColNameToIndex;
 	
 	protected final DawgSignature<COLNAMES> mSignature;
 	
@@ -59,9 +45,7 @@ public abstract class AbstractDawg<LETTER, COLNAMES> implements IDawg<LETTER, CO
 
 	public AbstractDawg(SortedSet<COLNAMES> colNames, LogProxy logger) {
 		mSignature = new DawgSignature<COLNAMES>(colNames);
-//		mArity = colNames.size();
 		mLogger = logger;
-
 	}
 	
 	@Override

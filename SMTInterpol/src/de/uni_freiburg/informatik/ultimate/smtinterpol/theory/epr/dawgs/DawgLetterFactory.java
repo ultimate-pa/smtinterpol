@@ -198,17 +198,14 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 	 * @param letters an implicitly disjunctive set of DawgLetters
 	 * @return
 	 */
-	public static <LETTER, COLNAMES> boolean isUniversal(Set<IDawgLetter<LETTER, COLNAMES>> letters) {
+	public boolean isUniversal(Set<IDawgLetter<LETTER, COLNAMES>> letters) {
 		if (letters.size() == 0) {
 			return false;
-		}
-		if (letters.size() == 1 && letters.iterator().next() instanceof EmptyDawgLetter<?, ?>) {
+		} else if (letters.size() == 1 && letters.iterator().next() instanceof EmptyDawgLetter<?, ?>) {
 			return false;
-		}
-		if (letters.size() == 1 && letters.iterator().next() instanceof UniversalDawgLetter<?, ?>) {
+		} else if (letters.size() == 1 && letters.iterator().next() instanceof UniversalDawgLetter<?, ?>) {
 			return true;
-		}
-		if (letters.size() >= 1 && 
+		} else if (letters.size() >= 1 && 
 				(letters.iterator().next() instanceof SimpleDawgLetter<?, ?>
 			|| letters.iterator().next() instanceof SimpleComplementDawgLetter<?, ?>)) {
 			/**
@@ -232,9 +229,12 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 				}
 			}
 			return unionNormal.equals(unionComplement);
+		} else {
+			final Set<IDawgLetter<LETTER, COLNAMES>> complementSet = complementDawgLetterSet(letters);
+			return  complementSet.isEmpty();
 		}
-		assert false : "TODO";
-		return false;
+//		assert false : "TODO";
+//		return false;
 	}
 
 	public IDawgLetter<LETTER, COLNAMES> getSimpleDawgLetter(Set<LETTER> letters, Object sortId) {

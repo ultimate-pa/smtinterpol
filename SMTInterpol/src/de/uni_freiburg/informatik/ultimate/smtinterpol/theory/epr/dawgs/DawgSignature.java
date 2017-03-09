@@ -55,6 +55,10 @@ public class DawgSignature<COLNAMES> {
 		return mColumnSorts;
 	}
 
+	public int getNoColumns() {
+		return mColNames.size();
+	}
+
 	public int size() {
 		return mColNames.size();
 	}

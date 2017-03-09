@@ -23,17 +23,19 @@ public class CheckEmptyUniversalSingleton<LETTER, COLNAMES> {
 	private boolean mIsSingleton;
 	private boolean mIsUniversal;
 
-	private final int mNoColumns;
 	private final DawgState mInitialState;
 	private final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> mTransitionRelation;
 	private final DawgFactory<LETTER, COLNAMES> mDawgFactory;
+	private final DawgSignature<COLNAMES> mSignature;
 
-	public CheckEmptyUniversalSingleton(DawgFactory<LETTER, COLNAMES> dawgFactory, int size, 
-			DawgState initialState,	DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> transitionRelation) {
+	public CheckEmptyUniversalSingleton(DawgFactory<LETTER, COLNAMES> dawgFactory, 
+			DawgState initialState,	
+			DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> transitionRelation,
+			DawgSignature<COLNAMES> signature) {
 		mDawgFactory = dawgFactory;
-		mNoColumns = size;
 		mInitialState =initialState;
 		mTransitionRelation = transitionRelation;
+		mSignature = signature;
 		check();
 	}
 
@@ -44,7 +46,7 @@ public class CheckEmptyUniversalSingleton<LETTER, COLNAMES> {
 		
 		mIsUniversal = true;
 		
-		for (int i = 0; i < mNoColumns; i++) {
+		for (int i = 0; i < mSignature.getNoColumns(); i++) {
 			final Set<DawgState> newCurrentStates = new HashSet<DawgState>();
 			for (DawgState cs : currentStates) {
 			
@@ -57,7 +59,7 @@ public class CheckEmptyUniversalSingleton<LETTER, COLNAMES> {
 					newCurrentStates.add(outEdge.getSecond());
 				}
 				
-				if (!DawgLetterFactory.isUniversal(outLetters)) {
+				if (!mDawgFactory.getDawgLetterFactory().isUniversal(outLetters)) {
 					mIsUniversal = false;
 				}
 				
@@ -75,7 +77,7 @@ public class CheckEmptyUniversalSingleton<LETTER, COLNAMES> {
 		 * emptiness and being singleton can be checked easily using the iterator.
 		 */
 		final DawgIterator<LETTER, COLNAMES> it = 
-				new DawgIterator<LETTER, COLNAMES>(mNoColumns, mTransitionRelation, mInitialState);
+				new DawgIterator<LETTER, COLNAMES>(mTransitionRelation, mInitialState, mSignature);
 		if (!it.hasNext()) {
 			mIsEmpty = true;
 			mIsSingleton = false;
@@ -85,7 +87,7 @@ public class CheckEmptyUniversalSingleton<LETTER, COLNAMES> {
 		}
 		final List<LETTER> firstWord = it.next();
 		assert firstWord != null;
-		assert firstWord.size() == mNoColumns;
+		assert firstWord.size() == mSignature.getNoColumns();
 		if (it.hasNext()) {
 			mIsSingleton = false;
 		} else {

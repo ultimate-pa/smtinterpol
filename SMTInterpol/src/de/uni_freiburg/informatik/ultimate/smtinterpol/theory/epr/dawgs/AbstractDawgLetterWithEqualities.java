@@ -50,4 +50,35 @@ public abstract class AbstractDawgLetterWithEqualities<LETTER, COLNAMES> extends
 		}
 		return true;
 	}
+	
+	/**
+	 * Build a nice String from all the (dis)equality constraints of this DawgLetter.
+	 * To be used by subclasses' toString methods.
+	 * 
+	 * @return
+	 */
+	protected String printedEqualityConstraints() {
+		final StringBuilder sb = new StringBuilder();
+		
+		String comma = "";
+		if (!mEqualColnames.isEmpty()) {
+			sb.append("Eq: ");
+			for (COLNAMES eq : mEqualColnames) { 
+				sb.append(comma);
+				sb.append(eq);
+				comma = ", ";
+			}
+		}
+		
+		comma = "";
+		if (!mUnequalColnames.isEmpty()) {
+			sb.append(" UnEq: ");
+			for (COLNAMES deq : mUnequalColnames) { 
+				sb.append(comma);
+				sb.append(deq);
+				comma = ", ";
+			}
+		}
+		return sb.toString();
+	}
 }

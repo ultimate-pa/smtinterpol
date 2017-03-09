@@ -158,5 +158,9 @@ public class DawgLetterWithEqualities<LETTER, COLNAMES> extends AbstractDawgLett
 				Collections.singleton(ltr), mEqualColnames, mUnequalColnames, mSortId);
 	}
 
+	@Override
+	public String toString() {
+		return String.format("DawgLetter: %s, %s", mLetters, printedEqualityConstraints());
+	}
 
 }

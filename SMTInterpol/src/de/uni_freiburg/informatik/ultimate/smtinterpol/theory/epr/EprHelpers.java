@@ -1095,4 +1095,13 @@ public class EprHelpers {
 		return result.isEmpty();
 	}
 
+	public static <LETTER, COLNAMES> boolean hasEmptyLetter(Set<IDawgLetter<LETTER, COLNAMES>> result) {
+		for (IDawgLetter<LETTER, COLNAMES> ltr : result) {
+			if (ltr instanceof EmptyDawgLetter<?, ?>) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 }

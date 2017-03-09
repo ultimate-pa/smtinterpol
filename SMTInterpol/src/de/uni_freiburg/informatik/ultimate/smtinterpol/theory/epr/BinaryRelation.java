@@ -142,7 +142,10 @@ public class BinaryRelation<T, U> {
 	public boolean isInjective() {
 		for (Entry<T, Set<U>> en1 : mBacking.entrySet()) {
 			for (Entry<T, Set<U>> en2 : mBacking.entrySet()) {
-				Set<U> intersection = new HashSet<U>(en1.getValue());
+				if (en1.equals(en2)) {
+					continue;
+				}
+				final Set<U> intersection = new HashSet<U>(en1.getValue());
 				intersection.retainAll(en2.getValue());
 					
 				if (!intersection.isEmpty()) {
