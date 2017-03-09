@@ -35,11 +35,16 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 /**
  * Builds a dawg from an input dawg according to a rule.
  * 
- * Has two modes 
+ * Has three modes 
  *  - reorderAndRename: renames a column in the dawg and, if its position moves, transforms the Dawg accordingly
  *    to accept the corresponding permutation language
  *  - duplication mode: duplicates a column, i.e. inserts a new column into the dawg that accepts the same letter
- *     as the duplicated column in each word
+ *     as the duplicated column in each word (this class is only needed for this case if we use SimpleDawgLetters)
+ *      also this mode is currently broken (in the source column we would need to make all letters singletons..)
+ *  - merge mode: the target column (name) of the renaming is already present in the dawg before. 
+ *     in effect, only words that agreed (i.e. had the same letter) on both columns are accepted (with one of the two agreeing
+ *       letters removed).
+ *        (we intersect the letters in the target column with those of the source column and eliminate the source column)
  * 
  * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
  *
@@ -185,10 +190,6 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 			movesToTheRight = EprHelpers.getColumnNamesComparator().compare(oldRightNeighbour, newRightNeighbour) < 0;
 		}
 		
-//		final COLNAMES newPostNeighbour = movesToTheRight ? 
-//				newRightNeighbour : 
-//					mInputDawg.findLeftNeighbourColumn(mNewColname);
-
 		final COLNAMES newPostNeighbour;
 		if (movesToTheRight) {
 			if (mMergeMode) {
@@ -305,10 +306,74 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 		mResultTransitionRelation = newTransitionRelation;
 		
 		if (!mDawgLetterFactory.useSimpleDawgLetters()) {
-			// TODO
-			assert false : "TODO: the equals-colnames of the DawgLetters may need updating";
+			assert !mDuplicationMode : "if we use DawgLettersWithEqualities, we don't need this class for duplication";
+		
+			/*
+			 * both in merge mode and normal mode:
+			 *  just rename all (un)equalColnames according to the renaming
+			 */
+			HashRelation3<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> updatedColnamesTransitionRelation = 
+					new HashRelation3<DawgState, IDawgLetter<LETTER,COLNAMES>, DawgState>();
+			for (DawgState p1 : mResultTransitionRelation.projectToFst()) {
+				for (IDawgLetter<LETTER, COLNAMES> p2 : mResultTransitionRelation.projectToSnd(p1)) {
+					for (DawgState p3 : mResultTransitionRelation.projectToTrd(p1, p2)) {
+						IDawgLetter<LETTER, COLNAMES> updatedColnamesDawgLetter = updateColnames(p2, mOldColname, mNewColname);
+						updatedColnamesTransitionRelation.addTriple(p1, updatedColnamesDawgLetter, p3);
+					}
+				}
+			}
+			mResultTransitionRelation = updatedColnamesTransitionRelation;
+		}
+	}
+
+	private IDawgLetter<LETTER, COLNAMES> updateColnames(IDawgLetter<LETTER, COLNAMES> p2, COLNAMES oldColname,
+			COLNAMES newColname) {
+		// this method assumes that p2 is castable --> if this crashes, catch it outside
+		final AbstractDawgLetterWithEqualities<LETTER, COLNAMES> adlwe = 
+				(AbstractDawgLetterWithEqualities<LETTER, COLNAMES>) p2;
+		
+		final Set<COLNAMES> newEqualColnames = new HashSet<COLNAMES>();
+		for (COLNAMES eq : adlwe.mEqualColnames) {
+			if (eq.equals(oldColname)) {
+				newEqualColnames.add(newColname);
+			} else {
+				newEqualColnames.add(eq);
+			}
+		}
+
+		final Set<COLNAMES> newUnequalColnames = new HashSet<COLNAMES>();
+		for (COLNAMES uneq : adlwe.mUnequalColnames) {
+			if (uneq.equals(oldColname)) {
+				newUnequalColnames.add(newColname);
+			} else {
+				newUnequalColnames.add(uneq);
+			}
 		}
 		
+		assert newUnequalColnames.size() == adlwe.mUnequalColnames.size();
+		assert newEqualColnames.size() == adlwe.mEqualColnames.size();
+		
+		if (p2 instanceof DawgLetterWithEqualities<?, ?>) {
+			return mDawgLetterFactory.getDawgLetterWithEqualities(
+					((DawgLetterWithEqualities<LETTER, COLNAMES>) p2).mLetters, 
+					newEqualColnames, 
+					newUnequalColnames, 
+					((DawgLetterWithEqualities<LETTER, COLNAMES>) p2).mSortId);
+		} else if (p2 instanceof ComplementDawgLetterWithEqualities<?, ?>) {
+			return mDawgLetterFactory.getDawgLetterWithEqualities(
+					((ComplementDawgLetterWithEqualities<LETTER, COLNAMES>) p2).mComplementLetters, 
+					newEqualColnames, 
+					newUnequalColnames, 
+					((ComplementDawgLetterWithEqualities<LETTER, COLNAMES>) p2).mSortId);
+		} else if (p2 instanceof UniversalDawgLetterWithEqualities<?, ?>) {
+			return mDawgLetterFactory.getUniversalDawgLetterWithEqualities(
+					newEqualColnames, 
+					newUnequalColnames, 
+					((UniversalDawgLetterWithEqualities<LETTER, COLNAMES>) p2).mSortId);
+		} else {
+			assert false : "not a DawgLetterWithEqualities?? catch this outside?";
+			return null;
+		}
 	}
 
 	private Set<DawgState> constructRnrPart(final COLNAMES newPostNeighbour, 
