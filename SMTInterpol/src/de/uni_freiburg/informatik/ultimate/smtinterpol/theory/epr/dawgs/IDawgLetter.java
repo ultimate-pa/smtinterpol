@@ -59,5 +59,9 @@ public interface IDawgLetter<LETTER, COLNAMES> {
 	 */
 	Collection<LETTER> allLettersThatMatch(List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex);
 
+	/**
+	 * 
+	 * TODO: perhaps replace the implementations through a reduction to intersect with a singletonDawgLetter?
+	 */
 	IDawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER selectLetter);
 }

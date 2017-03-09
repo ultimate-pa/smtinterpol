@@ -410,7 +410,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	}
 
 	@Override
-	public IDawg<LETTER, COLNAMES> select(Map<COLNAMES, LETTER> selectMap) {
+	public Dawg<LETTER, COLNAMES> select(Map<COLNAMES, LETTER> selectMap) {
 		if (this.isEmpty()) {
 			return this;
 		}
@@ -505,7 +505,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		/*
 		 * 1. select according to constants in the image of translation
 		 */
-		result = (Dawg<LETTER, COLNAMES>) result.select(translationConstants);
+		result = result.select(translationConstants);
 
 		/*
 		 * 2. project selected columns away
@@ -596,6 +596,10 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		return result;
 	}
 
+	/**
+	 * Deprecated this because it is wrong for DawgLettersWithEqualities.
+	 */
+	@Deprecated
 	private Dawg<LETTER, COLNAMES> projectColumnAway(final COLNAMES column) {
 		if (!mSignature.getColNames().contains(column)) {
 			return this;

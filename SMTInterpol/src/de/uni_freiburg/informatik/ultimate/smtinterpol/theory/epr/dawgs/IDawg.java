@@ -144,5 +144,5 @@ public interface IDawg<LETTER, COLNAMES> extends Iterable<List<LETTER>> {
 	 * @return
 	 */
 	Iterable<List<LETTER>> getAllPointsSorted();
-
+	
 }
