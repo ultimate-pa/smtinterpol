@@ -25,12 +25,14 @@
  * licensors of the ULTIMATE Util Library grant you additional permission 
  * to convey the resulting work.
  */
-package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
+package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util;
 //package de.uni_freiburg.informatik.ultimate.util.datastructures.relation;
 
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
+
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DeterministicDawgTransitionRelation;
 
 /**
  * Ternary relation implemented via nested HashMaps.

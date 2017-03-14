@@ -17,19 +17,19 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.
  */
-package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
+package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates;
 
 import java.util.Set;
 
-class SetDawgState extends DawgState {
+public class SetDawgState extends DawgState {
 	
 	private final Set<DawgState> mDawgStates;
 	
-	SetDawgState(Set<DawgState> dawgStates) {
+	public SetDawgState(Set<DawgState> dawgStates) {
 		mDawgStates = dawgStates;
 	}
 	
-	Set<DawgState> getInnerStates() {
+	public Set<DawgState> getInnerStates() {
 		return mDawgStates;
 	}
 

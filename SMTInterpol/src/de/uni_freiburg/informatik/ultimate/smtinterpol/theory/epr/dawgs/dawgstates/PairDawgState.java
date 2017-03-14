@@ -17,7 +17,7 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.
  */
-package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
+package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates;
 
 public class PairDawgState extends DawgState {
 
@@ -27,7 +27,7 @@ public class PairDawgState extends DawgState {
 	final boolean mFirstIsSink;
 	final boolean mSecondIsSink;
 	
-	PairDawgState(DawgState s, boolean firstIsSink, boolean secondIsSink) {
+	public PairDawgState(DawgState s, boolean firstIsSink, boolean secondIsSink) {
 		assert firstIsSink != secondIsSink;
 		
 		if (firstIsSink) {
@@ -43,7 +43,7 @@ public class PairDawgState extends DawgState {
 		}
 	}
 
-	PairDawgState(DawgState f, DawgState s) {
+	public PairDawgState(DawgState f, DawgState s) {
 		assert f != null && s != null;
 		mFirstIsSink = false;
 		mSecondIsSink = false;
@@ -51,11 +51,19 @@ public class PairDawgState extends DawgState {
 		mSecond = s;
 	}
 	
-	DawgState getFirst() {
+	public boolean isFirstSink() {
+		return mFirstIsSink;
+	}
+
+	public boolean isSecondSink() {
+		return mSecondIsSink;
+	}
+
+	public DawgState getFirst() {
 		return mFirst;
 	}
 	
-	DawgState getSecond() {
+	public DawgState getSecond() {
 		return mSecond;
 	}
 	

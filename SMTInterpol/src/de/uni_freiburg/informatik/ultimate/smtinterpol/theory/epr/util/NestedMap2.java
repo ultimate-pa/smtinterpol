@@ -26,7 +26,7 @@
  * licensors of the ULTIMATE Util Library grant you additional permission
  * to convey the resulting work.
  */
-package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
+package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util;
 
 import java.util.ArrayList;
 import java.util.HashMap;

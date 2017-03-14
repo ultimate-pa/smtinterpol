@@ -17,11 +17,14 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.
  */
-package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
+package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.IDawgLetter;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.NestedMap3;
 
 /**
  * 
@@ -53,7 +56,7 @@ public class DawgStateFactory<LETTER, COLNAMES> {
 		mLetterToColNameToDawgStateToRenameAndReorderDawgState = 
 		new NestedMap3<IDawgLetter<LETTER, COLNAMES>, COLNAMES, DawgState, RenameAndReorderDawgState<LETTER,COLNAMES>>();
 
-	PairDawgState getOrCreatePairDawgState(DawgState first, DawgState second) {
+	public PairDawgState getOrCreatePairDawgState(DawgState first, DawgState second) {
 		
 		Map<DawgState, PairDawgState> dsToPds = mDSToDSToPDS.get(first);
 	
@@ -72,7 +75,7 @@ public class DawgStateFactory<LETTER, COLNAMES> {
 		return pds;
 	}
 
-	PairDawgState getOrCreatePairDawgState(DawgState value, boolean firstIsSink, boolean secondIsSink) {
+	public PairDawgState getOrCreatePairDawgState(DawgState value, boolean firstIsSink, boolean secondIsSink) {
 		assert firstIsSink != secondIsSink;
 		
 		if (firstIsSink) {
@@ -92,7 +95,7 @@ public class DawgStateFactory<LETTER, COLNAMES> {
 		}
 	}
 	
-	SetDawgState getOrCreateSetDawgState(Set<DawgState> dawgStates) {
+	public SetDawgState getOrCreateSetDawgState(Set<DawgState> dawgStates) {
 		SetDawgState result = mDawgStateSetToSetDawgState.get(dawgStates);
 		if (result == null) {
 			result = new SetDawgState(dawgStates);

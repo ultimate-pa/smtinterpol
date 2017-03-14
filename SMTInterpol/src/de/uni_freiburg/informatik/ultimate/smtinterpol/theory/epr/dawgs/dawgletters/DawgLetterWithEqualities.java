@@ -17,32 +17,51 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.
  */
-package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
+package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters;
+
+import java.util.Set;
+
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
-
-public class ComplementDawgLetterWithEqualities<LETTER, COLNAMES> extends AbstractDawgLetterWithEqualities<LETTER, COLNAMES> {
+/**
+ * The label of a transition in a (non-naive) Dawg.
+ * Represents a set of LETTERs together with some (un)equals constraints regarding some COLNAMES.
+ * Note that the different constraints are implicitly conjunctive.
+ * Disjunctions are expressed via multiple edges.
+ * 
+ * @author Alexander Nutz
+ *
+ * @param <LETTER>
+ * @param <COLNAMES>
+ */
+public class DawgLetterWithEqualities<LETTER, COLNAMES> extends AbstractDawgLetterWithEqualities<LETTER, COLNAMES> {
 	
-	final Set<LETTER> mComplementLetters;
+	public final Set<LETTER> mLetters;
 
-	public ComplementDawgLetterWithEqualities(Set<LETTER> complementLetters, 
-			Set<COLNAMES> equalColnames, Set<COLNAMES> unequalColnames,
+	public DawgLetterWithEqualities(Set<LETTER> newLetters, Set<COLNAMES> equalColnames, Set<COLNAMES> inequalColnames,
 			DawgLetterFactory<LETTER, COLNAMES> dawgLetterFactory, Object sortId) {
-		super(dawgLetterFactory, equalColnames, unequalColnames, sortId);
-		assert !complementLetters.isEmpty() : "use UniversalDawgLetterWithEqualities instead!";
-		mComplementLetters = complementLetters;
+		super(dawgLetterFactory, inequalColnames, equalColnames, sortId);
+		mLetters = Collections.unmodifiableSet(newLetters);
+		assert !mLetters.isEmpty() : "this letter is equivalent to the empty letter";
+		assert equalsAndUnequalsDisjoint() : "equalities and inequalities contradict "
+				+ "-- this should be replaced by the empty dawg letter";
+	}
+
+	private boolean equalsAndUnequalsDisjoint() {
+		Set<COLNAMES> intersection = new HashSet<COLNAMES>(mEqualColnames);
+		intersection.retainAll(mUnequalColnames);
+		return intersection.isEmpty();
 	}
 
 	/**
-	 * This DawgLetter is a conjunction of the form (not S /\ E1 /\ ... /\ U1 /\ ...)
-	 *  where S is a set-constraint, Ei are equality constraints, Ui are disequality constraints
+	 * This DawgLetter is a conjunction of the form (S /\ E1 /\ ... /\ U1 /\ ...)
+	 *  where S is a set-constraint, Ei are equality constraints, Ui are disequality constrains
 	 * The complement is a disjunction where each of the conjuncts is negated. 
 	 * Disjunction is expressed through a set.
 	 */
@@ -53,8 +72,8 @@ public class ComplementDawgLetterWithEqualities<LETTER, COLNAMES> extends Abstra
 		// only needed because of java typing business..
 		Set<COLNAMES> emptyColnames = Collections.emptySet();
 
-		// add the set-constraint S
-		result.add(mDawgLetterFactory.getDawgLetterWithEqualities(mComplementLetters, emptyColnames, emptyColnames, mSortId));
+		// add the set-constraint not S
+		result.add(mDawgLetterFactory.getComplementDawgLetterWithEqualities(mLetters, emptyColnames, emptyColnames, mSortId));
 		
 		// add the negated equality constraints
 		for (COLNAMES eq : mEqualColnames) {
@@ -94,49 +113,53 @@ public class ComplementDawgLetterWithEqualities<LETTER, COLNAMES> extends Abstra
 		if (!EprHelpers.isIntersectionEmpty(newEqualColnames, newUnequalColnames)) {
 			return mDawgLetterFactory.getEmptyDawgLetter(mSortId);
 		}
-
+		
 		/*
 		 * compute new set constraint
 		 */
+		final Set<LETTER> newLetters = new HashSet<LETTER>(mLetters);
 		if (other instanceof UniversalDawgLetterWithEqualities<?, ?>) {
 			// no further set constraints --> do nothing
-			return mDawgLetterFactory.getComplementDawgLetterWithEqualities(mComplementLetters, newEqualColnames, newUnequalColnames, mSortId);
 		} else if (other instanceof DawgLetterWithEqualities<?, ?>) {
-			// using the non-complement DawgLetter's intersect seems most elegant here..
-			return other.intersect(this);
+			final DawgLetterWithEqualities<LETTER, COLNAMES> otherDlwe = (DawgLetterWithEqualities<LETTER, COLNAMES>) other;
+			newLetters.retainAll(otherDlwe.mLetters);
 		} else if (other instanceof ComplementDawgLetterWithEqualities<?, ?>) {
-			final Set<LETTER> newComplementLetters = new HashSet<LETTER>();
 			final ComplementDawgLetterWithEqualities<LETTER, COLNAMES> otherDlwe = 
 					(ComplementDawgLetterWithEqualities<LETTER, COLNAMES>) other;
-			newComplementLetters.addAll(this.mComplementLetters);
-			newComplementLetters.addAll(otherDlwe.mComplementLetters);
-
-			return mDawgLetterFactory.getComplementDawgLetterWithEqualities(newComplementLetters, newEqualColnames, newUnequalColnames, mSortId);
+			newLetters.removeAll(otherDlwe.mComplementLetters);
 		} else {
 			assert false : "forgot a case?";
-			return null;
 		}
+		
+		return mDawgLetterFactory.getDawgLetterWithEqualities(newLetters, newEqualColnames, newUnequalColnames, mSortId);
 	}
 
 	@Override
 	public boolean matches(LETTER ltr, List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex) {
-		if (mComplementLetters.contains(ltr)) {
+		if (!mLetters.contains(ltr)) {
 			return false;
 		}
 		return super.matches(ltr, word, colnamesToIndex);
 	}
-
-	@Override
-	public IDawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER selectLetter) {
-		if (mComplementLetters.contains(selectLetter)) {
+	
+	/**
+	 * If this DawgLetter's mLetters-set contains ltr, return a DawgLetter with
+	 *  mLetters = {ltr}, and the rest unchanged.
+	 * Otherwise (ltr is not contained in mLetters), return null.
+	 * 
+	 * @param ltr
+	 * @return
+	 */
+	public IDawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER ltr) {
+		if (!mLetters.contains(ltr)) {
 			return mDawgLetterFactory.getEmptyDawgLetter(mSortId);
 		}
 		return mDawgLetterFactory.getDawgLetterWithEqualities(
-				Collections.singleton(selectLetter), mEqualColnames, mUnequalColnames, mSortId);
+				Collections.singleton(ltr), mEqualColnames, mUnequalColnames, mSortId);
 	}
 
 	@Override
 	public String toString() {
-		return String.format("ComplementDawgLetter: %s, %s", mComplementLetters, printedEqualityConstraints());
+		return String.format("DawgLetter: %s, %s", mLetters, printedEqualityConstraints());
 	}
 }

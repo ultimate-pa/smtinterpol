@@ -17,7 +17,7 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.
  */
-package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
+package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -27,6 +27,10 @@ import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheorySettings;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.NestedMap2;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.NestedMap3;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.NestedMap4;
 
 /**
  * 

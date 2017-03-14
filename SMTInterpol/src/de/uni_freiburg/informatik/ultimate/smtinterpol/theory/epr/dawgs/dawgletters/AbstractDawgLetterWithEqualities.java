@@ -17,7 +17,7 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.
  */
-package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
+package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -116,5 +116,13 @@ public abstract class AbstractDawgLetterWithEqualities<LETTER, COLNAMES> extends
 	public IDawgLetter<LETTER, COLNAMES> union(IDawgLetter<LETTER, COLNAMES> other) {
 		assert false : "this should not be called (the result of a DWLE-union is a set of DLWEs in general";
 		return null;
+	}
+
+	public Set<COLNAMES> getEqualColnames() {
+		return mEqualColnames;
+	}
+
+	public Set<COLNAMES> getUnequalColnames() {
+		return mUnequalColnames;
 	}
 }

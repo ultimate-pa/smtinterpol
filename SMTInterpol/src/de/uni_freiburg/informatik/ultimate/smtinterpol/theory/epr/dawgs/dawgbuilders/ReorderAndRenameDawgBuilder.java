@@ -17,7 +17,7 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.
  */
-package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
+package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgbuilders;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -31,6 +31,21 @@ import java.util.TreeSet;
 import java.util.Map.Entry;
 
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.Dawg;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.AbstractDawgLetterWithEqualities;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.ComplementDawgLetterWithEqualities;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.DawgLetterFactory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.DawgLetterWithEqualities;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.EmptyDawgLetter;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.IDawgLetter;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.UniversalDawgLetter;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.UniversalDawgLetterWithEqualities;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgStateFactory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.RenameAndReorderDawgState;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.HashRelation3;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
 
 /**
  * Builds a dawg from an input dawg according to a rule.
@@ -347,7 +362,7 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 				(AbstractDawgLetterWithEqualities<LETTER, COLNAMES>) p2;
 		
 		final Set<COLNAMES> newEqualColnames = new HashSet<COLNAMES>();
-		for (COLNAMES eq : adlwe.mEqualColnames) {
+		for (COLNAMES eq : adlwe.getEqualColnames()) {
 			if (eq.equals(oldColname)) {
 				newEqualColnames.add(newColname);
 			} else {
@@ -356,7 +371,7 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 		}
 
 		final Set<COLNAMES> newUnequalColnames = new HashSet<COLNAMES>();
-		for (COLNAMES uneq : adlwe.mUnequalColnames) {
+		for (COLNAMES uneq : adlwe.getUnequalColnames()) {
 			if (uneq.equals(oldColname)) {
 				newUnequalColnames.add(newColname);
 			} else {
@@ -364,26 +379,26 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 			}
 		}
 		
-		assert newUnequalColnames.size() == adlwe.mUnequalColnames.size();
-		assert newEqualColnames.size() == adlwe.mEqualColnames.size();
+		assert newUnequalColnames.size() == adlwe.getUnequalColnames().size();
+		assert newEqualColnames.size() == adlwe.getEqualColnames().size();
 		
 		if (p2 instanceof DawgLetterWithEqualities<?, ?>) {
 			return mDawgLetterFactory.getDawgLetterWithEqualities(
 					((DawgLetterWithEqualities<LETTER, COLNAMES>) p2).mLetters, 
 					newEqualColnames, 
 					newUnequalColnames, 
-					((DawgLetterWithEqualities<LETTER, COLNAMES>) p2).mSortId);
+					((DawgLetterWithEqualities<LETTER, COLNAMES>) p2).getSortId());
 		} else if (p2 instanceof ComplementDawgLetterWithEqualities<?, ?>) {
 			return mDawgLetterFactory.getDawgLetterWithEqualities(
 					((ComplementDawgLetterWithEqualities<LETTER, COLNAMES>) p2).mComplementLetters, 
 					newEqualColnames, 
 					newUnequalColnames, 
-					((ComplementDawgLetterWithEqualities<LETTER, COLNAMES>) p2).mSortId);
+					((ComplementDawgLetterWithEqualities<LETTER, COLNAMES>) p2).getSortId());
 		} else if (p2 instanceof UniversalDawgLetterWithEqualities<?, ?>) {
 			return mDawgLetterFactory.getUniversalDawgLetterWithEqualities(
 					newEqualColnames, 
 					newUnequalColnames, 
-					((UniversalDawgLetterWithEqualities<LETTER, COLNAMES>) p2).mSortId);
+					((UniversalDawgLetterWithEqualities<LETTER, COLNAMES>) p2).getSortId());
 		} else {
 			assert false : "not a DawgLetterWithEqualities?? catch this outside?";
 			return null;
