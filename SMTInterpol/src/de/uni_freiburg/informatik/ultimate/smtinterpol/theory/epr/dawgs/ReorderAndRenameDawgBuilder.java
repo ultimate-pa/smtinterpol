@@ -45,6 +45,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
  *     in effect, only words that agreed (i.e. had the same letter) on both columns are accepted (with one of the two agreeing
  *       letters removed).
  *        (we intersect the letters in the target column with those of the source column and eliminate the source column)
+ *       TODO: 
  * 
  * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
  *

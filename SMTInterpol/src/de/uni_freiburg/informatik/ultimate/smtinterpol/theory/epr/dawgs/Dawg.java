@@ -495,6 +495,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 
 	@Override
 	public IDawg<LETTER, COLNAMES> translatePredSigToClauseSig(Map<COLNAMES, COLNAMES> translationVariables,
+			
 			Map<COLNAMES, LETTER> translationConstants, DawgSignature<COLNAMES> targetSignature) {
 		/*
 		 * algorithmic plan: - basic operations: reorder & rename select &
@@ -597,10 +598,9 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	}
 
 	/**
-	 * Deprecated this because it is wrong for DawgLettersWithEqualities.
+	 * TODO: rework
 	 */
-	@Deprecated
-	private Dawg<LETTER, COLNAMES> projectColumnAway(final COLNAMES column) {
+	public Dawg<LETTER, COLNAMES> projectColumnAway(final COLNAMES column) {
 		if (!mSignature.getColNames().contains(column)) {
 			return this;
 		}

@@ -473,4 +473,11 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 				getColNames(), mAllConstants, newBacking, mLogger);
 	}
 
+	@Override
+	public Dawg<LETTER, COLNAMES> projectColumnAway(COLNAMES column) {
+		assert false : "do we need an implementation in the NaivedDawg-case??";
+		// TODO Auto-generated method stub
+		return null;
+	}
+
 }

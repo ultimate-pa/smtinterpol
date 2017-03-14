@@ -145,4 +145,6 @@ public interface IDawg<LETTER, COLNAMES> extends Iterable<List<LETTER>> {
 	 */
 	Iterable<List<LETTER>> getAllPointsSorted();
 	
+
+	Dawg<LETTER, COLNAMES> projectColumnAway(final COLNAMES column);
 }
