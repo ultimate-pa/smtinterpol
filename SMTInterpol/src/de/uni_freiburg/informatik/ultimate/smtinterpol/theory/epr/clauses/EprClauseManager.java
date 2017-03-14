@@ -180,7 +180,7 @@ public class EprClauseManager {
 	 * Add a clause coming from the input script.
 	 * @return A ground conflict if adding the given clause directly leads to one.
 	 */
-	public Clause createEprClause(HashSet<Literal> literals) {
+	public Clause createEprClause(Set<Literal> literals) {
 		EprClause newClause = mEprTheory.getEprClauseFactory().getEprClause(literals);
 
 		mEprTheory.getLogger().debug("EPRDEBUG: (EprClauseManager) creating new EprClause from input assert: " + newClause);

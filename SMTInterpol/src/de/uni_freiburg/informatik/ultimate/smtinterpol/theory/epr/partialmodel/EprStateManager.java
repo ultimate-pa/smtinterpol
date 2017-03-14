@@ -45,6 +45,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EqualityManage
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClauseFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClauseManager;
@@ -121,11 +122,51 @@ public class EprStateManager {
 	}
 
 	public void addNewEprPredicate(EprPredicate pred) {
-			mAllEprPredicates.add(pred);
-			
-			for (Sort pSort : pred.getFunctionSymbol().getParameterSorts()) {
-				registerSort(pSort);
-			}
+		mAllEprPredicates.add(pred);
+
+		for (Sort pSort : pred.getFunctionSymbol().getParameterSorts()) {
+			registerSort(pSort);
+		}
+
+		createCongruenceClauseForPredicate(pred);
+	}
+
+	private void createCongruenceClauseForPredicate(EprPredicate pred) throws AssertionError {
+		/*
+		 * add congruence axioms for this predicate
+		 */
+		final Set<Literal> literalsForCongruenceClause = new HashSet<Literal>();
+		
+		// create disequalities xi != yi for i in { 1, ..., n } (n = arity)
+		final TermVariable[] leftVariables = new TermVariable[pred.getArity()];
+		final TermVariable[] rightVariables = new TermVariable[pred.getArity()];
+		final ApplicationTerm[] disEqualities = new ApplicationTerm[pred.getArity()];
+		for (int i = 0; i < pred.getArity(); i++) {
+			leftVariables[i] = mTheory.createFreshTermVariable("congVar", pred.getSorts()[i]);
+			rightVariables[i] = mTheory.createFreshTermVariable("congVar", pred.getSorts()[i]);
+			disEqualities[i] = mTheory.term("=", leftVariables[i], rightVariables[i]);
+		}
+
+		for (ApplicationTerm de : disEqualities) {
+			literalsForCongruenceClause.add(mEprTheory.getEprAtom(de, 
+					0,  //TODO hash
+					mEprTheory.getClausifier().getStackLevel()));
+		}
+		
+		// create atoms not P(x1, ..., xn) and P(y1, ..., yn)
+		final EprPredicateAtom leftAtom = pred.getAtomForTermTuple(new TermTuple(leftVariables), mTheory, 
+				mEprTheory.getClausifier().getStackLevel());
+		literalsForCongruenceClause.add(leftAtom.negate());
+		
+		final EprPredicateAtom rightAtom = pred.getAtomForTermTuple(new TermTuple(rightVariables), mTheory, 
+				mEprTheory.getClausifier().getStackLevel());
+		literalsForCongruenceClause.add(rightAtom);
+		
+		// create the clause expressing congruence
+		Clause groundConflict = mEprClauseManager.createEprClause(literalsForCongruenceClause);
+		if (groundConflict != null) {
+			throw new AssertionError("TODO: deal with this case");
+		}
 	}
 
 	public void registerEprGroundPredicateLiteral(EprGroundPredicateLiteral egpl, Literal l) {

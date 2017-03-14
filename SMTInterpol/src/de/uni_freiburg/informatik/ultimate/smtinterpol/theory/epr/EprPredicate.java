@@ -29,6 +29,7 @@ import java.util.TreeSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
@@ -46,7 +47,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.I
 /**
  * Represents an uninterpreted predicate that the EPR theory reasons about.
  * Stores and updates a model for that predicate.
- * If setting a literal leads to a conflict, that conflict is reported.
+ * If setting a literal leads to a conflict, that conflict is reported back to the DPLLEngine.
  * 
  * @author Alexander Nutz
  */
@@ -329,6 +330,10 @@ public class EprPredicate {
 	public Set<IEprLiteral> getEprLiterals() {
 		assert mEprTheory.getStateManager().getDecideStackManager().verifyEprLiterals(mEprLiterals);
 		return mEprLiterals;
+	}
+
+	public Sort[] getSorts() {
+		return mFunctionSymbol.getParameterSorts();
 	}
 
 

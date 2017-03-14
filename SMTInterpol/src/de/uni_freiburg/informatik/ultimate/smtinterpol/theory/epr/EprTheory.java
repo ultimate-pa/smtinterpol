@@ -136,7 +136,6 @@ public class EprTheory implements ITheory {
 
 		mEqualityManager = new EqualityManager();
 		mStateManager = new EprStateManager(this, mDawgFactory, mClauseFactory);
-
 	}
 
 	@Override
@@ -483,6 +482,11 @@ public class EprTheory implements ITheory {
 	 * corresponding literals instead (in order to be added as a DPLL clause).
 	 * Otherwise return null
 	 * 
+	 * Specialty2: apply so-called constructive equality reasoning (CER)
+	 *   CER ensures that no literal repeats an occurrence of the same variable by
+	 *   introducing disequalities into the clause
+	 *    --> DER has to be restricted such that it does not introduce such repetitions TODO
+	 * 
 	 * @param lits
 	 *            literals where at least one variable is free (thus implicitly
 	 *            forall-quantified)
@@ -586,6 +590,7 @@ public class EprTheory implements ITheory {
 			pred = new EprPredicate(fs, this);
 			mFunctionSymbolToEprPredicate.put(fs, pred);
 			mStateManager.addNewEprPredicate(pred);
+			
 		}
 		return pred;
 	}
