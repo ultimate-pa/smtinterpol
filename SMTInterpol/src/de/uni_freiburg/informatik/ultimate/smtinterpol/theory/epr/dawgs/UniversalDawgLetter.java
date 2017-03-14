@@ -75,4 +75,9 @@ public class UniversalDawgLetter<LETTER, COLNAMES> extends AbstractDawgLetter<LE
 	public String toString() {
 		return "UniversalDawgLetter";
 	}
+
+	@Override
+	public IDawgLetter<LETTER, COLNAMES> union(IDawgLetter<LETTER, COLNAMES> other) {
+		return this;
+	}
 }

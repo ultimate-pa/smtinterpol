@@ -76,7 +76,11 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 	 * @param newColumn
 	 * @param duplicationMode special mode of this class which does not move a column but copies it
 	 * @param mergeMode special mode of this class which merges a column with another one
+	 * 
+	 * deprecated because we won't need merge mode in the future 
+	 *  --> this constructor's functionality should be moved
 	 */
+	@Deprecated
 	public ReorderAndRenameDawgBuilder(DawgFactory<LETTER, COLNAMES> dawgFactory, Dawg<LETTER, COLNAMES> inputDawg,
 			COLNAMES oldColumn, COLNAMES newColumn, boolean duplicationMode, boolean mergeMode) {
 		assert !duplicationMode || !mergeMode : "duplicationMode and mergeMode flags set --> make no sense";
@@ -105,7 +109,11 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 	 * @param oldColumn
 	 * @param newColumn
 	 * @param duplicationMode
+	 * 
+	 * deprecated because we won't need duplication mode in the future 
+	 * 
 	 */
+	@Deprecated
 	public ReorderAndRenameDawgBuilder(DawgFactory<LETTER, COLNAMES> dawgFactory, Dawg<LETTER, COLNAMES> dawg,
 			COLNAMES oldColumn, COLNAMES newColumn, boolean duplicationMode) {
 		this(dawgFactory, dawg, oldColumn, newColumn, true, false);

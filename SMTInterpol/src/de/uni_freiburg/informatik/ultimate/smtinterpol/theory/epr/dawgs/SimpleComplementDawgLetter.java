@@ -117,4 +117,28 @@ public class SimpleComplementDawgLetter<LETTER, COLNAMES> extends AbstractDawgLe
 		return "SimpleCompDL: " + mComplementSet;
 	}
 
+	@Override
+	public IDawgLetter<LETTER, COLNAMES> union(IDawgLetter<LETTER, COLNAMES> other) {
+		if (other instanceof EmptyDawgLetter<?, ?>) {
+			return this;
+		} else if (other instanceof UniversalDawgLetter<?, ?>) {
+			return other;
+		} else if (other instanceof SimpleDawgLetter<?, ?>) {
+			final Set<LETTER> otherSet = ((SimpleDawgLetter<LETTER, COLNAMES>) other).getLetters();
+			final HashSet<LETTER> newComplementSet = new HashSet<LETTER>(mComplementSet);
+			newComplementSet.removeAll(otherSet);
+			return mDawgLetterFactory.getSimpleComplementDawgLetter(newComplementSet, mSortId);
+		} else if (other instanceof SimpleComplementDawgLetter<?, ?>) {
+			// we take the intersection of the complementLetters
+			final Set<LETTER> otherComplementSet = 
+					((SimpleComplementDawgLetter<LETTER, COLNAMES>) other).getComplementLetters();
+			final HashSet<LETTER> intersection = new HashSet<LETTER>(mComplementSet);
+			intersection.retainAll(otherComplementSet);
+			return mDawgLetterFactory.getSimpleComplementDawgLetter(intersection, mSortId);
+		} else {
+			assert false : "?";
+			return null;
+		}
+	}
+
 }

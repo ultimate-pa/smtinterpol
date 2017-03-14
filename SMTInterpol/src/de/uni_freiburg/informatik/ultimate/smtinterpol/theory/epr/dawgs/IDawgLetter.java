@@ -64,4 +64,6 @@ public interface IDawgLetter<LETTER, COLNAMES> {
 	 * TODO: perhaps replace the implementations through a reduction to intersect with a singletonDawgLetter?
 	 */
 	IDawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER selectLetter);
+
+	IDawgLetter<LETTER, COLNAMES> union(IDawgLetter<LETTER, COLNAMES> other);
 }

@@ -35,7 +35,7 @@ import java.util.Set;
  */
 public class SimpleDawgLetter<LETTER, COLNAMES> extends AbstractDawgLetter<LETTER, COLNAMES> {
 	
-	private final Set<LETTER> mLetters;
+	final Set<LETTER> mLetters;
 	
 	public SimpleDawgLetter(DawgLetterFactory<LETTER, COLNAMES> dlf, Set<LETTER> letters, Object sortId) {
 		super(dlf, sortId);
@@ -105,5 +105,24 @@ public class SimpleDawgLetter<LETTER, COLNAMES> extends AbstractDawgLetter<LETTE
 	@Override
 	public String toString() {
 		return "SimpleDawgLetter: " + getLetters();
+	}
+
+	@Override
+	public IDawgLetter<LETTER, COLNAMES> union(IDawgLetter<LETTER, COLNAMES> other) {
+		if (other instanceof EmptyDawgLetter<?, ?>) {
+			return this;
+		} else if (other instanceof UniversalDawgLetter<?, ?>) {
+			return other;
+		} else if (other instanceof SimpleDawgLetter<?, ?>) {
+			final Set<LETTER> otherSet = ((SimpleDawgLetter<LETTER, COLNAMES>) other).getLetters();
+			final HashSet<LETTER> union = new HashSet<LETTER>(mLetters);
+			union.addAll(otherSet);
+			return mDawgLetterFactory.getSimpleComplementDawgLetter(union, mSortId);
+		} else if (other instanceof SimpleComplementDawgLetter<?, ?>) {
+			return other.union(this);
+		} else {
+			assert false : "?";
+			return null;
+		}
 	}
 }

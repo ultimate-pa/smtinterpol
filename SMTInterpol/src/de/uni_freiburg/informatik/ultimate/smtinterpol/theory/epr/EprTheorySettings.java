@@ -11,7 +11,7 @@ public class EprTheorySettings {
 	/**
 	 * 
 	 */
-	public static final boolean UseSimpleDawgLetters = false;
+	public static final boolean UseSimpleDawgLetters = true;
 
 	/**
 	 * If this is true, we use all constants declared before the first assert as

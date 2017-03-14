@@ -19,10 +19,7 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
 
-import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -31,7 +28,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.SortedSet;
-import java.util.Stack;
 import java.util.TreeSet;
 
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
@@ -777,6 +773,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		return reorderAndRename(new BinaryRelation<COLNAMES, COLNAMES>(renaming));
 	}
 
+	@Deprecated
 	private Dawg<LETTER, COLNAMES> duplicateColumn(COLNAMES firstCol, COLNAMES currentNewCol) {
 		if (mDawgLetterFactory.useSimpleDawgLetters()) {
 			return new ReorderAndRenameDawgBuilder<LETTER, COLNAMES>(mDawgFactory, this, firstCol, currentNewCol, true)

@@ -77,5 +77,10 @@ public class EmptyDawgLetter<LETTER, COLNAMES> extends AbstractDawgLetter<LETTER
 	public String toString() {
 		return "EmptyDawgLetter";
 	}
+
+	@Override
+	public IDawgLetter<LETTER, COLNAMES> union(IDawgLetter<LETTER, COLNAMES> other) {
+		return other;
+	}
 }
 

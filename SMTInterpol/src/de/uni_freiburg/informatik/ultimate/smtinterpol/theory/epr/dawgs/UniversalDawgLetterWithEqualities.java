@@ -121,4 +121,6 @@ public class UniversalDawgLetterWithEqualities<LETTER, COLNAMES> extends Abstrac
 	public String toString() {
 		return String.format("UniversalDawgLetterWE: %s", printedEqualityConstraints());
 	}
+
+
 }

@@ -30,6 +30,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.BinaryRelation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheorySettings;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
 
@@ -402,9 +403,84 @@ public class DawgFactory<LETTER, COLNAMES> {
 			}
 			set.add(constant);
 		}
-	
-//		public void addSort(String sortId) {
-//			mAllKnownSorts.add(sortId);
-//		}
+		
+		public Dawg<LETTER, COLNAMES> closeDawgUnderSymmetryAndTransitivity(Dawg<LETTER, COLNAMES> inputDawg) {
+			assert inputDawg.getSignature().getNoColumns() == 2;
+			assert EprTheorySettings.UseSimpleDawgLetters;
+			
+			final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> newTransitionRelation1 = 
+					new DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER,COLNAMES>, DawgState>();
+			/*
+			 * First, close under symmetry by replacing the dawgLetters at all two connected edges by their union.
+			 * This may mean that outgoing DawgLetters are no more disjoint, but we will resolve this in the next step..
+			 * Can we lose information here by using a nested map here?, i.e. do we need a relation?..
+			 */
+			for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge1 : 
+				inputDawg.getTransitionRelation().getOutEdgeSet(inputDawg.getInitialState())) {
+				final DawgState outEdge1Target = outEdge1.getSecond();
+				final IDawgLetter<LETTER, COLNAMES> outEdge1DL = outEdge1.getFirst();
 
+				for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge2 : 
+					inputDawg.getTransitionRelation().getOutEdgeSet(outEdge1Target)) {
+					final DawgState outEdge2Target = outEdge2.getSecond();
+					final IDawgLetter<LETTER, COLNAMES> outEdge2DL = outEdge2.getFirst();
+					
+					final IDawgLetter<LETTER, COLNAMES> unionDL = outEdge1DL.union(outEdge2DL);
+					
+					/*
+					 * add two edges replacing outEdge1 and outEdge2, eacht labelled with unionDL
+					 */
+					newTransitionRelation1.put(inputDawg.getInitialState(), unionDL, outEdge1Target);
+					newTransitionRelation1.put(outEdge1Target, unionDL, outEdge2Target);
+					
+					// TODO: do we have to catch special cases here? like when two outEdge1 become the same??
+				}
+			}
+			
+			final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> 
+				newTransitionRelation2 = 
+					new DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER,COLNAMES>, DawgState>();
+
+			/*
+			 * second, close under transitivity
+			 *  .. replace all pairs outgoing DawgLetters of the initial state by their that have a non-empty intersection
+			 * by their union
+			 * (there should be one pair of transitions per equivalence class in the dawg in the end..)
+			 */
+			final HashSet<Pair<IDawgLetter<LETTER, COLNAMES>, DawgState>> treatedOutEdges = 
+						new HashSet<Pair<IDawgLetter<LETTER, COLNAMES>, DawgState>>();
+			for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge1 : 
+				inputDawg.getTransitionRelation().getOutEdgeSet(inputDawg.getInitialState())) {
+				if (treatedOutEdges.contains(outEdge1)) {
+					continue;
+				}
+				final IDawgLetter<LETTER, COLNAMES> outEdge1DL = outEdge1.getFirst();
+				
+				IDawgLetter<LETTER, COLNAMES> unionDlOfIntersectingOutEdges = 
+						mDawgLetterFactory.getEmptyDawgLetter(outEdge1DL.getSortId());
+				for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> otherOutEdge1 : 
+					inputDawg.getTransitionRelation().getOutEdgeSet(inputDawg.getInitialState())) {
+					final IDawgLetter<LETTER, COLNAMES> otherOutEdge1DL = outEdge1.getFirst();
+					
+					final IDawgLetter<LETTER, COLNAMES> intersectDl = outEdge1DL.intersect(otherOutEdge1DL);
+					if (!(intersectDl instanceof EmptyDawgLetter<?, ?>)) {
+						treatedOutEdges.add(otherOutEdge1);
+						unionDlOfIntersectingOutEdges = unionDlOfIntersectingOutEdges.union(otherOutEdge1DL);
+					}
+				}
+				
+				/*
+				 * add two edges replacing all the intersecting edges
+				 */
+				final DawgState freshDawgState1 = mDawgStateFactory.createDawgState();
+				final DawgState freshDawgState2 = mDawgStateFactory.createDawgState();
+				newTransitionRelation2.put(inputDawg.getInitialState(), unionDlOfIntersectingOutEdges, freshDawgState1);
+				newTransitionRelation2.put(freshDawgState1, unionDlOfIntersectingOutEdges, freshDawgState2);
+
+			}
+			
+			return new Dawg<LETTER, COLNAMES>(this, mLogger, inputDawg.getColNames(), newTransitionRelation2, 
+					inputDawg.getInitialState());
+		}
+	
 }

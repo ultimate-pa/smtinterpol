@@ -26,6 +26,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * 
+ * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
+ *
+ * @param <LETTER>
+ * @param <COLNAMES>
+ * 
+ * deprecated because DawgLettersWithEqualities don't work well with projectAwayColumn operation
+ *  --> it seems simpler to work around them completely by using "constructive equality reasoning"
+ */
+@Deprecated
 public abstract class AbstractDawgLetterWithEqualities<LETTER, COLNAMES> extends AbstractDawgLetter<LETTER, COLNAMES> {
 
 	final Set<COLNAMES> mEqualColnames;
@@ -99,5 +110,11 @@ public abstract class AbstractDawgLetterWithEqualities<LETTER, COLNAMES> extends
 			}
 		}
 		return sb.toString();
+	}
+	
+	@Override
+	public IDawgLetter<LETTER, COLNAMES> union(IDawgLetter<LETTER, COLNAMES> other) {
+		assert false : "this should not be called (the result of a DWLE-union is a set of DLWEs in general";
+		return null;
 	}
 }

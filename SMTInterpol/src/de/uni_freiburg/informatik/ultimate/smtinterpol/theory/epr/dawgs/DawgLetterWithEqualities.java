@@ -162,5 +162,4 @@ public class DawgLetterWithEqualities<LETTER, COLNAMES> extends AbstractDawgLett
 	public String toString() {
 		return String.format("DawgLetter: %s, %s", mLetters, printedEqualityConstraints());
 	}
-
 }
