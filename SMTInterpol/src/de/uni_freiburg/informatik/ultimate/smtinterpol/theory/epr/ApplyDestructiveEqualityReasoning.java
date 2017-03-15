@@ -2,6 +2,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
@@ -23,6 +24,10 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuant
  * think it does, example: {x != c, x != d, P(x)} will yield the
  * substitution [x <- c, x <- d], which will yield the clause {c != c, c !=
  * d, P(c)} which seems right.) //TODO: make sure..
+ * 
+ * TODO: some of the transformations made here might be undone by "constructive 
+ * equality reasoning" afterwards, namely those that introduce repeating variables
+ * into one literal. -- avoid those transformations up front, perhaps..
  */
 class ApplyDestructiveEqualityReasoning {
 
@@ -154,7 +159,7 @@ class ApplyDestructiveEqualityReasoning {
 		}
 	}
 
-	public HashSet<Literal> getResult() {
+	public Set<Literal> getResult() {
 		return mResult;
 	}
 

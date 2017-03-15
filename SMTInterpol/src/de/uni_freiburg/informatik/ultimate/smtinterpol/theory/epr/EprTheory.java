@@ -499,21 +499,25 @@ public class EprTheory implements ITheory {
 		// applications??)
 		this.addConstants(EprHelpers.collectAppearingConstants(lits, mTheory));
 
-		// we remove disequalities occuring in the clause through destructive
-		// equality reasoning
-		// if the clause is ground afterwards, we just give it back to, the
-		// DPLLEngine
-		// otherwise we add it as an EprClause
-		ApplyDestructiveEqualityReasoning ader = new ApplyDestructiveEqualityReasoning(this, lits);
+		/* 
+		 * we remove disequalities occurring in the clause through destructive equality reasoning
+		 * if the clause is ground afterwards, we just give it back to, the DPLLEngine
+		 * otherwise we add it as an EprClause.
+		 */
+		final ApplyDestructiveEqualityReasoning ader = new ApplyDestructiveEqualityReasoning(this, lits);
 		if (ader.isResultGround()) {
 			return ader.getResult().toArray(new Literal[ader.getResult().size()]);
 		}
-		HashSet<Literal> literals = ader.getResult();
+		final Set<Literal> literalsWithDERApplied = ader.getResult();
 
-		// a new clause may immediately be a conflict clause, and possibly that
-		// conflict cannot be resolved in the EprTheory
-		// --> we will return that conflict at the next checkpoint
-		Clause groundConflict = mStateManager.getEprClauseManager().createEprClause(literals);
+		final Set<Literal> preprocessedLiterals = new ApplyConstructiveEqualityReasoning(this, literalsWithDERApplied).getResult();
+
+		/* 
+		 * a new clause may immediately be a conflict clause, and possibly that
+		 * conflict cannot be resolved in the EprTheory
+		 * --> we will return that conflict at the next checkpoint
+		 */
+		final Clause groundConflict = mStateManager.getEprClauseManager().createEprClause(preprocessedLiterals);
 		if (groundConflict != null) {
 			assert mStoredConflict == null : "we'll probably need a queue for this..";
 			mStoredConflict = groundConflict;
@@ -557,6 +561,19 @@ public class EprTheory implements ITheory {
 		return true;
 	}
 
+	/**
+	 * Management method for EprAtoms.
+	 * 
+	 * In particular this manages 
+	 *  <li> quantified equality atoms
+	 *  <li> quantified atoms that use an EprPredicate
+	 *  <li> ground atoms that use an EprPredicate
+	 * 
+	 * @param idx
+	 * @param hash
+	 * @param assertionStackLevel
+	 * @return
+	 */
 	public EprAtom getEprAtom(ApplicationTerm idx, int hash, int assertionStackLevel) {
 		if (idx.getFunction().getName().equals("=")) {
 			assert idx.getFreeVars().length > 0;
