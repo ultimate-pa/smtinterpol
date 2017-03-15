@@ -263,6 +263,13 @@ public class EprStateManager {
 		mEprClauseManager.updateClausesOnBacktrackDpllLiteral(literal);
 	}
 
+	/**
+	 * Set a literal from another theory, or a boolean constant.
+	 *   -- The EprTheory needs to track those because they might occur in EprClauses.
+	 * 
+	 * @param literal
+	 * @return
+	 */
 	public Clause setDpllLiteral(Literal literal) {
 		mDecideStackManager.pushOnSetLiteral(literal);
 		Set<EprClause> conflictOrUnits = mEprClauseManager.updateClausesOnSetDpllLiteral(literal);
