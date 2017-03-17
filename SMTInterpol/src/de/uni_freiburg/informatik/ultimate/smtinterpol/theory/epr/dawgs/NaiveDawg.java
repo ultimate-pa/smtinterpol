@@ -480,4 +480,10 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 		return null;
 	}
 
+	@Override
+	public Dawg<LETTER, COLNAMES> computeSymmetricTransitiveClosure() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
 }

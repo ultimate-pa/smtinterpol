@@ -147,4 +147,7 @@ public interface IDawg<LETTER, COLNAMES> extends Iterable<List<LETTER>> {
 	
 
 	Dawg<LETTER, COLNAMES> projectColumnAway(final COLNAMES column);
+	
+	
+	Dawg<LETTER, COLNAMES> computeSymmetricTransitiveClosure();
 }

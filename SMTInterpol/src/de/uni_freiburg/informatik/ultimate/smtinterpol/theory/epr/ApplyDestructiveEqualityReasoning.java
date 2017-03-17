@@ -136,11 +136,10 @@ class ApplyDestructiveEqualityReasoning {
 					// fresh
 					// CCEquality???
 				} else {
-					EprQuantifiedEqualityAtom eea = new EprQuantifiedEqualityAtom(mEprTheory.getTheory().term("=", newTT.terms), 0, // TODO
-							// use
-							// good
-							// hash
-							li.getAtom().getAssertionStackLevel());
+					EprQuantifiedEqualityAtom eea = new EprQuantifiedEqualityAtom(mEprTheory.getTheory().term("=", newTT.terms), 
+							0, // TODO // use // good // hash
+							li.getAtom().getAssertionStackLevel(),
+							mEprTheory.getEqualityEprPredicate(newTT.terms[0].getSort()));
 					return liPositive ? eea : eea.negate();
 				}
 			} else {

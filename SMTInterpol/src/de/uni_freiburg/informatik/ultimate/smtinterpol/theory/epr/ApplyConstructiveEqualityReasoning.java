@@ -48,7 +48,10 @@ class ApplyConstructiveEqualityReasoning {
 			for (TermVariable tv : variableOccurences.getDomain()) {
 
 				final Set<Integer> occurences = variableOccurences.getImage(tv);
+
 				final Integer firstOccurrence = occurences.iterator().next();
+				positionToNewTv.put(firstOccurrence, tv);
+
 				final HashSet<Integer> otherOccurrences = new HashSet<Integer>(occurences);
 				otherOccurrences.remove(firstOccurrence);
 				

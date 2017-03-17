@@ -37,6 +37,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprEqualityPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
@@ -128,29 +129,42 @@ public class EprStateManager {
 			registerSort(pSort);
 		}
 
-		createCongruenceClauseForPredicate(pred);
+		if (!(pred instanceof EprEqualityPredicate)) {
+			createCongruenceClauseForPredicate(pred);
+		}
 	}
 
+	/**
+	 * Should be called whenever we see an EprPredicate the first time.
+	 * For an EprPredicate P with arity n, introduces the congruence axiom
+	 *  { x1 != y1, ..., xn != yn, not P x1 ... xn, P y1 ... yn }
+	 *   
+	 * 
+	 * @param pred
+	 * @throws AssertionError
+	 */
 	private void createCongruenceClauseForPredicate(EprPredicate pred) throws AssertionError {
 		/*
 		 * add congruence axioms for this predicate
 		 */
 		final Set<Literal> literalsForCongruenceClause = new HashSet<Literal>();
 		
-		// create disequalities xi != yi for i in { 1, ..., n } (n = arity)
+		/*
+		 *  create disequalities xi != yi for i in { 1, ..., n } (n = arity)
+		 */
 		final TermVariable[] leftVariables = new TermVariable[pred.getArity()];
 		final TermVariable[] rightVariables = new TermVariable[pred.getArity()];
-		final ApplicationTerm[] disEqualities = new ApplicationTerm[pred.getArity()];
+		final ApplicationTerm[] equalities = new ApplicationTerm[pred.getArity()];
 		for (int i = 0; i < pred.getArity(); i++) {
-			leftVariables[i] = mTheory.createFreshTermVariable("congVar", pred.getSorts()[i]);
-			rightVariables[i] = mTheory.createFreshTermVariable("congVar", pred.getSorts()[i]);
-			disEqualities[i] = mTheory.term("=", leftVariables[i], rightVariables[i]);
+			leftVariables[i] = mTheory.createFreshTermVariable("congVarX", pred.getSorts()[i]);
+			rightVariables[i] = mTheory.createFreshTermVariable("congVarY", pred.getSorts()[i]);
+			equalities[i] = mTheory.term("=", leftVariables[i], rightVariables[i]);
 		}
 
-		for (ApplicationTerm de : disEqualities) {
-			literalsForCongruenceClause.add(mEprTheory.getEprAtom(de, 
+		for (ApplicationTerm eq : equalities) {
+			literalsForCongruenceClause.add(mEprTheory.getEprAtom(eq, 
 					0,  //TODO hash
-					mEprTheory.getClausifier().getStackLevel()));
+					mEprTheory.getClausifier().getStackLevel()).negate());
 		}
 		
 		// create atoms not P(x1, ..., xn) and P(y1, ..., yn)

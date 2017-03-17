@@ -23,20 +23,21 @@ import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprEqualityPredicate;
 
 /**
  * 
  * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
  *
  */
-public class EprQuantifiedEqualityAtom extends EprAtom {
+public class EprQuantifiedEqualityAtom extends EprQuantifiedPredicateAtom {
 	
 	private final Term lhs;
 	private final Term rhs;
 	private final boolean bothQuantified;
 
-	public EprQuantifiedEqualityAtom(ApplicationTerm term, int hash, int assertionstacklevel) {
-		super(term, hash, assertionstacklevel);
+	public EprQuantifiedEqualityAtom(ApplicationTerm term, int hash, int assertionstacklevel, EprEqualityPredicate equalityPred) {
+		super(term, hash, assertionstacklevel, equalityPred);
 		assert term.getFunction().getName().equals("=");
 		assert term.getFreeVars().length > 0;
 

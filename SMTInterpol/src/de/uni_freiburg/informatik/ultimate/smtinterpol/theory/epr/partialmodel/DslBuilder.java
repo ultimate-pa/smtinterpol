@@ -23,6 +23,7 @@ import java.util.List;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprEqualityPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseEprLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
@@ -52,6 +53,14 @@ public class DslBuilder {
 
 	}
 
+	/**
+	 * Constructor for the "decision" case.
+	 * 
+	 * @param polarity
+	 * @param pred
+	 * @param dawg
+	 * @param isDecision
+	 */
 	public DslBuilder(boolean polarity, EprPredicate pred, 
 			IDawg<ApplicationTerm, TermVariable> dawg, boolean isDecision) {
 		this(polarity, pred, dawg);
@@ -59,13 +68,26 @@ public class DslBuilder {
 		mIsDecision = isDecision;
 	}
 	
+	/**
+	 * Constructor for the "propagation" case.
+	 * 
+	 * @param polarity
+	 * @param pred
+	 * @param propagatedPoints Dawg that represents the points that are effectively set on the decide stack 
+	 *     (i.e., propagated points in pred signature
+	 * @param reasonUnitClause
+	 * @param reasonClauseDawg Dawg that represents the instantiations of the clause that allow for unit propagation.
+	 *           (essentially the propagated points in clause signature)
+	 * @param isDecision
+	 */
 	public DslBuilder(boolean polarity, EprPredicate pred, 
-			IDawg<ApplicationTerm, TermVariable> dawg, 
-			ClauseEprLiteral reasonUnitClause, IDawg<ApplicationTerm, TermVariable> reasonClauseDawg, 
+			IDawg<ApplicationTerm, TermVariable> propagatedPoints, 
+			ClauseEprLiteral reasonUnitClause, 
+			IDawg<ApplicationTerm, TermVariable> reasonClauseDawg, 
 			boolean isDecision) {
-		this(polarity, pred, dawg);
+		this(polarity, pred, propagatedPoints);
 		assert !isDecision : "shouldn't we use the other constructor here?";
-		assert pred.getTermVariablesForArguments().equals(dawg.getColNames());
+		assert pred.getTermVariablesForArguments().equals(propagatedPoints.getColNames());
 		assert reasonUnitClause.getClause().getVariables().equals(reasonClauseDawg.getColNames());
 		mIsDecision = isDecision;
 		mReasonUnitClause = reasonUnitClause;
@@ -80,6 +102,14 @@ public class DslBuilder {
 	
 	public DecideStackLiteral build() {
 		assert mDecideStackIndex != -1 : "index not set";
+		
+//		/**
+//		 * whenever we decide something positive on an EqualityPredicate, we take the
+//		 * symmetric and transitive hull instead of the input dawg.
+//		 */
+//		if (mPred instanceof EprEqualityPredicate && mPolarity) {
+//			mDawg = mDawg.computeSymmetricTransitiveClosure();
+//		}
 
 		if (mIsDecision) {
 			assert mReasonUnitClause == null;

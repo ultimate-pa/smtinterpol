@@ -135,7 +135,7 @@ public class DecideStackManager {
 		 */
 		UnitPropagationData upd = unitClause.getUnitPropagationData();
 		
-		for (DslBuilder dslB : upd.mQuantifiedPropagations) {
+		for (DslBuilder dslB : upd.getQuantifiedPropagations()) {
 			Set<EprClause> newConflictsOrUnits = pushEprDecideStack(dslB);
 
 			if (newConflictsOrUnits != null) {
@@ -151,7 +151,7 @@ public class DecideStackManager {
 			}
 		}
 		
-		for (Entry<Literal, Clause> en : upd.mGroundPropagations.entrySet()) {
+		for (Entry<Literal, Clause> en : upd.getGroundPropagations().entrySet()) {
 			Literal propLit = en.getKey();
 			mEprTheory.addGroundLiteralToPropagate(propLit, en.getValue());
 		}
@@ -241,6 +241,7 @@ public class DecideStackManager {
 	/**
 	 * The top of the decision stack is a decision and we have a conflict clause.
 	 * Refine that decision such that the conflict clause becomes a unit clause.
+	 * 
 	 * @param topMostDecideStackLiteral 
 	 * @param currentConflict
 	 * @return a ground conflict if the new decision immediately led to one
@@ -443,11 +444,11 @@ public class DecideStackManager {
 					mEprTheory.getDawgFactory().copyDawg(conflictingDsl.getDawg());
 			newDawg = newDawg.difference(egpl.getDawg()); 
 			
-			DslBuilder newDecision = 
+			final DslBuilder newDecision = 
 					new DslBuilder(
 							conflictingDsl.getPolarity(), conflictingDsl.getEprPredicate(), newDawg, true);
 			
-			Set<EprClause> conflictsOrUnits = pushEprDecideStack(newDecision);
+			final Set<EprClause> conflictsOrUnits = pushEprDecideStack(newDecision);
 			return resolveConflictOrStoreUnits(conflictsOrUnits);
 		} else if (conflictingDsl instanceof DecideStackPropagatedLiteral) {
 			/* 

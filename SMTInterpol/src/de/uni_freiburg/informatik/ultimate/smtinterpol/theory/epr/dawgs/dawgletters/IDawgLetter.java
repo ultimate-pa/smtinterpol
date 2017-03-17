@@ -39,6 +39,15 @@ public interface IDawgLetter<LETTER, COLNAMES> {
 
 	Set<IDawgLetter<LETTER, COLNAMES>> difference(IDawgLetter<LETTER, COLNAMES> other);
 
+	/**
+	 * Compute a DawgLetter whose denotation is the intersection of the denotation of the given two DawgLetters.
+	 * 
+	 * Note that this does not take into account equalities that may hold between LETTERs. E.g., {a}.intersect({b}) will
+	 *  yield the EmptyDawgLetter even if our current decide state says that a equals b.
+	 * 
+	 * @param other
+	 * @return
+	 */
 	IDawgLetter<LETTER, COLNAMES> intersect(IDawgLetter<LETTER, COLNAMES> other);
 
 	boolean matches(LETTER ltr, List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex);

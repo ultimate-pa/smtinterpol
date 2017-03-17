@@ -157,17 +157,18 @@ public class EprClause {
 	 */
 	private Pair<SortedSet<TermVariable>, Set<ClauseLiteral>> createClauseLiterals(Set<Literal> lits) {
 
-		SortedSet<TermVariable> variables = new TreeSet<TermVariable>(EprHelpers.getColumnNamesComparator());
-		HashSet<ClauseLiteral> literals = new HashSet<ClauseLiteral>();
+		final SortedSet<TermVariable> variables = new TreeSet<TermVariable>(EprHelpers.getColumnNamesComparator());
+		final HashSet<ClauseLiteral> literals = new HashSet<ClauseLiteral>();
 
-		Set<EprQuantifiedEqualityAtom> quantifiedEqualities = new HashSet<EprQuantifiedEqualityAtom>();
+//		Set<EprQuantifiedEqualityAtom> quantifiedEqualities = new HashSet<EprQuantifiedEqualityAtom>();
 
 		for (Literal l : lits) {
 			boolean polarity = l.getSign() == 1;
 			DPLLAtom atom = l.getAtom();
 			
-			if (atom instanceof EprQuantifiedPredicateAtom) {
-				EprQuantifiedPredicateAtom eqpa = (EprQuantifiedPredicateAtom) atom;
+			if (atom instanceof EprQuantifiedPredicateAtom 
+					|| atom instanceof EprQuantifiedEqualityAtom) {
+				final EprQuantifiedPredicateAtom eqpa = (EprQuantifiedPredicateAtom) atom;
 				
 				variables.addAll(
 						Arrays.asList(
@@ -178,22 +179,24 @@ public class EprClause {
 				literals.add(newL);
 				eqpa.getEprPredicate().addQuantifiedOccurence(newL, this);
 				
-				
 				continue;
 			} else if (atom instanceof EprGroundPredicateAtom) {
-				EprGroundPredicateAtom egpa = (EprGroundPredicateAtom) atom;
+				final EprGroundPredicateAtom egpa = (EprGroundPredicateAtom) atom;
 				ClauseEprGroundLiteral newL = new ClauseEprGroundLiteral(
 						polarity, egpa, this, mEprTheory);
 				literals.add(newL);
 				egpa.getEprPredicate().addGroundOccurence(newL, this);
 				continue;
-			} else if (atom instanceof EprQuantifiedEqualityAtom) {
-				// quantified equalities we don't add to the clause literals but 
-				// just collect them for adding exceptions to the other quantified
-				// clause literals later
-				assert atom == l : "should have been eliminated by destructive equality reasoning";
-				quantifiedEqualities.add((EprQuantifiedEqualityAtom) atom);
-				continue;
+//			} else if (atom instanceof EprQuantifiedEqualityAtom) {
+//				
+//				todo
+				
+//				// quantified equalities we don't add to the clause literals but 
+//				// just collect them for adding exceptions to the other quantified
+//				// clause literals later
+//				assert atom == l : "should have been eliminated by destructive equality reasoning";
+//				quantifiedEqualities.add((EprQuantifiedEqualityAtom) atom);
+//				continue;
 			} else if (atom instanceof EprGroundEqualityAtom) {
 				assert false : "do we really have this case?";
 				continue;
@@ -208,16 +211,16 @@ public class EprClause {
 			}
 		}
 		
-		for (ClauseLiteral cl : literals) {
-			if (cl instanceof ClauseEprQuantifiedLiteral) {
-				ClauseEprQuantifiedLiteral ceql = (ClauseEprQuantifiedLiteral) cl;
-				// update all quantified predicate atoms according to the quantified equalities
-				// by excluding the corresponding points in their dawgs
-				ceql.addExceptions(quantifiedEqualities);
-			}
-		}
+//		for (ClauseLiteral cl : literals) {
+//			if (cl instanceof ClauseEprQuantifiedLiteral) {
+//				ClauseEprQuantifiedLiteral ceql = (ClauseEprQuantifiedLiteral) cl;
+//				// update all quantified predicate atoms according to the quantified equalities
+//				// by excluding the corresponding points in their dawgs
+//				ceql.addExceptions(quantifiedEqualities);
+//			}
+//		}
 		
-		assert literals.size() == mDpllLiterals.size() - quantifiedEqualities.size();
+//		assert literals.size() == mDpllLiterals.size() - quantifiedEqualities.size();
 		
 		return new Pair<SortedSet<TermVariable>, Set<ClauseLiteral>>(
 				variables, literals);
@@ -364,19 +367,25 @@ public class EprClause {
 				IDawg<ApplicationTerm, TermVariable> toMoveFromNoToOne;
 				IDawg<ApplicationTerm, TermVariable> toMoveFromOneToTwo;
 				if (cl instanceof ClauseEprQuantifiedLiteral) {
-					IDawg<ApplicationTerm, TermVariable> fp = 
+					final IDawg<ApplicationTerm, TermVariable> fp = 
 							((ClauseEprQuantifiedLiteral) cl).getFulfillablePoints(decideStackBorder);
 
 					toMoveFromNoToOne = pointsWhereNoLiteralsAreFulfillable.intersect(fp);
 					toMoveFromOneToTwo = pointsWhereOneLiteralIsFulfillable.intersect(fp);
 				} else {
-					// the dawg of the current cl is the full dawg --> intersecting something with the full dawg means copying the something..
+					/*
+					 *  if cl is ground, the dawg of the current cl is the full dawg 
+					 *   --> intersecting something with the full dawg means copying the something..
+					 */
 					toMoveFromNoToOne = mDawgFactory.copyDawg(pointsWhereNoLiteralsAreFulfillable);
 					toMoveFromOneToTwo = mDawgFactory.copyDawg(pointsWhereOneLiteralIsFulfillable);
 				}
 				
 				assert EprHelpers.haveSameSignature(toMoveFromNoToOne, toMoveFromOneToTwo, pointsWhereNoLiteralsAreFulfillable);
 
+				/*
+				 * move all the fulfillable point of the current ClauseLiteral "up one set"
+				 */
 				pointsWhereNoLiteralsAreFulfillable = 
 						pointsWhereNoLiteralsAreFulfillable.difference(toMoveFromNoToOne);
 				pointsWhereOneLiteralIsFulfillable = 
@@ -424,7 +433,7 @@ public class EprClause {
 			setPointsWhereNoLiteralsAreFulfillable(decideStackBorder, pointsWhereNoLiteralsAreFulfillable);
 			setClauseState(decideStackBorder, EprClauseState.Conflict);
 		} else if (!pointsWhereOneLiteralIsFulfillable.isEmpty()) {
-			UnitPropagationData upd = new UnitPropagationData(finalClauseLitToUnitPoints, mDawgFactory);
+			final UnitPropagationData upd = new UnitPropagationData(finalClauseLitToUnitPoints, mDawgFactory);
 			setUnitPropagationData(decideStackBorder, upd);
 			setClauseState(decideStackBorder, EprClauseState.Unit);
 		} else {

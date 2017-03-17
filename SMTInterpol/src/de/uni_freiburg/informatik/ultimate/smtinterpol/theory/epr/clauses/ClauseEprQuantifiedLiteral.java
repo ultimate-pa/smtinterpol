@@ -51,7 +51,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
  */
 public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 
-	EprQuantifiedPredicateAtom mAtom;
+	private final EprQuantifiedPredicateAtom mAtom;
 	
 	/**
 	 * stores variable identities between different quantified literals in the same clause
@@ -153,12 +153,6 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 		mTranslationForEprPredicate = clauseToPred;
 	}
 
-	public void addExceptions(Set<EprQuantifiedEqualityAtom> quantifiedEqualities) {
-		for (EprQuantifiedEqualityAtom eqea : quantifiedEqualities) {
-			assert false : "TODO: implement";
-		}
-	}
-
 	/**
 	 * Returns the points where this literal is fulfillable in the decide state that was current when
 	 * isFulfillable was last called.
@@ -257,6 +251,16 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 
 		mFulfillablePoints = mFulfillablePoints.difference(fulfilledPoints);
 		mFulfillablePoints = mFulfillablePoints.difference(refutedPoints);
+		
+		
+		/*
+		 * If this clause literal is a negated equality literal, we "manually" have to subtract the reflexive points 
+		 * from the fulfillable points.
+		 */
+		if (!mPolarity && mAtom instanceof EprQuantifiedEqualityAtom) {
+			
+		}
+		
 		mRefutedPoints = refutedPoints;
 		mFulfilledPoints = fulfilledPoints;
 		
@@ -338,5 +342,13 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 		IDawg<ApplicationTerm, TermVariable> selDawg = dawg.select(selectMap);
 		Set<Clause> groundings = getClause().getGroundings(selDawg);
 		return groundings.iterator().next();
+	}
+
+	public EprQuantifiedPredicateAtom getAtom() {
+		return mAtom;
+	}
+	
+	public boolean isEqualityLiteral() {
+		return mAtom instanceof EprQuantifiedEqualityAtom;
 	}
 }

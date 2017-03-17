@@ -48,17 +48,6 @@ public class SimpleDawgLetter<LETTER, COLNAMES> extends AbstractDawgLetter<LETTE
 		return Collections.singleton(mDawgLetterFactory.getSimpleComplementDawgLetter(mLetters, mSortId));
 	}
 
-//	@Override
-//	public Set<IDawgLetter<LETTER, COLNAMES>> difference(IDawgLetter<LETTER, COLNAMES> other) {
-//		final Set<IDawgLetter<LETTER, COLNAMES>> otherComplement = other.complement();
-//		assert otherComplement.size() == 1 : "should be the case for simpleDawgLetters, right?";
-//		IDawgLetter<LETTER, COLNAMES> resultDl = this.intersect(otherComplement.iterator().next());
-//		if (resultDl instanceof EmptyDawgLetter<?, ?>) {
-//			return Collections.emptySet();
-//		}
-//		return Collections.singleton(resultDl);
-//	}
-
 	@Override
 	public IDawgLetter<LETTER, COLNAMES> intersect(IDawgLetter<LETTER, COLNAMES> other) {
 		if (other instanceof UniversalDawgLetter<?, ?>) {

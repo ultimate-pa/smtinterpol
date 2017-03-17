@@ -113,6 +113,8 @@ public class EprTheory implements ITheory {
 	 */
 	private Set<Literal> mLiteralsThatAreCurrentlySet = new HashSet<Literal>();
 
+	private Map<Sort, EprEqualityPredicate> mSortToEqualityEprPredicate;
+
 	/**
 	 * Super constructor for EprTheoryMock (for testing).
 	 */
@@ -133,6 +135,8 @@ public class EprTheory implements ITheory {
 
 		mEqualityManager = new EqualityManager();
 		mStateManager = new EprStateManager(this, mDawgFactory, mClauseFactory);
+		
+		mSortToEqualityEprPredicate = new HashMap<Sort, EprEqualityPredicate>();
 	}
 
 	@Override
@@ -510,7 +514,8 @@ public class EprTheory implements ITheory {
 		}
 		final Set<Literal> literalsWithDERApplied = ader.getResult();
 
-		final Set<Literal> preprocessedLiterals = new ApplyConstructiveEqualityReasoning(this, literalsWithDERApplied).getResult();
+		final Set<Literal> preprocessedLiterals = 
+				new ApplyConstructiveEqualityReasoning(this, literalsWithDERApplied).getResult();
 
 		/* 
 		 * a new clause may immediately be a conflict clause, and possibly that
@@ -578,7 +583,10 @@ public class EprTheory implements ITheory {
 		if (idx.getFunction().getName().equals("=")) {
 			assert idx.getFreeVars().length > 0;
 			// ApplicationTerm subTerm = applyAlphaRenaming(idx, mCollector);
-			return new EprQuantifiedEqualityAtom(idx, hash, assertionStackLevel);
+			return new EprQuantifiedEqualityAtom(idx, 
+					hash, 
+					assertionStackLevel, 
+					getEqualityEprPredicate(idx.getParameters()[0].getSort()));
 		} else {
 
 			EprPredicate pred = getEprPredicate(idx.getFunction());
@@ -601,12 +609,25 @@ public class EprTheory implements ITheory {
 	private EprPredicate getEprPredicate(FunctionSymbol fs) {
 		EprPredicate pred = mFunctionSymbolToEprPredicate.get(fs);
 		if (pred == null) {
-			pred = new EprPredicate(fs, this);
+			if (fs.getName().equals("=")) {
+				pred = new EprEqualityPredicate(fs, this);
+			} else {
+				pred = new EprPredicate(fs, this);
+			}
 			mFunctionSymbolToEprPredicate.put(fs, pred);
 			mStateManager.addNewEprPredicate(pred);
-			
 		}
 		return pred;
+	}
+
+	public EprEqualityPredicate getEqualityEprPredicate(Sort sort) {
+		EprEqualityPredicate result = mSortToEqualityEprPredicate.get(sort);
+		if (result == null) {
+			final FunctionSymbol fs = mTheory.getFunction("=", sort, sort);
+			result = (EprEqualityPredicate) getEprPredicate(fs);
+			mSortToEqualityEprPredicate.put(sort, result);
+		}
+		return result;
 	}
 
 	public void notifyAboutNewClause(Object buildClause) {

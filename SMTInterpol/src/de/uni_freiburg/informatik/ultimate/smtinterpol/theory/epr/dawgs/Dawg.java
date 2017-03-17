@@ -33,6 +33,7 @@ import java.util.TreeSet;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.BinaryRelation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheorySettings;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgbuilders.ReorderAndRenameDawgBuilder;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgbuilders.UnionOrIntersectionDawgBuilder;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.DawgLetterFactory;
@@ -356,8 +357,10 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 				final Set<IDawgLetter<LETTER, COLNAMES>> complementDawgLetters = mDawgLetterFactory
 						.complementDawgLetterSet(outgoingDawgLetters);
 				for (IDawgLetter<LETTER, COLNAMES> cdl : complementDawgLetters) {
-					newTransitionRelation.put(cs, cdl, nextLevelFormerSinkState);
-					formerSinkStatesAreReachable = true;
+					if (!(cdl instanceof EmptyDawgLetter<?, ?>)) {
+						newTransitionRelation.put(cs, cdl, nextLevelFormerSinkState);
+						formerSinkStatesAreReachable = true;
+					}
 				}
 
 			}
@@ -604,9 +607,11 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	}
 
 	/**
-	 * TODO: rework
+	 * Project the given column from this Dawg.
+	 * 
 	 */
 	public Dawg<LETTER, COLNAMES> projectColumnAway(final COLNAMES column) {
+		assert EprTheorySettings.UseSimpleDawgLetters : "this does not work for DawgLettersWithEquality!";
 		if (!mSignature.getColNames().contains(column)) {
 			return this;
 		}
@@ -627,7 +632,10 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		 */
 		Set<DawgState> leftOfColumn = obtainStatesLeftOfColumn(column);
 
-		final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> newTransitionRelation = new DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState>();
+		final DeterministicDawgTransitionRelation<DawgState, 
+			IDawgLetter<LETTER, COLNAMES>, 
+			DawgState> newTransitionRelation = 
+				new DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState>();
 
 		final Set<DawgState> statesWhoseConnectingEdgesHaveBeenTreated;
 		if (leftOfColumn.contains(mInitialState)) {
@@ -638,7 +646,8 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			 * projected away column into one, which is the new initial state
 			 * (we reuse the old initial state for this)
 			 */
-			final Set<DawgState> statesRightOfColumn = obtainStatesLeftOfColumn(mSignature.getColNameToIndex().get(column) + 1);
+			final Set<DawgState> statesRightOfColumn = obtainStatesLeftOfColumn(
+					mSignature.getColNameToIndex().get(column) + 1);
 			for (DawgState sroc : statesRightOfColumn) {
 				for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge : mTransitionRelation.getOutEdgeSet(sroc)) {
 					newTransitionRelation.put(mInitialState, outEdge.getFirst(), outEdge.getSecond());
@@ -656,8 +665,8 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			for (DawgState stateLeft : leftOfColumn) {
 				for (Pair<DawgState, IDawgLetter<LETTER, COLNAMES>> edgeLeadingToStateLeft : mTransitionRelation
 						.getInverse(stateLeft)) {
-					for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> edgeLeadingFromStateLeftToAStateRight : mTransitionRelation
-							.getOutEdgeSet(stateLeft)) {
+					for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> edgeLeadingFromStateLeftToAStateRight : 
+							mTransitionRelation.getOutEdgeSet(stateLeft)) {
 						newTransitionRelation.put(edgeLeadingToStateLeft.getFirst(), edgeLeadingToStateLeft.getSecond(),
 								edgeLeadingFromStateLeftToAStateRight.getSecond());
 					}
@@ -1053,5 +1062,10 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 
 	public List<Object> getColumnSorts() {
 		return mSignature.getColumnSorts();
+	}
+
+	@Override
+	public Dawg<LETTER, COLNAMES> computeSymmetricTransitiveClosure() {
+		return mDawgFactory.closeDawgUnderSymmetryAndTransitivity(this);
 	}
 }

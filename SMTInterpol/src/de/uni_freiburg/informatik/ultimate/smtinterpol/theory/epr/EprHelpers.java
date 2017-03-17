@@ -126,7 +126,11 @@ public class EprHelpers {
 			ApplicationTerm newTerm = theory.term("=", newTT.terms);
 			
 			if (newTerm.getFreeVars().length > 0) {
-				resultAtom = new EprQuantifiedEqualityAtom(newTerm, 0, l.getAtom().getAssertionStackLevel());//TODO: hash
+				assert false : "TODO: reactivate below code?";
+//				resultAtom = new EprQuantifiedEqualityAtom(newTerm, 
+//						0, //TODO: hash
+//						l.getAtom().getAssertionStackLevel(),
+//						eprTheory.getEqualityEprPredicate());
 			} else {
 				// TODO: will need a management for these atoms -- so there are no duplicates..
 				//   it's not clear if we want CCEqualities or so, here..

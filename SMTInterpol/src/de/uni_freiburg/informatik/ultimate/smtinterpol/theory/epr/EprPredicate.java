@@ -237,7 +237,6 @@ public class EprPredicate {
 		if (undecidedPoints.isEmpty()) {
 			return null;
 		} else {
-//			return new DecideStackDecisionLiteral(true, this, undecidedPoints);
 			return new DslBuilder(true, this, undecidedPoints, true);//TODO: what about polarity??
 		}
 	}
