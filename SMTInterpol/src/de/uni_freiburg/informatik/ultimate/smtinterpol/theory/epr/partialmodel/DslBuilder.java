@@ -45,14 +45,6 @@ public class DslBuilder {
 	private ClauseEprLiteral mReasonUnitClause;
 	private IDawg<ApplicationTerm, TermVariable> mReasonClauseDawg;
 	
-	private DslBuilder(boolean polarity, EprPredicate pred, 
-			IDawg<ApplicationTerm, TermVariable> dawg) {
-		mPolarity = polarity;
-		mPred = pred;
-		mDawg = dawg;
-
-	}
-
 	/**
 	 * Constructor for the "decision" case.
 	 * 
@@ -95,6 +87,14 @@ public class DslBuilder {
 	}
 	
 
+	private DslBuilder(boolean polarity, EprPredicate pred, 
+			IDawg<ApplicationTerm, TermVariable> dawg) {
+		mPolarity = polarity;
+		mPred = pred;
+		mDawg = dawg;
+	
+	}
+
 	public void setDecideStackIndex(int index) {
 		assert mDecideStackIndex == -1 : "index set twice";
 		mDecideStackIndex = index;
@@ -103,12 +103,48 @@ public class DslBuilder {
 	public DecideStackLiteral build() {
 		assert mDecideStackIndex != -1 : "index not set";
 		
-//		/**
-//		 * whenever we decide something positive on an EqualityPredicate, we take the
-//		 * symmetric and transitive hull instead of the input dawg.
-//		 */
-//		if (mPred instanceof EprEqualityPredicate && mPolarity) {
-//			mDawg = mDawg.computeSymmetricTransitiveClosure();
+		/*
+		 * Environment should guarantee that reflexive points have been filtered out before.
+		 * i.e.: "(!mPolarity /\ isEquality) --> !hasReflexivePoints"
+		 *  (for both unit propagation and decision case)
+		 */
+		assert mPolarity
+			|| !(mPred instanceof EprEqualityPredicate)
+			|| !mIsDecision
+			|| !mDawg.hasReflexivePoints() : "about to set a reflexive point (or more) on negated EqualityPredicate";
+		
+		/*
+		 * Whenever we decide something positive on an EqualityPredicate, we take the symmetric and transitive hull 
+		 * (together with all decisions/propagations of the EprEqualityPrediacte) instead of the input dawg.
+		 */
+		if (mPred instanceof EprEqualityPredicate && mPolarity) {
+			mDawg = ((EprEqualityPredicate) mPred)
+					.computeOverallSymmetricTransitiveClosureForPositiveEqualityPred(mDawg);
+		}
+
+//		if (mPred instanceof EprEqualityPredicate) {
+//			if (mPolarity) {
+//				/*
+//				 * whenever we decide something positive on an EqualityPredicate, we take the
+//				 * symmetric and transitive hull of all past decideStackLiterals for that predicate, together with the
+//				 * inputDawg (instead of just the input dawg).
+//				 */
+//
+//
+//
+//			} else {
+//				if (mDawg.hasReflexivePoints()) {
+//					assert mIsDecision : "unit propagation of reflexive points for (not (= ..)) should have been "
+//							+ "avoided elsewhere";
+//					/*
+//					 * If we are trying to make a decision that includes reflexive points for the negated equality
+//					 * predicate, we have to "cut" out the reflexive points.
+//					 * Cutting out precisely the reflexive points may be impossible, so we allow to cut out more.
+//					 * TODO: what if nothing is left?
+//					 */
+//					
+//				}
+//			}
 //		}
 
 		if (mIsDecision) {

@@ -218,14 +218,18 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 			}
 		}
 		
-		/*
-		 * If this clause literal is a negated equality literal, we "manually" have to add all reflexive points 
-		 * that the current AllConstants can give us to the refutedPoints.
-		 */
-		if (!mPolarity && mAtom instanceof EprQuantifiedEqualityAtom) {
-			refutedPoints = refutedPoints.union(
-					mDawgFactory.getReflexivePointsOverCurrentlyKnownConstantsForSignature(refutedPoints.getSignature()));
-		}
+		// the following commented out block could be an optimization for recognizing conflicts earlier
+		// --> TODO should we integrate it? Integrating it would probably mean we have to do something extra
+		//   for conflict explanation..
+//		/*
+//		 * If this clause literal is a negated equality literal, we "manually" have to add all reflexive points 
+//		 * that the current AllConstants can give us to the refutedPoints.
+//		 */
+//		if (!mPolarity && mAtom instanceof EprQuantifiedEqualityAtom) {
+//			refutedPoints = refutedPoints.union(
+//					mDawgFactory.getReflexivePointsOverCurrentlyKnownConstantsForSignature(
+//							refutedPoints.getSignature()));
+//		}
 		
 		/* 
 		 * right now, the refuted points are in terms of the EprPredicates signature, we need a renaming
@@ -264,9 +268,6 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 		mFulfillablePoints = mFulfillablePoints.difference(fulfilledPoints);
 		mFulfillablePoints = mFulfillablePoints.difference(refutedPoints);
 		
-		
-
-		
 		mRefutedPoints = refutedPoints;
 		mFulfilledPoints = fulfilledPoints;
 		
@@ -287,29 +288,29 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 		}
 	}
 
-	/**
-	 * Yields a translation that translates the column names of the epr predicate this clauseLiteral is talking about
-	 * to the column names of the clause that this ClauseLiteral belongs to.
-	 * @return map : predicateColumnNames -> clauseColumnNames
-	 */
-	private Pair<Map<TermVariable, Object>, Map<TermVariable, TermVariable>> computeDawgSignatureTranslations() {
-
-		Map<TermVariable, TermVariable> clauseToPred = 
-				new HashMap<TermVariable, TermVariable>();
-		Map<TermVariable, Object> predToClause = 
-				new HashMap<TermVariable, Object>();
-		Iterator<TermVariable> predTermVarIt = mAtom.getEprPredicate().getTermVariablesForArguments().iterator();
-		for (int i = 0; i < mArgumentTerms.size(); i++) {
-			Term atomT = mArgumentTerms.get(i);
-			TermVariable tv = predTermVarIt.next();
-			predToClause.put(tv, atomT);
-			if (atomT instanceof TermVariable) {
-				clauseToPred.put(tv, (TermVariable) atomT);
-			}
-		}
-
-		return new Pair<Map<TermVariable, Object>, Map<TermVariable, TermVariable>>(predToClause, clauseToPred);
-	}
+//	/**
+//	 * Yields a translation that translates the column names of the epr predicate this clauseLiteral is talking about
+//	 * to the column names of the clause that this ClauseLiteral belongs to.
+//	 * @return map : predicateColumnNames -> clauseColumnNames
+//	 */
+//	private Pair<Map<TermVariable, Object>, Map<TermVariable, TermVariable>> computeDawgSignatureTranslations() {
+//
+//		Map<TermVariable, TermVariable> clauseToPred = 
+//				new HashMap<TermVariable, TermVariable>();
+//		Map<TermVariable, Object> predToClause = 
+//				new HashMap<TermVariable, Object>();
+//		Iterator<TermVariable> predTermVarIt = mAtom.getEprPredicate().getTermVariablesForArguments().iterator();
+//		for (int i = 0; i < mArgumentTerms.size(); i++) {
+//			Term atomT = mArgumentTerms.get(i);
+//			TermVariable tv = predTermVarIt.next();
+//			predToClause.put(tv, atomT);
+//			if (atomT instanceof TermVariable) {
+//				clauseToPred.put(tv, (TermVariable) atomT);
+//			}
+//		}
+//
+//		return new Pair<Map<TermVariable, Object>, Map<TermVariable, TermVariable>>(predToClause, clauseToPred);
+//	}
 
 	public BinaryRelation<TermVariable, TermVariable> getTranslationFromClauseToEprPredicate() {
 		return mTranslationForEprPredicate;

@@ -483,7 +483,15 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	@Override
 	public Dawg<LETTER, COLNAMES> computeSymmetricTransitiveClosure() {
 		// TODO Auto-generated method stub
+		assert false : "?";
 		return null;
+	}
+
+	@Override
+	public boolean hasReflexivePoints() {
+		// TODO Auto-generated method stub
+		assert false : "?";
+		return false;
 	}
 
 }

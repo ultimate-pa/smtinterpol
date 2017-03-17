@@ -150,4 +150,6 @@ public interface IDawg<LETTER, COLNAMES> extends Iterable<List<LETTER>> {
 	
 	
 	Dawg<LETTER, COLNAMES> computeSymmetricTransitiveClosure();
+
+	boolean hasReflexivePoints();
 }

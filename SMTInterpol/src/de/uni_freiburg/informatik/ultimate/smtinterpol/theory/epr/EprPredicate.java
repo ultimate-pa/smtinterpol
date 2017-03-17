@@ -61,14 +61,14 @@ public class EprPredicate {
 	 * Every predicate symbol has canonical TermVariables for each of its argument positions.
 	 * They form the signature of the corresponding Dawgs on the decide stack.
 	 */
-	private final SortedSet<TermVariable> mTermVariablesForArguments;
+	protected final SortedSet<TermVariable> mSignature;
 
 	final EprTheory mEprTheory;
 	
 	/**
 	 * Contains all DecideStackLiterals which talk about this EprPredicate.
 	 */
-	private Set<IEprLiteral> mEprLiterals =
+	protected Set<IEprLiteral> mEprLiterals =
 			new HashSet<IEprLiteral>();
 	
 	/**
@@ -97,7 +97,7 @@ public class EprPredicate {
 					mEprTheory.getTheory().createFreshTermVariable(tvName, fs.getParameterSorts()[i]));
 			
 		}
-		mTermVariablesForArguments = Collections.unmodifiableSortedSet(tva);
+		mSignature = Collections.unmodifiableSortedSet(tva);
 	}
 
 	public void addQuantifiedOccurence(ClauseEprQuantifiedLiteral l, EprClause eprClause) {
@@ -243,20 +243,18 @@ public class EprPredicate {
 
 	private IDawg<ApplicationTerm, TermVariable> computeUndecidedPoints() {
 		IDawg<ApplicationTerm, TermVariable> positivelySetPoints = 
-				mEprTheory.getDawgFactory().getEmptyDawg(mTermVariablesForArguments);
+				mEprTheory.getDawgFactory().getEmptyDawg(mSignature);
 		IDawg<ApplicationTerm, TermVariable> negativelySetPoints =
-				mEprTheory.getDawgFactory().getEmptyDawg(mTermVariablesForArguments);
+				mEprTheory.getDawgFactory().getEmptyDawg(mSignature);
 		IDawg<ApplicationTerm, TermVariable> undecidedPoints = 
-				mEprTheory.getDawgFactory().getEmptyDawg(mTermVariablesForArguments);
+				mEprTheory.getDawgFactory().getEmptyDawg(mSignature);
 
 		for (IEprLiteral dsl : mEprLiterals) {
 			if (dsl.getPolarity()) {
 				//positive literal
-//				positivelySetPoints.addAll(dsl.getDawg());
 				positivelySetPoints = positivelySetPoints.union(dsl.getDawg());
 			} else {
 				//negative literal
-//				negativelySetPoints.addAll(dsl.getDawg());
 				negativelySetPoints = negativelySetPoints.union(dsl.getDawg());
 			}
 		}
@@ -276,7 +274,7 @@ public class EprPredicate {
 		}
 
 		IDawg<ApplicationTerm, TermVariable> allDecidedPoints = 
-				mEprTheory.getDawgFactory().getEmptyDawg(mTermVariablesForArguments);
+				mEprTheory.getDawgFactory().getEmptyDawg(mSignature);
 //		allDecidedPoints.addAll(positivelySetPoints);
 		allDecidedPoints = allDecidedPoints.union(positivelySetPoints);
 //		allDecidedPoints.addAll(negativelySetPoints);
@@ -307,7 +305,7 @@ public class EprPredicate {
 	}
 	
 	public SortedSet<TermVariable> getTermVariablesForArguments() {
-		return mTermVariablesForArguments;
+		return mSignature;
 	}
 
 	/**

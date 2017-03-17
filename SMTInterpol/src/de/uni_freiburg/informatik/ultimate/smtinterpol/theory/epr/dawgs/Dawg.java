@@ -1068,4 +1068,51 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	public Dawg<LETTER, COLNAMES> computeSymmetricTransitiveClosure() {
 		return mDawgFactory.closeDawgUnderSymmetryAndTransitivity(this);
 	}
+
+	@Override
+	public boolean hasReflexivePoints() {
+		assert this.getSignature().getNoColumns() == 2;
+
+		Object sort = this.getSignature().getColumnSorts().get(0);
+		assert this.getSignature().getColumnSorts().get(1).equals(sort) : "this is an equality dawg, right? "
+			+ "so column sorts should match";
+
+//		IDawgLetter<LETTER, COLNAMES> allReflexivePointsDl = 
+//				mDawgLetterFactory.getEmptyDawgLetter(sort);
+
+		for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge1 : 
+			mTransitionRelation.getOutEdgeSet(mInitialState)) {
+			for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge2 : 
+				mTransitionRelation.getOutEdgeSet(outEdge1.getSecond())) {
+
+				final IDawgLetter<LETTER, COLNAMES> intersectionDl = 
+						outEdge1.getFirst().intersect(outEdge2.getFirst());
+				if (!(intersectionDl instanceof EmptyDawgLetter<?, ?>)) {
+					return true;
+				}
+//				allReflexivePointsDl = allReflexivePointsDl.union(intersectionDl);
+			}
+		}
+		return false;
+
+//		if (allReflexivePointsDl instanceof EmptyDawgLetter<?, ?>) {
+//			return getEmptyDawg(idawg.getColNames());
+//		}
+
+//		final DawgState ds1 = mDawgStateFactory.createDawgState();
+//		final DawgState ds2 = mDawgStateFactory.createDawgState();
+//
+//		final DeterministicDawgTransitionRelation<DawgState, 
+//		IDawgLetter<LETTER, COLNAMES>, 
+//		DawgState> newTR = new DeterministicDawgTransitionRelation<DawgState, 
+//		IDawgLetter<LETTER,COLNAMES>, 
+//		DawgState>();
+//
+//		newTR.put(dawg.getInitialState(), allReflexivePointsDl, ds1);
+//		newTR.put(ds1, allReflexivePointsDl, ds2);
+//
+//		return new Dawg<LETTER, COLNAMES>(this, mLogger, idawg.getColNames(), newTR, 
+//				dawg.getInitialState());
+
+	}
 }
