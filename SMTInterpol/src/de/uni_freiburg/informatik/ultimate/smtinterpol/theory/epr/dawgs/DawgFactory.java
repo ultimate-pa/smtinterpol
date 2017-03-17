@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.SortedSet;
 
@@ -491,63 +492,102 @@ public class DawgFactory<LETTER, COLNAMES> {
 					inputDawg.getInitialState());
 		}
 
+//		/**
+//		 * 
+//		 * @param idawg
+//		 * @return a Dawg containing all the reflexive points of the input dawg
+//		 * 
+//		 * deprecated, because this method is conceptually wrong
+//		 */
+//		@Deprecated
+//		public IDawg<LETTER, COLNAMES> getReflexivePoints(IDawg<LETTER, COLNAMES> idawg) {
+//			assert idawg.getSignature().getNoColumns() == 2;
+//			
+//			Object sort = idawg.getSignature().getColumnSorts().get(0);
+//			assert idawg.getSignature().getColumnSorts().get(1).equals(sort) : "this is an equality dawg, right? "
+//					+ "so column sorts should match";
+//			
+//			if (idawg instanceof Dawg<?, ?>) {
+//				final Dawg<LETTER, COLNAMES> dawg = (Dawg<LETTER, COLNAMES>) idawg;
+//				
+//				IDawgLetter<LETTER, COLNAMES> allReflexivePointsDl = 
+//						mDawgLetterFactory.getEmptyDawgLetter(sort);
+//				
+//				final DeterministicDawgTransitionRelation<DawgState, 
+//					IDawgLetter<LETTER, COLNAMES>, 
+//					DawgState> tr = dawg.getTransitionRelation();
+//				
+//				for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge1 : 
+//						tr.getOutEdgeSet(dawg.getInitialState())) {
+//					for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge2 : 
+//						tr.getOutEdgeSet(outEdge1.getSecond())) {
+//
+//						final IDawgLetter<LETTER, COLNAMES> intersectionDl = 
+//								outEdge1.getFirst().intersect(outEdge2.getFirst());
+//
+//						allReflexivePointsDl = allReflexivePointsDl.union(allReflexivePointsDl);
+//					}
+//				}
+//				
+//				if (allReflexivePointsDl instanceof EmptyDawgLetter<?, ?>) {
+//					return getEmptyDawg(idawg.getColNames());
+//				}
+//				
+//				final DawgState ds1 = mDawgStateFactory.createDawgState();
+//				final DawgState ds2 = mDawgStateFactory.createDawgState();
+//
+//				final DeterministicDawgTransitionRelation<DawgState, 
+//					IDawgLetter<LETTER, COLNAMES>, 
+//					DawgState> newTR = new DeterministicDawgTransitionRelation<DawgState, 
+//						IDawgLetter<LETTER,COLNAMES>, 
+//						DawgState>();
+//	
+//				newTR.put(dawg.getInitialState(), allReflexivePointsDl, ds1);
+//				newTR.put(ds1, allReflexivePointsDl, ds2);
+//				
+//				return new Dawg<LETTER, COLNAMES>(this, mLogger, idawg.getColNames(), newTR, 
+//						dawg.getInitialState());
+//			} else {
+//				assert false : " implement this?";
+//				
+//				return null;
+//			}
+//		}
+
 		/**
+		 * Creates a dawg with the given signature (which needs to have exactly two columns) that recognizes all 
+		 * reflexive points that one can build over the currently known constants.
 		 * 
-		 * @param idawg
-		 * @return a Dawg containing all the reflexive points of the input dawg
+		 * @param signature
+		 * @return
 		 */
-		public IDawg<LETTER, COLNAMES> getReflexivePoints(IDawg<LETTER, COLNAMES> idawg) {
-			assert idawg.getSignature().getNoColumns() == 2;
-			
-			Object sort = idawg.getSignature().getColumnSorts().get(0);
-			assert idawg.getSignature().getColumnSorts().get(1).equals(sort) : "this is an equality dawg, right? "
+		public IDawg<LETTER, COLNAMES> getReflexivePointsOverCurrentlyKnownConstantsForSignature(
+				DawgSignature<COLNAMES> signature) {
+			assert signature.getNoColumns() == 2;
+
+			Object sort = signature.getColumnSorts().get(0);
+			assert signature.getColumnSorts().get(1).equals(sort) : "this is an equality dawg, right? "
 					+ "so column sorts should match";
+	
+			final DawgState dsInitial = mDawgStateFactory.createDawgState();
+			final DawgState dsFinal = mDawgStateFactory.createDawgState();
 			
-			if (idawg instanceof Dawg<?, ?>) {
-				final Dawg<LETTER, COLNAMES> dawg = (Dawg<LETTER, COLNAMES>) idawg;
-				
-				IDawgLetter<LETTER, COLNAMES> allReflexivePointsDl = 
-						mDawgLetterFactory.getEmptyDawgLetter(sort);
-				
-				final DeterministicDawgTransitionRelation<DawgState, 
-					IDawgLetter<LETTER, COLNAMES>, 
-					DawgState> tr = dawg.getTransitionRelation();
-				
-				for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge1 : 
-						tr.getOutEdgeSet(dawg.getInitialState())) {
-					for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge2 : 
-						tr.getOutEdgeSet(outEdge1.getSecond())) {
-
-						final IDawgLetter<LETTER, COLNAMES> intersectionDl = 
-								outEdge1.getFirst().intersect(outEdge2.getFirst());
-
-						allReflexivePointsDl = allReflexivePointsDl.union(allReflexivePointsDl);
-					}
-				}
-				
-				if (allReflexivePointsDl instanceof EmptyDawgLetter<?, ?>) {
-					return getEmptyDawg(idawg.getColNames());
-				}
-				
-				final DawgState ds1 = mDawgStateFactory.createDawgState();
-				final DawgState ds2 = mDawgStateFactory.createDawgState();
-
-				final DeterministicDawgTransitionRelation<DawgState, 
+			final DeterministicDawgTransitionRelation<DawgState, 
 					IDawgLetter<LETTER, COLNAMES>, 
 					DawgState> newTR = new DeterministicDawgTransitionRelation<DawgState, 
 						IDawgLetter<LETTER,COLNAMES>, 
 						DawgState>();
-	
-				newTR.put(dawg.getInitialState(), allReflexivePointsDl, ds1);
-				newTR.put(ds1, allReflexivePointsDl, ds2);
+			
+			for (LETTER constant : mAllKnownConstants.get(sort)) {
+				final DawgState dsMiddle = mDawgStateFactory.createDawgState();
+				final IDawgLetter<LETTER, COLNAMES> dl = mDawgLetterFactory.getSingletonSetDawgLetter(constant, sort);
 				
-				return new Dawg<LETTER, COLNAMES>(this, mLogger, idawg.getColNames(), newTR, 
-						dawg.getInitialState());
-			} else {
-				assert false : " implement this?";
-				
-				return null;
+				newTR.put(dsInitial, dl, dsMiddle);
+				newTR.put(dsMiddle, dl, dsFinal);
 			}
+			
+			return new Dawg<LETTER, COLNAMES>(this, mLogger, signature.getColNames(), newTR, 
+					dsInitial);
 		}
 	
 }

@@ -214,12 +214,23 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 			if (decideStackBorder == null 
 					|| dsl instanceof EprGroundPredicateLiteral 
 					|| ((DecideStackLiteral) dsl).compareTo(decideStackBorder) < 0) {
-//				refutedPoints.addAll(dsl.getDawg());
 				refutedPoints = refutedPoints.union(dsl.getDawg());
 			}
 		}
-		// right now, the refuted points are in terms of the EprPredicates signature, we need a renaming
-		// and possibly select and projects to match the signature of the clause.
+		
+		/*
+		 * If this clause literal is a negated equality literal, we "manually" have to add all reflexive points 
+		 * that the current AllConstants can give us to the refutedPoints.
+		 */
+		if (!mPolarity && mAtom instanceof EprQuantifiedEqualityAtom) {
+			refutedPoints = refutedPoints.union(
+					mDawgFactory.getReflexivePointsOverCurrentlyKnownConstantsForSignature(refutedPoints.getSignature()));
+		}
+		
+		/* 
+		 * right now, the refuted points are in terms of the EprPredicates signature, we need a renaming
+		 * and possibly select and projects to match the signature of the clause.
+		 */
 		refutedPoints = mDawgFactory.translatePredSigToClauseSig(
 				refutedPoints, 
 				mTranslationForClauseTvToVariables, 
@@ -234,12 +245,13 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 			if (decideStackBorder == null 
 					|| dsl instanceof EprGroundPredicateLiteral 
 					|| ((DecideStackLiteral) dsl).compareTo(decideStackBorder) < 0) {
-//				fulfilledPoints.addAll(dsl.getDawg());
 				fulfilledPoints = fulfilledPoints.union(dsl.getDawg());
 			}
 		}
-		// right now, the fulfilled points are in terms of the EprPredicates signature, we need a renaming
-		// and possibly select and projects to match the signature of the clause.
+		/* 
+		 * right now, the fulfilled points are in terms of the EprPredicates signature, we need a renaming
+		 * and possibly select and projects to match the signature of the clause.
+		 */
 		fulfilledPoints = mDawgFactory.translatePredSigToClauseSig(
 				fulfilledPoints,
 				mTranslationForClauseTvToVariables, 
@@ -253,13 +265,7 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 		mFulfillablePoints = mFulfillablePoints.difference(refutedPoints);
 		
 		
-		/*
-		 * If this clause literal is a negated equality literal, we "manually" have to subtract the reflexive points 
-		 * from the fulfillable points.
-		 */
-		if (!mPolarity && mAtom instanceof EprQuantifiedEqualityAtom) {
-			
-		}
+
 		
 		mRefutedPoints = refutedPoints;
 		mFulfilledPoints = fulfilledPoints;
