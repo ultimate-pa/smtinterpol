@@ -30,6 +30,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundEqualityAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.IEprLiteral;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
@@ -206,4 +208,20 @@ public class EprClauseManager {
 			updateAtomToClauses(cl.getLiteral().getAtom(), newClause);
 		}
 	}
+
+//	/**
+//	 * catches the epr clause for equality reflexivity, so it cna
+//	 * @param singleton
+//	 * @return
+//	 */
+//	public Clause createEqualityReflexivityEprClause(Set<Literal> singleton) {
+//		EprClause newClause = mEprTheory.getEprClauseFactory().getEprClause(singleton);
+//		
+//		return createEprClause(singleton);
+//	}
+//
+//	public EprClause getEqualityReflexivityClause(EprGroundEqualityAtom atom) {
+//		// TODO Auto-generated method stub
+//		return null;
+//	}
 }

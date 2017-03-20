@@ -70,6 +70,7 @@ public class UnitPropagationData {
 							false); 
 					quantifiedPropagations.add(propB);
 				} else {
+				
 					IDawg<ApplicationTerm, TermVariable> groundingDawg = finalClauseLitToUnitPoints.get(cl);
 					Set<Clause> groundings = cl.getClause().getGroundings(groundingDawg);
 					Clause unitGrounding = groundings.iterator().next();
@@ -86,6 +87,12 @@ public class UnitPropagationData {
 	public List<DslBuilder> getQuantifiedPropagations() {
 		return mQuantifiedPropagations;
 	}
+
+	
+	/**
+	 * 
+	 * @return a mapping from a ground unit literal to its propagation reason (which is a ground clause)
+	 */
 	public Map<Literal, Clause> getGroundPropagations() {
 		return mGroundPropagations;
 	}

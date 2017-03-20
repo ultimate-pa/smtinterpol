@@ -46,6 +46,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheorySetti
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EqualityManager;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClause;
@@ -420,6 +421,7 @@ public class EprStateManager {
 				mTheory, mEprTheory.getClausifier().getStackLevel());
 
 		// create the clause { (= constant constant) }
+//		final Clause groundConflict = mEprClauseManager.createEqualityReflexivityEprClause(Collections.singleton((Literal) atom));
 		final Clause groundConflict = mEprClauseManager.createEprClause(Collections.singleton((Literal) atom));
 		return groundConflict;
 	}
@@ -503,19 +505,32 @@ public class EprStateManager {
 	 * @param atom
 	 * @return
 	 */
-	public EprClause setGroundAtomIfCoveredByDecideStackLiteral(DecideStackLiteral dsl,
-			EprGroundPredicateAtom atom) {
+	public EprClause setGroundAtomIfCoveredByDecideStackLiteral(DecideStackLiteral dsl, EprGroundPredicateAtom atom) {
 		if (! dsl.getDawg().accepts(
 				EprHelpers.convertTermArrayToConstantList(atom.getArguments()))) {
 			// the decide stack literal does not talk about the atom
 			return null;
 		}
 		
+//		/*
+//		 * catch the case where we are setting something like !(= c c)
+//		 */
+//		if (atom instanceof EprGroundEqualityAtom) {
+//			if (!dsl.getPolarity()) {
+//				return mEprClauseManager.getEqualityReflexivityClause((EprGroundEqualityAtom) atom);
+//			}
+//		}
+		
 		if (atom.getDecideStatus() == null) {
+			if (atom instanceof EprGroundEqualityAtom) {
+				// do nothing about this case --> we deal with this internally in the EprTheory..
+				return null;
+			}
+			
 			// the atom is undecided in the DPLLEngine
 			// --> propagate or suggest it
 			
-			Literal groundLiteral = dsl.getPolarity() ?	atom : atom.negate();
+			final Literal groundLiteral = dsl.getPolarity() ?	atom : atom.negate();
 			if (mDecideStackManager.isDecisionLevel0()) {
 				DecideStackPropagatedLiteral dspl = (DecideStackPropagatedLiteral) dsl;
 				Clause reasonGroundUnitClause =

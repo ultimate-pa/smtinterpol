@@ -22,6 +22,11 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.EqualityProxy;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SharedTerm;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprEqualityPredicate;
 
 /**
@@ -36,13 +41,36 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprEqualityPre
  *
  */
 public class EprGroundEqualityAtom extends EprGroundPredicateAtom {
+	
+	private final Term mLhs;
+	private final Term mRhs;
 
 	public EprGroundEqualityAtom(ApplicationTerm term, int hash, int assertionstacklevel, EprEqualityPredicate eqPred) {
 		super(term, hash, assertionstacklevel, eqPred);
+		assert term.getParameters().length == 2;
+		mLhs = term.getParameters()[0];
+		mRhs = term.getParameters()[1];
 	}
 
 	@Override
 	public Term getSMTFormula(Theory smtTheory, boolean quoted) {
 		return mTerm;
+	}
+
+	public CCEquality getCCEquality(Clausifier clausif) {
+		
+		final SharedTerm stL = clausif.getSharedTerm(mLhs);
+		final SharedTerm stR = clausif.getSharedTerm(mRhs);
+		
+		final EqualityProxy eq = clausif.
+						createEqualityProxy(stL, stR);
+				// Safe since m_Term is neither true nor false
+		if (eq == EqualityProxy.getTrueProxy()) {
+			return null;
+		}
+		assert eq != EqualityProxy.getFalseProxy();
+		CCEquality resultAtom = (CCEquality) eq.getLiteral();	
+
+		return resultAtom;
 	}
 }

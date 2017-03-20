@@ -37,6 +37,7 @@ import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.EqualityProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ClauseDeletionHook;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
@@ -328,7 +329,10 @@ public class EprTheory implements ITheory {
 
 	@Override
 	public Literal getPropagatedLiteral() {
-		Literal lit = mLiteralsWaitingToBePropagated.poll();
+		final Literal lit = mLiteralsWaitingToBePropagated.poll();
+		
+		assert lit == null || !(lit.getAtom() instanceof EprGroundEqualityAtom) : 
+			"should have been caught/converted to CCEquality before";
 
 		if (lit == null) {
 			mLogger.debug("EPRDEBUG: getPropagatedLiteral -- nothing to propagate");
@@ -341,7 +345,7 @@ public class EprTheory implements ITheory {
 		mAlreadyPropagatedLiterals.add(lit);
 
 		mLogger.debug("EPRDEBUG: getPropagatedLiteral propagating: " + lit);
-		assert !(lit.getAtom() instanceof EprGroundEqualityAtom) : "TODO: deal with this case";
+		
 		return lit;
 	}
 
@@ -349,6 +353,15 @@ public class EprTheory implements ITheory {
 		if (mGroundLiteralsToPropagateToReason.keySet().contains(l)) {
 			mLogger.debug("EPRDEBUG: EprTheory.addGroundLiteralToPropagate: already added: " + l);
 			return;
+		}
+		
+		if (l.getAtom() instanceof EprGroundEqualityAtom) {
+			final CCEquality cceq = ((EprGroundEqualityAtom) l.getAtom()).getCCEquality(mClausifier);
+			if (cceq == null && l.getSign() == 1) {
+				// the literal is of the form (= c c) --> nothing we need to tell the DPLLEngine..
+				return;
+			}
+			
 		}
 
 		// the atom may be new for the dpll engine -- if it is the grounding of

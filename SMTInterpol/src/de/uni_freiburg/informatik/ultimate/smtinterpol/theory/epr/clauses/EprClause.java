@@ -64,11 +64,21 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
  */
 public class EprClause {
 	
+
+	/**
+	 * The literals in this clause, expressed as Literals (the type that the DPLLEngine knows..).
+	 */
 	private final Set<Literal> mDpllLiterals;
+
 	private final EprTheory mEprTheory;
 	private final DawgFactory<ApplicationTerm, TermVariable> mDawgFactory;
 
 	private final Set<ClauseLiteral> mLiterals;
+	
+	/**
+	 * Since the introduction of equality reflexivity clauses, we want to support EprClauses that are in fact ground.
+	 */
+	private final boolean mIsGround;
 
 	/**
 	 * Stores the variables occurring in this clause in the order determined by the HashMap mVariableToClauseLitToPositions
@@ -117,6 +127,8 @@ public class EprClause {
 		mLiterals = Collections.unmodifiableSet(resPair.getSecond());
 
 		mVariables = Collections.unmodifiableSortedSet(resPair.getFirst());
+		
+		mIsGround = mVariables.isEmpty();
 		
 		registerFulfillingOrConflictingEprLiteralInClauseLiterals();
 	}
@@ -565,6 +577,12 @@ public class EprClause {
 	}
 
 	public Set<Clause> getGroundings(IDawg<ApplicationTerm, TermVariable> groundingDawg) {
+		if (mIsGround) {
+			assert groundingDawg.getSignature().getNoColumns() == 0;
+			return Collections.singleton(new Clause(mDpllLiterals.toArray(new Literal[mDpllLiterals.size()])));
+		}
+		
+		
 		assert groundingDawg.getColNames().equals(mVariables) : "signatures don't match";
 
 		Set<Clause> result = new HashSet<Clause>();
