@@ -643,7 +643,11 @@ public class EprTheory implements ITheory {
 	 * @param constants
 	 */
 	public void addConstants(HashSet<ApplicationTerm> constants) {
-		mStateManager.addConstants(constants);
+		Clause groundConflict = mStateManager.addConstants(constants);
+		if (groundConflict != null) {
+			assert mStoredConflict == null : "we'll probably need a queue for this..";
+			mStoredConflict = groundConflict;
+		}
 	}
 
 	public ArrayList<Literal[]> getAllGroundingsOfLastAddedEprClause() {
@@ -690,11 +694,17 @@ public class EprTheory implements ITheory {
 	 */
 	public void addSkolemConstants(Term[] skolems) {
 
-		HashSet<ApplicationTerm> constants = new HashSet<ApplicationTerm>();
-		for (Term t : skolems)
+		final Set<ApplicationTerm> constants = new HashSet<ApplicationTerm>();
+		for (Term t : skolems) {
 			constants.add((ApplicationTerm) t);
+		}
 
-		mStateManager.addConstants(constants);
+		final Clause groundConflict = mStateManager.addConstants(constants);
+		
+		if (groundConflict != null) {
+			assert mStoredConflict == null : "we'll probably need a queue for this..";
+			mStoredConflict = groundConflict;
+		}
 	}
 
 	public LogProxy getLogger() {

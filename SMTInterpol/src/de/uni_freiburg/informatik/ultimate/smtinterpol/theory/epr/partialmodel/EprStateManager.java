@@ -21,6 +21,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -177,7 +178,7 @@ public class EprStateManager {
 		literalsForCongruenceClause.add(rightAtom);
 		
 		// create the clause expressing congruence
-		Clause groundConflict = mEprClauseManager.createEprClause(literalsForCongruenceClause);
+		final Clause groundConflict = mEprClauseManager.createEprClause(literalsForCongruenceClause);
 		if (groundConflict != null) {
 			throw new AssertionError("TODO: deal with this case");
 		}
@@ -362,27 +363,60 @@ public class EprStateManager {
 	 * Register constants that occur in the smt-script for tracking.
 	 * 
 	 * @param constants
+	 * 
+	 * @return possibly a ground conflict that comes from creating a equality reflexivity clause.
 	 */
-	public void addConstants(HashSet<ApplicationTerm> constants) {
+	public Clause addConstants(Set<ApplicationTerm> constants) {
+		/*
+		 * First, we filter out all constats that we have added before.
+		 */
+		final Set<ApplicationTerm> reallyNewConstants = new HashSet<ApplicationTerm>();
+		for (ApplicationTerm newConstant : constants) {
+			if (!mDawgFactory.getAllConstants(newConstant.getSort().getRealSort()).contains(newConstant))
+				reallyNewConstants.add(newConstant);
+		}
+		mLogger.debug("EPRDEBUG: (EprStateManager): adding new constants " + reallyNewConstants);
+
+		/*
+		 * in full instantiation mode every new constant means that we have to add clauses for it.
+		 */
 		if (EprTheorySettings.FullInstatiationMode) {
-			HashSet<ApplicationTerm> reallyNewConstants = new HashSet<ApplicationTerm>();
-			for (ApplicationTerm newConstant : constants) {
-				if (!mDawgFactory.getAllConstants(newConstant.getSort().getRealSort()).contains(newConstant))
-					reallyNewConstants.add(newConstant);
-			}
-	
 			addGroundClausesForNewConstant(reallyNewConstants);
 		}
-		mLogger.debug("EPRDEBUG: (EprStateManager): adding constants " + constants);
-
-//		mDawgFactory.addConstants(constants);
-		for (ApplicationTerm constant : constants) {
+		
+		Clause conflict = null;
+		/*
+		 * for each new constant we have to
+		 *  - announce it to the DawgFactory (some particular Dawg operations, like the iterator, may depend on 
+		 *    the constants, although we try to keep this dependency to a minimum)
+		 *  - check if its sort is already known, if not register it
+		 *  - add an instantiation of the reflexivity axiom for "="
+		 */
+		for (ApplicationTerm constant : reallyNewConstants) {
 			Sort sort = constant.getSort().getRealSort();
 			registerSort(sort);
 			mDawgFactory.addConstant(sort, constant);
+			final Clause newConflict = createEqualityReflexivityClauseForConstant(constant);
+			if (newConflict != null) {
+				assert conflict == null : "store more than 1 conflict?";
+				conflict = newConflict;
+			}
 		}
+		
+		return conflict;
 	}
 	
+	private Clause createEqualityReflexivityClauseForConstant(ApplicationTerm constant) {
+		final EprEqualityPredicate eqPred = mEprTheory.getEqualityEprPredicate(constant.getSort());
+		
+		final EprPredicateAtom atom = eqPred.getAtomForTermTuple(new TermTuple(new Term[] { constant, constant }), 
+				mTheory, mEprTheory.getClausifier().getStackLevel());
+
+		// create the clause { (= constant constant) }
+		final Clause groundConflict = mEprClauseManager.createEprClause(Collections.singleton((Literal) atom));
+		return groundConflict;
+	}
+
 	private void registerSort(Sort sort) {
 		final boolean alreadyPresent = !mKnownSorts.add(sort);
 		if (!alreadyPresent) {
@@ -407,8 +441,8 @@ public class EprStateManager {
 		return defaultTerm;
 	}
 
-	private void addGroundClausesForNewConstant(HashSet<ApplicationTerm> newConstants) {
-		ArrayList<Literal[]> groundings = new ArrayList<Literal[]>();
+	private void addGroundClausesForNewConstant(Set<ApplicationTerm> newConstants) {
+		List<Literal[]> groundings = new ArrayList<Literal[]>();
 		for (EprClause c : mEprClauseManager.getAllClauses())  {
 			assert false : "TODO: restore below code"; // TODO
 //				groundings.addAll(
