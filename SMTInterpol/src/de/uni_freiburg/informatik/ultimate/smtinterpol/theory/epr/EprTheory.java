@@ -49,6 +49,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
@@ -174,18 +175,18 @@ public class EprTheory implements ITheory {
 			assert false : "DPLLEngine is setting a quantified EprAtom --> this cannot be..";
 
 		} else if (atom instanceof CCEquality) {
-			assert false : "TODO: check handling of equalities";
-			if (literal.getSign() == 1) {
-				Clause conflictOrNull = mStateManager.setGroundEquality((CCEquality) atom);
+//			assert false : "TODO: check handling of equalities";
+//			if (literal.getSign() == 1) {
+				Clause conflictOrNull = mStateManager.setGroundEquality((CCEquality) atom, atom.getSign() == 1);
 				assert EprHelpers.verifyConflictClause(conflictOrNull, mLogger);
 				return conflictOrNull;
-			}
+//			}
 
-			// TODO do ground disequalities have an impact for EPR?
-
-			Clause conflictOrNull = mStateManager.setDpllLiteral(literal);
-			assert EprHelpers.verifyConflictClause(conflictOrNull, mLogger);
-			return conflictOrNull;
+//			// TODO do ground disequalities have an impact for EPR?
+//
+//			Clause conflictOrNull = mStateManager.setDpllLiteral(literal);
+//			assert EprHelpers.verifyConflictClause(conflictOrNull, mLogger);
+//			return conflictOrNull;
 		} else {
 			// neither an EprAtom nor an Equality
 
@@ -220,9 +221,7 @@ public class EprTheory implements ITheory {
 			assert false : "DPLLEngine is unsetting a quantified EprAtom --> this cannot be..";
 
 		} else if (atom instanceof CCEquality) {
-			assert atom.getSign() == literal.getSign() : "TODO: treat backtracking of disequality";
-			mStateManager.unsetGroundEquality((CCEquality) atom);
-
+			mStateManager.unsetGroundEquality((CCEquality) atom, atom.getSign() == 1);
 		} else {
 			// neither an EprAtom nor an equality
 
@@ -342,6 +341,7 @@ public class EprTheory implements ITheory {
 		mAlreadyPropagatedLiterals.add(lit);
 
 		mLogger.debug("EPRDEBUG: getPropagatedLiteral propagating: " + lit);
+		assert !(lit.getAtom() instanceof EprGroundEqualityAtom) : "TODO: deal with this case";
 		return lit;
 	}
 

@@ -32,8 +32,10 @@ import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseEprGroundLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseEprLiteral;
@@ -162,10 +164,16 @@ public class EprPredicate {
 		assert point.getFreeVars().size() == 0 : "Use getAtomForTermTuple, if tt is quantified";
 		EprGroundPredicateAtom result = mPointToAtom.get(point);
 		if (result == null) {
-			ApplicationTerm newTerm = mTheory.term(this.mFunctionSymbol, point.terms);
-			result = new EprGroundPredicateAtom(newTerm, 0, //TODO: hash
+			final ApplicationTerm newTerm = mTheory.term(this.mFunctionSymbol, point.terms);
+			if (this instanceof EprEqualityPredicate) {
+				result = new EprGroundEqualityAtom(newTerm, 0,
+					assertionStackLevel,
+					(EprEqualityPredicate) this);
+			} else {
+				result = new EprGroundPredicateAtom(newTerm, 0,
 					assertionStackLevel,
 					this);
+			}
 			mPointToAtom.put(point, result);
 			addDPLLAtom(result);
 			
@@ -201,9 +209,17 @@ public class EprPredicate {
 		
 		if (result == null) {
 			ApplicationTerm newTerm = mTheory.term(this.mFunctionSymbol, tt.terms);
-			result = new EprQuantifiedPredicateAtom(newTerm, 0, //TODO: hash
-					assertionStackLevel,
-					this);
+			if (this instanceof EprEqualityPredicate) {
+					result = new EprQuantifiedEqualityAtom(newTerm, 
+						0, 
+						assertionStackLevel,
+						(EprEqualityPredicate) this);
+			} else {
+				result = new EprQuantifiedPredicateAtom(newTerm, 
+						0, 
+						assertionStackLevel,
+						this);
+			}
 			mTermTupleToAtom.put(tt, result);
 		}
 		return result;

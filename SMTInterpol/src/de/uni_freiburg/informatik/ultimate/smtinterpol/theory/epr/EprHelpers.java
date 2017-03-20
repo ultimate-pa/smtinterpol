@@ -134,8 +134,9 @@ public class EprHelpers {
 			} else {
 				// TODO: will need a management for these atoms -- so there are no duplicates..
 				//   it's not clear if we want CCEqualities or so, here..
-				int assertionStackLevel = eprTheory.getClausifier().getStackLevel();
-				resultAtom =  new EprGroundEqualityAtom(newTerm, 0, assertionStackLevel);
+				assert false : "TODO: reactivate below code?";
+//				int assertionStackLevel = eprTheory.getClausifier().getStackLevel();
+//				resultAtom =  new EprGroundEqualityAtom(newTerm, 0, assertionStackLevel);
 			}
 		} else {
 			//assert false : "there might be equality replacements"; --> seems idiotic now..
@@ -664,6 +665,7 @@ public class EprHelpers {
 		}
 		for (int i = 0; i < conflict.getSize(); i++) {
 			Literal curLit = conflict.getLiteral(i);
+			assert !(curLit.getAtom() instanceof EprGroundEqualityAtom) : "TODO: deal with this case";
 			if (curLit.getAtom().getDecideStatus() != curLit.negate()) {
 				logger.error("EPRDEBUG: (EprHelpers.verifyConflictClause): Literal " + curLit + 
 						" is not currently refuted");

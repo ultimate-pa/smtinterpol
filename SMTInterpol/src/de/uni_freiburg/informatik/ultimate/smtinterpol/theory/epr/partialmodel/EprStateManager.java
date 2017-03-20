@@ -67,7 +67,7 @@ import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
 public class EprStateManager {
 
 
-	public final EqualityManager mEqualityManager;
+//	public final EqualityManager mEqualityManager;
 	private final EprTheory mEprTheory;
 	private final Theory mTheory;
 	private final CClosure mCClosure;
@@ -95,7 +95,7 @@ public class EprStateManager {
 	
 	public EprStateManager(EprTheory eprTheory, DawgFactory<ApplicationTerm, TermVariable> dawgFactory, EprClauseFactory clauseFactory) {
 		mEprTheory = eprTheory;
-		mEqualityManager =  eprTheory.getEqualityManager();
+//		mEqualityManager =  eprTheory.getEqualityManager();
 		mTheory = eprTheory.getTheory();
 		mCClosure = eprTheory.getCClosure();
 		mLogger = eprTheory.getLogger();
@@ -322,32 +322,39 @@ public class EprStateManager {
 		return disequalityChain;
 	}
 
-	@Deprecated
-		public Clause setGroundEquality(CCEquality eq) {
-			ApplicationTerm f = (ApplicationTerm) eq.getSMTFormula(mTheory);
-			ApplicationTerm lhs = (ApplicationTerm) f.getParameters()[0];
-			ApplicationTerm rhs = (ApplicationTerm) f.getParameters()[1];
-		
-			mEqualityManager.addEquality(lhs, rhs, (CCEquality) eq);
-		
-			assert false : "TODO: deal with equalities";
-			// is there a conflict with currently set points or quantifiedy literals?
-	//		Clause conflict = checkConsistency();
-			
-			// possibly update all literal states in clauses, right?..
-			//  (..if there is no conflict?..)
-	
-	//		return conflict;
-			return null;
-		}
+	public Clause setGroundEquality(CCEquality eq, boolean polarity) {
+		final ApplicationTerm f = (ApplicationTerm) eq.getSMTFormula(mTheory);
+		final ApplicationTerm lhs = (ApplicationTerm) f.getParameters()[0];
+		final ApplicationTerm rhs = (ApplicationTerm) f.getParameters()[1];
 
-	@Deprecated
-	public void unsetGroundEquality(CCEquality eq) {
-		ApplicationTerm f = (ApplicationTerm) eq.getSMTFormula(mTheory);
-		ApplicationTerm lhs = (ApplicationTerm) f.getParameters()[0];
-		ApplicationTerm rhs = (ApplicationTerm) f.getParameters()[1];
+//		mEqualityManager.addEquality(lhs, rhs, (CCEquality) eq);
+
+		final Sort sort = lhs.getSort();
+		assert rhs.getSort() == sort;
+
+		final EprEqualityPredicate eqPred = mEprTheory.getEqualityEprPredicate(sort);
+		
+		final EprPredicateAtom eqAtom = eqPred.getAtomForTermTuple(new TermTuple(new Term[] { lhs, rhs }), 
+				mTheory, mEprTheory.getClausifier().getStackLevel());
+		
+		return setEprGroundLiteral(polarity ? eqAtom : eqAtom.negate());
+	}
+
+	public void unsetGroundEquality(CCEquality eq, boolean polarity) {
+		final ApplicationTerm f = (ApplicationTerm) eq.getSMTFormula(mTheory);
+		final ApplicationTerm lhs = (ApplicationTerm) f.getParameters()[0];
+		final ApplicationTerm rhs = (ApplicationTerm) f.getParameters()[1];
+		final Sort sort = lhs.getSort();
+		assert rhs.getSort() == sort;
+		
+		final EprEqualityPredicate eqPred = mEprTheory.getEqualityEprPredicate(sort);
+		
+		final EprPredicateAtom eqAtom = eqPred.getAtomForTermTuple(new TermTuple(new Term[] { lhs, rhs }), 
+				mTheory, mEprTheory.getClausifier().getStackLevel());
+		
+		unsetEprGroundLiteral(polarity ? eqAtom : eqAtom.negate());
 	
-		mEqualityManager.backtrackEquality(lhs, rhs);
+//		mEqualityManager.backtrackEquality(lhs, rhs);
 	}
 
 	@Deprecated
