@@ -34,6 +34,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.BinaryRelation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheorySettings;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgbuilders.DeterminizeDawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgbuilders.ReorderAndRenameDawgBuilder;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgbuilders.UnionOrIntersectionDawgBuilder;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.DawgLetterFactory;
@@ -42,6 +43,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawglett
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.UniversalDawgLetterWithEqualities;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgStateFactory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.HashRelation3;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Triple;
 
@@ -638,10 +640,17 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		 */
 		Set<DawgState> leftOfColumn = obtainStatesLeftOfColumn(column);
 
-		final DeterministicDawgTransitionRelation<DawgState, 
+//		final DeterministicDawgTransitionRelation<DawgState, 
+//			IDawgLetter<LETTER, COLNAMES>, 
+//			DawgState> newTransitionRelation = 
+//				new DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState>();
+		
+		final HashRelation3<DawgState, 
 			IDawgLetter<LETTER, COLNAMES>, 
 			DawgState> newTransitionRelation = 
-				new DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState>();
+				new HashRelation3<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState>();
+
+
 
 		final Set<DawgState> statesWhoseConnectingEdgesHaveBeenTreated;
 		if (leftOfColumn.contains(mInitialState)) {
@@ -656,7 +665,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 					mSignature.getColNameToIndex().get(column) + 1);
 			for (DawgState sroc : statesRightOfColumn) {
 				for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge : mTransitionRelation.getOutEdgeSet(sroc)) {
-					newTransitionRelation.put(mInitialState, outEdge.getFirst(), outEdge.getSecond());
+					newTransitionRelation.addTriple(mInitialState, outEdge.getFirst(), outEdge.getSecond());
 				}
 			}
 
@@ -673,7 +682,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 						.getInverse(stateLeft)) {
 					for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> edgeLeadingFromStateLeftToAStateRight : 
 							mTransitionRelation.getOutEdgeSet(stateLeft)) {
-						newTransitionRelation.put(edgeLeadingToStateLeft.getFirst(), edgeLeadingToStateLeft.getSecond(),
+						newTransitionRelation.addTriple(edgeLeadingToStateLeft.getFirst(), edgeLeadingToStateLeft.getSecond(),
 								edgeLeadingFromStateLeftToAStateRight.getSecond());
 					}
 				}
@@ -692,11 +701,13 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 				// we have added a replacement for this edge above
 				continue;
 			}
-			newTransitionRelation.put(edge.getFirst(), edge.getSecond(), edge.getThird());
+			newTransitionRelation.addTriple(edge.getFirst(), edge.getSecond(), edge.getThird());
 		}
 
-		final Dawg<LETTER, COLNAMES> result = new Dawg<LETTER, COLNAMES>(mDawgFactory, mLogger, 
-				newColnames, newTransitionRelation, mInitialState);
+		final Dawg<LETTER, COLNAMES> result = new DeterminizeDawg(newColnames, mLogger, newTransitionRelation, 
+				Collections.singleton(mInitialState), mDawgFactory).build();
+				//		final Dawg<LETTER, COLNAMES> result = new Dawg<LETTER, COLNAMES>(mDawgFactory, mLogger, 
+//				newColnames, newTransitionRelation, mInitialState);
 
 		return result;
 	}
