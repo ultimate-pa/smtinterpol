@@ -265,6 +265,12 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		if (other.isEmpty()) {
 			return other;
 		}
+		if (this.isUniversal()) {
+			return other;
+		}
+		if (other.isUniversal()) {
+			return this;
+		}
 		return new UnionOrIntersectionDawgBuilder<LETTER, COLNAMES>(this, (Dawg<LETTER, COLNAMES>) other, mDawgFactory)
 				.buildIntersection();
 	}
@@ -355,7 +361,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 				 * from the current state those lead to the "former sink state"
 				 */
 				final Set<IDawgLetter<LETTER, COLNAMES>> complementDawgLetters = mDawgLetterFactory
-						.complementDawgLetterSet(outgoingDawgLetters);
+						.complementDawgLetterSet(outgoingDawgLetters, mSignature.getColumnSorts().get(i));
 				for (IDawgLetter<LETTER, COLNAMES> cdl : complementDawgLetters) {
 					if (!(cdl instanceof EmptyDawgLetter<?, ?>)) {
 						newTransitionRelation.put(cs, cdl, nextLevelFormerSinkState);

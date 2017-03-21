@@ -437,10 +437,18 @@ public class DawgFactory<LETTER, COLNAMES> {
 					final IDawgLetter<LETTER, COLNAMES> unionDL = outEdge1DL.union(outEdge2DL);
 					
 					/*
-					 * add two edges replacing outEdge1 and outEdge2, eacht labelled with unionDL
+					 * add two edges replacing outEdge1 and outEdge2, each labelled with unionDL
 					 */
-					newTransitionRelation1.put(inputDawg.getInitialState(), unionDL, outEdge1Target);
-					newTransitionRelation1.put(outEdge1Target, unionDL, outEdge2Target);
+					if (newTransitionRelation1.get(inputDawg.getInitialState(), unionDL) != null) {
+//						assert newTransitionRelation1.get(inputDawg.getInitialState(), unionDL).equals(outEdge1Target);
+					} else {
+						newTransitionRelation1.put(inputDawg.getInitialState(), unionDL, outEdge1Target);
+					}
+					if (newTransitionRelation1.get(outEdge1Target, unionDL) != null) {
+//						assert newTransitionRelation1.get(outEdge1Target, unionDL).equals(outEdge2Target);
+					} else {
+						newTransitionRelation1.put(outEdge1Target, unionDL, outEdge2Target);
+					}
 					
 					// TODO: do we have to catch special cases here? like when two outEdge1 become the same??
 				}

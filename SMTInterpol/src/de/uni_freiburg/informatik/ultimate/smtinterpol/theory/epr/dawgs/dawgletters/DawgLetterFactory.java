@@ -162,14 +162,17 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 	 * Conceptually a set of DawgLetters is a kind of DNF (a DawgLetter is a cube with one set-constraint
 	 * and some equality and inequality constraints).
 	 * This method has to negate the DNF and bring the result into DNF again.
+	 * @param object 
 	 * 
 	 * @param outgoingDawgLetters
 	 * @return
 	 */
-	public Set<IDawgLetter<LETTER, COLNAMES>> complementDawgLetterSet(
-			Set<IDawgLetter<LETTER, COLNAMES>> dawgLetters) {
+	public Set<IDawgLetter<LETTER, COLNAMES>> complementDawgLetterSet(Set<IDawgLetter<LETTER, COLNAMES>> dawgLetters, 
+			Object columnSort) {
 		assert EprHelpers.dawgLettersHaveSameSort(dawgLetters);
-		assert !dawgLetters.isEmpty() : "do we need this case??";
+		if (dawgLetters.isEmpty()) {
+			return Collections.singleton((IDawgLetter<LETTER, COLNAMES>) getUniversalDawgLetter(columnSort));
+		}
 
 		final Object sortId = ((AbstractDawgLetter<LETTER, COLNAMES>) dawgLetters.iterator().next()).getSortId();
 
@@ -202,7 +205,7 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 	 * @param letters an implicitly disjunctive set of DawgLetters
 	 * @return
 	 */
-	public boolean isUniversal(Set<IDawgLetter<LETTER, COLNAMES>> letters) {
+	public boolean isUniversal(Set<IDawgLetter<LETTER, COLNAMES>> letters, Object sortId) {
 		if (letters.size() == 0) {
 			return false;
 		} else if (letters.size() == 1 && letters.iterator().next() instanceof EmptyDawgLetter<?, ?>) {
@@ -234,7 +237,7 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 			}
 			return unionNormal.equals(unionComplement);
 		} else {
-			final Set<IDawgLetter<LETTER, COLNAMES>> complementSet = complementDawgLetterSet(letters);
+			final Set<IDawgLetter<LETTER, COLNAMES>> complementSet = complementDawgLetterSet(letters, sortId);
 			return  complementSet.isEmpty();
 		}
 //		assert false : "TODO";

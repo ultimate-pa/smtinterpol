@@ -630,7 +630,7 @@ public class EprHelpers {
 		return verifyUnitClause(reason, l, false, null, logger);
 	}
 
-	public static boolean verifyUnitClause(Clause reason, Literal l, boolean afterPropagation, 
+	private static boolean verifyUnitClause(Clause reason, Literal l, boolean afterPropagation, 
 			Deque<Literal> literalsWaitingToBePropagated, LogProxy logger) {
 		for (int i = 0; i < reason.getSize(); i++) {
 			Literal curLit = reason.getLiteral(i);
@@ -710,6 +710,15 @@ public class EprHelpers {
 						// different arguments
 						continue;
 					}
+					
+					if (at instanceof EprGroundEqualityAtom) {
+						/*
+						 * The DPLLEngine does not know about EprGroundEqualityAtoms, only about CCEqualities.
+						 * TODO: we could make a check about the ccEquality, but for now we just ignore this case..
+						 */
+						continue;
+					}
+					
 					// arguments match
 
 					if (at.getDecideStatus() == null) {
@@ -932,19 +941,14 @@ public class EprHelpers {
 		dawgStates.add(first);
 		dawgStates.add(second);
 
-//		final Set<IDawgLetter<LETTER, COLNAMES>> allOutgoingDawgLetters = new HashSet<IDawgLetter<LETTER,COLNAMES>>();
-//		for (Triple<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> edge : firstTransitionRelation.entrySet()) {
-//					allOutgoingDawgLetters.add(edge.getSecond());
-//		}
-//		for (Triple<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> edge : secondTransitionRelation.entrySet()) {
-//					allOutgoingDawgLetters.add(edge.getSecond());
-//		}
 		final Set<IDawgLetter<LETTER, COLNAMES>> allOutgoingDawgLetters = new HashSet<IDawgLetter<LETTER,COLNAMES>>();
-		for (Entry<IDawgLetter<LETTER, COLNAMES>, DawgState> edge : firstTransitionRelation.get(first).entrySet()) {
-			allOutgoingDawgLetters.add(edge.getKey());
+//		for (Entry<IDawgLetter<LETTER, COLNAMES>, DawgState> edge : firstTransitionRelation.get(first).entrySet()) {
+		for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> edge : firstTransitionRelation.getOutEdgeSet(first)) {
+			allOutgoingDawgLetters.add(edge.getFirst());
 		}
-		for (Entry<IDawgLetter<LETTER, COLNAMES>, DawgState> edge : secondTransitionRelation.get(second).entrySet()) {
-			allOutgoingDawgLetters.add(edge.getKey());
+//		for (Entry<IDawgLetter<LETTER, COLNAMES>, DawgState> edge : secondTransitionRelation.get(second).entrySet()) {
+		for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> edge : secondTransitionRelation.getOutEdgeSet(second)) {
+			allOutgoingDawgLetters.add(edge.getFirst());
 		}
 	
 		return divideDawgLetters(dawgLetterFactory, dawgStates, allOutgoingDawgLetters);
@@ -1108,6 +1112,49 @@ public class EprHelpers {
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * A ground conflict clause may need some sanitizing before it can be given to the DPLLEngine.
+	 * This method does:
+	 *  - eliminate EprGroundEqualityAtoms -- and replace them by CCEqualities
+	 *  - some sanity checks
+	 * 
+	 * @param conflict
+	 * @param logger
+	 * @return
+	 */
+	public static Clause sanitizeGroundConflict(Clausifier clausif, LogProxy logger, Clause conflict) {
+		final Clause result = replaceEprGroundEqualityAtoms(clausif, conflict);
+		assert EprHelpers.verifyConflictClause(result, logger);
+		return result;
+	}
+
+	public static Clause sanitizeReasonUnitClauseBeforeEnqueue(Clausifier clausif, LogProxy logger, 
+			Literal l, Clause reason, Deque<Literal> literalsWaitingToBePropagated) {
+		final Clause result = replaceEprGroundEqualityAtoms(clausif, reason);
+		assert EprHelpers.verifyUnitClauseAtEnqueue(l, result, literalsWaitingToBePropagated, logger);
+		return result;
+	}
+
+	private static Clause replaceEprGroundEqualityAtoms(Clausifier clausif, Clause conflict) {
+		if (conflict == null) {
+			return null;
+		}
+		final Literal[] newLits = new Literal[conflict.getSize()];
+		for (int i = 0; i < conflict.getSize(); i++) {
+			final Literal lit = conflict.getLiteral(i);
+			
+			if (lit.getAtom() instanceof EprGroundEqualityAtom) {
+				CCEquality cceq = ((EprGroundEqualityAtom) lit.getAtom()).getCCEquality(clausif);
+				newLits[i] = lit.getSign() == 1 ? cceq : cceq.negate();
+			} else {
+				// leave the literal as is
+				newLits[i] = lit;
+			}
+		}
+		final Clause result = new Clause(newLits);
+		return result;
 	}
 
 }

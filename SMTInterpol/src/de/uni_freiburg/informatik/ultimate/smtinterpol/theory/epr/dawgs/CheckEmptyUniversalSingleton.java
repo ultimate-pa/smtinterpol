@@ -82,7 +82,7 @@ public class CheckEmptyUniversalSingleton<LETTER, COLNAMES> {
 					newCurrentStates.add(outEdge.getSecond());
 				}
 				
-				if (!mDawgFactory.getDawgLetterFactory().isUniversal(outLetters)) {
+				if (!mDawgFactory.getDawgLetterFactory().isUniversal(outLetters, mSignature.getColumnSorts().get(i))) {
 					mIsUniversal = false;
 				}
 				

@@ -203,7 +203,7 @@ public class DecideStackManager {
 			if (topMostDecideStackLiteral == null) {
 				// we have come to the top of the decide stack --> return the conflict
 				Clause groundConflict = chooseGroundingFromConflict(currentConflict);
-				assert EprHelpers.verifyConflictClause(groundConflict, mLogger);
+				groundConflict = EprHelpers.sanitizeGroundConflict(mEprTheory.getClausifier(), mLogger, groundConflict);
 				return groundConflict;
 			}
 

@@ -68,7 +68,8 @@ public class DeterministicDawgTransitionRelation<K1, K2, V> {
 			k2toV = new HashMap<K2, V>();
 			mK1ToK2ToV.put(key1, k2toV);
 		}
-		assert !k2toV.containsKey(key2) : "we don't expect that put overwrites something, here --> catch this case outside!";
+		assert !k2toV.containsKey(key2) || k2toV.get(key2).equals(value) : 
+			"we don't expect that put overwrites something, here --> catch this case outside!";
 		return k2toV.put(key2, value);
 	}
 	

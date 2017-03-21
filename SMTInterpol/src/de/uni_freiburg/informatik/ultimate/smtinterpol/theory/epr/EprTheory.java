@@ -169,7 +169,7 @@ public class EprTheory implements ITheory {
 			// are not known to the DPLLEngine)
 
 			Clause conflictOrNull = mStateManager.setEprGroundLiteral(literal);
-			assert EprHelpers.verifyConflictClause(conflictOrNull, mLogger);
+			conflictOrNull = EprHelpers.sanitizeGroundConflict(mClausifier, mLogger, conflictOrNull);
 			return conflictOrNull;
 		} else if (atom instanceof EprQuantifiedEqualityAtom || atom instanceof EprQuantifiedPredicateAtom) {
 
@@ -179,7 +179,7 @@ public class EprTheory implements ITheory {
 //			assert false : "TODO: check handling of equalities";
 //			if (literal.getSign() == 1) {
 				Clause conflictOrNull = mStateManager.setGroundEquality((CCEquality) atom, atom.getSign() == 1);
-				assert EprHelpers.verifyConflictClause(conflictOrNull, mLogger);
+				conflictOrNull = EprHelpers.sanitizeGroundConflict(mClausifier, mLogger, conflictOrNull);
 				return conflictOrNull;
 //			}
 
@@ -192,7 +192,7 @@ public class EprTheory implements ITheory {
 			// neither an EprAtom nor an Equality
 
 			Clause conflictOrNull = mStateManager.setDpllLiteral(literal);
-			assert EprHelpers.verifyConflictClause(conflictOrNull, mLogger);
+			conflictOrNull = EprHelpers.sanitizeGroundConflict(mClausifier, mLogger, conflictOrNull);
 			return conflictOrNull;
 		}
 		return null;
@@ -291,7 +291,7 @@ public class EprTheory implements ITheory {
 		if (mStoredConflict != null) {
 			Clause conflict = mStoredConflict;
 			mStoredConflict = null;
-			assert EprHelpers.verifyConflictClause(conflict, mLogger);
+			conflict = EprHelpers.sanitizeGroundConflict(mClausifier, mLogger, conflict);
 			return conflict;
 		}
 
@@ -309,7 +309,7 @@ public class EprTheory implements ITheory {
 				// getPropagatedLiterals() and checkpoint() are called..
 				return null;
 			}
-			assert EprHelpers.verifyConflictClause(conflict, mLogger);
+			conflict = EprHelpers.sanitizeGroundConflict(mClausifier, mLogger, conflict);
 			return conflict;
 		}
 
@@ -323,7 +323,7 @@ public class EprTheory implements ITheory {
 		mLogger.debug("EPRDEBUG: computeConflictClause");
 
 		Clause conflict = mStateManager.eprDpllLoop();
-		assert EprHelpers.verifyConflictClause(conflict, mLogger);
+		conflict = EprHelpers.sanitizeGroundConflict(mClausifier, mLogger, conflict);
 		return conflict;
 	}
 
@@ -370,9 +370,10 @@ public class EprTheory implements ITheory {
 			addAtomToDPLLEngine(l.getAtom());
 		}
 
+		reason = EprHelpers.sanitizeReasonUnitClauseBeforeEnqueue(mClausifier, mLogger, l, reason, mLiteralsWaitingToBePropagated);
 		mLogger.debug("EPRDEBUG: EprTheory.addGroundLiteralToPropagate(..): " + "literal: " + l + " reason: " + reason);
 
-		assert EprHelpers.verifyUnitClauseAtEnqueue(l, reason, mLiteralsWaitingToBePropagated, mLogger);
+//		assert EprHelpers.verifyUnitClauseAtEnqueue(l, reason, mLiteralsWaitingToBePropagated, mLogger);
 
 		mLiteralsWaitingToBePropagated.add(l);
 		mGroundLiteralsToPropagateToReason.put(l, reason);

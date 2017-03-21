@@ -192,7 +192,7 @@ public class EprClauseManager {
 		if (newClause.isConflict()) {
 			Clause conflict = mEprTheory.getStateManager().getDecideStackManager()
 					.resolveConflictOrStoreUnits(new HashSet<EprClause>(Collections.singleton(newClause)));
-			assert EprHelpers.verifyConflictClause(conflict, mEprTheory.getLogger());
+			conflict = EprHelpers.sanitizeGroundConflict(mEprTheory.getClausifier(), mEprTheory.getLogger(), conflict);
 			return conflict;
 		}
 		return null;
