@@ -605,7 +605,7 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			} else {
 				// arg must be a LETTER (typically a constant 0-ary
 				// ApplicationTerm)
-				insertColumn(newSigColname, 
+				result = result.insertColumn(newSigColname, 
 						mDawgLetterFactory.getSingletonSetDawgLetter((LETTER) arg, 
 								newSignature.getSortForColname(newSigColname)));
 			}

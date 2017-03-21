@@ -106,6 +106,55 @@ public class DawgTestSignatureTranslations {
 		
 	}
 	
+	@Test
+	public void test2() {
+		
+		DawgFactory<String, Integer> dawgFactoryStringInteger = 
+				new DawgFactory<String, Integer>(getEprTheory());
+		EprTestHelpers.addConstantsWDefaultSort(dawgFactoryStringInteger, EprTestHelpers.constantsAbc());
 
+		
+		
+		List<String> word_a = Arrays.asList(new String[] { "a" });
+		List<String> word_b = Arrays.asList(new String[] { "b" });
+		List<String> word_c = Arrays.asList(new String[] { "c" });
+//		List<String> word_ab = Arrays.asList(new String[] { "a", "b" });
+//		List<String> word_ac = Arrays.asList(new String[] { "a", "c" });
+//		List<String> word_ba = Arrays.asList(new String[] { "b", "a" });
+//		List<String> word_bb = Arrays.asList(new String[] { "b", "b" });
+//		List<String> word_bc = Arrays.asList(new String[] { "b", "c" });
+//		List<String> word_ca = Arrays.asList(new String[] { "c", "a" });
+//		List<String> word_cb = Arrays.asList(new String[] { "c", "b" });
+//		List<String> word_cc = Arrays.asList(new String[] { "c", "c" });
+
+
+		SortedSet<Integer> signature1 = new TreeSet<Integer>(EprHelpers.getColumnNamesComparator());
+		signature1.addAll(Arrays.asList(new Integer[] { 1 }));
+		
+		IDawg<String, Integer> dawg1 = dawgFactoryStringInteger.getEmptyDawg(signature1);
+		dawg1 = dawg1.add(word_a);
+		dawg1 = dawg1.add(word_b);
+
+		assertTrue(dawg1.accepts(word_a));
+		assertTrue(dawg1.accepts(word_b));
+				
+		SortedSet<Integer> signature2 = new TreeSet<Integer>(EprHelpers.getColumnNamesComparator());
+		signature2.addAll(Arrays.asList(new Integer[] { 10, 20 }));
+
+		BinaryRelation<Integer, Integer> translation1 = new BinaryRelation<Integer, Integer>();
+		translation1.addPair(1, 10);
+
+		List<Object> argList1 = Arrays.asList(new Object[] { 1, "c" });
+		
+
+		IDawg<String, Integer> dawg2 = dawg1.translateClauseSigToPredSig(translation1, 
+				argList1, new DawgSignature<Integer>(signature2));
+				
+		assertTrue(dawg2.getColNames().equals(signature2));
+		
+		assertTrue(dawg2.accepts(Arrays.asList(new String[] { "a", "c" })));
+		assertTrue(dawg2.accepts(Arrays.asList(new String[] { "b", "c" })));
+		
+	}
 	
 }
