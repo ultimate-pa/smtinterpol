@@ -10,6 +10,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
 
 /**
  * Given an epr clause (i.e. a clause with free variables), "Constructive equality reasoning" eliminates 
@@ -35,6 +36,13 @@ class ApplyConstructiveEqualityReasoning {
 		final Set<Literal> newLiterals = new HashSet<Literal>();
 		
 		for (Literal inputLit : inputLiterals) {
+			
+			if (!(inputLit.getAtom() instanceof EprQuantifiedPredicateAtom)) {
+				// we don't do anything to ground atoms (epr or not)
+				newLiterals.add(inputLit);
+				continue;
+			}
+			
 			
 			// this -should- always be an ApplicationTerm, right?
 			final ApplicationTerm atomFormula = 
