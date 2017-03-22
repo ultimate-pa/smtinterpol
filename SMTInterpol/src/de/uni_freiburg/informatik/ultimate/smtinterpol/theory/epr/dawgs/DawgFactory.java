@@ -389,7 +389,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 		
 		public Set<LETTER> getAllConstants(Object sortId) {
 			Set<LETTER> result = mAllKnownConstants.get(sortId);
-			assert result != null;
+//			assert result != null;
 			return result;
 		}
 

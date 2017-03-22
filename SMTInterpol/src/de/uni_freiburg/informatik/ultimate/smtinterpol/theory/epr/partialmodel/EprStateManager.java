@@ -380,7 +380,8 @@ public class EprStateManager {
 		 */
 		final Set<ApplicationTerm> reallyNewConstants = new HashSet<ApplicationTerm>();
 		for (ApplicationTerm newConstant : constants) {
-			if (!mDawgFactory.getAllConstants(newConstant.getSort().getRealSort()).contains(newConstant))
+			if (mDawgFactory.getAllConstants(newConstant.getSort().getRealSort()) == null // this case may be hit when we come from registerSort()..
+					|| !mDawgFactory.getAllConstants(newConstant.getSort().getRealSort()).contains(newConstant))
 				reallyNewConstants.add(newConstant);
 		}
 		mLogger.debug("EPRDEBUG: (EprStateManager): adding new constants " + reallyNewConstants);
@@ -429,7 +430,7 @@ public class EprStateManager {
 	private void registerSort(Sort sort) {
 		final boolean alreadyPresent = !mKnownSorts.add(sort);
 		if (!alreadyPresent) {
-			mDawgFactory.addConstant(sort, createDefaultConstant(sort));
+			this.addConstants(Collections.singleton(createDefaultConstant(sort)));
 		}
 		assert allKnownSortsAreRealSorts(mKnownSorts);
 	}
