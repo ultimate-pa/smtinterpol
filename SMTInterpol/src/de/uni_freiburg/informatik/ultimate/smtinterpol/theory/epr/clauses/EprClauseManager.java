@@ -185,11 +185,11 @@ public class EprClauseManager {
 	public Clause createEprClause(Set<Literal> literals) {
 		EprClause newClause = mEprTheory.getEprClauseFactory().getEprClause(literals);
 
-		mEprTheory.getLogger().debug("EPRDEBUG: (EprClauseManager) creating new EprClause from input assert: " + newClause);
+		mEprTheory.getLogger().debug("EPRDEBUG: (EprClauseManager) creating new EprClause: " + newClause);
 		
 		registerEprClause(newClause);
 		
-		if (newClause.isConflict()) {
+		if (newClause.isConflict() || newClause.isUnit()) {
 			Clause conflict = mEprTheory.getStateManager().getDecideStackManager()
 					.resolveConflictOrStoreUnits(new HashSet<EprClause>(Collections.singleton(newClause)));
 			conflict = EprHelpers.sanitizeGroundConflict(mEprTheory.getClausifier(), mEprTheory.getLogger(), conflict);

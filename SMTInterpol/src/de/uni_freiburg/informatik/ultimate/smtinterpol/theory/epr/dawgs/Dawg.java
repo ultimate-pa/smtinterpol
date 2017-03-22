@@ -512,7 +512,6 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 
 	@Override
 	public IDawg<LETTER, COLNAMES> translatePredSigToClauseSig(Map<COLNAMES, COLNAMES> translationVariables,
-			
 			Map<COLNAMES, LETTER> translationConstants, DawgSignature<COLNAMES> targetSignature) {
 		/*
 		 * algorithmic plan: - basic operations: reorder & rename select &
@@ -763,6 +762,8 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			if (newCols.size() == 1) {
 				final COLNAMES newCol = newCols.iterator().next();
 				if (result.getColNames().contains(newCol)) {
+					assert false : "this should be reached any more since we apply constructive equality reasoning on "
+							+ "every clause.";
 					// we currently assume that merging can only happen when there
 					// is only one newCol
 					assert renaming.isFunction();

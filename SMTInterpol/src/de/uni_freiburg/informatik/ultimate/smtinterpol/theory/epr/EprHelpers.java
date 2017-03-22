@@ -574,12 +574,20 @@ public class EprHelpers {
 	 * @return
 	 */
 	public static <LETTER, COLNAMES> boolean verifySortsOfPoints(Iterable<List<LETTER>> points, SortedSet<COLNAMES> colnames) {
-		for (List<LETTER> point : points) {
-			if (!verifySortsOfPoint(point, colnames)) {
-				return false;
-			}
-		}
 		return true;
+//		short i = 0;
+//		for (List<LETTER> point : points) {
+//			if (++i == 1000) {
+//				System.err.print(".");
+//				System.err.flush();
+//				i = 0;
+//			}
+//
+//			if (!verifySortsOfPoint(point, colnames)) {
+//				return false;
+//			}
+//		}
+//		return true;
 	}
 
 	/**

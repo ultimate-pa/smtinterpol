@@ -30,6 +30,7 @@ import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.ApplyConstructiveEqualityReasoning;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution;
@@ -129,17 +130,25 @@ public class EprClauseFactory {
 				+ clause + " with " + factorLit1 + " and " + factorLit2);
 		mEprTheory.notifyAboutNewClause(alphaRenamingIdentifier);
 	
-		Set<Literal> resLits = computeUnifiedLiteralsFromClauseLiterals(unifier, resCls);
+		final Set<Literal> resLits = computeUnifiedLiteralsFromClauseLiterals(unifier, resCls);
+
+//		assert getEprClause(resLits).isConflict(); //TODO: does the side effect hurt??
+
+		final Set<Literal> cerResLits = new ApplyConstructiveEqualityReasoning(mEprTheory, resLits).getResult();
 		
-		EprClause factor = getEprClause(resLits);
+		final EprClause factor = getEprClause(cerResLits);
+
+//		 weakened the following assertion by the left disjunct, because CER may make the conflict "non-obvious"..
+//		assert !cerResLits.equals(resLits) || factor.isConflict();
 		assert factor.isConflict();
+
 		mEprTheory.getStateManager().learnClause(factor);
 		return factor;
 	}
 
 	/**
 	 * Makes sure that for the same set of literals only one clause is constructed.
-	 * Also applies alpha renaming sucht that the free variables of every newly created EprClause
+	 * Also applies alpha renaming such that the free variables of every newly created EprClause
 	 * are not used by any other EprClause (necessary to obtain the -most general- unifier for first-
 	 * order resolution).
 	 * 

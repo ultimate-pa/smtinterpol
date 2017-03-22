@@ -288,6 +288,7 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 		 */
 		{
 			Set<DawgState> currentStates = new HashSet<DawgState>(splitPostStates);
+			assert !currentStates.isEmpty();
 			Set<DawgState> lastStates = null;
 			while(!currentStates.isEmpty()) {
 				final Set<DawgState> newCurrentStates = new HashSet<DawgState>();

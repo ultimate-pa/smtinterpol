@@ -25,13 +25,15 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuant
  * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
  *
  */
-class ApplyConstructiveEqualityReasoning {
+public class ApplyConstructiveEqualityReasoning {
 	
 	final EprTheory mEprTheory;
 	final Set<Literal> mResult;
 
 	public ApplyConstructiveEqualityReasoning(EprTheory eprTheory, Set<Literal> inputLiterals) {
 		mEprTheory = eprTheory;
+		
+		mEprTheory.getLogger().debug("ApplyConstructiveEqualityReasoning: starting");
 		
 		final Set<Literal> newLiterals = new HashSet<Literal>();
 		
@@ -80,6 +82,9 @@ class ApplyConstructiveEqualityReasoning {
 							mEprTheory.getEprAtom(newEquality, 
 									0,  //TODO hash
 									mEprTheory.getClausifier().getStackLevel()).negate());
+					
+					mEprTheory.getLogger().debug("ApplyConstructiveEqualityReasoning: introducing equality: " 
+							+ newEquality);
 					
 					positionToNewTv.put(otherOc, freshTv);
 				}

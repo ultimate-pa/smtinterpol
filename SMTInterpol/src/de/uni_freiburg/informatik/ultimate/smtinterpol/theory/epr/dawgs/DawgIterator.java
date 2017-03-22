@@ -80,10 +80,11 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 		if (mCurrentCompleteDawgPathIterator != null && mCurrentCompleteDawgPathIterator.hasNext()) {
 			return true;
 		}
-		if (!mOpenCompleteDawgPaths.isEmpty()) {
+		while (!mOpenCompleteDawgPaths.isEmpty()) {
 			mCurrentCompleteDawgPathIterator = mOpenCompleteDawgPaths.pop().iterator();
-			assert mCurrentCompleteDawgPathIterator.hasNext();
-			return true;
+			if( mCurrentCompleteDawgPathIterator.hasNext()) {
+				return true;
+			}
 		}
 		// we need to search for a new complete DawgPath
 		while (true) {
