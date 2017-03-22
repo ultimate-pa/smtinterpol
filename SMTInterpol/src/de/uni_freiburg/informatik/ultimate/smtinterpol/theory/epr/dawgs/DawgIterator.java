@@ -126,6 +126,13 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 
 	@Override
 	public List<LETTER> next() {
+		/*
+		 *  the side effect of the following call to hasNext() is important for the remaining code of this method, 
+		 *  because only hasNext completes possibly present incomplete DawgPaths!!
+		 */
+		if (!hasNext()) {
+			throw new AssertionError("Check hasNext() before calling next()!");
+		}
 
 		if (mCurrentCompleteDawgPathIterator != null && mCurrentCompleteDawgPathIterator.hasNext()) {
 			return mCurrentCompleteDawgPathIterator.next();

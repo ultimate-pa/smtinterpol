@@ -659,7 +659,7 @@ public class EprClause {
 				 *  that literal is a conflict grounding of this conflict epr clause
 				 *  --> we can factor this conflict epr clause
 				 */
-				assert preGroundingClauseLits.size() == 2 : "TODO: deal with factoring for more that two literals";
+				assert preGroundingClauseLits.size() == 2 : "TODO: deal with factoring for more than two literals";
 				ClauseEprQuantifiedLiteral ceql = null;
 				ClauseEprLiteral cel = null;
 				for (ClauseLiteral cl : preGroundingClauseLits) {
