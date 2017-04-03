@@ -1,5 +1,5 @@
 (set-option :produce-proofs true)
-(set-option :proof-check-mode true)
+(set-option :interpolant-check-mode true)
 
 (set-logic QF_AUFLIA)
 (declare-sort U 0)

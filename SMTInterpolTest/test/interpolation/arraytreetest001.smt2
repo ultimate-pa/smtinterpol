@@ -1,6 +1,6 @@
 (set-option :produce-proofs true)
 (set-option :produce-interpolants true)
-(set-option :proof-check-mode true)
+(set-option :interpolant-check-mode true)
 
 (set-logic QF_AUFLIA)
 (declare-fun i () Int)

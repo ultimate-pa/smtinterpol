@@ -1,6 +1,6 @@
 ; test for read-over-weakeq interpolants with shared weakpath index
 (set-option :produce-proofs true)
-(set-option :proof-check-mode true)
+(set-option :interpolant-check-mode true)
 
 (set-logic QF_AX)
 (declare-sort U 0)

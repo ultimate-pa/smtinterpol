@@ -457,6 +457,14 @@ public class Interpolator extends NonRecursive {
 			return true;
 		}
 		
+		public Occurrence intersect(Occurrence other) {
+			BitSet inA = (BitSet) this.mInA.clone();
+			BitSet inB = (BitSet) this.mInB.clone();
+			inA.and(other.mInA);
+			inB.and(other.mInB);
+			return new Occurrence(inA, inB);
+		}
+		
 		public boolean isAorShared(int partition) {
 			return mInA.get(partition);
 		}
