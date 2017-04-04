@@ -317,7 +317,10 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 		 * state in the next level -- only the "sink state" for the last level
 		 * becomes an accepting state through complementation
 		 */
-		final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> newTransitionRelation = new DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState>();
+		final DeterministicDawgTransitionRelation<DawgState, 
+			IDawgLetter<LETTER, COLNAMES>, 
+			DawgState> newTransitionRelation = 
+				new DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState>();
 
 		Set<DawgState> currentStates = new HashSet<DawgState>();
 		currentStates.add(mInitialState);
@@ -338,12 +341,14 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 
 			// if (i > 0) {
 			if (formerSinkStatesAreReachable) {
-				newTransitionRelation.put(lastLevelFormerSinkState, mDawgLetterFactory.getUniversalDawgLetter(mSignature.getColumnSorts().get(i)),
+				newTransitionRelation.put(lastLevelFormerSinkState, mDawgLetterFactory.getUniversalDawgLetter(
+						mSignature.getColumnSorts().get(i)),
 						nextLevelFormerSinkState);
 			}
 
 			for (DawgState cs : currentStates) {
-				final Set<IDawgLetter<LETTER, COLNAMES>> outgoingDawgLetters = new HashSet<IDawgLetter<LETTER, COLNAMES>>();
+				final Set<IDawgLetter<LETTER, COLNAMES>> outgoingDawgLetters = 
+						new HashSet<IDawgLetter<LETTER, COLNAMES>>();
 
 				/*
 				 * the old transitions stay intact (except for the ones leading
@@ -375,8 +380,11 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			currentStates = nextStates;
 		}
 
-		return new Dawg<LETTER, COLNAMES>(mDawgFactory, mLogger, mSignature.getColNames(), newTransitionRelation,
-				mInitialState);
+		final Dawg<LETTER, COLNAMES> result = new Dawg<LETTER, COLNAMES>(
+				mDawgFactory, mLogger, mSignature.getColNames(), newTransitionRelation, mInitialState);
+		assert result.isEmpty() == this.isUniversal();
+		assert result.isUniversal() == this.isEmpty();
+		return result;
 	}
 
 	@Override
