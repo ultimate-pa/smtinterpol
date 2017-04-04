@@ -224,4 +224,9 @@ public class EprClauseManager {
 //		// TODO Auto-generated method stub
 //		return null;
 //	}
+	
+	@Override
+	public String toString() {
+		return "EprClauseManager, Clauses: " + mEprClauses;
+	}
 }

@@ -19,6 +19,9 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
@@ -44,12 +47,22 @@ public class EprGroundEqualityAtom extends EprGroundPredicateAtom {
 	
 	private final Term mLhs;
 	private final Term mRhs;
+	private final List<ApplicationTerm> mPoint;
 
 	public EprGroundEqualityAtom(ApplicationTerm term, int hash, int assertionstacklevel, EprEqualityPredicate eqPred) {
 		super(term, hash, assertionstacklevel, eqPred);
 		assert term.getParameters().length == 2;
 		mLhs = term.getParameters()[0];
 		mRhs = term.getParameters()[1];
+		
+		mPoint = 
+				//								Arrays.stream(egea.getArguments()) // TODO Java 1.8
+				//								.map(term -> term).collect(Collectors.toList());
+				new ArrayList<ApplicationTerm>();
+		for (int i = 0; i < this.getArguments().length; i++) {
+			mPoint.add((ApplicationTerm) this.getArguments()[i]);
+		}
+		
 	}
 
 	@Override
@@ -72,5 +85,9 @@ public class EprGroundEqualityAtom extends EprGroundPredicateAtom {
 		CCEquality resultAtom = (CCEquality) eq.getLiteral();	
 
 		return resultAtom;
+	}
+	
+	public List<ApplicationTerm> getPoint() {
+		return mPoint;
 	}
 }
