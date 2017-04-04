@@ -49,6 +49,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroun
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DeterministicDawgTransitionRelation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.AbstractDawgLetter;
@@ -1163,6 +1164,15 @@ public class EprHelpers {
 		}
 		final Clause result = new Clause(newLits);
 		return result;
+	}
+
+	public static boolean unionOfAllPointsIsUniversal(DawgFactory<ApplicationTerm, TermVariable> df, 
+			IDawg<ApplicationTerm, TermVariable>... fulfillablePoints) {
+		IDawg<ApplicationTerm, TermVariable> unionDawg = df.getEmptyDawg(fulfillablePoints[0].getColNames());
+		for (IDawg<ApplicationTerm, TermVariable> dawg : fulfillablePoints) {
+			unionDawg = unionDawg.union(dawg);
+		}
+		return unionDawg.isUniversal();
 	}
 
 }

@@ -278,6 +278,9 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 		assert mFulfillablePoints.getColNames().equals(mEprClause.getVariables());
 		assert mFulfilledPoints.getColNames().equals(mEprClause.getVariables());
 		assert mRefutedPoints.getColNames().equals(mEprClause.getVariables());
+		
+		assert EprHelpers.unionOfAllPointsIsUniversal(mDawgFactory, mFulfillablePoints, mFulfilledPoints, 
+				mRefutedPoints);
 
 		if (fulfilledPoints.isUniversal()) {
 			return ClauseLiteralState.Fulfilled;

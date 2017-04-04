@@ -27,6 +27,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
@@ -54,12 +55,12 @@ public class ClauseEprGroundLiteral extends ClauseEprLiteral {
 		mIsStateDirty = false;
 		if (mAtom.getDecideStatus() == null) {
 			if (!mPartiallyConflictingDecideStackLiterals.isEmpty()) {
-				assert mPartiallyConflictingDecideStackLiterals.size() == 1 : 
+				assert mPartiallyConflictingDecideStackLiterals.size() == 1 || mAtom instanceof EprGroundEqualityAtom : 
 					"I thought we had the invariant that the epr decide stack literals are disjoint?..";
 				return ClauseLiteralState.Refuted;
 			}
 			if (!mPartiallyFulfillingDecideStackLiterals.isEmpty()) {
-				assert mPartiallyFulfillingDecideStackLiterals.size() == 1 : 
+				assert mPartiallyFulfillingDecideStackLiterals.size() == 1 || mAtom instanceof EprGroundEqualityAtom : 
 					"I thought we had the invariant that the epr decide stack literals are disjoint?..";
 				return ClauseLiteralState.Fulfilled;
 			}
