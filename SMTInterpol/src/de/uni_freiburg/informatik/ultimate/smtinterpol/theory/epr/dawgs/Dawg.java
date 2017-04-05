@@ -339,7 +339,6 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			final DawgState lastLevelFormerSinkState = nextLevelFormerSinkState;
 			nextLevelFormerSinkState = mDawgStateFactory.createDawgState();
 
-			// if (i > 0) {
 			if (formerSinkStatesAreReachable) {
 				newTransitionRelation.put(lastLevelFormerSinkState, mDawgLetterFactory.getUniversalDawgLetter(
 						mSignature.getColumnSorts().get(i)),
@@ -354,14 +353,23 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 				 * the old transitions stay intact (except for the ones leading
 				 * to the final state
 				 */
-				for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> letterAndState : mTransitionRelation
-						.getOutEdgeSet(cs)) {
-					outgoingDawgLetters.add(letterAndState.getFirst());
-					if (i != this.getColNames().size() - 1) {
+				if (i != mSignature.size() - 1) {
+					for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> letterAndState : mTransitionRelation
+							.getOutEdgeSet(cs)) {
 						nextStates.add(letterAndState.getSecond());
 						newTransitionRelation.put(cs, letterAndState.getFirst(), letterAndState.getSecond());
 					}
 				}
+				
+				
+				/*
+				 * collect all outgoing dawgLetters
+				 */
+				for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> letterAndState : mTransitionRelation
+						.getOutEdgeSet(cs)) {
+					outgoingDawgLetters.add(letterAndState.getFirst());
+				}
+
 
 				/*
 				 * collects all the DawgLetters that do not have a transition

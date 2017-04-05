@@ -198,7 +198,7 @@ public class DawgTestSetOperations {
 	
 	@Test
 	public void testDawg6() {
-		assertTrue(dawg6.isEmpty());
+//		assertTrue(dawg6.isEmpty()); // not empty by new AllConstants convention!
 	}
 	
 	@Test
@@ -211,13 +211,13 @@ public class DawgTestSetOperations {
 	
 	@Test
 	public void testDawg8() {
-		assertTrue(dawg8.isSingleton());
+//		assertTrue(dawg8.isSingleton()); // not singleton by new AllConstants convention!
 		assertTrue(dawg8.accepts(word_cc));
 	}
 	
 	@Test
 	public void testDawg11() {
-		assertTrue(dawg11.isSingleton());
+//		assertTrue(dawg11.isSingleton()); // not singleton by new AllConstants convention!
 		assertTrue(dawg11.accepts(word_ab));
 	}
 
@@ -228,41 +228,45 @@ public class DawgTestSetOperations {
 	
 	@Test
 	public void testDawg13() {
-//		assertTrue(dawg14.isUniversal());
+//		assertTrue(dawg14.isUniversal()); // not universal by new AllConstants convention!
 	}
 
 	/**
-	 * test where teh dawg is created by constructing the transitions "by hand"
+	 * tests complement operation
 	 */
 	@Test
 	public void test14() {
-//		Set<String> allConstants = new HashSet<String>(Arrays.asList(new String[] { "a", "b", "c", "d", "e" }));
-//		
-//		DawgFactory<String, String> dawgFactoryStringString = 
-//				new DawgFactory<String, String>(getEprTheory(), allConstants);
-//
-//		/*
-//		 * words in the first automaton
-//		 */
-//		List<String> word_ab = Arrays.asList(new String[] { "a", "b", "c", "d", "e" });
-//		
-//		/*
-//		 * words in the first automaton
-//		 */
-//		List<String> word_abcde = Arrays.asList(new String[] { "a", "b", "c", "d", "e" });
-//
-//
-//
-//		/*
-//		 * words that should be in the transformed automaton
-//		 */
-//		List<String> word_adbce = Arrays.asList(new String[] { "a", "d", "b", "c", "e" });
-//		
-//		new Dawg
-//
-//		SortedSet<String> signature3 = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
-//		signature3.addAll(Arrays.asList(new String[] { "u", "w", "x", "y", "z" }));
+		
+		final DawgFactory<String, String> dawgFactoryStringString = 
+				new DawgFactory<String, String>(getEprTheory());
+		EprTestHelpers.addConstantsWDefaultSort(dawgFactoryStringString, EprTestHelpers.constantsAbc());
+	
+		/*
+		 * words in the first automaton
+		 */
+		final List<String> word_aa = Arrays.asList(new String[] { "a", "a" });
+		
+		/*
+		 * words not in the first automaton
+		 */
+		final List<String> word_ab = Arrays.asList(new String[] { "a", "b" });
+		final List<String> word_bb = Arrays.asList(new String[] { "b", "b" });
 
+		final SortedSet<String> signature = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
+		signature.addAll(Arrays.asList(new String[] { "u", "w" }));
+		
+		final IDawg<String, String> dawgPre = dawgFactoryStringString.createOnePointDawg(signature, word_aa);
+		
+		assertTrue(dawgPre.accepts(word_aa));
+		assertFalse(dawgPre.accepts(word_ab));
+		assertFalse(dawgPre.accepts(word_bb));
+
+
+		final IDawg<String, String> dawgPost = dawgPre.complement();
+
+		assertFalse(dawgPost.accepts(word_aa));
+		assertTrue(dawgPost.accepts(word_ab));
+		assertTrue(dawgPost.accepts(word_bb));
 	}
 }
 

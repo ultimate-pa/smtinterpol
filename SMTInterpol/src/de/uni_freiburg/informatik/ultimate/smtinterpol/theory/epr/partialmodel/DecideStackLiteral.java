@@ -101,18 +101,18 @@ public abstract class DecideStackLiteral extends DecideStackEntry implements IEp
 		return mDawg;
 	}
 	
-	/**
-	 * 
-	 * @return true iff mDawg's language is a singleton set.
-	 */
-	public boolean isOnePoint() {
-		return mDawg.isSingleton();
-	}
-	
-	public List<ApplicationTerm> getPoint() {
-		assert isOnePoint();
-		return mDawg.iterator().next();
-	}
+//	/**
+//	 * 
+//	 * @return true iff mDawg's language is a singleton set.
+//	 */
+//	public boolean isOnePoint() {
+//		return mDawg.isSingleton();
+//	}
+//	
+//	public List<ApplicationTerm> getPoint() {
+//		assert isOnePoint();
+//		return mDawg.iterator().next();
+//	}
 	
 	private void register() {
 		mPred.registerEprLiteral(this);

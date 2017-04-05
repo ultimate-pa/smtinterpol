@@ -27,7 +27,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Stack;
 
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.EmptyDawgLetter;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.IDawgLetter;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.SimpleDawgLetter;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Triple;
@@ -42,6 +44,14 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 	final Deque<DawgPath> mOpenCompleteDawgPaths = new ArrayDeque<DawgPath>();
 	Iterator<List<LETTER>> mCurrentCompleteDawgPathIterator;
 	private final boolean mIsDawgEmpty;
+	
+	/*
+	 * By convention for each instance of DawgIterator we only either call next() or nextDawgPath() (because their path
+	 * discovery could interfere)
+	 * The following to flags are meant to ensure this.
+	 */
+	private boolean mDawgPathMode = false;
+	private boolean mWordMode = false;
 
 
 	public DawgIterator(
@@ -88,7 +98,7 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 		}
 		// we need to search for a new complete DawgPath
 		while (true) {
-			DawgPath newCompletePath = lookForNewCompletePath();
+			final DawgPath newCompletePath = lookForNewCompletePath();
 			if (newCompletePath == null) {
 				return false;
 			} else if (!newCompletePath.iterator().hasNext()) {
@@ -126,6 +136,8 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 
 	@Override
 	public List<LETTER> next() {
+		assert !mDawgPathMode;
+		mWordMode = true;
 		/*
 		 *  the side effect of the following call to hasNext() is important for the remaining code of this method, 
 		 *  because only hasNext completes possibly present incomplete DawgPaths!!
@@ -149,10 +161,41 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 
 		return null;
 	}
+	
+	public boolean hasNextDawgPath() {
+		if (!mOpenCompleteDawgPaths.isEmpty()) {
+			return true;
+		}
+
+		while (true) {
+			final DawgPath newCompletePath = lookForNewCompletePath();
+			if (newCompletePath == null) {
+				return false;
+			} else {
+				mOpenCompleteDawgPaths.addLast(newCompletePath);
+				return true;
+			}
+		}
+	}
+	
+	public DawgPath nextDawgPath() {
+		assert !mWordMode;
+		mDawgPathMode = true;
+		/*
+		 * side effect needed for discovery of DawgPaths
+		 */
+		if (!hasNextDawgPath()) {
+			throw new AssertionError("Check hasNextDawgPath() before calling nextDawgPath()!");
+		}
+
+		return mOpenCompleteDawgPaths.pop();
+	}
 
 	class DawgPath implements Iterable<List<LETTER>>{
+		
+		private final boolean mIsSingleton;
 
-		List<Triple<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState>> mEdges = 
+		private final List<Triple<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState>> mEdges = 
 				new ArrayList<Triple<DawgState,IDawgLetter<LETTER,COLNAMES>,DawgState>>();
 
 		/**
@@ -162,16 +205,27 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 		 * @param target
 		 */
 		DawgPath(DawgState source, IDawgLetter<LETTER, COLNAMES> letter, DawgState target) {
+			assert !(letter instanceof EmptyDawgLetter<?, ?>);
 			addEdge(source, letter, target);
+			mIsSingleton = isLetterSingleton(letter);
 		}
 
 		/**
 		 * copy constructor
 		 */
-		DawgPath(DawgPath original) {
+		private DawgPath(DawgPath original) {
+			boolean isSingleton = true;
 			for (Triple<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> edge : original.mEdges) {
 				mEdges.add(edge);
+				isSingleton &= isLetterSingleton(edge.getSecond());
+				assert !(edge.getSecond() instanceof EmptyDawgLetter<?, ?>);
 			}
+			mIsSingleton = isSingleton;
+		}
+
+		private boolean isLetterSingleton(IDawgLetter<LETTER, COLNAMES> letter) {
+			return letter instanceof SimpleDawgLetter<?, ?> 
+				&& ((SimpleDawgLetter<LETTER , COLNAMES>) letter).getLetters().size() == 1;
 		}
 
 		/**
@@ -197,6 +251,15 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 		DawgState lastState() {
 			return mEdges.get(mEdges.size() - 1).getThird();
 
+		}
+		
+		/**
+		 * Returns true iff this DawgPath denotes exactly one word.
+		 *  .. which is true iff each of its letters is a SimpleDawgLetter with one letter.
+		 * @return
+		 */
+		public boolean isSingletonDawgPath() {
+			return mIsSingleton;
 		}
 
 		@Override

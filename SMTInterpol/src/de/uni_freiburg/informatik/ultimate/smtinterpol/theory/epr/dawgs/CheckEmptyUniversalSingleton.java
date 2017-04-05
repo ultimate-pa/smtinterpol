@@ -98,24 +98,38 @@ public class CheckEmptyUniversalSingleton<LETTER, COLNAMES> {
 		
 		/*
 		 * emptiness and being singleton can be checked easily using the iterator.
+		 *  EDIT (05.04.2017): maybe not so easy, because SimpleComplementDawgLetters, together with AllConstants may
+		 *    lead to a Dawg that we want to consider non-empty (where the actual witnesses need more constants though),
+		 *    but where the DawgIterator cannot give us a witness
 		 */
 		final DawgIterator<LETTER, COLNAMES> it = 
 				new DawgIterator<LETTER, COLNAMES>(mTransitionRelation, mInitialState, mSignature);
-		if (!it.hasNext()) {
+		if (!it.hasNextDawgPath()) {
 			mIsEmpty = true;
 			mIsSingleton = false;
 			return;
 		} else {
 			mIsEmpty = false;
 		}
-		final List<LETTER> firstWord = it.next();
-		assert firstWord != null;
-		assert firstWord.size() == mSignature.getNoColumns();
-		if (it.hasNext()) {
-			mIsSingleton = false;
-		} else {
-			mIsSingleton = true;
-		}
+		mIsSingleton = !it.hasNextDawgPath() && it.nextDawgPath().isSingletonDawgPath();
+
+//		final DawgIterator<LETTER, COLNAMES> it = 
+//				new DawgIterator<LETTER, COLNAMES>(mTransitionRelation, mInitialState, mSignature);
+//		if (!it.hasNext()) {
+//			mIsEmpty = true;
+//			mIsSingleton = false;
+//			return;
+//		} else {
+//			mIsEmpty = false;
+//		}
+//		final List<LETTER> firstWord = it.next();
+//		assert firstWord != null;
+//		assert firstWord.size() == mSignature.getNoColumns();
+//		if (it.hasNext()) {
+//			mIsSingleton = false;
+//		} else {
+//			mIsSingleton = true;
+//		}
 	}
 
 	public boolean isEmpty() {
