@@ -106,7 +106,7 @@ public class SimpleDawgLetter<LETTER, COLNAMES> extends AbstractDawgLetter<LETTE
 			final Set<LETTER> otherSet = ((SimpleDawgLetter<LETTER, COLNAMES>) other).getLetters();
 			final HashSet<LETTER> union = new HashSet<LETTER>(mLetters);
 			union.addAll(otherSet);
-			return mDawgLetterFactory.getSimpleComplementDawgLetter(union, mSortId);
+			return mDawgLetterFactory.getSimpleDawgLetter(union, mSortId);
 		} else if (other instanceof SimpleComplementDawgLetter<?, ?>) {
 			return other.union(this);
 		} else {
