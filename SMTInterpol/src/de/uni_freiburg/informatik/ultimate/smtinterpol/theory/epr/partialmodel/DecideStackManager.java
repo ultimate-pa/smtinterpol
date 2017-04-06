@@ -123,7 +123,7 @@ public class DecideStackManager {
 			EprClause unitClause) {
 		mLogger.debug("EPRDEBUG: EprStateManager.propagateUnitClause(..): " + unitClause);
 		assert unitClause.isUnit();
-		Set<EprClause> result = new HashSet<EprClause>(conflictsOrUnits);		
+		final Set<EprClause> result = new HashSet<EprClause>(conflictsOrUnits);		
 
 		// if we have a unit clause, propagate the literal
 		// the set..-method returns the new set of conflicts or units
@@ -134,7 +134,7 @@ public class DecideStackManager {
 		 *     if one produces more unit propagations, it is ok to just add them to conflictsOrUnits, because we
 		 *      it contains unit clauses right now..
 		 */
-		UnitPropagationData upd = unitClause.getUnitPropagationData();
+		final UnitPropagationData upd = unitClause.getUnitPropagationData();
 		
 		for (DslBuilder dslB : upd.getQuantifiedPropagations()) {
 			Set<EprClause> newConflictsOrUnits = pushEprDecideStack(dslB);
