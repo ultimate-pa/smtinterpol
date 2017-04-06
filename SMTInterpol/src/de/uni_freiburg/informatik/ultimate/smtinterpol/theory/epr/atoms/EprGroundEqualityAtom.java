@@ -84,6 +84,7 @@ public class EprGroundEqualityAtom extends EprGroundPredicateAtom {
 		assert eq != EqualityProxy.getFalseProxy();
 		CCEquality resultAtom = (CCEquality) eq.getLiteral();	
 
+		assert resultAtom != null;
 		return resultAtom;
 	}
 	

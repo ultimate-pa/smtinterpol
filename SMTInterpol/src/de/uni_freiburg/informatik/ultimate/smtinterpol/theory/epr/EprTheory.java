@@ -370,7 +370,8 @@ public class EprTheory implements ITheory {
 			addAtomToDPLLEngine(l.getAtom());
 		}
 
-		reason = EprHelpers.sanitizeReasonUnitClauseBeforeEnqueue(mClausifier, mLogger, l, reason, mLiteralsWaitingToBePropagated);
+		reason = EprHelpers.sanitizeReasonUnitClauseBeforeEnqueue(mClausifier, mLogger, l, reason, 
+				mLiteralsWaitingToBePropagated);
 		mLogger.debug("EPRDEBUG: EprTheory.addGroundLiteralToPropagate(..): " + "literal: " + l + " reason: " + reason);
 
 //		assert EprHelpers.verifyUnitClauseAtEnqueue(l, reason, mLiteralsWaitingToBePropagated, mLogger);

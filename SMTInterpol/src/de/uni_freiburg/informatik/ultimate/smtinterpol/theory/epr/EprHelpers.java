@@ -1150,19 +1150,30 @@ public class EprHelpers {
 		if (conflict == null) {
 			return null;
 		}
-		final Literal[] newLits = new Literal[conflict.getSize()];
+//		final Literal[] newLits = new Literal[conflict.getSize()];
+		final List<Literal> newLits = new ArrayList<Literal>(conflict.getSize());
 		for (int i = 0; i < conflict.getSize(); i++) {
 			final Literal lit = conflict.getLiteral(i);
 			
 			if (lit.getAtom() instanceof EprGroundEqualityAtom) {
-				CCEquality cceq = ((EprGroundEqualityAtom) lit.getAtom()).getCCEquality(clausif);
-				newLits[i] = lit.getSign() == 1 ? cceq : cceq.negate();
+				// EprGroundEqualityAtoms are a special case
+				EprGroundEqualityAtom egea = (EprGroundEqualityAtom) lit.getAtom();
+				if (egea.getArguments()[0] == egea.getArguments()[1] && lit.getSign() != 1) {
+					// the literal is equivalent to false -- just omit it
+				} else if (egea.getArguments()[0] == egea.getArguments()[1] && lit.getSign() == 1) {
+					assert false : "the given clause is equivalent to true; does this make sense??";
+				} else {
+					final CCEquality cceq = ((EprGroundEqualityAtom) lit.getAtom()).getCCEquality(clausif);
+//					newLits[i] = lit.getSign() == 1 ? cceq : cceq.negate();
+					newLits.add(lit.getSign() == 1 ? cceq : cceq.negate());
+				}
 			} else {
 				// leave the literal as is
-				newLits[i] = lit;
+//				newLits[i] = lit;
+				newLits.add(lit);
 			}
 		}
-		final Clause result = new Clause(newLits);
+		final Clause result = new Clause(newLits.toArray(new Literal[newLits.size()]));
 		return result;
 	}
 
