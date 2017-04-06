@@ -46,6 +46,10 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 public class DawgTestSymmTransClosure {
 
 	
+	/**
+	 * Our dawg contains "a a", and "b b", and nothing to connect the two equivalence classes
+	 *  --> the closure should not change the dawg.
+	 */
 	@Test
 	public void test1() {
 		final DawgFactory<String, String> dawgFactory = new DawgFactory<String, String>(EprTestHelpers.getEprTheory());
@@ -69,6 +73,10 @@ public class DawgTestSymmTransClosure {
 		assertTrue(dawg.complement().intersect(dawgRes).isEmpty());
 	}
 	
+	/**
+	 * The initial dawg contains "a a", "b b", and -connecting the two-, "a b". The resulting dawg should express one
+	 * equivalence class "{a b}".
+	 */
 	@Test
 	public void test2() {
 		final DawgFactory<String, String> dawgFactory = new DawgFactory<String, String>(EprTestHelpers.getEprTheory());
