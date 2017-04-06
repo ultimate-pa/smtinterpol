@@ -23,10 +23,21 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 
+import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
 
 public class EprTestHelpers {
+	
+	public static EprTheory getEprTheory() {
+		return new EprTheoryMock(getLogger());
+	}
+	
+	public static LogProxy getLogger() {
+		return new DefaultLogger();
+	}
 
 	public static <LETTER, COLNAMES> void addConstantsWDefaultSort(
 			DawgFactory<LETTER, COLNAMES> dawgFactoryStringString, Collection<LETTER> constants) {

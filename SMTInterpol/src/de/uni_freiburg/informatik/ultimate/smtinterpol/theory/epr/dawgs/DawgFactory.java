@@ -500,67 +500,6 @@ public class DawgFactory<LETTER, COLNAMES> {
 					inputDawg.getInitialState());
 		}
 
-//		/**
-//		 * 
-//		 * @param idawg
-//		 * @return a Dawg containing all the reflexive points of the input dawg
-//		 * 
-//		 * deprecated, because this method is conceptually wrong
-//		 */
-//		@Deprecated
-//		public IDawg<LETTER, COLNAMES> getReflexivePoints(IDawg<LETTER, COLNAMES> idawg) {
-//			assert idawg.getSignature().getNoColumns() == 2;
-//			
-//			Object sort = idawg.getSignature().getColumnSorts().get(0);
-//			assert idawg.getSignature().getColumnSorts().get(1).equals(sort) : "this is an equality dawg, right? "
-//					+ "so column sorts should match";
-//			
-//			if (idawg instanceof Dawg<?, ?>) {
-//				final Dawg<LETTER, COLNAMES> dawg = (Dawg<LETTER, COLNAMES>) idawg;
-//				
-//				IDawgLetter<LETTER, COLNAMES> allReflexivePointsDl = 
-//						mDawgLetterFactory.getEmptyDawgLetter(sort);
-//				
-//				final DeterministicDawgTransitionRelation<DawgState, 
-//					IDawgLetter<LETTER, COLNAMES>, 
-//					DawgState> tr = dawg.getTransitionRelation();
-//				
-//				for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge1 : 
-//						tr.getOutEdgeSet(dawg.getInitialState())) {
-//					for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge2 : 
-//						tr.getOutEdgeSet(outEdge1.getSecond())) {
-//
-//						final IDawgLetter<LETTER, COLNAMES> intersectionDl = 
-//								outEdge1.getFirst().intersect(outEdge2.getFirst());
-//
-//						allReflexivePointsDl = allReflexivePointsDl.union(allReflexivePointsDl);
-//					}
-//				}
-//				
-//				if (allReflexivePointsDl instanceof EmptyDawgLetter<?, ?>) {
-//					return getEmptyDawg(idawg.getColNames());
-//				}
-//				
-//				final DawgState ds1 = mDawgStateFactory.createDawgState();
-//				final DawgState ds2 = mDawgStateFactory.createDawgState();
-//
-//				final DeterministicDawgTransitionRelation<DawgState, 
-//					IDawgLetter<LETTER, COLNAMES>, 
-//					DawgState> newTR = new DeterministicDawgTransitionRelation<DawgState, 
-//						IDawgLetter<LETTER,COLNAMES>, 
-//						DawgState>();
-//	
-//				newTR.put(dawg.getInitialState(), allReflexivePointsDl, ds1);
-//				newTR.put(ds1, allReflexivePointsDl, ds2);
-//				
-//				return new Dawg<LETTER, COLNAMES>(this, mLogger, idawg.getColNames(), newTR, 
-//						dawg.getInitialState());
-//			} else {
-//				assert false : " implement this?";
-//				
-//				return null;
-//			}
-//		}
 
 		/**
 		 * Creates a dawg with the given signature (which needs to have exactly two columns) that recognizes all 

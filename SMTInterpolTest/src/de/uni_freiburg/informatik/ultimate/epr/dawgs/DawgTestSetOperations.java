@@ -80,19 +80,13 @@ public class DawgTestSetOperations {
 	private IDawg<String, Integer> dawg14;
 
 
-	private EprTheory getEprTheory() {
-		return new EprTheoryMock(getLogger());
-	}
-	
-	private LogProxy getLogger() {
-		return new DefaultLogger();
-	}
+
 
 	@Before
 	public void setup() {
 		
 		DawgFactory<String, Integer> dawgFactory = 
-				new DawgFactory<String, Integer>(getEprTheory());
+				new DawgFactory<String, Integer>(EprTestHelpers.getEprTheory());
 		EprTestHelpers.addConstantsWDefaultSort(dawgFactory, EprTestHelpers.constantsAbc());
 
 		signature1 = new TreeSet<Integer>(Arrays.asList(new Integer[] { 1, 2 }));
@@ -238,7 +232,7 @@ public class DawgTestSetOperations {
 	public void test14() {
 		
 		final DawgFactory<String, String> dawgFactoryStringString = 
-				new DawgFactory<String, String>(getEprTheory());
+				new DawgFactory<String, String>(EprTestHelpers.getEprTheory());
 		EprTestHelpers.addConstantsWDefaultSort(dawgFactoryStringString, EprTestHelpers.constantsAbc());
 	
 		/*
