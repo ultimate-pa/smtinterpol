@@ -253,7 +253,14 @@ public class EprPredicate {
 		if (undecidedPoints.isEmpty()) {
 			return null;
 		} else {
-			return new DslBuilder(true, this, undecidedPoints, true);//TODO: what about polarity??
+			/*
+			 * For equalities our default decision is polarity "false", otherwise "true"
+			 */
+			if (this instanceof EprEqualityPredicate) {
+				return new DslBuilder(false, this, undecidedPoints, true);
+			} else {
+				return new DslBuilder(true, this, undecidedPoints, true);
+			}
 		}
 	}
 
