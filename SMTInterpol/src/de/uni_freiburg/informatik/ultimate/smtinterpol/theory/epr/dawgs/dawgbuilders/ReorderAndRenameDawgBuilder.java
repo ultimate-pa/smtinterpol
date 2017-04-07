@@ -800,6 +800,12 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 		assert mResultColnames != null;
 		assert mResultTransitionRelation != null;
 		assert mResultInitialStates != null;
+		
+		// determinize will flatten anyway --> no flattening needed here, perhaps..
+//		DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> flattenedTransitionRelation 
+//			= EprHelpers.flattenDawgStates(mResultTransitionRelation);
+//		DawgState flattenedResultInitialState = mResultInitialState.getFlatReplacement();
+		
 		return new DeterminizeDawg<LETTER, COLNAMES>(mResultColnames, 
 				mInputDawg.getLogger(), 
 				mResultTransitionRelation,

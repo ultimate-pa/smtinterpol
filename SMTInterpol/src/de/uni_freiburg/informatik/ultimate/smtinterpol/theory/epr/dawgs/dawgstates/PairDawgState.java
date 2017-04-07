@@ -27,7 +27,8 @@ public class PairDawgState extends DawgState {
 	final boolean mFirstIsSink;
 	final boolean mSecondIsSink;
 	
-	public PairDawgState(DawgState s, boolean firstIsSink, boolean secondIsSink) {
+	public PairDawgState(DawgState s, boolean firstIsSink, boolean secondIsSink, DawgState replacement) {
+		super(replacement);
 		assert firstIsSink != secondIsSink;
 		
 		if (firstIsSink) {
@@ -43,7 +44,8 @@ public class PairDawgState extends DawgState {
 		}
 	}
 
-	public PairDawgState(DawgState f, DawgState s) {
+	public PairDawgState(DawgState f, DawgState s, DawgState replacement) {
+		super(replacement);
 		assert f != null && s != null;
 		mFirstIsSink = false;
 		mSecondIsSink = false;

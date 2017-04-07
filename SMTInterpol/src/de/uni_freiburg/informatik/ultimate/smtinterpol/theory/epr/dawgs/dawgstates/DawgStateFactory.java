@@ -68,7 +68,7 @@ public class DawgStateFactory<LETTER, COLNAMES> {
 		PairDawgState pds = dsToPds.get(second);
 		
 		if (pds == null) {
-			pds = new PairDawgState(first, second);
+			pds = new PairDawgState(first, second, createDawgState());
 			dsToPds.put(second, pds);
 		}
 		
@@ -81,14 +81,14 @@ public class DawgStateFactory<LETTER, COLNAMES> {
 		if (firstIsSink) {
 			PairDawgState ds = mFirstHalfSinkStates.get(value);
 			if (ds == null) {
-				ds = new PairDawgState(value, true, false);
+				ds = new PairDawgState(value, true, false, createDawgState());
 				mFirstHalfSinkStates.put(value, ds);
 			}
 			return ds;
 		} else {
 			PairDawgState ds = mSecondHalfSinkStates.get(value);
 			if (ds == null) {
-				ds = new PairDawgState(value, false, true);
+				ds = new PairDawgState(value, false, true, createDawgState());
 				mSecondHalfSinkStates.put(value, ds);
 			}
 			return ds;
@@ -98,7 +98,7 @@ public class DawgStateFactory<LETTER, COLNAMES> {
 	public SetDawgState getOrCreateSetDawgState(Set<DawgState> dawgStates) {
 		SetDawgState result = mDawgStateSetToSetDawgState.get(dawgStates);
 		if (result == null) {
-			result = new SetDawgState(dawgStates);
+			result = new SetDawgState(dawgStates, createDawgState());
 			mDawgStateSetToSetDawgState.put(dawgStates, result);
 		}
 		return result;
@@ -113,7 +113,7 @@ public class DawgStateFactory<LETTER, COLNAMES> {
 		RenameAndReorderDawgState<LETTER, COLNAMES> result = 
 				mLetterToColNameToDawgStateToRenameAndReorderDawgState.get(key, newRightNeighbour, value);
 		if (result == null) {
-			result = new RenameAndReorderDawgState<LETTER, COLNAMES>(key, newRightNeighbour, value);
+			result = new RenameAndReorderDawgState<LETTER, COLNAMES>(key, newRightNeighbour, value, createDawgState());
 			mLetterToColNameToDawgStateToRenameAndReorderDawgState.put(key, newRightNeighbour, value, result);
 		}
 		return result;

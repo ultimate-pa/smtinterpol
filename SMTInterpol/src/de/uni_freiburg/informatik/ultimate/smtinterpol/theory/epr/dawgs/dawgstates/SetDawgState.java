@@ -25,7 +25,8 @@ public class SetDawgState extends DawgState {
 	
 	private final Set<DawgState> mDawgStates;
 	
-	public SetDawgState(Set<DawgState> dawgStates) {
+	public SetDawgState(Set<DawgState> dawgStates, DawgState replacement) {
+		super(replacement);
 		mDawgStates = dawgStates;
 	}
 	

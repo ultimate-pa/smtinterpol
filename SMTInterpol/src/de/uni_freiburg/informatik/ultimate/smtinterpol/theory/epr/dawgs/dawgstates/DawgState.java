@@ -26,12 +26,28 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgsta
  */
 public class DawgState {
 	
+	final DawgState mReplacement;
+	
 	public DawgState() {
-		
+		mReplacement = this;
+	}
+	
+	protected DawgState(DawgState replacement) {
+		mReplacement = replacement;
 	}
 
 	@Override
 	public String toString() {
 		return String.format("DawgState#%d", this.hashCode() % 10000);
+	}
+	
+	/**
+	 * Returns a fresh DawgState that can be used to replace this DawgState in the flattening operation (which is used 
+	 * to avoid that we further and further nest Pair-, Set-, and RenameAndReorderDawgStates)
+	 * 
+	 * @return
+	 */
+	public DawgState getFlatReplacement() { 
+		return mReplacement;
 	}
 }

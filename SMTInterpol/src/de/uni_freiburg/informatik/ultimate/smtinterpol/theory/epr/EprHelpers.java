@@ -57,6 +57,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawglett
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.EmptyDawgLetter;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.IDawgLetter;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgStateFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.PairDawgState;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.IEprLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.HashRelation3;
@@ -1184,6 +1185,18 @@ public class EprHelpers {
 			unionDawg = unionDawg.union(dawg);
 		}
 		return unionDawg.isUniversal();
+	}
+
+	public static <LETTER, COLNAMES> 
+		DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> flattenDawgStates(
+			DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> inputTransitionRelation) {
+
+		DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> resultTransitionRelation
+		 	= new DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER,COLNAMES>, DawgState>();
+		for (Triple<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> transition : inputTransitionRelation.entrySet()) {
+			resultTransitionRelation.put(transition.getFirst().getFlatReplacement(), transition.getSecond(), transition.getThird().getFlatReplacement());
+		}
+		return resultTransitionRelation;
 	}
 
 }

@@ -128,8 +128,13 @@ public class DeterminizeDawg<LETTER, COLNAMES> {
 	public Dawg<LETTER, COLNAMES> build() {
 		assert mResultTransitionRelation != null;
 		assert mResultInitialState != null;
+		
+		DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> flattenedTransitionRelation 
+			= EprHelpers.flattenDawgStates(mResultTransitionRelation);
+		DawgState flattenedResultInitialState = mResultInitialState.getFlatReplacement();
+		
 		return new Dawg<LETTER, COLNAMES>(mDawgFactory, mLogger, 
-				mColnames, mResultTransitionRelation, mResultInitialState);
+				mColnames, flattenedTransitionRelation, flattenedResultInitialState);
 	}
 
 

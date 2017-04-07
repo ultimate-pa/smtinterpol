@@ -19,7 +19,9 @@ public class RenameAndReorderDawgState<LETTER, COLNAMES> extends DawgState {
 	
 	private final DawgState mInnerState;
 
-	public RenameAndReorderDawgState(IDawgLetter<LETTER, COLNAMES> letter, COLNAMES column, DawgState innerDawgState) {
+	public RenameAndReorderDawgState(IDawgLetter<LETTER, COLNAMES> letter, COLNAMES column, DawgState innerDawgState,
+			DawgState replacement) {
+		super(replacement);
 		this.mLetter = letter;
 		this.mRightNeighbourColumn = column;
 		this.mInnerState = innerDawgState;

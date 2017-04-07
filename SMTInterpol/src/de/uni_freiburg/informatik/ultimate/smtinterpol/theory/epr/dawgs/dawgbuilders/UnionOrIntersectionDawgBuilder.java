@@ -47,9 +47,10 @@ import java.util.Map.Entry;
  */
 public class UnionOrIntersectionDawgBuilder<LETTER, COLNAMES> {
 	
-	private final DawgState mResultInitialState;
+	private DawgState mResultInitialState;
+	private DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> mResultTransitionRelation;
+
 	private final DawgStateFactory<LETTER, COLNAMES> mDawgStateFactory;
-	private final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> mResultTransitionRelation;
 	private final Dawg<LETTER, COLNAMES> mFirstInputDawg;
 	private final Dawg<LETTER, COLNAMES> mSecondInputDawg;
 	private final DawgLetterFactory<LETTER, COLNAMES> mDawgLetterFactory;
@@ -67,7 +68,8 @@ public class UnionOrIntersectionDawgBuilder<LETTER, COLNAMES> {
 		
 		mResultTransitionRelation = new DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER,COLNAMES>,DawgState>();
 
-		mResultInitialState = new PairDawgState(first.getInitialState(), second.getInitialState());
+		mResultInitialState = mDawgStateFactory.getOrCreatePairDawgState(first.getInitialState(), 
+				second.getInitialState());
 		
 	}
 	
@@ -177,6 +179,9 @@ public class UnionOrIntersectionDawgBuilder<LETTER, COLNAMES> {
 			}
 			currentStates = nextStates;
 		}
+		
+		mResultTransitionRelation = EprHelpers.flattenDawgStates(mResultTransitionRelation);
+		mResultInitialState = mResultInitialState.getFlatReplacement();
 		
 		return new Dawg<LETTER, COLNAMES>(mDawgFactory, mFirstInputDawg.getLogger(), 
 				 mFirstInputDawg.getColNames(), mResultTransitionRelation, mResultInitialState);
