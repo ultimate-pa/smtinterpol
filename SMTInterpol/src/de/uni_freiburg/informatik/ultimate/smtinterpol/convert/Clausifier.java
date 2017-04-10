@@ -825,8 +825,9 @@ public class Clausifier {
 					//TODO alex: rework, this is old, formerly commented out code by Juergen/Jochen
 					TermVariable[] vars = qf.getVariables();
 					Term[] skolems = new Term[vars.length];
-					for (int i = 0; i < skolems.length; ++i)
+					for (int i = 0; i < skolems.length; ++i) {
 						skolems[i] = t.term(t.skolemize(vars[i]));
+					}
 
 					mEprTheory.addSkolemConstants(skolems);
 //					ArrayList<Literal[]> newGroundings = mEprTheory.addSkolemConstants(skolems);
@@ -834,18 +835,14 @@ public class Clausifier {
 //						addClause(ng, null, null);//TODO: hook, proof..
 //					}
 	
-					Term skolem;
-//					mUnlet.beginScope();//alex: commented
-					try {
-						mUnlet.addSubstitutions(
-							new ArrayMap<TermVariable, Term>(vars, skolems));
-						Term negSkolem = mUnlet.unlet(qf.getSubformula());
-//						skolem = Utils.createNotUntracked(negSkolem); //alex: before: "createNot"
-						skolem = negSkolem;
-					} finally {
-//						m_Unlet.endScope();
-					}
-					skolem = mCompiler.transform(skolem);
+
+					final FormulaUnLet unlet = new FormulaUnLet();
+					unlet.addSubstitutions(new ArrayMap<TermVariable, Term>(vars, skolems));
+					Term skolem1 = unlet.unlet(qf.getSubformula());
+
+//					Term skolem = negSkolem;
+
+					Term skolem = mCompiler.transform(skolem1);
 					// TODO Annotation processing
 //					pushOperation(new AddAsAxiom(mTheory.not(skolem), null)); //alex: added arg
 					pushOperation(new AddAsAxiom(skolem, null)); //alex: added arg
@@ -857,13 +854,16 @@ public class Clausifier {
 					//alex:
 					/*
 					 * plan: 
-					 * for a universal quantifier we basically do nothing and we will treat all TermVariables occuring in the subformula as implicitly
-					 * forall-quantified.
+					 * for a universal quantifier we basically do nothing and we will treat all TermVariables occuring 
+					 * in the subformula as implicitly forall-quantified.
 					 */
 //					TermVariable[] quantifiedVariables = qf.getVariables();
 
-					//TODO; negating before going on --> treat "not exists not" together, thus we can treat what is inside as universally quantified
-					pushOperation(new AddAsAxiom(mTheory.not(qf.getSubformula()), null));
+					/*
+					 * TODO; negating before going on --> treat "not exists not" together, thus we can treat what is 
+					 *  inside as universally quantified
+					 */
+					pushOperation(new AddAsAxiom(qf.getSubformula(), true, null));
 				}
 			} else {
 				throw new InternalError(
@@ -1117,22 +1117,13 @@ public class Clausifier {
 						skolems[i] = t.term(t.skolemize(vars[i]));
 
 					mEprTheory.addSkolemConstants(skolems);
-//					ArrayList<Literal[]> newGroundings = mEprTheory.addSkolemConstants(skolems);
-//					for (Literal[] ng : newGroundings) {
-//						addClause(ng, null, null);//TODO: hook, proof..
-//					}
 					
-					Term skolem;
-//					mUnlet.beginScope();
-//					try {
-						mUnlet.addSubstitutions(
+					// TODO: perhaps factor out duplicate code with AddAsAxiom ?
+					FormulaUnLet unlet = new FormulaUnLet();
+					unlet.addSubstitutions(
 							new ArrayMap<TermVariable, Term>(vars, skolems));
-						Term negSkolem = mUnlet.unlet(qf.getSubformula());
-//						skolem = Utils.createNotUntracked(negSkolem);
-						skolem = negSkolem;
-//					} finally {
-//						mUnlet.endScope();
-//					}
+					Term skolem = unlet.unlet(qf.getSubformula());
+						
 					skolem = mCompiler.transform(skolem);
 					// TODO Annotation processing
 					BuildClause bc = new BuildClause(skolem, null);
