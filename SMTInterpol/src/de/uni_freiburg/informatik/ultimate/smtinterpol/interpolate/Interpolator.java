@@ -127,7 +127,7 @@ public class Interpolator extends NonRecursive {
 	 * for the input clause.
 	 * It checks if the interpolant for a clause already exists,
 	 * and if not, it enqueues new walkers depending on the node type.
-	 * @param mEprClause the clause to interpolate
+	 * @param clause the clause to interpolate
 	 */
 	public static class ProofTreeWalker implements Walker {
 		private final Clause mClause;

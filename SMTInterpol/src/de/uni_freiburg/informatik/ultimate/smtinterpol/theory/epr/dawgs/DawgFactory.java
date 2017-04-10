@@ -157,7 +157,8 @@ public class DawgFactory<LETTER, COLNAMES> {
 					this, 
 					mLogger, 
 					dawg.getColNames(), 
-					((Dawg<LETTER, COLNAMES>) dawg).getTransitionRelation().copy(), 
+					new DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState>(
+							((Dawg<LETTER, COLNAMES>) dawg).getTransitionRelation()),
 					((Dawg<LETTER, COLNAMES>) dawg).getInitialState());
 		}
 	}

@@ -23,13 +23,16 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.Assignments;
+import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.LoggingScript;
 import de.uni_freiburg.informatik.ultimate.logic.Model;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 
 /**
  * This script does the main work of the preparation.  It also checks for
@@ -172,6 +175,18 @@ public class PrepareScript extends LoggingScript {
 			@Override
 			public Map<Term, Term> evaluate(Term[] input) {
 				return Collections.emptyMap();
+			}
+
+			@Override
+			public Set<FunctionSymbol> getDefinedFunctions() {
+				// TODO Auto-generated method stub
+				return null;
+			}
+
+			@Override
+			public Term getFunctionDefinition(String func, TermVariable[] args) {
+				// TODO Auto-generated method stub
+				return null;
 			}
 			
 		};
