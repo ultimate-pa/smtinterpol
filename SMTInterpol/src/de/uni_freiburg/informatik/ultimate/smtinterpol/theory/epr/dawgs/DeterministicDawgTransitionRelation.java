@@ -58,13 +58,34 @@ import java.util.Set;
  */
 public class DeterministicDawgTransitionRelation<K1, K2, V> {
 	
+	
 	private final Map<K1, Map<K2, V>> mK1ToK2ToV = new HashMap<K1, Map<K2, V>>();
+	
+	/*
+	 * fields that cache information about the transition relation in the form that we often request
+	 * caching can be switched on/off through a flag
+	 */
+	private static final boolean mUseCachingFields = false;
+	private final Map<K1, Set<Pair<K2, V>>> mK1ToOutEdges;
+	private final Map<V, Set<Pair<K1, K2>>> mVToInEdges;
+	private final Set<Triple<K1, K2, V>> mAllTransitions;
+	
+	
 	
 	/**
 	 * standard constructor, constructs empty relation
 	 */
 	public DeterministicDawgTransitionRelation() {
-		// do nothing
+		if (mUseCachingFields) {
+			mK1ToOutEdges = new HashMap<K1, Set<Pair<K2, V>>>();
+			mVToInEdges = new HashMap<V, Set<Pair<K1, K2>>>();
+			mAllTransitions = new HashSet<Triple<K1,K2,V>>();
+		} else {
+			mK1ToOutEdges = null;
+			mVToInEdges = null;
+			mAllTransitions = null;
+		}
+
 	}
 	
 	/**
@@ -73,11 +94,13 @@ public class DeterministicDawgTransitionRelation<K1, K2, V> {
 	 * @param orig
 	 */
 	public DeterministicDawgTransitionRelation(DeterministicDawgTransitionRelation<K1, K2, V> orig) {
+		this();
 		for (Entry<K1, Map<K2, V>> en1 : orig.mK1ToK2ToV.entrySet()) {
-			final Map<K2, V> innerMap = new HashMap<K2, V>();
-			mK1ToK2ToV.put(en1.getKey(), innerMap);
+//			final Map<K2, V> innerMap = new HashMap<K2, V>();
+//			mK1ToK2ToV.put(en1.getKey(), innerMap);
 			for (Entry<K2, V> en2 : orig.mK1ToK2ToV.get(en1.getKey()).entrySet()) {
-				innerMap.put(en2.getKey(), en2.getValue());
+//				innerMap.put(en2.getKey(), en2.getValue());
+				put(en1.getKey(), en2.getKey(), en2.getValue());
 			}
 		}
 	}
@@ -92,7 +115,27 @@ public class DeterministicDawgTransitionRelation<K1, K2, V> {
 		}
 		assert !k2toV.containsKey(key2) || k2toV.get(key2).equals(value) : 
 			"we don't expect that put overwrites something, here --> catch this case outside!";
-		return k2toV.put(key2, value);
+		V result = k2toV.put(key2, value);
+		
+		if (mUseCachingFields) {
+			mAllTransitions.add(new Triple<K1, K2, V>(key1, key2, value));
+			
+			Set<Pair<K2, V>> outEdges = mK1ToOutEdges.get(key1);
+			if (outEdges == null) {
+				outEdges = new HashSet<Pair<K2,V>>();
+				mK1ToOutEdges.put(key1, outEdges);
+			}
+			outEdges.add(new Pair<K2, V>(key2, value));
+			
+			Set<Pair<K1, K2>> inEdges = mVToInEdges.get(value);
+			if (inEdges == null) {
+				inEdges = new HashSet<Pair<K1, K2>>();
+				mVToInEdges.put(value, inEdges);
+			}
+			inEdges.add(new Pair<K1, K2>(key1, key2));
+		}
+		
+		return result;
 	}
 	
 	public V get(final K1 key1, final K2 key2) {
@@ -169,6 +212,9 @@ public class DeterministicDawgTransitionRelation<K1, K2, V> {
 	
 	//TODO more efficient iterable
 	public Iterable<Triple<K1,K2,V>> entrySet() {
+		if (mUseCachingFields) {
+			return mAllTransitions;
+		}
 		final ArrayList<Triple<K1,K2,V>> result = new ArrayList<Triple<K1,K2,V>>();
 		for (final Entry<K1, Map<K2, V>> entryOuter  : mK1ToK2ToV.entrySet()) {
 			for (final Entry<K2, V> entryInner : entryOuter.getValue().entrySet()) {
@@ -185,10 +231,12 @@ public class DeterministicDawgTransitionRelation<K1, K2, V> {
 	}
 	
 	public Map<K2, V> remove(final K1 k1) {
+		assert !mUseCachingFields : "TODO: implement updating of caching fields";
 		return mK1ToK2ToV.remove(k1);
 	}
 	
 	public V remove(final K1 k1, final K2 k2) {
+		assert !mUseCachingFields : "TODO: implement updating of caching fields";
 		final Map<K2, V> k2ToV = mK1ToK2ToV.get(k1);
 		if (k2ToV == null) {
 			return null;
@@ -264,7 +312,14 @@ public class DeterministicDawgTransitionRelation<K1, K2, V> {
 	 * @param stateLeft
 	 * @return
 	 */
-	public Set<Pair<K1, K2>> getInverse(DawgState stateLeft) {
+	public Set<Pair<K1, K2>> getInverse(V stateLeft) {
+		if (mUseCachingFields) {
+			final Set<Pair<K1, K2>> result = mVToInEdges.get(stateLeft);
+			if (result == null) {
+				return Collections.emptySet();
+			}
+			return result;
+		}
 		Set<Pair<K1, K2>> result = new HashSet<Pair<K1,K2>>();
 		for (Entry<K1, Map<K2, V>> en1 : mK1ToK2ToV.entrySet()) {
 			for (Entry<K2, V> en2 : en1.getValue().entrySet()) {
@@ -277,6 +332,13 @@ public class DeterministicDawgTransitionRelation<K1, K2, V> {
 	}
 
 	public Set<Pair<K2, V>> getOutEdgeSet(K1 state) {
+		if (mUseCachingFields) {
+			final Set<Pair<K2, V>> result = mK1ToOutEdges.get(state);
+			if (result == null) {
+				return Collections.emptySet();
+			}
+			return result;
+		}
 		Map<K2, V> innerMap = mK1ToK2ToV.get(state);
 		if (innerMap == null) {
 			return Collections.emptySet();
