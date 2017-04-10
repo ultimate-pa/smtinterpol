@@ -60,6 +60,28 @@ public class DeterministicDawgTransitionRelation<K1, K2, V> {
 	
 	private final Map<K1, Map<K2, V>> mK1ToK2ToV = new HashMap<K1, Map<K2, V>>();
 	
+	/**
+	 * standard constructor, constructs empty relation
+	 */
+	public DeterministicDawgTransitionRelation() {
+		// do nothing
+	}
+	
+	/**
+	 * copy constructor
+	 * 
+	 * @param orig
+	 */
+	public DeterministicDawgTransitionRelation(DeterministicDawgTransitionRelation<K1, K2, V> orig) {
+		for (Entry<K1, Map<K2, V>> en1 : orig.mK1ToK2ToV.entrySet()) {
+			final Map<K2, V> innerMap = new HashMap<K2, V>();
+			mK1ToK2ToV.put(en1.getKey(), innerMap);
+			for (Entry<K2, V> en2 : orig.mK1ToK2ToV.get(en1.getKey()).entrySet()) {
+				innerMap.put(en2.getKey(), en2.getValue());
+			}
+		}
+	}
+	
 	public V put(final K1 key1, final K2 key2, final V value) {
 		assert !(key2 instanceof EmptyDawgLetter<?, ?>) : "edges that are labelled with the empty letter should be omitted; "
 				+ "catch this case outside";
@@ -222,13 +244,13 @@ public class DeterministicDawgTransitionRelation<K1, K2, V> {
 		return true;
 	}
 
-	public DeterministicDawgTransitionRelation<K1, K2, V> copy() {
-		final DeterministicDawgTransitionRelation<K1, K2, V> result = new DeterministicDawgTransitionRelation<K1, K2, V>();
-		for (final K1 k1 : this.keySet()) {
-			result.mK1ToK2ToV.put(k1, new HashMap<K2, V>(this.get(k1)));
-		}
-		return result;
-	}
+//	public DeterministicDawgTransitionRelation<K1, K2, V> copy() {
+//		final DeterministicDawgTransitionRelation<K1, K2, V> result = new DeterministicDawgTransitionRelation<K1, K2, V>();
+//		for (final K1 k1 : this.keySet()) {
+//			result.mK1ToK2ToV.put(k1, new HashMap<K2, V>(this.get(k1)));
+//		}
+//		return result;
+//	}
 	
 	public boolean isEmpty() {
 		return mK1ToK2ToV.isEmpty();
