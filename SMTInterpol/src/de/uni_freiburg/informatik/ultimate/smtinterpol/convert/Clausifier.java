@@ -822,7 +822,7 @@ public class Clausifier {
 					//"exists" case
 					// idea: skolemize everything inside, then go on as usual
 					
-					//TODO alex: rework, this is old, formerly commented out code by Juergen/Jochen
+					// (alex)
 					TermVariable[] vars = qf.getVariables();
 					Term[] skolems = new Term[vars.length];
 					for (int i = 0; i < skolems.length; ++i) {
@@ -830,21 +830,13 @@ public class Clausifier {
 					}
 
 					mEprTheory.addSkolemConstants(skolems);
-//					ArrayList<Literal[]> newGroundings = mEprTheory.addSkolemConstants(skolems);
-//					for (Literal[] ng : newGroundings) {
-//						addClause(ng, null, null);//TODO: hook, proof..
-//					}
-	
 
 					final FormulaUnLet unlet = new FormulaUnLet();
 					unlet.addSubstitutions(new ArrayMap<TermVariable, Term>(vars, skolems));
 					Term skolem1 = unlet.unlet(qf.getSubformula());
 
-//					Term skolem = negSkolem;
 
 					Term skolem = mCompiler.transform(skolem1);
-					// TODO Annotation processing
-//					pushOperation(new AddAsAxiom(mTheory.not(skolem), null)); //alex: added arg
 					pushOperation(new AddAsAxiom(skolem, null)); //alex: added arg
 				} else {
 					//"forall" case
@@ -1098,10 +1090,8 @@ public class Clausifier {
 							+ SMTAffineTerm.cleanup(mTerm));
 				}
 			} else if (mTerm instanceof QuantifiedFormula) {
-				// TODO: Correctly implement this once we support quantifiers.
-				// alex: using it -- but is it correct?..
-				
 
+				// alex (begin): 
 				QuantifiedFormula qf = (QuantifiedFormula) mTerm;
 				assert (qf.getQuantifier() == QuantifiedFormula.EXISTS);
 				if (mPositive) {
@@ -1119,7 +1109,7 @@ public class Clausifier {
 					mEprTheory.addSkolemConstants(skolems);
 					
 					// TODO: perhaps factor out duplicate code with AddAsAxiom ?
-					FormulaUnLet unlet = new FormulaUnLet();
+					final FormulaUnLet unlet = new FormulaUnLet();
 					unlet.addSubstitutions(
 							new ArrayMap<TermVariable, Term>(vars, skolems));
 					Term skolem = unlet.unlet(qf.getSubformula());
@@ -1229,18 +1219,17 @@ public class Clausifier {
 //			}
 			if (idx instanceof ApplicationTerm) {
 				
-				
 //				//alex (begin)
 				if (EprTheory.isQuantifiedEprAtom(idx)) {
 					// idx has implicitly forall-quantified variables
 					// --> dont create a literal for the current term 
 					//     (i.e. only the EPR-theory, not the DPLLEngine, will know it)
 					mCollector.getTracker().save();
-//					DPLLAtom eqAtom = eq.getLiteral();
-					DPLLAtom eprAtom = mEprTheory.getEprAtom((ApplicationTerm) idx, 0, mEngine.getAssertionStackLevel());
-//					mCollector.getTracker().eq(lhs, rhs, eqAtom);
-					mCollector.addLiteral(
-							positive ? eprAtom : eprAtom.negate(), mTerm);
+					
+					DPLLAtom eprAtom = mEprTheory.getEprAtom((ApplicationTerm) idx, 0, mStackLevel);
+					
+					mCollector.addLiteral(positive ? eprAtom : eprAtom.negate(), mTerm);
+
 					mCollector.getTracker().cleanSave();
 					return;
 				}
@@ -1338,23 +1327,10 @@ public class Clausifier {
 					mCollector.getTracker().cleanSave();
 				}
 			} else {
-				if (positive) {
-					assert (idx instanceof QuantifiedFormula);
-					final Literal lit = getLiteral(idx);
-					// TODO: Proof
-					mCollector.addLiteral(lit, mTerm);
-				} else {
-					// Skolemize and recurse 
-					//alex: skolemization seems to be done by AddAsAuxAxiom
-					
-					Literal lit = getLiteral(idx);
-					// TODO: Proof
-					mCollector.addLiteral(lit, mTerm);
-				}
-				//alex: when does this happen? --> have to do some something here for EPR..
-				// right now I think this should not happen, because clausification (AddAsAxiom) removes this case
-//				throw new UnsupportedOperationException(); 
-
+				assert (idx instanceof QuantifiedFormula);
+				final Literal lit = getLiteral(mTerm);
+				// TODO: Proof
+				mCollector.addLiteral(lit, mTerm);
 			}
 		}
 	}
@@ -1378,9 +1354,6 @@ public class Clausifier {
 		public BuildClause(Term proofTerm, Term original) {
 			this(LeafNode.NO_THEORY);
 			mProofTerm = proofTerm;
-			//alex begin
-			mEprTheory.notifyAboutNewClause(this);
-			//alex end
 		}
 		public void auxAxiom(Literal lit, Term res, Term base, Object auxData) {
 			mProofTerm = mSubTracker.auxAxiom(
@@ -1437,12 +1410,9 @@ public class Clausifier {
 					mSubTracker.orSimpClause(mOrigArgs);
 				}
 				
-				
 				//alex (begin)
 				boolean isDpllClause = true;
 				for (Literal l : lits) {
-//					if (l instanceof EprAtom
-//							&& EprTheory.isQuantifiedEprAtom(toPositive(l.getSMTFormula(mTheory)))) {
 					if (l.getAtom() instanceof EprQuantifiedPredicateAtom
 							|| l.getAtom() instanceof EprQuantifiedEqualityAtom) {
 						// we have an EPR-clause
@@ -1461,27 +1431,11 @@ public class Clausifier {
 					//TODO: replace the nulls
 					Literal[] groundLiteralsAfterDER = mEprTheory.addEprClause(lits, null, null);
 					
-//					if (groundLiteralsAfterDER != null)
-					
 					if (groundLiteralsAfterDER != null) {
 						addClause(groundLiteralsAfterDER, null,
 								getProofNewSource(mLeafKind,
 										mSubTracker.clause(mProofTerm)));
-
-//						IProofTracker sub = mTracker.getDescendent();
-//						sub.intern(at, lit);
-//						addClause(groundLiteralsAfterDER, null, getProofNewSource(sub.clause(mProofTerm)));
-//					} else if (mInstantiateEprClauses) {
-						// mode for solving Epr by adding all groundings is active
-
-//						ArrayList<Literal[]> allGroundings = mEprTheory.getAllGroundingsOfLastAddedEprClause();
-//						for (Literal[] grounding : allGroundings) {
-//							System.out.println("EPRDEBUG (Clausifier) adding grounded clause: " + Arrays.toString(grounding)); 
-//							addClause(grounding, null, null);
-//						}
-
 					}
-
 				}
 				//alex (end)
 			}
@@ -1802,7 +1756,6 @@ public class Clausifier {
 				final ApplicationTerm at = (ApplicationTerm) t;
 				// Special cases
 				if (t.getSort() == t.getTheory().getBooleanSort()
-//						&& !mTheory.getLogic().isQuantified()) //alex: we only want these axioms if we do the predicate-to-function conversion
 						&& (mEprTheory == null || EprTheorySettings.FullInstatiationMode)
 						&& !EprTheory.isQuantifiedEprAtom(t)) { //alex: we only want these axioms if we do the predicate-to-function conversion
 					pushOperation(new AddExcludedMiddleAxiom(res));
@@ -1860,7 +1813,7 @@ public class Clausifier {
 	private LinArSolve mLASolver;
 	private ArrayTheory mArrayTheory;
 	//alex begin
-	public EprTheory mEprTheory; //TODO: make private..
+	private EprTheory mEprTheory; //TODO: make private..
 	//alex end
 	
 	private boolean mInstantiationMode;
@@ -1969,24 +1922,29 @@ public class Clausifier {
 	 */
 	private static Term toPositive(Term t) {
 		assert !(t instanceof AnnotatedTerm);
+		assert !(t instanceof QuantifiedFormula) 
+			|| ((QuantifiedFormula) t).getQuantifier() == QuantifiedFormula.EXISTS : "TermCompiler should have removed "
+					+ "this";
 		if (t instanceof ApplicationTerm) {
 			final ApplicationTerm at = (ApplicationTerm) t;
 			return (at.getFunction() == at.getTheory().mNot)
 					? at.getParameters()[0] : at;
 		}
-		// FIXME: Think about how to get Utils in here... 
-		else if (t instanceof QuantifiedFormula) {
-			QuantifiedFormula qf = (QuantifiedFormula) t;
-			if (qf.getQuantifier() == QuantifiedFormula.FORALL) { //alex: convention seems to have changed from forall to exists
-				// (exists (x) (phi x)) is (not (forall (x) (not (phi x))))
-				// alex: (forall (x) (phi x)) is (not (exists (x) (not (phi x))))
-				return t.getTheory().exists(qf.getVariables(), 
-						t.getTheory().not(t)); //alex: just using theory instead of utils --> TODO is that a problem?
-//						Utils.createNot(qf.getSubformula()));
-			}
-			return qf;
-		}
-		throw new InternalError("Unclear how to compute positive for " + t);
+//		} else if (t instanceof QuantifiedFormula) {// FIXME: Think about how to get Utils in here... 
+//			QuantifiedFormula qf = (QuantifiedFormula) t;
+//			if (qf.getQuantifier() == QuantifiedFormula.FORALL) { //alex: convention seems to have changed from forall to exists
+//
+//				// (exists (x) (phi x)) is (not (forall (x) (not (phi x))))
+//
+//				// alex: (forall (x) (phi x)) is (not (exists (x) (not (phi x))))
+//				return t.getTheory().exists(qf.getVariables(), 
+//						t.getTheory().not(t)); //alex: just using theory instead of utils --> TODO is that a problem?
+////						Utils.createNot(qf.getSubformula()));
+//			}
+//			return qf;
+//		}
+//		throw new InternalError("Unclear how to compute positive for " + t);
+		return t;
 	}
 	
 	DPLLAtom createAnonAtom(Term smtFormula) {
@@ -1996,8 +1954,8 @@ public class Clausifier {
 		 * when inserting a cnf-auxvar (for tseitin-style encoding) in a quantified formula,
 		 *  we need it to depend on the currently active quantifiers
 		 */
-		if (mTheory.getLogic().isQuantified()
-				&& smtFormula.getFreeVars().length > 0) {
+		if (smtFormula.getFreeVars().length > 0) {
+			assert mTheory.getLogic().isQuantified() : "quantified variables in quantifier-free theory";
 			
 			Sort[] paramTypes = new Sort[smtFormula.getFreeVars().length];
 			for (int i = 0; i < paramTypes.length; i++)
@@ -2009,9 +1967,6 @@ public class Clausifier {
 					mTheory.getBooleanSort());
 			ApplicationTerm auxTerm = mTheory.term(fs, smtFormula.getFreeVars());
 			atom = mEprTheory.getEprAtom(auxTerm, 0, mStackLevel);
-
-//			EprPredicate eprPred = new EprPredicate(fs, mEprTheory);
-//			atom = eprPred.getAtomForTermTuple(new TermTuple(smtFormula.getFreeVars()), mTheory, mStackLevel);
 		} else {
 		//alex end
 			atom = new NamedAtom(smtFormula, mStackLevel);
@@ -2174,7 +2129,7 @@ public class Clausifier {
 //		 */
 
 
-		// track which constant appear in ground clauses
+		// track which constants appear in ground clauses
 		if (mEprTheory!= null) {
 			mEprTheory.addConstants(EprHelpers.collectAppearingConstants(lits, mTheory));
 		}
@@ -2231,19 +2186,16 @@ public class Clausifier {
 			mSharedFalse =	new SharedTerm(this, mTheory.mFalse);
 			mSharedFalse.mCCterm = mCClosure.createAnonTerm(mSharedFalse);
 			mSharedTerms.put(mTheory.mFalse, mSharedFalse);
-//			if (!mTheory.getLogic().isQuantified()) {
-			if (mEprTheory != null && !EprTheorySettings.FullInstatiationMode) {
-				//alex: this is only needed for the predicate-to-function conversion, right?
-				Literal[] lits = new Literal[] {
-				mCClosure.createCCEquality(
-						mStackLevel, mSharedTrue.mCCterm,
-						mSharedFalse.mCCterm).negate()};
-				mEngine.addFormulaClause(lits,
-						getProofNewSource(ProofConstants.AUX_TRUE_NOT_FALSE, 
-								mTracker.auxAxiom(
-										ProofConstants.AUX_TRUE_NOT_FALSE,
-										lits[0], mTheory.mTrue, null, null)));
-			}
+
+			Literal[] lits = new Literal[] {
+					mCClosure.createCCEquality(
+							mStackLevel, mSharedTrue.mCCterm,
+							mSharedFalse.mCCterm).negate()};
+			mEngine.addFormulaClause(lits,
+					getProofNewSource(ProofConstants.AUX_TRUE_NOT_FALSE, 
+							mTracker.auxAxiom(
+									ProofConstants.AUX_TRUE_NOT_FALSE,
+									lits[0], mTheory.mTrue, null, null)));
 		}
 	}
 	

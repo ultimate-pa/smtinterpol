@@ -563,12 +563,16 @@ public class TermCompiler extends TermTransformer {
 
 	@Override
 	public void postConvertQuantifier(QuantifiedFormula old, Term newBody) {
+		final Theory t = old.getTheory();
+		if (!t.getLogic().isQuantified()) {
+			throw new SMTLIBException("quantifier in quantifier-free theory");
+		}
+		
 		if (old.getQuantifier() == QuantifiedFormula.EXISTS) {
 			super.postConvertQuantifier(old, newBody);
 		} else {
 			// We should create (forall (x) (newBody x))
 			// This becomes (not (exists (x) (not (newBody x))))
-			final Theory t = old.getTheory();
 			final Term negNewBody = t.not(newBody);
 			final Term res = t.not(t.exists(old.getVariables(), negNewBody));
 			setResult(res);

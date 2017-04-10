@@ -24,6 +24,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprEqualityPredicate;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 
 /**
  * 
@@ -46,6 +47,7 @@ public class EprQuantifiedEqualityAtom extends EprQuantifiedPredicateAtom {
 		
 		this.bothQuantified = term.getParameters()[0] instanceof TermVariable 
 				&& term.getParameters()[1] instanceof TermVariable ;
+		assert !EprHelpers.containsBooleanTerm(term.getParameters());
 	}
 
 	public Term getLhs() {

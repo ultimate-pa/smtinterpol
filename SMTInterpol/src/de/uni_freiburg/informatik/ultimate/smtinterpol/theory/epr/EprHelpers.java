@@ -1199,4 +1199,13 @@ public class EprHelpers {
 		return resultTransitionRelation;
 	}
 
+	public static boolean containsBooleanTerm(Term[] parameters) {
+		for (Term t : parameters) {
+			if ("Bool".equals(t.getSort().getRealSort().getName())) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 }

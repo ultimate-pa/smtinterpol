@@ -90,9 +90,6 @@ public class EprClauseFactory {
 		resCls.addAll(c2Lits);
 		resCls.remove(pivot2);
 		
-		String alphaRenamingIdentifier = new String("alpha renaming for resolvent of clausese" 
-				+ c1 + " and " + c2 + "with pivot" + pivot1);
-		mEprTheory.notifyAboutNewClause(alphaRenamingIdentifier);
 
 		// apply the unifier to the literals of c1 and c2, add the unified literals to the resolvent
 		Set<Literal> resLits = computeUnifiedLiteralsFromClauseLiterals(unifier, resCls);
@@ -126,10 +123,6 @@ public class EprClauseFactory {
 		resCls.addAll(cLits);
 		resCls.remove(factorLit2);
 		
-		String alphaRenamingIdentifier = new String("alpha renaming for factoring of clause" 
-				+ clause + " with " + factorLit1 + " and " + factorLit2);
-		mEprTheory.notifyAboutNewClause(alphaRenamingIdentifier);
-	
 		final Set<Literal> resLits = computeUnifiedLiteralsFromClauseLiterals(unifier, resCls);
 
 //		assert getEprClause(resLits).isConflict(); //TODO: does the side effect hurt??

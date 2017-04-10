@@ -103,7 +103,7 @@ public class Model implements de.uni_freiburg.informatik.ultimate.logic.Model {
 			} else if (theory instanceof ArrayTheory) {
 				array = (ArrayTheory) theory;
 			} else if (theory != cc
-					&& !(theory == clausifier.mEprTheory && EprTheorySettings.FullInstatiationMode)) {
+					&& !(theory == clausifier.getEprTheory() && EprTheorySettings.FullInstatiationMode)) {
 				throw new InternalError(
 					"Modelproduction for theory not implemented: " + theory);
 			}
