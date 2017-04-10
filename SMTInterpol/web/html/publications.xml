@@ -11,17 +11,30 @@
   <content>
     <head1>Publications about <s /></head1>
     <list>
-      <paper conf="CoRR abs" note="Extended Version">
+      <paper conf="Journal of Automated Reasoning (57) 1">
+	<authors>J&uuml;rgen Christ, and Jochen Hoenicke</authors>
+	<title>Proof Tree Preserving Tree Interpolation</title>
+	<doi>http://dx.doi.org/10.1007/s10817-016-9365-5</doi>
+	<bib>http://dblp.uni-trier.de/rec/bibtex/journals/jar/ChristH16</bib>
+      </paper>
+      <paper conf="CAV 2015">
+	<authors>J&uuml;rgen Christ, and Jochen Hoenicke</authors>
+	<title>Cutting the Mix</title>
+	<doi>http://dx.doi.org/10.1007/978-3-319-24246-0_8</doi>
+	<bib>http://dblp.uni-trier.de/rec/bibtex/conf/cav/ChristH15</bib>
+      </paper>
+      <paper conf="FroCos 2015">
 	<authors>J&uuml;rgen Christ, and Jochen Hoenicke</authors>
 	<title>Weakly Equivalent Arrays</title>
-	<pdf>http://arxiv.org/pdf/1405.6939v1.pdf</pdf>
-	<bib>http://dblp.uni-trier.de/rec/bibtex/journals/corr/ChristH14</bib>
+	<doi>http://dx.doi.org/10.1007/978-3-319-24246-0_8</doi>
+	<bib>http://dblp.uni-trier.de/rec/bibtex/conf/frocos/ChristH15</bib>
       </paper>
-      <paper conf="TACAS 2013" note="Technical Report">
+      <paper conf="TACAS 2013">
 	<authors>J&uuml;rgen Christ, Jochen Hoenicke, and Alexander Nutz</authors>
 	<title>Proof Tree Preserving Interpolation</title>
 	<pdf>http://www.avacs.org/fileadmin/Publikationen/Open/avacs_technical_report_089.pdf</pdf>
-	<bib>http://www.avacs.org/fileadmin/Publikationen/Bibs/atr089.bib</bib>
+	<doi>http://dx.doi.org/10.1007/978-3-642-36742-7_9</doi>
+	<bib>http://dblp.uni-trier.de/rec/bibtex/conf/tacas/ChristHN13</bib>
       </paper>
       <paper conf="SPIN 2012">
 	<authors>J&uuml;rgen Christ, Jochen Hoenicke, and Alexander Nutz</authors>

@@ -35,10 +35,14 @@
 
     <head1>Team</head1>
     <txt><s /> is developed by <link
+    url="http://swt.informatik.uni-freiburg.de/staff/christ">J&uuml;rgen
+    Christ</link>, <link
     url="http://swt.informatik.uni-freiburg.de/staff/hoenicke">Jochen
     Hoenicke</link>, <link
-    url="http://swt.informatik.uni-freiburg.de/staff/christ">J&uuml;rgen
-    Christ</link>, and <link url="http://swt.informatik.uni-freiburg.de/staff/nutz">Alexander Nutz</link> in the context of the <link
+    url="http://swt.informatik.uni-freiburg.de/staff/nutz">Alexander
+    Nutz</link>, and <link
+    url="http://swt.informatik.uni-freiburg.de/staff/schindler">Tanja
+    Schindler</link> in the context of the <link
     url="http://www.avacs.org">AVACS (Automatic Verification and Analysis of
     Complex Systems)</link> project.  If you have any questions, suggestions,
     or if you want to contribute, feel free to contact us.</txt>
