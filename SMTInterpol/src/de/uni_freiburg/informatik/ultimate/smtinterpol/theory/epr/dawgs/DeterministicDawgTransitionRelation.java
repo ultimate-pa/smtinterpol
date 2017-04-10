@@ -65,7 +65,7 @@ public class DeterministicDawgTransitionRelation<K1, K2, V> {
 	 * fields that cache information about the transition relation in the form that we often request
 	 * caching can be switched on/off through a flag
 	 */
-	private static final boolean mUseCachingFields = false;
+	private static final boolean mUseCachingFields = true;
 	private final Map<K1, Set<Pair<K2, V>>> mK1ToOutEdges;
 	private final Map<V, Set<Pair<K1, K2>>> mVToInEdges;
 	private final Set<Triple<K1, K2, V>> mAllTransitions;

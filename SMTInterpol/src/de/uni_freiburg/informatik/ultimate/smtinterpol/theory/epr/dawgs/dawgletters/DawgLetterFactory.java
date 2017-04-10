@@ -52,24 +52,6 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 	private final NestedMap2<Object, Set<LETTER>, SimpleComplementDawgLetter<LETTER, COLNAMES>> mSortToLettersToSimpleComplementDawgLetter
 		 = new NestedMap2<Object, Set<LETTER>, SimpleComplementDawgLetter<LETTER,COLNAMES>>();
 	
-	private final NestedMap4<Object, 
-			Set<LETTER>, 
-			Set<COLNAMES>, 
-			Set<COLNAMES>, 
-			DawgLetterWithEqualities<LETTER, COLNAMES>> mDawgLettersWithEqualitiesStore = 
-				new NestedMap4<Object, Set<LETTER>, Set<COLNAMES>, Set<COLNAMES>, DawgLetterWithEqualities<LETTER,COLNAMES>>();
-	private final NestedMap4<Object, 
-			Set<LETTER>, 
-			Set<COLNAMES>, 
-			Set<COLNAMES>, 
-			ComplementDawgLetterWithEqualities<LETTER, COLNAMES>> mComplementDawgLettersWithEqualitiesStore = 
-				new NestedMap4<Object, Set<LETTER>, Set<COLNAMES>, Set<COLNAMES>, ComplementDawgLetterWithEqualities<LETTER,COLNAMES>>();
-	private final NestedMap3<Object, 
-			Set<COLNAMES>, 
-			Set<COLNAMES>, 
-			UniversalDawgLetterWithEqualities<LETTER, COLNAMES>> mUniversalDawgLettersWithEqualitiesStore = 
-				new NestedMap3<Object, Set<COLNAMES>, Set<COLNAMES>, UniversalDawgLetterWithEqualities<LETTER,COLNAMES>>();
-
 	private final DawgFactory<LETTER, COLNAMES> mDawgFactory;
 	
 
@@ -78,12 +60,7 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 	}
 
 	public IDawgLetter<LETTER, COLNAMES> getSingletonSetDawgLetter(LETTER element, Object sortId) {
-		if (useSimpleDawgLetters()) {
-			return getSimpleDawgLetter(Collections.singleton(element), sortId);
-		} else {
-			Set<COLNAMES> es = Collections.emptySet();
-			return getDawgLetterWithEqualities(Collections.singleton(element), es, es, sortId);
-		}
+		return getSimpleDawgLetter(Collections.singleton(element), sortId);
 	}
 	
 	public UniversalDawgLetter<LETTER, COLNAMES> getUniversalDawgLetter(Object sortId) {
@@ -104,50 +81,6 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 		return result;
 	}
 
-	public AbstractDawgLetter<LETTER, COLNAMES> getComplementDawgLetterWithEqualities(Set<LETTER> complementLetters, Set<COLNAMES> equalColnames,
-			Set<COLNAMES> inequalColnames, Object sortId) {
-		if (complementLetters.isEmpty()) {
-			return getUniversalDawgLetterWithEqualities(equalColnames, inequalColnames, sortId);
-		}
-		
-		ComplementDawgLetterWithEqualities<LETTER, COLNAMES> result = 
-				mComplementDawgLettersWithEqualitiesStore.get(sortId, complementLetters, equalColnames, inequalColnames);
-		if (result == null) {
-			result = new ComplementDawgLetterWithEqualities<LETTER, COLNAMES>(complementLetters, 
-					equalColnames, inequalColnames, this, sortId);
-			mComplementDawgLettersWithEqualitiesStore.put(sortId, complementLetters, equalColnames, inequalColnames, result);
-		}
-		return result;
-	}
-
-	public UniversalDawgLetterWithEqualities<LETTER, COLNAMES> getUniversalDawgLetterWithEqualities(
-			Set<COLNAMES> equalColnames, Set<COLNAMES> unequalColnames, Object sortId) {
-		
-		UniversalDawgLetterWithEqualities<LETTER, COLNAMES> result = 
-				mUniversalDawgLettersWithEqualitiesStore.get(sortId, equalColnames, unequalColnames);
-		if (result == null) {
-			result = new UniversalDawgLetterWithEqualities<LETTER, COLNAMES>(this, equalColnames, unequalColnames, sortId);
-			mUniversalDawgLettersWithEqualitiesStore.put(sortId, equalColnames, unequalColnames, result);
-		}
-		return result;
-	}
-
-	public AbstractDawgLetter<LETTER, COLNAMES> getDawgLetterWithEqualities(Set<LETTER> newLetters, Set<COLNAMES> equalColnames,
-			Set<COLNAMES> inequalColnames, Object sortId) {
-
-		if (newLetters.isEmpty()) {
-			// if the set of LETTERs is empty, the (in)equalities don't matter
-			return getEmptyDawgLetter(sortId);
-		}
-	
-		DawgLetterWithEqualities<LETTER, COLNAMES> result = mDawgLettersWithEqualitiesStore.get(sortId, newLetters, equalColnames, inequalColnames);
-		if (result == null) {
-			result = new DawgLetterWithEqualities<LETTER, COLNAMES>(newLetters, equalColnames, inequalColnames, this, sortId);
-			mDawgLettersWithEqualitiesStore.put(sortId, newLetters, equalColnames, inequalColnames, result);
-		}
-		
-		return result;
-	}
 	
 	public Set<LETTER> getAllConstants(Object sortId) {
 		Set<LETTER> result = mDawgFactory.getAllConstants(sortId);

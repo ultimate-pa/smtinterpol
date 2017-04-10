@@ -20,27 +20,19 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgbuilders;
 
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
-import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
-import java.util.Map.Entry;
 
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.Dawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.AbstractDawgLetterWithEqualities;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.ComplementDawgLetterWithEqualities;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.DawgLetterFactory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.DawgLetterWithEqualities;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.EmptyDawgLetter;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.IDawgLetter;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.UniversalDawgLetter;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.UniversalDawgLetterWithEqualities;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgStateFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.RenameAndReorderDawgState;
@@ -329,82 +321,9 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 		
 		mResultColnames = newColNames;
 		mResultTransitionRelation = newTransitionRelation;
-		
-		if (!mDawgLetterFactory.useSimpleDawgLetters()) {
-			assert !mDuplicationMode : "if we use DawgLettersWithEqualities, we don't need this class for duplication";
-		
-			/*
-			 * both in merge mode and normal mode:
-			 *  just rename all (un)equalColnames according to the renaming
-			 */
-			HashRelation3<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> updatedColnamesTransitionRelation = 
-					new HashRelation3<DawgState, IDawgLetter<LETTER,COLNAMES>, DawgState>();
-			for (DawgState p1 : mResultTransitionRelation.projectToFst()) {
-				for (IDawgLetter<LETTER, COLNAMES> p2 : mResultTransitionRelation.projectToSnd(p1)) {
-					for (DawgState p3 : mResultTransitionRelation.projectToTrd(p1, p2)) {
-						IDawgLetter<LETTER, COLNAMES> updatedColnamesDawgLetter = updateColnames(p2, mOldColname, mNewColname);
-						updatedColnamesTransitionRelation.addTriple(p1, updatedColnamesDawgLetter, p3);
-					}
-				}
-			}
-			mResultTransitionRelation = updatedColnamesTransitionRelation;
-		}
 	}
 
-	private IDawgLetter<LETTER, COLNAMES> updateColnames(IDawgLetter<LETTER, COLNAMES> p2, COLNAMES oldColname,
-			COLNAMES newColname) {
-		if (p2 instanceof UniversalDawgLetter<?, ?>) {
-			return p2;
-		}
-		assert !(p2 instanceof EmptyDawgLetter<?, ?>);
-		
-		// this method assumes that p2 is castable --> if this crashes, catch it outside
-		final AbstractDawgLetterWithEqualities<LETTER, COLNAMES> adlwe = 
-				(AbstractDawgLetterWithEqualities<LETTER, COLNAMES>) p2;
-		
-		final Set<COLNAMES> newEqualColnames = new HashSet<COLNAMES>();
-		for (COLNAMES eq : adlwe.getEqualColnames()) {
-			if (eq.equals(oldColname)) {
-				newEqualColnames.add(newColname);
-			} else {
-				newEqualColnames.add(eq);
-			}
-		}
 
-		final Set<COLNAMES> newUnequalColnames = new HashSet<COLNAMES>();
-		for (COLNAMES uneq : adlwe.getUnequalColnames()) {
-			if (uneq.equals(oldColname)) {
-				newUnequalColnames.add(newColname);
-			} else {
-				newUnequalColnames.add(uneq);
-			}
-		}
-		
-		assert newUnequalColnames.size() == adlwe.getUnequalColnames().size();
-		assert newEqualColnames.size() == adlwe.getEqualColnames().size();
-		
-		if (p2 instanceof DawgLetterWithEqualities<?, ?>) {
-			return mDawgLetterFactory.getDawgLetterWithEqualities(
-					((DawgLetterWithEqualities<LETTER, COLNAMES>) p2).mLetters, 
-					newEqualColnames, 
-					newUnequalColnames, 
-					((DawgLetterWithEqualities<LETTER, COLNAMES>) p2).getSortId());
-		} else if (p2 instanceof ComplementDawgLetterWithEqualities<?, ?>) {
-			return mDawgLetterFactory.getDawgLetterWithEqualities(
-					((ComplementDawgLetterWithEqualities<LETTER, COLNAMES>) p2).mComplementLetters, 
-					newEqualColnames, 
-					newUnequalColnames, 
-					((ComplementDawgLetterWithEqualities<LETTER, COLNAMES>) p2).getSortId());
-		} else if (p2 instanceof UniversalDawgLetterWithEqualities<?, ?>) {
-			return mDawgLetterFactory.getUniversalDawgLetterWithEqualities(
-					newEqualColnames, 
-					newUnequalColnames, 
-					((UniversalDawgLetterWithEqualities<LETTER, COLNAMES>) p2).getSortId());
-		} else {
-			assert false : "not a DawgLetterWithEqualities?? catch this outside?";
-			return null;
-		}
-	}
 
 	private Set<DawgState> constructRnrPart(final COLNAMES newPostNeighbour, 
 			final boolean movesToTheRight,

@@ -40,7 +40,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgbuil
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.DawgLetterFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.EmptyDawgLetter;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.IDawgLetter;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.UniversalDawgLetterWithEqualities;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgStateFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.HashRelation3;
@@ -778,36 +777,37 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 			if (newCols.size() == 1) {
 				final COLNAMES newCol = newCols.iterator().next();
 				if (result.getColNames().contains(newCol)) {
-					assert false : "this should be reached any more since we apply constructive equality reasoning on "
-							+ "every clause.";
-					// we currently assume that merging can only happen when there
-					// is only one newCol
-					assert renaming.isFunction();
-					// merge case
-					result = new ReorderAndRenameDawgBuilder<LETTER, COLNAMES>(mDawgFactory, result, oldcol, newCol,
-							false, true).build();
+					throw new AssertionError("this should be reached any more since we apply constructive equality reasoning on "
+							+ "every clause.");
+//					// we currently assume that merging can only happen when there
+//					// is only one newCol
+//					assert renaming.isFunction();
+//					// merge case
+//					result = new ReorderAndRenameDawgBuilder<LETTER, COLNAMES>(mDawgFactory, result, oldcol, newCol,
+//							false, true).build();
 				} else {
 					// normal (i.e. move column) case
 					result = new ReorderAndRenameDawgBuilder<LETTER, COLNAMES>(mDawgFactory, result, oldcol, newCol)
 							.build();
 				}
 			} else {
-				/*
-				 * we make the renaming for the first newCol and then trigger
-				 * "column duplication" for the others
-				 */
-				Iterator<COLNAMES> newColIt = newCols.iterator();
-
-				COLNAMES firstNewCol = newColIt.next();
-				assert !result.getColNames().contains(firstNewCol) : "do we mix merge and duplication??";
-				result = new ReorderAndRenameDawgBuilder<LETTER, COLNAMES>(mDawgFactory, result, oldcol, firstNewCol)
-						.build();
-
-				while (newColIt.hasNext()) {
-					COLNAMES currentNewCol = newColIt.next();
-					assert !result.getColNames().contains(currentNewCol) : "do we mix merge and duplication??";
-					result = result.duplicateColumn(firstNewCol, currentNewCol);
-				}
+				throw new AssertionError("should not happen due to constructive equality reasoning!!");
+//				/*
+//				 * we make the renaming for the first newCol and then trigger
+//				 * "column duplication" for the others
+//				 */
+//				Iterator<COLNAMES> newColIt = newCols.iterator();
+//
+//				COLNAMES firstNewCol = newColIt.next();
+//				assert !result.getColNames().contains(firstNewCol) : "do we mix merge and duplication??";
+//				result = new ReorderAndRenameDawgBuilder<LETTER, COLNAMES>(mDawgFactory, result, oldcol, firstNewCol)
+//						.build();
+//
+//				while (newColIt.hasNext()) {
+//					COLNAMES currentNewCol = newColIt.next();
+//					assert !result.getColNames().contains(currentNewCol) : "do we mix merge and duplication??";
+//					result = result.duplicateColumn(firstNewCol, currentNewCol);
+//				}
 			}
 		}
 		return result;
@@ -824,25 +824,6 @@ public class Dawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
 	 */
 	private Dawg<LETTER, COLNAMES> reorderAndRename(Map<COLNAMES, COLNAMES> renaming) {
 		return reorderAndRename(new BinaryRelation<COLNAMES, COLNAMES>(renaming));
-	}
-
-	@Deprecated
-	private Dawg<LETTER, COLNAMES> duplicateColumn(COLNAMES firstCol, COLNAMES currentNewCol) {
-		if (mDawgLetterFactory.useSimpleDawgLetters()) {
-			return new ReorderAndRenameDawgBuilder<LETTER, COLNAMES>(mDawgFactory, this, firstCol, currentNewCol, true)
-					.build();
-		} else {
-			/*
-			 * this is the "easy case" as our non-simple dawg-letters allow
-			 * equality-constraints
-			 */
-			final Set<COLNAMES> emptyColnamesSet = Collections.emptySet();
-			final UniversalDawgLetterWithEqualities<LETTER, COLNAMES> duplicationDawgLetter = 
-					mDawgLetterFactory.getUniversalDawgLetterWithEqualities(
-							Collections.singleton(firstCol), emptyColnamesSet, mSignature.getSortForColname(firstCol));
-			assert mSignature.getSortForColname(firstCol).equals(EprHelpers.extractSortFromColname(currentNewCol));
-			return this.insertColumn(currentNewCol, duplicationDawgLetter);
-		}
 	}
 
 	/**
