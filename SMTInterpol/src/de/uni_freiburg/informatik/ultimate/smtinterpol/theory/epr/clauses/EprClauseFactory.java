@@ -125,15 +125,12 @@ public class EprClauseFactory {
 		
 		final Set<Literal> resLits = computeUnifiedLiteralsFromClauseLiterals(unifier, resCls);
 
-//		assert getEprClause(resLits).isConflict(); //TODO: does the side effect hurt??
-
 		final Set<Literal> cerResLits = new ApplyConstructiveEqualityReasoning(mEprTheory, resLits).getResult();
 		
 		final EprClause factor = getEprClause(cerResLits);
 
-//		 weakened the following assertion by the left disjunct, because CER may make the conflict "non-obvious"..
-//		assert !cerResLits.equals(resLits) || factor.isConflict();
-		assert factor.isConflict();
+		boolean isConflict = factor.isConflict(); // avoiding a side effect that only happens with enabled assertions..
+		assert isConflict;
 
 		mEprTheory.getStateManager().learnClause(factor);
 		return factor;
