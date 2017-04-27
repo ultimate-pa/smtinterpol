@@ -446,7 +446,8 @@ public class EprStateManager {
 
 	private ApplicationTerm createDefaultConstant(Sort sort) {
 		final FunctionSymbol fs = mTheory.declareFunction(
-					"(defaultConstant)", new Sort[0], sort);
+					"defaultConstant_" + sort.toString(), 
+					new Sort[0], sort);
 		final ApplicationTerm defaultTerm = mTheory.term(fs);
 		return defaultTerm;
 	}
