@@ -281,6 +281,10 @@ public class EprTheory implements ITheory {
 
 	@Override
 	public Clause checkpoint() {
+		if (mEngine.isTerminationRequested()) {
+			mLogger.debug("EPRDEBUG: received timeout -- exiting at checkpoint");
+			return null;
+		}
 		if (EprTheorySettings.FullInstatiationMode)
 			return null;
 		mLogger.debug("EPRDEBUG: checkpoint");
@@ -733,5 +737,9 @@ public class EprTheory implements ITheory {
 	public void dumpModel(LogProxy logger) {
 		// TODO Auto-generated method stub
 
+	}
+
+	public boolean isTerminationRequested() {
+		return mEngine.isTerminationRequested();
 	}
 }

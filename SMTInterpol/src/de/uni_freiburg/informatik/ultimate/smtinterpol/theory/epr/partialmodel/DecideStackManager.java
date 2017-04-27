@@ -81,7 +81,8 @@ public class DecideStackManager {
 	EprClause propagateAll(Set<EprClause> unitClauses) {
 		Set<EprClause> conflictsOrUnits = new HashSet<EprClause>(unitClauses);
 		while (conflictsOrUnits != null 
-				&& !conflictsOrUnits.isEmpty()) {
+				&& !conflictsOrUnits.isEmpty()
+				&& !mEprTheory.isTerminationRequested()) {
 			EprClause current = conflictsOrUnits.iterator().next(); // just pick any ..
 
 			conflictsOrUnits.remove(current);
