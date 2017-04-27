@@ -33,11 +33,12 @@ class ApplyDestructiveEqualityReasoning {
 
 	HashSet<Literal> mResult;
 	boolean mIsResultGround = true;
-	final EprTheory mEprTheory;
+	final private EprTheory mEprTheory;
 
 	public ApplyDestructiveEqualityReasoning(EprTheory eprTheory, Literal[] literals) {
-		applyDER(new HashSet<Literal>(Arrays.asList(literals)));
+		assert eprTheory != null;
 		mEprTheory = eprTheory;
+		applyDER(new HashSet<Literal>(Arrays.asList(literals)));
 	}
 
 	private void applyDER(HashSet<Literal> literals) {

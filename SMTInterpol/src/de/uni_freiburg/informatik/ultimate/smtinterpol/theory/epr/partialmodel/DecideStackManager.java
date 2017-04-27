@@ -19,6 +19,7 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -742,13 +743,27 @@ public class DecideStackManager {
 				// removed the marker through a pop() before, nothing to do
 				return;
 			}
+
+			/*
+			 * We clear the complete list above the given literal's marker, BUT, we restore all the pushMarkers
+			 * in that list on the decideStack.
+			 */
+			List<DecideStackPushMarker> pushMarkers = new ArrayList<DecideStackPushMarker>();
+
 			List<DecideStackEntry> suffix = mStack.subList(mStack.indexOf(marker), mStack.size());
 			for (DecideStackEntry dse : suffix) {
 				if (dse instanceof DecideStackLiteral) {
 					((DecideStackLiteral) dse).unregister();
+				} else if (dse instanceof DecideStackPushMarker) {
+					pushMarkers.add((DecideStackPushMarker) dse);
 				}
 			}
 			suffix.clear();
+
+			// restore the pushMarkers
+			Collections.reverse(pushMarkers);
+			mStack.addAll(pushMarkers);
+
 			updateInternalFields();
 			assert checkDecideStackInvariants();
 		}
@@ -757,6 +772,12 @@ public class DecideStackManager {
 			return lastNonMarker;
 		}
 
+		/**
+		 * Remove a DecideStackLiteral from the stack.
+		 * Note that there may be markers above it on the stack that we have to leave -- i.e. our stack is not really a stack..
+		 * 
+		 * @return
+		 */
 		DecideStackLiteral popDecideStackLiteral() {
 			mLogger.debug("EPRDEBUG: EprDecideStack.popDecideStackLiteral()");
 			if (lastNonMarker == null) {
@@ -796,6 +817,14 @@ public class DecideStackManager {
 		void pop() {
 			assert lastPushMarker != null : "already popped all push markers";
 			mLogger.debug("EPRDEBUG: EprDecideStack.pop()");
+
+//			if (lastPushMarker == null) {
+//				/*
+//				 * already popped below the last and only pushMarker
+//				 *  (e.g. because a setLiteralMarker was popped)
+//				 *  --> do nothing
+//				 */
+//			}
 
 			List<DecideStackEntry> suffix = mStack.subList(lastPushMarkerIndex, mStack.size());
 			for (DecideStackEntry dse : suffix) {
