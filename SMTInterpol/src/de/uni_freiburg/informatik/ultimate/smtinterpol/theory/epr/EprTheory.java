@@ -281,12 +281,12 @@ public class EprTheory implements ITheory {
 
 	@Override
 	public Clause checkpoint() {
-		if (mEngine.isTerminationRequested()) {
-			mLogger.debug("EPRDEBUG: received timeout -- exiting at checkpoint");
+		if (isTerminationRequested()) {
 			return null;
 		}
-		if (EprTheorySettings.FullInstatiationMode)
+		if (EprTheorySettings.FullInstatiationMode) {
 			return null;
+		}
 		mLogger.debug("EPRDEBUG: checkpoint");
 		assert EprHelpers.verifyThatDpllAndEprDecideStackAreConsistent(mStateManager.getAllEprPredicates(), mLogger);
 
@@ -434,7 +434,7 @@ public class EprTheory implements ITheory {
 	@Override
 	public Clause backtrackComplete() {
 		// TODO Auto-generated method stub
-		mLogger.info("EPRDEBUG: backtrackComplete");
+		mLogger.debug("EPRDEBUG: backtrackComplete");
 		return null;
 	}
 
@@ -740,6 +740,10 @@ public class EprTheory implements ITheory {
 	}
 
 	public boolean isTerminationRequested() {
-		return mEngine.isTerminationRequested();
+		boolean result = mEngine.isTerminationRequested();
+		if (result) {
+			mLogger.info("EPRDEBUG: timeout received!");
+		}
+		return result;
 	}
 }

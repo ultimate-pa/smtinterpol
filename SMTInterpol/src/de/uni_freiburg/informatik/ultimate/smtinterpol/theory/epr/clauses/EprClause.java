@@ -327,6 +327,11 @@ public class EprClause {
 		
 		// do we have a literal that is fulfilled (on all points)?
 		for (ClauseLiteral cl : getLiterals()) {
+//			if (mEprTheory.isTerminationRequested()) {
+////				throw new AssertionError("terminated");
+//				break;
+//			}
+			
 			if (cl.isFulfilled(decideStackBorder)) {
 				setClauseState(decideStackBorder, EprClauseState.Fulfilled);
 				return getClauseState(decideStackBorder);
@@ -338,6 +343,11 @@ public class EprClause {
 		IDawg<ApplicationTerm, TermVariable> pointsToConsider = 
 				mEprTheory.getDawgFactory().getUniversalDawg(getVariables());
 		for (ClauseLiteral cl : getLiterals()) {
+//			if (mEprTheory.isTerminationRequested()) {
+////				throw new AssertionError("terminated");
+//				break;
+//			}
+
 			if (cl.isRefuted(decideStackBorder)) {
 				continue;
 			}
@@ -372,6 +382,10 @@ public class EprClause {
 		
 		
 		for (ClauseLiteral cl : getLiterals()) {
+//			if (mEprTheory.isTerminationRequested()) {
+//				break;
+//			}
+
 			if (cl.isFulfillable(decideStackBorder)) {
 				// at least one point of cl is still undecided (we sorted out fulfilled points before..)
 				// we move the newly fulfillable points one up in our hierarchy
