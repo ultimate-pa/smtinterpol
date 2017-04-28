@@ -178,7 +178,7 @@ public class EprTheory implements ITheory {
 		} else if (atom instanceof CCEquality) {
 //			assert false : "TODO: check handling of equalities";
 //			if (literal.getSign() == 1) {
-				Clause conflictOrNull = mStateManager.setGroundEquality((CCEquality) atom, atom.getSign() == 1);
+				Clause conflictOrNull = mStateManager.setGroundEquality((CCEquality) atom, literal.getSign() == 1);
 				conflictOrNull = EprHelpers.sanitizeGroundConflict(mClausifier, mLogger, conflictOrNull);
 				return conflictOrNull;
 //			}
@@ -222,7 +222,7 @@ public class EprTheory implements ITheory {
 			assert false : "DPLLEngine is unsetting a quantified EprAtom --> this cannot be..";
 
 		} else if (atom instanceof CCEquality) {
-			mStateManager.unsetGroundEquality((CCEquality) atom, atom.getSign() == 1);
+			mStateManager.unsetGroundEquality((CCEquality) atom, literal.getSign() == 1);
 		} else {
 			// neither an EprAtom nor an equality
 
