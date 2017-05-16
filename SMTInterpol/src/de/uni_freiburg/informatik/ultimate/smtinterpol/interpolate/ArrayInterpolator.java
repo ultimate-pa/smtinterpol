@@ -26,6 +26,7 @@ import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate.Interpolator.LitInfo;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate.Interpolator.Occurrence;
@@ -55,8 +56,8 @@ public class ArrayInterpolator {
 	 */
 	private InterpolatorClauseTermInfo mLemmaInfo;
 	/**
-	 * The main disequality of this lemma. It is of the form "a[i]!=b[j]" for read-over-weakeq lemmas,
-	 * and of the form "a!=b" for weakeq-ext lemmas.
+	 * The main disequality of this lemma. It is of the form "a[i]!=b[j]" for read-over-weakeq lemmas, and of the form
+	 * "a!=b" for weakeq-ext lemmas.
 	 */
 	private ApplicationTerm mDiseq;
 	/**
@@ -108,6 +109,10 @@ public class ArrayInterpolator {
 	 */
 	public Term[] computeInterpolants(Term proofTerm) {
 		mLemmaInfo = mInterpolator.getClauseTermInfo(proofTerm);
+		
+		// At the moment, we only support read-over-weakeq lemmas
+		assert mLemmaInfo.getLemmaType().equals(":read-over-weakeq");
+		
 		mDiseq = (ApplicationTerm) mLemmaInfo.getDiseq();
 		mDiseqInfo = mInterpolator.getLiteralInfo(mDiseq);
 		mEqualities = new HashMap<SymmetricPair<Term>, ApplicationTerm>();
@@ -235,8 +240,8 @@ public class ArrayInterpolator {
 	private void addIndexEquality() {
 		final LitInfo info = mInterpolator.getLiteralInfo(mIndexEquality);
 		final Term otherSelect = info.getMixedVar() != null ? info.getMixedVar()
-				: getIndexFromSelect((ApplicationTerm) mDiseq.getParameters()[0]).equals(mStorePath.getIndex()) ? mDiseq.getParameters()[1]
-						: mDiseq.getParameters()[0];
+				: getIndexFromSelect((ApplicationTerm) mDiseq.getParameters()[0]).equals(mStorePath.getIndex())
+						? mDiseq.getParameters()[1] : mDiseq.getParameters()[0];
 		final Occurrence otherSelectOccur = mInterpolator.getOccurrence(otherSelect, null);
 		for (int color = 0; color < mNumInterpolants; color++) {
 			if (mSelectIndex[color] != null) {
@@ -336,8 +341,8 @@ public class ArrayInterpolator {
 	}
 	
 	/**
-	 * Build a weq-term for a given A path. It states that two arrays differ at most at #stores positions, and none of
-	 * them equals weakpathindex.
+	 * Build a weq term for two arrays and a given formula. It states that two arrays differ at most at #stores
+	 * positions, and each difference satisfies F.
 	 * 
 	 * @param color
 	 *            the current partition
@@ -346,23 +351,78 @@ public class ArrayInterpolator {
 	 * @param right
 	 *            the shared array at the right path end
 	 * @param order
-	 *            the order of weak equality, i.e. the maximum number of differences between left and right
+	 *            the order (= #stores) of the weq term
+	 * @param formula
+	 *            the formula satisfied by the diff terms, with an auxiliary variable
+	 * @param auxVar
+	 *            the auxiliary variable in the formula
+	 * @return
+	 */
+	private Term buildWeqTerm(Term left, Term right, int order, Term formula, TermVariable auxVar) {
+		Term rewrite = left;
+		Term weqTerm = mTheory.mTrue;
+		
+		for (int m = 0; m < order; m++) {
+			Term arrayEquality = mTheory.equals(rewrite, right);
+			Term diffTerm = mTheory.term("@diff", rewrite, right);
+			Term fTerm = mTheory.let(auxVar, diffTerm, formula);
+			weqTerm = mTheory.and(weqTerm, mTheory.or(arrayEquality, fTerm));
+			rewrite = mTheory.term("store", rewrite, diffTerm, mTheory.term("select", right, diffTerm));
+		}
+		weqTerm = mTheory.and(weqTerm, mTheory.equals(rewrite, right));
+		
+		return weqTerm;
+	}
+	
+	/**
+	 * Build an nweq term for two arrays and a given formula. It states that two arrays differ at some index that
+	 * satisfies F or on more than #stores indices.
+	 * 
+	 * @param color
+	 *            the current partition
+	 * @param left
+	 *            the shared array at the left path end
+	 * @param right
+	 *            the shared array at the right path end
+	 * @param order
+	 *            the order (= #stores) of the nweq term
+	 * @param formula
+	 *            the formula satisfied by the diff terms, with an auxiliary variable
+	 * @param auxVar
+	 *            the auxiliary variable in the formula
+	 * @return
+	 */
+	private Term buildNweqTerm(Term left, Term right, int order, Term formula, TermVariable auxVar) {
+		Term rewrite = left;
+		Term weqTerm = mTheory.mFalse;
+		
+		for (int m = 0; m < order; m++) {
+			Term arrayDisequality = mTheory.not(mTheory.equals(rewrite, right));
+			Term diffTerm = mTheory.term("@diff", rewrite, right);
+			Term fTerm = mTheory.let(auxVar, diffTerm, formula);
+			weqTerm = mTheory.or(weqTerm, mTheory.and(arrayDisequality, fTerm));
+			rewrite = mTheory.term("store", rewrite, diffTerm, mTheory.term("select", right, diffTerm));
+		}
+		weqTerm = mTheory.or(weqTerm, mTheory.not(mTheory.equals(rewrite, right)));
+		
+		return weqTerm;
+	}
+	
+	/**
+	 * Build the F_pi^A - term. It collects the B-parts of index disequalities on an A-path.
+	 * 
+	 * @param color
+	 *            the current partition
+	 * @param sharedIndex
+	 *            the shared term representing the weakpathindex
 	 * @param indexDiseqs
 	 *            disequalities between weakpathindex and all indices for which a store between left and right exists.
-	 * @returns a weq-term for an A path.
+	 * @return the disjunction of the negated B-parts of index diseqs on an A-path, in shared terms.
 	 */
-	private Term buildWeqTerm(int color, Term left, Term right, int order, Term weakPathIndex,
-			Map<ApplicationTerm, LitInfo> indexDiseqs) {
-		Term arrayEq = mTheory.equals(left, right);
-		if (order == 0) {
-			return arrayEq;
+	private Term buildFPiATerm(int color, TermVariable sharedIndex, Map<ApplicationTerm, LitInfo> indexDiseqs) {
+		if (indexDiseqs == null) {
+			return mTheory.mFalse;
 		}
-		
-		Term diff = mTheory.term("@diff", left, right);
-		Term leftToRight = mTheory.term("store", left, diff, mTheory.term("select", right, diff));
-		
-		Term inner = buildWeqTerm(color, leftToRight, right, order - 1, weakPathIndex, indexDiseqs);
-		
 		Set<Term> indexTerms = new HashSet<Term>();
 		for (ApplicationTerm diseq : indexDiseqs.keySet()) {
 			final LitInfo info = indexDiseqs.get(diseq);
@@ -371,41 +431,27 @@ public class ArrayInterpolator {
 			final Term index = info.isMixed(color) ? info.getMixedVar()
 					: diseq.getParameters()[0].equals(mStorePath.getIndex()) ? diseq.getParameters()[1]
 							: diseq.getParameters()[0];
-			indexTerms.add(mTheory.equals(index, diff));
+			indexTerms.add(mTheory.equals(index, sharedIndex));
 		}
-		Term fTerm = mTheory.or(indexTerms.toArray(new Term[indexTerms.size()]));
-		
-		return mTheory.or(arrayEq, mTheory.and(inner, fTerm));
+		Term fATerm = mTheory.or(indexTerms.toArray(new Term[indexTerms.size()]));
+		return fATerm;
 	}
 	
 	/**
-	 * Build an nweq-term for a given B path. It states that two arrays differ at least at #stores positions, and one of
-	 * them is weakpathindex.
+	 * Build the F_pi^B - term. It collects the A-parts of index disequalities on a B-path.
 	 * 
 	 * @param color
 	 *            the current partition
-	 * @param left
-	 *            the array at the left path end
-	 * @param right
-	 *            the array at the right path end
-	 * @param order
-	 *            the order of weak disequality, i.e. the minimum number of differences between left and right
+	 * @param sharedIndex
+	 *            the shared term representing the weakpathindex
 	 * @param indexDiseqs
 	 *            disequalities between weakpathindex and all indices for which a store between left and right exists.
-	 * @returns an nweq-term for a B path.
+	 * @return the conjunction of the A-parts of index diseqs on a B-path, in shared terms.
 	 */
-	private Term buildNweqTerm(int color, Term left, Term right, int order, Term weakPathIndex,
-			Map<ApplicationTerm, LitInfo> indexDiseqs) {
-		Term arrayDiseq = mTheory.not(mTheory.equals(left, right));
-		if (order == 0) {
-			return arrayDiseq;
+	private Term buildFPiBTerm(int color, TermVariable sharedIndex, Map<ApplicationTerm, LitInfo> indexDiseqs) {
+		if (indexDiseqs == null) {
+			return mTheory.mTrue;
 		}
-		
-		Term diff = mTheory.term("@diff", left, right);
-		Term leftToRight = mTheory.term("store", left, diff, mTheory.term("select", right, diff));
-		
-		Term inner = buildNweqTerm(color, leftToRight, right, order - 1, weakPathIndex, indexDiseqs);
-		
 		Set<Term> indexTerms = new HashSet<Term>();
 		for (ApplicationTerm diseq : indexDiseqs.keySet()) {
 			final LitInfo info = indexDiseqs.get(diseq);
@@ -415,14 +461,14 @@ public class ArrayInterpolator {
 					: diseq.getParameters()[0].equals(mStorePath.getIndex()) ? diseq.getParameters()[1]
 							: diseq.getParameters()[0];
 			if (info.isMixed(color)) { // Add the A projection of the index disequality (an equality in the mixed case)
-				indexTerms.add(mTheory.equals(index, diff));
+				indexTerms.add(mTheory.equals(index, sharedIndex));
 			} else if (info.isALocal(color)) {
 				// If the index diseq is A local, the A projection is the diseq itself.
-				indexTerms.add(mTheory.not(mTheory.equals(index, diff)));
+				indexTerms.add(mTheory.not(mTheory.equals(index, sharedIndex)));
 			}
 		}
-		Term fTerm = mTheory.and(indexTerms.toArray(new Term[indexTerms.size()]));
-		return mTheory.and(arrayDiseq, mTheory.or(inner, fTerm));
+		Term fBTerm = mTheory.and(indexTerms.toArray(new Term[indexTerms.size()]));
+		return fBTerm;
 	}
 	
 	class WeakPathInfo {
@@ -459,7 +505,7 @@ public class ArrayInterpolator {
 		}
 		
 		/**
-		 * Calculate the interpolants for the complete weakpath and all partitions.
+		 * Calculate the interpolants for the complete weakpath and all partitions for read-over-weakeq.
 		 */
 		public void interpolatePathInfoReadOverWeakeq() {
 			if (mComputed) {
@@ -774,8 +820,8 @@ public class ArrayInterpolator {
 			 * those partitions. This adds the index disequality to all partitions where it is not in A (resp. B) while
 			 * the path is.
 			 */
-			private void addIndexDiseqColors(WeakPathEnd other, Occurrence occur,
-					ApplicationTerm diseq, LitInfo diseqInfo) {
+			private void addIndexDiseqColors(WeakPathEnd other, Occurrence occur, ApplicationTerm diseq,
+					LitInfo diseqInfo) {
 				int currentColor = mColor;
 				// Up
 				mHasABPath.and(occur.mInA);
@@ -872,7 +918,9 @@ public class ArrayInterpolator {
 				} else {
 					assert mDiseqInfo.isBLocal(color);
 					final int order = mIndexDiseqs[color] == null ? 0 : mIndexDiseqs[color].size();
-					Term itpClause = buildWeqTerm(color, left, right, order, mPathIndex, mIndexDiseqs[color]);
+					TermVariable cdot = mTheory.createFreshTermVariable("cdot", mPathIndex.getSort());
+					Term fPiA = buildFPiATerm(color, cdot, mIndexDiseqs[color]);
+					Term itpClause = buildWeqTerm(left, right, order, fPiA, cdot);
 					mInterpolants[color].put(itpClause, "and");
 					mIndexDiseqs[color] = null;
 				}
@@ -915,7 +963,9 @@ public class ArrayInterpolator {
 					mIndexDiseqs[color] = null;
 				} else if (mDiseqInfo.isALocal(color)) { // Case 2
 					final int order = mIndexDiseqs[color] == null ? 0 : mIndexDiseqs[color].size();
-					Term itpClause = buildNweqTerm(color, left, right, order, mPathIndex, mIndexDiseqs[color]);
+					TermVariable cdot = mTheory.createFreshTermVariable("cdot", mPathIndex.getSort());
+					Term fPiB = buildFPiBTerm(color, cdot, mIndexDiseqs[color]);
+					Term itpClause = buildNweqTerm(left, right, order, fPiB, cdot);
 					mInterpolants[color].put(itpClause, "or");
 					mIndexDiseqs[color] = null;
 				} else { // Case 3
@@ -926,8 +976,8 @@ public class ArrayInterpolator {
 			}
 			
 			/**
-			 * Add an interpolant clause for an A path ending at the very left or very right path end. This is only
-			 * used for partitions where the main disequality is mixed or shared. => interpolant conjunct of the form
+			 * Add an interpolant clause for an A path ending at the very left or very right path end. This is only used
+			 * for partitions where the main disequality is mixed or shared. => interpolant conjunct of the form
 			 * "i!=k1/\.../\i!=kn->start[i]=end[i]" Note that one needs the mixedVar here if mDiseqInfo.isMixed(color).
 			 * 
 			 * @param color
@@ -963,22 +1013,24 @@ public class ArrayInterpolator {
 				}
 				mIndexDiseqs[color] = null;
 				
-				/* Here, we have to add the index diseq if we are on a right outer A-path in the mixed case
-				 * where the index equality is B-local and both indices are shared.
+				/*
+				 * Here, we have to add the index diseq if we are on a right outer A-path in the mixed case where the
+				 * index equality is B-local and both indices are shared.
 				 */
 				Term indexEq = mTheory.mFalse;
 				if (this.equals(mTail) && mDiseqInfo.isMixed(color)) {
 					final LitInfo indexEqInfo = mInterpolator.getLiteralInfo(mIndexEquality);
 					final Term otherIndex = indexEqInfo.getMixedVar() != null ? indexEqInfo.getMixedVar()
-							: mIndexEquality.getParameters()[0].equals(mStorePath.getIndex()) ? mIndexEquality.getParameters()[1]
-									: mIndexEquality.getParameters()[0];
+							: mIndexEquality.getParameters()[0].equals(mStorePath.getIndex())
+									? mIndexEquality.getParameters()[1] : mIndexEquality.getParameters()[0];
 					final Occurrence otherIndexOccur = mInterpolator.getOccurrence(otherIndex, null);
 					if (indexEqInfo.isBLocal(color) && otherIndexOccur.isAB(color)) {
 						indexEq = mTheory.not(mIndexEquality);
 					}
 				}
 				
-				final Term pre = mTheory.or(indexEq,mTheory.or(diseqsInSharedTerms.toArray(new Term[diseqsInSharedTerms.size()])));
+				final Term pre = mTheory.or(indexEq,
+						mTheory.or(diseqsInSharedTerms.toArray(new Term[diseqsInSharedTerms.size()])));
 				final Term itpClause = mTheory.or(pre, mTheory.equals(outer, inner));
 				mInterpolants[color].put(itpClause, "and");
 			}
