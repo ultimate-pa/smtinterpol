@@ -182,14 +182,14 @@ public class ArrayAnnotation extends CCAnnotation {
 		/**
 		 * Collect the information needed to prove a lemma. For the main lemma paths, pairs of consecutive terms can be
 		 * (i) equality literals from the clause (-> are added to proofLiterals), or they are of the form (ii) (a (store
-		 * a k v)), (-> nothing to do if it is in the main path of weakeq-ext, for weakpaths in read-over-weakeq lemmas
-		 * a disequality literal showing that the store is at an index different to weakpathindex is needed), or (iii)
-		 * ((f a) (f b)), a congruence (-> adds a new literal to the lemma and a new auxiliary lemma in terms of a
-		 * subproof), or (iv) (a b), a pair of arrays, and there exists a select path between them and paths for both
-		 * select indices to the weakpathindex, if they are not trivially equal or equality literals from the clause (->
-		 * adds new literals for the end terms of the select path and the index paths (or the corresponding clause
-		 * literals), and a new auxiliary lemma proving the new select term literal). These are all possible cases. For
-		 * the auxiliary CC lemmas, only (i) and (iii) are possible.
+		 * a k v)), (-> nothing to do if it is in the main path of weakeq-ext, for the other weakpaths in weakeq-ext and
+		 * weakpaths in read-over-weakeq lemmas a disequality literal showing that the store is at an index different to
+		 * weakpathindex is needed), or (iii) ((f a) (f b)), a congruence (-> adds a new literal to the lemma and a new
+		 * auxiliary lemma in terms of a subproof), or (iv) (a b), a pair of arrays, and there exists a select path
+		 * between them and paths for both select indices to the weakpathindex, if they are not trivially equal or
+		 * equality literals from the clause (-> adds new literals for the end terms of the select path and the index
+		 * paths (or the corresponding clause literals), and a new auxiliary lemma proving the new select term literal).
+		 * These are all possible cases. For the auxiliary CC lemmas, only (i) and (iii) are possible.
 		 */
 		private void collectProofInfoDiseq(SymmetricPair<CCTerm> diseq, LinkedHashSet<IndexedPath> paths) {
 			mLemmaDiseq = diseq;
@@ -266,19 +266,20 @@ public class ArrayAnnotation extends CCAnnotation {
 					if (!isEqualityLiteral(selectPath)) {
 						mSubProofs.put(selectPath, proofPaths);
 					}
-					// The index paths may be congruences, add new subproofs in this case.
+					// If there are index paths, check for congruences and add new subproofs for those.
 					if (proofPaths.size() > 1) {
 						for (int j = 1; j < proofPaths.size(); j++) {
 							final SymmetricPair<CCTerm> indexPair = selectAndIndexPaths.get(j);
-							// If the index paths are congruences, add subproofs
-							final LinkedHashSet<SymmetricPair<CCTerm>> argPaths =
-									findCongruencePaths(indexPair.getFirst(), indexPair.getSecond());
-							if (argPaths != null) {
-								final LinkedHashSet<SymmetricPair<CCTerm>> ccPaths =
-										new LinkedHashSet<SymmetricPair<CCTerm>>();
-								ccPaths.add(indexPair);
-								ccPaths.addAll(argPaths);
-								mSubProofs.put(indexPair, ccPaths);
+							if (!isEqualityLiteral(indexPair)) {
+								final LinkedHashSet<SymmetricPair<CCTerm>> argPaths =
+										findCongruencePaths(indexPair.getFirst(), indexPair.getSecond());
+								if (argPaths != null) {
+									final LinkedHashSet<SymmetricPair<CCTerm>> ccPaths =
+											new LinkedHashSet<SymmetricPair<CCTerm>>();
+									ccPaths.add(indexPair);
+									ccPaths.addAll(argPaths);
+									mSubProofs.put(indexPair, ccPaths);
+								}
 							}
 						}
 					}
