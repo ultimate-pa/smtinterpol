@@ -51,7 +51,7 @@ public class LAInterpolator {
 	/**
 	 * The information needed to interpolate this lemma.
 	 */
-	InterpolatorClauseTermInfo mInfo = new InterpolatorClauseTermInfo();
+	InterpolatorClauseTermInfo mLemmaInfo = new InterpolatorClauseTermInfo();
 	
 	/**
 	 * This class stores partial interpolants and auxiliary information for this lemma. This extends Occurence, i.e., it
@@ -144,8 +144,8 @@ public class LAInterpolator {
 		/*
 		 * Add the A-part of the literals in this LA lemma.
 		 */
-		final InterpolatorClauseTermInfo lemmaTermInfo = mInterpolator.getClauseTermInfo(lemma);
-		for (final Entry<Term, Rational> entry : lemmaTermInfo.getFarkasCoeffs().entrySet()) {
+		mLemmaInfo = mInterpolator.getClauseTermInfo(lemma);
+		for (final Entry<Term, Rational> entry : mLemmaInfo.getFarkasCoeffs().entrySet()) {
 			final Term lit = mInterpolator.mTheory.not(entry.getKey());
 			final InterpolatorLiteralTermInfo litTermInfo = mInterpolator.getLiteralTermInfo(lit);
 			final Rational factor = entry.getValue();
@@ -197,7 +197,7 @@ public class LAInterpolator {
 				equality = litTermInfo.getAtom();
 				final Term eq = equality;
 				// a trichotomy clause must contain exactly three parts
-				assert lemmaTermInfo.getLiterals().size() == 3;// NOCHECKSTYLE
+				assert mLemmaInfo.getLiterals().size() == 3;// NOCHECKSTYLE
 				assert equalityInfo == null;
 				equalityInfo = mInterpolator.getLiteralInfo(eq);
 				assert factor.abs() == Rational.ONE;

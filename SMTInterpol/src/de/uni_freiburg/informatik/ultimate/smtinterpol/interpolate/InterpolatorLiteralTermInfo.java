@@ -195,7 +195,9 @@ public class InterpolatorLiteralTermInfo {
 		final Object[] params = varTerm.getParameters();
 		ConstantTerm boundTerm = null;
 		boolean isNeg = false;
-		if (params[params.length - 1] instanceof ConstantTerm) {
+		if (params.length == 0) {
+			return Rational.ZERO;
+		} else if (params[params.length - 1] instanceof ConstantTerm) {
 			boundTerm = (ConstantTerm) params[params.length - 1];
 		} else if (params[params.length - 1] instanceof ApplicationTerm) {
 			final ApplicationTerm appTerm = ((ApplicationTerm) params[params.length - 1]);
