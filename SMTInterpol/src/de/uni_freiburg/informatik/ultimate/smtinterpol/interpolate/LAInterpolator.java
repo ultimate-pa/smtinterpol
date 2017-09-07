@@ -52,43 +52,26 @@ public class LAInterpolator {
 	 * The information needed to interpolate this lemma.
 	 */
 	InterpolatorClauseTermInfo mLemmaInfo = new InterpolatorClauseTermInfo();
-	
+
 	/**
-	 * This class stores partial interpolants and auxiliary information for this lemma. This extends Occurence, i.e., it
-	 * also knows if it is A local, B local, or mixed in every partition. This occurence is the occurence of the "proved
-	 * literal" <code>mSum &lt= 0</code>.
+	 * For each partition, this stores the partial interpolant.
 	 */
-	class InterpolatorLemmaInfo extends Interpolator.Occurrence {
-		/**
-		 * The lemma for which the auxiliary information is stored in this class.
-		 */
-		Term mMyLemma;
-		
-		/**
-		 * For each partition, this stores the partial interpolant.
-		 */
-		Interpolant[] mInterpolants;
-		
-		/**
-		 * This is 1, if mSum is an integer, eps otherwise.
-		 */
-		InfinitNumber mEpsilon;
-		
-		public InterpolatorLemmaInfo(Term lemma) {
-			mInterpolator.super();
-			mMyLemma = lemma;
-		}
-		
-		/**
-		 * Return the epsilon. This is 1 for integer constraints, eps for rational constraints.
-		 * 
-		 * @return the epsilon.
-		 */
-		public InfinitNumber getEpsilon() {
-			return mEpsilon;
-		}
+	Interpolant[] mInterpolants;
+
+	/**
+	 * This is 1, if mSum is an integer, eps otherwise.
+	 */
+	InfinitNumber mEpsilon;
+
+	/**
+	 * Return the epsilon. This is 1 for integer constraints, eps for rational constraints.
+	 * 
+	 * @return the epsilon.
+	 */
+	public InfinitNumber getEpsilon() {
+		return mEpsilon;
 	}
-	
+
 	/**
 	 * Create a new linear arithmetic interpolator for an LA lemma.
 	 * 
@@ -118,12 +101,11 @@ public class LAInterpolator {
 	 * @param result
 	 *            the normalized and rounded summary.
 	 */
-	private InterpolatorLemmaInfo interpolateLemma(Term lemma, InterpolatorLemmaInfo result) {
+	private void interpolateLemma(Term lemma) {
 		
-		result = new InterpolatorLemmaInfo(lemma);
-		result.mInterpolants = new Interpolant[mInterpolator.mNumInterpolants];
+		mInterpolants = new Interpolant[mInterpolator.mNumInterpolants];
 		for (int i = 0; i < mInterpolator.mNumInterpolants; i++) {
-			result.mInterpolants[i] = new Interpolant();
+			mInterpolants[i] = new Interpolant();
 		}
 		
 		final InterpolatorAffineTerm[] ipl = new InterpolatorAffineTerm[mInterpolator.mNumInterpolants + 1];
@@ -145,6 +127,7 @@ public class LAInterpolator {
 		 * Add the A-part of the literals in this LA lemma.
 		 */
 		mLemmaInfo = mInterpolator.getClauseTermInfo(lemma);
+		
 		for (final Entry<Term, Rational> entry : mLemmaInfo.getFarkasCoeffs().entrySet()) {
 			final Term lit = mInterpolator.mTheory.not(entry.getKey());
 			final InterpolatorLiteralTermInfo litTermInfo = mInterpolator.getLiteralTermInfo(lit);
@@ -257,24 +240,23 @@ public class LAInterpolator {
 					F = ipl[part].toLeq0(mInterpolator.mTheory);
 				}
 				final LATerm laTerm = new LATerm(ipl[part], k, F);
-				result.mInterpolants[part].mTerm = laTerm;
+				mInterpolants[part].mTerm = laTerm;
 			} else {
 				assert (equalityInfo == null || !equalityInfo.isMixed(part));
 				if (equalityInfo != null && ipl[part].isConstant()
 						&& equalityInfo.isALocal(part) != inequalityInfo.isALocal(part)) {
 					/*
-					 * special case: Nelson-Oppen conflict, a < b and b < a in one partition, a != b in the other. If a
+					 * special case: Nelson-Oppen conflict, a <= b and b <= a in one partition, a != b in the other. If a
 					 * != b is in A, the interpolant is simply a != b. If a != b is in B, the interpolant is simply a ==
 					 * b.
 					 */
 					final Term thisIpl = equalityInfo.isALocal(part) ? mInterpolator.mTheory.not(equality) : equality;
-					result.mInterpolants[part].mTerm = thisIpl;
+					mInterpolants[part].mTerm = thisIpl;
 				} else {
-					result.mInterpolants[part].mTerm = ipl[part].toLeq0(mInterpolator.mTheory);
+					mInterpolants[part].mTerm = ipl[part].toLeq0(mInterpolator.mTheory);
 				}
 			}
 		}
-		return result;
 	}
 	
 	/**
@@ -283,8 +265,7 @@ public class LAInterpolator {
 	 * @return an array containing the partial tree interpolants.
 	 */
 	public Interpolant[] computeInterpolants() {
-		InterpolatorLemmaInfo annotInfo = null;
-		annotInfo = interpolateLemma(mLemma, annotInfo);
-		return annotInfo.mInterpolants;
+		interpolateLemma(mLemma);
+		return mInterpolants;
 	}
 }
