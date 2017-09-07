@@ -287,6 +287,9 @@ public class Interpolator extends NonRecursive {
 				for (int j = 0; j < mNumInterpolants; j++) {
 					interpolants[j] = new Interpolant(interpolantTerms[j]);
 				}
+			} else if (leafTermInfo.getLemmaType().equals(":weakeq-ext")) {
+				throw new UnsupportedOperationException(
+						"Interpolation for array extensionality lemmas is work in progress.");
 			} else {
 				throw new UnsupportedOperationException("Unknown lemma type!");
 			}
@@ -676,7 +679,7 @@ public class Interpolator extends NonRecursive {
 					} else {
 						assert !at.isConstant();
 						at.add(Rational.ONE, eqTermInfo.getLinVar());
-						at.add(eqTermInfo.getBound()); // TODO Check this!
+						at.add(eqTermInfo.getBound());
 						final boolean isInt = eqTermInfo.isInt();
 						final Sort sort = mTheory.getSort(isInt ? "Int" : "Real");
 						final Term t = at.toSMTLib(mTheory, isInt);
@@ -816,7 +819,7 @@ public class Interpolator extends NonRecursive {
 				// Get A part of laEq:
 				if (laInfo.isALocal(p)) {
 					iat.add(Rational.MONE, laTermInfo.getLinVar());
-					iat.add(laTermInfo.getBound()); // TODO Check this!
+					iat.add(laTermInfo.getBound());
 					if (ccIsNeg) {
 						negate = true;
 					}
