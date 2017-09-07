@@ -279,8 +279,8 @@ public class Interpolator extends NonRecursive {
 					interpolants[j] = new Interpolant(interpolantTerms[j]);
 				}
 			} else if (leafTermInfo.getLemmaType().equals(":LA") || leafTermInfo.getLemmaType().equals(":trichotomy")) {
-				final LAInterpolator ipolator = new LAInterpolator(this, leaf);
-				interpolants = ipolator.computeInterpolants();
+				final LAInterpolator ipolator = new LAInterpolator(this);
+				interpolants = ipolator.computeInterpolants(leaf);
 			} else if (leafTermInfo.getLemmaType().equals(":read-over-weakeq")) {
 				final ArrayInterpolator ipolator = new ArrayInterpolator(this);
 				final Term[] interpolantTerms = ipolator.computeInterpolants(leaf);
@@ -676,7 +676,7 @@ public class Interpolator extends NonRecursive {
 					} else {
 						assert !at.isConstant();
 						at.add(Rational.ONE, eqTermInfo.getLinVar());
-						at.add(eqTermInfo.getBound());
+						at.add(eqTermInfo.getBound()); // TODO Check this!
 						final boolean isInt = eqTermInfo.isInt();
 						final Sort sort = mTheory.getSort(isInt ? "Int" : "Real");
 						final Term t = at.toSMTLib(mTheory, isInt);
@@ -816,7 +816,7 @@ public class Interpolator extends NonRecursive {
 				// Get A part of laEq:
 				if (laInfo.isALocal(p)) {
 					iat.add(Rational.MONE, laTermInfo.getLinVar());
-					iat.add(laTermInfo.getBound());
+					iat.add(laTermInfo.getBound()); // TODO Check this!
 					if (ccIsNeg) {
 						negate = true;
 					}
@@ -1514,6 +1514,10 @@ public class Interpolator extends NonRecursive {
 		} else if (term instanceof ConstantTerm) {
 			final InterpolatorAffineTerm affine = new InterpolatorAffineTerm();
 			affine.add(SMTAffineTerm.create(term).getConstant());
+			return affine;
+		} else if (term instanceof TermVariable) {
+			final InterpolatorAffineTerm affine = new InterpolatorAffineTerm();
+			affine.add(Rational.ONE, term);
 			return affine;
 		} else {
 			throw new IllegalArgumentException("Cannot create affine term!");

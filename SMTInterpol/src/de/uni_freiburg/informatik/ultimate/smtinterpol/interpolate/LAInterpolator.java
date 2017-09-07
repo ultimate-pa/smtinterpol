@@ -80,9 +80,12 @@ public class LAInterpolator {
 	 * @param laLemma
 	 *            the lemma that is interpolated.
 	 */
-	public LAInterpolator(Interpolator interpolator, Term laLemma) {
+	public LAInterpolator(Interpolator interpolator) {
 		mInterpolator = interpolator;
-		mLemma = laLemma;
+		mInterpolants = new Interpolant[mInterpolator.mNumInterpolants];
+		for (int i = 0; i < mInterpolator.mNumInterpolants; i++) {
+			mInterpolants[i] = new Interpolant();
+		}
 	}
 	
 	/**
@@ -98,16 +101,8 @@ public class LAInterpolator {
 	 *
 	 * @param lemma
 	 *            the LA lemma that is interpolated.
-	 * @param result
-	 *            the normalized and rounded summary.
 	 */
 	private void interpolateLemma(Term lemma) {
-		
-		mInterpolants = new Interpolant[mInterpolator.mNumInterpolants];
-		for (int i = 0; i < mInterpolator.mNumInterpolants; i++) {
-			mInterpolants[i] = new Interpolant();
-		}
-		
 		final InterpolatorAffineTerm[] ipl = new InterpolatorAffineTerm[mInterpolator.mNumInterpolants + 1];
 		for (int part = 0; part < ipl.length; part++) {
 			ipl[part] = new InterpolatorAffineTerm();
@@ -127,7 +122,7 @@ public class LAInterpolator {
 		 * Add the A-part of the literals in this LA lemma.
 		 */
 		mLemmaInfo = mInterpolator.getClauseTermInfo(lemma);
-		
+
 		for (final Entry<Term, Rational> entry : mLemmaInfo.getFarkasCoeffs().entrySet()) {
 			final Term lit = mInterpolator.mTheory.not(entry.getKey());
 			final InterpolatorLiteralTermInfo litTermInfo = mInterpolator.getLiteralTermInfo(lit);
@@ -246,9 +241,9 @@ public class LAInterpolator {
 				if (equalityInfo != null && ipl[part].isConstant()
 						&& equalityInfo.isALocal(part) != inequalityInfo.isALocal(part)) {
 					/*
-					 * special case: Nelson-Oppen conflict, a <= b and b <= a in one partition, a != b in the other. If a
-					 * != b is in A, the interpolant is simply a != b. If a != b is in B, the interpolant is simply a ==
-					 * b.
+					 * special case: Nelson-Oppen conflict, a <= b and b <= a in one partition, a != b in the other. If
+					 * a != b is in A, the interpolant is simply a != b. If a != b is in B, the interpolant is simply a
+					 * == b.
 					 */
 					final Term thisIpl = equalityInfo.isALocal(part) ? mInterpolator.mTheory.not(equality) : equality;
 					mInterpolants[part].mTerm = thisIpl;
@@ -264,8 +259,8 @@ public class LAInterpolator {
 	 * 
 	 * @return an array containing the partial tree interpolants.
 	 */
-	public Interpolant[] computeInterpolants() {
-		interpolateLemma(mLemma);
+	public Interpolant[] computeInterpolants(Term lemma) {
+		interpolateLemma(lemma);
 		return mInterpolants;
 	}
 }

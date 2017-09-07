@@ -166,13 +166,12 @@ public class InterpolatorLiteralTermInfo {
 	 */
 	private InterpolatorAffineTerm computeLinVar(Term laTerm) {
 		final Term laAtom = computeAtom(laTerm);
-		InterpolatorAffineTerm linVar = new InterpolatorAffineTerm();
 		Term varTerm = ((ApplicationTerm) laAtom).getParameters()[0];
 		if (varTerm instanceof ApplicationTerm && ((ApplicationTerm) varTerm).getFunction().isIntern()) {
 			String function = ((ApplicationTerm) varTerm).getFunction().getName();
-			if (function.equals("+") || function.equals("-") || function.equals("*")) {
+			if (function.equals("+")) {
 				int length = ((ApplicationTerm) varTerm).getParameters().length;
-				if (!computeBound(laTerm).equals(Rational.ZERO)) {
+				if (!computeBound(laAtom).equals(Rational.ZERO)) {
 					length -= 1;
 				}
 				final Term[] varParams = Arrays.copyOf(((ApplicationTerm) varTerm).getParameters(), length);
@@ -183,7 +182,7 @@ public class InterpolatorLiteralTermInfo {
 				}
 			}
 		}
-		linVar = Interpolator.termToAffine(varTerm);
+		InterpolatorAffineTerm linVar = Interpolator.termToAffine(varTerm);
 		return linVar;
 	}
 	
