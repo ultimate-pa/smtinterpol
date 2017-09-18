@@ -211,7 +211,7 @@
   </target>
 
   <!-- Create the starexec solver zip file -->
-  <target name="starexec" depends="get-version">
+  <target name="starexec" depends="get-version,smtinterpol.jar">
     <property name="tmpdir" value="buildtmp"/>
     <mkdir dir="${tmpdir}/bin"/>
     <echo file="${tmpdir}/bin/starexec_run_default" append="false">#!/bin/bash
@@ -229,6 +229,7 @@ java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/2))m -da -dsa -XX:-UseGCOverheadLimit -j
     <echo file="${tmpdir}/starexec_description.txt" append="false">SMTInterpol ${version}</echo>
     <!-- stupid starexec does not like - characters in description -->
     <replace file="${tmpdir}/starexec_description.txt" token="-" value="_"/>
+    <copy file="${jar.outdir}/${jar.basename}.jar" tofile="${tmpdir}/bin/smtinterpol.jar"/>
     <zip destfile="${jar.outdir}/smtinterpol-${version}.zip" basedir="${tmpdir}" />
     <delete failonerror="false" includeemptydirs="true" dir="${tmpdir}"/>
     <echo>created ${jar.outdir}/smtinterpol-${version}.zip</echo>
@@ -487,4 +488,3 @@ java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/2))m -da -dsa -XX:-UseGCOverheadLimit -j
     <sonar:sonar />
   </target>
 </project>
-    
