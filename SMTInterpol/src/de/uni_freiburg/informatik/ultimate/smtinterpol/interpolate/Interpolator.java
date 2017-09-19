@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2016 University of Freiburg
+ * Copyright (C) 2009-2017 University of Freiburg
  *
  * This file is part of SMTInterpol.
  *
@@ -281,15 +281,12 @@ public class Interpolator extends NonRecursive {
 			} else if (leafTermInfo.getLemmaType().equals(":LA") || leafTermInfo.getLemmaType().equals(":trichotomy")) {
 				final LAInterpolator ipolator = new LAInterpolator(this);
 				interpolants = ipolator.computeInterpolants(leaf);
-			} else if (leafTermInfo.getLemmaType().equals(":read-over-weakeq")) {
+			} else if (leafTermInfo.getLemmaType().equals(":read-over-weakeq") || leafTermInfo.getLemmaType().equals(":weakeq-ext")) {
 				final ArrayInterpolator ipolator = new ArrayInterpolator(this);
 				final Term[] interpolantTerms = ipolator.computeInterpolants(leaf);
 				for (int j = 0; j < mNumInterpolants; j++) {
 					interpolants[j] = new Interpolant(interpolantTerms[j]);
 				}
-			} else if (leafTermInfo.getLemmaType().equals(":weakeq-ext")) {
-				throw new UnsupportedOperationException(
-						"Interpolation for array extensionality lemmas is work in progress.");
 			} else {
 				throw new UnsupportedOperationException("Unknown lemma type!");
 			}
