@@ -36,6 +36,7 @@ public enum Logics {
 	QF_LIRA   (Features.LA + Features.RA + Features.IA),
 	QF_NIA    (Features.NA + Features.IA),
 	QF_NRA    (Features.NA + Features.RA),
+	QF_NIRA   (Features.NA + Features.RA + Features.IA),
 	QF_UF     (Features.UF),
 	QF_UFBV   (Features.UF + Features.BV),
 	QF_UFIDL  (Features.UF + Features.DL + Features.IA),
