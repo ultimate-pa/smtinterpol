@@ -264,7 +264,10 @@ public class ArrayAnnotation extends CCAnnotation {
 					final SymmetricPair<CCTerm> selectPath = selectAndIndexPaths.get(0);
 					// If the select path is not a clause equality, a subproof is needed.
 					if (!isEqualityLiteral(selectPath)) {
-						mSubProofs.put(selectPath, proofPaths);
+						LinkedHashSet<SymmetricPair<CCTerm>> selectPathSingleton =
+								new LinkedHashSet<SymmetricPair<CCTerm>>();
+						selectPathSingleton.add(selectPath);
+						mSubProofs.put(selectPath, selectPathSingleton);
 					}
 					// If there are index paths, check for congruences and add new subproofs for those.
 					if (proofPaths.size() > 1) {
