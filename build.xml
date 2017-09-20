@@ -242,6 +242,7 @@ java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/2))m -da -dsa -XX:-UseGCOverheadLimit -j
       <fileset dir="${dir.workspace}/SMTInterpol/release"/>
       <fileset dir="${dir.workspace}/Library-SMTLIB/release"/>
       <fileset dir="${dir.workspace}/DeltaDebugger/release"/>
+      <fileset dir="${dir.workspace}/Library-SMTLIBTest/release"/>
       <fileset dir="${dir.workspace}/SMTInterpolTest/release"/>
       
       <filelist dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib" files="Parser.java,Lexer.java,LexerSymbols.java" />
@@ -260,6 +261,14 @@ java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/2))m -da -dsa -XX:-UseGCOverheadLimit -j
 
   <!-- Compile SMTInterpolTest -->
   <target name="compile_tests" depends="compile">
+    <mkdir dir="${dir.workspace}/Library-SMTLIBTest/release"/>
+    <javac srcdir="${dir.workspace}/Library-SMTLIBTest/src"
+      destdir="${dir.workspace}/Library-SMTLIBTest/release" optimize="${optimize}" includeAntRuntime="false" debug="${debug}">
+      <classpath>
+        <pathelement location="${dir.workspace}/SMTInterpolTest/lib/junit.jar"/>
+        <pathelement path="${dir.workspace}/Library-SMTLIB/release"/>
+      </classpath>
+    </javac>
     <mkdir dir="${dir.workspace}/SMTInterpolTest/release"/>
     <javac srcdir="${dir.workspace}/SMTInterpolTest/src"
       destdir="${dir.workspace}/SMTInterpolTest/release" optimize="${optimize}" includeAntRuntime="false" debug="${debug}">
@@ -299,12 +308,16 @@ java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/2))m -da -dsa -XX:-UseGCOverheadLimit -j
 	<pathelement location="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.0.jar"/>
 	<pathelement path="${dir.workspace}/Library-SMTLIB/release" />
 	<pathelement path="${dir.workspace}/SMTInterpol/release" />
+	<pathelement path="${dir.tests}/Library-SMTLIBTest/release" />
 	<pathelement path="${dir.tests}/SMTInterpolTest/release" />
       </classpath>
 
       <formatter type="xml" />
 
       <batchtest todir="${dir.workspace}/testreports" unless="testcase">
+	<fileset dir="${dir.tests}/Library-SMTLIBTest/src">
+	  <include name="**/*.java" />
+	</fileset>
 	<fileset dir="${dir.tests}/SMTInterpolTest/src">
 	  <include name="**/*.java" />
 	  <exclude name="**/TestCaseWithLogger.java" /> <!-- This is just an utility class -->
@@ -342,12 +355,16 @@ java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/2))m -da -dsa -XX:-UseGCOverheadLimit -j
 	  <pathelement location="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.0.jar"/>
 	  <pathelement path="${dir.workspace}/Library-SMTLIB/release" />
 	  <pathelement path="${dir.workspace}/SMTInterpol/release" />
+	  <pathelement path="${dir.tests}/Library-SMTLIBTest/release" />
 	  <pathelement path="${dir.tests}/SMTInterpolTest/release" />
         </classpath>
 
         <formatter type="xml" />
 
         <batchtest todir="${dir.workspace}/testreports" unless="testcase">
+	  <fileset dir="${dir.tests}/Library-SMTLIBTest/src">
+	    <include name="**/*.java" />
+	  </fileset>
 	  <fileset dir="${dir.tests}/SMTInterpolTest/src">
 	    <include name="**/*.java" />
 	    <exclude name="**/TestCaseWithLogger.java" /> <!-- This is just an utility class -->
