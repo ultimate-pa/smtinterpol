@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2016 University of Freiburg
+ * Copyright (C) 2009-2017 University of Freiburg
  *
  * This file is part of SMTInterpol.
  *
@@ -23,7 +23,6 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map.Entry;
@@ -46,6 +45,10 @@ import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.LeafNode;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofNode;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.InfinitNumber;
 
@@ -189,8 +192,8 @@ public class Interpolator extends NonRecursive {
 		mLiteralTermInfos = new HashMap<Term, InterpolatorLiteralTermInfo>();
 	}
 	
-	public Term[] getInterpolants(Term proofTree) {
-		colorLiterals(proofTree, new HashSet<Term>());
+	public Term[] getInterpolants(final Term proofTree) {
+		colorLiterals();
 		final Interpolant[] eqitps = interpolate(proofTree);
 		final Term[] itpTerms = new Term[eqitps.length];
 		for (int i = 0; i < eqitps.length; i++) {
@@ -874,18 +877,21 @@ public class Interpolator extends NonRecursive {
 		return interpolants;
 	}
 	
-	public void colorLiterals(Term proofTerm, HashSet<Term> visited) {
-		// TODO non-recursive version
-		if (visited.contains(proofTerm)) {
-			return;
-		}
-		final InterpolatorClauseTermInfo termInfo = getClauseTermInfo(proofTerm);
-		if (!termInfo.isResolution()) {
-			final String leafKind = termInfo.getLeafKind();
-			if (leafKind.equals("@clause") || leafKind.equals("@asserted")) {
-				final String source = termInfo.getSource();
+	/**
+	 * Color the input literals. This gets the source for the literals from the LeafNodes.
+	 */
+	public void colorLiterals() {
+
+		for (final Clause clause : mSmtSolver.getEngine().getClauses()) {
+			final ProofNode pn = clause.getProof();
+			assert pn instanceof LeafNode;
+			final LeafNode ln = (LeafNode) pn;
+			assert ((LeafNode) pn).hasSourceAnnotation();
+			final String source = ((SourceAnnotation) ln.getTheoryAnnotation()).getAnnotation();
 				final int partition = mPartitions.containsKey(source) ? mPartitions.get(source) : 0;
-				for (final Term literal : termInfo.getLiterals()) {
+			for (int i = 0; i < clause.getSize(); i++) {
+				final Term literal = clause.getLiteral(i).getSMTFormula(mTheory);
+
 					final InterpolatorLiteralTermInfo litTermInfo = getLiteralTermInfo(literal);
 					final Term atom = litTermInfo.getAtom();
 					LitInfo info = mLiteralInfos.get(atom);
@@ -904,16 +910,6 @@ public class Interpolator extends NonRecursive {
 					}
 				}
 			}
-		} else {
-			colorLiterals(termInfo.getPrimary(), visited);
-			for (Term antecedent : termInfo.getAntecedents()) {
-				if (antecedent instanceof AnnotatedTerm) {
-					antecedent = ((AnnotatedTerm) antecedent).getSubterm();
-				}
-				colorLiterals(antecedent, visited);
-			}
-		}
-		visited.add(proofTerm);
 	}
 	
 	Occurrence getOccurrence(Term term, String source) {
@@ -1002,12 +998,8 @@ public class Interpolator extends NonRecursive {
 			}
 		} else {
 			final InterpolatorAffineTerm lv = atomInfo.getLinVar();
-			Collection<Term> components;
-			if (lv != null && lv.getSummands().size() > 1) {
-				components = lv.getSummands().keySet();
-			} else {
-				components = Collections.singleton(((ApplicationTerm) atom).getParameters()[0]);
-			}
+			assert lv != null;
+			final Collection<Term> components = lv.getSummands().keySet();
 			boolean allInt = true;
 			for (final Term c : components) {
 				// IRA-Hack
