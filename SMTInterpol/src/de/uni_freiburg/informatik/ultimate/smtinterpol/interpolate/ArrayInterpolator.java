@@ -1626,7 +1626,7 @@ public class ArrayInterpolator {
 						mIndexEqs[color] = null;
 					}
 				} else if (!mIsBInterpolated[color]) { // Case (iv)
-					assert mDiseqInfo.isALocal(color);
+					assert mDiseqInfo.isALocal(color) || mLemmaInfo.getLemmaType().equals(":weakeq-ext");
 					assert mIndexDiseqs[color] == null;
 					return;
 				} else { // Case (iii)
