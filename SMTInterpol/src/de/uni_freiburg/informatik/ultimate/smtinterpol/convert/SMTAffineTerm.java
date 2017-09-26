@@ -299,7 +299,7 @@ public final class SMTAffineTerm extends Term {
 							for (final Rational v: affine.mSummands.values()) {
 								summands.put(getConverted(), v);
 							}
-							final Term term =	SMTAffineTerm.toPlainTerm(
+							final Term term = SMTAffineTerm.toPlainTerm(
 							        summands, affine.mConstant, affine.mSort);
 							setResult(term);
 						}
