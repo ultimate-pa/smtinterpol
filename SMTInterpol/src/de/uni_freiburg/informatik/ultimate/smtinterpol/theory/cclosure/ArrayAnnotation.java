@@ -420,11 +420,11 @@ public class ArrayAnnotation extends CCAnnotation {
 			// for read-over-weakeq, outsource congruences in the index path
 			if (mRule.getKind().equals(":read-over-weakeq")) {
 				if (firstSubPath.getPath().length > 2) {
-					firstSubPath = new IndexedPath(null, new CCTerm[] { firstSubPath.getPath()[0],
-							firstSubPath.getPath()[firstSubPath.getPath().length - 1] });
 					final ProofInfo pathInfo = new ProofInfo();
 					pathInfo.collectProofInfoOnePath(firstSubPath);
-					mPathProofMap.put(firstSubPath, pathInfo);
+					IndexedPath newFirstSubPath = new IndexedPath(null, new CCTerm[] { firstSubPath.getPath()[0],
+							firstSubPath.getPath()[firstSubPath.getPath().length - 1] });
+					mPathProofMap.put(newFirstSubPath, pathInfo);
 				}
 			}
 			mainPaths.add(firstSubPath);

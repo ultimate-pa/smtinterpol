@@ -1,5 +1,7 @@
-(set-option :produce-proofs true)
-(set-option :proof-check-mode true)
+;(set-option :produce-proofs true)
+(set-option :produce-interpolants true)
+(set-option :proof-transformation LURPI)
+(set-option :simplify-interpolants true)
 (set-option :interpolant-check-mode true)
 
 (set-logic QF_AUFLIA)
@@ -37,7 +39,7 @@
 (not (p3 i3)) (not (= a b))) :named B))
 
 (check-sat)
-(set-option :print-terms-cse false)
+;(set-option :print-terms-cse false)
 (get-proof)
 (get-interpolants A B)
 (exit)
