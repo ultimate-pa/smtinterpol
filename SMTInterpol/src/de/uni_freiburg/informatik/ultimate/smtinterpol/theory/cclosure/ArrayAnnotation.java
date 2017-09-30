@@ -718,9 +718,8 @@ public class ArrayAnnotation extends CCAnnotation {
 	private boolean isTrivialDisequality(final SymmetricPair<CCTerm> termPair) {
 		final SharedTerm first = termPair.getFirst().getSharedTerm();
 		final SharedTerm second = termPair.getSecond().getSharedTerm();
-		return first.getLinVar() != null && first.getLinVar() == second.getLinVar()
-				&& first.getFactor() == second.getFactor()
-				&& first.getOffset() != second.getOffset();
+		return first != null && second != null && first.getLinVar() != null && first.getLinVar() == second.getLinVar()
+				&& first.getFactor() == second.getFactor() && first.getOffset() != second.getOffset();
 	}
 
 	private boolean isStoreTerm(final CCTerm term) {
@@ -764,8 +763,6 @@ public class ArrayAnnotation extends CCAnnotation {
 				ccPaths.add(termPair);
 				return ccPaths;
 			}
-			//
-			return null;
 		}
 		CCTerm first = firstTerm;
 		CCTerm second = secondTerm;
