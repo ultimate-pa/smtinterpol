@@ -703,19 +703,21 @@ public class ArrayInterpolator {
 					final Term storeIndex = getIndexFromStore(storeTerm);
 					final ApplicationTerm indexDiseq =
 							mDisequalities.get(new SymmetricPair<Term>(storeIndex, mPathIndex));
-					mTail.closeAPath(mHead, boundaryTerm, stepOcc);
 					if (indexDiseq != null) {
 						final Occurrence indexDiseqOcc = mInterpolator.getLiteralInfo(indexDiseq);
 						final Occurrence intersectOcc = stepOcc.intersect(indexDiseqOcc);
 
+						mTail.closeAPath(mHead, boundaryTerm, stepOcc);
 						mTail.closeAPath(mHead, boundaryTerm, intersectOcc);
 						mTail.openAPath(mHead, boundaryTerm, intersectOcc);
+						mTail.openAPath(mHead, boundaryTerm, stepOcc);
 						mTail.addIndexDisequality(mHead, storeTerm);
 					} else {
 						// Otherwise indexDiseq is a trivial disequality like x = x + 1.
-						// Don't close any paths.
+						// Treat it as a shared disequality.
+						mTail.closeAPath(mHead, boundaryTerm, stepOcc);
+						mTail.openAPath(mHead, boundaryTerm, stepOcc);
 					}
-					mTail.openAPath(mHead, boundaryTerm, stepOcc);
 				} else { // In equality steps, we just close or open A paths.
 					final LitInfo stepInfo = mInterpolator.getLiteralInfo(lit);
 					mTail.closeAPath(mHead, boundaryTerm, stepInfo);
