@@ -840,7 +840,7 @@ public class Clausifier {
 						rewrite = mTracker.transitivity(rewrite, mRewrites.get(0));
 					} else {
 						/* rewrite the (or ...) formula with a congruence lemma. */
-						rewrite = mTracker.congruence(rewrite, 
+						rewrite = mTracker.congruence(rewrite,
 								mRewrites.toArray(new Term[mRewrites.size()]));
 					}
 				}
@@ -865,7 +865,7 @@ public class Clausifier {
 		final Term mCond;
 		final boolean mPositive;
 		final int mSize;
-		
+
 		public ConditionChain() {
 			mSize = 0;
 			mPrev = null;
@@ -877,17 +877,17 @@ public class Clausifier {
 			mPrev = prev;
 			mCond = cond;
 			mPositive = positive;
-			mSize = prev == null ? 1 : prev.mSize + 1; 
+			mSize = prev == null ? 1 : prev.mSize + 1;
 		}
 
 		public Term getTerm() {
 			return mPositive ? mCond : mCond.getTheory().term("not", mCond);
 		}
-		
+
 		public int size() {
 			return mSize;
 		}
-		
+
 		@Override
 		public Iterator<Term> iterator() {
 			return new Iterator<Term>() {
@@ -911,7 +911,7 @@ public class Clausifier {
 	}
 
 	private class AddTermITEAxiom implements Operation {
-		
+
 		private final SourceAnnotation mSource;
 
 		private class CollectConditions implements Operation {
@@ -929,7 +929,7 @@ public class Clausifier {
 			public void perform() {
 				if (mTerm instanceof ApplicationTerm) {
 					final ApplicationTerm at = (ApplicationTerm) mTerm;
-					if (at.getFunction().getName().equals("ite") 
+					if (at.getFunction().getName().equals("ite")
 							&& (at.mTmpCtr <= Config.OCC_INLINE_TERMITE_THRESHOLD
 							|| mConds.size() == 0)) {
 						final Term c = at.getParameters()[0];
@@ -1161,7 +1161,7 @@ public class Clausifier {
 		return (t instanceof ApplicationTerm)
 				&& ((ApplicationTerm) t).getFunction().getName() == "not";
 	}
-	
+
 	/**
 	 * Transform a term to a positive normal term. A term is a positive normal term if it
 	 * <ul>
@@ -1233,7 +1233,7 @@ public class Clausifier {
 		// Create a = b \/ select(a, diff(a,b)) != select(b, diff(a,b))
 		final Term a = diff.getParameters()[0];
 		final Term b = diff.getParameters()[1];
-		final Term axiom = theory.term("or", theory.term("=", a, b), 
+		final Term axiom = theory.term("or", theory.term("=", a, b),
 				theory.term("not", theory.term("=", theory.term("select", a, diff), theory.term("select", b, diff))));
 		buildClause(mTracker.auxAxiom(axiom, ProofConstants.AUX_ARRAY_DIFF), source);
 	}
@@ -1244,7 +1244,7 @@ public class Clausifier {
 		final SMTAffineTerm arg = SMTAffineTerm.create(divParams[0]);
 		final Rational dividend = SMTAffineTerm.create(divParams[1]).getConstant();
 		final SMTAffineTerm divmul = SMTAffineTerm.create(divTerm).mul(dividend);
-		final Term zero = theory.constant(Rational.ZERO, divTerm.getSort());
+		final Term zero = theory.rational(Rational.ZERO, divTerm.getSort());
 		// (<= (- (* d (div x d)) x) 0)
 		final SMTAffineTerm difflow = divmul.add(arg.negate());
 		Term axiom = theory.term("<=", difflow, zero);
@@ -1265,7 +1265,7 @@ public class Clausifier {
 		final SMTAffineTerm toInt = SMTAffineTerm.create(toIntTerm).typecast(realTerm.getSort());
 		// (<= (- (to_real (to_int x)) x) 0)
 		final SMTAffineTerm difflow = toInt.add(realTerm.negate());
-		final Term zero = theory.constant(Rational.ZERO, realTerm.getSort());
+		final Term zero = theory.rational(Rational.ZERO, realTerm.getSort());
 		Term axiom = theory.term("<=", difflow, zero);
 		buildClause(mTracker.auxAxiom(axiom, ProofConstants.AUX_TO_INT_LOW), source);
 		// (not (<= (+ (to_real (to_int x)) (- x) 1) 0))
@@ -1288,7 +1288,7 @@ public class Clausifier {
 		assert trueProxy != EqualityProxy.getFalseProxy();
 		assert falseProxy != EqualityProxy.getTrueProxy();
 		assert falseProxy != EqualityProxy.getFalseProxy();
-		
+
 		final Term litTerm = shared.getTerm();
 		final Theory theory = litTerm.getTheory();
 		final Literal lit = createBooleanLit((ApplicationTerm) litTerm, source);
@@ -1302,7 +1302,7 @@ public class Clausifier {
 		BuildClause bc = new BuildClause(axiom, source);
 		bc.addFlatten(mTracker.getProvedTerm(axiom));
 		final Term litRewrite = mTracker.intern(litTerm, lit.getSMTFormula(theory, true));
-		Term rewrite = mTracker.congruence(mTracker.reflexivity(mTheory.term("not", litTerm)), 
+		Term rewrite = mTracker.congruence(mTracker.reflexivity(mTheory.term("not", litTerm)),
 				new Term[] { litRewrite });
 		bc.addLiteral(lit.negate(), rewrite);
 		rewrite = mTracker.intern(trueTerm, trueLit.getSMTFormula(theory, true));
@@ -1477,7 +1477,7 @@ public class Clausifier {
 			mSharedFalse = new SharedTerm(this, mTheory.mFalse);
 			mSharedFalse.mCCterm = mCClosure.createAnonTerm(mSharedFalse);
 			mSharedTerms.put(mTheory.mFalse, mSharedFalse);
-			final Literal atom = 
+			final Literal atom =
 					mCClosure.createCCEquality(mStackLevel, mSharedTrue.mCCterm, mSharedFalse.mCCterm);
 			final Term trueEqFalse = mTheory.term("=", mTheory.mTrue, mTheory.mFalse);
 			final Term axiom = mTracker.auxAxiom(mTheory.not(trueEqFalse), ProofConstants.AUX_TRUE_NOT_FALSE);
@@ -1818,7 +1818,7 @@ public class Clausifier {
 				res = getLiteralTseitin(at, source);
 			} else {
 				final EqualityProxy ep =
-						createEqualityProxy(getSharedTerm(at.getParameters()[0], source), 
+						createEqualityProxy(getSharedTerm(at.getParameters()[0], source),
 								getSharedTerm(at.getParameters()[1], source));
 				if (ep == EqualityProxy.getFalseProxy()) {
 					res = new TrueAtom().negate();
