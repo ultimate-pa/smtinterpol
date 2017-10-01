@@ -1560,6 +1560,15 @@ public class ProofChecker extends NonRecursive {
 		case ":expandDef":
 			okay = checkRewriteExpandDef(eqParams[0], eqParams[1]);
 			break;
+		case ":storeOverStore":
+			okay = checkStoreOverStore(eqParams[0], eqParams[1]);
+			break;
+		case ":selectOverStore":
+			okay = checkSelectOverStore(eqParams[0], eqParams[1]);
+			break;
+		case ":storeRewrite":
+			okay = checkStoreRewrite(eqParams[0], eqParams[1]);
+			break;
 		default:
 			okay = checkRewriteMisc(rewriteRule, rewriteEq);
 			break;
@@ -1916,6 +1925,64 @@ public class ProofChecker extends NonRecursive {
 		final Term[] params = at.getParameters();
 		final Term expected = mSkript.let(defVars, params, def);
 		return rhs == new FormulaUnLet().unlet(expected);
+	}
+
+	boolean checkStoreOverStore(final Term lhs, final Term rhs) {
+		// lhs: (store (store a i v) i w)
+		// rhs: (store a i w)
+		if (!isApplication("store", lhs)) {
+			return false;
+		}
+		final Term[] outerArgs = ((ApplicationTerm) lhs).getParameters();
+		if (!isApplication("store", outerArgs[0])) {
+			return false;
+		}
+		final Term[] innerArgs = ((ApplicationTerm) outerArgs[0]).getParameters();
+		final SMTAffineTerm indexDiff = convertAffineTerm(innerArgs[1]).add(convertAffineTerm(outerArgs[1]).negate());
+		if (!indexDiff.isConstant() || !indexDiff.getConstant().equals(Rational.ZERO)) {
+			return false;
+		}
+		return rhs == mSkript.term("store", innerArgs[0], outerArgs[1], outerArgs[2]);
+	}
+
+	boolean checkSelectOverStore(final Term lhs, final Term rhs) {
+		// lhs: (select (store a i v) j) i-j is a constant
+		// rhs: (select a j) if i-j !=0. v if i-j = 0
+		if (!isApplication("select", lhs)) {
+			return false;
+		}
+		final Term[] selectArgs = ((ApplicationTerm) lhs).getParameters();
+		if (!isApplication("store", selectArgs[0])) {
+			return false;
+		}
+		final Term[] storeArgs = ((ApplicationTerm) selectArgs[0]).getParameters();
+		final SMTAffineTerm indexDiff = convertAffineTerm(storeArgs[1]).add(convertAffineTerm(selectArgs[1]).negate());
+		if (!indexDiff.isConstant()) {
+			return false;
+		}
+		if (indexDiff.getConstant().equals(Rational.ZERO)) {
+			return rhs == storeArgs[2];
+		} else {
+			return rhs == mSkript.term("select", storeArgs[0], selectArgs[1]);
+		}
+	}
+
+	boolean checkStoreRewrite(final Term lhs, final Term rhs) {
+		// lhs: (= (store a i v) a) (or symmetric)
+		// rhs: (= (select a i) v)
+		if (!isApplication("=", lhs)) {
+			return false;
+		}
+		final Term[] eqArgs = ((ApplicationTerm) lhs).getParameters();
+		Term[] storeArgs;
+		if (isApplication("store", eqArgs[0]) && ((ApplicationTerm) eqArgs[0]).getParameters()[0] == eqArgs[1]) {
+			storeArgs = ((ApplicationTerm) eqArgs[0]).getParameters();
+		} else if (isApplication("store", eqArgs[1]) && ((ApplicationTerm) eqArgs[1]).getParameters()[0] == eqArgs[0]) {
+			storeArgs = ((ApplicationTerm) eqArgs[1]).getParameters();
+		} else {
+			return false;
+		}
+		return rhs == mSkript.term("=", mSkript.term("select", storeArgs[0], storeArgs[1]), storeArgs[2]);
 	}
 
 	boolean checkRewriteMisc(final String rewriteRule, final ApplicationTerm termEqApp) {
@@ -2632,120 +2699,6 @@ public class ProofChecker extends NonRecursive {
 			/*
 			 * Not nice: Not checked, if v is an integer and r a real, but it is still correct.
 			 */
-		} else if (rewriteRule == ":storeOverStore") {
-			System.out.println("\n \n \n Now finally tested: " + rewriteRule); // TODO
-
-			checkNumber(termEqApp.getParameters(), 2);
-			final ApplicationTerm termOldApp = convertApp(termEqApp.getParameters()[0]);
-			final ApplicationTerm termNewApp = convertApp(termEqApp.getParameters()[1]);
-			final ApplicationTerm termOldAppInnerApp = convertApp(termOldApp.getParameters()[0]);
-
-			checkNumber(termOldApp.getParameters(), 3);
-			checkNumber(termOldAppInnerApp.getParameters(), 3);
-			checkNumber(termNewApp.getParameters(), 3);
-
-			pm_func(termOldApp, "store");
-			pm_func(termOldAppInnerApp, "store");
-			pm_func(termNewApp, "store");
-
-			if (termOldApp.getParameters()[1] != termOldAppInnerApp.getParameters()[1]
-					|| termOldApp.getParameters()[1] != termNewApp.getParameters()[1]) {
-				throw new AssertionError("Error 1 at " + rewriteRule);
-			}
-
-			if (termOldApp.getParameters()[2] != termNewApp.getParameters()[2]) {
-				throw new AssertionError("Error 2 at " + rewriteRule);
-			}
-
-			if (termOldAppInnerApp.getParameters()[0] != termNewApp.getParameters()[0]) {
-				throw new AssertionError("Error 3 at " + rewriteRule);
-			}
-
-		} else if (rewriteRule == ":selectOverStore") {
-			System.out.println("\n \n \n Now finally tested: " + rewriteRule); // TODO
-
-			checkNumber(termEqApp.getParameters(), 2);
-			final ApplicationTerm termOldApp = convertApp(termEqApp.getParameters()[0]);
-			final Term termNew = termEqApp.getParameters()[1];
-			final ApplicationTerm termOldAppInnerApp = convertApp(termOldApp.getParameters()[0]);
-
-			checkNumber(termOldApp, 2);
-			checkNumber(termOldAppInnerApp, 3);
-
-			pm_func(termOldApp, "select");
-			pm_func(termOldAppInnerApp, "store");
-
-			if (termOldApp.getParameters()[1] == termOldAppInnerApp.getParameters()[1]) {
-				if (termOldAppInnerApp.getParameters()[2] != termNew) {
-					throw new AssertionError("Error 2 at " + rewriteRule);
-				}
-			} else {
-				final ApplicationTerm termNewApp = convertApp(termNew);
-				checkNumber(termNewApp.getParameters(), 2);
-				pm_func(termNewApp, "select");
-
-				final Term c1 = convertConst_Neg(termOldAppInnerApp.getParameters()[1]);
-				final Term c2 = convertConst_Neg(termOldApp.getParameters()[1]);
-
-				if (c1 == c2) {
-					throw new AssertionError("Error 3 at " + rewriteRule);
-				}
-
-				if (c2 != termNewApp.getParameters()[1]) {
-					throw new AssertionError("Error 4 at " + rewriteRule);
-				}
-				/*
-				 * TODO: Checked, if c1 and c2 are distinct constants.
-				 */
-				throw new AssertionError("selectOverStore with distinct indices");
-			}
-		} else if (rewriteRule == ":storeRewrite") {
-			System.out.println("\n \n \n Now finally tested: " + rewriteRule); // TODO
-
-			// checkNumber(termEqApp.getParameters(),2); already checked
-			final ApplicationTerm termOldApp = convertApp(termEqApp.getParameters()[0]);
-			final ApplicationTerm termNewApp = convertApp(termEqApp.getParameters()[1]);
-			final ApplicationTerm termNewAppInnerApp = convertApp(termNewApp.getParameters()[0]);
-			ApplicationTerm termOldAppInnerApp = null;
-
-			checkNumber(termNewApp.getParameters(), 2);
-			checkNumber(termNewAppInnerApp.getParameters(), 2);
-			checkNumber(termOldApp.getParameters(), 2);
-
-			final Term termA = termNewAppInnerApp.getParameters()[0];
-
-			if (termOldApp.getParameters()[0] == termA) {
-				termOldAppInnerApp = convertApp(termOldApp.getParameters()[1]);
-			} else if (termOldApp.getParameters()[1] == termA) {
-				termOldAppInnerApp = convertApp(termOldApp.getParameters()[0]);
-			} else {
-				throw new AssertionError("Error 1 in " + rewriteRule);
-			}
-
-			checkNumber(termOldAppInnerApp.getParameters(), 3);
-
-			pm_func(termOldApp, "=");
-			pm_func(termOldAppInnerApp, "store");
-			pm_func(termNewApp, "=");
-			pm_func(termNewAppInnerApp, "select");
-
-			final Term termI = termNewAppInnerApp.getParameters()[1];
-			final Term termV = termNewApp.getParameters()[1];
-			if (termOldAppInnerApp.getParameters()[0] != termA || termOldAppInnerApp.getParameters()[1] != termI
-					|| termOldAppInnerApp.getParameters()[2] != termV) {
-				throw new AssertionError("Error 2 at " + rewriteRule);
-			}
-
-			/*
-			 * Not nice: Not checked, if i is an integer, but it is still correct.
-			 */
-		} else if (rewriteRule == ":expand") {
-			final Term termOld = termEqApp.getParameters()[0];
-			final Term termNew = termEqApp.getParameters()[1];
-
-			if (!convertAffineTerm(termOld).equals(convertAffineTerm(termNew))) {
-				throw new AssertionError("Error in " + rewriteRule);
-			}
 		} else {
 			return false;
 		}
