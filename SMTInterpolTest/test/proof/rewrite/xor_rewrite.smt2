@@ -3,18 +3,15 @@
 (set-option :model-check-mode true)
 (set-option :print-terms-cse false)
 
-(set-logic QF_UFLIRA)
-(declare-fun x () Real)
+(set-logic QF_UF)
+(declare-fun p () Bool)
+(declare-fun q () Bool)
+(declare-fun r () Bool)
 
 (push 1)
-(assert (>= (- x (to_int x)) 1.0))
+(assert (xor p q r))
+(assert q)
+(assert (xor p r))
 (check-sat)
 (get-proof)
 (pop 1)
-
-(push 1)
-(assert (>= (- (* 2 x) (to_int (+ (to_int x) x))) 2.0))
-(check-sat)
-(get-proof)
-(pop 1)
-

@@ -341,7 +341,7 @@ public class TermCompiler extends TermTransformer {
 					if (arg1.getConstant().equals(Rational.ZERO)) {
 						mBy0Seen = true;
 						final Term rhs = theory.term("@/0", params[0]);
-						final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_EXPAND);
+						final Term rewrite = mTracker.reflexivity(rhs);
 						setResult(mTracker.transitivity(convertedApp, rewrite));
 					} else {
 						final Term rhs = arg0.mul(arg1.getConstant().inverse()).normalize(this);
@@ -363,7 +363,7 @@ public class TermCompiler extends TermTransformer {
 					if (divisor.equals(Rational.ZERO)) {
 						mBy0Seen = true;
 						final Term rhs = theory.term("@div0", params[0]);
-						final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_EXPAND);
+						final Term rewrite = mTracker.reflexivity(rhs);
 						setResult(mTracker.transitivity(convertedApp, rewrite));
 					} else if (divisor.equals(Rational.ONE)) {
 						final Term rhs = arg0.normalize(this);
@@ -397,7 +397,7 @@ public class TermCompiler extends TermTransformer {
 					if (divisor.equals(Rational.ZERO)) {
 						mBy0Seen = true;
 						final Term rhs = theory.term("@mod0", params[0]);
-						final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_EXPAND);
+						final Term rewrite = mTracker.reflexivity(rhs);
 						setResult(mTracker.transitivity(convertedApp, rewrite));
 					} else if (divisor.equals(Rational.ONE)) {
 						// (mod x 1) == 0

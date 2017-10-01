@@ -465,7 +465,6 @@ public class Utils {
 	/* Simplify a (f ..) term where the f term can contain double negation terms. */
 	public Term convertFuncNot(final Term input) {
 		final ApplicationTerm appTerm = (ApplicationTerm) mTracker.getProvedTerm(input);
-		assert appTerm.getFunction().getName() == "or";
 		final Term[] args = appTerm.getParameters();
 		final Term[] argRewrites = new Term[args.length];
 		for (int i = 0; i < args.length; i++) {
