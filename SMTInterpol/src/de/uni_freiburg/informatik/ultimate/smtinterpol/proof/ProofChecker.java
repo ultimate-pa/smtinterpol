@@ -1508,17 +1508,11 @@ public class ProofChecker extends NonRecursive {
 
 		boolean okay;
 		switch (rewriteRule) {
-		case ":andToOr":
-			okay = checkRewriteAndToOr(eqParams[0], eqParams[1]);
+		case ":expand":
+			okay = checkRewriteExpand(eqParams[0], eqParams[1]);
 			break;
-		case ":impToOr":
-			okay = checkRewriteImpToOr(eqParams[0], eqParams[1]);
-			break;
-		case ":xorToDistinct":
-			okay = checkRewriteXorToDistinct(eqParams[0], eqParams[1]);
-			break;
-		case ":strip":
-			okay = checkRewriteStrip(eqParams[0], eqParams[1]);
+		case ":expandDef":
+			okay = checkRewriteExpandDef(eqParams[0], eqParams[1]);
 			break;
 		case ":trueNotFalse":
 			okay = checkRewriteTrueNotFalse(eqParams[0], eqParams[1]);
@@ -1537,8 +1531,17 @@ public class ProofChecker extends NonRecursive {
 		case ":eqBinary":
 			okay = checkRewriteEqBinary(eqParams[0], eqParams[1]);
 			break;
-		case ":storeRewrite":
-			okay = checkStoreRewrite(eqParams[0], eqParams[1]);
+		case ":distinctBool":
+		case ":distinctSame":
+		case ":distinctNeg":
+		case ":distinctTrue":
+		case ":distinctFalse":
+		case ":distinctBoolEq":
+		case ":distinctBinary":
+			okay = checkRewriteDistinct(rewriteRule, eqParams[0], eqParams[1]);
+			break;
+		case ":notSimp":
+			okay = checkRewriteNot(eqParams[0], eqParams[1]);
 			break;
 		case ":orSimp":
 			okay = checkRewriteOrSimp(rewriteRule, eqParams[0], eqParams[1]);
@@ -1557,17 +1560,20 @@ public class ProofChecker extends NonRecursive {
 		case ":iteBool6":
 			okay = checkRewriteIte(rewriteRule, eqParams[0], eqParams[1]);
 			break;
-		case ":distinctBool":
-		case ":distinctSame":
-		case ":distinctNeg":
-		case ":distinctTrue":
-		case ":distinctFalse":
-		case ":distinctBoolEq":
-		case ":distinctBinary":
-			okay = checkRewriteDistinct(rewriteRule, eqParams[0], eqParams[1]);
+		case ":andToOr":
+			okay = checkRewriteAndToOr(eqParams[0], eqParams[1]);
 			break;
-		case ":notSimp":
-			okay = checkRewriteNot(eqParams[0], eqParams[1]);
+		case ":xorToDistinct":
+			okay = checkRewriteXorToDistinct(eqParams[0], eqParams[1]);
+			break;
+		case ":impToOr":
+			okay = checkRewriteImpToOr(eqParams[0], eqParams[1]);
+			break;
+		case ":strip":
+			okay = checkRewriteStrip(eqParams[0], eqParams[1]);
+			break;
+		case ":canonicalSum":
+			okay = checkRewriteCanonicalSum(eqParams[0], eqParams[1]);
 			break;
 		case ":leqToLeq0":
 		case ":ltToLeq0":
@@ -1575,27 +1581,20 @@ public class ProofChecker extends NonRecursive {
 		case ":gtToLeq0":
 			okay = checkRewriteToLeq0(rewriteRule, eqParams[0], eqParams[1]);
 			break;
-		case ":canonicalSum":
-		case ":toReal":
-			okay = checkRewriteCanonicalSum(rewriteRule, eqParams[0], eqParams[1]);
-			break;
-		case ":flatten":
-			okay = checkRewriteFlatten(eqParams[0], eqParams[1]);
-			break;
 		case ":desugar":
 			okay = checkRewriteDesugar(eqParams[0], eqParams[1]);
-			break;
-		case ":expand":
-			okay = checkRewriteExpand(eqParams[0], eqParams[1]);
-			break;
-		case ":expandDef":
-			okay = checkRewriteExpandDef(eqParams[0], eqParams[1]);
 			break;
 		case ":storeOverStore":
 			okay = checkStoreOverStore(eqParams[0], eqParams[1]);
 			break;
 		case ":selectOverStore":
 			okay = checkSelectOverStore(eqParams[0], eqParams[1]);
+			break;
+		case ":flatten":
+			okay = checkRewriteFlatten(eqParams[0], eqParams[1]);
+			break;
+		case ":storeRewrite":
+			okay = checkStoreRewrite(eqParams[0], eqParams[1]);
 			break;
 		default:
 			okay = checkRewriteMisc(rewriteRule, rewriteEq);
@@ -2004,10 +2003,7 @@ public class ProofChecker extends NonRecursive {
 		return false;
 	}
 
-	boolean checkRewriteCanonicalSum(final String rule, final Term lhs, final Term rhs) {
-		if (rule.equals(":toReal") && !isApplication("to_real", lhs)) {
-			return false;
-		}
+	boolean checkRewriteCanonicalSum(final Term lhs, final Term rhs) {
 		final SMTAffineTerm lhsAffine = convertAffineTerm(lhs);
 		final SMTAffineTerm rhsAffine = convertAffineTerm(rhs);
 		return lhsAffine.equals(rhsAffine);

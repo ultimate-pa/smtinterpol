@@ -25,7 +25,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Annotation;
  * @author Juergen Christ, Jochen Hoenicke
  */
 public interface ProofConstants {
-	
+
 	//// ==== Rewrite ids and names ====
 	public final static Annotation RW_EXPAND            = new Annotation(":expand", null);
 	public final static Annotation RW_EXPAND_DEF        = new Annotation(":expandDef", null);
@@ -34,12 +34,14 @@ public interface ProofConstants {
 	public final static Annotation RW_EQ_TRUE           = new Annotation(":eqTrue", null);
 	public final static Annotation RW_EQ_FALSE          = new Annotation(":eqFalse", null);
 	public final static Annotation RW_EQ_SIMP           = new Annotation(":eqSimp", null);
+	public final static Annotation RW_EQ_SAME           = new Annotation(":eqSame", null);
 	public final static Annotation RW_EQ_BINARY         = new Annotation(":eqBinary", null);
 	public final static Annotation RW_DISTINCT_BOOL     = new Annotation(":distinctBool", null);
 	public final static Annotation RW_DISTINCT_SAME     = new Annotation(":distinctSame", null);
 	public final static Annotation RW_DISTINCT_NEG      = new Annotation(":distinctNeg", null);
 	public final static Annotation RW_DISTINCT_TRUE     = new Annotation(":distinctTrue", null);
 	public final static Annotation RW_DISTINCT_FALSE    = new Annotation(":distinctFalse", null);
+	public final static Annotation RW_DISTINCT_BOOL_EQ = new Annotation(":distinctBoolEq", null);
 	public final static Annotation RW_DISTINCT_BINARY   = new Annotation(":distinctBinary", null);
 	public final static Annotation RW_NOT_SIMP          = new Annotation(":notSimp", null);
 	public final static Annotation RW_OR_SIMP           = new Annotation(":orSimp", null);
@@ -74,13 +76,10 @@ public interface ProofConstants {
 	public final static Annotation RW_DIV_MONE          = new Annotation(":div-1", null);
 	public final static Annotation RW_DIV_CONST         = new Annotation(":divConst", null);
 	public final static Annotation RW_TO_INT            = new Annotation(":toInt", null);
-	public final static Annotation RW_EQ_SAME           = new Annotation(":eqSame", null);
 	public final static Annotation RW_STORE_OVER_STORE  = new Annotation(":storeOverStore", null);
 	public final static Annotation RW_SELECT_OVER_STORE = new Annotation(":selectOverStore", null);
 	public final static Annotation RW_FLATTEN           = new Annotation(":flatten", null);
 	public final static Annotation RW_STORE_REWRITE     = new Annotation(":storeRewrite", null);
-	public final static Annotation RW_TO_REAL           = new Annotation(":toReal", null);
-	public final static Annotation RW_DISTINCT_BOOL_EQ  = new Annotation(":distinctBoolEq", null);
 	public final static Annotation RW_FORALL_EXISTS     = new Annotation(":forallExists", null);
 
 	//// ==== Tautologies ====
