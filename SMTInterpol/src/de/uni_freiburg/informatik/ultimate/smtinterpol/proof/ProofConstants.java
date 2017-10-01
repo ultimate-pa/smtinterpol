@@ -41,7 +41,7 @@ public interface ProofConstants {
 	public final static Annotation RW_DISTINCT_NEG      = new Annotation(":distinctNeg", null);
 	public final static Annotation RW_DISTINCT_TRUE     = new Annotation(":distinctTrue", null);
 	public final static Annotation RW_DISTINCT_FALSE    = new Annotation(":distinctFalse", null);
-	public final static Annotation RW_DISTINCT_BOOL_EQ = new Annotation(":distinctBoolEq", null);
+	public final static Annotation RW_DISTINCT_BOOL_EQ  = new Annotation(":distinctBoolEq", null);
 	public final static Annotation RW_DISTINCT_BINARY   = new Annotation(":distinctBinary", null);
 	public final static Annotation RW_NOT_SIMP          = new Annotation(":notSimp", null);
 	public final static Annotation RW_OR_SIMP           = new Annotation(":orSimp", null);

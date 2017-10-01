@@ -103,7 +103,7 @@ public class Utils {
 		// Handle disjunctions of false
 		if (ctx.isEmpty()) {
 			return mTracker.transitivity(input,
-					mTracker.buildRewrite(orTerm, falseTerm, ProofConstants.RW_OR_TAUT));
+					mTracker.buildRewrite(orTerm, falseTerm, ProofConstants.RW_OR_SIMP));
 		}
 		// Handle simplifications to unary or
 		if (ctx.size() == 1) {
