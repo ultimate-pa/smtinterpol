@@ -22,7 +22,6 @@ import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
-import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 
@@ -89,14 +88,6 @@ public interface IProofTracker {
 	public Term exists(QuantifiedFormula old, Term newBody);
 
 	/* == rewrite rules == */
-
-	/**
-	 * Cast a term of type int to type real.
-	 * @param x the term to cast annotated with proof of equality to original term.
-	 * @param sort the sort to cast the term to.
-	 * @return cast term annotated with proof of equality to original term.
-	 */
-	public Term castReal(Term x, Sort sort);
 
 	/**
 	 * Create a rewrite proof for {@code (= orig res)}. This function doesn't check if the rewrite proof is sound but

@@ -36,6 +36,7 @@ import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
+import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermTransformer;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
@@ -1573,10 +1574,13 @@ public class ProofChecker extends NonRecursive {
 			break;
 		case ":canonicalSum":
 		case ":toReal":
-			okay = checkCanonicalSum(rewriteRule, eqParams[0], eqParams[1]);
+			okay = checkRewriteCanonicalSum(rewriteRule, eqParams[0], eqParams[1]);
 			break;
 		case ":flatten":
 			okay = checkRewriteFlatten(eqParams[0], eqParams[1]);
+			break;
+		case ":desugar":
+			okay = checkRewriteDesugar(eqParams[0], eqParams[1]);
 			break;
 		case ":expand":
 			okay = checkRewriteExpand(eqParams[0], eqParams[1]);
@@ -1997,15 +2001,12 @@ public class ProofChecker extends NonRecursive {
 		return false;
 	}
 
-	boolean checkCanonicalSum(final String rule, final Term lhs, final Term rhs) {
-		SMTAffineTerm lhsAffine = convertAffineTerm(lhs);
-		final SMTAffineTerm rhsAffine = convertAffineTerm(rhs);
-		if (rule.equals(":toReal")) {
-			if (rhs.getSort().getName() != "Real") {
-				return false;
-			}
-			lhsAffine = lhsAffine.typecast(rhs.getSort());
+	boolean checkRewriteCanonicalSum(final String rule, final Term lhs, final Term rhs) {
+		if (rule.equals(":toReal") && !isApplication("to_real", lhs)) {
+			return false;
 		}
+		final SMTAffineTerm lhsAffine = convertAffineTerm(lhs);
+		final SMTAffineTerm rhsAffine = convertAffineTerm(rhs);
 		return lhsAffine.equals(rhsAffine);
 	}
 
@@ -2038,6 +2039,36 @@ public class ProofChecker extends NonRecursive {
 			}
 		}
 		return rhsOffset == rhsArgs.length;
+	}
+
+	boolean checkRewriteDesugar(final Term lhs, final Term rhs) {
+		if (!(lhs instanceof ApplicationTerm) || !(rhs instanceof ApplicationTerm)) {
+			return false;
+		}
+
+		final FunctionSymbol fsym = ((ApplicationTerm) lhs).getFunction();
+		if (((ApplicationTerm) rhs).getFunction() != fsym) {
+			return false;
+		}
+		final Sort[] sorts = fsym.getParameterSorts();
+		if (sorts.length != 2 || !sorts[0].isNumericSort() || sorts[0].getName() != "Real" || !sorts[1].isNumericSort()
+				|| sorts[1].getName() != "Real") {
+			return false;
+		}
+
+		final Term[] lhsParams = ((ApplicationTerm) lhs).getParameters();
+		final Term[] rhsParams = ((ApplicationTerm) rhs).getParameters();
+		if (lhsParams.length != rhsParams.length) {
+			return false;
+		}
+		for (int i = 0; i < lhsParams.length; i++) {
+			final Term expected = (lhsParams[i].getSort().getName() == "Int" ?
+					mSkript.term("to_real", lhsParams[i]) : lhsParams[i]);
+			if (rhsParams[i] != expected) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	boolean checkRewriteExpand(final Term lhs, final Term rhs) {
@@ -2280,61 +2311,6 @@ public class ProofChecker extends NonRecursive {
 
 			if (termEqApp.getParameters()[1] != mSkript.term("false")) {
 				throw new AssertionError("Error 4 at " + rewriteRule);
-			}
-		} else if (rewriteRule == ":desugar") {
-			/*
-			 * All Int-Parameters of the outermost function are getting converted into Real-Parameters
-			 */
-
-			final ApplicationTerm termOldApp = convertApp(termEqApp.getParameters()[0]);
-			final ApplicationTerm termNewApp = convertApp(termEqApp.getParameters()[1]);
-
-			// Both must have the same function symbol
-			pm_func(termOldApp, termNewApp.getFunction().getName());
-
-			if (termOldApp.getParameters().length != termNewApp.getParameters().length) {
-				throw new AssertionError("Error 1 in :desugar");
-			}
-
-			for (int i = 0; i < termNewApp.getParameters().length; i++) {
-				final Term paramIOld = termOldApp.getParameters()[i];
-				final Term paramINew = termNewApp.getParameters()[i];
-				if (!paramIOld.equals(paramINew)) {
-					if (!convertAffineTerm(paramIOld).isIntegral()) {
-						throw new AssertionError("Error 2 in :desugar");
-					}
-
-					// Then paramINew has to be either old.0 or (to_real old)
-					// Case 1: (to_real old), Case 2: old.0
-					boolean correct = false;
-
-					if (paramINew instanceof ApplicationTerm) {
-						// Case 1 and parts of Case 2: (Just handling of the complete Case 1)
-						final ApplicationTerm paramINewApp = convertApp(paramINew);
-
-						if (pm_func_weak(paramINewApp, "to_real")) {
-							if (paramIOld.equals(paramINewApp.getParameters()[0])) {
-								correct = true;
-							} else {
-								throw new AssertionError("Error 4 in :desugar");
-							}
-						}
-					}
-
-					// Case 2 and parts of Case 1: (Just handling of the complete Case 2)
-					if (convertAffineTerm(paramINew).getSort() == mSkript.sort("Real")) {
-						// Check for equalitiy, ? and ?.0 have to be equal, therefor .equals doesn't work
-						final SMTAffineTerm diffZero =
-								convertAffineTerm(paramINew).add(convertAffineTerm(paramIOld).negate());
-						if (diffZero.isConstant() && diffZero.getConstant() == Rational.ZERO) {
-							correct = true;
-						}
-					}
-
-					if (!correct) {
-						throw new AssertionError("Error 5 in :desugar");
-					}
-				}
 			}
 		} else if (rewriteRule == ":divisible") {
 			// This rule is a combination of 3-4 sub-rules

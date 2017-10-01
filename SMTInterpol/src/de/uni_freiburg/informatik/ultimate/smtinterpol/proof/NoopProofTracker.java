@@ -24,10 +24,8 @@ import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
-import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 
 /**
@@ -122,11 +120,6 @@ public class NoopProofTracker implements IProofTracker {
 	@Override
 	public Term asserted(final Term formula) {
 		return formula;
-	}
-
-	@Override
-	public Term castReal(final Term x, final Sort sort) {
-		return SMTAffineTerm.create(x).typecast(sort);
 	}
 
 	@Override
