@@ -194,7 +194,7 @@ public class TermCompiler extends TermTransformer {
 					desugarParams[i] = theory.term("to_real", arg);
 					nargs[i] = mTracker.buildRewrite(desugarParams[i],
 							SMTAffineTerm.create(arg).typecast(paramSorts[0]),
-							ProofConstants.RW_TO_REAL);
+							ProofConstants.RW_CANONICAL_SUM);
 					changed = true;
 				} else {
 					desugarParams[i] = arg;
@@ -457,7 +457,7 @@ public class TermCompiler extends TermTransformer {
 				final SMTAffineTerm arg = SMTAffineTerm.create(params[0]);
 				final Term lhs = mTracker.getProvedTerm(convertedApp);
 				final Term rhs = arg.typecast(fsym.getReturnSort()).normalize(this);
-				final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_TO_REAL);
+				final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_CANONICAL_SUM);
 				setResult(mTracker.transitivity(convertedApp, rewrite));
 				return;
 			}
