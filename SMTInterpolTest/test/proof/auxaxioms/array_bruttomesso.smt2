@@ -9,7 +9,7 @@
 (declare-fun v () U)
 (declare-fun a () (Array U U))
 (declare-fun b () (Array U U))
-(assert (= a (store b i v))
+(assert (= a (store b i v)))
 (assert (not (= (select a j) (select b j))))
 (assert (not (= (select a k) (select b k))))
 (assert (not (= j k)))
