@@ -1591,17 +1591,20 @@ public class ProofChecker extends NonRecursive {
 		case ":divisible":
 			okay = checkRewriteDivisible(eqParams[0], eqParams[1]);
 			break;
+		case ":toInt":
+			okay = checkRewriteToInt(eqParams[0], eqParams[1]);
+			break;
 		case ":storeOverStore":
-			okay = checkStoreOverStore(eqParams[0], eqParams[1]);
+			okay = checkRewriteStoreOverStore(eqParams[0], eqParams[1]);
 			break;
 		case ":selectOverStore":
-			okay = checkSelectOverStore(eqParams[0], eqParams[1]);
+			okay = checkRewriteSelectOverStore(eqParams[0], eqParams[1]);
 			break;
 		case ":flatten":
 			okay = checkRewriteFlatten(eqParams[0], eqParams[1]);
 			break;
 		case ":storeRewrite":
-			okay = checkStoreRewrite(eqParams[0], eqParams[1]);
+			okay = checkRewriteStore(eqParams[0], eqParams[1]);
 			break;
 		default:
 			okay = checkRewriteMisc(rewriteRule, rewriteEq);
@@ -2105,6 +2108,20 @@ public class ProofChecker extends NonRecursive {
 				convertAffineTerm(rhsArgs[1]).equals(expected);
 	}
 
+	boolean checkRewriteToInt(final Term lhs, final Term rhs) {
+		// (to_int constant) --> floor(constant)
+		if (!isApplication("to_int", lhs)) {
+			return false;
+		}
+		final Term arg = ((ApplicationTerm) lhs).getParameters()[0];
+		final SMTAffineTerm argAffine = convertAffineTerm(arg);
+		if (!argAffine.isConstant()) {
+			return false;
+		}
+		final SMTAffineTerm rhsAffine = convertAffineTerm(rhs);
+		return rhsAffine.isConstant() && rhsAffine.getConstant().equals(argAffine.getConstant().floor());
+	}
+
 	boolean checkRewriteExpand(final Term lhs, final Term rhs) {
 		if (!(lhs instanceof ApplicationTerm)) {
 			return false;
@@ -2191,7 +2208,7 @@ public class ProofChecker extends NonRecursive {
 		return rhs == new FormulaUnLet().unlet(expected);
 	}
 
-	boolean checkStoreOverStore(final Term lhs, final Term rhs) {
+	boolean checkRewriteStoreOverStore(final Term lhs, final Term rhs) {
 		// lhs: (store (store a i v) i w)
 		// rhs: (store a i w)
 		if (!isApplication("store", lhs)) {
@@ -2209,7 +2226,7 @@ public class ProofChecker extends NonRecursive {
 		return rhs == mSkript.term("store", innerArgs[0], outerArgs[1], outerArgs[2]);
 	}
 
-	boolean checkSelectOverStore(final Term lhs, final Term rhs) {
+	boolean checkRewriteSelectOverStore(final Term lhs, final Term rhs) {
 		// lhs: (select (store a i v) j) i-j is a constant
 		// rhs: (select a j) if i-j !=0. v if i-j = 0
 		if (!isApplication("select", lhs)) {
@@ -2231,7 +2248,7 @@ public class ProofChecker extends NonRecursive {
 		}
 	}
 
-	boolean checkStoreRewrite(final Term lhs, final Term rhs) {
+	boolean checkRewriteStore(final Term lhs, final Term rhs) {
 		// lhs: (= (store a i v) a) (or symmetric)
 		// rhs: (= (select a i) v)
 		if (!isApplication("=", lhs)) {
@@ -2565,55 +2582,6 @@ public class ProofChecker extends NonRecursive {
 				throw new AssertionError("Error 2 at " + rewriteRule);
 			}
 
-		} else if (rewriteRule == ":toInt") {
-			final ApplicationTerm termOldApp = convertApp(termEqApp.getParameters()[0]);
-
-			pm_func(termOldApp, "to_int");
-
-			// r and v as in the documentation proof.pdf
-			final Term termV = convertConst_Neg(termEqApp.getParameters()[1]);
-			final Term termR = termOldApp.getParameters()[0];
-			// r can be a positive/negative fraction
-			// Case A: Positive Integer, Case B: Negative Integer
-			// Case C: Positive Fraction, Case D: Negative Fraction
-
-			if (termR instanceof ApplicationTerm) {
-				// Case B, C, D:
-				final ApplicationTerm termRApp = convertApp(termR);
-				ApplicationTerm termRInnerApp;
-				if (pm_func_weak(termRApp, "-") && termRApp.getParameters()[0] instanceof ApplicationTerm) {
-					// Case D:
-					termRInnerApp = convertApp(termRApp.getParameters()[0]);
-					pm_func(termRInnerApp, "/");
-					checkNumber(termRInnerApp, 2);
-
-					convertConst_Neg(termRInnerApp.getParameters()[0]); // Presumably the neg isn't needed
-					convertConst_Neg(termRInnerApp.getParameters()[1]); // Presumably the neg isn't needed
-				} else if (pm_func_weak(termRApp, "/")) {
-					// Case C:
-					pm_func(termRApp, "/");
-					checkNumber(termRApp, 2);
-
-					convertConst_Neg(termRApp.getParameters()[0]); // Presumably the neg isn't needed
-					convertConst_Neg(termRApp.getParameters()[1]); // Presumably the neg isn't needed
-				} else {
-					// Case B:
-					pm_func(termRApp, "-");
-
-					convertConst(termRApp.getParameters()[0]);
-				}
-			} else {
-				// Case A:
-				convertConst(termR);
-			}
-
-			if (!convertAffineTerm(termR).getConstant().floor().equals(convertAffineTerm(termV).getConstant())) {
-				throw new AssertionError("Error 2 at " + rewriteRule);
-			}
-
-			/*
-			 * Not nice: Not checked, if v is an integer and r a real, but it is still correct.
-			 */
 		} else {
 			return false;
 		}
