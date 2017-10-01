@@ -1,5 +1,6 @@
 (set-option :produce-proofs true)
 (set-option :proof-check-mode true)
+(set-option :proof-transformation LU)
 
 (set-logic QF_AX)
 (declare-sort U 0)

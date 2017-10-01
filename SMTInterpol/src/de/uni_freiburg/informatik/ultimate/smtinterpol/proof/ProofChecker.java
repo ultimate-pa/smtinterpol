@@ -1581,8 +1581,15 @@ public class ProofChecker extends NonRecursive {
 		case ":gtToLeq0":
 			okay = checkRewriteToLeq0(rewriteRule, eqParams[0], eqParams[1]);
 			break;
+		case ":leqTrue":
+		case ":leqFalse":
+			okay = checkRewriteLeq(rewriteRule, eqParams[0], eqParams[1]);
+			break;
 		case ":desugar":
 			okay = checkRewriteDesugar(eqParams[0], eqParams[1]);
+			break;
+		case ":divisible":
+			okay = checkRewriteDivisible(eqParams[0], eqParams[1]);
 			break;
 		case ":storeOverStore":
 			okay = checkStoreOverStore(eqParams[0], eqParams[1]);
@@ -2041,6 +2048,7 @@ public class ProofChecker extends NonRecursive {
 	}
 
 	boolean checkRewriteDesugar(final Term lhs, final Term rhs) {
+		// (* realparam intparam) --> (* realparam (to_real intparam))
 		if (!(lhs instanceof ApplicationTerm) || !(rhs instanceof ApplicationTerm)) {
 			return false;
 		}
@@ -2061,13 +2069,40 @@ public class ProofChecker extends NonRecursive {
 			return false;
 		}
 		for (int i = 0; i < lhsParams.length; i++) {
-			final Term expected = (lhsParams[i].getSort().getName() == "Int" ?
-					mSkript.term("to_real", lhsParams[i]) : lhsParams[i]);
+			final Term expected =
+					(lhsParams[i].getSort().getName() == "Int" ? mSkript.term("to_real", lhsParams[i]) : lhsParams[i]);
 			if (rhsParams[i] != expected) {
 				return false;
 			}
 		}
 		return true;
+	}
+
+	boolean checkRewriteDivisible(final Term lhs, final Term rhs) {
+		// ((_ divisible n) x) --> (= x (* n (div x n)))
+		if (!isApplication("divisible", lhs)) {
+			return false;
+		}
+		final Rational num = Rational.valueOf(((ApplicationTerm) lhs).getFunction().getIndices()[0], BigInteger.ONE);
+		if (num.equals(Rational.ONE)) {
+			return isApplication("true", rhs);
+		}
+		final Term arg = ((ApplicationTerm) lhs).getParameters()[0];
+		final SMTAffineTerm argAffine = convertAffineTerm(arg);
+		if (argAffine.isConstant()) {
+			assert argAffine.getConstant().denominator().equals(BigInteger.ONE);
+			final boolean divisible = argAffine.getConstant().numerator().mod(num.numerator()).equals(BigInteger.ZERO);
+			return isApplication(divisible ? "true" : "false", rhs);
+		}
+		final Theory theory = lhs.getTheory();
+		final SMTAffineTerm expected =
+				SMTAffineTerm.create(num, theory.term("div", arg, theory.rational(num, arg.getSort())));
+		if (!isApplication("=", rhs)) {
+			return false;
+		}
+		final Term[] rhsArgs = ((ApplicationTerm) rhs).getParameters();
+		return rhsArgs[0] == arg &&
+				convertAffineTerm(rhsArgs[1]).equals(expected);
 	}
 
 	boolean checkRewriteExpand(final Term lhs, final Term rhs) {
@@ -2258,129 +2293,32 @@ public class ProofChecker extends NonRecursive {
 		return convertAffineTerm(rhsParams[0]).equals(expected) && isZero(rhsParams[1]);
 	}
 
+	boolean checkRewriteLeq(final String rewriteRule, final Term lhs, final Term rhs) {
+		// (<= c 0) --> true/false if c is constant.
+		if (!isApplication("<=", lhs)) {
+			return false;
+		}
+		final Term[] params = ((ApplicationTerm) lhs).getParameters();
+		if (!isZero(params[1])) {
+			return false;
+		}
+		final SMTAffineTerm param0 = convertAffineTerm(params[0]);
+		if (!param0.isConstant()) {
+			return false;
+		}
+
+		switch (rewriteRule) {
+		case ":leqTrue":
+			return param0.getConstant().signum() <= 0 && isApplication("true", rhs);
+		case ":leqFalse":
+			return param0.getConstant().signum() > 0 && isApplication("false", rhs);
+		default:
+			return false;
+		}
+	}
+
 	boolean checkRewriteMisc(final String rewriteRule, final ApplicationTerm termEqApp) {
-		if (rewriteRule == ":leqTrue") {
-			final ApplicationTerm termOldApp = convertApp(termEqApp.getParameters()[0]);
-			checkNumber(termOldApp, 2);
-
-			pm_func(termOldApp, "<=");
-
-			final SMTAffineTerm constant = convertAffineTerm(convertConst_Neg(termOldApp.getParameters()[0]));
-
-			// Rule-Execution was wrong if c > 0 <=> -c < 0
-			if (constant.negate().getConstant().isNegative()) {
-				throw new AssertionError("Error 2 at " + rewriteRule);
-			}
-
-			final SMTAffineTerm termTemp = convertAffineTerm(termOldApp.getParameters()[1]);
-
-			isConstant(termTemp, Rational.ZERO);
-
-			if (termEqApp.getParameters()[1] != mSkript.term("true")) {
-				throw new AssertionError("Error 4 at " + rewriteRule);
-			}
-		} else if (rewriteRule == ":leqFalse") {
-			final ApplicationTerm termOldApp = convertApp(termEqApp.getParameters()[0]);
-
-			pm_func(termOldApp, "<=");
-
-			checkNumber(termOldApp, 2);
-
-			final SMTAffineTerm constant = convertAffineTerm(convertConst_Neg(termOldApp.getParameters()[0]));
-
-			// Rule-Execution was wrong if c <= 0 <=> c < 0 || c = 0
-			if (constant.getConstant().isNegative() || isConstant_weak(constant, Rational.ZERO)) {
-				throw new AssertionError("Error 2 at " + rewriteRule);
-			}
-
-			final SMTAffineTerm termTemp = convertAffineTerm(termOldApp.getParameters()[1]);
-			isConstant(termTemp, Rational.ZERO);
-
-			if (termEqApp.getParameters()[1] != mSkript.term("false")) {
-				throw new AssertionError("Error 4 at " + rewriteRule);
-			}
-		} else if (rewriteRule == ":divisible") {
-			// This rule is a combination of 3-4 sub-rules
-
-			// Declaration of the variables which can be declared for all sub-rules + syntactical check
-			final ApplicationTerm termOldApp = convertApp(termEqApp.getParameters()[0]);
-			checkNumber(termOldApp, 1);
-			final Term termNew = termEqApp.getParameters()[1];
-
-			final Term termT = termOldApp.getParameters()[0];
-			final BigInteger bigIN = termOldApp.getFunction().getIndices()[0]; // bigInteger N
-
-			pm_func(termOldApp, "divisible");
-
-			// Old: termNew instanceof ApplicationTerm
-			if (!termNew.equals(mSkript.term("true")) // NOPMD
-					&& !termNew.equals(mSkript.term("false"))) {
-				// Sub-rule 4
-
-				final ApplicationTerm termNewApp = convertApp(termNew);
-				pm_func(termNewApp, "=");
-
-				checkNumber(termNewApp, 2);
-
-				// = and * are commutative
-				ApplicationTerm termNewAppProd;
-				if (termNewApp.getParameters()[0].equals(termT)) {
-					termNewAppProd = convertApp(termNewApp.getParameters()[1]);
-				} else if (termNewApp.getParameters()[1].equals(termT)) {
-					termNewAppProd = convertApp(termNewApp.getParameters()[0]);
-				} else {
-					throw new AssertionError("Error 1 in divisible");
-				}
-
-				ApplicationTerm termNewAppDiv = null; // Not nice: Use of null
-				boolean found = false;
-
-				checkNumber(termNewAppProd, 2);
-
-				if (termNewAppProd.getParameters()[0] instanceof ConstantTerm
-						&& convertConst(termNewAppProd.getParameters()[0]).getValue().equals(bigIN)) {
-					termNewAppDiv = convertApp(termNewAppProd.getParameters()[1]);
-					found = true;
-				}
-				if ((termNewAppProd.getParameters()[1] instanceof ConstantTerm)
-						&& convertConst(termNewAppProd.getParameters()[1]).getValue().equals(bigIN)) {
-					termNewAppDiv = convertApp(termNewAppProd.getParameters()[0]);
-					found = true;
-				}
-
-				checkNumber(termNewAppDiv, 2);
-
-				if (!found) {
-					throw new AssertionError("Error 2 in divisible");
-				}
-
-				pm_func(termNewAppProd, "*");
-				if (!pm_func_weak(termNewAppDiv, "div") && !pm_func_weak(termNewAppDiv, "/")) {
-					throw new AssertionError("Error 3 in divisible");
-				}
-
-				if (!termNewAppDiv.getParameters()[0].equals(termT)) {
-					throw new AssertionError("Error 4 in divisible");
-				}
-
-				if (!convertConst(termNewAppDiv.getParameters()[1]).getValue().equals(bigIN)) {
-					throw new AssertionError("Error 5 in divisible");
-				}
-			} else {
-				final Rational constT = convertAffineTerm(convertConst_Neg(termT)).getConstant();
-				final Rational constN = Rational.valueOf(bigIN, BigInteger.ONE);
-
-				if (constT.div(constN).isIntegral() && !termNew.equals(mSkript.term("true"))) {
-					throw new AssertionError("Error 6 in divisible");
-				}
-
-				if (!constT.div(constN).isIntegral() && !termNew.equals(mSkript.term("false"))) {
-					throw new AssertionError("Error 7 in divisible");
-				}
-
-				// No special treatment of the case n = 1, but it's still correct.
-			}
-		} else if (rewriteRule == ":div1") {
+		if (rewriteRule == ":div1") {
 			final ApplicationTerm termOldApp = convertApp(termEqApp.getParameters()[0]);
 
 			pm_func(termOldApp, "div");
