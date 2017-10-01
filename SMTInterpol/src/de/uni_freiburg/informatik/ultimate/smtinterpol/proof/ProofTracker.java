@@ -27,10 +27,8 @@ import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
-import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 
 /**
@@ -209,14 +207,6 @@ public class ProofTracker implements IProofTracker{
 		final Theory t = input.getTheory();
 		final Term proof = t.term("@split", t.annotatedTerm(new Annotation[] { splitRule }, getProof(input)), splitTerm);
 		return buildProof(proof, splitTerm);
-	}
-
-	@Override
-	public Term castReal(final Term input, final Sort sort) {
-		final Term t = getProvedTerm(input);
-		final Term casted = SMTAffineTerm.create(t).typecast(sort);
-		final Term castProof = buildRewrite(t, casted, ProofConstants.RW_TO_REAL);
-		return transitivity(input, castProof);
 	}
 
 	@Override

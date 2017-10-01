@@ -174,6 +174,8 @@ public class TermCompiler extends TermTransformer {
 		final FunctionSymbol fsym = appTerm.getFunction();
 		final Theory theory = appTerm.getTheory();
 
+		Term convertedApp = mTracker.congruence(mTracker.reflexivity(appTerm), args);
+
 		final Sort[] paramSorts = fsym.getParameterSorts();
 		if (theory.getLogic().isIRA()
 			&& paramSorts.length == 2
@@ -183,14 +185,28 @@ public class TermCompiler extends TermTransformer {
 			if (args == appTerm.getParameters()) {
 				args = args.clone();
 			}
+			boolean changed = false;
+			final Term[] desugarParams = new Term[args.length];
+			final Term[] nargs = new Term[args.length];
 			for (int i = 0; i < args.length; i++) {
-				if (args[i].getSort().getName().equals("Int")) {
-					args[i] = mTracker.castReal(args[i], paramSorts[0]);
+				final Term arg = mTracker.getProvedTerm(args[i]);
+				if (arg.getSort().getName().equals("Int")) {
+					desugarParams[i] = theory.term("to_real", arg);
+					nargs[i] = mTracker.buildRewrite(desugarParams[i],
+							SMTAffineTerm.create(arg).typecast(paramSorts[0]),
+							ProofConstants.RW_TO_REAL);
+					changed = true;
+				} else {
+					desugarParams[i] = arg;
+					nargs[i] = mTracker.reflexivity(arg);
 				}
 			}
+			if (changed) {
+				final Term desugar = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp),
+						theory.term(fsym, desugarParams), ProofConstants.RW_DESUGAR);
+				convertedApp = mTracker.congruence(mTracker.transitivity(convertedApp, desugar), nargs);
+			}
 		}
-
-		final Term convertedApp = mTracker.congruence(mTracker.reflexivity(appTerm), args);
 		final Term[] params = ((ApplicationTerm) mTracker.getProvedTerm(convertedApp)).getParameters();
 
 		if (fsym.getDefinition() != null) {
