@@ -2290,6 +2290,9 @@ public class ProofChecker extends NonRecursive {
 		final SMTAffineTerm expected =
 				convertAffineTerm(params[firstArg]).add(convertAffineTerm(params[1 - firstArg]).negate());
 		final Term[] rhsParams = ((ApplicationTerm) rhs).getParameters();
+		if (params.length != 2 || rhsParams.length != 2) {
+			return false;
+		}
 		return convertAffineTerm(rhsParams[0]).equals(expected) && isZero(rhsParams[1]);
 	}
 
@@ -2299,7 +2302,7 @@ public class ProofChecker extends NonRecursive {
 			return false;
 		}
 		final Term[] params = ((ApplicationTerm) lhs).getParameters();
-		if (!isZero(params[1])) {
+		if (params.length != 2 || !isZero(params[1])) {
 			return false;
 		}
 		final SMTAffineTerm param0 = convertAffineTerm(params[0]);

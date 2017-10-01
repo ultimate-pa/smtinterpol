@@ -29,6 +29,7 @@ import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 
 /**
@@ -66,6 +67,9 @@ public class ProofTracker implements IProofTracker{
 	@Override
 	public Term intern(final Term term, final Term intern) {
 		final Theory t = term.getTheory();
+		if (SMTAffineTerm.cleanup(term) == SMTAffineTerm.cleanup(intern)) {
+			return reflexivity(intern);
+		}
 		return buildProof(t.term("@intern", t.term("=", term, intern)), intern);
 	}
 
@@ -163,13 +167,14 @@ public class ProofTracker implements IProofTracker{
 			}
 			params[i] = getProvedTerm(b[i]);
 		}
-		if (congProofs.size() == 1) {
-			return a;
-		}
-
 		final Theory theory = a.getTheory();
 		final ApplicationTerm aTerm = (ApplicationTerm) getProvedTerm(a);
-		final Term proof = theory.term("@cong", congProofs.toArray(new Term[congProofs.size()]));
+		final Term proof;
+		if (congProofs.size() == 1) {
+			proof = congProofs.get(0);
+		} else {
+			proof = theory.term("@cong", congProofs.toArray(new Term[congProofs.size()]));
+		}
 		return buildProof(proof, theory.term(aTerm.getFunction(), params));
 	}
 
@@ -217,6 +222,9 @@ public class ProofTracker implements IProofTracker{
 	@Override
 	public Term buildRewrite(final Term orig, final Term res, final Annotation rule) {
 		final Theory theory = orig.getTheory();
+		if (SMTAffineTerm.cleanup(orig) == SMTAffineTerm.cleanup(res)) {
+			return reflexivity(res);
+		}
 		final Term statement = theory.term("=", orig, res);
 		final Annotation[] annot = new Annotation[] { rule };
 		final Term proof = theory.term("@rewrite", theory.annotatedTerm(annot, statement));
