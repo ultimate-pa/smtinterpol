@@ -709,12 +709,18 @@ public class ProofChecker extends NonRecursive {
 			/* check for weak store step */
 			final Term storeIndex = checkStoreIndex(path[i], path[i + 1]);
 			if (storeIndex != null) {
-				if (weakIdx != null && indexDiseqs.contains(new SymmetricPair<Term>(weakIdx, storeIndex))) {
-					continue;
-				}
-
-				if (weakPaths != null && weakPaths.contains(storeIndex)) {
-					continue;
+				if (weakIdx != null) {
+					if (indexDiseqs.contains(new SymmetricPair<Term>(weakIdx, storeIndex))) {
+						continue;
+					}
+					final SMTAffineTerm diff = convertAffineTerm(weakIdx).add(convertAffineTerm(storeIndex).negate());
+					if (diff.isConstant() && !diff.getConstant().equals(Rational.ZERO)) {
+						continue;
+					}
+				} else {
+					if (weakPaths != null && weakPaths.contains(storeIndex)) {
+						continue;
+					}
 				}
 			}
 			/* check for congruence */
@@ -1069,7 +1075,12 @@ public class ProofChecker extends NonRecursive {
 		case ":excludedMiddle2":
 			result = checkTautExcludedMiddle(clause);
 			break;
-		// TODO: divHighLow, toIntHighLow
+		case ":divHigh":
+		case ":divLow":
+		case ":toIntHigh":
+		case ":toIntLow":
+			result = checkTautLowHigh(tautKind, clause);
+			break;
 		case ":store":
 			result = checkTautStore(clause);
 			break;
@@ -1231,6 +1242,78 @@ public class ProofChecker extends NonRecursive {
 		}
 		// check right hand side of equality
 		return term == eqParams[1];
+	}
+
+	private boolean checkTautLowHigh(final String ruleName, final Term[] clause) {
+		if (clause.length != 1) {
+			return false;
+		}
+		Term literal = clause[0];
+		final boolean isToInt = ruleName.startsWith(":toInt");
+		final boolean isHigh = ruleName.endsWith("High");
+		// isLow: (<= (+ (- arg0) (* d candidate) ) 0)
+		// aka. (>= (- arg0 (* d candidate)) 0)
+		// isHigh: (not (<= (+ (- arg0) (* d candidate) |d|) 0)
+		// aka. (< (- arg0 (* d candidate)) |d|)
+		// where candidate is (div arg0 d) or (to_int arg0) and d is 1 for toInt.
+
+		if (isHigh) {
+			if (!isApplication("not", literal)) {
+				return false;
+			}
+			literal = ((ApplicationTerm) literal).getParameters()[0];
+		}
+		if (!isApplication("<=", literal)) {
+			return false;
+		}
+		final Term[] leArgs = ((ApplicationTerm) literal).getParameters();
+		final SMTAffineTerm lhs = convertAffineTerm(leArgs[0]);
+		final SMTAffineTerm zero = convertAffineTerm(leArgs[1]);
+		if (!zero.isConstant() || !zero.getConstant().equals(Rational.ZERO)) {
+			return false;
+		}
+		if (lhs.getSort().getName() != (isToInt ? "Real" : "Int")) {
+			return false;
+		}
+
+		final String func = isToInt ? "to_int" : "div";
+		// search for the toInt or div term; note that there can be several div terms in case of a nested div.
+		for (final Term candidate : lhs.getSummands().keySet()) {
+			if (isApplication(func, candidate)) {
+				final Term[] args = ((ApplicationTerm) candidate).getParameters();
+				// compute d
+				final Rational d;
+				SMTAffineTerm summand;
+				if (isToInt) {
+					d = Rational.ONE;
+					summand = SMTAffineTerm.create(candidate).typecast(lhs.getSort());
+				} else {
+					final SMTAffineTerm arg1 = convertAffineTerm(args[1]);
+					if (!arg1.isConstant()) {
+						return false;
+					}
+					d = arg1.getConstant();
+					if (d.equals(Rational.ZERO)) {
+						return false;
+					}
+					summand = SMTAffineTerm.create(d, candidate);
+				}
+				// compute expected term and check that lhs equals it.
+				final SMTAffineTerm arg0 = convertAffineTerm(args[0]);
+				if (isHigh) {
+					final SMTAffineTerm expected = arg0.negate().add(summand).add(d.abs());
+					if (lhs.equals(expected)) {
+						return true;
+					}
+				} else {
+					final SMTAffineTerm expected = arg0.negate().add(summand);
+					if (lhs.equals(expected)) {
+						return true;
+					}
+				}
+			}
+		}
+		return false;
 	}
 
 	private boolean checkTautExcludedMiddle(final Term[] clause) {
@@ -1466,6 +1549,10 @@ public class ProofChecker extends NonRecursive {
 			break;
 		case ":notSimp":
 			okay = checkRewriteNot(eqParams[0], eqParams[1]);
+			break;
+		case ":canonicalSum":
+		case ":toReal":
+			okay = checkCanonicalSum(rewriteRule, eqParams[0], eqParams[1]);
 			break;
 		case ":flatten":
 			okay = checkRewriteFlatten(eqParams[0], eqParams[1]);
@@ -1772,6 +1859,18 @@ public class ProofChecker extends NonRecursive {
 		return false;
 	}
 
+	boolean checkCanonicalSum(final String rule, final Term lhs, final Term rhs) {
+		SMTAffineTerm lhsAffine = convertAffineTerm(lhs);
+		final SMTAffineTerm rhsAffine = convertAffineTerm(rhs);
+		if (rule.equals(":toReal")) {
+			if (rhs.getSort().getName() != "Real") {
+				return false;
+			}
+			lhsAffine = lhsAffine.typecast(rhs.getSort());
+		}
+		return lhsAffine.equals(rhsAffine);
+	}
+
 	boolean checkRewriteFlatten(final Term lhs, final Term rhs) {
 		// lhs: (or ... (or ...) ... ), rhs: (or ... ... ...)
 		if (!isApplication("or", lhs) || !isApplication("or", rhs)) {
@@ -2008,13 +2107,6 @@ public class ProofChecker extends NonRecursive {
 								+ stripAnnTerm.getSubterm() + "vs. " + termEqApp.getParameters()[1] + ".");
 			}
 
-		} else if (rewriteRule == ":canonicalSum") {
-			final Term termOld = termEqApp.getParameters()[0];
-			final Term termNew = termEqApp.getParameters()[1];
-
-			if (!convertAffineTerm(termOld).equals(convertAffineTerm(termNew))) {
-				throw new AssertionError("Error at " + rewriteRule);
-			}
 		} else if (rewriteRule == ":gtToLeq0" || rewriteRule == ":geqToLeq0" || rewriteRule == ":ltToLeq0"
 				|| rewriteRule == ":leqToLeq0") {
 
@@ -2539,21 +2631,6 @@ public class ProofChecker extends NonRecursive {
 
 			/*
 			 * Not nice: Not checked, if v is an integer and r a real, but it is still correct.
-			 */
-		} else if (rewriteRule == ":toReal") {
-			final ApplicationTerm termOldApp = convertApp(termEqApp.getParameters()[0]);
-
-			pm_func(termOldApp, "to_real");
-
-			final Term termOldC = convertConst_Neg(termOldApp.getParameters()[0]);
-			final Term termNewC = convertConst_Neg(termEqApp.getParameters()[1]);
-
-			if (!convertAffineTerm(termOldC).getConstant().equals(convertAffineTerm(termNewC).getConstant())) {
-				throw new AssertionError("Error 2 at " + rewriteRule);
-			}
-
-			/*
-			 * Not nice: Not checked, if cOld is an integer and cNew a real, but it is still correct.
 			 */
 		} else if (rewriteRule == ":storeOverStore") {
 			System.out.println("\n \n \n Now finally tested: " + rewriteRule); // TODO
