@@ -260,7 +260,7 @@ public class ProofChecker extends NonRecursive {
 				SMTAffineTerm prod = (SMTAffineTerm) newArgs[0];
 				for (int i = 1; i < newArgs.length; i++) {
 					final SMTAffineTerm other = (SMTAffineTerm) newArgs[i];
-					if (other.isConstant()) {
+					if (other.isConstant() && !other.getConstant().equals(Rational.ZERO)) {
 						prod = prod.mul(other.getConstant().inverse());
 					} else {
 						setResult(SMTAffineTerm.create(appTerm));
@@ -1510,6 +1510,18 @@ public class ProofChecker extends NonRecursive {
 
 		boolean okay;
 		switch (rewriteRule) {
+		case ":andToOr":
+			okay = checkRewriteAndToOr(eqParams[0], eqParams[1]);
+			break;
+		case ":impToOr":
+			okay = checkRewriteImpToOr(eqParams[0], eqParams[1]);
+			break;
+		case ":xorToDistinct":
+			okay = checkRewriteXorToDistinct(eqParams[0], eqParams[1]);
+			break;
+		case ":strip":
+			okay = checkRewriteStrip(eqParams[0], eqParams[1]);
+			break;
 		case ":trueNotFalse":
 			okay = checkRewriteTrueNotFalse(eqParams[0], eqParams[1]);
 			break;
@@ -1524,8 +1536,17 @@ public class ProofChecker extends NonRecursive {
 		case ":eqSame":
 			okay = checkRewriteEqSimp(rewriteRule, eqParams[0], eqParams[1]);
 			break;
+		case ":eqBinary":
+			okay = checkRewriteEqBinary(eqParams[0], eqParams[1]);
+			break;
+		case ":storeRewrite":
+			okay = checkStoreRewrite(eqParams[0], eqParams[1]);
+			break;
 		case ":orSimp":
 			okay = checkRewriteOrSimp(rewriteRule, eqParams[0], eqParams[1]);
+			break;
+		case ":orTaut":
+			okay = checkRewriteOrTaut(eqParams[0], eqParams[1]);
 			break;
 		case ":iteTrue":
 		case ":iteFalse":
@@ -1557,6 +1578,9 @@ public class ProofChecker extends NonRecursive {
 		case ":flatten":
 			okay = checkRewriteFlatten(eqParams[0], eqParams[1]);
 			break;
+		case ":expand":
+			okay = checkRewriteExpand(eqParams[0], eqParams[1]);
+			break;
 		case ":expandDef":
 			okay = checkRewriteExpandDef(eqParams[0], eqParams[1]);
 			break;
@@ -1566,9 +1590,6 @@ public class ProofChecker extends NonRecursive {
 		case ":selectOverStore":
 			okay = checkSelectOverStore(eqParams[0], eqParams[1]);
 			break;
-		case ":storeRewrite":
-			okay = checkStoreRewrite(eqParams[0], eqParams[1]);
-			break;
 		default:
 			okay = checkRewriteMisc(rewriteRule, rewriteEq);
 			break;
@@ -1577,6 +1598,64 @@ public class ProofChecker extends NonRecursive {
 		if (!okay) {
 			reportError("Malformed/unknown @rewrite rule " + rewriteApp);
 		}
+	}
+
+	boolean checkRewriteAndToOr(final Term lhs, final Term rhs) {
+		// expect lhs: (and ...), rhs: (not (or (not ...)))
+		if (!isApplication("and", lhs) || !isApplication("not", rhs)) {
+			return false;
+		}
+		final Term orTerm = ((ApplicationTerm) rhs).getParameters()[0];
+		if (!isApplication("or", orTerm)) {
+			return false;
+		}
+		final Term[] andParams = ((ApplicationTerm) lhs).getParameters();
+		final Term[] orParams = ((ApplicationTerm) orTerm).getParameters();
+		if (andParams.length != orParams.length) {
+			return false;
+		}
+		for (int i = 0; i < andParams.length; i++) {
+			if (orParams[i] != mSkript.term("not", andParams[i])) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	boolean checkRewriteImpToOr(final Term lhs, final Term rhs) {
+		// expect lhs: (=> p1 ... pn), rhs: (or pn (not p1) .. (not pn-1))))
+		if (!isApplication("=>", lhs) || !isApplication("or", rhs)) {
+			return false;
+		}
+		final Term[] impParams = ((ApplicationTerm) lhs).getParameters();
+		final Term[] orParams = ((ApplicationTerm) rhs).getParameters();
+		if (impParams.length != orParams.length) {
+			return false;
+		}
+		for (int i = 0; i < impParams.length - 1; i++) {
+			if (orParams[i + 1] != mSkript.term("not", impParams[i])) {
+				return false;
+			}
+		}
+		return orParams[0] == impParams[impParams.length - 1];
+	}
+
+	boolean checkRewriteXorToDistinct(final Term lhs, final Term rhs) {
+		// expect lhs: (xor a b), rhs: (distinct a b)
+		if (!isApplication("xor", lhs) || !isApplication("distinct", rhs)) {
+			return false;
+		}
+		final Term[] xorParams = ((ApplicationTerm) lhs).getParameters();
+		final Term[] distinctParams = ((ApplicationTerm) rhs).getParameters();
+		if (xorParams.length != 2 || distinctParams.length != 2) {
+			return false;
+		}
+		return xorParams[0] == distinctParams[0] && xorParams[1] == distinctParams[1];
+	}
+
+	boolean checkRewriteStrip(final Term lhs, final Term rhs) {
+		// expect lhs: (! (...) :...), rhs: ...
+		return (lhs instanceof AnnotatedTerm) && rhs == ((AnnotatedTerm) lhs).getSubterm();
 	}
 
 	boolean checkRewriteTrueNotFalse(final Term lhs, final Term rhs) {
@@ -1704,6 +1783,34 @@ public class ProofChecker extends NonRecursive {
 		}
 	}
 
+	boolean checkRewriteEqBinary(final Term lhs, Term rhs) {
+		// eqBinary is like expand (chainable) combined with andToOr
+		if (!isApplication("=", lhs)) {
+			return false;
+		}
+		final Term[] lhsParams = ((ApplicationTerm) lhs).getParameters();
+		if (lhsParams.length < 3) {
+			return false;
+		}
+		if (!isApplication("not", rhs)) {
+			return false;
+		}
+		rhs = ((ApplicationTerm) rhs).getParameters()[0];
+		if (!isApplication("or", rhs)) {
+			return false;
+		}
+		final Term[] rhsParams = ((ApplicationTerm) rhs).getParameters();
+		if (lhsParams.length != rhsParams.length + 1) {
+			return false;
+		}
+		for (int i = 0; i < rhsParams.length; i++) {
+			if (rhsParams[i] != mSkript.term("not", mSkript.term("=", lhsParams[i], lhsParams[i + 1]))) {
+				return false;
+			}
+		}
+		return true;
+	}
+
 	boolean checkRewriteOrSimp(final String rewriteRule, final Term lhs, final Term rhs) {
 		// lhs: (or ...), rhs: (or ...)
 		// duplicated entries in lhs and false should be removed in rhs.
@@ -1738,6 +1845,28 @@ public class ProofChecker extends NonRecursive {
 			}
 			return true;
 		}
+	}
+
+	boolean checkRewriteOrTaut(final Term lhs, final Term rhs) {
+		if (!isApplication("or", lhs) || !isApplication("true", rhs)) {
+			return false;
+		}
+		// case 1
+		// lhs: (or ... true ...), rhs: true
+		// case 2
+		// lhs: (or ... p ... (not p) ...), rhs: true
+		final HashSet<Term> seen = new HashSet<>();
+		for (final Term t : ((ApplicationTerm) lhs).getParameters()) {
+			if (isApplication("true", t)) {
+				return true;
+			}
+			if (seen.contains(negate(t))) {
+				return true;
+			}
+			seen.add(t);
+		}
+
+		return false;
 	}
 
 	boolean checkRewriteIte(final String rewriteRule, final Term lhs, final Term rhs) {
@@ -1911,6 +2040,76 @@ public class ProofChecker extends NonRecursive {
 		return rhsOffset == rhsArgs.length;
 	}
 
+	boolean checkRewriteExpand(final Term lhs, final Term rhs) {
+		if (!(lhs instanceof ApplicationTerm)) {
+			return false;
+		}
+		final ApplicationTerm at = ((ApplicationTerm) lhs);
+		final FunctionSymbol f = at.getFunction();
+		if (f.isLeftAssoc()) {
+			final Term[] lhsParams = at.getParameters();
+			if (lhsParams.length < 3) {
+				return false;
+			}
+			Term right = rhs;
+			for (int i = lhsParams.length - 1; i >= 1; i--) {
+				if (!(right instanceof ApplicationTerm)) {
+					return false;
+				}
+				final ApplicationTerm rightApp = (ApplicationTerm) right;
+				if (rightApp.getFunction() != f || rightApp.getParameters().length != 2
+						|| rightApp.getParameters()[1] != lhsParams[i]) {
+					return false;
+				}
+				right = rightApp.getParameters()[0];
+			}
+			return right == lhsParams[0];
+		} else if (f.isRightAssoc()) {
+			final Term[] lhsParams = at.getParameters();
+			if (lhsParams.length < 3) {
+				return false;
+			}
+			Term right = rhs;
+			for (int i = 0; i < lhsParams.length - 1; i++) {
+				if (!(right instanceof ApplicationTerm)) {
+					return false;
+				}
+				final ApplicationTerm rightApp = (ApplicationTerm) right;
+				if (rightApp.getFunction() != f || rightApp.getParameters().length != 2
+						|| rightApp.getParameters()[0] != lhsParams[i]) {
+					return false;
+				}
+				right = rightApp.getParameters()[1];
+			}
+			return right == lhsParams[lhsParams.length - 1];
+		} else if (f.isChainable()) {
+			final Term[] lhsParams = at.getParameters();
+			if (lhsParams.length < 3) {
+				return false;
+			}
+			if (!isApplication("and", rhs)) {
+				return false;
+			}
+			final Term[] rhsParams = ((ApplicationTerm) rhs).getParameters();
+			if (lhsParams.length != rhsParams.length + 1) {
+				return false;
+			}
+			for (int i = 0; i < rhsParams.length; i++) {
+				if (!(rhsParams[i] instanceof ApplicationTerm)) {
+					return false;
+				}
+				final ApplicationTerm rightApp = (ApplicationTerm) rhsParams[i];
+				if (rightApp.getFunction() != f || rightApp.getParameters().length != 2
+						|| rightApp.getParameters()[0] != lhsParams[i]
+						|| rightApp.getParameters()[1] != lhsParams[i + 1]) {
+					return false;
+				}
+			}
+			return true;
+		}
+		return false;
+	}
+
 	boolean checkRewriteExpandDef(final Term lhs, final Term rhs) {
 		// (= f arg) is expanded to (let ((var arg)) body), if f has definition body.
 		if (!(lhs instanceof ApplicationTerm)) {
@@ -1986,195 +2185,7 @@ public class ProofChecker extends NonRecursive {
 	}
 
 	boolean checkRewriteMisc(final String rewriteRule, final ApplicationTerm termEqApp) {
-		if (rewriteRule == ":eqBinary") {
-			final ApplicationTerm termOldApp = convertApp(termEqApp.getParameters()[0]);
-			final ApplicationTerm termNewApp = convertApp(termEqApp.getParameters()[1]);
-			final ApplicationTerm termNewAppInnerApp = convertApp(termNewApp.getParameters()[0]);
-
-			pm_func(termOldApp, "=");
-			pm_func(termNewApp, "not");
-
-			// Is it a binary equality?
-			if (termOldApp.getParameters().length == 2) {
-				pm_func(termNewAppInnerApp, "not");
-				if (termOldApp != termNewAppInnerApp.getParameters()[0]) {
-					throw new AssertionError("Error A in " + rewriteRule);
-				}
-				return true;
-			}
-
-			pm_func(termNewAppInnerApp, "or");
-
-			// The array which contains the equalities
-			final ApplicationTerm[] arrayNewEqApp = new ApplicationTerm[termNewAppInnerApp.getParameters().length];
-			final Term[] arrayOldTerm = termOldApp.getParameters();
-
-			for (int i = 0; i < termNewAppInnerApp.getParameters().length; i++) {
-				final ApplicationTerm termIneqApp = convertApp(termNewAppInnerApp.getParameters()[i]);
-				pm_func(termIneqApp, "not");
-
-				arrayNewEqApp[i] = convertApp(termIneqApp.getParameters()[0]);
-				pm_func(arrayNewEqApp[i], "=");
-			}
-
-			final boolean[] eqFound = new boolean[arrayNewEqApp.length];
-
-			for (int i = 0; i < eqFound.length; i++) {
-				eqFound[i] = false;
-			}
-
-			// Look for each two distinct terms (j > i) if there exists a fitting equality
-			for (int i = 0; i < arrayOldTerm.length; i++) {
-				for (int j = i + 1; j < arrayOldTerm.length; j++) {
-					// boolean found = false;
-					for (int k = 0; k < arrayNewEqApp.length; k++) {
-						if (!eqFound[k]) {
-							checkNumber(arrayNewEqApp[k], 2);
-
-							if (arrayNewEqApp[k].getParameters()[0] == arrayOldTerm[i]
-									&& arrayNewEqApp[k].getParameters()[1] == arrayOldTerm[j]) {
-								eqFound[k] = true; // found = true;
-							}
-
-							if (arrayNewEqApp[k].getParameters()[1] == arrayOldTerm[i]
-									&& arrayNewEqApp[k].getParameters()[0] == arrayOldTerm[j]) {
-								eqFound[k] = true; // found = true;
-							}
-						}
-					}
-
-					// Wrong, because the rule allows to leave out disjuncts.
-					// if (!found)
-					// {
-					// throw new AssertionError("Error: Couldn't find the equality that "
-					// + "corresponds to " + arrayOldTerm[i].toStringDirect()
-					// + " and " + arrayOldTerm[j].toStringDirect() + ".\n"
-					// + "The term was " + term.toStringDirect());
-					// }
-				}
-			}
-
-			// At last check if each equality is alright
-			for (int i = 0; i < eqFound.length; i++) {
-				if (!eqFound[i]) {
-					return false;
-				}
-			}
-		} else if (rewriteRule == ":orTaut") {
-			if (termEqApp.getParameters()[1] != mSkript.term("true")) {
-				throw new AssertionError("Error: The second argument of a rewrite of the rule " + rewriteRule
-						+ " should be true, but it isn't.\n" + "The term was " + termEqApp.toString());
-			}
-
-			final ApplicationTerm termOldApp = convertApp(termEqApp.getParameters()[0]);
-			pm_func(termOldApp, "or");
-
-			// Case 1: One disjunct is true
-			for (final Term disjunct : termOldApp.getParameters()) {
-				if (disjunct == mSkript.term("true")) {
-					return true;
-				}
-			}
-
-			// Case 2: One disjunct is the negate of another
-			for (final Term disjunct1 : termOldApp.getParameters()) {
-				for (final Term disjunct2 : termOldApp.getParameters()) {
-					if (disjunct1 == negate(disjunct2)) {
-						return true;
-					}
-				}
-			}
-
-			return false;
-		} else if (rewriteRule == ":andToOr") {
-			final ApplicationTerm termOldApp = convertApp(termEqApp.getParameters()[0]);
-			final ApplicationTerm termNewApp = convertApp(termEqApp.getParameters()[1]);
-			final ApplicationTerm termNewAppInnerApp = convertApp(termNewApp.getParameters()[0]);
-
-			pm_func(termOldApp, "and");
-			pm_func(termNewApp, "not");
-			pm_func(termNewAppInnerApp, "or");
-
-			// Check if they are the same
-			// HashSets are needed to allow permutations
-
-			final HashSet<Term> oldTerms = new HashSet<Term>();
-			final HashSet<Term> newTermsInner = new HashSet<Term>();
-
-			oldTerms.addAll(Arrays.asList(termOldApp.getParameters()));
-
-			for (int i = 0; i < termNewAppInnerApp.getParameters().length; i++) {
-				final ApplicationTerm termAppTemp = convertApp(termNewAppInnerApp.getParameters()[i]);
-				pm_func(termAppTemp, "not");
-				newTermsInner.add(termAppTemp.getParameters()[0]);
-			}
-
-			if (!oldTerms.equals(newTermsInner)) {
-				return false;
-			}
-		} else if (rewriteRule == ":xorToDistinct") {
-			final ApplicationTerm termOldApp = convertApp(termEqApp.getParameters()[0]);
-			final ApplicationTerm termNewApp = convertApp(termEqApp.getParameters()[1]);
-
-			pm_func(termOldApp, "xor");
-			pm_func(termNewApp, "distinct");
-
-			if (termOldApp.getParameters().length != termNewApp.getParameters().length) {
-				throw new AssertionError("Error 1 at " + rewriteRule);
-			}
-
-			for (int i = 0; i < termOldApp.getParameters().length; i++) {
-				if (!termOldApp.getParameters()[i].equals(termNewApp.getParameters()[i])) {
-					throw new AssertionError("Error 2 at " + rewriteRule);
-				}
-			}
-
-			// Nicer, but didn't work:
-			// if (!termOldApp.getParameters().equals(termNewApp.getParameters()))
-
-		} else if (rewriteRule == ":impToOr") {
-			final ApplicationTerm termOldApp = convertApp(termEqApp.getParameters()[0]);
-			final ApplicationTerm termNewApp = convertApp(termEqApp.getParameters()[1]);
-
-			pm_func(termOldApp, "=>");
-			pm_func(termNewApp, "or");
-
-			// Check if they are the same
-			// HashSets are needed to allow permutations
-
-			final HashSet<Term> oldTerms = new HashSet<Term>();
-
-			for (int i = 0; i < termOldApp.getParameters().length - 1; i++) {
-				oldTerms.add(termOldApp.getParameters()[i]);
-			}
-
-			final Term termImp = termOldApp.getParameters()[termOldApp.getParameters().length - 1];
-
-			if (termImp != termNewApp.getParameters()[0]) {
-				throw new AssertionError("Error 1 at " + rewriteRule);
-			}
-
-			final HashSet<Term> newTerms = new HashSet<Term>();
-			for (int i = 1; i < termNewApp.getParameters().length; i++) {
-				final ApplicationTerm termAppTemp = convertApp(termNewApp.getParameters()[i]);
-				pm_func(termAppTemp, "not");
-				newTerms.add(termAppTemp.getParameters()[0]);
-			}
-
-			if (!oldTerms.equals(newTerms)) {
-				return false;
-			}
-
-		} else if (rewriteRule == ":strip") {
-			// Term which has to be stripped, annotated term
-			final AnnotatedTerm stripAnnTerm = convertAnn(termEqApp.getParameters()[0]);
-			if (stripAnnTerm.getSubterm() != termEqApp.getParameters()[1]) {
-				throw new AssertionError(
-						"Error: Couldn't verify a strip-rewrite. Those two terms should be the same but arent"
-								+ stripAnnTerm.getSubterm() + "vs. " + termEqApp.getParameters()[1] + ".");
-			}
-
-		} else if (rewriteRule == ":gtToLeq0" || rewriteRule == ":geqToLeq0" || rewriteRule == ":ltToLeq0"
+		if (rewriteRule == ":gtToLeq0" || rewriteRule == ":geqToLeq0" || rewriteRule == ":ltToLeq0"
 				|| rewriteRule == ":leqToLeq0") {
 
 			final ApplicationTerm termOldApp = convertApp(termEqApp.getParameters()[0]); // termBeforeRewrite
@@ -3174,14 +3185,6 @@ public class ProofChecker extends NonRecursive {
 		return (SMTAffineTerm) mAffineConverter.transform(term);
 	}
 
-	ApplicationTerm convertApp(final Term term, final String debugString) {
-		if (mDebug.contains("convertApp")) {
-			System.out.println("Der untere Aufruf hat die ID: " + debugString);
-		}
-
-		return convertApp(term);
-	}
-
 	ApplicationTerm convertApp(final Term term) {
 		if (mDebug.contains("convertApp")) {
 			System.out.println("Aufruf");
@@ -3193,14 +3196,6 @@ public class ProofChecker extends NonRecursive {
 		}
 
 		return (ApplicationTerm) term;
-	}
-
-	ApplicationTerm convertApp_hard(final Term term) {
-		if (term instanceof AnnotatedTerm) {
-			return convertApp(((AnnotatedTerm) term).getSubterm(), "annot");
-		}
-
-		return convertApp(term, "hard");
 	}
 
 	AnnotatedTerm convertAnn(final Term term) {
@@ -3268,20 +3263,8 @@ public class ProofChecker extends NonRecursive {
 		}
 	}
 
-	void pm_func(final Term term, final String pattern) {
-		pm_func(convertApp(term), pattern);
-	}
-
 	boolean pm_func_weak(final ApplicationTerm termApp, final String pattern) {
 		return termApp.getFunction().getName().equals(pattern);
-	}
-
-	boolean pm_func_weakest(final Term term, final String pattern) {
-		if (term instanceof ApplicationTerm) {
-			return pm_func_weak((ApplicationTerm) term, pattern);
-		}
-
-		return false;
 	}
 
 	// Does this function make any sense?
@@ -3291,29 +3274,6 @@ public class ProofChecker extends NonRecursive {
 		}
 
 		throw new AssertionError("Expected an ApplicationTerm in func_weak!");
-	}
-
-	void pm_annot(final AnnotatedTerm termAnn, final String pattern) {
-		if (termAnn.getAnnotations()[0].getKey() != pattern) {
-			throw new AssertionError("Error: The pattern \"" + pattern + "\" was supposed to be the annotation of "
-					+ termAnn.toString() + "\n" + "Instead it was " + termAnn.getAnnotations()[0].toString());
-		}
-
-		if (termAnn.getAnnotations().length != 1) {
-			throw new AssertionError("Error: A term has " + termAnn.getAnnotations().length + " annotations,"
-					+ ", but was supposed to have just one.");
-		}
-	}
-
-	void checkNumber(final Term[] termArray, final int n) {
-		if (termArray.length < n) {
-			System.out.println("The array: [...");
-			for (final Term el : termArray) {
-				System.out.println(el.toStringDirect());
-			}
-			System.out.println("...]");
-			throw new AssertionError("Error: " + "The array is to short!" + "\n It should have length " + n);
-		}
 	}
 
 	void checkNumber(final ApplicationTerm termApp, final int n) {

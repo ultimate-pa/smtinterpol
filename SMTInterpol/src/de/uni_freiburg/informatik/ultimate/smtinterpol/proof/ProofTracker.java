@@ -144,7 +144,9 @@ public class ProofTracker implements IProofTracker{
 			return eq2;
 		}
 		if (isReflexivity(proofEq2)) {
-			return eq1;
+			// reflexivity rule is used for internal rewrites that are not visible to the outside.
+			// still we need to change the term
+			return buildProof(proofEq1, getProvedTerm(eq2));
 		}
 		final Theory theory = eq1.getTheory();
 		final Term proof = theory.term("@trans", proofEq1, proofEq2);
@@ -183,7 +185,7 @@ public class ProofTracker implements IProofTracker{
 	public Term getRewriteProof(final Term asserted, final Term simpFormula) {
 		final Term simpProof = getProof(simpFormula);
 		if (isReflexivity(simpProof)) {
-			return asserted;
+			return buildProof(getProof(asserted), getProvedTerm(simpFormula));
 		}
 		final Theory t = asserted.getTheory();
 		final Term proof = t.term("@eq", getProof(asserted), simpProof);
