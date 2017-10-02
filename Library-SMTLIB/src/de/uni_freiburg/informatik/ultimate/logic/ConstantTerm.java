@@ -79,13 +79,22 @@ public class ConstantTerm extends Term {
 	@Override
 	public String toString() {
 		if (mValue instanceof BigDecimal) {
-			final BigDecimal decimal = (BigDecimal)mValue;
+			final BigDecimal decimal = (BigDecimal) mValue;
 			final String str = decimal.toPlainString();
 			return str;
 		}
 		if (mValue instanceof Rational) {
-			return getTheory().rational((Rational) mValue, getSort()).
-				toStringDirect();
+			final Rational rat = (Rational) mValue;
+			final String dotZero = getSort().getName() == "Real" ? ".0" : "";
+			String result = rat.numerator().abs().toString() + dotZero;
+			if (rat.isNegative()) {
+				result = "(- " + result + ")";
+			}
+			if (!rat.isIntegral()) {
+				assert dotZero == ".0";
+				result = "(/ " + result + " " + rat.denominator() + ".0)";
+			}
+			return result;
 		}
 		return mValue.toString();
 	}
