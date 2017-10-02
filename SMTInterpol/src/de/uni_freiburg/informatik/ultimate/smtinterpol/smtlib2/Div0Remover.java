@@ -166,7 +166,7 @@ public class Div0Remover extends TermTransformer {
 			name = name.substring(1, name.length() - 1);
 			final Term[] args = new Term[2];
 			args[0] = newArgs[0];
-			args[1] = appTerm.getTheory().rational(Rational.ZERO, newArgs[0].getSort());
+			args[1] = Rational.ZERO.toTerm(newArgs[0].getSort());
 			setResult(appTerm.getTheory().term(name, args));
 		} else {
 			super.convertApplicationTerm(appTerm, newArgs);

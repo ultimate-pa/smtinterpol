@@ -122,8 +122,7 @@ public class Utils {
 	public Term convertLeq0(final Term input) {
 		final ApplicationTerm leq0Term = (ApplicationTerm) mTracker.getProvedTerm(input);
 		assert leq0Term.getFunction().getName() == "<=";
-		assert leq0Term.getParameters()[1] ==
-				leq0Term.getTheory().rational(Rational.ZERO, leq0Term.getParameters()[0].getSort());
+		assert leq0Term.getParameters()[1] == Rational.ZERO.toTerm(leq0Term.getParameters()[0].getSort());
 		final Term arg = leq0Term.getParameters()[0];
 		if (arg instanceof SMTAffineTerm) {
 			final SMTAffineTerm at = (SMTAffineTerm) arg;
