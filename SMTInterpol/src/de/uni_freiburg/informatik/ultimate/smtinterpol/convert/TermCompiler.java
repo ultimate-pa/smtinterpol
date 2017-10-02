@@ -256,7 +256,7 @@ public class TermCompiler extends TermTransformer {
 				Term rhs = SMTAffineTerm.create(params[0])
 						.add(SMTAffineTerm.create(Rational.MONE, params[1]))
 						.normalize(this);
-				rhs = theory.term("<=", rhs, theory.rational(Rational.ZERO, rhs.getSort()));
+				rhs = theory.term("<=", rhs, Rational.ZERO.toTerm(rhs.getSort()));
 				final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_LEQ_TO_LEQ0);
 				setResult(mUtils.convertLeq0(mTracker.transitivity(convertedApp, rewrite)));
 				return;
@@ -267,7 +267,7 @@ public class TermCompiler extends TermTransformer {
 				Term rhs = SMTAffineTerm.create(params[1])
 						.add(SMTAffineTerm.create(Rational.MONE, params[0]))
 						.normalize(this);
-				rhs = theory.term("<=", rhs, theory.rational(Rational.ZERO, rhs.getSort()));
+				rhs = theory.term("<=", rhs, Rational.ZERO.toTerm(rhs.getSort()));
 				final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_GEQ_TO_LEQ0);
 				setResult(mUtils.convertLeq0(mTracker.transitivity(convertedApp, rewrite)));
 				return;
@@ -278,7 +278,7 @@ public class TermCompiler extends TermTransformer {
 				Term rhs = SMTAffineTerm.create(params[0])
 						.add(SMTAffineTerm.create(Rational.MONE, params[1]))
 						.normalize(this);
-				final Term leq = theory.term("<=", rhs, theory.rational(Rational.ZERO, rhs.getSort()));
+				final Term leq = theory.term("<=", rhs, Rational.ZERO.toTerm(rhs.getSort()));
 				rhs = theory.term("not", leq);
 				Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_GT_TO_LEQ0);
 				final Term leqRewrite = mUtils.convertLeq0(mTracker.reflexivity(leq));
@@ -292,7 +292,7 @@ public class TermCompiler extends TermTransformer {
 				Term rhs = SMTAffineTerm.create(params[1])
 						.add(SMTAffineTerm.create(Rational.MONE, params[0]))
 						.normalize(this);
-				final Term leq = theory.term("<=", rhs, theory.rational(Rational.ZERO, rhs.getSort()));
+				final Term leq = theory.term("<=", rhs, Rational.ZERO.toTerm(rhs.getSort()));
 				rhs = theory.term("not", leq);
 				Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_LT_TO_LEQ0);
 				final Term leqRewrite = mUtils.convertLeq0(mTracker.reflexivity(leq));

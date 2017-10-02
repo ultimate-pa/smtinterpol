@@ -2109,7 +2109,7 @@ public class ProofChecker extends NonRecursive {
 		}
 		final Theory theory = lhs.getTheory();
 		final SMTAffineTerm expected =
-				SMTAffineTerm.create(num, theory.term("div", arg, theory.rational(num, arg.getSort())));
+				SMTAffineTerm.create(num, theory.term("div", arg, num.toTerm(arg.getSort())));
 		if (!isApplication("=", rhs)) {
 			return false;
 		}
@@ -2952,7 +2952,6 @@ public class ProofChecker extends NonRecursive {
 	 * @return true if zero is 0.
 	 */
 	public boolean isZero(final Term zero) {
-		return zero == zero.getTheory().rational(Rational.ZERO, zero.getSort())
-				|| zero == Rational.ZERO.toTerm(zero.getSort());
+		return zero == Rational.ZERO.toTerm(zero.getSort());
 	}
 }

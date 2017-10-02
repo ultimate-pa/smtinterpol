@@ -1244,7 +1244,7 @@ public class Clausifier {
 		final SMTAffineTerm arg = SMTAffineTerm.create(divParams[0]);
 		final Rational dividend = SMTAffineTerm.create(divParams[1]).getConstant();
 		final SMTAffineTerm divmul = SMTAffineTerm.create(divTerm).mul(dividend);
-		final Term zero = theory.rational(Rational.ZERO, divTerm.getSort());
+		final Term zero = Rational.ZERO.toTerm(divTerm.getSort());
 		// (<= (- (* d (div x d)) x) 0)
 		final SMTAffineTerm difflow = divmul.add(arg.negate());
 		Term axiom = theory.term("<=", difflow, zero);
@@ -1265,7 +1265,7 @@ public class Clausifier {
 		final SMTAffineTerm toInt = SMTAffineTerm.create(toIntTerm).typecast(realTerm.getSort());
 		// (<= (- (to_real (to_int x)) x) 0)
 		final SMTAffineTerm difflow = toInt.add(realTerm.negate());
-		final Term zero = theory.rational(Rational.ZERO, realTerm.getSort());
+		final Term zero = Rational.ZERO.toTerm(realTerm.getSort());
 		Term axiom = theory.term("<=", difflow, zero);
 		buildClause(mTracker.auxAxiom(axiom, ProofConstants.AUX_TO_INT_LOW), source);
 		// (not (<= (+ (to_real (to_int x)) (- x) 1) 0))

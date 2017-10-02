@@ -18,7 +18,6 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate;
 
-import java.math.BigInteger;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -1393,14 +1392,14 @@ public class Interpolator extends NonRecursive {
 				theS = s2;
 				kc = k2c2;
 			}
-			final BigInteger cNum = theC.numerator().abs();
 			Term newF = mTheory.mFalse;
 			// Use -s/c as start value.
 			InterpolatorAffineTerm sPlusOffset = new InterpolatorAffineTerm();
 			sPlusOffset.add(theC.signum() > 0 ? Rational.MONE : Rational.ONE, theS);
 			Rational offset = Rational.ZERO;
+			final Rational theCabs = theC.abs();
 			if (theC.signum() < 0) {
-				sPlusOffset.add(theC.abs().add(Rational.MONE));
+				sPlusOffset.add(theCabs.add(Rational.MONE));
 			}
 			while (offset.compareTo(kc) <= 0) {
 				Term x;
@@ -1408,8 +1407,8 @@ public class Interpolator extends NonRecursive {
 					throw new SMTLIBException("Timeout exceeded");
 				}
 				x = sPlusOffset.toSMTLib(mTheory, true);
-				if (!cNum.equals(BigInteger.ONE)) {
-					x = mTheory.term("div", x, mTheory.numeral(cNum));
+				if (theCabs != Rational.ONE) {
+					x = mTheory.term("div", x, theCabs.toTerm(mTheory.getNumericSort()));
 				}
 				Term F1 = substitute(la1.mF, mMixedVar, x);
 				Term F2 = substitute(la2.mF, mMixedVar, x);
