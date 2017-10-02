@@ -402,7 +402,7 @@ public class ProofChecker extends NonRecursive {
 
 	/**
 	 * Check a proof for consistency. This reports errors on the logger.
-	 * 
+	 *
 	 * @param proof
 	 *            the proof to check.
 	 * @return true, if no errors were found.
@@ -2557,13 +2557,29 @@ public class ProofChecker extends NonRecursive {
 		}
 
 		if (isApplication("=", lhs) && ((ApplicationTerm) lhs).getParameters()[0].getSort().getName() != "Bool") {
+			/* compute affine term for lhs */
+			final Term[] lhsParams = ((ApplicationTerm) lhs).getParameters();
+			if (lhsParams.length != 2) {
+				return false;
+			}
+			final SMTAffineTerm lhsAffine =
+					convertAffineTerm(lhsParams[0]).add(convertAffineTerm(lhsParams[1]).negate());
+
+			if (lhsAffine.isConstant()) {
+				/* simplify to true/false */
+				if (lhsAffine.getConstant() == Rational.ZERO) {
+					return isApplication("true", rhs);
+				} else {
+					return isApplication("false", rhs);
+				}
+			}
+
 			rhs = unquote(rhs);
 			if (!isApplication("=", rhs)) {
 				return false;
 			}
-			final Term[] lhsParams = ((ApplicationTerm) lhs).getParameters();
 			final Term[] rhsParams = ((ApplicationTerm) rhs).getParameters();
-			if (lhsParams.length != 2 || rhsParams.length != 2) {
+			if (rhsParams.length != 2) {
 				return false;
 			}
 
@@ -2577,7 +2593,6 @@ public class ProofChecker extends NonRecursive {
 			}
 
 			/* check that they represent the same equality */
-			final SMTAffineTerm lhsAffine = convertAffineTerm(lhsParams[0]).add(convertAffineTerm(lhsParams[1]).negate());
 			final SMTAffineTerm rhsAffine = convertAffineTerm(rhsParams[0]).add(convertAffineTerm(rhsParams[1]).negate());
 			lhsAffine.div(lhsAffine.getGcd());
 			rhsAffine.div(rhsAffine.getGcd());
