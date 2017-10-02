@@ -15,6 +15,12 @@
 (pop 1)
 
 (push 1)
+(assert (not (= (or false p false false) p)))
+(check-sat)
+(get-proof)
+(pop 1)
+
+(push 1)
 (assert (not (= (or p q) (or false p false q))))
 (check-sat)
 (get-proof)

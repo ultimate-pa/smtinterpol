@@ -30,7 +30,6 @@ import java.util.Stack;
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
-import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
@@ -1591,6 +1590,17 @@ public class ProofChecker extends NonRecursive {
 		case ":divisible":
 			okay = checkRewriteDivisible(eqParams[0], eqParams[1]);
 			break;
+		case ":div1":
+		case ":div-1":
+		case ":divConst":
+			okay = checkRewriteDiv(rewriteRule, eqParams[0], eqParams[1]);
+			break;
+		case ":modulo1":
+		case ":modulo-1":
+		case ":moduloConst":
+		case ":modulo":
+			okay = checkRewriteModulo(rewriteRule, eqParams[0], eqParams[1]);
+			break;
 		case ":toInt":
 			okay = checkRewriteToInt(eqParams[0], eqParams[1]);
 			break;
@@ -1607,7 +1617,7 @@ public class ProofChecker extends NonRecursive {
 			okay = checkRewriteStore(eqParams[0], eqParams[1]);
 			break;
 		default:
-			okay = checkRewriteMisc(rewriteRule, rewriteEq);
+			okay = false;
 			break;
 		}
 
@@ -2108,6 +2118,88 @@ public class ProofChecker extends NonRecursive {
 				convertAffineTerm(rhsArgs[1]).equals(expected);
 	}
 
+	private Rational divConst(final Rational dividend, final Rational divisor) {
+		if (divisor.signum() > 0) {
+			return dividend.div(divisor).floor();
+		} else {
+			return dividend.div(divisor.negate()).floor().negate();
+		}
+	}
+
+	boolean checkRewriteDiv(final String ruleName, final Term lhs, final Term rhs) {
+		// div1: (div x 1) -> x
+		// div-1: (div x (- 1)) -> (- x)
+		// divConst: (div c1 c2) -> c where c1,c2 are constants, c = (div c1 c2)
+		if (!isApplication("div", lhs)) {
+			return false;
+		}
+		final Term[] divArgs = ((ApplicationTerm) lhs).getParameters();
+		if (divArgs.length != 2) {
+			return false;
+		}
+		final SMTAffineTerm divisor = convertAffineTerm(divArgs[1]);
+		if (!divisor.isConstant()) {
+			return false;
+		}
+
+		switch (ruleName) {
+		case ":div1":
+			return divisor.getConstant().equals(Rational.ONE) && rhs == divArgs[0];
+		case ":div-1":
+			return divisor.getConstant().equals(Rational.MONE)
+					&& convertAffineTerm(rhs).equals(convertAffineTerm(divArgs[0]).negate());
+		case ":divConst":
+			final SMTAffineTerm dividend = convertAffineTerm(divArgs[0]);
+			final SMTAffineTerm quotient = convertAffineTerm(rhs);
+			if (!dividend.isConstant() || !quotient.isConstant()) {
+				return false;
+			}
+			return quotient.getConstant().equals(divConst(dividend.getConstant(), divisor.getConstant()));
+		default:
+			return false;
+		}
+	}
+
+	boolean checkRewriteModulo(final String ruleName, final Term lhs, final Term rhs) {
+		// mod1: (div x 1) -> 0
+		// mod-1: (div x (- 1)) -> 0
+		// moduloConst: (mod c1 c2) -> c where c1,c2 are constants, c = (mod c1 c2)
+		// modulo: (mod x c) -> (- x (* c (div x c)))
+		if (!isApplication("mod", lhs)) {
+			return false;
+		}
+		final Term[] modArgs = ((ApplicationTerm) lhs).getParameters();
+		if (modArgs.length != 2) {
+			return false;
+		}
+		final SMTAffineTerm divisor = convertAffineTerm(modArgs[1]);
+		if (!divisor.isConstant()) {
+			return false;
+		}
+
+		switch (ruleName) {
+		case ":modulo1":
+			return divisor.getConstant().equals(Rational.ONE) && isZero(rhs);
+		case ":modulo-1":
+			return divisor.getConstant().equals(Rational.MONE) && isZero(rhs);
+		case ":moduloConst":
+			final SMTAffineTerm dividend = convertAffineTerm(modArgs[0]);
+			final SMTAffineTerm quotient = convertAffineTerm(rhs);
+			if (!dividend.isConstant() || !quotient.isConstant()) {
+				return false;
+			}
+			return quotient.getConstant().equals(dividend.getConstant()
+					.sub(divisor.getConstant().mul(divConst(dividend.getConstant(), divisor.getConstant()))));
+		case ":modulo":
+			final Term divTerm = lhs.getTheory().term("div", modArgs);
+			final SMTAffineTerm expected =
+					convertAffineTerm(modArgs[0]).add(SMTAffineTerm.create(divisor.getConstant().negate(), divTerm));
+			return convertAffineTerm(rhs).equals(expected);
+		default:
+			return false;
+		}
+	}
+
 	boolean checkRewriteToInt(final Term lhs, final Term rhs) {
 		// (to_int constant) --> floor(constant)
 		if (!isApplication("to_int", lhs)) {
@@ -2335,257 +2427,6 @@ public class ProofChecker extends NonRecursive {
 		default:
 			return false;
 		}
-	}
-
-	boolean checkRewriteMisc(final String rewriteRule, final ApplicationTerm termEqApp) {
-		if (rewriteRule == ":div1") {
-			final ApplicationTerm termOldApp = convertApp(termEqApp.getParameters()[0]);
-
-			pm_func(termOldApp, "div");
-
-			checkNumber(termOldApp, 2);
-
-			final SMTAffineTerm constant = convertAffineTerm(convertConst_Neg(termOldApp.getParameters()[1]));
-
-			// Rule-Execution was wrong if c != 1
-			if (!constant.isConstant()) {
-				throw new AssertionError("Error 1 at " + rewriteRule);
-			}
-			if (!(constant.getConstant().equals(Rational.ONE))) {
-				throw new AssertionError("Error 2 at " + rewriteRule);
-			}
-
-			if (termEqApp.getParameters()[1] != termOldApp.getParameters()[0]) {
-				throw new AssertionError("Error 3 at " + rewriteRule);
-			}
-
-		} else if (rewriteRule == ":div-1") {
-			final ApplicationTerm termOldApp = convertApp(termEqApp.getParameters()[0]);
-
-			pm_func(termOldApp, "div");
-
-			checkNumber(termOldApp, 2);
-
-			convertConst_Neg(termOldApp.getParameters()[1]);
-
-			final SMTAffineTerm constant = convertAffineTerm(termOldApp.getParameters()[1]);
-
-			// Rule-Execution was wrong if c != 1
-			if (!constant.negate().isConstant()) {
-				throw new AssertionError("Error 1 at " + rewriteRule);
-			}
-			if (!(constant.negate().getConstant().equals(Rational.ONE))) {
-				throw new AssertionError("Error 2 at " + rewriteRule);
-			}
-
-			if (!convertAffineTerm(termEqApp.getParameters()[1]).negate()
-					.equals(convertAffineTerm(termOldApp.getParameters()[0]))) {
-				throw new AssertionError("Error 3 at " + rewriteRule);
-			}
-		} else if (rewriteRule == ":divConst") {
-			final ApplicationTerm termOldApp = convertApp(termEqApp.getParameters()[0]);
-
-			pm_func(termOldApp, "div");
-
-			checkNumber(termOldApp, 2);
-
-			convertConst_Neg(termOldApp.getParameters()[0]);
-			convertConst_Neg(termOldApp.getParameters()[1]);
-
-			final SMTAffineTerm c1 = convertAffineTerm(termOldApp.getParameters()[0]);
-
-			if (!c1.isConstant()) {
-				throw new AssertionError("Error 1 at " + rewriteRule);
-			}
-
-			final SMTAffineTerm c2 = convertAffineTerm(termOldApp.getParameters()[1]);
-
-			if (!c2.isConstant()) {
-				throw new AssertionError("Error 2 at " + rewriteRule);
-			}
-
-			if (c2.getConstant().equals(Rational.ZERO)) {
-				throw new AssertionError("Error 3 at " + rewriteRule);
-			}
-
-			final SMTAffineTerm d = convertAffineTerm(termEqApp.getParameters()[1]);
-
-			if (!c1.isIntegral() || !c2.isIntegral() || !d.isIntegral()) {
-				throw new AssertionError("Error 4 at " + rewriteRule);
-			}
-
-			if (c2.getConstant().isNegative()
-					&& !d.getConstant().equals(c1.getConstant().div(c2.getConstant()).ceil())) {
-				throw new AssertionError("Error 5 at " + rewriteRule);
-			}
-
-			if (!c2.getConstant().isNegative()
-					&& !d.getConstant().equals(c1.getConstant().div(c2.getConstant()).floor())) {
-				throw new AssertionError("Error 6 at " + rewriteRule);
-			}
-
-		} else if (rewriteRule == ":modulo1") {
-			final ApplicationTerm termOldApp = convertApp(termEqApp.getParameters()[0]);
-
-			pm_func(termOldApp, "mod");
-
-			checkNumber(termOldApp, 2);
-
-			// Check syntactical correctness
-			if (!(termOldApp.getParameters()[0] instanceof ConstantTerm)
-					&& !checkInt_weak(termOldApp.getParameters()[0])) {
-				throw new AssertionError("Error 1 at " + rewriteRule);
-			}
-
-			convertConst(termOldApp.getParameters()[1]);
-			convertConst(termEqApp.getParameters()[1]);
-
-			final SMTAffineTerm constant1 = convertAffineTerm(termOldApp.getParameters()[1]);
-
-			if (!(constant1.getConstant().equals(Rational.ONE))) {
-				throw new AssertionError("Error 2 at " + rewriteRule);
-			}
-
-			final SMTAffineTerm constant0 = convertAffineTerm(termEqApp.getParameters()[1]);
-
-			if (!(constant0.getConstant().equals(Rational.ZERO))) {
-				throw new AssertionError("Error 3 at " + rewriteRule);
-			}
-
-		} else if (rewriteRule == ":modulo-1") {
-			final ApplicationTerm termOldApp = convertApp(termEqApp.getParameters()[0]);
-
-			pm_func(termOldApp, "mod");
-
-			checkNumber(termOldApp, 2);
-
-			// Check syntactical correctness
-			if (!(termOldApp.getParameters()[0] instanceof ConstantTerm)
-					&& !checkInt_weak(termOldApp.getParameters()[0])) {
-				throw new AssertionError("Error 1 at " + rewriteRule);
-			}
-
-			convertConst_Neg(termOldApp.getParameters()[1]);
-			convertConst(termEqApp.getParameters()[1]);
-
-			final SMTAffineTerm constantm1 = convertAffineTerm(termOldApp.getParameters()[1]);
-
-			if (!(constantm1.getConstant().negate().equals(Rational.ONE))) {
-				throw new AssertionError("Error 2 at " + rewriteRule);
-			}
-
-			final SMTAffineTerm constant0 = convertAffineTerm(termEqApp.getParameters()[1]);
-			if (!(constant0.getConstant().equals(Rational.ZERO))) {
-				throw new AssertionError("Error 3 at " + rewriteRule);
-			}
-
-		} else if (rewriteRule == ":moduloConst") {
-			final ApplicationTerm termOldApp = convertApp(termEqApp.getParameters()[0]);
-
-			pm_func(termOldApp, "mod");
-
-			checkNumber(termOldApp, 2);
-
-			// Check syntactical correctness
-			if (!(termOldApp.getParameters()[0] instanceof ConstantTerm)
-					&& !checkInt_weak(termOldApp.getParameters()[0])) {
-				throw new AssertionError("Error 1a at " + rewriteRule);
-			}
-			if (!(termOldApp.getParameters()[1] instanceof ConstantTerm)
-					&& !checkInt_weak(termOldApp.getParameters()[1])) {
-				throw new AssertionError("Error 1b at " + rewriteRule);
-			}
-			if (!(termEqApp.getParameters()[1] instanceof ConstantTerm)
-					&& !checkInt_weak(termEqApp.getParameters()[1])) {
-				throw new AssertionError("Error 1c at " + rewriteRule);
-			}
-
-			final SMTAffineTerm c2 = convertAffineTerm(termOldApp.getParameters()[1]);
-
-			if (c2.getConstant().equals(Rational.ZERO)) {
-				throw new AssertionError("Error 2 at " + rewriteRule);
-			}
-
-			final SMTAffineTerm c1 = convertAffineTerm(termOldApp.getParameters()[0]);
-			final SMTAffineTerm d = convertAffineTerm(termEqApp.getParameters()[1]);
-			if (!c1.isIntegral() || !c2.isIntegral() || !d.isIntegral()) {
-				throw new AssertionError("Error 3 at " + rewriteRule);
-			}
-
-			if (c2.getConstant().isNegative()) {
-				// d = c1 + c2 * ceil(c1/c2)
-				if (!d.equals(c1.add(c2.mul(c1.div(c2.getConstant()).getConstant().ceil()).negate()))) {
-					throw new AssertionError("Error 4 at " + rewriteRule);
-				}
-			} else {
-				if (!d.equals(c1.add(c2.mul(c1.div(c2.getConstant()).getConstant().floor()).negate()))) {
-					throw new AssertionError("Error 5 at " + rewriteRule);
-				}
-			}
-		} else if (rewriteRule == ":modulo") {
-
-			final ApplicationTerm termOldMod = convertApp(termEqApp.getParameters()[0]);
-			final ApplicationTerm termNewSum = convertApp(termEqApp.getParameters()[1]);
-
-			checkNumber(termOldMod, 2);
-			checkNumber(termNewSum, 2);
-
-			ApplicationTerm termNewProd;
-			Term termNewNotProd;
-			if (termNewSum.getParameters()[0] instanceof ApplicationTerm) {
-				if (pm_func_weak(termNewSum.getParameters()[0], "*")) {
-					termNewProd = convertApp(termNewSum.getParameters()[0]);
-					termNewNotProd = termNewSum.getParameters()[1];
-				} else {
-					termNewProd = convertApp(termNewSum.getParameters()[1]);
-					termNewNotProd = termNewSum.getParameters()[0];
-				}
-			} else {
-				termNewProd = convertApp(termNewSum.getParameters()[1]);
-				termNewNotProd = termNewSum.getParameters()[0];
-			}
-
-			checkNumber(termNewProd, 2);
-
-			ApplicationTerm termNewDiv;
-			Term termNewNotDiv;
-			if (termNewProd.getParameters()[0] instanceof ApplicationTerm) {
-				if (pm_func_weak(termNewProd.getParameters()[0], "/")
-						|| pm_func_weak(termNewProd.getParameters()[0], "div")) {
-					termNewDiv = convertApp(termNewProd.getParameters()[0]);
-					termNewNotDiv = termNewProd.getParameters()[1];
-				} else {
-					termNewDiv = convertApp(termNewProd.getParameters()[1]);
-					termNewNotDiv = termNewProd.getParameters()[0];
-				}
-			} else {
-				termNewDiv = convertApp(termNewProd.getParameters()[1]);
-				termNewNotDiv = termNewProd.getParameters()[0];
-			}
-
-			checkNumber(termNewDiv, 2);
-
-			// ApplicationTerm termNewDiv = convertApp(termNewProd.getParameters()[1]);
-
-			pm_func(termOldMod, "mod");
-			pm_func(termNewSum, "+");
-			pm_func(termNewProd, "*");
-			if (!pm_func_weak(termNewDiv, "div") && !pm_func_weak(termNewDiv, "/")) {
-				throw new AssertionError("Error 1 at " + rewriteRule);
-			}
-
-			final Term termOldX = termOldMod.getParameters()[0];
-			final Term termOldY = termOldMod.getParameters()[1];
-			if (termNewNotProd != termOldX
-					|| !convertAffineTerm(termNewNotDiv).equals(convertAffineTerm(termOldY).negate())
-					|| termNewDiv.getParameters()[0] != termOldX || termNewDiv.getParameters()[1] != termOldY) {
-				throw new AssertionError("Error 2 at " + rewriteRule);
-			}
-
-		} else {
-			return false;
-		}
-		return true;
 	}
 
 	public void walkIntern(final ApplicationTerm internApp) {
@@ -3054,109 +2895,6 @@ public class ProofChecker extends NonRecursive {
 	 */
 	SMTAffineTerm convertAffineTerm(final Term term) {
 		return (SMTAffineTerm) mAffineConverter.transform(term);
-	}
-
-	ApplicationTerm convertApp(final Term term) {
-		if (mDebug.contains("convertApp")) {
-			System.out.println("Aufruf");
-		}
-
-		if (!(term instanceof ApplicationTerm)) {
-			throw new AssertionError("Error: The following term should be an ApplicationTerm, " + "but is of the class "
-					+ term.getClass().getSimpleName() + ".\n" + "The term was: " + term.toString());
-		}
-
-		return (ApplicationTerm) term;
-	}
-
-	ConstantTerm convertConst(final Term term) {
-		if (!(term instanceof ConstantTerm)) {
-			throw new AssertionError("Error: The following term should be a ConstantTerm, " + "but is of the class "
-					+ term.getClass().getSimpleName() + ".\n" + "The term was: " + term.toString());
-		}
-
-		return (ConstantTerm) term;
-	}
-
-	Term convertConst_Neg(final Term term) {
-		if (term instanceof ConstantTerm) {
-			return term;
-		}
-
-		// Then it must be a negative number
-		final ApplicationTerm termApp = convertApp(term);
-		pm_func(termApp, "-");
-
-		if (termApp.getParameters()[0] instanceof ConstantTerm) {
-			return termApp;
-		}
-
-		throw new AssertionError("Error: The following term should be a ConstantTerm, " + "but is of the class "
-				+ term.getClass().getSimpleName() + ".\n" + "The term was: " + term.toString());
-	}
-
-	boolean checkInt_weak(final Term term) {
-		if (term.getSort() == mSkript.sort("Int")) {
-			return true;
-		}
-
-		// Then it must be a negative Integer
-
-		final ApplicationTerm termApp = convertApp(term);
-		pm_func(termApp, "-");
-
-		if (termApp.getParameters()[0].getSort() == mSkript.sort("Int")) {
-			return true;
-		}
-
-		return false;
-		// throw new AssertionError("Error: The following term should be an Integer, "
-		// + "but is of the sort " + term.getSort().getName() + ".\n"
-		// + "The term was: " + term.toString());
-	}
-
-	// Now some pattern-match-functions.
-
-	// Throws an error if the pattern doesn't match
-	void pm_func(final ApplicationTerm termApp, final String pattern) {
-		if (!termApp.getFunction().getName().equals(pattern)) {
-			reportError("Error: The pattern \"" + pattern + "\" was supposed to be the function symbol of "
-					+ termApp.toStringDirect() + "\n" + "Instead it was " + termApp.getFunction().getName());
-		}
-	}
-
-	boolean pm_func_weak(final ApplicationTerm termApp, final String pattern) {
-		return termApp.getFunction().getName().equals(pattern);
-	}
-
-	// Does this function make any sense?
-	boolean pm_func_weak(final Term term, final String pattern) {
-		if (term instanceof ApplicationTerm) {
-			return pm_func_weak((ApplicationTerm) term, pattern);
-		}
-
-		throw new AssertionError("Expected an ApplicationTerm in func_weak!");
-	}
-
-	void checkNumber(final ApplicationTerm termApp, final int n) {
-		if (termApp.getParameters().length < n) {
-			throw new AssertionError("Error: " + "The parameter-array of " + termApp.toStringDirect() + " is to short!"
-					+ "\n It should have length " + n);
-		}
-	}
-
-	void isConstant(final SMTAffineTerm term, final Rational constant) {
-		if (!isConstant_weak(term, constant)) {
-			throw new AssertionError("The following term should be the " + "constant " + constant.toString()
-					+ " but isn't: " + term.toStringDirect());
-		}
-	}
-
-	boolean isConstant_weak(final SMTAffineTerm term, final Rational constant) {
-		if (!term.isConstant() || term.getConstant() != constant) {
-			return false;
-		}
-		return true;
 	}
 
 	public Term unquote(final Term quotedTerm) {
