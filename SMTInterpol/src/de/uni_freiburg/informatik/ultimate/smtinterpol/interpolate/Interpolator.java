@@ -31,7 +31,6 @@ import java.util.Set;
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
-import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
@@ -859,11 +858,14 @@ public class Interpolator extends NonRecursive {
 							iat.negate();
 						}
 						final Term sharedTerm = iat.toSMTLib(mTheory, isInt);
-						interpolant = mTheory.equals(mixed,
-								mTheory.term("div", sharedTerm, mTheory.numeral(mixedFactor.numerator())));
-						final FunctionSymbol divisible = mTheory.getFunctionWithResult("divisible",
-								new BigInteger[] { mixedFactor.numerator().abs() }, null, mTheory.getSort("Int"));
-						interpolant = mTheory.and(interpolant, mTheory.term(divisible, sharedTerm));
+						final Term divisor = mixedFactor.toTerm(mixed.getSort());
+						// We need to divide sharedTerm by mixedFactor and check that it doesn't produce a remainder.
+						//
+						// Interpolant is: (and (= mixed (div sharedTerm mixedFactor))
+						//                      (= (mod sharedTerm mixedFactor) 0))
+						interpolant = mTheory.and(mTheory.equals(mixed, mTheory.term("div", sharedTerm, divisor)),
+								mTheory.term("=", mTheory.term("mod", sharedTerm, divisor),
+										Rational.ZERO.toTerm(mixed.getSort())));
 					} else {
 						iat.mul(mixedFactor.negate().inverse());
 						final Term sharedTerm = iat.toSMTLib(mTheory, isInt);
