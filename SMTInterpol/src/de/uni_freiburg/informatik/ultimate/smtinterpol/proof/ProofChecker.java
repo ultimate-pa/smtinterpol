@@ -2562,7 +2562,7 @@ public class ProofChecker extends NonRecursive {
 			if (lhsParams.length != 2) {
 				return false;
 			}
-			final SMTAffineTerm lhsAffine =
+			SMTAffineTerm lhsAffine =
 					convertAffineTerm(lhsParams[0]).add(convertAffineTerm(lhsParams[1]).negate());
 
 			if (lhsAffine.isConstant()) {
@@ -2593,9 +2593,9 @@ public class ProofChecker extends NonRecursive {
 			}
 
 			/* check that they represent the same equality */
-			final SMTAffineTerm rhsAffine = convertAffineTerm(rhsParams[0]).add(convertAffineTerm(rhsParams[1]).negate());
-			lhsAffine.div(lhsAffine.getGcd());
-			rhsAffine.div(rhsAffine.getGcd());
+			SMTAffineTerm rhsAffine = convertAffineTerm(rhsParams[0]).add(convertAffineTerm(rhsParams[1]).negate());
+			lhsAffine = lhsAffine.div(lhsAffine.getGcd());
+			rhsAffine = rhsAffine.div(rhsAffine.getGcd());
 			return lhsAffine.equals(rhsAffine) || lhsAffine.equals(rhsAffine.negate());
 		}
 
