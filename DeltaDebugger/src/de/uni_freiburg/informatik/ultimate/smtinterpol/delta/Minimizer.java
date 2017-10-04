@@ -40,22 +40,24 @@ import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermTransformer;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.delta.TermSimplifier.Mode;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.ParseEnvironment;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
 
 public class Minimizer {
-	
+
 	private static class OutputReaper extends Thread implements Runnable {
 
 		private final static int CHUNK_SIZE = 1024;
-		
+
 		private InputStream mToReap;
-		
+
 		public OutputReaper() {
 			setDaemon(true);
 		}
-		
+
 		@Override
 		public void run() {
 			final byte[] chunk = new byte[CHUNK_SIZE];
@@ -82,17 +84,17 @@ public class Minimizer {
 				mToReap = null;
 			}
 		}
-		
-		public synchronized void setToReap(InputStream toReap) {
+
+		public synchronized void setToReap(final InputStream toReap) {
 			mToReap = toReap;
 			notifyAll();
 		}
 	}
-	
+
 	private class DeactivateCmds implements BinSearch.Driver<Cmd> {
 
 		@Override
-		public Boolean prepare(List<Cmd> sublist) {
+		public Boolean prepare(final List<Cmd> sublist) {
 			if (mVerbosity > 1) {
 				System.err.println("Trying " + sublist);
 			}
@@ -103,19 +105,19 @@ public class Minimizer {
 		}
 
 		@Override
-		public void failure(List<Cmd> sublist) {
+		public void failure(final List<Cmd> sublist) {
 			for (final Cmd cmd : sublist) {
 				cmd.activate();
 			}
 		}
 
 		@Override
-		public void success(List<Cmd> sublist) {
+		public void success(final List<Cmd> sublist) {
 			// Commands remain deactivated.  shrinkCmdList will do the cleanup.
 		}
-		
+
 	}
-	
+
 	private class SimplifyTerms implements BinSearch.Driver<Substitution> {
 
 		private final AbstractOneTermCmd mCmd;
@@ -124,16 +126,16 @@ public class Minimizer {
 		private final HashMap<Term, Boolean> mSeen;
 		private List<Cmd> mPres;
 
-		public SimplifyTerms(AbstractOneTermCmd cmd, SubstitutionManager mgr,
-				List<Substitution> substs, HashMap<Term, Boolean> cache) {
+		public SimplifyTerms(final AbstractOneTermCmd cmd, final SubstitutionManager mgr,
+				final List<Substitution> substs, final HashMap<Term, Boolean> cache) {
 			mCmd = cmd;
 			mMgr = mgr;
 			mSubsts = substs;
 			mSeen = cache;
 		}
-		
+
 		@Override
-		public Boolean prepare(List<Substitution> sublist) {
+		public Boolean prepare(final List<Substitution> sublist) {
 			final SubstitutionApplier applier = new SubstitutionApplier();
 			for (final Substitution subst : sublist) {
 				subst.activate();
@@ -163,7 +165,7 @@ public class Minimizer {
 		}
 
 		@Override
-		public void failure(List<Substitution> sublist) {
+		public void failure(final List<Substitution> sublist) {
 			mSeen.put(mCmd.getTerm(mUnletRelet), Boolean.FALSE);
 			mCmd.removePreCmds(mPres);
 			mCmd.failure();
@@ -174,7 +176,7 @@ public class Minimizer {
 		}
 
 		@Override
-		public void success(List<Substitution> sublist) {
+		public void success(final List<Substitution> sublist) {
 			mSeen.put(mCmd.getTerm(mUnletRelet), Boolean.TRUE);
 			for (final Substitution s : sublist) {
 				s.success();
@@ -182,19 +184,19 @@ public class Minimizer {
 			mCmd.success();
 			mPres = null;
 		}
-		
+
 	}
-	
+
 	private static class RemoveScopes implements BinSearch.Driver<Scope> {
-		
+
 		private final List<Cmd> mCmds;
-		
-		public RemoveScopes(List<Cmd> cmds) {
+
+		public RemoveScopes(final List<Cmd> cmds) {
 			mCmds = cmds;
 		}
 
 		@Override
-		public Boolean prepare(List<Scope> sublist) {
+		public Boolean prepare(final List<Scope> sublist) {
 			for (final Scope s : sublist) {
 				for (int i = s.mFirst; i < s.mLast; ++i) {
 					mCmds.get(i).deactivate();
@@ -211,7 +213,7 @@ public class Minimizer {
 		}
 
 		@Override
-		public void failure(List<Scope> sublist) {
+		public void failure(final List<Scope> sublist) {
 			for (final Scope s : sublist) {
 				for (int i = s.mFirst; i < s.mLast; ++i) {
 					mCmds.get(i).activate();
@@ -226,24 +228,24 @@ public class Minimizer {
 		}
 
 		@Override
-		public void success(List<Scope> sublist) {
+		public void success(final List<Scope> sublist) {
 			for (final Scope s : sublist) {
 				s.mDeactivated = true;
 			}
 		}
-		
+
 	}
-	
+
 	private final class RemoveNeutrals implements BinSearch.Driver<Neutral> {
 
 		private final AbstractOneTermCmd mCmd;
-		
-		public RemoveNeutrals(AbstractOneTermCmd cmd) {
+
+		public RemoveNeutrals(final AbstractOneTermCmd cmd) {
 			mCmd = cmd;
 		}
-		
+
 		@Override
-		public Boolean prepare(List<Neutral> sublist) {
+		public Boolean prepare(final List<Neutral> sublist) {
 			if (mVerbosity > 1) {
 				System.err.println("Trying " + sublist);
 			}
@@ -256,22 +258,22 @@ public class Minimizer {
 		}
 
 		@Override
-		public void failure(List<Neutral> sublist) {
+		public void failure(final List<Neutral> sublist) {
 			mCmd.failure();
 		}
 
 		@Override
-		public void success(List<Neutral> sublist) {
+		public void success(final List<Neutral> sublist) {
 			mCmd.success();
 		}
-		
+
 	}
-	
+
 	private List<Cmd> mCmds;
 	private final int mGoldenExit;
 	private final File mTmpFile, mResultFile;
 	private final String mSolver;
-	
+
 	private int mTestCtr = 0, mSuccTestCtr = 0;
 	/**
 	 * The verbosity level for the delta debugger.  Values are:
@@ -282,14 +284,14 @@ public class Minimizer {
 	 * <tr><td>&gt;2</td><td>print also debugging information about tests</td></tr>
 	 */
 	private final int mVerbosity;
-	
+
 	private final OutputReaper mOut, mErr;
 
 	private final boolean mUnletRelet;
 
-	public Minimizer(List<Cmd> cmds, int goldenExit,
-			File tmpFile, File resultFile, String solver, int verbosity,
-			OutputReaper out, OutputReaper err, boolean unletRelet) {
+	public Minimizer(final List<Cmd> cmds, final int goldenExit,
+			final File tmpFile, final File resultFile, final String solver, final int verbosity,
+			final OutputReaper out, final OutputReaper err, final boolean unletRelet) {
 		mCmds = cmds;
 		mGoldenExit = goldenExit;
 		mTmpFile = tmpFile;
@@ -300,7 +302,7 @@ public class Minimizer {
 		mErr = err;
 		mUnletRelet = unletRelet;
 	}
-	
+
 	public boolean deltaDebug() throws IOException, InterruptedException {
 		if (mVerbosity > 0) {
 			System.err.println("# commands: " + mCmds.size());
@@ -354,24 +356,24 @@ public class Minimizer {
 		System.err.println("# rounds: " + numRounds);
 		return scopes || numRounds > 1 || features;
 	}
-	
+
 	private static class Scope {
 		int mFirst;
 		int mLast;
 		int mReduce;
 		List<Scope> mNested;
 		boolean mDeactivated = false;
-		public Scope(int f) {
+		public Scope(final int f) {
 			mFirst = f;
 		}
-		public void nest(Scope s) {
+		public void nest(final Scope s) {
 			if (mNested == null) {
 				mNested = new ArrayList<Scope>();
 			}
 			mNested.add(s);
 		}
 	}
-	
+
 	private List<Scope> detectScopes() {
 		final ArrayDeque<Scope> ppStack = new ArrayDeque<Scope>();
 		// All toplevel scopes.
@@ -413,7 +415,7 @@ public class Minimizer {
 		}
 		return res;
 	}
-	
+
 	private boolean removeScopes() throws IOException, InterruptedException {
 		if (mVerbosity > 0) {
 			System.err.println("Removing scopes...");
@@ -437,7 +439,7 @@ public class Minimizer {
 		}
 		return res;
 	}
-	
+
 	private boolean removeCmds() throws IOException, InterruptedException {
 		if (mVerbosity > 0) {
 			System.err.println("Removing commands...");
@@ -458,14 +460,14 @@ public class Minimizer {
 		}
 		return res;
 	}
-	
-	private boolean deactivateCmds(List<Cmd> toDeactivate)
+
+	private boolean deactivateCmds(final List<Cmd> toDeactivate)
 		throws IOException, InterruptedException {
 		final DeactivateCmds driver = new DeactivateCmds();
 		final BinSearch<Cmd> bs = new BinSearch<Cmd>(toDeactivate, driver);
 		return bs.run(this);
 	}
-	
+
 	private boolean removeDecls() throws IOException, InterruptedException {
 		if (mVerbosity > 0) {
 			System.err.println("Removing unused declarations...");
@@ -530,14 +532,14 @@ public class Minimizer {
 				unusedDefs, new BinSearch.Driver<Cmd>() {
 
 			@Override
-			public Boolean prepare(List<Cmd> sublist) {
+			public Boolean prepare(final List<Cmd> sublist) {
 				for (final Cmd cmd : sublist) {
 					final OneTermCmd tcmd = (OneTermCmd) cmd;
 					final Term stripped = new TermTransformer() {
 
 						@Override
-						public void postConvertAnnotation(AnnotatedTerm old,
-								Annotation[] newAnnots, Term newBody) {
+						public void postConvertAnnotation(final AnnotatedTerm old,
+								final Annotation[] newAnnots, final Term newBody) {
 							final ArrayList<Annotation> noNames =
 									new ArrayList<Annotation>(newAnnots.length);
 							for (final Annotation a : newAnnots) {
@@ -550,42 +552,42 @@ public class Minimizer {
 										new Annotation[noNames.size()]),
 										newBody));
 						}
-						
-					}.transform(tcmd.getTerm(mUnletRelet));// NOCHECKSTYLE 
+
+					}.transform(tcmd.getTerm(mUnletRelet));// NOCHECKSTYLE
 					tcmd.setTerm(stripped, mUnletRelet);
 				}
 				return null;
 			}
 
 			@Override
-			public void failure(List<Cmd> sublist) {
+			public void failure(final List<Cmd> sublist) {
 				for (final Cmd cmd : sublist) {
 					((OneTermCmd) cmd).failure();
 				}
 			}
 
 			@Override
-			public void success(List<Cmd> sublist) {
+			public void success(final List<Cmd> sublist) {
 				for (final Cmd cmd : sublist) {
 					((OneTermCmd) cmd).success();
-				}				
+				}
 			}
-			
+
 		});// NOCHECKSTYLE
-		res |= bs.run(this); 
+		res |= bs.run(this);
 		if (mVerbosity > 0) {
 			System.err.println("...done");
 		}
 		return res;
 	}
-	
-	private boolean isUnnamedAssert(AbstractOneTermCmd cmd) {
-		return (cmd instanceof OneTermCmd) 
+
+	private boolean isUnnamedAssert(final AbstractOneTermCmd cmd) {
+		return (cmd instanceof OneTermCmd)
 				&& ((OneTermCmd) cmd).getCmd().equals("assert")
 				&& !cmd.hasDefinitions();
 	}
-	
-	private boolean isNamedAssert(Cmd cmd) {
+
+	private boolean isNamedAssert(final Cmd cmd) {
 		if (cmd instanceof OneTermCmd) {
 			final OneTermCmd tcmd = (OneTermCmd) cmd;
 			if (tcmd.getCmd().equals("assert")
@@ -600,8 +602,8 @@ public class Minimizer {
 		}
 		return false;
 	}
-	
-	private boolean removeUnusedCore(Mode mode)
+
+	private boolean removeUnusedCore(final Mode mode)
 		throws IOException, InterruptedException {
 		boolean res = false;
 		final TermSimplifier simp = new TermSimplifier(mode);
@@ -623,11 +625,11 @@ public class Minimizer {
 		}
 		return res;
 	}
-	
+
 	private boolean removeBindings() throws IOException, InterruptedException {
 		return removeUnusedCore(Mode.BINDINGS);
 	}
-	
+
 	private boolean removeNeutrals() throws IOException, InterruptedException {
 //		return removeUnusedCore(Mode.NEUTRALS);
 		boolean result = false;
@@ -646,8 +648,8 @@ public class Minimizer {
 		}
 		return result;
 	}
-	
-	private boolean simplifyTerms(boolean simpAsserts) throws IOException, InterruptedException {
+
+	private boolean simplifyTerms(final boolean simpAsserts) throws IOException, InterruptedException {
 		if (mVerbosity > 0) {
 			System.err.println("Simplifying terms...");
 		}
@@ -692,8 +694,8 @@ public class Minimizer {
 		}
 		return res;
 	}
-	
-	private Term unfoldAnd(Term p1, Term p2) {
+
+	private Term unfoldAnd(final Term p1, final Term p2) {
 		final ArrayList<Term> conjuncts = new ArrayList<Term>();
 		ApplicationTerm at = (ApplicationTerm) p1;
 		if (at.getFunction() == at.getTheory().mAnd) {
@@ -710,8 +712,8 @@ public class Minimizer {
 		return p1.getTheory().term("and",
 				conjuncts.toArray(new Term[conjuncts.size()]));
 	}
-	
-	private int numChildren(int[] sos, int parent) {
+
+	private int numChildren(final int[] sos, final int parent) {
 		int numChildren = 0;
 		int child = parent - 1;
 		while (child >= sos[parent]) {
@@ -720,8 +722,8 @@ public class Minimizer {
 		}
 		return numChildren;
 	}
-	
-	private void mergeWithChild(GetInterpolants gi, int parent, int child) {
+
+	private void mergeWithChild(final GetInterpolants gi, final int parent, int child) {
 		final int[] sos = gi.getStartOfSubtree();
 		int childidx = parent - 1;
 		for (/* Nothing */ ; child > 0; --child) {
@@ -746,8 +748,8 @@ public class Minimizer {
 		gi.setNewPartition(newPartition);
 		gi.setNewStartOfSubtree(newSos);
 	}
-	
-	private boolean mergeTree(GetInterpolants gi)
+
+	private boolean mergeTree(final GetInterpolants gi)
 		throws IOException, InterruptedException {
 		boolean res = false;
 		int[] sos = gi.getStartOfSubtree();
@@ -782,12 +784,12 @@ public class Minimizer {
 		}
 		return res;
 	}
-	
-	private boolean isAnd(Term t) {
+
+	private boolean isAnd(final Term t) {
 		return ((ApplicationTerm) t).getFunction() == t.getTheory().mAnd;
 	}
-	
-	private boolean simplifyAndParition(GetInterpolants gi, int idx) throws IOException, InterruptedException {
+
+	private boolean simplifyAndParition(final GetInterpolants gi, final int idx) throws IOException, InterruptedException {
 		Term[] partition = gi.getPartition();
 		Term[] conjs =
 				((ApplicationTerm) partition[idx]).getParameters();
@@ -820,7 +822,7 @@ public class Minimizer {
 		return res;
 	}
 
-	private boolean simplifyInterpolantPartitions(GetInterpolants gi)
+	private boolean simplifyInterpolantPartitions(final GetInterpolants gi)
 		throws IOException, InterruptedException {
 		boolean res = false;
 		Term[] partition = gi.getPartition();
@@ -873,7 +875,7 @@ public class Minimizer {
 		return res;
 	}
 
-	private static ApplicationTerm buildAnd(List<Term> conjs) {
+	private static ApplicationTerm buildAnd(final List<Term> conjs) {
 		if (conjs.isEmpty()) {
 			return null;
 		}
@@ -883,7 +885,7 @@ public class Minimizer {
 		return conjs.get(0).getTheory().term(
 				"and", conjs.toArray(new Term[conjs.size()]));
 	}
-	
+
 	private boolean simplifyGetInterpolants()
 		throws IOException, InterruptedException {
 		if (mVerbosity > 0) {
@@ -920,7 +922,7 @@ public class Minimizer {
 		}
 		return res;
 	}
-	
+
 	private boolean simplifyTermListCmds()
 		throws IOException, InterruptedException {
 		if (mVerbosity > 0) {
@@ -994,7 +996,7 @@ public class Minimizer {
 		// Actually dead code, but required by the java compiler
 		return res;
 	}
-	
+
 	private void shrinkCmdList() {
 		if (mVerbosity > 0) {
 			System.err.println("Shrinking command list...");
@@ -1020,7 +1022,7 @@ public class Minimizer {
 			System.err.println("...done");
 		}
 	}
-	
+
 	private boolean removeFeatures() throws IOException, InterruptedException {
 		final Map<String, Cmd> features = new HashMap<String, Cmd>();
 		for (final Cmd cmd : mCmds) {
@@ -1079,7 +1081,7 @@ public class Minimizer {
 		}
 		return false;
 	}
-	
+
 	private void dumpCmds() throws FileNotFoundException {
 		final PrintWriter out = new PrintWriter(mTmpFile);
 		for (final Cmd cmd : mCmds) {
@@ -1090,7 +1092,7 @@ public class Minimizer {
 		out.flush();
 		out.close();
 	}
-	
+
 	public static void usage() {
 		System.err.println(
 				"Usage: Minimizer <infile> <outfile> [-v] [-golden <num>] <command> <args>");
@@ -1104,8 +1106,8 @@ public class Minimizer {
 		System.err.println("  args          are optional arguments to \"command\"");
 		System.exit(0);
 	}
-	
-	public static void main(String[] args) {
+
+	public static void main(final String[] args) {
 		if (args.length < 3) {
 			usage();
 		}
@@ -1179,7 +1181,7 @@ public class Minimizer {
 				System.err.println("Got golden exit code: " + goldenExit);
 			}
 			ParseScript ps = new ParseScript();
-			ParseEnvironment pe = new ParseEnvironment(ps, null) {
+			ParseEnvironment pe = new ParseEnvironment(ps, new OptionMap(new DefaultLogger(), true)) {
 
 				@Override
 				public void printSuccess() {
@@ -1187,25 +1189,25 @@ public class Minimizer {
 				}
 
 				@Override
-				public void printValues(Map<Term, Term> values) {
+				public void printValues(final Map<Term, Term> values) {
 					// Disable output
 				}
 
 				@Override
-				public void printResponse(Object response) {
+				public void printResponse(final Object response) {
 					// Disable output
 				}
 
 				@Override
-				public void printInfoResponse(String info, Object response) {
+				public void printInfoResponse(final String info, final Object response) {
 					// Disable output
 				}
 
 				@Override
-				public void printTermResponse(Term[] response) {
+				public void printTermResponse(final Term[] response) {
 					// Disable output
 				}
-				
+
 			};
 			if (verbosity > 0) {
 				System.err.println("Begin parsing");
@@ -1235,5 +1237,5 @@ public class Minimizer {
 			e.printStackTrace();
 		}
 	}
-	
+
 }
