@@ -1181,7 +1181,6 @@ public class ArrayInterpolator {
 		 *            the occurrence of the right store path end
 		 */
 		private void closeWeakeqExt(final Occurrence headOcc, final Occurrence tailOcc) {
-			final boolean closing = true; // TODO Check if we still need this
 			while (mHead.mColor < mMaxColor || mTail.mColor < mMaxColor) {
 				if (mHead.mColor < mTail.mColor) { // the left outer path is an A-path
 					if (mDiseqInfo.isMixed(mHead.mColor)) {
@@ -1216,12 +1215,12 @@ public class ArrayInterpolator {
 				// Here, only subinterpolants are added.
 				if (mDiseqInfo.isALocal(color)) {
 					// A-local outer paths must be closed here, B-local ones are already closed.
-					mHead.addInterpolantClauseAPathExt(color, null, closing);
-					mTail.addInterpolantClauseAPathExt(color, null, closing);
+					mHead.addInterpolantClauseAPathExt(color, null);
+					mTail.addInterpolantClauseAPathExt(color, null);
 				} else if (mDiseqInfo.isBorShared(color)) {
 					// B-local paths must be closed, A-local ones are already closed.
-					mHead.addInterpolantClauseBPathExt(color, null, closing);
-					mTail.addInterpolantClauseBPathExt(color, null, closing);
+					mHead.addInterpolantClauseBPathExt(color, null);
+					mTail.addInterpolantClauseBPathExt(color, null);
 				} else { // Close one of the outer paths as before, and compute the recursive interpolant for the other.
 					// Note: We cannot use addInterpolantClauseA/BPathExt here, as it clears mStoreIndices, which we
 					// need for recursion
@@ -1472,7 +1471,7 @@ public class ArrayInterpolator {
 					if (mPathIndex != null) {
 						addInterpolantClauseAPath(color, boundary);
 					} else { // Store path in weakeq-ext lemma
-						addInterpolantClauseAPathExt(color, boundary, false);
+						addInterpolantClauseAPathExt(color, boundary);
 					}
 					mTerm[color] = null;
 				} else {
@@ -1516,7 +1515,7 @@ public class ArrayInterpolator {
 						if (mPathIndex != null) {
 							addInterpolantClauseBPath(child, boundary);
 						} else { // we are on the store path in a weakeq-ext lemma
-							addInterpolantClauseBPathExt(child, boundary, false);
+							addInterpolantClauseBPathExt(child, boundary);
 						}
 					}
 					mLastChange[child] = boundary;
@@ -1793,7 +1792,7 @@ public class ArrayInterpolator {
 			 * @param boundary
 			 *            The term that closes this A path
 			 */
-			void addInterpolantClauseAPathExt(final int color, final Term boundary, final boolean closing) {
+			void addInterpolantClauseAPathExt(final int color, final Term boundary) {
 				// Store the inner paths on the main path for mixed weakeq-ext lemmas
 				if (mDiseqInfo.isMixed(color) && mLastChange[mColor] != null) {
 					if (boundary != mPath[0] && boundary != mPath[mPath.length - 1]) {
@@ -1814,11 +1813,7 @@ public class ArrayInterpolator {
 				} else {
 					assert mDiseqInfo.isBorShared(color) || mDiseqInfo.isMixed(color); // TEST
 					Term left = mLastChange[color];
-					if (!closing) {
-						assert left != null;
-					} else if (left == null) { // This can happen if the whole path is in A
-						left = this.equals(mHead) ? mPath[mPath.length - 1] : mPath[0];
-					}
+					assert left != null;
 					final Term right = boundary;
 					if (mStoreIndices[color] != null) {
 						int order = 0;
@@ -1852,7 +1847,7 @@ public class ArrayInterpolator {
 			 * @param boundary
 			 *            The term that closes this A path
 			 */
-			void addInterpolantClauseBPathExt(final int color, final Term boundary, final boolean closing) {
+			void addInterpolantClauseBPathExt(final int color, final Term boundary) {
 				// Store the inner paths on the main path for mixed weakeq-ext lemmas
 				if (mDiseqInfo.isMixed(color) && mLastChange[mColor] != null) {
 					if (boundary != mPath[0] && boundary != mPath[mPath.length - 1]) {
@@ -1872,11 +1867,7 @@ public class ArrayInterpolator {
 				} else if (!mIsBInterpolated[color]) {
 					assert mDiseqInfo.isALocal(color) || mDiseqInfo.isMixed(color); // TEST
 					Term left = mLastChange[color];
-					if (!closing) {
-						assert left != null;
-					} else if (left == null) { // This can happen if the whole path is in B
-						left = this.equals(mHead) ? mPath[mPath.length - 1] : mPath[0];
-					}
+					assert left != null;
 					final Term right = boundary;
 					if (mStoreIndices[color] != null) {
 						int order = 0;
