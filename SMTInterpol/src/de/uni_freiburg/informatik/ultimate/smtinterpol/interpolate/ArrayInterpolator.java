@@ -109,6 +109,10 @@ public class ArrayInterpolator {
 	 * The auxiliary variable that is used to build the recursive interpolant in mixed weakeq-ext lemmas.
 	 */
 	private TermVariable mRecursionVar;
+	/**
+	 * The index paths that have already been interpolated, a map of the index to WeakPathInfo.
+	 */
+	private Map<Term, WeakPathInfo> mInterpolatedIndexPaths;
 
 	@SuppressWarnings("unchecked")
 	public ArrayInterpolator(final Interpolator ipolator) {
@@ -171,7 +175,7 @@ public class ArrayInterpolator {
 	 * for A paths; or (iv) both i,j are A-local -> terms of the form "nweq(s1,s2,k,F(·))" are built for B paths.
 	 *
 	 * @param proofTerm
-	 *            The lemma which interpolants are calculated for.
+	 *            The lemma which interpolants are computed for.
 	 * @return An array containing the interpolants for all partitions.
 	 */
 	private Term[] computeReadOverWeakeqInterpolants(final Term proofTerm) {
@@ -199,7 +203,7 @@ public class ArrayInterpolator {
 
 		// Determine the shared select index for all partitions where it exists
 		computeSharedSelectIndices();
-		// Calculate the interpolant terms from the store path
+		// compute the interpolant terms from the store path
 		mInterpolants = arrayPath.interpolateWeakPathInfo();
 		// In some cases, the index equality has to be added
 		if (mIndexEquality != null) {
@@ -224,7 +228,7 @@ public class ArrayInterpolator {
 	 * interpolation: "a != b" is (i) B-local (ii) A-local (iii) mixed.
 	 *
 	 * @param proofTerm
-	 *            The lemma which interpolants are calculated for.
+	 *            The lemma which interpolants are computed for.
 	 * @return An array containing the interpolants for all partitions.
 	 */
 	private Term[] computeWeakeqExtInterpolants(final Term proofTerm) {
@@ -238,10 +242,11 @@ public class ArrayInterpolator {
 		for (int i = 1; i < paths.length; i++) {
 			mIndexPaths.put(paths[i].getIndex(), paths[i]);
 		}
+		mInterpolatedIndexPaths = new HashMap<>();
 
 		final WeakPathInfo mainPath = new WeakPathInfo(mStorePath);
 
-		// Calculate the interpolant terms starting on the store path.
+		// Compute the interpolant terms starting on the store path.
 		mInterpolants = mainPath.interpolateStorePathInfoExt();
 		// Build the interpolants for all partitions.
 		final Term[] interpolants = new Term[mNumInterpolants];
@@ -359,8 +364,7 @@ public class ArrayInterpolator {
 	 *            the current partition
 	 * @return some shared term which equals the given term, or null if there is none
 	 * 
-	 *         TODO This should be done for all colors, in such way that if we find a shared term for some partition, it
-	 *         is also set for the parent partitions as long as it is shared there.
+	 *         TODO Should not be used, use findSharedTerms.
 	 */
 	private Term findSharedTerm(final Term term, final int color) {
 		Term sharedTerm = null;
@@ -858,11 +862,13 @@ public class ArrayInterpolator {
 						arrayTerm = left;
 					}
 					assert getArrayFromStore(storeTerm).equals(arrayTerm);
+					final Term storeIndex = getIndexFromStore(storeTerm);
 					final Occurrence stepOcc = mInterpolator.getOccurrence(storeTerm, null);
 					mTail.closeAPath(mHead, boundaryTerm, stepOcc);
 					mTail.openAPath(mHead, boundaryTerm, stepOcc);
-					mTail.addStoreIndex(mHead, storeTerm);
-					// TODO Here we should calculate the subinterpolants
+					mTail.addStoreIndex(mHead, storeIndex);
+					// TODO Here we should compute the subinterpolant - how do we know if we're on A or B
+					// computeSubInterpolants(storeIndex);
 				} else { // In equality steps, we just close or open A paths.
 					final LitInfo stepInfo = mInterpolator.getLiteralInfo(lit);
 					mTail.closeAPath(mHead, boundaryTerm, stepInfo);
@@ -1228,7 +1234,7 @@ public class ArrayInterpolator {
 						if (mIsBInterpolated[color]) {
 							if (mTail.mStoreIndices[color] != null) { // Holds when we use determineRecursionSide();
 								for (final Term index : mTail.mStoreIndices[color]) {
-									final Term[] subInterpolants = mTail.calculateSubInterpolantBPath(index, null);
+									final Term[] subInterpolants = mTail.computeSubInterpolantBPath(index, null);
 									mPathInterpolants[color].add(subInterpolants[color]);
 								}
 							}
@@ -1236,7 +1242,7 @@ public class ArrayInterpolator {
 						} else {
 							if (mHead.mStoreIndices[color] != null) { // Holds when we use determineRecursionSide();
 								for (final Term index : mHead.mStoreIndices[color]) {
-									final Term[] subInterpolants = mHead.calculateSubInterpolantAPath(index, null);
+									final Term[] subInterpolants = mHead.computeSubInterpolantAPath(index, null);
 									mPathInterpolants[color].add(subInterpolants[color]);
 								}
 							}
@@ -1246,7 +1252,7 @@ public class ArrayInterpolator {
 						if (mIsBInterpolated[color]) {
 							if (mHead.mStoreIndices[color] != null) { // Holds when we use determineRecursionSide();
 								for (final Term index : mHead.mStoreIndices[color]) {
-									final Term[] subInterpolants = mHead.calculateSubInterpolantBPath(index, null);
+									final Term[] subInterpolants = mHead.computeSubInterpolantBPath(index, null);
 									mPathInterpolants[color].add(subInterpolants[color]);
 								}
 							}
@@ -1254,7 +1260,7 @@ public class ArrayInterpolator {
 						} else {
 							if (mTail.mStoreIndices[color] != null) { // Holds when we use determineRecursionSide();
 								for (final Term index : mTail.mStoreIndices[color]) {
-									final Term[] subInterpolants = mTail.calculateSubInterpolantAPath(index, null);
+									final Term[] subInterpolants = mTail.computeSubInterpolantAPath(index, null);
 									mPathInterpolants[color].add(subInterpolants[color]);
 								}
 							}
@@ -1806,7 +1812,7 @@ public class ArrayInterpolator {
 					if (mStoreIndices[color] != null) {
 						for (final Term index : mStoreIndices[color]) {
 							// TODO The second parameter should be set for each partition BEFORE calling this.
-							final Term[] subInterpolants = calculateSubInterpolantAPath(index, null);
+							final Term[] subInterpolants = computeSubInterpolantAPath(index, null);
 							mPathInterpolants[color].add(subInterpolants[color]);
 						}
 					}
@@ -1822,9 +1828,21 @@ public class ArrayInterpolator {
 								mStoreIndices[color].iterator().next().getSort());
 						order = mStoreIndices[color].size();
 						final Set<Term> allSubInterpolants = new HashSet<Term>();
+						Set<Term> sharedIndices = new HashSet<Term>();
 						for (final Term index : mStoreIndices[color]) {
-							final Term[] subInterpolants = calculateSubInterpolantAPath(index, doubledot);
-							allSubInterpolants.add(subInterpolants[color]);
+							Occurrence indexOcc = mInterpolator.getOccurrence(index, null);
+							if (indexOcc.isAB(color)) {
+								sharedIndices.add(index);
+								final Term[] subInterpolants = computeSubInterpolantAPath(index, null);
+								mPathInterpolants[color].add(subInterpolants[color]);
+							} else {
+								final Term[] subInterpolants = computeSubInterpolantAPath(index, doubledot);
+								allSubInterpolants.add(subInterpolants[color]);
+							}
+						}
+						order = order - sharedIndices.size();
+						for (final Term idx : sharedIndices) {
+							left = mTheory.term("store", left, idx, mTheory.term("select", right, idx));
 						}
 						formula = mTheory.or(allSubInterpolants.toArray(new Term[allSubInterpolants.size()]));
 						final Term weqTerm = buildWeqTerm(left, right, order, formula, doubledot);
@@ -1860,7 +1878,7 @@ public class ArrayInterpolator {
 					assert mDiseqInfo.isBorShared(color) || mDiseqInfo.isMixed(color); // TEST
 					if (mStoreIndices[color] != null) { // TODO should just get the interpolants from the corr. path
 						for (final Term index : mStoreIndices[color]) {
-							final Term[] subInterpolants = calculateSubInterpolantBPath(index, null);
+							final Term[] subInterpolants = computeSubInterpolantBPath(index, null);
 							mPathInterpolants[color].add(subInterpolants[color]);
 						}
 					}
@@ -1876,9 +1894,21 @@ public class ArrayInterpolator {
 								mStoreIndices[color].iterator().next().getSort());
 						order = mStoreIndices[color].size();
 						final Set<Term> allSubInterpolants = new HashSet<Term>();
+						Set<Term> sharedIndices = new HashSet<Term>();
 						for (final Term index : mStoreIndices[color]) {
-							final Term[] subInterpolants = calculateSubInterpolantBPath(index, doubledot);
-							allSubInterpolants.add(subInterpolants[color]);
+							Occurrence indexOcc = mInterpolator.getOccurrence(index, null);
+							if (indexOcc.isAB(color)) {
+								sharedIndices.add(index);
+								final Term[] subInterpolants = computeSubInterpolantAPath(index, null);
+								mPathInterpolants[color].add(subInterpolants[color]);
+							} else {
+								final Term[] subInterpolants = computeSubInterpolantBPath(index, doubledot);
+								allSubInterpolants.add(subInterpolants[color]);
+							}
+						}
+						order = order - sharedIndices.size();
+						for (final Term idx : sharedIndices) {
+							left = mTheory.term("store", left, idx, mTheory.term("select", right, idx));
 						}
 						formula = mTheory.and(allSubInterpolants.toArray(new Term[mPathInterpolants[color].size()]));
 						final Term nweqTerm = buildNweqTerm(left, right, order, formula, doubledot);
@@ -1898,9 +1928,7 @@ public class ArrayInterpolator {
 			 * @param storeTerm
 			 *            the store term from which we extract the index
 			 */
-			private void addStoreIndex(final WeakPathEnd other, final Term storeTerm) {
-				assert isStoreTerm(storeTerm);
-				final Term storeIndex = getIndexFromStore(storeTerm);
+			private void addStoreIndex(final WeakPathEnd other, final Term storeIndex) {
 				for (int color = 0; color < mNumInterpolants; color++) {
 					// If the path is still open at the other path end, i.e. if other.mLastChange[color] is still null,
 					// we have to store the diseq in the other pathend
@@ -1919,7 +1947,7 @@ public class ArrayInterpolator {
 			}
 
 			/**
-			 * Calculate the sub-interpolant for an index on an A path in weakeq-ext lemmas.
+			 * Compute the sub-interpolant for an index on an A path in weakeq-ext lemmas.
 			 *
 			 * @param index
 			 *            The path index
@@ -1928,20 +1956,25 @@ public class ArrayInterpolator {
 			 *            an nweq term of the main path
 			 * @return The path interpolant for the weakpath for weak congruence on index.
 			 */
-			private Term[] calculateSubInterpolantAPath(final Term index, final TermVariable auxIndex) {
+			private Term[] computeSubInterpolantAPath(final Term index, final TermVariable auxIndex) {
 				Term[] subInterpolant = new Term[mNumInterpolants];
 				Set<Term>[] subInterpolantTerms;
-				final WeakPathInfo indexPath = new WeakPathInfo(mIndexPaths.get(index));
-				mSharedIndex = findSharedTerms(index);
-				// Determine the shared term for the index
-				for (int color = 0; color < mNumInterpolants; color++) {
-					if (mIsBInterpolated[color] && auxIndex != null) { // TODO The second should not be needed when we
-																		// calculate the subitps just once.
-						// here, the subinterpolant uses the shared term auxVar
-						mSharedIndex[color] = auxIndex;
+				if (mInterpolatedIndexPaths.containsKey(index)) {
+					subInterpolantTerms = mInterpolatedIndexPaths.get(index).mPathInterpolants;
+				} else {
+					final WeakPathInfo indexPath = new WeakPathInfo(mIndexPaths.get(index));
+					mSharedIndex = findSharedTerms(index);
+					// Determine the shared term for the index
+					for (int color = 0; color < mNumInterpolants; color++) {
+						if (mIsBInterpolated[color] && auxIndex != null) { // TODO The second should not be needed when
+																			// we compute the subitps just once.
+							// here, the subinterpolant uses the shared term auxVar
+							mSharedIndex[color] = auxIndex;
+						}
 					}
+					subInterpolantTerms = indexPath.interpolateWeakPathInfo();
+					mInterpolatedIndexPaths.put(index, indexPath);
 				}
-				subInterpolantTerms = indexPath.interpolateWeakPathInfo();
 				for (int color = 0; color < mNumInterpolants; color++) {
 					if (!mIsBInterpolated[color]) {
 						subInterpolant[color] =
@@ -1955,7 +1988,7 @@ public class ArrayInterpolator {
 			}
 
 			/**
-			 * Calculate the subinterpolant for an index on a B path in weakeq-ext lemmas.
+			 * Compute the subinterpolant for an index on a B path in weakeq-ext lemmas.
 			 *
 			 * @param index
 			 *            The path index
@@ -1964,21 +1997,26 @@ public class ArrayInterpolator {
 			 *            an nweq term of the main path
 			 * @return The path interpolant for the weakpath for weak congruence on index.
 			 */
-			private Term[] calculateSubInterpolantBPath(final Term index, final TermVariable auxIndex) {
+			private Term[] computeSubInterpolantBPath(final Term index, final TermVariable auxIndex) {
 				Term[] subInterpolant = new Term[mNumInterpolants];
 				Set<Term>[] subInterpolantTerms;
-				final WeakPathInfo indexPath = new WeakPathInfo(mIndexPaths.get(index));
-				mSharedIndex = findSharedTerms(index);
-				// Determine the shared term for the index
-				for (int color = 0; color < mNumInterpolants; color++) {
-					if (!mIsBInterpolated[color] && auxIndex != null) { // TODO The second should not be needed when we
-																		// calculate the subitps just once.
-						assert mDiseqInfo.isALocal(color) || mDiseqInfo.isMixed(color); // TEST
-						// here, the subinterpolant uses the shared term auxVar
-						mSharedIndex[color] = auxIndex;
+				if (mInterpolatedIndexPaths.containsKey(index)) {
+					subInterpolantTerms = mInterpolatedIndexPaths.get(index).mPathInterpolants;
+				} else {
+					final WeakPathInfo indexPath = new WeakPathInfo(mIndexPaths.get(index));
+					mSharedIndex = findSharedTerms(index);
+					// Determine the shared term for the index
+					for (int color = 0; color < mNumInterpolants; color++) {
+						if (!mIsBInterpolated[color] && auxIndex != null) { // TODO The second should not be needed when
+																			// we compute the subitps just once.
+							assert mDiseqInfo.isALocal(color) || mDiseqInfo.isMixed(color); // TEST
+							// here, the subinterpolant uses the shared term auxVar
+							mSharedIndex[color] = auxIndex;
+						}
 					}
+					subInterpolantTerms = indexPath.interpolateWeakPathInfo();
+					mInterpolatedIndexPaths.put(index, indexPath);
 				}
-				subInterpolantTerms = indexPath.interpolateWeakPathInfo();
 				for (int color = 0; color < mNumInterpolants; color++) {
 					if (!mIsBInterpolated[color]) {
 						subInterpolant[color] =
