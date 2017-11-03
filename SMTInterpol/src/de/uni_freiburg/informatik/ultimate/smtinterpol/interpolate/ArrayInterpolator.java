@@ -302,11 +302,11 @@ public class ArrayInterpolator {
 		} else {
 			// Find the first mixed partition where the outer A-path is strictly longer (#stores) than the B-path.
 			color = 0;
-			while (color < mNumInterpolants) {
+			while (!mDiseqInfo.isALocal(color)) {
 				if (mDiseqInfo.isMixed(color)) {
 					final Occurrence recursionInfo = mInterpolator.getOccurrence(mRecursionSide[color], null);
 					if (recursionInfo.isALocal(color)) {
-						color = getParent(color);
+						color++;
 					} else {
 						// We found the partition where we switch to A-interpolation (i.e. summarize B-paths)
 						break;
