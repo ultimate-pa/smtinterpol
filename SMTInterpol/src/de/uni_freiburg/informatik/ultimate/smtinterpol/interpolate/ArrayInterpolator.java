@@ -39,10 +39,10 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
  * The interpolator for the theory of arrays.
  *
  * @author Tanja Schindler, Jochen Hoenicke
- * 
- *         TODO Avoid A- and B-specific methods.
  */
 public class ArrayInterpolator {
+
+	// TODO Avoid A- and B-specific methods.
 
 	/* General info to set up the ArrayInterpolator */
 	private final Interpolator mInterpolator;
