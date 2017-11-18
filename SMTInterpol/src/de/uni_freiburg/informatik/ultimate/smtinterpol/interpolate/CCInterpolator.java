@@ -483,7 +483,7 @@ public class CCInterpolator {
 		for (final Term literal : proofTermInfo.getLiterals()) {
 			final InterpolatorLiteralTermInfo litTermInfo = mInterpolator.getLiteralTermInfo(literal);
 			if (litTermInfo.isNegated()) {
-				final ApplicationTerm eq = (ApplicationTerm) litTermInfo.getAtom();
+				final ApplicationTerm eq = litTermInfo.getEquality();
 				mEqualities.put(new SymmetricPair<>(eq.getParameters()[0], eq.getParameters()[1]), eq);
 			}
 		}

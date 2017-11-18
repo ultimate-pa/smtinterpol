@@ -21,7 +21,6 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate;
 import java.util.ArrayList;
 import java.util.Map.Entry;
 
-import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
@@ -134,7 +133,7 @@ public class LAInterpolator {
 					assert factor.signum() == (litTermInfo.isNegated() ? -1 : 1);
 					bound = new InfinitNumber(litTermInfo.getBound(), 0);
 					// adapt the bound value for strict inequalities
-					if (((ApplicationTerm) litTermInfo.getAtom()).getFunction().getName().equals("<")) {
+					if (litTermInfo.isStrict()) {
 						bound = bound.sub(litTermInfo.getEpsilon());
 					}
 					// get the inverse bound for negated literals

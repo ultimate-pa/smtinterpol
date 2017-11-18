@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.Vector;
 
+import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -138,18 +139,20 @@ public class ArrayInterpolator {
 	 */
 	public Term[] computeInterpolants(final Term proofTerm) {
 		mLemmaInfo = mInterpolator.getClauseTermInfo(proofTerm);
-		mDiseq = (ApplicationTerm) mLemmaInfo.getDiseq();
-		mDiseqInfo = mInterpolator.getLiteralInfo(mDiseq);
+		Term mdiseqAnn = mLemmaInfo.getDiseq();
+		assert mdiseqAnn instanceof AnnotatedTerm;
+		mDiseq = (ApplicationTerm) ((AnnotatedTerm) mdiseqAnn).getSubterm();
+		mDiseqInfo = mInterpolator.getLiteralInfo(mdiseqAnn);
 		mEqualities = new HashMap<SymmetricPair<Term>, ApplicationTerm>();
 		mDisequalities = new HashMap<SymmetricPair<Term>, ApplicationTerm>();
 		mABSwitchOccur = mInterpolator.new Occurrence();
 		for (final Term literal : mLemmaInfo.getLiterals()) {
 			final InterpolatorLiteralTermInfo litTermInfo = mInterpolator.getLiteralTermInfo(literal);
 			if (litTermInfo.isNegated()) {
-				final ApplicationTerm eq = (ApplicationTerm) litTermInfo.getAtom();
+				final ApplicationTerm eq = litTermInfo.getEquality();
 				mEqualities.put(new SymmetricPair<Term>(eq.getParameters()[0], eq.getParameters()[1]), eq);
 			} else {
-				final ApplicationTerm diseq = (ApplicationTerm) litTermInfo.getAtom();
+				final ApplicationTerm diseq = litTermInfo.getEquality();
 				mDisequalities.put(new SymmetricPair<Term>(diseq.getParameters()[0], diseq.getParameters()[1]), diseq);
 			}
 		}

@@ -638,7 +638,7 @@ public class Interpolator extends NonRecursive {
 					// or some direct children
 				} else if (litTermInfo.isCCEquality()) {
 					// handle mixed (dis)equalities.
-					final ApplicationTerm cceq = (ApplicationTerm) litTermInfo.getAtom();
+					final ApplicationTerm cceq = litTermInfo.getEquality();
 					Term lhs = cceq.getParameters()[0];
 					Term rhs = cceq.getParameters()[1];
 					for (int child = part - 1; child >= mStartOfSubtrees[part]; child = mStartOfSubtrees[child] - 1) {
@@ -704,7 +704,7 @@ public class Interpolator extends NonRecursive {
 					if (litTermInfo.isBoundConstraint()) {
 						bound = new InfinitNumber(litTermInfo.getBound(), 0);
 						// adapt the bound for strict inequalities
-						if (((ApplicationTerm) litTermInfo.getAtom()).getFunction().getName().equals("<")) {
+						if (litTermInfo.isStrict()) {
 							bound = bound.sub(litTermInfo.getEpsilon());
 						}
 						// get the inverse bound for negated literals
@@ -806,7 +806,7 @@ public class Interpolator extends NonRecursive {
 				TermVariable mixed = null;
 				boolean negate = false;
 				// Get A part of ccEq:
-				final ApplicationTerm ccEqApp = (ApplicationTerm) ccTermInfo.getAtom();
+				final ApplicationTerm ccEqApp = ccTermInfo.getEquality();
 				if (ccInfo.isALocal(p)) {
 					iat.add(factor, termToAffine(ccEqApp.getParameters()[0]));
 					iat.add(factor.negate(), termToAffine(ccEqApp.getParameters()[1]));
@@ -1003,7 +1003,7 @@ public class Interpolator extends NonRecursive {
 		 */
 		Sort auxSort;
 		if (atomInfo.isCCEquality()) {
-			final ApplicationTerm eq = (ApplicationTerm) atom;
+			final ApplicationTerm eq = atomInfo.getEquality();
 			final Term l = eq.getParameters()[0];
 			final Term r = eq.getParameters()[1];
 			subterms.add(l);
@@ -1040,7 +1040,7 @@ public class Interpolator extends NonRecursive {
 		info.mMixedVar = mTheory.createFreshTermVariable("litaux", auxSort);
 
 		if (atomInfo.isCCEquality()) {
-			final ApplicationTerm eq = (ApplicationTerm) atom;
+			final ApplicationTerm eq = atomInfo.getEquality();
 			info.mLhsOccur = getOccurrence(eq.getParameters()[0], null);
 		} else if (atomInfo.isBoundConstraint() || atomInfo.isLAEquality()) {
 			final InterpolatorAffineTerm lv = atomInfo.getLinVar();
@@ -1542,13 +1542,13 @@ public class Interpolator extends NonRecursive {
 	 * @return the literal without the quoted annotation
 	 */
 	private Term unquote(final Term literal) {
-		Term unquoted;
 		final InterpolatorLiteralTermInfo termInfo = getLiteralTermInfo(literal);
-		if (!termInfo.isNegated()) {
-			unquoted = termInfo.getAtom();
-		} else {
-			final Theory theory = termInfo.getAtom().getTheory();
-			unquoted = theory.term("not", termInfo.getAtom());
+		Term unquoted = termInfo.getAtom();
+		if (unquoted instanceof AnnotatedTerm) {
+			((AnnotatedTerm) unquoted).getSubterm();
+		}
+		if (termInfo.isNegated()) {
+			unquoted = mTheory.term("not", termInfo.getAtom());
 		}
 		return unquoted;
 	}
