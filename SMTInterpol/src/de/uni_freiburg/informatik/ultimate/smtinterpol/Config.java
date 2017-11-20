@@ -107,7 +107,7 @@ public interface Config {
 
 	////// Interpolator Configuration
 	/// Should we check partial interpolants in interpolant-check-mode?
-	public static final boolean DEEP_CHECK_INTERPOLANTS = true;
+	public static final boolean DEEP_CHECK_INTERPOLANTS = false;
 
 	////// Array solver configuration
 	/// Should we always add a read on the base array of a store?
