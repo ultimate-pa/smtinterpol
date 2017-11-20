@@ -903,7 +903,8 @@ public class Interpolator extends NonRecursive {
 			final String source = ((SourceAnnotation) ln.getTheoryAnnotation()).getAnnotation();
 			final int partition = mPartitions.containsKey(source) ? mPartitions.get(source) : -1;
 			for (int i = 0; i < clause.getSize(); i++) {
-				final Term literal = clause.getLiteral(i).getSMTFormula(mTheory);
+				// Take the quoted literal!
+				final Term literal = clause.getLiteral(i).getSMTFormula(mTheory, true);
 
 				final InterpolatorLiteralTermInfo litTermInfo = getLiteralTermInfo(literal);
 				final Term atom = litTermInfo.getAtom();
@@ -914,7 +915,11 @@ public class Interpolator extends NonRecursive {
 				}
 				if (!info.contains(partition)) {
 					info.occursIn(partition);
-					final HashSet<Term> subTerms = getSubTerms(atom);
+					Term unquoted = atom;
+					if (unquoted instanceof AnnotatedTerm) {
+						unquoted = ((AnnotatedTerm) unquoted).getSubterm();
+					}
+					final HashSet<Term> subTerms = getSubTerms(unquoted);
 					for (final Term sub : subTerms) {
 						addOccurrence(sub, source, partition);
 					}
@@ -1016,6 +1021,7 @@ public class Interpolator extends NonRecursive {
 				auxSort = mTheory.getRealSort();
 			}
 		} else {
+			assert atomInfo.isLAEquality() || atomInfo.isBoundConstraint();
 			final InterpolatorAffineTerm lv = atomInfo.getLinVar();
 			assert lv != null;
 			final Collection<Term> components = lv.getSummands().keySet();
@@ -1541,14 +1547,15 @@ public class Interpolator extends NonRecursive {
 	 * @param literal
 	 * @return the literal without the quoted annotation
 	 */
-	private Term unquote(final Term literal) {
+	Term unquote(final Term literal) {
 		final InterpolatorLiteralTermInfo termInfo = getLiteralTermInfo(literal);
 		Term unquoted = termInfo.getAtom();
 		if (unquoted instanceof AnnotatedTerm) {
-			((AnnotatedTerm) unquoted).getSubterm();
+			assert ((AnnotatedTerm) unquoted).getAnnotations()[0].getKey().startsWith(":quoted");
+			unquoted = ((AnnotatedTerm) unquoted).getSubterm();
 		}
 		if (termInfo.isNegated()) {
-			unquoted = mTheory.term("not", termInfo.getAtom());
+			unquoted = mTheory.term("not", unquoted);
 		}
 		return unquoted;
 	}

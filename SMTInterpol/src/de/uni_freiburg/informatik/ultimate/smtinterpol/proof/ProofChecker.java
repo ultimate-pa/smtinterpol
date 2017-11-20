@@ -583,7 +583,7 @@ public class ProofChecker extends NonRecursive {
 		Term goalEquality;
 		if (ccAnnotation[0] instanceof Term) {
 			startSubpathAnnot++;
-			goalEquality = (Term) ccAnnotation[0];
+			goalEquality = unquote((Term) ccAnnotation[0]);
 		} else {
 			goalEquality = mSkript.term("false");
 		}

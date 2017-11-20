@@ -110,9 +110,9 @@ public class InterpolatorLiteralTermInfo {
 		}
 		mAtom = atom;
 		mIsCCEquality = annot == ":quotedCC";
-		mIsLAEquality = annot == ":quotedLA";
 		Term unquoted = mAtom instanceof AnnotatedTerm ? ((AnnotatedTerm) atom).getSubterm() : mAtom;
 		mIsBoundConstraint = isBoundConstraint(unquoted);
+		mIsLAEquality = annot == ":quotedLA" && !mIsBoundConstraint;
 
 		if (mIsLAEquality || mIsBoundConstraint) {
 			final InterpolatorAffineTerm lv = computeLinVarAndBound(unquoted);
