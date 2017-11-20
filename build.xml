@@ -265,7 +265,8 @@ java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/2))m -da -dsa -XX:-UseGCOverheadLimit -j
     <javac srcdir="${dir.workspace}/Library-SMTLIBTest/src"
       destdir="${dir.workspace}/Library-SMTLIBTest/release" optimize="${optimize}" includeAntRuntime="false" debug="${debug}">
       <classpath>
-        <pathelement location="${dir.workspace}/SMTInterpolTest/lib/junit.jar"/>
+	<pathelement location="${dir.workspace}/libs/junit-4.12.jar"/>
+	<pathelement location="${dir.workspace}/libs/hamcrest-core-1.3.jar"/>
         <pathelement path="${dir.workspace}/Library-SMTLIB/release"/>
       </classpath>
     </javac>
@@ -273,7 +274,8 @@ java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/2))m -da -dsa -XX:-UseGCOverheadLimit -j
     <javac srcdir="${dir.workspace}/SMTInterpolTest/src"
       destdir="${dir.workspace}/SMTInterpolTest/release" optimize="${optimize}" includeAntRuntime="false" debug="${debug}">
       <classpath>
-        <pathelement location="${dir.workspace}/SMTInterpolTest/lib/junit.jar"/>
+        <pathelement location="${dir.workspace}/libs/junit-4.12.jar"/>
+	<pathelement location="${dir.workspace}/libs/hamcrest-core-1.3.jar"/>
         <pathelement path="${dir.workspace}/SMTInterpol/release"/>
         <pathelement path="${dir.workspace}/Library-SMTLIB/release"/>
       </classpath>
@@ -303,7 +305,8 @@ java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/2))m -da -dsa -XX:-UseGCOverheadLimit -j
       </assertions>
 
       <classpath>
-	<pathelement location="${dir.workspace}/libs/junit4.jar"/>
+	<pathelement location="${dir.workspace}/libs/junit-4.12.jar"/>
+	<pathelement location="${dir.workspace}/libs/hamcrest-core-1.3.jar"/>
 	<pathelement location="${dir.workspace}/libs/ant-junit4.jar"/>
 	<pathelement location="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.0.jar"/>
 	<pathelement path="${dir.workspace}/Library-SMTLIB/release" />
@@ -350,7 +353,8 @@ java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/2))m -da -dsa -XX:-UseGCOverheadLimit -j
 	  <enable />
         </assertions>
         <classpath>
-          <pathelement location="${dir.workspace}/libs/junit4.jar"/>
+          <pathelement location="${dir.workspace}/libs/junit-4.12.jar"/>
+	  <pathelement location="${dir.workspace}/libs/hamcrest-core-1.3.jar"/>
 	  <pathelement location="${dir.workspace}/libs/ant-junit4.jar"/> 
 	  <pathelement location="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.0.jar"/>
 	  <pathelement path="${dir.workspace}/Library-SMTLIB/release" />
