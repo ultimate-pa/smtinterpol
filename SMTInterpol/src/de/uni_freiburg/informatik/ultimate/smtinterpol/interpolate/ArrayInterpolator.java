@@ -1723,7 +1723,11 @@ public class ArrayInterpolator {
 				} else { // This is the left outer path
 					mStorePaths[color].add(0, storePath);
 				}
-				mStoreIndices[color] = null;
+				if (left != null && right != null) {
+					// We want to keep the store indices on the outer paths, so we can use them for the recursive
+					// interpolant. This happens only in closeWeakeqExt
+					mStoreIndices[color] = null;
+				}
 			}
 
 			/**
@@ -2074,7 +2078,7 @@ public class ArrayInterpolator {
 							final TermVariable cdot = mTheory.createFreshTermVariable("cdot", index.getSort());
 							rewriteAtIndex = cdot;
 							pathInterpolant = mTheory
-									.or(recPathInterpolantTerms.toArray(new Term[recPathInterpolantTerms.size()]));
+									.and(recPathInterpolantTerms.toArray(new Term[recPathInterpolantTerms.size()]));
 							final Term lastSharedOnIndexPath = this.equals(mHead) ? indexPath.mTail.mLastChange[color]
 									: indexPath.mHead.mLastChange[color];
 							assert !(lastSharedOnIndexPath instanceof ApplicationTerm
