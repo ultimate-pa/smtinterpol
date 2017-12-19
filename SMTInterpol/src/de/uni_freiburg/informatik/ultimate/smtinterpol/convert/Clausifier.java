@@ -533,49 +533,9 @@ public class Clausifier {
 				final QuantifiedFormula qf = (QuantifiedFormula) term;
 				assert qf.getQuantifier() == QuantifiedFormula.EXISTS;
 
-				if (positive) {
-					//"exists" case
-					// idea: skolemize everything inside, then go on as usual
-
-					// (alex)
-					final TermVariable[] vars = qf.getVariables();
-					final Term[] skolems = new Term[vars.length];
-					for (int i = 0; i < skolems.length; ++i) {
-						skolems[i] = t.term(t.skolemize(vars[i]));
-					}
-
-					mEprTheory.addSkolemConstants(skolems);
-
-					final FormulaUnLet unlet = new FormulaUnLet();
-					unlet.addSubstitutions(new ArrayMap<>(vars, skolems));
-					final Term skolem1 = unlet.unlet(qf.getSubformula());
-
-
-					final Term skolem = mCompiler.transform(skolem1);
-					// TODO: replace skolem by rewrite proof
-					pushOperation(new AddAsAxiom(skolem, mSource));
-					return;
-				} else {
-					//"forall" case
-
-					// TODO (juergen) Quantifier optimization, pattern inference...
-
-					//alex:
-					/*
-					 * plan:
-					 * for a universal quantifier we basically do nothing and we will treat all TermVariables occuring
-					 * in the subformula as implicitly forall-quantified.
-					 */
-					//					TermVariable[] quantifiedVariables = qf.getVariables();
-
-					/*
-					 * TODO; negating before going on --> treat "not exists not" together, thus we can treat what is
-					 *  inside as universally quantified
-					 */
-					// TODO: replace first argument by rewrite proof
-					pushOperation(new AddAsAxiom(t.term("not", qf.getSubformula()), mSource));
-					return;
-				}
+				final Term converted = convertQuantifiedSubformula(positive, qf);
+				pushOperation(new AddAsAxiom(converted, mSource));
+				return;
 			}
 			buildClause(mTerm, mSource);
 		}
@@ -825,55 +785,9 @@ public class Clausifier {
 				assert qf.getQuantifier() == QuantifiedFormula.EXISTS;
 				final Theory t = qf.getTheory();
 
-				if (positive) {
-					//"exists" case
-					// idea: skolemize everything inside, then go on as usual
-
-					// (alex)
-					final TermVariable[] vars = qf.getVariables();
-					final Term[] skolems = new Term[vars.length];
-					for (int i = 0; i < skolems.length; ++i) {
-						skolems[i] = t.term(t.skolemize(vars[i]));
-					}
-
-					mEprTheory.addSkolemConstants(skolems);
-
-					final FormulaUnLet unlet = new FormulaUnLet();
-					unlet.addSubstitutions(new ArrayMap<>(vars, skolems));
-					final Term skolem1 = unlet.unlet(qf.getSubformula());
-
-
-					final Term skolem = mCompiler.transform(skolem1);
-					// TODO: replace skolem by rewrite proof
-					pushOperation(new CollectLiterals(skolem, mCollector));
-					return;
-				} else {
-					//"forall" case
-
-					// TODO (juergen) Quantifier optimization, pattern inference...
-
-					//alex:
-					/*
-					 * plan:
-					 * for a universal quantifier we basically do nothing and we will treat all TermVariables occuring
-					 * in the subformula as implicitly forall-quantified.
-					 */
-					//					TermVariable[] quantifiedVariables = qf.getVariables();
-
-					/*
-					 * TODO; negating before going on --> treat "not exists not" together, thus we can treat what is
-					 *  inside as universally quantified
-					 */
-					// TODO: replace first argument by rewrite proof
-//					pushOperation(new AddAsAxiom(t.term("not", qf.getSubformula()), mCollector.getSource()));
-					pushOperation(new CollectLiterals(t.term("not", qf.getSubformula()), mCollector));
-					return;
-				}
-//			} else {
-//				assert (idx instanceof QuantifiedFormula);
-//				final Literal lit = getLiteral(idx, positive, mCollector.getSource());
-//				// TODO: Proof
-//				mCollector.addLiteral(lit, mTerm);
+				final Term converted = convertQuantifiedSubformula(positive, qf);
+				pushOperation(new CollectLiterals(converted, mCollector));
+				return;
 			}
 		}
 	}
@@ -1186,6 +1100,61 @@ public class Clausifier {
 
 	private static boolean needCCTerm(final FunctionSymbol fs) {
 		return !fs.isInterpreted() || fs.getName() == "select" || fs.getName() == "store" || fs.getName() == "@diff";
+	}
+
+	/**
+	 * A QuantifiedFormula is either skolemized or the universal quantifier is dropped before processing the subformula.
+	 *
+	 * @param positive
+	 * @param qf
+	 * @return
+	 */
+	private Term convertQuantifiedSubformula(final boolean positive, final QuantifiedFormula qf) {
+		if (positive) {
+			/*
+			 * "exists" case
+			 *  skolemize everything inside, then go on as usual
+			 */
+			final TermVariable[] vars = qf.getVariables();
+			final Term[] skolems = new Term[vars.length];
+			for (int i = 0; i < vars.length; ++i) {
+				skolems[i] = mTheory.term(mTheory.skolemize(vars[i]));
+			}
+
+			mEprTheory.addSkolemConstants(skolems);
+
+			final FormulaUnLet unlet = new FormulaUnLet();
+			unlet.addSubstitutions(new ArrayMap<>(vars, skolems));
+			final Term skolemRaw = unlet.unlet(qf.getSubformula());
+
+			final Term skolem = mCompiler.transform(skolemRaw);
+
+			// TODO: replace skolem by rewrite proof
+			return skolem;
+		} else {
+			/*
+			 * "forall" case
+			 *
+			 * treatment of universally quantified subformulas:
+			 * <li> alpha-rename quantified variables uniquely
+			 * <li> drop the quantifier (remaining free TermVariables are implicitly universally quantified)
+			 */
+
+			final TermVariable[] vars = qf.getVariables();
+			final Term[] freshVars = new Term[vars.length];
+			for (int i = 0; i < vars.length; ++i) {
+				freshVars[i] = mTheory.createFreshTermVariable(vars[i].getName(), vars[i].getSort());
+			}
+
+			final FormulaUnLet unlet = new FormulaUnLet();
+			unlet.addSubstitutions(new ArrayMap<>(vars, freshVars));
+			final Term uniquelyRenamedRaw = unlet.unlet(qf.getSubformula());
+
+			final Term uniquelyRenamed = mCompiler.transform(uniquelyRenamedRaw);
+
+			// TODO: replace result by rewrite proof
+			return mTheory.term("not", uniquelyRenamed);
+		}
 	}
 
 	/// Internalization stuff
