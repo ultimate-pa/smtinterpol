@@ -28,53 +28,55 @@ import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.EqualityProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SharedTerm;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprEqualityPredicate;
 
 /**
  * Atom representing a ground equality.
  * Maybe this is just a dummy until it gets replaced by CCEquality in all places,
  * maybe we want not-shared ground equalities in the Epr theory --> not sure yet..
- * 
+ *
  * Note that this does not extend EprEqualityAtom because that is assumed to represent
  * a quantified equality.
- * 
+ *
  * @author Alexander Nutz
  *
  */
 public class EprGroundEqualityAtom extends EprGroundPredicateAtom {
-	
+
 	private final Term mLhs;
 	private final Term mRhs;
 	private final List<ApplicationTerm> mPoint;
 
-	public EprGroundEqualityAtom(ApplicationTerm term, int hash, int assertionstacklevel, EprEqualityPredicate eqPred) {
-		super(term, hash, assertionstacklevel, eqPred);
+
+	public EprGroundEqualityAtom(final ApplicationTerm term, final int hash, final int assertionstacklevel,
+			final EprEqualityPredicate eqPred, final SourceAnnotation source) {
+		super(term, hash, assertionstacklevel, eqPred, source);
 		assert term.getParameters().length == 2;
 		mLhs = term.getParameters()[0];
 		mRhs = term.getParameters()[1];
-		
-		mPoint = 
+
+		mPoint =
 				//								Arrays.stream(egea.getArguments()) // TODO Java 1.8
 				//								.map(term -> term).collect(Collectors.toList());
-				new ArrayList<ApplicationTerm>();
+				new ArrayList<>();
 		for (int i = 0; i < this.getArguments().length; i++) {
 			mPoint.add((ApplicationTerm) this.getArguments()[i]);
 		}
-		
+
 	}
 
 	@Override
-	public Term getSMTFormula(Theory smtTheory, boolean quoted) {
-		return mTerm;
+	public Term getSMTFormula(final Theory smtTheory, final boolean quoted) {
+		return getTerm();
 	}
 
-	public CCEquality getCCEquality(Clausifier clausif) {
-		
-		final SharedTerm stL = clausif.getSharedTerm(mLhs);
-		final SharedTerm stR = clausif.getSharedTerm(mRhs);
-		
+	public CCEquality getCCEquality(final Clausifier clausif) {
+
+		final SharedTerm stL = clausif.getSharedTerm(mLhs, getSourceAnnotation());
+		final SharedTerm stR = clausif.getSharedTerm(mRhs, getSourceAnnotation());
+
 		final EqualityProxy eq = clausif.
 						createEqualityProxy(stL, stR);
 				// Safe since m_Term is neither true nor false
@@ -82,12 +84,12 @@ public class EprGroundEqualityAtom extends EprGroundPredicateAtom {
 			return null;
 		}
 		assert eq != EqualityProxy.getFalseProxy();
-		CCEquality resultAtom = (CCEquality) eq.getLiteral();	
+		final CCEquality resultAtom = (CCEquality) eq.getLiteral(getSourceAnnotation());
 
 		assert resultAtom != null;
 		return resultAtom;
 	}
-	
+
 	public List<ApplicationTerm> getPoint() {
 		return mPoint;
 	}

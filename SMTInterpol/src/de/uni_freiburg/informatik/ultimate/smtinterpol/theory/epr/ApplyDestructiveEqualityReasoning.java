@@ -7,9 +7,10 @@ import java.util.Set;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom.TrueAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.NamedAtom;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom.TrueAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
@@ -24,8 +25,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuant
  * think it does, example: {x != c, x != d, P(x)} will yield the
  * substitution [x <- c, x <- d], which will yield the clause {c != c, c !=
  * d, P(c)} which seems right.) //TODO: make sure..
- * 
- * TODO: some of the transformations made here might be undone by "constructive 
+ *
+ * TODO: some of the transformations made here might be undone by "constructive
  * equality reasoning" afterwards, namely those that introduce repeating variables
  * into one literal. -- avoid those transformations up front, perhaps..
  */
@@ -35,26 +36,26 @@ class ApplyDestructiveEqualityReasoning {
 	boolean mIsResultGround = true;
 	final private EprTheory mEprTheory;
 
-	public ApplyDestructiveEqualityReasoning(EprTheory eprTheory, Literal[] literals) {
+	public ApplyDestructiveEqualityReasoning(final EprTheory eprTheory, final Literal[] literals) {
 		assert eprTheory != null;
 		mEprTheory = eprTheory;
-		applyDER(new HashSet<Literal>(Arrays.asList(literals)));
+		applyDER(new HashSet<>(Arrays.asList(literals)));
 	}
 
-	private void applyDER(HashSet<Literal> literals) {
-		HashSet<Literal> currentClause = new HashSet<Literal>(literals);
+	private void applyDER(final HashSet<Literal> literals) {
+		HashSet<Literal> currentClause = new HashSet<>(literals);
 		Literal disEquality = findDisequality(currentClause);
 		mResult = currentClause;
 		mIsResultGround = false;
 		while (disEquality != null) {
 			currentClause.remove(disEquality);
 
-			TTSubstitution sub = extractSubstitutionFromEquality((EprQuantifiedEqualityAtom) disEquality.getAtom());
+			final TTSubstitution sub = extractSubstitutionFromEquality((EprQuantifiedEqualityAtom) disEquality.getAtom());
 
-			mResult = new HashSet<Literal>();
+			mResult = new HashSet<>();
 			mIsResultGround = true;
-			for (Literal l : currentClause) {
-				Literal sl = EprHelpers.applySubstitution(sub, l, mEprTheory, true);
+			for (final Literal l : currentClause) {
+				final Literal sl = EprHelpers.applySubstitution(sub, l, mEprTheory, true);
 				if (sl.getAtom() instanceof TrueAtom) {
 					if (sl.getSign() == 1) {
 						// do nothing/just add it to the result (tautology
@@ -79,8 +80,8 @@ class ApplyDestructiveEqualityReasoning {
 		}
 	}
 
-	public TTSubstitution extractSubstitutionFromEquality(EprQuantifiedEqualityAtom eea) {
-		TermTuple tt = eea.getArgumentsAsTermTuple();
+	public TTSubstitution extractSubstitutionFromEquality(final EprQuantifiedEqualityAtom eea) {
+		final TermTuple tt = eea.getArgumentsAsTermTuple();
 		TermVariable tv = null;
 		Term t = null;
 		if (tt.terms[0] instanceof TermVariable) {
@@ -93,8 +94,8 @@ class ApplyDestructiveEqualityReasoning {
 		return new TTSubstitution(tv, t);
 	}
 
-	private Literal findDisequality(HashSet<Literal> literals) {
-		for (Literal l : literals) {
+	private Literal findDisequality(final HashSet<Literal> literals) {
+		for (final Literal l : literals) {
 			if (l.getSign() != 1 && l.getAtom() instanceof EprQuantifiedEqualityAtom)
 				return l;
 		}
@@ -105,7 +106,7 @@ class ApplyDestructiveEqualityReasoning {
 	 * Applies sub to li and adds the resulting Literal to newLits. Also
 	 * updates mIsResultGround (i.e. when a Literal remains non-ground, it
 	 * is set to false)
-	 * 
+	 *
 	 * @param sub
 	 *            substitution to be applied
 	 * @param newLits
@@ -113,13 +114,14 @@ class ApplyDestructiveEqualityReasoning {
 	 * @param li
 	 *            literal whose variables should be substituted
 	 */
-	public Literal getSubstitutedLiteral(TTSubstitution sub, Literal li) {
+	public Literal getSubstitutedLiteral(final TTSubstitution sub, final Literal li) {
 		if (li.getAtom() instanceof EprQuantifiedPredicateAtom
 				|| li.getAtom() instanceof EprQuantifiedEqualityAtom) {
-			boolean liPositive = li.getSign() == 1;
-			TermTuple liTT = ((EprAtom) li.getAtom()).getArgumentsAsTermTuple();
+			final boolean liPositive = li.getSign() == 1;
+			final TermTuple liTT = ((EprAtom) li.getAtom()).getArgumentsAsTermTuple();
+			final SourceAnnotation source = ((EprAtom) li.getAtom()).getSourceAnnotation();
 
-			TermTuple newTT = sub.apply(liTT);
+			final TermTuple newTT = sub.apply(liTT);
 
 			if (newTT.equals(liTT)) {
 				return li;
@@ -132,25 +134,29 @@ class ApplyDestructiveEqualityReasoning {
 					} else if (newTT.terms[0] == newTT.terms[1] && !liPositive) {
 						return new DPLLAtom.TrueAtom().negate();
 					}
-					throw new UnsupportedOperationException();// how to
-					// obtain a
-					// fresh
-					// CCEquality???
+					// how to obtain a fresh CCEquality???
+					throw new UnsupportedOperationException();
 				} else {
-					EprQuantifiedEqualityAtom eea = new EprQuantifiedEqualityAtom(mEprTheory.getTheory().term("=", newTT.terms), 
-							0, // TODO // use // good // hash
-							li.getAtom().getAssertionStackLevel(),
-							mEprTheory.getEqualityEprPredicate(newTT.terms[0].getSort()));
+					// TODO use good hash
+					final EprQuantifiedEqualityAtom eea =
+							new EprQuantifiedEqualityAtom(
+									mEprTheory.getTheory().term("=", newTT.terms),
+									0,
+									li.getAtom().getAssertionStackLevel(),
+									mEprTheory.getEqualityEprPredicate(newTT.terms[0].getSort()),
+									source);
 					return liPositive ? eea : eea.negate();
 				}
 			} else {
-				EprPredicate liPred = ((EprQuantifiedPredicateAtom) li.getAtom()).getEprPredicate();
+				final EprPredicate liPred = ((EprQuantifiedPredicateAtom) li.getAtom()).getEprPredicate();
 
 				EprAtom ea = null;
 				if (newTT.isGround()) {
-					ea = liPred.getAtomForTermTuple(newTT, mEprTheory.getTheory(), mEprTheory.getClausifier().getStackLevel());
+					ea = liPred.getAtomForTermTuple(newTT, mEprTheory.getTheory(),
+							mEprTheory.getClausifier().getStackLevel(), source);
 				} else {
-					ea = liPred.getAtomForTermTuple(newTT, mEprTheory.getTheory(), mEprTheory.getClausifier().getStackLevel());
+					ea = liPred.getAtomForTermTuple(newTT, mEprTheory.getTheory(),
+							mEprTheory.getClausifier().getStackLevel(), source);
 				}
 				return liPositive ? ea : ea.negate();
 			}

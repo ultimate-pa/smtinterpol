@@ -32,6 +32,7 @@ import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
@@ -50,15 +51,15 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.I
  * Represents an uninterpreted predicate that the EPR theory reasons about.
  * Stores and updates a model for that predicate.
  * If setting a literal leads to a conflict, that conflict is reported back to the DPLLEngine.
- * 
+ *
  * @author Alexander Nutz
  */
 public class EprPredicate {
 
 	private final int mArity;
 	private final FunctionSymbol mFunctionSymbol;
-	
-	
+
+
 	/**
 	 * Every predicate symbol has canonical TermVariables for each of its argument positions.
 	 * They form the signature of the corresponding Dawgs on the decide stack.
@@ -66,77 +67,77 @@ public class EprPredicate {
 	protected final SortedSet<TermVariable> mSignature;
 
 	final EprTheory mEprTheory;
-	
+
 	/**
 	 * Contains all DecideStackLiterals which talk about this EprPredicate.
 	 */
 	protected Set<IEprLiteral> mEprLiterals =
-			new HashSet<IEprLiteral>();
-	
+			new HashSet<>();
+
 	/**
 	 * Storage to track where this predicate occurs in the formula with at least one quantified argument.
 	 */
-	private HashMap<EprClause, HashSet<ClauseEprLiteral>> mQuantifiedOccurences = 
-			new HashMap<EprClause, HashSet<ClauseEprLiteral>>();
+	private final HashMap<EprClause, HashSet<ClauseEprLiteral>> mQuantifiedOccurences =
+			new HashMap<>();
 
-	private HashMap<EprClause, HashSet<ClauseEprLiteral>> mGroundOccurences = 
-			new HashMap<EprClause, HashSet<ClauseEprLiteral>>();
-	
-	private HashSet<EprGroundPredicateAtom> mDPLLAtoms = new HashSet<EprGroundPredicateAtom>();
-	
-	private HashMap<TermTuple, EprGroundPredicateAtom> mPointToAtom = new HashMap<TermTuple, EprGroundPredicateAtom>();
-	private HashMap<TermTuple, EprQuantifiedPredicateAtom> mTermTupleToAtom = new HashMap<TermTuple, EprQuantifiedPredicateAtom>();
+	private final HashMap<EprClause, HashSet<ClauseEprLiteral>> mGroundOccurences =
+			new HashMap<>();
 
-	public EprPredicate(FunctionSymbol fs, EprTheory eprTheory) {
+	private final HashSet<EprGroundPredicateAtom> mDPLLAtoms = new HashSet<>();
+
+	private final HashMap<TermTuple, EprGroundPredicateAtom> mPointToAtom = new HashMap<>();
+	private final HashMap<TermTuple, EprQuantifiedPredicateAtom> mTermTupleToAtom = new HashMap<>();
+
+	public EprPredicate(final FunctionSymbol fs, final EprTheory eprTheory) {
 		this.mFunctionSymbol = fs;
 		this.mArity = fs.getParameterSorts().length;
 		this.mEprTheory = eprTheory;
 
-		TreeSet<TermVariable> tva = new TreeSet<TermVariable>(EprHelpers.getColumnNamesComparator());
+		final TreeSet<TermVariable> tva = new TreeSet<>(EprHelpers.getColumnNamesComparator());
 		for (int i = 0; i < mArity; i++) {
-			String tvName = mFunctionSymbol.getName() + "_" + i;
+			final String tvName = mFunctionSymbol.getName() + "_" + i;
 			tva.add(
 					mEprTheory.getTheory().createFreshTermVariable(tvName, fs.getParameterSorts()[i]));
-			
+
 		}
 		mSignature = Collections.unmodifiableSortedSet(tva);
 	}
 
-	public void addQuantifiedOccurence(ClauseEprQuantifiedLiteral l, EprClause eprClause) {
+	public void addQuantifiedOccurence(final ClauseEprQuantifiedLiteral l, final EprClause eprClause) {
 		HashSet<ClauseEprLiteral> val = mQuantifiedOccurences.get(eprClause);
 		if (val == null) {
-			val = new HashSet<ClauseEprLiteral>();
+			val = new HashSet<>();
 			mQuantifiedOccurences.put(eprClause, val);
 		}
 		val.add(l);
 	}
-	
+
 	private HashMap<EprClause, HashSet<ClauseEprLiteral>> getQuantifiedOccurences() {
 		return mQuantifiedOccurences;
 	}
-	
-	public void addGroundOccurence(ClauseEprGroundLiteral l, EprClause eprClause) {
+
+	public void addGroundOccurence(final ClauseEprGroundLiteral l, final EprClause eprClause) {
 		HashSet<ClauseEprLiteral> val = mGroundOccurences.get(eprClause);
 		if (val == null) {
-			val = new HashSet<ClauseEprLiteral>();
+			val = new HashSet<>();
 			mGroundOccurences.put(eprClause, val);
 		}
 		val.add(l);
 	}
-	
+
 	private HashMap<EprClause, HashSet<ClauseEprLiteral>> getGroundOccurences() {
 		return mGroundOccurences;
 	}
-	
+
 	public HashMap<EprClause, HashSet<ClauseEprLiteral>> getAllEprClauseOccurences() {
-		HashMap<EprClause, HashSet<ClauseEprLiteral>> quantifiedOccurences = 
+		final HashMap<EprClause, HashSet<ClauseEprLiteral>> quantifiedOccurences =
 				getQuantifiedOccurences();
-		HashMap<EprClause, HashSet<ClauseEprLiteral>> groundOccurences = 
+		final HashMap<EprClause, HashSet<ClauseEprLiteral>> groundOccurences =
 				getGroundOccurences();
 
-		HashMap<EprClause, HashSet<ClauseEprLiteral>> allOccurences = 
-				new HashMap<EprClause, HashSet<ClauseEprLiteral>>(quantifiedOccurences);
-		for (Entry<EprClause, HashSet<ClauseEprLiteral>> en : groundOccurences.entrySet()) {
+		final HashMap<EprClause, HashSet<ClauseEprLiteral>> allOccurences =
+				new HashMap<>(quantifiedOccurences);
+		for (final Entry<EprClause, HashSet<ClauseEprLiteral>> en : groundOccurences.entrySet()) {
 			if (allOccurences.containsKey(en.getKey())) {
 				allOccurences.get(en.getKey()).addAll(en.getValue());
 			} else {
@@ -146,21 +147,22 @@ public class EprPredicate {
 		return allOccurences;
 	}
 
-	public void addDPLLAtom(EprGroundPredicateAtom egpa) {
+	public void addDPLLAtom(final EprGroundPredicateAtom egpa) {
 		mDPLLAtoms.add(egpa);
 	}
-	
+
 	public HashSet<EprGroundPredicateAtom> getDPLLAtoms() {
 		return mDPLLAtoms;
 	}
-	
+
 	/**
 	 * Retrieve the ground atom belonging to TermTuple tt.
 	 * Creates a new atom if no atom exists for tt.
 	 * Note: this method assumes that tt only contains constants.
 	 * Use getAtomForTermTuple in order to obtain a quantified atom.
 	 */
-	private EprGroundPredicateAtom getAtomForPoint(TermTuple point, Theory mTheory, int assertionStackLevel) {
+	private EprGroundPredicateAtom getAtomForPoint(final TermTuple point, final Theory mTheory,
+			final int assertionStackLevel, final SourceAnnotation source) {
 		assert point.getFreeVars().size() == 0 : "Use getAtomForTermTuple, if tt is quantified";
 		EprGroundPredicateAtom result = mPointToAtom.get(point);
 		if (result == null) {
@@ -168,23 +170,25 @@ public class EprPredicate {
 			if (this instanceof EprEqualityPredicate) {
 				result = new EprGroundEqualityAtom(newTerm, 0,
 					assertionStackLevel,
-					(EprEqualityPredicate) this);
+					(EprEqualityPredicate) this,
+					source);
 			} else {
 				result = new EprGroundPredicateAtom(newTerm, 0,
 					assertionStackLevel,
-					this);
+					this,
+					source);
 			}
 			mPointToAtom.put(point, result);
 			addDPLLAtom(result);
-			
+
 			// when we create a new ground atom, we have to inform the DPLLEngine if the EprTheory already knows
 			// something about it
-			for (IEprLiteral dsl : this.getEprLiterals()) {
+			for (final IEprLiteral dsl : this.getEprLiterals()) {
 				if (!(dsl instanceof DecideStackLiteral)) {
 					// we have an EprGroundPredicateLiteral --> the DPLLEngine already knows about it..
 					continue;
 				}
-				EprClause conflict = mEprTheory.getStateManager().setGroundAtomIfCoveredByDecideStackLiteral((DecideStackLiteral) dsl, result);
+				final EprClause conflict = mEprTheory.getStateManager().setGroundAtomIfCoveredByDecideStackLiteral((DecideStackLiteral) dsl, result);
 				if (conflict != null) {
 					assert false : "what now? give to EprTheory somehow so it can be returned by checkpoint??";
 				}
@@ -201,54 +205,60 @@ public class EprPredicate {
 	 * @param tt
 	 * @param mTheory
 	 * @param assertionStackLevel
+	 * @param source
 	 * @return
 	 */
-	private EprQuantifiedPredicateAtom getAtomForQuantifiedTermTuple(TermTuple tt, Theory mTheory, int assertionStackLevel) {
+	private EprQuantifiedPredicateAtom getAtomForQuantifiedTermTuple(final TermTuple tt, final Theory mTheory,
+			final int assertionStackLevel, final SourceAnnotation source) {
 		assert tt.getFreeVars().size() > 0 : "Use getAtomForPoint, if tt is ground";
 		EprQuantifiedPredicateAtom result = mTermTupleToAtom.get(tt);
-		
+
 		if (result == null) {
-			ApplicationTerm newTerm = mTheory.term(this.mFunctionSymbol, tt.terms);
+			final ApplicationTerm newTerm = mTheory.term(this.mFunctionSymbol, tt.terms);
 			if (this instanceof EprEqualityPredicate) {
-					result = new EprQuantifiedEqualityAtom(newTerm, 
-						0, 
+					result = new EprQuantifiedEqualityAtom(newTerm,
+						0,
 						assertionStackLevel,
-						(EprEqualityPredicate) this);
+						(EprEqualityPredicate) this,
+						source);
 			} else {
-				result = new EprQuantifiedPredicateAtom(newTerm, 
-						0, 
+				result = new EprQuantifiedPredicateAtom(newTerm,
+						0,
 						assertionStackLevel,
-						this);
+						this,
+						source);
 			}
 			mTermTupleToAtom.put(tt, result);
 		}
 		return result;
 	}
-	
-	public EprPredicateAtom getAtomForTermTuple(TermTuple tt, Theory mTheory, int assertionStackLevel) {
+
+	public EprPredicateAtom getAtomForTermTuple(final TermTuple tt, final Theory mTheory,
+			final int assertionStackLevel, final SourceAnnotation source) {
 		if (tt.getFreeVars().size() > 0) {
-			return getAtomForQuantifiedTermTuple(tt, mTheory, assertionStackLevel);
+			return getAtomForQuantifiedTermTuple(tt, mTheory, assertionStackLevel, source);
 		} else {
-			return getAtomForPoint(tt, mTheory, assertionStackLevel);
+			return getAtomForPoint(tt, mTheory, assertionStackLevel, source);
 		}
 	}
-	
+
+	@Override
 	public String toString() {
-		
-		String res = "EprPred: " + mFunctionSymbol.getName();
+
+		final String res = "EprPred: " + mFunctionSymbol.getName();
 		if (res.contains("AUX")) {
 			return "EprPred: (AUX " + this.hashCode() + ")";
 		}
-		return res;	
+		return res;
 	}
 
 	/**
-	 * 
+	 *
 	 *  @return null if the model of this predicate is already complete, a DecideStackLiteral
 	 *          otherwise.
 	 */
 	public DslBuilder getNextDecision() {
-		IDawg<ApplicationTerm, TermVariable> undecidedPoints = computeUndecidedPoints();
+		final IDawg<ApplicationTerm, TermVariable> undecidedPoints = computeUndecidedPoints();
 
 		if (undecidedPoints.isEmpty()) {
 			return null;
@@ -265,14 +275,14 @@ public class EprPredicate {
 	}
 
 	private IDawg<ApplicationTerm, TermVariable> computeUndecidedPoints() {
-		IDawg<ApplicationTerm, TermVariable> positivelySetPoints = 
+		IDawg<ApplicationTerm, TermVariable> positivelySetPoints =
 				mEprTheory.getDawgFactory().getEmptyDawg(mSignature);
 		IDawg<ApplicationTerm, TermVariable> negativelySetPoints =
 				mEprTheory.getDawgFactory().getEmptyDawg(mSignature);
-		IDawg<ApplicationTerm, TermVariable> undecidedPoints = 
+		IDawg<ApplicationTerm, TermVariable> undecidedPoints =
 				mEprTheory.getDawgFactory().getEmptyDawg(mSignature);
 
-		for (IEprLiteral dsl : mEprLiterals) {
+		for (final IEprLiteral dsl : mEprLiterals) {
 			if (dsl.getPolarity()) {
 				//positive literal
 				positivelySetPoints = positivelySetPoints.union(dsl.getDawg());
@@ -283,7 +293,7 @@ public class EprPredicate {
 		}
 
 		// the ground predicates' decide statuses are managed by the DPLLEngine
-		for (EprGroundPredicateAtom at : mDPLLAtoms) {
+		for (final EprGroundPredicateAtom at : mDPLLAtoms) {
 			if (at.getDecideStatus() == null) {
 				// not yet decided
 				undecidedPoints = undecidedPoints.add(EprHelpers.convertTermArrayToConstantList(at.getArguments()));
@@ -296,7 +306,7 @@ public class EprPredicate {
 			}
 		}
 
-		IDawg<ApplicationTerm, TermVariable> allDecidedPoints = 
+		IDawg<ApplicationTerm, TermVariable> allDecidedPoints =
 				mEprTheory.getDawgFactory().getEmptyDawg(mSignature);
 //		allDecidedPoints.addAll(positivelySetPoints);
 		allDecidedPoints = allDecidedPoints.union(positivelySetPoints);
@@ -311,10 +321,10 @@ public class EprPredicate {
 	/**
 	 * Called when an EprClause is disposed of (typically because of a pop command).
 	 * Updates internal data structures of this EprPredicate accordingly.
-	 * 
+	 *
 	 * @param eprClause
 	 */
-	public void notifyAboutClauseDisposal(EprClause eprClause) {
+	public void notifyAboutClauseDisposal(final EprClause eprClause) {
 		mQuantifiedOccurences.remove(eprClause);
 		mGroundOccurences.remove(eprClause);
 	}
@@ -326,7 +336,7 @@ public class EprPredicate {
 	public FunctionSymbol getFunctionSymbol() {
 		return mFunctionSymbol;
 	}
-	
+
 	public SortedSet<TermVariable> getTermVariablesForArguments() {
 		return mSignature;
 	}
@@ -335,7 +345,7 @@ public class EprPredicate {
 	 * This has to be called when a literal that talks about this EprPredicate is put on the epr decide stack.
 	 * @param dsl
 	 */
-	public void registerEprLiteral(IEprLiteral dsl) {
+	public void registerEprLiteral(final IEprLiteral dsl) {
 		mEprLiterals.add(dsl);
 	}
 
@@ -343,9 +353,9 @@ public class EprPredicate {
 	 * This has to be called when a literal that talks about this EprPredicate is removed from the epr decide stack.
 	 * @param dsl
 	 */
-	public void unregisterEprLiteral(IEprLiteral dsl) {
+	public void unregisterEprLiteral(final IEprLiteral dsl) {
 		mEprLiterals.remove(dsl);
-	}		
+	}
 
 	public Set<IEprLiteral> getEprLiterals() {
 		assert mEprTheory.getStateManager().getDecideStackManager().verifyEprLiterals(mEprLiterals);

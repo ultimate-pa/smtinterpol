@@ -22,24 +22,26 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 
 /**
- * 
+ *
  * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
  *
  */
 public class EprQuantifiedPredicateAtom extends EprPredicateAtom {
-	
-	public EprQuantifiedPredicateAtom(ApplicationTerm term, int hash, int assertionstacklevel, EprPredicate pred) {
-		super(term, hash, assertionstacklevel, pred);
+
+	public EprQuantifiedPredicateAtom(final ApplicationTerm term, final int hash, final int assertionstacklevel,
+			final EprPredicate pred, final SourceAnnotation source) {
+		super(term, hash, assertionstacklevel, pred, source);
 		assert term.getFreeVars().length > 0 : "trying to create a quantified atom from a term that has free variables";
 		assert !EprHelpers.containsBooleanTerm(term.getParameters());
 	}
 
 	@Override
-	public Term getSMTFormula(Theory smtTheory, boolean quoted) {
-		return mTerm;
+	public Term getSMTFormula(final Theory smtTheory, final boolean quoted) {
+		return getTerm();
 	}
 }

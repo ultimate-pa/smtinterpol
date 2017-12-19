@@ -42,94 +42,94 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuant
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
 
 /**
- * 
+ *
  * @author Alexander Nutz
  */
 public class EprClauseFactory {
-	
+
 	EprTheory mEprTheory;
-	
+
 	/**
-	 * Remembers from which sets of literals an EprClause has already been 
+	 * Remembers from which sets of literals an EprClause has already been
 	 * constructed (and which).
 	 */
-	private ScopedHashMap<Set<Literal>, EprClause> mLiteralsToClause = new ScopedHashMap<Set<Literal>, EprClause>();
-	
-	public EprClauseFactory(EprTheory eprTheory) {
+	private final ScopedHashMap<Set<Literal>, EprClause> mLiteralsToClause = new ScopedHashMap<>();
+
+	public EprClauseFactory(final EprTheory eprTheory) {
 		mEprTheory = eprTheory;
 	}
-		
+
 	/**
-	 * 
-	 * @param pivot1 A ClauseLiteral of c1, the pivot on the side of c1, 
+	 *
+	 * @param pivot1 A ClauseLiteral of c1, the pivot on the side of c1,
 	 *              pivot1 is necessarily a quantified epr literal, because it comes from the epr decide stack
-	 * @param pivot2 A ClauseLiteral that was used for propagation, 
+	 * @param pivot2 A ClauseLiteral that was used for propagation,
 	 *          its clause is the other clause for the resolution, the parameter is the pivot on that side
 	 *           pivot2 is an epr literal that contradicts pivot1, it may be ground
 	 * @return the resolvent of pivot1.getEprClause and pivot1.getEprClause with pivot1 and pivot2 as pivots
 	 */
-	public EprClause createResolvent(ClauseEprLiteral pivot1, ClauseEprLiteral pivot2) {
+	public EprClause createResolvent(final ClauseEprLiteral pivot1, final ClauseEprLiteral pivot2) {
 		assert pivot1.getPolarity() != pivot2.getPolarity();
-		
-		int arity = pivot1.getArguments().size();
-		assert arity == pivot2.getArguments().size();
-		
-		EprClause c1 = pivot1.getClause();
-		EprClause c2 = pivot2.getClause();
-		
-		Set<ClauseLiteral> c1Lits = c1.getLiterals();
-		Set<ClauseLiteral> c2Lits = c2.getLiterals();
-		
-		TermTuple p1tt = new TermTuple(pivot1.getArguments().toArray(new Term[arity]));
-		TermTuple p2tt = new TermTuple(pivot2.getArguments().toArray(new Term[arity]));
-		TTSubstitution unifier = p1tt.match(p2tt, mEprTheory.getEqualityManager());
 
-		Set<ClauseLiteral> resCls = new HashSet<ClauseLiteral>();
+		final int arity = pivot1.getArguments().size();
+		assert arity == pivot2.getArguments().size();
+
+		final EprClause c1 = pivot1.getClause();
+		final EprClause c2 = pivot2.getClause();
+
+		final Set<ClauseLiteral> c1Lits = c1.getLiterals();
+		final Set<ClauseLiteral> c2Lits = c2.getLiterals();
+
+		final TermTuple p1tt = new TermTuple(pivot1.getArguments().toArray(new Term[arity]));
+		final TermTuple p2tt = new TermTuple(pivot2.getArguments().toArray(new Term[arity]));
+		final TTSubstitution unifier = p1tt.match(p2tt, mEprTheory.getEqualityManager());
+
+		final Set<ClauseLiteral> resCls = new HashSet<>();
 		resCls.addAll(c1Lits);
 		resCls.remove(pivot1);
 		resCls.addAll(c2Lits);
 		resCls.remove(pivot2);
-		
+
 
 		// apply the unifier to the literals of c1 and c2, add the unified literals to the resolvent
-		Set<Literal> resLits = computeUnifiedLiteralsFromClauseLiterals(unifier, resCls);
-	
+		final Set<Literal> resLits = computeUnifiedLiteralsFromClauseLiterals(unifier, resCls);
 
-		EprClause resolvent = getEprClause(resLits);
+
+		final EprClause resolvent = getEprClause(resLits);
 
 		mEprTheory.getStateManager().learnClause(resolvent);
-		
+
 		return resolvent;
 	}
-	
-	public EprClause getFactoredClause(ClauseEprQuantifiedLiteral factorLit1, ClauseEprLiteral factorLit2) {
+
+	public EprClause getFactoredClause(final ClauseEprQuantifiedLiteral factorLit1, final ClauseEprLiteral factorLit2) {
 		assert factorLit1.getPolarity() == factorLit2.getPolarity();
-		
-		EprPredicate flPred = factorLit1.getEprPredicate();
+
+		final EprPredicate flPred = factorLit1.getEprPredicate();
 		assert flPred == factorLit2.getEprPredicate();
 		assert factorLit1.getClause() == factorLit2.getClause();
-		int arity = flPred.getArity();
-		
-		EprClause clause = factorLit1.getClause();
-		
-		Set<ClauseLiteral> cLits = clause.getLiterals();
-		
-		TermTuple p1tt = new TermTuple(factorLit1.getArguments().toArray(new Term[arity]));
-		TermTuple p2tt = new TermTuple(factorLit2.getArguments().toArray(new Term[arity]));
-		TTSubstitution unifier = p1tt.match(p2tt, mEprTheory.getEqualityManager());
-		
-		
-		Set<ClauseLiteral> resCls = new HashSet<ClauseLiteral>();
+		final int arity = flPred.getArity();
+
+		final EprClause clause = factorLit1.getClause();
+
+		final Set<ClauseLiteral> cLits = clause.getLiterals();
+
+		final TermTuple p1tt = new TermTuple(factorLit1.getArguments().toArray(new Term[arity]));
+		final TermTuple p2tt = new TermTuple(factorLit2.getArguments().toArray(new Term[arity]));
+		final TTSubstitution unifier = p1tt.match(p2tt, mEprTheory.getEqualityManager());
+
+
+		final Set<ClauseLiteral> resCls = new HashSet<>();
 		resCls.addAll(cLits);
 		resCls.remove(factorLit2);
-		
+
 		final Set<Literal> resLits = computeUnifiedLiteralsFromClauseLiterals(unifier, resCls);
 
 		final Set<Literal> cerResLits = new ApplyConstructiveEqualityReasoning(mEprTheory, resLits).getResult();
-		
+
 		final EprClause factor = getEprClause(cerResLits);
 
-		boolean isConflict = factor.isConflict(); // avoiding a side effect that only happens with enabled assertions..
+		final boolean isConflict = factor.isConflict(); // avoiding a side effect that only happens with enabled assertions..
 		assert isConflict;
 
 		mEprTheory.getStateManager().learnClause(factor);
@@ -141,14 +141,14 @@ public class EprClauseFactory {
 	 * Also applies alpha renaming such that the free variables of every newly created EprClause
 	 * are not used by any other EprClause (necessary to obtain the -most general- unifier for first-
 	 * order resolution).
-	 * 
+	 *
 	 * TODO: it would be even better if instead of "same set of literals" the criterion would be
 	 *    "same set of literals modulo alpha renaming".
 	 */
-	public EprClause getEprClause(Set<Literal> literals) {
-		
-		Set<Literal> alphaRenamedLiterals = alphaRenameLiterals(literals);
-		
+	public EprClause getEprClause(final Set<Literal> literals) {
+
+		final Set<Literal> alphaRenamedLiterals = alphaRenameLiterals(literals);
+
 		EprClause result = mLiteralsToClause.get(alphaRenamedLiterals);
 		if (result == null) {
 			result = new EprClause(alphaRenamedLiterals, mEprTheory);
@@ -164,35 +164,37 @@ public class EprClauseFactory {
 	public void push() {
 		mLiteralsToClause.beginScope();
 	}
-	
+
 	public void pop() {
 		mLiteralsToClause.endScope();
 	}
 
-	private Set<Literal> computeUnifiedLiteralsFromClauseLiterals(TTSubstitution unifier, Set<ClauseLiteral> resCls) {
+	private Set<Literal> computeUnifiedLiteralsFromClauseLiterals(final TTSubstitution unifier, final Set<ClauseLiteral> resCls) {
 		// apply the unifier to the literals of c1 and c2, add the unified literals to the resolvent
-		Set<Literal> resLits = new HashSet<Literal>();
-		for (ClauseLiteral cl : resCls) {
+		final Set<Literal> resLits = new HashSet<>();
+		for (final ClauseLiteral cl : resCls) {
 
 			if (cl instanceof ClauseEprQuantifiedLiteral) {
-				ClauseEprQuantifiedLiteral clQ = (ClauseEprQuantifiedLiteral) cl;
-				EprPredicate pred = clQ.getEprPredicate();
-				List<Term> clArgs = clQ.getArguments();
-				TermTuple cltt = new TermTuple(clArgs.toArray(new Term[clArgs.size()]));
-				TermTuple unifiedClTt = unifier.apply(cltt);
-				
+				final ClauseEprQuantifiedLiteral clQ = (ClauseEprQuantifiedLiteral) cl;
+				final EprPredicate pred = clQ.getEprPredicate();
+				final List<Term> clArgs = clQ.getArguments();
+				final TermTuple cltt = new TermTuple(clArgs.toArray(new Term[clArgs.size()]));
+				final TermTuple unifiedClTt = unifier.apply(cltt);
+
 				Literal newCl = null;
 				if (unifiedClTt.isGround()) {
-					EprGroundPredicateAtom atom = (EprGroundPredicateAtom) pred.getAtomForTermTuple(
-							unifiedClTt, mEprTheory.getTheory(), mEprTheory.getClausifier().getStackLevel());
+					final EprGroundPredicateAtom atom = (EprGroundPredicateAtom) pred.getAtomForTermTuple(
+							unifiedClTt, mEprTheory.getTheory(), mEprTheory.getClausifier().getStackLevel(),
+							clQ.getAtom().getSourceAnnotation());
 					newCl = cl.getPolarity() ? atom : atom.negate();
 				} else {
 
-					EprQuantifiedPredicateAtom atom = (EprQuantifiedPredicateAtom) 
-							pred.getAtomForTermTuple(unifiedClTt, 
-									mEprTheory.getTheory(), 
-									mEprTheory.getClausifier().getStackLevel());
-					
+					final EprQuantifiedPredicateAtom atom = (EprQuantifiedPredicateAtom)
+							pred.getAtomForTermTuple(unifiedClTt,
+									mEprTheory.getTheory(),
+									mEprTheory.getClausifier().getStackLevel(),
+									clQ.getAtom().getSourceAnnotation());
+
 					newCl = cl.getPolarity() ? atom : atom.negate();
 				}
 				resLits.add(newCl);
@@ -204,7 +206,7 @@ public class EprClauseFactory {
 		}
 		return resLits;
 	}
-	
+
 	/**
 	 * Applies alpha renaming to a set of literals assuming they will form one clause.
 	 *  --> keeps one substitution that is applied to all literals and updated when a new
@@ -212,14 +214,14 @@ public class EprClauseFactory {
 	 * @param literals
 	 * @return
 	 */
-	private Set<Literal> alphaRenameLiterals(Set<Literal> literals) {
-		Set<Literal> alphaRenamedLiterals = new HashSet<Literal>();
-		Map<TermVariable, Term> substitution = new HashMap<TermVariable, Term>();
-		for (Literal l : literals) {
-			if (l.getAtom() instanceof EprQuantifiedEqualityAtom 
+	private Set<Literal> alphaRenameLiterals(final Set<Literal> literals) {
+		final Set<Literal> alphaRenamedLiterals = new HashSet<>();
+		final Map<TermVariable, Term> substitution = new HashMap<>();
+		for (final Literal l : literals) {
+			if (l.getAtom() instanceof EprQuantifiedEqualityAtom
 					|| l.getAtom() instanceof EprQuantifiedPredicateAtom) {
-				EprAtom arAtom = applyAlphaRenamingToQuantifiedEprAtom((EprAtom) l.getAtom(), substitution);
-				Literal arLiteral = l.getSign() == 1 ? arAtom : arAtom.negate();
+				final EprAtom arAtom = applyAlphaRenamingToQuantifiedEprAtom((EprAtom) l.getAtom(), substitution);
+				final Literal arLiteral = l.getSign() == 1 ? arAtom : arAtom.negate();
 				alphaRenamedLiterals.add(arLiteral);
 			} else {
 				alphaRenamedLiterals.add(l);
@@ -228,14 +230,14 @@ public class EprClauseFactory {
 		return alphaRenamedLiterals;
 	}
 
-	private EprAtom applyAlphaRenamingToQuantifiedEprAtom(EprAtom atom, Map<TermVariable, Term> sub) {
+	private EprAtom applyAlphaRenamingToQuantifiedEprAtom(final EprAtom atom, final Map<TermVariable, Term> sub) {
 		assert atom instanceof EprQuantifiedPredicateAtom || atom instanceof EprQuantifiedEqualityAtom;
 
-		for (Term t : atom.getArguments()) {
+		for (final Term t : atom.getArguments()) {
 			if ((t instanceof ApplicationTerm) || sub.containsKey(t)) {
 				continue;
 			}
-			TermVariable tv = (TermVariable) t;
+			final TermVariable tv = (TermVariable) t;
 			String newTvNamePrefix = tv.getName();
 			// createFreshTermvariable adds a "." in front and something like ".123" after the given prefix
 			//  --> after some iterations this becomes long, so we trim a little
@@ -244,11 +246,13 @@ public class EprClauseFactory {
 			sub.put(tv, mEprTheory.getTheory().createFreshTermVariable(newTvNamePrefix, tv.getSort()));
 		}
 
-		TermTuple tt = atom.getArgumentsAsTermTuple();
-		TermTuple ttSub = tt.applySubstitution(sub);
-		FunctionSymbol fs = ((ApplicationTerm) atom.getSMTFormula(mEprTheory.getTheory())).getFunction();
-		ApplicationTerm subTerm = mEprTheory.getTheory().term(fs, ttSub.terms);
-		EprAtom subAtom = mEprTheory.getEprAtom(subTerm, 0, mEprTheory.getClausifier().getStackLevel()); //TODO hash
+		final TermTuple tt = atom.getArgumentsAsTermTuple();
+		final TermTuple ttSub = tt.applySubstitution(sub);
+		final FunctionSymbol fs = ((ApplicationTerm) atom.getSMTFormula(mEprTheory.getTheory())).getFunction();
+		final ApplicationTerm subTerm = mEprTheory.getTheory().term(fs, ttSub.terms);
+		//TODO hash
+		final EprAtom subAtom = mEprTheory.getEprAtom(subTerm, 0, mEprTheory.getClausifier().getStackLevel(),
+				atom.getSourceAnnotation());
 		return subAtom;
 	}
 }

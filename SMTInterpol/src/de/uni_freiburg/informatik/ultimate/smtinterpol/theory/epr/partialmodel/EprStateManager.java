@@ -36,6 +36,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprEqualityPredicate;
@@ -43,7 +44,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheorySettings;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EqualityManager;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TTSubstitution;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.TermTuple;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundEqualityAtom;
@@ -62,7 +62,7 @@ import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
  *  - managing the Epr decide stack according to push/pop and setLiteral commands
  *   as well as internal propagations and decisions
  *  - telling clauses to update their states (or so..)
- * 
+ *
  * @author Alexander Nutz
  */
 public class EprStateManager {
@@ -73,9 +73,9 @@ public class EprStateManager {
 	private final Theory mTheory;
 	private final CClosure mCClosure;
 	private final LogProxy mLogger;
-	
-	private final ScopedHashSet<EprPredicate> mAllEprPredicates = new ScopedHashSet<EprPredicate>();
-	
+
+	private final ScopedHashSet<EprPredicate> mAllEprPredicates = new ScopedHashSet<>();
+
 	private final DecideStackManager mDecideStackManager;
 
 	private final EprClauseFactory mEprClauseFactory;
@@ -83,18 +83,18 @@ public class EprStateManager {
 	private final DawgFactory<ApplicationTerm, TermVariable> mDawgFactory;
 
 
-	private HashMap<Literal, EprGroundPredicateLiteral> mLiteralToEprGroundPredicateLiteral = 
-			new HashMap<Literal, EprGroundPredicateLiteral>();
+	private final HashMap<Literal, EprGroundPredicateLiteral> mLiteralToEprGroundPredicateLiteral =
+			new HashMap<>();
 
 
-	private EprClauseManager mEprClauseManager;
+	private final EprClauseManager mEprClauseManager;
 
 	/**
 	 * All the sorts that we currently track constants of.
 	 */
-	final ScopedHashSet<Sort> mKnownSorts = new ScopedHashSet<Sort>();
-	
-	public EprStateManager(EprTheory eprTheory, DawgFactory<ApplicationTerm, TermVariable> dawgFactory, EprClauseFactory clauseFactory) {
+	final ScopedHashSet<Sort> mKnownSorts = new ScopedHashSet<>();
+
+	public EprStateManager(final EprTheory eprTheory, final DawgFactory<ApplicationTerm, TermVariable> dawgFactory, final EprClauseFactory clauseFactory) {
 		mEprTheory = eprTheory;
 //		mEqualityManager =  eprTheory.getEqualityManager();
 		mTheory = eprTheory.getTheory();
@@ -105,7 +105,7 @@ public class EprStateManager {
 		mEprClauseFactory = clauseFactory;
 		mDawgFactory = dawgFactory;
 	}
-	
+
 	public void push() {
 		mEprClauseManager.push();
 		mDecideStackManager.push();
@@ -124,10 +124,10 @@ public class EprStateManager {
 		mKnownSorts.endScope();
 	}
 
-	public void addNewEprPredicate(EprPredicate pred) {
+	public void addNewEprPredicate(final EprPredicate pred) {
 		mAllEprPredicates.add(pred);
 
-		for (Sort pSort : pred.getFunctionSymbol().getParameterSorts()) {
+		for (final Sort pSort : pred.getFunctionSymbol().getParameterSorts()) {
 			registerSort(pSort);
 		}
 
@@ -140,17 +140,17 @@ public class EprStateManager {
 	 * Should be called whenever we see an EprPredicate the first time.
 	 * For an EprPredicate P with arity n, introduces the congruence axiom
 	 *  { x1 != y1, ..., xn != yn, not P x1 ... xn, P y1 ... yn }
-	 *   
-	 * 
+	 *
+	 *
 	 * @param pred
 	 * @throws AssertionError
 	 */
-	private void createCongruenceClauseForPredicate(EprPredicate pred) throws AssertionError {
+	private void createCongruenceClauseForPredicate(final EprPredicate pred) throws AssertionError {
 		/*
 		 * add congruence axioms for this predicate
 		 */
-		final Set<Literal> literalsForCongruenceClause = new HashSet<Literal>();
-		
+		final Set<Literal> literalsForCongruenceClause = new HashSet<>();
+
 		/*
 		 *  create disequalities xi != yi for i in { 1, ..., n } (n = arity)
 		 */
@@ -163,21 +163,22 @@ public class EprStateManager {
 			equalities[i] = mTheory.term("=", leftVariables[i], rightVariables[i]);
 		}
 
-		for (ApplicationTerm eq : equalities) {
-			literalsForCongruenceClause.add(mEprTheory.getEprAtom(eq, 
-					0,  //TODO hash
-					mEprTheory.getClausifier().getStackLevel()).negate());
+		for (final ApplicationTerm eq : equalities) {
+			//TODO hash
+			literalsForCongruenceClause.add(mEprTheory.getEprAtom(eq, 0,  mEprTheory.getClausifier().getStackLevel(),
+					SourceAnnotation.EMPTY_SOURCE_ANNOT)
+					.negate());
 		}
-		
+
 		// create atoms not P(x1, ..., xn) and P(y1, ..., yn)
-		final EprPredicateAtom leftAtom = pred.getAtomForTermTuple(new TermTuple(leftVariables), mTheory, 
-				mEprTheory.getClausifier().getStackLevel());
+		final EprPredicateAtom leftAtom = pred.getAtomForTermTuple(new TermTuple(leftVariables), mTheory,
+				mEprTheory.getClausifier().getStackLevel(), SourceAnnotation.EMPTY_SOURCE_ANNOT);
 		literalsForCongruenceClause.add(leftAtom.negate());
-		
-		final EprPredicateAtom rightAtom = pred.getAtomForTermTuple(new TermTuple(rightVariables), mTheory, 
-				mEprTheory.getClausifier().getStackLevel());
+
+		final EprPredicateAtom rightAtom = pred.getAtomForTermTuple(new TermTuple(rightVariables), mTheory,
+				mEprTheory.getClausifier().getStackLevel(), SourceAnnotation.EMPTY_SOURCE_ANNOT);
 		literalsForCongruenceClause.add(rightAtom);
-		
+
 		// create the clause expressing congruence
 		final Clause groundConflict = mEprClauseManager.createEprClause(literalsForCongruenceClause);
 		if (groundConflict != null) {
@@ -185,53 +186,55 @@ public class EprStateManager {
 		}
 	}
 
-	public void registerEprGroundPredicateLiteral(EprGroundPredicateLiteral egpl, Literal l) {
+	public void registerEprGroundPredicateLiteral(final EprGroundPredicateLiteral egpl, final Literal l) {
 		mLiteralToEprGroundPredicateLiteral.put(l, egpl);
 	}
 
 	public Clause doPropagations() {
 		return mDecideStackManager.doPropagations();
-		
+
 	}
 
 	/**
 	 * Executes a basic DPLL loop starting with the current decide state.
 	 * every iteration of the topmost loop  roughly triggers one rule in the rule-based
 	 * notation of DPLL.
-	 * 
+	 *
 	 * If this method finds a conflict that goes back to a DPLL (ground) decision that conflict
 	 * is returned.
 	 * If this method terminates without returning a conflict (thus returning null), then the current
 	 * Epr decide state must constitute a complete model for all EprPredicates.
-	 * 
+	 *
 	 * @return a ground conflict if one is found, null otherwise.
 	 */
 	public Clause eprDpllLoop() {
-	
+
 		while (true) {
 			if (mEprTheory.isTerminationRequested()) {
 				return null;
 			}
-			
+
 			final DslBuilder nextDecision = mDecideStackManager.getNextDecision();
 			if (nextDecision == null) {
 				// model is complete
 				return null;
 			}
-	
+
 			// make the decision
 			if (!nextDecision.isOnePoint()) {
-				Set<EprClause> conflictsOrUnits = mDecideStackManager.pushEprDecideStack(nextDecision);
+				final Set<EprClause> conflictsOrUnits = mDecideStackManager.pushEprDecideStack(nextDecision);
 				return mDecideStackManager.resolveConflictOrStoreUnits(conflictsOrUnits);
 			} else {
-				// if the next requested decision is ground, suggest it to the DPLLEngine, and give 
+				// if the next requested decision is ground, suggest it to the DPLLEngine, and give
 				// back control to the DPLLEngine
-				Literal groundDecision = nextDecision.getEprPredicate()
+				// TODO: make nicer
+				final Literal groundDecision = nextDecision.getEprPredicate()
 						.getAtomForTermTuple(
-								new TermTuple(
-										nextDecision.getPoint().toArray(new ApplicationTerm[nextDecision.getPoint().size()])), // TODO: make nicer
-								mTheory, 
-								mEprTheory.getClausifier().getStackLevel());
+								new TermTuple( nextDecision.getPoint()
+										.toArray(new ApplicationTerm[nextDecision.getPoint().size()])),
+								mTheory,
+								mEprTheory.getClausifier().getStackLevel(),
+								SourceAnnotation.EMPTY_SOURCE_ANNOT);
 				assert groundDecision.getAtom().getDecideStatus() == null : "If this is not the case, then"
 						+ "it might be dangerous to return null: if null is returned to computeConflictClause,"
 						+ "this means the EprTheory says there is no conflict and I have a full model..";
@@ -249,34 +252,34 @@ public class EprStateManager {
 	 * @param literal
 	 * @return
 	 */
-	public Clause setEprGroundLiteral(Literal literal) {
+	public Clause setEprGroundLiteral(final Literal literal) {
 		// the main difference to a non-epr ground literal is that this literal may interact with the epr decide stack
 		//   thus we have to check for contradictions before calling update... (which assumes consistency of the "set points" for each clauseliteral)
 		//   after that we treat it like a decide stack literal (again because of the interactions with other literals over epr predicates)
-		
-		EprGroundPredicateLiteral egpl = new EprGroundPredicateLiteral(literal, mDawgFactory, this);
-		
-		DecideStackLiteral conflictingDsl = mDecideStackManager.searchConflictingDecideStackLiteral(egpl);
-		
+
+		final EprGroundPredicateLiteral egpl = new EprGroundPredicateLiteral(literal, mDawgFactory, this);
+
+		final DecideStackLiteral conflictingDsl = mDecideStackManager.searchConflictingDecideStackLiteral(egpl);
+
 		if (conflictingDsl != null) {
-			Clause unresolvableGroundConflict = mDecideStackManager.resolveDecideStackInconsistency(egpl, conflictingDsl);
+			final Clause unresolvableGroundConflict = mDecideStackManager.resolveDecideStackInconsistency(egpl, conflictingDsl);
 			if (unresolvableGroundConflict != null) {
 				// setting literal resulted in a conflict that cannot be resolved by reverting epr decisions
 				return unresolvableGroundConflict;
 			}
 		}
-	
+
 		mDecideStackManager.pushOnSetLiteral(literal);
-		Set<EprClause> confOrUnits = mEprClauseManager.updateClausesOnSetEprLiteral(egpl);
+		final Set<EprClause> confOrUnits = mEprClauseManager.updateClausesOnSetEprLiteral(egpl);
 		return mDecideStackManager.resolveConflictOrStoreUnits(confOrUnits);
 	}
 
-	public void unsetEprGroundLiteral(Literal literal) {
+	public void unsetEprGroundLiteral(final Literal literal) {
 		assert literal.getAtom() instanceof EprGroundPredicateAtom;
 
 		mDecideStackManager.popOnBacktrackLiteral(literal);
 
-		EprGroundPredicateLiteral egpl = mLiteralToEprGroundPredicateLiteral.get(literal);
+		final EprGroundPredicateLiteral egpl = mLiteralToEprGroundPredicateLiteral.get(literal);
 		assert egpl != null;
 		egpl.unregister();
 		mDecideStackManager.popReasonsOnBacktrackEprGroundLiteral(egpl);
@@ -286,48 +289,48 @@ public class EprStateManager {
 	/**
 	 * Set a literal from another theory, or a boolean constant.
 	 *   -- The EprTheory needs to track those because they might occur in EprClauses.
-	 * 
+	 *
 	 * @param literal
 	 * @return
 	 */
-	public Clause setDpllLiteral(Literal literal) {
+	public Clause setDpllLiteral(final Literal literal) {
 		mDecideStackManager.pushOnSetLiteral(literal);
-		Set<EprClause> conflictOrUnits = mEprClauseManager.updateClausesOnSetDpllLiteral(literal);
+		final Set<EprClause> conflictOrUnits = mEprClauseManager.updateClausesOnSetDpllLiteral(literal);
 		return mDecideStackManager.resolveConflictOrStoreUnits(conflictOrUnits);
 	}
 
-	public void unsetDpllLiteral(Literal literal) {
+	public void unsetDpllLiteral(final Literal literal) {
 		mDecideStackManager.popOnBacktrackLiteral(literal);
 		mEprClauseManager.updateClausesOnBacktrackDpllLiteral(literal);
 	}
 
 	/**
 	 * Given a substitution and to Term arrays, computes a list of disequalities as follows:
-	 * For every position in the two arrays where the substitution needed an equality for unification, adds 
+	 * For every position in the two arrays where the substitution needed an equality for unification, adds
 	 *    all the set CCEqualities to the result that are needed for establishing that unifying equality.
 	 * @param sub a substitution that unifies terms1 and terms2, possibly with the use of ground equalities
 	 * @param terms1 Term array that is unified with terms2 through sub
 	 * @param terms2 Term array that is unified with terms1 through sub
-	 * @return all the equalities that are currently set through the DPLLEngine 
+	 * @return all the equalities that are currently set through the DPLLEngine
 	 *	         that are needed for the unification of terms1 and terms2
 	 */
 	@Deprecated
-	private ArrayList<Literal> getDisequalityChainsFromSubstitution(TTSubstitution sub, Term[] terms1,
-			Term[] terms2) {
-		ArrayList<Literal> disequalityChain = new ArrayList<Literal>();
+	private ArrayList<Literal> getDisequalityChainsFromSubstitution(final TTSubstitution sub, final Term[] terms1,
+			final Term[] terms2) {
+		final ArrayList<Literal> disequalityChain = new ArrayList<>();
 		for (int i = 0; i < terms1.length; i++) {
-			if (!(terms1[i] instanceof ApplicationTerm ) || !(terms2[i] instanceof ApplicationTerm)) 
+			if (!(terms1[i] instanceof ApplicationTerm ) || !(terms2[i] instanceof ApplicationTerm))
 				continue;
-			ApplicationTerm pointAt = (ApplicationTerm) terms1[i];
-			ApplicationTerm atomAt = (ApplicationTerm)  terms2[i];
-			for (CCEquality cceq : sub.getEqPathForEquality(pointAt, atomAt)) {
+			final ApplicationTerm pointAt = (ApplicationTerm) terms1[i];
+			final ApplicationTerm atomAt = (ApplicationTerm)  terms2[i];
+			for (final CCEquality cceq : sub.getEqPathForEquality(pointAt, atomAt)) {
 				disequalityChain.add(cceq.negate());
 			}
 		}
 		return disequalityChain;
 	}
 
-	public Clause setGroundEquality(CCEquality eq, boolean polarity) {
+	public Clause setGroundEquality(final CCEquality eq, final boolean polarity) {
 		final ApplicationTerm f = (ApplicationTerm) eq.getSMTFormula(mTheory);
 		final ApplicationTerm lhs = (ApplicationTerm) f.getParameters()[0];
 		final ApplicationTerm rhs = (ApplicationTerm) f.getParameters()[1];
@@ -338,27 +341,27 @@ public class EprStateManager {
 		assert rhs.getSort() == sort;
 
 		final EprEqualityPredicate eqPred = mEprTheory.getEqualityEprPredicate(sort);
-		
-		final EprPredicateAtom eqAtom = eqPred.getAtomForTermTuple(new TermTuple(new Term[] { lhs, rhs }), 
-				mTheory, mEprTheory.getClausifier().getStackLevel());
-		
+
+		final EprPredicateAtom eqAtom = eqPred.getAtomForTermTuple(new TermTuple(new Term[] { lhs, rhs }),
+				mTheory, mEprTheory.getClausifier().getStackLevel(), SourceAnnotation.EMPTY_SOURCE_ANNOT);
+
 		return setEprGroundLiteral(polarity ? eqAtom : eqAtom.negate());
 	}
 
-	public void unsetGroundEquality(CCEquality eq, boolean polarity) {
+	public void unsetGroundEquality(final CCEquality eq, final boolean polarity) {
 		final ApplicationTerm f = (ApplicationTerm) eq.getSMTFormula(mTheory);
 		final ApplicationTerm lhs = (ApplicationTerm) f.getParameters()[0];
 		final ApplicationTerm rhs = (ApplicationTerm) f.getParameters()[1];
 		final Sort sort = lhs.getSort();
 		assert rhs.getSort() == sort;
-		
+
 		final EprEqualityPredicate eqPred = mEprTheory.getEqualityEprPredicate(sort);
-		
-		final EprPredicateAtom eqAtom = eqPred.getAtomForTermTuple(new TermTuple(new Term[] { lhs, rhs }), 
-				mTheory, mEprTheory.getClausifier().getStackLevel());
-		
+
+		final EprPredicateAtom eqAtom = eqPred.getAtomForTermTuple(new TermTuple(new Term[] { lhs, rhs }),
+				mTheory, mEprTheory.getClausifier().getStackLevel(), SourceAnnotation.EMPTY_SOURCE_ANNOT);
+
 		unsetEprGroundLiteral(polarity ? eqAtom : eqAtom.negate());
-	
+
 //		mEqualityManager.backtrackEquality(lhs, rhs);
 	}
 
@@ -373,17 +376,17 @@ public class EprStateManager {
 
 	/**
 	 * Register constants that occur in the smt-script for tracking.
-	 * 
+	 *
 	 * @param constants
-	 * 
+	 *
 	 * @return possibly a ground conflict that comes from creating a equality reflexivity clause.
 	 */
-	public Clause addConstants(Set<ApplicationTerm> constants) {
+	public Clause addConstants(final Set<ApplicationTerm> constants) {
 		/*
 		 * First, we filter out all constats that we have added before.
 		 */
-		final Set<ApplicationTerm> reallyNewConstants = new HashSet<ApplicationTerm>();
-		for (ApplicationTerm newConstant : constants) {
+		final Set<ApplicationTerm> reallyNewConstants = new HashSet<>();
+		for (final ApplicationTerm newConstant : constants) {
 			if (mDawgFactory.getAllConstants(newConstant.getSort().getRealSort()) == null // this case may be hit when we come from registerSort()..
 					|| !mDawgFactory.getAllConstants(newConstant.getSort().getRealSort()).contains(newConstant))
 				reallyNewConstants.add(newConstant);
@@ -396,17 +399,17 @@ public class EprStateManager {
 		if (EprTheorySettings.FullInstatiationMode) {
 			addGroundClausesForNewConstant(reallyNewConstants);
 		}
-		
+
 		Clause conflict = null;
 		/*
 		 * for each new constant we have to
-		 *  - announce it to the DawgFactory (some particular Dawg operations, like the iterator, may depend on 
+		 *  - announce it to the DawgFactory (some particular Dawg operations, like the iterator, may depend on
 		 *    the constants, although we try to keep this dependency to a minimum)
 		 *  - check if its sort is already known, if not register it
 		 *  - add an instantiation of the reflexivity axiom for "="
 		 */
-		for (ApplicationTerm constant : reallyNewConstants) {
-			Sort sort = constant.getSort().getRealSort();
+		for (final ApplicationTerm constant : reallyNewConstants) {
+			final Sort sort = constant.getSort().getRealSort();
 			registerSort(sort);
 			mDawgFactory.addConstant(sort, constant);
 			final Clause newConflict = createEqualityReflexivityClauseForConstant(constant);
@@ -415,15 +418,15 @@ public class EprStateManager {
 				conflict = newConflict;
 			}
 		}
-		
+
 		return conflict;
 	}
-	
-	private Clause createEqualityReflexivityClauseForConstant(ApplicationTerm constant) {
+
+	private Clause createEqualityReflexivityClauseForConstant(final ApplicationTerm constant) {
 		final EprEqualityPredicate eqPred = mEprTheory.getEqualityEprPredicate(constant.getSort());
-		
-		final EprPredicateAtom atom = eqPred.getAtomForTermTuple(new TermTuple(new Term[] { constant, constant }), 
-				mTheory, mEprTheory.getClausifier().getStackLevel());
+
+		final EprPredicateAtom atom = eqPred.getAtomForTermTuple(new TermTuple(new Term[] { constant, constant }),
+				mTheory, mEprTheory.getClausifier().getStackLevel(), SourceAnnotation.EMPTY_SOURCE_ANNOT);
 
 		// create the clause { (= constant constant) }
 //		final Clause groundConflict = mEprClauseManager.createEqualityReflexivityEprClause(Collections.singleton((Literal) atom));
@@ -431,7 +434,7 @@ public class EprStateManager {
 		return groundConflict;
 	}
 
-	private void registerSort(Sort sort) {
+	private void registerSort(final Sort sort) {
 		final boolean alreadyPresent = !mKnownSorts.add(sort);
 		if (!alreadyPresent) {
 			this.addConstants(Collections.singleton(createDefaultConstant(sort)));
@@ -439,8 +442,8 @@ public class EprStateManager {
 		assert allKnownSortsAreRealSorts(mKnownSorts);
 	}
 
-	private boolean allKnownSortsAreRealSorts(ScopedHashSet<Sort> knownSorts) {
-		for (Sort ks : knownSorts) {
+	private boolean allKnownSortsAreRealSorts(final ScopedHashSet<Sort> knownSorts) {
+		for (final Sort ks : knownSorts) {
 			if (ks != ks.getRealSort()) {
 				return false;
 			}
@@ -448,31 +451,31 @@ public class EprStateManager {
 		return true;
 	}
 
-	private ApplicationTerm createDefaultConstant(Sort sort) {
+	private ApplicationTerm createDefaultConstant(final Sort sort) {
 		final FunctionSymbol fs = mTheory.declareFunction(
-					"defaultConstant_" + sort.toString(), 
+					"defaultConstant_" + sort.toString(),
 					new Sort[0], sort);
 		final ApplicationTerm defaultTerm = mTheory.term(fs);
 		return defaultTerm;
 	}
 
-	private void addGroundClausesForNewConstant(Set<ApplicationTerm> newConstants) {
-		List<Literal[]> groundings = new ArrayList<Literal[]>();
-		for (EprClause c : mEprClauseManager.getAllClauses())  {
+	private void addGroundClausesForNewConstant(final Set<ApplicationTerm> newConstants) {
+		final List<Literal[]> groundings = new ArrayList<>();
+		for (final EprClause c : mEprClauseManager.getAllClauses())  {
 			assert false : "TODO: restore below code"; // TODO
 //				groundings.addAll(
 //						c.computeAllGroundings(
 //								EprHelpers.getAllInstantiationsForNewConstant(
 //										c.getVariables(),
-//										newConstants, 
+//										newConstants,
 //										this.getAllConstants())));
 		}
 		addGroundClausesToDPLLEngine(groundings);
 	}
 
-	private void addGroundClausesForNewEprClause(EprClause newEprClause) {
+	private void addGroundClausesForNewEprClause(final EprClause newEprClause) {
 		assert false : "TODO: restore below code"; // TODO
-//		List<Literal[]> groundings = 		
+//		List<Literal[]> groundings =
 //						newEprClause.computeAllGroundings(
 //								EprHelpers.getAllInstantiations(
 //										newEprClause.getVariables(),
@@ -480,12 +483,12 @@ public class EprStateManager {
 //		addGroundClausesToDPLLEngine(groundings);
 	}
 
-	private void addGroundClausesToDPLLEngine(List<Literal[]> groundings) {
-			for (Literal[] g : groundings) {
+	private void addGroundClausesToDPLLEngine(final List<Literal[]> groundings) {
+			for (final Literal[] g : groundings) {
 	//			//TODO not totally clear if addFormula is the best way, but addClause(..) has
 	//			//  visibility package right now..
 				mEprTheory.getClausifier().getEngine().addFormulaClause(g, null); // TODO: proof (+ hook?)
-				
+
 				mLogger.debug("EPRDEBUG (EprStateManager): added ground clause " + Arrays.toString(g));
 			}
 		}
@@ -499,7 +502,7 @@ public class EprStateManager {
 //		mEprClauseFactory = clauseFactory;
 //	}
 
-	
+
 
 	/**
 	 * When we have an epr decide stack literal, and an atom who both talk about the same epr predicate,
@@ -511,13 +514,13 @@ public class EprStateManager {
 	 * @param atom
 	 * @return
 	 */
-	public EprClause setGroundAtomIfCoveredByDecideStackLiteral(DecideStackLiteral dsl, EprGroundPredicateAtom atom) {
+	public EprClause setGroundAtomIfCoveredByDecideStackLiteral(final DecideStackLiteral dsl, final EprGroundPredicateAtom atom) {
 		if (! dsl.getDawg().accepts(
 				EprHelpers.convertTermArrayToConstantList(atom.getArguments()))) {
 			// the decide stack literal does not talk about the atom
 			return null;
 		}
-		
+
 //		/*
 //		 * catch the case where we are setting something like !(= c c)
 //		 */
@@ -526,34 +529,34 @@ public class EprStateManager {
 //				return mEprClauseManager.getEqualityReflexivityClause((EprGroundEqualityAtom) atom);
 //			}
 //		}
-		
+
 		if (atom.getDecideStatus() == null) {
 			if (atom instanceof EprGroundEqualityAtom) {
 				// do nothing about this case --> we deal with this internally in the EprTheory..
 				return null;
 			}
-			
+
 			// the atom is undecided in the DPLLEngine
 			// --> propagate or suggest it
-			
+
 			final Literal groundLiteral = dsl.getPolarity() ?	atom : atom.negate();
 			if (mDecideStackManager.isDecisionLevel0()) {
-				DecideStackPropagatedLiteral dspl = (DecideStackPropagatedLiteral) dsl;
-				Clause reasonGroundUnitClause =
+				final DecideStackPropagatedLiteral dspl = (DecideStackPropagatedLiteral) dsl;
+				final Clause reasonGroundUnitClause =
 						dspl.getReasonClauseLit()
 							.getGroundingForGroundLiteral(dspl.getClauseDawg(), groundLiteral);
 				mLogger.debug("EPRDEBUG: EprStateManager.setGroundAtomIfCovered..");
 				mEprTheory.addGroundLiteralToPropagate(
-						groundLiteral, 
+						groundLiteral,
 						reasonGroundUnitClause);
 			} else {
 				// there is at least one decision on the epr decide stack
-				// --> the current dsl's decisions may not be forced by the DPLLEngines decide state 
+				// --> the current dsl's decisions may not be forced by the DPLLEngines decide state
 				// --> suggest to the DPLLEngine to set the literal the same way
 				mEprTheory.addGroundDecisionSuggestion(groundLiteral);
 			}
 
-		} else 	if (atom.getDecideStatus() == null 
+		} else 	if (atom.getDecideStatus() == null
 				|| dsl.mPolarity == (atom.getDecideStatus() == atom)) {
 			// the atom is decided the other way in the DPLLEngine
 			//  --> there is a conflict.. return the conflict clause which is the unit clause responsible for
@@ -567,7 +570,7 @@ public class EprStateManager {
 		return null;
 	}
 
-	public void learnClause(EprClause clauseToLearn) {
+	public void learnClause(final EprClause clauseToLearn) {
 		// TODO: as is, this method seems weird, architecture-wise
 		// the registration has to be done for any epr clause that we add to our formula
 		// --> just ditch this method, use register.. instead??

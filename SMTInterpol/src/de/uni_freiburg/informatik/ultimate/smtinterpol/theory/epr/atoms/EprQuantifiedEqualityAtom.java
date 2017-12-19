@@ -23,29 +23,31 @@ import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprEqualityPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 
 /**
- * 
+ *
  * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
  *
  */
 public class EprQuantifiedEqualityAtom extends EprQuantifiedPredicateAtom {
-	
+
 	private final Term lhs;
 	private final Term rhs;
 	private final boolean bothQuantified;
 
-	public EprQuantifiedEqualityAtom(ApplicationTerm term, int hash, int assertionstacklevel, EprEqualityPredicate equalityPred) {
-		super(term, hash, assertionstacklevel, equalityPred);
+	public EprQuantifiedEqualityAtom(final ApplicationTerm term, final int hash, final int assertionstacklevel,
+			final EprEqualityPredicate equalityPred, final SourceAnnotation source) {
+		super(term, hash, assertionstacklevel, equalityPred, source);
 		assert term.getFunction().getName().equals("=");
 		assert term.getFreeVars().length > 0;
 
 		this.lhs = term.getParameters()[0];
 		this.rhs = term.getParameters()[1];
-		
-		this.bothQuantified = term.getParameters()[0] instanceof TermVariable 
+
+		this.bothQuantified = term.getParameters()[0] instanceof TermVariable
 				&& term.getParameters()[1] instanceof TermVariable ;
 		assert !EprHelpers.containsBooleanTerm(term.getParameters());
 	}
@@ -57,9 +59,9 @@ public class EprQuantifiedEqualityAtom extends EprQuantifiedPredicateAtom {
 	public Term getRhs() {
 		return rhs;
 	}
-	
+
 	/**
-	 * 
+	 *
 	 * @return true iff both sides of the equality are quantified variables
 	 */
 	public boolean areBothQuantified() {
@@ -67,12 +69,12 @@ public class EprQuantifiedEqualityAtom extends EprQuantifiedPredicateAtom {
 	}
 
 	@Override
-	public Term getSMTFormula(Theory smtTheory, boolean quoted) {
-		return mTerm;
+	public Term getSMTFormula(final Theory smtTheory, final boolean quoted) {
+		return getTerm();
 	}
-	
+
 	@Override
 	public String toString() {
-		return mTerm.toString();
+		return getTerm().toString();
 	}
 }
