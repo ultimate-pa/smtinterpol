@@ -105,8 +105,6 @@ public interface ProofConstants {
 	public final static Annotation AUX_TO_INT_HIGH       = new Annotation(":toIntHigh", null);
 	public final static Annotation AUX_ARRAY_STORE       = new Annotation(":store", null);
 	public final static Annotation AUX_ARRAY_DIFF        = new Annotation(":diff", null);
-	public final static Annotation AUX_FORALL            = new Annotation(":forall", null);
-	public final static Annotation AUX_EXISTS            = new Annotation(":exists", null);
 
 	//// ==== Structural splitting constants ====
 	public final static Annotation SPLIT_NEG_OR    = new Annotation(":notOr", null);
