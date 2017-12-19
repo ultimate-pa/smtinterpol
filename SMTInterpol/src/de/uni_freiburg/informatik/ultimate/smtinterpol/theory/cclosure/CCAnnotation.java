@@ -29,38 +29,33 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.Congruenc
 
 /**
  * Annotations for congruence-closure theory lemmata.
- * 
- * A theory lemma is annotated with a set of paths and literals on these path.
- * A special role plays the diseq literal, which is the only positive literal
- * in the clause.  In the negated clause this is the disequality that is in
- * conflict with the other equalities.
- * 
- * The main path (index 0) starts and ends with one side of the diseq literal.
- * Every step must either be explained by a literal from the clause 
- * (litsOnPaths != null), or by a congruence, i.e., there are two paths
- * explaining the equality of func and arg terms.  Trivial paths for equal func
- * or arg terms are omitted.
- *   
+ *
+ * A theory lemma is annotated with a set of paths and literals on these path. A special role plays the diseq literal,
+ * which is the only positive literal in the clause. In the negated clause this is the disequality that is in conflict
+ * with the other equalities.
+ *
+ * The main path (index 0) starts and ends with one side of the diseq literal. Every step must either be explained by a
+ * literal from the clause (litsOnPaths != null), or by a congruence, i.e., there are two paths explaining the equality
+ * of func and arg terms. Trivial paths for equal func or arg terms are omitted.
+ *
  * @author hoenicke
  *
  */
 public class CCAnnotation implements IAnnotation {
-	
-	/**
-	 * The disequality of the theory lemma.  This is the only positive atom 
-	 * in the generated theory clause.  If this is null, then the first and
-	 * last element in the main paths are distinct terms.
-	 */
-	CCEquality     mDiseq;
 
 	/**
-	 * A sequence of paths.  The main path with index 0 must always exist 
-	 * and explain the diseq.  The other paths must be in such an order
-	 * that later paths explain congruences on earlier.
+	 * The disequality of the theory lemma. This is the only positive atom in the generated theory clause. If this is
+	 * null, then the first and last element in the main paths are distinct terms.
 	 */
-	CCTerm[][]     mPaths;
+	CCEquality mDiseq;
 
-	public CCAnnotation(CCEquality diseq, Collection<SubPath> paths) {
+	/**
+	 * A sequence of paths. The main path with index 0 must always exist and explain the diseq. The other paths must be
+	 * in such an order that later paths explain congruences on earlier.
+	 */
+	CCTerm[][] mPaths;
+
+	public CCAnnotation(final CCEquality diseq, final Collection<SubPath> paths) {
 		super();
 		mDiseq = diseq;
 		mPaths = new CCTerm[paths.size()][];
@@ -82,6 +77,7 @@ public class CCAnnotation implements IAnnotation {
 				sb.append(comma).append(term);
 				comma = " ";
 			}
+			sb.append(')');
 		}
 		sb.append(')');
 		return sb.toString();
@@ -96,13 +92,13 @@ public class CCAnnotation implements IAnnotation {
 	}
 
 	@Override
-	public Term toTerm(Clause cls, Theory theory) {
+	public Term toTerm(final Clause cls, final Theory theory) {
 		final Term base = cls.toTerm(theory);
-		final Object[] subannots =
-				new Object[2 * mPaths.length + (mDiseq == null ? 0 : 1)];
+		final Object[] subannots = new Object[2 * mPaths.length + (mDiseq == null ? 0 : 1)];
 		int i = 0;
 		if (mDiseq != null) {
-			subannots [i++] = mDiseq.getSMTFormula(theory);
+			final Annotation[] quote = new Annotation[] { new Annotation(":quotedCC", null) };
+			subannots[i++] = theory.annotatedTerm(quote, mDiseq.getSMTFormula(theory));
 		}
 		for (final CCTerm[] subpath : mPaths) {
 			final Term[] subs = new Term[subpath.length];
@@ -112,9 +108,7 @@ public class CCAnnotation implements IAnnotation {
 			subannots[i++] = ":subpath";
 			subannots[i++] = subs;
 		}
-		final Annotation[] annots = new Annotation[] {
-			new Annotation(":CC", subannots)
-		};
+		final Annotation[] annots = new Annotation[] { new Annotation(":CC", subannots) };
 		return theory.term("@lemma", theory.annotatedTerm(annots, base));
 	}
 }

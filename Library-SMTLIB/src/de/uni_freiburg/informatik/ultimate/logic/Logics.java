@@ -33,9 +33,10 @@ public enum Logics {
 	QF_RDL    (Features.DL + Features.RA),
 	QF_LIA    (Features.LA + Features.IA),
 	QF_LRA    (Features.LA + Features.RA),
-	QF_LIRA   (Features.LA + Features.RA + Features.IA),
+	QF_LIRA   (Features.LA + Features.RA + Features.IA), 
 	QF_NIA    (Features.NA + Features.IA),
 	QF_NRA    (Features.NA + Features.RA),
+	QF_NIRA   (Features.NA + Features.RA + Features.IA),
 	QF_UF     (Features.UF),
 	QF_UFBV   (Features.UF + Features.BV),
 	QF_UFIDL  (Features.UF + Features.DL + Features.IA),
@@ -64,6 +65,7 @@ public enum Logics {
 	UFLIA     (Features.QU + Features.UF + Features.LA + Features.IA),
 	UFLRA     (Features.QU + Features.LA + Features.RA),
 	UFNIA     (Features.QU + Features.NA + Features.IA),
+	AUFBV     (Features.QU + Features.AX + Features.UF + Features.BV),
 	ALIA      (Features.QU + Features.AX + Features.LA + Features.IA),
 	AUFLIA    (Features.QU + Features.AX + Features.UF + Features.LA + Features.IA), //NOCHECKSTYLE
 	AUFLIRA   (Features.QU + Features.AX + Features.UF + Features.LA + Features.IA + Features.RA), //NOCHECKSTYLE
@@ -96,7 +98,7 @@ public enum Logics {
 	
 	private final int mFeatures;
 	
-	private Logics(int features) {
+	private Logics(final int features) {
 		mFeatures = features;
 	}
 

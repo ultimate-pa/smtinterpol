@@ -21,8 +21,8 @@
 \newcommand\quoted[1]{\ulcorner #1 \urcorner}
 
 \title{Proposal: Proof System for \siv}
-\author{J{\"u}rgen Christ}
-\date{2013/10/24}
+\author{J{\"u}rgen Christ \and Jochen Hoenicke}
+\date{2017/09/27}
 \begin{document}
 \maketitle
 \section{Motivation}
@@ -44,12 +44,40 @@ memory overhead.  Main design goals of the new system are easy integration
 into \si and the possibility to reconstruct the proof in another verification
 system, e.\,g., Isabelle.
 
+\section{Basic Proof Rules}
+
+On a high level \si uses the following proof rules plus four proof rules
+that just introduce tautological formulas:
+\textsc{lemma},\textsc{tautology},\textsc{asserted},\textsc{assumption}.
+
+
+\[
+\inferrule*[left=res]{C_1 \lor \ell \\ C_2 \lor \lnot \ell}{C_1 \lor C_2}\qquad
+\inferrule*[left=eq]{t_1 \\ t_1 = t_2}{t_2}\qquad
+\inferrule*[left=exists]{F = G}{\exists x F = \exists x G}
+\]
+\[
+\inferrule*[left=trans]{t_1 = t_2 \\ t_2 = t_3}{t_1 = t_3}\qquad
+\inferrule*[left=cong]{t = f(\dots t_i \dots) \\ t_i = t'_i}{t = f(\dots t'_i \dots)}\qquad
+\inferrule*[left=refl]{}{t = t}
+\]
+\[
+\inferrule*[left=split,right={where $F$ implies $G$}]{F}{G}\qquad
+\inferrule*[left=rewrite,right={where $t_1 = t_2$ is a tautology}]{}{t_1 = t_2}
+\]
+
 \section{Partial Proof System}
-The partial proof system consists of only three rules: assertions given from
-the user, theory lemmas, and resolution steps are represented by different
-rules.  Proofs reported by \si are not really proofs of the inconsistency of
-the input formulas, but of the inconsistency of the CNF created by \si from
-the these formulas.
+
+The basic outline of the proof is a resolution proof of the empty
+clause from the input formulas.  The input formulas are converted into
+a set of clauses.  A second category are clauses generated from theory
+lemmas during thesolving process.
+
+The partial proof system consists of only three rules: assertions
+created from input formulas, theory lemmas, and resolution steps are
+represented by different rules.  Proofs reported by \si are not really
+proofs of the inconsistency of the input formulas, but of the
+inconsistency of the CNF created by \si from the these formulas.
 
 Since the proofs in \si were originally only constructed to produce
 interpolants, the proofs were cut at the CNF-level since interpolants for
@@ -61,7 +89,7 @@ performance penalties on these techniques.  If, however, a user wants to
 retrieve a complete proof, the conversion of the original formula into CNF
 should be tracked.
 
-\section{Missing Feature in the Partial Proof System}
+\section{Tracking Input Formulas}
 Next, we present a list of different steps performed by the solver that are
 not part of current proofs.  To get a complete proof, additional
 rules explaining these steps have to be added.
@@ -117,13 +145,14 @@ from the formula.  While annotations do not influence the semantics of a term,
 a rule might be needed to justify the equivalence of the annotated term and
 its sub-term.
 
-\paragraph{IRA-Hack.}  The SMTLIB standard defines that in mixed integer
-logics, applications of a binary function symbol expecting two reals can also
-be called with one real and one integer.  Implicitly, the second integer
-argument is converted to real.  \si inserts the \verb+to_real+ function for
-such arguments.  Since this is a modification of the original input formula, a
-proof rule should justify this modification.  Note that this rule essentially
-just clarifies the interpretation of the original term.
+\paragraph{Automatic integer to real conversion.}  The SMTLIB standard
+defines that in mixed integer logics, applications of a binary
+function symbol expecting two reals can also be called with one real
+and one integer.  Implicitly, the second integer argument is converted
+to real.  \si inserts the \verb+to_real+ function for such arguments.
+Since this is a modification of the original input formula, a proof
+rule should justify this modification.  Note that this rule
+essentially just clarifies the interpretation of the original term.
 
 \paragraph{Divisibility rewrite.}  SMTLIB contains the divisible-predicate.
 This predicate is parameterized by a positive integer and should evaluate to
@@ -150,23 +179,50 @@ clauses, and literals.
 
 \subsection{Formula Transformation and Simplification}
 
-\paragraph{Equality folding.}  This proof rule takes a term\footnote{We treat
-  formulas as Boolean terms.} and an equality and produces a new term where
-some occurrences of the left hand side of the equality are replaced by the
-right hand side.
+\paragraph{Equality folding.}  This proof rule takes a Boolean term\footnote{We treat
+  formulas as Boolean terms.} and an equality and produces a new term
+where some occurrences of the left hand side of the equality are
+replaced by the right hand side.
 \[
-\inferrule*[left=eq]{t[t_1] \\ t_1=t_1'}
-{t[t_1']}
+\inferrule*[left=eq]{t_1 \\ t_1=t_2}{t_2}
 \]
 
-In \si, this rule is left-associative to compress the proof tree as much as
-possible.  Furthermore, when \si applies this rule, it rewrites \emph{all}
-occurrences of $t_1$ into $t_1'$.  Applications of this rule are compressed
-into
+The eq rule is represented in SMTLIB as a function
+\begin{verbatim}
+(declare-fun @eq (@Proof @Proof) @Proof)
+\end{verbatim}
+This function takes a proof for $t_1$ and a proof for $t_1=t_2$ and
+returns a proof for $t_2$.  The proved term $t_2$ is not provided but
+can be easily computed by following the proof.
+
+\paragraph{Lifting equalities.}  To rewrite only parts of a formula
+\si uses the \textsc{congruence} and \textsc{exists} rule to lift
+equalities from subterms.  Since all logical connectives in SMT-LIB
+with the exception of quantifiers are Boolean functions, the
+congruence rule can also be used for them.  Further there is the
+transitivity rule to combine rewrites.  Finally the
+
 \[
-\inferrule*{t[t_1,\ldots,t_n] \\ t_1 = t_1' \\ \ldots \\ t_n = t_n'}
-           {t[t_1',\ldots,t_n']}
+\inferrule*[left=trans]{t_1 = t_2 \\ t_2 = t_3}{t_1 = t_3}\qquad
+\inferrule*[left=cong]{t = f(\dots t_i \dots) \\ t_i = t'_i}{t = f(\dots t'_i \dots)}\qquad
+\inferrule*[left=exists]{F = G}{\exists x F = \exists x G}
 \]
+
+These rules are represented in SMTLIB as functions
+\begin{verbatim}
+:funs ((@trans @Proof @Proof @Proof :left-assoc)
+       (@cong  @Proof @Proof @Proof :left-assoc)  ; left-assoc
+       (@exists @Proof @Proof)
+       (par (A) @refl A @Proof))
+\end{verbatim}
+
+This function \verb+@refl+ takes as argument a term $t$ and returns a
+proof for $t=t$.  The functions \verb+@trans+ and \verb+@cong+ take as
+arguments two proofs for the terms as specified in the rules above and
+return a proof for the resulting goal, which can easily be computed.
+The function \verb+@exists+ takes a proof for $F=G$ annotated with the
+list of term variables \verb+((Sort x_1) ... (Sort x_n))+.  It returns
+the proof for the exists equality.
 
 \paragraph{Expanding definitions.}  A proof rule that justifies the expansion
 of a defined function.  Let $n(\overline{t})$ be the application of
@@ -226,7 +282,7 @@ Equality simplification is split into several rules to ease proof validation.
   \inferrule*[left=ConstDiff,right={$\exists j,k\in I.\ t_j=c_j \land
       t_k=c_k\land c_j\neq c_k$}]{ } {(=_{i\in I}\ t_i) = false}\\
   \inferrule*[left=EqTrue,right={$\exists j\in I.\ t_j=true\land I'\subset
-      I\land j\not\in I'$}]{ } {(=_{i\in I}\ t_i) = (and_{i'\in I'}\ t_{i'})}\\
+      I\land j\not\in I'$}]{ } {(=_{i\in I}\ t_i) = (not\ (and_{i'\in I'}\ (not\ t_{i'})))}\\
   \inferrule*[left=EqFalse,right={$\exists j\in I.\ t_j=false\land I'\subset
       I\land j\not\in I'$}]{ } {(=_{i\in I}\ t_i) = (not\ (or_{i'\in I'}\
     t_{i'}))}\\
@@ -959,22 +1015,19 @@ the complete proof here.  Instead, we show the part of the proof that
 corresponds to the previous steps.
 \begin{verbatim}
 (@eq
-   (@eq
-    (@split
-     (! 
-      (@eq
-       (@asserted (and (= (* 2 x) z) (= (+ (* 2 y) 1) z)))
-       (@rewrite (! (= (and (= (* 2 x) z) (= (+ (* 2 y) 1) z))
-           (not (or (not (= (* 2 x) z)) (not (= (+ (* 2 y) 1) z)))))
-         :andToOr))
-       )
-     :notOr)
-     (not (not (= (* 2 x) z)))
-     )
+  (@split
+    (! 
+     (@eq
+      (@asserted (and (= (* 2 x) z) (= (+ (* 2 y) 1) z)))
+      (@rewrite (! (= (and (= (* 2 x) z) (= (+ (* 2 y) 1) z))
+          (not (or (not (= (* 2 x) z)) (not (= (+ (* 2 y) 1) z)))))
+        :andToOr))
+      ) :notOr)
+    (not (not (= (* 2 x) z)))
+  )
+  (@trans
     (@rewrite (! (= (not (not (= (* 2 x) z))) (= (* 2 x) z)) :notSimp))
-    )
-   (@intern (= (= (* 2 x) z) (! (= (+ z (* (- 2) x)) 0) :quoted)))
-   )
+    (@intern (= (= (* 2 x) z) (! (= (+ z (* (- 2) x)) 0) :quoted)))))
 \end{verbatim}
 
 For a proof containing the rule \verb:flatten: and the \verb:@clause: function

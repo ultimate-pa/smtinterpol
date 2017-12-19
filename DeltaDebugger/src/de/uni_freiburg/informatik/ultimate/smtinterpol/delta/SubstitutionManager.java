@@ -18,35 +18,34 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.delta;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 
 public class SubstitutionManager {
-	
+
 	private int mDepth = -1;
 	private List<Substitution> mSubsts;
-	
+
 	private final AbstractOneTermCmd mCmd;
 	private final boolean mUnletRelet;
 
-	public SubstitutionManager(AbstractOneTermCmd cmd, boolean unletRelet) {
+	public SubstitutionManager(final AbstractOneTermCmd cmd, final boolean unletRelet) {
 		mCmd = cmd;
 		mUnletRelet = unletRelet;
 	}
-	
+
 	public boolean deepen() {
 		++mDepth;
 		return computeSubsts();
 	}
-	
+
 	/**
 	 * Notification of a test failure.  Steps all substitutions one step further
 	 * and, hence, misses some of the potentially exponentially many
@@ -57,8 +56,8 @@ public class SubstitutionManager {
 		stepSubsts();
 		return !mSubsts.isEmpty();
 	}
-	
-	private Substitution getSubstition(Term t) {
+
+	private Substitution getSubstition(final Term t) {
 		if (t instanceof AnnotatedTerm) {
 			final AnnotatedTerm at = (AnnotatedTerm) t;
 			for (final Annotation a : at.getAnnotations()) {
@@ -73,9 +72,7 @@ public class SubstitutionManager {
 			// Try to replace by true
 			return new ReplaceByTerm(t, t.getTheory().mTrue, true);
 		} else if (t.getSort().isNumericSort()) {
-			return new ReplaceByTerm(t, t.getSort().getName().equals("Int")
-					? t.getTheory().numeral(BigInteger.ZERO)
-						: t.getTheory().decimal(BigDecimal.ZERO), true);
+			return new ReplaceByTerm(t, Rational.ZERO.toTerm(t.getSort()), true);
 		} else if (t instanceof ApplicationTerm) {
 			// I guess this is always the case...
 			final ApplicationTerm at = (ApplicationTerm) t;
@@ -90,8 +87,8 @@ public class SubstitutionManager {
 		// Cannot replace TermVariables or ConstantTerms
 		return null;
 	}
-	
-	private Substitution getNextSubstitution(Substitution subst) {
+
+	private Substitution getNextSubstitution(final Substitution subst) {
 		final Term t = subst.getMatch();
 		if (subst instanceof ReplaceByFreshTerm) {
 			final ApplicationTerm at = (ApplicationTerm) t;
@@ -139,7 +136,7 @@ public class SubstitutionManager {
 		}
 		return null;
 	}
-	
+
 	private boolean computeSubsts() {
 		final TermCollector tc = new TermCollector(mDepth);
 		tc.add(mCmd.getTerm(mUnletRelet));
@@ -153,7 +150,7 @@ public class SubstitutionManager {
 		}
 		return !found.isEmpty();
 	}
-	
+
 	private void stepSubsts() {
 		final List<Substitution> old = mSubsts;
 		mSubsts = new ArrayList<Substitution>(old.size());
@@ -174,7 +171,7 @@ public class SubstitutionManager {
 			}
 		}
 	}
-	
+
 	public List<Substitution> getSubstitutions() {
 		return mSubsts;
 	}
@@ -182,5 +179,5 @@ public class SubstitutionManager {
 	public int getDepth() {
 		return mDepth;
 	}
-	
+
 }

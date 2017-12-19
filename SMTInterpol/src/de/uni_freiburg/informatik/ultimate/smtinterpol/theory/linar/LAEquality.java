@@ -18,30 +18,29 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar;
 
-import java.math.BigInteger;
 import java.util.ArrayList;
 
+import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.NamedAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
 import de.uni_freiburg.informatik.ultimate.util.HashUtils;
 
-
 public class LAEquality extends DPLLAtom {
+	public final static Annotation[] QUOTED_LA = new Annotation[] { new Annotation(":quotedLA", null) };
 	private final LinVar mVar;
 	private final Rational mBound;
 	private final ArrayList<CCEquality> mDependentEqualities;
-	
-	public LAEquality(int stackLevel, LinVar var, Rational bound) {
+
+	public LAEquality(final int stackLevel, final LinVar var, final Rational bound) {
 		super(HashUtils.hashJenkins(~var.hashCode(), bound), stackLevel);
 		mVar = var;
 		mBound = bound;
-		mDependentEqualities = new ArrayList<CCEquality>();
+		mDependentEqualities = new ArrayList<>();
 	}
 
 	public Rational getBound() {
@@ -51,7 +50,7 @@ public class LAEquality extends DPLLAtom {
 	public LinVar getVar() {
 		return mVar;
 	}
-	
+
 	@Override
 	public String toStringNegated() {
 		return "[" + hashCode() + "]" + mVar + " != " + mBound;
@@ -61,38 +60,34 @@ public class LAEquality extends DPLLAtom {
 	public String toString() {
 		return "[" + hashCode() + "]" + mVar + " == " + mBound;
 	}
-	
+
 	@Override
-	public Term getSMTFormula(Theory smtTheory, boolean quoted) {
+	public Term getSMTFormula(final Theory smtTheory, final boolean quoted) {
 		final MutableAffinTerm at = new MutableAffinTerm();
 		at.add(Rational.ONE, mVar);
 		at.add(mBound.negate());
 		final boolean isInt = mVar.mIsInt && mBound.isIntegral();
 		final Sort s = smtTheory.getSort(isInt ? "Int" : "Real");
-		final Sort[] binfunc = {s,s};
-		final FunctionSymbol comp =  
-				smtTheory.getFunction("=", binfunc);
-		final Term res = smtTheory.term(comp,
-				at.toSMTLib(smtTheory, isInt, quoted),
-				isInt ? smtTheory.numeral(BigInteger.ZERO)
-					: smtTheory.rational(BigInteger.ZERO,BigInteger.ONE));
-		return quoted ? smtTheory.annotatedTerm(NamedAtom.QUOTED, res) : res;
+		final Sort[] binfunc = { s, s };
+		final FunctionSymbol comp = smtTheory.getFunction("=", binfunc);
+		final Term res = smtTheory.term(comp, at.toSMTLib(smtTheory, isInt, quoted), Rational.ZERO.toTerm(s));
+		return quoted ? smtTheory.annotatedTerm(QUOTED_LA, res) : res;
 	}
 
-	public void addDependentAtom(CCEquality eq) {
+	public void addDependentAtom(final CCEquality eq) {
 		mDependentEqualities.add(eq);
 	}
-	
-	public void removeDependentAtom(CCEquality eq) {
+
+	public void removeDependentAtom(final CCEquality eq) {
 		mDependentEqualities.remove(eq);
 	}
-	
+
 	public Iterable<CCEquality> getDependentEqualities() {
 		return mDependentEqualities;
 	}
-	
+
 	@Override
-	public boolean equals(Object other) { // NOCHECKSTYLE
+	public boolean equals(final Object other) { // NOCHECKSTYLE
 		if (other instanceof LAEquality) {
 			final LAEquality o = (LAEquality) other;
 			return o.mVar == mVar && o.mBound.equals(mBound);
