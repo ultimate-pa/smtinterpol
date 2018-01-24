@@ -864,7 +864,7 @@ public class Interpolator extends NonRecursive {
 							iat.negate();
 						}
 						final Term sharedTerm = iat.toSMTLib(mTheory, isInt);
-						final Term divisor = mixedFactor.toTerm(mixed.getSort());
+						final Term divisor = mixedFactor.abs().toTerm(mixed.getSort());
 						// We need to divide sharedTerm by mixedFactor and check that it doesn't produce a remainder.
 						//
 						// Interpolant is: (and (= mixed (div sharedTerm mixedFactor))
