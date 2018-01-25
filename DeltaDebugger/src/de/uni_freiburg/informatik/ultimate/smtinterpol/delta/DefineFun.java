@@ -27,13 +27,13 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 
 public class DefineFun extends AbstractOneTermCmd {
-	
+
 	private final String mFun;
 	private final TermVariable[] mParams;
 	private final Sort mResultSort;
-	
-	public DefineFun(String fun, TermVariable[] params, Sort resultSort,
-			Term definition) {
+
+	public DefineFun(final String fun, final TermVariable[] params, final Sort resultSort,
+			final Term definition) {
 		super(definition);
 		mFun = fun;
 		mParams = params;
@@ -41,14 +41,14 @@ public class DefineFun extends AbstractOneTermCmd {
 	}
 
 	@Override
-	public void dump(PrintWriter writer) {
+	public void dump(final PrintWriter writer) {
 		super.dump(writer);
 		writer.print("(define-fun ");
 		writer.print(mFun);
 		writer.print(" (");
 		for (final TermVariable tv : mParams) {
 			writer.print('(');
-			writer.print(tv.getName());
+			writer.print(PrintTerm.quoteIdentifier(tv.getName()));
 			writer.print(' ');
 			writer.print(tv.getSort());
 			writer.print(')');
@@ -61,10 +61,10 @@ public class DefineFun extends AbstractOneTermCmd {
 	}
 
 	@Override
-	public void insertDefinitions(Map<String, Cmd> context) {
+	public void insertDefinitions(final Map<String, Cmd> context) {
 		context.put(mFun, this);
 	}
-	
+
 	@Override
 	public String toString() {
 		return "DEFINE_FUN " + mFun;
@@ -74,5 +74,5 @@ public class DefineFun extends AbstractOneTermCmd {
 	public boolean hasDefinitions() {
 		return true;
 	}
-	
+
 }
