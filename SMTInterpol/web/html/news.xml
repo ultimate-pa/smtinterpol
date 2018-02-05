@@ -9,6 +9,15 @@
 <page id="news">
   <name>News</name>
   <content>
+    <head1>New release 2.5</head1>
+    <txt>We released version 2.5 of <s />.
+    This release has full support for the quantifier free fragment for
+    arrays.  Although this theory have been supported in the solver for a
+    while, the new release also supports generation of interpolants for
+    this theory.
+    We also updated the parser to support SMTLIB version 2.5.
+    </txt>
+
     <head1><s /> at SMTCOMP 2014</head1>
     <txt>We participated in the SMTCOMP 2014 which was part of the Vienna Summer of Logic Olympic Games.  The primary new feature was our array solver which performed really good.  We were awarded with the  G&ouml;del medal for the second place according to the multi-division error-free scoring.  Furthermore, David Cok - the lead organizer of the competition - awarded us with a beautiful "big A" also known as a universal quantifier when put in correct position.  We thank all the supporters that helped to improve <s /> and, of course, the organizers of the competition and the VSL olympic games for these nice awards.<br /><img src="floc2014.jpg" alt="Awards for SMTInterpol during VSL 2014" /><img src="goedel.jpg" alt="The goedel medal" /></txt>
 

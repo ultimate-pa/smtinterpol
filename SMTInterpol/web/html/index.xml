@@ -35,17 +35,20 @@
 
     <head1>Team</head1>
     <txt><s /> is developed by <link
-    url="http://swt.informatik.uni-freiburg.de/staff/christ">J&uuml;rgen
-    Christ</link>, <link
     url="http://swt.informatik.uni-freiburg.de/staff/hoenicke">Jochen
-    Hoenicke</link>, <link
-    url="http://swt.informatik.uni-freiburg.de/staff/nutz">Alexander
-    Nutz</link>, and <link
+    Hoenicke</link> and <link
     url="http://swt.informatik.uni-freiburg.de/staff/schindler">Tanja
-    Schindler</link> in the context of the <link
-    url="http://www.avacs.org">AVACS (Automatic Verification and Analysis of
-    Complex Systems)</link> project.  If you have any questions, suggestions,
-    or if you want to contribute, feel free to contact us.</txt>
+    Schindler</link> in the context of the SIGSMCAP
+    (SMT-based Interpolant Generation
+    for Software ModelChecking of Array Programs) project and
+    Alexander Nutz.
+    If you have any questions, suggestions,
+    or if you want to contribute, feel free to contact us.
+    Previous contributors include
+    J&uuml;rgen Christ.</txt>
+
+    <head1>Bug Reports</head1>
+    <txt>Please use our <link url="https://github.com/ultimate-pa/smtinterpol/issues">github page</link> to report bugs.</txt>
 
     <head1>License</head1>
     <txt><s /> is distributed under LGPL Version 3.</txt>
@@ -54,13 +57,5 @@
     <txt><s /> participates regularly in the <link
     url="http://smtcomp.sourceforge.net">SMT-COMP</link>. See this page or
     the news page for further details.</txt>
-
-    <head1>Further Development</head1>
-    <txt>We plan to extend <s /> to reason
-    about arrays and quantifiers.  Interpolation procedures for these
-    logics will be the next big challenge.  Additionally, we try to add
-    more flexibility to our interpolation engine to enable model checkers
-    to easily adjust the interpolation procedure
-    of <s /> to their needs.</txt>
   </content>
 </page>
