@@ -20,7 +20,7 @@
     and can be used on any operating system that supports Java Version
     6 or above.</txt>
     <txt>The solver reads input in <link url="http://smtlib.org">SMTLIB
-    Version 2</link> format.</txt>
+    Version 2.5</link> format.</txt>
 
     <head1>Status</head1>
     <txt>The current version of <s /> supports interpolation for the
@@ -40,7 +40,7 @@
     url="http://swt.informatik.uni-freiburg.de/staff/schindler">Tanja
     Schindler</link> in the context of the SIGSMCAP
     (SMT-based Interpolant Generation
-    for Software ModelChecking of Array Programs) project and
+    for Software ModelChecking of Array Programs) project, and by
     Alexander Nutz.
     If you have any questions, suggestions,
     or if you want to contribute, feel free to contact us.
