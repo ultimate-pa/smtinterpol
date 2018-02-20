@@ -1046,8 +1046,7 @@ public class Clausifier {
 				}
 			}
 			if (t instanceof SMTAffineTerm) {
-				getLASolver().generateSharedVar(res, createMutableAffinTerm((SMTAffineTerm) t, source),
-						getStackLevel());
+				getLASolver().generateSharedVar(res, createMutableAffinTerm((SMTAffineTerm) t, source));
 				addUnshareLA(res);
 			}
 		}
@@ -1749,7 +1748,7 @@ public class Clausifier {
 		if (lit == null) {
 			final SMTAffineTerm sum = SMTAffineTerm.create(leq0term.getParameters()[0]);
 			final MutableAffinTerm msum = createMutableAffinTerm(sum, source);
-			lit = mLASolver.generateConstraint(msum, false, mStackLevel);
+			lit = mLASolver.generateConstraint(msum, false);
 			mLiteralData.put(leq0term, lit);
 			mUndoTrail = new RemoveAtom(mUndoTrail, leq0term);
 		}
