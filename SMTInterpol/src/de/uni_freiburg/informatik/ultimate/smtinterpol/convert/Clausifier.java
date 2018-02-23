@@ -1624,7 +1624,7 @@ public class Clausifier {
 		} finally {
 			mCompiler.reset();
 		}
-		simpFormula = SMTAffineTerm.cleanup(simpFormula); // TODO Is this a good place to do this?
+		simpFormula = SMTAffineTerm.cleanup(simpFormula);
 		simpFormula = mTracker.getRewriteProof(mTracker.asserted(origFormula), simpFormula);
 		origFormula = null;
 
@@ -1791,7 +1791,7 @@ public class Clausifier {
 		} finally {
 			mCompiler.reset();
 		}
-		tmp2 = SMTAffineTerm.cleanup(tmp2); // TODO Is this a good place for this?
+		tmp2 = SMTAffineTerm.cleanup(tmp2);
 		tmp = null;
 		mOccCounter.count(tmp2);
 

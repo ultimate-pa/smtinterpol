@@ -24,6 +24,7 @@ import java.util.ArrayDeque;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
@@ -75,7 +76,7 @@ public final class SMTAffineTerm extends Term {
 		if (term instanceof ApplicationTerm) {
 			final Sort sort = term.getSort();
 			ApplicationTerm appTerm = (ApplicationTerm) term;
-			Map<Term, Rational> summands = new HashMap<Term, Rational>();
+			Map<Term, Rational> summands = new LinkedHashMap<Term, Rational>();
 			Rational constant = Rational.ZERO;
 			Term[] subterms;
 			if (appTerm.getFunction().getName().equals("+")) {
@@ -87,9 +88,8 @@ public final class SMTAffineTerm extends Term {
 				Rational factor = Rational.ONE;
 				if (subterm instanceof ApplicationTerm && ((ApplicationTerm) subterm).getFunction().getName() == "*") {
 					final Term[] params = ((ApplicationTerm) subterm).getParameters();
-					final SMTAffineTerm constFactor = SMTAffineTerm.create(params[0]);
-					assert (constFactor.isConstant());
-					factor = constFactor.getConstant();
+					assert params.length == 2;
+					factor = convertConstant((ConstantTerm) params[0]);
 					subterm = params[1];
 				}
 				if (subterm instanceof ApplicationTerm && ((ApplicationTerm) subterm).getFunction().getName() == "-"
@@ -102,11 +102,10 @@ public final class SMTAffineTerm extends Term {
 					subterm = ((ApplicationTerm) subterm).getParameters()[0];
 				}
 				if (subterm instanceof ConstantTerm) {
-					constant = constant.add(convertConstant((ConstantTerm) subterm));
+					assert factor == Rational.ONE && constant == Rational.ZERO;
+					constant = convertConstant((ConstantTerm) subterm);
 				} else {
-					if (summands.containsKey(subterm)) { // TODO Can this happen?
-						factor.mul(summands.get(subterm));
-					}
+					assert !(summands.containsKey(subterm));
 					summands.put(subterm, factor);
 				}
 			}
