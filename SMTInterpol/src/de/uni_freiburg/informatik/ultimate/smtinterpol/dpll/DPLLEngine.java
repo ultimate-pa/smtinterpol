@@ -623,7 +623,7 @@ public class DPLLEngine {
 		mAtomScale *= Config.ATOM_ACTIVITY_FACTOR;
 		mClsScale *= Config.CLS_ACTIVITY_FACTOR;
 		final Set<Literal> conflict = new CuckooHashSet<Literal>();
-		int maxDecideLevel = 1;
+		int maxDecideLevel = mBaseLevel + 1;
 		int numLitsOnMaxDecideLevel = 0;
 		int numAssumptions = 0;
 		for (final Literal lit : clause.mLiterals) {
@@ -656,6 +656,15 @@ public class DPLLEngine {
 			/*
 			 * Unsatisfiable
 			 */
+			/* add assumptions from level0 antecedents */
+			for (final Literal lit0 : level0Ants) {
+				final Clause c = getLevel0(lit0);
+				for (final Literal assumptionLit : c.mLiterals) {
+					if (assumptionLit != lit0) {
+						conflict.add(assumptionLit.negate());
+					}
+				}
+			}
 			final Literal[] newlits = new Literal[conflict.size()];
 			int i = 0;
 			for (final Literal l : conflict) {
@@ -793,8 +802,10 @@ public class DPLLEngine {
 					if (l != lit) {
 						assert l.getAtom().mDecideStatus == l.negate();
 						final int level = l.getAtom().mDecideLevel;
-						if (l.getAtom().isAssumption() && conflict.add(l.negate())) {
-							++numAssumptions;
+						if (l.getAtom().isAssumption()) {
+							if (conflict.add(l.negate())) {
+								++numAssumptions;
+							}
 						} else if (level > mBaseLevel) {
 							conflict.add(l.negate());
 						} else {
@@ -814,7 +825,7 @@ public class DPLLEngine {
 			final Clause c = getLevel0(lit0);
 			for (final Literal assumptionLit : c.mLiterals) {
 				if (assumptionLit != lit0) {
-					conflict.add(assumptionLit);
+					conflict.add(assumptionLit.negate());
 				}
 			}
 		}
