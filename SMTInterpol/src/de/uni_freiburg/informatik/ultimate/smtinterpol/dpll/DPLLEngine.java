@@ -1922,9 +1922,9 @@ public class DPLLEngine {
 				finalizeBacktrack();
 				return false;
 			}
+			mLogger.debug("Setting base level to %d", mCurrentDecideLevel);
+			mBaseLevel = mCurrentDecideLevel;
 		}
-		mLogger.debug("Setting base level to %d", mCurrentDecideLevel);
-		mBaseLevel = mCurrentDecideLevel;
 		return true;
 	}
 
