@@ -2037,60 +2037,63 @@ public class ProofChecker extends NonRecursive {
 	}
 
 	boolean checkRewriteCanonicalSum(final Term lhs, final Term rhs) {
-		if (!(lhs instanceof ApplicationTerm)) {
-			return false;
-		}
-		final ApplicationTerm lhsApp = (ApplicationTerm) lhs;
-		final Term[] lhsArgs = lhsApp.getParameters();
 		SMTAffineTerm expected;
-		switch (lhsApp.getFunction().getName()) {
-		case "+":
-			expected = new SMTAffineTerm(lhsArgs[0]);
-			for (int i = 1; i < lhsArgs.length; i++) {
-				expected.add(new SMTAffineTerm(lhsArgs[i]));
-			}
-			break;
-		case "-":
-			expected = new SMTAffineTerm(lhsArgs[0]);
-			if (lhsArgs.length == 1) {
-				expected.negate();
-			} else {
+		if (lhs instanceof ConstantTerm) {
+			expected = new SMTAffineTerm(lhs);
+		} else if (lhs instanceof ApplicationTerm) {
+			final ApplicationTerm lhsApp = (ApplicationTerm) lhs;
+			final Term[] lhsArgs = lhsApp.getParameters();
+			switch (lhsApp.getFunction().getName()) {
+			case "+":
+				expected = new SMTAffineTerm(lhsArgs[0]);
 				for (int i = 1; i < lhsArgs.length; i++) {
-					final SMTAffineTerm arg = new SMTAffineTerm(lhsArgs[i]);
-					arg.negate();
-					expected.add(arg);
+					expected.add(new SMTAffineTerm(lhsArgs[i]));
 				}
-			}
-			break;
-		case "*":
-			expected = new SMTAffineTerm(lhsArgs[0]);
-			for (int i = 1; i < lhsArgs.length; i++) {
-				if (expected.isConstant()) {
-					final Rational factor = expected.getConstant();
-					expected = new SMTAffineTerm(lhsArgs[1]);
-					expected.mul(factor);
-				} else if (lhsArgs[1] instanceof ConstantTerm) {
-					expected.mul(SMTAffineTerm.convertConstant((ConstantTerm) lhsArgs[1]));
+				break;
+			case "-":
+				expected = new SMTAffineTerm(lhsArgs[0]);
+				if (lhsArgs.length == 1) {
+					expected.negate();
 				} else {
-					return false;
+					for (int i = 1; i < lhsArgs.length; i++) {
+						final SMTAffineTerm arg = new SMTAffineTerm(lhsArgs[i]);
+						arg.negate();
+						expected.add(arg);
+					}
 				}
-			}
-			break;
-		case "/":
-			expected = new SMTAffineTerm(lhsArgs[0]);
-			for (int i = 1; i < lhsArgs.length; i++) {
-				if (lhsArgs[1] instanceof ConstantTerm) {
-					expected.div(SMTAffineTerm.convertConstant((ConstantTerm) lhsArgs[1]));
-				} else {
-					return false;
+				break;
+			case "*":
+				expected = new SMTAffineTerm(lhsArgs[0]);
+				for (int i = 1; i < lhsArgs.length; i++) {
+					if (expected.isConstant()) {
+						final Rational factor = expected.getConstant();
+						expected = new SMTAffineTerm(lhsArgs[1]);
+						expected.mul(factor);
+					} else if (lhsArgs[1] instanceof ConstantTerm) {
+						expected.mul(SMTAffineTerm.convertConstant((ConstantTerm) lhsArgs[1]));
+					} else {
+						return false;
+					}
 				}
+				break;
+			case "/":
+				expected = new SMTAffineTerm(lhsArgs[0]);
+				for (int i = 1; i < lhsArgs.length; i++) {
+					if (lhsArgs[1] instanceof ConstantTerm) {
+						expected.div(SMTAffineTerm.convertConstant((ConstantTerm) lhsArgs[1]));
+					} else {
+						return false;
+					}
+				}
+				break;
+			case "to_real":
+				expected = new SMTAffineTerm(lhsArgs[0]);
+				expected.typecast(lhs.getSort());
+				break;
+			default:
+				return false;
 			}
-			break;
-		case "to_real":
-			expected = new SMTAffineTerm(lhsArgs[0]);
-			expected.typecast(lhs.getSort());
-			break;
-		default:
+		} else {
 			return false;
 		}
 		final SMTAffineTerm rhsAffine = new SMTAffineTerm(rhs);
