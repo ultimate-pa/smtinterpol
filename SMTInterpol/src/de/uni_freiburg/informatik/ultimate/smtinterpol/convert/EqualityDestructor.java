@@ -141,12 +141,13 @@ public class EqualityDestructor extends NonRecursive {
 			}
 
 			@Override
-			public void convertApplicationTerm(final ApplicationTerm appTerm,
+			public void convertApplicationTerm(ApplicationTerm appTerm,
 					final Term[] newArgs) {
 				if (newArgs == appTerm.getParameters()) {
 					setResult(appTerm);
 				} else {
 					final Theory t = appTerm.getTheory();
+					appTerm = t.term(appTerm.getFunction(), newArgs);
 					if (appTerm.getFunction() == t.mNot) {
 						setResult(mUtils.convertNot(appTerm));
 					} else if (appTerm.getFunction() == t.mOr) {
@@ -158,8 +159,7 @@ public class EqualityDestructor extends NonRecursive {
 					} else if (appTerm.getFunction().getName().equals("ite")) {
 						setResult(mUtils.convertIte(appTerm));
 					} else {
-						assert !appTerm.getFunction().isIntern();
-						setResult(t.term(appTerm.getFunction(), newArgs));
+						setResult(appTerm);
 					}
 				}
 			}
