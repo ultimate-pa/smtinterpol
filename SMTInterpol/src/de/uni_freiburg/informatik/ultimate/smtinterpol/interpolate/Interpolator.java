@@ -1505,41 +1505,8 @@ public class Interpolator extends NonRecursive {
 		if (term instanceof AnnotatedTerm) {
 			term = ((AnnotatedTerm) term).getSubterm();
 		}
-		final InterpolatorAffineTerm result = new InterpolatorAffineTerm();
-		Term[] summands;
-		if (term instanceof ApplicationTerm
-			&& ((ApplicationTerm)term).getFunction().getName() == "+") {
-			summands = ((ApplicationTerm) term).getParameters();
-		} else {
-			summands = new Term[] { term };
-		}
-		for (Term summand : summands) {
-			Rational factor = Rational.ONE;
-			if (summand instanceof ApplicationTerm
-				&& ((ApplicationTerm) summand).getFunction().getName() == "*") {
-				final Term[] params = ((ApplicationTerm) summand).getParameters();
-				final SMTAffineTerm constFactor = SMTAffineTerm.create(params[0]);
-				assert(constFactor.isConstant());
-				factor = constFactor.getConstant();
-				summand = params[1];
-			}
-			if (summand instanceof ApplicationTerm
-				&& ((ApplicationTerm) summand).getFunction().getName() == "-"
-				&& ((ApplicationTerm) summand).getParameters().length == 1) {
-				factor = factor.negate();
-				summand = ((ApplicationTerm) summand).getParameters()[0];
-			}
-			if (summand instanceof ApplicationTerm
-				&& ((ApplicationTerm) summand).getFunction().getName() == "to_real") {
-				summand = ((ApplicationTerm) summand).getParameters()[0];
-			}
-			if (summand instanceof ConstantTerm) {
-				result.add(factor.mul(SMTAffineTerm.create(summand).getConstant()));
-			} else {
-				result.add(factor, summand);
-			}
-		}
-		return result;
+		final SMTAffineTerm affine = new SMTAffineTerm(term);
+		return new InterpolatorAffineTerm(affine);
 	}
 
 	/**

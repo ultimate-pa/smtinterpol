@@ -428,7 +428,7 @@ public class InterpolatorClauseTermInfo {
 		}
 		for (int i = 0; i < coeffs.length; i++) {
 			term = subs[i];
-			coeff = SMTAffineTerm.create((ConstantTerm) coeffs[i]).getConstant();
+			coeff = SMTAffineTerm.convertConstant((ConstantTerm) coeffs[i]);
 			coeffMap.put(term, coeff);
 		}
 		return coeffMap;
@@ -508,7 +508,7 @@ public class InterpolatorClauseTermInfo {
 			if (((ApplicationTerm) atom).getFunction().getName().equals("=")) {
 				final Term secondParam = ((ApplicationTerm) atom).getParameters()[1];
 				if ((secondParam instanceof ConstantTerm)) {
-					return SMTAffineTerm.create(secondParam).getConstant().equals(Rational.ZERO);
+					return SMTAffineTerm.convertConstant((ConstantTerm) secondParam).equals(Rational.ZERO);
 				}
 			}
 		}
