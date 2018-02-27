@@ -868,7 +868,7 @@ public class ProofChecker extends NonRecursive {
 				isStrict = false;
 			}
 			affine.mul(coeff);
-			sum.addUnchecked(affine);
+			sum.add(affine);
 			sumHasStrict |= isStrict;
 		}
 		if (sum.isConstant()) {
@@ -1272,11 +1272,11 @@ public class ProofChecker extends NonRecursive {
 			return false;
 		}
 		final Term[] leArgs = ((ApplicationTerm) literal).getParameters();
-		final SMTAffineTerm lhs = convertAffineTerm(leArgs[0]);
+		final SMTAffineTerm lhs = new SMTAffineTerm(leArgs[0]);
 		if (!isZero(leArgs[1])) {
 			return false;
 		}
-		if (lhs.getSort().getName() != (isToInt ? "Real" : "Int")) {
+		if (leArgs[0].getSort().getName() != (isToInt ? "Real" : "Int")) {
 			return false;
 		}
 
@@ -1291,9 +1291,8 @@ public class ProofChecker extends NonRecursive {
 				if (isToInt) {
 					d = Rational.ONE;
 					summand = new SMTAffineTerm(candidate);
-					summand.typecast(lhs.getSort());
 				} else {
-					final SMTAffineTerm arg1 = convertAffineTerm(args[1]);
+					final SMTAffineTerm arg1 = new SMTAffineTerm(args[1]);
 					if (!arg1.isConstant()) {
 						return false;
 					}
@@ -2088,7 +2087,6 @@ public class ProofChecker extends NonRecursive {
 				break;
 			case "to_real":
 				expected = new SMTAffineTerm(lhsArgs[0]);
-				expected.typecast(lhs.getSort());
 				break;
 			default:
 				return false;

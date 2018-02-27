@@ -34,6 +34,7 @@ import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
+import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermTransformer;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
@@ -218,12 +219,13 @@ public class TermCompiler extends TermTransformer {
 			case "<=":
 			{
 				final Term lhs = mTracker.getProvedTerm(convertedApp);
+				final Sort sort = params[0].getSort();
 				final SMTAffineTerm affine1 = new SMTAffineTerm(params[0]);
 				final SMTAffineTerm affine2 = new SMTAffineTerm(params[1]);
 				affine2.negate();
 				affine1.add(affine2);
 				affine1.normalize(this);
-				final Term rhs = theory.term("<=", affine1.toTerm(), Rational.ZERO.toTerm(params[0].getSort()));
+				final Term rhs = theory.term("<=", affine1.toTerm(sort), Rational.ZERO.toTerm(sort));
 				final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_LEQ_TO_LEQ0);
 				setResult(mUtils.convertLeq0(mTracker.transitivity(convertedApp, rewrite)));
 				return;
@@ -231,12 +233,13 @@ public class TermCompiler extends TermTransformer {
 			case ">=":
 			{
 				final Term lhs = mTracker.getProvedTerm(convertedApp);
+				final Sort sort = params[0].getSort();
 				final SMTAffineTerm affine1 = new SMTAffineTerm(params[1]);
 				final SMTAffineTerm affine2 = new SMTAffineTerm(params[0]);
 				affine2.negate();
 				affine1.add(affine2);
 				affine1.normalize(this);
-				final Term rhs = theory.term("<=", affine1.toTerm(), Rational.ZERO.toTerm(params[0].getSort()));
+				final Term rhs = theory.term("<=", affine1.toTerm(sort), Rational.ZERO.toTerm(sort));
 				final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_GEQ_TO_LEQ0);
 				setResult(mUtils.convertLeq0(mTracker.transitivity(convertedApp, rewrite)));
 				return;
@@ -244,12 +247,13 @@ public class TermCompiler extends TermTransformer {
 			case ">":
 			{
 				final Term lhs = mTracker.getProvedTerm(convertedApp);
+				final Sort sort = params[0].getSort();
 				final SMTAffineTerm affine1 = new SMTAffineTerm(params[0]);
 				final SMTAffineTerm affine2 = new SMTAffineTerm(params[1]);
 				affine2.negate();
 				affine1.add(affine2);
 				affine1.normalize(this);
-				final Term leq = theory.term("<=", affine1.toTerm(), Rational.ZERO.toTerm(params[0].getSort()));
+				final Term leq = theory.term("<=", affine1.toTerm(sort), Rational.ZERO.toTerm(sort));
 				final Term rhs = theory.term("not", leq);
 				Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_GT_TO_LEQ0);
 				final Term leqRewrite = mUtils.convertLeq0(mTracker.reflexivity(leq));
@@ -260,12 +264,13 @@ public class TermCompiler extends TermTransformer {
 			case "<":
 			{
 				final Term lhs = mTracker.getProvedTerm(convertedApp);
+				final Sort sort = params[0].getSort();
 				final SMTAffineTerm affine1 = new SMTAffineTerm(params[1]);
 				final SMTAffineTerm affine2 = new SMTAffineTerm(params[0]);
 				affine2.negate();
 				affine1.add(affine2);
 				affine1.normalize(this);
-				final Term leq = theory.term("<=", affine1.toTerm(), Rational.ZERO.toTerm(params[0].getSort()));
+				final Term leq = theory.term("<=", affine1.toTerm(sort), Rational.ZERO.toTerm(sort));
 				final Term rhs = theory.term("not", leq);
 				Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_LT_TO_LEQ0);
 				final Term leqRewrite = mUtils.convertLeq0(mTracker.reflexivity(leq));
@@ -281,7 +286,7 @@ public class TermCompiler extends TermTransformer {
 					sum.add(new SMTAffineTerm(params[i]));
 				}
 				sum.normalize(this);
-				final Term rhs = sum.toTerm();
+				final Term rhs = sum.toTerm(convertedApp.getSort());
 				final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_CANONICAL_SUM);
 				setResult(mTracker.transitivity(convertedApp, rewrite));
 				return;
@@ -300,7 +305,7 @@ public class TermCompiler extends TermTransformer {
 					}
 				}
 				result.normalize(this);
-				final Term rhs = result.toTerm();
+				final Term rhs = result.toTerm(convertedApp.getSort());
 				final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_CANONICAL_SUM);
 				setResult(mTracker.transitivity(convertedApp, rewrite));
 				return;
@@ -321,7 +326,7 @@ public class TermCompiler extends TermTransformer {
 					}
 				}
 				prod.normalize(this);
-				final Term rhs = prod.toTerm();
+				final Term rhs = prod.toTerm(convertedApp.getSort());
 				final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_CANONICAL_SUM);
 				setResult(mTracker.transitivity(convertedApp, rewrite));
 				return;
@@ -340,7 +345,7 @@ public class TermCompiler extends TermTransformer {
 					} else {
 						arg0.mul(arg1.inverse());
 						arg0.normalize(this);
-						final Term rhs = arg0.toTerm();
+						final Term rhs = arg0.toTerm(convertedApp.getSort());
 						final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_CANONICAL_SUM);
 						setResult(mTracker.transitivity(convertedApp, rewrite));
 					}
@@ -362,18 +367,18 @@ public class TermCompiler extends TermTransformer {
 						final Term rewrite = mTracker.reflexivity(rhs);
 						setResult(mTracker.transitivity(convertedApp, rewrite));
 					} else if (divisor.equals(Rational.ONE)) {
-						final Term rhs = arg0.toTerm();
+						final Term rhs = arg0.toTerm(convertedApp.getSort());
 						final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_DIV_ONE);
 						setResult(mTracker.transitivity(convertedApp, rewrite));
 					} else if (divisor.equals(Rational.MONE)) {
 						arg0.negate();
-						final Term rhs = arg0.toTerm();
+						final Term rhs = arg0.toTerm(convertedApp.getSort());
 						final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_DIV_MONE);
 						setResult(mTracker.transitivity(convertedApp, rewrite));
 					} else if (arg0.isConstant()) {
 						// We have (div c0 c1) ==> constDiv(c0, c1)
 						final Rational div = constDiv(arg0.getConstant(), divisor);
-						final Term rhs = div.toTerm(arg0.getSort());
+						final Term rhs = div.toTerm(convertedApp.getSort());
 						final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_DIV_CONST);
 						setResult(mTracker.transitivity(convertedApp, rewrite));
 					} else {
@@ -398,19 +403,19 @@ public class TermCompiler extends TermTransformer {
 						setResult(mTracker.transitivity(convertedApp, rewrite));
 					} else if (divisor.equals(Rational.ONE)) {
 						// (mod x 1) == 0
-						final Term rhs = Rational.ZERO.toTerm(arg0.getSort());
+						final Term rhs = Rational.ZERO.toTerm(convertedApp.getSort());
 						final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_MODULO_ONE);
 						setResult(mTracker.transitivity(convertedApp, rewrite));
 					} else if (divisor.equals(Rational.MONE)) {
 						// (mod x -1) == 0
-						final Term rhs = Rational.ZERO.toTerm(arg0.getSort());
+						final Term rhs = Rational.ZERO.toTerm(convertedApp.getSort());
 						final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_MODULO_MONE);
 						setResult(mTracker.transitivity(convertedApp, rewrite));
 					} else if (arg0.isConstant()) {
 						// We have (mod c0 c1) ==> c0 - c1 * constDiv(c0, c1)
 						final Rational c0 = arg0.getConstant();
 						final Rational mod = c0.sub(constDiv(c0, divisor).mul(divisor));
-						final Term rhs = mod.toTerm(arg0.getSort());
+						final Term rhs = mod.toTerm(convertedApp.getSort());
 						final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_MODULO_CONST);
 						setResult(mTracker.transitivity(convertedApp, rewrite));
 					} else {
@@ -428,10 +433,9 @@ public class TermCompiler extends TermTransformer {
 			case "to_real":
 			{
 				final SMTAffineTerm arg = new SMTAffineTerm(params[0]);
-				arg.typecast(fsym.getReturnSort());
 				arg.normalize(this);
 				final Term lhs = mTracker.getProvedTerm(convertedApp);
-				final Term rhs = arg.toTerm();
+				final Term rhs = arg.toTerm(convertedApp.getSort());
 				final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_CANONICAL_SUM);
 				setResult(mTracker.transitivity(convertedApp, rewrite));
 				return;

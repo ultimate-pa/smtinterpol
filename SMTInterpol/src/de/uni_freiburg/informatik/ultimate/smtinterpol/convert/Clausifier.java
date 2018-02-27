@@ -39,6 +39,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
+import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
@@ -1232,18 +1233,16 @@ public class Clausifier {
 		final Theory theory = divTerm.getTheory();
 		final Term[] divParams = divTerm.getParameters();
 		final Rational divisor = (Rational) ((ConstantTerm) divParams[1]).getValue();
-		final SMTAffineTerm diff = new SMTAffineTerm(divParams[0]);
-		final SMTAffineTerm divmul = new SMTAffineTerm(divTerm);
 		final Term zero = Rational.ZERO.toTerm(divTerm.getSort());
-		divmul.mul(divisor);
-		diff.negate();
-		diff.add(divmul);
+		final SMTAffineTerm diff = new SMTAffineTerm(divParams[0]);
+		diff.negate(); // -x
+		diff.add(divisor, divTerm); // -x + d * (div x d)
 		// (<= (+ (- x) (* d (div x d))) 0)
-		Term axiom = theory.term("<=", diff.toTerm(), zero);
+		Term axiom = theory.term("<=", diff.toTerm(divTerm.getSort()), zero);
 		buildClause(mTracker.auxAxiom(axiom, ProofConstants.AUX_DIV_LOW), source);
 		// (not (<= (+ (- x) (* d (div x d) |d|)) 0))
 		diff.add(divisor.abs());
-		axiom = theory.term("not", theory.term("<=", diff.toTerm(), zero));
+		axiom = theory.term("not", theory.term("<=", diff.toTerm(divTerm.getSort()), zero));
 		buildClause(mTracker.auxAxiom(axiom, ProofConstants.AUX_DIV_HIGH), source);
 	}
 
@@ -1257,13 +1256,13 @@ public class Clausifier {
 		final Term zero = Rational.ZERO.toTerm(realTerm.getSort());
 		final SMTAffineTerm diff = new SMTAffineTerm(realTerm);
 		diff.negate();
-		diff.addUnchecked(new SMTAffineTerm(toIntTerm));
+		diff.add(Rational.ONE, toIntTerm);
 		// (<= (+ (to_real (to_int x)) (- x)) 0)
-		Term axiom = theory.term("<=", diff.toTerm(), zero);
+		Term axiom = theory.term("<=", diff.toTerm(realTerm.getSort()), zero);
 		buildClause(mTracker.auxAxiom(axiom, ProofConstants.AUX_TO_INT_LOW), source);
 		// (not (<= (+ (to_real (to_int x)) (- x) 1) 0))
 		diff.add(Rational.ONE);
-		axiom = theory.term("not", theory.term("<=", diff.toTerm(), zero));
+		axiom = theory.term("not", theory.term("<=", diff.toTerm(realTerm.getSort()), zero));
 		buildClause(mTracker.auxAxiom(axiom, ProofConstants.AUX_TO_INT_HIGH), source);
 	}
 
@@ -1338,12 +1337,13 @@ public class Clausifier {
 			}
 		}
 		diff.div(diff.getGcd());
+		Sort sort = lhs.getSort();
 		// normalize equality to integer logic if all variables are integer.
-		if (mTheory.getLogic().isIRA() && !diff.isIntegral() && diff.isAllIntSummands()) {
-			diff.typecast(getTheory().getSort("Int"));
+		if (mTheory.getLogic().isIRA() && sort.getName().equals("Real") && diff.isAllIntSummands()) {
+			sort = getTheory().getSort("Int");
 		}
 		// check for unsatisfiable integer formula, e.g. 2x + 2y = 1.
-		if (diff.isIntegral() && !diff.getConstant().isIntegral()) {
+		if (sort.getName().equals("Int") && !diff.getConstant().isIntegral()) {
 			return EqualityProxy.getFalseProxy();
 		}
 		// we cannot really normalize the sign of the term. Try both signs.

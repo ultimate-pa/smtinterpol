@@ -58,13 +58,13 @@ public class ArithDelay extends TermTransformer {
 			final SMTAffineTerm arg0 = new SMTAffineTerm(newArgs[0]);
 			if (arg0.getConstant().compareTo(Rational.ZERO) != 0) {
 				final Rational constant = arg0.getConstant();
-				final Term replacement = replace(constant, t, arg0.getSort());
+				final Term replacement = replace(constant, t, newArgs[0].getSort());
 				final Map<Term, Rational> summands =
 						new HashMap<Term, Rational>(arg0.getSummands());
 				summands.put(replacement, Rational.ONE);
 				final SMTAffineTerm res = new SMTAffineTerm(
-						summands, Rational.ZERO, arg0.getSort());
-				setResult(t.term(appTerm.getFunction(), res.toTerm(), newArgs[1]));
+						summands, Rational.ZERO, newArgs[0].getSort());
+				setResult(t.term(appTerm.getFunction(), res.toTerm(newArgs[0].getSort()), newArgs[1]));
 				return;
 			}
 		} else if (appTerm.getFunction().getName().equals("=")) {

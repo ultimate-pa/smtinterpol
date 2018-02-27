@@ -54,7 +54,6 @@ public class ProofTracker implements IProofTracker{
 		assert proof != null;
 		final Theory theory = term.getTheory();
 		final Annotation[] annotions = new Annotation[] { new Annotation(":proof", proof) };
-		annotions[0] = new Annotation(":proof", proof);
 		return theory.annotatedTerm(annotions, term);
 	}
 
