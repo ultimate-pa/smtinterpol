@@ -805,7 +805,7 @@ public class ProofChecker extends NonRecursive {
 		}
 		final SMTAffineTerm sum = new SMTAffineTerm(sort);
 		for (int i = 0; i < clause.length; i++) {
-			final Rational coeff = convertAffineTerm(coefficients[i]).getConstant();
+			final Rational coeff = new SMTAffineTerm(coefficients[i]).getConstant();
 			if (coeff.equals(Rational.ZERO)) {
 				reportWarning("Coefficient in LA lemma is zero.");
 				continue;
@@ -1133,11 +1133,17 @@ public class ProofChecker extends NonRecursive {
 			return false;
 		}
 		final Term otherLit = ((ApplicationTerm) clause[1]).getParameters()[0];
-		final Term[] params = ((ApplicationTerm) lit).getParameters();
-		for (int i = 0; i < params.length; i++) {
-			if (params[i] == otherLit) {
+		final ArrayDeque<Term> todo = new ArrayDeque<>();
+		todo.addAll(Arrays.asList(((ApplicationTerm) lit).getParameters()));
+		while (!todo.isEmpty()) {
+			final Term t = todo.removeFirst();
+			if (t == otherLit) {
 				/* found it; everything okay */
 				return true;
+			}
+			if (isApplication("or", t)) {
+				/* descend into nested or */
+				todo.addAll(Arrays.asList(((ApplicationTerm) t).getParameters()));
 			}
 		}
 		return false;
@@ -1725,7 +1731,7 @@ public class ProofChecker extends NonRecursive {
 		}
 		Rational lastConstant = null;
 		for (final Term t : lhsParams) {
-			final SMTAffineTerm value = convertAffineTerm(t);
+			final SMTAffineTerm value = new SMTAffineTerm(t);
 			if (value.isConstant()) {
 				if (lastConstant == null) {
 					lastConstant = value.getConstant();
@@ -2174,7 +2180,7 @@ public class ProofChecker extends NonRecursive {
 		if (divArgs.length != 2) {
 			return false;
 		}
-		final SMTAffineTerm divisor = convertAffineTerm(divArgs[1]);
+		final SMTAffineTerm divisor = new SMTAffineTerm(divArgs[1]);
 		if (!divisor.isConstant()) {
 			return false;
 		}
@@ -2250,11 +2256,11 @@ public class ProofChecker extends NonRecursive {
 			return false;
 		}
 		final Term arg = ((ApplicationTerm) lhs).getParameters()[0];
-		final SMTAffineTerm argAffine = convertAffineTerm(arg);
+		final SMTAffineTerm argAffine = new SMTAffineTerm(arg);
 		if (!argAffine.isConstant()) {
 			return false;
 		}
-		final SMTAffineTerm rhsAffine = convertAffineTerm(rhs);
+		final SMTAffineTerm rhsAffine = new SMTAffineTerm(rhs);
 		return rhsAffine.isConstant() && rhsAffine.getConstant().equals(argAffine.getConstant().floor());
 	}
 
@@ -2895,18 +2901,6 @@ public class ProofChecker extends NonRecursive {
 
 	Term stackPop() {
 		return mStackResults.pop();
-	}
-
-	/*
-	 * Convert a term to an SMTAffineTerm
-	 *
-	 * @param term The term to convert.
-	 *
-	 * @return The converted term.
-	 */
-	@Deprecated
-	SMTAffineTerm convertAffineTerm(final Term term) {
-		return new SMTAffineTerm(term);
 	}
 
 	Term unquote(final Term quotedTerm) {
