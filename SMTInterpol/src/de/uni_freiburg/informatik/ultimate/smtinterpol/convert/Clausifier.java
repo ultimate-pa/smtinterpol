@@ -20,6 +20,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.convert;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -559,8 +560,8 @@ public class Clausifier {
 			negLit = mPositive ? negLit.negate() : negLit;
 			final Term negLitTerm = negLit.getSMTFormula(t, true);
 			if (mTerm instanceof ApplicationTerm) {
-				final ApplicationTerm at = (ApplicationTerm) mTerm;
-				final Term[] params = at.getParameters();
+				ApplicationTerm at = (ApplicationTerm) mTerm;
+				Term[] params = at.getParameters();
 				if (at.getFunction() == t.mOr) {
 					if (mPositive) {
 						// (or (not (or t1 ... tn)) t1 ... tn)
@@ -571,6 +572,8 @@ public class Clausifier {
 						buildAuxClause(negLit, axiom, mSource);
 					} else {
 						// (or (or t1 ... tn)) (not ti))
+						at = flattenOr(at);
+						params = at.getParameters();
 						for (final Term p : params) {
 							final Term axiom = t.term("or", negLitTerm, t.term("not", p));
 							final Term axiomProof = mTracker.auxAxiom(axiom, ProofConstants.AUX_OR_NEG);
@@ -648,6 +651,30 @@ public class Clausifier {
 			} else {
 				throw new InternalError("Don't know how to create aux axiom: " + mTerm);
 			}
+		}
+
+		private ApplicationTerm flattenOr(final ApplicationTerm at) {
+			final FunctionSymbol or = at.getFunction();
+			assert or.getName().equals("or");
+			final ArrayList<Term> flat = new ArrayList<>();
+			final ArrayDeque<Term> todo = new ArrayDeque<>();
+			todo.addAll(Arrays.asList(at.getParameters()));
+			while (!todo.isEmpty()) {
+				final Term first = todo.removeFirst();
+				if (first instanceof ApplicationTerm) {
+					final ApplicationTerm firstApp = (ApplicationTerm) first;
+					if (firstApp.getFunction() == or && firstApp.mTmpCtr <= Config.OCC_INLINE_THRESHOLD) {
+						final Term[] params = firstApp.getParameters();
+						for (int i = params.length - 1; i >= 0; i--) {
+							todo.addFirst(params[i]);
+						}
+						continue;
+					}
+				}
+				flat.add(first);
+			}
+			return flat.size() == at.getParameters().length ? at :
+					at.getTheory().term(or, flat.toArray(new Term[flat.size()]));
 		}
 	}
 
