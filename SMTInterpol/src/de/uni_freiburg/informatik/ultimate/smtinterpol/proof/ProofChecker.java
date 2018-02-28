@@ -805,7 +805,11 @@ public class ProofChecker extends NonRecursive {
 		}
 		final SMTAffineTerm sum = new SMTAffineTerm(sort);
 		for (int i = 0; i < clause.length; i++) {
-			final Rational coeff = new SMTAffineTerm(coefficients[i]).getConstant();
+			final Rational coeff = parseConstant(coefficients[i]);
+			if (coeff == null) {
+				reportError("Coefficient is not a constant.");
+				return;
+			}
 			if (coeff.equals(Rational.ZERO)) {
 				reportWarning("Coefficient in LA lemma is zero.");
 				continue;
@@ -1731,10 +1735,10 @@ public class ProofChecker extends NonRecursive {
 		}
 		Rational lastConstant = null;
 		for (final Term t : lhsParams) {
-			final SMTAffineTerm value = new SMTAffineTerm(t);
-			if (value.isConstant()) {
+			final Rational value = parseConstant(t);
+			if (value != null) {
 				if (lastConstant == null) {
-					lastConstant = value.getConstant();
+					lastConstant = value;
 				} else if (!lastConstant.equals(value)) {
 					return true;
 				}
@@ -2180,28 +2184,28 @@ public class ProofChecker extends NonRecursive {
 		if (divArgs.length != 2) {
 			return false;
 		}
-		final SMTAffineTerm divisor = new SMTAffineTerm(divArgs[1]);
-		if (!divisor.isConstant()) {
+		final Rational divisor = parseConstant(divArgs[1]);
+		if (divisor == null) {
 			return false;
 		}
 
 		switch (ruleName) {
 		case ":div1":
-			return divisor.getConstant().equals(Rational.ONE) && rhs == divArgs[0];
+			return divisor.equals(Rational.ONE) && rhs == divArgs[0];
 		case ":div-1": {
 			final SMTAffineTerm dividend = new SMTAffineTerm(divArgs[0]);
 			final SMTAffineTerm quotient = new SMTAffineTerm(rhs);
 			dividend.negate();
-			return divisor.getConstant().equals(Rational.MONE)
+			return divisor.equals(Rational.MONE)
 					&& quotient.equals(dividend);
 		}
 		case ":divConst": {
-			final SMTAffineTerm dividend = new SMTAffineTerm(divArgs[0]);
-			final SMTAffineTerm quotient = new SMTAffineTerm(rhs);
-			if (!dividend.isConstant() || !quotient.isConstant()) {
+			final Rational dividend = parseConstant(divArgs[0]);
+			final Rational quotient = parseConstant(rhs);
+			if (dividend == null || quotient == null) {
 				return false;
 			}
-			return quotient.getConstant().equals(divConst(dividend.getConstant(), divisor.getConstant()));
+			return quotient.equals(divConst(dividend, divisor));
 		}
 		default:
 			return false;
@@ -2230,13 +2234,12 @@ public class ProofChecker extends NonRecursive {
 		case ":modulo-1":
 			return divisor.equals(Rational.MONE) && isZero(rhs);
 		case ":moduloConst": {
-			final SMTAffineTerm dividend = new SMTAffineTerm(modArgs[0]);
-			final SMTAffineTerm quotient = new SMTAffineTerm(rhs);
-			if (!dividend.isConstant() || !quotient.isConstant()) {
+			final Rational dividend = parseConstant(modArgs[0]);
+			final Rational quotient = parseConstant(rhs);
+			if (dividend == null || quotient == null) {
 				return false;
 			}
-			return quotient.getConstant().equals(dividend.getConstant()
-					.sub(divisor.mul(divConst(dividend.getConstant(), divisor))));
+			return quotient.equals(dividend.sub(divisor.mul(divConst(dividend, divisor))));
 		}
 		case ":modulo": {
 			final Term divTerm = lhs.getTheory().term("div", modArgs);
@@ -2256,12 +2259,9 @@ public class ProofChecker extends NonRecursive {
 			return false;
 		}
 		final Term arg = ((ApplicationTerm) lhs).getParameters()[0];
-		final SMTAffineTerm argAffine = new SMTAffineTerm(arg);
-		if (!argAffine.isConstant()) {
-			return false;
-		}
-		final SMTAffineTerm rhsAffine = new SMTAffineTerm(rhs);
-		return rhsAffine.isConstant() && rhsAffine.getConstant().equals(argAffine.getConstant().floor());
+		final Rational argConst = parseConstant(arg);
+		final Rational rhsConst = parseConstant(rhs);
+		return argConst != null && rhsConst != null && rhsConst.equals(argConst.floor());
 	}
 
 	boolean checkRewriteExpand(final Term lhs, final Term rhs) {
@@ -2931,6 +2931,21 @@ public class ProofChecker extends NonRecursive {
 			return ((ApplicationTerm) formula).getParameters()[0];
 		}
 		return formula.getTheory().term("not", formula);
+	}
+
+	/**
+	 * Parses a constant term. It handles Rationals given as ConstantTerm or parsed as div terms.
+	 *
+	 * @param term
+	 *            the term to parse.
+	 * @returns the parsed constant, null if parse error occured.
+	 */
+	public Rational parseConstant(Term term) {
+		term = SMTAffineTerm.parseConstant(term);
+		if (term instanceof ConstantTerm && term.getSort().isNumericSort()) {
+			return SMTAffineTerm.convertConstant((ConstantTerm) term);
+		}
+		return null;
 	}
 
 	/**
