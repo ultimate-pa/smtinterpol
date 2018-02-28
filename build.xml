@@ -1,5 +1,20 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <project default="all" name="Create Project SMTInterpol" xmlns:jacoco="antlib:org.jacoco.ant" xmlns:artifact="antlib:org.apache.maven.artifact.ant" xmlns:sonar="antlib:org.sonar.ant">
+
+  <target name="help">
+    <echo>
+Run with, e.g., `ant smtinterpol.jar`.  Useful targets:
+
+runtests:          Run unit tests
+smtinterpol.jar:   Create main jar file (in dist)
+starexec:          Create starexec package
+deltadebugger.jar: Create delta debugger
+dist:              Create all jar files
+distribution:      Build website.
+stage:             Upload new version to Maven Central (owner only)
+    </echo>
+  </target>
+
   <import file="smtinterpol2-publicapi.xml"/>
   <path id="maven-ant-tasks.classpath" path="libs/maven-ant-tasks-2.1.3.jar" />
   <typedef resource="org/apache/maven/artifact/ant/antlib.xml" uri="antlib:org.apache.maven.artifact.ant" classpathref="maven-ant-tasks.classpath" />
@@ -426,6 +441,11 @@ java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/2))m -da -dsa -XX:-UseGCOverheadLimit -j
   
   <target name="stage" depends="dist" description="deploy release version to Maven staging repository">
     
+    <echo>
+Uploading artifacts using ~/.m2/settings.xml. I hope you have the
+permissions to do this.
+    </echo>
+
     <!-- Sign and deploy the main artifact. -->
     <artifact:mvn>
       <arg value="org.apache.maven.plugins:maven-gpg-plugin:1.3:sign-and-deploy-file" />
@@ -457,6 +477,15 @@ java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/2))m -da -dsa -XX:-UseGCOverheadLimit -j
       <arg value="-Dclassifier=javadoc" />
       <arg value="-Pgpg" />
     </artifact:mvn>
+
+    <echo>
+Log into https://oss.sonatype.org as jhoenicke.
+Click "Staging Repository", scroll down to de.uni-freiburg...
+Select it, check contents.
+Click Close above the list of reppositories.
+Click Refresh (after a few seconds).
+Click Release.
+    </echo>
   </target>
 
   
