@@ -679,8 +679,6 @@ public class SMTInterpol extends NoopScript {
 					return LBool.UNSAT;
 				}
 			}
-		} catch (final SMTLIBException ex) {
-			throw ex;
 		} catch (final UnsupportedOperationException ex) {
 			throw new SMTLIBException(ex.getMessage());
 		} catch (final RuntimeException exc) {
