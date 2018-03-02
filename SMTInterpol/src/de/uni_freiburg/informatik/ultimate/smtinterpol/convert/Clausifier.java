@@ -38,8 +38,9 @@ import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
-import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
+import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
@@ -61,8 +62,16 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.ArrayTheo
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAppTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheorySettings;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinArSolve;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.MutableAffinTerm;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ArrayMap;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
 
@@ -170,8 +179,8 @@ public class Clausifier {
 			}
 		}
 
-		private final ArrayDeque<Operation> mOps = new ArrayDeque<Operation>();
-		private final ArrayDeque<CCTerm> mConverted = new ArrayDeque<CCTerm>();
+		private final ArrayDeque<Operation> mOps = new ArrayDeque<>();
+		private final ArrayDeque<CCTerm> mConverted = new ArrayDeque<>();
 
 		public CCTermBuilder(final SourceAnnotation source) {
 			mSource = source;
@@ -481,7 +490,7 @@ public class Clausifier {
 						split = mTracker.getRewriteProof(split, rewrite);
 						pushOperation(new AddAsAxiom(split, mSource));
 					} else {
-						// (= p1 p2) --> (p1 \/ ~p2) /\ (~p1 \/ p2)
+						// (= p1 p2) --> (p1 \/ p2) /\ (~p1 \/ ~p2)
 						Term formula = t.term("or", p1, p2);
 						Term split = mTracker.split(formula, mTerm, ProofConstants.SPLIT_NEG_EQ_1);
 						pushOperation(new AddAsAxiom(split, mSource));
@@ -524,6 +533,13 @@ public class Clausifier {
 					pushOperation(new AddAsAxiom(split, mSource));
 					return;
 				}
+			} else if (term instanceof QuantifiedFormula) {
+				final QuantifiedFormula qf = (QuantifiedFormula) term;
+				assert qf.getQuantifier() == QuantifiedFormula.EXISTS;
+
+				final Term converted = convertQuantifiedSubformula(positive, qf);
+				pushOperation(new AddAsAxiom(converted, mSource));
+				return;
 			}
 			buildClause(mTerm, mSource);
 		}
@@ -643,9 +659,6 @@ public class Clausifier {
 				} else {
 					throw new InternalError("AuxAxiom not implemented: " + SMTAffineTerm.cleanup(mTerm));
 				}
-			} else if (mTerm instanceof QuantifiedFormula) {
-				// TODO: Correctly implement this once we support quantifiers.
-				throw new SMTLIBException("Cannot create quantifier in quantifier-free logic");
 			} else {
 				throw new InternalError("Don't know how to create aux axiom: " + SMTAffineTerm.cleanup(mTerm));
 			}
@@ -690,6 +703,19 @@ public class Clausifier {
 				return;
 			}
 			if (idx instanceof ApplicationTerm) {
+//				//alex (begin)
+				if (EprTheory.isQuantifiedEprAtom(idx)) {
+					// idx has implicitly forall-quantified variables
+					// --> dont create a literal for the current term
+					//     (i.e. only the EPR-theory, not the DPLLEngine, will know it)
+					final DPLLAtom eprAtom = mEprTheory.getEprAtom((ApplicationTerm) idx, 0, mStackLevel,
+							mCollector.mSource);
+
+					mCollector.addLiteral(positive ? eprAtom : eprAtom.negate(), mTerm);
+					return;
+				}
+//				//alex (end)
+
 				final ApplicationTerm at = (ApplicationTerm) idx;
 				Literal atom;
 				Term atomRewrite = null;
@@ -757,17 +783,23 @@ public class Clausifier {
 					}
 				}
 				mCollector.addLiteral(positive ? atom : atom.negate(), rewrite);
-			} else {
-				throw new SMTLIBException("Cannot handle literal " + mTerm);
+			} else if (idx instanceof QuantifiedFormula) {
+				final QuantifiedFormula qf = (QuantifiedFormula) idx;
+				assert qf.getQuantifier() == QuantifiedFormula.EXISTS;
+				final Theory t = qf.getTheory();
+
+				final Term converted = convertQuantifiedSubformula(positive, qf);
+				pushOperation(new CollectLiterals(converted, mCollector));
+				return;
 			}
 		}
 	}
 
 	private class BuildClause implements Operation {
 		private boolean mIsTrue = false;
-		private final LinkedHashSet<Literal> mLits = new LinkedHashSet<Literal>();
-		private final HashSet<Term> mFlattenedOrs = new HashSet<Term>();
-		private final ArrayList<Term> mRewrites = new ArrayList<Term>();
+		private final LinkedHashSet<Literal> mLits = new LinkedHashSet<>();
+		private final HashSet<Term> mFlattenedOrs = new HashSet<>();
+		private final ArrayList<Term> mRewrites = new ArrayList<>();
 		private final Term mTerm;
 		private boolean mSimpOr;
 		private final SourceAnnotation mSource;
@@ -839,7 +871,31 @@ public class Clausifier {
 				}
 				Term proof = mTracker.getRewriteProof(mTerm, rewrite);
 				proof = mTracker.getClauseProof(proof);
-				addClause(lits, null, getProofNewSource(proof, mSource));
+				//alex (begin)
+				boolean isDpllClause = true;
+				for (final Literal l : lits) {
+					if (l.getAtom() instanceof EprQuantifiedPredicateAtom
+							|| l.getAtom() instanceof EprQuantifiedEqualityAtom) {
+						// we have an EPR-clause
+						isDpllClause = false;
+						break;
+					}
+				}
+
+				if (isDpllClause) {
+				//alex (end)
+					addClause(lits, null, getProofNewSource(proof, mSource));
+				//alex (begin)
+				} else{
+					//TODO: replace the nulls
+					final Literal[] groundLiteralsAfterDER = mEprTheory.addEprClause(lits, null, null);
+
+					if (groundLiteralsAfterDER != null) {
+						addClause(groundLiteralsAfterDER, null,
+								getProofNewSource(proof, mSource));
+					}
+				}
+				//alex (end)
 			}
 		}
 
@@ -1057,28 +1113,85 @@ public class Clausifier {
 		return !fs.isInterpreted() || fs.getName() == "select" || fs.getName() == "store" || fs.getName() == "@diff";
 	}
 
+	/**
+	 * A QuantifiedFormula is either skolemized or the universal quantifier is dropped before processing the subformula.
+	 *
+	 * @param positive
+	 * @param qf
+	 * @return
+	 */
+	private Term convertQuantifiedSubformula(final boolean positive, final QuantifiedFormula qf) {
+		if (positive) {
+			/*
+			 * "exists" case
+			 *  skolemize everything inside, then go on as usual
+			 */
+			final TermVariable[] vars = qf.getVariables();
+			final Term[] skolems = new Term[vars.length];
+			for (int i = 0; i < vars.length; ++i) {
+				skolems[i] = mTheory.term(mTheory.skolemize(vars[i]));
+			}
+
+			mEprTheory.addSkolemConstants(skolems);
+
+			final FormulaUnLet unlet = new FormulaUnLet();
+			unlet.addSubstitutions(new ArrayMap<>(vars, skolems));
+			final Term skolemRaw = unlet.unlet(qf.getSubformula());
+
+			final Term skolem = mCompiler.transform(skolemRaw);
+
+			// TODO: replace skolem by rewrite proof
+			return skolem;
+		} else {
+			/*
+			 * "forall" case
+			 *
+			 * treatment of universally quantified subformulas:
+			 * <li> alpha-rename quantified variables uniquely
+			 * <li> drop the quantifier (remaining free TermVariables are implicitly universally quantified)
+			 */
+
+			final TermVariable[] vars = qf.getVariables();
+			final Term[] freshVars = new Term[vars.length];
+			for (int i = 0; i < vars.length; ++i) {
+				freshVars[i] = mTheory.createFreshTermVariable(vars[i].getName(), vars[i].getSort());
+			}
+
+			final FormulaUnLet unlet = new FormulaUnLet();
+			unlet.addSubstitutions(new ArrayMap<>(vars, freshVars));
+			final Term uniquelyRenamedRaw = unlet.unlet(qf.getSubformula());
+
+			final Term uniquelyRenamed = mCompiler.transform(uniquelyRenamedRaw);
+
+			// TODO: replace result by rewrite proof
+			return mTheory.term("not", uniquelyRenamed);
+		}
+	}
+
 	/// Internalization stuff
 	private final FormulaUnLet mUnlet = new FormulaUnLet();
 	private final TermCompiler mCompiler = new TermCompiler();
 	private final OccurrenceCounter mOccCounter = new OccurrenceCounter();
-	private final Deque<Operation> mTodoStack = new ArrayDeque<Clausifier.Operation>();
+	private final Deque<Operation> mTodoStack = new ArrayDeque<>();
 
 	private final Theory mTheory;
 	private final DPLLEngine mEngine;
 	private CClosure mCClosure;
 	private LinArSolve mLASolver;
 	private ArrayTheory mArrayTheory;
+	//alex begin
+	private EprTheory mEprTheory; //TODO: make private..
+	//alex end
 
-	private boolean mInstantiationMode;
 	/**
 	 * Mapping from Boolean terms to information about clauses produced for these terms.
 	 */
-	private final Map<Term, ClausifierInfo> mClauseData = new HashMap<Term, ClausifierInfo>();
+	private final Map<Term, ClausifierInfo> mClauseData = new HashMap<>();
 	/**
 	 * Mapping from Boolean base terms to literals. A term is considered a base term when it corresponds to an atom or
 	 * its negation.
 	 */
-	private final Map<Term, Literal> mLiteralData = new HashMap<Term, Literal>();
+	private final Map<Term, Literal> mLiteralData = new HashMap<>();
 	/**
 	 * We cache the SharedTerms for true and false here to be able to quickly create excluded middle axioms.
 	 */
@@ -1103,20 +1216,20 @@ public class Clausifier {
 	 * Keep all shared terms that need to be unshared from congruence closure when the top level is popped off the
 	 * assertion stack.
 	 */
-	final ScopedArrayList<SharedTerm> mUnshareCC = new ScopedArrayList<SharedTerm>();
+	final ScopedArrayList<SharedTerm> mUnshareCC = new ScopedArrayList<>();
 	/**
 	 * Keep all shared terms that need to be unshared from linear arithmetic when the top level is popped off the
 	 * assertion stack.
 	 */
-	final ScopedArrayList<SharedTerm> mUnshareLA = new ScopedArrayList<SharedTerm>();
+	final ScopedArrayList<SharedTerm> mUnshareLA = new ScopedArrayList<>();
 	/**
 	 * Mapping from terms to their corresponding shared terms.
 	 */
-	final ScopedHashMap<Term, SharedTerm> mSharedTerms = new ScopedHashMap<Term, SharedTerm>();
+	final ScopedHashMap<Term, SharedTerm> mSharedTerms = new ScopedHashMap<>();
 	/**
 	 * Map of differences to equality proxies.
 	 */
-	final ScopedHashMap<SMTAffineTerm, EqualityProxy> mEqualities = new ScopedHashMap<SMTAffineTerm, EqualityProxy>();
+	final ScopedHashMap<SMTAffineTerm, EqualityProxy> mEqualities = new ScopedHashMap<>();
 	/**
 	 * Current assertion stack level.
 	 */
@@ -1162,7 +1275,7 @@ public class Clausifier {
 	 * Transform a term to a positive normal term. A term is a positive normal term if it
 	 * <ul>
 	 * <li>is an {@link ApplicationTerm} that does not correspond to a negation</li>
-	 * <li>is a {@link QuantifiedFormula} that is universally quantified</li>
+	 * <li>is a {@link QuantifiedFormula} that is existentially quantified</li>
 	 * </ul>
 	 *
 	 * @param t
@@ -1170,7 +1283,9 @@ public class Clausifier {
 	 * @return The positive of this term.
 	 */
 	private static Term toPositive(final Term t) {
-		assert t instanceof ApplicationTerm;
+		assert !(t instanceof AnnotatedTerm);
+		assert !(t instanceof QuantifiedFormula && ((QuantifiedFormula) t).getQuantifier() == QuantifiedFormula.FORALL)
+			: "TermCompiler should have eliminated universal quantifiers";
 		if (isNotTerm(t)) {
 			return ((ApplicationTerm) t).getParameters()[0];
 		}
@@ -1314,10 +1429,32 @@ public class Clausifier {
 		pushOperation(bc);
 	}
 
-	NamedAtom createAnonAtom(final Term smtFormula) {
-		final NamedAtom atom = new NamedAtom(smtFormula, mStackLevel);
-		mEngine.addAtom(atom);
-		mNumAtoms++;
+	DPLLAtom createAnonAtom(final Term smtFormula) {
+		final DPLLAtom atom;
+		//alex begin
+		/*
+		 * when inserting a cnf-auxvar (for tseitin-style encoding) in a quantified formula,
+		 *  we need it to depend on the currently active quantifiers
+		 */
+		if (smtFormula.getFreeVars().length > 0) {
+			assert mTheory.getLogic().isQuantified() : "quantified variables in quantifier-free theory";
+
+			final Sort[] paramTypes = new Sort[smtFormula.getFreeVars().length];
+			for (int i = 0; i < paramTypes.length; i++)
+				paramTypes[i] = smtFormula.getFreeVars()[i].getSort();
+
+			final FunctionSymbol fs = mTheory.declareFunction(
+					"AUX(" + smtFormula.toString() + ")",
+					paramTypes,
+					mTheory.getBooleanSort());
+			final ApplicationTerm auxTerm = mTheory.term(fs, smtFormula.getFreeVars());
+			atom = mEprTheory.getEprAtom(auxTerm, 0, mStackLevel, SourceAnnotation.EMPTY_SOURCE_ANNOT);
+		} else {
+		//alex end
+			atom = new NamedAtom(smtFormula, mStackLevel);
+			mEngine.addAtom(atom);
+			mNumAtoms++;
+		}
 		return atom;
 	}
 
@@ -1422,11 +1559,25 @@ public class Clausifier {
 	}
 
 	void addClause(final Literal[] lits, final ClauseDeletionHook hook, final ProofNode proof) {
-		if (mInstantiationMode) {
-			// TODO Add instantiation clauses to DPLL
-		} else {
-			mEngine.addFormulaClause(lits, proof, hook);
+
+		//alex, late comment: don't do this here but in BuildClause.perform
+//		//alex (begin)
+//		/*
+//		 * Idea for EPR:
+//		 *  - a clause that has a literal which has a quantified variable should not go into the Engine
+//		 *  - the EPR theory should know the whole clause
+//		 *  (the engine will set the non-quantified literals, but it "gets to know them" somewhere else (getLiteral or so)
+//		 */
+
+
+		// track which constants appear in ground clauses
+		if (mEprTheory!= null) {
+			mEprTheory.addConstants(EprHelpers.collectAppearingConstants(lits, mTheory));
 		}
+
+//		//alex (end)
+
+		mEngine.addFormulaClause(lits, proof, hook);
 	}
 
 	void addToUndoTrail(final TrailObject obj) {
@@ -1497,8 +1648,36 @@ public class Clausifier {
 		}
 	}
 
+	private void setupEprTheory() {
+		// TODO maybe merge with setupQuantifiers, below?
+
+		if (mEprTheory == null) {
+//			mEprTheory = new EprTheory(this.getTheory());
+
+			mEprTheory = new EprTheory(mTheory, mEngine, mCClosure, this);
+			mEngine.addTheory(mEprTheory);
+		}
+	}
+
+//	private void setupQuantifiers() {
+		// TODO Implement
+//		setupCClosure();
+//		try {
+//			Class<?> pcclass = getClass().getClassLoader().loadClass(
+//					System.getProperty(
+//							Config.PATTERNCOMPILER,
+//							Config.DEFAULT_PATTERNCOMPILER));
+//			patternCompiler = (IPatternCompiler)pcclass.newInstance();
+//		} catch (Exception e) {
+//			logger.fatal("Could not load Pattern Compiler",e);
+//			throw new RuntimeException("Could not load Pattern Compiler",e);
+//		}
+//		quantTheory = new QuantifierTheory(cclosure);
+//		dpllEngine.addTheory(quantTheory);
+//	}
+
 	public void setLogic(final Logics logic) {
-		if (logic.isBitVector() || logic.isQuantified() || logic.isNonLinearArithmetic()) {
+		if (logic.isBitVector() || logic.isNonLinearArithmetic()) {
 			throw new UnsupportedOperationException("Logic " + logic.toString() + " unsupported");
 		}
 
@@ -1511,16 +1690,12 @@ public class Clausifier {
 		if (logic.isArray()) {
 			setupArrayTheory();
 		}
+		if (logic.isQuantified())
+			setupEprTheory(); //or maybe call it setupQuantifiers()..
 	}
 
 	public Iterable<BooleanVarAtom> getBooleanVars() {
-		return new Iterable<BooleanVarAtom>() {
-
-			@Override
-			public Iterator<BooleanVarAtom> iterator() {
-				return new BooleanVarIterator(mLiteralData.values().iterator());
-			}
-		};
+		return () -> new BooleanVarIterator(mLiteralData.values().iterator());
 	}
 
 	private static final class BooleanVarIterator implements Iterator<BooleanVarAtom> {
@@ -1635,7 +1810,6 @@ public class Clausifier {
 			}
 		}
 		pushOperation(new AddAsAxiom(simpFormula, source));
-		mInstantiationMode = false;
 		run();
 		mOccCounter.reset(simpFormula);
 		simpFormula = null;
@@ -1761,12 +1935,35 @@ public class Clausifier {
 			if (term.getParameters().length == 0) {
 				lit = createBooleanVar(term);
 			} else {
-				final SharedTerm st = getSharedTerm(term, source);
-				final EqualityProxy eq = createEqualityProxy(st, mSharedTrue);
-				// Safe since m_Term is neither true nor false
-				assert eq != EqualityProxy.getTrueProxy();
-				assert eq != EqualityProxy.getFalseProxy();
-				lit = eq.getLiteral(source);
+				//alex begin
+				// alex: this the right place to get rid of the CClosure predicate conversion in EPR-case?
+				// --> seems to be one of three positions.. (keyword: predicate-to-function conversion)
+//				if (mTheory.getLogic().isQuantified()) {
+				if ((mEprTheory != null && !EprTheorySettings.FullInstatiationMode) || EprTheory.isQuantifiedEprAtom(term)) {
+					// assuming right now that
+					assert !term.getFunction().getName().equals("not") : "do something for the negated case!";
+
+					//FIXME: how to tell getEprAtom which clause we are in????
+					//TODO: replace 0 by hash value
+					final EprAtom atom = mEprTheory.getEprAtom(term, 0, mStackLevel, source);
+
+					lit = atom;
+//					if (!atom.isQuantified)
+					if (atom instanceof EprGroundPredicateAtom)
+						mEprTheory.addAtomToDPLLEngine(atom);
+//						mEngine.addAtom(atom);
+				} else {
+					// replace a predicate atom "(p x)" by "(p x) = true"
+					//alex end
+					final SharedTerm st = getSharedTerm(term, source);
+
+					final EqualityProxy eq = createEqualityProxy(st, mSharedTrue);
+					// Safe since m_Term is neither true nor false
+					assert eq != EqualityProxy.getTrueProxy();
+					assert eq != EqualityProxy.getFalseProxy();
+					lit = eq.getLiteral(source);
+
+				}
 			}
 			mLiteralData.put(term, lit);
 			mUndoTrail = new RemoveAtom(mUndoTrail, term);
@@ -1830,12 +2027,17 @@ public class Clausifier {
 			res = getLiteralTseitin(at, source);
 		}
 
-		mInstantiationMode = false;
 		run();
 		mOccCounter.reset(tmp2);
 		tmp2 = null;
 		return negated ? res.negate() : res;
 	}
+
+	//alex (begin)
+	public EprTheory getEprTheory() {
+		return mEprTheory;
+	}
+	//alex (end)
 
 	public static boolean shouldFlatten(final ApplicationTerm term) {
 		return term.getFunction().getName() == "or" && term.mTmpCtr <= Config.OCC_INLINE_THRESHOLD;

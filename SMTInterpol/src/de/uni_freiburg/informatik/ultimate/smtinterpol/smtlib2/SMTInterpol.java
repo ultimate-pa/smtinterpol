@@ -643,6 +643,10 @@ public class SMTInterpol extends NoopScript {
 		if (mEngine == null) {
 			throw new SMTLIBException("No logic set!");
 		}
+		final long timeout = mSolverOptions.getTimeout();
+		if (timeout > 0) {
+			mCancel.setTimeout(timeout);
+		}
 		super.assertTerm(term);
 		if (!term.getSort().equals(getTheory().getBooleanSort())) {
 			if (term.getSort().getTheory() == getTheory()) {
@@ -669,6 +673,7 @@ public class SMTInterpol extends NoopScript {
 			/*
 			 * We always have to reset the flag, but only need to set the stack level if it is not already set.
 			 */
+
 			if (mClausifier.resetBy0Seen() && mBy0Seen == -1) {
 				mBy0Seen = mStackLevel;
 			}
@@ -692,6 +697,7 @@ public class SMTInterpol extends NoopScript {
 			}
 			throw exc;
 		}
+		mCancel.clearTimeout();
 		return LBool.UNKNOWN;
 	}
 

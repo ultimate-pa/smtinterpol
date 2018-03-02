@@ -26,17 +26,15 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 
 public class NamedAtom extends DPLLAtom {
-	public final static Annotation[] QUOTED = new Annotation[] {
-		new Annotation(":quoted", null)
-	};
+	public final static Annotation[] QUOTED = new Annotation[] { new Annotation(":quoted", null) };
 	private final Term mSmtAtom;
-	
+
 	public NamedAtom(Term smtAtom, int assertionstacklevel) {
 		super(smtAtom.hashCode(), assertionstacklevel);
 		assert Config.EXPENSIVE_ASSERTS ? smtAtom == SMTAffineTerm.cleanup(smtAtom) : true;
 		mSmtAtom = smtAtom;
 	}
-	
+
 	@Override
 	public String toString() {
 		return mSmtAtom.toString();
@@ -46,14 +44,13 @@ public class NamedAtom extends DPLLAtom {
 	public Term getSMTFormula(Theory smtTheory, boolean quoted) {
 		return quoted ? smtTheory.annotatedTerm(QUOTED, mSmtAtom) : mSmtAtom;
 	}
-	
+
 	public int containsTerm(TermVariable tv) {
 		return 0;
 	}
-	
+
 	@Override
 	public boolean equals(Object other) { // NOCHECKSTYLE see Literal.hashCode()
-		return other instanceof NamedAtom
-			&& ((NamedAtom) other).mSmtAtom == mSmtAtom;
+		return other instanceof NamedAtom && ((NamedAtom) other).mSmtAtom == mSmtAtom;
 	}
 }
