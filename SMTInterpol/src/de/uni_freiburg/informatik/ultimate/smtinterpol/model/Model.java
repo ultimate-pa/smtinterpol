@@ -42,6 +42,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.ArrayTheo
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheorySettings;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinArSolve;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory;
 
 /**
  * A model represented as injection between integers and domain values. The integers should be positive. Furthermore,
@@ -97,6 +98,8 @@ public class Model implements de.uni_freiburg.informatik.ultimate.logic.Model {
 				la = (LinArSolve) theory;
 			} else if (theory instanceof ArrayTheory) {
 				array = (ArrayTheory) theory;
+			} else if (theory instanceof QuantifierTheory) {
+				throw new InternalError("Modelproduction for theory not implemented: " + theory);
 			} else if (theory != cc
 					&& !(theory == clausifier.getEprTheory() && EprTheorySettings.FullInstatiationMode)) {
 				throw new InternalError("Modelproduction for theory not implemented: " + theory);
