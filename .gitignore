@@ -70,7 +70,6 @@ comment.cut
 
 # eclipse stuff
 .recommenders
-.externalToolBuilders
 
 #ant stuff
 .ant-*

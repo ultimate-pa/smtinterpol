@@ -25,6 +25,7 @@ import java.util.Properties;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.aiger.AIGERFrontEnd;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.cartabs.CartAbsParser;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dimacs.DIMACSParser;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib.SMTLIBParser;
@@ -76,6 +77,7 @@ public final class Main {
 		System.err.println("  -v                   Print debugging messages.");
 		System.err.println("  -t <num>             Set the timeout per check-sat call to <num> milliseconds.");// NOCHECKSTYLE
 		System.err.println("  -r <num>             Use a different random seed.");// NOCHECKSTYLE
+		System.err.println("  -cartabs             Parse input as Cartesian Abstraction script.");// NOCHECKSTYLE
 		System.err.println("  -smt2                Parse input as SMTLIB 2 script.");// NOCHECKSTYLE
 		System.err.println("  -smt                 Parse input as SMTLIB 1 benchmark.");// NOCHECKSTYLE
 		System.err.println("  -d                   Parse input as DIMACS benchmark.");// NOCHECKSTYLE
@@ -146,6 +148,8 @@ public final class Main {
 					System.err.println(ex.getMessage());
 					return;
 				}
+			} else if (param[paramctr].equals("-cartabs")) {
+				parser = new CartAbsParser();
 			} else if (param[paramctr].equals("-smt2")) {
 				parser = new SMTLIB2Parser();
 			} else if (param[paramctr].equals("-smt")) {
