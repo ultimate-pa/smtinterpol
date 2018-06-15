@@ -21,6 +21,8 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.convert;
 import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -41,6 +43,7 @@ import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.IProofTracker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
+import de.uni_freiburg.informatik.ultimate.util.datastructures.UnifyHash;
 
 /**
  * Build a representation of the formula where only not, or, ite and =/2 are
@@ -53,6 +56,7 @@ public class TermCompiler extends TermTransformer {
 
 	private boolean mBy0Seen = false;
 	private Map<Term, Set<String>> mNames;
+	UnifyHash<Set<Term>> mCanonicalOrderings = new UnifyHash<>();
 
 	private IProofTracker mTracker;
 	private Utils mUtils;
@@ -586,6 +590,19 @@ public class TermCompiler extends TermTransformer {
 	}
 
 	public Map<Term, Rational> unify(final Map<Term, Rational> summands) {
-		return summands; // TODO: something like mAffineUnifier.unify(summands); but summands is modifiable
+		int hash = summands.keySet().hashCode();
+		for (Set<Term> canonic : mCanonicalOrderings.iterateHashCode(hash)) {
+			if (canonic.equals(summands.keySet())) {
+				LinkedHashMap<Term, Rational> result = new LinkedHashMap<>();
+				for (Term key : canonic) {
+					result.put(key, summands.get(key));
+				}
+				return result;
+			}
+		}
+		LinkedHashSet<Term> canonic = new LinkedHashSet<>();
+		canonic.addAll(summands.keySet());
+		mCanonicalOrderings.put(hash, canonic);
+		return summands;
 	}
 }
