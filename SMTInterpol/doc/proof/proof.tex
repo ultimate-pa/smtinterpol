@@ -420,23 +420,6 @@ after transforming them into normal form.
   \inferrule*[left=LeqFalse,right={$c > 0$}]{ }{(<=\ c\ 0) = false}
 \end{mathpar}
 
-\paragraph{Removing syntactic sugar.}  This proof rule is used whenever the
-IRA-Hack inserts \verb+to_real+ conversions.  Remember that the IRA-Hack is
-only used in mixed integer logics.  The hack basically ensures proper
-type-checking in formulas, i.,e., it inserts casts at appropriate positions.
-For example the term $(<=\ 3\ 5.2)$ only type-checks due to this hack.  It
-inserts to cast of $3$ from integer to real such that the comparison operator
-over the reals can be used, i.\,e., it transforms the term into
-$(<=\ 3.0\ 5.2)$.  For integer constants, \si does not use the \verb+to_real+
-function but directly evaluates it.  For an integer term $t$, this rule
-changes to term $t$ to $(to\_real\ t)$ to ensure proper type checking.
-\begin{mathpar}
-\inferrule*[left={desugar},right={$t$ is an integer}]{ }{F[t] =
-  F[t.0]}\quad
-\inferrule*[left={desugar},right={$t$ is not an integer}]{ }{F[t] =
-  F[to\_real(t)]}
-\end{mathpar}
-
 \paragraph{Divisible rewrite.}  This axiom justifies the rewrite of
 \verb+((_ divisible n) t)+ into \verb+(= t (* n (div t n)))+.  Hence, it
 removes the divisible operator from the formula.  Furthermore, if $t$ is a
