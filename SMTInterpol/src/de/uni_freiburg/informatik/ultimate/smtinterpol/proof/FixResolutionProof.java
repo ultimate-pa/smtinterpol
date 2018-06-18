@@ -260,8 +260,15 @@ public class FixResolutionProof extends NonRecursive {
 	 *            The {@literal @}lemma application.
 	 */
 	ProofInfo walkAsserted(final ApplicationTerm assertedApp) {
-		final Term assertedTerm = assertedApp.getParameters()[0];
-		ProofInfo info = new ProofInfo(assertedApp, termToClause(assertedTerm));
+		Term provedClause = assertedApp.getParameters()[0];
+		if (provedClause instanceof AnnotatedTerm) {
+			final Annotation[] annot = ((AnnotatedTerm) provedClause).getAnnotations();
+			if (annot.length == 1 && annot[0].getKey().equals(":input")) {
+				/* newer version of proof producer adds :input annotation to @clause for interpolator */
+				provedClause = ((AnnotatedTerm) provedClause).getSubterm();
+			}
+		}
+		ProofInfo info = new ProofInfo(assertedApp, termToClause(provedClause));
 		return info;
 	}
 
@@ -273,7 +280,6 @@ public class FixResolutionProof extends NonRecursive {
 	 *            The {@literal @}lemma application.
 	 */
 	ProofInfo walkClause(final ApplicationTerm clauseApp) {
-		/* Check if the parameters of clause are two disjunctions (which they should be) */
 		Term provedClause = clauseApp.getParameters()[1];
 		if (provedClause instanceof AnnotatedTerm) {
 			final Annotation[] annot = ((AnnotatedTerm) provedClause).getAnnotations();
