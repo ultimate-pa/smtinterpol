@@ -147,6 +147,6 @@ public class ProofTermGenerator extends NonRecursive {
 		assert cls.getProof() != null;
 		run(new Expander(cls));
 		final Term res = mConverted.pop();
-		return res;
+		return new FixResolutionProof().fix(res);
 	}
 }
