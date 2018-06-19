@@ -38,148 +38,73 @@ of the solver as possible.  Unfortunately, tracking every step of the solver
 becomes challenging as the resulting proof might quickly grow to a size that is
 too big to keep in memory.
 
-In this document, we propose a new proof system that completely captures the
-inferences done by \si at an adequate level while keeping a reasonably small
-memory overhead.  Main design goals of the new system are easy integration
-into \si and the possibility to reconstruct the proof in another verification
-system, e.\,g., Isabelle.
+In this document, we propose a proof system that completely captures
+the inferences done by \si at an adequate level while keeping a
+reasonably small memory overhead.  The main design goals of the system
+are easy integration into \si and the possibility to reconstruct the
+proof in another verification system, e.\,g., Isabelle.
 
-\section{Basic Proof Rules}
+\section{Proof System in \si}
 
-On a high level \si uses the following proof rules plus four proof rules
-that just introduce tautological formulas:
-\textsc{lemma},\textsc{tautology},\textsc{asserted},\textsc{assumption}.
+The proof is done in three layers.  The first layer transforms input
+clauses into a normal form, e.g. reducing the number of built-in
+functions and simplifying some terms. This layer uses only equality
+and equivalence rewrites on the whole formula and produces an
+equivalent formula.
 
+The second layer splits the formula into clauses and introduces
+tautologies to define auxiliary literals.
 
-\[
-\inferrule*[left=res]{C_1 \lor \ell \\ C_2 \lor \lnot \ell}{C_1 \lor C_2}\qquad
-\inferrule*[left=eq]{t_1 \\ t_1 = t_2}{t_2}\qquad
-\inferrule*[left=exists]{F = G}{\exists x F = \exists x G}
-\]
-\[
-\inferrule*[left=trans]{t_1 = t_2 \\ t_2 = t_3}{t_1 = t_3}\qquad
-\inferrule*[left=cong]{t = f(\dots t_i \dots) \\ t_i = t'_i}{t = f(\dots t'_i \dots)}\qquad
-\inferrule*[left=refl]{}{t = t}
-\]
-\[
-\inferrule*[left=split,right={where $F$ implies $G$}]{F}{G}\qquad
-\inferrule*[left=rewrite,right={where $t_1 = t_2$ is a tautology}]{}{t_1 = t_2}
-\]
+The third and outermost layer is a resolution-based proof that uses
+the input clauses and theory lemmas to proof the empty clause.
+This concludes the proof.
 
-\section{Partial Proof System}
+In this section we present the three layers, starting with the
+outermost layer.
 
-The basic outline of the proof is a resolution proof of the empty
-clause from the input formulas.  The input formulas are converted into
-a set of clauses.  A second category are clauses generated from theory
-lemmas during thesolving process.
-
-The partial proof system consists of only three rules: assertions
-created from input formulas, theory lemmas, and resolution steps are
-represented by different rules.  Proofs reported by \si are not really
-proofs of the inconsistency of the input formulas, but of the
-inconsistency of the CNF created by \si from the these formulas.
+\subsection{Partial Proof System}
 
 Since the proofs in \si were originally only constructed to produce
-interpolants, the proofs were cut at the CNF-level since interpolants for
-the CNF are also valid interpolants for the original formula.  Furthermore,
-unsatisfiable cores are extracted from the resolution proof currently produced
-by \si.  Since resolution proofs are sufficient for these two techniques, the
-new proof system should keep this separation.  That way, \si won't have
-performance penalties on these techniques.  If, however, a user wants to
-retrieve a complete proof, the conversion of the original formula into CNF
-should be tracked.
+interpolants, the proofs were cut at the CNF-level since interpolants
+for the CNF are also valid interpolants for the original formula.
+Furthermore, unsatisfiable cores can be extracted from the resolution
+proof.  Since resolution proofs are sufficient for these two
+techniques, the proof system keeps this separation.  That way, \si
+won't have performance penalties on these techniques.  If, however, a
+user wants to retrieve a complete proof, the conversion of the
+original formula into CNF is also tracked.
 
-\section{Tracking Input Formulas}
-Next, we present a list of different steps performed by the solver that are
-not part of current proofs.  To get a complete proof, additional
-rules explaining these steps have to be added.
+The partial proof system for CNF consists of only three rules: clauses
+created from input formulas (clause), theory lemmas
+(lemma), and resolution steps (res).  The first two
+are the leaves of the partial proof system and introduce valid
+clauses.  The resolution rule represent the inner nodes of the proof
+tree.
 
-\paragraph{Generation of clauses.}  Even if the input is already in CNF, the
-formula could be a conjunction of disjunctions.  Then, a proof should explain
-how one of the disjunctions gets extracted from the conjunction, i.\,e., a
-rule with antecedent $\bigwedge_i\bigvee_j l_{ij}$ and conclusion $\bigvee_j
-l_{ij}$ for some $i$ is needed.
+The \verb+@clause+ function takes as first argument, another proof
+that shows that the clause follows from the input formulas.  This is
+necessary since the input is usually not given in CNF.  The second
+argument gives the resulting clause, so that the proof can be
+reconstructed without following the subproof. Theory lemmas introduced
+by \verb+@lemma+ are simple enough to not require a subproof, but
+they take some auxiliary annotations tha make reconstructing the proof
+easier.
 
-\paragraph{Boolean simplification steps.}  \si does some elementary Boolean
-simplifications before producing the CNF.  Examples are the removal of double
-negations or neutral elements,  or the simplification of $\phi\land\bot$ to
-$\bot$.
-
-\paragraph{Expansion of definitions.}  SMTLIB allows users to define functions
-and use them as macros.  \si then expands these function applications and uses
-the expansion in the remainder of the process.  Hence, a complete proof has to
-justify why a term $n(\overline{t})$ is equal to $f[\overline{t}]$ where $n$
-is the name for a function $f[\overline{x}]$ with free variables
-$\overline{x}$.
-
-\paragraph{Unfolding of operators.}  SMTLIB allows left- or right-associative
-operators as well as chainable and pairwise functions.  This is just syntactic
-sugar to abbreviate a sequence of applications of that function.  Internally,
-\si cannot deal with most of these abbreviations.  Hence, \si expands the
-function application.  Since this modifies the original formula, we need
-a proof rule justifying this step.
-
-\paragraph{Elimination of Boolean connectives.}  Before \si produces clauses,
-it transforms the formula into an intermediate representation that only
-contains negation, or, equality, if-then-else, and $\leq$ as top-level Boolean
-connectives.  The remaining connectives are replaced by a combination of the
-connectives mentioned above.  Rules to justify these replacements are needed.
-
-\paragraph{Normalization rewrites.}  \si transforms literals for linear
-arithmetic into the (possibly negated) form $\sum_i c_i x_i + c\leq 0$.
-During this conversion, terms are added, subtracted, multiplied and reordered.
-Proof rules for these terms are especially difficult since we use a lot of
-implicit applications of associativity and commutativity axioms.
-
-\paragraph{Unification of atoms.}  When \si converts a term into an atom, it
-unifies the atoms.  This is done by implicitly reordering linear sums
-according to an internal order or implicit applications of the symmetry
-axiom.  Furthermore, an equality $a=b$ might be converted into the linear
-arithmetic form $a-b=0$.  Since these steps happen implicitly and very often,
-a proof rule for these steps becomes challenging.
-
-\paragraph{Skipping annotations.}  The SMTLIB term language allows users to
-annotate terms with (almost) arbitrary data.  \si ignores most of these
-annotations.  Before clauses are produced, all annotations are removed
-from the formula.  While annotations do not influence the semantics of a term,
-a rule might be needed to justify the equivalence of the annotated term and
-its sub-term.
-
-\paragraph{Automatic integer to real conversion.}  The SMTLIB standard
-defines that in mixed integer logics, applications of a binary
-function symbol expecting two reals can also be called with one real
-and one integer.  Implicitly, the second integer argument is converted
-to real.  \si inserts the \verb+to_real+ function for such arguments.
-Since this is a modification of the original input formula, a proof
-rule should justify this modification.  Note that this rule
-essentially just clarifies the interpretation of the original term.
-
-\paragraph{Divisibility rewrite.}  SMTLIB contains the divisible-predicate.
-This predicate is parameterized by a positive integer and should evaluate to
-true if and only if the value of the (single) argument is divisible by this
-constant.  \si transforms applications of the divisible-predicate into an
-equality containing the div-function.  The proof tree has to reflect this
-rewrite.
-
-\paragraph{Modulo rewrite.}  Even though the SMTLIB standard forbids the use
-of modulo in linear arithmetic, \si allows to use modulo where the second
-argument is a constant.  Internally, modulo applications are removed from the
-formula unless the second argument is $0$.  This rewrite step can be seen as
-an expansion of the definition of modulo, but should be present in a proof.
-
-\section{Current Proof System}
-Since the current proof system is a superset of the old proof system, we
-only present the new rules and describe which of the problems mentioned in the
-previous section can be solved by this rule.
-
-The presentation is divided into two parts.  Similar to the solver, we first
-consider rules to build a simplified canonical form of the input formula.
-Then, from this canonical form, we present rules to create clauses, auxiliary
-clauses, and literals.
+The resolution function \verb+@res+ is
+left-associative and has signature $@Proof\times@Proof\rightarrow@Proof$.  The
+second proof is annotated with the pivot of the resolution.  This pivot
+literal occurs negative in the first (the one not containing the pivot
+annotation) and positive in the second argument.
 
 \subsection{Formula Transformation and Simplification}
 
-\paragraph{Equality folding.}  This proof rule takes a Boolean term\footnote{We treat
+This section describes the proof steps to normalize the input formula.
+This proof uses rules based on equality rewrites to show the
+equivalence of the input formula with a simpler formula.  Then the
+equality rule is used to derive the simpler formula from the input
+formula.
+
+\paragraph{Equality rule.}  This proof rule takes a Boolean term\footnote{We treat
   formulas as Boolean terms.} and an equality and produces a new term
 where some occurrences of the left hand side of the equality are
 replaced by the right hand side.
@@ -217,12 +142,14 @@ These rules are represented in SMTLIB as functions
 \end{verbatim}
 
 This function \verb+@refl+ takes as argument a term $t$ and returns a
-proof for $t=t$.  The functions \verb+@trans+ and \verb+@cong+ take as
-arguments two proofs for the terms as specified in the rules above and
-return a proof for the resulting goal, which can easily be computed.
-The function \verb+@exists+ takes a proof for $F=G$ annotated with the
-list of term variables \verb+((Sort x_1) ... (Sort x_n))+.  It returns
-the proof for the exists equality.
+proof for $t=t$.  It is mainly used in the first argument of
+\verb+@cong+ to rewrite a function application.  The functions
+\verb+@trans+ and \verb+@cong+ take as arguments two proofs for the
+terms as specified in the rules above and return a proof for the
+resulting goal, which can easily be computed.  The function
+\verb+@exists+ takes a proof for $F=G$ annotated with the list of term
+variables \verb+((Sort x_1) ... (Sort x_n))+.  It returns the proof
+for the exists equality.
 
 \paragraph{Expanding definitions.}  A proof rule that justifies the expansion
 of a defined function.  Let $n(\overline{t})$ be the application of
@@ -233,6 +160,9 @@ definition.
 \[
 \inferrule*[left=ExpandDef]{ }{n(\overline{t}) = d[\overline{t}]}
 \]
+
+Some internal functions are also defined as defined functions,
+e.g. the $abs x$ function is defined as $(ite (>= x 0) x (- x))$.
 
 \paragraph{Expanding $n$-ary function applications.}  \si expands function
 applications that use associativity, chainability, or the pairwise attribute.
@@ -343,14 +273,17 @@ double negation and negations of \verb+true+ or \verb+false+.
 \]
 
 \paragraph{Disjunction simplification.}  \si simplifies disjunctions by removing
-duplicates or falsety and simplifying trivial tautologies to \verb+true+.  We
+duplicates or falsety and simplifying trivial tautologies to $true$.  We
 justify these steps by two axioms.
 \begin{mathpar}
-  \inferrule*[left=OrSimp,right={$F \equiv (or_{i\in I'}\ t_i)$ where
-      $I'\subset I$ or $F \equiv t_i$}]{ }{(or_{i\in I}\ t_i) = F}\\
-  \inferrule*[left=OrTaut,right={$\exists j\in I.\ t_i\equiv\ true\lor\exists
-      j,k\in I.\ t_j\equiv\ (not\ t_k)$}]{ }{(or_{i\in I}\ t_i) = true}
+  \inferrule*[left=OrSimp,right={where
+      $I'\subset I$ and $\{t_i |i\in I'\} = \{t_i|i\in I\} \setminus \{false\}$}]
+     { }{(or_{i\in I}\ t_i) = (or_{i\in I'}\ t_i)}\\
+  \inferrule*[left=OrTaut,right={$\exists i\in I.\ t_i\equiv\ true\lor\exists
+      i,i'\in I.\ t_i\equiv\ (not\ t_i')$}]{ }{(or_{i\in I}\ t_i) = true}
 \end{mathpar}
+If $I' = \{i'\}$ contains only one element, $(or_{i\in I'}\ t_i)$ stands for $t_i'$.
+if $I'$ is empty $(or_{i\in I'}\ t_i)$ stands for $false$.
 
 \paragraph{If-then-else simplification.}  \si applies trivial Boolean
 simplification to if-then-else terms.  These simplifications are again
@@ -608,17 +541,96 @@ Note that we do not use $0$-ary or unary or-applications.  Instead, we write
   case as well.  So I vote for the removal of this rule since all useful
   functionality has been replaced by a combination of flatten and simpOr.}
 
+\paragraph{Tautologies.}  For some introduced terms a corresponding tautology
+is created during the transformation into CNF.  These tautologies are
+clauses that are annotated with the kind of the tautology.  
+
+Table~\ref{tab:tautforms} lists the different kinds of tautologies present
+in \si.  Here, $\quoted{F}$ denotes the proxy
+literal\footnote{These literals appear in proofs with the annotation
+  \texttt{:quoted}.} for formula $F$, $F$ denotes formulas, $t$ denotes terms,
+and $t_F$ denotes the term corresponding to $F$\footnote{In the proof returned
+  by \si, $t_F$ and $F$ are equal.  The distinction is only done internally
+  since $F$ is a Boolean term handled by the DPLL core and $t_F$ is the term
+  used by congruence closure.}.
+\si internally collects the disjunctive parts of the individual formulas.  The
+\texttt{termITE} tautology is also used when term if-then-else trees are
+minimized, i.\,e., when the then- or else-part of the if-then-else is an
+if-then-else again.  Then, only one term might be used and the $t$ in the
+result is one leaf or a shared if-then-else tree that is a sub-term of the
+left-hand-side of the equality.
+\begin{table}[htbp]
+  \begin{tabular}{l|l}
+    Kind & Clause\\\hline
+    trueNotFalse & $true\neq false$\\
+    or+ & $\neg\quoted{F_1\lor \ldots \lor F_n}\lor F_1\lor \ldots\lor F_n$\\
+    or- & $\quoted{F_1\lor \ldots \lor F_n}\lor \neg F_i$\\
+    ite+1 & $\neg\quoted{if F_1 then F_2 else F_3}\lor\neg F_1\lor F_2$\\
+    ite+2 & $\neg\quoted{if F_1 then F_2 else F_3}\lor F_1\lor F_3$\\
+    ite+Red & $\neg\quoted{if F_1 then F_2 else F_3}\lor F_2\lor F_3$\\
+    ite-1 & $\quoted{if F_1 then F_2 else F_3}\lor\neg F_1\lor\neg F_2$\\
+    ite-2 & $\quoted{if F_1 then F_2 else F_3}\lor F_1\lor\neg F_3$\\
+    ite-Red & $\quoted{if F_1 then F_2 else F_3}\lor\neg F_2\lor\neg F_3$\\
+    =+1 & $\neg\quoted{F_1=F_2}\lor F_1\lor\neg F_2$\\
+    =+2 & $\neg\quoted{F_1=F_2}\lor\neg F_1\lor F_2$\\
+    =-1 & $\quoted{F_1=F_2}\lor F_1\lor F_2$\\
+    =-2 & $\quoted{F_1=F_2}\lor\neg F_1\lor\neg F_2$\\
+    excludedMiddle1 & $\neg F\lor t_F = true$\\
+    excludedMiddle2 & $F\lor t_F = false$\\
+    termITE & $\neg F_1\lor\ldots\lor\neg F_n if F then t_1 else t_2 = t$\\
+    divLow & $d\cdot (x\div d) - x \leq 0$\\
+    divHigh & $\neg (|d| - x + d\cdot (x\div d)\leq 0)$\\
+    toIntLow & $to\_real(to\_int(x)) - x \leq 0$\\
+    toIntHigh & $\neg (1 - x + to\_real(to\_int(x))\leq 0)$\\
+    eq & $c_1t_1=c_2t_2\lor
+    \pm\frac{c_1}{gcd(c_1,c_2)}t_1\mp\frac{c_2}{gcd(c_1,c_2)}t_2\neq 0$ or\\
+    &$c_1t_1\neq c_2t_2\lor \pm\frac{c_1}{gcd(c_1,c_2)}t_1\mp\frac{c_2}{gcd(c_1,c_2)}t_2=0$
+  \end{tabular}
+  \caption{\label{tab:tautforms}Different Kinds of Tautology Clauses.}
+\end{table}
+
 \section{Implementation}
 After presenting the set of rules used by \si, we now describe some
 major issues to ensure soundness/correctness of the generated proofs.
 
+In \si, we consider $let$ as syntactic sugar.  Let is necessary to
+compactly represent a huge proof where parts, e.g. larger subproofs,
+are used multiple times in the proof.  Conceptually every let term is
+expanded and two let terms that expand to the same term are considered
+to be identical.
+
+\subsection{Basic Proof Rules}
+
+On a high level \si uses the proof rules defined below.
+The following four proof rules introduce valid formulas:
+\textsc{lemma}, \textsc{tautology}, \textsc{asserted}, \textsc{assumption}.
+Lemma is used for theory lemmas.  Tautology is used by the
+pre-processor to introduce auxiliary literals.  Asserted is used to
+introduce formulas that were asserted in the script and assumption is
+used to introduce assumption literals.  Additional we have the
+following proof rules.
+
+\[
+\inferrule*[left=res]{C_1 \lor \ell \\ C_2 \lor \lnot \ell}{C_1 \lor C_2}\qquad
+\inferrule*[left=eq]{t_1 \\ t_1 = t_2}{t_2}\qquad
+\inferrule*[left=exists]{F = G}{\exists x F = \exists x G}
+\]
+\[
+\inferrule*[left=trans]{t_1 = t_2 \\ t_2 = t_3}{t_1 = t_3}\qquad
+\inferrule*[left=cong]{t = f(\dots t_i \dots) \\ t_i = t'_i}{t = f(\dots t'_i \dots)}\qquad
+\inferrule*[left=refl]{}{t = t}
+\]
+\[
+\inferrule*[left=split,right={where $F$ implies $G$}]{F}{G}\qquad
+\inferrule*[left=rewrite,right={where $t_1 = t_2$ is a tautology}]{}{t_1 = t_2}
+\]
+
+
 \subsection{Proof Tree Structure}
-The proof trees produced by \si should be as small as possible.  We achieve
-this by treating the \texttt{Eq} rule as left-associative and collecting all
-the rewrite steps.  The final proof tree will then consist of three parts:
+The proof tree consist of three parts:
 \begin{enumerate}
-\item transforming into canonical form,\label{it:tocan}
-\item transforming into clausal form,\label{it:tocnf} and
+\item transforming input into canonical form,\label{it:tocan}
+\item transforming canoncial form into clausal form,\label{it:tocnf} and
 \item the resolution proof\label{it:resproof}.
 \end{enumerate}
 The proof tree structure will correspond to this ordering.
@@ -640,46 +652,13 @@ The proof tree structure will correspond to this ordering.
 \]
 \todo{Should we include the flatten-rule in this picture?}
 
-Note that the conversion steps from $F_{input}$ into $F_{canonical}$ are always
-the same and will be eliminated by common subexpression elimination.  Only the
-step producing the clauses from the canonical formula will change.
+Note that the conversion steps from $F_{input}$ into $F_{canonical}$
+for one input formula can appear multiple times in the proof and will
+be eliminated by common subexpression elimination (let).  Only the step
+producing the clauses from the canonical formula will change.
 Furthermore note that we do not give a derivation for theory lemmas.
-These clauses are annotated with enough information to reconstruct a proof of
-validity.
-
-\subsection{Ensuring Confluence}
-The transformation from input formula into canonical form is done by a term
-rewriting system.  This system, however, has to be confluent to ensure
-canonical form.  Otherwise, the same term might be rewritten into two
-different terms and the canonical form will not be unique.  In this section, we
-describe how we ensure confluence of the rewrite system and relate the
-confluence property to the actual implementation.
-
-The term-DAG is transformed in a bottom-up manner.  The DAG is traversed using
-a post-order DAG traversal, i.\,e., the children of a node are visited only if
-they have not yet been visited before, but before the current node is visited.
-For every node, a replacement is registered and used if another path through
-the DAG leads to the current node.  Hence, once a substitution for a node in
-the DAG is computed, we can directly replace it on all paths.  This leads to
-the intuition behind the order of rewrites.
-
-We collect the rewrites as produced during bottom-up traversal of the term-DAG
-and apply them in the same order.  Hence, once a rewrite has been done, we
-apply this rewrite to the whole term-DAG.  Further rewrites will then be done
-against the resulting term-DAG.
-
-Unfortunately expansion of $n$-ary applications of binary functions into a
-series of binary applications is done before the children are visited.  Hence,
-by expanding such an application, new terms might be created.  As some of
-these terms might already exist and even be rewritten, the \texttt{expand} and
-\texttt{ExpandDef} rules are a major problem for confluence.  A simple trick
-resolves this issue.  Instead of appending applications of these axiom to the
-set of rewrite axioms, we prepend these applications.  This change in the
-order can be seen as another preprocessing step.  Every $n$-ary application of
-a binary function is expanded in a top-down manner.  The resulting term-DAG is
-then transformed into canonical form using a bottom-up DAG rewrite.  This way,
-confluence of the system that rewrites the input formula into canonical form
-is guaranteed.
+These clauses are annotated with enough information to reconstruct a
+proof of validity.
 
 \section{Proof Terms in \si}
 Proofs are represented as terms of sort \verb+@Proof+ in \si.  Note that the
@@ -695,33 +674,6 @@ proof objects by the \verb+@asserted+ function.  This function has type
 $Bool\rightarrow @Proof$.  The formula still contains all annotations.
 Especially the \verb+:named+ annotation is kept and can be used to recognize
 the input formula.
-
-There is a fundamental difference between the internal representation of the
-proof and the printed version.  Internally, the \verb+@asserted+ function
-wraps a term asserted by the user in exactly the form, the user inserted it,
-i.\,e., including all lets.  Once we print the proof term in
-non-common-subexpression-elimination-mode\footnote{Note that this is in
-  general a bad idea.}, we still get this property.  If common subexpression
-elimination is enabled, we loose this property since all let-bindings in the
-proof term are first removed and later replaced by new once if the
-subexpression gets eliminated.
-\todo{We should think about a nice way to print out proofs and maybe always
-  preserve input terms since otherwise, recognizing the input term in the
-  proof will become quite hard!}
-Note that this is a consequence of the usage of FormulaLet which will remove
-all let-bindings before compute new ones, i.~e., before eliminating common
-subexpressions.  This leads to an interesting problem:  To recognize a formula
-in the input, we either prevent common subexpression elimination, or we have
-to remove all let-bindings in the asserted terms (locally).  Note that
-eliminating common subexpressions only in terms of type \verb+@Proof+ is no
-solution since the asserted formula might have contained let-bindings to get a
-propositional representation of the formula.  Removing the let-bindings would
-give (in the worst case) an exponential size formula and writing/comparing
-these formulas would be expensive.  However, on the API side, we are safe
-since the let-structure can be transformed into the non-let-structure in
-polynomial space and comparing two terms is in $O(1)$ since we only compare
-pointers.  Note that this only works, if the terms to be compared do not
-contain let-bindings.
 
 Adding specialized names to asserted formulas to simplify recognition is not a
 good idea.  Naming a formula has some side-effects and leads to an application
@@ -799,86 +751,6 @@ transformation into CNF.  These tautologies are clauses that are annotated
 with the kind of the tautology.  The \verb+@tautology+ function transforms a
 clause annotated with the kind of tautology into a proof.  The function has
 signature $Bool\rightarrow @Proof$.
-\begin{table}[htbp]
-  \begin{tabular}{l|l}
-    Kind & Description\\\hline
-    trueNotFalse & For the CC-Equality $true\neq false$\\
-    or+ & Positive polarity or auxiliary axiom\\
-    or- & Negative polarity or auxiliary axiom\\
-    ite+1 & Positive polarity if-then-else auxiliary axiom\\
-    ite+2 & Positive polarity if-then-else auxiliary axiom\\
-    ite+Red & Redundant positive polarity if-then-else auxiliary axiom\\
-    ite-1 & Negative polarity if-then-else auxiliary axiom\\
-    ite-2 & Negative polarity if-then-else auxiliary axiom\\
-    ite-Red & Redundant negative polarity if-then-else auxiliary axiom\\
-    =+1 & Positive polarity (Boolean) equivalence auxiliary axiom\\
-    =+2 & Positive polarity (Boolean) equivalence auxiliary axiom\\
-    =-1 & Negative polarity (Boolean) equivalence auxiliary axiom\\
-    =-2 & Negative polarity (Boolean) equivalence auxiliary axiom\\
-    excludedMiddle1 & Law of excluded middle for Boolean terms\\
-    excludedMiddle2 & Law of excluded middle for Boolean terms\\
-    termITE & Term if-then-else auxiliary axiom\\
-    divLow & Lower bound on integer division\\
-    divHigh & Upper bound on integer division\\
-    toIntLow & Lower bound on real-to-integer conversion\\
-    toIntHigh & Upper bound on real-to-integer conversion\\
-    eq & Equality propagation tautologies
-  \end{tabular}
-  \caption{\label{tab:tautkinds}Different Kinds of Tautologies.}
-\end{table}
-
-Table~\ref{tab:tautkinds} describes the different kinds of tautologies present
-in \si and Table~\ref{tab:tautforms} shows the corresponding clauses.  In
-Table~\ref{tab:tautforms}, $\quoted{F}$ denotes the proxy
-literal\footnote{These literals appear in proofs with the annotation
-  \texttt{:quoted}.} for formula $F$, $F$ denotes formulas, $t$ denotes terms,
-and $t_F$ denotes the term corresponding to $F$\footnote{In the proof returned
-  by \si, $t_F$ and $F$ are equal.  The distinction is only done internally
-  since $F$ is a Boolean term handled by the DPLL core and $t_F$ is the term
-  used by congruence closure.}.
-\si internally collects the disjunctive parts of the individual formulas.  The
-\texttt{termITE} tautology is also used when term if-then-else trees are
-minimized, i.\,e., when the then- or else-part of the if-then-else is an
-if-then-else again.  Then, only one term might be used and the $t$ in the
-result is one leaf or a shared if-then-else tree that is a sub-term of the
-left-hand-side of the equality.
-\begin{table}[htbp]
-  \begin{tabular}{l|l}
-    Kind & Clause\\\hline
-    trueNotFalse & $true\neq false$\\
-    or+ & $\neg\quoted{F_1\lor \ldots \lor F_n}\lor F_1\lor \ldots\lor F_n$\\
-    or- & $\quoted{F_1\lor \ldots \lor F_n}\lor \neg F_i$\\
-    ite+1 & $\neg\quoted{if F_1 then F_2 else F_3}\lor\neg F_1\lor F_2$\\
-    ite+2 & $\neg\quoted{if F_1 then F_2 else F_3}\lor F_1\lor F_3$\\
-    ite+Red & $\neg\quoted{if F_1 then F_2 else F_3}\lor F_2\lor F_3$\\
-    ite-1 & $\quoted{if F_1 then F_2 else F_3}\lor\neg F_1\lor\neg F_2$\\
-    ite-2 & $\quoted{if F_1 then F_2 else F_3}\lor F_1\lor\neg F_3$\\
-    ite-Red & $\quoted{if F_1 then F_2 else F_3}\lor\neg F_2\lor\neg F_3$\\
-    =+1 & $\neg\quoted{F_1=F_2}\lor F_1\lor\neg F_2$\\
-    =+2 & $\neg\quoted{F_1=F_2}\lor\neg F_1\lor F_2$\\
-    =-1 & $\quoted{F_1=F_2}\lor F_1\lor F_2$\\
-    =-2 & $\quoted{F_1=F_2}\lor\neg F_1\lor\neg F_2$\\
-    excludedMiddle1 & $\neg F\lor t_F = true$\\
-    excludedMiddle2 & $F\lor t_F = false$\\
-    termITE & $\neg F_1\lor\ldots\lor\neg F_n if F then t_1 else t_2 = t$\\
-    divLow & $d\cdot (x\div d) - x \leq 0$\\
-    divHigh & $\neg (|d| - x + d\cdot (x\div d)\leq 0)$\\
-    toIntLow & $to\_real(to\_int(x)) - x \leq 0$\\
-    toIntHigh & $\neg (1 - x + to\_real(to\_int(x))\leq 0)$\\
-    eq & $c_1t_1=c_2t_2\lor
-    \pm\frac{c_1}{gcd(c_1,c_2)}t_1\mp\frac{c_2}{gcd(c_1,c_2)}t_2\neq 0$ or\\
-    &$c_1t_1\neq c_2t_2\lor \pm\frac{c_1}{gcd(c_1,c_2)}t_1\mp\frac{c_2}{gcd(c_1,c_2)}t_2=0$
-  \end{tabular}
-  \caption{\label{tab:tautforms}Different Kinds of Tautology Clauses.}
-\end{table}
-
-Note that the rewrite rules are applied to almost all tautologies to produce
-proof objects for the clauses created from these tautologies.  The exception
-to this rule is the \verb+trueNotFalse+ rule which would be simplified to
-true.  This tautology is actually a proof for a unit clause.  Further note
-that the absolute value in the \verb+divHigh+ rule is directly computed
-without introduction of a function application for absolute values.  This is
-possible since the divisor is constant.
 
 \paragraph{Lemmas.}  The resolution proof produced by \si contains lemmas
 created by theory solvers.  These lemmas are valid Boolean terms.  The
@@ -924,13 +796,6 @@ function in the proof tree.  This function has
 signature $@Proof\times Bool\rightarrow@Proof$.
 It is correct, if the first argument is a proof for a (possibly nested)
 disjunction that can be flattened and reordered into the second argument.
-\todo{Do we really need this function?}
-
-\paragraph{Resolution.}  The resolution function \verb+@res+ is
-left-associative and has signature $@Proof\times@Proof\rightarrow@Proof$.  The
-second proof is annotated with the pivot of the resolution.  This pivot
-literal occurs negative in the first (the one not containing the pivot
-annotation) and positive in the second argument.
 
 \paragraph{Showing Results.}  The rules in SMTLIB format produce an implicit
 result.  To overcome this restriction, \si appends the results of structural
