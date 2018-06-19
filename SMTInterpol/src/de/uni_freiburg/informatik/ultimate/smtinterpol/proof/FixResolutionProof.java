@@ -219,10 +219,6 @@ public class FixResolutionProof extends NonRecursive {
 			stackPush(walkLemma(proofTerm), proofTerm);
 			break;
 
-		case "@asserted":
-			stackPush(walkAsserted(proofTerm), proofTerm);
-			break;
-
 		case "@clause":
 			stackPush(walkClause(proofTerm), proofTerm);
 			break;
@@ -250,25 +246,6 @@ public class FixResolutionProof extends NonRecursive {
 		final AnnotatedTerm annTerm = (AnnotatedTerm) lemmaApp.getParameters()[0];
 		final Term lemma = annTerm.getSubterm();
 		ProofInfo info = new ProofInfo(lemmaApp, termToClause(lemma));
-		return info;
-	}
-
-	/**
-	 * Handle an asserted rule. This just parses the clause and returns it together with the original proof.
-	 *
-	 * @param lemmaApp
-	 *            The {@literal @}lemma application.
-	 */
-	ProofInfo walkAsserted(final ApplicationTerm assertedApp) {
-		Term provedClause = assertedApp.getParameters()[0];
-		if (provedClause instanceof AnnotatedTerm) {
-			final Annotation[] annot = ((AnnotatedTerm) provedClause).getAnnotations();
-			if (annot.length == 1 && annot[0].getKey().equals(":input")) {
-				/* newer version of proof producer adds :input annotation to @clause for interpolator */
-				provedClause = ((AnnotatedTerm) provedClause).getSubterm();
-			}
-		}
-		ProofInfo info = new ProofInfo(assertedApp, termToClause(provedClause));
 		return info;
 	}
 

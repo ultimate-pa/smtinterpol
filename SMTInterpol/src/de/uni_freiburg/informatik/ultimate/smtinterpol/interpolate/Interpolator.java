@@ -266,7 +266,7 @@ public class Interpolator extends NonRecursive {
 		}
 		Interpolant[] interpolants = new Interpolant[mNumInterpolants];
 		final InterpolatorClauseTermInfo leafTermInfo = getClauseTermInfo(leaf);
-		if (leafTermInfo.getLeafKind().equals("@clause") || leafTermInfo.getLeafKind().equals("@asserted")) {
+		if (leafTermInfo.getLeafKind().equals("@clause")) {
 			final String source = leafTermInfo.getSource();
 			final int partition = mPartitions.containsKey(source) ? mPartitions.get(source) : 0;
 			interpolants = new Interpolant[mNumInterpolants];
