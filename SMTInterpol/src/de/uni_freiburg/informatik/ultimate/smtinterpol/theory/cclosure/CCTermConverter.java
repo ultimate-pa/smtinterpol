@@ -54,13 +54,19 @@ public class CCTermConverter extends NonRecursive {
 
 	}
 
+	/**
+	 * Create the class to convert CCTerm to SMT Term. Note that CCTerm.toSMTTerm() will do this work for you.
+	 *
+	 * @param theory
+	 *            The SMTLIB theory where the terms live. This must match the theory used to create these terms.
+	 */
 	public CCTermConverter(Theory theory) {
 		mTheory = theory;
 	}
 
 	/**
 	 * Convert a CCTerm to an SMT term. This is the only function you should call on this class.
-	 * 
+	 *
 	 * @param input
 	 *            the term to convert.
 	 * @return the converted term.
@@ -75,7 +81,7 @@ public class CCTermConverter extends NonRecursive {
 		return result;
 	}
 
-	public void walkCCTerm(CCTerm input, int numArgs, CCTerm fullTerm) {
+	private void walkCCTerm(CCTerm input, int numArgs, CCTerm fullTerm) {
 		if (input instanceof CCBaseTerm) {
 			walkBaseTerm((CCBaseTerm) input, numArgs, fullTerm);
 		} else {
@@ -83,7 +89,7 @@ public class CCTermConverter extends NonRecursive {
 		}
 	}
 
-	public void walkAppTerm(CCAppTerm input, int numArgs, CCTerm fullTerm) {
+	private void walkAppTerm(CCAppTerm input, int numArgs, CCTerm fullTerm) {
 		if (input.mSmtTerm != null) {
 			assert numArgs == 0 && fullTerm == input;
 			mConverted.add(input.mSmtTerm);
@@ -93,7 +99,7 @@ public class CCTermConverter extends NonRecursive {
 		enqueueWalker(new ConvertCC(input.getArg(), 0, input.getArg()));
 	}
 
-	public void walkBaseTerm(CCBaseTerm input, int numArgs, CCTerm fullTerm) {
+	private void walkBaseTerm(CCBaseTerm input, int numArgs, CCTerm fullTerm) {
 		assert input.mIsFunc == (numArgs > 0);
 		Term[] args = new Term[numArgs];
 		for (int i = 0; i < args.length; i++) {
