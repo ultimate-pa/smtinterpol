@@ -462,7 +462,8 @@ public class ProofChecker extends NonRecursive {
 
 		if (lemmaType == ":LA") {
 			checkLALemma(clause, (Term[]) lemmaAnnotation);
-		} else if (lemmaType == ":CC" || lemmaType == ":read-over-weakeq" || lemmaType == ":weakeq-ext") {
+		} else if (lemmaType == ":CC" || lemmaType == ":read-over-weakeq" || lemmaType == ":weakeq-ext"
+				|| lemmaType == ":read-const-weakeq" || lemmaType == ":const-weakeq") {
 			checkArrayLemma(lemmaType, clause, (Object[]) lemmaAnnotation);
 		} else if (lemmaType == ":trichotomy") {
 			checkTrichotomy(clause);
@@ -613,6 +614,29 @@ public class ProofChecker extends NonRecursive {
 					}
 				}
 			}
+
+			if (isApplication("select", sides[0])) {
+				final Term[] p1 = ((ApplicationTerm) sides[0]).getParameters();
+				final Term const2 = mSkript.term("const", null, p1[0].getSort(), sides[1]);
+				final HashSet<Term> weakPs = weakPaths.get(new SymmetricPair<Term>(p1[0], const2));
+				if (weakPs != null && weakPs.contains(p1[1])) {
+					return;
+				}
+			}
+
+			for (final SymmetricPair<Term> strongEq : strongPaths) {
+				if (!isApplication("const", strongEq.getFirst()) || !isApplication("const", strongEq.getSecond())) {
+					continue;
+				}
+				final Term c1 = ((ApplicationTerm) strongEq.getFirst()).getParameters()[0];
+				final Term c2 = ((ApplicationTerm) strongEq.getSecond()).getParameters()[0];
+				if (sides[0] == c1 && sides[1] == c2) {
+					return;
+				}
+				if (sides[0] == c2 && sides[1] == c1) {
+					return;
+				}
+			}
 			reportError("Cannot explain main equality " + goalEquality);
 		}
 	}
@@ -636,8 +660,8 @@ public class ProofChecker extends NonRecursive {
 	 */
 	void checkArrayPath(final Term weakIdx, final Term[] path, final HashSet<SymmetricPair<Term>> strongPaths,
 			final HashSet<Term> weakPaths, final HashSet<SymmetricPair<Term>> indexDiseqs) {
-		if (path.length < 2) {
-			reportError("Short path in ArrayLemma");
+		if (path.length < 1) {
+			reportError("Empty path in ArrayLemma");
 			return;
 		}
 		for (int i = 0; i < path.length - 1; i++) {
@@ -670,6 +694,9 @@ public class ProofChecker extends NonRecursive {
 					if (weakPaths != null && weakPaths.contains(storeIndex)) {
 						continue;
 					}
+					if (isApplication("const", path[0]) && isApplication("const", path[path.length - 1])) {
+						continue;
+					}
 				}
 			}
 			/* check for congruence */
@@ -697,26 +724,33 @@ public class ProofChecker extends NonRecursive {
 	private boolean checkSelectPath(final SymmetricPair<Term> termPair, final Term weakIdx,
 			final HashSet<SymmetricPair<Term>> strongPaths) {
 		for (final SymmetricPair<Term> strongPath : strongPaths) {
-			/* check for select terms */
-			if (!(isApplication("select", strongPath.getFirst()) && isApplication("select", strongPath.getSecond()))) {
-				continue;
+			if (checkSelectConst(strongPath.getFirst(), termPair.getFirst(), weakIdx, strongPaths)
+					&& checkSelectConst(strongPath.getSecond(), termPair.getSecond(), weakIdx, strongPaths)) {
+				return true;
 			}
-			/* check select arrays */
-			final Term array1 = ((ApplicationTerm) strongPath.getFirst()).getParameters()[0];
-			final Term array2 = ((ApplicationTerm) strongPath.getSecond()).getParameters()[0];
-			final SymmetricPair<Term> arrayPair = new SymmetricPair<Term>(array1, array2);
-			if (!arrayPair.equals(termPair)) {
-				continue;
+			if (checkSelectConst(strongPath.getFirst(), termPair.getSecond(), weakIdx, strongPaths)
+					&& checkSelectConst(strongPath.getSecond(), termPair.getFirst(), weakIdx, strongPaths)) {
+				return true;
 			}
-			/* check index paths */
-			final Term idx1 = ((ApplicationTerm) strongPath.getFirst()).getParameters()[1];
-			final Term idx2 = ((ApplicationTerm) strongPath.getSecond()).getParameters()[1];
-			if (idx1 != weakIdx && !strongPaths.contains(new SymmetricPair<Term>(idx1, weakIdx))) {
-				continue;
+		}
+		return false;
+	}
+
+	/**
+	 * Check if array[weakIdx] is value, either because value is the select term, or array is a constant array
+	 * on value.
+	 */
+	private boolean checkSelectConst(Term value, Term array, final Term weakIdx,
+		final HashSet<SymmetricPair<Term>> strongPaths) {
+		if (isApplication("select", value)) {
+			Term[] args = ((ApplicationTerm) value).getParameters();
+			if (args[0] == array
+					&& (args[1] == weakIdx || strongPaths.contains(new SymmetricPair<>(args[1], weakIdx)))) {
+				return true;
 			}
-			if (idx2 != weakIdx && !strongPaths.contains(new SymmetricPair<Term>(idx2, weakIdx))) {
-				continue;
-			}
+		}
+		if (isApplication("const", array)
+			&& ((ApplicationTerm) array).getParameters()[0] == value) {
 			return true;
 		}
 		return false;

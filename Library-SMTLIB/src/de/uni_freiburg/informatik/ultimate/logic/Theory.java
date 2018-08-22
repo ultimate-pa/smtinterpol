@@ -718,6 +718,11 @@ public class Theory {
 		declareInternalPolymorphicFunction("store", generic2, new Sort[] { array, generic2[0], generic2[1] }, array, 0);
 		defineFunction(new FunctionSymbolFactory("const") {
 			@Override
+			public int getFlags(BigInteger[] indices, Sort[] paramSorts, Sort result) {
+				return FunctionSymbol.INTERNAL | FunctionSymbol.RETURNOVERLOAD;
+			}
+
+			@Override
 			public Sort getResultSort(final BigInteger[] indices, final Sort[] paramSorts, final Sort resultSort) {
 				if (indices != null || paramSorts.length != 1 || resultSort == null || resultSort.getName() != "Array"
 						|| !paramSorts[0].equalsSort(resultSort.getArguments()[1])) {
