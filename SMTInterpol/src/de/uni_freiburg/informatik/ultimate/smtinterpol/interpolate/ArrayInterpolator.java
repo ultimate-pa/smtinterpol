@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2017 University of Freiburg
+ * Copyright (C) 2016-2018 University of Freiburg
  *
  * This file is part of SMTInterpol.
  *
@@ -39,12 +39,12 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
 
 /**
  * The interpolator for the theory of arrays.
+ * 
+ * Details on read-over-weakeq and weakeq-ext interpolants in our IJCAR 2018 paper.
  *
  * @author Tanja Schindler, Jochen Hoenicke
  */
 public class ArrayInterpolator {
-
-	// TODO Avoid A- and B-specific methods.
 
 	/* General info to set up the ArrayInterpolator */
 	private final Interpolator mInterpolator;
@@ -52,7 +52,6 @@ public class ArrayInterpolator {
 	private final int mNumInterpolants;
 	private Set<Term>[] mInterpolants;
 
-	/* Information for array lemmas */
 	/**
 	 * Information about the lemma proof term.
 	 */
@@ -66,11 +65,11 @@ public class ArrayInterpolator {
 	 */
 	private LitInfo mDiseqInfo;
 	/**
-	 * The atoms of the equality literals in this lemma. Note that they appear negated in the lemma clause.
+	 * The atoms of the equality literals in this lemma. Note that they appear negated in the clause.
 	 */
 	private Map<SymmetricPair<Term>, AnnotatedTerm> mEqualities;
 	/**
-	 * The atoms of the disequality literals in this lemma. Note that they appear positively in the lemma clause.
+	 * The atoms of the disequality literals in this lemma. Note that they appear positively in the clause.
 	 */
 	private Map<SymmetricPair<Term>, AnnotatedTerm> mDisequalities;
 	/**
@@ -81,34 +80,29 @@ public class ArrayInterpolator {
 	/**
 	 * This determines in which way we build the interpolant. In A-local partitions, we summarize B-paths, in the
 	 * B-local partitions A-paths. For read-over-weakeq, the partitions where mDiseq is A-local are A, all others are B.
-	 * For weakext, if there exist mixed partitions, there is one where the outer A-path is strictly longer than the
-	 * outer B-path, and then we want to build the recursion on the B-path. All partitions above this partition are in
-	 * A. This occurrence has NO shared partitions.
+	 * For weakeq-ext, if there exist mixed partitions, there is one where the outer A-path is strictly longer than the
+	 * outer B-path. Above (including) this partition, the B-path is used for recursion to get a smaller interpolant,
+	 * hence those partitions are A-local. This occurrence has NO shared partitions.
 	 */
 	private Occurrence mABSwitchOccur;
-
-	/* Specific information for read-over-weakeq-lemmas */
 	/**
-	 * The strong path between the select indices of the main disequality.
+	 * The strong path between the select indices of the main disequality for read-over-weakeq.
 	 */
 	private AnnotatedTerm mIndexEquality;
-
-	/* Specific information for weakeq-ext-lemmas */
 	/**
-	 * This map contains the paths for weak congruence on index i.
+	 * This map contains the paths for weak congruence on index i in weakeq-ext.
 	 */
 	private Map<Term, ProofPath> mIndexPaths;
 	/**
-	 * Index paths that have already been interpolated.
+	 * Index paths in weakeq-ext that have already been interpolated.
 	 */
 	private Map<Term, WeakPathInfo> mIndexPathInfos;
 	/**
-	 * Index paths that have already been interpolated for the recursion part.
+	 * Index paths in weakeq-ext that have already been interpolated for the recursion part.
 	 */
 	private Map<Term, WeakPathInfo> mRecIndexPathInfos;
 	/**
-	 * The term on the side of the main path to which we rewrite the first shared array. Only needed for mixed
-	 * weakeq-ext.
+	 * The term on the side of the main path to which we rewrite the first shared array in mixed weakeq-ext.
 	 */
 	private Term[] mRecursionSide;
 	/**
@@ -135,8 +129,8 @@ public class ArrayInterpolator {
 	 * Compute interpolants for array lemmas of type read-over-weakeq and weakeq-ext.
 	 *
 	 * @param proofTerm
-	 *            The lemma that is interpolated
-	 * @return An array containing interpolants for the different partitions
+	 *            An array lemma.
+	 * @return An array containing interpolants for all partitions.
 	 */
 	public Term[] computeInterpolants(final Term proofTerm) {
 		mLemmaInfo = mInterpolator.getClauseTermInfo(proofTerm);
@@ -188,7 +182,7 @@ public class ArrayInterpolator {
 	 * for A paths; or (iv) both i,j are A-local -> terms of the form "nweq(s1,s2,k,F(·))" are built for B paths.
 	 *
 	 * @param proofTerm
-	 *            The lemma which interpolants are computed for.
+	 *            A read-over-weakeq lemma.
 	 * @return An array containing the interpolants for all partitions.
 	 */
 	private Term[] computeReadOverWeakeqInterpolants(final Term proofTerm) {
@@ -213,8 +207,8 @@ public class ArrayInterpolator {
 
 		determineInterpolationColor();
 
-		// Determine the shared select index for all partitions where it exists
-		arrayPath.mSharedIndex = computeSharedSelectIndices();
+		// Determine the shared select index for all partitions where it exists.
+		arrayPath.mSharedIndex = findSharedTerms(mStorePath.getIndex());
 		// Compute the interpolant terms from the store path
 		mInterpolants = arrayPath.interpolateWeakPathInfo(true);
 		// In some cases, the index equality has to be added
@@ -241,7 +235,7 @@ public class ArrayInterpolator {
 	 * interpolation: "a != b" is (i) B-local (ii) A-local (iii) mixed.
 	 *
 	 * @param proofTerm
-	 *            The lemma which interpolants are computed for.
+	 *            A weakeq-ext lemma.
 	 * @return An array containing the interpolants for all partitions.
 	 */
 	private Term[] computeWeakeqExtInterpolants(final Term proofTerm) {
@@ -292,8 +286,8 @@ public class ArrayInterpolator {
 
 	/**
 	 * Determine how the lemma is interpolated. We say that it is 'B-interpolated' if we summarize A-paths. This
-	 * counterintuitive notation results from the fact that we do this when mDiseq is in B. For weakeq-ext, this should
-	 * be called after setting mRecursionSide.
+	 * counterintuitive notation results from the fact that we do this when mDiseq is in B. For mixed weakeq-ext, this
+	 * should be called after setting mRecursionSide.
 	 */
 	private void determineInterpolationColor() {
 		int color = mNumInterpolants;
@@ -324,53 +318,8 @@ public class ArrayInterpolator {
 				}
 			}
 		}
-		// All partitions above the computed color (inclusively) have to be interpolated as if mDiseq was A-local
+		// All partitions above (and including) the computed color have to be interpolated as if mDiseq was A-local
 		mABSwitchOccur.occursIn(color);
-	}
-
-	/* Read-over-weakeq specific methods */
-
-	/**
-	 * Determine for all partitions whether there exists a shared select index. This can be the weakpathindex, if no
-	 * index equality exists; the mixed variable if the index equality is mixed; the weakpathindex if the index equality
-	 * is local or shared; the other select index if the index equality is A- or B-local and weakpathindex is not
-	 * shared. Note: if both select indices are shared, we take weakpathindex. This information is used during
-	 * interpolation to determine the partitions where a simple interpolant can be built.
-	 */
-	private Term[] computeSharedSelectIndices() {
-		final Term[] sharedIndices = new Term[mNumInterpolants];
-		if (mIndexEquality == null) { // This is the case if the main disequality is of form "a[i] != b[i]"
-			// Check if the weakpath index is shared
-			final Term index = mStorePath.getIndex();
-			for (int color = 0; color < mNumInterpolants; color++) {
-				if (mInterpolator.getOccurrence(index).isAB(color)) {
-					sharedIndices[color] = index;
-				}
-			}
-		} else {
-			for (int color = 0; color < mNumInterpolants; color++) {
-				// Check if the weakpath index is shared
-				if (mInterpolator.getOccurrence(mStorePath.getIndex()).isAB(color)) {
-					sharedIndices[color] = mStorePath.getIndex();
-				} else {
-					final LitInfo info = mInterpolator.getLiteralInfo(mIndexEquality);
-					// Check if there is a mixed variable
-					if (info.isMixed(color)) {
-						sharedIndices[color] = info.getMixedVar();
-					} else { // Check the other select index
-						final InterpolatorLiteralTermInfo termInfo = mInterpolator.getLiteralTermInfo(mIndexEquality);
-						assert info.isALocal(color) || info.isBLocal(color);
-						Term otherIndex = termInfo.getEquality().getParameters()[0];
-						otherIndex = otherIndex == mStorePath.getIndex() ? termInfo.getEquality().getParameters()[1]
-								: otherIndex;
-						if (mInterpolator.getOccurrence(otherIndex).isAB(color)) {
-							sharedIndices[color] = otherIndex;
-						}
-					}
-				}
-			}
-		}
-		return sharedIndices;
 	}
 
 	/**
@@ -588,7 +537,6 @@ public class ArrayInterpolator {
 	 *            the formula satisfied by the diff terms, with an auxiliary variable
 	 * @param auxVar
 	 *            the auxiliary variable in the formula
-	 * @return
 	 * @return a term nweq(left,right,order,formula)
 	 */
 	private Term buildNweqTerm(final Term left, final Term right, final int order, final Term formula,
@@ -647,11 +595,9 @@ public class ArrayInterpolator {
 		 * The conjuncts or disjuncts that build the path interpolants.
 		 */
 		private final Set<Term>[] mPathInterpolants;
-
-		/* Specific for weakeq-ext */
 		/**
 		 * The store indices in the order they appear on the main path in weakeq-ext. An index can appear several times.
-		 * In mixed weakeq-ext, we might have to build both the "normal" and the "reverse" subinterpolant for recursion.
+		 * In mixed weakeq-ext, we might have to build both the "normal" and the "dual" subinterpolant for recursion.
 		 */
 		private Vector<Term> mStores;
 		/**
@@ -673,11 +619,11 @@ public class ArrayInterpolator {
 		}
 
 		/**
-		 * Compute the interpolants for the complete weakpath and all partitions for read-over-weakeq and the index
-		 * paths of weakeq-ext.
+		 * Compute the interpolants for this weakpath for read-over-weakeq or for the index paths of weakeq-ext.
 		 * 
 		 * @param close
-		 *            false to get the interpolant of the inner paths only (for the recursion in mixed weakeq-ext)
+		 *            set to false to get the interpolant of the inner paths only (for recursion in mixed weakeq-ext)
+		 * @return An array containing the interpolant terms for this weakpath for each partition.
 		 */
 		public Set<Term>[] interpolateWeakPathInfo(boolean close) {
 			mHead = new WeakPathEnd();
@@ -796,7 +742,7 @@ public class ArrayInterpolator {
 			mTail.openAPath(mHead, mPath[mPath.length - 1], tailOccur);
 
 			// Outer paths have to be closed with mDiseq
-			if (close) { // ... unless we want the interpolant for recursion in mixed weakeq-ext
+			if (close) { // ... unless we compute the "dual" interpolant for recursion in mixed weakeq-ext
 				addDiseq(headOccur, tailOccur);
 				closeWeakPath();
 			} else {
@@ -806,7 +752,7 @@ public class ArrayInterpolator {
 		}
 
 		/**
-		 * Interpolate the main path of weakeq-ext for all partitions. This also computes the interpolant terms for the
+		 * Interpolate the main path of weakeq-ext for all partitions. This also computes the subinterpolants for the
 		 * index paths.
 		 */
 		@SuppressWarnings("unchecked")
@@ -938,7 +884,7 @@ public class ArrayInterpolator {
 		}
 
 		/**
-		 * For a step in an index path of an extensionality lemma that is not an array equality, check if we can find a
+		 * For a step in an index path of a weakeq-ext lemma that is not an array equality, check if we can find a
 		 * select equality between the arrays and corresponding index equalities.
 		 *
 		 * @return the select equality if it exists, else null.
@@ -1030,35 +976,35 @@ public class ArrayInterpolator {
 					assert mDiseqInfo.isALocal(color) || mLemmaInfo.getLemmaType().equals(":weakeq-ext");
 					// A-local outer paths must be closed here, B-local ones are already closed.
 					if (mHead.mTerm[color] != null) {
-						mHead.addInterpolantClauseAPath(color, null);
+						mHead.addInterpolantClausePathSeg(true, color, null);
 					}
 					if (mTail.mTerm[color] != null) {
-						mTail.addInterpolantClauseAPath(color, null);
+						mTail.addInterpolantClausePathSeg(true, color, null);
 					}
 					// The whole path and the diseq are in A, but there can still be B index(dis)eqs
 					if (mHead.mLastChange[color] == null && mTail.mLastChange[color] == null) {
 						// In this case, they are stored in mHead
-						mHead.addInterpolantClauseAPath(color, null);
+						mHead.addInterpolantClausePathSeg(true, color, null);
 					}
 				} else {
 					// B-local paths must be closed, A-local ones are already closed.
 					if (mHead.mLastChange[color] != mHead.mTerm[color]) {
-						mHead.addInterpolantClauseBPath(color, null);
+						mHead.addInterpolantClausePathSeg(false, color, null);
 					}
 					if (mTail.mLastChange[color] != mTail.mTerm[color]) {
-						mTail.addInterpolantClauseBPath(color, null);
+						mTail.addInterpolantClausePathSeg(false, color, null);
 					}
 					// The whole path and the diseq are in B, but there can still be A index(dis)eqs
 					if (mHead.mLastChange[color] == null && mTail.mLastChange[color] == null) {
 						// In this case, they are stored in mHead
-						mHead.addInterpolantClauseBPath(color, null);
+						mHead.addInterpolantClausePathSeg(false, color, null);
 					}
 				}
 			}
 		}
 
 		/**
-		 * Close the store path of an extensionality lemma.
+		 * Close the store path of a weakeq-ext lemma.
 		 *
 		 * @param headOcc
 		 *            the occurrence of the left store path end
@@ -1094,33 +1040,33 @@ public class ArrayInterpolator {
 				if (mDiseqInfo.isALocal(color)) {
 					// A-local outer paths must be closed here, B-local ones are already closed.
 					if (mHead.mTerm[color] != mPath[0]) {
-						mHead.addStorePathAExt(color, null);
+						mHead.addStorePathExt(true, color, null);
 					}
 					if (mTail.mTerm[color] != mPath[mPath.length - 1]) {
-						mTail.addStorePathAExt(color, null);
+						mTail.addStorePathExt(true, color, null);
 					}
 				} else if (mDiseqInfo.isBorShared(color)) {
 					// B-local outer paths must be closed, A-local ones are already closed.
 					if (mHead.mLastChange[color] != mPath[0]) {
-						mHead.addStorePathBExt(color, null);
+						mHead.addStorePathExt(false, color, null);
 					}
 					if (mTail.mLastChange[color] != mPath[mPath.length - 1]) {
-						mTail.addStorePathBExt(color, null);
+						mTail.addStorePathExt(false, color, null);
 					}
 				} else {
 					if (headOcc.isALocal(color)) {
 						if (mHead.mTerm[color] != mPath[0]) {
-							mHead.addStorePathAExt(color, null);
+							mHead.addStorePathExt(true, color, null);
 						}
 						if (mTail.mTerm[color] != mPath[mPath.length - 1]) {
-							mTail.addStorePathBExt(color, null);
+							mTail.addStorePathExt(false, color, null);
 						}
 					} else {
 						if (mHead.mLastChange[color] != mPath[0]) {
-							mHead.addStorePathBExt(color, null);
+							mHead.addStorePathExt(false, color, null);
 						}
 						if (mTail.mLastChange[color] != mPath[mPath.length - 1]) {
-							mTail.addStorePathAExt(color, null);
+							mTail.addStorePathExt(true, color, null);
 						}
 					}
 				}
@@ -1128,89 +1074,49 @@ public class ArrayInterpolator {
 		}
 
 		/**
-		 * Build the F_pi^A - term. It collects the B-parts of index (dis)equalities on an A-path.
-		 *
+		 * Build the F_pi^A or F_pi^B - term. On A-paths, it collects the negated B-projections of B-local and mixed
+		 * index equalities and disequalities; on B-paths, the A-projections of A-local and mixed index equalities.
+		 * 
+		 * @param isAPath
+		 *            true if the path is an A-path, false otherwise.
 		 * @param color
 		 *            the current partition
 		 * @param sharedIndex
 		 *            the shared term representing the weakpathindex
 		 * @param indexDiseqs
-		 *            disequalities between weakpathindex and indices of stores on the A-path
+		 *            disequalities between weakpathindex and indices of store terms on the path
 		 * @param indexEqs
-		 *            equalities between weakpathindex and indices of select eqs on the A-path
-		 * @return the disjunction of the negated B-parts of index diseqs on an A-path, in shared terms.
+		 *            equalities between weakpathindex and indices of select eqs on the path
+		 * @return for A-paths, the disjunction of the negated B-projections of index diseqs and eqs, in shared terms,
+		 *         for B-paths the conjunction of the A-projections of index diseqs and eqs, in shared terms.
+		 * 
 		 */
-		private Term buildFPiATerm(final int color, final Term sharedIndex,
+		private Term buildFPiTerm(final boolean isAPath, final int color, final Term sharedIndex,
 				final Map<AnnotatedTerm, LitInfo> indexDiseqs, final Map<AnnotatedTerm, LitInfo> indexEqs) {
 			if (indexDiseqs == null && indexEqs == null) {
-				return mTheory.mFalse;
+				return isAPath ? mTheory.mFalse : mTheory.mTrue;
 			}
-			final Set<Term> indexTerms = new HashSet<Term>();
-			if (indexDiseqs != null) {
-				for (final AnnotatedTerm diseq : indexDiseqs.keySet()) {
-					final InterpolatorLiteralTermInfo termInfo = mInterpolator.getLiteralTermInfo(diseq);
-					final LitInfo info = indexDiseqs.get(diseq);
-					final ApplicationTerm diseqApp = termInfo.getEquality();
-					// Index diseqs are either mixed or B-local.
-					// In the first case, there is a mixed term, in the second, the store index is shared.
-					final Term index = info.isMixed(color) ? info.getMixedVar()
-							: diseqApp.getParameters()[0].equals(mPathIndex) ? diseqApp.getParameters()[1]
-									: diseqApp.getParameters()[0];
-					indexTerms.add(mTheory.equals(index, sharedIndex));
-				}
-			}
-			if (indexEqs != null) {
-				for (final AnnotatedTerm eq : indexEqs.keySet()) {
-					final InterpolatorLiteralTermInfo termInfo = mInterpolator.getLiteralTermInfo(eq);
-					final LitInfo info = indexEqs.get(eq);
-					final ApplicationTerm eqApp = termInfo.getEquality();
-					// Index eqs are either mixed or B-local.
-					// In the first case, there is a mixed term, in the second, the select index is shared.
-					final Term index = info.isMixed(color) ? info.getMixedVar()
-							: eqApp.getParameters()[0].equals(mPathIndex) ? eqApp.getParameters()[1]
-									: eqApp.getParameters()[0];
-					indexTerms.add(mTheory.not(mTheory.equals(index, sharedIndex)));
-				}
-			}
-			final Term fATerm = mTheory.or(indexTerms.toArray(new Term[indexTerms.size()]));
-			return fATerm;
-		}
 
-		/**
-		 * Build the F_pi^B - term. It collects the A-parts of index (dis)equalities on a B-path.
-		 *
-		 * @param color
-		 *            the current partition
-		 * @param sharedIndex
-		 *            the shared term representing the weakpathindex
-		 * @param indexDiseqs
-		 *            disequalities between weakpathindex and indices of stores on the B-path
-		 * @param indexEqs
-		 *            equalities between weakpathindex and indices of select eqs on the B-path
-		 * @return the conjunction of the A-parts of index diseqs on a B-path, in shared terms.
-		 */
-		private Term buildFPiBTerm(final int color, final Term sharedIndex,
-				final Map<AnnotatedTerm, LitInfo> indexDiseqs, final Map<AnnotatedTerm, LitInfo> indexEqs) {
-			if (indexDiseqs == null && indexEqs == null) {
-				return mTheory.mTrue;
-			}
 			final Set<Term> indexTerms = new HashSet<Term>();
 			if (indexDiseqs != null) {
 				for (final AnnotatedTerm diseq : indexDiseqs.keySet()) {
 					final InterpolatorLiteralTermInfo termInfo = mInterpolator.getLiteralTermInfo(diseq);
 					final LitInfo info = indexDiseqs.get(diseq);
 					final ApplicationTerm diseqApp = termInfo.getEquality();
-					// Index diseqs are either mixed or A-local.
+					// Collected index diseqs are either mixed or B-local on A-paths (resp. A-local on B-paths).
 					// In the first case, there is a mixed term, in the second, the store index is shared.
 					final Term index = info.isMixed(color) ? info.getMixedVar()
 							: diseqApp.getParameters()[0].equals(mPathIndex) ? diseqApp.getParameters()[1]
 									: diseqApp.getParameters()[0];
-					if (info.isMixed(color)) { // Add the A projection of the index diseq (an eq in the mixed case)
-						indexTerms.add(mTheory.equals(index, sharedIndex));
-					} else if (info.isALocal(color)) {
-						// If the index diseq is A local, the A projection is the diseq itself.
-						indexTerms.add(mTheory.not(mTheory.equals(index, sharedIndex)));
+					// On A-paths, the negated B-projection of the index diseq is added.
+					// It is always an equality (representing an EQ term for mixed index diseqs).
+					Term projection = mTheory.equals(index, sharedIndex);
+					// On B-paths, the A-projection of the index diseq is added.
+					// It is an equality (EQ-term) for mixed index diseq, and a disequality for A-local index diseq.
+					if (!isAPath && info.isALocal(color)) {
+						projection = mTheory.not(projection);
 					}
+					indexTerms.add(projection);
 				}
 			}
 			if (indexEqs != null) {
@@ -1218,16 +1124,28 @@ public class ArrayInterpolator {
 					final InterpolatorLiteralTermInfo termInfo = mInterpolator.getLiteralTermInfo(eq);
 					final LitInfo info = indexEqs.get(eq);
 					final ApplicationTerm eqApp = termInfo.getEquality();
-					// Index eqs are either mixed or B-local.
+					// Index eqs are either mixed or B-local on A-paths (resp. A-local on B-paths).
 					// In the first case, there is a mixed term, in the second, the select index is shared.
 					final Term index = info.isMixed(color) ? info.getMixedVar()
 							: eqApp.getParameters()[0].equals(mPathIndex) ? eqApp.getParameters()[1]
 									: eqApp.getParameters()[0];
-					indexTerms.add(mTheory.equals(index, sharedIndex));
+					// On B-paths, the A-projection is added. It is always an equality.
+					Term projection = mTheory.equals(index, sharedIndex);
+					// On A-paths, the negated B-projection is added. It is always a disequality.
+					if (isAPath) {
+						projection = mTheory.not(projection);
+					}
+					indexTerms.add(projection);
 				}
 			}
-			final Term fBTerm = mTheory.and(indexTerms.toArray(new Term[indexTerms.size()]));
-			return fBTerm;
+
+			final Term fPiTerm;
+			if (isAPath) {
+				fPiTerm = mTheory.or(indexTerms.toArray(new Term[indexTerms.size()]));
+			} else {
+				fPiTerm = mTheory.and(indexTerms.toArray(new Term[indexTerms.size()]));
+			}
+			return fPiTerm;
 		}
 
 		/**
@@ -1341,9 +1259,9 @@ public class ArrayInterpolator {
 				if (color < mMaxColor) { // the path is already closed at the left side by a B path in front of it
 					// Add the interpolant clause for this A path.
 					if (mPathIndex != null) {
-						addInterpolantClauseAPath(color, boundary);
+						addInterpolantClausePathSeg(true, color, boundary);
 					} else { // Store path in weakeq-ext lemma
-						addStorePathAExt(color, boundary);
+						addStorePathExt(true, color, boundary);
 					}
 					mTerm[color] = null;
 				} else {
@@ -1385,9 +1303,9 @@ public class ArrayInterpolator {
 					// Add an interpolant clause for partitions where this closes a B path
 					if (mLastChange[child] != null) {
 						if (mPathIndex != null) {
-							addInterpolantClauseBPath(child, boundary);
+							addInterpolantClausePathSeg(false, child, boundary);
 						} else { // we are on the store path in a weakeq-ext lemma
-							addStorePathBExt(child, boundary);
+							addStorePathExt(false, child, boundary);
 						}
 					}
 					mLastChange[child] = boundary;
@@ -1568,9 +1486,9 @@ public class ArrayInterpolator {
 			 * Add the store index of a store step in the main path of weakeq-ext.
 			 *
 			 * @param other
-			 *            the other path end
-			 * @param storeTerm
-			 *            the store term from which we extract the index
+			 *            the other path end.
+			 * @param storeIndex
+			 *            the store index.
 			 */
 			private void addStoreIndex(final WeakPathEnd other, final Term storeIndex) {
 				for (int color = 0; color < mNumInterpolants; color++) {
@@ -1591,113 +1509,60 @@ public class ArrayInterpolator {
 			}
 
 			/**
-			 * Add an interpolant clause for a closed A path. Case (i) (shared select index and mDiseq not A-local): the
-			 * conjunction of all B-local or the B-part of mixed index diseqs on this path is a premise for the arrays
-			 * at the path ends to coincide at weakpathindex => interpolant conjunct of the form
-			 * "i!=k1/\.../\i!=kn->start[i]=end[i]". Case (ii) (shared select index and mDiseq A-local): B-local index
-			 * diseqs are a premise for all interpolant parts summarizing A paths. Case (iii) (mDiseq B-local, no shared
-			 * select index): Summarize the path by a WEQ term stating that the arrays at the path end differ at most at
-			 * k locations (k= # of B-local and mixed index diseqs on the path) which are all different from
-			 * weakpathindex. Case (iv) (mDiseq A-local, no shared select index): Nothing to do.
+			 * Add an interpolant clause for a closed A or B path segment.
+			 * 
+			 * If we collect A-paths, and there is a shared index (case 4.1), A-paths are summarized by a conjunct of
+			 * the form "i!=k1/\.../\i!=kn->start[i]=end[i]", i.e. the conjunction of all B-local or the B-part of mixed
+			 * index diseqs on this path is a premise for the arrays at the path ends to coincide at weakpathindex. For
+			 * B-paths, the A-projections of A-local and mixed index disequalities are added as conjunct to the entire
+			 * lemma interpolant. If there is no shared index (case 4.3), weq terms are built stating that the arrays at
+			 * the path ends differ at most at k locations (k= # of B-local and mixed index diseqs on the path) which
+			 * are all different from weakpathindex. For B-paths there is nothing to do in this case.
+			 * 
+			 * Analogously, if we collect B-paths and there is a shared index (case 4.2), B-paths are summarized by a
+			 * disjunct of the form "i!=k1/\.../\i!=kn/\start[i]!=end[i]". For A-paths, the B-projections of B-local and
+			 * mixed index disequalities are added as disjunct to the entire lemma interpolant. If there is no shared
+			 * index (case 4.4), an nweq term is built stating that the arrays at the path ends differ at least at k
+			 * locations (k= # A-local and mixed index diseqs on the path) of which (at least) one equals the
+			 * weakpathindex. For A-paths, there is nothing to do.
+			 * 
+			 * @param isAPath
+			 *            true if the path is an A-path, false otherwise.
+			 * @param color
+			 *            the current partition
+			 * @param boundary
+			 *            the term which closed the path segment
 			 */
-			private void addInterpolantClauseAPath(final int color, final Term boundary) {
+			private void addInterpolantClausePathSeg(final boolean isAPath, final int color, final Term boundary) {
+				final boolean collectA = !mABSwitchOccur.isALocal(color); // For better readability.
+
 				final Term left = mLastChange[color];
 				final Term right = boundary;
-				if (mSharedIndex[color] != null) {
+
+				if (mSharedIndex[color] != null) { // Cases 4.1 and 4.2
 					final Term index = mSharedIndex[color];
-					final Term fPiA = buildFPiATerm(color, index, mIndexDiseqs[color], mIndexEqs[color]);
+					final Term fPi = buildFPiTerm(isAPath, color, index, mIndexDiseqs[color], mIndexEqs[color]);
 					mIndexDiseqs[color] = null;
 					mIndexEqs[color] = null;
-					if (mABSwitchOccur.isALocal(color)) { // Case (ii)
-						assert mDiseqInfo.isALocal(color) || mLemmaInfo.getLemmaType().equals(":weakeq-ext");
-						if (!(fPiA.equals(mTheory.mFalse))) {
+
+					if (collectA && isAPath || !collectA && !isAPath) { // Select terms and F_pi terms are needed.
+						final Term selectEq = buildSelectEq(left, right, index);
+						final Term itpClause;
+						if (collectA) { // Case 4.1
+							itpClause = mTheory.or(selectEq, fPi);
+						} else { // Case 4.2
+							itpClause = mTheory.and(mTheory.not(selectEq), fPi);
+						}
+						mPathInterpolants[color].add(itpClause);
+					} else { // Only F_pi terms are added
+						if (isAPath && !(fPi.equals(mTheory.mFalse))) {
 							assert mSharedIndex[color] == mPathIndex || mLemmaInfo.getLemmaType().equals(":weakeq-ext");
 						}
-						mPathInterpolants[color].add(fPiA);
-					} else { // Case (i)
-						final Term selectEq = buildSelectEq(left, right, index);
-						final Term itpClause = mTheory.or(selectEq, fPiA);
-						mPathInterpolants[color].add(itpClause);
+						mPathInterpolants[color].add(fPi); // Cases 4.1 and 4.2
 					}
-				} else if (mABSwitchOccur.isALocal(color)) { // Case (iv)
-					assert mDiseqInfo.isALocal(color) || mLemmaInfo.getLemmaType().equals(":weakeq-ext");
-					if (mLemmaInfo.getLemmaType().equals(":read-over-weakeq")) {
-						assert mIndexDiseqs[color] == null;
-					} else { // Can happen when the reverse interpolant is built
-						// TODO Is there anything to do, or does this only happen, when the recursive interpolant is not
-						// needed? Because otherwise, we should have a shared index.
-						assert mIndexDiseqs[color] == null || !mDiseqInfo.isMixed(color);
-					}
-				} else { // Case (iii)
-					assert mABSwitchOccur.isBLocal(color);
-					assert mDiseqInfo.isBLocal(color) || mLemmaInfo.getLemmaType().equals(":weakeq-ext");
-					// With shared store indices, we can shorten the weq-term by rewriting left to right at those
-					// indices
-					Set<Term> sharedIndices = new HashSet<Term>();
-					if (mIndexDiseqs[color] != null) {
-						Iterator<AnnotatedTerm> it = mIndexDiseqs[color].keySet().iterator();
-						while (it.hasNext()) {
-							final AnnotatedTerm diseq = it.next();
-							final InterpolatorLiteralTermInfo termInfo = mInterpolator.getLiteralTermInfo(diseq);
-							final LitInfo info = mIndexDiseqs[color].get(diseq);
-							if (!info.isMixed(color)) {
-								final ApplicationTerm diseqApp = termInfo.getEquality();
-								final Term storeIndex =
-										diseqApp.getParameters()[0].equals(mPathIndex) ? diseqApp.getParameters()[1]
-												: diseqApp.getParameters()[0];
-								final Occurrence storeOcc = mInterpolator.getOccurrence(storeIndex);
-								if (storeOcc.isAB(color)) {
-									sharedIndices.add(storeIndex);
-									it.remove();
-								}
-							}
-						}
-					}
-					final int order = mIndexDiseqs[color] == null ? 0 : mIndexDiseqs[color].size();
-					Term rewriteLeftAtShared = left;
-					for (final Term idx : sharedIndices) {
-						rewriteLeftAtShared =
-								mTheory.term("store", rewriteLeftAtShared, idx, mTheory.term("select", right, idx));
-					}
-					final TermVariable cdot = mTheory.createFreshTermVariable("cdot", mPathIndex.getSort());
-					final Term fPiA = buildFPiATerm(color, cdot, mIndexDiseqs[color], mIndexEqs[color]);
-					final Term itpClause = buildWeqTerm(rewriteLeftAtShared, right, order, fPiA, cdot);
-					mPathInterpolants[color].add(itpClause);
-					mIndexDiseqs[color] = null;
-					mIndexEqs[color] = null;
-				}
-			}
 
-			/**
-			 * Add an interpolant clause for a closed B path. Case (i) (shared select index, mDiseq not A-local):
-			 * A-local and the A part of mixed index disequalities are added as conjunct to the entire lemma
-			 * interpolant. Case (ii) (shared select index, mDiseq A-local): Summarize the path by stating that the
-			 * arrays at the path ends differ at weakpathindex => interpolant disjunct of the form
-			 * "i!=k1/\.../\i!=kn/\start[i]!=end[i]". Case (iii) (B-local, no shared select index): Nothing to do. Case
-			 * (iv) (A-local, no shared select index): Summarize the path by an NWEQ term stating that the arrays at the
-			 * path end differ at least at k locations (k= # B-local and mixed index diseqs on the path) of which (at
-			 * least) one equals the weakpathindex.
-			 */
-			private void addInterpolantClauseBPath(final int color, final Term boundary) {
-				final Term left = mLastChange[color];
-				final Term right = boundary;
-				if (mSharedIndex[color] != null) {
-					final Term index = mSharedIndex[color];
-					final Term fPiB = buildFPiBTerm(color, index, mIndexDiseqs[color], mIndexEqs[color]);
-					mIndexDiseqs[color] = null;
-					mIndexEqs[color] = null;
-					if (mABSwitchOccur.isALocal(color)) { // Case (ii)
-						assert mDiseqInfo.isALocal(color) || mLemmaInfo.getLemmaType().equals(":weakeq-ext"); // TEST
-						final Term selectDiseq = mTheory.not(buildSelectEq(left, right, index));
-						final Term itpClause = mTheory.and(selectDiseq, fPiB);
-						mPathInterpolants[color].add(itpClause);
-					} else { // Case (i)
-						mPathInterpolants[color].add(fPiB);
-					}
-				} else if (mABSwitchOccur.isALocal(color)) { // Case (iv)
-					assert mDiseqInfo.isALocal(color) || mLemmaInfo.getLemmaType().equals(":weakeq-ext");
-					// With shared store indices, we can shorten the nweq-term by rewriting left to right at those
-					// indices
+				} else if (collectA && isAPath || !collectA && !isAPath) { // A-paths for case 4.3, B-paths for 4.4.
+					// Use shared store indices to rewrite "left" to "right" in order to shorten the weq- or nweq-term.
 					Set<Term> sharedIndices = new HashSet<Term>();
 					if (mIndexDiseqs[color] != null) {
 						Iterator<AnnotatedTerm> it = mIndexDiseqs[color].keySet().iterator();
@@ -1725,18 +1590,26 @@ public class ArrayInterpolator {
 								mTheory.term("store", rewriteLeftAtShared, idx, mTheory.term("select", right, idx));
 					}
 					final TermVariable cdot = mTheory.createFreshTermVariable("cdot", mPathIndex.getSort());
-					final Term fPiB = buildFPiBTerm(color, cdot, mIndexDiseqs[color], mIndexEqs[color]);
+					final Term fPi = buildFPiTerm(isAPath, color, cdot, mIndexDiseqs[color], mIndexEqs[color]);
 					mIndexDiseqs[color] = null;
 					mIndexEqs[color] = null;
-					final Term itpClause = buildNweqTerm(rewriteLeftAtShared, right, order, fPiB, cdot);
+
+					final Term itpClause;
+					if (isAPath) {
+						itpClause = buildWeqTerm(rewriteLeftAtShared, right, order, fPi, cdot);
+					} else {
+						itpClause = buildNweqTerm(rewriteLeftAtShared, right, order, fPi, cdot);
+					}
 					mPathInterpolants[color].add(itpClause);
-				} else { // Case (iii)
-					assert mABSwitchOccur.isBLocal(color);
-					assert mDiseqInfo.isBLocal(color) || mLemmaInfo.getLemmaType().equals(":weakeq-ext");
+
+				} else { // Nothing to do for A-paths in case 4.3 and for B-paths in case 4.4.
+					assert collectA && !isAPath || !collectA && isAPath;
+					// In read-over-weakeq without shared index, if the select index is A-local, there cannot be B-local
+					// or mixed disequalities on A-paths (and similarly for B-paths)
 					if (mLemmaInfo.getLemmaType().equals(":read-over-weakeq")) {
 						assert mIndexDiseqs[color] == null;
 					} else { // Can happen when recursive interpolant is built
-						// TODO Is there anything to do, or does this only happen, when the recursive interpolant is not
+						// TODO Is there anything to do, or does this only happen when the recursive interpolant is not
 						// needed? Because otherwise, we should have a shared index.
 						assert mIndexDiseqs[color] == null || !mDiseqInfo.isMixed(color);
 					}
@@ -1744,41 +1617,18 @@ public class ArrayInterpolator {
 			}
 
 			/**
-			 * Add an A store path to the main path in weakeq-ext. This stores all the information needed to compute the
-			 * interpolant terms once we have traversed the whole main path and computed all sub-interpolants.
-			 * 
-			 * @param color
-			 *            The current partition
-			 * @param boundary
-			 *            The term closing this path
-			 */
-			private void addStorePathAExt(final int color, final Term boundary) {
-				addStorePathExt(color, boundary, true);
-			}
-
-			/**
-			 * Add a B store path to the main path in weakeq-ext. This stores all the information that needed to compute
-			 * the interpolant terms once we have traversed the whole main path and computed all sub-interpolants.
-			 * 
-			 * @param color
-			 *            The current partition
-			 * @param boundary
-			 *            The term closing this path
-			 */
-			private void addStorePathBExt(final int color, final Term boundary) {
-				addStorePathExt(color, boundary, false);
-			}
-
-			/**
-			 * Add an A or B store path to the main path in weakeq-ext. This stores all the information that needed to
-			 * compute the interpolant terms once we have traversed the whole main path and computed all
+			 * Add an A or B store path to the main path in weakeq-ext. This stores all the information that is needed
+			 * to compute the interpolant terms once we have traversed the whole main path and computed all
 			 * sub-interpolants.
 			 * 
-			 * @param color
-			 * @param boundary
 			 * @param isAPath
+			 *            true if the path is an A path, false otherwise
+			 * @param color
+			 *            the current partition
+			 * @param boundary
+			 *            the array term that closed the path
 			 */
-			private void addStorePathExt(final int color, final Term boundary, final boolean isAPath) {
+			private void addStorePathExt(final boolean isAPath, final int color, final Term boundary) {
 				final Term left, right;
 				if (this.equals(mTail)) {
 					left = mLastChange[color];
@@ -1795,8 +1645,7 @@ public class ArrayInterpolator {
 					mStorePaths[color].add(0, storePath);
 				}
 				if (left != null && right != null) {
-					// We want to keep the store indices on the outer paths, so we can use them for the recursive
-					// interpolant. This happens only in closeWeakeqExt
+					// Keep the store indices on the outer paths to build the recursive interpolant in closeWeakeqExt.
 					mStoreIndices[color] = null;
 				}
 			}
@@ -1804,40 +1653,43 @@ public class ArrayInterpolator {
 			/**
 			 * Add the interpolant clause for a store path in weakeq-ext.
 			 * 
+			 * If we collect A-paths (case 5.1 and 5.3), A-paths are summarized by weq terms containing the interpolants
+			 * for the weak congruence paths for the store indices on this path. For B-paths, the interpolants for the
+			 * corresponding weak congruences are added as conjuncts to the entire lemma interpolant.
+			 * 
+			 * Analogously, if we collect B-paths (case 5.2 and 5.3 optimized), B-paths are summarized by nweq terms
+			 * containing the interpolants for the weak congruence paths for the store indices on this path. For
+			 * B-paths, the interpolants for the corresponding weak congruences are added as disjuncts to the entire
+			 * lemma interpolant.
+			 * 
 			 * @param color
 			 *            The current partition.
 			 * @param storePath
 			 *            The A or B store path on the main path.
 			 */
-			void addInterpolantClauseExt(final int color, final StorePath storePath) {
-				if (storePath.mIsAPath) {
-					addInterpolantClauseAPathExt(color, storePath);
-				} else {
-					addInterpolantClauseBPathExt(color, storePath);
-				}
-			}
+			private void addInterpolantClauseExt(final int color, final StorePath storePath) {
+				final boolean isAPath = storePath.mIsAPath;
+				final boolean collectA = !mABSwitchOccur.isALocal(color); // For readability
 
-			/**
-			 * Compute the interpolant term for an A store path on the main path in weakeq-ext. This is called only
-			 * after all subinterpolants have been computed.
-			 * 
-			 * @param color
-			 *            The current partition
-			 * @param storePath
-			 *            The A-colored store path.
-			 */
-			void addInterpolantClauseAPathExt(final int color, final StorePath storePath) {
-				if (mABSwitchOccur.isBLocal(color)) {
+				if (collectA && isAPath || !collectA && !isAPath) {
 					final Term left = storePath.mLeft;
 					final Term right = storePath.mRight;
 					assert left != null && right != null;
 					if (storePath.mStores != null) {
 						final Set<Term> subInterpolants = new HashSet<Term>();
+
+						// Rewrite "left" to "right" at shared indices to shorten the weq- or nweq-term
 						Set<Term> sharedIndices = new HashSet<Term>();
 						for (final Term index : storePath.mStores) {
 							final WeakPathInfo indexPath = mIndexPathInfos.get(index);
-							final Term subInterpolant = mTheory.and(
-									indexPath.mPathInterpolants[color].toArray(new Term[mInterpolants[color].size()]));
+							final Term subInterpolant;
+							if (isAPath) {
+								subInterpolant = mTheory.and(indexPath.mPathInterpolants[color]
+										.toArray(new Term[indexPath.mPathInterpolants[color].size()]));
+							} else {
+								subInterpolant = mTheory.or(indexPath.mPathInterpolants[color]
+										.toArray(new Term[indexPath.mPathInterpolants[color].size()]));
+							}
 							if (indexPath.mSharedIndex[color] != null && indexPath.mSharedIndex[color] != mDoubleDot) {
 								sharedIndices.add(indexPath.mSharedIndex[color]);
 								mPathInterpolants[color].add(subInterpolant);
@@ -1845,7 +1697,6 @@ public class ArrayInterpolator {
 								subInterpolants.add(subInterpolant);
 							}
 						}
-						// With shared indices, we can shorten the weq-term by rewriting left to right at those indices
 						final int order =
 								storePath.mStores == null ? 0 : storePath.mStores.size() - sharedIndices.size();
 						Term rewriteLeftAtShared = left;
@@ -1853,77 +1704,36 @@ public class ArrayInterpolator {
 							rewriteLeftAtShared =
 									mTheory.term("store", rewriteLeftAtShared, idx, mTheory.term("select", right, idx));
 						}
-						final Term formula = mTheory.or(subInterpolants.toArray(new Term[subInterpolants.size()]));
-						// The interpolant is a weq term including the sub-interpolants of local index terms
-						final Term weqTerm = buildWeqTerm(rewriteLeftAtShared, right, order, formula, mDoubleDot);
-						mPathInterpolants[color].add(weqTerm);
+						final Term formula;
+						final Term interpolantClause;
+						if (isAPath) { // The interpolant is a weq term including the sub-interpolants of local index
+										// terms
+							formula = mTheory.or(subInterpolants.toArray(new Term[subInterpolants.size()]));
+							interpolantClause = buildWeqTerm(rewriteLeftAtShared, right, order, formula, mDoubleDot);
+						} else { // The interpolant is an nweq term including the sub-interpolants of local index terms
+							formula = mTheory.and(subInterpolants.toArray(new Term[subInterpolants.size()]));
+							interpolantClause = buildNweqTerm(rewriteLeftAtShared, right, order, formula, mDoubleDot);
+						}
+						mPathInterpolants[color].add(interpolantClause);
 					} else {
-						mPathInterpolants[color].add(mTheory.equals(left, right));
+						Term interpolantClause = mTheory.equals(left, right);
+						if (!isAPath) {
+							interpolantClause = mTheory.not(interpolantClause);
+						}
+						mPathInterpolants[color].add(interpolantClause);
 					}
 				} else {
-					assert mDiseqInfo.isALocal(color) || mLemmaInfo.getLemmaType().equals(":weakeq-ext");
 					if (storePath.mStores != null) {
 						for (final Term index : storePath.mStores) {
 							final WeakPathInfo indexPath = mIndexPathInfos.get(index);
-							final Term subInterpolant = mTheory.or(
-									indexPath.mPathInterpolants[color].toArray(new Term[mInterpolants[color].size()]));
-							mPathInterpolants[color].add(subInterpolant);
-						}
-					}
-				}
-			}
-
-			/**
-			 * Compute the interpolant term for a B store path on the main path in weakeq-ext. This is called only after
-			 * all subinterpolants have been computed.
-			 * 
-			 * @param color
-			 *            The current partition
-			 * @param storePath
-			 *            The B-colored store path.
-			 */
-			void addInterpolantClauseBPathExt(final int color, final StorePath storePath) {
-				if (mABSwitchOccur.isALocal(color)) {
-					assert mDiseqInfo.isALocal(color) || mDiseqInfo.isMixed(color);
-					final Term left = storePath.mLeft;
-					final Term right = storePath.mRight;
-					assert left != null && right != null;
-					if (storePath.mStores != null) {
-						final Set<Term> subInterpolants = new HashSet<Term>();
-						Set<Term> sharedIndices = new HashSet<Term>();
-						for (final Term index : storePath.mStores) {
-							final WeakPathInfo indexPath = mIndexPathInfos.get(index);
-							final Term subInterpolant = mTheory.or(
-									indexPath.mPathInterpolants[color].toArray(new Term[mInterpolants[color].size()]));
-							if (indexPath.mSharedIndex[color] != null && indexPath.mSharedIndex[color] != mDoubleDot) {
-								sharedIndices.add(indexPath.mSharedIndex[color]);
-								mPathInterpolants[color].add(subInterpolant);
+							final Term subInterpolant;
+							if (isAPath) {
+								subInterpolant = mTheory.or(indexPath.mPathInterpolants[color]
+										.toArray(new Term[indexPath.mPathInterpolants[color].size()]));
 							} else {
-								subInterpolants.add(subInterpolant);
+								subInterpolant = mTheory.and(indexPath.mPathInterpolants[color]
+										.toArray(new Term[indexPath.mPathInterpolants[color].size()]));
 							}
-						}
-						// With shared indices, we can shorten the nweq-term by rewriting left to right at those indices
-						final int order =
-								storePath.mStores == null ? 0 : storePath.mStores.size() - sharedIndices.size();
-						Term rewriteLeftAtShared = left;
-						for (final Term idx : sharedIndices) {
-							rewriteLeftAtShared =
-									mTheory.term("store", rewriteLeftAtShared, idx, mTheory.term("select", right, idx));
-						}
-						final Term formula = mTheory.and(subInterpolants.toArray(new Term[subInterpolants.size()]));
-						// The interpolant is an nweq term including the sub-interpolants of local index terms
-						final Term weqTerm = buildNweqTerm(rewriteLeftAtShared, right, order, formula, mDoubleDot);
-						mPathInterpolants[color].add(weqTerm);
-					} else {
-						mPathInterpolants[color].add(mTheory.not(mTheory.equals(left, right)));
-					}
-				} else {
-					assert mDiseqInfo.isBorShared(color) || mDiseqInfo.isMixed(color);
-					if (storePath.mStores != null) {
-						for (final Term index : storePath.mStores) {
-							final WeakPathInfo indexPath = mIndexPathInfos.get(index);
-							final Term subInterpolant = mTheory.and(
-									indexPath.mPathInterpolants[color].toArray(new Term[mInterpolants[color].size()]));
 							mPathInterpolants[color].add(subInterpolant);
 						}
 					}
@@ -1931,7 +1741,11 @@ public class ArrayInterpolator {
 			}
 
 			/**
-			 * Build the recursive interpolant for mixed weakeq-ext.
+			 * Build the recursive interpolant for mixed weakeq-ext (case 5.3).
+			 * 
+			 * The goal is to recursively build a shared term for the local array at the path end, using the shared
+			 * array on the other path end, by storing for each index the correct value which we can find in the
+			 * corresponding index path. Then, this shared array can be used in the "usual" extensionality interpolant.
 			 * 
 			 * @param color
 			 *            The current partition
@@ -1940,35 +1754,33 @@ public class ArrayInterpolator {
 			 * @param recursionPath
 			 *            The path on which we rewrite the shared array to the outer path end.
 			 */
-			void buildRecursiveInterpolant(final int color, WeakPathEnd other, final StorePath recursionPath) {
-				if (recursionPath.mIsAPath) {
-					buildRecursiveInterpolantAPath(color, other, recursionPath);
+			private void buildRecursiveInterpolant(final int color, final WeakPathEnd other,
+					final StorePath recursionPath) {
+				final boolean isAPath = recursionPath.mIsAPath;
+
+				// Build the innermost interpolant term "mixedVar=recursionVar /\ B-interpolant" if recursionPath is A
+				// local, or "mixedVar!=recursionVar \/ A-interpolant" if recursionPath is B local
+				final Term eqTerm = mTheory.equals(mDiseqInfo.getMixedVar(), mRecursionVar);
+				// Compute A- or B-interpolant of the lemma where the store path is shortened by removing recursionPath.
+				final Term innerInterpolant;
+				if (isAPath) {
+					innerInterpolant =
+							mTheory.and(mPathInterpolants[color].toArray(new Term[mPathInterpolants[color].size()]));
 				} else {
-					buildRecursiveInterpolantBPath(color, other, recursionPath);
+					innerInterpolant =
+							mTheory.or(mPathInterpolants[color].toArray(new Term[mPathInterpolants[color].size()]));
 				}
-			}
-
-			/**
-			 * Build the recursive weakeq-ext interpolant for mixed lemmas. The goal is to recursively build a shared
-			 * term for the A-local path end from the array that closes this A path, by storing for each index the
-			 * correct value which we can find in the corresponding index path.
-			 *
-			 * @param color
-			 *            the current partition
-			 * @param other
-			 *            the other end of the store path
-			 */
-			void buildRecursiveInterpolantAPath(final int color, final WeakPathEnd other,
-					final StorePath recursionPath) {
-				// Build the innermost interpolant term "mixedVar=recursionVar /\ B-Interpolant"
-				final Term eqTerm = mTheory.equals(mDiseqInfo.getMixedVar(), mRecursionVar);
-				final Term bInterpolant =
-						mTheory.and(mPathInterpolants[color].toArray(new Term[mInterpolants[color].size()]));
 				mPathInterpolants[color].clear();
-				Term recursiveInterpolant = mTheory.and(eqTerm, bInterpolant);
-				TermVariable lastRecVar = mRecursionVar;
+				Term recursiveInterpolant;
+				if (isAPath) {
+					recursiveInterpolant = mTheory.and(eqTerm, innerInterpolant);
+				} else {
+					recursiveInterpolant = mTheory.or(eqTerm, innerInterpolant);
+				}
 
-				// Recursion over the store indices on this outer path
+				// Recursion over the store indices on this outer path. On each index, the shared array is rewritten
+				// towards the local array at the outer path end, to express the local array in shared terms.
+				TermVariable lastRecVar = mRecursionVar;
 				if (recursionPath.mStores != null) {
 					for (final Term index : recursionPath.mStores) {
 						final TermVariable currentRecVar =
@@ -1983,11 +1795,11 @@ public class ArrayInterpolator {
 						} else {
 							indexPath = new WeakPathInfo(mIndexPaths.get(index));
 							indexPath.mSharedIndex = findSharedTerms(index);
-							// Compute the reverse itp
+							// Compute the "dual" interpolant
 							BitSet oldInA = mABSwitchOccur.mInA;
 							mABSwitchOccur.mInA = mABSwitchOccur.mInB;
 							mABSwitchOccur.mInB = oldInA;
-							indexPath.interpolateWeakPathInfo(false); // Compute the reverse itp for the inner path only
+							indexPath.interpolateWeakPathInfo(false); // Compute the "dual" itp for the inner path only
 							// Change back
 							oldInA = mABSwitchOccur.mInB;
 							mABSwitchOccur.mInB = mABSwitchOccur.mInA;
@@ -1997,8 +1809,13 @@ public class ArrayInterpolator {
 
 						if (indexPath.mSharedIndex[color] != null) { // Case 5.3 (i)
 							rewriteAtIndex = indexPath.mSharedIndex[color];
-							pathInterpolant = mTheory
-									.or(recPathInterpolantTerms.toArray(new Term[recPathInterpolantTerms.size()]));
+							if (isAPath) {
+								pathInterpolant = mTheory
+										.or(recPathInterpolantTerms.toArray(new Term[recPathInterpolantTerms.size()]));
+							} else {
+								pathInterpolant = mTheory
+										.and(recPathInterpolantTerms.toArray(new Term[recPathInterpolantTerms.size()]));
+							}
 							final Term lastSharedOnIndexPath = this.equals(mHead) ? indexPath.mTail.mLastChange[color]
 									: indexPath.mHead.mLastChange[color];
 							if (lastSharedOnIndexPath instanceof AnnotatedTerm
@@ -2014,144 +1831,13 @@ public class ArrayInterpolator {
 						} else { // Case 5.3 (ii)
 							final TermVariable cdot = mTheory.createFreshTermVariable("cdot", index.getSort());
 							rewriteAtIndex = cdot;
-							pathInterpolant = mTheory
-									.or(recPathInterpolantTerms.toArray(new Term[recPathInterpolantTerms.size()]));
-							final Term lastSharedOnIndexPath = this.equals(mHead) ? indexPath.mTail.mLastChange[color]
-									: indexPath.mHead.mLastChange[color];
-							assert !(lastSharedOnIndexPath instanceof AnnotatedTerm
-									&& mEqualities.containsValue(lastSharedOnIndexPath));
-							rewriteToArray = lastSharedOnIndexPath;
-							rewriteWithElement = mTheory.term("select", rewriteToArray, rewriteAtIndex);
-						}
-						// Build the FPiBTerm for the outer B path of the index path
-						final Term fPiB;
-						// Needed for case without shared index (then there are no indexEqs)
-						final int fPiBOrderForRecursion;
-						if (this.equals(mHead)) { // The right outer path is the B path
-							final Map<AnnotatedTerm, LitInfo> indexDiseqs = indexPath.mTail.mIndexDiseqs[color];
-							fPiBOrderForRecursion = indexDiseqs == null ? 0 : indexDiseqs.size();
-							fPiB = indexPath.buildFPiBTerm(color, rewriteAtIndex, indexDiseqs,
-									indexPath.mTail.mIndexEqs[color]);
-						} else { // The left outer path is the B path
-							final Map<AnnotatedTerm, LitInfo> indexDiseqs = indexPath.mHead.mIndexDiseqs[color];
-							fPiBOrderForRecursion = indexDiseqs == null ? 0 : indexDiseqs.size();
-							fPiB = indexPath.buildFPiBTerm(color, rewriteAtIndex, indexDiseqs,
-									indexPath.mHead.mIndexEqs[color]);
-						}
-						// Insert the rewritten term into the inner interpolant term
-						final Term rewriteRecVar =
-								mTheory.term("store", currentRecVar, rewriteAtIndex, rewriteWithElement);
-						final Term rewriteRecInterpolant =
-								mTheory.and(fPiB, mTheory.let(lastRecVar, rewriteRecVar, recursiveInterpolant));
-						// Build the final recursive interpolant
-						if (indexPath.mSharedIndex[color] != null) {
-							recursiveInterpolant = mTheory.or(pathInterpolant, rewriteRecInterpolant);
-						} else {
-							assert rewriteAtIndex instanceof TermVariable;
-							assert rewriteToArray != null;
-							final TermVariable nweqDot = (TermVariable) rewriteAtIndex;
-							final Set<Term> nweqTerms = new HashSet<Term>();
-							// Build the nweq terms for all inner paths
-							for (final StorePath path : mStorePaths[color]) {
-								final Term left = path.mLeft;
-								final Term right = path.mRight;
-								if (left != null && right != null) {
-									final int order = path.mStores != null ? path.mStores.size() : 0;
-									final Term nweqTerm =
-											buildNweqTerm(left, right, order, rewriteRecInterpolant, nweqDot);
-									nweqTerms.add(nweqTerm);
-								}
-							}
-							// Build the nweq term for the concatenation of the outer B-paths on store and index path
-							final Term concatLeft = other.mLastChange[color];
-							final Term concatRight = rewriteToArray;
-							final Set<Term> otherMainStores = other.mStoreIndices[color];
-							final int concatStores =
-									fPiBOrderForRecursion + (otherMainStores == null ? 0 : otherMainStores.size());
-							final Term concatNweqTerm = buildNweqTerm(concatLeft, concatRight, concatStores,
-									rewriteRecInterpolant, nweqDot);
-							nweqTerms.add(concatNweqTerm);
-							final Term nweqPart = mTheory.or(nweqTerms.toArray(new Term[nweqTerms.size()]));
-							recursiveInterpolant = mTheory.let(lastRecVar, currentRecVar, recursiveInterpolant);
-							recursiveInterpolant = mTheory.or(recursiveInterpolant, pathInterpolant, nweqPart);
-						}
-						lastRecVar = currentRecVar;
-					}
-				}
-				// Replace the recursionVar by the first shared term
-				recursiveInterpolant = mTheory.let(lastRecVar, mLastChange[color], recursiveInterpolant);
-				mPathInterpolants[color].add(recursiveInterpolant);
-			}
-
-			/**
-			 * Build the recursive weakeq-ext interpolant for mixed lemmas. The goal is to recursively build a shared
-			 * term for the A-local path end from the array that closes this A path, by storing for each index the
-			 * correct value which we can find in the corresponding index path.
-			 *
-			 * @param color
-			 *            the current partition
-			 * @param other
-			 *            the other end of the store path
-			 */
-			void buildRecursiveInterpolantBPath(final int color, final WeakPathEnd other,
-					final StorePath recursionPath) {
-				// Build the innermost interpolant term "mixedVar=recursionVar /\ B-Interpolant"
-				final Term eqTerm = mTheory.equals(mDiseqInfo.getMixedVar(), mRecursionVar);
-				final Term aInterpolant =
-						mTheory.or(mPathInterpolants[color].toArray(new Term[mInterpolants[color].size()]));
-				mPathInterpolants[color].clear();
-				Term recursiveInterpolant = mTheory.or(eqTerm, aInterpolant);
-				TermVariable lastRecVar = mRecursionVar;
-
-				// Recursion over the store indices on this outer path
-				if (recursionPath.mStores != null) {
-					for (final Term index : recursionPath.mStores) {
-						final TermVariable currentRecVar =
-								mTheory.createFreshTermVariable("recursive", mRecursionVar.getSort());
-						final Term rewriteAtIndex, rewriteToArray, rewriteWithElement;
-						final WeakPathInfo indexPath;
-						final Set<Term> recPathInterpolantTerms;
-						final Term pathInterpolant;
-						if (mRecIndexPathInfos.containsKey(index)) {
-							indexPath = mRecIndexPathInfos.get(index);
-							recPathInterpolantTerms = indexPath.mPathInterpolants[color];
-						} else {
-							indexPath = new WeakPathInfo(mIndexPaths.get(index));
-							indexPath.mSharedIndex = findSharedTerms(index);
-							// Compute the reverse itp
-							BitSet oldInA = mABSwitchOccur.mInA;
-							mABSwitchOccur.mInA = mABSwitchOccur.mInB;
-							mABSwitchOccur.mInB = oldInA;
-							indexPath.interpolateWeakPathInfo(false); // Compute the reverse itp for the inner path only
-							mRecIndexPathInfos.put(index, indexPath);
-							// Change back
-							oldInA = mABSwitchOccur.mInB;
-							mABSwitchOccur.mInB = mABSwitchOccur.mInA;
-							mABSwitchOccur.mInA = oldInA;
-							recPathInterpolantTerms = indexPath.mPathInterpolants[color];
-						}
-
-						if (indexPath.mSharedIndex[color] != null) { // Case 5.3 (i)
-							rewriteAtIndex = indexPath.mSharedIndex[color];
-							pathInterpolant = mTheory
-									.and(recPathInterpolantTerms.toArray(new Term[recPathInterpolantTerms.size()]));
-							final Term lastSharedOnIndexPath = this.equals(mHead) ? indexPath.mTail.mLastChange[color]
-									: indexPath.mHead.mLastChange[color];
-							if (lastSharedOnIndexPath instanceof AnnotatedTerm
-									&& mEqualities.containsValue(lastSharedOnIndexPath)) {
-								rewriteToArray = null;
-								// Last change was at a mixed select equality
-								final LitInfo selectEq = mInterpolator.getLiteralInfo(lastSharedOnIndexPath);
-								rewriteWithElement = selectEq.getMixedVar();
+							if (isAPath) {
+								pathInterpolant = mTheory
+										.or(recPathInterpolantTerms.toArray(new Term[recPathInterpolantTerms.size()]));
 							} else {
-								rewriteToArray = lastSharedOnIndexPath;
-								rewriteWithElement = mTheory.term("select", rewriteToArray, rewriteAtIndex);
+								pathInterpolant = mTheory
+										.and(recPathInterpolantTerms.toArray(new Term[recPathInterpolantTerms.size()]));
 							}
-						} else { // Case 5.3 (ii)
-							final TermVariable cdot = mTheory.createFreshTermVariable("cdot", index.getSort());
-							rewriteAtIndex = cdot;
-							pathInterpolant = mTheory
-									.and(recPathInterpolantTerms.toArray(new Term[recPathInterpolantTerms.size()]));
 							final Term lastSharedOnIndexPath = this.equals(mHead) ? indexPath.mTail.mLastChange[color]
 									: indexPath.mHead.mLastChange[color];
 							assert !(lastSharedOnIndexPath instanceof AnnotatedTerm
@@ -2159,61 +1845,105 @@ public class ArrayInterpolator {
 							rewriteToArray = lastSharedOnIndexPath;
 							rewriteWithElement = mTheory.term("select", rewriteToArray, rewriteAtIndex);
 						}
-						// Build the FPiATerm for the outer A path of the index path
-						final Term fPiA;
+
+						// Build the FPi Term for the outer path of the index path on the opposite side, i.e. for
+						// the outer B path, if recursionPath is an A path, and for the outer A path otherwise.
+						final Term fPi;
 						// Needed for case without shared index (then there are no indexEqs)
-						final int fPiAOrderForRecursion;
-						if (this.equals(mHead)) { // The right outer path is the B path
+						final int fPiOrderForRecursion;
+						if (this.equals(mHead)) { // recursionPath is the left outer path
 							final Map<AnnotatedTerm, LitInfo> indexDiseqs = indexPath.mTail.mIndexDiseqs[color];
-							fPiAOrderForRecursion = indexDiseqs == null ? 0 : indexDiseqs.size();
-							fPiA = indexPath.buildFPiATerm(color, rewriteAtIndex, indexDiseqs,
+							fPiOrderForRecursion = indexDiseqs == null ? 0 : indexDiseqs.size();
+							fPi = indexPath.buildFPiTerm(!isAPath, color, rewriteAtIndex, indexDiseqs,
 									indexPath.mTail.mIndexEqs[color]);
-						} else { // The left outer path is the B path
+						} else { // recursionPath is the right outer path
 							final Map<AnnotatedTerm, LitInfo> indexDiseqs = indexPath.mHead.mIndexDiseqs[color];
-							fPiAOrderForRecursion = indexDiseqs == null ? 0 : indexDiseqs.size();
-							fPiA = indexPath.buildFPiATerm(color, rewriteAtIndex, indexDiseqs,
+							fPiOrderForRecursion = indexDiseqs == null ? 0 : indexDiseqs.size();
+							fPi = indexPath.buildFPiTerm(!isAPath, color, rewriteAtIndex, indexDiseqs,
 									indexPath.mHead.mIndexEqs[color]);
 						}
+
 						// Insert the rewritten term into the inner interpolant term
 						final Term rewriteRecVar =
 								mTheory.term("store", currentRecVar, rewriteAtIndex, rewriteWithElement);
-						final Term rewriteRecInterpolant =
-								mTheory.or(fPiA, mTheory.let(lastRecVar, rewriteRecVar, recursiveInterpolant));
-						// Build the final recursive interpolant
-						if (indexPath.mSharedIndex[color] != null) {
-							recursiveInterpolant = mTheory.and(pathInterpolant, rewriteRecInterpolant);
+						final Term rewriteRecInterpolant;
+						if (isAPath) {
+							rewriteRecInterpolant =
+									mTheory.and(mTheory.let(lastRecVar, rewriteRecVar, recursiveInterpolant), fPi);
 						} else {
+							rewriteRecInterpolant =
+									mTheory.or(mTheory.let(lastRecVar, rewriteRecVar, recursiveInterpolant), fPi);
+						}
+
+						// Build the final recursive interpolant
+						if (indexPath.mSharedIndex[color] != null) { // Case 5.3 (i): use shared index to rewrite
+							if (isAPath) {
+								recursiveInterpolant = mTheory.or(pathInterpolant, rewriteRecInterpolant);
+							} else {
+								recursiveInterpolant = mTheory.and(pathInterpolant, rewriteRecInterpolant);
+							}
+						} else { // Use nweq (if recursionPath is A local) or weq to express rewrite index (5.3(ii))
 							assert rewriteAtIndex instanceof TermVariable;
 							assert rewriteToArray != null;
-							final TermVariable weqDot = (TermVariable) rewriteAtIndex;
-							final Set<Term> weqTerms = new HashSet<Term>();
-							// Build the weq terms for all inner paths
+							// TODO find a good name for weqNweq - stuff
+							final TermVariable rewriteDot = (TermVariable) rewriteAtIndex;
+							final Set<Term> rewriteIndexFinders = new HashSet<Term>();
+							// If resursionPath is A-local, build the nweq terms for all inner paths of the main store
+							// path; otherwise the weq terms. They are used to express the rewrite index.
 							for (final StorePath path : mStorePaths[color]) {
 								final Term left = path.mLeft;
 								final Term right = path.mRight;
 								if (left != null && right != null) {
 									final int order = path.mStores != null ? path.mStores.size() : 0;
-									final Term weqTerm =
-											buildWeqTerm(left, right, order, rewriteRecInterpolant, weqDot);
-									weqTerms.add(weqTerm);
+									final Term rewriteIndexSearcher;
+									if (isAPath) {
+										rewriteIndexSearcher =
+												buildNweqTerm(left, right, order, rewriteRecInterpolant, rewriteDot);
+									} else {
+										rewriteIndexSearcher =
+												buildWeqTerm(left, right, order, rewriteRecInterpolant, rewriteDot);
+									}
+									rewriteIndexFinders.add(rewriteIndexSearcher);
 								}
 							}
-							// Build the nweq term for the concatenation of the outer B-paths on store and index path
+							// Build the nweq term for the concatenation of the outer B-paths on store and index path,
+							// if recursionPath is A-local, and a weq term for the outer A-paths else. It is used to
+							// express the rewrite index.
 							final Term concatLeft = other.mLastChange[color];
 							final Term concatRight = rewriteToArray;
 							final Set<Term> otherMainStores = other.mStoreIndices[color];
 							final int concatStores =
-									fPiAOrderForRecursion + (otherMainStores == null ? 0 : otherMainStores.size());
-							final Term concatWeqTerm =
-									buildWeqTerm(concatLeft, concatRight, concatStores, rewriteRecInterpolant, weqDot);
-							weqTerms.add(concatWeqTerm);
-							final Term weqPart = mTheory.and(weqTerms.toArray(new Term[weqTerms.size()]));
+									fPiOrderForRecursion + (otherMainStores == null ? 0 : otherMainStores.size());
+							final Term concatTerm;
+							if (isAPath) {
+								concatTerm = buildNweqTerm(concatLeft, concatRight, concatStores, rewriteRecInterpolant,
+										rewriteDot);
+							} else {
+								concatTerm = buildWeqTerm(concatLeft, concatRight, concatStores, rewriteRecInterpolant,
+										rewriteDot);
+							}
+							rewriteIndexFinders.add(concatTerm);
+							final Term recursionStepTerm;
+							if (isAPath) {
+								recursionStepTerm =
+										mTheory.or(rewriteIndexFinders.toArray(new Term[rewriteIndexFinders.size()]));
+							} else {
+								recursionStepTerm =
+										mTheory.and(rewriteIndexFinders.toArray(new Term[rewriteIndexFinders.size()]));
+							}
 							recursiveInterpolant = mTheory.let(lastRecVar, currentRecVar, recursiveInterpolant);
-							recursiveInterpolant = mTheory.and(recursiveInterpolant, pathInterpolant, weqPart);
+							if (isAPath) {
+								recursiveInterpolant =
+										mTheory.or(recursiveInterpolant, pathInterpolant, recursionStepTerm);
+							} else {
+								recursiveInterpolant =
+										mTheory.and(recursiveInterpolant, pathInterpolant, recursionStepTerm);
+							}
 						}
 						lastRecVar = currentRecVar;
 					}
 				}
+
 				// Replace the recursionVar by the first shared term
 				recursiveInterpolant = mTheory.let(lastRecVar, mLastChange[color], recursiveInterpolant);
 				mPathInterpolants[color].add(recursiveInterpolant);
@@ -2222,8 +1952,7 @@ public class ArrayInterpolator {
 	}
 
 	/**
-	 * Helper class to store the information from the store path in weakeq-ext: the shared path end arrays and all store
-	 * indices on this A- or B-path.
+	 * Helper class to store the information from the store path in weakeq-ext.
 	 */
 	private class StorePath {
 		final Term mLeft;
