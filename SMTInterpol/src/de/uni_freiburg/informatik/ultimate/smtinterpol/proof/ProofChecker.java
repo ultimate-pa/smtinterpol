@@ -598,45 +598,61 @@ public class ProofChecker extends NonRecursive {
 				reportError("Expected binary equality in CC lemma");
 				return;
 			}
-			final SymmetricPair<Term> endPoints = new SymmetricPair<Term>(sides[0], sides[1]);
-			if (strongPaths.contains(endPoints)) {
-				/* everything fine */
-				return;
-			}
-
-			if (isApplication("select", sides[0]) && isApplication("select", sides[1])) {
-				final Term[] p1 = ((ApplicationTerm) sides[0]).getParameters();
-				final Term[] p2 = ((ApplicationTerm) sides[1]).getParameters();
-				if (p1[1] == p2[1] || strongPaths.contains(new SymmetricPair<Term>(p1[1], p2[1]))) {
-					final HashSet<Term> weakPs = weakPaths.get(new SymmetricPair<Term>(p1[0], p2[0]));
-					if (weakPs != null && (weakPs.contains(p1[1]) || weakPs.contains(p2[1]))) {
+			switch (type) {
+			case ":CC":
+			case ":weakeq-ext":
+				if (strongPaths.contains(new SymmetricPair<Term>(sides[0], sides[1]))) {
+					/* everything fine */
+					return;
+				}
+				break;
+			case ":read-over-weakeq":
+				if (isApplication("select", sides[0]) && isApplication("select", sides[1])) {
+					final Term[] p1 = ((ApplicationTerm) sides[0]).getParameters();
+					final Term[] p2 = ((ApplicationTerm) sides[1]).getParameters();
+					if (p1[1] == p2[1] || strongPaths.contains(new SymmetricPair<Term>(p1[1], p2[1]))) {
+						final HashSet<Term> weakPs = weakPaths.get(new SymmetricPair<Term>(p1[0], p2[0]));
+						if (weakPs != null && (weakPs.contains(p1[1]) || weakPs.contains(p2[1]))) {
+							return;
+						}
+					}
+				}
+				break;
+			case ":const-weakeq":
+				for (final SymmetricPair<Term> strongEq : strongPaths) {
+					if (!isApplication("const", strongEq.getFirst()) || !isApplication("const", strongEq.getSecond())) {
+						continue;
+					}
+					final Term c1 = ((ApplicationTerm) strongEq.getFirst()).getParameters()[0];
+					final Term c2 = ((ApplicationTerm) strongEq.getSecond()).getParameters()[0];
+					if (sides[0] == c1 && sides[1] == c2) {
+						return;
+					}
+					if (sides[0] == c2 && sides[1] == c1) {
 						return;
 					}
 				}
+				break;
+			case ":read-const-weakeq":
+				if (isApplication("select", sides[0])) {
+					final Term[] p1 = ((ApplicationTerm) sides[0]).getParameters();
+					final Term const2 = mSkript.term("const", null, p1[0].getSort(), sides[1]);
+					final HashSet<Term> weakPs = weakPaths.get(new SymmetricPair<Term>(p1[0], const2));
+					if (weakPs != null && weakPs.contains(p1[1])) {
+						return;
+					}
+				}
+				if (isApplication("select", sides[1])) {
+					final Term[] p1 = ((ApplicationTerm) sides[1]).getParameters();
+					final Term const2 = mSkript.term("const", null, p1[0].getSort(), sides[0]);
+					final HashSet<Term> weakPs = weakPaths.get(new SymmetricPair<Term>(p1[0], const2));
+					if (weakPs != null && weakPs.contains(p1[1])) {
+						return;
+					}
+				}
+				break;
 			}
 
-			if (isApplication("select", sides[0])) {
-				final Term[] p1 = ((ApplicationTerm) sides[0]).getParameters();
-				final Term const2 = mSkript.term("const", null, p1[0].getSort(), sides[1]);
-				final HashSet<Term> weakPs = weakPaths.get(new SymmetricPair<Term>(p1[0], const2));
-				if (weakPs != null && weakPs.contains(p1[1])) {
-					return;
-				}
-			}
-
-			for (final SymmetricPair<Term> strongEq : strongPaths) {
-				if (!isApplication("const", strongEq.getFirst()) || !isApplication("const", strongEq.getSecond())) {
-					continue;
-				}
-				final Term c1 = ((ApplicationTerm) strongEq.getFirst()).getParameters()[0];
-				final Term c2 = ((ApplicationTerm) strongEq.getSecond()).getParameters()[0];
-				if (sides[0] == c1 && sides[1] == c2) {
-					return;
-				}
-				if (sides[0] == c2 && sides[1] == c1) {
-					return;
-				}
-			}
 			reportError("Cannot explain main equality " + goalEquality);
 		}
 	}

@@ -362,6 +362,17 @@ public class ArrayTheory implements ITheory {
 			mSelects = newSelectMap;
 		}
 
+		/**
+		 * Add a primary edge from this node to storeNode. Both nodes should be the weak equivalent root when this is
+		 * called.
+		 * 
+		 * @param storeNode
+		 *            The destination node
+		 * @param store
+		 *            The store term that caused this edge
+		 * @param propEqualities
+		 *            A collection where propagated array lemmas are added to by this method.
+		 */
 		public void mergeWith(ArrayNode storeNode, CCAppTerm store,
 				Collection<ArrayLemma> propEqualities) {
 			assert getWeakRepresentative() != storeNode.getWeakRepresentative();
@@ -374,10 +385,13 @@ public class ArrayTheory implements ITheory {
 			storeNode.mNext = next;
 			
 			// merge the consts;
+			// this map collects all selects in the other class, that may need to be merge with the const.
+			Map<CCTerm, CCAppTerm> mergeConstSelects = new HashMap<>();
 			if (mConstTerm != null) {
 				if (storeNode.mConstTerm == null) {
 					storeNode.mConstTerm = mConstTerm;
 					mConstTerm = null;
+					mergeConstSelects.putAll(storeNode.mSelects);
 				} else {
 					CCTerm const1 = getValueFromConst(mConstTerm);
 					CCTerm const2 = getValueFromConst(storeNode.mConstTerm);
@@ -385,7 +399,10 @@ public class ArrayTheory implements ITheory {
 						propEqualities.add(new ArrayLemma(RuleKind.CONST_WEAKEQ, const1, const2));
 					}
 				}
+			} else if (storeNode.mConstTerm != null) {
+				mergeConstSelects.putAll(this.mSelects);
 			}
+			mergeConstSelects.remove(getIndexFromStore(store).getRepresentative());
 
 			// merge the selects;
 			Map<CCTerm, CCAppTerm> newSelects = Collections.emptyMap();
@@ -401,6 +418,7 @@ public class ArrayTheory implements ITheory {
 						// move the select to new representative.
 						storeNode.mSelects.put(index, select);
 					} else {
+						mergeConstSelects.remove(index);
 						if (select.getRepresentative() 
 								!= otherSelect.getRepresentative()) {
 							// add propagated equality
@@ -413,11 +431,11 @@ public class ArrayTheory implements ITheory {
 			if (storeNode.mConstTerm != null) {
 				CCTerm const1 = getValueFromConst(storeNode.mConstTerm);
 				ArrayNode constNode = mCongRoots.get(storeNode.mConstTerm.getRepresentative());
-				for (final Entry<CCTerm, CCAppTerm> entry : newSelects.entrySet()) {
+				for (final Entry<CCTerm, CCAppTerm> entry : mergeConstSelects.entrySet()) {
 					final CCTerm index = entry.getKey();
 					final CCAppTerm select = entry.getValue();
 					if (select.getRepresentative() != const1.getRepresentative()
-							&& constNode.getWeakIRepresentative(index) == this) {
+							&& constNode.getWeakIRepresentative(index) == storeNode) {
 						propEqualities.add(new ArrayLemma(RuleKind.READ_CONST_WEAKEQ, select, const1));
 					}
 				}
@@ -443,6 +461,17 @@ public class ArrayTheory implements ITheory {
 			}
 		}
 
+		/**
+		 * Add a secondary edge from current node to storeNode. The storeNode should be the weak equivalent root when
+		 * this is called.
+		 * 
+		 * @param storeNode
+		 *            The destination node
+		 * @param store
+		 *            The store term that caused this edge
+		 * @param propEqualities
+		 *            A collection where propagated array lemmas are added to by this method.
+		 */
 		public void mergeSelect(ArrayNode storeNode, CCAppTerm store,
 				Collection<ArrayLemma> propEqualities) {
 			assert storeNode.mStoreEdge == null;
@@ -454,9 +483,8 @@ public class ArrayTheory implements ITheory {
 			}
 			mSelectEdge = storeNode;
 			mSelectReason = store;
+			final CCTerm storeIndex = getIndexFromStore(mStoreReason).getRepresentative();
 			if (!mSelects.isEmpty()) {
-				final CCTerm storeIndex
-					= getIndexFromStore(mStoreReason).getRepresentative();
 				final CCAppTerm select = mSelects.get(storeIndex);
 				assert (select != null);
 				final CCAppTerm otherSelect = storeNode.mSelects.get(storeIndex);
@@ -471,15 +499,13 @@ public class ArrayTheory implements ITheory {
 				mSelects = Collections.emptyMap();
 			}
 			if (storeNode.mConstTerm != null) {
+				// We only need to merge a select and const, if it was caused by the new secondary edge.
 				CCTerm const1 = getValueFromConst(storeNode.mConstTerm);
 				ArrayNode constNode = mCongRoots.get(storeNode.mConstTerm.getRepresentative());
-				for (final Entry<CCTerm, CCAppTerm> entry : storeNode.mSelects.entrySet()) {
-					final CCTerm index = entry.getKey();
-					final CCAppTerm select = entry.getValue();
-					if (select.getRepresentative() != const1.getRepresentative()
-							&& constNode.getWeakIRepresentative(index) == this) {
-						propEqualities.add(new ArrayLemma(RuleKind.READ_CONST_WEAKEQ, select, const1));
-					}
+				CCAppTerm select = storeNode.mSelects.get(storeIndex);
+				if (select != null && select.getRepresentative() != const1.getRepresentative()
+						&& constNode.getWeakIRepresentative(storeIndex) == storeNode) {
+					propEqualities.add(new ArrayLemma(RuleKind.READ_CONST_WEAKEQ, select, const1));
 				}
 			}
 		}
