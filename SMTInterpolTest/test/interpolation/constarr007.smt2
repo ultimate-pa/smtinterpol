@@ -1,0 +1,21 @@
+(set-option :produce-proofs true)
+(set-option :proof-check-mode true)
+(set-option :interpolant-check-mode true)
+(set-option :print-terms-cse false)
+
+(set-logic QF_AX)
+(declare-sort U 0)
+(declare-fun u () U)
+(declare-fun v () U)
+(declare-fun w () U)
+(declare-fun i () U)
+(declare-fun k () U)
+(declare-fun a () (Array U U))
+
+(assert (! (not (= v w)) :named A))
+(assert (! (= ((as const (Array U U)) w) (store ((as const (Array U U)) v) k u)) :named B))
+
+(check-sat)
+(get-proof)
+(get-interpolants A B)
+(exit)

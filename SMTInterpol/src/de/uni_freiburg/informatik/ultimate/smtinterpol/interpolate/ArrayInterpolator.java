@@ -138,10 +138,9 @@ public class ArrayInterpolator {
 	 */
 	public Term[] computeInterpolants(final Term proofTerm) {
 		mLemmaInfo = mInterpolator.getClauseTermInfo(proofTerm);
-		Term maindiseq = mLemmaInfo.getDiseq();
-		assert maindiseq instanceof AnnotatedTerm;
-		mDiseq = (AnnotatedTerm) maindiseq;
-		mDiseqInfo = mInterpolator.getLiteralInfo(maindiseq);
+		assert mLemmaInfo.getDiseq() instanceof AnnotatedTerm;
+		mDiseq = (AnnotatedTerm) mLemmaInfo.getDiseq();
+		mDiseqInfo = mInterpolator.getLiteralInfo(mDiseq);
 		mEqualities = new HashMap<SymmetricPair<Term>, AnnotatedTerm>();
 		mDisequalities = new HashMap<SymmetricPair<Term>, AnnotatedTerm>();
 		mABSwitchOccur = mInterpolator.new Occurrence();
@@ -271,6 +270,7 @@ public class ArrayInterpolator {
 
 		// Compute the interpolant terms starting on the store path.
 		final WeakPathInfo mainPath = new WeakPathInfo(mStorePath);
+		mainPath.collectStorePaths();
 		mInterpolants = mainPath.interpolateStorePathInfoExt();
 
 		// Build the interpolants for all partitions.
@@ -302,7 +302,33 @@ public class ArrayInterpolator {
 	 * @return an array containing the interpolants of the lemma for all partitions of the interpolation problem.
 	 */
 	private Term[] computeConstWeakeqInterpolants(Term proofTerm) {
-		throw new UnsupportedOperationException("Interpolation for lemma of type const-weakeq not yet supported.");
+		final ProofPath[] paths = mLemmaInfo.getPaths();
+		assert paths.length == 1;
+		mStorePath = paths[0];
+
+		if (mDiseqInfo.getMixedVar() != null) {
+			mRewriteSide = new Term[mNumInterpolants];
+		} else {
+			// If there are no mixed partitions, we can already determine the way we interpolate. Else, we first have to
+			// count for which side we need less rewrite steps.
+			determineInterpolationColor();
+		}
+
+		final WeakPathInfo arrayPath = new WeakPathInfo(mStorePath);
+		arrayPath.collectStorePaths();
+		mInterpolants = arrayPath.interpolateStorePathInfoConst();
+
+		// Build the interpolants for all partitions.
+		final Term[] interpolants = new Term[mNumInterpolants];
+		for (int color = 0; color < mNumInterpolants; color++) {
+			if (mABSwitchOccur.isALocal(color)) { // the interpolant is the disjunction of all path interpolants
+				interpolants[color] = mTheory.or(mInterpolants[color].toArray(new Term[mInterpolants[color].size()]));
+			} else { // the interpolant is the conjunction of all path interpolants
+				interpolants[color] = mTheory.and(mInterpolants[color].toArray(new Term[mInterpolants[color].size()]));
+			}
+		}
+
+		return interpolants;
 	}
 
 	/**
@@ -333,7 +359,7 @@ public class ArrayInterpolator {
 		}
 
 		// Compute the interpolant terms from the store path
-		mInterpolants = arrayPath.interpolateWeakPathInfo(true); // TODO adapt for mixed read-const-weakeq
+		mInterpolants = arrayPath.interpolateWeakPathInfo(true);
 
 		// Build the interpolants for all partitions.
 		final Term[] interpolants = new Term[mNumInterpolants];
@@ -390,7 +416,6 @@ public class ArrayInterpolator {
 			}
 		} else {
 			// Find the first mixed partition where the shorter outer path is the A-path.
-			// TODO Check that this works for const-weakeq.
 			color = 0;
 			while (!mDiseqInfo.isALocal(color)) {
 				if (mDiseqInfo.isMixed(color)) {
@@ -706,9 +731,9 @@ public class ArrayInterpolator {
 		final Term eqTerm = mTheory.equals(mDiseqInfo.getMixedVar(), vTilde);
 		final Term itpClause;
 		if (isAPath) {
-			itpClause = buildWeqTerm(sharedArr, buildConst(vTilde, sharedArr.getSort()), order, fPi, auxVar);
+			itpClause = buildWeqTerm(buildConst(vTilde, sharedArr.getSort()), sharedArr, order, fPi, auxVar);
 		} else {
-			itpClause = buildNweqTerm(sharedArr, buildConst(vTilde, sharedArr.getSort()), order, fPi, auxVar);
+			itpClause = buildNweqTerm(buildConst(vTilde, sharedArr.getSort()), sharedArr, order, fPi, auxVar);
 		}
 		final Term itpVTilde = isAPath ? mTheory.and(eqTerm, itpClause) : mTheory.or(eqTerm, itpClause);
 
@@ -939,11 +964,10 @@ public class ArrayInterpolator {
 		}
 
 		/**
-		 * Interpolate the main path of weakeq-ext for all partitions. This also computes the subinterpolants for the
-		 * index paths.
+		 * Collect the store paths for the weak equivalence path in weakeq-ext and const-weakeq.
 		 */
 		@SuppressWarnings("unchecked")
-		public Set<Term>[] interpolateStorePathInfoExt() {
+		public void collectStorePaths() {
 			// First collect information from the store path: A- and B-paths with their ends and the store indices.
 			mStores = new Vector<Term>();
 			mStorePaths = new Vector[mNumInterpolants];
@@ -1024,8 +1048,15 @@ public class ArrayInterpolator {
 				}
 				determineInterpolationColor();
 			}
+		}
 
-			// Now we build all subinterpolants
+		/**
+		 * Interpolate the main path of weakeq-ext for all partitions. This also computes the subinterpolants for the
+		 * index paths.
+		 */
+		public Set<Term>[] interpolateStorePathInfoExt() {
+			assert mStorePaths != null;
+			// Build all subinterpolants
 			for (int i = 0; i < mStores.size(); i++) {
 				final Term index = mStores.get(i);
 				final Occurrence indexInfo = mInterpolator.getOccurrence(index);
@@ -1067,6 +1098,60 @@ public class ArrayInterpolator {
 				}
 			}
 
+			return mPathInterpolants;
+		}
+
+		/**
+		 * Interpolate the weak equivalence path for const-weakeq.
+		 */
+		public Set<Term>[] interpolateStorePathInfoConst() {
+			assert mStorePaths != null;
+			for (int color = 0; color < mNumInterpolants; color++) {
+				final boolean collectA = !mABSwitchOccur.isALocal(color);
+				for (StorePath storePath : mStorePaths[color]) {
+					// Collect shared indices to rewrite and shorten the path
+					final Set<Term> sharedIndices = new HashSet<Term>();
+					int order = 0;
+					if (storePath.mStores != null) {
+						order = storePath.mStores.size();
+						for (final Term idx : storePath.mStores) {
+							final Occurrence occur = mInterpolator.getOccurrence(idx);
+							if (occur.isAB(color)) {
+								sharedIndices.add(idx);
+								order--;
+							}
+						}
+					}
+					final Term itpClause;
+					final TermVariable cdot = order == 0 ? null
+							: mTheory.createFreshTermVariable("cdot", storePath.mStores.iterator().next().getSort());
+
+					if (storePath.mLeft != null && storePath.mRight != null) { // Inner path
+						Term rewriteLeftAtShared = storePath.mLeft;
+						for (final Term idx : sharedIndices) {
+							rewriteLeftAtShared =
+									mTheory.term("store", rewriteLeftAtShared, idx, buildSelect(storePath.mRight, idx));
+						}
+						if (storePath.mIsAPath && collectA) {
+							itpClause = buildWeqTerm(rewriteLeftAtShared, storePath.mRight, order, mTheory.mTrue, cdot);
+							mPathInterpolants[color].add(itpClause);
+						} else if (!storePath.mIsAPath && !collectA) {
+							itpClause =
+									buildNweqTerm(rewriteLeftAtShared, storePath.mRight, order, mTheory.mFalse, cdot);
+							mPathInterpolants[color].add(itpClause);
+						}
+					} else { // Outer path in the mixed case
+						if (storePath.mIsAPath && collectA || !storePath.mIsAPath && !collectA) {
+							final Term sharedArr = storePath.mLeft != null ? storePath.mLeft : storePath.mRight;
+							assert sharedArr != null;
+							final Term fPi = storePath.mIsAPath ? mTheory.mTrue : mTheory.mFalse;
+							itpClause = buildConstPathInterpolant(storePath.mIsAPath, sharedArr, sharedIndices, cdot,
+									order, fPi);
+							mPathInterpolants[color].add(itpClause);
+						}
+					}
+				}
+			}
 			return mPathInterpolants;
 		}
 
@@ -1121,19 +1206,19 @@ public class ArrayInterpolator {
 			boundaryTailTerm = mPath[mPath.length - 1];
 			if (mDiseqInfo.getMixedVar() == null) {
 				// In each case, if this closes or opens A-paths, boundary_Term is shared.
-				mHead.closeAPath(mTail, boundaryHeadTerm, mABSwitchOccur);
-				mHead.openAPath(mTail, boundaryHeadTerm, mABSwitchOccur);
 				mTail.closeAPath(mHead, boundaryTailTerm, mABSwitchOccur);
 				mTail.openAPath(mHead, boundaryTailTerm, mABSwitchOccur);
+				mHead.closeAPath(mTail, boundaryHeadTerm, mABSwitchOccur);
+				mHead.openAPath(mTail, boundaryHeadTerm, mABSwitchOccur);
 			} else {
-				mHead.closeAPath(mTail, boundaryHeadTerm, headOcc);
-				mHead.openAPath(mTail, boundaryHeadTerm, headOcc);
-				mHead.closeAPath(mTail, boundaryHeadTerm, mDiseqInfo);
-				mHead.openAPath(mTail, boundaryHeadTerm, mDiseqInfo);
 				mTail.closeAPath(mHead, boundaryTailTerm, tailOcc);
 				mTail.openAPath(mHead, boundaryTailTerm, tailOcc);
 				mTail.closeAPath(mHead, boundaryTailTerm, mDiseqInfo);
 				mTail.openAPath(mHead, boundaryTailTerm, mDiseqInfo);
+				mHead.closeAPath(mTail, boundaryHeadTerm, headOcc);
+				mHead.openAPath(mTail, boundaryHeadTerm, headOcc);
+				mHead.closeAPath(mTail, boundaryHeadTerm, mDiseqInfo);
+				mHead.openAPath(mTail, boundaryHeadTerm, mDiseqInfo);
 
 				if (mLemmaInfo.getLemmaType().equals(":read-over-weakeq")) {
 					if (mIndexEquality != null) {
@@ -1141,20 +1226,20 @@ public class ArrayInterpolator {
 						mTail.addSelectIndexEqAllColors(mHead, indexEqInfo, mIndexEquality, indexEqInfo);
 					}
 
-					mHead.closeAPath(mTail, mDiseq, tailOcc);
 					mTail.closeAPath(mHead, mDiseq, headOcc);
+					mHead.closeAPath(mTail, mDiseq, tailOcc);
 				} else if (mLemmaInfo.getLemmaType().equals(":read-const-weakeq")
 						|| mLemmaInfo.getLemmaType().equals(":const-weakeq")) {
-					mHead.closeAPath(mTail, mDiseq, mABSwitchOccur);
-					mHead.openAPath(mTail, mDiseq, mABSwitchOccur);
 					mTail.closeAPath(mHead, mDiseq, mABSwitchOccur);
 					mTail.openAPath(mHead, mDiseq, mABSwitchOccur);
+					mHead.closeAPath(mTail, mDiseq, mABSwitchOccur);
+					mHead.openAPath(mTail, mDiseq, mABSwitchOccur);
 				} else {
 					if (mPathIndex != null) { // On the store path of ext, we need to handle the mixed case separately
-						mHead.closeAPath(mTail, mRecursionVar, mABSwitchOccur);
-						mHead.openAPath(mTail, mRecursionVar, mABSwitchOccur);
 						mTail.closeAPath(mHead, mRecursionVar, mABSwitchOccur);
 						mTail.openAPath(mHead, mRecursionVar, mABSwitchOccur);
+						mHead.closeAPath(mTail, mRecursionVar, mABSwitchOccur);
+						mHead.openAPath(mTail, mRecursionVar, mABSwitchOccur);
 					}
 				}
 			}
@@ -2086,7 +2171,6 @@ public class ArrayInterpolator {
 						} else { // Use nweq (if recursionPath is A local) or weq to express rewrite index (5.3(ii))
 							assert rewriteAtIndex instanceof TermVariable;
 							assert rewriteToArray != null;
-							// TODO find a good name for weqNweq - stuff
 							final TermVariable rewriteDot = (TermVariable) rewriteAtIndex;
 							final Set<Term> rewriteIndexFinders = new HashSet<Term>();
 							// If resursionPath is A-local, build the nweq terms for all inner paths of the main store
