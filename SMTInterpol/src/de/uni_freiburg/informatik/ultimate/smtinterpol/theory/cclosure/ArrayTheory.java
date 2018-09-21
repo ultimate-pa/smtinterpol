@@ -702,8 +702,6 @@ public class ArrayTheory implements ITheory {
 			final boolean foundLemma = computeWeakeqExt();
 			if (foundLemma) {
 				mArrayModels = null;
-			} else {
-				mCongRoots = null;
 			}
 		}
 		return null;
@@ -877,7 +875,6 @@ public class ArrayTheory implements ITheory {
 			}};
 	}
 
-	@Override
 	public void fillInModel(Model model, Theory t, SharedTermEvaluator ste) {
 		final HashMap<ArrayNode, Integer> freshIndices =
 				new HashMap<ArrayNode, Integer>();
@@ -885,21 +882,51 @@ public class ArrayTheory implements ITheory {
 				new HashMap<ArrayNode, Integer>();
 		final HashMap<ArrayNode, Set<CCTerm>> storeIndices =
 				new HashMap<ArrayNode, Set<CCTerm>>();
+		/* first create a fresh value for each array, unless it is the constant 0 array */
+		final ArrayDeque<ArrayNode> todoQueue = new ArrayDeque<ArrayNode>(mArrayModels.keySet());
+		while (!todoQueue.isEmpty()) {
+			final ArrayNode node = todoQueue.removeFirst();
+			final Sort arraySort = node.mTerm.toSMTTerm(t).getSort();
+			final ArraySortInterpretation arraySortInterpretation =
+					(ArraySortInterpretation) model.provideSortInterpretation(arraySort);
+			if (node.mConstTerm == null) {
+				/* if the node is not constant, create a fresh value for the node. */
+				node.mTerm.mModelVal = arraySortInterpretation.createEmptyArrayValue();
+				continue;
+			}
+			CCTerm constValueTerm = getValueFromConst(node.mConstTerm).getRepresentative();
+			ArrayNode constValueArrayNode = mCongRoots.get(constValueTerm);
+			if (constValueArrayNode != null && todoQueue.contains(constValueArrayNode)) {
+				/* we need to evaluate that first */
+				todoQueue.remove(constValueArrayNode);
+				todoQueue.addFirst(node);
+				todoQueue.addFirst(constValueArrayNode);
+				continue;
+			}
+			if (constValueTerm.mModelVal == 0) {
+				node.mTerm.mModelVal = 0;
+			} else {
+				node.mTerm.mModelVal = arraySortInterpretation.createEmptyArrayValue();
+			}
+		}
 		for (final Entry<ArrayNode, Map<CCTerm, Object>> e 
 				: mArrayModels.entrySet()) {
-
 			final ArrayNode root = (ArrayNode) e.getValue().get(null);
+			if (root.mConstTerm != null) {
+				continue;
+			}
 			Set<CCTerm> stores = storeIndices.get(root);
 			if (stores == null) {
 				stores = new HashSet<CCTerm>();
 				storeIndices.put(root, stores);
 			}
-			/* Collect the indices for which a store that explicitly stores
-			 * a zero value exists.  We need to set the values for the
-			 * root at these indices to a fresh value.
+			/*
+			 * Collect the indices for which a store that explicitly stores a zero value exists. We need to set the
+			 * values for the root at these indices to a fresh value.
 			 *
-			 * In our paper we set all indices for which a store exists to a 
-			 * fresh value, but this is enough.
+			 * In our paper we set all indices for which a store exists to a fresh value, but this is enough.
+			 * 
+			 * But only do this if the array is not a constant array.
 			 */
 			for (final Entry<CCTerm, Object> mapping : e.getValue().entrySet()) {
 				if (mapping.getValue() instanceof CCTerm) {
@@ -920,22 +947,26 @@ public class ArrayTheory implements ITheory {
 					model.getArrayInterpretation(arraySort);
 			final ArrayValue aval = interp.getValue(ccterm.mModelVal);
 			final ArrayNode root = (ArrayNode) e.getValue().get(null);
-			if (!freshIndices.containsKey(root)) {
-				final int idx = interp.getIndexInterpretation().extendFresh();
-				freshIndices.put(root, idx);
-			}
-			interp.getValueInterpretation().ensureCapacity(2);
-			aval.store(freshIndices.get(root), 1);
-			final Set<CCTerm> storeIdxs = storeIndices.get(root);
-			for (final CCTerm index : storeIdxs) {
-				if (!e.getValue().containsKey(index)) {
-					if (!freshValues.containsKey(root)) {
-						freshValues.put(root, 
-								interp.getValueInterpretation().extendFresh());
-					}
-					final int val = freshValues.get(root);
-					aval.store(index.mModelVal, val);
+			if (root.mConstTerm == null) {
+				if (!freshIndices.containsKey(root)) {
+					final int idx = interp.getIndexInterpretation().extendFresh();
+					freshIndices.put(root, idx);
 				}
+				interp.getValueInterpretation().ensureCapacity(2);
+				aval.store(freshIndices.get(root), 1);
+				final Set<CCTerm> storeIdxs = storeIndices.get(root);
+				for (final CCTerm index : storeIdxs) {
+					if (!e.getValue().containsKey(index)) {
+						if (!freshValues.containsKey(root)) {
+							freshValues.put(root, interp.getValueInterpretation().extendFresh());
+						}
+						final int val = freshValues.get(root);
+						aval.store(index.mModelVal, val);
+					}
+				}
+			} else {
+				CCTerm defaultValue = getValueFromConst(root.mConstTerm).getRepresentative();
+				aval.setDefaultValue(defaultValue.mModelVal);
 			}
 			for (final Entry<CCTerm, Object> mapping : e.getValue().entrySet()) {
 				final CCTerm index = mapping.getKey();
@@ -1000,16 +1031,6 @@ public class ArrayTheory implements ITheory {
 
 	static CCTerm getValueFromConst(CCAppTerm term) {
 		return term.getArg();
-	}
-
-	static boolean isConstApplication(CCTerm term) {
-		if (!(term instanceof CCAppTerm))
-			return false;
-		CCAppTerm app = (CCAppTerm) term;
-		CCTerm func = app.getFunc();
-		if (!(func instanceof CCBaseTerm))
-			return false;
-		return ((CCBaseTerm) func).getFunctionSymbol().getName() == "const";
 	}
 
 	static CCTerm getLeftFromDiff(CCAppTerm diff) {
@@ -1353,6 +1374,11 @@ public class ArrayTheory implements ITheory {
 	private boolean computeWeakeqExt() {
 		final long startTime = System.nanoTime();
 		makeConstReps();
+
+		/*
+		 * makeConstReps ensures that in each weak equivalence class, the const term is the weak representative. So if
+		 * mConstTerm != null then mStoreEdge == null and all mSelects must have a value equal to the constant.
+		 */
 		mArrayModels = new HashMap<ArrayNode, Map<CCTerm,Object>>();
 		final HashMap<Map<CCTerm,Object>,ArrayNode> inverse = 
 				new HashMap<Map<CCTerm,Object>, ArrayNode>();
@@ -1383,6 +1409,7 @@ public class ArrayTheory implements ITheory {
 				nodeMapping.put(null, node);
 				for (final Entry<CCTerm, CCAppTerm> e : node.mSelects.entrySet()) {
 					CCTerm value = e.getValue().getRepresentative();
+					assert constRep == null || value == constRep;
 					if (value != constRep) {
 						nodeMapping.put(e.getKey(), value);
 					}
