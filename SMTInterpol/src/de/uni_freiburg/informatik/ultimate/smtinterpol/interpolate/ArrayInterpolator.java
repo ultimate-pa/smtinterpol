@@ -196,15 +196,10 @@ public class ArrayInterpolator {
 		final ProofPath[] paths = mLemmaInfo.getPaths();
 		assert paths.length <= 2;
 		if (paths.length == 2) {
-			final Term[] indexPath;
-			if (paths[0].getIndex() == null) { // TODO Do we need this? This should be the usual order.
-				indexPath = paths[0].getPath();
-				mStorePath = paths[1];
-			} else {
-				indexPath = paths[1].getPath();
-				mStorePath = paths[0];
-			}
+			assert paths[0].getIndex() == null;
+			final Term[] indexPath = paths[0].getPath();
 			assert indexPath.length == 2;
+			mStorePath = paths[1];
 			mIndexEquality = mEqualities.get(new SymmetricPair<Term>(indexPath[0], indexPath[1]));
 		} else { // In this case, the main disequality is of form "a[i] != b[i]"
 			mStorePath = paths[0];
@@ -880,28 +875,53 @@ public class ArrayInterpolator {
 							final InterpolatorLiteralTermInfo termInfo = mInterpolator.getLiteralTermInfo(selectEq);
 							final LitInfo stepInfo = mInterpolator.getLiteralInfo(selectEq);
 							final ApplicationTerm selectEqApp = termInfo.getEquality();
-							Term leftSelect, rightSelect;
-							if (getArrayFromSelect(selectEqApp.getParameters()[0]) == left) {
-								leftSelect = selectEqApp.getParameters()[0];
-								rightSelect = selectEqApp.getParameters()[1];
-							} else {
-								leftSelect = selectEqApp.getParameters()[1];
-								rightSelect = selectEqApp.getParameters()[0];
+							final Term leftTerm = selectEqApp.getParameters()[0];
+							final Term rightTerm = selectEqApp.getParameters()[1];
+
+							Term leftSelect = null;
+							Term rightSelect = null;
+							if (isSelectTerm(leftTerm)) {
+								if (getArrayFromSelect(leftTerm).equals(left)) {
+									leftSelect = leftTerm;
+								} else {
+									assert getArrayFromSelect(leftTerm).equals(right);
+									rightSelect = leftTerm;
+								}
 							}
-							// Add the index equality for the first select term
+							if (isSelectTerm(rightTerm)) {
+								if (getArrayFromSelect(rightTerm).equals(left)) {
+									assert leftSelect == null;
+									leftSelect = rightTerm;
+								} else {
+									assert getArrayFromSelect(rightTerm).equals(right) && rightSelect == null;
+									rightSelect = rightTerm;
+								}
+							}
+
+							// Add the index equality for the first select term (if it is a select)
 							mTail.closeAPath(mHead, boundaryTerm, stepInfo);
 							mTail.openAPath(mHead, boundaryTerm, stepInfo);
-							mTail.addSelectIndexEquality(mHead, leftSelect);
+							if (leftSelect != null) {
+								mTail.addSelectIndexEquality(mHead, leftSelect);
+							}
 							// If the equality is mixed in some partition, we open or close the path at the mixed
 							// variable, storing the mixed equality as boundary term.
 							if (stepInfo.getMixedVar() != null) {
-								final Occurrence rightOcc = mInterpolator.getOccurrence(rightSelect);
+								final Occurrence rightOcc;
+								if (rightSelect != null) {
+									rightOcc = mInterpolator.getOccurrence(rightSelect);
+								} else {
+									assert isConstArray(right) && getValueFromConst(right).equals(rightTerm);
+									rightOcc = mInterpolator.getOccurrence(rightTerm);
+								}
 								boundaryTerm = selectEq;
 								mTail.closeAPath(mHead, boundaryTerm, rightOcc);
 								mTail.openAPath(mHead, boundaryTerm, rightOcc);
 							}
-							// The other index equality is added after opening/closing
-							mTail.addSelectIndexEquality(mHead, rightSelect);
+							// The other index equality is added after opening/closing (if the rightTerm is a select)
+							if (rightSelect != null) {
+								mTail.addSelectIndexEquality(mHead, rightSelect);
+							}
 							continue;
 						}
 					}
@@ -1159,7 +1179,7 @@ public class ArrayInterpolator {
 		 * For a step in an index path of a weakeq-ext lemma that is not an array equality, check if we can find a
 		 * select equality between the arrays and corresponding index equalities.
 		 * 
-		 * TODO with constant arrays, one side can be the value "v" of "const(v)"
+		 * In the presence of constant arrays, one side of the select equality can be the value "v" of a "const(v)".
 		 *
 		 * @return the select equality if it exists, else null.
 		 */
@@ -1169,15 +1189,17 @@ public class ArrayInterpolator {
 				// Find some select equality.
 				final Term testLeft = testEq.getFirst();
 				final Term testRight = testEq.getSecond();
-				if (isSelectTerm(testLeft) && isSelectTerm(testRight)) {
+				final Term leftSelect = isSelectTerm(testLeft) ? testLeft : null;
+				final Term rightSelect = isSelectTerm(testRight) ? testRight : null;
+				if (leftSelect != null && rightSelect != null) { // Check equalities of the form "arr1[j1] = arr2[j2]".
 					// Check if the arrays of the select terms match the term pair.
-					final Term testLeftArray = getArrayFromSelect(testLeft);
-					final Term testRightArray = getArrayFromSelect(testRight);
+					final Term testLeftArray = getArrayFromSelect(leftSelect);
+					final Term testRightArray = getArrayFromSelect(rightSelect);
 					final SymmetricPair<Term> testArrayPair = new SymmetricPair<Term>(testLeftArray, testRightArray);
 					if (arrayPair.equals(testArrayPair)) {
 						// Check if the select indices equal the weakpath index (trivially or by an equality literal).
-						final Term testLeftIndex = getIndexFromSelect(testLeft);
-						final Term testRightIndex = getIndexFromSelect(testRight);
+						final Term testLeftIndex = getIndexFromSelect(leftSelect);
+						final Term testRightIndex = getIndexFromSelect(rightSelect);
 						if (testLeftIndex == mPathIndex
 								|| mEqualities.containsKey(new SymmetricPair<Term>(testLeftIndex, mPathIndex))) {
 							if (testRightIndex == mPathIndex
@@ -1186,6 +1208,37 @@ public class ArrayInterpolator {
 							}
 						}
 					}
+				} else { // Check equalities of the form "arr[j] = v".
+					Term singleSelect = null;
+					Term value = null;
+					if (leftSelect != null) {
+						singleSelect = leftSelect;
+						value = testRight;
+					} else if (rightSelect != null) {
+						singleSelect = rightSelect;
+						value = testLeft;
+					}
+					if (singleSelect != null) {
+						final Term testArray = getArrayFromSelect(singleSelect);
+						Term constArray = null;
+						if (testArray.equals(leftArray) && isConstArray(rightArray)) {
+							constArray = rightArray;
+						} else if (testArray.equals(rightArray) && isConstArray(leftArray)) {
+							constArray = leftArray;
+						}
+						if (constArray != null) { // The select array matches, the other array is a constant array.
+							// Check that the constant array matches the value "v" of "arr[j] = v".
+							if (getValueFromConst(constArray).equals(value)) {
+								// Check that index "j" is equal to the path index.
+								final Term testIndex = getIndexFromSelect(singleSelect);
+								if (testIndex == mPathIndex
+										|| mEqualities.containsKey(new SymmetricPair<Term>(testIndex, mPathIndex))) {
+									return mEqualities.get(testEq);
+								}
+							}
+						}
+					}
+
 				}
 			}
 			// No select equality could be found.
@@ -1895,8 +1948,6 @@ public class ArrayInterpolator {
 					if (mLemmaInfo.getLemmaType().equals(":read-over-weakeq")) {
 						assert mIndexDiseqs[color] == null;
 					} else { // Can happen when recursive interpolant is built
-						// TODO Is there anything to do, or does this only happen when the recursive interpolant is not
-						// needed? Because otherwise, we should have a shared index.
 						assert mIndexDiseqs[color] == null || !mDiseqInfo.isMixed(color);
 					}
 				}
