@@ -906,7 +906,8 @@ public class ArrayInterpolator {
 							}
 							// If the equality is mixed in some partition, we open or close the path at the mixed
 							// variable, storing the mixed equality as boundary term.
-							if (stepInfo.getMixedVar() != null) {
+							final TermVariable mixedVar = stepInfo.getMixedVar();
+							if (mixedVar != null) {
 								final Occurrence rightOcc;
 								if (rightSelect != null) {
 									rightOcc = mInterpolator.getOccurrence(rightSelect);
@@ -914,7 +915,11 @@ public class ArrayInterpolator {
 									assert isConstArray(right) && getValueFromConst(right).equals(rightTerm);
 									rightOcc = mInterpolator.getOccurrence(rightTerm);
 								}
-								boundaryTerm = selectEq;
+								if (leftSelect != null && rightSelect != null) {
+									boundaryTerm = selectEq;
+								} else { // It is a const select equality - we close the path with const(mixedVar)
+									boundaryTerm = buildConst(mixedVar, left.getSort());
+								}
 								mTail.closeAPath(mHead, boundaryTerm, rightOcc);
 								mTail.openAPath(mHead, boundaryTerm, rightOcc);
 							}
