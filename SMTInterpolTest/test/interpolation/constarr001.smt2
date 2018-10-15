@@ -3,15 +3,14 @@
 (set-option :interpolant-check-mode true)
 (set-option :print-terms-cse false)
 
-(set-logic QF_AX)
-(declare-sort U 0)
-(declare-fun v () U)
-(declare-fun w () U)
-(declare-fun i () U)
-(declare-fun k () U)
-(declare-fun a () (Array U U))
+(set-logic QF_AUFLIA)
+(declare-fun v () Int)
+(declare-fun w () Int)
+(declare-fun i () Int)
+(declare-fun k () Int)
+(declare-fun a () (Array Int Int))
 
-(assert (! (and (not (= v (select a i))) (= a (store ((as const (Array U U)) v) k w))) :named A))
+(assert (! (and (not (= v (select a i))) (= a (store ((as const (Array Int Int)) v) k w))) :named A))
 (assert (! (not (= i k)) :named B))
 
 (check-sat)
