@@ -59,7 +59,11 @@ public class SortSymbol {
 	 * Flag to indicate array types.
 	 */
 	static final int ARRAY     = 0x10;
-
+	/**
+	 * Flag to indicate data types.
+	 */
+	static final int DATATYPE  = 0x20;
+	
 	final Theory mTheory;
 	final String mName;
 	/**
