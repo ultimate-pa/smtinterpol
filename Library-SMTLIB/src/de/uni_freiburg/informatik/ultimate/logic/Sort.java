@@ -42,7 +42,7 @@ import de.uni_freiburg.informatik.ultimate.util.HashUtils;
  *
  * @author Jochen Hoenicke
  */
-public final class Sort {
+public class Sort {
 	/**
 	 * The sort symbol.
 	 */
@@ -69,7 +69,7 @@ public final class Sort {
 
 	private int mHash;
 
-	Sort(SortSymbol sym, BigInteger[] indices, Sort[] args) {
+	Sort(final SortSymbol sym, final BigInteger[] indices, final Sort[] args) {
 		assert args != null;
 		assert args.length == (sym.isParametric() ? 0 : sym.mNumParams)
 				: "Sort created with wrong number of args";
@@ -108,6 +108,14 @@ public final class Sort {
 		return sb.toString();
 	}
 
+	/**
+	 * Get the symbol for the sort constructor.
+	 *
+	 * @return the sort symbol
+	 */
+	public SortSymbol getSortSymbol() {
+		return mSymbol;
+	}
 
 	/**
 	 * Get the indices, if this is an indexed sort like (_ bv 5).
@@ -167,7 +175,7 @@ public final class Sort {
 		return mRealSort;
 	}
 
-	boolean equalsSort(Sort other) {
+	boolean equalsSort(final Sort other) {
 		if (this == other) {
 			return true;
 		}
@@ -185,7 +193,7 @@ public final class Sort {
 	 * @return true if the sorts unify (in which case the unifier is extended)
 	 * or false otherwise.
 	 */
-    boolean unifySort(HashMap<Sort,Sort> unifier, Sort concrete) {
+    boolean unifySort(final HashMap<Sort,Sort> unifier, final Sort concrete) {
     	assert concrete.getRealSort() == concrete;
 		final Sort last = unifier.get(this);
 		if (last != null) {
@@ -215,7 +223,7 @@ public final class Sort {
 	 * a unique position which is used as index in the substitution array.
 	 * @return The substituted sort.
 	 */
-    Sort mapSort(Sort[] substitution) {
+    Sort mapSort(final Sort[] substitution) {
 		if (mSymbol.isParametric()) {
 			return substitution[mSymbol.mNumParams];
 		}
@@ -241,7 +249,7 @@ public final class Sort {
 	 * corresponding substituted sort.
 	 * @return The substituted sort.
 	 */
-    Sort mapSort(Sort[] substitution, HashMap<Sort, Sort> cachedMappings) {
+    Sort mapSort(final Sort[] substitution, final HashMap<Sort, Sort> cachedMappings) {
 		if (mSymbol.isParametric()) {
 			return substitution[mSymbol.mNumParams];
 		}
@@ -292,7 +300,7 @@ public final class Sort {
 	 * @param mTodo The stack where to put the strings and sub sorts.
 	 * @see PrintTerm
 	 */
-	void toStringHelper(ArrayDeque<Object> mTodo) {
+	void toStringHelper(final ArrayDeque<Object> mTodo) {
 		final String name = getIndexedName();
 		final Sort[] args = getArguments();
 		if (args.length == 0) {

@@ -319,6 +319,10 @@ public class Theory {
 		return quantify(QuantifiedFormula.FORALL, vars, f);
 	}
 
+	public Term match(final Term dataArg, final TermVariable[][] vars, final Term[] cases) {
+		/* TODO */
+	}
+
 	public Term let(final TermVariable[] vars, final Term[] values, final Term subform) {
 		assert (vars.length == values.length);
 		if (vars.length == 0) {
