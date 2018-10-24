@@ -34,7 +34,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAnnotation.RuleKind;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.MutableAffinTerm;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.util.Coercion;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
 
 /**
@@ -498,7 +497,7 @@ public class CCProofGenerator {
 			if (!auxLiterals.containsKey(entry.getKey())) {
 				final Term lhs = entry.getKey().getFirst().toSMTTerm(theory);
 				final Term rhs = entry.getKey().getSecond().toSMTTerm(theory);
-				auxLiterals.put(entry.getKey(), Coercion.buildEq(lhs, rhs));
+				auxLiterals.put(entry.getKey(), theory.term("=", lhs, rhs));
 			}
 			/* these are always negated equalities */
 			Term arg = theory.annotatedTerm(CCEquality.QUOTED_CC, auxLiterals.get(entry.getKey()));
