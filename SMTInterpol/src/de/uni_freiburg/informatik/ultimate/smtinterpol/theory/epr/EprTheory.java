@@ -42,8 +42,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ITheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.model.Model;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.model.SharedTermEvaluator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
@@ -75,7 +73,6 @@ public class EprTheory implements ITheory {
 
 	private ArrayList<Literal[]> mAllGroundingsOfLastAddedEprClause;
 
-
 	private EprStateManager mStateManager;
 	private DawgFactory<ApplicationTerm, TermVariable> mDawgFactory;
 	private EprClauseFactory mClauseFactory;
@@ -89,18 +86,15 @@ public class EprTheory implements ITheory {
 	private final ArrayDeque<Literal> mGroundDecisionSuggestions = new ArrayDeque<>();
 
 	/**
-	 * Used to pass over a conflict that came from adding an input clause over
-	 * to the next call of checkpoint()
+	 * Used to pass over a conflict that came from adding an input clause over to the next call of checkpoint()
 	 */
 	private Clause mStoredConflict;
 
 	/**
-	 * A queue for literal propagation. It is important that literal propagation
-	 * is done in FIFO-order, because only then it can be guaranteed that the
-	 * reason unit clauses are actually unit at the time of propagation and at
-	 * the time of explanation. --> when this was mixed up we ran into a bug
-	 * because some literal was backtracked and later used in an explanation the
-	 * consequence was that the explanation was not unit anymore.
+	 * A queue for literal propagation. It is important that literal propagation is done in FIFO-order, because only
+	 * then it can be guaranteed that the reason unit clauses are actually unit at the time of propagation and at the
+	 * time of explanation. --> when this was mixed up we ran into a bug because some literal was backtracked and later
+	 * used in an explanation the consequence was that the explanation was not unit anymore.
 	 */
 	private final Deque<Literal> mLiteralsWaitingToBePropagated = new ArrayDeque<>();
 
@@ -175,18 +169,18 @@ public class EprTheory implements ITheory {
 			assert false : "DPLLEngine is setting a quantified EprAtom --> this cannot be..";
 
 		} else if (atom instanceof CCEquality) {
-//			assert false : "TODO: check handling of equalities";
-//			if (literal.getSign() == 1) {
-				Clause conflictOrNull = mStateManager.setGroundEquality((CCEquality) atom, literal.getSign() == 1);
-				conflictOrNull = EprHelpers.sanitizeGroundConflict(mClausifier, mLogger, conflictOrNull);
-				return conflictOrNull;
-//			}
+			// assert false : "TODO: check handling of equalities";
+			// if (literal.getSign() == 1) {
+			Clause conflictOrNull = mStateManager.setGroundEquality((CCEquality) atom, literal.getSign() == 1);
+			conflictOrNull = EprHelpers.sanitizeGroundConflict(mClausifier, mLogger, conflictOrNull);
+			return conflictOrNull;
+			// }
 
-//			// TODO do ground disequalities have an impact for EPR?
-//
-//			Clause conflictOrNull = mStateManager.setDpllLiteral(literal);
-//			assert EprHelpers.verifyConflictClause(conflictOrNull, mLogger);
-//			return conflictOrNull;
+			// // TODO do ground disequalities have an impact for EPR?
+			//
+			// Clause conflictOrNull = mStateManager.setDpllLiteral(literal);
+			// assert EprHelpers.verifyConflictClause(conflictOrNull, mLogger);
+			// return conflictOrNull;
 		} else {
 			// neither an EprAtom nor an Equality
 
@@ -233,10 +227,8 @@ public class EprTheory implements ITheory {
 	}
 
 	/**
-	 * This has to be called, when a literal that was propagated to the
-	 * dpllengine is backtracked. That means that we don't need its explanation
-	 * unit clause anymore and that it may be set freshly for some other reason
-	 * later.
+	 * This has to be called, when a literal that was propagated to the dpllengine is backtracked. That means that we
+	 * don't need its explanation unit clause anymore and that it may be set freshly for some other reason later.
 	 *
 	 * @param literal
 	 */
@@ -269,9 +261,8 @@ public class EprTheory implements ITheory {
 		mGroundLiteralsToPropagateToReason = newGltoptr;
 
 		/*
-		 * the literals we removed need to be unregistered, too (they may
-		 * themselves contribute to a (former) reason unit clause not being unit
-		 * anymore..) deeper reason: propagations may base on other propagations
+		 * the literals we removed need to be unregistered, too (they may themselves contribute to a (former) reason
+		 * unit clause not being unit anymore..) deeper reason: propagations may base on other propagations
 		 */
 		for (final Literal rl : literalsRemovedBecauseLiteralWasInReason) {
 			unregisterPropagatedLiteralIfNecessary(rl);
@@ -334,8 +325,8 @@ public class EprTheory implements ITheory {
 	public Literal getPropagatedLiteral() {
 		final Literal lit = mLiteralsWaitingToBePropagated.poll();
 
-		assert lit == null || !(lit.getAtom() instanceof EprGroundEqualityAtom) :
-			"should have been caught/converted to CCEquality before";
+		assert lit == null || !(lit
+				.getAtom() instanceof EprGroundEqualityAtom) : "should have been caught/converted to CCEquality before";
 
 		if (lit == null) {
 			mLogger.debug("EPRDEBUG: getPropagatedLiteral -- nothing to propagate");
@@ -377,7 +368,7 @@ public class EprTheory implements ITheory {
 				mLiteralsWaitingToBePropagated);
 		mLogger.debug("EPRDEBUG: EprTheory.addGroundLiteralToPropagate(..): " + "literal: " + l + " reason: " + reason);
 
-//		assert EprHelpers.verifyUnitClauseAtEnqueue(l, reason, mLiteralsWaitingToBePropagated, mLogger);
+		// assert EprHelpers.verifyUnitClauseAtEnqueue(l, reason, mLiteralsWaitingToBePropagated, mLogger);
 
 		mLiteralsWaitingToBePropagated.add(l);
 		mGroundLiteralsToPropagateToReason.put(l, reason);
@@ -476,12 +467,6 @@ public class EprTheory implements ITheory {
 		return null;
 	}
 
-	@Override
-	public void fillInModel(final Model model, final Theory t, final SharedTermEvaluator ste) {
-		// TODO Auto-generated method stub
-
-	}
-
 	public void addAtomToDPLLEngine(final DPLLAtom atom) {
 		assert !(atom instanceof EprQuantifiedEqualityAtom || atom instanceof EprQuantifiedPredicateAtom);
 		if (atom instanceof CCEquality)
@@ -496,23 +481,19 @@ public class EprTheory implements ITheory {
 	/**
 	 * Add an EprClause for a given a non-ground set of literals.
 	 *
-	 * Specialty: apply destructive equality reasoning (DER) If the clause
-	 * becomes ground through DER, don't add it as an EprClause, but return the
-	 * corresponding literals instead (in order to be added as a DPLL clause).
-	 * Otherwise return null
+	 * Specialty: apply destructive equality reasoning (DER) If the clause becomes ground through DER, don't add it as
+	 * an EprClause, but return the corresponding literals instead (in order to be added as a DPLL clause). Otherwise
+	 * return null
 	 *
-	 * Specialty2: apply so-called constructive equality reasoning (CER)
-	 *   CER ensures that no literal repeats an occurrence of the same variable by
-	 *   introducing disequalities into the clause
-	 *    --> DER has to be restricted such that it does not introduce such repetitions TODO
+	 * Specialty2: apply so-called constructive equality reasoning (CER) CER ensures that no literal repeats an
+	 * occurrence of the same variable by introducing disequalities into the clause --> DER has to be restricted such
+	 * that it does not introduce such repetitions TODO
 	 *
 	 * @param lits
-	 *            literals where at least one variable is free (thus implicitly
-	 *            forall-quantified)
+	 *            literals where at least one variable is free (thus implicitly forall-quantified)
 	 * @param hook
 	 * @param proof
-	 * @return equivalent ground set of literals if DER obtained one, null
-	 *         otherwise
+	 * @return equivalent ground set of literals if DER obtained one, null otherwise
 	 */
 	public Literal[] addEprClause(final Literal[] lits, final ClauseDeletionHook hook, final ProofNode proof) {
 		// TODO: do something about hook and proof..
@@ -522,9 +503,8 @@ public class EprTheory implements ITheory {
 		this.addConstants(EprHelpers.collectAppearingConstants(lits, mTheory));
 
 		/*
-		 * we remove disequalities occurring in the clause through destructive equality reasoning
-		 * if the clause is ground afterwards, we just give it back to, the DPLLEngine
-		 * otherwise we add it as an EprClause.
+		 * we remove disequalities occurring in the clause through destructive equality reasoning if the clause is
+		 * ground afterwards, we just give it back to, the DPLLEngine otherwise we add it as an EprClause.
 		 */
 		final ApplyDestructiveEqualityReasoning ader = new ApplyDestructiveEqualityReasoning(this, lits);
 		if (ader.isResultGround()) {
@@ -536,9 +516,8 @@ public class EprTheory implements ITheory {
 				new ApplyConstructiveEqualityReasoning(this, literalsWithDERApplied).getResult();
 
 		/*
-		 * a new clause may immediately be a conflict clause, and possibly that
-		 * conflict cannot be resolved in the EprTheory
-		 * --> we will return that conflict at the next checkpoint
+		 * a new clause may immediately be a conflict clause, and possibly that conflict cannot be resolved in the
+		 * EprTheory --> we will return that conflict at the next checkpoint
 		 */
 		final Clause groundConflict = mStateManager.getEprClauseManager().createEprClause(preprocessedLiterals);
 		if (groundConflict != null) {
@@ -550,9 +529,8 @@ public class EprTheory implements ITheory {
 	}
 
 	/**
-	 * A term is an EPR atom, if it is - an atom - contains free Termvariables
-	 * (i.e. implicitly quantified variables) - an ApplicationTerm with function
-	 * symbol either "=" or an uninterpreted predicate further checks: - may not
+	 * A term is an EPR atom, if it is - an atom - contains free Termvariables (i.e. implicitly quantified variables) -
+	 * an ApplicationTerm with function symbol either "=" or an uninterpreted predicate further checks: - may not
 	 * contain function symbols
 	 */
 	public static boolean isQuantifiedEprAtom(final Term idx) {
@@ -572,28 +550,28 @@ public class EprTheory implements ITheory {
 
 	private static boolean isEprPredicate(final FunctionSymbol function) {
 		return !function.isIntern();
-//		if (function.getName().equals("not"))
-//			return false;
-//		if (function.getName().equals("or"))
-//			return false;
-//		if (function.getName().equals("and"))
-//			return false;
-//		if (function.getName().equals("let"))
-//			return false;
-//		if (function.getName().equals("ite"))
-//			return false;
-//		if (function.getName().equals("="))
-//			return false;
-//		return true;
+		// if (function.getName().equals("not"))
+		// return false;
+		// if (function.getName().equals("or"))
+		// return false;
+		// if (function.getName().equals("and"))
+		// return false;
+		// if (function.getName().equals("let"))
+		// return false;
+		// if (function.getName().equals("ite"))
+		// return false;
+		// if (function.getName().equals("="))
+		// return false;
+		// return true;
 	}
 
 	/**
 	 * Management method for EprAtoms.
 	 *
 	 * In particular this manages
-	 *  <li> quantified equality atoms
-	 *  <li> quantified atoms that use an EprPredicate
-	 *  <li> ground atoms that use an EprPredicate
+	 * <li>quantified equality atoms
+	 * <li>quantified atoms that use an EprPredicate
+	 * <li>ground atoms that use an EprPredicate
 	 *
 	 * @param idx
 	 * @param hash
@@ -605,11 +583,8 @@ public class EprTheory implements ITheory {
 		if (idx.getFunction().getName().equals("=")) {
 			assert idx.getFreeVars().length > 0;
 			// ApplicationTerm subTerm = applyAlphaRenaming(idx, mCollector);
-			return new EprQuantifiedEqualityAtom(idx,
-					hash,
-					assertionStackLevel,
-					getEqualityEprPredicate(idx.getParameters()[0].getSort()),
-					source);
+			return new EprQuantifiedEqualityAtom(idx, hash, assertionStackLevel,
+					getEqualityEprPredicate(idx.getParameters()[0].getSort()), source);
 		} else {
 
 			final EprPredicate pred = getEprPredicate(idx.getFunction());
@@ -654,8 +629,7 @@ public class EprTheory implements ITheory {
 	}
 
 	/**
-	 * Used for tracking all constants that appear in any clause that is
-	 * currently asserted.
+	 * Used for tracking all constants that appear in any clause that is currently asserted.
 	 *
 	 * @param constants
 	 */
@@ -700,11 +674,9 @@ public class EprTheory implements ITheory {
 	}
 
 	/**
-	 * This is called whenever the Clausifier introduces a new constant term.
-	 * (The only case I can think of now is at skolemization.., but if we want
-	 * constants handling on-the-fly, we may use this elsewhere, too..) --> in
-	 * groundAll-mode adding a constant means adding further instantiations of
-	 * the EprClauses
+	 * This is called whenever the Clausifier introduces a new constant term. (The only case I can think of now is at
+	 * skolemization.., but if we want constants handling on-the-fly, we may use this elsewhere, too..) --> in
+	 * groundAll-mode adding a constant means adding further instantiations of the EprClauses
 	 *
 	 * @param skolems
 	 * @return

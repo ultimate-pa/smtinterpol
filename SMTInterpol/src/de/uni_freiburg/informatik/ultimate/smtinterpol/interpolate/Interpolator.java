@@ -266,7 +266,7 @@ public class Interpolator extends NonRecursive {
 		}
 		Interpolant[] interpolants = new Interpolant[mNumInterpolants];
 		final InterpolatorClauseTermInfo leafTermInfo = getClauseTermInfo(leaf);
-		if (leafTermInfo.getLeafKind().equals("@clause") || leafTermInfo.getLeafKind().equals("@asserted")) {
+		if (leafTermInfo.getLeafKind().equals("@clause")) {
 			final String source = leafTermInfo.getSource();
 			final int partition = mPartitions.containsKey(source) ? mPartitions.get(source) : 0;
 			interpolants = new Interpolant[mNumInterpolants];
@@ -289,7 +289,9 @@ public class Interpolator extends NonRecursive {
 				interpolants = ipolator.computeInterpolants(leaf);
 			} else if ((Boolean) mSmtSolver.getOption(SolverOptions.ARRAY_INTERPOLATION)
 					&& (leafTermInfo.getLemmaType().equals(":read-over-weakeq")
-							|| leafTermInfo.getLemmaType().equals(":weakeq-ext"))) {
+							|| leafTermInfo.getLemmaType().equals(":weakeq-ext")
+							|| leafTermInfo.getLemmaType().equals(":const-weakeq")
+							|| leafTermInfo.getLemmaType().equals(":read-const-weakeq"))) {
 				final ArrayInterpolator ipolator = new ArrayInterpolator(this);
 				final Term[] interpolantTerms = ipolator.computeInterpolants(leaf);
 				for (int j = 0; j < mNumInterpolants; j++) {
@@ -456,7 +458,7 @@ public class Interpolator extends NonRecursive {
 
 		public boolean contains(final int partition) {
 			if (partition == -1) {
-				for (int i = 0; i < mNumInterpolants; i++) {
+				for (int i = 0; i <= mNumInterpolants; i++) {
 					if (!mInA.get(i) || !mInB.get(i)) {
 						return false;
 					}
@@ -938,18 +940,21 @@ public class Interpolator extends NonRecursive {
 	Occurrence getOccurrence(final Term term) {
 		if (term instanceof ConstantTerm) {
 			return mFullOccurrence;
-		} else if (term instanceof ApplicationTerm && ((ApplicationTerm) term).getFunction().isIntern()) {
-			final Term[] subTerms = ((ApplicationTerm) term).getParameters();
-			Occurrence result = mFullOccurrence;
-			for (final Term p : subTerms) {
-				final Occurrence occ = getOccurrence(p);
-				result = result.intersect(occ);
-			}
-			return result;
 		}
 		Occurrence result = mSymbolPartition.get(term);
 		if (result == null) {
-			result = new Occurrence();
+			if (term instanceof ApplicationTerm && ((ApplicationTerm) term).getFunction().isIntern()) {
+				final Term[] subTerms = ((ApplicationTerm) term).getParameters();
+				result = mFullOccurrence;
+				if (subTerms.length == 0)
+					return result;
+				for (final Term p : subTerms) {
+					final Occurrence occ = getOccurrence(p);
+					result = result.intersect(occ);
+				}
+			} else {
+				result = new Occurrence();
+			}
 			mSymbolPartition.put(term, result);
 		}
 		return result;
@@ -1502,41 +1507,8 @@ public class Interpolator extends NonRecursive {
 		if (term instanceof AnnotatedTerm) {
 			term = ((AnnotatedTerm) term).getSubterm();
 		}
-		final InterpolatorAffineTerm result = new InterpolatorAffineTerm();
-		Term[] summands;
-		if (term instanceof ApplicationTerm
-			&& ((ApplicationTerm)term).getFunction().getName() == "+") {
-			summands = ((ApplicationTerm) term).getParameters();
-		} else {
-			summands = new Term[] { term };
-		}
-		for (Term summand : summands) {
-			Rational factor = Rational.ONE;
-			if (summand instanceof ApplicationTerm
-				&& ((ApplicationTerm) summand).getFunction().getName() == "*") {
-				final Term[] params = ((ApplicationTerm) summand).getParameters();
-				final SMTAffineTerm constFactor = SMTAffineTerm.create(params[0]);
-				assert(constFactor.isConstant());
-				factor = constFactor.getConstant();
-				summand = params[1];
-			}
-			if (summand instanceof ApplicationTerm
-				&& ((ApplicationTerm) summand).getFunction().getName() == "-"
-				&& ((ApplicationTerm) summand).getParameters().length == 1) {
-				factor = factor.negate();
-				summand = ((ApplicationTerm) summand).getParameters()[0];
-			}
-			if (summand instanceof ApplicationTerm
-				&& ((ApplicationTerm) summand).getFunction().getName() == "to_real") {
-				summand = ((ApplicationTerm) summand).getParameters()[0];
-			}
-			if (summand instanceof ConstantTerm) {
-				result.add(factor.mul(SMTAffineTerm.create(summand).getConstant()));
-			} else {
-				result.add(factor, summand);
-			}
-		}
-		return result;
+		final SMTAffineTerm affine = new SMTAffineTerm(term);
+		return new InterpolatorAffineTerm(affine);
 	}
 
 	/**

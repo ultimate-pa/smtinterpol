@@ -33,8 +33,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ITheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.model.Model;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.model.SharedTermEvaluator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 
@@ -191,12 +189,6 @@ public class QuantifierTheory implements ITheory {
 	public Object[] getStatistics() {
 		// TODO Auto-generated method stub
 		return null;
-	}
-
-	@Override
-	public void fillInModel(Model model, Theory t, SharedTermEvaluator ste) {
-		// TODO Auto-generated method stub
-
 	}
 
 	/**

@@ -19,6 +19,7 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.convert;
 
 import java.math.BigInteger;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -44,21 +45,20 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.UnifyHash;
 
 /**
- * Build a representation of the formula where only not, or, ite and =/2 are
- * present.  Linear arithmetic terms are converted into SMTAffineTerms.  We
- * normalize quantifiers to universal quantifiers.  Additionally, this term
- * transformer removes all annotations from the formula.
+ * Build a representation of the formula where only not, or, ite and =/2 are present. Linear arithmetic terms are
+ * converted into SMTAffineTerms. We normalize quantifiers to universal quantifiers. Additionally, this term transformer
+ * removes all annotations from the formula.
+ * 
  * @author Jochen Hoenicke, Juergen Christ
  */
 public class TermCompiler extends TermTransformer {
 
 	private boolean mBy0Seen = false;
 	private Map<Term, Set<String>> mNames;
+	UnifyHash<ApplicationTerm> mCanonicalSums = new UnifyHash<>();
 
 	private IProofTracker mTracker;
 	private Utils mUtils;
-	private final UnifyHash<SMTAffineTerm> mAffineUnifier
-		= new UnifyHash<SMTAffineTerm>();
 
 	static class TransitivityStep implements Walker {
 		final Term mFirst;
@@ -94,6 +94,19 @@ public class TermCompiler extends TermTransformer {
 
 	@Override
 	public void convert(final Term term) {
+		if (term.getSort().isInternal()) {
+			/* check if we support the internal sort */
+			switch (term.getSort().getName()) {
+			case "Bool":
+			case "Int":
+			case "Real":
+			case "Array":
+				/* okay */
+				break;
+			default:
+				throw new UnsupportedOperationException("Unsupported internal sort: " + term.getSort());
+			}
+		}
 		if (term instanceof ApplicationTerm) {
 			final ApplicationTerm appTerm = (ApplicationTerm) term;
 			final FunctionSymbol fsym = appTerm.getFunction();
@@ -147,8 +160,7 @@ public class TermCompiler extends TermTransformer {
 				pushTerms(params);
 				return;
 			}
-			if (fsym.isChainable() && params.length > 2
-					&& !fsym.getName().equals("=")) {
+			if (fsym.isChainable() && params.length > 2 && !fsym.getName().equals("=")) {
 				final Theory theory = appTerm.getTheory();
 				final Term[] conjs = new Term[params.length - 1];
 				for (int i = 0; i < params.length - 1; i++) {
@@ -161,8 +173,8 @@ public class TermCompiler extends TermTransformer {
 				pushTerms(conjs);
 				return;
 			}
-		} else if (term instanceof ConstantTerm) {
-			final SMTAffineTerm res = SMTAffineTerm.create(term);
+		} else if (term instanceof ConstantTerm && term.getSort().isNumericSort()) {
+			final Term res = SMTAffineTerm.convertConstant((ConstantTerm) term).toTerm(term.getSort());
 			setResult(mTracker.buildRewrite(term, res, ProofConstants.RW_CANONICAL_SUM));
 			return;
 		}
@@ -170,56 +182,25 @@ public class TermCompiler extends TermTransformer {
 	}
 
 	@Override
-	public void convertApplicationTerm(final ApplicationTerm appTerm, Term[] args) {
+	public void convertApplicationTerm(final ApplicationTerm appTerm, final Term[] args) {
 		final FunctionSymbol fsym = appTerm.getFunction();
 		final Theory theory = appTerm.getTheory();
 
-		Term convertedApp = mTracker.congruence(mTracker.reflexivity(appTerm), args);
+		final Term convertedApp = mTracker.congruence(mTracker.reflexivity(appTerm), args);
 
-		final Sort[] paramSorts = fsym.getParameterSorts();
-		if (theory.getLogic().isIRA()
-			&& paramSorts.length == 2
-			&& paramSorts[0].getName().equals("Real")
-			&& paramSorts[1] == paramSorts[0]) {
-			// IRA-Hack
-			if (args == appTerm.getParameters()) {
-				args = args.clone();
-			}
-			boolean changed = false;
-			final Term[] desugarParams = new Term[args.length];
-			final Term[] nargs = new Term[args.length];
-			for (int i = 0; i < args.length; i++) {
-				final Term arg = mTracker.getProvedTerm(args[i]);
-				if (arg.getSort().getName().equals("Int")) {
-					desugarParams[i] = theory.term("to_real", arg);
-					nargs[i] = mTracker.buildRewrite(desugarParams[i],
-							SMTAffineTerm.create(arg).typecast(paramSorts[0]),
-							ProofConstants.RW_CANONICAL_SUM);
-					changed = true;
-				} else {
-					desugarParams[i] = arg;
-					nargs[i] = mTracker.reflexivity(arg);
-				}
-			}
-			if (changed) {
-				final Term desugar = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp),
-						theory.term(fsym, desugarParams), ProofConstants.RW_DESUGAR);
-				convertedApp = mTracker.congruence(mTracker.transitivity(convertedApp, desugar), nargs);
-			}
-		}
 		final Term[] params = ((ApplicationTerm) mTracker.getProvedTerm(convertedApp)).getParameters();
 
 		if (fsym.getDefinition() != null) {
 			final HashMap<TermVariable, Term> substs = new HashMap<>();
 			for (int i = 0; i < params.length; i++) {
-				substs.put(fsym.getDefinitionVars()[i], SMTAffineTerm.cleanup(params[i]));
+				substs.put(fsym.getDefinitionVars()[i], params[i]);
 			}
 			final FormulaUnLet unletter = new FormulaUnLet();
 			unletter.addSubstitutions(substs);
 			final Term expanded = unletter.unlet(fsym.getDefinition());
-			final Term expandedProof = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), expanded,
-					ProofConstants.RW_EXPAND_DEF);
-			enqueueWalker(new TransitivityStep(expandedProof));
+			final Term expandedProof =
+					mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), expanded, ProofConstants.RW_EXPAND_DEF);
+			enqueueWalker(new TransitivityStep(mTracker.transitivity(convertedApp, expandedProof)));
 			pushTerm(expanded);
 			return;
 		}
@@ -250,117 +231,120 @@ public class TermCompiler extends TermTransformer {
 			case "distinct":
 				setResult(mUtils.convertDistinct(convertedApp));
 				return;
-			case "<=":
-			{
+			case "<=": {
 				final Term lhs = mTracker.getProvedTerm(convertedApp);
-				Term rhs = SMTAffineTerm.create(params[0])
-						.add(SMTAffineTerm.create(Rational.MONE, params[1]))
-						.normalize(this);
-				rhs = theory.term("<=", rhs, Rational.ZERO.toTerm(rhs.getSort()));
+				final Sort sort = params[0].getSort();
+				final SMTAffineTerm affine1 = new SMTAffineTerm(params[0]);
+				final SMTAffineTerm affine2 = new SMTAffineTerm(params[1]);
+				affine2.negate();
+				affine1.add(affine2);
+				final Term rhs = theory.term("<=", affine1.toTerm(this, sort), Rational.ZERO.toTerm(sort));
 				final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_LEQ_TO_LEQ0);
 				setResult(mUtils.convertLeq0(mTracker.transitivity(convertedApp, rewrite)));
 				return;
 			}
-			case ">=":
-			{
+			case ">=": {
 				final Term lhs = mTracker.getProvedTerm(convertedApp);
-				Term rhs = SMTAffineTerm.create(params[1])
-						.add(SMTAffineTerm.create(Rational.MONE, params[0]))
-						.normalize(this);
-				rhs = theory.term("<=", rhs, Rational.ZERO.toTerm(rhs.getSort()));
+				final Sort sort = params[0].getSort();
+				final SMTAffineTerm affine1 = new SMTAffineTerm(params[1]);
+				final SMTAffineTerm affine2 = new SMTAffineTerm(params[0]);
+				affine2.negate();
+				affine1.add(affine2);
+				final Term rhs = theory.term("<=", affine1.toTerm(this, sort), Rational.ZERO.toTerm(sort));
 				final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_GEQ_TO_LEQ0);
 				setResult(mUtils.convertLeq0(mTracker.transitivity(convertedApp, rewrite)));
 				return;
 			}
-			case ">":
-			{
+			case ">": {
 				final Term lhs = mTracker.getProvedTerm(convertedApp);
-				Term rhs = SMTAffineTerm.create(params[0])
-						.add(SMTAffineTerm.create(Rational.MONE, params[1]))
-						.normalize(this);
-				final Term leq = theory.term("<=", rhs, Rational.ZERO.toTerm(rhs.getSort()));
-				rhs = theory.term("not", leq);
+				final Sort sort = params[0].getSort();
+				final SMTAffineTerm affine1 = new SMTAffineTerm(params[0]);
+				final SMTAffineTerm affine2 = new SMTAffineTerm(params[1]);
+				affine2.negate();
+				affine1.add(affine2);
+				final Term leq = theory.term("<=", affine1.toTerm(this, sort), Rational.ZERO.toTerm(sort));
+				final Term rhs = theory.term("not", leq);
 				Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_GT_TO_LEQ0);
 				final Term leqRewrite = mUtils.convertLeq0(mTracker.reflexivity(leq));
 				rewrite = mTracker.congruence(mTracker.transitivity(convertedApp, rewrite), new Term[] { leqRewrite });
 				setResult(mUtils.convertNot(rewrite));
 				return;
 			}
-			case "<":
-			{
+			case "<": {
 				final Term lhs = mTracker.getProvedTerm(convertedApp);
-				Term rhs = SMTAffineTerm.create(params[1])
-						.add(SMTAffineTerm.create(Rational.MONE, params[0]))
-						.normalize(this);
-				final Term leq = theory.term("<=", rhs, Rational.ZERO.toTerm(rhs.getSort()));
-				rhs = theory.term("not", leq);
+				final Sort sort = params[0].getSort();
+				final SMTAffineTerm affine1 = new SMTAffineTerm(params[1]);
+				final SMTAffineTerm affine2 = new SMTAffineTerm(params[0]);
+				affine2.negate();
+				affine1.add(affine2);
+				final Term leq = theory.term("<=", affine1.toTerm(this, sort), Rational.ZERO.toTerm(sort));
+				final Term rhs = theory.term("not", leq);
 				Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_LT_TO_LEQ0);
 				final Term leqRewrite = mUtils.convertLeq0(mTracker.reflexivity(leq));
 				rewrite = mTracker.congruence(mTracker.transitivity(convertedApp, rewrite), new Term[] { leqRewrite });
 				setResult(mUtils.convertNot(rewrite));
 				return;
 			}
-			case "+":
-			{
+			case "+": {
 				final Term lhs = mTracker.getProvedTerm(convertedApp);
-				SMTAffineTerm sum = SMTAffineTerm.create(params[0]);
+				final SMTAffineTerm sum = new SMTAffineTerm(params[0]);
 				for (int i = 1; i < params.length; i++) {
-					sum = sum.add(SMTAffineTerm.create(params[i]));
+					sum.add(new SMTAffineTerm(params[i]));
 				}
-				final Term rhs = sum.normalize(this);
+				final Term rhs = sum.toTerm(this, convertedApp.getSort());
 				final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_CANONICAL_SUM);
 				setResult(mTracker.transitivity(convertedApp, rewrite));
 				return;
 			}
-			case "-":
-			{
+			case "-": {
 				final Term lhs = mTracker.getProvedTerm(convertedApp);
-				SMTAffineTerm result;
+				final SMTAffineTerm result = new SMTAffineTerm(params[0]);
 				if (params.length == 1) {
-					result = SMTAffineTerm.create(params[0]).negate();
+					result.negate();
 				} else {
-					result = SMTAffineTerm.create(params[0]);
 					for (int i = 1; i < params.length; i++) {
-						result = result.add(SMTAffineTerm.create(params[i]).negate());
+						final SMTAffineTerm subtrahend = new SMTAffineTerm(params[i]);
+						subtrahend.negate();
+						result.add(subtrahend);
 					}
 				}
-				final Term rhs = result.normalize(this);
+				final Term rhs = result.toTerm(this, convertedApp.getSort());
 				final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_CANONICAL_SUM);
 				setResult(mTracker.transitivity(convertedApp, rewrite));
 				return;
 			}
-			case "*":
-			{
+			case "*": {
 				final Term lhs = mTracker.getProvedTerm(convertedApp);
-				SMTAffineTerm prod = SMTAffineTerm.create(params[0]);
+				SMTAffineTerm prod = new SMTAffineTerm(params[0]);
 				for (int i = 1; i < params.length; i++) {
-					final SMTAffineTerm factor = SMTAffineTerm.create(params[i]);
+					final SMTAffineTerm factor = new SMTAffineTerm(params[i]);
 					if (prod.isConstant()) {
-						prod = factor.mul(prod.getConstant());
+						factor.mul(prod.getConstant());
+						prod = factor;
 					} else if (factor.isConstant()) {
-						prod = prod.mul(factor.getConstant());
+						prod.mul(factor.getConstant());
 					} else {
 						throw new UnsupportedOperationException("Unsupported non-linear arithmetic");
 					}
 				}
-				final Term rhs = prod.normalize(this);
+				final Term rhs = prod.toTerm(this, convertedApp.getSort());
 				final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_CANONICAL_SUM);
 				setResult(mTracker.transitivity(convertedApp, rewrite));
 				return;
 			}
-			case "/":
-			{
+			case "/": {
 				final Term lhs = mTracker.getProvedTerm(convertedApp);
-				final SMTAffineTerm arg0 = SMTAffineTerm.create(params[0]);
-				final SMTAffineTerm arg1 = SMTAffineTerm.create(params[1]);
-				if (arg1.isConstant()) {
-					if (arg1.getConstant().equals(Rational.ZERO)) {
+				final SMTAffineTerm arg0 = new SMTAffineTerm(params[0]);
+				if (params[1] instanceof ConstantTerm) {
+					final Rational arg1 = SMTAffineTerm.convertConstant((ConstantTerm) params[1]);
+					if (arg1.equals(Rational.ZERO)) {
 						mBy0Seen = true;
 						final Term rhs = theory.term("@/0", params[0]);
 						final Term rewrite = mTracker.reflexivity(rhs);
 						setResult(mTracker.transitivity(convertedApp, rewrite));
 					} else {
-						final Term rhs = arg0.mul(arg1.getConstant().inverse()).normalize(this);
+						arg0.mul(arg1.inverse());
+						final Term rhs = arg0.toTerm(this, convertedApp.getSort());
 						final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_CANONICAL_SUM);
 						setResult(mTracker.transitivity(convertedApp, rewrite));
 					}
@@ -369,30 +353,30 @@ public class TermCompiler extends TermTransformer {
 					throw new UnsupportedOperationException("Unsupported non-linear arithmetic");
 				}
 			}
-			case "div":
-			{
+			case "div": {
 				final Term lhs = mTracker.getProvedTerm(convertedApp);
-				final SMTAffineTerm arg0 = SMTAffineTerm.create(params[0]);
-				final SMTAffineTerm arg1 = SMTAffineTerm.create(params[1]);
-				final Rational divisor = arg1.getConstant();
-				if (arg1.isConstant() && divisor.isIntegral()) {
+				final SMTAffineTerm arg0 = new SMTAffineTerm(params[0]);
+				if (params[1] instanceof ConstantTerm) {
+					final Rational divisor = (Rational) ((ConstantTerm) params[1]).getValue();
+					assert divisor.isIntegral();
 					if (divisor.equals(Rational.ZERO)) {
 						mBy0Seen = true;
 						final Term rhs = theory.term("@div0", params[0]);
 						final Term rewrite = mTracker.reflexivity(rhs);
 						setResult(mTracker.transitivity(convertedApp, rewrite));
 					} else if (divisor.equals(Rational.ONE)) {
-						final Term rhs = arg0.normalize(this);
+						final Term rhs = arg0.toTerm(this, convertedApp.getSort());
 						final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_DIV_ONE);
 						setResult(mTracker.transitivity(convertedApp, rewrite));
 					} else if (divisor.equals(Rational.MONE)) {
-						final Term rhs = arg0.negate().normalize(this);
+						arg0.negate();
+						final Term rhs = arg0.toTerm(this, convertedApp.getSort());
 						final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_DIV_MONE);
 						setResult(mTracker.transitivity(convertedApp, rewrite));
 					} else if (arg0.isConstant()) {
 						// We have (div c0 c1) ==> constDiv(c0, c1)
-						final Rational div = constDiv(arg0.getConstant(), arg1.getConstant());
-						final Term rhs = SMTAffineTerm.create(div.toTerm(arg0.getSort())).normalize(this);
+						final Rational div = constDiv(arg0.getConstant(), divisor);
+						final Term rhs = div.toTerm(convertedApp.getSort());
 						final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_DIV_CONST);
 						setResult(mTracker.transitivity(convertedApp, rewrite));
 					} else {
@@ -403,13 +387,12 @@ public class TermCompiler extends TermTransformer {
 					throw new UnsupportedOperationException("Unsupported non-linear arithmetic");
 				}
 			}
-			case "mod":
-			{
+			case "mod": {
 				final Term lhs = mTracker.getProvedTerm(convertedApp);
-				final SMTAffineTerm arg0 = SMTAffineTerm.create(params[0]);
-				final SMTAffineTerm arg1 = SMTAffineTerm.create(params[1]);
-				final Rational divisor = arg1.getConstant();
-				if (arg1.isConstant() && divisor.isIntegral()) {
+				final SMTAffineTerm arg0 = new SMTAffineTerm(params[0]);
+				if (params[1] instanceof ConstantTerm) {
+					final Rational divisor = (Rational) ((ConstantTerm) params[1]).getValue();
+					assert divisor.isIntegral();
 					if (divisor.equals(Rational.ZERO)) {
 						mBy0Seen = true;
 						final Term rhs = theory.term("@mod0", params[0]);
@@ -417,33 +400,25 @@ public class TermCompiler extends TermTransformer {
 						setResult(mTracker.transitivity(convertedApp, rewrite));
 					} else if (divisor.equals(Rational.ONE)) {
 						// (mod x 1) == 0
-						final Term rhs = SMTAffineTerm.create(
-								Rational.ZERO.toTerm(arg0.getSort()))
-								.normalize(this);
+						final Term rhs = Rational.ZERO.toTerm(convertedApp.getSort());
 						final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_MODULO_ONE);
 						setResult(mTracker.transitivity(convertedApp, rewrite));
 					} else if (divisor.equals(Rational.MONE)) {
 						// (mod x -1) == 0
-						final Term rhs = SMTAffineTerm.create(
-								Rational.ZERO.toTerm(arg0.getSort()))
-								.normalize(this);
+						final Term rhs = Rational.ZERO.toTerm(convertedApp.getSort());
 						final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_MODULO_MONE);
 						setResult(mTracker.transitivity(convertedApp, rewrite));
 					} else if (arg0.isConstant()) {
 						// We have (mod c0 c1) ==> c0 - c1 * constDiv(c0, c1)
 						final Rational c0 = arg0.getConstant();
-						final Rational c1 = arg1.getConstant();
-						final Rational mod = c0.sub(constDiv(c0, c1).mul(c1));
-						final Term rhs = SMTAffineTerm.create(
-								mod.toTerm(arg0.getSort())).normalize(this);
+						final Rational mod = c0.sub(constDiv(c0, divisor).mul(divisor));
+						final Term rhs = mod.toTerm(convertedApp.getSort());
 						final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_MODULO_CONST);
 						setResult(mTracker.transitivity(convertedApp, rewrite));
 					} else {
-						final SMTAffineTerm ydiv =
-								SMTAffineTerm.create(theory.term(
-										"div", arg0, arg1)).
-										mul(arg1.getConstant());
-						final Term rhs = arg0.add(ydiv.negate()).normalize(this);
+						final Term div = theory.term("div", params[0], params[1]);
+						arg0.add(divisor.negate(), div);
+						final Term rhs = arg0.toTerm(this, params[1].getSort());
 						final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_MODULO);
 						setResult(mTracker.transitivity(convertedApp, rewrite));
 					}
@@ -452,50 +427,40 @@ public class TermCompiler extends TermTransformer {
 					throw new UnsupportedOperationException("Unsupported non-linear arithmetic");
 				}
 			}
-			case "to_real":
-			{
-				final SMTAffineTerm arg = SMTAffineTerm.create(params[0]);
+			case "to_real": {
+				final SMTAffineTerm arg = new SMTAffineTerm(params[0]);
 				final Term lhs = mTracker.getProvedTerm(convertedApp);
-				final Term rhs = arg.typecast(fsym.getReturnSort()).normalize(this);
+				final Term rhs = arg.toTerm(this, convertedApp.getSort());
 				final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_CANONICAL_SUM);
 				setResult(mTracker.transitivity(convertedApp, rewrite));
 				return;
 			}
-			case "to_int":
-			{
+			case "to_int": {
 				// We don't convert to_int here but defer it to the clausifier
-				// But we simplify it here...
-				final SMTAffineTerm arg0 = SMTAffineTerm.create(params[0]);
-				if (arg0.isConstant()) {
+				// But we simplify constants here...
+				if (params[0] instanceof ConstantTerm) {
+					final Rational value = (Rational) ((ConstantTerm) params[0]).getValue();
 					final Term lhs = mTracker.getProvedTerm(convertedApp);
-					final Term rhs = SMTAffineTerm.create(
-							arg0.getConstant().floor().toTerm(
-									fsym.getReturnSort())).normalize(this);
+					final Term rhs = value.floor().toTerm(fsym.getReturnSort());
 					final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_TO_INT);
 					setResult(mTracker.transitivity(convertedApp, rewrite));
 					return;
 				}
 				break;
 			}
-			case "divisible":
-			{
+			case "divisible": {
 				final Term lhs = mTracker.getProvedTerm(convertedApp);
-				final SMTAffineTerm arg0 = SMTAffineTerm.create(params[0]);
-				final SMTAffineTerm arg1 = SMTAffineTerm.create(
-						Rational.valueOf(fsym.getIndices()[0], BigInteger.ONE),
-						arg0.getSort());
+				final Rational divisor = Rational.valueOf(fsym.getIndices()[0], BigInteger.ONE);
 				Term rhs;
-				if (arg1.getConstant().equals(Rational.ONE)) {
+				if (divisor.equals(Rational.ONE)) {
 					rhs = theory.mTrue;
-				} else if (arg0.isConstant()) {
-					final Rational c0 = arg0.getConstant();
-					final Rational c1 = arg1.getConstant();
-					final Rational mod = c0.sub(constDiv(c0, c1).mul(c1));
-					rhs = mod.equals(Rational.ZERO) ? theory.mTrue : theory.mFalse;
+				} else if (params[0] instanceof ConstantTerm) {
+					final Rational value = (Rational) ((ConstantTerm) params[0]).getValue();
+					rhs = value.equals(divisor.mul(constDiv(value, divisor))) ? theory.mTrue : theory.mFalse;
 				} else {
-					rhs = theory.term("=", arg0, SMTAffineTerm.create(
-						theory.term("div", arg0, arg1)).mul(arg1.getConstant())
-						.normalize(this));
+					final Term divisorTerm = divisor.toTerm(params[0].getSort());
+					rhs = theory.term("=", params[0],
+							theory.term("*", divisorTerm, theory.term("div", params[0], divisorTerm)));
 				}
 				final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_DIVISIBLE);
 				setResult(mTracker.transitivity(convertedApp, rewrite));
@@ -508,8 +473,9 @@ public class TermCompiler extends TermTransformer {
 				final Term nestedIdx = getArrayStoreIdx(array);
 				if (nestedIdx != null) {
 					// Check for store-over-store
-					final SMTAffineTerm diff = SMTAffineTerm.create(idx).add(
-							SMTAffineTerm.create(nestedIdx).negate());
+					final SMTAffineTerm diff = new SMTAffineTerm(idx);
+					diff.negate();
+					diff.add(new SMTAffineTerm(nestedIdx));
 					if (diff.isConstant() && diff.getConstant().equals(Rational.ZERO)) {
 						// Found store-over-store => ignore inner store
 						final ApplicationTerm appArray = (ApplicationTerm) array;
@@ -528,8 +494,9 @@ public class TermCompiler extends TermTransformer {
 				final Term nestedIdx = getArrayStoreIdx(array);
 				if (nestedIdx != null) {
 					// Check for select-over-store
-					final SMTAffineTerm diff = SMTAffineTerm.create(idx).add(
-							SMTAffineTerm.create(nestedIdx).negate());
+					final SMTAffineTerm diff = new SMTAffineTerm(idx);
+					diff.negate();
+					diff.add(new SMTAffineTerm(nestedIdx));
 					if (diff.isConstant()) {
 						// Found select-over-store
 						final ApplicationTerm store = (ApplicationTerm) array;
@@ -548,9 +515,50 @@ public class TermCompiler extends TermTransformer {
 				}
 				break;
 			}
+			case "const": {
+				final Sort sort = mTracker.getProvedTerm(convertedApp).getSort();
+				assert sort.isArraySort();
+				if (!isInfinite(sort.getArguments()[0])) {
+					/*
+					 * We don't support const over non-infinite index sorts. So we require the sort to be internal and
+					 * non-bool. Non-bool is already checked earlier.
+					 */
+					throw new SMTLIBException("Const is only supported for inifinite index sort");
+				}
+				break;
+			}
+			case "true":
+			case "false":
+			case "@diff":
+			case "@/0":
+			case "@div0":
+			case "@mod0":
+				/* nothing to do */
+				break;
+			default:
+				throw new UnsupportedOperationException("Unsupported internal function " + fsym.getName());
 			}
 		}
 		setResult(convertedApp);
+	}
+
+	private boolean isInfinite(final Sort sort) {
+		if (sort.isInternal()) {
+			switch (sort.getName()) {
+			case "Int":
+			case "Real":
+				return true;
+			case "Array": {
+				final Sort[] args = sort.getArguments();
+				final Sort indexSort = args[0];
+				final Sort elemSort = args[1];
+				return elemSort.isInternal() && isInfinite(indexSort);
+			}
+			default:
+				return false;
+			}
+		}
+		return false;
 	}
 
 	public final static Rational constDiv(final Rational c0, final Rational c1) {
@@ -570,13 +578,9 @@ public class TermCompiler extends TermTransformer {
 		return null;
 	}
 
+	@SuppressWarnings("unused")
 	@Override
 	public void postConvertQuantifier(final QuantifiedFormula old, final Term newBody) {
-		final Theory t = old.getTheory();
-		if (!t.getLogic().isQuantified()) {
-			throw new SMTLIBException("quantifier in quantifier-free theory");
-		}
-		
 		if (old.getQuantifier() == QuantifiedFormula.EXISTS) {
 			setResult(mTracker.exists(old, newBody));
 		} else {
@@ -590,8 +594,7 @@ public class TermCompiler extends TermTransformer {
 	}
 
 	@Override
-	public void postConvertAnnotation(final AnnotatedTerm old,
-			final Annotation[] newAnnots, final Term newBody) {
+	public void postConvertAnnotation(final AnnotatedTerm old, final Annotation[] newAnnots, final Term newBody) {
 		if (mNames != null && newBody.getSort() == newBody.getTheory().getBooleanSort()) {
 			final Annotation[] oldAnnots = old.getAnnotations();
 			for (final Annotation annot : oldAnnots) {
@@ -605,11 +608,13 @@ public class TermCompiler extends TermTransformer {
 				}
 			}
 		}
-		setResult(mTracker.transitivity(mTracker.buildRewrite(old, old.getSubterm(), ProofConstants.RW_STRIP),
-				newBody));
+		setResult(
+				mTracker.transitivity(mTracker.buildRewrite(old, old.getSubterm(), ProofConstants.RW_STRIP), newBody));
 	}
+
 	/**
 	 * Get and reset the division-by-0 seen flag.
+	 * 
 	 * @return The old division-by-0 seen flag.
 	 */
 	public boolean resetBy0Seen() {
@@ -618,7 +623,30 @@ public class TermCompiler extends TermTransformer {
 		return old;
 	}
 
-	public SMTAffineTerm unify(final SMTAffineTerm affine) {
-		return mAffineUnifier.unify(affine);
+	/**
+	 * Canonicalize a summation term, i.e. check if we already created this term with the summands in a different order.
+	 *
+	 * @param sumTerm
+	 *            the summation term of the form {@code (+ p1 ... pn)}.
+	 * @return the canonic summation term.
+	 */
+	public ApplicationTerm unifySummation(final ApplicationTerm sumTerm) {
+		assert sumTerm.getFunction().getName() == "+";
+		final HashSet<Term> summands = new HashSet<>();
+		int hash = 0;
+		for (final Term p : sumTerm.getParameters()) {
+			final boolean fresh = summands.add(p);
+			assert fresh;
+			hash += p.hashCode();
+		}
+		hash = summands.hashCode();
+		for (final ApplicationTerm canonic : mCanonicalSums.iterateHashCode(hash)) {
+			if (canonic.getParameters().length == summands.size()
+					&& summands.containsAll(Arrays.asList(canonic.getParameters()))) {
+				return canonic;
+			}
+		}
+		mCanonicalSums.put(hash, sumTerm);
+		return sumTerm;
 	}
 }

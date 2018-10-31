@@ -30,6 +30,7 @@ import java.util.Stack;
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
@@ -37,7 +38,6 @@ import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
-import de.uni_freiburg.informatik.ultimate.logic.TermTransformer;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
@@ -268,92 +268,6 @@ public class ProofChecker extends NonRecursive {
 	}
 
 	/**
-	 * Class converting Terms to SMTAffineTerm.
-	 *
-	 * @author Jochen Hoenicke
-	 */
-	class SMTAffineTermTransformer extends TermTransformer {
-		private final HashSet<String> mFuncSet = new HashSet<String>();
-		{
-			mFuncSet.add("+");
-			mFuncSet.add("-");
-			mFuncSet.add("*");
-			mFuncSet.add("/");
-			mFuncSet.add("to_real");
-		}
-
-		@Override
-		public void convert(final Term t) {
-			if (t instanceof ApplicationTerm) {
-				final ApplicationTerm appTerm = (ApplicationTerm) t;
-				final FunctionSymbol funcSymb = appTerm.getFunction();
-				if (funcSymb.isIntern() && mFuncSet.contains(funcSymb.getName())) {
-					super.convert(t);
-					return;
-				}
-			}
-			/* do not descend into any other term */
-			setResult(SMTAffineTerm.create(t));
-		}
-
-		@Override
-		public void convertApplicationTerm(final ApplicationTerm appTerm, final Term[] newArgs) {
-			final String funcName = appTerm.getFunction().getName();
-			assert mFuncSet.contains(funcName);
-			if (funcName == "+") {
-				SMTAffineTerm sum = (SMTAffineTerm) newArgs[0];
-				for (int i = 1; i < newArgs.length; i++) {
-					sum = sum.add((SMTAffineTerm) newArgs[i]);
-				}
-				setResult(sum);
-			} else if (funcName == "-") {
-				SMTAffineTerm sum = (SMTAffineTerm) newArgs[0];
-				if (newArgs.length == 1) {
-					/* unary minus */
-					sum = sum.negate();
-				} else {
-					/* subtract other arguments */
-					for (int i = 1; i < newArgs.length; i++) {
-						sum = sum.add(((SMTAffineTerm) newArgs[i]).negate());
-					}
-				}
-				setResult(sum);
-			} else if (funcName == "*") {
-				SMTAffineTerm prod = (SMTAffineTerm) newArgs[0];
-				for (int i = 1; i < newArgs.length; i++) {
-					final SMTAffineTerm other = (SMTAffineTerm) newArgs[i];
-					if (prod.isConstant()) {
-						prod = other.mul(prod.getConstant());
-					} else if (other.isConstant()) {
-						prod = prod.mul(other.getConstant());
-					} else {
-						setResult(SMTAffineTerm.create(appTerm));
-						return;
-					}
-				}
-				setResult(prod);
-			} else if (funcName == "/") {
-				SMTAffineTerm prod = (SMTAffineTerm) newArgs[0];
-				for (int i = 1; i < newArgs.length; i++) {
-					final SMTAffineTerm other = (SMTAffineTerm) newArgs[i];
-					if (other.isConstant() && !other.getConstant().equals(Rational.ZERO)) {
-						prod = prod.mul(other.getConstant().inverse());
-					} else {
-						setResult(SMTAffineTerm.create(appTerm));
-						return;
-					}
-				}
-				setResult(prod);
-			} else if (funcName == "to_real") {
-				final SMTAffineTerm t = (SMTAffineTerm) newArgs[0];
-				setResult(t.typecast(appTerm.getSort()));
-			} else {
-				throw new AssertionError("Unexpected Function: " + funcName);
-			}
-		}
-	}
-
-	/**
 	 * The set of all asserted terms (collected from the script by calling getAssertions()). This is used to check the
 	 * {@literal @}asserted rules.
 	 */
@@ -381,11 +295,6 @@ public class ProofChecker extends NonRecursive {
 	 * The result stack. This contains the terms proved by the proof terms.
 	 */
 	Stack<Term> mStackResults = new Stack<Term>();
-
-	/**
-	 * An auxiliary object to convert Terms to SMT affine terms needed for various linear arithmetic proves.
-	 */
-	SMTAffineTermTransformer mAffineConverter = new SMTAffineTermTransformer();
 
 	/**
 	 * Create a proof checker.
@@ -553,7 +462,8 @@ public class ProofChecker extends NonRecursive {
 
 		if (lemmaType == ":LA") {
 			checkLALemma(clause, (Term[]) lemmaAnnotation);
-		} else if (lemmaType == ":CC" || lemmaType == ":read-over-weakeq" || lemmaType == ":weakeq-ext") {
+		} else if (lemmaType == ":CC" || lemmaType == ":read-over-weakeq" || lemmaType == ":weakeq-ext"
+				|| lemmaType == ":read-const-weakeq" || lemmaType == ":const-weakeq") {
 			checkArrayLemma(lemmaType, clause, (Object[]) lemmaAnnotation);
 		} else if (lemmaType == ":trichotomy") {
 			checkTrichotomy(clause);
@@ -592,9 +502,9 @@ public class ProofChecker extends NonRecursive {
 		 * weakPaths maps from a symmetric pair to the set of weak indices such that a weak path was proven for this
 		 * pair. strongPaths contains the sets of all proven strong paths.
 		 */
-		final HashSet<SymmetricPair<Term>> strongPaths = new HashSet<SymmetricPair<Term>>();
+		final HashSet<SymmetricPair<Term>> allEqualities = new HashSet<SymmetricPair<Term>>();
 		/* indexDiseqs contains all index equalities in the clause */
-		final HashSet<SymmetricPair<Term>> indexDiseqs = new HashSet<SymmetricPair<Term>>();
+		final HashSet<SymmetricPair<Term>> indexDisequalities = new HashSet<SymmetricPair<Term>>();
 
 		/* collect literals and search for the disequality */
 		boolean foundDiseq = false;
@@ -611,7 +521,7 @@ public class ProofChecker extends NonRecursive {
 					reportError("Expected binary equality, found " + atom);
 					return;
 				}
-				strongPaths.add(new SymmetricPair<Term>(sides[0], sides[1]));
+				allEqualities.add(new SymmetricPair<Term>(sides[0], sides[1]));
 			} else {
 				final Term atom = unquote(literal);
 				if (!isApplication("=", atom)) {
@@ -623,13 +533,15 @@ public class ProofChecker extends NonRecursive {
 						reportError("Unexpected positive literal in CC lemma.");
 					}
 					final Term[] sides = ((ApplicationTerm) atom).getParameters();
-					indexDiseqs.add(new SymmetricPair<Term>(sides[0], sides[1]));
+					indexDisequalities.add(new SymmetricPair<Term>(sides[0], sides[1]));
 				}
 				foundDiseq = true;
 			}
 		}
 
 		SymmetricPair<Term> lastPath = null;
+		SymmetricPair<Term> lastWeakPath = null;
+		Term lastWeakIdx = null;
 		/*
 		 * Check the paths in reverse order. Collect proven paths in a hash set, so that they can be used later.
 		 */
@@ -648,7 +560,7 @@ public class ProofChecker extends NonRecursive {
 				final Term idx = (Term) annot[0];
 				final Term[] path = (Term[]) annot[1];
 				/* check weak path */
-				checkArrayPath(idx, path, strongPaths, null, indexDiseqs);
+				checkArrayPath(idx, path, allEqualities, null, indexDisequalities);
 				/* add it to premises */
 				final SymmetricPair<Term> endPoints = new SymmetricPair<Term>(path[0], path[path.length - 1]);
 				HashSet<Term> weakIdxs = weakPaths.get(endPoints);
@@ -657,56 +569,100 @@ public class ProofChecker extends NonRecursive {
 					weakPaths.put(endPoints, weakIdxs);
 				}
 				weakIdxs.add(idx);
+				lastWeakIdx = idx;
+				lastWeakPath = endPoints;
 			} else if (ccAnnotation[i] == ":subpath" && (annot instanceof Term[])) {
 				final Term[] path = (Term[]) annot;
 				final SymmetricPair<Term> endPoints = new SymmetricPair<Term>(path[0], path[path.length - 1]);
 				/* check path */
-				checkArrayPath(null, path, strongPaths, weakPaths.get(endPoints), indexDiseqs);
+				checkArrayPath(null, path, allEqualities, weakPaths.get(endPoints), indexDisequalities);
 				/* add it to premises */
-				strongPaths.add(endPoints);
+				allEqualities.add(endPoints);
 				lastPath = endPoints;
 			} else {
 				reportError("Unknown subpath annotation");
 			}
 		}
 
+		SymmetricPair<Term> provedEquality;
+		switch (type) {
+		case ":CC":
+		case ":weakeq-ext":
+			if (lastPath == null) {
+				reportError("Missing main path in lemma");
+				return;
+			}
+			provedEquality = lastPath;
+			break;
+		case ":read-over-weakeq": {
+			if (!isApplication("=", goalEquality)) {
+				reportError("Goal equality is not an equality in read-over-weakeq lemma");
+				return;
+			}
+			final Term[] sides = ((ApplicationTerm) goalEquality).getParameters();
+			if (isApplication("select", sides[0]) && isApplication("select", sides[1])) {
+				final Term[] p1 = ((ApplicationTerm) sides[0]).getParameters();
+				final Term[] p2 = ((ApplicationTerm) sides[1]).getParameters();
+				if (p1[1] != p2[1]  && !allEqualities.contains(new SymmetricPair<Term>(p1[1], p2[1]))) {
+					reportError("Missing index equality in read-over-weakeq lemma");
+				}
+				if (lastWeakIdx != p1[1] && lastWeakIdx != p2[1]) {
+					reportError("Wrong index in weak path");
+				}
+				if (lastWeakPath == null || !lastWeakPath.equals(new SymmetricPair<Term>(p1[0], p2[0]))) {
+					reportError("Wrong path ends in weak path");
+				}
+			}
+			provedEquality = new SymmetricPair<Term>(sides[0], sides[1]);
+			break;
+		}
+		case ":const-weakeq": {
+			if (lastPath == null || !isApplication("const", lastPath.getFirst())
+					|| !isApplication("const", lastPath.getSecond())) {
+				reportError("Main path in const-weakeq not between const arrays.");
+				return;
+			}
+			final Term c1 = ((ApplicationTerm) lastPath.getFirst()).getParameters()[0];
+			final Term c2 = ((ApplicationTerm) lastPath.getSecond()).getParameters()[0];
+			provedEquality = new SymmetricPair<Term>(c1, c2);
+			break;
+		}
+		case ":read-const-weakeq": {
+			if (lastWeakPath == null || lastWeakIdx == null || !isApplication("const", lastWeakPath.getSecond())) {
+				reportError("Main weak path in read-const-weakeq not to a const array.");
+				return;
+			}
+			final Term c1 = mSkript.term("select", lastWeakPath.getFirst(), lastWeakIdx);
+			final Term c2 = ((ApplicationTerm) lastWeakPath.getSecond()).getParameters()[0];
+			provedEquality = new SymmetricPair<Term>(c1, c2);
+			break;
+		}
+		default:
+			reportError("Unknown rule " + type);
+			return;
+		}
+
 		if (startSubpathAnnot == 0) {
 			/* check that the mainPath is really a contradiction */
-			final SMTAffineTerm diff =
-					convertAffineTerm(lastPath.getFirst()).add(convertAffineTerm(lastPath.getSecond()).negate());
-			if (!diff.isConstant() || diff.getConstant().equals(Rational.ZERO)) {
+			if (!checkTrivialDisequality(provedEquality.getFirst(), provedEquality.getSecond())) {
 				reportError("No diseq, but main path is " + lastPath);
 			}
 		} else {
-			if (!foundDiseq) {
-				reportError("Did not find goal equality in CC lemma");
-			}
 			if (!isApplication("=", goalEquality)) {
 				reportError("Goal equality is not an equality in CC lemma");
 				return;
 			}
 			final Term[] sides = ((ApplicationTerm) goalEquality).getParameters();
+			if (!foundDiseq && !checkTrivialDisequality(sides[0], sides[1])) {
+				reportError("Did not find goal equality in CC lemma");
+			}
 			if (sides.length != 2) {
 				reportError("Expected binary equality in CC lemma");
 				return;
 			}
-			final SymmetricPair<Term> endPoints = new SymmetricPair<Term>(sides[0], sides[1]);
-			if (strongPaths.contains(endPoints)) {
-				/* everything fine */
-				return;
+			if (!provedEquality.equals(new SymmetricPair<Term>(sides[0], sides[1]))) {
+				reportError("Cannot explain main equality " + goalEquality);
 			}
-
-			if (isApplication("select", sides[0]) && isApplication("select", sides[1])) {
-				final Term[] p1 = ((ApplicationTerm) sides[0]).getParameters();
-				final Term[] p2 = ((ApplicationTerm) sides[1]).getParameters();
-				if (p1[1] == p2[1] || strongPaths.contains(new SymmetricPair<Term>(p1[1], p2[1]))) {
-					final HashSet<Term> weakPs = weakPaths.get(new SymmetricPair<Term>(p1[0], p2[0]));
-					if (weakPs != null && (weakPs.contains(p1[1]) || weakPs.contains(p2[1]))) {
-						return;
-					}
-				}
-			}
-			reportError("Cannot explain main equality " + goalEquality);
 		}
 	}
 
@@ -729,8 +685,8 @@ public class ProofChecker extends NonRecursive {
 	 */
 	void checkArrayPath(final Term weakIdx, final Term[] path, final HashSet<SymmetricPair<Term>> strongPaths,
 			final HashSet<Term> weakPaths, final HashSet<SymmetricPair<Term>> indexDiseqs) {
-		if (path.length < 2) {
-			reportError("Short path in ArrayLemma");
+		if (path.length < 1) {
+			reportError("Empty path in ArrayLemma");
 			return;
 		}
 		for (int i = 0; i < path.length - 1; i++) {
@@ -756,12 +712,14 @@ public class ProofChecker extends NonRecursive {
 					if (indexDiseqs.contains(new SymmetricPair<Term>(weakIdx, storeIndex))) {
 						continue;
 					}
-					final SMTAffineTerm diff = convertAffineTerm(weakIdx).add(convertAffineTerm(storeIndex).negate());
-					if (diff.isConstant() && !diff.getConstant().equals(Rational.ZERO)) {
+					if (checkTrivialDisequality(weakIdx, storeIndex)) {
 						continue;
 					}
 				} else {
 					if (weakPaths != null && weakPaths.contains(storeIndex)) {
+						continue;
+					}
+					if (isApplication("const", path[0]) && isApplication("const", path[path.length - 1])) {
 						continue;
 					}
 				}
@@ -791,26 +749,43 @@ public class ProofChecker extends NonRecursive {
 	private boolean checkSelectPath(final SymmetricPair<Term> termPair, final Term weakIdx,
 			final HashSet<SymmetricPair<Term>> strongPaths) {
 		for (final SymmetricPair<Term> strongPath : strongPaths) {
-			/* check for select terms */
-			if (!(isApplication("select", strongPath.getFirst()) && isApplication("select", strongPath.getSecond()))) {
-				continue;
+			if (checkSelectConst(strongPath.getFirst(), termPair.getFirst(), weakIdx, strongPaths)
+					&& checkSelectConst(strongPath.getSecond(), termPair.getSecond(), weakIdx, strongPaths)) {
+				return true;
 			}
-			/* check select arrays */
-			final Term array1 = ((ApplicationTerm) strongPath.getFirst()).getParameters()[0];
-			final Term array2 = ((ApplicationTerm) strongPath.getSecond()).getParameters()[0];
-			final SymmetricPair<Term> arrayPair = new SymmetricPair<Term>(array1, array2);
-			if (!arrayPair.equals(termPair)) {
-				continue;
+			if (checkSelectConst(strongPath.getFirst(), termPair.getSecond(), weakIdx, strongPaths)
+					&& checkSelectConst(strongPath.getSecond(), termPair.getFirst(), weakIdx, strongPaths)) {
+				return true;
 			}
-			/* check index paths */
-			final Term idx1 = ((ApplicationTerm) strongPath.getFirst()).getParameters()[1];
-			final Term idx2 = ((ApplicationTerm) strongPath.getSecond()).getParameters()[1];
-			if (idx1 != weakIdx && !strongPaths.contains(new SymmetricPair<Term>(idx1, weakIdx))) {
-				continue;
+		}
+		if (isApplication("const", termPair.getFirst())
+				&& checkSelectConst(((ApplicationTerm) termPair.getFirst()).getParameters()[0],
+						termPair.getSecond(), weakIdx, strongPaths)) {
+			return true;
+		}
+		if (isApplication("const", termPair.getSecond())
+				&& checkSelectConst(((ApplicationTerm) termPair.getSecond()).getParameters()[0],
+						termPair.getFirst(), weakIdx, strongPaths)) {
+			return true;
+		}
+		return false;
+	}
+
+	/**
+	 * Check if array[weakIdx] is value, either because value is the select term, or array is a constant array
+	 * on value.
+	 */
+	private boolean checkSelectConst(Term value, Term array, final Term weakIdx,
+		final HashSet<SymmetricPair<Term>> strongPaths) {
+		if (isApplication("select", value)) {
+			Term[] args = ((ApplicationTerm) value).getParameters();
+			if (args[0] == array
+					&& (args[1] == weakIdx || strongPaths.contains(new SymmetricPair<>(args[1], weakIdx)))) {
+				return true;
 			}
-			if (idx2 != weakIdx && !strongPaths.contains(new SymmetricPair<Term>(idx2, weakIdx))) {
-				continue;
-			}
+		}
+		if (isApplication("const", array)
+			&& ((ApplicationTerm) array).getParameters()[0] == value) {
 			return true;
 		}
 		return false;
@@ -833,6 +808,47 @@ public class ProofChecker extends NonRecursive {
 	}
 
 	/**
+	 * Checks if first and second are equal (modulo order of operands for +).
+	 *
+	 * @return true if first and second are equal.
+	 */
+	boolean checkTrivialEquality(final Term first, final Term second) {
+		if (first == second) {
+			return true;
+		}
+		if (!first.getSort().isNumericSort()) {
+			return false;
+		}
+		final SMTAffineTerm diff = new SMTAffineTerm(second);
+		diff.negate();
+		diff.add(new SMTAffineTerm(first));
+		return diff.isConstant() && diff.getConstant().equals(Rational.ZERO);
+	}
+
+	/**
+	 * Check whether the disequality between two terms is trivial. There are two cases, (1) the difference between the
+	 * terms is constant and nonzero, e.g. {@code (= x (+ x 1))}, or (2) the difference contains only integer variables
+	 * and the constant divided by the gcd of the factors is non-integral, e.g.,
+	 * {@code (= (+ x (* 2 y)) (+ x (* 2 z) 1))}.
+	 *
+	 * @param first
+	 *            the left-hand side of the equality
+	 * @param second
+	 *            the right-hand side of the equality
+	 * @return true if the equality is trivially not satisfied.
+	 */
+	boolean checkTrivialDisequality(Term first, Term second) {
+		if (!first.getSort().isNumericSort()) {
+			return false;
+		}
+		final SMTAffineTerm diff = new SMTAffineTerm(second);
+		diff.negate();
+		diff.add(new SMTAffineTerm(first));
+		return (diff.isConstant() && !diff.getConstant().equals(Rational.ZERO))
+			|| (diff.isAllIntSummands() && !diff.getConstant().div(diff.getGcd()).isIntegral());
+	}
+
+	/**
 	 * Check an LA lemma for correctness. If a problem is found, an error is reported.
 	 *
 	 * @param clause
@@ -845,11 +861,24 @@ public class ProofChecker extends NonRecursive {
 			reportError("Clause and coefficients have different length");
 			return;
 		}
+		if (clause.length == 0) {
+			reportError("Empty LA lemma");
+			return;
+		}
 
+		final Theory t = clause[0].getTheory();
 		boolean sumHasStrict = false;
-		SMTAffineTerm sum = null;
+		Sort sort = t.getRealSort();
+		if (sort == null) {
+			sort = t.getNumericSort();
+		}
+		final SMTAffineTerm sum = new SMTAffineTerm(sort);
 		for (int i = 0; i < clause.length; i++) {
-			final Rational coeff = convertAffineTerm(coefficients[i]).getConstant();
+			final Rational coeff = parseConstant(coefficients[i]);
+			if (coeff == null) {
+				reportError("Coefficient is not a constant.");
+				return;
+			}
 			if (coeff.equals(Rational.ZERO)) {
 				reportWarning("Coefficient in LA lemma is zero.");
 				continue;
@@ -903,32 +932,23 @@ public class ProofChecker extends NonRecursive {
 			if (!isZero(params[1])) {
 				reportError("Right hand side is not zero");
 			}
-			SMTAffineTerm affine = convertAffineTerm(params[0]);
+			final SMTAffineTerm affine = new SMTAffineTerm(params[0]);
 			if (isStrict && params[0].getSort().getName().equals("Int")) {
 				/*
-				 * make integer equalities non-strict by adding one. x < 0 iff x + 1 <= 0 x > 0 iff x - 1 >= 0
+				 * make integer equalities non-strict by adding one. x < 0 iff x + 1 <= 0 and x > 0 iff x - 1 >= 0
 				 */
-				affine = affine.add(isNegated ? Rational.ONE : Rational.MONE);
+				affine.add(isNegated ? Rational.ONE : Rational.MONE);
 				isStrict = false;
 			}
-			affine = affine.mul(coeff);
-			if (sum == null) {
-				sum = affine;
-			} else {
-				if (sum.getSort() != affine.getSort()) {
-					if (sum.getSort().getName() == "Real") {
-						affine = affine.typecast(sum.getSort());
-					} else {
-						sum = sum.typecast(affine.getSort());
-					}
-				}
-				sum = sum.add(affine);
-			}
+			affine.mul(coeff);
+			sum.add(affine);
 			sumHasStrict |= isStrict;
 		}
-		final Rational sumConstant = sum.getConstant();
 		if (sum.isConstant()) {
-			final int signum = sumConstant.signum();
+			/*
+			 * There is a contradiction (correct lemma) iff it sums up to "sum <(=) 0" with sum > 0 or to "0 < 0".
+			 */
+			final int signum = sum.getConstant().signum();
 			if (signum > 0 || (sumHasStrict && signum == 0)) {
 				return;
 			}
@@ -1016,7 +1036,8 @@ public class ProofChecker extends NonRecursive {
 			if (offset != Rational.ZERO && !params[1].getSort().getName().equals("Int")) {
 				reportError("<= or >= in non-integer trichotomy");
 			}
-			final SMTAffineTerm affine = convertAffineTerm(params[0]).add(offset);
+			final SMTAffineTerm affine = new SMTAffineTerm(params[0]);
+			affine.add(offset);
 			if (trichotomyTerm == null) {
 				trichotomyTerm = affine;
 			} else if (!trichotomyTerm.equals(affine)) {
@@ -1055,16 +1076,30 @@ public class ProofChecker extends NonRecursive {
 			reportError("Lemma :EQ must have one equality and one disequality");
 			return;
 		}
-		final Term[] lit1Args = ((ApplicationTerm) lit1).getParameters();
-		final Term[] lit2Args = ((ApplicationTerm) lit1).getParameters();
-
-		SMTAffineTerm diff1 = convertAffineTerm(lit1Args[0]).add(convertAffineTerm(lit1Args[1]).negate());
-		diff1 = diff1.div(diff1.getGcd());
-		SMTAffineTerm diff2 = convertAffineTerm(lit2Args[0]).add(convertAffineTerm(lit2Args[1]).negate());
-		diff2 = diff2.div(diff2.getGcd());
-		if (!diff1.equals(diff2) && !diff1.equals(diff2.negate())) {
-			reportError("Error in lemma :EQ");
+		Term[] lit1Args = ((ApplicationTerm) lit1).getParameters();
+		Term[] lit2Args = ((ApplicationTerm) lit2).getParameters();
+		if (isZero(lit1Args[1])) {
+			final Term[] t = lit1Args;
+			lit1Args = lit2Args;
+			lit2Args = t;
+		} else if (!isZero(lit2Args[1])) {
+			reportError("Lemma :EQ must have one LA equality (zero on right-hand side)");
+			return;
 		}
+
+		final SMTAffineTerm diff1 = new SMTAffineTerm(lit1Args[0]);
+		diff1.negate();
+		diff1.add(new SMTAffineTerm(lit1Args[1]));
+		diff1.div(diff1.getGcd());
+		final SMTAffineTerm diff2 = new SMTAffineTerm(lit2Args[0]);
+		if (diff1.equals(diff2)) {
+			return;
+		}
+		diff1.negate();
+		if (diff1.equals(diff2)) {
+			return;
+		}
+		reportError("Error in lemma :EQ");
 	}
 
 	/* === Tautologies === */
@@ -1171,11 +1206,17 @@ public class ProofChecker extends NonRecursive {
 			return false;
 		}
 		final Term otherLit = ((ApplicationTerm) clause[1]).getParameters()[0];
-		final Term[] params = ((ApplicationTerm) lit).getParameters();
-		for (int i = 0; i < params.length; i++) {
-			if (params[i] == otherLit) {
+		final ArrayDeque<Term> todo = new ArrayDeque<>();
+		todo.addAll(Arrays.asList(((ApplicationTerm) lit).getParameters()));
+		while (!todo.isEmpty()) {
+			final Term t = todo.removeFirst();
+			if (t == otherLit) {
 				/* found it; everything okay */
 				return true;
+			}
+			if (isApplication("or", t)) {
+				/* descend into nested or */
+				todo.addAll(Arrays.asList(((ApplicationTerm) t).getParameters()));
 			}
 		}
 		return false;
@@ -1310,11 +1351,11 @@ public class ProofChecker extends NonRecursive {
 			return false;
 		}
 		final Term[] leArgs = ((ApplicationTerm) literal).getParameters();
-		final SMTAffineTerm lhs = convertAffineTerm(leArgs[0]);
+		final SMTAffineTerm lhs = new SMTAffineTerm(leArgs[0]);
 		if (!isZero(leArgs[1])) {
 			return false;
 		}
-		if (lhs.getSort().getName() != (isToInt ? "Real" : "Int")) {
+		if (leArgs[0].getSort().getName() != (isToInt ? "Real" : "Int")) {
 			return false;
 		}
 
@@ -1328,9 +1369,9 @@ public class ProofChecker extends NonRecursive {
 				SMTAffineTerm summand;
 				if (isToInt) {
 					d = Rational.ONE;
-					summand = SMTAffineTerm.create(candidate).typecast(lhs.getSort());
+					summand = new SMTAffineTerm(candidate);
 				} else {
-					final SMTAffineTerm arg1 = convertAffineTerm(args[1]);
+					final SMTAffineTerm arg1 = new SMTAffineTerm(args[1]);
 					if (!arg1.isConstant()) {
 						return false;
 					}
@@ -1338,20 +1379,18 @@ public class ProofChecker extends NonRecursive {
 					if (d.equals(Rational.ZERO)) {
 						return false;
 					}
-					summand = SMTAffineTerm.create(d, candidate);
+					summand = new SMTAffineTerm(candidate);
+					summand.mul(d);
 				}
 				// compute expected term and check that lhs equals it.
-				final SMTAffineTerm arg0 = convertAffineTerm(args[0]);
+				final SMTAffineTerm expected = new SMTAffineTerm(args[0]);
+				expected.negate();
+				expected.add(summand);
 				if (isHigh) {
-					final SMTAffineTerm expected = arg0.negate().add(summand).add(d.abs());
-					if (lhs.equals(expected)) {
-						return true;
-					}
-				} else {
-					final SMTAffineTerm expected = arg0.negate().add(summand);
-					if (lhs.equals(expected)) {
-						return true;
-					}
+					expected.add(d.abs());
+				}
+				if (lhs.equals(expected)) {
+					return true;
 				}
 			}
 		}
@@ -1634,9 +1673,6 @@ public class ProofChecker extends NonRecursive {
 		case ":leqFalse":
 			okay = checkRewriteLeq(rewriteRule, eqParams[0], eqParams[1]);
 			break;
-		case ":desugar":
-			okay = checkRewriteDesugar(eqParams[0], eqParams[1]);
-			break;
 		case ":divisible":
 			okay = checkRewriteDivisible(eqParams[0], eqParams[1]);
 			break;
@@ -1768,10 +1804,10 @@ public class ProofChecker extends NonRecursive {
 		}
 		Rational lastConstant = null;
 		for (final Term t : lhsParams) {
-			final SMTAffineTerm value = convertAffineTerm(t);
-			if (value.isConstant()) {
+			final Rational value = parseConstant(t);
+			if (value != null) {
 				if (lastConstant == null) {
-					lastConstant = value.getConstant();
+					lastConstant = value;
 				} else if (!lastConstant.equals(value)) {
 					return true;
 				}
@@ -2079,9 +2115,68 @@ public class ProofChecker extends NonRecursive {
 	}
 
 	boolean checkRewriteCanonicalSum(final Term lhs, final Term rhs) {
-		final SMTAffineTerm lhsAffine = convertAffineTerm(lhs);
-		final SMTAffineTerm rhsAffine = convertAffineTerm(rhs);
-		return lhsAffine.equals(rhsAffine);
+		SMTAffineTerm expected;
+		if (lhs instanceof ConstantTerm) {
+			expected = new SMTAffineTerm(lhs);
+		} else if (lhs instanceof ApplicationTerm) {
+			final ApplicationTerm lhsApp = (ApplicationTerm) lhs;
+			final Term[] lhsArgs = lhsApp.getParameters();
+			switch (lhsApp.getFunction().getName()) {
+			case "+":
+				expected = new SMTAffineTerm(lhsArgs[0]);
+				for (int i = 1; i < lhsArgs.length; i++) {
+					expected.add(new SMTAffineTerm(lhsArgs[i]));
+				}
+				break;
+			case "-":
+				expected = new SMTAffineTerm(lhsArgs[0]);
+				if (lhsArgs.length == 1) {
+					expected.negate();
+				} else {
+					for (int i = 1; i < lhsArgs.length; i++) {
+						final SMTAffineTerm arg = new SMTAffineTerm(lhsArgs[i]);
+						arg.negate();
+						expected.add(arg);
+					}
+				}
+				break;
+			case "*":
+				expected = new SMTAffineTerm(lhsArgs[0]);
+				for (int i = 1; i < lhsArgs.length; i++) {
+					if (expected.isConstant()) {
+						final Rational factor = expected.getConstant();
+						expected = new SMTAffineTerm(lhsArgs[i]);
+						expected.mul(factor);
+					} else {
+						final Rational factor = parseConstant(lhsArgs[i]);
+						if (factor == null) {
+							return false;
+						}
+						expected.mul(factor);
+					}
+				}
+				break;
+			case "/":
+				expected = new SMTAffineTerm(lhsArgs[0]);
+				for (int i = 1; i < lhsArgs.length; i++) {
+					final Rational factor = parseConstant(lhsArgs[i]);
+					if (factor == null) {
+						return false;
+					}
+					expected.div(factor);
+				}
+				break;
+			case "to_real":
+				expected = new SMTAffineTerm(lhsArgs[0]);
+				break;
+			default:
+				return false;
+			}
+		} else {
+			return false;
+		}
+		final SMTAffineTerm rhsAffine = new SMTAffineTerm(rhs);
+		return expected.equals(rhsAffine);
 	}
 
 	boolean checkRewriteFlatten(final Term lhs, final Term rhs) {
@@ -2115,37 +2210,6 @@ public class ProofChecker extends NonRecursive {
 		return rhsOffset == rhsArgs.length;
 	}
 
-	boolean checkRewriteDesugar(final Term lhs, final Term rhs) {
-		// (* realparam intparam) --> (* realparam (to_real intparam))
-		if (!(lhs instanceof ApplicationTerm) || !(rhs instanceof ApplicationTerm)) {
-			return false;
-		}
-
-		final FunctionSymbol fsym = ((ApplicationTerm) lhs).getFunction();
-		if (((ApplicationTerm) rhs).getFunction() != fsym) {
-			return false;
-		}
-		final Sort[] sorts = fsym.getParameterSorts();
-		if (sorts.length != 2 || !sorts[0].isNumericSort() || sorts[0].getName() != "Real" || !sorts[1].isNumericSort()
-				|| sorts[1].getName() != "Real") {
-			return false;
-		}
-
-		final Term[] lhsParams = ((ApplicationTerm) lhs).getParameters();
-		final Term[] rhsParams = ((ApplicationTerm) rhs).getParameters();
-		if (lhsParams.length != rhsParams.length) {
-			return false;
-		}
-		for (int i = 0; i < lhsParams.length; i++) {
-			final Term expected =
-					(lhsParams[i].getSort().getName() == "Int" ? mSkript.term("to_real", lhsParams[i]) : lhsParams[i]);
-			if (rhsParams[i] != expected) {
-				return false;
-			}
-		}
-		return true;
-	}
-
 	boolean checkRewriteDivisible(final Term lhs, final Term rhs) {
 		// ((_ divisible n) x) --> (= x (* n (div x n)))
 		if (!isApplication("divisible", lhs)) {
@@ -2156,19 +2220,20 @@ public class ProofChecker extends NonRecursive {
 			return isApplication("true", rhs);
 		}
 		final Term arg = ((ApplicationTerm) lhs).getParameters()[0];
-		final SMTAffineTerm argAffine = convertAffineTerm(arg);
-		if (argAffine.isConstant()) {
-			assert argAffine.getConstant().denominator().equals(BigInteger.ONE);
-			final boolean divisible = argAffine.getConstant().numerator().mod(num.numerator()).equals(BigInteger.ZERO);
+		if (arg instanceof ConstantTerm) {
+			final Rational value = SMTAffineTerm.convertConstant((ConstantTerm) arg);
+			final boolean divisible = value.denominator().equals(BigInteger.ONE)
+					&& value.numerator().mod(num.numerator()).equals(BigInteger.ZERO);
 			return isApplication(divisible ? "true" : "false", rhs);
 		}
 		final Theory theory = lhs.getTheory();
-		final SMTAffineTerm expected = SMTAffineTerm.create(num, theory.term("div", arg, num.toTerm(arg.getSort())));
+		final Term numTerm = num.toTerm(arg.getSort());
+		final Term expected = theory.term("*", numTerm, theory.term("div", arg, numTerm));
 		if (!isApplication("=", rhs)) {
 			return false;
 		}
 		final Term[] rhsArgs = ((ApplicationTerm) rhs).getParameters();
-		return rhsArgs[0] == arg && convertAffineTerm(rhsArgs[1]).equals(expected);
+		return rhsArgs[0] == arg && rhsArgs[1] == expected;
 	}
 
 	private Rational divConst(final Rational dividend, final Rational divisor) {
@@ -2190,24 +2255,29 @@ public class ProofChecker extends NonRecursive {
 		if (divArgs.length != 2) {
 			return false;
 		}
-		final SMTAffineTerm divisor = convertAffineTerm(divArgs[1]);
-		if (!divisor.isConstant()) {
+		final Rational divisor = parseConstant(divArgs[1]);
+		if (divisor == null) {
 			return false;
 		}
 
 		switch (ruleName) {
 		case ":div1":
-			return divisor.getConstant().equals(Rational.ONE) && rhs == divArgs[0];
-		case ":div-1":
-			return divisor.getConstant().equals(Rational.MONE)
-					&& convertAffineTerm(rhs).equals(convertAffineTerm(divArgs[0]).negate());
-		case ":divConst":
-			final SMTAffineTerm dividend = convertAffineTerm(divArgs[0]);
-			final SMTAffineTerm quotient = convertAffineTerm(rhs);
-			if (!dividend.isConstant() || !quotient.isConstant()) {
+			return divisor.equals(Rational.ONE) && rhs == divArgs[0];
+		case ":div-1": {
+			final SMTAffineTerm dividend = new SMTAffineTerm(divArgs[0]);
+			final SMTAffineTerm quotient = new SMTAffineTerm(rhs);
+			dividend.negate();
+			return divisor.equals(Rational.MONE)
+					&& quotient.equals(dividend);
+		}
+		case ":divConst": {
+			final Rational dividend = parseConstant(divArgs[0]);
+			final Rational quotient = parseConstant(rhs);
+			if (dividend == null || quotient == null) {
 				return false;
 			}
-			return quotient.getConstant().equals(divConst(dividend.getConstant(), divisor.getConstant()));
+			return quotient.equals(divConst(dividend, divisor));
+		}
 		default:
 			return false;
 		}
@@ -2225,29 +2295,30 @@ public class ProofChecker extends NonRecursive {
 		if (modArgs.length != 2) {
 			return false;
 		}
-		final SMTAffineTerm divisor = convertAffineTerm(modArgs[1]);
-		if (!divisor.isConstant()) {
+		if (!(modArgs[1] instanceof ConstantTerm)) {
 			return false;
 		}
-
+		final Rational divisor = SMTAffineTerm.convertConstant((ConstantTerm) modArgs[1]);
 		switch (ruleName) {
 		case ":modulo1":
-			return divisor.getConstant().equals(Rational.ONE) && isZero(rhs);
+			return divisor.equals(Rational.ONE) && isZero(rhs);
 		case ":modulo-1":
-			return divisor.getConstant().equals(Rational.MONE) && isZero(rhs);
-		case ":moduloConst":
-			final SMTAffineTerm dividend = convertAffineTerm(modArgs[0]);
-			final SMTAffineTerm quotient = convertAffineTerm(rhs);
-			if (!dividend.isConstant() || !quotient.isConstant()) {
+			return divisor.equals(Rational.MONE) && isZero(rhs);
+		case ":moduloConst": {
+			final Rational dividend = parseConstant(modArgs[0]);
+			final Rational quotient = parseConstant(rhs);
+			if (dividend == null || quotient == null) {
 				return false;
 			}
-			return quotient.getConstant().equals(dividend.getConstant()
-					.sub(divisor.getConstant().mul(divConst(dividend.getConstant(), divisor.getConstant()))));
-		case ":modulo":
+			return quotient.equals(dividend.sub(divisor.mul(divConst(dividend, divisor))));
+		}
+		case ":modulo": {
 			final Term divTerm = lhs.getTheory().term("div", modArgs);
-			final SMTAffineTerm expected =
-					convertAffineTerm(modArgs[0]).add(SMTAffineTerm.create(divisor.getConstant().negate(), divTerm));
-			return convertAffineTerm(rhs).equals(expected);
+			final SMTAffineTerm expected = new SMTAffineTerm(divTerm);
+			expected.mul(divisor.negate());
+			expected.add(new SMTAffineTerm(modArgs[0]));
+			return new SMTAffineTerm(rhs).equals(expected);
+		}
 		default:
 			return false;
 		}
@@ -2259,12 +2330,9 @@ public class ProofChecker extends NonRecursive {
 			return false;
 		}
 		final Term arg = ((ApplicationTerm) lhs).getParameters()[0];
-		final SMTAffineTerm argAffine = convertAffineTerm(arg);
-		if (!argAffine.isConstant()) {
-			return false;
-		}
-		final SMTAffineTerm rhsAffine = convertAffineTerm(rhs);
-		return rhsAffine.isConstant() && rhsAffine.getConstant().equals(argAffine.getConstant().floor());
+		final Rational argConst = parseConstant(arg);
+		final Rational rhsConst = parseConstant(rhs);
+		return argConst != null && rhsConst != null && rhsConst.equals(argConst.floor());
 	}
 
 	boolean checkRewriteExpand(final Term lhs, final Term rhs) {
@@ -2364,8 +2432,7 @@ public class ProofChecker extends NonRecursive {
 			return false;
 		}
 		final Term[] innerArgs = ((ApplicationTerm) outerArgs[0]).getParameters();
-		final SMTAffineTerm indexDiff = convertAffineTerm(innerArgs[1]).add(convertAffineTerm(outerArgs[1]).negate());
-		if (!indexDiff.isConstant() || !indexDiff.getConstant().equals(Rational.ZERO)) {
+		if (!checkTrivialEquality(innerArgs[1], outerArgs[1])) {
 			return false;
 		}
 		return rhs == mSkript.term("store", innerArgs[0], outerArgs[1], outerArgs[2]);
@@ -2382,14 +2449,12 @@ public class ProofChecker extends NonRecursive {
 			return false;
 		}
 		final Term[] storeArgs = ((ApplicationTerm) selectArgs[0]).getParameters();
-		final SMTAffineTerm indexDiff = convertAffineTerm(storeArgs[1]).add(convertAffineTerm(selectArgs[1]).negate());
-		if (!indexDiff.isConstant()) {
-			return false;
-		}
-		if (indexDiff.getConstant().equals(Rational.ZERO)) {
+		if (checkTrivialEquality(storeArgs[1], selectArgs[1])) {
 			return rhs == storeArgs[2];
-		} else {
+		} else if (checkTrivialDisequality(storeArgs[1], selectArgs[1])) {
 			return rhs == mSkript.term("select", storeArgs[0], selectArgs[1]);
+		} else {
+			return false;
 		}
 	}
 
@@ -2449,13 +2514,14 @@ public class ProofChecker extends NonRecursive {
 			return false;
 		}
 		final Term[] params = ((ApplicationTerm) lhs).getParameters();
-		final SMTAffineTerm expected =
-				convertAffineTerm(params[firstArg]).add(convertAffineTerm(params[1 - firstArg]).negate());
+		final SMTAffineTerm expected = new SMTAffineTerm(params[1 - firstArg]);
+		expected.negate();
+		expected.add(new SMTAffineTerm(params[firstArg]));
 		final Term[] rhsParams = ((ApplicationTerm) rhs).getParameters();
 		if (params.length != 2 || rhsParams.length != 2) {
 			return false;
 		}
-		return convertAffineTerm(rhsParams[0]).equals(expected) && isZero(rhsParams[1]);
+		return new SMTAffineTerm(rhsParams[0]).equals(expected) && isZero(rhsParams[1]);
 	}
 
 	boolean checkRewriteLeq(final String rewriteRule, final Term lhs, final Term rhs) {
@@ -2467,16 +2533,16 @@ public class ProofChecker extends NonRecursive {
 		if (params.length != 2 || !isZero(params[1])) {
 			return false;
 		}
-		final SMTAffineTerm param0 = convertAffineTerm(params[0]);
-		if (!param0.isConstant()) {
+		if (!(params[0] instanceof ConstantTerm)) {
 			return false;
 		}
+		final Rational param0 = SMTAffineTerm.convertConstant((ConstantTerm) params[0]);
 
 		switch (rewriteRule) {
 		case ":leqTrue":
-			return param0.getConstant().signum() <= 0 && isApplication("true", rhs);
+			return param0.signum() <= 0 && isApplication("true", rhs);
 		case ":leqFalse":
-			return param0.getConstant().signum() > 0 && isApplication("false", rhs);
+			return param0.signum() > 0 && isApplication("false", rhs);
 		default:
 			return false;
 		}
@@ -2517,7 +2583,7 @@ public class ProofChecker extends NonRecursive {
 		if (isApplication("<=", lhs)) {
 			final Term[] lhsParams = ((ApplicationTerm) lhs).getParameters();
 			final boolean isInt = lhsParams[0].getSort().getName() == "Int";
-			SMTAffineTerm lhsAffine = convertAffineTerm(lhsParams[0]);
+			final SMTAffineTerm lhsAffine = new SMTAffineTerm(lhsParams[0]);
 			if (!isZero(lhsParams[1])) {
 				return false;
 			}
@@ -2528,9 +2594,9 @@ public class ProofChecker extends NonRecursive {
 			if (isNegated) {
 				rhs = negate(rhs);
 				/* <= (a-b) 0 --> (not (< (b-a) 0)) resp. (not (<= (b-a+1) 0)) for integer */
-				lhsAffine = lhsAffine.negate();
+				lhsAffine.negate();
 				if (isInt) {
-					lhsAffine = lhsAffine.add(Rational.ONE);
+					lhsAffine.add(Rational.ONE);
 				} else {
 					isStrict = true;
 				}
@@ -2542,15 +2608,15 @@ public class ProofChecker extends NonRecursive {
 			}
 
 			// Normalize coefficients
-			lhsAffine = lhsAffine.div(lhsAffine.getGcd());
+			lhsAffine.div(lhsAffine.getGcd());
 			// Round constant up for integers: (<= (x + 1.25) 0) --> (<= x + 2)
 			if (isInt) {
 				final Rational constant = lhsAffine.getConstant();
 				final Rational frac = constant.add(constant.negate().floor());
-				lhsAffine = lhsAffine.add(frac.negate());
+				lhsAffine.add(frac.negate());
 			}
 			final Term[] rhsArgs = ((ApplicationTerm) rhs).getParameters();
-			return convertAffineTerm(rhsArgs[0]).equals(lhsAffine) && isZero(rhsArgs[1]);
+			return new SMTAffineTerm(rhsArgs[0]).equals(lhsAffine) && isZero(rhsArgs[1]);
 		}
 
 		if (isApplication("=", lhs) && ((ApplicationTerm) lhs).getParameters()[0].getSort().getName() != "Bool") {
@@ -2559,7 +2625,9 @@ public class ProofChecker extends NonRecursive {
 			if (lhsParams.length != 2) {
 				return false;
 			}
-			SMTAffineTerm lhsAffine = convertAffineTerm(lhsParams[0]).add(convertAffineTerm(lhsParams[1]).negate());
+			final SMTAffineTerm lhsAffine = new SMTAffineTerm(lhsParams[1]);
+			lhsAffine.negate();
+			lhsAffine.add(new SMTAffineTerm(lhsParams[0]));
 
 			if (lhsAffine.isConstant()) {
 				/* simplify to true/false */
@@ -2589,10 +2657,16 @@ public class ProofChecker extends NonRecursive {
 			}
 
 			/* check that they represent the same equality */
-			SMTAffineTerm rhsAffine = convertAffineTerm(rhsParams[0]).add(convertAffineTerm(rhsParams[1]).negate());
-			lhsAffine = lhsAffine.div(lhsAffine.getGcd());
-			rhsAffine = rhsAffine.div(rhsAffine.getGcd());
-			return lhsAffine.equals(rhsAffine) || lhsAffine.equals(rhsAffine.negate());
+			final SMTAffineTerm rhsAffine = new SMTAffineTerm(rhsParams[1]);
+			rhsAffine.negate();
+			rhsAffine.add(new SMTAffineTerm(rhsParams[0]));
+			lhsAffine.div(lhsAffine.getGcd());
+			rhsAffine.div(rhsAffine.getGcd());
+			if (lhsAffine.equals(rhsAffine)) {
+				return true;
+			}
+			rhsAffine.negate();
+			return lhsAffine.equals(rhsAffine);
 		}
 
 		/* Check for auxiliary literals */
@@ -2900,17 +2974,6 @@ public class ProofChecker extends NonRecursive {
 		return mStackResults.pop();
 	}
 
-	/*
-	 * Convert a term to an SMTAffineTerm
-	 *
-	 * @param term The term to convert.
-	 *
-	 * @return The converted term.
-	 */
-	SMTAffineTerm convertAffineTerm(final Term term) {
-		return (SMTAffineTerm) mAffineConverter.transform(term);
-	}
-
 	Term unquote(final Term quotedTerm) {
 		if (quotedTerm instanceof AnnotatedTerm) {
 			final AnnotatedTerm annTerm = (AnnotatedTerm) quotedTerm;
@@ -2939,6 +3002,21 @@ public class ProofChecker extends NonRecursive {
 			return ((ApplicationTerm) formula).getParameters()[0];
 		}
 		return formula.getTheory().term("not", formula);
+	}
+
+	/**
+	 * Parses a constant term. It handles Rationals given as ConstantTerm or parsed as div terms.
+	 *
+	 * @param term
+	 *            the term to parse.
+	 * @returns the parsed constant, null if parse error occured.
+	 */
+	public Rational parseConstant(Term term) {
+		term = SMTAffineTerm.parseConstant(term);
+		if (term instanceof ConstantTerm && term.getSort().isNumericSort()) {
+			return SMTAffineTerm.convertConstant((ConstantTerm) term);
+		}
+		return null;
 	}
 
 	/**

@@ -435,7 +435,7 @@ java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/2))m -da -dsa -XX:-UseGCOverheadLimit -j
   <property name="ossrh-server-id" value="ossrh" />
 
   <target name="dist" depends="create_src_jar, smtinterpol.jar, javadoc-jar" description="Generate the distribution">
-    <copy file="pom_template.xml" tofile="${jar.outdir}/pom.xml"/>
+    <copy file="pom_template.xml" overwrite="true" tofile="${jar.outdir}/pom.xml"/>
     <replace file="${jar.outdir}/pom.xml" token="VERSION" value="${version}"/>
   </target>
   

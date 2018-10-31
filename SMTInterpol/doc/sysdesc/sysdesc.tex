@@ -1,4 +1,4 @@
-\documentclass{article}
+\documentclass[a4]{article}
 \usepackage[english]{babel}
 \usepackage{xspace}
 \usepackage{hyperref}
@@ -22,17 +22,13 @@ the quantifier-free combination of the theories of uninterpreted functions,
 linear arithmetic over integers and reals, and arrays.  Furthermore it can
 produce models, proofs, unsatisfiable cores, and interpolants.  The solver
 reads input in SMTLIB format.  It includes parsers for DIMACS, AIGER, and
-SMTLIB version 1.2 and 2.
+SMTLIB version 1.2 and 2.5.
 
 The solver uses variants of standard algorithms for CNF
 conversion~\cite{DBLP:journals/jsc/PlaistedG86}, congruence
 closure~\cite{DBLP:conf/rta/NieuwenhuisO05}, Simplex~\cite{DBLP:conf/cav/DutertreM06} and
 branch-and-cut for integer arithmetic~\cite{DBLP:conf/cav/ChristH15,DBLP:conf/cav/DilligDA09}.
 The array decision procedure is based on \emph{weak equivalences}~\cite{DBLP:conf/frocos/ChristH15}.
-%%   A new array decision
-%% procedure based on \emph{weak equivalences} has been added to \SI for this years
-%% competition.  Details about this procedure will be presented at the SMT
-%% workshop.
 Theory combination is performed based on partial models produced by the theory
 solvers~\cite{DBLP:journals/entcs/MouraB08}.
 
@@ -40,14 +36,14 @@ The main focus of \SI is the application track where the incremental
 usage of the solver is required.  This track simulates the typical
 application of \SI where a user asks multiple queries.  The main focus
 of the development team of \SI is the interpolation
-engine~\cite{DBLP:conf/tacas/ChristHN13}.  This makes it useful as a
+engine~\cite{DBLP:journals/jar/ChristH16,conf/ijcar/HoenickeS18}.  This makes it useful as a
 backend for software verification tools.  In particular,
-Ultimate\-Automatizer, the winner of the SV-COMP 2016, uses \SI.
+Ultimate\-Automatizer, the winner of the SV-COMP 2016 and 2017, uses \SI.
 
 \section*{Competition Version}
-The version submitted to the SMT-COMP 2016 is a preliminary release of version
-2.2.  This release will include quantifier-free interpolation for the theory
-of arrays which is still missing in the current solver.
+The version submitted to the SMT-COMP 2018 is a release based on
+version 2.5 with a few recent bug fixes.  This release includes
+quantifier-free interpolation for the theory of arrays.
 
 Further information about \SI can be found at
 \begin{center}
@@ -59,7 +55,7 @@ The sources are available via GitHub
 \end{center}
 
 \section*{Authors}
-The code was written by Jochen Hoenicke, Juergen Christ, Alexander Nutz, 
+The code was written by J{\"u}rgen Christ, Jochen Hoenicke, Alexander Nutz, 
 Pascal Raiola, and Tanja Schindler.
 
 \section*{Logics, Tracks and Magic Number}
@@ -70,7 +66,7 @@ QF\_RDL, QF\_LIA, QF\_LRA, QF\_LIRA, QF\_AX and every combinations of
 these logics: QF\_ALIA, QF\_AUFLIA, QF\_AUFLIRA, QF\_UFIDL, QF\_UFLIA,
 QF\_UFLRA.
 
-Magic Number: $1\,953\,339\,634$
+Magic Number: $716\,484\,617$
 
 \bibliography{sysdec}
 \bibliographystyle{alpha}

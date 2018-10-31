@@ -91,7 +91,10 @@ public class QuantLiteralManager {
 			}
 		}
 
-		SMTAffineTerm linAdded = SMTAffineTerm.create(lhs).add(SMTAffineTerm.create(rhs).negate());
+		SMTAffineTerm rightAff = SMTAffineTerm.create(rhs);
+		rightAff.negate();
+		SMTAffineTerm linAdded = SMTAffineTerm.create(lhs);
+		linAdded.add(rightAff);
 		Map<Term, Rational> summands = linAdded.getSummands();
 		final Rational constant = linAdded.getConstant();
 
@@ -126,15 +129,15 @@ public class QuantLiteralManager {
 				return varEq;
 			}
 		} else if (leftVar != null || rightVar != null) {
-			if (positive && !linAdded.isIntegral()) { // We support var=ground only for integers.
+			if (positive && !lhs.getSort().getName().equals("Int")) { // We support var=ground only for integers.
 				throw new UnsupportedOperationException("Term " + term + " not in almost uninterpreted fragment!");
 			}
 			// We can either do destructive equality reasoning later (if !positive), or build an aux axiom.
-			SMTAffineTerm remainderAffine = SMTAffineTerm.create(summands, constant, linAdded.getSort());
+			SMTAffineTerm remainderAffine = new SMTAffineTerm(summands, constant, lhs.getSort());
 			if (leftVar != null) {
 				remainderAffine.negate();
 			}
-			Term remainder = SMTAffineTerm.cleanup(remainderAffine);
+			Term remainder = remainderAffine.toTerm(mClausifier.getTermCompiler(), lhs.getSort());
 			if (remainder.getFreeVars().length == 0) { // The variable can only be bound by ground terms.
 				final EUTerm boundTerm = mEUTermManager.getEUTerm(remainder, source);
 				assert boundTerm instanceof GroundTerm;
@@ -231,8 +234,9 @@ public class QuantLiteralManager {
 			if (positive && !var.getSort().getName().equals("Int")) {
 				throw new UnsupportedOperationException("Term " + term + " not in almost uninterpreted fragment!");
 			}
-			Term bound = SMTAffineTerm.cleanup(SMTAffineTerm.create(summands,
-					constant.add(positive ? Rational.ONE : Rational.ZERO), lhs.getSort()));
+			Term bound =
+					(new SMTAffineTerm(summands, constant.add(positive ? Rational.ONE : Rational.ZERO), lhs.getSort()))
+							.toTerm(mClausifier.getTermCompiler(), lhs.getSort());
 			if (bound.getFreeVars().length == 0) { // The variable can only be bound by ground terms.
 				final EUTerm boundTerm = mEUTermManager.getEUTerm(bound, source);
 				QuantVarConstraint varConstr = new QuantVarConstraint(term, var, isLower, (GroundTerm) boundTerm);
