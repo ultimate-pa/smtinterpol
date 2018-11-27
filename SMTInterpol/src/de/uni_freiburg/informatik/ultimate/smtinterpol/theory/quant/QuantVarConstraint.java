@@ -18,9 +18,12 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
+import java.util.Map;
+
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 
 /**
  * A QuantVarConstraint is an inequality between a TermVariable and a GroundTerm or between two TermVariable. Note that
@@ -41,16 +44,15 @@ public class QuantVarConstraint extends QuantLiteral {
 	 * inequalities of the form "TermVariable < GroundTerm" or "GroundTerm < TermVariable". Note that, for integers, we
 	 * can always obtain strict inequalities if one side is ground.
 	 * <p>
-	 * Note that we are actually creating the non-strict variant (i.e. the atom), but mark it as unsupported.
+	 * Note that we are actually creating the non-strict variant, i.e., the atom, but mark the atom as unsupported.
 	 * <p>
-	 * TODO Rewriting into strict inequalities should be done in QuantLiteralManager.
 	 * 
 	 * @param term
 	 *            the term for the underlying inequality.
 	 * @param var
 	 *            the TermVariable.
 	 * @param isLowerBound
-	 *            flag that marks lower bound constraints.
+	 *            flag that marks lower bound constraints (considering the strict(!) inequality).
 	 * @param groundBound
 	 *            the GroundTerm that is a bound for the variable.
 	 */
@@ -70,14 +72,14 @@ public class QuantVarConstraint extends QuantLiteral {
 	 * Create a new QuantVarConstraint. This should only be called for atoms underlying strict (i.e. negated)
 	 * inequalities of the form "TermVariable < TermVariable". We do not support "TermVariable <= TermVariable".
 	 * <p>
-	 * Note that we are actually creating the non-strict variant (i.e. the atom), but mark it as unsupported.
+	 * Note that we are actually creating the non-strict variant, i.e., the atom, but mark the atom as unsupported.
 	 * 
 	 * @param term
 	 *            the term for the underlying inequality.
 	 * @param lowerVar
-	 *            the lower variable.
+	 *            the lower variable in the strict inequality.
 	 * @param upperVar
-	 *            the upper variable.
+	 *            the upper variable in the strict inequality.
 	 */
 	QuantVarConstraint(final Term term, final TermVariable lowerVar, final TermVariable upperVar) {
 		super(term);
@@ -96,27 +98,33 @@ public class QuantVarConstraint extends QuantLiteral {
 		return null;
 	}
 
-	public boolean isBothVar() {
+	@Override
+	Literal instantiate(Map<TermVariable, Term> instantiation) {
+		// TODO Build BoundConstraint
+		return null;
+	}
+
+	boolean isBothVar() {
 		return mUpperVar != null && mLowerVar != null;
 	}
 
-	public boolean isLowerBound() {
+	boolean isLowerBound() {
 		return mUpperVar != null;
 	}
 
-	public boolean isUpperBound() {
+	boolean isUpperBound() {
 		return mLowerVar != null;
 	}
 
-	public TermVariable getLowerVar() {
+	TermVariable getLowerVar() {
 		return mLowerVar;
 	}
 
-	public TermVariable getUpperVar() {
+	TermVariable getUpperVar() {
 		return mUpperVar;
 	}
 
-	public GroundTerm getGroundBound() {
+	GroundTerm getGroundBound() {
 		return mGroundBound;
 	}
 }

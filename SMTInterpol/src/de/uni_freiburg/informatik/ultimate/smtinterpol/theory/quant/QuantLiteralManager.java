@@ -62,10 +62,10 @@ public class QuantLiteralManager {
 	 * <p>
 	 * Note: (iii) and (iv) are used for destructive equality reasoning.
 	 * 
-	 * @param positive
-	 *            flag that marks if the term is positive or negated.
 	 * @param term
 	 *            the underlying equality atom term.
+	 * @param positive
+	 *            flag that marks if the term is positive or negated.
 	 * @param source
 	 *            the source partition of the term.
 	 * @param lhs
@@ -76,14 +76,13 @@ public class QuantLiteralManager {
 	 * @return the QuantLiteral for the underlying equality. Throws an exception if the <em>literal</em> is not
 	 *         supported.
 	 */
-	QuantLiteral getQuantEquality(final boolean positive, final Term term, final SourceAnnotation source,
+	QuantLiteral getQuantEquality(final Term term, final boolean positive, final SourceAnnotation source,
 			final Term lhs, final Term rhs) {
 		final QuantLiteral atom = mQuantLits.get(term);
 		if (atom != null) {
 			if (positive && atom.isSupported()) {
 				return atom;
 			} else if (!positive && atom.negate().isSupported()) {
-				// TODO At the moment, all negated atoms are supported, right?
 				return atom;
 			} else {
 				throw new UnsupportedOperationException(
@@ -158,31 +157,33 @@ public class QuantLiteralManager {
 	}
 
 	/**
-	 * Get the quantified inequality literal for supported literal.
+	 * Get the quantified inequality literal for a supported literal. Note that positive literals (x<=t) (they come as
+	 * (x-t<=0)) are rewritten into the form ~(t+1<=x) (for x Int).
 	 * <p>
-	 * We support the following inequality literals: (i) (EUTerm <= 0) (and negated) (ii) (TermVariable < GroundTerm)
-	 * (iii) (GroundTerm < TermVariable) (iv) (TermVariable < TermVariable).
+	 * We support the following inequality literals: (i) (EUTerm <= 0) (and negated) (ii) ~(TermVariable <= GroundTerm)
+	 * (iii) ~(GroundTerm <= TermVariable) (iv) ~(TermVariable <= TermVariable).
 	 * 
-	 * @param positive
-	 *            flag that marks if the term is positive or negated.
 	 * @param term
 	 *            an inequality of the form "term <= 0".
+	 * @param positive
+	 *            flag that marks if the term appears positively or negated in the clause.
 	 * @param source
 	 *            the source partition of the term.
 	 * @param lhs
 	 *            the left hand side of "term <= 0".
-	 * @return a QuantLiteral for the underlying quantified inequality atom. Throws an exception if the <em>literal</em>
-	 *         is not supported.
+	 * 
+	 * @return a QuantLiteral for the underlying quantified inequality atom. Throws an exception if the literal is not
+	 *         supported.
 	 */
-	QuantLiteral getQuantInequality(final boolean positive, final Term term, final SourceAnnotation source,
+	QuantLiteral getQuantInequality(final Term term, final boolean positive, final SourceAnnotation source,
 			final Term lhs) {
-		final QuantLiteral atom = mQuantLits.get(term);
-		if (atom != null) {
-			if (positive && atom.isSupported()) {
-				return atom;
-			} else if (!positive && atom.negate().isSupported()) {
-				// TODO At the moment, all negated atoms are supported, right?
-				return atom;
+
+		final QuantLiteral lit = mQuantLits.get(term);
+		if (lit != null) {
+			if (positive && lit.isSupported()) {
+				return lit;
+			} else if (!positive && lit.negate().isSupported()) {
+				return lit;
 			} else {
 				throw new UnsupportedOperationException(
 						(positive ? "Term " : "Negated term ") + term + " not in almost uninterpreted fragment!");
@@ -193,13 +194,15 @@ public class QuantLiteralManager {
 		Map<Term, Rational> summands = linTerm.getSummands();
 		final Rational constant = linTerm.getConstant();
 
+		// Check for free (=quantified) variables that do not appear in EUTerms.
 		TermVariable lower = null; // the lower variable
 		TermVariable upper = null;
 		final Iterator<Term> it = summands.keySet().iterator();
 		while (it.hasNext()) {
 			Term summand = it.next();
 			if (summand instanceof TermVariable) {
-				if (summands.get(summand).isNegative()) {
+				if (positive != summands.get(summand).isNegative()) { // xor
+					// the variable has a lower bound
 					if (upper != null) {
 						throw new UnsupportedOperationException(
 								"Term " + term + " not in almost uninterpreted fragment!");
@@ -207,6 +210,7 @@ public class QuantLiteralManager {
 					upper = (TermVariable) summand;
 					it.remove();
 				} else {
+					// the variable has an upper bound
 					if (lower != null) {
 						throw new UnsupportedOperationException(
 								"Term " + term + " not in almost uninterpreted fragment!");
@@ -216,38 +220,59 @@ public class QuantLiteralManager {
 				}
 			}
 		}
-		if (!positive) { // lower and upper must be switched in (not (var1 - var2 <= 0))
-			final TermVariable temp = lower;
-			lower = upper;
-			upper = temp;
-		}
 
-		if (!positive && lower != null && upper != null) {
-			if (!it.hasNext() && constant == Rational.ZERO) { // Two variables can only be compared with each other.
-				QuantVarConstraint varConstr = new QuantVarConstraint(term, lower, upper);
-				mQuantLits.put(term, varConstr);
-				return varConstr;
-			}
-		} else if (lower != null || upper != null) {
-			final boolean isLower = (upper != null);
-			final TermVariable var = isLower ? upper : lower;
-			if (positive && !var.getSort().getName().equals("Int")) {
-				throw new UnsupportedOperationException("Term " + term + " not in almost uninterpreted fragment!");
-			}
-			Term bound =
-					(new SMTAffineTerm(summands, constant.add(positive ? Rational.ONE : Rational.ZERO), lhs.getSort()))
-							.toTerm(mClausifier.getTermCompiler(), lhs.getSort());
-			if (bound.getFreeVars().length == 0) { // The variable can only be bound by ground terms.
-				final EUTerm boundTerm = mEUTermManager.getEUTerm(bound, source);
-				QuantVarConstraint varConstr = new QuantVarConstraint(term, var, isLower, (GroundTerm) boundTerm);
-				mQuantLits.put(term, varConstr);
-				return varConstr;
-			}
-		} else if (lower == null && upper == null) {
+		// If the literal is a QuantEUBoundConstraint, keep the given form.
+		if (lower == null && upper == null) {
 			final EUTerm euAffine = mEUTermManager.getEUTerm(lhs, source);
 			QuantEUBoundConstraint euConstr = new QuantEUBoundConstraint(term, euAffine);
 			mQuantLits.put(term, euConstr);
 			return euConstr;
+		}
+
+		// Else, bring the literals into the form ~(x<=t), ~(t<=x), ~(x<=y)
+		if (positive) {
+			// First step of rewriting positive (x-t<=0) into ~(t+1<=x) for x integer
+			if (lhs.getSort().getName().equals("Int")) {
+				constant.add(Rational.MONE);
+			} else {
+				throw new UnsupportedOperationException("Term " + term + " not in almost uninterpreted fragment!");
+			}
+		}
+
+		if (lower != null && upper != null) {
+			// Two variables can only be compared with each other.
+			if (!it.hasNext() && constant == Rational.ZERO) {
+				QuantVarConstraint varConstr = new QuantVarConstraint(term, lower, upper);
+				if (positive) {
+					// TODO Requires testing!
+					// Second step of converting positive literals into negated ones.
+					// This can happen for positive (x+1<=y) (---> converted into ~(y<=x))
+					varConstr.negate();
+				}
+				mQuantLits.put(term, varConstr);
+				return varConstr;
+			}
+		} else {
+			final boolean hasLowerBound = (upper != null);
+			final TermVariable var = hasLowerBound ? upper : lower;
+			SMTAffineTerm boundAffine = new SMTAffineTerm(summands, constant, lhs.getSort());
+			// Isolate variable by bringing bound to the other side
+			if (positive == hasLowerBound) { // for rewriting ~(x-t<=0) into ~(x<=t) and (x-t<=0) into ~(t+1<=x)
+				boundAffine.negate();
+			}
+			Term bound = boundAffine.toTerm(mClausifier.getTermCompiler(), lhs.getSort());
+			// The variable can only be bound by ground terms.
+			if (bound.getFreeVars().length == 0) {
+				final EUTerm boundTerm = mEUTermManager.getEUTerm(bound, source);
+				QuantVarConstraint varConstr = new QuantVarConstraint(term, var, hasLowerBound, (GroundTerm) boundTerm);
+				if (positive) {
+					// Second step of converting positive literals into negated ones.
+					// This can happen for positive (x+1<=y) (---> converted into ~(y<=x))
+					varConstr.negate();
+				}
+				mQuantLits.put(term, varConstr);
+				return varConstr;
+			}
 		}
 		throw new UnsupportedOperationException(
 				(positive ? "Term " : "Negated term ") + term + " not in almost uninterpreted fragment!");

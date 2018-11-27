@@ -18,9 +18,12 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
+import java.util.Map;
+
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 
 /**
  * A QuantVarEquality is an equality "TermVariable = TermVariable" or "TermVariable = GroundTerm". Negated
@@ -78,7 +81,9 @@ public class QuantVarEquality extends QuantLiteral {
 
 		// We support equalites between a variable (integer!) and a ground term, BUT by means of an aux clause.
 		// We could treat them directly, but then we would have more case distinctions.
-		mIsSupported = true;
+		if (!var.getSort().equals("Int")) {
+			mIsSupported = false;
+		}
 	}
 
 	@Override
@@ -87,20 +92,25 @@ public class QuantVarEquality extends QuantLiteral {
 		return null;
 	}
 
-	public boolean isBothVar() {
+	Literal instantiate(Map<TermVariable, Term> instantiation) {
+		// TODO Builds a CCEquality or an LAEquality
+		return null;
+	}
+
+	boolean isBothVar() {
 		return mLeftVar != null && mRightVar != null;
 	}
 
-	public TermVariable getLeftVar() {
+	TermVariable getLeftVar() {
 		return mLeftVar;
 	}
 
-	public TermVariable getRightVar() {
+	TermVariable getRightVar() {
 		assert isBothVar() : "(Dis)eq contains only one variable!";
 		return mRightVar;
 	}
 
-	public GroundTerm getGroundTerm() {
+	GroundTerm getGroundTerm() {
 		assert !isBothVar() : "Diseq between two variables!";
 		return mGround;
 	}

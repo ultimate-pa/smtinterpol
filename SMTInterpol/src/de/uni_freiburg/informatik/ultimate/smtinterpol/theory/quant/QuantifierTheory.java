@@ -18,12 +18,9 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
-import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.Term;
-import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
@@ -35,6 +32,9 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ITheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinArSolve;
+import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
 
 /**
  * Solver for quantified formulas within the almost uninterpreted fragment (Restrictions on terms and literals are
@@ -47,23 +47,22 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
  */
 public class QuantifierTheory implements ITheory {
 
-	private Clausifier mClausifier;
+	private final Clausifier mClausifier;
 	private final LogProxy mLogger;
-	private Theory mTheory;
-	private DPLLEngine mEngine;
+	private final Theory mTheory;
+	private final DPLLEngine mEngine;
 
-	private EUTermManager mTermManager;
-	private QuantLiteralManager mLitManager;
+	final CClosure mCClosure;
+	final LinArSolve mLinArSolve;
+
+	private final EUTermManager mTermManager;
+	private final QuantLiteralManager mLitManager;
 
 	/**
 	 * Clauses that only the QuantifierTheory knows, i.e. that contain at least one literal with an (implicitly)
 	 * universally quantified variable.
 	 */
-	private Set<QuantClause> mQuantClauses;
-	/**
-	 * For each variable, the set of potentially interesting instantiations.
-	 */
-	private Map<TermVariable, Set<Term>> mInstantiationTerms;
+	private ScopedHashSet<QuantClause> mQuantClauses;
 
 	public QuantifierTheory(final Theory th, final DPLLEngine engine, final Clausifier clausifier) {
 		mClausifier = clausifier;
@@ -71,10 +70,13 @@ public class QuantifierTheory implements ITheory {
 		mTheory = th;
 		mEngine = engine;
 
+		mCClosure = clausifier.getCClosure();
+		mLinArSolve = clausifier.getLASolver();
+
 		mTermManager = new EUTermManager(this);
 		mLitManager = new QuantLiteralManager(this);
 
-		mQuantClauses = new HashSet<QuantClause>();
+		mQuantClauses = new ScopedHashSet<QuantClause>();
 	}
 
 	@Override
@@ -91,6 +93,9 @@ public class QuantifierTheory implements ITheory {
 
 	@Override
 	public Clause setLiteral(Literal literal) {
+		for (final QuantClause clause : mQuantClauses) {
+			// TODO Each clause should check if this literal leads to a conflicting instance
+		}
 		// TODO Auto-generated method stub
 		return null;
 	}
@@ -103,6 +108,11 @@ public class QuantifierTheory implements ITheory {
 
 	@Override
 	public Clause checkpoint() {
+		for (final QuantClause clause : mQuantClauses) {
+			// Each clause should update the potential instantiations
+			clause.computeInstantiationTerms();
+			// TODO and instantiate conflict or unit clauses
+		}
 		// TODO Auto-generated method stub
 		return null;
 	}
@@ -110,12 +120,13 @@ public class QuantifierTheory implements ITheory {
 	@Override
 	public Clause computeConflictClause() {
 		// TODO Auto-generated method stub
-		return null;
+		// TODO For each clause, compute all instantiations.
+		throw new UnsupportedOperationException("Support for quantifiers coming soon.");
 	}
 
 	@Override
 	public Literal getPropagatedLiteral() {
-		// TODO Auto-generated method stub
+		// Nothing to do
 		return null;
 	}
 
@@ -175,13 +186,19 @@ public class QuantifierTheory implements ITheory {
 
 	@Override
 	public Object push() {
-		// TODO Auto-generated method stub
+		mQuantClauses.beginScope();
+		for (final QuantClause qClause : mQuantClauses) {
+			qClause.push();
+		}
 		return null;
 	}
 
 	@Override
 	public void pop(Object object, int targetlevel) {
-		// TODO Auto-generated method stub
+		mQuantClauses.endScope();
+		for (final QuantClause qClause : mQuantClauses) {
+			qClause.pop();
+		}
 
 	}
 
@@ -199,44 +216,45 @@ public class QuantifierTheory implements ITheory {
 	 * Note that this returns the underlying <em>atom</em>. The Clausifier will negate it if the original term in the
 	 * clause was negated.
 	 * 
-	 * @param positive
-	 *            flag that indicates if the term is positive or negated. This is required to determine if the literal
-	 *            is supported.
 	 * @param term
 	 *            the term for the underlying equality atom.
+	 * @param positive
+	 *            flag that indicates if the term appears positively or negated in the clause. This is required to
+	 *            determine if the literal is supported.
 	 * @param source
 	 *            the source partition of the term.
 	 * @param lhs
 	 *            the term at the left hand side of the equality.
 	 * @param rhs
 	 *            the term at the right hand side of the equality.
+	 * 
 	 * @return the underlying equality atom as a QuantLiteral, if the literal is supported.
 	 */
-	public QuantLiteral getQuantEquality(boolean positive, Term term, SourceAnnotation source, Term lhs, Term rhs) {
-		return mLitManager.getQuantEquality(positive, term, source, lhs, rhs);
+	public QuantLiteral getQuantEquality(Term term, boolean positive, SourceAnnotation source, Term lhs, Term rhs) {
+		return mLitManager.getQuantEquality(term, positive, source, lhs, rhs);
 	}
 
 	/**
-	 * Get a quantified inequality atom for a term - in case the <em>literal</em> is supported. We support the literals
-	 * "EUTerm <= 0" (pos. or neg.), or (only strict inequalities, i.e. negated) "TermVariable < GroundTerm",
-	 * "GroundTerm < TermVariable", "TermVariable < TermVariable"
+	 * Get a quantified inequality literal for a term - in case it is supported. We support the literals "EUTerm <= 0"
+	 * (pos. or neg.), or (only strict inequalities, i.e., negated non-strict inequalities) "not (TermVariable <=
+	 * GroundTerm)", "not (GroundTerm <= TermVariable)", "not (TermVariable <= TermVariable)"
 	 * <p>
-	 * Note that this returns the underlying <em>atom</em>. The Clausifier will negate it if the original term in the
-	 * clause was negated.
+	 * Note that this will return a <em>negated</em> literal (not (x<=t)) in the latter three cases if positive==true!
 	 * 
-	 * @param positive
-	 *            flag that indicates if the term is positive or negated. This is required to determine if the literal
-	 *            is supported.
 	 * @param term
-	 *            the term for the underlying inequality atom "term <= 0".
+	 *            the term for the underlying inequality <em>atom</em> "term <= 0".
+	 * @param positive
+	 *            flag that indicates if the term appears positively or negated in the clause. This is required to
+	 *            determine if the literal is supported.
 	 * @param source
 	 *            the source partition of the term.
 	 * @param lhs
 	 *            the left hand side in "term <= 0"
-	 * @return the underlying inequality atom as a QuantLiteral, if the literal is supported.
+	 * 
+	 * @return a QuantLiteral if the literal is supported.
 	 */
-	public QuantLiteral getQuantInequality(boolean positive, Term term, SourceAnnotation source, Term lhs) {
-		return mLitManager.getQuantInequality(positive, term, source, lhs);
+	public QuantLiteral getQuantInequality(Term term, boolean positive, SourceAnnotation source, Term lhs) {
+		return mLitManager.getQuantInequality(term, positive, source, lhs);
 	}
 
 	public QuantLiteral getQuantNamedAtom(Term term) {
@@ -261,8 +279,6 @@ public class QuantifierTheory implements ITheory {
 		final QuantClause clause = new QuantClause(lits, quantLits, this);
 		clause.collectVarInfo();
 		mQuantClauses.add(clause);
-		// TODO
-		throw new UnsupportedOperationException("Support for quantifiers coming soon.");
 	}
 
 	/**

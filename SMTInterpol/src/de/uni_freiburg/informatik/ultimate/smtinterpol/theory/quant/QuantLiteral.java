@@ -18,8 +18,12 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
+import java.util.Map;
+
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 
 /**
  * Represents a quantified literal.
@@ -44,7 +48,7 @@ public abstract class QuantLiteral {
 	/**
 	 * The underlying atom.
 	 */
-	private final QuantLiteral mAtom;
+	protected QuantLiteral mAtom;
 	/**
 	 * The negated literal. Equal to mAtom for negated literals.
 	 */
@@ -88,10 +92,14 @@ public abstract class QuantLiteral {
 		return null;
 	}
 
+	Literal instantiate(Map<TermVariable, Term> instantiation) {
+		return null;
+	}
+
 	/**
 	 * Represents a negated QuantLiteral. Here, the atom and the negated literal are equal.
 	 */
-	public static class NegQuantLiteral extends QuantLiteral {
+	static class NegQuantLiteral extends QuantLiteral {
 
 		/**
 		 * Create a new NegatedLiteral.
@@ -101,6 +109,7 @@ public abstract class QuantLiteral {
 		 */
 		NegQuantLiteral(final QuantLiteral lit) {
 			super(lit.getTerm().getTheory().not(lit.getTerm()));
+			mAtom = lit;
 			mNegated = lit;
 		}
 

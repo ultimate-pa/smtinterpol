@@ -39,7 +39,7 @@ public class QuantNamedAtom extends QuantLiteral {
 		mNegated = new NegQuantLiteral(this);
 	}
 
-	public TermVariable[] getVars() {
+	TermVariable[] getVars() {
 		return mFreeVars;
 	}
 

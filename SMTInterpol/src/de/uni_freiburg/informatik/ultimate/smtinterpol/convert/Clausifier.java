@@ -775,15 +775,14 @@ public class Clausifier {
 					final Term rhs = at.getParameters()[1];
 
 					if (quantified) {
-						quantLit = mQuantTheory.getQuantEquality(positive, at, mCollector.mSource, lhs, rhs);
+						quantLit = mQuantTheory.getQuantEquality(at, positive, mCollector.mSource, lhs, rhs);
 						if (positive) { // Here, we don't use the quantified literal, but build an auxiliary clause.
 							// TODO buildAuxClause must build quantified clause.
 							lit = getLiteral(idx, positive, mCollector.getSource());
 						} else {
 							lit = new LiteralProxy(idx, quantLit); // will be used for DER
 						}
-						// TODO What do we need for proof production?
-						// atomRewrite = mTracker.intern(at, atom.getSMTFormula(theory, true));
+						// TODO Proof production
 					} else {
 						final SharedTerm slhs = getSharedTerm(lhs, mCollector.mSource);
 						final SharedTerm srhs = getSharedTerm(rhs, mCollector.mSource);
@@ -824,9 +823,8 @@ public class Clausifier {
 					// (<= SMTAffineTerm 0)
 					if (quantified) {
 						final Term linTerm = at.getParameters()[0];
-						quantLit = mQuantTheory.getQuantInequality(positive, at, mCollector.getSource(), linTerm);
+						quantLit = mQuantTheory.getQuantInequality(at, positive, mCollector.getSource(), linTerm);
 						// TODO Proof production.
-						// atomRewrite = mTracker.intern(at, quantLit.getSMTFormula(theory, true));
 						lit = new LiteralProxy(idx, quantLit);
 					} else {
 						groundLit = createLeq0(at, mCollector.getSource());
@@ -930,7 +928,7 @@ public class Clausifier {
 		public void addQuantLiteral(final QuantLiteral lit, final Term rewrite) {
 			addRewrite(rewrite);
 			if (mQuantLits.add(lit)) {
-				mIsTrue |= mQuantLits.contains(lit.negate()); // TODO (negation not available for QuantVarConstraint)
+				mIsTrue |= mQuantLits.contains(lit.negate());
 			} else {
 				mSimpOr = true;
 			}
@@ -1797,6 +1795,7 @@ public class Clausifier {
 	private void setupQuantifiers() {
 		if (mQuantTheory == null) {
 			mQuantTheory = new QuantifierTheory(mTheory, mEngine, this);
+			mEngine.addTheory(mQuantTheory);
 		}
 	}
 
@@ -1820,7 +1819,7 @@ public class Clausifier {
 		}
 	}
 
-	// TODO What do we have to do for quantifiers here? (For now, I added getGroundLit.)
+	// TODO What do we have to do for quantifiers here?
 	public Iterable<BooleanVarAtom> getBooleanVars() {
 		return () -> new BooleanVarIterator(mLiteralData.values().iterator());
 	}
@@ -2064,7 +2063,7 @@ public class Clausifier {
 			} else {
 				if (term.getFreeVars().length > 0 && !mIsEprEnabled) {
 					final QuantLiteral euEq =
-							mQuantTheory.getQuantEquality(true, term, source, term, term.getTheory().mTrue);
+							mQuantTheory.getQuantEquality(term, true, source, term, term.getTheory().mTrue);
 					lit = new LiteralProxy(term, euEq);
 
 					// alex begin

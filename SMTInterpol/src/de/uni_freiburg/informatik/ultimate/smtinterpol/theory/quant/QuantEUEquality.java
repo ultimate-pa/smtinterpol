@@ -18,8 +18,12 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
+import java.util.Map;
+
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 
 /**
  * A QuantEUEquality is an equality EUTerm = EUTerm, where at least one side is not a GroundTerm.
@@ -57,11 +61,17 @@ public class QuantEUEquality extends QuantLiteral {
 		return null;
 	}
 
-	public EUTerm getLhs() {
+	@Override
+	Literal instantiate(Map<TermVariable, Term> instantiation) {
+		// Build a CCEquality
+		return null;
+	}
+
+	EUTerm getLhs() {
 		return mLhs;
 	}
 
-	public EUTerm getRhs() {
+	EUTerm getRhs() {
 		return mRhs;
 	}
 

@@ -18,8 +18,12 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
+import java.util.Map;
+
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 
 /**
  * A QuantEUBoundConstraint is an inequality of the form QuantAffineTerm <= 0.
@@ -31,8 +35,6 @@ public class QuantEUBoundConstraint extends QuantLiteral {
 
 	/**
 	 * The QuantAffineTerm in "QuantAffineTerm <= 0".
-	 * <p>
-	 * TODO Does it have to be a QuantAffineTerm or can we also use QuantAppTerm?
 	 */
 	private final QuantAffineTerm mAffineTerm;
 
@@ -61,7 +63,13 @@ public class QuantEUBoundConstraint extends QuantLiteral {
 		return null;
 	}
 
-	public QuantAffineTerm getAffineTerm() {
+	@Override
+	Literal instantiate(Map<TermVariable, Term> instantiation) {
+		// TODO build BoundConstraint
+		return null;
+	}
+
+	QuantAffineTerm getAffineTerm() {
 		return mAffineTerm;
 	}
 }
