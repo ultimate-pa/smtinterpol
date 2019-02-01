@@ -190,32 +190,14 @@ public class SMTInterpol extends NoopScript {
 			if (logic.isArray()) {
 				declareArraySymbols(theory);
 			}
-			if (logic.hasIntegers()) {
-				declareIntSymbols(theory);
-			}
-			if (logic.hasReals()) {
-				declareRealSymbols(theory);
-			}
-		}
-
-		private static final void declareIntSymbols(final Theory theory) {
-			final Sort intSort = theory.getSort("Int");
-			final Sort[] sort1 = { intSort };
-			declareInternalFunction(theory, "@mod0", sort1, intSort, 0);
-			declareInternalFunction(theory, "@div0", sort1, intSort, 0);
-		}
-
-		private static final void declareRealSymbols(final Theory theory) {
-			final Sort realSort = theory.getSort("Real");
-			final Sort[] sort1 = { realSort };
-			declareInternalFunction(theory, "@/0", sort1, realSort, 0);
 		}
 
 		private static final void declareArraySymbols(final Theory theory) {
 			// Currently only diff
 			final Sort[] vars = theory.createSortVariables("Index", "Elem");
 			final Sort array = theory.getSort("Array", vars);
-			declareInternalPolymorphicFunction(theory, "@diff", vars, new Sort[] { array, array }, vars[0], 0);
+			declareInternalPolymorphicFunction(theory, "@diff", vars, new Sort[] { array, array }, vars[0],
+					FunctionSymbol.UNINTERPRETEDINTERNAL);
 		}
 	}
 
@@ -246,9 +228,6 @@ public class SMTInterpol extends NoopScript {
 	// m_status field is not valid and we have to deactivate
 	// get-{value,model,interpolants,proof}.
 	private boolean mAssertionStackModified = true;
-	// The assertion stack level at which the first division-by-0 was
-	// encountered. If it is -1, it means "never"
-	private int mBy0Seen = -1;
 
 	private long mNextQuickCheck = 1;
 	private long mNumAsserts = 0;
@@ -444,10 +423,6 @@ public class SMTInterpol extends NoopScript {
 			}
 		}
 		mClausifier.pop(n);
-		if (mStackLevel < mBy0Seen) {
-			// We've popped all division-by-0s.
-			mBy0Seen = -1;
-		}
 	}
 
 	@Override
@@ -667,12 +642,6 @@ public class SMTInterpol extends NoopScript {
 			if (mAssertions != null) {
 				mAssertions.add(term);
 			}
-			/*
-			 * We always have to reset the flag, but only need to set the stack level if it is not already set.
-			 */
-			if (mClausifier.resetBy0Seen() && mBy0Seen == -1) {
-				mBy0Seen = mStackLevel;
-			}
 			if (mNumAsserts++ >= mNextQuickCheck) {
 				mNextQuickCheck *= 2;
 				if (!mEngine.quickCheck()) {
@@ -801,9 +770,6 @@ public class SMTInterpol extends NoopScript {
 		try {
 			final ProofTermGenerator generator = new ProofTermGenerator(getTheory());
 			Term res = generator.convert(unsat);
-			if (mBy0Seen != -1) {
-				res = new Div0Remover().transform(res);
-			}
 			return res;
 		} catch (final Exception exc) {
 			throw new SMTLIBException(exc.getMessage() == null ? exc.toString() : exc.getMessage());
@@ -917,13 +883,6 @@ public class SMTInterpol extends NoopScript {
 					new Interpolator(mLogger, this, tmpBench, getTheory(), parts, startOfSubtree);
 			final Term proofTree = getProof();
 			final Term[] ipls = interpolator.getInterpolants(proofTree);
-
-			if (mBy0Seen != -1) {
-				final Div0Remover rem = new Div0Remover();
-				for (int i = 0; i < ipls.length; ++i) {
-					ipls[i] = rem.transform(ipls[i]);
-				}
-			}
 
 			if (mSolverOptions.isInterpolantCheckModeActive()) {
 				boolean error = false;

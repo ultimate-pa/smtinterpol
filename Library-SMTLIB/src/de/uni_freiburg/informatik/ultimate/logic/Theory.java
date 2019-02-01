@@ -620,11 +620,13 @@ public class Theory {
 		declareInternalFunction("+", sort2, sort, FunctionSymbol.LEFTASSOC);
 		defineFunction(new MinusFunctionFactory(sort, sort));
 		declareInternalFunction("*", sort2, sort, FunctionSymbol.LEFTASSOC);
+		/* the functions /, div and mod are partial (for division by 0) and thus partially uninterpreted */
 		if (isRational) {
-			declareInternalFunction("/", sort2, sort, FunctionSymbol.LEFTASSOC);
+			declareInternalFunction("/", sort2, sort, FunctionSymbol.LEFTASSOC | FunctionSymbol.UNINTERPRETEDINTERNAL);
 		} else {
-			declareInternalFunction("div", sort2, sort, FunctionSymbol.LEFTASSOC);
-			declareInternalFunction("mod", sort2, sort, 0);
+			declareInternalFunction("div", sort2, sort,
+					FunctionSymbol.LEFTASSOC | FunctionSymbol.UNINTERPRETEDINTERNAL);
+			declareInternalFunction("mod", sort2, sort, FunctionSymbol.UNINTERPRETEDINTERNAL);
 			defineFunction(new DivisibleFunctionFactory());
 		}
 		final Sort sBool = mBooleanSort;

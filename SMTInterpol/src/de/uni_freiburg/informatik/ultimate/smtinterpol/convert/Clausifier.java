@@ -176,10 +176,6 @@ public class Clausifier {
 
 		public CCTermBuilder(final SourceAnnotation source) {
 			mSource = source;
-			if (mCClosure == null) {
-				// Delayed setup for @div0, @mod0, and @/0
-				setupCClosure();
-			}
 		}
 
 		public CCTerm convert(final Term t) {
@@ -232,26 +228,6 @@ public class Clausifier {
 		 */
 		public boolean isScopeMarker() { // NOPMD
 			return false;
-		}
-	}
-
-	/**
-	 * Helper class to remove a theory added at some higher scope level. This should be used with care. It's mainly
-	 * intended to remove the cclosure that was added because of a @/0, @div0, or @mod0 function symbol in pure linear
-	 * arithmetic.
-	 *
-	 * It is safe to do this as a trail object since we need a cclosure for all quantified theories.
-	 *
-	 * @author Juergen Christ
-	 */
-	private class RemoveTheory extends TrailObject {
-		public RemoveTheory(final TrailObject prev) {
-			super(prev);
-		}
-
-		@Override
-		public void undo() {
-			mEngine.removeTheory();
 		}
 	}
 
@@ -674,8 +650,8 @@ public class Clausifier {
 				}
 				flat.add(first);
 			}
-			return flat.size() == at.getParameters().length ? at :
-					at.getTheory().term(or, flat.toArray(new Term[flat.size()]));
+			return flat.size() == at.getParameters().length ? at
+					: at.getTheory().term(or, flat.toArray(new Term[flat.size()]));
 		}
 	}
 
@@ -1043,7 +1019,7 @@ public class Clausifier {
 					addExcludedMiddleAxiom(res, source);
 				} else {
 					final FunctionSymbol fs = at.getFunction();
-					if (fs.isInterpreted()) {
+					if (fs.isIntern()) {
 						if (fs.getName().equals("div")) {
 							addDivideAxioms(at, source);
 						} else if (fs.getName().equals("to_int")) {
@@ -1080,8 +1056,9 @@ public class Clausifier {
 	}
 
 	private static boolean needCCTerm(final FunctionSymbol fs) {
-		return !fs.isInterpreted() || fs.getName() == "select" || fs.getName() == "store" || fs.getName() == "@diff"
-				|| fs.getName() == "const";
+		// we also create CC function symbols for select/store/const. For const it is necessary, as the array theory
+		// does not derive v = w --> (const v) = (const w). For select/store it makes congruence reason a bit simpler.
+		return !fs.isInterpreted() || fs.getName() == "select" || fs.getName() == "store" || fs.getName() == "const";
 	}
 
 	/// Internalization stuff
@@ -1264,6 +1241,10 @@ public class Clausifier {
 		final Theory theory = divTerm.getTheory();
 		final Term[] divParams = divTerm.getParameters();
 		final Rational divisor = (Rational) ((ConstantTerm) divParams[1]).getValue();
+		if (divisor == Rational.ZERO) {
+			/* Do not add any axiom if divisor is 0. */
+			return;
+		}
 		final Term zero = Rational.ZERO.toTerm(divTerm.getSort());
 		final SMTAffineTerm diff = new SMTAffineTerm(divParams[0]);
 		diff.negate(); // -x
@@ -1325,8 +1306,8 @@ public class Clausifier {
 		BuildClause bc = new BuildClause(axiom, source);
 		bc.addFlatten(mTracker.getProvedTerm(axiom));
 		final Term litRewrite = mTracker.intern(litTerm, lit.getSMTFormula(theory, true));
-		Term rewrite =
-				mTracker.congruence(mTracker.reflexivity(mTheory.term("not", litTerm)), new Term[] { litRewrite });
+		Term rewrite = mTracker.congruence(mTracker.reflexivity(mTheory.term("not", litTerm)),
+				new Term[] { litRewrite });
 		bc.addLiteral(lit.negate(), rewrite);
 		rewrite = mTracker.intern(trueTerm, trueLit.getSMTFormula(theory, true));
 		bc.addLiteral(trueLit, rewrite);
@@ -1493,9 +1474,6 @@ public class Clausifier {
 			 * If we do not setup the cclosure at the root level, we remove it with the corresponding pop since the
 			 * axiom true != false will be removed from the assertion stack as well.
 			 */
-			if (mStackLevel != 0) {
-				mUndoTrail = new RemoveTheory(mUndoTrail);
-			}
 			mSharedTrue = new SharedTerm(this, mTheory.mTrue);
 			mSharedTrue.mCCterm = mCClosure.createAnonTerm(mSharedTrue);
 			mSharedTerms.put(mTheory.mTrue, mSharedTrue);
@@ -1528,7 +1506,8 @@ public class Clausifier {
 	}
 
 	public void setLogic(final Logics logic) {
-		if (logic.isUF() || logic.isArray()) {
+		if (logic.isUF() || logic.isArray() || logic.isArithmetic()) {
+			// also need UF for div/mod
 			setupCClosure();
 		}
 		if (logic.isArithmetic()) {
@@ -1797,10 +1776,6 @@ public class Clausifier {
 			mUndoTrail = new RemoveAtom(mUndoTrail, term);
 		}
 		return lit;
-	}
-
-	public boolean resetBy0Seen() {
-		return mCompiler.resetBy0Seen();
 	}
 
 	public IProofTracker getTracker() {
