@@ -32,6 +32,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SharedTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAnnotation.RuleKind;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.MutableAffinTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
@@ -63,6 +64,7 @@ public class CCProofGenerator {
 			return mPath;
 		}
 
+		@Override
 		public String toString() {
 			return mIndex + ": " + Arrays.toString(mPath);
 		}
@@ -75,9 +77,9 @@ public class CCProofGenerator {
 		private final CCTerm mLeft;
 		private final CCTerm mRight;
 
-		public SelectEdge(CCTerm left, CCTerm right) {
-			this.mLeft = left;
-			this.mRight = right;
+		public SelectEdge(final CCTerm left, final CCTerm right) {
+			mLeft = left;
+			mRight = right;
 		}
 
 		public SymmetricPair<CCTerm> toSymmetricPair() {
@@ -92,6 +94,7 @@ public class CCProofGenerator {
 			return mRight;
 		}
 
+		@Override
 		public String toString() {
 			return mLeft + " <-> " + mRight;
 		}
@@ -222,7 +225,7 @@ public class CCProofGenerator {
 			}
 		}
 
-		private void collectSelectIndexEquality(final CCTerm select, CCTerm pathIndex) {
+		private void collectSelectIndexEquality(final CCTerm select, final CCTerm pathIndex) {
 			if (isSelectTerm(select)) {
 				final CCTerm index = ArrayTheory.getIndexFromSelect((CCAppTerm) select);
 				if (index != pathIndex) {
@@ -275,7 +278,7 @@ public class CCProofGenerator {
 				}
 				// Case (iv) select
 				if (mRule == RuleKind.WEAKEQ_EXT && pathIndex != null) {
-					SelectEdge selectEdge = findSelectPath(termPair, pathIndex);
+					final SelectEdge selectEdge = findSelectPath(termPair, pathIndex);
 					if (selectEdge != null) {
 						if (selectEdge.getLeft() != selectEdge.getRight()) {
 							if (!collectEquality(selectEdge.toSymmetricPair())) {
@@ -361,9 +364,9 @@ public class CCProofGenerator {
 	private void collectClauseLiterals(final Clause clause) {
 		mEqualityLiterals = new HashMap<>();
 		for (int i = 0; i < clause.getSize(); i++) {
-			Literal literal = clause.getLiteral(i);
-			CCEquality atom = (CCEquality) literal.getAtom();
-			SymmetricPair<CCTerm> pair = new SymmetricPair<>(atom.getLhs(), atom.getRhs());
+			final Literal literal = clause.getLiteral(i);
+			final CCEquality atom = (CCEquality) literal.getAtom();
+			final SymmetricPair<CCTerm> pair = new SymmetricPair<>(atom.getLhs(), atom.getRhs());
 			mEqualityLiterals.put(pair, literal);
 			if (literal.getSign() < 0) {
 				/* equality in conflict (negated in clause) */
@@ -476,8 +479,8 @@ public class CCProofGenerator {
 		return proofOrder;
 	}
 
-	private Term buildLemma(Theory theory, RuleKind rule, ProofInfo info, Term diseq, boolean isTrivialDiseq,
-			HashMap<SymmetricPair<CCTerm>, Term> auxLiterals) {
+	private Term buildLemma(final Theory theory, final RuleKind rule, final ProofInfo info, final Term diseq, final boolean isTrivialDiseq,
+			final HashMap<SymmetricPair<CCTerm>, Term> auxLiterals) {
 		// Collect the new clause literals.
 		final Term[] args = new Term[info.getLiterals().size() + (isTrivialDiseq ? 0 : 1) + info.getSubProofs().size()];
 		int i = 0;
@@ -527,7 +530,7 @@ public class CCProofGenerator {
 			}
 		}
 		final Annotation[] annots = new Annotation[] { new Annotation(rule.getKind(), subannots) };
-		return theory.term("@lemma", theory.annotatedTerm(annots, base));
+		return theory.term(ProofConstants.FN_LEMMA, theory.annotatedTerm(annots, base));
 	}
 
 	/**
@@ -548,9 +551,9 @@ public class CCProofGenerator {
 			Term diseq;
 			boolean isTrivialDiseq = false;
 			if (lemmaNo == 0) { // main lemma
-				CCTerm diseqLHS = mAnnot.getDiseq().getFirst();
-				CCTerm diseqRHS = mAnnot.getDiseq().getSecond();
-				CCEquality diseqAtom = CClosure.createEquality(diseqLHS, diseqRHS);
+				final CCTerm diseqLHS = mAnnot.getDiseq().getFirst();
+				final CCTerm diseqRHS = mAnnot.getDiseq().getSecond();
+				final CCEquality diseqAtom = CClosure.createEquality(diseqLHS, diseqRHS);
 				if (diseqAtom != null) {
 					diseq = diseqAtom.getSMTFormula(theory, false);
 				} else {
@@ -574,7 +577,7 @@ public class CCProofGenerator {
 		}
 		// If there is at least one auxiliary lemma, return a resolution term
 		if (allLemmas.length > 1) {
-			return theory.term("@res", allLemmas);
+			return theory.term(ProofConstants.FN_RES, allLemmas);
 		}
 		// Otherwise just return the array lemma
 		return allLemmas[0];
@@ -591,12 +594,13 @@ public class CCProofGenerator {
 	private boolean isTrivialDisequality(final SymmetricPair<CCTerm> termPair) {
 		final SharedTerm first = termPair.getFirst().getSharedTerm();
 		final SharedTerm second = termPair.getSecond().getSharedTerm();
-		if (first == null || second == null || first.getOffset() == null || second.getOffset() == null)
+		if (first == null || second == null || first.getOffset() == null || second.getOffset() == null) {
 			return false;
+		}
 		if (first.getLinVar() == second.getLinVar() && first.getFactor() == second.getFactor()) {
 			return first.getOffset() != second.getOffset();
 		}
-		MutableAffinTerm sum = new MutableAffinTerm();
+		final MutableAffinTerm sum = new MutableAffinTerm();
 		if (first.getLinVar() != null) {
 			sum.add(first.getFactor(), first.getLinVar());
 		}
@@ -704,13 +708,13 @@ public class CCProofGenerator {
 	private SelectEdge findSelectPath(final SymmetricPair<CCTerm> termPair, final CCTerm weakpathindex) {
 		// first check for trivial select-const edges, i.e., (const (select a j)) and a with j = weakpathindex.
 		if (isConstTerm(termPair.getFirst())) {
-			CCTerm value = ArrayTheory.getValueFromConst((CCAppTerm) termPair.getFirst());
+			final CCTerm value = ArrayTheory.getValueFromConst((CCAppTerm) termPair.getFirst());
 			if (isSelect(value, termPair.getSecond(), weakpathindex)) {
 				return new SelectEdge(value, value);
 			}
 		}
 		if (isConstTerm(termPair.getSecond())) {
-			CCTerm value = ArrayTheory.getValueFromConst((CCAppTerm) termPair.getSecond());
+			final CCTerm value = ArrayTheory.getValueFromConst((CCAppTerm) termPair.getSecond());
 			if (isSelect(value, termPair.getFirst(), weakpathindex)) {
 				return new SelectEdge(value, value);
 			}
@@ -734,7 +738,7 @@ public class CCProofGenerator {
 	/**
 	 * Check if the equality sel1 == sel2 explains the weak step on weakpathindex for termPair.
 	 */
-	private boolean isGoodSelectStep(CCTerm sel1, CCTerm sel2, SymmetricPair<CCTerm> termPair,
+	private boolean isGoodSelectStep(final CCTerm sel1, final CCTerm sel2, final SymmetricPair<CCTerm> termPair,
 			final CCTerm weakpathindex) {
 		return (isSelect(sel1, termPair.getFirst(), weakpathindex) || isConst(termPair.getFirst(), sel1))
 				&& (isSelect(sel2, termPair.getSecond(), weakpathindex) || isConst(termPair.getSecond(), sel2));
@@ -743,17 +747,18 @@ public class CCProofGenerator {
 	/**
 	 * Check if select is a select on array on weakpathindex or something equal to weakpathindex.
 	 */
-	private boolean isSelect(CCTerm select, CCTerm array, final CCTerm weakpathindex) {
-		if (!isSelectTerm(select) || ArrayTheory.getArrayFromSelect((CCAppTerm) select) != array)
+	private boolean isSelect(final CCTerm select, final CCTerm array, final CCTerm weakpathindex) {
+		if (!isSelectTerm(select) || ArrayTheory.getArrayFromSelect((CCAppTerm) select) != array) {
 			return false;
-		CCTerm index = ArrayTheory.getIndexFromSelect((CCAppTerm) select);
+		}
+		final CCTerm index = ArrayTheory.getIndexFromSelect((CCAppTerm) select);
 		return (index == weakpathindex || mAllEqualities.contains(new SymmetricPair<>(weakpathindex, index)));
 	}
 
 	/**
 	 * Check if array is an application of const on value
 	 */
-	private boolean isConst(CCTerm array, CCTerm value) {
+	private boolean isConst(final CCTerm array, final CCTerm value) {
 		return (isConstTerm(array) && ArrayTheory.getValueFromConst((CCAppTerm) array) == value);
 	}
 }

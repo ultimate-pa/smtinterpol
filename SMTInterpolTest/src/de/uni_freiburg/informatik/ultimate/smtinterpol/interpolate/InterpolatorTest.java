@@ -36,6 +36,7 @@ import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 
 @RunWith(JUnit4.class)
@@ -106,7 +107,7 @@ public class InterpolatorTest {
 						: new Term[] { cceq, mTheory.term("not", laeq) };
 		final Term clause = mTheory.term("or", lits);
 		final Annotation[] mAnnots = new Annotation[] { new Annotation(":EQ", null) };
-		final Term lemma = mTheory.term("@lemma", mTheory.annotatedTerm(mAnnots, clause));
+		final Term lemma = mTheory.term(ProofConstants.FN_LEMMA, mTheory.annotatedTerm(mAnnots, clause));
 		final Set<String> empty = Collections.emptySet();
 		@SuppressWarnings("unchecked")
 		final Set<String>[] partition = new Set[] { empty, empty };

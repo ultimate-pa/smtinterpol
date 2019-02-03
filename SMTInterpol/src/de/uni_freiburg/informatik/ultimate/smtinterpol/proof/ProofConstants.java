@@ -26,6 +26,23 @@ import de.uni_freiburg.informatik.ultimate.logic.Annotation;
  */
 public interface ProofConstants {
 
+	//// ==== Proof sort and functions ====
+	public final static String SORT_PROOF = "@Proof";
+	public static final String FN_TAUTOLOGY = "@tautology";
+	public static final String FN_REWRITE = "@rewrite";
+	public static final String FN_EQ = "@eq";
+	public static final String FN_SPLIT = "@split";
+	public static final String FN_INTERN = "@intern";
+	public static final String FN_EXISTS = "@exists";
+	public static final String FN_CONG = "@cong";
+	public static final String FN_TRANS = "@trans";
+	public static final String FN_REFL = "@refl";
+	public static final String FN_ASSERTED = "@asserted";
+	public static final String FN_ASSUMPTION = "@assumption";
+	public static final String FN_CLAUSE = "@clause";
+	public static final String FN_LEMMA = "@lemma";
+	public static final String FN_RES = "@res";
+
 	//// ==== Rewrite ids and names ====
 	public final static Annotation RW_EXPAND            = new Annotation(":expand", null);
 	public final static Annotation RW_EXPAND_DEF        = new Annotation(":expandDef", null);

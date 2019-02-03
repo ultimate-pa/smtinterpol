@@ -46,6 +46,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SolverOptions;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.LeafNode;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
@@ -266,7 +267,7 @@ public class Interpolator extends NonRecursive {
 		}
 		Interpolant[] interpolants = new Interpolant[mNumInterpolants];
 		final InterpolatorClauseTermInfo leafTermInfo = getClauseTermInfo(leaf);
-		if (leafTermInfo.getLeafKind().equals("@clause")) {
+		if (leafTermInfo.getLeafKind().equals(ProofConstants.FN_CLAUSE)) {
 			final String source = leafTermInfo.getSource();
 			final int partition = mPartitions.containsKey(source) ? mPartitions.get(source) : 0;
 			interpolants = new Interpolant[mNumInterpolants];
@@ -274,7 +275,7 @@ public class Interpolator extends NonRecursive {
 				interpolants[i] = new Interpolant(
 						mStartOfSubtrees[i] <= partition && partition <= i ? mTheory.mFalse : mTheory.mTrue);
 			}
-		} else if (leafTermInfo.getLeafKind().equals("@lemma")) {
+		} else if (leafTermInfo.getLeafKind().equals(ProofConstants.FN_LEMMA)) {
 			if (leafTermInfo.getLemmaType().equals(":EQ")) {
 				interpolants = computeEQInterpolant(leaf);
 			} else if (leafTermInfo.getLemmaType().equals(":CC")) {
@@ -943,8 +944,9 @@ public class Interpolator extends NonRecursive {
 			if (term instanceof ApplicationTerm && ((ApplicationTerm) term).getFunction().isIntern()) {
 				final Term[] subTerms = ((ApplicationTerm) term).getParameters();
 				result = mFullOccurrence;
-				if (subTerms.length == 0)
+				if (subTerms.length == 0) {
 					return result;
+				}
 				for (final Term p : subTerms) {
 					final Occurrence occ = getOccurrence(p);
 					result = result.intersect(occ);

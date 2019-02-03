@@ -73,7 +73,7 @@ public class ProofChecker extends NonRecursive {
 		final ApplicationTerm mTerm;
 
 		public ProofWalker(final Term term) {
-			assert term.getSort().getName().equals("@Proof");
+			assert term.getSort().getName().equals(ProofConstants.SORT_PROOF);
 			mTerm = (ApplicationTerm) term;
 		}
 
@@ -91,7 +91,7 @@ public class ProofChecker extends NonRecursive {
 		final ApplicationTerm mTerm;
 
 		public ResolutionWalker(final ApplicationTerm term) {
-			assert term.getFunction().getName().equals("@res");
+			assert term.getFunction().getName().equals(ProofConstants.FN_RES);
 			mTerm = term;
 		}
 
@@ -125,7 +125,7 @@ public class ProofChecker extends NonRecursive {
 		final ApplicationTerm mTerm;
 
 		public EqualityWalker(final ApplicationTerm term) {
-			assert term.getFunction().getName().equals("@eq");
+			assert term.getFunction().getName().equals(ProofConstants.FN_EQ);
 			mTerm = term;
 		}
 
@@ -154,7 +154,7 @@ public class ProofChecker extends NonRecursive {
 		final ApplicationTerm mTerm;
 
 		public ClauseWalker(final ApplicationTerm term) {
-			assert term.getFunction().getName().equals("@clause");
+			assert term.getFunction().getName().equals(ProofConstants.FN_CLAUSE);
 			mTerm = term;
 		}
 
@@ -179,7 +179,7 @@ public class ProofChecker extends NonRecursive {
 		final ApplicationTerm mTerm;
 
 		public SplitWalker(final ApplicationTerm term) {
-			assert term.getFunction().getName().equals("@split");
+			assert term.getFunction().getName().equals(ProofConstants.FN_SPLIT);
 			mTerm = term;
 		}
 
@@ -210,7 +210,7 @@ public class ProofChecker extends NonRecursive {
 		final ApplicationTerm mTerm;
 
 		public CongruenceWalker(final ApplicationTerm term) {
-			assert term.getFunction().getName().equals("@cong");
+			assert term.getFunction().getName().equals(ProofConstants.FN_CONG);
 			mTerm = term;
 		}
 
@@ -243,7 +243,7 @@ public class ProofChecker extends NonRecursive {
 		final ApplicationTerm mTerm;
 
 		public TransitivityWalker(final ApplicationTerm term) {
-			assert term.getFunction().getName().equals("@trans");
+			assert term.getFunction().getName().equals(ProofConstants.FN_TRANS);
 			mTerm = term;
 		}
 
@@ -371,7 +371,7 @@ public class ProofChecker extends NonRecursive {
 
 		/* Look at the rule name and treat each different */
 		switch (rulename) {
-		case "@res":
+		case ProofConstants.FN_RES:
 			/*
 			 * The resolution rule.
 			 *
@@ -381,47 +381,47 @@ public class ProofChecker extends NonRecursive {
 			new ResolutionWalker(proofTerm).enqueue(this);
 			break;
 
-		case "@eq":
+		case ProofConstants.FN_EQ:
 			new EqualityWalker(proofTerm).enqueue(this);
 			break;
 
-		case "@cong":
+		case ProofConstants.FN_CONG:
 			new CongruenceWalker(proofTerm).enqueue(this);
 			break;
 
-		case "@trans":
+		case ProofConstants.FN_TRANS:
 			new TransitivityWalker(proofTerm).enqueue(this);
 			break;
 
-		case "@refl":
+		case ProofConstants.FN_REFL:
 			stackPush(walkReflexivity(proofTerm), proofTerm);
 			break;
 
-		case "@lemma":
+		case ProofConstants.FN_LEMMA:
 			stackPush(walkLemma(proofTerm), proofTerm);
 			break;
 
-		case "@tautology":
+		case ProofConstants.FN_TAUTOLOGY:
 			stackPush(walkTautology(proofTerm), proofTerm);
 			break;
 
-		case "@asserted":
+		case ProofConstants.FN_ASSERTED:
 			stackPush(walkAsserted(proofTerm), proofTerm);
 			break;
 
-		case "@rewrite":
+		case ProofConstants.FN_REWRITE:
 			stackPush(walkRewrite(proofTerm), proofTerm);
 			break;
 
-		case "@intern":
+		case ProofConstants.FN_INTERN:
 			stackPush(walkIntern(proofTerm), proofTerm);
 			break;
 
-		case "@split":
+		case ProofConstants.FN_SPLIT:
 			new SplitWalker(proofTerm).enqueue(this);
 			break;
 
-		case "@clause":
+		case ProofConstants.FN_CLAUSE:
 			new ClauseWalker(proofTerm).enqueue(this);
 			break;
 
@@ -775,10 +775,10 @@ public class ProofChecker extends NonRecursive {
 	 * Check if array[weakIdx] is value, either because value is the select term, or array is a constant array
 	 * on value.
 	 */
-	private boolean checkSelectConst(Term value, Term array, final Term weakIdx,
+	private boolean checkSelectConst(final Term value, final Term array, final Term weakIdx,
 		final HashSet<SymmetricPair<Term>> strongPaths) {
 		if (isApplication("select", value)) {
-			Term[] args = ((ApplicationTerm) value).getParameters();
+			final Term[] args = ((ApplicationTerm) value).getParameters();
 			if (args[0] == array
 					&& (args[1] == weakIdx || strongPaths.contains(new SymmetricPair<>(args[1], weakIdx)))) {
 				return true;
@@ -837,7 +837,7 @@ public class ProofChecker extends NonRecursive {
 	 *            the right-hand side of the equality
 	 * @return true if the equality is trivially not satisfied.
 	 */
-	boolean checkTrivialDisequality(Term first, Term second) {
+	boolean checkTrivialDisequality(final Term first, final Term second) {
 		if (!first.getSort().isNumericSort()) {
 			return false;
 		}
@@ -1490,7 +1490,7 @@ public class ProofChecker extends NonRecursive {
 
 	Term walkReflexivity(final ApplicationTerm reflexivityApp) {
 		// sanity check (caller and typechecker should ensure this
-		assert reflexivityApp.getFunction().getName() == "@refl";
+		assert reflexivityApp.getFunction().getName() == ProofConstants.FN_REFL;
 		assert reflexivityApp.getParameters().length == 1;
 
 		// reflexivity (@refl term) proves (= term term).
@@ -1502,7 +1502,7 @@ public class ProofChecker extends NonRecursive {
 
 	Term walkTransitivity(final ApplicationTerm transitivityApp, final Term[] equalities) {
 		// sanity check (caller and typechecker should ensure this
-		assert transitivityApp.getFunction().getName() == "@trans";
+		assert transitivityApp.getFunction().getName() == ProofConstants.FN_TRANS;
 
 		Term firstTerm = null;
 		Term lastTerm = null;
@@ -1529,7 +1529,7 @@ public class ProofChecker extends NonRecursive {
 
 	Term walkCongruence(final ApplicationTerm congruenceApp, final Term[] subProofs) {
 		// sanity check (caller and typechecker should ensure this
-		assert congruenceApp.getFunction().getName() == "@cong";
+		assert congruenceApp.getFunction().getName() == ProofConstants.FN_CONG;
 		for (int i = 0; i < subProofs.length; i++) {
 			/* Check that it is an equality */
 			if (!isApplication("=", subProofs[i]) || ((ApplicationTerm) subProofs[i]).getParameters().length != 2) {
@@ -1576,7 +1576,7 @@ public class ProofChecker extends NonRecursive {
 		 * A rewrite rule has the form (@rewrite (! (= lhs rhs) :rewriteRule)) The rewriteRule gives the name of the
 		 * rewrite axiom. The equality (= lhs rhs) is then a simple rewrite axiom.
 		 */
-		assert rewriteApp.getFunction().getName() == "@rewrite";
+		assert rewriteApp.getFunction().getName() == ProofConstants.FN_REWRITE;
 		assert rewriteApp.getParameters().length == 1;
 		final String rewriteRule = checkAndGetAnnotationKey(rewriteApp.getParameters()[0]);
 		if (rewriteRule == null) {
@@ -2779,7 +2779,7 @@ public class ProofChecker extends NonRecursive {
 	 *            The {@literal @}eq application.
 	 */
 	Term walkEquality(final ApplicationTerm eqApp, final Term origFormula, final Term rewrite) {
-		assert eqApp.getFunction().getName().equals("@eq");
+		assert eqApp.getFunction().getName().equals(ProofConstants.FN_EQ);
 
 		/*
 		 * Expected: The first argument is a boolean formula f the second argument a binary equality (= f g).

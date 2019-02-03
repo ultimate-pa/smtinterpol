@@ -63,6 +63,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap.CopyMode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SolverOptions;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofChecker;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofTermGenerator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.PropProofChecker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
@@ -132,7 +133,6 @@ public class SMTInterpol extends NoopScript {
 	}
 
 	private static class SMTInterpolSetup extends Theory.SolverSetup {
-
 		private final int mProofMode;
 
 		public SMTInterpolSetup(final int proofMode) {
@@ -150,27 +150,27 @@ public class SMTInterpol extends NoopScript {
 			if (mProofMode > 0) {
 				// Partial proofs.
 				// Declare all symbols needed for proof production
-				declareInternalSort(theory, "@Proof", 0, 0);
-				proof = theory.getSort("@Proof");
+				declareInternalSort(theory, ProofConstants.SORT_PROOF, 0, 0);
+				proof = theory.getSort(ProofConstants.SORT_PROOF);
 				proof2 = new Sort[] { proof, proof };
-				declareInternalFunction(theory, "@res", proof2, proof, leftassoc);
-				declareInternalFunction(theory, "@lemma", bool1, proof, 0);
-				declareInternalFunction(theory, "@clause", new Sort[] { proof, bool }, proof, 0);
-				declareInternalFunction(theory, "@assumption", bool1, proof, 0);
-				declareInternalFunction(theory, "@asserted", bool1, proof, 0);
+				declareInternalFunction(theory, ProofConstants.FN_RES, proof2, proof, leftassoc);
+				declareInternalFunction(theory, ProofConstants.FN_LEMMA, bool1, proof, 0);
+				declareInternalFunction(theory, ProofConstants.FN_CLAUSE, new Sort[] { proof, bool }, proof, 0);
+				declareInternalFunction(theory, ProofConstants.FN_ASSUMPTION, bool1, proof, 0);
+				declareInternalFunction(theory, ProofConstants.FN_ASSERTED, bool1, proof, 0);
 			}
 			if (mProofMode > 1) {
 				// Full proofs.
 				final Sort[] polySorts = theory.createSortVariables("A");
-				declareInternalPolymorphicFunction(theory, "@refl", polySorts, polySorts, proof, 0);
-				declareInternalFunction(theory, "@trans", proof2, proof, leftassoc);
-				declareInternalFunction(theory, "@cong", proof2, proof, leftassoc);
-				declareInternalFunction(theory, "@exists", new Sort[] { proof }, proof, 0);
-				declareInternalFunction(theory, "@intern", bool1, proof, 0);
-				declareInternalFunction(theory, "@split", new Sort[] { proof, bool }, proof, 0);
-				declareInternalFunction(theory, "@eq", proof2, proof, 0);
-				declareInternalFunction(theory, "@rewrite", bool1, proof, 0);
-				declareInternalFunction(theory, "@tautology", bool1, proof, 0);
+				declareInternalPolymorphicFunction(theory, ProofConstants.FN_REFL, polySorts, polySorts, proof, 0);
+				declareInternalFunction(theory, ProofConstants.FN_TRANS, proof2, proof, leftassoc);
+				declareInternalFunction(theory, ProofConstants.FN_CONG, proof2, proof, leftassoc);
+				declareInternalFunction(theory, ProofConstants.FN_EXISTS, new Sort[] { proof }, proof, 0);
+				declareInternalFunction(theory, ProofConstants.FN_INTERN, bool1, proof, 0);
+				declareInternalFunction(theory, ProofConstants.FN_SPLIT, new Sort[] { proof, bool }, proof, 0);
+				declareInternalFunction(theory, ProofConstants.FN_EQ, proof2, proof, 0);
+				declareInternalFunction(theory, ProofConstants.FN_REWRITE, bool1, proof, 0);
+				declareInternalFunction(theory, ProofConstants.FN_TAUTOLOGY, bool1, proof, 0);
 			}
 			defineFunction(theory, new FunctionSymbolFactory("@undefined") {
 
@@ -769,7 +769,7 @@ public class SMTInterpol extends NoopScript {
 		}
 		try {
 			final ProofTermGenerator generator = new ProofTermGenerator(getTheory());
-			Term res = generator.convert(unsat);
+			final Term res = generator.convert(unsat);
 			return res;
 		} catch (final Exception exc) {
 			throw new SMTLIBException(exc.getMessage() == null ? exc.toString() : exc.getMessage());

@@ -29,6 +29,7 @@ import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.InfinitNumber;
 
 /**
@@ -204,7 +205,7 @@ public class InterpolatorClauseTermInfo {
 	 */
 	private void computeLeafTermInfo(final Term leafTerm) {
 		mLiterals.addAll(computeLiterals(leafTerm));
-		if (mNodeKind.equals("@lemma")) {
+		if (mNodeKind.equals(ProofConstants.FN_LEMMA)) {
 			final String lemmaType = computeLemmaType(leafTerm);
 			if (lemmaType.equals(":EQ")) {
 				computeEQLemmaInfo(leafTerm);
@@ -217,8 +218,8 @@ public class InterpolatorClauseTermInfo {
 			} else {
 				throw new IllegalArgumentException("Unknown lemma type!");
 			}
-		} else if (mNodeKind.equals("@clause")) {
-			AnnotatedTerm inputTerm = (AnnotatedTerm) ((ApplicationTerm) leafTerm).getParameters()[1];
+		} else if (mNodeKind.equals(ProofConstants.FN_CLAUSE)) {
+			final AnnotatedTerm inputTerm = (AnnotatedTerm) ((ApplicationTerm) leafTerm).getParameters()[1];
 			assert inputTerm.getAnnotations()[0].getKey().equals(":input");
 			mSource = (String) inputTerm.getAnnotations()[0].getValue();
 		} else {
@@ -276,10 +277,10 @@ public class InterpolatorClauseTermInfo {
 		final LinkedHashSet<Term> literals = new LinkedHashSet<Term>();
 		final String leafKind = computeNodeKind(term);
 		Term clause;
-		if (leafKind.equals("@lemma")) {
+		if (leafKind.equals(ProofConstants.FN_LEMMA)) {
 			final AnnotatedTerm innerLemma = (AnnotatedTerm) ((ApplicationTerm) term).getParameters()[0];
 			clause = innerLemma.getSubterm();
-		} else if (leafKind.equals("@clause")) {
+		} else if (leafKind.equals(ProofConstants.FN_CLAUSE)) {
 			final AnnotatedTerm annotLit = (AnnotatedTerm) ((ApplicationTerm) term).getParameters()[1];
 			clause = annotLit.getSubterm();
 		} else {
@@ -446,7 +447,7 @@ public class InterpolatorClauseTermInfo {
 	}
 
 	public boolean isResolution() {
-		return mNodeKind.equals("@res");
+		return mNodeKind.equals(ProofConstants.FN_RES);
 	}
 
 	public boolean isLeaf() {
