@@ -51,6 +51,9 @@ public class LinVar implements Comparable<LinVar> {
 	 */
 	Object mName;
 	
+	LiteralReason mUpperLiteral;
+	LiteralReason mLowerLiteral;
+
 	/** Current upper bound and its reason. null if no upper bound. */
 	LAReason mUpper;
 	/** Current lower bound and its reason. null if no lower bound. */
@@ -155,16 +158,22 @@ public class LinVar implements Comparable<LinVar> {
 	 * @return Upper bound.
 	 */
 	public final InfinitNumber getUpperBound() {
-		return mUpper == null ? InfinitNumber.POSITIVE_INFINITY
-			: mUpper.getBound();
+		return mUpperLiteral == null ? InfinitNumber.POSITIVE_INFINITY : mUpperLiteral.getBound();
 	}
 	/**
 	 * Get the lower bound.
 	 * @return Lower bound.
 	 */
 	public final InfinitNumber getLowerBound() {
-		return mLower == null ? InfinitNumber.NEGATIVE_INFINITY
-			: mLower.getBound();
+		return mLowerLiteral == null ? InfinitNumber.NEGATIVE_INFINITY : mLowerLiteral.getBound();
+	}
+
+	public final InfinitNumber getTightUpperBound() {
+		return mUpper == null ? InfinitNumber.POSITIVE_INFINITY : mUpper.getBound();
+	}
+
+	public final InfinitNumber getTightLowerBound() {
+		return mLower == null ? InfinitNumber.NEGATIVE_INFINITY : mLower.getBound();
 	}
 	public InfinitNumber getExactUpperBound() {
 		return mUpper == null ? InfinitNumber.POSITIVE_INFINITY
@@ -178,14 +187,14 @@ public class LinVar implements Comparable<LinVar> {
 	 * Check whether the upper bound is set.
 	 * @return <code>true</code> iff upper bound is finite.
 	 */
-	public final boolean hasUpperBound() {
+	public final boolean hasTightUpperBound() {
 		return mUpper != null;
 	}
 	/**
 	 * Check whether the lower bound is set.
 	 * @return <code>true</code> iff lower bound is finite.
 	 */
-	public final boolean hasLowerBound() {
+	public final boolean hasTightLowerBound() {
 		return mLower != null;
 	}
 	/// --- Bound testing ---
@@ -196,7 +205,7 @@ public class LinVar implements Comparable<LinVar> {
 	 */
 	public final boolean isIncrementPossible() {
 		assert !mBasic;
-		return mCurval.less(getUpperBound());
+		return mCurval.less(getTightUpperBound());
 	}
 	/**
 	 * Check whether we can decrement the value of this variable.
@@ -205,7 +214,7 @@ public class LinVar implements Comparable<LinVar> {
 	 */
 	public final boolean isDecrementPossible() {
 		assert !mBasic;
-		return getLowerBound().less(mCurval);
+		return getTightLowerBound().less(mCurval);
 	}
 	/// --- Name stuff ---
 	@Override
@@ -235,19 +244,19 @@ public class LinVar implements Comparable<LinVar> {
 	 * @return <code>false</code> iff <code>mlbound<=mcurval<=mubound</code>. 
 	 */
 	public boolean outOfBounds() {
-		if (mUpper != null) {
-			if (mCurval.mA.equals(mUpper.getExactBound().mA)) {
+		if (mUpperLiteral != null) {
+			if (mCurval.mA.equals(mUpperLiteral.getExactBound().mA)) {
 				fixEpsilon();
 			}
-			if (mUpper.getExactBound().less(mCurval)) {
+			if (mUpperLiteral.getExactBound().less(mCurval)) {
 				return true;
 			}
 		}
-		if (mLower != null) {
-			if (mCurval.mA.equals(mLower.getExactBound().mA)) {
+		if (mLowerLiteral != null) {
+			if (mCurval.mA.equals(mLowerLiteral.getExactBound().mA)) {
 				fixEpsilon();
 			}
-			if (mCurval.less(mLower.getExactBound())) {
+			if (mCurval.less(mLowerLiteral.getExactBound())) {
 				return true;
 			}
 		}
@@ -355,8 +364,8 @@ public class LinVar implements Comparable<LinVar> {
 	}
 	
 	public void updateUpperLowerSet(final BigInteger coeff, final LinVar nb) {
-		InfinitNumber ubound = nb.getUpperBound();
-		InfinitNumber lbound = nb.getLowerBound();
+		InfinitNumber ubound = nb.getTightUpperBound();
+		InfinitNumber lbound = nb.getTightLowerBound();
 		if (coeff.signum() < 0) {
 			final InfinitNumber swap = ubound;
 			ubound = lbound;
@@ -376,8 +385,8 @@ public class LinVar implements Comparable<LinVar> {
 		mNumLowerEps += lbound.mEps * coeff.signum();
 	}
 	public void updateUpperLowerClear(final BigInteger coeff, final LinVar nb) {
-		InfinitNumber ubound = nb.getUpperBound().negate();
-		InfinitNumber lbound = nb.getLowerBound().negate();
+		InfinitNumber ubound = nb.getTightUpperBound().negate();
+		InfinitNumber lbound = nb.getTightLowerBound().negate();
 		if (coeff.signum() < 0) {
 			final InfinitNumber swap = ubound;
 			ubound = lbound;
@@ -475,31 +484,31 @@ public class LinVar implements Comparable<LinVar> {
 			 entry != mHeadEntry; entry = entry.mNextInRow) {
 			value.addmul(entry.mColumn.mCurval, entry.mCoeff);
 			if (entry.mCoeff.signum() < 0) {
-				if (entry.mColumn.hasUpperBound()) {
-					lbound.addmul(entry.mColumn.getUpperBound(), entry.mCoeff);
+				if (entry.mColumn.hasTightUpperBound()) {
+					lbound.addmul(entry.mColumn.getTightUpperBound(), entry.mCoeff);
 				} else {
 					cntLower++;
 				}
-				cntLowerEps -= entry.mColumn.getUpperBound().mEps;
-				if (entry.mColumn.hasLowerBound()) {
-					ubound.addmul(entry.mColumn.getLowerBound(), entry.mCoeff);
+				cntLowerEps -= entry.mColumn.getTightUpperBound().mEps;
+				if (entry.mColumn.hasTightLowerBound()) {
+					ubound.addmul(entry.mColumn.getTightLowerBound(), entry.mCoeff);
 				} else {
 					cntUpper++;
 				}
-				cntUpperEps -= entry.mColumn.getLowerBound().mEps;
+				cntUpperEps -= entry.mColumn.getTightLowerBound().mEps;
 			} else {
-				if (entry.mColumn.hasUpperBound()) {
-					ubound.addmul(entry.mColumn.getUpperBound(), entry.mCoeff);
+				if (entry.mColumn.hasTightUpperBound()) {
+					ubound.addmul(entry.mColumn.getTightUpperBound(), entry.mCoeff);
 				} else {
 					cntUpper++;
 				}
-				cntUpperEps += entry.mColumn.getUpperBound().mEps;
-				if (entry.mColumn.hasLowerBound()) {
-					lbound.addmul(entry.mColumn.getLowerBound(), entry.mCoeff);
+				cntUpperEps += entry.mColumn.getTightUpperBound().mEps;
+				if (entry.mColumn.hasTightLowerBound()) {
+					lbound.addmul(entry.mColumn.getTightLowerBound(), entry.mCoeff);
 				} else {
 					cntLower++;
 				}
-				cntLowerEps += entry.mColumn.getLowerBound().mEps;
+				cntLowerEps += entry.mColumn.getTightLowerBound().mEps;
 			}
 		}
 		value = value.div(Rational.valueOf(mHeadEntry.mCoeff.negate(), BigInteger.ONE));
@@ -611,5 +620,22 @@ public class LinVar implements Comparable<LinVar> {
 	
 	public final InfinitNumber getValue() {
 		return mCurval;
+	}
+
+	private boolean checkReasonChain(LAReason reason, LiteralReason litreason) {
+		while (reason != null) {
+			if (reason instanceof LiteralReason) {
+				assert reason == litreason;
+				litreason = litreason.getOldLiteralReason();
+			}
+			reason = reason.getOldReason();
+		}
+		assert litreason == null;
+		return true;
+	}
+
+	public boolean checkReasonChains() {
+		return checkReasonChain(mUpper, mUpperLiteral)
+				&& checkReasonChain(mLower, mLowerLiteral);
 	}
 }

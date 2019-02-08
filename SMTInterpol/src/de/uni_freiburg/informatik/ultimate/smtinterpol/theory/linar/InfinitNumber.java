@@ -105,6 +105,19 @@ public class InfinitNumber implements Comparable<InfinitNumber> {
 	public InfinitNumber div(Rational c) {
 		return new InfinitNumber(mA.div(c),mEps * c.signum());
 	}
+
+	/**
+	 * Return the absolute value of this.
+	 * 
+	 * @return the absolute value.
+	 */
+	public InfinitNumber abs() {
+		if (signum() < 0) {
+			return negate();
+		} else {
+			return this;
+		}
+	}
 	/**
 	 * Returns -this.
 	 */

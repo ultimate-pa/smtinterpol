@@ -28,16 +28,18 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 public class LiteralReason extends LAReason {
 	private final Literal mLiteral;
 	ArrayDeque<LAReason> mDependents;
+	private LiteralReason mOldLiteralReason;
 	
-	public LiteralReason(LinVar var, InfinitNumber bound, boolean isUpper,
+	public LiteralReason(LinVar var, LiteralReason oldLiteralReason, InfinitNumber bound, boolean isUpper,
 			Literal lit, LiteralReason lastLit) {
 		super(var, bound, isUpper, lastLit);
+		mOldLiteralReason = oldLiteralReason;
 		mLiteral = lit;
 	}
 
-	public LiteralReason(LinVar var, InfinitNumber bound, boolean isUpper,
+	public LiteralReason(LinVar var, LiteralReason oldLiteralReason, InfinitNumber bound, boolean isUpper,
 			Literal lit) {
-		this(var, bound, isUpper, lit, null);
+		this(var, oldLiteralReason, bound, isUpper, lit, null);
 	}
 
 	public Literal getLiteral() {
@@ -100,5 +102,13 @@ public class LiteralReason extends LAReason {
 	 */
 	public int getStackPosition() {
 		return getLiteral().getAtom().getStackPosition();
+	}
+
+	public LiteralReason getOldLiteralReason() {
+		return mOldLiteralReason;
+	}
+
+	public void setOldLiteralReason(LiteralReason reason) {
+		mOldLiteralReason = reason;
 	}
 }

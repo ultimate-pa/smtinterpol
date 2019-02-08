@@ -121,6 +121,15 @@ public class ExactInfinitNumber implements Comparable<ExactInfinitNumber> {
 		}
 		return null;
 	}
+
+	/**
+	 * Computes the absolute value.
+	 *
+	 * @return the absolute value of this.
+	 */
+	public ExactInfinitNumber abs() {
+		return signum() < 0 ? negate() : this;
+	}
 	/**
 	 * Transform this number to an {@link InfinitNumber} such that the resulting
 	 * number is not bigger than this number.  Formally,
