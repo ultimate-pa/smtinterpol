@@ -33,15 +33,15 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SharedTerm;
  * Class representing a variable in a linear combination. This might either be
  * a slack variable or a real variable as introduced by the problem. For slack
  * variables we use the object name to refer to the corresponding linear term.
- * 
+ *
  * Natural order depends on the order of creation of variables. That is every
  * variable is ordered according to their creation time. Ordering on the
  * variables is one requirement to be able to prove termination of the
  * algorithm.
- * 
+ *
  * Every variable knows all possible bound constraints referring to it. This
  * way, bound propagations can easily be implemented.
- * 
+ *
  * @author Juergen Christ
  */
 public class LinVar implements Comparable<LinVar> {
@@ -50,7 +50,7 @@ public class LinVar implements Comparable<LinVar> {
 	 * non-basic variables or a LinTerm for initially basic variables.
 	 */
 	Object mName;
-	
+
 	LiteralReason mUpperLiteral;
 	LiteralReason mLowerLiteral;
 
@@ -59,16 +59,16 @@ public class LinVar implements Comparable<LinVar> {
 	/** Current lower bound and its reason. null if no lower bound. */
 	LAReason mLower;
 	/** Current value. */
-	private InfinitNumber mCurval;
+	private MutableExactInfinitNumber mCurval;
 	// Is value required to be integer?
 	boolean mIsInt;
 	// List of all bounds on this variable
-	NavigableMap<InfinitNumber, BoundConstraint> mConstraints = 
+	NavigableMap<InfinitNumber, BoundConstraint> mConstraints =
 		new TreeMap<InfinitNumber, BoundConstraint>();
 	// List of all equalities known for this variable
 	NavigableMap<InfinitNumber, LAEquality> mEqualities =
 		new TreeMap<InfinitNumber, LAEquality>();
-	
+
 	/**
 	 * All disequalities asserted on this variable.
 	 */
@@ -79,12 +79,12 @@ public class LinVar implements Comparable<LinVar> {
 	final int mMatrixpos;
 	int mNumcuts = 0;
 	/**
-	 * The dummy entry that starts the list for this linvar. 
+	 * The dummy entry that starts the list for this linvar.
 	 * The list follows nextInRow if this is a basic variable,
 	 * nextInCol if this is a non-basic variable.
 	 */
 	MatrixEntry mHeadEntry;
-	
+
 	/**
 	 * Number of infinities currently contributing to the upper bound.
 	 */
@@ -115,13 +115,13 @@ public class LinVar implements Comparable<LinVar> {
 	private MutableRational mLowerComposite = new MutableRational(Rational.ZERO);
 	LinVar[] mCachedRowVars;
 	Rational[] mCachedRowCoeffs;
-	
+
 	int mAssertionstacklevel;
 
 	int mChainlength;
-	
+
 	ExactInfinitNumber mExactVal = null;
-	
+
 	/// --- Construction ---
 	/**
 	 * Constructs a dummy linear variable.
@@ -140,7 +140,7 @@ public class LinVar implements Comparable<LinVar> {
 	 */
 	public LinVar(final Object name,final boolean isint, final int assertionstacklevel, final int num) {
 		mName = name;
-		mCurval = InfinitNumber.ZERO;
+		mCurval = new MutableExactInfinitNumber();
 		mIsInt = isint;
 		mBasic = false;
 		mMatrixpos = num;
@@ -197,25 +197,6 @@ public class LinVar implements Comparable<LinVar> {
 	public final boolean hasTightLowerBound() {
 		return mLower != null;
 	}
-	/// --- Bound testing ---
-	/**
-	 * Check whether we can increment the value of this variable
-	 * @return <code>true</code> iff value of this variable is below its upper
-	 * 		   bound
-	 */
-	public final boolean isIncrementPossible() {
-		assert !mBasic;
-		return mCurval.less(getTightUpperBound());
-	}
-	/**
-	 * Check whether we can decrement the value of this variable.
-	 * @return <code>true</code> iff value of this variable is above its lower
-	 * 		   bound.
-	 */
-	public final boolean isDecrementPossible() {
-		assert !mBasic;
-		return getTightLowerBound().less(mCurval);
-	}
 	/// --- Name stuff ---
 	@Override
 	public String toString() {
@@ -229,45 +210,39 @@ public class LinVar implements Comparable<LinVar> {
 	public boolean isInitiallyBasic() {
 		return mName instanceof LinTerm;
 	}
-	
+
 	@Override
 	public int hashCode() {
 		return mMatrixpos;
 	}
-	
+
 	@Override
 	public final int compareTo(final LinVar o) {
 		return mMatrixpos - o.mMatrixpos;
 	}
 	/**
 	 * Check whether this variable has a value outside its bounds.
-	 * @return <code>false</code> iff <code>mlbound<=mcurval<=mubound</code>. 
+	 * @return <code>false</code> iff <code>mlbound<=mcurval<=mubound</code>.
 	 */
 	public boolean outOfBounds() {
 		if (mUpperLiteral != null) {
-			if (mCurval.mA.equals(mUpperLiteral.getExactBound().mA)) {
-				fixEpsilon();
-			}
-			if (mUpperLiteral.getExactBound().less(mCurval)) {
+			if (mCurval.compareTo(mUpperLiteral.getBound()) > 0) {
 				return true;
 			}
 		}
 		if (mLowerLiteral != null) {
-			if (mCurval.mA.equals(mLowerLiteral.getExactBound().mA)) {
-				fixEpsilon();
-			}
-			if (mCurval.less(mLowerLiteral.getExactBound())) {
+			if (mCurval.compareTo(mLowerLiteral.getExactBound()) < 0) {
 				return true;
 			}
 		}
 		return false;
 	}
-	
+
 	/**
 	 * Dummy linear variable marking end of a non-basic chain.
 	 */
 	final static LinVar DUMMY_LINVAR = new LinVar();
-	
+
 	void addDiseq(final LAEquality ea) {
 		if (mDisequalities == null) {
 			mDisequalities = new HashMap<Rational,LAEquality>();
@@ -282,7 +257,7 @@ public class LinVar implements Comparable<LinVar> {
 	void removeDiseq(final LAEquality ea) {
 		// only remove the disequality if it is the right one.
 		// chronological backtracking will ensure that if we remove
-		// the disequality there is no other disequality with the 
+		// the disequality there is no other disequality with the
 		// same bound missing.
 		// mdisequalities can be null, if the literal was not set, because
 		// it already produced a conflict in another theory.
@@ -312,18 +287,18 @@ public class LinVar implements Comparable<LinVar> {
 	public InfinitNumber getEpsilon() {
 		return mIsInt ? InfinitNumber.ONE : InfinitNumber.EPSILON;
 	}
-	
+
 	public final void moveBounds(final LinVar other) {
 		mNumUpperInf = other.mNumUpperInf;
 		mNumLowerInf = other.mNumLowerInf;
 		mNumUpperEps = other.mNumUpperEps;
 		mNumLowerEps = other.mNumLowerEps;
-		mUpperComposite = other.mUpperComposite; 
+		mUpperComposite = other.mUpperComposite;
 		mLowerComposite = other.mLowerComposite;
 		other.mUpperComposite = null;
 		other.mLowerComposite = null;
 	}
-	
+
 	public void mulUpperLower(final Rational r) {
 		mUpperComposite.mul(r);
 		mLowerComposite.mul(r);
@@ -345,7 +320,7 @@ public class LinVar implements Comparable<LinVar> {
 		}
 		mNumUpperEps += (newBound.mEps - oldBound.mEps) * coeff.signum();
 	}
-	
+
 	public final void updateLower(
 			final BigInteger coeff, final InfinitNumber oldBound, final InfinitNumber newBound) {
 		if (oldBound.isInfinity()) {
@@ -362,7 +337,7 @@ public class LinVar implements Comparable<LinVar> {
 		}
 		mNumLowerEps += (newBound.mEps - oldBound.mEps) * coeff.signum();
 	}
-	
+
 	public void updateUpperLowerSet(final BigInteger coeff, final LinVar nb) {
 		InfinitNumber ubound = nb.getTightUpperBound();
 		InfinitNumber lbound = nb.getTightLowerBound();
@@ -422,7 +397,7 @@ public class LinVar implements Comparable<LinVar> {
 			return new InfinitNumber(denom, -InfinitNumber.normEpsilon(mNumLowerEps));
 		}
 	}
-	
+
 	public InfinitNumber getLowerComposite() {
 		if (mHeadEntry.mCoeff.signum() < 0) {
 			if (mNumLowerInf != 0) {
@@ -440,7 +415,7 @@ public class LinVar implements Comparable<LinVar> {
 			return new InfinitNumber(denom, -InfinitNumber.normEpsilon(mNumUpperEps));
 		}
 	}
-	
+
 	void resetComposites() {
 		mLowerComposite.setValue(Rational.ZERO);
 		mUpperComposite.setValue(Rational.ZERO);
@@ -451,7 +426,7 @@ public class LinVar implements Comparable<LinVar> {
 		mCachedRowCoeffs = null;
 		mCachedRowVars = null;
 	}
-	
+
 	/**
 	 * Get the linear term from which this basic linvar was created.
 	 * @throws ClassCastException if this is not an initially basic variable.
@@ -460,7 +435,7 @@ public class LinVar implements Comparable<LinVar> {
 	public Map<LinVar,BigInteger> getLinTerm() {
 		return ((LinTerm) mName).mCoeffs;
 	}
-	
+
 	/**
 	 * Get the shared term from which this non-basic linvar was created.
 	 * @throws ClassCastException if this is not an initially non-basic variable.
@@ -469,7 +444,7 @@ public class LinVar implements Comparable<LinVar> {
 	public SharedTerm getSharedTerm() {
 		return (SharedTerm) mName;
 	}
-	
+
 	public int getAssertionStackLevel() {
 		return mAssertionstacklevel;
 	}
@@ -477,12 +452,12 @@ public class LinVar implements Comparable<LinVar> {
 		assert mBasic;
 		int cntLower = 0, cntLowerEps = 0;
 		int cntUpper = 0, cntUpperEps = 0;
-		MutableInfinitNumber value = new MutableInfinitNumber();
-		final MutableInfinitNumber lbound = new MutableInfinitNumber();
-		final MutableInfinitNumber ubound = new MutableInfinitNumber();
+		final MutableExactInfinitNumber value = new MutableExactInfinitNumber();
+		final MutableExactInfinitNumber lbound = new MutableExactInfinitNumber();
+		final MutableExactInfinitNumber ubound = new MutableExactInfinitNumber();
 		for (MatrixEntry entry = mHeadEntry.mNextInRow;
 			 entry != mHeadEntry; entry = entry.mNextInRow) {
-			value.addmul(entry.mColumn.mCurval, entry.mCoeff);
+			value.addmul(entry.mColumn.mCurval.toNumber(), Rational.valueOf(entry.mCoeff, BigInteger.ONE));
 			if (entry.mCoeff.signum() < 0) {
 				if (entry.mColumn.hasTightUpperBound()) {
 					lbound.addmul(entry.mColumn.getTightUpperBound(), entry.mCoeff);
@@ -511,17 +486,18 @@ public class LinVar implements Comparable<LinVar> {
 				cntLowerEps += entry.mColumn.getTightLowerBound().mEps;
 			}
 		}
-		value = value.div(Rational.valueOf(mHeadEntry.mCoeff.negate(), BigInteger.ONE));
+		value.div(Rational.valueOf(mHeadEntry.mCoeff.negate(), BigInteger.ONE));
 		assert cntLower == mNumLowerInf && cntUpper == mNumUpperInf;
-		assert lbound.mA.equals(mLowerComposite);
-		assert lbound.mEps == InfinitNumber.normEpsilon(mNumLowerEps);
+		assert lbound.mReal.equals(mLowerComposite);
+		assert lbound.mEps.signum() == Integer.signum(mNumLowerEps);
 		assert cntLowerEps == mNumLowerEps;
-		assert ubound.mA.equals(mUpperComposite);
-		assert ubound.mEps == InfinitNumber.normEpsilon(mNumUpperEps);
+		assert ubound.mReal.equals(mUpperComposite);
+		assert ubound.mEps.signum() == Integer.signum(mNumUpperEps);
 		assert cntUpperEps == mNumUpperEps;
-		assert value.mA.equals(mCurval.mA);
+		assert value.mReal.equals(mCurval.mReal);
 		return true;
 	}
+
 	public boolean checkCoeffChain() {
 		if (!mBasic) {
 			return true;
@@ -545,7 +521,7 @@ public class LinVar implements Comparable<LinVar> {
 		return mUpper != null && mLower != null
 			&& mUpper.getBound().equals(mLower.getBound());
 	}
-	
+
 	boolean checkChainlength() {
 		if (mBasic) {
 			int length = 0;
@@ -564,62 +540,21 @@ public class LinVar implements Comparable<LinVar> {
 		}
 		return true;
 	}
-	
-	public Rational computeEpsilon() {
-		if (!mBasic) {
-			return Rational.valueOf(mCurval.mEps, 1);
-		}
-		BigInteger epsilons = BigInteger.ZERO;
-		for (MatrixEntry entry = mHeadEntry.mNextInRow; entry != mHeadEntry;
-				entry = entry.mNextInRow) {
-			final int eps = entry.mColumn.mCurval.mEps;
-			if (eps > 0) {
-				epsilons = epsilons.subtract(entry.mCoeff);
-			} else if (eps < 0) {
-				epsilons = epsilons.add(entry.mCoeff);
-			}
-		}
-		return Rational.valueOf(epsilons, mHeadEntry.mCoeff);
-	}
 
-	public void fixEpsilon() {
-		if (mBasic) {
-			BigInteger epsilons = BigInteger.ZERO;
-			for (MatrixEntry entry = mHeadEntry.mNextInRow; entry != mHeadEntry;
-				entry = entry.mNextInRow) {
-				final int eps = entry.mColumn.mCurval.mEps;
-				if (eps > 0) {
-					epsilons = epsilons.subtract(entry.mCoeff);
-				} else if (eps < 0) {
-					epsilons = epsilons.add(entry.mCoeff);
-				}
-			}
-			mCurval = new InfinitNumber(mCurval.mA, 
-					epsilons.signum() * mHeadEntry.mCoeff.signum());
-		}
-	}
 	public LAEquality getEquality(final InfinitNumber bound) {
 		return mEqualities.get(bound);
 	}
-	
-	public final ExactInfinitNumber getExactValue() {
-		if (mExactVal == null) {
-			mExactVal = new ExactInfinitNumber(mCurval.mA, computeEpsilon());
-		}
-		return mExactVal;
+
+	public final ExactInfinitNumber getValue() {
+		return mCurval.toNumber();
 	}
-	
-	public final void clearExactValue() {
-		mExactVal = null;
+
+	public final void setValue(final MutableExactInfinitNumber value) {
+		mCurval.assign(value);
 	}
-	
-	public final void setValue(final InfinitNumber value) {
-		mCurval = value;
-		mExactVal = null;
-	}
-	
-	public final InfinitNumber getValue() {
-		return mCurval;
+
+	public final void addValue(final ExactInfinitNumber value) {
+		mCurval.add(value);
 	}
 
 	private boolean checkReasonChain(LAReason reason, LiteralReason litreason) {

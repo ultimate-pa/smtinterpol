@@ -24,10 +24,10 @@ import de.uni_freiburg.informatik.ultimate.logic.Rational;
  * Class representing a number in the two dimensional infinitesimal space.
  * (a,b) is a representation of a+b*e where e>0 is an infinitesimal parameter
  * used to handle strict inequalities.
- * 
- * Note that members of this class are immutable. Use 
+ *
+ * Note that members of this class are immutable. Use
  * <code>MutableInfinitNumber</code> for a mutable version.
- * 
+ *
  * @author Juergen Christ
  */
 public class InfinitNumber implements Comparable<InfinitNumber> {
@@ -47,7 +47,7 @@ public class InfinitNumber implements Comparable<InfinitNumber> {
 	 * @param a Rational part of the number.
 	 * @param b Infinitesimal part of the number.
 	 */
-	public InfinitNumber(Rational a, int eps) {
+	public InfinitNumber(final Rational a, final int eps) {
 		mA = a;
 		mEps = eps;
 	}
@@ -59,15 +59,15 @@ public class InfinitNumber implements Comparable<InfinitNumber> {
 	public static final InfinitNumber ONE = new InfinitNumber(Rational.ONE,0);
 	public static final InfinitNumber EPSILON =
 			new InfinitNumber(Rational.ZERO,1);
-	
-	static int normEpsilon(int eps) {
-		return eps > 0 ? 1 : eps < 0 ? -1 : 0;
+
+	static int normEpsilon(final int eps) {
+		return Integer.signum(eps);
 	}
 	/// --- Arithmetic ---
 	/**
 	 * Returns this + other.
 	 */
-	public InfinitNumber add(InfinitNumber other) {
+	public InfinitNumber add(final InfinitNumber other) {
 		// Unfortunately, in many places we add "incompatible" InfinitNumbers.
 		// Sometimes, because we are only interested in the ma part, sometimes
 		// intentionally, for example to get rid of the epsilon by adding it.
@@ -79,7 +79,7 @@ public class InfinitNumber implements Comparable<InfinitNumber> {
 	/**
 	 * Returns this - other.
 	 */
-	public InfinitNumber sub(InfinitNumber other) {
+	public InfinitNumber sub(final InfinitNumber other) {
 		// Unfortunately, in many places we add "incompatible" InfinitNumbers.
 		// Sometimes, because we are only interested in the ma part, sometimes
 		// intentionally, for example to get rid of the epsilon by adding it.
@@ -89,26 +89,26 @@ public class InfinitNumber implements Comparable<InfinitNumber> {
 				normEpsilon(mEps - other.mEps));
 	}
 
-	public ExactInfinitNumber sub(ExactInfinitNumber other) {
-		return new ExactInfinitNumber(mA.sub(other.getRealValue()), 
+	public ExactInfinitNumber sub(final ExactInfinitNumber other) {
+		return new ExactInfinitNumber(mA.sub(other.getRealValue()),
 				Rational.valueOf(mEps, 1).sub(other.getEpsilon()));
 	}
 	/**
 	 * Returns c*this.
 	 */
-	public InfinitNumber mul(Rational c) {
+	public InfinitNumber mul(final Rational c) {
 		return new InfinitNumber(mA.mul(c),mEps * c.signum());
 	}
 	/**
 	 * Returns this/c.
 	 */
-	public InfinitNumber div(Rational c) {
+	public InfinitNumber div(final Rational c) {
 		return new InfinitNumber(mA.div(c),mEps * c.signum());
 	}
 
 	/**
 	 * Return the absolute value of this.
-	 * 
+	 *
 	 * @return the absolute value.
 	 */
 	public InfinitNumber abs() {
@@ -130,7 +130,7 @@ public class InfinitNumber implements Comparable<InfinitNumber> {
 	 * @param fac2
 	 * @return
 	 */
-	public InfinitNumber addmul(InfinitNumber fac1,Rational fac2) {
+	public InfinitNumber addmul(final InfinitNumber fac1,final Rational fac2) {
 		//if (meps * fac1.meps*fac2.signum() < 0) throw new AssertionError(); // TODO make assert
 		return new InfinitNumber(mA.addmul(fac1.mA,fac2),
 				normEpsilon(mEps + fac1.mEps * fac2.signum()));
@@ -141,14 +141,14 @@ public class InfinitNumber implements Comparable<InfinitNumber> {
 	 * @param d
 	 * @return
 	 */
-	public InfinitNumber subdiv(InfinitNumber s,Rational d) {
+	public InfinitNumber subdiv(final InfinitNumber s,final Rational d) {
 		//if (meps * s.meps*d.signum() > 0) throw new AssertionError(); // TODO make assert
 		return new InfinitNumber(mA.subdiv(s.mA,d),
 				normEpsilon(mEps - s.mEps) * d.signum());
 	}
 	/// --- Comparing ---
 	@Override
-	public int compareTo(InfinitNumber arg0) {
+	public int compareTo(final InfinitNumber arg0) {
 		final int ac = mA.compareTo(arg0.mA);
 		if (ac == 0) {
 			return mEps - arg0.mEps;
@@ -156,13 +156,13 @@ public class InfinitNumber implements Comparable<InfinitNumber> {
 		return ac;
 	}
 	@Override
-	public boolean equals(Object o) {
+	public boolean equals(final Object o) {
 		if (o instanceof InfinitNumber) {
 			final InfinitNumber n = (InfinitNumber) o;
 			return mA.equals(n.mA) && mEps == n.mEps;
 		}
-		if (o instanceof MutableInfinitNumber) {
-			return ((MutableInfinitNumber)o).equals(this);
+		if (o instanceof MutableExactInfinitNumber) {
+			return ((MutableExactInfinitNumber)o).equals(this);
 		}
 		return false;
 	}
@@ -172,23 +172,23 @@ public class InfinitNumber implements Comparable<InfinitNumber> {
 	}
 	/**
 	 * Returns <code>true</code> iff this is less then other. This function is
-	 * considered slightly more efficient than 
-	 * <code>this.compareTo(other) < 0</code> but yields the same result. 
+	 * considered slightly more efficient than
+	 * <code>this.compareTo(other) < 0</code> but yields the same result.
 	 * @param other Number to compare against.
 	 * @return <code>true</code> iff this is less than other.
 	 */
-	public boolean less(InfinitNumber other) {
+	public boolean less(final InfinitNumber other) {
 		final int ac = mA.compareTo(other.mA);
 		return ac < 0 || (ac == 0 && mEps < other.mEps);
 	}
 	/**
-	 * Returns <code>true</code> iff this is less then or equal to other. This 
-	 * function is considered slightly more efficient than 
-	 * <code>this.compareTo(other) <= 0</code> but yields the same result. 
+	 * Returns <code>true</code> iff this is less then or equal to other. This
+	 * function is considered slightly more efficient than
+	 * <code>this.compareTo(other) <= 0</code> but yields the same result.
 	 * @param other Number to compare against.
 	 * @return <code>true</code> iff this is less than or equal to other.
 	*/
-	public boolean lesseq(InfinitNumber other) {
+	public boolean lesseq(final InfinitNumber other) {
 		final int ac = mA.compareTo(other.mA);
 		return ac < 0 || (ac == 0 && mEps <= other.mEps);
 	}
@@ -199,7 +199,7 @@ public class InfinitNumber implements Comparable<InfinitNumber> {
 	public boolean isInfinity() {
 		return mA == Rational.POSITIVE_INFINITY || mA == Rational.NEGATIVE_INFINITY;
 	}
-	
+
 	@Override
 	public String toString() {
 		if (mEps == 0) {
@@ -245,11 +245,11 @@ public class InfinitNumber implements Comparable<InfinitNumber> {
 		}
 		return new InfinitNumber(mA.add(Rational.ONE),0);
 	}
-	
+
 	public int signum() {
 		return mA == Rational.ZERO ? mEps : mA.signum();
 	}
-	
+
 	public InfinitNumber inverse() {
 		// Note that for c != 0:
 		//    1/(c + sign*eps) ~= 1/c - sign*eps/(c*c)

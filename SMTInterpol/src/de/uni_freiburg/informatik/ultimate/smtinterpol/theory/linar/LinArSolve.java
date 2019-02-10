@@ -35,7 +35,6 @@ import java.util.TreeSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
-import de.uni_freiburg.informatik.ultimate.logic.MutableRational;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
@@ -142,16 +141,6 @@ public class LinArSolve implements ITheory {
 	 */
 	private int mVarNum = 0;
 	/**
-	 * Cache for the lower bound of the freedom interval.  This cache is used to
-	 * safe frequent memory allocations.
-	 */
-	private ExactInfinitNumber mLower;
-	/**
-	 * Cache for the upper bound of the freedom interval.  This cache is used to
-	 * safe frequent memory allocations.
-	 */
-	private ExactInfinitNumber mUpper;
-	/**
 	 * Basic initialization.
 	 * @param engine DPLLEngine this theory is used in.
 	 */
@@ -222,7 +211,7 @@ public class LinArSolve implements ITheory {
 		for (final LinVar v : mLinvars) {
 			assert !v.outOfBounds() || mOob.contains(v)
 				: "Variable " + v + " is out of bounds: "
-				+ v.getLowerBound() + "<=" + v.getValue() + "<="
+					+ v.getLowerBound() + "<=" + v.getValue() + "<="
 				+ v.getUpperBound();
 		}
 		return true;
@@ -316,19 +305,19 @@ public class LinArSolve implements ITheory {
 	 * @param updateVar the non-basic variable.
 	 * @param newValue  Value to set for this variable.
 	 */
-	void updateVariableValue(final LinVar updateVar, final InfinitNumber newValue) {
+	void updateVariableValue(final LinVar updateVar, final ExactInfinitNumber newValue) {
 		assert(!updateVar.mBasic);
-		final InfinitNumber diff = newValue.sub(updateVar.getValue());
-		updateVar.setValue(newValue);
+		final ExactInfinitNumber diff = newValue.sub(updateVar.getValue());
+		updateVar.addValue(diff);
 		for (MatrixEntry entry = updateVar.mHeadEntry.mNextInCol;
 			entry != updateVar.mHeadEntry; entry = entry.mNextInCol) {
 			final LinVar var = entry.mRow;
 			assert var.mBasic;
 			final Rational coeff = Rational.valueOf(entry.mCoeff,
 					var.mHeadEntry.mCoeff.negate());
-			var.setValue(var.getValue().addmul(diff,coeff));
+			var.addValue(diff.mul(coeff));
 			assert var.checkBrpCounters();
-			assert !var.getValue().mA.denominator().equals(BigInteger.ZERO);
+			assert !var.getValue().getRealValue().denominator().equals(BigInteger.ZERO);
 			if (var.outOfBounds()) {
 				mOob.add(var);
 			}
@@ -347,24 +336,23 @@ public class LinArSolve implements ITheory {
 	private Clause updateVariable(final LinVar updateVar, final boolean isUpper,
 			final InfinitNumber oldBound, final InfinitNumber newBound) {
 		assert(!updateVar.mBasic);
-		InfinitNumber diff = newBound.sub(updateVar.getValue());
-		if ((diff.signum() > 0) == isUpper) {
-			diff = InfinitNumber.ZERO;
-		} else {
-			updateVar.setValue(newBound);
+		final ExactInfinitNumber diff = updateVar.getValue().isub(newBound);
+		final boolean changeVar = isUpper ? (diff.signum() < 0) : diff.signum() > 0;
+		if (changeVar) {
+			updateVar.addValue(diff);
 		}
 
-		assert !(updateVar.getValue().mA.denominator().equals(BigInteger.ZERO));
+		assert !(updateVar.getValue().getRealValue().denominator().equals(BigInteger.ZERO));
 		for (MatrixEntry entry = updateVar.mHeadEntry.mNextInCol;
 			entry != updateVar.mHeadEntry; entry = entry.mNextInCol) {
 			final LinVar var = entry.mRow;
 			assert var.mBasic;
 			final Rational coeff = Rational.valueOf(entry.mCoeff,
 					var.mHeadEntry.mCoeff.negate());
-			if (diff != InfinitNumber.ZERO) {
-				var.setValue(var.getValue().addmul(diff,coeff));
+			if (changeVar) {
+				var.addValue(diff.mul(coeff));
 			}
-			assert !var.getValue().mA.denominator().equals(BigInteger.ZERO);
+			assert !var.getValue().getRealValue().denominator().equals(BigInteger.ZERO);
 			if (var.outOfBounds()) {
 				mOob.add(var);
 			}
@@ -420,8 +408,8 @@ public class LinArSolve implements ITheory {
 				if (!var.mBasic) { // NOPMD
 					updatePropagationCountersOnBacktrack(
 							var, reason.getBound(), var.getTightUpperBound(), true);
-					if (var.getValue().less(var.getTightLowerBound())) {
-						updateVariableValue(var, var.getTightLowerBound());
+					if (var.getValue().compareTo(var.getLowerBound()) < 0) {
+						updateVariableValue(var, new ExactInfinitNumber(var.getLowerBound()));
 					}
 				} else if (var.outOfBounds()) {
 					mOob.add(var);
@@ -443,8 +431,8 @@ public class LinArSolve implements ITheory {
 				if (!var.mBasic) { // NOPMD
 					updatePropagationCountersOnBacktrack(
 							var, reason.getBound(), var.getTightLowerBound(), false);
-					if (var.getTightUpperBound().less(var.getValue())) {
-						updateVariableValue(var, var.getTightUpperBound());
+					if (var.getValue().compareTo(var.getUpperBound()) > 0) {
+						updateVariableValue(var, new ExactInfinitNumber(var.getUpperBound()));
 					}
 				} else if (var.outOfBounds()) {
 					mOob.add(var);
@@ -610,7 +598,7 @@ public class LinArSolve implements ITheory {
 		assert checkClean();
 		mEngine.getLogger().debug(new DebugMessage("cong: {0}", cong));
 		for (final LinVar v : mLinvars) {
-			final LAEquality ea = v.getDiseq(v.getValue().mA);
+			final LAEquality ea = v.getDiseq(v.getValue().getRealValue());
 			if (ea == null) {
 				continue;
 			}
@@ -641,11 +629,8 @@ public class LinArSolve implements ITheory {
 
 	private boolean compositesSatisfied() {
 		for (final LinVar v : mLinvars) {
-			if (v.mBasic) {
-				v.fixEpsilon();
-			}
-			assert v.getValue().lesseq(v.getTightUpperBound());
-			assert v.getTightLowerBound().lesseq(v.getValue());
+			assert v.getValue().compareTo(v.getTightUpperBound()) <= 0;
+			assert v.getValue().compareTo(v.getTightLowerBound()) >= 0;
 		}
 		return true;
 	}
@@ -801,7 +786,7 @@ public class LinArSolve implements ITheory {
 				if (var.mBasic) {
 					mOob.add(var);
 				} else {
-					updateVariableValue(var, bound);
+					updateVariableValue(var, new ExactInfinitNumber(bound));
 				}
 			}
 		} else {
@@ -837,7 +822,7 @@ public class LinArSolve implements ITheory {
 				if (var.mBasic) {
 					mOob.add(var);
 				} else {
-					updateVariableValue(var, bound);
+					updateVariableValue(var, new ExactInfinitNumber(bound));
 				}
 			}
 		}
@@ -1062,8 +1047,8 @@ public class LinArSolve implements ITheory {
 		if (mEps == null) {
 			prepareModel();
 		}
-		final Rational cureps = var.computeEpsilon();
-		return var.getValue().mA.addmul(mEps, cureps);
+		final ExactInfinitNumber value = var.getValue();
+		return value.getRealValue().addmul(value.getEpsilon(), mEps);
 	}
 
 	public void dumpTableaux(final LogProxy logger) {
@@ -1176,7 +1161,7 @@ public class LinArSolve implements ITheory {
 	/**
 	 * Pivot nonbasic versus basic variables along a coefficient. After calling this, you need to check for pending
 	 * bound propagations.
-	 * 
+	 *
 	 * @param pivotEntry
 	 *            Coefficient specifying basic and nonbasic variable.
 	 */
@@ -1257,8 +1242,8 @@ public class LinArSolve implements ITheory {
 	private Clause ensureIntegrals() {
 		boolean isIntegral = true;
 		for (final LinVar lv : mIntVars) {
-			lv.fixEpsilon();
-			if (!lv.getValue().isIntegral()) {
+			final ExactInfinitNumber value = lv.getValue();
+			if (!value.getRealValue().isIntegral() || !value.getEpsilon().equals(Rational.ZERO)) {
 				isIntegral = false;
 			}
 		}
@@ -1312,18 +1297,19 @@ public class LinArSolve implements ITheory {
 		}
 
 		boolean hasOob = false;
-		for (Iterator<LinVar> it = mOob.iterator(); it.hasNext();) {
-			LinVar var = it.next();
+		for (final Iterator<LinVar> it = mOob.iterator(); it.hasNext();) {
+			final LinVar var = it.next();
 			if (var.outOfBounds()) {
 				hasOob = true;
 			} else {
 				it.remove();
 			}
 		}
-		if (!hasOob)
+		if (!hasOob) {
 			return null;
+		}
 
-		Clause conflict = new SOIPivoter(this).fixOobs();
+		final Clause conflict = new SOIPivoter(this).fixOobs();
 		if (conflict == null) {
 			mOob.clear();
 		}
@@ -1463,7 +1449,7 @@ public class LinArSolve implements ITheory {
 		v.mHeadEntry.mNextInCol = v.mHeadEntry.mPrevInCol = v.mHeadEntry;
 		v.resetComposites();
 
-		MutableInfinitNumber val = new MutableInfinitNumber();
+		final MutableExactInfinitNumber val = new MutableExactInfinitNumber();
 		Rational gcd = Rational.ONE;
 		for (final Rational c : coeffs.values()) {
 			gcd = gcd.gcd(c);
@@ -1480,13 +1466,13 @@ public class LinArSolve implements ITheory {
 			val.addmul(nb.getValue(), value);
 			v.updateUpperLowerSet(coeff, nb);
 		}
-		val = val.mul(gcd);
-		v.setValue(val.toInfinitNumber());
+		val.mul(gcd);
+		v.setValue(val);
 		assert v.checkBrpCounters();
 		if (v.mNumUpperInf == 0 || v.mNumLowerInf == 0) {
 			mPropBounds.add(v);
 		}
-		assert !v.getValue().mA.denominator().equals(BigInteger.ZERO);
+		assert !v.getValue().getRealValue().denominator().equals(BigInteger.ZERO);
 	}
 
 	/**
@@ -1497,7 +1483,6 @@ public class LinArSolve implements ITheory {
 	 */
 	private TreeMap<LinVar, Rational> removeVar(final LinVar v) {
 		assert v.mBasic;
-//		mcurbasics.remove(v);
 		mLinvars.remove(v);
 		final TreeMap<LinVar,Rational> res = new TreeMap<LinVar, Rational>();
 		final BigInteger denom = v.mHeadEntry.mCoeff.negate();
@@ -1560,59 +1545,45 @@ public class LinArSolve implements ITheory {
 	}
 
 	/**
-     * Compute freedom interval for a nonbasic variable.  This function fills
-     * the private member variables {@link #mLower} and {@link #mUpper}.
-     * @param var   Nonbasic variable to compute freedom interval for.
-     */
-	private void freedom(final LinVar var) {
-		mLower = new ExactInfinitNumber(var.getExactLowerBound());
-		mUpper = new ExactInfinitNumber(var.getExactUpperBound());
-		// fast path: Fixed variable
-		if (mLower.equals(mUpper)) {
-			return;
-		}
-		ExactInfinitNumber maxBelow = ExactInfinitNumber.NEGATIVE_INFINITY;
-		ExactInfinitNumber minAbove = ExactInfinitNumber.POSITIVE_INFINITY;
-		for (MatrixEntry me = var.mHeadEntry.mNextInCol; me != var.mHeadEntry;
-			me = me.mNextInCol) {
-			final Rational coeff = Rational.valueOf(
-					me.mRow.mHeadEntry.mCoeff.negate(), me.mCoeff);
-			ExactInfinitNumber below = me.mRow.getExactLowerBound().sub(
-					me.mRow.getExactValue()).mul(coeff);
-			ExactInfinitNumber above = me.mRow.getExactUpperBound().sub(
-					me.mRow.getExactValue()).mul(coeff);
+	 * Compute freedom interval for a nonbasic variable.
+	 *
+	 * @param var
+	 *            Nonbasic variable to compute freedom interval for.
+	 * @return the minimum and maximum amount the current nonbasic can be changed without violating any bounds.
+	 */
+	private ExactInfinitNumber[] freedom(final LinVar var) {
+		final ExactInfinitNumber value = var.getValue();
+		ExactInfinitNumber min = value.isub(var.getLowerBound());
+		ExactInfinitNumber max = value.isub(var.getUpperBound());
+		for (MatrixEntry me = var.mHeadEntry.mNextInCol; me != var.mHeadEntry && !min.equals(max); me = me.mNextInCol) {
+			assert min.signum() <= 0 && max.signum() >= 0;
+			final Rational coeff = Rational.valueOf(me.mRow.mHeadEntry.mCoeff.negate(), me.mCoeff);
+			final ExactInfinitNumber rowvalue = me.mRow.getValue();
+			final ExactInfinitNumber below = rowvalue.isub(me.mRow.getLowerBound()).mul(coeff);
+			final ExactInfinitNumber above = rowvalue.isub(me.mRow.getUpperBound()).mul(coeff);
 			if (coeff.isNegative()) {
 				// reverse orders
-				final ExactInfinitNumber t = below;
-				below = above;
-				above = t;
-			}
-			if (below.signum() > 0) {
-				// We can only violate a bound by a number of epsilons
-				assert below.getRealValue() == Rational.ZERO;
-				below = new ExactInfinitNumber();
-			}
-			if (above.signum() < 0) {
-				// We can only violate a bound by a number of epsilons
-				assert above.getRealValue() == Rational.ZERO;
-				above = new ExactInfinitNumber();
-			}
-			if (below.compareTo(maxBelow) > 0) {
-				maxBelow = below;
-			}
-			if (above.compareTo(minAbove) < 0) {
-				minAbove = above;
+				assert below.signum() >= 0 && above.signum() <= 0;
+				if (below.compareTo(max) < 0) {
+					max = below;
+				}
+				if (above.compareTo(min) > 0) {
+					min = above;
+				}
+			} else {
+				assert below.signum() <= 0 && above.signum() >= 0;
+				if (above.compareTo(max) < 0) {
+					max = above;
+				}
+				if (below.compareTo(min) > 0) {
+					min = below;
+				}
 			}
 		}
-		maxBelow = maxBelow.add(var.getValue());
-		minAbove = minAbove.add(var.getValue());
-		if (maxBelow.compareTo(mLower) > 0) {
-			mLower = maxBelow;
-		}
-		if (minAbove.compareTo(mUpper) < 0) {
-			mUpper = minAbove;
-		}
+		assert min.signum() <= 0 && max.signum() >= 0;
+		return new ExactInfinitNumber[] { min, max };
 	}
+
 	/**
 	 * Mutate a model such that less variables have the same value.
 	 *
@@ -1622,27 +1593,29 @@ public class LinArSolve implements ITheory {
 	private void mutate() {
 		final Map<Rational,Set<ExactInfinitNumber>> sharedPoints =
 				new TreeMap<Rational, Set<ExactInfinitNumber>>();
-		final Set<InfinitNumber> prohib = new TreeSet<InfinitNumber>();
+		final Set<ExactInfinitNumber> prohib = new TreeSet<ExactInfinitNumber>();
 		for (final LinVar lv : mLinvars) {
-			if (lv.mBasic
-					|| lv.getTightUpperBound().equals(lv.getTightLowerBound())) {
+			if (lv.mBasic || lv.getTightUpperBound().equals(lv.getTightLowerBound())) {
 				// variable is basic or is fixed by its own constraints
 				continue;
 			}
-			freedom(lv);
-			if (mLower.equals(mUpper)) {
+			final ExactInfinitNumber[] lowerupper = freedom(lv);
+			if (lowerupper[0].equals(lowerupper[1])) {
 				// variable is fixed by its own constraints and basic variables
 				continue;
 			}
 			Rational gcd = lv.isInt() ? Rational.ONE : Rational.ZERO;
-			final ExactInfinitNumber exactval = lv.getExactValue();
+			final ExactInfinitNumber exactval = lv.getValue();
 
+			// prohib gives the differences that we should not choose as they cause a disequality to not hold any more.
+			// sharedPoints gives for each basic factor the current values of the shared variables having that factor.
+			// this allows us to quickly determine if we get a new shared conflict.
 			sharedPoints.clear();
 			prohib.clear();
 			// prevent violating disequalities
 			if (lv.mDisequalities != null) {
 				for (final Rational diseq : lv.mDisequalities.keySet()) {
-					prohib.add(new InfinitNumber(diseq, 0));
+					prohib.add(new ExactInfinitNumber(diseq).sub(exactval));
 				}
 			}
 
@@ -1659,14 +1632,8 @@ public class LinArSolve implements ITheory {
 				}
 				if (basic.mDisequalities != null) {
 					for (final Rational diseq : basic.mDisequalities.keySet()) {
-						final ExactInfinitNumber basicval = basic.getExactValue();
-						final ExactInfinitNumber bad =
-								new ExactInfinitNumber(diseq, Rational.ZERO)
-									.sub(basicval).div(coeff).add(exactval);
-						final InfinitNumber badapprox = bad.toInfinitNumber();
-						if (badapprox != null) {
-							prohib.add(badapprox);
-						}
+						final ExactInfinitNumber basicval = basic.getValue();
+						prohib.add(new ExactInfinitNumber(diseq).sub(basicval).div(coeff));
 					}
 				}
 			}
@@ -1689,9 +1656,7 @@ public class LinArSolve implements ITheory {
 				ExactInfinitNumber sharedCurVal = new ExactInfinitNumber(
 						sharedVar.getOffset(), Rational.ZERO);
 				if (sharedLV != null) {
-					sharedCurVal = sharedCurVal.add(
-							sharedLV.getExactValue()
-							.mul(sharedVar.getFactor()));
+					sharedCurVal = sharedCurVal.add(sharedLV.getValue().mul(sharedVar.getFactor()));
 				}
 				set.add(sharedCurVal);
 			}
@@ -1699,12 +1664,10 @@ public class LinArSolve implements ITheory {
 			// it by eps, otherwise incrementing by a multiple of gcd.inverse()
 			// will preserve integrity of all depending variables.
 			final Rational lcm = gcd.inverse();
-			final InfinitNumber chosen =
-					choose(prohib,sharedPoints,lcm,lv.getValue());
-			assert (new ExactInfinitNumber(chosen).compareTo(mLower) >= 0
-					&& new ExactInfinitNumber(chosen).compareTo(mUpper) <= 0);
-			if (!chosen.equals(lv.getValue())) {
-				updateVariableValue(lv, chosen);
+			final ExactInfinitNumber chosen = choose(lowerupper[0], lowerupper[1], prohib, sharedPoints, lcm);
+			assert (chosen.compareTo(lowerupper[0]) >= 0 && chosen.compareTo(lowerupper[1]) <= 0);
+			if (chosen.signum() != 0) {
+				updateVariableValue(lv, lv.getValue().add(chosen));
 			}
 		}
 	}
@@ -1719,44 +1682,27 @@ public class LinArSolve implements ITheory {
 		final Map<ExactInfinitNumber, List<SharedTerm>> result =
 			new HashMap<ExactInfinitNumber, List<SharedTerm>>();
 		for (final SharedTerm shared : mSharedVars) {
-			final MutableRational real = new MutableRational(shared.getOffset());
-			final MutableRational eps = new MutableRational(0, 1);
+			final MutableExactInfinitNumber value = new MutableExactInfinitNumber(shared.getOffset(), 0);
 			if (shared.getLinVar() != null) {
-				if (shared.getLinVar().mBasic) {
-					eps.addmul(shared.getLinVar().computeEpsilon(),
-							shared.getFactor());
-				} else if (shared.getLinVar().getValue().mEps > 0) {
-					eps.add(shared.getFactor());
-				} else if (shared.getLinVar().getValue().mEps < 0) {
-					eps.sub(shared.getFactor());
-				}
-				real.addmul(shared.getLinVar().getValue().mA, shared.getFactor());
+				value.addmul(shared.getLinVar().getValue(), shared.getFactor());
 			}
-			final ExactInfinitNumber curval = new ExactInfinitNumber(
-					real.toRational(), eps.toRational());
-			if (mEngine.getLogger().isDebugEnabled()) {
-				mEngine.getLogger().debug(shared + " = " + curval);
-			}
-			List<SharedTerm> slot = result.get(curval);
+			mEngine.getLogger().debug("%s = %s", shared, value);
+			List<SharedTerm> slot = result.get(value.toNumber());
 			if (slot == null) {
 				slot = new LinkedList<SharedTerm>();
-				result.put(curval, slot);
+				result.put(value.toNumber(), slot);
 			}
 			slot.add(shared);
 		}
 		return result;
 	}
+
 	private Literal ensureDisequality(final LAEquality eq) {
 		final LinVar v = eq.getVar();
 		assert (eq.getDecideStatus().getSign() == -1);
+		final ExactInfinitNumber value = v.getValue();
 		// Disequality already satisfied...
-		if (!v.getValue().mA.equals(eq.getBound())) {
-			return null;
-		}
-		if (v.mBasic) {
-			v.fixEpsilon();
-		}
-		if (v.getValue().mEps != 0) {
+		if (!value.getRealValue().equals(eq.getBound()) || value.getEpsilon().signum() != 0) {
 			return null;
 		}
 
@@ -1774,200 +1720,104 @@ public class LinArSolve implements ITheory {
 		}
 		// Here, we have neither inequality. Create one...
 		return usegt
-				? generateConstraint(eq.getVar(),eq.getBound(), false, false).negate()
-				: generateConstraint(eq.getVar(),eq.getBound(),false,true);
+				? generateConstraint(eq.getVar(), eq.getBound(), false, false).negate()
+				: generateConstraint(eq.getVar(), eq.getBound(), false, true);
 	}
-    /**
-     * Choose a value from a given interval respecting certain prohibitions.
-     * The interval is given symbolically by a lower and an upper bound. All
-     * values prohibited are given in a set. Note that this set might also
-     * contain values outside the interval. For integer solutions, we also give
-     * the lcm such that we can generate an integer solution from an integer
-     * solution.
-     *
-     * If the interval is empty or no value can be found, the current value
-     * should be returned.
-     * @param prohibitions Prohibited values.
-     * @param lcm          Least common multiple of denominators (integer only)
-     * @param currentValue Value currently assigned to a variable.
-     * @return
-     */
-	private InfinitNumber choose(final Set<InfinitNumber> prohibitions,
+
+	/**
+	 * Choose a value from a given interval respecting certain prohibitions. The interval is given symbolically by a
+	 * lower and an upper bound. All values prohibited are given in a set. Note that this set might also contain values
+	 * outside the interval. For integer solutions, we also give the lcm such that we can generate an integer solution
+	 * from an integer solution.
+	 *
+	 * If the interval is empty or no value can be found, the current value should be returned.
+	 *
+	 * @param lower
+	 *            a negative value giving the maximum amount we can decrease the current non-basic value without
+	 *            violating a bound constraint.
+	 * @param upper
+	 *            a positive value giving the maximum amount we can increase the current non-basic value without
+	 *            violating a bound constraint.
+	 * @param prohibitions
+	 *            Prohibited values. No difference that occurs in this set should be chosen.
+	 * @param sharedPoints
+	 *            A map from shared term factors to current shared term values. The factor determines by how much the
+	 *            shared variable increases or decreases if current non-basic value is changed by one. We do not choose
+	 *            a difference that will create a new collision between shared variables.
+	 * @param lcm
+	 *            Least common multiple of denominators (integer only)
+	 * @return The difference by which current non-basic value should be increased (or decreased if negative).
+	 */
+	private ExactInfinitNumber choose(final ExactInfinitNumber lower, final ExactInfinitNumber upper,
+			final Set<ExactInfinitNumber> prohibitions,
 			final Map<Rational,Set<ExactInfinitNumber>> sharedPoints,
-			final Rational lcm, final InfinitNumber currentValue) {
+			final Rational lcm) {
 		// Check if variable is fixed or allowed.
-		if (mUpper.equals(mLower)
-			|| (!prohibitions.contains(currentValue)
-				&& !hasSharing(sharedPoints, new ExactInfinitNumber()))) {
-			return currentValue;
+		final ExactInfinitNumber zero = new ExactInfinitNumber();
+		if (upper.equals(lower) || (!prohibitions.contains(zero) && !hasSharing(sharedPoints, zero))) {
+			return zero;
 		}
 
-		final ExactInfinitNumber exactval = new ExactInfinitNumber(currentValue);
 		if (lcm == Rational.POSITIVE_INFINITY) {
-			if (mUpper.isInfinite()) {
-				// We search linear upwards from starting from the current value
-				InfinitNumber cur = currentValue;
-				do {
-					cur = cur.add(InfinitNumber.ONE);
-				} while (prohibitions.contains(cur)
-						&& hasSharing(sharedPoints, exactval.isub(cur)));
-				return cur;
+			// we have infinitely many values at our hand.  Just iterate until we found a solution
+			// we only change epsilon values
+			if (lower.getRealValue().equals(upper.getRealValue())) {
+				// We can only change epsilons; we either choose as difference upper/2 or lower/2 and half the
+				// difference until we find a solution.
+				ExactInfinitNumber curDiff = upper.signum() > 0 ? upper : lower;
+				assert curDiff.signum() != 0 && lower.compareTo(curDiff) < 0 && curDiff.compareTo(upper) < 0;
+				while (prohibitions.contains(curDiff) || hasSharing(sharedPoints, curDiff)) {
+					curDiff = curDiff.div(Rational.TWO);
+				}
+				return curDiff;
 			}
-			if (mLower.isInfinite()) {
-				// We search linear downwards
-				InfinitNumber cur = currentValue;
-				do {
-					cur = cur.sub(InfinitNumber.ONE);
-				} while (prohibitions.contains(cur)
-						&& hasSharing(sharedPoints, exactval.isub(cur)));
-				return cur;
+			// we have infinitely many epsilons slack either above or below current value.
+			final ExactInfinitNumber step;
+			if (upper.getRealValue().signum() > 0) {
+				// We search linear upwards from starting from the current value, incrementing eps part by one
+				step = new ExactInfinitNumber(Rational.ZERO, Rational.ONE);
+			} else {
+				// We search linear downwards from starting from the current value, decrementing eps part by one
+				step = new ExactInfinitNumber(Rational.ZERO, Rational.MONE);
 			}
-			if (mLower.getRealValue().equals(mUpper.getRealValue())) {
-				// We can only change epsilons
-				switch (currentValue.mEps) {
-				case -1:
-					if (mUpper.getEpsilon().compareTo(Rational.ZERO) >= 0) {
-						final InfinitNumber test = new InfinitNumber(currentValue.mA, 0);
-						if (!prohibitions.contains(test)
-								&& !hasSharing(sharedPoints, exactval.isub(test))) {
-							return test;
-						}
-					}
-					if (mUpper.getEpsilon().compareTo(Rational.ONE) >= 0) {
-						final InfinitNumber test = new InfinitNumber(currentValue.mA, 1);
-						if (!prohibitions.contains(test)
-								&& !hasSharing(sharedPoints, exactval.isub(test))) {
-							return test;
-						}
-					}
-					break;
-				case 0:
-					if (mUpper.getEpsilon().compareTo(Rational.ONE) >= 0) {
-						final InfinitNumber test = new InfinitNumber(currentValue.mA, 1);
-						if (!prohibitions.contains(test)
-								&& !hasSharing(sharedPoints, exactval.isub(test))) {
-							return test;
-						}
-					}
-					if (mLower.getEpsilon().compareTo(Rational.MONE) <= 0) {
-						final InfinitNumber test = new InfinitNumber(currentValue.mA, -1);
-						if (!prohibitions.contains(test)
-								&& !hasSharing(sharedPoints, exactval.isub(test))) {
-							return test;
-						}
-					}
-					break;
-				case 1:
-					if (mLower.getEpsilon().compareTo(Rational.ZERO) <= 0) {
-						final InfinitNumber test = new InfinitNumber(currentValue.mA, 0);
-						if (!prohibitions.contains(test)
-								&& !hasSharing(sharedPoints, exactval.isub(test))) {
-							return test;
-						}
-					}
-					if (mLower.getEpsilon().compareTo(Rational.MONE) <= 0) {
-						final InfinitNumber test = new InfinitNumber(currentValue.mA, -1);
-						if (!prohibitions.contains(test)
-								&& !hasSharing(sharedPoints, exactval.isub(test))) {
-							return test;
-						}
-					}
-					break;
-				default:
-					throw new InternalError("Unnormalised epsilons");
-				}
-				// We could not change the value
-				return currentValue;
+			ExactInfinitNumber curDiff = step;
+			while (prohibitions.contains(curDiff) || hasSharing(sharedPoints, curDiff)) {
+				curDiff = curDiff.add(step);
 			}
-			/* use binary search to find the candidate */
-			final Rational lowreal = mLower.getRealValue();
-			final Rational upreal = mUpper.getRealValue();
-			// Should be handled in previous cases.
-			assert lowreal.isRational();
-			assert upreal.isRational();
-			assert (!lowreal.equals(upreal));
-			Rational mid = lowreal;
-			do {
-				mid = mid.add(upreal).div(Rational.TWO);
-				// Test all three cases
-				InfinitNumber test = new InfinitNumber(mid, 0);
-				if (!prohibitions.contains(test)
-						&& !hasSharing(sharedPoints, exactval.isub(test))) {
-					return test;
-				}
-				test = new InfinitNumber(mid, 1);
-				if (!prohibitions.contains(test)
-						&& !hasSharing(sharedPoints, exactval.isub(test))) {
-					return test;
-				}
-				test = new InfinitNumber(mid, -1);
-				if (!prohibitions.contains(test)
-						&& !hasSharing(sharedPoints, exactval.isub(test))) {
-					return test;
-				}
-			} while (true); // TODO Termination???
+			return curDiff;
 		} else {
-			/* We should change it.  We search upwards and downwards by
-			 * incrementing and decrementing currentValue by lcm.
-			 */
-			InfinitNumber lower = mLower.toInfinitNumber();
-			if (lower == null) {
-				lower = mLower.toInfinitNumberCeil();
-			}
-			InfinitNumber upper = mUpper.toInfinitNumber();
-			if (upper == null) {
-				upper = mUpper.toInfinitNumberFloor();
-			}
-			if (lower.equals(upper)) {
-				return lower;
-			}
-			final MutableInfinitNumber up = new MutableInfinitNumber(currentValue);
-			final MutableInfinitNumber down = new MutableInfinitNumber(currentValue);
-			final InfinitNumber ilcm = new InfinitNumber(lcm, 0);
-			while (true) {
-				up.add(ilcm);
-				if (up.compareTo(upper) > 0) {
-					break;
+			// This is the integer case (or a real variable on which an integer variable depends).
+			// We search upwards and downwards by incrementing and decrementing currentValue by lcm.
+			ExactInfinitNumber up = new ExactInfinitNumber(lcm);
+			ExactInfinitNumber down = up.negate();
+			boolean searchUp = true;
+			boolean searchDown = true;
+			while (searchUp || searchDown) {
+				if (searchUp) {
+					if (up.compareTo(upper) > 0) {
+						searchUp = false;
+					} else {
+						if (!prohibitions.contains(up) && !hasSharing(sharedPoints, up)) {
+							return up;
+						}
+					}
+					up = up.add(lcm);
 				}
-				InfinitNumber cur = up.toInfinitNumber();
-				if (!prohibitions.contains(cur)
-					&& !hasSharing(sharedPoints,
-							exactval.isub(cur))) {
-					return cur;
-				}
-
-				down.sub(ilcm);
-				if (down.compareTo(lower) < 0) {
-					break;
-				}
-				cur = down.toInfinitNumber();
-				if (!prohibitions.contains(cur)
-					&& !hasSharing(sharedPoints, exactval.isub(cur))) {
-					return cur;
+				if (searchDown) {
+					if (down.compareTo(lower) < 0) {
+						searchDown = false;
+					} else {
+						if (!prohibitions.contains(down) && !hasSharing(sharedPoints, down)) {
+							return down;
+						}
+					}
+					down = down.add(lcm.negate());
 				}
 			}
-			up.add(ilcm);
-			while (up.compareTo(upper) <= 0) {
-				final InfinitNumber cur = up.toInfinitNumber();
-				if (!prohibitions.contains(cur)
-					&& !hasSharing(sharedPoints, exactval.isub(cur))) {
-					return cur;
-				}
-				up.add(ilcm);
-			}
-			down.sub(ilcm);
-			while (down.compareTo(lower) >= 0) {
-				final InfinitNumber cur = down.toInfinitNumber();
-				if (!prohibitions.contains(cur)
-					&& !hasSharing(sharedPoints, exactval.isub(cur))) {
-					return cur;
-				}
-				down.sub(ilcm);
-			}
-			// this can only be reached in the integer case.
-			return currentValue;
+			return new ExactInfinitNumber();
 		}
 	}
+
 	/**
 	 * Test for merging of at least two shared terms.  Shared terms in our
 	 * setting have form <code>c*x+o</code> for variable <code>x</code>.  Given
@@ -2017,7 +1867,7 @@ public class LinArSolve implements ITheory {
 					/*
 					 * never merge terms of different sort. Note that mixed int/real equalities are translated to LA in
 					 * the preprocessor.
-					 * 
+					 *
 					 * We need to remember this term in case there are more shared terms of this sort.
 					 */
 					shared1OtherSort = shared2;
@@ -2065,55 +1915,25 @@ public class LinArSolve implements ITheory {
 	private InfinitNumber computeMaxEpsilon(final Set<Rational> prohibitions) {
 		InfinitNumber maxeps = InfinitNumber.POSITIVE_INFINITY;
 		for (final LinVar v : mLinvars) {
-			if (v.mBasic) {
-				final Rational epsilons = v.computeEpsilon();
-				if (epsilons.signum() > 0) {
-					final InfinitNumber diff = v.getUpperBound().sub(
-							new InfinitNumber(v.getValue().mA, 0)).div(epsilons);
-					if (diff.compareTo(maxeps) < 0) {
-						maxeps = diff;
-					}
-				} else if (epsilons.signum() < 0) {
-					final InfinitNumber diff = v.getLowerBound().sub(
-							new InfinitNumber(v.getValue().mA, 0)).div(epsilons);
-					if (diff.compareTo(maxeps) < 0) {
-						maxeps = diff;
-					}
+			final ExactInfinitNumber value = v.getValue();
+			if (value.getEpsilon().signum() > 0) {
+				final InfinitNumber diff =
+						v.getUpperBound().sub(new InfinitNumber(value.getRealValue(), 0)).div(value.getEpsilon());
+				if (diff.compareTo(maxeps) < 0) {
+					maxeps = diff;
 				}
-				if (epsilons.signum() != 0 && v.mDisequalities != null) {
-					for (final Rational prohib : v.mDisequalities.keySet()) {
-						// solve v.mcurval = prohib to eps
-						// a+b*eps = p ==> eps = (p-a)/b given b != 0
-						prohibitions.add(prohib.sub(v.getValue().mA).div(epsilons));
-					}
+			} else if (value.getEpsilon().signum() < 0) {
+				final InfinitNumber diff =
+						v.getLowerBound().sub(new InfinitNumber(value.getRealValue(), 0)).div(value.getEpsilon());
+				if (diff.compareTo(maxeps) < 0) {
+					maxeps = diff;
 				}
-			} else {
-				if (v.getValue().mEps > 0) {
-					final InfinitNumber diff = v.getUpperBound().sub(
-							new InfinitNumber(v.getValue().mA, 0));
-					if (diff.compareTo(maxeps) < 0) {
-						maxeps = diff;
-					}
-					assert (v.getValue().mEps == 1);
-					if (v.mDisequalities != null) {
-						for (final Rational prohib : v.mDisequalities.keySet()) {
-							// solve a+eps = p ==> eps = p-a
-							prohibitions.add(prohib.sub(v.getValue().mA));
-						}
-					}
-				} else if (v.getValue().mEps < 0) {
-					final InfinitNumber diff = new InfinitNumber(v.getValue().mA, 0).
-							sub(v.getLowerBound());
-					if (diff.compareTo(maxeps) < 0) {
-						maxeps = diff;
-					}
-					assert (v.getValue().mEps == -1);
-					if (v.mDisequalities != null) {
-						for (final Rational prohib : v.mDisequalities.keySet()) {
-							// solve a-eps = p ==> eps = a-p
-							prohibitions.add(v.getValue().mA.sub(prohib));
-						}
-					}
+			}
+			if (value.getEpsilon().signum() != 0 && v.mDisequalities != null) {
+				for (final Rational prohib : v.mDisequalities.keySet()) {
+					// solve v.mcurval = prohib to eps
+					// a+b*eps = p ==> eps = (p-a)/b given b != 0
+					prohibitions.add(prohib.sub(value.getRealValue()).div(value.getEpsilon()));
 				}
 			}
 		}
@@ -2231,24 +2051,6 @@ public class LinArSolve implements ITheory {
 			final BoundConstraint bc = (BoundConstraint) atom;
 			final LinVar v = bc.getVar();
 			v.mConstraints.remove(bc.getBound());
-//			if (v.unconstrained()) {
-//				if (v.isInitiallyBasic()) {
-//					System.err.println("Removing initially basic variable");
-//					removeLinVar(bc.getVar());
-//				} else if (v.mbasic) {
-//					System.err.println("Moving unconstraint variable away");
-//					// Move it out of the way and let simplifier handle this
-//					for (MatrixEntry entry = v.headEntry.nextInRow;
-//						entry != v.headEntry; entry = entry.nextInRow) {
-//						if (entry.column.isInitiallyBasic()) {
-//							System.err.println("Using variable " + entry.column);
-//							pivot(entry);
-//							return;
-//						}
-//					}
-//					throw new IllegalStateException("We should never reach here!!!");
-//				}
-//			}
 		} else if (atom instanceof LAEquality) {
 			final LAEquality laeq = (LAEquality) atom;
 			final InfinitNumber num = new InfinitNumber(laeq.getBound(), 0);
@@ -2274,7 +2076,6 @@ public class LinArSolve implements ITheory {
 			if (v == mConflictVar) {
 				mConflictVar = null;
 			}
-//			v.mbasic = v.isInitiallyBasic();
 			/// Mark variable as dead
 			v.mAssertionstacklevel = -1;
 			if (v.isInt()) {

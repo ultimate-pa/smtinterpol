@@ -30,15 +30,15 @@ public class ExactInfinitNumber implements Comparable<ExactInfinitNumber> {
 	public ExactInfinitNumber() {
 		mReal = mEps = Rational.ZERO;
 	}
-	public ExactInfinitNumber(Rational real) {
+	public ExactInfinitNumber(final Rational real) {
 		mReal = real;
 		mEps = Rational.ZERO;
 	}
-	public ExactInfinitNumber(Rational real, Rational eps) {
+	public ExactInfinitNumber(final Rational real, final Rational eps) {
 		mReal = real;
 		mEps = eps;
 	}
-	public ExactInfinitNumber(InfinitNumber approx) {
+	public ExactInfinitNumber(final InfinitNumber approx) {
 		mReal = approx.mA;
 		mEps = Rational.valueOf(approx.mEps, 1);
 	}
@@ -59,7 +59,11 @@ public class ExactInfinitNumber implements Comparable<ExactInfinitNumber> {
 		return mReal.toString() + "-" + mEps.abs().toString() + "eps";
 	}
 	@Override
-	public boolean equals(Object o) {
+	public boolean equals(final Object o) {
+		if (o instanceof InfinitNumber) {
+			final InfinitNumber n = (InfinitNumber) o;
+			return mReal.equals(n.mA) && mEps.equals(Rational.valueOf(n.mEps, 1));
+		}
 		if (o instanceof ExactInfinitNumber) {
 			final ExactInfinitNumber n = (ExactInfinitNumber) o;
 			return mReal.equals(n.mReal) && mEps.equals(n.mEps);
@@ -70,17 +74,17 @@ public class ExactInfinitNumber implements Comparable<ExactInfinitNumber> {
 	public int hashCode() {
 		return mReal.hashCode() + 65537 * mEps.hashCode();
 	}
-	public ExactInfinitNumber add(Rational real) {
+	public ExactInfinitNumber add(final Rational real) {
 		return new ExactInfinitNumber(mReal.add(real), mEps);
 	}
-	public ExactInfinitNumber add(InfinitNumber other) {
+	public ExactInfinitNumber add(final InfinitNumber other) {
 		return new ExactInfinitNumber(mReal.add(other.mA),
 				mEps.add(Rational.valueOf(other.mEps, 1)));
 	}
-	public ExactInfinitNumber add(ExactInfinitNumber other) {
+	public ExactInfinitNumber add(final ExactInfinitNumber other) {
 		return new ExactInfinitNumber(mReal.add(other.mReal), mEps.add(other.mEps));
 	}
-	public ExactInfinitNumber sub(ExactInfinitNumber other) {
+	public ExactInfinitNumber sub(final ExactInfinitNumber other) {
 		return new ExactInfinitNumber(mReal.sub(other.mReal), mEps.sub(other.mEps));
 	}
 	/**
@@ -88,26 +92,26 @@ public class ExactInfinitNumber implements Comparable<ExactInfinitNumber> {
 	 * @param first The first operand of the subtraction.
 	 * @return Result of <code>first - this</code>.
 	 */
-	public ExactInfinitNumber isub(InfinitNumber first) {
+	public ExactInfinitNumber isub(final InfinitNumber first) {
 		return new ExactInfinitNumber(first.mA.sub(mReal),
 				Rational.valueOf(first.mEps, 1).sub(mEps));
 	}
 	public ExactInfinitNumber negate() {
 		return new ExactInfinitNumber(mReal.negate(), mEps.negate());
 	}
-	public ExactInfinitNumber mul(Rational c) {
+	public ExactInfinitNumber mul(final Rational c) {
 		return new ExactInfinitNumber(mReal.mul(c), mEps.mul(c));
 	}
-	public ExactInfinitNumber div(Rational d) {
+	public ExactInfinitNumber div(final Rational d) {
 		return new ExactInfinitNumber(mReal.div(d), mEps.div(d));
 	}
 	/**
 	 * Approximates the current value to make is suitable as value for a
 	 * nonbasic variable.  We only consider the values <pre>a+b*eps</pre> where
 	 * b is limited to the values -1, 0, 1.  If a different amount of epsilons
-	 * should be used, this method fails and returns <code>null</code>.  
+	 * should be used, this method fails and returns <code>null</code>.
 	 * @return An InfinitNumber usable as value for a nonbasic variable or
-	 *         <code>null</code> if no such conversion is possible. 
+	 *         <code>null</code> if no such conversion is possible.
 	 */
 	public InfinitNumber toInfinitNumber() {
 		if (mEps == Rational.ZERO) {
@@ -153,8 +157,13 @@ public class ExactInfinitNumber implements Comparable<ExactInfinitNumber> {
 		return new InfinitNumber(mReal, mEps.ceil().signum());
 	}
 
+	public int compareTo(final InfinitNumber other) {
+		final int cmp = mReal.compareTo(other.mA);
+		return cmp == 0 ? mEps.compareTo(Rational.valueOf(other.mEps, 1)) : cmp;
+	}
+
 	@Override
-	public int compareTo(ExactInfinitNumber other) {
+	public int compareTo(final ExactInfinitNumber other) {
 		final int cmp = mReal.compareTo(other.mReal);
 		return cmp == 0 ? mEps.compareTo(other.mEps) : cmp;
 	}
