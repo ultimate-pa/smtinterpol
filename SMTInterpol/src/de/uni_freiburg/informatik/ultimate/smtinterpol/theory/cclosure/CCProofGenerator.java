@@ -34,7 +34,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAnnotation.RuleKind;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.MutableAffinTerm;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.MutableAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
 
 /**
@@ -600,7 +600,7 @@ public class CCProofGenerator {
 		if (first.getLinVar() == second.getLinVar() && first.getFactor() == second.getFactor()) {
 			return first.getOffset() != second.getOffset();
 		}
-		final MutableAffinTerm sum = new MutableAffinTerm();
+		final MutableAffineTerm sum = new MutableAffineTerm();
 		if (first.getLinVar() != null) {
 			sum.add(first.getFactor(), first.getLinVar());
 		}

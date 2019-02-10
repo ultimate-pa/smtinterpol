@@ -21,25 +21,21 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 
 /**
- * Class representing a number in the two dimensional infinitesimal space.
- * (a,b) is a representation of a+b*e where e>0 is an infinitesimal parameter
- * used to handle strict inequalities.
- *
- * Note that members of this class are immutable. Use
- * <code>MutableInfinitNumber</code> for a mutable version.
+ * Class representing a number in the two dimensional infinitesimal space. (a,b) is a representation of a+b*eps,
+ * b\in{-1,0,1}, where eps is an infinitesimal parameter used to handle strict inequalities.
  *
  * @author Juergen Christ
  */
-public class InfinitNumber implements Comparable<InfinitNumber> {
+public class InfinitesimalNumber implements Comparable<InfinitesimalNumber> {
 	// Real part
-	public final Rational mA;
+	public final Rational mReal;
 	// Infinitesimal part
 	public final int mEps;
 	/// --- Construction ---
 	/**
 	 * Zero constructor.
 	 */
-	public InfinitNumber() {
+	public InfinitesimalNumber() {
 		this(Rational.ZERO,0);
 	}
 	/**
@@ -47,18 +43,18 @@ public class InfinitNumber implements Comparable<InfinitNumber> {
 	 * @param a Rational part of the number.
 	 * @param b Infinitesimal part of the number.
 	 */
-	public InfinitNumber(final Rational a, final int eps) {
-		mA = a;
+	public InfinitesimalNumber(final Rational a, final int eps) {
+		mReal = a;
 		mEps = eps;
 	}
-	public static final InfinitNumber POSITIVE_INFINITY =
-			new InfinitNumber(Rational.POSITIVE_INFINITY,0);
-	public static final InfinitNumber NEGATIVE_INFINITY =
-			new InfinitNumber(Rational.NEGATIVE_INFINITY,0);
-	public static final InfinitNumber ZERO = new InfinitNumber(Rational.ZERO,0);
-	public static final InfinitNumber ONE = new InfinitNumber(Rational.ONE,0);
-	public static final InfinitNumber EPSILON =
-			new InfinitNumber(Rational.ZERO,1);
+	public static final InfinitesimalNumber POSITIVE_INFINITY =
+			new InfinitesimalNumber(Rational.POSITIVE_INFINITY,0);
+	public static final InfinitesimalNumber NEGATIVE_INFINITY =
+			new InfinitesimalNumber(Rational.NEGATIVE_INFINITY,0);
+	public static final InfinitesimalNumber ZERO = new InfinitesimalNumber(Rational.ZERO,0);
+	public static final InfinitesimalNumber ONE = new InfinitesimalNumber(Rational.ONE,0);
+	public static final InfinitesimalNumber EPSILON =
+			new InfinitesimalNumber(Rational.ZERO,1);
 
 	static int normEpsilon(final int eps) {
 		return Integer.signum(eps);
@@ -67,43 +63,43 @@ public class InfinitNumber implements Comparable<InfinitNumber> {
 	/**
 	 * Returns this + other.
 	 */
-	public InfinitNumber add(final InfinitNumber other) {
+	public InfinitesimalNumber add(final InfinitesimalNumber other) {
 		// Unfortunately, in many places we add "incompatible" InfinitNumbers.
 		// Sometimes, because we are only interested in the ma part, sometimes
 		// intentionally, for example to get rid of the epsilon by adding it.
 		// TODO: check these places more carefully
 		// assert (meps * other.meps < 0);
-		return new InfinitNumber(mA.add(other.mA),
+		return new InfinitesimalNumber(mReal.add(other.mReal),
 				normEpsilon(mEps + other.mEps));
 	}
 	/**
 	 * Returns this - other.
 	 */
-	public InfinitNumber sub(final InfinitNumber other) {
+	public InfinitesimalNumber sub(final InfinitesimalNumber other) {
 		// Unfortunately, in many places we add "incompatible" InfinitNumbers.
 		// Sometimes, because we are only interested in the ma part, sometimes
 		// intentionally, for example to get rid of the epsilon by adding it.
 		// TODO: check these places more carefully
 		// assert (meps * other.meps > 0);
-		return new InfinitNumber(mA.sub(other.mA),
+		return new InfinitesimalNumber(mReal.sub(other.mReal),
 				normEpsilon(mEps - other.mEps));
 	}
 
-	public ExactInfinitNumber sub(final ExactInfinitNumber other) {
-		return new ExactInfinitNumber(mA.sub(other.getRealValue()),
+	public ExactInfinitesimalNumber sub(final ExactInfinitesimalNumber other) {
+		return new ExactInfinitesimalNumber(mReal.sub(other.getRealValue()),
 				Rational.valueOf(mEps, 1).sub(other.getEpsilon()));
 	}
 	/**
 	 * Returns c*this.
 	 */
-	public InfinitNumber mul(final Rational c) {
-		return new InfinitNumber(mA.mul(c),mEps * c.signum());
+	public InfinitesimalNumber mul(final Rational c) {
+		return new InfinitesimalNumber(mReal.mul(c),mEps * c.signum());
 	}
 	/**
 	 * Returns this/c.
 	 */
-	public InfinitNumber div(final Rational c) {
-		return new InfinitNumber(mA.div(c),mEps * c.signum());
+	public InfinitesimalNumber div(final Rational c) {
+		return new InfinitesimalNumber(mReal.div(c),mEps * c.signum());
 	}
 
 	/**
@@ -111,7 +107,7 @@ public class InfinitNumber implements Comparable<InfinitNumber> {
 	 *
 	 * @return the absolute value.
 	 */
-	public InfinitNumber abs() {
+	public InfinitesimalNumber abs() {
 		if (signum() < 0) {
 			return negate();
 		} else {
@@ -121,8 +117,8 @@ public class InfinitNumber implements Comparable<InfinitNumber> {
 	/**
 	 * Returns -this.
 	 */
-	public InfinitNumber negate() {
-		return new InfinitNumber(mA.negate(),-mEps);
+	public InfinitesimalNumber negate() {
+		return new InfinitesimalNumber(mReal.negate(),-mEps);
 	}
 	/**
 	 * Returns this+(fac1*fac2)
@@ -130,9 +126,9 @@ public class InfinitNumber implements Comparable<InfinitNumber> {
 	 * @param fac2
 	 * @return
 	 */
-	public InfinitNumber addmul(final InfinitNumber fac1,final Rational fac2) {
+	public InfinitesimalNumber addmul(final InfinitesimalNumber fac1,final Rational fac2) {
 		//if (meps * fac1.meps*fac2.signum() < 0) throw new AssertionError(); // TODO make assert
-		return new InfinitNumber(mA.addmul(fac1.mA,fac2),
+		return new InfinitesimalNumber(mReal.addmul(fac1.mReal,fac2),
 				normEpsilon(mEps + fac1.mEps * fac2.signum()));
 	}
 	/**
@@ -141,15 +137,15 @@ public class InfinitNumber implements Comparable<InfinitNumber> {
 	 * @param d
 	 * @return
 	 */
-	public InfinitNumber subdiv(final InfinitNumber s,final Rational d) {
+	public InfinitesimalNumber subdiv(final InfinitesimalNumber s,final Rational d) {
 		//if (meps * s.meps*d.signum() > 0) throw new AssertionError(); // TODO make assert
-		return new InfinitNumber(mA.subdiv(s.mA,d),
+		return new InfinitesimalNumber(mReal.subdiv(s.mReal,d),
 				normEpsilon(mEps - s.mEps) * d.signum());
 	}
 	/// --- Comparing ---
 	@Override
-	public int compareTo(final InfinitNumber arg0) {
-		final int ac = mA.compareTo(arg0.mA);
+	public int compareTo(final InfinitesimalNumber arg0) {
+		final int ac = mReal.compareTo(arg0.mReal);
 		if (ac == 0) {
 			return mEps - arg0.mEps;
 		}
@@ -157,18 +153,18 @@ public class InfinitNumber implements Comparable<InfinitNumber> {
 	}
 	@Override
 	public boolean equals(final Object o) {
-		if (o instanceof InfinitNumber) {
-			final InfinitNumber n = (InfinitNumber) o;
-			return mA.equals(n.mA) && mEps == n.mEps;
+		if (o instanceof InfinitesimalNumber) {
+			final InfinitesimalNumber n = (InfinitesimalNumber) o;
+			return mReal.equals(n.mReal) && mEps == n.mEps;
 		}
-		if (o instanceof MutableExactInfinitNumber) {
-			return ((MutableExactInfinitNumber)o).equals(this);
+		if (o instanceof MutableExactInfinitesimalNumber) {
+			return ((MutableExactInfinitesimalNumber)o).equals(this);
 		}
 		return false;
 	}
 	@Override
 	public int hashCode() {
-		return mA.hashCode() + 65537 * mEps;
+		return mReal.hashCode() + 65537 * mEps;
 	}
 	/**
 	 * Returns <code>true</code> iff this is less then other. This function is
@@ -177,8 +173,8 @@ public class InfinitNumber implements Comparable<InfinitNumber> {
 	 * @param other Number to compare against.
 	 * @return <code>true</code> iff this is less than other.
 	 */
-	public boolean less(final InfinitNumber other) {
-		final int ac = mA.compareTo(other.mA);
+	public boolean less(final InfinitesimalNumber other) {
+		final int ac = mReal.compareTo(other.mReal);
 		return ac < 0 || (ac == 0 && mEps < other.mEps);
 	}
 	/**
@@ -188,8 +184,8 @@ public class InfinitNumber implements Comparable<InfinitNumber> {
 	 * @param other Number to compare against.
 	 * @return <code>true</code> iff this is less than or equal to other.
 	*/
-	public boolean lesseq(final InfinitNumber other) {
-		final int ac = mA.compareTo(other.mA);
+	public boolean lesseq(final InfinitesimalNumber other) {
+		final int ac = mReal.compareTo(other.mReal);
 		return ac < 0 || (ac == 0 && mEps <= other.mEps);
 	}
 	/// --- Checks ---
@@ -197,15 +193,15 @@ public class InfinitNumber implements Comparable<InfinitNumber> {
 	 * Returns true iff this represents either positive or negative infinity.
 	 */
 	public boolean isInfinity() {
-		return mA == Rational.POSITIVE_INFINITY || mA == Rational.NEGATIVE_INFINITY;
+		return mReal == Rational.POSITIVE_INFINITY || mReal == Rational.NEGATIVE_INFINITY;
 	}
 
 	@Override
 	public String toString() {
 		if (mEps == 0) {
-			return mA.toString();
+			return mReal.toString();
 		}
-		return mA + (mEps > 0 ? "+" : "-") + "eps";
+		return mReal + (mEps > 0 ? "+" : "-") + "eps";
 	}
 	/**
 	 * Check whether this number represents an integral value. Both infinity
@@ -213,7 +209,7 @@ public class InfinitNumber implements Comparable<InfinitNumber> {
 	 * @return <code>true</code> iff value is integral.
 	 */
 	public boolean isIntegral() {
-		return mA.isIntegral() && mEps == 0;
+		return mReal.isIntegral() && mEps == 0;
 	}
 	/**
 	 * Returns the next lower integral number. Flooring depends on the value
@@ -221,14 +217,14 @@ public class InfinitNumber implements Comparable<InfinitNumber> {
 	 * infinitesimal coefficient.
 	 * @return The largest integral number less or equal to the current value.
 	 */
-	public InfinitNumber floor() {
-		if (!mA.isIntegral()) {
-			return new InfinitNumber(mA.floor(),0);
+	public InfinitesimalNumber floor() {
+		if (!mReal.isIntegral()) {
+			return new InfinitesimalNumber(mReal.floor(),0);
 		}
 		if (mEps >= 0) {
-			return new InfinitNumber(mA,0);
+			return new InfinitesimalNumber(mReal,0);
 		}
-		return new InfinitNumber(mA.sub(Rational.ONE),0);
+		return new InfinitesimalNumber(mReal.sub(Rational.ONE),0);
 	}
 	/**
 	 * Returns the next higher integral number. Ceiling depends on the value
@@ -236,24 +232,24 @@ public class InfinitNumber implements Comparable<InfinitNumber> {
 	 * infinitesimal coefficient.
 	 * @return The smallest integral number greater or equal to the current value.
 	 */
-	public InfinitNumber ceil() {
-		if (!mA.isIntegral()) {
-			return new InfinitNumber(mA.ceil(),0);
+	public InfinitesimalNumber ceil() {
+		if (!mReal.isIntegral()) {
+			return new InfinitesimalNumber(mReal.ceil(),0);
 		}
 		if (mEps <= 0) {
-			return new InfinitNumber(mA,0);
+			return new InfinitesimalNumber(mReal,0);
 		}
-		return new InfinitNumber(mA.add(Rational.ONE),0);
+		return new InfinitesimalNumber(mReal.add(Rational.ONE),0);
 	}
 
 	public int signum() {
-		return mA == Rational.ZERO ? mEps : mA.signum();
+		return mReal == Rational.ZERO ? mEps : mReal.signum();
 	}
 
-	public InfinitNumber inverse() {
+	public InfinitesimalNumber inverse() {
 		// Note that for c != 0:
 		//    1/(c + sign*eps) ~= 1/c - sign*eps/(c*c)
 		// Since c*c is positive, the sign of eps is always negated.
-		return new InfinitNumber(mA.inverse(), -mEps);
+		return new InfinitesimalNumber(mReal.inverse(), -mEps);
 	}
 }

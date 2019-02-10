@@ -65,7 +65,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAppTerm
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinArSolve;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.MutableAffinTerm;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.MutableAffineTerm;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
 
@@ -968,16 +968,16 @@ public class Clausifier {
 	}
 
 	// Term creation
-	public MutableAffinTerm createMutableAffinTerm(final SharedTerm term) {
-		final MutableAffinTerm res = new MutableAffinTerm();
+	public MutableAffineTerm createMutableAffinTerm(final SharedTerm term) {
+		final MutableAffineTerm res = new MutableAffineTerm();
 		term.shareWithLinAr();
 		res.add(term.getFactor(), term.getLinVar());
 		res.add(term.getOffset());
 		return res;
 	}
 
-	MutableAffinTerm createMutableAffinTerm(final SMTAffineTerm at, final SourceAnnotation source) {
-		final MutableAffinTerm res = new MutableAffinTerm();
+	MutableAffineTerm createMutableAffinTerm(final SMTAffineTerm at, final SourceAnnotation source) {
+		final MutableAffineTerm res = new MutableAffineTerm();
 		res.add(at.getConstant());
 		for (final Map.Entry<Term, Rational> summand : at.getSummands().entrySet()) {
 			final SharedTerm shared = getSharedTerm(summand.getKey(), source);
@@ -1751,7 +1751,7 @@ public class Clausifier {
 		Literal lit = mLiteralData.get(leq0term);
 		if (lit == null) {
 			final SMTAffineTerm sum = new SMTAffineTerm(leq0term.getParameters()[0]);
-			final MutableAffinTerm msum = createMutableAffinTerm(sum, source);
+			final MutableAffineTerm msum = createMutableAffinTerm(sum, source);
 			lit = mLASolver.generateConstraint(msum, false);
 			mLiteralData.put(leq0term, lit);
 			mUndoTrail = new RemoveAtom(mUndoTrail, leq0term);

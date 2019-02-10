@@ -309,11 +309,11 @@ public class CutCreator {
 		 */
 		public Literal createConstraint() {
 			assert mIsInt;
-			final MutableAffinTerm mat = new MutableAffinTerm();
+			final MutableAffineTerm mat = new MutableAffineTerm();
 			for (int i = 0; i < mIndices.length; i++) {
 				mat.add(Rational.valueOf(mCoeffs[i], BigInteger.ONE), mIndices[i]);
 			}
-			mat.add(new InfinitNumber(mCurval, mEpsilons.signum()).floor().negate());
+			mat.add(new InfinitesimalNumber(mCurval, mEpsilons.signum()).floor().negate());
 			return mSolver.generateConstraint(mat, false);
 		}
 
@@ -323,7 +323,7 @@ public class CutCreator {
 			for (int i = 0; i < mIndices.length; i++) {
 				final LinVar var = mIndices[i];
 				final Rational coeff = Rational.valueOf(mCoeffs[i], BigInteger.ONE);
-				final ExactInfinitNumber value = var.getValue();
+				final ExactInfinitesimalNumber value = var.getValue();
 				mCurval = mCurval.addmul(coeff, value.getRealValue());
 				mEpsilons = mEpsilons.addmul(coeff, value.getEpsilon());
 			}

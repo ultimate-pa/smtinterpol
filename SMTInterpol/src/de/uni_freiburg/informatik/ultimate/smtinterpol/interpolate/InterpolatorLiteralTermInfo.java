@@ -24,7 +24,7 @@ import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.InfinitNumber;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.InfinitesimalNumber;
 
 /**
  * This class is used to gather the information from a literal term which is relevant for the interpolator.
@@ -76,7 +76,7 @@ public class InterpolatorLiteralTermInfo {
 	/**
 	 * Epsilon is 1 for integer constraints, eps for rational constraints
 	 */
-	private InfinitNumber mEpsilon;
+	private InfinitesimalNumber mEpsilon;
 
 	private boolean mIsInt;
 
@@ -120,7 +120,7 @@ public class InterpolatorLiteralTermInfo {
 			if (mIsBoundConstraint) {
 				mIsStrict = isStrict(unquoted);
 			}
-			mBound = lv.getConstant().negate().mA;
+			mBound = lv.getConstant().negate().mReal;
 			mLinVar = lv.add(mBound);
 			mIsInt = mLinVar.isInt();
 			mEpsilon = computeEpsilon(unquoted);
@@ -163,8 +163,8 @@ public class InterpolatorLiteralTermInfo {
 	/**
 	 * Get the epsilon for this bound constraint. This is 1 for integer constraints, and eps for rational constraints.
 	 */
-	private InfinitNumber computeEpsilon(final Term term) {
-		return mLinVar.isInt() ? InfinitNumber.ONE : InfinitNumber.EPSILON;
+	private InfinitesimalNumber computeEpsilon(final Term term) {
+		return mLinVar.isInt() ? InfinitesimalNumber.ONE : InfinitesimalNumber.EPSILON;
 	}
 
 	public Term getAtom() {
@@ -203,7 +203,7 @@ public class InterpolatorLiteralTermInfo {
 		return mBound;
 	}
 
-	public InfinitNumber getEpsilon() {
+	public InfinitesimalNumber getEpsilon() {
 		return mEpsilon;
 	}
 

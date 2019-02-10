@@ -30,7 +30,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.InfinitNumber;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.InfinitesimalNumber;
 
 /**
  * This class is used to gather the information from a proof term which is relevant for the interpolator.
@@ -329,9 +329,9 @@ public class InterpolatorClauseTermInfo {
 		Rational factor = laAffine.getGCD().div(ccAffine.getGCD());
 		final InterpolatorAffineTerm eqSum =
 				new InterpolatorAffineTerm(ccAffine).mul(factor).add(Rational.MONE, laAffine);
-		if (!eqSum.isConstant() || !eqSum.getConstant().equals(InfinitNumber.ZERO)) {
+		if (!eqSum.isConstant() || !eqSum.getConstant().equals(InfinitesimalNumber.ZERO)) {
 			factor = factor.negate();
-			assert eqSum.add(Rational.TWO, laAffine).isConstant() && eqSum.getConstant().equals(InfinitNumber.ZERO);
+			assert eqSum.add(Rational.TWO, laAffine).isConstant() && eqSum.getConstant().equals(InfinitesimalNumber.ZERO);
 		}
 		return factor;
 	}

@@ -59,15 +59,15 @@ public class LinVar implements Comparable<LinVar> {
 	/** Current lower bound and its reason. null if no lower bound. */
 	LAReason mLower;
 	/** Current value. */
-	private MutableExactInfinitNumber mCurval;
+	private MutableExactInfinitesimalNumber mCurval;
 	// Is value required to be integer?
 	boolean mIsInt;
 	// List of all bounds on this variable
-	NavigableMap<InfinitNumber, BoundConstraint> mConstraints =
-		new TreeMap<InfinitNumber, BoundConstraint>();
+	NavigableMap<InfinitesimalNumber, BoundConstraint> mConstraints =
+		new TreeMap<InfinitesimalNumber, BoundConstraint>();
 	// List of all equalities known for this variable
-	NavigableMap<InfinitNumber, LAEquality> mEqualities =
-		new TreeMap<InfinitNumber, LAEquality>();
+	NavigableMap<InfinitesimalNumber, LAEquality> mEqualities =
+		new TreeMap<InfinitesimalNumber, LAEquality>();
 
 	/**
 	 * All disequalities asserted on this variable.
@@ -120,7 +120,7 @@ public class LinVar implements Comparable<LinVar> {
 
 	int mChainlength;
 
-	ExactInfinitNumber mExactVal = null;
+	ExactInfinitesimalNumber mExactVal = null;
 
 	/// --- Construction ---
 	/**
@@ -140,7 +140,7 @@ public class LinVar implements Comparable<LinVar> {
 	 */
 	public LinVar(final Object name,final boolean isint, final int assertionstacklevel, final int num) {
 		mName = name;
-		mCurval = new MutableExactInfinitNumber();
+		mCurval = new MutableExactInfinitesimalNumber();
 		mIsInt = isint;
 		mBasic = false;
 		mMatrixpos = num;
@@ -157,30 +157,30 @@ public class LinVar implements Comparable<LinVar> {
 	 * Get the upper bound.
 	 * @return Upper bound.
 	 */
-	public final InfinitNumber getUpperBound() {
-		return mUpperLiteral == null ? InfinitNumber.POSITIVE_INFINITY : mUpperLiteral.getBound();
+	public final InfinitesimalNumber getUpperBound() {
+		return mUpperLiteral == null ? InfinitesimalNumber.POSITIVE_INFINITY : mUpperLiteral.getBound();
 	}
 	/**
 	 * Get the lower bound.
 	 * @return Lower bound.
 	 */
-	public final InfinitNumber getLowerBound() {
-		return mLowerLiteral == null ? InfinitNumber.NEGATIVE_INFINITY : mLowerLiteral.getBound();
+	public final InfinitesimalNumber getLowerBound() {
+		return mLowerLiteral == null ? InfinitesimalNumber.NEGATIVE_INFINITY : mLowerLiteral.getBound();
 	}
 
-	public final InfinitNumber getTightUpperBound() {
-		return mUpper == null ? InfinitNumber.POSITIVE_INFINITY : mUpper.getBound();
+	public final InfinitesimalNumber getTightUpperBound() {
+		return mUpper == null ? InfinitesimalNumber.POSITIVE_INFINITY : mUpper.getBound();
 	}
 
-	public final InfinitNumber getTightLowerBound() {
-		return mLower == null ? InfinitNumber.NEGATIVE_INFINITY : mLower.getBound();
+	public final InfinitesimalNumber getTightLowerBound() {
+		return mLower == null ? InfinitesimalNumber.NEGATIVE_INFINITY : mLower.getBound();
 	}
-	public InfinitNumber getExactUpperBound() {
-		return mUpper == null ? InfinitNumber.POSITIVE_INFINITY
+	public InfinitesimalNumber getExactUpperBound() {
+		return mUpper == null ? InfinitesimalNumber.POSITIVE_INFINITY
 			: mUpper.getExactBound();
 	}
-	public InfinitNumber getExactLowerBound() {
-		return mLower == null ? InfinitNumber.NEGATIVE_INFINITY
+	public InfinitesimalNumber getExactLowerBound() {
+		return mLower == null ? InfinitesimalNumber.NEGATIVE_INFINITY
 			: mLower.getExactBound();
 	}
 	/**
@@ -273,7 +273,7 @@ public class LinVar implements Comparable<LinVar> {
 		return null;
 	}
 	public void addEquality(final LAEquality ea) {
-		mEqualities.put(new InfinitNumber(ea.getBound(), 0), ea);
+		mEqualities.put(new InfinitesimalNumber(ea.getBound(), 0), ea);
 	}
 	boolean unconstrained() {
 		return mConstraints.isEmpty() && mEqualities.isEmpty();
@@ -284,8 +284,8 @@ public class LinVar implements Comparable<LinVar> {
 	public boolean isInt() {
 		return mIsInt;
 	}
-	public InfinitNumber getEpsilon() {
-		return mIsInt ? InfinitNumber.ONE : InfinitNumber.EPSILON;
+	public InfinitesimalNumber getEpsilon() {
+		return mIsInt ? InfinitesimalNumber.ONE : InfinitesimalNumber.EPSILON;
 	}
 
 	public final void moveBounds(final LinVar other) {
@@ -305,114 +305,114 @@ public class LinVar implements Comparable<LinVar> {
 	}
 
 	public final void updateUpper(
-			final BigInteger coeff, final InfinitNumber oldBound, final InfinitNumber newBound) {
+			final BigInteger coeff, final InfinitesimalNumber oldBound, final InfinitesimalNumber newBound) {
 		if (oldBound.isInfinity()) {
 			if (newBound.isInfinity()) {
 				return;
 			}
 			mNumUpperInf--;
-			mUpperComposite.addmul(newBound.mA, coeff);
+			mUpperComposite.addmul(newBound.mReal, coeff);
 		} else if (newBound.isInfinity()) {
 			mNumUpperInf++;
-			mUpperComposite.addmul(oldBound.mA.negate(), coeff);
+			mUpperComposite.addmul(oldBound.mReal.negate(), coeff);
 		} else {
-			mUpperComposite.addmul(newBound.mA.sub(oldBound.mA), coeff);
+			mUpperComposite.addmul(newBound.mReal.sub(oldBound.mReal), coeff);
 		}
 		mNumUpperEps += (newBound.mEps - oldBound.mEps) * coeff.signum();
 	}
 
 	public final void updateLower(
-			final BigInteger coeff, final InfinitNumber oldBound, final InfinitNumber newBound) {
+			final BigInteger coeff, final InfinitesimalNumber oldBound, final InfinitesimalNumber newBound) {
 		if (oldBound.isInfinity()) {
 			if (newBound.isInfinity()) {
 				return;
 			}
 			mNumLowerInf--;
-			mLowerComposite.addmul(newBound.mA, coeff);
+			mLowerComposite.addmul(newBound.mReal, coeff);
 		} else if (newBound.isInfinity()) {
 			mNumLowerInf++;
-			mLowerComposite.addmul(oldBound.mA.negate(), coeff);
+			mLowerComposite.addmul(oldBound.mReal.negate(), coeff);
 		} else {
-			mLowerComposite.addmul(newBound.mA.sub(oldBound.mA), coeff);
+			mLowerComposite.addmul(newBound.mReal.sub(oldBound.mReal), coeff);
 		}
 		mNumLowerEps += (newBound.mEps - oldBound.mEps) * coeff.signum();
 	}
 
 	public void updateUpperLowerSet(final BigInteger coeff, final LinVar nb) {
-		InfinitNumber ubound = nb.getTightUpperBound();
-		InfinitNumber lbound = nb.getTightLowerBound();
+		InfinitesimalNumber ubound = nb.getTightUpperBound();
+		InfinitesimalNumber lbound = nb.getTightLowerBound();
 		if (coeff.signum() < 0) {
-			final InfinitNumber swap = ubound;
+			final InfinitesimalNumber swap = ubound;
 			ubound = lbound;
 			lbound = swap;
 		}
 		if (ubound.isInfinity()) {
 			mNumUpperInf++;
 		} else {
-			mUpperComposite.addmul(ubound.mA, coeff);
+			mUpperComposite.addmul(ubound.mReal, coeff);
 		}
 		mNumUpperEps += ubound.mEps * coeff.signum();
 		if (lbound.isInfinity()) {
 			mNumLowerInf++;
 		} else {
-			mLowerComposite.addmul(lbound.mA, coeff);
+			mLowerComposite.addmul(lbound.mReal, coeff);
 		}
 		mNumLowerEps += lbound.mEps * coeff.signum();
 	}
 	public void updateUpperLowerClear(final BigInteger coeff, final LinVar nb) {
-		InfinitNumber ubound = nb.getTightUpperBound().negate();
-		InfinitNumber lbound = nb.getTightLowerBound().negate();
+		InfinitesimalNumber ubound = nb.getTightUpperBound().negate();
+		InfinitesimalNumber lbound = nb.getTightLowerBound().negate();
 		if (coeff.signum() < 0) {
-			final InfinitNumber swap = ubound;
+			final InfinitesimalNumber swap = ubound;
 			ubound = lbound;
 			lbound = swap;
 		}
 		if (ubound.isInfinity()) {
 			mNumUpperInf--;
 		} else {
-			mUpperComposite.addmul(ubound.mA, coeff);
+			mUpperComposite.addmul(ubound.mReal, coeff);
 		}
 		mNumUpperEps += ubound.mEps * coeff.signum();
 		if (lbound.isInfinity()) {
 			mNumLowerInf--;
 		} else {
-			mLowerComposite.addmul(lbound.mA, coeff);
+			mLowerComposite.addmul(lbound.mReal, coeff);
 		}
 		mNumLowerEps += lbound.mEps * coeff.signum();
 	}
-	public InfinitNumber getUpperComposite() {
+	public InfinitesimalNumber getUpperComposite() {
 		if (mHeadEntry.mCoeff.signum() < 0) {
 			if (mNumUpperInf != 0) {
-				return InfinitNumber.POSITIVE_INFINITY;
+				return InfinitesimalNumber.POSITIVE_INFINITY;
 			}
 			final Rational denom = mUpperComposite.toRational()
 				.mul(Rational.valueOf(BigInteger.valueOf(-1), mHeadEntry.mCoeff));
-			return new InfinitNumber(denom, InfinitNumber.normEpsilon(mNumUpperEps));
+			return new InfinitesimalNumber(denom, InfinitesimalNumber.normEpsilon(mNumUpperEps));
 		} else {
 			if (mNumLowerInf != 0) {
-				return InfinitNumber.POSITIVE_INFINITY;
+				return InfinitesimalNumber.POSITIVE_INFINITY;
 			}
 			final Rational denom = mLowerComposite.toRational()
 				.mul(Rational.valueOf(BigInteger.valueOf(-1), mHeadEntry.mCoeff));
-			return new InfinitNumber(denom, -InfinitNumber.normEpsilon(mNumLowerEps));
+			return new InfinitesimalNumber(denom, -InfinitesimalNumber.normEpsilon(mNumLowerEps));
 		}
 	}
 
-	public InfinitNumber getLowerComposite() {
+	public InfinitesimalNumber getLowerComposite() {
 		if (mHeadEntry.mCoeff.signum() < 0) {
 			if (mNumLowerInf != 0) {
-				return InfinitNumber.NEGATIVE_INFINITY;
+				return InfinitesimalNumber.NEGATIVE_INFINITY;
 			}
 			final Rational denom = mLowerComposite.toRational()
 				.mul(Rational.valueOf(BigInteger.valueOf(-1), mHeadEntry.mCoeff));
-			return new InfinitNumber(denom, InfinitNumber.normEpsilon(mNumLowerEps));
+			return new InfinitesimalNumber(denom, InfinitesimalNumber.normEpsilon(mNumLowerEps));
 		} else {
 			if (mNumUpperInf != 0) {
-				return InfinitNumber.NEGATIVE_INFINITY;
+				return InfinitesimalNumber.NEGATIVE_INFINITY;
 			}
 			final Rational denom = mUpperComposite.toRational()
 				.mul(Rational.valueOf(BigInteger.valueOf(-1), mHeadEntry.mCoeff));
-			return new InfinitNumber(denom, -InfinitNumber.normEpsilon(mNumUpperEps));
+			return new InfinitesimalNumber(denom, -InfinitesimalNumber.normEpsilon(mNumUpperEps));
 		}
 	}
 
@@ -452,9 +452,9 @@ public class LinVar implements Comparable<LinVar> {
 		assert mBasic;
 		int cntLower = 0, cntLowerEps = 0;
 		int cntUpper = 0, cntUpperEps = 0;
-		final MutableExactInfinitNumber value = new MutableExactInfinitNumber();
-		final MutableExactInfinitNumber lbound = new MutableExactInfinitNumber();
-		final MutableExactInfinitNumber ubound = new MutableExactInfinitNumber();
+		final MutableExactInfinitesimalNumber value = new MutableExactInfinitesimalNumber();
+		final MutableExactInfinitesimalNumber lbound = new MutableExactInfinitesimalNumber();
+		final MutableExactInfinitesimalNumber ubound = new MutableExactInfinitesimalNumber();
 		for (MatrixEntry entry = mHeadEntry.mNextInRow;
 			 entry != mHeadEntry; entry = entry.mNextInRow) {
 			value.addmul(entry.mColumn.mCurval.toNumber(), Rational.valueOf(entry.mCoeff, BigInteger.ONE));
@@ -505,7 +505,7 @@ public class LinVar implements Comparable<LinVar> {
 		assert mHeadEntry.mRow == mHeadEntry.mColumn;
 		//assert headEntry.nextInCol == headEntry;
 		//assert headEntry.nextInCol == headEntry.prevInCol;
-		final MutableAffinTerm mat = new MutableAffinTerm();
+		final MutableAffineTerm mat = new MutableAffineTerm();
 		MatrixEntry entry = mHeadEntry;
 		do {
 			assert entry.mRow == this;
@@ -514,7 +514,7 @@ public class LinVar implements Comparable<LinVar> {
 			mat.add(Rational.valueOf(entry.mCoeff, BigInteger.ONE), entry.mColumn);
 			entry = entry.mNextInRow;
 		} while (entry != mHeadEntry);
-		assert mat.isConstant() && mat.getConstant().equals(InfinitNumber.ZERO);
+		assert mat.isConstant() && mat.getConstant().equals(InfinitesimalNumber.ZERO);
 		return true;
 	}
 	public boolean isFixed() {
@@ -541,19 +541,19 @@ public class LinVar implements Comparable<LinVar> {
 		return true;
 	}
 
-	public LAEquality getEquality(final InfinitNumber bound) {
+	public LAEquality getEquality(final InfinitesimalNumber bound) {
 		return mEqualities.get(bound);
 	}
 
-	public final ExactInfinitNumber getValue() {
+	public final ExactInfinitesimalNumber getValue() {
 		return mCurval.toNumber();
 	}
 
-	public final void setValue(final MutableExactInfinitNumber value) {
+	public final void setValue(final MutableExactInfinitesimalNumber value) {
 		mCurval.assign(value);
 	}
 
-	public final void addValue(final ExactInfinitNumber value) {
+	public final void addValue(final ExactInfinitesimalNumber value) {
 		mCurval.add(value);
 	}
 

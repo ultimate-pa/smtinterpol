@@ -26,7 +26,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate.Interpolator.LitInfo;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.InfinitNumber;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.InfinitesimalNumber;
 
 /**
  * The Interpolator for linear arithmetic. This computes the interpolants with the algorithm described in "Proof Tree
@@ -61,14 +61,14 @@ public class LAInterpolator {
 	/**
 	 * This is 1, if mSum is an integer, eps otherwise.
 	 */
-	InfinitNumber mEpsilon;
+	InfinitesimalNumber mEpsilon;
 
 	/**
 	 * Return the epsilon. This is 1 for integer constraints, eps for rational constraints.
 	 *
 	 * @return the epsilon.
 	 */
-	public InfinitNumber getEpsilon() {
+	public InfinitesimalNumber getEpsilon() {
 		return mEpsilon;
 	}
 
@@ -129,11 +129,11 @@ public class LAInterpolator {
 			final InterpolatorLiteralTermInfo litTermInfo = mInterpolator.getLiteralTermInfo(lit);
 			final Rational factor = entry.getValue();
 			if (litTermInfo.isBoundConstraint() || !litTermInfo.isNegated() && litTermInfo.isLAEquality()) {
-				InfinitNumber bound;
+				InfinitesimalNumber bound;
 				InterpolatorAffineTerm lv;
 				if (litTermInfo.isBoundConstraint()) {
 					assert factor.signum() == (litTermInfo.isNegated() ? -1 : 1);
-					bound = new InfinitNumber(litTermInfo.getBound(), 0);
+					bound = new InfinitesimalNumber(litTermInfo.getBound(), 0);
 					// adapt the bound value for strict inequalities
 					if (litTermInfo.isStrict()) {
 						bound = bound.sub(litTermInfo.getEpsilon());
@@ -146,7 +146,7 @@ public class LAInterpolator {
 				} else {
 					assert litTermInfo.isLAEquality();
 					lv = litTermInfo.getLinVar();
-					bound = new InfinitNumber(litTermInfo.getBound(), 0);
+					bound = new InfinitesimalNumber(litTermInfo.getBound(), 0);
 				}
 				final LitInfo info = mInterpolator.getLiteralInfo(litTermInfo.getAtom());
 				inequalityInfo = info;
@@ -194,7 +194,7 @@ public class LAInterpolator {
 				assert false;
 			}
 		}
-		assert ipl[ipl.length - 1].isConstant() && InfinitNumber.ZERO.less(ipl[ipl.length - 1].getConstant());
+		assert ipl[ipl.length - 1].isConstant() && InfinitesimalNumber.ZERO.less(ipl[ipl.length - 1].getConstant());
 
 		/*
 		 * Save the interpolants computed for this leaf into the result array.
@@ -214,7 +214,7 @@ public class LAInterpolator {
 				/*
 				 * This is a mixed interpolant with auxiliary variables. Prepare an LATerm that wraps the interpolant.
 				 */
-				InfinitNumber k;
+				InfinitesimalNumber k;
 				Term F;
 				if (equalityInfo != null) { // NOPMD
 					/*
@@ -224,17 +224,17 @@ public class LAInterpolator {
 					assert auxVars[part].size() == 2;
 					assert normFactor == Rational.ONE;
 					final InterpolatorAffineTerm less =
-							new InterpolatorAffineTerm(ipl[part]).add(InfinitNumber.EPSILON);
-					k = InfinitNumber.ZERO;
+							new InterpolatorAffineTerm(ipl[part]).add(InfinitesimalNumber.EPSILON);
+					k = InfinitesimalNumber.ZERO;
 					F = mInterpolator.mTheory.and(ipl[part].toLeq0(mInterpolator.mTheory), mInterpolator.mTheory.or(
 							less.toLeq0(mInterpolator.mTheory),
 							mInterpolator.mTheory.equals(equalityInfo.getMixedVar(), auxVars[part].iterator().next())));
 				} else {
 					/* Just the inequalities are mixed. */
 					if (ipl[part].isInt()) {
-						k = InfinitNumber.ONE.negate();
+						k = InfinitesimalNumber.ONE.negate();
 					} else {
-						k = InfinitNumber.EPSILON.negate();
+						k = InfinitesimalNumber.EPSILON.negate();
 					}
 					F = ipl[part].toLeq0(mInterpolator.mTheory);
 				}

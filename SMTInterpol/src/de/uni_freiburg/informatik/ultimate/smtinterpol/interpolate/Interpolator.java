@@ -50,7 +50,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.InfinitNumber;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.InfinitesimalNumber;
 
 /**
  * This interpolator computes the interpolants of a refutation for the partitions specified by the user. It works in a
@@ -710,9 +710,9 @@ public class Interpolator extends NonRecursive {
 				} else {
 					// handle mixed LA inequalities and equalities.
 					InterpolatorAffineTerm lv;
-					InfinitNumber bound;
+					InfinitesimalNumber bound;
 					if (litTermInfo.isBoundConstraint()) {
-						bound = new InfinitNumber(litTermInfo.getBound(), 0);
+						bound = new InfinitesimalNumber(litTermInfo.getBound(), 0);
 						// adapt the bound for strict inequalities
 						if (litTermInfo.isStrict()) {
 							bound = bound.sub(litTermInfo.getEpsilon());
@@ -725,7 +725,7 @@ public class Interpolator extends NonRecursive {
 					} else {
 						assert litTermInfo.isLAEquality();
 						lv = litTermInfo.getLinVar();
-						bound = new InfinitNumber(litTermInfo.getBound(), 0);
+						bound = new InfinitesimalNumber(litTermInfo.getBound(), 0);
 					}
 
 					// check if literal is mixed in part or some child partition.
@@ -882,7 +882,7 @@ public class Interpolator extends NonRecursive {
 					}
 				} else {
 					if (iat.isConstant()) {
-						if (iat.getConstant() != InfinitNumber.ZERO) {
+						if (iat.getConstant() != InfinitesimalNumber.ZERO) {
 							negate ^= true;
 						}
 						interpolant = negate ? mTheory.mFalse : mTheory.mTrue;
@@ -1325,7 +1325,7 @@ public class Interpolator extends NonRecursive {
 			final InterpolatorAffineTerm s2 = new InterpolatorAffineTerm(la2.mS);
 			final Rational c2 = s2.getSummands().remove(mMixedVar);
 			assert c1.signum() * c2.signum() == -1;
-			InfinitNumber newK = la1.mK.mul(c2.abs()).add(la2.mK.mul(c1.abs()));
+			InfinitesimalNumber newK = la1.mK.mul(c2.abs()).add(la2.mK.mul(c1.abs()));
 
 			// compute c1s2 + c2s1
 			final InterpolatorAffineTerm c1s2c2s1 = new InterpolatorAffineTerm();
@@ -1339,15 +1339,15 @@ public class Interpolator extends NonRecursive {
 				// possible that c1s2c2s1 == 0 holds. Hence, we do not need
 				// to substitute a shared term.
 				newF = c1s2c2s1.toLeq0(mTheory);
-				newK = InfinitNumber.EPSILON.negate();
-			} else if (la1.mK.less(InfinitNumber.ZERO)) {
+				newK = InfinitesimalNumber.EPSILON.negate();
+			} else if (la1.mK.less(InfinitesimalNumber.ZERO)) {
 				// compute -s1/c1
 				final InterpolatorAffineTerm s1divc1 = new InterpolatorAffineTerm(s1);
 				s1divc1.mul(c1.inverse().negate());
 				final Term s1DivByc1 = s1divc1.toSMTLib(mTheory, false);
 				newF = substitute(la2.mF, mMixedVar, s1DivByc1);
 				newK = la2.mK;
-			} else if (la2.mK.less(InfinitNumber.ZERO)) {
+			} else if (la2.mK.less(InfinitesimalNumber.ZERO)) {
 				// compute s2/c2
 				final InterpolatorAffineTerm s2divc2 = new InterpolatorAffineTerm(s2);
 				s2divc2.mul(c2.inverse().negate());
@@ -1362,15 +1362,15 @@ public class Interpolator extends NonRecursive {
 				final Term f2 = substitute(la2.mF, mMixedVar, s1DivByc1);
 				newF = mTheory.and(f1, f2);
 				if (c1s2c2s1.isConstant()) {
-					if (c1s2c2s1.getConstant().less(InfinitNumber.ZERO)) {
+					if (c1s2c2s1.getConstant().less(InfinitesimalNumber.ZERO)) {
 						newF = mTheory.mTrue;
 					}
 				} else {
 					final InterpolatorAffineTerm s3 = new InterpolatorAffineTerm(c1s2c2s1);
-					s3.add(InfinitNumber.EPSILON);
+					s3.add(InfinitesimalNumber.EPSILON);
 					newF = mTheory.or(s3.toLeq0(mTheory), newF);
 				}
-				newK = InfinitNumber.ZERO;
+				newK = InfinitesimalNumber.ZERO;
 			}
 			final LATerm la3 = new LATerm(c1s2c2s1, newK, newF);
 			return la3;
@@ -1402,11 +1402,11 @@ public class Interpolator extends NonRecursive {
 
 			// compute newk = c2k1 + c1k2 + c1c2;
 			final Rational c1c2 = absc1.mul(absc2);
-			final InfinitNumber newK = la1.mK.mul(absc2).add(la2.mK.mul(absc1)).add(new InfinitNumber(c1c2, 0));
+			final InfinitesimalNumber newK = la1.mK.mul(absc2).add(la2.mK.mul(absc1)).add(new InfinitesimalNumber(c1c2, 0));
 			assert newK.isIntegral();
 
-			final Rational k1c1 = la1.mK.mA.add(Rational.ONE).div(absc1).ceil();
-			final Rational k2c2 = la2.mK.mA.add(Rational.ONE).div(absc2).ceil();
+			final Rational k1c1 = la1.mK.mReal.add(Rational.ONE).div(absc1).ceil();
+			final Rational k2c2 = la2.mK.mReal.add(Rational.ONE).div(absc2).ceil();
 			Rational kc;
 			Rational theC;
 			InterpolatorAffineTerm theS;

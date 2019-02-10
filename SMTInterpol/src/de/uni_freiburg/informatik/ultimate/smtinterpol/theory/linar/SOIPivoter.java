@@ -40,7 +40,7 @@ public class SOIPivoter {
 	/** The current coefficients for the sum of out of bounds variables expressed using the current column variables. */
 	SortedMap<LinVar, Rational> mSOIVar;
 	/** The current value for the sum of infeasibility */
-	ExactInfinitNumber mSOIValue;
+	ExactInfinitesimalNumber mSOIValue;
 	/** The limiter describing the next pivot step. */
 	FreedomLimiter mBestLimiter;
 
@@ -55,11 +55,11 @@ public class SOIPivoter {
 	 */
 	public boolean computeSOI() {
 		boolean isOOB = false;
-		mSOIValue = new ExactInfinitNumber();
+		mSOIValue = new ExactInfinitesimalNumber();
 		mSOIVar = new TreeMap<>();
 		for (final LinVar var : mSolver.mLinvars) {
 			boolean isUpper;
-			ExactInfinitNumber diff = var.getValue().isub(var.getLowerBound());
+			ExactInfinitesimalNumber diff = var.getValue().isub(var.getLowerBound());
 			if (diff.signum() > 0) {
 				isUpper = false;
 				mSOIValue = mSOIValue.add(diff);
@@ -125,11 +125,11 @@ public class SOIPivoter {
 				final LinVar rowVar = me.mRow;
 				final Rational weight = Rational.valueOf(me.mCoeff, rowVar.mHeadEntry.mCoeff.negate());
 				final LAReason bound = weight.signum() == coeff.signum() ? rowVar.mLowerLiteral : rowVar.mUpperLiteral;
-				if (bound != null && rowVar.getValue().equals(new ExactInfinitNumber(bound.getBound()))) {
+				if (bound != null && rowVar.getValue().equals(new ExactInfinitesimalNumber(bound.getBound()))) {
 					// check if this entry would be used by Bland strategy (first column, smallest row variable)
 					if (firstColumn &&
 							(mBestLimiter == null || mBestLimiter.getRowVar().compareTo(rowVar) > 0)) {
-						mBestLimiter = new FreedomLimiter(new ExactInfinitNumber(), weight, bound.getBound(), me);
+						mBestLimiter = new FreedomLimiter(new ExactInfinitesimalNumber(), weight, bound.getBound(), me);
 					}
 
 					// make weight the opposite sign of coeff and add it, to decrease absolute value of coeff.
@@ -152,7 +152,7 @@ public class SOIPivoter {
 	}
 
 	public MatrixEntry findPivot() {
-		ExactInfinitNumber bestDiff = new ExactInfinitNumber(Rational.MONE);
+		ExactInfinitesimalNumber bestDiff = new ExactInfinitesimalNumber(Rational.MONE);
 		LinVar bestVar = null;
 		mBestLimiter = null;
 		for (final Entry<LinVar, Rational> entry : mSOIVar.entrySet()) {
@@ -173,9 +173,9 @@ public class SOIPivoter {
 			// For this collect all bounds on all variables and sort them by the time until they are hit.
 			final SortedSet<FreedomLimiter> bounds = new TreeSet<>();
 			{
-				final InfinitNumber colBound = coeff.signum() > 0 ? colVar.getLowerBound() : colVar.getUpperBound();
+				final InfinitesimalNumber colBound = coeff.signum() > 0 ? colVar.getLowerBound() : colVar.getUpperBound();
 				if (!colBound.isInfinity()) {
-					final ExactInfinitNumber colFreedom = colVar.getValue().isub(colBound).abs();
+					final ExactInfinitesimalNumber colFreedom = colVar.getValue().isub(colBound).abs();
 					bounds.add(new FreedomLimiter(colFreedom, Rational.ONE, colBound,
 							colVar.mHeadEntry));
 				}
@@ -187,22 +187,22 @@ public class SOIPivoter {
 					weight = weight.negate();
 				}
 				if (rowVar.mLowerLiteral != null) {
-					final InfinitNumber bound = rowVar.mLowerLiteral.getBound();
-					final ExactInfinitNumber diff = rowVar.getValue().isub(bound);
+					final InfinitesimalNumber bound = rowVar.mLowerLiteral.getBound();
+					final ExactInfinitesimalNumber diff = rowVar.getValue().isub(bound);
 					// a difference of zero counts as negative, because it means the rowVar is in bound.
 					if (weight.signum() * (2 * diff.signum() - 1) > 0) {
-						final ExactInfinitNumber freedom = diff.div(weight);
+						final ExactInfinitesimalNumber freedom = diff.div(weight);
 						assert freedom.signum() >= 0;
 						final FreedomLimiter limiter = new FreedomLimiter(freedom, weight, bound, me);
 						bounds.add(limiter);
 					}
 				}
 				if (rowVar.mUpperLiteral != null) {
-					final InfinitNumber bound = rowVar.mUpperLiteral.getBound();
-					final ExactInfinitNumber diff = rowVar.getValue().isub(bound);
+					final InfinitesimalNumber bound = rowVar.mUpperLiteral.getBound();
+					final ExactInfinitesimalNumber diff = rowVar.getValue().isub(bound);
 					// a difference of zero counts as positive, because it means the rowVar is in bound.
 					if (weight.signum() * (2 * diff.signum() + 1) > 0) {
-						final ExactInfinitNumber freedom = diff.div(weight);
+						final ExactInfinitesimalNumber freedom = diff.div(weight);
 						assert freedom.signum() >= 0;
 						final FreedomLimiter limiter = new FreedomLimiter(freedom, weight, bound, me);
 						bounds.add(limiter);
@@ -211,8 +211,8 @@ public class SOIPivoter {
 			}
 			// mSolver.mEngine.getLogger().debug(bounds);
 			Rational weight = coeff.abs();
-			ExactInfinitNumber lastFreedom = new ExactInfinitNumber(Rational.ZERO);
-			ExactInfinitNumber soidiff = new ExactInfinitNumber(Rational.ZERO);
+			ExactInfinitesimalNumber lastFreedom = new ExactInfinitesimalNumber(Rational.ZERO);
+			ExactInfinitesimalNumber soidiff = new ExactInfinitesimalNumber(Rational.ZERO);
 			// mSolver.mEngine.getLogger().debug("Candidates: %s + %s", colVar, bounds);
 			for (final FreedomLimiter limiter : bounds) {
 				soidiff = soidiff.add(limiter.mFreedom.sub(lastFreedom).mul(weight));
@@ -250,9 +250,9 @@ public class SOIPivoter {
 		final Explainer explainer = new Explainer(mSolver, mSolver.mEngine.isProofGenerationEnabled(), null);
 		for (final LinVar var : mSolver.mLinvars) {
 			if (var.getValue().isub(var.getLowerBound()).signum() > 0) {
-				var.mLowerLiteral.explain(explainer, InfinitNumber.ZERO, Rational.MONE);
+				var.mLowerLiteral.explain(explainer, InfinitesimalNumber.ZERO, Rational.MONE);
 			} else if (var.getValue().isub(var.getUpperBound()).signum() < 0) {
-				var.mUpperLiteral.explain(explainer, InfinitNumber.ZERO, Rational.ONE);
+				var.mUpperLiteral.explain(explainer, InfinitesimalNumber.ZERO, Rational.ONE);
 			}
 		}
 		for (final Entry<LinVar, Rational> entry : mSOIVar.entrySet()) {
@@ -262,7 +262,7 @@ public class SOIPivoter {
 				continue;
 			}
 			final LiteralReason reason = coeff.signum() < 0 ? colVar.mUpperLiteral : colVar.mLowerLiteral;
-			reason.explain(explainer, InfinitNumber.ZERO, coeff.negate());
+			reason.explain(explainer, InfinitesimalNumber.ZERO, coeff.negate());
 		}
 		return explainer.createClause(mSolver.mEngine);
 	}
@@ -313,7 +313,7 @@ public class SOIPivoter {
 			} else {
 				row = candidate.mColumn;
 			}
-			mSolver.updateVariableValue(row, new ExactInfinitNumber(mBestLimiter.mBound));
+			mSolver.updateVariableValue(row, new ExactInfinitesimalNumber(mBestLimiter.mBound));
 			final Clause conflict = mSolver.checkPendingBoundPropagations();
 			if (conflict != null) {
 				return conflict;
@@ -322,12 +322,12 @@ public class SOIPivoter {
 	}
 
 	private static class FreedomLimiter implements Comparable<FreedomLimiter> {
-		ExactInfinitNumber mFreedom;
+		ExactInfinitesimalNumber mFreedom;
 		Rational mWeight;
-		InfinitNumber mBound;
+		InfinitesimalNumber mBound;
 		MatrixEntry mEntry;
 
-		public FreedomLimiter(final ExactInfinitNumber freedom, final Rational weight, final InfinitNumber bound,
+		public FreedomLimiter(final ExactInfinitesimalNumber freedom, final Rational weight, final InfinitesimalNumber bound,
 				final MatrixEntry entry) {
 			assert freedom.signum() >= 0;
 			mFreedom = freedom;

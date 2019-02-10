@@ -101,7 +101,7 @@ public class AnnotationToProofTerm {
 	 *            the information corresponding to the annotation.
 	 */
 	private void computeLiterals(final LAAnnotation annot, final Theory theory, final AnnotationInfo info) {
-		final MutableAffinTerm at = new MutableAffinTerm();
+		final MutableAffineTerm at = new MutableAffineTerm();
 		at.add(Rational.ONE, annot.getLinVar());
 		at.add(annot.getBound().negate());
 		if (!annot.isUpper()) {

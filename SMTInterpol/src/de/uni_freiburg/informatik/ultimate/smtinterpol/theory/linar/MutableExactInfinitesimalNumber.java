@@ -23,7 +23,7 @@ import java.math.BigInteger;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 
 /**
- * Mutable version of the {@link InfinitNumber} class. All arithmetic
+ * Mutable version of the {@link InfinitesimalNumber} class. All arithmetic
  * operations change the value of this object.
  *
  * This class is intended to save some unneeded temporary objects in bigger
@@ -32,36 +32,36 @@ import de.uni_freiburg.informatik.ultimate.logic.Rational;
  *
  * @author Juergen Christ
  */
-public class MutableExactInfinitNumber implements Comparable<MutableExactInfinitNumber> {
+public class MutableExactInfinitesimalNumber implements Comparable<MutableExactInfinitesimalNumber> {
 	// Real part
 	Rational mReal;
 	// Infinitesimal part
 	Rational mEps;
 	/// --- Construction ---
-	public MutableExactInfinitNumber() {
+	public MutableExactInfinitesimalNumber() {
 		this(Rational.ZERO,0);
 	}
 
-	public MutableExactInfinitNumber(final Rational a, final Rational eps) {
+	public MutableExactInfinitesimalNumber(final Rational a, final Rational eps) {
 		mReal = a;
 		mEps = eps;
 	}
-	public MutableExactInfinitNumber(final Rational a, final int eps) {
+	public MutableExactInfinitesimalNumber(final Rational a, final int eps) {
 		this(a, Rational.valueOf(eps, 1));
 	}
-	public MutableExactInfinitNumber(final InfinitNumber other) {
-		this(other.mA, other.mEps);
-	}
-	public MutableExactInfinitNumber(final MutableExactInfinitNumber other) {
+	public MutableExactInfinitesimalNumber(final InfinitesimalNumber other) {
 		this(other.mReal, other.mEps);
 	}
-	MutableExactInfinitNumber assign(final MutableExactInfinitNumber other) {
+	public MutableExactInfinitesimalNumber(final MutableExactInfinitesimalNumber other) {
+		this(other.mReal, other.mEps);
+	}
+	MutableExactInfinitesimalNumber assign(final MutableExactInfinitesimalNumber other) {
 		mReal = other.mReal;
 		mEps = other.mEps;
 		return this;
 	}
-	MutableExactInfinitNumber assign(final InfinitNumber other) {
-		mReal = other.mA;
+	MutableExactInfinitesimalNumber assign(final InfinitesimalNumber other) {
+		mReal = other.mReal;
 		mEps = Rational.valueOf(other.mEps, 1);
 		return this;
 	}
@@ -69,7 +69,7 @@ public class MutableExactInfinitNumber implements Comparable<MutableExactInfinit
 	/**
 	 * Returns this + other.
 	 */
-	public void add(final ExactInfinitNumber other) {
+	public void add(final ExactInfinitesimalNumber other) {
 		mReal = mReal.add(other.getRealValue());
 		mEps = mEps.add(other.getEpsilon());
 	}
@@ -77,15 +77,15 @@ public class MutableExactInfinitNumber implements Comparable<MutableExactInfinit
 	/**
 	 * Returns this + other.
 	 */
-	public void add(final InfinitNumber other) {
-		mReal = mReal.add(other.mA);
+	public void add(final InfinitesimalNumber other) {
+		mReal = mReal.add(other.mReal);
 		mEps = mEps.add(Rational.valueOf(other.mEps, 1));
 	}
 	/**
 	 * Returns this - other.
 	 */
-	public void sub(final InfinitNumber other) {
-		mReal = mReal.sub(other.mA);
+	public void sub(final InfinitesimalNumber other) {
+		mReal = mReal.sub(other.mReal);
 		mEps = mEps.add(Rational.valueOf(-other.mEps, 1));
 	}
 	/**
@@ -109,7 +109,7 @@ public class MutableExactInfinitNumber implements Comparable<MutableExactInfinit
 	 * @param fac2
 	 * @return
 	 */
-	public void addmul(final ExactInfinitNumber fac1, final Rational fac2) {
+	public void addmul(final ExactInfinitesimalNumber fac1, final Rational fac2) {
 		mReal = mReal.add(fac1.getRealValue().mul(fac2));
 		mEps = mEps.add(fac1.getEpsilon().mul(fac2));
 	}
@@ -121,8 +121,8 @@ public class MutableExactInfinitNumber implements Comparable<MutableExactInfinit
 	 * @param fac2
 	 * @return
 	 */
-	public void addmul(final InfinitNumber fac1, final Rational fac2) {
-		mReal = mReal.add(fac1.mA.mul(fac2));
+	public void addmul(final InfinitesimalNumber fac1, final Rational fac2) {
+		mReal = mReal.add(fac1.mReal.mul(fac2));
 		switch (fac1.mEps) {
 		case -1:
 			mEps = mEps.sub(fac2);
@@ -140,7 +140,7 @@ public class MutableExactInfinitNumber implements Comparable<MutableExactInfinit
 	 * @param fac2
 	 * @return
 	 */
-	public void addmul(final InfinitNumber fac1, final BigInteger fac2) {
+	public void addmul(final InfinitesimalNumber fac1, final BigInteger fac2) {
 		addmul(fac1, Rational.valueOf(fac2, BigInteger.ONE));
 	}
 	/**
@@ -149,8 +149,8 @@ public class MutableExactInfinitNumber implements Comparable<MutableExactInfinit
 	 * @param d
 	 * @return
 	 */
-	public void subdiv(final InfinitNumber s, final Rational d) {
-		mReal = mReal.add(s.mA.div(d));
+	public void subdiv(final InfinitesimalNumber s, final Rational d) {
+		mReal = mReal.add(s.mReal.div(d));
 		switch (s.mEps) {
 		case -1:
 			mEps = mEps.sub(d.inverse());
@@ -169,15 +169,15 @@ public class MutableExactInfinitNumber implements Comparable<MutableExactInfinit
 	}
 	/// --- Comparing ---
 	@Override
-	public int compareTo(final MutableExactInfinitNumber arg0) {
+	public int compareTo(final MutableExactInfinitesimalNumber arg0) {
 		final int ac = mReal.compareTo(arg0.mReal);
 		if (ac == 0) {
 			return mEps.compareTo(arg0.mEps);
 		}
 		return ac;
 	}
-	public int compareTo(final InfinitNumber other) {
-		final int ac = mReal.compareTo(other.mA);
+	public int compareTo(final InfinitesimalNumber other) {
+		final int ac = mReal.compareTo(other.mReal);
 		if (ac == 0) {
 			return mEps.compareTo(Rational.valueOf(other.mEps, 1));
 		}
@@ -185,12 +185,12 @@ public class MutableExactInfinitNumber implements Comparable<MutableExactInfinit
 	}
 	@Override
 	public boolean equals(final Object o) {
-		if (o instanceof InfinitNumber) {
-			final InfinitNumber n = (InfinitNumber)o;
-			return mReal.equals(n.mA) && mEps.equals(Rational.valueOf(n.mEps, 1));
+		if (o instanceof InfinitesimalNumber) {
+			final InfinitesimalNumber n = (InfinitesimalNumber)o;
+			return mReal.equals(n.mReal) && mEps.equals(Rational.valueOf(n.mEps, 1));
 		}
-		if (o instanceof MutableExactInfinitNumber) {
-			final MutableExactInfinitNumber n = (MutableExactInfinitNumber) o;
+		if (o instanceof MutableExactInfinitesimalNumber) {
+			final MutableExactInfinitesimalNumber n = (MutableExactInfinitesimalNumber) o;
 			return mReal.equals(n.mReal) && mEps.equals(n.mEps);
 		}
 		return false;
@@ -212,12 +212,12 @@ public class MutableExactInfinitNumber implements Comparable<MutableExactInfinit
 		return mReal + (mEps.signum() > 0 ? "+" : "") + mEps + "eps";
 	}
 
-	public ExactInfinitNumber toNumber() {
-		return new ExactInfinitNumber(mReal, mEps);
+	public ExactInfinitesimalNumber toNumber() {
+		return new ExactInfinitesimalNumber(mReal, mEps);
 	}
 
-	public InfinitNumber toInfinitNumber() {
+	public InfinitesimalNumber toInfinitNumber() {
 		assert (mEps == Rational.valueOf(mEps.signum(), 1));
-		return new InfinitNumber(mReal, mEps.signum());
+		return new InfinitesimalNumber(mReal, mEps.signum());
 	}
 }
