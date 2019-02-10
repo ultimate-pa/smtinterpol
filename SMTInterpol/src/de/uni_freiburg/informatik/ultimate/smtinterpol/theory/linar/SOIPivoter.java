@@ -55,7 +55,7 @@ public class SOIPivoter {
 	 */
 	public boolean computeSOI() {
 		boolean isOOB = false;
-		mSOIValue = new ExactInfinitesimalNumber();
+		mSOIValue = ExactInfinitesimalNumber.ZERO;
 		mSOIVar = new TreeMap<>();
 		for (final LinVar var : mSolver.mLinvars) {
 			boolean isUpper;
@@ -129,7 +129,7 @@ public class SOIPivoter {
 					// check if this entry would be used by Bland strategy (first column, smallest row variable)
 					if (firstColumn &&
 							(mBestLimiter == null || mBestLimiter.getRowVar().compareTo(rowVar) > 0)) {
-						mBestLimiter = new FreedomLimiter(new ExactInfinitesimalNumber(), weight, bound.getBound(), me);
+						mBestLimiter = new FreedomLimiter(ExactInfinitesimalNumber.ZERO, weight, bound.getBound(), me);
 					}
 
 					// make weight the opposite sign of coeff and add it, to decrease absolute value of coeff.

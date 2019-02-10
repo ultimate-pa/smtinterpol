@@ -21,33 +21,37 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 
 public class ExactInfinitesimalNumber implements Comparable<ExactInfinitesimalNumber> {
+	public final static ExactInfinitesimalNumber ZERO = new ExactInfinitesimalNumber(Rational.ZERO, Rational.ZERO);
 	public final static ExactInfinitesimalNumber POSITIVE_INFINITY =
 			new ExactInfinitesimalNumber(Rational.POSITIVE_INFINITY, Rational.ZERO);
 	public final static ExactInfinitesimalNumber NEGATIVE_INFINITY =
 			new ExactInfinitesimalNumber(Rational.NEGATIVE_INFINITY, Rational.ZERO);
 	private final Rational mReal;
 	private final Rational mEps;
-	public ExactInfinitesimalNumber() {
-		mReal = mEps = Rational.ZERO;
-	}
+
 	public ExactInfinitesimalNumber(final Rational real) {
 		mReal = real;
 		mEps = Rational.ZERO;
 	}
+
 	public ExactInfinitesimalNumber(final Rational real, final Rational eps) {
 		mReal = real;
 		mEps = eps;
 	}
+
 	public ExactInfinitesimalNumber(final InfinitesimalNumber approx) {
 		mReal = approx.mReal;
 		mEps = Rational.valueOf(approx.mEps, 1);
 	}
+
 	public Rational getRealValue() {
 		return mReal;
 	}
+
 	public Rational getEpsilon() {
 		return mEps;
 	}
+
 	@Override
 	public String toString() {
 		if (mEps.signum() == 0) {
@@ -58,6 +62,7 @@ public class ExactInfinitesimalNumber implements Comparable<ExactInfinitesimalNu
 		}
 		return mReal.toString() + "-" + mEps.abs().toString() + "eps";
 	}
+
 	@Override
 	public boolean equals(final Object o) {
 		if (o instanceof InfinitesimalNumber) {
@@ -70,6 +75,7 @@ public class ExactInfinitesimalNumber implements Comparable<ExactInfinitesimalNu
 		}
 		return false;
 	}
+
 	@Override
 	public int hashCode() {
 		return mReal.hashCode() + 65537 * mEps.hashCode();

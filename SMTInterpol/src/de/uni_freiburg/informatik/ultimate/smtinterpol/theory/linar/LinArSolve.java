@@ -1449,7 +1449,7 @@ public class LinArSolve implements ITheory {
 		v.mHeadEntry.mNextInCol = v.mHeadEntry.mPrevInCol = v.mHeadEntry;
 		v.resetComposites();
 
-		final MutableExactInfinitesimalNumber val = new MutableExactInfinitesimalNumber();
+		ExactInfinitesimalNumber val = ExactInfinitesimalNumber.ZERO;
 		Rational gcd = Rational.ONE;
 		for (final Rational c : coeffs.values()) {
 			gcd = gcd.gcd(c);
@@ -1458,15 +1458,15 @@ public class LinArSolve implements ITheory {
 		v.mHeadEntry.mCoeff = gcd.denominator().negate();
 		for (final Map.Entry<LinVar,Rational> me : coeffs.entrySet()) {
 			assert(!me.getKey().mBasic);
-			final LinVar nb = me.getKey();
-			final Rational value = me.getValue().div(gcd);
-			assert value.denominator().equals(BigInteger.ONE);
-			final BigInteger coeff = value.numerator();
-			v.mHeadEntry.insertRow(nb, coeff);
-			val.addmul(nb.getValue(), value);
-			v.updateUpperLowerSet(coeff, nb);
+			final LinVar nbvar = me.getKey();
+			final Rational factor = me.getValue();
+			val = val.add(nbvar.getValue().mul(factor));
+
+			assert factor.div(gcd).denominator().equals(BigInteger.ONE);
+			final BigInteger coeff = factor.div(gcd).numerator();
+			v.mHeadEntry.insertRow(nbvar, coeff);
+			v.updateUpperLowerSet(coeff, nbvar);
 		}
-		val.mul(gcd);
 		v.setValue(val);
 		assert v.checkBrpCounters();
 		if (v.mNumUpperInf == 0 || v.mNumLowerInf == 0) {
@@ -1682,15 +1682,15 @@ public class LinArSolve implements ITheory {
 		final Map<ExactInfinitesimalNumber, List<SharedTerm>> result =
 			new HashMap<ExactInfinitesimalNumber, List<SharedTerm>>();
 		for (final SharedTerm shared : mSharedVars) {
-			final MutableExactInfinitesimalNumber value = new MutableExactInfinitesimalNumber(shared.getOffset(), 0);
+			ExactInfinitesimalNumber value = new ExactInfinitesimalNumber(shared.getOffset());
 			if (shared.getLinVar() != null) {
-				value.addmul(shared.getLinVar().getValue(), shared.getFactor());
+				value = value.add(shared.getLinVar().getValue().mul(shared.getFactor()));
 			}
 			mEngine.getLogger().debug("%s = %s", shared, value);
-			List<SharedTerm> slot = result.get(value.toNumber());
+			List<SharedTerm> slot = result.get(value);
 			if (slot == null) {
 				slot = new LinkedList<SharedTerm>();
-				result.put(value.toNumber(), slot);
+				result.put(value, slot);
 			}
 			slot.add(shared);
 		}
@@ -1753,7 +1753,7 @@ public class LinArSolve implements ITheory {
 			final Map<Rational,Set<ExactInfinitesimalNumber>> sharedPoints,
 			final Rational lcm) {
 		// Check if variable is fixed or allowed.
-		final ExactInfinitesimalNumber zero = new ExactInfinitesimalNumber();
+		final ExactInfinitesimalNumber zero = ExactInfinitesimalNumber.ZERO;
 		if (upper.equals(lower) || (!prohibitions.contains(zero) && !hasSharing(sharedPoints, zero))) {
 			return zero;
 		}
@@ -1814,7 +1814,7 @@ public class LinArSolve implements ITheory {
 					down = down.add(lcm.negate());
 				}
 			}
-			return new ExactInfinitesimalNumber();
+			return ExactInfinitesimalNumber.ZERO;
 		}
 	}
 

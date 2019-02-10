@@ -151,17 +151,16 @@ public class InfinitesimalNumber implements Comparable<InfinitesimalNumber> {
 		}
 		return ac;
 	}
+
 	@Override
 	public boolean equals(final Object o) {
 		if (o instanceof InfinitesimalNumber) {
 			final InfinitesimalNumber n = (InfinitesimalNumber) o;
 			return mReal.equals(n.mReal) && mEps == n.mEps;
 		}
-		if (o instanceof MutableExactInfinitesimalNumber) {
-			return ((MutableExactInfinitesimalNumber)o).equals(this);
-		}
 		return false;
 	}
+
 	@Override
 	public int hashCode() {
 		return mReal.hashCode() + 65537 * mEps;

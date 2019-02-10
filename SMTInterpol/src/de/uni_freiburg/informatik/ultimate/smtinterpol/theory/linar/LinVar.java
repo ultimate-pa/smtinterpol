@@ -59,7 +59,7 @@ public class LinVar implements Comparable<LinVar> {
 	/** Current lower bound and its reason. null if no lower bound. */
 	LAReason mLower;
 	/** Current value. */
-	private MutableExactInfinitesimalNumber mCurval;
+	private ExactInfinitesimalNumber mCurval;
 	// Is value required to be integer?
 	boolean mIsInt;
 	// List of all bounds on this variable
@@ -140,7 +140,7 @@ public class LinVar implements Comparable<LinVar> {
 	 */
 	public LinVar(final Object name,final boolean isint, final int assertionstacklevel, final int num) {
 		mName = name;
-		mCurval = new MutableExactInfinitesimalNumber();
+		mCurval = ExactInfinitesimalNumber.ZERO;
 		mIsInt = isint;
 		mBasic = false;
 		mMatrixpos = num;
@@ -452,49 +452,50 @@ public class LinVar implements Comparable<LinVar> {
 		assert mBasic;
 		int cntLower = 0, cntLowerEps = 0;
 		int cntUpper = 0, cntUpperEps = 0;
-		final MutableExactInfinitesimalNumber value = new MutableExactInfinitesimalNumber();
-		final MutableExactInfinitesimalNumber lbound = new MutableExactInfinitesimalNumber();
-		final MutableExactInfinitesimalNumber ubound = new MutableExactInfinitesimalNumber();
+		ExactInfinitesimalNumber value = ExactInfinitesimalNumber.ZERO;
+		ExactInfinitesimalNumber lbound = ExactInfinitesimalNumber.ZERO;
+		ExactInfinitesimalNumber ubound = ExactInfinitesimalNumber.ZERO;
 		for (MatrixEntry entry = mHeadEntry.mNextInRow;
 			 entry != mHeadEntry; entry = entry.mNextInRow) {
-			value.addmul(entry.mColumn.mCurval.toNumber(), Rational.valueOf(entry.mCoeff, BigInteger.ONE));
+			final Rational coeff = Rational.valueOf(entry.mCoeff, BigInteger.ONE);
+			value = value.add(entry.mColumn.getValue().mul(coeff));
 			if (entry.mCoeff.signum() < 0) {
 				if (entry.mColumn.hasTightUpperBound()) {
-					lbound.addmul(entry.mColumn.getTightUpperBound(), entry.mCoeff);
+					lbound = lbound.add(entry.mColumn.getTightUpperBound().mul(coeff));
 				} else {
 					cntLower++;
 				}
 				cntLowerEps -= entry.mColumn.getTightUpperBound().mEps;
 				if (entry.mColumn.hasTightLowerBound()) {
-					ubound.addmul(entry.mColumn.getTightLowerBound(), entry.mCoeff);
+					ubound = ubound.add(entry.mColumn.getTightLowerBound().mul(coeff));
 				} else {
 					cntUpper++;
 				}
 				cntUpperEps -= entry.mColumn.getTightLowerBound().mEps;
 			} else {
 				if (entry.mColumn.hasTightUpperBound()) {
-					ubound.addmul(entry.mColumn.getTightUpperBound(), entry.mCoeff);
+					ubound = ubound.add(entry.mColumn.getTightUpperBound().mul(coeff));
 				} else {
 					cntUpper++;
 				}
 				cntUpperEps += entry.mColumn.getTightUpperBound().mEps;
 				if (entry.mColumn.hasTightLowerBound()) {
-					lbound.addmul(entry.mColumn.getTightLowerBound(), entry.mCoeff);
+					lbound = lbound.add(entry.mColumn.getTightLowerBound().mul(coeff));
 				} else {
 					cntLower++;
 				}
 				cntLowerEps += entry.mColumn.getTightLowerBound().mEps;
 			}
 		}
-		value.div(Rational.valueOf(mHeadEntry.mCoeff.negate(), BigInteger.ONE));
+		value = value.div(Rational.valueOf(mHeadEntry.mCoeff.negate(), BigInteger.ONE));
 		assert cntLower == mNumLowerInf && cntUpper == mNumUpperInf;
-		assert lbound.mReal.equals(mLowerComposite);
-		assert lbound.mEps.signum() == Integer.signum(mNumLowerEps);
+		assert lbound.getRealValue().equals(mLowerComposite);
+		assert lbound.getEpsilon().signum() == Integer.signum(mNumLowerEps);
 		assert cntLowerEps == mNumLowerEps;
-		assert ubound.mReal.equals(mUpperComposite);
-		assert ubound.mEps.signum() == Integer.signum(mNumUpperEps);
+		assert ubound.getRealValue().equals(mUpperComposite);
+		assert ubound.getEpsilon().signum() == Integer.signum(mNumUpperEps);
 		assert cntUpperEps == mNumUpperEps;
-		assert value.mReal.equals(mCurval.mReal);
+		assert value.equals(mCurval);
 		return true;
 	}
 
@@ -546,15 +547,15 @@ public class LinVar implements Comparable<LinVar> {
 	}
 
 	public final ExactInfinitesimalNumber getValue() {
-		return mCurval.toNumber();
+		return mCurval;
 	}
 
-	public final void setValue(final MutableExactInfinitesimalNumber value) {
-		mCurval.assign(value);
+	public final void setValue(final ExactInfinitesimalNumber value) {
+		mCurval = value;
 	}
 
 	public final void addValue(final ExactInfinitesimalNumber value) {
-		mCurval.add(value);
+		mCurval = mCurval.add(value);
 	}
 
 	private boolean checkReasonChain(LAReason reason, LiteralReason litreason) {

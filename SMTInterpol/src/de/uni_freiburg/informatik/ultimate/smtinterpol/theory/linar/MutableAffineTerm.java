@@ -25,7 +25,6 @@ import java.util.Map.Entry;
 import java.util.TreeMap;
 
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
-import de.uni_freiburg.informatik.ultimate.logic.MutableRational;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -33,7 +32,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Theory;
 
 /**
  * Represents a modifiable affin term, i.e. SUM_i c_i * x_i + c, where the x_i are initially nonbasic variable.
- * 
+ *
  * @author hoenicke.
  */
 public class MutableAffineTerm {
@@ -189,7 +188,7 @@ public class MutableAffineTerm {
 
 	/**
 	 * Convert the affine term to a term in our core theory.
-	 * 
+	 *
 	 * @param useAuxVars
 	 *            use auxiliary variables for non-variable terms (unimplemented).
 	 */
@@ -238,15 +237,6 @@ public class MutableAffineTerm {
 		}
 	}
 
-	public Rational getValue(final LinArSolve linar) {
-		assert mConstant.mEps == 0;
-		final MutableRational val = new MutableRational(mConstant.mReal);
-		for (final Map.Entry<LinVar, Rational> me : mSummands.entrySet()) {
-			val.add(me.getValue().mul(linar.realValue(me.getKey())));
-		}
-		return val.toRational();
-	}
-
 	public boolean isInt() {
 		for (final LinVar v : mSummands.keySet()) {
 			if (!v.isInt()) {
@@ -258,7 +248,7 @@ public class MutableAffineTerm {
 
 	/**
 	 * Create the SMTLib formula for the term <code>this <= 0</code>.
-	 * 
+	 *
 	 * @param smtTheory
 	 *            Theory used in conversion.
 	 * @return The SMTLib term representing the formula <code>this <= 0</code>.

@@ -502,7 +502,7 @@ public class Rational implements Comparable<Rational> {
 	 * @return the gcd of i1 and i2.
 	 */
 	public static BigInteger gcd(final BigInteger i1, final BigInteger i2) {
-		if (i1.equals(BigInteger.ONE) || i2.equals(BigInteger.ONE)) {
+		if (i1 == BigInteger.ONE || i2 == BigInteger.ONE) {
 			return BigInteger.ONE;
 		}
 		final int l1 = i1.bitLength();
