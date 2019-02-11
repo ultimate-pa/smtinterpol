@@ -241,7 +241,10 @@ public final class SMTAffineTerm {
 	/**
 	 * Convert this affine term to a plain SMTLib term.
 	 *
-	 * @pram sort the expected sort
+	 * @param unifier
+	 *            the term compiler object that contains the normalization map.
+	 * @param sort
+	 *            the expected sort
 	 */
 	public Term toTerm(final TermCompiler unifier, final Sort sort) {
 		assert sort.isNumericSort();
