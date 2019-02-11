@@ -111,26 +111,6 @@ public class ExactInfinitesimalNumber implements Comparable<ExactInfinitesimalNu
 	public ExactInfinitesimalNumber div(final Rational d) {
 		return new ExactInfinitesimalNumber(mReal.div(d), mEps.div(d));
 	}
-	/**
-	 * Approximates the current value to make is suitable as value for a
-	 * nonbasic variable.  We only consider the values <pre>a+b*eps</pre> where
-	 * b is limited to the values -1, 0, 1.  If a different amount of epsilons
-	 * should be used, this method fails and returns <code>null</code>.
-	 * @return An InfinitNumber usable as value for a nonbasic variable or
-	 *         <code>null</code> if no such conversion is possible.
-	 */
-	public InfinitesimalNumber toInfinitNumber() {
-		if (mEps == Rational.ZERO) {
-			return new InfinitesimalNumber(mReal, 0);
-		}
-		if (mEps == Rational.MONE) {
-			return new InfinitesimalNumber(mReal, -1);
-		}
-		if (mEps == Rational.ONE) {
-			return new InfinitesimalNumber(mReal, 1);
-		}
-		return null;
-	}
 
 	/**
 	 * Computes the absolute value.
@@ -139,28 +119,6 @@ public class ExactInfinitesimalNumber implements Comparable<ExactInfinitesimalNu
 	 */
 	public ExactInfinitesimalNumber abs() {
 		return signum() < 0 ? negate() : this;
-	}
-	/**
-	 * Transform this number to an {@link InfinitesimalNumber} such that the resulting
-	 * number is not bigger than this number.  Formally,
-	 * <code>this.compareTo(new ExactInfinitNumber(\result)) >= 0</code> where
-	 * equality only holds, if the result of {@link #toInfinitNumber()} is not
-	 * <code>null</code>.
-	 * @return Possibly floored InfinitNumber representation of this number.
-	 */
-	public InfinitesimalNumber toInfinitNumberFloor() {
-		return new InfinitesimalNumber(mReal, mEps.floor().signum());
-	}
-	/**
-	 * Transform this number to an {@link InfinitesimalNumber} such that the resulting
-	 * number is not smaller than this number.  Formally,
-	 * <code>this.compareTo(new ExactInfinitNumber(\result)) <= 0</code> where
-	 * equality only holds, if the result of {@link #toInfinitNumber()} is not
-	 * <code>null</code>.
-	 * @return Possibly ceiled InfinitNumber representation of this number.
-	 */
-	public InfinitesimalNumber toInfinitNumberCeil() {
-		return new InfinitesimalNumber(mReal, mEps.ceil().signum());
 	}
 
 	public int compareTo(final InfinitesimalNumber other) {
@@ -176,8 +134,5 @@ public class ExactInfinitesimalNumber implements Comparable<ExactInfinitesimalNu
 
 	public int signum() {
 		return mReal == Rational.ZERO ? mEps.signum() : mReal.signum();
-	}
-	public boolean isInfinite() {
-		return !mReal.isRational();
 	}
 }

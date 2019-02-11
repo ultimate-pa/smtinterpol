@@ -1338,7 +1338,7 @@ public class LinArSolve implements ITheory {
 			if (basic.mCachedRowCoeffs == null) {
 				int rowLength = 0;
 				for (MatrixEntry entry = basic.mHeadEntry.mNextInRow;
-				     entry != basic.mHeadEntry; entry = entry.mNextInRow) {
+						entry != basic.mHeadEntry; entry = entry.mNextInRow) {
 					rowLength++;
 				}
 
@@ -1347,7 +1347,7 @@ public class LinArSolve implements ITheory {
 				coeffs = new Rational[rowLength];
 				int i = 0;
 				for (MatrixEntry entry = basic.mHeadEntry.mNextInRow;
-				 	 entry != basic.mHeadEntry; entry = entry.mNextInRow) {
+						entry != basic.mHeadEntry; entry = entry.mNextInRow) {
 					final LinVar nb = entry.mColumn;
 					final Rational coeff = Rational.valueOf(entry.mCoeff, denom);
 					rowVars[i] = nb;
@@ -1377,8 +1377,7 @@ public class LinArSolve implements ITheory {
 				}
 			}
 			final CompositeReason newComposite =
-				new CompositeReason(basic, bound, isUpper,
-						            reasons, coeffs, lastLiteral);
+					new CompositeReason(basic, bound, isUpper, reasons, coeffs, lastLiteral);
 			lastLiteral.addDependent(newComposite);
 			long mid;
 			if (Config.PROFILE_TIME) {

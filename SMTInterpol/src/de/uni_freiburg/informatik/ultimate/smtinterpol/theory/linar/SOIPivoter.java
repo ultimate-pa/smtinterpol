@@ -111,8 +111,7 @@ public class SOIPivoter {
 			}
 			// for negative coeff: check if we cannot increase var to lower the soi.
 			// otherwise check if we cannot decrease var to lower the SOI.  In both cases the variable can be skipped.
-			if (colVar.getValue().toInfinitNumber()
-					.equals(coeff.signum() < 0 ? colVar.getUpperBound() : colVar.getLowerBound())) {
+			if (colVar.getValue().equals(coeff.signum() < 0 ? colVar.getUpperBound() : colVar.getLowerBound())) {
 				continue;
 			}
 
