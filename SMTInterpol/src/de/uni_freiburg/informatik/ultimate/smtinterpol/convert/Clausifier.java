@@ -856,7 +856,7 @@ public class Clausifier {
 				}
 				if (quantified) {
 					// TODO Proof production.
-					mCollector.addLiteralProxy(positive ? lit : lit.negate(), rewrite);
+					mCollector.addLiteral(positive ? lit : lit.negate(), rewrite);
 				} else {
 					if (positive) {
 						rewrite = mTracker.transitivity(rewrite, atomRewrite);
@@ -867,7 +867,7 @@ public class Clausifier {
 							rewrite = mUtils.convertNot(rewrite);
 						}
 					}
-					mCollector.addLiteralProxy(positive ? lit : lit.negate(), rewrite);
+					mCollector.addLiteral(positive ? lit : lit.negate(), rewrite);
 				}
 			} else if (idx instanceof QuantifiedFormula) {
 				final QuantifiedFormula qf = (QuantifiedFormula) idx;
@@ -908,7 +908,7 @@ public class Clausifier {
 			mRewrites.add(rewrite);
 		}
 
-		public void addLiteralProxy(final LiteralProxy lit, final Term rewrite) {
+		public void addLiteral(final LiteralProxy lit, final Term rewrite) {
 			if (lit.isGround()) {
 				addDpllLiteral(lit.getGroundLit(), rewrite);
 			} else {
@@ -943,7 +943,7 @@ public class Clausifier {
 		 * @param lit
 		 *            The literal to add to the clause.
 		 */
-		public void addLiteralProxy(final LiteralProxy lit) {
+		public void addLiteral(final LiteralProxy lit) {
 			if (lit.isQuant()) {
 				// TODO Proof production.
 				addQuantLiteral(lit.getQuantLit(), null);
@@ -1010,9 +1010,8 @@ public class Clausifier {
 					// alex (end)
 				} else {
 					// TODO DER before adding the clause to the QuantifierTheory.
-					// TODO should we restart collectLiterals with the instantiation, or addClause directly (see EPR)?
 					if (quantLits != null) { // == null can happen after DER
-						mQuantTheory.addQuantClause(lits, quantLits, null, getProofNewSource(proof, mSource));
+						mQuantTheory.addQuantClause(lits, quantLits, mSource);
 					}
 				}
 			}
@@ -1147,7 +1146,7 @@ public class Clausifier {
 		return res;
 	}
 
-	MutableAffinTerm createMutableAffinTerm(final SMTAffineTerm at, final SourceAnnotation source) {
+	public MutableAffinTerm createMutableAffinTerm(final SMTAffineTerm at, final SourceAnnotation source) {
 		final MutableAffinTerm res = new MutableAffinTerm();
 		res.add(at.getConstant());
 		for (final Map.Entry<Term, Rational> summand : at.getSummands().entrySet()) {
@@ -1427,7 +1426,7 @@ public class Clausifier {
 		/* tell the clause that the outer or got flattened. */
 		bc.addFlatten(orTerm);
 		/* add auxlit directly to prevent it getting converted. No rewrite proof necessary */
-		bc.addLiteralProxy(auxlit);
+		bc.addLiteral(auxlit);
 		/* use the usual engine to create the other literals of the axiom. */
 		final Term[] params = orTerm.getParameters();
 		for (int i = params.length - 1; i >= 1; i--) {
@@ -1536,7 +1535,7 @@ public class Clausifier {
 		final Term litRewrite = mTracker.intern(litTerm, lit.getSMTFormula(theory, true));
 		Term rewrite =
 				mTracker.congruence(mTracker.reflexivity(mTheory.term("not", litTerm)), new Term[] { litRewrite });
-		bc.addLiteralProxy(lit.negate(), rewrite);
+		bc.addLiteral(lit.negate(), rewrite);
 		rewrite = mTracker.intern(trueTerm, trueLit.getSMTFormula(theory, true));
 		bc.addDpllLiteral(trueLit, rewrite);
 		pushOperation(bc);
@@ -1544,7 +1543,7 @@ public class Clausifier {
 		axiom = mTracker.auxAxiom(theory.term("or", litTerm, falseTerm), ProofConstants.AUX_EXCLUDED_MIDDLE_2);
 		bc = new BuildClause(axiom, source);
 		bc.addFlatten(mTracker.getProvedTerm(axiom));
-		bc.addLiteralProxy(lit, litRewrite);
+		bc.addLiteral(lit, litRewrite);
 		rewrite = mTracker.intern(falseTerm, falseLit.getSMTFormula(theory, true));
 		bc.addDpllLiteral(falseLit, rewrite);
 		pushOperation(bc);
@@ -2233,10 +2232,6 @@ public class Clausifier {
 
 		boolean isQuant() {
 			return mQuantLit != null;
-		}
-
-		Term getTerm() {
-			return mTerm;
 		}
 
 		Literal getGroundLit() {

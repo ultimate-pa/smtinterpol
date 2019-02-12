@@ -18,19 +18,23 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 import java.util.Set;
 
+import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ClauseDeletionHook;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ITheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinArSolve;
@@ -55,14 +59,21 @@ public class QuantifierTheory implements ITheory {
 	final CClosure mCClosure;
 	final LinArSolve mLinArSolve;
 
-	private final EUTermManager mTermManager;
-	private final QuantLiteralManager mLitManager;
+	private final EUTermManager mEUTermManager;
+	private final InstantiationManager mInstantianManager;
+
+	/**
+	 * The quantified literals built so far.
+	 */
+	private Map<Term, QuantLiteral> mQuantLits;
 
 	/**
 	 * Clauses that only the QuantifierTheory knows, i.e. that contain at least one literal with an (implicitly)
 	 * universally quantified variable.
 	 */
 	private ScopedHashSet<QuantClause> mQuantClauses;
+
+	private Clause mConflict;
 
 	public QuantifierTheory(final Theory th, final DPLLEngine engine, final Clausifier clausifier) {
 		mClausifier = clausifier;
@@ -73,9 +84,10 @@ public class QuantifierTheory implements ITheory {
 		mCClosure = clausifier.getCClosure();
 		mLinArSolve = clausifier.getLASolver();
 
-		mTermManager = new EUTermManager(this);
-		mLitManager = new QuantLiteralManager(this);
+		mEUTermManager = new EUTermManager(this);
+		mInstantianManager = new InstantiationManager(mClausifier, this);
 
+		mQuantLits = new HashMap<Term, QuantLiteral>();
 		mQuantClauses = new ScopedHashSet<QuantClause>();
 	}
 
@@ -93,9 +105,6 @@ public class QuantifierTheory implements ITheory {
 
 	@Override
 	public Clause setLiteral(Literal literal) {
-		for (final QuantClause clause : mQuantClauses) {
-			// TODO Each clause should check if this literal leads to a conflicting instance
-		}
 		// TODO Auto-generated method stub
 		return null;
 	}
@@ -110,7 +119,7 @@ public class QuantifierTheory implements ITheory {
 	public Clause checkpoint() {
 		for (final QuantClause clause : mQuantClauses) {
 			// Each clause should update the potential instantiations
-			clause.computeInstantiationTerms();
+			clause.computePotentialInstantiations();
 			// TODO and instantiate conflict or unit clauses
 		}
 		// TODO Auto-generated method stub
@@ -119,8 +128,16 @@ public class QuantifierTheory implements ITheory {
 
 	@Override
 	public Clause computeConflictClause() {
-		// TODO Auto-generated method stub
-		// TODO For each clause, compute all instantiations.
+		final Clause conflict = checkpoint();
+		if (conflict != null) {
+			return conflict;
+		}
+		for (final QuantClause clause : mQuantClauses) {
+			clause.instantiateAll();
+		}
+		if (mConflict != null) {
+			return mConflict;
+		}
 		throw new UnsupportedOperationException("Support for quantifiers coming soon.");
 	}
 
@@ -209,12 +226,11 @@ public class QuantifierTheory implements ITheory {
 	}
 
 	/**
-	 * Get a quantified equality atom for a term - in case the <em>literal</em> is supported. We support the literals
-	 * "EUTerm = EUTerm" (pos. and neg.), "TermVariable = GroundTerm" (pos. and neg.) and "TermVariable != TermVariable"
-	 * (only negated!).
-	 * <p>
-	 * Note that this returns the underlying <em>atom</em>. The Clausifier will negate it if the original term in the
-	 * clause was negated.
+	 * Get a quantified equality atom for a term - in case the literal is supported.
+	 * 
+	 * We support the following (dis-)equality literals: (i) EUTerm = EUTerm (pos. and neg.), (ii) TermVariable =
+	 * GroundTerm, (iii) TermVariable != GroundTerm, and (iv) TermVariable != TermVariable. Note that (iii) and (iv)
+	 * require destructive equality reasoning.
 	 * 
 	 * @param term
 	 *            the term for the underlying equality atom.
@@ -231,15 +247,90 @@ public class QuantifierTheory implements ITheory {
 	 * @return the underlying equality atom as a QuantLiteral, if the literal is supported.
 	 */
 	public QuantLiteral getQuantEquality(Term term, boolean positive, SourceAnnotation source, Term lhs, Term rhs) {
-		return mLitManager.getQuantEquality(term, positive, source, lhs, rhs);
+		final QuantLiteral atom = mQuantLits.get(term);
+		if (atom != null) {
+			if (positive && atom.isSupported()) {
+				return atom;
+			} else if (!positive && atom.negate().isSupported()) {
+				return atom;
+			} else {
+				throw new UnsupportedOperationException(
+						(positive ? "Negated term " : "Term ") + term + " not in almost uninterpreted fragment!");
+			}
+		}
+
+		SMTAffineTerm rightAff = SMTAffineTerm.create(rhs);
+		rightAff.negate();
+		SMTAffineTerm linAdded = SMTAffineTerm.create(lhs);
+		linAdded.add(rightAff);
+		Map<Term, Rational> summands = linAdded.getSummands();
+		final Rational constant = linAdded.getConstant();
+
+		TermVariable leftVar = null;
+		TermVariable rightVar = null;
+		final Iterator<Term> it = summands.keySet().iterator();
+		while (it.hasNext()) {
+			Term summand = it.next();
+			if (summand instanceof TermVariable) {
+				if (summands.get(summand).isNegative()) {
+					if (rightVar != null) {
+						throw new UnsupportedOperationException(
+								"Term " + term + " not in almost uninterpreted fragment!");
+					}
+					rightVar = (TermVariable) summand;
+					it.remove();
+				} else {
+					if (leftVar != null) {
+						throw new UnsupportedOperationException(
+								"Term " + term + " not in almost uninterpreted fragment!");
+					}
+					leftVar = (TermVariable) summand;
+					it.remove();
+				}
+			}
+		}
+
+		if (leftVar != null && rightVar != null) {
+			if (!positive && summands.isEmpty() && constant.equals(Rational.ZERO)) {
+				QuantVarEquality varEq = new QuantVarEquality(term, leftVar, rightVar);
+				mQuantLits.put(term, varEq);
+				return varEq;
+			}
+		} else if (leftVar != null || rightVar != null) {
+			if (positive && !lhs.getSort().getName().equals("Int")) { // We support var=ground only for integers.
+				throw new UnsupportedOperationException("Term " + term + " not in almost uninterpreted fragment!");
+			}
+			// We can either do destructive equality reasoning later (if !positive), or build an aux axiom.
+			SMTAffineTerm remainderAffine = new SMTAffineTerm(summands, constant, lhs.getSort());
+			if (leftVar != null) {
+				remainderAffine.negate();
+			}
+			Term remainder = remainderAffine.toTerm(mClausifier.getTermCompiler(), lhs.getSort());
+			if (remainder.getFreeVars().length == 0) { // The variable can only be bound by ground terms.
+				final EUTerm boundTerm = mEUTermManager.getEUTerm(remainder, source);
+				assert boundTerm instanceof GroundTerm;
+				final TermVariable var = leftVar != null ? leftVar : rightVar;
+				QuantVarEquality varEq = new QuantVarEquality(term, var, (GroundTerm) boundTerm);
+				mQuantLits.put(term, varEq);
+				return varEq;
+			}
+		} else if (leftVar == null && rightVar == null) {
+			final EUTerm lhsEU = mEUTermManager.getEUTerm(lhs, source);
+			final EUTerm rhsEU = mEUTermManager.getEUTerm(rhs, source);
+			QuantEUEquality euEq = new QuantEUEquality(term, lhsEU, rhsEU);
+			mQuantLits.put(term, euEq);
+			return euEq;
+		}
+		throw new UnsupportedOperationException(
+				(positive ? "Term " : "Negated term ") + term + " not in almost uninterpreted fragment!");
 	}
 
 	/**
-	 * Get a quantified inequality literal for a term - in case it is supported. We support the literals "EUTerm <= 0"
-	 * (pos. or neg.), or (only strict inequalities, i.e., negated non-strict inequalities) "not (TermVariable <=
-	 * GroundTerm)", "not (GroundTerm <= TermVariable)", "not (TermVariable <= TermVariable)"
-	 * <p>
-	 * Note that this will return a <em>negated</em> literal (not (x<=t)) in the latter three cases if positive==true!
+	 * Get a quantified inequality literal for a term - in case it is supported.
+	 * 
+	 * We support the following inequality literals: (i) (EUTerm <= 0) (and negated) (ii) ~(TermVariable <= GroundTerm)
+	 * (iii) ~(GroundTerm <= TermVariable) (iv) ~(TermVariable <= TermVariable). Note that this will return a
+	 * <em>negated</em> literal (not (x<=t)) in the latter three cases if positive==true!
 	 * 
 	 * @param term
 	 *            the term for the underlying inequality <em>atom</em> "term <= 0".
@@ -254,11 +345,107 @@ public class QuantifierTheory implements ITheory {
 	 * @return a QuantLiteral if the literal is supported.
 	 */
 	public QuantLiteral getQuantInequality(Term term, boolean positive, SourceAnnotation source, Term lhs) {
-		return mLitManager.getQuantInequality(term, positive, source, lhs);
+		final QuantLiteral lit = mQuantLits.get(term);
+		if (lit != null) {
+			if (positive && lit.isSupported()) {
+				return lit;
+			} else if (!positive && lit.negate().isSupported()) {
+				return lit;
+			} else {
+				throw new UnsupportedOperationException(
+						(positive ? "Term " : "Negated term ") + term + " not in almost uninterpreted fragment!");
+			}
+		}
+
+		final SMTAffineTerm linTerm = SMTAffineTerm.create(lhs);
+		Map<Term, Rational> summands = linTerm.getSummands();
+		final Rational constant = linTerm.getConstant();
+
+		// Check for free variables that do not appear in EUTerms.
+		TermVariable lower = null; // the lower variable in x<t
+		TermVariable upper = null;
+		final Iterator<Term> it = summands.keySet().iterator();
+		while (it.hasNext()) {
+			Term summand = it.next();
+			if (summand instanceof TermVariable) {
+				if (positive == summands.get(summand).isNegative()) {
+					// the variable has a lower bound
+					if (upper != null) {
+						throw new UnsupportedOperationException(
+								"Term " + term + " not in almost uninterpreted fragment!");
+					}
+					upper = (TermVariable) summand;
+					it.remove();
+				} else {
+					// the variable has an upper bound
+					if (lower != null) {
+						throw new UnsupportedOperationException(
+								"Term " + term + " not in almost uninterpreted fragment!");
+					}
+					lower = (TermVariable) summand;
+					it.remove();
+				}
+			}
+		}
+
+		// If the literal is a QuantEUBoundConstraint, keep the given form.
+		if (lower == null && upper == null) {
+			final EUTerm euAffine = mEUTermManager.getEUTerm(lhs, source);
+			QuantEUBoundConstraint euConstr = new QuantEUBoundConstraint(term, euAffine);
+			mQuantLits.put(term, euConstr);
+			return euConstr;
+		}
+
+		// Else, bring the literals into the form ~(x<=t), ~(t<=x), ~(x<=y)
+		if (positive) {
+			// First step of rewriting positive (x-t<=0) into ~(t+1<=x) for x integer
+			if (lhs.getSort().getName().equals("Int")) {
+				constant.add(Rational.MONE);
+			} else {
+				throw new UnsupportedOperationException("Term " + term + " not in almost uninterpreted fragment!");
+			}
+		}
+
+		if (lower != null && upper != null) {
+			// Two variables can only be compared with each other.
+			if (!it.hasNext() && constant == Rational.ZERO) {
+				QuantVarConstraint varConstr = new QuantVarConstraint(term, lower, upper);
+				if (positive) {
+					// Second step of converting positive literals into negated ones.
+					// This can happen for positive (x+1<=y) (---> converted into ~(y<=x))
+					varConstr.negate();
+				}
+				mQuantLits.put(term, varConstr);
+				return varConstr;
+			}
+		} else {
+			final boolean hasLowerBound = (upper != null);
+			final TermVariable var = hasLowerBound ? upper : lower;
+			SMTAffineTerm boundAffine = new SMTAffineTerm(summands, constant, lhs.getSort());
+			// Isolate variable by bringing bound to the other side
+			if (positive != hasLowerBound) { // for rewriting ~(x-t<=0) into ~(x<=t) and (x-t<=0) into ~(t+1<=x)
+				boundAffine.negate();
+			}
+			Term bound = boundAffine.toTerm(mClausifier.getTermCompiler(), lhs.getSort());
+			// The variable can only be bound by ground terms.
+			if (bound.getFreeVars().length == 0) {
+				final EUTerm boundTerm = mEUTermManager.getEUTerm(bound, source);
+				QuantVarConstraint varConstr = new QuantVarConstraint(term, var, hasLowerBound, (GroundTerm) boundTerm);
+				if (positive) {
+					// Second step of converting positive literals into negated ones.
+					// This can happen for positive (x+1<=y) (---> converted into ~(y<=x))
+					varConstr.negate();
+				}
+				mQuantLits.put(term, varConstr);
+				return varConstr;
+			}
+		}
+		throw new UnsupportedOperationException(
+				(positive ? "Term " : "Negated term ") + term + " not in almost uninterpreted fragment!");
 	}
 
 	public QuantLiteral getQuantNamedAtom(Term term) {
-		return new QuantNamedAtom(term); // TODO Should this be in QuantLiteralManager, too?
+		return new QuantNamedAtom(term);
 	}
 
 	/**
@@ -273,11 +460,9 @@ public class QuantifierTheory implements ITheory {
 	 * @param hook
 	 * @param proof
 	 */
-	public void addQuantClause(final Literal[] lits, final QuantLiteral[] quantLits, final ClauseDeletionHook hook,
-			final ProofNode proof) {
+	public void addQuantClause(final Literal[] lits, final QuantLiteral[] quantLits, SourceAnnotation source) {
 		assert quantLits.length != 0 : "Adding QuantClause without QuantLit!";
-		final QuantClause clause = new QuantClause(lits, quantLits, this);
-		clause.collectVarInfo();
+		final QuantClause clause = new QuantClause(lits, quantLits, this, source);
 		mQuantClauses.add(clause);
 	}
 
@@ -289,7 +474,7 @@ public class QuantifierTheory implements ITheory {
 	 * @return a set of EUTerms containing all sub-EUTerms of a term, including the term itself.
 	 */
 	public Set<EUTerm> getSubEUTerms(EUTerm euTerm) {
-		return mTermManager.getSubEUTerms(euTerm);
+		return mEUTermManager.getSubEUTerms(euTerm);
 	}
 
 	public Clausifier getClausifier() {
@@ -297,6 +482,10 @@ public class QuantifierTheory implements ITheory {
 	}
 
 	public EUTermManager getEUTermManager() {
-		return mTermManager;
+		return mEUTermManager;
+	}
+
+	public InstantiationManager getInstantiator() {
+		return mInstantianManager;
 	}
 }

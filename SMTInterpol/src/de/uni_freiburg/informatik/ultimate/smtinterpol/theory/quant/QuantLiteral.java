@@ -18,12 +18,8 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
-import java.util.Map;
-
 import de.uni_freiburg.informatik.ultimate.logic.Term;
-import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 
 /**
  * Represents a quantified literal.
@@ -89,10 +85,6 @@ public abstract class QuantLiteral {
 
 	public Term getSMTFormula(final Theory theory, final boolean quoted) {
 		// TODO Auto-generated method stub
-		return null;
-	}
-
-	Literal instantiate(Map<TermVariable, Term> instantiation) {
 		return null;
 	}
 

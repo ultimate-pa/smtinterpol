@@ -18,12 +18,9 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
-import java.util.Map;
-
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 
 /**
  * A QuantVarConstraint is an inequality between a TermVariable and a GroundTerm or between two TermVariable. Note that
@@ -95,12 +92,6 @@ public class QuantVarConstraint extends QuantLiteral {
 	@Override
 	public Term getSMTFormula(final Theory smtTheory, final boolean quoted) {
 		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	Literal instantiate(Map<TermVariable, Term> instantiation) {
-		// TODO Build BoundConstraint
 		return null;
 	}
 

@@ -18,7 +18,9 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
+import java.util.Arrays;
 import java.util.BitSet;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -27,9 +29,11 @@ import java.util.Set;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SharedTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
-import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
+import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
 
 /**
  * Represents a clause in the QuantifierTheory. This means, it contains at least one literal with an (implicitly)
@@ -40,22 +44,28 @@ import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
 public class QuantClause {
 
 	private final QuantifierTheory mQuantTheory;
-	/**
-	 * The ground literals in this clause.
-	 */
 	private final Literal[] mGroundLits;
-	/**
-	 * The quantified literals in this clause.
-	 */
 	private final QuantLiteral[] mQuantLits;
+
+	private final SourceAnnotation mSource;
+
 	/**
-	 * The variables occurring in this clause and the information needed for instantiation.
+	 * The quantified variables in this clause. Defines an order on the variables.
 	 */
-	private final Map<TermVariable, VarInfo> mVarInfos;
+	private final TermVariable[] mVars;
+	/**
+	 * For each variable, the information needed for instantiation.
+	 */
+	private final VarInfo[] mVarInfos;
 	/**
 	 * For each variable, the set of potentially interesting instantiations.
 	 */
-	private ScopedHashMap<TermVariable, Set<Term>> mInstantiationTerms; // TODO Should we use SharedTerm?
+	private ScopedHashSet<SharedTerm>[] mPotentialInstantiations;
+	
+	/**
+	 * The current instantiations of this clause.
+	 */
+	private ScopedHashSet<Term[]> mInstantiations;
 
 	/**
 	 * Build a new QuantClause. At least one literal must not be ground. This should only be called after performing
@@ -68,14 +78,25 @@ public class QuantClause {
 	 * @param quantTheory
 	 *            the QuantifierTheory.
 	 */
-	QuantClause(final Literal[] groundLits, final QuantLiteral[] quantLits, final QuantifierTheory quantTheory) {
+	@SuppressWarnings("unchecked")
+	QuantClause(final Literal[] groundLits, final QuantLiteral[] quantLits, final QuantifierTheory quantTheory,
+			final SourceAnnotation source) {
 		assert quantLits.length != 0;
 		mQuantTheory = quantTheory;
+
 		mGroundLits = groundLits;
 		mQuantLits = quantLits;
-		mVarInfos = new HashMap<TermVariable, VarInfo>();
+		mSource = source;
 
-		mInstantiationTerms = new ScopedHashMap<TermVariable, Set<Term>>();
+		mVars = computeVars();
+		mVarInfos = new VarInfo[mVars.length];
+		collectVarInfos();
+
+		mPotentialInstantiations = new ScopedHashSet[mVars.length];
+		for (int i = 0; i < mVars.length; i++) {
+			mPotentialInstantiations[i] = new ScopedHashSet<SharedTerm>();
+		}
+		mInstantiations = new ScopedHashSet<Term[]>();
 	}
 
 	public QuantifierTheory getTheory() {
@@ -90,16 +111,105 @@ public class QuantClause {
 		return mQuantLits;
 	}
 
-	public Set<TermVariable> getVars() {
-		return mVarInfos.keySet();
+	public SourceAnnotation getSource() {
+		return mSource;
 	}
 
-	public void push() {
-		mInstantiationTerms.beginScope();
+	public TermVariable[] getVars() {
+		return mVars;
 	}
 
-	public void pop() {
-		mInstantiationTerms.endScope();
+	void push() {
+		for (int i = 0; i < mVars.length; i++) {
+			mPotentialInstantiations[i].beginScope();
+			mInstantiations.beginScope();
+		}
+	}
+
+	void pop() {
+		for (int i = 0; i < mVars.length; i++) {
+			mPotentialInstantiations[i].endScope();
+			mInstantiations.endScope();
+		}
+	}
+
+	/**
+	 * Compute the possible instantiation terms for each variable.
+	 */
+	void computePotentialInstantiations() {
+		for (int i = 0; i < mVars.length; i++) {
+			final TermVariable var = mVars[i];
+			final Set<SharedTerm> instTerms = computePotentialInstantiations(var);
+			mPotentialInstantiations[i].addAll(instTerms);
+		}
+		// If two variables depend on each other, synchronize their instantiation sets.
+		for (int i = 0; i < mVars.length; i++) {
+			for (final TermVariable otherVar : mVarInfos[i].mLowerVarBounds) {
+				mPotentialInstantiations[i].addAll(mPotentialInstantiations[Arrays.asList(mVars).indexOf(otherVar)]);
+			}
+		}
+		for (int i = 0; i < mVars.length; i++) {
+			for (final TermVariable otherVar : mVarInfos[i].mUpperVarBounds) {
+				mPotentialInstantiations[i].addAll(mPotentialInstantiations[Arrays.asList(mVars).indexOf(otherVar)]);
+			}
+		}
+	}
+
+	/**
+	 * Compute all instances of this clause w.r.t. the sets of potential instantiation terms for each variable. Do not
+	 * recompute existing instances.
+	 */
+	void instantiateAll() {
+		// Compute all possible new instantiations
+		Set<Term[]> allSubs = new HashSet<Term[]>();
+		allSubs.add(new Term[mVars.length]);
+		for (int i = 0; i < mVars.length; i++) {
+			Set<Term[]> partialSubs = new HashSet<Term[]>();
+			for (final Term[] oldSub : allSubs) {
+				if (mPotentialInstantiations[i].isEmpty()) {
+					// TODO Use lambda
+				} else {
+					for (final SharedTerm ground : mPotentialInstantiations[i]) {
+						Term[] newSub = new Term[mVars.length];
+						System.arraycopy(oldSub, 0, newSub, 0, mVars.length);
+						newSub[i] = ground.getTerm();
+						partialSubs.add(newSub);
+					}
+				}
+			}
+			allSubs.clear();
+			allSubs.addAll(partialSubs);
+		}
+		allSubs.removeAll(mInstantiations);
+		
+		// Instantiate
+		final Set<Literal[]> instances = new HashSet<Literal[]>();
+		for (final Term[] subs : allSubs) {
+			final Map<TermVariable, Term> subsMap = new HashMap<TermVariable, Term>();
+			for (int i = 0; i < mVars.length; i++) {
+				subsMap.put(mVars[i], subs[i]);
+			}
+			final Literal[] inst = mQuantTheory.getInstantiator().instantiateClause(this, subsMap);
+			if (inst != null) {
+				instances.add(inst);
+			}
+		}
+		mInstantiations.addAll(allSubs);
+		// TODO store and report conflicts
+	}
+
+	/**
+	 * Compute the free variables in this clause.
+	 * 
+	 * @return an array containing the free variables in this clause.
+	 */
+	private TermVariable[] computeVars() {
+		final Set<TermVariable> varSet = new HashSet<TermVariable>();
+		for (final QuantLiteral lit : mQuantLits) {
+			final TermVariable[] vars = lit.getTerm().getFreeVars();
+			Collections.addAll(varSet, vars);
+		}
+		return varSet.toArray(new TermVariable[varSet.size()]);
 	}
 
 	/**
@@ -107,7 +217,7 @@ public class QuantClause {
 	 * for each variable we collect the lower and upper ground bounds, and the functions and positions where the
 	 * variable appears as arguments.
 	 */
-	public void collectVarInfo() {
+	private void collectVarInfos() {
 		for (final QuantLiteral lit : mQuantLits) {
 			final QuantLiteral atom = lit.getAtom();
 			if (atom instanceof QuantVarConstraint) {
@@ -117,30 +227,29 @@ public class QuantClause {
 				final TermVariable upperVar = constraint.getUpperVar();
 				// Note that the constraint can be both a lower and upper bound - if it consists of two variables.
 				if (lowerVar != null) {
-					final Term upperBound;
-					if (!mVarInfos.containsKey(lowerVar)) {
-						mVarInfos.put(lowerVar, new VarInfo());
+					final int index = Arrays.asList(mVars).indexOf(lowerVar);
+					if (mVarInfos[index] == null) {
+						mVarInfos[index] = new VarInfo();
 					}
-					VarInfo varInfo = mVarInfos.get(lowerVar);
+					VarInfo varInfo = mVarInfos[index];
 					if (upperVar != null) {
-						upperBound = upperVar;
+						varInfo.addUpperVarBound(upperVar);
 					} else {
-						upperBound = constraint.getGroundBound().getTerm();
+						varInfo.addUpperGroundBound(constraint.getGroundBound());
 					}
-					varInfo.addUpperBound(upperBound);
+
 				}
 				if (upperVar != null) {
-					final Term lowerBound;
-					if (!mVarInfos.containsKey(upperVar)) {
-						mVarInfos.put(upperVar, new VarInfo());
+					final int index = Arrays.asList(mVars).indexOf(upperVar);
+					if (mVarInfos[index] == null) {
+						mVarInfos[index] = new VarInfo();
 					}
-					VarInfo varInfo = mVarInfos.get(upperVar);
+					VarInfo varInfo = mVarInfos[index];
 					if (lowerVar != null) {
-						lowerBound = lowerVar;
+						varInfo.addLowerVarBound(lowerVar);
 					} else {
-						lowerBound = constraint.getGroundBound().getTerm();
+						varInfo.addLowerGroundBound(constraint.getGroundBound());
 					}
-					varInfo.addLowerBound(lowerBound);
 				}
 			} else if (atom instanceof QuantEUBoundConstraint || atom instanceof QuantEUEquality) {
 				// Here, we need to add the positions where variables appear as arguments of functions.
@@ -163,43 +272,15 @@ public class QuantClause {
 						for (int i = 0; i < args.length; i++) {
 							if (args[i].isVar()) {
 								final TermVariable var = args[i].getVar();
-								if (!mVarInfos.containsKey(var)) {
-									mVarInfos.put(var, new VarInfo());
+								final int index = Arrays.asList(mVars).indexOf(var);
+								if (mVarInfos[index] == null) {
+									mVarInfos[index] = new VarInfo();
 								}
-								VarInfo varInfo = mVarInfos.get(var);
+								VarInfo varInfo = mVarInfos[index];
 								varInfo.addPosition(func, i);
 							}
 						}
 					}
-				}
-			}
-		}
-	}
-
-	/**
-	 * Compute the possible instantiation terms for each variable.
-	 */
-	public void computeInstantiationTerms() {
-		for (final TermVariable var : mVarInfos.keySet()) {
-			final Set<Term> instTerms = computeInstantiationTerms(var); // TODO Should we use shared terms?
-			if (!mInstantiationTerms.containsKey(var)) {
-				mInstantiationTerms.put(var, new HashSet<Term>());
-			}
-			mInstantiationTerms.get(var).addAll(instTerms);
-		}
-		// If two variables depend on each other, synchronize their instantiation sets.
-		for (final TermVariable var : mInstantiationTerms.keySet()) {
-			// TODO Both lower and upper?
-			for (final Term term : mVarInfos.get(var).mLowerBoundTerms) {
-				if (term instanceof TermVariable) {
-					final TermVariable otherVar = (TermVariable) term;
-					mInstantiationTerms.get(var).addAll(mInstantiationTerms.get(otherVar));
-				}
-			}
-			for (final Term term : mVarInfos.get(var).mUpperBoundTerms) {
-				if (term instanceof TermVariable) {
-					final TermVariable otherVar = (TermVariable) term;
-					mInstantiationTerms.get(var).addAll(mInstantiationTerms.get(otherVar));
 				}
 			}
 		}
@@ -215,24 +296,21 @@ public class QuantClause {
 	 *            the TermVariable which we compute the instantiation terms for.
 	 * @return a Set of SharedTerms.
 	 */
-	private Set<Term> computeInstantiationTerms(TermVariable var) { // TODO Should we use SharedTerm?
-		final VarInfo info = mVarInfos.get(var);
+	private Set<SharedTerm> computePotentialInstantiations(TermVariable var) {
+		final VarInfo info = mVarInfos[Arrays.asList(mVars).indexOf(var)];
 		assert info != null;
-		final HashSet<Term> instantiationTerms = new HashSet<Term>();
+		final HashSet<SharedTerm> instantiationTerms = new HashSet<SharedTerm>();
 
+		// TODO Maybe this part (adding bound terms) should already be done earlier...
 		// TODO: lower or upper bounds or both?
-		for (final Term lower : info.mLowerBoundTerms) {
-			if (!(lower instanceof TermVariable)) {
-				instantiationTerms.add(lower);
-			}
+		for (final GroundTerm lower : info.mLowerGroundBounds) {
+			instantiationTerms.add(lower.getSharedTerm());
 		}
-		for (final Term upper : info.mUpperBoundTerms) {
-			if (!(upper instanceof TermVariable)) {
-				instantiationTerms.add(upper);
-			}
+		for (final GroundTerm upper : info.mUpperGroundBounds) {
+			instantiationTerms.add(upper.getSharedTerm());
 		}
 
-		// retrieve from CClosure all ground terms that appear under the same functions at the same positions as var
+		// Retrieve from CClosure all ground terms that appear under the same functions at the same positions as var
 		final Set<CCTerm> ccTerms = new HashSet<CCTerm>();
 		final Map<FunctionSymbol, BitSet> positions = info.mFuncArgPositions;
 		for (final FunctionSymbol func : positions.keySet()) {
@@ -245,30 +323,9 @@ public class QuantClause {
 			}
 		}
 		for (final CCTerm ccTerm : ccTerms) {
-			instantiationTerms.add(ccTerm.getSharedTerm().getTerm());
+			instantiationTerms.add(ccTerm.getFlatTerm());
 		}
 		return instantiationTerms;
-	}
-
-	/**
-	 * Instantiate this clause with a given substitution.
-	 *
-	 * TODO Each type of QuantLiteral needs to have an instantiation method that should build the corresponding literal.
-	 *
-	 * @param substitution
-	 *            pairs of TermVariables and ground Terms that are used to instantiate the corresponding TermVariable.
-	 * @return the ground literals.
-	 */
-	public Literal[] instantiate(Map<TermVariable, Term> substitution) {
-		int groundLength = mGroundLits.length;
-		Literal[] instClause = new Literal[groundLength + mQuantLits.length];
-		// Copy the ground literals
-		System.arraycopy(mGroundLits, 0, instClause, 0, groundLength);
-		// Instantiate QuantLiterals
-		for (int i = 0; i < mQuantLits.length; i++) {
-			instClause[groundLength + i] = mQuantLits[i].instantiate(substitution);
-		}
-		return instClause;
 	}
 
 	/**
@@ -278,17 +335,21 @@ public class QuantClause {
 	private class VarInfo {
 		private Map<FunctionSymbol, BitSet> mFuncArgPositions;
 		// TODO Do we need both lower and upper bounds?
-		private Set<Term> mLowerBoundTerms;
-		private Set<Term> mUpperBoundTerms;
+		private Set<GroundTerm> mLowerGroundBounds;
+		private Set<GroundTerm> mUpperGroundBounds;
+		private Set<TermVariable> mLowerVarBounds;
+		private Set<TermVariable> mUpperVarBounds;
 
 		/**
 		 * Create a new VarInfo. This is used to store information for one variable: - lower and upper ground bounds and
 		 * - functions and positions where the variable appears as argument.
 		 */
-		public VarInfo() {
+		VarInfo() {
 			mFuncArgPositions = new HashMap<FunctionSymbol, BitSet>();
-			mLowerBoundTerms = new HashSet<Term>();
-			mUpperBoundTerms = new HashSet<Term>();
+			mLowerGroundBounds = new HashSet<GroundTerm>();
+			mUpperGroundBounds = new HashSet<GroundTerm>();
+			mLowerVarBounds = new HashSet<TermVariable>();
+			mUpperVarBounds = new HashSet<TermVariable>();
 		}
 
 		/**
@@ -299,7 +360,7 @@ public class QuantClause {
 		 * @param pos
 		 *            the position of this argument.
 		 */
-		public void addPosition(final FunctionSymbol func, final int pos) {
+		void addPosition(final FunctionSymbol func, final int pos) {
 			if (mFuncArgPositions.containsKey(func)) {
 				BitSet occs = mFuncArgPositions.get(func);
 				occs.set(pos);
@@ -310,24 +371,20 @@ public class QuantClause {
 			}
 		}
 
-		/**
-		 * Add a lower bound for the variable.
-		 * 
-		 * @param lowerBound
-		 *            the lower bound. This can also be another variable.
-		 */
-		public void addLowerBound(final Term lowerBound) {
-			mLowerBoundTerms.add(lowerBound);
+		void addLowerGroundBound(final GroundTerm lowerBound) {
+			mLowerGroundBounds.add(lowerBound);
 		}
 
-		/**
-		 * Add an upper bound for the variable.
-		 * 
-		 * @param upperBound
-		 *            the upper bound. This can also be another variable.
-		 */
-		public void addUpperBound(final Term upperBound) {
-			mUpperBoundTerms.add(upperBound);
+		void addUpperGroundBound(final GroundTerm upperBound) {
+			mUpperGroundBounds.add(upperBound);
+		}
+
+		void addLowerVarBound(final TermVariable lower) {
+			mLowerVarBounds.add(lower);
+		}
+
+		void addUpperVarBound(final TermVariable lower) {
+			mUpperVarBounds.add(lower);
 		}
 	}
 }

@@ -172,7 +172,7 @@ public class CClosure implements ITheory {
 			}
 			// Collect the arguments (only representatives of a congruence class) at argPos
 			for (final Parent par : parents) {
-				args.add(par.getData().getArg());
+				args.add(par.getData().getArg().mRep);
 			}
 			return args;
 		}
