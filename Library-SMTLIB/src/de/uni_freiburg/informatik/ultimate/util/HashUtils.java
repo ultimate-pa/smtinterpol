@@ -18,10 +18,16 @@
  */
 package de.uni_freiburg.informatik.ultimate.util;
 
+/**
+ * This implements Jenkins und Hsieh hash functions. It is based on the code at
+ * <a href="http://www.burtleburtle.net/bob/c/lookup3.c">http://www.burtleburtle.net/bob/c/lookup3.c</a>.
+ * 
+ * 
+ * @author Jürgen Christ, Jochen Hoenicke
+ *
+ */
 public final class HashUtils {
-	
-	// deadbeaf leads to hash conflicts on f...
-	private final static int BASE = 0xcafebabe;
+	private final static int BASE = 0xdeadbeef;
 	
 	private HashUtils() {
 		// Hide constructor
@@ -34,29 +40,57 @@ public final class HashUtils {
 		int a,b,c;
 		a = b = c = BASE + (vals.length << 2) + init;
 		int pos = 0;
-		while (vals.length - pos > 3) { //NOCHECKSTYLE
+		while (vals.length - pos > 3) {
 			a += vals[pos].hashCode();
 			b += vals[pos + 1].hashCode();
 			c += vals[pos + 2].hashCode();
-			a -= c; a ^= ((c << 4) | (c >> 28)); c += b; //NOCHECKSTYLE
-			b -= a; b ^= ((a << 6) | (c >> 26)); a += c; //NOCHECKSTYLE
-			c -= b; c ^= ((b << 8) | (b >> 24)); b += a; //NOCHECKSTYLE
-			a -= c; a ^= ((c << 16) | (c >> 16)); c += b; //NOCHECKSTYLE
-			b -= a; b ^= ((a << 19) | (c >> 13)); a += c; //NOCHECKSTYLE
-			c -= b; c ^= ((b << 4) | (b >> 28)); b += a; //NOCHECKSTYLE
-			pos += 3; //NOCHECKSTYLE
+			// This is the mix function of Jenkins hash.
+			// Note that we need >>> for unsigned shift.
+			// rot(c,4) is ((c << 4) | (c >>> 28)).
+			a -= c;
+			a ^= ((c << 4) | (c >>> 28));
+			c += b;
+			b -= a;
+			b ^= ((a << 6) | (a >>> 26));
+			a += c;
+			c -= b;
+			c ^= ((b << 8) | (b >>> 24));
+			b += a;
+			a -= c;
+			a ^= ((c << 16) | (c >>> 16));
+			c += b;
+			b -= a;
+			b ^= ((a << 19) | (a >>> 13));
+			a += c;
+			c -= b;
+			c ^= ((b << 4) | (b >>> 28));
+			b += a;
+			pos += 3;
 		}
 		switch (vals.length - pos) {
-		case 3: c += vals[pos++].hashCode(); //NOCHECKSTYLE
-		case 2: b += vals[pos++].hashCode(); //NOCHECKSTYLE
-		case 1: a += vals[pos].hashCode(); //NOCHECKSTYLE
-			c ^= b; c -= ((b << 14) | (b >> 18)); //NOCHECKSTYLE
-			a ^= c; a -= ((c << 11) | (c >> 21)); //NOCHECKSTYLE
-			b ^= a; b -= ((a << 25) | (a >> 7)); //NOCHECKSTYLE
-			c ^= b; c -= ((b << 16) | (b >> 16)); //NOCHECKSTYLE
-			a ^= c; a -= ((c << 4) | (c >> 28)); //NOCHECKSTYLE
-			b ^= a; b -= ((a << 14) | (a >> 18)); //NOCHECKSTYLE
-			c ^= b; c -= ((b << 24) | (b >> 8)); //NOCHECKSTYLE
+		case 3:
+			c += vals[pos++].hashCode();
+			// fallthrough
+		case 2:
+			b += vals[pos++].hashCode();
+			// fallthrough
+		case 1:
+			a += vals[pos].hashCode();
+			// This is the final mix function of Jenkins hash.
+			c ^= b;
+			c -= ((b << 14) | (b >>> 18));
+			a ^= c;
+			a -= ((c << 11) | (c >>> 21));
+			b ^= a;
+			b -= ((a << 25) | (a >>> 7));
+			c ^= b;
+			c -= ((b << 16) | (b >>> 16));
+			a ^= c;
+			a -= ((c << 4) | (c >>> 28));
+			b ^= a;
+			b -= ((a << 14) | (a >>> 18));
+			c ^= b;
+			c -= ((b << 24) | (b >>> 8));
 			// fallthrough
 		case 0:
 			// fallthrough
@@ -68,15 +102,22 @@ public final class HashUtils {
 	
 	public static int hashJenkins(int init, Object val) {
 		int a,b,c;
-		a = b = BASE + 4 + init; //NOCHECKSTYLE
+		a = b = BASE + 4 + init;
+		// slightly optimized version of hashJenkins(init, new Object[] {val})
 		a += val.hashCode();
-		c = -((b << 14) | (b >> 18)); //NOCHECKSTYLE
-		a ^= c; a -= ((c << 11) | (c >> 21)); //NOCHECKSTYLE
-		b ^= a; b -= ((a << 25) | (a >> 7)); //NOCHECKSTYLE
-		c ^= b; c -= ((b << 16) | (b >> 16)); //NOCHECKSTYLE
-		a ^= c; a -= ((c << 4) | (c >> 28)); //NOCHECKSTYLE
-		b ^= a; b -= ((a << 14) | (a >> 18)); //NOCHECKSTYLE
-		c ^= b; c -= ((b << 24) | (b >> 8)); //NOCHECKSTYLE
+		c = -((b << 14) | (b >>> 18));
+		a ^= c;
+		a -= ((c << 11) | (c >>> 21));
+		b ^= a;
+		b -= ((a << 25) | (a >>> 7));
+		c ^= b;
+		c -= ((b << 16) | (b >>> 16));
+		a ^= c;
+		a -= ((c << 4) | (c >>> 28));
+		b ^= a;
+		b -= ((a << 14) | (a >>> 18));
+		c ^= b;
+		c -= ((b << 24) | (b >>> 8));
 		return c;
 	}
 	
@@ -88,36 +129,36 @@ public final class HashUtils {
 		/* Main loop */
 		for (final Object o : vals) {
 			final int thingHash = o.hashCode();
-			hash += (thingHash >>> 16); //NOCHECKSTYLE
-			final int tmp = ((thingHash & 0xffff) << 11) ^ hash; //NOCHECKSTYLE
-			hash = (hash << 16) ^ tmp; //NOCHECKSTYLE
-			hash += (hash >> 11); //NOCHECKSTYLE
+			hash += (thingHash >>> 16);
+			final int tmp = ((thingHash & 0xffff) << 11) ^ hash;
+			hash = (hash << 16) ^ tmp;
+			hash += (hash >>> 11);
 		}
 
 		/* Force "avalanching" of final 127 bits */
-		hash ^= hash << 3; //NOCHECKSTYLE
-		hash += hash >> 5; //NOCHECKSTYLE
-		hash ^= hash << 4; //NOCHECKSTYLE
-		hash += hash >> 17; //NOCHECKSTYLE
-		hash ^= hash << 25; //NOCHECKSTYLE
-		hash += hash >> 6; //NOCHECKSTYLE
+		hash ^= hash << 3;
+		hash += hash >>> 5;
+		hash ^= hash << 4;
+		hash += hash >>> 17;
+		hash ^= hash << 25;
+		hash += hash >>> 6;
 		return hash;
 	}
 	
 	public static int hashHsieh(int init, Object val) {
 		int hash = init;
 		final int thingHash = val.hashCode();
-		hash += (thingHash >>> 16); //NOCHECKSTYLE
-		final int tmp = ((thingHash & 0xffff) << 11) ^ hash; //NOCHECKSTYLE
-		hash = (hash << 16) ^ tmp; //NOCHECKSTYLE
-		hash += (hash >> 11); //NOCHECKSTYLE
+		hash += (thingHash >>> 16);
+		final int tmp = ((thingHash & 0xffff) << 11) ^ hash;
+		hash = (hash << 16) ^ tmp;
+		hash += (hash >>> 11);
 		/* Force "avalanching" of final 127 bits */
-		hash ^= hash << 3; //NOCHECKSTYLE
-		hash += hash >> 5; //NOCHECKSTYLE
-		hash ^= hash << 4; //NOCHECKSTYLE
-		hash += hash >> 17; //NOCHECKSTYLE
-		hash ^= hash << 25; //NOCHECKSTYLE
-		hash += hash >> 6; //NOCHECKSTYLE
+		hash ^= hash << 3;
+		hash += hash >>> 5;
+		hash ^= hash << 4;
+		hash += hash >>> 17;
+		hash ^= hash << 25;
+		hash += hash >>> 6;
 		return hash;
 	}
 	

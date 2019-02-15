@@ -70,17 +70,16 @@ public class CuckooHashSet<E> extends AbstractSet<E> {
 
 	protected final int hash2(int hash) {
 		/*
-		 * erase bits used for hash1 to make hash2 independent of hash1. Also add 1 to avoid 0, for large mLog2buckets.
+		 * scramble hash to make hash2 independent of hash1.
 		 */
-		hash = (hash >>> mLog2buckets) + 1;
+		hash = hashJenkins(hash);
 		/*
-		 * This computes (hash % (n^2)) % (n-1), with n = buckets.length, where 0 is mapped to n-1, except in the case
-		 * where hash % (n^2) is 0.
-		 * 
-		 * This may return 0 only if hash % (n^2) is 0; this is so unlikely that it won't degrade performance of cuckoo
-		 * hashing.
+		 * This computes (hash % (n^2)) % (n-1) + 1, with n = buckets.length, except when hash == n^2-1 mod n^2.
+		 *
+		 * This may return 0 only if hash == n^2-1 mod n^2; this is so unlikely that it won't degrade performance of
+		 * cuckoo hashing.
 		 */
-		hash = ((hash >>> mLog2buckets) & (mBuckets.length - 1)) + (hash & (mBuckets.length - 1));
+		hash = ((hash >>> mLog2buckets) & (mBuckets.length - 1)) + (hash & (mBuckets.length - 1)) + 1;
 		hash = (hash + (hash >>> mLog2buckets)) & (mBuckets.length - 1);
 		return hash;
 	}
