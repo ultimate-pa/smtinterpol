@@ -912,12 +912,10 @@ public class Clausifier {
 		private class CollectConditions implements Operation {
 			private final ConditionChain mConds;
 			private final Term mTerm;
-			private final SharedTerm mIte;
 
-			public CollectConditions(final ConditionChain conds, final Term term, final SharedTerm ite) {
+			public CollectConditions(final ConditionChain conds, final Term term) {
 				mConds = conds;
 				mTerm = term;
-				mIte = ite;
 			}
 
 			@Override
@@ -929,8 +927,8 @@ public class Clausifier {
 						final Term c = at.getParameters()[0];
 						final Term t = at.getParameters()[1];
 						final Term e = at.getParameters()[2];
-						pushOperation(new CollectConditions(new ConditionChain(mConds, c, false), t, mIte));
-						pushOperation(new CollectConditions(new ConditionChain(mConds, c, true), e, mIte));
+						pushOperation(new CollectConditions(new ConditionChain(mConds, c, false), t));
+						pushOperation(new CollectConditions(new ConditionChain(mConds, c, true), e));
 						return;
 					}
 				}
@@ -941,7 +939,7 @@ public class Clausifier {
 				for (final Term cond : mConds) {
 					literals[--offset] = cond;
 				}
-				literals[mConds.size()] = theory.term("=", mIte.getTerm(), mTerm);
+				literals[mConds.size()] = theory.term("=", mTermITE.getTerm(), mTerm);
 				Term orTerm = theory.term("or", literals);
 				Term axiom = mTracker.auxAxiom(orTerm, ProofConstants.AUX_TERM_ITE);
 
@@ -954,6 +952,82 @@ public class Clausifier {
 			}
 		}
 
+		private Term mMinValue = null;
+		private Rational mMaxSubMin = null;
+		private final Set<Term> visited = new HashSet<>();
+		boolean mIsNotConstant = false;
+
+		private class CheckBounds implements Operation {
+			private final Term mTerm;
+
+			public CheckBounds(final Term term) {
+				mTerm = term;
+			}
+
+			@Override
+			public void perform() {
+				if (mIsNotConstant || !visited.add(mTerm)) {
+					// already seen
+					return;
+				}
+				if (mTerm instanceof ApplicationTerm) {
+					final ApplicationTerm at = (ApplicationTerm) mTerm;
+					if (at.getFunction().getName().equals("ite")) {
+						final Term t = at.getParameters()[1];
+						final Term e = at.getParameters()[2];
+						pushOperation(new CheckBounds(t));
+						pushOperation(new CheckBounds(e));
+						return;
+					}
+				}
+				// Not a nested ite term or a nested shared ite term
+				// if this is the first term, just store it.
+				if (mMinValue == null) {
+					mMinValue = mTerm;
+					mMaxSubMin = Rational.ZERO;
+					return;
+				}
+				SMTAffineTerm diff = new SMTAffineTerm(mMinValue);
+				diff.negate();
+				diff.add(new SMTAffineTerm(mTerm));
+				if (!diff.isConstant()) {
+					mIsNotConstant = true;
+					return;
+				}
+				if (diff.getConstant().signum() < 0) {
+					mMinValue = mTerm;
+					mMaxSubMin = mMaxSubMin.sub(diff.getConstant());
+				} else if (diff.getConstant().compareTo(mMaxSubMin) > 0) {
+					mMaxSubMin = diff.getConstant();
+				}
+			}
+		}
+
+		private class AddBoundAxioms implements Operation {
+
+			public AddBoundAxioms() {
+			}
+
+			@Override
+			public void perform() {
+				if (!mIsNotConstant && mMinValue != null) {
+					// ite term is bounded by mMinValue and mMinValue + mMaxSubMin
+					final Sort sort = mTermITE.getSort();
+					final Theory theory = sort.getTheory();
+					final Term zero = Rational.ZERO.toTerm(sort);
+					SMTAffineTerm diff = new SMTAffineTerm(mTermITE.getTerm());
+					diff.negate();
+					diff.add(new SMTAffineTerm(mMinValue));
+					Term lboundAx = theory.term("<=", diff.toTerm(mCompiler, sort), zero);
+					buildClause(mTracker.auxAxiom(lboundAx, ProofConstants.AUX_TERM_ITE_BOUND), mSource);
+					diff.add(mMaxSubMin);
+					diff.negate();
+					Term uboundAx = theory.term("<=", diff.toTerm(mCompiler, sort), zero);
+					buildClause(mTracker.auxAxiom(uboundAx, ProofConstants.AUX_TERM_ITE_BOUND), mSource);
+				}
+			}
+		}
+
 		private final SharedTerm mTermITE;
 
 		public AddTermITEAxiom(final SharedTerm termITE, final SourceAnnotation source) {
@@ -963,7 +1037,9 @@ public class Clausifier {
 
 		@Override
 		public void perform() {
-			pushOperation(new CollectConditions(new ConditionChain(), mTermITE.getTerm(), mTermITE));
+			pushOperation(new CollectConditions(new ConditionChain(), mTermITE.getTerm()));
+			pushOperation(new AddBoundAxioms());
+			pushOperation(new CheckBounds(mTermITE.getTerm()));
 		}
 	}
 
@@ -1132,7 +1208,7 @@ public class Clausifier {
 	/**
 	 * Did we emit a warning on a failed push?
 	 */
-	private boolean mWarnedFailedPush = false;
+	private boolean mWarnedInconsistent = false;
 
 	private final LogProxy mLogger;
 	/**
@@ -1602,8 +1678,9 @@ public class Clausifier {
 	}
 
 	public void addFormula(final Term f) {
-		if (mEngine.inconsistent()) {
+		if (mEngine.inconsistent() && !mWarnedInconsistent) {
 			mLogger.warn("Already inconsistent.");
+			mWarnedInconsistent = true;
 			return;
 		}
 		SourceAnnotation source = null;
@@ -1650,9 +1727,9 @@ public class Clausifier {
 
 	public void push() {
 		if (mEngine.inconsistent()) {
-			if (!mWarnedFailedPush) {
-				mLogger.warn("Already inconsistent.");
-				mWarnedFailedPush = true;
+			if (!mWarnedInconsistent) {
+				mLogger.info("Already inconsistent.");
+				mWarnedInconsistent = true;
 			}
 			++mNumFailedPushes;
 		} else {
@@ -1671,7 +1748,7 @@ public class Clausifier {
 			mNumFailedPushes -= numpops;
 			return;
 		}
-		mWarnedFailedPush = false;
+		mWarnedInconsistent = false;
 		numpops -= mNumFailedPushes;
 		mNumFailedPushes = 0;
 		mEngine.pop(numpops);
