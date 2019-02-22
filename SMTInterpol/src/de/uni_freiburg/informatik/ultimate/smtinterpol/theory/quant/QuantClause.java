@@ -20,19 +20,23 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
 import java.util.Arrays;
 import java.util.BitSet;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
-import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SharedTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClauseState;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
 
 /**
@@ -58,14 +62,17 @@ public class QuantClause {
 	 */
 	private final VarInfo[] mVarInfos;
 	/**
-	 * For each variable, the set of potentially interesting instantiations.
+	 * For each variable, the set of potentially interesting instantiations. The key stores the SharedTerm of the
+	 * representative in case the value term has a CCTerm
 	 */
-	private ScopedHashSet<SharedTerm>[] mPotentialInstantiations;
+	private LinkedHashMap<SharedTerm, SharedTerm>[] mInterestingTermsForVars;
 	
 	/**
-	 * The current instantiations of this clause.
+	 * The instantiations used in the current instances of this clause.
 	 */
-	private ScopedHashSet<Term[]> mInstantiations;
+	private ScopedHashSet<List<SharedTerm>> mInstantiations;
+
+	private EprClauseState mClauseState;
 
 	/**
 	 * Build a new QuantClause. At least one literal must not be ground. This should only be called after performing
@@ -90,13 +97,28 @@ public class QuantClause {
 
 		mVars = computeVars();
 		mVarInfos = new VarInfo[mVars.length];
-		collectVarInfos();
-
-		mPotentialInstantiations = new ScopedHashSet[mVars.length];
 		for (int i = 0; i < mVars.length; i++) {
-			mPotentialInstantiations[i] = new ScopedHashSet<SharedTerm>();
+			mVarInfos[i] = new VarInfo();
 		}
-		mInstantiations = new ScopedHashSet<Term[]>();
+		collectVarInfos();
+		mInterestingTermsForVars = new LinkedHashMap[mVars.length];
+		for (int i = 0; i < mVars.length; i++) {
+			mInterestingTermsForVars[i] = new LinkedHashMap<>();
+		}
+		collectInitialInterestingTermsAllVars();
+
+		mInstantiations = new ScopedHashSet<>();
+		mClauseState = EprClauseState.Normal;
+	}
+
+	/**
+	 * Update the interesting instantiation terms for all variable with terms from CClosure.
+	 */
+	public void updateInterestingTermsAllVars() {
+		for (int i = 0; i < mVars.length; i++) {
+			updateInterestingTermsOneVar(mVars[i], i);
+		}
+		synchronizeInterestingTermsAllVars();
 	}
 
 	public QuantifierTheory getTheory() {
@@ -119,83 +141,42 @@ public class QuantClause {
 		return mVars;
 	}
 
+	public int getVarPos(TermVariable var) {
+		return Arrays.asList(mVars).indexOf(var);
+	}
+
+	public LinkedHashMap<SharedTerm, SharedTerm>[] getInterestingTerms() {
+		return mInterestingTermsForVars;
+	}
+
+	public Set<List<SharedTerm>> getInstantiations() {
+		return mInstantiations;
+	}
+
+	public EprClauseState getState() {
+		return mClauseState;
+	}
+
 	void push() {
 		for (int i = 0; i < mVars.length; i++) {
-			mPotentialInstantiations[i].beginScope();
+			// mInterestingTermsForVars[i].beginScope();
 			mInstantiations.beginScope();
 		}
 	}
 
 	void pop() {
 		for (int i = 0; i < mVars.length; i++) {
-			mPotentialInstantiations[i].endScope();
+			// mInterestingTermsForVars[i].endScope();
 			mInstantiations.endScope();
 		}
 	}
 
-	/**
-	 * Compute the possible instantiation terms for each variable.
-	 */
-	void computePotentialInstantiations() {
-		for (int i = 0; i < mVars.length; i++) {
-			final TermVariable var = mVars[i];
-			final Set<SharedTerm> instTerms = computePotentialInstantiations(var);
-			mPotentialInstantiations[i].addAll(instTerms);
-		}
-		// If two variables depend on each other, synchronize their instantiation sets.
-		for (int i = 0; i < mVars.length; i++) {
-			for (final TermVariable otherVar : mVarInfos[i].mLowerVarBounds) {
-				mPotentialInstantiations[i].addAll(mPotentialInstantiations[Arrays.asList(mVars).indexOf(otherVar)]);
-			}
-		}
-		for (int i = 0; i < mVars.length; i++) {
-			for (final TermVariable otherVar : mVarInfos[i].mUpperVarBounds) {
-				mPotentialInstantiations[i].addAll(mPotentialInstantiations[Arrays.asList(mVars).indexOf(otherVar)]);
-			}
-		}
+	void setState(EprClauseState state) {
+		mClauseState = state;
 	}
 
-	/**
-	 * Compute all instances of this clause w.r.t. the sets of potential instantiation terms for each variable. Do not
-	 * recompute existing instances.
-	 */
-	void instantiateAll() {
-		// Compute all possible new instantiations
-		Set<Term[]> allSubs = new HashSet<Term[]>();
-		allSubs.add(new Term[mVars.length]);
-		for (int i = 0; i < mVars.length; i++) {
-			Set<Term[]> partialSubs = new HashSet<Term[]>();
-			for (final Term[] oldSub : allSubs) {
-				if (mPotentialInstantiations[i].isEmpty()) {
-					// TODO Use lambda
-				} else {
-					for (final SharedTerm ground : mPotentialInstantiations[i]) {
-						Term[] newSub = new Term[mVars.length];
-						System.arraycopy(oldSub, 0, newSub, 0, mVars.length);
-						newSub[i] = ground.getTerm();
-						partialSubs.add(newSub);
-					}
-				}
-			}
-			allSubs.clear();
-			allSubs.addAll(partialSubs);
-		}
-		allSubs.removeAll(mInstantiations);
-		
-		// Instantiate
-		final Set<Literal[]> instances = new HashSet<Literal[]>();
-		for (final Term[] subs : allSubs) {
-			final Map<TermVariable, Term> subsMap = new HashMap<TermVariable, Term>();
-			for (int i = 0; i < mVars.length; i++) {
-				subsMap.put(mVars[i], subs[i]);
-			}
-			final Literal[] inst = mQuantTheory.getInstantiator().instantiateClause(this, subsMap);
-			if (inst != null) {
-				instances.add(inst);
-			}
-		}
-		mInstantiations.addAll(allSubs);
-		// TODO store and report conflicts
+	void addInstance(List<SharedTerm> inst) {
+		mInstantiations.add(inst);
 	}
 
 	/**
@@ -228,29 +209,26 @@ public class QuantClause {
 				// Note that the constraint can be both a lower and upper bound - if it consists of two variables.
 				if (lowerVar != null) {
 					final int index = Arrays.asList(mVars).indexOf(lowerVar);
-					if (mVarInfos[index] == null) {
-						mVarInfos[index] = new VarInfo();
-					}
-					VarInfo varInfo = mVarInfos[index];
+					final VarInfo varInfo = mVarInfos[index];
 					if (upperVar != null) {
 						varInfo.addUpperVarBound(upperVar);
 					} else {
-						varInfo.addUpperGroundBound(constraint.getGroundBound());
+						varInfo.addUpperGroundBound(constraint.getGroundBound().getSharedTerm());
 					}
 
 				}
 				if (upperVar != null) {
 					final int index = Arrays.asList(mVars).indexOf(upperVar);
-					if (mVarInfos[index] == null) {
-						mVarInfos[index] = new VarInfo();
-					}
-					VarInfo varInfo = mVarInfos[index];
+					final VarInfo varInfo = mVarInfos[index];
 					if (lowerVar != null) {
 						varInfo.addLowerVarBound(lowerVar);
 					} else {
-						varInfo.addLowerGroundBound(constraint.getGroundBound());
+						varInfo.addLowerGroundBound(constraint.getGroundBound().getSharedTerm());
 					}
 				}
+			} else if (atom instanceof QuantVarEquality) {
+				// TODO
+				assert false : "Support for x=t not yet implemented.";
 			} else if (atom instanceof QuantEUBoundConstraint || atom instanceof QuantEUEquality) {
 				// Here, we need to add the positions where variables appear as arguments of functions.
 				Set<EUTerm> subTerms;
@@ -273,10 +251,7 @@ public class QuantClause {
 							if (args[i].isVar()) {
 								final TermVariable var = args[i].getVar();
 								final int index = Arrays.asList(mVars).indexOf(var);
-								if (mVarInfos[index] == null) {
-									mVarInfos[index] = new VarInfo();
-								}
-								VarInfo varInfo = mVarInfos[index];
+								final VarInfo varInfo = mVarInfos[index];
 								varInfo.addPosition(func, i);
 							}
 						}
@@ -287,45 +262,108 @@ public class QuantClause {
 	}
 
 	/**
-	 * Compute the ground terms which a given variable should be instantiated with.
+	 * Collects the lower and upper bound terms for variables for instantiation.
+	 * 
+	 * Synchronizes the sets of variables that are bounds of each other.
+	 */
+	private void collectInitialInterestingTermsAllVars() {
+		for (int i = 0; i < mVars.length; i++) {
+			// TODO: lower or upper bounds or both?
+			addAllInteresting(mInterestingTermsForVars[i], mVarInfos[i].mLowerGroundBounds);
+			addAllInteresting(mInterestingTermsForVars[i], mVarInfos[i].mUpperGroundBounds);
+		}
+		synchronizeInterestingTermsAllVars();
+	}
+
+	/**
+	 * If two variables depend on each other, synchronize their instantiation sets.
+	 */
+	private void synchronizeInterestingTermsAllVars() {
+		boolean changed = true;
+		while (changed) {
+			changed = false;
+			for (int i = 0; i < mVars.length; i++) {
+				// TODO: lower or upper bounds or both?
+				for (TermVariable t : mVarInfos[i].mLowerVarBounds) {
+					int j = Arrays.asList(mVars).indexOf(t);
+					changed = addAllInteresting(mInterestingTermsForVars[i], mInterestingTermsForVars[j].values());
+				}
+				for (TermVariable t : mVarInfos[i].mUpperVarBounds) {
+					int j = Arrays.asList(mVars).indexOf(t);
+					changed = addAllInteresting(mInterestingTermsForVars[i], mInterestingTermsForVars[j].values());
+				}
+			}
+		}
+	}
+
+	/**
+	 * Update the interesting instantiation terms for a given variable, using the terms in CClosure.
 	 * <p>
 	 * This method does not consider dependencies between variables. They must be taken care of after computing the sets
 	 * for each single variable.
 	 * 
 	 * @param var
 	 *            the TermVariable which we compute the instantiation terms for.
-	 * @return a Set of SharedTerms.
+	 * @param num
+	 *            the number of the variable
 	 */
-	private Set<SharedTerm> computePotentialInstantiations(TermVariable var) {
+	private void updateInterestingTermsOneVar(final TermVariable var, final int num) {
 		final VarInfo info = mVarInfos[Arrays.asList(mVars).indexOf(var)];
 		assert info != null;
-		final HashSet<SharedTerm> instantiationTerms = new HashSet<SharedTerm>();
-
-		// TODO Maybe this part (adding bound terms) should already be done earlier...
-		// TODO: lower or upper bounds or both?
-		for (final GroundTerm lower : info.mLowerGroundBounds) {
-			instantiationTerms.add(lower.getSharedTerm());
-		}
-		for (final GroundTerm upper : info.mUpperGroundBounds) {
-			instantiationTerms.add(upper.getSharedTerm());
-		}
 
 		// Retrieve from CClosure all ground terms that appear under the same functions at the same positions as var
-		final Set<CCTerm> ccTerms = new HashSet<CCTerm>();
+		final LinkedHashSet<CCTerm> ccTerms = new LinkedHashSet<CCTerm>();
 		final Map<FunctionSymbol, BitSet> positions = info.mFuncArgPositions;
 		for (final FunctionSymbol func : positions.keySet()) {
 			final BitSet pos = positions.get(func);
 			for (int i = pos.nextSetBit(0); i >= 0; i = pos.nextSetBit(i + 1)) {
-				final Set<CCTerm> argTerms = mQuantTheory.mCClosure.getArgTermsForFunc(func, i);
+				final Collection<CCTerm> argTerms = mQuantTheory.mCClosure.getArgTermsForFunc(func, i);
 				if (argTerms != null) {
 					ccTerms.addAll(argTerms);
 				}
 			}
 		}
 		for (final CCTerm ccTerm : ccTerms) {
-			instantiationTerms.add(ccTerm.getFlatTerm());
+			final SharedTerm repShared, ccShared;
+			if (ccTerm.getRepresentative().getSharedTerm() != null) {
+				repShared = ccTerm.getRepresentative().getSharedTerm();
+			} else {
+				repShared = ccTerm.getRepresentative().getFlatTerm();
+			}
+			if (ccTerm.getSharedTerm() != null) {
+				ccShared = ccTerm.getSharedTerm();
+			} else {
+				ccShared = ccTerm.getFlatTerm();
+			}
+			mInterestingTermsForVars[num].put(repShared, ccShared);
 		}
-		return instantiationTerms;
+	}
+
+	/**
+	 * Helper method to add interesting instantiation terms without adding equivalent terms more than once.
+	 * 
+	 * If there exists a CCTerm, we use the SharedTerm of the representative as key, otherwise, just the SharedTerm
+	 * itself.
+	 * 
+	 * @param interestingTerms
+	 *            The interesting instantiationTerms, with the representative as key (if it exists).
+	 * @param newTerms
+	 *            The interesting terms that should be added, if no equivalent term is in the map yet.
+	 * @return true if new terms were added, false otherwise.
+	 */
+	private boolean addAllInteresting(Map<SharedTerm, SharedTerm> interestingTerms, Collection<SharedTerm> newTerms) {
+		boolean changed = false;
+		for (SharedTerm newTerm : newTerms) {
+			SharedTerm rep = newTerm;
+			if (newTerm.getCCTerm() != null) {
+				rep = newTerm.getCCTerm().getRepresentative().getFlatTerm();
+			}
+			if (!interestingTerms.containsKey(rep)) {
+				interestingTerms.put(rep, newTerm);
+				changed = true;
+			}
+		}
+		return changed;
 	}
 
 	/**
@@ -335,8 +373,8 @@ public class QuantClause {
 	private class VarInfo {
 		private Map<FunctionSymbol, BitSet> mFuncArgPositions;
 		// TODO Do we need both lower and upper bounds?
-		private Set<GroundTerm> mLowerGroundBounds;
-		private Set<GroundTerm> mUpperGroundBounds;
+		private Set<SharedTerm> mLowerGroundBounds;
+		private Set<SharedTerm> mUpperGroundBounds;
 		private Set<TermVariable> mLowerVarBounds;
 		private Set<TermVariable> mUpperVarBounds;
 
@@ -346,8 +384,8 @@ public class QuantClause {
 		 */
 		VarInfo() {
 			mFuncArgPositions = new HashMap<FunctionSymbol, BitSet>();
-			mLowerGroundBounds = new HashSet<GroundTerm>();
-			mUpperGroundBounds = new HashSet<GroundTerm>();
+			mLowerGroundBounds = new HashSet<SharedTerm>();
+			mUpperGroundBounds = new HashSet<SharedTerm>();
 			mLowerVarBounds = new HashSet<TermVariable>();
 			mUpperVarBounds = new HashSet<TermVariable>();
 		}
@@ -371,11 +409,11 @@ public class QuantClause {
 			}
 		}
 
-		void addLowerGroundBound(final GroundTerm lowerBound) {
+		void addLowerGroundBound(final SharedTerm lowerBound) {
 			mLowerGroundBounds.add(lowerBound);
 		}
 
-		void addUpperGroundBound(final GroundTerm upperBound) {
+		void addUpperGroundBound(final SharedTerm upperBound) {
 			mUpperGroundBounds.add(upperBound);
 		}
 

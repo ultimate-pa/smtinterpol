@@ -1543,9 +1543,17 @@ public class Theory {
 	}
 
 	/******************** SKOLEMIZATION SUPPORT ***************************/
-	public FunctionSymbol skolemize(final TermVariable tv) {
-		return new FunctionSymbol("@" + tv.getName() + "_skolem_" + mSkolemCounter++, null, EMPTY_SORT_ARRAY,
+	public Term skolemize(final TermVariable tv, QuantifiedFormula qf) {
+		TermVariable[] freeVars = qf.getFreeVars();
+		Term[] args = new Term[freeVars.length];
+		Sort[] freeVarSorts = new Sort[freeVars.length];
+		for (int i = 0; i < freeVars.length; i++) {
+			args[i] = freeVars[i];
+			freeVarSorts[i] = freeVars[i].getSort();
+		}
+		FunctionSymbol fsym = new FunctionSymbol("@" + tv.getName() + "_skolem_" + mSkolemCounter++, null, freeVarSorts,
 				tv.getSort(), null, null, 0);
+		return term(fsym, args);
 	}
 
 	public void resetAssertions() {

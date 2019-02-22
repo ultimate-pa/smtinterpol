@@ -18,8 +18,11 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -37,6 +40,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ITheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClauseState;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinArSolve;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
 
@@ -47,7 +51,6 @@ import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
  * This may be merged with the EPR solver implementation by Alexander Nutz in the future; for now, we keep it separate.
  *
  * @author Tanja Schindler
- *
  */
 public class QuantifierTheory implements ITheory {
 
@@ -60,7 +63,7 @@ public class QuantifierTheory implements ITheory {
 	final LinArSolve mLinArSolve;
 
 	private final EUTermManager mEUTermManager;
-	private final InstantiationManager mInstantianManager;
+	private final InstantiationManager mInstantiationManager;
 
 	/**
 	 * The quantified literals built so far.
@@ -71,9 +74,14 @@ public class QuantifierTheory implements ITheory {
 	 * Clauses that only the QuantifierTheory knows, i.e. that contain at least one literal with an (implicitly)
 	 * universally quantified variable.
 	 */
-	private ScopedHashSet<QuantClause> mQuantClauses;
+	private final ScopedHashSet<QuantClause> mQuantClauses;
 
-	private Clause mConflict;
+	/**
+	 * Clauses to propagate. At creation they would have been conflicts or unit clauses if the corresponding theories
+	 * already knew the contained literals. They should be checked in setLiteral() and checkPoint() where they can be
+	 * actual conflicts or unit clauses.
+	 */
+	private final List<List<Literal>> mPropClauses;
 
 	public QuantifierTheory(final Theory th, final DPLLEngine engine, final Clausifier clausifier) {
 		mClausifier = clausifier;
@@ -85,10 +93,12 @@ public class QuantifierTheory implements ITheory {
 		mLinArSolve = clausifier.getLASolver();
 
 		mEUTermManager = new EUTermManager(this);
-		mInstantianManager = new InstantiationManager(mClausifier, this);
+		mInstantiationManager = new InstantiationManager(mClausifier, this);
 
 		mQuantLits = new HashMap<Term, QuantLiteral>();
 		mQuantClauses = new ScopedHashSet<QuantClause>();
+		
+		mPropClauses = new ArrayList<List<Literal>>();
 	}
 
 	@Override
@@ -105,8 +115,14 @@ public class QuantifierTheory implements ITheory {
 
 	@Override
 	public Clause setLiteral(Literal literal) {
-		// TODO Auto-generated method stub
-		return null;
+		// Mark clauses that are true due to this literal.
+		for (final QuantClause quantClause : mQuantClauses) {
+			if (Arrays.asList(quantClause.getGroundLits()).contains(literal)) {
+				quantClause.setState(EprClauseState.Fulfilled);
+			}
+		}
+		final Clause conflict = checkPropClausesForConflict();
+		return conflict;
 	}
 
 	@Override
@@ -118,27 +134,26 @@ public class QuantifierTheory implements ITheory {
 	@Override
 	public Clause checkpoint() {
 		for (final QuantClause clause : mQuantClauses) {
-			// Each clause should update the potential instantiations
-			clause.computePotentialInstantiations();
-			// TODO and instantiate conflict or unit clauses
+			clause.updateInterestingTermsAllVars();
 		}
-		// TODO Auto-generated method stub
-		return null;
+		mPropClauses.addAll(mInstantiationManager.findConflictAndUnitInstances());
+		final Clause conflict = checkPropClausesForConflict();
+		return conflict;
 	}
 
 	@Override
 	public Clause computeConflictClause() {
-		final Clause conflict = checkpoint();
+		Clause conflict = checkpoint();
 		if (conflict != null) {
 			return conflict;
 		}
-		for (final QuantClause clause : mQuantClauses) {
-			clause.instantiateAll();
+		conflict = mInstantiationManager.instantiateAll();
+		if (conflict != null) {
+			return conflict;
 		}
-		if (mConflict != null) {
-			return mConflict;
-		}
-		throw new UnsupportedOperationException("Support for quantifiers coming soon.");
+		// TODO
+		// throw new UnsupportedOperationException("Support for quantifiers coming soon.");
+		return null;
 	}
 
 	@Override
@@ -155,7 +170,7 @@ public class QuantifierTheory implements ITheory {
 
 	@Override
 	public Literal getSuggestion() {
-		// TODO Auto-generated method stub
+		// TODO
 		return null;
 	}
 
@@ -297,15 +312,15 @@ public class QuantifierTheory implements ITheory {
 				return varEq;
 			}
 		} else if (leftVar != null || rightVar != null) {
-			if (positive && !lhs.getSort().getName().equals("Int")) { // We support var=ground only for integers.
+			if (positive && !term.getSort().getName().equals("Int")) { // We support var=ground only for integers.
 				throw new UnsupportedOperationException("Term " + term + " not in almost uninterpreted fragment!");
 			}
 			// We can either do destructive equality reasoning later (if !positive), or build an aux axiom.
-			SMTAffineTerm remainderAffine = new SMTAffineTerm(summands, constant, lhs.getSort());
+			SMTAffineTerm remainderAffine = new SMTAffineTerm(summands, constant, term.getSort());
 			if (leftVar != null) {
 				remainderAffine.negate();
 			}
-			Term remainder = remainderAffine.toTerm(mClausifier.getTermCompiler(), lhs.getSort());
+			Term remainder = remainderAffine.toTerm(mClausifier.getTermCompiler(), term.getSort());
 			if (remainder.getFreeVars().length == 0) { // The variable can only be bound by ground terms.
 				final EUTerm boundTerm = mEUTermManager.getEUTerm(remainder, source);
 				assert boundTerm instanceof GroundTerm;
@@ -399,7 +414,7 @@ public class QuantifierTheory implements ITheory {
 		// Else, bring the literals into the form ~(x<=t), ~(t<=x), ~(x<=y)
 		if (positive) {
 			// First step of rewriting positive (x-t<=0) into ~(t+1<=x) for x integer
-			if (lhs.getSort().getName().equals("Int")) {
+			if (term.getSort().getName().equals("Int")) {
 				constant.add(Rational.MONE);
 			} else {
 				throw new UnsupportedOperationException("Term " + term + " not in almost uninterpreted fragment!");
@@ -421,12 +436,12 @@ public class QuantifierTheory implements ITheory {
 		} else {
 			final boolean hasLowerBound = (upper != null);
 			final TermVariable var = hasLowerBound ? upper : lower;
-			SMTAffineTerm boundAffine = new SMTAffineTerm(summands, constant, lhs.getSort());
+			SMTAffineTerm boundAffine = new SMTAffineTerm(summands, constant, term.getSort());
 			// Isolate variable by bringing bound to the other side
 			if (positive != hasLowerBound) { // for rewriting ~(x-t<=0) into ~(x<=t) and (x-t<=0) into ~(t+1<=x)
 				boundAffine.negate();
 			}
-			Term bound = boundAffine.toTerm(mClausifier.getTermCompiler(), lhs.getSort());
+			Term bound = boundAffine.toTerm(mClausifier.getTermCompiler(), term.getSort());
 			// The variable can only be bound by ground terms.
 			if (bound.getFreeVars().length == 0) {
 				final EUTerm boundTerm = mEUTermManager.getEUTerm(bound, source);
@@ -461,7 +476,18 @@ public class QuantifierTheory implements ITheory {
 	 * @param proof
 	 */
 	public void addQuantClause(final Literal[] lits, final QuantLiteral[] quantLits, SourceAnnotation source) {
-		assert quantLits.length != 0 : "Adding QuantClause without QuantLit!";
+		if (quantLits.length == 0) {
+			throw new IllegalArgumentException("Cannot add clause to QuantifierTheory: No quantified literal!");
+		}
+		for (QuantLiteral lit : quantLits) {
+			if (!lit.mIsSupported) {
+				throw new IllegalArgumentException(
+						"Cannot add clause to QuantifierTheory: Contains unsupported literals!");
+			} else if (lit.isNegated() && lit.getAtom() instanceof QuantVarEquality) {
+				throw new IllegalArgumentException(
+						"Cannot add clause to QuantifierTheory: Disequalities on variables must be eliminated by DER before!");
+			}
+		}
 		final QuantClause clause = new QuantClause(lits, quantLits, this, source);
 		mQuantClauses.add(clause);
 	}
@@ -481,11 +507,41 @@ public class QuantifierTheory implements ITheory {
 		return mClausifier;
 	}
 
+	public CClosure getCClosure() {
+		return mCClosure;
+	}
+
+	public LinArSolve getLinAr() {
+		return mLinArSolve;
+	}
+
 	public EUTermManager getEUTermManager() {
 		return mEUTermManager;
 	}
 
 	public InstantiationManager getInstantiator() {
-		return mInstantianManager;
+		return mInstantiationManager;
+	}
+	
+	public ScopedHashSet<QuantClause> getQuantClauses() {
+		return mQuantClauses;
+	}
+
+	private Clause checkPropClausesForConflict() {
+		final Iterator<List<Literal>> it = mPropClauses.iterator();
+		while (it.hasNext()) {
+			final List<Literal> clauseLits = it.next();
+			boolean isConflict = true;
+			for (final Literal lit : clauseLits) {
+				if (lit.getAtom().getDecideStatus() != lit.negate()) {
+					isConflict = false;
+				}
+			}
+			if (isConflict) {
+				it.remove();
+				return new Clause(clauseLits.toArray(new Literal[clauseLits.size()]));
+			}
+		}
+		return null;
 	}
 }

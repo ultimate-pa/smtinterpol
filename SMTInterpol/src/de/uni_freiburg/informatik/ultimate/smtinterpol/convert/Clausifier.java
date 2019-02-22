@@ -776,12 +776,7 @@ public class Clausifier {
 
 					if (quantified) {
 						quantLit = mQuantTheory.getQuantEquality(at, positive, mCollector.mSource, lhs, rhs);
-						if (positive) { // Here, we don't use the quantified literal, but build an auxiliary clause.
-							// TODO buildAuxClause must build quantified clause.
-							lit = getLiteral(idx, positive, mCollector.getSource());
-						} else {
-							lit = new LiteralProxy(idx, quantLit); // will be used for DER
-						}
+						lit = new LiteralProxy(idx, quantLit); // diseqs will be used for DER
 						// TODO Proof production
 					} else {
 						final SharedTerm slhs = getSharedTerm(lhs, mCollector.mSource);
@@ -926,7 +921,9 @@ public class Clausifier {
 		}
 
 		public void addQuantLiteral(final QuantLiteral lit, final Term rewrite) {
-			addRewrite(rewrite);
+			if (rewrite != null) {
+				addRewrite(rewrite);
+			}
 			if (mQuantLits.add(lit)) {
 				mIsTrue |= mQuantLits.contains(lit.negate());
 			} else {
@@ -946,7 +943,8 @@ public class Clausifier {
 		public void addLiteral(final LiteralProxy lit) {
 			if (lit.isQuant()) {
 				// TODO Proof production.
-				addQuantLiteral(lit.getQuantLit(), null);
+				addQuantLiteral(lit.getQuantLit(),
+						mTracker.reflexivity(lit.getQuantLit().getSMTFormula(mTerm.getTheory(), true)));
 			} else {
 				addDpllLiteral(lit.getGroundLit(),
 						mTracker.reflexivity(lit.getGroundLit().getSMTFormula(mTerm.getTheory(), true)));
@@ -1249,19 +1247,21 @@ public class Clausifier {
 			final TermVariable[] vars = qf.getVariables();
 			final Term[] skolems = new Term[vars.length];
 			for (int i = 0; i < vars.length; ++i) {
-				skolems[i] = mTheory.term(mTheory.skolemize(vars[i]));
+				skolems[i] = mTheory.skolemize(vars[i], qf);
 			}
 
-			mEprTheory.addSkolemConstants(skolems);
+			if (mEprTheory != null) {
+				mEprTheory.addSkolemConstants(skolems);
+			}
 
 			final FormulaUnLet unlet = new FormulaUnLet();
 			unlet.addSubstitutions(new ArrayMap<>(vars, skolems));
-			final Term skolem = unlet.unlet(qf.getSubformula());
+			final Term skolemized = unlet.unlet(qf.getSubformula());
 
-			// final Term skolem = mCompiler.transform(skolemRaw);
+			// final Term skolemized = mCompiler.transform(skolemRaw);
 
-			// TODO: replace skolem by rewrite proof
-			return skolem;
+			// TODO: replace skolemized by rewrite proof
+			return skolemized;
 		} else {
 			/*
 			 * "forall" case
@@ -1570,6 +1570,7 @@ public class Clausifier {
 
 				atom = mEprTheory.getEprAtom(auxTerm, 0, mStackLevel, SourceAnnotation.EMPTY_SOURCE_ANNOT);
 			} else {
+				// TODO Create CCBaseTerm for the aux func or pred
 				quantAtom = mQuantTheory.getQuantNamedAtom(smtFormula);
 			}
 		} else {
@@ -1865,14 +1866,17 @@ public class Clausifier {
 	}
 
 	private final void run() {
-		while (!mTodoStack.isEmpty()) {
-			if (mEngine.isTerminationRequested()) {
-				/* Note: Engine remembers incompleteness */
-				mTodoStack.clear();
-				return;
+		try {
+			while (!mTodoStack.isEmpty()) {
+				if (mEngine.isTerminationRequested()) {
+					/* Note: Engine remembers incompleteness */
+					return;
+				}
+				final Operation op = mTodoStack.pop();
+				op.perform();
 			}
-			final Operation op = mTodoStack.pop();
-			op.perform();
+		} finally {
+			mTodoStack.clear();
 		}
 	}
 

@@ -20,10 +20,13 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
@@ -50,6 +53,7 @@ import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
 
 public class CClosure implements ITheory {
 	final DPLLEngine mEngine;
+	final Map<Term, CCTerm> mAnonTerms = new HashMap<>();
 	final ArrayList<CCTerm> mAllTerms = new ArrayList<CCTerm>();
 	final CCTermPairHash mPairHash = new CCTermPairHash();
 	final ArrayQueue<Literal> mPendingLits = new ArrayQueue<Literal>();
@@ -72,6 +76,7 @@ public class CClosure implements ITheory {
 
 	public CCTerm createAnonTerm(SharedTerm flat) {
 		final CCTerm term = new CCBaseTerm(false, mNumFunctionPositions, flat, flat);
+		mAnonTerms.put(flat.getTerm(), term);
 		mAllTerms.add(term);
 		return term;
 	}
@@ -149,34 +154,122 @@ public class CClosure implements ITheory {
 	 *            the argument position
 	 * @return a Set of CCTerms that appear under the given function as argPos-th argument.
 	 */
-	public Set<CCTerm> getArgTermsForFunc(FunctionSymbol sym, int argPos) {
+	public Collection<CCTerm> getArgTermsForFunc(FunctionSymbol sym, int argPos) {
 		assert sym.getParameterSorts().length > argPos;
-		final CCTerm funcTerm = getFuncTerm(sym);
-		CCParentInfo info = funcTerm.mCCPars.getInfo(0);
-		SimpleList<Parent> parents = new SimpleList<Parent>();
-		if (info != null) {
-			final HashSet<CCTerm> args = new HashSet<CCTerm>();
-			// Move up until argPos is reached
-			parents.joinList(info.mCCParents);
-			for (int i = 0; i < argPos; i++) {
-				final SimpleList<Parent> nextParents = new SimpleList<Parent>();
-				for (final Parent par : parents) {
-					final CCTerm rep = par.getData().mRep;
-					assert rep instanceof CCAppTerm;
-					final CCParentInfo repInfo = rep.mCCPars.getInfo(0);
-					if (info != null) {
-						nextParents.joinList(repInfo.mCCParents);
+		ArrayList<CCTerm> args = new ArrayList<>();
+		ArrayList<CCTerm> parents = new ArrayList<>();
+		parents.add(getFuncTerm(sym));
+		HashSet<CCTerm> visited = new HashSet<>();
+		for (int i = 0; i <= argPos; i++) {
+			final ArrayList<CCTerm> nextParents = new ArrayList<>();
+			for (CCTerm funcTerm : parents) {
+				// check if we have already seen this congruence class
+				if (!visited.add(funcTerm.getRepresentative())) {
+					continue;
+				}
+				final CCParentInfo info = funcTerm.getRepresentative().mCCPars.getInfo(0);
+				if (info != null) {
+					for (Parent grandparent : info.mCCParents) {
+						nextParents.add(grandparent.getData());
 					}
 				}
-				parents = nextParents;
 			}
-			// Collect the arguments (only representatives of a congruence class) at argPos
-			for (final Parent par : parents) {
-				args.add(par.getData().getArg().mRep);
+			parents = nextParents;
+		}
+		// Collect the arguments (only representatives of a congruence class) at argPos
+		for (final CCTerm par : parents) {
+			// check if we have already seen this congruence class
+			if (!visited.add(par.getRepresentative())) { // TODO Why do we need this?
+				continue;
 			}
-			return args;
+			assert par instanceof CCAppTerm;
+			args.add(((CCAppTerm) par).getArg());
+		}
+		return args;
+	}
+
+	/**
+	 * Find the representative CCTerm for the given term. This function does not create new terms. If there is no
+	 * equivalent CCTerm, it returns null. If a term that is congruent to the given term already exists, it will return
+	 * the representative of this congruent term.
+	 * 
+	 * @param term
+	 *            The term which a representative is searched for.
+	 * @return The representative, or null if no congruent term exists in the CClosure.
+	 */
+	public CCTerm getCCTermRep(Term term) {
+		if (mAnonTerms.containsKey(term)) {
+			return mAnonTerms.get(term).getRepresentative();
+		}
+		if (term instanceof ApplicationTerm) {
+			ApplicationTerm at = (ApplicationTerm) term;
+			CCTerm func = getFuncTerm(at.getFunction()).getRepresentative();
+			for (Term argTerm : at.getParameters()) {
+				CCTerm arg = getCCTermRep(argTerm);
+				if (arg == null) {
+					return null;
+				}
+				func = findCCAppTermRep(func, arg);
+				if (func == null) {
+					return null;
+				}
+			}
+			return func;
 		}
 		return null;
+	}
+
+	/**
+	 * Find the representative CCTerm for the application of funcRep and argRep. This function does not create new
+	 * terms. If there is no equivalent CCTerm it returns null. If a term that is congruent to the given term already
+	 * exists it will return the representative of this congruent term.
+	 * 
+	 * @param funcRep
+	 *            the representative of the partial function application term.
+	 * @param argRep
+	 *            the representative of the argument term.
+	 * @return The representative of the application, or null if no congruent term exists in the CClosure.
+	 */
+	private CCTerm findCCAppTermRep(CCTerm funcRep, CCTerm argRep) {
+		final CCParentInfo info = funcRep.mCCPars.getInfo(0);
+		if (info == null) {
+			return null;
+		}
+		for (Parent parent : info.mCCParents) {
+			if (parent.getData().getArg().getRepresentative() == argRep) {
+				return parent.getData().getRepresentative();
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * For two given CCTerms, check if the equality is set.
+	 * 
+	 * @return true if the terms are in the same congruence class, false otherwise.
+	 */
+	public boolean isEqSet(CCTerm first, CCTerm second) {
+		final CCTerm firstRep = first.getRepresentative();
+		final CCTerm secondRep = second.getRepresentative();
+		if (firstRep == secondRep) {
+			return true;
+		}
+		return false;
+	}
+	
+	/**
+	 * For two given CCTerms, check if the disequality is set.
+	 * 
+	 * @return true if the disequality is set, false otherwise.
+	 */
+	public boolean isDiseqSet(CCTerm first, CCTerm second) {
+		final CCTerm firstRep = first.getRepresentative();
+		final CCTerm secondRep = second.getRepresentative();
+		final CCTermPairHash.Info diseqInfo = mPairHash.getInfo(firstRep, secondRep);
+		if (diseqInfo != null && diseqInfo.mDiseq != null) {
+			return true;
+		}
+		return false;
 	}
 
 	public void insertEqualityEntry(CCTerm t1, CCTerm t2, CCEquality.Entry eqentry) {

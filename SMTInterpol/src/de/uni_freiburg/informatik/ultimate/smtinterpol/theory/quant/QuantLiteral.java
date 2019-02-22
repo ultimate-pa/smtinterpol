@@ -84,8 +84,7 @@ public abstract class QuantLiteral {
 	}
 
 	public Term getSMTFormula(final Theory theory, final boolean quoted) {
-		// TODO Auto-generated method stub
-		return null;
+		return mTerm; // TODO quoted
 	}
 
 	/**
@@ -109,5 +108,10 @@ public abstract class QuantLiteral {
 		public Term getSMTFormula(Theory theory, boolean quoted) {
 			return theory.not(super.getAtom().getSMTFormula(theory, quoted));
 		}
+	}
+
+	@Override
+	public String toString() {
+		return mTerm.toString();
 	}
 }
