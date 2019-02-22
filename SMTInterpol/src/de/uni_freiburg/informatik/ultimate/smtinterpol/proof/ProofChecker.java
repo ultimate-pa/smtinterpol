@@ -189,6 +189,7 @@ public class ProofChecker extends NonRecursive {
 			/* split expects an annotated proof as first parameter */
 			if (!(subproof instanceof AnnotatedTerm)) {
 				// push dummy proof as result an return
+				engine.reportError("Split without annotation: " + mTerm);
 				engine.stackPush(null, mTerm);
 				return;
 			}
@@ -540,7 +541,7 @@ public class ProofChecker extends NonRecursive {
 			reportError("Main path missing in CC lemma");
 			return;
 		}
-		Term[] mainPath = (Term[]) ccAnnotation[startSubpathAnnot + 1];
+		final Term[] mainPath = (Term[]) ccAnnotation[startSubpathAnnot + 1];
 		if (mainPath.length < 2) {
 			reportError("Main path too short in CC lemma");
 			return;
@@ -574,7 +575,7 @@ public class ProofChecker extends NonRecursive {
 					|| !(ccAnnotation[i + 1] instanceof Term[])) {
 				reportError("Malformed subpaths in CC lemma");
 			} else {
-				Term[] subPath = (Term[]) ccAnnotation[i + 1];
+				final Term[] subPath = (Term[]) ccAnnotation[i + 1];
 				if (subPath.length != 2 || !allEqualities.contains(new SymmetricPair<>(subPath[0], subPath[1]))) {
 					reportError("Malformed subpaths in CC lemma");
 				}
@@ -588,8 +589,8 @@ public class ProofChecker extends NonRecursive {
 				reportError("Malformed congruence lemma");
 				return;
 			}
-			ApplicationTerm lhs = (ApplicationTerm) mainPath[0];
-			ApplicationTerm rhs = (ApplicationTerm) mainPath[1];
+			final ApplicationTerm lhs = (ApplicationTerm) mainPath[0];
+			final ApplicationTerm rhs = (ApplicationTerm) mainPath[1];
 			// check if functions are the same and have the same number of parameters
 			if (lhs.getFunction() != rhs.getFunction()
 					|| lhs.getParameters().length != rhs.getParameters().length) {
@@ -597,8 +598,8 @@ public class ProofChecker extends NonRecursive {
 				return;
 			}
 			// check if each parameter is identical or equal
-			Term[] lhsArgs = lhs.getParameters();
-			Term[] rhsArgs = rhs.getParameters();
+			final Term[] lhsArgs = lhs.getParameters();
+			final Term[] rhsArgs = rhs.getParameters();
 			for (int i = 0; i < lhsArgs.length; i++) {
 				if (lhsArgs[i] != rhsArgs[i]
 						&& !allEqualities.contains(new SymmetricPair<Term>(lhsArgs[i], rhsArgs[i]))) {
@@ -786,7 +787,7 @@ public class ProofChecker extends NonRecursive {
 				reportError("Main weak path in read-const-weakeq not to a const array.");
 				return;
 			}
-			Term weakIdx = weakIndices.iterator().next();
+			final Term weakIdx = weakIndices.iterator().next();
 			final Term c1 = mSkript.term("select", weakEndPoints.getFirst(), weakIdx);
 			final Term c2 = ((ApplicationTerm) weakEndPoints.getSecond()).getParameters()[0];
 			provedEquality = new SymmetricPair<Term>(c1, c2);
@@ -1279,11 +1280,11 @@ public class ProofChecker extends NonRecursive {
 		case ":ite-red":
 			result = checkTautIte(tautolyName, clause);
 			break;
-		case ":=+1":
-		case ":=+2":
-		case ":=-1":
-		case ":=-2":
-			result = checkTautEq(tautolyName, clause);
+		case ":xor+1":
+		case ":xor+2":
+		case ":xor-1":
+		case ":xor-2":
+			result = checkTautXor(tautolyName, clause);
 			break;
 		case ":termITE":
 			result = checkTautTermIte(clause);
@@ -1400,7 +1401,7 @@ public class ProofChecker extends NonRecursive {
 		return false;
 	}
 
-	private boolean checkTautEq(final String tautKind, final Term[] clause) {
+	private boolean checkTautXor(final String tautKind, final Term[] clause) {
 		if (clause.length != 3) {
 			return false;
 		}
@@ -1410,7 +1411,7 @@ public class ProofChecker extends NonRecursive {
 			lit = negate(lit);
 		}
 		lit = unquote(lit);
-		if (!isApplication("=", lit)) {
+		if (!isApplication("xor", lit)) {
 			return false;
 		}
 		final Term[] eqParams = ((ApplicationTerm) lit).getParameters();
@@ -1418,19 +1419,19 @@ public class ProofChecker extends NonRecursive {
 			return false;
 		}
 		switch (tautKind) {
-		case ":=+1":
-			// (or (not (! (or t1 t2) :quoted)) t1 (not t2))
-			return negated && clause[1] == eqParams[0] && clause[2] == mSkript.term("not", eqParams[1]);
-		case ":=+2":
-			// (or (not (! (or t1 t2) :quoted)) (not t1) t2)
-			return negated && clause[1] == mSkript.term("not", eqParams[0]) && clause[2] == eqParams[1];
-		case ":=-1":
-			// (or (! (or t1 t2) :quoted) t1 t2)
-			return !negated && clause[1] == eqParams[0] && clause[2] == eqParams[1];
-		case ":=-2":
-			// (or (! (or t1 t2) :quoted) (not t1) (not t2))
-			return !negated && clause[1] == mSkript.term("not", eqParams[0])
+		case ":xor+1":
+			// (or (! (xor t1 t2) :quoted) t1 t2)
+			return negated && clause[1] == eqParams[0] && clause[2] == eqParams[1];
+		case ":xor+2":
+			// (or (! (xor t1 t2) :quoted) (not t1) (not t2))
+			return negated && clause[1] == mSkript.term("not", eqParams[0])
 					&& clause[2] == mSkript.term("not", eqParams[1]);
+		case ":xor-1":
+			// (or (not (! (xor t1 t2) :quoted)) t1 (not t2))
+			return !negated && clause[1] == eqParams[0] && clause[2] == mSkript.term("not", eqParams[1]);
+		case ":xor-2":
+			// (or (not (! (xor t1 t2) :quoted)) (not t1) t2)
+			return !negated && clause[1] == mSkript.term("not", eqParams[0]) && clause[2] == eqParams[1];
 		}
 		return false;
 	}
@@ -1478,23 +1479,23 @@ public class ProofChecker extends NonRecursive {
 		if (clause.length != 1 || !isApplication("<=", clause[0])) {
 			return false;
 		}
-		Term[] leqArgs = ((ApplicationTerm) clause[0]).getParameters();
+		final Term[] leqArgs = ((ApplicationTerm) clause[0]).getParameters();
 		if (leqArgs.length != 2 || !isZero(leqArgs[1])) {
 			return false;
 		}
-		SMTAffineTerm sum = new SMTAffineTerm(leqArgs[0]);
+		final SMTAffineTerm sum = new SMTAffineTerm(leqArgs[0]);
 		// find the ite term and check it.
 		// we check each ite if the lemma works with it.
 		boolean foundITE = false;
 		entryLoop:
-		for (Map.Entry<Term, Rational> entry : sum.getSummands().entrySet()) {
+		for (final Map.Entry<Term, Rational> entry : sum.getSummands().entrySet()) {
 			if (!isApplication("ite", entry.getKey()) || entry.getValue().abs() != Rational.ONE) {
 				continue;
 			}
 			Term[] iteArgs = ((ApplicationTerm) entry.getKey()).getParameters();
 
 			boolean zeroSeen = false;
-			ArrayDeque<Term> toCheck = new ArrayDeque<>();
+			final ArrayDeque<Term> toCheck = new ArrayDeque<>();
 			toCheck.add(iteArgs[2]);
 			toCheck.add(iteArgs[1]);
 			// Now check for each ti if replacing ti with (ite c t1 t2) in sum results a non-positive constant.
@@ -1508,7 +1509,7 @@ public class ProofChecker extends NonRecursive {
 				}
 
 				// replace (ite c t e) with candidate in sum, by adding (- candidate (ite c t e)) * entry.getValue().
-				SMTAffineTerm sumWithCandidate = new SMTAffineTerm(candidate);
+				final SMTAffineTerm sumWithCandidate = new SMTAffineTerm(candidate);
 				sumWithCandidate.add(Rational.MONE, entry.getKey());
 				sumWithCandidate.mul(entry.getValue());
 				sumWithCandidate.add(sum);
@@ -1823,12 +1824,18 @@ public class ProofChecker extends NonRecursive {
 			break;
 		case ":distinctBool":
 		case ":distinctSame":
-		case ":distinctNeg":
-		case ":distinctTrue":
-		case ":distinctFalse":
-		case ":distinctBoolEq":
 		case ":distinctBinary":
 			okay = checkRewriteDistinct(rewriteRule, eqParams[0], eqParams[1]);
+			break;
+		case ":xorTrue":
+		case ":xorFalse":
+			okay = checkRewriteXorConst(rewriteRule, eqParams[0], eqParams[1]);
+			break;
+		case ":xorNot":
+			okay = checkRewriteXorNot(eqParams[0], eqParams[1]);
+			break;
+		case ":xorSame":
+			okay = checkRewriteXorSame(eqParams[0], eqParams[1]);
 			break;
 		case ":notSimp":
 			okay = checkRewriteNot(eqParams[0], eqParams[1]);
@@ -1853,8 +1860,9 @@ public class ProofChecker extends NonRecursive {
 		case ":andToOr":
 			okay = checkRewriteAndToOr(eqParams[0], eqParams[1]);
 			break;
-		case ":xorToDistinct":
-			okay = checkRewriteXorToDistinct(eqParams[0], eqParams[1]);
+		case ":eqToXor":
+		case ":distinctToXor":
+			okay = checkRewriteToXor(rewriteRule, eqParams[0], eqParams[1]);
 			break;
 		case ":impToOr":
 			okay = checkRewriteImpToOr(eqParams[0], eqParams[1]);
@@ -1959,17 +1967,23 @@ public class ProofChecker extends NonRecursive {
 		return orParams[0] == impParams[impParams.length - 1];
 	}
 
-	boolean checkRewriteXorToDistinct(final Term lhs, final Term rhs) {
-		// expect lhs: (xor a b), rhs: (distinct a b)
-		if (!isApplication("xor", lhs) || !isApplication("distinct", rhs)) {
+	boolean checkRewriteToXor(final String rule, final Term lhs, Term rhs) {
+		// expect lhs: (=/distinct a b), rhs: (not? (xor a b))
+		if (!isApplication(rule == ":eqToXor" ? "=" : "distinct", lhs)) {
 			return false;
 		}
-		final Term[] xorParams = ((ApplicationTerm) lhs).getParameters();
-		final Term[] distinctParams = ((ApplicationTerm) rhs).getParameters();
-		if (xorParams.length != 2 || distinctParams.length != 2) {
+		if (rule == ":eqToXor") {
+			rhs = negate(rhs);
+		}
+		if (!isApplication("xor", rhs)) {
 			return false;
 		}
-		return xorParams[0] == distinctParams[0] && xorParams[1] == distinctParams[1];
+		final Term[] eqParams = ((ApplicationTerm) lhs).getParameters();
+		final Term[] xorParams = ((ApplicationTerm) rhs).getParameters();
+		if (xorParams.length != 2 || eqParams.length != 2) {
+			return false;
+		}
+		return xorParams[0] == eqParams[0] && xorParams[1] == eqParams[1];
 	}
 
 	boolean checkRewriteStrip(final Term lhs, final Term rhs) {
@@ -2251,29 +2265,6 @@ public class ProofChecker extends NonRecursive {
 			}
 			return false;
 		}
-		case ":distinctNeg":
-			if (args.length != 2) {
-				return false;
-			}
-			return args[0] == negate(args[1]) && isApplication("true", rhs);
-		case ":distinctTrue":
-			if (args.length != 2) {
-				return false;
-			}
-			return (isApplication("true", args[0]) && rhs == mSkript.term("not", args[1]))
-					|| (isApplication("true", args[1]) && rhs == mSkript.term("not", args[0]));
-		case ":distinctFalse":
-			if (args.length != 2) {
-				return false;
-			}
-			return (isApplication("false", args[0]) && rhs == args[1])
-					|| (isApplication("false", args[1]) && rhs == args[0]);
-		case ":distinctBoolEq":
-			if (args.length != 2 || args[0].getSort().getName() != "Bool") {
-				return false;
-			}
-			return rhs == mSkript.term("=", args[0], mSkript.term("not", args[1]))
-					|| rhs == mSkript.term("=", mSkript.term("not", args[0]), args[1]);
 		case ":distinctBinary": {
 			rhs = negate(rhs);
 			if (args.length == 2) {
@@ -2296,6 +2287,63 @@ public class ProofChecker extends NonRecursive {
 		}
 		}
 		return false;
+	}
+
+	boolean checkRewriteXorConst(final String rewriteRule, final Term lhs, final Term rhs) {
+		// lhs: (xor true/false arg1) or (xor arg0 true/false)
+		if (!isApplication("xor", lhs)) {
+			return false;
+		}
+		final Term[] args = ((ApplicationTerm) lhs).getParameters();
+		switch (rewriteRule) {
+		case ":xorTrue":
+			return (isApplication("true", args[0]) && rhs == mSkript.term("not", args[1]))
+					|| (isApplication("true", args[1]) && rhs == mSkript.term("not", args[0]));
+		case ":xorFalse":
+			return (isApplication("false", args[0]) && rhs == args[1])
+					|| (isApplication("false", args[1]) && rhs == args[0]);
+		default:
+			return false;
+		}
+	}
+
+	boolean checkRewriteXorNot(final Term lhs, Term rhs) {
+		// lhs: (xor (not? arg0) (not? arg1)), rhs: (not? (xor arg0 arg1))
+		boolean polarity = true;
+		if (isApplication("not", rhs)) {
+			polarity = !polarity;
+			rhs = ((ApplicationTerm) rhs).getParameters()[0];
+		}
+		if (!isApplication("xor", lhs) || !isApplication("xor", rhs)) {
+			return false;
+		}
+		final Term[] lhsArgs = ((ApplicationTerm) lhs).getParameters();
+		final Term[] rhsArgs = ((ApplicationTerm) rhs).getParameters();
+		if (lhsArgs.length != rhsArgs.length) {
+			return false;
+		}
+		for (int i = 0; i < lhsArgs.length; i++) {
+			// If lhsArg contains not, remove it, and switch polarity.
+			// Then check it equals the corresponding rhsArg
+			Term lhsArg = lhsArgs[i];
+			if (isApplication("not", lhsArg)) {
+				polarity = !polarity;
+				lhsArg = ((ApplicationTerm) lhsArg).getParameters()[0];
+			}
+			if (lhsArg != rhsArgs[i]) {
+				return false;
+			}
+		}
+		// The lemma is well-formed if polarity is true, i.e., all nots cancel out.
+		return polarity;
+	}
+
+	boolean checkRewriteXorSame(final Term lhs, final Term rhs) {
+		if (!isApplication("xor", lhs)) {
+			return false;
+		}
+		final Term[] lhsArgs = ((ApplicationTerm) lhs).getParameters();
+		return lhsArgs.length == 2 && lhsArgs[0] == lhsArgs[1] && isApplication("false", rhs);
 	}
 
 	boolean checkRewriteNot(Term lhs, final Term rhs) {
@@ -2821,7 +2869,7 @@ public class ProofChecker extends NonRecursive {
 			return new SMTAffineTerm(rhsArgs[0]).equals(lhsAffine) && isZero(rhsArgs[1]);
 		}
 
-		if (isApplication("=", lhs) && ((ApplicationTerm) lhs).getParameters()[0].getSort().getName() != "Bool") {
+		if (isApplication("=", lhs)) {
 			/* compute affine term for lhs */
 			final Term[] lhsParams = ((ApplicationTerm) lhs).getParameters();
 			if (lhsParams.length != 2) {
@@ -2872,7 +2920,7 @@ public class ProofChecker extends NonRecursive {
 		}
 
 		/* Check for auxiliary literals */
-		if (isApplication("ite", lhs) || isApplication("or", lhs) || isApplication("=", lhs)) {
+		if (isApplication("ite", lhs) || isApplication("or", lhs) || isApplication("xor", lhs)) {
 			rhs = unquote(rhs);
 			return lhs == rhs;
 		}
@@ -3040,6 +3088,16 @@ public class ProofChecker extends NonRecursive {
 
 	/* === Split rules === */
 
+	/**
+	 * This function checks whether splitApp is a valid application of a split rule. A split rule proofs a simple clause
+	 * that follows from a more complicated asserted formula.
+	 *
+	 * @param splitApp
+	 *            the subproof annotated with the simple clause that is extracted.
+	 * @param origTerm
+	 *            the term proved by the sub proof.
+	 * @return the term proved by the split application, i.e., the simple clause from the annotation.
+	 */
 	Term walkSplit(final ApplicationTerm splitApp, final Term origTerm) {
 		final String splitRule = checkAndGetAnnotationKey(splitApp.getParameters()[0]);
 		if (splitRule == null) {
@@ -3058,11 +3116,11 @@ public class ProofChecker extends NonRecursive {
 		case ":notOr":
 			result = checkSplitNotOr(origTerm, splitTerm);
 			break;
-		case ":=+1":
-		case ":=+2":
-		case ":=-1":
-		case ":=-2":
-			result = checkSplitEq(splitRule, origTerm, splitTerm);
+		case ":xor+1":
+		case ":xor+2":
+		case ":xor-1":
+		case ":xor-2":
+			result = checkSplitXor(splitRule, origTerm, splitTerm);
 			break;
 		case ":ite+1":
 		case ":ite+2":
@@ -3081,6 +3139,9 @@ public class ProofChecker extends NonRecursive {
 	}
 
 	boolean checkSplitNotOr(final Term origTerm, final Term splitTerm) {
+		// origTerm must be of the form not (or arg0 ... argn),
+		// splitTerm is one of the negated arguments.
+		// validity follows from (not (or arg0 ... argn)) ==> not argi
 		final Term orTerm = negate(origTerm);
 		if (!isApplication("or", orTerm)) {
 			return false;
@@ -3098,17 +3159,17 @@ public class ProofChecker extends NonRecursive {
 		return false;
 	}
 
-	boolean checkSplitEq(final String splitRule, Term origTerm, final Term splitTerm) {
-		// rule is =+ iff origTerm is an equality.
+	boolean checkSplitXor(final String splitRule, Term origTerm, final Term splitTerm) {
+		// origTerm is (not? (xor arg0 arg1))
 		final boolean positive = !isApplication("not", origTerm);
 		if (!positive) {
 			origTerm = ((ApplicationTerm) origTerm).getParameters()[0];
 		}
-		if (!isApplication("=", origTerm)) {
+		if (!isApplication("xor", origTerm)) {
 			return false;
 		}
-		final Term[] eqParams = ((ApplicationTerm) origTerm).getParameters();
-		if (eqParams.length != 2) {
+		final Term[] xorParams = ((ApplicationTerm) origTerm).getParameters();
+		if (xorParams.length != 2) {
 			return false;
 		}
 		if (!isApplication("or", splitTerm)) {
@@ -3118,21 +3179,27 @@ public class ProofChecker extends NonRecursive {
 		if (clause.length != 2) {
 			return false;
 		}
+		// The validity of the split rules follows from the following implications
+		// xor+1: xor arg0 arg1 ==> or arg0 arg1
+		// xor+2: xor arg0 arg1 ==> or !arg0 !arg1
+		// xor-1: !xor arg0 arg1 ==> or arg0 !arg1
+		// xor-2: !xor arg0 arg1 ==> or !arg0 arg1
 		switch (splitRule) {
-		case ":=+1":
-			return positive && clause[0] == eqParams[0] && clause[1] == mSkript.term("not", eqParams[1]);
-		case ":=+2":
-			return positive && clause[0] == mSkript.term("not", eqParams[0]) && clause[1] == eqParams[1];
-		case ":=-1":
-			return !positive && clause[0] == eqParams[0] && clause[1] == eqParams[1];
-		case ":=-2":
-			return !positive && clause[0] == mSkript.term("not", eqParams[0])
-					&& clause[1] == mSkript.term("not", eqParams[1]);
+		case ":xor+1":
+			return positive && clause[0] == xorParams[0] && clause[1] == xorParams[1];
+		case ":xor+2":
+			return positive && clause[0] == mSkript.term("not", xorParams[0])
+					&& clause[1] == mSkript.term("not", xorParams[1]);
+		case ":xor-1":
+			return !positive && clause[0] == xorParams[0] && clause[1] == mSkript.term("not", xorParams[1]);
+		case ":xor-2":
+			return !positive && clause[0] == mSkript.term("not", xorParams[0]) && clause[1] == xorParams[1];
 		}
 		return false;
 	}
 
 	boolean checkSplitIte(final String splitRule, Term origTerm, final Term splitTerm) {
+		// origTerm must be of the form (not? (ite c t e))
 		final boolean positive = !isApplication("not", origTerm);
 		if (!positive) {
 			origTerm = ((ApplicationTerm) origTerm).getParameters()[0];
@@ -3151,6 +3218,11 @@ public class ProofChecker extends NonRecursive {
 		if (clause.length != 2) {
 			return false;
 		}
+		// The validity of the split rules follows from the following implications
+		// ite+1: ite c arg1 arg2 ==> or !c arg1
+		// ite+2: ite c arg1 arg1 ==> or c arg2
+		// ite-1: !ite c arg1 arg2 ==> or !c !arg1
+		// ite-2: !ite c arg1 arg1 ==> or c !arg2
 		switch (splitRule) {
 		case ":ite+1":
 			return positive && clause[0] == mSkript.term("not", iteParams[0]) && clause[1] == iteParams[1];

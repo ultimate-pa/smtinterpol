@@ -437,33 +437,33 @@ public class Clausifier {
 						pushOperation(new AddAsAxiom(split, mSource));
 					}
 					return;
-				} else if (at.getFunction().getName().equals("=")
+				} else if (at.getFunction().getName().equals("xor")
 						&& at.getParameters()[0].getSort() == t.getBooleanSort()) {
 					// these axioms already imply the auxaxiom clauses.
 					ci.setFlag(auxflag);
 					final Term p1 = at.getParameters()[0];
 					final Term p2 = at.getParameters()[1];
 					if (positive) {
-						// (= p1 p2) --> (p1 \/ ~p2) /\ (~p1 \/ p2)
-						Term formula = t.term("or", p1, t.term("not", p2));
-						Term split = mTracker.split(formula, mTerm, ProofConstants.SPLIT_POS_EQ_1);
+						// (xor p1 p2) --> (p1 \/ p2) /\ (~p1 \/ ~p2)
+						Term formula = t.term("or", p1, p2);
+						Term split = mTracker.split(formula, mTerm, ProofConstants.SPLIT_POS_XOR_1);
 						/* remove double negations; these may be in conflict with flatten */
 						Term rewrite = mUtils.convertFuncNot(mTracker.reflexivity(formula));
 						split = mTracker.getRewriteProof(split, rewrite);
 						pushOperation(new AddAsAxiom(split, mSource));
-						formula = t.term("or", t.term("not", p1), p2);
-						split = mTracker.split(formula, mTerm, ProofConstants.SPLIT_POS_EQ_2);
+						formula = t.term("or", t.term("not", p1), t.term("not", p2));
+						split = mTracker.split(formula, mTerm, ProofConstants.SPLIT_POS_XOR_2);
 						/* remove double negations; these may be in conflict with flatten */
 						rewrite = mUtils.convertFuncNot(mTracker.reflexivity(formula));
 						split = mTracker.getRewriteProof(split, rewrite);
 						pushOperation(new AddAsAxiom(split, mSource));
 					} else {
-						// (= p1 p2) --> (p1 \/ ~p2) /\ (~p1 \/ p2)
-						Term formula = t.term("or", p1, p2);
-						Term split = mTracker.split(formula, mTerm, ProofConstants.SPLIT_NEG_EQ_1);
+						// (not (xor p1 p2)) --> (p1 \/ ~p2) /\ (~p1 \/ p2)
+						Term formula = t.term("or", p1, t.term("not", p2));
+						Term split = mTracker.split(formula, mTerm, ProofConstants.SPLIT_NEG_XOR_1);
 						pushOperation(new AddAsAxiom(split, mSource));
-						formula = t.term("or", t.term("not", p1), t.term("not", p2));
-						split = mTracker.split(formula, mTerm, ProofConstants.SPLIT_NEG_EQ_2);
+						formula = t.term("or", t.term("not", p1), p2);
+						split = mTracker.split(formula, mTerm, ProofConstants.SPLIT_NEG_XOR_2);
 						/* remove double negations; these may be in conflict with flatten */
 						final Term rewrite = mUtils.convertFuncNot(mTracker.reflexivity(formula));
 						split = mTracker.getRewriteProof(split, rewrite);
@@ -594,39 +594,39 @@ public class Clausifier {
 							buildAuxClause(negLit, axiom, mSource);
 						}
 					}
-				} else if (at.getFunction().getName().equals("=")) {
+				} else if (at.getFunction().getName().equals("xor")) {
 					assert at.getParameters().length == 2;
 					final Term p1 = at.getParameters()[0];
 					final Term p2 = at.getParameters()[1];
 					assert p1.getSort() == t.getBooleanSort();
 					assert p2.getSort() == t.getBooleanSort();
 					if (mPositive) {
-						// (or (not (= p1 p2)) p1 (not p2))
-						// (or (not (= p1 p2)) (not p1) p2)
-						Term axiom = t.term("or", negLitTerm, p1, t.term("not", p2));
-						axiom = mTracker.auxAxiom(axiom, ProofConstants.AUX_EQ_POS_1);
-						buildAuxClause(negLit, axiom, mSource);
-						axiom = t.term("or", negLitTerm, t.term("not", p1), p2);
-						axiom = mTracker.auxAxiom(axiom, ProofConstants.AUX_EQ_POS_2);
-						buildAuxClause(negLit, axiom, mSource);
-					} else {
-						// (or (= p1 p2) p1 p2)
-						// (or (= p1 p2) (not p1) (not p2))
+						// (or (not (xor p1 p2)) p1 p2)
+						// (or (not (xor p1 p2)) (not p1) (not p2))
 						Term axiom = t.term("or", negLitTerm, p1, p2);
-						axiom = mTracker.auxAxiom(axiom, ProofConstants.AUX_EQ_NEG_1);
+						axiom = mTracker.auxAxiom(axiom, ProofConstants.AUX_XOR_POS_1);
 						buildAuxClause(negLit, axiom, mSource);
 						axiom = t.term("or", negLitTerm, t.term("not", p1), t.term("not", p2));
-						axiom = mTracker.auxAxiom(axiom, ProofConstants.AUX_EQ_NEG_2);
+						axiom = mTracker.auxAxiom(axiom, ProofConstants.AUX_XOR_POS_2);
+						buildAuxClause(negLit, axiom, mSource);
+					} else {
+						// (or (xor p1 p2) p1 (not p2))
+						// (or (xor p1 p2) (not p1) p2)
+						Term axiom = t.term("or", negLitTerm, p1, t.term("not", p2));
+						axiom = mTracker.auxAxiom(axiom, ProofConstants.AUX_XOR_NEG_1);
+						buildAuxClause(negLit, axiom, mSource);
+						axiom = t.term("or", negLitTerm, t.term("not", p1), p2);
+						axiom = mTracker.auxAxiom(axiom, ProofConstants.AUX_XOR_NEG_2);
 						buildAuxClause(negLit, axiom, mSource);
 					}
 				} else {
-					throw new InternalError("AuxAxiom not implemented: " + mTerm);
+					throw new AssertionError("AuxAxiom not implemented: " + mTerm);
 				}
 			} else if (mTerm instanceof QuantifiedFormula) {
 				// TODO: Correctly implement this once we support quantifiers.
 				throw new SMTLIBException("Cannot create quantifier in quantifier-free logic");
 			} else {
-				throw new InternalError("Don't know how to create aux axiom: " + mTerm);
+				throw new AssertionError("Don't know how to create aux axiom: " + mTerm);
 			}
 		}
 
@@ -766,6 +766,11 @@ public class Clausifier {
 				throw new SMTLIBException("Cannot handle literal " + mTerm);
 			}
 		}
+
+		@Override
+		public String toString() {
+			return "Collect" + mTerm.toString();
+		}
 	}
 
 	private class BuildClause implements Operation {
@@ -850,6 +855,11 @@ public class Clausifier {
 
 		public void setSimpOr() {
 			mSimpOr = true;
+		}
+
+		@Override
+		public String toString() {
+			return "BC" + mTracker.getProvedTerm(mTerm);
 		}
 	}
 
@@ -1215,14 +1225,14 @@ public class Clausifier {
 	 * A tracker for proof production.
 	 */
 	private final IProofTracker mTracker;
-	private final Utils mUtils;
+	private final LogicSimplifier mUtils;
 
 	public Clausifier(final DPLLEngine engine, final int proofLevel) {
 		mTheory = engine.getSMTTheory();
 		mEngine = engine;
 		mLogger = engine.getLogger();
 		mTracker = proofLevel == 2 ? new ProofTracker() : new NoopProofTracker();
-		mUtils = new Utils(mTracker);
+		mUtils = new LogicSimplifier(mTracker);
 		mCompiler.setProofTracker(mTracker);
 	}
 
@@ -1292,7 +1302,10 @@ public class Clausifier {
 		final Term i = store.getParameters()[1];
 		final Term v = store.getParameters()[2];
 		final Term axiom = theory.term("=", theory.term("select", store, i), v);
-		buildClause(mTracker.auxAxiom(axiom, ProofConstants.AUX_ARRAY_STORE), source);
+
+		Term provedAxiom = mTracker.getRewriteProof(mTracker.auxAxiom(axiom, ProofConstants.AUX_ARRAY_STORE),
+				mUtils.convertBinaryEq(mTracker.reflexivity(axiom)));
+		buildClause(provedAxiom, source);
 		if (Config.ARRAY_ALWAYS_ADD_READ
 				// HACK: We mean "finite sorts"
 				|| v.getSort() == mTheory.getBooleanSort()) {
@@ -1886,6 +1899,8 @@ public class Clausifier {
 			res = new TrueAtom();
 		} else if (at == mTheory.mFalse) {
 			res = new TrueAtom().negate();
+		} else if (fs.getName().equals("xor")) {
+			res = getLiteralTseitin(at, source);
 		} else if (fs.getName().equals("=")) {
 			if (at.getParameters()[0].getSort() == mTheory.getBooleanSort()) {
 				res = getLiteralTseitin(at, source);

@@ -53,12 +53,10 @@ public interface ProofConstants {
 	public final static Annotation RW_EQ_SIMP           = new Annotation(":eqSimp", null);
 	public final static Annotation RW_EQ_SAME           = new Annotation(":eqSame", null);
 	public final static Annotation RW_EQ_BINARY         = new Annotation(":eqBinary", null);
+	public final static Annotation RW_EQ_TO_XOR         = new Annotation(":eqToXor", null);
 	public final static Annotation RW_DISTINCT_BOOL     = new Annotation(":distinctBool", null);
+	public final static Annotation RW_DISTINCT_TO_XOR   = new Annotation(":distinctToXor", null);
 	public final static Annotation RW_DISTINCT_SAME     = new Annotation(":distinctSame", null);
-	public final static Annotation RW_DISTINCT_NEG      = new Annotation(":distinctNeg", null);
-	public final static Annotation RW_DISTINCT_TRUE     = new Annotation(":distinctTrue", null);
-	public final static Annotation RW_DISTINCT_FALSE    = new Annotation(":distinctFalse", null);
-	public final static Annotation RW_DISTINCT_BOOL_EQ  = new Annotation(":distinctBoolEq", null);
 	public final static Annotation RW_DISTINCT_BINARY   = new Annotation(":distinctBinary", null);
 	public final static Annotation RW_NOT_SIMP          = new Annotation(":notSimp", null);
 	public final static Annotation RW_OR_SIMP           = new Annotation(":orSimp", null);
@@ -73,7 +71,10 @@ public interface ProofConstants {
 	public final static Annotation RW_ITE_BOOL_5        = new Annotation(":iteBool5", null);
 	public final static Annotation RW_ITE_BOOL_6        = new Annotation(":iteBool6", null);
 	public final static Annotation RW_AND_TO_OR         = new Annotation(":andToOr", null);
-	public final static Annotation RW_XOR_TO_DISTINCT   = new Annotation(":xorToDistinct", null);
+	public final static Annotation RW_XOR_TRUE          = new Annotation(":xorTrue", null);
+	public final static Annotation RW_XOR_FALSE         = new Annotation(":xorFalse", null);
+	public final static Annotation RW_XOR_NOT           = new Annotation(":xorNot", null);
+	public final static Annotation RW_XOR_SAME          = new Annotation(":xorSame", null);
 	public final static Annotation RW_IMP_TO_OR         = new Annotation(":impToOr", null);
 	public final static Annotation RW_STRIP             = new Annotation(":strip", null);
 	public final static Annotation RW_CANONICAL_SUM     = new Annotation(":canonicalSum", null);
@@ -108,10 +109,10 @@ public interface ProofConstants {
 	public final static Annotation AUX_ITE_NEG_1         = new Annotation(":ite-1", null);
 	public final static Annotation AUX_ITE_NEG_2         = new Annotation(":ite-2", null);
 	public final static Annotation AUX_ITE_NEG_RED       = new Annotation(":ite-red", null);
-	public final static Annotation AUX_EQ_POS_1          = new Annotation(":=+1", null);
-	public final static Annotation AUX_EQ_POS_2          = new Annotation(":=+2", null);
-	public final static Annotation AUX_EQ_NEG_1          = new Annotation(":=-1", null);
-	public final static Annotation AUX_EQ_NEG_2          = new Annotation(":=-2", null);
+	public final static Annotation AUX_XOR_POS_1         = new Annotation(":xor+1", null);
+	public final static Annotation AUX_XOR_POS_2         = new Annotation(":xor+2", null);
+	public final static Annotation AUX_XOR_NEG_1         = new Annotation(":xor-1", null);
+	public final static Annotation AUX_XOR_NEG_2         = new Annotation(":xor-2", null);
 	public final static Annotation AUX_EXCLUDED_MIDDLE_1 = new Annotation(":excludedMiddle1", null);
 	public final static Annotation AUX_EXCLUDED_MIDDLE_2 = new Annotation(":excludedMiddle2", null);
 	public final static Annotation AUX_TERM_ITE          = new Annotation(":termITE", null);
@@ -125,10 +126,10 @@ public interface ProofConstants {
 
 	//// ==== Structural splitting constants ====
 	public final static Annotation SPLIT_NEG_OR    = new Annotation(":notOr", null);
-	public final static Annotation SPLIT_POS_EQ_1  = new Annotation(":=+1", null);
-	public final static Annotation SPLIT_POS_EQ_2  = new Annotation(":=+2", null);
-	public final static Annotation SPLIT_NEG_EQ_1  = new Annotation(":=-1", null);
-	public final static Annotation SPLIT_NEG_EQ_2  = new Annotation(":=-2", null);
+	public final static Annotation SPLIT_POS_XOR_1 = new Annotation(":xor+1", null);
+	public final static Annotation SPLIT_POS_XOR_2 = new Annotation(":xor+2", null);
+	public final static Annotation SPLIT_NEG_XOR_1 = new Annotation(":xor-1", null);
+	public final static Annotation SPLIT_NEG_XOR_2 = new Annotation(":xor-2", null);
 	public final static Annotation SPLIT_POS_ITE_1 = new Annotation(":ite+1", null);
 	public final static Annotation SPLIT_POS_ITE_2 = new Annotation(":ite+2", null);
 	public final static Annotation SPLIT_NEG_ITE_1 = new Annotation(":ite-1", null);

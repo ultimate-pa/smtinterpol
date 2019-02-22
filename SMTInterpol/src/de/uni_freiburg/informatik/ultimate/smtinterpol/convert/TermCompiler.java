@@ -57,7 +57,7 @@ public class TermCompiler extends TermTransformer {
 	UnifyHash<ApplicationTerm> mCanonicalSums = new UnifyHash<>();
 
 	private IProofTracker mTracker;
-	private Utils mUtils;
+	private LogicSimplifier mUtils;
 
 	static class TransitivityStep implements Walker {
 		final Term mFirst;
@@ -76,7 +76,7 @@ public class TermCompiler extends TermTransformer {
 
 	public void setProofTracker(final IProofTracker tracker) {
 		mTracker = tracker;
-		mUtils = new Utils(tracker);
+		mUtils = new LogicSimplifier(tracker);
 	}
 
 	public void setAssignmentProduction(final boolean on) {
