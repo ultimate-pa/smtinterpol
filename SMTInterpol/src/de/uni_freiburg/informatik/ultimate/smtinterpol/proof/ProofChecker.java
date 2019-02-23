@@ -2772,7 +2772,7 @@ public class ProofChecker extends NonRecursive {
 	}
 
 	boolean checkRewriteIntern(final Term lhs, Term rhs) {
-		if (!(lhs instanceof ApplicationTerm)) {
+		if (!(lhs instanceof ApplicationTerm) || lhs.getSort().getName() != "Bool") {
 			return false;
 		}
 		final ApplicationTerm at = (ApplicationTerm) lhs;
@@ -2811,12 +2811,6 @@ public class ProofChecker extends NonRecursive {
 					isStrict = true;
 				}
 			}
-			rhs = unquote(rhs);
-
-			if (!isApplication(isStrict ? "<" : "<=", rhs)) {
-				return false;
-			}
-
 			// Normalize coefficients
 			lhsAffine.div(lhsAffine.getGcd());
 			// Round constant up for integers: (<= (x + 1.25) 0) --> (<= x + 2)
@@ -2825,8 +2819,14 @@ public class ProofChecker extends NonRecursive {
 				final Rational frac = constant.add(constant.negate().floor());
 				lhsAffine.add(frac.negate());
 			}
-			final Term[] rhsArgs = ((ApplicationTerm) rhs).getParameters();
-			return new SMTAffineTerm(rhsArgs[0]).equals(lhsAffine) && isZero(rhsArgs[1]);
+
+			// Now check that rhs is as expected
+			rhs = unquote(rhs);
+			if (!isApplication(isStrict ? "<" : "<=", rhs)) {
+				return false;
+			}
+			final Term[] rhsParams = ((ApplicationTerm) rhs).getParameters();
+			return new SMTAffineTerm(rhsParams[0]).equals(lhsAffine) && isZero(rhsParams[1]);
 		}
 
 		if (isApplication("=", lhs)) {
@@ -2835,17 +2835,11 @@ public class ProofChecker extends NonRecursive {
 			if (lhsParams.length != 2) {
 				return false;
 			}
-			final SMTAffineTerm lhsAffine = new SMTAffineTerm(lhsParams[1]);
-			lhsAffine.negate();
-			lhsAffine.add(new SMTAffineTerm(lhsParams[0]));
-
-			if (lhsAffine.isConstant()) {
-				/* simplify to true/false */
-				if (lhsAffine.getConstant() == Rational.ZERO) {
-					return isApplication("true", rhs);
-				} else {
-					return isApplication("false", rhs);
-				}
+			if (isApplication("false", rhs)) {
+				return checkTrivialDisequality(lhsParams[0], lhsParams[1]);
+			} else if (isApplication("true", rhs)) {
+				// since we canonicalize SMTAffineTerms, they can only be equal if they are identical.
+				return lhsParams[0] == lhsParams[1];
 			}
 
 			rhs = unquote(rhs);
@@ -2862,16 +2856,21 @@ public class ProofChecker extends NonRecursive {
 				return true;
 			}
 
+			// Now it must be an LA equality that got normalized in a different way.
 			if (!lhsParams[0].getSort().isNumericSort()) {
 				return false;
 			}
 
-			/* check that they represent the same equality */
-			final SMTAffineTerm rhsAffine = new SMTAffineTerm(rhsParams[1]);
-			rhsAffine.negate();
-			rhsAffine.add(new SMTAffineTerm(rhsParams[0]));
+			final SMTAffineTerm lhsAffine = new SMTAffineTerm(lhsParams[0]);
+			lhsAffine.add(Rational.MONE, lhsParams[1]);
 			lhsAffine.div(lhsAffine.getGcd());
-			rhsAffine.div(rhsAffine.getGcd());
+
+			/* check that they represent the same equality */
+			final SMTAffineTerm rhsAffine = new SMTAffineTerm(rhsParams[0]);
+			if (rhsAffine.getGcd() != Rational.ONE || !isZero(rhsParams[1])) {
+				reportError("LA equality is not normalized");
+				return false;
+			}
 			if (lhsAffine.equals(rhsAffine)) {
 				return true;
 			}
