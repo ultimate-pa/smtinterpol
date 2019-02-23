@@ -918,16 +918,6 @@ public class Rational implements Comparable<Rational> {
 		return sort.getTheory().constant(this, sort);
 	}
 	/**
-	 * Convert this rational into an SMTLIB term.
-	 * @param t Theory to use during conversion.
-	 * @return SMTLIB term corresponding to this rational.
-	 * @deprecated Use {@link #toTerm(Sort)} since this is the type-safe version
-	 */
-	@Deprecated
-	public Term toSMTLIB(final Theory t) {
-		return t.rational(numerator(), denominator());
-	}
-	/**
 	 * Check whether this rational corresponds to a (finite) rational value.
 	 * This function can be used to test for infinites and NaNs.
 	 * @return true if and only if this rational is not infinite or NaN.
