@@ -64,11 +64,7 @@ public class ProofTracker implements IProofTracker{
 
 	@Override
 	public Term intern(final Term term, final Term intern) {
-		final Theory t = term.getTheory();
-		if (term == intern) {
-			return reflexivity(intern);
-		}
-		return buildProof(t.term(ProofConstants.FN_INTERN, t.term("=", term, intern)), intern);
+		return buildRewrite(term, intern, ProofConstants.RW_INTERN);
 	}
 
 	/**

@@ -32,7 +32,6 @@ public interface ProofConstants {
 	public static final String FN_REWRITE = "@rewrite";
 	public static final String FN_EQ = "@eq";
 	public static final String FN_SPLIT = "@split";
-	public static final String FN_INTERN = "@intern";
 	public static final String FN_EXISTS = "@exists";
 	public static final String FN_CONG = "@cong";
 	public static final String FN_TRANS = "@trans";
@@ -98,6 +97,7 @@ public interface ProofConstants {
 	public final static Annotation RW_FLATTEN           = new Annotation(":flatten", null);
 	public final static Annotation RW_STORE_REWRITE     = new Annotation(":storeRewrite", null);
 	public final static Annotation RW_FORALL_EXISTS     = new Annotation(":forallExists", null);
+	public final static Annotation RW_INTERN            = new Annotation(":intern", null);
 
 	//// ==== Tautologies ====
 	public final static Annotation AUX_TRUE_NOT_FALSE    = new Annotation(":trueNotFalse", null);

@@ -22,6 +22,7 @@
 
 %canonical form
 \newcommand\cf{\mathit{cf}}
+\newcommand\annot[2]{(!\ #1\ \texttt{#2})}
 
 \title{Proposal: Proof System for \siv}
 \author{J{\"u}rgen Christ \and Jochen Hoenicke}
@@ -592,7 +593,7 @@ The negations produced by this rule might be further simplified using
 an application of this rule.
 
 \begin{mathpar}
-  \inferrule*[left=NotOrElim,right={$j\in I$}]{(not\ (or_{i\in
+  \inferrule*[left=notOr,right={$j\in I$}]{(not\ (or_{i\in
       I}\ t_i))}{(not\ t_j)}\quad
 \end{mathpar}
 
@@ -648,10 +649,68 @@ $t_i$ must appear in the same order on the right-hand side and a $t_i$ can itsel
 be an $or$ term again.
 
 \paragraph{Building clauses.}
-The \texttt{intern} rules induces another rewrite system.
-This system is again applied by the equality folding rule \texttt{eq}.  The
-resulting formula might still contain nested disjunctions.  The rule
-\texttt{clause} permutes the resulting clause.
+A literal in \si is represented in the proof by its SMTLIB term.  To
+distinguish between auxiliary literals that stand for a disjunction and
+the clauses themselves, the literals are usually quoted by adding a \verb+:quoted+
+annotation.  We also need to distinguish between equality literals in the
+congruence closure theory and equality literals in LA theory.  We do this
+by quoting the former with \verb+:quotedCC+ and the latter with \verb+:quotedLA+.
+
+The literals are introduced by the rewrite rule (intern).  For example for
+complex terms where the head symbol is in $\{ite, xor, or\}$, we introduce
+a quoted auxiliary literal with the same name.
+
+\begin{equation}
+  t = \annot{t}{:quoted}
+  \quad\text{where $func(t)\in\{ite,xor,or\}$}
+  \tag{intern}
+\end{equation}
+
+When creating equality literals in congruence closure we first check for
+trivial equalities:
+An equality $t_1=t_2$ is trivially $true$ if $t_1$ and $t_2$ are identical.
+If the sort is integer or real, it is trivially $false$ if $t_1 - t_2$ is
+a non zero constant, or in the integer case if it is of the form
+$\sum_{i>0} c_i t_i + c_0$ and the constant $c_0$ does not
+divide the $gcd(c_1,\dots,c_n)$.
+Furthermore the equality literals are normalized, i.e., the sides of the
+equality may be swapped, e.g., if this results in a previously created
+literal. Finally they are quoted.
+\begin{equation}
+  (=\ t_1\ t_2) = \begin{cases} true & \text{if trivially true}\\
+    false & \text{if trivially false}\\
+    \annot{(=\ t_1\ t_2)}{:quotedCC}\\
+    \annot{(=\ t_2\ t_1)}{:quotedCC}
+  \end{cases}
+  \tag{intern}
+\end{equation}
+
+When creating equality literals in linear arithmetic, the first step is
+to divide the affine term $\sum_{i>0} c_i t_i + c_0$ by $gcd(c_1,\dots,c_n)$, the
+gcd of the coefficients of the $t_i$ terms.  For rationals, this is defined such
+that dividing by the gcd results in integer coefficients without a common divisor.
+The sign is normalized, so the term can also be negated.  For rationals, this
+may result in a negated $<$ literal instead of a $<=$ literal.
+For integer inequalities, the constant $c_0/gcd$ is then rounded to the nearest
+integer such that the literal does not change; if it is an equality it is simplified
+to false if $c_0/gcd$ is not an integer.  
+\begin{align}
+  (=\ t\ 0) &= \begin{cases} false & \text{if trivially false}\\
+    \annot{(=\ \cf(t/gcd)\ 0)}{:quotedLA} \\
+    \annot{(=\ \cf(-t/gcd)\ 0)}{:quotedLA}
+  \end{cases}
+  \tag{intern}\\
+  (<=\ t\ 0) &= \begin{cases} 
+    (!\ (<=\ \cf(t/gcd)\ 0)\ :quotedLA) \\
+    (not\ \annot{(<\ \cf(-t/gcd)\ 0)}{:quotedLA}) &\text{(real case)}\\
+    (not\ \annot{(<=\ \cf(-t/gcd + 1)\ 0)}{:quotedLA})& \text{(integer case)}
+  \end{cases}
+  \tag{intern}
+\end{align}
+
+
+This rewrite rules are again applied by the equality folding rule \texttt{eq}.
+The rule \texttt{clause} permutes the resulting clause.
 \begin{mathpar}
 \inferrule*[left=clause]{(or\ t_1\ldots t_n)}{(or\ t_i')}
 \end{mathpar}
@@ -969,7 +1028,7 @@ following proof rules.
 The proof tree consist of three parts:
 \begin{enumerate}
 \item transforming input into canonical form,\label{it:tocan}
-\item transforming canoncial form into clausal form,\label{it:tocnf} and
+\item transforming canonical form into clausal form,\label{it:tocnf} and
 \item the resolution proof\label{it:resproof}.
 \end{enumerate}
 The proof tree structure will correspond to this ordering.
@@ -978,13 +1037,13 @@ The proof tree structure will correspond to this ordering.
   \inferrule*[Left=Eq]{
     \inferrule*[Left=split]{
     \inferrule*[Left=Eq]{
-      F_{input} \\ (=\ t_i\ t_i')}
+      F_{input} \\ \text{rewrites}}
                {F_{canonical}}}{(or_{j\in J_1}\ t_j)} \\ (=\ t_j\ t_j')}{(or\ t_i)}
   \\ \ldots \\
   \inferrule*[Left=eq]{
     \inferrule*[Left=split]{
       \inferrule*[Left=Eq]{
-        F_{input} \\ (=\ t_i\ t_i')}
+        F_{input} \\ \text{rewrites}}
                  {F_{canonical}}}{(or_{j\in J_n}\ t_j)} \\ (=\ t_j\ t_j')}{(or\ t_i)}
   \\ \mathcal{T}\!-lemmas
 }{\bot}
@@ -1028,9 +1087,7 @@ the proof tree, \si uses the \verb+@rewrite+ function which introduces a
 Boolean formula $old = new$ to rewrite all occurrences of $old$ in a formula
 into $new$.  The function has signature $Bool\rightarrow @Proof$.  The
 argument to the \verb+@rewrite+ function is annotated with the name of the
-rewrite axiom used.  Similarly to \verb+@rewrite+, the \verb+@intern+ function
-introduces rewrite equalities.  It has the same signature, but the Boolean
-term will not be annotated.
+rewrite axiom used.
 
 \paragraph{Structural Splitting.}  If the Boolean structure of the input is
 more complex and cannot be transformed into disjunctive form during
@@ -1052,7 +1109,7 @@ equality rewrite that replaces the double negation.
 rewrites to a proof.  This function is left-associative and has signature
 $@Proof\times@Proof\rightarrow @Proof$.  This signature, however, is not
 strong enough to express all details.  The second proof is a proof of a
-rewrite equality that is introduced with \verb+@rewrite+ or \verb+@intern+
+rewrite equality that is introduced with \verb+@rewrite+
 while the first proof can be \verb+@asserted+ or a derivation sequence.
 
 \paragraph{Creating literals}  After converting an input formula in canonical
@@ -1060,36 +1117,18 @@ form and possibly splitting it, \si creates clauses.  The input to this
 process is a (possibly nested) disjunction.  For every disjunct, a literal
 will be created.  This literal should replace the term in the (flattened)
 clause.  We distinguish different kinds of literals, but all literals are
-introduced into the proof tree using the \verb+@intern+ function with
-signature $Bool\rightarrow @Proof$.  Essentially, this function is the
-justification for another rewrite axiom.
+introduced into the proof tree using the (intern) rewrite rule with.
 
-Depending on the literal, the \verb+@intern+ function might have different
-effects:
-\begin{description}
-\item[Proxy Literal] For a proxy literal, the term is simply wrapped by the
-  annotation \verb+:quoted+.
-\item[Equalities] An equality $(=\ t_1\ t_2)$ might be transformed into
-  $(=\ t_2\ t_1)$ by an implicit application of symmetry.  This usually
-  happens to unify two literals, i.\,e., when a literal for the latter form
-  already exists.  If the equality is a numeric equality, it might be
-  transformed into its numeric form $(=\ (-\ t_1\ t_2)\ 0)$.  Note that during
-  this conversion, arithmetic simplification and symmetry might be used.
+Depending on the literal, the (intern) function basically quotes the literals
+with a \texttt{:quoted}, \texttt{:quotedCC}, or \texttt{:quotedLA} annotation.
+It also does some literal simplification, see the previous section.
 
-  The equality might be transformed to $true$ if it holds trivially, or
-  $false$ if it cannot hold trivially (e.\,g., $x=x+1$) or due to a failed GCD
-  test over the integers (e.\,g., $2x=1$).  In these cases, no literal will be
-  created.
-\item[Inequalities] Inequalities of the form $(<=\ t\ 0)$ will be transformed
-  into inequality literals of the form $(<=\ t'\ 0)$ where $t'=t$ is the
-  result of applying commutativity to (sub-terms of) $t$.
-\end{description}
-
-\paragraph{Tautologies.}  Various constructs create tautologies during the
-transformation into CNF.  These tautologies are clauses that are annotated
-with the kind of the tautology.  The \verb+@tautology+ function transforms a
-clause annotated with the kind of tautology into a proof.  The function has
-signature $Bool\rightarrow @Proof$.
+\paragraph{Tautologies.}  For complex formulas we create auxiliary literals.
+These literals are defined by tautology clauses.  These clauses are build from
+a tautology axiom which is usually already in CNF.  The \verb+@tautology+
+function introduces a proof term for a tautology.  The function has
+signature $Bool\rightarrow @Proof$, where the argument is the introduced
+tautology.
 
 \paragraph{Lemmas.}  The resolution proof produced by \si contains lemmas
 created by theory solvers.  These lemmas are valid Boolean terms.  The
@@ -1098,17 +1137,12 @@ signature $Bool\rightarrow @Proof$.
 
 The lemmas are annotated with a theory identifier and further,
 theory-specific annotations.  The theory identifiers currently supported are
-\verb+LA+ and \verb+CC+.  Proofs from the LA-solver additionally carry the
-coefficients used by the solver when applying Farkas' lemma to the input
-problem.  The coefficients are given in the same order the negated literals
-appear in the lemma.  Proofs from congruence closure are annotated with the
-paths through the congruence graph and, optionally, a disequality that is
-violated.
-
-Some lemmas might be annotated with \verb+:trichotomy+.  This annotation is
-used for a clause of the form $t_1=t_2\lor t_1<t_2\lor t_1 > t_2$.  Note that
-this clause is a special form of theory lemma that justifies a case split in
-the linear arithmetic solver if $t_1$ and $t_2$ are not equal.
+\verb+trichotomy+, \verb+LA+, \verb+CC+, \verb+EQ+ (for Nelson-Oppen combination), and
+\verb+read-over-weakeq+, \verb+read-const-weakeq+, \verb+weakeq-ext+,
+and \verb+const-weakeq+.  Proofs additionally carry some information, such
+as in the case of linear arithmetic the coefficients used by the solver
+when applying Farkas' lemma to the input
+problem.
 
 \paragraph{Creating clauses.}  The final step in the conversion of an input
 formula into CNF is the creation of clauses from disjunctive parts of the
@@ -1120,8 +1154,8 @@ clause for this disjunction.  First, if needed, the disjunction is flattened.
 This replaces all nested disjunctions by their disjuncts.  Then, the
 individual disjuncts are replaced by literals.  This step is justified by the
 \verb+@eq+-rule that applies the rewrite system whose rewrite rules are stated
-by \verb+@intern+-axioms.   Note that \verb+@intern+ might rewrite a formula
-into a negated formula.  If this is the case and the resulting literal should
+by (intern).   Note that (intern) might rewrite a formula
+into a negated formula.  If this is the case and the resulting literal will
 be negated once more, \si will add a negation simplification rewrite.
 Furthermore, some disjuncts might be internalized to false\footnote{Currently
   this only happens for unsatisfiable integer equalities, e.~g., $2x=1$} and
@@ -1161,7 +1195,7 @@ We assume the formula is given in SMTLIB syntax as
 (and (= (* 2 x) z) (= (+ (* 2 y) 1) z))
 \end{verbatim}
 
-The axiom \texttt{AndToOr} produces the equality
+The rewrite rule (andToOr) produces the equality
 \[
 (and (=\ (*\ 2\ x)\ z)\ (=\ (+\ (*\ 2\ y)\ 1)\ z)) =
 (not (or (not (=\ (*\ 2\ x)\ z))\ (not (=\ (+\ (*\ 2\ y)\ 1)\ z))))
@@ -1179,8 +1213,8 @@ present the proof for the creation of a clause from the first ``conjunct''
 since the steps for the second are similar.
 \[
 \inferrule*[Left=Eq,sep=.1em]{
-  \inferrule*[left=NotOrElim]{(\ref{f:canonical})}{(not (not (= (*\ 2\ x) z)))}\\
-  \inferrule*[left=NotSimp]{ }{(not (not (= (*\ 2\ x) z))) =
+  \inferrule*[left=notOr]{(\ref{f:canonical})}{(not (not (= (*\ 2\ x) z)))}\\
+  \inferrule*[left=notSimp]{ }{(not (not (= (*\ 2\ x) z))) =
     (= (*\ 2\ x)\ z)}}
            {(=\ (*\ 2\ x)\ z)}
 \]
@@ -1214,12 +1248,9 @@ corresponds to the previous steps.
   )
   (@trans
     (@rewrite (! (= (not (not (= (* 2 x) z))) (= (* 2 x) z)) :notSimp))
-    (@intern (= (= (* 2 x) z) (! (= (+ z (* (- 2) x)) 0) :quotedLA)))))
+    (@rewrite (! (= (= (* 2 x) z) (! (= (+ z (* (- 2) x)) 0) :quotedLA)) :intern))))
 \end{verbatim}
 
-For a proof containing the rule \verb:flatten: and the \verb:@clause: function
-simply use the formula $(A\lor(B\lor(C\lor\bot)))\land\lnot A\land\lnot
-B\land\lnot C$.
 \end{document}
 
 %% Local Variables:

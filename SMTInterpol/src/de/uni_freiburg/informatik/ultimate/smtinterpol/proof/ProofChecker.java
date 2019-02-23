@@ -415,10 +415,6 @@ public class ProofChecker extends NonRecursive {
 			stackPush(walkRewrite(proofTerm), proofTerm);
 			break;
 
-		case ProofConstants.FN_INTERN:
-			stackPush(walkIntern(proofTerm), proofTerm);
-			break;
-
 		case ProofConstants.FN_SPLIT:
 			new SplitWalker(proofTerm).enqueue(this);
 			break;
@@ -1912,6 +1908,9 @@ public class ProofChecker extends NonRecursive {
 		case ":storeRewrite":
 			okay = checkRewriteStore(eqParams[0], eqParams[1]);
 			break;
+		case ":intern":
+			okay = checkRewriteIntern(eqParams[0], eqParams[1]);
+			break;
 		default:
 			okay = false;
 			break;
@@ -2798,20 +2797,7 @@ public class ProofChecker extends NonRecursive {
 		}
 	}
 
-	Term walkIntern(final ApplicationTerm internApp) {
-		final Term equality = internApp.getParameters()[0];
-		if (!isApplication("=", equality)) {
-			reportError("Expected equality: " + equality);
-			return null;
-		}
-		final Term[] args = ((ApplicationTerm) equality).getParameters();
-		if (args.length != 2 || args[0].getSort().getName() != "Bool" || !checkIntern(args[0], args[1])) {
-			reportError("Malformed intern application: " + internApp);
-		}
-		return equality;
-	}
-
-	boolean checkIntern(final Term lhs, Term rhs) {
+	boolean checkRewriteIntern(final Term lhs, Term rhs) {
 		if (!(lhs instanceof ApplicationTerm)) {
 			return false;
 		}
