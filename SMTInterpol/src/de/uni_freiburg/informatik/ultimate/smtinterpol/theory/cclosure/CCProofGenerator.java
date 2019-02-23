@@ -419,27 +419,19 @@ public class CCProofGenerator {
 			// The main path was already collected, just return it.
 			return mPathProofMap.get(mIndexedPaths[0].getPathEnds());
 		case READ_OVER_WEAKEQ: {
-			// collect index path and the weak path
-			IndexedPath firstPath = mIndexedPaths[0];
-			if (firstPath.getIndex() == null) {
-				// for read-over-weakeq, create a short index path
-				final CCTerm[] path = firstPath.getPath();
-				if (path.length > 2) {
-					firstPath = new IndexedPath(null, new CCTerm[] { path[0], path[path.length - 1] });
-				}
-				mainProof.collectStrongPath(firstPath);
-				// now find the weak path
-				int weakIdx = 1;
-				while (mIndexedPaths[weakIdx].getIndex() == null) {
-					weakIdx++;
-				}
-				mainProof.collectWeakPath(mIndexedPaths[weakIdx]);
-				mainProof.mProofPaths = new IndexedPath[] { firstPath, mIndexedPaths[weakIdx] };
-			} else {
-				// only a weak path, no index path
-				mainProof.collectWeakPath(firstPath);
-				mainProof.mProofPaths = new IndexedPath[] { firstPath };
+			// collect index equality and the weak path
+			final SymmetricPair<CCTerm> selectEquality = mAnnot.mDiseq;
+			assert isSelectTerm(selectEquality.getFirst()) && isSelectTerm(selectEquality.getSecond());
+			// collect the index equality
+			final CCTerm idx1 = ArrayTheory.getIndexFromSelect((CCAppTerm) selectEquality.getFirst());
+			final CCTerm idx2 = ArrayTheory.getIndexFromSelect((CCAppTerm) selectEquality.getSecond());
+			if (idx1 != idx2) {
+				mainProof.collectEquality(new SymmetricPair<CCTerm>(idx1, idx2));
 			}
+			// Only a weak path, which must be the first path
+			assert mIndexedPaths[0].getIndex() != null;
+			mainProof.collectWeakPath(mIndexedPaths[0]);
+			mainProof.mProofPaths = new IndexedPath[] { mIndexedPaths[0] };
 			break;
 		}
 		case READ_CONST_WEAKEQ:
@@ -456,7 +448,7 @@ public class CCProofGenerator {
 			break;
 		case WEAKEQ_EXT: {
 			// starts with a weak path without index, followed by other weak paths.
-			ArrayList<IndexedPath> mPaths = new ArrayList<>();
+			final ArrayList<IndexedPath> mPaths = new ArrayList<>();
 			assert mIndexedPaths[0].getIndex() == null;
 			mainProof.collectWeakPath(mIndexedPaths[0]);
 			mPaths.add(mIndexedPaths[0]);
@@ -519,7 +511,7 @@ public class CCProofGenerator {
 			args[i++] = theory.annotatedTerm(CCEquality.QUOTED_CC, diseq);
 		}
 		// then the other literals, there may also be other positive literals.
-		for (Literal entry : info.getLiterals()) {
+		for (final Literal entry : info.getLiterals()) {
 			Term arg = entry.getAtom().getSMTFormula(theory, true);
 			if (entry.getSign() < 0) {
 				arg = theory.not(arg);
@@ -702,8 +694,7 @@ public class CCProofGenerator {
 	private ProofInfo findCongruencePaths(CCTerm first, CCTerm second) {
 		final ProofInfo proofInfo = new ProofInfo();
 		proofInfo.mLemmaDiseq = new SymmetricPair<CCTerm>(first, second);
-		ArrayList<IndexedPath> mPaths = new ArrayList<>();
-		mPaths.add(new IndexedPath(null, new CCTerm[] { first, second }));
+		proofInfo.mProofPaths = new IndexedPath[] { new IndexedPath(null, new CCTerm[] { first, second }) };
 		while (first != second) {
 			if (!(first instanceof CCAppTerm) || !(second instanceof CCAppTerm)) {
 				// This is not a congruence
@@ -713,7 +704,6 @@ public class CCProofGenerator {
 			final CCTerm secondArg = ((CCAppTerm) second).getArg();
 			final SymmetricPair<CCTerm> argPair = new SymmetricPair<>(firstArg, secondArg);
 			if (firstArg != secondArg) {
-				mPaths.add(new IndexedPath(null, new CCTerm[] { firstArg, secondArg }));
 				if (isEqualityLiteral(argPair)) {
 					proofInfo.mProofLiterals.add(mEqualityLiterals.get(argPair));
 				} else if (mPathProofMap.containsKey(argPair)) {
@@ -728,7 +718,6 @@ public class CCProofGenerator {
 			first = ((CCAppTerm) first).getFunc();
 			second = ((CCAppTerm) second).getFunc();
 		}
-		proofInfo.mProofPaths = mPaths.toArray(new IndexedPath[mPaths.size()]);
 		return proofInfo;
 	}
 

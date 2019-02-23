@@ -88,10 +88,10 @@ public class WeakCongruencePath extends CongruencePath {
 		final CCTerm i2 = select2.getArg();
 		final CCTerm a = ((CCAppTerm) select1.getFunc()).getArg();
 		final CCTerm b = ((CCAppTerm) select2.getFunc()).getArg();
+		computePath(i1, i2);
 		final WeakSubPath weakPath =
 				computeWeakPath(a, b, i1, produceProofs);
 		mAllPaths.addFirst(weakPath);
-		computePath(i1, i2);
 
 		return generateClause(new SymmetricPair<CCTerm>(select1, select2), produceProofs, RuleKind.READ_OVER_WEAKEQ);
 	}

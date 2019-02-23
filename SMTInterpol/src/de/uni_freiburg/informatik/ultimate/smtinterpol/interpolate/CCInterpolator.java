@@ -253,7 +253,7 @@ public class CCInterpolator {
 				final Term[] endArgs = end.getParameters();
 				for (int arg = 0; arg < numArgs; arg++) {
 					argPaths[arg] = startArgs[arg] == endArgs[arg] ? new PathInfo(startArgs[arg])
-							: mPaths.get(new SymmetricPair<>(startArgs[arg], endArgs[arg]));
+							: new PathInfo(new Term[] { startArgs[arg], endArgs[arg] });
 					argPaths[arg].interpolatePathInfo();
 					mHasABPath.and(argPaths[arg].mHasABPath);
 					isReverse[arg] = (startArgs[arg] != argPaths[arg].mPath[0]);
