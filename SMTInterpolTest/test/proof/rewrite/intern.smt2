@@ -25,7 +25,7 @@
 
 (push 1)
 (assert (= u v))
-(assert (not (= (f v) (f u))))
+(assert (not (= (g v) (g u))))
 (check-sat)
 (get-proof)
 (pop 1)
