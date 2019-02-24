@@ -141,6 +141,7 @@ public class SMTInterpol extends NoopScript {
 
 		@Override
 		public void setLogic(final Theory theory, final Logics logic) {
+			final Sort[] polySort = theory.createSortVariables("A");
 			final int leftassoc = FunctionSymbol.LEFTASSOC;
 			// Damn Java compiler...
 			Sort proof = null;
@@ -161,8 +162,7 @@ public class SMTInterpol extends NoopScript {
 			}
 			if (mProofMode > 1) {
 				// Full proofs.
-				final Sort[] polySorts = theory.createSortVariables("A");
-				declareInternalPolymorphicFunction(theory, ProofConstants.FN_REFL, polySorts, polySorts, proof, 0);
+				declareInternalPolymorphicFunction(theory, ProofConstants.FN_REFL, polySort, polySort, proof, 0);
 				declareInternalFunction(theory, ProofConstants.FN_TRANS, proof2, proof, leftassoc);
 				declareInternalFunction(theory, ProofConstants.FN_CONG, proof2, proof, leftassoc);
 				declareInternalFunction(theory, ProofConstants.FN_EXISTS, new Sort[] { proof }, proof, 0);
@@ -171,6 +171,10 @@ public class SMTInterpol extends NoopScript {
 				declareInternalFunction(theory, ProofConstants.FN_REWRITE, bool1, proof, 0);
 				declareInternalFunction(theory, ProofConstants.FN_TAUTOLOGY, bool1, proof, 0);
 			}
+			// the EQ function for CC interpolation
+			proof2 = new Sort[] { proof, proof };
+			declareInternalPolymorphicFunction(theory, Interpolator.EQ, polySort,
+					new Sort[] { polySort[0], polySort[0] }, bool, FunctionSymbol.UNINTERPRETEDINTERNAL);
 			defineFunction(theory, new FunctionSymbolFactory("@undefined") {
 
 				@Override

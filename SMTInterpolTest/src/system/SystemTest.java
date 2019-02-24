@@ -64,6 +64,9 @@ public class SystemTest {
 			}
 
 		};
+		solver.setOption(":proof-check-mode", true);
+		solver.setOption(":model-check-mode", true);
+		solver.setOption(":interpolant-check-mode", true);
 		pe.parseStream(new FileReader(f), "TestStream");
 	}
 

@@ -1185,22 +1185,19 @@ public class ProofChecker extends NonRecursive {
 			reportError("Lemma :EQ must have one equality and one disequality");
 			return;
 		}
-		Term[] lit1Args = ((ApplicationTerm) lit1).getParameters();
-		Term[] lit2Args = ((ApplicationTerm) lit2).getParameters();
-		if (isZero(lit1Args[1])) {
-			final Term[] t = lit1Args;
-			lit1Args = lit2Args;
-			lit2Args = t;
-		} else if (!isZero(lit2Args[1])) {
-			reportError("Lemma :EQ must have one LA equality (zero on right-hand side)");
+		final Term[] lit1Args = ((ApplicationTerm) lit1).getParameters();
+		final Term[] lit2Args = ((ApplicationTerm) lit2).getParameters();
+		final SMTAffineTerm diff1 = new SMTAffineTerm(lit1Args[0]);
+		diff1.add(Rational.MONE, lit1Args[1]);
+		final SMTAffineTerm diff2 = new SMTAffineTerm(lit2Args[0]);
+		diff2.add(Rational.MONE, lit2Args[1]);
+		// check that they are not constant to avoid gcd errors.
+		if (diff1.isConstant() || diff2.isConstant()) {
+			reportError("Lemma :EQ with trivial equalities");
 			return;
 		}
-
-		final SMTAffineTerm diff1 = new SMTAffineTerm(lit1Args[0]);
-		diff1.negate();
-		diff1.add(new SMTAffineTerm(lit1Args[1]));
 		diff1.div(diff1.getGcd());
-		final SMTAffineTerm diff2 = new SMTAffineTerm(lit2Args[0]);
+		diff2.div(diff2.getGcd());
 		if (diff1.equals(diff2)) {
 			return;
 		}
@@ -2776,7 +2773,7 @@ public class ProofChecker extends NonRecursive {
 			return false;
 		}
 		final ApplicationTerm at = (ApplicationTerm) lhs;
-		if (!at.getFunction().isIntern() || at.getFunction().getName() == "select") {
+		if (!at.getFunction().isInterpreted() || at.getFunction().getName() == "select") {
 			/* boolean literals are not quoted */
 			if (at.getParameters().length == 0) {
 				return rhs == at;
@@ -2861,16 +2858,21 @@ public class ProofChecker extends NonRecursive {
 				return false;
 			}
 
+			/* check that they represent the same equality */
+			// Note that an LA equality can sometimes be rewritten to an already existing CC equality, so
+			// we cannot assume the rhs is normalized
+
 			final SMTAffineTerm lhsAffine = new SMTAffineTerm(lhsParams[0]);
 			lhsAffine.add(Rational.MONE, lhsParams[1]);
-			lhsAffine.div(lhsAffine.getGcd());
-
-			/* check that they represent the same equality */
 			final SMTAffineTerm rhsAffine = new SMTAffineTerm(rhsParams[0]);
-			if (rhsAffine.getGcd() != Rational.ONE || !isZero(rhsParams[1])) {
-				reportError("LA equality is not normalized");
+			rhsAffine.add(Rational.MONE, rhsParams[1]);
+			// we cannot compute gcd on constants so check for this and bail out
+			if (lhsAffine.isConstant() || rhsAffine.isConstant()) {
+				reportError("A trivial equality was created");
 				return false;
 			}
+			lhsAffine.div(lhsAffine.getGcd());
+			rhsAffine.div(rhsAffine.getGcd());
 			if (lhsAffine.equals(rhsAffine)) {
 				return true;
 			}

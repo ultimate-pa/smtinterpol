@@ -743,7 +743,7 @@ public class Clausifier {
 					// (<= SMTAffineTerm 0)
 					atom = createLeq0(at, mCollector.getSource());
 					atomRewrite = mTracker.intern(at, atom.getSMTFormula(theory, true));
-				} else if (!at.getFunction().isIntern() || at.getFunction().getName().equals("select")) {
+				} else if (!at.getFunction().isInterpreted() || at.getFunction().getName().equals("select")) {
 					atom = createBooleanLit(at, mCollector.getSource());
 					atomRewrite = mTracker.intern(at, atom.getSMTFormula(theory, true));
 				} else {
@@ -997,7 +997,7 @@ public class Clausifier {
 					mMaxSubMin = Rational.ZERO;
 					return;
 				}
-				SMTAffineTerm diff = new SMTAffineTerm(mMinValue);
+				final SMTAffineTerm diff = new SMTAffineTerm(mMinValue);
 				diff.negate();
 				diff.add(new SMTAffineTerm(mTerm));
 				if (!diff.isConstant()) {
@@ -1025,14 +1025,14 @@ public class Clausifier {
 					final Sort sort = mTermITE.getSort();
 					final Theory theory = sort.getTheory();
 					final Term zero = Rational.ZERO.toTerm(sort);
-					SMTAffineTerm diff = new SMTAffineTerm(mTermITE.getTerm());
+					final SMTAffineTerm diff = new SMTAffineTerm(mTermITE.getTerm());
 					diff.negate();
 					diff.add(new SMTAffineTerm(mMinValue));
-					Term lboundAx = theory.term("<=", diff.toTerm(mCompiler, sort), zero);
+					final Term lboundAx = theory.term("<=", diff.toTerm(mCompiler, sort), zero);
 					buildClause(mTracker.auxAxiom(lboundAx, ProofConstants.AUX_TERM_ITE_BOUND), mSource);
 					diff.add(mMaxSubMin);
 					diff.negate();
-					Term uboundAx = theory.term("<=", diff.toTerm(mCompiler, sort), zero);
+					final Term uboundAx = theory.term("<=", diff.toTerm(mCompiler, sort), zero);
 					buildClause(mTracker.auxAxiom(uboundAx, ProofConstants.AUX_TERM_ITE_BOUND), mSource);
 				}
 			}
@@ -1303,7 +1303,7 @@ public class Clausifier {
 		final Term v = store.getParameters()[2];
 		final Term axiom = theory.term("=", theory.term("select", store, i), v);
 
-		Term provedAxiom = mTracker.getRewriteProof(mTracker.auxAxiom(axiom, ProofConstants.AUX_ARRAY_STORE),
+		final Term provedAxiom = mTracker.getRewriteProof(mTracker.auxAxiom(axiom, ProofConstants.AUX_ARRAY_STORE),
 				mUtils.convertBinaryEq(mTracker.reflexivity(axiom)));
 		buildClause(provedAxiom, source);
 		if (Config.ARRAY_ALWAYS_ADD_READ

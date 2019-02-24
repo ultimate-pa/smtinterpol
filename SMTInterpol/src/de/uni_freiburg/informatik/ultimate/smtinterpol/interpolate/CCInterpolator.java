@@ -28,6 +28,7 @@ import java.util.Set;
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate.Interpolator.LitInfo;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate.Interpolator.Occurrence;
@@ -113,17 +114,11 @@ public class CCInterpolator {
 			 * chain of equalities.
 			 */
 			Term[] mTerm;
-			/**
-			 * For each partition on the path from m_Color to the root (m_numInterpolants) this gives B-summaries that
-			 * are used to gap congruence proofs, where both ends are A-local.
-			 */
-			Set<Term>[] mPre;
 
 			@SuppressWarnings("unchecked")
 			public PathEnd() {
 				mColor = mNumInterpolants;
 				mTerm = new Term[mNumInterpolants];
-				mPre = new Set[mNumInterpolants];
 			}
 
 			/**
@@ -143,17 +138,11 @@ public class CCInterpolator {
 				final int color = mColor;
 				mColor = getParent(color);
 				if (color < mMaxColor) {
-					addPre(color, mTheory.term("=", boundaryTerm, mTerm[color]));
-					addInterpolantClause(color, mPre[color]);
-					mPre[color] = null;
+					addInterpolantClause(color, mTheory.term("=", boundaryTerm, mTerm[color]));
 					mTerm[color] = null;
 				} else {
 					assert (mMaxColor == color);
 					other.mTerm[color] = boundaryTerm;
-					if (mPre[color] != null) {
-						other.mPre[color] = mPre[color];
-						mPre[color] = null;
-					}
 					mMaxColor = getParent(color);
 				}
 			}
@@ -193,6 +182,22 @@ public class CCInterpolator {
 				}
 			}
 
+			public void closeAPathMixed(final PathEnd other, final Occurrence mixedLhsOccur,
+					final TermVariable mixedVar, final Occurrence occur) {
+				assert (other.mColor <= mMaxColor);
+				mHasABPath.and(occur.mInA);
+				while (mColor < mNumInterpolants && occur.isBLocal(mColor)) {
+					// this should be empty now, since we anded it with
+					// occur.mInA and the occurrence is not in A for color.
+					assert mHasABPath.isEmpty();
+					final int color = mColor;
+					mColor = getParent(color);
+					assert color < mMaxColor;
+					addInterpolantClause(color, mTheory.term(Interpolator.EQ, mixedVar, mTerm[color]));
+					mTerm[color] = null;
+				}
+			}
+
 			public void openAPath(final PathEnd other, final Term boundaryTerm, final Occurrence occur) {
 				while (true) {
 					final int child = getChild(mColor, occur);
@@ -217,24 +222,6 @@ public class CCInterpolator {
 				}
 			}
 
-			public void addPre(final int color, final Term pre) {
-				if (mPre[color] == null) {
-					mPre[color] = new HashSet<>();
-				}
-				mPre[color].add(pre);
-			}
-
-			public void addAllPre(final int color, final PathEnd src) {
-				final Set<Term> pre = src.mPre[color];
-				if (pre == null) {
-					return;
-				}
-				if (mPre[color] == null) {
-					mPre[color] = new HashSet<>();
-				}
-				mPre[color].addAll(pre);
-			}
-
 			@Override
 			public String toString() {
 				final StringBuilder sb = new StringBuilder();
@@ -242,19 +229,8 @@ public class CCInterpolator {
 				sb.append(mColor).append(":[");
 				for (int i = mColor; i < mMaxColor; i++) {
 					sb.append(comma);
-					if (mPre[i] != null) {
-						sb.append(mPre[i]).append(" or ");
-					}
 					sb.append(mTerm[i]);
 					comma = ",";
-				}
-				comma = "|";
-				for (int i = mMaxColor; i < mNumInterpolants; i++) {
-					if (mPre[i] != null) {
-						sb.append(comma).append("pre").append(i).append(':');
-						sb.append(mPre[i]);
-						comma = ",";
-					}
 				}
 				sb.append(']');
 				return sb.toString();
@@ -323,8 +299,7 @@ public class CCInterpolator {
 		 * @param isNegated
 		 *            True, if there is a disequality in the chain.
 		 */
-		private void addInterpolantClause(final int color, final Set<Term> pre) {
-			final Term clause = pre == null ? mTheory.mFalse : mTheory.or(pre.toArray(new Term[pre.size()]));
+		private void addInterpolantClause(final int color, final Term clause) {
 			mInterpolants[color].add(clause);
 		}
 
@@ -353,31 +328,28 @@ public class CCInterpolator {
 				mTail.closeAPath(mHead, boundaryTailTerm, info);
 				mTail.openAPath(mHead, boundaryTailTerm, info);
 
-				mHead.closeAPath(mTail, info.getMixedVar(), occTail);
-				mTail.closeAPath(mHead, info.getMixedVar(), occHead);
+				mHead.closeAPathMixed(mTail, info.getLhsOccur(), info.getMixedVar(), occTail);
+				mTail.closeAPathMixed(mHead, info.getLhsOccur(), info.getMixedVar(), occHead);
 			}
 		}
 
 		public void close() {
 			while (mHead.mColor < mNumInterpolants || mTail.mColor < mNumInterpolants) {
 				if (mHead.mColor < mTail.mColor) {
-					mHead.addPre(mHead.mColor,
+					addInterpolantClause(mHead.mColor,
 							mTheory.term("=", mHead.getBoundTerm(mHead.mColor), mTail.getBoundTerm(mMaxColor)));
-					addInterpolantClause(mHead.mColor, mHead.mPre[mHead.mColor]);
 					mHead.mColor = getParent(mHead.mColor);
 				} else if (mHead.mColor == mTail.mColor) {
-					mHead.addAllPre(mHead.mColor, mTail);
-					mTail.mPre[mTail.mColor] = null;
 					if (mHead.mColor < mMaxColor) {
-						mHead.addPre(mHead.mColor, mTheory.not(
+						addInterpolantClause(mHead.mColor, mTheory.not(
 								mTheory.term("=", mHead.getBoundTerm(mHead.mColor), mTail.getBoundTerm(mHead.mColor))));
+					} else {
+						addInterpolantClause(mHead.mColor, mTheory.mFalse);
 					}
-					addInterpolantClause(mHead.mColor, mHead.mPre[mHead.mColor]);
 					mHead.mColor = mTail.mColor = getParent(mHead.mColor);
 				} else {
-					mTail.addPre(mTail.mColor,
+					addInterpolantClause(mTail.mColor,
 							mTheory.term("=", mHead.getBoundTerm(mMaxColor), mTail.getBoundTerm(mTail.mColor)));
-					addInterpolantClause(mTail.mColor, mTail.mPre[mTail.mColor]);
 					mTail.mColor = getParent(mTail.mColor);
 				}
 			}
@@ -463,7 +435,7 @@ public class CCInterpolator {
 					}
 				}
 				final Term sharedTerm = mTheory.term(left.getFunction(), boundaryTerms);
-				interpolants[part] = mTheory.term("=", info.getMixedVar(), sharedTerm);
+				interpolants[part] = mTheory.term(Interpolator.EQ, info.getMixedVar(), sharedTerm);
 			}
 		}
 		return interpolants;

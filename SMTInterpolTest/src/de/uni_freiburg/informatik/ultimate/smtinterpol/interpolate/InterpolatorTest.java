@@ -167,7 +167,7 @@ public class InterpolatorTest {
 			var = ccVar;
 		}
 		final Term rhs = summands.toSMTLib(mTheory, false);
-		final Term expected = mTheory.term("=", var, rhs);
+		final Term expected = mTheory.term(Interpolator.EQ, var, rhs);
 		Assert.assertSame(expected, interpolants[0].mTerm);
 	}
 

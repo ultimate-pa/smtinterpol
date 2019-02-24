@@ -40,6 +40,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermTransformer;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate.Interpolator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.IProofTracker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.UnifyHash;
@@ -532,6 +533,7 @@ public class TermCompiler extends TermTransformer {
 			case "true":
 			case "false":
 			case "@diff":
+			case Interpolator.EQ:
 				/* nothing to do */
 				break;
 			default:

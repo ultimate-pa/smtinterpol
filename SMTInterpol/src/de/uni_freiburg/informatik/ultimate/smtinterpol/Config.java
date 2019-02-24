@@ -20,7 +20,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol;
 
 /**
  * Basic configuration of SMTInterpol.
- * 
+ *
  * @author Juergen Christ
  */
 public interface Config {

@@ -228,7 +228,8 @@ public class LAInterpolator {
 					k = InfinitesimalNumber.ZERO;
 					F = mInterpolator.mTheory.and(ipl[part].toLeq0(mInterpolator.mTheory), mInterpolator.mTheory.or(
 							less.toLeq0(mInterpolator.mTheory),
-							mInterpolator.mTheory.equals(equalityInfo.getMixedVar(), auxVars[part].iterator().next())));
+							mInterpolator.mTheory.term(Interpolator.EQ, equalityInfo.getMixedVar(),
+									auxVars[part].iterator().next())));
 				} else {
 					/* Just the inequalities are mixed. */
 					if (ipl[part].isInt()) {
