@@ -18,6 +18,7 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate;
 
+import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.HashMap;
@@ -26,7 +27,6 @@ import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
-import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate.Interpolator.LitInfo;
@@ -44,7 +44,6 @@ public class CCInterpolator {
 	Interpolator mInterpolator;
 
 	HashMap<SymmetricPair<Term>, AnnotatedTerm> mEqualities;
-	HashMap<SymmetricPair<Term>, PathInfo> mPaths;
 
 	Theory mTheory;
 	int mNumInterpolants;
@@ -101,7 +100,6 @@ public class CCInterpolator {
 		 * then there is no path change.
 		 *
 		 */
-		boolean mComputed;
 
 		class PathEnd {
 			/**
@@ -237,74 +235,6 @@ public class CCInterpolator {
 				mPre[color].addAll(pre);
 			}
 
-			private void mergeCongPath(final PathEnd other, final ApplicationTerm start, final ApplicationTerm end) {
-				final FunctionSymbol func = start.getFunction();
-				final int rightColor = mInterpolator.getOccurrence(end).getALocalColor();
-				final Occurrence rightOccur = mInterpolator.new Occurrence();
-				rightOccur.occursIn(rightColor);
-				final Occurrence leftOccur = mInterpolator.new Occurrence();
-				leftOccur.occursIn(mColor);
-				final int numArgs = func.getParameterSorts().length;
-				final PathInfo[] argPaths = new PathInfo[numArgs];
-				final PathEnd[] head = new PathEnd[numArgs];
-				final PathEnd[] tail = new PathEnd[numArgs];
-				final boolean[] isReverse = new boolean[numArgs];
-				final Term[] startArgs = start.getParameters();
-				final Term[] endArgs = end.getParameters();
-				for (int arg = 0; arg < numArgs; arg++) {
-					argPaths[arg] = startArgs[arg] == endArgs[arg] ? new PathInfo(startArgs[arg])
-							: new PathInfo(new Term[] { startArgs[arg], endArgs[arg] });
-					argPaths[arg].interpolatePathInfo();
-					mHasABPath.and(argPaths[arg].mHasABPath);
-					isReverse[arg] = (startArgs[arg] != argPaths[arg].mPath[0]);
-					head[arg] = isReverse[arg] ? argPaths[arg].mTail : argPaths[arg].mHead;
-					tail[arg] = isReverse[arg] ? argPaths[arg].mHead : argPaths[arg].mTail;
-					final Term startTerm = startArgs[arg];
-					head[arg].closeAPath(tail[arg], startTerm, leftOccur);
-					head[arg].openAPath(tail[arg], startTerm, leftOccur);
-					final Term endTerm = endArgs[arg];
-					tail[arg].closeAPath(head[arg], endTerm, rightOccur);
-					tail[arg].openAPath(head[arg], endTerm, rightOccur);
-				}
-
-				mHasABPath.and(rightOccur.mInA);
-				while (rightOccur.isBLocal(mColor)) {
-					final Term[] boundaryParams = new Term[numArgs];
-					for (int i = 0; i < numArgs; i++) {
-						boundaryParams[i] = head[i].getBoundTerm(mColor);
-						addAllPre(mColor, head[i]);
-					}
-					final Term boundaryTerm = mTheory.term(func, boundaryParams);
-					closeSingleAPath(other, boundaryTerm);
-				}
-				final int highColor = mColor;
-				while (true) {
-					/* find A-local child of m_Color */
-					final int child = getChild(mColor, rightOccur);
-					if (child < 0) {
-						break;
-					}
-					final Term[] boundaryParams = new Term[numArgs];
-					for (int i = 0; i < numArgs; i++) {
-						boundaryParams[i] = tail[i].getBoundTerm(child);
-						addAllPre(child, tail[i]);
-					}
-					final Term boundaryTerm = mTheory.term(func, boundaryParams);
-					openSingleAPath(other, boundaryTerm, child);
-				}
-				assert (mColor == rightColor);
-				for (int color = highColor; color < mNumInterpolants; color = getParent(color)) {
-					for (int i = 0; i < numArgs; i++) {
-						if (color < argPaths[i].mMaxColor) {
-							addPre(color, mTheory
-									.not(mTheory.term("=", head[i].getBoundTerm(color), tail[i].getBoundTerm(color))));
-						}
-						addAllPre(color, head[i]);
-						addAllPre(color, tail[i]);
-					}
-				}
-			}
-
 			@Override
 			public String toString() {
 				final StringBuilder sb = new StringBuilder();
@@ -352,14 +282,7 @@ public class CCInterpolator {
 			mMaxColor = mNumInterpolants;
 		}
 
-		public PathInfo(final Term arg) {
-			this(new Term[] { arg });
-		}
-
 		public void interpolatePathInfo() {
-			if (mComputed) {
-				return;
-			}
 			final Occurrence headOccur = mInterpolator.getOccurrence(mPath[0]);
 
 			mHead = new PathEnd();
@@ -371,26 +294,21 @@ public class CCInterpolator {
 				final Term left = mPath[i];
 				final Term right = mPath[i + 1];
 				final AnnotatedTerm lit = mEqualities.get(new SymmetricPair<>(left, right));
-				if (lit == null) {
-					mTail.mergeCongPath(mHead, (ApplicationTerm) left, (ApplicationTerm) right);
+				final LitInfo info = mInterpolator.getLiteralInfo(lit);
+				Term boundaryTerm;
+				boundaryTerm = mPath[i];
+				if (info.getMixedVar() == null) {
+					mTail.closeAPath(mHead, boundaryTerm, info);
+					mTail.openAPath(mHead, boundaryTerm, info);
 				} else {
-					final LitInfo info = mInterpolator.getLiteralInfo(lit);
-					Term boundaryTerm;
-					boundaryTerm = mPath[i];
-					if (info.getMixedVar() == null) {
-						mTail.closeAPath(mHead, boundaryTerm, info);
-						mTail.openAPath(mHead, boundaryTerm, info);
-					} else {
-						mTail.closeAPath(mHead, boundaryTerm, info);
-						mTail.openAPath(mHead, boundaryTerm, info);
-						final Occurrence occ = mInterpolator.getOccurrence(mPath[i + 1]);
-						boundaryTerm = info.getMixedVar();
-						mTail.closeAPath(mHead, boundaryTerm, occ);
-						mTail.openAPath(mHead, boundaryTerm, occ);
-					}
+					mTail.closeAPath(mHead, boundaryTerm, info);
+					mTail.openAPath(mHead, boundaryTerm, info);
+					final Occurrence occ = mInterpolator.getOccurrence(mPath[i + 1]);
+					boundaryTerm = info.getMixedVar();
+					mTail.closeAPath(mHead, boundaryTerm, occ);
+					mTail.openAPath(mHead, boundaryTerm, occ);
 				}
 			}
-			mComputed = true;
 		}
 
 		/**
@@ -471,11 +389,84 @@ public class CCInterpolator {
 		mInterpolator = ipolator;
 		mNumInterpolants = ipolator.mNumInterpolants;
 		mTheory = ipolator.mTheory;
-		mPaths = new HashMap<>();
 		mInterpolants = new Set[mNumInterpolants];
 		for (int i = 0; i < mNumInterpolants; i++) {
 			mInterpolants[i] = new HashSet<>();
 		}
+	}
+
+	/**
+	 * Compute the interpolants for a congruence lemma.
+	 *
+	 * @param diseq
+	 *            The goal equality from the lemma between the function applications.
+	 * @param left
+	 *            The left application term.
+	 * @param right
+	 *            The right application term.
+	 * @return The array of interpolants.
+	 */
+	private Term[] interpolateCongruence(final AnnotatedTerm diseq, final ApplicationTerm left,
+			final ApplicationTerm right) {
+		final LitInfo info = mInterpolator.getLiteralInfo(diseq);
+		final Term[] interpolants = new Term[mNumInterpolants];
+		final Term[] leftParams = left.getParameters();
+		final Term[] rightParams = right.getParameters();
+		final LitInfo[] paramInfos = new LitInfo[leftParams.length];
+		assert left.getFunction() == right.getFunction() && leftParams.length == rightParams.length;
+		for (int i = 0; i < leftParams.length; i++) {
+			if (leftParams[i] == rightParams[i]) {
+				paramInfos[i] = null;
+			} else {
+				final AnnotatedTerm eq = mEqualities.get(new SymmetricPair<>(leftParams[i], rightParams[i]));
+				paramInfos[i] = mInterpolator.getLiteralInfo(eq);
+			}
+		}
+
+		for (int part = 0; part < mNumInterpolants; part++) {
+			if (info.isBorShared(part)) {
+				// collect A-local literals
+				final ArrayDeque<Term> terms = new ArrayDeque<>(leftParams.length);
+				for (int paramNr = 0; paramNr < leftParams.length; paramNr++) {
+					if (paramInfos[paramNr] != null && paramInfos[paramNr].isALocal(part)) {
+						terms.add(mTheory.term("=", leftParams[paramNr], rightParams[paramNr]));
+					}
+				}
+				interpolants[part] = mTheory.and(terms.toArray(new Term[terms.size()]));
+			} else if (info.isALocal(part)) {
+				// collect negated B-local literals
+				final ArrayDeque<Term> terms = new ArrayDeque<>(leftParams.length);
+				for (int paramNr = 0; paramNr < leftParams.length; paramNr++) {
+					if (paramInfos[paramNr] != null && paramInfos[paramNr].isBLocal(part)) {
+						terms.add(mTheory.not(mTheory.term("=", leftParams[paramNr], rightParams[paramNr])));
+					}
+				}
+				interpolants[part] = mTheory.or(terms.toArray(new Term[terms.size()]));
+			} else {
+				// the congruence is mixed.  In this case f must be shared and we need to find boundary
+				// terms for every parameter.
+				final Term[] boundaryTerms = new Term[leftParams.length];
+				for (int paramNr = 0; paramNr < leftParams.length; paramNr++) {
+					if (paramInfos[paramNr] == null) {
+						// term occurs left and right, so this is obviously shared
+						boundaryTerms[paramNr] = leftParams[paramNr];
+					} else if (paramInfos[paramNr].isMixed(part)) {
+						// mixed case: take mixed var
+						boundaryTerms[paramNr] = paramInfos[paramNr].getMixedVar();
+					} else if (mInterpolator.getOccurrence(leftParams[paramNr]).isAB(part)) {
+						// the left term is shared, use it
+						boundaryTerms[paramNr] = leftParams[paramNr];
+					} else {
+						// if it is not the left, the right must be shared, as the literal is not mixed.
+						assert mInterpolator.getOccurrence(rightParams[paramNr]).isAB(part);
+						boundaryTerms[paramNr] = rightParams[paramNr];
+					}
+				}
+				final Term sharedTerm = mTheory.term(left.getFunction(), boundaryTerms);
+				interpolants[part] = mTheory.term("=", info.getMixedVar(), sharedTerm);
+			}
+		}
+		return interpolants;
 	}
 
 	public Term[] computeInterpolants(final Term proofTerm) {
@@ -491,20 +482,17 @@ public class CCInterpolator {
 			}
 		}
 
-		PathInfo mainPath = null;
 		final ProofPath[] paths = proofTermInfo.getPaths();
-		for (int i = 0; i < paths.length; i++) {
-			final Term[] path = paths[i].getPath();
-			final Term first = path[0];
-			final Term last = path[path.length - 1];
-			final PathInfo pathInfo = new PathInfo(path);
-			mPaths.put(new SymmetricPair<>(first, last), pathInfo);
-			if (i == 0) {
-				mainPath = pathInfo;
-			}
-		}
-		mainPath.interpolatePathInfo();
+		assert (paths.length == 1 && paths[0].getIndex() == null);
+		final Term[] path = paths[0].getPath();
 		final AnnotatedTerm diseq = (AnnotatedTerm) proofTermInfo.getDiseq();
+		if (path.length == 2) {
+			return interpolateCongruence(diseq, (ApplicationTerm) path[0], (ApplicationTerm) path[1]);
+		}
+
+		// Transitivity lemma
+		final PathInfo mainPath = new PathInfo(path);
+		mainPath.interpolatePathInfo();
 		if (diseq != null) {
 			mainPath.addDiseq(diseq);
 		}
