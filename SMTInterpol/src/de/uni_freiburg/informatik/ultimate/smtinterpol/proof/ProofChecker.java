@@ -37,7 +37,6 @@ import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
-import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
@@ -975,13 +974,8 @@ public class ProofChecker extends NonRecursive {
 			return;
 		}
 
-		final Theory t = clause[0].getTheory();
 		boolean sumHasStrict = false;
-		Sort sort = t.getRealSort();
-		if (sort == null) {
-			sort = t.getNumericSort();
-		}
-		final SMTAffineTerm sum = new SMTAffineTerm(sort);
+		final SMTAffineTerm sum = new SMTAffineTerm();
 		for (int i = 0; i < clause.length; i++) {
 			final Rational coeff = parseConstant(coefficients[i]);
 			if (coeff == null) {

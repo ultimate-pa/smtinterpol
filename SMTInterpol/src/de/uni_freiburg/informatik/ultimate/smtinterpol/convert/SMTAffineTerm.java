@@ -48,18 +48,18 @@ public final class SMTAffineTerm {
 	private final Map<Term, Rational> mSummands;
 	private Rational mConstant;
 
-	public SMTAffineTerm(final Sort sort) {
+	public SMTAffineTerm() {
 		mSummands = new LinkedHashMap<Term, Rational>();
 		mConstant = Rational.ZERO;
 	}
 
-	public SMTAffineTerm(final Map<Term, Rational> summands, final Rational constant, final Sort sort) {
+	public SMTAffineTerm(final Map<Term, Rational> summands, final Rational constant) {
 		mSummands = summands;
 		mConstant = constant;
 	}
 
 	public SMTAffineTerm(final Term term) {
-		this(term.getSort());
+		this();
 		Term[] subterms;
 		if (term instanceof ApplicationTerm && ((ApplicationTerm) term).getFunction().getName().equals("+")) {
 			subterms = ((ApplicationTerm) term).getParameters();
