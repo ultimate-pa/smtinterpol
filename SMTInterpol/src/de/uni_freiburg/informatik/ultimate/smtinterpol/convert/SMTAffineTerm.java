@@ -247,6 +247,20 @@ public final class SMTAffineTerm {
 	 *            the expected sort
 	 */
 	public Term toTerm(final TermCompiler unifier, final Sort sort) {
+		final Term term = toTerm(sort);
+		if (term instanceof ApplicationTerm && ((ApplicationTerm) term).getFunction().getName().equals("+")) {
+			return unifier.unifySummation((ApplicationTerm) term);
+		}
+		return term;
+	}
+
+	/**
+	 * Convert this affine term to a plain SMTLib term. This function does not unify the terms.
+	 *
+	 * @param sort
+	 *            the expected sort
+	 */
+	public Term toTerm(final Sort sort) {
 		assert sort.isNumericSort();
 		final Theory t = sort.getTheory();
 		int size = mSummands.size();
@@ -271,7 +285,7 @@ public final class SMTAffineTerm {
 		if (i < size) {
 			sum[i++] = mConstant.toTerm(sort);
 		}
-		return size == 1 ? sum[0] : unifier.unifySummation(t.term("+", sum));
+		return size == 1 ? sum[0] : t.term("+", sum);
 	}
 
 	@Override
