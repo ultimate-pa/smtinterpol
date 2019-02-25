@@ -247,22 +247,12 @@ public class LinVar implements Comparable<LinVar> {
 		if (mDisequalities == null) {
 			mDisequalities = new HashMap<Rational,LAEquality>();
 		}
-		// we only remember the first disequality.  We only care if there
-		// is a disequality not which exactly.  The first is also better
-		// to explain a conflict.
-		if (!mDisequalities.containsKey(ea.getBound())) {
-			mDisequalities.put(ea.getBound(),ea);
-		}
+		mDisequalities.put(ea.getBound(), ea);
 	}
 	void removeDiseq(final LAEquality ea) {
-		// only remove the disequality if it is the right one.
-		// chronological backtracking will ensure that if we remove
-		// the disequality there is no other disequality with the
-		// same bound missing.
 		// mdisequalities can be null, if the literal was not set, because
 		// it already produced a conflict in another theory.
-		if (mDisequalities != null
-			&& mDisequalities.get(ea.getBound()) == ea) {
+		if (mDisequalities != null) {
 			mDisequalities.remove(ea.getBound());
 		}
 	}
