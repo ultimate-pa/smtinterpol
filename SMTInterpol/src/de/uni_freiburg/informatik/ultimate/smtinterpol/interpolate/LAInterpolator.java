@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2016 University of Freiburg
+ * Copyright (C) 2009-2019 University of Freiburg
  *
  * This file is part of SMTInterpol.
  *
@@ -44,33 +44,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.Infinitesima
 public class LAInterpolator {
 
 	Interpolator mInterpolator;
-	/**
-	 * The lemma for which we compute an interpolant.
-	 */
-	Term mLemma;
-	/**
-	 * The information needed to interpolate this lemma.
-	 */
-	InterpolatorClauseTermInfo mLemmaInfo = new InterpolatorClauseTermInfo();
-
-	/**
-	 * For each partition, this stores the partial interpolant.
-	 */
-	Interpolant[] mInterpolants;
-
-	/**
-	 * This is 1, if mSum is an integer, eps otherwise.
-	 */
-	InfinitesimalNumber mEpsilon;
-
-	/**
-	 * Return the epsilon. This is 1 for integer constraints, eps for rational constraints.
-	 *
-	 * @return the epsilon.
-	 */
-	public InfinitesimalNumber getEpsilon() {
-		return mEpsilon;
-	}
 
 	/**
 	 * Create a new linear arithmetic interpolator for an LA lemma.
@@ -82,10 +55,6 @@ public class LAInterpolator {
 	 */
 	public LAInterpolator(final Interpolator interpolator) {
 		mInterpolator = interpolator;
-		mInterpolants = new Interpolant[mInterpolator.mNumInterpolants];
-		for (int i = 0; i < mInterpolator.mNumInterpolants; i++) {
-			mInterpolants[i] = new Interpolant();
-		}
 	}
 
 	/**
@@ -101,8 +70,9 @@ public class LAInterpolator {
 	 *
 	 * @param lemma
 	 *            the LA lemma that is interpolated.
+	 * @return an array containing the partial tree interpolants.
 	 */
-	private void interpolateLemma(final Term lemma) {
+	public Interpolant[] computeInterpolants(final Term lemma) {
 		final InterpolatorAffineTerm[] ipl = new InterpolatorAffineTerm[mInterpolator.mNumInterpolants + 1];
 		for (int part = 0; part < ipl.length; part++) {
 			ipl[part] = new InterpolatorAffineTerm();
@@ -122,9 +92,9 @@ public class LAInterpolator {
 		/*
 		 * Add the A-part of the literals in this LA lemma.
 		 */
-		mLemmaInfo = mInterpolator.getClauseTermInfo(lemma);
+		final InterpolatorClauseTermInfo lemmaInfo = mInterpolator.getClauseTermInfo(lemma);
 
-		for (final Entry<Term, Rational> entry : mLemmaInfo.getFarkasCoeffs().entrySet()) {
+		for (final Entry<Term, Rational> entry : lemmaInfo.getFarkasCoeffs().entrySet()) {
 			final Term atom = mInterpolator.getAtom(entry.getKey());
 			final InterpolatorAtomInfo atomTermInfo = mInterpolator.getAtomTermInfo(atom);
 			// Is the literal negated in conflict?  I.e. not negated in clause.
@@ -163,7 +133,7 @@ public class LAInterpolator {
 				// we have a Trichotomy Clause
 				equality = atom;
 				// a trichotomy clause must contain exactly three parts
-				assert mLemmaInfo.getLiterals().size() == 3;// NOCHECKSTYLE
+				assert lemmaInfo.getLiterals().size() == 3;// NOCHECKSTYLE
 				assert equalityOccurenceInfo == null;
 				// safe the equality and its occurrence info for later.
 				equalityOccurenceInfo = mInterpolator.getAtomOccurenceInfo(equality);
@@ -186,6 +156,7 @@ public class LAInterpolator {
 		/*
 		 * Save the interpolants computed for this leaf into the result array.
 		 */
+		final Interpolant[] interpolants = new Interpolant[mInterpolator.mNumInterpolants];
 		for (int part = 0; part < auxVars.length; part++) {
 			final Rational normFactor = ipl[part].isConstant() ? Rational.ONE : ipl[part].getGCD().inverse().abs();
 			ipl[part].mul(normFactor);
@@ -227,33 +198,22 @@ public class LAInterpolator {
 					F = ipl[part].toLeq0(mInterpolator.mTheory);
 				}
 				final LATerm laTerm = new LATerm(ipl[part], k, F);
-				mInterpolants[part].mTerm = laTerm;
+				interpolants[part] = new Interpolant(laTerm);
 			} else {
 				assert equalityOccurenceInfo == null || !equalityOccurenceInfo.isMixed(part);
 				if (equalityOccurenceInfo != null && ipl[part].isConstant()
 						&& equalityOccurenceInfo.isALocal(part) != inequalityInfo.isALocal(part)) {
-					/*
-					 * special case: Nelson-Oppen conflict, a <= b and b <= a in one partition, a != b in the other. If
-					 * a != b is in A, the interpolant is simply a != b. If a != b is in B, the interpolant is simply a
-					 * == b.
-					 */
+					// special case: Nelson-Oppen conflict, a <= b and b <= a in one partition, a != b in the other.
+					// If a != b is in A, the interpolant is simply a != b.
+					// If a != b is in B, the interpolant is simply a == b.
 					final Term thisIpl =
 							equalityOccurenceInfo.isALocal(part) ? mInterpolator.mTheory.not(eqApp) : eqApp;
-					mInterpolants[part].mTerm = thisIpl;
+					interpolants[part] = new Interpolant(thisIpl);
 				} else {
-					mInterpolants[part].mTerm = ipl[part].toLeq0(mInterpolator.mTheory);
+					interpolants[part] = new Interpolant(ipl[part].toLeq0(mInterpolator.mTheory));
 				}
 			}
 		}
-	}
-
-	/**
-	 * Computes partial interpolants for the LA lemma.
-	 *
-	 * @return an array containing the partial tree interpolants.
-	 */
-	public Interpolant[] computeInterpolants(final Term lemma) {
-		interpolateLemma(lemma);
-		return mInterpolants;
+		return interpolants;
 	}
 }

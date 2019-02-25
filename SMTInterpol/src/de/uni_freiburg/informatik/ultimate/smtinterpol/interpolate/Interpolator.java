@@ -386,9 +386,9 @@ public class Interpolator extends NonRecursive {
 	private void summarize(final Term proofTerm) {
 		Interpolant[] interpolants = null;
 		interpolants = mInterpolated.getLast();
-		final InterpolatorClauseTermInfo proofTermInfo = getClauseTermInfo(proofTerm);
 
 		if (Config.DEEP_CHECK_INTERPOLANTS && mCheckingSolver != null) {
+			final InterpolatorClauseTermInfo proofTermInfo = getClauseTermInfo(proofTerm);
 			final HashSet<Term> lits = new HashSet<>();
 			if (proofTermInfo.getLiterals().isEmpty()) {
 				proofTermInfo.computeResolutionLiterals(this);
