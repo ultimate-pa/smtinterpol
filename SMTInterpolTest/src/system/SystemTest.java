@@ -87,6 +87,8 @@ public class SystemTest {
 			}
 			final int size = Integer.parseInt(sizestr);
 			return size < 5;// NOCHECKSTYLE
+		} else if (f.getParent().endsWith("lira/cut-lemmas/20-vars")) {
+			return false;
 		}
 		return true;
 	}
