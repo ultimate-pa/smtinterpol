@@ -267,6 +267,7 @@ public class Interpolator extends NonRecursive {
 	 * @param clause
 	 *            the clause to interpolate
 	 */
+	@SuppressWarnings("unused")
 	private void walkLeafNode(final Term leaf) {
 		if (mSmtSolver.isTerminationRequested()) {
 			throw new SMTLIBException("Timeout exceeded");
@@ -380,6 +381,7 @@ public class Interpolator extends NonRecursive {
 	 * @param clause
 	 *            the interpolated clause
 	 */
+	@SuppressWarnings("unused")
 	private void summarize(final Term proofTerm) {
 		Interpolant[] interpolants = null;
 		interpolants = mInterpolated.getLast();
