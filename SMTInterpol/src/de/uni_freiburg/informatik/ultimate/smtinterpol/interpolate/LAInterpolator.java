@@ -116,7 +116,7 @@ public class LAInterpolator {
 		 */
 		Term equality = null;
 		Term eqApp = null;
-		LitInfo equalityInfo = null;
+		LitInfo equalityOccurenceInfo = null;
 		Interpolator.Occurrence inequalityInfo = null;
 
 		/*
@@ -125,76 +125,63 @@ public class LAInterpolator {
 		mLemmaInfo = mInterpolator.getClauseTermInfo(lemma);
 
 		for (final Entry<Term, Rational> entry : mLemmaInfo.getFarkasCoeffs().entrySet()) {
-			final Term lit = mInterpolator.mTheory.not(entry.getKey());
-			final InterpolatorLiteralTermInfo litTermInfo = mInterpolator.getLiteralTermInfo(lit);
+			final Term atom = mInterpolator.getAtom(entry.getKey());
+			final InterpolatorAtomInfo atomTermInfo = mInterpolator.getAtomTermInfo(atom);
+			// Is the literal negated in conflict?  I.e. not negated in clause.
+			final boolean isNegated = atom == entry.getKey();
 			final Rational factor = entry.getValue();
-			if (litTermInfo.isBoundConstraint() || !litTermInfo.isNegated() && litTermInfo.isLAEquality()) {
-				InfinitesimalNumber bound;
-				InterpolatorAffineTerm lv;
-				if (litTermInfo.isBoundConstraint()) {
-					assert factor.signum() == (litTermInfo.isNegated() ? -1 : 1);
-					bound = new InfinitesimalNumber(litTermInfo.getBound(), 0);
-					// adapt the bound value for strict inequalities
-					if (litTermInfo.isStrict()) {
-						bound = bound.sub(litTermInfo.getEpsilon());
-					}
-					// get the inverse bound for negated literals
-					if (litTermInfo.isNegated()) {
-						bound = bound.add(litTermInfo.getEpsilon());
-					}
-					lv = litTermInfo.getLinVar();
-				} else {
-					assert litTermInfo.isLAEquality();
-					lv = litTermInfo.getLinVar();
-					bound = new InfinitesimalNumber(litTermInfo.getBound(), 0);
-				}
-				final LitInfo info = mInterpolator.getLiteralInfo(litTermInfo.getAtom());
-				inequalityInfo = info;
+			if (atomTermInfo.isBoundConstraint() || (!isNegated && atomTermInfo.isLAEquality())) {
+				final LitInfo occurenceInfo = mInterpolator.getAtomOccurenceInfo(atom);
+				inequalityInfo = occurenceInfo;
 
-				int part = info.mInB.nextClearBit(0);
+				final InterpolatorAffineTerm lv = new InterpolatorAffineTerm(atomTermInfo.getAffineTerm());
+				/* for negated literals subtract epsilon because we need the inverse bound */
+				if (isNegated) {
+					lv.add(atomTermInfo.getEpsilon().negate());
+				}
+				int part = occurenceInfo.mInB.nextClearBit(0);
 				while (part < ipl.length) {
-					if (info.isMixed(part)) {
+					if (occurenceInfo.isMixed(part)) {
 						/* ab-mixed interpolation */
-						assert info.mMixedVar != null;
-						ipl[part].add(factor, info.getAPart(part));
-						ipl[part].add(factor.negate(), info.mMixedVar);
+						assert occurenceInfo.mMixedVar != null;
+						ipl[part].add(factor, occurenceInfo.getAPart(part));
+						ipl[part].add(factor.negate(), occurenceInfo.mMixedVar);
 
 						if (auxVars[part] == null) {
 							auxVars[part] = new ArrayList<>();
 						}
-						auxVars[part].add(info.mMixedVar);
+						auxVars[part].add(occurenceInfo.mMixedVar);
 					}
-					if (info.isALocal(part)) {
+					if (occurenceInfo.isALocal(part)) {
 						/* Literal in A: add to sum */
 						ipl[part].add(factor, lv);
-						ipl[part].add(bound.negate().mul(factor));
-					}
-					part++;
-				}
-			} else if (litTermInfo.isNegated() && litTermInfo.isLAEquality()) {
-				// we have a Trichotomy Clause
-				equality = litTermInfo.getAtom();
-				// a trichotomy clause must contain exactly three parts
-				assert mLemmaInfo.getLiterals().size() == 3;// NOCHECKSTYLE
-				assert equalityInfo == null;
-				equalityInfo = mInterpolator.getLiteralInfo(equality);
-				eqApp = mInterpolator.unquote(equality);
-				assert eqApp instanceof ApplicationTerm;
-				assert factor.abs() == Rational.ONE;
-
-				int part = equalityInfo.mInB.nextClearBit(0);
-				while (part < ipl.length) {
-					if (equalityInfo.isALocal(part)) {
-						/* Literal in A: add epsilon to sum */
-						ipl[part].add(litTermInfo.getEpsilon());
 					}
 					part++;
 				}
 			} else {
-				assert false;
+				assert isNegated && atomTermInfo.isLAEquality();
+				// we have a Trichotomy Clause
+				equality = atom;
+				// a trichotomy clause must contain exactly three parts
+				assert mLemmaInfo.getLiterals().size() == 3;// NOCHECKSTYLE
+				assert equalityOccurenceInfo == null;
+				// safe the equality and its occurrence info for later.
+				equalityOccurenceInfo = mInterpolator.getAtomOccurenceInfo(equality);
+				eqApp = mInterpolator.unquote(equality);
+				assert eqApp instanceof ApplicationTerm;
+				assert factor.abs() == Rational.ONE;
+
+				int part = equalityOccurenceInfo.mInB.nextClearBit(0);
+				while (part < ipl.length) {
+					if (equalityOccurenceInfo.isALocal(part)) {
+						/* Literal in A: add epsilon to sum */
+						ipl[part].add(atomTermInfo.getEpsilon());
+					}
+					part++;
+				}
 			}
 		}
-		assert ipl[ipl.length - 1].isConstant() && InfinitesimalNumber.ZERO.less(ipl[ipl.length - 1].getConstant());
+		assert ipl[ipl.length - 1].isConstant() && ipl[ipl.length - 1].getConstant().signum() > 0;
 
 		/*
 		 * Save the interpolants computed for this leaf into the result array.
@@ -216,11 +203,11 @@ public class LAInterpolator {
 				 */
 				InfinitesimalNumber k;
 				Term F;
-				if (equalityInfo != null) { // NOPMD
+				if (equalityOccurenceInfo != null) { // NOPMD
 					/*
 					 * This is a mixed trichotomy clause. This requires a very special interpolant.
 					 */
-					assert equalityInfo.isMixed(part);
+					assert equalityOccurenceInfo.isMixed(part);
 					assert auxVars[part].size() == 2;
 					assert normFactor == Rational.ONE;
 					final InterpolatorAffineTerm less =
@@ -228,7 +215,7 @@ public class LAInterpolator {
 					k = InfinitesimalNumber.ZERO;
 					F = mInterpolator.mTheory.and(ipl[part].toLeq0(mInterpolator.mTheory), mInterpolator.mTheory.or(
 							less.toLeq0(mInterpolator.mTheory),
-							mInterpolator.mTheory.term(Interpolator.EQ, equalityInfo.getMixedVar(),
+							mInterpolator.mTheory.term(Interpolator.EQ, equalityOccurenceInfo.getMixedVar(),
 									auxVars[part].iterator().next())));
 				} else {
 					/* Just the inequalities are mixed. */
@@ -242,15 +229,16 @@ public class LAInterpolator {
 				final LATerm laTerm = new LATerm(ipl[part], k, F);
 				mInterpolants[part].mTerm = laTerm;
 			} else {
-				assert equalityInfo == null || !equalityInfo.isMixed(part);
-				if (equalityInfo != null && ipl[part].isConstant()
-						&& equalityInfo.isALocal(part) != inequalityInfo.isALocal(part)) {
+				assert equalityOccurenceInfo == null || !equalityOccurenceInfo.isMixed(part);
+				if (equalityOccurenceInfo != null && ipl[part].isConstant()
+						&& equalityOccurenceInfo.isALocal(part) != inequalityInfo.isALocal(part)) {
 					/*
 					 * special case: Nelson-Oppen conflict, a <= b and b <= a in one partition, a != b in the other. If
 					 * a != b is in A, the interpolant is simply a != b. If a != b is in B, the interpolant is simply a
 					 * == b.
 					 */
-					final Term thisIpl = equalityInfo.isALocal(part) ? mInterpolator.mTheory.not(eqApp) : eqApp;
+					final Term thisIpl =
+							equalityOccurenceInfo.isALocal(part) ? mInterpolator.mTheory.not(eqApp) : eqApp;
 					mInterpolants[part].mTerm = thisIpl;
 				} else {
 					mInterpolants[part].mTerm = ipl[part].toLeq0(mInterpolator.mTheory);

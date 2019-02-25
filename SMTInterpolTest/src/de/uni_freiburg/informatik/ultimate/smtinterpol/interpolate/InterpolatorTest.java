@@ -126,8 +126,8 @@ public class InterpolatorTest {
 			}
 		}
 		final Interpolant[] interpolants = mInterpolator.interpolate(lemma);
-		final TermVariable ccVar = mInterpolator.getLiteralInfo(cceq).getMixedVar();
-		final TermVariable laVar = mInterpolator.getLiteralInfo(laeq).getMixedVar();
+		final TermVariable ccVar = mInterpolator.getAtomOccurenceInfo(cceq).getMixedVar();
+		final TermVariable laVar = mInterpolator.getAtomOccurenceInfo(laeq).getMixedVar();
 		Term var;
 		final InterpolatorAffineTerm summands = new InterpolatorAffineTerm();
 		if (clauseswap) {

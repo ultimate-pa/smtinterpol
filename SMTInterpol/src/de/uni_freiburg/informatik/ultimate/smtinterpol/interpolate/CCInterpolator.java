@@ -25,7 +25,6 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.HashMap;
 
-import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
@@ -43,8 +42,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
 public class CCInterpolator {
 
 	Interpolator mInterpolator;
-	AnnotatedTerm mDiseq;
-	HashMap<SymmetricPair<Term>, AnnotatedTerm> mEqualities;
+	LitInfo mDiseqOccurrences;
+	HashMap<SymmetricPair<Term>, LitInfo> mEqualityOccurrences;
 
 	Theory mTheory;
 	int mNumInterpolants;
@@ -240,7 +239,6 @@ public class CCInterpolator {
 	 * @return The array of interpolants.
 	 */
 	private Term[] interpolateCongruence(final ApplicationTerm left, final ApplicationTerm right) {
-		final LitInfo diseqInfo = mInterpolator.getLiteralInfo(mDiseq);
 		final Term[] interpolants = new Term[mNumInterpolants];
 		final Term[] leftParams = left.getParameters();
 		final Term[] rightParams = right.getParameters();
@@ -250,13 +248,12 @@ public class CCInterpolator {
 			if (leftParams[i] == rightParams[i]) {
 				paramInfos[i] = null;
 			} else {
-				final AnnotatedTerm eq = mEqualities.get(new SymmetricPair<>(leftParams[i], rightParams[i]));
-				paramInfos[i] = mInterpolator.getLiteralInfo(eq);
+				paramInfos[i] = mEqualityOccurrences.get(new SymmetricPair<>(leftParams[i], rightParams[i]));
 			}
 		}
 
 		for (int part = 0; part < mNumInterpolants; part++) {
-			if (diseqInfo.isBorShared(part)) {
+			if (mDiseqOccurrences.isBorShared(part)) {
 				// collect A-local literals
 				final ArrayDeque<Term> terms = new ArrayDeque<>(leftParams.length);
 				for (int paramNr = 0; paramNr < leftParams.length; paramNr++) {
@@ -265,7 +262,7 @@ public class CCInterpolator {
 					}
 				}
 				interpolants[part] = mTheory.and(terms.toArray(new Term[terms.size()]));
-			} else if (diseqInfo.isALocal(part)) {
+			} else if (mDiseqOccurrences.isALocal(part)) {
 				// collect negated B-local literals
 				final ArrayDeque<Term> terms = new ArrayDeque<>(leftParams.length);
 				for (int paramNr = 0; paramNr < leftParams.length; paramNr++) {
@@ -295,7 +292,7 @@ public class CCInterpolator {
 					}
 				}
 				final Term sharedTerm = mTheory.term(left.getFunction(), boundaryTerms);
-				interpolants[part] = mTheory.term(Interpolator.EQ, diseqInfo.getMixedVar(), sharedTerm);
+				interpolants[part] = mTheory.term(Interpolator.EQ, mDiseqOccurrences.getMixedVar(), sharedTerm);
 			}
 		}
 		return interpolants;
@@ -329,8 +326,7 @@ public class CCInterpolator {
 		for (int i = 0; i < mPath.length - 1; i++) {
 			final Term left = mPath[i];
 			final Term right = mPath[i + 1];
-			final AnnotatedTerm lit = mEqualities.get(new SymmetricPair<>(left, right));
-			final LitInfo info = mInterpolator.getLiteralInfo(lit);
+			final LitInfo info = mEqualityOccurrences.get(new SymmetricPair<>(left, right));
 			mTail.closeAPath(mHead, left, info);
 			mTail.openAPath(mHead, left, info);
 			if (info.getMixedVar() != null) {
@@ -340,16 +336,15 @@ public class CCInterpolator {
 			}
 		}
 		// add the disequality if present
-		if (mDiseq != null) {
-			final LitInfo info = mInterpolator.getLiteralInfo(mDiseq);
-			mTail.closeAPath(mHead, tailTerm, info);
-			mTail.openAPath(mHead, tailTerm, info);
-			mHead.closeAPath(mTail, headTerm, info);
-			mHead.openAPath(mTail, headTerm, info);
+		if (mDiseqOccurrences != null) {
+			mTail.closeAPath(mHead, tailTerm, mDiseqOccurrences);
+			mTail.openAPath(mHead, tailTerm, mDiseqOccurrences);
+			mHead.closeAPath(mTail, headTerm, mDiseqOccurrences);
+			mHead.openAPath(mTail, headTerm, mDiseqOccurrences);
 
-			if (info.getMixedVar() != null) {
-				mTail.closeAPathMixed(info.getMixedVar(), headOccur);
-				mHead.closeAPathMixed(info.getMixedVar(), tailOccur);
+			if (mDiseqOccurrences.getMixedVar() != null) {
+				mTail.closeAPathMixed(mDiseqOccurrences.getMixedVar(), headOccur);
+				mHead.closeAPathMixed(mDiseqOccurrences.getMixedVar(), tailOccur);
 			}
 		}
 		// close the still open ends where head and tail have different color. The headTerm/tailTerm must be
@@ -388,22 +383,26 @@ public class CCInterpolator {
 
 	public Term[] computeInterpolants(final Term proofTerm) {
 		// Collect the literal infos for all equalities in the clause.
-		mEqualities = new HashMap<>();
+		mEqualityOccurrences = new HashMap<>();
 		final InterpolatorClauseTermInfo proofTermInfo = mInterpolator.getClauseTermInfo(proofTerm);
 		for (final Term literal : proofTermInfo.getLiterals()) {
-			final InterpolatorLiteralTermInfo litTermInfo = mInterpolator.getLiteralTermInfo(literal);
-			if (litTermInfo.isNegated()) {
-				assert litTermInfo.getAtom() instanceof AnnotatedTerm;
-				final ApplicationTerm eq = litTermInfo.getEquality();
-				mEqualities.put(new SymmetricPair<>(eq.getParameters()[0], eq.getParameters()[1]),
-						(AnnotatedTerm) litTermInfo.getAtom());
+			final Term atom = mInterpolator.getAtom(literal);
+			if (atom != literal) {
+				// negated equality in clause, i.e., positive in conflict.
+				final InterpolatorAtomInfo atomTermInfo = mInterpolator.getAtomTermInfo(atom);
+				final LitInfo occInfo = mInterpolator.getAtomOccurenceInfo(atom);
+				assert atomTermInfo.isCCEquality();
+				final ApplicationTerm eq = atomTermInfo.getEquality();
+				mEqualityOccurrences.put(new SymmetricPair<>(eq.getParameters()[0], eq.getParameters()[1]), occInfo);
+			} else {
+				assert mDiseqOccurrences == null;
+				mDiseqOccurrences = mInterpolator.getAtomOccurenceInfo(atom);
 			}
 		}
 
 		final ProofPath[] paths = proofTermInfo.getPaths();
 		assert (paths.length == 1 && paths[0].getIndex() == null);
 		mPath = paths[0].getPath();
-		mDiseq = (AnnotatedTerm) proofTermInfo.getDiseq();
 		if (mPath.length == 2) {
 			return interpolateCongruence((ApplicationTerm) mPath[0], (ApplicationTerm) mPath[1]);
 		} else {
