@@ -175,8 +175,10 @@ public class LinArSolve implements ITheory {
 				assert v.getTightUpperBound().lesseq(v.getUpperComposite()) || mPropBounds.contains(v);
 				assert v.getLowerComposite().lesseq(v.getTightLowerBound()) || mPropBounds.contains(v);
 				assert v.getTightLowerBound().mEps != 0
+						|| v == mConflictVar
 						|| v.getDiseq(v.getTightLowerBound().mReal) == null;
 				assert v.getTightUpperBound().mEps != 0
+						|| v == mConflictVar
 						|| v.getDiseq(v.getTightUpperBound().mReal) == null;
 				assert v.checkReasonChains();
 			}
