@@ -64,6 +64,9 @@ public class SystemTest {
 			}
 
 		};
+		solver.setOption(":proof-check-mode", true);
+		solver.setOption(":model-check-mode", true);
+		solver.setOption(":interpolant-check-mode", true);
 		pe.parseStream(new FileReader(f), "TestStream");
 	}
 
@@ -84,6 +87,8 @@ public class SystemTest {
 			}
 			final int size = Integer.parseInt(sizestr);
 			return size < 5;// NOCHECKSTYLE
+		} else if (f.getParent().endsWith("lira/cut-lemmas/20-vars")) {
+			return false;
 		}
 		return true;
 	}

@@ -20,6 +20,10 @@
 \newcommand\choicecomp{\circledvee}
 \newcommand\quoted[1]{\ulcorner #1 \urcorner}
 
+%canonical form
+\newcommand\cf{\mathit{cf}}
+\newcommand\annot[2]{(!\ #1\ \texttt{#2})}
+
 \title{Proposal: Proof System for \siv}
 \author{J{\"u}rgen Christ \and Jochen Hoenicke}
 \date{2017/09/27}
@@ -62,39 +66,62 @@ This concludes the proof.
 In this section we present the three layers, starting with the
 outermost layer.
 
-\subsection{Partial Proof System}
+\subsection{Resolution Proofs}
+
+A resolution proof is encoded using a resolution function \verb+@res+, that
+takes as input two proofs for two clauses $(or\ \ell\ C_1)$ and
+$(or\ (not\ \ell)\ C_2)$ and returns a proof for the clause $(or\ C_1\ C_2)$.
+The resolution function is
+left-associative and has the following  signature.
+
+\begin{verbatim}
+:funs ((@res @Proof @Proof @Proof :left-assoc))
+\end{verbatim}
+
+To quickly find the pivot literal $\ell$ of the resolution, the second
+proof argument is annotated with this literal.  This pivot literal
+occurs negative in the first (the one not containing the pivot
+annotation) and positive in the second argument.  If $\ell$ is a
+negated literal, then in its negation the double negation is
+implicitly removed.  The pivot literal $\ell$ may occur at any
+position in the disjunction.  The remaining literals $C_1,C_2$ are
+seen as sets, in particular, duplicated literals are automatically
+omitted.  When clauses are printed as SMTLIB term, the function $or$
+is only used for clauses of length $n\geq 2$.  Unit clauses are
+represented by their literal and the empty clause by $false$.
+
+Resolution proofs returned by \si are clean, i.e., no clause contains
+a literal and its negation, and for every resolution step the pivot
+literal really needs to occur in the input clauses.  Although, the
+proven formula would still be valid without these restrictions, the
+interpolation procedure require this form.
 
 Since the proofs in \si were originally only constructed to produce
-interpolants, the proofs were cut at the CNF-level since interpolants
-for the CNF are also valid interpolants for the original formula.
-Furthermore, unsatisfiable cores can be extracted from the resolution
-proof.  Since resolution proofs are sufficient for these two
+interpolants, there is a feature to cut the proof at the CNF-level.
+To compute interpolants the rewrite steps that are local to a single
+input formula are not needed.  Furthermore, for unsatisfiable cores
+only the used input formulas are needed, not their transformation into
+clauses.  Since resolution proofs are sufficient for these two
 techniques, the proof system keeps this separation.  That way, \si
 won't have performance penalties on these techniques.  If, however, a
 user wants to retrieve a complete proof, the conversion of the
 original formula into CNF is also tracked.
 
-The partial proof system for CNF consists of only three rules: clauses
-created from input formulas (clause), theory lemmas
-(lemma), and resolution steps (res).  The first two
-are the leaves of the partial proof system and introduce valid
-clauses.  The resolution rule represent the inner nodes of the proof
-tree.
+The partial proof system after CNF conversation consists of only three
+rules: clauses created from input formulas (clause), theory lemmas
+(lemma), and resolution steps (res).  The first two are the leaves of
+the partial proof system and introduce valid clauses.  The resolution
+rule represent the inner nodes of the proof tree.
 
-The \verb+@clause+ function takes as first argument, another proof
-that shows that the clause follows from the input formulas.  This is
-necessary since the input is usually not given in CNF.  The second
-argument gives the resulting clause, so that the proof can be
-reconstructed without following the subproof. Theory lemmas introduced
-by \verb+@lemma+ are simple enough to not require a subproof, but
-they take some auxiliary annotations tha make reconstructing the proof
+When tracking the CNF conversation, the \verb+@clause+ function takes
+as first argument, another proof that shows that the clause follows
+from one of the input formulas (or from a tautology in case of Tseitin
+encoded literals).  The second argument gives the resulting clause, so
+that the proof can be reconstructed without following the subproof.
+Theory lemmas introduced by \verb+@lemma+ are specialized to the
+theories supported by \si.  They don't have a subproof, but they take
+some auxiliary annotations that make understanding their validity
 easier.
-
-The resolution function \verb+@res+ is
-left-associative and has signature $@Proof\times@Proof\rightarrow@Proof$.  The
-second proof is annotated with the pivot of the resolution.  This pivot
-literal occurs negative in the first (the one not containing the pivot
-annotation) and positive in the second argument.
 
 \subsection{Formula Transformation and Simplification}
 
@@ -114,7 +141,7 @@ replaced by the right hand side.
 
 The eq rule is represented in SMTLIB as a function
 \begin{verbatim}
-(declare-fun @eq (@Proof @Proof) @Proof)
+:funs ((@eq @Proof @Proof @Proof :left-assoc))
 \end{verbatim}
 This function takes a proof for $t_1$ and a proof for $t_1=t_2$ and
 returns a proof for $t_2$.  The proved term $t_2$ is not provided but
@@ -125,67 +152,112 @@ can be easily computed by following the proof.
 equalities from subterms.  Since all logical connectives in SMT-LIB
 with the exception of quantifiers are Boolean functions, the
 congruence rule can also be used for them.  Further there is the
-transitivity rule to combine rewrites.  Finally the
+\textsc{trans}itivity rule to combine rewrites.
 
 \[
 \inferrule*[left=trans]{t_1 = t_2 \\ t_2 = t_3}{t_1 = t_3}\qquad
 \inferrule*[left=cong]{t = f(\dots t_i \dots) \\ t_i = t'_i}{t = f(\dots t'_i \dots)}\qquad
-\inferrule*[left=exists]{F = G}{\exists x F = \exists x G}
+\inferrule*[left=exists]{F = G}{\exists x\ F = \exists x\ G}
 \]
 
 These rules are represented in SMTLIB as functions
 \begin{verbatim}
 :funs ((@trans @Proof @Proof @Proof :left-assoc)
-       (@cong  @Proof @Proof @Proof :left-assoc)  ; left-assoc
+       (@cong  @Proof @Proof @Proof :left-assoc)
        (@exists @Proof @Proof)
        (par (A) @refl A @Proof))
 \end{verbatim}
 
-This function \verb+@refl+ takes as argument a term $t$ and returns a
+The function \verb+@refl+ takes as argument a term $t$ and returns a
 proof for $t=t$.  It is mainly used in the first argument of
 \verb+@cong+ to rewrite a function application.  The functions
 \verb+@trans+ and \verb+@cong+ take as arguments two proofs for the
 terms as specified in the rules above and return a proof for the
 resulting goal, which can easily be computed.  The function
-\verb+@exists+ takes a proof for $F=G$ annotated with the list of term
-variables \verb+((Sort x_1) ... (Sort x_n))+.  It returns the proof
-for the exists equality.
+\verb+@exists+ takes a proof for $F=G$.  To reconstruct the variables
+\verb+((Sort x_1) ... (Sort x_n))+ they are added as an annotation to
+the argument.  It returns the proof for the exists equality.
 
-\paragraph{Expanding definitions.}  A proof rule that justifies the expansion
-of a defined function.  Let $n(\overline{t})$ be the application of
-$\overline{t}$ to the function named $n$, and $d[\overline{t}]$ be the
-definition where the free variables are substituted by the corresponding
-terms.  Then, this rule justifies the replacement of $n(\overline{t})$ by its
-definition.
-\[
-\inferrule*[left=ExpandDef]{ }{n(\overline{t}) = d[\overline{t}]}
-\]
+\paragraph{Rewrite axioms.}  The \textsc{rewrite} axiom introduces a
+new equality $t_1=t_2$ where side conditions for $t_1$ and $t_2$
+ensure that the equality is true.  They are introduced by a function
+\verb+@rewrite+ that takes the equality $t_1=t_2$ and
+returns a proof of the equality.
+
+\begin{verbatim}
+:funs ((@rewrite bool @Proof))
+\end{verbatim}
+
+The equality is annotated by the rewrite rule, which explains why
+$t_1$ and $t_2$ should be equal. In the proof tree they appear as
+
+\begin{verbatim}
+  (@rewrite (! (= t1 t2) :rewrite-rule))
+\end{verbatim}
+
+where \texttt{:rewrite-rule} is the name of one of the rules listed in
+the remaining section.
+
+
+\paragraph{Expanding definitions.}  The rule \texttt{:expandDef} justifies
+the expansion of a defined function.  Let $f(\overline{t})$ be the
+application of $\overline{t}$ to the function named $f$, and
+$d[\overline{t}]$ be the definition of $f$ where the free variables are
+substituted by the corresponding terms.  Then, this rule justifies the
+replacement of $n(\overline{t})$ by its definition.
+
+\begin{equation}
+f(\overline{t}) = d[\overline{t}]
+\text{ where $d$ is the defintion of $f$} \tag{expandDef}
+\end{equation}
 
 Some internal functions are also defined as defined functions,
-e.g. the $abs x$ function is defined as $(ite (>= x 0) x (- x))$.
+e.\,g., the $abs\ x$ function is defined as $(ite\ (>=\ x\ 0)\ x\ (-\ x))$. Below is an example proof using this definition.
+\begin{verbatim}
+(@rewrite (! (= (abs (- z)) (ite (>= (- z) 0) (- z) (- (- z))))
+             :expandDef))
+\end{verbatim}
 
 \paragraph{Expanding $n$-ary function applications.}  \si expands function
 applications that use associativity, chainability, or the pairwise attribute.
-The expansion transforms a left-associative function application
-$f(t_1,t_2\ldots,t_n)$ with $n>2$ into $f(f(\ldots f(t_1,t_2),\ldots),t_n)$.
-Similarly, right associative function applications $f(t_1,\ldots,t_{n-1},t_n)$
-with $n>2$ are expanded into $f(t_1,f(\ldots,f(t_{n-1},t_n)))$.  Chainable
-function applications $f(t_1,\ldots,t_n)$ are expanded into
-$f(t_1,t_2)\land\ldots\land f(t_{n-1},t_n)$.
+The expansion transforms an application of a left-associative function $f$ as follows.
 
-This step gets complicated since \si does not expand all such functions; it
-keeps $n$-ary disjunctions, conjunctions, and implications.  Furthermore,
-equalities and distinct applications are expanded after simplification.  
-Hence, we will use different proof rules for these cases.
+\begin{equation*}
+  (f\ t_1\ t_2 \cdots t_n) = (f\ (\ldots (f\ t_1\ t_2)\ \ldots)\ t_n)
+  \text{ where $n > 2$, $f$ left-assoc.}
+  \tag{expand}
+\end{equation*}
+Similarly, for a right associative function,
+\begin{equation*}
+  (f\ t_1\ t_2 \cdots t_n) = (f\ t_1\ \ldots (f\ t_{n-1}\ t_n)\ldots)
+  \text{ where $n > 2$, $f$ right-assoc.}
+  \tag{expand}
+\end{equation*}
+Finally for a chainable predicate,
+\begin{equation*}
+  (p\ t_1\ t_2 \cdots t_n) = (and\ (p\ t_1\ t_2) (p\ t_2\ t_3) \ldots (p\ t_{n-1}\ t_n))
+  \text{ where $n > 2$, $p$ chainable.}
+  \tag{expand}
+\end{equation*}
 
-The remaining symbols are \texttt{xor} from the core theory, and the
-arithmetic symbols \texttt{+}, \texttt{-}, \texttt{*}, the division symbols
-\texttt{div} and \texttt{/}, and the comparison symbols \texttt{<},
-\texttt{<=}, \texttt{>=}, and \texttt{>}.  For applications of these symbols
-with more than 2 arguments, the following rewrite axiom will be introduced.
-\[
-\inferrule*[left=expand,right={$F'\equiv F$}]{ }{F = F'}
-\]
+Note that \si does not expand all such functions; for example, it
+keeps $n$-ary disjunctions, conjunctions, and implications.  It uses
+different proof rules for these cases.
+
+\paragraph{Removal of Boolean connectives.}  Before producing clauses, \si
+converts the formula into an equivalent form with less Boolean connectives.
+In particular it uses only $not$, $or$, $ite$ and $xor$ as Boolean connectives.
+These conversion steps are justified by the following rewrite rules
+\begin{align}
+  (and\ \cdots t_i\cdots) &=
+  (not\ (or\ \cdots (not\ t_i)\cdots))
+  \tag{andToOr}\\
+  (=>\ \cdots t_i\cdots t_n) &=
+  (or\ \cdots (not\ t_i)\cdots t_n))
+  \tag{impToOr}
+\end{align}
+
+The function $distinct$ is rewritten to not equals in a later step.
 
 \paragraph{Equality simplification.}
 This set of rules justifies the simplification of an $n$-ary equality.  The
@@ -202,32 +274,52 @@ equality simplifications.
     \verb+false+.
   \item Simplify equalities containing \verb+true+ into conjunctions.
   \item Simplify equalities containing \verb+false+ into disjunctions.
+  \item Finally convert binary Boolean equality to \verb+xor+.
   \end{itemize}
 \end{itemize}
 
 Equality simplification is split into several rules to ease proof validation.
-\begin{mathpar}
-  \inferrule*[left=TrueNotFalse,right={$\exists j,k\in I.\ t_j=true \land
-      t_k=false$}]{ } {(=_{i\in I}\ t_i) = false}\\
-  \inferrule*[left=ConstDiff,right={$\exists j,k\in I.\ t_j=c_j \land
-      t_k=c_k\land c_j\neq c_k$}]{ } {(=_{i\in I}\ t_i) = false}\\
-  \inferrule*[left=EqTrue,right={$\exists j\in I.\ t_j=true\land I'\subset
-      I\land j\not\in I'$}]{ } {(=_{i\in I}\ t_i) = (not\ (and_{i'\in I'}\ (not\ t_{i'})))}\\
-  \inferrule*[left=EqFalse,right={$\exists j\in I.\ t_j=false\land I'\subset
-      I\land j\not\in I'$}]{ } {(=_{i\in I}\ t_i) = (not\ (or_{i'\in I'}\
-    t_{i'}))}\\
-  \inferrule*[left=EqSame,right={$\forall i,j\in I.\ t_i\equiv t_j$}]{
-  }{(=_{i\in I}\ t_i) = true}\\
-  \inferrule*[left=EqSimp,right={$I'\subset I\land |I'| = |\{t_i.\ i\in
-      I\}|\land\{t_i.\ i\in I\} = \{t_j.\ j\in I'\} $}]{ }{(=_{i\in I}\ t_i) =
-    (=_{i'\in I'}\ t_{i'})}\\
-  \inferrule*[left=EqBinary]{(=_{i\in I}\ t_i) = (=_{i'\in I'}
-    t_{i'})}{(=_{i\in I} t_i) = (not\ (or_{i',i''\in I'}\ (not\ (=\ t_{i'}\ t_{i''}))))}
-\end{mathpar}
+\begin{align}
+  (=\ t_1 \cdots t_n) &= false
+  \quad \text{where some $t_j=true$ and some $t_k=false$}
+  \tag{trueNotFalse}\\
+  (=\ t_1 \cdots t_n) &= false
+  \quad \text{where some $t_j$ and $t_k$ are distinct numeric constants}
+  \tag{constDiff}\\
+  (=\ t_1 \cdots t_n) &= (not\ (or\ \dots(not\ t_{i'})\dots))
+  \quad \text{\begin{tabular}{l}where some $t_j = true$ and
+      the $t_i'$ \\
+      are the terms in the same order\\
+      with $true$ and duplicates removed
+    \end{tabular}}
+  \tag{eqTrue}\\
+  (=\ t_1 \cdots t_n) &= (not\ (or\ \dots t_{i'} \dots))
+  \quad \text{\begin{tabular}{l}where some $t_j = false$ and
+      the $t_i'$ \\
+      are the terms in the same order\\
+      with $false$ and duplicates removed
+    \end{tabular}}
+  \tag{eqFalse}\\
+  (=\ t \cdots t) &= true
+  \quad\text{where all $t$ are the same}
+  \tag{eqSame}\\
+  (=\ t_1 \cdots t_n) &= (=\ \dots t_{i'} \dots)
+  \quad\text{\begin{tabular}{l}where $t_{i'}$ are the terms in the same\\
+      order with repeated terms removed\end{tabular}}
+  \tag{eqSame}\\
+  (=\ t_1 \cdots t_n) &= (not\ (or\ (not\ (=\ t_1\ t_2)\dots(not\ (t_{n-1}\ t_n))
+  \quad\text{where $n > 2$}
+  \tag{eqBinary}\\
+  (=\ t_1\ t_2) &= (not\ (xor\ t_1\ t_2)) \quad\text{where $t_1,t_2$ are Boolean}
+  \tag{eqToXor}
+\end{align}
 
-The last rule is used to convert an $n$-ary equality into a conjunction of
-binary equalities.  Note that we represent the conjunction as a negated
-disjunction as is done in the canonical form used by \si.
+For (eqTrue) resp. (eqFalse), in the case that there is only one
+$t_i'$ the equality is rewritten to $t_i'$ resp. $(not\ t_i')$ instead.
+The last rule is used to convert an $n$-ary equality into a
+conjunction of binary equalities.  Note that we represent the
+conjunction as a negated disjunction as is done in the canonical form
+used by \si.
 
 \paragraph{Distinct simplification.}
 This set of rules is similar to the equality simplification rules.  It
@@ -235,218 +327,252 @@ contains axioms for the following cases.
 \begin{itemize}
 \item Simplify Boolean distinct-applications with more than two terms to
   \verb+false+.
-\item Simplify binary Boolean distinct-applications where one argument is
-  \verb+true+ resp.\ \verb+false+ to the other term or the negation of that
-  term.
+\item Convert binary Boolean distinct-applications to \verb+xor+.
 \item Simplify distinct-applications containing the same element multiple
   times to \verb+false+.
 \end{itemize}
 
-\begin{mathpar}
-  \inferrule*[left=DistinctBool,right={$|I| > 2\land sort(t_i)=Bool$}]{
-  }{(distinct_{i\in I}\ t_i) =
-    false}\\ \inferrule*[left=DistinctSame,right={$\exists j,k\in I.\ t_j
-      \equiv t_k \land j\neq k$}]{ }{(= distinct_{i\in I}\ t_i) =
-    false}\\ \inferrule*[left=DistinctNeg,right={$t_0$ is negation of $t_1$}]{
-  }{(distinct\ t_0\ t_1) =
-    true}\\ \inferrule*[left=DistinctTrue,right={$t_i\equiv true$ for
-      $i=0,1$}]{ }{(distinct\ t_0\ t_1) =
-    (not\ t_{1-i})}\\ \inferrule*[left=DistinctFalse,right={$t_i\equiv false$
-      for $i=0,1$}]{ }{(distinct\ t_0\ t_1) =
-    t_{1-i}}\\
-  \inferrule*[left=DistinctBoolEq,right={$sort(t_0)=sort(t_1)=Bool\land
-      ((t_0',t_1')=(\lnot t_0,t_1)\lor(t_0',t_1')=(t_0,\lnot t_1))$}]{ }
-  {(distinct\ t_0\ t_1) = (=\ t_0'\ t_1')}\\
-  \inferrule*[left=DistinctBinary]{ }{(distinct_{i\in I}\ t_i) =
-    (not\ (or_{i',i''\in I}\ (= t_{i'}\ t_{i''})))}
-\end{mathpar}
-The last rule is used to convert distinct applications into negated binary
-equalities.
+\begin{align}
+  (distinct\ t_1 \cdots t_n) &= false
+  \quad \text{where $n \geq 3$ and $t_i$ are boolean}
+  \tag{distinctBool}\\
+  (distinct\ t_1\ t_2) &= (xor\ t_1\ t_2)
+  \quad \text{where $t_1,t_2$ are boolean}
+  \tag{distinctToXor}\\
+  (distinct\ \cdots t \cdots t \cdots) &= false
+  \quad \text{where some $t$ occurs twice}
+  \tag{distinctSame}\\
+  (distinct\ t_1 \cdots t_n) &= (not\ (or\ \dots (=\ t_i\ t_j)\dots))
+  \quad\text{where $n \geq 2$, $1 \leq i < j \leq n$}
+  \tag{distinctBinary}
+\end{align}
+The last rule is used to convert distinct applications into negated
+binary equalities.  In this case every term must be compared to every
+other term.  For $n=2$ the $or$ is omitted.
+
+\paragraph{Xor simplification.}
+This set of rules simplifies xor with \verb+true+ or \verb+false+ and
+pulls negation outside of the xor.  The first three rules apply
+equally if the arguments are swapped.
+
+\begin{align}
+  (xor\ false\ t_2) &= t_2
+  \tag{xorFalse}\\
+  (xor\ true\ t_2) &= (not\ t_2)
+  \tag{xorTrue}\\
+  (xor\ (not\ t_1)\ t_2) &= (not\ (xor\ t_1\ t_2))
+  \tag{xorNot}\\
+  (xor\ (not\ t_1)\ (not\ t_2)) &= (xor\ t_1\ t_2)
+  \tag{xorNot}\\
+  (xor\ t\ t) &= false
+  \tag{xorSame}
+\end{align}
 
 \paragraph{Negation simplification.}  \si simplifies negation to prevent
 double negation and negations of \verb+true+ or \verb+false+.
-\[
-\inferrule*[left=NotSimp,right={$F'\equiv
-    \left\{\begin{array}{l@{\quad\mbox{if}\quad}l}false & F\equiv true\\true &
-    F\equiv false\\ G&F\equiv(not\ G)\end{array}\right.$}]{ }
-           {(not\ F) = F'}
-\]
+\begin{equation}
+  \begin{aligned}
+    (not\ false) &= true\\
+    (not\ true) &= false\\
+    (not\ (not\ F)) &= F
+  \end{aligned}
+\tag{notSimp}
+\end{equation}
 
 \paragraph{Disjunction simplification.}  \si simplifies disjunctions by removing
 duplicates or falsety and simplifying trivial tautologies to $true$.  We
 justify these steps by two axioms.
-\begin{mathpar}
-  \inferrule*[left=OrSimp,right={where
-      $I'\subset I$ and $\{t_i |i\in I'\} = \{t_i|i\in I\} \setminus \{false\}$}]
-     { }{(or_{i\in I}\ t_i) = (or_{i\in I'}\ t_i)}\\
-  \inferrule*[left=OrTaut,right={$\exists i\in I.\ t_i\equiv\ true\lor\exists
-      i,i'\in I.\ t_i\equiv\ (not\ t_i')$}]{ }{(or_{i\in I}\ t_i) = true}
-\end{mathpar}
-If $I' = \{i'\}$ contains only one element, $(or_{i\in I'}\ t_i)$ stands for $t_i'$.
-if $I'$ is empty $(or_{i\in I'}\ t_i)$ stands for $false$.
+\begin{align}
+  (or\ \cdots true \cdots) &= true \tag{orTaut}\\
+  (or\ t_1 \cdots t_n) &= (or \cdots t_i \cdots)
+  \text{\begin{tabular}{l}where right hand side contains the terms in same\\
+      order with duplicates and false removed\end{tabular}}
+  \tag{orSimp}
+\end{align}
+For (orSimp), if the or would contain only one element, the right hand
+side is just this element.  If the or would contain no element, the
+right hand side is $false$.
 
 \paragraph{If-then-else simplification.}  \si applies trivial Boolean
-simplification to if-then-else terms.  These simplifications are again
-justified by axioms.
-\begin{mathpar}
-  \inferrule*[left=IteTrue]{ }{(ite\ true\ t_1\ t_2) = t_1}\quad
-  \inferrule*[left=IteFalse]{ }{(ite\ false\ t_1\ t_2) = t_2}\\
-  \inferrule*[left=IteSame]{ }{(ite\ t_0\ t_1\ t_1) = t_1}\\
-  \inferrule*[left=IteBool1]{ }{(ite\ t_0\ true\ false) = t_0}\quad
-  \inferrule*[left=IteBool2]{ }{(ite\ t_0\ false\ true) = (not\ t_0)}\\
-  \inferrule*[left=IteBool3]{ }{(ite\ t_0\ true\ t_2) = (or\ t_0\ t_2)}\\
-  \inferrule*[left=IteBool4]{ }{(ite\ t_0\ false\ t_2) =
-    (not\ (or\ t_0\ (not\ t_2)))}\\
-  \inferrule*[left=IteBool5]{ }{(ite\ t_0\ t_1\ true) = (or\ (not\ t_0)\ t_1)}\\
-  \inferrule*[left=IteBool6]{ }{(ite\ t_0\ t_1\ false) =
-    (not\ (or\ (not\ t_0)\ (not\ t_1)))}
-\end{mathpar}
-
-\paragraph{Removal of Boolean connectives.}  Before producing clauses, \si
-converts the formula into an equivalent form with less Boolean connectives.
-These conversion steps are justified by several proof axioms.
-\begin{mathpar}
-  \inferrule*[left=AndToOr]{ }{(and\ t_i) = (not\ (or\ (not\ t_i)))}\\
-  \inferrule*[left=XorToDistinct]{ }{(xor\ t_1\ t_2) = (distinct\ t_1\ t_2)}\\
-  \inferrule*[left=ImpToOr]{ }{(implies_{i\in I}\ t_i\ t) = (or_{i\in
-      I}\ t\ (not\ t_i))}\\
-
-\end{mathpar}
-These axioms might be followed by simplification steps for \verb+or+ or
-\verb+distinct+ to further transform the resulting formula.
+simplification to if-then-else terms where one of the arguments is
+$true$ or $false$.  These simplifications are again justified by
+axioms.
+\begin{align}
+  (ite\ true\ t_1\ t_2) &= t_1 \tag{iteTrue}\\
+  (ite\ false\ t_1\ t_2) &= t_2 \tag{iteFalse}\\
+  (ite\ t_0\ t\ t) &= t \tag{iteSame}\\
+  (ite\ t_0\ true\ false) &= t_0 \tag{iteBool1}\\
+  (ite\ t_0\ false\ true) &= (not\ t_0) \tag{iteBool2}\\
+  (ite\ t_0\ true\ t_2) &= (or\ t_0\ t_2) \tag{iteBool3}\\
+  (ite\ t_0\ false\ t_2) &= (not\ (or\ t_0\ (not\ t_2))) \tag{iteBool4}\\
+  (ite\ t_0\ t_1\ true) &= (or\ (not\ t_0)\ t_1) \tag{iteBool5}\\
+  (ite\ t_0\ t_1\ false) &= (not\ (or\ (not\ t_0)\ (not\ t_1))) \tag{iteBool6}
+\end{align}
 
 \paragraph{Removing Annotations.}  This axiom justifies the equality
 between \verb+F+ and \verb+(! F :annotations)+, i.\,e., the semantic
 equivalence of these terms.
+\begin{equation}
+  (!\ F\ :\!annotations) = F
+  \tag{strip}
+\end{equation}
+
+\paragraph{Normalizing arithmetic expressions.}
+\si uses a canonical form for affine linear expressions.
 \[
-\inferrule*[left=strip]{ }{(!\ F\ :\!annotations) = F}
+\cf(c_1t_1 + \cdots + c_nt_n + c_0) := (+\ (*\ c_1\ t_1)\ \cdots\ (*\ c_n\ t_n)\ c_0)
 \]
 
-\paragraph{Normalizing arithmetic expressions.}  \si normalizes arithmetic
-expressions into a canonical form.  This canonical form is then used to
-transform a term into an internal form.  With this set of axioms, we describe
-the transformation of a term in the input into canonical form.
-\begin{mathpar}
-  \inferrule*[left=CanonicalSum,right={$t' \cong t$}]{ }{t =
-    t'}\\
-  \inferrule*[left=LeqToLeq0,right={$t' \cong t_1-t_2$}]{
-    }{(<=\ t_1\ t_2) = (<=\ t'\ 0)}\\
-  \inferrule*[left=LtToLeq0,right={$t' \cong t_2-t_1$}]{
-    }{(<\ t_1\ t_2) = (not\ (<=\ t'\ 0))}\\
-  \inferrule*[left=GeqToLeq0,right={$t' \cong t_2-t_1$}]{
-    }{(>=\ t_1\ t_2) = (<=\ t'\ 0)}\\
-  \inferrule*[left=GtToLeq0,right={$t' \cong t_1-t_2$}]{
-    }{(>\ t_1\ t_2) = (not\ (<=\ t'\ 0))}
-\end{mathpar}
-\si computes the polynomial sum of two polynomials by summing up identical
-monomials and cancel them, if the factors sum to 0.  As example, consider
-$t_1\equiv (+\ (*\ 3\ x)\ (*\ 2\ y))$ and $t_2\equiv (+\ y\ (*\ 3\ x))$.  The
-monomials in these terms are $x$ and $y$.  Computing $t_1-t_2$, we cancel $x$
-and sum up the factors of $y$, i.\,e., we compute $2-1=1$ and get
-$t_1-t_2\equiv y$.  Note that \si does not produce any intermediate proof
-steps to justify associativity or commutativity of arithmetic operators.
+Here $c_i$ are rational constants in their canonical form, i.e.,
+either $m$, $(-\ m)$, $(/\ m\ n)$, $(/\ (-\ m)\ n)$, with $m$ numeral
+for integer arithmetic and $m,n$ decimals ending with $.0$ for real
+arithmetic and if $n$ occurs, $m$ and $n$ must not have common
+divisors and $n > 2$. The $t_i$ are terms not starting $+,*,/,-$ and
+they may not appear twice.  For real arithmetic an integer term $t_i$
+must be wrapped in $to\_real$.  The ordering of the $(*\ c_i\ t_i)$
+terms is arbitrary but consistent throughout the proof.  If $c_i$ is
+$1$, the multiplication is omitted.  If $c_i$ is $-1$, the
+corresponding entry is just $(-\ t_i)$.  The value $c_i$ must not be
+zero.  If $c_0$ is zero it is omitted unless $n=0$.  The $+$ is
+omitted if it has only one argument.
 
-\paragraph{Arithmetic simplification.}  \si simplifies arithmetic comparisons
-after transforming them into normal form.
-\begin{mathpar}
-  \inferrule*[left=LeqTrue,right={$c \leq 0$}]{ }{(<=\ c\ 0) = true}\quad
-  \inferrule*[left=LeqFalse,right={$c > 0$}]{ }{(<=\ c\ 0) = false}
-\end{mathpar}
+The canonical form $\cf(t)$ of a term $t$ is achieved by moving
+multiplicative constants before the term and moving the divisor into
+the constant for division.  For addition, the constants for the same
+term are added together.  Usual arithmetic on rational numbers is
+performed to the constants.
 
-\paragraph{Divisible rewrite.}  This axiom justifies the rewrite of
-\verb+((_ divisible n) t)+ into \verb+(= t (* n (div t n)))+.  Hence, it
-removes the divisible operator from the formula.  Furthermore, if $t$ is a
-constant, this rules justifies the static evaluation of this construct.
-\begin{mathpar}
-\inferrule*[left=divisible]{ }{((\_\ divisible\ 1)\ t) = true}\\
-\inferrule*[left=divisible,right={$t$ is integer constant not divisible by
-    $n$}]{ }{((\_\ divisible\ n)\ t) = false}\\
-\inferrule*[left=divisible,right={$t$ is integer constant divisible by $n$}]{
-}{((\_\ divisible\ n)\ t) = true}\\
-\inferrule*[left=divisible]{ }{((\_\ divisible\ n)\ t) =
-  (=\ t\ (*\ n\ (div\ t\ n)))}
-\end{mathpar}
+As example, consider $t_1 = (+\ (*\ 3\ x)\ (*\ 2\ y))$ and $t_2 =
+(+\ (*\ (- 3)\ x)\ y\ 1)$.  These terms are in canonical form. The
+canonical form $\cf(t_1+t_2)$ is $(+\ (*\ 3\ y)\ 1)$ as the factors of
+$x$ cancel out.  The canonical form $\cf(-t_2)$ is
+$(+\ (*\ 3\ x)\ (-\ y)\ (-\ 1))$ or $(+\ (-\ y)\ (*\ 3\ x)\ (-\ 1))$
+as the order of the terms $x$ and $y$ is not fixed.
+
+
+\begin{equation}
+  \begin{aligned}
+  (+\ t_1 \cdots t_n) &= \cf(t_1+\dots+t_n)\\
+  (-\ t_1 \cdots t_n) &= \cf(t_1-\dots-t_n)\\
+  (*\ t_1 \cdots t_n) &= \cf(t_1 \cdots t_n)\\
+  (/\ t_1 \cdots t_n) &= \cf(t_1 / (t_2\cdots t_n))\\
+  (to\_real\ t_1) &= \cf(to\_real\ t_1)
+  \end{aligned}
+  \tag{canonicalSum}
+\end{equation}
+
+In these rules the terms $t_1,\dots,t_n$ must be already in canonical form.\\
+For multiplication all but one $t_i$ must be a constant and
+for division all but the first $t_i$ must be a constant.
+For $to\_real$, the canonical form pushes the function $to\_real$ into
+the $t_i$ and converts all integer constants to real constants.
+
+The comparison operators are normalized to less equal with second argument 0.
+\begin{align}
+  (<=\ t_1\ t_2) &= (<=\ \cf(t_1-t_2)\ 0) \tag{leqToLeq0}\\
+  (<\ t_1\ t_2)  &= (not\ (<=\ \cf(t_2-t_1)\ 0)) \tag{ltToLeq0}\\
+  (>=\ t_1\ t_2) &= (<=\ \cf(t_2-t_1)\ 0) \tag{geqToLeq0}\\
+  (>\ t_1\ t_2)  &= (not\ \cf(<=\ (t_1-t_2)\ 0)) \tag{gtToLeq0}
+\end{align}
+
+\paragraph{Arithmetic simplification.}  Arithmetic comparisons
+can with constants can be trivially simplified
+\begin{align}
+  (<=\ c\ 0) &= true  \quad \text{where $c \leq 0$}\tag{leqTrue}\\
+  (<=\ c\ 0) &= false \quad  \text{where $c > 0$}\tag{leqFalse}
+\end{align}
+
+\paragraph{Divisible rewrite.}  A divisible term
+\verb+((_ divisible n) t)+ is rewritten into the equivalent term
+\verb+(= t (* n (div t n)))+.  This rule can be used to
+removes the divisible operator from the formula.
+Furthermore, if $t$ is constant, it can be simplified.
+\begin{equation}
+  \begin{aligned}
+    ((\_\ divisible\ 1)\ t) &= true\\
+    ((\_\ divisible\ n)\ c) &= true \quad \text{where $n$ divides $c$}\\
+    ((\_\ divisible\ n)\ c) &= false \quad \text{where $n$ does not divide $c$}\\
+    ((\_\ divisible\ n)\ t) &= (=\ t\ (*\ n\ (div\ t\ n)))
+  \end{aligned} \tag{divisible}
+\end{equation}
 
 \paragraph{Division rewrites.}  Integer division can be simplified if either
 the divisor is $1$ or $-1$, or the dividend and the divisor are constant.  \si
-uses different rewrite axioms for these.  The rules mimic the SMTLIB semantic
-of ``rounding towards 0''.
-\begin{mathpar}
-  \inferrule*[left=div1]{ }{(div\ c\ 1) = c}\quad
-  \inferrule*[left=div-1,right={$d\equiv-c$}]{ }{(div\ c\ (-\ 1)) = d}\\
-  \inferrule*[left=divConst,right={$d\equiv\left\{\begin{array}{l@{\ \mbox{if}\ }l}\lfloor\frac{c_1}{c_2}\rfloor&c_2>0\\ \lceil\frac{c_1}{c_2}\rceil&c_2<0\end{array}\right.$}]{ }{(div\ c_1\ c_2) = d}
-\end{mathpar}
+uses different rewrite rules for these.
+\begin{align}
+  (div\ t\ 1) &= c \tag{div1}\\
+  (div\ t\ (-\ 1)) &= \cf(-t) \tag{div-1} \\
+  (div\ c_1\ c_2) &= \cf(sgn(c_2) \lfloor c_1/|c_2| \rfloor) \quad\text{where $c_2\neq 0$}\tag{divConst}
+\end{align}
+Here $sgn(c_2)$ stands for the signum function (1 for $c_1>0$, -1 for $c_1 < 0$).
+While for positive $c_2$ the division function rounds toward negative
+infinity, the SMTLIB standard specifies that $(div\ c_1\ (- c_2)) =
+(-\ (div\ c_1\ c_2))$, which explains the cumbersome definition.
+
 
 \paragraph{Modulo rewrites.}  This axiom justifies the rewrite of
-\verb+(mod x y)+.  The result of the rewrite depends on the values of 
+\verb+(mod x y)+.  The result of the rewrite depends on the values of
 \verb+x+ and \verb+y+.  If \verb+y+ is either $1$ or $-1$, the result is 0, if
 \verb+x+ is constant, and \verb+y+ is a constant different from $0$, \si
 replaces the modulo by the correct value.  Otherwise, if \verb+y+ is a
 constant different from $0$, the modulo is rewritten into
 \verb+(- x (* y (div x y)))+.  The rules mimic the SMTLIB semantic of the
 Euclidian definition of div and mod.
-\begin{mathpar}
-  \inferrule*[left=mod1]{ }{(mod\ c\ 1) = 0}\quad
-  \inferrule*[left=mod-1]{ }{(mod\ c\ (-\ 1)) = 0}\\
-  \inferrule*[left=modConst,right={$d\equiv\left\{\begin{array}{l@{\ \mbox{if}\ }l}c_1-c_2\lfloor\frac{c_1}{c_2}\rfloor&c_2>0\\ c_1-c_2\lceil\frac{c_1}{c_2}\rceil&c_2<0\end{array}\right.$}]{ }{(mod\ c_1\ c_2) = d}\\
-  \inferrule*[left=modulo]{ }{(mod\ x\ y) = (+\ x\ (*\ (- y)\ (div\ x\ y)))}
-\end{mathpar}
-Note that the right hand side of the \verb+modulo+ rule is equivalent to the
-internal form of $(-\ x\ (*\ y\ (div\ x\ y)))$.  This saves one additional
-rewrite step into canonical form.
+\begin{align}
+  (mod\ t\ 1) &= 0 \tag{div1}\\
+  (mod\ t\ (- 1)) &= 0 \tag{div-1} \\
+  (mod\ c_1\ c_2) &= \cf(c_1 - |c_2|\lfloor c_1/|c_2| \rfloor)
+  \quad\text{where $c_2\neq 0$}
+  \tag{moduloConst} \\
+  (mod\ t_1\ c_2) &= \cf(t_1 - c_2 (div\ t_1\ c_2)) \quad\text{where $c_2\neq 0$} \tag{modulo}
+\end{align}
+For $c_2 = 0$ the rewrite rule would not be sound as per standard $mod$ must behave like an uninterpreted function.
 
 \paragraph{Integer injection.}  The \verb+to_int+ operator can be used to
 convert a real term into an integer.  The SMTLIB semantic describes this
 conversion as the standard floor operation on reals.  If this is applied to a
 constant, \si replaces the application by the result.
-\[
-\inferrule*[left=toInt,right={$v\equiv\lfloor r\rfloor$}]{ }{(to\_int\ r) = v}
-\]
-
-\paragraph{Real injection.}  The \verb+to_real+ operator can be used to
-convert an integer term into a real term.  This is essentially no change in
-the meaning of this term since any integer term is also a real term, but the
-term representation changes.  For constants, we statically evaluate the
-application by appending a \verb+.0+ to the original constant.
-\[
-\inferrule*[left=toReal]{ }{(to\_real c) = c.0}
-\]
+\begin{equation}
+  (to\_int\ c) = \cf(\lfloor c \rfloor) \quad\text{where $c$ is constant} \tag{toInt}
+\end{equation}
 
 \paragraph{Array rewrites.}  The theory of arrays contains several constructs
 that can be the target of rewrites.  \si implements the following rewrites for
 arrays:
 \begin{itemize}
 \item Static store-over-store:  If a store overwrites the value of a directly
-  adjacent store term, the inner store term is removed.  This is justified by
-  the following rewrite axiom.
-\[
-\inferrule*[left=storeOverStore]{ }{(store\ (store\ a\ i\ v_1)\ i\ v_2) =
-  (store\ a\ i\ v_2)}
-\]
-\item Static select-over-store:  If the select-over-store axiom can be
-  statically evaluated, \si replaces the application of the term by its
-  conclusion.  Static evaluation can be done if the index terms are known to
-  be equivalent or distinct.  Since \si does not include congruence closure in
-  the simplification phase, it only simplifies if the index terms are
-  syntactically equal or numerical.  The rewrite is justified by the following
-  axioms:
-\begin{mathpar}
-  \inferrule*[left=selectOverStore]{ }{(select\ (store\ a\ i\ v)\ i) = v}\\
-  \inferrule*[left=selectOverStore,right={$c_1\neq c_2$}]{
-  }{(select\ (store\ a\ c_1\ v)\ c_2) = (select\ a\ c_2)}
-\end{mathpar}
+  adjacent store term, the inner store term is removed.
+  \begin{equation}
+    (store\ (store\ a\ i\ v_1)\ i\ v_2) = (store\ a\ i\ v_2)
+    \tag{storeOverStore}
+  \end{equation}
+\item Static select-over-store: If the select-over-store axiom can be
+  statically evaluated, \si replaces the application of the term by
+  its conclusion.  Static evaluation can be done if the index terms
+  are known to be equivalent or distinct.  Since \si does not include
+  congruence closure in the simplification phase, it only simplifies
+  if the index terms are syntactically equal or numerical.  For
+  disequality, the difference must be a constant or, in the integer
+  case, a term of the form $\sum c_it_i + c$ where $gcd(c_i)$ does not
+  divide $c$.
+  \begin{equation}
+    \begin{aligned}
+      (select\ (store\ a\ i\ v)\ i) &= v\\
+      (select\ (store\ a\ t_1\ v)\ t_2) &= (select\ a\ t_2) \quad\text{where $t_1\neq t_2$ holds trivially}\\
+    \end{aligned}\tag{selectOverStore}
+  \end{equation}
 \item Store rewrite:  In the array theory it is possible to have store terms
   that only describe values for the base array.  In this case, the store term
-  can be rewritten into a select.  The following axiom justifies this rewrite.
-\begin{mathpar}
-\inferrule*[left=storeRewrite]{ }{(=\ a\ (store\ a\ i\ v)) =
-  (=\ (select\ a\ i)\ v)}\\
-\inferrule*[left=storeRewrite]{ }{(=\ (store\ a\ i\ v)\ a) =
-  (=\ (select\ a\ i)\ v)}
-\end{mathpar}
+  can be rewritten into a select.
+  \begin{equation}
+    \begin{aligned}
+      (=\ (store\ a\ i\ v)\ a) &= (=\ (select\ a\ i)\ v)\\
+      (=\ a\ (store\ a\ i\ v)) &= (=\ (select\ a\ i)\ v)
+    \end{aligned}\tag{storeRewrite}
+  \end{equation}
 \end{itemize}
 
-\subsection{Building CNF}
+\subsection{CNF conversion}
 After normalization and simplification, \si produces CNF from the modified
 input formula.  The proof rules described before justify the equivalence of
 the input assertion and the canonical form.  The rules in this section justify
@@ -456,7 +582,7 @@ the leaves of the Boolean part of the term, structural splitting of the
 formula, and introduction of auxiliary atoms for a Plaisted--Greenbaum- or
 Tseitin-style encoding of the input formula.
 
-\paragraph{Structural splitting.}  
+\paragraph{Structural splitting.}
 The top-level structure of the canonical form now corresponds to a term-DAG
 containing only negation, disjunction, equality between Boolean terms,
 if-then-else terms, and terms corresponding to atoms.  To compute CNF from
@@ -467,7 +593,7 @@ The negations produced by this rule might be further simplified using
 an application of this rule.
 
 \begin{mathpar}
-  \inferrule*[left=NotOrElim,right={$j\in I$}]{(not\ (or_{i\in
+  \inferrule*[left=notOr,right={$j\in I$}]{(not\ (or_{i\in
       I}\ t_i))}{(not\ t_j)}\quad
 \end{mathpar}
 
@@ -478,10 +604,10 @@ i.\,e., clauses that are not actually inserted into the clause database of
 \si, but further processed by rewrite rules.  The negations might be
 simplified by \texttt{NotSimp} and an equality folding step.
 \begin{mathpar}
-  \inferrule*[left={=+1}]{(=\ F_1\ F_2)}{(or\ F_1\ (not\ F_2))}\quad
-  \inferrule*[left={=+2}]{(=\ F_1\ F_2)}{(or\ (not\ F_1)\ F_2)}\\
-  \inferrule*[left={=-1}]{(not\ (=\ F_1\ F_2))}{(or\ F_1\ F_2)}\quad
-  \inferrule*[left={=-2}]{(not\ (=\ F_1\ F_2))}{(or\ (not\ F_1)\ (not\ F_2))}\\
+  \inferrule*[left={xor+1}]{(xor\ F_1\ F_2)}{(or\ F_1\ F_2)}\quad
+  \inferrule*[left={xor+2}]{(xor\ F_1\ F_2)}{(or\ (not\ F_1)\ (not\ F_2))}\\
+  \inferrule*[left={xor-1}]{(not\ (xor\ F_1\ F_2))}{(or\ F_1\ (not\ F_2))}\quad
+  \inferrule*[left={xor-2}]{(not\ (xor\ F_1\ F_2))}{(or\ (not\ F_1)\ F_2)}\\
   \inferrule*[left={ite+1}]{(ite\ F_1\ F_2\ F_3)}{(or\ (not\ F_1) F_2)}\quad
   \inferrule*[left={ite+2}]{(ite\ F_1\ F_2\ F_3)}{(or\ F_1 F_3)}\\
   \inferrule*[left={ite-1}]{(not\ (ite\ F_1\ F_2\ F_3))}{(or\ (not\ F_1) (not\ F_2))}\quad
@@ -510,20 +636,81 @@ negated formulas but negates the proxy for the positive formula instead.
 
 \paragraph{Flattening nested disjunctions.}
 Clauses are built from disjunctions.  So far, the proof system does not care
-about nesting of these disjunctions.  However, the \texttt{flatten} rule is
+about nesting of these disjunctions.  However, the \texttt{flatten} rewrite rule is
 used to transform the nested disjunction into one disjunction without the
-nesting.  It works recursively on the nested disjunctions.
-\todo{The way it is implemented right now, it simply replaces a nested or by
-  its arguments in a top-down manner.  While this is nice for the reader, it
-  is unnecessarily complex for the implementation.  Is this order really
-  necessary or can we just move the disjuncts of nested disjunctions to the
-  back of the result?}
+nesting.  It works recursively on the nested disjunctions, but it may skip
+some disjunctions and keep them nested.
+\begin{equation}
+  (or\ (or\ t_1 \cdots) \cdots (or\ (or\ \cdots)) \cdots t_n) = (or\ t_1\cdots t_n)
+  \tag{flatten}
+\end{equation}
+where the $or$ terms on the left-hand side can be nested arbitrarily deep, the
+$t_i$ must appear in the same order on the right-hand side and a $t_i$ can itself
+be an $or$ term again.
 
 \paragraph{Building clauses.}
-The \texttt{intern} rules induces another rewrite system.
-This system is again applied by the equality folding rule \texttt{eq}.  The
-resulting formula might still contain nested disjunctions.  The rule
-\texttt{clause} permutes the resulting clause.
+A literal in \si is represented in the proof by its SMTLIB term.  To
+distinguish between auxiliary literals that stand for a disjunction and
+the clauses themselves, the literals are usually quoted by adding a \verb+:quoted+
+annotation.  We also need to distinguish between equality literals in the
+congruence closure theory and equality literals in LA theory.  We do this
+by quoting the former with \verb+:quotedCC+ and the latter with \verb+:quotedLA+.
+
+The literals are introduced by the rewrite rule (intern).  For example for
+complex terms where the head symbol is in $\{ite, xor, or\}$, we introduce
+a quoted auxiliary literal with the same name.
+
+\begin{equation}
+  t = \annot{t}{:quoted}
+  \quad\text{where $func(t)\in\{ite,xor,or\}$}
+  \tag{intern}
+\end{equation}
+
+When creating equality literals in congruence closure we first check for
+trivial equalities:
+An equality $t_1=t_2$ is trivially $true$ if $t_1$ and $t_2$ are identical.
+If the sort is integer or real, it is trivially $false$ if $t_1 - t_2$ is
+a non zero constant, or in the integer case if it is of the form
+$\sum_{i>0} c_i t_i + c_0$ and the constant $c_0$ does not
+divide the $gcd(c_1,\dots,c_n)$.
+Furthermore the equality literals are normalized, i.e., the sides of the
+equality may be swapped, e.g., if this results in a previously created
+literal. Finally they are quoted.
+\begin{equation}
+  (=\ t_1\ t_2) = \begin{cases} true & \text{if trivially true}\\
+    false & \text{if trivially false}\\
+    \annot{(=\ t_1\ t_2)}{:quotedCC}\\
+    \annot{(=\ t_2\ t_1)}{:quotedCC}
+  \end{cases}
+  \tag{intern}
+\end{equation}
+
+When creating equality literals in linear arithmetic, the first step is
+to divide the affine term $\sum_{i>0} c_i t_i + c_0$ by $gcd(c_1,\dots,c_n)$, the
+gcd of the coefficients of the $t_i$ terms.  For rationals, this is defined such
+that dividing by the gcd results in integer coefficients without a common divisor.
+The sign is normalized, so the term can also be negated.  For rationals, this
+may result in a negated $<$ literal instead of a $<=$ literal.
+For integer inequalities, the constant $c_0/gcd$ is then rounded to the nearest
+integer such that the literal does not change; if it is an equality it is simplified
+to false if $c_0/gcd$ is not an integer.  
+\begin{align}
+  (=\ t\ 0) &= \begin{cases} false & \text{if trivially false}\\
+    \annot{(=\ \cf(t/gcd)\ 0)}{:quotedLA} \\
+    \annot{(=\ \cf(-t/gcd)\ 0)}{:quotedLA}
+  \end{cases}
+  \tag{intern}\\
+  (<=\ t\ 0) &= \begin{cases} 
+    (!\ (<=\ \cf(t/gcd)\ 0)\ :quotedLA) \\
+    (not\ \annot{(<\ \cf(-t/gcd)\ 0)}{:quotedLA}) &\text{(real case)}\\
+    (not\ \annot{(<=\ \cf(-t/gcd + 1)\ 0)}{:quotedLA})& \text{(integer case)}
+  \end{cases}
+  \tag{intern}
+\end{align}
+
+
+This rewrite rules are again applied by the equality folding rule \texttt{eq}.
+The rule \texttt{clause} permutes the resulting clause.
 \begin{mathpar}
 \inferrule*[left=clause]{(or\ t_1\ldots t_n)}{(or\ t_i')}
 \end{mathpar}
@@ -543,7 +730,7 @@ Note that we do not use $0$-ary or unary or-applications.  Instead, we write
 
 \paragraph{Tautologies.}  For some introduced terms a corresponding tautology
 is created during the transformation into CNF.  These tautologies are
-clauses that are annotated with the kind of the tautology.  
+clauses that are annotated with the kind of the tautology.
 
 Table~\ref{tab:tautforms} lists the different kinds of tautologies present
 in \si.  Here, $\quoted{F}$ denotes the proxy
@@ -553,31 +740,42 @@ and $t_F$ denotes the term corresponding to $F$\footnote{In the proof returned
   by \si, $t_F$ and $F$ are equal.  The distinction is only done internally
   since $F$ is a Boolean term handled by the DPLL core and $t_F$ is the term
   used by congruence closure.}.
-\si internally collects the disjunctive parts of the individual formulas.  The
-\texttt{termITE} tautology is also used when term if-then-else trees are
-minimized, i.\,e., when the then- or else-part of the if-then-else is an
-if-then-else again.  Then, only one term might be used and the $t$ in the
-result is one leaf or a shared if-then-else tree that is a sub-term of the
-left-hand-side of the equality.
+\si internally collects the disjunctive parts of the individual formulas.
+
+The \texttt{termITE} tautology defines the meaning of non-boolean
+$ite$ terms.  It can also be used for nested $ite$ terms, i.\,e., when
+the then- or else-part of the ite is an ite again.  We collect a
+literal for every condition $F_i$ on the path from the $ite$ term to
+the subterm $t$ and include it negatively or positively depending on
+whether term $t$ appears in the second or third argument of the $ite$
+term.  We do not necessarily unfold all nested $ite$ terms, i.\,e., the
+subterm $t$ can be another $ite$ term, e.\,g., because it occurs
+multiple times in the formula.
+For the \texttt{termITEBound} the $min()$ and $max()$
+functions are computed at pre-processing time.  These axioms are only
+instantiated if all branches in the nested ite term only differ by
+constants.
 \begin{table}[htbp]
   \begin{tabular}{l|l}
     Kind & Clause\\\hline
     trueNotFalse & $true\neq false$\\
     or+ & $\neg\quoted{F_1\lor \ldots \lor F_n}\lor F_1\lor \ldots\lor F_n$\\
     or- & $\quoted{F_1\lor \ldots \lor F_n}\lor \neg F_i$\\
-    ite+1 & $\neg\quoted{if F_1 then F_2 else F_3}\lor\neg F_1\lor F_2$\\
-    ite+2 & $\neg\quoted{if F_1 then F_2 else F_3}\lor F_1\lor F_3$\\
-    ite+Red & $\neg\quoted{if F_1 then F_2 else F_3}\lor F_2\lor F_3$\\
-    ite-1 & $\quoted{if F_1 then F_2 else F_3}\lor\neg F_1\lor\neg F_2$\\
-    ite-2 & $\quoted{if F_1 then F_2 else F_3}\lor F_1\lor\neg F_3$\\
-    ite-Red & $\quoted{if F_1 then F_2 else F_3}\lor\neg F_2\lor\neg F_3$\\
-    =+1 & $\neg\quoted{F_1=F_2}\lor F_1\lor\neg F_2$\\
-    =+2 & $\neg\quoted{F_1=F_2}\lor\neg F_1\lor F_2$\\
-    =-1 & $\quoted{F_1=F_2}\lor F_1\lor F_2$\\
-    =-2 & $\quoted{F_1=F_2}\lor\neg F_1\lor\neg F_2$\\
+    ite+1 & $\neg\quoted{ite\ F_1\ F_2\ F_3}\lor\neg F_1\lor F_2$\\
+    ite+2 & $\neg\quoted{ite\ F_1\ F_2\ F_3}\lor F_1\lor F_3$\\
+    ite+Red & $\neg\quoted{ite\ F_1\ F_2\ F_3}\lor F_2\lor F_3$\\
+    ite-1 & $\quoted{ite\ F_1\ F_2\ F_3}\lor\neg F_1\lor\neg F_2$\\
+    ite-2 & $\quoted{ite\ F_1\ F_2\ F_3}\lor F_1\lor\neg F_3$\\
+    ite-Red & $\quoted{ite\ F_1\ F_2\ F_3}\lor\neg F_2\lor\neg F_3$\\
+    xor+1 & $\neg\quoted{xor\ F_1\ F_2}\lor F_1\lor F_2$\\
+    xor+2 & $\neg\quoted{xor\ F_1\ F_2}\lor\neg F_1\lor\neg F_2$\\
+    xor-1 & $\quoted{xor\ F_1\ F_2}\lor F_1\lor\neg F_2$\\
+    xor-2 & $\quoted{xor\ F_1\ F_2}\lor\neg F_1\lor F_2$\\
     excludedMiddle1 & $\neg F\lor t_F = true$\\
     excludedMiddle2 & $F\lor t_F = false$\\
-    termITE & $\neg F_1\lor\ldots\lor\neg F_n if F then t_1 else t_2 = t$\\
+    termITE & $(\neg) F_1\lor\ldots\lor(\neg) F_n \lor (ite\ F_1 (ite\ F_2 \cdots (ite\ F_n\ t\ \_)\cdots)) = t$\\
+    termITEBounds & $(ite F\ (ite \dots t_1 \dots t_n)) - max(t_i) \leq 0$\\
+     & $min(t_i) -(ite\ F (ite \dots t_1 \dots t_n)) \leq 0$\\
     divLow & $d\cdot (x\div d) - x \leq 0$\\
     divHigh & $\neg (|d| - x + d\cdot (x\div d)\leq 0)$\\
     toIntLow & $to\_real(to\_int(x)) - x \leq 0$\\
@@ -588,6 +786,206 @@ left-hand-side of the equality.
   \end{tabular}
   \caption{\label{tab:tautforms}Different Kinds of Tautology Clauses.}
 \end{table}
+
+\subsection{Theory Lemmas}
+Theory lemmas are tautological clauses that follow from one of the
+theories.  In \si we have the theories of Congruence Closure, Linear
+Arithmetic, and Arrays.  Furthermore there is a Nelson-Oppen theory
+that translates equalities from congruence closure to linear
+arithmetic.
+
+A lemma is created by the \verb+@lemma+ function, which takes as
+argument the proved clause that is annotated with some theory specific
+annotations.
+\begin{verbatim}
+:funs ((@lemma bool @Proof))
+\end{verbatim}
+
+\paragraph{Congruence Closure}
+
+There are only two kinds of rules for congruence closure: transitivity
+and congruence.  A transitivity proves a lemma of the form ${t_1 = t_2}
+\land \cdots\land {t_{n-1}= t_n} \rightarrow {t_1 = t_n}$ and is
+represented by an SMTLIB term as follows:
+
+\begin{verbatim}
+(@lemma (! (or (! (= t1 tn) :quotedCC)
+               (not (! (= t1 t2) :quotedCC)) ...
+               (not (! (= tn-1 tn) :quotedCC)))
+  :CC ((= t1 tn) :subpath (t1 t2 ... tn))))
+\end{verbatim}
+
+The annotation \verb+:CC+ marks this as a congruence closure lemma.
+Note that the \verb+:subpath+ annotation is part of the argument for
+\verb+:CC+.  Its first item in the annotation is the proved equality,
+which should occur positively in the clause.  It does not appear in
+the clause if the equality is trivially false, e.g. $x = x+1$ or $2x =
+2y+1$ where $x,y$ are integer.  The subpath explains why the proved
+equality follows from the other equalities and for each adjacent terms
+in the path the corresponding negated equality must exists in the
+clause.  The literals in the clause can appear in any order, and the
+arguments of the equality literals can be swapped.
+
+The other type of lemma proves a congruence of the form $f(t_1, \dots,
+t_n)\neq f(t'_1,\dots,t'_n) \lor t_1=t_1' \lor \cdots \lor t_n=t_n'$.
+It is represented very similarly by the following SMTLIB term.
+
+\begin{verbatim}
+(@lemma (! (or (! (= (f t1...tn) (f t'1...t'n) :quotedCC))
+               (not (! (= t1 t'1) :quotedCC)) ...
+               (not (! (= tn t'n) :quotedCC)))
+    :CC ((= (f t1...tn) (f t'1...t'n)) 
+         :subpath ((f t1...tn) (f t'1...t'n))
+\end{verbatim}
+
+Again first argument of the annotation is the proved equality, which
+should occur in the clause.  The subpath contains only two
+elements (transitivity always needs more than two elements).  If $t_i$
+and $t'_i$ are identical, there is no corresponding negated equality
+literal in the clause.  Again, the literals in the clause can appear
+in any order, and the arguments of the equality literals can be
+swapped.
+
+\paragraph{Array Lemma}
+\todo{cite weak equivalence paper, and const, present rules}
+
+\begin{verbatim}
+(@lemma (! (or (! (= (select a i) (select b j)) :quotedCC) 
+               (not (! (= i j) :quoted CC)) ...)
+  :read-over-weakeq ((= (select a i) (select b j))
+                     :weakpath (i (a ... b)))))
+\end{verbatim}
+The negated equality $i\neq j$ is omitted if $i$ and $j$ are identical.
+For any two adjacent terms in the weak path of this lemma, there must be either
+(1) a corresponding negated equality in the clause, or (2) one of the term must be of
+the form $(store\ a k \cdot)$ where $a$ is the other term and there is must be
+a (non-negated) equality $i=k$ in the clause (i.e., the conflict guarantees $i\neq k$).
+The equality $i=k$ is omitted if it is trivially false, e.g., for $k = i+1$.
+
+\begin{verbatim}
+(@lemma (! (or (! (= (select a i) v) :quotedCC) ...)
+  :read-const-weakeq ((= (select a i) v)
+                      :weakpath (i (a ... const v)))))
+\end{verbatim}
+Again, for any two adjacent terms in the weak path of this lemma, there must be either
+(1) a corresponding negated equality in the clause, or (2) one of the term must be of
+the form $(store\ a k \cdot)$ where $a$ is the other term and there is must be
+a (non-negated) equality $i=k$ in the clause (i.e., the conflict guarantees $i\neq k$).
+The equality $i=k$ is omitted if it is trivially false, e.g., for $k = i+1$.
+Note: For \verb+:read-const-weakeq+, if $a = (const\ v)$, the weak path
+contains only one element.  This is the only reason why one can have a
+path of length one.
+\begin{verbatim}
+(@lemma (! (or (! (= a b) :quotedCC) ...)
+  :weakeq-ext ((= a b)
+               :subpath (a ... b)
+               :weakpath (i1 (a ... b))...
+               :weakpath (in (a ... b)))))
+\end{verbatim}
+For any two adjacent terms in the sub path of this lemma, there must be either
+(1) a corresponding negated equality in the clause, or (2) one of the term must be of
+the form $(store\ a i_j \cdot)$ where $a$ is the other term and there is a corresponding
+weak path on index $i_j$.  For each adjecent terms $t_1,t_2$ in the weak path, there must be
+(1) a corresponding negated equality in the clause, or (2) one of the term must be of
+the form $(store\ a k \cdot)$ where $a$ is the other term and there is a
+(non-negated) equality $i_j=k$ in the clause (i.e., the conflict guarantees $i_j\neq k$),
+(3) some $i,j$ exists such that the clause contains the negated equalities
+$i_k\neq i$, $i_k\neq j$, and $(select\ t_1\ i) \neq (select\ t_2\ j)$, or
+(4) $t_2 = (const\ v)$ and $i$ exists such that the clause contains
+$i_k\neq i$ and $(select\ t_1\ i) \neq v$ (or analogously for $t_1=(const\ v)$.
+Note that in case (3) and (4) the term for which $(select t i)$ should exists, can itself
+be a const term.  There is no annotation giving the terms $i,j$ in case (3) or (4); these
+must be found by checking all disequalities involving $select$ terms.
+Again, the equality $i=k$ is omitted if it is trivially false, e.g., for $k = i+1$ and the
+disequality $i_k \neq i$ is omitted if the indices are identical.
+
+\begin{verbatim}
+(@lemma (! (or (! (= (const v) (const v')) :quotedCC) ...)
+  :const-weakeq ((= (const v) (const v'))
+                 :subpath ((const v) ... (const v')))))
+\end{verbatim}
+For any two adjacent terms in the subpath of this lemma, there must be either
+a corresponding negated equality in the clause, or one of the term must be of
+the form $(store\ a \cdot \cdot)$, where $a$ is the other term.
+\todo{This is not yet implemented exactly like this.  read-over-weakeq
+  still have a strong path for i=j of length 2.  We may include some more
+  trivial strong paths of length 2.}
+
+
+\paragraph{Linear Arithmetic}
+
+A linear arithmetic lemma proves the contradiction of linear
+inequalites $t_1\leq 0\land \dots\land t_n\leq 0 \rightarrow false$, if
+there are coefficients $c_1,\dots,c_n > 0$ such that $\sum c_it_i$ is
+a negative constant.  The sum can also be zero, if at least one of the
+inequalities is strict.  We also allow equalities to occur in the
+conflict.
+
+Since a theory lemma is a negated conflict, the literals occur negated
+in the clause.  However a negated literal is again an inequality and
+$t_1\leq 0$ can also be represented as $\neg (-t_1 <0)$, in which case
+the negated literal is $(<\ -t_1\ 0)$.  In this case we use a negative
+constant $c_i$, so that we can multiply $c_i$ with the term occuring
+in the formula.  So if a inequality literal occurs negated in the
+clause, $c_i$ must be positive, if it occurs positive in the clause
+$c_i$ must be negative.  Equality literals may only occur negated in
+the clause (positive in the conflict) and for them only $c_i\neq 0$ is
+required.  An LA lemma is annotated by the constants $c_i$ in the same
+order as the literals in the lemma.  For example if $t_1 + t_2 - t_3 =
+0$, the following lemma explains why $t_1 < 0 \land t_2 = 0 \land t_3
+>= 0$ is unsatisifiable.
+\begin{verbatim}
+(@lemma (! (or (not (! (< t1 0) :quotedLA)
+               (not (! (= t2 0) :quotedLA)
+               (! (< t3 0) :quotedLA))
+  :LA (1 1 (- 1))))))
+\end{verbatim}
+
+For integer arithmetic, if a literal occurs positively in the clause as
+as $(<=\ t_i\ 0)$, one needs to take care that the negation is
+$(<= (-t_i+1)\ 0)$, so the term $c_i(t_i - 1)$ is added instead
+of $c_i t_i$.  This is also the case in mixed integer and real arithmetic,
+if the literal contains only integer variables.
+
+A positive equality literal can only appear in a trichotomy lemma.
+This lemma explains $t \leq 0 \rightarrow t < 0 \lor t=0$ and has the form
+\begin{verbatim}
+(@lemma (! (or (! (< t 0) :quotedLA)
+               (! (= t 0) :quotedLA)
+               (not (! (<= t 0) :quotedLA))) :trichotomy))
+\end{verbatim}
+The literals may appear in any order in the clause.  For integer
+arithmetic the literals never use $<$ and the lemma has the form.
+\begin{verbatim}
+(@lemma (! (or (! (<= "t+1" 0) :quotedLA)
+               (! (= t 0) :quotedLA)
+               (not (! (<= t 0) :quotedLA))) :trichotomy))
+\end{verbatim}
+Here \verb|"t+1"| stands for the canonical form of $t+1$.
+
+There are no cut lemmas in \si.  Instead \si uses extended branches on
+linear integer terms.  Branching is not part of any theory lemma and
+is handled by the resolution proof.
+
+\paragraph{Nelson-Oppen Combination}
+
+These lemmas are a bit special as they are created by linear
+arithmetic and by congruence closure to propagate equalities to the
+other theory.  We use slightly different representation of equalities
+in these theories.  As explained earlier in congruence closure an
+equality $t_1=t_2$ is represented as $(!\ (=\ t_1\ t_2)\ :quotedCC)$,
+while in congruence closure it is
+$(!\ (=\ \cf_{gcd}(t_1-t_2)\ 0)\ :quotedLA)$.
+To connect these literals, we use Nelson-Oppen theory lemmas of the form.
+\begin{verbatim}
+(@lemma (! (or (! (= t1 t2) :quotedCC)
+               (not (! (= "t1-t2" 0) :quotedLA)))
+  :EQ))
+\end{verbatim}
+This propagates an equality from linear arithmetic to congruence
+closure.  A similar lemma where the literals occur in the opposite
+polarity is created to propagate an equality from congruence closure
+to linear arithmetic.
 
 \section{Implementation}
 After presenting the set of rules used by \si, we now describe some
@@ -630,7 +1028,7 @@ following proof rules.
 The proof tree consist of three parts:
 \begin{enumerate}
 \item transforming input into canonical form,\label{it:tocan}
-\item transforming canoncial form into clausal form,\label{it:tocnf} and
+\item transforming canonical form into clausal form,\label{it:tocnf} and
 \item the resolution proof\label{it:resproof}.
 \end{enumerate}
 The proof tree structure will correspond to this ordering.
@@ -639,13 +1037,13 @@ The proof tree structure will correspond to this ordering.
   \inferrule*[Left=Eq]{
     \inferrule*[Left=split]{
     \inferrule*[Left=Eq]{
-      F_{input} \\ (=\ t_i\ t_i')}
+      F_{input} \\ \text{rewrites}}
                {F_{canonical}}}{(or_{j\in J_1}\ t_j)} \\ (=\ t_j\ t_j')}{(or\ t_i)}
   \\ \ldots \\
   \inferrule*[Left=eq]{
     \inferrule*[Left=split]{
       \inferrule*[Left=Eq]{
-        F_{input} \\ (=\ t_i\ t_i')}
+        F_{input} \\ \text{rewrites}}
                  {F_{canonical}}}{(or_{j\in J_n}\ t_j)} \\ (=\ t_j\ t_j')}{(or\ t_i)}
   \\ \mathcal{T}\!-lemmas
 }{\bot}
@@ -689,9 +1087,7 @@ the proof tree, \si uses the \verb+@rewrite+ function which introduces a
 Boolean formula $old = new$ to rewrite all occurrences of $old$ in a formula
 into $new$.  The function has signature $Bool\rightarrow @Proof$.  The
 argument to the \verb+@rewrite+ function is annotated with the name of the
-rewrite axiom used.  Similarly to \verb+@rewrite+, the \verb+@intern+ function
-introduces rewrite equalities.  It has the same signature, but the Boolean
-term will not be annotated.
+rewrite axiom used.
 
 \paragraph{Structural Splitting.}  If the Boolean structure of the input is
 more complex and cannot be transformed into disjunctive form during
@@ -713,7 +1109,7 @@ equality rewrite that replaces the double negation.
 rewrites to a proof.  This function is left-associative and has signature
 $@Proof\times@Proof\rightarrow @Proof$.  This signature, however, is not
 strong enough to express all details.  The second proof is a proof of a
-rewrite equality that is introduced with \verb+@rewrite+ or \verb+@intern+
+rewrite equality that is introduced with \verb+@rewrite+
 while the first proof can be \verb+@asserted+ or a derivation sequence.
 
 \paragraph{Creating literals}  After converting an input formula in canonical
@@ -721,36 +1117,18 @@ form and possibly splitting it, \si creates clauses.  The input to this
 process is a (possibly nested) disjunction.  For every disjunct, a literal
 will be created.  This literal should replace the term in the (flattened)
 clause.  We distinguish different kinds of literals, but all literals are
-introduced into the proof tree using the \verb+@intern+ function with
-signature $Bool\rightarrow @Proof$.  Essentially, this function is the
-justification for another rewrite axiom.
+introduced into the proof tree using the (intern) rewrite rule with.
 
-Depending on the literal, the \verb+@intern+ function might have different
-effects:
-\begin{description}
-\item[Proxy Literal] For a proxy literal, the term is simply wrapped by the
-  annotation \verb+:quoted+.
-\item[Equalities] An equality $(=\ t_1\ t_2)$ might be transformed into
-  $(=\ t_2\ t_1)$ by an implicit application of symmetry.  This usually
-  happens to unify two literals, i.\,e., when a literal for the latter form
-  already exists.  If the equality is a numeric equality, it might be
-  transformed into its numeric form $(=\ (-\ t_1\ t_2)\ 0)$.  Note that during
-  this conversion, arithmetic simplification and symmetry might be used.
+Depending on the literal, the (intern) function basically quotes the literals
+with a \texttt{:quoted}, \texttt{:quotedCC}, or \texttt{:quotedLA} annotation.
+It also does some literal simplification, see the previous section.
 
-  The equality might be transformed to $true$ if it holds trivially, or
-  $false$ if it cannot hold trivially (e.\,g., $x=x+1$) or due to a failed GCD
-  test over the integers (e.\,g., $2x=1$).  In these cases, no literal will be
-  created.
-\item[Inequalities] Inequalities of the form $(<=\ t\ 0)$ will be transformed
-  into inequality literals of the form $(<=\ t'\ 0)$ where $t'=t$ is the
-  result of applying commutativity to (sub-terms of) $t$.
-\end{description}
-
-\paragraph{Tautologies.}  Various constructs create tautologies during the
-transformation into CNF.  These tautologies are clauses that are annotated
-with the kind of the tautology.  The \verb+@tautology+ function transforms a
-clause annotated with the kind of tautology into a proof.  The function has
-signature $Bool\rightarrow @Proof$.
+\paragraph{Tautologies.}  For complex formulas we create auxiliary literals.
+These literals are defined by tautology clauses.  These clauses are build from
+a tautology axiom which is usually already in CNF.  The \verb+@tautology+
+function introduces a proof term for a tautology.  The function has
+signature $Bool\rightarrow @Proof$, where the argument is the introduced
+tautology.
 
 \paragraph{Lemmas.}  The resolution proof produced by \si contains lemmas
 created by theory solvers.  These lemmas are valid Boolean terms.  The
@@ -759,17 +1137,12 @@ signature $Bool\rightarrow @Proof$.
 
 The lemmas are annotated with a theory identifier and further,
 theory-specific annotations.  The theory identifiers currently supported are
-\verb+LA+ and \verb+CC+.  Proofs from the LA-solver additionally carry the
-coefficients used by the solver when applying Farkas' lemma to the input
-problem.  The coefficients are given in the same order the negated literals
-appear in the lemma.  Proofs from congruence closure are annotated with the
-paths through the congruence graph and, optionally, a disequality that is
-violated.
-
-Some lemmas might be annotated with \verb+:trichotomy+.  This annotation is
-used for a clause of the form $t_1=t_2\lor t_1<t_2\lor t_1 > t_2$.  Note that
-this clause is a special form of theory lemma that justifies a case split in
-the linear arithmetic solver if $t_1$ and $t_2$ are not equal.
+\verb+trichotomy+, \verb+LA+, \verb+CC+, \verb+EQ+ (for Nelson-Oppen combination), and
+\verb+read-over-weakeq+, \verb+read-const-weakeq+, \verb+weakeq-ext+,
+and \verb+const-weakeq+.  Proofs additionally carry some information, such
+as in the case of linear arithmetic the coefficients used by the solver
+when applying Farkas' lemma to the input
+problem.
 
 \paragraph{Creating clauses.}  The final step in the conversion of an input
 formula into CNF is the creation of clauses from disjunctive parts of the
@@ -781,8 +1154,8 @@ clause for this disjunction.  First, if needed, the disjunction is flattened.
 This replaces all nested disjunctions by their disjuncts.  Then, the
 individual disjuncts are replaced by literals.  This step is justified by the
 \verb+@eq+-rule that applies the rewrite system whose rewrite rules are stated
-by \verb+@intern+-axioms.   Note that \verb+@intern+ might rewrite a formula
-into a negated formula.  If this is the case and the resulting literal should
+by (intern).   Note that (intern) might rewrite a formula
+into a negated formula.  If this is the case and the resulting literal will
 be negated once more, \si will add a negation simplification rewrite.
 Furthermore, some disjuncts might be internalized to false\footnote{Currently
   this only happens for unsatisfiable integer equalities, e.~g., $2x=1$} and
@@ -822,7 +1195,7 @@ We assume the formula is given in SMTLIB syntax as
 (and (= (* 2 x) z) (= (+ (* 2 y) 1) z))
 \end{verbatim}
 
-The axiom \texttt{AndToOr} produces the equality
+The rewrite rule (andToOr) produces the equality
 \[
 (and (=\ (*\ 2\ x)\ z)\ (=\ (+\ (*\ 2\ y)\ 1)\ z)) =
 (not (or (not (=\ (*\ 2\ x)\ z))\ (not (=\ (+\ (*\ 2\ y)\ 1)\ z))))
@@ -840,8 +1213,8 @@ present the proof for the creation of a clause from the first ``conjunct''
 since the steps for the second are similar.
 \[
 \inferrule*[Left=Eq,sep=.1em]{
-  \inferrule*[left=NotOrElim]{(\ref{f:canonical})}{(not (not (= (*\ 2\ x) z)))}\\
-  \inferrule*[left=NotSimp]{ }{(not (not (= (*\ 2\ x) z))) =
+  \inferrule*[left=notOr]{(\ref{f:canonical})}{(not (not (= (*\ 2\ x) z)))}\\
+  \inferrule*[left=notSimp]{ }{(not (not (= (*\ 2\ x) z))) =
     (= (*\ 2\ x)\ z)}}
            {(=\ (*\ 2\ x)\ z)}
 \]
@@ -851,7 +1224,7 @@ atom.  Since we have a unit, the rule \texttt{clause} will not be used to
 build the unit clause, and \si only applies \texttt{Eq}.
 \[
 \inferrule*[left=Eq]{(=\ (*\ 2\ x)\ z) \\
-  \inferrule*[left=intern]{ }{(=\ (*\ 2\ x)\ z) = (=\ (+\ (*\ (-\ 2)\ x)\ z)\ 
+  \inferrule*[left=intern]{ }{(=\ (*\ 2\ x)\ z) = (=\ (+\ (*\ (-\ 2)\ x)\ z)\
     0)}}
            {(=\ (+\ (*\ (-\ 2)\ x)\ z)\ 0)}
 \]
@@ -864,7 +1237,7 @@ corresponds to the previous steps.
 \begin{verbatim}
 (@eq
   (@split
-    (! 
+    (!
      (@eq
       (@asserted (and (= (* 2 x) z) (= (+ (* 2 y) 1) z)))
       (@rewrite (! (= (and (= (* 2 x) z) (= (+ (* 2 y) 1) z))
@@ -875,12 +1248,9 @@ corresponds to the previous steps.
   )
   (@trans
     (@rewrite (! (= (not (not (= (* 2 x) z))) (= (* 2 x) z)) :notSimp))
-    (@intern (= (= (* 2 x) z) (! (= (+ z (* (- 2) x)) 0) :quoted)))))
+    (@rewrite (! (= (= (* 2 x) z) (! (= (+ z (* (- 2) x)) 0) :quotedLA)) :intern))))
 \end{verbatim}
 
-For a proof containing the rule \verb:flatten: and the \verb:@clause: function
-simply use the formula $(A\lor(B\lor(C\lor\bot)))\land\lnot A\land\lnot
-B\land\lnot C$.
 \end{document}
 
 %% Local Variables:

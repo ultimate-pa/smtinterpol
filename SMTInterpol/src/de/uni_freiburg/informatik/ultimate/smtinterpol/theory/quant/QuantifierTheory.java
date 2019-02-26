@@ -316,7 +316,7 @@ public class QuantifierTheory implements ITheory {
 				throw new UnsupportedOperationException("Term " + term + " not in almost uninterpreted fragment!");
 			}
 			// We can either do destructive equality reasoning later (if !positive), or build an aux axiom.
-			SMTAffineTerm remainderAffine = new SMTAffineTerm(summands, constant, term.getSort());
+			SMTAffineTerm remainderAffine = new SMTAffineTerm(summands, constant);
 			if (leftVar != null) {
 				remainderAffine.negate();
 			}
@@ -436,7 +436,7 @@ public class QuantifierTheory implements ITheory {
 		} else {
 			final boolean hasLowerBound = (upper != null);
 			final TermVariable var = hasLowerBound ? upper : lower;
-			SMTAffineTerm boundAffine = new SMTAffineTerm(summands, constant, term.getSort());
+			SMTAffineTerm boundAffine = new SMTAffineTerm(summands, constant);
 			// Isolate variable by bringing bound to the other side
 			if (positive != hasLowerBound) { // for rewriting ~(x-t<=0) into ~(x<=t) and (x-t<=0) into ~(t+1<=x)
 				boundAffine.negate();

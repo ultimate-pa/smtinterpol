@@ -38,7 +38,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClauseState;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.MutableAffinTerm;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.MutableAffineTerm;
 
 /**
  * This class takes care of clause, literal and term instantiation.
@@ -284,7 +284,7 @@ public class InstantiationManager {
 					strict = true;
 				}
 				final SMTAffineTerm sum = new SMTAffineTerm(atomProxy.getParameters()[0]);
-				final MutableAffinTerm at = mClausifier.createMutableAffinTerm(sum, clause.getSource());
+				final MutableAffineTerm at = mClausifier.createMutableAffinTerm(sum, clause.getSource());
 				inst = mQuantTheory.mLinArSolve.generateConstraint(at, strict);
 			}
 			if (isNeg) {
@@ -450,7 +450,7 @@ public class InstantiationManager {
 				summands.put(instSummand, factor);
 			}
 		}
-		return new SMTAffineTerm(summands, euAffine.getConstant(), euAffine.getTerm().getSort());
+		return new SMTAffineTerm(summands, euAffine.getConstant());
 	}
 
 	/**
