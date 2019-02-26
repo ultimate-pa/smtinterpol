@@ -1744,16 +1744,18 @@ public class Clausifier {
 			 * If we do not setup the cclosure at the root level, we remove it with the corresponding pop since the
 			 * axiom true != false will be removed from the assertion stack as well.
 			 */
+			// we don't want to call getSharedTerm here, as this would create the excluded middle axioms.
 			mSharedTrue = new SharedTerm(this, mTheory.mTrue);
 			mSharedTrue.mCCterm = mCClosure.createAnonTerm(mSharedTrue);
 			mSharedTerms.put(mTheory.mTrue, mSharedTrue);
 			mSharedFalse = new SharedTerm(this, mTheory.mFalse);
 			mSharedFalse.mCCterm = mCClosure.createAnonTerm(mSharedFalse);
 			mSharedTerms.put(mTheory.mFalse, mSharedFalse);
-			final Literal atom = mCClosure.createCCEquality(mStackLevel, mSharedTrue.mCCterm, mSharedFalse.mCCterm);
+			final SourceAnnotation source = SourceAnnotation.EMPTY_SOURCE_ANNOT;
+			final Literal atom = createEqualityProxy(mSharedTrue, mSharedFalse).getLiteral(source);
 			final Term trueEqFalse = mTheory.term("=", mTheory.mTrue, mTheory.mFalse);
 			final Term axiom = mTracker.auxAxiom(mTheory.not(trueEqFalse), ProofConstants.AUX_TRUE_NOT_FALSE);
-			final BuildClause bc = new BuildClause(axiom, SourceAnnotation.EMPTY_SOURCE_ANNOT);
+			final BuildClause bc = new BuildClause(axiom, source);
 			ClauseCollector collector = new ClauseCollector(bc, mTracker.reflexivity(mTracker.getProvedTerm(axiom)), 1);
 			Term rewrite = mTracker.intern(trueEqFalse, atom.getSMTFormula(mTheory, true));
 			rewrite = mTracker.congruence(mTracker.reflexivity(mTheory.not(trueEqFalse)), new Term[] { rewrite });
