@@ -512,13 +512,6 @@ public class Clausifier {
 					pushOperation(new AddAsAxiom(split, mSource));
 					return;
 				}
-			} else if (term instanceof QuantifiedFormula) {
-				final QuantifiedFormula qf = (QuantifiedFormula) term;
-				assert qf.getQuantifier() == QuantifiedFormula.EXISTS;
-
-				final Term converted = convertQuantifiedSubformula(positive, qf);
-				pushOperation(new AddAsAxiom(converted, mSource));
-				return;
 			}
 			buildClause(mTerm, mSource);
 		}
@@ -672,6 +665,67 @@ public class Clausifier {
 		}
 	}
 
+	private class ClauseCollector implements Operation {
+		private final BuildClause mClause;
+		private final ClauseCollector mCollector;
+		private final Term mRewriteProof;
+		private final Term[] mSubRewrites;
+		private int mNumRewritesSeen;
+
+		public ClauseCollector(BuildClause clause, Term rewrite, int numArgs) {
+			mClause = clause;
+			mCollector = null;
+			mRewriteProof = rewrite;
+			mSubRewrites = new Term[numArgs];
+		}
+
+		public ClauseCollector(ClauseCollector parent, Term rewrite, int numArgs) {
+			mClause = parent.getClause();
+			mCollector = parent;
+			mSubRewrites = new Term[numArgs];
+			mRewriteProof = rewrite;
+		}
+
+		public BuildClause getClause() {
+			return mClause;
+		}
+
+		public SourceAnnotation getSource() {
+			return mClause.getSource();
+		}
+
+		public void addRewrite(final Term rewrite) {
+			assert rewrite != null;
+			mSubRewrites[mNumRewritesSeen++] = rewrite;
+		}
+
+		public void addLiteral(final LiteralProxy lit, final Term rewrite) {
+			addRewrite(rewrite);
+			mClause.addLiteral(lit);
+		}
+
+		public void perform() {
+			if (mClause.mIsTrue) {
+				return;
+			}
+			assert mNumRewritesSeen == mSubRewrites.length;
+			Term rewrite;
+			if (mSubRewrites.length == 1) {
+				rewrite = mTracker.transitivity(mRewriteProof, mSubRewrites[0]);
+			} else {
+				rewrite = mTracker.congruence(mRewriteProof, mSubRewrites);
+				mClause.addFlatten(mTracker.getProvedTerm(rewrite));
+			}
+
+			if (mCollector == null) {
+				mClause.buildClause(rewrite);
+			} else {
+				mCollector.addRewrite(rewrite);
+			}
+		}
+	}
+
+
 	/**
 	 * Collect literals to build a clause.
 	 *
@@ -679,9 +733,9 @@ public class Clausifier {
 	 */
 	private class CollectLiterals implements Operation {
 		private final Term mTerm;
-		private final BuildClause mCollector;
+		private final ClauseCollector mCollector;
 
-		public CollectLiterals(final Term term, final BuildClause collector) {
+		public CollectLiterals(final Term term, final ClauseCollector collector) {
 			assert term.getSort() == mTheory.getBooleanSort();
 			mTerm = term;
 			mCollector = collector;
@@ -703,11 +757,11 @@ public class Clausifier {
 			}
 			if (mTerm == theory.mFalse) {
 				mCollector.addRewrite(rewrite);
-				mCollector.setSimpOr();
+				mCollector.getClause().setSimpOr();
 				return;
 			}
 			if (mTerm == theory.mTrue) {
-				mCollector.setTrue();
+				mCollector.getClause().setTrue();
 				return;
 			}
 			if (idx instanceof ApplicationTerm) {
@@ -717,9 +771,9 @@ public class Clausifier {
 					// --> dont create a literal for the current term
 					// (i.e. only the EPR-theory, not the DPLLEngine, will know it)
 					final DPLLAtom eprAtom =
-							mEprTheory.getEprAtom((ApplicationTerm) idx, 0, mStackLevel, mCollector.mSource);
+							mEprTheory.getEprAtom((ApplicationTerm) idx, 0, mStackLevel, mCollector.getSource());
 
-					mCollector.addDpllLiteral(positive ? eprAtom : eprAtom.negate(), mTerm);
+					mCollector.addLiteral(new LiteralProxy(positive ? eprAtom : eprAtom.negate()), mTerm);
 					return;
 				}
 				// alex (end)
@@ -730,10 +784,11 @@ public class Clausifier {
 				QuantLiteral quantLit;
 				Term atomRewrite = null;
 				if (positive && at.getFunction() == theory.mOr && mTerm.mTmpCtr <= Config.OCC_INLINE_THRESHOLD) {
-					mCollector.addFlatten(at);
 					final Term[] params = at.getParameters();
+					ClauseCollector subCollector = new ClauseCollector(mCollector, rewrite, params.length);
+					pushOperation(subCollector);
 					for (int i = params.length - 1; i >= 0; i--) {
-						pushOperation(new CollectLiterals(params[i], mCollector));
+						pushOperation(new CollectLiterals(params[i], subCollector));
 					}
 					return;
 				}
@@ -748,12 +803,11 @@ public class Clausifier {
 					final Term rhs = at.getParameters()[1];
 
 					if (quantified) {
-						quantLit = mQuantTheory.getQuantEquality(at, positive, mCollector.mSource, lhs, rhs);
-						lit = new LiteralProxy(idx, quantLit); // diseqs will be used for DER
-						// TODO Proof production
+						quantLit = mQuantTheory.getQuantEquality(at, positive, mCollector.getSource(), lhs, rhs);
+						lit = new LiteralProxy(quantLit); // diseqs will be used for DER
 					} else {
-						final SharedTerm slhs = getSharedTerm(lhs, mCollector.mSource);
-						final SharedTerm srhs = getSharedTerm(rhs, mCollector.mSource);
+						final SharedTerm slhs = getSharedTerm(lhs, mCollector.getSource());
+						final SharedTerm srhs = getSharedTerm(rhs, mCollector.getSource());
 						final EqualityProxy eq = createEqualityProxy(slhs, srhs);
 						// eq == true and positive ==> set to true
 						// eq == true and !positive ==> noop
@@ -761,7 +815,7 @@ public class Clausifier {
 						// eq == false and positive ==> noop
 						if (eq == EqualityProxy.getTrueProxy()) {
 							if (positive) {
-								mCollector.setTrue();
+								mCollector.getClause().setTrue();
 							} else {
 								// rewrite (= (= lhs rhs) true)
 								rewrite =
@@ -769,7 +823,7 @@ public class Clausifier {
 								// rewrite (= (not true) false)
 								rewrite = mUtils.convertNot(rewrite);
 								mCollector.addRewrite(rewrite);
-								mCollector.setSimpOr();
+								mCollector.getClause().setSimpOr();
 							}
 							return;
 						}
@@ -777,35 +831,30 @@ public class Clausifier {
 							if (positive) {
 								rewrite = mTracker.transitivity(rewrite, mTracker.intern(at, theory.mFalse));
 								mCollector.addRewrite(rewrite);
-								mCollector.setSimpOr();
+								mCollector.getClause().setSimpOr();
 							} else {
-								mCollector.setTrue();
+								mCollector.getClause().setTrue();
 							}
 							return;
 						}
 						groundLit = eq.getLiteral(mCollector.getSource());
-						atomRewrite = mTracker.intern(at, groundLit.getSMTFormula(theory, true));
-						lit = new LiteralProxy(idx, groundLit);
+						lit = new LiteralProxy(groundLit);
 					}
 				} else if (at.getFunction().getName().equals("<=")) {
 					// (<= SMTAffineTerm 0)
 					if (quantified) {
 						final Term linTerm = at.getParameters()[0];
 						quantLit = mQuantTheory.getQuantInequality(at, positive, mCollector.getSource(), linTerm);
-						// TODO Proof production.
-						lit = new LiteralProxy(idx, quantLit);
+						lit = new LiteralProxy(quantLit);
 					} else {
 						groundLit = createLeq0(at, mCollector.getSource());
-						atomRewrite = mTracker.intern(at, groundLit.getSMTFormula(theory, true));
-						lit = new LiteralProxy(idx, groundLit);
+						lit = new LiteralProxy(groundLit);
 					}
 				} else if (!at.getFunction().isInterpreted() || at.getFunction().getName().equals("select")) {
 					if (quantified) {
 						lit = createBooleanLit(at, mCollector.getSource());
-						// TODO Proof production.
 					} else {
 						lit = createBooleanLit(at, mCollector.getSource());
-						atomRewrite = mTracker.intern(at, lit.getSMTFormula(theory, true));
 					}
 				} else {
 					if (quantified) {
@@ -813,35 +862,34 @@ public class Clausifier {
 						if (!positive) {
 							lit = lit.negate();
 						}
-						// TODO Proof production.
 					} else {
 						lit = getLiteral(idx, positive, mCollector.getSource());
 						if (!positive) {
 							lit = lit.negate();
 						}
-						atomRewrite = mTracker.intern(at, lit.getSMTFormula(theory, true));
 					}
 				}
-				if (quantified) {
-					// TODO Proof production.
-					mCollector.addLiteral(positive ? lit : lit.negate(), rewrite);
+				atomRewrite = mTracker.intern(at, lit.getSMTFormula(theory, true));
+				if (positive) {
+					rewrite = mTracker.transitivity(rewrite, atomRewrite);
 				} else {
-					if (positive) {
-						rewrite = mTracker.transitivity(rewrite, atomRewrite);
-					} else {
-						rewrite = mTracker.congruence(rewrite, new Term[] { atomRewrite });
-						if (lit.getGroundLit() != lit.getGroundLit().getAtom()) {
-							/* (not (<= -x 0)) can be rewritten to (not (not (< x 0))); remove double negation */
-							rewrite = mUtils.convertNot(rewrite);
-						}
-					}
-					mCollector.addLiteral(positive ? lit : lit.negate(), rewrite);
+					rewrite = mTracker.congruence(rewrite, new Term[] { atomRewrite });
+					/* (not (<= -x 0)) can be rewritten to (not (not (< x 0))); remove double negation */
+					rewrite = mUtils.convertNot(rewrite);
 				}
+				mCollector.addLiteral(positive ? lit : lit.negate(), rewrite);
 			} else if (idx instanceof QuantifiedFormula) {
 				final QuantifiedFormula qf = (QuantifiedFormula) idx;
 				assert qf.getQuantifier() == QuantifiedFormula.EXISTS;
 				final Term converted = convertQuantifiedSubformula(positive, qf);
-				pushOperation(new CollectLiterals(converted, mCollector));
+				// FIXME: real proof rule?
+				rewrite = mTracker.buildRewrite(rewrite, converted, ProofConstants.RW_SORRY);
+				if (isNotTerm(converted)) {
+					rewrite = mUtils.convertNot(rewrite);
+				}
+				ClauseCollector subCollector = new ClauseCollector(mCollector, rewrite, 1);
+				pushOperation(subCollector);
+				pushOperation(new CollectLiterals(mTracker.getProvedTerm(rewrite), subCollector));
 				return;
 			} else {
 				throw new SMTLIBException("Cannot handle literal " + mTerm);
@@ -854,12 +902,11 @@ public class Clausifier {
 		}
 	}
 
-	private class BuildClause implements Operation {
+	private class BuildClause {
 		private boolean mIsTrue = false;
 		private final LinkedHashSet<Literal> mLits = new LinkedHashSet<>();
 		private final LinkedHashSet<QuantLiteral> mQuantLits = new LinkedHashSet<>();
 		private final HashSet<Term> mFlattenedOrs = new HashSet<>();
-		private final ArrayList<Term> mRewrites = new ArrayList<>();
 		private final Term mTerm;
 		private boolean mSimpOr;
 		private final SourceAnnotation mSource;
@@ -877,20 +924,7 @@ public class Clausifier {
 			mFlattenedOrs.add(term);
 		}
 
-		public void addRewrite(final Term rewrite) {
-			mRewrites.add(rewrite);
-		}
-
-		public void addLiteral(final LiteralProxy lit, final Term rewrite) {
-			if (lit.isGround()) {
-				addDpllLiteral(lit.getGroundLit(), rewrite);
-			} else {
-				addQuantLiteral(lit.getQuantLit(), rewrite);
-			}
-		}
-
-		public void addDpllLiteral(final Literal lit, final Term rewrite) {
-			addRewrite(rewrite);
+		public void addDpllLiteral(final Literal lit) {
 			if (mLits.add(lit)) {
 				mIsTrue |= mLits.contains(lit.negate());
 			} else {
@@ -898,10 +932,7 @@ public class Clausifier {
 			}
 		}
 
-		public void addQuantLiteral(final QuantLiteral lit, final Term rewrite) {
-			if (rewrite != null) {
-				addRewrite(rewrite);
-			}
+		public void addQuantLiteral(final QuantLiteral lit) {
 			if (mQuantLits.add(lit)) {
 				mIsTrue |= mQuantLits.contains(lit.negate());
 			} else {
@@ -921,11 +952,9 @@ public class Clausifier {
 		public void addLiteral(final LiteralProxy lit) {
 			if (lit.isQuant()) {
 				// TODO Proof production.
-				addQuantLiteral(lit.getQuantLit(),
-						mTracker.reflexivity(lit.getQuantLit().getSMTFormula(mTerm.getTheory(), true)));
+				addQuantLiteral(lit.getQuantLit());
 			} else {
-				addDpllLiteral(lit.getGroundLit(),
-						mTracker.reflexivity(lit.getGroundLit().getSMTFormula(mTerm.getTheory(), true)));
+				addDpllLiteral(lit.getGroundLit());
 			}
 		}
 
@@ -933,62 +962,51 @@ public class Clausifier {
 			mIsTrue = true;
 		}
 
-		@Override
-		public void perform() {
-			if (!mIsTrue) {
-				Term rewrite = mTracker.reflexivity(mTracker.getProvedTerm(mTerm));
-				if (mFlattenedOrs.size() > 1) {
-					rewrite = mTracker.flatten(rewrite, mFlattenedOrs);
-				}
-				if (mRewrites.size() > 0) {
-					if (mFlattenedOrs.isEmpty()) {
-						/* there was no or at all and there is only one rewrite of the formula. */
-						assert mRewrites.size() == 1;
-						rewrite = mTracker.transitivity(rewrite, mRewrites.get(0));
-					} else {
-						/* rewrite the (or ...) formula with a congruence lemma. */
-						rewrite = mTracker.congruence(rewrite, mRewrites.toArray(new Term[mRewrites.size()]));
-					}
-				}
-				final Literal[] lits = mLits.toArray(new Literal[mLits.size()]);
-				final QuantLiteral[] quantLits = mQuantLits.toArray(new QuantLiteral[mQuantLits.size()]);
-				/* simplify or, but only if the term wasn't already false */
-				if (mTracker.getProvedTerm(rewrite) != rewrite.getTheory().mFalse && mSimpOr) {
-					rewrite = mTracker.orSimpClause(rewrite, lits);
-				}
-				Term proof = mTracker.getRewriteProof(mTerm, rewrite);
-				proof = mTracker.getClauseProof(proof);
-				boolean isDpllClause = true;
+		public void buildClause(Term rewrite) {
+			if (mIsTrue) {
+				return;
+			}
+			if (mFlattenedOrs.size() > 1) {
+				rewrite = mTracker.flatten(rewrite, mFlattenedOrs);
+			}
+			final Literal[] lits = mLits.toArray(new Literal[mLits.size()]);
+			final QuantLiteral[] quantLits = mQuantLits.toArray(new QuantLiteral[mQuantLits.size()]);
+			/* simplify or, but only if the term wasn't already false */
+			if (mTracker.getProvedTerm(rewrite) != rewrite.getTheory().mFalse && mSimpOr) {
+				rewrite = mTracker.orSimpClause(rewrite, lits);
+			}
+			Term proof = mTracker.getRewriteProof(mTerm, rewrite);
+			proof = mTracker.getClauseProof(proof);
+			boolean isDpllClause = true;
 
-				if (mIsEprEnabled) {
-					for (final Literal l : lits) {
-						if (l.getAtom() instanceof EprQuantifiedPredicateAtom
-								|| l.getAtom() instanceof EprQuantifiedEqualityAtom) {
-							// we have an EPR-clause
-							isDpllClause = false;
-							break;
-						}
+			if (mIsEprEnabled) {
+				for (final Literal l : lits) {
+					if (l.getAtom() instanceof EprQuantifiedPredicateAtom
+							|| l.getAtom() instanceof EprQuantifiedEqualityAtom) {
+						// we have an EPR-clause
+						isDpllClause = false;
+						break;
 					}
-				} else if (!mQuantLits.isEmpty()) {
-					isDpllClause = false;
 				}
+			} else if (!mQuantLits.isEmpty()) {
+				isDpllClause = false;
+			}
 
-				if (isDpllClause) {
-					addClause(lits, null, getProofNewSource(proof, mSource));
-					// alex (begin)
-				} else if (mIsEprEnabled) {
-					// TODO: replace the nulls
-					final Literal[] groundLiteralsAfterDER = mEprTheory.addEprClause(lits, null, null);
+			if (isDpllClause) {
+				addClause(lits, null, getProofNewSource(proof, mSource));
+				// alex (begin)
+			} else if (mIsEprEnabled) {
+				// TODO: replace the nulls
+				final Literal[] groundLiteralsAfterDER = mEprTheory.addEprClause(lits, null, null);
 
-					if (groundLiteralsAfterDER != null) {
-						addClause(groundLiteralsAfterDER, null, getProofNewSource(proof, mSource));
-					}
-					// alex (end)
-				} else {
-					// TODO DER before adding the clause to the QuantifierTheory.
-					if (quantLits != null) { // == null can happen after DER
-						mQuantTheory.addQuantClause(lits, quantLits, mSource);
-					}
+				if (groundLiteralsAfterDER != null) {
+					addClause(groundLiteralsAfterDER, null, getProofNewSource(proof, mSource));
+				}
+				// alex (end)
+			} else {
+				// TODO DER before adding the clause to the QuantifierTheory.
+				if (quantLits != null) { // == null can happen after DER
+					mQuantTheory.addQuantClause(lits, quantLits, mSource);
 				}
 			}
 		}
@@ -1317,10 +1335,6 @@ public class Clausifier {
 			final FormulaUnLet unlet = new FormulaUnLet();
 			unlet.addSubstitutions(new ArrayMap<>(vars, skolems));
 			final Term skolemized = unlet.unlet(qf.getSubformula());
-
-			// final Term skolemized = mCompiler.transform(skolemRaw);
-
-			// TODO: replace skolemized by rewrite proof
 			return skolemized;
 		} else {
 			/*
@@ -1339,10 +1353,6 @@ public class Clausifier {
 			final FormulaUnLet unlet = new FormulaUnLet();
 			unlet.addSubstitutions(new ArrayMap<>(vars, freshVars));
 			final Term uniquelyRenamed = unlet.unlet(qf.getSubformula());
-
-			// final Term uniquelyRenamed = mCompiler.transform(uniquelyRenamedRaw); // TODO introduces SMTAffineTerm
-
-			// TODO: replace result by rewrite proof
 			return mTheory.term("not", uniquelyRenamed);
 		}
 	}
@@ -1478,28 +1488,26 @@ public class Clausifier {
 
 		/* first remove double negations; these may be in conflict with flatten */
 		final Term orRewrite = mUtils.convertFuncNot(mTracker.reflexivity(orTerm));
-		axiom = mTracker.getRewriteProof(axiom, orRewrite);
-		orTerm = (ApplicationTerm) mTracker.getProvedTerm(axiom);
+		orTerm = (ApplicationTerm) mTracker.getProvedTerm(orRewrite);
 
 		final BuildClause bc = new BuildClause(axiom, source);
-		pushOperation(bc);
-		/* tell the clause that the outer or got flattened. */
-		bc.addFlatten(orTerm);
-		/* add auxlit directly to prevent it getting converted. No rewrite proof necessary */
-		bc.addLiteral(auxlit);
 		/* use the usual engine to create the other literals of the axiom. */
 		final Term[] params = orTerm.getParameters();
+		final ClauseCollector collector = new ClauseCollector(bc, orRewrite, params.length);
+		pushOperation(collector);
+		/* add auxlit directly to prevent it getting converted. No rewrite proof necessary */
+		collector.addLiteral(auxlit, mTracker.reflexivity(auxlit.getSMTFormula(mTheory, true)));
 		for (int i = params.length - 1; i >= 1; i--) {
-			pushOperation(new CollectLiterals(params[i], bc));
+			pushOperation(new CollectLiterals(params[i], collector));
 		}
-		return;
 	}
 
 	public void buildClause(final Term term, final SourceAnnotation source) {
 		final BuildClause bc = new BuildClause(term, source);
-		pushOperation(bc);
-		pushOperation(new CollectLiterals(mTracker.getProvedTerm(term), bc));
-		return;
+		Term rewrite = mTracker.reflexivity(mTracker.getProvedTerm(term));
+		final ClauseCollector collector = new ClauseCollector(bc, rewrite, 1);
+		pushOperation(collector);
+		pushOperation(new CollectLiterals(mTracker.getProvedTerm(term), collector));
 	}
 
 	public void addStoreAxiom(final ApplicationTerm store, final SourceAnnotation source) {
@@ -1598,22 +1606,22 @@ public class Clausifier {
 		Term axiom = mTracker.auxAxiom(theory.term("or", theory.term("not", litTerm), trueTerm),
 				ProofConstants.AUX_EXCLUDED_MIDDLE_1);
 		BuildClause bc = new BuildClause(axiom, source);
-		bc.addFlatten(mTracker.getProvedTerm(axiom));
+		ClauseCollector collector = new ClauseCollector(bc, mTracker.reflexivity(mTracker.getProvedTerm(axiom)), 2);
 		final Term litRewrite = mTracker.intern(litTerm, lit.getSMTFormula(theory, true));
 		Term rewrite = mTracker.congruence(mTracker.reflexivity(mTheory.term("not", litTerm)),
 				new Term[] { litRewrite });
-		bc.addLiteral(lit.negate(), rewrite);
+		collector.addLiteral(lit.negate(), rewrite);
 		rewrite = mTracker.intern(trueTerm, trueLit.getSMTFormula(theory, true));
-		bc.addDpllLiteral(trueLit, rewrite);
-		pushOperation(bc);
+		collector.addLiteral(new LiteralProxy(trueLit), rewrite);
+		collector.perform();
 		// (not m_Term) => elseForm is m_Term \/ elseForm
 		axiom = mTracker.auxAxiom(theory.term("or", litTerm, falseTerm), ProofConstants.AUX_EXCLUDED_MIDDLE_2);
 		bc = new BuildClause(axiom, source);
-		bc.addFlatten(mTracker.getProvedTerm(axiom));
-		bc.addLiteral(lit, litRewrite);
+		collector = new ClauseCollector(bc, mTracker.reflexivity(mTracker.getProvedTerm(axiom)), 2);
+		collector.addLiteral(lit, litRewrite);
 		rewrite = mTracker.intern(falseTerm, falseLit.getSMTFormula(theory, true));
-		bc.addDpllLiteral(falseLit, rewrite);
-		pushOperation(bc);
+		collector.addLiteral(new LiteralProxy(falseLit), rewrite);
+		collector.perform();
 	}
 
 	LiteralProxy createAnonAtom(final Term smtFormula) {
@@ -1647,10 +1655,10 @@ public class Clausifier {
 			mNumAtoms++;
 		}
 		if (atom != null) {
-			return new LiteralProxy(smtFormula, atom);
+			return new LiteralProxy(atom);
 		} else {
 			assert quantAtom != null;
-			return new LiteralProxy(smtFormula, quantAtom);
+			return new LiteralProxy(quantAtom);
 		}
 	}
 
@@ -1824,10 +1832,11 @@ public class Clausifier {
 			final Term trueEqFalse = mTheory.term("=", mTheory.mTrue, mTheory.mFalse);
 			final Term axiom = mTracker.auxAxiom(mTheory.not(trueEqFalse), ProofConstants.AUX_TRUE_NOT_FALSE);
 			final BuildClause bc = new BuildClause(axiom, SourceAnnotation.EMPTY_SOURCE_ANNOT);
+			ClauseCollector collector = new ClauseCollector(bc, mTracker.reflexivity(mTracker.getProvedTerm(axiom)), 1);
 			Term rewrite = mTracker.intern(trueEqFalse, atom.getSMTFormula(mTheory, true));
 			rewrite = mTracker.congruence(mTracker.reflexivity(mTheory.not(trueEqFalse)), new Term[] { rewrite });
-			bc.addDpllLiteral(atom.negate(), rewrite);
-			bc.perform();
+			collector.addLiteral(new LiteralProxy(atom.negate()), rewrite);
+			collector.perform();
 		}
 	}
 
@@ -2119,7 +2128,7 @@ public class Clausifier {
 		final SMTAffineTerm sum = new SMTAffineTerm(leq0term.getParameters()[0]);
 		final MutableAffineTerm msum = createMutableAffinTerm(sum, source);
 		Literal lit = mLASolver.generateConstraint(msum, false);
-		mLiteralData.put(leq0term, new LiteralProxy(leq0term, lit));
+		mLiteralData.put(leq0term, new LiteralProxy(lit));
 		mUndoTrail = new RemoveAtom(mUndoTrail, leq0term);
 		return lit;
 	}
@@ -2128,12 +2137,12 @@ public class Clausifier {
 		LiteralProxy lit = mLiteralData.get(term);
 		if (lit == null) {
 			if (term.getParameters().length == 0) {
-				lit = new LiteralProxy(term, createBooleanVar(term));
+				lit = new LiteralProxy(createBooleanVar(term));
 			} else {
 				if (term.getFreeVars().length > 0 && !mIsEprEnabled) {
 					final QuantLiteral euEq =
 							mQuantTheory.getQuantEquality(term, true, source, term, term.getTheory().mTrue);
-					lit = new LiteralProxy(term, euEq);
+					lit = new LiteralProxy(euEq);
 
 					// alex begin
 					// alex: this the right place to get rid of the CClosure predicate conversion in EPR-case?
@@ -2148,7 +2157,7 @@ public class Clausifier {
 					// TODO: replace 0 by hash value
 					final EprAtom atom = mEprTheory.getEprAtom(term, 0, mStackLevel, source);
 
-					lit = new LiteralProxy(term, atom);
+					lit = new LiteralProxy(atom);
 					// if (!atom.isQuantified)
 					if (atom instanceof EprGroundPredicateAtom)
 						mEprTheory.addAtomToDPLLEngine(atom);
@@ -2162,7 +2171,7 @@ public class Clausifier {
 					// Safe since m_Term is neither true nor false
 					assert eq != EqualityProxy.getTrueProxy();
 					assert eq != EqualityProxy.getFalseProxy();
-					lit = new LiteralProxy(term, eq.getLiteral(source));
+					lit = new LiteralProxy(eq.getLiteral(source));
 
 				}
 			}
@@ -2257,20 +2266,17 @@ public class Clausifier {
 	 */
 	private class LiteralProxy {
 
-		private final Term mTerm;
 		private final Literal mGroundLit;
 		private final QuantLiteral mQuantLit;
 
 		private LiteralProxy mNegated;
 
-		LiteralProxy(final Term term, final Literal groundLit) {
-			mTerm = term;
+		LiteralProxy(final Literal groundLit) {
 			mGroundLit = groundLit;
 			mQuantLit = null;
 		}
 
-		LiteralProxy(final Term term, final QuantLiteral quantLit) {
-			mTerm = term;
+		LiteralProxy(final QuantLiteral quantLit) {
 			mGroundLit = null;
 			mQuantLit = quantLit;
 		}
@@ -2279,10 +2285,10 @@ public class Clausifier {
 			if (mNegated == null) {
 				LiteralProxy neg;
 				if (isGround()) {
-					neg = new LiteralProxy(mTheory.not(mTerm), mGroundLit.negate());
+					neg = new LiteralProxy(mGroundLit.negate());
 					neg.mNegated = this;
 				} else {
-					neg = new LiteralProxy(mTheory.not(mTerm), mQuantLit.negate());
+					neg = new LiteralProxy(mQuantLit.negate());
 					neg.mNegated = this;
 				}
 				mNegated = neg;
@@ -2312,6 +2318,11 @@ public class Clausifier {
 			} else {
 				return mQuantLit.getSMTFormula(theory, quoted);
 			}
+		}
+
+		@Override
+		public String toString() {
+			return isGround() ? mGroundLit.toString() : mQuantLit.toString();
 		}
 	}
 }

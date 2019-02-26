@@ -247,7 +247,7 @@ public class ProofTracker implements IProofTracker{
 		final Theory theory = quant.getTheory();
 		final Term negQuant = theory.not(theory.exists(quant.getVariables(), theory.not(quant.getSubformula())));
 		Term rewrite = buildRewrite(quant, negQuant, ProofConstants.RW_FORALL_EXISTS);
-		rewrite = transitivity(rewrite, congruence(negQuant, new Term[] { exists(quant, negNewBody) }));
+		rewrite = congruence(rewrite, new Term[] { exists(quant, negNewBody) });
 		return rewrite;
 	}
 }

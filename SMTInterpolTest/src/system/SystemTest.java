@@ -64,9 +64,11 @@ public class SystemTest {
 			}
 
 		};
-		solver.setOption(":proof-check-mode", true);
-		solver.setOption(":model-check-mode", true);
-		solver.setOption(":interpolant-check-mode", true);
+		if (!f.getAbsolutePath().contains("epr") && !f.getAbsolutePath().contains("quant")) {
+			solver.setOption(":proof-check-mode", true);
+			solver.setOption(":model-check-mode", true);
+			solver.setOption(":interpolant-check-mode", true);
+		}
 		pe.parseStream(new FileReader(f), "TestStream");
 	}
 

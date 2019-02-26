@@ -177,6 +177,9 @@ public class TermCompiler extends TermTransformer {
 			final Term res = SMTAffineTerm.convertConstant((ConstantTerm) term).toTerm(term.getSort());
 			setResult(mTracker.buildRewrite(term, res, ProofConstants.RW_CANONICAL_SUM));
 			return;
+		} else if (term instanceof TermVariable) {
+			setResult(mTracker.reflexivity(term));
+			return;
 		}
 		super.convert(term);
 	}

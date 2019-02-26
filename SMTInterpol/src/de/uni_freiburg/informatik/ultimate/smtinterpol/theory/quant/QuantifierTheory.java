@@ -441,7 +441,7 @@ public class QuantifierTheory implements ITheory {
 			if (positive != hasLowerBound) { // for rewriting ~(x-t<=0) into ~(x<=t) and (x-t<=0) into ~(t+1<=x)
 				boundAffine.negate();
 			}
-			Term bound = boundAffine.toTerm(mClausifier.getTermCompiler(), term.getSort());
+			Term bound = boundAffine.toTerm(mClausifier.getTermCompiler(), lhs.getSort());
 			// The variable can only be bound by ground terms.
 			if (bound.getFreeVars().length == 0) {
 				final EUTerm boundTerm = mEUTermManager.getEUTerm(bound, source);

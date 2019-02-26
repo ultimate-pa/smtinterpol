@@ -54,7 +54,7 @@ public class QuantEUEquality extends QuantLiteral {
 	@Override
 	public Term getSMTFormula(final Theory smtTheory, final boolean quoted) {
 		// TODO Auto-generated method stub
-		return null;
+		return smtTheory.mTrue;
 	}
 
 	EUTerm getLhs() {
