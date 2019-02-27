@@ -568,7 +568,6 @@ public class TermCompiler extends TermTransformer {
 		return null;
 	}
 
-	@SuppressWarnings("unused")
 	@Override
 	public void postConvertQuantifier(final QuantifiedFormula old, final Term newBody) {
 		if (old.getQuantifier() == QuantifiedFormula.EXISTS) {

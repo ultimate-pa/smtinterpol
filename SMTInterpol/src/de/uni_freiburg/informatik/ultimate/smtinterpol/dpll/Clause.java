@@ -222,21 +222,6 @@ public class Clause extends SimpleListable<Clause> {
 	public String toString() {
 		return Arrays.toString(mLiterals);
 	}
-	
-	public String toSMTLIB(Theory smtTheory) {
-		if (mLiterals.length == 0) {
-			return "false";
-		}
-		if (mLiterals.length == 1) {
-			return mLiterals[0].getSMTFormula(smtTheory, true).toString();
-		}
-		final StringBuilder sb = new StringBuilder("(or");
-		for (final Literal l : mLiterals) {
-			sb.append(' ').append(l.getSMTFormula(smtTheory, true));
-		}
-		sb.append(')');
-		return sb.toString();
-	}
 
 	public void setActivityInfinite() {
 		mActivity = Double.POSITIVE_INFINITY;
@@ -272,7 +257,7 @@ public class Clause extends SimpleListable<Clause> {
 		}
 		return false;
 	}
-	
+
 	public Term toTerm(Theory theory) {
 		if (mLiterals.length == 0) {
 			return theory.mFalse;
@@ -286,5 +271,4 @@ public class Clause extends SimpleListable<Clause> {
 		}
 		return theory.term("or", args);
 	}
-	
 }

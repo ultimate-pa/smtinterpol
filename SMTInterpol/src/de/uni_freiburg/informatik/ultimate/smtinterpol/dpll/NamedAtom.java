@@ -20,7 +20,6 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.dpll;
 
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
-import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 
 public class NamedAtom extends DPLLAtom {
@@ -40,10 +39,6 @@ public class NamedAtom extends DPLLAtom {
 	@Override
 	public Term getSMTFormula(final Theory smtTheory, final boolean quoted) {
 		return quoted ? smtTheory.annotatedTerm(QUOTED, mSmtAtom) : mSmtAtom;
-	}
-
-	public int containsTerm(final TermVariable tv) {
-		return 0;
 	}
 
 	@Override

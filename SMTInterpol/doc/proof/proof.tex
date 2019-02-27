@@ -241,8 +241,35 @@ Finally for a chainable predicate,
 \end{equation*}
 
 Note that \si does not expand all such functions; for example, it
-keeps $n$-ary disjunctions, conjunctions, and implications.  It uses
-different proof rules for these cases.
+keeps $n$-ary disjunctions, conjunctions, and implications.  Sometimes
+it even does the opposite using the flattening rule.
+
+\paragraph{Flattening}
+For an associative builtin operators $f$, i.e., when $(f\ (f\ a\ b)\ c) =
+(f\ a\ (f\ b\ c))$ holds, the reverse rule of expand called (flatten),
+removes nested application of $f$.  This rule works recursively on the
+nested applications, but may leave some application of $f$ nested.
+\begin{equation}
+  (f\ (f\ t_1 \cdots) \cdots (f\ (f\ \cdots)) \cdots t_n) = (f\ t_1\cdots t_n)
+  \text{ where $f \in \{and,or,xor,+,*\}$}
+  \tag{flatten}
+\end{equation}
+Here the $f$ terms on the left-hand side can be nested arbitrarily
+deep, the $t_i$ must appear in the same order on the right-hand side
+and a $t_i$ can itself be an $f$ term again.
+
+In principle a similar rule that supports only one level of nesting
+would be sufficient, as it can be applied multiple times.  However the
+corresponding proof DAG would be quadratic in the number of arguments
+of the function, even with maximum sharing between identical sub
+terms.  For example in $(f\ t_1\ (f\ t_2 \dots (f\ t_{n-1}\ t_n)))$, for
+the $i$-th rewrite step a new term with $O(i)$ arguments would be
+created, so this method would creates $O(n)$ terms of size $O(n)$
+leading to a proof DAG of size $O(n^2)$.  This leads to considerable
+performance bottlenecks for some benchmarks that contains ten
+thousands conjuncts parenthesised in the above way.  Using the above
+rule that allows arbitrary nesting, would flatten the formula in one
+step with complexity $O(n)$.
 
 \paragraph{Removal of Boolean connectives.}  Before producing clauses, \si
 converts the formula into an equivalent form with less Boolean connectives.
@@ -634,20 +661,6 @@ a \texttt{:quoted} annotation, e.\,g., $(!\ (or\ A\ B)\ :quoted)$ is the proxy
 literal for $(or\ A\ B)$.  Note that \si does not produce proxy literals for
 negated formulas but negates the proxy for the positive formula instead.
 
-\paragraph{Flattening nested disjunctions.}
-Clauses are built from disjunctions.  So far, the proof system does not care
-about nesting of these disjunctions.  However, the \texttt{flatten} rewrite rule is
-used to transform the nested disjunction into one disjunction without the
-nesting.  It works recursively on the nested disjunctions, but it may skip
-some disjunctions and keep them nested.
-\begin{equation}
-  (or\ (or\ t_1 \cdots) \cdots (or\ (or\ \cdots)) \cdots t_n) = (or\ t_1\cdots t_n)
-  \tag{flatten}
-\end{equation}
-where the $or$ terms on the left-hand side can be nested arbitrarily deep, the
-$t_i$ must appear in the same order on the right-hand side and a $t_i$ can itself
-be an $or$ term again.
-
 \paragraph{Building clauses.}
 A literal in \si is represented in the proof by its SMTLIB term.  To
 distinguish between auxiliary literals that stand for a disjunction and
@@ -989,18 +1002,50 @@ to linear arithmetic.
 
 \section{Implementation}
 After presenting the set of rules used by \si, we now describe some
-major issues to ensure soundness/correctness of the generated proofs.
+implementation issues that describe how to compactly represent the
+proof in memory or as text.
 
-In \si, we consider $let$ as syntactic sugar.  Let is necessary to
-compactly represent a huge proof where parts, e.g. larger subproofs,
-are used multiple times in the proof.  Conceptually every let term is
-expanded and two let terms that expand to the same term are considered
-to be identical.
+\subsection{Proof-DAGs and letted terms}
+In \si, terms are represented as DAGs, i.e., a term object like a
+function application contains references to its subterms.  These
+references can be shared with other functions.  This sharing can make
+a proof DAG be exponentially more succinct than its corresponding
+tree.  We force this sharing rigorously by only creating a term if a
+syntactically identical term does not already exists.
+
+The proof DAG can lead to complications with the $let$ operator, where
+the same term variable (and thus any term containing it) can have
+different meaning depending on which $let$ binds this term variable,
+i.e., where in the proof DAG it appears.  This can be avoided either
+by using a different term variable object for every let, or by
+avoiding let altogether.  In \si we choose the latter and expand all
+$let$ terms after initial parsing.  We consider the $let$ syntactic
+sugar and consider different let terms that expand to the same proof
+DAG to be identical.  The expansion process simply replaces any
+reference to the let variable to the reference of the term that is
+bound to it.  This does not create more terms, as all previous
+occurences of references to the let variable are only changed to
+references to the shared term.
+
+When working on term DAGs, it is very important to keep a cache of
+already visited terms and to perform the work only once for each term,
+in particular, one must only iterate once through the subterms of a
+term.  When printing out DAGs, we reintroduce lets for every shared
+term that is not a constant.
+
+For proof terms this means that although the simplification of a
+formula and the splitting into sub-clauses is only done once, the
+proof can be referenced multiple times in the proof DAG, e.g., if the
+clause was used in several resolution steps.  Moreover, we often
+include the same complicated term multiple times in rewrite rules,
+when rewriting one of the surrounding terms in multiple steps.  These
+are also represented by references to the same object, and it is
+important to not iterate them more than once.
 
 \subsection{Basic Proof Rules}
 
-On a high level \si uses the proof rules defined below.
-The following four proof rules introduce valid formulas:
+On a high level \si uses the following proof rules:
+the following four proof rules introduce valid formulas:
 \textsc{lemma}, \textsc{tautology}, \textsc{asserted}, \textsc{assumption}.
 Lemma is used for theory lemmas.  Tautology is used by the
 pre-processor to introduce auxiliary literals.  Asserted is used to
@@ -1023,6 +1068,22 @@ following proof rules.
 \inferrule*[left=rewrite,right={where $t_1 = t_2$ is a tautology}]{}{t_1 = t_2}
 \]
 
+We distinguish between tautologies that always hold and asserted
+formulas that only hold in a certain context (after assert was
+called).  The main reason why we distinguish between a tautology and a
+lemma is the interpolator.  The tautologies were created when
+simplifying a single input formula.  Their interpolants don't have to
+be computed, as all literals are in the same input formula.  On the
+other hand, theory lemmas require theory specific interpolation
+procedures.  Rewrite rules are used together with the rules
+\textsc{trans} and \textsc{cong}, to build a rewrite proof that
+simplifies a complex input formula or tautology.  Reflexivity
+\textsc{refl} is used very often and is a neutral element for other
+proof rules like \textsc{trans}, \textsc{eq}, and the right hand side
+of \textsc{cong}.  So \textsc{refl} is often only needed as marker
+that we didn't rewrite the formula yet and may be later removed from
+the final proof.  To quickly detect it, it deserves its own proof
+rule.
 
 \subsection{Proof Tree Structure}
 The proof tree consist of three parts:
@@ -1051,12 +1112,12 @@ The proof tree structure will correspond to this ordering.
 \todo{Should we include the flatten-rule in this picture?}
 
 Note that the conversion steps from $F_{input}$ into $F_{canonical}$
-for one input formula can appear multiple times in the proof and will
-be eliminated by common subexpression elimination (let).  Only the step
-producing the clauses from the canonical formula will change.
-Furthermore note that we do not give a derivation for theory lemmas.
-These clauses are annotated with enough information to reconstruct a
-proof of validity.
+for one input formula can be referenced multiple times in the proof
+DAG and will be eliminated by common subexpression elimination (let).
+Only the step producing the clauses from the canonical formula will
+change.  Furthermore note that we do not give a derivation for theory
+lemmas.  These clauses are annotated with enough information to
+reconstruct a proof of validity.
 
 \section{Proof Terms in \si}
 Proofs are represented as terms of sort \verb+@Proof+ in \si.  Note that the
@@ -1081,13 +1142,29 @@ the side-effects by annotating the formula with a keyword different from
 meaning to the solver.  Hence it will be ignored (except for stripping it from
 the formula) and can be used to recognize the input formula.
 
-\paragraph{Rewrites.}  Most of the rules presented above introduce equalities
-that are later used to rewrite an input term.  To introduce these axioms into
-the proof tree, \si uses the \verb+@rewrite+ function which introduces a
-Boolean formula $old = new$ to rewrite all occurrences of $old$ in a formula
-into $new$.  The function has signature $Bool\rightarrow @Proof$.  The
-argument to the \verb+@rewrite+ function is annotated with the name of the
-rewrite axiom used.
+\paragraph{Rewrites.}  The most common rule is the rewrite rule, which
+introduces equalities that are used to rewrite an input term.  This
+rule (or rather axiom) is introduced into the proof tree by the
+\verb+@rewrite+ function.  This function takes the Boolean formula
+$old = new$ to rewrite all occurrences of $old$ in a formula into
+$new$.  The function has signature $Bool\rightarrow @Proof$.  The
+argument to the \verb+@rewrite+ function is annotated with the name of
+the rewrite axiom used, which a proof checker can use to quickly check
+that the application syntactically matches the rule.
+
+A complex input formula requires several rewrite step applied to
+different parts of the input formula.  The rule \verb+@cong+ can be
+used to descend into a already rewritten formula to rewrite its
+arguments and the rule \verb+@trans+ can be used to rewrite a formula
+a second time.  To descend into a formula that has not been rewritten
+yet, the rule \verb+@refl+ can be used as first argument of
+\verb+@cong+.
+
+If we rewrite a term that appears multiple times as argument of the
+same function application, we will rewrite all occurrences of this
+term to the same formula.  In the proof we will repeat the
+\verb+@cong+ rule for each argument and when checking proofs, it does
+not matter on which argument the \verb+@cong+ rule is applied first.
 
 \paragraph{Structural Splitting.}  If the Boolean structure of the input is
 more complex and cannot be transformed into disjunctive form during
