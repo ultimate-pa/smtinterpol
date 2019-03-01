@@ -74,6 +74,7 @@ public class SystemTest {
 
 	private static boolean shouldExecute(final File f) {
 		final String fname = f.getName();
+		final char separator = File.separatorChar;
 		if (fname.startsWith("tightrhombus-lira")) {
 			// remove tightrhombus-lira-xxx-yyy-
 			String sizestr = fname.substring(26, 28); // NOCHECKSTYLE
@@ -89,7 +90,9 @@ public class SystemTest {
 			}
 			final int size = Integer.parseInt(sizestr);
 			return size < 5;// NOCHECKSTYLE
-		} else if (f.getParent().endsWith("lira/cut-lemmas/20-vars")) {
+		} else if (f.getParent().endsWith("lira" + separator + "cut-lemmas" + File.separator + "20-vars")) {
+			return false;
+		} else if (f.getParent().contains("test" + separator + "epr")) {
 			return false;
 		}
 		return true;
