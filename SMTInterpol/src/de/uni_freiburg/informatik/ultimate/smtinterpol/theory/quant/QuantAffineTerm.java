@@ -20,12 +20,10 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
-import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 
 /**
@@ -58,13 +56,6 @@ public class QuantAffineTerm extends EUTerm {
 		super(clausifier, term);
 		mSummands = summands;
 		mConstant = constant;
-		mFreeVars = new HashSet<TermVariable>();
-		for (EUTerm summand : summands.keySet()) {
-			if (summand.getFreeVars() != null) {
-				mFreeVars.addAll(summand.getFreeVars());
-			}
-		}
-		assert !mFreeVars.isEmpty();
 	}
 
 	/**
@@ -85,7 +76,6 @@ public class QuantAffineTerm extends EUTerm {
 		} else {
 			throw new InternalError("Unknown EUTerm: " + euTerm);
 		}
-		mFreeVars = euTerm.getFreeVars();
 	}
 
 	public Map<EUTerm, Rational> getSummands() {

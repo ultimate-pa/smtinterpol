@@ -19,7 +19,6 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
 import de.uni_freiburg.informatik.ultimate.logic.Term;
-import de.uni_freiburg.informatik.ultimate.logic.Theory;
 
 /**
  * A QuantEUEquality is an equality EUTerm = EUTerm, where at least one side is not a GroundTerm.
@@ -49,12 +48,6 @@ public class QuantEUEquality extends QuantLiteral {
 		mLhs = lhs;
 		mRhs = rhs;
 		mNegated = new NegQuantLiteral(this);
-	}
-
-	@Override
-	public Term getSMTFormula(final Theory smtTheory, final boolean quoted) {
-		// TODO Auto-generated method stub
-		return smtTheory.mTrue;
 	}
 
 	EUTerm getLhs() {

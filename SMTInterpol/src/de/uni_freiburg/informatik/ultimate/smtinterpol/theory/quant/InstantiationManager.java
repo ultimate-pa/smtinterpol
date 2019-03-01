@@ -75,15 +75,15 @@ public class InstantiationManager {
 			for (List<SharedTerm> inst : allInstantiations) {
 				final InstanceValue clauseValue = evaluateClauseInstance(quantClause, inst);
 				if (clauseValue != InstanceValue.TRUE) {
-					// TODO Should this produce a clause?
 					final List<Term> termSubs = new ArrayList<>();
 					for (int i = 0; i < inst.size(); i++) {
 						termSubs.add(inst.get(i).getTerm());
 					}
 					final List<Literal> instLits = computeClauseInstance(quantClause, termSubs);
-					assert instLits != null;
-					conflictAndUnitClauses.add(instLits);
-					quantClause.addInstance(inst);
+					if (instLits != null) {
+						conflictAndUnitClauses.add(instLits);
+						quantClause.addInstance(inst);
+					}
 				}
 			}
 		}
@@ -93,7 +93,7 @@ public class InstantiationManager {
 	/**
 	 * In the final check, compute any instance of any clause that is not trivially true.
 	 * 
-	 * TODO All or just one arbitrary clause?
+	 * TODO Just one arbitrary clause
 	 */
 	public Clause instantiateAll() {
 		for (QuantClause quantClause : mQuantTheory.getQuantClauses()) {
@@ -204,12 +204,10 @@ public class InstantiationManager {
 						? instantiation.get(quantClause.getVarPos(varCons.getUpperVar()))
 								: varCons.getGroundBound().getSharedTerm();
 				// TODO
-			} else if (atom instanceof QuantEUBoundConstraint) {
+			} else {
+				assert atom instanceof QuantEUBoundConstraint;
 				final SharedTerm shared = findEquivalentShared(((QuantEUBoundConstraint) atom).getAffineTerm());
 				// TODO Ask LinAr for shared <= 0
-			} else {
-				assert atom instanceof QuantNamedAtom;
-				assert false : "No support for instantiation of QuantNamedAtom so far";
 			}
 
 			if (isNeg) {
@@ -247,15 +245,20 @@ public class InstantiationManager {
 			Term prox = computeLitInstanceAsTerm(atom, instantiation, clause);
 			if (!isNeg && prox.equals(mClausifier.getTheory().mTrue)
 					|| isNeg && prox.equals(mClausifier.getTheory().mFalse)) {
-				return null; // Don't instantiate the clause if a literal would be true.
+				return null; // Don't instantiate the clause if a literal would be trivially true.
 			} else if (!isNeg && prox.equals(mClausifier.getTheory().mFalse)
 					|| isNeg && prox.equals(mClausifier.getTheory().mTrue)) {
-				// Don't instantiate a literal that would be false.
+				// Don't instantiate a literal that would be trivially false.
 			} else {
 				if (isNeg) {
 					prox = mClausifier.getTheory().not(prox);
+				} 
+				if (litProxies.contains(mClausifier.getTheory().not(prox))) {
+					return null; // Don't instantiate literals that would lead to tautologies.
 				}
-				litProxies.add(prox);
+				if (!litProxies.contains(prox)) {
+					litProxies.add(prox);
+				}
 			}
 		}
 		// None of the literal proxys is trivially true, so build the clause.
@@ -321,7 +324,7 @@ public class InstantiationManager {
 			final QuantEUBoundConstraint qBoundConstr = (QuantEUBoundConstraint) atom;
 			final SMTAffineTerm smtAff =
 					instantiateEUTerm(qBoundConstr.getAffineTerm(), Arrays.asList(clause.getVars()), instantiation);
-			final Sort sort = atom.getTerm().getSort();
+			final Sort sort = qBoundConstr.getAffineTerm().getSort();
 			litProxy = computeBoundConstraintLitAsTerm(smtAff, false, sort);
 		} else if (atom instanceof QuantVarConstraint) {
 			final QuantVarConstraint varCons = (QuantVarConstraint) atom;
@@ -335,7 +338,7 @@ public class InstantiationManager {
 							: varCons.getGroundBound().getTerm();
 			final SMTAffineTerm smtAff = SMTAffineTerm.create(upper);
 			smtAff.add(Rational.MONE, lower);
-			final Sort sort = atom.getTerm().getSort();
+			final Sort sort = lower.getSort();
 			litProxy = computeBoundConstraintLitAsTerm(smtAff, false, sort);
 		} else {
 			litProxy = null;
@@ -364,7 +367,7 @@ public class InstantiationManager {
 			}
 		}
 		diff.div(diff.getGcd());
-		Sort sort = left.getSort(); // TODO Is it okay to take left sort? See EqualityProxy
+		Sort sort = left.getSort();
 		// Normalize equality to integer logic if all variables are integer.
 		if (mClausifier.getTheory().getLogic().isIRA() && sort.getName().equals("Real") && diff.isAllIntSummands()) {
 			sort = mClausifier.getTheory().getSort("Int");

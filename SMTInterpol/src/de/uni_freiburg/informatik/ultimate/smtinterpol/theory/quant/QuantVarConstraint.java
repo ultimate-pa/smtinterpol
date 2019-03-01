@@ -20,7 +20,6 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
-import de.uni_freiburg.informatik.ultimate.logic.Theory;
 
 /**
  * A QuantVarConstraint is an inequality between a TermVariable and a GroundTerm or between two TermVariable. Note that
@@ -87,12 +86,6 @@ public class QuantVarConstraint extends QuantLiteral {
 
 		// We only support x < y, i.e. (not (<= y x))
 		mIsSupported = false;
-	}
-
-	@Override
-	public Term getSMTFormula(final Theory smtTheory, final boolean quoted) {
-		// TODO Auto-generated method stub
-		return smtTheory.mTrue;
 	}
 
 	boolean isBothVar() {

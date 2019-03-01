@@ -118,7 +118,7 @@ public class EUTermManager extends NonRecursive {
 				buildGroundTerm(mTerm, mSource);
 			} else if (mTerm instanceof ApplicationTerm) {
 				final ApplicationTerm appTerm = (ApplicationTerm) mTerm;
-				if (!appTerm.getFunction().isIntern()) {
+				if (!appTerm.getFunction().isInterpreted()) {
 					enqueueWalker(new QuantAppTermBuilder(mTerm));
 					for (Term arg : appTerm.getParameters()) {
 						if (!(arg instanceof TermVariable)) {

@@ -18,11 +18,8 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
-import java.util.Set;
-
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
-import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 
 /**
@@ -36,9 +33,6 @@ public abstract class EUTerm {
 
 	private final Term mTerm;
 	private final Clausifier mClausifier;
-
-	protected Set<TermVariable> mFreeVars; // TODO Should a EUTerm store the variables, and how?
-
 	/**
 	 * Create a new EUTerm. This must only be called after checking that the term is essentially uninterpreted. We have
 	 * three types of EUTerm: GroundTerm, QuantAffineTerm, QuantAppTerm.
@@ -51,7 +45,6 @@ public abstract class EUTerm {
 	EUTerm(final Clausifier clausifier, final Term term) {
 		mTerm = term;
 		mClausifier = clausifier;
-		mFreeVars = null;
 	}
 
 	public Sort getSort() {
@@ -64,9 +57,5 @@ public abstract class EUTerm {
 
 	public Clausifier getClausifier() {
 		return mClausifier;
-	}
-
-	public Set<TermVariable> getFreeVars() {
-		return mFreeVars;
 	}
 }

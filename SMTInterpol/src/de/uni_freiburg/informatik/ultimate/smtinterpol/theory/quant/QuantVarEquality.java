@@ -20,7 +20,6 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
-import de.uni_freiburg.informatik.ultimate.logic.Theory;
 
 /**
  * A QuantVarEquality is an equality "TermVariable = TermVariable" or "TermVariable = GroundTerm". Negated
@@ -81,12 +80,6 @@ public class QuantVarEquality extends QuantLiteral {
 		if (!term.getSort().getName().equals("Int")) {
 			mIsSupported = false;
 		}
-	}
-
-	@Override
-	public Term getSMTFormula(final Theory smtTheory, final boolean quoted) {
-		// TODO Auto-generated method stub
-		return null;
 	}
 
 	boolean isBothVar() {

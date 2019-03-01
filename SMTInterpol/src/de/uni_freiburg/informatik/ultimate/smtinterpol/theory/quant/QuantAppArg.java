@@ -23,8 +23,6 @@ import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 /**
  * Represents a possibly quantified term that is allowed as argument of a QuantAppTerm. This can be a TermVariable, or a
  * ground or quantified EUTerm.
- * <p>
- * TODO Do we really need a class for this?
  * 
  * @author Tanja Schindler
  *

@@ -31,7 +31,10 @@ import java.util.Map;
 import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.Rational;
+import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SharedTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
@@ -121,7 +124,7 @@ public class QuantClause {
 		synchronizeInterestingTermsAllVars();
 	}
 
-	public QuantifierTheory getTheory() {
+	public QuantifierTheory getQuantTheory() {
 		return mQuantTheory;
 	}
 
@@ -227,20 +230,35 @@ public class QuantClause {
 					}
 				}
 			} else if (atom instanceof QuantVarEquality) {
-				// TODO
-				assert false : "Support for x=t not yet implemented.";
+				final QuantVarEquality varEq = (QuantVarEquality) atom;
+				assert !lit.isNegated() && !varEq.isBothVar() && varEq.getLeftVar().getSort().isNumericSort();
+				final int index = Arrays.asList(mVars).indexOf(varEq.getLeftVar());
+				final VarInfo varInfo = mVarInfos[index];
+				if (varEq.getLeftVar().getSort().getName() == "Int") {
+					final Term groundTerm = varEq.getGroundTerm().getTerm();
+					final SMTAffineTerm lowerAffine = new SMTAffineTerm(groundTerm);
+					lowerAffine.add(Rational.MONE);
+					final SMTAffineTerm upperAffine = new SMTAffineTerm(groundTerm);
+					upperAffine.add(Rational.ONE);
+					final Term lowerBound = lowerAffine.toTerm(groundTerm.getSort());
+					final Term upperBound = upperAffine.toTerm(groundTerm.getSort());
+					varInfo.addLowerGroundBound(mQuantTheory.getClausifier().getSharedTerm(lowerBound, mSource));
+					varInfo.addUpperGroundBound(mQuantTheory.getClausifier().getSharedTerm(upperBound, mSource));
+				} else {
+					assert false : "x=t only supported for integers.";
+				}
 			} else if (atom instanceof QuantEUBoundConstraint || atom instanceof QuantEUEquality) {
 				// Here, we need to add the positions where variables appear as arguments of functions.
-				Set<EUTerm> subTerms;
+				Set<EUTerm> subTerms = new HashSet<>();
 				if (atom instanceof QuantEUBoundConstraint) {
 					final QuantEUBoundConstraint euConstraint = (QuantEUBoundConstraint) atom;
 					final EUTerm affineTerm = euConstraint.getAffineTerm();
-					subTerms = mQuantTheory.getSubEUTerms(affineTerm);
+					subTerms.addAll(mQuantTheory.getSubEUTerms(affineTerm));
 				} else {
 					final QuantEUEquality euEq = (QuantEUEquality) atom;
 					final EUTerm lhs = euEq.getLhs();
 					final EUTerm rhs = euEq.getRhs();
-					subTerms = mQuantTheory.getSubEUTerms(lhs);
+					subTerms.addAll(mQuantTheory.getSubEUTerms(lhs));
 					subTerms.addAll(mQuantTheory.getSubEUTerms(rhs));
 				}
 				for (final EUTerm sub : subTerms) {

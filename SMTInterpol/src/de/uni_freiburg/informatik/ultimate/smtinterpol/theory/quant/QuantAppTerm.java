@@ -18,11 +18,8 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
-import java.util.HashSet;
-
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
-import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 
 /**
@@ -45,18 +42,6 @@ public class QuantAppTerm extends EUTerm {
 		super(clausifier, term);
 		mFunc = func;
 		mArgs = args;
-		mFreeVars = new HashSet<TermVariable>();
-		for (int i = 0; i < args.length; i++) {
-			if (args[i].isVar()) {
-				mFreeVars.add(args[i].getVar());
-			} else {
-				final EUTerm euArg = args[i].getEUTerm();
-				if (euArg.getFreeVars() != null) {
-					mFreeVars.addAll(euArg.getFreeVars());
-				}
-			}
-		}
-		assert !mFreeVars.isEmpty();
 	}
 
 	public FunctionSymbol getFunc() {

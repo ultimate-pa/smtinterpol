@@ -1697,8 +1697,21 @@ public class Clausifier {
 
 				atom = mEprTheory.getEprAtom(auxTerm, 0, mStackLevel, SourceAnnotation.EMPTY_SOURCE_ANNOT);
 			} else {
-				// TODO Create CCBaseTerm for the aux func or pred
-				quantAtom = mQuantTheory.getQuantNamedAtom(smtFormula);
+				final TermVariable[] freeVars = new TermVariable[smtFormula.getFreeVars().length];
+				final Term[] freeVarsAsTerm = new Term[freeVars.length];
+				final Sort[] paramTypes = new Sort[freeVars.length];
+				for (int i = 0; i < freeVars.length; i++) {
+					freeVars[i] = smtFormula.getFreeVars()[i];
+					freeVarsAsTerm[i] = freeVars[i];
+					paramTypes[i] = freeVars[i].getSort();
+				}
+				final FunctionSymbol fs = mTheory.declareInternalFunction("@AUX" + smtFormula.toString(),
+						paramTypes, freeVars, smtFormula, FunctionSymbol.UNINTERPRETEDINTERNAL); // TODO change flag in the future
+				final ApplicationTerm auxTerm = mTheory.term(fs, freeVarsAsTerm);
+				// TODO Create CCBaseTerm for the aux func or pred (edit: this is done automatically when looking
+				// for instantiation terms - should it be done earlier?)
+				// We use an equality "f(x,y,...)=true", not a NamedAtom, as CClosure must treat the literal instances.
+				quantAtom = mQuantTheory.getQuantEquality(auxTerm, true, null, auxTerm, mTheory.mTrue);
 			}
 		} else {
 			atom = new NamedAtom(smtFormula, mStackLevel);

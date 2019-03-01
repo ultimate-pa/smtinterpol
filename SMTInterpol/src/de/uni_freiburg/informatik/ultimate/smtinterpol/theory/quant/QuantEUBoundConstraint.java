@@ -19,7 +19,6 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
 import de.uni_freiburg.informatik.ultimate.logic.Term;
-import de.uni_freiburg.informatik.ultimate.logic.Theory;
 
 /**
  * A QuantEUBoundConstraint is an inequality of the form QuantAffineTerm <= 0.
@@ -51,12 +50,6 @@ public class QuantEUBoundConstraint extends QuantLiteral {
 		}
 		mAffineTerm = (QuantAffineTerm) lhs;
 		mNegated = new NegQuantLiteral(this);
-	}
-
-	@Override
-	public Term getSMTFormula(final Theory smtTheory, final boolean quoted) {
-		// TODO Auto-generated method stub
-		return smtTheory.mTrue;
 	}
 
 	QuantAffineTerm getAffineTerm() {

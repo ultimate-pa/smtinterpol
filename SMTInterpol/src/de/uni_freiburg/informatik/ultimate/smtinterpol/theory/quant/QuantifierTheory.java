@@ -152,7 +152,6 @@ public class QuantifierTheory implements ITheory {
 			return conflict;
 		}
 		// TODO
-		// throw new UnsupportedOperationException("Support for quantifiers coming soon.");
 		return null;
 	}
 
@@ -261,7 +260,8 @@ public class QuantifierTheory implements ITheory {
 	 * 
 	 * @return the underlying equality atom as a QuantLiteral, if the literal is supported.
 	 */
-	public QuantLiteral getQuantEquality(Term term, boolean positive, SourceAnnotation source, Term lhs, Term rhs) {
+	public QuantLiteral getQuantEquality(final Term term, final boolean positive, final SourceAnnotation source,
+			final Term lhs, final Term rhs) {
 		final QuantLiteral atom = mQuantLits.get(term);
 		if (atom != null) {
 			if (positive && atom.isSupported()) {
@@ -270,8 +270,38 @@ public class QuantifierTheory implements ITheory {
 				return atom;
 			} else {
 				throw new UnsupportedOperationException(
-						(positive ? "Negated term " : "Term ") + term + " not in almost uninterpreted fragment!");
+						(positive ? term : "(not " + term + ")") + " not in almost uninterpreted fragment!");
 			}
+		}
+
+		if (!lhs.getSort().isNumericSort()) {
+			final TermVariable leftVar = lhs instanceof TermVariable ? (TermVariable) lhs : null;
+			final TermVariable rightVar = rhs instanceof TermVariable ? (TermVariable) rhs : null;
+			if (leftVar == null && rightVar == null) {
+				final EUTerm lhsEU = mEUTermManager.getEUTerm(lhs, source);
+				final EUTerm rhsEU = mEUTermManager.getEUTerm(rhs, source);
+				QuantEUEquality euEq = new QuantEUEquality(term, lhsEU, rhsEU);
+				mQuantLits.put(term, euEq);
+				return euEq;
+			}
+			if (!positive) {
+				if (leftVar != null && rightVar != null) {
+					final QuantVarEquality varEq = new QuantVarEquality(term, leftVar, rightVar);
+					mQuantLits.put(term, varEq);
+					return varEq;
+				} else {
+					final TermVariable onlyVar = leftVar != null ? leftVar : rightVar;
+					final EUTerm euTerm = leftVar != null ? mEUTermManager.getEUTerm(rhs, source)
+							: mEUTermManager.getEUTerm(lhs, source);
+					if (euTerm instanceof GroundTerm) {
+						QuantVarEquality euEq = new QuantVarEquality(term, onlyVar, (GroundTerm) euTerm);
+						mQuantLits.put(term, euEq);
+						return euEq;
+					}
+				}
+			}
+			throw new UnsupportedOperationException(
+					(positive ? term : "(not " + term + ")") + " not in almost uninterpreted fragment!");
 		}
 
 		SMTAffineTerm rightAff = SMTAffineTerm.create(rhs);
@@ -289,15 +319,13 @@ public class QuantifierTheory implements ITheory {
 			if (summand instanceof TermVariable) {
 				if (summands.get(summand).isNegative()) {
 					if (rightVar != null) {
-						throw new UnsupportedOperationException(
-								"Term " + term + " not in almost uninterpreted fragment!");
+						throw new UnsupportedOperationException(term + " not in almost uninterpreted fragment!");
 					}
 					rightVar = (TermVariable) summand;
 					it.remove();
 				} else {
 					if (leftVar != null) {
-						throw new UnsupportedOperationException(
-								"Term " + term + " not in almost uninterpreted fragment!");
+						throw new UnsupportedOperationException(term + " not in almost uninterpreted fragment!");
 					}
 					leftVar = (TermVariable) summand;
 					it.remove();
@@ -312,15 +340,15 @@ public class QuantifierTheory implements ITheory {
 				return varEq;
 			}
 		} else if (leftVar != null || rightVar != null) {
-			if (positive && !term.getSort().getName().equals("Int")) { // We support var=ground only for integers.
-				throw new UnsupportedOperationException("Term " + term + " not in almost uninterpreted fragment!");
+			if (positive && !lhs.getSort().getName().equals("Int")) { // We support (var = ground) only for integers.
+				throw new UnsupportedOperationException(term + " not in almost uninterpreted fragment!");
 			}
 			// We can either do destructive equality reasoning later (if !positive), or build an aux axiom.
 			SMTAffineTerm remainderAffine = new SMTAffineTerm(summands, constant);
 			if (leftVar != null) {
 				remainderAffine.negate();
 			}
-			Term remainder = remainderAffine.toTerm(mClausifier.getTermCompiler(), term.getSort());
+			Term remainder = remainderAffine.toTerm(mClausifier.getTermCompiler(), lhs.getSort());
 			if (remainder.getFreeVars().length == 0) { // The variable can only be bound by ground terms.
 				final EUTerm boundTerm = mEUTermManager.getEUTerm(remainder, source);
 				assert boundTerm instanceof GroundTerm;
@@ -337,7 +365,7 @@ public class QuantifierTheory implements ITheory {
 			return euEq;
 		}
 		throw new UnsupportedOperationException(
-				(positive ? "Term " : "Negated term ") + term + " not in almost uninterpreted fragment!");
+				(positive ? term : "(not " + term + ")") + " not in almost uninterpreted fragment!");
 	}
 
 	/**
@@ -368,7 +396,7 @@ public class QuantifierTheory implements ITheory {
 				return lit;
 			} else {
 				throw new UnsupportedOperationException(
-						(positive ? "Term " : "Negated term ") + term + " not in almost uninterpreted fragment!");
+						(positive ? term : "(not " + term + ")") + " not in almost uninterpreted fragment!");
 			}
 		}
 
@@ -386,16 +414,14 @@ public class QuantifierTheory implements ITheory {
 				if (positive == summands.get(summand).isNegative()) {
 					// the variable has a lower bound
 					if (upper != null) {
-						throw new UnsupportedOperationException(
-								"Term " + term + " not in almost uninterpreted fragment!");
+						throw new UnsupportedOperationException(term + " not in almost uninterpreted fragment!");
 					}
 					upper = (TermVariable) summand;
 					it.remove();
 				} else {
 					// the variable has an upper bound
 					if (lower != null) {
-						throw new UnsupportedOperationException(
-								"Term " + term + " not in almost uninterpreted fragment!");
+						throw new UnsupportedOperationException(term + " not in almost uninterpreted fragment!");
 					}
 					lower = (TermVariable) summand;
 					it.remove();
@@ -414,10 +440,10 @@ public class QuantifierTheory implements ITheory {
 		// Else, bring the literals into the form ~(x<=t), ~(t<=x), ~(x<=y)
 		if (positive) {
 			// First step of rewriting positive (x-t<=0) into ~(t+1<=x) for x integer
-			if (term.getSort().getName().equals("Int")) {
+			if (lhs.getSort().getName().equals("Int")) {
 				constant.add(Rational.MONE);
 			} else {
-				throw new UnsupportedOperationException("Term " + term + " not in almost uninterpreted fragment!");
+				throw new UnsupportedOperationException(term + " not in almost uninterpreted fragment!");
 			}
 		}
 
@@ -456,11 +482,7 @@ public class QuantifierTheory implements ITheory {
 			}
 		}
 		throw new UnsupportedOperationException(
-				(positive ? "Term " : "Negated term ") + term + " not in almost uninterpreted fragment!");
-	}
-
-	public QuantLiteral getQuantNamedAtom(Term term) {
-		return new QuantNamedAtom(term);
+				(positive ? term : "(not " + term + ")") + " not in almost uninterpreted fragment!");
 	}
 
 	/**
@@ -485,7 +507,8 @@ public class QuantifierTheory implements ITheory {
 						"Cannot add clause to QuantifierTheory: Contains unsupported literals!");
 			} else if (lit.isNegated() && lit.getAtom() instanceof QuantVarEquality) {
 				throw new IllegalArgumentException(
-						"Cannot add clause to QuantifierTheory: Disequalities on variables must be eliminated by DER before!");
+						"Cannot add clause to QuantifierTheory: Disequality on variables " + lit.toString()
+								+ " must be eliminated by DER before!");
 			}
 		}
 		final QuantClause clause = new QuantClause(lits, quantLits, this, source);
