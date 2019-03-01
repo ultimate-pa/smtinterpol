@@ -321,11 +321,12 @@ public class InterpolatorClauseTermInfo {
 	 * <code>f * (ccEq.getLhs() - ccEq.getRhs()) == laEq.getLhs())</code>
 	 */
 	private Rational computeLAFactor(final Term ccEq, final Term laEq) {
-		final InterpolatorAffineTerm ccLeft = Interpolator.termToAffine(((ApplicationTerm) ccEq).getParameters()[0]);
-		final InterpolatorAffineTerm ccRight = Interpolator.termToAffine(((ApplicationTerm) ccEq).getParameters()[1]);
+		final InterpolatorAffineTerm ccLeft = EQInterpolator.termToAffine(((ApplicationTerm) ccEq).getParameters()[0]);
+		final InterpolatorAffineTerm ccRight = EQInterpolator.termToAffine(((ApplicationTerm) ccEq).getParameters()[1]);
 		final InterpolatorAffineTerm ccAffine = new InterpolatorAffineTerm(ccLeft);
 		ccAffine.add(Rational.MONE, ccRight);
-		final InterpolatorAffineTerm laAffine = Interpolator.termToAffine(((ApplicationTerm) laEq).getParameters()[0]);
+		final InterpolatorAffineTerm laAffine =
+				EQInterpolator.termToAffine(((ApplicationTerm) laEq).getParameters()[0]);
 		Rational factor = laAffine.getGcd().div(ccAffine.getGcd());
 		final InterpolatorAffineTerm eqSum = new InterpolatorAffineTerm();
 		eqSum.add(factor, ccAffine);

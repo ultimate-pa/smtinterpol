@@ -42,7 +42,6 @@ import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SolverOptions;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.LeafNode;
@@ -295,7 +294,7 @@ public class Interpolator extends NonRecursive {
 			}
 		} else if (leafTermInfo.getLeafKind().equals(ProofConstants.FN_LEMMA)) {
 			if (leafTermInfo.getLemmaType().equals(":EQ")) {
-				interpolants = computeEQInterpolant(leaf);
+				interpolants = new EQInterpolator(this).computeInterpolants(leaf);
 			} else if (leafTermInfo.getLemmaType().equals(":CC")) {
 				final CCInterpolator ipolator = new CCInterpolator(this);
 				interpolants = ipolator.computeInterpolants(leaf);
@@ -594,126 +593,6 @@ public class Interpolator extends NonRecursive {
 	}
 
 	/**
-	 * Compute the interpolant for a Nelson-Oppen equality clause. This is a theory lemma of the form equality implies
-	 * equality, where one equality is congruence closure and one is linear arithmetic.
-	 *
-	 * @param ccEq
-	 *            the congruence closure equality atom
-	 * @param laEq
-	 *            the linear arithmetic equality atom
-	 * @param sign
-	 *            the sign of l1 in the conflict clause. This is -1 if l1 implies l2, and +1 if l2 implies l1.
-	 */
-	private Term[] computeEQInterpolant(final Term eqLemma) {
-		Term[] interpolants = null;
-
-		final InterpolatorClauseTermInfo lemmaTermInfo = getClauseTermInfo(eqLemma);
-		final Term ccEq = getAtom(lemmaTermInfo.getCCEq());
-		final Term laEq = getAtom(lemmaTermInfo.getLAEq());
-		final InterpolatorAtomInfo ccTermInfo = getAtomTermInfo(ccEq);
-		final InterpolatorAtomInfo laTermInfo = getAtomTermInfo(laEq);
-		final boolean ccIsNeg = isNegatedTerm(lemmaTermInfo.getCCEq());
-
-		final LitInfo ccOccInfo = getAtomOccurenceInfo(ccEq);
-		final LitInfo laOccInfo = getAtomOccurenceInfo(laEq);
-
-		interpolants = new Term[mNumInterpolants];
-		for (int p = 0; p < mNumInterpolants; p++) {
-			Term interpolant;
-			if (ccOccInfo.isAorShared(p) && laOccInfo.isAorShared(p)) {
-				interpolant = mTheory.mFalse; // both literals in A.
-			} else if (ccOccInfo.isBorShared(p) && laOccInfo.isBorShared(p)) {
-				interpolant = mTheory.mTrue; // both literals in B.
-			} else {
-				final InterpolatorAffineTerm iat = new InterpolatorAffineTerm();
-				final Rational factor = lemmaTermInfo.getLAFactor();
-				TermVariable mixed = null;
-				boolean negate = false;
-				// Get A part of ccEq:
-				final ApplicationTerm ccEqApp = ccTermInfo.getEquality();
-				if (ccOccInfo.isALocal(p)) {
-					iat.add(factor, termToAffine(ccEqApp.getParameters()[0]));
-					iat.add(factor.negate(), termToAffine(ccEqApp.getParameters()[1]));
-					if (!ccIsNeg) {
-						negate = true;
-					}
-				} else if (ccOccInfo.isMixed(p)) {
-					// mixed;
-					if (!ccIsNeg) {
-						mixed = ccOccInfo.getMixedVar();
-					}
-					if (ccOccInfo.mLhsOccur.isALocal(p)) {
-						iat.add(factor, termToAffine(ccEqApp.getParameters()[0]));
-						iat.add(factor.negate(), ccOccInfo.getMixedVar());
-					} else {
-						iat.add(factor, ccOccInfo.getMixedVar());
-						iat.add(factor.negate(), termToAffine(ccEqApp.getParameters()[1]));
-					}
-				} else {
-					// both sides in B, A part is empty
-				}
-
-				// Get A part of laEq:
-				if (laOccInfo.isALocal(p)) {
-					iat.add(Rational.MONE, laTermInfo.getAffineTerm());
-					if (ccIsNeg) {
-						negate = true;
-					}
-				} else if (laOccInfo.isMixed(p)) {
-					if (ccIsNeg) {
-						mixed = laOccInfo.getMixedVar();
-					}
-					iat.add(Rational.MONE, laOccInfo.getAPart(p));
-					iat.add(Rational.ONE, laOccInfo.getMixedVar());
-				} else {
-					// both sides in B, A part is empty
-				}
-				iat.mul(iat.getGcd().inverse());
-
-				// Now solve it.
-				if (mixed != null) { // NOPMD
-					final Rational mixedFactor = iat.getSummands().remove(mixed);
-					assert mixedFactor.isIntegral();
-					final boolean isInt = mixed.getSort().getName().equals("Int");
-					if (isInt && mixedFactor.abs() != Rational.ONE) { // NOPMD
-						if (mixedFactor.signum() > 0) {
-							iat.negate();
-						}
-						final Term sharedTerm = iat.toSMTLib(mTheory, isInt);
-						final Term divisor = mixedFactor.abs().toTerm(mixed.getSort());
-						// We need to divide sharedTerm by mixedFactor and check that it doesn't produce a remainder.
-						//
-						// Interpolant is: (and (= mixed (div sharedTerm mixedFactor))
-						// (= (mod sharedTerm mixedFactor) 0))
-						interpolant = mTheory.and(mTheory.term(EQ, mixed, mTheory.term("div", sharedTerm, divisor)),
-								mTheory.term("=", mTheory.term("mod", sharedTerm, divisor),
-										Rational.ZERO.toTerm(mixed.getSort())));
-					} else {
-						iat.mul(mixedFactor.negate().inverse());
-						final Term sharedTerm = iat.toSMTLib(mTheory, isInt);
-						interpolant = mTheory.term(EQ, mixed, sharedTerm);
-					}
-				} else {
-					if (iat.isConstant()) {
-						if (iat.getConstant() != InfinitesimalNumber.ZERO) {
-							negate ^= true;
-						}
-						interpolant = negate ? mTheory.mFalse : mTheory.mTrue;
-					} else {
-						final boolean isInt = iat.isInt();
-						final Sort sort = mTheory.getSort(isInt ? "Int" : "Real");
-						final Term term = iat.toSMTLib(mTheory, isInt);
-						final Term zero = Rational.ZERO.toTerm(sort);
-						interpolant = negate ? mTheory.not(mTheory.equals(term, zero)) : mTheory.equals(term, zero);
-					}
-				}
-			}
-			interpolants[p] = interpolant;
-		}
-		return interpolants;
-	}
-
-	/**
 	 * Color the input literals. This gets the source for the literals from the LeafNodes.
 	 */
 	public void colorLiterals() {
@@ -984,11 +863,11 @@ public class Interpolator extends NonRecursive {
 		return new Substitutor(termVar, replacement).transform(mainTerm);
 	}
 
-	class EQInterpolator extends TermTransformer {
+	class EQSubstitutor extends TermTransformer {
 		Term mI2;
 		TermVariable mAuxVar;
 
-		EQInterpolator(final Term i2, final TermVariable auxVar) {
+		EQSubstitutor(final Term i2, final TermVariable auxVar) {
 			mI2 = i2;
 			mAuxVar = auxVar;
 		}
@@ -1024,7 +903,7 @@ public class Interpolator extends NonRecursive {
 	 */
 	private Term mixedEqInterpolate(final Term eqIpol, final Term neqIpol,
 			final TermVariable mixedVar) {
-		final TermTransformer ipolator = new EQInterpolator(neqIpol, mixedVar);
+		final TermTransformer ipolator = new EQSubstitutor(neqIpol, mixedVar);
 		return ipolator.transform(eqIpol);
 	}
 
@@ -1271,17 +1150,6 @@ public class Interpolator extends NonRecursive {
 		final InterpolatorAtomInfo info = new InterpolatorAtomInfo(term);
 		mLiteralTermInfos.put(term, info);
 		return info;
-	}
-
-	/**
-	 * Convert this term to an InterpolatorAffineTerm
-	 */
-	static InterpolatorAffineTerm termToAffine(Term term) {
-		if (term instanceof AnnotatedTerm) {
-			term = ((AnnotatedTerm) term).getSubterm();
-		}
-		final SMTAffineTerm affine = new SMTAffineTerm(term);
-		return new InterpolatorAffineTerm(affine);
 	}
 
 	/**
