@@ -45,7 +45,7 @@ public class InterpolantChecker {
 	Script mCheckingSolver;
 	Set<FunctionSymbol> mGlobals;
 
-	public InterpolantChecker(Interpolator interpolator, Script checkingSolver) {
+	public InterpolantChecker(final Interpolator interpolator, final Script checkingSolver) {
 		mInterpolator = interpolator;
 		mCheckingSolver = checkingSolver;
 	}
@@ -85,7 +85,7 @@ public class InterpolantChecker {
 		return substitutor.transform(term);
 	}
 
-	private Term fixupAndLet(final Interpolant interpolant, final HashMap<TermVariable, Term> fixedEQs,
+	private Term fixupAndLet(final Term interpolant, final HashMap<TermVariable, Term> fixedEQs,
 			final HashMap<TermVariable, Term> auxMap) {
 		Term result = mInterpolator.unfoldLAs(interpolant);
 		if (fixedEQs != null) {
@@ -105,9 +105,9 @@ public class InterpolantChecker {
 		return result;
 	}
 
-	public void checkInductivity(final HashSet<Term> literals, final Interpolant[] ipls) {
-		LogProxy logger = mInterpolator.getLogger();
-		Theory theory = mInterpolator.mTheory;
+	public void checkInductivity(final HashSet<Term> literals, final Term[] ipls) {
+		final LogProxy logger = mInterpolator.getLogger();
+		final Theory theory = mInterpolator.mTheory;
 		final int old = logger.getLoglevel();// NOPMD
 		logger.setLoglevel(LogProxy.LOGLEVEL_ERROR);
 
@@ -338,14 +338,14 @@ public class InterpolantChecker {
 		logger.setLoglevel(old);
 	}
 
-	public void assertUnpartitionedFormulas(Collection<Term> assertions, final Set<String> partitions) {
-		LogProxy logger = mInterpolator.getLogger();
+	public void assertUnpartitionedFormulas(final Collection<Term> assertions, final Set<String> partitions) {
+		final LogProxy logger = mInterpolator.getLogger();
 		final int old = logger.getLoglevel();
 		try {
 			logger.setLoglevel(LogProxy.LOGLEVEL_ERROR);
 			// Clone the current context except for the parts used in the
 			// interpolation problem
-			SymbolCollector collector = new SymbolCollector();
+			final SymbolCollector collector = new SymbolCollector();
 			termloop: for (final Term asserted : assertions) {
 				if (asserted instanceof AnnotatedTerm) {
 					final AnnotatedTerm annot = (AnnotatedTerm) asserted;
@@ -364,14 +364,14 @@ public class InterpolantChecker {
 		}
 	}
 
-	public boolean checkFinalInterpolants(final Map<String, Integer> partitions, Term[] interpolants) {
+	public boolean checkFinalInterpolants(final Map<String, Integer> partitions, final Term[] interpolants) {
 		boolean error = false;
-		int numPartitions = interpolants.length + 1;
+		final int numPartitions = interpolants.length + 1;
 
 		final Term[] inputFormulas = new Term[numPartitions];
-		for (Map.Entry<String, Integer> entry : partitions.entrySet()) {
-			int part = entry.getValue();
-			Term term = mCheckingSolver.term(entry.getKey());
+		for (final Map.Entry<String, Integer> entry : partitions.entrySet()) {
+			final int part = entry.getValue();
+			final Term term = mCheckingSolver.term(entry.getKey());
 			if (inputFormulas[part] == null) {
 				inputFormulas[part] = term;
 			} else {
@@ -380,7 +380,7 @@ public class InterpolantChecker {
 		}
 
 		// Compute the symbol occurrence:
-		SymbolCollector collector = new SymbolCollector();
+		final SymbolCollector collector = new SymbolCollector();
 		@SuppressWarnings("unchecked")
 		final Set<FunctionSymbol>[] occs = new Set[numPartitions];
 		for (int i = 0; i < numPartitions; i++) {
@@ -393,7 +393,7 @@ public class InterpolantChecker {
 		for (int i = 0; i < numPartitions; ++i) {
 			// Find children
 			subOccurrences[i] = new HashMap<>();
-			for (FunctionSymbol fsym : occs[i]) {
+			for (final FunctionSymbol fsym : occs[i]) {
 				subOccurrences[i].put(fsym, 1);
 			}
 			for (int child = i - 1; child >= mInterpolator.mStartOfSubtrees[i];
@@ -409,7 +409,7 @@ public class InterpolantChecker {
 			}
 		}
 
-		LogProxy logger = mInterpolator.getLogger();
+		final LogProxy logger = mInterpolator.getLogger();
 		final int old = logger.getLoglevel();
 		try {
 			logger.setLoglevel(LogProxy.LOGLEVEL_ERROR);

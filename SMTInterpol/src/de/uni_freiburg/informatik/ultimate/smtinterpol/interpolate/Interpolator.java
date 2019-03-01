@@ -100,7 +100,7 @@ public class Interpolator extends NonRecursive {
 	HashMap<Term, Occurrence> mSymbolPartition;
 	HashMap<String, Integer> mPartitions;
 	HashMap<Term, LitInfo> mAtomOccurenceInfos;
-	HashMap<Term, Interpolant[]> mInterpolants;
+	HashMap<Term, Term[]> mInterpolants;
 	HashMap<Term, InterpolatorClauseTermInfo> mClauseTermInfos;
 	HashMap<Term, InterpolatorAtomInfo> mLiteralTermInfos;
 
@@ -109,7 +109,7 @@ public class Interpolator extends NonRecursive {
 	 * combining them. In the end of the interpolation, it contains only the interpolants for the refutation,
 	 * corresponding to the specified partitions.
 	 */
-	private final ArrayDeque<Interpolant[]> mInterpolated = new ArrayDeque<>();
+	private final ArrayDeque<Term[]> mInterpolated = new ArrayDeque<>();
 
 	/**
 	 * This class goes through the proof terms of the proof tree for the input clause. It checks if the interpolant for
@@ -213,20 +213,19 @@ public class Interpolator extends NonRecursive {
 
 	public Term[] getInterpolants(final Term proofTree) {
 		colorLiterals();
-		final Interpolant[] eqitps = interpolate(proofTree);
-		final Term[] itpTerms = new Term[eqitps.length];
-		for (int i = 0; i < eqitps.length; i++) {
-			itpTerms[i] = unfoldLAs(eqitps[i]);
+		final Term[] interpolants = interpolate(proofTree);
+		for (int i = 0; i < interpolants.length; i++) {
+			interpolants[i] = unfoldLAs(interpolants[i]);
 		}
 		if (mChecker != null) {
-			if (!mChecker.checkFinalInterpolants(mPartitions, itpTerms)) {
+			if (!mChecker.checkFinalInterpolants(mPartitions, interpolants)) {
 				throw new SMTLIBException("generated interpolants did not pass sanity check");
 			}
 		}
-		return itpTerms;
+		return interpolants;
 	}
 
-	public Interpolant[] interpolate(final Term proofTerm) {
+	public Term[] interpolate(final Term proofTerm) {
 		if (mInterpolants.containsKey(proofTerm)) {
 			mLogger.debug("Proof term %s has been interpolated before.", proofTerm.hashCode());
 			return mInterpolants.get(proofTerm);
@@ -235,7 +234,7 @@ public class Interpolator extends NonRecursive {
 			throw new SMTLIBException("Timeout exceeded");
 		}
 
-		Interpolant[] interpolants = null;
+		Term[] interpolants = null;
 
 		run(new ProofTreeWalker(proofTerm));
 
@@ -285,26 +284,21 @@ public class Interpolator extends NonRecursive {
 		if (mSmtSolver.isTerminationRequested()) {
 			throw new SMTLIBException("Timeout exceeded");
 		}
-		Interpolant[] interpolants = new Interpolant[mNumInterpolants];
+		Term[] interpolants;
 		final InterpolatorClauseTermInfo leafTermInfo = getClauseTermInfo(leaf);
 		if (leafTermInfo.getLeafKind().equals(ProofConstants.FN_CLAUSE)) {
 			final String source = leafTermInfo.getSource();
 			final int partition = mPartitions.containsKey(source) ? mPartitions.get(source) : 0;
-			interpolants = new Interpolant[mNumInterpolants];
+			interpolants = new Term[mNumInterpolants];
 			for (int i = 0; i < mNumInterpolants; i++) {
-				interpolants[i] = new Interpolant(
-						mStartOfSubtrees[i] <= partition && partition <= i ? mTheory.mFalse : mTheory.mTrue);
+				interpolants[i] = mStartOfSubtrees[i] <= partition && partition <= i ? mTheory.mFalse : mTheory.mTrue;
 			}
 		} else if (leafTermInfo.getLeafKind().equals(ProofConstants.FN_LEMMA)) {
 			if (leafTermInfo.getLemmaType().equals(":EQ")) {
 				interpolants = computeEQInterpolant(leaf);
 			} else if (leafTermInfo.getLemmaType().equals(":CC")) {
 				final CCInterpolator ipolator = new CCInterpolator(this);
-				final Term[] interpolantTerms = ipolator.computeInterpolants(leaf);
-				interpolants = new Interpolant[mNumInterpolants];
-				for (int j = 0; j < mNumInterpolants; j++) {
-					interpolants[j] = new Interpolant(interpolantTerms[j]);
-				}
+				interpolants = ipolator.computeInterpolants(leaf);
 			} else if (leafTermInfo.getLemmaType().equals(":LA") || leafTermInfo.getLemmaType().equals(":trichotomy")) {
 				final LAInterpolator ipolator = new LAInterpolator(this);
 				interpolants = ipolator.computeInterpolants(leaf);
@@ -314,10 +308,7 @@ public class Interpolator extends NonRecursive {
 							|| leafTermInfo.getLemmaType().equals(":const-weakeq")
 							|| leafTermInfo.getLemmaType().equals(":read-const-weakeq"))) {
 				final ArrayInterpolator ipolator = new ArrayInterpolator(this);
-				final Term[] interpolantTerms = ipolator.computeInterpolants(leaf);
-				for (int j = 0; j < mNumInterpolants; j++) {
-					interpolants[j] = new Interpolant(interpolantTerms[j]);
-				}
+				interpolants = ipolator.computeInterpolants(leaf);
 			} else {
 				throw new UnsupportedOperationException("Unknown lemma type!");
 			}
@@ -351,35 +342,34 @@ public class Interpolator extends NonRecursive {
 		final InterpolatorAtomInfo pivotTermInfo = getAtomTermInfo(pivotAtom);
 		final LitInfo pivInfo = mAtomOccurenceInfos.get(pivotAtom);
 
-		final Interpolant[] assInterp = collectInterpolated();
-		final Interpolant[] primInterp = collectInterpolated();
-		final Interpolant[] interp = new Interpolant[mNumInterpolants];
+		final Term[] antecedentInterp = collectInterpolated();
+		final Term[] primInterp = collectInterpolated();
+		final Term[] interp = new Term[mNumInterpolants];
 
 		for (int i = 0; i < mNumInterpolants; i++) {
-			mLogger.debug("Pivot %3$s%4$s on interpolants %1$s and %2$s gives...", primInterp[i], assInterp[i],
+			mLogger.debug("Pivot %3$s%4$s on interpolants %1$s and %2$s gives...", primInterp[i], antecedentInterp[i],
 					unquote(pivot), pivInfo);
 			if (pivInfo.isALocal(i)) {
-				interp[i] = new Interpolant(mTheory.or(primInterp[i].mTerm, assInterp[i].mTerm));
+				interp[i] = mTheory.or(primInterp[i], antecedentInterp[i]);
 			} else if (pivInfo.isBLocal(i)) {
-				interp[i] = new Interpolant(mTheory.and(primInterp[i].mTerm, assInterp[i].mTerm));
+				interp[i] = mTheory.and(primInterp[i], antecedentInterp[i]);
 			} else if (pivInfo.isAB(i)) {
-				interp[i] =
-						new Interpolant(mTheory.ifthenelse(unquote(pivot), primInterp[i].mTerm, assInterp[i].mTerm));
+				interp[i] = mTheory.ifthenelse(unquote(pivot), primInterp[i], antecedentInterp[i]);
 			} else {
 				if (pivotTermInfo.isCCEquality() || pivotTermInfo.isLAEquality()) {
-					Interpolant eqIpol, neqIpol;
+					Term eqIpol, neqIpol;
 					if (pivot == pivotAtom) {
 						// pivot is the "eq" and occurs in antecedent
-						eqIpol = assInterp[i];
+						eqIpol = antecedentInterp[i];
 						neqIpol = primInterp[i];
 					} else {
 						// pivot is the "neq" and occurs in antecedent
 						eqIpol = primInterp[i];
-						neqIpol = assInterp[i];
+						neqIpol = antecedentInterp[i];
 					}
 					interp[i] = mixedEqInterpolate(eqIpol, neqIpol, pivInfo.mMixedVar);
 				} else if (pivotTermInfo.isBoundConstraint()) {
-					interp[i] = mixedPivotLA(assInterp[i], primInterp[i], pivInfo.mMixedVar);
+					interp[i] = mixedPivotLA(antecedentInterp[i], primInterp[i], pivInfo.mMixedVar);
 				} else {
 					throw new UnsupportedOperationException("Cannot handle mixed literal " + unquote(pivot));
 				}
@@ -398,7 +388,7 @@ public class Interpolator extends NonRecursive {
 	 */
 	@SuppressWarnings("unused")
 	private void summarize(final Term proofTerm) {
-		Interpolant[] interpolants = null;
+		Term[] interpolants = null;
 		interpolants = mInterpolated.getLast();
 
 		if (Config.DEEP_CHECK_INTERPOLANTS && mChecker != null) {
@@ -419,7 +409,7 @@ public class Interpolator extends NonRecursive {
 	/**
 	 * Get the last interpolant array from the Interpolated stack.
 	 */
-	protected final Interpolant[] collectInterpolated() {
+	protected final Term[] collectInterpolated() {
 		return mInterpolated.removeLast();
 	}
 
@@ -431,9 +421,8 @@ public class Interpolator extends NonRecursive {
 	 * @return true iff clause has been interpolated before
 	 */
 	public boolean checkCacheForInterpolants(final Term proofTerm) {
-		Interpolant[] interpolants = new Interpolant[mNumInterpolants];
-		if (mInterpolants.containsKey(proofTerm)) {
-			interpolants = mInterpolants.get(proofTerm);
+		final Term[] interpolants = mInterpolants.get(proofTerm);
+		if (interpolants != null) {
 			// add the interpolant to the interpolated stack
 			mInterpolated.add(interpolants);
 			return true;
@@ -591,7 +580,7 @@ public class Interpolator extends NonRecursive {
 		}
 	}
 
-	Term unfoldLAs(final Interpolant interpolant) {
+	Term unfoldLAs(final Term interpolant) {
 		final TermTransformer substitutor = new TermTransformer() {
 			@Override
 			public void convert(Term term) {
@@ -601,7 +590,7 @@ public class Interpolator extends NonRecursive {
 				super.convert(term);
 			}
 		};
-		return substitutor.transform(interpolant.mTerm);
+		return substitutor.transform(interpolant);
 	}
 
 	/**
@@ -615,8 +604,8 @@ public class Interpolator extends NonRecursive {
 	 * @param sign
 	 *            the sign of l1 in the conflict clause. This is -1 if l1 implies l2, and +1 if l2 implies l1.
 	 */
-	private Interpolant[] computeEQInterpolant(final Term eqLemma) {
-		Interpolant[] interpolants = null;
+	private Term[] computeEQInterpolant(final Term eqLemma) {
+		Term[] interpolants = null;
 
 		final InterpolatorClauseTermInfo lemmaTermInfo = getClauseTermInfo(eqLemma);
 		final Term ccEq = getAtom(lemmaTermInfo.getCCEq());
@@ -628,7 +617,7 @@ public class Interpolator extends NonRecursive {
 		final LitInfo ccOccInfo = getAtomOccurenceInfo(ccEq);
 		final LitInfo laOccInfo = getAtomOccurenceInfo(laEq);
 
-		interpolants = new Interpolant[mNumInterpolants];
+		interpolants = new Term[mNumInterpolants];
 		for (int p = 0; p < mNumInterpolants; p++) {
 			Term interpolant;
 			if (ccOccInfo.isAorShared(p) && laOccInfo.isAorShared(p)) {
@@ -719,7 +708,7 @@ public class Interpolator extends NonRecursive {
 					}
 				}
 			}
-			interpolants[p] = new Interpolant(interpolant);
+			interpolants[p] = interpolant;
 		}
 		return interpolants;
 	}
@@ -996,10 +985,10 @@ public class Interpolator extends NonRecursive {
 	}
 
 	class EQInterpolator extends TermTransformer {
-		Interpolant mI2;
+		Term mI2;
 		TermVariable mAuxVar;
 
-		EQInterpolator(final Interpolant i2, final TermVariable auxVar) {
+		EQInterpolator(final Term i2, final TermVariable auxVar) {
 			mI2 = i2;
 			mAuxVar = auxVar;
 		}
@@ -1013,7 +1002,7 @@ public class Interpolator extends NonRecursive {
 				final Term[] params = appTerm.getParameters();
 				if (func.isIntern() && func.getName().equals(EQ) && params[0] == mAuxVar) {
 					assert params.length == 2;
-					setResult(substitute(mI2.mTerm, mAuxVar, params[1]));
+					setResult(substitute(mI2, mAuxVar, params[1]));
 					return;
 				}
 			}
@@ -1033,10 +1022,10 @@ public class Interpolator extends NonRecursive {
 	 *            the auxiliary variable x.
 	 * @return the resulting interpolant.
 	 */
-	private Interpolant mixedEqInterpolate(final Interpolant eqIpol, final Interpolant neqIpol,
+	private Term mixedEqInterpolate(final Term eqIpol, final Term neqIpol,
 			final TermVariable mixedVar) {
 		final TermTransformer ipolator = new EQInterpolator(neqIpol, mixedVar);
-		return new Interpolant(ipolator.transform(eqIpol.mTerm));
+		return ipolator.transform(eqIpol);
 	}
 
 	static abstract class MixedLAInterpolator extends TermTransformer {
@@ -1247,15 +1236,15 @@ public class Interpolator extends NonRecursive {
 	 *            the auxiliary variable x used in the la term.
 	 * @return the resulting interpolant.
 	 */
-	public Interpolant mixedPivotLA(final Interpolant leqItp, final Interpolant sgItp, final TermVariable mixedVar) {
+	public Term mixedPivotLA(final Term leqItp, final Term sgItp, final TermVariable mixedVar) {
 		final MixedLAInterpolator ipolator;
 
 		if (mixedVar.getSort().getName().equals("Real")) {
-			ipolator = new RealInterpolator(sgItp.mTerm, mixedVar);
+			ipolator = new RealInterpolator(sgItp, mixedVar);
 		} else {
-			ipolator = new IntegerInterpolator(sgItp.mTerm, mixedVar);
+			ipolator = new IntegerInterpolator(sgItp, mixedVar);
 		}
-		final Interpolant newI = new Interpolant(ipolator.transform(leqItp.mTerm));
+		final Term newI = ipolator.transform(leqItp);
 		return newI;
 	}
 

@@ -130,7 +130,7 @@ public class LAInterpolator {
 	 *            the LA lemma that is interpolated.
 	 * @return an array containing the partial tree interpolants.
 	 */
-	public Interpolant[] computeInterpolants(final Term lemma) {
+	public Term[] computeInterpolants(final Term lemma) {
 		final InterpolatorAffineTerm[] ipl = new InterpolatorAffineTerm[mInterpolator.mNumInterpolants + 1];
 		for (int part = 0; part < ipl.length; part++) {
 			ipl[part] = new InterpolatorAffineTerm();
@@ -214,7 +214,7 @@ public class LAInterpolator {
 		/*
 		 * Save the interpolants computed for this leaf into the result array.
 		 */
-		final Interpolant[] interpolants = new Interpolant[mInterpolator.mNumInterpolants];
+		final Term[] interpolants = new Term[mInterpolator.mNumInterpolants];
 		for (int part = 0; part < auxVars.length; part++) {
 			final Rational normFactor = ipl[part].isConstant() ? Rational.ONE : ipl[part].getGCD().inverse().abs();
 			ipl[part].mul(normFactor);
@@ -255,7 +255,7 @@ public class LAInterpolator {
 					}
 					F = ipl[part].toLeq0(mInterpolator.mTheory);
 				}
-				interpolants[part] = new Interpolant(createLATerm(ipl[part], k, F));
+				interpolants[part] = createLATerm(ipl[part], k, F);
 			} else {
 				assert equalityOccurenceInfo == null || !equalityOccurenceInfo.isMixed(part);
 				if (equalityOccurenceInfo != null && ipl[part].isConstant()
@@ -265,9 +265,9 @@ public class LAInterpolator {
 					// If a != b is in B, the interpolant is simply a == b.
 					final Term thisIpl =
 							equalityOccurenceInfo.isALocal(part) ? mInterpolator.mTheory.not(eqApp) : eqApp;
-					interpolants[part] = new Interpolant(thisIpl);
+					interpolants[part] = thisIpl;
 				} else {
-					interpolants[part] = new Interpolant(ipl[part].toLeq0(mInterpolator.mTheory));
+					interpolants[part] = ipl[part].toLeq0(mInterpolator.mTheory);
 				}
 			}
 		}
