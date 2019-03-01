@@ -21,6 +21,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map.Entry;
@@ -34,7 +35,6 @@ import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
-import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermTransformer;
@@ -66,7 +66,7 @@ public class Interpolator extends NonRecursive {
 	public static final String EQ = "@EQ";
 
 	SMTInterpol mSmtSolver;
-	Script mCheckingSolver;
+	InterpolantChecker mChecker;
 
 	LogProxy mLogger;
 	Theory mTheory;
@@ -178,7 +178,9 @@ public class Interpolator extends NonRecursive {
 	}
 
 	public Interpolator(final LogProxy logger, final SMTInterpol smtSolver, final Script checkingSolver,
+			Collection<Term> allAssertions,
 			final Theory theory, final Set<String>[] partitions, final int[] startOfSubTrees) {
+		assert partitions.length == startOfSubTrees.length;
 		mPartitions = new HashMap<>();
 		for (int i = 0; i < partitions.length; i++) {
 			final Integer part = i;
@@ -188,7 +190,10 @@ public class Interpolator extends NonRecursive {
 		}
 		mLogger = logger;
 		mSmtSolver = smtSolver;
-		mCheckingSolver = checkingSolver;
+		if (checkingSolver != null) {
+			mChecker = new InterpolantChecker(this, checkingSolver);
+			mChecker.assertUnpartitionedFormulas(allAssertions, mPartitions.keySet());
+		}
 		mTheory = theory;
 		mNumInterpolants = partitions.length - 1;
 		mFullOccurrence = new Occurrence();
@@ -202,12 +207,21 @@ public class Interpolator extends NonRecursive {
 		mLiteralTermInfos = new HashMap<>();
 	}
 
+	public LogProxy getLogger() {
+		return mLogger;
+	}
+
 	public Term[] getInterpolants(final Term proofTree) {
 		colorLiterals();
 		final Interpolant[] eqitps = interpolate(proofTree);
 		final Term[] itpTerms = new Term[eqitps.length];
 		for (int i = 0; i < eqitps.length; i++) {
 			itpTerms[i] = unfoldLAs(eqitps[i]);
+		}
+		if (mChecker != null) {
+			if (!mChecker.checkFinalInterpolants(mPartitions, itpTerms)) {
+				throw new SMTLIBException("generated interpolants did not pass sanity check");
+			}
 		}
 		return itpTerms;
 	}
@@ -319,10 +333,10 @@ public class Interpolator extends NonRecursive {
 			mLogger.debug(interpolants[i]);
 		}
 
-		if (Config.DEEP_CHECK_INTERPOLANTS && mCheckingSolver != null) {
+		if (Config.DEEP_CHECK_INTERPOLANTS && mChecker != null) {
 			final HashSet<Term> lits = new HashSet<>();
 			lits.addAll(leafTermInfo.getLiterals());
-			checkInductivity(lits, interpolants);
+			mChecker.checkInductivity(lits, interpolants);
 		}
 	}
 
@@ -387,14 +401,14 @@ public class Interpolator extends NonRecursive {
 		Interpolant[] interpolants = null;
 		interpolants = mInterpolated.getLast();
 
-		if (Config.DEEP_CHECK_INTERPOLANTS && mCheckingSolver != null) {
+		if (Config.DEEP_CHECK_INTERPOLANTS && mChecker != null) {
 			final InterpolatorClauseTermInfo proofTermInfo = getClauseTermInfo(proofTerm);
 			final HashSet<Term> lits = new HashSet<>();
 			if (proofTermInfo.getLiterals().isEmpty()) {
 				proofTermInfo.computeResolutionLiterals(this);
 			}
 			lits.addAll(proofTermInfo.getLiterals());
-			checkInductivity(lits, interpolants);
+			mChecker.checkInductivity(lits, interpolants);
 		}
 
 		mInterpolants.put(proofTerm, interpolants);
@@ -577,7 +591,7 @@ public class Interpolator extends NonRecursive {
 		}
 	}
 
-	private Term unfoldLAs(final Interpolant interpolant) {
+	Term unfoldLAs(final Interpolant interpolant) {
 		final TermTransformer substitutor = new TermTransformer() {
 			@Override
 			public void convert(Term term) {
@@ -588,284 +602,6 @@ public class Interpolator extends NonRecursive {
 			}
 		};
 		return substitutor.transform(interpolant.mTerm);
-	}
-
-	/**
-	 * Fixup EQs by replacing any occurrence of EQ(x, s) with (let ((x s)) replacement).
-	 *
-	 * @param term
-	 *            The term in which EQs should be replaced.
-	 * @param fixupEQs
-	 *            A map from x to a replacement term, containing x as free variable. EQs whose variable is not in this
-	 *            map remain unchanged.
-	 * @return The replaced term.
-	 */
-	private Term fixupEQs(final Term term, final HashMap<TermVariable, Term> fixupEQs) {
-		final TermTransformer substitutor = new TermTransformer() {
-			@Override
-			public void convert(Term term) {
-				if (term instanceof ApplicationTerm) {
-					final ApplicationTerm at = (ApplicationTerm) term;
-					final FunctionSymbol func = at.getFunction();
-					if (func.isIntern() && func.getName().equals(EQ)) {
-						final TermVariable tv = (TermVariable) at.getParameters()[0];
-						final Term replacement = fixupEQs.get(tv);
-						if (replacement != null) {
-							term = mTheory.let(tv, at.getParameters()[1], replacement);
-							setResult(term);
-							return;
-						}
-					}
-				}
-				super.convert(term);
-			}
-		};
-		return substitutor.transform(term);
-	}
-
-	private void checkInductivity(final HashSet<Term> literals, final Interpolant[] ipls) {
-		final int old = mLogger.getLoglevel();// NOPMD
-		mLogger.setLoglevel(LogProxy.LOGLEVEL_ERROR);
-
-		mCheckingSolver.push(1);
-
-		/*
-		 * initialize auxMaps, which maps for each partition the auxiliary variables for mixed literals to a new fresh
-		 * constant.
-		 */
-		@SuppressWarnings("unchecked") // because Java Generics are broken :(
-		final HashMap<TermVariable, Term>[] auxMaps = new HashMap[ipls.length];
-
-		for (final Term lit : literals) {
-			final Term atom = getAtom(lit);
-			final InterpolatorAtomInfo atomTermInfo = getAtomTermInfo(atom);
-			final LitInfo info = getAtomOccurenceInfo(atom);
-			final TermVariable tv = info.mMixedVar;
-			if (tv != null) {
-				Term auxTerm = null;
-				for (int part = 0; part < ipls.length; part++) {
-					if (info.isMixed(part)) {
-						Term partAuxTerm;
-						if (atomTermInfo.isCCEquality()) {
-							// for CC all partitions shared the same aux variable.
-							if (auxTerm == null) {
-								final String name = ".check." + tv.getName();
-								mCheckingSolver.declareFun(name, new Sort[0], tv.getSort());
-								auxTerm = mCheckingSolver.term(name);
-							}
-							partAuxTerm = auxTerm;
-						} else {
-							// for LA every partition has its own aux variable as the A part changes
-							final String name = ".check" + part + "." + tv.getName();
-							mCheckingSolver.declareFun(name, new Sort[0], tv.getSort());
-							partAuxTerm = mCheckingSolver.term(name);
-						}
-						if (auxMaps[part] == null) {
-							auxMaps[part] = new HashMap<>();
-						}
-						auxMaps[part].put(tv, partAuxTerm);
-					}
-				}
-			}
-		}
-
-		for (int part = 0; part < ipls.length + 1; part++) {
-			@SuppressWarnings("unchecked") // because Java Generics are broken :(
-			final HashMap<TermVariable, Term>[] fixedEQs = new HashMap[ipls.length];
-			mCheckingSolver.push(1);
-			for (final Entry<String, Integer> entry : mPartitions.entrySet()) {
-				if (entry.getValue() == part) {
-					mCheckingSolver.assertTerm(mTheory.term(entry.getKey()));
-				}
-			}
-			for (final Term lit : literals) {
-				final Term atom = getAtom(lit);
-				// is this literal negated in the conflict?
-				final boolean isNegated = atom == lit;
-				final InterpolatorAtomInfo atomTermInfo = getAtomTermInfo(atom);
-				final LitInfo occInfo = mAtomOccurenceInfos.get(atom);
-				if (occInfo.contains(part)) {
-					mCheckingSolver.assertTerm(mTheory.not(lit));
-				} else if (occInfo.isBLocal(part)) {
-					// nothing to do, literal cannot be mixed in sub-tree.
-				} else if (occInfo.isALocalInSomeChild(part)) {
-					// nothing to do, literal cannot be mixed in node
-					// or some direct children
-				} else if (atomTermInfo.isCCEquality()) {
-					// handle mixed (dis)equalities.
-					final ApplicationTerm cceq = atomTermInfo.getEquality();
-					int firstMixedChild = -1;
-					int secondMixedChild = -1;
-					for (int child = part - 1; child >= mStartOfSubtrees[part]; child = mStartOfSubtrees[child] - 1) {
-						if (occInfo.isMixed(child)) {
-							if (firstMixedChild < 0) {
-								firstMixedChild = child;
-							} else {
-								assert secondMixedChild < 0;
-								secondMixedChild = child;
-							}
-						}
-					}
-					// now lhs is the auxvar of the child that contains lhs, or lhs if part contains it
-					// rhs is the auxvar of the child that contains rhs, or rhs if part contains it
-					if (firstMixedChild < 0) {
-						// we are the partition where one of the aux variables resides.
-						assert occInfo.isMixed(part);
-						final String op = isNegated ? Interpolator.EQ : "=";
-						final int side = occInfo.getLhsOccur().isALocal(part) ? 0 : 1;
-						final Term auxvar = auxMaps[part].get(occInfo.mMixedVar);
-						mCheckingSolver.assertTerm(mTheory.term(op, auxvar, cceq.getParameters()[side]));
-					} else if (!occInfo.isMixed(part)) {
-						final Term auxvar = auxMaps[firstMixedChild].get(occInfo.mMixedVar);
-						if (secondMixedChild < 0) {
-							final int side = occInfo.getLhsOccur().isALocal(firstMixedChild) ? 1 : 0;
-							if (isNegated) {
-								mCheckingSolver.assertTerm(mTheory.not(
-										mTheory.term(Interpolator.EQ, auxvar, cceq.getParameters()[side])));
-							} else {
-								mCheckingSolver.assertTerm(mTheory.term("=", auxvar, cceq.getParameters()[side]));
-							}
-						} else {
-							if (fixedEQs[secondMixedChild] == null) {
-								fixedEQs[secondMixedChild] = new HashMap<>();
-							}
-							// replace EQ in second mixed child by the negated eq of first child.
-							fixedEQs[secondMixedChild].put(occInfo.mMixedVar,
-									mTheory.not(mTheory.term(Interpolator.EQ, auxvar, occInfo.mMixedVar)));
-						}
-					} else {
-						assert firstMixedChild >= 0 && secondMixedChild < 0 && occInfo.isMixed(part);
-						// nothing to do for intermediate partitions
-					}
-				} else if (atomTermInfo.isLAEquality() && isNegated) {
-					// handle mixed LA disequalities.
-					final InterpolatorAffineTerm at = new InterpolatorAffineTerm();
-					int firstMixedChild = -1;
-					for (int child = part - 1; child >= mStartOfSubtrees[part]; child = mStartOfSubtrees[child] - 1) {
-						if (occInfo.isMixed(child)) {
-							at.add(Rational.MONE, occInfo.getAPart(child));
-							if (firstMixedChild < 0) {
-								firstMixedChild = child;
-							} else {
-								final Term auxvar = auxMaps[child].get(occInfo.mMixedVar);
-								at.add(Rational.ONE, auxvar);
-								if (fixedEQs[child] == null) {
-									fixedEQs[child] = new HashMap<>();
-								}
-								// replace EQ in other mixed child by equality -- TODO can we do better?
-								// this will not find all bugs in interpolation lemmas.
-								fixedEQs[child].put(occInfo.mMixedVar, mTheory.term("=", auxvar, occInfo.mMixedVar));
-							}
-						}
-					}
-					// now lhs is the auxvar of the child that contains lhs, or lhs if part contains it
-					// rhs is the auxvar of the child that contains rhs, or rhs if part contains it
-					if (occInfo.isMixed(part)) {
-						// we are the partition where one of the aux variables resides.
-						assert occInfo.isMixed(part);
-						at.add(Rational.ONE, occInfo.getAPart(part));
-						if (firstMixedChild < 0) {
-							final Term auxvar = auxMaps[part].get(occInfo.mMixedVar);
-							final Term aPart = at.toSMTLib(mTheory, atomTermInfo.isInt());
-							mCheckingSolver.assertTerm(mTheory.term(Interpolator.EQ, auxvar, aPart));
-						} else {
-							// replace EQ(xparent, s) with EQ(xchild, s - aparent).
-							final Term auxvar = auxMaps[firstMixedChild].get(occInfo.mMixedVar);
-							at.negate();
-							at.add(Rational.ONE, occInfo.mMixedVar);
-							if (fixedEQs[part] == null) {
-								fixedEQs[part] = new HashMap<>();
-							}
-							final Term replacement =
-									mTheory.term(Interpolator.EQ, auxvar, at.toSMTLib(mTheory, atomTermInfo.isInt()));
-							fixedEQs[part].put(occInfo.mMixedVar, replacement);
-						}
-					} else {
-						assert firstMixedChild >= 0;
-						final Term auxvar = auxMaps[firstMixedChild].get(occInfo.mMixedVar);
-						at.add(Rational.ONE, atomTermInfo.getAffineTerm());
-						at.negate();
-						final Term bPart = at.toSMTLib(mTheory, atomTermInfo.isInt());
-						mCheckingSolver.assertTerm(mTheory.not(mTheory.term(Interpolator.EQ, auxvar, bPart)));
-					}
-				} else {
-					// handle mixed LA inequalities and equalities.
-
-					// check if literal is mixed in part or some child partition.
-					final InterpolatorAffineTerm at = new InterpolatorAffineTerm();
-					for (int child = part - 1; child >= mStartOfSubtrees[part]; child = mStartOfSubtrees[child] - 1) {
-						if (occInfo.isMixed(child)) {
-							// child and node are A-local.
-							at.add(Rational.MONE, occInfo.getAPart(child));
-							at.add(Rational.ONE, auxMaps[child].get(occInfo.mMixedVar));
-						}
-					}
-					if (occInfo.isMixed(part)) {
-						assert occInfo.mMixedVar != null;
-						at.add(Rational.ONE, occInfo.getAPart(part));
-						at.add(Rational.MONE, auxMaps[part].get(occInfo.mMixedVar));
-					} else {
-						final InterpolatorAffineTerm lv = new InterpolatorAffineTerm(atomTermInfo.getAffineTerm());
-						// handle the inverse bound for negated literals
-						if (isNegated) {
-							lv.add(atomTermInfo.getEpsilon().negate());
-						}
-						at.add(Rational.ONE, lv);
-					}
-					if (atomTermInfo.isBoundConstraint()) {
-						if (isNegated) {
-							at.negate();
-						}
-						mCheckingSolver.assertTerm(at.toLeq0(mTheory));
-					} else {
-						final boolean isInt = at.isInt();
-						final Sort sort = mTheory.getSort(isInt ? "Int" : "Real");
-						final Term t = at.toSMTLib(mTheory, isInt);
-						final Term zero = Rational.ZERO.toTerm(sort);
-						Term eqTerm = mTheory.term("=", t, zero);
-						if (!occInfo.isMixed(part) && isNegated) {
-							eqTerm = mTheory.term("not", eqTerm);
-						}
-						mCheckingSolver.assertTerm(eqTerm);
-					}
-				}
-			}
-			for (int child = part - 1; child >= mStartOfSubtrees[part]; child = mStartOfSubtrees[child] - 1) {
-				final Term interpolant = fixupAndLet(ipls[child], fixedEQs[child], auxMaps[child]);
-				mCheckingSolver.assertTerm(interpolant);
-			}
-
-			if (part < ipls.length) {
-				final Term interpolant = fixupAndLet(ipls[part], fixedEQs[part], auxMaps[part]);
-				mCheckingSolver.assertTerm(mTheory.not(interpolant));
-			}
-			if (mCheckingSolver.checkSat() != LBool.UNSAT) {
-				throw new AssertionError();
-			}
-			mCheckingSolver.pop(1);
-		}
-		mCheckingSolver.pop(1);
-		mLogger.setLoglevel(old);
-	}
-
-	private Term fixupAndLet(final Interpolant interpolant, final HashMap<TermVariable, Term> fixedEQs,
-			final HashMap<TermVariable, Term> auxMap) {
-		Term result = unfoldLAs(interpolant);
-		if (fixedEQs != null) {
-			result = fixupEQs(result, fixedEQs);
-		}
-		if (auxMap != null) {
-			final TermVariable[] tvs = new TermVariable[auxMap.size()];
-			final Term[] values = new Term[auxMap.size()];
-			int i = 0;
-			for (final Entry<TermVariable, Term> entry : auxMap.entrySet()) {
-				tvs[i] = entry.getKey();
-				values[i] = entry.getValue();
-				i++;
-			}
-			result = mTheory.let(tvs, values, result);
-		}
-		return result;
 	}
 
 	/**

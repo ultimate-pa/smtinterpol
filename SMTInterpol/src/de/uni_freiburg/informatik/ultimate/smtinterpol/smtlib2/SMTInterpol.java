@@ -57,8 +57,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate.Interpolator;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate.SymbolChecker;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate.SymbolCollector;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap.CopyMode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SolverOptions;
@@ -851,127 +849,21 @@ public class SMTInterpol extends NoopScript {
 					parts[i].add(appTerm.getFunction().getName().intern());
 				}
 			}
-			SMTInterpol tmpBench = null;
-			SymbolCollector collector = null;
-			Set<FunctionSymbol> globals = null;
+			SMTInterpol checkingSolver = null;
 			if (mSolverOptions.isInterpolantCheckModeActive()) {
-				HashSet<String> usedParts = new HashSet<>();
-				for (final Set<String> part : parts) {
-					usedParts.addAll(part);
-				}
-				tmpBench = new SMTInterpol(this, Collections.singletonMap(":interactive-mode", (Object) Boolean.TRUE),
-						CopyMode.CURRENT_VALUE);
-				final int old = tmpBench.mLogger.getLoglevel();
-				try {
-					tmpBench.mLogger.setLoglevel(LogProxy.LOGLEVEL_ERROR);
-					// Clone the current context except for the parts used in the
-					// interpolation problem
-					collector = new SymbolCollector();
-					collector.startCollectTheory();
-					termloop: for (final Term asserted : mAssertions) {
-						if (asserted instanceof AnnotatedTerm) {
-							final AnnotatedTerm annot = (AnnotatedTerm) asserted;
-							for (final Annotation an : annot.getAnnotations()) {
-								if (":named".equals(an.getKey()) && usedParts.contains(an.getValue())) {
-									continue termloop;
-								}
-							}
-						}
-						tmpBench.assertTerm(asserted);
-						collector.addGlobalSymbols(asserted);
-					}
-					globals = collector.getTheorySymbols();
-				} finally {
-					tmpBench.mLogger.setLoglevel(old);
-				}
-				// free space
-				usedParts = null;
+				Map<String, Object> newOptions = Collections.singletonMap(":interactive-mode", (Object) Boolean.TRUE);
+				checkingSolver = new SMTInterpol(this, newOptions, CopyMode.CURRENT_VALUE);
 			}
-			final Interpolator interpolator =
-					new Interpolator(mLogger, this, tmpBench, getTheory(), parts, startOfSubtree);
-			final Term proofTree = getProof();
-			final Term[] ipls = interpolator.getInterpolants(proofTree);
-
-			if (mSolverOptions.isInterpolantCheckModeActive()) {
-				boolean error = false;
-				final int old = tmpBench.mLogger.getLoglevel();
-				try {
-					tmpBench.mLogger.setLoglevel(LogProxy.LOGLEVEL_ERROR);
-					// Compute Symbol occurrence
-					final Map<FunctionSymbol, Integer>[] occs = new Map[partition.length];
-					for (int i = 0; i < partition.length; ++i) {
-						occs[i] = collector.collect(partition[i]);
-					}
-					// Recompute the symbol occurrence:
-					// occs[i] should be the symbols occurring in the subtree of
-					// partition[i]
-					for (int i = 0; i < startOfSubtree.length; ++i) {
-						// Find children
-						int child = i - 1;
-						while (child >= startOfSubtree[i]) {
-							// join occurrence maps
-							for (final Map.Entry<FunctionSymbol, Integer> me : occs[child].entrySet()) {
-								Integer ival = occs[i].get(me.getKey());
-								ival = ival == null ? me.getValue() : ival + me.getValue();
-								occs[i].put(me.getKey(), ival);
-							}
-							child = startOfSubtree[child] - 1;
-						}
-					}
-					final SymbolChecker checker = new SymbolChecker(globals);
-					for (int i = 0; i < startOfSubtree.length; ++i) {
-						tmpBench.push(1);
-						// Find and assert children
-						int child = i - 1;
-						while (child >= startOfSubtree[i]) {
-							tmpBench.assertTerm(ipls[child]);
-							child = startOfSubtree[child] - 1;
-						}
-						// Assert node
-						tmpBench.assertTerm(partition[i]);
-						// Assert negated interpolant
-						try {
-							if (i != ipls.length) {
-								tmpBench.assertTerm(tmpBench.term("not", ipls[i]));
-							}
-						} catch (final SMTLIBException exc) {
-							mLogger.error("Could not assert interpolant", exc);
-							error = true;
-						}
-						final LBool res = tmpBench.checkSat();
-						if (res == LBool.SAT) {
-							if (mDDFriendly) {
-								System.exit(2);
-							}
-							mLogger.error("Interpolant %d not inductive: " + " (Check returned %s)", i, res);
-							error = true;
-						} else if (res == LBool.UNKNOWN) {
-							final ReasonUnknown ru = tmpBench.mReasonUnknown;
-							mLogger.warn("Unable to check validity of interpolant: " + ru);
-							// I don't set the error flag here since I am not sure
-							// whether this is a real error or not. Maybe we should
-							// base this on ru?
-						}
-						tmpBench.pop(1);
-						// Check symbol condition
-						if (i != ipls.length && checker.check(ipls[i], occs[i], occs[ipls.length])) {
-							mLogger.error(
-									"Symbol error in Interpolant %d.  " + "Subtree only symbols: %s.  "
-											+ "Non-subtree only symbols: %s.",
-									i, checker.getLeftErrors(), checker.getRightErrors());
-							error = true;
-						}
-					}
-				} finally {
-					tmpBench.mLogger.setLoglevel(old);
-					// Not needed for now, but maybe later...
-					tmpBench.exit();
-				}
-				if (error) {
-					if (mDDFriendly) {
-						System.exit(10);
-					}
-					throw new SMTLIBException("generated interpolants did not pass sanity check");
+			final Term[] ipls;
+			try {
+				final Interpolator interpolator =
+						new Interpolator(mLogger, this, checkingSolver, mAssertions, getTheory(), parts, startOfSubtree);
+				final Term proofTree = getProof();
+				ipls = interpolator.getInterpolants(proofTree);
+			} finally {
+				if (checkingSolver != null) {
+					checkingSolver.exit();
+					checkingSolver = null;
 				}
 			}
 			if (mSolverOptions.isSimplifyInterpolants()) {
@@ -986,6 +878,11 @@ public class SMTInterpol extends NoopScript {
 				}
 			}
 			return ipls;
+		} catch (SMTLIBException ex) {
+			if (mDDFriendly) {
+				System.exit(10);
+			}
+			throw ex;
 		} finally {
 			mCancel.clearTimeout();
 		}

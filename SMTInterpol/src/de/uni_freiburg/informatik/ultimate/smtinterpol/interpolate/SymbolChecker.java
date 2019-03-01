@@ -31,35 +31,41 @@ import de.uni_freiburg.informatik.ultimate.logic.TermTransformer;
 
 public class SymbolChecker extends TermTransformer {
 
-	private Map<FunctionSymbol, Integer> mLeftAllowed;
-	private Map<FunctionSymbol, Integer> mRightAllowed;
-	private HashSet<FunctionSymbol> mLeftErrors;
-	private HashSet<FunctionSymbol> mRightErrors;
+	private Map<FunctionSymbol, Integer> mSubtreeOccurrences;
+	private Map<FunctionSymbol, Integer> mAllOccurences;
+	private HashSet<FunctionSymbol> mALocal;
+	private HashSet<FunctionSymbol> mBLocal;
 	private final Set<FunctionSymbol> mGlobals;
 
-	public SymbolChecker(Set<FunctionSymbol> globals) {
+	/**
+	 * Create a new checker for symbol occurrences in interpolants.
+	 *
+	 * @param globals
+	 *            The symbols that occur in the background theory.
+	 * @param occurrences
+	 *            A map from each symbol to the number of partitions where the symbol occurs.
+	 */
+	public SymbolChecker(Set<FunctionSymbol> globals, Map<FunctionSymbol, Integer> allOccurrences) {
 		mGlobals = globals;
+		mAllOccurences = allOccurrences;
 	}
 
 	/**
 	 * Check whether an interpolant contains only allowed symbols.
-	 * 
+	 *
 	 * @param interpolant
 	 *            The interpolant.
-	 * @param leftAllowed
-	 *            The symbols allowed from the left-hand side.
-	 * @param rightAllowed
-	 *            The symbols allowed from the right-hand side.
-	 * @return <code>true</code> if an error has been detected.
+	 * @param subtreeOccurrences
+	 *            The number of partitions in the subtree (A part) where the symbol occurs.
+	 * @return {@code true} if an A local or B local symbol was found in the interpolant.
 	 */
-	public final boolean check(Term interpolant, Map<FunctionSymbol, Integer> leftAllowed,
-			Map<FunctionSymbol, Integer> rightAllowed) {
-		mLeftAllowed = leftAllowed;
-		mRightAllowed = rightAllowed;
-		mLeftErrors = new HashSet<FunctionSymbol>();
-		mRightErrors = new HashSet<FunctionSymbol>();
+	public final boolean check(Term interpolant, Map<FunctionSymbol, Integer> subtreeOccurrences) {
+		mSubtreeOccurrences = subtreeOccurrences;
+		mALocal = new HashSet<FunctionSymbol>();
+		mBLocal = new HashSet<FunctionSymbol>();
 		transform(interpolant);
-		return !(mLeftErrors.isEmpty() && mRightErrors.isEmpty());
+		mSubtreeOccurrences = null;
+		return !(mALocal.isEmpty() && mBLocal.isEmpty());
 	}
 
 	@Override
@@ -74,25 +80,26 @@ public class SymbolChecker extends TermTransformer {
 	public void convertApplicationTerm(ApplicationTerm appTerm, Term[] newArgs) {
 		final FunctionSymbol fs = appTerm.getFunction();
 		if (!fs.isIntern() && !mGlobals.contains(fs)) {
-			final Integer left = mLeftAllowed.get(fs);
-			final Integer right = mRightAllowed.get(fs);
-			if (left == null && right == null) {
+			final Integer inA = mSubtreeOccurrences.get(fs);
+			final Integer inAll = mAllOccurences.get(fs);
+			if (inAll == null) {
 				throw new InternalError("Detected new symbol in interpolant: " + fs);
-			} else if (left == null) {
-				mRightErrors.add(fs);
-			} else if (right - left <= 0) {
-				mLeftErrors.add(fs);
+			} else if (inA == null) {
+				// symbol doesn't occur in the A part
+				mBLocal.add(fs);
+			} else if (inAll - inA <= 0) {
+				// symbol doesn't occur in the B part
+				mALocal.add(fs);
 			}
 		}
 		super.convertApplicationTerm(appTerm, newArgs);
 	}
 
-	public Set<FunctionSymbol> getLeftErrors() {
-		return mLeftErrors;
+	public Set<FunctionSymbol> getALocals() {
+		return mALocal;
 	}
 
-	public Set<FunctionSymbol> getRightErrors() {
-		return mRightErrors;
+	public Set<FunctionSymbol> getBLocals() {
+		return mBLocal;
 	}
-
 }
