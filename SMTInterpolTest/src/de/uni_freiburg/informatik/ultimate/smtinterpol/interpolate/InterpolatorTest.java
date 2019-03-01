@@ -99,7 +99,7 @@ public class InterpolatorTest {
 		cceq = mTheory.annotatedTerm(QUOTED_CC, cceq);
 		final InterpolatorAffineTerm linTerm = new InterpolatorAffineTerm(aterm);
 		linTerm.add(Rational.MONE, bterm);
-		linTerm.normalize();
+		linTerm.mul(linTerm.getGcd().inverse());
 		Term laeq = mTheory.term("=", linTerm.toSMTLib(mTheory, false), Rational.ZERO.toTerm(mReal));
 		laeq = mTheory.annotatedTerm(QUOTED_LA, laeq);
 		final Term[] lits = clauseswap

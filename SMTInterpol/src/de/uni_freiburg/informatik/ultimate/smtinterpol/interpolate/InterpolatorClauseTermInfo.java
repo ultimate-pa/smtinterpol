@@ -326,12 +326,14 @@ public class InterpolatorClauseTermInfo {
 		final InterpolatorAffineTerm ccAffine = new InterpolatorAffineTerm(ccLeft);
 		ccAffine.add(Rational.MONE, ccRight);
 		final InterpolatorAffineTerm laAffine = Interpolator.termToAffine(((ApplicationTerm) laEq).getParameters()[0]);
-		Rational factor = laAffine.getGCD().div(ccAffine.getGCD());
-		final InterpolatorAffineTerm eqSum =
-				new InterpolatorAffineTerm(ccAffine).mul(factor).add(Rational.MONE, laAffine);
+		Rational factor = laAffine.getGcd().div(ccAffine.getGcd());
+		final InterpolatorAffineTerm eqSum = new InterpolatorAffineTerm();
+		eqSum.add(factor, ccAffine);
+		eqSum.add(Rational.MONE, laAffine);
 		if (!eqSum.isConstant() || !eqSum.getConstant().equals(InfinitesimalNumber.ZERO)) {
 			factor = factor.negate();
-			assert eqSum.add(Rational.TWO, laAffine).isConstant() && eqSum.getConstant().equals(InfinitesimalNumber.ZERO);
+			eqSum.add(Rational.TWO, laAffine);
+			assert eqSum.isConstant() && eqSum.getConstant().equals(InfinitesimalNumber.ZERO);
 		}
 		return factor;
 	}

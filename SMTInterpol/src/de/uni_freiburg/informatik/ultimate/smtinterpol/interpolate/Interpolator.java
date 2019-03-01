@@ -668,7 +668,7 @@ public class Interpolator extends NonRecursive {
 				} else {
 					// both sides in B, A part is empty
 				}
-				iat.mul(iat.getGCD().inverse());
+				iat.mul(iat.getGcd().inverse());
 
 				// Now solve it.
 				if (mixed != null) { // NOPMD
@@ -1189,7 +1189,7 @@ public class Interpolator extends NonRecursive {
 			}
 			Term newF = mTheory.mFalse;
 			// Use -s/c as start value.
-			InterpolatorAffineTerm sPlusOffset = new InterpolatorAffineTerm();
+			final InterpolatorAffineTerm sPlusOffset = new InterpolatorAffineTerm();
 			sPlusOffset.add(theC.signum() > 0 ? Rational.MONE : Rational.ONE, theS);
 			Rational offset = Rational.ZERO;
 			final Rational theCabs = theC.abs();
@@ -1216,7 +1216,7 @@ public class Interpolator extends NonRecursive {
 					}
 				}
 				newF = mTheory.or(newF, mTheory.and(F1, F2));
-				sPlusOffset = sPlusOffset.add(theC.negate());
+				sPlusOffset.add(theC.negate());
 				offset = offset.add(Rational.ONE);
 			}
 			return LAInterpolator.createLATerm(c1s2c2s1, newK, newF);

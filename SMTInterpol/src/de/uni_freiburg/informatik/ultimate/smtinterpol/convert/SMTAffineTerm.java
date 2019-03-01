@@ -159,25 +159,29 @@ public final class SMTAffineTerm {
 
 	public void add(final Rational factor, final Term other) {
 		final SMTAffineTerm otherAffine = new SMTAffineTerm(other);
-		otherAffine.mul(factor);
-		add(otherAffine);
+		add(factor, otherAffine);
 	}
 
-	public void add(final SMTAffineTerm other) {
+	public void add(final Rational factor, final SMTAffineTerm other) {
 		for (final Map.Entry<Term, Rational> entry : other.mSummands.entrySet()) {
 			final Term var = entry.getKey();
+			final Rational coeff = factor.mul(entry.getValue());
 			if (mSummands.containsKey(var)) {
-				final Rational r = mSummands.get(var).add(entry.getValue());
+				final Rational r = mSummands.get(var).add(coeff);
 				if (r.equals(Rational.ZERO)) {
 					mSummands.remove(var);
 				} else {
 					mSummands.put(var, r);
 				}
 			} else {
-				mSummands.put(var, entry.getValue());
+				mSummands.put(var, coeff);
 			}
 		}
-		mConstant = mConstant.add(other.mConstant);
+		mConstant = mConstant.add(factor.mul(other.mConstant));
+	}
+
+	public void add(final SMTAffineTerm other) {
+		add(Rational.ONE, other);
 	}
 
 	public static Rational convertConstant(final ConstantTerm term) {

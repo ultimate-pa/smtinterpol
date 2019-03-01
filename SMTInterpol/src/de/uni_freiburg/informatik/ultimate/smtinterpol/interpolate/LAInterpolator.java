@@ -216,14 +216,15 @@ public class LAInterpolator {
 		 */
 		final Term[] interpolants = new Term[mInterpolator.mNumInterpolants];
 		for (int part = 0; part < auxVars.length; part++) {
-			final Rational normFactor = ipl[part].isConstant() ? Rational.ONE : ipl[part].getGCD().inverse().abs();
+			final Rational normFactor = ipl[part].isConstant() ? Rational.ONE : ipl[part].getGcd().inverse().abs();
 			ipl[part].mul(normFactor);
 			/*
 			 * Round up the (negated) constant if all terms in the interpolant are known to be integer. This is sound
 			 * since x <= 0 is equivalent to ceil(x) <= 0.
 			 */
 			if (ipl[part].isInt()) {
-				ipl[part].mConstant = ipl[part].getConstant().ceil();
+				final InfinitesimalNumber constant = ipl[part].getConstant();
+				ipl[part].add(constant.ceil().sub(constant));
 			}
 
 			if (auxVars[part] != null) { // NOPMD
@@ -239,8 +240,8 @@ public class LAInterpolator {
 					assert equalityOccurenceInfo.isMixed(part);
 					assert auxVars[part].size() == 2;
 					assert normFactor == Rational.ONE;
-					final InterpolatorAffineTerm less =
-							new InterpolatorAffineTerm(ipl[part]).add(InfinitesimalNumber.EPSILON);
+					final InterpolatorAffineTerm less = new InterpolatorAffineTerm(ipl[part]);
+					less.add(InfinitesimalNumber.EPSILON);
 					k = InfinitesimalNumber.ZERO;
 					F = mInterpolator.mTheory.and(ipl[part].toLeq0(mInterpolator.mTheory), mInterpolator.mTheory.or(
 							less.toLeq0(mInterpolator.mTheory),
