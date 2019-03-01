@@ -453,9 +453,15 @@ public class ModelEvaluator extends NonRecursive {
 		if (name.equals("divisible")) {
 			assert(args.length == 1);
 			final Rational arg = rationalValue(args[0]);
-			final BigInteger[] indices = fun.getIndices();
+			final String[] indices = fun.getIndices();
 			assert(indices.length == 1);
-			final Rational rdiv = Rational.valueOf(indices[0], BigInteger.ONE);
+			BigInteger rdiv1;
+			try {
+				rdiv1 = new BigInteger(indices[0]);
+			} catch(NumberFormatException e){
+				throw new SMTLIBException("index must be numeral", e);
+			};
+			final Rational rdiv = Rational.valueOf(rdiv1, BigInteger.ONE);
 			return arg.div(rdiv).isIntegral()
 					? mModel.getTrueIdx() : mModel.getFalseIdx();
 		}

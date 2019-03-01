@@ -18,7 +18,6 @@
  */
 package de.uni_freiburg.informatik.ultimate.logic;
 
-import java.math.BigInteger;
 import java.util.ArrayDeque;
 import java.util.HashMap;
 
@@ -58,7 +57,7 @@ public class Sort {
 	 * array with one element containing the bit length.  This field is
 	 * null (instead of the empty array) if there are no indices.
 	 */
-	final BigInteger[] mIndices;
+	final String[] mIndices;
 	/**
 	 * The cached real sort.  This is null if real sort was not yet computed.
 	 * Otherwise it is this for a real sort and the real sort as which the
@@ -69,7 +68,7 @@ public class Sort {
 
 	private int mHash;
 
-	Sort(final SortSymbol sym, final BigInteger[] indices, final Sort[] args) {
+	Sort(final SortSymbol sym, final String[] indices, final Sort[] args) {
 		assert args != null;
 		assert args.length == (sym.isParametric() ? 0 : sym.mNumParams)
 				: "Sort created with wrong number of args";
@@ -101,7 +100,7 @@ public class Sort {
 		}
 		final StringBuilder sb = new StringBuilder();
 		sb.append("(_ ").append(name);
-		for (final BigInteger i : mIndices) {
+		for (final String i : mIndices) {
 			sb.append(' ').append(i);
 		}
 		sb.append(')');
@@ -121,7 +120,7 @@ public class Sort {
 	 * Get the indices, if this is an indexed sort like (_ bv 5).
 	 * @return the indices, null if this sort is not indexed.
 	 */
-	public BigInteger[] getIndices() {
+	public String[] getIndices() {
 		return mIndices;
 	}
 

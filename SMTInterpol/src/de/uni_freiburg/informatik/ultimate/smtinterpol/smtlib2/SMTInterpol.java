@@ -176,12 +176,12 @@ public class SMTInterpol extends NoopScript {
 			defineFunction(theory, new FunctionSymbolFactory("@undefined") {
 
 				@Override
-				public int getFlags(final BigInteger[] indices, final Sort[] paramSorts, final Sort resultSort) {
+				public int getFlags(final String[] indices, final Sort[] paramSorts, final Sort resultSort) {
 					return FunctionSymbol.INTERNAL | FunctionSymbol.RETURNOVERLOAD;
 				}
 
 				@Override
-				public Sort getResultSort(final BigInteger[] indices, final Sort[] paramSorts, final Sort resultSort) {
+				public Sort getResultSort(final String[] indices, final Sort[] paramSorts, final Sort resultSort) {
 					if (indices != null || paramSorts.length != 0) {
 						return null;
 					}

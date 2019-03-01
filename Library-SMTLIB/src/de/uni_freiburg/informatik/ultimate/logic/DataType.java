@@ -1,3 +1,5 @@
+package de.uni_freiburg.informatik.ultimate.logic;
+
 /**
  * Represents an SMTLIB datatype sort.  
  * 
@@ -15,10 +17,36 @@ public class DataType extends SortSymbol {
 			this.mSelectors = selectors;
 			this.mArgumentSorts = argumentSorts;
 		}
+
+		public String getName() {
+			return mName;
+		}
+
+		public Sort[] getArgumentSorts() {
+			return mArgumentSorts;
+		}
+
+		public String[] getSelectors() {
+			return mSelectors;
+		}
+	}
+
+	public DataType(Theory theory, String name, int numParams) {
+		super(theory, name, numParams, null, DATATYPE);
 	}
 	
 	/**
 	 * The constructors.
 	 */
-	final Constructor[] mConstructors;
+	Constructor[] mConstructors;
+	
+
+	public void setConstructors(Constructor[] constrs) {
+		assert mConstructors == null;
+		mConstructors = constrs;
+	}
+
+	public Constructor[] getContructors() {
+		return mConstructors;
+	}
 }

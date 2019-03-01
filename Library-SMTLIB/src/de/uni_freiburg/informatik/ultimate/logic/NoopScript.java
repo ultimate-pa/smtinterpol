@@ -100,6 +100,71 @@ public class NoopScript implements Script {
 	}
 
 	@Override
+	public DataType.Constructor constructor(String name, String[] selectors, Sort[] argumentSorts) {
+		if (name == null) {
+			throw new SMTLIBException(
+					"Invalid input to declare a datatype");
+		}
+		checkSymbol(name);
+		return mTheory.createConstructor(name, selectors, argumentSorts);
+	}
+
+	@Override
+	public DataType datatypes(String typename, int numParams) {
+		if (typename == null) {
+			throw new SMTLIBException(
+					"Invalid input to declare a datatype");
+		}
+		checkSymbol(typename);
+		return mTheory.createDatatypes(typename, numParams);
+	}
+	/**
+	 * Declare internal functions for the constructors and selestors of the datatype.
+	 * @param datatype The datatype.
+	 * @param constrs The constructors.
+	 * @throws SMTLIBException
+	 */
+	private void declareConstructorFunctions(DataType datatype, DataType.Constructor[] constrs) {
+		
+		String[] indices = null;
+        Sort[] args = new Sort[0];
+        Sort[] datatypeSort = new Sort[] {datatype.getSort(indices, args)};
+        int flags = 0;
+		
+		for (int i = 0; i < constrs.length; i++) {
+
+            String constrName = constrs[i].getName();
+
+            String[] selectors = constrs[i].getSelectors();
+            Sort[] argumentSorts = constrs[i].getArgumentSorts();
+
+            this.getTheory().declareInternalFunction(constrName, argumentSorts, datatypeSort[0], flags);
+
+            for (int j = 0; j < selectors.length; j++) {
+                String[] selector = new String[] {selectors[j]};
+                Sort[] argumentSort = new Sort[] {argumentSorts[j]};
+
+                this.getTheory().declareInternalFunction(selector[0], datatypeSort, argumentSort[0], flags);
+            } 
+        }
+	}
+
+	@Override
+	public void declareDatatype(DataType datatype, DataType.Constructor[] constrs) {
+		assert datatype.mNumParams == 0;
+		datatype.setConstructors(constrs);
+		declareConstructorFunctions(datatype, constrs);
+	}
+
+	@Override
+	public void declareDatatypes(DataType[] datatypes, DataType.Constructor[][] constrs) {
+		for (int i = 0; i < datatypes.length; i++) {
+			datatypes[i].setConstructors(constrs[i]);
+			declareConstructorFunctions(datatypes[i], constrs[i]);
+		}
+	}
+
+	@Override
 	public void declareSort(final String sort, final int arity) throws SMTLIBException {
 		if (mTheory == null) {
 			throw new SMTLIBException("No logic set!");
@@ -279,7 +344,7 @@ public class NoopScript implements Script {
 	}
 
 	@Override
-	public Sort sort(final String sortname, final BigInteger[] indices, final Sort... params)
+	public Sort sort(final String sortname, final String[] indices, final Sort... params)
 		throws SMTLIBException {
 		if (mTheory == null) {
 			throw new SMTLIBException("No logic set!");
@@ -297,7 +362,7 @@ public class NoopScript implements Script {
 	}
 
 	@Override
-	public Term term(final String funcname, final BigInteger[] indices,
+	public Term term(final String funcname, final String[] indices,
 			final Sort returnSort, final Term... params) throws SMTLIBException {
 		if (mTheory == null) {
 			throw new SMTLIBException("No logic set!");

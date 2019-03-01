@@ -37,9 +37,9 @@ public abstract class FunctionSymbolFactory {
 	}
 
 	public abstract Sort getResultSort(
-			BigInteger[] indices, Sort[] paramSorts, Sort resultSort);
+			String[] indices, Sort[] paramSorts, Sort resultSort);
 
-	public int getFlags(BigInteger[] indices, Sort[] paramSorts, Sort result) {
+	public int getFlags(String[] indices, Sort[] paramSorts, Sort result) {
 		return FunctionSymbol.INTERNAL;
 	}
 
@@ -57,7 +57,7 @@ public abstract class FunctionSymbolFactory {
 	}
 
 	public FunctionSymbol getFunctionWithResult(
-			Theory theory, BigInteger[] indices, Sort[] paramSorts,
+			Theory theory, String[] indices, Sort[] paramSorts,
 			Sort resultSort) {
 		assert isReal(paramSorts);
 		final int flags = getFlags(indices, paramSorts, resultSort);

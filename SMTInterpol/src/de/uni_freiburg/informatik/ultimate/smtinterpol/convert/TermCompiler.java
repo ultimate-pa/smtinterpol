@@ -442,7 +442,13 @@ public class TermCompiler extends TermTransformer {
 			}
 			case "divisible": {
 				final Term lhs = mTracker.getProvedTerm(convertedApp);
-				final Rational divisor = Rational.valueOf(fsym.getIndices()[0], BigInteger.ONE);
+				BigInteger divisor1;
+				try {
+					divisor1 = new BigInteger(fsym.getIndices()[0]);
+				} catch(NumberFormatException e){
+					throw new SMTLIBException("index must be numeral", e);
+				}
+				final Rational divisor = Rational.valueOf(divisor1, BigInteger.ONE);
 				Term rhs;
 				if (divisor.equals(Rational.ONE)) {
 					rhs = theory.mTrue;

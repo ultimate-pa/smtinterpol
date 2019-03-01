@@ -113,6 +113,42 @@ public interface Script {
 	 */
 	public void setInfo(String info, Object value);
 	/**
+	 * Declare constructors of a datatype.
+	 * @param name Name of the constructors.
+	 * @param selectors 
+	 * @param argumentSort
+	 * @return The array of constructors.
+	 * @throws SMTLIBException.
+	 */
+	public DataType.Constructor constructor(String name, String[] selectors, Sort[] argumentSorts)
+		throws SMTLIBException;
+	/**
+	 * Create a new datatype.
+	 * @param sort Sort of the datatypes.
+	 * @param typename Name of the datatypes.
+	 * @return The datatype object.
+	 * @throws SMTLIBException.
+	 */
+	public DataType datatypes(String typename, int numParams)
+		throws SMTLIBException;	
+	/**
+	 * Declare new datatypes by setting their constructors.
+	 * @param datatype
+	 * @param constrs The constructors.
+	 * @throws SMTLIBException.
+	 */
+	public void declareDatatype(DataType datatype, DataType.Constructor[] constrs)
+		throws SMTLIBException;
+	/**
+	 * Declare new datatypes by setting their constructors.
+	 * @param datatypes 
+	 * @param constrs The constructors.
+	 * @throws SMTLIBException.
+	 */
+	public void declareDatatypes(DataType[] datatypes, DataType.Constructor[][] constrs)
+		throws SMTLIBException;
+	
+	/**
 	 * Declare a user-defined sort.
 	 * @param sort  The name of the new sort.
 	 * @param arity The arity of the new sort.
@@ -329,7 +365,7 @@ public interface Script {
 	 * @return The corresponding sort.
 	 * @throws SMTLIBException If and only if the sort does not exist.
 	 */
-	public Sort sort(String sortname, BigInteger[] indices, Sort... params)
+	public Sort sort(String sortname, String[] indices, Sort... params)
 		throws SMTLIBException;
 	/**
 	 * Create an array of sort parameters.  These parameters can be used when
@@ -363,7 +399,7 @@ public interface Script {
 	 * @return The constructed term.
 	 * @throws SMTLIBException If an error occurred.
 	 */
-	public Term term(String funcname, BigInteger[] indices,
+	public Term term(String funcname, String[] indices,
 			Sort returnSort, Term... params) throws SMTLIBException;
 	/**
 	 * Create a term variable.

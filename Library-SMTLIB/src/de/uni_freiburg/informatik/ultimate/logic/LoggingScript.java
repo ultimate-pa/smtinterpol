@@ -183,6 +183,37 @@ public class LoggingScript implements Script {
 	}
 
 	@Override
+	public DataType.Constructor constructor(String name, String[] selectors, Sort[] argumentSorts)
+		throws SMTLIBException {
+		return mScript.constructor(name, selectors, argumentSorts);
+	}
+
+	@Override
+	public DataType datatypes(String typename, int numParams)
+		throws SMTLIBException {
+		return mScript.datatypes(typename, numParams);
+	}
+	@Override
+	public void declareDatatype(DataType datatype, DataType.Constructor[] constrs)
+		throws SMTLIBException {
+		//FIXME print....
+		mScript.declareDatatype(datatype, constrs);
+	}
+	@Override
+	public void declareDatatypes(DataType[] datatypes, DataType.Constructor[][] constrs)
+		throws SMTLIBException {
+		mPw.print("(declare-datatypes (");
+		for (DataType datatype : datatypes) {
+			mPw.print("(");
+			mPw.print(PrintTerm.quoteIdentifier(datatype.getName()));
+			mPw.print(" ");
+			mPw.print(datatype.mNumParams);
+			mPw.print(")");
+		}
+		//FIXME continue....
+		mScript.declareDatatypes(datatypes, constrs);
+	}
+	@Override
 	public void declareFun(String fun, Sort[] paramSorts, Sort resultSort)
 		throws SMTLIBException {
 		mPw.print("(declare-fun ");
@@ -379,7 +410,7 @@ public class LoggingScript implements Script {
 	}
 
 	@Override
-	public Sort sort(String sortname, BigInteger[] indices, Sort... params)
+	public Sort sort(String sortname, String[] indices, Sort... params)
 		throws SMTLIBException {
 		return mScript.sort(sortname, indices, params);
 	}
@@ -390,7 +421,7 @@ public class LoggingScript implements Script {
 	}
 
 	@Override
-	public Term term(String funcname, BigInteger[] indices, Sort returnSort,
+	public Term term(String funcname, String[] indices, Sort returnSort,
 			Term... params) throws SMTLIBException {
 		return mScript.term(funcname, indices, returnSort, params);
 	}
