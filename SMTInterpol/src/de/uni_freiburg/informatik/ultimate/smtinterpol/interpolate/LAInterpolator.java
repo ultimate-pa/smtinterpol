@@ -21,10 +21,13 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate;
 import java.util.ArrayList;
 import java.util.Map.Entry;
 
+import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
+import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
+import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate.Interpolator.LitInfo;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.InfinitesimalNumber;
 
@@ -42,6 +45,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.Infinitesima
  * @author Jochen Hoenicke, Alexander Nutz, Tanja Schindler
  */
 public class LAInterpolator {
+	public final static String ANNOT_LA = ":LA";
 
 	Interpolator mInterpolator;
 
@@ -55,6 +59,60 @@ public class LAInterpolator {
 	 */
 	public LAInterpolator(final Interpolator interpolator) {
 		mInterpolator = interpolator;
+	}
+
+	/**
+	 * Create an {@code LA(s,k,F)} term. This is now represented as an annotated term {@code (! F :LA (s k))}
+	 *
+	 * @param s
+	 *            The affine term {@code s} with {@code s >= 0 ==> F}.
+	 * @param k
+	 *            The interval length {@code k} with {@code s + k < 0 ==> ~F}.
+	 * @param formula
+	 *            The formula F.
+	 */
+	public static Term createLATerm(final InterpolatorAffineTerm s, final InfinitesimalNumber k, final Term formula) {
+		final Theory theory = formula.getTheory();
+		return theory.annotatedTerm(new Annotation[] { new Annotation(ANNOT_LA, new Object[] { s, k }) }, formula);
+	}
+
+	/**
+	 * Check if a term is an {@code LA(s,k,F)} term.
+	 *
+	 * @param term
+	 *            The term to check.
+	 * @return true if it is an LA term, false otherwise.
+	 */
+	public static boolean isLATerm(final Term term) {
+		if (term instanceof AnnotatedTerm) {
+			final Annotation[] annot = ((AnnotatedTerm) term).getAnnotations();
+			return annot.length == 1 && annot[0].getKey().equals(ANNOT_LA);
+		}
+		return false;
+	}
+
+	/**
+	 * Get the s part of an {@code LA(s,k,F)} term. This assumes the term is an LA term.
+	 *
+	 * @param term
+	 *            The LA term.
+	 * @return the s part.
+	 */
+	public static InterpolatorAffineTerm getS(final Term term) {
+		assert isLATerm(term);
+		return (InterpolatorAffineTerm) ((Object[]) ((AnnotatedTerm) term).getAnnotations()[0].getValue())[0];
+	}
+
+	/**
+	 * Get the k part of an {@code LA(s,k,F)} term. This assumes the term is an LA term.
+	 *
+	 * @param term
+	 *            The LA term.
+	 * @return the k part.
+	 */
+	public static InfinitesimalNumber getK(final Term term) {
+		assert isLATerm(term);
+		return (InfinitesimalNumber) ((Object[]) ((AnnotatedTerm) term).getAnnotations()[0].getValue())[1];
 	}
 
 	/**
@@ -197,8 +255,7 @@ public class LAInterpolator {
 					}
 					F = ipl[part].toLeq0(mInterpolator.mTheory);
 				}
-				final LATerm laTerm = new LATerm(ipl[part], k, F);
-				interpolants[part] = new Interpolant(laTerm);
+				interpolants[part] = new Interpolant(createLATerm(ipl[part], k, F));
 			} else {
 				assert equalityOccurenceInfo == null || !equalityOccurenceInfo.isMixed(part);
 				if (equalityOccurenceInfo != null && ipl[part].isConstant()

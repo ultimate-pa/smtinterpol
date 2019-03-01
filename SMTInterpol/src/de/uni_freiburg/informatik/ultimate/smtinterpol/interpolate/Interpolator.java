@@ -178,7 +178,7 @@ public class Interpolator extends NonRecursive {
 	}
 
 	public Interpolator(final LogProxy logger, final SMTInterpol smtSolver, final Script checkingSolver,
-			Collection<Term> allAssertions,
+			final Collection<Term> allAssertions,
 			final Theory theory, final Set<String>[] partitions, final int[] startOfSubTrees) {
 		assert partitions.length == startOfSubTrees.length;
 		mPartitions = new HashMap<>();
@@ -595,8 +595,8 @@ public class Interpolator extends NonRecursive {
 		final TermTransformer substitutor = new TermTransformer() {
 			@Override
 			public void convert(Term term) {
-				if (term instanceof LATerm) {
-					term = ((LATerm) term).mF;
+				if (LAInterpolator.isLATerm(term)) {
+					term = ((AnnotatedTerm) term).getSubterm();
 				}
 				super.convert(term);
 			}
@@ -940,37 +940,42 @@ public class Interpolator extends NonRecursive {
 		}
 
 		@Override
-		public void convert(final Term term) {
-			if (term instanceof LATerm) {
-				final LATerm laTerm = (LATerm) term;
-				final Term[] oldTerms =
-						laTerm.mS.getSummands().keySet().toArray(new Term[laTerm.mS.getSummands().size()]);
+		public void convert(final Term oldTerm) {
+			if (LAInterpolator.isLATerm(oldTerm)) {
+				final InterpolatorAffineTerm oldS = LAInterpolator.getS(oldTerm);
+				final InfinitesimalNumber oldK = LAInterpolator.getK(oldTerm);
+				final Term oldF = ((AnnotatedTerm) oldTerm).getSubterm();
+				final Term[] oldSummands =
+						oldS.getSummands().keySet().toArray(new Term[oldS.getSummands().size()]);
 				/* recurse into LA term */
 				enqueueWalker(new Walker() {
 					@Override
 					public void walk(final NonRecursive engine) {
 						final Substitutor me = (Substitutor) engine;
-						final Term result = me.getConverted();
-						final Term[] newTerms = me.getConverted(oldTerms);
-						if (result == laTerm.mF && newTerms == oldTerms) {
-							me.setResult(laTerm);
+						final Term newF = me.getConverted();
+						final Term[] newSummands = me.getConverted(oldSummands);
+						// did we change something?
+						if (newF == oldF && newSummands == oldSummands) {
+							me.setResult(oldTerm);
 							return;
 						}
+						// create newS term from newSummands and old coefficients
 						final InterpolatorAffineTerm newS = new InterpolatorAffineTerm();
-						for (int i = 0; i < oldTerms.length; i++) {
-							newS.add(laTerm.mS.getSummands().get(oldTerms[i]), newTerms[i]);
+						for (int i = 0; i < oldSummands.length; i++) {
+							newS.add(oldS.getSummands().get(oldSummands[i]), newSummands[i]);
 						}
-						newS.add(laTerm.mS.getConstant());
-						me.setResult(new LATerm(newS, laTerm.mK, result));
+						newS.add(oldS.getConstant());
+						// create the new LA term
+						me.setResult(LAInterpolator.createLATerm(newS, oldK, newF));
 					}
 				});
-				pushTerm(laTerm.mF);
-				pushTerms(oldTerms);
+				pushTerm(oldF);
+				pushTerms(oldSummands);
 				return;
-			} else if (term.equals(mTermVar)) {
+			} else if (oldTerm.equals(mTermVar)) {
 				setResult(mReplacement);
 			} else {
-				super.convert(term);
+				super.convert(oldTerm);
 			}
 		}
 	}
@@ -1002,24 +1007,7 @@ public class Interpolator extends NonRecursive {
 		@Override
 		public void convert(final Term term) {
 			assert term != mAuxVar;
-			if (term instanceof LATerm) {
-				final LATerm laTerm = (LATerm) term;
-				/* recurse into LA term */
-				enqueueWalker(new Walker() {
-					@Override
-					public void walk(final NonRecursive engine) {
-						final EQInterpolator me = (EQInterpolator) engine;
-						final Term result = me.getConverted();
-						if (result == laTerm.mF) {
-							me.setResult(laTerm);
-						} else {
-							me.setResult(new LATerm(laTerm.mS, laTerm.mK, result));
-						}
-					}
-				});
-				pushTerm(laTerm.mF);
-				return;
-			} else if (term instanceof ApplicationTerm) {
+			if (term instanceof ApplicationTerm) {
 				final ApplicationTerm appTerm = (ApplicationTerm) term;
 				final FunctionSymbol func = appTerm.getFunction();
 				final Term[] params = appTerm.getParameters();
@@ -1054,7 +1042,7 @@ public class Interpolator extends NonRecursive {
 	static abstract class MixedLAInterpolator extends TermTransformer {
 		TermVariable mMixedVar;
 		Term mI2;
-		LATerm mLA1;
+		AnnotatedTerm mLA1;
 
 		public MixedLAInterpolator(final Term i2, final TermVariable mixed) {
 			mMixedVar = mixed;
@@ -1062,14 +1050,15 @@ public class Interpolator extends NonRecursive {
 			mI2 = i2;
 		}
 
-		abstract Term interpolate(LATerm la1, LATerm la2);
+		abstract Term interpolate(AnnotatedTerm la1, AnnotatedTerm la2);
 
 		@Override
 		public void convert(final Term term) {
 			assert term != mMixedVar;
-			if (term instanceof LATerm) {
-				final LATerm laTerm = (LATerm) term;
-				if (laTerm.mS.getSummands().get(mMixedVar) != null) { // NOPMD
+			if (LAInterpolator.isLATerm(term)) {
+				final AnnotatedTerm laTerm = (AnnotatedTerm) term;
+				final InterpolatorAffineTerm s2 = LAInterpolator.getS(term);
+				if (s2.getSummands().get(mMixedVar) != null) { // NOPMD
 					if (mLA1 == null) {
 						/*
 						 * We are inside I1. Remember the lainfo and push I2 on the convert stack. Also enqueue a walker
@@ -1086,30 +1075,14 @@ public class Interpolator extends NonRecursive {
 						});
 						pushTerm(mI2);
 						return;
+					} else {
+						/*
+						 * We are inside I2. Interpolate the LAInfos.
+						 */
+						setResult(interpolate(mLA1, laTerm));
+						return;
 					}
-					/*
-					 * We are inside I2. Interpolate the LAInfos.
-					 */
-					setResult(interpolate(mLA1, (LATerm) term));
-					return;
 				}
-				/* this is a LA term not involving the mixed variable */
-				enqueueWalker(new Walker() {
-
-					@Override
-					public void walk(final NonRecursive engine) {
-						final MixedLAInterpolator me = (MixedLAInterpolator) engine;
-						final Term result = me.getConverted();
-						if (result == laTerm.mF) {
-							me.setResult(laTerm);
-						} else {
-							me.setResult(new LATerm(laTerm.mS, laTerm.mK, result));
-						}
-					}
-				});
-
-				pushTerm(laTerm.mF);
-				return;
 			}
 			super.convert(term);
 		}
@@ -1121,14 +1094,16 @@ public class Interpolator extends NonRecursive {
 		}
 
 		@Override
-		public Term interpolate(final LATerm la1, final LATerm la2) {
+		public Term interpolate(final AnnotatedTerm la1, final AnnotatedTerm la2) {
 			// retrieve c1,c2,s2,s2
-			final InterpolatorAffineTerm s1 = new InterpolatorAffineTerm(la1.mS);
+			final InterpolatorAffineTerm s1 = LAInterpolator.getS(la1);
 			final Rational c1 = s1.getSummands().remove(mMixedVar);
-			final InterpolatorAffineTerm s2 = new InterpolatorAffineTerm(la2.mS);
+			final InfinitesimalNumber k1 = LAInterpolator.getK(la1);
+			final InterpolatorAffineTerm s2 = LAInterpolator.getS(la2);
 			final Rational c2 = s2.getSummands().remove(mMixedVar);
+			final InfinitesimalNumber k2 = LAInterpolator.getK(la2);
 			assert c1.signum() * c2.signum() == -1;
-			InfinitesimalNumber newK = la1.mK.mul(c2.abs()).add(la2.mK.mul(c1.abs()));
+			InfinitesimalNumber newK = k1.mul(c2.abs()).add(k2.mul(c1.abs()));
 
 			// compute c1s2 + c2s1
 			final InterpolatorAffineTerm c1s2c2s1 = new InterpolatorAffineTerm();
@@ -1143,26 +1118,26 @@ public class Interpolator extends NonRecursive {
 				// to substitute a shared term.
 				newF = c1s2c2s1.toLeq0(mTheory);
 				newK = InfinitesimalNumber.EPSILON.negate();
-			} else if (la1.mK.less(InfinitesimalNumber.ZERO)) {
+			} else if (k1.less(InfinitesimalNumber.ZERO)) {
 				// compute -s1/c1
 				final InterpolatorAffineTerm s1divc1 = new InterpolatorAffineTerm(s1);
 				s1divc1.mul(c1.inverse().negate());
 				final Term s1DivByc1 = s1divc1.toSMTLib(mTheory, false);
-				newF = substitute(la2.mF, mMixedVar, s1DivByc1);
-				newK = la2.mK;
-			} else if (la2.mK.less(InfinitesimalNumber.ZERO)) {
+				newF = substitute(la2.getSubterm(), mMixedVar, s1DivByc1);
+				newK = k2;
+			} else if (k2.less(InfinitesimalNumber.ZERO)) {
 				// compute s2/c2
 				final InterpolatorAffineTerm s2divc2 = new InterpolatorAffineTerm(s2);
 				s2divc2.mul(c2.inverse().negate());
 				final Term s2DivByc2 = s2divc2.toSMTLib(mTheory, false);
-				newF = substitute(la1.mF, mMixedVar, s2DivByc2);
-				newK = la1.mK;
+				newF = substitute(la1.getSubterm(), mMixedVar, s2DivByc2);
+				newK = k1;
 			} else {
 				final InterpolatorAffineTerm s1divc1 = new InterpolatorAffineTerm(s1);
 				s1divc1.mul(c1.inverse().negate());
 				final Term s1DivByc1 = s1divc1.toSMTLib(mTheory, false);
-				final Term f1 = substitute(la1.mF, mMixedVar, s1DivByc1);
-				final Term f2 = substitute(la2.mF, mMixedVar, s1DivByc1);
+				final Term f1 = substitute(la1.getSubterm(), mMixedVar, s1DivByc1);
+				final Term f2 = substitute(la2.getSubterm(), mMixedVar, s1DivByc1);
 				newF = mTheory.and(f1, f2);
 				if (c1s2c2s1.isConstant()) {
 					if (c1s2c2s1.getConstant().less(InfinitesimalNumber.ZERO)) {
@@ -1175,8 +1150,7 @@ public class Interpolator extends NonRecursive {
 				}
 				newK = InfinitesimalNumber.ZERO;
 			}
-			final LATerm la3 = new LATerm(c1s2c2s1, newK, newF);
-			return la3;
+			return LAInterpolator.createLATerm(c1s2c2s1, newK, newF);
 		}
 	}
 
@@ -1187,12 +1161,14 @@ public class Interpolator extends NonRecursive {
 		}
 
 		@Override
-		public Term interpolate(final LATerm la1, final LATerm la2) {
+		public Term interpolate(final AnnotatedTerm la1, final AnnotatedTerm la2) {
 			// retrieve c1,c2,s1,s2
-			final InterpolatorAffineTerm s1 = new InterpolatorAffineTerm(la1.mS);
+			final InterpolatorAffineTerm s1 = LAInterpolator.getS(la1);
 			final Rational c1 = s1.getSummands().remove(mMixedVar);
-			final InterpolatorAffineTerm s2 = new InterpolatorAffineTerm(la2.mS);
+			final InfinitesimalNumber k1 = LAInterpolator.getK(la1);
+			final InterpolatorAffineTerm s2 = LAInterpolator.getS(la2);
 			final Rational c2 = s2.getSummands().remove(mMixedVar);
+			final InfinitesimalNumber k2 = LAInterpolator.getK(la2);
 			assert c1.isIntegral() && c2.isIntegral();
 			assert c1.signum() * c2.signum() == -1;
 			final Rational absc1 = c1.abs();
@@ -1205,11 +1181,11 @@ public class Interpolator extends NonRecursive {
 
 			// compute newk = c2k1 + c1k2 + c1c2;
 			final Rational c1c2 = absc1.mul(absc2);
-			final InfinitesimalNumber newK = la1.mK.mul(absc2).add(la2.mK.mul(absc1)).add(new InfinitesimalNumber(c1c2, 0));
+			final InfinitesimalNumber newK = k1.mul(absc2).add(k2.mul(absc1)).add(new InfinitesimalNumber(c1c2, 0));
 			assert newK.isIntegral();
 
-			final Rational k1c1 = la1.mK.mReal.add(Rational.ONE).div(absc1).ceil();
-			final Rational k2c2 = la2.mK.mReal.add(Rational.ONE).div(absc2).ceil();
+			final Rational k1c1 = k1.mReal.add(Rational.ONE).div(absc1).ceil();
+			final Rational k2c2 = k2.mReal.add(Rational.ONE).div(absc2).ceil();
 			Rational kc;
 			Rational theC;
 			InterpolatorAffineTerm theS;
@@ -1240,8 +1216,8 @@ public class Interpolator extends NonRecursive {
 				if (theCabs != Rational.ONE) {
 					x = mTheory.term("div", x, theCabs.toTerm(mTheory.getNumericSort()));
 				}
-				Term F1 = substitute(la1.mF, mMixedVar, x);
-				Term F2 = substitute(la2.mF, mMixedVar, x);
+				Term F1 = substitute(la1.getSubterm(), mMixedVar, x);
+				Term F2 = substitute(la2.getSubterm(), mMixedVar, x);
 
 				if (offset.compareTo(kc) == 0) {
 					if (theS == s1) {
@@ -1254,8 +1230,7 @@ public class Interpolator extends NonRecursive {
 				sPlusOffset = sPlusOffset.add(theC.negate());
 				offset = offset.add(Rational.ONE);
 			}
-			final LATerm la3 = new LATerm(c1s2c2s1, newK, newF);
-			return la3;
+			return LAInterpolator.createLATerm(c1s2c2s1, newK, newF);
 		}
 
 	}
