@@ -56,6 +56,7 @@ public enum Logics {
 	QF_AUFNIA (Features.AX + Features.UF + Features.NA + Features.IA),
 	QF_AUFLIRA(Features.AX + Features.UF + Features.LA + Features.IA + Features.RA),
 	QF_AUFNIRA(Features.AX + Features.UF + Features.NA + Features.IA + Features.RA),
+	QF_DT     (Features.DT),
 
 	BV        (Features.QU + Features.BV),
 	FP        (Features.QU + Features.FP),
@@ -78,6 +79,8 @@ public enum Logics {
 	AUFNIA    (Features.QU + Features.AX + Features.UF + Features.NA + Features.IA),
 	AUFLIRA   (Features.QU + Features.AX + Features.UF + Features.LA + Features.IA + Features.RA),
 	AUFNIRA   (Features.QU + Features.AX + Features.UF + Features.NA + Features.IA + Features.RA),
+	UFDT      (Features.QU + Features.DT + Features.UF),
+	UFDTLIA   (Features.QU + Features.DT + Features.UF + Features.LA + Features.IA),
 
 	; //NOCHECKSTYLE
 
@@ -102,6 +105,8 @@ public enum Logics {
 		static final int RA = (1 << 8);
 		/** flag for floating point arithmetic. */
 		static final int FP = (1 << 9);
+		/** flag for datatypes. */
+		static final int DT = (1 << 10);
 	}
 
 	private final int mFeatures;

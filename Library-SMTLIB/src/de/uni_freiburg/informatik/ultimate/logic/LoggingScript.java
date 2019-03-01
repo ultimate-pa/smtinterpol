@@ -195,6 +195,28 @@ public class LoggingScript extends WrapperScript {
 	}
 
 	@Override
+	public void declareDatatype(DataType datatype, DataType.Constructor[] constrs)
+		throws SMTLIBException {
+		//FIXME print....
+		super.declareDatatype(datatype, constrs);
+	}
+
+	@Override
+	public void declareDatatypes(DataType[] datatypes, DataType.Constructor[][] constrs)
+		throws SMTLIBException {
+		mPw.print("(declare-datatypes (");
+		for (DataType datatype : datatypes) {
+			mPw.print("(");
+			mPw.print(PrintTerm.quoteIdentifier(datatype.getName()));
+			mPw.print(" ");
+			mPw.print(datatype.mNumParams);
+			mPw.print(")");
+		}
+		//FIXME continue....
+		super.declareDatatypes(datatypes, constrs);
+	}
+
+	@Override
 	public void declareFun(final String fun, final Sort[] paramSorts, final Sort resultSort) throws SMTLIBException {
 		mPw.print("(declare-fun ");
 		mPw.print(PrintTerm.quoteIdentifier(fun));

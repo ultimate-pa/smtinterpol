@@ -122,6 +122,16 @@ public abstract class WrapperScript implements Script {
 	}
 
 	@Override
+	public void declareDatatype(DataType datatype, DataType.Constructor[] constrs) throws SMTLIBException {
+		mScript.declareDatatype(datatype, constrs);
+	}
+
+	@Override
+	public void declareDatatypes(DataType[] datatypes, DataType.Constructor[][] constrs) throws SMTLIBException {
+		mScript.declareDatatypes(datatypes, constrs);
+	}
+
+	@Override
 	public void declareFun(final String fun, final Sort[] paramSorts, final Sort resultSort) throws SMTLIBException {
 		mScript.declareFun(fun, paramSorts, resultSort);
 	}
@@ -208,7 +218,7 @@ public abstract class WrapperScript implements Script {
 	}
 
 	@Override
-	public Sort sort(final String sortname, final BigInteger[] indices, final Sort... params) throws SMTLIBException {
+	public Sort sort(final String sortname, final String[] indices, final Sort... params) throws SMTLIBException {
 		return mScript.sort(sortname, indices, params);
 	}
 
@@ -218,12 +228,23 @@ public abstract class WrapperScript implements Script {
 	}
 
 	@Override
+	public DataType.Constructor constructor(String name, String[] selectors, Sort[] argumentSorts)
+			throws SMTLIBException {
+		return mScript.constructor(name, selectors, argumentSorts);
+	}
+
+	@Override
+	public DataType datatypes(String typename, int numParams) throws SMTLIBException {
+		return mScript.datatypes(typename, numParams);
+	}
+
+	@Override
 	public Term term(final String funcname, final Term... params) throws SMTLIBException {
 		return mScript.term(funcname, params);
 	}
 
 	@Override
-	public Term term(final String funcname, final BigInteger[] indices, final Sort returnSort, final Term... params)
+	public Term term(final String funcname, final String[] indices, final Sort returnSort, final Term... params)
 			throws SMTLIBException {
 		return mScript.term(funcname, indices, returnSort, params);
 	}

@@ -93,15 +93,15 @@ action code {:
 
 	static class IndexedIdentifier {
 		String mName;
-		BigInteger[] mIndices;
-		public IndexedIdentifier(String name, BigInteger[] indices) {
+		String[] mIndices;
+		public IndexedIdentifier(String name, String[] indices) {
 			mName = name;
 			mIndices = indices;
 		}
 		public String getName() {
 			return mName;
 		}
-		public BigInteger[] getIndices() {
+		public String[] getIndices() {
 			return mIndices;
 		}
 
@@ -114,7 +114,7 @@ action code {:
 
 	static class QualIdentifier {
 		String mName;
-		BigInteger[] mIndices;
+		String[] mIndices;
 		Sort mSort;
 		public QualIdentifier(IndexedIdentifier id, Sort sort) {
 			mName = id.getName();
@@ -124,7 +124,7 @@ action code {:
 		public String getIdentifier() {
 			return mName;
 		}
-		public BigInteger[] getIndices() {
+		public String[] getIndices() {
 			return mIndices;
 		}
 		public Sort getSort() {
@@ -140,6 +140,24 @@ action code {:
 			if (mSort == null)
 				return indexedId;
 			return "(as " + indexedId + " " + mSort + ")";
+		}
+	}
+	
+	static class SelectorDec {
+		String mSelector;
+		Sort mArgumentSort;
+		public SelectorDec(String selector, Sort argumentSort) {
+			mSelector = selector;
+			mArgumentSort = argumentSort; 
+		}
+		public String getSelector() {
+			return mSelector;
+		}
+		public Sort getArgumentSort() {
+			return mArgumentSort;
+		}
+		public String toString() {
+		    return "(" + mSelector + " " + mArgumentSort + ")";
 		}
 	}
 
@@ -176,7 +194,7 @@ action code {:
 		return null;
 	}
 
-	public Term createTerm(Symbol fsym, String name, BigInteger[] indices, Sort resultSort, Term[] param) {
+	public Term createTerm(Symbol fsym, String name, String[] indices, Sort resultSort, Term[] param) {
 		// check if there was an error when creating the child term.
 		for (Term p : param) {
 			if (p == null)
@@ -225,11 +243,12 @@ scan with {: return getScanner().next_token(); :}
 /* Predefined Symbols */
 terminal String UNDERSCORE, BANG,
          AS, ASSERT, CHECKSAT, CONTINUEDEXECUTION,
-         DECLARESORT, DECLAREFUN, DECLARECONST, DEFINESORT, DEFINEFUN, ERRORSYM,
+         DECLARESORT, DECLAREFUN, DECLARECONST, DECLAREDATATYPE, DECLAREDATATYPES,
+         DEFINESORT, DEFINEFUN, ERRORSYM,
          EXISTS, EXIT, FALSE, FORALL, GETASSERTIONS, GETASSIGNMENT, GETINFO,
          GETINTERPOLANTS,
          GETMODEL, GETOPTION, GETPROOF, GETUNSATCORE, GETVALUE, IMMEDIATEEXIT,
-         INCOMPLETE, LET, LOGIC, NONE, NUMERALSYM, MEMOUT, PAR, POP, PUSH,
+         INCOMPLETE, LET, LOGIC, NONE, NUMERALSYM, MATCH, MEMOUT, PAR, POP, PUSH,
          DECIMALSYM, SAT, SUCCESS, SETLOGIC, SETINFO, SETOPTION, STRINGSYM,
          THEORY, TRUE, UNKNOWN, UNSUPPORTED, UNSAT,
          INCLUDE, RESET, RESETASSERTIONS, SIMPLIFY, TIMED, ALLSAT, ECHO,
@@ -261,6 +280,7 @@ non terminal String keywordAttr, keywordOption;
 non terminal String keywordTheory, keywordLogic, keywordTheoryLogic;
 non terminal String keywordNoAttr, keywordNoTheory, keywordNoLogic, keywordNoOption;
 non terminal String booleanOption, stringOption, numeralOption;
+non terminal String index;
 non terminal IndexedIdentifier identifier, identifierIndexed;
 non terminal Object specConstant;
 non terminal Object sExpr;
@@ -274,6 +294,10 @@ non terminal Binding varBinding;
 non terminal TermVariable sortedVar;
 non terminal Term constantTerm, term;
 non terminal InterpolationInfo interpolantpartition;
+non terminal SelectorDec selectorDec;
+non terminal DataType sortDec;
+non terminal DataType.Constructor constructorDec;
+non terminal DataType.Constructor[] datatypeDec;
 non terminal sortSymbolDecl;
 non terminal metaSpecConstant;
 non terminal parFunSymbolDecl, funSymbolDecl;
@@ -330,7 +354,8 @@ constantTerm ::= NUMERAL:n
              			parser.report_error(se.getMessage());
              			RESULT = null;
              		} :};
-identifierIndexed ::= LPAR UNDERSCORE symbol:id NUMERAL+:indices RPAR
+index ::= NUMERAL:n {: RESULT = n.toString(); :} | symbol;
+identifierIndexed ::= LPAR UNDERSCORE symbol:id index+:indices RPAR
              {: RESULT = new IndexedIdentifier(id, indices); :};
 identifier ::= symbol:s {: RESULT = new IndexedIdentifier(s, null); :}
            | identifierIndexed;
@@ -502,6 +527,37 @@ interpolantpartition
              {: RESULT = new InterpolationInfo(); :}
            ;
 
+sortDec ::= LPAR symbol:type NUMERAL:numParams RPAR
+            {: RESULT = parser.env.getScript().datatypes(type, numParams.intValueExact()); :}
+            ;
+
+selectorDec ::= LPAR symbol:selector sort:argumentSort RPAR
+              {:
+              RESULT = new SelectorDec(selector, argumentSort);
+              :};
+
+
+constructorDec ::= LPAR symbol:name selectorDec*:selDec RPAR
+                   {:    
+                   String[] selectors = new String[selDec.length];
+                   Sort[] argumentSorts = new Sort[selDec.length];
+                   
+                   for (int i = 0; i < selDec.length; i++) {
+
+                       selectors[i] = selDec[i].getSelector();
+                       argumentSorts[i] = selDec[i].getArgumentSort();
+                       
+                       
+                   }
+                   RESULT = parser.env.getScript().constructor(name, selectors, argumentSorts);
+                   :};
+
+datatypeDec ::= LPAR constructorDec+:cons RPAR
+                {: RESULT = cons; :} 
+              | LPAR PAR LPAR symbol+ RPAR LPAR constructorDec+:cons RPAR RPAR
+                {: RESULT = cons; :} 
+              ;
+
 command ::= SETLOGIC symbol:logic
             {: try {
             	parser.env.getScript().setLogic(logic);
@@ -574,6 +630,15 @@ command ::= SETLOGIC symbol:logic
                     }
                }
             :}
+          | DECLAREDATATYPE symbol:type datatypeDec:dataDec
+            {:
+              DataType datatype = parser.env.getScript().datatypes(type, 0);
+              parser.env.getScript().declareDatatype(datatype, dataDec);
+            :}
+          | DECLAREDATATYPES LPAR sortDec+:datatypes RPAR LPAR datatypeDec+:dataDecs RPAR
+            {:   
+              parser.env.getScript().declareDatatypes(datatypes, dataDecs);
+            :}  
           | DEFINEFUN {: localVars.beginScope(); :} symbol:fun
                       LPAR sortedVar*:param RPAR sort:resultSort term:value
             {: localVars.endScope();
@@ -813,7 +878,7 @@ symbol ::= SYMBOL | CONTINUEDEXECUTION | ERRORSYM | FALSE | IMMEDIATEEXIT |
          GETMODEL | GETOPTION | GETPROOF | GETUNSATASSUMPTIONS |
          GETUNSATCORE | GETVALUE |
          POP | PUSH | RESET | RESETASSERTIONS |
-         SETLOGIC | SETINFO | SETOPTION; */
+         SETLOGIC | SETINFO | SETOPTION | DECLAREDATATYPE | DECLAREDATATYPES; */
 
 keywordAttr   ::= CPATTERN | CNAMED;
 keywordTheory ::= CSORTSDESCRIPTION | CSORTS |

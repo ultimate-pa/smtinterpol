@@ -18,7 +18,6 @@
  */
 package de.uni_freiburg.informatik.ultimate.logic;
 
-import java.math.BigInteger;
 import java.util.Arrays;
 
 import de.uni_freiburg.informatik.ultimate.util.datastructures.UnifyHash;
@@ -63,7 +62,7 @@ public class SortSymbol {
 	 * Flag to indicate data types.
 	 */
 	static final int DATATYPE  = 0x20;
-	
+
 	final Theory mTheory;
 	final String mName;
 	/**
@@ -152,7 +151,7 @@ public class SortSymbol {
 	 * @throws IllegalArgumentException if the sort parameters or the index
 	 * do not match.
 	 */
-	public void checkArity(BigInteger[] indices, int arity) {
+	public void checkArity(String[] indices, int arity) {
 		if (indices != null) {
 			throw new IllegalArgumentException(
 					"Indexed Sort " + mName + " undefined");
@@ -177,7 +176,7 @@ public class SortSymbol {
 	 * @throws IllegalArgumentException if the indices or number of sort
 	 * parameters do not match.
 	 */
-	public Sort getSort(BigInteger[] indices, Sort... args) {
+	public Sort getSort(String[] indices, Sort... args) {
 		checkArity(indices, args.length);
 		if ((mFlags & INDEXED) == 0 && args.length == 0) {
 			return (Sort) mSorts;
