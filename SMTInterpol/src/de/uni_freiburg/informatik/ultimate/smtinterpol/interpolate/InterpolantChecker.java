@@ -55,53 +55,46 @@ public class InterpolantChecker {
 	 * @param term
 	 *            The term in which EQs should be replaced.
 	 * @param fixupEQs
-	 *            A map from x to a replacement term, containing x as free variable. EQs whose variable is not in this
-	 *            map remain unchanged.
+	 *            A map for EQ(x,s) from x to the replacement term, containing x as free variable. EQs whose variable is
+	 *            not in this map remain unchanged.
+	 * @param auxMaps
+	 *            A map for x from x to a replacement term.
 	 * @return The replaced term.
 	 */
-	private Term fixupEQs(final Term term, final HashMap<TermVariable, Term> fixupEQs) {
+	private Term fixupAndLet(final Term interpolant, final HashMap<TermVariable, Term> fixedEQs,
+			final HashMap<TermVariable, Term> auxMap) {
 		final TermTransformer substitutor = new TermTransformer() {
 			@Override
+			public void convertApplicationTerm(final ApplicationTerm appTerm, final Term[] newArgs) {
+				final FunctionSymbol func = appTerm.getFunction();
+				if (fixedEQs != null && func.isIntern() && func.getName().equals(Interpolator.EQ)) {
+					final TermVariable tv = (TermVariable) appTerm.getParameters()[0];
+					final Term replacement = fixedEQs.get(tv);
+					if (replacement != null) {
+						final Term sharedValue = newArgs[1];
+						setResult(mInterpolator.substitute(replacement, tv, sharedValue));
+						return;
+					}
+				}
+				super.convertApplicationTerm(appTerm, newArgs);
+			}
+
+			@Override
 			public void convert(Term term) {
-				if (term instanceof ApplicationTerm) {
-					final ApplicationTerm at = (ApplicationTerm) term;
-					final FunctionSymbol func = at.getFunction();
-					if (func.isIntern() && func.getName().equals(Interpolator.EQ)) {
-						final TermVariable tv = (TermVariable) at.getParameters()[0];
-						final Term sharedValue = at.getParameters()[1];
-						final Term replacement = fixupEQs.get(tv);
-						if (replacement != null) {
-							term = mCheckingSolver.let(new TermVariable[] { tv }, new Term[] { sharedValue },
-									replacement);
-							setResult(term);
-							return;
-						}
+				if (LAInterpolator.isLATerm(term)) {
+					term = ((AnnotatedTerm) term).getSubterm();
+				}
+				if (term instanceof TermVariable) {
+					final Term replacement = auxMap.get(term);
+					if (replacement != null) {
+						setResult(replacement);
+						return;
 					}
 				}
 				super.convert(term);
 			}
 		};
-		return substitutor.transform(term);
-	}
-
-	private Term fixupAndLet(final Term interpolant, final HashMap<TermVariable, Term> fixedEQs,
-			final HashMap<TermVariable, Term> auxMap) {
-		Term result = mInterpolator.unfoldLAs(interpolant);
-		if (fixedEQs != null) {
-			result = fixupEQs(result, fixedEQs);
-		}
-		if (auxMap != null) {
-			final TermVariable[] tvs = new TermVariable[auxMap.size()];
-			final Term[] values = new Term[auxMap.size()];
-			int i = 0;
-			for (final Entry<TermVariable, Term> entry : auxMap.entrySet()) {
-				tvs[i] = entry.getKey();
-				values[i] = entry.getValue();
-				i++;
-			}
-			result = mCheckingSolver.let(tvs, values, result);
-		}
-		return result;
+		return substitutor.transform(interpolant);
 	}
 
 	public void checkInductivity(final Term[] literals, final Term[] ipls) {
