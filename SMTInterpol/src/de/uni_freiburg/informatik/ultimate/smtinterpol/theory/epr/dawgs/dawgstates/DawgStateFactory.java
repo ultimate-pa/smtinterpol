@@ -23,7 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.IDawgLetter;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.DawgLetter;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.NestedMap3;
 
 /**
@@ -52,9 +52,9 @@ public class DawgStateFactory<LETTER, COLNAMES> {
 
 	private final Map<Set<DawgState>, SetDawgState> mDawgStateSetToSetDawgState = new HashMap<Set<DawgState>, SetDawgState>();
 
-	private final NestedMap3<IDawgLetter<LETTER>, COLNAMES, DawgState, RenameAndReorderDawgState<LETTER, COLNAMES>>
+	private final NestedMap3<DawgLetter<LETTER>, COLNAMES, DawgState, RenameAndReorderDawgState<LETTER, COLNAMES>>
 		mLetterToColNameToDawgStateToRenameAndReorderDawgState =
-			new NestedMap3<IDawgLetter<LETTER>, COLNAMES, DawgState, RenameAndReorderDawgState<LETTER, COLNAMES>>();
+			new NestedMap3<DawgLetter<LETTER>, COLNAMES, DawgState, RenameAndReorderDawgState<LETTER, COLNAMES>>();
 
 	public PairDawgState getOrCreatePairDawgState(final DawgState first, final DawgState second) {
 
@@ -108,7 +108,7 @@ public class DawgStateFactory<LETTER, COLNAMES> {
 		return new DawgState();
 	}
 
-	public RenameAndReorderDawgState<LETTER, COLNAMES> getReorderAndRenameDawgState(final IDawgLetter<LETTER> key,
+	public RenameAndReorderDawgState<LETTER, COLNAMES> getReorderAndRenameDawgState(final DawgLetter<LETTER> key,
 			final COLNAMES newRightNeighbour,	final DawgState value) {
 		RenameAndReorderDawgState<LETTER, COLNAMES> result =
 				mLetterToColNameToDawgStateToRenameAndReorderDawgState.get(key, newRightNeighbour, value);

@@ -31,12 +31,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.BinaryRelation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheorySettings;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.DawgLetter;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.DawgLetterFactory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.EmptyDawgLetter;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.IDawgLetter;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.SimpleComplementDawgLetter;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.SimpleDawgLetter;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.UniversalDawgLetter;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgStateFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
@@ -153,7 +149,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 					this,
 					mLogger,
 					dawg.getColNames(),
-					new DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER>, DawgState>(
+					new DeterministicDawgTransitionRelation<DawgState, DawgLetter<LETTER>, DawgState>(
 							((Dawg<LETTER, COLNAMES>) dawg).getTransitionRelation()),
 					((Dawg<LETTER, COLNAMES>) dawg).getInitialState());
 		}
@@ -439,17 +435,17 @@ public class DawgFactory<LETTER, COLNAMES> {
 		/*
 		 * go through each connected pair of edges in the dawg. Join their partitions.
 		 */
-		for (final Pair<IDawgLetter<LETTER>, DawgState> outEdge1 :
+		for (final Pair<DawgLetter<LETTER>, DawgState> outEdge1 :
 		inputDawg.getTransitionRelation().getOutEdgeSet(inputDawg.getInitialState())) {
 			final DawgState outEdge1Target = outEdge1.getSecond();
-			final IDawgLetter<LETTER> outEdge1DL = outEdge1.getFirst();
+			final DawgLetter<LETTER> outEdge1DL = outEdge1.getFirst();
 
 			// final boolean dl1IsUniversal = outEdge1DL instanceof UniversalDawgLetter<?, ?>
 			// || outEdge1DL instanceof SimpleComplementDawgLetter<?, ?>;
 
-			assert !(outEdge1DL instanceof EmptyDawgLetter<?>);
+			assert !(outEdge1DL.isEmpty());
 
-			if (outEdge1DL instanceof UniversalDawgLetter<?>) {
+			if (outEdge1DL.isUniversal()) {
 				return (Dawg<LETTER, COLNAMES>) getUniversalDawg(inputDawg.getColNames());
 			}
 
@@ -458,83 +454,60 @@ public class DawgFactory<LETTER, COLNAMES> {
 			/*
 			 * announce letters to unionFind
 			 */
-			if (outEdge1DL instanceof SimpleDawgLetter<?>) {
-				for (final LETTER letter : ((SimpleDawgLetter<LETTER>) outEdge1DL).getLetters()) {
-					unionFind.findAndConstructEquivalenceClassIfNeeded(letter);
-				}
-			} else if (outEdge1DL instanceof SimpleComplementDawgLetter<?>) {
-				for (final LETTER letter : ((SimpleComplementDawgLetter<LETTER>) outEdge1DL)
-						.getComplementLetters()) {
-					unionFind.findAndConstructEquivalenceClassIfNeeded(letter);
-				}
+			for (final LETTER letter : outEdge1DL.getRawLetters()) {
+				unionFind.findAndConstructEquivalenceClassIfNeeded(letter);
 			}
 
-			for (final Pair<IDawgLetter<LETTER>, DawgState> outEdge2 :
+			for (final Pair<DawgLetter<LETTER>, DawgState> outEdge2 :
 			inputDawg.getTransitionRelation().getOutEdgeSet(outEdge1Target)) {
 				final DawgState outEdge2Target = outEdge2.getSecond();
-				final IDawgLetter<LETTER> outEdge2DL = outEdge2.getFirst();
+				final DawgLetter<LETTER> outEdge2DL = outEdge2.getFirst();
 
-				assert !(outEdge2DL instanceof EmptyDawgLetter<?>);
+				assert !(outEdge2DL.isEmpty());
 
-				if (outEdge2DL instanceof UniversalDawgLetter<?>) {
+				if (outEdge2DL.isUniversal()) {
 					return (Dawg<LETTER, COLNAMES>) getUniversalDawg(inputDawg.getColNames());
 				}
 
 				/*
 				 * announce letters to unionFind
 				 */
-				if (outEdge2DL instanceof SimpleDawgLetter<?>) {
-					for (final LETTER letter : ((SimpleDawgLetter<LETTER>) outEdge2DL).getLetters()) {
-						unionFind.findAndConstructEquivalenceClassIfNeeded(letter);
-					}
-				} else if (outEdge2DL instanceof SimpleComplementDawgLetter<?>) {
-					for (final LETTER letter : ((SimpleComplementDawgLetter<LETTER>) outEdge2DL)
-							.getComplementLetters()) {
-						unionFind.findAndConstructEquivalenceClassIfNeeded(letter);
-					}
+				for (final LETTER letter : outEdge2DL.getRawLetters()) {
+					unionFind.findAndConstructEquivalenceClassIfNeeded(letter);
 				}
 
 				// final boolean dl2IsUniversal = outEdge2DL instanceof UniversalDawgLetter<?, ?>
 				// || outEdge2DL instanceof SimpleComplementDawgLetter<?, ?>;
 
-				if (outEdge1DL instanceof SimpleDawgLetter<?> && outEdge2DL instanceof SimpleDawgLetter<?>) {
-					for (final LETTER l1 : ((SimpleDawgLetter<LETTER>) outEdge1DL).getLetters()) {
-						for (final LETTER l2 : ((SimpleDawgLetter<LETTER>) outEdge2DL).getLetters()) {
+				if (!outEdge1DL.isComplemented() && !outEdge2DL.isComplemented()) {
+					for (final LETTER l1 : outEdge1DL.getLetters()) {
+						for (final LETTER l2 : outEdge2DL.getLetters()) {
 							unionFind.union(l1, l2);
 						}
 					}
-				} else if (outEdge1DL instanceof SimpleDawgLetter<?>
-						&& outEdge2DL instanceof SimpleComplementDawgLetter<?>) {
-					for (final LETTER l1 : ((SimpleDawgLetter<LETTER>) outEdge1DL).getLetters()) {
+				} else if (!outEdge1DL.isComplemented() && outEdge2DL.isComplemented()) {
+					for (final LETTER l1 : outEdge1DL.getLetters()) {
 						for (final LETTER l2 : unionFind.getAllRepresentatives()) {
-							if (!((SimpleComplementDawgLetter<LETTER>) outEdge2DL)
-									.getComplementLetters().contains(l2)) {
+							if (outEdge2DL.matches(l2)) {
 								unionFind.union(l1, l2);
 								universalPartitionRepresentative = unionFind.find(l1);
 							}
 						}
 					}
-				} else if (outEdge1DL instanceof SimpleComplementDawgLetter<?>
-						&& outEdge2DL instanceof SimpleDawgLetter<?>) {
-					for (final LETTER l1 : ((SimpleDawgLetter<LETTER>) outEdge2DL).getLetters()) {
+				} else if (outEdge1DL.isComplemented() && !outEdge2DL.isComplemented()) {
+					for (final LETTER l1 : outEdge2DL.getLetters()) {
 						for (final LETTER l2 : unionFind.getAllRepresentatives()) {
-							if (!((SimpleComplementDawgLetter<LETTER>) outEdge1DL)
-									.getComplementLetters().contains(l2)) {
+							if (outEdge1DL.matches(l2)) {
 								unionFind.union(l1, l2);
 								universalPartitionRepresentative = unionFind.find(l1);
 							}
 						}
 					}
-				} else if (outEdge1DL instanceof SimpleComplementDawgLetter<?>
-						&& outEdge2DL instanceof SimpleComplementDawgLetter<?>) {
-
+				} else {
+					assert outEdge1DL.isComplemented() && outEdge2DL.isComplemented();
 					for (final LETTER l1 : unionFind.getAllRepresentatives()) {
 						for (final LETTER l2 : unionFind.getAllRepresentatives()) {
-
-							if (!((SimpleComplementDawgLetter<LETTER>) outEdge1DL)
-									.getComplementLetters().contains(l2)
-									&& !((SimpleComplementDawgLetter<LETTER>) outEdge2DL)
-											.getComplementLetters().contains(l1)) {
+							if (outEdge1DL.matches(l1) && outEdge2DL.matches(l2)) {
 								unionFind.union(l1, l2);
 								universalPartitionRepresentative = unionFind.find(l1);
 							}
@@ -545,8 +518,8 @@ public class DawgFactory<LETTER, COLNAMES> {
 		}
 
 
-		final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER>, DawgState> transitionRelation =
-				new DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER>, DawgState>();
+		final DeterministicDawgTransitionRelation<DawgState, DawgLetter<LETTER>, DawgState> transitionRelation =
+				new DeterministicDawgTransitionRelation<DawgState, DawgLetter<LETTER>, DawgState>();
 
 		final DawgState initialState = mDawgStateFactory.createDawgState();
 		final DawgState finalState = mDawgStateFactory.createDawgState();
@@ -562,7 +535,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 			if (!isUniversal) {
 				lettersNotInUniversalPartition.addAll(lettersNotInUniversalPartition);
 				final DawgState middleState = mDawgStateFactory.createDawgState();
-				final IDawgLetter<LETTER> eqClassDl =
+				final DawgLetter<LETTER> eqClassDl =
 						mDawgLetterFactory.getSimpleDawgLetter(eqClass, sort);
 				transitionRelation.put(initialState, eqClassDl, middleState);
 				transitionRelation.put(middleState, eqClassDl, finalState);
@@ -573,7 +546,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 		 */
 		if (!lettersNotInUniversalPartition.isEmpty()) {
 			final DawgState middleState = mDawgStateFactory.createDawgState();
-			final IDawgLetter<LETTER> complementDl =
+			final DawgLetter<LETTER> complementDl =
 					mDawgLetterFactory.getSimpleComplementDawgLetter(lettersNotInUniversalPartition, sort);
 			transitionRelation.put(initialState, complementDl, middleState);
 			transitionRelation.put(middleState, complementDl, finalState);
@@ -590,24 +563,24 @@ public class DawgFactory<LETTER, COLNAMES> {
 		assert inputDawg.getSignature().getNoColumns() == 2;
 		assert EprTheorySettings.UseSimpleDawgLetters;
 
-		final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER>, DawgState> newTransitionRelation1 =
-				new DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER>, DawgState>();
+		final DeterministicDawgTransitionRelation<DawgState, DawgLetter<LETTER>, DawgState> newTransitionRelation1 =
+				new DeterministicDawgTransitionRelation<DawgState, DawgLetter<LETTER>, DawgState>();
 		/*
 		 * First, close under symmetry by replacing the dawgLetters at all two connected edges by their union. This may
 		 * mean that outgoing DawgLetters are no more disjoint, but we will resolve this in the next step.. Can we lose
 		 * information here by using a nested map?, i.e. do we need a relation?..
 		 */
-		for (final Pair<IDawgLetter<LETTER>, DawgState> outEdge1 :
+		for (final Pair<DawgLetter<LETTER>, DawgState> outEdge1 :
 		inputDawg.getTransitionRelation().getOutEdgeSet(inputDawg.getInitialState())) {
 			final DawgState outEdge1Target = outEdge1.getSecond();
-			final IDawgLetter<LETTER> outEdge1DL = outEdge1.getFirst();
+			final DawgLetter<LETTER> outEdge1DL = outEdge1.getFirst();
 
-			for (final Pair<IDawgLetter<LETTER>, DawgState> outEdge2 :
+			for (final Pair<DawgLetter<LETTER>, DawgState> outEdge2 :
 			inputDawg.getTransitionRelation().getOutEdgeSet(outEdge1Target)) {
 				final DawgState outEdge2Target = outEdge2.getSecond();
-				final IDawgLetter<LETTER> outEdge2DL = outEdge2.getFirst();
+				final DawgLetter<LETTER> outEdge2DL = outEdge2.getFirst();
 
-				final IDawgLetter<LETTER> unionDL = outEdge1DL.union(outEdge2DL);
+				final DawgLetter<LETTER> unionDL = outEdge1DL.union(outEdge2DL);
 
 				/*
 				 * add two edges replacing outEdge1 and outEdge2, each labelled with unionDL
@@ -627,32 +600,32 @@ public class DawgFactory<LETTER, COLNAMES> {
 			}
 		}
 
-		final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER>, DawgState>
+		final DeterministicDawgTransitionRelation<DawgState, DawgLetter<LETTER>, DawgState>
 		newTransitionRelation2 =
-				new DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER>, DawgState>();
+				new DeterministicDawgTransitionRelation<DawgState, DawgLetter<LETTER>, DawgState>();
 
 		/*
 		 * second, close under transitivity .. replace all pairs outgoing DawgLetters of the initial state by their that
 		 * have a non-empty intersection by their union (there should be one pair of transitions per equivalence class
 		 * in the dawg in the end..)
 		 */
-		final HashSet<Pair<IDawgLetter<LETTER>, DawgState>> treatedOutEdges =
-				new HashSet<Pair<IDawgLetter<LETTER>, DawgState>>();
-		for (final Pair<IDawgLetter<LETTER>, DawgState> outEdge1 :
+		final HashSet<Pair<DawgLetter<LETTER>, DawgState>> treatedOutEdges =
+				new HashSet<Pair<DawgLetter<LETTER>, DawgState>>();
+		for (final Pair<DawgLetter<LETTER>, DawgState> outEdge1 :
 		inputDawg.getTransitionRelation().getOutEdgeSet(inputDawg.getInitialState())) {
 			if (treatedOutEdges.contains(outEdge1)) {
 				continue;
 			}
-			final IDawgLetter<LETTER> outEdge1DL = outEdge1.getFirst();
+			final DawgLetter<LETTER> outEdge1DL = outEdge1.getFirst();
 
-			IDawgLetter<LETTER> unionDlOfIntersectingOutEdges =
+			DawgLetter<LETTER> unionDlOfIntersectingOutEdges =
 					mDawgLetterFactory.getEmptyDawgLetter(outEdge1DL.getSortId());
-			for (final Pair<IDawgLetter<LETTER>, DawgState> otherOutEdge1 :
+			for (final Pair<DawgLetter<LETTER>, DawgState> otherOutEdge1 :
 			inputDawg.getTransitionRelation().getOutEdgeSet(inputDawg.getInitialState())) {
-				final IDawgLetter<LETTER> otherOutEdge1DL = outEdge1.getFirst();
+				final DawgLetter<LETTER> otherOutEdge1DL = outEdge1.getFirst();
 
-				final IDawgLetter<LETTER> intersectDl = outEdge1DL.intersect(otherOutEdge1DL);
-				if (!(intersectDl instanceof EmptyDawgLetter<?>)) {
+				final DawgLetter<LETTER> intersectDl = outEdge1DL.intersect(otherOutEdge1DL);
+				if (!intersectDl.isEmpty()) {
 					treatedOutEdges.add(otherOutEdge1);
 					unionDlOfIntersectingOutEdges = unionDlOfIntersectingOutEdges.union(otherOutEdge1DL);
 				}
@@ -691,12 +664,12 @@ public class DawgFactory<LETTER, COLNAMES> {
 		final DawgState dsInitial = mDawgStateFactory.createDawgState();
 		final DawgState dsFinal = mDawgStateFactory.createDawgState();
 
-		final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER>, DawgState> newTR =
-				new DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER>, DawgState>();
+		final DeterministicDawgTransitionRelation<DawgState, DawgLetter<LETTER>, DawgState> newTR =
+				new DeterministicDawgTransitionRelation<DawgState, DawgLetter<LETTER>, DawgState>();
 
 		for (final LETTER constant : mAllKnownConstants.get(sort)) {
 			final DawgState dsMiddle = mDawgStateFactory.createDawgState();
-			final IDawgLetter<LETTER> dl = mDawgLetterFactory.getSingletonSetDawgLetter(constant, sort);
+			final DawgLetter<LETTER> dl = mDawgLetterFactory.getSingletonSetDawgLetter(constant, sort);
 
 			newTR.put(dsInitial, dl, dsMiddle);
 			newTR.put(dsMiddle, dl, dsFinal);

@@ -33,13 +33,14 @@ import java.util.Map;
 import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DeterministicDawgTransitionRelation;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.DawgLetter;
 
 /**
  * Ternary relation implemented via nested HashMaps.
  * @author Matthias Heizmann
  *
  */
-public class HashRelation3<K1, K2, K3> {
+public class HashRelation3<K1, K2 extends DawgLetter<?>, K3> {
 	private final NestedMap3<K1, K2, K3, IsContained> mBackingMap = new NestedMap3<K1, K2, K3, IsContained>();
 
 	/**
@@ -47,8 +48,8 @@ public class HashRelation3<K1, K2, K3> {
 	 * (that relation will have the fuction property..)
 	 */
 	public HashRelation3(
-			DeterministicDawgTransitionRelation<K1, K2, K3> map) {
-		for (Triple<K1, K2, K3> triple : map.entrySet()) {
+			final DeterministicDawgTransitionRelation<K1, K2, K3> map) {
+		for (final Triple<K1, K2, K3> triple : map.entrySet()) {
 			addTriple(triple.getFirst(), triple.getSecond(), triple.getThird());
 		}
 	}
@@ -59,7 +60,7 @@ public class HashRelation3<K1, K2, K3> {
 	public HashRelation3() {
 	}
 
-	public boolean addTriple(K1 fst, K2 snd, K3 trd) {
+	public boolean addTriple(final K1 fst, final K2 snd, final K3 trd) {
 		final IsContained isContained = mBackingMap.put(fst, snd, trd, IsContained.IsContained);
 		return isContained == IsContained.IsContained;
 	}
@@ -68,7 +69,7 @@ public class HashRelation3<K1, K2, K3> {
 		return mBackingMap.keySet();
 	}
 
-	public Set<K2> projectToSnd(K1 k1) {
+	public Set<K2> projectToSnd(final K1 k1) {
 		 final NestedMap2<K2, K3, IsContained> snd2trd2ic = mBackingMap.get(k1);
 		 if (snd2trd2ic == null) {
 			 return Collections.emptySet();
@@ -77,7 +78,7 @@ public class HashRelation3<K1, K2, K3> {
 		 }
 	}
 
-	public Set<K3> projectToTrd(K1 k1, K2 k2) {
+	public Set<K3> projectToTrd(final K1 k1, final K2 k2) {
 		 final Map<K3, IsContained> trd2ic  = mBackingMap.get(k1, k2);
 		 if (trd2ic == null) {
 			 return Collections.emptySet();
@@ -91,11 +92,11 @@ public class HashRelation3<K1, K2, K3> {
 		if (mBackingMap.keySet().isEmpty()) {
 			return "Empty Hashrelation3";
 		}
-		StringBuilder sb = new StringBuilder();
+		final StringBuilder sb = new StringBuilder();
 
-		for (K1 k1 : projectToFst()) {
-			for (K2 k2 : projectToSnd(k1)) {
-				for (K3 k3 : projectToTrd(k1, k2)) {
+		for (final K1 k1 : projectToFst()) {
+			for (final K2 k2 : projectToSnd(k1)) {
+				for (final K3 k3 : projectToTrd(k1, k2)) {
 					sb.append(String.format("(%s, %s, %s)\n", k1, k2, k3));
 				}
 			}

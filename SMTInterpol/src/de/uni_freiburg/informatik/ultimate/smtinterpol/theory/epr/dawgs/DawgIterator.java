@@ -27,16 +27,14 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Stack;
 
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.EmptyDawgLetter;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.IDawgLetter;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.SimpleDawgLetter;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.DawgLetter;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Triple;
 
 public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 
-	private final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER>, DawgState> mTransitionRelation;
+	private final DeterministicDawgTransitionRelation<DawgState, DawgLetter<LETTER>, DawgState> mTransitionRelation;
 	private final DawgState mInitialState;
 	private final DawgSignature<COLNAMES> mSignature;
 
@@ -55,7 +53,7 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 
 
 	public DawgIterator(
-			final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER>, DawgState> transitionRelation,
+			final DeterministicDawgTransitionRelation<DawgState, DawgLetter<LETTER>, DawgState> transitionRelation,
 			final DawgState initialState,
 			final DawgSignature<COLNAMES> signature) {
 		mTransitionRelation = transitionRelation;
@@ -70,7 +68,7 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 		 * initialize the dawg path sets with all the outgoing edges of the initial state
 		 */
 		if (!mIsDawgEmpty) {
-			for (final Pair<IDawgLetter<LETTER>, DawgState> outEdge :
+			for (final Pair<DawgLetter<LETTER>, DawgState> outEdge :
 				mTransitionRelation.getOutEdgeSet(mInitialState)) {
 				final DawgPath newPath = new DawgPath(mInitialState, outEdge.getFirst(), outEdge.getSecond());
 				if (newPath.isComplete()) {
@@ -117,7 +115,7 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 			final DawgPath dawgPath = mOpenIncompleteDawgPaths.pop();
 			assert !dawgPath.isComplete();
 
-			for (final Pair<IDawgLetter<LETTER>, DawgState> outEdge :
+			for (final Pair<DawgLetter<LETTER>, DawgState> outEdge :
 				mTransitionRelation.getOutEdgeSet(dawgPath.lastState())) {
 
 				final DawgPath newPath = dawgPath.cons(dawgPath.lastState(),
@@ -195,8 +193,8 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 
 		private final boolean mIsSingleton;
 
-		private final List<Triple<DawgState, IDawgLetter<LETTER>, DawgState>> mEdges =
-				new ArrayList<Triple<DawgState, IDawgLetter<LETTER>, DawgState>>();
+		private final List<Triple<DawgState, DawgLetter<LETTER>, DawgState>> mEdges =
+				new ArrayList<Triple<DawgState, DawgLetter<LETTER>, DawgState>>();
 
 		/**
 		 * Creates a DawgPath of length one. The edge is constructed from the arguments.
@@ -204,8 +202,8 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 		 * @param letter
 		 * @param target
 		 */
-		DawgPath(final DawgState source, final IDawgLetter<LETTER> letter, final DawgState target) {
-			assert !(letter instanceof EmptyDawgLetter<?>);
+		DawgPath(final DawgState source, final DawgLetter<LETTER> letter, final DawgState target) {
+			assert !letter.isEmpty();
 			addEdge(source, letter, target);
 			mIsSingleton = isLetterSingleton(letter);
 		}
@@ -215,17 +213,16 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 		 */
 		private DawgPath(final DawgPath original) {
 			boolean isSingleton = true;
-			for (final Triple<DawgState, IDawgLetter<LETTER>, DawgState> edge : original.mEdges) {
+			for (final Triple<DawgState, DawgLetter<LETTER>, DawgState> edge : original.mEdges) {
 				mEdges.add(edge);
 				isSingleton &= isLetterSingleton(edge.getSecond());
-				assert !(edge.getSecond() instanceof EmptyDawgLetter<?>);
+				assert !edge.getSecond().isEmpty();
 			}
 			mIsSingleton = isSingleton;
 		}
 
-		private boolean isLetterSingleton(final IDawgLetter<LETTER> letter) {
-			return letter instanceof SimpleDawgLetter<?>
-					&& ((SimpleDawgLetter<LETTER>) letter).getLetters().size() == 1;
+		private boolean isLetterSingleton(final DawgLetter<LETTER> letter) {
+			return !letter.isComplemented() && letter.getLetters().size() == 1;
 		}
 
 		/**
@@ -238,14 +235,14 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 			return mEdges.size() == mSignature.getNoColumns();
 		}
 
-		DawgPath cons(final DawgState source, final IDawgLetter<LETTER> letter, final DawgState target) {
+		DawgPath cons(final DawgState source, final DawgLetter<LETTER> letter, final DawgState target) {
 			final DawgPath result = new DawgPath(this);
 			result.addEdge(source, letter, target);
 			return result;
 		}
 
-		private void addEdge(final DawgState source, final IDawgLetter<LETTER> letter, final DawgState target) {
-			mEdges.add(new Triple<DawgState, IDawgLetter<LETTER>, DawgState>(source, letter, target));
+		private void addEdge(final DawgState source, final DawgLetter<LETTER> letter, final DawgState target) {
+			mEdges.add(new Triple<DawgState, DawgLetter<LETTER>, DawgState>(source, letter, target));
 		}
 
 		DawgState lastState() {
@@ -268,7 +265,7 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 
 			sb.append(mEdges.get(0).getFirst());
 
-			for (final Triple<DawgState, IDawgLetter<LETTER>, DawgState> edge : mEdges) {
+			for (final Triple<DawgState, DawgLetter<LETTER>, DawgState> edge : mEdges) {
 				sb.append(String.format(" --%s--> %s" , edge.getSecond(), edge.getThird()));
 			}
 
@@ -381,10 +378,6 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 
 					int getColumnIndex() {
 						return mPrefix.size() - 1;
-					}
-
-					LETTER lastLetter() {
-						return mPrefix.get(mPrefix.size() - 1);
 					}
 
 					List<LETTER> getPrefix() {

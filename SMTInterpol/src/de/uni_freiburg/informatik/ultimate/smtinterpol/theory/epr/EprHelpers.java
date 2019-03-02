@@ -52,10 +52,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuant
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DeterministicDawgTransitionRelation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.AbstractDawgLetter;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.DawgLetter;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.DawgLetterFactory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.EmptyDawgLetter;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.IDawgLetter;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.PairDawgState;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.IEprLiteral;
@@ -813,16 +811,16 @@ public class EprHelpers {
 	 * @return
 	 */
 	public static <LETTER> boolean isDeterministic(
-			final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER>, DawgState> transitionRelation) {
+			final DeterministicDawgTransitionRelation<DawgState, DawgLetter<LETTER>, DawgState> transitionRelation) {
 		for (final DawgState state : transitionRelation.keySet()) {
-			final List<Pair<IDawgLetter<LETTER>, DawgState>> outEdges =
+			final List<Pair<DawgLetter<LETTER>, DawgState>> outEdges =
 					new ArrayList<>(transitionRelation.getOutEdgeSet(state));
 			for (int i = 0; i < outEdges.size(); i++) {
-				final Pair<IDawgLetter<LETTER>, DawgState> edge1 = outEdges.get(i);
+				final Pair<DawgLetter<LETTER>, DawgState> edge1 = outEdges.get(i);
 				for (int j = 0; j < i; j++) {
-					final Pair<IDawgLetter<LETTER>, DawgState> edge2 = outEdges.get(j);
+					final Pair<DawgLetter<LETTER>, DawgState> edge2 = outEdges.get(j);
 
-					if (!(edge1.getFirst().intersect(edge2.getFirst()) instanceof EmptyDawgLetter)) {
+					if (!edge1.getFirst().intersect(edge2.getFirst()).isEmpty()) {
 						return false;
 					}
 				}
@@ -841,10 +839,10 @@ public class EprHelpers {
 	 * @return
 	 */
 	public static <LETTER, COLNAMES> boolean hasDisconnectedTransitions(
-			final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER>, DawgState> transitionRelation,
+			final DeterministicDawgTransitionRelation<DawgState, DawgLetter<LETTER>, DawgState> transitionRelation,
 			final DawgState state) {
 
-		final Set<Triple<DawgState, IDawgLetter<LETTER>, DawgState>> reachableTransitions =
+		final Set<Triple<DawgState, DawgLetter<LETTER>, DawgState>> reachableTransitions =
 				new HashSet<>();
 
 		Set<DawgState> currentStates = new HashSet<>();
@@ -853,7 +851,7 @@ public class EprHelpers {
 		while (!currentStates.isEmpty()) {
 			final Set<DawgState> nextStates = new HashSet<>();
 			for (final DawgState cs : currentStates) {
-				for (final Pair<IDawgLetter<LETTER>, DawgState> outEdge : transitionRelation.getOutEdgeSet(cs)) {
+				for (final Pair<DawgLetter<LETTER>, DawgState> outEdge : transitionRelation.getOutEdgeSet(cs)) {
 					nextStates.add(outEdge.getSecond());
 					reachableTransitions.add(
 							new Triple<>(
@@ -863,9 +861,9 @@ public class EprHelpers {
 			currentStates = nextStates;
 		}
 
-		final Iterable<Triple<DawgState, IDawgLetter<LETTER>, DawgState>> allTransitions =
+		final Iterable<Triple<DawgState, DawgLetter<LETTER>, DawgState>> allTransitions =
 				transitionRelation.entrySet();
-		for (final Triple<DawgState, IDawgLetter<LETTER>, DawgState> trans : allTransitions) {
+		for (final Triple<DawgState, DawgLetter<LETTER>, DawgState> trans : allTransitions) {
 			if (!reachableTransitions.contains(trans)) {
 				return true;
 			}
@@ -874,7 +872,7 @@ public class EprHelpers {
 	}
 
 	public static <LETTER> boolean areStatesUnreachable(
-			final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER>, DawgState> transitionRelation,
+			final DeterministicDawgTransitionRelation<DawgState, DawgLetter<LETTER>, DawgState> transitionRelation,
 			final DawgState initialState,
 			final Set<PairDawgState> statesToCheck) {
 
@@ -887,7 +885,7 @@ public class EprHelpers {
 		while (!currentStates.isEmpty()) {
 			final Set<DawgState> nextStates = new HashSet<>();
 			for (final DawgState cs : currentStates) {
-				for (final Pair<IDawgLetter<LETTER>, DawgState> outEdge : transitionRelation.getOutEdgeSet(cs)) {
+				for (final Pair<DawgLetter<LETTER>, DawgState> outEdge : transitionRelation.getOutEdgeSet(cs)) {
 					statesNotYetShownReachable.remove(outEdge.getSecond());
 					nextStates.add(outEdge.getSecond());
 				}
@@ -916,16 +914,16 @@ public class EprHelpers {
 	 * @param transitionRelation
 	 * @return
 	 */
-	public static <LETTER> BinaryRelation<IDawgLetter<LETTER>, IDawgLetter<LETTER>> divideDawgLetters(
+	public static <LETTER> BinaryRelation<DawgLetter<LETTER>, DawgLetter<LETTER>> divideDawgLetters(
 			final DawgLetterFactory<LETTER> dawgLetterFactory,
 			final Set<DawgState> dawgStates,
-			final HashRelation3<DawgState, IDawgLetter<LETTER>, DawgState> transitionRelation) {
+			final HashRelation3<DawgState, DawgLetter<LETTER>, DawgState> transitionRelation) {
 
 
 
-		final Set<IDawgLetter<LETTER>> allOutgoingDawgLetters = new HashSet<>();
+		final Set<DawgLetter<LETTER>> allOutgoingDawgLetters = new HashSet<>();
 		for (final DawgState source : transitionRelation.projectToFst()) {
-			for (final IDawgLetter<LETTER> letter : transitionRelation.projectToSnd(source)) {
+			for (final DawgLetter<LETTER> letter : transitionRelation.projectToSnd(source)) {
 				for (final DawgState target : transitionRelation.projectToTrd(source, letter)) {
 					allOutgoingDawgLetters.add(letter);
 				}
@@ -936,7 +934,7 @@ public class EprHelpers {
 
 
 	/**
-	 * Variant of this method used by union (instead of deteminization)
+	 * Variant of this method used by union (instead of determinization)
 	 *
 	 * @param dawgLetterFactory
 	 *
@@ -945,41 +943,41 @@ public class EprHelpers {
 	 * @return
 	 * @return
 	 */
-	public static <LETTER> BinaryRelation<IDawgLetter<LETTER>, IDawgLetter<LETTER>> divideDawgLetters(
+	public static <LETTER> BinaryRelation<DawgLetter<LETTER>, DawgLetter<LETTER>> divideDawgLetters(
 			final DawgLetterFactory<LETTER> dawgLetterFactory,
 			final DawgState first,
 			final DawgState second,
-			final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER>, DawgState> firstTransitionRelation,
-			final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER>, DawgState> secondTransitionRelation) {
+			final DeterministicDawgTransitionRelation<DawgState, DawgLetter<LETTER>, DawgState> firstTransitionRelation,
+			final DeterministicDawgTransitionRelation<DawgState, DawgLetter<LETTER>, DawgState> secondTransitionRelation) {
 
 		final Set<DawgState> dawgStates = new HashSet<>();
 		dawgStates.add(first);
 		dawgStates.add(second);
 
-		final Set<IDawgLetter<LETTER>> allOutgoingDawgLetters = new HashSet<>();
+		final Set<DawgLetter<LETTER>> allOutgoingDawgLetters = new HashSet<>();
 		// for (Entry<IDawgLetter<LETTER>, DawgState> edge : firstTransitionRelation.get(first).entrySet()) {
-		for (final Pair<IDawgLetter<LETTER>, DawgState> edge : firstTransitionRelation.getOutEdgeSet(first)) {
+		for (final Pair<DawgLetter<LETTER>, DawgState> edge : firstTransitionRelation.getOutEdgeSet(first)) {
 			allOutgoingDawgLetters.add(edge.getFirst());
 		}
 		// for (Entry<IDawgLetter<LETTER>, DawgState> edge : secondTransitionRelation.get(second).entrySet()) {
-		for (final Pair<IDawgLetter<LETTER>, DawgState> edge : secondTransitionRelation.getOutEdgeSet(second)) {
+		for (final Pair<DawgLetter<LETTER>, DawgState> edge : secondTransitionRelation.getOutEdgeSet(second)) {
 			allOutgoingDawgLetters.add(edge.getFirst());
 		}
 
 		return divideDawgLetters(dawgLetterFactory, dawgStates, allOutgoingDawgLetters);
 	}
 
-	private static <LETTER> BinaryRelation<IDawgLetter<LETTER>, IDawgLetter<LETTER>> divideDawgLetters(
+	private static <LETTER> BinaryRelation<DawgLetter<LETTER>, DawgLetter<LETTER>> divideDawgLetters(
 			final DawgLetterFactory<LETTER> dawgLetterFactory,
 			final Set<DawgState> dawgStates,
-			final Set<IDawgLetter<LETTER>> allOutgoingDawgLetters) {
+			final Set<DawgLetter<LETTER>> allOutgoingDawgLetters) {
 		/*
 		 * In this relation we keep the mapping between the original states and the (partially) split states.
 		 */
-		final BinaryRelation<IDawgLetter<LETTER>, IDawgLetter<LETTER>> result =
+		final BinaryRelation<DawgLetter<LETTER>, DawgLetter<LETTER>> result =
 				new BinaryRelation<>();
 
-		for (final IDawgLetter<LETTER> letter : allOutgoingDawgLetters) {
+		for (final DawgLetter<LETTER> letter : allOutgoingDawgLetters) {
 					result.addPair(letter, letter);
 		}
 
@@ -990,9 +988,9 @@ public class EprHelpers {
 		 *   - search for two intersecting letters l1, l2, break if there are none
 		 *   - remove l1, l2, add the letters l1\l2, l1 \cap l2, l2\l1 to the worklist
 		 */
-		final Set<IDawgLetter<LETTER>> worklist = new HashSet<>(allOutgoingDawgLetters);
+		final Set<DawgLetter<LETTER>> worklist = new HashSet<>(allOutgoingDawgLetters);
 		while (true) {
-			final Pair<IDawgLetter<LETTER>, IDawgLetter<LETTER>> intersectingPair =
+			final Pair<DawgLetter<LETTER>, DawgLetter<LETTER>> intersectingPair =
 					findIntersectingPair(dawgLetterFactory, worklist);
 			if (intersectingPair == null) {
 				// all DawgLetters in worklist are pairwise disjoint or identical --> we're done
@@ -1007,41 +1005,37 @@ public class EprHelpers {
 			/*
 			 * update the worklist
 			 */
-			final IDawgLetter<LETTER> intersection =
+			final DawgLetter<LETTER> intersection =
 					intersectingPair.getFirst().intersect(intersectingPair.getSecond());
-			assert !(intersection instanceof EmptyDawgLetter<?>);
+			assert !intersection.isEmpty();
 			worklist.add(intersection);
 
-			final Set<IDawgLetter<LETTER>> difference1 =
+			final DawgLetter<LETTER> difference1 =
 					intersectingPair.getFirst().difference(intersectingPair.getSecond());
-			worklist.addAll(difference1);
+			worklist.add(difference1);
 
-			final Set<IDawgLetter<LETTER>> difference2 =
+			final DawgLetter<LETTER> difference2 =
 					intersectingPair.getSecond().difference(intersectingPair.getFirst());
-			worklist.addAll(difference2);
+			worklist.add(difference2);
 
 			/*
 			 * update the result map
 			 */
-			final Set<IDawgLetter<LETTER>> firstPreImage = result.getPreImage(intersectingPair.getFirst());
-			final Set<IDawgLetter<LETTER>> secondPreImage = result.getPreImage(intersectingPair.getSecond());
+			final Set<DawgLetter<LETTER>> firstPreImage = result.getPreImage(intersectingPair.getFirst());
+			final Set<DawgLetter<LETTER>> secondPreImage = result.getPreImage(intersectingPair.getSecond());
 
-			for (final IDawgLetter<LETTER> originalLetter : firstPreImage) {
+			for (final DawgLetter<LETTER> originalLetter : firstPreImage) {
 				result.removePair(originalLetter, intersectingPair.getFirst());
 				result.addPair(originalLetter, intersection);
-				for (final IDawgLetter<LETTER> dl : difference1) {
-					assert dl != null;
-					assert !(dl instanceof EmptyDawgLetter<?>) : "TODO: treat this case";
-					result.addPair(originalLetter, dl);
+				if (!difference1.isEmpty()) {
+					result.addPair(originalLetter, difference1);
 				}
 			}
-			for (final IDawgLetter<LETTER> originalLetter : secondPreImage) {
+			for (final DawgLetter<LETTER> originalLetter : secondPreImage) {
 				result.removePair(originalLetter, intersectingPair.getSecond());
 				result.addPair(originalLetter, intersection);
-				for (final IDawgLetter<LETTER> dl : difference2) {
-					assert dl != null;
-					assert !(dl instanceof EmptyDawgLetter<?>) : "TODO: treat this case";
-					result.addPair(originalLetter, dl);
+				if (!difference2.isEmpty()) {
+					result.addPair(originalLetter, difference2);
 				}
 			}
 		}
@@ -1057,14 +1051,14 @@ public class EprHelpers {
 	 * @param letters
 	 * @return
 	 */
-	private static <LETTER> Pair<IDawgLetter<LETTER>, IDawgLetter<LETTER>> findIntersectingPair(
-			final DawgLetterFactory<LETTER> dawgLetterFactory, final Set<IDawgLetter<LETTER>> letters) {
-		for (final IDawgLetter<LETTER> l1 : letters) {
-			for (final IDawgLetter<LETTER> l2 : letters) {
+	private static <LETTER> Pair<DawgLetter<LETTER>, DawgLetter<LETTER>> findIntersectingPair(
+			final DawgLetterFactory<LETTER> dawgLetterFactory, final Set<DawgLetter<LETTER>> letters) {
+		for (final DawgLetter<LETTER> l1 : letters) {
+			for (final DawgLetter<LETTER> l2 : letters) {
 				if (l1.equals(l2)) {
 					continue;
 				}
-				if (l1.intersect(l2) instanceof EmptyDawgLetter<?>) {
+				if (l1.intersect(l2).isEmpty()) {
 					continue;
 				}
 				return new Pair<>(l1, l2);
@@ -1073,14 +1067,12 @@ public class EprHelpers {
 		return null;
 	}
 
-	public static <LETTER> boolean dawgLettersHaveSameSort(final Set<IDawgLetter<LETTER>> dawgLetters) {
+	public static <LETTER> boolean dawgLettersHaveSameSort(final Set<DawgLetter<LETTER>> dawgLetters) {
 		Object firstOccurringSort = null;
-		for (final IDawgLetter<LETTER> dl : dawgLetters) {
-			final AbstractDawgLetter<LETTER> adl = (AbstractDawgLetter<LETTER>) dl;
+		for (final DawgLetter<LETTER> dl : dawgLetters) {
 			if (firstOccurringSort == null) {
-				firstOccurringSort = adl.getSortId();
-			}
-			if (!firstOccurringSort.equals(adl.getSortId())) {
+				firstOccurringSort = dl.getSortId();
+			} else if (!firstOccurringSort.equals(dl.getSortId())) {
 				return false;
 			}
 		}
@@ -1120,9 +1112,9 @@ public class EprHelpers {
 		return result.isEmpty();
 	}
 
-	public static <LETTER> boolean hasEmptyLetter(final Set<IDawgLetter<LETTER>> result) {
-		for (final IDawgLetter<LETTER> ltr : result) {
-			if (ltr instanceof EmptyDawgLetter<?>) {
+	public static <LETTER> boolean hasEmptyLetter(final Set<DawgLetter<LETTER>> result) {
+		for (final DawgLetter<LETTER> ltr : result) {
+			if (ltr.isEmpty()) {
 				return true;
 			}
 		}
@@ -1192,13 +1184,13 @@ public class EprHelpers {
 		return unionDawg.isUniversal();
 	}
 
-	public static <LETTER> DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER>, DawgState>
+	public static <LETTER> DeterministicDawgTransitionRelation<DawgState, DawgLetter<LETTER>, DawgState>
 			flattenDawgStates(
-					final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER>, DawgState> inputTransitionRelation) {
+					final DeterministicDawgTransitionRelation<DawgState, DawgLetter<LETTER>, DawgState> inputTransitionRelation) {
 
-		final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER>, DawgState> resultTransitionRelation
+		final DeterministicDawgTransitionRelation<DawgState, DawgLetter<LETTER>, DawgState> resultTransitionRelation
 		 	= new DeterministicDawgTransitionRelation<>();
-		for (final Triple<DawgState, IDawgLetter<LETTER>, DawgState> transition : inputTransitionRelation.entrySet()) {
+		for (final Triple<DawgState, DawgLetter<LETTER>, DawgState> transition : inputTransitionRelation.entrySet()) {
 			resultTransitionRelation.put(transition.getFirst().getFlatReplacement(), transition.getSecond(), transition.getThird().getFlatReplacement());
 		}
 		return resultTransitionRelation;

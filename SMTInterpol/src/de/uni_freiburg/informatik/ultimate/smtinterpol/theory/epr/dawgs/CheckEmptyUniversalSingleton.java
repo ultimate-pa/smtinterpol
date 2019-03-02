@@ -22,7 +22,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
 import java.util.HashSet;
 import java.util.Set;
 
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.IDawgLetter;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.DawgLetter;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
 
@@ -46,13 +46,13 @@ public class CheckEmptyUniversalSingleton<LETTER, COLNAMES> {
 	private boolean mIsUniversal;
 
 	private final DawgState mInitialState;
-	private final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER>, DawgState> mTransitionRelation;
+	private final DeterministicDawgTransitionRelation<DawgState, DawgLetter<LETTER>, DawgState> mTransitionRelation;
 	private final DawgFactory<LETTER, COLNAMES> mDawgFactory;
 	private final DawgSignature<COLNAMES> mSignature;
 
 	public CheckEmptyUniversalSingleton(final DawgFactory<LETTER, COLNAMES> dawgFactory,
 			final DawgState initialState,
-			final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER>, DawgState> transitionRelation,
+			final DeterministicDawgTransitionRelation<DawgState, DawgLetter<LETTER>, DawgState> transitionRelation,
 			final DawgSignature<COLNAMES> signature) {
 		mDawgFactory = dawgFactory;
 		mInitialState =initialState;
@@ -72,18 +72,17 @@ public class CheckEmptyUniversalSingleton<LETTER, COLNAMES> {
 			final Set<DawgState> newCurrentStates = new HashSet<DawgState>();
 			for (final DawgState cs : currentStates) {
 
-				final Set<IDawgLetter<LETTER>> outLetters = new HashSet<IDawgLetter<LETTER>>();
+				DawgLetter<LETTER> outLetters = null;
+				for (final Pair<DawgLetter<LETTER>, DawgState> outEdge : mTransitionRelation.getOutEdgeSet(cs)) {
 
-				for (final Pair<IDawgLetter<LETTER>, DawgState> outEdge :
-					mTransitionRelation.getOutEdgeSet(cs)) {
-
-					outLetters.add(outEdge.getFirst());
+					if (outLetters == null) {
+						outLetters = outEdge.getFirst();
+					} else {
+						outLetters = outLetters.union(outEdge.getFirst());
+					}
 					newCurrentStates.add(outEdge.getSecond());
 				}
-
-				if (!mDawgFactory.getDawgLetterFactory().isUniversal(outLetters, mSignature.getColumnSorts().get(i))) {
-					mIsUniversal = false;
-				}
+				mIsUniversal &= outLetters == null ? false : outLetters.isUniversal();
 
 			}
 			currentStates = newCurrentStates;

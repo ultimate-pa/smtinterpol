@@ -1,6 +1,6 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates;
 
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.IDawgLetter;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.DawgLetter;
 
 /**
  * DawgState containing information for the rename-and-reorder dawg transformation.
@@ -13,13 +13,13 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawglett
 public class RenameAndReorderDawgState<LETTER, COLNAMES> extends DawgState {
 
 
-	private final IDawgLetter<LETTER> mLetter;
+	private final DawgLetter<LETTER> mLetter;
 
 	private final COLNAMES mRightNeighbourColumn;
 
 	private final DawgState mInnerState;
 
-	public RenameAndReorderDawgState(final IDawgLetter<LETTER> letter, final COLNAMES column,
+	public RenameAndReorderDawgState(final DawgLetter<LETTER> letter, final COLNAMES column,
 			final DawgState innerDawgState,
 			final DawgState replacement) {
 		super(replacement);
@@ -31,7 +31,7 @@ public class RenameAndReorderDawgState<LETTER, COLNAMES> extends DawgState {
 	/**
 	 * An edge with this letter will be inserted in the new column
 	 */
-	public IDawgLetter<LETTER> getLetter() {
+	public DawgLetter<LETTER> getLetter() {
 		return mLetter;
 	}
 

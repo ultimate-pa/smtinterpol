@@ -38,7 +38,7 @@ import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.Set;
 
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.EmptyDawgLetter;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.DawgLetter;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Triple;
 
@@ -54,7 +54,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Triple;
  * @param <K2>
  * @param <V>
  */
-public class DeterministicDawgTransitionRelation<K1, K2, V> {
+public class DeterministicDawgTransitionRelation<K1, K2 extends DawgLetter<?>, V> {
 
 
 	private final Map<K1, Map<K2, V>> mK1ToK2ToV = new HashMap<K1, Map<K2, V>>();
@@ -104,8 +104,8 @@ public class DeterministicDawgTransitionRelation<K1, K2, V> {
 	}
 
 	public V put(final K1 key1, final K2 key2, final V value) {
-		assert !(key2 instanceof EmptyDawgLetter<?>) : "edges that are labelled with the empty letter should be omitted; "
-				+ "catch this case outside";
+		assert !key2.isEmpty() :
+			"edges that are labelled with the empty letter should be omitted; catch this case outside";
 		Map<K2, V> k2toV = mK1ToK2ToV.get(key1);
 		if (k2toV == null) {
 			k2toV = new HashMap<K2, V>();

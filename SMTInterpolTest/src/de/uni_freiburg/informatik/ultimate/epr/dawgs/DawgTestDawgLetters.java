@@ -29,8 +29,8 @@ import org.junit.runners.JUnit4;
 
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.DawgLetter;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.DawgLetterFactory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.IDawgLetter;
 
 /**
  *
@@ -52,7 +52,7 @@ public class DawgTestDawgLetters {
 
 		final Set<String> letters1 = new HashSet<String>(Arrays.asList(new String[] { }));
 
-		final IDawgLetter<String> sdl1 = dawgLetterFactory.getSimpleDawgLetter(letters1, EprHelpers.getDummySortId());
+		final DawgLetter<String> sdl1 = dawgLetterFactory.getSimpleDawgLetter(letters1, EprHelpers.getDummySortId());
 
 		// TODO finish test..
 

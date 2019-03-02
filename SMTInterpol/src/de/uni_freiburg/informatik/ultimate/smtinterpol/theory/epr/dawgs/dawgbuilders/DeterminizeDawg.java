@@ -30,7 +30,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.Dawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DeterministicDawgTransitionRelation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.DawgLetterFactory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.IDawgLetter;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.DawgLetter;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgStateFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.SetDawgState;
@@ -50,10 +50,10 @@ public class DeterminizeDawg<LETTER, COLNAMES> {
 	private final DawgLetterFactory<LETTER> mDawgLetterFactory;
 
 	private SetDawgState mResultInitialState;
-	private DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER>, DawgState> mResultTransitionRelation;
+	private DeterministicDawgTransitionRelation<DawgState, DawgLetter<LETTER>, DawgState> mResultTransitionRelation;
 	private final SortedSet<COLNAMES> mColnames;
 	private final LogProxy mLogger;
-	private final HashRelation3<DawgState, IDawgLetter<LETTER>, DawgState> mInputTransitionRelation;
+	private final HashRelation3<DawgState, DawgLetter<LETTER>, DawgState> mInputTransitionRelation;
 	private final Set<DawgState> mInputInitialStates;
 
 
@@ -71,7 +71,7 @@ public class DeterminizeDawg<LETTER, COLNAMES> {
 	 */
 	public DeterminizeDawg(final SortedSet<COLNAMES> colnames,
 			final LogProxy logger,
-			final HashRelation3<DawgState, IDawgLetter<LETTER>, DawgState> inputTransitionRelation,
+			final HashRelation3<DawgState, DawgLetter<LETTER>, DawgState> inputTransitionRelation,
 			final Set<DawgState> inputInitialStates,
 			final DawgFactory<LETTER, COLNAMES> dawgFactory) {
 		this.mColnames = colnames;
@@ -88,33 +88,33 @@ public class DeterminizeDawg<LETTER, COLNAMES> {
 		mResultInitialState = mDawgStateFactory.getOrCreateSetDawgState(mInputInitialStates);
 
 		mResultTransitionRelation =
-				new DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER>, DawgState>();
+				new DeterministicDawgTransitionRelation<DawgState, DawgLetter<LETTER>, DawgState>();
 
 		final ArrayDeque<SetDawgState> worklist = new ArrayDeque<SetDawgState>();
 		worklist.add(mResultInitialState);
 		while (!worklist.isEmpty()) {
 			final SetDawgState currentSetState = worklist.pop();
 
-			final BinaryRelation<IDawgLetter<LETTER>, IDawgLetter<LETTER>> occuringDawgLetterToDividedDawgLetters =
+			final BinaryRelation<DawgLetter<LETTER>, DawgLetter<LETTER>> occuringDawgLetterToDividedDawgLetters =
 					EprHelpers.divideDawgLetters(mDawgLetterFactory, currentSetState.getInnerStates(), mInputTransitionRelation);
 
 
-			final BinaryRelation<IDawgLetter<LETTER>, DawgState> dividedDawgLetterToTargetStates =
-					new BinaryRelation<IDawgLetter<LETTER>, DawgState>();
+			final BinaryRelation<DawgLetter<LETTER>, DawgState> dividedDawgLetterToTargetStates =
+					new BinaryRelation<DawgLetter<LETTER>, DawgState>();
 
 
-			for (final IDawgLetter<LETTER> odl : occuringDawgLetterToDividedDawgLetters.getDomain()) {
+			for (final DawgLetter<LETTER> odl : occuringDawgLetterToDividedDawgLetters.getDomain()) {
 				for (final DawgState state : currentSetState.getInnerStates()) {
 					final Set<DawgState> targetStates = mInputTransitionRelation.projectToTrd(state, odl);
 					for (final DawgState targetState : targetStates) {
-						for (final IDawgLetter<LETTER> ddl : occuringDawgLetterToDividedDawgLetters.getImage(odl)) {
+						for (final DawgLetter<LETTER> ddl : occuringDawgLetterToDividedDawgLetters.getImage(odl)) {
 							dividedDawgLetterToTargetStates.addPair(ddl, targetState);
 						}
 					}
 				}
 			}
 
-			for (final IDawgLetter<LETTER> ddl : dividedDawgLetterToTargetStates.getDomain()) {
+			for (final DawgLetter<LETTER> ddl : dividedDawgLetterToTargetStates.getDomain()) {
 				 final SetDawgState targetSetState = mDawgStateFactory.getOrCreateSetDawgState(
 						 dividedDawgLetterToTargetStates.getImage(ddl));
 				 mResultTransitionRelation.put(currentSetState, ddl, targetSetState);
@@ -128,7 +128,7 @@ public class DeterminizeDawg<LETTER, COLNAMES> {
 		assert mResultTransitionRelation != null;
 		assert mResultInitialState != null;
 
-		final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER>, DawgState> flattenedTransitionRelation
+		final DeterministicDawgTransitionRelation<DawgState, DawgLetter<LETTER>, DawgState> flattenedTransitionRelation
 			= EprHelpers.flattenDawgStates(mResultTransitionRelation);
 		final DawgState flattenedResultInitialState = mResultInitialState.getFlatReplacement();
 

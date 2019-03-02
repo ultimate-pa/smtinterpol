@@ -27,9 +27,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.Dawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DeterministicDawgTransitionRelation;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.DawgLetter;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.DawgLetterFactory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.EmptyDawgLetter;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.IDawgLetter;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgStateFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.PairDawgState;
@@ -45,7 +44,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
 public class UnionOrIntersectionDawgBuilder<LETTER, COLNAMES> {
 
 	private DawgState mResultInitialState;
-	private DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER>, DawgState> mResultTransitionRelation;
+	private DeterministicDawgTransitionRelation<DawgState, DawgLetter<LETTER>, DawgState> mResultTransitionRelation;
 
 	private final DawgStateFactory<LETTER, COLNAMES> mDawgStateFactory;
 	private final Dawg<LETTER, COLNAMES> mFirstInputDawg;
@@ -64,7 +63,7 @@ public class UnionOrIntersectionDawgBuilder<LETTER, COLNAMES> {
 		mSecondInputDawg = second;
 
 		mResultTransitionRelation =
-				new DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER>, DawgState>();
+				new DeterministicDawgTransitionRelation<DawgState, DawgLetter<LETTER>, DawgState>();
 
 		mResultInitialState = mDawgStateFactory.getOrCreatePairDawgState(first.getInitialState(),
 				second.getInitialState());
@@ -96,21 +95,21 @@ public class UnionOrIntersectionDawgBuilder<LETTER, COLNAMES> {
 
 				if (!cs.isFirstSink() && !cs.isSecondSink()) {
 
-					final BinaryRelation<IDawgLetter<LETTER>, IDawgLetter<LETTER>> dividedDawgLetters =
+					final BinaryRelation<DawgLetter<LETTER>, DawgLetter<LETTER>> dividedDawgLetters =
 							EprHelpers.divideDawgLetters(mDawgLetterFactory,
 									cs.getFirst(),
 									cs.getSecond(),
 									mFirstInputDawg.getTransitionRelation(),
 									mSecondInputDawg.getTransitionRelation());
 
-					for (final IDawgLetter<LETTER> origDl : dividedDawgLetters.getDomain()) {
+					for (final DawgLetter<LETTER> origDl : dividedDawgLetters.getDomain()) {
 						final DawgState firstTargetWithOrigDl = mFirstInputDawg.getTransitionRelation()
 								.get(cs.getFirst(), origDl);
 						final DawgState secondTargetWithOrigDl = mSecondInputDawg.getTransitionRelation()
 								.get(cs.getSecond(), origDl);
 						assert firstTargetWithOrigDl != null || secondTargetWithOrigDl != null;
 
-						for (final IDawgLetter<LETTER> dividedDl : dividedDawgLetters.getImage(origDl)) {
+						for (final DawgLetter<LETTER> dividedDl : dividedDawgLetters.getImage(origDl)) {
 							final DawgState firstTargetWithDividedDl = getTargetForDividedDawgLetter(
 									cs.getFirst(), mFirstInputDawg.getTransitionRelation(), dividedDl);
 							final DawgState secondTargetWithDividedDl = getTargetForDividedDawgLetter(
@@ -151,7 +150,7 @@ public class UnionOrIntersectionDawgBuilder<LETTER, COLNAMES> {
 						}
 					}
 				} else if (doUnion && cs.isSecondSink()) {
-					for (final Pair<IDawgLetter<LETTER>, DawgState> firstOutEdge :
+					for (final Pair<DawgLetter<LETTER>, DawgState> firstOutEdge :
 						mFirstInputDawg.getTransitionRelation().getOutEdgeSet(cs.getFirst())) {
 
 						final PairDawgState ds = mDawgStateFactory.getOrCreatePairDawgState(firstOutEdge.getSecond(), false, true);
@@ -163,7 +162,7 @@ public class UnionOrIntersectionDawgBuilder<LETTER, COLNAMES> {
 								mResultInitialState);
 					}
 				} else if (doUnion && cs.isFirstSink()) {
-					for (final Pair<IDawgLetter<LETTER>, DawgState> secondOutEdge :
+					for (final Pair<DawgLetter<LETTER>, DawgState> secondOutEdge :
 						mSecondInputDawg.getTransitionRelation().getOutEdgeSet(cs.getSecond())) {
 						final PairDawgState ds = mDawgStateFactory.getOrCreatePairDawgState(secondOutEdge.getSecond(), true, false);
 						nextStates.add(ds);
@@ -198,12 +197,12 @@ public class UnionOrIntersectionDawgBuilder<LETTER, COLNAMES> {
 	 */
 	private DawgState getTargetForDividedDawgLetter(
 			final DawgState sourceState,
-			final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER>, DawgState> transitionRelation,
-			final IDawgLetter<LETTER> dividedDl) {
+			final DeterministicDawgTransitionRelation<DawgState, DawgLetter<LETTER>, DawgState> transitionRelation,
+			final DawgLetter<LETTER> dividedDl) {
 
-		for (final Pair<IDawgLetter<LETTER>, DawgState> outEdge : transitionRelation.getOutEdgeSet(sourceState)) {
-			if (!(outEdge.getFirst().intersect(dividedDl) instanceof EmptyDawgLetter<?>)) {
-				assert (!outEdge.getFirst().difference(dividedDl).isEmpty())// instanceof EmptyDawgLetter<?, ?>)
+		for (final Pair<DawgLetter<LETTER>, DawgState> outEdge : transitionRelation.getOutEdgeSet(sourceState)) {
+			if (!(outEdge.getFirst().intersect(dividedDl).isEmpty())) {
+				assert (!outEdge.getFirst().difference(dividedDl).isEmpty())
 					|| outEdge.getFirst().equals(dividedDl): "assumption on dividedDl violated!?";
 					return outEdge.getSecond();
 			}
