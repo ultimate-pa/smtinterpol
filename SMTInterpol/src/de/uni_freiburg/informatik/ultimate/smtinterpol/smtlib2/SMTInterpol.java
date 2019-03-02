@@ -594,6 +594,7 @@ public class SMTInterpol extends NoopScript {
 			// This has to be before set-logic since we need to capture
 			// initialization of CClosure.
 			mEngine.setProofGeneration(proofMode > 0);
+			mClausifier.setEPR(getBooleanOption(SolverOptions.EPR));
 			mClausifier.setLogic(logic);
 			final boolean produceAssignment = getBooleanOption(":produce-assignments");
 			mClausifier.setAssignmentProduction(produceAssignment);
@@ -851,7 +852,7 @@ public class SMTInterpol extends NoopScript {
 			}
 			SMTInterpol checkingSolver = null;
 			if (mSolverOptions.isInterpolantCheckModeActive()) {
-				Map<String, Object> newOptions = Collections.singletonMap(":interactive-mode", (Object) Boolean.TRUE);
+				final Map<String, Object> newOptions = Collections.singletonMap(":interactive-mode", (Object) Boolean.TRUE);
 				checkingSolver = new SMTInterpol(this, newOptions, CopyMode.CURRENT_VALUE);
 			}
 			final Term[] ipls;
@@ -878,7 +879,7 @@ public class SMTInterpol extends NoopScript {
 				}
 			}
 			return ipls;
-		} catch (SMTLIBException ex) {
+		} catch (final SMTLIBException ex) {
 			if (mDDFriendly) {
 				System.exit(10);
 			}

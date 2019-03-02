@@ -1291,7 +1291,7 @@ public class Clausifier {
 	private EprTheory mEprTheory;
 	private QuantifierTheory mQuantTheory;
 
-	private final boolean mIsEprEnabled = false; // TODO There should be a setting
+	private boolean mIsEprEnabled;
 
 	/**
 	 * Mapping from Boolean terms to information about clauses produced for these terms.
@@ -1685,29 +1685,20 @@ public class Clausifier {
 		 */
 		if (smtFormula.getFreeVars().length > 0) {
 			assert mTheory.getLogic().isQuantified() : "quantified variables in quantifier-free theory";
+			final TermVariable[] freeVars = new TermVariable[smtFormula.getFreeVars().length];
+			final Term[] freeVarsAsTerm = new Term[freeVars.length];
+			final Sort[] paramTypes = new Sort[freeVars.length];
+			for (int i = 0; i < freeVars.length; i++) {
+				freeVars[i] = smtFormula.getFreeVars()[i];
+				freeVarsAsTerm[i] = freeVars[i];
+				paramTypes[i] = freeVars[i].getSort();
+			}
+			final FunctionSymbol fs = mTheory.declareInternalFunction("@AUX" + smtFormula.toString(), paramTypes,
+					freeVars, smtFormula, FunctionSymbol.UNINTERPRETEDINTERNAL); // TODO change flag in the future
+			final ApplicationTerm auxTerm = mTheory.term(fs, freeVarsAsTerm);
 			if (mIsEprEnabled) {
-				final Sort[] paramTypes = new Sort[smtFormula.getFreeVars().length];
-				for (int i = 0; i < paramTypes.length; i++) {
-					paramTypes[i] = smtFormula.getFreeVars()[i].getSort();
-				}
-
-				final FunctionSymbol fs = mTheory.declareFunction("AUX(" + smtFormula.toString() + ")", paramTypes,
-						mTheory.getBooleanSort());
-				final ApplicationTerm auxTerm = mTheory.term(fs, smtFormula.getFreeVars());
-
 				atom = mEprTheory.getEprAtom(auxTerm, 0, mStackLevel, SourceAnnotation.EMPTY_SOURCE_ANNOT);
 			} else {
-				final TermVariable[] freeVars = new TermVariable[smtFormula.getFreeVars().length];
-				final Term[] freeVarsAsTerm = new Term[freeVars.length];
-				final Sort[] paramTypes = new Sort[freeVars.length];
-				for (int i = 0; i < freeVars.length; i++) {
-					freeVars[i] = smtFormula.getFreeVars()[i];
-					freeVarsAsTerm[i] = freeVars[i];
-					paramTypes[i] = freeVars[i].getSort();
-				}
-				final FunctionSymbol fs = mTheory.declareInternalFunction("@AUX" + smtFormula.toString(),
-						paramTypes, freeVars, smtFormula, FunctionSymbol.UNINTERPRETEDINTERNAL); // TODO change flag in the future
-				final ApplicationTerm auxTerm = mTheory.term(fs, freeVarsAsTerm);
 				// TODO Create CCBaseTerm for the aux func or pred (edit: this is done automatically when looking
 				// for instantiation terms - should it be done earlier?)
 				// We use an equality "f(x,y,...)=true", not a NamedAtom, as CClosure must treat the literal instances.
@@ -1905,6 +1896,10 @@ public class Clausifier {
 			mQuantTheory = new QuantifierTheory(mTheory, mEngine, this);
 			mEngine.addTheory(mQuantTheory);
 		}
+	}
+
+	public void setEPR(final boolean isEprEnabled) {
+		mIsEprEnabled = isEprEnabled;
 	}
 
 	public void setLogic(final Logics logic) {

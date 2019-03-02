@@ -37,6 +37,7 @@ import org.junit.runners.Parameterized.Parameters;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SolverOptions;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.ParseEnvironment;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 
@@ -69,6 +70,9 @@ public class SystemTest {
 			solver.setOption(":model-check-mode", true);
 			solver.setOption(":interpolant-check-mode", true);
 		}
+		if (f.getAbsolutePath().contains("test" + File.separatorChar + "epr")) {
+			solver.setOption(SolverOptions.EPR, true);
+		}
 		pe.parseStream(new FileReader(f), "TestStream");
 	}
 
@@ -90,7 +94,7 @@ public class SystemTest {
 			}
 			final int size = Integer.parseInt(sizestr);
 			return size < 5;// NOCHECKSTYLE
-		} else if (f.getParent().endsWith("lira" + separator + "cut-lemmas" + File.separator + "20-vars")) {
+		} else if (f.getParent().endsWith("lira" + separator + "cut-lemmas" + separator + "20-vars")) {
 			return false;
 		} else if (f.getParent().contains("test" + separator + "epr")) {
 			return false;

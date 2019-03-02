@@ -154,8 +154,8 @@ public class EprStateManager {
 		/*
 		 *  create disequalities xi != yi for i in { 1, ..., n } (n = arity)
 		 */
-		final TermVariable[] leftVariables = new TermVariable[pred.getArity()];
-		final TermVariable[] rightVariables = new TermVariable[pred.getArity()];
+		final Term[] leftVariables = new Term[pred.getArity()];
+		final Term[] rightVariables = new Term[pred.getArity()];
 		final ApplicationTerm[] equalities = new ApplicationTerm[pred.getArity()];
 		for (int i = 0; i < pred.getArity(); i++) {
 			leftVariables[i] = mTheory.createFreshTermVariable("congVarX", pred.getSorts()[i]);
@@ -319,8 +319,9 @@ public class EprStateManager {
 			final Term[] terms2) {
 		final ArrayList<Literal> disequalityChain = new ArrayList<>();
 		for (int i = 0; i < terms1.length; i++) {
-			if (!(terms1[i] instanceof ApplicationTerm ) || !(terms2[i] instanceof ApplicationTerm))
+			if (!(terms1[i] instanceof ApplicationTerm ) || !(terms2[i] instanceof ApplicationTerm)) {
 				continue;
+			}
 			final ApplicationTerm pointAt = (ApplicationTerm) terms1[i];
 			final ApplicationTerm atomAt = (ApplicationTerm)  terms2[i];
 			for (final CCEquality cceq : sub.getEqPathForEquality(pointAt, atomAt)) {
@@ -388,8 +389,9 @@ public class EprStateManager {
 		final Set<ApplicationTerm> reallyNewConstants = new HashSet<>();
 		for (final ApplicationTerm newConstant : constants) {
 			if (mDawgFactory.getAllConstants(newConstant.getSort().getRealSort()) == null // this case may be hit when we come from registerSort()..
-					|| !mDawgFactory.getAllConstants(newConstant.getSort().getRealSort()).contains(newConstant))
+					|| !mDawgFactory.getAllConstants(newConstant.getSort().getRealSort()).contains(newConstant)) {
 				reallyNewConstants.add(newConstant);
+			}
 		}
 		mLogger.debug("EPRDEBUG: (EprStateManager): adding new constants " + reallyNewConstants);
 
