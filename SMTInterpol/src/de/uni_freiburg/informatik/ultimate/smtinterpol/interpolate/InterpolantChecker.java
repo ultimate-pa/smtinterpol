@@ -20,7 +20,6 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate;
 
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -105,7 +104,7 @@ public class InterpolantChecker {
 		return result;
 	}
 
-	public void checkInductivity(final HashSet<Term> literals, final Term[] ipls) {
+	public void checkInductivity(final Term[] literals, final Term[] ipls) {
 		final LogProxy logger = mInterpolator.getLogger();
 		final Theory theory = mInterpolator.mTheory;
 		final int old = logger.getLoglevel();// NOPMD

@@ -257,12 +257,11 @@ public class Interpolator extends NonRecursive {
 		final Term prim = proofTermInfo.getPrimary();
 
 		final AnnotatedTerm[] antecedents = proofTermInfo.getAntecedents();
-		final int antNumber = antecedents.length;
 
 		enqueueWalker(new SummarizeResolution(proofTerm));
 		// enqueue walkers for primary and antecedents in reverse order
 		// alternating with Combine walkers
-		for (int i = antNumber - 1; i >= 0; i--) {
+		for (int i = antecedents.length - 1; i >= 0; i--) {
 			final Term pivot = (Term) antecedents[i].getAnnotations()[0].getValue();
 			final Term antecedent = antecedents[i].getSubterm();
 
@@ -324,9 +323,7 @@ public class Interpolator extends NonRecursive {
 		}
 
 		if (Config.DEEP_CHECK_INTERPOLANTS && mChecker != null) {
-			final HashSet<Term> lits = new HashSet<>();
-			lits.addAll(leafTermInfo.getLiterals());
-			mChecker.checkInductivity(lits, interpolants);
+			mChecker.checkInductivity(leafTermInfo.getLiterals(), interpolants);
 		}
 	}
 
@@ -392,12 +389,10 @@ public class Interpolator extends NonRecursive {
 
 		if (Config.DEEP_CHECK_INTERPOLANTS && mChecker != null) {
 			final InterpolatorClauseTermInfo proofTermInfo = getClauseTermInfo(proofTerm);
-			final HashSet<Term> lits = new HashSet<>();
-			if (proofTermInfo.getLiterals().isEmpty()) {
+			if (proofTermInfo.getLiterals() == null) {
 				proofTermInfo.computeResolutionLiterals(this);
 			}
-			lits.addAll(proofTermInfo.getLiterals());
-			mChecker.checkInductivity(lits, interpolants);
+			mChecker.checkInductivity(proofTermInfo.getLiterals(), interpolants);
 		}
 
 		mInterpolants.put(proofTerm, interpolants);
@@ -1136,8 +1131,7 @@ public class Interpolator extends NonRecursive {
 		if (mClauseTermInfos.containsKey(term)) {
 			return mClauseTermInfos.get(term);
 		}
-		final InterpolatorClauseTermInfo info = new InterpolatorClauseTermInfo();
-		info.computeClauseTermInfo(term);
+		final InterpolatorClauseTermInfo info = new InterpolatorClauseTermInfo(term);
 		mClauseTermInfos.put(term, info);
 		return info;
 	}

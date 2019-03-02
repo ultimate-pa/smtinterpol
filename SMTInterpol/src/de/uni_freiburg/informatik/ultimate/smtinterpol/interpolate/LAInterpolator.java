@@ -19,15 +19,18 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Map.Entry;
 
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate.Interpolator.LitInfo;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.InfinitesimalNumber;
 
@@ -116,6 +119,37 @@ public class LAInterpolator {
 	}
 
 	/**
+	 * Compute the literals and corresponding Farkas coefficients for this LA lemma
+	 */
+	private HashMap<Term, Rational> getFarkasCoeffs(final InterpolatorClauseTermInfo clauseInfo) {
+		final HashMap<Term, Rational> coeffMap = new HashMap<Term, Rational>();
+		Term term;
+		Rational coeff;
+		final Term[] lits = clauseInfo.getLiterals();
+		final Object[] coeffs = (Object[]) clauseInfo.getLemmaAnnotation();
+		if (coeffs == null) {
+			// trichotomy
+			assert lits.length == 3;
+			for (int i = 0; i < 3; i++) {
+				final Term atom = mInterpolator.getAtom(lits[i]);
+				final InterpolatorAtomInfo atomTermInfo = mInterpolator.getAtomTermInfo(atom);
+				if (atomTermInfo.isLAEquality()) {
+					coeffMap.put(lits[i], Rational.ONE);
+				} else {
+					coeffMap.put(lits[i], lits[i] != atom ? Rational.ONE : Rational.MONE);
+				}
+			}
+			return coeffMap;
+		}
+		for (int i = 0; i < coeffs.length; i++) {
+			term = lits[i];
+			coeff = SMTAffineTerm.convertConstant((ConstantTerm) coeffs[i]);
+			coeffMap.put(term, coeff);
+		}
+		return coeffMap;
+	}
+
+	/**
 	 * Interpolate an LA lemma. Normally, the interpolant is computed by summing up the A-part of all literals minding
 	 * the Farkas coefficients. For trichotomy clauses we have to return the special trichotomy interpolant,
 	 *
@@ -152,7 +186,7 @@ public class LAInterpolator {
 		 */
 		final InterpolatorClauseTermInfo lemmaInfo = mInterpolator.getClauseTermInfo(lemma);
 
-		for (final Entry<Term, Rational> entry : lemmaInfo.getFarkasCoeffs().entrySet()) {
+		for (final Entry<Term, Rational> entry : getFarkasCoeffs(lemmaInfo).entrySet()) {
 			final Term atom = mInterpolator.getAtom(entry.getKey());
 			final InterpolatorAtomInfo atomTermInfo = mInterpolator.getAtomTermInfo(atom);
 			// Is the literal negated in conflict?  I.e. not negated in clause.
@@ -191,7 +225,7 @@ public class LAInterpolator {
 				// we have a Trichotomy Clause
 				equality = atom;
 				// a trichotomy clause must contain exactly three parts
-				assert lemmaInfo.getLiterals().size() == 3;// NOCHECKSTYLE
+				assert lemmaInfo.getLiterals().length == 3;// NOCHECKSTYLE
 				assert equalityOccurenceInfo == null;
 				// safe the equality and its occurrence info for later.
 				equalityOccurenceInfo = mInterpolator.getAtomOccurenceInfo(equality);

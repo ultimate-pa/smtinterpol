@@ -18,6 +18,8 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate;
 
+import java.util.Map;
+
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
@@ -54,6 +56,21 @@ public class EQInterpolator {
 	}
 
 	/**
+	 * Compute the LA factor for this EQ lemma. This is the factor f, such that
+	 * <code>f * (ccEq.getLhs() - ccEq.getRhs()) == laEq.getLhs())</code>
+	 */
+	private Rational getLAFactor(final InterpolatorAtomInfo ccEq, final InterpolatorAtomInfo laEq) {
+		final SMTAffineTerm ccAffine = new SMTAffineTerm(ccEq.getEquality().getParameters()[0]);
+		ccAffine.add(Rational.MONE, ccEq.getEquality().getParameters()[1]);
+		assert !ccAffine.isConstant();
+		final Map.Entry<Term, Rational> firstEntry = ccAffine.getSummands().entrySet().iterator().next();
+		final Rational ccCoeff = firstEntry.getValue();
+		final Rational laCoeff = laEq.getAffineTerm().getSummands().get(firstEntry.getKey());
+		assert laCoeff != null && laCoeff != Rational.ZERO;
+		return laCoeff.div(ccCoeff);
+	}
+
+	/**
 	 * Compute the interpolants for a Nelson-Oppen equality clause. This is a theory lemma of the form equality implies
 	 * equality, where one equality is congruence closure and one is linear arithmetic.
 	 *
@@ -68,14 +85,30 @@ public class EQInterpolator {
 		Term[] interpolants = null;
 
 		final InterpolatorClauseTermInfo lemmaTermInfo = mInterpolator.getClauseTermInfo(eqLemma);
-		final Term ccEq = mInterpolator.getAtom(lemmaTermInfo.getCCEq());
-		final Term laEq = mInterpolator.getAtom(lemmaTermInfo.getLAEq());
-		final InterpolatorAtomInfo ccTermInfo = mInterpolator.getAtomTermInfo(ccEq);
-		final InterpolatorAtomInfo laTermInfo = mInterpolator.getAtomTermInfo(laEq);
-		final boolean ccIsNeg = mInterpolator.isNegatedTerm(lemmaTermInfo.getCCEq());
-
-		final LitInfo ccOccInfo = mInterpolator.getAtomOccurenceInfo(ccEq);
-		final LitInfo laOccInfo = mInterpolator.getAtomOccurenceInfo(laEq);
+		final Term[] eqParams = lemmaTermInfo.getLiterals();
+		final Term atom0 = mInterpolator.getAtom(eqParams[0]);
+		final Term atom1 = mInterpolator.getAtom(eqParams[1]);
+		final InterpolatorAtomInfo termInfo0 = mInterpolator.getAtomTermInfo(atom0);
+		final InterpolatorAtomInfo termInfo1 = mInterpolator.getAtomTermInfo(atom1);
+		assert mInterpolator.isNegatedTerm(eqParams[0]) != mInterpolator.isNegatedTerm(eqParams[1]);
+		final LitInfo ccOccInfo, laOccInfo;
+		final InterpolatorAtomInfo ccTermInfo, laTermInfo;
+		final boolean ccIsNeg;
+		if (termInfo0.isLAEquality()) {
+			laTermInfo = termInfo0;
+			ccTermInfo = termInfo1;
+			laOccInfo = mInterpolator.getAtomOccurenceInfo(atom0);
+			ccOccInfo = mInterpolator.getAtomOccurenceInfo(atom1);
+			ccIsNeg = atom1 != eqParams[1];
+		} else {
+			laTermInfo = termInfo1;
+			ccTermInfo = termInfo0;
+			laOccInfo = mInterpolator.getAtomOccurenceInfo(atom1);
+			ccOccInfo = mInterpolator.getAtomOccurenceInfo(atom0);
+			ccIsNeg = atom0 != eqParams[0];
+		}
+		assert laTermInfo.isLAEquality() && ccTermInfo.isCCEquality();
+		final Rational laFactor = getLAFactor(ccTermInfo, laTermInfo);
 
 		interpolants = new Term[mInterpolator.mNumInterpolants];
 		for (int p = 0; p < mInterpolator.mNumInterpolants; p++) {
@@ -86,16 +119,15 @@ public class EQInterpolator {
 				interpolant = mInterpolator.mTheory.mTrue; // both literals in B.
 			} else {
 				final InterpolatorAffineTerm iat = new InterpolatorAffineTerm();
-				final Rational factor = lemmaTermInfo.getLAFactor();
 				TermVariable mixed = null;
-				boolean negate = false;
+				boolean aPartNegated = false;
 				// Get A part of ccEq:
 				final ApplicationTerm ccEqApp = ccTermInfo.getEquality();
 				if (ccOccInfo.isALocal(p)) {
-					iat.add(factor, termToAffine(ccEqApp.getParameters()[0]));
-					iat.add(factor.negate(), termToAffine(ccEqApp.getParameters()[1]));
+					iat.add(laFactor, termToAffine(ccEqApp.getParameters()[0]));
+					iat.add(laFactor.negate(), termToAffine(ccEqApp.getParameters()[1]));
 					if (!ccIsNeg) {
-						negate = true;
+						aPartNegated = true;
 					}
 				} else if (ccOccInfo.isMixed(p)) {
 					// mixed;
@@ -103,11 +135,11 @@ public class EQInterpolator {
 						mixed = ccOccInfo.getMixedVar();
 					}
 					if (ccOccInfo.mLhsOccur.isALocal(p)) {
-						iat.add(factor, termToAffine(ccEqApp.getParameters()[0]));
-						iat.add(factor.negate(), ccOccInfo.getMixedVar());
+						iat.add(laFactor, termToAffine(ccEqApp.getParameters()[0]));
+						iat.add(laFactor.negate(), ccOccInfo.getMixedVar());
 					} else {
-						iat.add(factor, ccOccInfo.getMixedVar());
-						iat.add(factor.negate(), termToAffine(ccEqApp.getParameters()[1]));
+						iat.add(laFactor, ccOccInfo.getMixedVar());
+						iat.add(laFactor.negate(), termToAffine(ccEqApp.getParameters()[1]));
 					}
 				} else {
 					// both sides in B, A part is empty
@@ -117,7 +149,7 @@ public class EQInterpolator {
 				if (laOccInfo.isALocal(p)) {
 					iat.add(Rational.MONE, laTermInfo.getAffineTerm());
 					if (ccIsNeg) {
-						negate = true;
+						aPartNegated = true;
 					}
 				} else if (laOccInfo.isMixed(p)) {
 					if (ccIsNeg) {
@@ -158,15 +190,15 @@ public class EQInterpolator {
 				} else {
 					if (iat.isConstant()) {
 						if (iat.getConstant() != InfinitesimalNumber.ZERO) {
-							negate ^= true;
+							aPartNegated ^= true;
 						}
-						interpolant = negate ? mInterpolator.mTheory.mFalse : mInterpolator.mTheory.mTrue;
+						interpolant = aPartNegated ? mInterpolator.mTheory.mFalse : mInterpolator.mTheory.mTrue;
 					} else {
 						final boolean isInt = iat.isInt();
 						final Sort sort = mInterpolator.mTheory.getSort(isInt ? "Int" : "Real");
 						final Term term = iat.toSMTLib(mInterpolator.mTheory, isInt);
 						final Term zero = Rational.ZERO.toTerm(sort);
-						interpolant = negate ? mInterpolator.mTheory.not(mInterpolator.mTheory.equals(term, zero))
+						interpolant = aPartNegated ? mInterpolator.mTheory.not(mInterpolator.mTheory.equals(term, zero))
 								: mInterpolator.mTheory.equals(term, zero);
 					}
 				}
