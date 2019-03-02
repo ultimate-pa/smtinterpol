@@ -22,7 +22,6 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawglet
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -35,41 +34,41 @@ import java.util.Set;
  * @param <LETTER>
  * @param <COLNAMES>
  */
-public class EmptyDawgLetter<LETTER, COLNAMES> extends AbstractDawgLetter<LETTER, COLNAMES> {
+public class EmptyDawgLetter<LETTER> extends AbstractDawgLetter<LETTER> {
 
-	EmptyDawgLetter(DawgLetterFactory<LETTER, COLNAMES> dlf, Object sortId) {
+	EmptyDawgLetter(final DawgLetterFactory<LETTER> dlf, final Object sortId) {
 		super(dlf, sortId);
 	}
 
 	@Override
-	public Set<IDawgLetter<LETTER, COLNAMES>> complement() {
-		return Collections.singleton((IDawgLetter<LETTER, COLNAMES>) mDawgLetterFactory.getUniversalDawgLetter(mSortId));
+	public Set<IDawgLetter<LETTER>> complement() {
+		return Collections.singleton((IDawgLetter<LETTER>) mDawgLetterFactory.getUniversalDawgLetter(mSortId));
 	}
 
 	@Override
-	public IDawgLetter<LETTER, COLNAMES> intersect(IDawgLetter<LETTER, COLNAMES> other) {
+	public IDawgLetter<LETTER> intersect(final IDawgLetter<LETTER> other) {
 		return this;
 	}
 
 //	@Override
-//	public Set<IDawgLetter<LETTER, COLNAMES>> difference(IDawgLetter<LETTER, COLNAMES> other) {
-////		return Collections.singleton((IDawgLetter<LETTER, COLNAMES>) this);
-//		return Collections.singleton((IDawgLetter<LETTER, COLNAMES>) this);
+	// public Set<IDawgLetter<LETTER>> difference(IDawgLetter<LETTER> other) {
+	//// return Collections.singleton((IDawgLetter<LETTER>) this);
+	// return Collections.singleton((IDawgLetter<LETTER>) this);
 //	}
 
 	@Override
-	public boolean matches(LETTER ltr, List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex) {
+	public boolean matches(final LETTER ltr, final List<LETTER> word) {
 		return false;
 	}
 
 	@Override
-	public IDawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER ltr) {
+	public IDawgLetter<LETTER> restrictToLetter(final LETTER ltr) {
 		assert false;
 		return null;
 	}
 
 	@Override
-	public Collection<LETTER> allLettersThatMatch(List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex) {
+	public Collection<LETTER> allLettersThatMatch(final List<LETTER> word) {
 		return Collections.emptySet();
 	}
 
@@ -79,7 +78,7 @@ public class EmptyDawgLetter<LETTER, COLNAMES> extends AbstractDawgLetter<LETTER
 	}
 
 	@Override
-	public IDawgLetter<LETTER, COLNAMES> union(IDawgLetter<LETTER, COLNAMES> other) {
+	public IDawgLetter<LETTER> union(final IDawgLetter<LETTER> other) {
 		return other;
 	}
 }

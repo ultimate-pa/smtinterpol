@@ -22,7 +22,6 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawglet
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -34,40 +33,34 @@ import java.util.Set;
  * @param <LETTER>
  * @param <COLNAMES>
  */
-public class UniversalDawgLetter<LETTER, COLNAMES> extends AbstractDawgLetter<LETTER, COLNAMES> {
+public class UniversalDawgLetter<LETTER> extends AbstractDawgLetter<LETTER> {
 
-	UniversalDawgLetter(DawgLetterFactory<LETTER, COLNAMES> dlf, Object sortId) {
+	UniversalDawgLetter(final DawgLetterFactory<LETTER> dlf, final Object sortId) {
 		super(dlf, sortId);
 	}
 
 	@Override
-	public Set<IDawgLetter<LETTER, COLNAMES>> complement() {
-//		return Collections.singleton(mDawgLetterFactory.getEmptyDawgLetter(mSortId));
+	public Set<IDawgLetter<LETTER>> complement() {
 		return Collections.emptySet();
 	}
 
 	@Override
-	public IDawgLetter<LETTER, COLNAMES> intersect(IDawgLetter<LETTER, COLNAMES> other) {
+	public IDawgLetter<LETTER> intersect(final IDawgLetter<LETTER> other) {
 		return other;
 	}
 
-//	@Override
-//	public Set<IDawgLetter<LETTER, COLNAMES>> difference(IDawgLetter<LETTER, COLNAMES> other) {
-//		return other.complement();
-//	}
-
 	@Override
-	public boolean matches(LETTER ltr, List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex) {
+	public boolean matches(final LETTER ltr, final List<LETTER> word) {
 		return true;
 	}
 
 	@Override
-	public IDawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER ltr) {
+	public IDawgLetter<LETTER> restrictToLetter(final LETTER ltr) {
 		return mDawgLetterFactory.getSingletonSetDawgLetter(ltr, mSortId);
 	}
 
 	@Override
-	public Collection<LETTER> allLettersThatMatch(List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex) {
+	public Collection<LETTER> allLettersThatMatch(final List<LETTER> word) {
 		return mDawgLetterFactory.getAllConstants(mSortId);
 	}
 
@@ -77,7 +70,7 @@ public class UniversalDawgLetter<LETTER, COLNAMES> extends AbstractDawgLetter<LE
 	}
 
 	@Override
-	public IDawgLetter<LETTER, COLNAMES> union(IDawgLetter<LETTER, COLNAMES> other) {
+	public IDawgLetter<LETTER> union(final IDawgLetter<LETTER> other) {
 		return this;
 	}
 }

@@ -21,23 +21,23 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawglet
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 /**
+ * An {@code IDawgLetter<LETTER>} represents a set of LETTER. There are basic set operations for these letters.
  *
  * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
  *
  * @param <LETTER>
  * @param <COLNAMES>
  */
-public interface IDawgLetter<LETTER, COLNAMES> {
+public interface IDawgLetter<LETTER> {
 
 	Object getSortId();
 
-	Set<IDawgLetter<LETTER, COLNAMES>> complement();
+	Set<IDawgLetter<LETTER>> complement();
 
-	Set<IDawgLetter<LETTER, COLNAMES>> difference(IDawgLetter<LETTER, COLNAMES> other);
+	Set<IDawgLetter<LETTER>> difference(IDawgLetter<LETTER> other);
 
 	/**
 	 * Compute a DawgLetter whose denotation is the intersection of the denotation of the given two DawgLetters.
@@ -48,9 +48,9 @@ public interface IDawgLetter<LETTER, COLNAMES> {
 	 * @param other
 	 * @return
 	 */
-	IDawgLetter<LETTER, COLNAMES> intersect(IDawgLetter<LETTER, COLNAMES> other);
+	IDawgLetter<LETTER> intersect(IDawgLetter<LETTER> other);
 
-	boolean matches(LETTER ltr, List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex);
+	boolean matches(LETTER ltr, List<LETTER> word);
 
 	/**
 	 * Returns all LETTERs (typically constants) that this DawgLetter refers to (and that are
@@ -63,16 +63,15 @@ public interface IDawgLetter<LETTER, COLNAMES> {
 	 *    constants are, currently..
 	 *
 	 * @param word
-	 * @param colnamesToIndex
 	 * @return
 	 */
-	Collection<LETTER> allLettersThatMatch(List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex);
+	Collection<LETTER> allLettersThatMatch(List<LETTER> word);
 
 	/**
 	 *
 	 * TODO: perhaps replace the implementations through a reduction to intersect with a singletonDawgLetter?
 	 */
-	IDawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER selectLetter);
+	IDawgLetter<LETTER> restrictToLetter(LETTER selectLetter);
 
-	IDawgLetter<LETTER, COLNAMES> union(IDawgLetter<LETTER, COLNAMES> other);
+	IDawgLetter<LETTER> union(IDawgLetter<LETTER> other);
 }

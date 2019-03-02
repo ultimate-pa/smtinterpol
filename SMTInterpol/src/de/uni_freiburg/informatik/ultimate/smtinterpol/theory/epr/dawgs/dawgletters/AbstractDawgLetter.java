@@ -24,12 +24,12 @@ import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 
-public abstract class AbstractDawgLetter<LETTER, COLNAMES> implements IDawgLetter<LETTER, COLNAMES> {
+public abstract class AbstractDawgLetter<LETTER> implements IDawgLetter<LETTER> {
 
 	protected final Object mSortId;
-	protected final DawgLetterFactory<LETTER, COLNAMES> mDawgLetterFactory;
+	protected final DawgLetterFactory<LETTER> mDawgLetterFactory;
 
-	public AbstractDawgLetter(DawgLetterFactory<LETTER, COLNAMES> dawgLetterFactory, Object sortId) {
+	public AbstractDawgLetter(final DawgLetterFactory<LETTER> dawgLetterFactory, final Object sortId) {
 		assert sortId != null;
 		mSortId = sortId;
 		mDawgLetterFactory = dawgLetterFactory;
@@ -42,13 +42,13 @@ public abstract class AbstractDawgLetter<LETTER, COLNAMES> implements IDawgLette
 
 
 	@Override
-	public final Set<IDawgLetter<LETTER, COLNAMES>> difference(IDawgLetter<LETTER, COLNAMES> other) {
-		Set<IDawgLetter<LETTER, COLNAMES>> result = new HashSet<IDawgLetter<LETTER,COLNAMES>>();
-		Set<IDawgLetter<LETTER, COLNAMES>> otherComplement = other.complement();
+	public final Set<IDawgLetter<LETTER>> difference(final IDawgLetter<LETTER> other) {
+		final Set<IDawgLetter<LETTER>> result = new HashSet<IDawgLetter<LETTER>>();
+		final Set<IDawgLetter<LETTER>> otherComplement = other.complement();
 		// apply distributivity..
-		for (IDawgLetter<LETTER, COLNAMES> oce : otherComplement) {
-			final IDawgLetter<LETTER, COLNAMES> intersectDl = this.intersect(oce);
-			if (intersectDl instanceof EmptyDawgLetter<?, ?>) {
+		for (final IDawgLetter<LETTER> oce : otherComplement) {
+			final IDawgLetter<LETTER> intersectDl = this.intersect(oce);
+			if (intersectDl instanceof EmptyDawgLetter<?>) {
 				continue;
 			}
 			result.add(intersectDl);

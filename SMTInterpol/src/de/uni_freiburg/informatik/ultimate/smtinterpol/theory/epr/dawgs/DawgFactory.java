@@ -27,9 +27,6 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.SortedSet;
 
-import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
-import de.uni_freiburg.informatik.ultimate.logic.Sort;
-import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.BinaryRelation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
@@ -43,7 +40,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawglett
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgStateFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
-import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
 
 /**
@@ -55,17 +51,17 @@ import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
  */
 public class DawgFactory<LETTER, COLNAMES> {
 
-//	private final EprTheory mEprTheory;
-	private LogProxy mLogger;
+	// private final EprTheory mEprTheory;
+	private final LogProxy mLogger;
 
 
-	private final DawgLetterFactory<LETTER, COLNAMES> mDawgLetterFactory;
+	private final DawgLetterFactory<LETTER> mDawgLetterFactory;
 	private final DawgStateFactory<LETTER, COLNAMES> mDawgStateFactory;
 
 	/**
 	 * Use naive Dawg implementation ("normal" one otherwise)
 	 */
-	private boolean mUseNaiveDawgs = false;
+	private final boolean mUseNaiveDawgs = false;
 
 	private final Map<SortedSet<COLNAMES>, IDawg<LETTER, COLNAMES>> mEmptyDawgs =
 			new HashMap<SortedSet<COLNAMES>, IDawg<LETTER,COLNAMES>>();
@@ -73,29 +69,29 @@ public class DawgFactory<LETTER, COLNAMES> {
 			new HashMap<SortedSet<COLNAMES>, IDawg<LETTER, COLNAMES>>();
 
 	private final Map<Object, ScopedHashSet<LETTER>> mAllKnownConstants = new HashMap<Object, ScopedHashSet<LETTER>>();
-//	private final ScopedHashMap<Object, Set<LETTER>> mAllKnownConstants = new ScopedHashMap<Object, Set<LETTER>>();
-//	private final ScopedHashSet<String> mAllKnownSorts = new ScopedHashSet<String>();
+	// private final ScopedHashMap<Object, Set<LETTER>> mAllKnownConstants = new ScopedHashMap<Object, Set<LETTER>>();
+	// private final ScopedHashSet<String> mAllKnownSorts = new ScopedHashSet<String>();
 
-	public DawgFactory(EprTheory eprTheory) {
-//		mEprStateManager = stateManager;
+	public DawgFactory(final EprTheory eprTheory) {
+		// mEprStateManager = stateManager;
 		mLogger = eprTheory.getLogger();
 
 		if (mUseNaiveDawgs) {
 			mDawgStateFactory = null;
 			mDawgLetterFactory = null;
 		} else {
-			mDawgLetterFactory = new DawgLetterFactory<LETTER, COLNAMES>(this);
+			mDawgLetterFactory = new DawgLetterFactory<LETTER>(this);
 			mDawgStateFactory = new DawgStateFactory<LETTER, COLNAMES>();
 		}
 	}
 
-	private IDawg<LETTER, COLNAMES> createEmptyDawg(SortedSet<COLNAMES> termVariables) {
+	private IDawg<LETTER, COLNAMES> createEmptyDawg(final SortedSet<COLNAMES> termVariables) {
 		assert termVariables != null;
 
 		if (mUseNaiveDawgs) {
 			// TODO: when using naive dawgs we cannot cope with later changes to mAllConstants..
-//			return new NaiveDawg<LETTER, COLNAMES>(termVariables, getAllConstants(), mLogger);
-//			return new NaiveDawg<LETTER, COLNAMES>(termVariables, mAllKnownConstants, mLogger);
+			// return new NaiveDawg<LETTER, COLNAMES>(termVariables, getAllConstants(), mLogger);
+			// return new NaiveDawg<LETTER, COLNAMES>(termVariables, mAllKnownConstants, mLogger);
 			assert false : "fix allConstants";
 			return null;
 		} else {
@@ -110,11 +106,11 @@ public class DawgFactory<LETTER, COLNAMES> {
 	 * @param termVariables
 	 * @return
 	 */
-	private IDawg<LETTER, COLNAMES> createFullDawg(SortedSet<COLNAMES> termVariables) {
+	private IDawg<LETTER, COLNAMES> createFullDawg(final SortedSet<COLNAMES> termVariables) {
 		assert termVariables != null;
 		if (mUseNaiveDawgs) {
-//			return new NaiveDawg<LETTER, COLNAMES>(termVariables, getAllConstants(), mLogger).complement();
-//			return new NaiveDawg<LETTER, COLNAMES>(termVariables, mAllKnownConstants, mLogger).complement();
+			// return new NaiveDawg<LETTER, COLNAMES>(termVariables, getAllConstants(), mLogger).complement();
+			// return new NaiveDawg<LETTER, COLNAMES>(termVariables, mAllKnownConstants, mLogger).complement();
 			assert false : "fix allConstants";
 			return null;
 		} else {
@@ -124,40 +120,40 @@ public class DawgFactory<LETTER, COLNAMES> {
 	}
 
 	public IDawg<LETTER, COLNAMES> createOnePointDawg(
-			SortedSet<COLNAMES> sig, List<LETTER> point) {
+			final SortedSet<COLNAMES> sig, final List<LETTER> point) {
 		if (mUseNaiveDawgs) {
 			assert false : "fix allConstants";
 			return null;
-//			NaiveDawg<LETTER, COLNAMES> dawg =
-////					new NaiveDawg<LETTER, COLNAMES>(sig, getAllConstants(), mLogger);
-//					new NaiveDawg<LETTER, COLNAMES>(sig, mAllKnownConstants, mLogger);
-//			dawg.add(point);
-//			return dawg;
+			// NaiveDawg<LETTER, COLNAMES> dawg =
+			//// new NaiveDawg<LETTER, COLNAMES>(sig, getAllConstants(), mLogger);
+			// new NaiveDawg<LETTER, COLNAMES>(sig, mAllKnownConstants, mLogger);
+			// dawg.add(point);
+			// return dawg;
 		} else {
 			return new Dawg<LETTER, COLNAMES>(this,
 					mLogger, sig, point);
 		}
 	}
 
-	public IDawg<LETTER, COLNAMES> copyDawg(IDawg<LETTER, COLNAMES> dawg) {
+	public IDawg<LETTER, COLNAMES> copyDawg(final IDawg<LETTER, COLNAMES> dawg) {
 		if (mUseNaiveDawgs) {
-			NaiveDawg<LETTER, COLNAMES> nd = (NaiveDawg<LETTER, COLNAMES>) dawg;
+			final NaiveDawg<LETTER, COLNAMES> nd = (NaiveDawg<LETTER, COLNAMES>) dawg;
 			return new NaiveDawg<LETTER, COLNAMES>(nd, mLogger);
 		} else {
 			if (dawg.isEmpty()) {
-//				return new Dawg<LETTER, COLNAMES>(this, mLogger, mAllConstants, dawg.getColnames());
-//				return createEmptyDawg(dawg.getColnames());
+				// return new Dawg<LETTER, COLNAMES>(this, mLogger, mAllConstants, dawg.getColnames());
+				// return createEmptyDawg(dawg.getColnames());
 				return dawg;
 			}
 			if (dawg.isUniversal()) {
-//				return new Dawg<LETTER, COLNAMES>(this, mLogger, mAllConstants, dawg.getColnames(), true);
+				// return new Dawg<LETTER, COLNAMES>(this, mLogger, mAllConstants, dawg.getColnames(), true);
 				return dawg;
 			}
 			return new Dawg<LETTER, COLNAMES>(
 					this,
 					mLogger,
 					dawg.getColNames(),
-					new DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState>(
+					new DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER>, DawgState>(
 							((Dawg<LETTER, COLNAMES>) dawg).getTransitionRelation()),
 					((Dawg<LETTER, COLNAMES>) dawg).getInitialState());
 		}
@@ -195,12 +191,12 @@ public class DawgFactory<LETTER, COLNAMES> {
 	 * @return
 	 */
 	public IDawg<LETTER, COLNAMES> translatePredSigToClauseSig(
-			IDawg<LETTER, COLNAMES> dawg,
-			Map<COLNAMES, COLNAMES> translationCnToCn,
-			Map<COLNAMES, LETTER> translationCnToLtr,
-			SortedSet<COLNAMES> targetSignature) {
+			final IDawg<LETTER, COLNAMES> dawg,
+			final Map<COLNAMES, COLNAMES> translationCnToCn,
+			final Map<COLNAMES, LETTER> translationCnToLtr,
+			final SortedSet<COLNAMES> targetSignature) {
 
-		IDawg<LETTER, COLNAMES> result = dawg.translatePredSigToClauseSig(translationCnToCn,
+		final IDawg<LETTER, COLNAMES> result = dawg.translatePredSigToClauseSig(translationCnToCn,
 				translationCnToLtr, new DawgSignature<COLNAMES>(targetSignature));
 		assert result.getColNames().equals(targetSignature);
 		return result;
@@ -228,10 +224,10 @@ public class DawgFactory<LETTER, COLNAMES> {
 	 * @return
 	 */
 	public IDawg<LETTER, COLNAMES> translateClauseSigToPredSig(
-			IDawg<LETTER, COLNAMES> other,
-			BinaryRelation<COLNAMES, COLNAMES> binaryRelation,
-			List<Object> argList,
-			SortedSet<COLNAMES> newSignature) {
+			final IDawg<LETTER, COLNAMES> other,
+			final BinaryRelation<COLNAMES, COLNAMES> binaryRelation,
+			final List<Object> argList,
+			final SortedSet<COLNAMES> newSignature) {
 		return other.translateClauseSigToPredSig(binaryRelation, argList, new DawgSignature<COLNAMES>(newSignature));
 	}
 
@@ -241,481 +237,472 @@ public class DawgFactory<LETTER, COLNAMES> {
 		return mLogger;
 	}
 
-//	/////////////////////////////////////////////////////////////
-//	///////////////// test code /////////////////////////////////
-//	/////////////////////////////////////////////////////////////
-//		/**
-//		 *  Some tests for the DawgFactory
-//		 * @param args
-//		 */
-//		public static void main(String[] args) {
-//
-//			// setup
-//
-//			Set<Character> constants = new HashSet<Character>();
-//			constants.add('a');
-//			constants.add('b');
-//			constants.add('c');
-//
-//
-//			DawgFactory<Character, String> df =
-//					new DawgFactory<Character, String>(constants, null);
-//
-//			SortedSet<String> colNames1 = new TreeSet<String>();
-//			colNames1.add("one");
-//			colNames1.add("two");
-//	//		colNames1.add("three");
-//	//		colNames1.add("four");
-//	//		colNames1.add("five");
-//
-//			SortedSet<String> colNames2 = new TreeSet<String>();
-//			colNames2.add("alpha");
-//			colNames2.add("beta");
-//			colNames2.add("gamma");
-//	//		colNames1.add("delta");
-//
-//
-//			IDawg<Character, String> d1 = df.createFullDawg(colNames1);
-//
-//			System.out.println("d1: (one, two), Sigma^*");
-//			System.out.println(d1);
-//
-//			IDawg<Character, String> d2 = df.createEmptyDawg(colNames2);
-//			List<Character> word1 = new ArrayList<Character>();
-//			word1.add('a');
-//			word1.add('a');
-//			word1.add('b');
-//			d2 = d2.add(word1);
-//
-//			List<Character> word2 = new ArrayList<Character>();
-//			word2.add('a');
-//			word2.add('b');
-//			word2.add('b');
-//			d2 = d2.add(word2);
-//
-//			System.out.println("d2: (alpha, beta, gamma), { aab, abb } ");
-//			System.out.println(d2);
-//
-//			// tests for renameSelectAndProject
-//
-////			Map<String, Object> translation3 = new HashMap<String, Object>();
-////			translation3.put("alpha", "bla");
-////			translation3.put("beta", "bla");
-////			translation3.put("gamma", "blub");
-////
-////			IDawg<Character, String> d3 = df.translatePredSigToClauseSig(d2, translation3, d2.getColnames());
-////
-////			System.out.println("d3: rnsP(d2, {alpha -> bla, beta -> bla, gamma -> blub)");
-////			System.out.println("expecting: (bla, blub) {ab}");
-////			System.out.println(d3);
-////
-////			Map<String, Object> translation4 = new HashMap<String, Object>();
-////			translation4.put("alpha", "bla");
-////			translation4.put("beta", "bla");
-////			translation4.put("gamma", 'a');
-////
-////			IDawg<Character, String> d4 = df.translatePredSigToClauseSig(d2, translation4, d2.getColnames());
-////
-////			System.out.println("d4: rnsP(d2, {alpha -> bla, beta -> bla, gamma -> 'a')");
-////			System.out.println("expecting: (bla) {}");
-////			System.out.println(d4);
-////
-////			Map<String, Object> translation5 = new HashMap<String, Object>();
-////			translation5.put("alpha", "bla");
-////			translation5.put("beta", "bla");
-////			translation5.put("gamma", 'b');
-////
-////			IDawg<Character, String> d5 = df.translatePredSigToClauseSig(d2, translation5, d2.getColnames());
-//
-////			System.out.println("d5: rnsP(d2, {alpha -> bla, beta -> bla, gamma -> 'b')");
-////			System.out.println("expecting: (bla) {a}");
-////			System.out.println(d5);
-//
-//			// tests for renameAndRestoreConstants
-//
-////			BinaryRelation<String, String> translation6 = new BinaryRelation<String, String>();
-////			translation6.addPair("alpha", "cinque");
-////			translation6.addPair("beta", "uno");
-////			translation6.addPair("gamma", "quattro");
-//
-//			Map<String, String> translation6 = new HashMap<String, String>();
-//			translation6.put("cique", "alpha");
-//			translation6.put("uno", "beta");
-//			translation6.put("quattro", "gamma");
-//
-//			List<Object> argList1 = new ArrayList<Object>();
-//			argList1.add("beta");
-//			argList1.add('B');
-//			argList1.add("gamma");
-//			argList1.add('A');
-//			argList1.add("alpha");
-//
-//			SortedSet<String> newSignature1 = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
-//			newSignature1.add("uno");
-//			newSignature1.add("due");
-//			newSignature1.add("tre");
-//			newSignature1.add("quattro");
-//			newSignature1.add("cinque");
-//
-//
-//			IDawg<Character, String> d6 = df.translateClauseSigToPredSig(d2, translation6, argList1, newSignature1);
-//
-//			System.out.println("d6: rnRc(d2, {alpha -> uno, beta -> due, gamma -> tre), "
-//					+ "(beta, B, gamma, A, alpha)" +  newSignature1);
-//			System.out.println("expecting: (due, cinque, quattro, tre, uno) {aBbAa, aBbAb}");
-//			System.out.println(d6);
-//
-//		}
+	// /////////////////////////////////////////////////////////////
+	// ///////////////// test code /////////////////////////////////
+	// /////////////////////////////////////////////////////////////
+	// /**
+	// * Some tests for the DawgFactory
+	// * @param args
+	// */
+	// public static void main(String[] args) {
+	//
+	// // setup
+	//
+	// Set<Character> constants = new HashSet<Character>();
+	// constants.add('a');
+	// constants.add('b');
+	// constants.add('c');
+	//
+	//
+	// DawgFactory<Character, String> df =
+	// new DawgFactory<Character, String>(constants, null);
+	//
+	// SortedSet<String> colNames1 = new TreeSet<String>();
+	// colNames1.add("one");
+	// colNames1.add("two");
+	// // colNames1.add("three");
+	// // colNames1.add("four");
+	// // colNames1.add("five");
+	//
+	// SortedSet<String> colNames2 = new TreeSet<String>();
+	// colNames2.add("alpha");
+	// colNames2.add("beta");
+	// colNames2.add("gamma");
+	// // colNames1.add("delta");
+	//
+	//
+	// IDawg<Character, String> d1 = df.createFullDawg(colNames1);
+	//
+	// System.out.println("d1: (one, two), Sigma^*");
+	// System.out.println(d1);
+	//
+	// IDawg<Character, String> d2 = df.createEmptyDawg(colNames2);
+	// List<Character> word1 = new ArrayList<Character>();
+	// word1.add('a');
+	// word1.add('a');
+	// word1.add('b');
+	// d2 = d2.add(word1);
+	//
+	// List<Character> word2 = new ArrayList<Character>();
+	// word2.add('a');
+	// word2.add('b');
+	// word2.add('b');
+	// d2 = d2.add(word2);
+	//
+	// System.out.println("d2: (alpha, beta, gamma), { aab, abb } ");
+	// System.out.println(d2);
+	//
+	// // tests for renameSelectAndProject
+	//
+	//// Map<String, Object> translation3 = new HashMap<String, Object>();
+	//// translation3.put("alpha", "bla");
+	//// translation3.put("beta", "bla");
+	//// translation3.put("gamma", "blub");
+	////
+	//// IDawg<Character, String> d3 = df.translatePredSigToClauseSig(d2, translation3, d2.getColnames());
+	////
+	//// System.out.println("d3: rnsP(d2, {alpha -> bla, beta -> bla, gamma -> blub)");
+	//// System.out.println("expecting: (bla, blub) {ab}");
+	//// System.out.println(d3);
+	////
+	//// Map<String, Object> translation4 = new HashMap<String, Object>();
+	//// translation4.put("alpha", "bla");
+	//// translation4.put("beta", "bla");
+	//// translation4.put("gamma", 'a');
+	////
+	//// IDawg<Character, String> d4 = df.translatePredSigToClauseSig(d2, translation4, d2.getColnames());
+	////
+	//// System.out.println("d4: rnsP(d2, {alpha -> bla, beta -> bla, gamma -> 'a')");
+	//// System.out.println("expecting: (bla) {}");
+	//// System.out.println(d4);
+	////
+	//// Map<String, Object> translation5 = new HashMap<String, Object>();
+	//// translation5.put("alpha", "bla");
+	//// translation5.put("beta", "bla");
+	//// translation5.put("gamma", 'b');
+	////
+	//// IDawg<Character, String> d5 = df.translatePredSigToClauseSig(d2, translation5, d2.getColnames());
+	//
+	//// System.out.println("d5: rnsP(d2, {alpha -> bla, beta -> bla, gamma -> 'b')");
+	//// System.out.println("expecting: (bla) {a}");
+	//// System.out.println(d5);
+	//
+	// // tests for renameAndRestoreConstants
+	//
+	//// BinaryRelation<String, String> translation6 = new BinaryRelation<String, String>();
+	//// translation6.addPair("alpha", "cinque");
+	//// translation6.addPair("beta", "uno");
+	//// translation6.addPair("gamma", "quattro");
+	//
+	// Map<String, String> translation6 = new HashMap<String, String>();
+	// translation6.put("cique", "alpha");
+	// translation6.put("uno", "beta");
+	// translation6.put("quattro", "gamma");
+	//
+	// List<Object> argList1 = new ArrayList<Object>();
+	// argList1.add("beta");
+	// argList1.add('B');
+	// argList1.add("gamma");
+	// argList1.add('A');
+	// argList1.add("alpha");
+	//
+	// SortedSet<String> newSignature1 = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
+	// newSignature1.add("uno");
+	// newSignature1.add("due");
+	// newSignature1.add("tre");
+	// newSignature1.add("quattro");
+	// newSignature1.add("cinque");
+	//
+	//
+	// IDawg<Character, String> d6 = df.translateClauseSigToPredSig(d2, translation6, argList1, newSignature1);
+	//
+	// System.out.println("d6: rnRc(d2, {alpha -> uno, beta -> due, gamma -> tre), "
+	// + "(beta, B, gamma, A, alpha)" + newSignature1);
+	// System.out.println("expecting: (due, cinque, quattro, tre, uno) {aBbAa, aBbAb}");
+	// System.out.println(d6);
+	//
+	// }
 
-		public DawgLetterFactory<LETTER, COLNAMES> getDawgLetterFactory() {
-			return mDawgLetterFactory;
+	public DawgLetterFactory<LETTER> getDawgLetterFactory() {
+		return mDawgLetterFactory;
+	}
+
+	public DawgStateFactory<LETTER, COLNAMES> getDawgStateFactory() {
+		return mDawgStateFactory;
+	}
+
+	public IDawg<LETTER, COLNAMES> getEmptyDawg(final SortedSet<COLNAMES> signature) {
+		IDawg<LETTER, COLNAMES> result = mEmptyDawgs.get(signature);
+		if (result == null) {
+			result = createEmptyDawg(signature);
+			mEmptyDawgs.put(signature, result);
 		}
+		return result;
+	}
 
-		public DawgStateFactory<LETTER, COLNAMES> getDawgStateFactory() {
-			return mDawgStateFactory;
+	public IDawg<LETTER, COLNAMES> getUniversalDawg(final SortedSet<COLNAMES> signature) {
+		IDawg<LETTER, COLNAMES> result = mUniversalDawgs.get(signature);
+		if (result == null) {
+			result = createFullDawg(signature);
+			mUniversalDawgs.put(signature, result);
 		}
+		return result;
+	}
 
-		public IDawg<LETTER, COLNAMES> getEmptyDawg(SortedSet<COLNAMES> signature) {
-			IDawg<LETTER, COLNAMES> result = mEmptyDawgs.get(signature);
-			if (result == null) {
-				result = createEmptyDawg(signature);
-				mEmptyDawgs.put(signature, result);
+	// @Deprecated
+	// public ScopedHashMap<String, Set<LETTER>> getAllConstants() {
+	// return mAllKnownConstants;
+	// }
+
+	public Set<LETTER> getAllConstants(final Object sortId) {
+		final Set<LETTER> result = mAllKnownConstants.get(sortId);
+		// assert result != null;
+		return result;
+	}
+
+	public void push() {
+		for (final Entry<Object, ScopedHashSet<LETTER>> en : mAllKnownConstants.entrySet()) {
+			en.getValue().beginScope();
+		}
+		// mAllKnownConstants.beginScope();
+		// mAllKnownSorts.beginScope();
+	}
+
+	public void pop() {
+		for (final Entry<Object, ScopedHashSet<LETTER>> en : mAllKnownConstants.entrySet()) {
+			en.getValue().endScope();
+		}
+		// mAllKnownConstants.endScope();
+		// mAllKnownSorts.endScope();
+	}
+
+	public void addConstant(final Object sortId, final LETTER constant) {
+		// mAllKnownConstants.addAll(constants);
+		// Set<LETTER> set = mAllKnownConstants.get(sortId);
+		ScopedHashSet<LETTER> set = mAllKnownConstants.get(sortId);
+		if (set == null) {
+			// set = new HashSet<LETTER>();
+			set = new ScopedHashSet<LETTER>();
+			mAllKnownConstants.put(sortId, set);
+		}
+		set.add(constant);
+	}
+
+	public Dawg<LETTER, COLNAMES> closeDawgUnderSymmetryAndTransitivity(final Dawg<LETTER, COLNAMES> inputDawg) {
+
+		final UnionFind<LETTER> unionFind = new UnionFind<LETTER>();
+
+		LETTER universalPartitionRepresentative = null;
+
+		Object sort = null;
+
+		/*
+		 * go through each connected pair of edges in the dawg. Join their partitions.
+		 */
+		for (final Pair<IDawgLetter<LETTER>, DawgState> outEdge1 :
+		inputDawg.getTransitionRelation().getOutEdgeSet(inputDawg.getInitialState())) {
+			final DawgState outEdge1Target = outEdge1.getSecond();
+			final IDawgLetter<LETTER> outEdge1DL = outEdge1.getFirst();
+
+			// final boolean dl1IsUniversal = outEdge1DL instanceof UniversalDawgLetter<?, ?>
+			// || outEdge1DL instanceof SimpleComplementDawgLetter<?, ?>;
+
+			assert !(outEdge1DL instanceof EmptyDawgLetter<?>);
+
+			if (outEdge1DL instanceof UniversalDawgLetter<?>) {
+				return (Dawg<LETTER, COLNAMES>) getUniversalDawg(inputDawg.getColNames());
 			}
-			return result;
-		}
 
-		public IDawg<LETTER, COLNAMES> getUniversalDawg(SortedSet<COLNAMES> signature) {
-			IDawg<LETTER, COLNAMES> result = mUniversalDawgs.get(signature);
-			if (result == null) {
-				result = createFullDawg(signature);
-				mUniversalDawgs.put(signature, result);
-			}
-			return result;
-		}
-
-//		@Deprecated
-//		public ScopedHashMap<String, Set<LETTER>> getAllConstants() {
-//			return mAllKnownConstants;
-//		}
-
-		public Set<LETTER> getAllConstants(Object sortId) {
-			Set<LETTER> result = mAllKnownConstants.get(sortId);
-//			assert result != null;
-			return result;
-		}
-
-		public void push() {
-			for (Entry<Object, ScopedHashSet<LETTER>> en : mAllKnownConstants.entrySet()) {
-				en.getValue().beginScope();
-			}
-//			mAllKnownConstants.beginScope();
-//			mAllKnownSorts.beginScope();
-		}
-
-		public void pop() {
-			for (Entry<Object, ScopedHashSet<LETTER>> en : mAllKnownConstants.entrySet()) {
-				en.getValue().endScope();
-			}
-//			mAllKnownConstants.endScope();
-//			mAllKnownSorts.endScope();
-		}
-
-		public void addConstant(Object sortId, LETTER constant) {
-//			mAllKnownConstants.addAll(constants);
-//			Set<LETTER> set = mAllKnownConstants.get(sortId);
-			ScopedHashSet<LETTER> set = mAllKnownConstants.get(sortId);
-			if (set == null) {
-//				set = new HashSet<LETTER>();
-				set = new ScopedHashSet<LETTER>();
-				mAllKnownConstants.put(sortId, set);
-			}
-			set.add(constant);
-		}
-
-		public Dawg<LETTER, COLNAMES> closeDawgUnderSymmetryAndTransitivity(Dawg<LETTER, COLNAMES> inputDawg) {
-
-			final UnionFind<LETTER> unionFind = new UnionFind<LETTER>();
-
-			LETTER universalPartitionRepresentative = null;
-
-			Object sort = null;
+			sort = outEdge1DL.getSortId();
 
 			/*
-			 * go through each connected pair of edges in the dawg. Join their partitions.
+			 * announce letters to unionFind
 			 */
-			for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge1 :
-				inputDawg.getTransitionRelation().getOutEdgeSet(inputDawg.getInitialState())) {
-				final DawgState outEdge1Target = outEdge1.getSecond();
-				final IDawgLetter<LETTER, COLNAMES> outEdge1DL = outEdge1.getFirst();
+			if (outEdge1DL instanceof SimpleDawgLetter<?>) {
+				for (final LETTER letter : ((SimpleDawgLetter<LETTER>) outEdge1DL).getLetters()) {
+					unionFind.findAndConstructEquivalenceClassIfNeeded(letter);
+				}
+			} else if (outEdge1DL instanceof SimpleComplementDawgLetter<?>) {
+				for (final LETTER letter : ((SimpleComplementDawgLetter<LETTER>) outEdge1DL)
+						.getComplementLetters()) {
+					unionFind.findAndConstructEquivalenceClassIfNeeded(letter);
+				}
+			}
 
-//				final boolean dl1IsUniversal = outEdge1DL instanceof UniversalDawgLetter<?, ?>
-//					|| outEdge1DL instanceof SimpleComplementDawgLetter<?, ?>;
+			for (final Pair<IDawgLetter<LETTER>, DawgState> outEdge2 :
+			inputDawg.getTransitionRelation().getOutEdgeSet(outEdge1Target)) {
+				final DawgState outEdge2Target = outEdge2.getSecond();
+				final IDawgLetter<LETTER> outEdge2DL = outEdge2.getFirst();
 
-				assert !(outEdge1DL instanceof EmptyDawgLetter<?, ?>);
+				assert !(outEdge2DL instanceof EmptyDawgLetter<?>);
 
-				if (outEdge1DL instanceof UniversalDawgLetter<?, ?>) {
+				if (outEdge2DL instanceof UniversalDawgLetter<?>) {
 					return (Dawg<LETTER, COLNAMES>) getUniversalDawg(inputDawg.getColNames());
 				}
-
-				sort = outEdge1DL.getSortId();
 
 				/*
 				 * announce letters to unionFind
 				 */
-				if (outEdge1DL instanceof SimpleDawgLetter<?, ?>) {
-					for (LETTER letter : ((SimpleDawgLetter<LETTER, COLNAMES>) outEdge1DL).getLetters()) {
+				if (outEdge2DL instanceof SimpleDawgLetter<?>) {
+					for (final LETTER letter : ((SimpleDawgLetter<LETTER>) outEdge2DL).getLetters()) {
 						unionFind.findAndConstructEquivalenceClassIfNeeded(letter);
 					}
-				} else if (outEdge1DL instanceof SimpleComplementDawgLetter<?, ?>) {
-					for (LETTER letter : ((SimpleComplementDawgLetter<LETTER, COLNAMES>) outEdge1DL)
+				} else if (outEdge2DL instanceof SimpleComplementDawgLetter<?>) {
+					for (final LETTER letter : ((SimpleComplementDawgLetter<LETTER>) outEdge2DL)
 							.getComplementLetters()) {
 						unionFind.findAndConstructEquivalenceClassIfNeeded(letter);
 					}
 				}
 
-				for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge2 :
-					inputDawg.getTransitionRelation().getOutEdgeSet(outEdge1Target)) {
-					final DawgState outEdge2Target = outEdge2.getSecond();
-					final IDawgLetter<LETTER, COLNAMES> outEdge2DL = outEdge2.getFirst();
+				// final boolean dl2IsUniversal = outEdge2DL instanceof UniversalDawgLetter<?, ?>
+				// || outEdge2DL instanceof SimpleComplementDawgLetter<?, ?>;
 
-					assert !(outEdge2DL instanceof EmptyDawgLetter<?, ?>);
-
-					if (outEdge2DL instanceof UniversalDawgLetter<?, ?>) {
-						return (Dawg<LETTER, COLNAMES>) getUniversalDawg(inputDawg.getColNames());
-					}
-
-					/*
-					 * announce letters to unionFind
-					 */
-					if (outEdge2DL instanceof SimpleDawgLetter<?, ?>) {
-						for (LETTER letter : ((SimpleDawgLetter<LETTER, COLNAMES>) outEdge2DL).getLetters()) {
-							unionFind.findAndConstructEquivalenceClassIfNeeded(letter);
-						}
-					} else if (outEdge2DL instanceof SimpleComplementDawgLetter<?, ?>) {
-						for (LETTER letter : ((SimpleComplementDawgLetter<LETTER, COLNAMES>) outEdge2DL)
-								.getComplementLetters()) {
-							unionFind.findAndConstructEquivalenceClassIfNeeded(letter);
+				if (outEdge1DL instanceof SimpleDawgLetter<?> && outEdge2DL instanceof SimpleDawgLetter<?>) {
+					for (final LETTER l1 : ((SimpleDawgLetter<LETTER>) outEdge1DL).getLetters()) {
+						for (final LETTER l2 : ((SimpleDawgLetter<LETTER>) outEdge2DL).getLetters()) {
+							unionFind.union(l1, l2);
 						}
 					}
-
-//					final boolean dl2IsUniversal = outEdge2DL instanceof UniversalDawgLetter<?, ?>
-//						|| outEdge2DL instanceof SimpleComplementDawgLetter<?, ?>;
-
-					if (outEdge1DL instanceof SimpleDawgLetter<?, ?>
-						&& outEdge2DL instanceof SimpleDawgLetter<?, ?>) {
-						for (LETTER l1 : ((SimpleDawgLetter<LETTER, COLNAMES>) outEdge1DL).getLetters()) {
-							for (LETTER l2 : ((SimpleDawgLetter<LETTER, COLNAMES>) outEdge2DL).getLetters()) {
+				} else if (outEdge1DL instanceof SimpleDawgLetter<?>
+						&& outEdge2DL instanceof SimpleComplementDawgLetter<?>) {
+					for (final LETTER l1 : ((SimpleDawgLetter<LETTER>) outEdge1DL).getLetters()) {
+						for (final LETTER l2 : unionFind.getAllRepresentatives()) {
+							if (!((SimpleComplementDawgLetter<LETTER>) outEdge2DL)
+									.getComplementLetters().contains(l2)) {
 								unionFind.union(l1, l2);
+								universalPartitionRepresentative = unionFind.find(l1);
 							}
 						}
-					} else if (outEdge1DL instanceof SimpleDawgLetter<?, ?>
-						&& outEdge2DL instanceof SimpleComplementDawgLetter<?, ?>) {
-						for (LETTER l1 : ((SimpleDawgLetter<LETTER, COLNAMES>) outEdge1DL).getLetters()) {
-							for (LETTER l2 : unionFind.getAllRepresentatives()) {
-								if (!((SimpleComplementDawgLetter<LETTER, COLNAMES>) outEdge2DL)
-										.getComplementLetters().contains(l2)) {
-									unionFind.union(l1, l2);
-									universalPartitionRepresentative = unionFind.find(l1);
-								}
+					}
+				} else if (outEdge1DL instanceof SimpleComplementDawgLetter<?>
+						&& outEdge2DL instanceof SimpleDawgLetter<?>) {
+					for (final LETTER l1 : ((SimpleDawgLetter<LETTER>) outEdge2DL).getLetters()) {
+						for (final LETTER l2 : unionFind.getAllRepresentatives()) {
+							if (!((SimpleComplementDawgLetter<LETTER>) outEdge1DL)
+									.getComplementLetters().contains(l2)) {
+								unionFind.union(l1, l2);
+								universalPartitionRepresentative = unionFind.find(l1);
 							}
 						}
-					} else if (outEdge1DL instanceof SimpleComplementDawgLetter<?, ?>
-						&& outEdge2DL instanceof SimpleDawgLetter<?, ?>) {
-						for (LETTER l1 : ((SimpleDawgLetter<LETTER, COLNAMES>) outEdge2DL).getLetters()) {
-							for (LETTER l2 : unionFind.getAllRepresentatives()) {
-								if (!((SimpleComplementDawgLetter<LETTER, COLNAMES>) outEdge1DL)
-										.getComplementLetters().contains(l2)) {
-									unionFind.union(l1, l2);
-									universalPartitionRepresentative = unionFind.find(l1);
-								}
-							}
-						}
-					} else if (outEdge1DL instanceof SimpleComplementDawgLetter<?, ?>
-						&& outEdge2DL instanceof SimpleComplementDawgLetter<?, ?>) {
+					}
+				} else if (outEdge1DL instanceof SimpleComplementDawgLetter<?>
+						&& outEdge2DL instanceof SimpleComplementDawgLetter<?>) {
 
-						for (LETTER l1 : unionFind.getAllRepresentatives()) {
-							for (LETTER l2 : unionFind.getAllRepresentatives()) {
+					for (final LETTER l1 : unionFind.getAllRepresentatives()) {
+						for (final LETTER l2 : unionFind.getAllRepresentatives()) {
 
-								if (!((SimpleComplementDawgLetter<LETTER, COLNAMES>) outEdge1DL)
-										.getComplementLetters().contains(l2)
-									&& !((SimpleComplementDawgLetter<LETTER, COLNAMES>) outEdge2DL)
-										.getComplementLetters().contains(l1)) {
-									unionFind.union(l1, l2);
-									universalPartitionRepresentative = unionFind.find(l1);
-								}
+							if (!((SimpleComplementDawgLetter<LETTER>) outEdge1DL)
+									.getComplementLetters().contains(l2)
+									&& !((SimpleComplementDawgLetter<LETTER>) outEdge2DL)
+											.getComplementLetters().contains(l1)) {
+								unionFind.union(l1, l2);
+								universalPartitionRepresentative = unionFind.find(l1);
 							}
 						}
 					}
 				}
 			}
-
-
-			final DeterministicDawgTransitionRelation<DawgState,
-				IDawgLetter<LETTER, COLNAMES>,
-				DawgState> transitionRelation =
-					new DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER,COLNAMES>, DawgState>();
-
-			final DawgState initialState = mDawgStateFactory.createDawgState();
-			final DawgState finalState = mDawgStateFactory.createDawgState();
-
-			Set<LETTER> lettersNotInUniversalPartition = new HashSet<LETTER>();
-
-			/*
-			 * make transitions for all except the universal partition
-			 */
-			for (Set<LETTER> eqClass : unionFind.getAllEquivalenceClasses()) {
-				boolean isUniversal =
-						unionFind.find(eqClass.iterator().next()).equals(universalPartitionRepresentative);
-				if (!isUniversal) {
-					lettersNotInUniversalPartition.addAll(lettersNotInUniversalPartition);
-					final DawgState middleState = mDawgStateFactory.createDawgState();
-					final IDawgLetter<LETTER, COLNAMES> eqClassDl =
-							mDawgLetterFactory.getSimpleDawgLetter(eqClass, sort);
-					transitionRelation.put(initialState, eqClassDl, middleState);
-					transitionRelation.put(middleState, eqClassDl, finalState);
-				}
-			}
-			/*
-			 * make transitions for the universal partition
-			 */
-			if (!lettersNotInUniversalPartition.isEmpty()) {
-				final DawgState middleState = mDawgStateFactory.createDawgState();
-				final IDawgLetter<LETTER, COLNAMES> complementDl =
-						mDawgLetterFactory.getSimpleComplementDawgLetter(lettersNotInUniversalPartition, sort);
-				transitionRelation.put(initialState, complementDl, middleState);
-				transitionRelation.put(middleState, complementDl, finalState);
-			}
-
-			return new Dawg<LETTER, COLNAMES>(this, mLogger, inputDawg.getColNames(),
-					transitionRelation, initialState);
 		}
+
+
+		final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER>, DawgState> transitionRelation =
+				new DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER>, DawgState>();
+
+		final DawgState initialState = mDawgStateFactory.createDawgState();
+		final DawgState finalState = mDawgStateFactory.createDawgState();
+
+		final Set<LETTER> lettersNotInUniversalPartition = new HashSet<LETTER>();
 
 		/*
-		 * this implementation does not seem to work --> perhaps restore it some time..
-		 * (using UnionFind based solution for now..)
+		 * make transitions for all except the universal partition
 		 */
-		public Dawg<LETTER, COLNAMES> closeDawgUnderSymmetryAndTransitivityOld(Dawg<LETTER, COLNAMES> inputDawg) {
-			assert inputDawg.getSignature().getNoColumns() == 2;
-			assert EprTheorySettings.UseSimpleDawgLetters;
-
-			final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> newTransitionRelation1 =
-					new DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER,COLNAMES>, DawgState>();
-			/*
-			 * First, close under symmetry by replacing the dawgLetters at all two connected edges by their union.
-			 * This may mean that outgoing DawgLetters are no more disjoint, but we will resolve this in the next step..
-			 * Can we lose information here by using a nested map?, i.e. do we need a relation?..
-			 */
-			for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge1 :
-				inputDawg.getTransitionRelation().getOutEdgeSet(inputDawg.getInitialState())) {
-				final DawgState outEdge1Target = outEdge1.getSecond();
-				final IDawgLetter<LETTER, COLNAMES> outEdge1DL = outEdge1.getFirst();
-
-				for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge2 :
-					inputDawg.getTransitionRelation().getOutEdgeSet(outEdge1Target)) {
-					final DawgState outEdge2Target = outEdge2.getSecond();
-					final IDawgLetter<LETTER, COLNAMES> outEdge2DL = outEdge2.getFirst();
-
-					final IDawgLetter<LETTER, COLNAMES> unionDL = outEdge1DL.union(outEdge2DL);
-
-					/*
-					 * add two edges replacing outEdge1 and outEdge2, each labelled with unionDL
-					 */
-					if (newTransitionRelation1.get(inputDawg.getInitialState(), unionDL) != null) {
-//						assert newTransitionRelation1.get(inputDawg.getInitialState(), unionDL).equals(outEdge1Target);
-					} else {
-						newTransitionRelation1.put(inputDawg.getInitialState(), unionDL, outEdge1Target);
-					}
-					if (newTransitionRelation1.get(outEdge1Target, unionDL) != null) {
-//						assert newTransitionRelation1.get(outEdge1Target, unionDL).equals(outEdge2Target);
-					} else {
-						newTransitionRelation1.put(outEdge1Target, unionDL, outEdge2Target);
-					}
-
-					// TODO: do we have to catch special cases here? like when two outEdge1 become the same??
-				}
+		for (final Set<LETTER> eqClass : unionFind.getAllEquivalenceClasses()) {
+			final boolean isUniversal =
+					unionFind.find(eqClass.iterator().next()).equals(universalPartitionRepresentative);
+			if (!isUniversal) {
+				lettersNotInUniversalPartition.addAll(lettersNotInUniversalPartition);
+				final DawgState middleState = mDawgStateFactory.createDawgState();
+				final IDawgLetter<LETTER> eqClassDl =
+						mDawgLetterFactory.getSimpleDawgLetter(eqClass, sort);
+				transitionRelation.put(initialState, eqClassDl, middleState);
+				transitionRelation.put(middleState, eqClassDl, finalState);
 			}
+		}
+		/*
+		 * make transitions for the universal partition
+		 */
+		if (!lettersNotInUniversalPartition.isEmpty()) {
+			final DawgState middleState = mDawgStateFactory.createDawgState();
+			final IDawgLetter<LETTER> complementDl =
+					mDawgLetterFactory.getSimpleComplementDawgLetter(lettersNotInUniversalPartition, sort);
+			transitionRelation.put(initialState, complementDl, middleState);
+			transitionRelation.put(middleState, complementDl, finalState);
+		}
 
-			final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState>
-				newTransitionRelation2 =
-					new DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER,COLNAMES>, DawgState>();
+		return new Dawg<LETTER, COLNAMES>(this, mLogger, inputDawg.getColNames(), transitionRelation, initialState);
+	}
 
-			/*
-			 * second, close under transitivity
-			 *  .. replace all pairs outgoing DawgLetters of the initial state by their that have a non-empty intersection
-			 * by their union
-			 * (there should be one pair of transitions per equivalence class in the dawg in the end..)
-			 */
-			final HashSet<Pair<IDawgLetter<LETTER, COLNAMES>, DawgState>> treatedOutEdges =
-						new HashSet<Pair<IDawgLetter<LETTER, COLNAMES>, DawgState>>();
-			for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge1 :
-				inputDawg.getTransitionRelation().getOutEdgeSet(inputDawg.getInitialState())) {
-				if (treatedOutEdges.contains(outEdge1)) {
-					continue;
-				}
-				final IDawgLetter<LETTER, COLNAMES> outEdge1DL = outEdge1.getFirst();
+	/*
+	 * this implementation does not seem to work --> perhaps restore it some time.. (using UnionFind based solution for
+	 * now..)
+	 */
+	public Dawg<LETTER, COLNAMES> closeDawgUnderSymmetryAndTransitivityOld(final Dawg<LETTER, COLNAMES> inputDawg) {
+		assert inputDawg.getSignature().getNoColumns() == 2;
+		assert EprTheorySettings.UseSimpleDawgLetters;
 
-				IDawgLetter<LETTER, COLNAMES> unionDlOfIntersectingOutEdges =
-						mDawgLetterFactory.getEmptyDawgLetter(outEdge1DL.getSortId());
-				for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> otherOutEdge1 :
-					inputDawg.getTransitionRelation().getOutEdgeSet(inputDawg.getInitialState())) {
-					final IDawgLetter<LETTER, COLNAMES> otherOutEdge1DL = outEdge1.getFirst();
+		final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER>, DawgState> newTransitionRelation1 =
+				new DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER>, DawgState>();
+		/*
+		 * First, close under symmetry by replacing the dawgLetters at all two connected edges by their union. This may
+		 * mean that outgoing DawgLetters are no more disjoint, but we will resolve this in the next step.. Can we lose
+		 * information here by using a nested map?, i.e. do we need a relation?..
+		 */
+		for (final Pair<IDawgLetter<LETTER>, DawgState> outEdge1 :
+		inputDawg.getTransitionRelation().getOutEdgeSet(inputDawg.getInitialState())) {
+			final DawgState outEdge1Target = outEdge1.getSecond();
+			final IDawgLetter<LETTER> outEdge1DL = outEdge1.getFirst();
 
-					final IDawgLetter<LETTER, COLNAMES> intersectDl = outEdge1DL.intersect(otherOutEdge1DL);
-					if (!(intersectDl instanceof EmptyDawgLetter<?, ?>)) {
-						treatedOutEdges.add(otherOutEdge1);
-						unionDlOfIntersectingOutEdges = unionDlOfIntersectingOutEdges.union(otherOutEdge1DL);
-					}
-				}
+			for (final Pair<IDawgLetter<LETTER>, DawgState> outEdge2 :
+			inputDawg.getTransitionRelation().getOutEdgeSet(outEdge1Target)) {
+				final DawgState outEdge2Target = outEdge2.getSecond();
+				final IDawgLetter<LETTER> outEdge2DL = outEdge2.getFirst();
+
+				final IDawgLetter<LETTER> unionDL = outEdge1DL.union(outEdge2DL);
 
 				/*
-				 * add two edges replacing all the intersecting edges
+				 * add two edges replacing outEdge1 and outEdge2, each labelled with unionDL
 				 */
-				final DawgState freshDawgState1 = mDawgStateFactory.createDawgState();
-				final DawgState freshDawgState2 = mDawgStateFactory.createDawgState();
-				newTransitionRelation2.put(inputDawg.getInitialState(), unionDlOfIntersectingOutEdges, freshDawgState1);
-				newTransitionRelation2.put(freshDawgState1, unionDlOfIntersectingOutEdges, freshDawgState2);
+				if (newTransitionRelation1.get(inputDawg.getInitialState(), unionDL) != null) {
+					// assert newTransitionRelation1.get(inputDawg.getInitialState(), unionDL).equals(outEdge1Target);
+				} else {
+					newTransitionRelation1.put(inputDawg.getInitialState(), unionDL, outEdge1Target);
+				}
+				if (newTransitionRelation1.get(outEdge1Target, unionDL) != null) {
+					// assert newTransitionRelation1.get(outEdge1Target, unionDL).equals(outEdge2Target);
+				} else {
+					newTransitionRelation1.put(outEdge1Target, unionDL, outEdge2Target);
+				}
 
+				// TODO: do we have to catch special cases here? like when two outEdge1 become the same??
 			}
-
-			return new Dawg<LETTER, COLNAMES>(this, mLogger, inputDawg.getColNames(), newTransitionRelation2,
-					inputDawg.getInitialState());
 		}
 
+		final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER>, DawgState>
+		newTransitionRelation2 =
+				new DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER>, DawgState>();
 
-		/**
-		 * Creates a dawg with the given signature (which needs to have exactly two columns) that recognizes all
-		 * reflexive points that one can build over the currently known constants.
-		 *
-		 * @param signature
-		 * @return
+		/*
+		 * second, close under transitivity .. replace all pairs outgoing DawgLetters of the initial state by their that
+		 * have a non-empty intersection by their union (there should be one pair of transitions per equivalence class
+		 * in the dawg in the end..)
 		 */
-		public IDawg<LETTER, COLNAMES> getReflexivePointsOverCurrentlyKnownConstantsForSignature(
-				DawgSignature<COLNAMES> signature) {
-			assert signature.getNoColumns() == 2;
+		final HashSet<Pair<IDawgLetter<LETTER>, DawgState>> treatedOutEdges =
+				new HashSet<Pair<IDawgLetter<LETTER>, DawgState>>();
+		for (final Pair<IDawgLetter<LETTER>, DawgState> outEdge1 :
+		inputDawg.getTransitionRelation().getOutEdgeSet(inputDawg.getInitialState())) {
+			if (treatedOutEdges.contains(outEdge1)) {
+				continue;
+			}
+			final IDawgLetter<LETTER> outEdge1DL = outEdge1.getFirst();
 
-			Object sort = signature.getColumnSorts().get(0);
-			assert signature.getColumnSorts().get(1).equals(sort) : "this is an equality dawg, right? "
-					+ "so column sorts should match";
+			IDawgLetter<LETTER> unionDlOfIntersectingOutEdges =
+					mDawgLetterFactory.getEmptyDawgLetter(outEdge1DL.getSortId());
+			for (final Pair<IDawgLetter<LETTER>, DawgState> otherOutEdge1 :
+			inputDawg.getTransitionRelation().getOutEdgeSet(inputDawg.getInitialState())) {
+				final IDawgLetter<LETTER> otherOutEdge1DL = outEdge1.getFirst();
 
-			final DawgState dsInitial = mDawgStateFactory.createDawgState();
-			final DawgState dsFinal = mDawgStateFactory.createDawgState();
-
-			final DeterministicDawgTransitionRelation<DawgState,
-					IDawgLetter<LETTER, COLNAMES>,
-					DawgState> newTR = new DeterministicDawgTransitionRelation<DawgState,
-						IDawgLetter<LETTER,COLNAMES>,
-						DawgState>();
-
-			for (LETTER constant : mAllKnownConstants.get(sort)) {
-				final DawgState dsMiddle = mDawgStateFactory.createDawgState();
-				final IDawgLetter<LETTER, COLNAMES> dl = mDawgLetterFactory.getSingletonSetDawgLetter(constant, sort);
-
-				newTR.put(dsInitial, dl, dsMiddle);
-				newTR.put(dsMiddle, dl, dsFinal);
+				final IDawgLetter<LETTER> intersectDl = outEdge1DL.intersect(otherOutEdge1DL);
+				if (!(intersectDl instanceof EmptyDawgLetter<?>)) {
+					treatedOutEdges.add(otherOutEdge1);
+					unionDlOfIntersectingOutEdges = unionDlOfIntersectingOutEdges.union(otherOutEdge1DL);
+				}
 			}
 
-			return new Dawg<LETTER, COLNAMES>(this, mLogger, signature.getColNames(), newTR,
-					dsInitial);
+			/*
+			 * add two edges replacing all the intersecting edges
+			 */
+			final DawgState freshDawgState1 = mDawgStateFactory.createDawgState();
+			final DawgState freshDawgState2 = mDawgStateFactory.createDawgState();
+			newTransitionRelation2.put(inputDawg.getInitialState(), unionDlOfIntersectingOutEdges, freshDawgState1);
+			newTransitionRelation2.put(freshDawgState1, unionDlOfIntersectingOutEdges, freshDawgState2);
+
 		}
+
+		return new Dawg<LETTER, COLNAMES>(this, mLogger, inputDawg.getColNames(), newTransitionRelation2,
+				inputDawg.getInitialState());
+	}
+
+
+	/**
+	 * Creates a dawg with the given signature (which needs to have exactly two columns) that recognizes all reflexive
+	 * points that one can build over the currently known constants.
+	 *
+	 * @param signature
+	 * @return
+	 */
+	public IDawg<LETTER, COLNAMES>
+			getReflexivePointsOverCurrentlyKnownConstantsForSignature(final DawgSignature<COLNAMES> signature) {
+		assert signature.getNoColumns() == 2;
+
+		final Object sort = signature.getColumnSorts().get(0);
+		assert signature.getColumnSorts().get(1).equals(sort) : "this is an equality dawg, right? "
+				+ "so column sorts should match";
+
+		final DawgState dsInitial = mDawgStateFactory.createDawgState();
+		final DawgState dsFinal = mDawgStateFactory.createDawgState();
+
+		final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER>, DawgState> newTR =
+				new DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER>, DawgState>();
+
+		for (final LETTER constant : mAllKnownConstants.get(sort)) {
+			final DawgState dsMiddle = mDawgStateFactory.createDawgState();
+			final IDawgLetter<LETTER> dl = mDawgLetterFactory.getSingletonSetDawgLetter(constant, sort);
+
+			newTR.put(dsInitial, dl, dsMiddle);
+			newTR.put(dsMiddle, dl, dsFinal);
+		}
+
+		return new Dawg<LETTER, COLNAMES>(this, mLogger, signature.getColNames(), newTR, dsInitial);
+	}
 
 }

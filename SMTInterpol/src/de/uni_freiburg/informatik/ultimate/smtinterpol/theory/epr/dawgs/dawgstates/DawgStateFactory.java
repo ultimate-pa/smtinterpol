@@ -50,13 +50,13 @@ public class DawgStateFactory<LETTER, COLNAMES> {
 	 */
 	private final Map<DawgState, PairDawgState> mSecondHalfSinkStates = new HashMap<DawgState, PairDawgState>();
 
-	private Map<Set<DawgState>, SetDawgState> mDawgStateSetToSetDawgState = new HashMap<Set<DawgState>, SetDawgState>();
+	private final Map<Set<DawgState>, SetDawgState> mDawgStateSetToSetDawgState = new HashMap<Set<DawgState>, SetDawgState>();
 
-	private final NestedMap3<IDawgLetter<LETTER, COLNAMES>, COLNAMES, DawgState, RenameAndReorderDawgState<LETTER, COLNAMES>>
+	private final NestedMap3<IDawgLetter<LETTER>, COLNAMES, DawgState, RenameAndReorderDawgState<LETTER, COLNAMES>>
 		mLetterToColNameToDawgStateToRenameAndReorderDawgState =
-		new NestedMap3<IDawgLetter<LETTER, COLNAMES>, COLNAMES, DawgState, RenameAndReorderDawgState<LETTER,COLNAMES>>();
+			new NestedMap3<IDawgLetter<LETTER>, COLNAMES, DawgState, RenameAndReorderDawgState<LETTER, COLNAMES>>();
 
-	public PairDawgState getOrCreatePairDawgState(DawgState first, DawgState second) {
+	public PairDawgState getOrCreatePairDawgState(final DawgState first, final DawgState second) {
 
 		Map<DawgState, PairDawgState> dsToPds = mDSToDSToPDS.get(first);
 
@@ -75,7 +75,7 @@ public class DawgStateFactory<LETTER, COLNAMES> {
 		return pds;
 	}
 
-	public PairDawgState getOrCreatePairDawgState(DawgState value, boolean firstIsSink, boolean secondIsSink) {
+	public PairDawgState getOrCreatePairDawgState(final DawgState value, final boolean firstIsSink, final boolean secondIsSink) {
 		assert firstIsSink != secondIsSink;
 
 		if (firstIsSink) {
@@ -95,7 +95,7 @@ public class DawgStateFactory<LETTER, COLNAMES> {
 		}
 	}
 
-	public SetDawgState getOrCreateSetDawgState(Set<DawgState> dawgStates) {
+	public SetDawgState getOrCreateSetDawgState(final Set<DawgState> dawgStates) {
 		SetDawgState result = mDawgStateSetToSetDawgState.get(dawgStates);
 		if (result == null) {
 			result = new SetDawgState(dawgStates, createDawgState());
@@ -108,8 +108,8 @@ public class DawgStateFactory<LETTER, COLNAMES> {
 		return new DawgState();
 	}
 
-	public RenameAndReorderDawgState<LETTER, COLNAMES> getReorderAndRenameDawgState(IDawgLetter<LETTER, COLNAMES> key,
-			COLNAMES newRightNeighbour,	DawgState value) {
+	public RenameAndReorderDawgState<LETTER, COLNAMES> getReorderAndRenameDawgState(final IDawgLetter<LETTER> key,
+			final COLNAMES newRightNeighbour,	final DawgState value) {
 		RenameAndReorderDawgState<LETTER, COLNAMES> result =
 				mLetterToColNameToDawgStateToRenameAndReorderDawgState.get(key, newRightNeighbour, value);
 		if (result == null) {

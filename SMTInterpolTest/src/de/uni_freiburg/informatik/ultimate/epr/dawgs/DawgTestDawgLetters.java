@@ -19,26 +19,18 @@
  */
 package de.uni_freiburg.informatik.ultimate.epr.dawgs;
 
-import static org.junit.Assert.*;
-
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
-import java.util.SortedSet;
-import java.util.TreeSet;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.Dawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.DawgLetterFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.IDawgLetter;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.SimpleDawgLetter;
 
 /**
  *
@@ -55,12 +47,12 @@ public class DawgTestDawgLetters {
 		final DawgFactory<String, String> dawgFactory = new DawgFactory<String, String>(EprTestHelpers.getEprTheory());
 		EprTestHelpers.addConstantsWDefaultSort(dawgFactory, EprTestHelpers.constantsAbc());
 
-		final DawgLetterFactory<String, String> dawgLetterFactory = dawgFactory.getDawgLetterFactory();
+		final DawgLetterFactory<String> dawgLetterFactory = dawgFactory.getDawgLetterFactory();
 
 
 		final Set<String> letters1 = new HashSet<String>(Arrays.asList(new String[] { }));
 
-		IDawgLetter<String, String> sdl1 = dawgLetterFactory.getSimpleDawgLetter(letters1, EprHelpers.getDummySortId());
+		final IDawgLetter<String> sdl1 = dawgLetterFactory.getSimpleDawgLetter(letters1, EprHelpers.getDummySortId());
 
 		// TODO finish test..
 

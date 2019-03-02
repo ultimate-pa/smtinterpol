@@ -20,7 +20,6 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
 
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.IDawgLetter;
@@ -47,14 +46,14 @@ public class CheckEmptyUniversalSingleton<LETTER, COLNAMES> {
 	private boolean mIsUniversal;
 
 	private final DawgState mInitialState;
-	private final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> mTransitionRelation;
+	private final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER>, DawgState> mTransitionRelation;
 	private final DawgFactory<LETTER, COLNAMES> mDawgFactory;
 	private final DawgSignature<COLNAMES> mSignature;
 
-	public CheckEmptyUniversalSingleton(DawgFactory<LETTER, COLNAMES> dawgFactory,
-			DawgState initialState,
-			DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> transitionRelation,
-			DawgSignature<COLNAMES> signature) {
+	public CheckEmptyUniversalSingleton(final DawgFactory<LETTER, COLNAMES> dawgFactory,
+			final DawgState initialState,
+			final DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER>, DawgState> transitionRelation,
+			final DawgSignature<COLNAMES> signature) {
 		mDawgFactory = dawgFactory;
 		mInitialState =initialState;
 		mTransitionRelation = transitionRelation;
@@ -71,11 +70,11 @@ public class CheckEmptyUniversalSingleton<LETTER, COLNAMES> {
 
 		for (int i = 0; i < mSignature.getNoColumns(); i++) {
 			final Set<DawgState> newCurrentStates = new HashSet<DawgState>();
-			for (DawgState cs : currentStates) {
+			for (final DawgState cs : currentStates) {
 
-				final Set<IDawgLetter<LETTER, COLNAMES>> outLetters = new HashSet<IDawgLetter<LETTER,COLNAMES>>();
+				final Set<IDawgLetter<LETTER>> outLetters = new HashSet<IDawgLetter<LETTER>>();
 
-				for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge :
+				for (final Pair<IDawgLetter<LETTER>, DawgState> outEdge :
 					mTransitionRelation.getOutEdgeSet(cs)) {
 
 					outLetters.add(outEdge.getFirst());

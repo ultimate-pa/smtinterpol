@@ -23,10 +23,9 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
-public class SimpleComplementDawgLetter<LETTER, COLNAMES> extends AbstractDawgLetter<LETTER, COLNAMES> {
+public class SimpleComplementDawgLetter<LETTER> extends AbstractDawgLetter<LETTER> {
 
 	/**
 	 * the letters that are not matched by this DawgLetter
@@ -34,23 +33,23 @@ public class SimpleComplementDawgLetter<LETTER, COLNAMES> extends AbstractDawgLe
 	final Set<LETTER> mComplementSet;
 
 
-	public SimpleComplementDawgLetter(DawgLetterFactory<LETTER, COLNAMES> dawgLetterFactory,
-			Set<LETTER> complementSet, Object sortId) {
+	public SimpleComplementDawgLetter(final DawgLetterFactory<LETTER> dawgLetterFactory,
+			final Set<LETTER> complementSet, final Object sortId) {
 		super(dawgLetterFactory, sortId);
 		assert !complementSet.isEmpty();
 		mComplementSet = complementSet;
 	}
 
 	@Override
-	public Set<IDawgLetter<LETTER, COLNAMES>> complement() {
+	public Set<IDawgLetter<LETTER>> complement() {
 		return Collections.singleton(mDawgLetterFactory.getSimpleDawgLetter(mComplementSet, mSortId));
 	}
 
 //	@Override
-//	public Set<IDawgLetter<LETTER, COLNAMES>> difference(IDawgLetter<LETTER, COLNAMES> other) {
-//		final Set<IDawgLetter<LETTER, COLNAMES>> otherComplement = other.complement();
+	// public Set<IDawgLetter<LETTER>> difference(IDawgLetter<LETTER> other) {
+	// final Set<IDawgLetter<LETTER>> otherComplement = other.complement();
 //		assert otherComplement.size() == 1 : "should be the case for simpleDawgLetters, right?";
-//		final IDawgLetter<LETTER, COLNAMES> resultDl = this.intersect(otherComplement.iterator().next());
+	// final IDawgLetter<LETTER> resultDl = this.intersect(otherComplement.iterator().next());
 //		if (resultDl instanceof EmptyDawgLetter<?, ?>) {
 //			return Collections.emptySet();
 //		}
@@ -58,28 +57,28 @@ public class SimpleComplementDawgLetter<LETTER, COLNAMES> extends AbstractDawgLe
 //	}
 
 	@Override
-	public IDawgLetter<LETTER, COLNAMES> intersect(IDawgLetter<LETTER, COLNAMES> other) {
+	public IDawgLetter<LETTER> intersect(final IDawgLetter<LETTER> other) {
 		assert other.getSortId().equals(this.getSortId());
-		if (other instanceof UniversalDawgLetter<?, ?>) {
+		if (other instanceof UniversalDawgLetter<?>) {
 			return this;
-		} else if (other instanceof EmptyDawgLetter<?, ?>) {
+		} else if (other instanceof EmptyDawgLetter<?>) {
 			return other;
-		} else if (other instanceof SimpleDawgLetter<?, ?>) {
+		} else if (other instanceof SimpleDawgLetter<?>) {
 			/*
 			 * return a letter that accepts all letters that are in other's (positive) set,
 			 * and not in this's (complement) set
 			 */
-			final Set<LETTER> othersLetters = ((SimpleDawgLetter<LETTER, COLNAMES>) other).getLetters();
+			final Set<LETTER> othersLetters = ((SimpleDawgLetter<LETTER>) other).getLetters();
 			final Set<LETTER> newSet = new HashSet<LETTER>(othersLetters);
 			newSet.removeAll(mComplementSet);
 			return mDawgLetterFactory.getSimpleDawgLetter(newSet, mSortId);
-		} else if (other instanceof SimpleComplementDawgLetter<?, ?>) {
+		} else if (other instanceof SimpleComplementDawgLetter<?>) {
 			/*
 			 * return a DawgLetter that accepts all letters that are neither in this's
 			 * set nor in the other's set
 			 */
 			final Set<LETTER> newComplement = new HashSet<LETTER>(mComplementSet);
-			newComplement.addAll(((SimpleComplementDawgLetter<LETTER, COLNAMES>) other).getComplementLetters());
+			newComplement.addAll(((SimpleComplementDawgLetter<LETTER>) other).getComplementLetters());
 			return mDawgLetterFactory.getSimpleComplementDawgLetter(newComplement, mSortId);
 		} else {
 			assert false : "not expected";
@@ -88,19 +87,19 @@ public class SimpleComplementDawgLetter<LETTER, COLNAMES> extends AbstractDawgLe
 	}
 
 	@Override
-	public boolean matches(LETTER ltr, List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex) {
+	public boolean matches(final LETTER ltr, final List<LETTER> word) {
 		return !mComplementSet.contains(ltr);
 	}
 
 	@Override
-	public Collection<LETTER> allLettersThatMatch(List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex) {
-		Set<LETTER> result = new HashSet<LETTER>(mDawgLetterFactory.getAllConstants(mSortId));
+	public Collection<LETTER> allLettersThatMatch(final List<LETTER> word) {
+		final Set<LETTER> result = new HashSet<LETTER>(mDawgLetterFactory.getAllConstants(mSortId));
 		result.removeAll(mComplementSet);
 		return result;
 	}
 
 	@Override
-	public IDawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER selectLetter) {
+	public IDawgLetter<LETTER> restrictToLetter(final LETTER selectLetter) {
 		if (mComplementSet.contains(selectLetter)) {
 			return mDawgLetterFactory.getEmptyDawgLetter(mSortId);
 		} else {
@@ -118,20 +117,20 @@ public class SimpleComplementDawgLetter<LETTER, COLNAMES> extends AbstractDawgLe
 	}
 
 	@Override
-	public IDawgLetter<LETTER, COLNAMES> union(IDawgLetter<LETTER, COLNAMES> other) {
-		if (other instanceof EmptyDawgLetter<?, ?>) {
+	public IDawgLetter<LETTER> union(final IDawgLetter<LETTER> other) {
+		if (other instanceof EmptyDawgLetter<?>) {
 			return this;
-		} else if (other instanceof UniversalDawgLetter<?, ?>) {
+		} else if (other instanceof UniversalDawgLetter<?>) {
 			return other;
-		} else if (other instanceof SimpleDawgLetter<?, ?>) {
-			final Set<LETTER> otherSet = ((SimpleDawgLetter<LETTER, COLNAMES>) other).getLetters();
+		} else if (other instanceof SimpleDawgLetter<?>) {
+			final Set<LETTER> otherSet = ((SimpleDawgLetter<LETTER>) other).getLetters();
 			final HashSet<LETTER> newComplementSet = new HashSet<LETTER>(mComplementSet);
 			newComplementSet.removeAll(otherSet);
 			return mDawgLetterFactory.getSimpleComplementDawgLetter(newComplementSet, mSortId);
-		} else if (other instanceof SimpleComplementDawgLetter<?, ?>) {
+		} else if (other instanceof SimpleComplementDawgLetter<?>) {
 			// we take the intersection of the complementLetters
 			final Set<LETTER> otherComplementSet =
-					((SimpleComplementDawgLetter<LETTER, COLNAMES>) other).getComplementLetters();
+					((SimpleComplementDawgLetter<LETTER>) other).getComplementLetters();
 			final HashSet<LETTER> intersection = new HashSet<LETTER>(mComplementSet);
 			intersection.retainAll(otherComplementSet);
 			return mDawgLetterFactory.getSimpleComplementDawgLetter(intersection, mSortId);

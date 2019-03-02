@@ -29,8 +29,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheorySettings;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.NestedMap2;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.NestedMap3;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.NestedMap4;
 
 /**
  *
@@ -39,51 +37,51 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.NestedMap
  * @param <LETTER>
  * @param <COLNAMES>
  */
-public class DawgLetterFactory<LETTER, COLNAMES> {
+public class DawgLetterFactory<LETTER> {
 
 
-	private final Map<Object, UniversalDawgLetter<LETTER, COLNAMES>> mSortToUniversalDawgLetter =
-		new HashMap<Object, UniversalDawgLetter<LETTER,COLNAMES>>();
-	private final Map<Object, EmptyDawgLetter<LETTER, COLNAMES>> mSortToEmptyDawgLetter =
-		new HashMap<Object, EmptyDawgLetter<LETTER,COLNAMES>>();
+	private final Map<Object, UniversalDawgLetter<LETTER>> mSortToUniversalDawgLetter =
+			new HashMap<Object, UniversalDawgLetter<LETTER>>();
+	private final Map<Object, EmptyDawgLetter<LETTER>> mSortToEmptyDawgLetter =
+			new HashMap<Object, EmptyDawgLetter<LETTER>>();
 
-	private final NestedMap2<Object, Set<LETTER>, SimpleDawgLetter<LETTER, COLNAMES>> mSortToLettersToSimpleDawgLetter
-		 = new NestedMap2<Object, Set<LETTER>, SimpleDawgLetter<LETTER,COLNAMES>>();
-	private final NestedMap2<Object, Set<LETTER>, SimpleComplementDawgLetter<LETTER, COLNAMES>> mSortToLettersToSimpleComplementDawgLetter
-		 = new NestedMap2<Object, Set<LETTER>, SimpleComplementDawgLetter<LETTER,COLNAMES>>();
+	private final NestedMap2<Object, Set<LETTER>, SimpleDawgLetter<LETTER>> mSortToLettersToSimpleDawgLetter =
+			new NestedMap2<Object, Set<LETTER>, SimpleDawgLetter<LETTER>>();
+	private final NestedMap2<Object, Set<LETTER>, SimpleComplementDawgLetter<LETTER>> mSortToLettersToSimpleComplementDawgLetter =
+			new NestedMap2<Object, Set<LETTER>, SimpleComplementDawgLetter<LETTER>>();
 
-	private final DawgFactory<LETTER, COLNAMES> mDawgFactory;
+	private final DawgFactory<LETTER, ?> mDawgFactory;
 
 
-	public DawgLetterFactory(DawgFactory<LETTER, COLNAMES> dawgFactory) {
+	public DawgLetterFactory(final DawgFactory<LETTER, ?> dawgFactory) {
 		mDawgFactory = dawgFactory;
 	}
 
-	public IDawgLetter<LETTER, COLNAMES> getSingletonSetDawgLetter(LETTER element, Object sortId) {
+	public IDawgLetter<LETTER> getSingletonSetDawgLetter(final LETTER element, final Object sortId) {
 		return getSimpleDawgLetter(Collections.singleton(element), sortId);
 	}
 
-	public UniversalDawgLetter<LETTER, COLNAMES> getUniversalDawgLetter(Object sortId) {
-		UniversalDawgLetter<LETTER, COLNAMES> result = mSortToUniversalDawgLetter.get(sortId);
+	public UniversalDawgLetter<LETTER> getUniversalDawgLetter(final Object sortId) {
+		UniversalDawgLetter<LETTER> result = mSortToUniversalDawgLetter.get(sortId);
 		if (result == null) {
-			result = new UniversalDawgLetter<LETTER, COLNAMES>(this, sortId);
+			result = new UniversalDawgLetter<LETTER>(this, sortId);
 			mSortToUniversalDawgLetter.put(sortId, result);
 		}
 		return result;
 	}
 
-	public EmptyDawgLetter<LETTER, COLNAMES> getEmptyDawgLetter(Object sortId) {
-		EmptyDawgLetter<LETTER, COLNAMES> result = mSortToEmptyDawgLetter.get(sortId);
+	public EmptyDawgLetter<LETTER> getEmptyDawgLetter(final Object sortId) {
+		EmptyDawgLetter<LETTER> result = mSortToEmptyDawgLetter.get(sortId);
 		if (result == null) {
-			result = new EmptyDawgLetter<LETTER, COLNAMES>(this, sortId);
+			result = new EmptyDawgLetter<LETTER>(this, sortId);
 			mSortToEmptyDawgLetter.put(sortId, result);
 		}
 		return result;
 	}
 
 
-	public Set<LETTER> getAllConstants(Object sortId) {
-		Set<LETTER> result = mDawgFactory.getAllConstants(sortId);
+	public Set<LETTER> getAllConstants(final Object sortId) {
+		final Set<LETTER> result = mDawgFactory.getAllConstants(sortId);
 		assert result != null;
 		return result;
 	}
@@ -100,30 +98,31 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 	 * @param outgoingDawgLetters
 	 * @return
 	 */
-	public Set<IDawgLetter<LETTER, COLNAMES>> complementDawgLetterSet(Set<IDawgLetter<LETTER, COLNAMES>> dawgLetters,
-			Object columnSort) {
+	public Set<IDawgLetter<LETTER>> complementDawgLetterSet(final Set<IDawgLetter<LETTER>> dawgLetters,
+			final Object columnSort) {
 		assert EprHelpers.dawgLettersHaveSameSort(dawgLetters);
 		if (dawgLetters.isEmpty()) {
-			return Collections.singleton((IDawgLetter<LETTER, COLNAMES>) getUniversalDawgLetter(columnSort));
+			return Collections.singleton((IDawgLetter<LETTER>) getUniversalDawgLetter(columnSort));
 		}
 
-		final Object sortId = ((AbstractDawgLetter<LETTER, COLNAMES>) dawgLetters.iterator().next()).getSortId();
+		final Object sortId = ((AbstractDawgLetter<LETTER>) dawgLetters.iterator().next()).getSortId();
 
-		Set<IDawgLetter<LETTER, COLNAMES>> result = new HashSet<IDawgLetter<LETTER,COLNAMES>>();
+		Set<IDawgLetter<LETTER>> result = new HashSet<IDawgLetter<LETTER>>();
 		result.add(getUniversalDawgLetter(sortId));
 
-		for (IDawgLetter<LETTER, COLNAMES> currentDawgLetter: dawgLetters) {
+		for (final IDawgLetter<LETTER> currentDawgLetter : dawgLetters) {
 
-			final Set<IDawgLetter<LETTER, COLNAMES>> newResult = new HashSet<IDawgLetter<LETTER,COLNAMES>>();
+			final Set<IDawgLetter<LETTER>> newResult = new HashSet<IDawgLetter<LETTER>>();
 
 			/*
 			 * for every dawgLetter d in the intermediate result and every constraint c in the current dawgLetter,
 			 * 	add a new DawgLetter to the newResult
 			 *   the new DawgLetter is the conjunction of the constraints in d with _not_ c.
 			 */
-			for (IDawgLetter<LETTER, COLNAMES> dawgLetterInIntermediateResult : result) {
+			for (final IDawgLetter<LETTER> dawgLetterInIntermediateResult : result) {
 
-				for (IDawgLetter<LETTER, COLNAMES> singleNegatedConstraintDlFromCurrentDl : currentDawgLetter.complement()) {
+				for (final IDawgLetter<LETTER> singleNegatedConstraintDlFromCurrentDl : currentDawgLetter
+						.complement()) {
 					newResult.add(dawgLetterInIntermediateResult.intersect(singleNegatedConstraintDlFromCurrentDl));
 				}
 			}
@@ -138,31 +137,31 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 	 * @param letters an implicitly disjunctive set of DawgLetters
 	 * @return
 	 */
-	public boolean isUniversal(Set<IDawgLetter<LETTER, COLNAMES>> letters, Object sortId) {
+	public boolean isUniversal(final Set<IDawgLetter<LETTER>> letters, final Object sortId) {
 		if (letters.size() == 0) {
 			return false;
-		} else if (letters.size() == 1 && letters.iterator().next() instanceof EmptyDawgLetter<?, ?>) {
+		} else if (letters.size() == 1 && letters.iterator().next() instanceof EmptyDawgLetter<?>) {
 			return false;
-		} else if (letters.size() == 1 && letters.iterator().next() instanceof UniversalDawgLetter<?, ?>) {
+		} else if (letters.size() == 1 && letters.iterator().next() instanceof UniversalDawgLetter<?>) {
 			return true;
 		} else if (letters.size() >= 1 &&
-				(letters.iterator().next() instanceof SimpleDawgLetter<?, ?>
-			|| letters.iterator().next() instanceof SimpleComplementDawgLetter<?, ?>)) {
+				(letters.iterator().next() instanceof SimpleDawgLetter<?>
+						|| letters.iterator().next() instanceof SimpleComplementDawgLetter<?>)) {
 			/**
 			 * the DawgLetters are universal (as a disjunction) if and only if the SimpleDawgLetters
 			 * and the SimpleComplementDawgLetters complement each other perfectly.
 			 */
-			Set<LETTER> unionNormal = new HashSet<LETTER>();
-			Set<LETTER> unionComplement = new HashSet<LETTER>();
-			for (IDawgLetter<LETTER, COLNAMES> outLetter : letters) {
-				if (outLetter instanceof SimpleDawgLetter<?, ?>) {
-					unionNormal.addAll(((SimpleDawgLetter<LETTER, COLNAMES>) outLetter).getLetters());
-				} else if (outLetter instanceof SimpleComplementDawgLetter<?, ?>) {
+			final Set<LETTER> unionNormal = new HashSet<LETTER>();
+			final Set<LETTER> unionComplement = new HashSet<LETTER>();
+			for (final IDawgLetter<LETTER> outLetter : letters) {
+				if (outLetter instanceof SimpleDawgLetter<?>) {
+					unionNormal.addAll(((SimpleDawgLetter<LETTER>) outLetter).getLetters());
+				} else if (outLetter instanceof SimpleComplementDawgLetter<?>) {
 					unionComplement.addAll(
-							((SimpleComplementDawgLetter<LETTER, COLNAMES>) outLetter).getComplementLetters());
+							((SimpleComplementDawgLetter<LETTER>) outLetter).getComplementLetters());
 				} else if (outLetter instanceof UniversalDawgLetter) {
 					assert false : "a universal dawg letter and another one?";
-				} else if (outLetter instanceof EmptyDawgLetter<?, ?>) {
+				} else if (outLetter instanceof EmptyDawgLetter<?>) {
 					// do nothing
 				} else {
 					assert false : "unexpected mixing of DawgLetter types";
@@ -170,35 +169,36 @@ public class DawgLetterFactory<LETTER, COLNAMES> {
 			}
 			return unionNormal.equals(unionComplement);
 		} else {
-			final Set<IDawgLetter<LETTER, COLNAMES>> complementSet = complementDawgLetterSet(letters, sortId);
+			final Set<IDawgLetter<LETTER>> complementSet = complementDawgLetterSet(letters, sortId);
 			return  complementSet.isEmpty();
 		}
 //		assert false : "TODO";
 //		return false;
 	}
 
-	public IDawgLetter<LETTER, COLNAMES> getSimpleDawgLetter(Set<LETTER> letters, Object sortId) {
+	public IDawgLetter<LETTER> getSimpleDawgLetter(final Set<LETTER> letters, final Object sortId) {
 		if (letters.isEmpty()) {
 			 return getEmptyDawgLetter(sortId);
 		}
 
-		IDawgLetter<LETTER, COLNAMES> result = mSortToLettersToSimpleDawgLetter.get(sortId, letters);
+		IDawgLetter<LETTER> result = mSortToLettersToSimpleDawgLetter.get(sortId, letters);
 		if (result == null) {
-			result = new SimpleDawgLetter<LETTER, COLNAMES>(this, letters, sortId);
-			mSortToLettersToSimpleDawgLetter.put(sortId, letters, (SimpleDawgLetter<LETTER, COLNAMES>) result);
+			result = new SimpleDawgLetter<LETTER>(this, letters, sortId);
+			mSortToLettersToSimpleDawgLetter.put(sortId, letters, (SimpleDawgLetter<LETTER>) result);
 		}
 		return result;
 	}
 
-	public IDawgLetter<LETTER, COLNAMES> getSimpleComplementDawgLetter(Set<LETTER> letters, Object sortId) {
+	public IDawgLetter<LETTER> getSimpleComplementDawgLetter(final Set<LETTER> letters, final Object sortId) {
 		if (letters.isEmpty()) {
 			 return getUniversalDawgLetter(sortId);
 		}
 
-		IDawgLetter<LETTER, COLNAMES> result = mSortToLettersToSimpleComplementDawgLetter.get(sortId, letters);
+		IDawgLetter<LETTER> result = mSortToLettersToSimpleComplementDawgLetter.get(sortId, letters);
 		if (result == null) {
-			result = new SimpleComplementDawgLetter<LETTER, COLNAMES>(this, letters, sortId);
-			mSortToLettersToSimpleComplementDawgLetter.put(sortId, letters, (SimpleComplementDawgLetter<LETTER, COLNAMES>) result);
+			result = new SimpleComplementDawgLetter<LETTER>(this, letters, sortId);
+			mSortToLettersToSimpleComplementDawgLetter.put(sortId, letters,
+					(SimpleComplementDawgLetter<LETTER>) result);
 		}
 		return result;
 	}

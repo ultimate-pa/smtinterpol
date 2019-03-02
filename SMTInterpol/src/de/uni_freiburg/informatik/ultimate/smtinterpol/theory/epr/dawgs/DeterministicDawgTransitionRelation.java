@@ -35,14 +35,12 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
-
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.EmptyDawgLetter;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Triple;
-
 import java.util.NoSuchElementException;
 import java.util.Set;
+
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.EmptyDawgLetter;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Triple;
 
 /**
  * Represents the transition relation of a deterministic dawg.
@@ -93,12 +91,12 @@ public class DeterministicDawgTransitionRelation<K1, K2, V> {
 	 *
 	 * @param orig
 	 */
-	public DeterministicDawgTransitionRelation(DeterministicDawgTransitionRelation<K1, K2, V> orig) {
+	public DeterministicDawgTransitionRelation(final DeterministicDawgTransitionRelation<K1, K2, V> orig) {
 		this();
-		for (Entry<K1, Map<K2, V>> en1 : orig.mK1ToK2ToV.entrySet()) {
+		for (final Entry<K1, Map<K2, V>> en1 : orig.mK1ToK2ToV.entrySet()) {
 //			final Map<K2, V> innerMap = new HashMap<K2, V>();
 //			mK1ToK2ToV.put(en1.getKey(), innerMap);
-			for (Entry<K2, V> en2 : orig.mK1ToK2ToV.get(en1.getKey()).entrySet()) {
+			for (final Entry<K2, V> en2 : orig.mK1ToK2ToV.get(en1.getKey()).entrySet()) {
 //				innerMap.put(en2.getKey(), en2.getValue());
 				put(en1.getKey(), en2.getKey(), en2.getValue());
 			}
@@ -106,7 +104,7 @@ public class DeterministicDawgTransitionRelation<K1, K2, V> {
 	}
 
 	public V put(final K1 key1, final K2 key2, final V value) {
-		assert !(key2 instanceof EmptyDawgLetter<?, ?>) : "edges that are labelled with the empty letter should be omitted; "
+		assert !(key2 instanceof EmptyDawgLetter<?>) : "edges that are labelled with the empty letter should be omitted; "
 				+ "catch this case outside";
 		Map<K2, V> k2toV = mK1ToK2ToV.get(key1);
 		if (k2toV == null) {
@@ -115,7 +113,7 @@ public class DeterministicDawgTransitionRelation<K1, K2, V> {
 		}
 		assert !k2toV.containsKey(key2) || k2toV.get(key2).equals(value) :
 			"we don't expect that put overwrites something, here --> catch this case outside!";
-		V result = k2toV.put(key2, value);
+		final V result = k2toV.put(key2, value);
 
 		if (mUseCachingFields) {
 			mAllTransitions.add(new Triple<K1, K2, V>(key1, key2, value));
@@ -249,7 +247,7 @@ public class DeterministicDawgTransitionRelation<K1, K2, V> {
 	public String toString() {
 //		return mK1ToK2ToV.toString();
 		final StringBuilder sb = new StringBuilder();
-		for (Triple<K1, K2, V> edge : this.entrySet()) {
+		for (final Triple<K1, K2, V> edge : this.entrySet()) {
 			sb.append(edge + "\n");
 		}
 		return sb.toString();
@@ -277,18 +275,23 @@ public class DeterministicDawgTransitionRelation<K1, K2, V> {
 
 	@Override
 	public boolean equals(final Object obj) {
-		if (this == obj)
+		if (this == obj) {
 			return true;
-		if (obj == null)
+		}
+		if (obj == null) {
 			return false;
-		if (getClass() != obj.getClass())
+		}
+		if (getClass() != obj.getClass()) {
 			return false;
+		}
 		final DeterministicDawgTransitionRelation other = (DeterministicDawgTransitionRelation) obj;
 		if (mK1ToK2ToV == null) {
-			if (other.mK1ToK2ToV != null)
+			if (other.mK1ToK2ToV != null) {
 				return false;
-		} else if (!mK1ToK2ToV.equals(other.mK1ToK2ToV))
+			}
+		} else if (!mK1ToK2ToV.equals(other.mK1ToK2ToV)) {
 			return false;
+		}
 		return true;
 	}
 
@@ -312,7 +315,7 @@ public class DeterministicDawgTransitionRelation<K1, K2, V> {
 	 * @param stateLeft
 	 * @return
 	 */
-	public Set<Pair<K1, K2>> getInverse(V stateLeft) {
+	public Set<Pair<K1, K2>> getInverse(final V stateLeft) {
 		if (mUseCachingFields) {
 			final Set<Pair<K1, K2>> result = mVToInEdges.get(stateLeft);
 			if (result == null) {
@@ -320,9 +323,9 @@ public class DeterministicDawgTransitionRelation<K1, K2, V> {
 			}
 			return result;
 		}
-		Set<Pair<K1, K2>> result = new HashSet<Pair<K1,K2>>();
-		for (Entry<K1, Map<K2, V>> en1 : mK1ToK2ToV.entrySet()) {
-			for (Entry<K2, V> en2 : en1.getValue().entrySet()) {
+		final Set<Pair<K1, K2>> result = new HashSet<Pair<K1,K2>>();
+		for (final Entry<K1, Map<K2, V>> en1 : mK1ToK2ToV.entrySet()) {
+			for (final Entry<K2, V> en2 : en1.getValue().entrySet()) {
 				if (en2.getValue().equals(stateLeft)) {
 					result.add(new Pair<K1, K2>(en1.getKey(), en2.getKey()));
 				}
@@ -331,7 +334,7 @@ public class DeterministicDawgTransitionRelation<K1, K2, V> {
 		return result;
 	}
 
-	public Set<Pair<K2, V>> getOutEdgeSet(K1 state) {
+	public Set<Pair<K2, V>> getOutEdgeSet(final K1 state) {
 		if (mUseCachingFields) {
 			final Set<Pair<K2, V>> result = mK1ToOutEdges.get(state);
 			if (result == null) {
@@ -339,12 +342,12 @@ public class DeterministicDawgTransitionRelation<K1, K2, V> {
 			}
 			return result;
 		}
-		Map<K2, V> innerMap = mK1ToK2ToV.get(state);
+		final Map<K2, V> innerMap = mK1ToK2ToV.get(state);
 		if (innerMap == null) {
 			return Collections.emptySet();
 		} else {
-			Set<Pair<K2, V>> result = new HashSet<Pair<K2,V>>();
-			for (Entry<K2, V> en : innerMap.entrySet()) {
+			final Set<Pair<K2, V>> result = new HashSet<Pair<K2,V>>();
+			for (final Entry<K2, V> en : innerMap.entrySet()) {
 				result.add(new Pair<K2, V>(en.getKey(), en.getValue()));
 			}
 			return result;

@@ -13,14 +13,15 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawglett
 public class RenameAndReorderDawgState<LETTER, COLNAMES> extends DawgState {
 
 
-	private final IDawgLetter<LETTER, COLNAMES> mLetter;
+	private final IDawgLetter<LETTER> mLetter;
 
 	private final COLNAMES mRightNeighbourColumn;
 
 	private final DawgState mInnerState;
 
-	public RenameAndReorderDawgState(IDawgLetter<LETTER, COLNAMES> letter, COLNAMES column, DawgState innerDawgState,
-			DawgState replacement) {
+	public RenameAndReorderDawgState(final IDawgLetter<LETTER> letter, final COLNAMES column,
+			final DawgState innerDawgState,
+			final DawgState replacement) {
 		super(replacement);
 		this.mLetter = letter;
 		this.mRightNeighbourColumn = column;
@@ -30,7 +31,7 @@ public class RenameAndReorderDawgState<LETTER, COLNAMES> extends DawgState {
 	/**
 	 * An edge with this letter will be inserted in the new column
 	 */
-	public IDawgLetter<LETTER, COLNAMES> getLetter() {
+	public IDawgLetter<LETTER> getLetter() {
 		return mLetter;
 	}
 
