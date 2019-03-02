@@ -23,9 +23,9 @@ import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
 /**
  * Class to check if a term is closed.  It is closed if it does not contain
  * a free variable.  Use it as follows:
- * 
+ *
  * <pre>new CheckClosedTerm().isClosed()</pre>
- * 
+ *
  * You can check multiple terms with one instance and it will cache results
  * between checks.
  *
@@ -34,20 +34,20 @@ import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
 public class CheckClosedTerm extends NonRecursive {
 	private final ScopedHashSet<Term> mCheckedTerms;
 	private boolean mIsClosed;
-	
+
 	static class TermWalker implements NonRecursive.Walker {
 		Term mTerm;
-		
+
 		public TermWalker(Term term) {
 			mTerm = term;
 		}
-		
+
 		@Override
 		public void walk(NonRecursive engine) {
 			((CheckClosedTerm) engine).check(mTerm);
 		}
 	}
-	
+
 	static class EndScopeWalker implements NonRecursive.Walker {
 		@Override
 		public void walk(NonRecursive engine) {

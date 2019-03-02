@@ -32,37 +32,37 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 
 /**
  * Represents a literal on the DPLL decide stack of the EprTheory.
- * This special literal consists of a quantified literal together with a 
+ * This special literal consists of a quantified literal together with a
  * data structure restricting the possible groundings of that literal.
- * 
+ *
  * @author Alexander Nutz
  */
 public abstract class DecideStackLiteral extends DecideStackEntry implements IEprLiteral, Comparable<DecideStackLiteral> {
-	
+
 //	/**
 //	 * The index on the decide stack of its push state that this DecideStackLiteral has.
 //	 */
 //	protected final int mIndexOnPushStateStack;
-//	
+//
 //	/**
 //	 * The index of the push state on the stateManager's push state stack
 //	 */
 //	protected final int mPushStateStackIndex;
-	
+
 	protected final boolean mPolarity;
 	protected final EprPredicate mPred;
-	
+
 	/**
 	 * Stores all the groundings for which this.atom is decided with this.polarity
 	 * by this DecideStackLiteral
 	 */
 	protected IDawg<ApplicationTerm, TermVariable> mDawg;
-	
+
 	protected Set<ClauseEprLiteral> mConcernedClauseLiterals = new HashSet<ClauseEprLiteral>();
-	
-	
-	
-	public DecideStackLiteral(boolean polarity, 
+
+
+
+	public DecideStackLiteral(boolean polarity,
 			EprPredicate pred, IDawg<ApplicationTerm, TermVariable> dawg, int index) {
 		super(index);
 		mPolarity = polarity;
@@ -71,15 +71,15 @@ public abstract class DecideStackLiteral extends DecideStackEntry implements IEp
 //		mPushStateStackIndex = index.first;
 //		mIndexOnPushStateStack = index.second;
 //		mIndex = new DslIndex(index.first, index.second);
-		
+
 		register();
 	}
-	
+
 	@Override
 	public boolean getPolarity() {
 		return mPolarity;
 	}
-	
+
 	@Override
 	public EprPredicate getEprPredicate() {
 		return mPred;
@@ -95,25 +95,25 @@ public abstract class DecideStackLiteral extends DecideStackEntry implements IEp
 		assert false : "TODO: implement";
 		return false;
 	}
-	
+
 	@Override
 	public IDawg<ApplicationTerm, TermVariable> getDawg() {
 		return mDawg;
 	}
-	
+
 //	/**
-//	 * 
+//	 *
 //	 * @return true iff mDawg's language is a singleton set.
 //	 */
 //	public boolean isOnePoint() {
 //		return mDawg.isSingleton();
 //	}
-//	
+//
 //	public List<ApplicationTerm> getPoint() {
 //		assert isOnePoint();
 //		return mDawg.iterator().next();
 //	}
-	
+
 	private void register() {
 		mPred.registerEprLiteral(this);
 	}
@@ -129,38 +129,38 @@ public abstract class DecideStackLiteral extends DecideStackEntry implements IEp
 			cl.unregisterIEprLiteral(this);
 		}
 	}
-	
+
 	@Override
 	public void registerConcernedClauseLiteral(ClauseEprLiteral cel) {
 		mConcernedClauseLiterals.add(cel);
 	}
-	
+
 //	/**
 //	 * @return
 //	 */
 //	public int getPushStateDecideStackIndex() {
 //		return mIndexOnPushStateStack;
 //	}
-//	
+//
 //	public int getPushStateIndex() {
 //		return mPushStateStackIndex;
 //	}
-	
+
 //	public int getDecideStackIndex() {
 //		return mIndex;
 //	}
-	
+
 	@Override
 	public int compareTo(DecideStackLiteral other) {
 //		return this.mIndex.compareTo(other.mIndex);
 		return this.nr - other.nr;
 	}
-	
+
 //	static class DslIndex implements Comparable<DslIndex> {
-//		
+//
 //		final int indexOfPushState;
 //		final int indexOnPushStatesDecideStack;
-//		
+//
 //		public DslIndex(int indexOfPushState, int indexOfPushStatesDecideStack) {
 //			this.indexOfPushState = indexOfPushState;
 //			this.indexOnPushStatesDecideStack = indexOfPushStatesDecideStack;
@@ -168,7 +168,7 @@ public abstract class DecideStackLiteral extends DecideStackEntry implements IEp
 //
 //		/**
 //		 * DslIndices are compared lexicographically. First, the index of the push state a dsl is on
-//		 * is compared. Only if that is equal the positions of the two literals on that push state's 
+//		 * is compared. Only if that is equal the positions of the two literals on that push state's
 //		 * decide stack is compared.
 //		 */
 //		@Override
@@ -176,7 +176,7 @@ public abstract class DecideStackLiteral extends DecideStackEntry implements IEp
 //			int comp1 = Integer.compare(this.indexOfPushState, o.indexOfPushState);
 //			if (comp1 == 0) {
 //				return Integer.compare(this.indexOnPushStatesDecideStack, o.indexOnPushStatesDecideStack);
-//			} 
+//			}
 //			return comp1;
 //		}
 //	}

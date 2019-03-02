@@ -29,7 +29,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 
 public final class InterpolationUsageStub {
-	
+
 	private InterpolationUsageStub() {
 		// Hide constructor
 	}

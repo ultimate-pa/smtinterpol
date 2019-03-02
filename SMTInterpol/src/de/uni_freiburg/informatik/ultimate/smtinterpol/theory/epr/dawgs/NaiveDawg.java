@@ -38,23 +38,23 @@ import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
 /**
  * The most naive (or rather simple) Dawg implementation I will be able to imagine.
  * A baseline for other implementations.
- * 
+ *
  * @author Alexander Nutz
  * @param <LETTER, COLNAMES>
  */
 public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> {
-	
+
 	Set<List<LETTER>> mBacking;
 	private Set<List<LETTER>> mNCrossProduct;
 	private final ScopedHashMap<Object, Set<LETTER>> mAllConstants;
-	
+
 	public NaiveDawg(SortedSet<COLNAMES> termVariables, ScopedHashMap<Object, Set<LETTER>> allConstants, LogProxy logger) {
 		super(termVariables, logger);
 		mAllConstants = allConstants;
 		mBacking = new HashSet<List<LETTER>>();
 	}
 
-	public NaiveDawg(SortedSet<COLNAMES> termVariables, ScopedHashMap<Object, Set<LETTER>> allConstants, 
+	public NaiveDawg(SortedSet<COLNAMES> termVariables, ScopedHashMap<Object, Set<LETTER>> allConstants,
 			Set<List<LETTER>> initialLanguage, LogProxy logger) {
 		super(termVariables, logger);
 		mAllConstants = allConstants;
@@ -88,17 +88,17 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 //
 //		NaiveDawg<LETTER, COLNAMES> otherNd = (NaiveDawg<LETTER, COLNAMES>) other;
 //
-//		NaiveDawg<LETTER, COLNAMES> result = 
+//		NaiveDawg<LETTER, COLNAMES> result =
 //				new NaiveDawg<LETTER, COLNAMES>(newSignature, mAllConstants, mLogger);
-//		
+//
 //		for (List<LETTER> pointThis : this.mBacking) {
 //			for (List<LETTER> pointOther : otherNd.mBacking) {
 //				List<LETTER> joinedPoint = new ArrayList<LETTER>(newSignature.size());
 //				for (COLNAMES cn : newSignature) {
 //					Integer thisColIndex = this.mColNameToIndex.get(cn);
 //					Integer otherColIndex = otherNd.mColNameToIndex.get(cn);
-//					if (thisColIndex != null 
-//							&& otherColIndex != null 
+//					if (thisColIndex != null
+//							&& otherColIndex != null
 //							&& pointThis.get(thisColIndex) != pointOther.get(otherColIndex)) {
 //						// cn is a common column and
 //						// the two points don't match on it
@@ -153,7 +153,7 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 //	public IDawg<LETTER, COLNAMES> union(IDawg<LETTER, COLNAMES> other) {
 //		assert other.getColnames().equals(getColnames()) : "incompatible column names";
 //
-//		NaiveDawg<LETTER, COLNAMES> newDawg = 
+//		NaiveDawg<LETTER, COLNAMES> newDawg =
 //				new NaiveDawg<LETTER, COLNAMES>(mColNames, mAllConstants, mBacking, mLogger);
 //		newDawg.addAll(other);
 //
@@ -199,10 +199,10 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 	public IDawg<LETTER, COLNAMES> intersect(IDawg<LETTER, COLNAMES> other) {
 		assert getColNames().equals(other.getColNames());
 		NaiveDawg<LETTER, COLNAMES> naiOther = (NaiveDawg<LETTER, COLNAMES>) other;
-		
+
 		Set<List<LETTER>> newBacking = new HashSet<List<LETTER>>(mBacking);
 		newBacking.retainAll(naiOther.mBacking);
-		
+
 		return new NaiveDawg<LETTER, COLNAMES>(getColNames(), mAllConstants, newBacking, mLogger);
 	}
 
@@ -212,7 +212,7 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 //		NaiveDawg<LETTER, COLNAMES> naiOther = (NaiveDawg<LETTER, COLNAMES>) other;
 //		mBacking.removeAll(naiOther.mBacking);
 //	}
-	
+
 	private Set<List<LETTER>> getNCrossProduct() {
 		if (mNCrossProduct == null) {
 			assert false : "TODO: restore below functionality";
@@ -249,7 +249,7 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 //	}
 
 	private static <LETTER, COLNAMES> List<List<LETTER>> blowUpForCurrentSignature(
-			List<LETTER> pt, SortedSet<COLNAMES> ptSig, 
+			List<LETTER> pt, SortedSet<COLNAMES> ptSig,
 			SortedSet<COLNAMES> targetSig, Set<LETTER> allConstants) {
 		assert targetSig.containsAll(ptSig);
 		assert pt.size() == ptSig.size();
@@ -264,7 +264,7 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 					posInPtSig = i;
 				}
 			}
-			
+
 			List<List<LETTER>> newResult = new ArrayList<List<LETTER>>();
 			for (List<LETTER> prefix : result) {
 
@@ -320,8 +320,8 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 		assert false : "TODO: restore below functionality";
 //		mBacking.addAll(blowUpForCurrentSignature(point, sig, mColNames, mAllConstants));
 	}
-	
-	
+
+
 	@Override
 	public IDawg<LETTER, COLNAMES> translatePredSigToClauseSig(
 			Map<COLNAMES, COLNAMES> translationColnameToColname,
@@ -329,8 +329,8 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 			DawgSignature<COLNAMES> targetSignature) {
 
 //		COLNAMES colNamesInstance = this.getColnames().first();
-		
-		// the signature of the new dawg has only the non-duplicated colnames 
+
+		// the signature of the new dawg has only the non-duplicated colnames
 		// and also omits constants (i.e. objects not of the type COLNAMES)
 		// this signature is before the blowup to targetSignature
 		SortedSet<COLNAMES> newPointSignature = new TreeSet<COLNAMES>(EprHelpers.getColumnNamesComparator());
@@ -340,10 +340,10 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 //				newPointSignature.add((COLNAMES) o);
 //			}
 //		}
-		
+
 		// the new signature is repetition-free, so we can use a map
 		Map<COLNAMES, Integer> newSigColNamesToIndex = EprHelpers.computeColnamesToIndex(newPointSignature);
-		
+
 		NaiveDawg<LETTER, COLNAMES> otherNd = this;
 //		Set<List<LETTER>> newBacking = new HashSet<List<LETTER>>();
 		NaiveDawg<LETTER, COLNAMES> result = new NaiveDawg<LETTER, COLNAMES>(targetSignature.getColNames(), mAllConstants, mLogger);
@@ -355,10 +355,10 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 			for (int i = 0; i < newPointSignature.size(); i++) {
 				newPoint.add(null);
 			}
-			
+
 			// tracks if a column name has been seen, and what letter it had been assigned (does select_x=x so to say)
 			Map<COLNAMES, LETTER> variableAssignmentInPoint = new HashMap<COLNAMES, LETTER>();
-			
+
 			Iterator<COLNAMES> ptColIt = this.getColNames().iterator();
 			for (int i = 0; i < point.size(); i++) {
 				LETTER ptLtr = point.get(i);
@@ -370,7 +370,7 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 				LETTER letterTranslation = translationColnameToLetter.get(ptColnameInOldSig);
 				if (colnameTranslation != null) {
 					COLNAMES ptColnameInNewSig = colnameTranslation;
-					
+
 					LETTER vaip = variableAssignmentInPoint.get(ptColnameInNewSig);
 					if (vaip != null && vaip != ptLtr) {
 						// violation of select_x=x
@@ -381,7 +381,7 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 						// store that at the current oldColumn-name we used letter ptLtr
 						variableAssignmentInPoint.put(ptColnameInNewSig, ptLtr);
 					}
-					
+
 				} else if (letterTranslation != null) {
 					// we have a constant in the column where this letter in the point is supposed to "land"
 					// select_x=c so to say..
@@ -404,16 +404,16 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 		assert EprHelpers.verifySortsOfPoints(result, targetSignature.getColNames());
 		return result;
 	}
-	
+
 	@Override
 	@SuppressWarnings("unchecked")
 	public IDawg<LETTER, COLNAMES> translateClauseSigToPredSig(
-			BinaryRelation<COLNAMES, COLNAMES> translation, 
-			List<Object> argList, 
+			BinaryRelation<COLNAMES, COLNAMES> translation,
+			List<Object> argList,
 			DawgSignature<COLNAMES> newSignature) {
-		
+
 		assert argList.size() == newSignature.size();
-		
+
 		Class<? extends Object> colnamesType = newSignature.getColNames().iterator().next().getClass();
 
 		// the signature of a dawg of a decide stack literal does not contain repetitions, right?
@@ -421,7 +421,7 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 
 		Set<List<LETTER>> newBacking = new HashSet<List<LETTER>>();
 		NaiveDawg<LETTER, COLNAMES> otherNd = (NaiveDawg<LETTER, COLNAMES>) this;
-		
+
 		for (List<LETTER> point : otherNd.mBacking) {
 			List<LETTER> newPoint = new ArrayList<LETTER>(newSignature.size());
 			// add placeholders so we can later use List.set(..)
@@ -445,12 +445,12 @@ public class NaiveDawg<LETTER, COLNAMES> extends AbstractDawg<LETTER, COLNAMES> 
 					newPoint.set(i, letter);
 				}
 			}
-			
-			
+
+
 			newBacking.add(newPoint);
 		}
-		
-		NaiveDawg<LETTER, COLNAMES> result = 
+
+		NaiveDawg<LETTER, COLNAMES> result =
 				new NaiveDawg<LETTER, COLNAMES>(newSignature.getColNames(), mAllConstants, newBacking, mLogger);
 		assert EprHelpers.verifySortsOfPoints(result, newSignature.getColNames());
 		return result;

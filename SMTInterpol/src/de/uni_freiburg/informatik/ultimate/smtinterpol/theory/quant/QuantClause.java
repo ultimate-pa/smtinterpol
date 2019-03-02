@@ -69,7 +69,7 @@ public class QuantClause {
 	 * representative in case the value term has a CCTerm
 	 */
 	private LinkedHashMap<SharedTerm, SharedTerm>[] mInterestingTermsForVars;
-	
+
 	/**
 	 * The instantiations used in the current instances of this clause.
 	 */
@@ -80,7 +80,7 @@ public class QuantClause {
 	/**
 	 * Build a new QuantClause. At least one literal must not be ground. This should only be called after performing
 	 * DER.
-	 * 
+	 *
 	 * @param groundLits
 	 *            the ground literals in this clause.
 	 * @param quantLits
@@ -184,7 +184,7 @@ public class QuantClause {
 
 	/**
 	 * Compute the free variables in this clause.
-	 * 
+	 *
 	 * @return an array containing the free variables in this clause.
 	 */
 	private TermVariable[] computeVars() {
@@ -281,7 +281,7 @@ public class QuantClause {
 
 	/**
 	 * Collects the lower and upper bound terms for variables for instantiation.
-	 * 
+	 *
 	 * Synchronizes the sets of variables that are bounds of each other.
 	 */
 	private void collectInitialInterestingTermsAllVars() {
@@ -319,7 +319,7 @@ public class QuantClause {
 	 * <p>
 	 * This method does not consider dependencies between variables. They must be taken care of after computing the sets
 	 * for each single variable.
-	 * 
+	 *
 	 * @param var
 	 *            the TermVariable which we compute the instantiation terms for.
 	 * @param num
@@ -359,10 +359,10 @@ public class QuantClause {
 
 	/**
 	 * Helper method to add interesting instantiation terms without adding equivalent terms more than once.
-	 * 
+	 *
 	 * If there exists a CCTerm, we use the SharedTerm of the representative as key, otherwise, just the SharedTerm
 	 * itself.
-	 * 
+	 *
 	 * @param interestingTerms
 	 *            The interesting instantiationTerms, with the representative as key (if it exists).
 	 * @param newTerms
@@ -410,7 +410,7 @@ public class QuantClause {
 
 		/**
 		 * Add a position where the variable appears as function argument.
-		 * 
+		 *
 		 * @param func
 		 *            the function under which the variable appears as argument.
 		 * @param pos

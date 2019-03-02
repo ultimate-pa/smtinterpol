@@ -41,37 +41,37 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawglett
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.SimpleDawgLetter;
 
 /**
- * 
- * 
+ *
+ *
  * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
  *
  */
 @RunWith(JUnit4.class)
 public class DawgTestDawgLetters {
 
-	
+
 	@Test
 	public void test1() {
 		final DawgFactory<String, String> dawgFactory = new DawgFactory<String, String>(EprTestHelpers.getEprTheory());
 		EprTestHelpers.addConstantsWDefaultSort(dawgFactory, EprTestHelpers.constantsAbc());
 
 		final DawgLetterFactory<String, String> dawgLetterFactory = dawgFactory.getDawgLetterFactory();
-		
-		
+
+
 		final Set<String> letters1 = new HashSet<String>(Arrays.asList(new String[] { }));
-		
+
 		IDawgLetter<String, String> sdl1 = dawgLetterFactory.getSimpleDawgLetter(letters1, EprHelpers.getDummySortId());
-		
+
 		// TODO finish test..
-		
-		
+
+
 //		final DawgFactory<String, String> dawgFactory = new DawgFactory<String, String>(EprTestHelpers.getEprTheory());
 //		EprTestHelpers.addConstantsWDefaultSort(dawgFactory, EprTestHelpers.constantsAbc());
-//		
+//
 //		final SortedSet<String> sig = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 //		sig.add("X");
 //		sig.add("Y");
-//		
+//
 //		final List<String> word_aa = Arrays.asList(new String[] { "a", "a" });
 //		final List<String> word_ab = Arrays.asList(new String[] { "a", "b" });
 //		final List<String> word_ba = Arrays.asList(new String[] { "b", "a" });
@@ -79,12 +79,12 @@ public class DawgTestDawgLetters {
 //
 //		IDawg<String, String> dawg = dawgFactory.createOnePointDawg(sig, word_aa);
 //		dawg = dawg.add(word_bb);
-//		
+//
 //		Dawg<String, String> dawgRes = dawgFactory.closeDawgUnderSymmetryAndTransitivity((Dawg<String, String>) dawg);
-//		
+//
 //		assertTrue(dawg.intersect(dawgRes.complement()).isEmpty());
 //		assertTrue(dawg.complement().intersect(dawgRes).isEmpty());
 	}
-	
+
 
 }

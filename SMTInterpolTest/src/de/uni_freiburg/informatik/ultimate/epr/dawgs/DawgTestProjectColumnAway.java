@@ -42,34 +42,34 @@ public class DawgTestProjectColumnAway {
 	private EprTheory getEprTheory() {
 		return new EprTheoryMock(getLogger());
 	}
-	
+
 	private LogProxy getLogger() {
 		return new DefaultLogger();
 	}
-	
+
 	/**
 	 * Example for RenameAndReorder in duplication mode
 	 *  - moves from left to right
 	 *  - source column is in the middle
 	 *  - target column is at the very end
 	 *  - just one word in the language
-	 * 
+	 *
 	 */
 	@Test
 	public void test1() {
-		DawgFactory<String, String> dawgFactoryStringString = 
+		DawgFactory<String, String> dawgFactoryStringString =
 				new DawgFactory<String, String>(getEprTheory());
-		
+
 
 		EprTestHelpers.addConstantsWDefaultSort(dawgFactoryStringString, EprTestHelpers.constantsAbc());
 //		dawgFactoryStringString.addConstants(getAllConstants());
-		
+
 		SortedSet<String> signaturePre = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signaturePre.addAll(Arrays.asList(new String[] { "u", "v"}));
-		
+
 		SortedSet<String> signaturePost = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signaturePost.addAll(Arrays.asList(new String[] { "u" }));
-	
+
 
 		/*
 		 * word in the original automaton
@@ -87,16 +87,16 @@ public class DawgTestProjectColumnAway {
 //
 //		Dawg<String, String> dawgPost = dawgPre.projectColumnAway(column)
 ////		Dawg<String, String> dawg4 = new ReorderAndRenameDawgBuilder<String, String>(
-////					dawgFactoryStringString, 
-////					(Dawg<String, String>) dawg3, 
-////					"v", 
+////					dawgFactoryStringString,
+////					(Dawg<String, String>) dawg3,
+////					"v",
 ////					"w",
 ////					true)
 ////				.build();
-//		
+//
 //		assertTrue(dawg4.getColNames().equals(signaturePost));
 //		assertTrue(dawg4.accepts(word_abb));
 	}
-	
-	
+
+
 }

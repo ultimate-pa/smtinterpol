@@ -41,26 +41,26 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
 
 /**
  * Builds a dawg from an input dawg according to a rule.
- * 
- * Has three modes 
+ *
+ * Has three modes
  *  - reorderAndRename: renames a column in the dawg and, if its position moves, transforms the Dawg accordingly
  *    to accept the corresponding permutation language
  *  - duplication mode: duplicates a column, i.e. inserts a new column into the dawg that accepts the same letter
  *     as the duplicated column in each word (this class is only needed for this case if we use SimpleDawgLetters)
  *      also this mode is currently broken (in the source column we would need to make all letters singletons..)
- *  - merge mode: the target column (name) of the renaming is already present in the dawg before. 
+ *  - merge mode: the target column (name) of the renaming is already present in the dawg before.
  *     in effect, only words that agreed (i.e. had the same letter) on both columns are accepted (with one of the two agreeing
  *       letters removed).
  *        (we intersect the letters in the target column with those of the source column and eliminate the source column)
- *       TODO: 
- * 
+ *       TODO:
+ *
  * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
  *
  * @param <LETTER>
  * @param <COLNAMES>
  */
 public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
-	
+
 	private final Dawg<LETTER, COLNAMES> mInputDawg;
 	private final DawgFactory<LETTER, COLNAMES> mDawgFactory;
 	private final DawgStateFactory<LETTER, COLNAMES> mDawgStateFactory;
@@ -70,21 +70,21 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 	private final boolean mDuplicationMode;
 	private final boolean mMergeMode;
 
-	
+
 	private Set<DawgState> mResultInitialStates;
 	private HashRelation3<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> mResultTransitionRelation;
 	private SortedSet<COLNAMES> mResultColnames;
 
 	/**
-	 * 
+	 *
 	 * @param dawgFactory
 	 * @param inputDawg
 	 * @param oldColumn
 	 * @param newColumn
 	 * @param duplicationMode special mode of this class which does not move a column but copies it
 	 * @param mergeMode special mode of this class which merges a column with another one
-	 * 
-	 * deprecated because we won't need merge mode in the future 
+	 *
+	 * deprecated because we won't need merge mode in the future
 	 *  --> this constructor's functionality should be moved
 	 */
 	@Deprecated
@@ -107,18 +107,18 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 		mMergeMode = mergeMode;
 		reorderAndRename();
 	}
-	
+
 	/**
 	 * constructor for duplication mode (i.e. copying a column)
-	 * 
+	 *
 	 * @param dawgFactory
 	 * @param dawg
 	 * @param oldColumn
 	 * @param newColumn
 	 * @param duplicationMode
-	 * 
-	 * deprecated because we won't need duplication mode in the future 
-	 * 
+	 *
+	 * deprecated because we won't need duplication mode in the future
+	 *
 	 */
 	@Deprecated
 	public ReorderAndRenameDawgBuilder(DawgFactory<LETTER, COLNAMES> dawgFactory, Dawg<LETTER, COLNAMES> dawg,
@@ -146,12 +146,12 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 		 *   --> nothing to do
 		 */
 		if(mOldColname.equals(mNewColname)) {
-			
+
 			assert false : "does this make sense?/should we catch this outside?";
 //			assert !mDuplicationMode : "does this make sense?";
 //			assert !mMergeMode : "does this make sense?";
-			
-			mResultTransitionRelation = 
+
+			mResultTransitionRelation =
 					new HashRelation3<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState>(
 							mInputDawg.getTransitionRelation());
 			mResultInitialStates = Collections.singleton(mInputDawg.getInitialState());
@@ -163,7 +163,7 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 		final COLNAMES newRightNeighbour = mInputDawg.findRightNeighbourColumn(mNewColname);
 
 		/*
-		 * case 1: the renaming does not move the column 
+		 * case 1: the renaming does not move the column
 		 *  --> we just need to rename the column and are done
 		 */
 		if (!mMergeMode && !mDuplicationMode // in duplication and merge mode we don't need a special case for this
@@ -174,25 +174,25 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 			newColNames.remove(mOldColname);
 			newColNames.add(mNewColname);
 			mResultColnames = newColNames;
-			mResultTransitionRelation = 
+			mResultTransitionRelation =
 					new HashRelation3<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState>(
 							mInputDawg.getTransitionRelation());
 			mResultInitialStates = Collections.singleton(mInputDawg.getInitialState());
 			return;
 		}
-		
+
 		/*
 		 * case 2: the renaming does move the column
 		 *  2a: the column moves left (i.e. towards the initial state)
 		 *  2b: the column moves right (i.e. towards the final state)
-		 *  
+		 *
 		 *  cases 2a and 2b are treated by the same code, parameterized in the direction the column moves
 		 *   our algorithm will "move through the graph" in the same direction as the column
 		 */
-		assert oldRightNeighbour == null || newRightNeighbour == null 
+		assert oldRightNeighbour == null || newRightNeighbour == null
 				|| EprHelpers.getColumnNamesComparator().compare(oldRightNeighbour, newRightNeighbour) != 0 :
 			"something wrong with the comparator -- not compatible with equals!";
-		
+
 		assert mDuplicationMode || oldRightNeighbour != null || newRightNeighbour != null : "should be ensured by above code";
 
 		final boolean movesToTheRight;
@@ -205,7 +205,7 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 		} else {
 			movesToTheRight = EprHelpers.getColumnNamesComparator().compare(oldRightNeighbour, newRightNeighbour) < 0;
 		}
-		
+
 		final COLNAMES newPostNeighbour;
 		if (movesToTheRight) {
 			if (mMergeMode) {
@@ -222,10 +222,10 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 				newPostNeighbour = mInputDawg.findLeftNeighbourColumn(mNewColname);
 			}
 		}
-		
-		final HashRelation3<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> newTransitionRelation = 
+
+		final HashRelation3<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> newTransitionRelation =
 				new HashRelation3<DawgState, IDawgLetter<LETTER,COLNAMES>, DawgState>();
-	
+
 		final Iterator<COLNAMES> oldColIterator;
 		if (movesToTheRight) {
 			oldColIterator = mInputDawg.getColNames().iterator();
@@ -238,10 +238,10 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 		 *  build the new transition relation as a copy of the old transition relation until we hit
 		 *  the states just before the oldColumn, don't add the edges to these states
 		 */
-		final Set<DawgState> statesBeforeOldColumnPreStates = reconstructUntilOldColumn(movesToTheRight, 
+		final Set<DawgState> statesBeforeOldColumnPreStates = reconstructUntilOldColumn(movesToTheRight,
 				newTransitionRelation, oldColIterator);
-		
-	
+
+
 		/*
 		 * Step 2:
 		 *  algorithmic plan:
@@ -249,7 +249,7 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 		 *    for each letter l that can be taken in oldColumn and each state s that can be reached from an edge with that letter:
 		 *      create a state saying "we're at state s and will read letter l in newColumn"
 		 */
-	
+
 		/*
 		 * step 2a:
 		 * create the first column of RenameAndReorderDawgStates
@@ -262,16 +262,16 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 			firstRnRStates = createFirstRnRStates(newPostNeighbour,
 					movesToTheRight, newTransitionRelation, statesBeforeOldColumnPreStates);
 		}
-	
+
 		/*
 		 * Step 2b
 		 *  add transitions for the columns between oldColumn and newColumn based on the old transition relation
 		 *  and the rnrStates
-		 *  
+		 *
 		 *  also constructs the transition back to normal non-rnr-states by splitting at the target column and inserting
 		 *  the letters from the RnR-states
 		 */
-		final Set<DawgState> splitPostStates = constructRnrPart(newPostNeighbour, movesToTheRight, newTransitionRelation, 
+		final Set<DawgState> splitPostStates = constructRnrPart(newPostNeighbour, movesToTheRight, newTransitionRelation,
 				oldColIterator, firstRnRStates);
 
 		/*
@@ -284,16 +284,16 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 			Set<DawgState> lastStates = null;
 			while(!currentStates.isEmpty()) {
 				final Set<DawgState> newCurrentStates = new HashSet<DawgState>();
-				
+
 				for (DawgState state : currentStates) {
 					if (movesToTheRight) {
-						for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outgoingEdge : 
+						for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outgoingEdge :
 							mInputDawg.getTransitionRelation().getOutEdgeSet(state)) {
 							newTransitionRelation.addTriple(state, outgoingEdge.getFirst(), outgoingEdge.getSecond());
 							newCurrentStates.add(outgoingEdge.getSecond());
 						}
 					} else {
-						for (Pair<DawgState, IDawgLetter<LETTER, COLNAMES>> incomingEdge : 
+						for (Pair<DawgState, IDawgLetter<LETTER, COLNAMES>> incomingEdge :
 							mInputDawg.getTransitionRelation().getInverse(state)) {
 							newTransitionRelation.addTriple(incomingEdge.getFirst(), incomingEdge.getSecond(), state);
 							newCurrentStates.add(incomingEdge.getFirst());
@@ -307,7 +307,7 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 				mResultInitialStates = Collections.unmodifiableSet(lastStates);
 			}
 		}
-		
+
 		/*
 		 * step 4: compute new signature
 		 */
@@ -317,21 +317,21 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 			newColNames.remove(mOldColname);
 		}
 		newColNames.add(mNewColname);
-		
-		
+
+
 		mResultColnames = newColNames;
 		mResultTransitionRelation = newTransitionRelation;
 	}
 
 
 
-	private Set<DawgState> constructRnrPart(final COLNAMES newPostNeighbour, 
+	private Set<DawgState> constructRnrPart(final COLNAMES newPostNeighbour,
 			final boolean movesToTheRight,
 			final HashRelation3<DawgState,IDawgLetter<LETTER,COLNAMES>,DawgState> newTransitionRelation,
 			final Iterator<COLNAMES> oldColIterator,
 			final Set<RenameAndReorderDawgState<LETTER, COLNAMES>> firstRnRStates) {
-			
-		Set<RenameAndReorderDawgState<LETTER, COLNAMES>> currentRnRStates = 
+
+		Set<RenameAndReorderDawgState<LETTER, COLNAMES>> currentRnRStates =
 				firstRnRStates;
 		while (true) {
 			if (!oldColIterator.hasNext()) {
@@ -349,7 +349,7 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 			COLNAMES currentColNameInOldSignature = oldColIterator.next();
 
 			// merge mode stops one column earlier -- that has to be detected here
-			if ((mMergeMode && !oldColIterator.hasNext()) 
+			if ((mMergeMode && !oldColIterator.hasNext())
 					|| currentColNameInOldSignature.equals(newPostNeighbour)) {
 				if (mMergeMode) {
 					return mergeColumn(movesToTheRight, newTransitionRelation, currentRnRStates);
@@ -358,23 +358,23 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 				}
 			}
 
-			final Set<RenameAndReorderDawgState<LETTER, COLNAMES>> newCurrentRnRStates = 
+			final Set<RenameAndReorderDawgState<LETTER, COLNAMES>> newCurrentRnRStates =
 					new HashSet<RenameAndReorderDawgState<LETTER,COLNAMES>>();
 
 			for (RenameAndReorderDawgState<LETTER, COLNAMES> rnrState : currentRnRStates) {
 				if (movesToTheRight) {
-					for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdgeOfInnerState : 
+					for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdgeOfInnerState :
 						mInputDawg.getTransitionRelation().getOutEdgeSet(rnrState.getInnerState())) {
-						final RenameAndReorderDawgState<LETTER, COLNAMES> newTargetState = 
+						final RenameAndReorderDawgState<LETTER, COLNAMES> newTargetState =
 								mDawgStateFactory.getReorderAndRenameDawgState(
 										rnrState.getLetter(), rnrState.getColumn(), outEdgeOfInnerState.getSecond());
 						newCurrentRnRStates.add(newTargetState);
 						newTransitionRelation.addTriple(rnrState, outEdgeOfInnerState.getFirst(), newTargetState);
 					}
 				} else {
-					for (Pair<DawgState, IDawgLetter<LETTER, COLNAMES>> inEdgeOfInnerState : 
+					for (Pair<DawgState, IDawgLetter<LETTER, COLNAMES>> inEdgeOfInnerState :
 						mInputDawg.getTransitionRelation().getInverse(rnrState.getInnerState())) {
-						final RenameAndReorderDawgState<LETTER, COLNAMES> newSourceState = 
+						final RenameAndReorderDawgState<LETTER, COLNAMES> newSourceState =
 								mDawgStateFactory.getReorderAndRenameDawgState(
 										rnrState.getLetter(), rnrState.getColumn(), inEdgeOfInnerState.getFirst());
 						newCurrentRnRStates.add(newSourceState);
@@ -394,32 +394,32 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 		 * the given rnrStates are those just before the column that should be merged into
 		 *  plan:
 		 *   from each rnrState s
-		 *    take the inner state of s and pick its outgoing transition that matches the letter of s (if existent), and 
+		 *    take the inner state of s and pick its outgoing transition that matches the letter of s (if existent), and
 		 *     add the corresponding edge from s to the targetState, add the targetState to the mergePostStates
 		 */
 		for (RenameAndReorderDawgState<LETTER, COLNAMES> rnrState : currentRnRStates) {
-			
+
 			DawgState innerState = rnrState.getInnerState();
-			
+
 			if (movesToTheRight) {
-				for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> innerStateOutEdge : 
+				for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> innerStateOutEdge :
 					mInputDawg.getTransitionRelation().getOutEdgeSet(innerState)) {
 					if (innerStateOutEdge.getFirst().intersect(rnrState.getLetter()) instanceof EmptyDawgLetter) {
 						continue;
 					}
-					
+
 					final DawgState targetState = innerStateOutEdge.getSecond();
 					newTransitionRelation.addTriple(rnrState, rnrState.getLetter(), targetState);
 					mergePostStates.add(targetState);
 				}
 			} else {
-				for (Pair<DawgState, IDawgLetter<LETTER, COLNAMES>> innerStateInEdge : 
+				for (Pair<DawgState, IDawgLetter<LETTER, COLNAMES>> innerStateInEdge :
 					mInputDawg.getTransitionRelation().getInverse(innerState)) {
 
 					if (innerStateInEdge.getSecond().intersect(rnrState.getLetter()) instanceof EmptyDawgLetter) {
 						continue;
 					}
-					
+
 					final DawgState sourceState = innerStateInEdge.getFirst();
 					newTransitionRelation.addTriple(sourceState, rnrState.getLetter(), rnrState);
 					mergePostStates.add(sourceState);
@@ -433,7 +433,7 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 			final HashRelation3<DawgState,IDawgLetter<LETTER,COLNAMES>,DawgState> newTransitionRelation,
 			final Set<RenameAndReorderDawgState<LETTER, COLNAMES>> currentRnRStates) {
 		final Set<DawgState> splitPostStates = new HashSet<DawgState>();
-		
+
 		/*
 		 * split the states in this column and insert the letter of the corresponding
 		 * rnrState
@@ -452,8 +452,8 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 
 	/**
 	 * create the first column of RenameAndReorderDawgStates
-	 * 
-	 * Note that this method does not call the oldColIterator.next() (which rests on the 
+	 *
+	 * Note that this method does not call the oldColIterator.next() (which rests on the
 	 *  column after the moved column at this point).
 	 */
 	private Set<RenameAndReorderDawgState<LETTER, COLNAMES>> createFirstRnRStates(final COLNAMES newRightNeighbour,
@@ -461,7 +461,7 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 			final HashRelation3<DawgState,IDawgLetter<LETTER,COLNAMES>,DawgState> newTransitionRelation,
 			final Set<DawgState> statesBeforeOldColumnPreStates) {
 
-		final Set<RenameAndReorderDawgState<LETTER,COLNAMES>> firstRnRStates = 
+		final Set<RenameAndReorderDawgState<LETTER,COLNAMES>> firstRnRStates =
 				new HashSet<RenameAndReorderDawgState<LETTER,COLNAMES>>();
 		if (statesBeforeOldColumnPreStates == null) {
 			/*
@@ -470,24 +470,24 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 			 */
 			mResultInitialStates = new HashSet<DawgState>();
 			if (movesToTheRight) {
-				for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> edgeFromInitialToNextState : 
+				for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> edgeFromInitialToNextState :
 					mInputDawg.getTransitionRelation().getOutEdgeSet(mInputDawg.getInitialState())) {
-					final RenameAndReorderDawgState<LETTER, COLNAMES> rnrState = 
+					final RenameAndReorderDawgState<LETTER, COLNAMES> rnrState =
 							mDawgStateFactory.getReorderAndRenameDawgState(
-											edgeFromInitialToNextState.getFirst(), 
-											newRightNeighbour, 
+											edgeFromInitialToNextState.getFirst(),
+											newRightNeighbour,
 											edgeFromInitialToNextState.getSecond());
 					firstRnRStates.add(rnrState);
 					mResultInitialStates.add(rnrState);
 				}
 			} else {
 				for (DawgState finalState : mInputDawg.getFinalStates()) {
-					for (Pair<DawgState, IDawgLetter<LETTER, COLNAMES>> edgeFromFinalToBeforeState : 
+					for (Pair<DawgState, IDawgLetter<LETTER, COLNAMES>> edgeFromFinalToBeforeState :
 						mInputDawg.getTransitionRelation().getInverse(finalState)) {
-						final RenameAndReorderDawgState<LETTER, COLNAMES> rnrState = 
+						final RenameAndReorderDawgState<LETTER, COLNAMES> rnrState =
 								mDawgStateFactory.getReorderAndRenameDawgState(
-										edgeFromFinalToBeforeState.getSecond(), 
-										newRightNeighbour, 
+										edgeFromFinalToBeforeState.getSecond(),
+										newRightNeighbour,
 										edgeFromFinalToBeforeState.getFirst());
 						firstRnRStates.add(rnrState);
 					}
@@ -496,12 +496,12 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 		} else {
 			if (movesToTheRight) {
 				for (DawgState prePreState : statesBeforeOldColumnPreStates) {
-					for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> edgeFromPrePreStateToPreState : 
+					for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> edgeFromPrePreStateToPreState :
 						mInputDawg.getTransitionRelation().getOutEdgeSet(prePreState)) {
 
 						final DawgState stateLeft = edgeFromPrePreStateToPreState.getSecond();
 
-						for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> edgeInOldColumn : 
+						for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> edgeInOldColumn :
 							mInputDawg.getTransitionRelation().getOutEdgeSet(stateLeft)) {
 
 							final RenameAndReorderDawgState<LETTER, COLNAMES> newEdgeTarget =
@@ -516,12 +516,12 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 				}
 			} else {
 				for (DawgState prePreState : statesBeforeOldColumnPreStates) {
-					for (Pair<DawgState, IDawgLetter<LETTER, COLNAMES>> edgeFromPrePreStateToPreState : 
+					for (Pair<DawgState, IDawgLetter<LETTER, COLNAMES>> edgeFromPrePreStateToPreState :
 						mInputDawg.getTransitionRelation().getInverse(prePreState)) {
 
 						final DawgState stateRight = edgeFromPrePreStateToPreState.getFirst();
 
-						for (Pair<DawgState, IDawgLetter<LETTER, COLNAMES>> edgeInOldColumn : 
+						for (Pair<DawgState, IDawgLetter<LETTER, COLNAMES>> edgeInOldColumn :
 							mInputDawg.getTransitionRelation().getInverse(stateRight)) {
 
 							final RenameAndReorderDawgState<LETTER, COLNAMES> newEdgeSource =
@@ -541,11 +541,11 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 
 
 	private Set<RenameAndReorderDawgState<LETTER, COLNAMES>> createFirstRnRStatesInDuplicationMode(
-		final COLNAMES newRightNeighbour, 
+		final COLNAMES newRightNeighbour,
 		final boolean movesToTheRight,
 		final HashRelation3<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> newTransitionRelation,
 		final Set<DawgState> statesBeforeOldColumnPreStates) {
-		
+
 		final Set<DawgState> sanitizedStatesBeforeOldColumnPreStates;
 		final COLNAMES sanitizedNewRightNeighbour;
 		if (statesBeforeOldColumnPreStates == null) {
@@ -559,7 +559,7 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 			sanitizedStatesBeforeOldColumnPreStates = statesBeforeOldColumnPreStates;
 			sanitizedNewRightNeighbour = newRightNeighbour;
 		}
-		
+
 		/*
 		 *  reconstruct one more column
 		 *   --> but only if we are not starting in the first/last column
@@ -571,7 +571,7 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 			statesBeforeDuplicatedColumn = new HashSet<DawgState>();
 			if (movesToTheRight) {
 				for (DawgState preState : sanitizedStatesBeforeOldColumnPreStates) {
-					for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge : 
+					for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge :
 						mInputDawg.getTransitionRelation().getOutEdgeSet(preState)) {
 						newTransitionRelation.addTriple(preState, outEdge.getFirst(), outEdge.getSecond());
 						statesBeforeDuplicatedColumn.add(outEdge.getSecond());
@@ -579,28 +579,28 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 				}
 			} else {
 				for (DawgState preState : sanitizedStatesBeforeOldColumnPreStates) {
-					for (Pair<DawgState, IDawgLetter<LETTER, COLNAMES>> inEdge : 
+					for (Pair<DawgState, IDawgLetter<LETTER, COLNAMES>> inEdge :
 						mInputDawg.getTransitionRelation().getInverse(preState)) {
 						newTransitionRelation.addTriple(inEdge.getFirst(), inEdge.getSecond(), preState);
 						statesBeforeDuplicatedColumn.add(preState);
 					}
-				}		
+				}
 			}
 		} else {
 			statesBeforeDuplicatedColumn = sanitizedStatesBeforeOldColumnPreStates;
 		}
-		
+
 		/*
-		 * leave the edges in the duplicated column as they are but replace the states with 
+		 * leave the edges in the duplicated column as they are but replace the states with
 		 * the appropriate "RenameAndReorderStates"
 		 */
-		final Set<RenameAndReorderDawgState<LETTER, COLNAMES>> firstRnrStates = 
+		final Set<RenameAndReorderDawgState<LETTER, COLNAMES>> firstRnrStates =
 				new HashSet<RenameAndReorderDawgState<LETTER,COLNAMES>>();
 		if (movesToTheRight) {
 			for (DawgState preState : statesBeforeDuplicatedColumn) {
-				for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge : 
+				for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge :
 						mInputDawg.getTransitionRelation().getOutEdgeSet(preState)) {
-					
+
 					RenameAndReorderDawgState<LETTER, COLNAMES> rnrState = mDawgStateFactory.getReorderAndRenameDawgState(
 							outEdge.getFirst(), sanitizedNewRightNeighbour, outEdge.getSecond());
 					newTransitionRelation.addTriple(preState, outEdge.getFirst(), rnrState);
@@ -609,7 +609,7 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 			}
 		} else {
 			for (DawgState preState : statesBeforeDuplicatedColumn) {
-				for (Pair<DawgState, IDawgLetter<LETTER, COLNAMES>> inEdge : 
+				for (Pair<DawgState, IDawgLetter<LETTER, COLNAMES>> inEdge :
 						mInputDawg.getTransitionRelation().getInverse(preState)) {
 
 					RenameAndReorderDawgState<LETTER, COLNAMES> rnrState = mDawgStateFactory.getReorderAndRenameDawgState(
@@ -627,7 +627,7 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 	 *  the states just before the oldColumn, returns the last column of states before the old column
 	 */
 	private Set<DawgState> reconstructUntilOldColumn(boolean movesToTheRight,
-			HashRelation3<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> newTransitionRelation, 
+			HashRelation3<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> newTransitionRelation,
 			Iterator<COLNAMES> oldColIterator) {
 		/**
 		 * the states one column before the states directly left of oldColumn
@@ -641,7 +641,7 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 			if (nextColName0.equals(mOldColname)) {
 				// when oldColum is the first column, this is a special case
 				// we mark this by setting statesBeforeOldColumnLeftStates to null
-				
+
 				statesBeforeOldColumnPreStates = null;
 			} else {
 				mResultInitialStates = Collections.singleton(mInputDawg.getInitialState());
@@ -654,7 +654,7 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 
 				while (true) {
 
-					// nextColName is updated before currentStates 
+					// nextColName is updated before currentStates
 					//  --> it points to the column after the one we are adding edges for
 					final COLNAMES nextColName = oldColIterator.next();
 					hitStatesBeforeOldColumn = nextColName.equals(mOldColname);
@@ -673,13 +673,13 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 							/*
 							 * obtain outgoing edges from currentState
 							 */
-							final Set<Pair<IDawgLetter<LETTER, COLNAMES>, DawgState>> edgeSet = 
+							final Set<Pair<IDawgLetter<LETTER, COLNAMES>, DawgState>> edgeSet =
 								new HashSet<Pair<IDawgLetter<LETTER,COLNAMES>,DawgState>>();
-							for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> en : 
+							for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> en :
 								mInputDawg.getTransitionRelation().getOutEdgeSet(currentState)) {
 								edgeSet.add(new Pair<IDawgLetter<LETTER,COLNAMES>, DawgState>(en.getFirst(), en.getSecond()));
 							}
-							
+
 							/*
 							 * update new transition relation and currentStates
 							 */
@@ -691,9 +691,9 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 							/*
 							 * obtain incoming edges to currentState
 							 */
-							final Set<Pair<IDawgLetter<LETTER, COLNAMES>, DawgState>> edgeSet = 
+							final Set<Pair<IDawgLetter<LETTER, COLNAMES>, DawgState>> edgeSet =
 								new HashSet<Pair<IDawgLetter<LETTER,COLNAMES>,DawgState>>();
-							for (Pair<DawgState, IDawgLetter<LETTER, COLNAMES>> p : 
+							for (Pair<DawgState, IDawgLetter<LETTER, COLNAMES>> p :
 								mInputDawg.getTransitionRelation().getInverse(currentState)) {
 								edgeSet.add(
 										new Pair<IDawgLetter<LETTER,COLNAMES>, DawgState>(p.getSecond(), p.getFirst()));
@@ -719,14 +719,14 @@ public class ReorderAndRenameDawgBuilder<LETTER, COLNAMES> {
 		assert mResultColnames != null;
 		assert mResultTransitionRelation != null;
 		assert mResultInitialStates != null;
-		
+
 		// determinize will flatten anyway --> no flattening needed here, perhaps..
-//		DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> flattenedTransitionRelation 
+//		DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> flattenedTransitionRelation
 //			= EprHelpers.flattenDawgStates(mResultTransitionRelation);
 //		DawgState flattenedResultInitialState = mResultInitialState.getFlatReplacement();
-		
-		return new DeterminizeDawg<LETTER, COLNAMES>(mResultColnames, 
-				mInputDawg.getLogger(), 
+
+		return new DeterminizeDawg<LETTER, COLNAMES>(mResultColnames,
+				mInputDawg.getLogger(),
 				mResultTransitionRelation,
 				mResultInitialStates,
 				mDawgFactory).build();

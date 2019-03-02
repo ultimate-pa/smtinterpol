@@ -33,26 +33,26 @@ public abstract class AbstractOneTermCmd extends TermCmd {
 	protected Term mTerm;
 	private Term mOldTerm;
 	protected List<Cmd> mPreCmds;
-	
+
 	protected AbstractOneTermCmd(Term term) {
 		mTerm = term;
 		addTerm(term);
 	}
-	
+
 	public Term getTerm(boolean unlet) {
 		return unlet ? new FormulaUnLet().unlet(mTerm) : mTerm;
 	}
-	
+
 	public void setTerm(Term newTerm, boolean relet) {
 		assert (newTerm != mTerm) : "No change in the term";
 		mOldTerm = mTerm;
 		mTerm = new FormulaLet().let(newTerm);
 	}
-	
+
 	public void success() {
 		mOldTerm = null;
 	}
-	
+
 	public void failure() {
 		mTerm = mOldTerm;
 	}
@@ -67,7 +67,7 @@ public abstract class AbstractOneTermCmd extends TermCmd {
 			mPreCmds.addAll(pres);
 		}
 	}
-	
+
 	public void removePreCmds(List<Cmd> pres) {
 		if (pres == null || pres.isEmpty()) {
 			return;

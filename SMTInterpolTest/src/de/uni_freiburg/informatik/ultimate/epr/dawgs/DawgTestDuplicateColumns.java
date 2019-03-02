@@ -38,38 +38,38 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgbuilders.ReorderAndRenameDawgBuilder;
 
 public class DawgTestDuplicateColumns {
-	
+
 	private EprTheory getEprTheory() {
 		return new EprTheoryMock(getLogger());
 	}
-	
+
 	private LogProxy getLogger() {
 		return new DefaultLogger();
 	}
-	
+
 	/**
 	 * Example for RenameAndReorder in duplication mode
 	 *  - moves from left to right
 	 *  - source column is in the middle
 	 *  - target column is at the very end
 	 *  - just one word in the language
-	 * 
+	 *
 	 */
 	@Test
 	public void test8() {
-		DawgFactory<String, String> dawgFactoryStringString = 
+		DawgFactory<String, String> dawgFactoryStringString =
 				new DawgFactory<String, String>(getEprTheory());
-		
+
 
 		EprTestHelpers.addConstantsWDefaultSort(dawgFactoryStringString, EprTestHelpers.constantsAbc());
 //		dawgFactoryStringString.addConstants(getAllConstants());
-		
+
 		SortedSet<String> signaturePre = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signaturePre.addAll(Arrays.asList(new String[] { "u", "v"}));
-		
+
 		SortedSet<String> signaturePost = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signaturePost.addAll(Arrays.asList(new String[] { "u", "v", "w"}));
-	
+
 
 		/*
 		 * word in the original automaton
@@ -86,37 +86,37 @@ public class DawgTestDuplicateColumns {
 		dawg3 = dawg3.add(word_ab);
 
 		Dawg<String, String> dawg4 = new ReorderAndRenameDawgBuilder<String, String>(
-					dawgFactoryStringString, 
-					(Dawg<String, String>) dawg3, 
-					"v", 
+					dawgFactoryStringString,
+					(Dawg<String, String>) dawg3,
+					"v",
 					"w",
 					true)
 				.build();
-		
+
 		assertTrue(dawg4.getColNames().equals(signaturePost));
 		assertTrue(dawg4.accepts(word_abb));
 	}
-	
-	
+
+
 	/**
 	 * Example for RenameAndReorder in duplication mode
 	 *  - moves from right to left
 	 *  - source column is at the very end
 	 *  - target column is in the middle
 	 *  - just one word in the language
-	 * 
+	 *
 	 */
 	@Test
 	public void test9() {
-		DawgFactory<String, String> dawgFactoryStringString = 
+		DawgFactory<String, String> dawgFactoryStringString =
 				new DawgFactory<String, String>(getEprTheory());
 
 		EprTestHelpers.addConstantsWDefaultSort(dawgFactoryStringString, EprTestHelpers.constantsAbc());
 //		dawgFactoryStringString.addConstants(getAllConstants());
-		
+
 		SortedSet<String> signaturePre = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signaturePre.addAll(Arrays.asList(new String[] { "u", "w"}));
-		
+
 		SortedSet<String> signaturePost = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signaturePost.addAll(Arrays.asList(new String[] { "u", "v", "w"}));
 
@@ -135,37 +135,37 @@ public class DawgTestDuplicateColumns {
 		dawg3 = dawg3.add(word_ab);
 
 		Dawg<String, String> dawg4 = new ReorderAndRenameDawgBuilder<String, String>(
-					dawgFactoryStringString, 
-					(Dawg<String, String>) dawg3, 
-					"w", 
+					dawgFactoryStringString,
+					(Dawg<String, String>) dawg3,
+					"w",
 					"v",
 					true)
 				.build();
-		
+
 		assertTrue(dawg4.getColNames().equals(signaturePost));
 		assertTrue(dawg4.accepts(word_abb));
 	}
-	
-	
+
+
 		/**
 	 * Example for RenameAndReorder in duplication mode
 	 *  - moves from left to right
 	 *  - source column is in the middle
 	 *  - target column is at the very end
 	 *  - more than one word in the language
-	 * 
+	 *
 	 */
 	@Test
 	public void test10() {
-		DawgFactory<String, String> dawgFactoryStringString = 
+		DawgFactory<String, String> dawgFactoryStringString =
 				new DawgFactory<String, String>(getEprTheory());
-		
+
 		SortedSet<String> signaturePre = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signaturePre.addAll(Arrays.asList(new String[] { "u", "v"}));
-		
+
 		SortedSet<String> signaturePost = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signaturePost.addAll(Arrays.asList(new String[] { "u", "v", "w"}));
-	
+
 
 		/*
 		 * word in the original automaton
@@ -188,31 +188,31 @@ public class DawgTestDuplicateColumns {
 		dawg3 = dawg3.add(word_bb);
 
 		Dawg<String, String> dawg4 = new ReorderAndRenameDawgBuilder<String, String>(
-					dawgFactoryStringString, 
-					(Dawg<String, String>) dawg3, 
-					"v", 
+					dawgFactoryStringString,
+					(Dawg<String, String>) dawg3,
+					"v",
 					"w",
 					true)
 				.build();
-		
+
 		assertTrue(dawg4.getColNames().equals(signaturePost));
 		assertTrue(dawg4.accepts(word_abb));
 		assertTrue(dawg4.accepts(word_baa));
 		assertTrue(dawg4.accepts(word_bbb));
 	}
-	
-	
+
+
 	/**
 	 * Example for RenameAndReorder in duplication mode
 	 *  - moves from right to left
 	 *  - source column is at the very end
 	 *  - target column is in the middle
 	 *  - more than one word in the language
-	 * 
+	 *
 	 */
 	@Test
 	public void test11() {
-		DawgFactory<String, String> dawgFactoryStringString = 
+		DawgFactory<String, String> dawgFactoryStringString =
 				new DawgFactory<String, String>(getEprTheory());
 
 		EprTestHelpers.addConstantsWDefaultSort(dawgFactoryStringString, EprTestHelpers.constantsAbc());
@@ -220,7 +220,7 @@ public class DawgTestDuplicateColumns {
 
 		SortedSet<String> signaturePre = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signaturePre.addAll(Arrays.asList(new String[] { "u", "w"}));
-		
+
 		SortedSet<String> signaturePost = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signaturePost.addAll(Arrays.asList(new String[] { "u", "v", "w"}));
 
@@ -245,37 +245,37 @@ public class DawgTestDuplicateColumns {
 		dawg3 = dawg3.add(word_bb);
 
 		Dawg<String, String> dawg4 = new ReorderAndRenameDawgBuilder<String, String>(
-					dawgFactoryStringString, 
-					(Dawg<String, String>) dawg3, 
-					"w", 
+					dawgFactoryStringString,
+					(Dawg<String, String>) dawg3,
+					"w",
 					"v",
 					true)
 				.build();
-		
+
 		assertTrue(dawg4.getColNames().equals(signaturePost));
 		assertTrue(dawg4.accepts(word_abb));
 		assertTrue(dawg4.accepts(word_baa));
 		assertTrue(dawg4.accepts(word_bbb));
 
 	}
-	
-	
+
+
 	/**
 	 * Example for RenameAndReorder in duplication mode
-	 *  aimed to check that edges with set-DawgLetters are split up correctly 
+	 *  aimed to check that edges with set-DawgLetters are split up correctly
 	 *   (e.g. an edge that could be taken with {a,b} that is duplicated does not lead to (a b) being accepted)
-	 * 
+	 *
 	 */
 	@Test
 	public void test12() {
-		DawgFactory<String, String> dawgFactoryStringString = 
+		DawgFactory<String, String> dawgFactoryStringString =
 				new DawgFactory<String, String>(getEprTheory());
 
 		EprTestHelpers.addConstantsWDefaultSort(dawgFactoryStringString, EprTestHelpers.constantsAbc());
 
 		SortedSet<String> signaturePre = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signaturePre.addAll(Arrays.asList(new String[] { "u",}));
-		
+
 		SortedSet<String> signaturePost = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signaturePost.addAll(Arrays.asList(new String[] { "u", "v"}));
 
@@ -300,20 +300,20 @@ public class DawgTestDuplicateColumns {
 
 
 		IDawg<String, String> dawgPre = dawgFactoryStringString.getUniversalDawg(signaturePre);
-		
+
 		assertTrue(dawgPre.accepts(word_a));
 		assertTrue(dawgPre.accepts(word_b));
 		assertTrue(dawgPre.accepts(word_c));
-		
+
 
 		Dawg<String, String> dawgPost = new ReorderAndRenameDawgBuilder<String, String>(
-					dawgFactoryStringString, 
-					(Dawg<String, String>) dawgPre, 
-					"u", 
+					dawgFactoryStringString,
+					(Dawg<String, String>) dawgPre,
+					"u",
 					"v",
 					true)
 				.build();
-		
+
 		assertTrue(dawgPost.getColNames().equals(signaturePost));
 		assertTrue(dawgPost.accepts(word_aa));
 		assertTrue(dawgPost.accepts(word_bb));

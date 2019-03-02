@@ -27,19 +27,19 @@ import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
 
 /**
- * 
+ *
  * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
  *
  */
 public class EqualityManager {
-	
+
 	HashMap<ApplicationTerm, HashSet<ApplicationTerm>> eqGraph = new HashMap<ApplicationTerm, HashSet<ApplicationTerm>>();
 	HashMap<ApplicationTerm, HashMap<ApplicationTerm, CCEquality>> termPairToEquality = new HashMap<ApplicationTerm, HashMap<ApplicationTerm, CCEquality>>();
-	
+
 
 	public void addEquality(ApplicationTerm a, ApplicationTerm b, CCEquality e) {
 		updateTermPairToEquality(a, b, e);
-		
+
 		HashSet<ApplicationTerm> aTargets = eqGraph.get(a);
 		if (aTargets == null) {
 			aTargets = new HashSet<ApplicationTerm>();
@@ -70,7 +70,7 @@ public class EqualityManager {
 		}
 		termToEquality.put(a, e);
 	}
-	
+
 //	public CCEquality getCCEquality(ApplicationTerm a, ApplicationTerm b) {
 //		return termPairToEquality.get(a).get(b);
 //	}
@@ -79,8 +79,8 @@ public class EqualityManager {
 		eqGraph.get(a).remove(b);
 		eqGraph.get(b).remove(a);
 	}
-	
-	public ArrayList<CCEquality> isEqualRec(ApplicationTerm a, ApplicationTerm b, 
+
+	public ArrayList<CCEquality> isEqualRec(ApplicationTerm a, ApplicationTerm b,
 			ArrayList<CCEquality> pathSoFar, HashSet<ApplicationTerm> visited) {
 		if (a.equals(b))
 			return pathSoFar;
@@ -100,7 +100,7 @@ public class EqualityManager {
 	}
 
 	/**
-	 * 
+	 *
 	 * @param a
 	 * @param b
 	 * @return null if a and b are not equal in the current state, a list of CCEqualities which are set and by transitivity witness a=b otherwise
@@ -109,19 +109,19 @@ public class EqualityManager {
 //		ArrayDeque<ApplicationTerm> queue = new ArrayDeque<>();
 		HashSet<ApplicationTerm> visited = new HashSet<ApplicationTerm>();
 		ArrayList<CCEquality> path = new ArrayList<CCEquality>();
-		
+
 		return isEqualRec(a, b, path, visited);
-		
+
 //		queue.addLast(a);
-//		
+//
 //		while (!queue.isEmpty()) {
 //			ApplicationTerm current = queue.pollFirst();
-//			
-//			if (current.equals(b)) 
+//
+//			if (current.equals(b))
 //				return result;
-//			
+//
 //			visited.add(current);
-//			
+//
 //			for (ApplicationTerm n : eqGraph.get(current)) {
 //				if (!visited.contains(n))
 //					queue.add(n);

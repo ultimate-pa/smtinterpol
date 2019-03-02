@@ -50,13 +50,13 @@ public class Log4jProxy implements LogProxy {
 			return String.format(mFormat, mArgs);
 		}
 	}
-	
+
 	private final Logger mLogger;
-	
+
 	public Log4jProxy(Logger logger) {
 		mLogger = logger;
 	}
-	
+
 	@Override
 	public void setLoglevel(int level) {
 		switch(level) {

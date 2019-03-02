@@ -25,12 +25,12 @@ import de.uni_freiburg.informatik.ultimate.util.datastructures.UnifyHash;
 
 /**
  * A sort symbol is the name of an SMTLIB sort.  In SMTLIB, sorts can be
- * parametric over other sorts, e.g., the array sort 
+ * parametric over other sorts, e.g., the array sort
  * <code>Array IndexSort ElemSort</code> is parametric over the index and
  * element sort.  The sort symbol represents only the name, i.e., Array and
  * stores the number of sort parameters.  Then several objects of type Sort
- * can be instantiated with different sort parameters.   
- * 
+ * can be instantiated with different sort parameters.
+ *
  * @author Jochen Hoenicke
  */
 public class SortSymbol {
@@ -43,7 +43,7 @@ public class SortSymbol {
 	/**
 	 * Flag to indicate that this sort is really a sort variable.  Sort
 	 * variables are only used in sort definitions.  Outside of these every
-	 * sort should not contain any sort variable. 
+	 * sort should not contain any sort variable.
 	 */
 	static final int TYPEPARAM = 2;
 	/**
@@ -59,7 +59,7 @@ public class SortSymbol {
 	 * Flag to indicate array types.
 	 */
 	static final int ARRAY     = 0x10;
-	
+
 	final Theory mTheory;
 	final String mName;
 	/**
@@ -69,7 +69,7 @@ public class SortSymbol {
 	 */
 	final int mNumParams;
 	/**
-	 * The flags.  This is the bitwise or of INTERNAL, TYPEPARAM and 
+	 * The flags.  This is the bitwise or of INTERNAL, TYPEPARAM and
 	 * INDEXED.
 	 */
 	final int mFlags;
@@ -80,24 +80,24 @@ public class SortSymbol {
 	 * created sorts.
 	 */
 	final Object mSorts;
-	
-	/** 
+
+	/**
 	 * The primitive sort if this is a sort definition.
 	 */
 	final Sort mSortDefinition;
-	
+
 	/**
 	 * The constructor for sort symbols.
 	 * @param theory  The theory this sort belongs to.
 	 * @param name    The name of the sort (without enclosing | for quoting).
 	 * @param numParams The number of sort parameters this sort expects.
 	 *                E.g., Array expects two sort parameters for index and
-	 *                element sort.  For sort variables this gives the 
-	 *                de-Bruijn index of the variable instead. 
+	 *                element sort.  For sort variables this gives the
+	 *                de-Bruijn index of the variable instead.
 	 * @param definition The sort definition, or null if this is a fresh sort.
 	 * @param flags The flags; bitwise or of INTERNAL, TYPEPARAM and INDEXED.
 	 */
-	SortSymbol(Theory theory, String name, int numParams, 
+	SortSymbol(Theory theory, String name, int numParams,
 			   Sort definition, int flags) {
 		mTheory = theory;
 		mName = name;
@@ -111,7 +111,7 @@ public class SortSymbol {
 			mSorts = new UnifyHash<Sort>();
 		}
 	}
-	
+
 	/**
 	 * Checks if the sort is internal, i.e., defined by the logic.
 	 * @return true, if the sort is an internal sort.
@@ -119,7 +119,7 @@ public class SortSymbol {
 	public boolean isIntern() {
 		return (mFlags & INTERNAL) != 0;
 	}
-	
+
 	/**
 	 * Returns the name of this sort.  The | symbols used for quoting are
 	 * not part of the name.
@@ -128,7 +128,7 @@ public class SortSymbol {
 	public String getName() {
 		return mName;
 	}
-	
+
 	/**
 	 * Returns a string representation of the sort symbol, as it would be
 	 * used for declare-sort command.
@@ -138,7 +138,7 @@ public class SortSymbol {
 	public String toString() {
 		return "(" + PrintTerm.quoteIdentifier(mName) + " " + mNumParams + ")";
 	}
-	
+
 	/**
 	 * Checks whether the indices and the arity match and the sort can be
 	 * created.  This function is called when a sort expression is parsed.
@@ -164,10 +164,10 @@ public class SortSymbol {
 	 * Create the sort with the given indices and sort parameters. Sorts are
 	 * unified, so this will return an instance of a previously created sort
 	 * if it already exists.
-	 * @param indices The indices of the sort, which are given by 
+	 * @param indices The indices of the sort, which are given by
 	 *                (_ sortname indices).  This is null if no indices were
 	 *                used.
-	 * @param args The sort parameters; the empty array if no parameters were 
+	 * @param args The sort parameters; the empty array if no parameters were
 	 *             used.
 	 * @return the created sort.
 	 * @throws IllegalArgumentException if the indices or number of sort
@@ -212,7 +212,7 @@ public class SortSymbol {
 	public boolean isArray() {
 		return (mFlags & ARRAY) != 0;
 	}
-	
+
 	@Override
 	public int hashCode() {
 		return mName.hashCode();

@@ -21,15 +21,15 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.delta;
 import java.io.PrintWriter;
 
 public class ScopeCmd extends Cmd {
-	
+
 	private final String mCmd;
 	private int mNumScopes, mLastNumScopes;
-	
+
 	public ScopeCmd(String cmd, int numScopes) {
 		mCmd = cmd;
 		mNumScopes = numScopes;
 	}
-	
+
 	public boolean isScopeStart() {
 		return mCmd == "push";
 	}
@@ -51,11 +51,11 @@ public class ScopeCmd extends Cmd {
 		mLastNumScopes = mNumScopes;
 		mNumScopes = numScopes;
 	}
-	
+
 	public void reset() {
 		mNumScopes = mLastNumScopes;
 	}
-	
+
 	@Override
 	public String toString() {
 		return mCmd.toUpperCase();

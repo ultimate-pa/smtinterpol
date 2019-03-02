@@ -21,7 +21,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.delta;
 import java.io.PrintWriter;
 
 public class DeclareSort extends Cmd {
-	
+
 	private final String mSort;
 	private final int mArity;
 
@@ -29,7 +29,7 @@ public class DeclareSort extends Cmd {
 		mSort = sort;
 		mArity = arity;
 	}
-	
+
 	@Override
 	public void dump(PrintWriter writer) {
 		writer.print("(declare-sort ");
@@ -48,7 +48,7 @@ public class DeclareSort extends Cmd {
 	public boolean hasDefinitions() {
 		return true;
 	}
-	
+
 	@Override
 	public String toString() {
 		return "DECLARE_SORT " + mSort;

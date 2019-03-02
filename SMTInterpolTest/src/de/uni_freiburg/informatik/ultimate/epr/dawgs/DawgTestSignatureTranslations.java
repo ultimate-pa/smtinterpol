@@ -50,20 +50,20 @@ public class DawgTestSignatureTranslations {
 	private EprTheory getEprTheory() {
 		return new EprTheoryMock(getLogger());
 	}
-	
+
 	private LogProxy getLogger() {
 		return new DefaultLogger();
 	}
 
 	@Test
 	public void test1() {
-		
-		DawgFactory<String, Integer> dawgFactoryStringInteger = 
+
+		DawgFactory<String, Integer> dawgFactoryStringInteger =
 				new DawgFactory<String, Integer>(getEprTheory());
 		EprTestHelpers.addConstantsWDefaultSort(dawgFactoryStringInteger, EprTestHelpers.constantsAbc());
 
-		
-		
+
+
 		List<String> word_aa = Arrays.asList(new String[] { "a", "a" });
 		List<String> word_ab = Arrays.asList(new String[] { "a", "b" });
 		List<String> word_ac = Arrays.asList(new String[] { "a", "c" });
@@ -77,14 +77,14 @@ public class DawgTestSignatureTranslations {
 
 		SortedSet<Integer> signature1 = new TreeSet<Integer>(EprHelpers.getColumnNamesComparator());
 		signature1.addAll(Arrays.asList(new Integer[] { 1, 2 }));
-		
+
 		IDawg<String, Integer> dawg1 = dawgFactoryStringInteger.getEmptyDawg(signature1);
 		dawg1 = dawg1.add(word_ba);
 		dawg1 = dawg1.add(word_ca);
 
 		assertTrue(dawg1.accepts(word_ba));
 		assertTrue(dawg1.accepts(word_ca));
-				
+
 		SortedSet<Integer> signature2 = new TreeSet<Integer>(EprHelpers.getColumnNamesComparator());
 		signature2.addAll(Arrays.asList(new Integer[] { 10, 20, 30 }));
 
@@ -94,27 +94,27 @@ public class DawgTestSignatureTranslations {
 		translation1.addPair(2, 10);
 
 		List<Object> argList1 = Arrays.asList(new Object[] { 1, 1, 2 });
-		
 
-		IDawg<String, Integer> dawg2 = dawg1.translateClauseSigToPredSig(translation1, 
+
+		IDawg<String, Integer> dawg2 = dawg1.translateClauseSigToPredSig(translation1,
 				argList1, new DawgSignature<Integer>(signature2));
-				
+
 		assertTrue(dawg2.getColNames().equals(signature2));
-		
+
 		assertTrue(dawg2.accepts(Arrays.asList(new String[] { "a", "b", "b" })));
 		assertTrue(dawg2.accepts(Arrays.asList(new String[] { "a", "c", "c" })));
-		
+
 	}
-	
+
 	@Test
 	public void test2() {
-		
-		DawgFactory<String, Integer> dawgFactoryStringInteger = 
+
+		DawgFactory<String, Integer> dawgFactoryStringInteger =
 				new DawgFactory<String, Integer>(getEprTheory());
 		EprTestHelpers.addConstantsWDefaultSort(dawgFactoryStringInteger, EprTestHelpers.constantsAbc());
 
-		
-		
+
+
 		List<String> word_a = Arrays.asList(new String[] { "a" });
 		List<String> word_b = Arrays.asList(new String[] { "b" });
 		List<String> word_c = Arrays.asList(new String[] { "c" });
@@ -130,14 +130,14 @@ public class DawgTestSignatureTranslations {
 
 		SortedSet<Integer> signature1 = new TreeSet<Integer>(EprHelpers.getColumnNamesComparator());
 		signature1.addAll(Arrays.asList(new Integer[] { 1 }));
-		
+
 		IDawg<String, Integer> dawg1 = dawgFactoryStringInteger.getEmptyDawg(signature1);
 		dawg1 = dawg1.add(word_a);
 		dawg1 = dawg1.add(word_b);
 
 		assertTrue(dawg1.accepts(word_a));
 		assertTrue(dawg1.accepts(word_b));
-				
+
 		SortedSet<Integer> signature2 = new TreeSet<Integer>(EprHelpers.getColumnNamesComparator());
 		signature2.addAll(Arrays.asList(new Integer[] { 10, 20 }));
 
@@ -145,16 +145,16 @@ public class DawgTestSignatureTranslations {
 		translation1.addPair(1, 10);
 
 		List<Object> argList1 = Arrays.asList(new Object[] { 1, "c" });
-		
 
-		IDawg<String, Integer> dawg2 = dawg1.translateClauseSigToPredSig(translation1, 
+
+		IDawg<String, Integer> dawg2 = dawg1.translateClauseSigToPredSig(translation1,
 				argList1, new DawgSignature<Integer>(signature2));
-				
+
 		assertTrue(dawg2.getColNames().equals(signature2));
-		
+
 		assertTrue(dawg2.accepts(Arrays.asList(new String[] { "a", "c" })));
 		assertTrue(dawg2.accepts(Arrays.asList(new String[] { "b", "c" })));
-		
+
 	}
-	
+
 }

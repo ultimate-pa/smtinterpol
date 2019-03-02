@@ -50,7 +50,7 @@ public class LoggingScript implements Script {
 	 * The auxiliary class to print terms and sorts.
 	 */
 	private final PrintTerm mTermPrinter = new PrintTerm();
-	
+
 	/**
 	 * Common subexpression elimination support if requeste by user. Will be
 	 * <code>null</code> if cse should not be performed.
@@ -62,7 +62,7 @@ public class LoggingScript implements Script {
 	 * are not supported, e.g., checkSat always returns unknown.  Furthermore,
 	 * common subexpression elimination is not used in the output.
 	 * @param file      The name of the logging file (should end in .smt2).
-	 * @param autoFlush Automatically flush the output stream after every 
+	 * @param autoFlush Automatically flush the output stream after every
 	 *                  command.
 	 * @throws FileNotFoundException If the file cannot be opened.
 	 */
@@ -125,7 +125,7 @@ public class LoggingScript implements Script {
 		mPw.println("(set-logic " + logic + ")");
 		mScript.setLogic(logic);
 	}
-	
+
 	@Override
 	public void setLogic(Logics logic)
 		throws UnsupportedOperationException, SMTLIBException {
@@ -248,7 +248,7 @@ public class LoggingScript implements Script {
 		mPw.println("(check-sat)");
 		return mScript.checkSat();
 	}
-	
+
 	@Override
 	public LBool checkSatAssuming(Term... assumptions) throws SMTLIBException {
 		mPw.print("(check-sat-assuming (");
@@ -340,7 +340,7 @@ public class LoggingScript implements Script {
 		mPw.println(')');
 		return mScript.getInterpolants(partition);
 	}
-	
+
 	// [a,b,c], [0,1,0] -> a (b) c
 	//  c
 	// a b
@@ -501,7 +501,7 @@ public class LoggingScript implements Script {
 		mPw.println("))");
 		return mScript.findImpliedEquality(x, y);
 	}
-	
+
 	@Override
 	public QuotedObject echo(QuotedObject msg) {
 		mPw.print("(echo ");
@@ -509,7 +509,7 @@ public class LoggingScript implements Script {
 		mPw.println(')');
 		return mScript.echo(msg);
 	}
-	
+
 	/**
 	 * Write a comment to the generated SMTLIB dump file.  Note that this
 	 * function is only available in the LoggingScript and not in the interface

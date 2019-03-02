@@ -33,36 +33,36 @@ import de.uni_freiburg.informatik.ultimate.util.DebugMessage;
  * Objects of this class represent smtlib terms.  This class contains
  * the functionality for computing congruence closure and deferring new
  * equality/disequality atoms.
- * 
- * The congruent terms are kept in a tree like structure:  Every term 
+ *
+ * The congruent terms are kept in a tree like structure:  Every term
  * except for the root of the tree points to a single neighbour (equalEdge)
- * to which it is congruent.  The congruence is either due to an explicit 
- * equality atom between these two neighbours or because the neighbours 
+ * to which it is congruent.  The congruence is either due to an explicit
+ * equality atom between these two neighbours or because the neighbours
  * are function application with congruent parameters.  If two nodes need
  * to be merged that are inside the tree, we make one of them the root
  * of its tree by inverting the equalEdges.  Then it gets a new equalEdge to
  * the other tree.
- * 
+ *
  * There is another field rep pointing to the representative of the congruence
- * class.  It may be different to the root of the equalEdge tree.  The 
+ * class.  It may be different to the root of the equalEdge tree.  The
  * representative keeps track of the members of the class (member), the
- * equality atoms starting from this class (eqlits), the classes that are 
+ * equality atoms starting from this class (eqlits), the classes that are
  * guaranteed to be disjoint (diseq), and the function application terms whose
  * parameter is in this class (ccpar1/ccpar2).
- * 
+ *
  * Each equalEdge corresponds to merging to equivalence classes.  We need to
  * remember the representative of the source equivalence class to allow undoing
- * the merge operation.  This is stored in the oldRep field of the object 
+ * the merge operation.  This is stored in the oldRep field of the object
  * that contains the equalEdge.  If equalEdge is inverted, the oldRep field
  * is moved accordingly.  The old representative also stores a
- * reasonLiteral (which is null if the edge was introduced by congruence), 
- * and the list of merges that were introduced after this merge by 
+ * reasonLiteral (which is null if the edge was introduced by congruence),
+ * and the list of merges that were introduced after this merge by
  * congruence closure (ccMerges).
- * 
+ *
  * @author hoenicke
  */
 public abstract class CCTerm extends SimpleListable<CCTerm> {
-	
+
 	/**
 	 * The destination of the outgoing equality edge.  Every term has at
 	 * most one equality edge, which was introduced by some merge operation.
@@ -70,13 +70,13 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 	 */
 	CCTerm mEqualEdge;
 	/**
-	 * The representative of the congruence class.  The representative 
+	 * The representative of the congruence class.  The representative
 	 * is the one that contains the members, ccpar and eqlits information.
 	 */
 	CCTerm mRepStar;
 	/**
-	 * Points to the next merged representative in the congruence class. 
-	 * This representative can have another representative of its own, if 
+	 * Points to the next merged representative in the congruence class.
+	 * This representative can have another representative of its own, if
 	 * it is merged later with another class.
 	 * This field equals this, iff the term is the representative of its class.
 	 */
@@ -103,11 +103,11 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 	SimpleList<CCTermPairHash.Info.Entry> mPairInfos;
 	SharedTerm mSharedTerm;
 	SharedTerm mFlatTerm;
-	
+
 	int mHashCode;
-	
+
 	int mModelVal;
-	
+
 	static class TermPairMergeInfo {
 		CCTermPairHash.Info.Entry mInfo;
 		TermPairMergeInfo mNext;
@@ -128,7 +128,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 			mNext = next;
 		}
 	}
-	
+
 	boolean mIsFunc;
 	int mParentPosition;
 
@@ -148,7 +148,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		mFlatTerm = term;
 		mHashCode = hash;
 	}
-	
+
 	boolean pairHashValid(CClosure engine) {
 		if (Config.EXPENSIVE_ASSERTS) {
 			for (final CCTermPairHash.Info.Entry pentry : mPairInfos) {
@@ -187,10 +187,10 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
     		}
     		if (this == mRepStar) {
     			assert(mCCPars != null);
-    			for (CCParentInfo parInfo = mCCPars.mNext; 
+    			for (CCParentInfo parInfo = mCCPars.mNext;
     			     parInfo != null; parInfo = parInfo.mNext) {
     				assert parInfo.mCCParents.wellformed();
-    				assert parInfo.mNext == null 
+    				assert parInfo.mNext == null
     						|| parInfo.mFuncSymbNr < parInfo.mNext.mFuncSymbNr;
     			}
     			for (final CCTerm m : mMembers) {
@@ -233,17 +233,17 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 			}
 		}
 	}
-	
+
 	public void unshare(SharedTerm sterm) {
 		assert mSharedTerm == sterm;
 		assert isRepresentative();
 		mSharedTerm = null;
 	}
-	
+
 	private void propagateSharedEquality(CClosure engine, SharedTerm sterm) {
 		/* create equality formula.  This should never give TRUE or FALSE,
 		 * as sterm is a newly shared term, which must be linear independent
-		 * of all previously created terms. 
+		 * of all previously created terms.
 		 */
 		final EqualityProxy eqForm = mSharedTerm.createEquality(sterm);
 		assert (eqForm != EqualityProxy.getTrueProxy());
@@ -283,9 +283,9 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 			engine.addInvertEdgeTime(System.nanoTime() - time);
 		}
 	}
-	
+
 	public Clause merge(CClosure engine, CCTerm lhs, CCEquality reason) {
-		assert reason != null 
+		assert reason != null
 				|| (this instanceof CCAppTerm && lhs instanceof CCAppTerm);
 		assert engine.mMergeDepth == engine.mMerges.size();
 
@@ -321,12 +321,12 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		assert mRepStar.pairHashValid(engine);
 		return res;
 	}
-	
+
 	private Clause mergeInternal(CClosure engine, CCTerm lhs, CCEquality reason) {
 		/* Check the representatives of this */
 		final CCTerm src = lhs.mRepStar;
 		final CCTerm dest = mRepStar;
-		
+
 		// Need to prevent MBTC when we get a conflict. Hence a two-way pass
 		CCEquality diseq = null;
 		final CCTermPairHash.Info diseqInfo = engine.mPairHash.getInfo(src, dest);
@@ -338,7 +338,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 			if (dest.mSharedTerm == null) {
 				dest.mSharedTerm = src.mSharedTerm;
 			} else {
-				final EqualityProxy form = 
+				final EqualityProxy form =
 					src.mSharedTerm.createEquality(dest.mSharedTerm);
 				if (form == EqualityProxy.getFalseProxy()) {
 					sharedTermConflict = true;
@@ -350,18 +350,18 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 				}
 			}
 		}
-		
+
 		/* Invert equivalence edges */
 		lhs.invertEqualEdges(engine);
 		/* Now create a new equaledge to dest. */
 		lhs.mEqualEdge = this;
 		lhs.mOldRep = src;
 		src.mReasonLiteral = reason;
-		
+
 		/* Check for conflict */
 		if (sharedTermConflict || diseq != null) {
-			final Clause conflict = sharedTermConflict 
-				? engine.computeCycle(src.mSharedTerm.getCCTerm(), 
+			final Clause conflict = sharedTermConflict
+				? engine.computeCycle(src.mSharedTerm.getCCTerm(),
 									  dest.mSharedTerm.getCCTerm())
 				: engine.computeCycle(diseq);
 			lhs.mEqualEdge = null;
@@ -391,7 +391,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		}
 		dest.mMembers.joinList(src.mMembers);
 		dest.mNumMembers += src.mNumMembers;
-		
+
 		if (Config.PROFILE_TIME) {
 			time = System.nanoTime();
 		}
@@ -447,7 +447,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		}
 		/* Compute congruence closure */
 		if (mIsFunc) {
-			final CCParentInfo srcParentInfo = src.mCCPars.mNext; 
+			final CCParentInfo srcParentInfo = src.mCCPars.mNext;
 			final CCParentInfo destParentInfo = dest.mCCPars.mNext;
 //			assert (srcParentInfo == null || srcParentInfo.m_Next == null);
 //			assert (destParentInfo == null || destParentInfo.m_Next == null);
@@ -473,7 +473,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 				destParentInfo.mCCParents.joinList(srcParentInfo.mCCParents);
 			}
 		} else {
-			CCParentInfo srcParentInfo = src.mCCPars.mNext; 
+			CCParentInfo srcParentInfo = src.mCCPars.mNext;
 			CCParentInfo destParentInfo = dest.mCCPars.mNext;
 			while (srcParentInfo != null && destParentInfo != null) {
 				if (srcParentInfo.mFuncSymbNr < destParentInfo.mFuncSymbNr) {
@@ -509,7 +509,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		if (Config.PROFILE_TIME) {
 			engine.addCcTime(System.nanoTime() - time);
 		}
-		
+
 		assert invariant();
 		assert lhs.invariant();
 		assert src.invariant();
@@ -528,7 +528,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		assert mRepStar.pairHashValid(engine);
 		assert mEqualEdge == lhs;
 		assert mRepStar == lhs.mRepStar;
-		
+
 		src = mOldRep;
 		mEqualEdge = null;
 		mOldRep = null;
@@ -538,7 +538,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		if (src.mReasonLiteral == null) {
 			((CCAppTerm)this).unmarkParentInfos();
 		}
-		
+
 		//System.err.println("Unmerge "+this+"+"+lhs+" -> "+src+" "+dest);
 		//Logger.getRootLogger().debug("U"+lhs+"=="+this);
 		src.mReasonLiteral = null;
@@ -571,7 +571,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 				}
 			}
 		}
-		
+
 		dest.mNumMembers -= src.mNumMembers;
 		if (Config.PROFILE_TIME) {
 			time = System.nanoTime();
@@ -581,7 +581,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 			t.mRepStar = src;
 		}
 		src.mRep = src;
-		
+
 		assert src.mMergeTime == engine.mMergeDepth;
 		engine.mMergeDepth--;
 		assert(engine.mMergeDepth == engine.mMerges.size());
@@ -593,7 +593,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		if (dest.mSharedTerm == src.mSharedTerm) {
 			dest.mSharedTerm = null;
 		}
-		
+
 		assert invariant();
 		assert lhs.invariant();
 		assert src.invariant();
@@ -601,11 +601,11 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		assert src.pairHashValid(engine);
 		assert dest.pairHashValid(engine);
 	}
-	
+
 	public SharedTerm getSharedTerm() {
 		return mSharedTerm;
 	}
-	
+
 	@Override
 	public int hashCode() {
 		return mHashCode;
@@ -614,7 +614,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 	public SharedTerm getFlatTerm() {
 		return mFlatTerm;
 	}
-	
+
 	public Term toSMTTerm(Theory t) {
 		return new CCTermConverter(t).convert(this);
 	}

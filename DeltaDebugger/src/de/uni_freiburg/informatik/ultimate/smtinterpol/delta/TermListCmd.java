@@ -32,10 +32,10 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
  * @author Juergen Christ
  */
 public class TermListCmd extends TermCmd {
-	
+
 	private final String mCmd;
 	private Term[] mList, mOldList;
-	
+
 	public TermListCmd(String cmd, Term[] list) {
 		mCmd = cmd;
 		mList = list;
@@ -78,20 +78,20 @@ public class TermListCmd extends TermCmd {
 	public Term[] getTerms() {
 		return mList;
 	}
-	
+
 	public void setNewTerms(Term[] newTerms) {
 		mOldList = mList;
 		mList = newTerms;
 	}
-	
+
 	public void failure() {
 		mList = mOldList;
 	}
-	
+
 	public void success() {
 		mOldList = null;
 	}
-	
+
 	@Override
 	public String toString() {
 		return mCmd.toUpperCase();

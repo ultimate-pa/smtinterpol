@@ -23,11 +23,11 @@ import java.io.PrintWriter;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 
 public class DefineSort extends Cmd {
-	
+
 	private final String mSort;
 	private final Sort[] mParams;
 	private final Sort mDefinition;
-	
+
 	public DefineSort(String sort, Sort[] params, Sort definition) {
 		mSort = sort;
 		mParams = params;
@@ -54,7 +54,7 @@ public class DefineSort extends Cmd {
 	public boolean hasDefinitions() {
 		return true;
 	}
-	
+
 	@Override
 	public String toString() {
 		return "DEFINE_SORT " + mSort;

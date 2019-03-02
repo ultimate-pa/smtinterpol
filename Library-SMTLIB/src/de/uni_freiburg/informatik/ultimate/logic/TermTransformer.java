@@ -267,7 +267,7 @@ public class TermTransformer extends NonRecursive {
 
 	/**
 	 * Get a single converted object array from the converted stack.
-	 * 
+	 *
 	 * @return the new converted object array.
 	 */
 	protected final Object[] getConvertedObjectArray() {
@@ -278,7 +278,7 @@ public class TermTransformer extends NonRecursive {
 	 * Get the converted terms from the converted stack. This is the dual of pushTerms() that is called after the term
 	 * were removed from the todo stack and pushed to the converted stack. It takes the old terms as argument and checks
 	 * for changes.
-	 * 
+	 *
 	 * @param oldArgs
 	 *            the original arguments.
 	 * @return the new converted arguments. It will return the same array oldArgs if there were no changes.

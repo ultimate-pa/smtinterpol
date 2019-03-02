@@ -29,13 +29,13 @@ public class DeclareFun extends Cmd {
 	private final String mFun;
 	private final Sort[] mParams;
 	private final Sort mResultSort;
-	
+
 	public DeclareFun(String fun, Sort[] params, Sort resultSort) {
 		mFun = fun;
 		mParams = params;
 		mResultSort = resultSort;
 	}
-	
+
 	@Override
 	public void dump(PrintWriter writer) {
 		writer.print("(declare-fun ");
@@ -61,10 +61,10 @@ public class DeclareFun extends Cmd {
 	public void insertDefinitions(Map<String, Cmd> context) {
 		context.put(mFun, this);
 	}
-	
+
 	@Override
 	public String toString() {
 		return "DECLARE_FUN " + mFun;
 	}
-	
+
 }

@@ -22,7 +22,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 
 /**
  * A QuantEUEquality is an equality EUTerm = EUTerm, where at least one side is not a GroundTerm.
- * 
+ *
  * @author Tanja Schindler
  *
  */
@@ -34,7 +34,7 @@ public class QuantEUEquality extends QuantLiteral {
 	/**
 	 * Create a new QuantEUEquality. This should only be called after checking that at least one of lhs and rhs contains
 	 * quantified variables.
-	 * 
+	 *
 	 * @param term
 	 *            the underlying equality term.
 	 * @param lhs

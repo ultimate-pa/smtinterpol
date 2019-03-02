@@ -23,13 +23,13 @@ import java.util.HashMap;
 
 
 public class PolymorphicFunctionSymbol extends FunctionSymbolFactory {
-	
+
 	private final Sort[] mTypeParams;
 	private final Sort[] mParamSorts;
 	private final Sort mResultSort;
 	private final int  mFlags;
-	
-	PolymorphicFunctionSymbol(String name, Sort[] typeParams, Sort[] params, 
+
+	PolymorphicFunctionSymbol(String name, Sort[] typeParams, Sort[] params,
 			Sort result, int flags) {
 		super(name);
 		mTypeParams = typeParams;

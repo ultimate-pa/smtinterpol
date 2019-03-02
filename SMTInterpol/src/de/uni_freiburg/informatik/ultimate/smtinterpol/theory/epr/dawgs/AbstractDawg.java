@@ -26,19 +26,19 @@ import java.util.SortedSet;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 
 /**
- * 
- * 
+ *
+ *
  * @author Alexander Nutz
  *
  * @param <LETTER>
  * @param <COLNAMES>
  */
 public abstract class AbstractDawg<LETTER, COLNAMES> implements IDawg<LETTER, COLNAMES> {
-	
+
 	protected final LogProxy mLogger;
-	
+
 	protected final DawgSignature<COLNAMES> mSignature;
-	
+
 	public Map<COLNAMES, Integer> getColNameToIndex() {
 		return mSignature.getColNameToIndex();
 	}
@@ -47,7 +47,7 @@ public abstract class AbstractDawg<LETTER, COLNAMES> implements IDawg<LETTER, CO
 		mSignature = new DawgSignature<COLNAMES>(colNames);
 		mLogger = logger;
 	}
-	
+
 	@Override
 	public DawgSignature<COLNAMES> getSignature() {
 		return mSignature;
@@ -57,11 +57,11 @@ public abstract class AbstractDawg<LETTER, COLNAMES> implements IDawg<LETTER, CO
 	public SortedSet<COLNAMES> getColNames() {
 		return mSignature.getColNames();
 	}
-	
+
 	public Object getSortForColname(COLNAMES colName) {
 		return mSignature.getSortForColname(colName);
 	}
-	
+
 	@Override
 	public String toString() {
 		int displayLength = 20;
@@ -72,7 +72,7 @@ public abstract class AbstractDawg<LETTER, COLNAMES> implements IDawg<LETTER, CO
 		String comma = "";
 		for (COLNAMES cn : getColNames()) {
 			sb.append(comma);
-			
+
 			String cns = cn.toString();
 			if (cns.contains("AUX")) {
 				cns = "(AUX ...)";
@@ -81,7 +81,7 @@ public abstract class AbstractDawg<LETTER, COLNAMES> implements IDawg<LETTER, CO
 			comma = ", ";
 		}
 		sb.append(">  ");
-		
+
 		for (List<LETTER> pt : this.getAllPointsSorted()) {
 //			for (LETTER ltr : pt) {
 //				sb.append(String.format("%10s", ltr));

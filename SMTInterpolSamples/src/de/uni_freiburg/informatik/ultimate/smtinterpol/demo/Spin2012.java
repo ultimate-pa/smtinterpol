@@ -82,7 +82,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 
 /**
  * A small demo file used to present SMTInterpol in SPIN 2012.
- * 
+ *
  * It basically executes the following script:
  * <pre>
  * (set-option :produce-proofs true)

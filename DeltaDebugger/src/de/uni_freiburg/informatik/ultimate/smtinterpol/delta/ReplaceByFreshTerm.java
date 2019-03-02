@@ -25,26 +25,26 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 
 final class ReplaceByFreshTerm extends Substitution {
-	
+
 	public ReplaceByFreshTerm(Term match) {
 		super(match);
 	}
 
 	private Cmd mAdd;
-	
+
 	public final static String FRESH_PREFIX = "@DELTA_DEBUG_FRESH_";
 	private static int freshnum = 0; // NOCHECKSTYLE since not multi-threaded
-	
+
 	private static String getNextFreshName() {
 		return FRESH_PREFIX + (++freshnum);
 	}
-	
+
 	public static void ensureNotFresh(int num) {
 		if (freshnum <= num) {
 			freshnum = num + 1;
 		}
 	}
-	
+
 	@Override
 	public Term apply(Term input) {
 		final String funname = getNextFreshName();
@@ -59,7 +59,7 @@ final class ReplaceByFreshTerm extends Substitution {
 	public Cmd getAdditionalCmd(Term input) {
 		return mAdd;
 	}
-	
+
 	@Override
 	public String toString() {
 		final StringBuilder sb = new StringBuilder();
@@ -73,5 +73,5 @@ final class ReplaceByFreshTerm extends Substitution {
 		return at.getParameters().length == 0
 				&& at.getFunction().getName().startsWith(FRESH_PREFIX);
 	}
-	
+
 }

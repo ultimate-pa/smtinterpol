@@ -25,7 +25,7 @@ import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
  * A QuantVarConstraint is an inequality between a TermVariable and a GroundTerm or between two TermVariable. Note that
  * only strict inequalities are supported (for integers, we can always obtain strict inequalities if one side is
  * ground), but the underlying atom (i.e. a non-strict inequality) is created and marked as unsupported.
- * 
+ *
  * @author Tanja Schindler
  *
  */
@@ -42,7 +42,7 @@ public class QuantVarConstraint extends QuantLiteral {
 	 * <p>
 	 * Note that we are actually creating the non-strict variant, i.e., the atom, but mark the atom as unsupported.
 	 * <p>
-	 * 
+	 *
 	 * @param term
 	 *            the term for the underlying inequality.
 	 * @param var
@@ -69,7 +69,7 @@ public class QuantVarConstraint extends QuantLiteral {
 	 * inequalities of the form "TermVariable < TermVariable". We do not support "TermVariable <= TermVariable".
 	 * <p>
 	 * Note that we are actually creating the non-strict variant, i.e., the atom, but mark the atom as unsupported.
-	 * 
+	 *
 	 * @param term
 	 *            the term for the underlying inequality.
 	 * @param lowerVar

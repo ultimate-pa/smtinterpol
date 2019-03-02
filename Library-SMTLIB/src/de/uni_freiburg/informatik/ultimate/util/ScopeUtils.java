@@ -43,7 +43,7 @@ public final class ScopeUtils {
 		return Arrays.copyOf(curarray, curarray.length * 2);
 	}
 	/**
-	 * The growth function for internal integer scope arrays.  The arrays grow 
+	 * The growth function for internal integer scope arrays.  The arrays grow
 	 * by a constant amount
 	 * {@link #NUM_ADDITIONAL_SCOPES NUM_ADDITIONAL_SCOPES}.
 	 * @param curarray Current internal scope array.

@@ -23,9 +23,9 @@ import java.io.PrintWriter;
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
 
 public class SetLogic extends Cmd {
-	
+
 	private final Logics mLogic;
-	
+
 	public SetLogic(Logics logic) {
 		mLogic = logic;
 	}
@@ -42,7 +42,7 @@ public class SetLogic extends Cmd {
 		// Never remove set-logic!!!
 		return false;
 	}
-	
+
 	@Override
 	public String toString() {
 		return "SET_LOGIC";

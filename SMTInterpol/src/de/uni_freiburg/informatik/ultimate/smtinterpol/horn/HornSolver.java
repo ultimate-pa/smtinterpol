@@ -53,7 +53,7 @@ public class HornSolver extends NoopScript {
 		ApplicationTerm mHead;
 		List<ApplicationTerm> mBody;
 		Term mPhi;
-		
+
 		public HornClause(List<TermVariable> tvs,
 				ApplicationTerm head, List<ApplicationTerm> body,
 				Term phi) {
@@ -63,7 +63,7 @@ public class HornSolver extends NoopScript {
 			mPhi = phi;
 		}
 	}
-	
+
 	class DerivationTreeNode {
 		ApplicationTerm mTerm;
 		Term mName;
@@ -72,7 +72,7 @@ public class HornSolver extends NoopScript {
 			mTerm = term;
 		}
 		public void setName(Term name) {
-			
+
 			mName = name;
 		}
 		public void initChildren(int size) {
@@ -98,7 +98,7 @@ public class HornSolver extends NoopScript {
 		public void printSolution(Term[] solution) {
 			printSolutionRec(solution, 0);
 		}
-		
+
 		private int printSolutionRec(Term[] solution, int offset) {
 			for (final DerivationTreeNode n : mChildren) {
 				offset += n.printSolutionRec(solution, offset);
@@ -122,10 +122,10 @@ public class HornSolver extends NoopScript {
 			return offset + 1;
 		}
 	}
-	
+
 	HashMap<FunctionSymbol, ArrayList<HornClause>> mAllClauses;
 	Script mBackend;
-		
+
 	public HornSolver() {
 		mAllClauses = new HashMap<FunctionSymbol,ArrayList<HornClause>>();
 		mBackend = new SMTInterpol();
@@ -138,7 +138,7 @@ public class HornSolver extends NoopScript {
 //			throw new RuntimeException("Cannot open temp file.", ex);
 //		}
 	}
-	
+
 	@Override
 	public void setLogic(String logic)
 	    throws UnsupportedOperationException, SMTLIBException {
@@ -147,14 +147,14 @@ public class HornSolver extends NoopScript {
 		}
 		super.setLogic(Logics.AUFLIRA);
 		mBackend.setLogic(Logics.QF_LIA);
-	}	
-	
+	}
+
 	@Override
 	public void setOption(String opt, Object value) {
 		super.setOption(opt, value);
 		mBackend.setOption(opt, value);
-	}	
-	
+	}
+
 	@Override
 	public void setInfo(String info, Object value) {
 		super.setInfo(info, value);
@@ -165,8 +165,8 @@ public class HornSolver extends NoopScript {
 				mBackend.setInfo(info, "sat");
 			}
 		}
-	}	
-	
+	}
+
 	@Override
 	public LBool assertTerm(Term term) throws SMTLIBException {
 		term = toPrenex(term);
@@ -235,7 +235,7 @@ public class HornSolver extends NoopScript {
 		class PrenexTransformer extends TermTransformer {
 			LinkedHashSet<TermVariable> mTvs =
 			        new LinkedHashSet<TermVariable>();
-			
+
 			@Override
 			public void convert(Term term) {
 				while (term instanceof QuantifiedFormula) {
@@ -322,7 +322,7 @@ public class HornSolver extends NoopScript {
 		return appTerm.getFunction().isIntern()
 				&& appTerm.getFunction().getName().equals("not");
 	}
-	
+
 	private int mClauseCtr = 0;
 	@Override
 	public LBool checkSat() {
@@ -359,7 +359,7 @@ public class HornSolver extends NoopScript {
 			mBackend.assertTerm(term);
 			n.setName(mBackend.term(name));
 			//System.err.println("(assert "+term+")");
-			
+
 			n.initChildren(hc.mBody.size());
 			int i = 0;
 			for (final ApplicationTerm appTerm : hc.mBody) {
@@ -409,7 +409,7 @@ public class HornSolver extends NoopScript {
 		}
 		return values;
 	}
-	
+
 	@Override
 	public void reset() {
 		super.reset();

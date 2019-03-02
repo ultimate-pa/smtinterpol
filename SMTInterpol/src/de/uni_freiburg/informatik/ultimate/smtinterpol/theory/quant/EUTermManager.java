@@ -38,7 +38,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 /**
  * Manage EUTerms. That is, decide if a term is essentially uninterpreted (i.e. ground or variables appear only as
  * arguments of uninterpreted function or predicate symbols), and build EUTerms in a nonrecursive way.
- * 
+ *
  * @author Tanja Schindler
  *
  */
@@ -66,7 +66,7 @@ public class EUTermManager extends NonRecursive {
 	/**
 	 * Build an EUTerm for a given term if it is supported, i.e. if it is ground or all variables appear as arguments of
 	 * uninterpreted function or predicate symbols only.
-	 * 
+	 *
 	 * @param term
 	 *            the term that is checked and transformed into an EUTerm.
 	 * @param source
@@ -84,7 +84,7 @@ public class EUTermManager extends NonRecursive {
 
 	/**
 	 * Compute all sub-EUTerms for a given EUTerm.
-	 * 
+	 *
 	 * @param euTerm
 	 *            the EUTerm which the sub-EUTerms are computed for.
 	 * @return the set of EUTerms that are subterms of the given term (including the term itself).

@@ -43,11 +43,11 @@ public class TermSimplifier extends TermTransformer {
 		BINDINGS
 	}
 	private final Mode mMode;
-	
+
 	public TermSimplifier(Mode mode) {
 		mMode = mode;
 	}
-	
+
 	private boolean isZero(Term t) {
 		if (t instanceof ConstantTerm) {
 			final ConstantTerm ct = (ConstantTerm) t;
@@ -75,7 +75,7 @@ public class TermSimplifier extends TermTransformer {
 		final Theory t = appTerm.getTheory();
 		final FunctionSymbol fs = appTerm.getFunction();
 		if (appTerm.getSort() == t.getBooleanSort()) {
-			if (appTerm.getFunction() == t.mAnd 
+			if (appTerm.getFunction() == t.mAnd
 					|| appTerm.getFunction() == t.mOr) {
 				final Term neutral = fs == t.mAnd ? t.mTrue : t.mFalse;
 				final LinkedHashSet<Term> newParams = new LinkedHashSet<Term>();
@@ -155,7 +155,7 @@ public class TermSimplifier extends TermTransformer {
 			setResult(oldLet);
 		} else {
 			setResult(newBody.getTheory().let(
-					tvs.toArray(new TermVariable[tvs.size()]), 
+					tvs.toArray(new TermVariable[tvs.size()]),
 					vals.toArray(new Term[vals.size()]), newBody));
 		}
 	}

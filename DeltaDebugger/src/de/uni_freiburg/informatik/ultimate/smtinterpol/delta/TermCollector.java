@@ -31,18 +31,18 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 
 public class TermCollector extends NonRecursive {
-	
+
 	private final class DepthWalker extends TermWalker {
-		
+
 		private final int mDepth;
 
 		public DepthWalker(Term term, int depth) {
 			super(term);
 			mDepth = depth;
 		}
-		
+
 		private boolean isReplaceable(Term t) {
-			return !(t instanceof ConstantTerm) 
+			return !(t instanceof ConstantTerm)
 					&& t != t.getTheory().mTrue && t != t.getTheory().mFalse;
 		}
 
@@ -93,21 +93,21 @@ public class TermCollector extends NonRecursive {
 		public void walk(NonRecursive walker, TermVariable term) {
 			// Already a leaf
 		}
-		
+
 	}
 
 	private final int mDepth;
 	private final List<Term> mTerms;
-	
+
 	public TermCollector(int depth) {
 		mDepth = depth;
 		mTerms = new ArrayList<Term>();
 	}
-	
+
 	public void add(Term t) {
 		run(new DepthWalker(t, 0));
 	}
-	
+
 	public List<Term> getTerms() {
 		return mTerms;
 	}

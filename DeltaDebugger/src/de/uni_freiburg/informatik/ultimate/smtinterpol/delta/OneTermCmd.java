@@ -32,9 +32,9 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
  * @author Juergen Christ
  */
 public class OneTermCmd extends AbstractOneTermCmd {
-	
+
 	private final String mCmd;
-	
+
 	public OneTermCmd(String cmd, Term term) {
 		super(term);
 		mCmd = cmd;
@@ -49,11 +49,11 @@ public class OneTermCmd extends AbstractOneTermCmd {
 		new PrintTerm().append(writer, mTerm);
 		writer.println(')');
 	}
-	
+
 	public String getCmd() {
 		return mCmd;
 	}
-	
+
 	@Override
 	public void insertDefinitions(Map<String, Cmd> context) {
 		new NamedHelper().addNames(mTerm, context, this);
@@ -74,7 +74,7 @@ public class OneTermCmd extends AbstractOneTermCmd {
 		}
 		new DefinitionTracker(context, usedDefs).track(mTerm);
 	}
-	
+
 	@Override
 	public String toString() {
 		return mCmd.toUpperCase();

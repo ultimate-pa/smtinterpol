@@ -44,7 +44,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 
 /**
  * Tests for the model production of SMTInterpol.
- * 
+ *
  * @author Juergen Christ
  */
 @RunWith(JUnit4.class)

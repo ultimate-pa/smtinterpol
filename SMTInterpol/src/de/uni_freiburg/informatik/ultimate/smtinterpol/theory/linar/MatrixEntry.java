@@ -33,40 +33,40 @@ import de.uni_freiburg.informatik.ultimate.logic.Rational;
  *   b_i * y_i + a_i1 * x_1 + ... + a_in * x_n
  * }
  * </pre>
- * 
+ *
  * where {@code b_i}, and {@code a_ij} are big integers, {@code y_i} is the row variable for this row and
  * {@code x_1,...,x_n} are column variables. To be valid, the row should sum up to 0, if the linear variables are
  * replaced by their LinTerms. Also the gcd of the coefficients should be 1.
- * 
+ *
  * <p>
  * For each summand a matrix entry is created, whose field {@code mRow} points to {@code y_i} and {@code mColumn} points
  * to the respective y_i or x_i variable occuring in this summand. I.e. for the first entry both {@code mRow} and
  * {@code mColumn} point to y_i. The {@code mCoeff} field is the big integer b_i or a_ij. The {@code mPrevInRow} and
  * {@code mNextInRow} are iterating through the row. The variables {@code x_i, y_i} are sorted by their index so the y_i
  * term may appear in between the x_i according to the variable order.
- * 
+ *
  * <p>
  * The {@code mPrevInCol} and {@code mNextInCol} fields link the columns corresponding to the same column variable x_i.
  * They can be in any order and the order is not consistent between different columns. There is a special head entry for
  * each column variable with {@code mNextInRow == null}. The head entry for column variables points to this special
  * entry. The head entry for row variables points to the entry representing {@code b_i*y_i}.
- * 
+ *
  * <p>
  * TODO: Evaluate if a singly linked list is enough, at least for the column lists. Maybe a mix between linked list and
  * tree may be faster if rows grow big, but pivoted rows are small.
- * 
+ *
  * @author Jochen Hoenicke
  */
 public class MatrixEntry {
 	BigInteger mCoeff;
 	LinVar     mRow;
 	LinVar     mColumn;
-	
+
 	MatrixEntry mPrevInRow;
 	MatrixEntry mNextInRow;
 	MatrixEntry mPrevInCol;
 	MatrixEntry mNextInCol;
-	
+
 	/**
 	 * Insert a column variable into a row at its sorted position.
 	 * @param nb  the column (non-basic) variable.
@@ -93,7 +93,7 @@ public class MatrixEntry {
 			ptr.insertBefore(nb, value);
 		}
 	}
-	
+
 	/**
 	 * Insert a column variable into a row before the current
 	 * position.
@@ -102,7 +102,7 @@ public class MatrixEntry {
 	 */
 	public void insertBefore(LinVar col, BigInteger value) {
 		assert !value.equals(BigInteger.ZERO);
-		
+
 		/* Create new entry before this */
 		final MatrixEntry newEntry = new MatrixEntry();
 		newEntry.mColumn = col;
@@ -143,7 +143,7 @@ public class MatrixEntry {
 
 	/**
 	 * Adds two rows together eliminating a column variable.  When calling
-	 * this, this.column == other.column must hold.  The current row is 
+	 * this, this.column == other.column must hold.  The current row is
 	 * multiplied with other.coeff and then this.coeff times the other row
 	 * is subtracted.  On return this is removed from the matrix.
 	 * @param other  The other row to add to this row.
@@ -166,12 +166,12 @@ public class MatrixEntry {
 		// add this to matrixpos to reorder columns, such that this
 		// column is the largest.
 		final int poscmp = Integer.MAX_VALUE - mColumn.mMatrixpos;
-		
+
 		MatrixEntry trow = mNextInRow;
 		MatrixEntry orow = other.mNextInRow;
 		gcd = BigInteger.ZERO;
 		while (orow != other) {
-			while (trow.mColumn.mMatrixpos + poscmp 
+			while (trow.mColumn.mMatrixpos + poscmp
 					< orow.mColumn.mMatrixpos + poscmp) {
 				trow.mCoeff = trow.mCoeff.multiply(tmul);
 				gcd = Rational.gcd(gcd, trow.mCoeff);
@@ -216,13 +216,13 @@ public class MatrixEntry {
 		removeFromMatrix();
 		mColumn.mChainlength++;
 	}
-	
+
 	/**
 	 * Do the first half of the pivoting operation that swaps a column and row variable. The row and column variables
 	 * are given by this entry, which must not be a head entry for any variable. This will adjust the head entries
 	 * accordingly, but the other rows will still mention the old column variable. These rows will still be linked to
 	 * this entry, so they can be easily identified.
-	 * 
+	 *
 	 */
 	public void pivot() {
 		// unlink column head entry
@@ -235,7 +235,7 @@ public class MatrixEntry {
 		mRow.mHeadEntry.mColumn = mRow;
 		// this entry becomes the new mColumn head entry, which is now a row variable.
 		mColumn.mHeadEntry = this;
-		
+
 		mColumn.mChainlength = mRow.mChainlength;
 		mRow.mChainlength = 1;
 
@@ -250,18 +250,18 @@ public class MatrixEntry {
 	public String rowToString() {
 		final StringBuilder sb = new StringBuilder("[");
 		sb.append(mCoeff).append("*(").append(mColumn).append(')');
-		for (MatrixEntry ptr = mNextInRow; 
+		for (MatrixEntry ptr = mNextInRow;
 			ptr != this; ptr = ptr.mNextInRow) {
 			sb.append('+');
 			sb.append(ptr.mCoeff).append("*(").append(ptr.mColumn).append(')');
 		}
 		return sb.append("=0]").toString();
 	}
-	
+
 	public String colToString() {
 		final StringBuilder sb = new StringBuilder("[");
 		String comma = "";
-		for (MatrixEntry ptr = mNextInCol; 
+		for (MatrixEntry ptr = mNextInCol;
 			ptr != this; ptr = ptr.mNextInCol) {
 			sb.append(comma);
 			sb.append('(').append(ptr.mRow).append(")->").append(ptr.mCoeff);
@@ -269,7 +269,7 @@ public class MatrixEntry {
 		}
 		return sb.append(']').toString();
 	}
-	
+
 	@Override
 	public String toString() {
 		if (mNextInRow == null) {

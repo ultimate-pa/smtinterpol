@@ -23,46 +23,46 @@ import java.util.Map;
 import java.util.Set;
 
 public abstract class Cmd {
-	
+
 	private boolean mActive = true;
-	
+
 	public void activate() {
 		mActive = true;
 	}
-	
+
 	public void deactivate() {
 		mActive = false;
 	}
-	
+
 	public boolean isActive() {
 		return mActive;
 	}
-	
+
 	public boolean canBeRemoved() { // NOPMD
 		return true;
 	}
-	
+
 	public abstract void dump(PrintWriter writer);
-	
+
 	public boolean hasDefinitions() { // NOPMD
 		return false;
 	}
-	
+
 	public void insertDefinitions(Map<String, Cmd> context) { // NOPMD
 		// Nothing to do
 	}
-	
+
 	public void addUsedDefinitions(// NOPMD
 			Map<String, Cmd> context, Set<Cmd> usedDefs) {
 		// Nothing to do
 	}
-	
+
 	public String provideFeature() { // NOPMD
 		return null;
 	}
-	
+
 	public void checkFeature(Map<String, Cmd> features) { // NOPMD
 		// Nothing to do
 	}
-	
+
 }

@@ -76,21 +76,21 @@ public class DefinitionTracker extends NonRecursive {
 		public void walk(NonRecursive walker, TermVariable term) {
 			// Does not need definitions
 		}
-		
+
 	}
-	
+
 	private final Map<String, Cmd> mCtx;
 	private final Set<Cmd> mUsed;
-	
+
 	public DefinitionTracker(Map<String, Cmd> ctx, Set<Cmd> used) {
 		mCtx = ctx;
 		mUsed = used;
 	}
-	
+
 	public void track(Term t) {
 		run(new Walker(t));
 	}
-	
+
 	private void track(String fun) {
 		final Cmd definition = mCtx.get(fun);
 		if (definition == null) {

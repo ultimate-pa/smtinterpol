@@ -21,18 +21,18 @@ package de.uni_freiburg.informatik.ultimate.util;
 /**
  * This implements Jenkins und Hsieh hash functions. It is based on the code at
  * <a href="http://www.burtleburtle.net/bob/c/lookup3.c">http://www.burtleburtle.net/bob/c/lookup3.c</a>.
- * 
- * 
+ *
+ *
  * @author Jürgen Christ, Jochen Hoenicke
  *
  */
 public final class HashUtils {
 	private final static int BASE = 0xdeadbeef;
-	
+
 	private HashUtils() {
 		// Hide constructor
 	}
-	
+
 	public static int hashJenkins(int init, Object... vals) {
 		if (vals == null || vals.length == 0) {
 			return init;
@@ -99,7 +99,7 @@ public final class HashUtils {
 		}
 		return c;
 	}
-	
+
 	public static int hashJenkins(int init, Object val) {
 		int a,b,c;
 		a = b = BASE + 4 + init;
@@ -120,7 +120,7 @@ public final class HashUtils {
 		c -= ((b << 24) | (b >>> 8));
 		return c;
 	}
-	
+
 	public static int hashHsieh(int init, Object... vals) {
 		if (vals == null || vals.length == 0) {
 			return init;
@@ -144,7 +144,7 @@ public final class HashUtils {
 		hash += hash >>> 6;
 		return hash;
 	}
-	
+
 	public static int hashHsieh(int init, Object val) {
 		int hash = init;
 		final int thingHash = val.hashCode();
@@ -161,5 +161,5 @@ public final class HashUtils {
 		hash += hash >>> 6;
 		return hash;
 	}
-	
+
 }

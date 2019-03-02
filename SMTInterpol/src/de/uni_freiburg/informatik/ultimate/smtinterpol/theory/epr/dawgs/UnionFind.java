@@ -121,7 +121,7 @@ public class UnionFind<E> implements IPartition<E> {
 
 	/**
 	 * Construct a new equivalence class that is a singleton and contains only element e.
-	 * 
+	 *
 	 * @param elem
 	 *            element
 	 */
@@ -143,7 +143,7 @@ public class UnionFind<E> implements IPartition<E> {
 	/**
 	 * Merge the equivalence classes of the elements e1 and e2. (e1 and e2 do not have to be the representatives of this
 	 * equivalence classes).
-	 * 
+	 *
 	 * @param elem1
 	 *            first element
 	 * @param elem2
@@ -164,7 +164,7 @@ public class UnionFind<E> implements IPartition<E> {
 
 	/**
 	 * Union operation for arbitrary number of arguments.
-	 * 
+	 *
 	 * @param elements
 	 *            elements
 	 */

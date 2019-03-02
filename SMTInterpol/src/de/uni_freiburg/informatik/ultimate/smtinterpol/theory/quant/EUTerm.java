@@ -25,7 +25,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 /**
  * Represents an essentially uninterpreted term. Quantified variables are allowed, but only as arguments of
  * uninterpreted predicate and function symbols.
- * 
+ *
  * @author Tanja Schindler
  *
  */
@@ -36,7 +36,7 @@ public abstract class EUTerm {
 	/**
 	 * Create a new EUTerm. This must only be called after checking that the term is essentially uninterpreted. We have
 	 * three types of EUTerm: GroundTerm, QuantAffineTerm, QuantAppTerm.
-	 * 
+	 *
 	 * @param clausifier
 	 *            the clausifier.
 	 * @param term

@@ -23,14 +23,14 @@ public class PairDawgState extends DawgState {
 
 	final DawgState mFirst;
 	final DawgState mSecond;
-	
+
 	final boolean mFirstIsSink;
 	final boolean mSecondIsSink;
-	
+
 	public PairDawgState(DawgState s, boolean firstIsSink, boolean secondIsSink, DawgState replacement) {
 		super(replacement);
 		assert firstIsSink != secondIsSink;
-		
+
 		if (firstIsSink) {
 			mFirst = null;
 			mSecond = s;
@@ -52,7 +52,7 @@ public class PairDawgState extends DawgState {
 		mFirst = f;
 		mSecond = s;
 	}
-	
+
 	public boolean isFirstSink() {
 		return mFirstIsSink;
 	}
@@ -64,14 +64,14 @@ public class PairDawgState extends DawgState {
 	public DawgState getFirst() {
 		return mFirst;
 	}
-	
+
 	public DawgState getSecond() {
 		return mSecond;
 	}
-	
+
 	@Override
 	public String toString() {
-		return String.format("PairDawgState%d(#%d,#%d)", 
+		return String.format("PairDawgState%d(#%d,#%d)",
 				this.hashCode() % 10000,
 				mFirstIsSink ? -1 : mFirst.hashCode() % 10000,
 				mSecondIsSink ? -1 : mSecond.hashCode() % 10000);

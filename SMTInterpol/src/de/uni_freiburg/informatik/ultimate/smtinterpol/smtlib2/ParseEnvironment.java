@@ -51,14 +51,14 @@ public class ParseEnvironment {
 	private Deque<Long> mTiming;
 
 	private final FrontEndOptions mOptions;
-	
+
 	private Lexer mLexer = null;
 	private boolean mVersion25 = true;
 
 	public ParseEnvironment(Script script, OptionMap options) {
 		this(script, null, options);
 	}
-	
+
 	public ParseEnvironment(Script script, ExitHook exit,
 			OptionMap options) {
 		mScript = script;
@@ -68,7 +68,7 @@ public class ParseEnvironment {
 			throw new IllegalArgumentException("Front End not active!");
 		}
 	}
-	
+
 	public Script getScript() {
 		return mScript;
 	}
@@ -103,7 +103,7 @@ public class ParseEnvironment {
 		}
 		return false;
 	}
-	
+
 	public void parseScript(String filename) throws SMTLIBException {
 		final File oldcwd = mCwd;
 		Reader reader = null;
@@ -141,7 +141,7 @@ public class ParseEnvironment {
 			}
 		}
 	}
-	
+
 	public void parseStream(Reader reader, String streamname)
 	    throws SMTLIBException {
 		final MySymbolFactory symfactory = new MySymbolFactory();
@@ -160,7 +160,7 @@ public class ParseEnvironment {
 			mLexer = last;
 		}
 	}
-	
+
 	public void include(String filename) throws SMTLIBException {
 		final ExitHook oldexit = mExitHook;
 		mExitHook = new ExitHook() {
@@ -174,7 +174,7 @@ public class ParseEnvironment {
 		mCwd = oldcwd;
 		mExitHook = oldexit;
 	}
-	
+
 	public void printSuccess() {
 		if (mOptions.isPrintSuccess()) {
 			final PrintWriter out = mOptions.getOutChannel();
@@ -182,7 +182,7 @@ public class ParseEnvironment {
 			out.flush();
 		}
 	}
-	
+
 	public void printError(String message) {
 		final PrintWriter out = mOptions.getOutChannel();
 		out.print("(error \"");
@@ -193,14 +193,14 @@ public class ParseEnvironment {
 			System.exit(1);
 		}
 	}
-	
+
 	public void printValues(Map<Term, Term> values) {
 		final PrintTerm pt = new PrintTerm();
 		final PrintWriter out = mOptions.getOutChannel();
 		out.print('(');
 		String sep = "";
-		final String itemSep = Config.RESULTS_ONE_PER_LINE 
-				? System.getProperty("line.separator") + " " : " "; 
+		final String itemSep = Config.RESULTS_ONE_PER_LINE
+				? System.getProperty("line.separator") + " " : " ";
 		for (final Map.Entry<Term, Term> me : values.entrySet()) {
 			out.print(sep);
 			out.print('(');
@@ -213,7 +213,7 @@ public class ParseEnvironment {
 		out.println(')');
 		out.flush();
 	}
-	
+
 	public void printResponse(Object response) {
 		final PrintWriter out = mOptions.getOutChannel();
 		if (!mOptions.isPrintTermsCSE()) {
@@ -246,7 +246,7 @@ public class ParseEnvironment {
 		}
 		out.flush();
 	}
-	
+
 	public void printInfoResponse(String info, Object response) {
 		final PrintWriter out = mOptions.getOutChannel();
 		final StringBuilder sb = new StringBuilder();
@@ -255,7 +255,7 @@ public class ParseEnvironment {
 		out.println(sb.append(')').toString());
 		out.flush();
 	}
-	
+
 	/**
 	 * Direct printing of a term array response.  This function is introduced to
 	 * satisfy the requirement of the SMTLIB standard for the get-assertions
@@ -268,7 +268,7 @@ public class ParseEnvironment {
 		final PrintTerm pt = new PrintTerm();
 		sb.append('(');
 		String sep = "";
-		final String itemSep = Config.RESULTS_ONE_PER_LINE 
+		final String itemSep = Config.RESULTS_ONE_PER_LINE
 				? System.getProperty("line.separator") + " " : " ";
 		for (final Term t : response) {
 			sb.append(sep);
@@ -288,7 +288,7 @@ public class ParseEnvironment {
 			mExitHook.exitHook();
 		}
 	}
-	
+
 	public void setInfo(String info, Object value) {
 		if (info.equals(":smt-lib-version")) {
 			final String svalue = String.valueOf(value);
@@ -310,7 +310,7 @@ public class ParseEnvironment {
 		}
 		mScript.setInfo(info, value);
 	}
-	
+
 	public Object getInfo(String info) {
 		if (info.equals(":error-behavior")) {
 			return mOptions.continueOnError() ? "continued-execution" : "immediate-exit";
@@ -325,7 +325,7 @@ public class ParseEnvironment {
 		mOptions.getOutChannel().print('(');
 		mTiming.push(System.nanoTime());
 	}
-	
+
 	public void endTiming() {
 		final long old = mTiming.pop();
 		final long duration = System.nanoTime() - old;
@@ -334,7 +334,7 @@ public class ParseEnvironment {
 		mOptions.getOutChannel().println();
 		mOptions.getOutChannel().flush();
 	}
-	
+
 	public boolean isContinueOnError() {
 		return mOptions.continueOnError();
 	}

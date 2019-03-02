@@ -25,7 +25,7 @@ import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
  * A QuantVarEquality is an equality "TermVariable = TermVariable" or "TermVariable = GroundTerm". Negated
  * QuantVarEqualities will be used for Destructive Equality Reasoning, positive QuantVarEqualities are only allowed for
  * integers and with only one variable, and will be treated by an auxiliary clause.
- * 
+ *
  * @author Tanja Schindler
  *
  */
@@ -38,7 +38,7 @@ public class QuantVarEquality extends QuantLiteral {
 	/**
 	 * Create a new QuantVarEquality of the form "TermVariable = TermVariable". Only the negated version is supported,
 	 * hence this should only be called for the atom of a disequality.
-	 * 
+	 *
 	 * @param term
 	 *            the term for the underlying equality atom.
 	 * @param leftVar
@@ -60,7 +60,7 @@ public class QuantVarEquality extends QuantLiteral {
 	/**
 	 * Create a new QuantVarEquality of the form "TermVariable = GroundTerm". In the positive case, this should only be
 	 * called for integers.
-	 * 
+	 *
 	 * @param term
 	 *            the term for the underlying equality atom.
 	 * @param var

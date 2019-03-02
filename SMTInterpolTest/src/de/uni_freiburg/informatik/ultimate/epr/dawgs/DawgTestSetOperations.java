@@ -47,13 +47,13 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 
 /**
  * Tests for the standard set operations on dawgs.
- * 
+ *
  * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
  *
  */
 @RunWith(JUnit4.class)
 public class DawgTestSetOperations {
-	
+
 	private IDawg<String, Integer> dawg1;
 	private TreeSet<Integer> signature1;
 	private List<String> word_aa;
@@ -84,19 +84,19 @@ public class DawgTestSetOperations {
 
 	@Before
 	public void setup() {
-		
-		DawgFactory<String, Integer> dawgFactory = 
+
+		DawgFactory<String, Integer> dawgFactory =
 				new DawgFactory<String, Integer>(EprTestHelpers.getEprTheory());
 		EprTestHelpers.addConstantsWDefaultSort(dawgFactory, EprTestHelpers.constantsAbc());
 
 		signature1 = new TreeSet<Integer>(Arrays.asList(new Integer[] { 1, 2 }));
 		dawg1 = dawgFactory.getEmptyDawg(signature1);
-		
+
 		word_aa = Arrays.asList(new String[] { "a", "a" });
 		dawg2 = dawg1.add(word_aa);
 
 		word_ab = Arrays.asList(new String[] { "a", "b" });
-		
+
 		word_ac = Arrays.asList(new String[] { "a", "c" });
 		word_ba = Arrays.asList(new String[] { "b", "a" });
 		word_bb = Arrays.asList(new String[] { "b", "b" });
@@ -114,33 +114,33 @@ public class DawgTestSetOperations {
 		dawg3 = dawg3.add(word_cb);
 		dawg7 = dawgFactory.copyDawg(dawg3);
 		dawg3 = dawg3.add(word_cc);
-		
+
 		dawg4 = dawg2.add(word_ab);
 		dawg4 = dawg4.add(word_ac);
-		
+
 		dawg5 = dawg4.add(word_ba);
 //		dawg5 = dawg5.add(word5);
 //		dawg5 = dawg5.add(word6);
 //		dawg5 = dawg5.add(word7);
-		
+
 		dawg6 = dawg3.complement();
-		
+
 		dawg8 = dawg7.complement();
 //		dawg8 = null;
-		
+
 		dawg9 = dawgFactory.getEmptyDawg(signature1);
 		dawg9 = dawg9.add(word_aa);
 		dawg9 = dawg9.add(word_ab);
-		
+
 		dawg10 = dawgFactory.getEmptyDawg(signature1);
 		dawg10 = dawg10.add(word_ab);
 		dawg10 = dawg10.add(word_ac);
-		
+
 		dawg11 = dawg9.intersect(dawg10);
-		
+
 		dawg12 = dawg11.complement();
 		dawg12 = dawg12.add(word_ab);
-		
+
 		dawg13 = dawgFactory.createOnePointDawg(signature1, word_ba);
 		dawg13 = dawg13.add(word_bb);
 		dawg13 = dawg13.add(word_bc);
@@ -148,7 +148,7 @@ public class DawgTestSetOperations {
 		dawg13 = dawg13.add(word_cb);
 		dawg13 = dawg13.add(word_cc);
 
-		
+
 		dawg14 = dawg9.union(dawg10);
 		dawg14 = dawg14.union(dawg13);
 
@@ -181,7 +181,7 @@ public class DawgTestSetOperations {
 		assertTrue(dawg4.accepts(word_ac));
 		assertFalse(dawg4.accepts(word_ba));
 	}
-	
+
 	@Test
 	public void testDawg5() {
 		assertTrue(dawg5.accepts(word_aa));
@@ -189,12 +189,12 @@ public class DawgTestSetOperations {
 //		assertTrue(dawg5.accepts(word5));
 //		assertTrue(dawg5.accepts(word6));
 	}
-	
+
 	@Test
 	public void testDawg6() {
 //		assertTrue(dawg6.isEmpty()); // not empty by new AllConstants convention!
 	}
-	
+
 	@Test
 	public void testDawg7() {
 		assertFalse(dawg7.isEmpty());
@@ -202,13 +202,13 @@ public class DawgTestSetOperations {
 		assertFalse(dawg7.isSingleton());
 		assertFalse(dawg7.accepts(word_cc));
 	}
-	
+
 	@Test
 	public void testDawg8() {
 //		assertTrue(dawg8.isSingleton()); // not singleton by new AllConstants convention!
 		assertTrue(dawg8.accepts(word_cc));
 	}
-	
+
 	@Test
 	public void testDawg11() {
 //		assertTrue(dawg11.isSingleton()); // not singleton by new AllConstants convention!
@@ -219,7 +219,7 @@ public class DawgTestSetOperations {
 	public void testDawg12() {
 		assertTrue(dawg12.isUniversal());
 	}
-	
+
 	@Test
 	public void testDawg13() {
 //		assertTrue(dawg14.isUniversal()); // not universal by new AllConstants convention!
@@ -230,16 +230,16 @@ public class DawgTestSetOperations {
 	 */
 	@Test
 	public void test14() {
-		
-		final DawgFactory<String, String> dawgFactoryStringString = 
+
+		final DawgFactory<String, String> dawgFactoryStringString =
 				new DawgFactory<String, String>(EprTestHelpers.getEprTheory());
 		EprTestHelpers.addConstantsWDefaultSort(dawgFactoryStringString, EprTestHelpers.constantsAbc());
-	
+
 		/*
 		 * words in the first automaton
 		 */
 		final List<String> word_aa = Arrays.asList(new String[] { "a", "a" });
-		
+
 		/*
 		 * words not in the first automaton
 		 */
@@ -248,9 +248,9 @@ public class DawgTestSetOperations {
 
 		final SortedSet<String> signature = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signature.addAll(Arrays.asList(new String[] { "u", "w" }));
-		
+
 		final IDawg<String, String> dawgPre = dawgFactoryStringString.createOnePointDawg(signature, word_aa);
-		
+
 		assertTrue(dawgPre.accepts(word_aa));
 		assertFalse(dawgPre.accepts(word_ab));
 		assertFalse(dawgPre.accepts(word_bb));

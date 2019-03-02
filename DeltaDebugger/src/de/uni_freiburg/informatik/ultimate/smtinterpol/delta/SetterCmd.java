@@ -22,12 +22,12 @@ import java.io.PrintWriter;
 
 
 public class SetterCmd extends Cmd {
-	
+
 	private final String mCmd;
 	private final boolean mCanBeRemoved;
 	private final String mKey;
 	private final Object mVal;
-	
+
 	public SetterCmd(String cmd, String key, Object val) {
 		mCmd = cmd;
 		// Remove most infos but keep options...
@@ -41,7 +41,7 @@ public class SetterCmd extends Cmd {
 						|| key.endsWith("-check-mode"))));
 		mKey = key;
 		mVal = val;
-		
+
 	}
 
 	@Override
@@ -59,7 +59,7 @@ public class SetterCmd extends Cmd {
 		writer.print(mVal);
 		writer.println(')');
 	}
-	
+
 	@Override
 	public String toString() {
 		return mCmd.toUpperCase();

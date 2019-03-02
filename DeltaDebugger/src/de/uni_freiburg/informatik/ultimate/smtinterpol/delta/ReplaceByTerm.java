@@ -22,25 +22,25 @@ import de.uni_freiburg.informatik.ultimate.logic.PrintTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 
 final class ReplaceByTerm extends Substitution {
-	
+
 	private final Term mReplacement;
 	private final boolean mNeutral;
-	
+
 	public ReplaceByTerm(Term match, Term replacement, boolean neutral) {
 		this(match, replacement, false, neutral);
 	}
-	
+
 	public ReplaceByTerm(Term match, Term replacement, boolean recurse,
 			boolean neutral) {
 		super(match, recurse);
 		mReplacement = replacement;
 		mNeutral = neutral;
 	}
-	
+
 	public boolean isNeutralReplacement() {
 		return mNeutral;
 	}
-	
+
 	public Term getReplacement() {
 		return mReplacement;
 	}
@@ -54,7 +54,7 @@ final class ReplaceByTerm extends Substitution {
 	public Cmd getAdditionalCmd(Term input) {
 		return null;
 	}
-	
+
 	@Override
 	public String toString() {
 		final StringBuilder sb = new StringBuilder();
@@ -64,5 +64,5 @@ final class ReplaceByTerm extends Substitution {
 		pt.append(sb, mReplacement);
 		return sb.toString();
 	}
-	
+
 }

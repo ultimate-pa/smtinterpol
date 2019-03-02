@@ -40,7 +40,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DslBuilder;
 
 /**
- * 
+ *
  * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
  *
  */
@@ -51,64 +51,64 @@ public class UnitPropagationData {
 	private final Map<Literal, Clause> mGroundPropagations;
 
 	public UnitPropagationData(
-				Map<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> finalClauseLitToUnitPoints, 
+				Map<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> finalClauseLitToUnitPoints,
 				DawgFactory<ApplicationTerm, TermVariable> dawgFactory) {
-	
+
 			final List<DslBuilder> quantifiedPropagations = new ArrayList<DslBuilder>();
 			final Map<Literal, Clause> groundPropagations = new HashMap<Literal,Clause>();
-			
+
 			for (Entry<ClauseLiteral, IDawg<ApplicationTerm, TermVariable>> en : finalClauseLitToUnitPoints.entrySet()) {
 				final ClauseLiteral cl = en.getKey();
 				if (cl instanceof ClauseEprQuantifiedLiteral) {
 					final ClauseEprQuantifiedLiteral ceql = (ClauseEprQuantifiedLiteral) cl;
 					final DslBuilder propB = new DslBuilder(
-							ceql.getPolarity(), 
+							ceql.getPolarity(),
 							ceql.getEprPredicate(),
 							dawgFactory.translateClauseSigToPredSig(
-									en.getValue(), 
-									ceql.getTranslationFromClauseToEprPredicate(), 
+									en.getValue(),
+									ceql.getTranslationFromClauseToEprPredicate(),
 									ceql.getArgumentsAsObjects(),
 									ceql.getEprPredicate().getTermVariablesForArguments()),
 							ceql,
 							en.getValue(),
-							false); 
+							false);
 					quantifiedPropagations.add(propB);
 				} else {
 					if (cl.getLiteral().getAtom() instanceof EprGroundEqualityAtom) {
 						/*
-						 *  EprGroundEqualityAtoms are not passed to the DPLLEngine --> treat them like a quantified 
+						 *  EprGroundEqualityAtoms are not passed to the DPLLEngine --> treat them like a quantified
 						 *  propagations
 						 */
 						final EprGroundEqualityAtom egea = (EprGroundEqualityAtom) cl.getLiteral().getAtom();
-						
+
 						final IDawg<ApplicationTerm, TermVariable> onePointDawg = dawgFactory.createOnePointDawg(
 								egea.getEprPredicate().getTermVariablesForArguments(), egea.getPoint());
 
 						// we don't need a signature translation here, because equality is symmetric anyway, right?..
 						// TODO: perhaps reorder it manually..
-						final IDawg<ApplicationTerm, TermVariable> onePointDawgInClauseSig = 
+						final IDawg<ApplicationTerm, TermVariable> onePointDawgInClauseSig =
 								dawgFactory.createOnePointDawg(cl.getClause().getVariables(), egea.getPoint());
-						
-						final DslBuilder propB = new DslBuilder(cl.getPolarity(), 
-								egea.getEprPredicate(), 
+
+						final DslBuilder propB = new DslBuilder(cl.getPolarity(),
+								egea.getEprPredicate(),
 								onePointDawg,
 								(ClauseEprLiteral) cl,
 								onePointDawgInClauseSig,
 								false);
 						quantifiedPropagations.add(propB);
 					} else {
-				
+
 						IDawg<ApplicationTerm, TermVariable> groundingDawg = finalClauseLitToUnitPoints.get(cl);
 						Set<Clause> groundings = cl.getClause().getGroundings(groundingDawg);
 						Clause unitGrounding = groundings.iterator().next();
-						// 				note that the following assert would be wrong (rightfully), because some atoms of the given clause 
+						// 				note that the following assert would be wrong (rightfully), because some atoms of the given clause
 						// 				may not be known to the DPLLEngine yet
 						//				assert EprHelpers.verifyUnitClause(unitGrounding, cl.getLiteral(), dawgFactory.getLogger());
 						groundPropagations.put(cl.getLiteral(), unitGrounding);
 					}
 				}
 			}
-				
+
 			mQuantifiedPropagations = Collections.unmodifiableList(quantifiedPropagations);
 			mGroundPropagations = Collections.unmodifiableMap(groundPropagations);
 		}
@@ -116,14 +116,14 @@ public class UnitPropagationData {
 		return mQuantifiedPropagations;
 	}
 
-	
+
 	/**
-	 * 
+	 *
 	 * @return a mapping from a ground unit literal to its propagation reason (which is a ground clause)
 	 */
 	public Map<Literal, Clause> getGroundPropagations() {
 		return mGroundPropagations;
 	}
-	
-	
+
+
 }

@@ -43,11 +43,11 @@ public class BinSearch<E> {
 			mBuddy = buddy;
 		}
 	}
-	
+
 	private final List<E> mList;
 	private final Driver<E> mDriver;
 	private final ArrayDeque<IntPair> mTodo;
-	
+
 	public BinSearch(List<E> list, Driver<E> driver) {
 		mList = list;
 		mDriver = driver;

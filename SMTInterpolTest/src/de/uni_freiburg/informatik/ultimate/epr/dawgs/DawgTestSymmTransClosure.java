@@ -37,15 +37,15 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 
 /**
  * Test the symmetric transitive closure operation on dawgs (used for equality handling in EPR)
- * 
- * 
+ *
+ *
  * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
  *
  */
 @RunWith(JUnit4.class)
 public class DawgTestSymmTransClosure {
 
-	
+
 	/**
 	 * Our dawg contains "a a", and "b b", and nothing to connect the two equivalence classes
 	 *  --> the closure should not change the dawg.
@@ -54,11 +54,11 @@ public class DawgTestSymmTransClosure {
 	public void test1() {
 		final DawgFactory<String, String> dawgFactory = new DawgFactory<String, String>(EprTestHelpers.getEprTheory());
 		EprTestHelpers.addConstantsWDefaultSort(dawgFactory, EprTestHelpers.constantsAbc());
-		
+
 		final SortedSet<String> sig = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		sig.add("X");
 		sig.add("Y");
-		
+
 		final List<String> word_aa = Arrays.asList(new String[] { "a", "a" });
 		final List<String> word_ab = Arrays.asList(new String[] { "a", "b" });
 		final List<String> word_ba = Arrays.asList(new String[] { "b", "a" });
@@ -66,13 +66,13 @@ public class DawgTestSymmTransClosure {
 
 		IDawg<String, String> dawg = dawgFactory.createOnePointDawg(sig, word_aa);
 		dawg = dawg.add(word_bb);
-		
+
 		Dawg<String, String> dawgRes = dawgFactory.closeDawgUnderSymmetryAndTransitivity((Dawg<String, String>) dawg);
-		
+
 		assertTrue(dawg.intersect(dawgRes.complement()).isEmpty());
 		assertTrue(dawg.complement().intersect(dawgRes).isEmpty());
 	}
-	
+
 	/**
 	 * The initial dawg contains "a a", "b b", and -connecting the two-, "a b". The resulting dawg should express one
 	 * equivalence class "{a b}".
@@ -81,11 +81,11 @@ public class DawgTestSymmTransClosure {
 	public void test2() {
 		final DawgFactory<String, String> dawgFactory = new DawgFactory<String, String>(EprTestHelpers.getEprTheory());
 		EprTestHelpers.addConstantsWDefaultSort(dawgFactory, EprTestHelpers.constantsAbc());
-		
+
 		final SortedSet<String> sig = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		sig.add("X");
 		sig.add("Y");
-		
+
 		final List<String> word_aa = Arrays.asList(new String[] { "a", "a" });
 		final List<String> word_ab = Arrays.asList(new String[] { "a", "b" });
 		final List<String> word_ba = Arrays.asList(new String[] { "b", "a" });
@@ -96,12 +96,12 @@ public class DawgTestSymmTransClosure {
 		IDawg<String, String> dawg = dawgFactory.createOnePointDawg(sig, word_aa);
 		dawg = dawg.add(word_bb);
 		dawg = dawg.add(word_ba);
-		
+
 		Dawg<String, String> dawgRes = dawgFactory.closeDawgUnderSymmetryAndTransitivity((Dawg<String, String>) dawg);
-		
+
 		assertTrue(dawg.intersect(dawgRes.complement()).isEmpty());
 		assertTrue(dawgRes.accepts(word_ab));
 		assertFalse(dawgRes.accepts(word_ac));
 	}
-	
+
 }

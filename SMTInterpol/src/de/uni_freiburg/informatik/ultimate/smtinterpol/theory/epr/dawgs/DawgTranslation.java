@@ -23,30 +23,30 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * 
+ *
  * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
  *
  * @param <COLNAMES>
  */
 public class DawgTranslation<COLNAMES> {
-	
-	
+
+
 	COLNAMES[] mNewSignature;
-	
+
 	Map<COLNAMES, COLNAMES> mTranslation = new HashMap<COLNAMES, COLNAMES>();
-	
+
 	public void addPair(COLNAMES pre, COLNAMES post) {
 		mTranslation.put(pre, post);
 	}
-	
+
 	public void setNewSignature(COLNAMES[] newSig) {
 		mNewSignature = newSig;
 	}
-	
+
 	public Map<COLNAMES, COLNAMES> getTranslation() {
 		return mTranslation;
 	}
-	
+
 	public COLNAMES[] getNewSignature() {
 		return mNewSignature;
 	}

@@ -40,7 +40,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgbuilders.ReorderAndRenameDawgBuilder;
 
 public class DawgTestReorderAndRenameColumns {
-	
+
 	Set<String> getAllConstants() {
 		Set<String> result = new HashSet<String>();
 		result.add("a");
@@ -52,23 +52,23 @@ public class DawgTestReorderAndRenameColumns {
 	private EprTheory getEprTheory() {
 		return new EprTheoryMock(getLogger());
 	}
-	
+
 	private LogProxy getLogger() {
 		return new DefaultLogger();
 	}
 
-	
+
 		/**
 	 * Example for RenameAndReorder which
 	 *  - moves from left to right
 	 *  - source column is not at the very start
 	 *  - target column is not at the very end
-	 * 
+	 *
 	 *  (example from the whiteboard in Jan/Feb 2017)
 	 */
 	@Test
 	public void test2() {
-		DawgFactory<String, String> dawgFactoryStringString = 
+		DawgFactory<String, String> dawgFactoryStringString =
 				new DawgFactory<String, String>(getEprTheory());
 		EprTestHelpers.addConstantsWDefaultSort(dawgFactoryStringString, EprTestHelpers.constantsAbc());
 
@@ -94,13 +94,13 @@ public class DawgTestReorderAndRenameColumns {
 		List<String> word_abccb = Arrays.asList(new String[] { "a", "b", "c", "c", "b" });
 		List<String> word_bbaaa = Arrays.asList(new String[] { "b", "b", "a", "a", "a" });
 		List<String> word_bbcab = Arrays.asList(new String[] { "b", "b", "c", "a", "b" });
-		
+
 		SortedSet<String> signature3 = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signature3.addAll(Arrays.asList(new String[] { "u", "v", "w", "x", "z"}));
-		
+
 		SortedSet<String> signature4 = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signature4.addAll(Arrays.asList(new String[] { "u", "w", "x", "y", "z" }));
-		
+
 		IDawg<String, String> dawg3 = dawgFactoryStringString.getEmptyDawg(signature3);
 		dawg3 = dawg3.add(word_aaaaa);
 		dawg3 = dawg3.add(word_aaacb);
@@ -113,12 +113,12 @@ public class DawgTestReorderAndRenameColumns {
 		dawg3 = dawg3.add(word_aacab);
 
 		Dawg<String, String> dawg4 = new ReorderAndRenameDawgBuilder<String, String>(
-					dawgFactoryStringString, 
-					(Dawg<String, String>) dawg3, 
-					"v", 
+					dawgFactoryStringString,
+					(Dawg<String, String>) dawg3,
+					"v",
 					"y")
 				.build();
-		
+
 		assertTrue(dawg4.accepts(word_aaaaa));
 		assertTrue(dawg4.accepts(word_acbab));
 		assertTrue(dawg4.accepts(word_abaca));
@@ -127,7 +127,7 @@ public class DawgTestReorderAndRenameColumns {
 		assertTrue(dawg4.accepts(word_bbaaa));
 		assertTrue(dawg4.accepts(word_bbcab));
 	}
-	
+
 	/**
 	 * Example for RenameAndReorder which
 	 *  - moves from left to right
@@ -136,16 +136,16 @@ public class DawgTestReorderAndRenameColumns {
 	 */
 	@Test
 	public void test3() {
-		DawgFactory<String, String> dawgFactoryStringString = 
+		DawgFactory<String, String> dawgFactoryStringString =
 				new DawgFactory<String, String>(getEprTheory());
 		EprTestHelpers.addConstantsWDefaultSort(dawgFactoryStringString, EprTestHelpers.constantsAbc());
-		
+
 		SortedSet<String> signaturePre = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signaturePre.addAll(Arrays.asList(new String[] { "u", "v", "x"}));
-		
+
 		SortedSet<String> signaturePost = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signaturePost.addAll(Arrays.asList(new String[] { "v", "w", "x"}));
-	
+
 
 		/*
 		 * word in the original automaton
@@ -163,7 +163,7 @@ public class DawgTestReorderAndRenameColumns {
 		List<String> word_aca = Arrays.asList(new String[] { "a", "c", "a" });
 
 
-	
+
 		IDawg<String, String> dawg3 = dawgFactoryStringString.getEmptyDawg(signaturePre);
 		dawg3 = dawg3.add(word_aaa);
 		dawg3 = dawg3.add(word_abb);
@@ -171,31 +171,31 @@ public class DawgTestReorderAndRenameColumns {
 		dawg3 = dawg3.add(word_caa);
 
 		Dawg<String, String> dawg4 = new ReorderAndRenameDawgBuilder<String, String>(
-					dawgFactoryStringString, 
-					(Dawg<String, String>) dawg3, 
-					"u", 
+					dawgFactoryStringString,
+					(Dawg<String, String>) dawg3,
+					"u",
 					"w")
 				.build();
-		
+
 		assertTrue(dawg4.accepts(word_aaa));
 		assertTrue(dawg4.accepts(word_bab));
 		assertTrue(dawg4.accepts(word_bac));
 		assertTrue(dawg4.accepts(word_aca));
 	}
-	
+
 	/**
 	 * Example for RenameAndReorder which
 	 *  - moves from right to left
 	 *  - source column is not at the very start
 	 *  - target column is not at the very end
-	 * 
+	 *
 	 *  (the inverse transformation of test2)
 	 */
 	@Test
 	public void test4() {
 		Set<String> allConstants = new HashSet<String>(Arrays.asList(new String[] { "a", "b", "c", "d", "e" }));
-		
-		DawgFactory<String, String> dawgFactoryStringString = 
+
+		DawgFactory<String, String> dawgFactoryStringString =
 				new DawgFactory<String, String>(getEprTheory());
 		EprTestHelpers.addConstantsWDefaultSort(dawgFactoryStringString, EprTestHelpers.constantsAbcde());
 
@@ -211,37 +211,37 @@ public class DawgTestReorderAndRenameColumns {
 
 		SortedSet<String> signature3 = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signature3.addAll(Arrays.asList(new String[] { "u", "w", "x", "y", "z" }));
-		
+
 		SortedSet<String> signature4 = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signature4.addAll(Arrays.asList(new String[] { "u", "v", "w", "x", "z"}));
-		
+
 		IDawg<String, String> dawg3 = dawgFactoryStringString.getEmptyDawg(signature3);
 		dawg3 = dawg3.add(word_abcde);
 
 		Dawg<String, String> dawg4 = new ReorderAndRenameDawgBuilder<String, String>(
-					dawgFactoryStringString, 
-					(Dawg<String, String>) dawg3, 
-					"y", 
+					dawgFactoryStringString,
+					(Dawg<String, String>) dawg3,
+					"y",
 					"v")
 				.build();
 
 		assertTrue(dawg4.accepts(word_adbce));
-		
+
 	}
-	
-	
+
+
 		/**
 	 * Example for RenameAndReorder which
 	 *  - moves from right to left
 	 *  - source column is not at the very start
 	 *  - target column is not at the very end
-	 * 
+	 *
 	 *  (the inverse transformation of test2)
 	 */
 	@Test
 	public void test5() {
-		
-		DawgFactory<String, String> dawgFactoryStringString = 
+
+		DawgFactory<String, String> dawgFactoryStringString =
 				new DawgFactory<String, String>(getEprTheory());
 		EprTestHelpers.addConstantsWDefaultSort(dawgFactoryStringString, EprTestHelpers.constantsAbc());
 
@@ -268,13 +268,13 @@ public class DawgTestReorderAndRenameColumns {
 		List<String> word_accbb = Arrays.asList(new String[] { "a", "c", "c", "b", "b" });
 		List<String> word_baaba = Arrays.asList(new String[] { "b", "a", "a", "b", "a" });
 		List<String> word_bcabb = Arrays.asList(new String[] { "b", "c", "a", "b", "b" });
-	
+
 		SortedSet<String> signature3 = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signature3.addAll(Arrays.asList(new String[] { "u", "w", "x", "y", "z" }));
-		
+
 		SortedSet<String> signature4 = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signature4.addAll(Arrays.asList(new String[] { "u", "v", "w", "x", "z"}));
-		
+
 		IDawg<String, String> dawg3 = dawgFactoryStringString.getEmptyDawg(signature3);
 		dawg3 = dawg3.add(word_aaaaa);
 		dawg3 = dawg3.add(word_aaacb);
@@ -288,12 +288,12 @@ public class DawgTestReorderAndRenameColumns {
 		dawg3 = dawg3.add(word_aacab);
 
 		Dawg<String, String> dawg4 = new ReorderAndRenameDawgBuilder<String, String>(
-					dawgFactoryStringString, 
-					(Dawg<String, String>) dawg3, 
-					"y", 
+					dawgFactoryStringString,
+					(Dawg<String, String>) dawg3,
+					"y",
 					"v")
 				.build();
-		
+
 		assertTrue(dawg4.accepts(word_aaaaa));
 		assertTrue(dawg4.accepts(word_acaab));
 		assertTrue(dawg4.accepts(word_abacb));
@@ -303,26 +303,26 @@ public class DawgTestReorderAndRenameColumns {
 		assertTrue(dawg4.accepts(word_baaba));
 		assertTrue(dawg4.accepts(word_bcabb));
 	}
-	
+
 	/**
 	 * Example for RenameAndReorder which
 	 *  - moves from right to left
 	 *  - source column is at the very end
 	 *  - target column is not at the very start
-	 * 
+	 *
 	 */
 	@Test
 	public void test6() {
-		DawgFactory<String, String> dawgFactoryStringString = 
+		DawgFactory<String, String> dawgFactoryStringString =
 				new DawgFactory<String, String>(getEprTheory());
 		EprTestHelpers.addConstantsWDefaultSort(dawgFactoryStringString, EprTestHelpers.constantsAbc());
-		
+
 		SortedSet<String> signaturePre = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signaturePre.addAll(Arrays.asList(new String[] { "u", "w", "x"}));
-		
+
 		SortedSet<String> signaturePost = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signaturePost.addAll(Arrays.asList(new String[] { "u", "v", "w"}));
-	
+
 
 		/*
 		 * word in the original automaton
@@ -339,34 +339,34 @@ public class DawgTestReorderAndRenameColumns {
 		dawg3 = dawg3.add(word_abc);
 
 		Dawg<String, String> dawg4 = new ReorderAndRenameDawgBuilder<String, String>(
-					dawgFactoryStringString, 
-					(Dawg<String, String>) dawg3, 
-					"x", 
+					dawgFactoryStringString,
+					(Dawg<String, String>) dawg3,
+					"x",
 					"v")
 				.build();
-		
+
 		assertTrue(dawg4.accepts(word_acb));
 	}
-	
+
 	/**
 	 * Example for RenameAndReorder which
 	 *  - moves from right to left
 	 *  - source column is at the very end
 	 *  - target column is not at the very start
-	 * 
+	 *
 	 */
 	@Test
 	public void test7() {
-		DawgFactory<String, String> dawgFactoryStringString = 
+		DawgFactory<String, String> dawgFactoryStringString =
 				new DawgFactory<String, String>(getEprTheory());
 		EprTestHelpers.addConstantsWDefaultSort(dawgFactoryStringString, EprTestHelpers.constantsAbc());
-		
+
 		SortedSet<String> signaturePre = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signaturePre.addAll(Arrays.asList(new String[] { "u", "w", "x"}));
-		
+
 		SortedSet<String> signaturePost = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signaturePost.addAll(Arrays.asList(new String[] { "u", "v", "w"}));
-	
+
 
 		/*
 		 * word in the original automaton
@@ -391,12 +391,12 @@ public class DawgTestReorderAndRenameColumns {
 		dawg3 = dawg3.add(word_aac);
 
 		Dawg<String, String> dawg4 = new ReorderAndRenameDawgBuilder<String, String>(
-					dawgFactoryStringString, 
-					(Dawg<String, String>) dawg3, 
-					"x", 
+					dawgFactoryStringString,
+					(Dawg<String, String>) dawg3,
+					"x",
 					"v")
 				.build();
-		
+
 		assertTrue(dawg4.accepts(word_aaa));
 		assertTrue(dawg4.accepts(word_bab));
 		assertTrue(dawg4.accepts(word_acb));

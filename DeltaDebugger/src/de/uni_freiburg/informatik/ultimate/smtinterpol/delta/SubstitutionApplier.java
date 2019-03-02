@@ -35,11 +35,11 @@ import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 
 public class SubstitutionApplier extends NonRecursive {
-	
+
 	private final class AnnotationBuilder implements Walker {
-		
+
 		private final AnnotatedTerm mTerm;
-		
+
 		public AnnotationBuilder(AnnotatedTerm term) {
 			mTerm = term;
 		}
@@ -51,13 +51,13 @@ public class SubstitutionApplier extends NonRecursive {
 					mTerm.getAnnotations(), converted);
 			mConverted.push(res);
 		}
-		
+
 	}
-	
+
 	private final class ApplicationTermBuilder implements Walker {
-		
+
 		private final ApplicationTerm mTerm;
-		
+
 		public ApplicationTermBuilder(ApplicationTerm term) {
 			mTerm = term;
 		}
@@ -71,13 +71,13 @@ public class SubstitutionApplier extends NonRecursive {
 			final Term res = mTerm.getTheory().term(mTerm.getFunction(), newArgs);
 			mConverted.push(res);
 		}
-		
+
 	}
-	
+
 	private final class LetBuilder implements Walker {
-		
+
 		private final LetTerm mTerm;
-		
+
 		public LetBuilder(LetTerm term) {
 			mTerm = term;
 		}
@@ -94,17 +94,17 @@ public class SubstitutionApplier extends NonRecursive {
 							mTerm.getVariables(), newVals, subform);
 			mConverted.push(res);
 		}
-		
+
 	}
-	
+
 	private final class QuantifierBuilder implements Walker {
 
 		private final QuantifiedFormula mTerm;
-		
+
 		public QuantifierBuilder(QuantifiedFormula term) {
 			mTerm = term;
 		}
-		
+
 		@Override
 		public void walk(NonRecursive engine) {
 			final Term subform = mConverted.pop();
@@ -115,13 +115,13 @@ public class SubstitutionApplier extends NonRecursive {
 						: t.forall(mTerm.getVariables(), subform);
 			mConverted.push(res);
 		}
-		
+
 	}
-	
+
 	private final class DepthDescender extends TermWalker {
 
 		private final int mDepth;
-		
+
 		public DepthDescender(Term term, int depth) {
 			super(term);
 			mDepth = depth;
@@ -197,14 +197,14 @@ public class SubstitutionApplier extends NonRecursive {
 		public void walk(NonRecursive walker, TermVariable term) {
 			mConverted.push(term);
 		}
-		
+
 	}
-	
+
 	private int mDepth;
 	private List<Substitution> mSubsts;// NOPMD
 	private Iterator<Substitution> mIt;
 	private Substitution mSubst;
-	
+
 	private final ArrayDeque<Term> mConverted = new ArrayDeque<Term>();
 	private List<Cmd> mAdds = new ArrayList<Cmd>();
 
@@ -217,23 +217,23 @@ public class SubstitutionApplier extends NonRecursive {
 		}
 		mSubst = null;
 	}
-	
+
 	public void init(int depth, List<Substitution> substs) {
 		mDepth = depth;
 		mSubsts = substs;
 		mIt = mSubsts.iterator();
 		stepSubst();
 	}
-	
+
 	public Term apply(Term term) {
 		run(new DepthDescender(term, 0));
 		return mConverted.pop();
 	}
-	
+
 	public List<Cmd> getAdds() {
 		final List<Cmd> res = mAdds;
 		mAdds = new ArrayList<Cmd>();
 		return res;
 	}
-	
+
 }

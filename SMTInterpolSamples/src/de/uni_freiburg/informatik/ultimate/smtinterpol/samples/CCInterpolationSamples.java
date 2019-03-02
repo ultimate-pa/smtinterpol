@@ -32,16 +32,16 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 
 public final class CCInterpolationSamples {
-	
+
 	private CCInterpolationSamples() {
 		// Hide constructor
 	}
-	
+
 	private static final void bailout(SMTLIBException se) {
 		se.printStackTrace(System.err);
 		System.exit(1);
 	}
-	
+
 	public static void main(String[] ignored) {
 		try {
 			// Create a new Benchmark to interact with SMTInterpol

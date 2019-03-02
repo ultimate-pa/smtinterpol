@@ -4,19 +4,19 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawglett
 
 /**
  * DawgState containing information for the rename-and-reorder dawg transformation.
- * 
+ *
  * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
  *
  * @param <LETTER>
  * @param <COLNAMES>
  */
-public class RenameAndReorderDawgState<LETTER, COLNAMES> extends DawgState { 
+public class RenameAndReorderDawgState<LETTER, COLNAMES> extends DawgState {
 
 
 	private final IDawgLetter<LETTER, COLNAMES> mLetter;
-	
+
 	private final COLNAMES mRightNeighbourColumn;
-	
+
 	private final DawgState mInnerState;
 
 	public RenameAndReorderDawgState(IDawgLetter<LETTER, COLNAMES> letter, COLNAMES column, DawgState innerDawgState,
@@ -53,10 +53,10 @@ public class RenameAndReorderDawgState<LETTER, COLNAMES> extends DawgState {
 
 	@Override
 	public String toString() {
-		return String.format("RnRDawgState#%d(%s --> %s, %s)", 
-				this.hashCode() % 10000, 
-				mLetter, 
-				mRightNeighbourColumn, 
+		return String.format("RnRDawgState#%d(%s --> %s, %s)",
+				this.hashCode() % 10000,
+				mLetter,
+				mRightNeighbourColumn,
 				mInnerState.hashCode() % 10000);
 	}
 }

@@ -25,11 +25,11 @@ import java.util.Map;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
 
 /**
- * This class removes all let terms from the formula.  The result 
+ * This class removes all let terms from the formula.  The result
  * @author Jochen Hoenicke
  */
 public class FormulaUnLet extends TermTransformer {
-	
+
 	public enum UnletType {
 		/**
 		 * The SMTLIB compliant unlet that does not expand definitions.
@@ -61,10 +61,10 @@ public class FormulaUnLet extends TermTransformer {
 			mExpandDefinitions = expandDefinitions;
 		}
 	}
-	
+
 	/**
-	 * The scoped let map. Each scope corresponds to a partially executed let 
-	 * or a quantifier on the todo stack.  It gives the mapping for each 
+	 * The scoped let map. Each scope corresponds to a partially executed let
+	 * or a quantifier on the todo stack.  It gives the mapping for each
 	 * term variable defined in that scope to the corresponding term.
 	 */
 	private final ScopedHashMap<TermVariable,Term> mLetMap =
@@ -74,14 +74,14 @@ public class FormulaUnLet extends TermTransformer {
 	 * The type of this unletter.
 	 */
 	private final UnletType mType;
-	
+
 	/**
 	 * Create a FormulaUnLet with the standard SMT-LIB semantics for let.
 	 */
 	public FormulaUnLet() {
 		this(UnletType.SMTLIB);
 	}
-	
+
 	/**
 	 * Create a FormulaUnLet.
 	 * @param type  The type of the unletter.
@@ -89,13 +89,13 @@ public class FormulaUnLet extends TermTransformer {
 	public FormulaUnLet(UnletType type) {
 		mType = type;
 	}
-	
+
 	/**
 	 * Add user defined substitutions.  This allows to map variables to
 	 * terms, without adding a surrounding let term first.  Note that these
 	 * substitutions are then used for all formulas unletted by this class.
 	 * @param termSubst The substitution, which maps term variables to
-	 * the term with which they should be substituted. 
+	 * the term with which they should be substituted.
 	 */
 	public void addSubstitutions(Map<TermVariable, Term> termSubst) {
 		mLetMap.putAll(termSubst);
@@ -176,15 +176,15 @@ public class FormulaUnLet extends TermTransformer {
 		}
 		super.preConvertLet(oldLet, newValues);
 	}
-	
+
 	@Override
 	public void postConvertLet(LetTerm oldLet, Term[] newValues, Term newBody) {
 		setResult(newBody);
 		mLetMap.endScope();
 	}
-	
+
 	/**
-	 * Build the converted formula for a quantified formula. 
+	 * Build the converted formula for a quantified formula.
 	 * This also ends the scope of the quantifier.
 	 * It stores the converted quantifier using {@link #setResult(Term)}.
 	 * @param old the quantifier to convert.
@@ -200,7 +200,7 @@ public class FormulaUnLet extends TermTransformer {
 				if (vars == newVars) {
 					newVars = vars.clone();
 				}
-				newVars[i] = (TermVariable) newVar; 
+				newVars[i] = (TermVariable) newVar;
 			}
 		}
 		mLetMap.endScope();

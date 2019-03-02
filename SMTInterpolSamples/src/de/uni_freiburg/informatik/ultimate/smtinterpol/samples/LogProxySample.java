@@ -38,17 +38,17 @@ public final class LogProxySample {
 	private LogProxySample() {
 		// Hide constructor
 	}
-	
+
 	public static void main(String[] unused) {
 		// Set up Log4j
 		final Logger logger = Logger.getLogger(LogProxySample.class);
 		logger.addAppender(new WriterAppender(new SimpleLayout(), System.err));
-		
+
 		// Create and set up the solver
 		final SMTInterpol solver = new SMTInterpol(new Log4jProxy(logger));
 		solver.setOption(":verbosity", BigInteger.valueOf(5));
 		solver.setLogic(Logics.QF_LIA);
-		
+
 		// Just a simple usage to produce some logging
 		final Sort intSort = solver.sort("Int");
 		final Sort[] empty = new Sort[0];
@@ -69,5 +69,5 @@ public final class LogProxySample {
 		solver.checkSat();
 		solver.exit();
 	}
-	
+
 }

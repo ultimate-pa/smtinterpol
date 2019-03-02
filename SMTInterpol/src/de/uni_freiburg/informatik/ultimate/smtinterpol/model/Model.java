@@ -48,7 +48,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTh
  * A model represented as injection between integers and domain values. The integers should be positive. Furthermore,
  * the model reserves <code>-1</code> for undefined values, <code>0</code> for the default value, and <code>1</code> for
  * the second value.
- * 
+ *
  * @author Juergen Christ
  */
 public class Model implements de.uni_freiburg.informatik.ultimate.logic.Model {

@@ -30,18 +30,18 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 
 public final class GetValueSample {
-	
+
 	private GetValueSample() {
 		// Hide constructor
 	}
-	
+
 	public static void main(String[] ignored) {
 		try {
 			// Create a new interaction script
 			final Script script = new SMTInterpol(new DefaultLogger());
 			// Enable production of a model
 			script.setOption(":produce-models", true);
-			
+
 			script.setLogic(Logics.QF_UFLIA);
 			declareStuff(script);
 			// Build the formula f(x) == f(y) /\ i > j
@@ -71,7 +71,7 @@ public final class GetValueSample {
 			System.exit(1);
 		}
 	}
-			
+
 	private static void declareStuff(Script script) throws SMTLIBException {
 		// 0-ary sort U is the only sort we use
 		script.declareSort("U", 0);

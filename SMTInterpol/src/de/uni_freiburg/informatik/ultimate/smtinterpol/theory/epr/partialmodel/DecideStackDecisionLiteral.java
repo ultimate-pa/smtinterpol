@@ -27,19 +27,19 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 /**
  * Represents a literal on the decide stack that was set because of a decision of the epr
  * solver (in contrast to a propagation..).
- * 
+ *
  * @author Alexander Nutz
  */
 public class DecideStackDecisionLiteral extends DecideStackLiteral {
 
-	public DecideStackDecisionLiteral(boolean polarity, EprPredicate eprPredicate, 
+	public DecideStackDecisionLiteral(boolean polarity, EprPredicate eprPredicate,
 			IDawg<ApplicationTerm, TermVariable> dawg, int index) {
 		super(polarity, eprPredicate, dawg, index);
 	}
 
 	@Override
 	public String toString() {
-		return String.format("(DSDec (%d): %c%s %s)", 
+		return String.format("(DSDec (%d): %c%s %s)",
 				nr, (mPolarity ? ' ' : '~'),  mPred, mDawg);
-	}	
+	}
 }

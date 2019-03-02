@@ -27,12 +27,12 @@ import java.util.Map;
 import java.util.Set;
 
 public class SimpleComplementDawgLetter<LETTER, COLNAMES> extends AbstractDawgLetter<LETTER, COLNAMES> {
-	
+
 	/**
 	 * the letters that are not matched by this DawgLetter
 	 */
 	final Set<LETTER> mComplementSet;
-	
+
 
 	public SimpleComplementDawgLetter(DawgLetterFactory<LETTER, COLNAMES> dawgLetterFactory,
 			Set<LETTER> complementSet, Object sortId) {
@@ -111,7 +111,7 @@ public class SimpleComplementDawgLetter<LETTER, COLNAMES> extends AbstractDawgLe
 	public Set<LETTER> getComplementLetters() {
 		return mComplementSet;
 	}
-	
+
 	@Override
 	public String toString() {
 		return "SimpleCompDL: " + mComplementSet;
@@ -130,7 +130,7 @@ public class SimpleComplementDawgLetter<LETTER, COLNAMES> extends AbstractDawgLe
 			return mDawgLetterFactory.getSimpleComplementDawgLetter(newComplementSet, mSortId);
 		} else if (other instanceof SimpleComplementDawgLetter<?, ?>) {
 			// we take the intersection of the complementLetters
-			final Set<LETTER> otherComplementSet = 
+			final Set<LETTER> otherComplementSet =
 					((SimpleComplementDawgLetter<LETTER, COLNAMES>) other).getComplementLetters();
 			final HashSet<LETTER> intersection = new HashSet<LETTER>(mComplementSet);
 			intersection.retainAll(otherComplementSet);

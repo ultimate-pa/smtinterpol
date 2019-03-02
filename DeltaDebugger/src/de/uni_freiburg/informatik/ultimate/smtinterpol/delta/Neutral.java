@@ -23,12 +23,12 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 public class Neutral {
 	private final Term mTerm;
 	private final int mPos;
-	
+
 	public Neutral(Term term, int pos) {
 		mTerm = term;
 		mPos = pos;
 	}
-	
+
 	public boolean matches(Term t, int pos) {
 		return mTerm == t && mPos == pos;
 	}

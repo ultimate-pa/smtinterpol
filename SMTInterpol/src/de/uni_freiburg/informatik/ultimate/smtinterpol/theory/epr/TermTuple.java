@@ -30,7 +30,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEqualit
 import de.uni_freiburg.informatik.ultimate.util.HashUtils;
 
 /**
- * 
+ *
  * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
  *
  */
@@ -50,13 +50,13 @@ public class TermTuple {
 
 	@Override
 	public boolean equals(Object arg0) {
-		if (!(arg0 instanceof TermTuple)) 
+		if (!(arg0 instanceof TermTuple))
 			return false;
 		TermTuple other = (TermTuple) arg0;
-		if (other.arity != this.arity) 
+		if (other.arity != this.arity)
 			return false;
 		for (int i = 0; i < arity; i++) {
-			if (!other.terms[i].equals(this.terms[i])) 
+			if (!other.terms[i].equals(this.terms[i]))
 				return false;
 		}
 		return true;
@@ -81,8 +81,8 @@ public class TermTuple {
 		return sb.toString();
 	}
 
-	
-	
+
+
 	public TTSubstitution match(TermTuple other,
 			EqualityManager equalityManager) {
 		return match(other, new TTSubstitution(), equalityManager);
@@ -101,7 +101,7 @@ public class TermTuple {
 
 		TermTuple thisTT = subs.apply(new TermTuple(terms));
 		TermTuple otherTT = subs.apply(new TermTuple(other.terms));
-		
+
 		TTSubstitution resultSubs = subs; // TODO: or is a copy needed?
 		for (int i = 0; i < this.terms.length; i++) {
 			Term thisTerm = thisTT.terms[i];
@@ -109,7 +109,7 @@ public class TermTuple {
 
 			TermVariable tvTerm = null;
 			Term termTerm = null;
-			
+
 			if (thisTerm.equals(otherTerm)) {
 				//match -- > do nothing
 				continue;
@@ -120,7 +120,7 @@ public class TermTuple {
 				tvTerm = (TermVariable) thisTerm;
 				termTerm = otherTerm;
 			}
-			
+
 			if (tvTerm == null) {
 				ArrayList<CCEquality> eqPath = equalityManager.isEqual((ApplicationTerm) thisTerm, (ApplicationTerm) otherTerm);
 				if (eqPath == null){
@@ -138,7 +138,7 @@ public class TermTuple {
 			: "the returned substitution should be a unifier";
 		return resultSubs;
 	}
-	
+
 	public boolean onlyContainsConstants() {
 		//TODO cache
 		boolean result = true;
@@ -146,7 +146,7 @@ public class TermTuple {
 			result &= t.getFreeVars().length == 0;
 		return result;
 	}
-	
+
 	public TermTuple applySubstitution(Map<TermVariable, Term> sub) {
 		Term[] newTerms = new Term[terms.length];
 		for (int i = 0; i < newTerms.length; i++)
@@ -155,18 +155,18 @@ public class TermTuple {
 				newTerms[i] = sub.get(terms[i]);
 			else
 				newTerms[i] = terms[i];
-		
+
 		assert nonNull(newTerms) : "substitution created a null-entry";
 		return new TermTuple(newTerms);
 	}
-	
+
 	private boolean nonNull(Term[] trms) {
 		for (Term t : trms)
 			if (t == null)
 				return false;
 		return true;
 	}
-	
+
 	public HashSet<TermVariable> getFreeVars() {
 		HashSet<TermVariable> result = new HashSet<TermVariable>();
 		for (Term t : terms)

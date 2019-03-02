@@ -35,11 +35,11 @@ public class FormulaLet extends NonRecursive {
 	private ArrayDeque<Term> mResultStack;
 	private int mCseNum;
 	private final LetFilter mFilter;
-	
+
 	public static interface LetFilter {
 		public boolean isLettable(Term t);
 	}
-	
+
 	public FormulaLet() {
 		this(null);
 	}
@@ -67,10 +67,10 @@ public class FormulaLet extends NonRecursive {
 		mVisited = null;
 		return result;
 	}
-	
+
 	/**
 	 * This walker converts a term into a letted term.
-	 * 
+	 *
 	 * For the initial formula and for each quantifier, a new scope for term infos is created (mVisited).
 	 * It then creates a TermInfo for the term, which is walked first to collect all information about the term and its
 	 * subterms. After collecting all info, the the term is transformed. to a letted term. Finally, the visited scope
@@ -81,7 +81,7 @@ public class FormulaLet extends NonRecursive {
 		public Letter(Term term) {
 			mTerm = term;
 		}
-		
+
 		@Override
 		public void walk(NonRecursive engine) {
 			if (mTerm instanceof TermVariable
@@ -103,7 +103,7 @@ public class FormulaLet extends NonRecursive {
 			engine.enqueueWalker(info);
 		}
 	}
-	
+
 	/**
 	 * This class collects informations for a term and is also a walker. As a walker it will just compute the
 	 * predecessor counter (or occurrence counter).
@@ -162,10 +162,10 @@ public class FormulaLet extends NonRecursive {
 			}
 			return true;
 		}
-		
+
 		/**
 		 * Merge the mParent with parent, i.e. find the common parent of mParent and parent and update mParent.
-		 * 
+		 *
 		 * @param parent
 		 *            The new parent that should be merged.
 		 */
@@ -256,7 +256,7 @@ public class FormulaLet extends NonRecursive {
 
 		/**
 		 * Visit a child of the current term.
-		 * 
+		 *
 		 * @param let
 		 *            The formula let environment.
 		 * @param term
@@ -299,7 +299,7 @@ public class FormulaLet extends NonRecursive {
 
 		/**
 		 * Create walker to transform the term into a letted term.
-		 * 
+		 *
 		 * @param parent
 		 *            The predecessor, or the common ancestor term where the let is placed.
 		 * @param isCounted
@@ -310,7 +310,7 @@ public class FormulaLet extends NonRecursive {
 			mTermInfo = parent;
 			mIsCounted = isCounted;
 		}
-		
+
 		@Override
 		public void walk(NonRecursive engine) {
 			final FormulaLet let = ((FormulaLet) engine);
@@ -400,7 +400,7 @@ public class FormulaLet extends NonRecursive {
 			}
 			// merge parents, to find out where the let should be put into.
 			info.mergeParent(mParent);
-			if (info.shouldBuildLet() && info.mSubst == null 
+			if (info.shouldBuildLet() && info.mSubst == null
 					&& (let.mFilter == null || let.mFilter.isLettable(child))) {
 				// this will be letted, so create a new term variable for it.
 				final Term t = info.mTerm;
@@ -477,7 +477,7 @@ public class FormulaLet extends NonRecursive {
 			lettedTerms.clear();
 		}
 	}
-	
+
 	/**
 	 * Add a let term around the term on the result stack using the let values also from the result stack and put the
 	 * let term back onto the result stack.

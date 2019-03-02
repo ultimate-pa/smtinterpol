@@ -27,19 +27,19 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawglett
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.NestedMap3;
 
 /**
- * 
+ *
  * Manages DawgStates
  *  <li> creates fresh states
  *  <li> creates and manages PairDawgStates (keeps them unique)
- * 
+ *
  * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
  *
  */
 public class DawgStateFactory<LETTER, COLNAMES> {
-	
-	Map<DawgState, Map<DawgState, PairDawgState>> mDSToDSToPDS = 
+
+	Map<DawgState, Map<DawgState, PairDawgState>> mDSToDSToPDS =
 			new HashMap<DawgState, Map<DawgState,PairDawgState>>();
-	
+
 	/**
 	 * the first state is the sink state
 	 */
@@ -52,32 +52,32 @@ public class DawgStateFactory<LETTER, COLNAMES> {
 
 	private Map<Set<DawgState>, SetDawgState> mDawgStateSetToSetDawgState = new HashMap<Set<DawgState>, SetDawgState>();
 
-	private final NestedMap3<IDawgLetter<LETTER, COLNAMES>, COLNAMES, DawgState, RenameAndReorderDawgState<LETTER, COLNAMES>> 
-		mLetterToColNameToDawgStateToRenameAndReorderDawgState = 
+	private final NestedMap3<IDawgLetter<LETTER, COLNAMES>, COLNAMES, DawgState, RenameAndReorderDawgState<LETTER, COLNAMES>>
+		mLetterToColNameToDawgStateToRenameAndReorderDawgState =
 		new NestedMap3<IDawgLetter<LETTER, COLNAMES>, COLNAMES, DawgState, RenameAndReorderDawgState<LETTER,COLNAMES>>();
 
 	public PairDawgState getOrCreatePairDawgState(DawgState first, DawgState second) {
-		
+
 		Map<DawgState, PairDawgState> dsToPds = mDSToDSToPDS.get(first);
-	
+
 		if (dsToPds == null) {
 			dsToPds = new HashMap<DawgState, PairDawgState>();
 			mDSToDSToPDS.put(first, dsToPds);
 		}
-		
+
 		PairDawgState pds = dsToPds.get(second);
-		
+
 		if (pds == null) {
 			pds = new PairDawgState(first, second, createDawgState());
 			dsToPds.put(second, pds);
 		}
-		
+
 		return pds;
 	}
 
 	public PairDawgState getOrCreatePairDawgState(DawgState value, boolean firstIsSink, boolean secondIsSink) {
 		assert firstIsSink != secondIsSink;
-		
+
 		if (firstIsSink) {
 			PairDawgState ds = mFirstHalfSinkStates.get(value);
 			if (ds == null) {
@@ -94,7 +94,7 @@ public class DawgStateFactory<LETTER, COLNAMES> {
 			return ds;
 		}
 	}
-	
+
 	public SetDawgState getOrCreateSetDawgState(Set<DawgState> dawgStates) {
 		SetDawgState result = mDawgStateSetToSetDawgState.get(dawgStates);
 		if (result == null) {
@@ -108,9 +108,9 @@ public class DawgStateFactory<LETTER, COLNAMES> {
 		return new DawgState();
 	}
 
-	public RenameAndReorderDawgState<LETTER, COLNAMES> getReorderAndRenameDawgState(IDawgLetter<LETTER, COLNAMES> key, 
+	public RenameAndReorderDawgState<LETTER, COLNAMES> getReorderAndRenameDawgState(IDawgLetter<LETTER, COLNAMES> key,
 			COLNAMES newRightNeighbour,	DawgState value) {
-		RenameAndReorderDawgState<LETTER, COLNAMES> result = 
+		RenameAndReorderDawgState<LETTER, COLNAMES> result =
 				mLetterToColNameToDawgStateToRenameAndReorderDawgState.get(key, newRightNeighbour, value);
 		if (result == null) {
 			result = new RenameAndReorderDawgState<LETTER, COLNAMES>(key, newRightNeighbour, value, createDawgState());

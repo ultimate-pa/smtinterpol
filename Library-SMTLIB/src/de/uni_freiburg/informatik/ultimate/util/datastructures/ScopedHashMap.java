@@ -32,14 +32,14 @@ import de.uni_freiburg.informatik.ultimate.util.ScopeUtils;
  * A scoped hash map is useful for symbol tables. With beginScope() a new
  * scope is started.  All modifications to the table are reversed when
  * the scope is ended with endScope().
- * 
+ *
  * You can also get a key, entry, or value collection of the currently
  * active scope.  This will only iterate the keys/values set since the last
  * beginScope() call.  Removing an entry will restore the value that was
  * previously set on the outer scope.
- * 
+ *
  * Note that it is forbidden to store null values into a scoped hash map.
- * 
+ *
  * @author Jochen Hoenicke
  *
  * @param <K> Key type
@@ -51,22 +51,22 @@ public class ScopedHashMap<K, V> extends AbstractMap<K, V> {
 	private HashMap<K, V>[] mHistory;
 	int mCurScope = -1;
 	private final boolean mShrink;
-	
+
 	public ScopedHashMap() {
 		this(true);
 	}
-	
+
 	@SuppressWarnings("unchecked")
 	public ScopedHashMap(boolean shrink) {
 		mMap = new HashMap<K, V>();
 		mHistory = new HashMap[ScopeUtils.NUM_INITIAL_SCOPES];
 		mShrink = shrink;
 	}
-	
+
 	private HashMap<K, V> undoMap() {
 		return mHistory[mCurScope];
 	}
-	
+
 	private void recordUndo(K key, V value) {
 		if (mCurScope != -1) {
 			final Map<K, V> old = undoMap();
@@ -83,14 +83,14 @@ public class ScopedHashMap<K, V> extends AbstractMap<K, V> {
 			mMap.put(old.getKey(), old.getValue());
 		}
 	}
-	
+
 	public void beginScope() {
 		if (mCurScope == mHistory.length - 1) {
 			mHistory = ScopeUtils.grow(mHistory);
 		}
 		mHistory[++mCurScope] = new HashMap<K, V>();
 	}
-	
+
 	public void endScope() {
 		for (final Entry<K, V> old : undoMap().entrySet()) {
 			undoEntry(old);
@@ -100,7 +100,7 @@ public class ScopedHashMap<K, V> extends AbstractMap<K, V> {
 			mHistory = ScopeUtils.shrink(mHistory);
 		}
 	}
-	
+
 	public Iterable<Map.Entry<K, V>> currentScopeEntries() {
 		if (mCurScope == -1) {
 			return entrySet();
@@ -109,10 +109,10 @@ public class ScopedHashMap<K, V> extends AbstractMap<K, V> {
 			@Override
 			public Iterator<Map.Entry<K, V>> iterator() {
 				return new Iterator<Map.Entry<K, V>>() {
-					Iterator<Entry<K, V>> mBacking = 
+					Iterator<Entry<K, V>> mBacking =
 							undoMap().entrySet().iterator();
 					Entry<K, V> mLast;
-					
+
 					@Override
 					public boolean hasNext() {
 						return mBacking.hasNext();
@@ -153,7 +153,7 @@ public class ScopedHashMap<K, V> extends AbstractMap<K, V> {
 			}
 		};
 	}
-	
+
 	public Iterable<K> currentScopeKeys() {
 		if (mCurScope == -1) {
 			return keySet();
@@ -162,11 +162,11 @@ public class ScopedHashMap<K, V> extends AbstractMap<K, V> {
 			@Override
 			public Iterator<K> iterator() {
 				return new Iterator<K>() {
-					
+
 					Iterator<Entry<K, V>> mBacking =
 							undoMap().entrySet().iterator();
 					Entry<K, V> mLast;
-					
+
 					@Override
 					public boolean hasNext() {
 						return mBacking.hasNext();
@@ -191,7 +191,7 @@ public class ScopedHashMap<K, V> extends AbstractMap<K, V> {
 			}
 		};
 	}
-	
+
 	public Iterable<V> currentScopeValues() {
 		if (mCurScope == -1) {
 			return values();
@@ -200,11 +200,11 @@ public class ScopedHashMap<K, V> extends AbstractMap<K, V> {
 			@Override
 			public Iterator<V> iterator() {
 				return new Iterator<V>() {
-					
+
 					Iterator<Entry<K, V>> mBacking =
 							undoMap().entrySet().iterator();
 					Entry<K, V> mLast;
-					
+
 					@Override
 					public boolean hasNext() {
 						return mBacking.hasNext();
@@ -229,7 +229,7 @@ public class ScopedHashMap<K, V> extends AbstractMap<K, V> {
 			}
 		};
 	}
-	
+
 	@SuppressWarnings("unchecked")
 	@Override
 	public void clear() {
@@ -256,7 +256,7 @@ public class ScopedHashMap<K, V> extends AbstractMap<K, V> {
 	public boolean isEmpty() {
 		return mMap.isEmpty();
 	}
-	
+
 	public boolean isEmptyScope() {
 		return mCurScope == -1;
 	}
@@ -271,7 +271,7 @@ public class ScopedHashMap<K, V> extends AbstractMap<K, V> {
 
 					Iterator<Entry<K,V>> mBacking = mMap.entrySet().iterator();
 					Entry<K,V> mLast;
-					
+
 					@Override
 					public boolean hasNext() {
 						return mBacking.hasNext();
@@ -319,7 +319,7 @@ public class ScopedHashMap<K, V> extends AbstractMap<K, V> {
 	public int size() {
 		return mMap.size();
 	}
-	
+
 	public int getActiveScopeNum() {
 		return mCurScope + 1;
 	}

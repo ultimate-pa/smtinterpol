@@ -30,13 +30,13 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.D
 /**
  * Represents a literal that occurs in an EprClause.
  * This may be a ground literal or a quantified literal.
- * 
- * In contrast to the Literal class DPLLEngine uses, a 
+ *
+ * In contrast to the Literal class DPLLEngine uses, a
  * ClauseLiteral has a decide state that also depends on the
  * EprStateManagers decide stack.
- * 
+ *
  * A ClauseLiteral always only occurs in one clause.
- * 
+ *
  * @author Alexander Nutz
  */
 public abstract class ClauseLiteral {
@@ -46,13 +46,13 @@ public abstract class ClauseLiteral {
 	protected final DPLLAtom mAtom;
 	protected final boolean mPolarity;
 	protected final EprTheory mEprTheory;
-	
+
 	/**
 	 * The clause that this ClauseLiteral is part of
 	 */
 	protected EprClause mEprClause;
 	protected final DawgFactory<ApplicationTerm, TermVariable> mDawgFactory;
-	
+
 	public ClauseLiteral(boolean polarity, DPLLAtom atom, EprClause clause, EprTheory eprTheory) {
 		mAtom = atom;
 		mEngineLiteral = polarity ? atom : atom.negate();
@@ -61,12 +61,12 @@ public abstract class ClauseLiteral {
 		mEprTheory = eprTheory;
 		mDawgFactory = eprTheory.getDawgFactory();
 	}
-	
-	
+
+
 	public boolean getPolarity() {
 		return mPolarity;
 	}
-	
+
 	public Literal getLiteral() {
 		return mEngineLiteral;
 	}
@@ -94,7 +94,7 @@ public abstract class ClauseLiteral {
 	 *  - fulfilled: set to true
 	 *  - fulfillable: undecided
 	 *  - refuted: set to false
-	 *  
+	 *
 	 *  For quantified clause literals fulfilled/refuted means that it is true/false on all points.
 	 *  Fulfillable means everything in between..
 	 */
@@ -105,7 +105,7 @@ public abstract class ClauseLiteral {
 	public EprClause getClause() {
 		return mEprClause;
 	}
-	
+
 	@Override
 	public String toString() {
 		String negate = mPolarity ? "" : "~";

@@ -21,53 +21,53 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.delta;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 
 public abstract class Substitution {
-	
+
 	private boolean mActive = false;
 	private final Term mMatch;
 	private boolean mSuccess = false;
 	private final boolean mRecurse;
-	
+
 	public Substitution(Term match) {
 		this(match, false);
 	}
-	
+
 	public Substitution(Term match, boolean recurse) {
 		mMatch = match;
 		mRecurse = recurse;
 	}
-	
+
 	public boolean matches(Term t) {
 		return mMatch == t;
 	}
-	
+
 	public Term getMatch() {
 		return mMatch;
 	}
-	
+
 	public boolean isActive() {
 		return mActive;
 	}
-	
+
 	public void activate() {
 		mActive = true;
 	}
-	
+
 	public void deactivate() {
 		mActive = false;
 	}
-	
+
 	public boolean isRecurse() {
 		return mRecurse;
 	}
-	
+
 	public void success() {
 		mSuccess = true;
 	}
-	
+
 	public boolean isSuccess() {
 		return mSuccess;
 	}
-	
+
 	public abstract Term apply(Term input);
 	public abstract Cmd getAdditionalCmd(Term input);
 }

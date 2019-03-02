@@ -47,7 +47,7 @@ import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
 /**
  * Solver for quantified formulas within the almost uninterpreted fragment (Restrictions on terms and literals are
  * explained in the corresponding classes. For reference, see Ge & de Moura, 2009).
- * 
+ *
  * This may be merged with the EPR solver implementation by Alexander Nutz in the future; for now, we keep it separate.
  *
  * @author Tanja Schindler
@@ -97,7 +97,7 @@ public class QuantifierTheory implements ITheory {
 
 		mQuantLits = new HashMap<Term, QuantLiteral>();
 		mQuantClauses = new ScopedHashSet<QuantClause>();
-		
+
 		mPropClauses = new ArrayList<List<Literal>>();
 	}
 
@@ -241,11 +241,11 @@ public class QuantifierTheory implements ITheory {
 
 	/**
 	 * Get a quantified equality atom for a term - in case the literal is supported.
-	 * 
+	 *
 	 * We support the following (dis-)equality literals: (i) EUTerm = EUTerm (pos. and neg.), (ii) TermVariable =
 	 * GroundTerm, (iii) TermVariable != GroundTerm, and (iv) TermVariable != TermVariable. Note that (iii) and (iv)
 	 * require destructive equality reasoning.
-	 * 
+	 *
 	 * @param term
 	 *            the term for the underlying equality atom.
 	 * @param positive
@@ -257,7 +257,7 @@ public class QuantifierTheory implements ITheory {
 	 *            the term at the left hand side of the equality.
 	 * @param rhs
 	 *            the term at the right hand side of the equality.
-	 * 
+	 *
 	 * @return the underlying equality atom as a QuantLiteral, if the literal is supported.
 	 */
 	public QuantLiteral getQuantEquality(final Term term, final boolean positive, final SourceAnnotation source,
@@ -370,11 +370,11 @@ public class QuantifierTheory implements ITheory {
 
 	/**
 	 * Get a quantified inequality literal for a term - in case it is supported.
-	 * 
+	 *
 	 * We support the following inequality literals: (i) (EUTerm <= 0) (and negated) (ii) ~(TermVariable <= GroundTerm)
 	 * (iii) ~(GroundTerm <= TermVariable) (iv) ~(TermVariable <= TermVariable). Note that this will return a
 	 * <em>negated</em> literal (not (x<=t)) in the latter three cases if positive==true!
-	 * 
+	 *
 	 * @param term
 	 *            the term for the underlying inequality <em>atom</em> "term <= 0".
 	 * @param positive
@@ -384,7 +384,7 @@ public class QuantifierTheory implements ITheory {
 	 *            the source partition of the term.
 	 * @param lhs
 	 *            the left hand side in "term <= 0"
-	 * 
+	 *
 	 * @return a QuantLiteral if the literal is supported.
 	 */
 	public QuantLiteral getQuantInequality(Term term, boolean positive, SourceAnnotation source, Term lhs) {
@@ -517,7 +517,7 @@ public class QuantifierTheory implements ITheory {
 
 	/**
 	 * Get all EUTerms that are sub-terms of a given term.
-	 * 
+	 *
 	 * @param euTerm
 	 *            the EUTerm we want to get the subterms for.
 	 * @return a set of EUTerms containing all sub-EUTerms of a term, including the term itself.
@@ -545,7 +545,7 @@ public class QuantifierTheory implements ITheory {
 	public InstantiationManager getInstantiator() {
 		return mInstantiationManager;
 	}
-	
+
 	public ScopedHashSet<QuantClause> getQuantClauses() {
 		return mQuantClauses;
 	}

@@ -3,27 +3,27 @@
  * Copyright (C) 2014-2015 Matthias Heizmann (heizmann@informatik.uni-freiburg.de)
  * Copyright (C) 2017 Alexander Nutz (nutz@informatik.uni-freiburg.de)
  * Copyright (C) 2012-2015 University of Freiburg
- * 
+ *
  * This file is part of the ULTIMATE Util Library.
- * 
+ *
  * The ULTIMATE Util Library is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
  * by the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * The ULTIMATE Util Library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with the ULTIMATE Util Library. If not, see <http://www.gnu.org/licenses/>.
- * 
+ *
  * Additional permission under GNU GPL version 3 section 7:
  * If you modify the ULTIMATE Util Library, or any covered work, by linking
- * or combining it with Eclipse RCP (or a modified version of Eclipse RCP), 
- * containing parts covered by the terms of the Eclipse Public License, the 
- * licensors of the ULTIMATE Util Library grant you additional permission 
+ * or combining it with Eclipse RCP (or a modified version of Eclipse RCP),
+ * containing parts covered by the terms of the Eclipse Public License, the
+ * licensors of the ULTIMATE Util Library grant you additional permission
  * to convey the resulting work.
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs;
@@ -46,9 +46,9 @@ import java.util.Set;
 
 /**
  * Represents the transition relation of a deterministic dawg.
- * 
+ *
  * Adapted from NestedMap2 from the Ultimate Util library from the Ultimate framework.
- * 
+ *
  * @author Matthias Heizmann
  * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
  *
@@ -57,10 +57,10 @@ import java.util.Set;
  * @param <V>
  */
 public class DeterministicDawgTransitionRelation<K1, K2, V> {
-	
-	
+
+
 	private final Map<K1, Map<K2, V>> mK1ToK2ToV = new HashMap<K1, Map<K2, V>>();
-	
+
 	/*
 	 * fields that cache information about the transition relation in the form that we often request
 	 * caching can be switched on/off through a flag
@@ -69,9 +69,9 @@ public class DeterministicDawgTransitionRelation<K1, K2, V> {
 	private final Map<K1, Set<Pair<K2, V>>> mK1ToOutEdges;
 	private final Map<V, Set<Pair<K1, K2>>> mVToInEdges;
 	private final Set<Triple<K1, K2, V>> mAllTransitions;
-	
-	
-	
+
+
+
 	/**
 	 * standard constructor, constructs empty relation
 	 */
@@ -87,10 +87,10 @@ public class DeterministicDawgTransitionRelation<K1, K2, V> {
 		}
 
 	}
-	
+
 	/**
 	 * copy constructor
-	 * 
+	 *
 	 * @param orig
 	 */
 	public DeterministicDawgTransitionRelation(DeterministicDawgTransitionRelation<K1, K2, V> orig) {
@@ -104,7 +104,7 @@ public class DeterministicDawgTransitionRelation<K1, K2, V> {
 			}
 		}
 	}
-	
+
 	public V put(final K1 key1, final K2 key2, final V value) {
 		assert !(key2 instanceof EmptyDawgLetter<?, ?>) : "edges that are labelled with the empty letter should be omitted; "
 				+ "catch this case outside";
@@ -113,20 +113,20 @@ public class DeterministicDawgTransitionRelation<K1, K2, V> {
 			k2toV = new HashMap<K2, V>();
 			mK1ToK2ToV.put(key1, k2toV);
 		}
-		assert !k2toV.containsKey(key2) || k2toV.get(key2).equals(value) : 
+		assert !k2toV.containsKey(key2) || k2toV.get(key2).equals(value) :
 			"we don't expect that put overwrites something, here --> catch this case outside!";
 		V result = k2toV.put(key2, value);
-		
+
 		if (mUseCachingFields) {
 			mAllTransitions.add(new Triple<K1, K2, V>(key1, key2, value));
-			
+
 			Set<Pair<K2, V>> outEdges = mK1ToOutEdges.get(key1);
 			if (outEdges == null) {
 				outEdges = new HashSet<Pair<K2,V>>();
 				mK1ToOutEdges.put(key1, outEdges);
 			}
 			outEdges.add(new Pair<K2, V>(key2, value));
-			
+
 			Set<Pair<K1, K2>> inEdges = mVToInEdges.get(value);
 			if (inEdges == null) {
 				inEdges = new HashSet<Pair<K1, K2>>();
@@ -134,10 +134,10 @@ public class DeterministicDawgTransitionRelation<K1, K2, V> {
 			}
 			inEdges.add(new Pair<K1, K2>(key1, key2));
 		}
-		
+
 		return result;
 	}
-	
+
 	public V get(final K1 key1, final K2 key2) {
 		final Map<K2, V> k2toV = mK1ToK2ToV.get(key1);
 		if (k2toV == null) {
@@ -146,15 +146,15 @@ public class DeterministicDawgTransitionRelation<K1, K2, V> {
 			return k2toV.get(key2);
 		}
 	}
-	
+
 	public Map<K2,V> get(final K1 key1) {
 		return mK1ToK2ToV.get(key1);
 	}
-	
+
 	public Set<K1> keySet() {
 		return mK1ToK2ToV.keySet();
 	}
-	
+
 	public Iterable<Pair<K1,K2>> keys2() {
 		return new Iterable<Pair<K1,K2>>() {
 
@@ -207,9 +207,9 @@ public class DeterministicDawgTransitionRelation<K1, K2, V> {
 				};
 			}
 		};
-		
+
 	}
-	
+
 	//TODO more efficient iterable
 	public Iterable<Triple<K1,K2,V>> entrySet() {
 		if (mUseCachingFields) {
@@ -229,12 +229,12 @@ public class DeterministicDawgTransitionRelation<K1, K2, V> {
 			this.put(triple.getFirst(), triple.getSecond(), triple.getThird());
 		}
 	}
-	
+
 	public Map<K2, V> remove(final K1 k1) {
 		assert !mUseCachingFields : "TODO: implement updating of caching fields";
 		return mK1ToK2ToV.remove(k1);
 	}
-	
+
 	public V remove(final K1 k1, final K2 k2) {
 		assert !mUseCachingFields : "TODO: implement updating of caching fields";
 		final Map<K2, V> k2ToV = mK1ToK2ToV.get(k1);
@@ -254,11 +254,11 @@ public class DeterministicDawgTransitionRelation<K1, K2, V> {
 		}
 		return sb.toString();
 	}
-	
+
 	public void clear() {
 		mK1ToK2ToV.clear();
 	}
-	
+
 	public int size() {
 		int result = 0;
 		for (final Entry<K1, Map<K2, V>> entry : mK1ToK2ToV.entrySet()) {
@@ -299,16 +299,16 @@ public class DeterministicDawgTransitionRelation<K1, K2, V> {
 //		}
 //		return result;
 //	}
-	
+
 	public boolean isEmpty() {
 		return mK1ToK2ToV.isEmpty();
 	}
 
 	/**
 	 * Retrieves all the incoming edges for one state.
-	 * TODO: this implementation is rather inefficient, 
+	 * TODO: this implementation is rather inefficient,
 	 *   one could introduce additional "backwards"-HashMaps to speed this up..
-	 *   
+	 *
 	 * @param stateLeft
 	 * @return
 	 */
@@ -350,7 +350,7 @@ public class DeterministicDawgTransitionRelation<K1, K2, V> {
 			return result;
 		}
 	}
-	
-	
-	
+
+
+
 }

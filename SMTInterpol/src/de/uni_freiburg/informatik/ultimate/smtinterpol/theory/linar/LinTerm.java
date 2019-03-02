@@ -24,7 +24,7 @@ import java.util.Map.Entry;
 
 /**
  * Class representing a linear term c1*x1+...+cn*xn
- * 
+ *
  * @author Juergen Christ
  */
 public class LinTerm {
@@ -32,7 +32,7 @@ public class LinTerm {
 	Map<LinVar,BigInteger> mCoeffs;
 	/**
 	 * Generate a new linear term. Note that we do not make a copy of the given
-	 * map. 
+	 * map.
 	 * @param coeffmap Coefficient map to use.
 	 */
 	LinTerm(Map<LinVar,BigInteger> coeffmap) {

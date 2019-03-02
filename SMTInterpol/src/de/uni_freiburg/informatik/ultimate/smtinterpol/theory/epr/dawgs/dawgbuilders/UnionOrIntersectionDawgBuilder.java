@@ -39,14 +39,14 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
 import java.util.Map.Entry;
 
 /**
- * 
+ *
  * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
  *
  * @param <LETTER>
  * @param <COLNAMES>
  */
 public class UnionOrIntersectionDawgBuilder<LETTER, COLNAMES> {
-	
+
 	private DawgState mResultInitialState;
 	private DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> mResultTransitionRelation;
 
@@ -56,55 +56,55 @@ public class UnionOrIntersectionDawgBuilder<LETTER, COLNAMES> {
 	private final DawgLetterFactory<LETTER, COLNAMES> mDawgLetterFactory;
 	private final DawgFactory<LETTER, COLNAMES> mDawgFactory;
 
-	public UnionOrIntersectionDawgBuilder(Dawg<LETTER, COLNAMES> first, Dawg<LETTER, COLNAMES> second, 
+	public UnionOrIntersectionDawgBuilder(Dawg<LETTER, COLNAMES> first, Dawg<LETTER, COLNAMES> second,
 			DawgFactory<LETTER, COLNAMES> df) {
 		assert first.getSignature().equals(second.getSignature()) : "signatures don't match!";
 		mDawgFactory = df;
 		mDawgStateFactory = df.getDawgStateFactory();
 		mDawgLetterFactory = df.getDawgLetterFactory();
-		
-		mFirstInputDawg = first; 
+
+		mFirstInputDawg = first;
 		mSecondInputDawg = second;
-		
+
 		mResultTransitionRelation = new DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER,COLNAMES>,DawgState>();
 
-		mResultInitialState = mDawgStateFactory.getOrCreatePairDawgState(first.getInitialState(), 
+		mResultInitialState = mDawgStateFactory.getOrCreatePairDawgState(first.getInitialState(),
 				second.getInitialState());
-		
+
 	}
-	
+
 	public Dawg<LETTER, COLNAMES> buildUnion() {
 		return build(true);
 	}
-	
+
 	public Dawg<LETTER, COLNAMES> buildIntersection() {
 		return build(false);
 	}
-	
+
 	/**
-	 * 
-	 * @param doUnion if this flag is true, build a dawg that recognizes the union of mFirst and 
+	 *
+	 * @param doUnion if this flag is true, build a dawg that recognizes the union of mFirst and
 	 *   mSecond, otherwise build a dawg that recognizes the intersection of the two
 	 * @return
 	 */
 	private Dawg<LETTER, COLNAMES> build(boolean doUnion) {
 		Set<PairDawgState> currentStates = new HashSet<PairDawgState>();
 		currentStates.add((PairDawgState) mResultInitialState);
-		
+
 		for (int i = 0; i < mFirstInputDawg.getColNames().size(); i++) {
 			final Set<PairDawgState> nextStates = new HashSet<PairDawgState>();
-			
+
 			for (PairDawgState cs : currentStates) {
-				
+
 				if (!cs.isFirstSink() && !cs.isSecondSink()) {
-					
-					final BinaryRelation<IDawgLetter<LETTER, COLNAMES>, IDawgLetter<LETTER, COLNAMES>> dividedDawgLetters = 
-							EprHelpers.divideDawgLetters(mDawgLetterFactory, 
-									cs.getFirst(), 
+
+					final BinaryRelation<IDawgLetter<LETTER, COLNAMES>, IDawgLetter<LETTER, COLNAMES>> dividedDawgLetters =
+							EprHelpers.divideDawgLetters(mDawgLetterFactory,
+									cs.getFirst(),
 									cs.getSecond(),
-									mFirstInputDawg.getTransitionRelation(), 
+									mFirstInputDawg.getTransitionRelation(),
 									mSecondInputDawg.getTransitionRelation());
-					
+
 					for (IDawgLetter<LETTER, COLNAMES> origDl : dividedDawgLetters.getDomain()) {
 						final DawgState firstTargetWithOrigDl = mFirstInputDawg.getTransitionRelation()
 								.get(cs.getFirst(), origDl);
@@ -117,7 +117,7 @@ public class UnionOrIntersectionDawgBuilder<LETTER, COLNAMES> {
 									cs.getFirst(), mFirstInputDawg.getTransitionRelation(), dividedDl);
 							final DawgState secondTargetWithDividedDl = getTargetForDividedDawgLetter(
 									cs.getSecond(), mSecondInputDawg.getTransitionRelation(), dividedDl);
-							
+
 							if (firstTargetWithDividedDl != null && secondTargetWithDividedDl != null) {
 								final PairDawgState newState = mDawgStateFactory.getOrCreatePairDawgState(
 										firstTargetWithDividedDl, secondTargetWithDividedDl);
@@ -127,7 +127,7 @@ public class UnionOrIntersectionDawgBuilder<LETTER, COLNAMES> {
 								}
 								nextStates.add(newState);
 								mResultTransitionRelation.put(cs, dividedDl, newState);
-							} else if (doUnion && firstTargetWithDividedDl == null 
+							} else if (doUnion && firstTargetWithDividedDl == null
 									&& secondTargetWithDividedDl != null) {
 								final PairDawgState newState = mDawgStateFactory.getOrCreatePairDawgState(
 										secondTargetWithDividedDl, true, false);
@@ -138,7 +138,7 @@ public class UnionOrIntersectionDawgBuilder<LETTER, COLNAMES> {
 
 								nextStates.add(newState);
 								mResultTransitionRelation.put(cs, dividedDl, newState);
-							} else if (doUnion && firstTargetWithDividedDl != null 
+							} else if (doUnion && firstTargetWithDividedDl != null
 									&& secondTargetWithDividedDl == null) {
 								final PairDawgState newState = mDawgStateFactory.getOrCreatePairDawgState(
 										firstTargetWithDividedDl, false, true);
@@ -153,7 +153,7 @@ public class UnionOrIntersectionDawgBuilder<LETTER, COLNAMES> {
 						}
 					}
 				} else if (doUnion && cs.isSecondSink()) {
-					for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> firstOutEdge : 
+					for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> firstOutEdge :
 						mFirstInputDawg.getTransitionRelation().getOutEdgeSet(cs.getFirst())) {
 
 						final PairDawgState ds = mDawgStateFactory.getOrCreatePairDawgState(firstOutEdge.getSecond(), false, true);
@@ -161,29 +161,29 @@ public class UnionOrIntersectionDawgBuilder<LETTER, COLNAMES> {
 						mResultTransitionRelation.put(cs, firstOutEdge.getFirst(), ds);
 						assert !EprHelpers.areStatesUnreachable(mResultTransitionRelation, mResultInitialState, nextStates);
 						assert EprHelpers.isDeterministic(mResultTransitionRelation);
-						assert !EprHelpers.hasDisconnectedTransitions(mResultTransitionRelation, 
+						assert !EprHelpers.hasDisconnectedTransitions(mResultTransitionRelation,
 								mResultInitialState);
 					}
 				} else if (doUnion && cs.isFirstSink()) {
-					for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> secondOutEdge : 
+					for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> secondOutEdge :
 						mSecondInputDawg.getTransitionRelation().getOutEdgeSet(cs.getSecond())) {
 						final PairDawgState ds = mDawgStateFactory.getOrCreatePairDawgState(secondOutEdge.getSecond(), true, false);
 						nextStates.add(ds);
 						mResultTransitionRelation.put(cs, secondOutEdge.getFirst(), ds);
 						assert !EprHelpers.areStatesUnreachable(mResultTransitionRelation, mResultInitialState, nextStates);
 						assert EprHelpers.isDeterministic(mResultTransitionRelation);
-						assert !EprHelpers.hasDisconnectedTransitions(mResultTransitionRelation, 
+						assert !EprHelpers.hasDisconnectedTransitions(mResultTransitionRelation,
 								mResultInitialState);
 					}
 				}
 			}
 			currentStates = nextStates;
 		}
-		
+
 		mResultTransitionRelation = EprHelpers.flattenDawgStates(mResultTransitionRelation);
 		mResultInitialState = mResultInitialState.getFlatReplacement();
-		
-		return new Dawg<LETTER, COLNAMES>(mDawgFactory, mFirstInputDawg.getLogger(), 
+
+		return new Dawg<LETTER, COLNAMES>(mDawgFactory, mFirstInputDawg.getLogger(),
 				 mFirstInputDawg.getColNames(), mResultTransitionRelation, mResultInitialState);
 	}
 
@@ -192,17 +192,17 @@ public class UnionOrIntersectionDawgBuilder<LETTER, COLNAMES> {
 	 *  Assumes that divideDl is either a subset of or disjoint from any outgoing dawgletter of the sourceState in
 	 *  the transitionRelation.
 	 * Returns null iff no outgoing edge from sourceState has an intersection with dividedDl.
-	 * 
+	 *
 	 * @param sourceState
 	 * @param transitionRelation
 	 * @param dividedDl
 	 * @return
 	 */
 	private DawgState getTargetForDividedDawgLetter(
-			DawgState sourceState, 
+			DawgState sourceState,
 			DeterministicDawgTransitionRelation<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> transitionRelation,
 			IDawgLetter<LETTER, COLNAMES> dividedDl) {
-		
+
 		for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge : transitionRelation.getOutEdgeSet(sourceState)) {
 			if (!(outEdge.getFirst().intersect(dividedDl) instanceof EmptyDawgLetter<?, ?>)) {
 				assert (!outEdge.getFirst().difference(dividedDl).isEmpty())// instanceof EmptyDawgLetter<?, ?>)
@@ -210,7 +210,7 @@ public class UnionOrIntersectionDawgBuilder<LETTER, COLNAMES> {
 					return outEdge.getSecond();
 			}
 		}
-		
+
 		return null;
 	}
 }

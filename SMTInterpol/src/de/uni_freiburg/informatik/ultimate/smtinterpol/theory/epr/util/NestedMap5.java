@@ -2,27 +2,27 @@
 /*
  * Copyright (C) 2015-2016 Daniel Tischner
  * Copyright (C) 2009-2016 University of Freiburg
- * 
+ *
  * This file is part of the ULTIMATE Automata Library.
- * 
+ *
  * The ULTIMATE Automata Library is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
  * by the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * The ULTIMATE Automata Library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with the ULTIMATE Automata Library. If not, see <http://www.gnu.org/licenses/>.
- * 
+ *
  * Additional permission under GNU GPL version 3 section 7:
  * If you modify the ULTIMATE Automata Library, or any covered work, by linking
- * or combining it with Eclipse RCP (or a modified version of Eclipse RCP), 
- * containing parts covered by the terms of the Eclipse Public License, the 
- * licensors of the ULTIMATE Automata Library grant you additional permission 
+ * or combining it with Eclipse RCP (or a modified version of Eclipse RCP),
+ * containing parts covered by the terms of the Eclipse Public License, the
+ * licensors of the ULTIMATE Automata Library grant you additional permission
  * to convey the resulting work.
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util;
@@ -32,7 +32,7 @@ import java.util.Map;
 
 /**
  * Nested map that stores a value accessible by 5 different keys.
- * 
+ *
  * @author Daniel Tischner {@literal <zabuza.dev@gmail.com>}
  *
  * @param <K1>
@@ -64,7 +64,7 @@ public class NestedMap5<K1, K2, K3, K4, K5, V> {
 
 	/**
 	 * Gets the value that is stored at the given position.
-	 * 
+	 *
 	 * @param key1
 	 *            First key where the value is stored
 	 * @param key2
@@ -89,7 +89,7 @@ public class NestedMap5<K1, K2, K3, K4, K5, V> {
 	/**
 	 * Puts the given value in the nested map. See
 	 * {@link Map#put(Object, Object)}.
-	 * 
+	 *
 	 * @param key1
 	 *            First key to store the value at
 	 * @param key2

@@ -32,7 +32,7 @@ import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
 
 /**
- * 
+ *
  * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
  *
  */
@@ -40,17 +40,17 @@ public class TTSubstitution {
 //	ArrayList<TPair> subs;
 	ArrayList<SubsPair> subs;
 	HashSet<TermVariable> tvSet = new HashSet<TermVariable>();
-	
+
 	public TTSubstitution() {
 		super();
 		this.subs = new ArrayList<SubsPair>();
 	}
-	
+
 	public TTSubstitution(TermVariable tv, Term t) {
 		this();
 		this.addSubs(t, tv);
 	}
-	
+
 	public TTSubstitution(TTSubstitution substitution) {
 		// TODO is DeepCopy necessary?
 		this();
@@ -61,7 +61,7 @@ public class TTSubstitution {
 				addEquality((EqPair) tp);
 		}
 	}
-	
+
 	public TTSubstitution(SortedSet<TermVariable> colnames, List<ApplicationTerm> point) {
 		this();
 		assert colnames.size() == point.size();
@@ -85,25 +85,25 @@ public class TTSubstitution {
 		assert false : "should not happen..";
 		return null;
 	}
-	
+
 	public void addEquality(EqPair eqp) {
 		addEquality(eqp.top, eqp.bot, eqp.eqPath);
 	}
 
 	/**
-	 * @param top 
+	 * @param top
 	 * @param bot
 	 * @param eqPath a list of CCEqualities which are all true and together imply (= top bot)
 	 */
 	public void addEquality(Term top, Term bot, ArrayList<CCEquality> eqPath) {
 		subs.add(new EqPair(top, bot, eqPath));
 	}
-	
+
 	public void addSubs(Term top, TermVariable bot) {
 		tvSet.add((TermVariable) bot);
 		subs.add(new TPair(top, (TermVariable) bot));
 	}
-	
+
 	public TermTuple apply(TermTuple tt) {
 		if (subs.isEmpty())
 			return tt;
@@ -123,14 +123,14 @@ public class TTSubstitution {
 		}
 		return new TermTuple(newTerms);
 	}
-	
+
 	/**
 	 * true if application of this substitution is the identity function
 	 */
 	public boolean isEmpty() {
 		return subs.isEmpty();
 	}
-	
+
 	public Set<TermVariable> tvSet() {
 		return tvSet;
 	}
@@ -139,11 +139,11 @@ public class TTSubstitution {
 	public String toString() {
 		return subs.toString();
 	}
-	
+
 	public ArrayList<SubsPair> getSubsPairs() {
 		return subs;
 	}
-	
+
 	public abstract class SubsPair {
 		public final Term top;
 		public final Term bot;
@@ -166,7 +166,7 @@ public class TTSubstitution {
 			super(top, bot);
 			this.eqPath = eqPath;
 		}
-		
+
 		@Override
 		public String toString() {
 			return String.format("(%s,%s)", top.toString(), bot.toString());
@@ -184,7 +184,7 @@ public class TTSubstitution {
 			this.t = top;
 			this.tv = bot;
 		}
-		
+
 		@Override
 		public String toString() {
 			return String.format("(%s,%s)", tv.toString(), t.toString());

@@ -17,7 +17,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 
 public class EeaaLoggingScript extends LoggingScript {
-	
+
 	/**
 	 * The symbol that will be used instead of "="
 	 */
@@ -29,14 +29,14 @@ public class EeaaLoggingScript extends LoggingScript {
 	 *  --> that is where we insert our axioms..
 	 */
 	private boolean mBeforeFirstAssertOrPush = true;
-	
+
 	/**
 	 * We need to track user-declared sorts and uninterpreted predicates in order to
 	 * build the equality axioms.
 	 */
 	private final List<Sort> mDeclaredSorts = new ArrayList<Sort>();
 	private final Map<String, Sort[]> mDeclaredPredicates = new HashMap<String, Sort[]>();
-	
+
 
 	public EeaaLoggingScript(Script script, String file, boolean autoFlush)
 			throws FileNotFoundException {
@@ -92,10 +92,10 @@ public class EeaaLoggingScript extends LoggingScript {
 		// replace all occurrences of "=" by our new equals symbol
 		// except: we don't want to replace the "=" where it is used as a biimplication
 		// (because we would have to add more congruence atoms then)
-		if ("=".equals(funcname) 
-				&& !(params.length == 2 
-					&& "Bool".equals(params[0].getSort().getName()) 
-					&& "Bool".equals(params[1].getSort().getName()))) { 
+		if ("=".equals(funcname)
+				&& !(params.length == 2
+					&& "Bool".equals(params[0].getSort().getName())
+					&& "Bool".equals(params[1].getSort().getName()))) {
 			return term(mNewEqualsSymbol, indices, returnSort, params);
 		}
 		return super.term(funcname, indices, returnSort, params);
@@ -123,7 +123,7 @@ public class EeaaLoggingScript extends LoggingScript {
 			super.assertTerm(buildSymmetryAxiom(ds));
 			super.assertTerm(buildTransitivityAxiom(ds));
 		}
-		
+
 		for (Entry<String, Sort[]> en : mDeclaredPredicates.entrySet()) {
 			String predName = en.getKey();
 			Sort[] predArgs = en.getValue();
@@ -132,7 +132,7 @@ public class EeaaLoggingScript extends LoggingScript {
 			}
 			super.assertTerm(buildCongruenceAxiom(predName, predArgs));
 		}
-		
+
 	}
 
 	private Term buildCongruenceAxiom(String predName, Sort[] predArgs) {
@@ -152,8 +152,8 @@ public class EeaaLoggingScript extends LoggingScript {
 		}
 		assert antecedentElements.length > 0;
 		Term antecedent = antecedentElements.length > 1 ? term("and", antecedentElements) : antecedentElements[0];
-		return quantifier(FORALL, qVars, 
-				term("=>", 
+		return quantifier(FORALL, qVars,
+				term("=>",
 						antecedent,
 						term("=>",
 								term(predName, qVars1),
@@ -166,10 +166,10 @@ public class EeaaLoggingScript extends LoggingScript {
 		TermVariable qvar1 = variable("x", s);
 		TermVariable qvar2 = variable("y", s);
 		TermVariable qvar3 = variable("z", s);
-		return quantifier(FORALL, 
-				new TermVariable[] { qvar1, qvar2, qvar3 }, 
-				term("=>", 
-						term ("and", term(mNewEqualsSymbol, qvar1, qvar2), term(mNewEqualsSymbol, qvar2, qvar3)), 
+		return quantifier(FORALL,
+				new TermVariable[] { qvar1, qvar2, qvar3 },
+				term("=>",
+						term ("and", term(mNewEqualsSymbol, qvar1, qvar2), term(mNewEqualsSymbol, qvar2, qvar3)),
 						term(mNewEqualsSymbol, qvar1, qvar3)));
 
 	}
@@ -179,8 +179,8 @@ public class EeaaLoggingScript extends LoggingScript {
 	private Term buildSymmetryAxiom(Sort s) {
 		TermVariable qvar1 = variable("x", s);
 		TermVariable qvar2 = variable("y", s);
-		return quantifier(FORALL, 
-				new TermVariable[] { qvar1, qvar2 }, 
+		return quantifier(FORALL,
+				new TermVariable[] { qvar1, qvar2 },
 				term("=>", term(mNewEqualsSymbol, qvar1, qvar2), term(mNewEqualsSymbol, qvar2, qvar1)));
 	}
 
@@ -189,5 +189,5 @@ public class EeaaLoggingScript extends LoggingScript {
 		return quantifier(FORALL, new TermVariable[] { qvar }, term(mNewEqualsSymbol, qvar, qvar));
 	}
 
-	
+
 }

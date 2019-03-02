@@ -41,7 +41,7 @@ public final class AssignmentSample {
 			final Script script = new SMTInterpol(new DefaultLogger());
 			// Enable production of assignments for Boolean named terms
 			script.setOption(":produce-assignments", true);
-			
+
 			script.setLogic(Logics.QF_UF);
 			declareStuff(script);
 			// Build the formula (f(x) == f(y) /\ x == y) \/ x != y
@@ -55,7 +55,7 @@ public final class AssignmentSample {
 			final Term namedxeqy =
 				script.annotate(xeqy, new Annotation(":named", "xeqy"));
 			final Term namedxneqy =
-				script.annotate(script.term("not", xeqy), 
+				script.annotate(script.term("not", xeqy),
 						new Annotation(":named", "xneqy"));
 			final Term namedfxeqfy =
 				script.annotate(fxeqfy, new Annotation(":named", "fxeqfy"));
@@ -106,7 +106,7 @@ public final class AssignmentSample {
 			System.exit(1);
 		}
 	}
-	
+
 	private static Term blockingClause(Script script, Assignments ass) {
 		// Negate all labels that are assigned true in the current model.
 		System.err.println("Blocking clause");
@@ -119,7 +119,7 @@ public final class AssignmentSample {
 				: script.term("or",
 						satLabels.toArray(new Term[satLabels.size()]));
 	}
-	
+
 	private static Term enablingClause(Script script, Assignments ass) {
 		// Add all labels that are assigned false in the current model.
 		System.err.println("Enabling clause");
@@ -129,7 +129,7 @@ public final class AssignmentSample {
 		}
 		// Guard against 1-ary "or"
 		return unsatLabels.size() == 1 ? unsatLabels.iterator().next()
-				: script.term("or", 
+				: script.term("or",
 					unsatLabels.toArray(new Term[unsatLabels.size()]));
 	}
 
@@ -139,7 +139,7 @@ public final class AssignmentSample {
 		return ass.getNumTrueAssignments() <= ass.getNumFalseAssignments()
 				? blockingClause(script, ass) : enablingClause(script, ass);
 	}
-	
+
 	private static void declareStuff(Script script) throws SMTLIBException {
 		// 0-ary sort U is the only sort we use
 		script.declareSort("U", 0);

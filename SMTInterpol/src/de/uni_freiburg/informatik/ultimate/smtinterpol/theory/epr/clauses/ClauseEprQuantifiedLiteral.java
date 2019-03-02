@@ -45,24 +45,24 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.I
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
 
 /**
- * 
+ *
  * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
  *
  */
 public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 
 	private final EprQuantifiedPredicateAtom mAtom;
-	
+
 	/**
 	 * stores variable identities between different quantified literals in the same clause
 	 * (for example would remember that in the clause {P(x, y), Q(y, z)} the second position of
 	 *  the P-literal and the first position of the Q-literal have the same variable)
-	 *  
+	 *
 	 *  Once we have filled this map, we can forget the concrete TermVariables.
 	 */
-	Map<Integer, Map<ClauseEprQuantifiedLiteral, Set<Integer>>> identicalVariablePositionsInOtherClauseLiterals = 
+	Map<Integer, Map<ClauseEprQuantifiedLiteral, Set<Integer>>> identicalVariablePositionsInOtherClauseLiterals =
 			new HashMap<Integer, Map<ClauseEprQuantifiedLiteral,Set<Integer>>>();
-	
+
 	/**
 	 * Stores the points where this literal is currently fulfillable.
 	 *  -- this is only updated on an isFulfillable query, so it should
@@ -85,30 +85,30 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	 * Translates the EprPredicates signature to the signature that this ClauseLit has.
 	 * I.e. translates mAtom.getEprPredicate().getArguments() to mArgumentTermVariables.
 	 * In effect, we use this translation for the unification/natural join with the
-	 * decide stack literals, which have a canonical signature from their EprPredicate. 
+	 * decide stack literals, which have a canonical signature from their EprPredicate.
 	 */
 	private final Map<TermVariable, ApplicationTerm> mTranslationForClauseTvToConstants;
 	private final Map<TermVariable, TermVariable> mTranslationForClauseTvToVariables;
-	
-	
+
+
 	/**
 	 * Roughly the reverse of mTranslationForClause.
 	 * Translates from the variable names of the EprClause this ClauseLiteral belongs to into
 	 * the canonical variable names of the EprPredicate.
 	 * Used for translating from unit clause representation as a dawg over the clause signature
 	 * to a Dawg over the predicate's signature.
-	 * 
+	 *
 	 * EDIT:
 	 * reversing it, seems more useful
-	 * 
+	 *
 	 * EDIT:
 	 *  undid the reversing, using BinaryRelation instead
-	 * 
+	 *
 	 *  maps from dsl signature colname to clause signature colname
 	 */
 	private final BinaryRelation<TermVariable, TermVariable> mTranslationForEprPredicate;
 
-	public ClauseEprQuantifiedLiteral(boolean polarity, EprQuantifiedPredicateAtom atom, 
+	public ClauseEprQuantifiedLiteral(boolean polarity, EprQuantifiedPredicateAtom atom,
 			EprClause clause, EprTheory eprTheory) {
 		super(polarity, atom, clause, eprTheory);
 		mAtom = atom;
@@ -127,13 +127,13 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 //		assert p.second != null;
 //		mTranslationForClause = p.first;
 //		mTranslationForEprPredicate = p.second;
-		
-		
-		BinaryRelation<TermVariable, TermVariable> clauseToPred = 
+
+
+		BinaryRelation<TermVariable, TermVariable> clauseToPred =
 				new BinaryRelation<TermVariable, TermVariable>();
-		Map<TermVariable, ApplicationTerm> predToClauseConstants = 
+		Map<TermVariable, ApplicationTerm> predToClauseConstants =
 				new HashMap<TermVariable, ApplicationTerm>();
-		Map<TermVariable, TermVariable> predToClauseVariables = 
+		Map<TermVariable, TermVariable> predToClauseVariables =
 				new HashMap<TermVariable, TermVariable>();
 		Iterator<TermVariable> predTermVarIt = mAtom.getEprPredicate().getTermVariablesForArguments().iterator();
 		for (int i = 0; i < mArgumentTerms.size(); i++) {
@@ -159,9 +159,9 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	 * To prevent some misusage, this nulls the field so it is not used twice.
 	 *  --> however this will still be problematic if the state changes between the last call to isFulfillable
 	 *  and this method.
-	 *  
+	 *
 	 *  Convention: fulfillablePoints (like refuted and fulfilled points) are returned in the signature of the _clause_!
-	 * @param decideStackBorder 
+	 * @param decideStackBorder
 	 * @return
 	 */
 	public IDawg<ApplicationTerm, TermVariable> getFulfillablePoints(DecideStackLiteral decideStackBorder) {
@@ -182,7 +182,7 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 
 	public IDawg<ApplicationTerm, TermVariable> getRefutedPoints() {
 		assert !mIsStateDirty;
-		assert mRefutedPoints.getColNames().equals(mEprClause.getVariables()) : 
+		assert mRefutedPoints.getColNames().equals(mEprClause.getVariables()) :
 			"refuted points must be given in clause signature";
 		IDawg<ApplicationTerm, TermVariable> result = mRefutedPoints;
 		return result;
@@ -190,16 +190,16 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 
 	/**
 	 * Collect the points for this literal for each of the three values (fulfilled, fulfillable, refuted).
-	 * 
+	 *
 	 * Note:
-	 *  the dawgs we are computing for those sets 
+	 *  the dawgs we are computing for those sets
 	 *  - already have the signature of the predicate in the clause
-	 *  - are immediately selected upon according to the atoms constants, i.e., if we have P(a, x, b), we 
+	 *  - are immediately selected upon according to the atoms constants, i.e., if we have P(a, x, b), we
 	 *    only take points that start with a and end with b
 	 *  - are immediately selected upon upon to the atoms repetitions of variables, i.e., if we have
 	 *    P(x, x, y), and the predicate signature is P(u, v, w) we only take points that where the entries
-	 *    for u and v are equal. 
-	 *    
+	 *    for u and v are equal.
+	 *
 	 *  @param decideStackBorder when determining the state we only look at decide stack literals below the given one
 	 *                   (we look at all when decideStackBorder is null)
 	 */
@@ -208,21 +208,21 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 		mIsStateDirty = false;
 
 		// collect the points in a dawg with the predicate's signature
-		IDawg<ApplicationTerm, TermVariable> refutedPoints = 
+		IDawg<ApplicationTerm, TermVariable> refutedPoints =
 				mEprTheory.getDawgFactory().getEmptyDawg(mAtom.getEprPredicate().getTermVariablesForArguments());
 		for (IEprLiteral dsl : mPartiallyConflictingDecideStackLiterals) {
-			if (decideStackBorder == null 
-					|| dsl instanceof EprGroundPredicateLiteral 
+			if (decideStackBorder == null
+					|| dsl instanceof EprGroundPredicateLiteral
 					|| ((DecideStackLiteral) dsl).compareTo(decideStackBorder) < 0) {
 				refutedPoints = refutedPoints.union(dsl.getDawg());
 			}
 		}
-		
+
 		// the following commented out block could be an optimization for recognizing conflicts earlier
 		// --> TODO should we integrate it? Integrating it would probably mean we have to do something extra
 		//   for conflict explanation..
 //		/*
-//		 * If this clause literal is a negated equality literal, we "manually" have to add all reflexive points 
+//		 * If this clause literal is a negated equality literal, we "manually" have to add all reflexive points
 //		 * that the current AllConstants can give us to the refutedPoints.
 //		 */
 //		if (!mPolarity && mAtom instanceof EprQuantifiedEqualityAtom) {
@@ -230,36 +230,36 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 //					mDawgFactory.getReflexivePointsOverCurrentlyKnownConstantsForSignature(
 //							refutedPoints.getSignature()));
 //		}
-		
-		/* 
+
+		/*
 		 * right now, the refuted points are in terms of the EprPredicates signature, we need a renaming
 		 * and possibly select and projects to match the signature of the clause.
 		 */
 		refutedPoints = mDawgFactory.translatePredSigToClauseSig(
-				refutedPoints, 
-				mTranslationForClauseTvToVariables, 
-				mTranslationForClauseTvToConstants, 
+				refutedPoints,
+				mTranslationForClauseTvToVariables,
+				mTranslationForClauseTvToConstants,
 				mEprClause.getVariables());
 
 		// collect the points in a dawg with the predicate's signature
-		IDawg<ApplicationTerm, TermVariable> fulfilledPoints = 
+		IDawg<ApplicationTerm, TermVariable> fulfilledPoints =
 				mEprTheory.getDawgFactory().getEmptyDawg(
 						mAtom.getEprPredicate().getTermVariablesForArguments());
 		for (IEprLiteral dsl : mPartiallyFulfillingDecideStackLiterals) {
-			if (decideStackBorder == null 
-					|| dsl instanceof EprGroundPredicateLiteral 
+			if (decideStackBorder == null
+					|| dsl instanceof EprGroundPredicateLiteral
 					|| ((DecideStackLiteral) dsl).compareTo(decideStackBorder) < 0) {
 				fulfilledPoints = fulfilledPoints.union(dsl.getDawg());
 			}
 		}
-		/* 
+		/*
 		 * right now, the fulfilled points are in terms of the EprPredicates signature, we need a renaming
 		 * and possibly select and projects to match the signature of the clause.
 		 */
 		fulfilledPoints = mDawgFactory.translatePredSigToClauseSig(
 				fulfilledPoints,
-				mTranslationForClauseTvToVariables, 
-				mTranslationForClauseTvToConstants, 
+				mTranslationForClauseTvToVariables,
+				mTranslationForClauseTvToConstants,
 				mEprClause.getVariables());
 
 		mFulfillablePoints = mEprTheory.getDawgFactory().getUniversalDawg(mEprClause.getVariables());
@@ -267,10 +267,10 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 
 		mFulfillablePoints = mFulfillablePoints.difference(fulfilledPoints);
 		mFulfillablePoints = mFulfillablePoints.difference(refutedPoints);
-		
+
 		mRefutedPoints = refutedPoints;
 		mFulfilledPoints = fulfilledPoints;
-		
+
 		assert refutedPoints.intersect(fulfilledPoints).isEmpty();
 		assert EprHelpers.verifySortsOfPoints(fulfilledPoints, mEprClause.getVariables());
 		assert EprHelpers.verifySortsOfPoints(refutedPoints, mEprClause.getVariables());
@@ -278,8 +278,8 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 		assert mFulfillablePoints.getColNames().equals(mEprClause.getVariables());
 		assert mFulfilledPoints.getColNames().equals(mEprClause.getVariables());
 		assert mRefutedPoints.getColNames().equals(mEprClause.getVariables());
-		
-		assert EprHelpers.unionOfAllPointsIsUniversal(mDawgFactory, mFulfillablePoints, mFulfilledPoints, 
+
+		assert EprHelpers.unionOfAllPointsIsUniversal(mDawgFactory, mFulfillablePoints, mFulfilledPoints,
 				mRefutedPoints);
 
 		if (fulfilledPoints.isUniversal()) {
@@ -298,9 +298,9 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 //	 */
 //	private Pair<Map<TermVariable, Object>, Map<TermVariable, TermVariable>> computeDawgSignatureTranslations() {
 //
-//		Map<TermVariable, TermVariable> clauseToPred = 
+//		Map<TermVariable, TermVariable> clauseToPred =
 //				new HashMap<TermVariable, TermVariable>();
-//		Map<TermVariable, Object> predToClause = 
+//		Map<TermVariable, Object> predToClause =
 //				new HashMap<TermVariable, Object>();
 //		Iterator<TermVariable> predTermVarIt = mAtom.getEprPredicate().getTermVariablesForArguments().iterator();
 //		for (int i = 0; i < mArgumentTerms.size(); i++) {
@@ -318,7 +318,7 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	public BinaryRelation<TermVariable, TermVariable> getTranslationFromClauseToEprPredicate() {
 		return mTranslationForEprPredicate;
 	}
-	
+
 	public Map<TermVariable, ApplicationTerm> getTranslationFromEprPredicateToClauseConstants() {
 		return mTranslationForClauseTvToConstants;
 	}
@@ -330,9 +330,9 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	@Override
 	public boolean isDisjointFrom(IDawg<ApplicationTerm, TermVariable> dawg) {
 		 return mDawgFactory.translatePredSigToClauseSig(
-				 dawg, 
-				 mTranslationForClauseTvToVariables, 
-				 mTranslationForClauseTvToConstants, 
+				 dawg,
+				 mTranslationForClauseTvToVariables,
+				 mTranslationForClauseTvToConstants,
 				 mEprClause.getVariables()).isEmpty();
 	}
 
@@ -340,7 +340,7 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	public Clause getGroundingForGroundLiteral(IDawg<ApplicationTerm, TermVariable> dawg, Literal groundLiteral) {
 		ApplicationTerm term = (ApplicationTerm) groundLiteral.getAtom().getSMTFormula(mEprTheory.getTheory());
 		List<ApplicationTerm> args = EprHelpers.convertTermArrayToConstantList(term.getParameters());
-		
+
 		Map<TermVariable, ApplicationTerm> selectMap = new HashMap<TermVariable, ApplicationTerm>();
 		for (int i = 0; i < this.getArguments().size(); i ++) {
 			if (this.getArguments().get(i) instanceof TermVariable) {
@@ -357,7 +357,7 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	public EprQuantifiedPredicateAtom getAtom() {
 		return mAtom;
 	}
-	
+
 	public boolean isEqualityLiteral() {
 		return mAtom instanceof EprQuantifiedEqualityAtom;
 	}

@@ -36,7 +36,7 @@ public class DIMACSParser implements IParser {
 			Reader reader;
 			if (filename == null) {
 				filename = "<stdin>";
-				reader = new InputStreamReader(System.in);				
+				reader = new InputStreamReader(System.in);
 			} else {
 				reader = new FileReader(filename);
 			}

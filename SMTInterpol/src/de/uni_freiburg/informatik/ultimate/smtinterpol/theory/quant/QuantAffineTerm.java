@@ -29,7 +29,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 /**
  * Represents a quantified affine term, i.e. all summands (except for the constant) are EUTerms and at least one is a
  * quantified EUTerm.
- * 
+ *
  * @author Tanja Schindler
  *
  */
@@ -41,7 +41,7 @@ public class QuantAffineTerm extends EUTerm {
 	/**
 	 * Create a new QuantAffineTerm for a given term of the form "sum of coeff*EUTerms + const". This must only be
 	 * called if at least one of the EUTerms is not ground.
-	 * 
+	 *
 	 * @param clausifier
 	 *            the Clausifier.
 	 * @param term
@@ -60,7 +60,7 @@ public class QuantAffineTerm extends EUTerm {
 
 	/**
 	 * Build a new QuantAffineTerm for a given EUTerm. This must only be called if the EUTerm is not ground.
-	 * 
+	 *
 	 * @param euTerm
 	 *            the non-ground EUTerm that is transformed into a QuantAffineTerm.
 	 */

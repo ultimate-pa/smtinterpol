@@ -25,7 +25,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses;
  *  - "normal": no literal is fulfilled on all points, there is no point where the clause is unit or a conflict
  *  - unit: on at least one point all literals except one are refuted, that one is unconstrained
  *  - conflict: on at least one point all literals are refuted
- *  
+ *
  * @author nutz
  */
 public enum EprClauseState {

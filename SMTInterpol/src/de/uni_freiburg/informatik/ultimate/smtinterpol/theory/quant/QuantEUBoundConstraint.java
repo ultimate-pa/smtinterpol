@@ -22,7 +22,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 
 /**
  * A QuantEUBoundConstraint is an inequality of the form QuantAffineTerm <= 0.
- * 
+ *
  * @author Tanja Schindler
  *
  */
@@ -36,7 +36,7 @@ public class QuantEUBoundConstraint extends QuantLiteral {
 	/**
 	 * Create a new QuantEUBoundConstraint for a given term. This should only be called after checking that the term
 	 * contains quantified variables.
-	 * 
+	 *
 	 * @param term
 	 *            the underlying term of the form "term <= 0" (or negated).
 	 * @param lhs

@@ -33,9 +33,9 @@ import java.util.Map;
  * @author Juergen Christ
  */
 public class SimpleCmd extends Cmd {
-	
+
 	private final String mCmd;
-	
+
 	public SimpleCmd(String cmd) {
 		mCmd = cmd;
 	}
@@ -46,7 +46,7 @@ public class SimpleCmd extends Cmd {
 		writer.print(mCmd);
 		writer.println(')');
 	}
-	
+
 	@Override
 	public String toString() {
 		return mCmd.toUpperCase();

@@ -42,10 +42,10 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.MutableAffin
 
 /**
  * This class takes care of clause, literal and term instantiation.
- * 
+ *
  * Literals and clauses are only created if necessary, in particular, false literals as well as clauses that would
  * contain true literals are not created.
- * 
+ *
  * @author Tanja Schindler
  *
  */
@@ -62,7 +62,7 @@ public class InstantiationManager {
 	/**
 	 * Find all instances of clauses that would be a conflict or unit clause if the corresponding theories had known the
 	 * literals at creation of the instance.
-	 * 
+	 *
 	 * @return A List of conflicting instances.
 	 */
 	public List<List<Literal>> findConflictAndUnitInstances() {
@@ -92,7 +92,7 @@ public class InstantiationManager {
 
 	/**
 	 * In the final check, compute any instance of any clause that is not trivially true.
-	 * 
+	 *
 	 * TODO Just one arbitrary clause
 	 */
 	public Clause instantiateAll() {
@@ -114,7 +114,7 @@ public class InstantiationManager {
 
 	/**
 	 * Compute all instantiations for a given clause, except the ones which instances have already been created for.
-	 * 
+	 *
 	 * @return a Set containing interesting instantiations for the clause.
 	 */
 	private Set<List<SharedTerm>> computeAllInstantiations(QuantClause quantClause) {
@@ -144,7 +144,7 @@ public class InstantiationManager {
 	 * Evaluate which value a potential instance of a given clause would have. We distinguish three values: FALSE if all
 	 * literals would be false, ONE_UNDEF if all but one literal would be false and this one undefined, and TRUE for all
 	 * other cases.
-	 * 
+	 *
 	 * @param quantClause
 	 *            the quantified clause which we evaluate an instance for.
 	 * @param instantiation
@@ -228,12 +228,12 @@ public class InstantiationManager {
 
 	/**
 	 * Instantiate a clause with a given substitution. Note that partial instantiation is not supported.
-	 * 
+	 *
 	 * @param clause
 	 *            a clause containing at least one quantified literal
 	 * @param substitution
 	 *            pairs of variable and ground term that is used to instantiate the corresponding variable.
-	 * 
+	 *
 	 * @return the set of ground literals, or null if the clause would be true.
 	 */
 	private List<Literal> computeClauseInstance(final QuantClause clause, final List<Term> instantiation) {
@@ -252,7 +252,7 @@ public class InstantiationManager {
 			} else {
 				if (isNeg) {
 					prox = mClausifier.getTheory().not(prox);
-				} 
+				}
 				if (litProxies.contains(mClausifier.getTheory().not(prox))) {
 					return null; // Don't instantiate literals that would lead to tautologies.
 				}
@@ -300,7 +300,7 @@ public class InstantiationManager {
 
 	/**
 	 * Build a proxy instance for a QuantLiteral and a given instantiation.
-	 * 
+	 *
 	 * @param atom
 	 *            the underlying atom of a QuantLiteral
 	 * @return a term as proxy for the literal instance
@@ -350,9 +350,9 @@ public class InstantiationManager {
 
 	/**
 	 * Create a proxy instance for an equality literal.
-	 * 
+	 *
 	 * This method simplifies trivially true or false instances.
-	 * 
+	 *
 	 * @return an equality term.
 	 */
 	private Term computeEqualityLitAsTerm(final Term left, final Term right) {
@@ -382,9 +382,9 @@ public class InstantiationManager {
 
 	/**
 	 * Create a proxy instance for an inequality literal.
-	 * 
+	 *
 	 * This method simplifies trivially true or false instances.
-	 * 
+	 *
 	 * @return an equality term.
 	 */
 	private Term computeBoundConstraintLitAsTerm(SMTAffineTerm smtAff, boolean isStrict, Sort sort) {
@@ -434,7 +434,7 @@ public class InstantiationManager {
 
 	/**
 	 * Compute an instance of a given QuantAffineTerm and a given substitution.
-	 * 
+	 *
 	 * @return an SMTAffineTerm for this instance.
 	 */
 	private SMTAffineTerm instantiateEUTerm(final QuantAffineTerm euAffine, final List<TermVariable> vars,
@@ -458,7 +458,7 @@ public class InstantiationManager {
 
 	/**
 	 * For a given EUTerm and an instantiation, find an equivalent SharedTerm.
-	 * 
+	 *
 	 * @param euTerm
 	 *            The EUTerm which we search an equivalent SharedTerm for.
 	 * @param vars
@@ -511,9 +511,9 @@ public class InstantiationManager {
 
 	/**
 	 * Determine the value that an equality literal between two given terms would have.
-	 * 
+	 *
 	 * TODO Should this do the simplification for trivially false/true literals?
-	 * 
+	 *
 	 * @param lhs
 	 *            The left side of the equality.
 	 * @param rhs
@@ -538,11 +538,11 @@ public class InstantiationManager {
 
 	/**
 	 * Determine the value that a bound constraint term < 0 or term <= 0 would have.
-	 * 
+	 *
 	 * TODO Should this do the simplification for trivially false/true literals?
-	 * 
+	 *
 	 * TODO Is it sufficient to have ONE_UNDEF?
-	 * 
+	 *
 	 * @param affine
 	 *            The linear term for a constraint term <(=) 0.
 	 * @param isStrict

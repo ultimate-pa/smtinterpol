@@ -39,7 +39,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
  * @author Juergen Christ
  */
 public final class ModelSample {
-	
+
 	private ModelSample() {
 		// Hide constructor
 	}
@@ -49,7 +49,7 @@ public final class ModelSample {
 		script.declareFun(name, new Sort[0], sort);
 		return script.term(name);
 	}
-	
+
 	public static void main(String[] ignored) {
 		// Counter for the skolem instances
 		int numskolem = 0;

@@ -27,16 +27,16 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * 
+ *
  * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
  *
  * @param <LETTER>
  * @param <COLNAMES>
  */
 public class SimpleDawgLetter<LETTER, COLNAMES> extends AbstractDawgLetter<LETTER, COLNAMES> {
-	
+
 	final Set<LETTER> mLetters;
-	
+
 	public SimpleDawgLetter(DawgLetterFactory<LETTER, COLNAMES> dlf, Set<LETTER> letters, Object sortId) {
 		super(dlf, sortId);
 		assert letters.size() > 0 : "use EmptyDawgLetter instead";
@@ -65,7 +65,7 @@ public class SimpleDawgLetter<LETTER, COLNAMES> extends AbstractDawgLetter<LETTE
 		} else {
 			assert false : "not expected";
 			return null;
-		}	
+		}
 	}
 
 	@Override
@@ -90,7 +90,7 @@ public class SimpleDawgLetter<LETTER, COLNAMES> extends AbstractDawgLetter<LETTE
 	public Collection<LETTER> allLettersThatMatch(List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex) {
 		return getLetters();
 	}
-	
+
 	@Override
 	public String toString() {
 		return "SimpleDawgLetter: " + getLetters();

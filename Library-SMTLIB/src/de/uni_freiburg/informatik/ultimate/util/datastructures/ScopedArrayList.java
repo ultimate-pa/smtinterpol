@@ -32,7 +32,7 @@ import de.uni_freiburg.informatik.ultimate.util.ScopeUtils;
 public class ScopedArrayList<E> extends ArrayList<E> {
 	int[] mLevels = new int[ScopeUtils.NUM_INITIAL_SCOPES];
 	int mCurscope = -1;
-	
+
 	@Override
 	public void clear() {
 		mLevels = new int[ScopeUtils.NUM_INITIAL_SCOPES];
@@ -43,7 +43,7 @@ public class ScopedArrayList<E> extends ArrayList<E> {
 		if (++mCurscope == mLevels.length) {
 			mLevels = ScopeUtils.grow(mLevels);
 		}
-		mLevels[mCurscope] = size();		
+		mLevels[mCurscope] = size();
 	}
 	public void endScope() {
 		final int oldsize = mLevels[mCurscope];
@@ -73,7 +73,7 @@ public class ScopedArrayList<E> extends ArrayList<E> {
 			public Iterator<E> iterator() {
 				return listIterator(mLevels[mCurscope]);
 			}
-			
+
 		};
 	}
 }

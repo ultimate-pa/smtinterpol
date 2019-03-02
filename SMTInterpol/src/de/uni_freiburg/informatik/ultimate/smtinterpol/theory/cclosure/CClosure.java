@@ -94,7 +94,7 @@ public class CClosure implements ITheory {
 				}
 			}
 		}
-		final CCAppTerm term = new CCAppTerm(isFunc, 
+		final CCAppTerm term = new CCAppTerm(isFunc,
 				isFunc ? func.mParentPosition + 1 : 0, func, arg, null, this);
 		final CCAppTerm congruentTerm = term.addParentInfo(this);
 		if (congruentTerm != null) {
@@ -147,7 +147,7 @@ public class CClosure implements ITheory {
 
 	/**
 	 * For a given function and a given argument position, retrieve all terms that appear at this position.
-	 * 
+	 *
 	 * @param sym
 	 *            the function symbol
 	 * @param argPos
@@ -192,7 +192,7 @@ public class CClosure implements ITheory {
 	 * Find the representative CCTerm for the given term. This function does not create new terms. If there is no
 	 * equivalent CCTerm, it returns null. If a term that is congruent to the given term already exists, it will return
 	 * the representative of this congruent term.
-	 * 
+	 *
 	 * @param term
 	 *            The term which a representative is searched for.
 	 * @return The representative, or null if no congruent term exists in the CClosure.
@@ -223,7 +223,7 @@ public class CClosure implements ITheory {
 	 * Find the representative CCTerm for the application of funcRep and argRep. This function does not create new
 	 * terms. If there is no equivalent CCTerm it returns null. If a term that is congruent to the given term already
 	 * exists it will return the representative of this congruent term.
-	 * 
+	 *
 	 * @param funcRep
 	 *            the representative of the partial function application term.
 	 * @param argRep
@@ -245,7 +245,7 @@ public class CClosure implements ITheory {
 
 	/**
 	 * For two given CCTerms, check if the equality is set.
-	 * 
+	 *
 	 * @return true if the terms are in the same congruence class, false otherwise.
 	 */
 	public boolean isEqSet(CCTerm first, CCTerm second) {
@@ -256,10 +256,10 @@ public class CClosure implements ITheory {
 		}
 		return false;
 	}
-	
+
 	/**
 	 * For two given CCTerms, check if the disequality is set.
-	 * 
+	 *
 	 * @return true if the disequality is set, false otherwise.
 	 */
 	public boolean isDiseqSet(CCTerm first, CCTerm second) {
@@ -400,10 +400,10 @@ public class CClosure implements ITheory {
 		if (lit.getAtom() instanceof LAEquality) {
 			final LAEquality laeq = (LAEquality) lit.getAtom();
 			for (final CCEquality eq : laeq.getDependentEqualities()) {
-				if (eq.getStackPosition() >= 0 
-					&& eq.getStackPosition() < laeq.getStackPosition() 
+				if (eq.getStackPosition() >= 0
+					&& eq.getStackPosition() < laeq.getStackPosition()
 						&& eq.getDecideStatus().getSign() == lit.getSign()) {
-					return new Clause(new Literal[] { 
+					return new Clause(new Literal[] {
 					     eq.getDecideStatus().negate(), lit },
 							new LeafNode(LeafNode.EQ, EQAnnotation.EQ));
 				}
@@ -430,7 +430,7 @@ public class CClosure implements ITheory {
 			assert ((List<CCEquality>) laeq.getDependentEqualities()).contains(eq);
 			if (laeq.getDecideStatus() != null
 				&& laeq.getDecideStatus().getSign() != literal.getSign()) {
-				return new Clause(new Literal[] { 
+				return new Clause(new Literal[] {
 					laeq.getDecideStatus().negate(), literal.negate() },
 						new LeafNode(LeafNode.EQ, EQAnnotation.EQ));
 			}
@@ -598,7 +598,7 @@ public class CClosure implements ITheory {
 	}
 
 	public Term convertEqualityToSMT(CCTerm t1, CCTerm t2) {
-		return mEngine.getSMTTheory().equals(convertTermToSMT(t1), 
+		return mEngine.getSMTTheory().equals(convertTermToSMT(t1),
 				convertTermToSMT(t2));
 	}
 

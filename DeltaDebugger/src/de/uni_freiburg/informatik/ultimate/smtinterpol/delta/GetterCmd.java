@@ -28,12 +28,12 @@ public class GetterCmd extends Cmd {
 
 	private final String mCmd;
 	private final String mKey;
-	
+
 	public GetterCmd(String cmd, String key) {
 		mCmd = cmd;
 		mKey = key;
 	}
-	
+
 	@Override
 	public void dump(PrintWriter writer) {
 		writer.print('(');
@@ -42,7 +42,7 @@ public class GetterCmd extends Cmd {
 		writer.print(mKey);
 		writer.println(')');
 	}
-	
+
 	@Override
 	public String toString() {
 		return mCmd.toUpperCase();

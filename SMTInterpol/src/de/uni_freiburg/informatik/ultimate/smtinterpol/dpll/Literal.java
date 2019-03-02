@@ -32,11 +32,11 @@ public abstract class Literal {
 	public final int hashCode() {
 		return mHash;
 	}
-	
+
 	public Literal(int hash) {
 		mHash = hash;
 	}
-	
+
 	/**
 	 * Returns the underlying atom.  If this literal is an atom, it returns
 	 * itself.

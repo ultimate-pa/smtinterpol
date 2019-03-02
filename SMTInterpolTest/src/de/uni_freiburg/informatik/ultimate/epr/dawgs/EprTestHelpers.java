@@ -30,18 +30,18 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
 
 public class EprTestHelpers {
-	
+
 	public static EprTheory getEprTheory() {
 		return new EprTheoryMock(getLogger());
 	}
-	
+
 	public static LogProxy getLogger() {
 		return new DefaultLogger();
 	}
 
 	public static <LETTER, COLNAMES> void addConstantsWDefaultSort(
 			DawgFactory<LETTER, COLNAMES> dawgFactoryStringString, Collection<LETTER> constants) {
-		
+
 		for (LETTER constant : constants) {
 			dawgFactoryStringString.addConstant(EprHelpers.getDummySortId(), constant);
 		}
@@ -51,17 +51,17 @@ public class EprTestHelpers {
 		Set<String> constants = new HashSet<String>();
 		constants.add("a");
 		constants.add("b");
-		constants.add("c");	
+		constants.add("c");
 		return constants;
 	}
-	
+
 	static Collection<String> constantsAbcde() {
 		Set<String> constants = new HashSet<String>();
 		constants.add("a");
 		constants.add("b");
-		constants.add("c");	
-		constants.add("d");	
-		constants.add("e");	
+		constants.add("c");
+		constants.add("d");
+		constants.add("e");
 		return constants;
 	}
 }

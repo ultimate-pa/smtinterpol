@@ -22,14 +22,14 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgsta
 import java.util.Set;
 
 public class SetDawgState extends DawgState {
-	
+
 	private final Set<DawgState> mDawgStates;
-	
+
 	public SetDawgState(Set<DawgState> dawgStates, DawgState replacement) {
 		super(replacement);
 		mDawgStates = dawgStates;
 	}
-	
+
 	public Set<DawgState> getInnerStates() {
 		return mDawgStates;
 	}
@@ -43,7 +43,7 @@ public class SetDawgState extends DawgState {
 			comma = ", ";
 			innerDawgStateHashCodes.append(ds.hashCode() % 10000);
 		}
-		
+
 		return String.format("SetDawgState%d:%s", this.hashCode() % 10000, innerDawgStateHashCodes);
 	}
 }

@@ -28,19 +28,19 @@ public abstract class AbstractDawgLetter<LETTER, COLNAMES> implements IDawgLette
 
 	protected final Object mSortId;
 	protected final DawgLetterFactory<LETTER, COLNAMES> mDawgLetterFactory;
-	
+
 	public AbstractDawgLetter(DawgLetterFactory<LETTER, COLNAMES> dawgLetterFactory, Object sortId) {
 		assert sortId != null;
 		mSortId = sortId;
 		mDawgLetterFactory = dawgLetterFactory;
 	}
-	
+
 	@Override
 	public Object getSortId() {
 		return mSortId;
 	}
-	
-	
+
+
 	@Override
 	public final Set<IDawgLetter<LETTER, COLNAMES>> difference(IDawgLetter<LETTER, COLNAMES> other) {
 		Set<IDawgLetter<LETTER, COLNAMES>> result = new HashSet<IDawgLetter<LETTER,COLNAMES>>();

@@ -32,9 +32,9 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 
 public class ParseScript extends NoopScript {
-	
+
 	private final List<Cmd> mCmds = new ArrayList<Cmd>();
-	
+
 	public List<Cmd> getCmds() {
 		return mCmds;
 	}
@@ -187,7 +187,7 @@ public class ParseScript extends NoopScript {
 		mCmds.add(new TermListCmd("check-allsat", predicates));
 		return null;
 	}
-	
+
 	private void ensureNotFresh(String fun) {
 		if (fun.startsWith(ReplaceByFreshTerm.FRESH_PREFIX)) {
 			final String tail = fun.substring(
@@ -199,5 +199,5 @@ public class ParseScript extends NoopScript {
 			}
 		}
 	}
-	
+
 }

@@ -49,7 +49,7 @@ import de.uni_freiburg.informatik.ultimate.util.datastructures.UnifyHash;
  * Build a representation of the formula where only not, or, ite and =/2 are present. Linear arithmetic terms are
  * converted into SMTAffineTerms. We normalize quantifiers to universal quantifiers. Additionally, this term transformer
  * removes all annotations from the formula.
- * 
+ *
  * @author Jochen Hoenicke, Juergen Christ
  */
 public class TermCompiler extends TermTransformer {

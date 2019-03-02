@@ -28,13 +28,13 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 
 public final class FlipDecisions {
-	
+
 	private FlipDecisions() {
 		// Hide constructor
 	}
-	
+
 	private static final boolean FLIP_ALL = false;
-	
+
 	public static void main(String[] unused) throws Exception {
 		final Script script = new SMTInterpol(new DefaultLogger());
 		script.setOption(":produce-assignments", true);
@@ -45,7 +45,7 @@ public final class FlipDecisions {
 		script.declareFun("P", empty, bool);
 		script.declareFun("Q", empty, bool);
 		// (assert (or P Q))
-		script.assertTerm(script.term("or", 
+		script.assertTerm(script.term("or",
 				script.annotate(script.term("P"),
 						new Annotation(":named", "Pname")),
 				script.annotate(script.term("Q"),

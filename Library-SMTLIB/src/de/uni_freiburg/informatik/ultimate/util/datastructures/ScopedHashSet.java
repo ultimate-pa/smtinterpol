@@ -27,19 +27,19 @@ import java.util.Set;
 public class ScopedHashSet<E> implements Set<E> {
 
 	private final ScopedHashMap<E, Object> mBacking;
-	
+
 	public ScopedHashSet() {
 		mBacking = new ScopedHashMap<E, Object>();
 	}
-	
+
 	public void beginScope() {
 		mBacking.beginScope();
 	}
-	
+
 	public void endScope() {
 		mBacking.endScope();
 	}
-	
+
 	@Override
 	public boolean add(E e) {
 		return mBacking.put(e, this) == null;
@@ -78,7 +78,7 @@ public class ScopedHashSet<E> implements Set<E> {
 	public boolean isEmpty() {
 		return mBacking.isEmpty();
 	}
-	
+
 	public boolean isEmptyScope() {
 		return mBacking.isEmptyScope();
 	}
@@ -87,7 +87,7 @@ public class ScopedHashSet<E> implements Set<E> {
 	public Iterator<E> iterator() {
 		return mBacking.keySet().iterator();
 	}
-	
+
 	public Iterable<E> currentScope() {
 		return mBacking.currentScopeKeys();
 	}

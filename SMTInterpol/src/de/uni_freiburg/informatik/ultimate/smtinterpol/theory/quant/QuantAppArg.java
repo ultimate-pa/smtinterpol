@@ -23,7 +23,7 @@ import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 /**
  * Represents a possibly quantified term that is allowed as argument of a QuantAppTerm. This can be a TermVariable, or a
  * ground or quantified EUTerm.
- * 
+ *
  * @author Tanja Schindler
  *
  */
@@ -34,7 +34,7 @@ public class QuantAppArg {
 
 	/**
 	 * Transform an EUTerm into an QuantAppArg.
-	 * 
+	 *
 	 * @param eUTerm
 	 *            the underlying EUTerm.
 	 */
@@ -45,7 +45,7 @@ public class QuantAppArg {
 
 	/**
 	 * Transform a TermVariable into an QuantAppArg.
-	 * 
+	 *
 	 * @param varTerm
 	 *            the underlying TermVariable.
 	 */

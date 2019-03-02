@@ -32,18 +32,18 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 
 public final class GetAssignmentsSample {
-	
+
 	private GetAssignmentsSample() {
 		// Hide constructor
 	}
-	
+
 	public static void main(String[] ignored) {
 		try {
 			// Create a new interaction script
 			final Script script = new SMTInterpol(new DefaultLogger());
 			// Enable production of assignments for Boolean named terms
 			script.setOption(":produce-assignments", true);
-			
+
 			script.setLogic(Logics.QF_UF);
 			declareStuff(script);
 			// Build the formula (f(x) == f(y) /\ x == y) \/ x != y
@@ -57,7 +57,7 @@ public final class GetAssignmentsSample {
 			final Term namedxeqy =
 				script.annotate(xeqy, new Annotation(":named", "xeqy"));
 			final Term namedxneqy =
-				script.annotate(script.term("not", xeqy), 
+				script.annotate(script.term("not", xeqy),
 						new Annotation(":named", "xneqy"));
 			final Term namedfxeqfy =
 				script.annotate(fxeqfy, new Annotation(":named", "fxeqfy"));
@@ -90,7 +90,7 @@ public final class GetAssignmentsSample {
 				}
 				// Guard against 1-ary "or"
 				clause = satLabels.size() == 1 ? satLabels.iterator().next()
-					: script.term("or", 
+					: script.term("or",
 						satLabels.toArray(new Term[satLabels.size()]));
 			} else {
 				// === ENABLING CLAUSE ===
@@ -102,7 +102,7 @@ public final class GetAssignmentsSample {
 				}
 				// Guard against 1-ary "or"
 				clause = unsatLabels.size() == 1
-						? unsatLabels.iterator().next() : script.term("or", 
+						? unsatLabels.iterator().next() : script.term("or",
 							unsatLabels.toArray(new Term[unsatLabels.size()]));
 			}
 			// Push one level onto the assertion stack
@@ -116,7 +116,7 @@ public final class GetAssignmentsSample {
 			}
 			// Repeat since we are sat
 			ass = script.getAssignment();
-			// Produce the smallest possible clause that excludes this 
+			// Produce the smallest possible clause that excludes this
 			// assignment
 			if (ass.getNumTrueAssignments() <= ass.getNumFalseAssignments()) {
 				// === BLOCKING CLAUSE ===
@@ -128,7 +128,7 @@ public final class GetAssignmentsSample {
 				}
 				// Guard against 1-ary "or"
 				clause = satLabels.size() == 1 ? satLabels.iterator().next()
-					: script.term("or", 
+					: script.term("or",
 						satLabels.toArray(new Term[satLabels.size()]));
 			} else {
 				// === ENABLING CLAUSE ===
@@ -141,7 +141,7 @@ public final class GetAssignmentsSample {
 				// Guard against 1-ary "or"
 				clause = unsatLabels.size() == 1
 					? unsatLabels.iterator().next()
-						: script.term("or", 
+						: script.term("or",
 							unsatLabels.toArray(new Term[unsatLabels.size()]));
 			}
 			script.push(1);
@@ -163,7 +163,7 @@ public final class GetAssignmentsSample {
 			System.exit(1);
 		}
 	}
-	
+
 	private static void declareStuff(Script script) throws SMTLIBException {
 		// 0-ary sort U is the only sort we use
 		script.declareSort("U", 0);

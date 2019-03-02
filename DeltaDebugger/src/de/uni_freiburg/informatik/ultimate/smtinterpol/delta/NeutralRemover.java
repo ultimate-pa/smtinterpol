@@ -34,7 +34,7 @@ import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 
 public class NeutralRemover extends NonRecursive {
-	
+
 	private static class BuildAnnotationTerm implements Walker {
 		private final AnnotatedTerm mAnnot;
 		public BuildAnnotationTerm(AnnotatedTerm annot) {
@@ -50,7 +50,7 @@ public class NeutralRemover extends NonRecursive {
 								mAnnot.getAnnotations(), sub));
 		}
 	}
-	
+
 	private static class BuildApplicationTerm implements Walker {
 		private final ApplicationTerm mApp;
 		private int mNumParams;
@@ -83,7 +83,7 @@ public class NeutralRemover extends NonRecursive {
 			}
 		}
 	}
-	
+
 	private static class BuildLetTerm implements Walker {
 		private final LetTerm mLet;
 		public BuildLetTerm(LetTerm let) {
@@ -98,7 +98,7 @@ public class NeutralRemover extends NonRecursive {
 					mLet.getVariables(), values, sub));
 		}
 	}
-	
+
 	private static class BuildQuantifiedFormula implements Walker {
 		private final QuantifiedFormula mQuant;
 		public BuildQuantifiedFormula(QuantifiedFormula quant) {
@@ -120,7 +120,7 @@ public class NeutralRemover extends NonRecursive {
 	}
 
 	private static class NeutralWalker extends TermWalker {
-		
+
 		public NeutralWalker(Term t) {
 			super(t);
 		}
@@ -172,17 +172,17 @@ public class NeutralRemover extends NonRecursive {
 			((NeutralRemover) walker).setResult(term);
 		}
 	}
-	
+
 	private final ArrayDeque<Term> mConverted = new ArrayDeque<Term>();
-	
+
 	private final Iterator<Neutral> mNeutrals;
 	private Neutral mNext;
-	
+
 	public NeutralRemover(List<Neutral> neutrals) {
 		mNeutrals = neutrals.iterator();
 		mNext = mNeutrals.hasNext() ? mNeutrals.next() : null;
 	}
-	
+
 	boolean shouldRemove(Term t, int pos) {
 		if (mNext != null && mNext.matches(t, pos)) {
 			mNext = mNeutrals.hasNext() ? mNeutrals.next() : null;
@@ -190,11 +190,11 @@ public class NeutralRemover extends NonRecursive {
 		}
 		return false;
 	}
-	
+
 	void setResult(Term t) {
 		mConverted.push(t);
 	}
-	
+
 	Term[] getConverted(int num) {
 		final Term[] res = new Term[num];
 		for (int i = 0; i < res.length; ++i) {
@@ -202,14 +202,14 @@ public class NeutralRemover extends NonRecursive {
 		}
 		return res;
 	}
-	
+
 	Term getConverted() {
 		return mConverted.pop();
 	}
-	
+
 	public Term removeNeutrals(Term t) {
 		run(new NeutralWalker(t));
 		return mConverted.pop();
 	}
-	
+
 }

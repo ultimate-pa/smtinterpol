@@ -24,7 +24,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SharedTerm;
 
 /**
  * Represents a ground term. It is basically a SharedTerm.
- * 
+ *
  * @author Tanja Schindler
  *
  */
@@ -34,7 +34,7 @@ public class GroundTerm extends EUTerm {
 
 	/**
 	 * Create a new GroundTerm. This must only be called after checking that the term is ground.
-	 * 
+	 *
 	 * @param clausifier
 	 *            the clausifier.
 	 * @param term

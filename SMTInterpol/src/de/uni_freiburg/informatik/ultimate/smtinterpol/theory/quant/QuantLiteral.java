@@ -26,7 +26,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Theory;
  * <p>
  * It stores the term, as well as the underlying atom and the negated literal. As some literals are only supported in
  * negated form, this is also stored in the literal.
- * 
+ *
  * @author Tanja Schindler
  *
  */
@@ -53,7 +53,7 @@ public abstract class QuantLiteral {
 	/**
 	 * Create a new QuantLiteral from a term. This should only be called after checking that the literal contains
 	 * quantified variables and is supported.
-	 * 
+	 *
 	 * @param term
 	 *            the term corresponding to the literal.
 	 */
@@ -94,7 +94,7 @@ public abstract class QuantLiteral {
 
 		/**
 		 * Create a new NegatedLiteral.
-		 * 
+		 *
 		 * @param lit
 		 *            the atom which we want to create a negated literal for.
 		 */

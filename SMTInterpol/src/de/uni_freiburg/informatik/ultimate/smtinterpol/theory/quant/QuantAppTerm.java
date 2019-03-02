@@ -24,7 +24,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 
 /**
  * Represents a quantified function term, i.e. at least one argument is a quantified EUTerm or a TermVariable.
- * 
+ *
  * @author Tanja Schindler
  *
  */

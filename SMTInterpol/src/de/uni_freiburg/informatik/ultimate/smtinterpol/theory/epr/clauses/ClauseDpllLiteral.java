@@ -26,7 +26,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuant
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
 
 /**
- * 
+ *
  * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
  *
  */
@@ -39,14 +39,14 @@ public class ClauseDpllLiteral extends ClauseLiteral {
 	}
 
 	/**
-	 * 
+	 *
 	 * @param decideStackBorder this parameter is irrelevant for dpll literals because they lie
 	 *   "below" the epr decide stack anyway.
 	 */
 	@Override
 	protected ClauseLiteralState determineState(DecideStackLiteral decideStackBorder) {
 		if (mAtom.getDecideStatus() == null) {
-			// undecided 
+			// undecided
 			return ClauseLiteralState.Fulfillable;
 		} else if ((mAtom.getDecideStatus() == mAtom) == mPolarity){
 			// decided with same polarity

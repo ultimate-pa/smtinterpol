@@ -30,15 +30,15 @@ import java.util.SortedSet;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 
 public class DawgSignature<COLNAMES> {
-	
+
 	private final SortedSet<COLNAMES> mColNames;
 	private final Map<COLNAMES, Integer> mColNameToIndex;
 	private final Map<COLNAMES, Object> mColnameToSortId;
 	private final List<Object> mColumnSorts;
-	
+
 	public DawgSignature(SortedSet<COLNAMES> colNames) {
 		mColNames = colNames;
-		
+
 		Map<COLNAMES, Object> colnameToSortId = new HashMap<COLNAMES, Object>();
 		mColNameToIndex = new HashMap<COLNAMES, Integer>();
 		List<Object> columnSorts = new ArrayList<Object>();
@@ -50,7 +50,7 @@ public class DawgSignature<COLNAMES> {
 			colnameToSortId.put(cn, cnSort);
 			columnSorts.add(cnSort);
 		}
-		
+
 		mColumnSorts = Collections.unmodifiableList(columnSorts);
 		mColnameToSortId = Collections.unmodifiableMap(colnameToSortId);
 	}
@@ -87,10 +87,10 @@ public class DawgSignature<COLNAMES> {
 		if (!(other instanceof DawgSignature<?>)) {
 			return false;
 		}
-		
+
 		return ((DawgSignature<?>) other).getColNames().equals(mColNames);
 	}
-	
+
 	@Override
 	public String toString() {
 		return "DawgSignature: " + mColNames.toString();

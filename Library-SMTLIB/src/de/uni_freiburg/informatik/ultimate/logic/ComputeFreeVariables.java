@@ -30,7 +30,7 @@ import java.util.List;
  */
 public class ComputeFreeVariables extends NonRecursive.TermWalker {
 	static final TermVariable[] NOFREEVARS = new TermVariable[0];
-	
+
 	public ComputeFreeVariables(Term term) {
 		super(term);
 	}
@@ -53,7 +53,7 @@ public class ComputeFreeVariables extends NonRecursive.TermWalker {
 		});
 		walker.enqueueWalker(new ComputeFreeVariables(annot.getSubterm()));
 	}
-	
+
 	static class AppTermWorker implements NonRecursive.Walker {
 		final ApplicationTerm mTerm;
 		public AppTermWorker(ApplicationTerm term) {
@@ -84,9 +84,9 @@ public class ComputeFreeVariables extends NonRecursive.TermWalker {
 					mTerm.mFreeVars = ComputeFreeVariables.NOFREEVARS;
 					return;
 				}
-				
+
 				List<TermVariable> result = null;
-				final List<TermVariable> biggestAsList = 
+				final List<TermVariable> biggestAsList =
 					Arrays.asList(params[biggestidx].getFreeVars());
 				for (int i = 0; i < params.length; i++) {
 					if (i == biggestidx) {
@@ -113,7 +113,7 @@ public class ComputeFreeVariables extends NonRecursive.TermWalker {
 				}
 			}
 		}
-		
+
 		@Override
 		public String toString() {
 			return "AppTermWalker:" + mTerm.toStringDirect();
@@ -121,12 +121,12 @@ public class ComputeFreeVariables extends NonRecursive.TermWalker {
 	}
 
 	@Override
-	public void walk(NonRecursive walker, 
+	public void walk(NonRecursive walker,
 			            final ApplicationTerm term) {
 		walker.enqueueWalker(new AppTermWorker(term));
 		for (final Term param : ((ApplicationTerm) mTerm).getParameters()) {
 			walker.enqueueWalker(new ComputeFreeVariables(param));
-		}		
+		}
 	}
 
 	@Override

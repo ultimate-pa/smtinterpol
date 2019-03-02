@@ -42,7 +42,7 @@ public class NeutralDetector extends NonRecursive {
 		public NeutralWalker(Term term) {
 			super(term);
 		}
-		
+
 		@Override
 		public void walk(NonRecursive walker, ConstantTerm term) {
 			// Nothing to do
@@ -101,11 +101,11 @@ public class NeutralDetector extends NonRecursive {
 		public void walk(NonRecursive walker, TermVariable term) {
 			// Nothing to do
 		}
-		
+
 	}
-	
+
 	private final ArrayList<Neutral> mNeutrals = new ArrayList<Neutral>();
-	
+
 	private static boolean isZero(Term t) {
 		if (t instanceof ConstantTerm) {
 			final ConstantTerm ct = (ConstantTerm) t;
@@ -114,7 +114,7 @@ public class NeutralDetector extends NonRecursive {
 				return BigInteger.ZERO.equals(val);
 			}
 			if (val instanceof BigDecimal) {
-				// Bugfix: Don't use equals since it requires equal scale! 
+				// Bugfix: Don't use equals since it requires equal scale!
 				return BigDecimal.ZERO.compareTo((BigDecimal) val) == 0;
 			}
 			if (val instanceof Rational) {
@@ -123,7 +123,7 @@ public class NeutralDetector extends NonRecursive {
 		}
 		return false;
 	}
-	
+
 	public List<Neutral> detect(Term t) {
 		run(new NeutralWalker(t));
 		return mNeutrals;

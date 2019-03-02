@@ -26,7 +26,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 
 public final class UsageStub {
-	
+
 	private UsageStub() {
 		// Hide constructor
 	}
@@ -58,5 +58,5 @@ public final class UsageStub {
 			ex.printStackTrace(System.err);
 		}
 	}
-	
+
 }

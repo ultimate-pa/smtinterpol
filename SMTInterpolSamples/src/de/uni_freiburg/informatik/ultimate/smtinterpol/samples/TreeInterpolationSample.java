@@ -36,11 +36,11 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
  * @author Juergen Christ
  */
 public final class TreeInterpolationSample {
-	
+
 	private TreeInterpolationSample() {
 		// Hide constructor
 	}
-	
+
 	public static void main(String[] unused) {
 		// Create a logging proxy
 		final DefaultLogger logger = new DefaultLogger();
@@ -67,7 +67,7 @@ public final class TreeInterpolationSample {
 		pe.parseStream(new StringReader("(declare-fun xm6 () Int)"), "xm6");
 		pe.parseStream(new StringReader("(declare-fun x7 () Int)"), "x7");
 		pe.parseStream(new StringReader("(declare-fun res9 () Int)"), "res9");
-		pe.parseStream(new StringReader("(declare-fun resm10 () Int)"), 
+		pe.parseStream(new StringReader("(declare-fun resm10 () Int)"),
 				"resm10");
 		pe.parseStream(new StringReader("(declare-fun res11 () Int)"), "res11");
 		// Assert all formulas.

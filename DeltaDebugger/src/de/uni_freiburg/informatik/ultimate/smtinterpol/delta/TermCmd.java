@@ -29,11 +29,11 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 public abstract class TermCmd extends Cmd {
 
 	private boolean mHasNames = false;
-	
+
 	protected void addTerm(Term t) {
 		mHasNames |= new NamedHelper().checkTerm(t);
 	}
-	
+
 	protected void addTerms(Term[] ts) {
 		final NamedHelper nh = new NamedHelper();
 		for (int i = 0; i < ts.length && !mHasNames; ++i) {

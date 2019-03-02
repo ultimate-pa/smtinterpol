@@ -26,10 +26,10 @@ import de.uni_freiburg.informatik.ultimate.logic.PrintTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 
 public class GetInterpolants extends Cmd {
-	
+
 	private Term[] mPartition, mOldPartition;
 	private int[] mSos, mOldSos;
-	
+
 	public GetInterpolants(Term[] partition, int[] sos) {
 		mPartition = partition;
 		mSos = sos;
@@ -55,14 +55,14 @@ public class GetInterpolants extends Cmd {
 		}
 		writer.println(')');
 	}
-	
+
 	public Term[] getPartition() {
 		return mPartition;
 	}
 	public int[] getStartOfSubtree() {
 		return mSos;
 	}
-	
+
 	public void setNewPartition(Term[] newPartition) {
 		mOldPartition = mPartition;
 		mPartition = newPartition;
@@ -71,7 +71,7 @@ public class GetInterpolants extends Cmd {
 		mOldSos = mSos;
 		mSos = newSos;
 	}
-	
+
 	public void failure() {
 		mPartition = mOldPartition;
 		mSos = mOldSos;
@@ -81,7 +81,7 @@ public class GetInterpolants extends Cmd {
 		mOldPartition = null;
 		mOldSos = null;
 	}
-	
+
 	@Override
 	public String toString() {
 		return "GET_INTERPOLANTS";

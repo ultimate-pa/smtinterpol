@@ -15,7 +15,7 @@ public class EeaaMain {
 
 	public static void main(String[] args) {
 		LogProxy logger = new DefaultLogger();
-		
+
 		String infileName = null;
 		String outfileName = null;
 		try {

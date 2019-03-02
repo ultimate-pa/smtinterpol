@@ -29,17 +29,17 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ResolutionNode;
  * This class represents a clause.  It basically consists of an array
  * of literals.  There is also some additional informations like activity,
  * literal watchers, proof information and stacklevel for push/pop mechanism.
- * 
+ *
  * @author Jochen Hoenicke
- * 
+ *
  */
 public class Clause extends SimpleListable<Clause> {
 	Literal[] mLiterals;
-	
+
 	/**
 	 * The next watched clause on the watcher list.
 	 * Each clause has two watchers.  The first watching lit 0, the next lit1.
-	 * Their watchers form a linked list.  For memory efficiency reasons there 
+	 * Their watchers form a linked list.  For memory efficiency reasons there
 	 * is no real data structure for watchers, but a clause and a bit is used
 	 * to represent a watcher.
 	 */
@@ -55,7 +55,7 @@ public class Clause extends SimpleListable<Clause> {
 	/**
 	 * A WatchList is a list of watchers.
 	 * Each clause has two watchers.  The first watching lit 0, the next lit1.
-	 * Their watchers form a linked list.  For memory efficiency reasons there 
+	 * Their watchers form a linked list.  For memory efficiency reasons there
 	 * is no real data structure for watchers, but a clause and a bit is used
 	 * to represent a watcher.
 	 */
@@ -65,15 +65,15 @@ public class Clause extends SimpleListable<Clause> {
 		Clause mTail;
 		int    mTailIndex;
 		int    mSize;
-		
+
 		public WatchList() {
 			mHead = mTail = null;
 		}
-		
+
 		public boolean isEmpty() {
 			return mHead == null;
 		}
-		
+
 		public int size() {
 			return mSize;
 		}
@@ -177,7 +177,7 @@ public class Clause extends SimpleListable<Clause> {
 	ProofNode mProof;
 
 	ClauseDeletionHook mCleanupHook;
-	
+
 	public int getSize() {
 		return mLiterals.length;
 	}

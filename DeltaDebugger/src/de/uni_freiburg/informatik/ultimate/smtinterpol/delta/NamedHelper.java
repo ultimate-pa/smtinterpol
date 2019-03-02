@@ -32,7 +32,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 
 public class NamedHelper {
-	
+
 	private final class NamedCollector extends TermWalker {
 		public NamedCollector(Term term) {
 			super(term);
@@ -77,7 +77,7 @@ public class NamedHelper {
 			// Cannot contain names
 		}
 	}
-	
+
 	private final class NamedDetector extends TermWalker {
 
 		public NamedDetector(Term term) {
@@ -122,19 +122,19 @@ public class NamedHelper {
 		public void walk(NonRecursive walker, TermVariable term) {
 			// Cannot contain names
 		}
-		
+
 	}
-	
+
 	private boolean mHasNames;
 	private Map<String, Cmd> mNames;
 	private Cmd mCmd;
-	
+
 	public boolean checkTerm(Term t) {
 		mHasNames = false;
 		new NonRecursive().run(new NamedDetector(t));
 		return mHasNames;
 	}
-	
+
 	public void addNames(Term t, Map<String, Cmd> context, Cmd cmd) {
 		mNames = context;
 		mCmd = cmd;

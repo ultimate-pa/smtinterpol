@@ -44,7 +44,7 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 	final Deque<DawgPath> mOpenCompleteDawgPaths = new ArrayDeque<DawgPath>();
 	Iterator<List<LETTER>> mCurrentCompleteDawgPathIterator;
 	private final boolean mIsDawgEmpty;
-	
+
 	/*
 	 * By convention for each instance of DawgIterator we only either call next() or nextDawgPath() (because their path
 	 * discovery could interfere)
@@ -61,16 +61,16 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 		mTransitionRelation = transitionRelation;
 		mInitialState = initialState;
 		mSignature = signature;
-		
+
 		assert (mTransitionRelation == null) == (mInitialState == null);
-		
+
 		mIsDawgEmpty = mTransitionRelation == null;
 
 		/*
 		 * initialize the dawg path sets with all the outgoing edges of the initial state
 		 */
 		if (!mIsDawgEmpty) {
-			for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge : 
+			for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge :
 				mTransitionRelation.getOutEdgeSet(mInitialState)) {
 				final DawgPath newPath = new DawgPath(mInitialState, outEdge.getFirst(), outEdge.getSecond());
 				if (newPath.isComplete()) {
@@ -85,7 +85,7 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 	@Override
 	public boolean hasNext() {
 		if (mIsDawgEmpty) {
-			return false; 
+			return false;
 		}
 		if (mCurrentCompleteDawgPathIterator != null && mCurrentCompleteDawgPathIterator.hasNext()) {
 			return true;
@@ -117,11 +117,11 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 			final DawgPath dawgPath = mOpenIncompleteDawgPaths.pop();
 			assert !dawgPath.isComplete();
 
-			for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge : 
+			for (Pair<IDawgLetter<LETTER, COLNAMES>, DawgState> outEdge :
 				mTransitionRelation.getOutEdgeSet(dawgPath.lastState())) {
 
-				final DawgPath newPath = dawgPath.cons(dawgPath.lastState(), 
-						outEdge.getFirst(), 
+				final DawgPath newPath = dawgPath.cons(dawgPath.lastState(),
+						outEdge.getFirst(),
 						outEdge.getSecond());
 
 				if (newPath.isComplete()) {
@@ -139,7 +139,7 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 		assert !mDawgPathMode;
 		mWordMode = true;
 		/*
-		 *  the side effect of the following call to hasNext() is important for the remaining code of this method, 
+		 *  the side effect of the following call to hasNext() is important for the remaining code of this method,
 		 *  because only hasNext completes possibly present incomplete DawgPaths!!
 		 */
 		if (!hasNext()) {
@@ -161,7 +161,7 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 
 		return null;
 	}
-	
+
 	public boolean hasNextDawgPath() {
 		if (!mOpenCompleteDawgPaths.isEmpty()) {
 			return true;
@@ -177,7 +177,7 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 			}
 		}
 	}
-	
+
 	public DawgPath nextDawgPath() {
 		assert !mWordMode;
 		mDawgPathMode = true;
@@ -192,10 +192,10 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 	}
 
 	class DawgPath implements Iterable<List<LETTER>>{
-		
+
 		private final boolean mIsSingleton;
 
-		private final List<Triple<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState>> mEdges = 
+		private final List<Triple<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState>> mEdges =
 				new ArrayList<Triple<DawgState,IDawgLetter<LETTER,COLNAMES>,DawgState>>();
 
 		/**
@@ -224,14 +224,14 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 		}
 
 		private boolean isLetterSingleton(IDawgLetter<LETTER, COLNAMES> letter) {
-			return letter instanceof SimpleDawgLetter<?, ?> 
+			return letter instanceof SimpleDawgLetter<?, ?>
 				&& ((SimpleDawgLetter<LETTER , COLNAMES>) letter).getLetters().size() == 1;
 		}
 
 		/**
 		 * return true iff this DawgPath ends at a final state
 		 * (i.e. it has the length of the corresponding dawg's signature)
-		 * 
+		 *
 		 * @return
 		 */
 		boolean isComplete() {
@@ -252,7 +252,7 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 			return mEdges.get(mEdges.size() - 1).getThird();
 
 		}
-		
+
 		/**
 		 * Returns true iff this DawgPath denotes exactly one word.
 		 *  .. which is true iff each of its letters is a SimpleDawgLetter with one letter.
@@ -265,21 +265,21 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 		@Override
 		public String toString() {
 			final StringBuilder sb = new StringBuilder();
-			
+
 			sb.append(mEdges.get(0).getFirst());
-			
+
 			for (Triple<DawgState, IDawgLetter<LETTER, COLNAMES>, DawgState> edge : mEdges) {
 				sb.append(String.format(" --%s--> %s" , edge.getSecond(), edge.getThird()));
 			}
-			
+
 			return sb.toString();
 		}
-		
-		
+
+
 		@Override
 		public Iterator<List<LETTER>> iterator() {
 			return new Iterator<List<LETTER>>() {
-				
+
 				final Stack<ColumnLetterPrefix> mOpenClps = new Stack<ColumnLetterPrefix>();
 				{
 					List<LETTER> emptyPrefix = Collections.emptyList();
@@ -295,7 +295,7 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 						mOpenClps.push(new ColumnLetterPrefix(emptyPrefix, letterIt.next(), letterIt));
 					}
 				}
-				
+
 				List<LETTER> mNextWord;
 
 				@Override
@@ -324,41 +324,41 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 					assert result.size() == mSignature.getNoColumns();
 					return result;
 				}
-				
-				
+
+
 				List<LETTER> sampleWord() {
 					while (!mOpenClps.isEmpty()) {
 						final ColumnLetterPrefix currentClp = mOpenClps.pop();
 
 						if (currentClp.getColumnIndex() < mSignature.getNoColumns() - 1) {
-							// clp can still be prolonged 
-							// --> push the prolonged version on the stack ("horizontal") 
+							// clp can still be prolonged
+							// --> push the prolonged version on the stack ("horizontal")
 							// --> also push the version with the next letter on the stack, if there is one ("vertical")
 							Iterator<LETTER> horiNextLetterIt = mEdges.get(currentClp.getColumnIndex() + 1)
 									.getSecond().allLettersThatMatch(currentClp.getPrefix(), mSignature.getColNameToIndex())
 									.iterator();//TODO do something about null/colNamesToIndex
 //							assert horiNextLetterIt.hasNext() : "do we have an empty dawgLetter?";
 							if (horiNextLetterIt.hasNext()) {
-								ColumnLetterPrefix horizontalNewClp = 
+								ColumnLetterPrefix horizontalNewClp =
 										new ColumnLetterPrefix(currentClp.getPrefix(), horiNextLetterIt.next(), horiNextLetterIt);
 								mOpenClps.push(horizontalNewClp);
 							}
-							
+
 							if (currentClp.getLetterIterator().hasNext()) {
-								final ColumnLetterPrefix verticalNewClp = 
+								final ColumnLetterPrefix verticalNewClp =
 										new ColumnLetterPrefix(
-												currentClp.getPrefix().subList(0, currentClp.getPrefix().size() - 1), 
+												currentClp.getPrefix().subList(0, currentClp.getPrefix().size() - 1),
 												currentClp.getLetterIterator().next(), currentClp.getLetterIterator());
 								mOpenClps.push(verticalNewClp);
 							}
 						} else {
-							// is a full word 
+							// is a full word
 							// --> push the variant with the last letter replaced by the next one and return clp's word
 							List<LETTER> resultWord = currentClp.mPrefix;
 							if (currentClp.getLetterIterator().hasNext()) {
-								ColumnLetterPrefix newClp = 
+								ColumnLetterPrefix newClp =
 										new ColumnLetterPrefix(
-												currentClp.getPrefix().subList(0, currentClp.getPrefix().size() - 1), 
+												currentClp.getPrefix().subList(0, currentClp.getPrefix().size() - 1),
 												currentClp.getLetterIterator().next(), currentClp.getLetterIterator());
 								mOpenClps.push(newClp);
 							}
@@ -372,7 +372,7 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 				class ColumnLetterPrefix {
 					final List<LETTER> mPrefix;
 					final Iterator<LETTER> mLetterIterator;
-					
+
 					public ColumnLetterPrefix(List<LETTER> prefix, LETTER letter, Iterator<LETTER> letterIt) {
 						mPrefix = new ArrayList<LETTER>(prefix);
 						mPrefix.add(letter);
@@ -382,11 +382,11 @@ public class DawgIterator<LETTER, COLNAMES> implements Iterator<List<LETTER>> {
 					int getColumnIndex() {
 						return mPrefix.size() - 1;
 					}
-					
+
 					LETTER lastLetter() {
 						return mPrefix.get(mPrefix.size() - 1);
 					}
-					
+
 					List<LETTER> getPrefix() {
 						return mPrefix;
 					}

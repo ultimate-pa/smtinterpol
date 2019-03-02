@@ -31,7 +31,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 /**
  * Used to build a decide stack literal incrementally.
  * The builder is mutable so the decide stack literal can be immutable..
- * 
+ *
  * @author Alexander Nutz
  */
 public class DslBuilder {
@@ -40,42 +40,42 @@ public class DslBuilder {
 	private boolean mPolarity;
 	private EprPredicate mPred;
 	private IDawg<ApplicationTerm, TermVariable> mDawg;
-	
+
 	private boolean mIsDecision;
 	private ClauseEprLiteral mReasonUnitClause;
 	private IDawg<ApplicationTerm, TermVariable> mReasonClauseDawg;
-	
+
 	/**
 	 * Constructor for the "decision" case.
-	 * 
+	 *
 	 * @param polarity
 	 * @param pred
 	 * @param dawg
 	 * @param isDecision
 	 */
-	public DslBuilder(boolean polarity, EprPredicate pred, 
+	public DslBuilder(boolean polarity, EprPredicate pred,
 			IDawg<ApplicationTerm, TermVariable> dawg, boolean isDecision) {
 		this(polarity, pred, dawg);
 		assert isDecision : "shouldn't we use the other constructor here?";
 		mIsDecision = isDecision;
 	}
-	
+
 	/**
 	 * Constructor for the "propagation" case.
-	 * 
+	 *
 	 * @param polarity
 	 * @param pred
-	 * @param propagatedPoints Dawg that represents the points that are effectively set on the decide stack 
+	 * @param propagatedPoints Dawg that represents the points that are effectively set on the decide stack
 	 *     (i.e., propagated points in pred signature
 	 * @param reasonUnitClause
 	 * @param reasonClauseDawg Dawg that represents the instantiations of the clause that allow for unit propagation.
 	 *           (essentially the propagated points in clause signature)
 	 * @param isDecision
 	 */
-	public DslBuilder(boolean polarity, EprPredicate pred, 
-			IDawg<ApplicationTerm, TermVariable> propagatedPoints, 
-			ClauseEprLiteral reasonUnitClause, 
-			IDawg<ApplicationTerm, TermVariable> reasonClauseDawg, 
+	public DslBuilder(boolean polarity, EprPredicate pred,
+			IDawg<ApplicationTerm, TermVariable> propagatedPoints,
+			ClauseEprLiteral reasonUnitClause,
+			IDawg<ApplicationTerm, TermVariable> reasonClauseDawg,
 			boolean isDecision) {
 		this(polarity, pred, propagatedPoints);
 		assert !isDecision : "shouldn't we use the other constructor here?";
@@ -85,24 +85,24 @@ public class DslBuilder {
 		mReasonUnitClause = reasonUnitClause;
 		mReasonClauseDawg = reasonClauseDawg;
 	}
-	
 
-	private DslBuilder(boolean polarity, EprPredicate pred, 
+
+	private DslBuilder(boolean polarity, EprPredicate pred,
 			IDawg<ApplicationTerm, TermVariable> dawg) {
 		mPolarity = polarity;
 		mPred = pred;
 		mDawg = dawg;
-	
+
 	}
 
 	public void setDecideStackIndex(int index) {
 		assert mDecideStackIndex == -1 : "index set twice";
 		mDecideStackIndex = index;
 	}
-	
+
 	public DecideStackLiteral build() {
 		assert mDecideStackIndex != -1 : "index not set";
-		
+
 		/*
 		 * Environment should guarantee that reflexive points have been filtered out before.
 		 * i.e.: "(!mPolarity /\ isEquality) --> !hasReflexivePoints"
@@ -112,9 +112,9 @@ public class DslBuilder {
 			|| !(mPred instanceof EprEqualityPredicate)
 			|| !mIsDecision
 			|| !mDawg.hasReflexivePoints() : "about to set a reflexive point (or more) on negated EqualityPredicate";
-		
+
 		/*
-		 * Whenever we decide something positive on an EqualityPredicate, we take the symmetric and transitive hull 
+		 * Whenever we decide something positive on an EqualityPredicate, we take the symmetric and transitive hull
 		 * (together with all decisions/propagations of the EprEqualityPrediacte) instead of the input dawg.
 		 */
 		if (mPred instanceof EprEqualityPredicate && mPolarity) {
@@ -142,7 +142,7 @@ public class DslBuilder {
 //					 * Cutting out precisely the reflexive points may be impossible, so we allow to cut out more.
 //					 * TODO: what if nothing is left?
 //					 */
-//					
+//
 //				}
 //			}
 //		}
@@ -152,7 +152,7 @@ public class DslBuilder {
 			return new DecideStackDecisionLiteral(mPolarity, mPred, mDawg, mDecideStackIndex);
 		} else {
 			assert mReasonUnitClause != null;
-			return new DecideStackPropagatedLiteral(mPolarity, mPred, mDawg, 
+			return new DecideStackPropagatedLiteral(mPolarity, mPred, mDawg,
 					mReasonUnitClause, mReasonClauseDawg, mDecideStackIndex);
 		}
 	}

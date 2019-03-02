@@ -29,7 +29,7 @@ import java.util.Set;
  * A DawgLetter that captures no LETTER.
  * (probably this should not occur in any Dawg, but only as an intermediate result during construction
  *  -- an edge labelled with this letter should be omitted)
- * 
+ *
  * @author Alexander Nutz
  *
  * @param <LETTER>
@@ -72,7 +72,7 @@ public class EmptyDawgLetter<LETTER, COLNAMES> extends AbstractDawgLetter<LETTER
 	public Collection<LETTER> allLettersThatMatch(List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex) {
 		return Collections.emptySet();
 	}
-	
+
 	@Override
 	public String toString() {
 		return "EmptyDawgLetter";

@@ -27,7 +27,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 /**
- * 
+ *
  * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
  *
  * @param <T>
@@ -36,7 +36,7 @@ import java.util.Set;
 public class BinaryRelation<T, U> {
 
 	private final Map<T, Set<U>> mBacking = new HashMap<T, Set<U>>();
-	
+
 	public BinaryRelation() {
 		// default constructor necessary because there is another one
 	}
@@ -45,7 +45,7 @@ public class BinaryRelation<T, U> {
 	 * Constructs a binary relation from a map (the binary relation will be "rechtseindeutig").
 	 * Note that, as it is implemented now, this map will be unmodifiable (because we use Collections.singleton),
 	 *  i.e. addPair calls will crash.
-	 * 
+	 *
 	 * @param map
 	 */
 	public BinaryRelation(Map<T, U> map) {
@@ -62,15 +62,15 @@ public class BinaryRelation<T, U> {
 		}
 		set.add(u);
 	}
-	
+
 	public Set<T> getDomain() {
 		return mBacking.keySet();
 	}
-	
+
 	public Set<U> getImage(T t) {
 		return mBacking.get(t);
 	}
-	
+
 	/**
 	 * Checks if the represented relation is "rechtseindeutig" (right-unique?)
 	 *  (strictly speaking this checks if it is a partial function)
@@ -84,18 +84,18 @@ public class BinaryRelation<T, U> {
 		}
 		return true;
 	}
-	
+
 	public Map<T, U> getFunction() {
 		assert isFunction();
 		Map<T, U> result =  new HashMap<T, U>();
-		
+
 		for (Entry<T, Set<U>> en : mBacking.entrySet()) {
 			assert en.getValue().size() == 1 : "no function";
 			result.put(en.getKey(), en.getValue().iterator().next());
 		}
 		return result;
 	}
-	
+
 	public Set<T> getPreImage(U u) {
 		Set<T> result = new HashSet<T>();
 		//TODO: this could be sped up significantly by adding a "reverse" HashMap
@@ -106,7 +106,7 @@ public class BinaryRelation<T, U> {
 		}
 		return result;
 	}
-	
+
 //	public Iterable<Pair<T, U>> getPairs() {
 //		List<Pair<T, U>> result = new ArrayList<Pair<T, U>>();
 //		for (T d : getDomain()) {
@@ -115,7 +115,7 @@ public class BinaryRelation<T, U> {
 //			}
 //		}
 //	}
-	
+
 	@Override
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
@@ -147,7 +147,7 @@ public class BinaryRelation<T, U> {
 				}
 				final Set<U> intersection = new HashSet<U>(en1.getValue());
 				intersection.retainAll(en2.getValue());
-					
+
 				if (!intersection.isEmpty()) {
 					return false;
 				}

@@ -38,12 +38,12 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.I
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
 
 /**
- * 
+ *
  * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
  *
  */
 public abstract class ClauseEprLiteral extends ClauseLiteral {
-	
+
 	/**
 	 * Flag is set if the fields that are used to determine the state (fulfilled/fulfillable/refuted points)
 	 * of this ClauseLiteral have been changed since the last computation of that state.
@@ -51,22 +51,22 @@ public abstract class ClauseEprLiteral extends ClauseLiteral {
 	protected boolean mIsStateDirty = true;
 
 	protected final EprPredicateAtom mEprPredicateAtom;
-	
+
 	/**
 	 * The literals on the current epr decide stack that contradict this literal at
 	 * least on one point, potentially on many or all points that this literal talks about.
 	 * (e.g. when P(a,x) is on the decide stack it contradicts ~P(y,b) on the point (a,b).)
 	 */
-	protected final ScopedHashSet<IEprLiteral> mPartiallyConflictingDecideStackLiterals = 
+	protected final ScopedHashSet<IEprLiteral> mPartiallyConflictingDecideStackLiterals =
 			new ScopedHashSet<IEprLiteral>();
-	
-	protected final ScopedHashSet<IEprLiteral> mPartiallyFulfillingDecideStackLiterals = 
+
+	protected final ScopedHashSet<IEprLiteral> mPartiallyFulfillingDecideStackLiterals =
 			new ScopedHashSet<IEprLiteral>();
 
 	/**
 	 * The TermVariables (EDIT and constants) that this clauseLiterals's atom's arguments have in the clause
 	 * this literal belongs to.
-	 * (typically the same as mAtom.getArguments(), except that constants there have been 
+	 * (typically the same as mAtom.getArguments(), except that constants there have been
 	 *  replaced by fresh TermVariables
 	 *  EDIT: now we are just keeping the constants here, so this list is practically identical
 	 *   to mAtom.getArguments()
@@ -87,11 +87,11 @@ public abstract class ClauseEprLiteral extends ClauseLiteral {
 		}
 		mArgumentTermsAsObjects = Collections.unmodifiableList(l);
 	}
-	
+
 	public EprPredicate getEprPredicate()  {
 		return  mEprPredicateAtom.getEprPredicate();
 	}
-	
+
 	public void addPartiallyConflictingEprLiteral(IEprLiteral el) {
 		el.registerConcernedClauseLiteral(this);
 		mPartiallyConflictingDecideStackLiterals.add(el);
@@ -105,7 +105,7 @@ public abstract class ClauseEprLiteral extends ClauseLiteral {
 		mIsStateDirty = true;
 		mEprClause.mClauseStateIsDirty = true;
 	}
-	
+
 	public Set<IEprLiteral> getPartiallyConflictingDecideStackLiterals() {
 		return Collections.unmodifiableSet(mPartiallyConflictingDecideStackLiterals);
 	}
@@ -117,7 +117,7 @@ public abstract class ClauseEprLiteral extends ClauseLiteral {
 		mPartiallyConflictingDecideStackLiterals.beginScope();
 		mPartiallyFulfillingDecideStackLiterals.beginScope();
 	}
-	
+
 	/**
 	 * notifies the clause about the ending of a push/pop scope
 	 */
@@ -131,7 +131,7 @@ public abstract class ClauseEprLiteral extends ClauseLiteral {
 	public List<Term> getArguments() {
 		return mArgumentTerms;
 	}
-	
+
 	/**
 	 * Returns the same as getArguments, only in a list of objects
 	 * @return

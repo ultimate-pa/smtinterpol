@@ -28,7 +28,7 @@ import java.util.Set;
 /**
  * A DawgLetter that captures all LETTERs.
  * (i.e. the DawgLetter whose LETTER-set is "allConstants", and whose (un)equals-sets are empty)
- * 
+ *
  * @author Alexander Nutz
  *
  * @param <LETTER>
@@ -50,17 +50,17 @@ public class UniversalDawgLetter<LETTER, COLNAMES> extends AbstractDawgLetter<LE
 	public IDawgLetter<LETTER, COLNAMES> intersect(IDawgLetter<LETTER, COLNAMES> other) {
 		return other;
 	}
-	
+
 //	@Override
 //	public Set<IDawgLetter<LETTER, COLNAMES>> difference(IDawgLetter<LETTER, COLNAMES> other) {
 //		return other.complement();
 //	}
-	
+
 	@Override
 	public boolean matches(LETTER ltr, List<LETTER> word, Map<COLNAMES, Integer> colnamesToIndex) {
 		return true;
 	}
-	
+
 	@Override
 	public IDawgLetter<LETTER, COLNAMES> restrictToLetter(LETTER ltr) {
 		return mDawgLetterFactory.getSingletonSetDawgLetter(ltr, mSortId);
