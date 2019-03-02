@@ -122,14 +122,11 @@ public class LAInterpolator {
 	 */
 	private HashMap<Term, Rational> getFarkasCoeffs(final InterpolatorClauseTermInfo clauseInfo) {
 		final HashMap<Term, Rational> coeffMap = new HashMap<Term, Rational>();
-		Term term;
-		Rational coeff;
 		final Term[] lits = clauseInfo.getLiterals();
 		final Object[] coeffs = (Object[]) clauseInfo.getLemmaAnnotation();
 		for (int i = 0; i < coeffs.length; i++) {
-			term = lits[i];
-			coeff = SMTAffineTerm.convertConstant((ConstantTerm) coeffs[i]);
-			coeffMap.put(term, coeff);
+			final Rational coeff = SMTAffineTerm.convertConstant((ConstantTerm) coeffs[i]);
+			coeffMap.put(lits[i], coeff);
 		}
 		return coeffMap;
 	}
@@ -237,7 +234,6 @@ public class LAInterpolator {
 		// Collect the occurence info for the equality and the mix var for inequality and negated inequality.
 		LitInfo equalityOccurenceInfo = null;
 		TermVariable ineqMix = null, negIneqMix = null;
-		boolean isInt = false;
 		final int[] numALocal = new int[mInterpolator.mNumInterpolants];
 		final int[] numBLocal = new int[mInterpolator.mNumInterpolants];
 		final Term[] aLocalLit = new Term[mInterpolator.mNumInterpolants];
@@ -268,7 +264,6 @@ public class LAInterpolator {
 			} else {
 				assert isNegated && atomTermInfo.isLAEquality();
 				equalityOccurenceInfo = occurrenceInfo;
-				isInt = atomTermInfo.isInt();
 			}
 		}
 
@@ -282,10 +277,9 @@ public class LAInterpolator {
 				final InterpolatorAffineTerm s = new InterpolatorAffineTerm();
 				s.add(Rational.MONE, ineqMix);
 				s.add(Rational.ONE, negIneqMix);
-				final InterpolatorAffineTerm less = new InterpolatorAffineTerm(s);
-				less.add(isInt ? InfinitesimalNumber.ONE : InfinitesimalNumber.EPSILON);
-				final Term F = mInterpolator.mTheory.and(s.toLeq0(mInterpolator.mTheory), mInterpolator.mTheory.or(
-							less.toLeq0(mInterpolator.mTheory),
+				final Term leqTerm = mInterpolator.mTheory.term("<=", negIneqMix, ineqMix);
+				final Term lessTerm = mInterpolator.mTheory.term("<", negIneqMix, ineqMix);
+				final Term F = mInterpolator.mTheory.and(leqTerm, mInterpolator.mTheory.or(lessTerm,
 						mInterpolator.mTheory.term(Interpolator.EQ, equalityOccurenceInfo.getMixedVar(), ineqMix)));
 				interpolants[part] = createLATerm(s, InfinitesimalNumber.ZERO, F);
 			} else {
