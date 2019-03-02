@@ -297,9 +297,12 @@ public class Interpolator extends NonRecursive {
 			} else if (leafTermInfo.getLemmaType().equals(":CC")) {
 				final CCInterpolator ipolator = new CCInterpolator(this);
 				interpolants = ipolator.computeInterpolants(leaf);
-			} else if (leafTermInfo.getLemmaType().equals(":LA") || leafTermInfo.getLemmaType().equals(":trichotomy")) {
+			} else if (leafTermInfo.getLemmaType().equals(":LA")) {
 				final LAInterpolator ipolator = new LAInterpolator(this);
 				interpolants = ipolator.computeInterpolants(leaf);
+			} else if (leafTermInfo.getLemmaType().equals(":trichotomy")) {
+				final LAInterpolator ipolator = new LAInterpolator(this);
+				interpolants = ipolator.computeTrichotomyInterpolants(leaf);
 			} else if ((Boolean) mSmtSolver.getOption(SolverOptions.ARRAY_INTERPOLATION)
 					&& (leafTermInfo.getLemmaType().equals(":read-over-weakeq")
 							|| leafTermInfo.getLemmaType().equals(":weakeq-ext")
