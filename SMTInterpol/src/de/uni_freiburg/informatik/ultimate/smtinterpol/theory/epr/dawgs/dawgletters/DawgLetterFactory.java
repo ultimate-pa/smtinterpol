@@ -36,9 +36,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.NestedMap
 public class DawgLetterFactory<LETTER> {
 	private final NestedMap2<Object, Set<LETTER>, DawgLetter<LETTER>> mSortToLettersToSimpleDawgLetter =
 			new NestedMap2<Object, Set<LETTER>, DawgLetter<LETTER>>();
-	private final NestedMap2<Object, Set<LETTER>, DawgLetter<LETTER>> mSortToLettersToSimpleComplementDawgLetter =
-			new NestedMap2<Object,Set<LETTER>,DawgLetter<LETTER>>();
-
 	private final DawgFactory<LETTER, ?> mDawgFactory;
 
 
@@ -90,16 +87,8 @@ public class DawgLetterFactory<LETTER> {
 		return result;
 	}
 
-	public DawgLetter<LETTER> getSimpleComplementDawgLetter(Set<LETTER> letters, final Object sortId) {
-		if (letters.isEmpty()) {
-			letters = Collections.emptySet();
-		}
-		DawgLetter<LETTER> result = mSortToLettersToSimpleComplementDawgLetter.get(sortId, letters);
-		if (result == null) {
-			result = new DawgLetter<LETTER>(this, letters, sortId, true);
-			mSortToLettersToSimpleComplementDawgLetter.put(sortId, letters, result);
-		}
-		return result;
+	public DawgLetter<LETTER> getSimpleComplementDawgLetter(final Set<LETTER> letters, final Object sortId) {
+		return getSimpleDawgLetter(letters, sortId).complement();
 	}
 
 	public boolean useSimpleDawgLetters() {

@@ -22,7 +22,6 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawglet
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 /**
@@ -36,20 +35,26 @@ import java.util.Set;
  */
 public class DawgLetter<LETTER> {
 	final DawgLetterFactory<LETTER> mDawgLetterFactory;
+	DawgLetter<LETTER> mComplement;
 	final Set<LETTER> mLetters;
 	final Object mSortId;
 	final boolean mIsComplemented;
 
 	public DawgLetter(final DawgLetterFactory<LETTER> dlf, final Set<LETTER> letters, final Object sortId) {
-		this(dlf, letters, sortId, false);
-	}
-
-	public DawgLetter(final DawgLetterFactory<LETTER> dlf, final Set<LETTER> letters, final Object sortId,
-			final boolean complemented) {
 		mDawgLetterFactory = dlf;
 		mLetters = letters;
 		mSortId = sortId;
-		mIsComplemented = complemented;
+		mIsComplemented = false;
+	}
+
+	public DawgLetter(final DawgLetter<LETTER> complement) {
+		assert !complement.mIsComplemented;
+		mDawgLetterFactory = complement.mDawgLetterFactory;
+		mLetters = complement.mLetters;
+		mSortId = complement.mSortId;
+		mIsComplemented = true;
+		mComplement = complement;
+		complement.mComplement = this;
 	}
 
 	public Object getSortId() {
@@ -61,11 +66,10 @@ public class DawgLetter<LETTER> {
 	}
 
 	public DawgLetter<LETTER> complement() {
-		if (mIsComplemented) {
-			return mDawgLetterFactory.getSimpleDawgLetter(mLetters, mSortId);
-		} else {
-			return mDawgLetterFactory.getSimpleComplementDawgLetter(mLetters, mSortId);
+		if (mComplement == null) {
+			mComplement = new DawgLetter<>(this);
 		}
+		return mComplement;
 	}
 
 	/**
@@ -128,21 +132,6 @@ public class DawgLetter<LETTER> {
 		} else {
 			return mDawgLetterFactory.getEmptyDawgLetter(mSortId);
 		}
-	}
-
-	/**
-	 * Returns all LETTERs (typically constants) that this DawgLetter refers to (and that are currently known, see
-	 * below).
-	 *
-	 * NOTE: This method is special in that it needs the current AllConstants set. It is (and perhaps should be) only
-	 * used in DawgIterator. -- and possibly in other locations where it is obviously necessary to know what the
-	 * constants are, currently..
-	 *
-	 * @param word
-	 * @return
-	 */
-	public Collection<LETTER> allLettersThatMatch(final List<LETTER> word) {
-		return getLetters();
 	}
 
 	@Override
