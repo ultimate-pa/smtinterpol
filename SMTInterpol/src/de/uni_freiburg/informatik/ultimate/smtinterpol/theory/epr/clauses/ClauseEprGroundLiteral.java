@@ -22,14 +22,14 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses;
 import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
-import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
 
 /**
@@ -40,8 +40,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.D
 public class ClauseEprGroundLiteral extends ClauseEprLiteral {
 
 
-	public ClauseEprGroundLiteral(boolean polarity, EprGroundPredicateAtom atom,
-			EprClause clause, EprTheory eprTheory) {
+	public ClauseEprGroundLiteral(final boolean polarity, final EprGroundPredicateAtom atom,
+			final EprClause clause, final EprTheory eprTheory) {
 		super(polarity, atom, clause, eprTheory);
 	}
 
@@ -51,7 +51,7 @@ public class ClauseEprGroundLiteral extends ClauseEprLiteral {
 	 *
 	 * @param decideStackBorder (not sure if it is safe to ignore this parameter here.. TODO..)
 	 */
-	protected ClauseLiteralState determineState(DecideStackLiteral decideStackBorder) {
+	protected ClauseLiteralState determineState(final DecideStackLiteral decideStackBorder) {
 		mIsStateDirty = false;
 		if (mAtom.getDecideStatus() == null) {
 			if (!mPartiallyConflictingDecideStackLiterals.isEmpty()) {
@@ -92,18 +92,19 @@ public class ClauseEprGroundLiteral extends ClauseEprLiteral {
 	}
 
 	@Override
-	public boolean isDisjointFrom(IDawg<ApplicationTerm, TermVariable> dawg) {
-		return ! dawg.accepts(EprHelpers.convertTermListToConstantList(mArgumentTerms));
+	public boolean isDisjointFrom(final DawgState<ApplicationTerm, Boolean> dawg) {
+		return !dawg.getValue(EprHelpers.convertTermListToConstantList(mArgumentTerms));
 	}
 
 	@Override
-	public Clause getGroundingForGroundLiteral(IDawg<ApplicationTerm, TermVariable> dawg, Literal groundLiteral) {
+	public Clause getGroundingForGroundLiteral(final DawgState<ApplicationTerm, Boolean> dawg,
+			final Literal groundLiteral) {
 //		ApplicationTerm term = (ApplicationTerm) groundLiteral.getAtom().getSMTFormula(mEprTheory.getTheory());
 //		List<ApplicationTerm> args = EprHelpers.convertTermArrayToConstantList(term.getParameters());
 		// the groundings have nothing to do with the arguments of the ground literal in the sense that
 		//  there is no unification or so --> because we have a clause literal that is ground!
 		// --> any grounding should work
-		Set<Clause> groundings = getClause().getGroundings(dawg);
+		final Set<Clause> groundings = getClause().getGroundings(dawg);
 		assert !groundings.isEmpty();
 		return groundings.iterator().next();
 	}

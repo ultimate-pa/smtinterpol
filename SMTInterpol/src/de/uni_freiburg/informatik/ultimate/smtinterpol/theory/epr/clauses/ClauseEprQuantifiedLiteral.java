@@ -38,11 +38,11 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.EprGroundPredicateLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.IEprLiteral;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
 
 /**
  *
@@ -68,18 +68,18 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	 *  -- this is only updated on an isFulfillable query, so it should
 	 *  only be non-null between a call to isFulfillable() and getFulfillablePoints()
 	 */
-	IDawg<ApplicationTerm, TermVariable> mFulfillablePoints;
+	DawgState<ApplicationTerm, Boolean> mFulfillablePoints;
 
-	IDawg<ApplicationTerm, TermVariable> mFulfilledPoints;
+	DawgState<ApplicationTerm, Boolean> mFulfilledPoints;
 
-	IDawg<ApplicationTerm, TermVariable> mRefutedPoints;
+	DawgState<ApplicationTerm, Boolean> mRefutedPoints;
 
 	/**
 	 * The Dawg signature for the representation of points wrt this Clause literal.
 	 * Note that this signature may be shorter than the list mArgumentTermVariables if
 	 *  that list contains repetitions and/or constants
 	 */
-	private SortedSet<TermVariable> mDawgSignature;
+	private final SortedSet<TermVariable> mDawgSignature;
 
 	/**
 	 * Translates the EprPredicates signature to the signature that this ClauseLit has.
@@ -108,14 +108,14 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	 */
 	private final BinaryRelation<TermVariable, TermVariable> mTranslationForEprPredicate;
 
-	public ClauseEprQuantifiedLiteral(boolean polarity, EprQuantifiedPredicateAtom atom,
-			EprClause clause, EprTheory eprTheory) {
+	public ClauseEprQuantifiedLiteral(final boolean polarity, final EprQuantifiedPredicateAtom atom,
+			final EprClause clause, final EprTheory eprTheory) {
 		super(polarity, atom, clause, eprTheory);
 		mAtom = atom;
 
 		// compute the signature of a dawg that describes points where this literal has some state
-		SortedSet<TermVariable> vars = new TreeSet<TermVariable>(EprHelpers.getColumnNamesComparator());
-		for (Term arg : atom.getArguments()) {
+		final SortedSet<TermVariable> vars = new TreeSet<TermVariable>(EprHelpers.getColumnNamesComparator());
+		for (final Term arg : atom.getArguments()) {
 			if (arg instanceof TermVariable) {
 				vars.add((TermVariable) arg);
 			}
@@ -129,16 +129,16 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 //		mTranslationForEprPredicate = p.second;
 
 
-		BinaryRelation<TermVariable, TermVariable> clauseToPred =
+		final BinaryRelation<TermVariable, TermVariable> clauseToPred =
 				new BinaryRelation<TermVariable, TermVariable>();
-		Map<TermVariable, ApplicationTerm> predToClauseConstants =
+		final Map<TermVariable, ApplicationTerm> predToClauseConstants =
 				new HashMap<TermVariable, ApplicationTerm>();
-		Map<TermVariable, TermVariable> predToClauseVariables =
+		final Map<TermVariable, TermVariable> predToClauseVariables =
 				new HashMap<TermVariable, TermVariable>();
-		Iterator<TermVariable> predTermVarIt = mAtom.getEprPredicate().getTermVariablesForArguments().iterator();
+		final Iterator<TermVariable> predTermVarIt = mAtom.getEprPredicate().getTermVariablesForArguments().iterator();
 		for (int i = 0; i < mArgumentTerms.size(); i++) {
-			Term atomT = mArgumentTerms.get(i);
-			TermVariable tv = predTermVarIt.next();
+			final Term atomT = mArgumentTerms.get(i);
+			final TermVariable tv = predTermVarIt.next();
 			if (atomT instanceof ApplicationTerm) {
 				predToClauseConstants.put(tv, (ApplicationTerm) atomT);
 			}
@@ -164,27 +164,21 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	 * @param decideStackBorder
 	 * @return
 	 */
-	public IDawg<ApplicationTerm, TermVariable> getFulfillablePoints(DecideStackLiteral decideStackBorder) {
+	public DawgState<ApplicationTerm, Boolean> getFulfillablePoints(final DecideStackLiteral decideStackBorder) {
 		assert !mIsStateDirty;
-		assert mFulfillablePoints.getColNames().equals(mEprClause.getVariables()) :
-			"fulfillable points must be given in clause signature";
-		IDawg<ApplicationTerm, TermVariable> result = mFulfillablePoints;
+		final DawgState<ApplicationTerm, Boolean> result = mFulfillablePoints;
 		return result;
 	}
 
-	public IDawg<ApplicationTerm, TermVariable> getFulfilledPoints() {
+	public DawgState<ApplicationTerm, Boolean> getFulfilledPoints() {
 		assert !mIsStateDirty;
-		assert mFulfilledPoints.getColNames().equals(mEprClause.getVariables()) :
-			"fulfilled points must be given in clause signature";
-		IDawg<ApplicationTerm, TermVariable> result = mFulfilledPoints;
+		final DawgState<ApplicationTerm, Boolean> result = mFulfilledPoints;
 		return result;
 	}
 
-	public IDawg<ApplicationTerm, TermVariable> getRefutedPoints() {
+	public DawgState<ApplicationTerm, Boolean> getRefutedPoints() {
 		assert !mIsStateDirty;
-		assert mRefutedPoints.getColNames().equals(mEprClause.getVariables()) :
-			"refuted points must be given in clause signature";
-		IDawg<ApplicationTerm, TermVariable> result = mRefutedPoints;
+		final DawgState<ApplicationTerm, Boolean> result = mRefutedPoints;
 		return result;
 	}
 
@@ -204,17 +198,18 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	 *                   (we look at all when decideStackBorder is null)
 	 */
 	@Override
-	protected ClauseLiteralState determineState(DecideStackLiteral decideStackBorder) {
+	protected ClauseLiteralState determineState(final DecideStackLiteral decideStackBorder) {
 		mIsStateDirty = false;
+		final DawgFactory<ApplicationTerm, TermVariable> factory = mEprTheory.getDawgFactory();
 
 		// collect the points in a dawg with the predicate's signature
-		IDawg<ApplicationTerm, TermVariable> refutedPoints =
-				mEprTheory.getDawgFactory().getEmptyDawg(mAtom.getEprPredicate().getTermVariablesForArguments());
-		for (IEprLiteral dsl : mPartiallyConflictingDecideStackLiterals) {
+		DawgState<ApplicationTerm, Boolean> refutedPoints =
+				factory.createConstantDawg(mAtom.getEprPredicate().getTermVariablesForArguments(), Boolean.FALSE);
+		for (final IEprLiteral dsl : mPartiallyConflictingDecideStackLiterals) {
 			if (decideStackBorder == null
 					|| dsl instanceof EprGroundPredicateLiteral
 					|| ((DecideStackLiteral) dsl).compareTo(decideStackBorder) < 0) {
-				refutedPoints = refutedPoints.union(dsl.getDawg());
+				refutedPoints = factory.createUnion(refutedPoints, dsl.getDawg());
 			}
 		}
 
@@ -237,19 +232,19 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 		 */
 		refutedPoints = mDawgFactory.translatePredSigToClauseSig(
 				refutedPoints,
+				mEprPredicateAtom.mEprPredicate.getTermVariablesForArguments(),
 				mTranslationForClauseTvToVariables,
 				mTranslationForClauseTvToConstants,
 				mEprClause.getVariables());
 
 		// collect the points in a dawg with the predicate's signature
-		IDawg<ApplicationTerm, TermVariable> fulfilledPoints =
-				mEprTheory.getDawgFactory().getEmptyDawg(
-						mAtom.getEprPredicate().getTermVariablesForArguments());
-		for (IEprLiteral dsl : mPartiallyFulfillingDecideStackLiterals) {
+		DawgState<ApplicationTerm, Boolean> fulfilledPoints =
+				factory.createConstantDawg(mAtom.getEprPredicate().getTermVariablesForArguments(), Boolean.FALSE);
+		for (final IEprLiteral dsl : mPartiallyFulfillingDecideStackLiterals) {
 			if (decideStackBorder == null
 					|| dsl instanceof EprGroundPredicateLiteral
 					|| ((DecideStackLiteral) dsl).compareTo(decideStackBorder) < 0) {
-				fulfilledPoints = fulfilledPoints.union(dsl.getDawg());
+				fulfilledPoints = factory.createUnion(fulfilledPoints, dsl.getDawg());
 			}
 		}
 		/*
@@ -258,33 +253,30 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 		 */
 		fulfilledPoints = mDawgFactory.translatePredSigToClauseSig(
 				fulfilledPoints,
+				mEprPredicateAtom.mEprPredicate.getTermVariablesForArguments(),
 				mTranslationForClauseTvToVariables,
 				mTranslationForClauseTvToConstants,
 				mEprClause.getVariables());
 
-		mFulfillablePoints = mEprTheory.getDawgFactory().getUniversalDawg(mEprClause.getVariables());
-		assert EprHelpers.verifySortsOfPoints(mFulfillablePoints, mEprClause.getVariables());
+		mFulfillablePoints = factory.createConstantDawg(mEprClause.getVariables(), Boolean.TRUE);
+		assert EprHelpers.verifySortsOfPoints(DawgFactory.getSet(mFulfillablePoints), mEprClause.getVariables());
 
-		mFulfillablePoints = mFulfillablePoints.difference(fulfilledPoints);
-		mFulfillablePoints = mFulfillablePoints.difference(refutedPoints);
+		mFulfillablePoints = factory.createDifference(mFulfillablePoints, fulfilledPoints);
+		mFulfillablePoints = factory.createDifference(mFulfillablePoints, refutedPoints);
 
 		mRefutedPoints = refutedPoints;
 		mFulfilledPoints = fulfilledPoints;
 
-		assert refutedPoints.intersect(fulfilledPoints).isEmpty();
-		assert EprHelpers.verifySortsOfPoints(fulfilledPoints, mEprClause.getVariables());
-		assert EprHelpers.verifySortsOfPoints(refutedPoints, mEprClause.getVariables());
+		assert DawgFactory.isEmpty(factory.createIntersection(refutedPoints, fulfilledPoints));
+		assert EprHelpers.verifySortsOfPoints(DawgFactory.getSet(fulfilledPoints), mEprClause.getVariables());
+		assert EprHelpers.verifySortsOfPoints(DawgFactory.getSet(refutedPoints), mEprClause.getVariables());
 
-		assert mFulfillablePoints.getColNames().equals(mEprClause.getVariables());
-		assert mFulfilledPoints.getColNames().equals(mEprClause.getVariables());
-		assert mRefutedPoints.getColNames().equals(mEprClause.getVariables());
+		assert DawgFactory.isUniversal(
+				factory.createUnion(factory.createUnion(mFulfillablePoints, mFulfilledPoints), mRefutedPoints));
 
-		assert EprHelpers.unionOfAllPointsIsUniversal(mDawgFactory, mFulfillablePoints, mFulfilledPoints,
-				mRefutedPoints);
-
-		if (fulfilledPoints.isUniversal()) {
+		if (DawgFactory.isUniversal(fulfilledPoints)) {
 			return ClauseLiteralState.Fulfilled;
-		} else if (refutedPoints.isUniversal()) {
+		} else if (DawgFactory.isUniversal(refutedPoints)) {
 			return ClauseLiteralState.Refuted;
 		} else {
 			return ClauseLiteralState.Fulfillable;
@@ -328,20 +320,20 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	}
 
 	@Override
-	public boolean isDisjointFrom(IDawg<ApplicationTerm, TermVariable> dawg) {
-		 return mDawgFactory.translatePredSigToClauseSig(
-				 dawg,
-				 mTranslationForClauseTvToVariables,
-				 mTranslationForClauseTvToConstants,
-				 mEprClause.getVariables()).isEmpty();
+	public boolean isDisjointFrom(final DawgState<ApplicationTerm, Boolean> dawg) {
+		return DawgFactory.isEmpty(mDawgFactory.translatePredSigToClauseSig(
+				dawg, mEprPredicateAtom.mEprPredicate.getTermVariablesForArguments(),
+				mTranslationForClauseTvToVariables, mTranslationForClauseTvToConstants,
+				mEprClause.getVariables()));
 	}
 
 	@Override
-	public Clause getGroundingForGroundLiteral(IDawg<ApplicationTerm, TermVariable> dawg, Literal groundLiteral) {
-		ApplicationTerm term = (ApplicationTerm) groundLiteral.getAtom().getSMTFormula(mEprTheory.getTheory());
-		List<ApplicationTerm> args = EprHelpers.convertTermArrayToConstantList(term.getParameters());
+	public Clause getGroundingForGroundLiteral(final DawgState<ApplicationTerm, Boolean> dawg,
+			final Literal groundLiteral) {
+		final ApplicationTerm term = (ApplicationTerm) groundLiteral.getAtom().getSMTFormula(mEprTheory.getTheory());
+		final List<ApplicationTerm> args = EprHelpers.convertTermArrayToConstantList(term.getParameters());
 
-		Map<TermVariable, ApplicationTerm> selectMap = new HashMap<TermVariable, ApplicationTerm>();
+		final Map<TermVariable, ApplicationTerm> selectMap = new HashMap<TermVariable, ApplicationTerm>();
 		for (int i = 0; i < this.getArguments().size(); i ++) {
 			if (this.getArguments().get(i) instanceof TermVariable) {
 				selectMap.put((TermVariable) this.getArguments().get(i), args.get(i));
@@ -349,8 +341,10 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 				assert this.getArguments().get(i) == args.get(i);
 			}
 		}
-		IDawg<ApplicationTerm, TermVariable> selDawg = dawg.select(selectMap);
-		Set<Clause> groundings = getClause().getGroundings(selDawg);
+		final DawgState<ApplicationTerm, Boolean> selDawg =
+				mDawgFactory.createIntersection(dawg,
+						mDawgFactory.createFromSelectMap(mEprClause.getVariables(), selectMap));
+		final Set<Clause> groundings = getClause().getGroundings(selDawg);
 		return groundings.iterator().next();
 	}
 

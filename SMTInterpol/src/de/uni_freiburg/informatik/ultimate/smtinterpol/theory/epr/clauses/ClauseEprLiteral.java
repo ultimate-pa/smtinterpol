@@ -33,7 +33,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.IEprLiteral;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
 
@@ -74,32 +74,37 @@ public abstract class ClauseEprLiteral extends ClauseLiteral {
 	 */
 	protected final List<Term> mArgumentTerms;
 
-	protected final List<Object> mArgumentTermsAsObjects;
+	protected final List<ApplicationTerm> mArgumentTermsAsAppTerm;
 
-	public ClauseEprLiteral(boolean polarity, EprPredicateAtom atom, EprClause clause, EprTheory eprTheory) {
+	public ClauseEprLiteral(final boolean polarity, final EprPredicateAtom atom, final EprClause clause, final EprTheory eprTheory) {
 		super(polarity, atom, clause, eprTheory);
 		mEprPredicateAtom = atom;
 		mArgumentTerms = Collections.unmodifiableList(Arrays.asList(atom.getArguments()));
 
-		List<Object> l =  new ArrayList<Object>();
-		for (Term at : mArgumentTerms) {
-			l.add(at);
+		final List<ApplicationTerm> l = new ArrayList<ApplicationTerm>();
+		for (final Term at : mArgumentTerms) {
+			if (at instanceof ApplicationTerm) {
+				l.add((ApplicationTerm) at);
+			} else {
+				assert at instanceof TermVariable;
+				l.add(null);
+			}
 		}
-		mArgumentTermsAsObjects = Collections.unmodifiableList(l);
+		mArgumentTermsAsAppTerm = Collections.unmodifiableList(l);
 	}
 
 	public EprPredicate getEprPredicate()  {
 		return  mEprPredicateAtom.getEprPredicate();
 	}
 
-	public void addPartiallyConflictingEprLiteral(IEprLiteral el) {
+	public void addPartiallyConflictingEprLiteral(final IEprLiteral el) {
 		el.registerConcernedClauseLiteral(this);
 		mPartiallyConflictingDecideStackLiterals.add(el);
 		mIsStateDirty = true;
 		mEprClause.mClauseStateIsDirty = true;
 	}
 
-	public void addPartiallyFulfillingEprLiteral(IEprLiteral el) {
+	public void addPartiallyFulfillingEprLiteral(final IEprLiteral el) {
 		el.registerConcernedClauseLiteral(this);
 		mPartiallyFulfillingDecideStackLiterals.add(el);
 		mIsStateDirty = true;
@@ -136,8 +141,8 @@ public abstract class ClauseEprLiteral extends ClauseLiteral {
 	 * Returns the same as getArguments, only in a list of objects
 	 * @return
 	 */
-	public List<Object> getArgumentsAsObjects() {
-		return mArgumentTermsAsObjects;
+	public List<ApplicationTerm> getArgumentsAsAppTerm() {
+		return mArgumentTermsAsAppTerm;
 	}
 
 
@@ -148,9 +153,9 @@ public abstract class ClauseEprLiteral extends ClauseLiteral {
 	 * @param dawg
 	 * @return true iff the dawg and this literal don't talk about at least one common point.
 	 */
-	public abstract boolean isDisjointFrom(IDawg<ApplicationTerm, TermVariable> dawg) ;
+	public abstract boolean isDisjointFrom(DawgState<ApplicationTerm, Boolean> dawg);
 
-	public void unregisterIEprLiteral(IEprLiteral el) {
+	public void unregisterIEprLiteral(final IEprLiteral el) {
 		boolean success = false;
 		success |= mPartiallyConflictingDecideStackLiterals.remove(el);
 		success |= mPartiallyFulfillingDecideStackLiterals.remove(el);
@@ -160,5 +165,6 @@ public abstract class ClauseEprLiteral extends ClauseLiteral {
 	}
 
 
-	public abstract Clause getGroundingForGroundLiteral(IDawg<ApplicationTerm, TermVariable> dawg, Literal groundLiteral);
+	public abstract Clause getGroundingForGroundLiteral(DawgState<ApplicationTerm, Boolean> dawg,
+			Literal groundLiteral);
 }

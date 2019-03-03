@@ -42,7 +42,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.Clause
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseEprLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseEprQuantifiedLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClause;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DslBuilder;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.IEprLiteral;
@@ -89,9 +90,9 @@ public class EprPredicate {
 	private final HashMap<TermTuple, EprQuantifiedPredicateAtom> mTermTupleToAtom = new HashMap<>();
 
 	public EprPredicate(final FunctionSymbol fs, final EprTheory eprTheory) {
-		this.mFunctionSymbol = fs;
-		this.mArity = fs.getParameterSorts().length;
-		this.mEprTheory = eprTheory;
+		mFunctionSymbol = fs;
+		mArity = fs.getParameterSorts().length;
+		mEprTheory = eprTheory;
 
 		final TreeSet<TermVariable> tva = new TreeSet<>(EprHelpers.getColumnNamesComparator());
 		for (int i = 0; i < mArity; i++) {
@@ -166,7 +167,7 @@ public class EprPredicate {
 		assert point.getFreeVars().size() == 0 : "Use getAtomForTermTuple, if tt is quantified";
 		EprGroundPredicateAtom result = mPointToAtom.get(point);
 		if (result == null) {
-			final ApplicationTerm newTerm = mTheory.term(this.mFunctionSymbol, point.terms);
+			final ApplicationTerm newTerm = mTheory.term(mFunctionSymbol, point.terms);
 			if (this instanceof EprEqualityPredicate) {
 				result = new EprGroundEqualityAtom(newTerm, 0,
 					assertionStackLevel,
@@ -214,7 +215,7 @@ public class EprPredicate {
 		EprQuantifiedPredicateAtom result = mTermTupleToAtom.get(tt);
 
 		if (result == null) {
-			final ApplicationTerm newTerm = mTheory.term(this.mFunctionSymbol, tt.terms);
+			final ApplicationTerm newTerm = mTheory.term(mFunctionSymbol, tt.terms);
 			if (this instanceof EprEqualityPredicate) {
 					result = new EprQuantifiedEqualityAtom(newTerm,
 						0,
@@ -258,9 +259,9 @@ public class EprPredicate {
 	 *          otherwise.
 	 */
 	public DslBuilder getNextDecision() {
-		final IDawg<ApplicationTerm, TermVariable> undecidedPoints = computeUndecidedPoints();
+		final DawgState<ApplicationTerm, Boolean> undecidedPoints = computeUndecidedPoints();
 
-		if (undecidedPoints.isEmpty()) {
+		if (DawgFactory.isEmpty(undecidedPoints)) {
 			return null;
 		} else {
 			/*
@@ -274,21 +275,22 @@ public class EprPredicate {
 		}
 	}
 
-	private IDawg<ApplicationTerm, TermVariable> computeUndecidedPoints() {
-		IDawg<ApplicationTerm, TermVariable> positivelySetPoints =
-				mEprTheory.getDawgFactory().getEmptyDawg(mSignature);
-		IDawg<ApplicationTerm, TermVariable> negativelySetPoints =
-				mEprTheory.getDawgFactory().getEmptyDawg(mSignature);
-		IDawg<ApplicationTerm, TermVariable> undecidedPoints =
-				mEprTheory.getDawgFactory().getEmptyDawg(mSignature);
+	private DawgState<ApplicationTerm, Boolean> computeUndecidedPoints() {
+		final DawgFactory<ApplicationTerm, TermVariable> factory = mEprTheory.getDawgFactory();
+		DawgState<ApplicationTerm, Boolean> positivelySetPoints =
+				factory.createConstantDawg(mSignature, Boolean.FALSE);
+		DawgState<ApplicationTerm, Boolean> negativelySetPoints =
+				factory.createConstantDawg(mSignature, Boolean.FALSE);
+		DawgState<ApplicationTerm, Boolean> undecidedPoints =
+				factory.createConstantDawg(mSignature, Boolean.FALSE);
 
 		for (final IEprLiteral dsl : mEprLiterals) {
 			if (dsl.getPolarity()) {
 				//positive literal
-				positivelySetPoints = positivelySetPoints.union(dsl.getDawg());
+				positivelySetPoints = factory.createUnion(positivelySetPoints, dsl.getDawg());
 			} else {
 				//negative literal
-				negativelySetPoints = negativelySetPoints.union(dsl.getDawg());
+				negativelySetPoints = factory.createUnion(negativelySetPoints, dsl.getDawg());
 			}
 		}
 
@@ -296,25 +298,30 @@ public class EprPredicate {
 		for (final EprGroundPredicateAtom at : mDPLLAtoms) {
 			if (at.getDecideStatus() == null) {
 				// not yet decided
-				undecidedPoints = undecidedPoints.add(EprHelpers.convertTermArrayToConstantList(at.getArguments()));
+				undecidedPoints = factory.createUnion(undecidedPoints,
+						factory.createSingletonSet(mSignature,
+								EprHelpers.convertTermArrayToConstantList(at.getArguments())));
 			} else if (at.getDecideStatus().getSign() == 1) {
 				// positively set
-				positivelySetPoints = positivelySetPoints.add(EprHelpers.convertTermArrayToConstantList(at.getArguments()));
+				positivelySetPoints = factory.createUnion(positivelySetPoints,
+						factory.createSingletonSet(mSignature,
+								EprHelpers.convertTermArrayToConstantList(at.getArguments())));
 			} else {
 				// negatively set
-				negativelySetPoints = negativelySetPoints.add(EprHelpers.convertTermArrayToConstantList(at.getArguments()));
+				negativelySetPoints = factory.createUnion(negativelySetPoints,
+						factory.createSingletonSet(mSignature,
+								EprHelpers.convertTermArrayToConstantList(at.getArguments())));
 			}
 		}
 
-		IDawg<ApplicationTerm, TermVariable> allDecidedPoints =
-				mEprTheory.getDawgFactory().getEmptyDawg(mSignature);
+		DawgState<ApplicationTerm, Boolean> allDecidedPoints = factory.createConstantDawg(mSignature, Boolean.FALSE);
 //		allDecidedPoints.addAll(positivelySetPoints);
-		allDecidedPoints = allDecidedPoints.union(positivelySetPoints);
+		allDecidedPoints = factory.createUnion(allDecidedPoints, positivelySetPoints);
 //		allDecidedPoints.addAll(negativelySetPoints);
-		allDecidedPoints = allDecidedPoints.union(negativelySetPoints);
+		allDecidedPoints = factory.createUnion(allDecidedPoints, negativelySetPoints);
 
 //		undecidedPoints.addAll(allDecidedPoints.complement());
-		undecidedPoints = undecidedPoints.union(allDecidedPoints.complement());
+		undecidedPoints = factory.createProduct(undecidedPoints, allDecidedPoints, (b1, b2) -> b1 || !b2);
 		return undecidedPoints;
 	}
 

@@ -19,104 +19,48 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates;
 
-import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.DawgLetter;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.NestedMap3;
+import de.uni_freiburg.informatik.ultimate.util.datastructures.UnifyHash;
 
 /**
  *
  * Manages DawgStates
- *  <li> creates fresh states
- *  <li> creates and manages PairDawgStates (keeps them unique)
+ * <li>creates fresh states
+ * <li>creates and manages PairDawgStates (keeps them unique)
  *
- * @author Alexander Nutz (nutz@informatik.uni-freiburg.de)
- *
+ * @author Alexander Nutz, Jochen Hoenicke
  */
-public class DawgStateFactory<LETTER, COLNAMES> {
+public class DawgStateFactory<LETTER> {
+	final UnifyHash<DawgState<LETTER, ?>> mExistingStates = new UnifyHash<>();
 
-	Map<DawgState, Map<DawgState, PairDawgState>> mDSToDSToPDS =
-			new HashMap<DawgState, Map<DawgState,PairDawgState>>();
-
-	/**
-	 * the first state is the sink state
-	 */
-	Map<DawgState, PairDawgState> mFirstHalfSinkStates = new HashMap<DawgState, PairDawgState>();
-
-	/**
-	 * the second state is teh sink state
-	 */
-	private final Map<DawgState, PairDawgState> mSecondHalfSinkStates = new HashMap<DawgState, PairDawgState>();
-
-	private final Map<Set<DawgState>, SetDawgState> mDawgStateSetToSetDawgState = new HashMap<Set<DawgState>, SetDawgState>();
-
-	private final NestedMap3<DawgLetter<LETTER>, COLNAMES, DawgState, RenameAndReorderDawgState<LETTER, COLNAMES>>
-		mLetterToColNameToDawgStateToRenameAndReorderDawgState =
-			new NestedMap3<DawgLetter<LETTER>, COLNAMES, DawgState, RenameAndReorderDawgState<LETTER, COLNAMES>>();
-
-	public PairDawgState getOrCreatePairDawgState(final DawgState first, final DawgState second) {
-
-		Map<DawgState, PairDawgState> dsToPds = mDSToDSToPDS.get(first);
-
-		if (dsToPds == null) {
-			dsToPds = new HashMap<DawgState, PairDawgState>();
-			mDSToDSToPDS.put(first, dsToPds);
-		}
-
-		PairDawgState pds = dsToPds.get(second);
-
-		if (pds == null) {
-			pds = new PairDawgState(first, second, createDawgState());
-			dsToPds.put(second, pds);
-		}
-
-		return pds;
-	}
-
-	public PairDawgState getOrCreatePairDawgState(final DawgState value, final boolean firstIsSink, final boolean secondIsSink) {
-		assert firstIsSink != secondIsSink;
-
-		if (firstIsSink) {
-			PairDawgState ds = mFirstHalfSinkStates.get(value);
-			if (ds == null) {
-				ds = new PairDawgState(value, true, false, createDawgState());
-				mFirstHalfSinkStates.put(value, ds);
+	@SuppressWarnings("unchecked")
+	public <VALUE> DawgState<LETTER, VALUE> createFinalState(final VALUE value) {
+		final int hash = value.hashCode();
+		for (final DawgState<LETTER, ?> previous : mExistingStates.iterateHashCode(hash)) {
+			if (previous.isFinal() && previous.getFinalValue().equals(value)) {
+				return (DawgState<LETTER, VALUE>) previous;
 			}
-			return ds;
-		} else {
-			PairDawgState ds = mSecondHalfSinkStates.get(value);
-			if (ds == null) {
-				ds = new PairDawgState(value, false, true, createDawgState());
-				mSecondHalfSinkStates.put(value, ds);
-			}
-			return ds;
 		}
-	}
-
-	public SetDawgState getOrCreateSetDawgState(final Set<DawgState> dawgStates) {
-		SetDawgState result = mDawgStateSetToSetDawgState.get(dawgStates);
-		if (result == null) {
-			result = new SetDawgState(dawgStates, createDawgState());
-			mDawgStateSetToSetDawgState.put(dawgStates, result);
-		}
+		final DawgState<LETTER, VALUE> result = new DawgState<>(value);
+		mExistingStates.put(hash, result);
+		// assert result.checkState();
 		return result;
 	}
 
-	public DawgState createDawgState() {
-		return new DawgState();
-	}
-
-	public RenameAndReorderDawgState<LETTER, COLNAMES> getReorderAndRenameDawgState(final DawgLetter<LETTER> key,
-			final COLNAMES newRightNeighbour,	final DawgState value) {
-		RenameAndReorderDawgState<LETTER, COLNAMES> result =
-				mLetterToColNameToDawgStateToRenameAndReorderDawgState.get(key, newRightNeighbour, value);
-		if (result == null) {
-			result = new RenameAndReorderDawgState<LETTER, COLNAMES>(key, newRightNeighbour, value, createDawgState());
-			mLetterToColNameToDawgStateToRenameAndReorderDawgState.put(key, newRightNeighbour, value, result);
+	@SuppressWarnings("unchecked")
+	public <VALUE> DawgState<LETTER, VALUE>
+			createIntermediateState(final Map<DawgState<LETTER, VALUE>, DawgLetter<LETTER>> transitions) {
+		final int hash = transitions.hashCode();
+		for (final DawgState<LETTER, ?> previous : mExistingStates.iterateHashCode(hash)) {
+			if (previous.mTransitions.equals(transitions)) {
+				return (DawgState<LETTER, VALUE>) previous;
+			}
 		}
+		final DawgState<LETTER, VALUE> result = new DawgState<>(transitions);
+		mExistingStates.put(hash, result);
+		// assert result.checkState();
 		return result;
 	}
-
 }

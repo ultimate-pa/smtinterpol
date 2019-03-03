@@ -3,8 +3,8 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.Dawg;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.IEprLiteral;
 
 public class EprEqualityPredicate extends EprPredicate {
@@ -20,23 +20,24 @@ public class EprEqualityPredicate extends EprPredicate {
 		return "EprEQPred";
 	}
 
-	public IDawg<ApplicationTerm, TermVariable> computeOverallSymmetricTransitiveClosureForPositiveEqualityPred(
-			final IDawg<ApplicationTerm, TermVariable> dawg) {
-		IDawg<ApplicationTerm, TermVariable> positivelySetPoints =
-				mEprTheory.getDawgFactory().getEmptyDawg(mSignature);
+	public DawgState<ApplicationTerm, Boolean> computeOverallSymmetricTransitiveClosureForPositiveEqualityPred(
+			final DawgState<ApplicationTerm, Boolean> dawg) {
+		final DawgFactory<ApplicationTerm, TermVariable> factory = mEprTheory.getDawgFactory();
+		DawgState<ApplicationTerm, Boolean> positivelySetPoints =
+				factory.createConstantDawg(mSignature, Boolean.FALSE);
 
 		for (final IEprLiteral dsl : mEprLiterals) {
 			if (dsl.getPolarity()) {
 				//positive literal
-				positivelySetPoints = positivelySetPoints.union(dsl.getDawg());
+				positivelySetPoints = factory.createUnion(positivelySetPoints, dsl.getDawg());
 			}
 		}
 
-		final IDawg<ApplicationTerm, TermVariable> overallUnion = positivelySetPoints.union(dawg);
+		final DawgState<ApplicationTerm, Boolean> overallUnion = factory.createUnion(positivelySetPoints, dawg);
 
-		final Dawg<ApplicationTerm, TermVariable> result = overallUnion.computeSymmetricTransitiveClosure();
+		final DawgState<ApplicationTerm, Boolean> result = factory.computeSymmetricTransitiveClosure(overallUnion);
 		// the resulting dawg must denote a superset of the points denoted by the input dawg
-		assert overallUnion.complement().intersect(dawg).isEmpty();
+		assert factory.isEmpty(factory.createProduct(overallUnion, dawg, (inOverall, inDawg) -> !inOverall && inDawg));
 		return result;
 	}
 }

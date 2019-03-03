@@ -20,9 +20,8 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
-import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
 
 /**
  * Represents a literal on the decide stack that was set because of a decision of the epr
@@ -32,8 +31,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
  */
 public class DecideStackDecisionLiteral extends DecideStackLiteral {
 
-	public DecideStackDecisionLiteral(boolean polarity, EprPredicate eprPredicate,
-			IDawg<ApplicationTerm, TermVariable> dawg, int index) {
+	public DecideStackDecisionLiteral(final boolean polarity, final EprPredicate eprPredicate,
+			final DawgState<ApplicationTerm, Boolean> dawg, final int index) {
 		super(polarity, eprPredicate, dawg, index);
 	}
 

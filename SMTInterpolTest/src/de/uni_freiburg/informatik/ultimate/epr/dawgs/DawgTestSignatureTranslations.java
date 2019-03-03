@@ -22,13 +22,10 @@ package de.uni_freiburg.informatik.ultimate.epr.dawgs;
 import static org.junit.Assert.assertTrue;
 
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -38,11 +35,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.BinaryRelation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.Dawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgSignature;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgbuilders.ReorderAndRenameDawgBuilder;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
 
 @RunWith(JUnit4.class)
 public class DawgTestSignatureTranslations {
@@ -58,66 +52,65 @@ public class DawgTestSignatureTranslations {
 	@Test
 	public void test1() {
 
-		DawgFactory<String, Integer> dawgFactoryStringInteger =
+		final DawgFactory<String, Integer> dawgFactoryStringInteger =
 				new DawgFactory<String, Integer>(getEprTheory());
 		EprTestHelpers.addConstantsWDefaultSort(dawgFactoryStringInteger, EprTestHelpers.constantsAbc());
 
 
 
-		List<String> word_aa = Arrays.asList(new String[] { "a", "a" });
-		List<String> word_ab = Arrays.asList(new String[] { "a", "b" });
-		List<String> word_ac = Arrays.asList(new String[] { "a", "c" });
-		List<String> word_ba = Arrays.asList(new String[] { "b", "a" });
-		List<String> word_bb = Arrays.asList(new String[] { "b", "b" });
-		List<String> word_bc = Arrays.asList(new String[] { "b", "c" });
-		List<String> word_ca = Arrays.asList(new String[] { "c", "a" });
-		List<String> word_cb = Arrays.asList(new String[] { "c", "b" });
-		List<String> word_cc = Arrays.asList(new String[] { "c", "c" });
+		final List<String> word_aa = Arrays.asList(new String[] { "a", "a" });
+		final List<String> word_ab = Arrays.asList(new String[] { "a", "b" });
+		final List<String> word_ac = Arrays.asList(new String[] { "a", "c" });
+		final List<String> word_ba = Arrays.asList(new String[] { "b", "a" });
+		final List<String> word_bb = Arrays.asList(new String[] { "b", "b" });
+		final List<String> word_bc = Arrays.asList(new String[] { "b", "c" });
+		final List<String> word_ca = Arrays.asList(new String[] { "c", "a" });
+		final List<String> word_cb = Arrays.asList(new String[] { "c", "b" });
+		final List<String> word_cc = Arrays.asList(new String[] { "c", "c" });
 
 
-		SortedSet<Integer> signature1 = new TreeSet<Integer>(EprHelpers.getColumnNamesComparator());
+		final SortedSet<Integer> signature1 = new TreeSet<Integer>(EprHelpers.getColumnNamesComparator());
 		signature1.addAll(Arrays.asList(new Integer[] { 1, 2 }));
 
-		IDawg<String, Integer> dawg1 = dawgFactoryStringInteger.getEmptyDawg(signature1);
-		dawg1 = dawg1.add(word_ba);
-		dawg1 = dawg1.add(word_ca);
+		DawgState<String, Boolean> dawg1 = dawgFactoryStringInteger.createConstantDawg(signature1, Boolean.FALSE);
+		dawg1 = dawgFactoryStringInteger.createUnion(dawg1,
+				dawgFactoryStringInteger.createSingletonSet(signature1, word_ba));
+		dawg1 = dawgFactoryStringInteger.createUnion(dawg1,
+				dawgFactoryStringInteger.createSingletonSet(signature1, word_ca));
 
-		assertTrue(dawg1.accepts(word_ba));
-		assertTrue(dawg1.accepts(word_ca));
+		assertTrue(dawg1.getValue(word_ba));
+		assertTrue(dawg1.getValue(word_ca));
 
-		SortedSet<Integer> signature2 = new TreeSet<Integer>(EprHelpers.getColumnNamesComparator());
+		final SortedSet<Integer> signature2 = new TreeSet<Integer>(EprHelpers.getColumnNamesComparator());
 		signature2.addAll(Arrays.asList(new Integer[] { 10, 20, 30 }));
 
-		BinaryRelation<Integer, Integer> translation1 = new BinaryRelation<Integer, Integer>();
-		translation1.addPair(1, 20);
+		final BinaryRelation<Integer, Integer> translation1 = new BinaryRelation<Integer, Integer>();
 		translation1.addPair(1, 30);
 		translation1.addPair(2, 10);
 
-		List<Object> argList1 = Arrays.asList(new Object[] { 1, 1, 2 });
+		final List<String> argList1 = Arrays.asList(new String[] { null, "d", null });
 
 
-		IDawg<String, Integer> dawg2 = dawg1.translateClauseSigToPredSig(translation1,
-				argList1, new DawgSignature<Integer>(signature2));
+		final DawgState<String, Boolean> dawg2 = dawgFactoryStringInteger.translateClauseSigToPredSig(dawg1,
+				signature1, translation1, argList1, signature2);
 
-		assertTrue(dawg2.getColNames().equals(signature2));
-
-		assertTrue(dawg2.accepts(Arrays.asList(new String[] { "a", "b", "b" })));
-		assertTrue(dawg2.accepts(Arrays.asList(new String[] { "a", "c", "c" })));
+		assertTrue(dawg2.getValue(Arrays.asList(new String[] { "a", "d", "b" })));
+		assertTrue(dawg2.getValue(Arrays.asList(new String[] { "a", "d", "c" })));
 
 	}
 
 	@Test
 	public void test2() {
 
-		DawgFactory<String, Integer> dawgFactoryStringInteger =
+		final DawgFactory<String, Integer> dawgFactoryStringInteger =
 				new DawgFactory<String, Integer>(getEprTheory());
 		EprTestHelpers.addConstantsWDefaultSort(dawgFactoryStringInteger, EprTestHelpers.constantsAbc());
 
 
 
-		List<String> word_a = Arrays.asList(new String[] { "a" });
-		List<String> word_b = Arrays.asList(new String[] { "b" });
-		List<String> word_c = Arrays.asList(new String[] { "c" });
+		final List<String> word_a = Arrays.asList(new String[] { "a" });
+		final List<String> word_b = Arrays.asList(new String[] { "b" });
+		final List<String> word_c = Arrays.asList(new String[] { "c" });
 //		List<String> word_ab = Arrays.asList(new String[] { "a", "b" });
 //		List<String> word_ac = Arrays.asList(new String[] { "a", "c" });
 //		List<String> word_ba = Arrays.asList(new String[] { "b", "a" });
@@ -128,32 +121,33 @@ public class DawgTestSignatureTranslations {
 //		List<String> word_cc = Arrays.asList(new String[] { "c", "c" });
 
 
-		SortedSet<Integer> signature1 = new TreeSet<Integer>(EprHelpers.getColumnNamesComparator());
+		final SortedSet<Integer> signature1 = new TreeSet<Integer>(EprHelpers.getColumnNamesComparator());
 		signature1.addAll(Arrays.asList(new Integer[] { 1 }));
 
-		IDawg<String, Integer> dawg1 = dawgFactoryStringInteger.getEmptyDawg(signature1);
-		dawg1 = dawg1.add(word_a);
-		dawg1 = dawg1.add(word_b);
+		DawgState<String, Boolean> dawg1 = dawgFactoryStringInteger.createConstantDawg(signature1, Boolean.FALSE);
+		dawg1 = dawgFactoryStringInteger.createUnion(dawg1,
+				dawgFactoryStringInteger.createSingletonSet(signature1, word_a));
+		dawg1 = dawgFactoryStringInteger.createUnion(dawg1,
+				dawgFactoryStringInteger.createSingletonSet(signature1, word_b));
 
-		assertTrue(dawg1.accepts(word_a));
-		assertTrue(dawg1.accepts(word_b));
+		assertTrue(dawg1.getValue(word_a));
+		assertTrue(dawg1.getValue(word_b));
 
-		SortedSet<Integer> signature2 = new TreeSet<Integer>(EprHelpers.getColumnNamesComparator());
+		final SortedSet<Integer> signature2 = new TreeSet<Integer>(EprHelpers.getColumnNamesComparator());
 		signature2.addAll(Arrays.asList(new Integer[] { 10, 20 }));
 
-		BinaryRelation<Integer, Integer> translation1 = new BinaryRelation<Integer, Integer>();
+		final BinaryRelation<Integer, Integer> translation1 = new BinaryRelation<Integer, Integer>();
 		translation1.addPair(1, 10);
 
-		List<Object> argList1 = Arrays.asList(new Object[] { 1, "c" });
+		final List<String> argList1 = Arrays.asList(new String[] { null, "c" });
 
 
-		IDawg<String, Integer> dawg2 = dawg1.translateClauseSigToPredSig(translation1,
-				argList1, new DawgSignature<Integer>(signature2));
+		final DawgState<String, Boolean> dawg2 =
+				dawgFactoryStringInteger.translateClauseSigToPredSig(dawg1, signature1, translation1,
+						argList1, signature2);
 
-		assertTrue(dawg2.getColNames().equals(signature2));
-
-		assertTrue(dawg2.accepts(Arrays.asList(new String[] { "a", "c" })));
-		assertTrue(dawg2.accepts(Arrays.asList(new String[] { "b", "c" })));
+		assertTrue(dawg2.getValue(Arrays.asList(new String[] { "a", "c" })));
+		assertTrue(dawg2.getValue(Arrays.asList(new String[] { "b", "c" })));
 
 	}
 

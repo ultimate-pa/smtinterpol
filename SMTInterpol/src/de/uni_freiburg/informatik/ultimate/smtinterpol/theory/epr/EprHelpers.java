@@ -51,7 +51,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuant
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DeterministicDawgTransitionRelation;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.DawgLetter;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.DawgLetterFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
@@ -425,17 +424,6 @@ public class EprHelpers {
 		return result;
 	}
 
-	public static boolean haveSameSignature(final IDawg<ApplicationTerm, TermVariable>... dawgs) {
-		for (final IDawg<ApplicationTerm, TermVariable> d1 : dawgs) {
-			for (final IDawg<ApplicationTerm, TermVariable> d2 : dawgs) {
-				if (! d1.getColNames().equals(d2.getColNames())) {
-						return false;
-				}
-			}
-		}
-		return true;
-	}
-
 	/**
 	 * Provides a Comparator for the SortedSets we use for the dawg signatures.
 	 * TODO: we really only need one instance of this.. (but what was the best way to have a singleton again?..)
@@ -719,7 +707,7 @@ public class EprHelpers {
 			for (final IEprLiteral el : pred.getEprLiterals()) {
 				for (final EprGroundPredicateAtom at : pred.getDPLLAtoms()) {
 					final List<ApplicationTerm> atArgs = convertTermArrayToConstantList(at.getArguments());
-					if (!el.getDawg().accepts(atArgs)) {
+					if (!el.getDawg().getValue(atArgs)) {
 						// different arguments
 						continue;
 					}
@@ -1173,27 +1161,6 @@ public class EprHelpers {
 		}
 		final Clause result = new Clause(newLits.toArray(new Literal[newLits.size()]));
 		return result;
-	}
-
-	public static boolean unionOfAllPointsIsUniversal(final DawgFactory<ApplicationTerm, TermVariable> df,
-			final IDawg<ApplicationTerm, TermVariable>... fulfillablePoints) {
-		IDawg<ApplicationTerm, TermVariable> unionDawg = df.getEmptyDawg(fulfillablePoints[0].getColNames());
-		for (final IDawg<ApplicationTerm, TermVariable> dawg : fulfillablePoints) {
-			unionDawg = unionDawg.union(dawg);
-		}
-		return unionDawg.isUniversal();
-	}
-
-	public static <LETTER> DeterministicDawgTransitionRelation<DawgState, DawgLetter<LETTER>, DawgState>
-			flattenDawgStates(
-					final DeterministicDawgTransitionRelation<DawgState, DawgLetter<LETTER>, DawgState> inputTransitionRelation) {
-
-		final DeterministicDawgTransitionRelation<DawgState, DawgLetter<LETTER>, DawgState> resultTransitionRelation
-		 	= new DeterministicDawgTransitionRelation<>();
-		for (final Triple<DawgState, DawgLetter<LETTER>, DawgState> transition : inputTransitionRelation.entrySet()) {
-			resultTransitionRelation.put(transition.getFirst().getFlatReplacement(), transition.getSecond(), transition.getThird().getFlatReplacement());
-		}
-		return resultTransitionRelation;
 	}
 
 	public static boolean containsBooleanTerm(final Term[] parameters) {

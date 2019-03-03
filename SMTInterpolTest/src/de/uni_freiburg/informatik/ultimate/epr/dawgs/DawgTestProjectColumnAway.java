@@ -19,8 +19,6 @@
  */
 package de.uni_freiburg.informatik.ultimate.epr.dawgs;
 
-import static org.junit.Assert.*;
-
 import java.util.Arrays;
 import java.util.List;
 import java.util.SortedSet;
@@ -32,10 +30,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.Dawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgbuilders.ReorderAndRenameDawgBuilder;
 
 public class DawgTestProjectColumnAway {
 
@@ -57,29 +52,29 @@ public class DawgTestProjectColumnAway {
 	 */
 	@Test
 	public void test1() {
-		DawgFactory<String, String> dawgFactoryStringString =
+		final DawgFactory<String, String> dawgFactoryStringString =
 				new DawgFactory<String, String>(getEprTheory());
 
 
 		EprTestHelpers.addConstantsWDefaultSort(dawgFactoryStringString, EprTestHelpers.constantsAbc());
 //		dawgFactoryStringString.addConstants(getAllConstants());
 
-		SortedSet<String> signaturePre = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
+		final SortedSet<String> signaturePre = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signaturePre.addAll(Arrays.asList(new String[] { "u", "v"}));
 
-		SortedSet<String> signaturePost = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
+		final SortedSet<String> signaturePost = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signaturePost.addAll(Arrays.asList(new String[] { "u" }));
 
 
 		/*
 		 * word in the original automaton
 		 */
-		List<String> word_ab = Arrays.asList(new String[] { "a", "b" });
+		final List<String> word_ab = Arrays.asList(new String[] { "a", "b" });
 
 		/*
 		 * words that should be in the transformed automaton
 		 */
-		List<String> word_abb = Arrays.asList(new String[] { "a", "b", "b" });
+		final List<String> word_abb = Arrays.asList(new String[] { "a", "b", "b" });
 
 
 //		IDawg<String, String> dawgPre = dawgFactoryStringString.getEmptyDawg(signaturePre);

@@ -338,6 +338,7 @@ java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/2))m -da -dsa -XX:-UseGCOverheadLimit -j
 	</fileset>
 	<fileset dir="${dir.tests}/SMTInterpolTest/src">
 	  <include name="**/*.java" />
+	  <exclude name="**/EprTestHelpers.java" /> <!-- This is just an utility class -->
 	  <exclude name="**/TestCaseWithLogger.java" /> <!-- This is just an utility class -->
 	  <exclude name="**/CompilerTest.java" /> <!-- This is more a main class -->
 	</fileset>

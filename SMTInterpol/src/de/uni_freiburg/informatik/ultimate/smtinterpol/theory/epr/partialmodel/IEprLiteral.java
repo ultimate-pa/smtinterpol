@@ -20,10 +20,9 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
-import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseEprLiteral;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
 
 /**
  * Interface for the commonalities of epr decide stack literals (class DecideStackLiteral)
@@ -39,7 +38,7 @@ public interface IEprLiteral {
 
 	public boolean getPolarity();
 
-	public IDawg<ApplicationTerm, TermVariable> getDawg();
+	public DawgState<ApplicationTerm, Boolean> getDawg();
 
 	/**
 	 * To be called before this object is disposed of.

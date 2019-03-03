@@ -30,7 +30,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseEprLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
 
 /**
  * An EprGroundPredicateLiteral is a representation of a literal that is set by the DPLLEngine which uses an
@@ -49,16 +49,16 @@ public class EprGroundPredicateLiteral implements IEprLiteral {
 	private final EprGroundPredicateAtom mAtom;
 	private final EprPredicate mEprPredicate;
 	private final boolean mPolarity;
-	private final IDawg<ApplicationTerm, TermVariable> mDawg;
+	private final DawgState<ApplicationTerm, Boolean> mDawg;
 
 	Set<ClauseEprLiteral> mConcernedClauseLiterals = new HashSet<ClauseEprLiteral>();
 
-	public EprGroundPredicateLiteral(Literal l, DawgFactory<ApplicationTerm, TermVariable> dawgFactory, EprStateManager stateManager) {
+	public EprGroundPredicateLiteral(final Literal l, final DawgFactory<ApplicationTerm, TermVariable> dawgFactory,
+			final EprStateManager stateManager) {
 		mAtom = (EprGroundPredicateAtom) l.getAtom();
 		mEprPredicate = mAtom.mEprPredicate;
 		mPolarity = l.getSign() == 1;
-		mDawg =
-				dawgFactory.createOnePointDawg(
+		mDawg = dawgFactory.createSingletonSet(
 						mEprPredicate.getTermVariablesForArguments(),
 						EprHelpers.convertTermArrayToConstantList(mAtom.getArguments()));
 		mEprPredicate.registerEprLiteral(this);
@@ -76,7 +76,7 @@ public class EprGroundPredicateLiteral implements IEprLiteral {
 	}
 
 	@Override
-	public IDawg<ApplicationTerm, TermVariable> getDawg() {
+	public DawgState<ApplicationTerm, Boolean> getDawg() {
 		return mDawg;
 	}
 
@@ -88,13 +88,13 @@ public class EprGroundPredicateLiteral implements IEprLiteral {
 	@Override
 	public void unregister() {
 		mEprPredicate.unregisterEprLiteral(this);
-		for (ClauseEprLiteral cel : mConcernedClauseLiterals) {
+		for (final ClauseEprLiteral cel : mConcernedClauseLiterals) {
 			cel.unregisterIEprLiteral(this);
 		}
 	}
 
 	@Override
-	public void registerConcernedClauseLiteral(ClauseEprLiteral cel) {
+	public void registerConcernedClauseLiteral(final ClauseEprLiteral cel) {
 		mConcernedClauseLiterals.add(cel);
 	}
 }

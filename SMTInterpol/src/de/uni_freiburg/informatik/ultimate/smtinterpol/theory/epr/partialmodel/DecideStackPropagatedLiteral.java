@@ -20,10 +20,9 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
-import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseEprLiteral;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
 
 /**
  * Represents a literal on the epr decide stack that was set because of a unit propagation.
@@ -40,12 +39,12 @@ public class DecideStackPropagatedLiteral extends DecideStackLiteral {
 	 */
 	private final ClauseEprLiteral mReasonUnitClauseLiteral;
 
-	private final IDawg<ApplicationTerm, TermVariable> mReasonClauseDawg;
+	private final DawgState<ApplicationTerm, Boolean> mReasonClauseDawg;
 
-	public DecideStackPropagatedLiteral(boolean polarity, EprPredicate eprPred,
-			IDawg<ApplicationTerm, TermVariable> predDawg,
-			ClauseEprLiteral unitClauseLiteral,	IDawg<ApplicationTerm, TermVariable> clauseDawg,
-			int index) {
+	public DecideStackPropagatedLiteral(final boolean polarity, final EprPredicate eprPred,
+			final DawgState<ApplicationTerm, Boolean> predDawg,
+			final ClauseEprLiteral unitClauseLiteral, final DawgState<ApplicationTerm, Boolean> clauseDawg,
+			final int index) {
 		super(polarity, eprPred, predDawg, index);
 		mReasonUnitClauseLiteral = unitClauseLiteral;
 		mReasonClauseDawg = clauseDawg;
@@ -56,7 +55,7 @@ public class DecideStackPropagatedLiteral extends DecideStackLiteral {
 	 * correspond to the point where this dsl sets its predicate.
 	 *  -- i.e. the dawg that was the preimage of the renameProjectAndSelect operation that yielded this dsl's dawg.
 	 */
-	public IDawg<ApplicationTerm, TermVariable> getClauseDawg() {
+	public DawgState<ApplicationTerm, Boolean> getClauseDawg() {
 		return mReasonClauseDawg;
 	}
 

@@ -20,15 +20,13 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel;
 
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
-import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseEprLiteral;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
 
 /**
  * Represents a literal on the DPLL decide stack of the EprTheory.
@@ -56,14 +54,14 @@ public abstract class DecideStackLiteral extends DecideStackEntry implements IEp
 	 * Stores all the groundings for which this.atom is decided with this.polarity
 	 * by this DecideStackLiteral
 	 */
-	protected IDawg<ApplicationTerm, TermVariable> mDawg;
+	protected DawgState<ApplicationTerm, Boolean> mDawg;
 
 	protected Set<ClauseEprLiteral> mConcernedClauseLiterals = new HashSet<ClauseEprLiteral>();
 
 
 
-	public DecideStackLiteral(boolean polarity,
-			EprPredicate pred, IDawg<ApplicationTerm, TermVariable> dawg, int index) {
+	public DecideStackLiteral(final boolean polarity,
+			final EprPredicate pred, final DawgState<ApplicationTerm, Boolean> dawg, final int index) {
 		super(index);
 		mPolarity = polarity;
 		mPred = pred;
@@ -91,13 +89,13 @@ public abstract class DecideStackLiteral extends DecideStackEntry implements IEp
 	 * @param arguments
 	 * @return
 	 */
-	public boolean talksAboutPoint(Term[] arguments) {
+	public boolean talksAboutPoint(final Term[] arguments) {
 		assert false : "TODO: implement";
 		return false;
 	}
 
 	@Override
-	public IDawg<ApplicationTerm, TermVariable> getDawg() {
+	public DawgState<ApplicationTerm, Boolean> getDawg() {
 		return mDawg;
 	}
 
@@ -125,13 +123,13 @@ public abstract class DecideStackLiteral extends DecideStackEntry implements IEp
 	@Override
 	public void unregister() {
 		mPred.unregisterEprLiteral(this);
-		for (ClauseEprLiteral cl : mConcernedClauseLiterals) {
+		for (final ClauseEprLiteral cl : mConcernedClauseLiterals) {
 			cl.unregisterIEprLiteral(this);
 		}
 	}
 
 	@Override
-	public void registerConcernedClauseLiteral(ClauseEprLiteral cel) {
+	public void registerConcernedClauseLiteral(final ClauseEprLiteral cel) {
 		mConcernedClauseLiterals.add(cel);
 	}
 
@@ -151,9 +149,9 @@ public abstract class DecideStackLiteral extends DecideStackEntry implements IEp
 //	}
 
 	@Override
-	public int compareTo(DecideStackLiteral other) {
+	public int compareTo(final DecideStackLiteral other) {
 //		return this.mIndex.compareTo(other.mIndex);
-		return this.nr - other.nr;
+		return nr - other.nr;
 	}
 
 //	static class DslIndex implements Comparable<DslIndex> {

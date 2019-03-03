@@ -110,7 +110,6 @@ public class EprStateManager {
 		mEprClauseManager.push();
 		mDecideStackManager.push();
 		mAllEprPredicates.beginScope();
-		mDawgFactory.push();
 		mEprClauseFactory.push();
 		mKnownSorts.beginScope();
 	}
@@ -119,7 +118,6 @@ public class EprStateManager {
 		mEprClauseManager.pop();
 		mDecideStackManager.pop();
 		mAllEprPredicates.endScope();
-		mDawgFactory.pop();
 		mEprClauseFactory.pop();
 		mKnownSorts.endScope();
 	}
@@ -517,8 +515,7 @@ public class EprStateManager {
 	 * @return
 	 */
 	public EprClause setGroundAtomIfCoveredByDecideStackLiteral(final DecideStackLiteral dsl, final EprGroundPredicateAtom atom) {
-		if (! dsl.getDawg().accepts(
-				EprHelpers.convertTermArrayToConstantList(atom.getArguments()))) {
+		if (!dsl.getDawg().getValue(EprHelpers.convertTermArrayToConstantList(atom.getArguments()))) {
 			// the decide stack literal does not talk about the atom
 			return null;
 		}

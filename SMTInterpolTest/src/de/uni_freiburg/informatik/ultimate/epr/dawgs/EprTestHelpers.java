@@ -40,15 +40,15 @@ public class EprTestHelpers {
 	}
 
 	public static <LETTER, COLNAMES> void addConstantsWDefaultSort(
-			DawgFactory<LETTER, COLNAMES> dawgFactoryStringString, Collection<LETTER> constants) {
+			final DawgFactory<LETTER, COLNAMES> dawgFactoryStringString, final Collection<LETTER> constants) {
 
-		for (LETTER constant : constants) {
+		for (final LETTER constant : constants) {
 			dawgFactoryStringString.addConstant(EprHelpers.getDummySortId(), constant);
 		}
 	}
 
 	static Collection<String> constantsAbc() {
-		Set<String> constants = new HashSet<String>();
+		final Set<String> constants = new HashSet<String>();
 		constants.add("a");
 		constants.add("b");
 		constants.add("c");
@@ -56,7 +56,7 @@ public class EprTestHelpers {
 	}
 
 	static Collection<String> constantsAbcde() {
-		Set<String> constants = new HashSet<String>();
+		final Set<String> constants = new HashSet<String>();
 		constants.add("a");
 		constants.add("b");
 		constants.add("c");

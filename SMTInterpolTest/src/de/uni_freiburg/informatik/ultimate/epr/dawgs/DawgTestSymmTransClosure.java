@@ -19,7 +19,8 @@
  */
 package de.uni_freiburg.informatik.ultimate.epr.dawgs;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import java.util.Arrays;
 import java.util.List;
@@ -31,9 +32,8 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.Dawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.IDawg;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
 
 /**
  * Test the symmetric transitive closure operation on dawgs (used for equality handling in EPR)
@@ -47,8 +47,8 @@ public class DawgTestSymmTransClosure {
 
 
 	/**
-	 * Our dawg contains "a a", and "b b", and nothing to connect the two equivalence classes
-	 *  --> the closure should not change the dawg.
+	 * Our dawg contains "a a", and "b b", and nothing to connect the two equivalence classes --> the closure should not
+	 * put anything the dawg as reflexivity is implied.
 	 */
 	@Test
 	public void test1() {
@@ -64,13 +64,13 @@ public class DawgTestSymmTransClosure {
 		final List<String> word_ba = Arrays.asList(new String[] { "b", "a" });
 		final List<String> word_bb = Arrays.asList(new String[] { "b", "b" });
 
-		IDawg<String, String> dawg = dawgFactory.createOnePointDawg(sig, word_aa);
-		dawg = dawg.add(word_bb);
+		DawgState<String, Boolean> dawg = dawgFactory.createSingletonSet(sig, word_aa);
+		dawg = dawgFactory.createUnion(dawg, dawgFactory.createSingletonSet(sig, word_bb));
 
-		Dawg<String, String> dawgRes = dawgFactory.closeDawgUnderSymmetryAndTransitivity((Dawg<String, String>) dawg);
+		final DawgState<String, Boolean> dawgRes = dawgFactory.computeSymmetricTransitiveClosure(dawg);
 
-		assertTrue(dawg.intersect(dawgRes.complement()).isEmpty());
-		assertTrue(dawg.complement().intersect(dawgRes).isEmpty());
+		assertFalse(dawgRes.getValue(word_ab));
+		assertFalse(dawgRes.getValue(word_ba));
 	}
 
 	/**
@@ -93,15 +93,13 @@ public class DawgTestSymmTransClosure {
 
 		final List<String> word_ac = Arrays.asList(new String[] { "a", "c" });
 
-		IDawg<String, String> dawg = dawgFactory.createOnePointDawg(sig, word_aa);
-		dawg = dawg.add(word_bb);
-		dawg = dawg.add(word_ba);
+		final DawgState<String, Boolean> dawg = dawgFactory.createSingletonSet(sig, word_ab);
 
-		Dawg<String, String> dawgRes = dawgFactory.closeDawgUnderSymmetryAndTransitivity((Dawg<String, String>) dawg);
+		final DawgState<String, Boolean> dawgRes = dawgFactory.computeSymmetricTransitiveClosure(dawg);
 
-		assertTrue(dawg.intersect(dawgRes.complement()).isEmpty());
-		assertTrue(dawgRes.accepts(word_ab));
-		assertFalse(dawgRes.accepts(word_ac));
+		assertTrue(dawgRes.getValue(word_ba));
+		assertTrue(dawgRes.getValue(word_bb));
+		assertFalse(dawgRes.getValue(word_ac));
 	}
 
 }
