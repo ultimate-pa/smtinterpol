@@ -274,7 +274,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 						final Iterator<DawgLetter<LETTER>> it = partitions.iterator();
 						while (it.hasNext()) {
 							final DawgLetter<LETTER> otherPart = it.next();
-							if (!otherPart.intersect(union).isEmpty()) {
+							if (!otherPart.isDisjoint(union)) {
 								newPart = newPart.union(otherPart);
 								it.remove();
 							}

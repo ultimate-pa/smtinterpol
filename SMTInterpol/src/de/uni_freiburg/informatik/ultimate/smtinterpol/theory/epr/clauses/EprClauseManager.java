@@ -30,8 +30,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundEqualityAtom;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.IEprLiteral;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
@@ -52,9 +50,9 @@ public class EprClauseManager {
 	ScopedHashMap<DPLLAtom, HashSet<EprClause>> mDPLLAtomToClauses =
 			new ScopedHashMap<DPLLAtom, HashSet<EprClause>>();
 
-	private EprTheory mEprTheory;
+	private final EprTheory mEprTheory;
 
-	public EprClauseManager(EprTheory eprTheory) {
+	public EprClauseManager(final EprTheory eprTheory) {
 		mEprTheory = eprTheory;
 	}
 
@@ -64,7 +62,7 @@ public class EprClauseManager {
 	}
 
 	public void pop() {
-		for (EprClause ec : mEprClauses.currentScope()) {
+		for (final EprClause ec : mEprClauses.currentScope()) {
 			ec.disposeOfClause();
 		}
 		mEprClauses.endScope();
@@ -82,15 +80,15 @@ public class EprClauseManager {
 	 * @param literalToBeSet
 	 * @return an EprClause that is Unit or Conflict if there is one, null otherwise
 	 */
-	public Set<EprClause> updateClausesOnSetEprLiteral(IEprLiteral literalToBeSet) {
+	public Set<EprClause> updateClausesOnSetEprLiteral(final IEprLiteral literalToBeSet) {
 
-		HashMap<EprClause, HashSet<ClauseEprLiteral>> allOccurences =
+		final HashMap<EprClause, HashSet<ClauseEprLiteral>> allOccurences =
 				literalToBeSet.getEprPredicate().getAllEprClauseOccurences();
 
-		Set<EprClause> unitClauses = new HashSet<EprClause>();
+		final Set<EprClause> unitClauses = new HashSet<EprClause>();
 
-		for (Entry<EprClause, HashSet<ClauseEprLiteral>> en : allOccurences.entrySet()) {
-			EprClause eprClause = en.getKey();
+		for (final Entry<EprClause, HashSet<ClauseEprLiteral>> en : allOccurences.entrySet()) {
+			final EprClause eprClause = en.getKey();
 
 			eprClause.updateStateWrtDecideStackLiteral(literalToBeSet, en.getValue());
 
@@ -114,12 +112,12 @@ public class EprClauseManager {
 	 *     --> still unclear.. (TODO)
 	 * @param dsl
 	 */
-	void updateClausesOnBacktrackDecideStackLiteral(DecideStackLiteral dsl) {
-		HashMap<EprClause, HashSet<ClauseEprLiteral>> allOccurences =
+	void updateClausesOnBacktrackDecideStackLiteral(final DecideStackLiteral dsl) {
+		final HashMap<EprClause, HashSet<ClauseEprLiteral>> allOccurences =
 				dsl.getEprPredicate().getAllEprClauseOccurences();
 
-		for (Entry<EprClause, HashSet<ClauseEprLiteral>> en : allOccurences.entrySet()) {
-			EprClause eprClause = en.getKey();
+		for (final Entry<EprClause, HashSet<ClauseEprLiteral>> en : allOccurences.entrySet()) {
+			final EprClause eprClause = en.getKey();
 
 			eprClause.backtrackStateWrtDecideStackLiteral(dsl);
 		}
@@ -129,16 +127,16 @@ public class EprClauseManager {
 	 * Inform all the EprClauses that contain the atom (not only the
 	 * literal!) that they have to update their fulfillment state.
 	 */
-	public Set<EprClause> updateClausesOnSetDpllLiteral(Literal literal) {
-		HashSet<EprClause> clauses =
-				this.mDPLLAtomToClauses.get(literal.getAtom());
+	public Set<EprClause> updateClausesOnSetDpllLiteral(final Literal literal) {
+		final HashSet<EprClause> clauses =
+				mDPLLAtomToClauses.get(literal.getAtom());
 		if (clauses == null) {
 			return null;
 		}
 
-		Set<EprClause> unitClauses = new HashSet<EprClause>();
-		for (EprClause ec : clauses) {
-			EprClauseState newClauseState =
+		final Set<EprClause> unitClauses = new HashSet<EprClause>();
+		for (final EprClause ec : clauses) {
+			final EprClauseState newClauseState =
 					ec.updateStateWrtDpllLiteral(literal);
 
 			if (newClauseState == EprClauseState.Conflict) {
@@ -159,17 +157,17 @@ public class EprClauseManager {
 	 * it is backtracked by the DPLLEngine.
 	 * @param literal
 	 */
-	public void updateClausesOnBacktrackDpllLiteral(Literal literal) {
-		HashSet<EprClause> clauses =
-				this.mDPLLAtomToClauses.get(literal.getAtom());
+	public void updateClausesOnBacktrackDpllLiteral(final Literal literal) {
+		final HashSet<EprClause> clauses =
+				mDPLLAtomToClauses.get(literal.getAtom());
 		if (clauses != null) {
-			for (EprClause ec : clauses) {
+			for (final EprClause ec : clauses) {
 				ec.backtrackStateWrtDpllLiteral(literal);
 			}
 		}
 	}
 
-	public void updateAtomToClauses(DPLLAtom atom, EprClause c) {
+	public void updateAtomToClauses(final DPLLAtom atom, final EprClause c) {
 		HashSet<EprClause> clauses = mDPLLAtomToClauses.get(atom);
 		if (clauses == null) {
 			clauses = new HashSet<EprClause>();
@@ -182,8 +180,8 @@ public class EprClauseManager {
 	 * Add a clause coming from the input script.
 	 * @return A ground conflict if adding the given clause directly leads to one.
 	 */
-	public Clause createEprClause(Set<Literal> literals) {
-		EprClause newClause = mEprTheory.getEprClauseFactory().getEprClause(literals);
+	public Clause createEprClause(final Set<Literal> literals) {
+		final EprClause newClause = mEprTheory.getEprClauseFactory().getEprClause(literals);
 
 		mEprTheory.getLogger().debug("EPRDEBUG: (EprClauseManager) creating new EprClause: " + newClause);
 
@@ -201,10 +199,10 @@ public class EprClauseManager {
 	/**
 	 * Register an eprClause (coming from input or learned) in the corresponding stores.
 	 */
-	public void registerEprClause(EprClause newClause) {
+	public void registerEprClause(final EprClause newClause) {
 		mEprClauses.add(newClause);
 
-		for (ClauseLiteral cl : newClause.getLiterals()) {
+		for (final ClauseLiteral cl : newClause.getLiterals()) {
 			updateAtomToClauses(cl.getLiteral().getAtom(), newClause);
 		}
 	}

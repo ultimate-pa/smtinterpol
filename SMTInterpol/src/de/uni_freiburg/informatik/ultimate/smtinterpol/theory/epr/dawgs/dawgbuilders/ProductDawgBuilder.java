@@ -62,8 +62,8 @@ public class ProductDawgBuilder<LETTER, COLNAMES, V1, V2, V3> {
 			final HashMap<DawgState<LETTER,V3>, DawgLetter<LETTER>> newTrans = new HashMap<>();
 			for (final Map.Entry<DawgState<LETTER, V1>, DawgLetter<LETTER>> trans1 : state1.getTransitions().entrySet()) {
 				for (final Map.Entry<DawgState<LETTER, V2>, DawgLetter<LETTER>> trans2 : state2.getTransitions().entrySet()) {
-					final DawgLetter<LETTER> newLetter = trans1.getValue().intersect(trans2.getValue());
-					if (!newLetter.isEmpty()) {
+					if (!trans1.getValue().isDisjoint(trans2.getValue())) {
+						final DawgLetter<LETTER> newLetter = trans1.getValue().intersect(trans2.getValue());
 						final DawgState<LETTER, V3> newState = product(trans1.getKey(), trans2.getKey());
 						if (newTrans.containsKey(newState)) {
 							newTrans.put(newState, newTrans.get(newState).union(newLetter));
