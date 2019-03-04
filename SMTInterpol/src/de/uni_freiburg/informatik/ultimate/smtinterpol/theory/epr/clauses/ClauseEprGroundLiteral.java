@@ -27,10 +27,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory.TriBool;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
 
 /**
  *
@@ -46,7 +44,7 @@ public class ClauseEprGroundLiteral extends ClauseEprLiteral {
 	}
 
 	@Override
-	protected DawgState<ApplicationTerm, TriBool> getLocalDawg() {
+	protected DawgState<ApplicationTerm, TriBool> computeDawg() {
 		final EprTheory.TriBool status =
 				mEprPredicateAtom.mEprPredicate.getDawg()
 						.getValue(((EprGroundPredicateAtom) mEprPredicateAtom).getArgumentsAsWord());
@@ -54,51 +52,6 @@ public class ClauseEprGroundLiteral extends ClauseEprLiteral {
 //				mAtom.getDecideStatus() == null ? EprTheory.TriBool.UNKNOWN
 //				: (mAtom.getDecideStatus() == mAtom) == mPolarity ? EprTheory.TriBool.TRUE : EprTheory.TriBool.FALSE;
 		return mEprTheory.getDawgFactory().createConstantDawg(mEprClause.getVariables(), status);
-	}
-
-	/**
-	 *
-	 * @param decideStackBorder
-	 *            (not sure if it is safe to ignore this parameter here.. TODO..)
-	 */
-	protected ClauseLiteralState determineState(final DecideStackLiteral decideStackBorder) {
-		mIsStateDirty = false;
-		if (mAtom.getDecideStatus() == null) {
-			if (!mPartiallyConflictingDecideStackLiterals.isEmpty()) {
-				assert mPartiallyConflictingDecideStackLiterals.size() == 1 || mAtom instanceof EprGroundEqualityAtom :
-					"I thought we had the invariant that the epr decide stack literals are disjoint?..";
-				return ClauseLiteralState.Refuted;
-			}
-			if (!mPartiallyFulfillingDecideStackLiterals.isEmpty()) {
-				assert mPartiallyFulfillingDecideStackLiterals.size() == 1 || mAtom instanceof EprGroundEqualityAtom :
-					"I thought we had the invariant that the epr decide stack literals are disjoint?..";
-				return ClauseLiteralState.Fulfilled;
-			}
-
-			// decided neither by dpll engine nor by epr theory
-			return ClauseLiteralState.Fulfillable;
-		}
-
-
-		if ((mAtom.getDecideStatus() == mAtom) == mPolarity){
-			// decided with same polarity
-			if (mPartiallyConflictingDecideStackLiterals != null
-					&& !mPartiallyConflictingDecideStackLiterals.isEmpty()) {
-				mEprTheory.getLogger().debug("EPRDEBUG: ClauseEprGroundLiteral.determineState(): " + this +
-						" already set as fulfilled by dpll engine, but has a refuting epr decide stack literal --> we must have a conflict");
-			}
-
-			return ClauseLiteralState.Fulfilled;
-		} else {
-			// decided with different polarity
-			assert (mAtom.getDecideStatus() == mAtom) != mPolarity;
-			if  (mPartiallyFulfillingDecideStackLiterals != null
-					&& !mPartiallyFulfillingDecideStackLiterals.isEmpty()) {
-				mEprTheory.getLogger().debug("EPRDEBUG: ClauseEprGroundLiteral.determineState(): " + this +
-						" already set as refuted by dpll engine, but has a fulfilling epr decide stack literal --> we must have a conflict");
-			}
-			return ClauseLiteralState.Refuted;
-		}
 	}
 
 	@Override

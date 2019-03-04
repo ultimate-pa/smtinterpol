@@ -264,7 +264,6 @@ public class EprClause {
 			if (cel.isDisjointFrom(dsl.getDawg())) {
 				continue;
 			}
-
 			if (cel.getPolarity() == dsl.getPolarity()) {
 				cel.addPartiallyFulfillingEprLiteral(dsl);
 			} else {
@@ -484,7 +483,7 @@ public class EprClause {
 	 * @return A factored version of this clause or this clause.
 	 */
 	public EprClause factorIfPossible() {
-		assert this.isConflict();
+		// assert this.isConflict();
 
 		for (final List<ApplicationTerm> cp : DawgFactory.getSet(getConflictPoints())) {
 			final BinaryRelation<Literal, ClauseLiteral> cpg = getGroundingForPoint(cp);

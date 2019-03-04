@@ -153,8 +153,7 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	 *  @param decideStackBorder when determining the state we only look at decide stack literals below the given one
 	 *                   (we look at all when decideStackBorder is null)
 	 */
-	public DawgState<ApplicationTerm, EprTheory.TriBool> getLocalDawg() {
-		// FIXME cache?
+	public DawgState<ApplicationTerm, EprTheory.TriBool> computeDawg() {
 		DawgState<ApplicationTerm, EprTheory.TriBool> dawg = mEprPredicateAtom.mEprPredicate.getDawg();
 		dawg = mDawgFactory.projectWithMap(dawg, mTranslationForClauseTvToConstants);
 		if (!mPolarity) {

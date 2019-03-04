@@ -35,7 +35,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.IEprLiteral;
-import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
 
 /**
  *
@@ -53,15 +52,10 @@ public abstract class ClauseEprLiteral extends ClauseLiteral {
 	protected final EprPredicateAtom mEprPredicateAtom;
 
 	/**
-	 * The literals on the current epr decide stack that contradict this literal at
-	 * least on one point, potentially on many or all points that this literal talks about.
-	 * (e.g. when P(a,x) is on the decide stack it contradicts ~P(y,b) on the point (a,b).)
+	 * The current status of the literal according to the decide stack. This is already translated into the signature of
+	 * the clause.
 	 */
-	protected final ScopedHashSet<IEprLiteral> mPartiallyConflictingDecideStackLiterals =
-			new ScopedHashSet<IEprLiteral>();
-
-	protected final ScopedHashSet<IEprLiteral> mPartiallyFulfillingDecideStackLiterals =
-			new ScopedHashSet<IEprLiteral>();
+	private DawgState<ApplicationTerm, EprTheory.TriBool> mCachedDawg;
 
 	/**
 	 * The TermVariables (EDIT and constants) that this clauseLiterals's atom's arguments have in the clause
@@ -98,37 +92,29 @@ public abstract class ClauseEprLiteral extends ClauseLiteral {
 	}
 
 	public void addPartiallyConflictingEprLiteral(final IEprLiteral el) {
-		el.registerConcernedClauseLiteral(this);
-		mPartiallyConflictingDecideStackLiterals.add(el);
 		mIsStateDirty = true;
 		mEprClause.mClauseStateIsDirty = true;
 	}
 
 	public void addPartiallyFulfillingEprLiteral(final IEprLiteral el) {
-		el.registerConcernedClauseLiteral(this);
-		mPartiallyFulfillingDecideStackLiterals.add(el);
 		mIsStateDirty = true;
 		mEprClause.mClauseStateIsDirty = true;
 	}
 
 	public Set<IEprLiteral> getPartiallyConflictingDecideStackLiterals() {
-		return Collections.unmodifiableSet(mPartiallyConflictingDecideStackLiterals);
+		throw new AssertionError();
 	}
 
 	/**
 	 * notifies the clause about the beginning of a push/pop scope
 	 */
 	public void beginScope() {
-		mPartiallyConflictingDecideStackLiterals.beginScope();
-		mPartiallyFulfillingDecideStackLiterals.beginScope();
 	}
 
 	/**
 	 * notifies the clause about the ending of a push/pop scope
 	 */
 	public void endScope() {
-		mPartiallyConflictingDecideStackLiterals.endScope();
-		mPartiallyFulfillingDecideStackLiterals.endScope();
 		mIsStateDirty = true;
 		mEprClause.mClauseStateIsDirty = true;
 	}
@@ -145,6 +131,14 @@ public abstract class ClauseEprLiteral extends ClauseLiteral {
 		return mArgumentTermsAsAppTerm;
 	}
 
+	protected abstract DawgState<ApplicationTerm, EprTheory.TriBool> computeDawg();
+	protected DawgState<ApplicationTerm, EprTheory.TriBool> getLocalDawg() {
+		if (mIsStateDirty) {
+			mCachedDawg = computeDawg();
+			mIsStateDirty = false;
+		}
+		return mCachedDawg;
+	}
 
 	/**
 	 * Determines if the point(s) this epr literal talks about have an empty intersection
@@ -156,10 +150,6 @@ public abstract class ClauseEprLiteral extends ClauseLiteral {
 	public abstract boolean isDisjointFrom(DawgState<ApplicationTerm, Boolean> dawg);
 
 	public void unregisterIEprLiteral(final IEprLiteral el) {
-		boolean success = false;
-		success |= mPartiallyConflictingDecideStackLiterals.remove(el);
-		success |= mPartiallyFulfillingDecideStackLiterals.remove(el);
-		assert success : "something wrong with the registration??";
 		mIsStateDirty = true;
 		mEprClause.mClauseStateIsDirty = true;
 	}

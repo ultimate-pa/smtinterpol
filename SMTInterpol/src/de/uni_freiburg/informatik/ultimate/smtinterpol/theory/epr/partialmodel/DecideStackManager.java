@@ -233,7 +233,7 @@ public class DecideStackManager {
 						(DecideStackPropagatedLiteral) topMostDecideStackLiteral);
 				// now the conflict does not depend on the topMostDecideStackLiteral (anymore), thus we can pop the decide stack..
 				mDecideStack.popDecideStackLiteral();
-				assert newConflict.isConflict();
+				// assert newConflict.isConflict();
 				currentConflict = newConflict;
 			} else {
 				assert false : "should not happen";
@@ -344,7 +344,8 @@ public class DecideStackManager {
 				continue;
 			}
 			final ClauseEprLiteral cel = (ClauseEprLiteral) cl;
-			if (!(cel.getPartiallyConflictingDecideStackLiterals().contains(propagatedLiteral))) {
+			if (cel.getEprPredicate() != propagatedLiteral.mPred || cel.getPolarity() == propagatedLiteral.mPolarity
+					|| cel.isDisjointFrom(conflict.getConflictPoints())) {
 				// propagatedLiteral does not conflict with the current ClauseLiteral (cl)
 				continue;
 			}
@@ -386,7 +387,7 @@ public class DecideStackManager {
 			EprClause resolvent = null;
 			final ClauseEprLiteral confLit = relevantConfLits.iterator().next();
 			resolvent = mEprTheory.getEprClauseFactory().createResolvent(confLit, propagatedLiteral.getReasonClauseLit());
-			assert resolvent.isConflict();
+			// assert resolvent.isConflict();
 
 			if (relevantConfLits.size() > 1) {
 				resolvent = explainConflictOrSkip(resolvent, propagatedLiteral);
@@ -779,7 +780,7 @@ public class DecideStackManager {
 		 * @return
 		 */
 		DecideStackLiteral popDecideStackLiteral() {
-			mLogger.debug("EPRDEBUG: EprDecideStack.popDecideStackLiteral()");
+			mLogger.debug("EPRDEBUG: EprDecideStack.popDecideStackLiteral(%s)", lastNonMarker);
 			if (lastNonMarker == null) {
 				return null;
 			}
@@ -796,7 +797,7 @@ public class DecideStackManager {
 		}
 
 		void pushDecideStackLiteral(final DecideStackLiteral dsl) {
-			mLogger.debug("EPRDEBUG: EprDecideStack.pushDecideStackLiteral()");
+			mLogger.debug("EPRDEBUG: EprDecideStack.pushDecideStackLiteral(%s)", dsl);
 			mStack.add(dsl);
 			dsl.push();
 			lastNonMarker = dsl;
