@@ -19,6 +19,7 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -77,8 +78,8 @@ public class EprClauseFactory {
 		final EprClause c1 = pivot1.getClause();
 		final EprClause c2 = pivot2.getClause();
 
-		final Set<ClauseLiteral> c1Lits = c1.getLiterals();
-		final Set<ClauseLiteral> c2Lits = c2.getLiterals();
+		final Collection<ClauseLiteral> c1Lits = c1.getLiterals();
+		final Collection<ClauseLiteral> c2Lits = c2.getLiterals();
 
 		final TermTuple p1tt = new TermTuple(pivot1.getArguments().toArray(new Term[arity]));
 		final TermTuple p2tt = new TermTuple(pivot2.getArguments().toArray(new Term[arity]));
@@ -112,7 +113,7 @@ public class EprClauseFactory {
 
 		final EprClause clause = factorLit1.getClause();
 
-		final Set<ClauseLiteral> cLits = clause.getLiterals();
+		final Collection<ClauseLiteral> cLits = clause.getLiterals();
 
 		final TermTuple p1tt = new TermTuple(factorLit1.getArguments().toArray(new Term[arity]));
 		final TermTuple p2tt = new TermTuple(factorLit2.getArguments().toArray(new Term[arity]));

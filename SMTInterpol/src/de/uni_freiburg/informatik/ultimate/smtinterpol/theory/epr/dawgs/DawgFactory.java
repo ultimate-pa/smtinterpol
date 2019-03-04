@@ -34,6 +34,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.BinaryRelation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgbuilders.DawgBuilder;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgbuilders.MappedDawgBuilder;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgbuilders.ProductDawgBuilder;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgbuilders.ProjectDawgBuilder;
@@ -67,7 +68,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 	 */
 	private final boolean mUseNaiveDawgs = false;
 
-	private final Map<Object, ScopedHashSet<LETTER>> mAllKnownConstants = new HashMap<Object, ScopedHashSet<LETTER>>();
+	private final Map<Object, ScopedHashSet<LETTER>> mAllKnownConstants = new HashMap<>();
 	// private final ScopedHashMap<Object, Set<LETTER>> mAllKnownConstants = new ScopedHashMap<Object, Set<LETTER>>();
 	// private final ScopedHashSet<String> mAllKnownSorts = new ScopedHashSet<String>();
 
@@ -79,8 +80,8 @@ public class DawgFactory<LETTER, COLNAMES> {
 			mDawgStateFactory = null;
 			mDawgLetterFactory = null;
 		} else {
-			mDawgLetterFactory = new DawgLetterFactory<LETTER>(this);
-			mDawgStateFactory = new DawgStateFactory<LETTER>();
+			mDawgLetterFactory = new DawgLetterFactory<>(this);
+			mDawgStateFactory = new DawgStateFactory<>();
 		}
 	}
 
@@ -129,6 +130,30 @@ public class DawgFactory<LETTER, COLNAMES> {
 			final DawgLetter<LETTER> badLetter = goodLetter.complement();
 			final DawgLetter<LETTER> all = mDawgLetterFactory.getUniversalDawgLetter(sort);
 			success = mDawgStateFactory.createIntermediateState(new BinaryMap<>(success, goodLetter, sink, badLetter));
+			sink = mDawgStateFactory.createIntermediateState(Collections.singletonMap(sink, all));
+		}
+		return success;
+	}
+
+	@SuppressWarnings("unchecked")
+	public DawgState<LETTER, Boolean> createPatternMatchSet(final SortedSet<COLNAMES> termVariables,
+			final List<LETTER> word) {
+
+		DawgState<LETTER, Boolean> success = mDawgStateFactory.createFinalState(Boolean.TRUE);
+		DawgState<LETTER, Boolean> sink = mDawgStateFactory.createFinalState(Boolean.FALSE);
+		final COLNAMES[] columns = (COLNAMES[]) termVariables.toArray(new Object[termVariables.size()]);
+		for (int i = columns.length - 1; i >= 0; i--) {
+			final COLNAMES cn = columns[i];
+			final Object sort = EprHelpers.extractSortFromColname(cn);
+			final DawgLetter<LETTER> all = mDawgLetterFactory.getUniversalDawgLetter(sort);
+			if (word.get(i) == null) {
+				success = mDawgStateFactory.createIntermediateState(Collections.singletonMap(success, all));
+			} else {
+				final DawgLetter<LETTER> goodLetter = mDawgLetterFactory.getSingletonSetDawgLetter(word.get(i), sort);
+				final DawgLetter<LETTER> badLetter = goodLetter.complement();
+				success = mDawgStateFactory
+						.createIntermediateState(new BinaryMap<>(success, goodLetter, sink, badLetter));
+			}
 			sink = mDawgStateFactory.createIntermediateState(Collections.singletonMap(sink, all));
 		}
 		return success;
@@ -186,6 +211,35 @@ public class DawgFactory<LETTER, COLNAMES> {
 		return createProduct(first, second, (in1, in2) -> in1 && in2);
 	}
 
+	private <VALUE> DawgState<LETTER, VALUE> projectWithMapInternal(final DawgState<LETTER, VALUE> dawg,
+			final Map<Integer, LETTER> selectMap, final int level) {
+		if (dawg.isFinal()) {
+			return dawg;
+		} else if (selectMap.containsKey(level)) {
+			final LETTER ltr = selectMap.get(level);
+			for (final Map.Entry<DawgState<LETTER, VALUE>, DawgLetter<LETTER>> trans : dawg.getTransitions()
+					.entrySet()) {
+				if (trans.getValue().matches(ltr)) {
+					return projectWithMapInternal(trans.getKey(), selectMap, level + 1);
+				}
+			}
+			throw new AssertionError();
+		} else {
+			final Map<DawgState<LETTER, VALUE>, DawgLetter<LETTER>> newTransitions = new HashMap<>();
+			for (final Map.Entry<DawgState<LETTER, VALUE>, DawgLetter<LETTER>> trans : dawg.getTransitions()
+					.entrySet()) {
+				final DawgState<LETTER, VALUE> newState = projectWithMapInternal(trans.getKey(), selectMap, level + 1);
+				DawgBuilder.addLetterToMap(newTransitions, newState, trans.getValue());
+			}
+			return mDawgStateFactory.createIntermediateState(newTransitions);
+		}
+	}
+
+	public <VALUE> DawgState<LETTER, VALUE> projectWithMap(final DawgState<LETTER, VALUE> dawg,
+			final Map<Integer, LETTER> selectMap) {
+		return projectWithMapInternal(dawg, selectMap, 0);
+	}
+
 	public static <LETTER, VALUE> boolean isConstantValue(final DawgState<LETTER, VALUE> state, final VALUE value) {
 		if (state.isFinal()) {
 			return state.getFinalValue() == value;
@@ -236,7 +290,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 					@Override
 					public List<LETTER> next() {
 						final List<LETTER> currentSuffix = subIterator.next();
-						final List<LETTER> result = new ArrayList<LETTER>(currentSuffix.size() + 1);
+						final List<LETTER> result = new ArrayList<>(currentSuffix.size() + 1);
 						result.add(currentLetter);
 						result.addAll(currentSuffix);
 						return result;
@@ -350,9 +404,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 	 *            the target signature we want to blow up for in the end
 	 * @return
 	 */
-	public DawgState<LETTER, Boolean> translatePredSigToClauseSig(DawgState<LETTER, Boolean> dawg,
-			final SortedSet<COLNAMES> predVariables,
-			final Map<COLNAMES, COLNAMES> columnMap, final Map<COLNAMES, LETTER> constantMap,
+	public <VALUE> DawgState<LETTER, VALUE> remap(DawgState<LETTER, VALUE> dawg, final Map<Integer, COLNAMES> columnMap,
 			final SortedSet<COLNAMES> clauseVariables) {
 		final Map<COLNAMES, Integer> destIdx = new HashMap<>();
 		int index = 0;
@@ -364,24 +416,13 @@ public class DawgFactory<LETTER, COLNAMES> {
 		}
 		assert index == clauseVariables.size();
 		final int[] columnIndexMap = new int[columnMap.size()];
-		final BitSet predInUse = new BitSet();
 		int projectedIndex = 0;
-		index = 0;
-		for (final COLNAMES tv : predVariables) {
-			if (columnMap.containsKey(tv)) {
-				assert !constantMap.containsKey(tv);
-				columnIndexMap[projectedIndex] = destIdx.get(columnMap.get(tv));
-				clauseWord.set(columnIndexMap[projectedIndex], null);
-				predInUse.set(index);
-				projectedIndex++;
-			} else {
-				assert constantMap.containsKey(tv);
-			}
-			index++;
+		for (final Integer i : columnMap.keySet()) {
+			columnIndexMap[projectedIndex] = destIdx.get(columnMap.get(i));
+			clauseWord.set(columnIndexMap[projectedIndex], null);
+			projectedIndex++;
 		}
-		dawg = createIntersection(dawg, createFromSelectMap(predVariables, constantMap));
-		dawg = new ProjectDawgBuilder<>(this, predVariables.size(), predInUse).project(dawg);
-		dawg = new ReorderDawgBuilder<>(this).reorder(dawg, clauseWord, columnIndexMap);
+		dawg = new ReorderDawgBuilder<LETTER, VALUE, COLNAMES>(this).reorder(dawg, clauseWord, columnIndexMap);
 		return dawg;
 	}
 
@@ -418,7 +459,7 @@ public class DawgFactory<LETTER, COLNAMES> {
 			if (argList.get(index) == null) {
 				predWord.add(null);
 			} else {
-				predWord.add(mDawgLetterFactory.getSingletonSetDawgLetter(argList.get(index), sort));
+				predWord.add(mDawgLetterFactory.getUniversalDawgLetter(sort));
 			}
 			destIdx.put(tv, index++);
 		}
@@ -429,7 +470,6 @@ public class DawgFactory<LETTER, COLNAMES> {
 		int projectedIndex = 0;
 		index = 0;
 		for (final COLNAMES tv : clauseVariables) {
-			final Object sort = EprHelpers.extractSortFromColname(tv);
 			if (cls2predMap.containsKey(tv)) {
 				columnIndexMap[projectedIndex] = destIdx.get(cls2predMap.get(tv));
 				assert predWord.get(columnIndexMap[projectedIndex]) == null;
@@ -440,7 +480,8 @@ public class DawgFactory<LETTER, COLNAMES> {
 		}
 		assert index == clauseVariables.size();
 		dawg = new ProjectDawgBuilder<>(this, clauseVariables.size(), clauseVarInUse).project(dawg);
-		dawg = new ReorderDawgBuilder<>(this).reorder(dawg, predWord, columnIndexMap);
+		dawg = new ReorderDawgBuilder<LETTER, Boolean, COLNAMES>(this).reorder(dawg, predWord, columnIndexMap);
+		dawg = createIntersection(dawg, createPatternMatchSet(predVariables, argList));
 		return dawg;
 	}
 }

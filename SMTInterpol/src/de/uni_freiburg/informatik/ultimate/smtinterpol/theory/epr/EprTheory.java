@@ -110,6 +110,14 @@ public class EprTheory implements ITheory {
 
 	private Map<Sort, EprEqualityPredicate> mSortToEqualityEprPredicate;
 
+	public static enum TriBool {
+		FALSE, UNKNOWN, TRUE;
+
+		public TriBool negate() {
+			return this == UNKNOWN ? UNKNOWN : this == TRUE ? FALSE : TRUE;
+		}
+	}
+
 	/**
 	 * Super constructor for EprTheoryMock (for testing).
 	 */
@@ -312,8 +320,9 @@ public class EprTheory implements ITheory {
 
 	@Override
 	public Clause computeConflictClause() {
-		if (EprTheorySettings.FullInstatiationMode)
+		if (EprTheorySettings.FullInstatiationMode) {
 			return null;
+		}
 		mLogger.debug("EPRDEBUG: computeConflictClause");
 
 		Clause conflict = mStateManager.eprDpllLoop();
@@ -386,8 +395,9 @@ public class EprTheory implements ITheory {
 
 	@Override
 	public Literal getSuggestion() {
-		if (EprTheorySettings.FullInstatiationMode)
+		if (EprTheorySettings.FullInstatiationMode) {
 			return null;
+		}
 		final Literal sug = mGroundDecisionSuggestions.poll();
 		if (sug == null) {
 			mLogger.debug("EPRDEBUG: (EprTheory): getSuggestion -- no literal to suggest");
@@ -470,7 +480,9 @@ public class EprTheory implements ITheory {
 	public void addAtomToDPLLEngine(final DPLLAtom atom) {
 		assert !(atom instanceof EprQuantifiedEqualityAtom || atom instanceof EprQuantifiedPredicateAtom);
 		if (atom instanceof CCEquality)
+		 {
 			return; // added to engine at creation, right?..
+		}
 		if (!mAtomsAddedToDPLLEngine.contains(atom)) { // TODO not so nice, with
 														// the extra set..
 			mEngine.addAtom(atom);

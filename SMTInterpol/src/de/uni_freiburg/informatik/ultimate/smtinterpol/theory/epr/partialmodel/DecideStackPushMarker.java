@@ -26,12 +26,20 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel;
  */
 public class DecideStackPushMarker extends DecideStackEntry {
 
-	public DecideStackPushMarker(int index) {
+	public DecideStackPushMarker(final int index) {
 		super(index);
 	}
 
 	@Override
 	public String toString() {
 		return "pushMarker" + nr;
+	}
+
+	@Override
+	public void push() {
+	}
+
+	@Override
+	public void pop() {
 	}
 }

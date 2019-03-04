@@ -19,9 +19,13 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates;
 
+import java.util.Collections;
+import java.util.Iterator;
 import java.util.Map;
 
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.DawgLetter;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.BinaryMap;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ArrayMap;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.UnifyHash;
 
 /**
@@ -37,9 +41,10 @@ public class DawgStateFactory<LETTER> {
 
 	@SuppressWarnings("unchecked")
 	public <VALUE> DawgState<LETTER, VALUE> createFinalState(final VALUE value) {
-		final int hash = value.hashCode();
+		final int hash = value == null ? 0 : value.hashCode();
 		for (final DawgState<LETTER, ?> previous : mExistingStates.iterateHashCode(hash)) {
-			if (previous.isFinal() && previous.getFinalValue().equals(value)) {
+			if (previous.isFinal()
+					&& previous.getFinalValue() == null ? value == null : previous.getFinalValue().equals(value)) {
 				return (DawgState<LETTER, VALUE>) previous;
 			}
 		}
@@ -51,16 +56,40 @@ public class DawgStateFactory<LETTER> {
 
 	@SuppressWarnings("unchecked")
 	public <VALUE> DawgState<LETTER, VALUE>
-			createIntermediateState(final Map<DawgState<LETTER, VALUE>, DawgLetter<LETTER>> transitions) {
+			createIntermediateState(Map<DawgState<LETTER, VALUE>, DawgLetter<LETTER>> transitions) {
 		final int hash = transitions.hashCode();
 		for (final DawgState<LETTER, ?> previous : mExistingStates.iterateHashCode(hash)) {
 			if (previous.mTransitions.equals(transitions)) {
 				return (DawgState<LETTER, VALUE>) previous;
 			}
 		}
+		if (transitions.size() == 0) {
+			transitions = Collections.emptyMap();
+		} else if (transitions.size() == 1) {
+			final Map.Entry<DawgState<LETTER, VALUE>, DawgLetter<LETTER>> entry = transitions.entrySet().iterator().next();
+			transitions = Collections.singletonMap(entry.getKey(), entry.getValue());
+		} else if (!(transitions instanceof BinaryMap) && !(transitions instanceof ArrayMap)) {
+			if (transitions.size() == 2) {
+				final Iterator<Map.Entry<DawgState<LETTER, VALUE>, DawgLetter<LETTER>>> it = transitions.entrySet().iterator();
+				final Map.Entry<DawgState<LETTER, VALUE>, DawgLetter<LETTER>> entry1 = it .next();
+				final Map.Entry<DawgState<LETTER, VALUE>, DawgLetter<LETTER>> entry2 = it.next();
+				transitions = new BinaryMap<>(entry1.getKey(), entry1.getValue(), entry2.getKey(), entry2.getValue());
+			} else {
+				final Map.Entry<DawgState<LETTER, VALUE>, DawgLetter<LETTER>>[] entries =
+						transitions.entrySet().toArray((Map.Entry<DawgState<LETTER, VALUE>, DawgLetter<LETTER>>[])
+								new Map.Entry[transitions.size()]);
+				final DawgState<LETTER, VALUE>[] keys = new DawgState[entries.length];
+				final DawgLetter<LETTER>[] values = new DawgLetter[entries.length];
+				for (int i = 0; i < entries.length; i++) {
+					keys[i] = entries[i].getKey();
+					values[i] = entries[i].getValue();
+				}
+				transitions = new ArrayMap<>(keys, values);
+			}
+		}
 		final DawgState<LETTER, VALUE> result = new DawgState<>(transitions);
 		mExistingStates.put(hash, result);
-		// assert result.checkState();
+		// assert result.isTotal() || true;
 		return result;
 	}
 }

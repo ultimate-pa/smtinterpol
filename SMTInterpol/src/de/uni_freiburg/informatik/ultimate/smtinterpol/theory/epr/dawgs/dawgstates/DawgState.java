@@ -116,8 +116,9 @@ public class DawgState<LETTER, VALUE> {
 		return state.getFinalValue();
 	}
 
-	public boolean checkState() {
+	public boolean isTotal() {
 		int depth = -1;
+		boolean allTotal = true;
 		final HashSet<Pair<Integer, DawgState<LETTER, VALUE>>> seen = new HashSet<>();
 		final ArrayDeque<Pair<Integer, DawgState<LETTER, VALUE>>> todo = new ArrayDeque<>();
 		todo.add(new Pair<>(0, this));
@@ -140,10 +141,10 @@ public class DawgState<LETTER, VALUE> {
 					assert union.intersect(entry.getValue()).isEmpty();
 					union = union.union(entry.getValue());
 				}
-				assert union.isUniversal();
+				allTotal &= union.isUniversal();
 			}
 		}
-		return true;
+		return allTotal;
 	}
 
 }

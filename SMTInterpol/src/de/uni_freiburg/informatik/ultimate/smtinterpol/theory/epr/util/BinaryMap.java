@@ -58,6 +58,10 @@ public class BinaryMap<K, V> extends AbstractMap<K, V> {
 			return old;
 		}
 
+		@Override
+		public String toString() {
+			return getKey() + " -> " + getValue();
+		}
 	}
 
 	@Override

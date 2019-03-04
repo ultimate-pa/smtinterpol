@@ -2,7 +2,7 @@
 
 (set-option :print-success false)
 (set-option :produce-proofs false)
-(set-option :verbosity 3)
+
 
 (set-logic UF)
 (set-info :category "crafted")

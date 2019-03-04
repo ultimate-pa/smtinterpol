@@ -19,6 +19,9 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
@@ -31,11 +34,20 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
  *
  */
 public class EprGroundPredicateAtom extends EprPredicateAtom {
+	List<ApplicationTerm> mArgumentsAsWord;
 
 	public EprGroundPredicateAtom(final ApplicationTerm term, final int hash, final int assertionstacklevel,
 			final EprPredicate pred, final SourceAnnotation source) {
 		super(term, hash, assertionstacklevel, pred, source);
 		assert term.getFreeVars().length == 0 : "trying to create a ground atom from a non-ground term";
+		mArgumentsAsWord = new ArrayList<>(getArguments().length);
+		for (final Term arg : getArguments()) {
+			mArgumentsAsWord.add((ApplicationTerm) arg);
+		}
+	}
+
+	public List<ApplicationTerm> getArgumentsAsWord() {
+		return mArgumentsAsWord;
 	}
 
 	@Override

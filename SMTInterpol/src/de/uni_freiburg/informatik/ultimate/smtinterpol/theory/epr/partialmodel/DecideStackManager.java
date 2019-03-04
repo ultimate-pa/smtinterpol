@@ -59,7 +59,7 @@ public class DecideStackManager {
 	private final EprTheory mEprTheory;
 	private final EprStateManager mStateManager;
 
-	private Set<EprClause> mUnitClausesWaitingForPropagation = new HashSet<EprClause>();
+	private Set<EprClause> mUnitClausesWaitingForPropagation = new HashSet<>();
 
 	private final EprDecideStack mDecideStack;
 
@@ -78,7 +78,7 @@ public class DecideStackManager {
 	 * @return null or a conflict epr clause
 	 */
 	EprClause propagateAll(final Set<EprClause> unitClauses) {
-		final Set<EprClause> conflictsOrUnits = new HashSet<EprClause>(unitClauses);
+		final Set<EprClause> conflictsOrUnits = new HashSet<>(unitClauses);
 		while (conflictsOrUnits != null
 				&& !conflictsOrUnits.isEmpty()
 				&& !mEprTheory.isTerminationRequested()) {
@@ -124,7 +124,7 @@ public class DecideStackManager {
 			final EprClause unitClause) {
 		mLogger.debug("EPRDEBUG: EprStateManager.propagateUnitClause(..): " + unitClause);
 		assert unitClause.isUnit();
-		final Set<EprClause> result = new HashSet<EprClause>(conflictsOrUnits);
+		final Set<EprClause> result = new HashSet<>(conflictsOrUnits);
 
 		// if we have a unit clause, propagate the literal
 		// the set..-method returns the new set of conflicts or units
@@ -252,7 +252,7 @@ public class DecideStackManager {
 	private Clause refine(final DecideStackDecisionLiteral topMostDecideStackLiteral, final EprClause currentConflict) {
 
 		// find all clause literals with the same predicate and polarity
-		final Set<ClauseEprLiteral> literalsMatchingDecision = new HashSet<ClauseEprLiteral>();
+		final Set<ClauseEprLiteral> literalsMatchingDecision = new HashSet<>();
 		for (final ClauseLiteral cl : currentConflict.getLiterals()) {
 			if (cl instanceof ClauseEprLiteral) {
 				final ClauseEprLiteral cel = (ClauseEprLiteral) cl;
@@ -307,7 +307,7 @@ public class DecideStackManager {
 
 		final DecideStackDecisionLiteral lastDecision = mDecideStack.getLastDecision();
 
-		if (currentConflict.isUnitBelowDecisionPoint(lastDecision)) {
+		if (false) {
 			// we can backjump
 			popEprDecideStackUntilAndIncluding(lastDecision);
 
@@ -337,7 +337,7 @@ public class DecideStackManager {
 	private EprClause explainConflictOrSkip(final EprClause conflict, final DecideStackPropagatedLiteral propagatedLiteral) {
 
 		//look for the ClauseLiteral that propagatedLiteral conflicts with
-		final Set<ClauseEprLiteral> relevantConfLits = new HashSet<ClauseEprLiteral>();
+		final Set<ClauseEprLiteral> relevantConfLits = new HashSet<>();
 		for (final ClauseLiteral cl : conflict.getLiterals()) {
 			if (!(cl instanceof ClauseEprLiteral)) {
 				// cl's predicate is not an epr predicate, the decide stack only talks about epr predicates
@@ -351,16 +351,13 @@ public class DecideStackManager {
 
 			if (cel instanceof ClauseEprQuantifiedLiteral) {
 				final ClauseEprQuantifiedLiteral ceql = (ClauseEprQuantifiedLiteral) cel;
-				final DawgState<ApplicationTerm, Boolean> propLitDawgInClauseSignature =
-						mEprTheory.getDawgFactory().translatePredSigToClauseSig(
-								propagatedLiteral.getDawg(),
-								ceql.getEprPredicate().getTermVariablesForArguments(),
-								ceql.getTranslationFromEprPredicateToClauseVariables(),
-								ceql.getTranslationFromEprPredicateToClauseConstants(),
-								conflict.getVariables());
-				final DawgState<ApplicationTerm, Boolean> intersection = mEprTheory.getDawgFactory()
-						.createIntersection(propLitDawgInClauseSignature, conflict.getConflictPoints());
-				if (DawgFactory.isEmpty(intersection)) {
+				DawgState<ApplicationTerm, Boolean> dawgChanged = propagatedLiteral.getDawg();
+				dawgChanged = mEprTheory.getDawgFactory().projectWithMap(dawgChanged,
+						ceql.getTranslationFromEprPredicateToClauseConstants());
+				dawgChanged = mEprTheory.getDawgFactory().remap(dawgChanged,
+						ceql.getTranslationFromEprPredicateToClauseVariables(), conflict.getVariables());
+				dawgChanged = mEprTheory.getDawgFactory().createIntersection(dawgChanged, conflict.getConflictPoints());
+				if (DawgFactory.isEmpty(dawgChanged)) {
 					continue;
 				}
 				relevantConfLits.add(cel);
@@ -560,11 +557,11 @@ public class DecideStackManager {
 		 */
 		boolean newDPLLAtoms = true;
 		while (newDPLLAtoms) {
-			final HashSet<EprGroundPredicateAtom> copy = new HashSet<EprGroundPredicateAtom>(dsl.getEprPredicate().getDPLLAtoms());
+			final HashSet<EprGroundPredicateAtom> copy = new HashSet<>(dsl.getEprPredicate().getDPLLAtoms());
 			for (final EprGroundPredicateAtom atom : copy) {
 				final EprClause conflict = mStateManager.setGroundAtomIfCoveredByDecideStackLiteral(dsl, atom);
 				if (conflict != null) {
-					return new HashSet<EprClause>(Collections.singleton(conflict));
+					return new HashSet<>(Collections.singleton(conflict));
 				}
 			}
 			newDPLLAtoms = !copy.equals(dsl.getEprPredicate().getDPLLAtoms());
@@ -645,8 +642,8 @@ public class DecideStackManager {
 	}
 
 	Clause doPropagations() {
-		final HashSet<EprClause> toProp = new HashSet<EprClause>(mUnitClausesWaitingForPropagation);
-		mUnitClausesWaitingForPropagation = new HashSet<EprClause>();
+		final HashSet<EprClause> toProp = new HashSet<>(mUnitClausesWaitingForPropagation);
+		mUnitClausesWaitingForPropagation = new HashSet<>();
 		final EprClause conflict = propagateAll(toProp);
 		if (conflict == null) {
 			return null;
@@ -693,7 +690,7 @@ public class DecideStackManager {
 	}
 
 	private static class EprDecideStack {
-		private final List<DecideStackEntry> mStack = new LinkedList<DecideStackEntry>();
+		private final List<DecideStackEntry> mStack = new LinkedList<>();
 
 		private int lastNonMarkerIndex = -1;
 		private int lastPushMarkerIndex = -1;
@@ -704,7 +701,7 @@ public class DecideStackManager {
 		private DecideStackDecisionLiteral lastDecision;
 
 		private final Map<Literal, DecideStackSetLiteralMarker> mLiteralToMarker =
-				new HashMap<Literal, DecideStackSetLiteralMarker>();
+				new HashMap<>();
 
 		private final LogProxy mLogger;
 
@@ -720,6 +717,7 @@ public class DecideStackManager {
 			final DecideStackSetLiteralMarker marker = new DecideStackSetLiteralMarker(l, height() + 1);
 			lastElement = marker;
 			mStack.add(marker);
+			marker.push();
 			assert !mLiteralToMarker.containsKey(l);
 			mLiteralToMarker.put(l, marker);
 			assert checkDecideStackInvariants();
@@ -749,10 +747,11 @@ public class DecideStackManager {
 			 * We clear the complete list above the given literal's marker, BUT, we restore all the pushMarkers
 			 * in that list on the decideStack.
 			 */
-			final List<DecideStackPushMarker> pushMarkers = new ArrayList<DecideStackPushMarker>();
+			final List<DecideStackPushMarker> pushMarkers = new ArrayList<>();
 
 			final List<DecideStackEntry> suffix = mStack.subList(mStack.indexOf(marker), mStack.size());
 			for (final DecideStackEntry dse : suffix) {
+				dse.pop();
 				if (dse instanceof DecideStackLiteral) {
 					((DecideStackLiteral) dse).unregister();
 				} else if (dse instanceof DecideStackPushMarker) {
@@ -787,6 +786,7 @@ public class DecideStackManager {
 
 			final DecideStackLiteral result = lastNonMarker;
 			mStack.remove(result);
+			result.pop();
 			result.unregister();
 
 			updateInternalFields();
@@ -798,6 +798,7 @@ public class DecideStackManager {
 		void pushDecideStackLiteral(final DecideStackLiteral dsl) {
 			mLogger.debug("EPRDEBUG: EprDecideStack.pushDecideStackLiteral()");
 			mStack.add(dsl);
+			dsl.push();
 			lastNonMarker = dsl;
 			lastNonMarkerIndex = mStack.size() - 1;
 			lastElement = dsl;
@@ -829,6 +830,7 @@ public class DecideStackManager {
 
 			final List<DecideStackEntry> suffix = mStack.subList(lastPushMarkerIndex, mStack.size());
 			for (final DecideStackEntry dse : suffix) {
+				dse.pop();
 				if (dse instanceof DecideStackLiteral) {
 					((DecideStackLiteral) dse).unregister();
 				}

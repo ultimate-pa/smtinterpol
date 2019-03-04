@@ -1,7 +1,7 @@
 (set-option :print-success false)
 (set-option :produce-proofs false)
 (set-option :interpolant-check-mode true)
-(set-option :verbosity 3)
+
 (set-logic UF)
 (set-info :source |Simple EPR example. Exposed a bug where the registration of already made decision in the ClauseLiterals of a fresh clause was missing. Also uses factorization.|)
 (set-info :smt-lib-version 2.0)

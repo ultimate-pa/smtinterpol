@@ -56,10 +56,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.I
  * @author Alexander Nutz
  */
 public class EprPredicate {
-
 	private final int mArity;
 	private final FunctionSymbol mFunctionSymbol;
-
 
 	/**
 	 * Every predicate symbol has canonical TermVariables for each of its argument positions.
@@ -89,6 +87,8 @@ public class EprPredicate {
 	private final HashMap<TermTuple, EprGroundPredicateAtom> mPointToAtom = new HashMap<>();
 	private final HashMap<TermTuple, EprQuantifiedPredicateAtom> mTermTupleToAtom = new HashMap<>();
 
+	private DawgState<ApplicationTerm, EprTheory.TriBool> mCurrentDecision;
+
 	public EprPredicate(final FunctionSymbol fs, final EprTheory eprTheory) {
 		mFunctionSymbol = fs;
 		mArity = fs.getParameterSorts().length;
@@ -102,6 +102,7 @@ public class EprPredicate {
 
 		}
 		mSignature = Collections.unmodifiableSortedSet(tva);
+		mCurrentDecision = mEprTheory.getDawgFactory().createConstantDawg(mSignature, EprTheory.TriBool.UNKNOWN);
 	}
 
 	public void addQuantifiedOccurence(final ClauseEprQuantifiedLiteral l, final EprClause eprClause) {
@@ -115,6 +116,22 @@ public class EprPredicate {
 
 	private HashMap<EprClause, HashSet<ClauseEprLiteral>> getQuantifiedOccurences() {
 		return mQuantifiedOccurences;
+	}
+
+	public EprTheory getEprTheory() {
+		return mEprTheory;
+	}
+
+	public DawgState<ApplicationTerm, EprTheory.TriBool> getDawg() {
+		return mCurrentDecision;
+	}
+
+	public SortedSet<TermVariable> getSignature() {
+		return mSignature;
+	}
+
+	public void setDawg(final DawgState<ApplicationTerm, EprTheory.TriBool> decision) {
+		mCurrentDecision = decision;
 	}
 
 	public void addGroundOccurence(final ClauseEprGroundLiteral l, final EprClause eprClause) {
@@ -277,19 +294,16 @@ public class EprPredicate {
 
 	private DawgState<ApplicationTerm, Boolean> computeUndecidedPoints() {
 		final DawgFactory<ApplicationTerm, TermVariable> factory = mEprTheory.getDawgFactory();
-		DawgState<ApplicationTerm, Boolean> positivelySetPoints =
-				factory.createConstantDawg(mSignature, Boolean.FALSE);
-		DawgState<ApplicationTerm, Boolean> negativelySetPoints =
-				factory.createConstantDawg(mSignature, Boolean.FALSE);
-		DawgState<ApplicationTerm, Boolean> undecidedPoints =
-				factory.createConstantDawg(mSignature, Boolean.FALSE);
+		DawgState<ApplicationTerm, Boolean> positivelySetPoints = factory.createConstantDawg(mSignature, Boolean.FALSE);
+		DawgState<ApplicationTerm, Boolean> negativelySetPoints = factory.createConstantDawg(mSignature, Boolean.FALSE);
+		DawgState<ApplicationTerm, Boolean> undecidedPoints = factory.createConstantDawg(mSignature, Boolean.FALSE);
 
 		for (final IEprLiteral dsl : mEprLiterals) {
 			if (dsl.getPolarity()) {
-				//positive literal
+				// positive literal
 				positivelySetPoints = factory.createUnion(positivelySetPoints, dsl.getDawg());
 			} else {
-				//negative literal
+				// negative literal
 				negativelySetPoints = factory.createUnion(negativelySetPoints, dsl.getDawg());
 			}
 		}
@@ -298,29 +312,26 @@ public class EprPredicate {
 		for (final EprGroundPredicateAtom at : mDPLLAtoms) {
 			if (at.getDecideStatus() == null) {
 				// not yet decided
-				undecidedPoints = factory.createUnion(undecidedPoints,
-						factory.createSingletonSet(mSignature,
-								EprHelpers.convertTermArrayToConstantList(at.getArguments())));
+				undecidedPoints = factory.createUnion(undecidedPoints, factory.createSingletonSet(mSignature,
+						EprHelpers.convertTermArrayToConstantList(at.getArguments())));
 			} else if (at.getDecideStatus().getSign() == 1) {
 				// positively set
-				positivelySetPoints = factory.createUnion(positivelySetPoints,
-						factory.createSingletonSet(mSignature,
-								EprHelpers.convertTermArrayToConstantList(at.getArguments())));
+				positivelySetPoints = factory.createUnion(positivelySetPoints, factory.createSingletonSet(mSignature,
+						EprHelpers.convertTermArrayToConstantList(at.getArguments())));
 			} else {
 				// negatively set
-				negativelySetPoints = factory.createUnion(negativelySetPoints,
-						factory.createSingletonSet(mSignature,
-								EprHelpers.convertTermArrayToConstantList(at.getArguments())));
+				negativelySetPoints = factory.createUnion(negativelySetPoints, factory.createSingletonSet(mSignature,
+						EprHelpers.convertTermArrayToConstantList(at.getArguments())));
 			}
 		}
 
 		DawgState<ApplicationTerm, Boolean> allDecidedPoints = factory.createConstantDawg(mSignature, Boolean.FALSE);
-//		allDecidedPoints.addAll(positivelySetPoints);
+		// allDecidedPoints.addAll(positivelySetPoints);
 		allDecidedPoints = factory.createUnion(allDecidedPoints, positivelySetPoints);
-//		allDecidedPoints.addAll(negativelySetPoints);
+		// allDecidedPoints.addAll(negativelySetPoints);
 		allDecidedPoints = factory.createUnion(allDecidedPoints, negativelySetPoints);
 
-//		undecidedPoints.addAll(allDecidedPoints.complement());
+		// undecidedPoints.addAll(allDecidedPoints.complement());
 		undecidedPoints = factory.createProduct(undecidedPoints, allDecidedPoints, (b1, b2) -> b1 || !b2);
 		return undecidedPoints;
 	}

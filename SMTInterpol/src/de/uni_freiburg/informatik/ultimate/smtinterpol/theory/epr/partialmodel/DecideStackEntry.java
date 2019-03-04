@@ -36,7 +36,11 @@ public abstract class DecideStackEntry {
 	 */
 	final int nr;
 
-	public DecideStackEntry(int i) {
+	public DecideStackEntry(final int i) {
 		nr = i;
 	}
+
+	abstract void push();
+
+	abstract void pop();
 }

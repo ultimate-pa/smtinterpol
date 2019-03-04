@@ -26,9 +26,9 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory.TriBool;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
 
@@ -46,10 +46,20 @@ public class ClauseEprGroundLiteral extends ClauseEprLiteral {
 	}
 
 	@Override
+	protected DawgState<ApplicationTerm, TriBool> getLocalDawg() {
+		final EprTheory.TriBool status =
+				mEprPredicateAtom.mEprPredicate.getDawg()
+						.getValue(((EprGroundPredicateAtom) mEprPredicateAtom).getArgumentsAsWord());
+
+//				mAtom.getDecideStatus() == null ? EprTheory.TriBool.UNKNOWN
+//				: (mAtom.getDecideStatus() == mAtom) == mPolarity ? EprTheory.TriBool.TRUE : EprTheory.TriBool.FALSE;
+		return mEprTheory.getDawgFactory().createConstantDawg(mEprClause.getVariables(), status);
+	}
 
 	/**
 	 *
-	 * @param decideStackBorder (not sure if it is safe to ignore this parameter here.. TODO..)
+	 * @param decideStackBorder
+	 *            (not sure if it is safe to ignore this parameter here.. TODO..)
 	 */
 	protected ClauseLiteralState determineState(final DecideStackLiteral decideStackBorder) {
 		mIsStateDirty = false;
@@ -108,5 +118,4 @@ public class ClauseEprGroundLiteral extends ClauseEprLiteral {
 		assert !groundings.isEmpty();
 		return groundings.iterator().next();
 	}
-
 }

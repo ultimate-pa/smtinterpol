@@ -19,11 +19,12 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses;
 
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
 
 /**
  *
@@ -32,7 +33,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.D
  */
 public class ClauseDpllLiteral extends ClauseLiteral {
 
-	public ClauseDpllLiteral(boolean polarity, DPLLAtom atom, EprClause clause, EprTheory eprTheory) {
+	public ClauseDpllLiteral(final boolean polarity, final DPLLAtom atom, final EprClause clause, final EprTheory eprTheory) {
 		super(polarity, atom, clause, eprTheory);
 		assert !(atom instanceof EprPredicateAtom) : "use different ClauseLiteral";
 		assert !(atom instanceof EprQuantifiedEqualityAtom) : "use different ClauseLiteral";
@@ -44,16 +45,16 @@ public class ClauseDpllLiteral extends ClauseLiteral {
 	 *   "below" the epr decide stack anyway.
 	 */
 	@Override
-	protected ClauseLiteralState determineState(DecideStackLiteral decideStackBorder) {
+	protected DawgState<ApplicationTerm, EprTheory.TriBool> getLocalDawg() {
 		if (mAtom.getDecideStatus() == null) {
 			// undecided
-			return ClauseLiteralState.Fulfillable;
+			return mDawgFactory.createConstantDawg(mEprClause.getVariables(), EprTheory.TriBool.UNKNOWN);
 		} else if ((mAtom.getDecideStatus() == mAtom) == mPolarity){
 			// decided with same polarity
-			return ClauseLiteralState.Fulfilled;
+			return mDawgFactory.createConstantDawg(mEprClause.getVariables(), EprTheory.TriBool.TRUE);
 		} else {
 			// decided with different polarity
-			return ClauseLiteralState.Refuted;
+			return mDawgFactory.createConstantDawg(mEprClause.getVariables(), EprTheory.TriBool.FALSE);
 		}
 	}
 

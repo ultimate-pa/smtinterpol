@@ -24,7 +24,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
@@ -48,23 +47,28 @@ public class UnitPropagationData {
 	private final Map<Literal, Clause> mGroundPropagations;
 
 	public UnitPropagationData(
-			final Map<ClauseLiteral, DawgState<ApplicationTerm, Boolean>> finalClauseLitToUnitPoints,
+			final EprClause clause, final DawgState<ApplicationTerm, Integer> clauseDawg,
 			final DawgFactory<ApplicationTerm, TermVariable> dawgFactory) {
 
-		final List<DslBuilder> quantifiedPropagations = new ArrayList<DslBuilder>();
-		final Map<Literal, Clause> groundPropagations = new HashMap<Literal, Clause>();
+		final List<DslBuilder> quantifiedPropagations = new ArrayList<>();
+		final Map<Literal, Clause> groundPropagations = new HashMap<>();
 
-		for (final Entry<ClauseLiteral, DawgState<ApplicationTerm, Boolean>> en : finalClauseLitToUnitPoints
-				.entrySet()) {
-			final ClauseLiteral cl = en.getKey();
+		for (int i = 0; i < clause.getLiterals().size(); i++) {
+			final ClauseLiteral cl = clause.getLiterals().get(i);
+			final int clauseNr = i;
+			final DawgState<ApplicationTerm, Boolean> unitPoints =
+					dawgFactory.createMapped(clauseDawg, status -> status == clauseNr);
+			if (DawgFactory.isEmpty(unitPoints)) {
+				continue;
+			}
 			if (cl instanceof ClauseEprQuantifiedLiteral) {
 				final ClauseEprQuantifiedLiteral ceql = (ClauseEprQuantifiedLiteral) cl;
 				final DslBuilder propB = new DslBuilder(ceql.getPolarity(), ceql.getEprPredicate(),
-						dawgFactory.translateClauseSigToPredSig(en.getValue(),
+						dawgFactory.translateClauseSigToPredSig(unitPoints,
 								ceql.mEprClause.getVariables(),
 								ceql.getTranslationFromClauseToEprPredicate(), ceql.getArgumentsAsAppTerm(),
 								ceql.getEprPredicate().getTermVariablesForArguments()),
-						ceql, en.getValue(), false);
+						ceql, unitPoints, false);
 				quantifiedPropagations.add(propB);
 			} else {
 				if (cl.getLiteral().getAtom() instanceof EprGroundEqualityAtom) {
@@ -88,7 +92,7 @@ public class UnitPropagationData {
 					quantifiedPropagations.add(propB);
 				} else {
 
-					final DawgState<ApplicationTerm, Boolean> groundingDawg = finalClauseLitToUnitPoints.get(cl);
+					final DawgState<ApplicationTerm, Boolean> groundingDawg = unitPoints;
 					final Set<Clause> groundings = cl.getClause().getGroundings(groundingDawg);
 					final Clause unitGrounding = groundings.iterator().next();
 					// note that the following assert would be wrong (rightfully), because some atoms of the given

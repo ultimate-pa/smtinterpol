@@ -25,7 +25,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
 
 /**
  * Represents a literal that occurs in an EprClause.
@@ -53,7 +53,7 @@ public abstract class ClauseLiteral {
 	protected EprClause mEprClause;
 	protected final DawgFactory<ApplicationTerm, TermVariable> mDawgFactory;
 
-	public ClauseLiteral(boolean polarity, DPLLAtom atom, EprClause clause, EprTheory eprTheory) {
+	public ClauseLiteral(final boolean polarity, final DPLLAtom atom, final EprClause clause, final EprTheory eprTheory) {
 		mAtom = atom;
 		mEngineLiteral = polarity ? atom : atom.negate();
 		mPolarity = polarity;
@@ -71,23 +71,7 @@ public abstract class ClauseLiteral {
 		return mEngineLiteral;
 	}
 
-	//
-	// TODO: these three should not call determineState all the time..
-	//
-
-	public boolean isFulfillable(DecideStackLiteral decideStackBorder) {
-		return determineState(decideStackBorder) == ClauseLiteralState.Fulfillable;
-	}
-
-	public boolean isFulfilled(DecideStackLiteral decideStackBorder) {
-		return determineState(decideStackBorder) == ClauseLiteralState.Fulfilled;
-	}
-
-	public boolean isRefuted(DecideStackLiteral decideStackBorder) {
-		return determineState(decideStackBorder) == ClauseLiteralState.Refuted;
-	}
-
-	protected abstract ClauseLiteralState determineState(DecideStackLiteral decideStackBorder);
+	protected abstract DawgState<ApplicationTerm, EprTheory.TriBool> getLocalDawg();
 
 	/**
 	 * For ground clause literals this has the usual meanings wrt. the current decide state:
@@ -108,7 +92,7 @@ public abstract class ClauseLiteral {
 
 	@Override
 	public String toString() {
-		String negate = mPolarity ? "" : "~";
+		final String negate = mPolarity ? "" : "~";
 		return negate + mAtom.toString();
 	}
 }

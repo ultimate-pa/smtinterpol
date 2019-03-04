@@ -22,14 +22,12 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
+import java.util.function.BiFunction;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -49,7 +47,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuant
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackDecisionLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.IEprLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
@@ -64,16 +61,19 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
  */
 public class EprClause {
 
+	private final static int DAWG_FALSE = -1;
+	private final static int DAWG_TRUE = -2;
+	private final static int DAWG_UNKNOWN = -3;
 
 	/**
 	 * The literals in this clause, expressed as Literals (the type that the DPLLEngine knows..).
 	 */
-	private final Set<Literal> mDpllLiterals;
+	private final List<Literal> mDpllLiterals;
 
 	private final EprTheory mEprTheory;
 	private final DawgFactory<ApplicationTerm, TermVariable> mDawgFactory;
 
-	private final Set<ClauseLiteral> mLiterals;
+	private final List<ClauseLiteral> mLiterals;
 
 	/**
 	 * Since the introduction of equality reflexivity clauses, we want to support EprClauses that are in fact ground.
@@ -100,31 +100,19 @@ public class EprClause {
 
 	private UnitPropagationData mUnitPropagationData;
 
-	/*
-	 * stuff relative to the decide stack border; done as maps now, but maybe one item each is enough??
-	 */
-	private final Map<DecideStackLiteral, Map<ClauseLiteral, DawgState<ApplicationTerm, Boolean>>> mDecideStackBorderToClauseLitToUnitPoints =
-			new HashMap<>();
-	private final Map<DecideStackLiteral, EprClauseState> mDecideStackBorderToClauseState =
-			new HashMap<>();
-	private final Map<DecideStackLiteral, DawgState<ApplicationTerm, Boolean>> mDecideStackBorderToConflictPoints =
-			new HashMap<>();
-	private final Map<DecideStackLiteral, UnitPropagationData> mDecideStackBorderToUnitPropagationData =
-			new HashMap<>();
-
 	private boolean mHasBeenDisposed = false;
 
 	public EprClause(final Set<Literal> lits, final EprTheory eprTheory) {
-		mDpllLiterals = lits;
+		mDpllLiterals = new ArrayList<>(lits);
 		mEprTheory = eprTheory;
 		mDawgFactory = eprTheory.getDawgFactory();
 
 		// set up the clause..
 
-		final Pair<SortedSet<TermVariable>, Set<ClauseLiteral>> resPair =
+		final Pair<SortedSet<TermVariable>, List<ClauseLiteral>> resPair =
 				 createClauseLiterals(lits);
 
-		mLiterals = Collections.unmodifiableSet(resPair.getSecond());
+		mLiterals = Collections.unmodifiableList(resPair.getSecond());
 
 		mVariables = Collections.unmodifiableSortedSet(resPair.getFirst());
 
@@ -167,10 +155,10 @@ public class EprClause {
 	 * @return
 	 * @return
 	 */
-	private Pair<SortedSet<TermVariable>, Set<ClauseLiteral>> createClauseLiterals(final Set<Literal> lits) {
+	private Pair<SortedSet<TermVariable>, List<ClauseLiteral>> createClauseLiterals(final Set<Literal> lits) {
 
 		final SortedSet<TermVariable> variables = new TreeSet<>(EprHelpers.getColumnNamesComparator());
-		final HashSet<ClauseLiteral> literals = new HashSet<>();
+		final List<ClauseLiteral> literals = new ArrayList<>(lits.size());
 
 //		Set<EprQuantifiedEqualityAtom> quantifiedEqualities = new HashSet<EprQuantifiedEqualityAtom>();
 
@@ -325,184 +313,30 @@ public class EprClause {
 	 */
 	private EprClauseState determineClauseState(final DecideStackLiteral decideStackBorder) {
 
-		// do we have a literal that is fulfilled (on all points)?
-		for (final ClauseLiteral cl : getLiterals()) {
-//			if (mEprTheory.isTerminationRequested()) {
-////				throw new AssertionError("terminated");
-//				break;
-//			}
+		DawgState<ApplicationTerm, Integer> myDawg =
+				mDawgFactory.createConstantDawg(getVariables(), DAWG_FALSE);
 
-			if (cl.isFulfilled(decideStackBorder)) {
-				setClauseState(decideStackBorder, EprClauseState.Fulfilled);
-				return getClauseState(decideStackBorder);
+		for (int i = 0; i < getLiterals().size(); i++) {
+			final int litNr = i;
+			final BiFunction<Integer, EprTheory.TriBool, Integer> clauseMerger =
+					((status, tri) -> tri == EprTheory.TriBool.TRUE ? DAWG_TRUE
+							: tri == EprTheory.TriBool.FALSE ? status
+									: status == DAWG_FALSE ? litNr : status == DAWG_TRUE ? DAWG_TRUE : DAWG_UNKNOWN);
+			myDawg = mDawgFactory.createProduct(myDawg, getLiterals().get(i).getLocalDawg(), clauseMerger);
+			if (DawgFactory.isConstantValue(myDawg, DAWG_TRUE)) {
+				return EprClauseState.Fulfilled;
 			}
 		}
-
-		// Although the whole literal is not fulfilled, some points may be..
-		// we only need to consider points where no literal is decided "true" yet..
-		DawgState<ApplicationTerm, Boolean> pointsToConsider =
-				mEprTheory.getDawgFactory().createConstantDawg(getVariables(), Boolean.TRUE);
-		for (final ClauseLiteral cl : getLiterals()) {
-//			if (mEprTheory.isTerminationRequested()) {
-////				throw new AssertionError("terminated");
-//				break;
-//			}
-
-			if (cl.isRefuted(decideStackBorder)) {
-				continue;
-			}
-
-			if (cl instanceof ClauseEprQuantifiedLiteral) {
-				final DawgState<ApplicationTerm, Boolean> clFulfilledPoints =
-						((ClauseEprQuantifiedLiteral) cl).getFulfilledPoints();
-//				pointsToConsider.removeAll(clFulfilledPoints);
-				pointsToConsider = mDawgFactory.createDifference(pointsToConsider, clFulfilledPoints);
-			}
-		}
-		assert EprHelpers.verifySortsOfPoints(DawgFactory.getSet(pointsToConsider), getVariables());
-
-
-		/**
-		 * The set of all points (over this clause's signature, read: groundings) where no literal of this
-		 * clause is fulfillable
-		 *  --> once the computation is complete, this represents the set of groundings that are a conflict.
-		 */
-		DawgState<ApplicationTerm, Boolean> pointsWhereNoLiteralsAreFulfillable = pointsToConsider;
-		DawgState<ApplicationTerm, Boolean> pointsWhereOneLiteralIsFulfillable =
-				mDawgFactory.createConstantDawg(getVariables(), Boolean.FALSE);
-		DawgState<ApplicationTerm, Boolean> pointsWhereTwoOrMoreLiteralsAreFulfillable =
-				mDawgFactory.createConstantDawg(getVariables(), Boolean.FALSE);
-		Map<ClauseLiteral, DawgState<ApplicationTerm, Boolean>> clauseLitToPotentialUnitPoints =
-				new HashMap<>();
-
-
-		for (final ClauseLiteral cl : getLiterals()) {
-//			if (mEprTheory.isTerminationRequested()) {
-//				break;
-//			}
-
-			if (cl.isFulfillable(decideStackBorder)) {
-				// at least one point of cl is still undecided (we sorted out fulfilled points before..)
-				// we move the newly fulfillable points one up in our hierarchy
-
-				DawgState<ApplicationTerm, Boolean> toMoveFromNoToOne;
-				DawgState<ApplicationTerm, Boolean> toMoveFromOneToTwo;
-				if (cl instanceof ClauseEprQuantifiedLiteral) {
-					final DawgState<ApplicationTerm, Boolean> fp =
-							((ClauseEprQuantifiedLiteral) cl).getFulfillablePoints(decideStackBorder);
-
-					toMoveFromNoToOne = mDawgFactory.createIntersection(pointsWhereNoLiteralsAreFulfillable, fp);
-					toMoveFromOneToTwo = mDawgFactory.createIntersection(pointsWhereOneLiteralIsFulfillable, fp);
-				} else {
-					/*
-					 *  if cl is ground, the dawg of the current cl is the full dawg
-					 *   --> intersecting something with the full dawg means copying the something..
-					 */
-					toMoveFromNoToOne = pointsWhereNoLiteralsAreFulfillable;
-					toMoveFromOneToTwo = pointsWhereOneLiteralIsFulfillable;
-				}
-
-				/*
-				 * move all the fulfillable point of the current ClauseLiteral "up one set"
-				 */
-				pointsWhereNoLiteralsAreFulfillable =
-						mDawgFactory.createDifference(pointsWhereNoLiteralsAreFulfillable, toMoveFromNoToOne);
-				pointsWhereOneLiteralIsFulfillable =
-						mDawgFactory.createUnion(pointsWhereOneLiteralIsFulfillable, toMoveFromNoToOne);
-				pointsWhereOneLiteralIsFulfillable =
-						mDawgFactory.createDifference(pointsWhereOneLiteralIsFulfillable, toMoveFromOneToTwo);
-				pointsWhereTwoOrMoreLiteralsAreFulfillable =
-						mDawgFactory.createUnion(pointsWhereTwoOrMoreLiteralsAreFulfillable, toMoveFromOneToTwo);
-
-				// if the current ClauseLiteral is the last ClauseLiteral, its unit points are exactly the ones that
-				// moved from noFulfillableLiteral to OneFulfillableLiteral ..
-				clauseLitToPotentialUnitPoints.put(cl, toMoveFromNoToOne);
-				// ... however if we later find out for some of these points, that it is fulfilled somewhere else, we
-				// have to remove it from the list.
-				final Map<ClauseLiteral, DawgState<ApplicationTerm, Boolean>> newClauseLitToPotentialUnitPoints =
-						new HashMap<>();
-				for (final Entry<ClauseLiteral, DawgState<ApplicationTerm, Boolean>> en
-						: clauseLitToPotentialUnitPoints.entrySet()) {
-//					en.getValue().removeAll(toMoveFromOneToTwo);
-					newClauseLitToPotentialUnitPoints.put(en.getKey(),
-							mDawgFactory.createDifference(en.getValue(), toMoveFromOneToTwo));
-				}
-				clauseLitToPotentialUnitPoints = newClauseLitToPotentialUnitPoints;
-			} else {
-				assert cl.isRefuted(decideStackBorder);
-			}
-		}
-
-		//remove all empty dawgs from clauseLitToPotentialUnitPoints
-		final Map<ClauseLiteral, DawgState<ApplicationTerm, Boolean>> finalClauseLitToUnitPoints =
-						new HashMap<>();
-		for (final Entry<ClauseLiteral, DawgState<ApplicationTerm, Boolean>> en : clauseLitToPotentialUnitPoints
-				.entrySet()) {
-			if (!DawgFactory.isEmpty(en.getValue())) {
-				finalClauseLitToUnitPoints.put(en.getKey(), en.getValue());
-			}
-		}
-
-		// assert EprHelpers.verifySortsOfPoints(pointsWhereNoLiteralsAreFulfillable, getVariables());
-		// assert EprHelpers.verifySortsOfPoints(pointsWhereOneLiteralIsFulfillable, getVariables());
-		// assert EprHelpers.verifySortsOfPoints(pointsWhereTwoOrMoreLiteralsAreFulfillable, getVariables());
-
-
-		if (!DawgFactory.isEmpty(pointsWhereNoLiteralsAreFulfillable)) {
-			setPointsWhereNoLiteralsAreFulfillable(decideStackBorder, pointsWhereNoLiteralsAreFulfillable);
-			setClauseState(decideStackBorder, EprClauseState.Conflict);
-		} else if (!DawgFactory.isEmpty(pointsWhereOneLiteralIsFulfillable)) {
-			final UnitPropagationData upd = new UnitPropagationData(finalClauseLitToUnitPoints, mDawgFactory);
-			setUnitPropagationData(decideStackBorder, upd);
-			setClauseState(decideStackBorder, EprClauseState.Unit);
+		mConflictPoints = mDawgFactory.createMapped(myDawg, i -> i == DAWG_FALSE);
+		if (!DawgFactory.isEmpty(mConflictPoints)) {
+			return EprClauseState.Conflict;
+		} else if (!DawgFactory.isEmpty(mDawgFactory.createMapped(myDawg, i -> i >= 0))) {
+			mUnitPropagationData = new UnitPropagationData(this, myDawg, mDawgFactory);
+			return EprClauseState.Unit;
 		} else {
-			assert DawgFactory
-					.isEmpty(mDawgFactory.createProduct(pointsWhereTwoOrMoreLiteralsAreFulfillable, pointsToConsider,
-							(b1, b2) -> b1 != b2))
-					: "we found no conflict and no unit points, thus all non-fulfilled points must be fulfillable "
-					+ "on two or more literals";
-			setClauseState(decideStackBorder, EprClauseState.Normal);
-		}
-		return getClauseState(decideStackBorder);
-	}
-
-	private void setUnitPropagationData(final DecideStackLiteral decideStackBorder, final UnitPropagationData upd) {
-		if (decideStackBorder == null) {
-			mUnitPropagationData = upd;
-		} else {
-			mDecideStackBorderToUnitPropagationData.put(decideStackBorder, upd);
+			return EprClauseState.Normal;
 		}
 	}
-
-
-	private void setPointsWhereNoLiteralsAreFulfillable(final DecideStackLiteral decideStackBorder,
-			final DawgState<ApplicationTerm, Boolean> pointsWhereNoLiteralsAreFulfillable) {
-		if (decideStackBorder == null) {
-			mConflictPoints = pointsWhereNoLiteralsAreFulfillable;
-		} else {
-			mDecideStackBorderToConflictPoints.put(decideStackBorder, pointsWhereNoLiteralsAreFulfillable);
-		}
-	}
-
-	private EprClauseState getClauseState(final DecideStackLiteral decideStackBorder) {
-		if (decideStackBorder == null) {
-			return mEprClauseState;
-		} else {
-			final EprClauseState res = mDecideStackBorderToClauseState.get(decideStackBorder);
-			assert res != null;
-			return res;
-		}
-	}
-
-	private void setClauseState(final DecideStackLiteral decideStackBorder, final EprClauseState newState) {
-		if (decideStackBorder == null) {
-			mClauseStateIsDirty = false;
-			mEprClauseState = newState;
-		} else {
-			mDecideStackBorderToClauseState.put(decideStackBorder, newState);
-		}
-	}
-
 
 	public SortedSet<TermVariable> getVariables() {
 		return mVariables;
@@ -540,7 +374,7 @@ public class EprClause {
 		return mConflictPoints;
 	}
 
-	public Set<ClauseLiteral> getLiterals() {
+	public List<ClauseLiteral> getLiterals() {
 		assert !mHasBeenDisposed;
 		return mLiterals;
 	}
@@ -691,18 +525,5 @@ public class EprClause {
 
 		// when we can't factor, we just return this clause
 		return this;
-	}
-
-	public boolean isUnitBelowDecisionPoint(final DecideStackDecisionLiteral dsdl) {
-		final EprClauseState state = determineClauseState(dsdl);
-		return state == EprClauseState.Unit;
-	}
-
-	public Map<ClauseLiteral, DawgState<ApplicationTerm, Boolean>> getClauseLitToUnitPointsBelowDecisionPoint(
-			final DecideStackDecisionLiteral dsdl) {
-		final Map<ClauseLiteral, DawgState<ApplicationTerm, Boolean>> res =
-				mDecideStackBorderToClauseLitToUnitPoints.get(dsdl);
-		assert res != null;
-		return res;
 	}
 }

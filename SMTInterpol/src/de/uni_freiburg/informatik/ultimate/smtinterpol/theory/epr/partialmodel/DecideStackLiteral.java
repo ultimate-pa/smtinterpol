@@ -21,10 +21,12 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.BiFunction;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseEprLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
 
@@ -49,6 +51,7 @@ public abstract class DecideStackLiteral extends DecideStackEntry implements IEp
 
 	protected final boolean mPolarity;
 	protected final EprPredicate mPred;
+	protected DawgState<ApplicationTerm, EprTheory.TriBool> mOldDawg;
 
 	/**
 	 * Stores all the groundings for which this.atom is decided with this.polarity
@@ -56,7 +59,7 @@ public abstract class DecideStackLiteral extends DecideStackEntry implements IEp
 	 */
 	protected DawgState<ApplicationTerm, Boolean> mDawg;
 
-	protected Set<ClauseEprLiteral> mConcernedClauseLiterals = new HashSet<ClauseEprLiteral>();
+	protected Set<ClauseEprLiteral> mConcernedClauseLiterals = new HashSet<>();
 
 
 
@@ -178,4 +181,18 @@ public abstract class DecideStackLiteral extends DecideStackEntry implements IEp
 //			return comp1;
 //		}
 //	}
+
+	@Override
+	public void push() {
+		final BiFunction<EprTheory.TriBool, Boolean, EprTheory.TriBool> combinator = (old, setLit) -> {
+			return (setLit ? (mPolarity ? EprTheory.TriBool.TRUE : EprTheory.TriBool.FALSE) : old);
+		};
+		mOldDawg = mPred.getDawg();
+		mPred.setDawg(mPred.getEprTheory().getDawgFactory().createProduct(mOldDawg, mDawg, combinator));
+	}
+
+	@Override
+	public void pop() {
+		mPred.setDawg(mOldDawg);
+	}
 }

@@ -49,7 +49,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroun
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.DawgLetter;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.IEprLiteral;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
 
@@ -776,30 +775,6 @@ public class EprHelpers {
 
 	public static Object getDummySortId() {
 		return "dummySort";
-	}
-
-
-	public static <COLNAMES> Set<COLNAMES> computeUnionSet(final Set<COLNAMES> set1, final Set<COLNAMES> set2) {
-		final Set<COLNAMES> result = new HashSet<>();
-		result.addAll(set1);
-		result.addAll(set2);
-		return result;
-	}
-
-	public static <COLNAMES> boolean isIntersectionEmpty(final Set<COLNAMES> set1, final Set<COLNAMES> set2) {
-		final Set<COLNAMES> result = new HashSet<>();
-		result.addAll(set1);
-		result.retainAll(set2);
-		return result.isEmpty();
-	}
-
-	public static <LETTER> boolean hasEmptyLetter(final Set<DawgLetter<LETTER>> result) {
-		for (final DawgLetter<LETTER> ltr : result) {
-			if (ltr.isEmpty()) {
-				return true;
-			}
-		}
-		return false;
 	}
 
 	/**
