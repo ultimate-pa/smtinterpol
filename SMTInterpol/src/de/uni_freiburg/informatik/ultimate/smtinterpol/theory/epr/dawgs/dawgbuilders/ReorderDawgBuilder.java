@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2016-2017 Alexander Nutz (nutz@informatik.uni-freiburg.de)
- * Copyright (C) 2016-2017 University of Freiburg
+ * Copyright (C) 2016-2019 University of Freiburg
  *
  * This file is part of SMTInterpol.
  *
@@ -125,7 +124,8 @@ public class ReorderDawgBuilder<LETTER, VALUE, COLNAMES> extends DawgBuilder<LET
 	private DawgState<LETTER, VALUE> internalReorder(final List<DawgLetter<LETTER>> partialWord, final int offset,
 			final int[] newPositionForColumns, final DawgState<LETTER, VALUE> state, final int level) {
 
-		Pair<List<DawgLetter<LETTER>>, DawgState<LETTER, VALUE>> cacheKey = new Pair<>(partialWord, state);
+		Pair<List<DawgLetter<LETTER>>, DawgState<LETTER, VALUE>> cacheKey = new Pair<>(
+				partialWord.subList(offset, partialWord.size()), state);
 		DawgState<LETTER, VALUE> result = mCache.get(cacheKey);
 		if (result != null) {
 			return result;
@@ -170,7 +170,7 @@ public class ReorderDawgBuilder<LETTER, VALUE, COLNAMES> extends DawgBuilder<LET
 			}
 		}
 		// make sure cacheKey is immutable by copying the partialWord.
-		cacheKey = new Pair<>(new ArrayList<>(partialWord), state);
+		cacheKey = new Pair<>(new ArrayList<>(partialWord.subList(offset, partialWord.size())), state);
 		mCache.put(cacheKey, result);
 		return result;
 	}
