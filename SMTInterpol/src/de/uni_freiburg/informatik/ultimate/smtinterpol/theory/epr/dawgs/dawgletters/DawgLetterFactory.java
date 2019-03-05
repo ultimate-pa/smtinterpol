@@ -62,19 +62,6 @@ public class DawgLetterFactory<LETTER> {
 		return result;
 	}
 
-	/**
-	 *
-	 * @param letters an implicitly disjunctive set of DawgLetters
-	 * @return
-	 */
-	public boolean isUniversal(final DawgLetter<LETTER> letter) {
-		if (letter.mIsComplemented) {
-			return letter.mLetters.size() == 0;
-		} else {
-			return letter.mLetters.size() == getAllConstants(letter.mSortId).size();
-		}
-	}
-
 	public DawgLetter<LETTER> getSimpleDawgLetter(Set<LETTER> letters, final Object sortId) {
 		if (letters.isEmpty()) {
 			letters = Collections.emptySet();

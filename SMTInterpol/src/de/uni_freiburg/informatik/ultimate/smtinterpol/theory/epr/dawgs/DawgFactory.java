@@ -30,7 +30,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
 
-import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.BinaryRelation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
@@ -44,7 +43,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawglett
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgStateFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.BinaryMap;
-import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
 
 /**
  *
@@ -55,34 +53,13 @@ import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
  */
 public class DawgFactory<LETTER, COLNAMES> {
 
-	// private final EprTheory mEprTheory;
-	private final LogProxy mLogger;
-
-
 	private final DawgLetterFactory<LETTER> mDawgLetterFactory;
 	private final DawgStateFactory<LETTER> mDawgStateFactory;
 	private final Map<Object, Set<LETTER>> mConstants = new HashMap<>();
 
-	/**
-	 * Use naive Dawg implementation ("normal" one otherwise)
-	 */
-	private final boolean mUseNaiveDawgs = false;
-
-	private final Map<Object, ScopedHashSet<LETTER>> mAllKnownConstants = new HashMap<>();
-	// private final ScopedHashMap<Object, Set<LETTER>> mAllKnownConstants = new ScopedHashMap<Object, Set<LETTER>>();
-	// private final ScopedHashSet<String> mAllKnownSorts = new ScopedHashSet<String>();
-
 	public DawgFactory(final EprTheory eprTheory) {
-		// mEprStateManager = stateManager;
-		mLogger = eprTheory.getLogger();
-
-		if (mUseNaiveDawgs) {
-			mDawgStateFactory = null;
-			mDawgLetterFactory = null;
-		} else {
-			mDawgLetterFactory = new DawgLetterFactory<>(this);
-			mDawgStateFactory = new DawgStateFactory<>();
-		}
+		mDawgLetterFactory = new DawgLetterFactory<>(this);
+		mDawgStateFactory = new DawgStateFactory<>();
 	}
 
 	public void addConstant(final Object sortId, final LETTER ltr) {
