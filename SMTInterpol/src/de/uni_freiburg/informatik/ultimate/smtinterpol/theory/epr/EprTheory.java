@@ -53,7 +53,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuant
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClauseFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.EprStateManager;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.EprDecideStack;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
 
 /**
@@ -73,7 +73,7 @@ public class EprTheory implements ITheory {
 
 	private ArrayList<Literal[]> mAllGroundingsOfLastAddedEprClause;
 
-	private EprStateManager mStateManager;
+	private EprDecideStack mEprStack;
 	private DawgFactory<ApplicationTerm, TermVariable> mDawgFactory;
 	private EprClauseFactory mClauseFactory;
 
@@ -137,7 +137,8 @@ public class EprTheory implements ITheory {
 		mClauseFactory = new EprClauseFactory(this);
 
 		mEqualityManager = new EqualityManager();
-		mStateManager = new EprStateManager(this, mDawgFactory, mClauseFactory);
+
+		mEprStack = new EprDecideStack(this);
 
 		mSortToEqualityEprPredicate = new HashMap<>();
 	}
@@ -169,7 +170,7 @@ public class EprTheory implements ITheory {
 			// is being set by the DPLLEngine (the quantified EprPredicateAtoms
 			// are not known to the DPLLEngine)
 
-			Clause conflictOrNull = mStateManager.setEprGroundLiteral(literal);
+			Clause conflictOrNull = mEprStack.setEprGroundLiteral(literal);
 			conflictOrNull = EprHelpers.sanitizeGroundConflict(mClausifier, mLogger, conflictOrNull);
 			return conflictOrNull;
 		} else if (atom instanceof EprQuantifiedEqualityAtom || atom instanceof EprQuantifiedPredicateAtom) {
@@ -179,7 +180,7 @@ public class EprTheory implements ITheory {
 		} else if (atom instanceof CCEquality) {
 			// assert false : "TODO: check handling of equalities";
 			// if (literal.getSign() == 1) {
-			Clause conflictOrNull = mStateManager.setGroundEquality((CCEquality) atom, literal.getSign() == 1);
+			Clause conflictOrNull = mEprStack.setGroundEquality((CCEquality) atom, literal.getSign() == 1);
 			conflictOrNull = EprHelpers.sanitizeGroundConflict(mClausifier, mLogger, conflictOrNull);
 			return conflictOrNull;
 			// }
@@ -192,9 +193,7 @@ public class EprTheory implements ITheory {
 		} else {
 			// neither an EprAtom nor an Equality
 
-			Clause conflictOrNull = mStateManager.setDpllLiteral(literal);
-			conflictOrNull = EprHelpers.sanitizeGroundConflict(mClausifier, mLogger, conflictOrNull);
-			return conflictOrNull;
+			// ignore it for now.
 		}
 		return null;
 	}
@@ -216,22 +215,17 @@ public class EprTheory implements ITheory {
 		if (atom instanceof EprGroundPredicateAtom) {
 			// literal is of the form (P x1 .. xn)
 
-			mStateManager.unsetEprGroundLiteral(literal);
+			mEprStack.backtrackToLiteral(literal);
 
 		} else if (atom instanceof EprQuantifiedEqualityAtom || atom instanceof EprQuantifiedPredicateAtom) {
 
 			assert false : "DPLLEngine is unsetting a quantified EprAtom --> this cannot be..";
 
 		} else if (atom instanceof CCEquality) {
-			mStateManager.unsetGroundEquality((CCEquality) atom, literal.getSign() == 1);
+			mEprStack.backtrackToLiteral(literal);
 		} else {
-			// neither an EprAtom nor an equality
-
-			mStateManager.unsetDpllLiteral(literal);
 
 		}
-
-		assert EprHelpers.verifyThatDpllAndEprDecideStackAreConsistent(mStateManager.getAllEprPredicates(), mLogger);
 	}
 
 	/**
@@ -286,8 +280,6 @@ public class EprTheory implements ITheory {
 			return null;
 		}
 		mLogger.debug("EPRDEBUG: checkpoint");
-		assert EprHelpers.verifyThatDpllAndEprDecideStackAreConsistent(mStateManager.getAllEprPredicates(), mLogger);
-
 		assert mLiteralsWaitingToBePropagated.isEmpty() : "have all propagations been done at this point??";
 
 		if (mStoredConflict != null) {
@@ -299,7 +291,7 @@ public class EprTheory implements ITheory {
 
 		// tell the state manager to do propagations, and return a conflict if
 		// one appears
-		Clause conflict = mStateManager.doPropagations();
+		Clause conflict = mEprStack.doPropagations();
 		if (conflict != null) {
 			if (!mLiteralsWaitingToBePropagated.isEmpty()) {
 				// TODO what do we do with that conflict?..
@@ -325,7 +317,7 @@ public class EprTheory implements ITheory {
 		}
 		mLogger.debug("EPRDEBUG: computeConflictClause");
 
-		Clause conflict = mStateManager.eprDpllLoop();
+		Clause conflict = mEprStack.eprDpllLoop();
 		conflict = EprHelpers.sanitizeGroundConflict(mClausifier, mLogger, conflict);
 		return conflict;
 	}
@@ -457,7 +449,6 @@ public class EprTheory implements ITheory {
 	@Override
 	public Object push() {
 		mLogger.debug("EPRDEBUG: (EprTheory) PUSH");
-		mStateManager.push();
 		mAtomsAddedToDPLLEngine.beginScope();
 		return null;
 	}
@@ -465,9 +456,6 @@ public class EprTheory implements ITheory {
 	@Override
 	public void pop(final Object object, final int targetlevel) {
 		mLogger.debug("EPRDEBUG: (EprTheory) POP");
-		for (int i = mClausifier.getStackLevel(); i > targetlevel; i--) {
-			mStateManager.pop();
-		}
 		mAtomsAddedToDPLLEngine.endScope();
 	}
 
@@ -531,7 +519,7 @@ public class EprTheory implements ITheory {
 		 * a new clause may immediately be a conflict clause, and possibly that conflict cannot be resolved in the
 		 * EprTheory --> we will return that conflict at the next checkpoint
 		 */
-		final Clause groundConflict = mStateManager.getEprClauseManager().createEprClause(preprocessedLiterals);
+		final Clause groundConflict = mEprStack.createEprClause(preprocessedLiterals);
 		if (groundConflict != null) {
 			assert mStoredConflict == null : "we'll probably need a queue for this..";
 			mStoredConflict = groundConflict;
@@ -625,7 +613,7 @@ public class EprTheory implements ITheory {
 				pred = new EprPredicate(fs, this);
 			}
 			mFunctionSymbolToEprPredicate.put(fs, pred);
-			mStateManager.addNewEprPredicate(pred);
+			mEprStack.addNewEprPredicate(pred);
 		}
 		return pred;
 	}
@@ -646,11 +634,6 @@ public class EprTheory implements ITheory {
 	 * @param constants
 	 */
 	public void addConstants(final HashSet<ApplicationTerm> constants) {
-		final Clause groundConflict = mStateManager.addConstants(constants);
-		if (groundConflict != null) {
-			assert mStoredConflict == null : "we'll probably need a queue for this..";
-			mStoredConflict = groundConflict;
-		}
 	}
 
 	public ArrayList<Literal[]> getAllGroundingsOfLastAddedEprClause() {
@@ -665,8 +648,8 @@ public class EprTheory implements ITheory {
 		return mCClosure;
 	}
 
-	public EprStateManager getStateManager() {
-		return mStateManager;
+	public EprDecideStack getStateManager() {
+		return mEprStack;
 	}
 
 	public DawgFactory<ApplicationTerm, TermVariable> getDawgFactory() {
@@ -694,18 +677,6 @@ public class EprTheory implements ITheory {
 	 * @return
 	 */
 	public void addSkolemConstants(final Term[] skolems) {
-
-		final Set<ApplicationTerm> constants = new HashSet<>();
-		for (final Term t : skolems) {
-			constants.add((ApplicationTerm) t);
-		}
-
-		final Clause groundConflict = mStateManager.addConstants(constants);
-
-		if (groundConflict != null) {
-			assert mStoredConflict == null : "we'll probably need a queue for this..";
-			mStoredConflict = groundConflict;
-		}
 	}
 
 	public LogProxy getLogger() {

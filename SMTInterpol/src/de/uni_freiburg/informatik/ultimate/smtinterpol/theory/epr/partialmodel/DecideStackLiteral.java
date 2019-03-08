@@ -19,15 +19,11 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel;
 
-import java.util.HashSet;
-import java.util.Set;
 import java.util.function.BiFunction;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
-import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseEprLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
 
 /**
@@ -37,48 +33,25 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstat
  *
  * @author Alexander Nutz
  */
-public abstract class DecideStackLiteral extends DecideStackEntry implements IEprLiteral, Comparable<DecideStackLiteral> {
-
-//	/**
-//	 * The index on the decide stack of its push state that this DecideStackLiteral has.
-//	 */
-//	protected final int mIndexOnPushStateStack;
-//
-//	/**
-//	 * The index of the push state on the stateManager's push state stack
-//	 */
-//	protected final int mPushStateStackIndex;
-
-	protected final boolean mPolarity;
-	protected final EprPredicate mPred;
-	protected DawgState<ApplicationTerm, EprTheory.TriBool> mOldDawg;
+public abstract class DecideStackLiteral extends DecideStackEntry {
 
 	/**
-	 * Stores all the groundings for which this.atom is decided with this.polarity
-	 * by this DecideStackLiteral
+	 * The predicate this decision/propagation affects.
 	 */
-	protected DawgState<ApplicationTerm, Boolean> mDawg;
+	protected final EprPredicate mPred;
+	/**
+	 * The previous state of the literal. This is used for backtracking and to check whether the conflict is older than
+	 * this change. It is set on push and used on pop.
+	 */
+	protected DawgState<ApplicationTerm, EprTheory.TriBool> mOldDawg;
+	/**
+	 * The new literals propagated or decided.
+	 */
+	protected DawgState<ApplicationTerm, EprTheory.TriBool> mDawg;
 
-	protected Set<ClauseEprLiteral> mConcernedClauseLiterals = new HashSet<>();
-
-
-
-	public DecideStackLiteral(final boolean polarity,
-			final EprPredicate pred, final DawgState<ApplicationTerm, Boolean> dawg, final int index) {
-		super(index);
-		mPolarity = polarity;
+	public DecideStackLiteral(final EprPredicate pred, DawgState<ApplicationTerm, EprTheory.TriBool> dawg) {
 		mPred = pred;
 		mDawg = dawg;
-//		mPushStateStackIndex = index.first;
-//		mIndexOnPushStateStack = index.second;
-//		mIndex = new DslIndex(index.first, index.second);
-
-		register();
-	}
-
-	@Override
-	public boolean getPolarity() {
-		return mPolarity;
 	}
 
 	@Override
@@ -86,113 +59,25 @@ public abstract class DecideStackLiteral extends DecideStackEntry implements IEp
 		return mPred;
 	}
 
-	/**
-	 * Checks if this literal's dawg talks about the point described by arguments.
-	 * arguments may only contain constants.
-	 * @param arguments
-	 * @return
-	 */
-	public boolean talksAboutPoint(final Term[] arguments) {
-		assert false : "TODO: implement";
-		return false;
+	public DawgState<ApplicationTerm, EprTheory.TriBool> getOldDawg() {
+		return mOldDawg;
 	}
 
-	@Override
-	public DawgState<ApplicationTerm, Boolean> getDawg() {
+	public DawgState<ApplicationTerm, EprTheory.TriBool> getDawg() {
 		return mDawg;
 	}
 
-//	/**
-//	 *
-//	 * @return true iff mDawg's language is a singleton set.
-//	 */
-//	public boolean isOnePoint() {
-//		return mDawg.isSingleton();
-//	}
-//
-//	public List<ApplicationTerm> getPoint() {
-//		assert isOnePoint();
-//		return mDawg.iterator().next();
-//	}
-
-	private void register() {
-		mPred.registerEprLiteral(this);
-	}
-
-	/**
-	 * This is called when this dsl is removed from the decide stack.
-	 * It should purge this dsl from every data structure where it was registered.
-	 */
 	@Override
-	public void unregister() {
-		mPred.unregisterEprLiteral(this);
-		for (final ClauseEprLiteral cl : mConcernedClauseLiterals) {
-			cl.unregisterIEprLiteral(this);
-		}
-	}
-
-	@Override
-	public void registerConcernedClauseLiteral(final ClauseEprLiteral cel) {
-		mConcernedClauseLiterals.add(cel);
-	}
-
-//	/**
-//	 * @return
-//	 */
-//	public int getPushStateDecideStackIndex() {
-//		return mIndexOnPushStateStack;
-//	}
-//
-//	public int getPushStateIndex() {
-//		return mPushStateStackIndex;
-//	}
-
-//	public int getDecideStackIndex() {
-//		return mIndex;
-//	}
-
-	@Override
-	public int compareTo(final DecideStackLiteral other) {
-//		return this.mIndex.compareTo(other.mIndex);
-		return nr - other.nr;
-	}
-
-//	static class DslIndex implements Comparable<DslIndex> {
-//
-//		final int indexOfPushState;
-//		final int indexOnPushStatesDecideStack;
-//
-//		public DslIndex(int indexOfPushState, int indexOfPushStatesDecideStack) {
-//			this.indexOfPushState = indexOfPushState;
-//			this.indexOnPushStatesDecideStack = indexOfPushStatesDecideStack;
-//		}
-//
-//		/**
-//		 * DslIndices are compared lexicographically. First, the index of the push state a dsl is on
-//		 * is compared. Only if that is equal the positions of the two literals on that push state's
-//		 * decide stack is compared.
-//		 */
-//		@Override
-//		public int compareTo(DslIndex o) {
-//			int comp1 = Integer.compare(this.indexOfPushState, o.indexOfPushState);
-//			if (comp1 == 0) {
-//				return Integer.compare(this.indexOnPushStatesDecideStack, o.indexOnPushStatesDecideStack);
-//			}
-//			return comp1;
-//		}
-//	}
-
-	@Override
-	public void push() {
-		final BiFunction<EprTheory.TriBool, Boolean, EprTheory.TriBool> combinator = (old, setLit) -> {
-			return (setLit ? (mPolarity ? EprTheory.TriBool.TRUE : EprTheory.TriBool.FALSE) : old);
+	public void push(EprDecideStack stack) {
+		final BiFunction<EprTheory.TriBool, EprTheory.TriBool, EprTheory.TriBool> combinator = (old, setLit) -> {
+			return (setLit != EprTheory.TriBool.UNKNOWN ? setLit : old);
 		};
 		mOldDawg = mPred.getDawg();
-		mPred.setDawg(mPred.getEprTheory().getDawgFactory().createProduct(mOldDawg, mDawg, combinator));
+		mPred.setDawg(mPred.getEprTheory().getDawgFactory().createProduct(mOldDawg, getDawg(), combinator));
 	}
 
 	@Override
-	public void pop() {
+	public void pop(EprDecideStack stack) {
 		mPred.setDawg(mOldDawg);
 	}
 }

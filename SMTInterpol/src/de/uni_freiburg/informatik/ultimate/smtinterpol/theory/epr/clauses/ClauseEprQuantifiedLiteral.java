@@ -21,7 +21,6 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses;
 
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -33,7 +32,6 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.BinaryRelation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
@@ -73,26 +71,26 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	 * In effect, we use this translation for the unification/natural join with the
 	 * decide stack literals, which have a canonical signature from their EprPredicate.
 	 */
-	private final Map<Integer, ApplicationTerm> mTranslationForClauseTvToConstants;
-	private final Map<Integer, TermVariable> mTranslationForClauseTvToVariables;
+	private final ApplicationTerm[] mGroundArguments;
+	/**
+	 * For each argument gives the position of the corresponding term variable in the EprClause. This is -1 for ground
+	 * argument, or the variable position for other arguments.
+	 */
+	private final int[] mVariableArguments;
 
 
 	/**
-	 * Roughly the reverse of mTranslationForClause.
-	 * Translates from the variable names of the EprClause this ClauseLiteral belongs to into
-	 * the canonical variable names of the EprPredicate.
-	 * Used for translating from unit clause representation as a dawg over the clause signature
-	 * to a Dawg over the predicate's signature.
+	 * Roughly the reverse of mVariableArguments. Translates from the variable position of the EprClause to the position
+	 * in the epr predicate. Used for translating from unit clause representation as a dawg over the clause signature to
+	 * a Dawg over the predicate's signature.
 	 *
-	 * EDIT:
-	 * reversing it, seems more useful
+	 * EDIT: reversing it, seems more useful
 	 *
-	 * EDIT:
-	 *  undid the reversing, using BinaryRelation instead
+	 * EDIT: undid the reversing, using BinaryRelation instead
 	 *
-	 *  maps from dsl signature colname to clause signature colname
+	 * maps from dsl signature colname to clause signature colname
 	 */
-	private final BinaryRelation<TermVariable, TermVariable> mTranslationForEprPredicate;
+	final int[] mClauseToPredPosition;
 
 	public ClauseEprQuantifiedLiteral(final boolean polarity, final EprQuantifiedPredicateAtom atom,
 			final EprClause clause, final EprTheory eprTheory) {
@@ -114,27 +112,24 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 //		mTranslationForClause = p.first;
 //		mTranslationForEprPredicate = p.second;
 
-
-		final BinaryRelation<TermVariable, TermVariable> clauseToPred =
-				new BinaryRelation<TermVariable, TermVariable>();
-		final Map<Integer, ApplicationTerm> predToClauseConstants = new HashMap<>();
-		final Map<Integer, TermVariable> predToClauseVariables = new HashMap<>();
-		final Iterator<TermVariable> predTermVarIt = mAtom.getEprPredicate().getTermVariablesForArguments().iterator();
+		mGroundArguments = new ApplicationTerm[mArgumentTerms.size()];
+		mVariableArguments = new int[mArgumentTerms.size()];
+		mClauseToPredPosition = new int[mEprClause.getVariables().size()];
+		for (int i = 0; i < mClauseToPredPosition.length; i++) {
+			mClauseToPredPosition[i] = -1;
+		}
 		for (int i = 0; i < mArgumentTerms.size(); i++) {
 			final Term atomT = mArgumentTerms.get(i);
-			final TermVariable tv = predTermVarIt.next();
 			if (atomT instanceof ApplicationTerm) {
-				predToClauseConstants.put(i, (ApplicationTerm) atomT);
-			}
-			if (atomT instanceof TermVariable) {
-				predToClauseVariables.put(i, (TermVariable) atomT);
-				clauseToPred.addPair((TermVariable) atomT, tv);
+				mGroundArguments[i] = (ApplicationTerm) atomT;
+				mVariableArguments[i] = -1;
+			} else {
+				int clausePos = mEprClause.getVariablePos((TermVariable) atomT);
+				mGroundArguments[i] = null;
+				mVariableArguments[i] = clausePos;
+				mClauseToPredPosition[clausePos] = i;
 			}
 		}
-//		mTranslationForClause = Collections.unmodifiableMap(predToClause);
-		mTranslationForClauseTvToConstants = Collections.unmodifiableMap(predToClauseConstants);
-		mTranslationForClauseTvToVariables = Collections.unmodifiableMap(predToClauseVariables);
-		mTranslationForEprPredicate = clauseToPred;
 	}
 
 	@Override
@@ -155,12 +150,10 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 	 */
 	public DawgState<ApplicationTerm, EprTheory.TriBool> computeDawg() {
 		DawgState<ApplicationTerm, EprTheory.TriBool> dawg = mEprPredicateAtom.mEprPredicate.getDawg();
-		dawg = mDawgFactory.projectWithMap(dawg, mTranslationForClauseTvToConstants);
 		if (!mPolarity) {
 			dawg = mDawgFactory.createMapped(dawg, t -> t.negate());
 		}
-		dawg = mDawgFactory.remap(dawg, mTranslationForClauseTvToVariables, mEprClause.getVariables());
-		return dawg;
+		return litDawg2clauseDawg(dawg);
 	}
 
 //	/**
@@ -187,21 +180,22 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 //		return new Pair<Map<TermVariable, Object>, Map<TermVariable, TermVariable>>(predToClause, clauseToPred);
 //	}
 
-	public BinaryRelation<TermVariable, TermVariable> getTranslationFromClauseToEprPredicate() {
-		return mTranslationForEprPredicate;
-	}
-
-	public Map<Integer, ApplicationTerm> getTranslationFromEprPredicateToClauseConstants() {
-		return mTranslationForClauseTvToConstants;
-	}
-
-	public Map<Integer, TermVariable> getTranslationFromEprPredicateToClauseVariables() {
-		return mTranslationForClauseTvToVariables;
+	@Override
+	public boolean isDisjointFrom(final DawgState<ApplicationTerm, Boolean> dawg) {
+		return DawgFactory.isEmpty(mDawgFactory.projectWithMap(dawg, mGroundArguments));
 	}
 
 	@Override
-	public boolean isDisjointFrom(final DawgState<ApplicationTerm, Boolean> dawg) {
-		return DawgFactory.isEmpty(mDawgFactory.projectWithMap(dawg, mTranslationForClauseTvToConstants));
+	public ApplicationTerm[] getInstantiatedArguments(ApplicationTerm[] clauseGrounding) {
+		ApplicationTerm[] args = new ApplicationTerm[getArguments().size()];
+		for (int i = 0; i < args.length; i++) {
+			if (mGroundArguments[i] != null) {
+				args[i] = mGroundArguments[i];
+			} else {
+				args[i] = clauseGrounding[mVariableArguments[i]];
+			}
+		}
+		return args;
 	}
 
 	@Override
@@ -231,5 +225,18 @@ public class ClauseEprQuantifiedLiteral extends ClauseEprLiteral {
 
 	public boolean isEqualityLiteral() {
 		return mAtom instanceof EprQuantifiedEqualityAtom;
+	}
+
+	@Override
+	public <V> DawgState<ApplicationTerm, V> litDawg2clauseDawg(DawgState<ApplicationTerm, V> litDawg) {
+		DawgState<ApplicationTerm, V> dawg = mDawgFactory.projectWithMap(litDawg, mGroundArguments);
+		dawg = mDawgFactory.remap(dawg, mVariableArguments, mEprClause.getVariables());
+		return dawg;
+	}
+
+	@Override
+	public DawgState<ApplicationTerm, Boolean> clauseDawg2litDawg(DawgState<ApplicationTerm, Boolean> clauseDawg) {
+		return mDawgFactory.translateClauseSigToPredSig(clauseDawg, mClauseToPredPosition, mGroundArguments,
+				getEprPredicate().getTermVariablesForArguments());
 	}
 }

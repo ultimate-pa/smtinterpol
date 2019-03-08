@@ -98,8 +98,6 @@ public class EprClauseFactory {
 
 		final EprClause resolvent = getEprClause(resLits);
 
-		mEprTheory.getStateManager().learnClause(resolvent);
-
 		return resolvent;
 	}
 
@@ -133,7 +131,6 @@ public class EprClauseFactory {
 		final boolean isConflict = factor.isConflict(); // avoiding a side effect that only happens with enabled assertions..
 		assert isConflict;
 
-		mEprTheory.getStateManager().learnClause(factor);
 		return factor;
 	}
 

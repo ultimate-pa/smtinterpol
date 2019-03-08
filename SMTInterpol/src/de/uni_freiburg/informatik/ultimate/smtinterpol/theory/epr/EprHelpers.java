@@ -49,7 +49,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroun
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.IEprLiteral;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
 
 /**
@@ -692,45 +691,6 @@ public class EprHelpers {
 		return verifyUnitClause(reason, l, false, mLiteralsWaitingToBePropagated, logger);
 	}
 
-	public static boolean verifyThatDpllAndEprDecideStackAreConsistent(final ScopedHashSet<EprPredicate> allEprPredicates, final LogProxy logger) {
-		boolean result = true;
-		for (final EprPredicate pred : allEprPredicates) {
-			for (final IEprLiteral el : pred.getEprLiterals()) {
-				for (final EprGroundPredicateAtom at : pred.getDPLLAtoms()) {
-					final List<ApplicationTerm> atArgs = convertTermArrayToConstantList(at.getArguments());
-					if (!el.getDawg().getValue(atArgs)) {
-						// different arguments
-						continue;
-					}
-
-					if (at instanceof EprGroundEqualityAtom) {
-						/*
-						 * The DPLLEngine does not know about EprGroundEqualityAtoms, only about CCEqualities.
-						 * TODO: we could make a check about the ccEquality, but for now we just ignore this case..
-						 */
-						continue;
-					}
-
-					// arguments match
-
-					if (at.getDecideStatus() == null) {
-						logger.debug("EPRDEBUG: EprHelpers.verify..DpllAndEprDecideStack..: DPLLEngine: " + at +
-								" undecided; EprTheory: " + at + " is set with polarity " + el.getPolarity());
-						result = false;
-						continue;
-					}
-
-					if ((at.getDecideStatus().getSign() == 1) != el.getPolarity()) {
-						logger.debug("EPRDEBUG: EprHelpers.verifyThatDpllAndEprDecideStackAreConsistent: DPLLEngine: " + at +
-								" is set with polarity " + at.getSign() == 1 +
-								"; EprTheory: " + at + " is set with polarity " + el.getPolarity());
-						result = false;
-					}
-				}
-			}
-		}
-		return result;
-	}
 	/**
 	 * Transforms a signature according to the given translation.
 	 * <p>

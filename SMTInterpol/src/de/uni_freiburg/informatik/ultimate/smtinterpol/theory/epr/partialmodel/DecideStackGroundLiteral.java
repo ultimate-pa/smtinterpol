@@ -27,34 +27,64 @@ import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
 
 /**
- * Represents an entry in the epr decide stack which marks the setting of a literal through the dpll engine
- * at that point.
+ * Represents an entry in the epr decide stack which marks the setting of a literal through the dpll engine at that
+ * point.
  *
- * @author Alexander Nutz
+ * @author Alexander Nutz, Jochen Hoenicke
  */
-public class DecideStackSetLiteralMarker extends DecideStackEntry {
+public class DecideStackGroundLiteral extends DecideStackEntry {
 
 	private final Literal mLiteral;
+	private boolean isEffective;
 
-	public DecideStackSetLiteralMarker(final Literal l, final int index) {
-		super(index);
+	public DecideStackGroundLiteral(final Literal l) {
 		mLiteral = l;
 	}
 
 	@Override
 	public String toString() {
-		return "(literalMarker: " + mLiteral + " " + nr + ")";
+		return "(literal: " + mLiteral + ")";
 	}
 
-	private boolean isEffective;
+	public Literal getLiteral() {
+		return mLiteral;
+	}
+
+	public EprPredicate getEprPredicate() {
+		if (mLiteral.getAtom() instanceof EprGroundPredicateAtom) {
+			final EprGroundPredicateAtom eprAtom = (EprGroundPredicateAtom) mLiteral.getAtom();
+			return eprAtom.getEprPredicate();
+		}
+		return null;
+	}
+
 	@Override
-	public void push() {
+	public DawgState<ApplicationTerm, EprTheory.TriBool> getDawg() {
+		if (mLiteral.getAtom() instanceof EprGroundPredicateAtom) {
+			final EprGroundPredicateAtom eprAtom = (EprGroundPredicateAtom) mLiteral.getAtom();
+			final EprPredicate eprPred = eprAtom.mEprPredicate;
+			final List<ApplicationTerm> word = new ArrayList<>();
+			for (final Term param : eprAtom.getArguments()) {
+				word.add((ApplicationTerm) param);
+			}
+			final DawgFactory<ApplicationTerm, TermVariable> factory = eprPred.getEprTheory()
+					.getDawgFactory();
+			return factory.createMapped(factory.createSingletonSet(eprPred.getSignature(), word),
+					b -> b ? (mLiteral == eprAtom ? EprTheory.TriBool.TRUE : EprTheory.TriBool.FALSE)
+							: EprTheory.TriBool.UNKNOWN);
+		}
+		return null;
+	}
+
+	@Override
+	public void push(EprDecideStack stack) {
 		if (mLiteral.getAtom() instanceof EprGroundPredicateAtom) {
 			final EprGroundPredicateAtom eprAtom = (EprGroundPredicateAtom) mLiteral.getAtom();
 			final DawgState<ApplicationTerm, EprTheory.TriBool> dawg = eprAtom.mEprPredicate.getDawg();
@@ -77,7 +107,7 @@ public class DecideStackSetLiteralMarker extends DecideStackEntry {
 	}
 
 	@Override
-	public void pop() {
+	public void pop(EprDecideStack stack) {
 		if (isEffective) {
 			final EprGroundPredicateAtom eprAtom = (EprGroundPredicateAtom) mLiteral.getAtom();
 			final DawgState<ApplicationTerm, EprTheory.TriBool> dawg = eprAtom.mEprPredicate.getDawg();

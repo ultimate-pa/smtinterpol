@@ -20,7 +20,7 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.ClauseEprLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
 
@@ -38,14 +38,20 @@ public class DecideStackPropagatedLiteral extends DecideStackLiteral {
 	 * It is always an Epr literal because it contradicts something on the epr decide stack
 	 */
 	private final ClauseEprLiteral mReasonUnitClauseLiteral;
-
+	/**
+	 * Instantiation for of the clause. The entries corresponding to variables used in the propagated literal must be
+	 * set to null. The entries for other variables may be set to null, if the clause can be instantiated for all
+	 * "uninteresting" terms, i.e., the corresponding letter in the Dawg is a complemented letter.
+	 */
 	private final DawgState<ApplicationTerm, Boolean> mReasonClauseDawg;
 
-	public DecideStackPropagatedLiteral(final boolean polarity, final EprPredicate eprPred,
-			final DawgState<ApplicationTerm, Boolean> predDawg,
-			final ClauseEprLiteral unitClauseLiteral, final DawgState<ApplicationTerm, Boolean> clauseDawg,
-			final int index) {
-		super(polarity, eprPred, predDawg, index);
+	public DecideStackPropagatedLiteral(final ClauseEprLiteral unitClauseLiteral,
+			final DawgState<ApplicationTerm, Boolean> clauseDawg) {
+		super(unitClauseLiteral.getEprPredicate(),
+				unitClauseLiteral.getEprPredicate().getEprTheory().getDawgFactory()
+						.createMapped(unitClauseLiteral.clauseDawg2litDawg(clauseDawg),
+				b -> (b ? (unitClauseLiteral.getPolarity() ? EprTheory.TriBool.TRUE : EprTheory.TriBool.FALSE) 
+								: EprTheory.TriBool.UNKNOWN)));
 		mReasonUnitClauseLiteral = unitClauseLiteral;
 		mReasonClauseDawg = clauseDawg;
 	}
@@ -69,7 +75,6 @@ public class DecideStackPropagatedLiteral extends DecideStackLiteral {
 
 	@Override
 	public String toString() {
-		return String.format("(DSProp (%d): %c%s %s)",
-				nr, (mPolarity ? ' ' : '~'),  mPred, mDawg);
+		return String.format("(DSProp: %c%s %s)", (mReasonUnitClauseLiteral.getPolarity() ? ' ' : '~'), mPred, mDawg);
 	}
 }

@@ -32,7 +32,6 @@ import org.junit.runners.JUnit4;
 
 import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.BinaryRelation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
@@ -84,15 +83,12 @@ public class DawgTestSignatureTranslations {
 		final SortedSet<Integer> signature2 = new TreeSet<Integer>(EprHelpers.getColumnNamesComparator());
 		signature2.addAll(Arrays.asList(new Integer[] { 10, 20, 30 }));
 
-		final BinaryRelation<Integer, Integer> translation1 = new BinaryRelation<Integer, Integer>();
-		translation1.addPair(1, 30);
-		translation1.addPair(2, 10);
-
-		final List<String> argList1 = Arrays.asList(new String[] { null, "d", null });
+		final int[] translation1 = new int[] { 2, 0 };
+		final String[] argList1 = new String[] { null, "d", null };
 
 
 		final DawgState<String, Boolean> dawg2 = dawgFactoryStringInteger.translateClauseSigToPredSig(dawg1,
-				signature1, translation1, argList1, signature2);
+				translation1, argList1, signature2);
 
 		assertTrue(dawg2.getValue(Arrays.asList(new String[] { "a", "d", "b" })));
 		assertTrue(dawg2.getValue(Arrays.asList(new String[] { "a", "d", "c" })));
@@ -136,15 +132,12 @@ public class DawgTestSignatureTranslations {
 		final SortedSet<Integer> signature2 = new TreeSet<Integer>(EprHelpers.getColumnNamesComparator());
 		signature2.addAll(Arrays.asList(new Integer[] { 10, 20 }));
 
-		final BinaryRelation<Integer, Integer> translation1 = new BinaryRelation<Integer, Integer>();
-		translation1.addPair(1, 10);
-
-		final List<String> argList1 = Arrays.asList(new String[] { null, "c" });
+		final int[] translation1 = new int[] { 0 };
+		final String[] argList1 = new String[] { null, "c" };
 
 
 		final DawgState<String, Boolean> dawg2 =
-				dawgFactoryStringInteger.translateClauseSigToPredSig(dawg1, signature1, translation1,
-						argList1, signature2);
+				dawgFactoryStringInteger.translateClauseSigToPredSig(dawg1, translation1, argList1, signature2);
 
 		assertTrue(dawg2.getValue(Arrays.asList(new String[] { "a", "c" })));
 		assertTrue(dawg2.getValue(Arrays.asList(new String[] { "b", "c" })));

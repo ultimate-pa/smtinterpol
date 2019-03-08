@@ -21,6 +21,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
 
 /**
@@ -31,14 +32,13 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstat
  */
 public class DecideStackDecisionLiteral extends DecideStackLiteral {
 
-	public DecideStackDecisionLiteral(final boolean polarity, final EprPredicate eprPredicate,
-			final DawgState<ApplicationTerm, Boolean> dawg, final int index) {
-		super(polarity, eprPredicate, dawg, index);
+	public DecideStackDecisionLiteral(final EprPredicate eprPredicate,
+			final DawgState<ApplicationTerm, EprTheory.TriBool> dawg) {
+		super(eprPredicate, dawg);
 	}
 
 	@Override
 	public String toString() {
-		return String.format("(DSDec (%d): %c%s %s)",
-				nr, (mPolarity ? ' ' : '~'),  mPred, mDawg);
+		return String.format("(DSDec: %s %s)", mPred, mDawg);
 	}
 }

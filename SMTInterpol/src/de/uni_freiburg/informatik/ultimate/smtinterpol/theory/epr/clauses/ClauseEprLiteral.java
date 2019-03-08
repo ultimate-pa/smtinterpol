@@ -23,7 +23,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -34,7 +33,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.IEprLiteral;
 
 /**
  *
@@ -47,7 +45,7 @@ public abstract class ClauseEprLiteral extends ClauseLiteral {
 	 * Flag is set if the fields that are used to determine the state (fulfilled/fulfillable/refuted points)
 	 * of this ClauseLiteral have been changed since the last computation of that state.
 	 */
-	protected boolean mIsStateDirty = true;
+	private DawgState<ApplicationTerm, EprTheory.TriBool> mLastState;
 
 	protected final EprPredicateAtom mEprPredicateAtom;
 
@@ -91,20 +89,6 @@ public abstract class ClauseEprLiteral extends ClauseLiteral {
 		return  mEprPredicateAtom.getEprPredicate();
 	}
 
-	public void addPartiallyConflictingEprLiteral(final IEprLiteral el) {
-		mIsStateDirty = true;
-		mEprClause.mClauseStateIsDirty = true;
-	}
-
-	public void addPartiallyFulfillingEprLiteral(final IEprLiteral el) {
-		mIsStateDirty = true;
-		mEprClause.mClauseStateIsDirty = true;
-	}
-
-	public Set<IEprLiteral> getPartiallyConflictingDecideStackLiterals() {
-		throw new AssertionError();
-	}
-
 	/**
 	 * notifies the clause about the beginning of a push/pop scope
 	 */
@@ -115,8 +99,6 @@ public abstract class ClauseEprLiteral extends ClauseLiteral {
 	 * notifies the clause about the ending of a push/pop scope
 	 */
 	public void endScope() {
-		mIsStateDirty = true;
-		mEprClause.mClauseStateIsDirty = true;
 	}
 
 	public List<Term> getArguments() {
@@ -132,13 +114,20 @@ public abstract class ClauseEprLiteral extends ClauseLiteral {
 	}
 
 	protected abstract DawgState<ApplicationTerm, EprTheory.TriBool> computeDawg();
+
+	protected boolean isDirty() {
+		return mLastState != getEprPredicate().getDawg();
+	}
+
 	protected DawgState<ApplicationTerm, EprTheory.TriBool> getLocalDawg() {
-		if (mIsStateDirty) {
+		if (mLastState != getEprPredicate().getDawg()) {
+			mLastState = getEprPredicate().getDawg();
 			mCachedDawg = computeDawg();
-			mIsStateDirty = false;
 		}
 		return mCachedDawg;
 	}
+
+	public abstract ApplicationTerm[] getInstantiatedArguments(ApplicationTerm[] clauseGrounding);
 
 	/**
 	 * Determines if the point(s) this epr literal talks about have an empty intersection
@@ -149,10 +138,10 @@ public abstract class ClauseEprLiteral extends ClauseLiteral {
 	 */
 	public abstract boolean isDisjointFrom(DawgState<ApplicationTerm, Boolean> dawg);
 
-	public void unregisterIEprLiteral(final IEprLiteral el) {
-		mIsStateDirty = true;
-		mEprClause.mClauseStateIsDirty = true;
-	}
+	public abstract <V> DawgState<ApplicationTerm, V> litDawg2clauseDawg(DawgState<ApplicationTerm, V> litDawg);
+
+	public abstract DawgState<ApplicationTerm, Boolean> clauseDawg2litDawg(
+			DawgState<ApplicationTerm, Boolean> clauseDawg);
 
 
 	public abstract Clause getGroundingForGroundLiteral(DawgState<ApplicationTerm, Boolean> dawg,

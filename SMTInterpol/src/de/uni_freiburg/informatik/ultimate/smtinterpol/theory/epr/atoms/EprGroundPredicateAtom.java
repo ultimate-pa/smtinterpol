@@ -35,6 +35,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprPredicate;
  */
 public class EprGroundPredicateAtom extends EprPredicateAtom {
 	List<ApplicationTerm> mArgumentsAsWord;
+	int mStackPosition;
 
 	public EprGroundPredicateAtom(final ApplicationTerm term, final int hash, final int assertionstacklevel,
 			final EprPredicate pred, final SourceAnnotation source) {
@@ -44,6 +45,15 @@ public class EprGroundPredicateAtom extends EprPredicateAtom {
 		for (final Term arg : getArguments()) {
 			mArgumentsAsWord.add((ApplicationTerm) arg);
 		}
+		mStackPosition = -1;
+	}
+
+	public boolean isOnEprStack() {
+		return mStackPosition >= 0;
+	}
+
+	public int getEprStackPosition() {
+		return mStackPosition;
 	}
 
 	public List<ApplicationTerm> getArgumentsAsWord() {
@@ -53,5 +63,9 @@ public class EprGroundPredicateAtom extends EprPredicateAtom {
 	@Override
 	public Term getSMTFormula(final Theory smtTheory, final boolean quoted) {
 		return getTerm();
+	}
+
+	public void setStackPosition(int pos) {
+		mStackPosition = pos;
 	}
 }

@@ -21,19 +21,14 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DslBuilder;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackEntry;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackPropagatedLiteral;
 
 /**
  *
@@ -42,81 +37,31 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.D
  */
 public class UnitPropagationData {
 
-	private final List<DslBuilder> mQuantifiedPropagations;
-	// public final List<Pair<Literal, Clause>> mGroundPropagations;
-	private final Map<Literal, Clause> mGroundPropagations;
+	private final List<DecideStackEntry> mQuantifiedPropagations;
 
 	public UnitPropagationData(
 			final EprClause clause, final DawgState<ApplicationTerm, Integer> clauseDawg,
 			final DawgFactory<ApplicationTerm, TermVariable> dawgFactory) {
 
-		final List<DslBuilder> quantifiedPropagations = new ArrayList<>();
-		final Map<Literal, Clause> groundPropagations = new HashMap<>();
+		final List<DecideStackEntry> quantifiedPropagations = new ArrayList<>();
 
 		for (int i = 0; i < clause.getLiterals().size(); i++) {
 			final ClauseLiteral cl = clause.getLiterals().get(i);
-			final int clauseNr = i;
+			final int litNr = i;
 			final DawgState<ApplicationTerm, Boolean> unitPoints =
-					dawgFactory.createMapped(clauseDawg, status -> status == clauseNr);
+					dawgFactory.createMapped(clauseDawg, status -> status == litNr);
 			if (DawgFactory.isEmpty(unitPoints)) {
 				continue;
 			}
-			if (cl instanceof ClauseEprQuantifiedLiteral) {
-				final ClauseEprQuantifiedLiteral ceql = (ClauseEprQuantifiedLiteral) cl;
-				final DslBuilder propB = new DslBuilder(ceql.getPolarity(), ceql.getEprPredicate(),
-						dawgFactory.translateClauseSigToPredSig(unitPoints,
-								ceql.mEprClause.getVariables(),
-								ceql.getTranslationFromClauseToEprPredicate(), ceql.getArgumentsAsAppTerm(),
-								ceql.getEprPredicate().getTermVariablesForArguments()),
-						ceql, unitPoints, false);
-				quantifiedPropagations.add(propB);
-			} else {
-				if (cl.getLiteral().getAtom() instanceof EprGroundEqualityAtom) {
-					/*
-					 * EprGroundEqualityAtoms are not passed to the DPLLEngine --> treat them like a quantified
-					 * propagations
-					 */
-					final EprGroundEqualityAtom egea = (EprGroundEqualityAtom) cl.getLiteral().getAtom();
-
-					final DawgState<ApplicationTerm, Boolean> onePointDawg = dawgFactory
-							.createSingletonSet(egea.getEprPredicate().getTermVariablesForArguments(), egea.getPoint());
-
-					// we don't need a signature translation here, because equality is symmetric anyway, right?..
-					// TODO: perhaps reorder it manually..
-					final DawgState<ApplicationTerm, Boolean> onePointDawgInClauseSig =
-							dawgFactory.createSingletonSet(cl.getClause().getVariables(), egea.getPoint());
-
-					final DslBuilder propB = new DslBuilder(cl.getPolarity(), egea.getEprPredicate(), onePointDawg,
-							(ClauseEprLiteral) cl, onePointDawgInClauseSig,
-							false);
-					quantifiedPropagations.add(propB);
-				} else {
-
-					final DawgState<ApplicationTerm, Boolean> groundingDawg = unitPoints;
-					final Set<Clause> groundings = cl.getClause().getGroundings(groundingDawg);
-					final Clause unitGrounding = groundings.iterator().next();
-					// note that the following assert would be wrong (rightfully), because some atoms of the given
-					// clause
-					// may not be known to the DPLLEngine yet
-					// assert EprHelpers.verifyUnitClause(unitGrounding, cl.getLiteral(), dawgFactory.getLogger());
-					groundPropagations.put(cl.getLiteral(), unitGrounding);
-				}
-			}
+			final ClauseEprLiteral cel = (ClauseEprLiteral) cl;
+			final DecideStackPropagatedLiteral dspl = new DecideStackPropagatedLiteral(cel, unitPoints);
+			quantifiedPropagations.add(dspl);
 		}
 
 		mQuantifiedPropagations = Collections.unmodifiableList(quantifiedPropagations);
-		mGroundPropagations = Collections.unmodifiableMap(groundPropagations);
 	}
-	public List<DslBuilder> getQuantifiedPropagations() {
+
+	public List<DecideStackEntry> getQuantifiedPropagations() {
 		return mQuantifiedPropagations;
-	}
-
-
-	/**
-	 *
-	 * @return a mapping from a ground unit literal to its propagation reason (which is a ground clause)
-	 */
-	public Map<Literal, Clause> getGroundPropagations() {
-		return mGroundPropagations;
 	}
 }

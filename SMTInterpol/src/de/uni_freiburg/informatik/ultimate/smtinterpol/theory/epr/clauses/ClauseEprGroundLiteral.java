@@ -22,6 +22,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses;
 import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
@@ -59,6 +60,13 @@ public class ClauseEprGroundLiteral extends ClauseEprLiteral {
 		return !dawg.getValue(EprHelpers.convertTermListToConstantList(mArgumentTerms));
 	}
 
+	public ApplicationTerm[] getInstantiatedArguments(ApplicationTerm[] clauseGrounding) {
+		Term[] args = mEprPredicateAtom.getArguments();
+		ApplicationTerm[] appTermArgs = new ApplicationTerm[args.length];
+		System.arraycopy(args, 0, appTermArgs, 0, args.length);
+		return appTermArgs;
+	}
+
 	@Override
 	public Clause getGroundingForGroundLiteral(final DawgState<ApplicationTerm, Boolean> dawg,
 			final Literal groundLiteral) {
@@ -70,5 +78,17 @@ public class ClauseEprGroundLiteral extends ClauseEprLiteral {
 		final Set<Clause> groundings = getClause().getGroundings(dawg);
 		assert !groundings.isEmpty();
 		return groundings.iterator().next();
+	}
+
+	@Override
+	public <V> DawgState<ApplicationTerm, V> litDawg2clauseDawg(DawgState<ApplicationTerm, V> litDawg) {
+		return mDawgFactory.createConstantDawg(mEprClause.getVariables(),
+				litDawg.getValue(getArgumentsAsAppTerm()));
+	}
+
+	@Override
+	public DawgState<ApplicationTerm, Boolean> clauseDawg2litDawg(DawgState<ApplicationTerm, Boolean> clauseDawg) {
+		return mDawgFactory.createSingletonSet(mEprPredicateAtom.getEprPredicate().getTermVariablesForArguments(),
+				getArgumentsAsAppTerm());
 	}
 }

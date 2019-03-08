@@ -23,7 +23,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.util.Arrays;
-import java.util.Map;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
@@ -35,7 +34,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ArrayMap;
 
 /**
  * Test for the remap() function in the DawgFactory.
@@ -64,18 +62,12 @@ public class DawgTestReorder {
 		final SortedSet<String> signature = new TreeSet<String>(EprHelpers.getColumnNamesComparator());
 		signature.addAll(Arrays.asList(new String[] { "u", "v", "w", "x"}));
 
-		final Map<Integer, String> remap1 = new ArrayMap<>(new Integer[] { 0, 1, 2, 3 },
-				new String[] { "x", "w", "v", "u" });
-		final Map<Integer, String> remap2 = new ArrayMap<>(new Integer[] { 0, 1, 2, 3 },
-				new String[] { "v", "u", "w", "x" });
-		final Map<Integer, String> remap3 = new ArrayMap<>(new Integer[] { 0, 1, 2, 3 },
-				new String[] { "u", "w", "v", "x" });
-		final Map<Integer, String> remap4 = new ArrayMap<>(new Integer[] { 0, 1, 2, 3 },
-				new String[] { "u", "x", "w", "v" });
-		final Map<Integer, String> remap5 = new ArrayMap<>(new Integer[] { 0, 1, 2, 3 },
-				new String[] { "w", "u", "v", "x" });
-		final Map<Integer, String> remap6 = new ArrayMap<>(new Integer[] { 0, 1, 2, 3 },
-				new String[] { "v", "w", "u", "x" });
+		final int[] remap1 = new int[] { 3, 2, 1, 0 };
+		final int[] remap2 = new int[] { 1, 0, 2, 3 };
+		final int[] remap3 = new int[] { 0, 2, 1, 3 };
+		final int[] remap4 = new int[] { 0, 3, 2, 1 };
+		final int[] remap5 = new int[] { 2, 0, 1, 3 };
+		final int[] remap6 = new int[] { 1, 2, 0, 3 };
 
 		/*
 		 * word in the original automaton

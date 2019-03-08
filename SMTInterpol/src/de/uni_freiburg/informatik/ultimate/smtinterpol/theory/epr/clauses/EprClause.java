@@ -24,6 +24,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
@@ -48,8 +49,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuant
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.IEprLiteral;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
 
 /**
  * Represents a clause that is only known to the EprTheory.
@@ -108,40 +107,15 @@ public class EprClause {
 		mDawgFactory = eprTheory.getDawgFactory();
 
 		// set up the clause..
-
-		final Pair<SortedSet<TermVariable>, List<ClauseLiteral>> resPair =
-				 createClauseLiterals(lits);
-
-		mLiterals = Collections.unmodifiableList(resPair.getSecond());
-
-		mVariables = Collections.unmodifiableSortedSet(resPair.getFirst());
+		TreeSet<TermVariable> variables = new TreeSet<>(EprHelpers.getColumnNamesComparator());
+		for (Literal lit : lits) {
+			variables.addAll(Arrays.asList(lit.getAtom().getSMTFormula(mEprTheory.getTheory()).getFreeVars()));
+		}
+		mVariables = Collections.unmodifiableSortedSet(variables);
+		mLiterals = Collections.unmodifiableList(createClauseLiterals(lits));
 
 		mIsGround = mVariables.isEmpty();
-
-		registerFulfillingOrConflictingEprLiteralInClauseLiterals();
 	}
-
-
-	private void registerFulfillingOrConflictingEprLiteralInClauseLiterals() {
-		for (final ClauseLiteral cl : getLiterals()) {
-			if (!(cl instanceof ClauseEprLiteral)) {
-				continue;
-			}
-			final ClauseEprLiteral cel = (ClauseEprLiteral) cl;
-			for (final IEprLiteral dsl : cel.getEprPredicate().getEprLiterals()) {
-				if (cel.isDisjointFrom(dsl.getDawg())) {
-					continue;
-				}
-
-				if (dsl.getPolarity() == cel.getPolarity()) {
-					cel.addPartiallyFulfillingEprLiteral(dsl);
-				} else {
-					cel.addPartiallyConflictingEprLiteral(dsl);
-				}
-			}
-		}
-	}
-
 
 	/**
 	 * Set up the clause in terms of our Epr data structures.
@@ -155,9 +129,8 @@ public class EprClause {
 	 * @return
 	 * @return
 	 */
-	private Pair<SortedSet<TermVariable>, List<ClauseLiteral>> createClauseLiterals(final Set<Literal> lits) {
+	private List<ClauseLiteral> createClauseLiterals(final Set<Literal> lits) {
 
-		final SortedSet<TermVariable> variables = new TreeSet<>(EprHelpers.getColumnNamesComparator());
 		final List<ClauseLiteral> literals = new ArrayList<>(lits.size());
 
 //		Set<EprQuantifiedEqualityAtom> quantifiedEqualities = new HashSet<EprQuantifiedEqualityAtom>();
@@ -169,10 +142,6 @@ public class EprClause {
 			if (atom instanceof EprQuantifiedPredicateAtom
 					|| atom instanceof EprQuantifiedEqualityAtom) {
 				final EprQuantifiedPredicateAtom eqpa = (EprQuantifiedPredicateAtom) atom;
-
-				variables.addAll(
-						Arrays.asList(
-								atom.getSMTFormula(mEprTheory.getTheory()).getFreeVars()));
 
 				final ClauseEprQuantifiedLiteral newL = new ClauseEprQuantifiedLiteral(
 						polarity, eqpa, this, mEprTheory);
@@ -222,9 +191,7 @@ public class EprClause {
 
 //		assert literals.size() == mDpllLiterals.size() - quantifiedEqualities.size();
 
-		return new Pair<>(
-				variables, literals);
-
+		return literals;
 	}
 
 	/**
@@ -239,59 +206,10 @@ public class EprClause {
 				cel.getEprPredicate().notifyAboutClauseDisposal(this);
 			}
 		}
-		mEprTheory.getStateManager().getDecideStackManager().removeFromUnitClauseSet(this);
 		mHasBeenDisposed = true;
 	}
 
-	/**
-	 * Update the necessary data structure that help the clause to determine which state it is in.
-	 *  --> determineState does not work correctly if this has not been called before.
-	 * @param dsl
-	 * @param literalsWithSamePredicate
-	 * @return
-	 */
-	public void updateStateWrtDecideStackLiteral(final IEprLiteral dsl,
-			final Set<ClauseEprLiteral> literalsWithSamePredicate) {
-		assert !mHasBeenDisposed;
-
-		mClauseStateIsDirty = true;
-
-		// update the storage of each clause literal that contains the decide stack literals
-		// the clause literal is affected by
-		for (final ClauseEprLiteral cel : literalsWithSamePredicate) {
-			assert cel.getClause() == this;
-
-			if (cel.isDisjointFrom(dsl.getDawg())) {
-				continue;
-			}
-			if (cel.getPolarity() == dsl.getPolarity()) {
-				cel.addPartiallyFulfillingEprLiteral(dsl);
-			} else {
-				cel.addPartiallyConflictingEprLiteral(dsl);
-			}
-		}
-	}
-
-
 	public void backtrackStateWrtDecideStackLiteral(final DecideStackLiteral dsl) {
-		mClauseStateIsDirty = true;
-	}
-
-	/**
-	 * This clause is informed that the DPLLEngine has set literal.
-	 * The fulfillmentState of this clause may have to be updated because of this.
-	 *
-	 * @param literal ground Epr Literal that has been set by DPLLEngine
-	 * @return
-	 */
-	public EprClauseState updateStateWrtDpllLiteral(final Literal literal) {
-		assert !mHasBeenDisposed;
-		mClauseStateIsDirty = true;
-		return determineClauseState(null);
-	}
-
-	public void backtrackStateWrtDpllLiteral(final Literal literal) {
-		assert !mHasBeenDisposed;
 		mClauseStateIsDirty = true;
 	}
 
@@ -310,10 +228,19 @@ public class EprClause {
 	 *         b) a unit literal for propagation (may be ground or not)
 	 *         null if it is neither
 	 */
-	private EprClauseState determineClauseState(final DecideStackLiteral decideStackBorder) {
-
+	private EprClauseState determineClauseState() {
 		DawgState<ApplicationTerm, Integer> myDawg =
 				mDawgFactory.createConstantDawg(getVariables(), DAWG_FALSE);
+
+		boolean isDirty = false;
+		for (ClauseLiteral cl : getLiterals()) {
+			if (cl instanceof ClauseEprLiteral && ((ClauseEprLiteral) cl).isDirty()) {
+				isDirty = true;
+			}
+		}
+		if (!isDirty) {
+			return mEprClauseState;
+		}
 
 		for (int i = 0; i < getLiterals().size(); i++) {
 			final int litNr = i;
@@ -323,22 +250,35 @@ public class EprClause {
 									: status == DAWG_FALSE ? litNr : status == DAWG_TRUE ? DAWG_TRUE : DAWG_UNKNOWN);
 			myDawg = mDawgFactory.createProduct(myDawg, getLiterals().get(i).getLocalDawg(), clauseMerger);
 			if (DawgFactory.isConstantValue(myDawg, DAWG_TRUE)) {
-				return EprClauseState.Fulfilled;
+				mEprClauseState = EprClauseState.Fulfilled;
+				return mEprClauseState;
 			}
 		}
 		mConflictPoints = mDawgFactory.createMapped(myDawg, i -> i == DAWG_FALSE);
 		if (!DawgFactory.isEmpty(mConflictPoints)) {
-			return EprClauseState.Conflict;
+			mEprClauseState = EprClauseState.Conflict;
 		} else if (!DawgFactory.isEmpty(mDawgFactory.createMapped(myDawg, i -> i >= 0))) {
 			mUnitPropagationData = new UnitPropagationData(this, myDawg, mDawgFactory);
-			return EprClauseState.Unit;
+			mEprClauseState = EprClauseState.Unit;
 		} else {
-			return EprClauseState.Normal;
+			mEprClauseState = EprClauseState.Normal;
 		}
+		return mEprClauseState;
 	}
 
 	public SortedSet<TermVariable> getVariables() {
 		return mVariables;
+	}
+
+	public int getVariablePos(TermVariable variable) {
+		int index = 0;
+		for (TermVariable tv : mVariables) {
+			if (tv == variable) {
+				return index;
+			}
+			index++;
+		}
+		throw new NoSuchElementException();
 	}
 
 	public UnitPropagationData getUnitPropagationData() {
@@ -350,24 +290,15 @@ public class EprClause {
 
 	public boolean isUnit() {
 		assert !mHasBeenDisposed;
-		if (mClauseStateIsDirty) {
-			return determineClauseState(null) == EprClauseState.Unit;
-		}
-		return mEprClauseState == EprClauseState.Unit;
+		return determineClauseState() == EprClauseState.Unit;
 	}
 
 	public boolean isConflict() {
 		assert !mHasBeenDisposed;
-		if (mClauseStateIsDirty) {
-			return determineClauseState(null) == EprClauseState.Conflict;
-		}
-		return mEprClauseState == EprClauseState.Conflict;
+		return determineClauseState() == EprClauseState.Conflict;
 	}
 
 	public DawgState<ApplicationTerm, Boolean> getConflictPoints() {
-		if (mClauseStateIsDirty) {
-			determineClauseState(null);
-		}
 		assert isConflict();
 		assert mConflictPoints != null : "this should have been set somewhere..";
 		return mConflictPoints;

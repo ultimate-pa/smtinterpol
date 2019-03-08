@@ -23,7 +23,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
@@ -44,9 +43,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.Clause
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackLiteral;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DslBuilder;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.IEprLiteral;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackDecisionLiteral;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackEntry;
 
 /**
  * Represents an uninterpreted predicate that the EPR theory reasons about.
@@ -66,12 +64,6 @@ public class EprPredicate {
 	protected final SortedSet<TermVariable> mSignature;
 
 	final EprTheory mEprTheory;
-
-	/**
-	 * Contains all DecideStackLiterals which talk about this EprPredicate.
-	 */
-	protected Set<IEprLiteral> mEprLiterals =
-			new HashSet<>();
 
 	/**
 	 * Storage to track where this predicate occurs in the formula with at least one quantified argument.
@@ -185,32 +177,20 @@ public class EprPredicate {
 		EprGroundPredicateAtom result = mPointToAtom.get(point);
 		if (result == null) {
 			final ApplicationTerm newTerm = mTheory.term(mFunctionSymbol, point.terms);
+			int hash = newTerm.hashCode();
 			if (this instanceof EprEqualityPredicate) {
-				result = new EprGroundEqualityAtom(newTerm, 0,
+				result = new EprGroundEqualityAtom(newTerm, hash,
 					assertionStackLevel,
 					(EprEqualityPredicate) this,
 					source);
 			} else {
-				result = new EprGroundPredicateAtom(newTerm, 0,
+				result = new EprGroundPredicateAtom(newTerm, hash,
 					assertionStackLevel,
 					this,
 					source);
 			}
 			mPointToAtom.put(point, result);
 			addDPLLAtom(result);
-
-			// when we create a new ground atom, we have to inform the DPLLEngine if the EprTheory already knows
-			// something about it
-			for (final IEprLiteral dsl : this.getEprLiterals()) {
-				if (!(dsl instanceof DecideStackLiteral)) {
-					// we have an EprGroundPredicateLiteral --> the DPLLEngine already knows about it..
-					continue;
-				}
-				final EprClause conflict = mEprTheory.getStateManager().setGroundAtomIfCoveredByDecideStackLiteral((DecideStackLiteral) dsl, result);
-				if (conflict != null) {
-					assert false : "what now? give to EprTheory somehow so it can be returned by checkpoint??";
-				}
-			}
 		}
 		return result;
 	}
@@ -275,65 +255,22 @@ public class EprPredicate {
 	 *  @return null if the model of this predicate is already complete, a DecideStackLiteral
 	 *          otherwise.
 	 */
-	public DslBuilder getNextDecision() {
-		final DawgState<ApplicationTerm, Boolean> undecidedPoints = computeUndecidedPoints();
+	public DecideStackEntry getNextDecision() {
+		/*
+		 * For equalities our default decision is polarity "false", otherwise "true"
+		 */
+		final EprTheory.TriBool newDecision = this instanceof EprEqualityPredicate ? EprTheory.TriBool.TRUE
+				: EprTheory.TriBool.FALSE;
+		final DawgState<ApplicationTerm, EprTheory.TriBool> undecidedPoints =
+				mEprTheory.getDawgFactory().createMapped(getDawg(),
+						val -> val == EprTheory.TriBool.UNKNOWN ? newDecision : EprTheory.TriBool.UNKNOWN);
 
-		if (DawgFactory.isEmpty(undecidedPoints)) {
+		if (DawgFactory.isConstantValue(undecidedPoints, EprTheory.TriBool.UNKNOWN)) {
+			// no undecided points
 			return null;
 		} else {
-			/*
-			 * For equalities our default decision is polarity "false", otherwise "true"
-			 */
-			if (this instanceof EprEqualityPredicate) {
-				return new DslBuilder(false, this, undecidedPoints, true);
-			} else {
-				return new DslBuilder(true, this, undecidedPoints, true);
-			}
+			return new DecideStackDecisionLiteral(this, undecidedPoints);
 		}
-	}
-
-	private DawgState<ApplicationTerm, Boolean> computeUndecidedPoints() {
-		final DawgFactory<ApplicationTerm, TermVariable> factory = mEprTheory.getDawgFactory();
-		DawgState<ApplicationTerm, Boolean> positivelySetPoints = factory.createConstantDawg(mSignature, Boolean.FALSE);
-		DawgState<ApplicationTerm, Boolean> negativelySetPoints = factory.createConstantDawg(mSignature, Boolean.FALSE);
-		DawgState<ApplicationTerm, Boolean> undecidedPoints = factory.createConstantDawg(mSignature, Boolean.FALSE);
-
-		for (final IEprLiteral dsl : mEprLiterals) {
-			if (dsl.getPolarity()) {
-				// positive literal
-				positivelySetPoints = factory.createUnion(positivelySetPoints, dsl.getDawg());
-			} else {
-				// negative literal
-				negativelySetPoints = factory.createUnion(negativelySetPoints, dsl.getDawg());
-			}
-		}
-
-		// the ground predicates' decide statuses are managed by the DPLLEngine
-		for (final EprGroundPredicateAtom at : mDPLLAtoms) {
-			if (at.getDecideStatus() == null) {
-				// not yet decided
-				undecidedPoints = factory.createUnion(undecidedPoints, factory.createSingletonSet(mSignature,
-						EprHelpers.convertTermArrayToConstantList(at.getArguments())));
-			} else if (at.getDecideStatus().getSign() == 1) {
-				// positively set
-				positivelySetPoints = factory.createUnion(positivelySetPoints, factory.createSingletonSet(mSignature,
-						EprHelpers.convertTermArrayToConstantList(at.getArguments())));
-			} else {
-				// negatively set
-				negativelySetPoints = factory.createUnion(negativelySetPoints, factory.createSingletonSet(mSignature,
-						EprHelpers.convertTermArrayToConstantList(at.getArguments())));
-			}
-		}
-
-		DawgState<ApplicationTerm, Boolean> allDecidedPoints = factory.createConstantDawg(mSignature, Boolean.FALSE);
-		// allDecidedPoints.addAll(positivelySetPoints);
-		allDecidedPoints = factory.createUnion(allDecidedPoints, positivelySetPoints);
-		// allDecidedPoints.addAll(negativelySetPoints);
-		allDecidedPoints = factory.createUnion(allDecidedPoints, negativelySetPoints);
-
-		// undecidedPoints.addAll(allDecidedPoints.complement());
-		undecidedPoints = factory.createProduct(undecidedPoints, allDecidedPoints, (b1, b2) -> b1 || !b2);
-		return undecidedPoints;
 	}
 
 	/**
@@ -359,31 +296,7 @@ public class EprPredicate {
 		return mSignature;
 	}
 
-	/**
-	 * This has to be called when a literal that talks about this EprPredicate is put on the epr decide stack.
-	 * @param dsl
-	 */
-	public void registerEprLiteral(final IEprLiteral dsl) {
-		mEprLiterals.add(dsl);
-	}
-
-	/**
-	 * This has to be called when a literal that talks about this EprPredicate is removed from the epr decide stack.
-	 * @param dsl
-	 */
-	public void unregisterEprLiteral(final IEprLiteral dsl) {
-		mEprLiterals.remove(dsl);
-	}
-
-	public Set<IEprLiteral> getEprLiterals() {
-		assert mEprTheory.getStateManager().getDecideStackManager().verifyEprLiterals(mEprLiterals);
-		return mEprLiterals;
-	}
-
 	public Sort[] getSorts() {
 		return mFunctionSymbol.getParameterSorts();
 	}
-
-
-
 }

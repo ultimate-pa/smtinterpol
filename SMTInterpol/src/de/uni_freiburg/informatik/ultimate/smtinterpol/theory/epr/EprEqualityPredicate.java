@@ -1,11 +1,14 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr;
 
+import java.util.Arrays;
+import java.util.Map;
+
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgletters.DawgLetter;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.IEprLiteral;
 
 public class EprEqualityPredicate extends EprPredicate {
 
@@ -23,21 +26,28 @@ public class EprEqualityPredicate extends EprPredicate {
 	public DawgState<ApplicationTerm, Boolean> computeOverallSymmetricTransitiveClosureForPositiveEqualityPred(
 			final DawgState<ApplicationTerm, Boolean> dawg) {
 		final DawgFactory<ApplicationTerm, TermVariable> factory = mEprTheory.getDawgFactory();
-		DawgState<ApplicationTerm, Boolean> positivelySetPoints =
-				factory.createConstantDawg(mSignature, Boolean.FALSE);
+		final DawgState<ApplicationTerm, Boolean> result = factory.computeSymmetricTransitiveClosure(dawg);
+		return result;
+	}
 
-		for (final IEprLiteral dsl : mEprLiterals) {
-			if (dsl.getPolarity()) {
-				//positive literal
-				positivelySetPoints = factory.createUnion(positivelySetPoints, dsl.getDawg());
+	public DawgState<ApplicationTerm, Boolean> getIrreflexivity() {
+		DawgState<ApplicationTerm, EprTheory.TriBool> dawg = getDawg();
+		for (Map.Entry<DawgState<ApplicationTerm, EprTheory.TriBool>, DawgLetter<ApplicationTerm>> first : dawg.getTransitions()
+				.entrySet()) {
+			for (Map.Entry<DawgState<ApplicationTerm, EprTheory.TriBool>, DawgLetter<ApplicationTerm>> second : first.getKey().getTransitions()
+				.entrySet()) {
+				if (second.getKey().getFinalValue() == EprTheory.TriBool.FALSE) {
+					if (!first.getValue().isDisjoint(second.getValue())) {
+						// we found a counterexample for reflexivity.  It is enough to return one of them.
+						DawgLetter<ApplicationTerm> intersect = first.getValue().intersect(second.getValue());
+						@SuppressWarnings("unchecked")
+						DawgLetter<ApplicationTerm>[] word = new DawgLetter[] { intersect, intersect };
+						return mEprTheory.getDawgFactory().createSingletonPattern(getTermVariablesForArguments(),
+								Arrays.asList(word));
+					}
+				}
 			}
 		}
-
-		final DawgState<ApplicationTerm, Boolean> overallUnion = factory.createUnion(positivelySetPoints, dawg);
-
-		final DawgState<ApplicationTerm, Boolean> result = factory.computeSymmetricTransitiveClosure(overallUnion);
-		// the resulting dawg must denote a superset of the points denoted by the input dawg
-		assert factory.isEmpty(factory.createProduct(overallUnion, dawg, (inOverall, inDawg) -> !inOverall && inDawg));
-		return result;
+		return mEprTheory.getDawgFactory().createConstantDawg(getTermVariablesForArguments(), Boolean.FALSE);
 	}
 }
