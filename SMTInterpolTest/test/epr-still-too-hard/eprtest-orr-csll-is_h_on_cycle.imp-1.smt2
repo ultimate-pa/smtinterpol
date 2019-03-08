@@ -1,7 +1,6 @@
 (set-option :print-success false)
 (set-option :produce-proofs false)
 (set-option :interpolant-check-mode false)
-(set-option :verbosity 3)
 (set-logic UF)
 (set-info :source |First push block from orr-eeaa-sanitized/csll-is_h_on_cycle.imp.smt2|)
 ; currently this runs through correctly in a few minutes outside of JUnit, using less than 2GB of memory, JUnit crashes oom at 2GB -- don't know why JUnit makes a difference

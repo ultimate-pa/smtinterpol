@@ -232,9 +232,9 @@ public class EprClause {
 		DawgState<ApplicationTerm, Integer> myDawg =
 				mDawgFactory.createConstantDawg(getVariables(), DAWG_FALSE);
 
-		boolean isDirty = false;
+		boolean isDirty = mEprClauseState == null;
 		for (ClauseLiteral cl : getLiterals()) {
-			if (cl instanceof ClauseEprLiteral && ((ClauseEprLiteral) cl).isDirty()) {
+			if (cl.isDirty()) {
 				isDirty = true;
 			}
 		}
@@ -284,7 +284,6 @@ public class EprClause {
 	public UnitPropagationData getUnitPropagationData() {
 		assert mUnitPropagationData != null;
 		final UnitPropagationData result = mUnitPropagationData;
-		mUnitPropagationData = null;
 		return result;
 	}
 

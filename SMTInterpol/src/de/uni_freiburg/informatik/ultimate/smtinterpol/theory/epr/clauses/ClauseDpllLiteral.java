@@ -21,6 +21,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
@@ -32,11 +33,16 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstat
  *
  */
 public class ClauseDpllLiteral extends ClauseLiteral {
+	Literal mLastState = null; // TODO isDirty is broken
 
 	public ClauseDpllLiteral(final boolean polarity, final DPLLAtom atom, final EprClause clause, final EprTheory eprTheory) {
 		super(polarity, atom, clause, eprTheory);
 		assert !(atom instanceof EprPredicateAtom) : "use different ClauseLiteral";
 		assert !(atom instanceof EprQuantifiedEqualityAtom) : "use different ClauseLiteral";
+	}
+
+	protected boolean isDirty() {
+		return mLastState != mAtom.getDecideStatus();
 	}
 
 	/**
@@ -46,10 +52,11 @@ public class ClauseDpllLiteral extends ClauseLiteral {
 	 */
 	@Override
 	protected DawgState<ApplicationTerm, EprTheory.TriBool> getLocalDawg() {
-		if (mAtom.getDecideStatus() == null) {
+		mLastState = mAtom.getDecideStatus();
+		if (mLastState == null) {
 			// undecided
 			return mDawgFactory.createConstantDawg(mEprClause.getVariables(), EprTheory.TriBool.UNKNOWN);
-		} else if ((mAtom.getDecideStatus() == mAtom) == mPolarity){
+		} else if ((mLastState == mAtom) == mPolarity) {
 			// decided with same polarity
 			return mDawgFactory.createConstantDawg(mEprClause.getVariables(), EprTheory.TriBool.TRUE);
 		} else {
@@ -57,5 +64,4 @@ public class ClauseDpllLiteral extends ClauseLiteral {
 			return mDawgFactory.createConstantDawg(mEprClause.getVariables(), EprTheory.TriBool.FALSE);
 		}
 	}
-
 }

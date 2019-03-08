@@ -25,7 +25,6 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
@@ -54,6 +53,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuant
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClauseFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFactory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.EprDecideStack;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.GroundPropagationInfo;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
 
 /**
@@ -65,7 +65,7 @@ public class EprTheory implements ITheory {
 
 	Map<FunctionSymbol, EprPredicate> mFunctionSymbolToEprPredicate = new HashMap<>();
 
-	Map<Literal, Clause> mGroundLiteralsToPropagateToReason = new HashMap<>();
+	Map<Literal, GroundPropagationInfo> mGroundLiteralsToPropagateToReason = new HashMap<>();
 
 	ScopedHashSet<DPLLAtom> mAtomsAddedToDPLLEngine = new ScopedHashSet<>();
 
@@ -97,11 +97,6 @@ public class EprTheory implements ITheory {
 	 * used in an explanation the consequence was that the explanation was not unit anymore.
 	 */
 	private final Deque<Literal> mLiteralsWaitingToBePropagated = new ArrayDeque<>();
-
-	/**
-	 * just for debugging purposes
-	 */
-	private final Set<Literal> mAlreadyPropagatedLiterals = new HashSet<>();
 
 	/**
 	 * just for debugging purposes
@@ -208,7 +203,7 @@ public class EprTheory implements ITheory {
 		final boolean success = mLiteralsThatAreCurrentlySet.remove(literal);
 		assert success;
 
-		unregisterPropagatedLiteralIfNecessary(literal);
+		mGroundLiteralsToPropagateToReason.remove(literal);
 
 		// update the fulfillment states of the remaining clauses
 		final DPLLAtom atom = literal.getAtom();
@@ -225,49 +220,6 @@ public class EprTheory implements ITheory {
 			mEprStack.backtrackToLiteral(literal);
 		} else {
 
-		}
-	}
-
-	/**
-	 * This has to be called, when a literal that was propagated to the dpllengine is backtracked. That means that we
-	 * don't need its explanation unit clause anymore and that it may be set freshly for some other reason later.
-	 *
-	 * @param literal
-	 */
-	private void unregisterPropagatedLiteralIfNecessary(final Literal literal) {
-		final Clause oldReason = mGroundLiteralsToPropagateToReason.get(literal);
-		if (oldReason != null) {
-			// no reason present --> was not propagated --> no need to
-			// unregister
-			mLogger.debug("EPRDEBUG: unregisterPropagatedLiteral -- removing reason " + literal + ", old reason: "
-					+ oldReason);
-			mGroundLiteralsToPropagateToReason.remove(literal);
-		}
-		assert !mLiteralsWaitingToBePropagated.contains(literal) : ".. right?..";
-
-		final Set<Literal> literalsRemovedBecauseLiteralWasInReason = new HashSet<>();
-
-		final Map<Literal, Clause> newGltoptr = new HashMap<>();
-		for (final Entry<Literal, Clause> en : mGroundLiteralsToPropagateToReason.entrySet()) {
-			if (en.getValue().contains(literal.negate())) {
-				// propagation is no more possible because backtracking made the
-				// reason clause non-unit.
-				mLiteralsWaitingToBePropagated.remove(en.getKey());
-				literalsRemovedBecauseLiteralWasInReason.add(en.getKey());
-				mLogger.debug("EPRDEBUG: unregisterPropagatedLiteral -- removing propagation where a part of "
-						+ "the reason was backtracked " + en.getKey());
-				continue;
-			}
-			newGltoptr.put(en.getKey(), en.getValue());
-		}
-		mGroundLiteralsToPropagateToReason = newGltoptr;
-
-		/*
-		 * the literals we removed need to be unregistered, too (they may themselves contribute to a (former) reason
-		 * unit clause not being unit anymore..) deeper reason: propagations may base on other propagations
-		 */
-		for (final Literal rl : literalsRemovedBecauseLiteralWasInReason) {
-			unregisterPropagatedLiteralIfNecessary(rl);
 		}
 	}
 
@@ -291,23 +243,7 @@ public class EprTheory implements ITheory {
 
 		// tell the state manager to do propagations, and return a conflict if
 		// one appears
-		Clause conflict = mEprStack.doPropagations();
-		if (conflict != null) {
-			if (!mLiteralsWaitingToBePropagated.isEmpty()) {
-				// TODO what do we do with that conflict?..
-				// (it may only be a conflict to the DPLLEngine after those
-				// literals have been propagated)
-				// for now, we just ignore it -- we will find it again.. or
-				// another one..
-				// --> maybe need to understand the rules better how
-				// getPropagatedLiterals() and checkpoint() are called..
-				return null;
-			}
-			conflict = EprHelpers.sanitizeGroundConflict(mClausifier, mLogger, conflict);
-			return conflict;
-		}
-
-		return null;
+		return mEprStack.doPropagations();
 	}
 
 	@Override
@@ -334,17 +270,11 @@ public class EprTheory implements ITheory {
 			return null;
 		}
 
-		final Clause reasonUnitClause = mGroundLiteralsToPropagateToReason.get(lit);
-		assert EprHelpers.verifyUnitClauseBeforePropagation(reasonUnitClause, lit, mLogger);
-
-		mAlreadyPropagatedLiterals.add(lit);
-
 		mLogger.debug("EPRDEBUG: getPropagatedLiteral propagating: " + lit);
-
 		return lit;
 	}
 
-	public void addGroundLiteralToPropagate(final Literal l, Clause reason) {
+	public void addGroundLiteralToPropagate(final Literal l, GroundPropagationInfo reason) {
 		if (mGroundLiteralsToPropagateToReason.keySet().contains(l)) {
 			mLogger.debug("EPRDEBUG: EprTheory.addGroundLiteralToPropagate: already added: " + l);
 			return;
@@ -365,8 +295,6 @@ public class EprTheory implements ITheory {
 			addAtomToDPLLEngine(l.getAtom());
 		}
 
-		reason = EprHelpers.sanitizeReasonUnitClauseBeforeEnqueue(mClausifier, mLogger, l, reason,
-				mLiteralsWaitingToBePropagated);
 		mLogger.debug("EPRDEBUG: EprTheory.addGroundLiteralToPropagate(..): " + "literal: " + l + " reason: " + reason);
 
 		// assert EprHelpers.verifyUnitClauseAtEnqueue(l, reason, mLiteralsWaitingToBePropagated, mLogger);
@@ -377,12 +305,7 @@ public class EprTheory implements ITheory {
 
 	@Override
 	public Clause getUnitClause(final Literal literal) {
-		final Clause unitClause = mGroundLiteralsToPropagateToReason.get(literal);
-		mLogger.debug("EPRDEBUG: getUnitClause -- returning " + unitClause);
-		assert unitClause != null;
-		assert EprHelpers.verifyUnitClauseAfterPropagation(unitClause, literal, mLogger);
-		// remove the entry from the map -- seems cleaner..
-		return unitClause;
+		return mEprStack.explainGroundUnit(literal, mGroundLiteralsToPropagateToReason.get(literal));
 	}
 
 	@Override
@@ -425,7 +348,10 @@ public class EprTheory implements ITheory {
 
 	@Override
 	public Clause backtrackComplete() {
-		// TODO Auto-generated method stub
+		for (Literal lit : mLiteralsWaitingToBePropagated) {
+			mGroundLiteralsToPropagateToReason.remove(lit);
+		}
+		mLiteralsWaitingToBePropagated.clear();
 		mLogger.debug("EPRDEBUG: backtrackComplete");
 		return null;
 	}

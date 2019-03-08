@@ -29,6 +29,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.DawgFact
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.dawgs.dawgstates.DawgState;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackEntry;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.DecideStackPropagatedLiteral;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.GroundPropagationInfo;
 
 /**
  *
@@ -37,12 +38,14 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.partialmodel.D
  */
 public class UnitPropagationData {
 
+	private final List<GroundPropagationInfo> mGroundPropagations;
 	private final List<DecideStackEntry> mQuantifiedPropagations;
 
 	public UnitPropagationData(
 			final EprClause clause, final DawgState<ApplicationTerm, Integer> clauseDawg,
 			final DawgFactory<ApplicationTerm, TermVariable> dawgFactory) {
 
+		final List<GroundPropagationInfo> groundPropagations = new ArrayList<>();
 		final List<DecideStackEntry> quantifiedPropagations = new ArrayList<>();
 
 		for (int i = 0; i < clause.getLiterals().size(); i++) {
@@ -53,15 +56,25 @@ public class UnitPropagationData {
 			if (DawgFactory.isEmpty(unitPoints)) {
 				continue;
 			}
-			final ClauseEprLiteral cel = (ClauseEprLiteral) cl;
-			final DecideStackPropagatedLiteral dspl = new DecideStackPropagatedLiteral(cel, unitPoints);
-			quantifiedPropagations.add(dspl);
+			if (cl instanceof ClauseEprLiteral) {
+				final ClauseEprLiteral cel = (ClauseEprLiteral) cl;
+				final DecideStackPropagatedLiteral dspl = new DecideStackPropagatedLiteral(cel, unitPoints);
+				quantifiedPropagations.add(dspl);
+			} else {
+				final ClauseDpllLiteral cdl = (ClauseDpllLiteral) cl;
+				groundPropagations.add(new GroundPropagationInfo(cdl, unitPoints));
+			}
 		}
 
 		mQuantifiedPropagations = Collections.unmodifiableList(quantifiedPropagations);
+		mGroundPropagations = Collections.unmodifiableList(groundPropagations);
 	}
 
 	public List<DecideStackEntry> getQuantifiedPropagations() {
 		return mQuantifiedPropagations;
+	}
+
+	public List<GroundPropagationInfo> getGroundPropagations() {
+		return mGroundPropagations;
 	}
 }

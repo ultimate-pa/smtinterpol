@@ -71,6 +71,7 @@ public abstract class ClauseLiteral {
 		return mEngineLiteral;
 	}
 
+	protected abstract boolean isDirty();
 	protected abstract DawgState<ApplicationTerm, EprTheory.TriBool> getLocalDawg();
 
 	/**

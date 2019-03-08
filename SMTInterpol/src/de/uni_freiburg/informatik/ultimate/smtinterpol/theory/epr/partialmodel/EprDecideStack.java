@@ -78,18 +78,21 @@ public class EprDecideStack {
 		entry.push(this);
 	}
 
-	public void backtrackToLiteral(Literal lit) {
+	public int findLiteralOnStack(Literal lit) {
 		int stackTop = mStack.size();
 		while (stackTop > 0) {
 			DecideStackEntry entry = mStack.get(--stackTop);
-			if (entry instanceof DecideStackGroundLiteral) {
-				if (((DecideStackGroundLiteral) entry).getLiteral() == lit) {
-					for (int i = mStack.size() - 1; i >= stackTop; i--) {
-						mStack.remove(i).pop(this);
-					}
-					return;
-				}
+			if (entry instanceof DecideStackGroundLiteral && ((DecideStackGroundLiteral) entry).getLiteral() == lit) {
+				return stackTop;
 			}
+		}
+		return mStack.size();
+	}
+
+	public void backtrackToLiteral(Literal lit) {
+		int position = findLiteralOnStack(lit);
+		for (int i = mStack.size() - 1; i >= position; i--) {
+			mStack.remove(i).pop(this);
 		}
 	}
 
@@ -97,9 +100,9 @@ public class EprDecideStack {
 			List<Literal> groundClause) {
 	}
 
-	void resolveConflictOrUnit(EprClause clause, ClauseEprLiteral unitLiteral,
-			DawgState<ApplicationTerm, Boolean> conflicts,
-			Set<Literal> groundLits, Map<Pair<EprPredicate, Boolean>, Set<List<ApplicationTerm>>> eprLits) {
+	void resolveConflictOrUnit(EprClause clause, ClauseLiteral unitLiteral,
+			DawgState<ApplicationTerm, Boolean> conflicts, Set<Literal> groundLits,
+			Map<Pair<EprPredicate, Boolean>, Set<List<ApplicationTerm>>> eprLits) {
 		// it is enough to extract one conflict, so get a ground instantiation.
 		// TODO move to function
 		List<DawgLetter<ApplicationTerm>> word = DawgFactory.getOneWord(conflicts);
@@ -111,7 +114,7 @@ public class EprDecideStack {
 		for (ClauseLiteral lit : clause.getLiterals()) {
 			if (lit instanceof ClauseDpllLiteral) {
 				groundLits.add(((ClauseDpllLiteral) lit).getLiteral());
-			} else if (lit == unitLiteral){
+			} else if (lit == unitLiteral) {
 				// don't include the unit literal in the new conflict.
 				continue;
 			} else {
@@ -128,8 +131,8 @@ public class EprDecideStack {
 		}
 	}
 
-	Clause explain(Set<Literal> groundClause, Map<Pair<EprPredicate, Boolean>, Set<List<ApplicationTerm>>> eprClause) {
-		int stackPosition = mStack.size();
+	Clause explain(Set<Literal> groundClause, Map<Pair<EprPredicate, Boolean>, Set<List<ApplicationTerm>>> eprClause,
+			int stackPosition) {
 		while (!eprClause.isEmpty()) {
 			DecideStackEntry entry = mStack.get(--stackPosition);
 
@@ -168,15 +171,14 @@ public class EprDecideStack {
 						if (oldDawg.getValue(word) == EprTheory.TriBool.UNKNOWN) {
 							// No earlier propagation contains the current conflict.
 							// So this propagation needs to explain the conflict.
-							assert dsl.getDawg().getValue(word) == 
-									(propReason.getPolarity() ? EprTheory.TriBool.TRUE :EprTheory.TriBool.FALSE);
+							assert dsl.getDawg().getValue(word) == (propReason.getPolarity() ? EprTheory.TriBool.TRUE
+									: EprTheory.TriBool.FALSE);
 							it.remove();
 
 							DawgState<ApplicationTerm, Boolean> litDawg = mEprTheory.getDawgFactory()
 									.createSingletonSet(propReason.getEprPredicate().getTermVariablesForArguments(),
 											word);
-							DawgState<ApplicationTerm, Boolean> clauseDawg = propReason
-									.litDawg2clauseDawg(litDawg);
+							DawgState<ApplicationTerm, Boolean> clauseDawg = propReason.litDawg2clauseDawg(litDawg);
 							clauseDawg = mEprTheory.getDawgFactory().createIntersection(dsl.getClauseDawg(),
 									clauseDawg);
 							resolveConflictOrUnit(propReason.getClause(), propReason, clauseDawg, groundClause,
@@ -184,7 +186,7 @@ public class EprDecideStack {
 						}
 					}
 					// we now have to insert the remaining epr literals again, but it can happen that we added
-					// more literals in the mean time.  These do not have to be re-checked.
+					// more literals in the mean time. These do not have to be re-checked.
 					Set<List<ApplicationTerm>> insertedLits = eprClause.get(key);
 					if (insertedLits != null) {
 						insertedLits.addAll(toExplainForLit);
@@ -215,7 +217,7 @@ public class EprDecideStack {
 		HashSet<Literal> groundClause = new HashSet<>();
 		HashMap<Pair<EprPredicate, Boolean>, Set<List<ApplicationTerm>>> eprClause = new HashMap<>();
 		resolveConflictOrUnit(clause, unitLiteral, point, groundClause, eprClause);
-		return explain(groundClause, eprClause);
+		return explain(groundClause, eprClause, mStack.size());
 	}
 
 	Clause explainIrreflexivity(EprEqualityPredicate equality, DawgState<ApplicationTerm, Boolean> point) {
@@ -231,7 +233,7 @@ public class EprDecideStack {
 		Set<List<ApplicationTerm>> conflictSet = new HashSet<>();
 		conflictSet.add(Arrays.asList(grounding));
 		eprClause.put(new Pair<>(equality, Boolean.TRUE), conflictSet);
-		return explain(groundClause, eprClause);
+		return explain(groundClause, eprClause, mStack.size());
 	}
 
 	/**
@@ -245,7 +247,7 @@ public class EprDecideStack {
 	 * @param unitLiteral
 	 *            the unit literal to explain, or null if a conflict should be explained
 	 */
-	Clause explainGroundUnit(Literal unit) {
+	public Clause explainGroundUnit(Literal unit) {
 		EprGroundPredicateAtom atom = (EprGroundPredicateAtom) unit.getAtom();
 		HashSet<Literal> groundClause = new HashSet<>();
 		HashMap<Pair<EprPredicate, Boolean>, Set<List<ApplicationTerm>>> eprClause = new HashMap<>();
@@ -253,7 +255,18 @@ public class EprDecideStack {
 		Set<List<ApplicationTerm>> wordSet = new HashSet<>();
 		wordSet.add(atom.getArgumentsAsWord());
 		eprClause.put(new Pair<>(atom.getEprPredicate(), unit != atom), wordSet);
-		return explain(groundClause, eprClause);
+		return explain(groundClause, eprClause, findLiteralOnStack(unit));
+	}
+
+	public Clause explainGroundUnit(Literal unit, GroundPropagationInfo reason) {
+		if (reason == null) {
+			return explainGroundUnit(unit);
+		}
+		HashSet<Literal> groundClause = new HashSet<>();
+		HashMap<Pair<EprPredicate, Boolean>, Set<List<ApplicationTerm>>> eprClause = new HashMap<>();
+		ClauseDpllLiteral unitLiteral = reason.getReasonClauseLit();
+		resolveConflictOrUnit(unitLiteral.getClause(), unitLiteral, reason.getClauseDawg(), groundClause, eprClause);
+		return explain(groundClause, eprClause, reason.getStackDepth());
 	}
 
 	public Clause setGroundEquality(CCEquality atom, boolean b) {
@@ -264,8 +277,8 @@ public class EprDecideStack {
 	public Clause setEprGroundLiteral(Literal literal) {
 		EprGroundPredicateAtom atom = (EprGroundPredicateAtom) literal.getAtom();
 		EprPredicate pred = atom.getEprPredicate();
-		if (pred.getDawg().getValue(atom.getArgumentsAsWord()) == 
-				(literal == atom ? EprTheory.TriBool.FALSE : EprTheory.TriBool.TRUE)) {
+		if (pred.getDawg().getValue(
+				atom.getArgumentsAsWord()) == (literal == atom ? EprTheory.TriBool.FALSE : EprTheory.TriBool.TRUE)) {
 			// we have a conflict to a previously set state
 			return explainGroundUnit(literal.negate());
 		}
@@ -276,6 +289,7 @@ public class EprDecideStack {
 
 	public Clause doPropagations() {
 		boolean changed = true;
+		boolean didSomeGroundPropagations = false;
 		while (changed) {
 			changed = false;
 			for (EprEqualityPredicate equality : mEprEqualities) {
@@ -296,6 +310,25 @@ public class EprDecideStack {
 						pushEntry(dse);
 						changed = true;
 					}
+					for (GroundPropagationInfo reason : upd.getGroundPropagations()) {
+						reason.setStackDepth(mStack.size());
+						mEprTheory.addGroundLiteralToPropagate(reason.getReasonClauseLit().getLiteral(), reason);
+						didSomeGroundPropagations = true;
+					}
+				}
+			}
+			if (didSomeGroundPropagations) {
+				return null;
+			}
+		}
+		for (EprPredicate pred : mAllEprPredicates) {
+			for (EprGroundPredicateAtom ground : pred.getDPLLAtoms()) {
+				if (ground.getDecideStatus() == null
+						&& pred.getDawg().getValue(ground.getArgumentsAsWord()) != EprTheory.TriBool.UNKNOWN) {
+					Literal lit = pred.getDawg().getValue(ground.getArgumentsAsWord()) == EprTheory.TriBool.TRUE
+							? ground
+							: ground.negate();
+					mEprTheory.addGroundLiteralToPropagate(lit, null);
 				}
 			}
 		}
