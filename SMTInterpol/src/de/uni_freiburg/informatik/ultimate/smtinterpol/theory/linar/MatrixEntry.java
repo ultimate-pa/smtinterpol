@@ -19,6 +19,8 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar;
 
 import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.HashMap;
 
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 
@@ -58,7 +60,11 @@ import de.uni_freiburg.informatik.ultimate.logic.Rational;
  * @author Jochen Hoenicke
  */
 public class MatrixEntry {
-	BigInteger mCoeff;
+	private final static int LIMIT = 1 << 30;
+	private final static ArrayList<BigInteger> sBignums = new ArrayList<>();
+	private final static HashMap<BigInteger, Integer> sMap = new HashMap<>();
+
+	int mCoeffEntry;
 	LinVar     mRow;
 	LinVar     mColumn;
 
@@ -67,12 +73,32 @@ public class MatrixEntry {
 	MatrixEntry mPrevInCol;
 	MatrixEntry mNextInCol;
 
+	public BigInteger getCoeff() {
+		if (mCoeffEntry < LIMIT) {
+			return BigInteger.valueOf(mCoeffEntry);
+		} else {
+			return sBignums.get(mCoeffEntry - LIMIT);
+		}
+	}
+
+	public void setCoeff(final BigInteger value) {
+		if (value.bitLength() < 31) {
+			mCoeffEntry = value.intValueExact();
+		} else if (sMap.containsKey(value)) {
+			mCoeffEntry = sMap.get(value);
+		} else {
+			mCoeffEntry = LIMIT + sBignums.size();
+			sBignums.add(value);
+			sMap.put(value, mCoeffEntry);
+		}
+	}
+
 	/**
 	 * Insert a column variable into a row at its sorted position.
 	 * @param nb  the column (non-basic) variable.
 	 * @param value the coefficient in the matrix.
 	 */
-	public void insertRow(LinVar nb, BigInteger value) {
+	public void insertRow(final LinVar nb, final BigInteger value) {
 		assert mRow.mHeadEntry == this;
 		assert mRow == mColumn;
 		assert nb != mRow;
@@ -85,9 +111,11 @@ public class MatrixEntry {
 		if (ptr.mColumn == nb) {
 			assert ptr != this;
 			/* Add to existing entry */
-			ptr.mCoeff = ptr.mCoeff.add(value);
-			if (ptr.mCoeff.equals(BigInteger.ZERO)) {
+			final BigInteger newCoeff = ptr.getCoeff().add(value);
+			if (newCoeff.equals(BigInteger.ZERO)) {
 				ptr.removeFromMatrix();
+			} else {
+				ptr.setCoeff(newCoeff);
 			}
 		} else {
 			ptr.insertBefore(nb, value);
@@ -100,14 +128,14 @@ public class MatrixEntry {
 	 * @param nb  the column (non-basic) variable.
 	 * @param value the coefficient in the matrix.
 	 */
-	public void insertBefore(LinVar col, BigInteger value) {
+	public void insertBefore(final LinVar col, final BigInteger value) {
 		assert !value.equals(BigInteger.ZERO);
 
 		/* Create new entry before this */
 		final MatrixEntry newEntry = new MatrixEntry();
 		newEntry.mColumn = col;
 		newEntry.mRow = mRow;
-		newEntry.mCoeff = value;
+		newEntry.setCoeff(value);
 		newEntry.mNextInRow = this;
 		newEntry.mPrevInRow = mPrevInRow;
 		newEntry.mNextInCol = col.mHeadEntry.mNextInCol;
@@ -148,19 +176,18 @@ public class MatrixEntry {
 	 * is subtracted.  On return this is removed from the matrix.
 	 * @param other  The other row to add to this row.
 	 */
-	public void add(MatrixEntry other) {
+	public void add(final MatrixEntry other) {
 		assert (mColumn == other.mColumn);
-		BigInteger gcd = Rational.gcd(mCoeff, other.mCoeff);
-		BigInteger tmul = other.mCoeff.divide(gcd);
-		BigInteger omul = mCoeff.divide(gcd);
+		BigInteger gcd = Rational.gcd(getCoeff(), other.getCoeff());
+		BigInteger tmul = other.getCoeff().divide(gcd);
+		BigInteger omul = getCoeff().divide(gcd);
 		// make sure we multiply this by a positive number.
 		if (tmul.signum() < 0) {
 			tmul = tmul.negate();
 		} else {
 			omul = omul.negate();
 		}
-		assert(mCoeff.multiply(tmul).add(
-				other.mCoeff.multiply(omul)).signum() == 0);
+		assert (getCoeff().multiply(tmul).add(other.getCoeff().multiply(omul)).signum() == 0);
 		mRow.mulUpperLower(Rational.valueOf(tmul, BigInteger.ONE));
 
 		// add this to matrixpos to reorder columns, such that this
@@ -173,21 +200,22 @@ public class MatrixEntry {
 		while (orow != other) {
 			while (trow.mColumn.mMatrixpos + poscmp
 					< orow.mColumn.mMatrixpos + poscmp) {
-				trow.mCoeff = trow.mCoeff.multiply(tmul);
-				gcd = Rational.gcd(gcd, trow.mCoeff);
+				trow.setCoeff(trow.getCoeff().multiply(tmul));
+				gcd = Rational.gcd(gcd, trow.getCoeff());
 				trow = trow.mNextInRow;
 			}
-			final BigInteger ocoeff = orow.mCoeff.multiply(omul);
+			final BigInteger ocoeff = orow.getCoeff().multiply(omul);
 			assert(!ocoeff.equals(BigInteger.ZERO));
 			if (trow.mColumn == orow.mColumn) {
-				final BigInteger oldval = trow.mCoeff.multiply(tmul);
-				trow.mCoeff = oldval.add(ocoeff);
+				final BigInteger oldval = trow.getCoeff().multiply(tmul);
+				final BigInteger newval = oldval.add(ocoeff);
 				mRow.updateUpperLowerClear(oldval, trow.mColumn);
-				if (trow.mCoeff.equals(BigInteger.ZERO)) {
+				if (newval.equals(BigInteger.ZERO)) {
 					trow.removeFromMatrix();
 				} else {
-					gcd = Rational.gcd(gcd, trow.mCoeff);
-					mRow.updateUpperLowerSet(trow.mCoeff, trow.mColumn);
+					trow.setCoeff(newval);
+					gcd = Rational.gcd(gcd, newval);
+					mRow.updateUpperLowerSet(newval, trow.mColumn);
 				}
 				trow = trow.mNextInRow;
 			} else {
@@ -198,17 +226,17 @@ public class MatrixEntry {
 			orow = orow.mNextInRow;
 		}
 		while (trow != this) {
-			trow.mCoeff = trow.mCoeff.multiply(tmul);
-			gcd = Rational.gcd(gcd, trow.mCoeff);
+			trow.setCoeff(trow.getCoeff().multiply(tmul));
+			gcd = Rational.gcd(gcd, trow.getCoeff());
 			trow = trow.mNextInRow;
 		}
-		mRow.updateUpperLowerClear(mCoeff.multiply(tmul), trow.mColumn);
+		mRow.updateUpperLowerClear(getCoeff().multiply(tmul), trow.mColumn);
 
 		gcd = gcd.abs();
 		if (!gcd.equals(BigInteger.ONE)) {
 			for (trow = mNextInRow; trow != this; trow = trow.mNextInRow) {
-				assert trow.mCoeff.remainder(gcd).equals(BigInteger.ZERO);
-				trow.mCoeff = trow.mCoeff.divide(gcd);
+				assert trow.getCoeff().remainder(gcd).equals(BigInteger.ZERO);
+				trow.setCoeff(trow.getCoeff().divide(gcd));
 			}
 			mRow.mulUpperLower(Rational.valueOf(BigInteger.ONE, gcd));
 		}
@@ -249,11 +277,11 @@ public class MatrixEntry {
 
 	public String rowToString() {
 		final StringBuilder sb = new StringBuilder("[");
-		sb.append(mCoeff).append("*(").append(mColumn).append(')');
+		sb.append(getCoeff()).append("*(").append(mColumn).append(')');
 		for (MatrixEntry ptr = mNextInRow;
 			ptr != this; ptr = ptr.mNextInRow) {
 			sb.append('+');
-			sb.append(ptr.mCoeff).append("*(").append(ptr.mColumn).append(')');
+			sb.append(ptr.getCoeff()).append("*(").append(ptr.mColumn).append(')');
 		}
 		return sb.append("=0]").toString();
 	}
@@ -264,7 +292,7 @@ public class MatrixEntry {
 		for (MatrixEntry ptr = mNextInCol;
 			ptr != this; ptr = ptr.mNextInCol) {
 			sb.append(comma);
-			sb.append('(').append(ptr.mRow).append(")->").append(ptr.mCoeff);
+			sb.append('(').append(ptr.mRow).append(")->").append(ptr.getCoeff());
 			comma = ",";
 		}
 		return sb.append(']').toString();
@@ -278,6 +306,6 @@ public class MatrixEntry {
 		if (mRow == mColumn) {
 			return rowToString();
 		}
-		return "[" + mRow + "/" + mColumn + "]->" + mCoeff;
+		return "[" + mRow + "/" + mColumn + "]->" + getCoeff();
 	}
 }

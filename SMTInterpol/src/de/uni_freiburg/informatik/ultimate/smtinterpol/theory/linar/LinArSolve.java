@@ -119,7 +119,7 @@ public class LinArSolve implements ITheory {
 	int mNumBranches;
 	long mCutGenTime;
 	final ScopedArrayList<SharedTerm> mSharedVars =
-		new ScopedArrayList<SharedTerm>();
+		new ScopedArrayList<>();
 
 	/** The next suggested literals */
 	final ArrayDeque<Literal> mSuggestions;
@@ -146,13 +146,13 @@ public class LinArSolve implements ITheory {
 	 */
 	public LinArSolve(final DPLLEngine engine) {
 		mEngine = engine;
-		mLinvars = new ArrayList<LinVar>();
-		mIntVars = new ArrayList<LinVar>();
-		mPropBounds = new TreeSet<LinVar>();
-		mProplist = new ArrayDeque<Literal>();
-		mSuggestions = new ArrayDeque<Literal>();
-		mTerms = new ScopedHashMap<Map<LinVar,Rational>,LinVar>();
-		mOob = new HashSet<LinVar>();
+		mLinvars = new ArrayList<>();
+		mIntVars = new ArrayList<>();
+		mPropBounds = new TreeSet<>();
+		mProplist = new ArrayDeque<>();
+		mSuggestions = new ArrayDeque<>();
+		mTerms = new ScopedHashMap<>();
+		mOob = new HashSet<>();
 		mNumPivots = 0;
 		mPivotTime = 0;
 		mFixTime = 0;
@@ -194,8 +194,7 @@ public class LinArSolve implements ITheory {
 		assert c.mHeadEntry.mRow == LinVar.DUMMY_LINVAR;
 		assert c.mHeadEntry.mNextInRow == null && c.mHeadEntry.mPrevInRow == null;
 		boolean seen = false;
-		for (MatrixEntry entry = c.mHeadEntry.mNextInCol;
-			entry != c.mHeadEntry; entry = entry.mNextInCol) {
+		for (final MatrixEntry entry : c.getTableauxColumn()) {
 			assert entry.mNextInCol.mPrevInCol == entry;
 			assert entry.mPrevInCol.mNextInCol == entry;
 			assert entry.mColumn == c;
@@ -258,7 +257,7 @@ public class LinArSolve implements ITheory {
 			final LinVar[] vars = new LinVar[factors.size()];
 			final BigInteger[] coeffs = new BigInteger[factors.size()];
 			int i = 0;
-			final TreeMap<LinVar,Rational> curcoeffs = new TreeMap<LinVar,Rational>();
+			final TreeMap<LinVar,Rational> curcoeffs = new TreeMap<>();
 			boolean isInt = true;
 			for (final Map.Entry<LinVar, Rational> entry : factors.entrySet()) {
 				vars[i] = entry.getKey();
@@ -269,7 +268,7 @@ public class LinArSolve implements ITheory {
 				i++;
 			}
 			final ArrayMap<LinVar, BigInteger> intSum =
-				new ArrayMap<LinVar, BigInteger>(vars, coeffs);
+				new ArrayMap<>(vars, coeffs);
 			var = new LinVar(new LinTerm(intSum), isInt, mEngine.getAssertionStackLevel(), mVarNum++);
 			insertVar(var, curcoeffs);
 			mTerms.put(factors, var);
@@ -311,12 +310,10 @@ public class LinArSolve implements ITheory {
 		assert(!updateVar.mBasic);
 		final ExactInfinitesimalNumber diff = newValue.sub(updateVar.getValue());
 		updateVar.addValue(diff);
-		for (MatrixEntry entry = updateVar.mHeadEntry.mNextInCol;
-			entry != updateVar.mHeadEntry; entry = entry.mNextInCol) {
+		for (final MatrixEntry entry : updateVar.getTableauxColumn()) {
 			final LinVar var = entry.mRow;
 			assert var.mBasic;
-			final Rational coeff = Rational.valueOf(entry.mCoeff,
-					var.mHeadEntry.mCoeff.negate());
+			final Rational coeff = Rational.valueOf(entry.getCoeff(), var.mHeadEntry.getCoeff().negate());
 			var.addValue(diff.mul(coeff));
 			assert var.checkBrpCounters();
 			assert !var.getValue().getRealValue().denominator().equals(BigInteger.ZERO);
@@ -345,12 +342,10 @@ public class LinArSolve implements ITheory {
 		}
 
 		assert !(updateVar.getValue().getRealValue().denominator().equals(BigInteger.ZERO));
-		for (MatrixEntry entry = updateVar.mHeadEntry.mNextInCol;
-			entry != updateVar.mHeadEntry; entry = entry.mNextInCol) {
+		for (final MatrixEntry entry : updateVar.getTableauxColumn()) {
 			final LinVar var = entry.mRow;
 			assert var.mBasic;
-			final Rational coeff = Rational.valueOf(entry.mCoeff,
-					var.mHeadEntry.mCoeff.negate());
+			final Rational coeff = Rational.valueOf(entry.getCoeff(), var.mHeadEntry.getCoeff().negate());
 			if (changeVar) {
 				var.addValue(diff.mul(coeff));
 			}
@@ -358,8 +353,8 @@ public class LinArSolve implements ITheory {
 			if (var.outOfBounds()) {
 				mOob.add(var);
 			}
-			if (isUpper == entry.mCoeff.signum() < 0) {
-				var.updateLower(entry.mCoeff, oldBound, newBound);
+			if (isUpper == entry.getCoeff().signum() < 0) {
+				var.updateLower(entry.getCoeff(), oldBound, newBound);
 				assert var.checkBrpCounters();
 
 				if (var.mNumLowerInf == 0) {
@@ -367,7 +362,7 @@ public class LinArSolve implements ITheory {
 				}
 
 			} else {
-				var.updateUpper(entry.mCoeff, oldBound, newBound);
+				var.updateUpper(entry.getCoeff(), oldBound, newBound);
 				assert var.checkBrpCounters();
 
 				if (var.mNumUpperInf == 0) {
@@ -382,12 +377,11 @@ public class LinArSolve implements ITheory {
 	private void updatePropagationCountersOnBacktrack(final LinVar var,
 			final InfinitesimalNumber oldBound, final InfinitesimalNumber newBound,
 			final boolean upper) {
-		for (MatrixEntry entry = var.mHeadEntry.mNextInCol;
-			entry != var.mHeadEntry; entry = entry.mNextInCol) {
-			if (upper == entry.mCoeff.signum() < 0) {
-				entry.mRow.updateLower(entry.mCoeff, oldBound, newBound);
+		for (final MatrixEntry entry : var.getTableauxColumn()) {
+			if (upper == entry.getCoeff().signum() < 0) {
+				entry.mRow.updateLower(entry.getCoeff(), oldBound, newBound);
 			} else {
-				entry.mRow.updateUpper(entry.mCoeff, oldBound, newBound);
+				entry.mRow.updateUpper(entry.getCoeff(), oldBound, newBound);
 			}
 			assert entry.mRow.checkBrpCounters();
 		}
@@ -1057,11 +1051,10 @@ public class LinArSolve implements ITheory {
 		for (final LinVar var : mLinvars) {
 			if (var.mBasic) {
 				final StringBuilder sb = new StringBuilder();
-				sb.append(var.mHeadEntry.mCoeff).append('*').append(var).
+				sb.append(var.mHeadEntry.getCoeff()).append('*').append(var).
 				append(" ; ");
-				for (MatrixEntry entry = var.mHeadEntry.mNextInRow;
-						entry != var.mHeadEntry; entry = entry.mNextInRow) {
-					sb.append(" ; ").append(entry.mCoeff)
+				for (final MatrixEntry entry : var.getTableauxRow()) {
+					sb.append(" ; ").append(entry.getCoeff())
 						.append('*').append(entry.mColumn);
 				}
 				logger.debug(sb.toString());
@@ -1094,7 +1087,7 @@ public class LinArSolve implements ITheory {
 		if (mEps != null) {
 			return;
 		}
-		final TreeSet<Rational> prohibitions = new TreeSet<Rational>();
+		final TreeSet<Rational> prohibitions = new TreeSet<>();
 		final InfinitesimalNumber maxeps = computeMaxEpsilon(prohibitions);
 		if (maxeps == InfinitesimalNumber.POSITIVE_INFINITY) {
 			mEps = Rational.ONE;
@@ -1102,14 +1095,14 @@ public class LinArSolve implements ITheory {
 			mEps = maxeps.inverse().ceil().mReal.inverse();
 		}
 		final Map<Rational,Set<ExactInfinitesimalNumber>> sharedPoints =
-				new TreeMap<Rational, Set<ExactInfinitesimalNumber>>();
+				new TreeMap<>();
 		// Do not merge two shared variables that are not yet merged.
 		final Map<ExactInfinitesimalNumber, List<SharedTerm>> cong = getSharedCongruences();
 		for (final ExactInfinitesimalNumber value : cong.keySet()) {
 			final Rational eps = value.getEpsilon();
 			Set<ExactInfinitesimalNumber> confl = sharedPoints.get(eps);
 			if (confl == null) {
-				confl = new TreeSet<ExactInfinitesimalNumber>();
+				confl = new TreeSet<>();
 				sharedPoints.put(eps, confl);
 			}
 			confl.add(new ExactInfinitesimalNumber(value.getRealValue()));
@@ -1187,8 +1180,8 @@ public class LinArSolve implements ITheory {
 		nonbasic.mBasic = true;
 
 		// Adjust brp numbers
-		final BigInteger nbcoeff = pivotEntry.mCoeff;
-		final BigInteger bcoeff = basic.mHeadEntry.mCoeff;
+		final BigInteger nbcoeff = pivotEntry.getCoeff();
+		final BigInteger bcoeff = basic.mHeadEntry.getCoeff();
 		basic.updateUpperLowerClear(nbcoeff, nonbasic);
 		nonbasic.moveBounds(basic);
 		nonbasic.updateUpperLowerSet(bcoeff, basic);
@@ -1328,7 +1321,7 @@ public class LinArSolve implements ITheory {
 		if (Config.PROFILE_TIME) {
 			start = System.nanoTime();
 		}
-		final BigInteger denom = basic.mHeadEntry.mCoeff.negate();
+		final BigInteger denom = basic.mHeadEntry.getCoeff().negate();
 		isUpper ^= denom.signum() < 0;
 		final InfinitesimalNumber bound = isUpper ? basic.getUpperComposite()
 				: basic.getLowerComposite();
@@ -1339,8 +1332,7 @@ public class LinArSolve implements ITheory {
 			LiteralReason lastLiteral = null;
 			if (basic.mCachedRowCoeffs == null) {
 				int rowLength = 0;
-				for (MatrixEntry entry = basic.mHeadEntry.mNextInRow;
-						entry != basic.mHeadEntry; entry = entry.mNextInRow) {
+				for (@SuppressWarnings("unused") final MatrixEntry e : basic.getTableauxRow()) {
 					rowLength++;
 				}
 
@@ -1348,10 +1340,9 @@ public class LinArSolve implements ITheory {
 				reasons = new LAReason[rowLength];
 				coeffs = new Rational[rowLength];
 				int i = 0;
-				for (MatrixEntry entry = basic.mHeadEntry.mNextInRow;
-						entry != basic.mHeadEntry; entry = entry.mNextInRow) {
+				for (final MatrixEntry entry : basic.getTableauxRow()) {
 					final LinVar nb = entry.mColumn;
-					final Rational coeff = Rational.valueOf(entry.mCoeff, denom);
+					final Rational coeff = Rational.valueOf(entry.getCoeff(), denom);
 					rowVars[i] = nb;
 					reasons[i] = coeff.isNegative() == isUpper ? nb.mLower : nb.mUpper;
 					coeffs[i] = coeff;
@@ -1456,7 +1447,7 @@ public class LinArSolve implements ITheory {
 			gcd = gcd.gcd(c);
 		}
 		assert gcd.numerator().equals(BigInteger.ONE);
-		v.mHeadEntry.mCoeff = gcd.denominator().negate();
+		v.mHeadEntry.setCoeff(gcd.denominator().negate());
 		for (final Map.Entry<LinVar,Rational> me : coeffs.entrySet()) {
 			assert(!me.getKey().mBasic);
 			final LinVar nbvar = me.getKey();
@@ -1485,12 +1476,11 @@ public class LinArSolve implements ITheory {
 	private TreeMap<LinVar, Rational> removeVar(final LinVar v) {
 		assert v.mBasic;
 		mLinvars.remove(v);
-		final TreeMap<LinVar,Rational> res = new TreeMap<LinVar, Rational>();
-		final BigInteger denom = v.mHeadEntry.mCoeff.negate();
-		for (MatrixEntry entry = v.mHeadEntry.mNextInRow;
-			entry != v.mHeadEntry; entry = entry.mNextInRow) {
+		final TreeMap<LinVar,Rational> res = new TreeMap<>();
+		final BigInteger denom = v.mHeadEntry.getCoeff().negate();
+		for (final MatrixEntry entry : v.getTableauxRow()) {
 			assert(!entry.mColumn.mBasic);
-			res.put(entry.mColumn, Rational.valueOf(entry.mCoeff, denom));
+			res.put(entry.mColumn, Rational.valueOf(entry.getCoeff(), denom));
 			entry.removeFromMatrix();
 		}
 		v.mHeadEntry = null;
@@ -1522,11 +1512,9 @@ public class LinArSolve implements ITheory {
 	private void unsimplifyAndAdd(final LinVar lv, final Rational fac, final Map<LinVar, Rational> facs) {
 		if (lv.mBasic) {
 			// currently basic variable
-			final BigInteger denom = lv.mHeadEntry.mCoeff.negate();
-			for (MatrixEntry entry = lv.mHeadEntry.mNextInRow;
-				entry != lv.mHeadEntry;
-				entry = entry.mNextInRow) {
-				final Rational coeff = Rational.valueOf(entry.mCoeff, denom);
+			final BigInteger denom = lv.mHeadEntry.getCoeff().negate();
+			for (final MatrixEntry entry : lv.getTableauxRow()) {
+				final Rational coeff = Rational.valueOf(entry.getCoeff(), denom);
 				unsimplifyAndAdd(entry.mColumn, fac.mul(coeff), facs);
 			}
 		} else {
@@ -1556,9 +1544,9 @@ public class LinArSolve implements ITheory {
 		final ExactInfinitesimalNumber value = var.getValue();
 		ExactInfinitesimalNumber min = value.isub(var.getLowerBound());
 		ExactInfinitesimalNumber max = value.isub(var.getUpperBound());
-		for (MatrixEntry me = var.mHeadEntry.mNextInCol; me != var.mHeadEntry && !min.equals(max); me = me.mNextInCol) {
+		for (final MatrixEntry me : var.getTableauxColumn()) {
 			assert min.signum() <= 0 && max.signum() >= 0;
-			final Rational coeff = Rational.valueOf(me.mRow.mHeadEntry.mCoeff.negate(), me.mCoeff);
+			final Rational coeff = Rational.valueOf(me.mRow.mHeadEntry.getCoeff().negate(), me.getCoeff());
 			final ExactInfinitesimalNumber rowvalue = me.mRow.getValue();
 			final ExactInfinitesimalNumber below = rowvalue.isub(me.mRow.getLowerBound()).mul(coeff);
 			final ExactInfinitesimalNumber above = rowvalue.isub(me.mRow.getUpperBound()).mul(coeff);
@@ -1593,8 +1581,8 @@ public class LinArSolve implements ITheory {
 	 */
 	private void mutate() {
 		final Map<Rational,Set<ExactInfinitesimalNumber>> sharedPoints =
-				new TreeMap<Rational, Set<ExactInfinitesimalNumber>>();
-		final Set<ExactInfinitesimalNumber> prohib = new TreeSet<ExactInfinitesimalNumber>();
+				new TreeMap<>();
+		final Set<ExactInfinitesimalNumber> prohib = new TreeSet<>();
 		for (final LinVar lv : mLinvars) {
 			if (lv.mBasic || lv.getTightUpperBound().equals(lv.getTightLowerBound())) {
 				// variable is basic or is fixed by its own constraints
@@ -1621,12 +1609,11 @@ public class LinArSolve implements ITheory {
 			}
 
 			// Iterate over basic variables
-			final HashMap<LinVar, Rational> basicFactors = new HashMap<LinVar, Rational>();
-			for (MatrixEntry it1 = lv.mHeadEntry.mNextInCol; it1 != lv.mHeadEntry;
-				it1 = it1.mNextInCol) {
+			final HashMap<LinVar, Rational> basicFactors = new HashMap<>();
+			for (final MatrixEntry it1 : lv.getTableauxColumn()) {
 				final LinVar basic = it1.mRow;
 				final Rational coeff = Rational.valueOf(
-						it1.mCoeff.negate(), it1.mRow.mHeadEntry.mCoeff);
+						it1.getCoeff().negate(), it1.mRow.mHeadEntry.getCoeff());
 				basicFactors.put(basic, coeff);
 				if (basic.isInt()) {
 					gcd = gcd.gcd(coeff.abs());
@@ -1651,7 +1638,7 @@ public class LinArSolve implements ITheory {
 				}
 				Set<ExactInfinitesimalNumber> set = sharedPoints.get(sharedCoeff);
 				if (set == null) {
-					set = new TreeSet<ExactInfinitesimalNumber>();
+					set = new TreeSet<>();
 					sharedPoints.put(sharedCoeff, set);
 				}
 				ExactInfinitesimalNumber sharedCurVal = new ExactInfinitesimalNumber(
@@ -1681,7 +1668,7 @@ public class LinArSolve implements ITheory {
 	Map<ExactInfinitesimalNumber, List<SharedTerm>> getSharedCongruences() {
 		mEngine.getLogger().debug("Shared Vars:");
 		final Map<ExactInfinitesimalNumber, List<SharedTerm>> result =
-			new HashMap<ExactInfinitesimalNumber, List<SharedTerm>>();
+			new HashMap<>();
 		for (final SharedTerm shared : mSharedVars) {
 			ExactInfinitesimalNumber value = new ExactInfinitesimalNumber(shared.getOffset());
 			if (shared.getLinVar() != null) {
@@ -1690,7 +1677,7 @@ public class LinArSolve implements ITheory {
 			mEngine.getLogger().debug("%s = %s", shared, value);
 			List<SharedTerm> slot = result.get(value);
 			if (slot == null) {
-				slot = new LinkedList<SharedTerm>();
+				slot = new LinkedList<>();
 				result.put(value, slot);
 			}
 			slot.add(shared);
@@ -1831,7 +1818,7 @@ public class LinArSolve implements ITheory {
 	 */
 	private boolean hasSharing(final Map<Rational, Set<ExactInfinitesimalNumber>> sharedPoints,
 			final ExactInfinitesimalNumber diff) {
-		final TreeSet<ExactInfinitesimalNumber> used = new TreeSet<ExactInfinitesimalNumber>();
+		final TreeSet<ExactInfinitesimalNumber> used = new TreeSet<>();
 		for (final Entry<Rational, Set<ExactInfinitesimalNumber>> entry : sharedPoints.entrySet()) {
 			final ExactInfinitesimalNumber sharedDiff = diff.mul(entry.getKey());
 			for (final ExactInfinitesimalNumber r : entry.getValue()) {
@@ -2064,7 +2051,7 @@ public class LinArSolve implements ITheory {
 
 	@Override
 	public void pop(final Object object, final int targetlevel) {
-		final ArrayList<LinVar> removeVars = new ArrayList<LinVar>();
+		final ArrayList<LinVar> removeVars = new ArrayList<>();
 		for (final LinVar v : mLinvars) {
 			if (v.mAssertionstacklevel > targetlevel) {
 				removeVars.add(v);

@@ -79,12 +79,12 @@ public class SOIPivoter {
 			// mSoiValue is already updated.
 			// Next step: Update soiVar by adding the row of coefficients.
 
-			BigInteger divisor = var.mHeadEntry.mCoeff;
+			BigInteger divisor = var.mHeadEntry.getCoeff();
 			if (isUpper) {
 				divisor = divisor.negate();
 			}
-			for (MatrixEntry entry = var.mHeadEntry.mNextInRow; entry != var.mHeadEntry; entry = entry.mNextInRow) {
-				Rational coeff = Rational.valueOf(entry.mCoeff, divisor);
+			for (final MatrixEntry entry : var.getTableauxRow()) {
+				Rational coeff = Rational.valueOf(entry.getCoeff(), divisor);
 				final Rational oldValue = mSOIVar.get(entry.mColumn);
 				if (oldValue != null) {
 					coeff = coeff.add(oldValue);
@@ -103,6 +103,7 @@ public class SOIPivoter {
 	public boolean checkZeroFreedom() {
 		boolean firstColumn = true;
 		mBestLimiter = null;
+		nextColumn:
 		for (final Entry<LinVar, Rational> entry : mSOIVar.entrySet()) {
 			final LinVar colVar = entry.getKey();
 			Rational coeff = entry.getValue();
@@ -115,14 +116,9 @@ public class SOIPivoter {
 				continue;
 			}
 
-			for (MatrixEntry me = colVar.mHeadEntry.mNextInCol; true; me = me.mNextInCol) {
-				if (me == colVar.mHeadEntry) {
-					/* we got round and weight did not toggle: we can pivot */
-					mBestLimiter = null;
-					return false;
-				}
+			for (final MatrixEntry me : colVar.getTableauxColumn()) {
 				final LinVar rowVar = me.mRow;
-				final Rational weight = Rational.valueOf(me.mCoeff, rowVar.mHeadEntry.mCoeff.negate());
+				final Rational weight = Rational.valueOf(me.getCoeff(), rowVar.mHeadEntry.getCoeff().negate());
 				final LAReason bound = weight.signum() == coeff.signum() ? rowVar.mLowerLiteral : rowVar.mUpperLiteral;
 				if (bound != null && rowVar.getValue().equals(new ExactInfinitesimalNumber(bound.getBound()))) {
 					// check if this entry would be used by Bland strategy (first column, smallest row variable)
@@ -138,12 +134,14 @@ public class SOIPivoter {
 					coeff = coeff.add(weight);
 					/* if adding the weight changed the sign, this column has zero freedom. Break the loop. */
 					if (coeff.signum() != -weight.signum()) {
-						break;
+						firstColumn = false;
+						continue nextColumn;
 					}
 				}
 			}
-			assert mBestLimiter != null;
-			firstColumn = false;
+			/* we got round and weight did not toggle: we can pivot */
+			mBestLimiter = null;
+			return false;
 		}
 		assert firstColumn || mBestLimiter != null;
 		// we got through all columns -> freedom cannot be decreased.
@@ -179,9 +177,9 @@ public class SOIPivoter {
 							colVar.mHeadEntry));
 				}
 			}
-			for (MatrixEntry me = colVar.mHeadEntry.mNextInCol; me != colVar.mHeadEntry; me = me.mNextInCol) {
+			for (final MatrixEntry me : colVar.getTableauxColumn()) {
 				final LinVar rowVar = me.mRow;
-				Rational weight = Rational.valueOf(me.mCoeff, rowVar.mHeadEntry.mCoeff);
+				Rational weight = Rational.valueOf(me.getCoeff(), rowVar.mHeadEntry.getCoeff());
 				if (coeff.signum() < 0) {
 					weight = weight.negate();
 				}
