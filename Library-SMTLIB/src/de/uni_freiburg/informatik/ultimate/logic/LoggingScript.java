@@ -200,7 +200,7 @@ public class LoggingScript implements Script {
 		mScript.declareDatatype(datatype, constrs);
 	}
 	@Override
-	public void declareDatatypes(DataType[] datatypes, DataType.Constructor[][] constrs)
+	public void declareDatatypes(DataType[] datatypes, DataType.Constructor[][] constrs, Sort[][] sortParams)
 		throws SMTLIBException {
 		mPw.print("(declare-datatypes (");
 		for (DataType datatype : datatypes) {
@@ -211,7 +211,7 @@ public class LoggingScript implements Script {
 			mPw.print(")");
 		}
 		//FIXME continue....
-		mScript.declareDatatypes(datatypes, constrs);
+		mScript.declareDatatypes(datatypes, constrs, sortParams);
 	}
 	@Override
 	public void declareFun(String fun, Sort[] paramSorts, Sort resultSort)

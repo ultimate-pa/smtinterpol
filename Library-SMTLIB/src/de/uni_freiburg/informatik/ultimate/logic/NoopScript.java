@@ -20,9 +20,13 @@ package de.uni_freiburg.informatik.ultimate.logic;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.util.ArrayDeque;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Map;
 
 import de.uni_freiburg.informatik.ultimate.logic.Theory.SolverSetup;
+import jdk.nashorn.internal.runtime.regexp.joni.BitSet;
 
 /**
  * Simple implementation of a script, that supports building terms and sorts,
@@ -118,49 +122,98 @@ public class NoopScript implements Script {
 		checkSymbol(typename);
 		return mTheory.createDatatypes(typename, numParams);
 	}
+
+	/**
+	 * Check if a constructor of a datatype needs to be declared with RETURNOVERLOAD. This is the case if its arguments
+	 * do not contain all sort parameters.
+	 *
+	 * @param sortParams
+	 *            The sort parameters of the datatype.
+	 * @param argumentSorts
+	 *            The arguments of the constructor.
+	 * @return 0 or RETURNOVERLOAD, depending on if the flag is needed.
+	 */
+	private int checkReturnOverload(Sort[] sortParams, Sort[] argumentSorts) {
+		BitSet unused = new BitSet();
+		unused.setRange(0, sortParams.length - 1);
+		ArrayDeque<Sort> todo = new ArrayDeque<>();
+		HashSet<Sort> seen = new HashSet<>();
+		todo.addAll(Arrays.asList(argumentSorts));
+		while (!todo.isEmpty()) {
+			Sort sort = todo.removeFirst();
+			if (seen.add(sort)) {
+				if (sort.isParametric()) {
+					for (int i = 0; i < sortParams.length; i++) {
+						if (sort == sortParams[i]) {
+							unused.clear(i);
+							break;
+						}
+					}
+				} else {
+					todo.addAll(Arrays.asList(sort.getArguments()));
+				}
+			}
+		}
+		return unused.isEmpty() ? 0 : FunctionSymbol.RETURNOVERLOAD;
+	}
 	/**
 	 * Declare internal functions for the constructors and selestors of the datatype.
 	 * @param datatype The datatype.
 	 * @param constrs The constructors.
 	 * @throws SMTLIBException
 	 */
-	private void declareConstructorFunctions(DataType datatype, DataType.Constructor[] constrs) {
-		
+	private void declareConstructorFunctions(DataType datatype, DataType.Constructor[] constrs, Sort[] sortParams) {
 		String[] indices = null;
-        Sort[] args = new Sort[0];
-        Sort[] datatypeSort = new Sort[] {datatype.getSort(indices, args)};
-        int flags = 0;
-		
+		Sort datatypeSort;
+		if (sortParams == null) {
+			if (datatype.mNumParams != 0) {
+				throw new SMTLIBException("Sort parameters missing");
+			}
+			datatypeSort = datatype.getSort(indices, Theory.EMPTY_SORT_ARRAY);
+		} else {
+			if (datatype.mNumParams == 0 || datatype.mNumParams != sortParams.length) {
+				throw new SMTLIBException("Sort parameter mismatch");
+			}
+			datatypeSort = datatype.getSort(indices, sortParams);
+		}
+		Sort[] selectorParamSorts = new Sort[] { datatypeSort };
+
 		for (int i = 0; i < constrs.length; i++) {
 
-            String constrName = constrs[i].getName();
+			String constrName = constrs[i].getName();
+			String[] selectors = constrs[i].getSelectors();
+			Sort[] argumentSorts = constrs[i].getArgumentSorts();
 
-            String[] selectors = constrs[i].getSelectors();
-            Sort[] argumentSorts = constrs[i].getArgumentSorts();
+			if (sortParams == null) {
+				getTheory().declareInternalFunction(constrName, argumentSorts, datatypeSort, 0);
 
-            this.getTheory().declareInternalFunction(constrName, argumentSorts, datatypeSort[0], flags);
+				for (int j = 0; j < selectors.length; j++) {
+					getTheory().declareInternalFunction(selectors[j], selectorParamSorts, argumentSorts[j], 0);
+				}
+			} else {
+				getTheory().declareInternalPolymorphicFunction(constrName, sortParams, argumentSorts,
+						datatypeSort, checkReturnOverload(sortParams, argumentSorts));
 
-            for (int j = 0; j < selectors.length; j++) {
-                String[] selector = new String[] {selectors[j]};
-                Sort[] argumentSort = new Sort[] {argumentSorts[j]};
-
-                this.getTheory().declareInternalFunction(selector[0], datatypeSort, argumentSort[0], flags);
-            } 
-        }
+				for (int j = 0; j < selectors.length; j++) {
+					getTheory().declareInternalPolymorphicFunction(selectors[j], sortParams, selectorParamSorts,
+							argumentSorts[j], 0);
+				}
+			}
+		}
 	}
 
 	@Override
 	public void declareDatatype(DataType datatype, DataType.Constructor[] constrs) {
 		assert datatype.mNumParams == 0;
 		datatype.setConstructors(constrs);
-		declareConstructorFunctions(datatype, constrs);
+		declareConstructorFunctions(datatype, constrs, null);
 	}
 
 	@Override
-	public void declareDatatypes(DataType[] datatypes, DataType.Constructor[][] constrs) {
+	public void declareDatatypes(DataType[] datatypes, DataType.Constructor[][] constrs, Sort[][] sortParams) {
 		for (int i = 0; i < datatypes.length; i++) {
 			datatypes[i].setConstructors(constrs[i]);
-			declareConstructorFunctions(datatypes[i], constrs[i]);
+			declareConstructorFunctions(datatypes[i], constrs[i], sortParams[i]);
 		}
 	}
 
