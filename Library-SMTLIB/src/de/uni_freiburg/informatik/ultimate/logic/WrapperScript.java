@@ -122,13 +122,14 @@ public abstract class WrapperScript implements Script {
 	}
 
 	@Override
-	public void declareDatatype(DataType datatype, DataType.Constructor[] constrs) throws SMTLIBException {
+	public void declareDatatype(final DataType datatype, final DataType.Constructor[] constrs) throws SMTLIBException {
 		mScript.declareDatatype(datatype, constrs);
 	}
 
 	@Override
-	public void declareDatatypes(DataType[] datatypes, DataType.Constructor[][] constrs) throws SMTLIBException {
-		mScript.declareDatatypes(datatypes, constrs);
+	public void declareDatatypes(final DataType[] datatypes, final DataType.Constructor[][] constrs,
+			final Sort[][] sortParams) throws SMTLIBException {
+		mScript.declareDatatypes(datatypes, constrs, sortParams);
 	}
 
 	@Override
@@ -228,13 +229,13 @@ public abstract class WrapperScript implements Script {
 	}
 
 	@Override
-	public DataType.Constructor constructor(String name, String[] selectors, Sort[] argumentSorts)
+	public DataType.Constructor constructor(final String name, final String[] selectors, final Sort[] argumentSorts)
 			throws SMTLIBException {
 		return mScript.constructor(name, selectors, argumentSorts);
 	}
 
 	@Override
-	public DataType datatypes(String typename, int numParams) throws SMTLIBException {
+	public DataType datatypes(final String typename, final int numParams) throws SMTLIBException {
 		return mScript.datatypes(typename, numParams);
 	}
 

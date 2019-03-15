@@ -145,7 +145,7 @@ public interface Script {
 	 * @param constrs The constructors.
 	 * @throws SMTLIBException.
 	 */
-	public void declareDatatypes(DataType[] datatypes, DataType.Constructor[][] constrs)
+	public void declareDatatypes(DataType[] datatypes, DataType.Constructor[][] constrs, Sort[][] sortParams)
 		throws SMTLIBException;
 	
 	/**

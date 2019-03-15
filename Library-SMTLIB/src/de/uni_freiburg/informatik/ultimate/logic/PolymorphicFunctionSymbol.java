@@ -18,7 +18,6 @@
  */
 package de.uni_freiburg.informatik.ultimate.logic;
 
-import java.math.BigInteger;
 import java.util.HashMap;
 
 

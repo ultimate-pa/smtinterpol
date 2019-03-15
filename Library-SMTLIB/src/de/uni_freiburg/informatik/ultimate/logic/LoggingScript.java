@@ -202,7 +202,7 @@ public class LoggingScript extends WrapperScript {
 	}
 
 	@Override
-	public void declareDatatypes(DataType[] datatypes, DataType.Constructor[][] constrs)
+	public void declareDatatypes(DataType[] datatypes, DataType.Constructor[][] constrs, Sort[][] sortParams)
 		throws SMTLIBException {
 		mPw.print("(declare-datatypes (");
 		for (DataType datatype : datatypes) {
@@ -213,7 +213,7 @@ public class LoggingScript extends WrapperScript {
 			mPw.print(")");
 		}
 		//FIXME continue....
-		super.declareDatatypes(datatypes, constrs);
+		super.declareDatatypes(datatypes, constrs, sortParams);
 	}
 
 	@Override

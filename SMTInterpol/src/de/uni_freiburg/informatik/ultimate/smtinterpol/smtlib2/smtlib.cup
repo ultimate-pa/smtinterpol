@@ -73,7 +73,7 @@ parser code {:
 action code {:
 	ScopedHashMap<String,TermVariable> localVars =
 		new ScopedHashMap<String, TermVariable>(false);
-	Sort[] sortParams = null;
+	Sort[] mSortParams = null;
 	static Sort[] emptySortArray = new Sort[0];
 
 	static class Binding {
@@ -157,7 +157,26 @@ action code {:
 			return mArgumentSort;
 		}
 		public String toString() {
-		    return "(" + mSelector + " " + mArgumentSort + ")";
+			return "(" + mSelector + " " + mArgumentSort + ")";
+		}
+	}
+
+	static class ParametricConstructors {
+		final DataType.Constructor[] mConstructors;
+		final Sort[] mSortParams;
+		public ParametricConstructors(DataType.Constructor[] constructors) {
+			mConstructors = constructors;
+			mSortParams = null;
+		}
+		public ParametricConstructors(DataType.Constructor[] constructors, Sort[] sortparams) {
+			mConstructors = constructors;
+			mSortParams = sortparams;
+		}
+		public DataType.Constructor[] getConstructors() {
+			return mConstructors;
+		}
+		public Sort[] getSortParams() {
+			return mSortParams;
 		}
 	}
 
@@ -175,13 +194,27 @@ action code {:
 		return result;
 	}
 
+	private Sort[] getSortParams() {
+		return mSortParams;
+	}
+
+	private void pushSortParams(String[] sortVars) {
+		assert mSortParams == null;
+		mSortParams = parser.env.getScript().sortVariables(sortVars);
+	}
+
+	private void popSortParams() {
+		assert mSortParams != null;
+		mSortParams = null;
+	}
+
 	public Sort lookupSort(Symbol sym, IndexedIdentifier id, Sort[] args) {
 		for (Sort s: args) {
 			if (s == null) return null;
 		}
 		String name = id.getName();
-		if (args.length == 0 && id.getIndices() == null && sortParams != null) {
-			for (Sort s: sortParams) {
+		if (args.length == 0 && id.getIndices() == null && mSortParams != null) {
+			for (Sort s: mSortParams) {
 				if (s.getName().equals(name))
 					return s;
 			}
@@ -297,7 +330,7 @@ non terminal InterpolationInfo interpolantpartition;
 non terminal SelectorDec selectorDec;
 non terminal DataType sortDec;
 non terminal DataType.Constructor constructorDec;
-non terminal DataType.Constructor[] datatypeDec;
+non terminal ParametricConstructors datatypeDec;
 non terminal sortSymbolDecl;
 non terminal metaSpecConstant;
 non terminal parFunSymbolDecl, funSymbolDecl;
@@ -553,9 +586,11 @@ constructorDec ::= LPAR symbol:name selectorDec*:selDec RPAR
                    :};
 
 datatypeDec ::= LPAR constructorDec+:cons RPAR
-                {: RESULT = cons; :} 
-              | LPAR PAR LPAR symbol+ RPAR LPAR constructorDec+:cons RPAR RPAR
-                {: RESULT = cons; :} 
+                {: RESULT = new ParametricConstructors(cons); :} 
+              | LPAR PAR LPAR symbol+:sortvars RPAR
+                {: pushSortParams(sortvars); :}
+                LPAR constructorDec+:cons RPAR RPAR
+                {: RESULT = new ParametricConstructors(cons, getSortParams()); popSortParams(); :} 
               ;
 
 command ::= SETLOGIC symbol:logic
@@ -590,19 +625,20 @@ command ::= SETLOGIC symbol:logic
 				}
 			:}
           | DEFINESORT symbol:sort LPAR symbol*:sortVars
-            {: sortParams = parser.env.getScript().sortVariables(sortVars); :}
+            {: pushSortParams(sortVars); :}
             RPAR sort:def
             {: if (hasError())
             	   parser.env.printError(getError());
                else {
                    try {
-                   		parser.env.getScript().defineSort(sort, sortParams, def);
+                   		parser.env.getScript().defineSort(sort, getSortParams(), def);
                    		parser.env.printSuccess();
                    } catch (SMTLIBException se) {
                    		parser.report_error(se.getMessage(), sort$);
                    		parser.env.printError(getError());
                    }
                }
+               popSortParams();
             :}
           | DECLAREFUN symbol:fun LPAR sort*:param RPAR sort:result
             {: if (hasError())
@@ -633,12 +669,28 @@ command ::= SETLOGIC symbol:logic
           | DECLAREDATATYPE symbol:type datatypeDec:dataDec
             {:
               DataType datatype = parser.env.getScript().datatypes(type, 0);
-              parser.env.getScript().declareDatatype(datatype, dataDec);
+              try {
+                  parser.env.getScript().declareDatatype(datatype, dataDec.getConstructors());
+              } catch (SMTLIBException se) {
+                  parser.report_error(se.getMessage(), type$);
+                  parser.env.printError(getError());
+              }
             :}
           | DECLAREDATATYPES LPAR sortDec+:datatypes RPAR LPAR datatypeDec+:dataDecs RPAR
-            {:   
-              parser.env.getScript().declareDatatypes(datatypes, dataDecs);
-            :}  
+            {:
+              DataType.Constructor[][] constructors = new DataType.Constructor[dataDecs.length][];
+              Sort[][] sortParams = new Sort[dataDecs.length][];
+              for (int i = 0; i < dataDecs.length; i++) {
+                  constructors[i] = dataDecs[i].getConstructors();
+                  sortParams[i] = dataDecs[i].getSortParams();
+              }
+              try {
+                  parser.env.getScript().declareDatatypes(datatypes, constructors, sortParams);
+              } catch (SMTLIBException se) {
+                  parser.report_error(se.getMessage(), datatypes$);
+                  parser.env.printError(getError());
+              }
+            :}
           | DEFINEFUN {: localVars.beginScope(); :} symbol:fun
                       LPAR sortedVar*:param RPAR sort:resultSort term:value
             {: localVars.endScope();
