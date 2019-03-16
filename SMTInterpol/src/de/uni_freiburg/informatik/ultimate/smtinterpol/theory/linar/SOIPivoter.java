@@ -77,17 +77,17 @@ public class SOIPivoter {
 			// mSoiValue is already updated.
 			// Next step: Update soiVar by adding the row of coefficients.
 
-			BigInteger divisor = var.mHeadEntry.getCoeff();
+			BigInteger divisor = mSolver.mTableaux.get(var.mMatrixpos).getRawCoeff(0);
 			if (isUpper) {
 				divisor = divisor.negate();
 			}
-			for (final MatrixEntry entry : var.getTableauxRow()) {
+			for (final MatrixEntry entry : var.getTableauxRow(mSolver)) {
 				Rational coeff = Rational.valueOf(entry.getCoeff(), divisor);
-				final Rational oldValue = mSOIVar.get(entry.mColumn);
+				final Rational oldValue = mSOIVar.get(entry.getColumn());
 				if (oldValue != null) {
 					coeff = coeff.add(oldValue);
 				}
-				mSOIVar.put(entry.mColumn, coeff);
+				mSOIVar.put(entry.getColumn(), coeff);
 			}
 		}
 		return isOOB;
@@ -114,15 +114,16 @@ public class SOIPivoter {
 				continue;
 			}
 
-			for (final MatrixEntry me : colVar.getTableauxColumn()) {
-				final LinVar rowVar = me.mRow;
-				final Rational weight = Rational.valueOf(me.getCoeff(), rowVar.mHeadEntry.getCoeff().negate());
+			for (final MatrixEntry me : colVar.getTableauxColumn(mSolver)) {
+				final LinVar rowVar = me.getRow();
+				final Rational weight = Rational.valueOf(me.getCoeff(), me.getHeadCoeff().negate());
 				final LAReason bound = weight.signum() == coeff.signum() ? rowVar.mLowerLiteral : rowVar.mUpperLiteral;
 				if (bound != null && rowVar.getValue().equals(new ExactInfinitesimalNumber(bound.getBound()))) {
 					// check if this entry would be used by Bland strategy (first column, smallest row variable)
 					if (firstColumn &&
 							(mBestLimiter == null || mBestLimiter.getRowVar().compareTo(rowVar) > 0)) {
-						mBestLimiter = new FreedomLimiter(ExactInfinitesimalNumber.ZERO, weight, bound.getBound(), me);
+						mBestLimiter = new FreedomLimiter(ExactInfinitesimalNumber.ZERO, weight, bound.getBound(),
+								rowVar, colVar);
 					}
 
 					// make weight the opposite sign of coeff and add it, to decrease absolute value of coeff.
@@ -151,7 +152,7 @@ public class SOIPivoter {
 	 *
 	 * @return The matrix entry describing the pivot point (row + column).
 	 */
-	public MatrixEntry findPivot() {
+	public boolean findPivot() {
 		ExactInfinitesimalNumber bestDiff = new ExactInfinitesimalNumber(Rational.MONE);
 		mBestLimiter = null;
 		for (final Entry<LinVar, Rational> entry : mSOIVar.entrySet()) {
@@ -181,18 +182,18 @@ public class SOIPivoter {
 				if (!colBound.isInfinity()) {
 					final ExactInfinitesimalNumber colFreedom = colVar.getValue().isub(colBound).abs();
 					bounds.put(colFreedom,
-							new FreedomLimiter(colFreedom, Rational.ONE, colBound, colVar.mHeadEntry));
+							new FreedomLimiter(colFreedom, Rational.ONE, colBound, colVar, colVar));
 				}
 			}
-			for (final MatrixEntry me : colVar.getTableauxColumn()) {
+			for (final MatrixEntry me : colVar.getTableauxColumn(mSolver)) {
 				// for each variable in this column, check by how much the column variable would change if the current
 				// row variable would be used as bound. There may even be two interesting points for a row variable
 				// that is currently out of bounds: when it is satisfied and when it is no longer satisfied.
 				// weight is basically the matrix entry, i.e., the factor by which the column variable changes if the
 				// row variable changes.
 				// freedom is the amount the column variable changes if the row variable would be used as bounds.
-				final LinVar rowVar = me.mRow;
-				Rational weight = Rational.valueOf(me.getCoeff(), rowVar.mHeadEntry.getCoeff());
+				final LinVar rowVar = me.getRow();
+				Rational weight = Rational.valueOf(me.getCoeff(), me.getHeadCoeff());
 				if (coeff.signum() < 0) {
 					weight = weight.negate();
 				}
@@ -205,9 +206,9 @@ public class SOIPivoter {
 						assert freedom.signum() >= 0;
 						final FreedomLimiter prev = bounds.get(freedom);
 						if (prev != null) {
-							prev.merge(weight, bound, me);
+							prev.merge(weight, bound, rowVar);
 						} else {
-							bounds.put(freedom, new FreedomLimiter(freedom, weight, bound, me));
+							bounds.put(freedom, new FreedomLimiter(freedom, weight, bound, rowVar, colVar));
 						}
 					}
 				}
@@ -220,9 +221,9 @@ public class SOIPivoter {
 						assert freedom.signum() >= 0;
 						final FreedomLimiter prev = bounds.get(freedom);
 						if (prev != null) {
-							prev.merge(weight, bound, me);
+							prev.merge(weight, bound, rowVar);
 						} else {
-							bounds.put(freedom, new FreedomLimiter(freedom, weight, bound, me));
+							bounds.put(freedom, new FreedomLimiter(freedom, weight, bound, rowVar, colVar));
 						}
 					}
 				}
@@ -246,19 +247,16 @@ public class SOIPivoter {
 						mBestLimiter = limiter;
 						if (bestDiff.equals(mSOIValue)) {
 							mSolver.mEngine.getLogger().debug("Solved it!", bestDiff);
-							return limiter.getMatrixEntry();
+							return true;
 						}
 					}
 					break;
 				}
 			}
-			assert (weight.signum() <= 0);
+			assert weight.signum() <= 0;
 		}
 		mSolver.mEngine.getLogger().debug("Best Candidate: (%s)", bestDiff);
-		if (mBestLimiter != null) {
-			return mBestLimiter.getMatrixEntry();
-		}
-		return null;
+		return mBestLimiter != null;
 	}
 
 	public Clause computeConflict() {
@@ -291,28 +289,31 @@ public class SOIPivoter {
 		mSolver.mEngine.getLogger().debug("=== fixoobs ===");
 		while (true) {
 			if (!computeSOI()) {
+				final Clause conflict = mSolver.checkPendingBoundPropagations();
+				if (conflict != null) {
+					return conflict;
+				}
 				return null;
 			}
 			if (mSolver.mEngine.getLogger().isDebugEnabled()) {
 				mSolver.mEngine.getLogger().debug("SOI: %s.%04d", mSOIValue.getRealValue().floor(),
 						mSOIValue.getRealValue().frac().mul(BigInteger.valueOf(10000)).floor().numerator().intValue());
 			}
-			MatrixEntry candidate = findPivot();
-			if (candidate == null) {
+			if (!findPivot()) {
 				return computeConflict();
 			}
 			// inner loop if we didn't make progress
 			int blandPivotStep = 0;
 			while (mBestLimiter.mFreedom.signum() == 0) {
-				mSolver.pivot(mBestLimiter.getMatrixEntry());
+				mSolver.pivot(mBestLimiter.getRowVar().mMatrixpos, mBestLimiter.getColumnVar().mMatrixpos);
 				mSolver.mNumPivotsBland++;
 				blandPivotStep++;
-				final Clause conflict = mSolver.checkPendingBoundPropagations();
-				if (conflict != null) {
-					mSolver.mEngine.getLogger().debug("Conflict on pivoting after %d Bland pivot steps",
-							blandPivotStep);
-					return conflict;
-				}
+				// final Clause conflict = mSolver.checkPendingBoundPropagations();
+				// if (conflict != null) {
+				// mSolver.mEngine.getLogger().debug("Conflict on pivoting after %d Bland pivot steps",
+				// blandPivotStep);
+				// return conflict;
+				// }
 				computeSOI();
 				if (checkZeroFreedom()) {
 					if (mBestLimiter == null) {
@@ -321,31 +322,19 @@ public class SOIPivoter {
 					}
 				} else {
 					mSolver.mEngine.getLogger().debug("Finished %d Bland pivot steps", blandPivotStep);
-					candidate = findPivot();
+					findPivot();
 					assert mBestLimiter.mFreedom.signum() > 0;
 				}
 			}
 
-			LinVar row;
-			if (candidate.mNextInRow != null) {
-				row = candidate.mRow;
-				mSolver.pivot(candidate);
-			} else {
-				row = candidate.mColumn;
+			if (mBestLimiter.getRowVar() != mBestLimiter.getColumnVar()) {
+				mSolver.pivot(mBestLimiter.getRowVar().mMatrixpos, mBestLimiter.getColumnVar().mMatrixpos);
 			}
-			mSolver.updateVariableValue(row, new ExactInfinitesimalNumber(mBestLimiter.mBound));
-			final Clause conflict = mSolver.checkPendingBoundPropagations();
-			if (conflict != null) {
-				return conflict;
-			}
-		}
-	}
-
-	private static LinVar getVar(final MatrixEntry entry) {
-		if (entry.mNextInRow == null) {
-			return entry.mColumn;
-		} else {
-			return entry.mRow;
+			mSolver.updateVariableValue(mBestLimiter.getRowVar(), new ExactInfinitesimalNumber(mBestLimiter.mBound));
+			// final Clause conflict = mSolver.checkPendingBoundPropagations();
+			// if (conflict != null) {
+			// return conflict;
+			// }
 		}
 	}
 
@@ -353,15 +342,16 @@ public class SOIPivoter {
 		ExactInfinitesimalNumber mFreedom;
 		Rational mWeight;
 		InfinitesimalNumber mBound;
-		MatrixEntry mEntry;
+		LinVar mRow, mColumn;
 
 		public FreedomLimiter(final ExactInfinitesimalNumber freedom, final Rational weight, final InfinitesimalNumber bound,
-				final MatrixEntry entry) {
+				final LinVar row, final LinVar column) {
 			assert freedom.signum() >= 0;
 			mFreedom = freedom;
 			mWeight = weight.abs();
 			mBound = bound;
-			mEntry = entry;
+			mRow = row;
+			mColumn = column;
 		}
 
 		/**
@@ -375,10 +365,10 @@ public class SOIPivoter {
 		 * @param entry
 		 *            The candidate variable.
 		 */
-		public void merge(final Rational weight, final InfinitesimalNumber bound, final MatrixEntry entry) {
+		public void merge(final Rational weight, final InfinitesimalNumber bound, final LinVar newRow) {
 			mWeight = mWeight.add(weight.abs());
-			if (getVar(mEntry).compareTo(getVar(entry)) > 0) {
-				mEntry = entry;
+			if (mRow.compareTo(newRow) > 0) {
+				mRow = newRow;
 				mBound = bound;
 			}
 		}
@@ -387,17 +377,17 @@ public class SOIPivoter {
 			return mWeight;
 		}
 
-		public MatrixEntry getMatrixEntry() {
-			return mEntry;
+		public LinVar getRowVar() {
+			return mRow;
 		}
 
-		public LinVar getRowVar() {
-			return getVar(mEntry);
+		public LinVar getColumnVar() {
+			return mColumn;
 		}
 
 		@Override
 		public String toString() {
-			return "Freedom[" + mFreedom + ",(" + mEntry.mRow + ")," + mWeight + "]";
+			return "Freedom[" + mFreedom + ",(" + getRowVar() + ")," + mWeight + "]";
 		}
 	}
 }
