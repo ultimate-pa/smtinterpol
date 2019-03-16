@@ -53,6 +53,7 @@ public class UnitPropagationData {
 			final int litNr = i;
 			final DawgState<ApplicationTerm, Boolean> unitPoints =
 					dawgFactory.createMapped(clauseDawg, status -> status == litNr);
+			assert unitPoints.isTotal();
 			if (DawgFactory.isEmpty(unitPoints)) {
 				continue;
 			}

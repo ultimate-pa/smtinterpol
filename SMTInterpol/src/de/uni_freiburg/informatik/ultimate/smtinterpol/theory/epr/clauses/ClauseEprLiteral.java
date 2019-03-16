@@ -73,7 +73,7 @@ public abstract class ClauseEprLiteral extends ClauseLiteral {
 		mEprPredicateAtom = atom;
 		mArgumentTerms = Collections.unmodifiableList(Arrays.asList(atom.getArguments()));
 
-		final List<ApplicationTerm> l = new ArrayList<ApplicationTerm>();
+		final List<ApplicationTerm> l = new ArrayList<>();
 		for (final Term at : mArgumentTerms) {
 			if (at instanceof ApplicationTerm) {
 				l.add((ApplicationTerm) at);
@@ -115,11 +115,17 @@ public abstract class ClauseEprLiteral extends ClauseLiteral {
 
 	protected abstract DawgState<ApplicationTerm, EprTheory.TriBool> computeDawg();
 
+	@Override
 	protected boolean isDirty() {
 		return mLastState != getEprPredicate().getDawg();
 	}
 
-	protected DawgState<ApplicationTerm, EprTheory.TriBool> getLocalDawg() {
+	@Override
+	/**
+	 * Get the dawg describing the points for the clause variable where the literal is true, false, or currently
+	 * undefined.
+	 */
+	public DawgState<ApplicationTerm, EprTheory.TriBool> getDawg() {
 		if (mLastState != getEprPredicate().getDawg()) {
 			mLastState = getEprPredicate().getDawg();
 			mCachedDawg = computeDawg();

@@ -51,7 +51,7 @@ public class ClauseDpllLiteral extends ClauseLiteral {
 	 *   "below" the epr decide stack anyway.
 	 */
 	@Override
-	protected DawgState<ApplicationTerm, EprTheory.TriBool> getLocalDawg() {
+	protected DawgState<ApplicationTerm, EprTheory.TriBool> getDawg() {
 		mLastState = mAtom.getDecideStatus();
 		if (mLastState == null) {
 			// undecided

@@ -72,6 +72,8 @@ public class EprClause {
 	private final EprTheory mEprTheory;
 	private final DawgFactory<ApplicationTerm, TermVariable> mDawgFactory;
 
+	private DawgState<ApplicationTerm, Integer> mDawg;
+
 	private final List<ClauseLiteral> mLiterals;
 
 	/**
@@ -107,8 +109,8 @@ public class EprClause {
 		mDawgFactory = eprTheory.getDawgFactory();
 
 		// set up the clause..
-		TreeSet<TermVariable> variables = new TreeSet<>(EprHelpers.getColumnNamesComparator());
-		for (Literal lit : lits) {
+		final TreeSet<TermVariable> variables = new TreeSet<>(EprHelpers.getColumnNamesComparator());
+		for (final Literal lit : lits) {
 			variables.addAll(Arrays.asList(lit.getAtom().getSMTFormula(mEprTheory.getTheory()).getFreeVars()));
 		}
 		mVariables = Collections.unmodifiableSortedSet(variables);
@@ -233,7 +235,7 @@ public class EprClause {
 				mDawgFactory.createConstantDawg(getVariables(), DAWG_FALSE);
 
 		boolean isDirty = mEprClauseState == null;
-		for (ClauseLiteral cl : getLiterals()) {
+		for (final ClauseLiteral cl : getLiterals()) {
 			if (cl.isDirty()) {
 				isDirty = true;
 			}
@@ -248,12 +250,14 @@ public class EprClause {
 					((status, tri) -> tri == EprTheory.TriBool.TRUE ? DAWG_TRUE
 							: tri == EprTheory.TriBool.FALSE ? status
 									: status == DAWG_FALSE ? litNr : status == DAWG_TRUE ? DAWG_TRUE : DAWG_UNKNOWN);
-			myDawg = mDawgFactory.createProduct(myDawg, getLiterals().get(i).getLocalDawg(), clauseMerger);
+			myDawg = mDawgFactory.createProduct(myDawg, getLiterals().get(i).getDawg(), clauseMerger);
+			assert myDawg.isTotal();
 			if (DawgFactory.isConstantValue(myDawg, DAWG_TRUE)) {
 				mEprClauseState = EprClauseState.Fulfilled;
 				return mEprClauseState;
 			}
 		}
+		mDawg = myDawg;
 		mConflictPoints = mDawgFactory.createMapped(myDawg, i -> i == DAWG_FALSE);
 		if (!DawgFactory.isEmpty(mConflictPoints)) {
 			mEprClauseState = EprClauseState.Conflict;
@@ -270,9 +274,9 @@ public class EprClause {
 		return mVariables;
 	}
 
-	public int getVariablePos(TermVariable variable) {
+	public int getVariablePos(final TermVariable variable) {
 		int index = 0;
-		for (TermVariable tv : mVariables) {
+		for (final TermVariable tv : mVariables) {
 			if (tv == variable) {
 				return index;
 			}
@@ -301,6 +305,10 @@ public class EprClause {
 		assert isConflict();
 		assert mConflictPoints != null : "this should have been set somewhere..";
 		return mConflictPoints;
+	}
+
+	public DawgState<ApplicationTerm, Boolean> getUndecidedPoints() {
+		return mDawgFactory.createMapped(mDawg, i -> i == DAWG_UNKNOWN);
 	}
 
 	public List<ClauseLiteral> getLiterals() {

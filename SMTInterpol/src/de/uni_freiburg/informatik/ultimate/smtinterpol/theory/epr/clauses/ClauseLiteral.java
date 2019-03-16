@@ -72,7 +72,7 @@ public abstract class ClauseLiteral {
 	}
 
 	protected abstract boolean isDirty();
-	protected abstract DawgState<ApplicationTerm, EprTheory.TriBool> getLocalDawg();
+	protected abstract DawgState<ApplicationTerm, EprTheory.TriBool> getDawg();
 
 	/**
 	 * For ground clause literals this has the usual meanings wrt. the current decide state:
