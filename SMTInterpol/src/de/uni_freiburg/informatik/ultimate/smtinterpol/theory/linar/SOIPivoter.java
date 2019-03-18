@@ -308,12 +308,6 @@ public class SOIPivoter {
 				mSolver.pivot(mBestLimiter.getRowVar().mMatrixpos, mBestLimiter.getColumnVar().mMatrixpos);
 				mSolver.mNumPivotsBland++;
 				blandPivotStep++;
-				// final Clause conflict = mSolver.checkPendingBoundPropagations();
-				// if (conflict != null) {
-				// mSolver.mEngine.getLogger().debug("Conflict on pivoting after %d Bland pivot steps",
-				// blandPivotStep);
-				// return conflict;
-				// }
 				computeSOI();
 				if (checkZeroFreedom()) {
 					if (mBestLimiter == null) {
@@ -331,10 +325,6 @@ public class SOIPivoter {
 				mSolver.pivot(mBestLimiter.getRowVar().mMatrixpos, mBestLimiter.getColumnVar().mMatrixpos);
 			}
 			mSolver.updateVariableValue(mBestLimiter.getRowVar(), new ExactInfinitesimalNumber(mBestLimiter.mBound));
-			// final Clause conflict = mSolver.checkPendingBoundPropagations();
-			// if (conflict != null) {
-			// return conflict;
-			// }
 		}
 	}
 
