@@ -1794,7 +1794,9 @@ public class Clausifier {
 	}
 
 	void addClause(final Literal[] lits, final ClauseDeletionHook hook, final ProofNode proof) {
-		mLogger.debug("Added Ground Clause: %s", Arrays.toString(lits));
+		if (mLogger.isDebugEnabled()) {
+			mLogger.debug("Added Ground Clause: %s", Arrays.toString(lits));
+		}
 
 		// alex, late comment: don't do this here but in BuildClause.perform
 		// /*

@@ -528,7 +528,7 @@ public class SMTInterpol extends NoopScript {
 				default:
 					throw new InternalError("Unknown incompleteness reason");
 				}
-				mLogger.info("Got %s as reason to return unknown", mEngine.getCompletenessReason());
+				mLogger.debug("Got %s as reason to return unknown", mEngine.getCompletenessReason());
 			}
 		} else {
 			result = LBool.UNSAT;
