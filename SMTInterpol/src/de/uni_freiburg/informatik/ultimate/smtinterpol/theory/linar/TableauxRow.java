@@ -15,8 +15,8 @@ import de.uni_freiburg.informatik.ultimate.logic.Rational;
  * @author Jochen Hoenicke
  */
 public class TableauxRow {
-	final static int LIMIT_BITS = 31;
-	final static int LIMIT = 1 << (LIMIT_BITS - 1);
+	final static int LIMIT_BITS = 30;
+	final static int LIMIT = 1 << LIMIT_BITS;
 	final static int MARKER = LIMIT + 1;
 
 	/**
@@ -163,6 +163,7 @@ public class TableauxRow {
 		for (int i = 0; i < newIndex; i++) {
 			result[2 * i] = newVars[i];
 			result[2 * i + 1] = addBigInteger(bigInts, newCoeffs[i] / gcd);
+			assert result[2 * i + 1] >= -LIMIT && result[2 * i + 1] < MARKER + bigInts.size();
 		}
 		mEntries = result;
 		if (bigInts.size() > 0) {
@@ -229,6 +230,7 @@ public class TableauxRow {
 			result[2 * i] = newVars[i];
 			final BigInteger newCoeff = newCoeffs[i].divide(gcd);
 			result[2 * i + 1] = addBigInteger(bigInts, newCoeff);
+			assert result[2 * i + 1] >= -LIMIT && result[2 * i + 1] < MARKER + bigInts.size();
 		}
 		mEntries = result;
 		if (bigInts.size() > 0) {
