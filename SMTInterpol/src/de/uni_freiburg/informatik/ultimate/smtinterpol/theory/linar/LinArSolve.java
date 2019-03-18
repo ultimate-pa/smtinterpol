@@ -328,7 +328,7 @@ public class LinArSolve implements ITheory {
 	 * @param newBound  the new bound.
 	 * @return Conflict clause detected during bound refinement propagations
 	 */
-	private Clause updateVariable(final LinVar updateVar, final boolean isUpper,
+	private void updateVariable(final LinVar updateVar, final boolean isUpper,
 			final InfinitesimalNumber oldBound, final InfinitesimalNumber newBound) {
 		assert(!updateVar.mBasic);
 		final ExactInfinitesimalNumber diff = updateVar.getValue().isub(newBound);
@@ -352,19 +352,10 @@ public class LinArSolve implements ITheory {
 				mOob.add(var);
 			}
 		}
-		return checkPendingBoundPropagations();
-	}
-
-	private void updatePropagationCountersOnBacktrack(final LinVar var,
-			final InfinitesimalNumber oldBound, final InfinitesimalNumber newBound,
-			final boolean upper) {
 	}
 
 	public void removeReason(final LAReason reason) {
 		final LinVar var = reason.getVar();
-		if (var.mBasic && mTableaux.get(var.mMatrixpos) != null) {
-			mDirty.set(var.mMatrixpos);
-		}
 		LAReason chain;
 		if (reason.isUpper()) {
 			if (var.mUpper == reason) {
@@ -375,7 +366,6 @@ public class LinArSolve implements ITheory {
 					assert reason instanceof CompositeReason;
 				}
 				if (!var.mBasic) { // NOPMD
-					mDirty.or(mDependentRows.get(var.mMatrixpos));
 					if (var.getValue().compareTo(var.getLowerBound()) < 0) {
 						updateVariableValue(var, new ExactInfinitesimalNumber(var.getLowerBound()));
 					}
@@ -397,7 +387,6 @@ public class LinArSolve implements ITheory {
 					assert reason instanceof CompositeReason;
 				}
 				if (!var.mBasic) { // NOPMD
-					mDirty.or(mDependentRows.get(var.mMatrixpos));
 					if (var.getValue().compareTo(var.getUpperBound()) > 0) {
 						updateVariableValue(var, new ExactInfinitesimalNumber(var.getUpperBound()));
 					}
@@ -526,44 +515,65 @@ public class LinArSolve implements ITheory {
 			}
 
 			boolean hasUpper = true, hasLower = true;
-			InfinitesimalNumber upperBound = InfinitesimalNumber.ZERO;
-			InfinitesimalNumber lowerBound = InfinitesimalNumber.ZERO;
-			for (final MatrixEntry entry : var.getTableauxRow(this)) {
-				Rational coeff = Rational.valueOf(entry.getCoeff(), entry.getHeadCoeff().negate());
-				LinVar colvar = entry.getColumn();
+			TableauxRow row = mTableaux.get(var.mMatrixpos);
+			int sign = -row.getRawCoeff(0).signum();
+			for (int i = 1; i < row.size(); i++) {
+				int coeffSign = row.getRawCoeff(i).signum();
+				LinVar colvar = mLinvars.get(row.getRawIndex(i));
 				if (hasUpper) {
-					InfinitesimalNumber colBound = coeff.signum() > 0 ? colvar.getUpperBound() : colvar.getLowerBound();
-					if (!colBound.isInfinity()) {
-						upperBound = upperBound.add(colBound.mul(coeff));
-					} else {
+					InfinitesimalNumber colBound = coeffSign == sign ? colvar.getUpperBound() : colvar.getLowerBound();
+					if (colBound.isInfinity()) {
 						hasUpper = false;
 					}
 				}
 				if (hasLower) {
-					InfinitesimalNumber colBound = coeff.signum() > 0 ? colvar.getLowerBound() : colvar.getUpperBound();
-					if (!colBound.isInfinity()) {
-						lowerBound = lowerBound.add(colBound.mul(coeff));
-					} else {
+					InfinitesimalNumber colBound = coeffSign == sign ? colvar.getLowerBound() : colvar.getUpperBound();
+					if (colBound.isInfinity()) {
 						hasLower = false;
 					}
 				}
 			}
-			Clause conflict = null;
-			if (hasUpper) {
-				conflict = propagateBound(var, upperBound, true);
+			if (Config.PROFILE_TIME) {
+				mBacktrackPropTime += System.nanoTime() - time;
+				time = System.nanoTime();
 			}
-			if (hasLower) {
-				if (conflict == null) {
-					conflict = propagateBound(var, lowerBound, false);
-				} else {
-					mDirty.set(var.mMatrixpos);
+			if (hasUpper || hasLower) {
+				InfinitesimalNumber upperBound = InfinitesimalNumber.ZERO;
+				InfinitesimalNumber lowerBound = InfinitesimalNumber.ZERO;
+				for (final MatrixEntry entry : var.getTableauxRow(this)) {
+					Rational coeff = Rational.valueOf(entry.getCoeff(), entry.getHeadCoeff().negate());
+					LinVar colvar = entry.getColumn();
+					if (hasUpper) {
+						InfinitesimalNumber colBound = coeff.signum() > 0 ? colvar.getUpperBound()
+								: colvar.getLowerBound();
+						upperBound = upperBound.add(colBound.mul(coeff));
+					}
+					if (hasLower) {
+						InfinitesimalNumber colBound = coeff.signum() > 0 ? colvar.getLowerBound()
+								: colvar.getUpperBound();
+						lowerBound = lowerBound.add(colBound.mul(coeff));
+					}
+				}
+				Clause conflict = null;
+				if (hasUpper) {
+					conflict = propagateBound(var, upperBound, true);
+				}
+				if (hasLower) {
+					if (conflict == null) {
+						conflict = propagateBound(var, lowerBound, false);
+					} else {
+						mDirty.set(var.mMatrixpos);
+					}
+				}
+				if (conflict != null) {
+					if (Config.PROFILE_TIME) {
+						mPropBoundTime += System.nanoTime() - time;
+					}
+					return conflict;
 				}
 			}
 			if (Config.PROFILE_TIME) {
-				mBacktrackPropTime += System.nanoTime() - time;
-			}
-			if (conflict != null) {
-				return conflict;
+				mPropBoundTime += System.nanoTime() - time;
 			}
 		}
 		return null;
@@ -573,12 +583,8 @@ public class LinArSolve implements ITheory {
 	public Clause computeConflictClause() {
 		mSuggestions.clear();
 		mEngine.getLogger().debug("Final Check LA");
-		Clause c = fixOobs();
-		if (c != null) {
-			return c;
-		}
-
-		c = ensureIntegrals();
+		assert mOob.isEmpty();
+		Clause c = ensureIntegrals();
 		if (c != null || !mSuggestions.isEmpty() || !mProplist.isEmpty()) {
 			return c;
 		}
@@ -856,11 +862,8 @@ public class LinArSolve implements ITheory {
 				reason = var.mUpper;
 			}
 
-			if (!var.mBasic) { // NOPMD
-				final Clause conflict = updateVariable(var, true, oldBound, bound);
-				if (conflict != null) {
-					return conflict;
-				}
+			if (!var.mBasic) {
+				updateVariable(var, true, oldBound, bound);
 			} else if (var.outOfBounds()) {
 				mOob.add(var);
 			}
@@ -901,11 +904,8 @@ public class LinArSolve implements ITheory {
 				reason = var.mLower;
 			}
 
-			if (!var.mBasic) { // NOPMD
-				final Clause conflict = updateVariable(var, false, oldBound, bound);
-				if (conflict != null) {
-					return conflict;
-				}
+			if (!var.mBasic) {
+				updateVariable(var, false, oldBound, bound);
 			} else if (var.outOfBounds()) {
 				mOob.add(var);
 			}
@@ -1023,15 +1023,20 @@ public class LinArSolve implements ITheory {
 
 	@Override
 	public Clause checkpoint() {
-		final Clause conflict = checkPendingBoundPropagations();
-		if (conflict != null) {
+		Clause conflict = checkPendingBoundPropagations();
+		if (conflict != null || !mProplist.isEmpty()) {
 			return conflict;
 		}
 		// Prevent pivoting before tableau simplification
 		if (!mInCheck) {
 			return null;
 		}
-		return fixOobs();
+		conflict = fixOobs();
+		if (conflict != null) {
+			return conflict;
+		}
+		conflict = checkPendingBoundPropagations();
+		return conflict;
 	}
 
 	public Rational realValue(final LinVar var) {
@@ -2084,9 +2089,5 @@ public class LinArSolve implements ITheory {
 				}
 			}
 		}
-	}
-
-	public boolean isDirty(final LinVar var) {
-		return mDirty.get(var.mMatrixpos);
 	}
 }

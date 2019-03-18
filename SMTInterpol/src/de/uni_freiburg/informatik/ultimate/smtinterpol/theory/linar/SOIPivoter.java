@@ -289,10 +289,6 @@ public class SOIPivoter {
 		mSolver.mEngine.getLogger().debug("=== fixoobs ===");
 		while (true) {
 			if (!computeSOI()) {
-				final Clause conflict = mSolver.checkPendingBoundPropagations();
-				if (conflict != null) {
-					return conflict;
-				}
 				return null;
 			}
 			if (mSolver.mEngine.getLogger().isDebugEnabled()) {
