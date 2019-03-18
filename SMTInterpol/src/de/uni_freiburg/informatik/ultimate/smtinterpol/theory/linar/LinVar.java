@@ -242,7 +242,7 @@ public class LinVar implements Comparable<LinVar> {
 	 * @return the LinTerm.
 	 */
 	public Map<LinVar,BigInteger> getLinTerm() {
-		return ((LinTerm) mName).mCoeffs;
+		return (LinTerm) mName;
 	}
 
 	/**

@@ -52,7 +52,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.model.Model;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.model.SharedTermEvaluator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.LeafNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ArrayMap;
 import de.uni_freiburg.informatik.ultimate.util.DebugMessage;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
@@ -255,8 +254,7 @@ public class LinArSolve implements ITheory {
 				isInt &= vars[i].mIsInt;
 				i++;
 			}
-			final ArrayMap<LinVar, BigInteger> intSum = new ArrayMap<>(vars, coeffs);
-			var = new LinVar(new LinTerm(intSum), isInt, mEngine.getAssertionStackLevel(), mLinvars.size());
+			var = new LinVar(new LinTerm(vars, coeffs), isInt, mEngine.getAssertionStackLevel(), mLinvars.size());
 			mTerms.put(factors, var);
 			mLinvars.add(var);
 			mDependentRows.add(null);
