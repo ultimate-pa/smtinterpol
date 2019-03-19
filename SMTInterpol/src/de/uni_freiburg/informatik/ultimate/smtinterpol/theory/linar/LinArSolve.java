@@ -41,7 +41,9 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.EqualityProxy;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SharedTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
@@ -519,13 +521,15 @@ public class LinArSolve implements ITheory {
 				int coeffSign = row.getRawCoeff(i).signum();
 				LinVar colvar = mLinvars.get(row.getRawIndex(i));
 				if (hasUpper) {
-					InfinitesimalNumber colBound = coeffSign == sign ? colvar.getUpperBound() : colvar.getLowerBound();
+					InfinitesimalNumber colBound = coeffSign == sign ? colvar.getTightUpperBound()
+							: colvar.getTightLowerBound();
 					if (colBound.isInfinity()) {
 						hasUpper = false;
 					}
 				}
 				if (hasLower) {
-					InfinitesimalNumber colBound = coeffSign == sign ? colvar.getLowerBound() : colvar.getUpperBound();
+					InfinitesimalNumber colBound = coeffSign == sign ? colvar.getTightLowerBound()
+							: colvar.getTightUpperBound();
 					if (colBound.isInfinity()) {
 						hasLower = false;
 					}
@@ -1432,8 +1436,6 @@ public class LinArSolve implements ITheory {
 			if (!dependencies.isEmpty()) {
 				final int row = dependencies.nextSetBit(0);
 				pivot(row, v.mMatrixpos);
-				final Clause conflict = checkPendingBoundPropagations();
-				assert (conflict == null) : "Removing a variable produced a conflict!";
 			}
 		}
 		assert v.mBasic || mDependentRows.get(v.mMatrixpos).isEmpty();
@@ -2007,9 +2009,9 @@ public class LinArSolve implements ITheory {
 			if (var == mConflictVar) {
 				mConflictVar = null;
 			}
+			removeLinVar(var);
 			mDirty.clear(i);
 			mOob.remove(var);
-			removeLinVar(var);
 			/// Mark variable as dead
 			var.mAssertionstacklevel = -1;
 			if (var.isInt()) {
@@ -2087,5 +2089,48 @@ public class LinArSolve implements ITheory {
 				}
 			}
 		}
+	}
+
+	/// --- Query partial model ---
+	/**
+	 * Return some upper bound for an smt affine term that is implied by the current model. This may return
+	 * POSITIVE_INFINITY if no such upper bound is implied or if it is not obvious from the current state.
+	 * 
+	 * @param clausifier
+	 *            The Clausifier used to convert terms to shared terms.
+	 * @param smtTerm
+	 *            The SMT affine term whose bound is to be determined.
+	 * @return An infinitesimal number giving some implied upper bound. There is no guarantee that it is the most strict
+	 *         implied bound.
+	 */
+	public InfinitesimalNumber getUpperBound(Clausifier clausifier, SMTAffineTerm smtTerm) {
+		HashMap<LinVar, Rational> row = new HashMap<>();
+		Rational offset = smtTerm.getConstant();
+		for (Entry<Term, Rational> entry : smtTerm.getSummands().entrySet()) {
+			SharedTerm sharedTerm = clausifier.getSharedTerm(entry.getKey(), null);
+			Rational coeff = entry.getValue();
+			if (sharedTerm.getOffset() != null) {
+				LinVar var = sharedTerm.getLinVar();
+				if (var != null) {
+					unsimplifyAndAdd(var, coeff.mul(sharedTerm.getFactor()), row);
+				}
+				offset = offset.add(coeff.mul(sharedTerm.getOffset()));
+			} else {
+				return InfinitesimalNumber.POSITIVE_INFINITY;
+			}
+		}
+		// we only compute the bound from the current tableaux, i.e., only consider the bounds of the current non-basic
+		// variables.
+		InfinitesimalNumber bound = InfinitesimalNumber.ZERO;
+		for (Entry<LinVar, Rational> entry : row.entrySet()) {
+			LinVar lv = entry.getKey();
+			Rational coeff = entry.getValue();
+			InfinitesimalNumber lvbound = coeff.isNegative() ? lv.getTightLowerBound() : lv.getTightUpperBound();
+			if (lvbound.isInfinity())
+				return InfinitesimalNumber.POSITIVE_INFINITY;
+			bound = bound.add(lvbound.mul(coeff));
+		}
+		bound = bound.add(new InfinitesimalNumber(offset, 0));
+		return bound;
 	}
 }
