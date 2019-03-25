@@ -26,7 +26,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -40,7 +39,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClauseState;
-import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
 
 /**
  * Represents a clause in the QuantifierTheory. This means, it contains at least one literal with an (implicitly)
@@ -73,7 +71,7 @@ public class QuantClause {
 	/**
 	 * The instantiations used in the current instances of this clause.
 	 */
-	private ScopedHashSet<List<SharedTerm>> mInstantiations;
+	// private ScopedHashSet<List<SharedTerm>> mInstantiations;
 
 	private EprClauseState mClauseState;
 
@@ -110,7 +108,7 @@ public class QuantClause {
 		}
 		collectInitialInterestingTermsAllVars();
 
-		mInstantiations = new ScopedHashSet<>();
+		// mInstantiations = new ScopedHashSet<>();
 		mClauseState = EprClauseState.Normal;
 	}
 
@@ -152,35 +150,35 @@ public class QuantClause {
 		return mInterestingTermsForVars;
 	}
 
-	public Set<List<SharedTerm>> getInstantiations() {
-		return mInstantiations;
-	}
+	// public Set<List<SharedTerm>> getInstantiations() {
+	// return mInstantiations;
+	// }
 
 	public EprClauseState getState() {
 		return mClauseState;
 	}
 
 	void push() {
-		for (int i = 0; i < mVars.length; i++) {
-			// mInterestingTermsForVars[i].beginScope();
-			mInstantiations.beginScope();
-		}
+		// for (int i = 0; i < mVars.length; i++) {
+		// mInterestingTermsForVars[i].beginScope();
+		// }
+		// mInstantiations.beginScope();
 	}
 
 	void pop() {
-		for (int i = 0; i < mVars.length; i++) {
-			// mInterestingTermsForVars[i].endScope();
-			mInstantiations.endScope();
-		}
+		// for (int i = 0; i < mVars.length; i++) {
+		// mInterestingTermsForVars[i].endScope();
+		// }
+		// mInstantiations.endScope();
 	}
 
 	void setState(EprClauseState state) {
 		mClauseState = state;
 	}
 
-	void addInstance(List<SharedTerm> inst) {
-		mInstantiations.add(inst);
-	}
+	// void addInstance(List<SharedTerm> inst) {
+	// mInstantiations.add(inst);
+	// }
 
 	/**
 	 * Compute the free variables in this clause.

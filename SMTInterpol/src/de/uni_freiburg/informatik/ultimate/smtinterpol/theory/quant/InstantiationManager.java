@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -63,13 +64,13 @@ public class InstantiationManager {
 	 * Find all instances of clauses that would be a conflict or unit clause if the corresponding theories had known the
 	 * literals at creation of the instance.
 	 *
-	 * @return A List of conflicting instances.
+	 * @return A Set of potentially conflicting and unit instances.
 	 */
-	public List<List<Literal>> findConflictAndUnitInstances() {
-		final List<List<Literal>> conflictAndUnitClauses = new ArrayList<>();
+	public Set<List<Literal>> findConflictAndUnitInstances() {
+		final Set<List<Literal>> conflictAndUnitClauses = new LinkedHashSet<>();
 		for (QuantClause quantClause : mQuantTheory.getQuantClauses()) {
 			if (quantClause.getState() == EprClauseState.Fulfilled) {
-				return null;
+				continue;
 			}
 			final Set<List<SharedTerm>> allInstantiations = computeAllInstantiations(quantClause);
 			for (List<SharedTerm> inst : allInstantiations) {
@@ -79,10 +80,11 @@ public class InstantiationManager {
 					for (int i = 0; i < inst.size(); i++) {
 						termSubs.add(inst.get(i).getTerm());
 					}
+					// TODO: Should this create an InstClause?
 					final List<Literal> instLits = computeClauseInstance(quantClause, termSubs);
 					if (instLits != null) {
 						conflictAndUnitClauses.add(instLits);
-						quantClause.addInstance(inst);
+						// quantClause.addInstance(inst);
 					}
 				}
 			}
@@ -91,9 +93,7 @@ public class InstantiationManager {
 	}
 
 	/**
-	 * In the final check, compute any instance of any clause that is not trivially true.
-	 *
-	 * TODO Just one arbitrary clause
+	 * In the final check, check all possible instantiations of all clauses for a conflict.
 	 */
 	public Clause instantiateAll() {
 		for (QuantClause quantClause : mQuantTheory.getQuantClauses()) {
@@ -101,11 +101,22 @@ public class InstantiationManager {
 				return null;
 			}
 			final Set<List<SharedTerm>> allInstantiations = computeAllInstantiations(quantClause);
-			for (List<SharedTerm> inst : allInstantiations) {
-				final List<Literal> instLits = computeNonTrueInstance(quantClause, inst);
+			outer: for (List<SharedTerm> inst : allInstantiations) {
+				// TODO Check that it wouldn't be true before creating literals. evaluateClauseInstance doesn't work for
+				// this, atm.
+				final List<Term> termSubs = new ArrayList<>();
+				for (int i = 0; i < inst.size(); i++) {
+					termSubs.add(inst.get(i).getTerm());
+				}
+				final List<Literal> instLits = computeClauseInstance(quantClause, termSubs);
 				if (instLits != null) {
-					// TODO
-					// return buildClause(quantClause.getGroundLits(), instLits);
+					for (Literal lit : instLits) {
+						if (lit.getAtom().getDecideStatus() != lit.negate()) {
+							continue outer;
+						}
+					}
+					// quantClause.addInstance(inst);
+					return new Clause(instLits.toArray(new Literal[instLits.size()]));
 				}
 			}
 		}
@@ -136,7 +147,7 @@ public class InstantiationManager {
 			allSubs.clear();
 			allSubs.addAll(partialSubs);
 		}
-		allSubs.removeAll(quantClause.getInstantiations());
+		// allSubs.removeAll(quantClause.getInstantiations());
 		return allSubs;
 	}
 
@@ -157,8 +168,7 @@ public class InstantiationManager {
 		// Check ground literals first.
 		for (Literal groundLit : quantClause.getGroundLits()) {
 			if (groundLit.getAtom().getDecideStatus() == groundLit) {
-				// TODO This should already be done in setLiteral()
-				quantClause.setState(EprClauseState.Fulfilled);
+				assert quantClause.getState() == EprClauseState.Fulfilled;
 				return InstanceValue.TRUE;
 			} else if (groundLit.getAtom().getDecideStatus() == null) {
 				clauseValue.combine(InstanceValue.ONE_UNDEF);
@@ -193,9 +203,10 @@ public class InstantiationManager {
 				final SharedTerm right =
 						findEquivalentShared(euEq.getRhs(), Arrays.asList(quantClause.getVars()), instantiation);
 				if (left == null || right == null) {
-					return InstanceValue.ONE_UNDEF;
+					litValue = InstanceValue.ONE_UNDEF;
+				} else {
+					litValue = evaluateEquality(left, right);
 				}
-				litValue = evaluateEquality(left, right);
 			} else if (atom instanceof QuantVarConstraint) {
 				final QuantVarConstraint varCons = (QuantVarConstraint) atom;
 				final SharedTerm lower = (varCons.isBothVar() || !varCons.isLowerBound()) ? instantiation.get(quantClause.getVarPos(varCons.getLowerVar()))
@@ -215,15 +226,10 @@ public class InstantiationManager {
 			}
 			clauseValue = clauseValue.combine(litValue);
 			if (clauseValue == InstanceValue.TRUE) {
-				return clauseValue;
+				return InstanceValue.TRUE;
 			}
 		}
 		return clauseValue;
-	}
-
-	private List<Literal> computeNonTrueInstance(final QuantClause quantClause, final List<SharedTerm> instantiation) {
-		// TODO Only create instances that are not trivially true.
-		return null;
 	}
 
 	/**
@@ -293,7 +299,9 @@ public class InstantiationManager {
 			if (isNeg) {
 				inst = inst.negate();
 			}
-			instClause.add(inst);
+			if (!instClause.contains(inst)) {
+				instClause.add(inst);
+			}
 		}
 		return instClause;
 	}

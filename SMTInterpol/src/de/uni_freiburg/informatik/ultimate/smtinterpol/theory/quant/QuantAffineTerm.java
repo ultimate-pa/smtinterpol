@@ -19,7 +19,6 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
 
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
@@ -84,30 +83,5 @@ public class QuantAffineTerm extends EUTerm {
 
 	public Rational getConstant() {
 		return mConstant;
-	}
-
-	/**
-	 * Return a new QuantAffineTerm for the result of adding to this QuantAffineTerm another EUTerm multiplied by some
-	 * factor.
-	 */
-	protected QuantAffineTerm add(final Rational factor, final EUTerm other) {
-		final QuantAffineTerm otherAffine = new QuantAffineTerm(other);
-		final Term newTerm = null; // TODO
-		final Map<EUTerm, Rational> newSummands = new HashMap<EUTerm, Rational>(mSummands);
-		for (final Map.Entry<EUTerm, Rational> entry : otherAffine.getSummands().entrySet()) {
-			final EUTerm var = entry.getKey();
-			if (newSummands.containsKey(var)) {
-				final Rational newFactor = newSummands.get(var).add(entry.getValue());
-				if (newFactor.equals(Rational.ZERO)) {
-					newSummands.remove(var);
-				} else {
-					newSummands.put(var, newFactor);
-				}
-			} else {
-				newSummands.put(var, entry.getValue());
-			}
-		}
-		final Rational newConstant = mConstant.add(otherAffine.getConstant());
-		return new QuantAffineTerm(getClausifier(), newTerm, newSummands, newConstant);
 	}
 }

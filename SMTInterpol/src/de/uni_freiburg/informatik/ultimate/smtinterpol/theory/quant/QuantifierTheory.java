@@ -18,10 +18,11 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -77,11 +78,15 @@ public class QuantifierTheory implements ITheory {
 	private final ScopedHashSet<QuantClause> mQuantClauses;
 
 	/**
-	 * Clauses to propagate. At creation they would have been conflicts or unit clauses if the corresponding theories
-	 * already knew the contained literals. They should be checked in setLiteral() and checkPoint() where they can be
-	 * actual conflicts or unit clauses.
+	 * Literals (not atoms!) mapped to potential conflict and unit clauses that they are contained in. At creation, the
+	 * clauses would have been conflicts or unit clauses if the corresponding theories had already known the contained
+	 * literals. In the next checkpoint, false literals should have been propagated by the other theories, but we might
+	 * still have one undefined literal (and is a unit clause). If not, it is a conflict then.
 	 */
-	private final List<List<Literal>> mPropClauses;
+	private final Map<Literal, Set<InstClause>> mPotentialConflictAndUnitClauses;
+
+	// Statistics
+	private long mConflictCount, mPropCount, mFinalCount;
 
 	public QuantifierTheory(final Theory th, final DPLLEngine engine, final Clausifier clausifier) {
 		mClausifier = clausifier;
@@ -98,7 +103,9 @@ public class QuantifierTheory implements ITheory {
 		mQuantLits = new HashMap<Term, QuantLiteral>();
 		mQuantClauses = new ScopedHashSet<QuantClause>();
 
-		mPropClauses = new ArrayList<List<Literal>>();
+		mPotentialConflictAndUnitClauses = new LinkedHashMap<>();
+
+		mConflictCount = mPropCount = mFinalCount = 0;
 	}
 
 	@Override
@@ -121,14 +128,50 @@ public class QuantifierTheory implements ITheory {
 				quantClause.setState(EprClauseState.Fulfilled);
 			}
 		}
-		final Clause conflict = checkPropClausesForConflict();
-		return conflict;
+		if (mPotentialConflictAndUnitClauses.containsKey(literal)) {
+			mPotentialConflictAndUnitClauses.remove(literal);
+		}
+		final Iterator<Literal> litIt = mPotentialConflictAndUnitClauses.keySet().iterator();
+		while (litIt.hasNext()) {
+			final Literal keyLit = litIt.next();
+			final Iterator<InstClause> clauseIt = mPotentialConflictAndUnitClauses.get(keyLit).iterator();
+			while (clauseIt.hasNext()) {
+				final InstClause clause = clauseIt.next();
+				if (clause.mLits.contains(literal.negate())) {
+					clauseIt.remove();
+				}
+			}
+			if (mPotentialConflictAndUnitClauses.get(keyLit).isEmpty()) {
+				litIt.remove();
+			}
+		}
+		if (mPotentialConflictAndUnitClauses.containsKey(literal.negate())) {
+			for (final InstClause instClause : mPotentialConflictAndUnitClauses.get(literal.negate())) {
+				assert instClause.mNumUndefLits > 0;
+				instClause.mNumUndefLits -= 1;
+				if (instClause.isConflict()) {
+					mConflictCount++;
+					return new Clause(instClause.mLits.toArray(new Literal[instClause.mLits.size()]));
+				}
+			}
+		}
+		return null;
 	}
 
 	@Override
 	public void backtrackLiteral(Literal literal) {
-		// TODO Auto-generated method stub
-
+		for (final QuantClause clause : mQuantClauses) {
+			if (Arrays.asList(clause.getGroundLits()).contains(literal)) {
+				clause.setState(EprClauseState.Normal);
+			}
+		}
+		for (final Literal lit : mPotentialConflictAndUnitClauses.keySet()) {
+			for (final InstClause clause : mPotentialConflictAndUnitClauses.get(lit)) {
+				if (clause.mLits.contains(literal.negate())) {
+					clause.mNumUndefLits += 1;
+				}
+			}
+		}
 	}
 
 	@Override
@@ -136,46 +179,74 @@ public class QuantifierTheory implements ITheory {
 		for (final QuantClause clause : mQuantClauses) {
 			clause.updateInterestingTermsAllVars();
 		}
-		mPropClauses.addAll(mInstantiationManager.findConflictAndUnitInstances());
-		final Clause conflict = checkPropClausesForConflict();
+		final Clause conflict =
+				addPotentialConflictAndUnitClauses(mInstantiationManager.findConflictAndUnitInstances());
+		if (conflict != null) {
+			mConflictCount++;
+		}
 		return conflict;
 	}
 
 	@Override
 	public Clause computeConflictClause() {
+		mFinalCount++;
 		Clause conflict = checkpoint();
 		if (conflict != null) {
 			return conflict;
 		}
+		assert mPotentialConflictAndUnitClauses.isEmpty();
 		conflict = mInstantiationManager.instantiateAll();
 		if (conflict != null) {
+			mConflictCount++;
 			return conflict;
 		}
-		// TODO
 		return null;
 	}
 
 	@Override
 	public Literal getPropagatedLiteral() {
-		// Nothing to do
+		for (final Literal lit : mPotentialConflictAndUnitClauses.keySet()) {
+			for (final InstClause clause : mPotentialConflictAndUnitClauses.get(lit)) {
+				if (clause.isUnit()) {
+					lit.getAtom().mExplanation = new Clause(clause.mLits.toArray(new Literal[clause.mLits.size()]));
+					mPropCount++;
+					if (mLogger.isDebugEnabled()) {
+						mLogger.debug("Quant Prop: " + lit);
+					}
+					return lit;
+				}
+			}
+		}
 		return null;
 	}
 
 	@Override
 	public Clause getUnitClause(Literal literal) {
-		// TODO Auto-generated method stub
+		assert false : "Should never be called.";
+		// assert mPotentialConflictAndUnitClauses.containsKey(literal);
+//		Clause unitClause = null;
+		// for (final InstClause clause : mPotentialConflictAndUnitClauses.get(literal)) {
+//			if (clause.isUnit()) {
+//				unitClause = new Clause(clause.mLits.toArray(new Literal[clause.mLits.size()]));
+		// mPotentialConflictAndUnitClauses.get(literal).remove(clause);
+		// if (mPotentialConflictAndUnitClauses.get(literal).isEmpty()) {
+		// mPotentialConflictAndUnitClauses.remove(literal);
+//				}
+//				return unitClause;
+//			}
+//		}
 		return null;
 	}
 
 	@Override
 	public Literal getSuggestion() {
-		// TODO
+		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
 	public void printStatistics(LogProxy logger) {
-		// TODO Auto-generated method stub
+		logger.info("Quant: Conflicts: " + mConflictCount + " Props: " + mPropCount + " Final Checks: " + mFinalCount);
 
 	}
 
@@ -550,21 +621,72 @@ public class QuantifierTheory implements ITheory {
 		return mQuantClauses;
 	}
 
-	private Clause checkPropClausesForConflict() {
-		final Iterator<List<Literal>> it = mPropClauses.iterator();
-		while (it.hasNext()) {
-			final List<Literal> clauseLits = it.next();
-			boolean isConflict = true;
-			for (final Literal lit : clauseLits) {
-				if (lit.getAtom().getDecideStatus() != lit.negate()) {
+	/**
+	 * Add potential conflict and unit clauses to the map from undefined literals to clauses. We stop as soon as we find
+	 * an actual conflict.
+	 * 
+	 * TODO How can we handle actual conflicts in a better way?
+	 * 
+	 * @param instances
+	 *            a set of potential conflict and unit clauses
+	 * @return a conflict
+	 */
+	private Clause addPotentialConflictAndUnitClauses(final Set<List<Literal>> instances) {
+		if (instances == null) {
+			return null;
+		}
+		boolean isConflict = true;
+		for (List<Literal> clause : instances) {
+			int numUndef = 0;
+			// Count the number of undefined literals
+			for (final Literal lit : clause) {
+				if (lit.getAtom().getDecideStatus() == null) {
+					numUndef++;
+				}
+			}
+			final InstClause instClause = new InstClause(clause, numUndef);
+			for (final Literal lit : clause) {
+				assert lit.getAtom().getDecideStatus() != lit;
+				if (lit.getAtom().getDecideStatus() == null) {
 					isConflict = false;
+					if (!mPotentialConflictAndUnitClauses.containsKey(lit)) {
+						mPotentialConflictAndUnitClauses.put(lit, new HashSet<>());
+					}
+					mPotentialConflictAndUnitClauses.get(lit).add(instClause);
 				}
 			}
 			if (isConflict) {
-				it.remove();
-				return new Clause(clauseLits.toArray(new Literal[clauseLits.size()]));
+				return new Clause(clause.toArray(new Literal[clause.size()]));
 			}
 		}
 		return null;
+	}
+
+	private class InstClause {
+		private final List<Literal> mLits;
+		protected int mNumUndefLits;
+
+		InstClause(final List<Literal> lits, final int numUndefLits) {
+			mLits = lits;
+			mNumUndefLits = numUndefLits;
+		}
+
+		boolean isConflict() {
+			return mNumUndefLits == 0;
+		}
+
+		boolean isUnit() {
+			return mNumUndefLits == 1;
+		}
+
+		@Override
+		public boolean equals(final Object other) {
+			if (other instanceof InstClause) {
+				if (mLits == ((InstClause) other).mLits) {
+					return true;
+				}
+			}
+			return false;
+		}
 	}
 }
