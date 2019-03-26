@@ -211,7 +211,7 @@ public class QuantifierTheory implements ITheory {
 					lit.getAtom().mExplanation = new Clause(clause.mLits.toArray(new Literal[clause.mLits.size()]));
 					mPropCount++;
 					if (mLogger.isDebugEnabled()) {
-						mLogger.debug("Quant Prop: " + lit);
+						mLogger.debug("Quant Prop: " + lit + " reason: " + lit.getAtom().mExplanation);
 					}
 					return lit;
 				}

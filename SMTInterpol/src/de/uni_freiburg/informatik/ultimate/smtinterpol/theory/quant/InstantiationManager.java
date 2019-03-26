@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -39,6 +40,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClauseState;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.InfinitesimalNumber;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.MutableAffineTerm;
 
 /**
@@ -214,11 +216,42 @@ public class InstantiationManager {
 				final SharedTerm upper = (varCons.isBothVar() || varCons.isLowerBound())
 						? instantiation.get(quantClause.getVarPos(varCons.getUpperVar()))
 								: varCons.getGroundBound().getSharedTerm();
-				// TODO
+				final SMTAffineTerm smtAff = new SMTAffineTerm(lower.getTerm());
+				smtAff.add(Rational.MONE, upper.getTerm());
+				final InfinitesimalNumber upperBound = mQuantTheory.mLinArSolve.getUpperBound(mClausifier, smtAff);
+				if (upperBound.lesseq(InfinitesimalNumber.ZERO)) {
+						litValue = InstanceValue.TRUE;
+				} else {
+					smtAff.negate();
+					final InfinitesimalNumber lowerBound = mQuantTheory.mLinArSolve.getUpperBound(mClausifier, smtAff);
+					if (lowerBound.less(InfinitesimalNumber.ZERO)) {
+						litValue = InstanceValue.FALSE;
+					} else {
+						litValue = InstanceValue.ONE_UNDEF;
+					}
+				}
 			} else {
 				assert atom instanceof QuantEUBoundConstraint;
-				final SharedTerm shared = findEquivalentShared(((QuantEUBoundConstraint) atom).getAffineTerm());
-				// TODO Ask LinAr for shared <= 0
+				final QuantEUBoundConstraint euBoundConstr = (QuantEUBoundConstraint) atom;
+				// final SharedTerm shared = findEquivalentShared(((QuantEUBoundConstraint) atom).getAffineTerm());
+				final List<Term> termSubs = new ArrayList<>();
+				for (int i = 0; i < instantiation.size(); i++) {
+					termSubs.add(instantiation.get(i).getTerm());
+				}
+				final SMTAffineTerm smtAff = instantiateEUTerm(euBoundConstr.getAffineTerm(),
+						Arrays.asList(quantClause.getVars()), termSubs);
+				final InfinitesimalNumber upperBound = mQuantTheory.mLinArSolve.getUpperBound(mClausifier, smtAff);
+				if (upperBound.lesseq(InfinitesimalNumber.ZERO)) {
+					litValue = InstanceValue.TRUE;
+				} else {
+					smtAff.negate();
+					final InfinitesimalNumber lowerBound = mQuantTheory.mLinArSolve.getUpperBound(mClausifier, smtAff);
+					if (lowerBound.less(InfinitesimalNumber.ZERO)) {
+						litValue = InstanceValue.FALSE;
+					} else {
+						litValue = InstanceValue.ONE_UNDEF;
+					}
+				}
 			}
 
 			if (isNeg) {
@@ -481,7 +514,7 @@ public class InstantiationManager {
 			return ((GroundTerm) euTerm).getSharedTerm();
 		} else if (euTerm instanceof QuantAppTerm) {
 			final QuantAppTerm euApp = (QuantAppTerm) euTerm;
-			final String func = euApp.getFunc().getName();
+			final FunctionSymbol func = euApp.getFunc();
 			final QuantAppArg[] euArgs = euApp.getArgs();
 			final Term[] instArgs = new Term[euArgs.length];
 			for (int i = 0; i < euArgs.length; i++) {
@@ -522,9 +555,9 @@ public class InstantiationManager {
 	 *
 	 * TODO Should this do the simplification for trivially false/true literals?
 	 *
-	 * @param lhs
+	 * @param left
 	 *            The left side of the equality.
-	 * @param rhs
+	 * @param right
 	 *            The right side of the equality.
 	 * @return Value True if the two terms are in the same congruence class, False if they are definitely distinct,
 	 *         Undef else.

@@ -2104,7 +2104,11 @@ public class LinArSolve implements ITheory {
 	 *         implied bound.
 	 */
 	public InfinitesimalNumber getUpperBound(Clausifier clausifier, SMTAffineTerm smtTerm) {
+		if (smtTerm.isConstant()) {
+			return new InfinitesimalNumber(smtTerm.getConstant(), 0);
+		}
 		HashMap<LinVar, Rational> row = new HashMap<>();
+		MutableAffineTerm at = new MutableAffineTerm();
 		Rational offset = smtTerm.getConstant();
 		for (Entry<Term, Rational> entry : smtTerm.getSummands().entrySet()) {
 			SharedTerm sharedTerm = clausifier.getSharedTerm(entry.getKey(), null);
@@ -2112,13 +2116,32 @@ public class LinArSolve implements ITheory {
 			if (sharedTerm.getOffset() != null) {
 				LinVar var = sharedTerm.getLinVar();
 				if (var != null) {
+					at.add(coeff.mul(sharedTerm.getFactor()), var);
 					unsimplifyAndAdd(var, coeff.mul(sharedTerm.getFactor()), row);
 				}
+				at.add(coeff.mul(sharedTerm.getOffset()));
 				offset = offset.add(coeff.mul(sharedTerm.getOffset()));
 			} else {
 				return InfinitesimalNumber.POSITIVE_INFINITY;
 			}
 		}
+		// check if we have the variable already as a linvar.
+		final Rational normFactor = at.getGCD().inverse();
+		at.mul(normFactor);
+		LinVar var;
+		if (at.getSummands().size() == 1) {
+			final Map.Entry<LinVar, Rational> me = at.getSummands().entrySet().iterator().next();
+			assert me.getValue().equals(Rational.ONE);
+			var = me.getKey();
+		} else {
+			var = mTerms.get(at.getSummands());
+		}
+		// original at is (var + at.getOffset()) / normFactor
+		if (var != null) {
+			InfinitesimalNumber bound = normFactor.signum() > 0 ? var.getTightUpperBound() : var.getTightLowerBound();
+			return bound.sub(at.getConstant()).div(normFactor);
+		}
+
 		// we only compute the bound from the current tableaux, i.e., only consider the bounds of the current non-basic
 		// variables.
 		InfinitesimalNumber bound = InfinitesimalNumber.ZERO;

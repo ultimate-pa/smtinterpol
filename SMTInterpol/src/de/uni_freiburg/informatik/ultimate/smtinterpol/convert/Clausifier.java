@@ -1180,7 +1180,7 @@ public class Clausifier {
 			if (t instanceof ApplicationTerm) {
 				final ApplicationTerm at = (ApplicationTerm) t;
 				// Special cases
-				if (t.getSort() == t.getTheory().getBooleanSort()) {
+				if (t.getSort() == t.getTheory().getBooleanSort() && inCCTermBuilder) {
 					addExcludedMiddleAxiom(res, source);
 				} else {
 					final FunctionSymbol fs = at.getFunction();
