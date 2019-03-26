@@ -31,8 +31,17 @@ import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
  */
 public class QuantVarConstraint extends QuantLiteral {
 
+	/**
+	 * The lower variable in the underlying atom, i.e. the x in x<=t. Null if the atom is not an upper bound.
+	 */
 	private final TermVariable mLowerVar;
+	/**
+	 * The upper variable in the underlying atom, i.e. the y in t<=y. Null if the atom is not a lower bound.
+	 */
 	private final TermVariable mUpperVar;
+	/**
+	 * The ground bound t in x<=t or t<=x. Null if both sides are variables.
+	 */
 	private final GroundTerm mGroundBound;
 
 	/**
@@ -48,7 +57,7 @@ public class QuantVarConstraint extends QuantLiteral {
 	 * @param var
 	 *            the TermVariable.
 	 * @param isLowerBound
-	 *            flag that marks lower bound constraints (considering the strict(!) inequality).
+	 *            flag that marks lower bound constraints (considering the underlying non-strict inequality atom).
 	 * @param groundBound
 	 *            the GroundTerm that is a bound for the variable.
 	 */

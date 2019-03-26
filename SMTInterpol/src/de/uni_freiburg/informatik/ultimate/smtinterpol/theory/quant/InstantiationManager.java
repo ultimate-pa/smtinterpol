@@ -344,8 +344,8 @@ public class InstantiationManager {
 					(varCons.isBothVar() || varCons.isLowerBound())
 							? instantiation.get(clause.getVarPos(varCons.getUpperVar()))
 							: varCons.getGroundBound().getTerm();
-			final SMTAffineTerm smtAff = SMTAffineTerm.create(upper);
-			smtAff.add(Rational.MONE, lower);
+			final SMTAffineTerm smtAff = SMTAffineTerm.create(lower);
+			smtAff.add(Rational.MONE, upper);
 			final Sort sort = lower.getSort();
 			litProxy = computeBoundConstraintLitAsTerm(smtAff, false, sort);
 		} else {

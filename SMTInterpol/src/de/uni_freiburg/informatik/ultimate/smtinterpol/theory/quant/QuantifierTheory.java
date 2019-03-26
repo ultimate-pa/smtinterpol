@@ -472,31 +472,30 @@ public class QuantifierTheory implements ITheory {
 		}
 
 		final SMTAffineTerm linTerm = SMTAffineTerm.create(lhs);
-		Map<Term, Rational> summands = linTerm.getSummands();
+		Map<Term, Rational> allSummands = linTerm.getSummands();
 		final Rational constant = linTerm.getConstant();
 
 		// Check for free variables that do not appear in EUTerms.
-		TermVariable lower = null; // the lower variable in x<t
+		TermVariable lower = null; // the lower variable in x<=t
 		TermVariable upper = null;
-		final Iterator<Term> it = summands.keySet().iterator();
-		while (it.hasNext()) {
-			Term summand = it.next();
+		final Map<Term, Rational> nonVarSummands = new LinkedHashMap<>();
+		for (final Term summand : allSummands.keySet()) {
 			if (summand instanceof TermVariable) {
-				if (positive == summands.get(summand).isNegative()) {
+				if (positive != allSummands.get(summand).isNegative()) {
 					// the variable has a lower bound
 					if (upper != null) {
 						throw new UnsupportedOperationException(term + " not in almost uninterpreted fragment!");
 					}
 					upper = (TermVariable) summand;
-					it.remove();
 				} else {
 					// the variable has an upper bound
 					if (lower != null) {
 						throw new UnsupportedOperationException(term + " not in almost uninterpreted fragment!");
 					}
 					lower = (TermVariable) summand;
-					it.remove();
 				}
+			} else {
+				nonVarSummands.put(summand, allSummands.get(summand));
 			}
 		}
 
@@ -520,7 +519,7 @@ public class QuantifierTheory implements ITheory {
 
 		if (lower != null && upper != null) {
 			// Two variables can only be compared with each other.
-			if (!it.hasNext() && constant == Rational.ZERO) {
+			if (nonVarSummands.isEmpty() && constant == Rational.ZERO) {
 				QuantVarConstraint varConstr = new QuantVarConstraint(term, lower, upper);
 				if (positive) {
 					// Second step of converting positive literals into negated ones.
@@ -533,9 +532,9 @@ public class QuantifierTheory implements ITheory {
 		} else {
 			final boolean hasLowerBound = (upper != null);
 			final TermVariable var = hasLowerBound ? upper : lower;
-			SMTAffineTerm boundAffine = new SMTAffineTerm(summands, constant);
+			SMTAffineTerm boundAffine = new SMTAffineTerm(nonVarSummands, constant);
 			// Isolate variable by bringing bound to the other side
-			if (positive != hasLowerBound) { // for rewriting ~(x-t<=0) into ~(x<=t) and (x-t<=0) into ~(t+1<=x)
+			if (positive == hasLowerBound) { // for rewriting ~(x-t<=0) into ~(x<=t) and (x-t<=0) into ~(t+1<=x)
 				boundAffine.negate();
 			}
 			Term bound = boundAffine.toTerm(mClausifier.getTermCompiler(), lhs.getSort());
