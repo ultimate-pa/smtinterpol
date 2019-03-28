@@ -22,8 +22,6 @@ import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -68,11 +66,14 @@ public class QuantClause {
 	 */
 	private LinkedHashMap<SharedTerm, SharedTerm>[] mInterestingTermsForVars;
 
-	/**
-	 * The instantiations used in the current instances of this clause.
-	 */
+	// /**
+	// * The instantiations used in the current instances of this clause.
+	// */
 	// private ScopedHashSet<List<SharedTerm>> mInstantiations;
 
+	/**
+	 * Indicates whether this clause is already true because one of the ground literals is.
+	 */
 	private EprClauseState mClauseState;
 
 	/**
@@ -186,7 +187,7 @@ public class QuantClause {
 	 * @return an array containing the free variables in this clause.
 	 */
 	private TermVariable[] computeVars() {
-		final Set<TermVariable> varSet = new HashSet<TermVariable>();
+		final Set<TermVariable> varSet = new LinkedHashSet<TermVariable>();
 		for (final QuantLiteral lit : mQuantLits) {
 			final TermVariable[] vars = lit.getTerm().getFreeVars();
 			Collections.addAll(varSet, vars);
@@ -195,9 +196,9 @@ public class QuantClause {
 	}
 
 	/**
-	 * Go through the quantified literals in this clause to collect information the appearing variables. In particular,
-	 * for each variable we collect the lower and upper ground bounds, and the functions and positions where the
-	 * variable appears as arguments.
+	 * Go through the quantified literals in this clause to collect information about the appearing variables. In
+	 * particular, for each variable we collect the lower and upper ground bounds and variable bounds, and the functions
+	 * and positions where the variable appears as arguments.
 	 */
 	private void collectVarInfos() {
 		for (final QuantLiteral lit : mQuantLits) {
@@ -209,7 +210,7 @@ public class QuantClause {
 				final TermVariable upperVar = constraint.getUpperVar();
 				// Note that the constraint can be both a lower and upper bound - if it consists of two variables.
 				if (lowerVar != null) {
-					final int index = Arrays.asList(mVars).indexOf(lowerVar);
+					final int index = getVarPos(lowerVar);
 					final VarInfo varInfo = mVarInfos[index];
 					if (upperVar != null) {
 						varInfo.addUpperVarBound(upperVar);
@@ -219,7 +220,7 @@ public class QuantClause {
 
 				}
 				if (upperVar != null) {
-					final int index = Arrays.asList(mVars).indexOf(upperVar);
+					final int index = getVarPos(upperVar);
 					final VarInfo varInfo = mVarInfos[index];
 					if (lowerVar != null) {
 						varInfo.addLowerVarBound(lowerVar);
@@ -230,7 +231,7 @@ public class QuantClause {
 			} else if (atom instanceof QuantVarEquality) {
 				final QuantVarEquality varEq = (QuantVarEquality) atom;
 				assert !lit.isNegated() && !varEq.isBothVar() && varEq.getLeftVar().getSort().isNumericSort();
-				final int index = Arrays.asList(mVars).indexOf(varEq.getLeftVar());
+				final int index = getVarPos(varEq.getLeftVar());
 				final VarInfo varInfo = mVarInfos[index];
 				if (varEq.getLeftVar().getSort().getName() == "Int") {
 					final Term groundTerm = varEq.getGroundTerm().getTerm();
@@ -247,7 +248,7 @@ public class QuantClause {
 				}
 			} else if (atom instanceof QuantEUBoundConstraint || atom instanceof QuantEUEquality) {
 				// Here, we need to add the positions where variables appear as arguments of functions.
-				Set<EUTerm> subTerms = new HashSet<>();
+				Set<EUTerm> subTerms = new LinkedHashSet<>();
 				if (atom instanceof QuantEUBoundConstraint) {
 					final QuantEUBoundConstraint euConstraint = (QuantEUBoundConstraint) atom;
 					final EUTerm affineTerm = euConstraint.getAffineTerm();
@@ -266,7 +267,7 @@ public class QuantClause {
 						for (int i = 0; i < args.length; i++) {
 							if (args[i].isVar()) {
 								final TermVariable var = args[i].getVar();
-								final int index = Arrays.asList(mVars).indexOf(var);
+								final int index = getVarPos(var);
 								final VarInfo varInfo = mVarInfos[index];
 								varInfo.addPosition(func, i);
 							}
@@ -324,11 +325,11 @@ public class QuantClause {
 	 *            the number of the variable
 	 */
 	private void updateInterestingTermsOneVar(final TermVariable var, final int num) {
-		final VarInfo info = mVarInfos[Arrays.asList(mVars).indexOf(var)];
+		final VarInfo info = mVarInfos[getVarPos(var)];
 		assert info != null;
 
 		// Retrieve from CClosure all ground terms that appear under the same functions at the same positions as var
-		final LinkedHashSet<CCTerm> ccTerms = new LinkedHashSet<CCTerm>();
+		final Set<CCTerm> ccTerms = new LinkedHashSet<CCTerm>();
 		final Map<FunctionSymbol, BitSet> positions = info.mFuncArgPositions;
 		for (final FunctionSymbol func : positions.keySet()) {
 			final BitSet pos = positions.get(func);
@@ -383,8 +384,8 @@ public class QuantClause {
 	}
 
 	/**
-	 * Contains information for variable instantiation, i.e. - the functions where the variable is an argument and this
-	 * argument's position, and - the lower and upper bounds for the variable.
+	 * Contains information for variable instantiation, i.e. the functions where the variable is an argument and this
+	 * argument's position, and the lower and upper bounds for the variable.
 	 */
 	private class VarInfo {
 		private Map<FunctionSymbol, BitSet> mFuncArgPositions;
@@ -399,11 +400,11 @@ public class QuantClause {
 		 * - functions and positions where the variable appears as argument.
 		 */
 		VarInfo() {
-			mFuncArgPositions = new HashMap<FunctionSymbol, BitSet>();
-			mLowerGroundBounds = new HashSet<SharedTerm>();
-			mUpperGroundBounds = new HashSet<SharedTerm>();
-			mLowerVarBounds = new HashSet<TermVariable>();
-			mUpperVarBounds = new HashSet<TermVariable>();
+			mFuncArgPositions = new LinkedHashMap<FunctionSymbol, BitSet>();
+			mLowerGroundBounds = new LinkedHashSet<SharedTerm>();
+			mUpperGroundBounds = new LinkedHashSet<SharedTerm>();
+			mLowerVarBounds = new LinkedHashSet<TermVariable>();
+			mUpperVarBounds = new LinkedHashSet<TermVariable>();
 		}
 
 		/**

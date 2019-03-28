@@ -45,7 +45,7 @@ public class QuantVarConstraint extends QuantLiteral {
 	private final GroundTerm mGroundBound;
 
 	/**
-	 * Create a new QuantVarConstraint. This should only be called for atoms underlying strict (i.e. negated)
+	 * Create a new QuantVarConstraint. This should only be called for atoms underlying strict (i.e. negated non-strict)
 	 * inequalities of the form "TermVariable < GroundTerm" or "GroundTerm < TermVariable". Note that, for integers, we
 	 * can always obtain strict inequalities if one side is ground.
 	 * <p>

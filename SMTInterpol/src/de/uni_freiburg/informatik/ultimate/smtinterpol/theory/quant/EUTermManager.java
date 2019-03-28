@@ -20,7 +20,8 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -189,7 +190,7 @@ public class EUTermManager extends NonRecursive {
 		@Override
 		public void walk(final NonRecursive engine) {
 			Map<Term, Rational> summands = mAffine.getSummands();
-			Map<EUTerm, Rational> euSummands = new HashMap<EUTerm, Rational>();
+			Map<EUTerm, Rational> euSummands = new LinkedHashMap<EUTerm, Rational>();
 			for (Term summand : summands.keySet()) {
 				final Rational coeff = summands.get(summand);
 				final EUTerm euTerm = mEUTerms.get(summand);
@@ -241,7 +242,7 @@ public class EUTermManager extends NonRecursive {
 
 		@Override
 		public void walk(final NonRecursive engine) {
-			Set<EUTerm> subTerms = new HashSet<EUTerm>();
+			Set<EUTerm> subTerms = new LinkedHashSet<EUTerm>();
 			subTerms.add(mTerm);
 			if (mTerm instanceof QuantAppTerm) {
 				for (final QuantAppArg arg : ((QuantAppTerm) mTerm).getArgs()) {

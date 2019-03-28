@@ -19,10 +19,11 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -43,7 +44,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClauseState;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinArSolve;
-import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
+import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
 
 /**
  * Solver for quantified formulas within the almost uninterpreted fragment (Restrictions on terms and literals are
@@ -75,7 +76,7 @@ public class QuantifierTheory implements ITheory {
 	 * Clauses that only the QuantifierTheory knows, i.e. that contain at least one literal with an (implicitly)
 	 * universally quantified variable.
 	 */
-	private final ScopedHashSet<QuantClause> mQuantClauses;
+	private final ScopedArrayList<QuantClause> mQuantClauses;
 
 	/**
 	 * Literals (not atoms!) mapped to potential conflict and unit clauses that they are contained in. At creation, the
@@ -101,7 +102,7 @@ public class QuantifierTheory implements ITheory {
 		mInstantiationManager = new InstantiationManager(mClausifier, this);
 
 		mQuantLits = new HashMap<Term, QuantLiteral>();
-		mQuantClauses = new ScopedHashSet<QuantClause>();
+		mQuantClauses = new ScopedArrayList<QuantClause>();
 
 		mPotentialConflictAndUnitClauses = new LinkedHashMap<>();
 
@@ -414,7 +415,7 @@ public class QuantifierTheory implements ITheory {
 			if (positive && !lhs.getSort().getName().equals("Int")) { // We support (var = ground) only for integers.
 				throw new UnsupportedOperationException(term + " not in almost uninterpreted fragment!");
 			}
-			// We can either do destructive equality reasoning later (if !positive), or build an aux axiom.
+			// We will do destructive equality reasoning later if !positive.
 			SMTAffineTerm remainderAffine = new SMTAffineTerm(summands, constant);
 			if (leftVar != null) {
 				remainderAffine.negate();
@@ -616,7 +617,7 @@ public class QuantifierTheory implements ITheory {
 		return mInstantiationManager;
 	}
 
-	public ScopedHashSet<QuantClause> getQuantClauses() {
+	public Collection<QuantClause> getQuantClauses() {
 		return mQuantClauses;
 	}
 
@@ -636,20 +637,31 @@ public class QuantifierTheory implements ITheory {
 		}
 		boolean isConflict = true;
 		for (List<Literal> clause : instances) {
+			boolean isTrueInst = false;
 			int numUndef = 0;
 			// Count the number of undefined literals
 			for (final Literal lit : clause) {
+				if (lit.getAtom().getDecideStatus() == lit) {
+					isTrueInst = true;
+					continue;
+				}
 				if (lit.getAtom().getDecideStatus() == null) {
 					numUndef++;
 				}
 			}
+			if (isTrueInst) {
+				continue; // Don't add true instances.
+				// TODO They should be detected during literal evaluation, but it doesn't work as expected, see below.
+			}
 			final InstClause instClause = new InstClause(clause, numUndef);
 			for (final Literal lit : clause) {
-				assert lit.getAtom().getDecideStatus() != lit;
+				// assert lit.getAtom().getDecideStatus() != lit;
+				// TODO It happens that the assertion is violated. Not sure whether evaluation of literals (as terms)
+				// works correctly, even with CC.
 				if (lit.getAtom().getDecideStatus() == null) {
 					isConflict = false;
 					if (!mPotentialConflictAndUnitClauses.containsKey(lit)) {
-						mPotentialConflictAndUnitClauses.put(lit, new HashSet<>());
+						mPotentialConflictAndUnitClauses.put(lit, new LinkedHashSet<>());
 					}
 					mPotentialConflictAndUnitClauses.get(lit).add(instClause);
 				}

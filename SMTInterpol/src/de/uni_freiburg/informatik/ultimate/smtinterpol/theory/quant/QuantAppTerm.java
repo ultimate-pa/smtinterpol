@@ -36,7 +36,7 @@ public class QuantAppTerm extends EUTerm {
 	/**
 	 * Create a new QuantAppTerm. This must only be called after checking that the term is essentially uninterpreted,
 	 * i.e. that variables appear as arguments of uninterpreted function or predicate symbols only. Additionally, it
-	 * must contain at least one variable.
+	 * must contain at least one TermVariable.
 	 */
 	QuantAppTerm(final Clausifier clausifier, final Term term, final FunctionSymbol func, final QuantAppArg[] args) {
 		super(clausifier, term);

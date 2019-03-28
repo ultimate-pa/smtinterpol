@@ -20,10 +20,10 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
@@ -95,30 +95,45 @@ public class InstantiationManager {
 	}
 
 	/**
-	 * In the final check, check all possible instantiations of all clauses for a conflict.
+	 * In the final check, check if all interesting instantiations of all clauses lead to satisfied instances. As soon
+	 * as an instance is found that is not yet satisfied, stop. The newly created literals will be decided by the ground
+	 * theories next and may lead to new conflicts.
+	 * 
+	 * If an actual conflict is found, return it (TODO This should not happen, checkpoint should have found it).
+	 * 
+	 * @return an actual conflict clause, if it exists; null otherwise.
 	 */
 	public Clause instantiateAll() {
 		for (QuantClause quantClause : mQuantTheory.getQuantClauses()) {
 			if (quantClause.getState() == EprClauseState.Fulfilled) {
-				return null;
+				continue;
 			}
 			final Set<List<SharedTerm>> allInstantiations = computeAllInstantiations(quantClause);
+
 			outer: for (List<SharedTerm> inst : allInstantiations) {
-				// TODO Check that it wouldn't be true before creating literals. evaluateClauseInstance doesn't work for
-				// this, atm.
 				final List<Term> termSubs = new ArrayList<>();
 				for (int i = 0; i < inst.size(); i++) {
 					termSubs.add(inst.get(i).getTerm());
 				}
+				// TODO Check that the instance wouldn't be true before creating literals
+				// evaluateClauseInstance doesn't work for this, atm.
 				final List<Literal> instLits = computeClauseInstance(quantClause, termSubs);
 				if (instLits != null) {
+					boolean isConflict = true;
 					for (Literal lit : instLits) {
-						if (lit.getAtom().getDecideStatus() != lit.negate()) {
+						if (lit.getAtom().getDecideStatus() == lit) { // instance satisfied
 							continue outer;
 						}
+						if (lit.getAtom().getDecideStatus() == null) {
+							isConflict = false;
+						}
 					}
-					// quantClause.addInstance(inst);
-					return new Clause(instLits.toArray(new Literal[instLits.size()]));
+					if (isConflict) {
+						// quantClause.addInstance(inst);
+						return new Clause(instLits.toArray(new Literal[instLits.size()]));
+					} else { // a new not yet satisfied instance has been created
+						return null;
+					}
 				}
 			}
 		}
@@ -126,15 +141,15 @@ public class InstantiationManager {
 	}
 
 	/**
-	 * Compute all instantiations for a given clause, except the ones which instances have already been created for.
+	 * Compute all instantiations for a given clause.
 	 *
 	 * @return a Set containing interesting instantiations for the clause.
 	 */
 	private Set<List<SharedTerm>> computeAllInstantiations(QuantClause quantClause) {
-		Set<List<SharedTerm>> allSubs = new HashSet<List<SharedTerm>>();
+		Set<List<SharedTerm>> allSubs = new LinkedHashSet<List<SharedTerm>>();
 		allSubs.add(new ArrayList<SharedTerm>());
 		for (int i = 0; i < quantClause.getVars().length; i++) {
-			Set<List<SharedTerm>> partialSubs = new HashSet<List<SharedTerm>>();
+			Set<List<SharedTerm>> partialSubs = new LinkedHashSet<List<SharedTerm>>();
 			for (final List<SharedTerm> oldSub : allSubs) {
 				if (quantClause.getInterestingTerms()[i].isEmpty()) {
 					// TODO Use lambda
@@ -218,18 +233,7 @@ public class InstantiationManager {
 								: varCons.getGroundBound().getSharedTerm();
 				final SMTAffineTerm smtAff = new SMTAffineTerm(lower.getTerm());
 				smtAff.add(Rational.MONE, upper.getTerm());
-				final InfinitesimalNumber upperBound = mQuantTheory.mLinArSolve.getUpperBound(mClausifier, smtAff);
-				if (upperBound.lesseq(InfinitesimalNumber.ZERO)) {
-						litValue = InstanceValue.TRUE;
-				} else {
-					smtAff.negate();
-					final InfinitesimalNumber lowerBound = mQuantTheory.mLinArSolve.getUpperBound(mClausifier, smtAff);
-					if (lowerBound.less(InfinitesimalNumber.ZERO)) {
-						litValue = InstanceValue.FALSE;
-					} else {
-						litValue = InstanceValue.ONE_UNDEF;
-					}
-				}
+				litValue = evaluateBoundConstraint(smtAff);
 			} else {
 				assert atom instanceof QuantEUBoundConstraint;
 				final QuantEUBoundConstraint euBoundConstr = (QuantEUBoundConstraint) atom;
@@ -240,18 +244,7 @@ public class InstantiationManager {
 				}
 				final SMTAffineTerm smtAff = instantiateEUTerm(euBoundConstr.getAffineTerm(),
 						Arrays.asList(quantClause.getVars()), termSubs);
-				final InfinitesimalNumber upperBound = mQuantTheory.mLinArSolve.getUpperBound(mClausifier, smtAff);
-				if (upperBound.lesseq(InfinitesimalNumber.ZERO)) {
-					litValue = InstanceValue.TRUE;
-				} else {
-					smtAff.negate();
-					final InfinitesimalNumber lowerBound = mQuantTheory.mLinArSolve.getUpperBound(mClausifier, smtAff);
-					if (lowerBound.less(InfinitesimalNumber.ZERO)) {
-						litValue = InstanceValue.FALSE;
-					} else {
-						litValue = InstanceValue.ONE_UNDEF;
-					}
-				}
+				litValue = evaluateBoundConstraint(smtAff);
 			}
 
 			if (isNeg) {
@@ -367,7 +360,8 @@ public class InstantiationManager {
 					instantiateEUTerm(qBoundConstr.getAffineTerm(), Arrays.asList(clause.getVars()), instantiation);
 			final Sort sort = qBoundConstr.getAffineTerm().getSort();
 			litProxy = computeBoundConstraintLitAsTerm(smtAff, false, sort);
-		} else if (atom instanceof QuantVarConstraint) {
+		} else {
+			assert atom instanceof QuantVarConstraint;
 			final QuantVarConstraint varCons = (QuantVarConstraint) atom;
 			final Term lower =
 					(varCons.isBothVar() || !varCons.isLowerBound())
@@ -381,9 +375,6 @@ public class InstantiationManager {
 			smtAff.add(Rational.MONE, upper);
 			final Sort sort = lower.getSort();
 			litProxy = computeBoundConstraintLitAsTerm(smtAff, false, sort);
-		} else {
-			litProxy = null;
-			assert false : "No support for instantiation of QuantNamedAtom so far";
 		}
 		assert litProxy != null;
 		return litProxy;
@@ -480,7 +471,7 @@ public class InstantiationManager {
 	 */
 	private SMTAffineTerm instantiateEUTerm(final QuantAffineTerm euAffine, final List<TermVariable> vars,
 			final List<Term> termSubst) {
-		final HashMap<Term, Rational> summands = new HashMap<Term, Rational>();
+		final Map<Term, Rational> summands = new LinkedHashMap<Term, Rational>();
 		for (final EUTerm euSummand : euAffine.getSummands().keySet()) {
 			final Term instSummand = instantiateEUTerm(euSummand, vars, termSubst);
 			Rational factor = euAffine.getSummands().get(euSummand);
@@ -563,12 +554,12 @@ public class InstantiationManager {
 	 *         Undef else.
 	 */
 	private InstanceValue evaluateEquality(final SharedTerm left, final SharedTerm right) {
-		if (left.getCCTerm() != null && right.getCCTerm() != null) {
-			final CCTerm leftRep = left.getCCTerm();
-			final CCTerm rightRep = right.getCCTerm();
-			if (mQuantTheory.getCClosure().isEqSet(leftRep, rightRep)) {
+		final CCTerm leftCC = left.getCCTerm();
+		final CCTerm rightCC = right.getCCTerm();
+		if (leftCC != null && rightCC != null) {
+			if (mQuantTheory.getCClosure().isEqSet(leftCC, rightCC)) {
 				return InstanceValue.TRUE;
-			} else if (mQuantTheory.getCClosure().isDiseqSet(leftRep, rightRep)) {
+			} else if (mQuantTheory.getCClosure().isDiseqSet(leftCC, rightCC)) {
 				return InstanceValue.FALSE;
 			}
 		} else {
@@ -578,21 +569,29 @@ public class InstantiationManager {
 	}
 
 	/**
-	 * Determine the value that a bound constraint term < 0 or term <= 0 would have.
+	 * Determine the value that a bound constraint "term <= 0" would have.
 	 *
 	 * TODO Should this do the simplification for trivially false/true literals?
 	 *
 	 * TODO Is it sufficient to have ONE_UNDEF?
 	 *
 	 * @param affine
-	 *            The linear term for a constraint term <(=) 0.
-	 * @param isStrict
-	 *            true for strict inequalities.
-	 * @return value True, False or Undef.
+	 *            The linear term for a constraint "term <= 0".
+	 * @return Value True if the term has an upper bound <= 0, False if -term has a lower bound < 0, or Undef otherwise.
 	 */
 	private InstanceValue evaluateBoundConstraint(final SMTAffineTerm affine) {
-		// TODO
-		return InstanceValue.ONE_UNDEF;
+		final InfinitesimalNumber upperBound = mQuantTheory.mLinArSolve.getUpperBound(mClausifier, affine);
+		if (upperBound.lesseq(InfinitesimalNumber.ZERO)) {
+			return InstanceValue.TRUE;
+		} else {
+			affine.negate();
+			final InfinitesimalNumber lowerBound = mQuantTheory.mLinArSolve.getUpperBound(mClausifier, affine);
+			if (lowerBound.less(InfinitesimalNumber.ZERO)) {
+				return InstanceValue.FALSE;
+			} else {
+				return InstanceValue.ONE_UNDEF;
+			}
+		}
 	}
 
 	private enum InstanceValue {

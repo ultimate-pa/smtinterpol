@@ -24,7 +24,7 @@ import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 /**
  * A QuantVarEquality is an equality "TermVariable = TermVariable" or "TermVariable = GroundTerm". Negated
  * QuantVarEqualities will be used for Destructive Equality Reasoning, positive QuantVarEqualities are only allowed for
- * integers and with only one variable, and will be treated by an auxiliary clause.
+ * integers and with only one variable.
  *
  * @author Tanja Schindler
  *
@@ -75,8 +75,7 @@ public class QuantVarEquality extends QuantLiteral {
 		mGround = ground;
 		mNegated = new NegQuantLiteral(this);
 
-		// We support equalites between a variable (integer!) and a ground term, BUT by means of an aux clause.
-		// We could treat them directly, but then we would have more case distinctions.
+		// We support equalites between an integer variable and a ground term.
 		if (!term.getSort().getName().equals("Int")) {
 			mIsSupported = false;
 		}
