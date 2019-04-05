@@ -65,4 +65,13 @@ public class QuantAppArg {
 	public TermVariable getVar() {
 		return mVarTerm;
 	}
+
+	@Override
+	public String toString() {
+		if (mEUTerm != null) {
+			return mEUTerm.toString();
+		} else {
+			return mVarTerm.toString();
+		}
+	}
 }

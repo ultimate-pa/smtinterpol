@@ -559,31 +559,62 @@ public class QuantifierTheory implements ITheory {
 	/**
 	 * Add a QuantClause for a given set of literals and quantified literals.
 	 *
-	 * This should be called after applying DER.
+	 * This method performs Destructive Equality Reasoning, and if the clause becomes ground, it returns the literals
+	 * instead of adding a new QuantClause (Idea from Alex' EPR implementation).
 	 *
-	 * @param lits
+	 * @param groundLits
 	 *            ground literals in the new clause.
 	 * @param quantLits
 	 *            literals in the new clause containing at least one free variable.
-	 * @param hook
-	 * @param proof
+	 * @param source
+	 *            the source of the clause
+	 * @return the ground literals if the clause became ground after DER; null otherwise.
 	 */
-	public void addQuantClause(final Literal[] lits, final QuantLiteral[] quantLits, SourceAnnotation source) {
+	public Literal[] addQuantClause(final Literal[] groundLits, final QuantLiteral[] quantLits,
+			SourceAnnotation source) {
 		if (quantLits.length == 0) {
 			throw new IllegalArgumentException("Cannot add clause to QuantifierTheory: No quantified literal!");
 		}
-		for (QuantLiteral lit : quantLits) {
+
+		final DestructiveEqualityReasoning der = new DestructiveEqualityReasoning(this, groundLits, quantLits, source);
+		final Literal[] groundLitsAfterDER;
+		final QuantLiteral[] quantLitsAfterDER;
+		if (der.applyDestructiveEqualityReasoning()) { // DER changed something
+			if (der.getState() == EprClauseState.Fulfilled) {
+				return null; // Don't add trivially true clauses. // TODO: What about proof production?
+			}
+			groundLitsAfterDER = der.getGroundLitsAfterDER();
+			quantLitsAfterDER = der.getQuantLitsAfterDER();
+			if (quantLitsAfterDER.length == 0) {
+				if (mLogger.isDebugEnabled()) {
+					mLogger.debug("Quant: DER returned ground clause.");
+				}
+				if (groundLitsAfterDER.length == 0) {
+					assert der.getState() == EprClauseState.Conflict;
+				}
+				return groundLitsAfterDER; // Can have length 0; corresponds to false clause.
+			}
+		} else {
+			groundLitsAfterDER = groundLits;
+			quantLitsAfterDER = quantLits;
+		}
+
+		for (QuantLiteral lit : quantLitsAfterDER) {
 			if (!lit.mIsSupported) {
-				throw new IllegalArgumentException(
-						"Cannot add clause to QuantifierTheory: Contains unsupported literals!");
+				throw new UnsupportedOperationException(
+						"Cannot add clause to QuantifierTheory: Contains unsupported literal " + lit.toString());
 			} else if (lit.isNegated() && lit.getAtom() instanceof QuantVarEquality) {
-				throw new IllegalArgumentException(
+				throw new UnsupportedOperationException(
 						"Cannot add clause to QuantifierTheory: Disequality on variables " + lit.toString()
 								+ " must be eliminated by DER before!");
 			}
 		}
-		final QuantClause clause = new QuantClause(lits, quantLits, this, source);
+		final QuantClause clause = new QuantClause(groundLitsAfterDER, quantLitsAfterDER, this, source);
 		mQuantClauses.add(clause);
+		if (mLogger.isDebugEnabled()) {
+			mLogger.debug("Quant: Added clause: " + clause);
+		}
+		return null;
 	}
 
 	/**
@@ -619,6 +650,10 @@ public class QuantifierTheory implements ITheory {
 
 	public Collection<QuantClause> getQuantClauses() {
 		return mQuantClauses;
+	}
+
+	public Map<Term, QuantLiteral> getQuantLits() {
+		return mQuantLits;
 	}
 
 	/**

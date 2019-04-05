@@ -928,9 +928,11 @@ public class Clausifier {
 					addClause(groundLiteralsAfterDER, null, getProofNewSource(proof, mSource));
 				}
 			} else {
-				// TODO DER before adding the clause to the QuantifierTheory.
-				if (quantLits != null) { // == null can happen after DER
-					mQuantTheory.addQuantClause(lits, quantLits, mSource);
+				final Literal[] groundLiteralsAfterDER = mQuantTheory.addQuantClause(lits, quantLits, mSource);
+				// Note that clauses that become trivially true are handled by the QuantifierTheory. // TODO Proof?
+				// False clauses (i.e., where the array of ground lits has length 0) are treated by addClause below.
+				if (groundLiteralsAfterDER != null) {
+					addClause(groundLiteralsAfterDER, null, getProofNewSource(proof, mSource));
 				}
 			}
 		}

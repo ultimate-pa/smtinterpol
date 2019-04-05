@@ -383,6 +383,11 @@ public class QuantClause {
 		return changed;
 	}
 
+	@Override
+	public String toString() {
+		return Arrays.toString(mGroundLits).concat(Arrays.toString(mQuantLits));
+	}
+
 	/**
 	 * Contains information for variable instantiation, i.e. the functions where the variable is an argument and this
 	 * argument's position, and the lower and upper bounds for the variable.

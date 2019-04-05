@@ -65,8 +65,8 @@ public enum Logics {
 	UFBV      (Features.QU + Features.UF + Features.BV),
 	UFIDL     (Features.QU + Features.UF + Features.DL + Features.IA),
 	UFLIA     (Features.QU + Features.UF + Features.LA + Features.IA),
-	UFLRA     (Features.QU + Features.LA + Features.RA),
-	UFNIA     (Features.QU + Features.NA + Features.IA),
+	UFLRA     (Features.QU + Features.UF + Features.LA + Features.RA),
+	UFNIA     (Features.QU + Features.UF + Features.NA + Features.IA),
 	AUFBV     (Features.QU + Features.AX + Features.UF + Features.BV),
 	ALIA      (Features.QU + Features.AX + Features.LA + Features.IA),
 	AUFLIA    (Features.QU + Features.AX + Features.UF + Features.LA + Features.IA), //NOCHECKSTYLE
