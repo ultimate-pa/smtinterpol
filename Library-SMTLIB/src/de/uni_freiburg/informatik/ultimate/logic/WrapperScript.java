@@ -229,7 +229,7 @@ public abstract class WrapperScript implements Script {
 	}
 
 	@Override
-	public DataType.Constructor constructor(final String name, final String[] selectors, final Sort[] argumentSorts)
+	public DataType.Constructor constructor(final String name, final String[] selectors, Sort[] argumentSorts)
 			throws SMTLIBException {
 		return mScript.constructor(name, selectors, argumentSorts);
 	}
@@ -264,6 +264,12 @@ public abstract class WrapperScript implements Script {
 	@Override
 	public Term let(final TermVariable[] vars, final Term[] values, final Term body) throws SMTLIBException {
 		return mScript.let(vars, values, body);
+	}
+
+	@Override
+	public Term match(final Term dataArg, final TermVariable[][] vars, final Term[] cases,
+			FunctionSymbol[] constructors) throws SMTLIBException {
+		return mScript.match(dataArg, vars, cases, constructors);
 	}
 
 	@Override

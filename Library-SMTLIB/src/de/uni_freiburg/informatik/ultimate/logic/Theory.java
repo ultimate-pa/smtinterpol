@@ -102,6 +102,7 @@ public class Theory {
 
 	private final UnifyHash<QuantifiedFormula> mQfCache = new UnifyHash<>();
 	private final UnifyHash<LetTerm> mLetCache = new UnifyHash<>();
+	private final UnifyHash<MatchTerm> mMtCache = new UnifyHash<>();
 	private final UnifyHash<Term> mTermCache = new UnifyHash<>();
 	private final UnifyHash<TermVariable> mTvUnify = new UnifyHash<>();
 	/**
@@ -183,6 +184,16 @@ public class Theory {
 			return new BigInteger(index);
 		} catch(NumberFormatException e){
 			throw new SMTLIBException("index must be numeral", e);
+		}
+	}
+
+	/** Method to check if the parameter is the name of a constructor. If so,
+	 *  return the constructor.	 */
+	public FunctionSymbol getFunctionSymbol(String constructor) {
+		if (mDeclaredFuns.containsKey(constructor)) {
+			return mDeclaredFuns.get(constructor);
+		} else {
+			return null;
 		}
 	}
 
@@ -329,9 +340,14 @@ public class Theory {
 		return quantify(QuantifiedFormula.FORALL, vars, f);
 	}
 
-	public Term match(final Term dataArg, final TermVariable[][] vars, final Term[] cases) {
-		/* TODO */
-		return null;
+	public Term match(final Term dataArg, final TermVariable[][] vars, final Term[] cases,
+			final FunctionSymbol[] constructors) {
+		
+		final int hash = MatchTerm.hashMatch(dataArg, vars, cases);
+		final MatchTerm mt = new MatchTerm(hash, dataArg, vars, cases, constructors);
+		// add to hashmap
+		mMtCache.put(hash, mt);
+		return mt;
 	}
 
 	public Term let(final TermVariable[] vars, final Term[] values, final Term subform) {
@@ -1185,6 +1201,9 @@ public class Theory {
 		}
 		if (mSolverSetup != null) {
 			mSolverSetup.setLogic(this, logic);
+		}
+		if (logic.isDatatype()) {
+			defineFunction(new IsConstructorFactory());
 		}
 	}
 

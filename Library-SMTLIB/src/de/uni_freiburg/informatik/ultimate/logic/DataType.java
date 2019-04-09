@@ -29,6 +29,24 @@ public class DataType extends SortSymbol {
 		public String[] getSelectors() {
 			return mSelectors;
 		}
+
+		public String toString() {
+			StringBuilder sb = new StringBuilder();
+			sb.append("(");
+			sb.append(mName);
+			if (mSelectors.length != 0) {
+				for (int i = 0; i < mSelectors.length; i++) {
+					sb.append(" ");
+					sb.append("(");
+					sb.append(mSelectors[i]);
+					sb.append(" ");
+					sb.append(mArgumentSorts[i]);
+					sb.append(")");
+				}
+			}
+			sb.append(")");
+			return sb.toString();
+		}
 	}
 
 	public DataType(Theory theory, String name, int numParams) {
@@ -46,7 +64,7 @@ public class DataType extends SortSymbol {
 		mConstructors = constrs;
 	}
 
-	public Constructor[] getContructors() {
+	public Constructor[] getConstructors() {
 		return mConstructors;
 	}
 }

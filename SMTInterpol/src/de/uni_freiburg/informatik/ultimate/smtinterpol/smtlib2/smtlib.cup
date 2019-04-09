@@ -75,6 +75,7 @@ action code {:
 		new ScopedHashMap<String, TermVariable>(false);
 	Sort[] mSortParams = null;
 	static Sort[] emptySortArray = new Sort[0];
+	Sort mMatchSort = null;
 
 	static class Binding {
 		TermVariable mVar;
@@ -178,6 +179,90 @@ action code {:
 		public Sort[] getSortParams() {
 			return mSortParams;
 		}
+	}
+
+	class Pattern {
+		FunctionSymbol mConstructor;
+		TermVariable[] mVars;
+		Sort[] mSorts;
+
+		public Pattern(String constructor, String[] vars) {
+		  for (int i = 0; i < vars.length; i++) {
+		    for (int j = 0; j < i; j++) {
+			  if (vars[j].equals(vars[i])) {
+				  throw new SMTLIBException("Variables must all be distinct.");
+			  }
+			}
+		  }
+
+		  mConstructor = parser.env.getScript().getFunctionSymbol(constructor);
+		  mSorts = mConstructor.getParameterSorts();
+		  mVars = new TermVariable[vars.length];
+		  
+		  for (int i = 0; i < vars.length; i++) {
+		    mVars[i] = createTermVariable(vars[i], mSorts[i]);
+          }
+		}
+
+		public Pattern(String sym) {
+          mConstructor = parser.env.getScript().getFunctionSymbol(sym);
+          if (mConstructor == null) {
+            mVars[0] = createTermVariable(sym, mConstructor.getParameterSorts()[0]);
+          } else {		
+            mVars = new TermVariable[0];
+          }
+        }
+
+        public TermVariable[] getVars() {
+          return mVars;
+        }
+
+        public FunctionSymbol getConstructor() {
+          return mConstructor;
+        }
+	}
+
+	static class MatchCase {
+		Pattern mPattern;
+		Term mCase;
+		
+		public MatchCase(Pattern pattern, Term caseTerm) {
+			mPattern = pattern;
+			mCase = caseTerm;
+		}
+
+        public Pattern getPattern() {
+            return mPattern;
+        }
+
+        public Term getCase() {
+            return mCase;
+        }
+	}
+
+	//Function to check that either match term contains a pattern consisting of a variable
+	// or all constructors must occur in one of the patterns.
+	public boolean checkMatchTerm(DataType matchDatatype, MatchCase[] matchCases) {
+		for (int i = 0; i < matchCases.length; i++) {
+			if (matchCases[i].getPattern().getConstructor() == null) {
+				return true;
+			}
+		}
+
+		DataType.Constructor[] allConstrs = matchDatatype.getConstructors();
+
+		for (int i = 0; i < allConstrs.length; i++) {
+			boolean constrFound = false;
+			for (int j = 0; j < matchCases.length; j++) {
+				if (matchCases[j].getPattern().getConstructor().getName().equals(allConstrs[i].getName())) {
+					constrFound = true;
+				}
+			}
+			if (!constrFound) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	String errorMessage;
@@ -325,6 +410,8 @@ non terminal Annotation attributeTheory, attributeLogic;
 non terminal QualIdentifier qualIdentifier;
 non terminal Binding varBinding;
 non terminal TermVariable sortedVar;
+non terminal Pattern pattern;
+non terminal MatchCase matchCase;
 non terminal Term constantTerm, term;
 non terminal InterpolationInfo interpolantpartition;
 non terminal SelectorDec selectorDec;
@@ -421,6 +508,17 @@ varBinding ::= LPAR symbol:sym term:t RPAR
           :};
 sortedVar ::= LPAR symbol:sym sort:s RPAR
          {: RESULT = createTermVariable(sym, s); :};
+pattern ::= symbol:sym
+         {:
+           RESULT = new Pattern(sym);
+         :}
+       | LPAR symbol:constr symbol+:vars RPAR
+         {: RESULT = new Pattern(constr, vars);       
+         :};
+matchCase ::= LPAR {: localVars.beginScope(); :} pattern:p term:t RPAR
+         {: 
+           localVars.endScope();
+           RESULT = new MatchCase(p, t); :};
 term ::= constantTerm
        | qualIdentifier:fun
          {: RESULT = fun.getIndices() == null && fun.getSort() == null ? getTermVariable(fun.getIdentifier()) : null;
@@ -463,6 +561,37 @@ term ::= constantTerm
 			} catch (SMTLIBException se) {
 				parser.report_error(se.getMessage(), sym$);
 			} :}
+       | LPAR MATCH:sym 
+            term:dataArg
+         {:
+            mMatchSort = dataArg.getSort();
+            if (!mMatchSort.getSortSymbol().isDatatype()) {
+              throw new SMTLIBException("Match term must be of a datatype sort.");
+            } :}
+            LPAR matchCase+:matchCases RPAR RPAR
+         {:
+            DataType matchDatatype = (DataType) mMatchSort.getSortSymbol();
+            if (!checkMatchTerm(matchDatatype, matchCases)) {
+              throw new SMTLIBException("Either match term contains a pattern consisting of a variable or all constructors must occur in one of the patterns.");
+            }
+            
+            int s = matchCases.length;
+            TermVariable[][] vars = new TermVariable[s][];  
+            Term[] cases = new Term[s];
+            FunctionSymbol[] constructors = new FunctionSymbol[s];
+
+            for (int i = 0; i < s; i++) {
+              vars[i] = matchCases[i].getPattern().getVars();
+              cases[i] = matchCases[i].getCase();
+              constructors[i] = matchCases[i].getPattern().getConstructor();
+              if (constructors[i].getReturnSort() != mMatchSort) {
+                throw new SMTLIBException("Constructor functions must map to same datatype.");
+              }
+            }
+            
+            mMatchSort = null;
+            RESULT = parser.env.getScript().match(dataArg, vars, cases, constructors);
+         :}
        | LPAR BANG term:t attribute+:attr RPAR
          {: RESULT = annotateTerm(t, attr); :};
 

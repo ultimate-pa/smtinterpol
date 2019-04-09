@@ -26,7 +26,7 @@ import de.uni_freiburg.informatik.ultimate.util.HashUtils;
  * Represents a match term in SMTLIB 2.  This class represents the
  * SMTLIB 2 construct
  * <pre>
- * (match t (((c_1 v_11.. v1m) t_1) ... (c_n v_n1.. vnm)))
+ * (match t (((c_1 v_11.. v1m) t_1) ... ((c_n v_n1.. vnm) t_m)))
  * </pre>
  *
  * @author Jochen Hoenicke
@@ -35,12 +35,15 @@ public class MatchTerm extends Term {
 	private final Term mDataArgument;
 	private final TermVariable mVariables[][];
 	private final Term mCases[];
+	private final FunctionSymbol mConstructors[];
 
-	MatchTerm(final int hash, final Term dataArg, final TermVariable[][] vars, final Term[] cases) {
+	MatchTerm(final int hash, final Term dataArg, final TermVariable[][] vars, final Term[] cases,
+			final FunctionSymbol[] constructors) {
 		super(hash);
 		mDataArgument = dataArg;
 		mVariables = vars;
 		mCases = cases;
+		mConstructors = constructors;
 	}
 
    	@Override
@@ -66,10 +69,11 @@ public class MatchTerm extends Term {
 					mTodo.addLast(mVariables[i][j]);
 					mTodo.addLast(" ");
 				}
-				mTodo.addLast(dataType.getContructors()[i].getName());
+				mTodo.addLast(dataType.getConstructors()[i].getName());
 				mTodo.addLast("(");
 			} else {
-				mTodo.addLast(dataType.getContructors()[i].getName());
+				mTodo.addLast(" ");
+				mTodo.addLast(dataType.getConstructors()[i].getName());
 			}
 			mTodo.addLast(i > 0 ? " (" : "(");
 		}
