@@ -155,6 +155,11 @@ public class LoggingScript implements Script {
 	}
 
 	@Override
+	public FunctionSymbol getFunctionSymbol(String constructor) {
+		return mScript.getFunctionSymbol(constructor);
+	}
+	
+	@Override
 	public void declareSort(String sort, int arity) throws SMTLIBException {
 		mPw.print("(declare-sort ");
 		mPw.print(PrintTerm.quoteIdentifier(sort));
@@ -210,7 +215,28 @@ public class LoggingScript implements Script {
 			mPw.print(datatype.mNumParams);
 			mPw.print(")");
 		}
-		//FIXME continue....
+		mPw.print(")");
+		mPw.print(" ");
+		mPw.print("(");
+		for (int i = 0; i < constrs.length; i++) {
+			mPw.print("(");
+			for (int j = 0; j < constrs[i].length; j++) {
+				mPw.print("(");
+				mPw.print(PrintTerm.quoteIdentifier(constrs[i][j].getName()));
+				for (int k = 0; k < constrs[i][j].getArgumentSorts().length; k++) {
+					mPw.print(" ");
+					mPw.print("(");
+					mPw.print(PrintTerm.quoteIdentifier(constrs[i][j].getSelectors()[k]));
+					mPw.print(" ");
+					mPw.print(PrintTerm.quoteIdentifier(constrs[i][j].getArgumentSorts()[k].toString()));
+					mPw.print(")");
+				}
+				mPw.print(")");
+			}
+			mPw.print(")");
+		}
+		mPw.print(")");
+		mPw.print(")");
 		mScript.declareDatatypes(datatypes, constrs, sortParams);
 	}
 	@Override
@@ -444,6 +470,12 @@ public class LoggingScript implements Script {
 		return mScript.let(vars, values, body);
 	}
 
+	@Override
+	public Term match(final Term dataArg, final TermVariable[][] vars, final Term[] cases,
+			FunctionSymbol[] constructors) throws SMTLIBException {
+		return mScript.match(dataArg, vars, cases, constructors);
+	}
+		
 	@Override
 	public Term annotate(Term t, Annotation... annotations)
 		throws SMTLIBException {

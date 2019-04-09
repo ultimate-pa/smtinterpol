@@ -104,6 +104,11 @@ public class NoopScript implements Script {
 	}
 
 	@Override
+	public FunctionSymbol getFunctionSymbol(String constructor) {
+		return mTheory.getFunctionSymbol(constructor);
+	}
+
+	@Override
 	public DataType.Constructor constructor(String name, String[] selectors, Sort[] argumentSorts) {
 		if (name == null) {
 			throw new SMTLIBException(
@@ -157,7 +162,7 @@ public class NoopScript implements Script {
 		return unused.isEmpty() ? 0 : FunctionSymbol.RETURNOVERLOAD;
 	}
 	/**
-	 * Declare internal functions for the constructors and selestors of the datatype.
+	 * Declare internal functions for the constructors and selectors of the datatype.
 	 * @param datatype The datatype.
 	 * @param constrs The constructors.
 	 * @throws SMTLIBException
@@ -185,14 +190,14 @@ public class NoopScript implements Script {
 			Sort[] argumentSorts = constrs[i].getArgumentSorts();
 
 			if (sortParams == null) {
-				getTheory().declareInternalFunction(constrName, argumentSorts, datatypeSort, 0);
+				getTheory().declareInternalFunction(constrName, argumentSorts, datatypeSort, FunctionSymbol.CONSTRUCTOR);
 
 				for (int j = 0; j < selectors.length; j++) {
 					getTheory().declareInternalFunction(selectors[j], selectorParamSorts, argumentSorts[j], 0);
 				}
 			} else {
 				getTheory().declareInternalPolymorphicFunction(constrName, sortParams, argumentSorts,
-						datatypeSort, checkReturnOverload(sortParams, argumentSorts));
+						datatypeSort, checkReturnOverload(sortParams, argumentSorts)+ FunctionSymbol.CONSTRUCTOR);
 
 				for (int j = 0; j < selectors.length; j++) {
 					getTheory().declareInternalPolymorphicFunction(selectors[j], sortParams, selectorParamSorts,
@@ -522,6 +527,16 @@ public class NoopScript implements Script {
 		return mTheory.let(vars, values, body);
 	}
 
+	@Override
+	public Term match(final Term dataArg, final TermVariable[][] vars, final Term[] cases,
+			final FunctionSymbol[] constructors) throws SMTLIBException {
+		// if problems throw new SMTLIBException("...")
+		
+		return mTheory.match(dataArg, vars, cases, constructors);
+	}
+	
+	
+	
 	@Override
 	public Term annotate(final Term t, final Annotation... annotations)
 		throws SMTLIBException {

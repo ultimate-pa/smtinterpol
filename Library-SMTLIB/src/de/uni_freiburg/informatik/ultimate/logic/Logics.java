@@ -54,6 +54,7 @@ public enum Logics {
 	QF_AUFLIA (Features.AX + Features.UF + Features.LA + Features.IA),
 	QF_AUFLIRA(Features.AX + Features.UF + Features.LA + Features.IA + Features.RA), //NOCHECKSTYLE
 	QF_DT     (Features.DT),
+	QF_UFDTLIA (Features.DT + Features.UF + Features.LA + Features.IA),
 
 	BV        (Features.QU + Features.BV),
 	FP        (Features.QU + Features.UF + Features.FP),
@@ -203,5 +204,12 @@ public enum Logics {
 	 */
 	public boolean isFloatingPoint() {
 		return (mFeatures & Features.FP) != 0;
+	}
+	/**
+	 Does this logic support datatypes?
+	 * @return <code>true</code> if and only if this logic supports datatypes.
+	 */
+	public boolean isDatatype() {
+		return (mFeatures & Features.DT) != 0;
 	}
 }

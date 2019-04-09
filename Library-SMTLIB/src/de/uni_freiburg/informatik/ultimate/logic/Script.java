@@ -113,10 +113,16 @@ public interface Script {
 	 */
 	public void setInfo(String info, Object value);
 	/**
+	 * Check if constr is the Constructor of a Datatype within the Theory.
+	 * @param constr The Name of the constructor.
+	 * @return The Contructor or null if it does not exist.
+	 */
+	public FunctionSymbol getFunctionSymbol(String constructor);
+	/**
 	 * Declare constructors of a datatype.
-	 * @param name Name of the constructors.
-	 * @param selectors 
-	 * @param argumentSort
+	 * @param name Name of the Constructor.
+	 * @param selectors The selectors of the Constructor.
+	 * @param argumentSorts The argumentSorts of the Constructor.
 	 * @return The array of constructors.
 	 * @throws SMTLIBException.
 	 */
@@ -434,6 +440,17 @@ public interface Script {
 	 */
 	public Term let(TermVariable[] vars, Term[] values, Term body)
 		throws SMTLIBException;
+	
+	/**
+	 * Create a match term.
+	 * @param dataArg The term that is to be matched.
+	 * @param vars The variables of each pattern.
+	 * @param cases The match cases.
+	 * @return The match term.
+	 * @throws SMTLIBException
+	 */
+	public Term match(final Term dataArg, final TermVariable[][] vars, final Term[] cases,
+			FunctionSymbol[] constructors) throws SMTLIBException;
 	/**
 	 * Annotate a term.  This can be used to create named terms.
 	 * @param t           Term to annotate.

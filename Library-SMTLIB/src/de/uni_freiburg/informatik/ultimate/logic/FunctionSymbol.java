@@ -39,6 +39,7 @@ public class FunctionSymbol {
 	public static final int RETURNOVERLOAD = 16;
 	public static final int MODELVALUE = 32;
 	public static final int UNINTERPRETEDINTERNAL = 64;
+	public static final int CONSTRUCTOR = 128;
 
 	final String mName;
 	final String[] mIndices;

@@ -215,6 +215,13 @@ public class SortSymbol {
 	public boolean isArray() {
 		return (mFlags & ARRAY) != 0;
 	}
+	/**
+	 * Check if this sort symbol is a datatype.
+	 * @return true if this sort symbol is a datatype.
+	 */
+	public boolean isDatatype() {
+		return (mFlags & DATATYPE) != 0;
+	}
 
 	@Override
 	public int hashCode() {
