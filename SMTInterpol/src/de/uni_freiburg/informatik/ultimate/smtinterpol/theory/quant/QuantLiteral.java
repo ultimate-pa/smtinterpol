@@ -20,6 +20,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ILiteral;
 
 /**
  * Represents a quantified literal.
@@ -30,7 +31,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Theory;
  * @author Tanja Schindler
  *
  */
-public abstract class QuantLiteral {
+public abstract class QuantLiteral implements ILiteral {
 
 	/**
 	 * The term that this literal represents.
@@ -77,6 +78,10 @@ public abstract class QuantLiteral {
 
 	public boolean isNegated() {
 		return mAtom == mNegated;
+	}
+
+	public boolean isGround() {
+		return false;
 	}
 
 	public boolean isSupported() {

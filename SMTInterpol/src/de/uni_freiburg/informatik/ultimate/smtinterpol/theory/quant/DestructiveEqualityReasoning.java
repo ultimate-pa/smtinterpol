@@ -33,6 +33,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.EqualityProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SharedTerm;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom.NegLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClauseState;
@@ -88,8 +89,8 @@ class DestructiveEqualityReasoning {
 	boolean applyDestructiveEqualityReasoning() {
 		collectSubstitution();
 		if (!mSigma.isEmpty()) {
-			mIsChanged = true;
 			applySubstitution();
+			mIsChanged = true;
 		}
 		return mIsChanged;
 	}
@@ -110,6 +111,7 @@ class DestructiveEqualityReasoning {
 	 * @return an array containing the ground literals after DER. Can have length 0.
 	 */
 	Literal[] getGroundLitsAfterDER() {
+		assert mState != EprClauseState.Fulfilled : "Should never be called on trivially true clauses!";
 		if (!mIsChanged) {
 			return mGroundLits;
 		}
@@ -122,6 +124,7 @@ class DestructiveEqualityReasoning {
 	 * @return an array containing the quantified literals after DER. Can have length 0.
 	 */
 	QuantLiteral[] getQuantLitsAfterDER() {
+		assert mState != EprClauseState.Fulfilled : "Should never be called on trivially true clauses!";
 		if (!mIsChanged) {
 			return mQuantLits;
 		}
@@ -218,8 +221,6 @@ class DestructiveEqualityReasoning {
 	/**
 	 * Apply the substitution sigma collected from the disequalities in this clause, in order to get rid of some
 	 * variables.
-	 * 
-	 * TODO What if a lit is added positively and negatively?
 	 */
 	private void applySubstitution() {
 		assert !mSigma.isEmpty();
@@ -228,16 +229,16 @@ class DestructiveEqualityReasoning {
 		mGroundLitsAfterDER.addAll(Arrays.asList(mGroundLits));
 		for (final QuantLiteral qLit : mQuantLits) {
 			final boolean isPos = !(qLit instanceof NegQuantLiteral);
-			final QuantLiteral atom = qLit.getAtom();
-			if (atom instanceof QuantVarEquality) { // Possible results: (var=var),(var=ground),(ground=ground).
-				final QuantVarEquality varEq = (QuantVarEquality) atom;
+			final QuantLiteral qAtom = qLit.getAtom();
+			if (qAtom instanceof QuantVarEquality) { // Possible results: (var=var),(var=ground),(ground=ground).
+				final QuantVarEquality varEq = (QuantVarEquality) qAtom;
 				final TermVariable leftVar = varEq.getLeftVar();
 				final TermVariable rightVar = varEq.isBothVar() ? varEq.getRightVar() : null;
 				Term newLeft = mSigma.containsKey(leftVar) ? mSigma.get(leftVar) : leftVar;
 				Term newRight = rightVar == null ? varEq.getGroundTerm().getTerm()
 						: mSigma.containsKey(rightVar) ? mSigma.get(rightVar) : rightVar;
 				if (leftVar == newLeft && rightVar == newRight) { // Nothing has changed.
-					mQuantLitsAfterDER.add(qLit);
+					mState = addNewQuantLit(isPos, qAtom);
 				} else if (newLeft == newRight) {
 					if (isPos) { // Mark clauses that become trivially true after DER.
 						mState = EprClauseState.Fulfilled;
@@ -256,7 +257,7 @@ class DestructiveEqualityReasoning {
 							// Don't add a trivially false literal.
 						} else {
 							final Literal newAtom = eqProx.getLiteral(mSource);
-							mGroundLitsAfterDER.add(isPos ? newAtom : newAtom.negate());
+							mState = addNewGroundLit(isPos, newAtom);
 						}
 					} else { // Result contains variables.
 						if (!(newLeft instanceof TermVariable) && newRight instanceof TermVariable) {
@@ -266,27 +267,27 @@ class DestructiveEqualityReasoning {
 							newRight = temp;
 						}
 						final Term newAtomTerm = mClausifier.getTheory().term("=", newLeft, newRight);
-						final QuantLiteral newQuantLit;
+						final QuantLiteral newQuantAtom;
 						if (mQuantTheory.getQuantLits().containsKey(newAtomTerm)) {
 							// The QuantLiteral already exists.
-							newQuantLit = mQuantTheory.getQuantLits().get(newAtomTerm);
+							newQuantAtom = mQuantTheory.getQuantLits().get(newAtomTerm);
 						} else if (newRight instanceof TermVariable) {
 							assert !isPos;
-							newQuantLit =
+							newQuantAtom =
 									new QuantVarEquality(newAtomTerm, (TermVariable) newLeft, (TermVariable) newRight);
 						} else {
 							final EUTerm rightGround = mQuantTheory.getEUTermManager().getEUTerm(newRight, mSource);
 							assert rightGround instanceof GroundTerm;
-							newQuantLit =
+							newQuantAtom =
 									new QuantVarEquality(newAtomTerm, (TermVariable) newLeft, (GroundTerm) rightGround);
 						}
-						mQuantLitsAfterDER.add(isPos ? newQuantLit : newQuantLit.negate());
+						mState = addNewQuantLit(isPos, newQuantAtom);
 					}
 				}
-			} else if (atom instanceof QuantVarConstraint) {
+			} else if (qAtom instanceof QuantVarConstraint) {
 				assert !isPos;
 				// Possible results: (var<var),(var<ground),(ground<var),(ground<ground)
-				final QuantVarConstraint varConstr = (QuantVarConstraint) atom;
+				final QuantVarConstraint varConstr = (QuantVarConstraint) qAtom;
 				final TermVariable lowerVar = varConstr.isUpperBound() ? varConstr.getLowerVar() : null;
 				final TermVariable upperVar = varConstr.isLowerBound() ? varConstr.getUpperVar() : null;
 				Term newLower = lowerVar == null ? varConstr.getGroundBound().getTerm()
@@ -294,7 +295,7 @@ class DestructiveEqualityReasoning {
 				Term newUpper = upperVar == null ? varConstr.getGroundBound().getTerm()
 						: mSigma.containsKey(upperVar) ? mSigma.get(upperVar) : upperVar;
 				if (lowerVar == newLower && upperVar == newUpper) { // Nothing has changed.
-					mQuantLitsAfterDER.add(qLit);
+					mState = addNewQuantLit(isPos, qAtom);
 				} else if (newLower == newUpper) {
 					// Don't add a trivially false literal.
 				} else {
@@ -310,42 +311,42 @@ class DestructiveEqualityReasoning {
 						} else {
 							final MutableAffineTerm at = mClausifier.createMutableAffinTerm(sum, mSource);
 							final Literal newAtom = mQuantTheory.mLinArSolve.generateConstraint(at, false);
-							mGroundLitsAfterDER.add(isPos ? newAtom : newAtom.negate());
+							mState = addNewGroundLit(isPos, newAtom);
 						}
 					} else { // Result contains variables.
 						final Term newAtomTerm = null;
-						final QuantLiteral newQuantLit;
+						final QuantLiteral newQuantAtom;
 						if (mQuantTheory.getQuantLits().containsKey(newAtomTerm)) {
 							// The QuantLiteral already exists.
-							newQuantLit = mQuantTheory.getQuantLits().get(newAtomTerm);
+							newQuantAtom = mQuantTheory.getQuantLits().get(newAtomTerm);
 						} else if (newLower instanceof TermVariable) {
 							if (newUpper instanceof TermVariable) {
-								newQuantLit = new QuantVarConstraint(newAtomTerm, (TermVariable) newLower,
+								newQuantAtom = new QuantVarConstraint(newAtomTerm, (TermVariable) newLower,
 										(TermVariable) newUpper);
 							} else {
 								final EUTerm newGroundBound =
 										mQuantTheory.getEUTermManager().getEUTerm(newUpper, mSource);
 								assert newGroundBound instanceof GroundTerm;
-								newQuantLit = new QuantVarConstraint(newAtomTerm, (TermVariable) newLower, false,
+								newQuantAtom = new QuantVarConstraint(newAtomTerm, (TermVariable) newLower, false,
 										(GroundTerm) newGroundBound);
 							}
 						} else {
 							assert newUpper instanceof TermVariable;
 							final EUTerm newGroundBound = mQuantTheory.getEUTermManager().getEUTerm(newLower, mSource);
 							assert newGroundBound instanceof GroundTerm;
-							newQuantLit = new QuantVarConstraint(newAtomTerm, (TermVariable) newUpper, true,
+							newQuantAtom = new QuantVarConstraint(newAtomTerm, (TermVariable) newUpper, true,
 									(GroundTerm) newGroundBound);
 						}
-						mQuantLitsAfterDER.add(isPos ? newQuantLit : newQuantLit.negate());
+						mState = addNewQuantLit(isPos, newQuantAtom);
 					}
 				}
-			} else if (atom instanceof QuantEUEquality) {
+			} else if (qAtom instanceof QuantEUEquality) {
 				// Possible results: (ground=ground), (eu=eu) with at least one variable
-				final QuantEUEquality euEq = (QuantEUEquality) atom;
+				final QuantEUEquality euEq = (QuantEUEquality) qAtom;
 				final EUTerm newLeft = substituteInEUTerm(euEq.getLhs());
 				final EUTerm newRight = substituteInEUTerm(euEq.getRhs());
 				if (newLeft == euEq.getLhs() && newRight == euEq.getRhs()) { // Nothing has changed.
-					mQuantLitsAfterDER.add(qLit);
+					mState = addNewQuantLit(isPos, qAtom);
 				} else if (newLeft == newRight) {
 					if (isPos) { // Mark clauses that become trivially true after DER.
 						mState = EprClauseState.Fulfilled;
@@ -363,7 +364,7 @@ class DestructiveEqualityReasoning {
 						// Don't add a trivially false literal.
 					} else {
 						final Literal newAtom = eqProx.getLiteral(mSource);
-						mGroundLitsAfterDER.add(isPos ? newAtom : newAtom.negate());
+						mState = addNewGroundLit(isPos, newAtom);
 					}
 				} else {
 					final Term newTerm = mClausifier.getTheory().term("=", newLeft.getTerm(), newRight.getTerm());
@@ -373,31 +374,27 @@ class DestructiveEqualityReasoning {
 					} else {
 						newQuantAtom = new QuantEUEquality(newTerm, newLeft, newRight);
 					}
-					mQuantLitsAfterDER.add(isPos ? newQuantAtom : newQuantAtom.negate());
+					mState = addNewQuantLit(isPos, newQuantAtom);
 				}
 			} else {
-				assert atom instanceof QuantEUBoundConstraint; // Possible results: (ground<=0),(quantaff<=0)
-				final QuantEUBoundConstraint euConst = (QuantEUBoundConstraint) atom;
+				assert qAtom instanceof QuantEUBoundConstraint; // Possible results: (ground<=0),(quantaff<=0)
+				final QuantEUBoundConstraint euConst = (QuantEUBoundConstraint) qAtom;
 				final QuantAffineTerm quantAff = euConst.getAffineTerm();
 				final EUTerm newLhs = substituteInEUTerm(quantAff);
 				if (newLhs == quantAff) { // Nothing has changed.
-					mQuantLitsAfterDER.add(qLit);
+					mState = addNewQuantLit(isPos, qAtom);
 				} else if (newLhs instanceof GroundTerm) { // Result ground.
 					final SMTAffineTerm sum = new SMTAffineTerm(newLhs.getTerm());
 					if (sum.isConstant()) {
-						if (sum.getConstant().equals(Rational.ZERO) || sum.getConstant().isNegative()) {
-							if (isPos) { // Mark clauses that become trivially true after DER.
-								mState = EprClauseState.Fulfilled;
-							} // Don't add a trivially false literal.
-						} else {
-							if (!isPos) { // Mark clauses that become trivially true after DER.
-								mState = EprClauseState.Fulfilled;
-							} // Don't add a trivially false literal.
-						}
+						if ((sum.getConstant().equals(Rational.ZERO) || sum.getConstant().isNegative()) == isPos) {
+							// Mark clauses that become trivially true after DER.
+							mState = EprClauseState.Fulfilled;
+							return;
+						} // Don't add a trivially false literal.
 					} else {
 						final MutableAffineTerm at = mClausifier.createMutableAffinTerm(sum, mSource);
 						final Literal newAtom = mQuantTheory.mLinArSolve.generateConstraint(at, false);
-						mGroundLitsAfterDER.add(isPos ? newAtom : newAtom.negate());
+						mState = addNewGroundLit(isPos, newAtom);
 					}
 				} else {
 					final Term newTerm = mClausifier.getTheory().term("<=", newLhs.getTerm(),
@@ -408,8 +405,11 @@ class DestructiveEqualityReasoning {
 					} else {
 						newQuantAtom = new QuantEUBoundConstraint(newTerm, newLhs);
 					}
-					mQuantLitsAfterDER.add(isPos ? newQuantAtom : newQuantAtom.negate());
+					mState = addNewQuantLit(isPos, newQuantAtom);
 				}
+			}
+			if (mState == EprClauseState.Fulfilled) { // If the clause became trivially true, we stop.
+				return;
 			}
 		}
 		// Mark clauses that become trivially false after DER.
@@ -419,9 +419,47 @@ class DestructiveEqualityReasoning {
 	}
 
 	/**
+	 * Add a quantified literal that results from DER.
+	 * 
+	 * @param isPos
+	 *            flag that marks if the literal is positive or negated.
+	 * @param qAtom
+	 *            the underlying quantified atom.
+	 * @return Fulfilled if adding the literal has made the clause trivially true, Normal otherwise.
+	 */
+	private EprClauseState addNewQuantLit(final boolean isPos, final QuantLiteral qAtom) {
+		assert !(qAtom instanceof NegQuantLiteral) : "Should only be called on atoms";
+		if (isPos && mQuantLitsAfterDER.contains(qAtom.negate()) || !isPos && mQuantLitsAfterDER.contains(qAtom)) {
+			return EprClauseState.Fulfilled; // Clause contains literal positively and negatively.
+		} else {
+			mQuantLitsAfterDER.add(isPos ? qAtom : qAtom.negate());
+			return EprClauseState.Normal;
+		}
+	}
+
+	/**
+	 * Add a ground literal that results from DER.
+	 * 
+	 * @param isPos
+	 *            flag that marks if the literal is positive or negated.
+	 * @param qAtom
+	 *            the underlying atom.
+	 * @return Fulfilled if adding the literal has made the clause trivially true, Normal otherwise.
+	 */
+	private EprClauseState addNewGroundLit(final boolean isPos, final Literal atom) {
+		assert !(atom instanceof NegLiteral) : "Should only be called on atoms";
+		if (isPos && mGroundLitsAfterDER.contains(atom.negate()) || !isPos && mGroundLitsAfterDER.contains(atom)) {
+			return EprClauseState.Fulfilled; // Clause contains literal positively and negatively.
+		} else {
+			mGroundLitsAfterDER.add(isPos ? atom : atom.negate());
+			return EprClauseState.Normal;
+		}
+	}
+
+	/**
 	 * Substitute variables that are contained in the substitution sigma within an EUTerm.
 	 * 
-	 * TODO Move this to EUTermManager, and use it also for instantiation.
+	 * TODO Can we use one method for this and instantiation?
 	 * 
 	 * @param euTerm
 	 *            an EUTerm where we want to replace all variables in sigma.

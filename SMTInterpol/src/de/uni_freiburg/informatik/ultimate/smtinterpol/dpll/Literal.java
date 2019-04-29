@@ -22,7 +22,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 
 
-public abstract class Literal {
+public abstract class Literal implements ILiteral {
 	DPLLAtom mAtom;
 	protected Literal  mNegated;
 	Clause.WatchList mWatchers = new Clause.WatchList();
@@ -46,6 +46,13 @@ public abstract class Literal {
 	 * Returns the negated literal.
 	 */
 	public final Literal  negate()  { return mNegated; } // NOCHECKSTYLE
+
+	/**
+	 * Returns true, as Literal is ground.
+	 */
+	public final boolean isGround() {
+		return true;
+	}
 	/**
 	 * Returns the sign of the literal (1 for atom, -1 for negated atom).
 	 */

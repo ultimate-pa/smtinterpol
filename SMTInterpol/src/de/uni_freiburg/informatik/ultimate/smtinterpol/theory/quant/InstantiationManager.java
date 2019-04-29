@@ -563,7 +563,17 @@ public class InstantiationManager {
 				return InstanceValue.FALSE;
 			}
 		} else {
-			// TODO get equiv sharedterm for smtaffine left - right and ask linar
+			final SMTAffineTerm smtAff = new SMTAffineTerm(left.getTerm());
+			smtAff.add(Rational.MONE, right.getTerm());
+			final InfinitesimalNumber upperBound = mQuantTheory.mLinArSolve.getUpperBound(mClausifier, smtAff);
+			smtAff.negate();
+			final InfinitesimalNumber lowerBound = mQuantTheory.mLinArSolve.getUpperBound(mClausifier, smtAff);
+			if (upperBound.lesseq(InfinitesimalNumber.ZERO) && lowerBound.lesseq(InfinitesimalNumber.ZERO)) {
+				return InstanceValue.TRUE;
+			} else if (!upperBound.isInfinity() && !upperBound.lesseq(InfinitesimalNumber.ZERO)
+					|| !lowerBound.isInfinity() && !lowerBound.lesseq(InfinitesimalNumber.ZERO)) {
+				return InstanceValue.FALSE;
+			}
 		}
 		return InstanceValue.ONE_UNDEF;
 	}
