@@ -190,6 +190,8 @@ public class TermTransformer extends NonRecursive {
 			}
 			pushTerm(annterm.getSubterm());
 			return;
+		} else if (term instanceof MatchTerm){
+			System.out.println("match term");
 		} else {
 			throw new AssertionError("Unknown Term: " + term.toStringDirect());
 		}

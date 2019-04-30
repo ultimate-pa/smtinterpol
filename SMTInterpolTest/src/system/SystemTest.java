@@ -98,6 +98,8 @@ public class SystemTest {
 			return false;
 		} else if (f.getParent().contains("test" + separator + "epr")) {
 			return false;
+		} else if (f.getParent().contains("test" + separator + "datatype")) {
+			return false;
 		}
 		return true;
 	}

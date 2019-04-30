@@ -233,12 +233,12 @@ public class LoggingScript extends WrapperScript {
 					mPw.print(PrintTerm.quoteIdentifier(constrs[i][j].getArgumentSorts()[k].toString()));
 					mPw.print(")");
 				}
-				mPw.print(")");
+				mPw.print(j != constrs[i].length - 1 ? ") " : ")");
 			}
-			mPw.print(")");
+			mPw.print(i != constrs.length - 1 ? ") " : ")");
 		}
 		mPw.print(")");
-		mPw.print(")");
+		mPw.println(")");
 		super.declareDatatypes(datatypes, constrs, sortParams);
 	}
 

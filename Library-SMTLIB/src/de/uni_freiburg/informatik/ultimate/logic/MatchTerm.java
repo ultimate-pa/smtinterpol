@@ -63,7 +63,11 @@ public class MatchTerm extends Term {
 		for (int i = mCases.length - 1; i >= 0; i--) {
 			mTodo.addLast(")");
 			mTodo.addLast(mCases[i]);
-			if (mVariables[i].length > 0) {
+			if (mConstructors[i] == null) {
+				mTodo.addLast(") ");
+				mTodo.addLast(mVariables[i][0]);
+				mTodo.addLast("(");
+			} else if (mVariables[i].length > 0) {
 				mTodo.addLast(") ");
 				for (int j = mVariables[i].length - 1; j >= 0; j--) {
 					mTodo.addLast(mVariables[i][j]);
