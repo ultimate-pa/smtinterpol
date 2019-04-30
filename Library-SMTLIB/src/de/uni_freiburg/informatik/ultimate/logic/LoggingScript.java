@@ -231,12 +231,12 @@ public class LoggingScript implements Script {
 					mPw.print(PrintTerm.quoteIdentifier(constrs[i][j].getArgumentSorts()[k].toString()));
 					mPw.print(")");
 				}
-				mPw.print(")");
+				mPw.print(j != constrs[i].length - 1 ? ") " : ")");
 			}
-			mPw.print(")");
+			mPw.print(i != constrs.length - 1 ? ") " : ")");
 		}
 		mPw.print(")");
-		mPw.print(")");
+		mPw.println(")");
 		mScript.declareDatatypes(datatypes, constrs, sortParams);
 	}
 	@Override
