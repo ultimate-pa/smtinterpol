@@ -32,23 +32,39 @@ import de.uni_freiburg.informatik.ultimate.util.HashUtils;
  * @author Jochen Hoenicke
  */
 public class MatchTerm extends Term {
-	private final Term mDataArgument;
-	private final TermVariable mVariables[][];
+	private final Term mDataTerm;
+	private final TermVariable[][] mVariables;
 	private final Term mCases[];
-	private final FunctionSymbol mConstructors[];
+	private final DataType.Constructor[] mConstructors;
 
 	MatchTerm(final int hash, final Term dataArg, final TermVariable[][] vars, final Term[] cases,
-			final FunctionSymbol[] constructors) {
+			final DataType.Constructor[] constructors) {
 		super(hash);
-		mDataArgument = dataArg;
+		mDataTerm = dataArg;
 		mVariables = vars;
 		mCases = cases;
 		mConstructors = constructors;
 	}
 
-   	@Override
+	@Override
 	public Sort getSort() {
 		return mCases[0].getSort();
+	}
+
+	public Term getDataTerm() {
+		return mDataTerm;
+	}
+
+	public DataType.Constructor[] getConstructors() {
+		return mConstructors;
+	}
+
+	public TermVariable[][] getVariables() {
+		return mVariables;
+	}
+
+	public Term[] getCases() {
+		return mCases;
 	}
 
 	public static final int hashMatch(final Term dataArg, final TermVariable[][] vars, final Term[] cases) {
@@ -57,7 +73,7 @@ public class MatchTerm extends Term {
 
 	@Override
 	public void toStringHelper(final ArrayDeque<Object> mTodo) {
-		final DataType dataType = (DataType) mDataArgument.getSort().getRealSort().getSortSymbol();
+		final DataType dataType = (DataType) mDataTerm.getSort().getRealSort().getSortSymbol();
 		// Add subterm to stack.
 		mTodo.addLast("))");
 		for (int i = mCases.length - 1; i >= 0; i--) {
@@ -82,7 +98,7 @@ public class MatchTerm extends Term {
 			mTodo.addLast(i > 0 ? " (" : "(");
 		}
 		mTodo.addLast(" (");
-		mTodo.addLast(mDataArgument);
+		mTodo.addLast(mDataTerm);
 		mTodo.addLast("(match ");
 	}
 }

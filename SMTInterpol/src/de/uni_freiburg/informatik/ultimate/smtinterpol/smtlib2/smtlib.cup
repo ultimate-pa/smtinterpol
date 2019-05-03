@@ -182,7 +182,7 @@ action code {:
 	}
 
 	class Pattern {
-		FunctionSymbol mConstructor;
+		DataType.Constructor mConstructor;
 		TermVariable[] mVars;
 		Sort[] mSorts;
 
@@ -195,20 +195,22 @@ action code {:
 				}
 			}
 
-			mConstructor = parser.env.getScript().getFunctionSymbol(constructor);
-			mSorts = mConstructor.getParameterSorts();
+			DataType dataType = (DataType) mMatchSort.getSortSymbol();
+			mConstructor = dataType.findConstructor(constructor);
+			mSorts = mConstructor.getArgumentSorts();
 			mVars = new TermVariable[vars.length];
 
 			for (int i = 0; i < vars.length; i++) {
-				mVars[i] = createTermVariable(vars[i], mSorts[i]);
+				Sort sort = mSorts[i].mapSort(mMatchSort.getArguments());
+					mVars[i] = createTermVariable(vars[i], sort);
 			}
 		}
 
-		public Pattern(String sym) {
-			mConstructor = parser.env.getScript().getFunctionSymbol(sym);
+		public Pattern(String constructor) {
+			mConstructor = ((DataType) mMatchSort.getSortSymbol()).findConstructor(constructor);
 			if (mConstructor == null) {
 				mVars = new TermVariable[1];
-				mVars[0] = createTermVariable(sym, mMatchSort);
+					mVars[0] = createTermVariable(constructor, mMatchSort);
 			} else {
 				mVars = new TermVariable[0];
 			}
@@ -218,7 +220,7 @@ action code {:
 			return mVars;
 		}
 
-		public FunctionSymbol getConstructor() {
+			public DataType.Constructor getConstructor() {
 			return mConstructor;
 		}
 	}
@@ -252,15 +254,11 @@ action code {:
 		}
 		TermVariable[][] vars = new TermVariable[matchCases.length][];
 		Term[] cases = new Term[matchCases.length];
-		FunctionSymbol[] constructors = new FunctionSymbol[matchCases.length];
+		DataType.Constructor[] constructors = new DataType.Constructor[matchCases.length];
 		for (int i = 0; i < matchCases.length; i++) {
 			vars[i] = matchCases[i].getPattern().getVars();
 			cases[i] = matchCases[i].getCase();
 			constructors[i] = matchCases[i].getPattern().getConstructor();
-			if (constructors[i] != null && constructors[i].getReturnSort() != mMatchSort) {
-				parser.report_error("Constructor functions must map to same datatype.", sym);
-				return null;
-			}
 		}
 		return parser.env.getScript().match(dataArg, vars, cases, constructors);
 	}
@@ -438,7 +436,7 @@ non terminal MatchCase matchCase;
 non terminal Term constantTerm, term;
 non terminal InterpolationInfo interpolantpartition;
 non terminal SelectorDec selectorDec;
-non terminal DataType sortDec;
+non terminal DataType sortDec, sortDec0;
 non terminal DataType.Constructor constructorDec;
 non terminal ParametricConstructors datatypeDec;
 non terminal sortSymbolDecl;
@@ -548,7 +546,8 @@ pattern ::= symbol:sym
 matchCase ::= LPAR {: localVars.beginScope(); :} pattern:p term:t RPAR
          {: 
            localVars.endScope();
-           RESULT = new MatchCase(p, t); :};
+           RESULT = new MatchCase(p, t);
+         :};
 term ::= constantTerm
        | qualIdentifier:fun
          {: RESULT = fun.getIndices() == null && fun.getSort() == null ? getTermVariable(fun.getIdentifier()) : null;
@@ -704,7 +703,12 @@ interpolantpartition
            ;
 
 sortDec ::= LPAR symbol:type NUMERAL:numParams RPAR
-            {: RESULT = parser.env.getScript().datatypes(type, numParams.intValueExact()); :}
+            {: RESULT = parser.env.getScript().datatype(type, numParams.intValueExact()); :}
+            ;
+
+/* sort declaration in declare-datatype is always of arity 0 */
+sortDec0 ::= symbol:type
+            {: RESULT = parser.env.getScript().datatype(type, 0); :}
             ;
 
 selectorDec ::= LPAR symbol:selector sort:argumentSort RPAR
@@ -809,14 +813,13 @@ command ::= SETLOGIC symbol:logic
                     }
                }
             :}
-          | DECLAREDATATYPE symbol:type datatypeDec:dataDec
+          | DECLAREDATATYPE sortDec0:datatype datatypeDec:dataDec
             {:
-              DataType datatype = parser.env.getScript().datatypes(type, 0);
               try {
                   parser.env.getScript().declareDatatype(datatype, dataDec.getConstructors());
                   parser.env.printSuccess();
               } catch (SMTLIBException se) {
-                  parser.report_error(se.getMessage(), type$);
+                  parser.report_error(se.getMessage(), datatype$);
                   parser.env.printError(getError());
               }
             :}

@@ -135,7 +135,7 @@ public interface Script {
 	 * @return The datatype object.
 	 * @throws SMTLIBException.
 	 */
-	public DataType datatypes(String typename, int numParams)
+	public DataType datatype(String typename, int numParams)
 		throws SMTLIBException;	
 	/**
 	 * Declare new datatypes by setting their constructors.
@@ -450,7 +450,7 @@ public interface Script {
 	 * @throws SMTLIBException
 	 */
 	public Term match(final Term dataArg, final TermVariable[][] vars, final Term[] cases,
-			FunctionSymbol[] constructors) throws SMTLIBException;
+			DataType.Constructor[] constructors) throws SMTLIBException;
 	/**
 	 * Annotate a term.  This can be used to create named terms.
 	 * @param t           Term to annotate.

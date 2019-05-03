@@ -341,7 +341,7 @@ public class Theory {
 	}
 
 	public Term match(final Term dataArg, final TermVariable[][] vars, final Term[] cases,
-			final FunctionSymbol[] constructors) {
+			final DataType.Constructor[] constructors) {
 		
 		final int hash = MatchTerm.hashMatch(dataArg, vars, cases);
 		final MatchTerm mt = new MatchTerm(hash, dataArg, vars, cases, constructors);

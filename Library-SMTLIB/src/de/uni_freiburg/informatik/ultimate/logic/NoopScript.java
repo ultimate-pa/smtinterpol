@@ -22,11 +22,11 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayDeque;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.HashSet;
 import java.util.Map;
 
 import de.uni_freiburg.informatik.ultimate.logic.Theory.SolverSetup;
-import jdk.nashorn.internal.runtime.regexp.joni.BitSet;
 
 /**
  * Simple implementation of a script, that supports building terms and sorts,
@@ -119,7 +119,7 @@ public class NoopScript implements Script {
 	}
 
 	@Override
-	public DataType datatypes(String typename, int numParams) {
+	public DataType datatype(String typename, int numParams) {
 		if (typename == null) {
 			throw new SMTLIBException(
 					"Invalid input to declare a datatype");
@@ -140,7 +140,7 @@ public class NoopScript implements Script {
 	 */
 	private int checkReturnOverload(Sort[] sortParams, Sort[] argumentSorts) {
 		BitSet unused = new BitSet();
-		unused.setRange(0, sortParams.length - 1);
+		unused.set(0, sortParams.length);
 		ArrayDeque<Sort> todo = new ArrayDeque<>();
 		HashSet<Sort> seen = new HashSet<>();
 		todo.addAll(Arrays.asList(argumentSorts));
@@ -210,14 +210,14 @@ public class NoopScript implements Script {
 	@Override
 	public void declareDatatype(DataType datatype, DataType.Constructor[] constrs) {
 		assert datatype.mNumParams == 0;
-		datatype.setConstructors(constrs);
+		datatype.setConstructors(new Sort[0], constrs);
 		declareConstructorFunctions(datatype, constrs, null);
 	}
 
 	@Override
 	public void declareDatatypes(DataType[] datatypes, DataType.Constructor[][] constrs, Sort[][] sortParams) {
 		for (int i = 0; i < datatypes.length; i++) {
-			datatypes[i].setConstructors(constrs[i]);
+			datatypes[i].setConstructors(sortParams[i], constrs[i]);
 			declareConstructorFunctions(datatypes[i], constrs[i], sortParams[i]);
 		}
 	}
@@ -529,9 +529,7 @@ public class NoopScript implements Script {
 
 	@Override
 	public Term match(final Term dataArg, final TermVariable[][] vars, final Term[] cases,
-			final FunctionSymbol[] constructors) throws SMTLIBException {
-		// if problems throw new SMTLIBException("...")
-		
+			final DataType.Constructor[] constructors) throws SMTLIBException {
 		return mTheory.match(dataArg, vars, cases, constructors);
 	}
 	
