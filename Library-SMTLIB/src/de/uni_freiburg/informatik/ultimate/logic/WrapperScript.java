@@ -235,8 +235,8 @@ public abstract class WrapperScript implements Script {
 	}
 
 	@Override
-	public DataType datatypes(final String typename, final int numParams) throws SMTLIBException {
-		return mScript.datatypes(typename, numParams);
+	public DataType datatype(final String typename, final int numParams) throws SMTLIBException {
+		return mScript.datatype(typename, numParams);
 	}
 
 	@Override
@@ -268,7 +268,7 @@ public abstract class WrapperScript implements Script {
 
 	@Override
 	public Term match(final Term dataArg, final TermVariable[][] vars, final Term[] cases,
-			FunctionSymbol[] constructors) throws SMTLIBException {
+			DataType.Constructor[] constructors) throws SMTLIBException {
 		return mScript.match(dataArg, vars, cases, constructors);
 	}
 

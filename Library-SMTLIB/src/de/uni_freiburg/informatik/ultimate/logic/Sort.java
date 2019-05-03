@@ -41,7 +41,7 @@ import de.uni_freiburg.informatik.ultimate.util.HashUtils;
  *
  * @author Jochen Hoenicke
  */
-public class Sort {
+public final class Sort {
 	/**
 	 * The sort symbol.
 	 */
@@ -192,8 +192,8 @@ public class Sort {
 	 * @return true if the sorts unify (in which case the unifier is extended)
 	 * or false otherwise.
 	 */
-    boolean unifySort(final HashMap<Sort,Sort> unifier, final Sort concrete) {
-    	assert concrete.getRealSort() == concrete;
+	boolean unifySort(final HashMap<Sort, Sort> unifier, final Sort concrete) {
+		assert concrete.getRealSort() == concrete;
 		final Sort last = unifier.get(this);
 		if (last != null) {
 			return last == concrete;
@@ -222,22 +222,22 @@ public class Sort {
 	 * a unique position which is used as index in the substitution array.
 	 * @return The substituted sort.
 	 */
-    Sort mapSort(final Sort[] substitution) {
+	public Sort mapSort(final Sort[] substitution) {
 		if (mSymbol.isParametric()) {
 			return substitution[mSymbol.mNumParams];
 		}
 		if (mArgs.length == 0) {
 			return this;
 		}
-    	if (mArgs.length == 1) {
-    		final Sort arg = mArgs[0].mapSort(substitution);
-    		return mSymbol.getSort(mIndices, new Sort[] { arg });
-    	}
+		if (mArgs.length == 1) {
+			final Sort arg = mArgs[0].mapSort(substitution);
+			return mSymbol.getSort(mIndices, new Sort[] { arg });
+		}
 
-    	// For more than two arguments create a cache to avoid exponential blow
-    	final HashMap<Sort, Sort> cachedMappings = new HashMap<Sort,Sort>();
-    	return mapSort(substitution, cachedMappings);
-    }
+		// For more than two arguments create a cache to avoid exponential blow
+		final HashMap<Sort, Sort> cachedMappings = new HashMap<Sort, Sort>();
+		return mapSort(substitution, cachedMappings);
+	}
 
 	/**
 	 * Substitute this sort.
@@ -248,15 +248,15 @@ public class Sort {
 	 * corresponding substituted sort.
 	 * @return The substituted sort.
 	 */
-    Sort mapSort(final Sort[] substitution, final HashMap<Sort, Sort> cachedMappings) {
+	Sort mapSort(final Sort[] substitution, final HashMap<Sort, Sort> cachedMappings) {
 		if (mSymbol.isParametric()) {
 			return substitution[mSymbol.mNumParams];
 		}
-    	Sort result = cachedMappings.get(this);
-    	if (result != null) {
+		Sort result = cachedMappings.get(this);
+		if (result != null) {
 			return result;
 		}
-    	if (mArgs.length == 0) {
+		if (mArgs.length == 0) {
 			result = this;
 		} else {
 			final Sort[] newArgs = new Sort[mArgs.length];
@@ -264,7 +264,7 @@ public class Sort {
 				newArgs[i] = mArgs[i].mapSort(substitution, cachedMappings);
 			}
 			result = mSymbol.getSort(mIndices, newArgs);
-    	}
+		}
 		cachedMappings.put(this, result);
 		return result;
 	}

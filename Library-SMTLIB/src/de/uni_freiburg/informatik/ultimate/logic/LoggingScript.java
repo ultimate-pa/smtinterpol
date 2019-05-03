@@ -202,7 +202,24 @@ public class LoggingScript extends WrapperScript {
 	@Override
 	public void declareDatatype(DataType datatype, DataType.Constructor[] constrs)
 		throws SMTLIBException {
-		//FIXME print....
+		assert datatype.mNumParams == 0;
+		mPw.print("(declare-datatypes ");
+		mPw.print(PrintTerm.quoteIdentifier(datatype.getName()));
+		mPw.print(" (");
+		for (int j = 0; j < constrs.length; j++) {
+			mPw.print("(");
+			mPw.print(PrintTerm.quoteIdentifier(constrs[j].getName()));
+			for (int k = 0; k < constrs[j].getArgumentSorts().length; k++) {
+				mPw.print(" ");
+				mPw.print("(");
+				mPw.print(PrintTerm.quoteIdentifier(constrs[j].getSelectors()[k]));
+				mPw.print(" ");
+				mPw.print(PrintTerm.quoteIdentifier(constrs[j].getArgumentSorts()[k].toString()));
+				mPw.print(")");
+			}
+			mPw.print(j != constrs.length - 1 ? ") " : ")");
+		}
+		mPw.println("))");
 		super.declareDatatype(datatype, constrs);
 	}
 
@@ -217,9 +234,7 @@ public class LoggingScript extends WrapperScript {
 			mPw.print(datatype.mNumParams);
 			mPw.print(")");
 		}
-		mPw.print(")");
-		mPw.print(" ");
-		mPw.print("(");
+		mPw.print(") (");
 		for (int i = 0; i < constrs.length; i++) {
 			mPw.print("(");
 			for (int j = 0; j < constrs[i].length; j++) {
@@ -237,8 +252,7 @@ public class LoggingScript extends WrapperScript {
 			}
 			mPw.print(i != constrs.length - 1 ? ") " : ")");
 		}
-		mPw.print(")");
-		mPw.println(")");
+		mPw.println("))");
 		super.declareDatatypes(datatypes, constrs, sortParams);
 	}
 

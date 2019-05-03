@@ -57,11 +57,28 @@ public class DataType extends SortSymbol {
 	 * The constructors.
 	 */
 	Constructor[] mConstructors;
-	
+	/**
+	 * The generic sort arguments.
+	 */
+	Sort[] mSortVariables;
 
-	public void setConstructors(Constructor[] constrs) {
+	public void setConstructors(Sort[] sortVars, Constructor[] constrs) {
 		assert mConstructors == null;
+		mSortVariables = sortVars;
 		mConstructors = constrs;
+	}
+
+	public Sort[] getSortVariables() {
+		return mSortVariables;
+	}
+
+	public Constructor findConstructor(String name) {
+		for (int i = 0; i < mConstructors.length; i++) {
+			if (mConstructors[i].getName().equals(name)) {
+				return mConstructors[i];
+			}
+		}
+		return null;
 	}
 
 	public Constructor[] getConstructors() {
