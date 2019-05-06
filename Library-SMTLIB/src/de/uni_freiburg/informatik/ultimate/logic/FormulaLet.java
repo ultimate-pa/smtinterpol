@@ -250,6 +250,11 @@ public class FormulaLet extends NonRecursive {
 		}
 
 		@Override
+		public void walk(NonRecursive walker, MatchTerm term) {
+			// TODO: same as quantified formula above
+		}
+
+		@Override
 		public void walk(NonRecursive walker, TermVariable term) {
 			throw new InternalError("No TermInfo for TermVariable allowed");
 		}
@@ -367,6 +372,16 @@ public class FormulaLet extends NonRecursive {
 					let.enqueueWalker(
 						new Converter(mTermInfo, params[i], mIsCounted));
 				}
+			} else if (term instanceof MatchTerm) {
+				// enqueue the final walker that rebuilds the application term.
+				final MatchTerm matchTerm = (MatchTerm) term;
+				let.enqueueWalker(new BuildMatchTerm(matchTerm));
+				// recursively convert the arguments.
+				final Term[] cases = matchTerm.getCases();
+				for (int i = cases.length - 1; i >= 0; i--) {
+					let.enqueueWalker(new Letter(cases[i]));
+				}
+				let.enqueueWalker(new Converter(mTermInfo, matchTerm.getDataTerm(), mIsCounted));
 			} else {
 				// everything else is converted to itself
 				let.mResultStack.addLast(term);
@@ -558,6 +573,41 @@ public class FormulaLet extends NonRecursive {
 				} else {
 					result = theory.forall(mOldTerm.getVariables(), newBody);
 				}
+			}
+			let.mResultStack.addLast(result);
+		}
+	}
+
+	/**
+	 * Build a match term using the terms on the result stack and put the result on the result stack.
+	 */
+	static class BuildMatchTerm implements Walker {
+		final MatchTerm mOldTerm;
+
+		public BuildMatchTerm(MatchTerm term) {
+			mOldTerm = term;
+		}
+
+		@Override
+		public void walk(NonRecursive engine) {
+			final FormulaLet let = (FormulaLet) engine;
+			final Term[] oldCases = mOldTerm.getCases();
+			Term[] newCases = oldCases;
+			for (int i = oldCases.length - 1; i >= 0; i--) {
+				Term caseTerm = let.mResultStack.removeLast();
+				if (caseTerm != oldCases[i]) {
+					if (newCases == oldCases) {
+						newCases = oldCases.clone();
+					}
+					newCases[i] = caseTerm;
+				}
+			}
+			final Term newDataTerm = let.mResultStack.removeLast();
+
+			Term result = mOldTerm;
+			if (newDataTerm != mOldTerm.getDataTerm() || newCases != oldCases) {
+				final Theory theory = mOldTerm.getTheory();
+				result = theory.match(newDataTerm, mOldTerm.getVariables(), newCases, mOldTerm.getConstructors());
 			}
 			let.mResultStack.addLast(result);
 		}
