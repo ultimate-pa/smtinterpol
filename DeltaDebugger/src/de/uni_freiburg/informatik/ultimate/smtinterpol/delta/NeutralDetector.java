@@ -28,6 +28,7 @@ import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.LetTerm;
+import de.uni_freiburg.informatik.ultimate.logic.MatchTerm;
 import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
@@ -102,6 +103,13 @@ public class NeutralDetector extends NonRecursive {
 			// Nothing to do
 		}
 
+		@Override
+		public void walk(NonRecursive walker, MatchTerm term) {
+			walker.enqueueWalker(new NeutralWalker(term.getDataTerm()));
+			for (final Term t : term.getCases()) {
+				walker.enqueueWalker(new NeutralWalker(t));
+			}
+		}
 	}
 
 	private final ArrayList<Neutral> mNeutrals = new ArrayList<Neutral>();
