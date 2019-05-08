@@ -111,15 +111,15 @@ xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns="http://www.w3.org/1999/x
   </xsl:template>
 
   <xsl:template match="head1">
-    <div class="head1">
+    <h1>
       <xsl:apply-templates />
-    </div>
+    </h1>
   </xsl:template>
 
   <xsl:template match="head2">
-    <div class="head2">
+    <h2>
       <xsl:apply-templates />
-    </div>
+    </h2>
   </xsl:template>
 
   <xsl:template match="txt">
@@ -129,9 +129,9 @@ xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns="http://www.w3.org/1999/x
   </xsl:template>
 
   <xsl:template match="b">
-    <span class="bold">
+    <b>
       <xsl:apply-templates />
-    </span>
+    </b>
   </xsl:template>
 
   <xsl:template match="link">
@@ -167,22 +167,37 @@ xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns="http://www.w3.org/1999/x
     </td>
   </xsl:template>
 
+  <xsl:template match="img">
+    <xsl:element name="img">
+      <xsl:attribute name="src">
+	<xsl:value-of select="./@src" disable-output-escaping="yes" />
+      </xsl:attribute>
+      <xsl:attribute name="alt">
+	<xsl:value-of select="./@alt" disable-output-escaping="yes" />
+      </xsl:attribute>
+    </xsl:element>
+  </xsl:template>
+
   <xsl:template match="verb">
-    <span class="verbatimcontainer">
-      <span class="verbatim">
-	<xsl:apply-templates />
-      </span>
-    </span>
+    <pre>
+      <xsl:apply-templates />
+    </pre>
   </xsl:template>
 
   <xsl:template match="s">
-    <span class="bold">SMTInterpol</span>
+    <span style="font-variant: small-caps;">SMTInterpol</span>
   </xsl:template>
 
   <xsl:template match="tt">
-    <span class="tt">
+    <code>
       <xsl:apply-templates />
-    </span>
+    </code>
+  </xsl:template>
+
+  <xsl:template match="emph">
+    <em>
+      <xsl:apply-templates />
+    </em>
   </xsl:template>
 
   <xsl:template match="nl">

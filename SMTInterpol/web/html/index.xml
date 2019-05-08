@@ -18,7 +18,7 @@
     <txt>The solver is written
     in <link url="http://www.oracle.com/technetwork/java/index.html">Java</link>
     and can be used on any operating system that supports Java Version
-    6 or above.</txt>
+    8 or above.</txt>
     <txt>The solver reads input in <link url="http://smtlib.org">SMTLIB
     Version 2.5</link> format.</txt>
 
@@ -26,10 +26,10 @@
     <txt>The current version of <s /> supports interpolation for the
     combination of the quantifier-free fragments of the theories of
     uninterpreted functions, linear real arithmetic, linear integer
-    arithmetic, and arrays.</txt>
+    arithmetic, and arrays including constant arrays.</txt>
 
     <head1>System Requirements</head1>
-    <txt><s /> needs a Java 6 JRE or above.  No
+    <txt><s /> needs a Java 8 JRE or above.  No
     special hardware is necessary but depending on the input problem, a fast
     CPU and a good amount of RAM might be useful.</txt>
 

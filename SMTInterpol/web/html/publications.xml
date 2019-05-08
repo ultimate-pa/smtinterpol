@@ -11,37 +11,49 @@
   <content>
     <head1>Publications about <s /></head1>
     <list>
+      <paper conf="VMCAI 2019">
+	<authors>Jochen Hoenicke and Tanja Schindler</authors>
+	<title>Solving and Interpolating Constant Arrays Based on Weak Equivalences</title>
+	<doi>https://doi.org/10.1007/978-3-030-11245-5_14</doi>
+	<bib>https://dblp.uni-trier.de/rec/bibtex/conf/vmcai/HoenickeS19</bib>
+      </paper>
+      <paper conf="IJCAR 2018">
+	<authors>Jochen Hoenicke and Tanja Schindler</authors>
+	<title>Efficient Interpolation for the Theory of Arrays</title>
+	<doi>https://doi.org/10.1007/978-3-319-94205-6_36</doi>
+	<bib>https://dblp.uni-trier.de/rec/bibtex/conf/cade/HoenickeS18</bib>
+      </paper>
       <paper conf="Journal of Automated Reasoning (57) 1">
 	<authors>J&uuml;rgen Christ, and Jochen Hoenicke</authors>
 	<title>Proof Tree Preserving Tree Interpolation</title>
-	<doi>http://dx.doi.org/10.1007/s10817-016-9365-5</doi>
-	<bib>http://dblp.uni-trier.de/rec/bibtex/journals/jar/ChristH16</bib>
+	<doi>https://doi.org/10.1007/s10817-016-9365-5</doi>
+	<bib>https://dblp.uni-trier.de/rec/bibtex/journals/jar/ChristH16</bib>
       </paper>
       <paper conf="CAV 2015">
 	<authors>J&uuml;rgen Christ, and Jochen Hoenicke</authors>
 	<title>Cutting the Mix</title>
-	<doi>http://dx.doi.org/10.1007/978-3-319-24246-0_8</doi>
-	<bib>http://dblp.uni-trier.de/rec/bibtex/conf/cav/ChristH15</bib>
+	<doi>https://doi.org/10.1007/978-3-319-24246-0_8</doi>
+	<bib>https://dblp.uni-trier.de/rec/bibtex/conf/cav/ChristH15</bib>
       </paper>
       <paper conf="FroCos 2015">
 	<authors>J&uuml;rgen Christ, and Jochen Hoenicke</authors>
 	<title>Weakly Equivalent Arrays</title>
-	<doi>http://dx.doi.org/10.1007/978-3-319-24246-0_8</doi>
-	<bib>http://dblp.uni-trier.de/rec/bibtex/conf/frocos/ChristH15</bib>
+	<doi>https://doi.org/10.1007/978-3-319-24246-0_8</doi>
+	<bib>https://dblp.uni-trier.de/rec/bibtex/conf/frocos/ChristH15</bib>
       </paper>
       <paper conf="TACAS 2013">
 	<authors>J&uuml;rgen Christ, Jochen Hoenicke, and Alexander Nutz</authors>
 	<title>Proof Tree Preserving Interpolation</title>
 	<pdf>http://www.avacs.org/fileadmin/Publikationen/Open/avacs_technical_report_089.pdf</pdf>
-	<doi>http://dx.doi.org/10.1007/978-3-642-36742-7_9</doi>
-	<bib>http://dblp.uni-trier.de/rec/bibtex/conf/tacas/ChristHN13</bib>
+	<doi>https://doi.org/10.1007/978-3-642-36742-7_9</doi>
+	<bib>https://dblp.uni-trier.de/rec/bibtex/conf/tacas/ChristHN13</bib>
       </paper>
       <paper conf="SPIN 2012">
 	<authors>J&uuml;rgen Christ, Jochen Hoenicke, and Alexander Nutz</authors>
 	<title>SMTInterpol: An Interpolating SMT Solver</title>
 	<pdf>http://www.jochen-hoenicke.de/docs/chn12-spin.pdf</pdf>
-	<doi>http://dx.doi.org/10.1007/978-3-642-31759-0_19</doi>
-	<bib>http://dblp.uni-trier.de/rec/bibtex/conf/spin/ChristHN12</bib>
+	<doi>https://doi.org/10.1007/978-3-642-31759-0_19</doi>
+	<bib>https://dblp.uni-trier.de/rec/bibtex/conf/spin/ChristHN12</bib>
       </paper>
       <paper>
 	<authors>J&uuml;rgen Christ, Jochen Hoenicke, and Alexander Nutz</authors>
@@ -52,19 +64,31 @@
     <br />
     <head1>Publications using <s /></head1>
     <list>
+      <paper conf="TACAS 2018">
+	<authors>Matthias Heizmann, Yu-Fang Chen, Daniel Dietsch, Marius Greitschus, Jochen Hoenicke, Yong Li, Alexander Nutz, Betim Musa, Christian Schilling, Tanja Schindler, Andreas Podelski</authors>
+	<title>Ultimate Automizer and the Search for Perfect Interpolants - (Competition Contribution)</title>
+	<doi>https://doi.org/10.1007/978-3-319-89963-3_30</doi>
+	<bib>https://dblp.uni-trier.de/rec/bibtex/conf/tacas/HeizmannCDGHLNM18</bib>
+      </paper>
+      <paper conf="TACAS 2018">
+	<authors>Daniel Dietsch, Marius Greitschus, Matthias Heizmann, Jochen Hoenicke, Alexander Nutz, Andreas Podelski, Christian Schilling, Tanja Schindler</authors>
+	<title>Ultimate Taipan with Dynamic Block Encoding - (Competition Contribution)</title>
+	<doi>https://doi.org/10.1007/978-3-319-89963-3_31</doi>
+	<bib>https://dblp.uni-trier.de/rec/bibtex/conf/vmcai/SchindlerJ18</bib>
+      </paper>
       <paper conf="VMCAI 2012">
 	<authors>Evren Ermis, Jochen Hoenicke, and Andreas Podelski</authors>
 	<title>Splitting via Interpolants</title>
 	<pdf>http://www.jochen-hoenicke.de/docs/ehp12-vmcai.pdf</pdf>
-	<doi>http://dx.doi.org/10.1007/978-3-642-27940-9_13</doi>
-	<bib>http://dblp.uni-trier.de/rec/bibtex/conf/vmcai/ErmisHP12</bib>
+	<doi>https://doi.org/10.1007/978-3-642-27940-9_13</doi>
+	<bib>https://dblp.uni-trier.de/rec/bibtex/conf/vmcai/ErmisHP12</bib>
       </paper>
       <paper conf="FM 2012">
 	<authors>Evren Ermis, Martin Sch&auml;f, and Thomas Wies</authors>
 	<title>Error Invariants</title>
 	<pdf>http://cs.nyu.edu/wies/publ/error_invariants.pdf</pdf>
-	<doi>http://dx.doi.org/10.1007/978-3-642-32759-9_17</doi>
-	<bib>http://dblp.uni-trier.de/rec/bibtex/conf/vmcai/ErmisSW12</bib>
+	<doi>https://doi.org/10.1007/978-3-642-32759-9_17</doi>
+	<bib>https://dblp.uni-trier.de/rec/bibtex/conf/vmcai/ErmisSW12</bib>
       </paper>
     </list>
     <br />
