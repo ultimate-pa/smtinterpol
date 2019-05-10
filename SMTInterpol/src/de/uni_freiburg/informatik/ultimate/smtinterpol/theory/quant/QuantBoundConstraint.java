@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 University of Freiburg
+ * Copyright (C) 2019 University of Freiburg
  *
  * This file is part of SMTInterpol.
  *
@@ -19,36 +19,25 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
 import de.uni_freiburg.informatik.ultimate.logic.Term;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SharedTerm;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 
 /**
- * Represents a ground term. It is basically a SharedTerm.
+ * A quantified bound constraint atom of the form "SMTAffineTerm <= 0".
  *
  * @author Tanja Schindler
  *
  */
-public class GroundTerm extends EUTerm {
+public class QuantBoundConstraint extends QuantLiteral {
 
-	private final SharedTerm mSharedTerm;
+	private final SMTAffineTerm mSmtAff;
 
-	/**
-	 * Create a new GroundTerm. This must only be called after checking that the term is ground.
-	 *
-	 * @param clausifier
-	 *            the clausifier.
-	 * @param term
-	 *            the underlying ground term.
-	 * @param shared
-	 *            the SharedTerm corresponding to the given ground term.
-	 */
-	GroundTerm(final Clausifier clausifier, final Term term, final SharedTerm shared) {
-		super(clausifier, term);
-		assert term.getFreeVars().length == 0;
-		mSharedTerm = shared;
+	public QuantBoundConstraint(Term term, SMTAffineTerm smtAff) {
+		super(term);
+		mSmtAff = smtAff;
+		mNegated = new NegQuantLiteral(this);
 	}
 
-	public SharedTerm getSharedTerm() {
-		return mSharedTerm;
+	public SMTAffineTerm getAffineTerm() {
+		return mSmtAff;
 	}
 }

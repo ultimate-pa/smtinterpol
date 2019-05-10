@@ -27,6 +27,7 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -62,7 +63,7 @@ public class QuantClause {
 	private final VarInfo[] mVarInfos;
 	/**
 	 * For each variable, the set of potentially interesting instantiations. The key stores the SharedTerm of the
-	 * representative in case the value term has a CCTerm
+	 * representative in case the value term has a CCTerm.
 	 */
 	private LinkedHashMap<SharedTerm, SharedTerm>[] mInterestingTermsForVars;
 
@@ -143,10 +144,6 @@ public class QuantClause {
 		return mVars;
 	}
 
-	public int getVarPos(TermVariable var) {
-		return Arrays.asList(mVars).indexOf(var);
-	}
-
 	public LinkedHashMap<SharedTerm, SharedTerm>[] getInterestingTerms() {
 		return mInterestingTermsForVars;
 	}
@@ -157,6 +154,11 @@ public class QuantClause {
 
 	public EprClauseState getState() {
 		return mClauseState;
+	}
+
+	@Override
+	public String toString() {
+		return Arrays.toString(mGroundLits).concat(Arrays.toString(mQuantLits));
 	}
 
 	void push() {
@@ -196,83 +198,127 @@ public class QuantClause {
 	}
 
 	/**
+	 * Get the position of a given variable.
+	 * 
+	 * @param var
+	 *            a TermVariable
+	 * @return the position of var, if contained in this clause.
+	 */
+	int getVarIndex(TermVariable var) {
+		return Arrays.asList(mVars).indexOf(var);
+	}
+
+	/**
 	 * Go through the quantified literals in this clause to collect information about the appearing variables. In
 	 * particular, for each variable we collect the lower and upper ground bounds and variable bounds, and the functions
-	 * and positions where the variable appears as arguments.
+	 * and positions where the variable appears as argument.
+	 * 
+	 * TODO What about offsets? (See paper)
+	 * 
+	 * TODO Check names: "lower" and "upper" var.
 	 */
 	private void collectVarInfos() {
 		for (final QuantLiteral lit : mQuantLits) {
 			final QuantLiteral atom = lit.getAtom();
-			if (atom instanceof QuantVarConstraint) {
-				// Here, we need to add lower and/or upper bounds.
-				final QuantVarConstraint constraint = (QuantVarConstraint) atom;
-				final TermVariable lowerVar = constraint.getLowerVar();
-				final TermVariable upperVar = constraint.getUpperVar();
-				// Note that the constraint can be both a lower and upper bound - if it consists of two variables.
-				if (lowerVar != null) {
-					final int index = getVarPos(lowerVar);
-					final VarInfo varInfo = mVarInfos[index];
-					if (upperVar != null) {
-						varInfo.addUpperVarBound(upperVar);
-					} else {
-						varInfo.addUpperGroundBound(constraint.getGroundBound().getSharedTerm());
-					}
+			final boolean isNegated = lit.isNegated();
 
-				}
-				if (upperVar != null) {
-					final int index = getVarPos(upperVar);
-					final VarInfo varInfo = mVarInfos[index];
-					if (lowerVar != null) {
-						varInfo.addLowerVarBound(lowerVar);
-					} else {
-						varInfo.addLowerGroundBound(constraint.getGroundBound().getSharedTerm());
-					}
-				}
-			} else if (atom instanceof QuantVarEquality) {
-				final QuantVarEquality varEq = (QuantVarEquality) atom;
-				assert !lit.isNegated() && !varEq.isBothVar() && varEq.getLeftVar().getSort().isNumericSort();
-				final int index = getVarPos(varEq.getLeftVar());
-				final VarInfo varInfo = mVarInfos[index];
-				if (varEq.getLeftVar().getSort().getName() == "Int") {
-					final Term groundTerm = varEq.getGroundTerm().getTerm();
-					final SMTAffineTerm lowerAffine = new SMTAffineTerm(groundTerm);
-					lowerAffine.add(Rational.MONE);
-					final SMTAffineTerm upperAffine = new SMTAffineTerm(groundTerm);
-					upperAffine.add(Rational.ONE);
-					final Term lowerBound = lowerAffine.toTerm(groundTerm.getSort());
-					final Term upperBound = upperAffine.toTerm(groundTerm.getSort());
-					varInfo.addLowerGroundBound(mQuantTheory.getClausifier().getSharedTerm(lowerBound, mSource));
-					varInfo.addUpperGroundBound(mQuantTheory.getClausifier().getSharedTerm(upperBound, mSource));
-				} else {
-					assert false : "x=t only supported for integers.";
-				}
-			} else if (atom instanceof QuantEUBoundConstraint || atom instanceof QuantEUEquality) {
-				// Here, we need to add the positions where variables appear as arguments of functions.
-				Set<EUTerm> subTerms = new LinkedHashSet<>();
-				if (atom instanceof QuantEUBoundConstraint) {
-					final QuantEUBoundConstraint euConstraint = (QuantEUBoundConstraint) atom;
-					final EUTerm affineTerm = euConstraint.getAffineTerm();
-					subTerms.addAll(mQuantTheory.getSubEUTerms(affineTerm));
-				} else {
-					final QuantEUEquality euEq = (QuantEUEquality) atom;
-					final EUTerm lhs = euEq.getLhs();
-					final EUTerm rhs = euEq.getRhs();
-					subTerms.addAll(mQuantTheory.getSubEUTerms(lhs));
-					subTerms.addAll(mQuantTheory.getSubEUTerms(rhs));
-				}
-				for (final EUTerm sub : subTerms) {
-					if (sub instanceof QuantAppTerm) {
-						QuantAppArg[] args = ((QuantAppTerm) sub).getArgs();
-						FunctionSymbol func = ((QuantAppTerm) sub).getFunc();
-						for (int i = 0; i < args.length; i++) {
-							if (args[i].isVar()) {
-								final TermVariable var = args[i].getVar();
-								final int index = getVarPos(var);
-								final VarInfo varInfo = mVarInfos[index];
-								varInfo.addPosition(func, i);
+			if (atom instanceof QuantBoundConstraint) {
+				final QuantBoundConstraint constr = (QuantBoundConstraint) atom;
+				final SMTAffineTerm lhs = constr.getAffineTerm();
+				for (final Term smd : lhs.getSummands().keySet()) {
+					if (smd instanceof TermVariable) {
+						final Rational fac = lhs.getSummands().get(smd);
+						if (fac.abs() == Rational.ONE) {
+							final SMTAffineTerm remainder = new SMTAffineTerm();
+							remainder.add(lhs);
+							remainder.add(fac.negate(), smd);
+							final Term remainderTerm = remainder.toTerm(smd.getSort());
+							if (remainderTerm.getFreeVars().length == 0) {
+								final int pos = getVarIndex((TermVariable) smd);
+								final VarInfo varInfo = mVarInfos[pos];
+								if (fac.isNegative()) {
+									varInfo.addUpperGroundBound(
+											mQuantTheory.getClausifier().getSharedTerm(remainderTerm, mSource));
+								} else {
+									varInfo.addLowerGroundBound(mQuantTheory.getClausifier()
+											.getSharedTerm(remainder.toTerm(smd.getSort()), mSource));
+								}
+							} else if (remainderTerm instanceof TermVariable) {
+								final int pos = getVarIndex((TermVariable) smd);
+								final VarInfo varInfo = mVarInfos[pos];
+								if (fac.isNegative()) {
+									varInfo.addUpperVarBound((TermVariable) remainderTerm);
+								} else {
+									varInfo.addLowerVarBound((TermVariable) remainderTerm);
+								}
 							}
 						}
+					} else if (smd.getFreeVars().length != 0) {
+						assert smd instanceof ApplicationTerm;
+						addAllVarPos((ApplicationTerm) smd);
 					}
+				}
+			} else {
+				assert atom instanceof QuantEquality;
+				final QuantEquality eq = (QuantEquality) atom;
+				final Term lhs = eq.getLhs();
+				final Term rhs = eq.getRhs();
+				if (lhs instanceof TermVariable) {
+					if (lhs.getSort().getName() == "Int" && isNegated) {
+						if (rhs.getFreeVars().length == 0) { // (x = t) -> add t-1, t+1
+							final int pos = getVarIndex((TermVariable) lhs);
+							final VarInfo varInfo = mVarInfos[pos];
+							final SMTAffineTerm lowerAffine = new SMTAffineTerm(rhs);
+							lowerAffine.add(Rational.MONE);
+							final SMTAffineTerm upperAffine = new SMTAffineTerm(rhs);
+							upperAffine.add(Rational.ONE);
+							final Term lowerBound = lowerAffine.toTerm(rhs.getSort());
+							final Term upperBound = upperAffine.toTerm(rhs.getSort());
+							varInfo.addLowerGroundBound(
+									mQuantTheory.getClausifier().getSharedTerm(lowerBound, mSource));
+							varInfo.addUpperGroundBound(
+									mQuantTheory.getClausifier().getSharedTerm(upperBound, mSource));
+						}
+					}
+				}
+				else if (lhs.getFreeVars().length != 0) {
+					assert lhs instanceof ApplicationTerm;
+					addAllVarPos((ApplicationTerm) lhs);
+				}
+				if (!(rhs instanceof TermVariable) && rhs.getFreeVars().length != 0) {
+					assert rhs instanceof ApplicationTerm;
+					addAllVarPos((ApplicationTerm) rhs);
+				}
+			}
+		}
+	}
+
+	/**
+	 * For each variable in the given term, add the functions and positions where it appears as argument to the VarInfo.
+	 * 
+	 * TODO Nonrecursive.
+	 */
+	void addAllVarPos(ApplicationTerm qTerm) {
+		final FunctionSymbol func = qTerm.getFunction();
+		final Term[] args = qTerm.getParameters();
+		if (!func.isInterpreted()) {
+			for (int i = 0; i < args.length; i++) { // Check if all arguments are TermVariables or themselves EU terms
+				final Term arg = args[i];
+				if (arg instanceof TermVariable) {
+					final int index = getVarIndex((TermVariable) arg);
+					final VarInfo varInfo = mVarInfos[index];
+					varInfo.addPosition(func, i);
+				} else if (arg.getFreeVars().length != 0) {
+					assert arg instanceof ApplicationTerm;
+					addAllVarPos((ApplicationTerm) arg);
+				}
+			}
+		} else if (func.getName() == "+" || func.getName() == "-" || func.getName() == "*") {
+			// TODO What about select etc.?
+			final SMTAffineTerm affine = new SMTAffineTerm(qTerm);
+			for (final Term smd : affine.getSummands().keySet()) {
+				if (smd instanceof ApplicationTerm) {
+					addAllVarPos((ApplicationTerm) smd);
 				}
 			}
 		}
@@ -285,7 +331,6 @@ public class QuantClause {
 	 */
 	private void collectInitialInterestingTermsAllVars() {
 		for (int i = 0; i < mVars.length; i++) {
-			// TODO: lower or upper bounds or both?
 			addAllInteresting(mInterestingTermsForVars[i], mVarInfos[i].mLowerGroundBounds);
 			addAllInteresting(mInterestingTermsForVars[i], mVarInfos[i].mUpperGroundBounds);
 		}
@@ -300,7 +345,6 @@ public class QuantClause {
 		while (changed) {
 			changed = false;
 			for (int i = 0; i < mVars.length; i++) {
-				// TODO: lower or upper bounds or both?
 				for (TermVariable t : mVarInfos[i].mLowerVarBounds) {
 					int j = Arrays.asList(mVars).indexOf(t);
 					changed = addAllInteresting(mInterestingTermsForVars[i], mInterestingTermsForVars[j].values());
@@ -325,7 +369,7 @@ public class QuantClause {
 	 *            the number of the variable
 	 */
 	private void updateInterestingTermsOneVar(final TermVariable var, final int num) {
-		final VarInfo info = mVarInfos[getVarPos(var)];
+		final VarInfo info = mVarInfos[getVarIndex(var)];
 		assert info != null;
 
 		// Retrieve from CClosure all ground terms that appear under the same functions at the same positions as var
@@ -381,11 +425,6 @@ public class QuantClause {
 			}
 		}
 		return changed;
-	}
-
-	@Override
-	public String toString() {
-		return Arrays.toString(mGroundLits).concat(Arrays.toString(mQuantLits));
 	}
 
 	/**

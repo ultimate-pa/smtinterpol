@@ -743,6 +743,7 @@ public class Clausifier {
 					final Term rhs = at.getParameters()[1];
 
 					if (quantified) {
+						// TODO Find trivially true or false QuantLiterals.
 						lit = mQuantTheory.getQuantEquality(at, positive, mCollector.getSource(), lhs, rhs);
 					} else {
 						final SharedTerm slhs = getSharedTerm(lhs, mCollector.getSource());
@@ -1277,6 +1278,7 @@ public class Clausifier {
 	private final TermCompiler mCompiler = new TermCompiler();
 	private final OccurrenceCounter mOccCounter = new OccurrenceCounter();
 	private final Deque<Operation> mTodoStack = new ArrayDeque<>();
+	private int mAuxCounter = 0;
 
 	private final Theory mTheory;
 	private final DPLLEngine mEngine;
@@ -1687,7 +1689,7 @@ public class Clausifier {
 				freeVarsAsTerm[i] = freeVars[i];
 				paramTypes[i] = freeVars[i].getSort();
 			}
-			final FunctionSymbol fs = mTheory.declareInternalFunction("@AUX" + smtFormula.toString(), paramTypes,
+			final FunctionSymbol fs = mTheory.declareInternalFunction("@AUX" + (mAuxCounter++), paramTypes,
 					freeVars, smtFormula, FunctionSymbol.UNINTERPRETEDINTERNAL); // TODO change flag in the future
 			final ApplicationTerm auxTerm = mTheory.term(fs, freeVarsAsTerm);
 			if (mIsEprEnabled) {

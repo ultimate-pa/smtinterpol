@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 University of Freiburg
+ * Copyright (C) 2019 University of Freiburg
  *
  * This file is part of SMTInterpol.
  *
@@ -21,41 +21,29 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 
 /**
- * A QuantEUEquality is an equality EUTerm = EUTerm, where at least one side is not a GroundTerm.
+ * A quantified equality atom of the form "Term = Term".
+ * 
+ * If the equality contains a variable at top level, it is of the form "TermVariable = Term"
  *
  * @author Tanja Schindler
  *
  */
-public class QuantEUEquality extends QuantLiteral {
+public class QuantEquality extends QuantLiteral {
 
-	private final EUTerm mLhs;
-	private final EUTerm mRhs;
+	private final Term mLhs, mRhs;
 
-	/**
-	 * Create a new QuantEUEquality. This should only be called after checking that at least one of lhs and rhs contains
-	 * quantified variables.
-	 *
-	 * @param term
-	 *            the underlying equality term.
-	 * @param lhs
-	 *            the left hand side of the equality as an EUTerm.
-	 * @param rhs
-	 *            the right hand side of the equality as an EUTerm.
-	 */
-	QuantEUEquality(final Term term, final EUTerm lhs, final EUTerm rhs) {
+	public QuantEquality(final Term term, final Term lhs, final Term rhs) {
 		super(term);
-		assert !(lhs instanceof GroundTerm && rhs instanceof GroundTerm);
 		mLhs = lhs;
 		mRhs = rhs;
 		mNegated = new NegQuantLiteral(this);
 	}
 
-	EUTerm getLhs() {
+	public Term getLhs() {
 		return mLhs;
 	}
 
-	EUTerm getRhs() {
+	public Term getRhs() {
 		return mRhs;
 	}
-
 }

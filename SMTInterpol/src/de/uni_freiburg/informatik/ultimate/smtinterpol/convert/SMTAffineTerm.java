@@ -53,11 +53,6 @@ public final class SMTAffineTerm {
 		mConstant = Rational.ZERO;
 	}
 
-	public SMTAffineTerm(final Map<Term, Rational> summands, final Rational constant) {
-		mSummands = summands;
-		mConstant = constant;
-	}
-
 	public SMTAffineTerm(final Term term) {
 		this();
 		Term[] subterms;

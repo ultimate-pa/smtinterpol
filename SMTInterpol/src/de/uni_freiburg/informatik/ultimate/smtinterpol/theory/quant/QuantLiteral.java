@@ -25,8 +25,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ILiteral;
 /**
  * Represents a quantified literal.
  * <p>
- * It stores the term, as well as the underlying atom and the negated literal. As some literals are only supported in
- * negated form, this is also stored in the literal.
+ * It stores the term, as well as the underlying atom and the negated literal. It also stores whether the literal lies
+ * in the almost uninterpreted fragment.
  *
  * @author Tanja Schindler
  *
@@ -38,10 +38,14 @@ public abstract class QuantLiteral implements ILiteral {
 	 */
 	private final Term mTerm;
 	/**
-	 * Flag to mark if the QuantLiteral is supported (some are only supported in negated from). The default value is
-	 * true.
+	 * Flag to mark if the QuantLiteral lies in the almost uninterpreted fragment (some only do in negated from). The
+	 * default value is true.
 	 */
-	protected boolean mIsSupported;
+	protected boolean mIsAlmostUninterpreted;
+	/**
+	 * Flag to mark if the QuantLiteral can be used for DER.
+	 */
+	protected boolean mIsDERUsable;
 	/**
 	 * The underlying atom.
 	 */
@@ -61,7 +65,8 @@ public abstract class QuantLiteral implements ILiteral {
 	QuantLiteral(final Term term) {
 		mTerm = term;
 		mAtom = this;
-		mIsSupported = true; // Default value.
+		mIsAlmostUninterpreted = true; // Default value.
+		mIsDERUsable = false; // Default value.
 	}
 
 	public QuantLiteral negate() {
@@ -84,8 +89,8 @@ public abstract class QuantLiteral implements ILiteral {
 		return false;
 	}
 
-	public boolean isSupported() {
-		return mIsSupported;
+	public boolean isAlmostUninterpreted() {
+		return mIsAlmostUninterpreted;
 	}
 
 	public Term getSMTFormula(final Theory theory, final boolean quoted) {
