@@ -180,6 +180,8 @@ public class QuantifierTheory implements ITheory {
 	@Override
 	public Clause checkpoint() {
 		for (final QuantClause clause : mQuantClauses) {
+			if (mEngine.isTerminationRequested())
+				return null;
 			clause.updateInterestingTermsAllVars();
 		}
 		final Clause conflict =
@@ -615,6 +617,8 @@ public class QuantifierTheory implements ITheory {
 		}
 		boolean isConflict = true;
 		for (List<Literal> clause : instances) {
+			if (mEngine.isTerminationRequested())
+				return null;
 			boolean isTrueInst = false;
 			int numUndef = 0;
 			// Count the number of undefined literals

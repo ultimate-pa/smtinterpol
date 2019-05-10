@@ -73,6 +73,8 @@ public class InstantiationManager {
 			}
 			final Set<SharedTerm[]> allInstantiations = computeAllInstantiations(quantClause);
 			for (SharedTerm[] inst : allInstantiations) {
+				if (mClausifier.getEngine().isTerminationRequested())
+					return conflictAndUnitClauses;
 				final InstanceValue clauseValue = evaluateClauseInstance(quantClause, inst);
 				if (clauseValue != InstanceValue.TRUE) {
 					final Term[] termSubs = new Term[inst.length];
@@ -107,6 +109,8 @@ public class InstantiationManager {
 			final Set<SharedTerm[]> allInstantiations = computeAllInstantiations(quantClause);
 
 			outer: for (SharedTerm[] inst : allInstantiations) {
+				if (mClausifier.getEngine().isTerminationRequested())
+					return null;
 				final Term[] termSubs = new Term[inst.length];
 				for (int i = 0; i < inst.length; i++) {
 					termSubs[i] = inst[i].getTerm();
@@ -145,6 +149,8 @@ public class InstantiationManager {
 		for (int i = 0; i < quantClause.getVars().length; i++) {
 			Set<SharedTerm[]> partialSubs = new LinkedHashSet<SharedTerm[]>();
 			for (final SharedTerm[] oldSub : allSubs) {
+				if (mClausifier.getEngine().isTerminationRequested())
+					return null;
 				if (quantClause.getInterestingTerms()[i].isEmpty()) {
 					final SharedTerm[] newSub = Arrays.copyOf(oldSub, oldSub.length);
 					newSub[i] = null; // TODO Add lambda!
