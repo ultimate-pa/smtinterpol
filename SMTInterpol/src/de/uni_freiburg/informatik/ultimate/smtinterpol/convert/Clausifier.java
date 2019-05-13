@@ -812,6 +812,18 @@ public class Clausifier {
 				pushOperation(subCollector);
 				pushOperation(new CollectLiteral(mTracker.getProvedTerm(rewrite), subCollector));
 				return;
+			} else if (idx instanceof TermVariable) {
+				// TODO Find trivially true or false QuantLiterals.
+				Term value = positive ? mTheory.mFalse : mTheory.mTrue;
+				Term equality = mTheory.equals(idx, value);
+				ILiteral lit = mQuantTheory.getQuantEquality(equality, false, mCollector.getSource(), idx, value);
+				Term atomRewrite = mTracker.intern(idx, positive ? mTheory.not(equality) : equality);
+				if (positive) {
+					rewrite = mTracker.transitivity(rewrite, atomRewrite);
+				} else {
+					rewrite = mTracker.congruence(rewrite, new Term[] { atomRewrite });
+				}
+				mCollector.addLiteral(lit.negate(), rewrite);
 			} else {
 				throw new SMTLIBException("Cannot handle literal " + mLiteral);
 			}
