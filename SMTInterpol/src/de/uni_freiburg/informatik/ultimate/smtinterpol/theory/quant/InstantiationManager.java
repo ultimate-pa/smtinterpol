@@ -19,6 +19,7 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -150,7 +151,7 @@ public class InstantiationManager {
 			Set<SharedTerm[]> partialSubs = new LinkedHashSet<SharedTerm[]>();
 			for (final SharedTerm[] oldSub : allSubs) {
 				if (mClausifier.getEngine().isTerminationRequested())
-					return null;
+					return Collections.emptySet();
 				if (quantClause.getInterestingTerms()[i].isEmpty()) {
 					final SharedTerm[] newSub = Arrays.copyOf(oldSub, oldSub.length);
 					newSub[i] = null; // TODO Add lambda!
