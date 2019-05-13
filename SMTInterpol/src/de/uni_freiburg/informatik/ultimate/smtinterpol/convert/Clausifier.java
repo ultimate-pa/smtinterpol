@@ -512,6 +512,17 @@ public class Clausifier {
 					pushOperation(new AddAsAxiom(split, mSource));
 					return;
 				}
+			} else if (term instanceof QuantifiedFormula) {
+				final QuantifiedFormula qf = (QuantifiedFormula) term;
+				assert qf.getQuantifier() == QuantifiedFormula.EXISTS;
+				final Term converted = convertQuantifiedSubformula(positive, qf);
+				// FIXME: real proof rule?
+				Term rewrite = mTracker.buildRewrite(mAxiom, converted, ProofConstants.RW_SORRY);
+				if (isNotTerm(converted)) {
+					rewrite = mUtils.convertNot(rewrite);
+				}
+				pushOperation(new AddAsAxiom(rewrite, mSource));
+				return;
 			}
 			buildClause(mAxiom, mSource);
 		}
