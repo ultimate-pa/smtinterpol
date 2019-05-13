@@ -359,6 +359,7 @@ public class QuantifierTheory implements ITheory {
 			} else if (!(newRhs instanceof TermVariable)) { // (x != termwithoutx) can be used for DER
 				if (!Arrays.asList(newRhs.getFreeVars()).contains((TermVariable) newLhs)) {
 					atom.mIsAlmostUninterpreted = false;
+					atom.negate().mIsAlmostUninterpreted = false;
 					atom.negate().mIsDERUsable = true;
 				}
 			} else { // (iv) (var = var)
@@ -422,8 +423,10 @@ public class QuantifierTheory implements ITheory {
 				}
 			} else { // (var < var), (var < ground), or (ground < var) are almost uninterpreted
 				atom.mIsAlmostUninterpreted = false;
-				linTerm.add(hasUpperBound ? Rational.MONE : Rational.ONE, var);
-				final Term remainder = linTerm.toTerm(lhs.getSort());
+				final SMTAffineTerm remainderAff = new SMTAffineTerm();
+				remainderAff.add(linTerm);
+				remainderAff.add(hasUpperBound ? Rational.MONE : Rational.ONE, var);
+				final Term remainder = remainderAff.toTerm(lhs.getSort());
 				if (!(remainder instanceof TermVariable) && !(remainder.getFreeVars().length == 0)) {
 					atom.negate().mIsAlmostUninterpreted = false;
 				}

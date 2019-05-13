@@ -232,6 +232,9 @@ public class QuantClause {
 							final SMTAffineTerm remainder = new SMTAffineTerm();
 							remainder.add(lhs);
 							remainder.add(fac.negate(), smd);
+							if (!fac.isNegative()) {
+								remainder.mul(Rational.MONE);
+							}
 							final Term remainderTerm = remainder.toTerm(smd.getSort());
 							if (remainderTerm.getFreeVars().length == 0) {
 								final int pos = getVarIndex((TermVariable) smd);
@@ -241,7 +244,7 @@ public class QuantClause {
 											mQuantTheory.getClausifier().getSharedTerm(remainderTerm, mSource));
 								} else {
 									varInfo.addLowerGroundBound(mQuantTheory.getClausifier()
-											.getSharedTerm(remainder.toTerm(smd.getSort()), mSource));
+											.getSharedTerm(remainderTerm, mSource));
 								}
 							} else if (remainderTerm instanceof TermVariable) {
 								final int pos = getVarIndex((TermVariable) smd);
