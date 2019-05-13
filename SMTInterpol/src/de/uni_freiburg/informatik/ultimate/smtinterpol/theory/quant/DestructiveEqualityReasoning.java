@@ -139,6 +139,7 @@ class DestructiveEqualityReasoning {
 	 * (ii) Find a substitution for all variables without ground substitution, but don't build cycles.
 	 */
 	private void collectSubstitution() {
+		final Map<TermVariable, Term> groundAndVarSubsForVar = new LinkedHashMap<>();
 		final Map<TermVariable, List<Term>> potentialSubsForVar = new LinkedHashMap<>();
 		// Step 1:
 		for (QuantLiteral qLit : mQuantLits) {
@@ -151,7 +152,7 @@ class DestructiveEqualityReasoning {
 				final Term rhs = varEq.getRhs();
 				if (varRep instanceof TermVariable) {
 					if (rhs.getFreeVars().length == 0 || rhs instanceof TermVariable) { // (i)
-						mSigma.put((TermVariable) varRep, rhs);
+						groundAndVarSubsForVar.put((TermVariable) varRep, rhs);
 					} else { // (iii)
 						if (!potentialSubsForVar.containsKey(varRep)) {
 							potentialSubsForVar.put(var, new ArrayList<Term>());
@@ -162,7 +163,7 @@ class DestructiveEqualityReasoning {
 					if (rhs instanceof TermVariable) {
 						final Term otherVarRep = findRep((TermVariable) rhs);
 						if (otherVarRep instanceof TermVariable) { // (ii)
-							mSigma.put((TermVariable) otherVarRep, varRep);
+							groundAndVarSubsForVar.put((TermVariable) otherVarRep, varRep);
 						}
 					}
 				}
@@ -170,9 +171,9 @@ class DestructiveEqualityReasoning {
 		}
 
 		// Step 2 (i):
-		if (!mSigma.isEmpty()) {
+		if (!groundAndVarSubsForVar.isEmpty()) {
 			final Set<TermVariable> visited = new HashSet<>();
-			for (final TermVariable var : mSigma.keySet()) {
+			for (final TermVariable var : groundAndVarSubsForVar.keySet()) {
 				if (!visited.contains(var)) {
 					final Set<TermVariable> varsWithSameSubs = new HashSet<>();
 					Term subs = var;
@@ -184,9 +185,7 @@ class DestructiveEqualityReasoning {
 						}
 					}
 					for (final TermVariable equiVar : varsWithSameSubs) {
-						if (equiVar == subs) { // Don't use a substitution x->x.
-							mSigma.remove(equiVar);
-						} else {
+						if (equiVar != subs) { // Don't use a substitution x->x.
 							mSigma.put(equiVar, subs);
 							if (!(subs instanceof TermVariable)) {
 								potentialSubsForVar.remove(equiVar);
