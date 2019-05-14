@@ -391,11 +391,11 @@ public class QuantifierTheory implements ITheory {
 			boolean hasUpperBound = false;
 			for (final Term smd : linTerm.getSummands().keySet()) {
 				if (smd instanceof TermVariable) {
-					if (linTerm.getSummands().get(smd) == Rational.ONE) {
+					if (linTerm.getSummands().get(smd) == Rational.MONE) {
 						var = (TermVariable) smd;
 						hasUpperBound = true;
 						break;
-					} else if (linTerm.getSummands().get(smd) == Rational.MONE) {
+					} else if (linTerm.getSummands().get(smd) == Rational.ONE) {
 						var = (TermVariable) smd;
 						hasUpperBound = false;
 						break;
@@ -425,7 +425,10 @@ public class QuantifierTheory implements ITheory {
 				atom.mIsAlmostUninterpreted = false;
 				final SMTAffineTerm remainderAff = new SMTAffineTerm();
 				remainderAff.add(linTerm);
-				remainderAff.add(hasUpperBound ? Rational.MONE : Rational.ONE, var);
+				remainderAff.add(hasUpperBound ? Rational.ONE : Rational.MONE, var);
+				if (!hasUpperBound) {
+					remainderAff.negate();
+				}
 				final Term remainder = remainderAff.toTerm(lhs.getSort());
 				if (!(remainder instanceof TermVariable) && !(remainder.getFreeVars().length == 0)) {
 					atom.negate().mIsAlmostUninterpreted = false;
