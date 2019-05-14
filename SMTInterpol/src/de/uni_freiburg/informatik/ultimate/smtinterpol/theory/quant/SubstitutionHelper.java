@@ -22,10 +22,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
@@ -123,35 +121,25 @@ public class SubstitutionHelper {
 				mQuantTheory.getTheory().term("or", substitutedLits.toArray(new Term[substitutedLits.size()]));
 		// TODO Proof production.
 
-		// Simplify and build the clause term.
-		final Set<Term> uniqueSubstitutedLitTerms = new LinkedHashSet<>();
-		for (final Term litTerm : substitutedLits) {
-			if (litTerm != mQuantTheory.getTheory().mFalse) {
-				if (!uniqueSubstitutedLitTerms.contains(mQuantTheory.getTheory().not(litTerm))) {
-					uniqueSubstitutedLitTerms.add(litTerm);
-				} else { // Clause simplifies to true
-					mResultingGroundLits = null;
-					mResultingQuantLits = null;
-					mResultingClauseTerm = mQuantTheory.getTheory().mTrue;
-					return;
-				}
-			}
-		}
-		assert uniqueSubstitutedLitTerms.containsAll(originalGroundLits);
-		final Term disjunctionOfUniqueSubstitutedLits = mQuantTheory.getTheory()
-				.or(uniqueSubstitutedLitTerms.toArray(new Term[uniqueSubstitutedLitTerms.size()]));
-		// TODO Proof production.
-
 		// Build the new literals. Separate ground and quantified literals.
+		// Simplify true clauses and remove false literals.
 		final ArrayList<Literal> resultingGroundLits = new ArrayList<>();
 		final ArrayList<QuantLiteral> resultingQuantLits = new ArrayList<>();
-		resultingGroundLits.addAll(Arrays.asList(mGroundLits));
-		for (final Term litTerm : uniqueSubstitutedLitTerms) {
+		resultingGroundLits.addAll(Arrays.asList(mGroundLits)); // Ground literals remain the same.
+		for (final Term litTerm : substitutedLits) {
 			if (unchangedLits.containsKey(litTerm)) {
 				if (litTerm.getFreeVars().length == 0) {
 					assert resultingGroundLits.contains(unchangedLits.get(litTerm));
-				} else {
-					resultingQuantLits.add((QuantLiteral) unchangedLits.get(litTerm));
+				} else { // Add unchanged quantified literal.
+					final QuantLiteral oldQuantLit = (QuantLiteral) unchangedLits.get(litTerm);
+					if (resultingQuantLits.contains(oldQuantLit.negate())) { // Clause simplifies to true
+						mResultingGroundLits = null;
+						mResultingQuantLits = null;
+						mResultingClauseTerm = mQuantTheory.getTheory().mTrue;
+						return;
+					} else if (!resultingQuantLits.contains(oldQuantLit)) {
+						resultingQuantLits.add(oldQuantLit);
+					}
 				}
 			} else {
 				final ILiteral newAtom;
@@ -196,10 +184,27 @@ public class SubstitutionHelper {
 					assert eq != EqualityProxy.getTrueProxy() && eq != EqualityProxy.getFalseProxy();
 					newAtom = eq.getLiteral(mSource);
 				}
-				if (newAtom instanceof Literal) {
-					resultingGroundLits.add((Literal) (isPos ? newAtom : newAtom.negate()));
+				final ILiteral newLiteral = isPos ? newAtom : newAtom.negate();
+				if (newLiteral instanceof Literal) {
+					final Literal newGroundLit = (Literal) newLiteral;
+					if (resultingGroundLits.contains(newGroundLit.negate())) { // Clause simplifies to true
+						mResultingGroundLits = null;
+						mResultingQuantLits = null;
+						mResultingClauseTerm = mQuantTheory.getTheory().mTrue;
+						return;
+					} else if (!resultingGroundLits.contains(newGroundLit)) {
+						resultingGroundLits.add(newGroundLit);
+					}
 				} else {
-					resultingQuantLits.add((QuantLiteral) (isPos ? newAtom : newAtom.negate()));
+					final QuantLiteral newQuantLit = (QuantLiteral) newLiteral;
+					if (resultingQuantLits.contains(newQuantLit.negate())) { // Clause simplifies to true
+						mResultingGroundLits = null;
+						mResultingQuantLits = null;
+						mResultingClauseTerm = mQuantTheory.getTheory().mTrue;
+						return;
+					} else if (!resultingQuantLits.contains(newQuantLit)) {
+						resultingQuantLits.add(newQuantLit);
+					}
 				}
 			}
 		}
