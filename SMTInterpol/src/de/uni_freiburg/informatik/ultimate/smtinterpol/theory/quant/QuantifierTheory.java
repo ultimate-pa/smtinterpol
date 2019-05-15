@@ -90,7 +90,7 @@ public class QuantifierTheory implements ITheory {
 	private final Map<Literal, Set<InstClause>> mPotentialConflictAndUnitClauses;
 
 	// Statistics
-	private long mConflictCount, mPropCount, mFinalCount;
+	private long mDERGroundCount, mConflictCount, mPropCount, mFinalCount;
 
 	public QuantifierTheory(final Theory th, final DPLLEngine engine, final Clausifier clausifier) {
 		mClausifier = clausifier;
@@ -108,7 +108,7 @@ public class QuantifierTheory implements ITheory {
 
 		mPotentialConflictAndUnitClauses = new LinkedHashMap<>();
 
-		mConflictCount = mPropCount = mFinalCount = 0;
+		mDERGroundCount = mConflictCount = mPropCount = mFinalCount = 0;
 	}
 
 	@Override
@@ -240,6 +240,7 @@ public class QuantifierTheory implements ITheory {
 
 	@Override
 	public void printStatistics(LogProxy logger) {
+		logger.info("Quant: DER produced " + mDERGroundCount + " ground clause(s).");
 		logger.info("Quant: Conflicts: " + mConflictCount + " Props: " + mPropCount + " Final Checks: " + mFinalCount);
 
 	}
@@ -463,6 +464,7 @@ public class QuantifierTheory implements ITheory {
 			final QuantLiteral[] quantLitsAfterDER = der.getQuantLitsAfterDER();
 			if (quantLitsAfterDER.length == 0 && mLogger.isDebugEnabled()) {
 				mLogger.debug("Quant: DER returned ground clause.");
+				mDERGroundCount++;
 			}
 			litsAfterDER.addAll(Arrays.asList(groundLitsAfterDER));
 			litsAfterDER.addAll(Arrays.asList(quantLitsAfterDER));

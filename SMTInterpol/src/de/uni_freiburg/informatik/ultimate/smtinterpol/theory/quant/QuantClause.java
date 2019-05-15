@@ -304,7 +304,7 @@ public class QuantClause {
 	void addAllVarPos(ApplicationTerm qTerm) {
 		final FunctionSymbol func = qTerm.getFunction();
 		final Term[] args = qTerm.getParameters();
-		if (!func.isInterpreted()) {
+		if (!func.isInterpreted() || func.getName() == "select") {
 			for (int i = 0; i < args.length; i++) { // Check if all arguments are TermVariables or themselves EU terms
 				final Term arg = args[i];
 				if (arg instanceof TermVariable) {
@@ -317,7 +317,6 @@ public class QuantClause {
 				}
 			}
 		} else if (func.getName() == "+" || func.getName() == "-" || func.getName() == "*") {
-			// TODO What about select etc.?
 			final SMTAffineTerm affine = new SMTAffineTerm(qTerm);
 			for (final Term smd : affine.getSummands().keySet()) {
 				if (smd instanceof ApplicationTerm) {
