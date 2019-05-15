@@ -180,8 +180,8 @@ class DestructiveEqualityReasoning {
 					while (subs instanceof TermVariable && !visited.contains(subs)) {
 						visited.add((TermVariable) subs);
 						varsWithSameSubs.add((TermVariable) subs);
-						if (mSigma.containsKey(subs)) {
-							subs = mSigma.get(subs);
+						if (groundAndVarSubsForVar.containsKey(subs)) {
+							subs = groundAndVarSubsForVar.get(subs);
 						}
 					}
 					for (final TermVariable equiVar : varsWithSameSubs) {
