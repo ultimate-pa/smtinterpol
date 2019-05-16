@@ -38,7 +38,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClauseState;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.InfinitesimalNumber;
 
 /**
@@ -69,7 +68,7 @@ public class InstantiationManager {
 	public Set<List<Literal>> findConflictAndUnitInstances() {
 		final Set<List<Literal>> conflictAndUnitClauses = new LinkedHashSet<>();
 		for (QuantClause quantClause : mQuantTheory.getQuantClauses()) {
-			if (quantClause.getState() == EprClauseState.Fulfilled) {
+			if (quantClause.getNumCurrentTrueLits() > 0) {
 				continue;
 			}
 			final Set<SharedTerm[]> allInstantiations = computeAllInstantiations(quantClause);
@@ -104,7 +103,7 @@ public class InstantiationManager {
 	 */
 	public Clause instantiateAll() {
 		for (QuantClause quantClause : mQuantTheory.getQuantClauses()) {
-			if (quantClause.getState() == EprClauseState.Fulfilled) {
+			if (quantClause.getNumCurrentTrueLits() > 0) {
 				continue;
 			}
 			final Set<SharedTerm[]> allInstantiations = computeAllInstantiations(quantClause);
@@ -187,7 +186,7 @@ public class InstantiationManager {
 		// Check ground literals first.
 		for (Literal groundLit : quantClause.getGroundLits()) {
 			if (groundLit.getAtom().getDecideStatus() == groundLit) {
-				assert quantClause.getState() == EprClauseState.Fulfilled;
+				assert quantClause.getNumCurrentTrueLits() > 0;
 				return InstanceValue.TRUE;
 			} else if (groundLit.getAtom().getDecideStatus() == null) {
 				clauseValue.combine(InstanceValue.ONE_UNDEF);

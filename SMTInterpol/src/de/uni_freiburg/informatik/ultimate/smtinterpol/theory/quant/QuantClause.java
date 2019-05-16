@@ -37,7 +37,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SharedTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClauseState;
 
 /**
  * Represents a clause in the QuantifierTheory. This means, it contains at least one literal with an (implicitly)
@@ -75,7 +74,7 @@ public class QuantClause {
 	/**
 	 * Indicates whether this clause is already true because one of the ground literals is.
 	 */
-	private EprClauseState mClauseState;
+	private int mNumCurrentTrueLits;
 
 	/**
 	 * Build a new QuantClause. At least one literal must not be ground. This should only be called after performing
@@ -111,7 +110,7 @@ public class QuantClause {
 		collectInitialInterestingTermsAllVars();
 
 		// mInstantiations = new ScopedHashSet<>();
-		mClauseState = EprClauseState.Normal;
+		mNumCurrentTrueLits = 0;
 	}
 
 	/**
@@ -152,8 +151,8 @@ public class QuantClause {
 	// return mInstantiations;
 	// }
 
-	public EprClauseState getState() {
-		return mClauseState;
+	public int getNumCurrentTrueLits() {
+		return mNumCurrentTrueLits;
 	}
 
 	@Override
@@ -175,8 +174,12 @@ public class QuantClause {
 		// mInstantiations.endScope();
 	}
 
-	void setState(EprClauseState state) {
-		mClauseState = state;
+	void incrNumCurrentTrueLits() {
+		mNumCurrentTrueLits++;
+	}
+
+	void decrNumCurrentTrueLits() {
+		mNumCurrentTrueLits--;
 	}
 
 	// void addInstance(List<SharedTerm> inst) {

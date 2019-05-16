@@ -32,7 +32,6 @@ import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClauseState;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantLiteral.NegQuantLiteral;
 
 /**
@@ -55,7 +54,7 @@ class DestructiveEqualityReasoning {
 
 	private Map<TermVariable, Term> mSigma;
 	private boolean mIsChanged;
-	private EprClauseState mState;
+	private boolean mIsTriviallyTrue;
 	private Literal[] mGroundLitsAfterDER;
 	private QuantLiteral[] mQuantLitsAfterDER;
 
@@ -70,7 +69,7 @@ class DestructiveEqualityReasoning {
 
 		mSigma = new LinkedHashMap<>();
 		mIsChanged = false;
-		mState = EprClauseState.Normal;
+		mIsTriviallyTrue = false;
 	}
 
 	/**
@@ -96,8 +95,8 @@ class DestructiveEqualityReasoning {
 	 * @return Fullfilled, if the clause is trivially true; Conflict, if the clause is trivially false; Normal
 	 *         otherwise.
 	 */
-	public EprClauseState getState() {
-		return mState;
+	public boolean isTriviallyTrue() {
+		return mIsTriviallyTrue;
 	}
 
 	/**
@@ -106,7 +105,7 @@ class DestructiveEqualityReasoning {
 	 * @return an array containing the ground literals after DER. Can have length 0.
 	 */
 	Literal[] getGroundLitsAfterDER() {
-		assert mState != EprClauseState.Fulfilled : "Should never be called on trivially true clauses!";
+		assert !mIsTriviallyTrue : "Should never be called on trivially true clauses!";
 		if (!mIsChanged) {
 			return mGroundLits;
 		}
@@ -119,7 +118,7 @@ class DestructiveEqualityReasoning {
 	 * @return an array containing the quantified literals after DER. Can have length 0.
 	 */
 	QuantLiteral[] getQuantLitsAfterDER() {
-		assert mState != EprClauseState.Fulfilled : "Should never be called on trivially true clauses!";
+		assert !mIsTriviallyTrue : "Should never be called on trivially true clauses!";
 		if (!mIsChanged) {
 			return mQuantLits;
 		}
@@ -264,7 +263,7 @@ class DestructiveEqualityReasoning {
 		mQuantLitsAfterDER = subsHelper.getResultingQuantLits();
 		
 		if (subsHelper.getResultingClauseTerm() == mQuantTheory.getTheory().mTrue) {
-			mState = EprClauseState.Fulfilled;
+			mIsTriviallyTrue = true;
 		}
 	}
 }

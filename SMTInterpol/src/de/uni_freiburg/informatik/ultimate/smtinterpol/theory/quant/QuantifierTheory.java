@@ -46,7 +46,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ITheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.clauses.EprClauseState;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinArSolve;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
 
@@ -128,7 +127,7 @@ public class QuantifierTheory implements ITheory {
 		// Mark clauses that are true due to this literal.
 		for (final QuantClause quantClause : mQuantClauses) {
 			if (Arrays.asList(quantClause.getGroundLits()).contains(literal)) {
-				quantClause.setState(EprClauseState.Fulfilled);
+				quantClause.incrNumCurrentTrueLits();
 			}
 		}
 		if (mPotentialConflictAndUnitClauses.containsKey(literal)) {
@@ -165,7 +164,7 @@ public class QuantifierTheory implements ITheory {
 	public void backtrackLiteral(Literal literal) {
 		for (final QuantClause clause : mQuantClauses) {
 			if (Arrays.asList(clause.getGroundLits()).contains(literal)) {
-				clause.setState(EprClauseState.Normal);
+				clause.decrNumCurrentTrueLits();
 			}
 		}
 		for (final Literal lit : mPotentialConflictAndUnitClauses.keySet()) {
@@ -309,9 +308,9 @@ public class QuantifierTheory implements ITheory {
 	 * This method builds new QuantEqualities and simultaneously checks if they lie in the almost uninterpreted
 	 * fragment, i.e., if they are of the form (i) (euEUTerm = euTerm), pos. and neg. or (ii) (var = ground), integer
 	 * only, or if they can be used for DER, i.e. (var != term[withoutthisvar])
-	 * 
-	 * This method also brings equality atoms in the form (var = term), if there exists a TermVariable at top level.
-	 * TODO Do we really want this?
+	 * <p>
+	 * This method also brings equality atoms in the form (var = term), if there exists a TermVariable at top level. For
+	 * integers, only if the variable has factor ±1; for reals always.
 	 */
 	public QuantLiteral getQuantEquality(final Term term, final boolean positive, final SourceAnnotation source,
 			final Term lhs, final Term rhs) {
@@ -331,19 +330,27 @@ public class QuantifierTheory implements ITheory {
 			} else {
 				SMTAffineTerm linAdded = SMTAffineTerm.create(lhs);
 				linAdded.add(Rational.MONE, SMTAffineTerm.create(rhs));
+				Rational fac = Rational.ONE;
 				for (final Term smd : linAdded.getSummands().keySet()) {
 					if (smd instanceof TermVariable) {
-						if (linAdded.getSummands().get(smd).abs() == Rational.ONE) {
-							// Isolate first found variable (if exists).
+						fac = linAdded.getSummands().get(smd);
+						if (smd.getSort().getName() == "Real") {
 							newLhs = smd;
-							if (linAdded.getSummands().get(smd) == Rational.ONE) {
-								linAdded.add(Rational.MONE, smd);
-								linAdded.negate();
-							} else {
-								linAdded.add(Rational.ONE, smd);
-							}
+							linAdded.add(fac.negate(), smd);
+							linAdded.mul(fac.negate());
 							newRhs = linAdded.toTerm(lhs.getSort());
 							break;
+						} else {
+							if (fac.abs() == Rational.ONE) {
+								// Isolate first found variable (if exists).
+								newLhs = smd;
+								linAdded.add(fac.negate(), smd);
+								if (fac == Rational.ONE) {
+									linAdded.negate();
+								}
+								newRhs = linAdded.toTerm(lhs.getSort());
+								break;
+							}
 						}
 					}
 				}
@@ -376,10 +383,11 @@ public class QuantifierTheory implements ITheory {
 	 * This method builds new QuantInequalities and simultaneously checks if they lie in the almost uninterpreted
 	 * fragment, i.e., if they are of the form (i) (eu <= 0), pos. and neg., (ii) (var < var), (iii) (var < ground), or
 	 * (iv) (ground < var).
-	 * 
+	 * <p>
+	 * For integers x, positive (x-t<=0) are rewritten into ~(t+1<=x), or more precisely, ~(-x+t+1<=0). For reals x, we
+	 * normalize atoms (kx-t<= 0) to get (±x-t<=0).
+	 * <p>
 	 * TODO Offsets? (See paper)
-	 * 
-	 * Note that positive (x-t<=0) can be rewritten into ~(t+1<=x), or more precisely, ~(-x+t+1<=0) for x integer.
 	 */
 	public QuantLiteral getQuantInequality(final Term term, final boolean positive, final SourceAnnotation source,
 			final Term lhs) {
@@ -389,17 +397,29 @@ public class QuantifierTheory implements ITheory {
 		if (atom == null) {
 			final SMTAffineTerm linTerm = SMTAffineTerm.create(lhs);
 			TermVariable var = null;
+			Rational fac = Rational.ONE;
 			boolean hasUpperBound = false;
 			for (final Term smd : linTerm.getSummands().keySet()) {
 				if (smd instanceof TermVariable) {
-					if (linTerm.getSummands().get(smd) == Rational.MONE) {
+					fac = linTerm.getSummands().get(smd);
+					if (smd.getSort().getName() == "Real") { // In the real case, we normalize the term for this var.
 						var = (TermVariable) smd;
-						hasUpperBound = true;
+						if (linTerm.getSummands().get(smd).isNegative()) {
+							hasUpperBound = true;
+						} else {
+							hasUpperBound = false;
+						}
 						break;
-					} else if (linTerm.getSummands().get(smd) == Rational.ONE) {
-						var = (TermVariable) smd;
-						hasUpperBound = false;
-						break;
+					} else {
+						if (fac == Rational.MONE) {
+							var = (TermVariable) smd;
+							hasUpperBound = true;
+							break;
+						} else if (fac == Rational.ONE) {
+							var = (TermVariable) smd;
+							hasUpperBound = false;
+							break;
+						}
 					}
 				}
 			}
@@ -409,6 +429,9 @@ public class QuantifierTheory implements ITheory {
 				rewrite = true;
 				linTerm.negate();
 				linTerm.add(Rational.ONE);
+			} else if (var != null && lhs.getSort().getName() == "Real") {
+				// var should have coefficient 1 or -1.
+				linTerm.div(fac.abs());
 			}
 
 			final Term newTerm = mTheory.term("<=", linTerm.toTerm(lhs.getSort()), Rational.ZERO.toTerm(lhs.getSort()));
@@ -457,7 +480,7 @@ public class QuantifierTheory implements ITheory {
 				new DestructiveEqualityReasoning(this, groundLits, quantLits, source);
 		final ArrayList<ILiteral> litsAfterDER = new ArrayList<>();
 		if (der.applyDestructiveEqualityReasoning()) {
-			if (der.getState() == EprClauseState.Fulfilled) {
+			if (der.isTriviallyTrue()) {
 				return null; // Don't add trivially true clauses.
 			}
 			final Literal[] groundLitsAfterDER = der.getGroundLitsAfterDER();
@@ -600,7 +623,7 @@ public class QuantifierTheory implements ITheory {
 	 */
 	private void checkCompleteness() {
 		for (final QuantClause qClause : mQuantClauses) {
-			if (qClause.getState() != EprClauseState.Fulfilled) {
+			if (qClause.getNumCurrentTrueLits() == 0) {
 				for (final QuantLiteral qLit : qClause.getQuantLits()) {
 					if (!qLit.isAlmostUninterpreted()) {
 						mEngine.setCompleteness(2);
