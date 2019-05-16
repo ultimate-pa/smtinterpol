@@ -327,8 +327,35 @@ public class FormulaLet extends NonRecursive {
 				final QuantifiedFormula quant = (QuantifiedFormula) term;
 				// enqueue the final walker that rebuilds the quantified term again.
 				let.enqueueWalker(new BuildQuantifier(quant));
-				// enqueue a new letter for the sub formula.
-				let.enqueueWalker(new Letter(quant.getSubformula()));
+				Term sub = quant.getSubformula();
+				if (sub instanceof AnnotatedTerm) {
+					// avoid separating a pattern annotation from its quantifier. We do not let the terms in the
+					// pattern annotation
+					AnnotatedTerm at = (AnnotatedTerm) sub;
+					// enqueue the final walker that rebuilds the annotated term again.
+					let.enqueueWalker(new BuildAnnotatedTerm(at));
+					// recursively walk the annotation and push the contained terms.
+					let.enqueueWalker(new Letter(at.getSubterm()));
+					final ArrayDeque<Object> todo = new ArrayDeque<>();
+					for (Annotation annot : at.getAnnotations()) {
+						if (annot.getValue() != null) {
+							todo.add(annot.getValue());
+						}
+					}
+					while (!todo.isEmpty()) {
+						Object value = todo.removeFirst();
+						if (value instanceof Term) {
+							let.mResultStack.addLast((Term) value);
+						} else if (value instanceof Object[]) {
+							for (Object elem : (Object[]) value) {
+								todo.add(elem);
+							}
+						}
+					}
+				} else {
+					// enqueue a new letter for the sub formula.
+					let.enqueueWalker(new Letter(quant.getSubformula()));
+				}
 			} else if (term instanceof AnnotatedTerm) {
 				final AnnotatedTerm at = (AnnotatedTerm) term;
 				// enqueue the final walker that rebuilds the annotated term again.
