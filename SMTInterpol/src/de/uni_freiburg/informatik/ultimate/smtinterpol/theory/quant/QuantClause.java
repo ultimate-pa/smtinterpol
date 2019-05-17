@@ -217,8 +217,6 @@ public class QuantClause {
 	 * and positions where the variable appears as argument.
 	 * 
 	 * TODO What about offsets? (See paper)
-	 * 
-	 * TODO Check names: "lower" and "upper" var.
 	 */
 	private void collectVarInfos() {
 		for (final QuantLiteral lit : mQuantLits) {
@@ -308,7 +306,7 @@ public class QuantClause {
 		final FunctionSymbol func = qTerm.getFunction();
 		final Term[] args = qTerm.getParameters();
 		if (!func.isInterpreted() || func.getName() == "select") {
-			for (int i = 0; i < args.length; i++) { // Check if all arguments are TermVariables or themselves EU terms
+			for (int i = 0; i < args.length; i++) {
 				final Term arg = args[i];
 				if (arg instanceof TermVariable) {
 					final int index = getVarIndex((TermVariable) arg);
@@ -338,6 +336,8 @@ public class QuantClause {
 		for (int i = 0; i < mVars.length; i++) {
 			addAllInteresting(mInterestingTermsForVars[i], mVarInfos[i].mLowerGroundBounds);
 			addAllInteresting(mInterestingTermsForVars[i], mVarInfos[i].mUpperGroundBounds);
+			final SharedTerm lambda = mQuantTheory.getLambda(mVars[i].getSort());
+			mInterestingTermsForVars[i].put(lambda, lambda);
 		}
 		synchronizeInterestingTermsAllVars();
 	}

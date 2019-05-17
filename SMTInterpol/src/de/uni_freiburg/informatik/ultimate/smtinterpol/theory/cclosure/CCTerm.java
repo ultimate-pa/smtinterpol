@@ -618,4 +618,8 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 	public Term toSMTTerm(Theory t) {
 		return new CCTermConverter(t).convert(this);
 	}
+
+	public int getNumMembers() {
+		return mNumMembers;
+	}
 }

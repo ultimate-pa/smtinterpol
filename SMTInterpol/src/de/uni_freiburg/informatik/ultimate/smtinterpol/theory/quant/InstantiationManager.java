@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -149,17 +150,14 @@ public class InstantiationManager {
 		for (int i = 0; i < quantClause.getVars().length; i++) {
 			Set<SharedTerm[]> partialSubs = new LinkedHashSet<SharedTerm[]>();
 			for (final SharedTerm[] oldSub : allSubs) {
-				if (mClausifier.getEngine().isTerminationRequested())
+				if (mClausifier.getEngine().isTerminationRequested()) {
 					return Collections.emptySet();
-				if (quantClause.getInterestingTerms()[i].isEmpty()) {
+				}
+				assert !quantClause.getInterestingTerms()[i].isEmpty();
+				for (final SharedTerm ground : quantClause.getInterestingTerms()[i].values()) {
 					final SharedTerm[] newSub = Arrays.copyOf(oldSub, oldSub.length);
-					newSub[i] = null; // TODO Add lambda!
-				} else {
-					for (final SharedTerm ground : quantClause.getInterestingTerms()[i].values()) {
-						final SharedTerm[] newSub = Arrays.copyOf(oldSub, oldSub.length);
-						newSub[i] = ground;
-						partialSubs.add(newSub);
-					}
+					newSub[i] = ground;
+					partialSubs.add(newSub);
 				}
 			}
 			allSubs.clear();
@@ -223,7 +221,7 @@ public class InstantiationManager {
 				// for left and right.
 			} else {
 				final QuantBoundConstraint ineq = (QuantBoundConstraint) atom;
-				final SMTAffineTerm lhs = findEquivalentShared(ineq.getAffineTerm(), quantClause.getSource(),
+				final SMTAffineTerm lhs = findEquivalentGroundAffine(ineq.getAffineTerm(), quantClause.getSource(),
 						quantClause.getVars(), instantiation);
 				if (lhs == null) {
 					litValue = InstanceValue.ONE_UNDEF;
@@ -292,7 +290,7 @@ public class InstantiationManager {
 			assert term instanceof ApplicationTerm;
 			final ApplicationTerm appTerm = (ApplicationTerm) term;
 			final FunctionSymbol func = appTerm.getFunction();
-			if (!func.isInterpreted()) {
+			if (!func.isInterpreted() || func.getName() == "select") {
 				final Term [] args = appTerm.getParameters();
 				final Term[] instArgs = new Term[args.length];
 				for (int i = 0; i < args.length; i++) {
@@ -319,16 +317,26 @@ public class InstantiationManager {
 					return null;
 				}
 			} else {
-				// TODO "+", "*", "-". What about select etc.?
+				// TODO
 				return null;
 			}
 		}
 	}
 
-	private SMTAffineTerm findEquivalentShared(final SMTAffineTerm smtAff, final SourceAnnotation source,
+	private SMTAffineTerm findEquivalentGroundAffine(final SMTAffineTerm smtAff, final SourceAnnotation source,
 			final TermVariable[] vars, final SharedTerm[] instantiation) {
-		// TODO
-		return null;
+		final Map<TermVariable, Term> sigma = new LinkedHashMap<>();
+		for (int i = 0; i < vars.length; i++) {
+			sigma.put(vars[i], instantiation[i].getTerm());
+		}
+		final SMTAffineTerm instAff = new SMTAffineTerm();
+		final FormulaUnLet unletter = new FormulaUnLet();
+		unletter.addSubstitutions(sigma);
+		for (final Term smd : smtAff.getSummands().keySet()) {
+			final Term inst = unletter.transform(smd);
+			instAff.add(smtAff.getSummands().get(smd), inst);
+		}
+		return instAff;
 	}
 
 	/**
@@ -352,7 +360,7 @@ public class InstantiationManager {
 			} else if (mQuantTheory.getCClosure().isDiseqSet(leftCC, rightCC)) {
 				return InstanceValue.FALSE;
 			}
-		} else {
+		} else if (left.getSort().isNumericSort()) {
 			final SMTAffineTerm smtAff = new SMTAffineTerm(left.getTerm());
 			smtAff.add(Rational.MONE, right.getTerm());
 			final InfinitesimalNumber upperBound = mQuantTheory.mLinArSolve.getUpperBound(mClausifier, smtAff);

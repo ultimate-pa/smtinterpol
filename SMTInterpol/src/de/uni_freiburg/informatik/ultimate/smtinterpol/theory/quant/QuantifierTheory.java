@@ -32,12 +32,14 @@ import java.util.Set;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
+import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SharedTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
@@ -45,6 +47,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ILiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ITheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinArSolve;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
@@ -68,6 +71,7 @@ public class QuantifierTheory implements ITheory {
 	final LinArSolve mLinArSolve;
 
 	private final InstantiationManager mInstantiationManager;
+	private final Map<Sort, SharedTerm> mLambdas;
 
 	/**
 	 * The quantified literals built so far.
@@ -101,6 +105,7 @@ public class QuantifierTheory implements ITheory {
 		mLinArSolve = clausifier.getLASolver();
 
 		mInstantiationManager = new InstantiationManager(mClausifier, this);
+		mLambdas = new HashMap<Sort, SharedTerm>();
 
 		mQuantLits = new HashMap<Term, QuantLiteral>();
 		mQuantClauses = new ScopedArrayList<QuantClause>();
@@ -568,7 +573,17 @@ public class QuantifierTheory implements ITheory {
 	}
 
 	public Theory getTheory() {
-		return mClausifier.getTheory();
+		return mTheory;
+	}
+
+	protected SharedTerm getLambda(Sort sort) {
+		if (mLambdas.containsKey(sort)) {
+			return mLambdas.get(sort);
+		}
+		final FunctionSymbol fsym = mTheory.getFunctionWithResult("@0", null, sort, new Sort[0]);
+		final SharedTerm lambda = mClausifier.getSharedTerm(mTheory.term(fsym), SourceAnnotation.EMPTY_SOURCE_ANNOT);
+		mLambdas.put(sort, lambda);
+		return lambda;
 	}
 
 	/**
@@ -599,8 +614,16 @@ public class QuantifierTheory implements ITheory {
 					}
 				}
 				return true;
+			} else if (func.getName() == "select") {
+				final Term[] params = appTerm.getParameters();
+				if (params[0] instanceof TermVariable || !isEssentiallyUninterpreted(params[0])) {
+					return false; // Quantified arrays are not allowed.
+				}
+				if (!(params[1] instanceof TermVariable) && !isEssentiallyUninterpreted(params[1])) {
+					return false;
+				}
+				return true;
 			} else if (func.getName() == "+" || func.getName() == "-" || func.getName() == "*") {
-				// TODO What about select etc.?
 				final SMTAffineTerm affineTerm = SMTAffineTerm.create(term);
 				for (Term summand : affineTerm.getSummands().keySet()) {
 					if (!isEssentiallyUninterpreted(summand)) {
@@ -611,8 +634,9 @@ public class QuantifierTheory implements ITheory {
 			} else {
 				return false;
 			}
+		} else {
+			return false;
 		}
-		return false;
 	}
 
 	/**
@@ -628,6 +652,15 @@ public class QuantifierTheory implements ITheory {
 					if (!qLit.isAlmostUninterpreted()) {
 						mEngine.setCompleteness(2);
 						return;
+					}
+				}
+				for (final SharedTerm lambda : mLambdas.values()) {
+					if (!lambda.getSort().isNumericSort()) {
+						final CCTerm lambdaCC = lambda.getCCTerm();
+						if (lambdaCC.getNumMembers() > 1) {
+							mEngine.setCompleteness(2);
+							return;
+						}
 					}
 				}
 			}

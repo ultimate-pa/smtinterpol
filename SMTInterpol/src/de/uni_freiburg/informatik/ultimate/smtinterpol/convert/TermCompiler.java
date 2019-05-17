@@ -110,9 +110,10 @@ public class TermCompiler extends TermTransformer {
 		if (term instanceof ApplicationTerm) {
 			final ApplicationTerm appTerm = (ApplicationTerm) term;
 			final FunctionSymbol fsym = appTerm.getFunction();
-			if (fsym.isModelValue()) {
-				throw new SMTLIBException("Model values not allowed in input");
-			}
+			// TODO: The following is commented out because of the lambdas in QuantifierTheory
+			// if (fsym.isModelValue()) {
+			// throw new SMTLIBException("Model values not allowed in input");
+			// }
 			final Term[] params = appTerm.getParameters();
 			if (fsym.isLeftAssoc() && params.length > 2) {
 				final Theory theory = appTerm.getTheory();
@@ -522,6 +523,7 @@ public class TermCompiler extends TermTransformer {
 			case "true":
 			case "false":
 			case "@diff":
+			case "@0": // lambda for QuantifierTheory
 			case Interpolator.EQ:
 				/* nothing to do */
 				break;

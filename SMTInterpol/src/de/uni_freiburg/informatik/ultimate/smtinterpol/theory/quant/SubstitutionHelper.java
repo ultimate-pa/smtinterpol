@@ -114,6 +114,9 @@ public class SubstitutionHelper {
 				}
 
 				substitutedLitTerms.add(subsLitTerm);
+				if (subsLitTerm == mQuantTheory.getTheory().mFalse) {
+					continue;
+				}
 				final ILiteral newAtom;
 				boolean isPos = true;
 				Term atomTerm = subsLitTerm;
