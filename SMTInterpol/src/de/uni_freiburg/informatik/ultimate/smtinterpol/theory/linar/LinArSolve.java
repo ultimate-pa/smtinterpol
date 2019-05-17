@@ -1026,6 +1026,13 @@ public class LinArSolve implements ITheory {
 	@Override
 	public Clause checkpoint() {
 		Clause conflict = checkPendingBoundPropagations();
+		Iterator<Literal> it = mProplist.iterator();
+		while (it.hasNext()) {
+			Literal propLit = it.next();
+			if (propLit.getAtom().getDecideStatus() == propLit) {
+				it.remove();
+			}
+		}
 		if (conflict != null || !mProplist.isEmpty()) {
 			return conflict;
 		}
