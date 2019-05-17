@@ -336,6 +336,7 @@ public class InstantiationManager {
 			final Term inst = unletter.transform(smd);
 			instAff.add(smtAff.getSummands().get(smd), inst);
 		}
+		instAff.add(smtAff.getConstant());
 		return instAff;
 	}
 
