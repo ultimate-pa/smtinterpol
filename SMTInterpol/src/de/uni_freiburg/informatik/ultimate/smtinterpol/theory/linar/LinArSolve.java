@@ -1023,29 +1023,39 @@ public class LinArSolve implements ITheory {
 		return conflict;
 	}
 
-	@Override
-	public Clause checkpoint() {
-		Clause conflict = checkPendingBoundPropagations();
+	public boolean checkPendingPropagation() {
 		Iterator<Literal> it = mProplist.iterator();
 		while (it.hasNext()) {
 			Literal propLit = it.next();
 			if (propLit.getAtom().getDecideStatus() == propLit) {
 				it.remove();
+			} else {
+				return true;
 			}
 		}
-		if (conflict != null || !mProplist.isEmpty()) {
-			return conflict;
-		}
-		// Prevent pivoting before tableau simplification
-		if (!mInCheck) {
-			return null;
-		}
-		conflict = fixOobs();
-		if (conflict != null) {
-			return conflict;
-		}
-		conflict = checkPendingBoundPropagations();
-		return conflict;
+		return false;
+	}
+
+	@Override
+	public Clause checkpoint() {
+		do {
+			Clause conflict = checkPendingBoundPropagations();
+			if (conflict != null) {
+				return conflict;
+			}
+			if (checkPendingPropagation()) {
+				return null;
+			}
+			// Prevent pivoting before tableau simplification
+			if (!mInCheck) {
+				return null;
+			}
+			conflict = fixOobs();
+			if (conflict != null) {
+				return conflict;
+			}
+		} while (!mDirty.isEmpty());
+		return null;
 	}
 
 	public Rational realValue(final LinVar var) {
