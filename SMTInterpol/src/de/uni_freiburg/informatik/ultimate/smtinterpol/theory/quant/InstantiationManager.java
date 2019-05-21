@@ -24,10 +24,10 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
-import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -197,35 +197,34 @@ public class InstantiationManager {
 			return clauseValue;
 		}
 
-		// Check quantified literals. TODO Where do we check for trivially true or false literals?
+		// Check quantified literals.
 		for (QuantLiteral quantLit : quantClause.getQuantLits()) {
 			InstanceValue litValue = InstanceValue.ONE_UNDEF;
 			final boolean isNeg = quantLit.isNegated();
 			final QuantLiteral atom = quantLit.getAtom();
 			if (atom instanceof QuantEquality) {
 				final QuantEquality eq = (QuantEquality) atom;
-				final SharedTerm left = eq.getLhs() instanceof TermVariable ? 
-						instantiation[quantClause.getVarIndex((TermVariable) eq.getLhs())]
-						: findEquivalentShared(eq.getLhs(), quantClause.getSource(),
+				final SharedTerm left = findEquivalentShared(eq.getLhs(), quantClause.getSource(),
 								quantClause.getVars(), instantiation);
-				final SharedTerm right = eq.getRhs() instanceof TermVariable
-						? instantiation[quantClause.getVarIndex((TermVariable) eq.getRhs())]
-						: findEquivalentShared(eq.getRhs(), quantClause.getSource(),
+				final SharedTerm right = findEquivalentShared(eq.getRhs(), quantClause.getSource(),
 								quantClause.getVars(), instantiation);
-				if (left == null || right == null) {
-					litValue = InstanceValue.ONE_UNDEF;
-				} else {
-					litValue = evaluateEquality(left, right);
+				if (left != null && right != null) {
+					litValue = evaluateCCEquality(left, right);
 				}
-				// TODO What about arithmetic equalities? evaluateEquality treats them, but only if we have shared terms
-				// for left and right.
+				if (litValue == InstanceValue.ONE_UNDEF && eq.getLhs().getSort().isNumericSort()) {
+					final SMTAffineTerm sum = new SMTAffineTerm(eq.getLhs());
+					sum.add(Rational.MONE, eq.getRhs());
+					final SMTAffineTerm groundAff = findEquivalentGroundAffine(sum, quantClause.getSource(),
+							quantClause.getVars(), instantiation);
+					if (groundAff != null) {
+						litValue = evaluateLAEquality(groundAff);
+					}
+				}
 			} else {
 				final QuantBoundConstraint ineq = (QuantBoundConstraint) atom;
 				final SMTAffineTerm lhs = findEquivalentGroundAffine(ineq.getAffineTerm(), quantClause.getSource(),
 						quantClause.getVars(), instantiation);
-				if (lhs == null) {
-					litValue = InstanceValue.ONE_UNDEF;
-				} else {
+				if (lhs != null) {
 					litValue = evaluateBoundConstraint(lhs);
 				}
 			}
@@ -286,6 +285,8 @@ public class InstantiationManager {
 			final SharedTerm[] instantiation) {
 		if (term.getFreeVars().length == 0) {
 			return mClausifier.getSharedTerm(term, source);
+		} else if (term instanceof TermVariable) {
+			return instantiation[Arrays.asList(vars).indexOf(term)];
 		} else {
 			assert term instanceof ApplicationTerm;
 			final ApplicationTerm appTerm = (ApplicationTerm) term;
@@ -317,7 +318,6 @@ public class InstantiationManager {
 					return null;
 				}
 			} else {
-				// TODO
 				return null;
 			}
 		}
@@ -325,25 +325,20 @@ public class InstantiationManager {
 
 	private SMTAffineTerm findEquivalentGroundAffine(final SMTAffineTerm smtAff, final SourceAnnotation source,
 			final TermVariable[] vars, final SharedTerm[] instantiation) {
-		final Map<TermVariable, Term> sigma = new LinkedHashMap<>();
-		for (int i = 0; i < vars.length; i++) {
-			sigma.put(vars[i], instantiation[i].getTerm());
-		}
 		final SMTAffineTerm instAff = new SMTAffineTerm();
-		final FormulaUnLet unletter = new FormulaUnLet();
-		unletter.addSubstitutions(sigma);
-		for (final Term smd : smtAff.getSummands().keySet()) {
-			final Term inst = unletter.transform(smd);
-			instAff.add(smtAff.getSummands().get(smd), inst);
+		for (final Entry<Term, Rational> smd : smtAff.getSummands().entrySet()) {
+			final SharedTerm inst = findEquivalentShared(smd.getKey(), source, vars, instantiation);
+			if (inst == null) {
+				return null;
+			}
+			instAff.add(smd.getValue(), inst.getTerm());
 		}
 		instAff.add(smtAff.getConstant());
 		return instAff;
 	}
 
 	/**
-	 * Determine the value that an equality literal between two given terms would have.
-	 *
-	 * TODO Should this do the simplification for trivially false/true literals?
+	 * Determine the value that an equality literal between two given SharedTerm would have.
 	 *
 	 * @param left
 	 *            The left side of the equality.
@@ -352,7 +347,7 @@ public class InstantiationManager {
 	 * @return Value True if the two terms are in the same congruence class, False if they are definitely distinct,
 	 *         Undef else.
 	 */
-	private InstanceValue evaluateEquality(final SharedTerm left, final SharedTerm right) {
+	private InstanceValue evaluateCCEquality(final SharedTerm left, final SharedTerm right) {
 		final CCTerm leftCC = left.getCCTerm();
 		final CCTerm rightCC = right.getCCTerm();
 		if (leftCC != null && rightCC != null) {
@@ -361,18 +356,19 @@ public class InstantiationManager {
 			} else if (mQuantTheory.getCClosure().isDiseqSet(leftCC, rightCC)) {
 				return InstanceValue.FALSE;
 			}
-		} else if (left.getSort().isNumericSort()) {
-			final SMTAffineTerm smtAff = new SMTAffineTerm(left.getTerm());
-			smtAff.add(Rational.MONE, right.getTerm());
-			final InfinitesimalNumber upperBound = mQuantTheory.mLinArSolve.getUpperBound(mClausifier, smtAff);
-			smtAff.negate();
-			final InfinitesimalNumber lowerBound = mQuantTheory.mLinArSolve.getUpperBound(mClausifier, smtAff);
-			if (upperBound.lesseq(InfinitesimalNumber.ZERO) && lowerBound.lesseq(InfinitesimalNumber.ZERO)) {
-				return InstanceValue.TRUE;
-			} else if (!upperBound.isInfinity() && !upperBound.lesseq(InfinitesimalNumber.ZERO)
-					|| !lowerBound.isInfinity() && !lowerBound.lesseq(InfinitesimalNumber.ZERO)) {
-				return InstanceValue.FALSE;
-			}
+		}
+		return InstanceValue.ONE_UNDEF;
+	}
+
+	private InstanceValue evaluateLAEquality(final SMTAffineTerm smtAff) {
+		final InfinitesimalNumber upperBound = mQuantTheory.mLinArSolve.getUpperBound(mClausifier, smtAff);
+		smtAff.negate();
+		final InfinitesimalNumber lowerBound = mQuantTheory.mLinArSolve.getUpperBound(mClausifier, smtAff);
+		if (upperBound.lesseq(InfinitesimalNumber.ZERO) && lowerBound.lesseq(InfinitesimalNumber.ZERO)) {
+			return InstanceValue.TRUE;
+		} else if (!upperBound.isInfinity() && !upperBound.lesseq(InfinitesimalNumber.ZERO)
+				|| !lowerBound.isInfinity() && !lowerBound.lesseq(InfinitesimalNumber.ZERO)) {
+			return InstanceValue.FALSE;
 		}
 		return InstanceValue.ONE_UNDEF;
 	}
