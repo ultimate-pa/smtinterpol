@@ -191,6 +191,7 @@ public class QuantifierTheory implements ITheory {
 		final Clause conflict =
 				addPotentialConflictAndUnitClauses(mInstantiationManager.findConflictAndUnitInstances());
 		if (conflict != null) {
+			mEngine.learnClause(conflict);
 			mConflictCount++;
 		}
 		return conflict;
@@ -207,6 +208,7 @@ public class QuantifierTheory implements ITheory {
 		conflict = mInstantiationManager.instantiateAll();
 		if (conflict != null) {
 			mConflictCount++;
+			mEngine.learnClause(conflict);
 			return conflict;
 		}
 		checkCompleteness();
@@ -218,7 +220,9 @@ public class QuantifierTheory implements ITheory {
 		for (final Literal lit : mPotentialConflictAndUnitClauses.keySet()) {
 			for (final InstClause clause : mPotentialConflictAndUnitClauses.get(lit)) {
 				if (clause.isUnit()) {
-					lit.getAtom().mExplanation = new Clause(clause.mLits.toArray(new Literal[clause.mLits.size()]));
+					final Clause expl = new Clause(clause.mLits.toArray(new Literal[clause.mLits.size()]));
+					lit.getAtom().mExplanation = expl;
+					mEngine.learnClause(expl);
 					mPropCount++;
 					if (mLogger.isDebugEnabled()) {
 						mLogger.debug("Quant Prop: " + lit + " reason: " + lit.getAtom().mExplanation);
