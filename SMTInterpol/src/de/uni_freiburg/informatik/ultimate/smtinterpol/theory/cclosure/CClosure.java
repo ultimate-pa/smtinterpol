@@ -176,12 +176,8 @@ public class CClosure implements ITheory {
 			}
 			parents = nextParents;
 		}
-		// Collect the arguments (only representatives of a congruence class) at argPos
+		// Collect the arguments at argPos
 		for (final CCTerm par : parents) {
-			// check if we have already seen this congruence class
-			if (!visited.add(par.getRepresentative())) { // TODO Why do we need this?
-				continue;
-			}
 			assert par instanceof CCAppTerm;
 			args.add(((CCAppTerm) par).getArg());
 		}
