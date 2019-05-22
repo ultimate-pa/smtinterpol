@@ -661,7 +661,7 @@ public class QuantifierTheory implements ITheory {
 				for (final SharedTerm lambda : mLambdas.values()) {
 					if (!lambda.getSort().isNumericSort()) {
 						final CCTerm lambdaCC = lambda.getCCTerm();
-						if (lambdaCC.getNumMembers() > 1) {
+						if (lambdaCC != null && lambdaCC.getNumMembers() > 1) {
 							mEngine.setCompleteness(2);
 							return;
 						}
