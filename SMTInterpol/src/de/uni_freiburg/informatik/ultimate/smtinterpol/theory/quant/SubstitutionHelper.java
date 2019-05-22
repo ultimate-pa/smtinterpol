@@ -265,20 +265,35 @@ public class SubstitutionHelper {
 		// Normalize term.
 		Term normalized = substituted;
 		boolean isAuxLit = false;
+		final TermCompiler compiler = mClausifier.getTermCompiler();
 		if (atom instanceof QuantEquality && ((QuantEquality) atom).getLhs() instanceof ApplicationTerm) {
 			final FunctionSymbol func = ((ApplicationTerm) ((QuantEquality) atom).getLhs()).getFunction();
-			isAuxLit = func.isIntern() && !func.isInterpreted(); // TODO Does this work?
+			isAuxLit = func.isIntern() && !func.isInterpreted();
+			if (isAuxLit) { // Normalize the arguments.
+				assert substituted instanceof ApplicationTerm;
+				final ApplicationTerm subsApp = (ApplicationTerm) substituted;
+				assert subsApp.getFunction().getName() == "=";
+				assert subsApp.getParameters()[1] == mQuantTheory.getTheory().mTrue;
+				assert subsApp.getParameters()[0] instanceof ApplicationTerm;
+				final ApplicationTerm subsAuxTerm = (ApplicationTerm) subsApp.getParameters()[0];
+				assert subsAuxTerm.getFunction() == func;
+				final Term[] oldArgs = subsAuxTerm.getParameters();
+				final Term[] normalizedArgs = new Term[oldArgs.length];
+				for (int i = 0; i < oldArgs.length; i++) {
+					normalizedArgs[i] = compiler.transform(oldArgs[i]);
+				}
+				final Term normalizedAuxTerm = mQuantTheory.getTheory().term(func, normalizedArgs);
+				normalized = mQuantTheory.getTheory().term("=", normalizedAuxTerm, mQuantTheory.getTheory().mTrue);
+			}
 		}
-
 		if (!isAuxLit) {
-			final TermCompiler compiler = mClausifier.getTermCompiler();
 			normalized = compiler.transform(substituted);
 			if (normalized.getSort() == mQuantTheory.getTheory().getBooleanSort()
 					&& normalized.getFreeVars().length > 0) {
 				normalized = mQuantTheory.getTheory().term("=", normalized, mQuantTheory.getTheory().mTrue);
 			}
-			// TODO Proof production.
 		}
+		// TODO Proof production.
 
 		// Simplify true and false equality literals similar to EqualityProxy.
 		// (TermCompiler already takes care of <= literals).
