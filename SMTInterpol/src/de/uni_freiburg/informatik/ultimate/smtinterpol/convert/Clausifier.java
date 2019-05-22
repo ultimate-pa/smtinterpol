@@ -1180,6 +1180,16 @@ public class Clausifier {
 	}
 
 	/**
+	 * Get or create a shared term for a term. This version also makes sure that all axioms (e.g. select-over-store) are
+	 * added before a newly created shared term is returned.
+	 */
+	public SharedTerm getSharedTermAndAddAxioms(final Term t, final SourceAnnotation source) {
+		final SharedTerm shared = getSharedTerm(t, false, source);
+		run();
+		return shared;
+	}
+
+	/**
 	 * Get or create a shared term for a term. This version does not force creation of a CCTerm for non-internal
 	 * functions with arguments if <code>inCCTermBuilder</code> is <code>true</code>.
 	 *

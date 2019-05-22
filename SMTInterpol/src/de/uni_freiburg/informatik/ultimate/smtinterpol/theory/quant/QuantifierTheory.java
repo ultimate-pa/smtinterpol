@@ -585,7 +585,8 @@ public class QuantifierTheory implements ITheory {
 			return mLambdas.get(sort);
 		}
 		final FunctionSymbol fsym = mTheory.getFunctionWithResult("@0", null, sort, new Sort[0]);
-		final SharedTerm lambda = mClausifier.getSharedTerm(mTheory.term(fsym), SourceAnnotation.EMPTY_SOURCE_ANNOT);
+		final SharedTerm lambda =
+				mClausifier.getSharedTermAndAddAxioms(mTheory.term(fsym), SourceAnnotation.EMPTY_SOURCE_ANNOT);
 		mLambdas.put(sort, lambda);
 		return lambda;
 	}
@@ -603,7 +604,6 @@ public class QuantifierTheory implements ITheory {
 	 * @return true if the term is essentially uninterpreted, false otherwise.
 	 */
 	private boolean isEssentiallyUninterpreted(final Term term) {
-		// TODO Store terms that are EU, so this information can be reused.
 		if (term.getFreeVars().length == 0) {
 			return true;
 		} else if (term instanceof ApplicationTerm) {

@@ -25,11 +25,13 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
+import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
@@ -242,10 +244,11 @@ public class QuantClause {
 								final VarInfo varInfo = mVarInfos[pos];
 								if (fac.isNegative()) {
 									varInfo.addUpperGroundBound(
-											mQuantTheory.getClausifier().getSharedTerm(remainderTerm, mSource));
+											mQuantTheory.getClausifier().getSharedTermAndAddAxioms(remainderTerm,
+													mSource));
 								} else {
 									varInfo.addLowerGroundBound(mQuantTheory.getClausifier()
-											.getSharedTerm(remainderTerm, mSource));
+											.getSharedTermAndAddAxioms(remainderTerm, mSource));
 								}
 							} else if (remainderTerm instanceof TermVariable) {
 								final int pos = getVarIndex((TermVariable) smd);
@@ -279,9 +282,9 @@ public class QuantClause {
 							final Term lowerBound = lowerAffine.toTerm(rhs.getSort());
 							final Term upperBound = upperAffine.toTerm(rhs.getSort());
 							varInfo.addLowerGroundBound(
-									mQuantTheory.getClausifier().getSharedTerm(lowerBound, mSource));
+									mQuantTheory.getClausifier().getSharedTermAndAddAxioms(lowerBound, mSource));
 							varInfo.addUpperGroundBound(
-									mQuantTheory.getClausifier().getSharedTerm(upperBound, mSource));
+									mQuantTheory.getClausifier().getSharedTermAndAddAxioms(upperBound, mSource));
 						}
 					}
 				}
@@ -370,38 +373,67 @@ public class QuantClause {
 	 *
 	 * @param var
 	 *            the TermVariable which we compute the instantiation terms for.
-	 * @param num
+	 * @param varNum
 	 *            the number of the variable
 	 */
-	private void updateInterestingTermsOneVar(final TermVariable var, final int num) {
+	private void updateInterestingTermsOneVar(final TermVariable var, final int varNum) {
 		final VarInfo info = mVarInfos[getVarIndex(var)];
 		assert info != null;
 
 		// Retrieve from CClosure all ground terms that appear under the same functions at the same positions as var
-		final Set<CCTerm> ccTerms = new LinkedHashSet<CCTerm>();
-		final Map<FunctionSymbol, BitSet> positions = info.mFuncArgPositions;
-		for (final FunctionSymbol func : positions.keySet()) {
-			final BitSet pos = positions.get(func);
+		for (final Entry<FunctionSymbol, BitSet> entry : info.mFuncArgPositions.entrySet()) {
+			final FunctionSymbol func = entry.getKey();
+			final BitSet pos = entry.getValue();
 			for (int i = pos.nextSetBit(0); i >= 0; i = pos.nextSetBit(i + 1)) {
 				final Collection<CCTerm> argTerms = mQuantTheory.mCClosure.getArgTermsForFunc(func, i);
 				if (argTerms != null) {
-					ccTerms.addAll(argTerms);
+					for (final CCTerm ccTerm : argTerms) {
+						final SharedTerm repShared, ccShared;
+						if (ccTerm.getRepresentative().getSharedTerm() != null) {
+							repShared = ccTerm.getRepresentative().getSharedTerm();
+						} else {
+							repShared = ccTerm.getRepresentative().getFlatTerm();
+						}
+						if (ccTerm.getSharedTerm() != null) {
+							ccShared = ccTerm.getSharedTerm();
+						} else {
+							ccShared = ccTerm.getFlatTerm();
+						}
+						mInterestingTermsForVars[varNum].put(repShared, ccShared);
+					}
 				}
 			}
-		}
-		for (final CCTerm ccTerm : ccTerms) {
-			final SharedTerm repShared, ccShared;
-			if (ccTerm.getRepresentative().getSharedTerm() != null) {
-				repShared = ccTerm.getRepresentative().getSharedTerm();
-			} else {
-				repShared = ccTerm.getRepresentative().getFlatTerm();
+			if (pos.get(1) && func.getName() == "select" && var.getSort().getName() == "Int") {
+				// Add all store indices +-1.
+				final Sort[] storeSorts = new Sort[3];
+				storeSorts[0] = func.getParameterSorts()[0];
+				storeSorts[1] = func.getParameterSorts()[1];
+				storeSorts[2] = func.getReturnSort();
+				final FunctionSymbol store = mQuantTheory.getTheory().getFunction("store", storeSorts);
+				final Collection<CCTerm> storeIndices = mQuantTheory.mCClosure.getArgTermsForFunc(store, 1);
+				if (storeIndices != null) {
+					for (final CCTerm idx : storeIndices) {
+						for (final Rational offset : new Rational[] { Rational.ONE, Rational.MONE }) {
+							final SMTAffineTerm idxPlusMinusOneAff = new SMTAffineTerm(idx.getSharedTerm().getTerm());
+							idxPlusMinusOneAff.add(offset);
+							final SharedTerm shared = mQuantTheory.getClausifier()
+									.getSharedTermAndAddAxioms(idxPlusMinusOneAff.toTerm(idx.getSharedTerm().getSort()),
+											mSource);
+							SharedTerm repShared = shared;
+							final CCTerm cc = shared.getCCTerm();
+							if (cc != null) {
+								final SharedTerm ccRepShared = cc.getRepresentative().getSharedTerm();
+								if (ccRepShared != null) {
+									repShared = ccRepShared;
+								} else if (cc.getSharedTerm() != null) {
+									repShared = cc.getSharedTerm();
+								}
+							}
+							mInterestingTermsForVars[varNum].put(repShared, shared);
+						}
+					}
+				}
 			}
-			if (ccTerm.getSharedTerm() != null) {
-				ccShared = ccTerm.getSharedTerm();
-			} else {
-				ccShared = ccTerm.getFlatTerm();
-			}
-			mInterestingTermsForVars[num].put(repShared, ccShared);
 		}
 	}
 

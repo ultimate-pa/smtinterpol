@@ -284,7 +284,7 @@ public class InstantiationManager {
 			final TermVariable[] vars,
 			final SharedTerm[] instantiation) {
 		if (term.getFreeVars().length == 0) {
-			return mClausifier.getSharedTerm(term, source);
+			return mClausifier.getSharedTermAndAddAxioms(term, source);
 		} else if (term instanceof TermVariable) {
 			return instantiation[Arrays.asList(vars).indexOf(term)];
 		} else {
