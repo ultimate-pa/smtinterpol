@@ -120,7 +120,9 @@ public class QuantClause {
 	 */
 	public void updateInterestingTermsAllVars() {
 		for (int i = 0; i < mVars.length; i++) {
-			updateInterestingTermsOneVar(mVars[i], i);
+			if (mVars[i].getSort().getName() != "Bool") {
+				updateInterestingTermsOneVar(mVars[i], i);
+			}
 		}
 		synchronizeInterestingTermsAllVars();
 	}
@@ -339,8 +341,17 @@ public class QuantClause {
 		for (int i = 0; i < mVars.length; i++) {
 			addAllInteresting(mInterestingTermsForVars[i], mVarInfos[i].mLowerGroundBounds);
 			addAllInteresting(mInterestingTermsForVars[i], mVarInfos[i].mUpperGroundBounds);
-			final SharedTerm lambda = mQuantTheory.getLambda(mVars[i].getSort());
-			mInterestingTermsForVars[i].put(lambda, lambda);
+			if (mVars[i].getSort().getName() == "Bool") {
+				final SharedTerm sharedTrue =
+						mQuantTheory.getClausifier().getSharedTerm(mQuantTheory.getTheory().mTrue, mSource);
+				final SharedTerm sharedFalse =
+						mQuantTheory.getClausifier().getSharedTerm(mQuantTheory.getTheory().mFalse, mSource);
+				mInterestingTermsForVars[i].put(sharedTrue, sharedTrue);
+				mInterestingTermsForVars[i].put(sharedFalse, sharedFalse);
+			} else {
+				final SharedTerm lambda = mQuantTheory.getLambda(mVars[i].getSort());
+				mInterestingTermsForVars[i].put(lambda, lambda);
+			}
 		}
 		synchronizeInterestingTermsAllVars();
 	}
