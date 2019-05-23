@@ -1175,17 +1175,15 @@ public class Clausifier {
 		return res;
 	}
 
-	public SharedTerm getSharedTerm(final Term t, final SourceAnnotation source) {
-		return getSharedTerm(t, false, source);
-	}
-
 	/**
 	 * Get or create a shared term for a term. This version also makes sure that all axioms (e.g. select-over-store) are
 	 * added before a newly created shared term is returned.
 	 */
-	public SharedTerm getSharedTermAndAddAxioms(final Term t, final SourceAnnotation source) {
+	public SharedTerm getSharedTerm(final Term t, final SourceAnnotation source) {
 		final SharedTerm shared = getSharedTerm(t, false, source);
-		run();
+		if (!mIsRunning) {
+			run();
+		}
 		return shared;
 	}
 
@@ -1320,6 +1318,11 @@ public class Clausifier {
 	private ArrayTheory mArrayTheory;
 	private EprTheory mEprTheory;
 	private QuantifierTheory mQuantTheory;
+
+	/**
+	 * True, if the run function is already active.
+	 */
+	private boolean mIsRunning = false;
 
 	private boolean mIsEprEnabled;
 
@@ -1998,6 +2001,7 @@ public class Clausifier {
 
 	private final void run() {
 		try {
+			mIsRunning = true;
 			while (!mTodoStack.isEmpty()) {
 				if (mEngine.isTerminationRequested()) {
 					/* Note: Engine remembers incompleteness */
@@ -2008,6 +2012,7 @@ public class Clausifier {
 			}
 		} finally {
 			mTodoStack.clear();
+			mIsRunning = false;
 		}
 	}
 

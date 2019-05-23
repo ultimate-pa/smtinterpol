@@ -2128,7 +2128,7 @@ public class LinArSolve implements ITheory {
 		MutableAffineTerm at = new MutableAffineTerm();
 		Rational offset = smtTerm.getConstant();
 		for (Entry<Term, Rational> entry : smtTerm.getSummands().entrySet()) {
-			SharedTerm sharedTerm = clausifier.getSharedTermAndAddAxioms(entry.getKey(), null);
+			SharedTerm sharedTerm = clausifier.getSharedTerm(entry.getKey(), null);
 			Rational coeff = entry.getValue();
 			if (sharedTerm.getOffset() != null) {
 				LinVar var = sharedTerm.getLinVar();

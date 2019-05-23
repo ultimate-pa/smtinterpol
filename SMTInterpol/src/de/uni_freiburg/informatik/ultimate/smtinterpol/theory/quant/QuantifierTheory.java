@@ -584,9 +584,15 @@ public class QuantifierTheory implements ITheory {
 		if (mLambdas.containsKey(sort)) {
 			return mLambdas.get(sort);
 		}
-		final FunctionSymbol fsym = mTheory.getFunctionWithResult("@0", null, sort, new Sort[0]);
+		Term lambdaTerm;
+		if (sort.getName().equals("Bool")) {
+			lambdaTerm = mTheory.mTrue;
+		} else {
+			final FunctionSymbol fsym = mTheory.getFunctionWithResult("@0", null, sort, new Sort[0]);
+			lambdaTerm = mTheory.term(fsym);
+		}
 		final SharedTerm lambda =
-				mClausifier.getSharedTermAndAddAxioms(mTheory.term(fsym), SourceAnnotation.EMPTY_SOURCE_ANNOT);
+				mClausifier.getSharedTerm(lambdaTerm, SourceAnnotation.EMPTY_SOURCE_ANNOT);
 		mLambdas.put(sort, lambda);
 		return lambda;
 	}

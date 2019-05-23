@@ -140,8 +140,8 @@ public class SubstitutionHelper {
 					final Term lhs = atomApp.getParameters()[0];
 					final Term rhs = atomApp.getParameters()[1];
 					if (atomApp.getFreeVars().length == 0) { // Ground equality or predicate.
-						final SharedTerm sharedLhs = mClausifier.getSharedTermAndAddAxioms(lhs, mSource);
-						final SharedTerm sharedRhs = mClausifier.getSharedTermAndAddAxioms(rhs, mSource);
+						final SharedTerm sharedLhs = mClausifier.getSharedTerm(lhs, mSource);
+						final SharedTerm sharedRhs = mClausifier.getSharedTerm(rhs, mSource);
 						final EqualityProxy eq = mClausifier.createEqualityProxy(sharedLhs, sharedRhs);
 						assert eq != EqualityProxy.getTrueProxy() && eq != EqualityProxy.getFalseProxy();
 						newAtom = eq.getLiteral(mSource);
@@ -152,9 +152,9 @@ public class SubstitutionHelper {
 				} else { // Predicates
 					assert atomApp.getFreeVars().length == 0; // Quantified predicates are stored as equalities.
 					assert atomApp.getSort() == mQuantTheory.getTheory().getBooleanSort();
-					final SharedTerm sharedLhs = mClausifier.getSharedTermAndAddAxioms(atomApp, mSource);
+					final SharedTerm sharedLhs = mClausifier.getSharedTerm(atomApp, mSource);
 					final SharedTerm sharedRhs =
-							mClausifier.getSharedTermAndAddAxioms(mQuantTheory.getTheory().mTrue, mSource);
+							mClausifier.getSharedTerm(mQuantTheory.getTheory().mTrue, mSource);
 					final EqualityProxy eq = mClausifier.createEqualityProxy(sharedLhs, sharedRhs);
 					assert eq != EqualityProxy.getTrueProxy() && eq != EqualityProxy.getFalseProxy();
 					newAtom = eq.getLiteral(mSource);

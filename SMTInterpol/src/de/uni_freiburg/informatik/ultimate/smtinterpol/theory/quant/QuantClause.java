@@ -244,11 +244,11 @@ public class QuantClause {
 								final VarInfo varInfo = mVarInfos[pos];
 								if (fac.isNegative()) {
 									varInfo.addUpperGroundBound(
-											mQuantTheory.getClausifier().getSharedTermAndAddAxioms(remainderTerm,
+											mQuantTheory.getClausifier().getSharedTerm(remainderTerm,
 													mSource));
 								} else {
 									varInfo.addLowerGroundBound(mQuantTheory.getClausifier()
-											.getSharedTermAndAddAxioms(remainderTerm, mSource));
+											.getSharedTerm(remainderTerm, mSource));
 								}
 							} else if (remainderTerm instanceof TermVariable) {
 								final int pos = getVarIndex((TermVariable) smd);
@@ -282,9 +282,9 @@ public class QuantClause {
 							final Term lowerBound = lowerAffine.toTerm(rhs.getSort());
 							final Term upperBound = upperAffine.toTerm(rhs.getSort());
 							varInfo.addLowerGroundBound(
-									mQuantTheory.getClausifier().getSharedTermAndAddAxioms(lowerBound, mSource));
+									mQuantTheory.getClausifier().getSharedTerm(lowerBound, mSource));
 							varInfo.addUpperGroundBound(
-									mQuantTheory.getClausifier().getSharedTermAndAddAxioms(upperBound, mSource));
+									mQuantTheory.getClausifier().getSharedTerm(upperBound, mSource));
 						}
 					}
 				}
@@ -417,7 +417,7 @@ public class QuantClause {
 							final SMTAffineTerm idxPlusMinusOneAff = new SMTAffineTerm(idx.getSharedTerm().getTerm());
 							idxPlusMinusOneAff.add(offset);
 							final SharedTerm shared = mQuantTheory.getClausifier()
-									.getSharedTermAndAddAxioms(idxPlusMinusOneAff.toTerm(idx.getSharedTerm().getSort()),
+									.getSharedTerm(idxPlusMinusOneAff.toTerm(idx.getSharedTerm().getSort()),
 											mSource);
 							SharedTerm repShared = shared;
 							final CCTerm cc = shared.getCCTerm();
