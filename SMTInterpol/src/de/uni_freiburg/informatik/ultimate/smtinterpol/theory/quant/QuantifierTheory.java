@@ -372,10 +372,13 @@ public class QuantifierTheory implements ITheory {
 					atom.mIsAlmostUninterpreted = false;
 					atom.negate().mIsAlmostUninterpreted = false;
 				}
-			} else if (!(newRhs instanceof TermVariable)) { // (x != termwithoutx) can be used for DER
-				if (!Arrays.asList(newRhs.getFreeVars()).contains((TermVariable) newLhs)) {
+			} else if (!(newRhs instanceof TermVariable)) {
+				atom.negate().mIsAlmostUninterpreted = false;
+				if (newRhs.getSort().getName() == "Real") {
 					atom.mIsAlmostUninterpreted = false;
-					atom.negate().mIsAlmostUninterpreted = false;
+				}
+				if (!Arrays.asList(newRhs.getFreeVars()).contains((TermVariable) newLhs)) {
+					// (x != termwithoutx) can be used for DER
 					atom.negate().mIsDERUsable = true;
 				}
 			} else { // (iv) (var = var)
