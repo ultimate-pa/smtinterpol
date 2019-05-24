@@ -20,6 +20,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -29,6 +30,7 @@ import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
@@ -197,33 +199,31 @@ public class InstantiationManager {
 			return clauseValue;
 		}
 
-		// Check quantified literals.
+		// Check quantified literals. TODO: Use SubstitutionHelper
+		final SharedTermFinder finder =
+				new SharedTermFinder(quantClause.getSource(), quantClause.getVars(), instantiation);
 		for (QuantLiteral quantLit : quantClause.getQuantLits()) {
 			InstanceValue litValue = InstanceValue.ONE_UNDEF;
 			final boolean isNeg = quantLit.isNegated();
 			final QuantLiteral atom = quantLit.getAtom();
 			if (atom instanceof QuantEquality) {
 				final QuantEquality eq = (QuantEquality) atom;
-				final SharedTerm left = findEquivalentShared(eq.getLhs(), quantClause.getSource(),
-								quantClause.getVars(), instantiation);
-				final SharedTerm right = findEquivalentShared(eq.getRhs(), quantClause.getSource(),
-								quantClause.getVars(), instantiation);
+				final SharedTerm left = finder.findEquivalentShared(eq.getLhs());
+				final SharedTerm right = finder.findEquivalentShared(eq.getRhs());
 				if (left != null && right != null) {
 					litValue = evaluateCCEquality(left, right);
 				}
 				if (litValue == InstanceValue.ONE_UNDEF && eq.getLhs().getSort().isNumericSort()) {
 					final SMTAffineTerm sum = new SMTAffineTerm(eq.getLhs());
 					sum.add(Rational.MONE, eq.getRhs());
-					final SMTAffineTerm groundAff = findEquivalentGroundAffine(sum, quantClause.getSource(),
-							quantClause.getVars(), instantiation);
+					final SMTAffineTerm groundAff = finder.findEquivalentAffine(sum);
 					if (groundAff != null) {
 						litValue = evaluateLAEquality(groundAff);
 					}
 				}
 			} else {
 				final QuantBoundConstraint ineq = (QuantBoundConstraint) atom;
-				final SMTAffineTerm lhs = findEquivalentGroundAffine(ineq.getAffineTerm(), quantClause.getSource(),
-						quantClause.getVars(), instantiation);
+				final SMTAffineTerm lhs = finder.findEquivalentAffine(ineq.getAffineTerm());
 				if (lhs != null) {
 					litValue = evaluateBoundConstraint(lhs);
 				}
@@ -267,74 +267,136 @@ public class InstantiationManager {
 		}
 	}
 
-	/**
-	 * For a given EUTerm and an instantiation, find an equivalent SharedTerm.
-	 * 
-	 * TODO Nonrecursive.
-	 *
-	 * @param euTerm
-	 *            The EUTerm which we search an equivalent SharedTerm for.
-	 * @param vars
-	 *            The variables in the clause of this EUTerm.
-	 * @param instantiation
-	 *            The ground terms that should be instantiated for the variables.
-	 * @return a SharedTerm equivalent to the instance of the given EUTerm if it exists, null otherwise.
-	 */
-	private SharedTerm findEquivalentShared(final Term term, final SourceAnnotation source,
-			final TermVariable[] vars,
-			final SharedTerm[] instantiation) {
-		if (term.getFreeVars().length == 0) {
-			return mClausifier.getSharedTerm(term, source);
-		} else if (term instanceof TermVariable) {
-			return instantiation[Arrays.asList(vars).indexOf(term)];
-		} else {
-			assert term instanceof ApplicationTerm;
-			final ApplicationTerm appTerm = (ApplicationTerm) term;
-			final FunctionSymbol func = appTerm.getFunction();
-			if (!func.isInterpreted() || func.getName() == "select") {
-				final Term [] args = appTerm.getParameters();
-				final Term[] instArgs = new Term[args.length];
-				for (int i = 0; i < args.length; i++) {
-					if (args[i] instanceof TermVariable) {
-						instArgs[i] = instantiation[Arrays.asList(vars).indexOf((TermVariable) args[i])].getTerm();
+	private class SharedTermFinder extends NonRecursive {
+		private final SourceAnnotation mSource;
+		private final List<TermVariable> mVars;
+		private final List<SharedTerm> mInstantiation;
+		private final Map<Term, SharedTerm> mSharedTerms;
+
+		SharedTermFinder(final SourceAnnotation source, final TermVariable[] vars,
+				final SharedTerm[] instantiation) {
+			mSource = source;
+			mVars = Arrays.asList(vars);
+			mInstantiation = Arrays.asList(instantiation);
+			mSharedTerms = new HashMap<>();
+		}
+
+		SharedTerm findEquivalentShared(final Term term) {
+			enqueueWalker(new FindSharedTerm(term));
+			run();
+			return mSharedTerms.get(term);
+		}
+
+		SMTAffineTerm findEquivalentAffine(final SMTAffineTerm smtAff) {
+			for (final Term smd : smtAff.getSummands().keySet()) {
+				enqueueWalker(new FindSharedTerm(smd));
+			}
+			run();
+			return buildEquivalentAffine(smtAff);
+		}
+
+		private SMTAffineTerm buildEquivalentAffine(final SMTAffineTerm smtAff) {
+			final SMTAffineTerm instAff = new SMTAffineTerm();
+			for (final Entry<Term, Rational> smd : smtAff.getSummands().entrySet()) {
+				final SharedTerm inst = mSharedTerms.get(smd.getKey());
+				if (inst == null) {
+					return null;
+				}
+				instAff.add(smd.getValue(), inst.getTerm());
+			}
+			instAff.add(smtAff.getConstant());
+			return instAff;
+		}
+
+		class FindSharedTerm implements Walker {
+			private final Term mTerm;
+
+			public FindSharedTerm(final Term term) {
+				mTerm = term;
+			}
+
+			@Override
+			public void walk(final NonRecursive engine) {
+				if (!mSharedTerms.containsKey(mTerm)) {
+					if (mTerm.getFreeVars().length == 0) {
+						mSharedTerms.put(mTerm, mClausifier.getSharedTerm(mTerm, mSource));
+					} else if (mTerm instanceof TermVariable) {
+						mSharedTerms.put(mTerm, mInstantiation.get(mVars.indexOf(mTerm)));
 					} else {
-						final SharedTerm sharedArg =
-								findEquivalentShared(args[i], source, vars, instantiation);
-						if (sharedArg == null) {
-							return null;
+						assert mTerm instanceof ApplicationTerm;
+						final ApplicationTerm appTerm = (ApplicationTerm) mTerm;
+						final FunctionSymbol func = appTerm.getFunction();
+						if (Clausifier.needCCTerm(func)) {
+							final Term[] params = appTerm.getParameters();
+							enqueueWalker(new FindSharedAppTerm(mTerm, func, params));
+							for (final Term arg : params) {
+								enqueueWalker(new FindSharedTerm(arg));
+							}
+						} else if (func.getName() == "+" || func.getName() == "*" || func.getName() == "-") {
+							final SMTAffineTerm smtAff = new SMTAffineTerm(mTerm);
+							enqueueWalker(new FindSharedAffine(mTerm, smtAff));
+							for (final Term smd : smtAff.getSummands().keySet()) {
+								enqueueWalker(new FindSharedTerm(smd));
+							}
 						}
+					}
+				}
+			}
+		}
+
+		class FindSharedAppTerm implements Walker {
+			private final Term mTerm;
+			private final FunctionSymbol mFunc;
+			private final Term[] mParams;
+
+			public FindSharedAppTerm(final Term term, final FunctionSymbol func, final Term[] params) {
+				mTerm = term;
+				mFunc = func;
+				mParams = params;
+			}
+
+			@Override
+			public void walk(final NonRecursive engine) {
+				final Term[] instArgs = new Term[mParams.length];
+				for (int i = 0; i < mParams.length; i++) {
+					final SharedTerm sharedArg = mSharedTerms.get(mParams[i]);
+					if (sharedArg == null) {
+						return;
+					} else {
 						instArgs[i] = sharedArg.getTerm();
 					}
 				}
-				final Term instAppTerm = mClausifier.getTheory().term(func, instArgs);
+				final Term instAppTerm = mClausifier.getTheory().term(mFunc, instArgs);
 				final CCTerm ccTermRep = mQuantTheory.getCClosure().getCCTermRep(instAppTerm);
 				if (ccTermRep != null) {
-					if (ccTermRep.getSharedTerm() != null) {
-						return ccTermRep.getSharedTerm();
-					} else {
-						return ccTermRep.getFlatTerm();
-					}
-				} else {
-					return null;
+					mSharedTerms.put(mTerm,
+							ccTermRep.getSharedTerm() != null ? ccTermRep.getSharedTerm() : ccTermRep.getFlatTerm());
 				}
-			} else {
-				return null;
 			}
 		}
-	}
 
-	private SMTAffineTerm findEquivalentGroundAffine(final SMTAffineTerm smtAff, final SourceAnnotation source,
-			final TermVariable[] vars, final SharedTerm[] instantiation) {
-		final SMTAffineTerm instAff = new SMTAffineTerm();
-		for (final Entry<Term, Rational> smd : smtAff.getSummands().entrySet()) {
-			final SharedTerm inst = findEquivalentShared(smd.getKey(), source, vars, instantiation);
-			if (inst == null) {
-				return null;
+		class FindSharedAffine implements Walker {
+			private final Term mTerm;
+			private final SMTAffineTerm mSmtAff;
+
+			FindSharedAffine(final Term term, final SMTAffineTerm smtAff) {
+				mTerm = term;
+				mSmtAff = smtAff;
 			}
-			instAff.add(smd.getValue(), inst.getTerm());
+
+			@Override
+			public void walk(final NonRecursive engine) {
+				final SMTAffineTerm instAffine = buildEquivalentAffine(mSmtAff);
+				if (instAffine != null) {
+					final Term instTerm = instAffine.toTerm(mTerm.getSort());
+					final CCTerm ccTermRep = mQuantTheory.getCClosure().getCCTermRep(instTerm);
+					if (ccTermRep != null) {
+						mSharedTerms.put(mTerm, ccTermRep.getSharedTerm() != null ? ccTermRep.getSharedTerm()
+								: ccTermRep.getFlatTerm());
+					}
+				}
+			}
 		}
-		instAff.add(smtAff.getConstant());
-		return instAff;
 	}
 
 	/**

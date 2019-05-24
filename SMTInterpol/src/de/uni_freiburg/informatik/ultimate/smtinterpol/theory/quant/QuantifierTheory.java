@@ -654,7 +654,7 @@ public class QuantifierTheory implements ITheory {
 	 * Check if there exists a not yet satisfied clause that contains a literal outside of the almost uninterpreted
 	 * fragment. If so, inform the DPLL engine of incompleteness.
 	 * 
-	 * Should only be called in computeConflict clause.
+	 * Should only be called in computeConflict clause. // TODO Or even later.
 	 */
 	private void checkCompleteness() {
 		for (final QuantClause qClause : mQuantClauses) {

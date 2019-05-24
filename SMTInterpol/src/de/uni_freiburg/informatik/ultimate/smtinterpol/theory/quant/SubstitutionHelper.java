@@ -268,7 +268,7 @@ public class SubstitutionHelper {
 		final TermCompiler compiler = mClausifier.getTermCompiler();
 		if (atom instanceof QuantEquality && ((QuantEquality) atom).getLhs() instanceof ApplicationTerm) {
 			final FunctionSymbol func = ((ApplicationTerm) ((QuantEquality) atom).getLhs()).getFunction();
-			isAuxLit = func.isIntern() && !func.isInterpreted();
+			isAuxLit = func.getName().startsWith("@AUX");
 			if (isAuxLit) { // Normalize the arguments.
 				assert substituted instanceof ApplicationTerm;
 				final ApplicationTerm subsApp = (ApplicationTerm) substituted;

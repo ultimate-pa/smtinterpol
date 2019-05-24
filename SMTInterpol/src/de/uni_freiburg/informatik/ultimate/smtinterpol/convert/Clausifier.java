@@ -1249,7 +1249,7 @@ public class Clausifier {
 		return res;
 	}
 
-	private static boolean needCCTerm(final FunctionSymbol fs) {
+	public static boolean needCCTerm(final FunctionSymbol fs) {
 		// we also create CC function symbols for select/store/const. For const it is necessary, as the array theory
 		// does not derive v = w --> (const v) = (const w). For select/store it makes congruence reason a bit simpler.
 		return !fs.isInterpreted() || fs.getName() == "select" || fs.getName() == "store" || fs.getName() == "const";
