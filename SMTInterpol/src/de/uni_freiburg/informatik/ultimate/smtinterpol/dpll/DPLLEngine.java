@@ -1482,6 +1482,9 @@ public class DPLLEngine {
 	}
 
 	public boolean hasModel() {
+		for (ITheory t : mTheories) {
+			provideCompleteness(t.checkCompleteness());
+		}
 		return mHasModel && mCompleteness == COMPLETE;
 	}
 

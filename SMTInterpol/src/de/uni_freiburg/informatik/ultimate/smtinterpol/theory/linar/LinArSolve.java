@@ -626,6 +626,11 @@ public class LinArSolve implements ITheory {
 		return null;
 	}
 
+	@Override
+	public int checkCompleteness() {
+		return DPLLEngine.COMPLETE;
+	}
+
 	private boolean compositesSatisfied() {
 		for (final LinVar v : mLinvars) {
 			assert v.getValue().compareTo(v.getTightUpperBound()) <= 0;

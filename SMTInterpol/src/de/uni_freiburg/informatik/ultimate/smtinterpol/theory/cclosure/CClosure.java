@@ -416,6 +416,11 @@ public class CClosure implements ITheory {
 	}
 
 	@Override
+	public int checkCompleteness() {
+		return DPLLEngine.COMPLETE;
+	}
+
+	@Override
 	public Clause setLiteral(Literal literal) {
 		if (!(literal.getAtom() instanceof CCEquality)) {
 			return null;

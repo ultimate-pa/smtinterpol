@@ -33,6 +33,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ITheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.model.ArraySortInterpretation;
@@ -721,6 +722,7 @@ public class ArrayTheory implements ITheory {
 		return null;
 	}
 
+
 	@Override
 	public Literal getPropagatedLiteral() {
 		final long start = System.nanoTime();
@@ -752,6 +754,11 @@ public class ArrayTheory implements ITheory {
 			}
 		}
 		throw new AssertionError("Cannot explain unit literal!");
+	}
+
+	@Override
+	public int checkCompleteness() {
+		return DPLLEngine.COMPLETE;
 	}
 
 	private Clause explainPropagation(ArrayLemma lemma) {

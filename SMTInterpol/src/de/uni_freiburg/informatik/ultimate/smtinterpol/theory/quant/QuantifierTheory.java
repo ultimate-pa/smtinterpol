@@ -211,7 +211,6 @@ public class QuantifierTheory implements ITheory {
 			mEngine.learnClause(conflict);
 			return conflict;
 		}
-		checkCompleteness();
 		return null;
 	}
 
@@ -652,30 +651,29 @@ public class QuantifierTheory implements ITheory {
 
 	/**
 	 * Check if there exists a not yet satisfied clause that contains a literal outside of the almost uninterpreted
-	 * fragment. If so, inform the DPLL engine of incompleteness.
+	 * fragment. If so, returns INCOMPLETE to inform the DPLL engine of incompleteness.
 	 * 
-	 * Should only be called in computeConflict clause. // TODO Or even later.
+	 * @return DPLLEngine.COMPLETE, if a model exists, DPLLEngine.INCOMPLETE_* if unsure.
 	 */
-	private void checkCompleteness() {
+	public int checkCompleteness() {
 		for (final QuantClause qClause : mQuantClauses) {
 			if (qClause.getNumCurrentTrueLits() == 0) {
 				for (final QuantLiteral qLit : qClause.getQuantLits()) {
 					if (!qLit.isAlmostUninterpreted()) {
-						mEngine.setCompleteness(2);
-						return;
+						return DPLLEngine.INCOMPLETE_QUANTIFIER;
 					}
 				}
 				for (final SharedTerm lambda : mLambdas.values()) {
 					if (!lambda.getSort().isNumericSort()) {
 						final CCTerm lambdaCC = lambda.getCCTerm();
 						if (lambdaCC != null && lambdaCC.getNumMembers() > 1) {
-							mEngine.setCompleteness(2);
-							return;
+							return DPLLEngine.INCOMPLETE_QUANTIFIER;
 						}
 					}
 				}
 			}
 		}
+		return DPLLEngine.COMPLETE;
 	}
 
 	/**

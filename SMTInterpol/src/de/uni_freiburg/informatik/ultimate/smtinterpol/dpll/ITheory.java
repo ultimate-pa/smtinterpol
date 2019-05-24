@@ -102,6 +102,13 @@ public interface ITheory {
 	public Literal getSuggestion();
 
 	/**
+	 * Check if the theory has a complete model that satisfies all theory axioms.
+	 * 
+	 * @return DPLLEngine.COMPLETE, if a model exists, DPLLEngine.INCOMPLETE_* if unsure.
+	 */
+	public int checkCompleteness();
+
+	/**
 	 * Print statistics.
 	 */
 	public void printStatistics(LogProxy logger);

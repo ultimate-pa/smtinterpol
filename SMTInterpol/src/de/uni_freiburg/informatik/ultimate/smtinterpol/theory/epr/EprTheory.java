@@ -259,6 +259,11 @@ public class EprTheory implements ITheory {
 	}
 
 	@Override
+	public int checkCompleteness() {
+		return DPLLEngine.COMPLETE;
+	}
+
+	@Override
 	public Literal getPropagatedLiteral() {
 		final Literal lit = mLiteralsWaitingToBePropagated.poll();
 
