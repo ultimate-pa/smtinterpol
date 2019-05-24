@@ -438,6 +438,7 @@ public class QuantifierTheory implements ITheory {
 				rewrite = true;
 				linTerm.negate();
 				linTerm.add(Rational.ONE);
+				hasUpperBound = !hasUpperBound;
 			} else if (var != null && lhs.getSort().getName() == "Real") {
 				// var should have coefficient 1 or -1.
 				linTerm.div(fac.abs());
