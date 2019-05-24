@@ -23,19 +23,19 @@ import java.util.Arrays;
 import java.util.HashMap;
 
 /**
- * This is the base class for transforming formulas.  It does nothing by itself
- * but you can use it to create arbitrary transformations on formulas.
- * The transform method applies the transformation in a non-recursive manner.
+ * This is the base class for transforming formulas. It does nothing by itself but you can use it to create arbitrary
+ * transformations on formulas. The transform method applies the transformation in a non-recursive manner. To achieve
+ * this it uses a todo stack, which contains terms and a small info how much of this term was already processed.
+ * Additionally it uses a convert stack that contains the most recent converted terms, which is used to collect the
+ * arguments of function calls and the subterm of other terms.
  *
- * Subclasses should override the function convert.  It takes as argument
- * the term to convert and should set its result with setResult.  If it needs
- * to build a more complex term with transformed arguments, it can enqueue the
- * subclasses BuildLetTerm, BuildApplicationTerm, BuildAnnotatedTerm with
- * enqueueWalker.  The arguments should be added to the work queue by
- * pushTerm/pushTerms.
+ * Subclasses should override the function convert. It takes as argument the term to convert and should set its result
+ * with setResult. If it needs to build a more complex term with transformed arguments, it can enqueue the subclasses
+ * BuildLetTerm, BuildApplicationTerm, BuildAnnotatedTerm with enqueueWalker. The arguments should be added to the work
+ * queue by pushTerm/pushTerms.
  *
- * Of course, you can also add your own Build class that takes the converted
- * arguments from the conversion stack using getConverted().
+ * Of course, you can also add your own Build class that takes the converted arguments from the conversion stack using
+ * getConverted().
  *
  * @author Jochen Hoenicke
  */

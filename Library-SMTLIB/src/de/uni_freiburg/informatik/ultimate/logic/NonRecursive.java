@@ -57,13 +57,6 @@ import java.util.ArrayDeque;
  * @author Jochen Hoenicke
  */
 public class NonRecursive {
-	/* This class iterates the term in a non-recursive way.  To achieve this
-	 * it uses a todo stack, which contains terms and a small info how much
-	 * of this term was already processed.  Additionally it uses a convert
-	 * stack that contains the most recent converted terms, which is used
-	 * to collect the arguments of function calls and the subterm of other
-	 * terms.
-	 */
 	/**
 	 * The todo stack. It contains the terms to convert and some info how much
 	 * was already processed of this term.
