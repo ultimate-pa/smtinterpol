@@ -273,7 +273,7 @@ public class QuantClause {
 				final Term lhs = eq.getLhs();
 				final Term rhs = eq.getRhs();
 				if (lhs instanceof TermVariable) {
-					if (lhs.getSort().getName() == "Int" && isNegated) {
+					if (lhs.getSort().getName() == "Int" && !isNegated) {
 						if (rhs.getFreeVars().length == 0) { // (x = t) -> add t-1, t+1
 							final int pos = getVarIndex((TermVariable) lhs);
 							final VarInfo varInfo = mVarInfos[pos];
