@@ -18,6 +18,7 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -70,7 +71,10 @@ public class InstantiationManager {
 	 */
 	public Set<List<Literal>> findConflictAndUnitInstances() {
 		final Set<List<Literal>> conflictAndUnitClauses = new LinkedHashSet<>();
-		for (QuantClause quantClause : mQuantTheory.getQuantClauses()) {
+		// New Quant Clauses may be added when new instances are computed (e.g. axioms for ite terms)
+		final List<QuantClause> currentQuantClauses = new ArrayList<>();
+		currentQuantClauses.addAll(mQuantTheory.getQuantClauses());
+		for (QuantClause quantClause : currentQuantClauses) {
 			if (quantClause.getNumCurrentTrueLits() > 0) {
 				continue;
 			}
@@ -105,7 +109,9 @@ public class InstantiationManager {
 	 * @return an actual conflict clause, if it exists; null otherwise.
 	 */
 	public Clause instantiateAll() {
-		for (QuantClause quantClause : mQuantTheory.getQuantClauses()) {
+		final List<QuantClause> currentQuantClauses = new ArrayList<>();
+		currentQuantClauses.addAll(mQuantTheory.getQuantClauses());
+		for (QuantClause quantClause : currentQuantClauses) {
 			if (quantClause.getNumCurrentTrueLits() > 0) {
 				continue;
 			}

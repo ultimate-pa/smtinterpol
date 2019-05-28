@@ -291,19 +291,18 @@ public class QuantifierTheory implements ITheory {
 	@Override
 	public Object push() {
 		mQuantClauses.beginScope();
-		for (final QuantClause qClause : mQuantClauses) {
-			qClause.push();
-		}
+		// for (final QuantClause qClause : mQuantClauses) {
+		// qClause.push();
+		// }
 		return null;
 	}
 
 	@Override
 	public void pop(Object object, int targetlevel) {
 		mQuantClauses.endScope();
-		for (final QuantClause qClause : mQuantClauses) {
-			qClause.pop();
-		}
-
+		// for (final QuantClause qClause : mQuantClauses) {
+		// qClause.pop();
+		// }
 	}
 
 	@Override
