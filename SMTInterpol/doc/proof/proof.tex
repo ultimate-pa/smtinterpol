@@ -624,6 +624,17 @@ an application of this rule.
       I}\ t_i))}{(not\ t_j)}\quad
 \end{mathpar}
 
+The concrete syntax for the split rule is
+\begin{verbatim}
+    (@split (! premise :rule) conclusion)
+\end{verbatim}
+where \verb+premise+ is the proof for
+the premise of the rule, \verb+:rule+ is the name of the rule, and \verb+conclusion+ is the formula proved by the rule.  The following example shows the proof of $\lnot q$ from the asserted formula \verb+(not (or p q))+.
+
+\begin{verbatim}
+(@split (! (@asserted (not (or p q))) :notOr) (not q))
+\end{verbatim}
+
 Equalities between Boolean terms and if-then-else terms are not transformed by
 this rule.  Note that the equalities are binary since we are dealing with
 canonical form.  The rules to remove such connectives create pseudo-clauses,
