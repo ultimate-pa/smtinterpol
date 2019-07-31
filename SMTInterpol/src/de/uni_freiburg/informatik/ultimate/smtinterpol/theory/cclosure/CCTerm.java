@@ -18,6 +18,9 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure;
 
+import java.util.Collections;
+import java.util.List;
+
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
@@ -406,6 +409,10 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 				for (final CCEquality.Entry eq : info.mEqlits) {
 					engine.addPending(eq.getCCEquality());
 				}
+				// E-Matching
+				for (CompareTrigger trigger : info.mCompareTriggers) {
+					trigger.activate();
+				}
 			} else {
 				CCTermPairHash.Info destInfo = engine.mPairHash.getInfo(dest, other);
 				if (destInfo == null) {
@@ -433,6 +440,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 					}
 				}
 				destInfo.mEqlits.joinList(info.mEqlits);
+				destInfo.mCompareTriggers.joinList(info.mCompareTriggers);
 			}
 			pentry.getOtherEntry().unlink();
 			assert other.mPairInfos.wellformed();
@@ -453,6 +461,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 //			assert (destParentInfo == null || destParentInfo.m_Next == null);
 			if (srcParentInfo != null) {
 				assert(srcParentInfo.mFuncSymbNr == destParentInfo.mFuncSymbNr);
+				assert srcParentInfo.mReverseTriggers.isEmpty();
 			tloop:
 				for (final CCAppTerm.Parent t1 : srcParentInfo.mCCParents) {
 					if (t1.isMarked()) {
@@ -499,6 +508,34 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 							}
 						}
 					}
+					// E-Matching
+					if (!srcParentInfo.mReverseTriggers.isEmpty()) {
+						for (CCAppTerm.Parent parent : destParentInfo.mCCParents) {
+							List<CCTerm> appTerms = Collections.singletonList(parent.getData());
+							while (appTerms.get(0).mIsFunc) {
+								appTerms = CClosure.getApplications(appTerms);
+							}
+							for (CCTerm appTerm : appTerms) {
+								for (ReverseTrigger trigger : srcParentInfo.mReverseTriggers) {
+									trigger.activate((CCAppTerm) appTerm);
+								}
+							}
+						}
+					}
+					if (!destParentInfo.mReverseTriggers.isEmpty()) {
+						for (CCAppTerm.Parent parent : srcParentInfo.mCCParents) {
+							List<CCTerm> appTerms = Collections.singletonList(parent.getData());
+							while (appTerms.get(0).mIsFunc) {
+								appTerms = CClosure.getApplications(appTerms);
+							}
+							for (CCTerm appTerm : appTerms) {
+								for (ReverseTrigger trigger : destParentInfo.mReverseTriggers) {
+									trigger.activate((CCAppTerm) appTerm);
+								}
+							}
+						}
+					}
+
 					srcParentInfo = srcParentInfo.mNext;
 					destParentInfo = destParentInfo.mNext;
 				}
@@ -557,6 +594,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 				if (destInfo == null) {
 					continue;
 				}
+				destInfo.mCompareTriggers.unjoinList(info.mCompareTriggers);
 				assert destInfo.mEqlits.wellformed();
 				destInfo.mEqlits.unjoinList(info.mEqlits);
 				assert info.mEqlits.wellformed() && destInfo.mEqlits.wellformed();
@@ -564,7 +602,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 					destInfo.mDiseq = null;
 				}
 				/* Check if we can remove destInfo since it is empty now */
-				if (destInfo.mDiseq == null && destInfo.mEqlits.isEmpty()) {
+				if (destInfo.mDiseq == null && destInfo.mEqlits.isEmpty() && destInfo.mCompareTriggers.isEmpty()) {
 					destInfo.mLhsEntry.unlink();
 					destInfo.mRhsEntry.unlink();
 					engine.mPairHash.remove(destInfo);

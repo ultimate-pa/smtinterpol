@@ -28,6 +28,7 @@ public class CCTermPairHash extends CuckooHashSet<CCTermPairHash.Info> {
 		CCEquality mDiseq;
 		final SimpleList<CCEquality.Entry>  mEqlits;
 		final Entry mLhsEntry, mRhsEntry;
+		final SimpleList<CompareTrigger> mCompareTriggers; // E-Matching
 
 		class Entry extends SimpleListable<Entry> {
 			CCTerm mOther;
@@ -57,6 +58,7 @@ public class CCTermPairHash extends CuckooHashSet<CCTermPairHash.Info> {
 			l.mPairInfos.append(mLhsEntry);
 			r.mPairInfos.append(mRhsEntry);
 			mEqlits = new SimpleList<CCEquality.Entry>();
+			mCompareTriggers = new SimpleList<>();
 		}
 
 		@Override

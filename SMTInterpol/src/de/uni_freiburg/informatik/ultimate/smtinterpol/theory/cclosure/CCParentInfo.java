@@ -57,6 +57,7 @@ public class CCParentInfo {
 	int mFuncSymbNr;
 	SimpleList<Parent> mCCParents;
 	CCParentInfo mNext;
+	SimpleList<ReverseTrigger> mReverseTriggers; // E-Matching
 
 	/**
 	 * Create an empty CCParentInfo as list head.
@@ -69,11 +70,13 @@ public class CCParentInfo {
 		mFuncSymbNr = funcSymbNr;
 		mCCParents = new SimpleList<Parent>();
 		mNext = next;
+		mReverseTriggers = new SimpleList<>();
 	}
 
 	private CCParentInfo(CCParentInfo other, CCParentInfo next) {
 		this(other.mFuncSymbNr, next);
 		mCCParents.joinList(other.mCCParents);
+		mReverseTriggers.joinList(other.mReverseTriggers);
 	}
 
 	public void addParentInfo(int funcSymbNr, Parent parent, boolean isLast, CClosure engine) {
@@ -103,6 +106,7 @@ public class CCParentInfo {
 				/* merge infos */
 				myInfo = myInfo.mNext;
 				myInfo.mCCParents.joinList(other.mCCParents);
+				myInfo.mReverseTriggers.joinList(other.mReverseTriggers);
 			} else {
 				/* copy info */
 				/* FIXME: can we move info instead??  It saves creating lots of
@@ -129,10 +133,11 @@ public class CCParentInfo {
 
 			/* unjoin lists */
 			next.mCCParents.unjoinList(other.mCCParents);
+			next.mReverseTriggers.unjoinList(other.mReverseTriggers);
 			/* FIXME: Do we really want to remove the entry if it gets empty??
 			 * OTOH, we would then need to create a new info more often.
 			 */
-			if (next.mCCParents.isEmpty()) {
+			if (next.mCCParents.isEmpty() && next.mReverseTriggers.isEmpty()) {
 				/*myInfo.m_Next = next.m_Next;*/
 			} else {
 				myInfo = next;

@@ -21,8 +21,8 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
@@ -81,7 +81,7 @@ public class CClosure implements ITheory {
 		return term;
 	}
 
-	public CCTerm createAppTerm(boolean isFunc, CCTerm func, CCTerm arg) {
+	public CCAppTerm createAppTerm(boolean isFunc, CCTerm func, CCTerm arg) {
 		assert func.mIsFunc;
 		final CCParentInfo info = arg.mRepStar.mCCPars.getExistingParentInfo(func.mParentPosition);
 		if (info != null) {
@@ -117,8 +117,28 @@ public class CClosure implements ITheory {
 			}
 			return term;
 		} else {
+			CCBaseTerm funcTerm = mSymbolicTerms.get(sym);
 			final CCTerm pred = convertFuncTerm(sym, args, numArgs - 1);
-			return createAppTerm(numArgs < args.length, pred, args[numArgs - 1]);
+			CCAppTerm appTerm = createAppTerm(numArgs < args.length, pred, args[numArgs - 1]);
+			/* E-Matching: activate find trigger */
+			{
+				CCParentInfo info = funcTerm.mCCPars.getInfo(0);
+				if (info != null) {
+					for (ReverseTrigger trigger : info.mReverseTriggers) {
+						trigger.activate(appTerm);
+					}
+				}
+			}
+			/* E-Matching: activate reverse trigger */
+			for (int i = 0; i < args.length; i++) {
+				CCParentInfo info = args[i].mCCPars.getInfo(funcTerm.mParentPosition + i);
+				if (info != null) {
+					for (ReverseTrigger trigger : info.mReverseTriggers) {
+						trigger.activate(appTerm);
+					}
+				}
+			}
+			return appTerm;
 		}
 	}
 
@@ -146,35 +166,21 @@ public class CClosure implements ITheory {
 	}
 
 	/**
-	 * For a given function and a given argument position, retrieve all terms that appear at this position.
+	 * Get all terms that appear under a given function at a given position.
 	 *
 	 * @param sym
 	 *            the function symbol
 	 * @param argPos
 	 *            the argument position
-	 * @return a Set of CCTerms that appear under the given function as argPos-th argument.
+	 * @return the CCTerms that appear under the given function as argPos-th argument.
 	 */
 	public Collection<CCTerm> getArgTermsForFunc(FunctionSymbol sym, int argPos) {
 		assert sym.getParameterSorts().length > argPos;
-		ArrayList<CCTerm> args = new ArrayList<>();
-		ArrayList<CCTerm> parents = new ArrayList<>();
+		List<CCTerm> args = new ArrayList<>();
+		List<CCTerm> parents = new ArrayList<>();
 		parents.add(getFuncTerm(sym));
-		HashSet<CCTerm> visited = new HashSet<>();
 		for (int i = 0; i <= argPos; i++) {
-			final ArrayList<CCTerm> nextParents = new ArrayList<>();
-			for (CCTerm funcTerm : parents) {
-				// check if we have already seen this congruence class
-				if (!visited.add(funcTerm.getRepresentative())) {
-					continue;
-				}
-				final CCParentInfo info = funcTerm.getRepresentative().mCCPars.getInfo(0);
-				if (info != null) {
-					for (Parent grandparent : info.mCCParents) {
-						nextParents.add(grandparent.getData());
-					}
-				}
-			}
-			parents = nextParents;
+			parents = getApplications(parents);
 		}
 		// Collect the arguments at argPos
 		for (final CCTerm par : parents) {
@@ -182,6 +188,141 @@ public class CClosure implements ITheory {
 			args.add(((CCAppTerm) par).getArg());
 		}
 		return args;
+	}
+
+	/**
+	 * Get all terms that are a (complete) function application of the given function symbol.
+	 * 
+	 * @param sym
+	 *            the function symbol.
+	 * @return all function applications of the given function symbol.
+	 */
+	public List<CCTerm> getAllFuncApps(final FunctionSymbol sym) {
+		List<CCTerm> parents = Collections.singletonList(getFuncTerm(sym));
+		for (int i = 0; i < sym.getParameterSorts().length; i++) {
+			parents = getApplications(parents);
+		}
+		return parents;
+	}
+
+	/**
+	 * Get all applications given partial functions.
+	 * 
+	 * @param partialFunctions
+	 *            CCTerms that are partial functions.
+	 * @return all CCTerms that are applications of the given partial functions.
+	 */
+	static List<CCTerm> getApplications(List<CCTerm> partialFunctions) {
+		final List<CCTerm> applications = new ArrayList<>();
+		for (CCTerm funcTerm : partialFunctions) {
+			final CCParentInfo info = funcTerm.getRepresentative().mCCPars.getInfo(0);
+			if (info != null) {
+				for (Parent grandparent : info.mCCParents) {
+					applications.add(grandparent.getData());
+				}
+			}
+		}
+		return applications;
+	}
+
+	/**
+	 * Get all (complete) function applications of a given function symbol with a given argument at a given
+	 * position.
+	 * 
+	 * @param sym
+	 *            the function symbol.
+	 * @param arg
+	 *            the argument the application term should contain.
+	 * @param argPos
+	 *            the position of the given argument.
+	 * @return all function applications of the given function symbol with the given argument at the given position.
+	 */
+	public List<CCTerm> getAllFuncAppsForArg(final FunctionSymbol sym, final CCTerm arg, final int argPos) {
+		final CCTerm funcTerm = getFuncTerm(sym);
+		final int parentPosition = funcTerm.mParentPosition + argPos;
+		final CCParentInfo info = arg.getRepresentative().mCCPars.getInfo(parentPosition);
+
+		List<CCTerm> funcApps = new ArrayList<>();
+		for (final Parent parent : info.mCCParents) {
+			funcApps.add(parent.getData());
+		}
+		for (int i = argPos + 1; i < sym.getParameterSorts().length; i++) {
+			funcApps = getApplications(funcApps);
+		}
+		return funcApps;
+	}
+
+	/**
+	 * Insert a Compare trigger that will be activated as soon as the two given CCTerms are equal.
+	 * 
+	 * @param lhs
+	 *            the first CCTerm.
+	 * @param rhs
+	 *            the second CCTerm.
+	 * @param trigger
+	 *            the Compare trigger.
+	 */
+	public void insertCompareTrigger(CCTerm lhs, CCTerm rhs, final CompareTrigger trigger) {
+		lhs = lhs.getRepresentative();
+		rhs = rhs.getRepresentative();
+		assert lhs != rhs;
+		CCTermPairHash.Info info = mPairHash.getInfo(lhs, rhs);
+		if (info == null) {
+			info = new CCTermPairHash.Info(lhs, rhs);
+			mPairHash.add(info);
+		}
+		info.mCompareTriggers.append(trigger);
+	}
+
+	/**
+	 * Remove a given Compare trigger.
+	 */
+	public void removeCompareTrigger(final CompareTrigger trigger) {
+		trigger.removeFromList();
+	}
+
+	/**
+	 * Insert a Reverse trigger that will be activated as soon as a new function application of the given function
+	 * symbol with a given argument at a given position exists.
+	 * 
+	 * @param fSym
+	 *            the function symbol.
+	 * @param arg
+	 *            the argument the new term should contain.
+	 * @param argPos
+	 *            the position of this argument.
+	 * @param trigger
+	 *            the Reverse trigger.
+	 */
+	public void insertReverseTrigger(final FunctionSymbol sym, CCTerm arg, final int argPos,
+			final ReverseTrigger trigger) {
+		final CCTerm func = getFuncTerm(sym);
+		arg = arg.getRepresentative();
+		int parentPos = func.mParentPosition + argPos;
+		final CCParentInfo info = arg.mCCPars.createInfo(parentPos);
+		info.mReverseTriggers.append(trigger);
+	}
+
+	/**
+	 * Insert a Reverse trigger that will be activated as soon as a new function application of the given function
+	 * symbol exists.
+	 * 
+	 * @param fSym
+	 *            the function symbol.
+	 * @param trigger
+	 *            the Reverse trigger.
+	 */
+	public void insertReverseTrigger(final FunctionSymbol sym, final ReverseTrigger trigger) {
+		final CCTerm func = getFuncTerm(sym);
+		final CCParentInfo info = func.mCCPars.createInfo(0);
+		info.mReverseTriggers.append(trigger);
+	}
+
+	/**
+	 * Remove a given Reverse trigger.
+	 */
+	public void removeReverseTrigger(final ReverseTrigger trigger) {
+		trigger.removeFromList();
 	}
 
 	/**

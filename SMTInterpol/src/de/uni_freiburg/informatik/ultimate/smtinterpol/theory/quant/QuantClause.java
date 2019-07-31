@@ -105,6 +105,7 @@ public class QuantClause {
 			mVarInfos[i] = new VarInfo();
 		}
 		collectVarInfos();
+		addPatterns(); // TODO Find a good place to do this.
 		mInterestingTermsForVars = new LinkedHashMap[mVars.length];
 		for (int i = 0; i < mVars.length; i++) {
 			mInterestingTermsForVars[i] = new LinkedHashMap<>();
@@ -119,6 +120,7 @@ public class QuantClause {
 	 * Update the interesting instantiation terms for all variable with terms from CClosure.
 	 */
 	public void updateInterestingTermsAllVars() {
+		mQuantTheory.getEMatching().run(); // TODO Find a place to run E-Matching
 		for (int i = 0; i < mVars.length; i++) {
 			if (mVars[i].getSort().getName() != "Bool") {
 				updateInterestingTermsOneVar(mVars[i], i);
@@ -303,11 +305,20 @@ public class QuantClause {
 	}
 
 	/**
-	 * For each variable in the given term, add the functions and positions where it appears as argument to the VarInfo.
-	 * 
-	 * TODO Nonrecursive.
+	 * Add the patterns for E-Matching.
 	 */
-	void addAllVarPos(ApplicationTerm qTerm) {
+	private void addPatterns() {
+		for (final QuantLiteral qLit : mQuantLits) {
+			if (qLit.mIsAlmostUninterpreted) {
+				mQuantTheory.getEMatching().addPatterns(qLit, mSource);
+			}
+		}
+	}
+
+	/**
+	 * For each variable in the given term, add the functions and positions where it appears as argument to the VarInfo.
+	 */
+	private void addAllVarPos(ApplicationTerm qTerm) {
 		final FunctionSymbol func = qTerm.getFunction();
 		final Term[] args = qTerm.getParameters();
 		if (!func.isInterpreted() || func.getName() == "select") {
@@ -444,7 +455,7 @@ public class QuantClause {
 						}
 					}
 				}
-			}
+			} // TODO: maybe for store(a,x,v) we need all i in select(b,i)
 		}
 	}
 

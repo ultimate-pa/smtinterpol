@@ -50,6 +50,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinArSolve;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.ematching.EMatching;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
 
 /**
@@ -70,6 +71,7 @@ public class QuantifierTheory implements ITheory {
 	final CClosure mCClosure;
 	final LinArSolve mLinArSolve;
 
+	private final EMatching mEMatching;
 	private final InstantiationManager mInstantiationManager;
 	private final Map<Sort, SharedTerm> mLambdas;
 
@@ -104,6 +106,7 @@ public class QuantifierTheory implements ITheory {
 		mCClosure = clausifier.getCClosure();
 		mLinArSolve = clausifier.getLASolver();
 
+		mEMatching = new EMatching(this);
 		mInstantiationManager = new InstantiationManager(mClausifier, this);
 		mLambdas = new HashMap<Sort, SharedTerm>();
 
@@ -272,7 +275,8 @@ public class QuantifierTheory implements ITheory {
 
 	@Override
 	public Clause backtrackComplete() {
-		// TODO Auto-generated method stub
+		final int decisionLevel = mClausifier.getEngine().getDecideLevel();
+		mEMatching.undo(decisionLevel);
 		return null;
 	}
 
@@ -373,9 +377,11 @@ public class QuantifierTheory implements ITheory {
 				}
 			} else if (!(newRhs instanceof TermVariable)) {
 				atom.negate().mIsAlmostUninterpreted = false;
-				if (newRhs.getSort().getName() == "Real") {
+
+				if (!(newRhs.getFreeVars().length == 0 && newRhs.getSort().getName() == "Int")) {
 					atom.mIsAlmostUninterpreted = false;
 				}
+
 				if (!Arrays.asList(newRhs.getFreeVars()).contains((TermVariable) newLhs)) {
 					// (x != termwithoutx) can be used for DER
 					atom.negate().mIsDERUsable = true;
@@ -560,6 +566,10 @@ public class QuantifierTheory implements ITheory {
 
 	public CClosure getCClosure() {
 		return mCClosure;
+	}
+
+	public EMatching getEMatching() {
+		return mEMatching;
 	}
 
 	public LinArSolve getLinAr() {
