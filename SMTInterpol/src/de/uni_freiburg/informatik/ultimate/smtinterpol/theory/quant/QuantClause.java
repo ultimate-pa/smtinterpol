@@ -74,11 +74,6 @@ public class QuantClause {
 	// private ScopedHashSet<List<SharedTerm>> mInstantiations;
 
 	/**
-	 * Indicates whether this clause is already true because one of the ground literals is.
-	 */
-	private int mNumCurrentTrueLits;
-
-	/**
 	 * Build a new QuantClause. At least one literal must not be ground. This should only be called after performing
 	 * DER.
 	 *
@@ -113,7 +108,6 @@ public class QuantClause {
 		collectInitialInterestingTermsAllVars();
 
 		// mInstantiations = new ScopedHashSet<>();
-		mNumCurrentTrueLits = 0;
 	}
 
 	/**
@@ -127,6 +121,18 @@ public class QuantClause {
 			}
 		}
 		synchronizeInterestingTermsAllVars();
+	}
+
+	/**
+	 * Check if some of the ground literals in this clause is currently set to true.
+	 */
+	public boolean hasTrueGroundLits() {
+		for (final Literal lit : mGroundLits) {
+			if (lit.getAtom().getDecideStatus() == lit) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	public QuantifierTheory getQuantTheory() {
@@ -157,10 +163,6 @@ public class QuantClause {
 	// return mInstantiations;
 	// }
 
-	public int getNumCurrentTrueLits() {
-		return mNumCurrentTrueLits;
-	}
-
 	@Override
 	public String toString() {
 		return Arrays.toString(mGroundLits).concat(Arrays.toString(mQuantLits));
@@ -178,14 +180,6 @@ public class QuantClause {
 		// mInterestingTermsForVars[i].endScope();
 		// }
 		// mInstantiations.endScope();
-	}
-
-	void incrNumCurrentTrueLits() {
-		mNumCurrentTrueLits++;
-	}
-
-	void decrNumCurrentTrueLits() {
-		mNumCurrentTrueLits--;
 	}
 
 	// void addInstance(List<SharedTerm> inst) {

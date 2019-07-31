@@ -75,7 +75,7 @@ public class InstantiationManager {
 		final List<QuantClause> currentQuantClauses = new ArrayList<>();
 		currentQuantClauses.addAll(mQuantTheory.getQuantClauses());
 		for (QuantClause quantClause : currentQuantClauses) {
-			if (quantClause.getNumCurrentTrueLits() > 0) {
+			if (quantClause.hasTrueGroundLits()) {
 				continue;
 			}
 			final Set<SharedTerm[]> allInstantiations = computeAllInstantiations(quantClause);
@@ -112,7 +112,7 @@ public class InstantiationManager {
 		final List<QuantClause> currentQuantClauses = new ArrayList<>();
 		currentQuantClauses.addAll(mQuantTheory.getQuantClauses());
 		for (QuantClause quantClause : currentQuantClauses) {
-			if (quantClause.getNumCurrentTrueLits() > 0) {
+			if (quantClause.hasTrueGroundLits()) {
 				continue;
 			}
 			final Set<SharedTerm[]> allInstantiations = computeAllInstantiations(quantClause);
@@ -192,7 +192,6 @@ public class InstantiationManager {
 		// Check ground literals first.
 		for (Literal groundLit : quantClause.getGroundLits()) {
 			if (groundLit.getAtom().getDecideStatus() == groundLit) {
-				assert quantClause.getNumCurrentTrueLits() > 0;
 				return InstanceValue.TRUE;
 			} else if (groundLit.getAtom().getDecideStatus() == null) {
 				clauseValue.combine(InstanceValue.ONE_UNDEF);

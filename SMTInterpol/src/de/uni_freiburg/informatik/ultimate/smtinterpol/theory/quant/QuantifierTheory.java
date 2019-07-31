@@ -132,12 +132,6 @@ public class QuantifierTheory implements ITheory {
 
 	@Override
 	public Clause setLiteral(Literal literal) {
-		// Mark clauses that are true due to this literal.
-		for (final QuantClause quantClause : mQuantClauses) {
-			if (Arrays.asList(quantClause.getGroundLits()).contains(literal)) {
-				quantClause.incrNumCurrentTrueLits();
-			}
-		}
 		if (mPotentialConflictAndUnitClauses.containsKey(literal)) {
 			mPotentialConflictAndUnitClauses.remove(literal);
 		}
@@ -170,11 +164,6 @@ public class QuantifierTheory implements ITheory {
 
 	@Override
 	public void backtrackLiteral(Literal literal) {
-		for (final QuantClause clause : mQuantClauses) {
-			if (Arrays.asList(clause.getGroundLits()).contains(literal)) {
-				clause.decrNumCurrentTrueLits();
-			}
-		}
 		for (final Literal lit : mPotentialConflictAndUnitClauses.keySet()) {
 			for (final InstClause clause : mPotentialConflictAndUnitClauses.get(lit)) {
 				if (clause.mLits.contains(literal.negate())) {
@@ -669,7 +658,7 @@ public class QuantifierTheory implements ITheory {
 	 */
 	public int checkCompleteness() {
 		for (final QuantClause qClause : mQuantClauses) {
-			if (qClause.getNumCurrentTrueLits() == 0) {
+			if (!qClause.hasTrueGroundLits()) {
 				for (final QuantLiteral qLit : qClause.getQuantLits()) {
 					if (!qLit.isAlmostUninterpreted()) {
 						return DPLLEngine.INCOMPLETE_QUANTIFIER;
