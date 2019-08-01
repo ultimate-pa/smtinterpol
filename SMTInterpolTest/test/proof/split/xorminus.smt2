@@ -8,7 +8,7 @@
 (declare-fun r () Bool)
 
 (push 1)
-(assert (not (xor p q))
+(assert (not (xor p q)))
 (assert (not p))
 (assert q)
 
@@ -18,7 +18,7 @@
 (pop 1)
 
 (push 1)
-(assert (not (xor p q))
+(assert (not (xor p q)))
 (assert p)
 (assert (not q))
 
