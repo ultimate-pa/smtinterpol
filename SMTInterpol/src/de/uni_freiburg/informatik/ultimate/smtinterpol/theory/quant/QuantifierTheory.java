@@ -359,25 +359,23 @@ public class QuantifierTheory implements ITheory {
 			atom = new QuantEquality(newTerm, newLhs, newRhs);
 			
 			// Check if the atom is almost uninterpreted or can be used for DER.
-			if (!(newLhs instanceof TermVariable)) { // (euEUTerm = euTerm) is almost uninterpreted
-				if (!isEssentiallyUninterpreted(newLhs) || !isEssentiallyUninterpreted(newRhs)) {
-					atom.mIsAlmostUninterpreted = false;
-					atom.negate().mIsAlmostUninterpreted = false;
+			if (!(newLhs instanceof TermVariable)) { // (euEUTerm = euTerm) is essentially and almost uninterpreted
+				if (isEssentiallyUninterpreted(newLhs) && isEssentiallyUninterpreted(newRhs)) {
+					atom.mIsEssentiallyUninterpreted = atom.negate().mIsEssentiallyUninterpreted = true;
+					atom.mIsAlmostUninterpreted = atom.negate().mIsAlmostUninterpreted = true;
 				}
 			} else if (!(newRhs instanceof TermVariable)) {
-				atom.negate().mIsAlmostUninterpreted = false;
-
-				if (!(newRhs.getFreeVars().length == 0 && newRhs.getSort().getName() == "Int")) {
-					atom.mIsAlmostUninterpreted = false;
+				// (x = t) for t integer is arithmetical and almost uninterpreted
+				if (newRhs.getFreeVars().length == 0 && newRhs.getSort().getName() == "Int") {
+					atom.mIsArithmetical = true;
+					atom.mIsAlmostUninterpreted = true;
 				}
-
+				// (x != termwithoutx) can be used for DER
 				if (!Arrays.asList(newRhs.getFreeVars()).contains((TermVariable) newLhs)) {
-					// (x != termwithoutx) can be used for DER
 					atom.negate().mIsDERUsable = true;
 				}
-			} else { // (iv) (var = var)
-				atom.mIsAlmostUninterpreted = false; // Positive form is not almost uninterpreted.
-				atom.negate().mIsDERUsable = true; // The negated form is used for DER.
+			} else { // (var = var) is not almost uninterpreted, but the negated form can be used for DER
+				atom.negate().mIsDERUsable = true;
 			}
 		}
 		mQuantLits.put(term, atom);
@@ -444,15 +442,16 @@ public class QuantifierTheory implements ITheory {
 			atom = new QuantBoundConstraint(newTerm, linTerm);
 
 			// Check if the atom is almost uninterpreted.
-			if (var == null) { // (euTerm <= 0), pos. and neg., is almost uninterpreted.
+			if (var == null) { // (euTerm <= 0), pos. and neg., is essentially and almost uninterpreted.
+				boolean hasOnlyEU = true;
 				for (final Term smd : linTerm.getSummands().keySet()) {
-					if (!isEssentiallyUninterpreted(smd)) {
-						atom.mIsAlmostUninterpreted = false;
-						atom.negate().mIsAlmostUninterpreted = false;
-					}
+					hasOnlyEU = hasOnlyEU && isEssentiallyUninterpreted(smd);
 				}
-			} else { // (var < var), (var < ground), or (ground < var) are almost uninterpreted
-				atom.mIsAlmostUninterpreted = false;
+				if (hasOnlyEU) {
+					atom.mIsEssentiallyUninterpreted = atom.negate().mIsEssentiallyUninterpreted = true;
+					atom.mIsAlmostUninterpreted = atom.negate().mIsAlmostUninterpreted = true;
+				}
+			} else { // (var < var), (var < ground), or (ground < var) are arithmetical and almost uninterpreted
 				final SMTAffineTerm remainderAff = new SMTAffineTerm();
 				remainderAff.add(linTerm);
 				remainderAff.add(hasUpperBound ? Rational.ONE : Rational.MONE, var);
@@ -460,8 +459,9 @@ public class QuantifierTheory implements ITheory {
 					remainderAff.negate();
 				}
 				final Term remainder = remainderAff.toTerm(lhs.getSort());
-				if (!(remainder instanceof TermVariable) && !(remainder.getFreeVars().length == 0)) {
-					atom.negate().mIsAlmostUninterpreted = false;
+				if (remainder instanceof TermVariable || remainder.getFreeVars().length == 0) {
+					atom.negate().mIsArithmetical = true;
+					atom.negate().mIsAlmostUninterpreted = true;
 				}
 			}
 		}

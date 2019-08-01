@@ -39,9 +39,17 @@ public abstract class QuantLiteral implements ILiteral {
 	private final Term mTerm;
 	/**
 	 * Flag to mark if the QuantLiteral lies in the almost uninterpreted fragment (some only do in negated from). The
-	 * default value is true.
+	 * default value is false.
 	 */
 	protected boolean mIsAlmostUninterpreted;
+	/**
+	 * Flag to mark if the QuantLiteral is essentially uninterpreted. The default value is false.
+	 */
+	protected boolean mIsEssentiallyUninterpreted;
+	/**
+	 * Flag to mark if the QuantLiteral is arithmetical. The default value is false.
+	 */
+	protected boolean mIsArithmetical;
 	/**
 	 * Flag to mark if the QuantLiteral can be used for DER.
 	 */
@@ -65,8 +73,9 @@ public abstract class QuantLiteral implements ILiteral {
 	QuantLiteral(final Term term) {
 		mTerm = term;
 		mAtom = this;
-		mIsAlmostUninterpreted = true; // Default value.
-		mIsDERUsable = false; // Default value.
+		// Default values.
+		mIsAlmostUninterpreted = mIsEssentiallyUninterpreted = mIsArithmetical = false;
+		mIsDERUsable = false;
 	}
 
 	public QuantLiteral negate() {
@@ -90,6 +99,7 @@ public abstract class QuantLiteral implements ILiteral {
 	}
 
 	public boolean isAlmostUninterpreted() {
+		assert mIsArithmetical || mIsEssentiallyUninterpreted;
 		return mIsAlmostUninterpreted;
 	}
 
