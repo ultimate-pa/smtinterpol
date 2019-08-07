@@ -19,13 +19,17 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.dawg;
 
+import java.util.AbstractList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
 import de.uni_freiburg.informatik.ultimate.util.HashUtils;
@@ -215,8 +219,59 @@ public class Dawg<LETTER, VALUE> {
 		return result;
 	}
 
+	/**
+	 * Combine two dawgs (this and other) to a new dawg that uses the given combinator function to map each value pair
+	 * to a new value. This creates a dawg that maps each key to
+	 * {@code combinator.apply(this.getValue(key), other.getValue(key))}.
+	 * 
+	 * @param other
+	 *            the second Dawg.
+	 * @param combinator
+	 *            the combinator function.
+	 * @return the mapped dawg.
+	 */
 	public <V2, V3> Dawg<LETTER, V3> combine(final Dawg<LETTER, V2> other, final BiFunction<VALUE, V2, V3> combinator) {
 		return combineInternal(other, combinator, new HashMap<>());
+	}
+
+	private <V2> Dawg<LETTER, V2> mapInternal(final Function<VALUE, V2> map,
+			final Map<Dawg<LETTER, VALUE>, Dawg<LETTER, V2>> cache) {
+		Dawg<LETTER, V2> result = cache.get(this);
+		if (result != null) {
+			return result;
+		}
+		if (mElseTransition == null) {
+			result = createConst(0, map.apply(mFinal));
+		} else {
+			Dawg<LETTER, V2> elseCase = mElseTransition.mapInternal(map, cache);
+			if (mTransitions.isEmpty()) {
+				result = elseCase.createParent();
+			} else {
+				Map<LETTER, Dawg<LETTER, V2>> newTransitions = new HashMap<>();
+				for (Map.Entry<LETTER, Dawg<LETTER, VALUE>> entry : mTransitions.entrySet()) {
+					LETTER key = entry.getKey();
+					Dawg<LETTER, V2> mapped = entry.getValue().mapInternal(map, cache);
+					if (mapped != mElseTransition) {
+						newTransitions.put(key, mapped);
+					}
+				}
+				result = createDawg(newTransitions, elseCase);
+			}
+		}
+		cache.put(this, result);
+		return result;
+	}
+
+	/**
+	 * Create a new dawg that uses the given map to map each value to a new value. This creates a dawg that maps each
+	 * key to {@code map.apply(this.getValue(key))}.
+	 * 
+	 * @param map
+	 *            the map function
+	 * @return the mapped dawg.
+	 */
+	public <V2> Dawg<LETTER, V2> map(final Function<VALUE, V2> map) {
+		return mapInternal(map, new HashMap<>());
 	}
 
 	public boolean isFinal() {
@@ -295,4 +350,119 @@ public class Dawg<LETTER, VALUE> {
 		assert state.isFinal();
 		return state.getFinalValue();
 	}
+
+	public Iterable<Entry<LETTER, VALUE>> entrySet() {
+		if (isFinal()) {
+			return Collections.singleton(new Entry<LETTER, VALUE>(Collections.emptyList(), this.mFinal));
+		}
+		return new Iterable<Entry<LETTER, VALUE>>() {
+			@Override
+			public Iterator<Entry<LETTER, VALUE>> iterator() {
+				return new Iterator<Entry<LETTER, VALUE>>() {
+					/**
+					 * Iterator for all transitions. This is set to null, when we iterate the dawg for the
+					 * elseTransition.
+					 */
+					Iterator<Map.Entry<LETTER, Dawg<LETTER, VALUE>>> mTransIterator = mTransitions.entrySet()
+							.iterator();
+					/**
+					 * The entry currently iterated. If this is null, then we need to get the next entry from
+					 * mTransIterator. This is an entry in the mTransitions hash map, or a special entry for the else
+					 * transition with null key.
+					 */
+					Map.Entry<LETTER, Dawg<LETTER, VALUE>> mCurrentEntry = null;
+					/**
+					 * The iterator for the Dawg in mCurrentEntry.
+					 */
+					Iterator<Entry<LETTER, VALUE>> mSubIterator = null;
+
+					@Override
+					public boolean hasNext() {
+						while (mSubIterator == null || !mSubIterator.hasNext()) {
+							if (mTransIterator == null) {
+								/* we iterated everything, even the default transition */
+								return false;
+							}
+							if (mTransIterator.hasNext()) {
+								mCurrentEntry = mTransIterator.next();
+							} else {
+								mTransIterator = null;
+								mCurrentEntry = new Map.Entry<LETTER, Dawg<LETTER, VALUE>>() {
+									@Override
+									public LETTER getKey() {
+										return null;
+									}
+
+									@Override
+									public Dawg<LETTER, VALUE> getValue() {
+										return mElseTransition;
+									}
+
+									@Override
+									public Dawg<LETTER, VALUE> setValue(Dawg<LETTER, VALUE> value) {
+										throw new UnsupportedOperationException();
+									}
+								};
+							}
+							mSubIterator = mCurrentEntry.getValue().entrySet().iterator();
+						}
+						return true;
+					}
+
+					@Override
+					public Entry<LETTER, VALUE> next() {
+						if (!hasNext()) {
+							throw new NoSuchElementException();
+						}
+						assert mSubIterator != null && mSubIterator.hasNext();
+						assert mCurrentEntry != null;
+						final Entry<LETTER, VALUE> suffixEntry = mSubIterator.next();
+						List<LETTER> newKey = new ConsList<LETTER>(mCurrentEntry.getKey(), suffixEntry.getKey());
+						return new Dawg.Entry<>(newKey, suffixEntry.getValue());
+					}
+				};
+			}
+		};
+	}
+
+	private static class ConsList<T> extends AbstractList<T> {
+		private T mHead;
+		private List<T> mTail;
+		private int mSize;
+
+		public ConsList(T head, List<T> tail) {
+			mHead = head;
+			mTail = tail;
+			mSize = tail.size() + 1;
+		}
+
+		@Override
+		public T get(int index) {
+			return index == 0 ? mHead : mTail.get(index - 1);
+		}
+
+		@Override
+		public int size() {
+			return mSize;
+		}
+	}
+
+	public static class Entry<LETTER, VALUE> {
+		private List<LETTER> mKey;
+		private VALUE mValue;
+
+		public Entry(List<LETTER> key, VALUE value) {
+			mKey = key;
+			mValue = value;
+		}
+
+		public List<LETTER> getKey() {
+			return mKey;
+		}
+
+		public VALUE getValue() {
+			return mValue;
+		}
+	}
+
 }
