@@ -161,17 +161,29 @@ public class Dawg<LETTER, VALUE> {
 			return createConst(0, value);
 		} else {
 			LETTER firstLetter = key.get(0);
+			List<LETTER> keyTail = key.subList(1, key.size());
 			HashMap<LETTER, Dawg<LETTER, VALUE>> newTransitions = new HashMap<>();
-			newTransitions.putAll(mTransitions);
-			Dawg<LETTER, VALUE> tailDawg = getNextDawg(firstLetter);
-			Dawg<LETTER, VALUE> newTailDawg = tailDawg.insert(key.subList(1, key.size()), value);
-			if (newTailDawg == mElseTransition) {
-				/* new Destination is the default transitions, so remove it from the transition map */
-				newTransitions.remove(firstLetter);
+			if (firstLetter == null) {
+				Dawg<LETTER, VALUE> elseDest = mElseTransition.insert(keyTail, value);
+				for (Map.Entry<LETTER, Dawg<LETTER, VALUE>> oldTrans : mTransitions.entrySet()) {
+					Dawg<LETTER, VALUE> newDest = oldTrans.getValue().insert(keyTail, value);
+					if (newDest != elseDest) {
+						newTransitions.put(oldTrans.getKey(), newDest);
+					}
+				}
+				return createDawg(newTransitions, elseDest);
 			} else {
-				newTransitions.put(firstLetter, newTailDawg);
+				Dawg<LETTER, VALUE> tailDawg = getNextDawg(firstLetter);
+				Dawg<LETTER, VALUE> newTailDawg = tailDawg.insert(keyTail, value);
+				newTransitions.putAll(mTransitions);
+				if (newTailDawg == mElseTransition) {
+					/* new Destination is the default transitions, so remove it from the transition map */
+					newTransitions.remove(firstLetter);
+				} else {
+					newTransitions.put(firstLetter, newTailDawg);
+				}
+				return createDawg(newTransitions, mElseTransition);
 			}
-			return new Dawg<>(newTransitions, mElseTransition);
 		}
 	}
 
@@ -197,7 +209,7 @@ public class Dawg<LETTER, VALUE> {
 					LETTER key = entry.getKey();
 					Dawg<LETTER, V3> combined =
 							entry.getValue().combineInternal(other.getNextDawg(key), combinator, cache);
-					if (combined != mElseTransition) {
+					if (combined != elseCase) {
 						newTransitions.put(key, combined);
 					}
 				}
@@ -207,7 +219,7 @@ public class Dawg<LETTER, VALUE> {
 					if (!mTransitions.containsKey(key)) {
 						Dawg<LETTER, V3> combined = mElseTransition.combineInternal(entry.getValue(), combinator,
 								cache);
-						if (combined != mElseTransition) {
+						if (combined != elseCase) {
 							newTransitions.put(key, combined);
 						}
 					}
@@ -251,7 +263,7 @@ public class Dawg<LETTER, VALUE> {
 				for (Map.Entry<LETTER, Dawg<LETTER, VALUE>> entry : mTransitions.entrySet()) {
 					LETTER key = entry.getKey();
 					Dawg<LETTER, V2> mapped = entry.getValue().mapInternal(map, cache);
-					if (mapped != mElseTransition) {
+					if (mapped != elseCase) {
 						newTransitions.put(key, mapped);
 					}
 				}
@@ -312,11 +324,11 @@ public class Dawg<LETTER, VALUE> {
 				comma = "         ";
 			}
 			sb.append(comma).append("->");
-			if (mElseTransition.isFinal()) {
-				sb.append("(").append(mElseTransition.getFinalValue()).append(") ");
+			if (state.mElseTransition.isFinal()) {
+				sb.append("(").append(state.mElseTransition.getFinalValue()).append(") ");
 			} else {
-				sb.append(String.format("#%04d ", mElseTransition.hashCode() % 10000));
-				toPrint.add(mElseTransition);
+				sb.append(String.format("#%04d ", state.mElseTransition.hashCode() % 10000));
+				toPrint.add(state.mElseTransition);
 			}
 			sb.append("OTHERWISE\n");
 		}
