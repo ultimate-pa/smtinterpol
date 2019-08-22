@@ -2200,42 +2200,42 @@ public class Clausifier {
 
 	private ILiteral createBooleanLit(final ApplicationTerm term, final SourceAnnotation source) {
 		ILiteral lit = mLiteralData.get(term);
-		if (lit == null) {
-			if (term.getParameters().length == 0) {
-				lit = createBooleanVar(term);
-			} else {
+			if (lit == null) {
+				if (term.getParameters().length == 0) {
+					lit = createBooleanVar(term);
+				} else {
 				if (term.getFreeVars().length > 0 && !mIsEprEnabled) {
 					lit = mQuantTheory.getQuantEquality(term, true, source, term, term.getTheory().mTrue);
 
 					// alex: this the right place to get rid of the CClosure predicate conversion in EPR-case?
 					// --> seems to be one of three positions.. (keyword: predicate-to-function conversion)
 				} else if ((mEprTheory != null && !EprTheorySettings.FullInstatiationMode)
-						|| EprTheory.isQuantifiedEprAtom(term)) {
-					// assuming right now that
-					assert !term.getFunction().getName().equals("not") : "do something for the negated case!";
+							|| EprTheory.isQuantifiedEprAtom(term)) {
+						// assuming right now that
+						assert !term.getFunction().getName().equals("not") : "do something for the negated case!";
 
-					// FIXME: how to tell getEprAtom which clause we are in????
-					// TODO: replace 0 by hash value
-					final EprAtom atom = mEprTheory.getEprAtom(term, 0, mStackLevel, source);
-					lit = atom;
-					// if (!atom.isQuantified)
-					if (atom instanceof EprGroundPredicateAtom) {
-						mEprTheory.addAtomToDPLLEngine(atom);
-					// mEngine.addAtom(atom);
+						// FIXME: how to tell getEprAtom which clause we are in????
+						// TODO: replace 0 by hash value
+						final EprAtom atom = mEprTheory.getEprAtom(term, 0, mStackLevel, source);
+						lit = atom;
+						// if (!atom.isQuantified)
+						if (atom instanceof EprGroundPredicateAtom) {
+							mEprTheory.addAtomToDPLLEngine(atom);
+							// mEngine.addAtom(atom);
+						}
+					} else {
+						// replace a predicate atom "(p x)" by "(p x) = true"
+						final SharedTerm st = getSharedTerm(term, source);
+
+						final EqualityProxy eq = createEqualityProxy(st, mSharedTrue);
+						// Safe since m_Term is neither true nor false
+						assert eq != EqualityProxy.getTrueProxy();
+						assert eq != EqualityProxy.getFalseProxy();
+						lit = eq.getLiteral(source);
+
 					}
-				} else {
-					// replace a predicate atom "(p x)" by "(p x) = true"
-					final SharedTerm st = getSharedTerm(term, source);
-
-					final EqualityProxy eq = createEqualityProxy(st, mSharedTrue);
-					// Safe since m_Term is neither true nor false
-					assert eq != EqualityProxy.getTrueProxy();
-					assert eq != EqualityProxy.getFalseProxy();
-					lit = eq.getLiteral(source);
-
 				}
-			}
-			mLiteralData.put(term, lit);
+				mLiteralData.put(term, lit);
 			mUndoTrail = new RemoveAtom(mUndoTrail, term);
 		}
 		return lit;

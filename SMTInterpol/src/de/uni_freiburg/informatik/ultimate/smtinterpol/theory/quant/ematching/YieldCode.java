@@ -36,28 +36,46 @@ public class YieldCode implements ICode {
 
 	private final EMatching mEMatching;
 	private final QuantLiteral mQuantLiteral;
-	private final Map<Term, Integer> mCandPos;
+	private final TermVariable[] mVarOrder;
 	private final Map<TermVariable, Integer> mVarPos;
+	private final Map<Term, Integer> mEquivCCTermPos;
 
-	public YieldCode(final EMatching eMatching, final QuantLiteral qLit, final Map<Term, Integer> candPos,
-			final Map<TermVariable, Integer> varPos) {
+	/**
+	 * Generate a new Yield Code.
+	 * 
+	 * @param eMatching
+	 *            the E-Matching engine.
+	 * @param qLit
+	 *            the quantified literal.
+	 * @param varOrder
+	 *            the order of the variables; the resulting substitution will be returned in this order.
+	 * @param varPos
+	 *            the position of the variable substitutions in the register.
+	 * @param equivCCTermPos
+	 *            the position of the equivalent CCTerms in the register.
+	 */
+	public YieldCode(final EMatching eMatching, final QuantLiteral qLit, final TermVariable[] varOrder,
+			final Map<TermVariable, Integer> varPos, final Map<Term, Integer> equivCCTermPos) {
 		mEMatching = eMatching;
 		mQuantLiteral = qLit;
-		mCandPos = candPos;
+		mVarOrder = varOrder;
 		mVarPos = varPos;
+		mEquivCCTermPos = equivCCTermPos;
 	}
 
 	@Override
 	public void execute(CCTerm[] register) {
-		final Map<Term, CCTerm> cands = new HashMap<>();
-		final Map<Term, CCTerm> interestingSubs = new HashMap<>();
-		for (final Entry<Term, Integer> candPos : mCandPos.entrySet()) {
-			cands.put(candPos.getKey(), register[candPos.getValue()]);
+		final CCTerm[] varSubs = new CCTerm[mVarOrder.length];
+		for (int i = 0; i < varSubs.length; i++) {
+			if (mVarPos.containsKey(mVarOrder[i])) {
+				varSubs[i] = register[mVarPos.get(mVarOrder[i])];
+			}
 		}
-		for (final Entry<TermVariable, Integer> varPos : mVarPos.entrySet()) {
-			interestingSubs.put(varPos.getKey(), register[varPos.getValue()]);
+		final Map<Term, CCTerm> equivalentCCTerms = new HashMap<>();
+		for (final Entry<Term, Integer> pos : mEquivCCTermPos.entrySet()) {
+			equivalentCCTerms.put(pos.getKey(), register[pos.getValue()]);
 		}
-		mEMatching.addInterestingSubstitution(mQuantLiteral, interestingSubs, cands);
+		mEMatching.addInterestingSubstitution(mQuantLiteral, varSubs, equivalentCCTerms);
 	}
 
 	@Override

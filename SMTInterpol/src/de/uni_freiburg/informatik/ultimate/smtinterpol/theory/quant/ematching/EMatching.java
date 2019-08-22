@@ -24,8 +24,8 @@ import java.util.Collection;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -33,11 +33,12 @@ import java.util.Map.Entry;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantBoundConstraint;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory;
@@ -55,50 +56,54 @@ public class EMatching {
 	private final Deque<Pair<ICode, CCTerm[]>> mTodoStack;
 	private final Map<Integer, EMUndoInformation> mUndoInformation;
 	/**
-	 * For each quantified literal, the interesting substitutions and the corresponding CCTerms for the occurring
-	 * EUTerms.
+	 * For each essentially uninterpreted quantified literal, the interesting substitutions and the corresponding
+	 * (equivalent) CCTerms for the occurring EUTerms.
 	 */
-	private final Map<QuantLiteral, List<Pair<Map<Term, CCTerm>, Map<Term, CCTerm>>>> mInterestingSubstitutions;
+	private final Map<QuantLiteral, List<SubstitutionInfo>> mInterestingSubstitutions;
 
 	public EMatching(QuantifierTheory quantifierTheory) {
 		mQuantTheory = quantifierTheory;
 		mTodoStack = new ArrayDeque<>();
-		mInterestingSubstitutions = new HashMap<>();
+		mInterestingSubstitutions = new LinkedHashMap<>();
 		mUndoInformation = new HashMap<>();
 	}
 
-	public void addPatterns(final QuantLiteral qLit, final SourceAnnotation source) {
-		final Collection<Term> patterns = new LinkedHashSet<>();
-
-		final QuantLiteral qAtom = qLit.getAtom();
-		if (qAtom instanceof QuantEquality) {
-			final QuantEquality eq = (QuantEquality) qAtom;
-			final Term lhs = eq.getLhs();
-			// For EUTerm = EUTerm, add the two EUTerms to E-matching.
-			// If one of them is an affine term of EUTerms, add all of them.
-			// We also add the EUTerm in x = EUTerm.
-			if (!(lhs instanceof TermVariable)) {
-				final SMTAffineTerm lhsAff = new SMTAffineTerm(lhs);
-				patterns.addAll(getSubPatterns(lhsAff));
+	/**
+	 * Add the patterns for E-Matching. Currently, only essentially uninterpreted literals are used.
+	 */
+	public void addPatterns(final QuantClause qClause) {
+		for (final QuantLiteral qLit : qClause.getQuantLits()) {
+			final QuantLiteral qAtom = qLit.getAtom();
+			if (qAtom.isEssentiallyUninterpreted()) {
+				final Collection<Term> patterns = new LinkedHashSet<>();
+				if (qAtom instanceof QuantEquality) {
+					final QuantEquality eq = (QuantEquality) qAtom;
+					final Term lhs = eq.getLhs();
+					// For EUTerm = EUTerm, add the two EUTerms to E-matching.
+					// If one of them is an affine term of EUTerms, add all of them.
+					if (!(lhs instanceof TermVariable)) {
+						final SMTAffineTerm lhsAff = new SMTAffineTerm(lhs);
+						patterns.addAll(getSubPatterns(lhsAff));
+					}
+					final SMTAffineTerm rhsAff = new SMTAffineTerm(eq.getRhs());
+					patterns.addAll(getSubPatterns(rhsAff));
+				} else {
+					// For (EUTerm <= 0) add all EU summands of the affine term of EUTerms on the lhs
+					patterns.addAll(getSubPatterns(((QuantBoundConstraint) qAtom).getAffineTerm()));
+				}
+				assert !patterns.isEmpty();
+				final Pair<ICode, CCTerm[]> newCode =
+						new PatternCompiler(mQuantTheory, qAtom, patterns.toArray(new Term[patterns.size()])).compile();
+				mTodoStack.add(newCode);
 			}
-			final SMTAffineTerm rhsAff = new SMTAffineTerm(eq.getRhs());
-			patterns.addAll(getSubPatterns(rhsAff));
-		} else {
-			// For (EUTerm <= 0) add all EU summands of the affine term of EUTerms on the lhs
-			patterns.addAll(getSubPatterns(((QuantBoundConstraint) qAtom).getAffineTerm()));
-		}
-		if (!patterns.isEmpty()) {
-			final Pair<ICode, CCTerm[]> newCode =
-					new PatternCompiler(mQuantTheory, qLit, patterns.toArray(new Term[patterns.size()]), source)
-							.compile();
-			mTodoStack.add(newCode);
 		}
 	}
 
 	private Collection<Term> getSubPatterns(final SMTAffineTerm at) {
 		final Collection<Term> patterns = new LinkedHashSet<>();
 		for (final Term smd : at.getSummands().keySet()) {
-			if (!(smd instanceof TermVariable) && smd.getFreeVars().length != 0) {
+			assert !(smd instanceof TermVariable);
+			if (smd.getFreeVars().length != 0) {
 				patterns.add(smd);
 			}
 		}
@@ -107,21 +112,24 @@ public class EMatching {
 
 	/**
 	 * Run E-matching. This executes the pieces of code currently on the stack.
-	 * 
-	 * TODO Find a good place to run E-Matching.
 	 */
 	public void run() {
+		long time;
+		if (Config.PROFILE_TIME) {
+			time = System.nanoTime();
+		}
 		while (!mTodoStack.isEmpty()) {
 			final Pair<ICode, CCTerm[]> code = mTodoStack.pop();
 			code.getFirst().execute(code.getSecond());
+		}
+		if (Config.PROFILE_TIME) {
+			mQuantTheory.addEMatchingTime(System.nanoTime() - time);
 		}
 	}
 
 	/**
 	 * Undo everything that E-Matching did since the given decision level, i.e., remove triggers and interesting
 	 * instantiations. This method must only be called after completely resolving a conflict.
-	 * 
-	 * TODO interesting instantiations?
 	 * 
 	 * @param decisionLevel
 	 *            the current decision level.
@@ -135,6 +143,17 @@ public class EMatching {
 			}
 			it.remove();
 		}
+	}
+
+	/**
+	 * Get the substitution infos for a literal that were found since the last call of this method.
+	 * 
+	 * @param qLit
+	 *            the quantified literal.
+	 * @return a list containing the new substitution infos.
+	 */
+	public Collection<SubstitutionInfo> getSubstitutionInfos(final QuantLiteral qLit) {
+		return mInterestingSubstitutions.get(qLit);
 	}
 
 	/**
@@ -161,17 +180,19 @@ public class EMatching {
 	 * 
 	 * @param qLit
 	 *            the quantified Literal
-	 * @param interestingSubs
-	 *            the variable substitution
-	 * @param candidates
+	 * @param varSubs
+	 *            the variable substitution ordered as the variables in the clause.
+	 * @param equivalentCCTerms
 	 *            the corresponding CCTerms for the EUTerms in the literal.
 	 */
-	void addInterestingSubstitution(final QuantLiteral qLit, final Map<Term, CCTerm> interestingSubs,
-			final Map<Term, CCTerm> candidates) {
+	void addInterestingSubstitution(final QuantLiteral qLit, final CCTerm[] varSubs,
+			final Map<Term, CCTerm> equivalentCCTerms) {
 		if (!mInterestingSubstitutions.containsKey(qLit)) {
-			mInterestingSubstitutions.put(qLit, new LinkedList<>());
+			mInterestingSubstitutions.put(qLit, new ArrayList<>());
 		}
-		mInterestingSubstitutions.get(qLit).add(new Pair<>(interestingSubs, candidates));
+		final SubstitutionInfo subsInfo = new SubstitutionInfo(varSubs, equivalentCCTerms);
+		mInterestingSubstitutions.get(qLit).add(subsInfo);
+		addUndoInformation(qLit, subsInfo);
 	}
 
 	/**
@@ -236,35 +257,85 @@ public class EMatching {
 	}
 
 	private void addUndoInformation(final EMCompareTrigger trigger) {
-		final int decisionLevel = mQuantTheory.getClausifier().getEngine().getDecideLevel();
-		if (!mUndoInformation.containsKey(decisionLevel)) {
-			mUndoInformation.put(decisionLevel, new EMUndoInformation());
-		}
-		final EMUndoInformation info = mUndoInformation.get(decisionLevel);
+		final EMUndoInformation info = getCurrentUndoInformation();
 		info.mCompareTriggers.add(trigger);
 	}
 
 	private void addUndoInformation(final EMReverseTrigger trigger) {
+		final EMUndoInformation info = getCurrentUndoInformation();
+		info.mReverseTriggers.add(trigger);
+	}
+
+	private void addUndoInformation(final QuantLiteral qLit, final SubstitutionInfo subsInfo) {
+		final EMUndoInformation info = getCurrentUndoInformation();
+		if (!info.mSubs.containsKey(qLit)) {
+			info.mSubs.put(qLit, new ArrayList<>());
+		}
+		info.mSubs.get(qLit).add(subsInfo);
+	}
+
+	/**
+	 * Get or create the undo information for the current decision level.
+	 */
+	private EMUndoInformation getCurrentUndoInformation() {
 		final int decisionLevel = mQuantTheory.getClausifier().getEngine().getDecideLevel();
 		if (!mUndoInformation.containsKey(decisionLevel)) {
 			mUndoInformation.put(decisionLevel, new EMUndoInformation());
 		}
-		final EMUndoInformation info = mUndoInformation.get(decisionLevel);
-		info.mReverseTriggers.add(trigger);
+		return mUndoInformation.get(decisionLevel);
+	}
+
+	/**
+	 * This class stores information about a substitution found by the E-Matching. That is, the variable substitutions,
+	 * as well as for each pattern the CCTerm that is equivalent to the ground term that would result from applying the
+	 * substitution to the pattern.
+	 * 
+	 * @author Tanja Schindler
+	 *
+	 */
+	public class SubstitutionInfo {
+		final CCTerm[] mVarSubs;
+		final Map<Term, CCTerm> mEquivalentCCTerms;
+
+		SubstitutionInfo(CCTerm[] varSubs, Map<Term, CCTerm> equivalentCCTerms) {
+			mVarSubs = varSubs;
+			mEquivalentCCTerms = equivalentCCTerms;
+		}
+
+		public CCTerm[] getVarSubs() {
+			return mVarSubs;
+		}
+
+		public Map<Term, CCTerm> getEquivalentCCTerms() {
+			return mEquivalentCCTerms;
+		}
+
+		@Override
+		public String toString() {
+			final StringBuilder sb = new StringBuilder();
+			sb.append("Variable Subs: [");
+			sb.append(mVarSubs[0].toString());
+			for (int i = 1; i < mVarSubs.length; i++) {
+				sb.append(", " + mVarSubs[i].toString());
+			}
+			sb.append("]\nEquivalent CCTerms: " + mEquivalentCCTerms.toString());
+			return sb.toString();
+		}
 	}
 
 	/**
 	 * This class stores information about which steps in the E-Matching process we have to undo after backtracking.
-	 * 
 	 * @author Tanja Schindler
 	 */
 	class EMUndoInformation {
 		final Collection<EMCompareTrigger> mCompareTriggers;
 		final Collection<EMReverseTrigger> mReverseTriggers;
+		final Map<QuantLiteral, Collection<SubstitutionInfo>> mSubs;
 
 		EMUndoInformation() {
 			mCompareTriggers = new ArrayList<>();
 			mReverseTriggers = new ArrayList<>();
+			mSubs = new HashMap<>();
 		}
 
 		/**
@@ -276,6 +347,9 @@ public class EMatching {
 			}
 			for (final EMReverseTrigger trigger : mReverseTriggers) {
 				mQuantTheory.getCClosure().removeReverseTrigger(trigger);
+			}
+			for (final Map.Entry<QuantLiteral, Collection<SubstitutionInfo>> subs : mSubs.entrySet()) {
+				mInterestingSubstitutions.get(subs.getKey()).removeAll(subs.getValue());
 			}
 		}
 	}

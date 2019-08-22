@@ -54,7 +54,7 @@ public class GetArgCode implements ICode {
 		assert appTerm instanceof CCAppTerm;
 		CCAppTerm partialApp = (CCAppTerm) appTerm;
 		for (int i = 0; i < mFunc.getParameterSorts().length - mArgPos - 1; i++) {
-			partialApp = (CCAppTerm) ((CCAppTerm) appTerm).getFunc();
+			partialApp = (CCAppTerm) ((CCAppTerm) partialApp).getFunc();
 		}
 		final CCTerm arg = partialApp.getArg();
 		final CCTerm[] updatedRegister = Arrays.copyOf(register, register.length);

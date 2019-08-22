@@ -102,6 +102,33 @@ public class CClosure implements ITheory {
 			// Mark pending congruence
 			addPendingCongruence(term, congruentTerm);
 		}
+
+		if (!isFunc) {
+			/* if this created a complete application term, activate corresponding triggers */
+			CCTerm partialApp = term;
+			while (partialApp instanceof CCAppTerm) {
+				CCAppTerm app = (CCAppTerm) partialApp;
+				CCTerm appArg = app.getArg();
+				/* E-Matching: activate reverse trigger */
+				int parentpos = app.getFunc().mParentPosition;
+				final CCParentInfo argInfo = appArg.mCCPars.getInfo(parentpos);
+				if (argInfo != null) {
+					for (final ReverseTrigger trigger : argInfo.mReverseTriggers) {
+						trigger.activate(term);
+					}
+				}
+				partialApp = app.getFunc();
+			}
+			/* E-Matching: activate find trigger */
+			{
+				final CCParentInfo funcInfo = partialApp.mCCPars.getInfo(0);
+				if (funcInfo != null) {
+					for (final ReverseTrigger trigger : funcInfo.mReverseTriggers) {
+						trigger.activate(term);
+					}
+				}
+			}
+		}
 		return term;
 	}
 
@@ -119,25 +146,6 @@ public class CClosure implements ITheory {
 		} else {
 			final CCTerm pred = convertFuncTerm(sym, args, numArgs - 1);
 			final CCAppTerm appTerm = createAppTerm(numArgs < args.length, pred, args[numArgs - 1]);
-			final CCBaseTerm funcTerm = mSymbolicTerms.get(sym);
-			/* E-Matching: activate find trigger */
-			{
-				final CCParentInfo info = funcTerm.mCCPars.getInfo(0);
-				if (info != null) {
-					for (final ReverseTrigger trigger : info.mReverseTriggers) {
-						trigger.activate(appTerm);
-					}
-				}
-			}
-			/* E-Matching: activate reverse trigger */
-			for (int i = 0; i < args.length; i++) {
-				final CCParentInfo info = args[i].mCCPars.getInfo(funcTerm.mParentPosition + i);
-				if (info != null) {
-					for (final ReverseTrigger trigger : info.mReverseTriggers) {
-						trigger.activate(appTerm);
-					}
-				}
-			}
 			return appTerm;
 		}
 	}
@@ -485,6 +493,9 @@ public class CClosure implements ITheory {
 	public boolean knowsConstant(final FunctionSymbol sym) {
 		return mSymbolicTerms.containsKey(sym);
 	}
+
+	// TODO: Obsolete function; only used by tests
+	@Deprecated
 	public CCTerm createFuncTerm(
 			final FunctionSymbol sym, final CCTerm[] subterms, final SharedTerm fapp) {
 		final CCTerm term = convertFuncTerm(sym, subterms, subterms.length);
@@ -830,7 +841,7 @@ public class CClosure implements ITheory {
 	@Override
 	public Clause backtrackComplete() {
 		mPendingLits.clear();
-		return buildCongruence(true);
+		return null;
 	}
 
 	@Override
@@ -880,7 +891,8 @@ public class CClosure implements ITheory {
 						&& lhs.mFunc.mRepStar == rhs.mFunc.mRepStar)) {
 				res = lhs.merge(this, rhs, null);
 			} else {
-				assert checked : "Unchecked buildCongruence with non-holding congruence!";
+				// assert checked : "Unchecked buildCongruence with non-holding congruence!";
+				// FIXME: backtracking should filter pending congruences
 			}
 			if (res != null) {
 				return res;
@@ -976,6 +988,7 @@ public class CClosure implements ITheory {
 
 	@Override
 	public void pop(final Object object, final int targetlevel) {
+		buildCongruence(false);
 		final StackData sd = (StackData) object;
 		for (int i = mAllTerms.size() - 1; i >= sd.mAllTermsSize; --i) {
 			final CCTerm t = mAllTerms.get(i);

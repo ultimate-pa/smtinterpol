@@ -36,6 +36,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
@@ -76,11 +77,6 @@ public class QuantifierTheory implements ITheory {
 	private final Map<Sort, SharedTerm> mLambdas;
 
 	/**
-	 * The quantified literals built so far.
-	 */
-	private Map<Term, QuantLiteral> mQuantLits;
-
-	/**
 	 * Clauses that only the QuantifierTheory knows, i.e. that contain at least one literal with an (implicitly)
 	 * universally quantified variable.
 	 */
@@ -96,6 +92,7 @@ public class QuantifierTheory implements ITheory {
 
 	// Statistics
 	private long mDERGroundCount, mConflictCount, mPropCount, mFinalCount;
+	private long mCheckpointTime, mFinalCheckTime, mEMatchingTime;
 
 	public QuantifierTheory(final Theory th, final DPLLEngine engine, final Clausifier clausifier) {
 		mClausifier = clausifier;
@@ -110,12 +107,9 @@ public class QuantifierTheory implements ITheory {
 		mInstantiationManager = new InstantiationManager(mClausifier, this);
 		mLambdas = new HashMap<Sort, SharedTerm>();
 
-		mQuantLits = new HashMap<Term, QuantLiteral>();
 		mQuantClauses = new ScopedArrayList<QuantClause>();
 
 		mPotentialConflictAndUnitClauses = new LinkedHashMap<>();
-
-		mDERGroundCount = mConflictCount = mPropCount = mFinalCount = 0;
 	}
 
 	@Override
@@ -132,6 +126,7 @@ public class QuantifierTheory implements ITheory {
 
 	@Override
 	public Clause setLiteral(Literal literal) {
+
 		if (mPotentialConflictAndUnitClauses.containsKey(literal)) {
 			mPotentialConflictAndUnitClauses.remove(literal);
 		}
@@ -154,6 +149,7 @@ public class QuantifierTheory implements ITheory {
 				assert instClause.mNumUndefLits > 0;
 				instClause.mNumUndefLits -= 1;
 				if (instClause.isConflict()) {
+					mLogger.debug("Quant conflict: %1s", instClause);
 					mConflictCount++;
 					return new Clause(instClause.mLits.toArray(new Literal[instClause.mLits.size()]));
 				}
@@ -164,6 +160,7 @@ public class QuantifierTheory implements ITheory {
 
 	@Override
 	public void backtrackLiteral(Literal literal) {
+		// Update the status of potential conflict and unit clauses
 		for (final Literal lit : mPotentialConflictAndUnitClauses.keySet()) {
 			for (final InstClause clause : mPotentialConflictAndUnitClauses.get(lit)) {
 				if (clause.mLits.contains(literal.negate())) {
@@ -173,37 +170,67 @@ public class QuantifierTheory implements ITheory {
 		}
 	}
 
+
+	private final boolean mUseEMatching = true; // TODO For comparison
+
 	@Override
 	public Clause checkpoint() {
-		for (final QuantClause clause : mQuantClauses) {
-			if (mEngine.isTerminationRequested())
-				return null;
-			clause.updateInterestingTermsAllVars();
+		long time;
+		if (Config.PROFILE_TIME) {
+			time = System.nanoTime();
 		}
-		final Clause conflict =
-				addPotentialConflictAndUnitClauses(mInstantiationManager.findConflictAndUnitInstances());
+		final Collection<List<Literal>> conflictAndUnitInstances;
+		if (mUseEMatching) {
+			mEMatching.run();
+			conflictAndUnitInstances = mInstantiationManager.findConflictAndUnitInstancesWithNewEMatching();
+		} else { // TODO for comparison
+			for (final QuantClause clause : mQuantClauses) {
+				if (mEngine.isTerminationRequested())
+					return null;
+				clause.updateInterestingTermsAllVars();
+			}
+			conflictAndUnitInstances = mInstantiationManager.findConflictAndUnitInstances();
+		}
+		final Clause conflict = addPotentialConflictAndUnitClauses(conflictAndUnitInstances);
 		if (conflict != null) {
+			mLogger.debug("Quant conflict: %1s", conflict);
 			mEngine.learnClause(conflict);
 			mConflictCount++;
+		}
+		if (Config.PROFILE_TIME) {
+			mCheckpointTime += System.nanoTime() - time;
 		}
 		return conflict;
 	}
 
 	@Override
 	public Clause computeConflictClause() {
+		long time;
+		if (Config.PROFILE_TIME) {
+			time = System.nanoTime();
+		}
 		mFinalCount++;
 		Clause conflict = checkpoint();
 		if (conflict != null) {
 			return conflict;
+		}
+		if (mUseEMatching) {
+			for (final QuantClause clause : mQuantClauses) {
+				if (mEngine.isTerminationRequested())
+					return null;
+				clause.updateInterestingTermsAllVars();
+			}
 		}
 		assert mPotentialConflictAndUnitClauses.isEmpty();
 		conflict = mInstantiationManager.instantiateAll();
 		if (conflict != null) {
 			mConflictCount++;
 			mEngine.learnClause(conflict);
-			return conflict;
 		}
-		return null;
+		if (Config.PROFILE_TIME) {
+			mFinalCheckTime += System.nanoTime() - time;
+		}
+		return conflict;
 	}
 
 	@Override
@@ -215,9 +242,7 @@ public class QuantifierTheory implements ITheory {
 					lit.getAtom().mExplanation = expl;
 					mEngine.learnClause(expl);
 					mPropCount++;
-					if (mLogger.isDebugEnabled()) {
-						mLogger.debug("Quant Prop: " + lit + " reason: " + lit.getAtom().mExplanation);
-					}
+					mLogger.debug("Quant Prop: %1s Reason: %2s", lit, lit.getAtom().mExplanation);
 					return lit;
 				}
 			}
@@ -241,7 +266,8 @@ public class QuantifierTheory implements ITheory {
 	public void printStatistics(LogProxy logger) {
 		logger.info("Quant: DER produced " + mDERGroundCount + " ground clause(s).");
 		logger.info("Quant: Conflicts: " + mConflictCount + " Props: " + mPropCount + " Final Checks: " + mFinalCount);
-
+		logger.info("Quant times: Checkpoint " + mCheckpointTime / 1000 / 1000.0 + " Final Check "
+				+ mFinalCheckTime / 1000 / 1000.0 + " E-Matching " + mEMatchingTime / 1000 / 1000.0);
 	}
 
 	@Override
@@ -284,24 +310,22 @@ public class QuantifierTheory implements ITheory {
 	@Override
 	public Object push() {
 		mQuantClauses.beginScope();
-		// for (final QuantClause qClause : mQuantClauses) {
-		// qClause.push();
-		// }
 		return null;
 	}
 
 	@Override
 	public void pop(Object object, int targetlevel) {
 		mQuantClauses.endScope();
-		// for (final QuantClause qClause : mQuantClauses) {
-		// qClause.pop();
-		// }
 	}
 
 	@Override
 	public Object[] getStatistics() {
-		// TODO Auto-generated method stub
-		return null;
+		return new Object[] { ":Quant",
+				new Object[][] { { "DER ground results", mDERGroundCount }, { "Conflicts", mConflictCount },
+						{ "Propagations", mPropCount }, { "Final Checks", mFinalCount },
+						{ "Times", new Object[][] { { "Checkpoint", mCheckpointTime },
+								{ "Final Check", mFinalCheckTime }, { "E-Matching", mEMatchingTime } } } } };
+
 	}
 
 	/**
@@ -314,71 +338,64 @@ public class QuantifierTheory implements ITheory {
 	 */
 	public QuantLiteral getQuantEquality(final Term term, final boolean positive, final SourceAnnotation source,
 			final Term lhs, final Term rhs) {
-		QuantLiteral atom = mQuantLits.get(term);
-
-		if (atom == null) {
-			// Bring atom to form (var = term) if there exists a variable at "top level".
-			Term newLhs = lhs;
-			Term newRhs = rhs;
-			if (!lhs.getSort().isNumericSort()) {
-				final TermVariable leftVar = lhs instanceof TermVariable ? (TermVariable) lhs : null;
-				final TermVariable rightVar = rhs instanceof TermVariable ? (TermVariable) rhs : null;
-				if (leftVar == null && rightVar != null) {
-					newLhs = rightVar;
-					newRhs = lhs;
-				}
-			} else {
-				SMTAffineTerm linAdded = SMTAffineTerm.create(lhs);
-				linAdded.add(Rational.MONE, SMTAffineTerm.create(rhs));
-				Rational fac = Rational.ONE;
-				for (final Term smd : linAdded.getSummands().keySet()) {
-					if (smd instanceof TermVariable) {
-						fac = linAdded.getSummands().get(smd);
-						if (smd.getSort().getName() == "Real") {
+		// Bring atom to form (var = term) if there exists a variable at "top level".
+		Term newLhs = lhs;
+		Term newRhs = rhs;
+		if (!lhs.getSort().isNumericSort()) {
+			final TermVariable leftVar = lhs instanceof TermVariable ? (TermVariable) lhs : null;
+			final TermVariable rightVar = rhs instanceof TermVariable ? (TermVariable) rhs : null;
+			if (leftVar == null && rightVar != null) {
+				newLhs = rightVar;
+				newRhs = lhs;
+			}
+		} else {
+			SMTAffineTerm linAdded = SMTAffineTerm.create(lhs);
+			linAdded.add(Rational.MONE, SMTAffineTerm.create(rhs));
+			Rational fac = Rational.ONE;
+			for (final Term smd : linAdded.getSummands().keySet()) {
+				if (smd instanceof TermVariable) {
+					fac = linAdded.getSummands().get(smd);
+					if (smd.getSort().getName() == "Real") {
+						newLhs = smd;
+						linAdded.add(fac.negate(), smd);
+						linAdded.mul(fac.negate());
+						newRhs = linAdded.toTerm(lhs.getSort());
+						break;
+					} else {
+						if (fac.abs() == Rational.ONE) {
+							// Isolate first found variable (if exists).
 							newLhs = smd;
 							linAdded.add(fac.negate(), smd);
-							linAdded.mul(fac.negate());
+							if (fac == Rational.ONE) {
+								linAdded.negate();
+							}
 							newRhs = linAdded.toTerm(lhs.getSort());
 							break;
-						} else {
-							if (fac.abs() == Rational.ONE) {
-								// Isolate first found variable (if exists).
-								newLhs = smd;
-								linAdded.add(fac.negate(), smd);
-								if (fac == Rational.ONE) {
-									linAdded.negate();
-								}
-								newRhs = linAdded.toTerm(lhs.getSort());
-								break;
-							}
 						}
 					}
 				}
 			}
-			final Term newTerm = mTheory.term("=", newLhs, newRhs);
-			atom = new QuantEquality(newTerm, newLhs, newRhs);
-			
-			// Check if the atom is almost uninterpreted or can be used for DER.
-			if (!(newLhs instanceof TermVariable)) { // (euEUTerm = euTerm) is essentially and almost uninterpreted
-				if (isEssentiallyUninterpreted(newLhs) && isEssentiallyUninterpreted(newRhs)) {
-					atom.mIsEssentiallyUninterpreted = atom.negate().mIsEssentiallyUninterpreted = true;
-					atom.mIsAlmostUninterpreted = atom.negate().mIsAlmostUninterpreted = true;
-				}
-			} else if (!(newRhs instanceof TermVariable)) {
-				// (x = t) for t integer is arithmetical and almost uninterpreted
-				if (newRhs.getFreeVars().length == 0 && newRhs.getSort().getName() == "Int") {
-					atom.mIsArithmetical = true;
-					atom.mIsAlmostUninterpreted = true;
-				}
-				// (x != termwithoutx) can be used for DER
-				if (!Arrays.asList(newRhs.getFreeVars()).contains((TermVariable) newLhs)) {
-					atom.negate().mIsDERUsable = true;
-				}
-			} else { // (var = var) is not almost uninterpreted, but the negated form can be used for DER
+		}
+		final Term newTerm = mTheory.term("=", newLhs, newRhs);
+		QuantLiteral atom = new QuantEquality(newTerm, newLhs, newRhs);
+
+		// Check if the atom is almost uninterpreted or can be used for DER.
+		if (!(newLhs instanceof TermVariable)) { // (euEUTerm = euTerm) is essentially and almost uninterpreted
+			if (isEssentiallyUninterpreted(newLhs) && isEssentiallyUninterpreted(newRhs)) {
+				atom.mIsEssentiallyUninterpreted = atom.negate().mIsEssentiallyUninterpreted = true;
+			}
+		} else if (!(newRhs instanceof TermVariable)) {
+			// (x = t) for t integer is arithmetical and almost uninterpreted
+			if (newRhs.getFreeVars().length == 0 && newRhs.getSort().getName() == "Int") {
+				atom.mIsArithmetical = true;
+			}
+			// (x != termwithoutx) can be used for DER
+			if (!Arrays.asList(newRhs.getFreeVars()).contains((TermVariable) newLhs)) {
 				atom.negate().mIsDERUsable = true;
 			}
+		} else { // (var = var) is not almost uninterpreted, but the negated form can be used for DER
+			atom.negate().mIsDERUsable = true;
 		}
-		mQuantLits.put(term, atom);
 		return atom;
 	}
 
@@ -394,79 +411,107 @@ public class QuantifierTheory implements ITheory {
 	 */
 	public QuantLiteral getQuantInequality(final Term term, final boolean positive, final SourceAnnotation source,
 			final Term lhs) {
-		QuantLiteral atom = mQuantLits.get(term);
 
 		boolean rewrite = false; // Set to true when rewriting positive (x-t<=0) into ~(t+1<=x) for x integer
-		if (atom == null) {
-			final SMTAffineTerm linTerm = SMTAffineTerm.create(lhs);
-			TermVariable var = null;
-			Rational fac = Rational.ONE;
-			boolean hasUpperBound = false;
-			for (final Term smd : linTerm.getSummands().keySet()) {
-				if (smd instanceof TermVariable) {
-					fac = linTerm.getSummands().get(smd);
-					if (smd.getSort().getName() == "Real") { // In the real case, we normalize the term for this var.
-						var = (TermVariable) smd;
-						if (linTerm.getSummands().get(smd).isNegative()) {
-							hasUpperBound = true;
-						} else {
-							hasUpperBound = false;
-						}
-						break;
+		final SMTAffineTerm linTerm = SMTAffineTerm.create(lhs);
+		TermVariable var = null;
+		Rational fac = Rational.ONE;
+		boolean hasUpperBound = false;
+		for (final Term smd : linTerm.getSummands().keySet()) {
+			if (smd instanceof TermVariable) {
+				fac = linTerm.getSummands().get(smd);
+				if (smd.getSort().getName() == "Real") { // In the real case, we normalize the term for this var.
+					var = (TermVariable) smd;
+					if (linTerm.getSummands().get(smd).isNegative()) {
+						hasUpperBound = true;
 					} else {
-						if (fac == Rational.MONE) {
-							var = (TermVariable) smd;
-							hasUpperBound = true;
-							break;
-						} else if (fac == Rational.ONE) {
-							var = (TermVariable) smd;
-							hasUpperBound = false;
-							break;
-						}
+						hasUpperBound = false;
+					}
+					break;
+				} else {
+					if (fac == Rational.MONE) {
+						var = (TermVariable) smd;
+						hasUpperBound = true;
+						break;
+					} else if (fac == Rational.ONE) {
+						var = (TermVariable) smd;
+						hasUpperBound = false;
+						break;
 					}
 				}
 			}
-			if (positive && var != null && lhs.getSort().getName() == "Int") {
-				// Rewrite positive (x-t<=0) into ~(t+1<=x), or more precisely, ~(-x+t+1<=0) for x integer.
-				// Similarly (t-x<=0) into ~(x-t+1<=0)
-				rewrite = true;
-				linTerm.negate();
-				linTerm.add(Rational.ONE);
-				hasUpperBound = !hasUpperBound;
-			} else if (var != null && lhs.getSort().getName() == "Real") {
-				// var should have coefficient 1 or -1.
-				linTerm.div(fac.abs());
+		}
+		if (positive && var != null && lhs.getSort().getName() == "Int") {
+			// Rewrite positive (x-t<=0) into ~(t+1<=x), or more precisely, ~(-x+t+1<=0) for x integer.
+			// Similarly (t-x<=0) into ~(x-t+1<=0)
+			rewrite = true;
+			linTerm.negate();
+			linTerm.add(Rational.ONE);
+			hasUpperBound = !hasUpperBound;
+		} else if (var != null && lhs.getSort().getName() == "Real") {
+			// var should have coefficient 1 or -1.
+			linTerm.div(fac.abs());
+		}
+
+		final Term newTerm = mTheory.term("<=", linTerm.toTerm(lhs.getSort()), Rational.ZERO.toTerm(lhs.getSort()));
+		QuantLiteral atom = new QuantBoundConstraint(newTerm, linTerm);
+
+		// Check if the atom is almost uninterpreted.
+		if (var == null) { // (euTerm <= 0), pos. and neg., is essentially and almost uninterpreted.
+			boolean hasOnlyEU = true;
+			for (final Term smd : linTerm.getSummands().keySet()) {
+				hasOnlyEU = hasOnlyEU && isEssentiallyUninterpreted(smd);
 			}
-
-			final Term newTerm = mTheory.term("<=", linTerm.toTerm(lhs.getSort()), Rational.ZERO.toTerm(lhs.getSort()));
-			atom = new QuantBoundConstraint(newTerm, linTerm);
-
-			// Check if the atom is almost uninterpreted.
-			if (var == null) { // (euTerm <= 0), pos. and neg., is essentially and almost uninterpreted.
-				boolean hasOnlyEU = true;
-				for (final Term smd : linTerm.getSummands().keySet()) {
-					hasOnlyEU = hasOnlyEU && isEssentiallyUninterpreted(smd);
-				}
-				if (hasOnlyEU) {
-					atom.mIsEssentiallyUninterpreted = atom.negate().mIsEssentiallyUninterpreted = true;
-					atom.mIsAlmostUninterpreted = atom.negate().mIsAlmostUninterpreted = true;
-				}
-			} else { // (var < var), (var < ground), or (ground < var) are arithmetical and almost uninterpreted
-				final SMTAffineTerm remainderAff = new SMTAffineTerm();
-				remainderAff.add(linTerm);
-				remainderAff.add(hasUpperBound ? Rational.ONE : Rational.MONE, var);
-				if (!hasUpperBound) {
-					remainderAff.negate();
-				}
-				final Term remainder = remainderAff.toTerm(lhs.getSort());
-				if (remainder instanceof TermVariable || remainder.getFreeVars().length == 0) {
-					atom.negate().mIsArithmetical = true;
-					atom.negate().mIsAlmostUninterpreted = true;
-				}
+			if (hasOnlyEU) {
+				atom.mIsEssentiallyUninterpreted = atom.negate().mIsEssentiallyUninterpreted = true;
+			}
+		} else { // (var < var), (var < ground), or (ground < var) are arithmetical and almost uninterpreted
+			final SMTAffineTerm remainderAff = new SMTAffineTerm();
+			remainderAff.add(linTerm);
+			remainderAff.add(hasUpperBound ? Rational.ONE : Rational.MONE, var);
+			if (!hasUpperBound) {
+				remainderAff.negate();
+			}
+			final Term remainder = remainderAff.toTerm(lhs.getSort());
+			if (remainder instanceof TermVariable || remainder.getFreeVars().length == 0) {
+				atom.negate().mIsArithmetical = true;
 			}
 		}
-		mQuantLits.put(atom.getTerm(), atom);
 		return rewrite ? atom.negate() : atom;
+	}
+
+	/**
+	 * Get copies for quantified literals that are uniquely assigned to a clause.
+	 * 
+	 * @param qLits
+	 *            the quantified literals.
+	 * @param qClause
+	 *            the quantified clause these literals occur in.
+	 * @return copies of the quantified literals that know their clause.
+	 */
+	public QuantLiteral[] getLiteralCopies(final QuantLiteral[] lits, final QuantClause clause) {
+		final QuantLiteral[] clauseLiterals = new QuantLiteral[lits.length];
+		for (int i = 0; i < lits.length; i++) {
+			final QuantLiteral atom = lits[i].getAtom();
+			final QuantLiteral clauseAtom;
+			if (atom instanceof QuantBoundConstraint) {
+				clauseAtom = new QuantBoundConstraint(atom.getTerm(), ((QuantBoundConstraint) atom).getAffineTerm());
+			} else {
+				clauseAtom = new QuantEquality(atom.getTerm(), ((QuantEquality) atom).getLhs(),
+						((QuantEquality) atom).getRhs());
+			}
+			clauseAtom.mClause = clause;
+			clauseAtom.mIsEssentiallyUninterpreted = atom.mIsEssentiallyUninterpreted;
+			clauseAtom.mIsArithmetical = atom.mIsArithmetical;
+			clauseAtom.mIsDERUsable = atom.mIsDERUsable;
+			clauseAtom.mNegated.mClause = clause;
+			clauseAtom.mNegated.mIsEssentiallyUninterpreted = atom.mNegated.mIsEssentiallyUninterpreted;
+			clauseAtom.mNegated.mIsArithmetical = atom.mNegated.mIsArithmetical;
+			clauseAtom.mNegated.mIsDERUsable = atom.mNegated.mIsDERUsable;
+
+			clauseLiterals[i] = lits[i].isNegated() ? clauseAtom.negate() : clauseAtom;
+		}
+		return clauseLiterals;
 	}
 
 	/**
@@ -532,7 +577,7 @@ public class QuantifierTheory implements ITheory {
 				groundLits.add((Literal) lit);
 			} else {
 				final QuantLiteral qLit = (QuantLiteral) lit;
-				if (!qLit.mIsAlmostUninterpreted) {
+				if (!qLit.isAlmostUninterpreted()) {
 					mLogger.warn("Quant: Clause contains literal that is not almost uninterpreted: " + qLit);
 				} else if (qLit.isNegated() && qLit.mIsDERUsable) {
 					mLogger.warn("Quant: Clause contains disequality on variable not eliminated by DER: " + qLit);
@@ -544,9 +589,17 @@ public class QuantifierTheory implements ITheory {
 		final QuantClause clause = new QuantClause(groundLits.toArray(new Literal[groundLits.size()]),
 				quantLits.toArray(new QuantLiteral[quantLits.size()]), this, source);
 		mQuantClauses.add(clause);
+
+		mEMatching.addPatterns(clause);
+		mInstantiationManager.addDawgs(clause);
+
 		if (mLogger.isDebugEnabled()) {
 			mLogger.debug("Quant: Added clause: " + clause);
 		}
+	}
+
+	public void addEMatchingTime(final long time) {
+		mEMatchingTime += time;
 	}
 
 	public Clausifier getClausifier() {
@@ -569,12 +622,12 @@ public class QuantifierTheory implements ITheory {
 		return mInstantiationManager;
 	}
 
-	public Collection<QuantClause> getQuantClauses() {
-		return mQuantClauses;
+	public LogProxy getLogger() {
+		return mLogger;
 	}
 
-	public Map<Term, QuantLiteral> getQuantLits() {
-		return mQuantLits;
+	public Collection<QuantClause> getQuantClauses() {
+		return mQuantClauses;
 	}
 
 	public Theory getTheory() {
@@ -685,7 +738,7 @@ public class QuantifierTheory implements ITheory {
 	 *            a set of potential conflict and unit clauses
 	 * @return a conflict
 	 */
-	private Clause addPotentialConflictAndUnitClauses(final Set<List<Literal>> instances) {
+	private Clause addPotentialConflictAndUnitClauses(final Collection<List<Literal>> instances) {
 		if (instances == null) {
 			return null;
 		}

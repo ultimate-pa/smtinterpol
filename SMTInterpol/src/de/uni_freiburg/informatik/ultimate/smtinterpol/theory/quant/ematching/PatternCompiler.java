@@ -30,7 +30,6 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier.CCTermBuilder;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SharedTerm;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantLiteral;
@@ -46,19 +45,17 @@ public class PatternCompiler {
 
 	private final QuantifierTheory mQuantTheory;
 	private final EMatching mEMatching;
-	private final QuantLiteral mQuantLit;
+	private final QuantLiteral mQuantAtom;
 	private final Term[] mPatterns;
-	private final SourceAnnotation mSource;
 	private int mNextFreeRegIndex;
 	private final Map<Term, TermInfo> mTermInfos;
 
-	public PatternCompiler(QuantifierTheory quantTheory, QuantLiteral qLit, Term[] patterns,
-			SourceAnnotation source) {
+	public PatternCompiler(QuantifierTheory quantTheory, QuantLiteral qAtom, Term[] patterns) {
 		mQuantTheory = quantTheory;
 		mEMatching = quantTheory.getEMatching();
-		mQuantLit = qLit;
+		assert qAtom.getAtom() == qAtom;
+		mQuantAtom = qAtom;
 		mPatterns = patterns;
-		mSource = source;
 		mNextFreeRegIndex = 1; // 0 is reserved for temp terms
 		mTermInfos = new HashMap<>();
 	}
@@ -102,11 +99,14 @@ public class PatternCompiler {
 			info = new TermInfo(getNextFreeRegIndex());
 		}
 		if (term.getFreeVars().length == 0) {
-			final SharedTerm shared = mEMatching.getQuantTheory().getClausifier().getSharedTerm(term, mSource);
+			final SharedTerm shared =
+					mEMatching.getQuantTheory().getClausifier().getSharedTerm(term, mQuantAtom.getClause().getSource());
 			if (shared.getCCTerm() != null) {
 				info.mGroundTerm = shared.getCCTerm();
 			} else {
-				final CCTermBuilder cc = mEMatching.getQuantTheory().getClausifier().new CCTermBuilder(mSource);
+				final CCTermBuilder cc =
+						mEMatching.getQuantTheory().getClausifier().new CCTermBuilder(
+								mQuantAtom.getClause().getSource());
 				info.mGroundTerm = cc.convert(term);
 			}
 		} else if (!(term instanceof TermVariable)) {
@@ -183,17 +183,16 @@ public class PatternCompiler {
 		final Map<Term, Integer> candPos = new HashMap<>();
 
 		// Information on how to find the substitution and corresponding CCTerms in the register
-		for (final TermVariable var : mQuantLit.getTerm().getFreeVars()) {
+		for (final TermVariable var : mQuantAtom.getTerm().getFreeVars()) {
 			varPos.put(var, mTermInfos.get(var).mRegIndex);
 		}
 		for (final Term pattern : mPatterns) {
 			candPos.put(pattern, mTermInfos.get(pattern).mRegIndex);
 		}
 
-		ICode pieceOfCode = new YieldCode(mEMatching, mQuantLit, candPos, varPos);
+		ICode pieceOfCode = new YieldCode(mEMatching, mQuantAtom, mQuantAtom.getClause().getVars(), varPos, candPos);
 		for (int i = mPatterns.length - 1; i >= 0; i--) {
 			final Term pattern = mPatterns[i];
-			// TODO: Increase info.mNumSeen inside generateCode()
 			final TermInfo info = mTermInfos.get(pattern);
 			info.mNumSeen++;
 			pieceOfCode = generateCode(pattern, pieceOfCode);

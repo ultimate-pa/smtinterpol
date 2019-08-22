@@ -66,16 +66,11 @@ public class QuantClause {
 	 * For each variable, the set of potentially interesting instantiations. The key stores the SharedTerm of the
 	 * representative in case the value term has a CCTerm.
 	 */
-	private LinkedHashMap<SharedTerm, SharedTerm>[] mInterestingTermsForVars;
-
-	// /**
-	// * The instantiations used in the current instances of this clause.
-	// */
-	// private ScopedHashSet<List<SharedTerm>> mInstantiations;
+	private final LinkedHashMap<SharedTerm, SharedTerm>[] mInterestingTermsForVars;
 
 	/**
 	 * Build a new QuantClause. At least one literal must not be ground. This should only be called after performing
-	 * DER.
+	 * DER. This also builds copies of the quantified literals that know their clause.
 	 *
 	 * @param groundLits
 	 *            the ground literals in this clause.
@@ -91,7 +86,7 @@ public class QuantClause {
 		mQuantTheory = quantTheory;
 
 		mGroundLits = groundLits;
-		mQuantLits = quantLits;
+		mQuantLits = mQuantTheory.getLiteralCopies(quantLits, this);
 		mSource = source;
 
 		mVars = computeVars();
@@ -99,22 +94,19 @@ public class QuantClause {
 		for (int i = 0; i < mVars.length; i++) {
 			mVarInfos[i] = new VarInfo();
 		}
+		
 		collectVarInfos();
-		addPatterns(); // TODO Find a good place to do this.
 		mInterestingTermsForVars = new LinkedHashMap[mVars.length];
 		for (int i = 0; i < mVars.length; i++) {
 			mInterestingTermsForVars[i] = new LinkedHashMap<>();
 		}
 		collectInitialInterestingTermsAllVars();
-
-		// mInstantiations = new ScopedHashSet<>();
 	}
 
 	/**
 	 * Update the interesting instantiation terms for all variable with terms from CClosure.
 	 */
 	public void updateInterestingTermsAllVars() {
-		mQuantTheory.getEMatching().run(); // TODO Find a place to run E-Matching
 		for (int i = 0; i < mVars.length; i++) {
 			if (mVars[i].getSort().getName() != "Bool") {
 				updateInterestingTermsOneVar(mVars[i], i);
@@ -155,36 +147,28 @@ public class QuantClause {
 		return mVars;
 	}
 
+	public Set<SharedTerm> getGroundBounds(final TermVariable var) {
+		final Set<SharedTerm> bounds = new LinkedHashSet<>();
+		bounds.addAll(mVarInfos[getVarIndex(var)].mUpperGroundBounds);
+		bounds.addAll(mVarInfos[getVarIndex(var)].mLowerGroundBounds);
+		return bounds;
+	}
+
+	public Set<TermVariable> getVarBounds(final TermVariable var) {
+		final Set<TermVariable> bounds = new LinkedHashSet<>();
+		bounds.addAll(mVarInfos[getVarIndex(var)].mUpperVarBounds);
+		bounds.addAll(mVarInfos[getVarIndex(var)].mLowerVarBounds);
+		return bounds;
+	}
+
 	public LinkedHashMap<SharedTerm, SharedTerm>[] getInterestingTerms() {
 		return mInterestingTermsForVars;
 	}
-
-	// public Set<List<SharedTerm>> getInstantiations() {
-	// return mInstantiations;
-	// }
 
 	@Override
 	public String toString() {
 		return Arrays.toString(mGroundLits).concat(Arrays.toString(mQuantLits));
 	}
-
-	void push() {
-		// for (int i = 0; i < mVars.length; i++) {
-		// mInterestingTermsForVars[i].beginScope();
-		// }
-		// mInstantiations.beginScope();
-	}
-
-	void pop() {
-		// for (int i = 0; i < mVars.length; i++) {
-		// mInterestingTermsForVars[i].endScope();
-		// }
-		// mInstantiations.endScope();
-	}
-
-	// void addInstance(List<SharedTerm> inst) {
-	// mInstantiations.add(inst);
-	// }
 
 	/**
 	 * Compute the free variables in this clause.
@@ -299,17 +283,6 @@ public class QuantClause {
 	}
 
 	/**
-	 * Add the patterns for E-Matching.
-	 */
-	private void addPatterns() {
-		for (final QuantLiteral qLit : mQuantLits) {
-			if (qLit.mIsAlmostUninterpreted) {
-				mQuantTheory.getEMatching().addPatterns(qLit, mSource);
-			}
-		}
-	}
-
-	/**
 	 * For each variable in the given term, add the functions and positions where it appears as argument to the VarInfo.
 	 */
 	private void addAllVarPos(ApplicationTerm qTerm) {
@@ -369,12 +342,8 @@ public class QuantClause {
 		while (changed) {
 			changed = false;
 			for (int i = 0; i < mVars.length; i++) {
-				for (TermVariable t : mVarInfos[i].mLowerVarBounds) {
-					int j = Arrays.asList(mVars).indexOf(t);
-					changed = addAllInteresting(mInterestingTermsForVars[i], mInterestingTermsForVars[j].values());
-				}
-				for (TermVariable t : mVarInfos[i].mUpperVarBounds) {
-					int j = Arrays.asList(mVars).indexOf(t);
+				for (TermVariable t : getVarBounds(mVars[i])) {
+					int j = getVarIndex(t);
 					changed = addAllInteresting(mInterestingTermsForVars[i], mInterestingTermsForVars[j].values());
 				}
 			}

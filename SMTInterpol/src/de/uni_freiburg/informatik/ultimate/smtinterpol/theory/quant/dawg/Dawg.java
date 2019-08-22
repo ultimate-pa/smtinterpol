@@ -147,7 +147,7 @@ public class Dawg<LETTER, VALUE> {
 	 * Create a copy of current Dawg and insert the given key-value pair.
 	 * 
 	 * @param key
-	 *            The key to insert.
+	 *            The key to insert. null-entries correspond to default case.
 	 * @param value
 	 *            The value to insert.
 	 * @return the new Dawg which maps key to value and behaves like this otherwise.

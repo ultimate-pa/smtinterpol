@@ -2129,9 +2129,7 @@ public class LinArSolve implements ITheory {
 		if (smtTerm.isConstant()) {
 			return new InfinitesimalNumber(smtTerm.getConstant(), 0);
 		}
-		HashMap<LinVar, Rational> row = new HashMap<>();
 		MutableAffineTerm at = new MutableAffineTerm();
-		Rational offset = smtTerm.getConstant();
 		for (Entry<Term, Rational> entry : smtTerm.getSummands().entrySet()) {
 			SharedTerm sharedTerm = clausifier.getSharedTerm(entry.getKey(), null);
 			Rational coeff = entry.getValue();
@@ -2139,14 +2137,27 @@ public class LinArSolve implements ITheory {
 				LinVar var = sharedTerm.getLinVar();
 				if (var != null) {
 					at.add(coeff.mul(sharedTerm.getFactor()), var);
-					unsimplifyAndAdd(var, coeff.mul(sharedTerm.getFactor()), row);
 				}
 				at.add(coeff.mul(sharedTerm.getOffset()));
-				offset = offset.add(coeff.mul(sharedTerm.getOffset()));
 			} else {
 				return InfinitesimalNumber.POSITIVE_INFINITY;
 			}
 		}
+		at.add(smtTerm.getConstant());
+
+		return getUpperBound(at);
+	}
+
+	public InfinitesimalNumber getUpperBound(final MutableAffineTerm at) {
+		if (at.isConstant()) {
+			return at.getConstant();
+		}
+		HashMap<LinVar, Rational> row = new HashMap<>();
+		InfinitesimalNumber offset = at.getConstant();
+		for (Entry<LinVar, Rational> entry : at.getSummands().entrySet()) {
+			unsimplifyAndAdd(entry.getKey(), entry.getValue(), row);
+		}
+
 		// check if we have the variable already as a linvar.
 		final Rational normFactor = at.getGCD().inverse();
 		at.mul(normFactor);
@@ -2175,7 +2186,7 @@ public class LinArSolve implements ITheory {
 				return InfinitesimalNumber.POSITIVE_INFINITY;
 			bound = bound.add(lvbound.mul(coeff));
 		}
-		bound = bound.add(new InfinitesimalNumber(offset, 0));
+		bound = bound.add(offset);
 		return bound;
 	}
 }

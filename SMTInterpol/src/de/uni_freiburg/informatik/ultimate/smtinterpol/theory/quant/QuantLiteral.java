@@ -38,16 +38,16 @@ public abstract class QuantLiteral implements ILiteral {
 	 */
 	private final Term mTerm;
 	/**
-	 * Flag to mark if the QuantLiteral lies in the almost uninterpreted fragment (some only do in negated from). The
-	 * default value is false.
+	 * The clause this literal occurs in. This is unique!
 	 */
-	protected boolean mIsAlmostUninterpreted;
+	protected QuantClause mClause;
 	/**
-	 * Flag to mark if the QuantLiteral is essentially uninterpreted. The default value is false.
+	 * Flag to mark if the QuantLiteral is essentially uninterpreted (and hence almost uninterpreted). The default value
+	 * is false.
 	 */
 	protected boolean mIsEssentiallyUninterpreted;
 	/**
-	 * Flag to mark if the QuantLiteral is arithmetical. The default value is false.
+	 * Flag to mark if the QuantLiteral is arithmetical (and hence almost uninterpreted). The default value is false.
 	 */
 	protected boolean mIsArithmetical;
 	/**
@@ -74,7 +74,7 @@ public abstract class QuantLiteral implements ILiteral {
 		mTerm = term;
 		mAtom = this;
 		// Default values.
-		mIsAlmostUninterpreted = mIsEssentiallyUninterpreted = mIsArithmetical = false;
+		mIsEssentiallyUninterpreted = mIsArithmetical = false;
 		mIsDERUsable = false;
 	}
 
@@ -84,6 +84,10 @@ public abstract class QuantLiteral implements ILiteral {
 
 	public Term getTerm() {
 		return mTerm;
+	}
+
+	public QuantClause getClause() {
+		return mClause;
 	}
 
 	public QuantLiteral getAtom() {
@@ -99,8 +103,15 @@ public abstract class QuantLiteral implements ILiteral {
 	}
 
 	public boolean isAlmostUninterpreted() {
-		assert mIsArithmetical || mIsEssentiallyUninterpreted;
-		return mIsAlmostUninterpreted;
+		return isEssentiallyUninterpreted() || isArithmetical();
+	}
+
+	public boolean isEssentiallyUninterpreted() {
+		return mIsEssentiallyUninterpreted;
+	}
+
+	public boolean isArithmetical() {
+		return mIsArithmetical;
 	}
 
 	public Term getSMTFormula(final Theory theory, final boolean quoted) {
