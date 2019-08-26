@@ -702,6 +702,21 @@ public class CClosure implements ITheory {
 		return c;
 	}
 
+	/**
+	 * Compute the earliest decide level at which the path between lhs and rhs exists. There must be a path, i.e.
+	 * {@code lhs.getRepresentative() == rhs.getRepresentative()}.
+	 * 
+	 * @param lhs
+	 *            the start of the path
+	 * @param rhs
+	 *            the end of the path
+	 * @return the earliest decide level.
+	 */
+	public int getDecideLevelForPath(CCTerm lhs, CCTerm rhs) {
+		CongruencePath congPath = new CongruencePath(this);
+		return congPath.computeDecideLevel(lhs, rhs);
+	}
+
 	public void addPending(final Literal eq) {
 		assert checkPending(eq);
 		mPendingLits.add(eq);

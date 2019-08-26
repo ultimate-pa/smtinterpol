@@ -355,6 +355,25 @@ public class CongruencePath {
 		return c;
 	}
 
+	/**
+	 * Compute the earliest decide level at which the path between lhs and rhs exists. There must be a path, i.e.
+	 * {@code lhs.getRepresentative() == rhs.getRepresentative()}.
+	 * 
+	 * @param lhs
+	 *            the start of the path
+	 * @param rhs
+	 *            the end of the path
+	 * @return the earliest decide level.
+	 */
+	public int computeDecideLevel(CCTerm lhs, CCTerm rhs) {
+		computePath(lhs, rhs);
+		int depth = 0;
+		for (Literal l : mAllLiterals) {
+			depth = Math.max(depth, l.getAtom().getDecideLevel());
+		}
+		return depth;
+	}
+
 	@Override
 	public String toString() {
 		final StringBuilder sb = new StringBuilder();
