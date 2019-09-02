@@ -50,15 +50,15 @@ public class FindCode implements ICode {
 	}
 
 	@Override
-	public void execute(final CCTerm[] register) {
+	public void execute(final CCTerm[] register, final int decisionLevel) {
 		if (mFunc.getParameterSorts().length > 0) {
-			mEMatching.installFindTrigger(mFunc, mOutRegIndex, mRemainingCode, register);
+			mEMatching.installFindTrigger(mFunc, mOutRegIndex, mRemainingCode, register, decisionLevel);
 		}
 		final List<CCTerm> funcApps = mCClosure.getAllFuncApps(mFunc);
 		for (final CCTerm cand : funcApps) {
 			final CCTerm[] updatedReg = Arrays.copyOf(register, register.length);
 			updatedReg[mOutRegIndex] = cand;
-			mEMatching.addCode(mRemainingCode, updatedReg);
+			mEMatching.addCode(mRemainingCode, updatedReg, decisionLevel > 0 ? decisionLevel : 0);
 		}
 	}
 

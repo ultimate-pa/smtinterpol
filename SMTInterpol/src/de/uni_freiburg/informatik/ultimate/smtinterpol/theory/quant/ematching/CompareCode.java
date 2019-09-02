@@ -41,13 +41,16 @@ public class CompareCode implements ICode {
 	}
 
 	@Override
-	public void execute(CCTerm[] register) {
+	public void execute(final CCTerm[] register, final int decisionLevel) {
 		final CCTerm firstTerm = register[mFirstRegIndex];
 		final CCTerm secondTerm = register[mSecondRegIndex];
 		if (mEMatching.getQuantTheory().getCClosure().isEqSet(firstTerm, secondTerm)) {
-			mEMatching.addCode(mRemainingCode, register);
+			final int eqDecisionLevel =
+					mEMatching.getQuantTheory().getCClosure().getDecideLevelForPath(firstTerm, secondTerm);
+			mEMatching.addCode(mRemainingCode, register,
+					eqDecisionLevel > decisionLevel ? eqDecisionLevel : decisionLevel);
 		} else {
-			mEMatching.installCompareTrigger(firstTerm, secondTerm, mRemainingCode, register);
+			mEMatching.installCompareTrigger(firstTerm, secondTerm, mRemainingCode, register, decisionLevel);
 		}
 	}
 

@@ -64,7 +64,7 @@ public class YieldCode implements ICode {
 	}
 
 	@Override
-	public void execute(CCTerm[] register) {
+	public void execute(CCTerm[] register, final int decisionLevel) {
 		final CCTerm[] varSubs = new CCTerm[mVarOrder.length];
 		for (int i = 0; i < varSubs.length; i++) {
 			if (mVarPos.containsKey(mVarOrder[i])) {
@@ -75,7 +75,7 @@ public class YieldCode implements ICode {
 		for (final Entry<Term, Integer> pos : mEquivCCTermPos.entrySet()) {
 			equivalentCCTerms.put(pos.getKey(), register[pos.getValue()]);
 		}
-		mEMatching.addInterestingSubstitution(mQuantLiteral, varSubs, equivalentCCTerms);
+		mEMatching.addInterestingSubstitution(mQuantLiteral, varSubs, equivalentCCTerms, decisionLevel);
 	}
 
 	@Override

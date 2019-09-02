@@ -31,16 +31,21 @@ public class EMCompareTrigger extends de.uni_freiburg.informatik.ultimate.smtint
 	private final EMatching mEMatching;
 	private final ICode mRemainingCode;
 	private final CCTerm[] mRegister;
+	private final int mDecisionLevel;
 
-	public EMCompareTrigger(final EMatching eMatching, final ICode remainingCode, final CCTerm[] register) {
+	public EMCompareTrigger(final EMatching eMatching, final ICode remainingCode, final CCTerm[] register,
+			final int decisionLevel) {
 		mEMatching = eMatching;
 		mRemainingCode = remainingCode;
 		mRegister = register;
+		mDecisionLevel = decisionLevel;
 	}
 
 	@Override
 	public void activate() {
-		mEMatching.addCode(mRemainingCode, mRegister);
+		final int currentDecisionLevel = mEMatching.getQuantTheory().getClausifier().getEngine().getDecideLevel();
+		assert currentDecisionLevel >= mDecisionLevel;
+		mEMatching.addCode(mRemainingCode, mRegister, currentDecisionLevel);
 	}
 
 }

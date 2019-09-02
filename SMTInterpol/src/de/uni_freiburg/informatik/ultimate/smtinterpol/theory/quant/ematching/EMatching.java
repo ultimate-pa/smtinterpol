@@ -37,6 +37,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Triple;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantBoundConstraint;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantEquality;
@@ -53,7 +54,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTh
 public class EMatching {
 
 	private final QuantifierTheory mQuantTheory;
-	private final Deque<Pair<ICode, CCTerm[]>> mTodoStack;
+	private final Deque<Triple<ICode, CCTerm[], Integer>> mTodoStack;
 	private final Map<Integer, EMUndoInformation> mUndoInformation;
 	/**
 	 * For each essentially uninterpreted quantified literal, the interesting substitutions and the corresponding
@@ -94,7 +95,7 @@ public class EMatching {
 				assert !patterns.isEmpty();
 				final Pair<ICode, CCTerm[]> newCode =
 						new PatternCompiler(mQuantTheory, qAtom, patterns.toArray(new Term[patterns.size()])).compile();
-				mTodoStack.add(newCode);
+				addCode(newCode.getFirst(), newCode.getSecond(), 0);
 			}
 		}
 	}
@@ -119,8 +120,8 @@ public class EMatching {
 			time = System.nanoTime();
 		}
 		while (!mTodoStack.isEmpty()) {
-			final Pair<ICode, CCTerm[]> code = mTodoStack.pop();
-			code.getFirst().execute(code.getSecond());
+			final Triple<ICode, CCTerm[], Integer> code = mTodoStack.pop();
+			code.getFirst().execute(code.getSecond(), code.getThird());
 		}
 		if (Config.PROFILE_TIME) {
 			mQuantTheory.addEMatchingTime(System.nanoTime() - time);
@@ -171,8 +172,8 @@ public class EMatching {
 	 * @param register
 	 *            the candidate CCTerms for this execution.
 	 */
-	void addCode(final ICode code, final CCTerm[] register) {
-		mTodoStack.add(new Pair<ICode, CCTerm[]>(code, register));
+	void addCode(final ICode code, final CCTerm[] register, final int decisionLevel) {
+		mTodoStack.add(new Triple<ICode, CCTerm[], Integer>(code, register, decisionLevel));
 	}
 
 	/**
@@ -186,13 +187,13 @@ public class EMatching {
 	 *            the corresponding CCTerms for the EUTerms in the literal.
 	 */
 	void addInterestingSubstitution(final QuantLiteral qLit, final CCTerm[] varSubs,
-			final Map<Term, CCTerm> equivalentCCTerms) {
+			final Map<Term, CCTerm> equivalentCCTerms, final int decisionLevel) {
 		if (!mInterestingSubstitutions.containsKey(qLit)) {
 			mInterestingSubstitutions.put(qLit, new ArrayList<>());
 		}
 		final SubstitutionInfo subsInfo = new SubstitutionInfo(varSubs, equivalentCCTerms);
 		mInterestingSubstitutions.get(qLit).add(subsInfo);
-		addUndoInformation(qLit, subsInfo);
+		addUndoInformation(qLit, subsInfo, decisionLevel);
 	}
 
 	/**
@@ -208,10 +209,10 @@ public class EMatching {
 	 *            the candidate terms.
 	 */
 	void installCompareTrigger(final CCTerm lhs, final CCTerm rhs, final ICode remainingCode,
-			final CCTerm[] register) {
-		final EMCompareTrigger trigger = new EMCompareTrigger(this, remainingCode, register);
+			final CCTerm[] register, final int decisionLevel) {
+		final EMCompareTrigger trigger = new EMCompareTrigger(this, remainingCode, register, decisionLevel);
 		mQuantTheory.getCClosure().insertCompareTrigger(lhs, rhs, trigger);
-		addUndoInformation(trigger);
+		addUndoInformation(trigger, decisionLevel);
 	}
 
 	/**
@@ -227,10 +228,11 @@ public class EMatching {
 	 *            the candidate terms.
 	 */
 	void installFindTrigger(final FunctionSymbol func, final int regIndex, final ICode remainingCode,
-			final CCTerm[] register) {
-		final EMReverseTrigger trigger = new EMReverseTrigger(this, remainingCode, register, regIndex);
+			final CCTerm[] register, final int decisionLevel) {
+		final EMReverseTrigger trigger =
+				new EMReverseTrigger(this, remainingCode, null, -1, null, register, regIndex, decisionLevel);
 		mQuantTheory.getCClosure().insertReverseTrigger(func, trigger);
-		addUndoInformation(trigger);
+		addUndoInformation(trigger, decisionLevel);
 	}
 
 	/**
@@ -250,24 +252,25 @@ public class EMatching {
 	 *            the candidate terms.
 	 */
 	void installReverseTrigger(final FunctionSymbol func, final CCTerm arg, final int argPos,
-			final int regIndex, final ICode remainingCode, final CCTerm[] register) {
-		final EMReverseTrigger trigger = new EMReverseTrigger(this, remainingCode, register, regIndex);
+			final int regIndex, final ICode remainingCode, final CCTerm[] register, final int decisionLevel) {
+		final EMReverseTrigger trigger =
+				new EMReverseTrigger(this, remainingCode, func, argPos, arg, register, regIndex, decisionLevel);
 		mQuantTheory.getCClosure().insertReverseTrigger(func, arg, argPos, trigger);
-		addUndoInformation(trigger);
+		addUndoInformation(trigger, decisionLevel);
 	}
 
-	private void addUndoInformation(final EMCompareTrigger trigger) {
-		final EMUndoInformation info = getCurrentUndoInformation();
+	private void addUndoInformation(final EMCompareTrigger trigger, final int decisionLevel) {
+		final EMUndoInformation info = getUndoInformationForLevel(decisionLevel);
 		info.mCompareTriggers.add(trigger);
 	}
 
-	private void addUndoInformation(final EMReverseTrigger trigger) {
-		final EMUndoInformation info = getCurrentUndoInformation();
+	private void addUndoInformation(final EMReverseTrigger trigger, final int decisionLevel) {
+		final EMUndoInformation info = getUndoInformationForLevel(decisionLevel);
 		info.mReverseTriggers.add(trigger);
 	}
 
-	private void addUndoInformation(final QuantLiteral qLit, final SubstitutionInfo subsInfo) {
-		final EMUndoInformation info = getCurrentUndoInformation();
+	private void addUndoInformation(final QuantLiteral qLit, final SubstitutionInfo subsInfo, final int decisionLevel) {
+		final EMUndoInformation info = getUndoInformationForLevel(decisionLevel);
 		if (!info.mSubs.containsKey(qLit)) {
 			info.mSubs.put(qLit, new ArrayList<>());
 		}
@@ -275,10 +278,9 @@ public class EMatching {
 	}
 
 	/**
-	 * Get or create the undo information for the current decision level.
+	 * Get or create the undo information for the given decision level.
 	 */
-	private EMUndoInformation getCurrentUndoInformation() {
-		final int decisionLevel = mQuantTheory.getClausifier().getEngine().getDecideLevel();
+	private EMUndoInformation getUndoInformationForLevel(final int decisionLevel) {
 		if (!mUndoInformation.containsKey(decisionLevel)) {
 			mUndoInformation.put(decisionLevel, new EMUndoInformation());
 		}

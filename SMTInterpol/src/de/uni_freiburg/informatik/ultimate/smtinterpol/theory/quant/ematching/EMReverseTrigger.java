@@ -20,6 +20,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.ematching;
 
 import java.util.Arrays;
 
+import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAppTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 
@@ -33,22 +34,46 @@ public class EMReverseTrigger extends de.uni_freiburg.informatik.ultimate.smtint
 
 	private final EMatching mEMatching;
 	private final ICode mRemainingCode;
+	private final FunctionSymbol mFunc;
+	private final int mArgPos;
+	private final CCTerm mArg;
 	private final CCTerm[] mRegister;
 	private final int mOutRegIndex;
+	private final int mDecisionLevel;
 
-	public EMReverseTrigger(final EMatching eMatching, final ICode remainingCode, final CCTerm[] register,
-			final int outRegIndex) {
+	public EMReverseTrigger(final EMatching eMatching, final ICode remainingCode, final FunctionSymbol func,
+			final int argPos, final CCTerm arg, final CCTerm[] register, final int outRegIndex,
+			final int decisionLevel) {
 		mEMatching = eMatching;
 		mRemainingCode = remainingCode;
+		mFunc = func;
+		mArgPos = argPos;
+		mArg = arg;
 		mRegister = register;
 		mOutRegIndex = outRegIndex;
+		mDecisionLevel = decisionLevel;
 	}
 
 	@Override
 	public void activate(final CCAppTerm appTerm) {
 		final CCTerm[] updatedRegister = Arrays.copyOf(mRegister, mRegister.length);
 		updatedRegister[mOutRegIndex] = appTerm;
-		mEMatching.addCode(mRemainingCode, updatedRegister);
+
+		if (mArg != null) { // Reverse
+			assert appTerm instanceof CCAppTerm;
+			CCAppTerm partialApp = (CCAppTerm) appTerm;
+			for (int i = 0; i < mFunc.getParameterSorts().length - mArgPos - 1; i++) {
+				partialApp = (CCAppTerm) ((CCAppTerm) partialApp).getFunc();
+			}
+			final CCTerm candArg = partialApp.getArg();
+			final int termDecisionLevel = mEMatching.getQuantTheory().getCClosure()
+					.getDecideLevelForPath(mArg, candArg);
+
+			mEMatching.addCode(mRemainingCode, updatedRegister,
+					termDecisionLevel > mDecisionLevel ? termDecisionLevel : mDecisionLevel);
+		} else { // Find
+			mEMatching.addCode(mRemainingCode, updatedRegister, mDecisionLevel);
+		}
 	}
 
 }

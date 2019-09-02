@@ -49,7 +49,7 @@ public class GetArgCode implements ICode {
 	}
 
 	@Override
-	public void execute(CCTerm[] register) {
+	public void execute(final CCTerm[] register, final int decisionLevel) {
 		final CCTerm appTerm = register[mAppTermRegIndex];
 		assert appTerm instanceof CCAppTerm;
 		CCAppTerm partialApp = (CCAppTerm) appTerm;
@@ -59,7 +59,7 @@ public class GetArgCode implements ICode {
 		final CCTerm arg = partialApp.getArg();
 		final CCTerm[] updatedRegister = Arrays.copyOf(register, register.length);
 		updatedRegister[mOutRegIndex] = arg;
-		mEMatching.addCode(mRemainingCode, updatedRegister);
+		mEMatching.addCode(mRemainingCode, updatedRegister, decisionLevel);
 	}
 
 	@Override

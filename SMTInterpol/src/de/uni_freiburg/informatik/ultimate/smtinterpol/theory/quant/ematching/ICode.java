@@ -21,7 +21,8 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.ematching;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 
 /**
- * This represents a piece of code for E-matching which can be executed for a register containing candidate terms.
+ * This represents a piece of code for E-matching which can be executed for a register containing candidate terms and a
+ * decision level depending on those candidate terms.
  * 
  * @author Tanja Schindler
  */
@@ -32,6 +33,8 @@ public interface ICode {
 	 * 
 	 * @param register
 	 *            the relevant CCTerms for this execution.
+	 * @param decisionLevel
+	 *            the relevant decisionLevel for this execution.
 	 */
-	public void execute(final CCTerm[] register);
+	public void execute(final CCTerm[] register, final int decisionLevel);
 }
