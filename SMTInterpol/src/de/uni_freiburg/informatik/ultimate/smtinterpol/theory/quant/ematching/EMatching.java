@@ -141,8 +141,8 @@ public class EMatching {
 			final Entry<Integer, EMUndoInformation> undo = it.next();
 			if (undo.getKey() > decisionLevel) {
 				undo.getValue().undo();
+				it.remove();
 			}
-			it.remove();
 		}
 	}
 
