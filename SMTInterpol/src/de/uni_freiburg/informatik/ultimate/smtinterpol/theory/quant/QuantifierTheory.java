@@ -129,23 +129,23 @@ public class QuantifierTheory implements ITheory {
 
 		if (mPotentialConflictAndUnitClauses.containsKey(literal)) {
 			mPotentialConflictAndUnitClauses.remove(literal);
-		}
-		final Iterator<Literal> litIt = mPotentialConflictAndUnitClauses.keySet().iterator();
-		while (litIt.hasNext()) {
-			final Literal keyLit = litIt.next();
-			final Iterator<InstClause> clauseIt = mPotentialConflictAndUnitClauses.get(keyLit).iterator();
-			while (clauseIt.hasNext()) {
-				final InstClause clause = clauseIt.next();
-				if (clause.mLits.contains(literal.negate())) {
-					clauseIt.remove();
+			final Iterator<Literal> litIt = mPotentialConflictAndUnitClauses.keySet().iterator();
+			while (litIt.hasNext()) {
+				final Literal keyLit = litIt.next();
+				final Iterator<InstClause> clauseIt = mPotentialConflictAndUnitClauses.get(keyLit).iterator();
+				while (clauseIt.hasNext()) {
+					final InstClause clause = clauseIt.next();
+					if (clause.mLits.contains(literal)) {
+						clauseIt.remove();
+					}
 				}
-			}
-			if (mPotentialConflictAndUnitClauses.get(keyLit).isEmpty()) {
-				litIt.remove();
+				if (mPotentialConflictAndUnitClauses.get(keyLit).isEmpty()) {
+					litIt.remove();
+				}
 			}
 		}
 		if (mPotentialConflictAndUnitClauses.containsKey(literal.negate())) {
-			for (final InstClause instClause : mPotentialConflictAndUnitClauses.get(literal.negate())) {
+			for (final InstClause instClause : mPotentialConflictAndUnitClauses.remove(literal.negate())) {
 				assert instClause.mNumUndefLits > 0;
 				instClause.mNumUndefLits -= 1;
 				if (instClause.isConflict()) {
@@ -244,6 +244,8 @@ public class QuantifierTheory implements ITheory {
 					mPropCount++;
 					mLogger.debug("Quant Prop: %1s Reason: %2s", lit, lit.getAtom().mExplanation);
 					return lit;
+				} else {
+					mLogger.debug("Not propagated: %1s Reason: %2s", lit, lit.getAtom().mExplanation);
 				}
 			}
 		}

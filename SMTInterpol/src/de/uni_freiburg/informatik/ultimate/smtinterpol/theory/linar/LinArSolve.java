@@ -233,7 +233,7 @@ public class LinArSolve implements ITheory {
 	 *        The map must be normalized, i.e. divided by its gcd.
 	 * @return Newly created variable
 	 */
-	public LinVar generateLinVar(final TreeMap<LinVar, Rational> factors) {
+	private LinVar generateLinVar(final TreeMap<LinVar, Rational> factors) {
 		if (factors.size() == 1) {
 			final Map.Entry<LinVar,Rational> me = factors.entrySet().iterator().next();
 			assert me.getValue().equals(Rational.ONE);
@@ -256,11 +256,13 @@ public class LinArSolve implements ITheory {
 				isInt &= vars[i].mIsInt;
 				i++;
 			}
-			var = new LinVar(new LinTerm(vars, coeffs), isInt, mEngine.getAssertionStackLevel(), mLinvars.size());
+			int index = mLinvars.size();
+			var = new LinVar(new LinTerm(vars, coeffs), isInt, mEngine.getAssertionStackLevel(), index);
 			mTerms.put(factors, var);
 			mLinvars.add(var);
 			mDependentRows.add(null);
 			mTableaux.add(new TableauxRow(var, curcoeffs));
+			mDirty.set(index);
 			mEngine.getLogger().debug("Generated LinVar %1$s", var);
 			var.mBasic = true;
 			ExactInfinitesimalNumber curValue = ExactInfinitesimalNumber.ZERO;
@@ -2160,19 +2162,24 @@ public class LinArSolve implements ITheory {
 
 		// check if we have the variable already as a linvar.
 		final Rational normFactor = at.getGCD().inverse();
-		at.mul(normFactor);
-		LinVar var;
-		if (at.getSummands().size() == 1) {
-			final Map.Entry<LinVar, Rational> me = at.getSummands().entrySet().iterator().next();
-			assert me.getValue().equals(Rational.ONE);
-			var = me.getKey();
-		} else {
-			var = mTerms.get(at.getSummands());
-		}
-		// original at is (var + at.getOffset()) / normFactor
-		if (var != null) {
-			InfinitesimalNumber bound = normFactor.signum() > 0 ? var.getTightUpperBound() : var.getTightLowerBound();
-			return bound.sub(at.getConstant()).div(normFactor);
+		{
+			MutableAffineTerm at2 = new MutableAffineTerm();
+			at2.add(Rational.ONE, at);
+			at2.mul(normFactor);
+			LinVar var;
+			if (at2.getSummands().size() == 1) {
+				final Map.Entry<LinVar, Rational> me = at2.getSummands().entrySet().iterator().next();
+				assert me.getValue().equals(Rational.ONE);
+				var = me.getKey();
+			} else {
+				var = mTerms.get(at2.getSummands());
+			}
+			// original at is (var + at.getOffset()) / normFactor
+			if (var != null) {
+				InfinitesimalNumber bound = normFactor.signum() > 0 ? var.getTightUpperBound()
+						: var.getTightLowerBound();
+				return bound.sub(at2.getConstant()).div(normFactor);
+			}
 		}
 
 		// we only compute the bound from the current tableaux, i.e., only consider the bounds of the current non-basic
