@@ -89,17 +89,33 @@ public class InstantiationManager {
 	public void addDawgs(final QuantClause qClause) {
 		assert !mClauseInstanceValues.containsKey(qClause);
 		// Initialize clause dawgs to true, meaning we are not interested in them yet.
-		final Dawg<SharedTerm, InstanceValue> clauseDawg =
-				Dawg.createConst(qClause.getVars().length, InstanceValue.TRUE);
-		mClauseInstanceValues.put(qClause, clauseDawg);
+		mClauseInstanceValues.put(qClause, getDefaultClauseDawg(qClause));
 		for (final QuantLiteral qLit : qClause.getQuantLits()) {
-			if (!mLitInstanceValues.containsKey(qLit)) {
-				// Initialize lit dawgs to undef, meaning we don't have any information on them yet.
-				final Dawg<SharedTerm, InstanceValue> litDawg =
-						Dawg.createConst(qClause.getVars().length, InstanceValue.ONE_UNDEF);
-				mLitInstanceValues.put(qLit, litDawg);
-			}
+			assert !mLitInstanceValues.containsKey(qLit);
+			// Initialize lit dawgs to undef, meaning we don't have any information on them yet.
+			mLitInstanceValues.put(qLit, getDefaultLiteralDawg(qLit));
 		}
+	}
+	
+	/**
+	 * Reset the clause dawgs to their default dawgs.
+	 * 
+	 * This should be used after backtracking.
+	 * 
+	 * TODO Should we remember the dawgs for each decision level and use them to reset?
+	 */
+	public void resetDawgs() {
+		for (final QuantClause qClause : mClauseInstanceValues.keySet()) {
+			mClauseInstanceValues.put(qClause, getDefaultClauseDawg(qClause));
+		}
+	}
+
+	private Dawg<SharedTerm, InstanceValue> getDefaultClauseDawg(final QuantClause qClause) {
+		return Dawg.createConst(qClause.getVars().length, InstanceValue.TRUE);
+	}
+	
+	private Dawg<SharedTerm, InstanceValue> getDefaultLiteralDawg(final QuantLiteral qLit) {
+		return Dawg.createConst(qLit.mClause.getVars().length, InstanceValue.ONE_UNDEF);
 	}
 
 	/**
@@ -139,7 +155,7 @@ public class InstantiationManager {
 	 * Update the clause dawgs.
 	 * 
 	 * @param qClause
-	 * @return
+	 * @return true if something changed, false otherwise.
 	 */
 	private boolean updateClauseInstanceValues(final QuantClause qClause) {
 		final Dawg<SharedTerm, InstanceValue> oldDawg = mClauseInstanceValues.get(qClause);
@@ -209,8 +225,8 @@ public class InstantiationManager {
 		final QuantLiteral qAtom = qLit.getAtom();
 		final Collection<SubstitutionInfo> infos = mEMatching.getSubstitutionInfos(qAtom);
 		final SourceAnnotation source = qLit.mClause.getSource();
-		mLitInstanceValues.put(qLit, Dawg.createConst(qLit.mClause.getVars().length, InstanceValue.ONE_UNDEF));
 
+		Dawg<SharedTerm, InstanceValue> litDawg = getDefaultLiteralDawg(qLit);
 		if (infos != null) {
 			for (final SubstitutionInfo info : infos) {
 				InstanceValue val = InstanceValue.ONE_UNDEF;
@@ -240,8 +256,7 @@ public class InstantiationManager {
 
 					// If the eq value is unknown in CC, and the terms are numeric, check for equality in
 					// LinAr.
-					if ((val == InstanceValue.ONE_UNDEF || val == InstanceValue.ONE_UNDEF)
-							&& qEq.getLhs().getSort().isNumericSort()) {
+					if (val == InstanceValue.ONE_UNDEF && qEq.getLhs().getSort().isNumericSort()) {
 						final MutableAffineTerm at =
 								buildMutableAffineTerm(new SMTAffineTerm(qEq.getLhs()), info, source);
 						if (at != null) {
@@ -272,15 +287,17 @@ public class InstantiationManager {
 					}
 				}
 
-				mLitInstanceValues.put(qLit, mLitInstanceValues.get(qLit).insert(sharedSubs, val));
+				litDawg = litDawg.insert(sharedSubs, val);
 			}
 		}
+		mLitInstanceValues.put(qLit, litDawg);
 	}
 
 	private void updateArithLitInstanceValue(final QuantLiteral arLit, final Collection<SharedTerm[]> interestingSubs) {
 		final QuantLiteral qAtom = arLit.getAtom();
 		final SourceAnnotation source = arLit.mClause.getSource();
-		mLitInstanceValues.put(arLit, Dawg.createConst(arLit.mClause.getVars().length, InstanceValue.ONE_UNDEF));
+
+		Dawg<SharedTerm, InstanceValue> litDawg = getDefaultLiteralDawg(arLit);
 		for (final SharedTerm[] subs : interestingSubs) {
 			InstanceValue val = InstanceValue.ONE_UNDEF;
 
@@ -316,9 +333,9 @@ public class InstantiationManager {
 			if (arLit.isNegated()) {
 				val = val.negate();
 			}
-
-			mLitInstanceValues.put(arLit, mLitInstanceValues.get(arLit).insert(Arrays.asList(subs), val));
+			litDawg = litDawg.insert(Arrays.asList(subs), val);
 		}
+		mLitInstanceValues.put(arLit, litDawg);
 	}
 
 	/**
@@ -730,8 +747,8 @@ public class InstantiationManager {
 				return InstanceValue.FALSE;
 			}
 		}
-		return InstanceValue.ONE_UNDEF;
-	}
+			return InstanceValue.ONE_UNDEF;
+		}
 
 	/**
 	 * Determine the value that an equality literal between two given SharedTerm would have.
@@ -991,7 +1008,7 @@ public class InstantiationManager {
 			} else {
 				if (other == InstanceValue.FALSE) {
 					return this;
-				} else { // Note: UNDEF + UNDEF = TRUE
+				} else { // Note: UNDEF + UNDEF = TRUE (not interesting)
 					return InstanceValue.TRUE;
 				}
 			}

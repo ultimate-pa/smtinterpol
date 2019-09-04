@@ -292,6 +292,7 @@ public class QuantifierTheory implements ITheory {
 	public Clause backtrackComplete() {
 		final int decisionLevel = mClausifier.getEngine().getDecideLevel();
 		mEMatching.undo(decisionLevel);
+		mInstantiationManager.resetDawgs();
 		return null;
 	}
 
