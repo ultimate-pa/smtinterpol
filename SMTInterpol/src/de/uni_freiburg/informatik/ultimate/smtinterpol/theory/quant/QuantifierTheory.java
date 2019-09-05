@@ -803,11 +803,14 @@ public class QuantifierTheory implements ITheory {
 		}
 
 		@Override
+		public int hashCode() {
+			return mLits.hashCode();
+		}
+
+		@Override
 		public boolean equals(final Object other) {
 			if (other instanceof InstClause) {
-				if (mLits == ((InstClause) other).mLits) {
-					return true;
-				}
+				return mLits.equals(((InstClause) other).mLits);
 			}
 			return false;
 		}
