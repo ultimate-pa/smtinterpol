@@ -160,14 +160,7 @@ public class QuantifierTheory implements ITheory {
 
 	@Override
 	public void backtrackLiteral(Literal literal) {
-		// Update the status of potential conflict and unit clauses
-		for (final Literal lit : mPotentialConflictAndUnitClauses.keySet()) {
-			for (final InstClause clause : mPotentialConflictAndUnitClauses.get(lit)) {
-				if (clause.mLits.contains(literal.negate())) {
-					clause.mNumUndefLits += 1;
-				}
-			}
-		}
+		// we throw the potential conflict and unit clauses away after backtracking.
 	}
 
 
@@ -295,6 +288,7 @@ public class QuantifierTheory implements ITheory {
 		final int decisionLevel = mClausifier.getEngine().getDecideLevel();
 		mEMatching.undo(decisionLevel);
 		mInstantiationManager.resetDawgs();
+		mPotentialConflictAndUnitClauses.clear();
 		return null;
 	}
 
