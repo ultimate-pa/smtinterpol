@@ -963,10 +963,10 @@ public class Interpolator extends NonRecursive {
 		public Term interpolate(final AnnotatedTerm la1, final AnnotatedTerm la2) {
 			// retrieve c1,c2,s2,s2
 			final InterpolatorAffineTerm s1 = LAInterpolator.getS(la1);
-			final Rational c1 = s1.getSummands().remove(mMixedVar);
+			final Rational c1 = s1.getSummands().get(mMixedVar);
 			final InfinitesimalNumber k1 = LAInterpolator.getK(la1);
 			final InterpolatorAffineTerm s2 = LAInterpolator.getS(la2);
-			final Rational c2 = s2.getSummands().remove(mMixedVar);
+			final Rational c2 = s2.getSummands().get(mMixedVar);
 			final InfinitesimalNumber k2 = LAInterpolator.getK(la2);
 			assert c1.signum() * c2.signum() == -1;
 			InfinitesimalNumber newK = k1.mul(c2.abs()).add(k2.mul(c1.abs()));
@@ -975,6 +975,7 @@ public class Interpolator extends NonRecursive {
 			final InterpolatorAffineTerm c1s2c2s1 = new InterpolatorAffineTerm();
 			c1s2c2s1.add(c1.abs(), s2);
 			c1s2c2s1.add(c2.abs(), s1);
+			assert !c1s2c2s1.getSummands().containsKey(mMixedVar);
 
 			Term newF;
 			if (s1.getConstant().mEps > 0 || s2.getConstant().mEps > 0) {
@@ -987,6 +988,7 @@ public class Interpolator extends NonRecursive {
 			} else if (k1.less(InfinitesimalNumber.ZERO)) {
 				// compute -s1/c1
 				final InterpolatorAffineTerm s1divc1 = new InterpolatorAffineTerm(s1);
+				s1divc1.getSummands().remove(mMixedVar);
 				s1divc1.mul(c1.inverse().negate());
 				final Term s1DivByc1 = s1divc1.toSMTLib(mTheory, false);
 				newF = substitute(la2.getSubterm(), mMixedVar, s1DivByc1);
@@ -994,12 +996,14 @@ public class Interpolator extends NonRecursive {
 			} else if (k2.less(InfinitesimalNumber.ZERO)) {
 				// compute s2/c2
 				final InterpolatorAffineTerm s2divc2 = new InterpolatorAffineTerm(s2);
+				s2divc2.getSummands().remove(mMixedVar);
 				s2divc2.mul(c2.inverse().negate());
 				final Term s2DivByc2 = s2divc2.toSMTLib(mTheory, false);
 				newF = substitute(la1.getSubterm(), mMixedVar, s2DivByc2);
 				newK = k1;
 			} else {
 				final InterpolatorAffineTerm s1divc1 = new InterpolatorAffineTerm(s1);
+				s1divc1.getSummands().remove(mMixedVar);
 				s1divc1.mul(c1.inverse().negate());
 				final Term s1DivByc1 = s1divc1.toSMTLib(mTheory, false);
 				final Term f1 = substitute(la1.getSubterm(), mMixedVar, s1DivByc1);
@@ -1030,10 +1034,10 @@ public class Interpolator extends NonRecursive {
 		public Term interpolate(final AnnotatedTerm la1, final AnnotatedTerm la2) {
 			// retrieve c1,c2,s1,s2
 			final InterpolatorAffineTerm s1 = LAInterpolator.getS(la1);
-			final Rational c1 = s1.getSummands().remove(mMixedVar);
+			final Rational c1 = s1.getSummands().get(mMixedVar);
 			final InfinitesimalNumber k1 = LAInterpolator.getK(la1);
 			final InterpolatorAffineTerm s2 = LAInterpolator.getS(la2);
-			final Rational c2 = s2.getSummands().remove(mMixedVar);
+			final Rational c2 = s2.getSummands().get(mMixedVar);
 			final InfinitesimalNumber k2 = LAInterpolator.getK(la2);
 			assert c1.isIntegral() && c2.isIntegral();
 			assert c1.signum() * c2.signum() == -1;
@@ -1044,6 +1048,7 @@ public class Interpolator extends NonRecursive {
 			final InterpolatorAffineTerm c1s2c2s1 = new InterpolatorAffineTerm();
 			c1s2c2s1.add(absc1, s2);
 			c1s2c2s1.add(absc2, s1);
+			assert !c1s2c2s1.getSummands().containsKey(mMixedVar);
 
 			// compute newk = c2k1 + c1k2 + c1c2;
 			final Rational c1c2 = absc1.mul(absc2);
@@ -1068,6 +1073,7 @@ public class Interpolator extends NonRecursive {
 			// Use -s/c as start value.
 			final InterpolatorAffineTerm sPlusOffset = new InterpolatorAffineTerm();
 			sPlusOffset.add(theC.signum() > 0 ? Rational.MONE : Rational.ONE, theS);
+			sPlusOffset.getSummands().remove(mMixedVar);
 			Rational offset = Rational.ZERO;
 			final Rational theCabs = theC.abs();
 			if (theC.signum() < 0) {
