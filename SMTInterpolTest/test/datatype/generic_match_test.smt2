@@ -17,6 +17,6 @@
 
 (assert (forall ((l1 (List Nat)) (l2 (List Nat)))
 	(= (append  l1 l2)
-	   (match l1 ((nil l2) ((cons h t) (cons h (append t l2)))))
+	   (match l1 ((null l2) ((cons h t) (cons h (append t l2)))))
 	)
 ))

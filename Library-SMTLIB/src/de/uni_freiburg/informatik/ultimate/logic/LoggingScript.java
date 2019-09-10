@@ -228,7 +228,10 @@ public class LoggingScript extends WrapperScript {
 		throws SMTLIBException {
 		assert datatypes.length == constrs.length && datatypes.length == sortParams.length;
 		mPw.print("(declare-datatypes (");
+		String sep1 = "";
 		for (DataType datatype : datatypes) {
+			mPw.print(sep1);
+			sep1 = " ";
 			mPw.print("(");
 			mPw.print(PrintTerm.quoteIdentifier(datatype.getName()));
 			mPw.print(" ");
@@ -236,25 +239,25 @@ public class LoggingScript extends WrapperScript {
 			mPw.print(")");
 		}
 		mPw.print(") (");
-		String sep1 = "";
+		String sep2 = "";
 		for (int i = 0; i < constrs.length; i++) {
-			mPw.print(sep1);
-			sep1 = " ";
+			mPw.print(sep2);
+			sep2 = " ";
 			if (sortParams[i] != null) {
 				mPw.print("(par (");
-				String sep2 = "";
+				String sep3 = "";
 				for (Sort param : sortParams[i]) {
-					mPw.print(sep2);
-					sep2 = " ";
+					mPw.print(sep3);
+					sep3 = " ";
 					mPw.print(param);
 				}
 				mPw.print(") ");
 			}
 			mPw.print("(");
-			String sep3 = "";
+			String sep4 = "";
 			for (DataType.Constructor constructor : constrs[i]) {
-				mPw.print(sep3);
-				sep3 = " ";
+				mPw.print(sep4);
+				sep4 = " ";
 				mPw.print("(");
 				mPw.print(PrintTerm.quoteIdentifier(constructor.getName()));
 				for (int j = 0; j < constructor.getArgumentSorts().length; j++) {

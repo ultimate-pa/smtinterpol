@@ -80,20 +80,19 @@ public class MatchTerm extends Term {
 			mTodo.addLast(")");
 			mTodo.addLast(mCases[i]);
 			if (mConstructors[i] == null) {
-				mTodo.addLast(") ");
+				mTodo.addLast(" ");
 				mTodo.addLast(mVariables[i][0]);
-				mTodo.addLast("(");
 			} else if (mVariables[i].length > 0) {
 				mTodo.addLast(") ");
 				for (int j = mVariables[i].length - 1; j >= 0; j--) {
 					mTodo.addLast(mVariables[i][j]);
 					mTodo.addLast(" ");
 				}
-				mTodo.addLast(dataType.getConstructors()[i].getName());
+				mTodo.addLast(mConstructors[i].getName());
 				mTodo.addLast("(");
 			} else {
 				mTodo.addLast(" ");
-				mTodo.addLast(dataType.getConstructors()[i].getName());
+				mTodo.addLast(mConstructors[i].getName());
 			}
 			mTodo.addLast(i > 0 ? " (" : "(");
 		}

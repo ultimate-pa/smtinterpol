@@ -197,12 +197,18 @@ action code {:
 
 			DataType dataType = (DataType) mMatchSort.getSortSymbol();
 			mConstructor = dataType.findConstructor(constructor);
+			if (mConstructor == null) {
+				throw new SMTLIBException("Constructor not found.");
+			}
 			mSorts = mConstructor.getArgumentSorts();
 			mVars = new TermVariable[vars.length];
+			if (mSorts.length != mVars.length) {
+				throw new SMTLIBException("Number of constructor arguments does not match.");
+			}
 
 			for (int i = 0; i < vars.length; i++) {
 				Sort sort = mSorts[i].mapSort(mMatchSort.getArguments());
-					mVars[i] = createTermVariable(vars[i], sort);
+				mVars[i] = createTermVariable(vars[i], sort);
 			}
 		}
 
@@ -210,9 +216,12 @@ action code {:
 			mConstructor = ((DataType) mMatchSort.getSortSymbol()).findConstructor(constructor);
 			if (mConstructor == null) {
 				mVars = new TermVariable[1];
-					mVars[0] = createTermVariable(constructor, mMatchSort);
+				mVars[0] = createTermVariable(constructor, mMatchSort);
 			} else {
 				mVars = new TermVariable[0];
+				if (mConstructor.getArgumentSorts().length != 0) {
+					throw new SMTLIBException("Number of constructor arguments does not match.");
+				}
 			}
 		}
 
@@ -220,8 +229,22 @@ action code {:
 			return mVars;
 		}
 
-			public DataType.Constructor getConstructor() {
+		public DataType.Constructor getConstructor() {
 			return mConstructor;
+		}
+
+		public String toString() {
+			if (mConstructor == null) {
+				return mVars[0].toString();
+			} else {
+				StringBuilder sb = new StringBuilder();
+				sb.append('('). append(mConstructor.getName());
+				for (TermVariable tv : mVars) {
+					sb.append(' ').append(tv);
+				}
+				sb.append(')');
+				return sb.toString();
+			}
 		}
 	}
 
@@ -241,11 +264,21 @@ action code {:
 		public Term getCase() {
 			return mCase;
 		}
+
+		public String toString() {
+			return "(" + mPattern + " " + mCase + ")";
+		}
 	}
 
 	Term createMatchTerm (Symbol sym, Term dataArg, MatchCase[] matchCases) {
+		/* first check if some argument is null.  In this case we already reported an error and should return null. */
 		if (mMatchSort == null) {
 			return null;
+		}
+		for (MatchCase matchCase : matchCases) {
+			if (matchCase == null) {
+				return null;
+			}
 		}
 		DataType matchDatatype = (DataType) mMatchSort.getSortSymbol();
 		if (!checkPatterns(matchDatatype, matchCases)) {
@@ -263,7 +296,7 @@ action code {:
 		return parser.env.getScript().match(dataArg, vars, cases, constructors);
 	}
 
-	//Function to check that either match term contains a pattern consisting of a variable
+	// Function to check that either match term contains a pattern consisting of a variable
 	// or all constructors must occur in one of the patterns.
 	public boolean checkPatterns(DataType matchDatatype, MatchCase[] matchCases) {
 		for (int i = 0; i < matchCases.length; i++) {
@@ -533,20 +566,32 @@ pattern ::= symbol:sym
          {: if (mMatchSort == null) {
             	RESULT = null;
             } else {
-            	RESULT = new Pattern(sym);
+            	try {
+            		RESULT = new Pattern(sym);
+            	} catch (SMTLIBException ex) {
+            		parser.report_error(ex.getMessage(), sym$);
+            		RESULT = null;
+            	}
             }
          :}
        | LPAR symbol:constr symbol+:vars RPAR
          {: if (mMatchSort == null) {
             	RESULT = null;
             } else {
-            	RESULT = new Pattern(constr, vars);
+            	try {
+            		RESULT = new Pattern(constr, vars);
+            	} catch (SMTLIBException ex) {
+            		parser.report_error(ex.getMessage(), constr$);
+            		RESULT = null;
+            	}
             }
          :};
 matchCase ::= LPAR {: localVars.beginScope(); :} pattern:p term:t RPAR
-         {: 
-           localVars.endScope();
-           RESULT = new MatchCase(p, t);
+         {:
+            localVars.endScope();
+            if (p != null && t != null) {
+            	RESULT = new MatchCase(p, t);
+            }
          :};
 term ::= constantTerm
        | qualIdentifier:fun
@@ -585,8 +630,9 @@ term ::= constantTerm
          {: localVars.endScope();
            	RESULT = null;
 			try {
-            	if (!hasError())
+            	if (!hasError()) {
             		RESULT = parser.env.getScript().quantifier(Script.EXISTS, vars, t);
+            	}
 			} catch (SMTLIBException se) {
 				parser.report_error(se.getMessage(), sym$);
 			} :}
