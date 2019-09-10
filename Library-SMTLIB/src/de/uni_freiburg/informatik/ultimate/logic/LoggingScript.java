@@ -138,13 +138,13 @@ public class LoggingScript extends WrapperScript {
 	@Override
 	public void setLogic(final String logic) throws UnsupportedOperationException, SMTLIBException {
 		mPw.println("(set-logic " + logic + ")");
-		mScript.setLogic(logic);
+		super.setLogic(logic);
 	}
 
 	@Override
 	public void setLogic(final Logics logic) throws UnsupportedOperationException, SMTLIBException {
 		mPw.println("(set-logic " + logic.name() + ")");
-		mScript.setLogic(logic);
+		super.setLogic(logic);
 	}
 
 	@Override
@@ -154,7 +154,7 @@ public class LoggingScript extends WrapperScript {
 		mPw.print(' ');
 		mPw.print(PrintTerm.quoteObjectIfString(value));
 		mPw.println(")");
-		mScript.setOption(opt, value);
+		super.setOption(opt, value);
 	}
 
 	@Override
@@ -164,7 +164,7 @@ public class LoggingScript extends WrapperScript {
 		mPw.print(' ');
 		mPw.print(PrintTerm.quoteObjectIfString(value));
 		mPw.println(")");
-		mScript.setInfo(info, value);
+		super.setInfo(info, value);
 	}
 
 	@Override
@@ -174,7 +174,7 @@ public class LoggingScript extends WrapperScript {
 		mPw.print(' ');
 		mPw.print(arity);
 		mPw.println(")");
-		mScript.declareSort(sort, arity);
+		super.declareSort(sort, arity);
 	}
 
 	@Override
@@ -191,7 +191,7 @@ public class LoggingScript extends WrapperScript {
 		mPw.print(") ");
 		mTermPrinter.append(mPw, definition);
 		mPw.println(")");
-		mScript.defineSort(sort, sortParams, definition);
+		super.defineSort(sort, sortParams, definition);
 	}
 
 	@Override
@@ -208,7 +208,7 @@ public class LoggingScript extends WrapperScript {
 		mPw.print(") ");
 		mTermPrinter.append(mPw, resultSort);
 		mPw.println(")");
-		mScript.declareFun(fun, paramSorts, resultSort);
+		super.declareFun(fun, paramSorts, resultSort);
 	}
 
 	@Override
@@ -231,19 +231,19 @@ public class LoggingScript extends WrapperScript {
 		mPw.print(' ');
 		mTermPrinter.append(mPw, formatTerm(definition));
 		mPw.println(")");
-		mScript.defineFun(fun, params, resultSort, definition);
+		super.defineFun(fun, params, resultSort, definition);
 	}
 
 	@Override
 	public void push(final int levels) throws SMTLIBException {
 		mPw.println("(push " + levels + ")");
-		mScript.push(levels);
+		super.push(levels);
 	}
 
 	@Override
 	public void pop(final int levels) throws SMTLIBException {
 		mPw.println("(pop " + levels + ")");
-		mScript.pop(levels);
+		super.pop(levels);
 	}
 
 	@Override
@@ -251,13 +251,13 @@ public class LoggingScript extends WrapperScript {
 		mPw.print("(assert ");
 		mTermPrinter.append(mPw, formatTerm(term));
 		mPw.println(")");
-		return mScript.assertTerm(term);
+		return super.assertTerm(term);
 	}
 
 	@Override
 	public LBool checkSat() throws SMTLIBException {
 		mPw.println("(check-sat)");
-		return mScript.checkSat();
+		return super.checkSat();
 	}
 
 	@Override
@@ -270,25 +270,25 @@ public class LoggingScript extends WrapperScript {
 			sep = " ";
 		}
 		mPw.println("))");
-		return mScript.checkSatAssuming(assumptions);
+		return super.checkSatAssuming(assumptions);
 	}
 
 	@Override
 	public Term[] getAssertions() throws SMTLIBException {
 		mPw.println("(get-assertions)");
-		return mScript.getAssertions();
+		return super.getAssertions();
 	}
 
 	@Override
 	public Term getProof() throws SMTLIBException, UnsupportedOperationException {
 		mPw.println("(get-proof)");
-		return mScript.getProof();
+		return super.getProof();
 	}
 
 	@Override
 	public Term[] getUnsatCore() throws SMTLIBException, UnsupportedOperationException {
 		mPw.println("(get-unsat-core)");
-		return mScript.getUnsatCore();
+		return super.getUnsatCore();
 	}
 
 	@Override
@@ -301,25 +301,25 @@ public class LoggingScript extends WrapperScript {
 			sep = " ";
 		}
 		mPw.println("))");
-		return mScript.getValue(terms);
+		return super.getValue(terms);
 	}
 
 	@Override
 	public Assignments getAssignment() throws SMTLIBException, UnsupportedOperationException {
 		mPw.println("(get-assignment)");
-		return mScript.getAssignment();
+		return super.getAssignment();
 	}
 
 	@Override
 	public Object getOption(final String opt) throws UnsupportedOperationException {
 		mPw.println("(get-option " + opt + ")");
-		return mScript.getOption(opt);
+		return super.getOption(opt);
 	}
 
 	@Override
 	public Object getInfo(final String info) throws UnsupportedOperationException {
 		mPw.println("(get-info " + info + ")");
-		return mScript.getInfo(info);
+		return super.getInfo(info);
 	}
 
 	@Override
@@ -327,13 +327,13 @@ public class LoggingScript extends WrapperScript {
 		mPw.print("(simplify ");
 		mTermPrinter.append(mPw, term);
 		mPw.println(")");
-		return mScript.simplify(term);
+		return super.simplify(term);
 	}
 
 	@Override
 	public void reset() {
 		mPw.println("(reset)");
-		mScript.reset();
+		super.reset();
 	}
 
 	@Override
@@ -344,7 +344,7 @@ public class LoggingScript extends WrapperScript {
 			mTermPrinter.append(mPw, t);
 		}
 		mPw.println(')');
-		return mScript.getInterpolants(partition);
+		return super.getInterpolants(partition);
 	}
 
 	// [a,b,c], [0,1,0] -> a (b) c
@@ -368,7 +368,7 @@ public class LoggingScript extends WrapperScript {
 			mTermPrinter.append(mPw, partition[i]);
 		}
 		mPw.println(')');
-		return mScript.getInterpolants(partition, startOfSubtree);
+		return super.getInterpolants(partition, startOfSubtree);
 	}
 
 	@Override
@@ -376,13 +376,13 @@ public class LoggingScript extends WrapperScript {
 		mPw.println("(exit)");
 		mPw.flush();
 		mPw.close();
-		mScript.exit();
+		super.exit();
 	}
 
 	@Override
 	public Model getModel() throws SMTLIBException, UnsupportedOperationException {
 		mPw.println("(get-model)");
-		return mScript.getModel();
+		return super.getModel();
 	}
 
 	@Override
@@ -396,7 +396,7 @@ public class LoggingScript extends WrapperScript {
 			spacer = " ";
 		}
 		mPw.println("))");
-		return mScript.checkAllsat(predicates);
+		return super.checkAllsat(predicates);
 	}
 
 	@Override
@@ -417,7 +417,7 @@ public class LoggingScript extends WrapperScript {
 			spacer = " ";
 		}
 		mPw.println("))");
-		return mScript.findImpliedEquality(x, y);
+		return super.findImpliedEquality(x, y);
 	}
 
 	@Override
@@ -425,7 +425,7 @@ public class LoggingScript extends WrapperScript {
 		mPw.print("(echo ");
 		mPw.print(msg);
 		mPw.println(')');
-		return mScript.echo(msg);
+		return super.echo(msg);
 	}
 
 	/**
@@ -443,12 +443,12 @@ public class LoggingScript extends WrapperScript {
 	@Override
 	public void resetAssertions() {
 		mPw.println("(reset-assertions)");
-		mScript.resetAssertions();
+		super.resetAssertions();
 	}
 
 	@Override
 	public Term[] getUnsatAssumptions() throws SMTLIBException, UnsupportedOperationException {
 		mPw.println("(get-unsat-assumptions)");
-		return mScript.getUnsatAssumptions();
+		return super.getUnsatAssumptions();
 	}
 }
