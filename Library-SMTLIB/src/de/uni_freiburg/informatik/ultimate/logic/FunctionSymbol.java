@@ -18,8 +18,6 @@
  */
 package de.uni_freiburg.informatik.ultimate.logic;
 
-import java.math.BigInteger;
-
 /**
  * Represents a function symbol.  Each function symbol has a name, a sort and
  * zero or more parameter sorts.  A constant symbol is represented as a function
@@ -41,16 +39,17 @@ public class FunctionSymbol {
 	public static final int RETURNOVERLOAD = 16;
 	public static final int MODELVALUE = 32;
 	public static final int UNINTERPRETEDINTERNAL = 64;
+	public static final int CONSTRUCTOR = 128;
 
 	final String mName;
-	final BigInteger[] mIndices;
+	final String[] mIndices;
 	final Sort[] mParamSort;
 	final Sort mReturnSort;
 	final int mFlags;
 	final TermVariable[] mDefinitionVars;
 	final Term mDefinition;
 
-	FunctionSymbol(String n, BigInteger[] i, Sort[] params, Sort result,
+	FunctionSymbol(String n, String[] i, Sort[] params, Sort result,
 			TermVariable[] definitionVars, Term definition, int flags) {
 		mName = n;
 		mIndices = i;
@@ -71,7 +70,7 @@ public class FunctionSymbol {
 		}
 		if ((isChainable() || isPairwise())
 				&& (params.length != 2 || !params[0].equalsSort(params[1])
-                   	|| !result.equalsSort(getTheory().getBooleanSort()))) {
+						|| !result.equalsSort(getTheory().getBooleanSort()))) {
 			throw new IllegalArgumentException(
 					"Wrong sorts for chainable symbol");
 		}
@@ -93,7 +92,7 @@ public class FunctionSymbol {
 		return mName;
 	}
 
-	public BigInteger[] getIndices() {
+	public String[] getIndices() {
 		return mIndices;
 	}
 	/**
@@ -268,7 +267,7 @@ public class FunctionSymbol {
 			sb.append(name);
 		} else {
 			sb.append("(_ ").append(name);
-			for (final BigInteger i : mIndices) {
+			for (final String i : mIndices) {
 				sb.append(' ').append(i);
 			}
 			sb.append(')');
@@ -343,7 +342,7 @@ public class FunctionSymbol {
 		}
 		sb.append(name);
 		if (mIndices != null) {
-			for (final BigInteger i : mIndices) {
+			for (final String i : mIndices) {
 				sb.append(' ').append(i);
 			}
 			sb.append(')');

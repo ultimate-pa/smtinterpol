@@ -18,7 +18,6 @@
  */
 package de.uni_freiburg.informatik.ultimate.logic;
 
-import java.math.BigInteger;
 import java.util.HashMap;
 
 
@@ -39,13 +38,13 @@ public class PolymorphicFunctionSymbol extends FunctionSymbolFactory {
 	}
 
 	@Override
-	public int getFlags(BigInteger[] indices, Sort[] paramSorts, Sort result) {
+	public int getFlags(String[] indices, Sort[] paramSorts, Sort result) {
 		return mFlags;
 	}
 
 	@Override
 	public Sort getResultSort(
-			BigInteger[] indices, Sort[] paramSorts, Sort result) {
+			String[] indices, Sort[] paramSorts, Sort result) {
 		if (indices != null) {
 			return null;
 		}

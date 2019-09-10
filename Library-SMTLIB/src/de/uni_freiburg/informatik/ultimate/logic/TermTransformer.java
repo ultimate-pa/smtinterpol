@@ -190,6 +190,10 @@ public class TermTransformer extends NonRecursive {
 			}
 			pushTerm(annterm.getSubterm());
 			return;
+		} else if (term instanceof MatchTerm) {
+			final MatchTerm matchTerm = (MatchTerm) term;
+			enqueueWalker(new WalkMatchTerm(matchTerm));
+			pushTerm(matchTerm.getDataTerm());
 		} else {
 			throw new AssertionError("Unknown Term: " + term.toStringDirect());
 		}
@@ -239,6 +243,21 @@ public class TermTransformer extends NonRecursive {
 		Term result = old;
 		if (newBody != old.getSubterm()	|| newAnnots != annots) {
 			result = old.getTheory().annotatedTerm(newAnnots, newBody);
+		}
+		setResult(result);
+	}
+
+	public void preConvertMatchCase(final MatchTerm oldMatch, final int caseNr) {
+		beginScope();
+		pushTerm(oldMatch.getCases()[caseNr]);
+	}
+
+	public void postConvertMatch(final MatchTerm oldMatch, final Term newDataTerm, final Term[] newCases) {
+		Term result = oldMatch;
+		if (newDataTerm != oldMatch.getDataTerm()
+				|| newCases != oldMatch.getCases()) {
+			final Theory theory = oldMatch.getTheory();
+			result = theory.match(newDataTerm, oldMatch.getVariables(), newCases, oldMatch.getConstructors());
 		}
 		setResult(result);
 	}
@@ -489,6 +508,44 @@ public class TermTransformer extends NonRecursive {
 				}
 			}
 			transformer.mConvertedArrays.addLast(newArray);
+		}
+
+		@Override
+		public String toString() {
+			return "annotate";
+		}
+	}
+
+	/**
+	 * Walk over each case of a match term, one after another.
+	 */
+	protected static class WalkMatchTerm implements Walker {
+		/** the match term. */
+		private final MatchTerm mMatchTerm;
+		/** the next case nr to walk through */
+		private int mCaseNr;
+
+		public WalkMatchTerm(final MatchTerm term) {
+			mMatchTerm = term;
+			mCaseNr = 0;
+		}
+
+		@Override
+		public void walk(final NonRecursive engine) {
+			final TermTransformer transformer = (TermTransformer) engine;
+			Term[] cases = mMatchTerm.getCases();
+			if (mCaseNr > 0) {
+				transformer.endScope();
+			}
+			if (mCaseNr < cases.length) {
+				transformer.enqueueWalker(this);
+				transformer.preConvertMatchCase(mMatchTerm, mCaseNr);
+				mCaseNr++;
+			} else {
+				final Term[] newCases = transformer.getConverted(cases);
+				final Term newDataTerm = transformer.getConverted();
+				transformer.postConvertMatch(mMatchTerm, newDataTerm, newCases);
+			}
 		}
 
 		@Override

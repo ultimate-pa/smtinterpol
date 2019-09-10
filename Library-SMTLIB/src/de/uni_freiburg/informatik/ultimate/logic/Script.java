@@ -113,6 +113,48 @@ public interface Script {
 	 */
 	public void setInfo(String info, Object value);
 	/**
+	 * Check if constr is the Constructor of a Datatype within the Theory.
+	 * @param constr The Name of the constructor.
+	 * @return The Contructor or null if it does not exist.
+	 */
+	public FunctionSymbol getFunctionSymbol(String constructor);
+	/**
+	 * Declare constructors of a datatype.
+	 * @param name Name of the Constructor.
+	 * @param selectors The selectors of the Constructor.
+	 * @param argumentSorts The argumentSorts of the Constructor.
+	 * @return The array of constructors.
+	 * @throws SMTLIBException.
+	 */
+	public DataType.Constructor constructor(String name, String[] selectors, Sort[] argumentSorts)
+		throws SMTLIBException;
+	/**
+	 * Create a new datatype.
+	 * @param sort Sort of the datatypes.
+	 * @param typename Name of the datatypes.
+	 * @return The datatype object.
+	 * @throws SMTLIBException.
+	 */
+	public DataType datatype(String typename, int numParams)
+		throws SMTLIBException;	
+	/**
+	 * Declare new datatypes by setting their constructors.
+	 * @param datatype
+	 * @param constrs The constructors.
+	 * @throws SMTLIBException.
+	 */
+	public void declareDatatype(DataType datatype, DataType.Constructor[] constrs)
+		throws SMTLIBException;
+	/**
+	 * Declare new datatypes by setting their constructors.
+	 * @param datatypes 
+	 * @param constrs The constructors.
+	 * @throws SMTLIBException.
+	 */
+	public void declareDatatypes(DataType[] datatypes, DataType.Constructor[][] constrs, Sort[][] sortParams)
+		throws SMTLIBException;
+	
+	/**
 	 * Declare a user-defined sort.
 	 * @param sort  The name of the new sort.
 	 * @param arity The arity of the new sort.
@@ -329,7 +371,7 @@ public interface Script {
 	 * @return The corresponding sort.
 	 * @throws SMTLIBException If and only if the sort does not exist.
 	 */
-	public Sort sort(String sortname, BigInteger[] indices, Sort... params)
+	public Sort sort(String sortname, String[] indices, Sort... params)
 		throws SMTLIBException;
 	/**
 	 * Create an array of sort parameters.  These parameters can be used when
@@ -363,7 +405,7 @@ public interface Script {
 	 * @return The constructed term.
 	 * @throws SMTLIBException If an error occurred.
 	 */
-	public Term term(String funcname, BigInteger[] indices,
+	public Term term(String funcname, String[] indices,
 			Sort returnSort, Term... params) throws SMTLIBException;
 	/**
 	 * Create a term variable.
@@ -398,6 +440,17 @@ public interface Script {
 	 */
 	public Term let(TermVariable[] vars, Term[] values, Term body)
 		throws SMTLIBException;
+	
+	/**
+	 * Create a match term.
+	 * @param dataArg The term that is to be matched.
+	 * @param vars The variables of each pattern.
+	 * @param cases The match cases.
+	 * @return The match term.
+	 * @throws SMTLIBException
+	 */
+	public Term match(final Term dataArg, final TermVariable[][] vars, final Term[] cases,
+			DataType.Constructor[] constructors) throws SMTLIBException;
 	/**
 	 * Annotate a term.  This can be used to create named terms.
 	 * @param t           Term to annotate.

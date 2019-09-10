@@ -25,6 +25,7 @@ import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.LetTerm;
+import de.uni_freiburg.informatik.ultimate.logic.MatchTerm;
 import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -94,6 +95,13 @@ public class TermCollector extends NonRecursive {
 			// Already a leaf
 		}
 
+		@Override
+		public void walk(NonRecursive walker, MatchTerm term) {
+			walker.enqueueWalker(new DepthWalker(term.getDataTerm(), mDepth + 1));
+			for (final Term v : term.getCases()) {
+				walker.enqueueWalker(new DepthWalker(v, mDepth + 1));
+			}
+		}
 	}
 
 	private final int mDepth;
@@ -111,5 +119,4 @@ public class TermCollector extends NonRecursive {
 	public List<Term> getTerms() {
 		return mTerms;
 	}
-
 }

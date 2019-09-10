@@ -147,6 +147,8 @@ public class NonRecursive {
 				walk(walker, (ConstantTerm) mTerm);
 			} else if (mTerm instanceof TermVariable) {
 				walk(walker, (TermVariable) mTerm);
+			} else if (mTerm instanceof MatchTerm) {
+				walk(walker, (MatchTerm) mTerm);
 			}
 		}
 
@@ -156,6 +158,7 @@ public class NonRecursive {
 		public abstract void walk(NonRecursive walker, LetTerm term);
 		public abstract void walk(NonRecursive walker, QuantifiedFormula term);
 		public abstract void walk(NonRecursive walker, TermVariable term);
+		public abstract void walk(NonRecursive walker, MatchTerm term);
 
 		public Term getTerm() {
 			return mTerm;

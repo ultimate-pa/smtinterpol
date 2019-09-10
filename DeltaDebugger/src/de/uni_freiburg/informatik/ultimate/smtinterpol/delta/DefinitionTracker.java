@@ -26,6 +26,7 @@ import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.LetTerm;
+import de.uni_freiburg.informatik.ultimate.logic.MatchTerm;
 import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -77,6 +78,13 @@ public class DefinitionTracker extends NonRecursive {
 			// Does not need definitions
 		}
 
+		@Override
+		public void walk(NonRecursive walker, MatchTerm term) {
+			walker.enqueueWalker(new Walker(term.getDataTerm()));
+			for (final Term caseTerm : term.getCases()) {
+				walker.enqueueWalker(new Walker(caseTerm));
+			}
+		}
 	}
 
 	private final Map<String, Cmd> mCtx;

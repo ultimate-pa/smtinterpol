@@ -25,6 +25,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.LetTerm;
+import de.uni_freiburg.informatik.ultimate.logic.MatchTerm;
 import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
 import de.uni_freiburg.informatik.ultimate.logic.NonRecursive.TermWalker;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
@@ -76,6 +77,14 @@ public class NamedHelper {
 		public void walk(NonRecursive walker, TermVariable term) {
 			// Cannot contain names
 		}
+
+		@Override
+		public void walk(NonRecursive walker, MatchTerm term) {
+			walker.enqueueWalker(new NamedDetector(term.getDataTerm()));
+			for (final Term t : term.getCases()) {
+				walker.enqueueWalker(new NamedDetector(t));
+			}
+		}
 	}
 
 	private final class NamedDetector extends TermWalker {
@@ -123,6 +132,13 @@ public class NamedHelper {
 			// Cannot contain names
 		}
 
+		@Override
+		public void walk(NonRecursive walker, MatchTerm term) {
+			for (final Term t : term.getCases()) {
+				walker.enqueueWalker(new NamedDetector(t));
+			}
+			walker.enqueueWalker(new NamedDetector(term.getDataTerm()));
+		}
 	}
 
 	private boolean mHasNames;

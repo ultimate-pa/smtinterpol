@@ -18,7 +18,6 @@
  */
 package de.uni_freiburg.informatik.ultimate.logic;
 
-import java.math.BigInteger;
 import java.util.ArrayDeque;
 import java.util.HashMap;
 
@@ -58,7 +57,7 @@ public final class Sort {
 	 * array with one element containing the bit length.  This field is
 	 * null (instead of the empty array) if there are no indices.
 	 */
-	final BigInteger[] mIndices;
+	final String[] mIndices;
 	/**
 	 * The cached real sort.  This is null if real sort was not yet computed.
 	 * Otherwise it is this for a real sort and the real sort as which the
@@ -69,7 +68,7 @@ public final class Sort {
 
 	private int mHash;
 
-	Sort(SortSymbol sym, BigInteger[] indices, Sort[] args) {
+	Sort(final SortSymbol sym, final String[] indices, final Sort[] args) {
 		assert args != null;
 		assert args.length == (sym.isParametric() ? 0 : sym.mNumParams)
 				: "Sort created with wrong number of args";
@@ -101,19 +100,27 @@ public final class Sort {
 		}
 		final StringBuilder sb = new StringBuilder();
 		sb.append("(_ ").append(name);
-		for (final BigInteger i : mIndices) {
+		for (final String i : mIndices) {
 			sb.append(' ').append(i);
 		}
 		sb.append(')');
 		return sb.toString();
 	}
 
+	/**
+	 * Get the symbol for the sort constructor.
+	 *
+	 * @return the sort symbol
+	 */
+	public SortSymbol getSortSymbol() {
+		return mSymbol;
+	}
 
 	/**
 	 * Get the indices, if this is an indexed sort like (_ bv 5).
 	 * @return the indices, null if this sort is not indexed.
 	 */
-	public BigInteger[] getIndices() {
+	public String[] getIndices() {
 		return mIndices;
 	}
 
@@ -167,7 +174,7 @@ public final class Sort {
 		return mRealSort;
 	}
 
-	boolean equalsSort(Sort other) {
+	boolean equalsSort(final Sort other) {
 		if (this == other) {
 			return true;
 		}
@@ -185,8 +192,8 @@ public final class Sort {
 	 * @return true if the sorts unify (in which case the unifier is extended)
 	 * or false otherwise.
 	 */
-    boolean unifySort(HashMap<Sort,Sort> unifier, Sort concrete) {
-    	assert concrete.getRealSort() == concrete;
+	boolean unifySort(final HashMap<Sort, Sort> unifier, final Sort concrete) {
+		assert concrete.getRealSort() == concrete;
 		final Sort last = unifier.get(this);
 		if (last != null) {
 			return last == concrete;
@@ -215,22 +222,22 @@ public final class Sort {
 	 * a unique position which is used as index in the substitution array.
 	 * @return The substituted sort.
 	 */
-    Sort mapSort(Sort[] substitution) {
+	public Sort mapSort(final Sort[] substitution) {
 		if (mSymbol.isParametric()) {
 			return substitution[mSymbol.mNumParams];
 		}
 		if (mArgs.length == 0) {
 			return this;
 		}
-    	if (mArgs.length == 1) {
-    		final Sort arg = mArgs[0].mapSort(substitution);
-    		return mSymbol.getSort(mIndices, new Sort[] { arg });
-    	}
+		if (mArgs.length == 1) {
+			final Sort arg = mArgs[0].mapSort(substitution);
+			return mSymbol.getSort(mIndices, new Sort[] { arg });
+		}
 
-    	// For more than two arguments create a cache to avoid exponential blow
-    	final HashMap<Sort, Sort> cachedMappings = new HashMap<Sort,Sort>();
-    	return mapSort(substitution, cachedMappings);
-    }
+		// For more than two arguments create a cache to avoid exponential blow
+		final HashMap<Sort, Sort> cachedMappings = new HashMap<Sort, Sort>();
+		return mapSort(substitution, cachedMappings);
+	}
 
 	/**
 	 * Substitute this sort.
@@ -241,15 +248,15 @@ public final class Sort {
 	 * corresponding substituted sort.
 	 * @return The substituted sort.
 	 */
-    Sort mapSort(Sort[] substitution, HashMap<Sort, Sort> cachedMappings) {
+	Sort mapSort(final Sort[] substitution, final HashMap<Sort, Sort> cachedMappings) {
 		if (mSymbol.isParametric()) {
 			return substitution[mSymbol.mNumParams];
 		}
-    	Sort result = cachedMappings.get(this);
-    	if (result != null) {
+		Sort result = cachedMappings.get(this);
+		if (result != null) {
 			return result;
 		}
-    	if (mArgs.length == 0) {
+		if (mArgs.length == 0) {
 			result = this;
 		} else {
 			final Sort[] newArgs = new Sort[mArgs.length];
@@ -257,7 +264,7 @@ public final class Sort {
 				newArgs[i] = mArgs[i].mapSort(substitution, cachedMappings);
 			}
 			result = mSymbol.getSort(mIndices, newArgs);
-    	}
+		}
 		cachedMappings.put(this, result);
 		return result;
 	}
@@ -292,7 +299,7 @@ public final class Sort {
 	 * @param mTodo The stack where to put the strings and sub sorts.
 	 * @see PrintTerm
 	 */
-	void toStringHelper(ArrayDeque<Object> mTodo) {
+	void toStringHelper(final ArrayDeque<Object> mTodo) {
 		final String name = getIndexedName();
 		final Sort[] args = getArguments();
 		if (args.length == 0) {

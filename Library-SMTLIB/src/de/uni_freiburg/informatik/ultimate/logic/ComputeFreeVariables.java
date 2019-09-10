@@ -181,6 +181,34 @@ public class ComputeFreeVariables extends NonRecursive.TermWalker {
 	}
 
 	@Override
+	public void walk(NonRecursive walker, final MatchTerm match) {
+		walker.enqueueWalker(new NonRecursive.Walker() {
+			@Override
+			public void walk(NonRecursive walker) {
+				final HashSet<TermVariable> free = new HashSet<TermVariable>();
+				for (int i = 0; i < match.getCases().length; i++) {
+					final HashSet<TermVariable> freeCase = new HashSet<TermVariable>();
+					freeCase.addAll(Arrays.asList(match.getCases()[i].getFreeVars()));
+					freeCase.removeAll(Arrays.asList(match.getVariables()[i]));
+					free.addAll(freeCase);
+				}
+				free.addAll(Arrays.asList(match.getDataTerm().getFreeVars()));
+				if (free.isEmpty()) {
+					match.mFreeVars = NOFREEVARS;
+				} else if (free.size() == match.getDataTerm().getFreeVars().length) {
+					match.mFreeVars = match.getDataTerm().getFreeVars();
+				} else {
+					match.mFreeVars = free.toArray(new TermVariable[free.size()]);
+				}
+			}
+		});
+		walker.enqueueWalker(new ComputeFreeVariables(match.getDataTerm()));
+		for (Term t : match.getCases()) {
+			walker.enqueueWalker(new ComputeFreeVariables(t));
+		}
+	}
+
+	@Override
 	public void walk(NonRecursive walker, TermVariable term) {
 		term.mFreeVars = new TermVariable[] {term};
 	}

@@ -28,6 +28,7 @@ import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.CheckClosedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.LetTerm;
+import de.uni_freiburg.informatik.ultimate.logic.MatchTerm;
 import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -92,6 +93,28 @@ public class SubstitutionApplier extends NonRecursive {
 			final Term res = new CheckClosedTerm().isClosed(subform) ? subform
 					: mTerm.getTheory().let(
 							mTerm.getVariables(), newVals, subform);
+			mConverted.push(res);
+		}
+
+	}
+
+	private final class MatchBuilder implements Walker {
+
+		private final MatchTerm mTerm;
+
+		public MatchBuilder(MatchTerm term) {
+			mTerm = term;
+		}
+
+		@Override
+		public void walk(NonRecursive engine) {
+			final Term dataTerm = mConverted.pop();
+			final Term[] newCases = new Term[mTerm.getCases().length];
+			for (int i = 0; i < newCases.length; ++i) {
+				newCases[i] = mConverted.pop();
+			}
+			final Term res = new CheckClosedTerm().isClosed(dataTerm) ? dataTerm
+					: mTerm.getTheory().match(dataTerm, mTerm.getVariables(), newCases, mTerm.getConstructors());
 			mConverted.push(res);
 		}
 
@@ -198,6 +221,14 @@ public class SubstitutionApplier extends NonRecursive {
 			mConverted.push(term);
 		}
 
+		@Override
+		public void walk(NonRecursive walker, MatchTerm term) {
+			walker.enqueueWalker(new MatchBuilder(term));
+			walker.enqueueWalker(new DepthDescender(term.getDataTerm(), mDepth + 1));
+			for (final Term v : term.getCases()) {
+				walker.enqueueWalker(new DepthDescender(v, mDepth + 1));
+			}
+		}
 	}
 
 	private int mDepth;

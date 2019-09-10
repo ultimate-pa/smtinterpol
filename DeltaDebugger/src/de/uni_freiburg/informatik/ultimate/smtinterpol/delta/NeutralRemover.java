@@ -26,6 +26,7 @@ import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.LetTerm;
+import de.uni_freiburg.informatik.ultimate.logic.MatchTerm;
 import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
@@ -96,6 +97,23 @@ public class NeutralRemover extends NonRecursive {
 			final Term sub = remover.getConverted();
 			remover.setResult(sub.getTheory().let(
 					mLet.getVariables(), values, sub));
+		}
+	}
+
+	private static class BuildMatchTerm implements Walker {
+		private final MatchTerm mMatchTerm;
+
+		public BuildMatchTerm(MatchTerm matchTerm) {
+			mMatchTerm = matchTerm;
+		}
+
+		@Override
+		public void walk(NonRecursive engine) {
+			final NeutralRemover remover = (NeutralRemover) engine;
+			final Term dataTerm = remover.getConverted();
+			final Term[] cases = remover.getConverted(mMatchTerm.getCases().length);
+			remover.setResult(mMatchTerm.getTheory().match(dataTerm, mMatchTerm.getVariables(), cases,
+					mMatchTerm.getConstructors()));
 		}
 	}
 
@@ -170,6 +188,15 @@ public class NeutralRemover extends NonRecursive {
 		@Override
 		public void walk(NonRecursive walker, TermVariable term) {
 			((NeutralRemover) walker).setResult(term);
+		}
+
+		@Override
+		public void walk(NonRecursive walker, MatchTerm term) {
+			walker.enqueueWalker(new BuildMatchTerm(term));
+			walker.enqueueWalker(new NeutralWalker(term.getDataTerm()));
+			for (final Term v : term.getCases()) {
+				walker.enqueueWalker(new NeutralWalker(v));
+			}
 		}
 	}
 
