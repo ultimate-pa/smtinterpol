@@ -203,7 +203,7 @@ public class LoggingScript extends WrapperScript {
 	public void declareDatatype(DataType datatype, DataType.Constructor[] constrs)
 		throws SMTLIBException {
 		assert datatype.mNumParams == 0;
-		mPw.print("(declare-datatypes ");
+		mPw.print("(declare-datatype ");
 		mPw.print(PrintTerm.quoteIdentifier(datatype.getName()));
 		mPw.print(" (");
 		for (int j = 0; j < constrs.length; j++) {
@@ -214,7 +214,7 @@ public class LoggingScript extends WrapperScript {
 				mPw.print("(");
 				mPw.print(PrintTerm.quoteIdentifier(constrs[j].getSelectors()[k]));
 				mPw.print(" ");
-				mPw.print(PrintTerm.quoteIdentifier(constrs[j].getArgumentSorts()[k].toString()));
+				mPw.print(constrs[j].getArgumentSorts()[k]);
 				mPw.print(")");
 			}
 			mPw.print(j != constrs.length - 1 ? ") " : ")");
@@ -226,6 +226,7 @@ public class LoggingScript extends WrapperScript {
 	@Override
 	public void declareDatatypes(DataType[] datatypes, DataType.Constructor[][] constrs, Sort[][] sortParams)
 		throws SMTLIBException {
+		assert datatypes.length == constrs.length && datatypes.length == sortParams.length;
 		mPw.print("(declare-datatypes (");
 		for (DataType datatype : datatypes) {
 			mPw.print("(");
@@ -235,22 +236,41 @@ public class LoggingScript extends WrapperScript {
 			mPw.print(")");
 		}
 		mPw.print(") (");
+		String sep1 = "";
 		for (int i = 0; i < constrs.length; i++) {
+			mPw.print(sep1);
+			sep1 = " ";
+			if (sortParams[i] != null) {
+				mPw.print("(par (");
+				String sep2 = "";
+				for (Sort param : sortParams[i]) {
+					mPw.print(sep2);
+					sep2 = " ";
+					mPw.print(param);
+				}
+				mPw.print(") ");
+			}
 			mPw.print("(");
-			for (int j = 0; j < constrs[i].length; j++) {
+			String sep3 = "";
+			for (DataType.Constructor constructor : constrs[i]) {
+				mPw.print(sep3);
+				sep3 = " ";
 				mPw.print("(");
-				mPw.print(PrintTerm.quoteIdentifier(constrs[i][j].getName()));
-				for (int k = 0; k < constrs[i][j].getArgumentSorts().length; k++) {
+				mPw.print(PrintTerm.quoteIdentifier(constructor.getName()));
+				for (int j = 0; j < constructor.getArgumentSorts().length; j++) {
 					mPw.print(" ");
 					mPw.print("(");
-					mPw.print(PrintTerm.quoteIdentifier(constrs[i][j].getSelectors()[k]));
+					mPw.print(PrintTerm.quoteIdentifier(constructor.getSelectors()[j]));
 					mPw.print(" ");
-					mPw.print(PrintTerm.quoteIdentifier(constrs[i][j].getArgumentSorts()[k].toString()));
+					mPw.print(constructor.getArgumentSorts()[j]);
 					mPw.print(")");
 				}
-				mPw.print(j != constrs[i].length - 1 ? ") " : ")");
+				mPw.print(")");
 			}
-			mPw.print(i != constrs.length - 1 ? ") " : ")");
+			mPw.print(")");
+			if (sortParams[i] != null) {
+				mPw.print(")");
+			}
 		}
 		mPw.println("))");
 		super.declareDatatypes(datatypes, constrs, sortParams);
