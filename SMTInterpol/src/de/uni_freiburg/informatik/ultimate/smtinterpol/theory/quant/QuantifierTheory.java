@@ -92,7 +92,7 @@ public class QuantifierTheory implements ITheory {
 
 	// Statistics
 	private long mDERGroundCount, mConflictCount, mPropCount, mFinalCount;
-	private long mCheckpointTime, mFinalCheckTime, mEMatchingTime;
+	long mCheckpointTime, mFindEmatchingTime, mFinalCheckTime, mEMatchingTime, mDawgTime;
 
 	public QuantifierTheory(final Theory th, final DPLLEngine engine, final Clausifier clausifier) {
 		mClausifier = clausifier;
@@ -176,6 +176,9 @@ public class QuantifierTheory implements ITheory {
 		if (mUseEMatching) {
 			mEMatching.run();
 			conflictAndUnitInstances = mInstantiationManager.findConflictAndUnitInstancesWithNewEMatching();
+			if (Config.PROFILE_TIME) {
+				mFindEmatchingTime += System.nanoTime() - time;
+			}
 		} else { // TODO for comparison
 			for (final QuantClause clause : mQuantClauses) {
 				if (mEngine.isTerminationRequested())
@@ -238,7 +241,7 @@ public class QuantifierTheory implements ITheory {
 					mLogger.debug("Quant Prop: %1s Reason: %2s", lit, lit.getAtom().mExplanation);
 					return lit;
 				} else {
-					mLogger.debug("Not propagated: %1s Reason: %2s", lit, lit.getAtom().mExplanation);
+					mLogger.debug("Not propagated: %1s Clause: %2s", lit, clause.mLits);
 				}
 			}
 		}
@@ -261,8 +264,10 @@ public class QuantifierTheory implements ITheory {
 	public void printStatistics(LogProxy logger) {
 		logger.info("Quant: DER produced " + mDERGroundCount + " ground clause(s).");
 		logger.info("Quant: Conflicts: " + mConflictCount + " Props: " + mPropCount + " Final Checks: " + mFinalCount);
-		logger.info("Quant times: Checkpoint " + mCheckpointTime / 1000 / 1000.0 + " Final Check "
-				+ mFinalCheckTime / 1000 / 1000.0 + " E-Matching " + mEMatchingTime / 1000 / 1000.0);
+		logger.info(
+				"Quant times: Checkpoint %.3f Find with E-matching: %.3f Dawg %.3f Final Check %.3f E-Matching %.3f",
+				mCheckpointTime / 1000 / 1000.0, mFindEmatchingTime / 1000 / 1000.0, mDawgTime / 1000 / 1000.0,
+				mFinalCheckTime / 1000 / 1000.0, mEMatchingTime / 1000 / 1000.0);
 	}
 
 	@Override
@@ -321,6 +326,7 @@ public class QuantifierTheory implements ITheory {
 				new Object[][] { { "DER ground results", mDERGroundCount }, { "Conflicts", mConflictCount },
 						{ "Propagations", mPropCount }, { "Final Checks", mFinalCount },
 						{ "Times", new Object[][] { { "Checkpoint", mCheckpointTime },
+								{ "Find E-matching", mFindEmatchingTime },
 								{ "Final Check", mFinalCheckTime }, { "E-Matching", mEMatchingTime } } } } };
 
 	}
@@ -807,6 +813,11 @@ public class QuantifierTheory implements ITheory {
 				return mLits.equals(((InstClause) other).mLits);
 			}
 			return false;
+		}
+
+		@Override
+		public String toString() {
+			return mLits.toString();
 		}
 	}
 }

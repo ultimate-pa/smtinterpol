@@ -286,8 +286,9 @@ public class InstantiationManager {
 						sharedSubs.add(shared);
 					}
 				}
-
+				long time = System.nanoTime();
 				litDawg = litDawg.insert(sharedSubs, val);
+				mQuantTheory.mDawgTime += System.nanoTime() - time;
 			}
 		}
 		mLitInstanceValues.put(qLit, litDawg);
@@ -333,7 +334,9 @@ public class InstantiationManager {
 			if (arLit.isNegated()) {
 				val = val.negate();
 			}
+			long time = System.nanoTime();
 			litDawg = litDawg.insert(Arrays.asList(subs), val);
+			mQuantTheory.mDawgTime += System.nanoTime() - time;
 		}
 		mLitInstanceValues.put(arLit, litDawg);
 	}
