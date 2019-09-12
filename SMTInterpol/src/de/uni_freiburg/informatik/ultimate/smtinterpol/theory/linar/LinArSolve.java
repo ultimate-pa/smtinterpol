@@ -498,6 +498,34 @@ public class LinArSolve implements ITheory {
 		if (conflict != null) {
 			return conflict;
 		}
+		// recheck bound propagations
+		for (LinVar lv : mLinvars) {
+			if (lv.hasTightUpperBound()) {
+				for (final BoundConstraint bc : lv.mConstraints.tailMap(lv.getTightUpperBound(), true).values()) {
+					assert lv.getTightUpperBound().lesseq(bc.getBound());
+					if (bc.getDecideStatus() == null) {
+						mProplist.add(bc);
+					}
+				}
+				for (final LAEquality laeq : lv.mEqualities.tailMap(lv.getTightUpperBound(), false).values()) {
+					if (laeq.getDecideStatus() == null) {
+						mProplist.add(laeq.negate());
+					}
+				}
+			}
+			if (lv.hasTightLowerBound()) {
+				for (final BoundConstraint bc : lv.mConstraints.headMap(lv.getTightLowerBound(), false).values()) {
+					if (bc.getDecideStatus() == null) {
+						mProplist.add(bc.negate());
+					}
+				}
+				for (final LAEquality laeq : lv.mEqualities.headMap(lv.getTightLowerBound(), false).values()) {
+					if (laeq.getDecideStatus() == null) {
+						mProplist.add(laeq.negate());
+					}
+				}
+			}
+		}
 
 		assert checkClean();
 		return fixOobs();
