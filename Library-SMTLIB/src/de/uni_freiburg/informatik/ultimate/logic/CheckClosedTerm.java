@@ -36,7 +36,7 @@ public class CheckClosedTerm extends NonRecursive {
 	private boolean mIsClosed;
 
 	static class TermWalker implements NonRecursive.Walker {
-		Term mTerm;
+		final Term mTerm;
 
 		public TermWalker(Term term) {
 			mTerm = term;
@@ -45,6 +45,21 @@ public class CheckClosedTerm extends NonRecursive {
 		@Override
 		public void walk(NonRecursive engine) {
 			((CheckClosedTerm) engine).check(mTerm);
+		}
+	}
+
+	static class MatchCaseWalker implements NonRecursive.Walker {
+		final MatchTerm mMatch;
+		final int mCaseNr;
+
+		public MatchCaseWalker(MatchTerm match, int caseNr) {
+			mMatch = match;
+			mCaseNr = caseNr;
+		}
+
+		@Override
+		public void walk(NonRecursive engine) {
+			((CheckClosedTerm) engine).checkMatchCase(mMatch, mCaseNr);
 		}
 	}
 
@@ -106,8 +121,23 @@ public class CheckClosedTerm extends NonRecursive {
 				mCheckedTerms.add(var);
 			}
 			enqueueWalker(new TermWalker(quant.getSubformula()));
+		} else if (t instanceof MatchTerm) {
+			final MatchTerm match = (MatchTerm) t;
+			for (int i = 0; i < match.getCases().length; i++) {
+				enqueueWalker(new MatchCaseWalker(match, i));
+			}
+			enqueueWalker(new TermWalker(match.getDataTerm()));
 		} else if (!(t instanceof ConstantTerm)) {
 			throw new AssertionError("Unknown term: " + t.getClass());
 		}
+	}
+
+	void checkMatchCase(MatchTerm match, int caseNr) {
+		mCheckedTerms.beginScope();
+		for (final TermVariable var : match.getVariables()[caseNr]) {
+			mCheckedTerms.add(var);
+		}
+		enqueueWalker(new EndScopeWalker());
+		enqueueWalker(new TermWalker(match.getCases()[caseNr]));
 	}
 }
