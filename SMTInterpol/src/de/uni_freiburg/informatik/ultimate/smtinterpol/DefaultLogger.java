@@ -21,6 +21,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Formatter;
+import java.util.Locale;
 
 public class DefaultLogger implements LogProxy {
 
@@ -38,7 +39,7 @@ public class DefaultLogger implements LogProxy {
 	};
 
 	private PrintWriter mWriter = new PrintWriter(System.err);
-	private Formatter mFormat = new Formatter(mWriter);
+	private Formatter mFormat = new Formatter(mWriter, Locale.ROOT);
 	private String mDest = "stderr";
 
 	private int mLevel = Config.DEFAULT_LOG_LEVEL;
@@ -208,7 +209,7 @@ public class DefaultLogger implements LogProxy {
 	@Override
 	public void changeDestination(String newDest) throws IOException {
 		mWriter = ChannelUtil.createChannel(newDest);
-		mFormat = new Formatter(mWriter);
+		mFormat = new Formatter(mWriter, Locale.ROOT);
 		mDest = newDest;
 	}
 

@@ -19,6 +19,7 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.samples.util;
 
 import java.io.IOException;
+import java.util.Locale;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
@@ -47,7 +48,7 @@ public class Log4jProxy implements LogProxy {
 		}
 		@Override
 		public String toString() {
-			return String.format(mFormat, mArgs);
+			return String.format(Locale.ROOT, mFormat, mArgs);
 		}
 	}
 
