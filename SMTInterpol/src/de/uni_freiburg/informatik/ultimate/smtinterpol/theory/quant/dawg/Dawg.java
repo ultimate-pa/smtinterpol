@@ -157,16 +157,19 @@ public class Dawg<LETTER, VALUE> {
 		if (this.getValue(key) == value) {
 			return this;
 		}
-		if (key.isEmpty()) {
+		return insert(key, value, 0);
+	}
+
+	private Dawg<LETTER, VALUE> insert(final List<LETTER> key, final VALUE value, int offset) {
+		if (offset == key.size()) {
 			return createConst(0, value);
 		} else {
-			LETTER firstLetter = key.get(0);
-			List<LETTER> keyTail = key.subList(1, key.size());
+			LETTER firstLetter = key.get(offset);
 			HashMap<LETTER, Dawg<LETTER, VALUE>> newTransitions = new HashMap<>();
 			if (firstLetter == null) {
-				Dawg<LETTER, VALUE> elseDest = mElseTransition.insert(keyTail, value);
+				Dawg<LETTER, VALUE> elseDest = mElseTransition.insert(key, value, offset + 1);
 				for (Map.Entry<LETTER, Dawg<LETTER, VALUE>> oldTrans : mTransitions.entrySet()) {
-					Dawg<LETTER, VALUE> newDest = oldTrans.getValue().insert(keyTail, value);
+					Dawg<LETTER, VALUE> newDest = oldTrans.getValue().insert(key, value, offset + 1);
 					if (newDest != elseDest) {
 						newTransitions.put(oldTrans.getKey(), newDest);
 					}
@@ -174,7 +177,7 @@ public class Dawg<LETTER, VALUE> {
 				return createDawg(newTransitions, elseDest);
 			} else {
 				Dawg<LETTER, VALUE> tailDawg = getNextDawg(firstLetter);
-				Dawg<LETTER, VALUE> newTailDawg = tailDawg.insert(keyTail, value);
+				Dawg<LETTER, VALUE> newTailDawg = tailDawg.insert(key, value, offset + 1);
 				newTransitions.putAll(mTransitions);
 				if (newTailDawg == mElseTransition) {
 					/* new Destination is the default transitions, so remove it from the transition map */
