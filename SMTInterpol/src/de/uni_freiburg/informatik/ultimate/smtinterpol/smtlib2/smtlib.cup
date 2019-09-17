@@ -492,7 +492,7 @@ specConstant ::= NUMERAL:n {: RESULT = n; :}
              | BINARY:n {: RESULT = n; :}
              | STRING:n {: RESULT = new QuotedObject(n); :};
 sExpr ::= specConstant
-        | symbol
+        | allsymbol
         | KEYWORD
         | LPAR sExpr*:s RPAR {: RESULT = s; :};
 
@@ -541,7 +541,7 @@ attribute ::= keywordNoAttr:k attributeValue?:v {: RESULT = new Annotation(k, v)
         | CNAMED:k symbol:v {: RESULT = new Annotation(k, v); :}
         | CPATTERN:k LPAR term*:t RPAR {: RESULT = new Annotation(k, t); :};
 attributeValue ::= specConstant
-        | allsymbol
+        | symbol
         | LPAR sExpr*:s RPAR {: RESULT = s; :};
 attributeLogic  ::= keywordNoLogic:k  attributeValue?:v
                     {: RESULT = new Annotation(k, v); :};
@@ -1118,7 +1118,7 @@ symbol ::= SYMBOL | CONTINUEDEXECUTION | ERRORSYM | FALSE | IMMEDIATEEXIT |
 /* The following are reserved words and are only allowed in sexpr. */
 allsymbol ::= symbol |
          PAR | NUMERALSYM | DECIMALSYM | STRINGSYM |
-         UNDERSCORE | AS | BANG | LET | FORALL | EXISTS |
+         UNDERSCORE | AS | BANG | LET | FORALL | EXISTS | MATCH |
          ASSERT | CHECKSAT | CHECKSATASSUMING |
          DECLARESORT | DECLAREFUN | DECLARECONST | DEFINESORT | DEFINEFUN |
          ECHO | EXIT | GETASSERTIONS | GETASSIGNMENT | GETINFO |
