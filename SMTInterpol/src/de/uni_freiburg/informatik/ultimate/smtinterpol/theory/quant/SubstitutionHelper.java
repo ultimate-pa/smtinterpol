@@ -87,7 +87,8 @@ public class SubstitutionHelper {
 
 		assert !mSigma.isEmpty();
 
-		final List<Term> substitutedLitTerms = new ArrayList<>(); // We also need duplicates here for proof production.
+		final List<Term> substitutedLitTerms = new ArrayList<>(mGroundLits.length + mQuantLits.length);
+		// We also need duplicates here for proof production.
 		final Set<ILiteral> resultingGroundLits = new LinkedHashSet<>();
 		final Set<ILiteral> resultingQuantLits = new LinkedHashSet<>();
 
@@ -288,7 +289,7 @@ public class SubstitutionHelper {
 		}
 		if (!isAuxLit) {
 			normalized = compiler.transform(substituted);
-			if (normalized.getSort() == mQuantTheory.getTheory().getBooleanSort()
+			if (normalized.getSort().equals(mQuantTheory.getTheory().getBooleanSort())
 					&& normalized.getFreeVars().length > 0) {
 				normalized = mQuantTheory.getTheory().term("=", normalized, mQuantTheory.getTheory().mTrue);
 			}

@@ -90,10 +90,9 @@ class DestructiveEqualityReasoning {
 	}
 
 	/**
-	 * Return the state of the clause.
+	 * Check if the clause is trivially true.
 	 * 
-	 * @return Fullfilled, if the clause is trivially true; Conflict, if the clause is trivially false; Normal
-	 *         otherwise.
+	 * @return true, if the clause is trivially true; false otherwise.
 	 */
 	public boolean isTriviallyTrue() {
 		return mIsTriviallyTrue;

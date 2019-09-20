@@ -532,7 +532,7 @@ public class QuantifierTheory implements ITheory {
 			final SourceAnnotation source) {
 		final DestructiveEqualityReasoning der =
 				new DestructiveEqualityReasoning(this, groundLits, quantLits, source);
-		final ArrayList<ILiteral> litsAfterDER = new ArrayList<>();
+		final ArrayList<ILiteral> litsAfterDER = new ArrayList<>(groundLits.length + quantLits.length);
 		if (der.applyDestructiveEqualityReasoning()) {
 			if (der.isTriviallyTrue()) {
 				return null; // Don't add trivially true clauses.
@@ -573,8 +573,8 @@ public class QuantifierTheory implements ITheory {
 			throw new IllegalArgumentException("Cannot add clause to QuantifierTheory: No quantified literal!");
 		}
 
-		final ArrayList<Literal> groundLits = new ArrayList<>();
-		final ArrayList<QuantLiteral> quantLits = new ArrayList<>();
+		final ArrayList<Literal> groundLits = new ArrayList<>(iLits.length);
+		final ArrayList<QuantLiteral> quantLits = new ArrayList<>(iLits.length);
 		for (ILiteral lit : iLits) {
 			if (lit instanceof Literal) {
 				groundLits.add((Literal) lit);
@@ -594,7 +594,7 @@ public class QuantifierTheory implements ITheory {
 		mQuantClauses.add(clause);
 
 		mEMatching.addPatterns(clause);
-		mInstantiationManager.addDawgs(clause);
+		mInstantiationManager.addClause(clause);
 
 		if (mLogger.isDebugEnabled()) {
 			mLogger.debug("Quant: Added clause: " + clause);
