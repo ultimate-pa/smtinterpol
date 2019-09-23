@@ -18,7 +18,9 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.ematching;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -65,10 +67,10 @@ public class YieldCode implements ICode {
 
 	@Override
 	public void execute(CCTerm[] register, final int decisionLevel) {
-		final CCTerm[] varSubs = new CCTerm[mVarOrder.length];
-		for (int i = 0; i < varSubs.length; i++) {
+		final List<CCTerm> varSubs = new ArrayList<CCTerm>(mVarOrder.length);
+		for (int i = 0; i < mVarOrder.length; i++) {
 			if (mVarPos.containsKey(mVarOrder[i])) {
-				varSubs[i] = register[mVarPos.get(mVarOrder[i])];
+				varSubs.add(register[mVarPos.get(mVarOrder[i])]);
 			}
 		}
 		final Map<Term, CCTerm> equivalentCCTerms = new HashMap<>();

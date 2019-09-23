@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
@@ -69,7 +70,6 @@ public class InstantiationManager {
 	private final EMatching mEMatching;
 
 	// TODO: Remember old dawgs
-	private final Map<QuantLiteral, Dawg<SharedTerm, InstanceValue>> mLitDawgs;
 	private final Map<QuantClause, Dawg<SharedTerm, InstanceValue>> mClauseDawgs;
 	private final Map<QuantClause, Map<List<SharedTerm>, Literal[]>> mClauseInstances;
 
@@ -77,7 +77,6 @@ public class InstantiationManager {
 		mClausifier = clausifier;
 		mQuantTheory = quantTheory;
 		mEMatching = quantTheory.getEMatching();
-		mLitDawgs = new HashMap<>();
 		mClauseDawgs = new HashMap<>();
 		mClauseInstances = new HashMap<>();
 	}
@@ -92,11 +91,6 @@ public class InstantiationManager {
 		assert !mClauseDawgs.containsKey(qClause);
 		// Initialize clause dawgs to true, meaning we are not interested in them yet.
 		mClauseDawgs.put(qClause, getDefaultClauseDawg(qClause));
-		for (final QuantLiteral qLit : qClause.getQuantLits()) {
-			assert !mLitDawgs.containsKey(qLit);
-			// Initialize lit dawgs to undef, meaning we don't have any information on them yet.
-			mLitDawgs.put(qLit, getDefaultLiteralDawg(qLit));
-		}
 		mClauseInstances.put(qClause, new HashMap<>());
 	}
 	
@@ -124,6 +118,8 @@ public class InstantiationManager {
 	/**
 	 * Find all current instances of quant clauses that would be conflict or unit instances. This will actually compute
 	 * the clause instances, i.e., it will create the ground literals.
+	 * 
+	 * TODO Stop after first conflict instance (or after first unit instance).
 	 * 
 	 * @return the clause instances.
 	 */
@@ -191,10 +187,11 @@ public class InstantiationManager {
 					if (qLit.isArithmetical()) { // will be treated later
 						arithLits.add(qLit);
 					} else {
+						Dawg<SharedTerm, InstanceValue> litDawg = getDefaultLiteralDawg(qLit);
 						if (qLit.isEssentiallyUninterpreted()) {
-							updateEULitDawg(qLit);
+							litDawg = computeEULitDawg(qLit);
 						}
-						clauseDawg = clauseDawg.combine(mLitDawgs.get(qLit), combinator);
+						clauseDawg = clauseDawg.combine(litDawg, combinator);
 					}
 				}
 			}
@@ -205,8 +202,9 @@ public class InstantiationManager {
 						computeSubsForArithmetical(qClause, arithLits, clauseDawg);
 				for (final QuantLiteral arLit : arithLits) {
 					if (!isConst(clauseDawg, length, InstanceValue.TRUE)) {
-						updateArithLitDawg(arLit, interestingSubsForArith.get(arLit));
-						clauseDawg = clauseDawg.combine(mLitDawgs.get(arLit), combinator);
+						final Dawg<SharedTerm, InstanceValue> litDawg =
+								computeArithLitDawg(arLit, interestingSubsForArith.get(arLit));
+						clauseDawg = clauseDawg.combine(litDawg, combinator);
 					}
 				}
 			}
@@ -220,90 +218,70 @@ public class InstantiationManager {
 		return dawg.equals(constDawg);
 	}
 
-	private void updateEULitDawg(final QuantLiteral qLit) {
+	private Dawg<SharedTerm, InstanceValue> computeEULitDawg(final QuantLiteral qLit) {
 		assert qLit.isEssentiallyUninterpreted(); // Use the information from E-Matching
-		final QuantLiteral qAtom = qLit.getAtom();
-		final Collection<SubstitutionInfo> infos = mEMatching.getSubstitutionInfos(qAtom);
-		final SourceAnnotation source = qLit.mClause.getSource();
-
-		Dawg<SharedTerm, InstanceValue> litDawg = getDefaultLiteralDawg(qLit);
-		if (infos != null) {
-			for (final SubstitutionInfo info : infos) {
-				InstanceValue val = InstanceValue.ONE_UNDEF;
-
-				if (qAtom instanceof QuantBoundConstraint) {
-					final QuantBoundConstraint qBc = (QuantBoundConstraint) qAtom;
-					final Map<Term, SharedTerm> sharedForQuantSmds =
-							buildSharedMapFromCCMap(info.getEquivalentCCTerms());
-					final MutableAffineTerm at =
-							buildMutableAffineTerm(qBc.getAffineTerm(), sharedForQuantSmds, source);
-					if (at != null) {
-						val = evaluateBoundConstraint(at);
-					}
-				} else {
-					final QuantEquality qEq = (QuantEquality) qAtom;
-
-					// First try if we can get an equality value in CC.
-					final CCTerm lhs, rhs;
-					if (qEq.getLhs().getFreeVars().length == 0) {
-						lhs = mClausifier.getSharedTerm(qEq.getLhs(), qLit.mClause.getSource()).getCCTerm();
-					} else {
-						lhs = info.getEquivalentCCTerms().get(qEq.getLhs());
-					}
-					if (qEq.getRhs().getFreeVars().length == 0) {
-						rhs = mClausifier.getSharedTerm(qEq.getRhs(), qLit.mClause.getSource()).getCCTerm();
-					} else {
-						rhs = info.getEquivalentCCTerms().get(qEq.getRhs());
-					}
-					val = evaluateCCEquality(lhs, rhs);
-
-					// If the eq value is unknown in CC, and the terms are numeric, check for equality in
-					// LinAr.
-					if (val == InstanceValue.ONE_UNDEF && qEq.getLhs().getSort().isNumericSort()) {
-						final Map<Term, SharedTerm> sharedForQuantSmds =
-								buildSharedMapFromCCMap(info.getEquivalentCCTerms());
-
-						final MutableAffineTerm at =
-								buildMutableAffineTerm(new SMTAffineTerm(qEq.getLhs()), sharedForQuantSmds,
-										source);
-						if (at != null) {
-							final MutableAffineTerm atRight =
-									buildMutableAffineTerm(new SMTAffineTerm(qEq.getRhs()),
-											sharedForQuantSmds, source);
-							if (atRight != null) {
-								at.add(Rational.MONE, atRight);
-								val = evaluateLAEquality(at);
-							}
-						}
-					}
-				}
-
-				if (qLit.isNegated()) {
-					val = val.negate();
-				}
-
-				final int nVars = info.getVarSubs().length;
-				final List<SharedTerm> sharedSubs = new ArrayList<>(nVars);
-				for (int i = 0; i < nVars; i++) {
-					final CCTerm ccSubs = info.getVarSubs()[i];
-					if (ccSubs == null) {
-						sharedSubs.add(null); // will result in the default case in the dawg
-					} else {
-						final SharedTerm shared =
-								ccSubs.getSharedTerm() != null ? ccSubs.getSharedTerm() : ccSubs.getFlatTerm();
-						assert shared != null;
-						sharedSubs.add(shared);
-					}
-				}
-				long time = System.nanoTime();
-				litDawg = litDawg.insert(sharedSubs, val);
-				mQuantTheory.mDawgTime += System.nanoTime() - time;
-			}
+		final Dawg<SharedTerm, SubstitutionInfo> atomSubsDawg = mEMatching.getSubstitutionInfos(qLit.getAtom());
+		if (atomSubsDawg != null) {
+			final Function<SubstitutionInfo, InstanceValue> evaluationMap = v1 -> evaluateEULitDawg(qLit, v1);
+			return atomSubsDawg.map(evaluationMap);
+		} else {
+			return getDefaultLiteralDawg(qLit);
 		}
-		mLitDawgs.put(qLit, litDawg);
 	}
 
-	private void updateArithLitDawg(final QuantLiteral arLit, final Collection<SharedTerm[]> interestingSubs) {
+	private InstanceValue evaluateEULitDawg(final QuantLiteral qLit, final SubstitutionInfo info) {
+		final QuantLiteral qAtom = qLit.getAtom();
+		final SourceAnnotation source = qLit.getClause().getSource();
+
+		InstanceValue val = InstanceValue.ONE_UNDEF;
+		if (qAtom instanceof QuantBoundConstraint) {
+			final QuantBoundConstraint qBc = (QuantBoundConstraint) qAtom;
+			final Map<Term, SharedTerm> sharedForQuantSmds = buildSharedMapFromCCMap(info.getEquivalentCCTerms());
+			final MutableAffineTerm at = buildMutableAffineTerm(qBc.getAffineTerm(), sharedForQuantSmds, source);
+			if (at != null) {
+				val = evaluateBoundConstraint(at);
+			}
+		} else {
+			final QuantEquality qEq = (QuantEquality) qAtom;
+
+			// First try if we can get an equality value in CC.
+			final CCTerm lhs, rhs;
+			if (qEq.getLhs().getFreeVars().length == 0) {
+				lhs = mClausifier.getSharedTerm(qEq.getLhs(), qLit.mClause.getSource()).getCCTerm();
+			} else {
+				lhs = info.getEquivalentCCTerms().get(qEq.getLhs());
+			}
+			if (qEq.getRhs().getFreeVars().length == 0) {
+				rhs = mClausifier.getSharedTerm(qEq.getRhs(), qLit.mClause.getSource()).getCCTerm();
+			} else {
+				rhs = info.getEquivalentCCTerms().get(qEq.getRhs());
+			}
+			val = evaluateCCEquality(lhs, rhs);
+
+			// If the eq value is unknown in CC, and the terms are numeric, check for equality in LinAr.
+			if (val == InstanceValue.ONE_UNDEF && qEq.getLhs().getSort().isNumericSort()) {
+				final Map<Term, SharedTerm> sharedForQuantSmds = buildSharedMapFromCCMap(info.getEquivalentCCTerms());
+				final MutableAffineTerm at = buildMutableAffineTerm(new SMTAffineTerm(qEq.getLhs()), sharedForQuantSmds,
+										source);
+				if (at != null) {
+					final MutableAffineTerm atRight =
+							buildMutableAffineTerm(new SMTAffineTerm(qEq.getRhs()), sharedForQuantSmds, source);
+					if (atRight != null) {
+						at.add(Rational.MONE, atRight);
+						val = evaluateLAEquality(at);
+					}
+				}
+			}
+		}
+
+		if (qLit.isNegated()) {
+			val = val.negate();
+		}
+		return val;
+	}
+
+	private Dawg<SharedTerm, InstanceValue> computeArithLitDawg(final QuantLiteral arLit,
+			final Collection<SharedTerm[]> interestingSubs) {
 		final QuantLiteral qAtom = arLit.getAtom();
 		final SourceAnnotation source = arLit.mClause.getSource();
 
@@ -347,7 +325,7 @@ public class InstantiationManager {
 			litDawg = litDawg.insert(Arrays.asList(subs), val);
 			mQuantTheory.mDawgTime += System.nanoTime() - time;
 		}
-		mLitDawgs.put(arLit, litDawg);
+		return litDawg;
 	}
 
 	/**
@@ -561,7 +539,7 @@ public class InstantiationManager {
 				}
 			}
 		}
-		// Build all substitutions for the literals
+		// Build all substitutions for the literals TODO Use lists as in instantiateAll.
 		final Map<QuantLiteral, Collection<SharedTerm[]>> allSubs = new HashMap<>();
 		for (final QuantLiteral lit : arLits) {
 			allSubs.put(lit, new ArrayList<SharedTerm[]>());

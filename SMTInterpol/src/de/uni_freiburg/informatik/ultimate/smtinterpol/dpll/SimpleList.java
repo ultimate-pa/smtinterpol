@@ -148,8 +148,28 @@ public class SimpleList<E extends SimpleListable<E>> extends SimpleListable<E>
 	}
 
 	/**
+	 * Undo the operation that prepends an entry to the beginning of a joined list. This must also be called on all
+	 * lists to which this list was joined to. The entry must have been inserted with prependIntoJoined before. The
+	 * function must first be called on the inner-most list and then to all lists, for which joinList was executed on
+	 * the list.
+	 * 
+	 * @param entry
+	 *            the element that was prepended.
+	 */
+	public void undoPrependIntoJoined(E entry, boolean isLast) {
+		if (mNext == entry) {
+			mNext = entry.mNext;
+		}
+		if (isLast) {
+			entry.removeFromList();
+		}
+	}
+
+	/**
 	 * Move all elements from source list to the end of this list.
-	 * @param source the source list.
+	 * 
+	 * @param source
+	 *            the source list.
 	 */
 	public void moveAll(SimpleList<E> source) {
 		/* If source is empty this is a no-op */

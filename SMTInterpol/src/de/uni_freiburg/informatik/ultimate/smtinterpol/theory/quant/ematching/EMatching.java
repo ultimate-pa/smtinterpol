@@ -35,6 +35,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SharedTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Triple;
@@ -43,6 +44,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.dawg.Dawg;
 
 /**
  * The E-Matching engine. Patterns are compiled to code that will be executed step by step in order to find new
@@ -57,16 +59,18 @@ public class EMatching {
 	private final Deque<Triple<ICode, CCTerm[], Integer>> mTodoStack;
 	private final Map<Integer, EMUndoInformation> mUndoInformation;
 	/**
-	 * For each essentially uninterpreted quantified literal, the interesting substitutions and the corresponding
-	 * (equivalent) CCTerms for the occurring EUTerms.
+	 * For each essentially uninterpreted quantified literal atom, the interesting Term substitutions and the
+	 * corresponding SubstitutionInfo
 	 */
-	private final Map<QuantLiteral, List<SubstitutionInfo>> mInterestingSubstitutions;
+	private final Map<QuantLiteral, Dawg<SharedTerm, SubstitutionInfo>> mAtomSubsDawgs;
+	final SubstitutionInfo mEmptySubs;
 
 	public EMatching(QuantifierTheory quantifierTheory) {
 		mQuantTheory = quantifierTheory;
 		mTodoStack = new ArrayDeque<>();
-		mInterestingSubstitutions = new LinkedHashMap<>();
+		mAtomSubsDawgs = new LinkedHashMap<>();
 		mUndoInformation = new HashMap<>();
+		mEmptySubs = new SubstitutionInfo(new ArrayList<CCTerm>(), new HashMap<>());
 	}
 
 	/**
@@ -149,12 +153,12 @@ public class EMatching {
 	/**
 	 * Get the substitution infos for a literal that were found since the last call of this method.
 	 * 
-	 * @param qLit
-	 *            the quantified literal.
+	 * @param qAtom
+	 *            the quantified literal atom.
 	 * @return a list containing the new substitution infos.
 	 */
-	public Collection<SubstitutionInfo> getSubstitutionInfos(final QuantLiteral qLit) {
-		return mInterestingSubstitutions.get(qLit);
+	public Dawg<SharedTerm, SubstitutionInfo> getSubstitutionInfos(final QuantLiteral qAtom) {
+		return mAtomSubsDawgs.get(qAtom);
 	}
 
 	/**
@@ -186,14 +190,20 @@ public class EMatching {
 	 * @param equivalentCCTerms
 	 *            the corresponding CCTerms for the EUTerms in the literal.
 	 */
-	void addInterestingSubstitution(final QuantLiteral qLit, final CCTerm[] varSubs,
+	void addInterestingSubstitution(final QuantLiteral qLit, final List<CCTerm> varSubs,
 			final Map<Term, CCTerm> equivalentCCTerms, final int decisionLevel) {
-		if (!mInterestingSubstitutions.containsKey(qLit)) {
-			mInterestingSubstitutions.put(qLit, new ArrayList<>());
+		Dawg<SharedTerm, SubstitutionInfo> subsDawg = mAtomSubsDawgs.containsKey(qLit) ? mAtomSubsDawgs.get(qLit)
+				: Dawg.createConst(varSubs.size(), mEmptySubs);
+		final List<SharedTerm> sharedTermSubs = new ArrayList<SharedTerm>(varSubs.size());
+		for (int i = 0; i < varSubs.size(); i++) {
+			sharedTermSubs.add(varSubs.get(i).getFlatTerm()); // TODO Is flatTerm the right choice?
 		}
+
 		final SubstitutionInfo subsInfo = new SubstitutionInfo(varSubs, equivalentCCTerms);
-		mInterestingSubstitutions.get(qLit).add(subsInfo);
-		addUndoInformation(qLit, subsInfo, decisionLevel);
+		subsDawg = subsDawg.insert(sharedTermSubs, subsInfo);
+
+		mAtomSubsDawgs.put(qLit, subsDawg);
+		addUndoInformation(qLit, sharedTermSubs, decisionLevel);
 	}
 
 	/**
@@ -269,12 +279,13 @@ public class EMatching {
 		info.mReverseTriggers.add(trigger);
 	}
 
-	private void addUndoInformation(final QuantLiteral qLit, final SubstitutionInfo subsInfo, final int decisionLevel) {
+	private void addUndoInformation(final QuantLiteral qLit, final List<SharedTerm> sharedTermSubs,
+			final int decisionLevel) {
 		final EMUndoInformation info = getUndoInformationForLevel(decisionLevel);
-		if (!info.mSubs.containsKey(qLit)) {
-			info.mSubs.put(qLit, new ArrayList<>());
+		if (!info.mLitSubs.containsKey(qLit)) {
+			info.mLitSubs.put(qLit, new ArrayList<>());
 		}
-		info.mSubs.get(qLit).add(subsInfo);
+		info.mLitSubs.get(qLit).add(sharedTermSubs);
 	}
 
 	/**
@@ -296,15 +307,15 @@ public class EMatching {
 	 *
 	 */
 	public class SubstitutionInfo {
-		final CCTerm[] mVarSubs;
+		final List<CCTerm> mVarSubs;
 		final Map<Term, CCTerm> mEquivalentCCTerms;
 
-		SubstitutionInfo(CCTerm[] varSubs, Map<Term, CCTerm> equivalentCCTerms) {
+		SubstitutionInfo(List<CCTerm> varSubs, Map<Term, CCTerm> equivalentCCTerms) {
 			mVarSubs = varSubs;
 			mEquivalentCCTerms = equivalentCCTerms;
 		}
 
-		public CCTerm[] getVarSubs() {
+		public List<CCTerm> getVarSubs() {
 			return mVarSubs;
 		}
 
@@ -315,11 +326,7 @@ public class EMatching {
 		@Override
 		public String toString() {
 			final StringBuilder sb = new StringBuilder();
-			sb.append("Variable Subs: [");
-			sb.append(mVarSubs[0].toString());
-			for (int i = 1; i < mVarSubs.length; i++) {
-				sb.append(", " + mVarSubs[i].toString());
-			}
+			sb.append("Variable Subs: [" + mVarSubs.toString());
 			sb.append("]\nEquivalent CCTerms: " + mEquivalentCCTerms.toString());
 			return sb.toString();
 		}
@@ -332,12 +339,12 @@ public class EMatching {
 	class EMUndoInformation {
 		final Collection<EMCompareTrigger> mCompareTriggers;
 		final Collection<EMReverseTrigger> mReverseTriggers;
-		final Map<QuantLiteral, Collection<SubstitutionInfo>> mSubs;
+		final Map<QuantLiteral, Collection<List<SharedTerm>>> mLitSubs;
 
 		EMUndoInformation() {
 			mCompareTriggers = new ArrayList<>();
 			mReverseTriggers = new ArrayList<>();
-			mSubs = new HashMap<>();
+			mLitSubs = new HashMap<>();
 		}
 
 		/**
@@ -350,8 +357,13 @@ public class EMatching {
 			for (final EMReverseTrigger trigger : mReverseTriggers) {
 				mQuantTheory.getCClosure().removeReverseTrigger(trigger);
 			}
-			for (final Map.Entry<QuantLiteral, Collection<SubstitutionInfo>> subs : mSubs.entrySet()) {
-				mInterestingSubstitutions.get(subs.getKey()).removeAll(subs.getValue());
+			for (final Map.Entry<QuantLiteral, Collection<List<SharedTerm>>> subs : mLitSubs.entrySet()) {
+				final Dawg<SharedTerm, SubstitutionInfo> subsDawg = mAtomSubsDawgs.get(subs.getKey());
+				for (final List<SharedTerm> termSubs : subs.getValue()) {
+					// This will merge this word with the default case.
+					subsDawg.insert(termSubs, mEmptySubs);
+				}
+				mAtomSubsDawgs.put(subs.getKey(), subsDawg);
 			}
 		}
 	}
