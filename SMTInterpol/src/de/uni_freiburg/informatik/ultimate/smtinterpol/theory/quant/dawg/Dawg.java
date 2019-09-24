@@ -91,7 +91,7 @@ public class Dawg<LETTER, VALUE> {
 		int hash = value.hashCode();
 		Dawg<LETTER, VALUE> constDawg = null;
 		for (Dawg<?, ?> dawg : sUnifier.iterateHashCode(hash)) {
-			if (dawg.isFinal() && dawg.mFinal == value) {
+			if (dawg.isFinal() && dawg.mFinal.equals(value)) {
 				constDawg = (Dawg<LETTER, VALUE>) dawg;
 				break;
 			}
@@ -108,7 +108,7 @@ public class Dawg<LETTER, VALUE> {
 
 	/**
 	 * Create the dawg that is one level deeper than this and maps every first letter to this Dawg. Equivalent to
-	 * {@code createDawg(Collections.emptyMap(), this}.
+	 * {@code createDawg(Collections.emptyMap(), this)}.
 	 * 
 	 * @return the created Dawg.
 	 */
@@ -134,7 +134,7 @@ public class Dawg<LETTER, VALUE> {
 		}
 		int hash = HashUtils.hashJenkins(elseTransition.hashCode(), transitions);
 		for (Dawg<?, ?> dawg : sUnifier.iterateHashCode(hash)) {
-			if (dawg.mTransitions.equals(transitions) && dawg.mElseTransition == elseTransition) {
+			if (!dawg.isFinal() && dawg.mTransitions.equals(transitions) && dawg.mElseTransition == elseTransition) {
 				return (Dawg<LETTER, VALUE>) dawg;
 			}
 		}
