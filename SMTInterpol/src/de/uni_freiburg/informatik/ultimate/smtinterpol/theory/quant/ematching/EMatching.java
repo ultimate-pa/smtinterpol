@@ -220,7 +220,7 @@ public class EMatching {
 	 */
 	void installCompareTrigger(final CCTerm lhs, final CCTerm rhs, final ICode remainingCode,
 			final CCTerm[] register, final int decisionLevel) {
-		final EMCompareTrigger trigger = new EMCompareTrigger(this, remainingCode, register, decisionLevel);
+		final EMCompareTrigger trigger = new EMCompareTrigger(this, lhs, rhs, remainingCode, register, decisionLevel);
 		mQuantTheory.getCClosure().insertCompareTrigger(lhs, rhs, trigger);
 		addUndoInformation(trigger, decisionLevel);
 	}

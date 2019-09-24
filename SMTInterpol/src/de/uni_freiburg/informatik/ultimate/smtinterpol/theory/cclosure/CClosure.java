@@ -261,32 +261,103 @@ public class CClosure implements ITheory {
 	}
 
 	/**
-	 * Insert a Compare trigger that will be activated as soon as the two given CCTerms are equal.
+	 * Insert a Compare trigger that will be activated as soon as the two given CCTerms are equal. It is inserted into
+	 * the pair hash tables and all intermediate pair infos.
 	 *
-	 * @param lhs
+	 * @param t1
 	 *            the first CCTerm.
-	 * @param rhs
+	 * @param t2
 	 *            the second CCTerm.
 	 * @param trigger
 	 *            the Compare trigger.
 	 */
-	public void insertCompareTrigger(CCTerm lhs, CCTerm rhs, final CompareTrigger trigger) {
-		lhs = lhs.getRepresentative();
-		rhs = rhs.getRepresentative();
-		assert lhs != rhs;
-		CCTermPairHash.Info info = mPairHash.getInfo(lhs, rhs);
-		if (info == null) {
-			info = new CCTermPairHash.Info(lhs, rhs);
-			mPairHash.add(info);
+	public void insertCompareTrigger(CCTerm t1, CCTerm t2, final CompareTrigger trigger) {
+		assert t1.getRepresentative() != t2.getRepresentative();
+		while (true) {
+			// make t1 the term that was merged before t2 was merged.
+			if (t1.mMergeTime > t2.mMergeTime) {
+				final CCTerm tmp = t1;
+				t1 = t2;
+				t2 = tmp;
+			}
+
+			// if t1 is its own representative, then t2 should also be the representative because of merge time
+			if (t1.mRep == t1) {
+				assert t2.mRep == t2;
+				// Insert this entry into the pair hash, create it if necessary.
+				CCTermPairHash.Info info = mPairHash.getInfo(t1, t2);
+				if (info == null) {
+					info = new CCTermPairHash.Info(t1, t2);
+					mPairHash.add(info);
+				}
+				info.mCompareTriggers.prependIntoJoined(trigger, true);
+				break;
+			}
+
+			// find the pair info entry in the pair info list of t1 or create a new one.
+			assert t1.mRep != t2;
+			boolean found = false;
+			for (final CCTermPairHash.Info.Entry pentry : t1.mPairInfos) {
+				final CCTermPairHash.Info info = pentry.getInfo();
+				// info might have blocked compare triggers but no eqlits
+				// assert (!info.eqlits.isEmpty());
+				if (pentry.mOther == t2) {
+					info.mCompareTriggers.prependIntoJoined(trigger, false);
+					found = true;
+					break;
+				}
+			}
+			if (!found) {
+				// we need to create a new entry.
+				final CCTermPairHash.Info info = new CCTermPairHash.Info(t1, t2);
+				info.mRhsEntry.unlink();
+				info.mCompareTriggers.prependIntoJoined(trigger, false);
+			}
+			t1 = t1.mRep;
 		}
-		info.mCompareTriggers.append(trigger);
 	}
 
 	/**
 	 * Remove a given Compare trigger.
 	 */
 	public void removeCompareTrigger(final CompareTrigger trigger) {
-		trigger.removeFromList();
+		CCTerm t1 = trigger.getLhs();
+		CCTerm t2 = trigger.getRhs();
+		while (true) {
+			// make t1 the term that was merged before t2 was merged.
+			if (t1.mMergeTime > t2.mMergeTime) {
+				final CCTerm tmp = t1;
+				t1 = t2;
+				t2 = tmp;
+			}
+
+			// if t1 is its own representative, then t2 should also be the representative because of merge time
+			if (t1.mRep == t1) {
+				assert t2.mRep == t2;
+				// Insert this entry into the pair hash, create it if necessary.
+				CCTermPairHash.Info info = mPairHash.getInfo(t1, t2);
+				assert info != null;
+				info.mCompareTriggers.undoPrependIntoJoined(trigger, true);
+				break;
+			}
+
+			// find the pair info entry in the pair info list of t1 or create a new one.
+			// isLast is set if t1 was merged with t2; in this case the equality entry lists were not joined.
+			assert t1.mRep != t2;
+			boolean found = false;
+			for (final CCTermPairHash.Info.Entry pentry : t1.mPairInfos) {
+				final CCTermPairHash.Info info = pentry.getInfo();
+				// info might have blocked compare triggers but no eqlits
+				// assert (!info.eqlits.isEmpty());
+				if (pentry.mOther == t2) {
+					info.mCompareTriggers.undoPrependIntoJoined(trigger, false);
+					found = true;
+					break;
+				}
+			}
+			assert found;
+			t1 = t1.mRep;
+		}
 	}
 
 	/**
@@ -430,22 +501,40 @@ public class CClosure implements ITheory {
 		return false;
 	}
 
+	/**
+	 * Insert an equality entry into the pair hash table and all pair infos of the intermediate representatives.
+	 * 
+	 * @param t1
+	 *            one side of the equality.
+	 * @param t2
+	 *            the other side of the equality
+	 * @param eqentry
+	 *            the equality entry that should be inserted into the pair infos.
+	 */
 	public void insertEqualityEntry(CCTerm t1, CCTerm t2, final CCEquality.Entry eqentry) {
-		if (t1.mMergeTime > t2.mMergeTime) {
-			final CCTerm tmp = t1;
-			t1 = t2;
-			t2 = tmp;
-		}
-
-		if (t1.mRep == t1) {
-			assert t2.mRep == t2;
-			CCTermPairHash.Info info = mPairHash.getInfo(t1, t2);
-			if (info == null) {
-				info = new CCTermPairHash.Info(t1, t2);
-				mPairHash.add(info);
+		while (true) {
+			// make t1 the term that was merged before t2 was merged.
+			if (t1.mMergeTime > t2.mMergeTime) {
+				final CCTerm tmp = t1;
+				t1 = t2;
+				t2 = tmp;
 			}
-			info.mEqlits.prependIntoJoined(eqentry, true);
-		} else {
+
+			// if t1 is its own representative, then t2 should also be the representative because of merge time
+			if (t1.mRep == t1) {
+				assert t2.mRep == t2;
+				// Insert this entry into the pair hash, create it if necessary.
+				CCTermPairHash.Info info = mPairHash.getInfo(t1, t2);
+				if (info == null) {
+					info = new CCTermPairHash.Info(t1, t2);
+					mPairHash.add(info);
+				}
+				info.mEqlits.prependIntoJoined(eqentry, true);
+				break;
+			}
+
+			// find the pair info entry in the pair info list of t1 or create a new one.
+			// isLast is set if t1 was merged with t2; in this case the equality entry lists were not joined.
 			final boolean isLast = t1.mRep == t2;
 			boolean found = false;
 			for (final CCTermPairHash.Info.Entry pentry : t1.mPairInfos) {
@@ -459,13 +548,15 @@ public class CClosure implements ITheory {
 				}
 			}
 			if (!found) {
+				// we need to create a new entry.
 				final CCTermPairHash.Info info = new CCTermPairHash.Info(t1, t2);
 				info.mRhsEntry.unlink();
 				info.mEqlits.prependIntoJoined(eqentry, isLast);
 			}
-			if (!isLast) {
-				insertEqualityEntry(t1.mRep, t2, eqentry);
+			if (isLast) {
+				break;
 			}
+			t1 = t1.mRep;
 		}
 	}
 
