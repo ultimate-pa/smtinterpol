@@ -71,6 +71,8 @@ public class YieldCode implements ICode {
 		for (int i = 0; i < mVarOrder.length; i++) {
 			if (mVarPos.containsKey(mVarOrder[i])) {
 				varSubs.add(register[mVarPos.get(mVarOrder[i])]);
+			} else {
+				varSubs.add(null);
 			}
 		}
 		final Map<Term, CCTerm> equivalentCCTerms = new HashMap<>();

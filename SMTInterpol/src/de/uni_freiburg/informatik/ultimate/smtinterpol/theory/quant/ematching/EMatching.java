@@ -195,8 +195,8 @@ public class EMatching {
 		Dawg<SharedTerm, SubstitutionInfo> subsDawg = mAtomSubsDawgs.containsKey(qLit) ? mAtomSubsDawgs.get(qLit)
 				: Dawg.createConst(varSubs.size(), mEmptySubs);
 		final List<SharedTerm> sharedTermSubs = new ArrayList<SharedTerm>(varSubs.size());
-		for (int i = 0; i < varSubs.size(); i++) {
-			sharedTermSubs.add(varSubs.get(i).getFlatTerm()); // TODO Is flatTerm the right choice?
+		for (int i = 0; i < qLit.getClause().getVars().length; i++) {
+			sharedTermSubs.add(varSubs.get(i) == null ? null : varSubs.get(i).getFlatTerm());
 		}
 
 		final SubstitutionInfo subsInfo = new SubstitutionInfo(varSubs, equivalentCCTerms);
