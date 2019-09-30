@@ -24,6 +24,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -165,7 +166,7 @@ public class Dawg<LETTER, VALUE> {
 			return createConst(0, value);
 		} else {
 			LETTER firstLetter = key.get(offset);
-			HashMap<LETTER, Dawg<LETTER, VALUE>> newTransitions = new HashMap<>();
+			HashMap<LETTER, Dawg<LETTER, VALUE>> newTransitions = new LinkedHashMap<>();
 			if (firstLetter == null) {
 				Dawg<LETTER, VALUE> elseDest = mElseTransition.insert(key, value, offset + 1);
 				for (Map.Entry<LETTER, Dawg<LETTER, VALUE>> oldTrans : mTransitions.entrySet()) {
@@ -207,7 +208,7 @@ public class Dawg<LETTER, VALUE> {
 			if (mTransitions.isEmpty() && other.mTransitions.isEmpty()) {
 				result = elseCase.createParent();
 			} else {
-				Map<LETTER, Dawg<LETTER, V3>> newTransitions = new HashMap<>();
+				Map<LETTER, Dawg<LETTER, V3>> newTransitions = new LinkedHashMap<>();
 				for (Map.Entry<LETTER, Dawg<LETTER, VALUE>> entry : mTransitions.entrySet()) {
 					LETTER key = entry.getKey();
 					Dawg<LETTER, V3> combined =
@@ -262,7 +263,7 @@ public class Dawg<LETTER, VALUE> {
 			if (mTransitions.isEmpty()) {
 				result = elseCase.createParent();
 			} else {
-				Map<LETTER, Dawg<LETTER, V2>> newTransitions = new HashMap<>();
+				Map<LETTER, Dawg<LETTER, V2>> newTransitions = new LinkedHashMap<>();
 				for (Map.Entry<LETTER, Dawg<LETTER, VALUE>> entry : mTransitions.entrySet()) {
 					LETTER key = entry.getKey();
 					Dawg<LETTER, V2> mapped = entry.getValue().mapInternal(map, cache);

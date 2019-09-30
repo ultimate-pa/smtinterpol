@@ -44,7 +44,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAnnotat
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
 import de.uni_freiburg.informatik.ultimate.util.HashUtils;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
-import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashSet;
+import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedLinkedHashSet;
 
 /**
  * Array theory solver based on weak equivalence classes.  The underlying
@@ -625,12 +625,9 @@ public class ArrayTheory implements ITheory {
 
 	private final ScopedArrayList<CCTerm> mArrays =
 			new ScopedArrayList<CCTerm>();
-	private final ScopedHashSet<CCAppTerm> mStores =
-			new ScopedHashSet<CCAppTerm>();
-	private final ScopedHashSet<CCAppTerm> mDiffs =
-			new ScopedHashSet<CCAppTerm>();
-	private final ScopedHashSet<CCAppTerm> mConsts =
-			new ScopedHashSet<CCAppTerm>();
+	private final ScopedLinkedHashSet<CCAppTerm> mStores = new ScopedLinkedHashSet<CCAppTerm>();
+	private final ScopedLinkedHashSet<CCAppTerm> mDiffs = new ScopedLinkedHashSet<CCAppTerm>();
+	private final ScopedLinkedHashSet<CCAppTerm> mConsts = new ScopedLinkedHashSet<CCAppTerm>();
 
 	private final ArrayDeque<ArrayLemma> mPropClauses =
 			new ArrayDeque<ArrayLemma>();
