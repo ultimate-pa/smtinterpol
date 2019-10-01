@@ -68,9 +68,9 @@ public class EMatching {
 	public EMatching(QuantifierTheory quantifierTheory) {
 		mQuantTheory = quantifierTheory;
 		mTodoStack = new ArrayDeque<>();
-		mAtomSubsDawgs = new LinkedHashMap<>();
-		mUndoInformation = new HashMap<>();
-		mEmptySubs = new SubstitutionInfo(new ArrayList<CCTerm>(), new HashMap<>());
+		mAtomSubsDawgs = new HashMap<>();
+		mUndoInformation = new LinkedHashMap<>();
+		mEmptySubs = new SubstitutionInfo(new ArrayList<CCTerm>(), new LinkedHashMap<>());
 	}
 
 	/**
@@ -177,7 +177,10 @@ public class EMatching {
 	 *            the candidate CCTerms for this execution.
 	 */
 	void addCode(final ICode code, final CCTerm[] register, final int decisionLevel) {
-		mTodoStack.add(new Triple<ICode, CCTerm[], Integer>(code, register, decisionLevel));
+		final Triple<ICode, CCTerm[], Integer> todo =
+				new Triple<ICode, CCTerm[], Integer>(code, register, decisionLevel);
+		mTodoStack.add(todo);
+		addUndoInformation(todo, decisionLevel);
 	}
 
 	/**
@@ -220,6 +223,7 @@ public class EMatching {
 	 */
 	void installCompareTrigger(final CCTerm lhs, final CCTerm rhs, final ICode remainingCode,
 			final CCTerm[] register, final int decisionLevel) {
+		assert decisionLevel <= mQuantTheory.getClausifier().getEngine().getDecideLevel();
 		final EMCompareTrigger trigger = new EMCompareTrigger(this, lhs, rhs, remainingCode, register, decisionLevel);
 		mQuantTheory.getCClosure().insertCompareTrigger(lhs, rhs, trigger);
 		addUndoInformation(trigger, decisionLevel);
@@ -267,6 +271,11 @@ public class EMatching {
 				new EMReverseTrigger(this, remainingCode, func, argPos, arg, register, regIndex, decisionLevel);
 		mQuantTheory.getCClosure().insertReverseTrigger(func, arg, argPos, trigger);
 		addUndoInformation(trigger, decisionLevel);
+	}
+
+	private void addUndoInformation(final Triple<ICode, CCTerm[], Integer> todo, final int decisionLevel) {
+		final EMUndoInformation info = getUndoInformationForLevel(decisionLevel);
+		info.mTodos.add(todo);
 	}
 
 	private void addUndoInformation(final EMCompareTrigger trigger, final int decisionLevel) {
@@ -340,11 +349,13 @@ public class EMatching {
 		final Collection<EMCompareTrigger> mCompareTriggers;
 		final Collection<EMReverseTrigger> mReverseTriggers;
 		final Map<QuantLiteral, Collection<List<SharedTerm>>> mLitSubs;
+		final Collection<Triple<ICode, CCTerm[], Integer>> mTodos;
 
 		EMUndoInformation() {
 			mCompareTriggers = new ArrayList<>();
 			mReverseTriggers = new ArrayList<>();
 			mLitSubs = new HashMap<>();
+			mTodos = new ArrayList<>();
 		}
 
 		/**
@@ -365,6 +376,7 @@ public class EMatching {
 				}
 				mAtomSubsDawgs.put(subs.getKey(), subsDawg);
 			}
+			mTodoStack.removeAll(mTodos);
 		}
 	}
 }
