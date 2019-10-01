@@ -20,6 +20,8 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.dpll;
 
 import java.util.Iterator;
 
+import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
+
 /**
  * A light-weight double linked list entry.  The usage is a bit complicated but
  * it gives better performance than LinkedList.  To use this class define
@@ -157,11 +159,19 @@ public class SimpleList<E extends SimpleListable<E>> extends SimpleListable<E>
 	 *            the element that was prepended.
 	 */
 	public void undoPrependIntoJoined(E entry, boolean isLast) {
-		if (mNext == entry) {
+		if (mNext == entry && mPrev == entry) {
+			mNext = this;
+			mPrev = this;
+		} else if (mNext == entry) {
 			mNext = entry.mNext;
+		} else if (mPrev == entry) {
+			mPrev = entry.mPrev;
 		}
 		if (isLast) {
 			entry.removeFromList();
+		}
+		if (Config.EXPENSIVE_ASSERTS) {
+			assert this.wellformedPart();
 		}
 	}
 
@@ -191,6 +201,10 @@ public class SimpleList<E extends SimpleListable<E>> extends SimpleListable<E>
 	 * @param source the source list which is joined into this list.
 	 */
 	public void joinList(SimpleList<E> source) {
+		if (Config.EXPENSIVE_ASSERTS) {
+			assert wellformed();
+			assert source.wellformed();
+		}
 		/* If source is empty this is a no-op */
 		if (source.mNext == source) {
 			return;
@@ -210,6 +224,10 @@ public class SimpleList<E extends SimpleListable<E>> extends SimpleListable<E>
 	 * @param source the source list which is joined into this list.
 	 */
 	public void unjoinList(SimpleList<E> source) {
+		if (Config.EXPENSIVE_ASSERTS) {
+			assert this.wellformed();
+			assert source.isSublistOf(this);
+		}
 		/* source.next/source.prev still point to the start and end
 		 * of the source list.
 		 */
@@ -219,6 +237,27 @@ public class SimpleList<E extends SimpleListable<E>> extends SimpleListable<E>
 		// And link it to source.
 		source.mNext.mPrev = source;
 		source.mPrev.mNext = source;
+	}
+
+	public boolean isSublistOf(SimpleList<E> bigList) {
+		if (mNext == this && mPrev == this) {
+			// this is an empty list and therefore okay.
+			return true;
+		}
+		boolean foundHead = false;
+		boolean foundTail = false;
+		SimpleListable<E> item = bigList.mNext;
+		while (item != bigList) {
+			if (item == this.mNext) {
+				foundHead = true;
+			}
+			if (item == this.mPrev) {
+				assert foundHead;
+				foundTail = true;
+			}
+			item = item.mNext;
+		}
+		return foundHead && foundTail;
 	}
 
 	@Override

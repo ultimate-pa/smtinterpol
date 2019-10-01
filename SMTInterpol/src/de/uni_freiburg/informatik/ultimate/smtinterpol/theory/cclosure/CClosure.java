@@ -273,6 +273,7 @@ public class CClosure implements ITheory {
 	 */
 	public void insertCompareTrigger(CCTerm t1, CCTerm t2, final CompareTrigger trigger) {
 		assert t1.getRepresentative() != t2.getRepresentative();
+		assert !trigger.inList();
 		while (true) {
 			// make t1 the term that was merged before t2 was merged.
 			if (t1.mMergeTime > t2.mMergeTime) {
