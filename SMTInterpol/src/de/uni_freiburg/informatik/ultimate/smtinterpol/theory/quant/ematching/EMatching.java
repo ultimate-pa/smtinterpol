@@ -43,6 +43,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantBoundCo
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantLiteral;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifiedTermInfo;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.dawg.Dawg;
 
@@ -56,7 +57,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.dawg.Dawg;
 public class EMatching {
 
 	private final QuantifierTheory mQuantTheory;
-	private final Deque<Triple<ICode, CCTerm[], Integer>> mTodoStack;
+	private Deque<Triple<ICode, CCTerm[], Integer>> mTodoStack;
 	private final Map<Integer, EMUndoInformation> mUndoInformation;
 	/**
 	 * For each essentially uninterpreted quantified literal atom, the interesting Term substitutions and the
@@ -82,29 +83,46 @@ public class EMatching {
 			if (qAtom.isEssentiallyUninterpreted()) {
 				final Collection<Term> patterns = new LinkedHashSet<>();
 				if (qAtom instanceof QuantEquality) {
-					final QuantEquality eq = (QuantEquality) qAtom;
-					final Term lhs = eq.getLhs();
 					// For EUTerm = EUTerm, add the two EUTerms to E-matching.
 					// If one of them is an affine term of EUTerms, add all of them.
-					if (!(lhs instanceof TermVariable)) {
+					final QuantEquality eq = (QuantEquality) qAtom;
+					final Term lhs = eq.getLhs();
+					final Term rhs = eq.getRhs();
+					assert !(lhs instanceof TermVariable);
+					if (!lhs.getSort().isNumericSort()) {
+						if (QuantifiedTermInfo.isSimpleEssentiallyUninterpreted(lhs)
+								&& QuantifiedTermInfo.isSimpleEssentiallyUninterpreted(rhs)) {
+							patterns.add(lhs);
+							patterns.add(rhs);
+						}
+					} else {
 						final SMTAffineTerm lhsAff = new SMTAffineTerm(lhs);
-						patterns.addAll(getSubPatterns(lhsAff));
+						final SMTAffineTerm rhsAff = new SMTAffineTerm(eq.getRhs());
+						if (QuantifiedTermInfo.hasOnlySimpleEssentiallyUninterpretedSummands(lhsAff)
+								&& QuantifiedTermInfo.hasOnlySimpleEssentiallyUninterpretedSummands(rhsAff)) {
+							patterns.addAll(getSubPatterns(lhsAff));
+							patterns.addAll(getSubPatterns(rhsAff));
+						}
 					}
-					final SMTAffineTerm rhsAff = new SMTAffineTerm(eq.getRhs());
-					patterns.addAll(getSubPatterns(rhsAff));
 				} else {
-					// For (EUTerm <= 0) add all EU summands of the affine term of EUTerms on the lhs
-					patterns.addAll(getSubPatterns(((QuantBoundConstraint) qAtom).getAffineTerm()));
+					final SMTAffineTerm affine = ((QuantBoundConstraint) qAtom).getAffineTerm();
+					if (QuantifiedTermInfo.hasOnlySimpleEssentiallyUninterpretedSummands(affine)) {
+						// For (EUTerm <= 0) add all EU summands of the affine term of EUTerms on the lhs
+						patterns.addAll(getSubPatterns(affine));
+					}
 				}
-				assert !patterns.isEmpty();
-				final Pair<ICode, CCTerm[]> newCode =
-						new PatternCompiler(mQuantTheory, qAtom, patterns.toArray(new Term[patterns.size()])).compile();
-				addCode(newCode.getFirst(), newCode.getSecond(), 0);
+				if (!patterns.isEmpty()) {
+					final Pair<ICode, CCTerm[]> newCode =
+							new PatternCompiler(mQuantTheory, qAtom, patterns.toArray(new Term[patterns.size()]))
+									.compile();
+					addCode(newCode.getFirst(), newCode.getSecond(), 0);
+				}
 			}
 		}
 	}
 
 	private Collection<Term> getSubPatterns(final SMTAffineTerm at) {
+		assert QuantifiedTermInfo.hasOnlySimpleEssentiallyUninterpretedSummands(at);
 		final Collection<Term> patterns = new LinkedHashSet<>();
 		for (final Term smd : at.getSummands().keySet()) {
 			assert !(smd instanceof TermVariable);
@@ -134,7 +152,9 @@ public class EMatching {
 
 	/**
 	 * Undo everything that E-Matching did since the given decision level, i.e., remove triggers and interesting
-	 * instantiations. This method must only be called after completely resolving a conflict.
+	 * instantiations. All items on the to-do-stack added since the given decision level must be removed as well.
+	 * 
+	 * This method must only be called after completely resolving a conflict!
 	 * 
 	 * @param decisionLevel
 	 *            the current decision level.
@@ -148,6 +168,13 @@ public class EMatching {
 				it.remove();
 			}
 		}
+		final Deque<Triple<ICode, CCTerm[], Integer>> undoneTodoStack = new ArrayDeque<>();
+		for (final Triple<ICode, CCTerm[], Integer> todo : mTodoStack) {
+			if (todo.getThird() <= decisionLevel) {
+				undoneTodoStack.add(todo);
+			}
+		}
+		mTodoStack = undoneTodoStack;
 	}
 
 	/**
@@ -180,7 +207,6 @@ public class EMatching {
 		final Triple<ICode, CCTerm[], Integer> todo =
 				new Triple<ICode, CCTerm[], Integer>(code, register, decisionLevel);
 		mTodoStack.add(todo);
-		addUndoInformation(todo, decisionLevel);
 	}
 
 	/**
@@ -273,11 +299,6 @@ public class EMatching {
 		addUndoInformation(trigger, decisionLevel);
 	}
 
-	private void addUndoInformation(final Triple<ICode, CCTerm[], Integer> todo, final int decisionLevel) {
-		final EMUndoInformation info = getUndoInformationForLevel(decisionLevel);
-		info.mTodos.add(todo);
-	}
-
 	private void addUndoInformation(final EMCompareTrigger trigger, final int decisionLevel) {
 		final EMUndoInformation info = getUndoInformationForLevel(decisionLevel);
 		info.mCompareTriggers.add(trigger);
@@ -349,13 +370,11 @@ public class EMatching {
 		final Collection<EMCompareTrigger> mCompareTriggers;
 		final Collection<EMReverseTrigger> mReverseTriggers;
 		final Map<QuantLiteral, Collection<List<SharedTerm>>> mLitSubs;
-		final Collection<Triple<ICode, CCTerm[], Integer>> mTodos;
 
 		EMUndoInformation() {
 			mCompareTriggers = new ArrayList<>();
 			mReverseTriggers = new ArrayList<>();
 			mLitSubs = new HashMap<>();
-			mTodos = new ArrayList<>();
 		}
 
 		/**
@@ -376,7 +395,6 @@ public class EMatching {
 				}
 				mAtomSubsDawgs.put(subs.getKey(), subsDawg);
 			}
-			mTodoStack.removeAll(mTodos);
 		}
 	}
 }

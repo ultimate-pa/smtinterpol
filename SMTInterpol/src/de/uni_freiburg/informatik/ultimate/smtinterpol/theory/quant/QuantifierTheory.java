@@ -29,7 +29,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
@@ -384,7 +383,8 @@ public class QuantifierTheory implements ITheory {
 
 		// Check if the atom is almost uninterpreted or can be used for DER.
 		if (!(newLhs instanceof TermVariable)) { // (euEUTerm = euTerm) is essentially and almost uninterpreted
-			if (isEssentiallyUninterpreted(newLhs) && isEssentiallyUninterpreted(newRhs)) {
+			if (QuantifiedTermInfo.isEssentiallyUninterpreted(newLhs)
+					&& QuantifiedTermInfo.isEssentiallyUninterpreted(newRhs)) {
 				atom.mIsEssentiallyUninterpreted = atom.negate().mIsEssentiallyUninterpreted = true;
 			}
 		} else if (!(newRhs instanceof TermVariable)) {
@@ -463,7 +463,7 @@ public class QuantifierTheory implements ITheory {
 		if (var == null) { // (euTerm <= 0), pos. and neg., is essentially and almost uninterpreted.
 			boolean hasOnlyEU = true;
 			for (final Term smd : linTerm.getSummands().keySet()) {
-				hasOnlyEU = hasOnlyEU && isEssentiallyUninterpreted(smd);
+				hasOnlyEU = hasOnlyEU && QuantifiedTermInfo.isEssentiallyUninterpreted(smd);
 			}
 			if (hasOnlyEU) {
 				atom.mIsEssentiallyUninterpreted = atom.negate().mIsEssentiallyUninterpreted = true;
@@ -652,58 +652,6 @@ public class QuantifierTheory implements ITheory {
 				mClausifier.getSharedTerm(lambdaTerm, SourceAnnotation.EMPTY_SOURCE_ANNOT);
 		mLambdas.put(sort, lambda);
 		return lambda;
-	}
-
-	/**
-	 * Check if a given term is essentially uninterpreted, i.e., it is ground or variables only appear as arguments of
-	 * uninterpreted functions.
-	 * 
-	 * TODO Offsets? (See Paper. If implemented, change method name.)
-	 * 
-	 * TODO Nonrecursive.
-	 * 
-	 * @param term
-	 *            The term to check.
-	 * @return true if the term is essentially uninterpreted, false otherwise.
-	 */
-	private boolean isEssentiallyUninterpreted(final Term term) {
-		if (term.getFreeVars().length == 0) {
-			return true;
-		} else if (term instanceof ApplicationTerm) {
-			final ApplicationTerm appTerm = (ApplicationTerm) term;
-			final FunctionSymbol func = appTerm.getFunction();
-			if (!func.isInterpreted()) {
-				for (Term arg : appTerm.getParameters()) {
-					if (!(arg instanceof TermVariable)) {
-						if (!isEssentiallyUninterpreted(arg)) {
-							return false;
-						}
-					}
-				}
-				return true;
-			} else if (func.getName() == "select") {
-				final Term[] params = appTerm.getParameters();
-				if (params[0] instanceof TermVariable || !isEssentiallyUninterpreted(params[0])) {
-					return false; // Quantified arrays are not allowed.
-				}
-				if (!(params[1] instanceof TermVariable) && !isEssentiallyUninterpreted(params[1])) {
-					return false;
-				}
-				return true;
-			} else if (func.getName() == "+" || func.getName() == "-" || func.getName() == "*") {
-				final SMTAffineTerm affineTerm = SMTAffineTerm.create(term);
-				for (Term summand : affineTerm.getSummands().keySet()) {
-					if (!isEssentiallyUninterpreted(summand)) {
-						return false;
-					}
-				}
-				return true;
-			} else {
-				return false;
-			}
-		} else {
-			return false;
-		}
 	}
 
 	/**
