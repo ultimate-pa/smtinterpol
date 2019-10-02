@@ -63,8 +63,8 @@ public class QuantClause {
 	 */
 	private final VarInfo[] mVarInfos;
 	/**
-	 * For each variable, the set of potentially interesting instantiations. The key stores the SharedTerm of the
-	 * representative in case the value term has a CCTerm.
+	 * For each variable, the set of potentially interesting substitutions for instantiation. The key stores the
+	 * SharedTerm of the representative in case the value term has a CCTerm.
 	 */
 	private final LinkedHashMap<SharedTerm, SharedTerm>[] mInterestingTermsForVars;
 
@@ -100,16 +100,17 @@ public class QuantClause {
 		for (int i = 0; i < mVars.length; i++) {
 			mInterestingTermsForVars[i] = new LinkedHashMap<>();
 		}
-		collectInitialInterestingTermsAllVars();
 	}
 
 	/**
-	 * Update the interesting instantiation terms for all variable with terms from CClosure.
+	 * Update the interesting instantiation terms for all variables.
 	 */
 	public void updateInterestingTermsAllVars() {
 		for (int i = 0; i < mVars.length; i++) {
+			mInterestingTermsForVars[i].clear();
+			collectBoundAndDefaultTerms(i);
 			if (mVars[i].getSort().getName() != "Bool") {
-				updateInterestingTermsOneVar(mVars[i], i);
+				updateInterestingTermsForFuncArgs(mVars[i], i);
 			}
 		}
 		synchronizeInterestingTermsAllVars();
@@ -147,6 +148,13 @@ public class QuantClause {
 		return mVars;
 	}
 
+	/**
+	 * Get the ground terms that are compared with the given variable in an arithmetical literal.
+	 * 
+	 * @param var
+	 *            the variable.
+	 * @return the ground bound terms (both upper and lower) for the given variable.
+	 */
 	public Set<SharedTerm> getGroundBounds(final TermVariable var) {
 		final Set<SharedTerm> bounds = new LinkedHashSet<>();
 		bounds.addAll(mVarInfos[getVarIndex(var)].mUpperGroundBounds);
@@ -154,6 +162,13 @@ public class QuantClause {
 		return bounds;
 	}
 
+	/**
+	 * Get the variable terms that are compared with the given variable in an arithmetical literal.
+	 * 
+	 * @param var
+	 *            the variable.
+	 * @return the variable bound terms (both upper and lower) for the given variable.
+	 */
 	public Set<TermVariable> getVarBounds(final TermVariable var) {
 		final Set<TermVariable> bounds = new LinkedHashSet<>();
 		bounds.addAll(mVarInfos[getVarIndex(var)].mUpperVarBounds);
@@ -161,6 +176,12 @@ public class QuantClause {
 		return bounds;
 	}
 
+	/**
+	 * Get the interesting terms for instantiation for all variables. This should only be called after updating the
+	 * interesting terms.
+	 * 
+	 * @return the interesting substitution terms for all variables.
+	 */
 	public LinkedHashMap<SharedTerm, SharedTerm>[] getInterestingTerms() {
 		return mInterestingTermsForVars;
 	}
@@ -171,7 +192,7 @@ public class QuantClause {
 	}
 
 	/**
-	 * Compute the free variables in this clause.
+	 * Compute the free variables in this clause. This defines an order on the variables in the clause.
 	 *
 	 * @return an array containing the free variables in this clause.
 	 */
@@ -284,6 +305,9 @@ public class QuantClause {
 
 	/**
 	 * For each variable in the given term, add the functions and positions where it appears as argument to the VarInfo.
+	 * 
+	 * @param qTerm
+	 *            a function application.
 	 */
 	private void addAllVarPos(ApplicationTerm qTerm) {
 		final FunctionSymbol func = qTerm.getFunction();
@@ -311,27 +335,25 @@ public class QuantClause {
 	}
 
 	/**
-	 * Collects the lower and upper bound terms for variables for instantiation.
-	 *
-	 * Synchronizes the sets of variables that are bounds of each other.
+	 * Collects the lower and upper bound and the default terms for a variable for instantiation.
+	 * 
+	 * @param varPos
+	 *            the position of the variable.
 	 */
-	private void collectInitialInterestingTermsAllVars() {
-		for (int i = 0; i < mVars.length; i++) {
-			addAllInteresting(mInterestingTermsForVars[i], mVarInfos[i].mLowerGroundBounds);
-			addAllInteresting(mInterestingTermsForVars[i], mVarInfos[i].mUpperGroundBounds);
-			if (mVars[i].getSort().getName() == "Bool") {
-				final SharedTerm sharedTrue =
-						mQuantTheory.getClausifier().getSharedTerm(mQuantTheory.getTheory().mTrue, mSource);
-				final SharedTerm sharedFalse =
-						mQuantTheory.getClausifier().getSharedTerm(mQuantTheory.getTheory().mFalse, mSource);
-				mInterestingTermsForVars[i].put(sharedTrue, sharedTrue);
-				mInterestingTermsForVars[i].put(sharedFalse, sharedFalse);
-			} else {
-				final SharedTerm lambda = mQuantTheory.getLambda(mVars[i].getSort());
-				mInterestingTermsForVars[i].put(lambda, lambda);
-			}
+	private void collectBoundAndDefaultTerms(final int varPos) {
+		addAllInteresting(mInterestingTermsForVars[varPos], mVarInfos[varPos].mLowerGroundBounds);
+		addAllInteresting(mInterestingTermsForVars[varPos], mVarInfos[varPos].mUpperGroundBounds);
+		if (mVars[varPos].getSort().getName() == "Bool") {
+			final SharedTerm sharedTrue =
+					mQuantTheory.getClausifier().getSharedTerm(mQuantTheory.getTheory().mTrue, mSource);
+			final SharedTerm sharedFalse =
+					mQuantTheory.getClausifier().getSharedTerm(mQuantTheory.getTheory().mFalse, mSource);
+			mInterestingTermsForVars[varPos].put(sharedTrue, sharedTrue);
+			mInterestingTermsForVars[varPos].put(sharedFalse, sharedFalse);
+		} else {
+			final SharedTerm lambda = mQuantTheory.getLambda(mVars[varPos].getSort());
+			mInterestingTermsForVars[varPos].put(lambda, lambda);
 		}
-		synchronizeInterestingTermsAllVars();
 	}
 
 	/**
@@ -361,7 +383,7 @@ public class QuantClause {
 	 * @param varNum
 	 *            the number of the variable
 	 */
-	private void updateInterestingTermsOneVar(final TermVariable var, final int varNum) {
+	private void updateInterestingTermsForFuncArgs(final TermVariable var, final int varNum) {
 		final VarInfo info = mVarInfos[getVarIndex(var)];
 		assert info != null;
 

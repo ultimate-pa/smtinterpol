@@ -78,7 +78,7 @@ public class PatternCompiler {
 	}
 
 	/**
-	 * Collect the term infos for an array of terms.
+	 * Collect the term infos for the given terms.
 	 */
 	private void collectTermInfos(final Term[] terms) {
 		for (final Term t : terms) {

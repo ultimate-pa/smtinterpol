@@ -81,7 +81,7 @@ public class InstantiationManager {
 	}
 
 	/**
-	 * Add the clause and literal dawgs for a quant clause, and add the clause to the instance map.
+	 * Add the clause dawgs for a quant clause, and add the clause to the instance map.
 	 * 
 	 * @param qClause
 	 *            the quantified clause.
@@ -106,8 +106,6 @@ public class InstantiationManager {
 	 * Find all current instances of quant clauses that would be conflict or unit instances. This will actually compute
 	 * the clause instances, i.e., it will create the ground literals.
 	 * 
-	 * TODO Stop after first conflict instance (or after first unit instance).
-	 * 
 	 * @return the clause instances.
 	 */
 	public Set<List<Literal>> findConflictAndUnitInstancesWithNewEMatching() {
@@ -118,7 +116,7 @@ public class InstantiationManager {
 		currentQuantClauses.addAll(mQuantTheory.getQuantClauses());
 
 		for (final QuantClause qClause : currentQuantClauses) {
-			if (updateClauseDawgs(qClause)) {
+			if (updateClauseDawg(qClause)) {
 				final Collection<List<SharedTerm>> conflictOrUnitSubs = getConflictAndUnitSubsFromDawg(qClause);
 
 				if (conflictOrUnitSubs != null) {
@@ -149,7 +147,7 @@ public class InstantiationManager {
 			if (quantClause.hasTrueGroundLits()) {
 				continue;
 			}
-			final Set<List<SharedTerm>> allInstantiations = computeAllInstantiations(quantClause);
+			final Set<List<SharedTerm>> allInstantiations = computeAllSubstitutions(quantClause);
 			for (List<SharedTerm> inst : allInstantiations) {
 				if (mClausifier.getEngine().isTerminationRequested())
 					return conflictAndUnitClauses;
@@ -168,11 +166,11 @@ public class InstantiationManager {
 	}
 
 	/**
-	 * In the final check, check if all interesting instantiations of all clauses lead to satisfied instances. As soon
-	 * as an instance is found that is not yet satisfied, stop. The newly created literals will be decided by the ground
+	 * In the final check, check if all interesting substitutions of all clauses lead to satisfied instances. As soon as
+	 * an instance is found that is not yet satisfied, stop. The newly created literals will be decided by the ground
 	 * theories next and may lead to new conflicts.
 	 * 
-	 * If an actual conflict is found, return it (TODO This should not happen, checkpoint should have found it).
+	 * If an actual conflict is found, return it.
 	 * 
 	 * @return an actual conflict clause, if it exists; null otherwise.
 	 */
@@ -183,12 +181,12 @@ public class InstantiationManager {
 			if (quantClause.hasTrueGroundLits()) {
 				continue;
 			}
-			final Set<List<SharedTerm>> allInstantiations = computeAllInstantiations(quantClause);
+			final Set<List<SharedTerm>> allSubstitutions = computeAllSubstitutions(quantClause);
 
-			outer: for (List<SharedTerm> inst : allInstantiations) {
+			outer: for (List<SharedTerm> subs : allSubstitutions) {
 				if (mClausifier.getEngine().isTerminationRequested())
 					return null;
-				final Literal[] instLits = computeClauseInstance(quantClause, inst);
+				final Literal[] instLits = computeClauseInstance(quantClause, subs);
 				if (instLits != null) {
 					boolean isConflict = true;
 					for (Literal lit : instLits) {
@@ -239,7 +237,7 @@ public class InstantiationManager {
 	 * @param dawg
 	 *            the dawg to check.
 	 * @param depth
-	 *            the depth of the dawg
+	 *            the depth of the given dawg.
 	 * @param value
 	 *            the constant value.
 	 * @return true if the dawg is the constant dawg of the given value and length, false otherwise.
@@ -257,7 +255,7 @@ public class InstantiationManager {
 	 *            the quantified clause.
 	 * @return true if something changed, false otherwise.
 	 */
-	private boolean updateClauseDawgs(final QuantClause qClause) {
+	private boolean updateClauseDawg(final QuantClause qClause) {
 		final Dawg<SharedTerm, InstanceValue> oldDawg = mClauseDawgs.get(qClause);
 
 		// Initialize clause value to false for correct combination.
@@ -299,17 +297,18 @@ public class InstantiationManager {
 					}
 				}
 			}
-
-			// Compute relevant terms from dawg and from bounds for arithmetical literals, update and combine them.
-			if (!isConstDawg(clauseDawg, length, InstanceValue.TRUE)) {
-				final SharedTerm[][] interestingSubsForArith =
-						computeSubsForArithmetical(qClause, arithLits, clauseDawg);
-				// Consider all substitutions where the partial clause Dawg is not already true
-				for (final QuantLiteral arLit : arithLits) {
-					if (!isConstDawg(clauseDawg, length, InstanceValue.TRUE)) {
-						final Dawg<SharedTerm, InstanceValue> litDawg =
-								computeArithLitDawg(arLit, interestingSubsForArith);
-						clauseDawg = clauseDawg.combine(litDawg, combinator);
+			if (!arithLits.isEmpty()) {
+				// Compute relevant terms from dawg and from bounds for arithmetical literals, update and combine dawgs.
+				if (!isConstDawg(clauseDawg, length, InstanceValue.TRUE)) {
+					final SharedTerm[][] interestingSubsForArith =
+							computeSubsForArithmetical(qClause, arithLits, clauseDawg);
+					// Consider all substitutions where the partial clause Dawg is not already true
+					for (final QuantLiteral arLit : arithLits) {
+						if (!isConstDawg(clauseDawg, length, InstanceValue.TRUE)) {
+							final Dawg<SharedTerm, InstanceValue> litDawg =
+									computeArithLitDawg(arLit, interestingSubsForArith);
+							clauseDawg = clauseDawg.combine(litDawg, combinator);
+						}
 					}
 				}
 			}
@@ -342,7 +341,7 @@ public class InstantiationManager {
 	 * @param qLit
 	 *            an EU literal.
 	 * @param info
-	 *            the substitution info, containing variable mappings and equivalent CCTerms for EU terms in the
+	 *            the substitution info, containing variable substitutions and equivalent CCTerms for EU terms in the
 	 *            literal.
 	 * @return the InstanceValue of the literal for the substitution.
 	 */
@@ -403,11 +402,11 @@ public class InstantiationManager {
 	 * @param arLit
 	 *            the arithmetical literal.
 	 * @param interestingSubs
-	 *            the potentially interesting substitutions for the variables.
+	 *            the potentially interesting substitutions for the variables in the clause.
 	 * @return am evaluation dawg for the literal, its depth corresponds to the number of variables in the clause.
 	 */
 	private Dawg<SharedTerm, InstanceValue> computeArithLitDawg(final QuantLiteral arLit,
-			final SharedTerm[][] interestingSubs) { // Use a map from var->set
+			final SharedTerm[][] interestingSubs) {
 		final QuantLiteral qAtom = arLit.getAtom();
 		final SourceAnnotation source = arLit.getClause().getSource();
 		final TermVariable[] varsInLit = qAtom.getTerm().getFreeVars();
@@ -440,7 +439,7 @@ public class InstantiationManager {
 			for (final SharedTerm subs : interestingSubs[varPosInClause]) {
 				InstanceValue val = InstanceValue.ONE_UNDEF;
 
-				// Build singleton substitution map.
+				// Build substitution map.
 				final Map<Term, SharedTerm> subsMap = new HashMap<>();
 				subsMap.put(var, subs);
 				if (otherVar != null) {
@@ -504,7 +503,7 @@ public class InstantiationManager {
 	 * are else-transitions, and the transition at the given level maps to the input dawg.
 	 * 
 	 * @param dawg
-	 *            the remainder-dawg
+	 *            the remainder dawg.
 	 * @param level
 	 *            the number of levels the new dawg will be deeper than the given dawg.
 	 * @return a new dawg with the given dawg as (only) sub-dawg at the given level.
@@ -544,7 +543,9 @@ public class InstantiationManager {
 					}
 				}
 				assert containsLambdas || clauseDawg.getValue(subs) != InstanceValue.TRUE;
-				if (!containsLambdas || (clauseDawg.getValue(subs) != InstanceValue.TRUE)) {
+				// If the subs contains lambdas and the dawg contains transitions for them, check the value.
+				// It might already be true, while the else case results in a different value.
+				if (!containsLambdas || clauseDawg.getValue(subs) != InstanceValue.TRUE) {
 					conflictAndUnitSubs.add(subs);
 				}
 			}
@@ -566,15 +567,17 @@ public class InstantiationManager {
 	}
 
 	/**
-	 * Build a MutableAffineTerm from an SMTAffineTerm that may contain quantifiers, using the SubstitutionInfo that was
-	 * build for the patterns included in this term.
+	 * Build a MutableAffineTerm from an SMTAffineTerm that may contain quantifiers, using a map that contains
+	 * equivalent terms for the quantified summands.
 	 * 
 	 * @param smtAff
 	 *            an SMTAffineTerm including quantified terms.
-	 * @param info
-	 *            the substitution info that was built for this term.
-	 * @return a MutableAffineTerm if each summand of the SMTAffineTerm either is ground or has an equivalent CCTerm for
-	 *         the substitution in info, null otherwise.
+	 * @param sharedForQuantSmds
+	 *            the equivalent shared terms for the quantified summands.
+	 * @param source
+	 *            the SourceAnnotation of the clause this SMTAffineTerm stems from.
+	 * @return a MutableAffineTerm if each summand of the SMTAffineTerm either is ground or has an equivalent SharedTerm
+	 *         storing a LinVar, null otherwise.
 	 */
 	private MutableAffineTerm buildMutableAffineTerm(final SMTAffineTerm smtAff,
 			final Map<Term, SharedTerm> sharedForQuantSmds, SourceAnnotation source) {
@@ -604,6 +607,18 @@ public class InstantiationManager {
 	}
 
 	@SuppressWarnings("unchecked")
+	/**
+	 * Compute the substitutions for an arithmetical literal from a partial clause dawg, and from the bounds on the
+	 * variables.
+	 * 
+	 * @param clause
+	 *            the clause containing the arithmetical literals.
+	 * @param arLits
+	 *            the arithmetical literals in the clause.
+	 * @param clauseDawg
+	 *            the partial clause dawg containing information for all literals but the arithmetical ones.
+	 * @return for each variable in the clause, the interesting substitutions.
+	 */
 	private SharedTerm[][] computeSubsForArithmetical(final QuantClause clause,
 			final Collection<QuantLiteral> arLits, final Dawg<SharedTerm, InstanceValue> clauseDawg) {
 		// TODO Rework this method
@@ -634,7 +649,7 @@ public class InstantiationManager {
 			if (entry.getValue() != InstanceValue.TRUE) {
 				for (int i = 0; i < nClauseVars; i++) {
 					if (clauseVarsInArLits[i] != null) {
-						interestingTerms[i].add(entry.getKey().get(i)); // They are already the representatives.
+						interestingTerms[i].add(entry.getKey().get(i));
 					}
 				}
 			}
@@ -663,11 +678,15 @@ public class InstantiationManager {
 	}
 
 	/**
-	 * Compute all instantiations for a given clause.
-	 *
-	 * @return a Set containing interesting instantiations for the clause.
+	 * Compute all interesting substitutions for a given clause.
+	 * 
+	 * This should only be called after updating the interesting terms for the clause.
+	 * 
+	 * @param quantClause
+	 *            the quantified clause.
+	 * @return a Set containing interesting substitutions for the clause.
 	 */
-	private Set<List<SharedTerm>> computeAllInstantiations(QuantClause quantClause) {
+	private Set<List<SharedTerm>> computeAllSubstitutions(QuantClause quantClause) {
 		final int nVars = quantClause.getVars().length;
 		Set<List<SharedTerm>> allSubs = new LinkedHashSet<>();
 		allSubs.add(new ArrayList<SharedTerm>(nVars));
@@ -715,7 +734,7 @@ public class InstantiationManager {
 				assert groundLit.getAtom().getDecideStatus() != groundLit;
 			}
 		}
-		// Only check clauses where all or all but one ground literals are set.
+		// Only check clauses where all or all but one ground literals are set to false.
 		if (clauseValue == InstanceValue.TRUE) {
 			return clauseValue;
 		}
@@ -765,11 +784,11 @@ public class InstantiationManager {
 	 * Instantiate a clause with a given substitution.
 	 *
 	 * @param clause
-	 *            a clause containing at least one quantified literal
-	 * @param sigma
-	 *            pairs of variable and ground term that is used to instantiate the corresponding variable.
+	 *            a clause containing at least one quantified literal.
+	 * @param subs
+	 *            the substitution terms for the variables in the clause.
 	 *
-	 * @return the set of ground literals, or null if the clause would be true.
+	 * @return the set of ground literals, or null if the clause would be trivially true.
 	 */
 	private Literal[] computeClauseInstance(final QuantClause clause, final List<SharedTerm> subs) {
 		assert mClauseInstances.containsKey(clause);
@@ -783,7 +802,7 @@ public class InstantiationManager {
 		}
 		final SubstitutionHelper instHelper = new SubstitutionHelper(mQuantTheory, clause.getGroundLits(),
 				clause.getQuantLits(), clause.getSource(), sigma);
-		instHelper.substituteInClause(); // TODO get literals from this.
+		instHelper.substituteInClause();
 		Literal[] resultingLits = null;
 		if (instHelper.getResultingClauseTerm() != mQuantTheory.getTheory().mTrue) {
 			assert instHelper.getResultingQuantLits().length == 0;
@@ -815,8 +834,8 @@ public class InstantiationManager {
 				return InstanceValue.FALSE;
 			}
 		}
-			return InstanceValue.ONE_UNDEF;
-		}
+		return InstanceValue.ONE_UNDEF;
+	}
 
 	/**
 	 * Determine the value that an equality literal between two given SharedTerm would have.

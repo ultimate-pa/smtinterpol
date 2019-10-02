@@ -85,7 +85,7 @@ public class QuantifierTheory implements ITheory {
 	 * Literals (not atoms!) mapped to potential conflict and unit clauses that they are contained in. At creation, the
 	 * clauses would have been conflicts or unit clauses if the corresponding theories had already known the contained
 	 * literals. In the next checkpoint, false literals should have been propagated by the other theories, but we might
-	 * still have one undefined literal (and is a unit clause). If not, it is a conflict then.
+	 * still have one undefined literal (and is a unit clause).
 	 */
 	private final Map<Literal, Set<InstClause>> mPotentialConflictAndUnitClauses;
 
@@ -188,7 +188,7 @@ public class QuantifierTheory implements ITheory {
 		}
 		final Clause conflict = addPotentialConflictAndUnitClauses(conflictAndUnitInstances);
 		if (conflict != null) {
-			mLogger.debug("Quant conflict: %1s", conflict);
+			mLogger.debug("Quant conflict: %s", conflict);
 			mEngine.learnClause(conflict);
 			mConflictCount++;
 		}

@@ -196,12 +196,14 @@ public class EMatching {
 	}
 
 	/**
-	 * Add code and a register as input to execute the code with.
+	 * Add code and a register as input to execute the code with. The decision level is stored as well.
 	 * 
 	 * @param code
 	 *            the remaining code.
 	 * @param register
 	 *            the candidate CCTerms for this execution.
+	 * @param decisionLevel
+	 *            the decision level that is relevant for this execution.
 	 */
 	void addCode(final ICode code, final CCTerm[] register, final int decisionLevel) {
 		final Triple<ICode, CCTerm[], Integer> todo =
@@ -218,6 +220,8 @@ public class EMatching {
 	 *            the variable substitution ordered as the variables in the clause.
 	 * @param equivalentCCTerms
 	 *            the corresponding CCTerms for the EUTerms in the literal.
+	 * @param decisionLevel
+	 *            the decision level relevant for this substitution.
 	 */
 	void addInterestingSubstitution(final QuantLiteral qLit, final List<CCTerm> varSubs,
 			final Map<Term, CCTerm> equivalentCCTerms, final int decisionLevel) {
@@ -246,6 +250,8 @@ public class EMatching {
 	 *            the remaining E-Matching code.
 	 * @param register
 	 *            the candidate terms.
+	 * @param decisionLevel
+	 *            the decision level relevant for the compare trigger.
 	 */
 	void installCompareTrigger(final CCTerm lhs, final CCTerm rhs, final ICode remainingCode,
 			final CCTerm[] register, final int decisionLevel) {
@@ -266,6 +272,8 @@ public class EMatching {
 	 *            the remaining E-Matching code.
 	 * @param register
 	 *            the candidate terms.
+	 * @param decisionLevel
+	 *            the decision level relevant for the find trigger.
 	 */
 	void installFindTrigger(final FunctionSymbol func, final int regIndex, final ICode remainingCode,
 			final CCTerm[] register, final int decisionLevel) {
@@ -290,6 +298,8 @@ public class EMatching {
 	 *            the remaining E-Matching code.
 	 * @param register
 	 *            the candidate terms.
+	 * @param decisionLevel
+	 *            the decision level relevant for the reverse trigger.
 	 */
 	void installReverseTrigger(final FunctionSymbol func, final CCTerm arg, final int argPos,
 			final int regIndex, final ICode remainingCode, final CCTerm[] register, final int decisionLevel) {
@@ -299,16 +309,42 @@ public class EMatching {
 		addUndoInformation(trigger, decisionLevel);
 	}
 
+	/**
+	 * Add information when the given trigger must be backtracked.
+	 * 
+	 * @param trigger
+	 *            a compare trigger.
+	 * @param decisionLevel
+	 *            the decision level for backtracking.
+	 */
 	private void addUndoInformation(final EMCompareTrigger trigger, final int decisionLevel) {
 		final EMUndoInformation info = getUndoInformationForLevel(decisionLevel);
 		info.mCompareTriggers.add(trigger);
 	}
 
+	/**
+	 * Add information when the given trigger must be backtracked.
+	 * 
+	 * @param trigger
+	 *            a reverse trigger.
+	 * @param decisionLevel
+	 *            the decision level for backtracking.
+	 */
 	private void addUndoInformation(final EMReverseTrigger trigger, final int decisionLevel) {
 		final EMUndoInformation info = getUndoInformationForLevel(decisionLevel);
 		info.mReverseTriggers.add(trigger);
 	}
 
+	/**
+	 * Add information when the given substitution for the given literal must be backtracked.
+	 * 
+	 * @param qLit
+	 *            the quantified literal.
+	 * @param sharedTermSubs
+	 *            the substitution found for this literal.
+	 * @param decisionLevel
+	 *            the decision level for backtracking.
+	 */
 	private void addUndoInformation(final QuantLiteral qLit, final List<SharedTerm> sharedTermSubs,
 			final int decisionLevel) {
 		final EMUndoInformation info = getUndoInformationForLevel(decisionLevel);
@@ -363,7 +399,8 @@ public class EMatching {
 	}
 
 	/**
-	 * This class stores information about which steps in the E-Matching process we have to undo after backtracking.
+	 * This class stores information about which steps in the E-Matching process to undo after backtracking.
+	 * 
 	 * @author Tanja Schindler
 	 */
 	class EMUndoInformation {
