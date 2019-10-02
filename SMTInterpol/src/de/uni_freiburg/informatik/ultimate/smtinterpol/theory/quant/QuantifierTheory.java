@@ -93,11 +93,19 @@ public class QuantifierTheory implements ITheory {
 	private long mDERGroundCount, mConflictCount, mPropCount, mFinalCount;
 	long mCheckpointTime, mFindEmatchingTime, mFinalCheckTime, mEMatchingTime, mDawgTime;
 
-	public QuantifierTheory(final Theory th, final DPLLEngine engine, final Clausifier clausifier) {
+	// TODO: For testing only
+	boolean mUseEMatching;
+	boolean mUse4InstanceValuesInDawgs;
+
+	public QuantifierTheory(final Theory th, final DPLLEngine engine, final Clausifier clausifier,
+			final boolean useEMatching, final boolean useUnknownTermDawgs) {
 		mClausifier = clausifier;
 		mLogger = clausifier.getLogger();
 		mTheory = th;
 		mEngine = engine;
+
+		mUseEMatching = useEMatching;
+		mUse4InstanceValuesInDawgs = useUnknownTermDawgs;
 
 		mCClosure = clausifier.getCClosure();
 		mLinArSolve = clausifier.getLASolver();
@@ -161,9 +169,6 @@ public class QuantifierTheory implements ITheory {
 	public void backtrackLiteral(Literal literal) {
 		// we throw the potential conflict and unit clauses away after backtracking.
 	}
-
-
-	private final boolean mUseEMatching = true; // TODO For comparison
 
 	@Override
 	public Clause checkpoint() {

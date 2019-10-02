@@ -72,12 +72,16 @@ public class InstantiationManager {
 	private final Map<QuantClause, Dawg<SharedTerm, InstanceValue>> mClauseDawgs;
 	private final Map<QuantClause, Map<List<SharedTerm>, Literal[]>> mClauseInstances;
 
+	private final InstanceValue mDefaultValueForLitDawgs;
+
 	public InstantiationManager(Clausifier clausifier, QuantifierTheory quantTheory) {
 		mClausifier = clausifier;
 		mQuantTheory = quantTheory;
 		mEMatching = quantTheory.getEMatching();
 		mClauseDawgs = new HashMap<>();
 		mClauseInstances = new HashMap<>();
+		mDefaultValueForLitDawgs =
+				mQuantTheory.mUse4InstanceValuesInDawgs ? InstanceValue.UNKNOWN_TERM : InstanceValue.ONE_UNDEF;
 	}
 
 	/**
@@ -92,7 +96,7 @@ public class InstantiationManager {
 		mClauseDawgs.put(qClause, getDefaultClauseDawg(qClause));
 		mClauseInstances.put(qClause, new HashMap<>());
 	}
-	
+
 	/**
 	 * Reset the clause dawgs to their default dawgs. This should be used after backtracking.
 	 */
@@ -228,7 +232,7 @@ public class InstantiationManager {
 	 *         appears in.
 	 */
 	private Dawg<SharedTerm, InstanceValue> getDefaultLiteralDawg(final QuantLiteral qLit) {
-		return Dawg.createConst(qLit.mClause.getVars().length, InstanceValue.ONE_UNDEF);
+		return Dawg.createConst(qLit.mClause.getVars().length, mDefaultValueForLitDawgs);
 	}
 
 	/**
@@ -378,7 +382,7 @@ public class InstantiationManager {
 			if (val == InstanceValue.ONE_UNDEF && qEq.getLhs().getSort().isNumericSort()) {
 				final Map<Term, SharedTerm> sharedForQuantSmds = buildSharedMapFromCCMap(info.getEquivalentCCTerms());
 				final MutableAffineTerm at = buildMutableAffineTerm(new SMTAffineTerm(qEq.getLhs()), sharedForQuantSmds,
-										source);
+						source);
 				if (at != null) {
 					final MutableAffineTerm atRight =
 							buildMutableAffineTerm(new SMTAffineTerm(qEq.getRhs()), sharedForQuantSmds, source);
@@ -428,16 +432,16 @@ public class InstantiationManager {
 
 		final int nOuterLoops = otherVar == null ? 1 : interestingSubs[firstVarPosInClause].length;
 		final Map<SharedTerm, Dawg<SharedTerm, InstanceValue>> transitionsFromOtherVar = new LinkedHashMap<>();
-		
+
 		final int remainderDawgLengthForVar = arLit.getClause().getVars().length - varPosInClause - 1;
 		Dawg<SharedTerm, InstanceValue> remainderDawgAllVars = null;
 
 		for (int i = 0; i < nOuterLoops; i++) {
 			final SharedTerm otherSubs = otherVar != null ? interestingSubs[firstVarPosInClause][i] : null;
-			
+
 			final Map<SharedTerm, Dawg<SharedTerm, InstanceValue>> transitionsFromVar = new LinkedHashMap<>();
 			for (final SharedTerm subs : interestingSubs[varPosInClause]) {
-				InstanceValue val = InstanceValue.ONE_UNDEF;
+				InstanceValue val = mDefaultValueForLitDawgs;
 
 				// Build substitution map.
 				final Map<Term, SharedTerm> subsMap = new HashMap<>();
@@ -476,8 +480,8 @@ public class InstantiationManager {
 				mQuantTheory.mDawgTime += System.nanoTime() - time;
 			}
 			long time = System.nanoTime();
-			Dawg<SharedTerm, InstanceValue> dawgForVar =
-					Dawg.createDawg(transitionsFromVar, Dawg.createConst(remainderDawgLengthForVar, InstanceValue.ONE_UNDEF));
+			Dawg<SharedTerm, InstanceValue> dawgForVar = Dawg.createDawg(transitionsFromVar,
+					Dawg.createConst(remainderDawgLengthForVar, mDefaultValueForLitDawgs));
 			if (otherVar != null) {
 				transitionsFromOtherVar.put(otherSubs,
 						createAncestorDawg(dawgForVar, varPosInClause - firstVarPosInClause - 1));
@@ -488,9 +492,8 @@ public class InstantiationManager {
 		}
 		long time = System.nanoTime();
 		if (otherVar != null) {
-			remainderDawgAllVars = Dawg.createDawg(transitionsFromOtherVar,
-					Dawg.createConst(arLit.getClause().getVars().length - firstVarPosInClause - 1,
-								InstanceValue.ONE_UNDEF));
+			remainderDawgAllVars = Dawg.createDawg(transitionsFromOtherVar, Dawg.createConst(
+					arLit.getClause().getVars().length - firstVarPosInClause - 1, mDefaultValueForLitDawgs));
 		}
 		final Dawg<SharedTerm, InstanceValue> litDawg =
 				createAncestorDawg(remainderDawgAllVars, firstVarPosInClause);
@@ -833,8 +836,9 @@ public class InstantiationManager {
 			} else if (mQuantTheory.getCClosure().isDiseqSet(leftCC, rightCC)) {
 				return InstanceValue.FALSE;
 			}
+			return InstanceValue.ONE_UNDEF;
 		}
-		return InstanceValue.ONE_UNDEF;
+		return mDefaultValueForLitDawgs;
 	}
 
 	/**
@@ -870,7 +874,7 @@ public class InstantiationManager {
 	 */
 	private InstanceValue evaluateLAEquality(final MutableAffineTerm at) {
 		if (at == null) {
-			return InstanceValue.ONE_UNDEF;
+			return mDefaultValueForLitDawgs;
 		}
 		final InfinitesimalNumber upperBound = mQuantTheory.mLinArSolve.getUpperBound(at);
 		at.negate();
@@ -914,7 +918,7 @@ public class InstantiationManager {
 	 */
 	private InstanceValue evaluateBoundConstraint(final MutableAffineTerm at) {
 		if (at == null) {
-			return InstanceValue.ONE_UNDEF;
+			return mDefaultValueForLitDawgs;
 		}
 		final InfinitesimalNumber upperBound = mQuantTheory.mLinArSolve.getUpperBound(at);
 		if (upperBound.lesseq(InfinitesimalNumber.ZERO)) {
@@ -1085,7 +1089,7 @@ public class InstantiationManager {
 	}
 
 	private enum InstanceValue {
-		TRUE, FALSE, ONE_UNDEF;
+		TRUE, FALSE, ONE_UNDEF, UNKNOWN_TERM;
 
 		private InstanceValue combine(InstanceValue other) {
 			if (this == InstanceValue.TRUE) {
