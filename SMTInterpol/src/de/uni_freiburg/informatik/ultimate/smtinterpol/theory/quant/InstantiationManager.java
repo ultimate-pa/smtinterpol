@@ -236,23 +236,6 @@ public class InstantiationManager {
 	}
 
 	/**
-	 * Check if a given evaluation dawg is a constant dawg of a given value.
-	 * 
-	 * @param dawg
-	 *            the dawg to check.
-	 * @param depth
-	 *            the depth of the given dawg.
-	 * @param value
-	 *            the constant value.
-	 * @return true if the dawg is the constant dawg of the given value and length, false otherwise.
-	 */
-	private boolean isConstDawg(final Dawg<SharedTerm, InstanceValue> dawg, final int depth,
-			final InstanceValue value) {
-		final Dawg<SharedTerm, InstanceValue> constDawg = Dawg.createConst(depth, value);
-		return dawg.equals(constDawg);
-	}
-
-	/**
 	 * Update a clause dawg.
 	 * 
 	 * @param qClause
@@ -260,6 +243,7 @@ public class InstantiationManager {
 	 * @return true if something changed, false otherwise.
 	 */
 	private boolean updateClauseDawg(final QuantClause qClause) {
+		final Dawg<SharedTerm, InstanceValue> trueDawg = getDefaultClauseDawg(qClause);
 		final Dawg<SharedTerm, InstanceValue> oldDawg = mClauseDawgs.get(qClause);
 
 		// Initialize clause value to false for correct combination.
@@ -289,31 +273,30 @@ public class InstantiationManager {
 			final Collection<QuantLiteral> arithLits = new ArrayList<>(qClause.getQuantLits().length);
 			// First update and combine the literals that are not arithmetical
 			for (final QuantLiteral qLit : qClause.getQuantLits()) {
-				if (!isConstDawg(clauseDawg, length, InstanceValue.TRUE)) {
-					if (qLit.isArithmetical()) { // will be treated later
-						arithLits.add(qLit);
-					} else {
-						Dawg<SharedTerm, InstanceValue> litDawg = getDefaultLiteralDawg(qLit);
-						if (qLit.isEssentiallyUninterpreted()) {
-							litDawg = computeEULitDawg(qLit);
-						}
-						clauseDawg = clauseDawg.combine(litDawg, combinator);
+				if (clauseDawg == trueDawg) {
+					break;
+				}
+				if (qLit.isArithmetical()) { // will be treated later
+					arithLits.add(qLit);
+				} else {
+					Dawg<SharedTerm, InstanceValue> litDawg = getDefaultLiteralDawg(qLit);
+					if (qLit.isEssentiallyUninterpreted()) {
+						litDawg = computeEULitDawg(qLit);
 					}
+					clauseDawg = clauseDawg.combine(litDawg, combinator);
 				}
 			}
-			if (!arithLits.isEmpty()) {
+			if (clauseDawg != trueDawg && !arithLits.isEmpty()) {
 				// Compute relevant terms from dawg and from bounds for arithmetical literals, update and combine dawgs.
-				if (!isConstDawg(clauseDawg, length, InstanceValue.TRUE)) {
-					final SharedTerm[][] interestingSubsForArith =
-							computeSubsForArithmetical(qClause, arithLits, clauseDawg);
-					// Consider all substitutions where the partial clause Dawg is not already true
-					for (final QuantLiteral arLit : arithLits) {
-						if (!isConstDawg(clauseDawg, length, InstanceValue.TRUE)) {
-							final Dawg<SharedTerm, InstanceValue> litDawg =
-									computeArithLitDawg(arLit, interestingSubsForArith);
-							clauseDawg = clauseDawg.combine(litDawg, combinator);
-						}
+				final SharedTerm[][] interestingSubsForArith =
+						computeSubsForArithmetical(qClause, arithLits, clauseDawg);
+				// Consider all substitutions where the partial clause Dawg is not already true
+				for (final QuantLiteral arLit : arithLits) {
+					if (clauseDawg == trueDawg) {
+						break;
 					}
+					final Dawg<SharedTerm, InstanceValue> litDawg = computeArithLitDawg(arLit, interestingSubsForArith);
+					clauseDawg = clauseDawg.combine(litDawg, combinator);
 				}
 			}
 		}
