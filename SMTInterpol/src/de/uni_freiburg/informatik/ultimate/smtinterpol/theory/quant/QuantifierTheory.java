@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -112,9 +111,9 @@ public class QuantifierTheory implements ITheory {
 
 		mEMatching = new EMatching(this);
 		mInstantiationManager = new InstantiationManager(mClausifier, this);
-		mLambdas = new HashMap<Sort, SharedTerm>();
+		mLambdas = new HashMap<>();
 
-		mQuantClauses = new ScopedArrayList<QuantClause>();
+		mQuantClauses = new ScopedArrayList<>();
 
 		mPotentialConflictAndUnitClauses = new LinkedHashMap<>();
 	}
@@ -132,22 +131,21 @@ public class QuantifierTheory implements ITheory {
 	}
 
 	@Override
-	public Clause setLiteral(Literal literal) {
+	public Clause setLiteral(final Literal literal) {
 
 		if (mPotentialConflictAndUnitClauses.containsKey(literal)) {
-			mPotentialConflictAndUnitClauses.remove(literal);
-			final Iterator<Literal> litIt = mPotentialConflictAndUnitClauses.keySet().iterator();
-			while (litIt.hasNext()) {
-				final Literal keyLit = litIt.next();
-				final Iterator<InstClause> clauseIt = mPotentialConflictAndUnitClauses.get(keyLit).iterator();
-				while (clauseIt.hasNext()) {
-					final InstClause clause = clauseIt.next();
-					if (clause.mLits.contains(literal)) {
-						clauseIt.remove();
+			for (final InstClause instClause : mPotentialConflictAndUnitClauses.remove(literal)) {
+				assert instClause.mLits.contains(literal);
+				for (final Literal otherLit : instClause.mLits) {
+					if (otherLit != literal) {
+						final Set<InstClause> clauses = mPotentialConflictAndUnitClauses.get(otherLit);
+						if (clauses != null) {
+							clauses.remove(instClause);
+							if (clauses.isEmpty()) {
+								mPotentialConflictAndUnitClauses.remove(otherLit);
+							}
+						}
 					}
-				}
-				if (mPotentialConflictAndUnitClauses.get(keyLit).isEmpty()) {
-					litIt.remove();
 				}
 			}
 		}
@@ -166,7 +164,7 @@ public class QuantifierTheory implements ITheory {
 	}
 
 	@Override
-	public void backtrackLiteral(Literal literal) {
+	public void backtrackLiteral(final Literal literal) {
 		// we throw the potential conflict and unit clauses away after backtracking.
 	}
 
@@ -185,8 +183,9 @@ public class QuantifierTheory implements ITheory {
 			}
 		} else { // TODO for comparison
 			for (final QuantClause clause : mQuantClauses) {
-				if (mEngine.isTerminationRequested())
+				if (mEngine.isTerminationRequested()) {
 					return null;
+				}
 				clause.updateInterestingTermsAllVars();
 			}
 			conflictAndUnitInstances = mInstantiationManager.findConflictAndUnitInstances();
@@ -216,8 +215,9 @@ public class QuantifierTheory implements ITheory {
 		}
 		if (mUseEMatching) {
 			for (final QuantClause clause : mQuantClauses) {
-				if (mEngine.isTerminationRequested())
+				if (mEngine.isTerminationRequested()) {
 					return null;
+				}
 				clause.updateInterestingTermsAllVars();
 			}
 		}
@@ -253,7 +253,7 @@ public class QuantifierTheory implements ITheory {
 	}
 
 	@Override
-	public Clause getUnitClause(Literal literal) {
+	public Clause getUnitClause(final Literal literal) {
 		assert false : "Should never be called.";
 		return null;
 	}
@@ -265,7 +265,7 @@ public class QuantifierTheory implements ITheory {
 	}
 
 	@Override
-	public void printStatistics(LogProxy logger) {
+	public void printStatistics(final LogProxy logger) {
 		logger.info("Quant: DER produced " + mDERGroundCount + " ground clause(s).");
 		logger.info("Quant: Conflicts: " + mConflictCount + " Props: " + mPropCount + " Final Checks: " + mFinalCount);
 		logger.info(
@@ -275,19 +275,19 @@ public class QuantifierTheory implements ITheory {
 	}
 
 	@Override
-	public void dumpModel(LogProxy logger) {
+	public void dumpModel(final LogProxy logger) {
 		// TODO Auto-generated method stub
 
 	}
 
 	@Override
-	public void increasedDecideLevel(int currentDecideLevel) {
+	public void increasedDecideLevel(final int currentDecideLevel) {
 		// TODO Auto-generated method stub
 
 	}
 
 	@Override
-	public void decreasedDecideLevel(int currentDecideLevel) {
+	public void decreasedDecideLevel(final int currentDecideLevel) {
 		// TODO Auto-generated method stub
 
 	}
@@ -302,13 +302,13 @@ public class QuantifierTheory implements ITheory {
 	}
 
 	@Override
-	public void restart(int iteration) {
+	public void restart(final int iteration) {
 		// TODO Auto-generated method stub
 
 	}
 
 	@Override
-	public void removeAtom(DPLLAtom atom) {
+	public void removeAtom(final DPLLAtom atom) {
 		// TODO Auto-generated method stub
 
 	}
@@ -320,7 +320,7 @@ public class QuantifierTheory implements ITheory {
 	}
 
 	@Override
-	public void pop(Object object, int targetlevel) {
+	public void pop(final Object object, final int targetlevel) {
 		mQuantClauses.endScope();
 	}
 
@@ -356,7 +356,7 @@ public class QuantifierTheory implements ITheory {
 				newRhs = lhs;
 			}
 		} else {
-			SMTAffineTerm linAdded = SMTAffineTerm.create(lhs);
+			final SMTAffineTerm linAdded = SMTAffineTerm.create(lhs);
 			linAdded.add(Rational.MONE, SMTAffineTerm.create(rhs));
 			Rational fac = Rational.ONE;
 			for (final Term smd : linAdded.getSummands().keySet()) {
@@ -384,7 +384,7 @@ public class QuantifierTheory implements ITheory {
 			}
 		}
 		final Term newTerm = mTheory.term("=", newLhs, newRhs);
-		QuantLiteral atom = new QuantEquality(newTerm, newLhs, newRhs);
+		final QuantLiteral atom = new QuantEquality(newTerm, newLhs, newRhs);
 
 		// Check if the atom is almost uninterpreted or can be used for DER.
 		if (!(newLhs instanceof TermVariable)) { // (euEUTerm = euTerm) is essentially and almost uninterpreted
@@ -398,7 +398,7 @@ public class QuantifierTheory implements ITheory {
 				atom.mIsArithmetical = true;
 			}
 			// (x != termwithoutx) can be used for DER
-			if (!Arrays.asList(newRhs.getFreeVars()).contains((TermVariable) newLhs)) {
+			if (!Arrays.asList(newRhs.getFreeVars()).contains(newLhs)) {
 				atom.negate().mIsDERUsable = true;
 			}
 		} else { // (var = var) is not almost uninterpreted, but the negated form can be used for DER
@@ -462,7 +462,7 @@ public class QuantifierTheory implements ITheory {
 		}
 
 		final Term newTerm = mTheory.term("<=", linTerm.toTerm(lhs.getSort()), Rational.ZERO.toTerm(lhs.getSort()));
-		QuantLiteral atom = new QuantBoundConstraint(newTerm, linTerm);
+		final QuantLiteral atom = new QuantBoundConstraint(newTerm, linTerm);
 
 		// Check if the atom is almost uninterpreted.
 		if (var == null) { // (euTerm <= 0), pos. and neg., is essentially and almost uninterpreted.
@@ -490,7 +490,7 @@ public class QuantifierTheory implements ITheory {
 
 	/**
 	 * Get copies for quantified literals that are uniquely assigned to a clause.
-	 * 
+	 *
 	 * @param qLits
 	 *            the quantified literals.
 	 * @param qClause
@@ -524,7 +524,7 @@ public class QuantifierTheory implements ITheory {
 
 	/**
 	 * Perform destructive equality reasoning.
-	 * 
+	 *
 	 * @param groundLits
 	 *            The ground literals of the clause.
 	 * @param quantLits
@@ -567,9 +567,9 @@ public class QuantifierTheory implements ITheory {
 	 * @param source
 	 *            the source of the clause
 	 */
-	public void addQuantClause(final ILiteral[] iLits, SourceAnnotation source) {
+	public void addQuantClause(final ILiteral[] iLits, final SourceAnnotation source) {
 		boolean isQuant = false;
-		for (ILiteral lit : iLits) {
+		for (final ILiteral lit : iLits) {
 			if (lit instanceof QuantLiteral) {
 				isQuant = true;
 			}
@@ -580,7 +580,7 @@ public class QuantifierTheory implements ITheory {
 
 		final ArrayList<Literal> groundLits = new ArrayList<>(iLits.length);
 		final ArrayList<QuantLiteral> quantLits = new ArrayList<>(iLits.length);
-		for (ILiteral lit : iLits) {
+		for (final ILiteral lit : iLits) {
 			if (lit instanceof Literal) {
 				groundLits.add((Literal) lit);
 			} else {
@@ -642,7 +642,7 @@ public class QuantifierTheory implements ITheory {
 		return mTheory;
 	}
 
-	protected SharedTerm getLambda(Sort sort) {
+	protected SharedTerm getLambda(final Sort sort) {
 		if (mLambdas.containsKey(sort)) {
 			return mLambdas.get(sort);
 		}
@@ -662,9 +662,10 @@ public class QuantifierTheory implements ITheory {
 	/**
 	 * Check if there exists a not yet satisfied clause that contains a literal outside of the almost uninterpreted
 	 * fragment. If so, returns INCOMPLETE to inform the DPLL engine of incompleteness.
-	 * 
+	 *
 	 * @return DPLLEngine.COMPLETE, if a model exists, DPLLEngine.INCOMPLETE_* if unsure.
 	 */
+	@Override
 	public int checkCompleteness() {
 		for (final QuantClause qClause : mQuantClauses) {
 			if (!qClause.hasTrueGroundLits()) {
@@ -689,7 +690,7 @@ public class QuantifierTheory implements ITheory {
 	/**
 	 * Add potential conflict and unit clauses to the map from undefined literals to clauses. We stop as soon as we find
 	 * an actual conflict.
-	 * 
+	 *
 	 * @param instances
 	 *            a set of potential conflict and unit clauses
 	 * @return a conflict
@@ -699,9 +700,10 @@ public class QuantifierTheory implements ITheory {
 			return null;
 		}
 		boolean isConflict = true;
-		for (List<Literal> clause : instances) {
-			if (mEngine.isTerminationRequested())
+		for (final List<Literal> clause : instances) {
+			if (mEngine.isTerminationRequested()) {
 				return null;
+			}
 			boolean isTrueInst = false;
 			int numUndef = 0;
 			// Count the number of undefined literals
