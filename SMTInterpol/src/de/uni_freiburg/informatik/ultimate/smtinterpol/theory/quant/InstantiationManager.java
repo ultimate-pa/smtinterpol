@@ -333,17 +333,18 @@ public class InstantiationManager {
 	 * @return the InstanceValue of the literal for the substitution.
 	 */
 	private InstanceValue evaluateEULitForSubsInfo(final QuantLiteral qLit, final SubstitutionInfo info) {
+		if (info == mEMatching.getEmptySubs()) {
+			return mDefaultValueForLitDawgs;
+		}
 		final QuantLiteral qAtom = qLit.getAtom();
 		final SourceAnnotation source = qLit.getClause().getSource();
 
-		InstanceValue val = InstanceValue.ONE_UNDEF;
+		InstanceValue val;
 		if (qAtom instanceof QuantBoundConstraint) {
 			final QuantBoundConstraint qBc = (QuantBoundConstraint) qAtom;
 			final Map<Term, SharedTerm> sharedForQuantSmds = buildSharedMapFromCCMap(info.getEquivalentCCTerms());
 			final MutableAffineTerm at = buildMutableAffineTerm(qBc.getAffineTerm(), sharedForQuantSmds, source);
-			if (at != null) {
-				val = evaluateBoundConstraint(at);
-			}
+			val = evaluateBoundConstraint(at);
 		} else {
 			final QuantEquality qEq = (QuantEquality) qAtom;
 
@@ -362,7 +363,8 @@ public class InstantiationManager {
 			val = evaluateCCEquality(lhs, rhs);
 
 			// If the eq value is unknown in CC, and the terms are numeric, check for equality in LinAr.
-			if (val == InstanceValue.ONE_UNDEF && qEq.getLhs().getSort().isNumericSort()) {
+			if ((val == InstanceValue.ONE_UNDEF || val == InstanceValue.UNKNOWN_TERM)
+					&& qEq.getLhs().getSort().isNumericSort()) {
 				final Map<Term, SharedTerm> sharedForQuantSmds = buildSharedMapFromCCMap(info.getEquivalentCCTerms());
 				final MutableAffineTerm at = buildMutableAffineTerm(new SMTAffineTerm(qEq.getLhs()), sharedForQuantSmds,
 						source);
@@ -424,7 +426,7 @@ public class InstantiationManager {
 
 			final Map<SharedTerm, Dawg<SharedTerm, InstanceValue>> transitionsFromVar = new LinkedHashMap<>();
 			for (final SharedTerm subs : interestingSubs[varPosInClause]) {
-				InstanceValue val = mDefaultValueForLitDawgs;
+				InstanceValue val = InstanceValue.ONE_UNDEF;
 
 				// Build substitution map.
 				final Map<Term, SharedTerm> subsMap = new HashMap<>();
@@ -436,9 +438,7 @@ public class InstantiationManager {
 				if (qAtom instanceof QuantBoundConstraint) {
 					final QuantBoundConstraint qBc = (QuantBoundConstraint) qAtom;
 					final MutableAffineTerm at = buildMutableAffineTerm(qBc.getAffineTerm(), subsMap, source);
-					if (at != null) {
-						val = evaluateBoundConstraint(at);
-					}
+					val = evaluateBoundConstraint(at);
 				} else {
 					final QuantEquality qEq = (QuantEquality) qAtom;
 					assert qEq.getLhs().getSort().isNumericSort();
@@ -819,9 +819,8 @@ public class InstantiationManager {
 			} else if (mQuantTheory.getCClosure().isDiseqSet(leftCC, rightCC)) {
 				return InstanceValue.FALSE;
 			}
-			return InstanceValue.ONE_UNDEF;
 		}
-		return mDefaultValueForLitDawgs;
+		return InstanceValue.ONE_UNDEF;
 	}
 
 	/**
@@ -857,7 +856,7 @@ public class InstantiationManager {
 	 */
 	private InstanceValue evaluateLAEquality(final MutableAffineTerm at) {
 		if (at == null) {
-			return mDefaultValueForLitDawgs;
+			return InstanceValue.ONE_UNDEF;
 		}
 		final InfinitesimalNumber upperBound = mQuantTheory.mLinArSolve.getUpperBound(at);
 		at.negate();
@@ -901,7 +900,7 @@ public class InstantiationManager {
 	 */
 	private InstanceValue evaluateBoundConstraint(final MutableAffineTerm at) {
 		if (at == null) {
-			return mDefaultValueForLitDawgs;
+			return InstanceValue.ONE_UNDEF;
 		}
 		final InfinitesimalNumber upperBound = mQuantTheory.mLinArSolve.getUpperBound(at);
 		if (upperBound.lesseq(InfinitesimalNumber.ZERO)) {

@@ -188,6 +188,10 @@ public class EMatching {
 		return mAtomSubsDawgs.get(qAtom);
 	}
 
+	public SubstitutionInfo getEmptySubs() {
+		return mEmptySubs;
+	}
+
 	/**
 	 * Get the QuantifierTheory.
 	 */
