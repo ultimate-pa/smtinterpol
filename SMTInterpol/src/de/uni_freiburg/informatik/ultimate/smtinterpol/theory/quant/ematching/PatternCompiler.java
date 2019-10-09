@@ -95,6 +95,7 @@ public class PatternCompiler {
 		if (mTermInfos.containsKey(term)) {
 			info = mTermInfos.get(term);
 			info.mNumOccur++;
+			return;
 		} else {
 			info = new TermInfo(getNextFreeRegIndex());
 		}

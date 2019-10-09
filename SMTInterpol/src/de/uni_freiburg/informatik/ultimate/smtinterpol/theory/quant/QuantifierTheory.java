@@ -343,7 +343,7 @@ public class QuantifierTheory implements ITheory {
 	 * This method also brings equality atoms in the form (var = term), if there exists a TermVariable at top level. For
 	 * integers, only if the variable has factor ±1; for reals always.
 	 */
-	public QuantLiteral getQuantEquality(final Term term, final boolean positive, final SourceAnnotation source,
+	public QuantLiteral getQuantEquality(final boolean positive, final SourceAnnotation source,
 			final Term lhs, final Term rhs) {
 		// Bring atom to form (var = term) if there exists a variable at "top level".
 		Term newLhs = lhs;
@@ -417,8 +417,7 @@ public class QuantifierTheory implements ITheory {
 	 * <p>
 	 * TODO Offsets? (See paper)
 	 */
-	public QuantLiteral getQuantInequality(final Term term, final boolean positive, final SourceAnnotation source,
-			final Term lhs) {
+	public QuantLiteral getQuantInequality(final boolean positive, final SourceAnnotation source, final Term lhs) {
 
 		boolean rewrite = false; // Set to true when rewriting positive (x-t<=0) into ~(t+1<=x) for x integer
 		final SMTAffineTerm linTerm = SMTAffineTerm.create(lhs);

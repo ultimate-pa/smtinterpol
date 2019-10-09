@@ -755,7 +755,7 @@ public class Clausifier {
 
 					if (quantified) {
 						// TODO Find trivially true or false QuantLiterals.
-						lit = mQuantTheory.getQuantEquality(at, positive, mCollector.getSource(), lhs, rhs);
+						lit = mQuantTheory.getQuantEquality(positive, mCollector.getSource(), lhs, rhs);
 					} else {
 						final SharedTerm slhs = getSharedTerm(lhs, mCollector.getSource());
 						final SharedTerm srhs = getSharedTerm(rhs, mCollector.getSource());
@@ -776,7 +776,7 @@ public class Clausifier {
 					// (<= SMTAffineTerm 0)
 					if (quantified) {
 						final Term linTerm = at.getParameters()[0];
-						lit = mQuantTheory.getQuantInequality(at, positive, mCollector.getSource(), linTerm);
+						lit = mQuantTheory.getQuantInequality(positive, mCollector.getSource(), linTerm);
 					} else {
 						lit = createLeq0(at, mCollector.getSource());
 					}
@@ -816,7 +816,7 @@ public class Clausifier {
 				// TODO Find trivially true or false QuantLiterals.
 				Term value = positive ? mTheory.mFalse : mTheory.mTrue;
 				Term equality = mTheory.equals(idx, value);
-				ILiteral lit = mQuantTheory.getQuantEquality(equality, false, mCollector.getSource(), idx, value);
+				ILiteral lit = mQuantTheory.getQuantEquality(false, mCollector.getSource(), idx, value);
 				Term atomRewrite = mTracker.intern(idx, positive ? mTheory.not(equality) : equality);
 				if (positive) {
 					rewrite = mTracker.transitivity(rewrite, atomRewrite);
@@ -1736,7 +1736,7 @@ public class Clausifier {
 				// TODO Create CCBaseTerm for the aux func or pred (edit: this is done automatically when looking
 				// for instantiation terms - should it be done earlier?)
 				// We use an equality "f(x,y,...)=true", not a NamedAtom, as CClosure must treat the literal instances.
-				atom = mQuantTheory.getQuantEquality(auxTerm, true, null, auxTerm, mTheory.mTrue);
+				atom = mQuantTheory.getQuantEquality(true, null, auxTerm, mTheory.mTrue);
 			}
 		} else {
 			atom = new NamedAtom(smtFormula, mStackLevel);
@@ -2213,7 +2213,7 @@ public class Clausifier {
 					lit = createBooleanVar(term);
 				} else {
 				if (term.getFreeVars().length > 0 && !mIsEprEnabled) {
-					lit = mQuantTheory.getQuantEquality(term, true, source, term, term.getTheory().mTrue);
+					lit = mQuantTheory.getQuantEquality(true, source, term, mTheory.mTrue);
 
 					// alex: this the right place to get rid of the CClosure predicate conversion in EPR-case?
 					// --> seems to be one of three positions.. (keyword: predicate-to-function conversion)

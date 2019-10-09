@@ -135,7 +135,7 @@ public class SubstitutionHelper {
 								mClausifier.createMutableAffinTerm(lhs, mSource);
 						newAtom = mQuantTheory.getLinAr().generateConstraint(msum, false);
 					} else {
-						newAtom = mQuantTheory.getQuantInequality(atomTerm, isPos, mSource, atomApp.getParameters()[0]);
+						newAtom = mQuantTheory.getQuantInequality(isPos, mSource, atomApp.getParameters()[0]);
 					}
 				} else if (atomApp.getFunction().getName() == "=") {
 					final Term lhs = atomApp.getParameters()[0];
@@ -147,7 +147,7 @@ public class SubstitutionHelper {
 						assert eq != EqualityProxy.getTrueProxy() && eq != EqualityProxy.getFalseProxy();
 						newAtom = eq.getLiteral(mSource);
 					} else {
-						newAtom = mQuantTheory.getQuantEquality(atomTerm, isPos, mSource, atomApp.getParameters()[0],
+						newAtom = mQuantTheory.getQuantEquality(isPos, mSource, atomApp.getParameters()[0],
 								atomApp.getParameters()[1]);
 					}
 				} else { // Predicates
@@ -287,12 +287,8 @@ public class SubstitutionHelper {
 				normalized = mQuantTheory.getTheory().term("=", normalizedAuxTerm, mQuantTheory.getTheory().mTrue);
 			}
 		}
-		if (!isAuxLit) {
+		if (substituted.getFreeVars().length == 0 && !isAuxLit) {
 			normalized = compiler.transform(substituted);
-			if (normalized.getSort().equals(mQuantTheory.getTheory().getBooleanSort())
-					&& normalized.getFreeVars().length > 0) {
-				normalized = mQuantTheory.getTheory().term("=", normalized, mQuantTheory.getTheory().mTrue);
-			}
 		}
 		// TODO Proof production.
 
