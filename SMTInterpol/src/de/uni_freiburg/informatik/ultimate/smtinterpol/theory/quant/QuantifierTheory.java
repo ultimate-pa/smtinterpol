@@ -90,7 +90,8 @@ public class QuantifierTheory implements ITheory {
 
 	// Statistics
 	private long mDERGroundCount, mConflictCount, mPropCount, mFinalCount;
-	long mCheckpointTime, mFindEmatchingTime, mFinalCheckTime, mEMatchingTime, mDawgTime;
+	long mCheckpointTime, mFindEmatchingTime, mFinalCheckTime, mEMatchingTime;
+	long mDawgTime;
 
 	// TODO: For testing only
 	boolean mUseEMatching;
@@ -607,6 +608,10 @@ public class QuantifierTheory implements ITheory {
 
 	public void addEMatchingTime(final long time) {
 		mEMatchingTime += time;
+	}
+
+	public void addDawgTime(final long time) {
+		mDawgTime += time;
 	}
 
 	public Clausifier getClausifier() {

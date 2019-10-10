@@ -229,6 +229,7 @@ public class EMatching {
 	 */
 	void addInterestingSubstitution(final QuantLiteral qLit, final List<CCTerm> varSubs,
 			final Map<Term, CCTerm> equivalentCCTerms, final int decisionLevel) {
+		final long time = System.nanoTime();
 		Dawg<SharedTerm, SubstitutionInfo> subsDawg = mAtomSubsDawgs.containsKey(qLit) ? mAtomSubsDawgs.get(qLit)
 				: Dawg.createConst(varSubs.size(), mEmptySubs);
 		final List<SharedTerm> sharedTermSubs = new ArrayList<SharedTerm>(varSubs.size());
@@ -240,6 +241,7 @@ public class EMatching {
 		subsDawg = subsDawg.insert(sharedTermSubs, subsInfo);
 
 		mAtomSubsDawgs.put(qLit, subsDawg);
+		mQuantTheory.addDawgTime(System.nanoTime() - time);
 		addUndoInformation(qLit, sharedTermSubs, decisionLevel);
 	}
 

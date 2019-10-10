@@ -160,8 +160,6 @@ public class InstantiationManager {
 					final Literal[] instLits = computeClauseInstance(quantClause, inst);
 					if (instLits != null) {
 						conflictAndUnitClauses.add(Arrays.asList(instLits));
-						mQuantTheory.getLogger().debug("Quant: instantiating quant clause %s results in %s",
-								quantClause, Arrays.asList(instLits));
 					}
 				}
 			}
