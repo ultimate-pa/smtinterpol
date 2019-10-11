@@ -284,7 +284,7 @@ public class EMatching {
 	void installFindTrigger(final FunctionSymbol func, final int regIndex, final ICode remainingCode,
 			final CCTerm[] register, final int decisionLevel) {
 		final EMReverseTrigger trigger =
-				new EMReverseTrigger(this, remainingCode, null, -1, null, register, regIndex, decisionLevel);
+				new EMReverseTrigger(this, remainingCode, func, -1, null, register, regIndex, decisionLevel);
 		mQuantTheory.getCClosure().insertReverseTrigger(func, trigger);
 		addUndoInformation(trigger, decisionLevel);
 	}

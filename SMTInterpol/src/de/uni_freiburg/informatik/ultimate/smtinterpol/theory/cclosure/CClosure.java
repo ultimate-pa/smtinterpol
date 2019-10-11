@@ -406,15 +406,25 @@ public class CClosure implements ITheory {
 	 * Remove a given Reverse trigger.
 	 */
 	public void removeReverseTrigger(final ReverseTrigger trigger) {
-		CCTerm arg = trigger.getArgument();
 		final CCTerm func = getFuncTerm(trigger.getFunctionSymbol());
-		final int parentPos = func.mParentPosition + trigger.getArgPosition();
-		while (arg != arg.mRep) {
-			final CCParentInfo info = arg.mCCPars.createInfo(parentPos);
-			info.mReverseTriggers.undoPrependIntoJoined(trigger, false);
-			arg = arg.mRep;
+		CCTerm termWithTrigger;
+		final int parentPos;
+		if (trigger.getArgPosition() < 0) {
+			/* this is a find trigger */
+			assert func == func.mRep;
+			termWithTrigger = func;
+			parentPos = 0;
+		} else {
+			/* this is a reverse trigger */
+			termWithTrigger = trigger.getArgument();
+			parentPos = func.mParentPosition + trigger.getArgPosition();
 		}
-		final CCParentInfo info = arg.mCCPars.createInfo(parentPos);
+		while (termWithTrigger != termWithTrigger.mRep) {
+			final CCParentInfo info = termWithTrigger.mCCPars.createInfo(parentPos);
+			info.mReverseTriggers.undoPrependIntoJoined(trigger, false);
+			termWithTrigger = termWithTrigger.mRep;
+		}
+		final CCParentInfo info = termWithTrigger.mCCPars.createInfo(parentPos);
 		info.mReverseTriggers.undoPrependIntoJoined(trigger, true);
 	}
 
