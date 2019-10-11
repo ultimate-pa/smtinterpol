@@ -21,7 +21,6 @@ package system;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
-import java.io.FilenameFilter;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.ArrayDeque;
@@ -111,10 +110,10 @@ public class SystemTest {
 		final String name = SystemTest.class.getPackage().getName();
 		final URL url = SystemTest.class.getClassLoader().getResource(name);
 		final File f = new File(url.toURI());
-		final File[] lst = f.getParentFile().getParentFile().listFiles((FilenameFilter) (dir, name1) -> name1.equals("test"));
-		assert lst != null && lst.length == 1;
+		final File testDir = new File(f.getParentFile().getParentFile(), "test");
+		assert testDir.exists();
 		final ArrayDeque<File> todo = new ArrayDeque<>();
-		todo.add(lst[0]);
+		todo.add(testDir);
 		while (!todo.isEmpty()) {
 			final File file = todo.removeFirst();
 			if (file.isDirectory()) {
