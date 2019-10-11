@@ -873,7 +873,7 @@ public class CClosure implements ITheory {
 			final Clause res = buildCongruence(true);
 			return res;// NOPMD
 		}
-		return null;
+		return buildCongruence(true);
 	}
 
 	public Term convertTermToSMT(final CCTerm t) {
@@ -1118,7 +1118,6 @@ public class CClosure implements ITheory {
 
 	@Override
 	public void pop(final Object object, final int targetlevel) {
-		buildCongruence(false);
 		final StackData sd = (StackData) object;
 		for (int i = mAllTerms.size() - 1; i >= sd.mAllTermsSize; --i) {
 			final CCTerm t = mAllTerms.get(i);
