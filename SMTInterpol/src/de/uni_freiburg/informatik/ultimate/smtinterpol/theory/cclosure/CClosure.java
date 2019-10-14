@@ -873,7 +873,7 @@ public class CClosure implements ITheory {
 			final Clause res = buildCongruence(true);
 			return res;// NOPMD
 		}
-		return buildCongruence(true);
+		return null;
 	}
 
 	public Term convertTermToSMT(final CCTerm t) {
@@ -971,7 +971,7 @@ public class CClosure implements ITheory {
 	@Override
 	public Clause backtrackComplete() {
 		mPendingLits.clear();
-		return null;
+		return buildCongruence(true);
 	}
 
 	@Override
