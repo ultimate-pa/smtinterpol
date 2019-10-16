@@ -378,7 +378,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		assert(engine.mMergeDepth == engine.mMerges.size());
 		src.mMergeTime = ++engine.mMergeDepth;
 		engine.mMerges.push(lhs);
-		engine.mEngine.getLogger().debug(new DebugMessage("M {0} {1}", this, lhs));
+		engine.mEngine.getLogger().debug("M %s %s", this, lhs);
 		assert(engine.mMerges.size() == engine.mMergeDepth);
 
 		if (Config.PROFILE_TIME) {
