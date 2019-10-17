@@ -361,7 +361,7 @@ public class QuantClause {
 	 */
 	private void synchronizeInterestingTermsAllVars() {
 		boolean changed = true;
-		while (changed) {
+		while (changed && !mQuantTheory.getEngine().isTerminationRequested()) {
 			changed = false;
 			for (int i = 0; i < mVars.length; i++) {
 				for (TermVariable t : getVarBounds(mVars[i])) {
@@ -389,6 +389,9 @@ public class QuantClause {
 
 		// Retrieve from CClosure all ground terms that appear under the same functions at the same positions as var
 		for (final Entry<FunctionSymbol, BitSet> entry : info.mFuncArgPositions.entrySet()) {
+			if (mQuantTheory.getEngine().isTerminationRequested()) {
+				return;
+			}
 			final FunctionSymbol func = entry.getKey();
 			final BitSet pos = entry.getValue();
 			for (int i = pos.nextSetBit(0); i >= 0; i = pos.nextSetBit(i + 1)) {

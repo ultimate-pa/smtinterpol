@@ -626,6 +626,10 @@ public class QuantifierTheory implements ITheory {
 		return mEMatching;
 	}
 
+	public DPLLEngine getEngine() {
+		return mEngine;
+	}
+
 	public LinArSolve getLinAr() {
 		return mLinArSolve;
 	}

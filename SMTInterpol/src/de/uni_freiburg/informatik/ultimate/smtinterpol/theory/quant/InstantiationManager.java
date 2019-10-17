@@ -120,6 +120,9 @@ public class InstantiationManager {
 		currentQuantClauses.addAll(mQuantTheory.getQuantClauses());
 
 		for (final QuantClause qClause : currentQuantClauses) {
+			if (mQuantTheory.getEngine().isTerminationRequested()) {
+				return Collections.emptySet();
+			}
 			if (updateClauseDawg(qClause)) {
 				final Collection<List<SharedTerm>> conflictOrUnitSubs = getConflictAndUnitSubsFromDawg(qClause);
 
@@ -154,7 +157,7 @@ public class InstantiationManager {
 			final Set<List<SharedTerm>> allInstantiations = computeAllSubstitutions(quantClause);
 			for (List<SharedTerm> inst : allInstantiations) {
 				if (mClausifier.getEngine().isTerminationRequested())
-					return conflictAndUnitClauses;
+					return Collections.emptySet();
 				final InstanceValue clauseValue = evaluateClauseInstance(quantClause, inst);
 				if (clauseValue != InstanceValue.TRUE) {
 					final Literal[] instLits = computeClauseInstance(quantClause, inst);
@@ -186,8 +189,9 @@ public class InstantiationManager {
 			final Set<List<SharedTerm>> allSubstitutions = computeAllSubstitutions(quantClause);
 
 			outer: for (List<SharedTerm> subs : allSubstitutions) {
-				if (mClausifier.getEngine().isTerminationRequested())
+				if (mClausifier.getEngine().isTerminationRequested()) {
 					return null;
+				}
 				final Literal[] instLits = computeClauseInstance(quantClause, subs);
 				if (instLits != null) {
 					boolean isConflict = true;
