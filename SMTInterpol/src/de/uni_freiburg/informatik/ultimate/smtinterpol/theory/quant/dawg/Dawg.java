@@ -33,7 +33,6 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
-import de.uni_freiburg.informatik.ultimate.util.HashUtils;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.UnifyHash;
 
 /**
@@ -127,20 +126,12 @@ public class Dawg<LETTER, VALUE> {
 	 * 
 	 * @return the created Dawg.
 	 */
-	@SuppressWarnings("unchecked")
 	public static <LETTER, VALUE> Dawg<LETTER, VALUE> createDawg(Map<LETTER, Dawg<LETTER, VALUE>> transitions,
 			Dawg<LETTER, VALUE> elseTransition) {
 		if (transitions.isEmpty()) {
 			return elseTransition.createParent();
 		}
-		int hash = HashUtils.hashJenkins(elseTransition.hashCode(), transitions);
-		for (Dawg<?, ?> dawg : sUnifier.iterateHashCode(hash)) {
-			if (!dawg.isFinal() && dawg.mTransitions.equals(transitions) && dawg.mElseTransition == elseTransition) {
-				return (Dawg<LETTER, VALUE>) dawg;
-			}
-		}
 		Dawg<LETTER, VALUE> dawg = new Dawg<>(transitions, elseTransition);
-		sUnifier.put(hash, dawg);
 		return dawg;
 	}
 
