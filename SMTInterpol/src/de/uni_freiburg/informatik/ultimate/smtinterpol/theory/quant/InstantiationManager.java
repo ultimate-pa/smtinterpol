@@ -460,8 +460,11 @@ public class InstantiationManager {
 				}
 
 				long time = System.nanoTime();
-				final Dawg<SharedTerm, InstanceValue> remainderDawgForVarSub = Dawg.createConst(remainderDawgLengthForVar, val);
-				transitionsFromVar.put(subs, remainderDawgForVarSub);
+				if (val != mDefaultValueForLitDawgs) {
+					final Dawg<SharedTerm, InstanceValue> remainderDawgForVarSub =
+							Dawg.createConst(remainderDawgLengthForVar, val);
+					transitionsFromVar.put(subs, remainderDawgForVarSub);
+				}
 				mQuantTheory.mDawgTime += System.nanoTime() - time;
 			}
 			long time = System.nanoTime();

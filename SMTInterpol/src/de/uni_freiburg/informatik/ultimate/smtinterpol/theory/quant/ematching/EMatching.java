@@ -417,7 +417,7 @@ public class EMatching {
 		EMUndoInformation() {
 			mCompareTriggers = new ArrayList<>();
 			mReverseTriggers = new ArrayList<>();
-			mLitSubs = new HashMap<>();
+			mLitSubs = new LinkedHashMap<>();
 		}
 
 		/**
