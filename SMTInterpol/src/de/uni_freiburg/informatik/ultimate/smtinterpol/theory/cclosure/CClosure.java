@@ -291,7 +291,9 @@ public class CClosure implements ITheory {
 
 		List<CCTerm> funcApps = new ArrayList<>();
 		for (final Parent parent : info.mCCParents) {
-			funcApps.add(parent.getData());
+			if (!parent.isMarked()) {
+				funcApps.add(parent.getData());
+			}
 		}
 		for (int i = argPos + 1; i < sym.getParameterSorts().length; i++) {
 			funcApps = getApplications(funcApps);

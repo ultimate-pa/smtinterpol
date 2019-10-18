@@ -511,6 +511,9 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 					// E-Matching
 					if (!srcParentInfo.mReverseTriggers.isEmpty()) {
 						for (CCAppTerm.Parent parent : destParentInfo.mCCParents) {
+							if (parent.isMarked()) {
+								continue;
+							}
 							List<CCTerm> appTerms = Collections.singletonList(parent.getData());
 							while (appTerms.get(0).mIsFunc) {
 								appTerms = CClosure.getApplications(appTerms);
@@ -524,6 +527,9 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 					}
 					if (!destParentInfo.mReverseTriggers.isEmpty()) {
 						for (CCAppTerm.Parent parent : srcParentInfo.mCCParents) {
+							if (parent.isMarked()) {
+								continue;
+							}
 							List<CCTerm> appTerms = Collections.singletonList(parent.getData());
 							while (appTerms.get(0).mIsFunc) {
 								appTerms = CClosure.getApplications(appTerms);
