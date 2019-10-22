@@ -707,11 +707,11 @@ public class QuantifierTheory implements ITheory {
 		if (instances == null) {
 			return null;
 		}
-		boolean isConflict = true;
 		for (final List<Literal> clause : instances) {
 			if (mEngine.isTerminationRequested()) {
 				return null;
 			}
+			boolean isConflict = true;
 			boolean isTrueInst = false;
 			int numUndef = 0;
 			// Count the number of undefined literals
