@@ -141,7 +141,7 @@ public class EMatching {
 		if (Config.PROFILE_TIME) {
 			time = System.nanoTime();
 		}
-		while (!mTodoStack.isEmpty()) {
+		while (!mTodoStack.isEmpty() && !mQuantTheory.getEngine().isTerminationRequested()) {
 			final Triple<ICode, CCTerm[], Integer> code = mTodoStack.pop();
 			code.getFirst().execute(code.getSecond(), code.getThird());
 		}
