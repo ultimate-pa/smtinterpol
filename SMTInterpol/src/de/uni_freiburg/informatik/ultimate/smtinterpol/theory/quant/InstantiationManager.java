@@ -125,9 +125,11 @@ public class InstantiationManager {
 			}
 			if (updateClauseDawg(qClause)) {
 				final Collection<List<SharedTerm>> conflictOrUnitSubs = getConflictAndUnitSubsFromDawg(qClause);
-
 				if (conflictOrUnitSubs != null) {
 					for (final List<SharedTerm> subs : conflictOrUnitSubs) {
+						if (mQuantTheory.getEngine().isTerminationRequested()) {
+							return Collections.emptySet();
+						}
 						final Literal[] instLits = computeClauseInstance(qClause, subs);
 						if (instLits != null) {
 							conflictAndUnitClauses.add(Arrays.asList(instLits));
