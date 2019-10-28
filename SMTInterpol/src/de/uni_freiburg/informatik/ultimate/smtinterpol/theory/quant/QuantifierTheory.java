@@ -236,8 +236,12 @@ public class QuantifierTheory implements ITheory {
 
 	@Override
 	public Literal getPropagatedLiteral() {
-		for (final Literal lit : mPotentialConflictAndUnitClauses.keySet()) {
-			for (final InstClause clause : mPotentialConflictAndUnitClauses.get(lit)) {
+		for (final Map.Entry<Literal, Set<InstClause>> entry : mPotentialConflictAndUnitClauses.entrySet()) {
+			if (mEngine.isTerminationRequested()) {
+				return null;
+			}
+			final Literal lit = entry.getKey();
+			for (final InstClause clause : entry.getValue()) {
 				if (clause.isUnit()) {
 					final Clause expl = new Clause(clause.mLits.toArray(new Literal[clause.mLits.size()]));
 					lit.getAtom().mExplanation = expl;
