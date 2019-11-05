@@ -107,6 +107,15 @@ public class InstantiationManager {
 	}
 
 	/**
+	 * Reset the interesting terms for a variable.
+	 */
+	public void resetInterestingTerms() {
+		for (final QuantClause qClause : mClauseDawgs.keySet()) {
+			qClause.clearInterestingTerms();
+		}
+	}
+
+	/**
 	 * Find all current instances of quant clauses that would be conflict or unit instances. This will actually compute
 	 * the clause instances, i.e., it will create the ground literals.
 	 * 

@@ -107,7 +107,6 @@ public class QuantClause {
 	 */
 	public void updateInterestingTermsAllVars() {
 		for (int i = 0; i < mVars.length; i++) {
-			mInterestingTermsForVars[i].clear();
 			collectBoundAndDefaultTerms(i);
 			if (mVars[i].getSort().getName() != "Bool") {
 				updateInterestingTermsForFuncArgs(mVars[i], i);
@@ -189,6 +188,12 @@ public class QuantClause {
 	@Override
 	public String toString() {
 		return Arrays.toString(mGroundLits).concat(Arrays.toString(mQuantLits));
+	}
+
+	void clearInterestingTerms() {
+		for (int i = 0; i < mVars.length; i++) {
+			mInterestingTermsForVars[i].clear();
+		}
 	}
 
 	/**
@@ -378,6 +383,8 @@ public class QuantClause {
 	 * This method does not consider dependencies between variables. They must be taken care of after computing the sets
 	 * for each single variable.
 	 *
+	 * TODO Should this use addAllInteresting?
+	 *
 	 * @param var
 	 *            the TermVariable which we compute the instantiation terms for.
 	 * @param varNum
@@ -404,15 +411,15 @@ public class QuantClause {
 						} else {
 							repShared = ccTerm.getRepresentative().getFlatTerm();
 						}
-						if (ccTerm.getSharedTerm() != null) {
-							ccShared = ccTerm.getSharedTerm();
-						} else {
-							ccShared = ccTerm.getFlatTerm();
+							if (ccTerm.getSharedTerm() != null) {
+								ccShared = ccTerm.getSharedTerm();
+							} else {
+								ccShared = ccTerm.getFlatTerm();
+							}
+							mInterestingTermsForVars[varNum].put(repShared, ccShared);
 						}
-						mInterestingTermsForVars[varNum].put(repShared, ccShared);
 					}
 				}
-			}
 			if (pos.get(1) && func.getName() == "select" && var.getSort().getName() == "Int") {
 				// Add all store indices +-1.
 				final Sort[] storeSorts = new Sort[3];
@@ -439,10 +446,10 @@ public class QuantClause {
 									repShared = cc.getSharedTerm();
 								}
 							}
-							mInterestingTermsForVars[varNum].put(repShared, shared);
+								mInterestingTermsForVars[varNum].put(repShared, shared);
+							}
 						}
 					}
-				}
 			} // TODO: maybe for store(a,x,v) we need all i in select(b,i)
 		}
 	}

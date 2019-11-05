@@ -302,6 +302,7 @@ public class QuantifierTheory implements ITheory {
 		final int decisionLevel = mClausifier.getEngine().getDecideLevel();
 		mEMatching.undo(decisionLevel);
 		mInstantiationManager.resetDawgs();
+		mInstantiationManager.resetInterestingTerms();
 		mPotentialConflictAndUnitClauses.clear();
 		return null;
 	}
