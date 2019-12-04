@@ -327,6 +327,11 @@ public class ProofChecker extends NonRecursive {
 	Stack<Term> mStackResults = new Stack<Term>();
 
 	/**
+	 * Statistics.
+	 */
+	private int mNumInstancesUsed;
+
+	/**
 	 * Create a proof checker.
 	 *
 	 * @param script
@@ -369,6 +374,8 @@ public class ProofChecker extends NonRecursive {
 		// clear state
 		mAssertions = null;
 		mCacheConv = null;
+
+		mLogger.debug("Proof: Instances of quantified clauses used: %s", mNumInstancesUsed);
 
 		return mError == 0;
 	}
@@ -502,6 +509,7 @@ public class ProofChecker extends NonRecursive {
 		} else if (lemmaType == ":EQ") {
 			checkEQLemma(clause);
 		} else if (lemmaType == ":inst") {
+			mNumInstancesUsed++;
 			reportWarning("Quantifier instantiation lemmas are not checked!");
 		} else {
 			reportError("Cannot deal with lemma " + lemmaType);

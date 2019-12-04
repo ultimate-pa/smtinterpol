@@ -202,7 +202,7 @@ public class QuantClause {
 		final int quantLength = mQuantLits.length;
 		final Term[] litTerms = new Term[groundLength + quantLength];
 		for (int i = 0; i < groundLength; i++) {
-			litTerms[0] = mGroundLits[i].getSMTFormula(theory);
+			litTerms[i] = mGroundLits[i].getSMTFormula(theory);
 		}
 		for (int i = 0; i < quantLength; i++) {
 			litTerms[i + groundLength] = mQuantLits[i].getTerm();

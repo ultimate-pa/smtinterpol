@@ -817,6 +817,7 @@ public class InstantiationManager {
 			mQuantTheory.getLogger().debug("Quant: instantiating quant clause %s results in %s", clause,
 					Arrays.asList(resultingLits));
 		}
+		mQuantTheory.mNumInstancesProduced++;
 		return inst;
 	}
 

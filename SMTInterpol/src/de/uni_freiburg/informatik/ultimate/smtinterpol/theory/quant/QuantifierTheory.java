@@ -88,6 +88,7 @@ public class QuantifierTheory implements ITheory {
 	private final Map<Literal, Set<InstClause>> mPotentialConflictAndUnitClauses;
 
 	// Statistics
+	long mNumInstancesProduced;
 	private long mDERGroundCount, mConflictCount, mPropCount, mFinalCount;
 	long mCheckpointTime, mFindEmatchingTime, mFinalCheckTime, mEMatchingTime;
 	long mDawgTime;
@@ -271,6 +272,7 @@ public class QuantifierTheory implements ITheory {
 	@Override
 	public void printStatistics(final LogProxy logger) {
 		logger.info("Quant: DER produced " + mDERGroundCount + " ground clause(s).");
+		logger.info("Quant: Instances produced: " + mNumInstancesProduced);
 		logger.info("Quant: Conflicts: " + mConflictCount + " Props: " + mPropCount + " Final Checks: " + mFinalCount);
 		logger.info(
 				"Quant times: Checkpoint %.3f Find with E-matching: %.3f Dawg %.3f Final Check %.3f E-Matching %.3f",
@@ -332,7 +334,8 @@ public class QuantifierTheory implements ITheory {
 	@Override
 	public Object[] getStatistics() {
 		return new Object[] { ":Quant",
-				new Object[][] { { "DER ground results", mDERGroundCount }, { "Conflicts", mConflictCount },
+				new Object[][] { { "DER ground results", mDERGroundCount },
+						{ "Instances produced", mNumInstancesProduced }, { "Conflicts", mConflictCount },
 						{ "Propagations", mPropCount }, { "Final Checks", mFinalCount },
 						{ "Times", new Object[][] { { "Checkpoint", mCheckpointTime },
 								{ "Find E-matching", mFindEmatchingTime },
