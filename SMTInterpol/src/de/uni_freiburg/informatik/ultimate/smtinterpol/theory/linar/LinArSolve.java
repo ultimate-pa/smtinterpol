@@ -2202,6 +2202,6 @@ public class LinArSolve implements ITheory {
 		// check the bounds of the linvar
 		InfinitesimalNumber bound = normFactor.signum() > 0 ? var.getTightUpperBound() : var.getTightLowerBound();
 		mTimeGetUpperBound += System.nanoTime() - start;
-		return bound.mul(normFactor).sub(offset);
+		return bound.mul(normFactor).add(offset);
 	}
 }

@@ -605,6 +605,7 @@ public class InstantiationManager {
 				return null;
 			}
 		}
+		at.add(smtAff.getConstant());
 		return at;
 	}
 
@@ -870,7 +871,7 @@ public class InstantiationManager {
 	 * 
 	 * @param at
 	 *            a MutableAffineTerm representing an LAEquality.
-	 * @return Value True if both the lower and upper bound of at are 0, False if the lower bound is greater and the
+	 * @return Value True if both the lower and upper bound of at are 0, False if the lower bound is greater or the
 	 *         upper bound is smaller than 0, Undef else.
 	 */
 	private InstanceValue evaluateLAEquality(final MutableAffineTerm at) {
@@ -879,11 +880,10 @@ public class InstantiationManager {
 		}
 		final InfinitesimalNumber upperBound = mQuantTheory.mLinArSolve.getUpperBound(at);
 		at.negate();
-		final InfinitesimalNumber lowerBound = mQuantTheory.mLinArSolve.getUpperBound(at);
-		if (upperBound.lesseq(InfinitesimalNumber.ZERO) && lowerBound.lesseq(InfinitesimalNumber.ZERO)) {
+		final InfinitesimalNumber negLowerBound = mQuantTheory.mLinArSolve.getUpperBound(at);
+		if (upperBound.signum() == 0 && negLowerBound.signum() == 0) {
 			return InstanceValue.TRUE;
-		} else if (!upperBound.isInfinity() && !upperBound.lesseq(InfinitesimalNumber.ZERO)
-				|| !lowerBound.isInfinity() && !lowerBound.lesseq(InfinitesimalNumber.ZERO)) {
+		} else if (upperBound.signum() < 0 || negLowerBound.signum() < 0) {
 			return InstanceValue.FALSE;
 		}
 		return InstanceValue.ONE_UNDEF;
@@ -895,16 +895,15 @@ public class InstantiationManager {
 	 * @param at
 	 *            a MutableAffineTerm representing an LAEquality.
 	 * @return Value True if both the lower and upper bound of at exist and are equal to 0, False if the lower bound
-	 *         exists and is greater than 0. and the upper bound exists and is smaller than 0, Undef else.
+	 *         exists and is greater than 0, or the upper bound exists and is smaller than 0, Undef else.
 	 */
 	private InstanceValue evaluateLAEquality(final SMTAffineTerm smtAff) {
 		final InfinitesimalNumber upperBound = mQuantTheory.mLinArSolve.getUpperBound(mClausifier, smtAff);
 		smtAff.negate();
-		final InfinitesimalNumber lowerBound = mQuantTheory.mLinArSolve.getUpperBound(mClausifier, smtAff);
-		if (upperBound.lesseq(InfinitesimalNumber.ZERO) && lowerBound.lesseq(InfinitesimalNumber.ZERO)) {
+		final InfinitesimalNumber negLowerBound = mQuantTheory.mLinArSolve.getUpperBound(mClausifier, smtAff);
+		if (upperBound.signum() == 0 && negLowerBound.signum() == 0) {
 			return InstanceValue.TRUE;
-		} else if (!upperBound.isInfinity() && !upperBound.lesseq(InfinitesimalNumber.ZERO)
-				|| !lowerBound.isInfinity() && !lowerBound.lesseq(InfinitesimalNumber.ZERO)) {
+		} else if (upperBound.signum() < 0 || negLowerBound.signum() < 0) {
 			return InstanceValue.FALSE;
 		}
 		return InstanceValue.ONE_UNDEF;
