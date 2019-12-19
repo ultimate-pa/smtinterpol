@@ -376,7 +376,7 @@ public class InstantiationManager {
 			val = evaluateCCEquality(lhs, rhs);
 
 			// If the eq value is unknown in CC, and the terms are numeric, check for equality in LinAr.
-			if ((val == InstanceValue.ONE_UNDEF || val == InstanceValue.UNKNOWN_TERM)
+			if ((val == InstanceValue.ONE_UNDEF)
 					&& qEq.getLhs().getSort().isNumericSort()) {
 				final Map<Term, SharedTerm> sharedForQuantSmds = buildSharedMapFromCCMap(info.getEquivalentCCTerms());
 				final MutableAffineTerm at = buildMutableAffineTerm(new SMTAffineTerm(qEq.getLhs()), sharedForQuantSmds,
@@ -838,9 +838,11 @@ public class InstantiationManager {
 				return InstanceValue.TRUE;
 			} else if (mQuantTheory.getCClosure().isDiseqSet(leftCC, rightCC)) {
 				return InstanceValue.FALSE;
+			} else {
+				return InstanceValue.ONE_UNDEF;
 			}
 		}
-		return InstanceValue.ONE_UNDEF;
+		return InstanceValue.UNKNOWN_TERM;
 	}
 
 	/**
@@ -876,7 +878,7 @@ public class InstantiationManager {
 	 */
 	private InstanceValue evaluateLAEquality(final MutableAffineTerm at) {
 		if (at == null) {
-			return InstanceValue.ONE_UNDEF;
+			return InstanceValue.UNKNOWN_TERM;
 		}
 		final InfinitesimalNumber upperBound = mQuantTheory.mLinArSolve.getUpperBound(at);
 		at.negate();
@@ -918,7 +920,7 @@ public class InstantiationManager {
 	 */
 	private InstanceValue evaluateBoundConstraint(final MutableAffineTerm at) {
 		if (at == null) {
-			return InstanceValue.ONE_UNDEF;
+			return InstanceValue.UNKNOWN_TERM;
 		}
 		final InfinitesimalNumber upperBound = mQuantTheory.mLinArSolve.getUpperBound(at);
 		if (upperBound.lesseq(InfinitesimalNumber.ZERO)) {
