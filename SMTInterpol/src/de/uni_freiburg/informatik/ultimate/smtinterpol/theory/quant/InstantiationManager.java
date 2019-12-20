@@ -293,9 +293,7 @@ public class InstantiationManager {
 					arithLits.add(qLit);
 				} else {
 					Dawg<SharedTerm, InstanceValue> litDawg = getDefaultLiteralDawg(qLit);
-					if (qLit.isEssentiallyUninterpreted()) {
-						litDawg = computeEULitDawg(qLit);
-					}
+					litDawg = computeEULitDawg(qLit);
 					clauseDawg = clauseDawg.combine(litDawg, combinator);
 				}
 			}
@@ -320,12 +318,13 @@ public class InstantiationManager {
 	/**
 	 * Compute the evaluation dawg for a given EU literal.
 	 * 
+	 * TODO: Rename, it's no longer only for EU literals.
+	 * 
 	 * @param qLit
 	 *            an essentially uninterpreted literal.
 	 * @return the evaluation dawg for the literal with depth corresponding to the number of variables in the clause.
 	 */
 	private Dawg<SharedTerm, InstanceValue> computeEULitDawg(final QuantLiteral qLit) {
-		assert qLit.isEssentiallyUninterpreted(); // Use the information from E-Matching
 		final Dawg<SharedTerm, SubstitutionInfo> atomSubsDawg = mEMatching.getSubstitutionInfos(qLit.getAtom());
 		if (atomSubsDawg != null) {
 			final Function<SubstitutionInfo, InstanceValue> evaluationMap = v1 -> evaluateEULitForSubsInfo(qLit, v1);

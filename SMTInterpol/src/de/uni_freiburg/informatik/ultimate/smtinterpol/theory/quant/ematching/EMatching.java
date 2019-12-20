@@ -75,41 +75,35 @@ public class EMatching {
 	}
 
 	/**
-	 * Add the patterns for E-Matching. Currently, only essentially uninterpreted literals are used.
+	 * Add the patterns for E-Matching.
+	 * 
+	 * Currently, we support only literals that contain arithmetic only at "top level" and where all variables that
+	 * appear at top level (i.e., not under an uninterpreted function symbol) must also appear under an uninterpreted
+	 * function symbol.
 	 */
 	public void addPatterns(final QuantClause qClause) {
 		for (final QuantLiteral qLit : qClause.getQuantLits()) {
 			final QuantLiteral qAtom = qLit.getAtom();
-			if (qAtom.isEssentiallyUninterpreted()) {
+			if (QuantifiedTermInfo.containsArithmeticOnlyAtTopLevel(qAtom)
+					&& QuantifiedTermInfo.containsAppTermsForEachVar(qAtom)) {
 				final Collection<Term> patterns = new LinkedHashSet<>();
 				if (qAtom instanceof QuantEquality) {
-					// For EUTerm = EUTerm, add the two EUTerms to E-matching.
-					// If one of them is an affine term of EUTerms, add all of them.
 					final QuantEquality eq = (QuantEquality) qAtom;
 					final Term lhs = eq.getLhs();
-					final Term rhs = eq.getRhs();
-					assert !(lhs instanceof TermVariable);
 					if (!lhs.getSort().isNumericSort()) {
-						if (QuantifiedTermInfo.isSimpleEssentiallyUninterpreted(lhs)
-								&& QuantifiedTermInfo.isSimpleEssentiallyUninterpreted(rhs)) {
+						if (!(lhs instanceof TermVariable)) {
 							patterns.add(lhs);
-							patterns.add(rhs);
 						}
+						patterns.add(eq.getRhs());
 					} else {
 						final SMTAffineTerm lhsAff = new SMTAffineTerm(lhs);
 						final SMTAffineTerm rhsAff = new SMTAffineTerm(eq.getRhs());
-						if (QuantifiedTermInfo.hasOnlySimpleEssentiallyUninterpretedSummands(lhsAff)
-								&& QuantifiedTermInfo.hasOnlySimpleEssentiallyUninterpretedSummands(rhsAff)) {
-							patterns.addAll(getSubPatterns(lhsAff));
-							patterns.addAll(getSubPatterns(rhsAff));
-						}
+						patterns.addAll(getSubPatterns(lhsAff));
+						patterns.addAll(getSubPatterns(rhsAff));
 					}
 				} else {
 					final SMTAffineTerm affine = ((QuantBoundConstraint) qAtom).getAffineTerm();
-					if (QuantifiedTermInfo.hasOnlySimpleEssentiallyUninterpretedSummands(affine)) {
-						// For (EUTerm <= 0) add all EU summands of the affine term of EUTerms on the lhs
-						patterns.addAll(getSubPatterns(affine));
-					}
+					patterns.addAll(getSubPatterns(affine));
 				}
 				if (!patterns.isEmpty()) {
 					final Pair<ICode, CCTerm[]> newCode =
@@ -122,11 +116,10 @@ public class EMatching {
 	}
 
 	private Collection<Term> getSubPatterns(final SMTAffineTerm at) {
-		assert QuantifiedTermInfo.hasOnlySimpleEssentiallyUninterpretedSummands(at);
+		assert QuantifiedTermInfo.containsArithmeticOnlyAtTopLevel(at);
 		final Collection<Term> patterns = new LinkedHashSet<>();
 		for (final Term smd : at.getSummands().keySet()) {
-			assert !(smd instanceof TermVariable);
-			if (smd.getFreeVars().length != 0) {
+			if (!(smd instanceof TermVariable) && smd.getFreeVars().length != 0) {
 				patterns.add(smd);
 			}
 		}

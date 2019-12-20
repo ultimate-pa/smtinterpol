@@ -186,6 +186,7 @@ public class PatternCompiler {
 		// Information on how to find the substitution and corresponding CCTerms in the register
 		for (final TermVariable var : mQuantAtom.getTerm().getFreeVars()) {
 			varPos.put(var, mTermInfos.get(var).mRegIndex);
+			candPos.put(var, mTermInfos.get(var).mRegIndex);
 		}
 		for (final Term pattern : mPatterns) {
 			candPos.put(pattern, mTermInfos.get(pattern).mRegIndex);

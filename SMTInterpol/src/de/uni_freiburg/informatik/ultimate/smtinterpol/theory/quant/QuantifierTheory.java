@@ -47,6 +47,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinArSolve;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.ematching.EMatching;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
@@ -540,7 +541,8 @@ public class QuantifierTheory implements ITheory {
 	 *            The source of the clause.
 	 * @return an array of ILiteral containing all literals after DER; null if the clause became true.
 	 */
-	public ILiteral[] performDestructiveEqualityReasoning(final Literal[] groundLits, final QuantLiteral[] quantLits,
+	public Pair<ILiteral[], Map<TermVariable, Term>> performDestructiveEqualityReasoning(final Literal[] groundLits,
+			final QuantLiteral[] quantLits,
 			final SourceAnnotation source) {
 		final DestructiveEqualityReasoning der =
 				new DestructiveEqualityReasoning(this, groundLits, quantLits, source);
@@ -561,7 +563,8 @@ public class QuantifierTheory implements ITheory {
 			litsAfterDER.addAll(Arrays.asList(groundLits));
 			litsAfterDER.addAll(Arrays.asList(quantLits));
 		}
-		return litsAfterDER.toArray(new ILiteral[litsAfterDER.size()]);
+		return new Pair<ILiteral[], Map<TermVariable, Term>>(litsAfterDER.toArray(new ILiteral[litsAfterDER.size()]),
+				der.getSigma());
 	}
 
 	/**

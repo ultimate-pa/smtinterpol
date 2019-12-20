@@ -125,6 +125,10 @@ class DestructiveEqualityReasoning {
 		return mQuantLitsAfterDER;
 	}
 
+	Map<TermVariable, Term> getSigma() {
+		return mSigma;
+	}
+
 	/**
 	 * Collect the substitution sigma. Step 1: Go through all literals. For variables x,y,z, and a term t (can be a
 	 * variable):<br>

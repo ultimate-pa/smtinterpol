@@ -375,8 +375,10 @@ public class ProofChecker extends NonRecursive {
 		mAssertions = null;
 		mCacheConv = null;
 
-		mLogger.debug("Proof: Instances of quantified clauses used: %s", mNumInstancesUsed);
-
+		// TODO Handle this in a better way (e.g. as part of statistics)
+		if (proof.getTheory().getLogic().isQuantified()) {
+			mLogger.warn("Proof: Instances of quantified clauses used: %s", mNumInstancesUsed);
+		}
 		return mError == 0;
 	}
 

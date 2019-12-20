@@ -73,8 +73,10 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinArSolve;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.MutableAffineTerm;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ArrayMap;
@@ -934,10 +936,10 @@ public class Clausifier {
 					addClause(groundLiteralsAfterDER, null, getProofNewSource(proof, mSource));
 				}
 			} else {
-				final ILiteral[] litsAfterDER =
+				final Pair<ILiteral[], Map<TermVariable, Term>> resultFromDER =
 						mQuantTheory.performDestructiveEqualityReasoning(lits, quantLits, mSource);
-				if (litsAfterDER != null) { // Clauses that become trivially true can be dropped.
-
+				if (resultFromDER != null) { // Clauses that become trivially true can be dropped.
+					final ILiteral[] litsAfterDER = resultFromDER.getFirst();
 					// TODO Proof production.
 					isDpllClause = true;
 					for (ILiteral iLit : litsAfterDER) {
@@ -950,7 +952,10 @@ public class Clausifier {
 						for (int i = 0; i < groundLits.length; i++) {
 							groundLits[i] = (Literal) litsAfterDER[i];
 						}
-						addClause(groundLits, null, getProofNewSource(proof, mSource));
+						final ProofNode derProof =
+								new LeafNode(LeafNode.QUANT_INST,
+										new QuantAnnotation(lits, resultFromDER.getSecond(), getTheory()));
+						addClause(groundLits, null, derProof);
 					} else {
 						mQuantTheory.addQuantClause(litsAfterDER, mSource);
 					}
