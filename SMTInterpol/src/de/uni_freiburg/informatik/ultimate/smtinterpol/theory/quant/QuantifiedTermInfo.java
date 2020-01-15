@@ -182,4 +182,18 @@ public class QuantifiedTermInfo {
 		}
 		return true;
 	}
+
+	/**
+	 * Check if a term is an application term with an internal {@literal @}AUX function used by the clausifier.
+	 * @param term
+	 * @return
+	 */
+	public static boolean isAuxApplication(final Term term) {
+		if (term instanceof ApplicationTerm) {
+			FunctionSymbol fsym = ((ApplicationTerm) term).getFunction();
+			return fsym.isIntern() && fsym.getName().startsWith("@AUX");
+		}
+		return false;
+	}
+
 }

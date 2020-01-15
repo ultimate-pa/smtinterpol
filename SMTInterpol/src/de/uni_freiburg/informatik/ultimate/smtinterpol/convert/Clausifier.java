@@ -1331,10 +1331,12 @@ public class Clausifier {
 	 */
 	private boolean mIsRunning = false;
 
+	// TODO: make map or use option map
 	private boolean mIsEprEnabled;
 	private boolean mIsEMatchingEnabled;
 	private boolean mIsUnknownTermDawgsEnabled;
 	private boolean mPropagateUnknownTerms;
+	private boolean mPropagateUnknownAux;
 
 	/**
 	 * Mapping from Boolean terms to information about clauses produced for these terms.
@@ -1935,17 +1937,19 @@ public class Clausifier {
 		if (mQuantTheory == null) {
 			mQuantTheory =
 					new QuantifierTheory(mTheory, mEngine, this, mIsEMatchingEnabled, mIsUnknownTermDawgsEnabled,
-							mPropagateUnknownTerms);
+							mPropagateUnknownTerms, mPropagateUnknownAux);
 			mEngine.addTheory(mQuantTheory);
 		}
 	}
 
 	public void setQuantifierOptions(final boolean isEprEnabled, final boolean enableEmatching,
-			final boolean enableUnknownTermDawgs, final boolean propagateUnknownTerm) {
+			final boolean enableUnknownTermDawgs, final boolean propagateUnknownTerm,
+			final boolean propagateUnknownAux) {
 		mIsEprEnabled = isEprEnabled;
 		mIsEMatchingEnabled = enableEmatching;
 		mIsUnknownTermDawgsEnabled = enableUnknownTermDawgs;
 		mPropagateUnknownTerms = propagateUnknownTerm;
+		mPropagateUnknownAux = propagateUnknownAux;
 	}
 
 	public void setLogic(final Logics logic) {

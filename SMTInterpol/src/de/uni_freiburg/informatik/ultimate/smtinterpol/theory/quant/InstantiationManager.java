@@ -345,10 +345,15 @@ public class InstantiationManager {
 	 * @return the InstanceValue of the literal for the substitution.
 	 */
 	private InstanceValue evaluateEULitForSubsInfo(final QuantLiteral qLit, final SubstitutionInfo info) {
+		final QuantLiteral qAtom = qLit.getAtom();
 		if (info == mEMatching.getEmptySubs()) {
+			if (mQuantTheory.mPropagateNewAux && !mQuantTheory.mPropagateNewTerms && qAtom instanceof QuantEquality) {
+				if (QuantifiedTermInfo.isAuxApplication(((QuantEquality) qAtom).getLhs())) {
+					return InstanceValue.ONE_UNDEF;
+				}
+			}
 			return mDefaultValueForLitDawgs;
 		}
-		final QuantLiteral qAtom = qLit.getAtom();
 		final SourceAnnotation source = qLit.getClause().getSource();
 
 		InstanceValue val;

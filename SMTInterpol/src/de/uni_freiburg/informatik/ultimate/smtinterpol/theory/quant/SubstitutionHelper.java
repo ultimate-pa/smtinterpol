@@ -278,8 +278,7 @@ public class SubstitutionHelper {
 			final Term subsLhs = subsEq.getParameters()[0];
 			final Term subsRhs = subsEq.getParameters()[1];
 
-			if (subsLhs instanceof ApplicationTerm
-					&& ((ApplicationTerm) subsLhs).getFunction().getName().startsWith("@AUX")) {
+			if (QuantifiedTermInfo.isAuxApplication(subsLhs)) {
 				assert subsRhs == mQuantTheory.getTheory().mTrue;
 				final ApplicationTerm subsAuxTerm = (ApplicationTerm) subsLhs;
 				final Term[] oldArgs = subsAuxTerm.getParameters();

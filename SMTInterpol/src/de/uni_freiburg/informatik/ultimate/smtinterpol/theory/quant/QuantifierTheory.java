@@ -97,10 +97,12 @@ public class QuantifierTheory implements ITheory {
 	// TODO: For testing only
 	boolean mUseEMatching;
 	boolean mUse4InstanceValuesInDawgs;
+	boolean mPropagateNewAux;
 	boolean mPropagateNewTerms;
 
 	public QuantifierTheory(final Theory th, final DPLLEngine engine, final Clausifier clausifier,
-			final boolean useEMatching, final boolean useUnknownTermDawgs, final boolean propagateNewTerms) {
+			final boolean useEMatching, final boolean useUnknownTermDawgs, final boolean propagateNewTerms,
+			final boolean propagateNewAux) {
 		mClausifier = clausifier;
 		mLogger = clausifier.getLogger();
 		mTheory = th;
@@ -109,6 +111,7 @@ public class QuantifierTheory implements ITheory {
 		mUseEMatching = useEMatching;
 		mUse4InstanceValuesInDawgs = useUnknownTermDawgs;
 		mPropagateNewTerms = propagateNewTerms;
+		mPropagateNewAux = propagateNewAux;
 
 		mCClosure = clausifier.getCClosure();
 		mLinArSolve = clausifier.getLASolver();
