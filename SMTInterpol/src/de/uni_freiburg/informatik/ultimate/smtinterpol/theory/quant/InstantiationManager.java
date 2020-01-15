@@ -283,6 +283,7 @@ public class InstantiationManager {
 		// Only check quant literals for clauses where all or all but one ground literals are false.
 		if (!clauseValue.equals(InstanceValue.TRUE)) {
 			final BiFunction<InstanceValue, InstanceValue, InstanceValue> combinator = (v1, v2) -> v1.combine(v2);
+			final Collection<QuantLiteral> unknownLits = new ArrayList<>(qClause.getQuantLits().length);
 			final Collection<QuantLiteral> arithLits = new ArrayList<>(qClause.getQuantLits().length);
 			// First update and combine the literals that are not arithmetical
 			for (final QuantLiteral qLit : qClause.getQuantLits()) {
@@ -291,10 +292,23 @@ public class InstantiationManager {
 				}
 				if (qLit.isArithmetical()) { // will be treated later
 					arithLits.add(qLit);
-				} else {
+				} else if (mEMatching.isUsingEmatching(qLit)) {
 					Dawg<SharedTerm, InstanceValue> litDawg = getDefaultLiteralDawg(qLit);
 					litDawg = computeEULitDawg(qLit);
 					clauseDawg = clauseDawg.combine(litDawg, combinator);
+				} else {
+					unknownLits.add(qLit);
+				}
+			}
+			if (clauseDawg != trueDawg && !unknownLits.isEmpty()) {
+				// Consider all substitutions where the partial clause Dawg is not already true
+				for (final QuantLiteral lit : unknownLits) {
+					if (clauseDawg == trueDawg) {
+						break;
+					}
+					clauseDawg = clauseDawg.mapWithKey((key, value) ->
+							value == InstanceValue.TRUE ? InstanceValue.TRUE 
+								: value.combine(evaluateLitInstance(lit, key)));
 				}
 			}
 			if (clauseDawg != trueDawg && !arithLits.isEmpty()) {
@@ -400,6 +414,42 @@ public class InstantiationManager {
 			val = val.negate();
 		}
 		return val;
+	}
+
+	private InstanceValue evaluateLitInstance(final QuantLiteral quantLit, final List<SharedTerm> substitution) {
+		QuantClause quantClause = quantLit.getClause();
+		final SharedTermFinder finder = new SharedTermFinder(quantClause.getSource(), quantClause.getVars(),
+				substitution);
+		InstanceValue litValue = InstanceValue.ONE_UNDEF;
+		final boolean isNeg = quantLit.isNegated();
+		final QuantLiteral atom = quantLit.getAtom();
+		if (atom instanceof QuantEquality) {
+			final QuantEquality eq = (QuantEquality) atom;
+			final SharedTerm left = finder.findEquivalentShared(eq.getLhs());
+			final SharedTerm right = finder.findEquivalentShared(eq.getRhs());
+			if (left != null && right != null) {
+				litValue = evaluateCCEquality(left, right);
+			}
+			if (litValue == InstanceValue.ONE_UNDEF && eq.getLhs().getSort().isNumericSort()) {
+				final SMTAffineTerm sum = new SMTAffineTerm(eq.getLhs());
+				sum.add(Rational.MONE, eq.getRhs());
+				final SMTAffineTerm groundAff = finder.findEquivalentAffine(sum);
+				if (groundAff != null) {
+					litValue = evaluateLAEquality(groundAff);
+				}
+			}
+		} else {
+			final QuantBoundConstraint ineq = (QuantBoundConstraint) atom;
+			final SMTAffineTerm lhs = finder.findEquivalentAffine(ineq.getAffineTerm());
+			if (lhs != null) {
+				litValue = evaluateBoundConstraint(lhs);
+			}
+		}
+
+		if (isNeg) {
+			litValue = litValue.negate();
+		}
+		return litValue;
 	}
 
 	/**
@@ -748,38 +798,8 @@ public class InstantiationManager {
 		}
 
 		// Check quantified literals. TODO: Use SubstitutionHelper
-		final SharedTermFinder finder =
-				new SharedTermFinder(quantClause.getSource(), quantClause.getVars(), instantiation);
 		for (QuantLiteral quantLit : quantClause.getQuantLits()) {
-			InstanceValue litValue = InstanceValue.ONE_UNDEF;
-			final boolean isNeg = quantLit.isNegated();
-			final QuantLiteral atom = quantLit.getAtom();
-			if (atom instanceof QuantEquality) {
-				final QuantEquality eq = (QuantEquality) atom;
-				final SharedTerm left = finder.findEquivalentShared(eq.getLhs());
-				final SharedTerm right = finder.findEquivalentShared(eq.getRhs());
-				if (left != null && right != null) {
-					litValue = evaluateCCEquality(left, right);
-				}
-				if (litValue == InstanceValue.ONE_UNDEF && eq.getLhs().getSort().isNumericSort()) {
-					final SMTAffineTerm sum = new SMTAffineTerm(eq.getLhs());
-					sum.add(Rational.MONE, eq.getRhs());
-					final SMTAffineTerm groundAff = finder.findEquivalentAffine(sum);
-					if (groundAff != null) {
-						litValue = evaluateLAEquality(groundAff);
-					}
-				}
-			} else {
-				final QuantBoundConstraint ineq = (QuantBoundConstraint) atom;
-				final SMTAffineTerm lhs = finder.findEquivalentAffine(ineq.getAffineTerm());
-				if (lhs != null) {
-					litValue = evaluateBoundConstraint(lhs);
-				}
-			}
-
-			if (isNeg) {
-				litValue = litValue.negate();
-			}
+			InstanceValue litValue = evaluateLitInstance(quantLit, instantiation);
 			clauseValue = clauseValue.combine(litValue);
 			if (clauseValue == InstanceValue.TRUE) {
 				return InstanceValue.TRUE;

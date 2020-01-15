@@ -20,6 +20,7 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.dawg;
 
 import java.util.AbstractList;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -279,6 +280,44 @@ public class Dawg<LETTER, VALUE> {
 	 */
 	public <V2> Dawg<LETTER, V2> map(final Function<VALUE, V2> map) {
 		return mapInternal(map, new HashMap<>());
+	}
+
+	private <V2> Dawg<LETTER, V2> mapWithKeyInternal(final BiFunction<List<LETTER>, VALUE, V2> map,
+			final ArrayList<LETTER> key) {
+		if (mElseTransition == null) {
+			return createConst(0, map.apply(key, mFinal));
+		} else {
+			key.add(null);
+			Dawg<LETTER, V2> elseCase = mElseTransition.mapWithKeyInternal(map, key);
+			key.remove(key.size() - 1);
+			if (mTransitions.isEmpty()) {
+				return elseCase.createParent();
+			} else {
+				Map<LETTER, Dawg<LETTER, V2>> newTransitions = new LinkedHashMap<>();
+				for (Map.Entry<LETTER, Dawg<LETTER, VALUE>> entry : mTransitions.entrySet()) {
+					LETTER letter = entry.getKey();
+					key.add(letter);
+					Dawg<LETTER, V2> mapped = entry.getValue().mapWithKeyInternal(map, key);
+					key.remove(key.size() - 1);
+					if (mapped != elseCase) {
+						newTransitions.put(letter, mapped);
+					}
+				}
+				return createDawg(newTransitions, elseCase);
+			}
+		}
+	}
+
+	/**
+	 * Create a new dawg that uses the given map to map each key/value pair to a new value. This creates a dawg that
+	 * maps each key to {@code map.apply(key, this.getValue(key))}.
+	 * 
+	 * @param map
+	 *            the map function
+	 * @return the mapped dawg.
+	 */
+	public <V2> Dawg<LETTER, V2> mapWithKey(final BiFunction<List<LETTER>, VALUE, V2> map) {
+		return mapWithKeyInternal(map, new ArrayList<>());
 	}
 
 	public boolean isFinal() {
