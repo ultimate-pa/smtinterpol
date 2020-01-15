@@ -529,7 +529,8 @@ public class InstantiationManager {
 		final Collection<List<SharedTerm>> conflictAndUnitSubs = new ArrayList<>();
 		final Dawg<SharedTerm, InstanceValue> clauseDawg = mClauseDawgs.get(qClause);
 		for (final Dawg.Entry<SharedTerm, InstanceValue> entry : clauseDawg.entrySet()) {
-			if (entry.getValue() != InstanceValue.TRUE) {
+			if (entry.getValue() != InstanceValue.TRUE
+					&& (mQuantTheory.mPropagateNewTerms || entry.getValue() != InstanceValue.UNKNOWN_TERM)) {
 				// Replace the nulls (standing for the "else" case) with the suitable lambda
 				boolean containsLambdas = false;
 				final int nVars = qClause.getVars().length;

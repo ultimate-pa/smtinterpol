@@ -596,9 +596,9 @@ public class SMTInterpol extends NoopScript {
 			// This has to be before set-logic since we need to capture
 			// initialization of CClosure.
 			mEngine.setProofGeneration(proofMode > 0);
-			mClausifier.setEPR(getBooleanOption(SolverOptions.EPR));
-			mClausifier.setQuantifierTheory(getBooleanOption(SolverOptions.E_MATCHING),
-					getBooleanOption(SolverOptions.UNKNOWN_TERM_DAWGS));
+			mClausifier.setQuantifierOptions(getBooleanOption(SolverOptions.EPR),
+					getBooleanOption(SolverOptions.E_MATCHING), getBooleanOption(SolverOptions.UNKNOWN_TERM_DAWGS),
+					getBooleanOption(SolverOptions.PROPAGATE_UNKNOWN_TERMS));
 			mClausifier.setLogic(logic);
 			final boolean produceAssignment = getBooleanOption(":produce-assignments");
 			mClausifier.setAssignmentProduction(produceAssignment);
@@ -1337,7 +1337,7 @@ public class SMTInterpol extends NoopScript {
 	}
 
 	private final boolean getBooleanOption(final String option) {
-		return ((Boolean) mOptions.get(option)).booleanValue();
+		return (Boolean) mOptions.get(option);
 	}
 
 	public boolean isTerminationRequested() {
