@@ -439,10 +439,10 @@ public class EMatching {
 				mQuantTheory.getCClosure().removeReverseTrigger(trigger);
 			}
 			for (final Map.Entry<QuantLiteral, Collection<List<SharedTerm>>> subs : mLitSubs.entrySet()) {
-				final Dawg<SharedTerm, SubstitutionInfo> subsDawg = mAtomSubsDawgs.get(subs.getKey());
+				Dawg<SharedTerm, SubstitutionInfo> subsDawg = mAtomSubsDawgs.get(subs.getKey());
 				for (final List<SharedTerm> termSubs : subs.getValue()) {
 					// This will merge this word with the default case.
-					subsDawg.insert(termSubs, mEmptySubs);
+					subsDawg = subsDawg.insert(termSubs, mEmptySubs);
 				}
 				mAtomSubsDawgs.put(subs.getKey(), subsDawg);
 			}
