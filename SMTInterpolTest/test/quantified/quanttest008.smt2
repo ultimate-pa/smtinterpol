@@ -5,7 +5,7 @@
 (set-info :source |Simple example for quantifiers.|)
 (set-info :smt-lib-version 2.0)
 (set-info :category "crafted")
-(set-info :status unknown)
+(set-info :status unsat)
 (declare-fun a () Int)
 (declare-fun b () Int)
 (declare-fun f (Int) Int)

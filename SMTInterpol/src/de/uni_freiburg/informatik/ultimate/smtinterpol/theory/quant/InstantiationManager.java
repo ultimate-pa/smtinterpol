@@ -169,6 +169,7 @@ public class InstantiationManager {
 			for (List<SharedTerm> subs : allSubstitutions) {
 				if (mClausifier.getEngine().isTerminationRequested())
 					return Collections.emptySet();
+				// TODO Don't evaluate existing instances
 				final InstanceValue clauseValue = evaluateClauseInstance(quantClause, subs);
 				if (clauseValue != InstanceValue.TRUE) {
 					final InstClause inst = computeClauseInstance(quantClause, subs);
@@ -203,21 +204,27 @@ public class InstantiationManager {
 				if (mClausifier.getEngine().isTerminationRequested()) {
 					return null;
 				}
-				final InstClause inst = computeClauseInstance(quantClause, subs);
-				if (inst != null) {
-					boolean isConflict = true;
-					for (Literal lit : inst.mLits) {
-						if (lit.getAtom().getDecideStatus() == lit) { // instance satisfied TODO Avoid creating those
-							continue outer;
+				final boolean hasBeenInstantiatedBefore = mClauseInstances.containsKey(quantClause)
+						&& mClauseInstances.get(quantClause).containsKey(subs);
+
+				// Avoid creating (too many) new instances that are already true.
+				if (hasBeenInstantiatedBefore || evaluateClauseInstance(quantClause, subs) != InstanceValue.TRUE) {
+					final InstClause inst = computeClauseInstance(quantClause, subs);
+					if (inst != null) {
+						boolean isConflict = true;
+						for (Literal lit : inst.mLits) {
+							if (lit.getAtom().getDecideStatus() == lit) { // instance satisfied
+								continue outer;
+							}
+							if (lit.getAtom().getDecideStatus() == null) {
+								isConflict = false;
+							}
 						}
-						if (lit.getAtom().getDecideStatus() == null) {
-							isConflict = false;
+						if (isConflict) {
+							return inst.toClause(mQuantTheory.getEngine().isProofGenerationEnabled());
+						} else { // a new not yet satisfied instance has been created
+							return null;
 						}
-					}
-					if (isConflict) {
-						return inst.toClause(mQuantTheory.getEngine().isProofGenerationEnabled());
-					} else { // a new not yet satisfied instance has been created
-						return null;
 					}
 				}
 			}
@@ -836,6 +843,7 @@ public class InstantiationManager {
 			assert instHelper.getResultingQuantLits().length == 0;
 			resultingLits = instHelper.getResultingGroundLits();
 		}
+
 		final InstClause inst =
 				resultingLits != null ? new InstClause(clause, subs, Arrays.asList(resultingLits), -1) : null; // TODO
 		mClauseInstances.get(clause).put(subs, inst);
@@ -1105,6 +1113,7 @@ public class InstantiationManager {
 				final SMTAffineTerm instAffine = buildEquivalentAffine(mSmtAff);
 				if (instAffine != null) {
 					final Term instTerm = instAffine.toTerm(mTerm.getSort());
+					// Note: This will often not find a CC term.
 					final CCTerm ccTermRep = mQuantTheory.getCClosure().getCCTermRep(instTerm);
 					if (ccTermRep != null) {
 						mSharedTerms.put(mTerm, ccTermRep.getSharedTerm() != null ? ccTermRep.getSharedTerm()
