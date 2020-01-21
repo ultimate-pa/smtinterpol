@@ -87,6 +87,7 @@ public class QuantifierTheory implements ITheory {
 	 * still have one undefined literal (and is a unit clause).
 	 */
 	private final Map<Literal, Set<InstClause>> mPotentialConflictAndUnitClauses;
+	private int mDecideLevelOfLastCheckpoint;
 
 	// Statistics
 	long mNumInstancesProduced;
@@ -123,6 +124,7 @@ public class QuantifierTheory implements ITheory {
 		mQuantClauses = new ScopedArrayList<>();
 
 		mPotentialConflictAndUnitClauses = new LinkedHashMap<>();
+		mDecideLevelOfLastCheckpoint = mEngine.getDecideLevel();
 	}
 
 	@Override
@@ -181,6 +183,16 @@ public class QuantifierTheory implements ITheory {
 		if (Config.PROFILE_TIME) {
 			time = System.nanoTime();
 		}
+		// Don't search for new conflict and unit clauses if there are still potential conflict and unit clauses in the
+		// queue.
+		assert mPotentialConflictAndUnitClauses.isEmpty() || mEngine.getDecideLevel() <= mDecideLevelOfLastCheckpoint;
+		mDecideLevelOfLastCheckpoint = mEngine.getDecideLevel();
+		if (!mPotentialConflictAndUnitClauses.isEmpty()) {
+			// Conflicts in the queue should be detected in setLiteral(...)
+			assert !Config.EXPENSIVE_ASSERTS;
+			return null;
+		}
+
 		final Collection<InstClause> conflictAndUnitInstances;
 		if (mUseEMatching) {
 			mEMatching.run();
@@ -308,7 +320,6 @@ public class QuantifierTheory implements ITheory {
 	public Clause backtrackComplete() {
 		final int decisionLevel = mClausifier.getEngine().getDecideLevel();
 		mEMatching.undo(decisionLevel);
-		mInstantiationManager.resetDawgs();
 		mInstantiationManager.resetInterestingTerms();
 		mPotentialConflictAndUnitClauses.clear();
 		return null;

@@ -233,7 +233,8 @@ public class DPLLEngine {
 			if (conflict != null) {
 				return conflict;
 			}
-			final int level = mDecideStack.size(); // NOPMD
+			final int level = mDecideStack.size();
+			final int numAtoms = mAtoms.size();
 			conflict = propagateClauses();
 			if (conflict != null) {
 				return conflict;
@@ -262,7 +263,7 @@ public class DPLLEngine {
 			if (conflict != null) {
 				return conflict;
 			}
-			if (mDecideStack.size() == level) {
+			if (mDecideStack.size() == level && mAtoms.size() == numAtoms) {
 				return null;
 			}
 		}
