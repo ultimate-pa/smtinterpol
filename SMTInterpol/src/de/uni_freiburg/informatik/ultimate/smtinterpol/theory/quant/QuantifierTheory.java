@@ -188,8 +188,6 @@ public class QuantifierTheory implements ITheory {
 		assert mPotentialConflictAndUnitClauses.isEmpty() || mEngine.getDecideLevel() <= mDecideLevelOfLastCheckpoint;
 		mDecideLevelOfLastCheckpoint = mEngine.getDecideLevel();
 		if (!mPotentialConflictAndUnitClauses.isEmpty()) {
-			// Conflicts in the queue should be detected in setLiteral(...)
-			assert !Config.EXPENSIVE_ASSERTS;
 			return null;
 		}
 
