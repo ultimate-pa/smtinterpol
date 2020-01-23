@@ -57,6 +57,11 @@ public class CClosure implements ITheory {
 	final ArrayList<CCTerm> mAllTerms = new ArrayList<>();
 	final CCTermPairHash mPairHash = new CCTermPairHash();
 	final ArrayQueue<Literal> mPendingLits = new ArrayQueue<>();
+	/**
+	 * The list of CCEquality literals that were created when they were already true and thus may have been added to the
+	 * wrong decision level. We need to recheck them after any backtrack, if they still can be propagated.
+	 */
+	final ArrayQueue<Literal> mRecheckOnBacktrackLits = new ArrayQueue<>();
 	final ScopedHashMap<Object, CCBaseTerm> mSymbolicTerms =
 			new ScopedHashMap<>();
 	int mNumFunctionPositions;
@@ -632,6 +637,7 @@ public class CClosure implements ITheory {
 				mEngine.getLogger().debug("CC-Prop: " + eq + " repStar: " + t1.mRepStar);
 			}
 			mPendingLits.add(eq);
+			mRecheckOnBacktrackLits.add(eq);
 		} else {
 			final CCEquality diseq = mPairHash.getInfo(t1.mRepStar, t2.mRepStar).mDiseq;
 			if (diseq != null) {
@@ -640,6 +646,7 @@ public class CClosure implements ITheory {
 				}
 				eq.mDiseqReason = diseq;
 				mPendingLits.add(eq.negate());
+				mRecheckOnBacktrackLits.add(eq.negate());
 			}
 		}
 		return eq;
@@ -790,24 +797,6 @@ public class CClosure implements ITheory {
 				addPending(eq.negate());
 			}
 		}
-		/* reverse congruence closure
-		for (CCTerm t1 : members) {
-			if (t1 instanceof CCAppTerm) {
-				CCAppTerm app1 = (CCAppTerm) t1;
-				for (CCTerm t2 : members) {
-					if (t2 instanceof CCAppTerm) {
-						CCAppTerm app2 = (CCAppTerm) t2;
-						if (app1.func.rep == app2.func.rep
-							&& !app1.arg.rep.inDiseq(app2.arg.rep.diseq)) {
-							separate(app1.arg.rep, app2.arg.rep, atom);
-						} else if (app1.arg.rep == app2.arg.rep
-								   && !app1.func.rep.inDiseq(app2.func.rep.diseq)) {
-							separate(app1.func.rep, app2.func.rep, atom);
-						}
-					}
-				}
-			}
-		} */
 	}
 
 	private void undoSep(final CCEquality atom) {
@@ -1007,6 +996,35 @@ public class CClosure implements ITheory {
 	@Override
 	public Clause backtrackComplete() {
 		mPendingLits.clear();
+		/* If a literal was propagated when it was created it may not be on the right decision level.  After 
+		 * backtracking we may need to propagate these literals again, if they are still implied by the CC graph.
+		 * Here we go through the list of all such literals and check if we ned to propagate them again.
+		 */
+		for (final Literal l : mRecheckOnBacktrackLits) {
+			final CCEquality eq = (CCEquality) l.getAtom();
+			final CCTerm lhs = eq.getLhs().getRepresentative();
+			final CCTerm rhs = eq.getRhs().getRepresentative();
+			/* check if literal is still implied by the graph */
+			boolean repropagate = false;
+			if (l.getSign() > 0) {
+				repropagate = (lhs == rhs);
+			} else {
+				final CCEquality diseq = mPairHash.getInfo(lhs, rhs).mDiseq;
+				if (diseq != null) {
+					eq.mDiseqReason = diseq;
+					repropagate = true;
+				}
+			}
+			/* repropagate the literal by adding it to the pending literals. */
+			if (repropagate) {
+				mEngine.getLogger().debug("CC-Prop: %s", l);
+				mPendingLits.add(l);
+			}
+		}
+		/* Recheck the propagated literals again on the next backtrack.
+		 */
+		mRecheckOnBacktrackLits.clear();
+		mRecheckOnBacktrackLits.addAll(mPendingLits);
 		return buildCongruence(true);
 	}
 
