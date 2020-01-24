@@ -53,10 +53,9 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.ematching.EM
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.ematching.EMatching.SubstitutionInfo;
 
 /**
- * This class takes care of clause, literal and term instantiation. This comprises pre-evaluation of literals.
- *
- * Literals and clauses are only created if necessary, in particular, false literals as well as clauses that would
- * contain true literals are not created.
+ * This class takes care of clause, literal and term instantiation.
+ * 
+ * Literals are pre-evaluated in order to create less false literals and clauses containing true literals.
  * 
  * TODO Rework methods that do almost the same.
  *
@@ -69,7 +68,6 @@ public class InstantiationManager {
 	private final QuantifierTheory mQuantTheory;
 	private final EMatching mEMatching;
 
-	private final Map<QuantClause, Dawg<SharedTerm, InstanceValue>> mClauseDawgs;
 	private final Map<QuantClause, Map<List<SharedTerm>, InstClause>> mClauseInstances;
 
 	private final InstanceValue mDefaultValueForLitDawgs;
@@ -78,39 +76,26 @@ public class InstantiationManager {
 		mClausifier = clausifier;
 		mQuantTheory = quantTheory;
 		mEMatching = quantTheory.getEMatching();
-		mClauseDawgs = new HashMap<>();
 		mClauseInstances = new HashMap<>();
 		mDefaultValueForLitDawgs =
-				mQuantTheory.mUse4InstanceValuesInDawgs ? InstanceValue.UNKNOWN_TERM : InstanceValue.ONE_UNDEF;
+				mQuantTheory.mUseUnknownTermValueInDawgs ? InstanceValue.UNKNOWN_TERM : InstanceValue.ONE_UNDEF;
 	}
 
 	/**
-	 * Add the clause dawgs for a quant clause, and add the clause to the instance map.
+	 * Add the clause to the instance map.
 	 * 
 	 * @param qClause
 	 *            the quantified clause.
 	 */
 	public void addClause(final QuantClause qClause) {
-		assert !mClauseDawgs.containsKey(qClause);
-		// Initialize clause dawgs to true, meaning we are not interested in them yet.
-		mClauseDawgs.put(qClause, getDefaultClauseDawg(qClause));
 		mClauseInstances.put(qClause, new HashMap<>());
-	}
-
-	/**
-	 * Reset the clause dawgs to their default dawgs. This should be used after backtracking.
-	 */
-	public void resetDawgs() {
-		for (final QuantClause qClause : mClauseDawgs.keySet()) {
-			mClauseDawgs.put(qClause, getDefaultClauseDawg(qClause));
-		}
 	}
 
 	/**
 	 * Reset the interesting terms for a variable.
 	 */
 	public void resetInterestingTerms() {
-		for (final QuantClause qClause : mClauseDawgs.keySet()) {
+		for (final QuantClause qClause : mQuantTheory.getQuantClauses()) {
 			qClause.clearInterestingTerms();
 		}
 	}
@@ -121,7 +106,7 @@ public class InstantiationManager {
 	 * 
 	 * @return the clause instances.
 	 */
-	public Set<InstClause> findConflictAndUnitInstancesWithNewEMatching() {
+	public Set<InstClause> findConflictAndUnitInstancesWithEMatching() {
 		final Set<InstClause> conflictAndUnitClauses = new LinkedHashSet<>();
 
 		// New Quant Clauses may be added when new instances are computed (e.g. axioms for ite terms)
@@ -132,17 +117,16 @@ public class InstantiationManager {
 			if (mQuantTheory.getEngine().isTerminationRequested()) {
 				return Collections.emptySet();
 			}
-			if (updateClauseDawg(qClause)) {
-				final Collection<List<SharedTerm>> conflictOrUnitSubs = getConflictAndUnitSubsFromDawg(qClause);
-				if (conflictOrUnitSubs != null) {
-					for (final List<SharedTerm> subs : conflictOrUnitSubs) {
-						if (mQuantTheory.getEngine().isTerminationRequested()) {
-							return Collections.emptySet();
-						}
-						final InstClause inst = computeClauseInstance(qClause, subs);
-						if (inst != null) {
-							conflictAndUnitClauses.add(inst);
-						}
+			final Dawg<SharedTerm, InstanceValue> dawg = computeClauseDawg(qClause);
+			final Collection<List<SharedTerm>> conflictOrUnitSubs = getConflictAndUnitSubsFromDawg(qClause, dawg);
+			if (conflictOrUnitSubs != null) {
+				for (final List<SharedTerm> subs : conflictOrUnitSubs) {
+					if (mQuantTheory.getEngine().isTerminationRequested()) {
+						return Collections.emptySet();
+					}
+					final InstClause inst = computeClauseInstance(qClause, subs);
+					if (inst != null) {
+						conflictAndUnitClauses.add(inst);
 					}
 				}
 			}
@@ -191,7 +175,7 @@ public class InstantiationManager {
 	 * 
 	 * @return an actual conflict clause, if it exists; null otherwise.
 	 */
-	public Clause instantiateAll() {
+	public Clause instantiateSomeNotSat() {
 		final List<QuantClause> currentQuantClauses = new ArrayList<>();
 		currentQuantClauses.addAll(mQuantTheory.getQuantClauses());
 		for (QuantClause quantClause : currentQuantClauses) {
@@ -233,38 +217,28 @@ public class InstantiationManager {
 	}
 
 	/**
-	 * Get the default dawg for a given clause.
-	 * 
-	 * @param qClause
-	 *            a quantified clause.
-	 * @return a constant true dawg where the depth corresponds to the number of variables in the clause.
-	 */
-	private Dawg<SharedTerm, InstanceValue> getDefaultClauseDawg(final QuantClause qClause) {
-		return Dawg.createConst(qClause.getVars().length, InstanceValue.TRUE);
-	}
-
-	/**
 	 * Get the default dawg for a given literal.
 	 * 
 	 * @param qLit
 	 *            a quantified literal.
-	 * @return a constant undef dawg where the depth corresponds to the number of variables in the clause the literal
-	 *         appears in.
+	 * @return a constant undef or unknown (according to options set) dawg of depth |clausevars|.
 	 */
 	private Dawg<SharedTerm, InstanceValue> getDefaultLiteralDawg(final QuantLiteral qLit) {
 		return Dawg.createConst(qLit.mClause.getVars().length, mDefaultValueForLitDawgs);
 	}
 
 	/**
-	 * Update a clause dawg.
+	 * Compute a clause dawg.
 	 * 
 	 * @param qClause
 	 *            the quantified clause.
-	 * @return true if something changed, false otherwise.
+	 * @return the dawg that contains the evaluations of different potential instances.
 	 */
-	private boolean updateClauseDawg(final QuantClause qClause) {
-		final Dawg<SharedTerm, InstanceValue> trueDawg = getDefaultClauseDawg(qClause);
-		final Dawg<SharedTerm, InstanceValue> oldDawg = mClauseDawgs.get(qClause);
+	private Dawg<SharedTerm, InstanceValue> computeClauseDawg(final QuantClause qClause) {
+		final Dawg<SharedTerm, InstanceValue> constOtherDawg =
+				Dawg.createConst(qClause.getVars().length, InstanceValue.OTHER);
+		;
+		final Dawg<SharedTerm, InstanceValue> constTrueDawg = Dawg.createConst(qClause.getVars().length, InstanceValue.TRUE);
 
 		// Initialize clause value to false for correct combination.
 		InstanceValue clauseValue = InstanceValue.FALSE;
@@ -278,7 +252,7 @@ public class InstantiationManager {
 			} else {
 				clauseValue = clauseValue.combine(InstanceValue.ONE_UNDEF);
 			}
-			if (clauseValue == InstanceValue.TRUE) {
+			if (clauseValue == InstanceValue.TRUE || clauseValue == InstanceValue.OTHER) {
 				break;
 			}
 		}
@@ -288,43 +262,43 @@ public class InstantiationManager {
 		Dawg<SharedTerm, InstanceValue> clauseDawg = Dawg.createConst(length, clauseValue);
 
 		// Only check quant literals for clauses where all or all but one ground literals are false.
-		if (!clauseValue.equals(InstanceValue.TRUE)) {
+		if (clauseValue != InstanceValue.TRUE && clauseValue != InstanceValue.OTHER) {
 			final BiFunction<InstanceValue, InstanceValue, InstanceValue> combinator = (v1, v2) -> v1.combine(v2);
 			final Collection<QuantLiteral> unknownLits = new ArrayList<>(qClause.getQuantLits().length);
 			final Collection<QuantLiteral> arithLits = new ArrayList<>(qClause.getQuantLits().length);
 			// First update and combine the literals that are not arithmetical
 			for (final QuantLiteral qLit : qClause.getQuantLits()) {
-				if (clauseDawg == trueDawg) {
+				if (clauseDawg == constTrueDawg || clauseDawg == constOtherDawg) {
 					break;
 				}
 				if (qLit.isArithmetical()) { // will be treated later
 					arithLits.add(qLit);
 				} else if (mEMatching.isUsingEmatching(qLit)) {
 					Dawg<SharedTerm, InstanceValue> litDawg = getDefaultLiteralDawg(qLit);
-					litDawg = computeEULitDawg(qLit);
+					litDawg = computeEMatchingLitDawg(qLit);
 					clauseDawg = clauseDawg.combine(litDawg, combinator);
 				} else {
 					unknownLits.add(qLit);
 				}
 			}
-			if (clauseDawg != trueDawg && !unknownLits.isEmpty()) {
+			if (clauseDawg != constTrueDawg && clauseDawg != constOtherDawg && !unknownLits.isEmpty()) {
 				// Consider all substitutions where the partial clause Dawg is not already true
 				for (final QuantLiteral lit : unknownLits) {
-					if (clauseDawg == trueDawg) {
+					if (clauseDawg == constTrueDawg || clauseDawg == constOtherDawg) {
 						break;
 					}
 					clauseDawg = clauseDawg.mapWithKey((key, value) ->
-							value == InstanceValue.TRUE ? InstanceValue.TRUE 
+					(value == InstanceValue.TRUE || value == InstanceValue.OTHER) ? value
 								: value.combine(evaluateLitInstance(lit, key)));
 				}
 			}
-			if (clauseDawg != trueDawg && !arithLits.isEmpty()) {
+			if (clauseDawg != constTrueDawg && clauseDawg != constOtherDawg && !arithLits.isEmpty()) {
 				// Compute relevant terms from dawg and from bounds for arithmetical literals, update and combine dawgs.
 				final SharedTerm[][] interestingSubsForArith =
 						computeSubsForArithmetical(qClause, arithLits, clauseDawg);
 				// Consider all substitutions where the partial clause Dawg is not already true
 				for (final QuantLiteral arLit : arithLits) {
-					if (clauseDawg == trueDawg) {
+					if (clauseDawg == constTrueDawg || clauseDawg == constOtherDawg) {
 						break;
 					}
 					final Dawg<SharedTerm, InstanceValue> litDawg = computeArithLitDawg(arLit, interestingSubsForArith);
@@ -332,23 +306,22 @@ public class InstantiationManager {
 				}
 			}
 		}
-		mClauseDawgs.put(qClause, clauseDawg);
-		return oldDawg != clauseDawg;
+		return clauseDawg;
 	}
 
 	/**
-	 * Compute the evaluation dawg for a given EU literal.
-	 * 
-	 * TODO: Rename, it's no longer only for EU literals.
+	 * Compute the evaluation dawg for a given literal handled by E-matching.
 	 * 
 	 * @param qLit
-	 *            an essentially uninterpreted literal.
-	 * @return the evaluation dawg for the literal with depth corresponding to the number of variables in the clause.
+	 *            a quantified literal that is handled by E-matching.
+	 * @return the evaluation dawg for the literal, of depth |clausevars|.
 	 */
-	private Dawg<SharedTerm, InstanceValue> computeEULitDawg(final QuantLiteral qLit) {
+	private Dawg<SharedTerm, InstanceValue> computeEMatchingLitDawg(final QuantLiteral qLit) {
+		assert mEMatching.isUsingEmatching(qLit);
 		final Dawg<SharedTerm, SubstitutionInfo> atomSubsDawg = mEMatching.getSubstitutionInfos(qLit.getAtom());
 		if (atomSubsDawg != null) {
-			final Function<SubstitutionInfo, InstanceValue> evaluationMap = v1 -> evaluateEULitForSubsInfo(qLit, v1);
+			final Function<SubstitutionInfo, InstanceValue> evaluationMap =
+					v1 -> evaluateLitForEMatchingSubsInfo(qLit, v1);
 			return atomSubsDawg.map(evaluationMap);
 		} else {
 			return getDefaultLiteralDawg(qLit);
@@ -359,13 +332,13 @@ public class InstantiationManager {
 	 * Evaluate a literal for a given substitution.
 	 * 
 	 * @param qLit
-	 *            an EU literal.
+	 *            a quantified literal.
 	 * @param info
 	 *            the substitution info, containing variable substitutions and equivalent CCTerms for EU terms in the
 	 *            literal.
 	 * @return the InstanceValue of the literal for the substitution.
 	 */
-	private InstanceValue evaluateEULitForSubsInfo(final QuantLiteral qLit, final SubstitutionInfo info) {
+	private InstanceValue evaluateLitForEMatchingSubsInfo(final QuantLiteral qLit, final SubstitutionInfo info) {
 		final QuantLiteral qAtom = qLit.getAtom();
 		if (info == mEMatching.getEmptySubs()) {
 			if (mQuantTheory.mPropagateNewAux && !mQuantTheory.mPropagateNewTerms && qAtom instanceof QuantEquality) {
@@ -587,11 +560,11 @@ public class InstantiationManager {
 	 *            the quantified clause.
 	 * @return the variable substitutions for the clause that lead to conflict or unit instances.
 	 */
-	private Collection<List<SharedTerm>> getConflictAndUnitSubsFromDawg(final QuantClause qClause) {
+	private Collection<List<SharedTerm>> getConflictAndUnitSubsFromDawg(final QuantClause qClause,
+			final Dawg<SharedTerm, InstanceValue> clauseDawg) {
 		final Collection<List<SharedTerm>> conflictAndUnitSubs = new ArrayList<>();
-		final Dawg<SharedTerm, InstanceValue> clauseDawg = mClauseDawgs.get(qClause);
 		for (final Dawg.Entry<SharedTerm, InstanceValue> entry : clauseDawg.entrySet()) {
-			if (entry.getValue() != InstanceValue.TRUE
+			if (entry.getValue() != InstanceValue.TRUE && entry.getValue() != InstanceValue.OTHER
 					&& (mQuantTheory.mPropagateNewTerms || entry.getValue() != InstanceValue.UNKNOWN_TERM)) {
 				// Replace the nulls (standing for the "else" case) with the suitable lambda
 				boolean containsLambdas = false;
@@ -784,7 +757,7 @@ public class InstantiationManager {
 	 *            the quantified clause which we evaluate an instance for.
 	 * @param instantiation
 	 *            the ground terms to instantiate.
-	 * @return the value of the potential instance.
+	 * @return the InstanceValue of the potential instance.
 	 */
 	private InstanceValue evaluateClauseInstance(final QuantClause quantClause, final List<SharedTerm> instantiation) {
 		InstanceValue clauseValue = InstanceValue.FALSE;
@@ -800,7 +773,7 @@ public class InstantiationManager {
 			}
 		}
 		// Only check clauses where all or all but one ground literals are set to false.
-		if (clauseValue == InstanceValue.TRUE) {
+		if (clauseValue == InstanceValue.TRUE || clauseValue == InstanceValue.OTHER) {
 			return clauseValue;
 		}
 
@@ -808,8 +781,8 @@ public class InstantiationManager {
 		for (QuantLiteral quantLit : quantClause.getQuantLits()) {
 			InstanceValue litValue = evaluateLitInstance(quantLit, instantiation);
 			clauseValue = clauseValue.combine(litValue);
-			if (clauseValue == InstanceValue.TRUE) {
-				return InstanceValue.TRUE;
+			if (clauseValue == InstanceValue.TRUE || clauseValue == InstanceValue.OTHER) {
+				return clauseValue;
 			}
 		}
 		return clauseValue;
@@ -863,7 +836,7 @@ public class InstantiationManager {
 	 * @param right
 	 *            The right side of the equality.
 	 * @return Value True if the two terms are in the same congruence class, False if they are definitely distinct,
-	 *         Undef else.
+	 *         otherwise Undef if both CCTerms exists, Unknown else.
 	 */
 	private InstanceValue evaluateCCEquality(final CCTerm leftCC, final CCTerm rightCC) {
 		if (leftCC != null && rightCC != null) {
@@ -875,7 +848,7 @@ public class InstantiationManager {
 				return InstanceValue.ONE_UNDEF;
 			}
 		}
-		return InstanceValue.UNKNOWN_TERM;
+		return mDefaultValueForLitDawgs;
 	}
 
 	/**
@@ -907,11 +880,11 @@ public class InstantiationManager {
 	 * @param at
 	 *            a MutableAffineTerm representing an LAEquality.
 	 * @return Value True if both the lower and upper bound of at are 0, False if the lower bound is greater or the
-	 *         upper bound is smaller than 0, Undef else.
+	 *         upper bound is smaller than 0, Undef/Unknown else.
 	 */
 	private InstanceValue evaluateLAEquality(final MutableAffineTerm at) {
 		if (at == null) {
-			return InstanceValue.UNKNOWN_TERM;
+			return mDefaultValueForLitDawgs;
 		}
 		final InfinitesimalNumber upperBound = mQuantTheory.mLinArSolve.getUpperBound(at);
 		at.negate();
@@ -949,11 +922,12 @@ public class InstantiationManager {
 	 *
 	 * @param affine
 	 *            The linear term for a constraint "term <= 0".
-	 * @return Value True if the term has an upper bound <= 0, False if -term has a lower bound < 0, or Undef otherwise.
+	 * @return Value True if the term has an upper bound <= 0, False if -term has a lower bound < 0, or Undef/Unknown
+	 *         otherwise.
 	 */
 	private InstanceValue evaluateBoundConstraint(final MutableAffineTerm at) {
 		if (at == null) {
-			return InstanceValue.UNKNOWN_TERM;
+			return mDefaultValueForLitDawgs;
 		}
 		final InfinitesimalNumber upperBound = mQuantTheory.mLinArSolve.getUpperBound(at);
 		if (upperBound.lesseq(InfinitesimalNumber.ZERO)) {
@@ -1124,28 +1098,33 @@ public class InstantiationManager {
 		}
 	}
 
+	/**
+	 * For pre-evaluation of QuantLiteral and QuantClause instances, we define the following values: TRUE if at least
+	 * one literal evaluates to true, FALSE if all literals evaluate to false, ONE_UNDEF if all but one literal evaluate
+	 * to false, and for this one all terms are known but not the value, UNKNOWN similarly but the terms are not known,
+	 * OTHER for all other cases.
+	 *
+	 */
 	private enum InstanceValue {
-		TRUE, FALSE, ONE_UNDEF, UNKNOWN_TERM;
+		TRUE, FALSE, ONE_UNDEF, UNKNOWN_TERM, OTHER;
 
 		private InstanceValue combine(InstanceValue other) {
-			if (this == InstanceValue.TRUE) {
-				return this;
-			} else if (this == InstanceValue.FALSE) {
+			if (this == TRUE || other == TRUE) {
+				return TRUE;
+			} else if (this == FALSE) {
 				return other;
+			} else if (other == FALSE) {
+				return this;
 			} else {
-				if (other == InstanceValue.FALSE) {
-					return this;
-				} else { // Note: UNDEF + UNDEF = TRUE (not interesting)
-					return InstanceValue.TRUE;
-				}
+				return OTHER;
 			}
 		}
 
 		private InstanceValue negate() {
 			if (this == TRUE) {
-				return InstanceValue.FALSE;
+				return FALSE;
 			} else if (this == FALSE) {
-				return InstanceValue.TRUE;
+				return TRUE;
 			} else {
 				return this;
 			}

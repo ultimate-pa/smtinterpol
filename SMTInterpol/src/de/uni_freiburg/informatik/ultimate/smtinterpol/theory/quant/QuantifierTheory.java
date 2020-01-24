@@ -95,9 +95,9 @@ public class QuantifierTheory implements ITheory {
 	long mCheckpointTime, mFindEmatchingTime, mFinalCheckTime, mEMatchingTime;
 	long mDawgTime;
 
-	// TODO: For testing only
+	// Options
 	boolean mUseEMatching;
-	boolean mUse4InstanceValuesInDawgs;
+	boolean mUseUnknownTermValueInDawgs;
 	boolean mPropagateNewAux;
 	boolean mPropagateNewTerms;
 
@@ -110,7 +110,7 @@ public class QuantifierTheory implements ITheory {
 		mEngine = engine;
 
 		mUseEMatching = useEMatching;
-		mUse4InstanceValuesInDawgs = useUnknownTermDawgs;
+		mUseUnknownTermValueInDawgs = useUnknownTermDawgs;
 		mPropagateNewTerms = propagateNewTerms;
 		mPropagateNewAux = propagateNewAux;
 
@@ -194,7 +194,7 @@ public class QuantifierTheory implements ITheory {
 		final Collection<InstClause> conflictAndUnitInstances;
 		if (mUseEMatching) {
 			mEMatching.run();
-			conflictAndUnitInstances = mInstantiationManager.findConflictAndUnitInstancesWithNewEMatching();
+			conflictAndUnitInstances = mInstantiationManager.findConflictAndUnitInstancesWithEMatching();
 			if (Config.PROFILE_TIME) {
 				mFindEmatchingTime += System.nanoTime() - time;
 			}
@@ -226,20 +226,14 @@ public class QuantifierTheory implements ITheory {
 			time = System.nanoTime();
 		}
 		mFinalCount++;
-		Clause conflict = checkpoint();
-		if (conflict != null) {
-			return conflict;
-		}
-		if (mUseEMatching) {
-			for (final QuantClause clause : mQuantClauses) {
-				if (mEngine.isTerminationRequested()) {
-					return null;
-				}
-				clause.updateInterestingTermsAllVars();
-			}
-		}
 		assert mPotentialConflictAndUnitClauses.isEmpty();
-		conflict = mInstantiationManager.instantiateAll();
+		for (final QuantClause clause : mQuantClauses) {
+			if (mEngine.isTerminationRequested()) {
+				return null;
+			}
+			clause.updateInterestingTermsAllVars();
+		}
+		final Clause conflict = mInstantiationManager.instantiateSomeNotSat();
 		if (conflict != null) {
 			mConflictCount++;
 			mEngine.learnClause(conflict);
