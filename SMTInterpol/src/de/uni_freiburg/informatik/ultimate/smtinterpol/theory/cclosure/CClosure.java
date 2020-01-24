@@ -61,7 +61,7 @@ public class CClosure implements ITheory {
 	 * The list of CCEquality literals that were created when they were already true and thus may have been added to the
 	 * wrong decision level. We need to recheck them after any backtrack, if they still can be propagated.
 	 */
-	final ArrayQueue<Literal> mRecheckOnBacktrackLits = new ArrayQueue<>();
+	ArrayQueue<Literal> mRecheckOnBacktrackLits = new ArrayQueue<>();
 	final ScopedHashMap<Object, CCBaseTerm> mSymbolicTerms =
 			new ScopedHashMap<>();
 	int mNumFunctionPositions;
@@ -1000,8 +1000,14 @@ public class CClosure implements ITheory {
 		 * backtracking we may need to propagate these literals again, if they are still implied by the CC graph.
 		 * Here we go through the list of all such literals and check if we ned to propagate them again.
 		 */
+		ArrayQueue<Literal> newRecheckOnBacktrackLits = new ArrayQueue<>();
 		for (final Literal l : mRecheckOnBacktrackLits) {
 			final CCEquality eq = (CCEquality) l.getAtom();
+			if (eq.getDecideStatus() != null) {
+				/* we did not yet backtrack the literal; keep it for later */
+				newRecheckOnBacktrackLits.add(l);
+				continue;
+			}
 			final CCTerm lhs = eq.getLhs().getRepresentative();
 			final CCTerm rhs = eq.getRhs().getRepresentative();
 			/* check if literal is still implied by the graph */
@@ -1019,12 +1025,12 @@ public class CClosure implements ITheory {
 			if (repropagate) {
 				mEngine.getLogger().debug("CC-Prop: %s", l);
 				mPendingLits.add(l);
+				newRecheckOnBacktrackLits.add(l);
 			}
 		}
 		/* Recheck the propagated literals again on the next backtrack.
 		 */
-		mRecheckOnBacktrackLits.clear();
-		mRecheckOnBacktrackLits.addAll(mPendingLits);
+		mRecheckOnBacktrackLits = newRecheckOnBacktrackLits;
 		return buildCongruence(true);
 	}
 
