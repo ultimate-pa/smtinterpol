@@ -50,12 +50,48 @@ class InstClause {
 		mNumUndefLits = numUndefLits;
 	}
 
+	@Override
+	public int hashCode() {
+		return mLits.hashCode();
+	}
+
+	@Override
+	public boolean equals(final Object other) {
+		if (other instanceof InstClause) {
+			return mLits.equals(((InstClause) other).mLits);
+		}
+		return false;
+	}
+
+	@Override
+	public String toString() {
+		return mLits.toString();
+	}
+
 	boolean isConflict() {
 		return mNumUndefLits == 0;
 	}
 
 	boolean isUnit() {
 		return mNumUndefLits == 1;
+	}
+
+	boolean isConflictDoubleChecked() {
+		for (final Literal lit : mLits) {
+			if (lit.getAtom().getDecideStatus() == null || lit.getAtom().getDecideStatus() == lit) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	boolean hasTrueLits() {
+		for (final Literal lit : mLits) {
+			if (lit.getAtom().getDecideStatus() == lit) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -76,23 +112,5 @@ class InstClause {
 					new QuantAnnotation(mQuantClause, subsAsTerm)));
 		}
 		return clause;
-	}
-
-	@Override
-	public int hashCode() {
-		return mLits.hashCode();
-	}
-
-	@Override
-	public boolean equals(final Object other) {
-		if (other instanceof InstClause) {
-			return mLits.equals(((InstClause) other).mLits);
-		}
-		return false;
-	}
-
-	@Override
-	public String toString() {
-		return mLits.toString();
 	}
 }

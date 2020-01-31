@@ -45,6 +45,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.InfinitesimalNumber;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinVar;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.MutableAffineTerm;
@@ -176,6 +177,10 @@ public class InstantiationManager {
 	 * @return an actual conflict clause, if it exists; null otherwise.
 	 */
 	public Clause instantiateSomeNotSat() {
+		final List<Pair<QuantClause, List<SharedTerm>>> otherValueInstancesOnKnownTerms = new ArrayList<>();
+		final List<Pair<QuantClause, List<SharedTerm>>> unitValueInstancesNewTerms = new ArrayList<>();
+		final List<Pair<QuantClause, List<SharedTerm>>> otherValueInstancesNewTerms = new ArrayList<>();
+
 		final List<QuantClause> currentQuantClauses = new ArrayList<>();
 		currentQuantClauses.addAll(mQuantTheory.getQuantClauses());
 		for (QuantClause quantClause : currentQuantClauses) {
@@ -183,34 +188,67 @@ public class InstantiationManager {
 				continue;
 			}
 			final Set<List<SharedTerm>> allSubstitutions = computeAllSubstitutions(quantClause);
-
-			outer: for (List<SharedTerm> subs : allSubstitutions) {
+			for (List<SharedTerm> subs : allSubstitutions) {
 				if (mClausifier.getEngine().isTerminationRequested()) {
 					return null;
 				}
-				final boolean hasBeenInstantiatedBefore = mClauseInstances.containsKey(quantClause)
-						&& mClauseInstances.get(quantClause).containsKey(subs);
-
-				// Avoid creating (too many) new instances that are already true.
-				if (hasBeenInstantiatedBefore || evaluateClauseInstance(quantClause, subs) != InstanceValue.TRUE) {
-					final InstClause inst = computeClauseInstance(quantClause, subs);
-					if (inst != null) {
-						boolean isConflict = true;
-						for (Literal lit : inst.mLits) {
-							if (lit.getAtom().getDecideStatus() == lit) { // instance satisfied
-								continue outer;
-							}
-							if (lit.getAtom().getDecideStatus() == null) {
-								isConflict = false;
-							}
-						}
-						if (isConflict) {
-							return inst.toClause(mQuantTheory.getEngine().isProofGenerationEnabled());
-						} else { // a new not yet satisfied instance has been created
-							return null;
+				// First check already produced instances for conflicts
+				if (mClauseInstances.containsKey(quantClause) && mClauseInstances.get(quantClause).containsKey(subs)) {
+					final InstClause inst = mClauseInstances.get(quantClause).get(subs);
+					if (inst.isConflictDoubleChecked()) {
+						return inst.toClause(mQuantTheory.getEngine().isProofGenerationEnabled());
+					} else {
+						assert inst.hasTrueLits();
+						continue;
+					}
+				}
+				// Now check new instances
+				final Pair<InstanceValue, Boolean> candVal = evaluateNewClauseInstanceFinalCheck(quantClause, subs);
+				if (candVal.getFirst() == InstanceValue.TRUE) {
+					continue;
+				} else if (candVal.getFirst() == InstanceValue.FALSE) { // Conflicts should always be built
+					assert candVal.getSecond().booleanValue();
+					final InstClause conflict = computeClauseInstance(quantClause, subs);
+					if (conflict.isConflictDoubleChecked()) {
+						return conflict.toClause(mQuantTheory.getEngine().isProofGenerationEnabled());
+					} else if (!conflict.hasTrueLits()) {
+						return null;
+					}
+				} else if (candVal.getFirst() == InstanceValue.ONE_UNDEF) { // Always build unit clauses on known terms
+					assert candVal.getSecond().booleanValue();
+					final InstClause unitClause = computeClauseInstance(quantClause, subs);
+					assert !unitClause.isConflictDoubleChecked();
+					if (!unitClause.hasTrueLits()) {
+						return null;
+					}
+				} else {
+					final Pair<QuantClause, List<SharedTerm>> clauseSubsPair = new Pair<>(quantClause, subs);
+					if (candVal.getFirst() == InstanceValue.UNKNOWN_TERM) {
+						assert !candVal.getSecond().booleanValue();
+						unitValueInstancesNewTerms.add(clauseSubsPair);
+					} else {
+						assert candVal.getFirst() == InstanceValue.OTHER;
+						if (candVal.getSecond().booleanValue()) {
+							otherValueInstancesOnKnownTerms.add(clauseSubsPair);
+						} else {
+							otherValueInstancesNewTerms.add(clauseSubsPair);
 						}
 					}
 				}
+			}
+		}
+		// If we haven't found a conflict instance or a unit instance on known terms, first check other non-sat
+		// instances on known terms, then unit instances producing new terms, then other non-sat instances on new terms
+		final List<Pair<QuantClause, List<SharedTerm>>> sortedInstances = new ArrayList<>();
+		sortedInstances.addAll(otherValueInstancesOnKnownTerms);
+		sortedInstances.addAll(unitValueInstancesNewTerms);
+		sortedInstances.addAll(otherValueInstancesNewTerms);
+		for (final Pair<QuantClause, List<SharedTerm>> cand : sortedInstances) {
+			final InstClause inst = computeClauseInstance(cand.getFirst(), cand.getSecond());
+			if (inst.isConflictDoubleChecked()) {
+				return inst.toClause(mQuantTheory.getEngine().isProofGenerationEnabled());
+			} else if (!inst.hasTrueLits()) {
+				return null;
 			}
 		}
 		return null;
@@ -400,7 +438,7 @@ public class InstantiationManager {
 		QuantClause quantClause = quantLit.getClause();
 		final SharedTermFinder finder = new SharedTermFinder(quantClause.getSource(), quantClause.getVars(),
 				substitution);
-		InstanceValue litValue = InstanceValue.ONE_UNDEF;
+		InstanceValue litValue = mDefaultValueForLitDawgs;
 		final boolean isNeg = quantLit.isNegated();
 		final QuantLiteral atom = quantLit.getAtom();
 		if (atom instanceof QuantEquality) {
@@ -410,7 +448,7 @@ public class InstantiationManager {
 			if (left != null && right != null) {
 				litValue = evaluateCCEquality(left, right);
 			}
-			if (litValue == InstanceValue.ONE_UNDEF && eq.getLhs().getSort().isNumericSort()) {
+			if ((litValue == InstanceValue.ONE_UNDEF || litValue == InstanceValue.UNKNOWN_TERM) && eq.getLhs().getSort().isNumericSort()) {
 				final SMTAffineTerm sum = new SMTAffineTerm(eq.getLhs());
 				sum.add(Rational.MONE, eq.getRhs());
 				final SMTAffineTerm groundAff = finder.findEquivalentAffine(sum);
@@ -786,6 +824,35 @@ public class InstantiationManager {
 			}
 		}
 		return clauseValue;
+	}
+
+	private Pair<InstanceValue, Boolean> evaluateNewClauseInstanceFinalCheck(final QuantClause quantClause,
+			final List<SharedTerm> instantiation) {
+		assert !mClauseInstances.containsKey(quantClause)
+				|| !mClauseInstances.get(quantClause).containsKey(instantiation);
+		InstanceValue clauseValue = InstanceValue.FALSE;
+
+		// Check for true ground literals first.
+		for (Literal groundLit : quantClause.getGroundLits()) {
+			assert groundLit.getAtom().getDecideStatus() != null;
+			if (groundLit.getAtom().getDecideStatus() == groundLit) {
+				return new Pair<>(InstanceValue.TRUE, null);
+			}
+		}
+
+		// Check quantified literals. TODO: Use SubstitutionHelper
+		boolean hasOnlyKnownTerms = true;
+		for (QuantLiteral quantLit : quantClause.getQuantLits()) {
+			InstanceValue litValue = evaluateLitInstance(quantLit, instantiation); // TODO evaluateLitInstanceFinalCheck
+			if (litValue == InstanceValue.UNKNOWN_TERM) {
+				hasOnlyKnownTerms = false;
+			}
+			clauseValue = clauseValue.combine(litValue);
+			if (clauseValue == InstanceValue.TRUE) {
+				return new Pair<>(clauseValue, null);
+			}
+		}
+		return new Pair<>(clauseValue, hasOnlyKnownTerms);
 	}
 
 	/**
