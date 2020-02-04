@@ -803,12 +803,8 @@ public class CClosure implements ITheory {
 		atom.mDiseqReason = null;
 		CCTermPairHash.Info destInfo = mPairHash.getInfo(
 				atom.getLhs().mRepStar, atom.getRhs().mRepStar);
-		if (destInfo != null && destInfo.mDiseq != null) {
-			destInfo = mPairHash.getInfo(
-					atom.getLhs().mRepStar, atom.getRhs().mRepStar);
-			if (destInfo.mDiseq == atom) {
-				destInfo.mDiseq = null;
-			}
+		if (destInfo != null && destInfo.mDiseq == atom) {
+			destInfo.mDiseq = null;
 		}
 	}
 
@@ -1086,6 +1082,8 @@ public class CClosure implements ITheory {
 			}
 			if (res != null) {
 				mEngine.getLogger().debug("buildCongruence: conflict %s", res);
+				// recheck congruence after backtracking
+				prependPendingCongruence(lhs, rhs);
 				return res;
 			}
 		}
