@@ -183,6 +183,26 @@ public class InstantiationManager {
 
 		final List<QuantClause> currentQuantClauses = new ArrayList<>();
 		currentQuantClauses.addAll(mQuantTheory.getQuantClauses());
+
+		// First check if an existing instance leads to a conflict. TODO: checkpoint() should have detected it!
+		for (final QuantClause qClause : currentQuantClauses) {
+			assert mClauseInstances.containsKey(qClause);
+			for (final Entry<List<SharedTerm>, InstClause> existingInst : mClauseInstances.get(qClause).entrySet()) {
+				final InstClause instClause = existingInst.getValue();
+				if (instClause != null) {
+					final int numUndef = instClause.countAndSetUndefLits();
+					assert numUndef == -1 || numUndef == 0;
+					if (numUndef == 0) {
+						mQuantTheory.getLogger().warn(
+								"Conflict on existing clause instance hasn't been detected in checkpoint(): ",
+								instClause);
+						return instClause.toClause(mQuantTheory.getEngine().isProofGenerationEnabled());
+					}
+				}
+			}
+		}
+
+		// If no existing instance lead to a conflict, check new instances.
 		for (QuantClause quantClause : currentQuantClauses) {
 			if (quantClause.hasTrueGroundLits()) {
 				continue;
@@ -192,33 +212,21 @@ public class InstantiationManager {
 				if (mClausifier.getEngine().isTerminationRequested()) {
 					return null;
 				}
-				// First check already produced instances for conflicts
 				if (mClauseInstances.containsKey(quantClause) && mClauseInstances.get(quantClause).containsKey(subs)) {
-					final InstClause inst = mClauseInstances.get(quantClause).get(subs);
-					if (inst.isConflictDoubleChecked()) {
-						return inst.toClause(mQuantTheory.getEngine().isProofGenerationEnabled());
-					} else {
-						assert inst.hasTrueLits();
-						continue;
-					}
+					continue; // Checked in the first loop over the quant clauses.
 				}
-				// Now check new instances
 				final Pair<InstanceValue, Boolean> candVal = evaluateNewClauseInstanceFinalCheck(quantClause, subs);
 				if (candVal.getFirst() == InstanceValue.TRUE) {
 					continue;
-				} else if (candVal.getFirst() == InstanceValue.FALSE) { // Conflicts should always be built
-					assert candVal.getSecond().booleanValue();
-					final InstClause conflict = computeClauseInstance(quantClause, subs);
-					if (conflict.isConflictDoubleChecked()) {
-						return conflict.toClause(mQuantTheory.getEngine().isProofGenerationEnabled());
-					} else if (!conflict.hasTrueLits()) {
-						return null;
-					}
-				} else if (candVal.getFirst() == InstanceValue.ONE_UNDEF) { // Always build unit clauses on known terms
+				} else if (candVal.getFirst() == InstanceValue.FALSE || candVal.getFirst() == InstanceValue.ONE_UNDEF) {
+					// Always build conflict or unit clauses on known terms
 					assert candVal.getSecond().booleanValue();
 					final InstClause unitClause = computeClauseInstance(quantClause, subs);
-					assert !unitClause.isConflictDoubleChecked();
-					if (!unitClause.hasTrueLits()) {
+					assert unitClause != null;
+					final int numUndef = unitClause.countAndSetUndefLits();
+					if (numUndef == 0) { // TODO Can this happen in final check?
+						return unitClause.toClause(mQuantTheory.getEngine().isProofGenerationEnabled());
+					} else if (numUndef > 0) {
 						return null;
 					}
 				} else {
@@ -245,10 +253,13 @@ public class InstantiationManager {
 		sortedInstances.addAll(otherValueInstancesNewTerms);
 		for (final Pair<QuantClause, List<SharedTerm>> cand : sortedInstances) {
 			final InstClause inst = computeClauseInstance(cand.getFirst(), cand.getSecond());
-			if (inst.isConflictDoubleChecked()) {
-				return inst.toClause(mQuantTheory.getEngine().isProofGenerationEnabled());
-			} else if (!inst.hasTrueLits()) {
-				return null;
+			if (inst != null) {
+				final int numUndef = inst.countAndSetUndefLits();
+				if (numUndef == 0) {
+					return inst.toClause(mQuantTheory.getEngine().isProofGenerationEnabled());
+				} else if (numUndef > 0) {
+					return null;
+				}
 			}
 		}
 		return null;
@@ -885,7 +896,7 @@ public class InstantiationManager {
 		}
 
 		final InstClause inst =
-				resultingLits != null ? new InstClause(clause, subs, Arrays.asList(resultingLits), -1) : null; // TODO
+				resultingLits != null ? new InstClause(clause, subs, Arrays.asList(resultingLits), -1) : null;
 		mClauseInstances.get(clause).put(subs, inst);
 		if (resultingLits != null) {
 			mQuantTheory.getLogger().debug("Quant: instantiating quant clause %s results in %s", clause,

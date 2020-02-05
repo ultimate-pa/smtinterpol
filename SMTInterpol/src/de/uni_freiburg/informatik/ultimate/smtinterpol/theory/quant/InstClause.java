@@ -76,22 +76,21 @@ class InstClause {
 		return mNumUndefLits == 1;
 	}
 
-	boolean isConflictDoubleChecked() {
-		for (final Literal lit : mLits) {
-			if (lit.getAtom().getDecideStatus() == null || lit.getAtom().getDecideStatus() == lit) {
-				return false;
-			}
-		}
-		return true;
-	}
-
-	boolean hasTrueLits() {
+	/**
+	 * Count the number of undef literals. If a true literal is contained, return -1.
+	 */
+	int countAndSetUndefLits() {
+		int numUndef = 0;
 		for (final Literal lit : mLits) {
 			if (lit.getAtom().getDecideStatus() == lit) {
-				return true;
+				return -1;
+			}
+			if (lit.getAtom().getDecideStatus() == null) {
+				numUndef++;
 			}
 		}
-		return false;
+		mNumUndefLits = numUndef;
+		return numUndef;
 	}
 
 	/**

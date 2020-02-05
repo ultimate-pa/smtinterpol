@@ -141,7 +141,7 @@ public class QuantifierTheory implements ITheory {
 
 	@Override
 	public Clause setLiteral(final Literal literal) {
-
+		// Remove clauses that have become true from potential conflict and unit clauses.
 		if (mPotentialConflictAndUnitClauses.containsKey(literal)) {
 			for (final InstClause instClause : mPotentialConflictAndUnitClauses.remove(literal)) {
 				assert instClause.mLits.contains(literal);
@@ -158,11 +158,14 @@ public class QuantifierTheory implements ITheory {
 				}
 			}
 		}
+		// Remove former undef negated lit (now false) from map and decrease number of undef lits in clauses containing
+		// the negated lit.
 		if (mPotentialConflictAndUnitClauses.containsKey(literal.negate())) {
 			for (final InstClause instClause : mPotentialConflictAndUnitClauses.remove(literal.negate())) {
 				assert instClause.mNumUndefLits > 0;
 				instClause.mNumUndefLits -= 1;
 				if (instClause.isConflict()) {
+					assert !Config.EXPENSIVE_ASSERTS || instClause.countAndSetUndefLits() == 0;
 					mLogger.debug("Quant conflict: %s", instClause);
 					mConflictCount++;
 					return instClause.toClause(mEngine.isProofGenerationEnabled());
@@ -253,6 +256,7 @@ public class QuantifierTheory implements ITheory {
 			final Literal lit = entry.getKey();
 			for (final InstClause inst : entry.getValue()) {
 				if (inst.isUnit()) {
+					assert !Config.EXPENSIVE_ASSERTS || inst.countAndSetUndefLits() == 1;
 					final Clause expl = inst.toClause(mEngine.isProofGenerationEnabled());
 					lit.getAtom().mExplanation = expl;
 					mEngine.learnClause(expl);
@@ -729,38 +733,20 @@ public class QuantifierTheory implements ITheory {
 			if (mEngine.isTerminationRequested()) {
 				return null;
 			}
-			boolean isConflict = true;
-			boolean isTrueInst = false;
-			int numUndef = 0;
-			// Count the number of undefined literals
-			for (final Literal lit : inst.mLits) {
-				if (lit.getAtom().getDecideStatus() == lit) {
-					isTrueInst = true;
-					continue;
-				}
-				if (lit.getAtom().getDecideStatus() == null) {
-					numUndef++;
-				}
+			final int numUndefLits = inst.countAndSetUndefLits();
+			if (numUndefLits == -1) { // Instance is true.
+				continue;
 			}
-			if (isTrueInst) {
-				continue; // Don't add true instances.
-				// TODO They should be detected during literal evaluation, but it doesn't work as expected, see below.
+			if (numUndefLits == 0) {
+				return inst.toClause(mEngine.isProofGenerationEnabled());
 			}
-			inst.mNumUndefLits = numUndef;
 			for (final Literal lit : inst.mLits) {
-				// assert lit.getAtom().getDecideStatus() != lit;
-				// TODO It happens that the assertion is violated. Not sure whether evaluation of literals (as terms)
-				// works correctly, even with CC.
 				if (lit.getAtom().getDecideStatus() == null) {
-					isConflict = false;
 					if (!mPotentialConflictAndUnitClauses.containsKey(lit)) {
 						mPotentialConflictAndUnitClauses.put(lit, new LinkedHashSet<>());
 					}
 					mPotentialConflictAndUnitClauses.get(lit).add(inst);
 				}
-			}
-			if (isConflict) {
-				return inst.toClause(mEngine.isProofGenerationEnabled());
 			}
 		}
 		return null;
