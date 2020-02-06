@@ -188,7 +188,10 @@ public class QuantifierTheory implements ITheory {
 		}
 		// Don't search for new conflict and unit clauses if there are still potential conflict and unit clauses in the
 		// queue.
-		assert mPotentialConflictAndUnitClauses.isEmpty() || mEngine.getDecideLevel() <= mDecideLevelOfLastCheckpoint;
+		if (mLinArSolve == null) {
+			assert mPotentialConflictAndUnitClauses.isEmpty()
+					|| mEngine.getDecideLevel() <= mDecideLevelOfLastCheckpoint;
+		}
 		mDecideLevelOfLastCheckpoint = mEngine.getDecideLevel();
 		if (!mPotentialConflictAndUnitClauses.isEmpty()) {
 			return null;
