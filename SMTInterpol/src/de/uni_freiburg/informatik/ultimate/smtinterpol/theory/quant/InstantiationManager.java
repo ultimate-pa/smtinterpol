@@ -72,6 +72,7 @@ public class InstantiationManager {
 	private final Map<QuantClause, Map<List<SharedTerm>, InstClause>> mClauseInstances;
 
 	private final InstanceValue mDefaultValueForLitDawgs;
+	private final InstanceValue[] mRelevantValuesForCheckpoint;
 
 	public InstantiationManager(Clausifier clausifier, QuantifierTheory quantTheory) {
 		mClausifier = clausifier;
@@ -80,6 +81,9 @@ public class InstantiationManager {
 		mClauseInstances = new HashMap<>();
 		mDefaultValueForLitDawgs =
 				mQuantTheory.mUseUnknownTermValueInDawgs ? InstanceValue.UNKNOWN_TERM : InstanceValue.ONE_UNDEF;
+		mRelevantValuesForCheckpoint = mQuantTheory.mPropagateNewTerms
+				? new InstanceValue[] { InstanceValue.FALSE, InstanceValue.ONE_UNDEF, InstanceValue.UNKNOWN_TERM }
+				: new InstanceValue[] { InstanceValue.FALSE, InstanceValue.ONE_UNDEF };
 	}
 
 	/**
@@ -156,7 +160,7 @@ public class InstantiationManager {
 					return Collections.emptySet();
 				// TODO Don't evaluate existing instances
 				final InstanceValue clauseValue = evaluateClauseInstance(quantClause, subs);
-				if (clauseValue != InstanceValue.TRUE) {
+				if (clauseValue != InstanceValue.IRRELEVANT) {
 					final InstClause inst = computeClauseInstance(quantClause, subs);
 					if (inst != null) {
 						conflictAndUnitClauses.add(inst);
@@ -284,10 +288,8 @@ public class InstantiationManager {
 	 * @return the dawg that contains the evaluations of different potential instances.
 	 */
 	private Dawg<SharedTerm, InstanceValue> computeClauseDawg(final QuantClause qClause) {
-		final Dawg<SharedTerm, InstanceValue> constOtherDawg =
-				Dawg.createConst(qClause.getVars().length, InstanceValue.OTHER);
-		;
-		final Dawg<SharedTerm, InstanceValue> constTrueDawg = Dawg.createConst(qClause.getVars().length, InstanceValue.TRUE);
+		final Dawg<SharedTerm, InstanceValue> constIrrelDawg =
+				Dawg.createConst(qClause.getVars().length, InstanceValue.IRRELEVANT);
 
 		// Initialize clause value to false for correct combination.
 		InstanceValue clauseValue = InstanceValue.FALSE;
@@ -295,13 +297,13 @@ public class InstantiationManager {
 		// Check ground literals first
 		for (Literal groundLit : qClause.getGroundLits()) {
 			if (groundLit.getAtom().getDecideStatus() == groundLit) {
-				clauseValue = clauseValue.combine(InstanceValue.TRUE);
+				clauseValue = combineForCheckpoint(clauseValue, InstanceValue.TRUE);
 			} else if (groundLit.getAtom().getDecideStatus() == groundLit.negate()) {
-				clauseValue = clauseValue.combine(InstanceValue.FALSE);
+				clauseValue = combineForCheckpoint(clauseValue, InstanceValue.FALSE);
 			} else {
-				clauseValue = clauseValue.combine(InstanceValue.ONE_UNDEF);
+				clauseValue = combineForCheckpoint(clauseValue, InstanceValue.ONE_UNDEF);
 			}
-			if (clauseValue == InstanceValue.TRUE || clauseValue == InstanceValue.OTHER) {
+			if (clauseValue == InstanceValue.IRRELEVANT) {
 				break;
 			}
 		}
@@ -311,13 +313,14 @@ public class InstantiationManager {
 		Dawg<SharedTerm, InstanceValue> clauseDawg = Dawg.createConst(length, clauseValue);
 
 		// Only check quant literals for clauses where all or all but one ground literals are false.
-		if (clauseValue != InstanceValue.TRUE && clauseValue != InstanceValue.OTHER) {
-			final BiFunction<InstanceValue, InstanceValue, InstanceValue> combinator = (v1, v2) -> v1.combine(v2);
+		if (clauseValue != InstanceValue.IRRELEVANT) {
+			final BiFunction<InstanceValue, InstanceValue, InstanceValue> combinator =
+					(v1, v2) -> combineForCheckpoint(v1, v2);
 			final Collection<QuantLiteral> unknownLits = new ArrayList<>(qClause.getQuantLits().length);
 			final Collection<QuantLiteral> arithLits = new ArrayList<>(qClause.getQuantLits().length);
 			// First update and combine the literals that are not arithmetical
 			for (final QuantLiteral qLit : qClause.getQuantLits()) {
-				if (clauseDawg == constTrueDawg || clauseDawg == constOtherDawg) {
+				if (clauseDawg == constIrrelDawg) {
 					break;
 				}
 				if (qLit.isArithmetical()) { // will be treated later
@@ -330,24 +333,23 @@ public class InstantiationManager {
 					unknownLits.add(qLit);
 				}
 			}
-			if (clauseDawg != constTrueDawg && clauseDawg != constOtherDawg && !unknownLits.isEmpty()) {
+			if (clauseDawg != constIrrelDawg && !unknownLits.isEmpty()) {
 				// Consider all substitutions where the partial clause Dawg is not already true
 				for (final QuantLiteral lit : unknownLits) {
-					if (clauseDawg == constTrueDawg || clauseDawg == constOtherDawg) {
+					if (clauseDawg == constIrrelDawg) {
 						break;
 					}
-					clauseDawg = clauseDawg.mapWithKey((key, value) ->
-					(value == InstanceValue.TRUE || value == InstanceValue.OTHER) ? value
-								: value.combine(evaluateLitInstance(lit, key)));
+					clauseDawg = clauseDawg.mapWithKey((key, value) -> (value == InstanceValue.IRRELEVANT ? value
+							: combineForCheckpoint(value, evaluateLitInstance(lit, key))));
 				}
 			}
-			if (clauseDawg != constTrueDawg && clauseDawg != constOtherDawg && !arithLits.isEmpty()) {
+			if (clauseDawg != constIrrelDawg && !arithLits.isEmpty()) {
 				// Compute relevant terms from dawg and from bounds for arithmetical literals, update and combine dawgs.
 				final SharedTerm[][] interestingSubsForArith =
 						computeSubsForArithmetical(qClause, arithLits, clauseDawg);
 				// Consider all substitutions where the partial clause Dawg is not already true
 				for (final QuantLiteral arLit : arithLits) {
-					if (clauseDawg == constTrueDawg || clauseDawg == constOtherDawg) {
+					if (clauseDawg == constIrrelDawg) {
 						break;
 					}
 					final Dawg<SharedTerm, InstanceValue> litDawg = computeArithLitDawg(arLit, interestingSubsForArith);
@@ -356,6 +358,22 @@ public class InstantiationManager {
 			}
 		}
 		return clauseDawg;
+	}
+
+	final InstanceValue combineForCheckpoint(InstanceValue first, InstanceValue second) {
+		return (first.combine(second)).keepOnlyRelevant(mRelevantValuesForCheckpoint);
+	}
+
+	final boolean isUsedValueForCheckpoint(InstanceValue value) {
+		if (value == InstanceValue.IRRELEVANT) {
+			return true;
+		}
+		for (final InstanceValue relVal : mRelevantValuesForCheckpoint) {
+			if (value == relVal) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -613,8 +631,9 @@ public class InstantiationManager {
 			final Dawg<SharedTerm, InstanceValue> clauseDawg) {
 		final Collection<List<SharedTerm>> conflictAndUnitSubs = new ArrayList<>();
 		for (final Dawg.Entry<SharedTerm, InstanceValue> entry : clauseDawg.entrySet()) {
-			if (entry.getValue() != InstanceValue.TRUE && entry.getValue() != InstanceValue.OTHER
-					&& (mQuantTheory.mPropagateNewTerms || entry.getValue() != InstanceValue.UNKNOWN_TERM)) {
+			assert isUsedValueForCheckpoint(entry.getValue()); // TODO only as expensive assert
+			// assert !Config.EXPENSIVE_ASSERTS || isUsedValueForCheckpoint(entry.getValue());
+			if (entry.getValue() != InstanceValue.IRRELEVANT) {
 				// Replace the nulls (standing for the "else" case) with the suitable lambda
 				boolean containsLambdas = false;
 				final int nVars = qClause.getVars().length;
@@ -628,10 +647,10 @@ public class InstantiationManager {
 						containsLambdas = true;
 					}
 				}
-				assert containsLambdas || clauseDawg.getValue(subs) != InstanceValue.TRUE;
+				assert containsLambdas || clauseDawg.getValue(subs) != InstanceValue.IRRELEVANT;
 				// If the subs contains lambdas and the dawg contains transitions for them, check the value.
 				// It might already be true, while the else case results in a different value.
-				if (!containsLambdas || clauseDawg.getValue(subs) != InstanceValue.TRUE) {
+				if (!containsLambdas || clauseDawg.getValue(subs) != InstanceValue.IRRELEVANT) {
 					conflictAndUnitSubs.add(subs);
 				}
 			}
@@ -733,7 +752,7 @@ public class InstantiationManager {
 		}
 		// The substitutions for which the partial clause instance value is not yet true are interesting
 		for (final Dawg.Entry<SharedTerm, InstanceValue> entry : clauseDawg.entrySet()) {
-			if (entry.getValue() != InstanceValue.TRUE) {
+			if (entry.getValue() != InstanceValue.IRRELEVANT) {
 				for (int i = 0; i < nClauseVars; i++) {
 					if (clauseVarsInArLits[i] != null) {
 						interestingTerms[i].add(entry.getKey().get(i));
@@ -814,23 +833,23 @@ public class InstantiationManager {
 		// Check ground literals first.
 		for (Literal groundLit : quantClause.getGroundLits()) {
 			if (groundLit.getAtom().getDecideStatus() == groundLit) {
-				return InstanceValue.TRUE;
+				return combineForCheckpoint(clauseValue, InstanceValue.TRUE);
 			} else if (groundLit.getAtom().getDecideStatus() == null) {
-				clauseValue = clauseValue.combine(InstanceValue.ONE_UNDEF);
+				clauseValue = combineForCheckpoint(clauseValue, InstanceValue.ONE_UNDEF);
 			} else {
 				assert groundLit.getAtom().getDecideStatus() != groundLit;
 			}
 		}
 		// Only check clauses where all or all but one ground literals are set to false.
-		if (clauseValue == InstanceValue.TRUE || clauseValue == InstanceValue.OTHER) {
+		if (clauseValue == InstanceValue.IRRELEVANT) {
 			return clauseValue;
 		}
 
 		// Check quantified literals. TODO: Use SubstitutionHelper
 		for (QuantLiteral quantLit : quantClause.getQuantLits()) {
 			InstanceValue litValue = evaluateLitInstance(quantLit, instantiation);
-			clauseValue = clauseValue.combine(litValue);
-			if (clauseValue == InstanceValue.TRUE || clauseValue == InstanceValue.OTHER) {
+			clauseValue = combineForCheckpoint(clauseValue, litValue);
+			if (clauseValue == InstanceValue.IRRELEVANT) {
 				return clauseValue;
 			}
 		}
@@ -1184,10 +1203,12 @@ public class InstantiationManager {
 	 *
 	 */
 	private enum InstanceValue {
-		TRUE, FALSE, ONE_UNDEF, UNKNOWN_TERM, OTHER;
+		TRUE, FALSE, ONE_UNDEF, UNKNOWN_TERM, OTHER, IRRELEVANT;
 
 		private InstanceValue combine(InstanceValue other) {
-			if (this == TRUE || other == TRUE) {
+			if (this == IRRELEVANT || other == IRRELEVANT) {
+				return IRRELEVANT;
+			} else if (this == TRUE || other == TRUE) {
 				return TRUE;
 			} else if (this == FALSE) {
 				return other;
@@ -1206,6 +1227,22 @@ public class InstantiationManager {
 			} else {
 				return this;
 			}
+		}
+
+		/**
+		 * Restrict instance values to the given relevant values plus IRRELEVANT.
+		 * 
+		 * @param values
+		 *            the relevant values.
+		 * @return the InstanceValue itself, if contained in the relevant values, or IRRELEVANT else.
+		 */
+		private InstanceValue keepOnlyRelevant(final InstanceValue... values) {
+			for (final InstanceValue val : values) {
+				if (this == val) {
+					return this;
+				}
+			}
+			return IRRELEVANT;
 		}
 	}
 }
