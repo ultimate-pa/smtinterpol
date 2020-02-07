@@ -38,6 +38,7 @@ import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SharedTerm;
@@ -228,7 +229,7 @@ public class InstantiationManager {
 					final InstClause unitClause = computeClauseInstance(quantClause, subs);
 					assert unitClause != null;
 					final int numUndef = unitClause.countAndSetUndefLits();
-					if (numUndef == 0) { // TODO Can this happen in final check?
+					if (numUndef == 0) { // TODO Can this happen in final check? (At the moment, yes.)
 						return unitClause.toClause(mQuantTheory.getEngine().isProofGenerationEnabled());
 					} else if (numUndef > 0) {
 						return null;
@@ -415,45 +416,21 @@ public class InstantiationManager {
 			}
 			return mDefaultValueForLitDawgs;
 		}
-		final SourceAnnotation source = qLit.getClause().getSource();
 
 		InstanceValue val;
 		if (qAtom instanceof QuantBoundConstraint) {
-			final QuantBoundConstraint qBc = (QuantBoundConstraint) qAtom;
 			final Map<Term, SharedTerm> sharedForQuantSmds = buildSharedMapFromCCMap(info.getEquivalentCCTerms());
-			final MutableAffineTerm at = buildMutableAffineTerm(qBc.getAffineTerm(), sharedForQuantSmds, source);
-			val = evaluateBoundConstraint(at);
+			val = evaluateBoundConstraintKnownShared((QuantBoundConstraint) qAtom, sharedForQuantSmds);
 		} else {
-			final QuantEquality qEq = (QuantEquality) qAtom;
-
 			// First try if we can get an equality value in CC.
-			final CCTerm lhs, rhs;
-			if (qEq.getLhs().getFreeVars().length == 0) {
-				lhs = mClausifier.getSharedTerm(qEq.getLhs(), qLit.mClause.getSource()).getCCTerm();
-			} else {
-				lhs = info.getEquivalentCCTerms().get(qEq.getLhs());
-			}
-			if (qEq.getRhs().getFreeVars().length == 0) {
-				rhs = mClausifier.getSharedTerm(qEq.getRhs(), qLit.mClause.getSource()).getCCTerm();
-			} else {
-				rhs = info.getEquivalentCCTerms().get(qEq.getRhs());
-			}
-			val = evaluateCCEquality(lhs, rhs);
+			final QuantEquality qEq = (QuantEquality) qAtom;
+			val = evaluateCCEqualityKnownShared(qEq, info);
 
 			// If the eq value is unknown in CC, and the terms are numeric, check for equality in LinAr.
-			if ((val == InstanceValue.ONE_UNDEF)
+			if ((val == InstanceValue.ONE_UNDEF || val == InstanceValue.UNKNOWN_TERM)
 					&& qEq.getLhs().getSort().isNumericSort()) {
 				final Map<Term, SharedTerm> sharedForQuantSmds = buildSharedMapFromCCMap(info.getEquivalentCCTerms());
-				final MutableAffineTerm at = buildMutableAffineTerm(new SMTAffineTerm(qEq.getLhs()), sharedForQuantSmds,
-						source);
-				if (at != null) {
-					final MutableAffineTerm atRight =
-							buildMutableAffineTerm(new SMTAffineTerm(qEq.getRhs()), sharedForQuantSmds, source);
-					if (atRight != null) {
-						at.add(Rational.MONE, atRight);
-						val = evaluateLAEquality(at);
-					}
-				}
+				val = evaluateLAEqualityKnownShared(qEq, sharedForQuantSmds);
 			}
 		}
 
@@ -464,33 +441,17 @@ public class InstantiationManager {
 	}
 
 	private InstanceValue evaluateLitInstance(final QuantLiteral quantLit, final List<SharedTerm> substitution) {
-		QuantClause quantClause = quantLit.getClause();
-		final SharedTermFinder finder = new SharedTermFinder(quantClause.getSource(), quantClause.getVars(),
-				substitution);
 		InstanceValue litValue = mDefaultValueForLitDawgs;
 		final boolean isNeg = quantLit.isNegated();
 		final QuantLiteral atom = quantLit.getAtom();
 		if (atom instanceof QuantEquality) {
 			final QuantEquality eq = (QuantEquality) atom;
-			final SharedTerm left = finder.findEquivalentShared(eq.getLhs());
-			final SharedTerm right = finder.findEquivalentShared(eq.getRhs());
-			if (left != null && right != null) {
-				litValue = evaluateCCEquality(left, right);
-			}
+			litValue = evaluateCCEquality(eq, substitution);
 			if ((litValue == InstanceValue.ONE_UNDEF || litValue == InstanceValue.UNKNOWN_TERM) && eq.getLhs().getSort().isNumericSort()) {
-				final SMTAffineTerm sum = new SMTAffineTerm(eq.getLhs());
-				sum.add(Rational.MONE, eq.getRhs());
-				final SMTAffineTerm groundAff = finder.findEquivalentAffine(sum);
-				if (groundAff != null) {
-					litValue = evaluateLAEquality(groundAff);
-				}
+				litValue = evaluateLAEquality(eq, substitution);
 			}
 		} else {
-			final QuantBoundConstraint ineq = (QuantBoundConstraint) atom;
-			final SMTAffineTerm lhs = finder.findEquivalentAffine(ineq.getAffineTerm());
-			if (lhs != null) {
-				litValue = evaluateBoundConstraint(lhs);
-			}
+			litValue = evaluateBoundConstraint((QuantBoundConstraint) atom, substitution);
 		}
 
 		if (isNeg) {
@@ -511,7 +472,6 @@ public class InstantiationManager {
 	private Dawg<SharedTerm, InstanceValue> computeArithLitDawg(final QuantLiteral arLit,
 			final SharedTerm[][] interestingSubs) {
 		final QuantLiteral qAtom = arLit.getAtom();
-		final SourceAnnotation source = arLit.getClause().getSource();
 		final TermVariable[] varsInLit = qAtom.getTerm().getFreeVars();
 		assert varsInLit.length == 1 || varsInLit.length == 2;
 
@@ -550,22 +510,9 @@ public class InstantiationManager {
 				}
 				// Evaluate
 				if (qAtom instanceof QuantBoundConstraint) {
-					final QuantBoundConstraint qBc = (QuantBoundConstraint) qAtom;
-					final MutableAffineTerm at = buildMutableAffineTerm(qBc.getAffineTerm(), subsMap, source);
-					val = evaluateBoundConstraint(at);
+					val = evaluateBoundConstraintKnownShared((QuantBoundConstraint) qAtom, subsMap);
 				} else {
-					final QuantEquality qEq = (QuantEquality) qAtom;
-					assert qEq.getLhs().getSort().isNumericSort();
-					final MutableAffineTerm at =
-							buildMutableAffineTerm(new SMTAffineTerm(qEq.getLhs()), subsMap, source);
-					if (at != null) {
-						final MutableAffineTerm atRight =
-								buildMutableAffineTerm(new SMTAffineTerm(qEq.getRhs()), subsMap, source);
-						if (atRight != null) {
-							at.add(Rational.MONE, atRight);
-							val = evaluateLAEquality(at);
-						}
-					}
+					val = evaluateLAEqualityKnownShared((QuantEquality) qAtom, subsMap);
 				}
 				if (arLit.isNegated()) {
 					val = val.negate();
@@ -631,8 +578,7 @@ public class InstantiationManager {
 			final Dawg<SharedTerm, InstanceValue> clauseDawg) {
 		final Collection<List<SharedTerm>> conflictAndUnitSubs = new ArrayList<>();
 		for (final Dawg.Entry<SharedTerm, InstanceValue> entry : clauseDawg.entrySet()) {
-			assert isUsedValueForCheckpoint(entry.getValue()); // TODO only as expensive assert
-			// assert !Config.EXPENSIVE_ASSERTS || isUsedValueForCheckpoint(entry.getValue());
+			assert !Config.EXPENSIVE_ASSERTS || isUsedValueForCheckpoint(entry.getValue());
 			if (entry.getValue() != InstanceValue.IRRELEVANT) {
 				// Replace the nulls (standing for the "else" case) with the suitable lambda
 				boolean containsLambdas = false;
@@ -935,7 +881,18 @@ public class InstantiationManager {
 	 * @return Value True if the two terms are in the same congruence class, False if they are definitely distinct,
 	 *         otherwise Undef if both CCTerms exists, Unknown else.
 	 */
-	private InstanceValue evaluateCCEquality(final CCTerm leftCC, final CCTerm rightCC) {
+	private InstanceValue evaluateCCEqualityKnownShared(final QuantEquality qEq, final SubstitutionInfo info) {
+		final CCTerm leftCC, rightCC;
+		if (qEq.getLhs().getFreeVars().length == 0) {
+			leftCC = mClausifier.getSharedTerm(qEq.getLhs(), qEq.mClause.getSource()).getCCTerm();
+		} else {
+			leftCC = info.getEquivalentCCTerms().get(qEq.getLhs());
+		}
+		if (qEq.getRhs().getFreeVars().length == 0) {
+			rightCC = mClausifier.getSharedTerm(qEq.getRhs(), qEq.mClause.getSource()).getCCTerm();
+		} else {
+			rightCC = info.getEquivalentCCTerms().get(qEq.getRhs());
+		}
 		if (leftCC != null && rightCC != null) {
 			if (mQuantTheory.getCClosure().isEqSet(leftCC, rightCC)) {
 				return InstanceValue.TRUE;
@@ -958,17 +915,24 @@ public class InstantiationManager {
 	 * @return Value True if the two terms are in the same congruence class, False if they are definitely distinct,
 	 *         Undef else.
 	 */
-	private InstanceValue evaluateCCEquality(final SharedTerm left, final SharedTerm right) {
-		final CCTerm leftCC = left.getCCTerm();
-		final CCTerm rightCC = right.getCCTerm();
-		if (leftCC != null && rightCC != null) {
-			if (mQuantTheory.getCClosure().isEqSet(leftCC, rightCC)) {
-				return InstanceValue.TRUE;
-			} else if (mQuantTheory.getCClosure().isDiseqSet(leftCC, rightCC)) {
-				return InstanceValue.FALSE;
+	private InstanceValue evaluateCCEquality(final QuantEquality qEq, final List<SharedTerm> subs) {
+		final QuantClause qClause = qEq.getClause();
+		final SharedTermFinder finder = new SharedTermFinder(qClause.getSource(), qClause.getVars(), subs);
+		final SharedTerm left = finder.findEquivalentShared(qEq.getLhs());
+		final SharedTerm right = finder.findEquivalentShared(qEq.getRhs());
+		if (left != null && right != null) {
+			final CCTerm leftCC = left.getCCTerm();
+			final CCTerm rightCC = right.getCCTerm();
+			if (leftCC != null && rightCC != null) {
+				if (mQuantTheory.getCClosure().isEqSet(leftCC, rightCC)) {
+					return InstanceValue.TRUE;
+				} else if (mQuantTheory.getCClosure().isDiseqSet(leftCC, rightCC)) {
+					return InstanceValue.FALSE;
+				}
 			}
+			return InstanceValue.ONE_UNDEF;
 		}
-		return InstanceValue.ONE_UNDEF;
+		return mDefaultValueForLitDawgs;
 	}
 
 	/**
@@ -979,19 +943,23 @@ public class InstantiationManager {
 	 * @return Value True if both the lower and upper bound of at are 0, False if the lower bound is greater or the
 	 *         upper bound is smaller than 0, Undef/Unknown else.
 	 */
-	private InstanceValue evaluateLAEquality(final MutableAffineTerm at) {
-		if (at == null) {
-			return mDefaultValueForLitDawgs;
+	private InstanceValue evaluateLAEqualityKnownShared(final QuantEquality qEq, final Map<Term, SharedTerm> sharedForQuant) {
+		final SMTAffineTerm diff = new SMTAffineTerm(qEq.getLhs());
+		diff.add(Rational.MONE, new SMTAffineTerm(qEq.getRhs()));
+
+		final MutableAffineTerm at = buildMutableAffineTerm(diff, sharedForQuant, qEq.getClause().getSource());
+		if (at != null) {
+			final InfinitesimalNumber upperBound = mQuantTheory.mLinArSolve.getUpperBound(at);
+			at.negate();
+			final InfinitesimalNumber negLowerBound = mQuantTheory.mLinArSolve.getUpperBound(at);
+			if (upperBound.signum() == 0 && negLowerBound.signum() == 0) {
+				return InstanceValue.TRUE;
+			} else if (upperBound.signum() < 0 || negLowerBound.signum() < 0) {
+				return InstanceValue.FALSE;
+			}
+			return InstanceValue.ONE_UNDEF;
 		}
-		final InfinitesimalNumber upperBound = mQuantTheory.mLinArSolve.getUpperBound(at);
-		at.negate();
-		final InfinitesimalNumber negLowerBound = mQuantTheory.mLinArSolve.getUpperBound(at);
-		if (upperBound.signum() == 0 && negLowerBound.signum() == 0) {
-			return InstanceValue.TRUE;
-		} else if (upperBound.signum() < 0 || negLowerBound.signum() < 0) {
-			return InstanceValue.FALSE;
-		}
-		return InstanceValue.ONE_UNDEF;
+		return mDefaultValueForLitDawgs;
 	}
 
 	/**
@@ -1002,16 +970,25 @@ public class InstantiationManager {
 	 * @return Value True if both the lower and upper bound of at exist and are equal to 0, False if the lower bound
 	 *         exists and is greater than 0, or the upper bound exists and is smaller than 0, Undef else.
 	 */
-	private InstanceValue evaluateLAEquality(final SMTAffineTerm smtAff) {
-		final InfinitesimalNumber upperBound = mQuantTheory.mLinArSolve.getUpperBound(mClausifier, smtAff);
-		smtAff.negate();
-		final InfinitesimalNumber negLowerBound = mQuantTheory.mLinArSolve.getUpperBound(mClausifier, smtAff);
-		if (upperBound.signum() == 0 && negLowerBound.signum() == 0) {
-			return InstanceValue.TRUE;
-		} else if (upperBound.signum() < 0 || negLowerBound.signum() < 0) {
-			return InstanceValue.FALSE;
+	private InstanceValue evaluateLAEquality(final QuantEquality qEq, final List<SharedTerm> subs) {
+		final SMTAffineTerm diff = new SMTAffineTerm(qEq.getLhs());
+		diff.add(Rational.MONE, qEq.getRhs());
+
+		final QuantClause qClause = qEq.getClause();
+		final SharedTermFinder finder = new SharedTermFinder(qClause.getSource(), qClause.getVars(), subs);
+		final SMTAffineTerm smtAff = finder.findEquivalentAffine(diff);
+		if (smtAff != null) {
+			final InfinitesimalNumber upperBound = mQuantTheory.mLinArSolve.getUpperBound(mClausifier, smtAff);
+			smtAff.negate();
+			final InfinitesimalNumber negLowerBound = mQuantTheory.mLinArSolve.getUpperBound(mClausifier, smtAff);
+			if (upperBound.signum() == 0 && negLowerBound.signum() == 0) {
+				return InstanceValue.TRUE;
+			} else if (upperBound.signum() < 0 || negLowerBound.signum() < 0) {
+				return InstanceValue.FALSE;
+			}
+			return InstanceValue.ONE_UNDEF;
 		}
-		return InstanceValue.ONE_UNDEF;
+		return mDefaultValueForLitDawgs;
 	}
 
 	/**
@@ -1022,7 +999,10 @@ public class InstantiationManager {
 	 * @return Value True if the term has an upper bound <= 0, False if -term has a lower bound < 0, or Undef/Unknown
 	 *         otherwise.
 	 */
-	private InstanceValue evaluateBoundConstraint(final MutableAffineTerm at) {
+	private InstanceValue evaluateBoundConstraintKnownShared(final QuantBoundConstraint qBc,
+			final Map<Term, SharedTerm> sharedForQuant) {
+		final MutableAffineTerm at =
+				buildMutableAffineTerm(qBc.getAffineTerm(), sharedForQuant, qBc.getClause().getSource());
 		if (at == null) {
 			return mDefaultValueForLitDawgs;
 		}
@@ -1047,7 +1027,13 @@ public class InstantiationManager {
 	 *            The linear term for a constraint "term <= 0".
 	 * @return Value True if the term has an upper bound <= 0, False if -term has a lower bound < 0, or Undef otherwise.
 	 */
-	private InstanceValue evaluateBoundConstraint(final SMTAffineTerm affine) {
+	private InstanceValue evaluateBoundConstraint(final QuantBoundConstraint qBc, final List<SharedTerm> subs) {
+		final SharedTermFinder finder =
+				new SharedTermFinder(qBc.getClause().getSource(), qBc.getClause().getVars(), subs);
+		final SMTAffineTerm affine = finder.findEquivalentAffine(qBc.getAffineTerm());
+		if (affine == null) {
+			return mDefaultValueForLitDawgs;
+		}
 		final InfinitesimalNumber upperBound = mQuantTheory.mLinArSolve.getUpperBound(mClausifier, affine);
 		if (upperBound.lesseq(InfinitesimalNumber.ZERO)) {
 			return InstanceValue.TRUE;
