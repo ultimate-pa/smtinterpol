@@ -74,10 +74,6 @@ public class SharedTerm {
 		}
 	}
 
-	public EqualityProxy createEquality(final SharedTerm other) {
-		return mClausifier.createEqualityProxy(this, other);
-	}
-
 	public void unshareLA() {
 		mFactor = null;
 		mLinVar = null;

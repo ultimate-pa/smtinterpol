@@ -25,7 +25,6 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.EqualityProxy;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SharedTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.SimpleList;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.SimpleListable;
@@ -104,8 +103,18 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 	SimpleList<CCTerm> mMembers;
 	int mNumMembers;
 	SimpleList<CCTermPairHash.Info.Entry> mPairInfos;
-	SharedTerm mSharedTerm;
-	SharedTerm mFlatTerm;
+	/**
+	 * A CCTerm in the current equivalence class that is shared with other theories, i.e. linear arithmetic. This is
+	 * used to propagate equalities between shared terms when two equivalence classes are merged that both have a shared
+	 * term. Only one shared term needs to be remembered as it is assumed that the other theories have some kind of
+	 * transitive closure reasoning for equality.
+	 */
+	CCTerm mSharedTerm;
+	/**
+	 * The SMTLib representation of the term. This is the term for which this CCTerm was produced. It is null for
+	 * partial function applications, which have no corresponding SMTLib representation.
+	 */
+	Term mFlatTerm;
 
 	int mHashCode;
 
@@ -135,7 +144,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 	boolean mIsFunc;
 	int mParentPosition;
 
-	protected CCTerm(boolean isFunc, int parentPos, SharedTerm term, int hash) {
+	protected CCTerm(boolean isFunc, int parentPos, Term term, int hash) {
 		mIsFunc = isFunc;
 		mCCPars = null;
 		if (isFunc) {
@@ -216,44 +225,55 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		return mRep == this;
 	}
 
-	public void share(CClosure engine, SharedTerm sterm) {
-		if (mSharedTerm != null) {
-			if (mSharedTerm == sterm) {
-				return;
-			}
-			propagateSharedEquality(engine, sterm);
+	/**
+	 * This is called when the flat term behind this ccterm is shared with another theory like linear arithmetic. We
+	 * remember that this ccterm is shared and propagate this into all the representatives if there are already some.
+	 * This may also propagate equalities if there is already a shared term in the congruence class.
+	 * 
+	 * @param engine
+	 */
+	public void share(CClosure engine) {
+		assert mSharedTerm != this;
+		/*
+		 * if there is already a shared term in the equivalence class, propagate the equality. It's enough to propagate
+		 * some equality, because we will only backtrack on pop() and then we unshare again.
+		 */
+		if (mRepStar.mSharedTerm != null) {
+			propagateSharedEquality(engine, mRepStar.mSharedTerm);
 		}
+
+		final CCTerm oldShared = mSharedTerm;
+		/* now go through the rep chain and switch out all pointers to oldShared with this term. */
 		CCTerm term = this;
-		final SharedTerm oldTerm = mSharedTerm;
-		mSharedTerm = sterm;
-		while (term.mRep != term) {
+		while (term.mSharedTerm == oldShared) {
+			term.mSharedTerm = this;
 			term = term.mRep;
-			if (term.mSharedTerm == oldTerm) {
-				term.mSharedTerm = sterm;
-			} else {
-				term.propagateSharedEquality(engine, sterm);
-				break;
-			}
 		}
 	}
 
-	public void unshare(SharedTerm sterm) {
-		assert mSharedTerm == sterm;
+	public void unshare() {
+		assert mSharedTerm == this;
 		assert isRepresentative();
 		mSharedTerm = null;
 	}
 
-	private void propagateSharedEquality(CClosure engine, SharedTerm sterm) {
+	/**
+	 * Propagate a shared equality between this term and otherSharedTerm.
+	 * 
+	 * @param engine
+	 * @param otherSharedTerm
+	 */
+	private void propagateSharedEquality(CClosure engine, CCTerm otherSharedTerm) {
 		/* create equality formula.  This should never give TRUE or FALSE,
 		 * as sterm is a newly shared term, which must be linear independent
 		 * of all previously created terms.
 		 */
-		final EqualityProxy eqForm = mSharedTerm.createEquality(sterm);
+		final EqualityProxy eqForm = engine.mClausifier.createEqualityProxy(mFlatTerm, otherSharedTerm.mFlatTerm);
 		assert (eqForm != EqualityProxy.getTrueProxy());
 		assert (eqForm != EqualityProxy.getFalseProxy());
-		final CCEquality cceq = eqForm.createCCEquality(mSharedTerm, sterm);
-		if (engine.mEngine.getLogger().isDebugEnabled()) {
-			engine.mEngine.getLogger().debug("PL: " + cceq);
+		final CCEquality cceq = eqForm.createCCEquality(mFlatTerm, otherSharedTerm.mFlatTerm);
+		if (engine.getLogger().isDebugEnabled()) {
+			engine.getLogger().debug("PL: %s", cceq);
 		}
 		engine.addPending(cceq);
 	}
@@ -341,16 +361,13 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 			if (dest.mSharedTerm == null) {
 				dest.mSharedTerm = src.mSharedTerm;
 			} else {
-				final EqualityProxy form =
-					src.mSharedTerm.createEquality(dest.mSharedTerm);
-				if (form == EqualityProxy.getFalseProxy()) {
-					sharedTermConflict = true;
-				}
-				else {
-					form.createCCEquality(src.mSharedTerm, dest.mSharedTerm);
-				// no need to remember the created equality. It was inserted
-				// and will be found later automatically.
-				}
+				CCEquality cceq = engine.createEquality(src.mSharedTerm, dest.mSharedTerm);
+				/* If cceq cannot be created this is a conflict like merging x+1 and x */
+				sharedTermConflict = (cceq == null);
+				/*
+				 * No need to remember the created equality. It was inserted and will be found later and propagated
+				 * automatically.
+				 */
 			}
 		}
 
@@ -364,8 +381,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		/* Check for conflict */
 		if (sharedTermConflict || diseq != null) {
 			final Clause conflict = sharedTermConflict
-				? engine.computeCycle(src.mSharedTerm.getCCTerm(),
-									  dest.mSharedTerm.getCCTerm())
+					? engine.computeCycle(src.mSharedTerm, dest.mSharedTerm)
 				: engine.computeCycle(diseq);
 			lhs.mEqualEdge = null;
 			lhs.mOldRep = null;
@@ -378,7 +394,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		assert(engine.mMergeDepth == engine.mMerges.size());
 		src.mMergeTime = ++engine.mMergeDepth;
 		engine.mMerges.push(lhs);
-		engine.mEngine.getLogger().debug("M %s %s", this, lhs);
+		engine.getLogger().debug("M %s %s", this, lhs);
 		assert(engine.mMerges.size() == engine.mMergeDepth);
 
 		if (Config.PROFILE_TIME) {
@@ -562,7 +578,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 	}
 
 	public void undoMerge(CClosure engine, CCTerm lhs) {
-		engine.mEngine.getLogger().debug(new DebugMessage("U {0} {1}", lhs, this));
+		engine.getLogger().debug("U %s %s", lhs, this);
 		long time;
 		CCTerm src, dest;
 
@@ -646,7 +662,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		assert dest.pairHashValid(engine);
 	}
 
-	public SharedTerm getSharedTerm() {
+	public CCTerm getSharedTerm() {
 		return mSharedTerm;
 	}
 
@@ -655,7 +671,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		return mHashCode;
 	}
 
-	public SharedTerm getFlatTerm() {
+	public Term getFlatTerm() {
 		return mFlatTerm;
 	}
 

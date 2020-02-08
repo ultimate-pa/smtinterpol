@@ -26,14 +26,14 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
+import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SharedTerm;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAnnotation.RuleKind;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.MutableAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
 
 /**
@@ -577,10 +577,14 @@ public class CCProofGenerator {
 			if (lemmaNo == 0) { // main lemma
 				final CCTerm diseqLHS = mAnnot.getDiseq().getFirst();
 				final CCTerm diseqRHS = mAnnot.getDiseq().getSecond();
-				final CCEquality diseqAtom = CClosure.createEquality(diseqLHS, diseqRHS);
-				if (diseqAtom != null) {
-					diseq = diseqAtom.getSMTFormula(theory, false);
+				final Literal diseqLit = mEqualityLiterals.get(new SymmetricPair<>(diseqLHS, diseqRHS));
+				if (diseqLit != null) {
+					// disequality must occur positively in lemma or not at all.
+					assert diseqLit.getSign() > 0;
+					// use the same order of sides as in the literal appearing in the lemma.
+					diseq = diseqLit.getSMTFormula(theory, false);
 				} else {
+					// if disequality does not occur, it is a trivial disequality.
 					diseq = theory.term("=", diseqLHS.toSMTTerm(theory), diseqRHS.toSMTTerm(theory));
 					isTrivialDiseq = true;
 				}
@@ -616,24 +620,14 @@ public class CCProofGenerator {
 	}
 
 	private boolean isTrivialDisequality(final SymmetricPair<CCTerm> termPair) {
-		final SharedTerm first = termPair.getFirst().getSharedTerm();
-		final SharedTerm second = termPair.getSecond().getSharedTerm();
-		if (first == null || second == null || first.getOffset() == null || second.getOffset() == null) {
-			return false;
+		final CCTerm first = termPair.getFirst();
+		final CCTerm second = termPair.getSecond();
+		SMTAffineTerm smtAffine = SMTAffineTerm.create(first.getFlatTerm());
+		smtAffine.add(Rational.MONE, second.getFlatTerm());
+		if (smtAffine.isConstant() && smtAffine.getConstant() != Rational.ZERO) {
+			return true;
 		}
-		if (first.getLinVar() == second.getLinVar() && first.getFactor() == second.getFactor()) {
-			return first.getOffset() != second.getOffset();
-		}
-		final MutableAffineTerm sum = new MutableAffineTerm();
-		if (first.getLinVar() != null) {
-			sum.add(first.getFactor(), first.getLinVar());
-		}
-		sum.add(first.getOffset());
-		if (second.getLinVar() != null) {
-			sum.add(second.getFactor().negate(), second.getLinVar());
-		}
-		sum.add(second.getOffset().negate());
-		return sum.isInt() && !sum.getConstant().div(sum.getGCD()).isIntegral();
+		return smtAffine.isAllIntSummands() && !smtAffine.getConstant().div(smtAffine.getGcd()).isIntegral();
 	}
 
 	private boolean isStoreTerm(CCTerm term) {

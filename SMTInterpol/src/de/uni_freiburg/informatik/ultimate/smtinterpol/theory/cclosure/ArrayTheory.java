@@ -653,7 +653,7 @@ public class ArrayTheory implements ITheory {
 		mCClosure = cclosure;
 		mCClosure.initArrays();
 		mSelectFunNum = mCClosure.getSelectNum();
-		mLogger = mCClosure.mEngine.getLogger();
+		mLogger = mCClosure.getLogger();
 	}
 
 	@Override
@@ -759,15 +759,15 @@ public class ArrayTheory implements ITheory {
 		switch (lemma.getRule()) {
 		case READ_OVER_WEAKEQ:
 			clause = path.computeSelectOverWeakEQ((CCAppTerm) equality.getFirst(), (CCAppTerm) equality.getSecond(),
-					mCClosure.mEngine.isProofGenerationEnabled());
+					mCClosure.isProofGenerationEnabled());
 			break;
 		case CONST_WEAKEQ:
 			clause = path.computeConstOverWeakEQ(findConst(equality.getFirst()), findConst(equality.getSecond()),
-					mCClosure.mEngine.isProofGenerationEnabled());
+					mCClosure.isProofGenerationEnabled());
 			break;
 		case READ_CONST_WEAKEQ:
 			clause = path.computeSelectConstOverWeakEQ((CCAppTerm) equality.getFirst(), findConst(equality.getSecond()),
-					mCClosure.mEngine.isProofGenerationEnabled());
+					mCClosure.isProofGenerationEnabled());
 			break;
 		default:
 			throw new AssertionError("Unknown Lemma");
@@ -1254,7 +1254,7 @@ public class ArrayTheory implements ITheory {
 				final Set<CCEquality> propClause = new LinkedHashSet<CCEquality>();
 				for (final CCTerm idx : storeIndices) {
 					assert index1.getRepresentative() != idx.getRepresentative();
-					final CCEquality lit = CClosure.createEquality(index1, idx);
+					final CCEquality lit = getCClosure().createEquality(index1, idx);
 					if (lit != null) {
 						assert lit.getDecideStatus() != lit;
 						if (lit.getDecideStatus() == null) {
@@ -1262,7 +1262,7 @@ public class ArrayTheory implements ITheory {
 						}
 					}
 				}
-				final CCEquality lit = CClosure.createEquality(select1, select2);
+				final CCEquality lit = getCClosure().createEquality(select1, select2);
 				if (lit != null) {
 					assert lit.getDecideStatus() != lit;
 					if (lit.getDecideStatus() == null) {
@@ -1273,7 +1273,7 @@ public class ArrayTheory implements ITheory {
 				break;
 			}
 			case CONST_WEAKEQ: {
-				final CCEquality lit = CClosure.createEquality(lhs, rhs);
+				final CCEquality lit = getCClosure().createEquality(lhs, rhs);
 				assert lit == null || lit.getDecideStatus() != lit;
 				final Set<CCEquality> propClause = new LinkedHashSet<CCEquality>();
 				if (lit != null && lit.getDecideStatus() == null) {
@@ -1292,7 +1292,7 @@ public class ArrayTheory implements ITheory {
 				final Set<CCEquality> propClause = new LinkedHashSet<CCEquality>();
 				for (final CCTerm idx : storeIndices) {
 					assert index1.getRepresentative() != idx.getRepresentative();
-					final CCEquality lit = CClosure.createEquality(index1, idx);
+					final CCEquality lit = getCClosure().createEquality(index1, idx);
 					if (lit != null) {
 						assert lit.getDecideStatus() != lit;
 						if (lit.getDecideStatus() == null) {
@@ -1300,7 +1300,7 @@ public class ArrayTheory implements ITheory {
 						}
 					}
 				}
-				final CCEquality lit = CClosure.createEquality(lhs, rhs);
+				final CCEquality lit = getCClosure().createEquality(lhs, rhs);
 				if (lit != null) {
 					assert lit.getDecideStatus() != lit;
 					if (lit.getDecideStatus() == null) {
@@ -1420,11 +1420,11 @@ public class ArrayTheory implements ITheory {
 			mNumInstsEq++;
 			final WeakCongruencePath path = new WeakCongruencePath(this);
 			final Clause lemma = path.computeWeakeqExt(equalities.getFirst().mTerm, equalities.getSecond().mTerm,
-					mCClosure.mEngine.isProofGenerationEnabled());
+					mCClosure.isProofGenerationEnabled());
 			if (mLogger.isDebugEnabled()) {
 				mLogger.debug("AL sw: " + lemma);
 			}
-			mCClosure.mEngine.learnClause(lemma);
+			mCClosure.getEngine().learnClause(lemma);
 		}
 		mTimeBuildWeakEqi += (System.nanoTime() - startTime);
 		return !propEqualities.isEmpty();

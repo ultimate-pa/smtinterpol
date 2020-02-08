@@ -31,8 +31,8 @@ import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.EqualityProxy;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SharedTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
@@ -52,7 +52,7 @@ import de.uni_freiburg.informatik.ultimate.util.DebugMessage;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
 
 public class CClosure implements ITheory {
-	final DPLLEngine mEngine;
+	final Clausifier mClausifier;
 	final Map<Term, CCTerm> mAnonTerms = new HashMap<>();
 	final ArrayList<CCTerm> mAllTerms = new ArrayList<>();
 	final CCTermPairHash mPairHash = new CCTermPairHash();
@@ -75,13 +75,25 @@ public class CClosure implements ITheory {
 
 	private int mStoreNum, mSelectNum, mDiffNum;
 
-	public CClosure(final DPLLEngine engine) {
-		mEngine = engine;
+	public CClosure(final Clausifier clausifier) {
+		mClausifier = clausifier;
 	}
 
-	public CCTerm createAnonTerm(final SharedTerm flat) {
+	public DPLLEngine getEngine() {
+		return mClausifier.getEngine();
+	}
+
+	public LogProxy getLogger() {
+		return mClausifier.getLogger();
+	}
+
+	public boolean isProofGenerationEnabled() {
+		return getEngine().isProofGenerationEnabled();
+	}
+
+	public CCTerm createAnonTerm(final Term flat) {
 		final CCTerm term = new CCBaseTerm(false, mNumFunctionPositions, flat, flat);
-		mAnonTerms.put(flat.getTerm(), term);
+		mAnonTerms.put(flat, term);
 		mAllTerms.add(term);
 		return term;
 	}
@@ -625,7 +637,7 @@ public class CClosure implements ITheory {
 
 		eq = new CCEquality(stackLevel, t1, t2);
 		insertEqualityEntry(t1, t2, eq.getEntry());
-		mEngine.addAtom(eq);
+		getEngine().addAtom(eq);
 
 		assert t1.invariant();
 		assert t2.invariant();
@@ -633,16 +645,16 @@ public class CClosure implements ITheory {
 		assert t2.pairHashValid(this);
 
 		if (t1.mRepStar == t2.mRepStar) {
-			if (mEngine.getLogger().isDebugEnabled()) {
-				mEngine.getLogger().debug("CC-Prop: " + eq + " repStar: " + t1.mRepStar);
+			if (getLogger().isDebugEnabled()) {
+				getLogger().debug("CC-Prop: " + eq + " repStar: " + t1.mRepStar);
 			}
 			mPendingLits.add(eq);
 			mRecheckOnBacktrackLits.add(eq);
 		} else {
 			final CCEquality diseq = mPairHash.getInfo(t1.mRepStar, t2.mRepStar).mDiseq;
 			if (diseq != null) {
-				if (mEngine.getLogger().isDebugEnabled()) {
-					mEngine.getLogger().debug("CC-Prop: " + eq.negate() + " diseq: " + diseq);
+				if (getLogger().isDebugEnabled()) {
+					getLogger().debug("CC-Prop: " + eq.negate() + " diseq: " + diseq);
 				}
 				eq.mDiseqReason = diseq;
 				mPendingLits.add(eq.negate());
@@ -659,8 +671,7 @@ public class CClosure implements ITheory {
 
 	// TODO: Obsolete function; only used by tests
 	@Deprecated
-	public CCTerm createFuncTerm(
-			final FunctionSymbol sym, final CCTerm[] subterms, final SharedTerm fapp) {
+	public CCTerm createFuncTerm(final FunctionSymbol sym, final CCTerm[] subterms, final Term fapp) {
 		final CCTerm term = convertFuncTerm(sym, subterms, subterms.length);
 		if (term.mFlatTerm == null) {
 			mAllTerms.add(term);
@@ -669,9 +680,9 @@ public class CClosure implements ITheory {
 		return term;
 	}
 
-	public void addTerm(final CCTerm term, final SharedTerm shared) {
-		term.mFlatTerm = shared;
-		mAllTerms.add(term);
+	public void addTerm(final CCTerm ccterm, final Term term) {
+		ccterm.mFlatTerm = term;
+		mAllTerms.add(ccterm);
 	}
 
 	@Override
@@ -810,14 +821,14 @@ public class CClosure implements ITheory {
 
 	public Clause computeCycle(final CCEquality eq) {
 		final CongruencePath congPath = new CongruencePath(this);
-		final Clause res = congPath.computeCycle(eq, mEngine.isProofGenerationEnabled());
+		final Clause res = congPath.computeCycle(eq, isProofGenerationEnabled());
 		assert (res.getSize() != 2 || res.getLiteral(0).negate() != res.getLiteral(1));
 		return res;
 	}
 
 	public Clause computeCycle(final CCTerm lconstant, final CCTerm rconstant) {
 		final CongruencePath congPath = new CongruencePath(this);
-		return congPath.computeCycle(lconstant, rconstant, mEngine.isProofGenerationEnabled());
+		return congPath.computeCycle(lconstant, rconstant, isProofGenerationEnabled());
 	}
 
 	public Clause computeAntiCycle(final CCEquality eq) {
@@ -898,16 +909,17 @@ public class CClosure implements ITheory {
 	}
 
 	public Term convertTermToSMT(final CCTerm t) {
-		return t.toSMTTerm(mEngine.getSMTTheory());
+		return t.toSMTTerm(getEngine().getSMTTheory());
 	}
 
 	public Term convertEqualityToSMT(final CCTerm t1, final CCTerm t2) {
-		return mEngine.getSMTTheory().equals(convertTermToSMT(t1),
+		return getEngine().getSMTTheory().equals(convertTermToSMT(t1),
 				convertTermToSMT(t2));
 	}
 
-	public static CCEquality createEquality(final CCTerm t1, final CCTerm t2) {
-		final EqualityProxy ep = t1.getFlatTerm().createEquality(t2.getFlatTerm());
+	public CCEquality createEquality(final CCTerm t1, final CCTerm t2) {
+		assert t1 != t2;
+		final EqualityProxy ep = mClausifier.createEqualityProxy(t1.getFlatTerm(), t2.getFlatTerm());
 		if (ep == EqualityProxy.getFalseProxy()) {
 			return null;
 		}
@@ -1067,7 +1079,7 @@ public class CClosure implements ITheory {
 	private Clause buildCongruence(final boolean checked) {
 		SymmetricPair<CCAppTerm> cong;
 		while ((cong = mPendingCongruences.poll()) != null) {
-			mEngine.getLogger().debug(new DebugMessage("PC {0}", cong));
+			getLogger().debug(new DebugMessage("PC {0}", cong));
 			Clause res = null;
 			final CCAppTerm lhs = cong.getFirst();
 			final CCAppTerm rhs = cong.getSecond();
@@ -1209,18 +1221,8 @@ public class CClosure implements ITheory {
 	}
 
 	public void fillInModel(final Model model, final Theory t, final SharedTermEvaluator ste, final ArrayTheory array) {
-		CCTerm trueNode = null, falseNode = null;
-		if (!mAllTerms.isEmpty()) {
-			final CCTerm t0 = mAllTerms.get(0);
-			final SharedTerm shared0 = t0.getFlatTerm();
-			if (shared0.getTerm() == t.mTrue) {
-				trueNode = t0;
-				falseNode = mAllTerms.get(1);
-			} else if (shared0.getTerm() == t.mFalse) {
-				falseNode = t0;
-				trueNode = mAllTerms.get(1);
-			}
-		}
+		CCTerm trueNode = mClausifier.getClausifierTermInfo(t.mTrue).getCCTerm();
+		CCTerm falseNode = mClausifier.getClausifierTermInfo(t.mTrue).getCCTerm();
 		trueNode.mModelVal = model.getBoolSortInterpretation().getTrueIdx();
 		falseNode.mModelVal = model.getBoolSortInterpretation().getFalseIdx();
 		new ModelBuilder(this, mAllTerms, model, t, ste, array, trueNode, falseNode);

@@ -75,6 +75,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuant
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinArSolve;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinVar;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.MutableAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantLiteral;
@@ -89,7 +90,6 @@ import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
  * @author Juergen Christ, Jochen Hoenicke
  */
 public class Clausifier {
-
 	public class CCTermBuilder {
 		private final SourceAnnotation mSource;
 
@@ -102,19 +102,13 @@ public class Clausifier {
 
 			@Override
 			public void perform() {
-				final SharedTerm shared = getSharedTerm(mTerm, true, mSource);
-				if (shared.mCCterm == null) {
-					final FunctionSymbol fs = getSymbol();
-					if (fs == null) {
-						// We have an intern function symbol
-						final CCTerm res = mCClosure.createAnonTerm(shared);
-						shared.setCCTerm(res);
-						mConverted.push(res);
-						if (mTerm.getSort().isArraySort()) {
-							mArrayTheory.notifyArray(res, false, false);
-						}
-					} else {
-						mOps.push(new SaveCCTerm(shared));
+				final ClausifierTermInfo termInfo = getClausifierTermInfo(mTerm);
+				if (termInfo.hasCCTerm()) {
+					mConverted.push(termInfo.getCCTerm());
+				} else {
+					if (needCCTerm(mTerm)) {
+						final FunctionSymbol fs = ((ApplicationTerm) mTerm).getFunction();
+						mOps.push(new SaveCCTerm(mTerm, termInfo));
 						final ApplicationTerm at = (ApplicationTerm) mTerm;
 						final Term[] args = at.getParameters();
 						for (int i = args.length - 1; i >= 0; --i) {
@@ -122,46 +116,31 @@ public class Clausifier {
 							mOps.push(new BuildCCTerm(args[i]));
 						}
 						mConverted.push(mCClosure.getFuncTerm(fs));
-					}
-				} else {
-					mConverted.push(shared.mCCterm);
-				}
-			}
-
-			private FunctionSymbol getSymbol() {
-				if (mTerm instanceof ApplicationTerm) {
-					final ApplicationTerm at = (ApplicationTerm) mTerm;
-					final FunctionSymbol fs = at.getFunction();
-					// Don't descend into interpreted function symbols unless
-					// it is a select or store
-					if (Clausifier.needCCTerm(fs)) {
-						return fs;
+					} else {
+						// We have an intern function symbol
+						final CCTerm res = mCClosure.createAnonTerm(mTerm);
+						termInfo.setCCTerm(res);
+						addTermAxioms(mTerm, mSource);
+						mConverted.push(res);
 					}
 				}
-				return null;
 			}
 		}
 
 		private class SaveCCTerm implements Operation {
-			private final SharedTerm mShared;
+			private final ClausifierTermInfo mTermInfo;
+			private final Term mTerm;
 
-			public SaveCCTerm(final SharedTerm shared) {
-				mShared = shared;
+			public SaveCCTerm(final Term term, final ClausifierTermInfo termInfo) {
+				mTerm = term;
+				mTermInfo = termInfo;
 			}
 
 			@Override
 			public void perform() {
-				mShared.setCCTerm(mConverted.peek());
-				mCClosure.addTerm(mShared.mCCterm, mShared);
-				final Term t = mShared.getTerm();
-				if (t.getSort().isArraySort()) {
-					final ApplicationTerm at = (ApplicationTerm) t;
-					final String funcName = at.getFunction().getName();
-					mArrayTheory.notifyArray(mShared.mCCterm, funcName.equals("store"), funcName.equals("const"));
-				}
-				if (t instanceof ApplicationTerm && ((ApplicationTerm) t).getFunction().getName().equals("@diff")) {
-					mArrayTheory.notifyDiff((CCAppTerm) mShared.mCCterm);
-				}
+				CCTerm res = mConverted.peek();
+				mTermInfo.setCCTerm(res);
+				addTermAxioms(mTerm, mSource);
 			}
 		}
 
@@ -760,9 +739,7 @@ public class Clausifier {
 						// TODO Find trivially true or false QuantLiterals.
 						lit = mQuantTheory.getQuantEquality(positive, mCollector.getSource(), lhs, rhs);
 					} else {
-						final SharedTerm slhs = getSharedTerm(lhs, mCollector.getSource());
-						final SharedTerm srhs = getSharedTerm(rhs, mCollector.getSource());
-						final EqualityProxy eq = createEqualityProxy(slhs, srhs);
+						final EqualityProxy eq = createEqualityProxy(lhs, rhs);
 						// eq == true and positive ==> set to true
 						// eq == true and !positive ==> noop
 						// eq == false and !positive ==> set to true
@@ -1055,7 +1032,7 @@ public class Clausifier {
 				for (final Term cond : mConds) {
 					literals[--offset] = cond;
 				}
-				literals[mConds.size()] = theory.term("=", mTermITE.getTerm(), mTerm);
+				literals[mConds.size()] = theory.term("=", mTermITE, mTerm);
 				Term orTerm = theory.term("or", literals);
 				Term axiom = mTracker.auxAxiom(orTerm, ProofConstants.AUX_TERM_ITE);
 
@@ -1131,7 +1108,7 @@ public class Clausifier {
 					final Sort sort = mTermITE.getSort();
 					final Theory theory = sort.getTheory();
 					final Term zero = Rational.ZERO.toTerm(sort);
-					final SMTAffineTerm diff = new SMTAffineTerm(mTermITE.getTerm());
+					final SMTAffineTerm diff = new SMTAffineTerm(mTermITE);
 					diff.negate();
 					diff.add(new SMTAffineTerm(mMinValue));
 					final Term lboundAx = theory.term("<=", diff.toTerm(mCompiler, sort), zero);
@@ -1144,80 +1121,54 @@ public class Clausifier {
 			}
 		}
 
-		private final SharedTerm mTermITE;
+		private final Term mTermITE;
 
-		public AddTermITEAxiom(final SharedTerm termITE, final SourceAnnotation source) {
+		public AddTermITEAxiom(final Term termITE, final SourceAnnotation source) {
 			mTermITE = termITE;
 			mSource = source;
 		}
 
 		@Override
 		public void perform() {
-			pushOperation(new CollectConditions(new ConditionChain(), mTermITE.getTerm()));
+			pushOperation(new CollectConditions(new ConditionChain(), mTermITE));
 			pushOperation(new AddBoundAxioms());
-			pushOperation(new CheckBounds(mTermITE.getTerm()));
+			pushOperation(new CheckBounds(mTermITE));
 		}
 
-	}
-
-	// Term creation
-	public MutableAffineTerm createMutableAffinTerm(final SharedTerm term) {
-		final MutableAffineTerm res = new MutableAffineTerm();
-		term.shareWithLinAr();
-		res.add(term.getFactor(), term.getLinVar());
-		res.add(term.getOffset());
-		return res;
-	}
-
-	public MutableAffineTerm createMutableAffinTerm(final SMTAffineTerm at, final SourceAnnotation source) {
-		final MutableAffineTerm res = new MutableAffineTerm();
-		res.add(at.getConstant());
-		for (final Map.Entry<Term, Rational> summand : at.getSummands().entrySet()) {
-			final SharedTerm shared = getSharedTerm(summand.getKey(), source);
-			final Rational coeff = summand.getValue();
-			shared.shareWithLinAr();
-			res.add(shared.mFactor.mul(coeff), shared.getLinVar());
-			res.add(shared.mOffset.mul(coeff));
-		}
-		return res;
 	}
 
 	/**
-	 * Get or create a shared term for a term. This version also makes sure that all axioms (e.g. select-over-store) are
-	 * added before a newly created shared term is returned.
+	 * Create a congruence closure term (CCTerm) for the given term. Also creates all necessary axioms for the term or
+	 * sub-terms.
+	 * 
+	 * @param term
+	 *            The term for which a ccterm should be created.
+	 * @param source
+	 *            The source annotation that is used for auxiliary axioms.
+	 * @return the ccterm.
 	 */
-	public SharedTerm getSharedTerm(final Term t, final SourceAnnotation source) {
-		final SharedTerm shared = getSharedTerm(t, false, source);
+	public CCTerm createCCTerm(final Term term, final SourceAnnotation source) {
+		CCTerm ccterm = new CCTermBuilder(source).convert(term);
 		if (!mIsRunning) {
 			run();
 		}
-		return shared;
+		return ccterm;
 	}
 
-	/**
-	 * Get or create a shared term for a term. This version does not force creation of a CCTerm for non-internal
-	 * functions with arguments if <code>inCCTermBuilder</code> is <code>true</code>.
-	 *
-	 * As a side effect, this function adds divide, to_int, or ite axioms for the corresponding terms. Furthermore, For
-	 * Boolean terms other than true or false the law of excluded middle is instantiated.
-	 *
-	 * @param t
-	 *            The term to create a shared term for.
-	 * @param inCCTermBuilder
-	 *            Are we in {@link CCTermBuilder}?
-	 * @return Shared term.
-	 */
-	public SharedTerm getSharedTerm(final Term t, final boolean inCCTermBuilder, final SourceAnnotation source) { // NOPMD
-		SharedTerm res = mSharedTerms.get(t);
-		if (res == null) {
-			// if we reach here, t is neither true nor false
-			res = new SharedTerm(this, t);
-			mSharedTerms.put(t, res);
-			if (t instanceof ApplicationTerm) {
-				final ApplicationTerm at = (ApplicationTerm) t;
+	public void addTermAxioms(final Term term, final SourceAnnotation source) {
+		ClausifierTermInfo termInfo = getClausifierTermInfo(term);
+		assert termInfo != null && termInfo.hasCCTerm();
+		if ((termInfo.getFlags() & ClausifierTermInfo.AUX_AXIOM_ADDED) == 0) {
+			if (term instanceof ApplicationTerm) {
+				if (termInfo.getCCTerm() == null && needCCTerm(term)) {
+					final CCTermBuilder cc = new CCTermBuilder(source);
+					termInfo.setCCTerm(cc.convert(term));
+				}
+
+				final ApplicationTerm at = (ApplicationTerm) term;
 				// Special cases
-				if (t.getSort() == t.getTheory().getBooleanSort() && inCCTermBuilder) {
-					addExcludedMiddleAxiom(res, source);
+				if (term.getSort() == term.getTheory().getBooleanSort()) {
+					addExcludedMiddleAxiom(term, source);
 				} else {
 					final FunctionSymbol fs = at.getFunction();
 					if (fs.isIntern()) {
@@ -1226,40 +1177,136 @@ public class Clausifier {
 						} else if (fs.getName().equals("to_int")) {
 							addToIntAxioms(at, source);
 						} else if (fs.getName().equals("ite") && fs.getReturnSort() != mTheory.getBooleanSort()) {
-							pushOperation(new AddTermITEAxiom(res, source));
+							pushOperation(new AddTermITEAxiom(term, source));
 						} else if (fs.getName().equals("store")) {
 							addStoreAxiom(at, source);
 						} else if (fs.getName().equals("@diff")) {
 							addDiffAxiom(at, source);
+							mArrayTheory.notifyDiff((CCAppTerm) termInfo.getCCTerm());
 						}
-					}
-					if (needCCTerm(fs) && !inCCTermBuilder && at.getParameters().length > 0) {
-						final CCTermBuilder cc = new CCTermBuilder(source);
-						res.mCCterm = cc.convert(t);
 					}
 				}
 			}
-			if (t.getSort().isNumericSort()) {
-				boolean needsLA = t instanceof ConstantTerm;
-				if (t instanceof ApplicationTerm) {
-					final String func = ((ApplicationTerm) t).getFunction().getName();
+			if (term.getSort().isArraySort()) {
+				boolean isStore = false;
+				boolean isConst = false;
+				if (term instanceof ApplicationTerm) {
+					final ApplicationTerm at = (ApplicationTerm) term;
+					final String funcName = at.getFunction().getName();
+					isStore = funcName.equals("store");
+					isConst = funcName.equals("const");
+				}
+				mArrayTheory.notifyArray(termInfo.getCCTerm(), isStore, isConst);
+			}
+			if (term.getSort().isNumericSort()) {
+				boolean needsLA = term instanceof ConstantTerm;
+				if (term instanceof ApplicationTerm) {
+					final String func = ((ApplicationTerm) term).getFunction().getName();
 					if (func.equals("+") || func.equals("-") || func.equals("*") || func.equals("to_real")) {
 						needsLA = true;
 					}
 				}
 				if (needsLA) {
-					getLASolver().generateSharedVar(res, createMutableAffinTerm(new SMTAffineTerm(t), source));
-					addUnshareLA(res);
+					getLASolver().share(term, createMutableAffinTerm(new SMTAffineTerm(term), source));
+					addUnshareLA(term);
 				}
 			}
+			termInfo.setFlags(ClausifierTermInfo.AUX_AXIOM_ADDED);
 		}
+	}
+
+	public LinVar getLinVar(final Term term) {
+		ClausifierTermInfo termInfo = getClausifierTermInfo(term);
+		assert termInfo.getLAVar() != null && termInfo.getLAOffset() == Rational.ZERO
+				&& termInfo.getLAFactor() == Rational.ONE;
+		return termInfo.getLAVar();
+	}
+
+	/**
+	 * Create a LinVar for a basic term.
+	 * @param term
+	 * @return
+	 */
+	public LinVar createLinVar(final Term term, final SourceAnnotation source) {
+		assert term.getSort().isNumericSort();
+		assert term == SMTAffineTerm.create(term).getSummands().keySet().iterator().next();
+		addTermAxioms(term, source);
+		ClausifierTermInfo termInfo = getClausifierTermInfo(term);
+		if (termInfo.getLAVar() == null) {
+			final boolean isint = term.getSort().getName().equals("Int");
+			LinVar lv = getLASolver().addVar(term, isint, getStackLevel());
+			termInfo.setLAVar(Rational.ONE, lv, Rational.ZERO);
+			if (termInfo.hasCCTerm()) {
+				MutableAffineTerm mat = new MutableAffineTerm();
+				mat.add(Rational.ONE, lv);
+				getLASolver().share(term, mat);
+			}
+		}
+		assert termInfo.getLAVar() != null && termInfo.getLAOffset() == Rational.ZERO
+				&& termInfo.getLAFactor() == Rational.ONE;
+		return termInfo.getLAVar();
+	}
+
+	public MutableAffineTerm createMutableAffinTerm(final SMTAffineTerm at, final SourceAnnotation source) {
+		final MutableAffineTerm res = new MutableAffineTerm();
+		for (final Map.Entry<Term, Rational> summand : at.getSummands().entrySet()) {
+			final LinVar lv = createLinVar(summand.getKey(), source);
+			final Rational coeff = summand.getValue();
+			res.add(coeff, lv);
+		}
+		res.add(at.getConstant());
 		return res;
 	}
 
-	public static boolean needCCTerm(final FunctionSymbol fs) {
-		// we also create CC function symbols for select/store/const. For const it is necessary, as the array theory
-		// does not derive v = w --> (const v) = (const w). For select/store it makes congruence reason a bit simpler.
-		return !fs.isInterpreted() || fs.getName() == "select" || fs.getName() == "store" || fs.getName() == "const";
+	/**
+	 * Get or create a shared term for a term. This version also makes sure that all axioms (e.g. select-over-store) are
+	 * added before a newly created shared term is returned.
+	 */
+	public Term getSharedTerm(final Term term, final SourceAnnotation source) {
+		addTermAxioms(term, source);
+		if (!mIsRunning) {
+			run();
+		}
+		return term;
+	}
+
+	public ClausifierTermInfo getClausifierTermInfo(final Term t) {
+		ClausifierTermInfo termInfo = mTermData.get(t);
+		if (termInfo == null) {
+			termInfo = new ClausifierTermInfo();
+			mTermData.put(t, termInfo);
+		}
+		return termInfo;
+	}
+
+	public static boolean needCCTerm(final Term term) {
+		if (term instanceof ApplicationTerm) {
+			ApplicationTerm appTerm = (ApplicationTerm) term;
+			FunctionSymbol fs = appTerm.getFunction();
+			if (appTerm.getParameters().length == 0) {
+				return false;
+			}
+			if (!fs.isIntern()) {
+				return true;
+			}
+			if (fs.getName().startsWith("@AUX")) {
+				return true;
+			}
+			switch (fs.getName()) {
+			case "select":
+			case "store":
+			case "@diff":
+			case "const":
+				return true;
+			case "div":
+			case "mod":
+			case "/":
+				return SMTAffineTerm.convertConstant((ConstantTerm) appTerm.getParameters()[1]) == Rational.ZERO;
+			default:
+				return false;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -1343,14 +1390,14 @@ public class Clausifier {
 	 */
 	private final Map<Term, ClausifierInfo> mClauseData = new HashMap<>();
 	/**
+	 * Mapping from non-Boolean terms to information about shared variables produced for these terms.
+	 */
+	private final ScopedHashMap<Term, ClausifierTermInfo> mTermData = new ScopedHashMap<>();
+	/**
 	 * Mapping from Boolean base terms to literals. A term is considered a base term when it corresponds to an atom or
 	 * its negation.
 	 */
 	private final Map<Term, ILiteral> mLiteralData = new HashMap<>();
-	/**
-	 * We cache the SharedTerms for true and false here to be able to quickly create excluded middle axioms.
-	 */
-	SharedTerm mSharedTrue, mSharedFalse;
 
 	/// Assertion stack stuff
 	/**
@@ -1367,16 +1414,12 @@ public class Clausifier {
 	 * Keep all shared terms that need to be unshared from congruence closure when the top level is popped off the
 	 * assertion stack.
 	 */
-	final ScopedArrayList<SharedTerm> mUnshareCC = new ScopedArrayList<>();
+	final ScopedArrayList<Term> mUnshareCC = new ScopedArrayList<>();
 	/**
 	 * Keep all shared terms that need to be unshared from linear arithmetic when the top level is popped off the
 	 * assertion stack.
 	 */
-	final ScopedArrayList<SharedTerm> mUnshareLA = new ScopedArrayList<>();
-	/**
-	 * Mapping from terms to their corresponding shared terms.
-	 */
-	final ScopedHashMap<Term, SharedTerm> mSharedTerms = new ScopedHashMap<>();
+	final ScopedArrayList<Term> mUnshareLA = new ScopedArrayList<>();
 	/**
 	 * Map of differences to equality proxies.
 	 */
@@ -1681,9 +1724,10 @@ public class Clausifier {
 	 * Add the axioms for the law of excluded middle. This must happen if a Boolean function is used as a parameter to a
 	 * non-Boolean function.
 	 */
-	public void addExcludedMiddleAxiom(final SharedTerm shared, final SourceAnnotation source) {
-		final EqualityProxy trueProxy = createEqualityProxy(shared, mSharedTrue);
-		final EqualityProxy falseProxy = createEqualityProxy(shared, mSharedFalse);
+	public void addExcludedMiddleAxiom(final Term term, final SourceAnnotation source) {
+		final Theory theory = term.getTheory();
+		final EqualityProxy trueProxy = createEqualityProxy(term, theory.mTrue);
+		final EqualityProxy falseProxy = createEqualityProxy(term, theory.mFalse);
 		// These asserts should hold since we do not add excluded middle
 		// axioms for true or false, and the equality proxies are
 		// non-numeric
@@ -1692,27 +1736,25 @@ public class Clausifier {
 		assert falseProxy != EqualityProxy.getTrueProxy();
 		assert falseProxy != EqualityProxy.getFalseProxy();
 
-		final Term litTerm = shared.getTerm();
-		final Theory theory = litTerm.getTheory();
-		final ILiteral lit = createBooleanLit((ApplicationTerm) litTerm, source);
+		final ILiteral lit = createBooleanLit((ApplicationTerm) term, source);
 		final Literal trueLit = trueProxy.getLiteral(source);
 		final Literal falseLit = falseProxy.getLiteral(source);
 		final Term trueTerm = trueLit.getSMTFormula(theory);
 		final Term falseTerm = falseLit.getSMTFormula(theory);
 		// m_Term => thenForm is (not m_Term) \/ thenForm
-		Term axiom = mTracker.auxAxiom(theory.term("or", theory.term("not", litTerm), trueTerm),
+		Term axiom = mTracker.auxAxiom(theory.term("or", theory.term("not", term), trueTerm),
 				ProofConstants.AUX_EXCLUDED_MIDDLE_1);
 		BuildClause bc = new BuildClause(axiom, source);
 		ClauseCollector collector = new ClauseCollector(bc, mTracker.reflexivity(mTracker.getProvedTerm(axiom)), 2);
-		final Term litRewrite = mTracker.intern(litTerm, lit.getSMTFormula(theory, true));
-		Term rewrite = mTracker.congruence(mTracker.reflexivity(mTheory.term("not", litTerm)),
+		final Term litRewrite = mTracker.intern(term, lit.getSMTFormula(theory, true));
+		Term rewrite = mTracker.congruence(mTracker.reflexivity(mTheory.term("not", term)),
 				new Term[] { litRewrite });
 		collector.addLiteral(lit.negate(), rewrite);
 		rewrite = mTracker.intern(trueTerm, trueLit.getSMTFormula(theory, true));
 		collector.addLiteral(trueLit, rewrite);
 		collector.perform();
 		// (not m_Term) => elseForm is m_Term \/ elseForm
-		axiom = mTracker.auxAxiom(theory.term("or", litTerm, falseTerm), ProofConstants.AUX_EXCLUDED_MIDDLE_2);
+		axiom = mTracker.auxAxiom(theory.term("or", term, falseTerm), ProofConstants.AUX_EXCLUDED_MIDDLE_2);
 		bc = new BuildClause(axiom, source);
 		collector = new ClauseCollector(bc, mTracker.reflexivity(mTracker.getProvedTerm(axiom)), 2);
 		collector.addLiteral(lit, litRewrite);
@@ -1762,10 +1804,10 @@ public class Clausifier {
 		return atom;
 	}
 
-	public EqualityProxy createEqualityProxy(final SharedTerm lhs, final SharedTerm rhs) {
-		final SMTAffineTerm diff = new SMTAffineTerm(lhs.getTerm());
+	public EqualityProxy createEqualityProxy(final Term lhs, final Term rhs) {
+		final SMTAffineTerm diff = new SMTAffineTerm(lhs);
 		diff.negate();
-		diff.add(new SMTAffineTerm(rhs.getTerm()));
+		diff.add(new SMTAffineTerm(rhs));
 		if (diff.isConstant()) {
 			if (diff.getConstant().equals(Rational.ZERO)) {
 				return EqualityProxy.getTrueProxy();
@@ -1872,31 +1914,29 @@ public class Clausifier {
 		mUndoTrail = mUndoTrail.getPrevious();
 	}
 
-	void addUnshareCC(final SharedTerm shared) {
+	void addUnshareCC(final Term shared) {
 		mUnshareCC.add(shared);
 	}
 
-	void addUnshareLA(final SharedTerm shared) {
+	void addUnshareLA(final Term shared) {
 		mUnshareLA.add(shared);
 	}
 
 	private void setupCClosure() {
 		if (mCClosure == null) {
-			mCClosure = new CClosure(mEngine);
+			mCClosure = new CClosure(this);
 			mEngine.addTheory(mCClosure);
 			/*
 			 * If we do not setup the cclosure at the root level, we remove it with the corresponding pop since the
 			 * axiom true != false will be removed from the assertion stack as well.
 			 */
-			// we don't want to call getSharedTerm here, as this would create the excluded middle axioms.
-			mSharedTrue = new SharedTerm(this, mTheory.mTrue);
-			mSharedTrue.mCCterm = mCClosure.createAnonTerm(mSharedTrue);
-			mSharedTerms.put(mTheory.mTrue, mSharedTrue);
-			mSharedFalse = new SharedTerm(this, mTheory.mFalse);
-			mSharedFalse.mCCterm = mCClosure.createAnonTerm(mSharedFalse);
-			mSharedTerms.put(mTheory.mFalse, mSharedFalse);
+			ClausifierTermInfo trueInfo, falseInfo;
+			trueInfo = getClausifierTermInfo(mTheory.mTrue);
+			trueInfo.setCCTerm(mCClosure.createAnonTerm(mTheory.mTrue));
+			falseInfo = getClausifierTermInfo(mTheory.mFalse);
+			falseInfo.setCCTerm(mCClosure.createAnonTerm(mTheory.mFalse));
 			final SourceAnnotation source = SourceAnnotation.EMPTY_SOURCE_ANNOT;
-			final Literal atom = createEqualityProxy(mSharedTrue, mSharedFalse).getLiteral(source);
+			final Literal atom = createEqualityProxy(mTheory.mTrue, mTheory.mFalse).getLiteral(source);
 			final Term trueEqFalse = mTheory.term("=", mTheory.mTrue, mTheory.mFalse);
 			final Term axiom = mTracker.auxAxiom(mTheory.not(trueEqFalse), ProofConstants.AUX_TRUE_NOT_FALSE);
 			final BuildClause bc = new BuildClause(axiom, source);
@@ -1910,7 +1950,7 @@ public class Clausifier {
 
 	private void setupLinArithmetic() {
 		if (mLASolver == null) {
-			mLASolver = new LinArSolve(mEngine);
+			mLASolver = new LinArSolve(this);
 			mEngine.addTheory(mLASolver);
 		}
 	}
@@ -2116,7 +2156,7 @@ public class Clausifier {
 			mEqualities.beginScope();
 			mUnshareCC.beginScope();
 			mUnshareLA.beginScope();
-			mSharedTerms.beginScope();
+			mTermData.beginScope();
 			pushUndoTrail();
 		}
 	}
@@ -2131,17 +2171,19 @@ public class Clausifier {
 		mNumFailedPushes = 0;
 		mEngine.pop(numpops);
 		for (int i = 0; i < numpops; ++i) {
-			for (final SharedTerm t : mUnshareCC.currentScope()) {
-				t.unshareCC();
+			for (final Term t : mUnshareCC.currentScope()) {
+				ClausifierTermInfo termInfo = getClausifierTermInfo(t);
+				termInfo.setCCTerm(null);
 			}
 			mUnshareCC.endScope();
-			for (final SharedTerm t : mUnshareLA.currentScope()) {
-				t.unshareLA();
+			for (final Term t : mUnshareLA.currentScope()) {
+				ClausifierTermInfo termInfo = getClausifierTermInfo(t);
+				getLASolver().unshare(t);
 			}
 			mUnshareLA.endScope();
 			mEqualities.endScope();
 			popUndoTrail();
-			mSharedTerms.endScope();
+			mTermData.endScope();
 		}
 		mStackLevel -= numpops;
 	}
@@ -2171,9 +2213,7 @@ public class Clausifier {
 			if (fs.getName().equals("<=")) {
 				lit = createLeq0(at, source);
 			} else if (fs.getName().equals("=") && at.getParameters()[0].getSort() != mTheory.getBooleanSort()) {
-				final SharedTerm lhs = getSharedTerm(at.getParameters()[0], source);
-				final SharedTerm rhs = getSharedTerm(at.getParameters()[1], source);
-				final EqualityProxy ep = createEqualityProxy(lhs, rhs);
+				final EqualityProxy ep = createEqualityProxy(at.getParameters()[0], at.getParameters()[1]);
 				if (ep == EqualityProxy.getTrueProxy()) {
 					lit = new DPLLAtom.TrueAtom();
 				} else if (ep == EqualityProxy.getFalseProxy()) {
@@ -2204,18 +2244,16 @@ public class Clausifier {
 	}
 
 	private Literal createLeq0(final ApplicationTerm leq0term, final SourceAnnotation source) {
-		ILiteral lit = mLiteralData.get(leq0term);
+		Literal lit = (Literal) mLiteralData.get(leq0term);
 		if (lit != null) {
-			assert lit instanceof Literal;
-			return (Literal) lit;
+			return lit;
 		}
 		final SMTAffineTerm sum = new SMTAffineTerm(leq0term.getParameters()[0]);
 		final MutableAffineTerm msum = createMutableAffinTerm(sum, source);
 		lit = mLASolver.generateConstraint(msum, false);
-		assert lit instanceof Literal;
 		mLiteralData.put(leq0term, lit);
 		mUndoTrail = new RemoveAtom(mUndoTrail, leq0term);
-		return (Literal) lit;
+		return lit;
 	}
 
 	private ILiteral createBooleanLit(final ApplicationTerm term, final SourceAnnotation source) {
@@ -2245,9 +2283,7 @@ public class Clausifier {
 						}
 					} else {
 						// replace a predicate atom "(p x)" by "(p x) = true"
-						final SharedTerm st = getSharedTerm(term, source);
-
-						final EqualityProxy eq = createEqualityProxy(st, mSharedTrue);
+					final EqualityProxy eq = createEqualityProxy(term, mTheory.mTrue);
 						// Safe since m_Term is neither true nor false
 						assert eq != EqualityProxy.getTrueProxy();
 						assert eq != EqualityProxy.getFalseProxy();
@@ -2301,8 +2337,7 @@ public class Clausifier {
 			assert iLit instanceof Literal;
 			res = (Literal) iLit;
 		} else if (fs.getName().equals("=")) {
-			final EqualityProxy ep = createEqualityProxy(getSharedTerm(at.getParameters()[0], source),
-					getSharedTerm(at.getParameters()[1], source));
+			final EqualityProxy ep = createEqualityProxy(at.getParameters()[0], at.getParameters()[1]);
 			if (ep == EqualityProxy.getFalseProxy()) {
 				res = new TrueAtom().negate();
 			} else if (ep == EqualityProxy.getTrueProxy()) {

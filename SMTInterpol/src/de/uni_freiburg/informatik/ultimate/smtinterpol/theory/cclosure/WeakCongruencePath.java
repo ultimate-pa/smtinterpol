@@ -357,7 +357,7 @@ public class WeakCongruencePath extends CongruencePath {
 	 * @param idxFromStore The index of an edge in the weakeq graph.
 	 */
 	private void computeIndexDiseq(CCTerm idx, CCTerm idxFromStore) {
-		final CCEquality eqlit = CClosure.createEquality(idx, idxFromStore);
+		final CCEquality eqlit = mArrayTheory.getCClosure().createEquality(idx, idxFromStore);
 		if (eqlit != null) {
 			mAllLiterals.add(eqlit.negate());
 		}
@@ -365,7 +365,7 @@ public class WeakCongruencePath extends CongruencePath {
 
 	private Clause generateClause(SymmetricPair<CCTerm> diseq, boolean produceProofs, RuleKind rule) {
 		if (diseq != null) {
-			final CCEquality eq = CClosure.createEquality(diseq.getFirst(), diseq.getSecond());
+			final CCEquality eq = mArrayTheory.getCClosure().createEquality(diseq.getFirst(), diseq.getSecond());
 			if (eq != null) {
 				// Note that it can actually happen that diseq is already in
 				// the list of all literals (because it is an index assumption).

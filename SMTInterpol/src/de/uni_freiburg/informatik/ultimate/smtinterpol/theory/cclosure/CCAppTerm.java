@@ -22,7 +22,6 @@ import java.util.ArrayDeque;
 import java.util.HashMap;
 
 import de.uni_freiburg.informatik.ultimate.logic.Term;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SharedTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.SimpleListable;
 import de.uni_freiburg.informatik.ultimate.util.HashUtils;
 
@@ -49,7 +48,7 @@ public class CCAppTerm extends CCTerm {
 		}
 	}
 
-	public CCAppTerm(boolean isFunc, int parentPos, CCTerm func, CCTerm arg, SharedTerm term, CClosure engine) {
+	public CCAppTerm(boolean isFunc, int parentPos, CCTerm func, CCTerm arg, Term term, CClosure engine) {
 		super(isFunc, parentPos, term, HashUtils.hashJenkins(func.hashCode(), arg));
 		mFunc = func;
 		mArg = arg;

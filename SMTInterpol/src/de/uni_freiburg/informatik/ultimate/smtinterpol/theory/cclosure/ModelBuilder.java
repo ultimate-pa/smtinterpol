@@ -80,9 +80,8 @@ public class ModelBuilder {
 				final Term smtterm = term.toSMTTerm(t);
 				if (smtterm.getSort().isNumericSort()) {
 					Rational v;
-					if (term.getSharedTerm() != null
-							&& term.getSharedTerm().validShared()) {
-						v = ste.evaluate(term.getSharedTerm(), t);
+					if (term.getSharedTerm() != null) {
+						v = ste.evaluate(term.getSharedTerm().getFlatTerm(), t);
 					} else if (smtterm instanceof ConstantTerm) {
 						v = (Rational) ((ConstantTerm) smtterm).getValue();
 					} else {
