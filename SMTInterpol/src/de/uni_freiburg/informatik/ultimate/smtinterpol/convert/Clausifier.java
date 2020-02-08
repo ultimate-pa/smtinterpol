@@ -21,6 +21,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.convert;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -74,6 +75,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroun
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LASharedTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinArSolve;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinVar;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.MutableAffineTerm;
@@ -119,6 +121,7 @@ public class Clausifier {
 					} else {
 						// We have an intern function symbol
 						final CCTerm res = mCClosure.createAnonTerm(mTerm);
+						mCClosure.addTerm(res, mTerm);
 						termInfo.setCCTerm(res);
 						addTermAxioms(mTerm, mSource);
 						mConverted.push(res);
@@ -138,7 +141,8 @@ public class Clausifier {
 
 			@Override
 			public void perform() {
-				CCTerm res = mConverted.peek();
+				final CCTerm res = mConverted.peek();
+				mCClosure.addTerm(res, mTerm);
 				mTermInfo.setCCTerm(res);
 				addTermAxioms(mTerm, mSource);
 			}
@@ -795,10 +799,10 @@ public class Clausifier {
 				return;
 			} else if (idx instanceof TermVariable) {
 				// TODO Find trivially true or false QuantLiterals.
-				Term value = positive ? mTheory.mFalse : mTheory.mTrue;
-				Term equality = mTheory.equals(idx, value);
-				ILiteral lit = mQuantTheory.getQuantEquality(false, mCollector.getSource(), idx, value);
-				Term atomRewrite = mTracker.intern(idx, positive ? mTheory.not(equality) : equality);
+				final Term value = positive ? mTheory.mFalse : mTheory.mTrue;
+				final Term equality = mTheory.equals(idx, value);
+				final ILiteral lit = mQuantTheory.getQuantEquality(false, mCollector.getSource(), idx, value);
+				final Term atomRewrite = mTracker.intern(idx, positive ? mTheory.not(equality) : equality);
 				if (positive) {
 					rewrite = mTracker.transitivity(rewrite, atomRewrite);
 				} else {
@@ -919,7 +923,7 @@ public class Clausifier {
 					final ILiteral[] litsAfterDER = resultFromDER.getFirst();
 					// TODO Proof production.
 					isDpllClause = true;
-					for (ILiteral iLit : litsAfterDER) {
+					for (final ILiteral iLit : litsAfterDER) {
 						if (iLit instanceof QuantLiteral) {
 							isDpllClause = false;
 						}
@@ -1140,7 +1144,7 @@ public class Clausifier {
 	/**
 	 * Create a congruence closure term (CCTerm) for the given term. Also creates all necessary axioms for the term or
 	 * sub-terms.
-	 * 
+	 *
 	 * @param term
 	 *            The term for which a ccterm should be created.
 	 * @param source
@@ -1148,7 +1152,7 @@ public class Clausifier {
 	 * @return the ccterm.
 	 */
 	public CCTerm createCCTerm(final Term term, final SourceAnnotation source) {
-		CCTerm ccterm = new CCTermBuilder(source).convert(term);
+		final CCTerm ccterm = new CCTermBuilder(source).convert(term);
 		if (!mIsRunning) {
 			run();
 		}
@@ -1156,7 +1160,7 @@ public class Clausifier {
 	}
 
 	public void addTermAxioms(final Term term, final SourceAnnotation source) {
-		ClausifierTermInfo termInfo = getClausifierTermInfo(term);
+		final ClausifierTermInfo termInfo = getClausifierTermInfo(term);
 		assert termInfo != null && termInfo.hasCCTerm();
 		if ((termInfo.getFlags() & ClausifierTermInfo.AUX_AXIOM_ADDED) == 0) {
 			if (term instanceof ApplicationTerm) {
@@ -1207,8 +1211,10 @@ public class Clausifier {
 					}
 				}
 				if (needsLA) {
-					getLASolver().share(term, createMutableAffinTerm(new SMTAffineTerm(term), source));
-					addUnshareLA(term);
+					final MutableAffineTerm mat = createMutableAffinTerm(new SMTAffineTerm(term), source);
+					assert mat.getConstant().mEps == 0;
+					termInfo.setLATerm(new LASharedTerm(term, mat.getSummands(), mat.getConstant().mReal));
+					getLASolver().addSharedTerm(termInfo.getLATerm());
 				}
 			}
 			termInfo.setFlags(ClausifierTermInfo.AUX_AXIOM_ADDED);
@@ -1216,10 +1222,11 @@ public class Clausifier {
 	}
 
 	public LinVar getLinVar(final Term term) {
-		ClausifierTermInfo termInfo = getClausifierTermInfo(term);
-		assert termInfo.getLAVar() != null && termInfo.getLAOffset() == Rational.ZERO
-				&& termInfo.getLAFactor() == Rational.ONE;
-		return termInfo.getLAVar();
+		final ClausifierTermInfo termInfo = getClausifierTermInfo(term);
+		final LASharedTerm laShared = termInfo.getLATerm();
+		assert laShared.getSummands().size() == 1 && laShared.getOffset() == Rational.ZERO
+				&& laShared.getSummands().values().iterator().next() == Rational.ONE;
+		return laShared.getSummands().keySet().iterator().next();
 	}
 
 	/**
@@ -1231,20 +1238,20 @@ public class Clausifier {
 		assert term.getSort().isNumericSort();
 		assert term == SMTAffineTerm.create(term).getSummands().keySet().iterator().next();
 		addTermAxioms(term, source);
-		ClausifierTermInfo termInfo = getClausifierTermInfo(term);
-		if (termInfo.getLAVar() == null) {
+		final ClausifierTermInfo termInfo = getClausifierTermInfo(term);
+		LASharedTerm laShared = termInfo.getLATerm();
+		if (!termInfo.hasLAVar()) {
 			final boolean isint = term.getSort().getName().equals("Int");
-			LinVar lv = getLASolver().addVar(term, isint, getStackLevel());
-			termInfo.setLAVar(Rational.ONE, lv, Rational.ZERO);
+			final LinVar lv = getLASolver().addVar(term, isint, getStackLevel());
+			laShared = new LASharedTerm(term, Collections.singletonMap(lv, Rational.ONE), Rational.ZERO);
+			termInfo.setLATerm(laShared);
 			if (termInfo.hasCCTerm()) {
-				MutableAffineTerm mat = new MutableAffineTerm();
-				mat.add(Rational.ONE, lv);
-				getLASolver().share(term, mat);
+				getLASolver().addSharedTerm(laShared);
 			}
 		}
-		assert termInfo.getLAVar() != null && termInfo.getLAOffset() == Rational.ZERO
-				&& termInfo.getLAFactor() == Rational.ONE;
-		return termInfo.getLAVar();
+		assert laShared.getSummands().size() == 1 && laShared.getOffset() == Rational.ZERO
+				&& laShared.getSummands().values().iterator().next() == Rational.ONE;
+		return laShared.getSummands().keySet().iterator().next();
 	}
 
 	public MutableAffineTerm createMutableAffinTerm(final SMTAffineTerm at, final SourceAnnotation source) {
@@ -1281,8 +1288,8 @@ public class Clausifier {
 
 	public static boolean needCCTerm(final Term term) {
 		if (term instanceof ApplicationTerm) {
-			ApplicationTerm appTerm = (ApplicationTerm) term;
-			FunctionSymbol fs = appTerm.getFunction();
+			final ApplicationTerm appTerm = (ApplicationTerm) term;
+			final FunctionSymbol fs = appTerm.getFunction();
 			if (appTerm.getParameters().length == 0) {
 				return false;
 			}
@@ -1415,11 +1422,6 @@ public class Clausifier {
 	 * assertion stack.
 	 */
 	final ScopedArrayList<Term> mUnshareCC = new ScopedArrayList<>();
-	/**
-	 * Keep all shared terms that need to be unshared from linear arithmetic when the top level is popped off the
-	 * assertion stack.
-	 */
-	final ScopedArrayList<Term> mUnshareLA = new ScopedArrayList<>();
 	/**
 	 * Map of differences to equality proxies.
 	 */
@@ -1918,10 +1920,6 @@ public class Clausifier {
 		mUnshareCC.add(shared);
 	}
 
-	void addUnshareLA(final Term shared) {
-		mUnshareLA.add(shared);
-	}
-
 	private void setupCClosure() {
 		if (mCClosure == null) {
 			mCClosure = new CClosure(this);
@@ -2155,7 +2153,6 @@ public class Clausifier {
 			++mStackLevel;
 			mEqualities.beginScope();
 			mUnshareCC.beginScope();
-			mUnshareLA.beginScope();
 			mTermData.beginScope();
 			pushUndoTrail();
 		}
@@ -2172,15 +2169,10 @@ public class Clausifier {
 		mEngine.pop(numpops);
 		for (int i = 0; i < numpops; ++i) {
 			for (final Term t : mUnshareCC.currentScope()) {
-				ClausifierTermInfo termInfo = getClausifierTermInfo(t);
+				final ClausifierTermInfo termInfo = getClausifierTermInfo(t);
 				termInfo.setCCTerm(null);
 			}
 			mUnshareCC.endScope();
-			for (final Term t : mUnshareLA.currentScope()) {
-				ClausifierTermInfo termInfo = getClausifierTermInfo(t);
-				getLASolver().unshare(t);
-			}
-			mUnshareLA.endScope();
 			mEqualities.endScope();
 			popUndoTrail();
 			mTermData.endScope();
@@ -2389,7 +2381,7 @@ public class Clausifier {
 			return true;
 		}
 		@Override
-		public Term getSMTFormula(Theory theory, boolean quoted) {
+		public Term getSMTFormula(final Theory theory, final boolean quoted) {
 			return theory.mTrue;
 		}
 	}
@@ -2408,7 +2400,7 @@ public class Clausifier {
 			return true;
 		}
 		@Override
-		public Term getSMTFormula(Theory theory, boolean quoted) {
+		public Term getSMTFormula(final Theory theory, final boolean quoted) {
 			return theory.mFalse;
 		}
 	}

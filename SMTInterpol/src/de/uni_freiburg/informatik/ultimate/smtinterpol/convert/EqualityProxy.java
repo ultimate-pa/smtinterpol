@@ -21,10 +21,10 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.convert;
 import de.uni_freiburg.informatik.ultimate.logic.PrintTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier.CCTermBuilder;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LAEquality;
 
 public class EqualityProxy {
@@ -88,13 +88,13 @@ public class EqualityProxy {
 
 	public LAEquality createLAEquality() {
 		/* create la part */
-		SMTAffineTerm affine = SMTAffineTerm.create(mLhs);
+		final SMTAffineTerm affine = SMTAffineTerm.create(mLhs);
 		affine.add(Rational.MONE, SMTAffineTerm.create(mRhs));
 		return mClausifier.getLASolver().createEquality(mClausifier.createMutableAffinTerm(affine, null));
 	}
 
-	public Rational computeNormFactor(Term lhs, Term rhs) {
-		SMTAffineTerm affine = SMTAffineTerm.create(lhs);
+	public Rational computeNormFactor(final Term lhs, final Term rhs) {
+		final SMTAffineTerm affine = SMTAffineTerm.create(lhs);
 		affine.add(Rational.MONE, rhs);
 		return affine.getGcd().inverse();
 	}
@@ -112,8 +112,8 @@ public class EqualityProxy {
 	 * @return The created (or cached) CCEquality.
 	 */
 	public CCEquality createCCEquality(final Term lhs, final Term rhs) {
-		ClausifierTermInfo lhsInfo = mClausifier.getClausifierTermInfo(lhs);
-		ClausifierTermInfo rhsInfo = mClausifier.getClausifierTermInfo(rhs);
+		final ClausifierTermInfo lhsInfo = mClausifier.getClausifierTermInfo(lhs);
+		final ClausifierTermInfo rhsInfo = mClausifier.getClausifierTermInfo(rhs);
 		assert lhsInfo.hasCCTerm() && rhsInfo.hasCCTerm();
 		LAEquality laeq;
 		if (mEqAtom == null) {
@@ -149,8 +149,8 @@ public class EqualityProxy {
 	}
 
 	private DPLLAtom createAtom(final SourceAnnotation source) {
-		ClausifierTermInfo lhsInfo = mClausifier.getClausifierTermInfo(mLhs);
-		ClausifierTermInfo rhsInfo = mClausifier.getClausifierTermInfo(mRhs);
+		final ClausifierTermInfo lhsInfo = mClausifier.getClausifierTermInfo(mLhs);
+		final ClausifierTermInfo rhsInfo = mClausifier.getClausifierTermInfo(mRhs);
 		if (!lhsInfo.hasCCTerm() && !rhsInfo.hasCCTerm()) {
 			/* if both terms do not exist in CClosure yet, it may be better to
 			 * create them in linear arithmetic.
@@ -158,32 +158,23 @@ public class EqualityProxy {
 			 * already in linear arithmetic.
 			 */
 			if ((mClausifier.getCClosure() == null || lhsInfo.hasLAVar()) && !rhsInfo.hasLAVar()) {
-				//m_Clausifier.createMutableAffinTerm(mRhs);
-				mClausifier.createLATerm();
-				mRhs.shareWithLinAr();
+				mClausifier.createLinVar(mRhs, source);
 			}
 			if ((mClausifier.getCClosure() == null || rhsInfo.hasLAVar()) && !lhsInfo.hasLAVar()) {
-				//m_Clausifier.createMutableAffinTerm(mLhs);
-				mLhs.shareWithLinAr();
+				mClausifier.createLinVar(mLhs, source);
 			}
-		}
-
-		/* check if the shared terms share at least one theory. */
-		if (!((mLhs.mCCterm != null && mRhs.mCCterm != null)
-				|| (mLhs.mOffset != null && mRhs.mOffset != null))) {
-			/* let them share congruence closure */
-			final CCTermBuilder cc = mClausifier.new CCTermBuilder(source);
-			cc.convert(mLhs);
-			cc.convert(mRhs);
 		}
 
 		/* Get linear arithmetic info, if both are arithmetic */
 		if (lhsInfo.hasLAVar() && rhsInfo.hasLAVar()) {
 			return createLAEquality();
 		} else {
+			/* let them share congruence closure */
+			final CCTerm ccLhs = mClausifier.createCCTerm(mLhs, source);
+			final CCTerm ccRhs = mClausifier.createCCTerm(mRhs, source);
+
 			/* create CC equality */
-			return mClausifier.getCClosure().createCCEquality(
-					mClausifier.getStackLevel(), lhsInfo.getCCTerm(), rhsInfo.getCCTerm());
+			return mClausifier.getCClosure().createCCEquality(mClausifier.getStackLevel(), ccLhs, ccRhs);
 		}
 	}
 

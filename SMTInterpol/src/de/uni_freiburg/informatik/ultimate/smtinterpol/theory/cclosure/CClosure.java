@@ -91,11 +91,10 @@ public class CClosure implements ITheory {
 		return getEngine().isProofGenerationEnabled();
 	}
 
-	public CCTerm createAnonTerm(final Term flat) {
-		final CCTerm term = new CCBaseTerm(false, mNumFunctionPositions, flat, flat);
-		mAnonTerms.put(flat, term);
-		mAllTerms.add(term);
-		return term;
+	public CCTerm createAnonTerm(final Term term) {
+		final CCTerm ccTerm = new CCBaseTerm(false, mNumFunctionPositions, term);
+		mAnonTerms.put(term, ccTerm);
+		return ccTerm;
 	}
 
 	/**
@@ -108,15 +107,15 @@ public class CClosure implements ITheory {
 	 *            A term on the path from this.mArg to this.mArg.mRepStar.
 	 * @return The congruent CCAppTerm or null if there is no congruent application.
 	 */
-	private CCAppTerm findCongruentAppTerm(CCTerm func, CCTerm arg) {
+	private CCAppTerm findCongruentAppTerm(final CCTerm func, final CCTerm arg) {
 		final CCParentInfo argInfo = arg.getRepresentative().mCCPars.getInfo(func.mParentPosition);
 		int congruenceLevel = Integer.MAX_VALUE;
 		CCAppTerm congruentTerm = null;
 		// Look for all congruent terms for the argument.
 		for (final Parent p : argInfo.mCCParents) {
-			CCAppTerm papp = p.getData();
-			CCTerm pfunc = papp.getFunc();
-			CCTerm parg = papp.getArg();
+			final CCAppTerm papp = p.getData();
+			final CCTerm pfunc = papp.getFunc();
+			final CCTerm parg = papp.getArg();
 			if (pfunc.getRepresentative() != func.getRepresentative()) {
 				// this term is not congruent
 				continue;
@@ -126,7 +125,7 @@ public class CClosure implements ITheory {
 				continue;
 			}
 			// compute the level where the congruence occurred
-			int level = Math.max(getDecideLevelForPath(pfunc, func), getDecideLevelForPath(parg, arg));
+			final int level = Math.max(getDecideLevelForPath(pfunc, func), getDecideLevelForPath(parg, arg));
 			// store the congruence with the smallest level
 			if (level < congruenceLevel) {
 				congruenceLevel = level;
@@ -150,10 +149,10 @@ public class CClosure implements ITheory {
 			}
 		}
 		final CCAppTerm term = new CCAppTerm(isFunc,
-				isFunc ? func.mParentPosition + 1 : 0, func, arg, null, this);
+				isFunc ? func.mParentPosition + 1 : 0, func, arg, this);
 		term.addParentInfo(this);
 		final CCAppTerm congruentTerm = findCongruentAppTerm(func, arg);
-		mEngine.getLogger().debug("createAppTerm %s congruent: %s", term, congruentTerm);
+		getLogger().debug("createAppTerm %s congruent: %s", term, congruentTerm);
 		if (congruentTerm != null) {
 			// Here, we do not have the resulting term in the equivalence class
 			// Mark pending congruence
@@ -164,10 +163,10 @@ public class CClosure implements ITheory {
 			/* if this created a complete application term, activate corresponding triggers */
 			CCTerm partialApp = term;
 			while (partialApp instanceof CCAppTerm) {
-				CCAppTerm app = (CCAppTerm) partialApp;
-				CCTerm appArg = app.getArg();
+				final CCAppTerm app = (CCAppTerm) partialApp;
+				final CCTerm appArg = app.getArg();
 				/* E-Matching: activate reverse trigger */
-				int parentpos = app.getFunc().mParentPosition;
+				final int parentpos = app.getFunc().mParentPosition;
 				final CCParentInfo argInfo = appArg.mCCPars.getInfo(parentpos);
 				if (argInfo != null) {
 					for (final ReverseTrigger trigger : argInfo.mReverseTriggers) {
@@ -194,7 +193,7 @@ public class CClosure implements ITheory {
 		if (numArgs == 0) {
 			CCBaseTerm term = mSymbolicTerms.get(sym);
 			if (term == null) {
-				term = new CCBaseTerm(args.length > 0, mNumFunctionPositions, sym, null);
+				term = new CCBaseTerm(args.length > 0, mNumFunctionPositions, sym);
 				mNumFunctionPositions += args.length;
 				mSymbolicTerms.put(sym, term);
 			}
@@ -216,13 +215,11 @@ public class CClosure implements ITheory {
 		if (term == null) {
 			term = mSymbolicTerms.get(sym.getName());
 			if (term == null) {
-				term = new CCBaseTerm(sym.getParameterSorts().length > 0,
-						mNumFunctionPositions, sym, null);
+				term = new CCBaseTerm(sym.getParameterSorts().length > 0, mNumFunctionPositions, sym);
 				mNumFunctionPositions += sym.getParameterSorts().length;
 			} else {
 				// This is a polymorphic function symbol
-				term = new CCBaseTerm(
-						term.mIsFunc, term.mParentPosition, sym, null);
+				term = new CCBaseTerm(term.mIsFunc, term.mParentPosition, sym);
 			}
 			mSymbolicTerms.put(sym, term);
 		}
@@ -394,7 +391,7 @@ public class CClosure implements ITheory {
 			if (t1.mRep == t1) {
 				assert t2.mRep == t2;
 				// Insert this entry into the pair hash, create it if necessary.
-				CCTermPairHash.Info info = mPairHash.getInfo(t1, t2);
+				final CCTermPairHash.Info info = mPairHash.getInfo(t1, t2);
 				assert info != null;
 				info.mCompareTriggers.undoPrependIntoJoined(trigger, true);
 				break;
@@ -572,7 +569,7 @@ public class CClosure implements ITheory {
 
 	/**
 	 * Insert an equality entry into the pair hash table and all pair infos of the intermediate representatives.
-	 * 
+	 *
 	 * @param t1
 	 *            one side of the equality.
 	 * @param t2
@@ -812,7 +809,7 @@ public class CClosure implements ITheory {
 
 	private void undoSep(final CCEquality atom) {
 		atom.mDiseqReason = null;
-		CCTermPairHash.Info destInfo = mPairHash.getInfo(
+		final CCTermPairHash.Info destInfo = mPairHash.getInfo(
 				atom.getLhs().mRepStar, atom.getRhs().mRepStar);
 		if (destInfo != null && destInfo.mDiseq == atom) {
 			destInfo.mDiseq = null;
@@ -857,15 +854,15 @@ public class CClosure implements ITheory {
 	/**
 	 * Compute the earliest decide level at which the path between lhs and rhs exists. There must be a path, i.e.
 	 * {@code lhs.getRepresentative() == rhs.getRepresentative()}.
-	 * 
+	 *
 	 * @param lhs
 	 *            the start of the path
 	 * @param rhs
 	 *            the end of the path
 	 * @return the earliest decide level.
 	 */
-	public int getDecideLevelForPath(CCTerm lhs, CCTerm rhs) {
-		CongruencePath congPath = new CongruencePath(this);
+	public int getDecideLevelForPath(final CCTerm lhs, final CCTerm rhs) {
+		final CongruencePath congPath = new CongruencePath(this);
 		return congPath.computeDecideLevel(lhs, rhs);
 	}
 
@@ -1004,11 +1001,11 @@ public class CClosure implements ITheory {
 	@Override
 	public Clause backtrackComplete() {
 		mPendingLits.clear();
-		/* If a literal was propagated when it was created it may not be on the right decision level.  After 
+		/* If a literal was propagated when it was created it may not be on the right decision level.  After
 		 * backtracking we may need to propagate these literals again, if they are still implied by the CC graph.
 		 * Here we go through the list of all such literals and check if we ned to propagate them again.
 		 */
-		ArrayQueue<Literal> newRecheckOnBacktrackLits = new ArrayQueue<>();
+		final ArrayQueue<Literal> newRecheckOnBacktrackLits = new ArrayQueue<>();
 		for (final Literal l : mRecheckOnBacktrackLits) {
 			final CCEquality eq = (CCEquality) l.getAtom();
 			if (eq.getDecideStatus() != null) {
@@ -1031,7 +1028,7 @@ public class CClosure implements ITheory {
 			}
 			/* repropagate the literal by adding it to the pending literals. */
 			if (repropagate) {
-				mEngine.getLogger().debug("CC-Prop: %s", l);
+				getLogger().debug("CC-Prop: %s", l);
 				mPendingLits.add(l);
 				newRecheckOnBacktrackLits.add(l);
 			}
@@ -1093,7 +1090,7 @@ public class CClosure implements ITheory {
 				// FIXME: backtracking should filter pending congruences
 			}
 			if (res != null) {
-				mEngine.getLogger().debug("buildCongruence: conflict %s", res);
+				getLogger().debug("buildCongruence: conflict %s", res);
 				// recheck congruence after backtracking
 				prependPendingCongruence(lhs, rhs);
 				return res;
@@ -1221,8 +1218,8 @@ public class CClosure implements ITheory {
 	}
 
 	public void fillInModel(final Model model, final Theory t, final SharedTermEvaluator ste, final ArrayTheory array) {
-		CCTerm trueNode = mClausifier.getClausifierTermInfo(t.mTrue).getCCTerm();
-		CCTerm falseNode = mClausifier.getClausifierTermInfo(t.mTrue).getCCTerm();
+		final CCTerm trueNode = mClausifier.getClausifierTermInfo(t.mTrue).getCCTerm();
+		final CCTerm falseNode = mClausifier.getClausifierTermInfo(t.mTrue).getCCTerm();
 		trueNode.mModelVal = model.getBoolSortInterpretation().getTrueIdx();
 		falseNode.mModelVal = model.getBoolSortInterpretation().getFalseIdx();
 		new ModelBuilder(this, mAllTerms, model, t, ste, array, trueNode, falseNode);
@@ -1255,17 +1252,17 @@ public class CClosure implements ITheory {
 	void initArrays() {
 		assert mNumFunctionPositions == 0 : "Solver already in use before initArrays";
 		final CCBaseTerm store = new CCBaseTerm(
-				true, mNumFunctionPositions, "store", null);
+				true, mNumFunctionPositions, "store");
 		mStoreNum = mNumFunctionPositions;
 		mNumFunctionPositions += 3;
 		mSymbolicTerms.put("store", store);
 		final CCBaseTerm select = new CCBaseTerm(
-				true, mNumFunctionPositions, "select", null);
+				true, mNumFunctionPositions, "select");
 		mSelectNum = mNumFunctionPositions;
 		mNumFunctionPositions += 2;
 		mSymbolicTerms.put("select", select);
 		final CCBaseTerm diff = new CCBaseTerm(
-				true, mNumFunctionPositions, "@diff", null);
+				true, mNumFunctionPositions, "@diff");
 		mDiffNum = mNumFunctionPositions;
 		mNumFunctionPositions += 2;
 		mSymbolicTerms.put("@diff", diff);

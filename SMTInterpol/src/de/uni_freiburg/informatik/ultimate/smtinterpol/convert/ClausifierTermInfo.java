@@ -1,10 +1,9 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.convert;
 
-import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ILiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.NamedAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinVar;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LASharedTerm;
 
 public class ClausifierTermInfo {
 	// flags for boolean terms
@@ -19,9 +18,7 @@ public class ClausifierTermInfo {
 
 	private NamedAtom mAtom;
 	private CCTerm mCCTerm;
-	private LinVar mLAVar;
-	private Rational mLAFactor;
-	private Rational mLAOffset;
+	private LASharedTerm mLATerm;
 	private ILiteral mLiteral;
 
 	public boolean hasCCTerm() {
@@ -29,40 +26,30 @@ public class ClausifierTermInfo {
 	}
 
 	public boolean hasLAVar() {
-		return mLAOffset != null;
+		return mLATerm != null;
 	}
 
 	public CCTerm getCCTerm() {
 		return mCCTerm;
 	}
 
-	public void setCCTerm(CCTerm ccterm) {
+	public void setCCTerm(final CCTerm ccterm) {
 		mCCTerm = ccterm;
 	}
 
-	public LinVar getLAVar() {
-		return mLAVar;
+	public LASharedTerm getLATerm() {
+		return mLATerm;
 	}
 
-	public Rational getLAOffset() {
-		return mLAOffset;
-	}
-
-	public Rational getLAFactor() {
-		return mLAFactor;
-	}
-
-	public void setLAVar(Rational factor, LinVar lv, Rational offset) {
-		mLAFactor = factor;
-		mLAVar = lv;
-		mLAOffset = offset;
+	public void setLATerm(final LASharedTerm laterm) {
+		mLATerm = laterm;
 	}
 
 	public int getFlags() {
 		return mFlags;
 	}
 
-	public void setFlags(int flag) {
+	public void setFlags(final int flag) {
 		mFlags |= flag;
 	}
 }

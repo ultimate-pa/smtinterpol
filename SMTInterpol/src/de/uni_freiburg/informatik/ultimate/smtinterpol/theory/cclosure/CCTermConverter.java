@@ -24,7 +24,6 @@ import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SharedTerm;
 
 /**
  * This class converts CCTerm to Term (SMTLIB) non-recursively.
@@ -33,21 +32,22 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SharedTerm;
  *
  */
 public class CCTermConverter extends NonRecursive {
-	private Theory mTheory;
+	private final Theory mTheory;
 	private ArrayList<Term> mConverted;
 
 	private static class ConvertCC implements NonRecursive.Walker {
-		private CCTerm mTerm;
-		private int mNumArgs;
-		private CCTerm mFullTerm;
+		private final CCTerm mTerm;
+		private final int mNumArgs;
+		private final CCTerm mFullTerm;
 
-		public ConvertCC(CCTerm input, int numArgs, CCTerm fullInput) {
+		public ConvertCC(final CCTerm input, final int numArgs, final CCTerm fullInput) {
 			mTerm = input;
 			mNumArgs = numArgs;
 			mFullTerm = fullInput;
 		}
 
-		public void walk(NonRecursive engine) {
+		@Override
+		public void walk(final NonRecursive engine) {
 			((CCTermConverter) engine).walkCCTerm(mTerm, mNumArgs, mFullTerm);
 		}
 
@@ -59,7 +59,7 @@ public class CCTermConverter extends NonRecursive {
 	 * @param theory
 	 *            The SMTLIB theory where the terms live. This must match the theory used to create these terms.
 	 */
-	public CCTermConverter(Theory theory) {
+	public CCTermConverter(final Theory theory) {
 		mTheory = theory;
 	}
 
@@ -70,17 +70,17 @@ public class CCTermConverter extends NonRecursive {
 	 *            the term to convert.
 	 * @return the converted term.
 	 */
-	public Term convert(CCTerm input) {
+	public Term convert(final CCTerm input) {
 		assert mConverted == null;
 		mConverted = new ArrayList<>();
 		run(new ConvertCC(input, 0, input));
 		assert mConverted.size() == 1;
-		Term result = mConverted.remove(0);
+		final Term result = mConverted.remove(0);
 		mConverted = null;
 		return result;
 	}
 
-	private void walkCCTerm(CCTerm input, int numArgs, CCTerm fullTerm) {
+	private void walkCCTerm(final CCTerm input, final int numArgs, final CCTerm fullTerm) {
 		if (input instanceof CCBaseTerm) {
 			walkBaseTerm((CCBaseTerm) input, numArgs, fullTerm);
 		} else {
@@ -88,7 +88,7 @@ public class CCTermConverter extends NonRecursive {
 		}
 	}
 
-	private void walkAppTerm(CCAppTerm input, int numArgs, CCTerm fullTerm) {
+	private void walkAppTerm(final CCAppTerm input, final int numArgs, final CCTerm fullTerm) {
 		if (input.mSmtTerm != null) {
 			assert numArgs == 0 && fullTerm == input;
 			mConverted.add(input.mSmtTerm);
@@ -98,20 +98,20 @@ public class CCTermConverter extends NonRecursive {
 		enqueueWalker(new ConvertCC(input.getArg(), 0, input.getArg()));
 	}
 
-	private void walkBaseTerm(CCBaseTerm input, int numArgs, CCTerm fullTerm) {
+	private void walkBaseTerm(final CCBaseTerm input, final int numArgs, final CCTerm fullTerm) {
 		assert input.mIsFunc == (numArgs > 0);
-		Term[] args = new Term[numArgs];
+		final Term[] args = new Term[numArgs];
 		for (int i = 0; i < args.length; i++) {
 			args[i] = mConverted.remove(mConverted.size() - 1);
 		}
-		Object symbol = input.mSymbol;
+		final Object symbol = input.mSymbol;
 		final Term converted;
-		if (symbol instanceof SharedTerm) {
+		if (symbol instanceof Term) {
 			assert numArgs == 0;
-			converted = ((SharedTerm) symbol).getRealTerm();
+			converted = (Term) symbol;
 		} else {
 			if (symbol instanceof FunctionSymbol) {
-				FunctionSymbol func = (FunctionSymbol) symbol;
+				final FunctionSymbol func = (FunctionSymbol) symbol;
 				assert func.getTheory() == mTheory;
 				assert func.getParameterSorts().length == numArgs;
 				converted = mTheory.term(func, args);

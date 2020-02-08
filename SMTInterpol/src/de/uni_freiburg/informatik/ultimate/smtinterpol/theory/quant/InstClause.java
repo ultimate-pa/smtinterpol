@@ -21,7 +21,6 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 import java.util.List;
 
 import de.uni_freiburg.informatik.ultimate.logic.Term;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SharedTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.LeafNode;
@@ -29,20 +28,20 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.LeafNode;
 /**
  * An instance of a quantified clause that is not added to the DPLL engine so far. It is basically a list of literals.
  * // TODO List or array?
- * 
+ *
  * It contains information about the number of yet undefined literals. It also contains information to build proofs
  * later, i.e., the quantified clause and the substitution this instance comes from.
- * 
+ *
  * @author Tanja Schindler
  *
  */
 class InstClause {
 	protected final QuantClause mQuantClause;
-	protected final List<SharedTerm> mSubs;
+	protected final List<Term> mSubs;
 	protected final List<Literal> mLits;
 	protected int mNumUndefLits;
 
-	InstClause(final QuantClause qClause, final List<SharedTerm> subs, final List<Literal> lits,
+	InstClause(final QuantClause qClause, final List<Term> subs, final List<Literal> lits,
 			final int numUndefLits) {
 		mQuantClause = qClause;
 		mSubs = subs;
@@ -95,7 +94,7 @@ class InstClause {
 
 	/**
 	 * Build a (DPLL) Clause from this InstClause. If proofs are enabled, this also sets the proof node.
-	 * 
+	 *
 	 * @param produceProofs
 	 *            flag to determine if proofs have to be produced.
 	 * @return a Clause consisting of the literals of this InstClause, including the proof if enabled.
@@ -105,7 +104,7 @@ class InstClause {
 		if (produceProofs) {
 			final Term[] subsAsTerm = new Term[mSubs.size()];
 			for (int i = 0; i < mSubs.size(); i++) {
-				subsAsTerm[i] = mSubs.get(i).getTerm();
+				subsAsTerm[i] = mSubs.get(i);
 			}
 			clause.setProof(new LeafNode(LeafNode.QUANT_INST,
 					new QuantAnnotation(mQuantClause, subsAsTerm)));

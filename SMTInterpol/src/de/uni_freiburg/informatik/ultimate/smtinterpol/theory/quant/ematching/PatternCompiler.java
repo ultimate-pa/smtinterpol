@@ -28,8 +28,9 @@ import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier.CCTermBuilder;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SharedTerm;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.ClausifierTermInfo;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantLiteral;
@@ -38,7 +39,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTh
 /**
  * The pattern compiler for E-Matching compiles given patterns into code that can be executed to find new interesting
  * substitutions for the variables in the patterns.
- * 
+ *
  * @author Tanja Schindler
  */
 public class PatternCompiler {
@@ -50,7 +51,7 @@ public class PatternCompiler {
 	private int mNextFreeRegIndex;
 	private final Map<Term, TermInfo> mTermInfos;
 
-	public PatternCompiler(QuantifierTheory quantTheory, QuantLiteral qAtom, Term[] patterns) {
+	public PatternCompiler(final QuantifierTheory quantTheory, final QuantLiteral qAtom, final Term[] patterns) {
 		mQuantTheory = quantTheory;
 		mEMatching = quantTheory.getEMatching();
 		assert qAtom.getAtom() == qAtom;
@@ -62,7 +63,7 @@ public class PatternCompiler {
 
 	/**
 	 * Compile the patterns in this PatternCompiler into code for E-Matching.
-	 * 
+	 *
 	 * @return the resulting code and the corresponding register.
 	 */
 	public Pair<ICode, CCTerm[]> compile() {
@@ -74,7 +75,7 @@ public class PatternCompiler {
 				register[termInfo.mRegIndex] = termInfo.mGroundTerm;
 			}
 		}
-		return new Pair<ICode, CCTerm[]>(code, register);
+		return new Pair<>(code, register);
 	}
 
 	/**
@@ -100,10 +101,11 @@ public class PatternCompiler {
 			info = new TermInfo(getNextFreeRegIndex());
 		}
 		if (term.getFreeVars().length == 0) {
-			final SharedTerm shared =
-					mEMatching.getQuantTheory().getClausifier().getSharedTerm(term, mQuantAtom.getClause().getSource());
-			if (shared.getCCTerm() != null) {
-				info.mGroundTerm = shared.getCCTerm();
+			final Clausifier clausifier = mEMatching.getQuantTheory().getClausifier();
+			final Term sharedTerm = clausifier.getSharedTerm(term, mQuantAtom.getClause().getSource());
+			final ClausifierTermInfo termInfo = clausifier.getClausifierTermInfo(sharedTerm);
+			if (termInfo.getCCTerm() != null) {
+				info.mGroundTerm = termInfo.getCCTerm();
 			} else {
 				final CCTermBuilder cc =
 						mEMatching.getQuantTheory().getClausifier().new CCTermBuilder(
@@ -272,7 +274,7 @@ public class PatternCompiler {
 	/**
 	 * This class is used to store information for generating the E-matching code for a pattern. We produce a TermInfo
 	 * for each quantified subterm.
-	 * 
+	 *
 	 * @author Tanja Schindler
 	 */
 	class TermInfo {
