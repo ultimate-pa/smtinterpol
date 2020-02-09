@@ -22,6 +22,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
@@ -73,7 +74,7 @@ public class ModelBuilder {
 	public void fillInTermValues(final List<CCTerm> terms, final Model model, final Theory t, final SharedTermEvaluator ste, final CCTerm trueNode,
 			final CCTerm falseNode) {
 		Rational biggest = Rational.MONE;
-		final Set<CCTerm> delayed = new HashSet<CCTerm>();
+		final Set<CCTerm> delayed = new HashSet<>();
 		for (final CCTerm term : terms) {
 			if (term == term.mRepStar) {
 				int value;
@@ -128,9 +129,11 @@ public class ModelBuilder {
 	private void add(final Model model, final CCTerm term, final int value, final Theory t) {
 		if (term instanceof CCBaseTerm) {
 			final CCBaseTerm bt = (CCBaseTerm) term;
-			if (bt.isFunctionSymbol()) {
-				final FunctionSymbol symb = bt.getFunctionSymbol();
-				if (!symb.isIntern()) {
+			final Term btTerm = bt.getFlatTerm();
+			if (btTerm instanceof ApplicationTerm) {
+				final ApplicationTerm appTerm = (ApplicationTerm) btTerm;
+				final FunctionSymbol symb = appTerm.getFunction();
+				if (!symb.isIntern() && appTerm.getParameters().length == 0) {
 					model.map(symb, value);
 				}
 			}
