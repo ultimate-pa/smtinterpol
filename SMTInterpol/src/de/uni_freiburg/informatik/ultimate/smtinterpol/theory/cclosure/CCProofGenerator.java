@@ -520,8 +520,8 @@ public class CCProofGenerator {
 		}
 		for (final ProofInfo entry : info.getSubProofs()) {
 			if (!auxLiterals.containsKey(entry.getDiseq())) {
-				final Term lhs = entry.getDiseq().getFirst().toSMTTerm(theory);
-				final Term rhs = entry.getDiseq().getSecond().toSMTTerm(theory);
+				final Term lhs = entry.getDiseq().getFirst().getFlatTerm();
+				final Term rhs = entry.getDiseq().getSecond().getFlatTerm();
 				auxLiterals.put(entry.getDiseq(), theory.term("=", lhs, rhs));
 			}
 			/* these are always negated equalities */
@@ -541,14 +541,14 @@ public class CCProofGenerator {
 			final CCTerm[] path = p.getPath();
 			final Term[] subs = new Term[path.length];
 			for (int j = 0; j < path.length; ++j) {
-				subs[j] = path[j].toSMTTerm(theory);
+				subs[j] = path[j].getFlatTerm();
 			}
 			if (index == null) {
 				subannots[k++] = ":subpath";
 				subannots[k++] = subs;
 			} else {
 				subannots[k++] = ":weakpath";
-				subannots[k++] = new Object[] { index.toSMTTerm(theory), subs };
+				subannots[k++] = new Object[] { index.getFlatTerm(), subs };
 			}
 		}
 		final Annotation[] annots = new Annotation[] { new Annotation(rule.getKind(), subannots) };
@@ -585,7 +585,7 @@ public class CCProofGenerator {
 					diseq = diseqLit.getSMTFormula(theory, false);
 				} else {
 					// if disequality does not occur, it is a trivial disequality.
-					diseq = theory.term("=", diseqLHS.toSMTTerm(theory), diseqRHS.toSMTTerm(theory));
+					diseq = theory.term("=", diseqLHS.getFlatTerm(), diseqRHS.getFlatTerm());
 					isTrivialDiseq = true;
 				}
 			} else {

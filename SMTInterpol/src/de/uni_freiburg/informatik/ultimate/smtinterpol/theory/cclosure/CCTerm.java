@@ -22,7 +22,6 @@ import java.util.Collections;
 import java.util.List;
 
 import de.uni_freiburg.informatik.ultimate.logic.Term;
-import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.EqualityProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
@@ -494,8 +493,8 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 							engine.addPendingCongruence(t, u1.getData());
 							continue tloop;
 						}
-						}
 					}
+				}
 				destParentInfo.mCCParents.joinList(srcParentInfo.mCCParents);
 			}
 		} else {
@@ -522,8 +521,8 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 								engine.addPendingCongruence(t, u1.getData());
 								continue tloop;
 							}
-							}
 						}
+					}
 					// E-Matching
 					if (!srcParentInfo.mReverseTriggers.isEmpty()) {
 						for (final CCAppTerm.Parent parent : destParentInfo.mCCParents) {
@@ -673,10 +672,6 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 
 	public Term getFlatTerm() {
 		return mFlatTerm;
-	}
-
-	public Term toSMTTerm(final Theory t) {
-		return new CCTermConverter(t).convert(this);
 	}
 
 	public int getNumMembers() {

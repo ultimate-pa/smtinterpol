@@ -30,6 +30,7 @@ import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.EqualityProxy;
@@ -51,17 +52,65 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
 import de.uni_freiburg.informatik.ultimate.util.DebugMessage;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
 
+/**
+ * This class implements the theory of equality, a.k.a. congruence closure.
+ *
+ * This theory basically handles equality literals in particular CCEquality. It does also Nelson-Oppen propagation For
+ * every subterm in the formula that is handled by this theory there is a corresponding CCTerm object. These in the
+ * sense that it sets the LAEquality if a corresponding CCEquality was set. CCTerm object build the basic union-merge
+ * datastructure.
+ *
+ * @author Jochen Hoenicke, Jürgen Christ
+ */
 public class CClosure implements ITheory {
+	/**
+	 * The clausifier that uses this theory.
+	 */
 	final Clausifier mClausifier;
+	/**
+	 * For every term that is not a real function application of uninterpreted functions, this maps it to the
+	 * corresponding cc-term, if that was created.
+	 *
+	 * TODO: Do we still need this? The clausifier has also a similar map.
+	 */
 	final Map<Term, CCTerm> mAnonTerms = new HashMap<>();
+	/**
+	 * The list of all cc-terms that are full function applications and thus correspond to a term.
+	 *
+	 * TODO: This is somewhat redundant, as the clausifier term data has also all terms.
+	 */
 	final ArrayList<CCTerm> mAllTerms = new ArrayList<>();
+	/**
+	 * For each pair of congruence classes this maps to the corresponding pair info. The pair info contains the list of
+	 * equalities between cc-terms of the congruence classes, the first set diseq that proves that these congruence
+	 * classes were disjoint, and the compare trigger for these two classes.
+	 *
+	 * This also contains info for non-representatives of congruence classes, namely the state, when this was last time
+	 * a representative. This info is used to restore pair hash information on unmerge.
+	 *
+	 * @see CCTermPairHash, CCTermPairHash.Info
+	 */
 	final CCTermPairHash mPairHash = new CCTermPairHash();
+
+	/**
+	 * These are the list of literals that we can propagate. Each literal must be a consequence of the current
+	 * congruence closure graph.
+	 */
 	final ArrayQueue<Literal> mPendingLits = new ArrayQueue<>();
 	/**
 	 * The list of CCEquality literals that were created when they were already true and thus may have been added to the
 	 * wrong decision level. We need to recheck them after any backtrack, if they still can be propagated.
 	 */
 	ArrayQueue<Literal> mRecheckOnBacktrackLits = new ArrayQueue<>();
+
+	/**
+	 * A mapping from function symbol or string (the latter only for {@code select/@diff/store}) to the corresponding
+	 * CCBaseTerm that represents this function symbol.
+	 *
+	 * TODO: does this belong to clausifier?
+	 *
+	 * TODO: do we need the extra handling of {@code select/store/@diff}?
+	 */
 	final ScopedHashMap<Object, CCBaseTerm> mSymbolicTerms = new ScopedHashMap<>();
 	int mNumFunctionPositions;
 	int mMergeDepth;
@@ -70,8 +119,6 @@ public class CClosure implements ITheory {
 
 	private long mInvertEdgeTime, mEqTime, mCcTime, mSetRepTime;
 	private long mCcCount, mMergeCount;
-
-	private int mStoreNum, mSelectNum, mDiffNum;
 
 	public CClosure(final Clausifier clausifier) {
 		mClausifier = clausifier;
@@ -185,23 +232,6 @@ public class CClosure implements ITheory {
 		return term;
 	}
 
-	// Only works for non-polymorphic function symbols
-	private CCTerm convertFuncTerm(final FunctionSymbol sym, final CCTerm[] args, final int numArgs) {
-		if (numArgs == 0) {
-			CCBaseTerm term = mSymbolicTerms.get(sym);
-			if (term == null) {
-				term = new CCBaseTerm(args.length > 0, mNumFunctionPositions, sym);
-				mNumFunctionPositions += args.length;
-				mSymbolicTerms.put(sym, term);
-			}
-			return term;
-		} else {
-			final CCTerm pred = convertFuncTerm(sym, args, numArgs - 1);
-			final CCAppTerm appTerm = createAppTerm(numArgs < args.length, pred, args[numArgs - 1]);
-			return appTerm;
-		}
-	}
-
 	/**
 	 * Function to retrieve the CCTerm representing a function symbol.
 	 *
@@ -212,14 +242,8 @@ public class CClosure implements ITheory {
 	public CCTerm getFuncTerm(final FunctionSymbol sym) {
 		CCBaseTerm term = mSymbolicTerms.get(sym);
 		if (term == null) {
-			term = mSymbolicTerms.get(sym.getName());
-			if (term == null) {
-				term = new CCBaseTerm(sym.getParameterSorts().length > 0, mNumFunctionPositions, sym);
-				mNumFunctionPositions += sym.getParameterSorts().length;
-			} else {
-				// This is a polymorphic function symbol
-				term = new CCBaseTerm(term.mIsFunc, term.mParentPosition, sym);
-			}
+			term = new CCBaseTerm(sym.getParameterSorts().length > 0, mNumFunctionPositions, sym);
+			mNumFunctionPositions += sym.getParameterSorts().length;
 			mSymbolicTerms.put(sym, term);
 		}
 		return term;
@@ -542,12 +566,7 @@ public class CClosure implements ITheory {
 	 * @return true if the terms are in the same congruence class, false otherwise.
 	 */
 	public boolean isEqSet(final CCTerm first, final CCTerm second) {
-		final CCTerm firstRep = first.getRepresentative();
-		final CCTerm secondRep = second.getRepresentative();
-		if (firstRep == secondRep) {
-			return true;
-		}
-		return false;
+		return first.getRepresentative() == second.getRepresentative();
 	}
 
 	/**
@@ -559,10 +578,7 @@ public class CClosure implements ITheory {
 		final CCTerm firstRep = first.getRepresentative();
 		final CCTerm secondRep = second.getRepresentative();
 		final CCTermPairHash.Info diseqInfo = mPairHash.getInfo(firstRep, secondRep);
-		if (diseqInfo != null && diseqInfo.mDiseq != null) {
-			return true;
-		}
-		return false;
+		return diseqInfo != null && diseqInfo.mDiseq != null;
 	}
 
 	/**
@@ -657,22 +673,6 @@ public class CClosure implements ITheory {
 			}
 		}
 		return eq;
-	}
-
-	/// Only works for non-polymorphic function symbols.
-	public boolean knowsConstant(final FunctionSymbol sym) {
-		return mSymbolicTerms.containsKey(sym);
-	}
-
-	// TODO: Obsolete function; only used by tests
-	@Deprecated
-	public CCTerm createFuncTerm(final FunctionSymbol sym, final CCTerm[] subterms, final Term fapp) {
-		final CCTerm term = convertFuncTerm(sym, subterms, subterms.length);
-		if (term.mFlatTerm == null) {
-			mAllTerms.add(term);
-		}
-		term.mFlatTerm = fapp;
-		return term;
 	}
 
 	public void addTerm(final CCTerm ccterm, final Term term) {
@@ -894,24 +894,16 @@ public class CClosure implements ITheory {
 
 	@Override
 	public Clause checkpoint() {
-		return buildCongruence(true);
+		return buildCongruence(false);
 	}
 
-	public Term convertTermToSMT(final CCTerm t) {
-		return t.toSMTTerm(getEngine().getSMTTheory());
-	}
-
-	public Term convertEqualityToSMT(final CCTerm t1, final CCTerm t2) {
-		return getEngine().getSMTTheory().equals(convertTermToSMT(t1), convertTermToSMT(t2));
-	}
-
-	public CCEquality createEquality(final CCTerm t1, final CCTerm t2, final boolean forceLAEquality) {
+	public CCEquality createEquality(final CCTerm t1, final CCTerm t2, final boolean createLAEquality) {
 		assert t1 != t2;
 		final EqualityProxy ep = mClausifier.createEqualityProxy(t1.getFlatTerm(), t2.getFlatTerm());
 		if (ep == EqualityProxy.getFalseProxy()) {
 			return null;
 		}
-		if (!forceLAEquality) {
+		if (!createLAEquality) {
 			final Literal res = ep.getLiteral(null);
 			if (res instanceof CCEquality) {
 				final CCEquality eq = (CCEquality) res;
@@ -940,24 +932,27 @@ public class CClosure implements ITheory {
 		}
 	}
 
-	@SuppressWarnings("unused")
 	private boolean checkCongruence() {
 		boolean skip;
 		for (final CCTerm t1 : mAllTerms) {
+			if (!(t1 instanceof CCAppTerm)) {
+				continue;
+			}
+			final CCAppTerm a1 = (CCAppTerm) t1;
 			skip = true;
 			for (final CCTerm t2 : mAllTerms) {
+				// don't check symmetric cases: we skip all terms until we find the first term.
 				if (skip) {
 					if (t1 == t2) {
 						skip = false;
 					}
 					continue;
 				}
-				if (t1 instanceof CCAppTerm && t2 instanceof CCAppTerm) {
-					final CCAppTerm a1 = (CCAppTerm) t1;
+				if (t1.getRepresentative() != t2.getRepresentative() && t2 instanceof CCAppTerm) {
 					final CCAppTerm a2 = (CCAppTerm) t2;
-					if (a1.mFunc.mRepStar == a2.mFunc.mRepStar && a1.mArg.mRepStar == a2.mArg.mRepStar
-							&& a1.mRepStar != a2.mRepStar) {
-						System.err.println("Should be congruent: " + t1 + " and " + t2);
+					if (a1.getFunc().getRepresentative() == a2.getFunc().getRepresentative()
+							&& a1.getArg().getRepresentative() == a2.getArg().getRepresentative()) {
+						getLogger().fatal("Should be congruent: " + t1 + " and " + t2);
 						return false;
 					}
 				}
@@ -1066,28 +1061,26 @@ public class CClosure implements ITheory {
 	 *            if true, congruences are only applied if they still hold.
 	 * @return A conflict clause if a conflict was found, null otherwise.
 	 */
+	@SuppressWarnings("unused")
 	private Clause buildCongruence(final boolean checked) {
 		SymmetricPair<CCAppTerm> cong;
 		while ((cong = mPendingCongruences.poll()) != null) {
 			getLogger().debug(new DebugMessage("PC {0}", cong));
-			Clause res = null;
 			final CCAppTerm lhs = cong.getFirst();
 			final CCAppTerm rhs = cong.getSecond();
-			// TODO Uncomment checked here
-			if (/* !checked || */
-			(lhs.mArg.mRepStar == rhs.mArg.mRepStar && lhs.mFunc.mRepStar == rhs.mFunc.mRepStar)) {
-				res = lhs.merge(this, rhs, null);
-			} else {
-				// assert checked : "Unchecked buildCongruence with non-holding congruence!";
-				// FIXME: backtracking should filter pending congruences
-			}
-			if (res != null) {
-				getLogger().debug("buildCongruence: conflict %s", res);
-				// recheck congruence after backtracking
-				prependPendingCongruence(lhs, rhs);
-				return res;
+			if (!checked || (lhs.mArg.mRepStar == rhs.mArg.mRepStar && lhs.mFunc.mRepStar == rhs.mFunc.mRepStar)) {
+				assert lhs.mArg.mRepStar == rhs.mArg.mRepStar
+						&& lhs.mFunc.mRepStar == rhs.mFunc.mRepStar : "Unchecked buildCongruence with non-holding congruence!";
+				final Clause res = lhs.merge(this, rhs, null);
+				if (res != null) {
+					getLogger().debug("buildCongruence: conflict %s", res);
+					// recheck congruence after backtracking
+					prependPendingCongruence(lhs, rhs);
+					return res;
+				}
 			}
 		}
+		assert !Config.EXPENSIVE_ASSERTS || checkCongruence();
 		return null;
 	}
 
@@ -1233,37 +1226,4 @@ public class CClosure implements ITheory {
 	void incMergeCount() {
 		++mMergeCount;
 	}
-
-	void initArrays() {
-		assert mNumFunctionPositions == 0 : "Solver already in use before initArrays";
-		final CCBaseTerm store = new CCBaseTerm(true, mNumFunctionPositions, "store");
-		mStoreNum = mNumFunctionPositions;
-		mNumFunctionPositions += 3;
-		mSymbolicTerms.put("store", store);
-		final CCBaseTerm select = new CCBaseTerm(true, mNumFunctionPositions, "select");
-		mSelectNum = mNumFunctionPositions;
-		mNumFunctionPositions += 2;
-		mSymbolicTerms.put("select", select);
-		final CCBaseTerm diff = new CCBaseTerm(true, mNumFunctionPositions, "@diff");
-		mDiffNum = mNumFunctionPositions;
-		mNumFunctionPositions += 2;
-		mSymbolicTerms.put("@diff", diff);
-	}
-
-	boolean isArrayTheory() {
-		return mStoreNum != mSelectNum;
-	}
-
-	int getStoreNum() {
-		return mStoreNum;
-	}
-
-	int getSelectNum() {
-		return mSelectNum;
-	}
-
-	int getDiffNum() {
-		return mDiffNum;
-	}
-
 }

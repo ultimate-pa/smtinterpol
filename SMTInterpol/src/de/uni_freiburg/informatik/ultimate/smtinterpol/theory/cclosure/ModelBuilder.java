@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
-import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -58,12 +57,9 @@ public class ModelBuilder {
 		}
 	}
 
-	private final CClosure mCClosure;
-
 	public ModelBuilder(final CClosure closure, final List<CCTerm> terms, final Model model,
 			final Theory t, final SharedTermEvaluator ste,
 			final ArrayTheory array, final CCTerm trueNode, final CCTerm falseNode) {
-		mCClosure = closure;
 		fillInTermValues(terms, model, t, ste, trueNode, falseNode);
 		if (array != null) {
 			array.fillInModel(model, t, ste);
@@ -78,22 +74,20 @@ public class ModelBuilder {
 		for (final CCTerm term : terms) {
 			if (term == term.mRepStar) {
 				int value;
-				final Term smtterm = term.toSMTTerm(t);
+				final Term smtterm = term.getFlatTerm();
 				if (smtterm.getSort().isNumericSort()) {
 					Rational v;
 					if (term.getSharedTerm() != null) {
 						v = ste.evaluate(term.getSharedTerm().getFlatTerm(), t);
-					} else if (smtterm instanceof ConstantTerm) {
-						v = (Rational) ((ConstantTerm) smtterm).getValue();
+						if (smtterm.getSort().getName().equals("Int") && !v.isIntegral()) {
+							throw new AssertionError("Int term has non-integral value");
+						}
+						biggest = v.compareTo(biggest) > 0 ? v : biggest;
+						value = model.putNumeric(v);
 					} else {
 						delayed.add(term);
 						continue;
 					}
-					if (smtterm.getSort().getName().equals("Int") && !v.isIntegral()) {
-						throw new AssertionError("Int term has non-integral value");
-					}
-					biggest = v.compareTo(biggest) > 0 ? v : biggest;
-					value = model.putNumeric(v);
 				} else if (term == trueNode.mRepStar) {
 					value = model.getTrueIdx();
 				} else if (smtterm.getSort() == t.getBooleanSort()) {
@@ -156,11 +150,11 @@ public class ModelBuilder {
 		// Now, walk is the CCBaseTerm corresponding the the function
 		// If we did not enqueue an argument, we can extend the model.
 		final CCBaseTerm base = (CCBaseTerm) walk;
-		if (base.isFunctionSymbol() && (!mCClosure.isArrayTheory()
-				|| (base.mParentPosition != mCClosure.getSelectNum() && base.mParentPosition != mCClosure.getStoreNum()
-						&& base.mParentPosition != mCClosure.getDiffNum()))) {
+		if (base.isFunctionSymbol()) {
 			final FunctionSymbol fs = base.getFunctionSymbol();
-			model.map(fs, args.toArray(), value);
+			if (!fs.isIntern()) {
+				model.map(fs, args.toArray(), value);
+			}
 		}
 	}
 }

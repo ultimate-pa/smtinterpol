@@ -187,15 +187,18 @@ public class ArrayTheory implements ITheory {
 		/**
 		 * Fill the select information for the current node. This needs to be called when a new array node is created.
 		 * It finds all select applications using the ccterm information and adds them to the mSelects hash map.
-		 *
-		 * @param mSelectFunNum
-		 *            the index of the first argument of the builtin select function in the parent info datastructure in
-		 *            ccterm.
 		 */
-		public void computeSelects(final int mSelectFunNum) {
+		public void computeSelects() {
 			mSelects = new LinkedHashMap<>();
-			final CCParentInfo info = mTerm.mCCPars.getExistingParentInfo(mSelectFunNum);
-			if (info != null) {
+			for (CCParentInfo info = mTerm.mCCPars; info != null; info = info.mNext) {
+				if (info.mCCParents == null || info.mCCParents.isEmpty()) {
+					continue;
+				}
+				final CCTerm funcTerm = info.mCCParents.iterator().next().getData().getFunc();
+				if (!(funcTerm instanceof CCBaseTerm)
+						|| ((CCBaseTerm) funcTerm).getFunctionSymbol().getName() != "select") {
+					continue;
+				}
 				for (final CCAppTerm.Parent pa : info.mCCParents) {
 					final CCParentInfo selectas = pa.getData().getRepresentative().mCCPars.getExistingParentInfo(0);
 					for (final CCAppTerm.Parent spa : selectas.mCCParents) {
@@ -620,8 +623,6 @@ public class ArrayTheory implements ITheory {
 	private final Clausifier mClausifier;
 	private final CClosure mCClosure;
 
-	private final int mSelectFunNum;
-
 	private final ScopedArrayList<CCTerm> mArrays = new ScopedArrayList<>();
 	private final ScopedLinkedHashSet<CCAppTerm> mStores = new ScopedLinkedHashSet<>();
 	private final ScopedLinkedHashSet<CCAppTerm> mDiffs = new ScopedLinkedHashSet<>();
@@ -652,8 +653,6 @@ public class ArrayTheory implements ITheory {
 	public ArrayTheory(final Clausifier clausifier, final CClosure cclosure) {
 		mClausifier = clausifier;
 		mCClosure = cclosure;
-		mCClosure.initArrays();
-		mSelectFunNum = mCClosure.getSelectNum();
 		mLogger = mCClosure.getLogger();
 	}
 
@@ -883,7 +882,7 @@ public class ArrayTheory implements ITheory {
 		final ArrayDeque<ArrayNode> todoQueue = new ArrayDeque<>(mArrayModels.keySet());
 		while (!todoQueue.isEmpty()) {
 			final ArrayNode node = todoQueue.removeFirst();
-			final Sort arraySort = node.mTerm.toSMTTerm(t).getSort();
+			final Sort arraySort = node.mTerm.getFlatTerm().getSort();
 			final ArraySortInterpretation arraySortInterpretation = (ArraySortInterpretation) model
 					.provideSortInterpretation(arraySort);
 			if (node.mConstTerm == null) {
@@ -937,7 +936,7 @@ public class ArrayTheory implements ITheory {
 		for (final Entry<ArrayNode, Map<CCTerm, Object>> e : mArrayModels.entrySet()) {
 			final CCTerm ccterm = e.getKey().mTerm;
 			assert ccterm.isRepresentative();
-			final Sort arraySort = ccterm.toSMTTerm(mClausifier.getTheory()).getSort();
+			final Sort arraySort = ccterm.getFlatTerm().getSort();
 			final ArraySortInterpretation interp = model.getArrayInterpretation(arraySort);
 			final ArrayValue aval = interp.getValue(ccterm.mModelVal);
 			final ArrayNode root = (ArrayNode) e.getValue().get(null);
@@ -1327,7 +1326,7 @@ public class ArrayTheory implements ITheory {
 			final CCTerm rep = array.getRepresentative();
 			if (!mCongRoots.containsKey(rep)) {
 				final ArrayNode node = new ArrayNode(rep);
-				node.computeSelects(mSelectFunNum);
+				node.computeSelects();
 				mCongRoots.put(rep, node);
 			}
 		}

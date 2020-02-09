@@ -86,13 +86,13 @@ public class CongruentAddTest {
 		mTerms = new CCTerm[6];// NOCHECKSTYLE
 		for (int i = 0; i < 6; ++i) {// NOCHECKSTYLE
 			final String xi = "x" + i;
-			final FunctionSymbol sym = mTheory.declareFunction(xi, Script.EMPTY_SORT_ARRAY, sort);
+			mTheory.declareFunction(xi, Script.EMPTY_SORT_ARRAY, sort);
 			mTerms[i] = mClausifier.createCCTerm(mTheory.term(xi), null);
 		}
-		final FunctionSymbol funcd = mTheory.declareFunction("d", Script.EMPTY_SORT_ARRAY, sort);
-		final FunctionSymbol funcc = mTheory.declareFunction("c", Script.EMPTY_SORT_ARRAY, sort);
-		final FunctionSymbol funcb = mTheory.declareFunction("b", Script.EMPTY_SORT_ARRAY, sort);
-		final FunctionSymbol funca = mTheory.declareFunction("a", Script.EMPTY_SORT_ARRAY, sort);
+		mTheory.declareFunction("d", Script.EMPTY_SORT_ARRAY, sort);
+		mTheory.declareFunction("c", Script.EMPTY_SORT_ARRAY, sort);
+		mTheory.declareFunction("b", Script.EMPTY_SORT_ARRAY, sort);
+		mTheory.declareFunction("a", Script.EMPTY_SORT_ARRAY, sort);
 		final Term termd = mTheory.term("d");
 		final Term termc = mTheory.term("c");
 		final Term termb = mTheory.term("b");
