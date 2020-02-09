@@ -122,7 +122,7 @@ public class Clausifier {
 						// We have an intern function symbol
 						final CCTerm res = mCClosure.createAnonTerm(mTerm);
 						mCClosure.addTerm(res, mTerm);
-						termInfo.setCCTerm(res);
+						shareCCTerm(mTerm, termInfo, res);
 						addTermAxioms(mTerm, mSource);
 						mConverted.push(res);
 					}
@@ -143,7 +143,7 @@ public class Clausifier {
 			public void perform() {
 				final CCTerm res = mConverted.peek();
 				mCClosure.addTerm(res, mTerm);
-				mTermInfo.setCCTerm(res);
+				shareCCTerm(mTerm, mTermInfo, res);
 				addTermAxioms(mTerm, mSource);
 			}
 		}
@@ -736,13 +736,14 @@ public class Clausifier {
 					lit = mFALSE;
 				} else if (at.getFunction().getName().equals("=")) {
 					assert at.getParameters()[0].getSort() != mTheory.getBooleanSort();
-					final Term lhs = at.getParameters()[0];
-					final Term rhs = at.getParameters()[1];
 
 					if (quantified) {
 						// TODO Find trivially true or false QuantLiterals.
-						lit = mQuantTheory.getQuantEquality(positive, mCollector.getSource(), lhs, rhs);
+						lit = mQuantTheory.getQuantEquality(positive, mCollector.getSource(), at.getParameters()[0],
+								at.getParameters()[1]);
 					} else {
+						final Term lhs = getSharedTerm(at.getParameters()[0], mCollector.getSource());
+						final Term rhs = getSharedTerm(at.getParameters()[1], mCollector.getSource());
 						final EqualityProxy eq = createEqualityProxy(lhs, rhs);
 						// eq == true and positive ==> set to true
 						// eq == true and !positive ==> noop
@@ -1159,20 +1160,58 @@ public class Clausifier {
 		return ccterm;
 	}
 
+	public int getTermFlags(final Term term) {
+		final Integer flags = mTermDataFlags.get(term);
+		return flags == null ? 0 : (int) flags;
+	}
+
+	public void setTermFlags(final Term term, final int newFlags) {
+		mTermDataFlags.put(term, newFlags);
+	}
+
+	public void share(final ClausifierTermInfo termInfo) {
+		getLASolver().addSharedTerm(termInfo.getLATerm());
+		getCClosure().addSharedTerm(termInfo.getCCTerm());
+	}
+
+	public void shareLATerm(final Term term, final ClausifierTermInfo termInfo, final LASharedTerm laTerm) {
+		final int flags = getTermFlags(term);
+		assert (flags & ClausifierTermInfo.HAS_LA_TERM) == 0;
+		setTermFlags(term, flags | ClausifierTermInfo.HAS_LA_TERM);
+		termInfo.setLATerm(laTerm);
+		if ((flags & ClausifierTermInfo.HAS_CC_TERM) != 0) {
+			share(termInfo);
+		}
+	}
+
+	public void shareCCTerm(final Term term, final ClausifierTermInfo termInfo, final CCTerm ccTerm) {
+		final int flags = getTermFlags(term);
+		assert (flags & ClausifierTermInfo.HAS_CC_TERM) == 0;
+		setTermFlags(term, flags | ClausifierTermInfo.HAS_CC_TERM);
+		termInfo.setCCTerm(ccTerm);
+		if ((flags & ClausifierTermInfo.HAS_LA_TERM) != 0) {
+			share(termInfo);
+		}
+	}
+
 	public void addTermAxioms(final Term term, final SourceAnnotation source) {
-		final ClausifierTermInfo termInfo = getClausifierTermInfo(term);
-		assert termInfo != null && termInfo.hasCCTerm();
-		if ((termInfo.getFlags() & ClausifierTermInfo.AUX_AXIOM_ADDED) == 0) {
+		final int termFlags = getTermFlags(term);
+		if ((termFlags & ClausifierTermInfo.AUX_AXIOM_ADDED) == 0) {
+			setTermFlags(term, termFlags | ClausifierTermInfo.AUX_AXIOM_ADDED);
+			final ClausifierTermInfo termInfo = getClausifierTermInfo(term);
+			assert termInfo != null;
 			if (term instanceof ApplicationTerm) {
-				if (termInfo.getCCTerm() == null && needCCTerm(term)) {
+				if (termInfo.getCCTerm() == null && needCCTerm(term) || term.getSort().isArraySort()) {
 					final CCTermBuilder cc = new CCTermBuilder(source);
-					termInfo.setCCTerm(cc.convert(term));
+					cc.convert(term);
 				}
 
 				final ApplicationTerm at = (ApplicationTerm) term;
 				// Special cases
 				if (term.getSort() == term.getTheory().getBooleanSort()) {
-					addExcludedMiddleAxiom(term, source);
+					if (term != term.getTheory().mTrue && term != term.getTheory().mFalse) {
+						addExcludedMiddleAxiom(term, source);
+					}
 				} else {
 					final FunctionSymbol fs = at.getFunction();
 					if (fs.isIntern()) {
@@ -1192,6 +1231,7 @@ public class Clausifier {
 				}
 			}
 			if (term.getSort().isArraySort()) {
+				assert termInfo.getCCTerm() != null;
 				boolean isStore = false;
 				boolean isConst = false;
 				if (term instanceof ApplicationTerm) {
@@ -1213,11 +1253,9 @@ public class Clausifier {
 				if (needsLA) {
 					final MutableAffineTerm mat = createMutableAffinTerm(new SMTAffineTerm(term), source);
 					assert mat.getConstant().mEps == 0;
-					termInfo.setLATerm(new LASharedTerm(term, mat.getSummands(), mat.getConstant().mReal));
-					getLASolver().addSharedTerm(termInfo.getLATerm());
+					shareLATerm(term, termInfo, new LASharedTerm(term, mat.getSummands(), mat.getConstant().mReal));
 				}
 			}
-			termInfo.setFlags(ClausifierTermInfo.AUX_AXIOM_ADDED);
 		}
 	}
 
@@ -1244,10 +1282,7 @@ public class Clausifier {
 			final boolean isint = term.getSort().getName().equals("Int");
 			final LinVar lv = getLASolver().addVar(term, isint, getStackLevel());
 			laShared = new LASharedTerm(term, Collections.singletonMap(lv, Rational.ONE), Rational.ZERO);
-			termInfo.setLATerm(laShared);
-			if (termInfo.hasCCTerm()) {
-				getLASolver().addSharedTerm(laShared);
-			}
+			shareLATerm(term, termInfo, laShared);
 		}
 		assert laShared.getSummands().size() == 1 && laShared.getOffset() == Rational.ZERO
 				&& laShared.getSummands().values().iterator().next() == Rational.ONE;
@@ -1400,6 +1435,10 @@ public class Clausifier {
 	 * Mapping from non-Boolean terms to information about shared variables produced for these terms.
 	 */
 	private final ScopedHashMap<Term, ClausifierTermInfo> mTermData = new ScopedHashMap<>();
+	/**
+	 * Mapping from non-Boolean terms to information about shared variables produced for these terms.
+	 */
+	private final ScopedHashMap<Term, Integer> mTermDataFlags = new ScopedHashMap<>();
 	/**
 	 * Mapping from Boolean base terms to literals. A term is considered a base term when it corresponds to an atom or
 	 * its negation.
@@ -1928,13 +1967,10 @@ public class Clausifier {
 			 * If we do not setup the cclosure at the root level, we remove it with the corresponding pop since the
 			 * axiom true != false will be removed from the assertion stack as well.
 			 */
-			ClausifierTermInfo trueInfo, falseInfo;
-			trueInfo = getClausifierTermInfo(mTheory.mTrue);
-			trueInfo.setCCTerm(mCClosure.createAnonTerm(mTheory.mTrue));
-			falseInfo = getClausifierTermInfo(mTheory.mFalse);
-			falseInfo.setCCTerm(mCClosure.createAnonTerm(mTheory.mFalse));
 			final SourceAnnotation source = SourceAnnotation.EMPTY_SOURCE_ANNOT;
-			final Literal atom = createEqualityProxy(mTheory.mTrue, mTheory.mFalse).getLiteral(source);
+			final Literal atom =
+					createEqualityProxy(getSharedTerm(mTheory.mTrue, null), getSharedTerm(mTheory.mFalse, null))
+							.getLiteral(source);
 			final Term trueEqFalse = mTheory.term("=", mTheory.mTrue, mTheory.mFalse);
 			final Term axiom = mTracker.auxAxiom(mTheory.not(trueEqFalse), ProofConstants.AUX_TRUE_NOT_FALSE);
 			final BuildClause bc = new BuildClause(axiom, source);
@@ -2152,8 +2188,8 @@ public class Clausifier {
 			mEngine.push();
 			++mStackLevel;
 			mEqualities.beginScope();
-			mUnshareCC.beginScope();
 			mTermData.beginScope();
+			mTermDataFlags.beginScope();
 			pushUndoTrail();
 		}
 	}
@@ -2168,14 +2204,25 @@ public class Clausifier {
 		mNumFailedPushes = 0;
 		mEngine.pop(numpops);
 		for (int i = 0; i < numpops; ++i) {
-			for (final Term t : mUnshareCC.currentScope()) {
-				final ClausifierTermInfo termInfo = getClausifierTermInfo(t);
-				termInfo.setCCTerm(null);
+			for (final Map.Entry<Term, Integer> entry : mTermDataFlags.undoMap().entrySet()) {
+				final Term term = entry.getKey();
+				final ClausifierTermInfo termInfo = getClausifierTermInfo(term);
+				final int oldFlags = entry.getValue() == null ? 0 : entry.getValue();
+				assert (oldFlags & getTermFlags(term)) == oldFlags : "flags were cleared?";
+				if ((oldFlags & ClausifierTermInfo.HAS_CC_TERM) == 0) {
+					termInfo.setCCTerm(null);
+				}
+				if ((oldFlags & ClausifierTermInfo.HAS_LA_TERM) == 0) {
+					if ((oldFlags & ClausifierTermInfo.HAS_CC_TERM) != 0) {
+						termInfo.getCCTerm().unshare();
+					}
+					termInfo.setLATerm(null);
+				}
 			}
-			mUnshareCC.endScope();
+			mTermDataFlags.endScope();
+			mTermData.endScope();
 			mEqualities.endScope();
 			popUndoTrail();
-			mTermData.endScope();
 		}
 		mStackLevel -= numpops;
 	}
@@ -2250,40 +2297,40 @@ public class Clausifier {
 
 	private ILiteral createBooleanLit(final ApplicationTerm term, final SourceAnnotation source) {
 		ILiteral lit = mLiteralData.get(term);
-			if (lit == null) {
-				if (term.getParameters().length == 0) {
-					lit = createBooleanVar(term);
-				} else {
+		if (lit == null) {
+			if (term.getParameters().length == 0) {
+				lit = createBooleanVar(term);
+			} else {
 				if (term.getFreeVars().length > 0 && !mIsEprEnabled) {
 					lit = mQuantTheory.getQuantEquality(true, source, term, mTheory.mTrue);
 
 					// alex: this the right place to get rid of the CClosure predicate conversion in EPR-case?
 					// --> seems to be one of three positions.. (keyword: predicate-to-function conversion)
 				} else if ((mEprTheory != null && !EprTheorySettings.FullInstatiationMode)
-							|| EprTheory.isQuantifiedEprAtom(term)) {
-						// assuming right now that
-						assert !term.getFunction().getName().equals("not") : "do something for the negated case!";
+						|| EprTheory.isQuantifiedEprAtom(term)) {
+					// assuming right now that
+					assert !term.getFunction().getName().equals("not") : "do something for the negated case!";
 
-						// FIXME: how to tell getEprAtom which clause we are in????
-						// TODO: replace 0 by hash value
-						final EprAtom atom = mEprTheory.getEprAtom(term, 0, mStackLevel, source);
-						lit = atom;
-						// if (!atom.isQuantified)
-						if (atom instanceof EprGroundPredicateAtom) {
-							mEprTheory.addAtomToDPLLEngine(atom);
-							// mEngine.addAtom(atom);
-						}
-					} else {
-						// replace a predicate atom "(p x)" by "(p x) = true"
-					final EqualityProxy eq = createEqualityProxy(term, mTheory.mTrue);
-						// Safe since m_Term is neither true nor false
-						assert eq != EqualityProxy.getTrueProxy();
-						assert eq != EqualityProxy.getFalseProxy();
-						lit = eq.getLiteral(source);
-
+					// FIXME: how to tell getEprAtom which clause we are in????
+					// TODO: replace 0 by hash value
+					final EprAtom atom = mEprTheory.getEprAtom(term, 0, mStackLevel, source);
+					lit = atom;
+					// if (!atom.isQuantified)
+					if (atom instanceof EprGroundPredicateAtom) {
+						mEprTheory.addAtomToDPLLEngine(atom);
+						// mEngine.addAtom(atom);
 					}
+				} else {
+					// replace a predicate atom "(p x)" by "(p x) = true"
+					final EqualityProxy eq = createEqualityProxy(term, mTheory.mTrue);
+					// Safe since m_Term is neither true nor false
+					assert eq != EqualityProxy.getTrueProxy();
+					assert eq != EqualityProxy.getFalseProxy();
+					lit = eq.getLiteral(source);
+
 				}
-				mLiteralData.put(term, lit);
+			}
+			mLiteralData.put(term, lit);
 			mUndoTrail = new RemoveAtom(mUndoTrail, term);
 		}
 		return lit;

@@ -10,7 +10,7 @@ public class LASharedTerm {
 	private final Rational mOffset;
 	private final Term mSMTTerm;
 
-	public LASharedTerm(Term term, Map<LinVar, Rational> summands, Rational offset) {
+	public LASharedTerm(final Term term, final Map<LinVar, Rational> summands, final Rational offset) {
 		mSummands = summands;
 		mSMTTerm = term;
 		mOffset = offset;
@@ -26,5 +26,10 @@ public class LASharedTerm {
 
 	public Term getTerm() {
 		return mSMTTerm;
+	}
+
+	@Override
+	public String toString() {
+		return mSMTTerm.toString();
 	}
 }

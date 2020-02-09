@@ -173,6 +173,11 @@ public class EqualityProxy {
 			final CCTerm ccLhs = mClausifier.createCCTerm(mLhs, source);
 			final CCTerm ccRhs = mClausifier.createCCTerm(mRhs, source);
 
+			/* Creating the CC terms could have created the equality */
+			if (mEqAtom != null) {
+				return mEqAtom;
+			}
+
 			/* create CC equality */
 			return mClausifier.getCClosure().createCCEquality(mClausifier.getStackLevel(), ccLhs, ccRhs);
 		}

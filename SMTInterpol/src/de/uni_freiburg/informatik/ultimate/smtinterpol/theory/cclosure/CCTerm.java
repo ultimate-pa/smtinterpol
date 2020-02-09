@@ -174,43 +174,41 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 
 	final boolean invariant() {
 		if (Config.EXPENSIVE_ASSERTS) {
-    		boolean found = false;
-    		for (final CCTerm m : mRepStar.mMembers) {
-    			if (m == this) {
+			boolean found = false;
+			for (final CCTerm m : mRepStar.mMembers) {
+				if (m == this) {
 					found = true;
 				}
-    		}
-    		assert found;
-    		assert mPairInfos.wellformed();
-    		if (this == mRepStar) {
+			}
+			assert found;
+			assert mPairInfos.wellformed();
+			if (this == mRepStar) {
 				assert mMembers.wellformed();
 			}
-    		for (final CCTermPairHash.Info.Entry pentry : mPairInfos) {
-    			assert pentry.getOtherEntry().mOther == this;
-    			final CCTerm other = pentry.mOther;
-    			assert other.mMergeTime >= mMergeTime;
-    			if (this == mRepStar || pentry.mOther == mRep) {
+			for (final CCTermPairHash.Info.Entry pentry : mPairInfos) {
+				assert pentry.getOtherEntry().mOther == this;
+				final CCTerm other = pentry.mOther;
+				assert other.mMergeTime >= mMergeTime;
+				if (this == mRepStar || pentry.mOther == mRep) {
 					assert pentry.getInfo().mEqlits.wellformed();
 				} else {
 					assert pentry.getInfo().mEqlits.wellformedPart();
 				}
-    		}
-    		if (this == mRepStar) {
-    			assert(mCCPars != null);
-    			for (CCParentInfo parInfo = mCCPars.mNext;
-    			     parInfo != null; parInfo = parInfo.mNext) {
-    				assert parInfo.mCCParents.wellformed();
-    				assert parInfo.mNext == null
-    						|| parInfo.mFuncSymbNr < parInfo.mNext.mFuncSymbNr;
-    			}
-    			for (final CCTerm m : mMembers) {
+			}
+			if (this == mRepStar) {
+				assert (mCCPars != null);
+				for (CCParentInfo parInfo = mCCPars.mNext; parInfo != null; parInfo = parInfo.mNext) {
+					assert parInfo.mCCParents.wellformed();
+					assert parInfo.mNext == null || parInfo.mFuncSymbNr < parInfo.mNext.mFuncSymbNr;
+				}
+				for (final CCTerm m : mMembers) {
 					assert m.mRepStar == this;
 				}
-    		}
-    		assert (mEqualEdge == null) == (mOldRep == null);
-    		if (mEqualEdge != null) {
-    			assert mRepStar == mEqualEdge.mRepStar;
-    		}
+			}
+			assert (mEqualEdge == null) == (mOldRep == null);
+			if (mEqualEdge != null) {
+				assert mRepStar == mEqualEdge.mRepStar;
+			}
 		}
 		return true;
 	}
@@ -232,13 +230,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 	 */
 	public void share(final CClosure engine) {
 		assert mSharedTerm != this;
-		/*
-		 * if there is already a shared term in the equivalence class, propagate the equality. It's enough to propagate
-		 * some equality, because we will only backtrack on pop() and then we unshare again.
-		 */
-		if (mRepStar.mSharedTerm != null) {
-			propagateSharedEquality(engine, mRepStar.mSharedTerm);
-		}
+		engine.getLogger().debug("CC-Share %s", this);
 
 		final CCTerm oldShared = mSharedTerm;
 		/* now go through the rep chain and switch out all pointers to oldShared with this term. */
@@ -246,6 +238,14 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		while (term.mSharedTerm == oldShared) {
 			term.mSharedTerm = this;
 			term = term.mRep;
+		}
+		// propagate the equality with oldShared and with term.mSharedTerm.
+		// TODO do we need both?
+		if (oldShared != null) {
+			propagateSharedEquality(engine, oldShared);
+		}
+		if (term.mSharedTerm != this) {
+			propagateSharedEquality(engine, term.mSharedTerm);
 		}
 	}
 
@@ -273,7 +273,11 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		if (engine.getLogger().isDebugEnabled()) {
 			engine.getLogger().debug("PL: %s", cceq);
 		}
-		engine.addPending(cceq);
+		if (cceq.getDecideStatus() == null) {
+			engine.addPending(cceq);
+		} else if (cceq.getLASharedData().getDecideStatus() == null) {
+			engine.addPending(cceq.getLASharedData());
+		}
 	}
 
 	/**
@@ -359,7 +363,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 			if (dest.mSharedTerm == null) {
 				dest.mSharedTerm = src.mSharedTerm;
 			} else {
-				final CCEquality cceq = engine.createEquality(src.mSharedTerm, dest.mSharedTerm);
+				final CCEquality cceq = engine.createEquality(src.mSharedTerm, dest.mSharedTerm, true);
 				/* If cceq cannot be created this is a conflict like merging x+1 and x */
 				sharedTermConflict = (cceq == null);
 				/*
@@ -380,7 +384,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		if (sharedTermConflict || diseq != null) {
 			final Clause conflict = sharedTermConflict
 					? engine.computeCycle(src.mSharedTerm, dest.mSharedTerm)
-				: engine.computeCycle(diseq);
+					: engine.computeCycle(diseq);
 			lhs.mEqualEdge = null;
 			lhs.mOldRep = null;
 			src.mReasonLiteral = null;
@@ -412,7 +416,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		if (Config.PROFILE_TIME) {
 			time = System.nanoTime();
 		}
-//		System.err.println("Merge "+this+"+"+lhs+" -> "+src+" "+dest);
+		// System.err.println("Merge "+this+"+"+lhs+" -> "+src+" "+dest);
 		for (final CCTermPairHash.Info.Entry pentry : src.mPairInfos) {
 			final CCTermPairHash.Info info = pentry.getInfo();
 			assert pentry.getOtherEntry().mOther == src;
@@ -471,16 +475,15 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		if (mIsFunc) {
 			final CCParentInfo srcParentInfo = src.mCCPars.mNext;
 			final CCParentInfo destParentInfo = dest.mCCPars.mNext;
-//			assert (srcParentInfo == null || srcParentInfo.m_Next == null);
-//			assert (destParentInfo == null || destParentInfo.m_Next == null);
+			// assert (srcParentInfo == null || srcParentInfo.m_Next == null);
+			// assert (destParentInfo == null || destParentInfo.m_Next == null);
 			if (srcParentInfo != null) {
 				assert(srcParentInfo.mFuncSymbNr == destParentInfo.mFuncSymbNr);
 				assert srcParentInfo.mReverseTriggers.isEmpty();
-			tloop:
-				for (final CCAppTerm.Parent t1 : srcParentInfo.mCCParents) {
+				tloop: for (final CCAppTerm.Parent t1 : srcParentInfo.mCCParents) {
 					if (t1.isMarked()) {
-						continue;
-					}
+							continue;
+						}
 					final CCAppTerm t = t1.getData();
 					for (final CCAppTerm.Parent u1 : destParentInfo.mCCParents) {
 						if (u1.isMarked()) {
@@ -491,8 +494,8 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 							engine.addPendingCongruence(t, u1.getData());
 							continue tloop;
 						}
+						}
 					}
-				}
 				destParentInfo.mCCParents.joinList(srcParentInfo.mCCParents);
 			}
 		} else {
@@ -505,11 +508,10 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 					destParentInfo = destParentInfo.mNext;
 				} else {
 					assert(srcParentInfo.mFuncSymbNr == destParentInfo.mFuncSymbNr);
-				tloop:
-					for (final CCAppTerm.Parent t1 : srcParentInfo.mCCParents) {
+					tloop: for (final CCAppTerm.Parent t1 : srcParentInfo.mCCParents) {
 						if (t1.isMarked()) {
-							continue;
-						}
+								continue;
+							}
 						final CCAppTerm t = t1.getData();
 						for (final CCAppTerm.Parent u1 : destParentInfo.mCCParents) {
 							if (u1.isMarked()) {
@@ -520,8 +522,8 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 								engine.addPendingCongruence(t, u1.getData());
 								continue tloop;
 							}
+							}
 						}
-					}
 					// E-Matching
 					if (!srcParentInfo.mReverseTriggers.isEmpty()) {
 						for (final CCAppTerm.Parent parent : destParentInfo.mCCParents) {

@@ -1627,10 +1627,15 @@ public class LinArSolve implements ITheory {
 
 			// Iterate over basic variables
 			final HashMap<LinVar, Rational> basicFactors = new HashMap<>();
+			if (!mutatingLV.isInitiallyBasic()) {
+				basicFactors.put(mutatingLV, Rational.ONE);
+			}
 			for (final MatrixEntry it1 : mutatingLV.getTableauxColumn(this)) {
 				final LinVar basic = it1.getRow();
 				final Rational coeff = Rational.valueOf(it1.getCoeff().negate(), it1.getHeadCoeff());
-				basicFactors.put(basic, coeff);
+				if (!basic.isInitiallyBasic()) {
+					basicFactors.put(basic, coeff);
+				}
 				if (basic.isInt()) {
 					gcd = gcd.gcd(coeff.abs());
 				}
@@ -1650,7 +1655,9 @@ public class LinArSolve implements ITheory {
 				for (final Entry<LinVar,Rational> entry : sharedVar.getSummands().entrySet()) {
 					final LinVar lv = entry.getKey();
 					final Rational factor = entry.getValue();
-					sharedCoeff = sharedCoeff.addmul(basicFactors.get(lv), factor);
+					if (basicFactors.containsKey(lv)) {
+						sharedCoeff = sharedCoeff.addmul(basicFactors.get(lv), factor);
+					}
 					sharedCurVal = sharedCurVal.add(lv.getValue().mul(factor));
 				}
 				Set<ExactInfinitesimalNumber> set = sharedPoints.get(sharedCoeff);
@@ -2025,6 +2032,7 @@ public class LinArSolve implements ITheory {
 	}
 
 	public void addSharedTerm(final LASharedTerm sharedTerm) {
+		assert !mSharedVars.contains(sharedTerm);
 		mSharedVars.add(sharedTerm);
 		getLogger().info("LAShare %s", sharedTerm.getTerm());
 	}

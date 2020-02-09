@@ -1,22 +1,22 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.convert;
 
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ILiteral;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.NamedAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LASharedTerm;
 
 public class ClausifierTermInfo {
 	// flags for boolean terms
-	static final int POS_AXIOMS_ADDED = 1;
-	static final int NEG_AXIOMS_ADDED = 2;
-	static final int POS_AUX_AXIOMS_ADDED = 4;
-	static final int NEG_AUX_AXIOMS_ADDED = 8;
+	public static final int POS_AXIOMS_ADDED = 1;
+	public static final int NEG_AXIOMS_ADDED = 2;
+	public static final int POS_AUX_AXIOMS_ADDED = 4;
+	public static final int NEG_AUX_AXIOMS_ADDED = 8;
 	// flags for all interpreted or boolean terms
-	static final int AUX_AXIOM_ADDED = 16;
+	public static final int AUX_AXIOM_ADDED = 16;
 
-	private int mFlags;
+	public static final int HAS_CC_TERM = 32;
+	public static final int HAS_LA_TERM = 64;
+	public static final int HAS_LITERAL = 128;
 
-	private NamedAtom mAtom;
 	private CCTerm mCCTerm;
 	private LASharedTerm mLATerm;
 	private ILiteral mLiteral;
@@ -45,11 +45,8 @@ public class ClausifierTermInfo {
 		mLATerm = laterm;
 	}
 
-	public int getFlags() {
-		return mFlags;
-	}
-
-	public void setFlags(final int flag) {
-		mFlags |= flag;
+	@Override
+	public String toString() {
+		return "TermInfo[CC:" + mCCTerm + ",LA:" + mLATerm + "]";
 	}
 }

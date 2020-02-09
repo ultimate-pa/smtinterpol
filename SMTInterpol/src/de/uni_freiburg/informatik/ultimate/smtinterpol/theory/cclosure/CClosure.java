@@ -62,13 +62,11 @@ public class CClosure implements ITheory {
 	 * wrong decision level. We need to recheck them after any backtrack, if they still can be propagated.
 	 */
 	ArrayQueue<Literal> mRecheckOnBacktrackLits = new ArrayQueue<>();
-	final ScopedHashMap<Object, CCBaseTerm> mSymbolicTerms =
-			new ScopedHashMap<>();
+	final ScopedHashMap<Object, CCBaseTerm> mSymbolicTerms = new ScopedHashMap<>();
 	int mNumFunctionPositions;
 	int mMergeDepth;
 	final ArrayDeque<CCTerm> mMerges = new ArrayDeque<>();
-	final ArrayDeque<SymmetricPair<CCAppTerm>> mPendingCongruences =
-		new ArrayDeque<>();
+	final ArrayDeque<SymmetricPair<CCAppTerm>> mPendingCongruences = new ArrayDeque<>();
 
 	private long mInvertEdgeTime, mEqTime, mCcTime, mSetRepTime;
 	private long mCcCount, mMergeCount;
@@ -148,8 +146,7 @@ public class CClosure implements ITheory {
 				}
 			}
 		}
-		final CCAppTerm term = new CCAppTerm(isFunc,
-				isFunc ? func.mParentPosition + 1 : 0, func, arg, this);
+		final CCAppTerm term = new CCAppTerm(isFunc, isFunc ? func.mParentPosition + 1 : 0, func, arg, this);
 		term.addParentInfo(this);
 		final CCAppTerm congruentTerm = findCongruentAppTerm(func, arg);
 		getLogger().debug("createAppTerm %s congruent: %s", term, congruentTerm);
@@ -207,7 +204,9 @@ public class CClosure implements ITheory {
 
 	/**
 	 * Function to retrieve the CCTerm representing a function symbol.
-	 * @param sym Function symbol.
+	 *
+	 * @param sym
+	 *            Function symbol.
 	 * @return CCTerm representing this function symbol in the egraph.
 	 */
 	public CCTerm getFuncTerm(final FunctionSymbol sym) {
@@ -287,8 +286,7 @@ public class CClosure implements ITheory {
 	}
 
 	/**
-	 * Get all (complete) function applications of a given function symbol with a given argument at a given
-	 * position.
+	 * Get all (complete) function applications of a given function symbol with a given argument at a given position.
 	 *
 	 * @param sym
 	 *            the function symbol.
@@ -682,6 +680,10 @@ public class CClosure implements ITheory {
 		mAllTerms.add(ccterm);
 	}
 
+	public void addSharedTerm(final CCTerm ccterm) {
+		ccterm.share(this);
+	}
+
 	@Override
 	public void backtrackLiteral(final Literal literal) {
 		if (!(literal.getAtom() instanceof CCEquality)) {
@@ -719,11 +721,9 @@ public class CClosure implements ITheory {
 		if (lit.getAtom() instanceof LAEquality) {
 			final LAEquality laeq = (LAEquality) lit.getAtom();
 			for (final CCEquality eq : laeq.getDependentEqualities()) {
-				if (eq.getStackPosition() >= 0
-					&& eq.getStackPosition() < laeq.getStackPosition()
+				if (eq.getStackPosition() >= 0 && eq.getStackPosition() < laeq.getStackPosition()
 						&& eq.getDecideStatus().getSign() == lit.getSign()) {
-					return new Clause(new Literal[] {
-					     eq.getDecideStatus().negate(), lit },
+					return new Clause(new Literal[] { eq.getDecideStatus().negate(), lit },
 							new LeafNode(LeafNode.EQ, EQAnnotation.EQ));
 				}
 			}
@@ -749,17 +749,6 @@ public class CClosure implements ITheory {
 			return null;
 		}
 		final CCEquality eq = (CCEquality) literal.getAtom();
-		final LAEquality laeq = eq.getLASharedData();
-		if (laeq != null) {
-			assert ((List<CCEquality>) laeq.getDependentEqualities()).contains(eq);
-			if (laeq.getDecideStatus() != null
-				&& laeq.getDecideStatus().getSign() != literal.getSign()) {
-				return new Clause(new Literal[] {
-					laeq.getDecideStatus().negate(), literal.negate() },
-						new LeafNode(LeafNode.EQ, EQAnnotation.EQ));
-			}
-			mPendingLits.add(literal == eq ? laeq : laeq.negate());
-		}
 		if (literal == eq) {
 			if (eq.getLhs().mRepStar != eq.getRhs().mRepStar) {
 				eq.mStackDepth = mMerges.size();
@@ -781,6 +770,15 @@ public class CClosure implements ITheory {
 			}
 			separate(left, right, eq);
 			eq.mStackDepth = mMerges.size();
+		}
+		final LAEquality laeq = eq.getLASharedData();
+		if (laeq != null) {
+			assert ((List<CCEquality>) laeq.getDependentEqualities()).contains(eq);
+			if (laeq.getDecideStatus() != null && laeq.getDecideStatus().getSign() != literal.getSign()) {
+				return new Clause(new Literal[] { laeq.getDecideStatus().negate(), literal.negate() },
+						new LeafNode(LeafNode.EQ, EQAnnotation.EQ));
+			}
+			mPendingLits.add(literal == eq ? laeq : laeq.negate());
 		}
 		return null;
 	}
@@ -809,8 +807,7 @@ public class CClosure implements ITheory {
 
 	private void undoSep(final CCEquality atom) {
 		atom.mDiseqReason = null;
-		final CCTermPairHash.Info destInfo = mPairHash.getInfo(
-				atom.getLhs().mRepStar, atom.getRhs().mRepStar);
+		final CCTermPairHash.Info destInfo = mPairHash.getInfo(atom.getLhs().mRepStar, atom.getRhs().mRepStar);
 		if (destInfo != null && destInfo.mDiseq == atom) {
 			destInfo.mDiseq = null;
 		}
@@ -833,10 +830,8 @@ public class CClosure implements ITheory {
 		final CCTerm right = eq.getRhs();
 		final CCEquality diseq = eq.mDiseqReason;
 		assert left.mRepStar != right.mRepStar;
-		assert diseq.getLhs().mRepStar == left.mRepStar
-			|| diseq.getLhs().mRepStar == right.mRepStar;
-		assert diseq.getRhs().mRepStar == left.mRepStar
-			|| diseq.getRhs().mRepStar == right.mRepStar;
+		assert diseq.getLhs().mRepStar == left.mRepStar || diseq.getLhs().mRepStar == right.mRepStar;
+		assert diseq.getRhs().mRepStar == left.mRepStar || diseq.getRhs().mRepStar == right.mRepStar;
 
 		left.invertEqualEdges(this);
 		left.mEqualEdge = right;
@@ -878,10 +873,8 @@ public class CClosure implements ITheory {
 			final CCTerm right = eq.getRhs();
 			final CCEquality diseq = eq.mDiseqReason;
 			assert left.mRepStar != right.mRepStar;
-			assert diseq.getLhs().mRepStar == left.mRepStar
-				|| diseq.getLhs().mRepStar == right.mRepStar;
-			assert diseq.getRhs().mRepStar == left.mRepStar
-				|| diseq.getRhs().mRepStar == right.mRepStar;
+			assert diseq.getLhs().mRepStar == left.mRepStar || diseq.getLhs().mRepStar == right.mRepStar;
+			assert diseq.getRhs().mRepStar == left.mRepStar || diseq.getRhs().mRepStar == right.mRepStar;
 			return true;
 		}
 		if (literal instanceof CCEquality) {
@@ -891,8 +884,7 @@ public class CClosure implements ITheory {
 		if (literal.getAtom() instanceof LAEquality) {
 			final LAEquality laeq = (LAEquality) literal.getAtom();
 			for (final CCEquality eq : laeq.getDependentEqualities()) {
-				if (eq.getDecideStatus() != null
-						&& eq.getDecideStatus().getSign() == literal.getSign()) {
+				if (eq.getDecideStatus() != null && eq.getDecideStatus().getSign() == literal.getSign()) {
 					return true;
 				}
 			}
@@ -910,21 +902,22 @@ public class CClosure implements ITheory {
 	}
 
 	public Term convertEqualityToSMT(final CCTerm t1, final CCTerm t2) {
-		return getEngine().getSMTTheory().equals(convertTermToSMT(t1),
-				convertTermToSMT(t2));
+		return getEngine().getSMTTheory().equals(convertTermToSMT(t1), convertTermToSMT(t2));
 	}
 
-	public CCEquality createEquality(final CCTerm t1, final CCTerm t2) {
+	public CCEquality createEquality(final CCTerm t1, final CCTerm t2, final boolean forceLAEquality) {
 		assert t1 != t2;
 		final EqualityProxy ep = mClausifier.createEqualityProxy(t1.getFlatTerm(), t2.getFlatTerm());
 		if (ep == EqualityProxy.getFalseProxy()) {
 			return null;
 		}
-		final Literal res = ep.getLiteral(null);
-		if (res instanceof CCEquality) {
-			final CCEquality eq = (CCEquality) res;
-			if ((eq.getLhs() == t1 && eq.getRhs() == t2) || (eq.getLhs() == t2 && eq.getRhs() == t1)) {
-				return eq;
+		if (!forceLAEquality) {
+			final Literal res = ep.getLiteral(null);
+			if (res instanceof CCEquality) {
+				final CCEquality eq = (CCEquality) res;
+				if ((eq.getLhs() == t1 && eq.getRhs() == t2) || (eq.getLhs() == t2 && eq.getRhs() == t1)) {
+					return eq;
+				}
 			}
 		}
 		return ep.createCCEquality(t1.getFlatTerm(), t2.getFlatTerm());
@@ -962,8 +955,7 @@ public class CClosure implements ITheory {
 				if (t1 instanceof CCAppTerm && t2 instanceof CCAppTerm) {
 					final CCAppTerm a1 = (CCAppTerm) t1;
 					final CCAppTerm a2 = (CCAppTerm) t2;
-					if (a1.mFunc.mRepStar == a2.mFunc.mRepStar
-							&& a1.mArg.mRepStar == a2.mArg.mRepStar
+					if (a1.mFunc.mRepStar == a2.mFunc.mRepStar && a1.mArg.mRepStar == a2.mArg.mRepStar
 							&& a1.mRepStar != a2.mRepStar) {
 						System.err.println("Should be congruent: " + t1 + " and " + t2);
 						return false;
@@ -976,9 +968,7 @@ public class CClosure implements ITheory {
 
 	@Override
 	public void printStatistics(final LogProxy logger) {
-		logger.info("CCTimes: iE " + mInvertEdgeTime + " eq "
-				+ mEqTime + " cc " + mCcTime + " setRep "
-				+ mSetRepTime);
+		logger.info("CCTimes: iE " + mInvertEdgeTime + " eq " + mEqTime + " cc " + mCcTime + " setRep " + mSetRepTime);
 		logger.info("Merges: " + mMergeCount + ", cc:" + mCcCount);
 	}
 
@@ -1001,9 +991,10 @@ public class CClosure implements ITheory {
 	@Override
 	public Clause backtrackComplete() {
 		mPendingLits.clear();
-		/* If a literal was propagated when it was created it may not be on the right decision level.  After
-		 * backtracking we may need to propagate these literals again, if they are still implied by the CC graph.
-		 * Here we go through the list of all such literals and check if we ned to propagate them again.
+		/*
+		 * If a literal was propagated when it was created it may not be on the right decision level. After backtracking
+		 * we may need to propagate these literals again, if they are still implied by the CC graph. Here we go through
+		 * the list of all such literals and check if we ned to propagate them again.
 		 */
 		final ArrayQueue<Literal> newRecheckOnBacktrackLits = new ArrayQueue<>();
 		for (final Literal l : mRecheckOnBacktrackLits) {
@@ -1033,7 +1024,8 @@ public class CClosure implements ITheory {
 				newRecheckOnBacktrackLits.add(l);
 			}
 		}
-		/* Recheck the propagated literals again on the next backtrack.
+		/*
+		 * Recheck the propagated literals again on the next backtrack.
 		 */
 		mRecheckOnBacktrackLits = newRecheckOnBacktrackLits;
 		return buildCongruence(true);
@@ -1067,10 +1059,11 @@ public class CClosure implements ITheory {
 	}
 
 	/**
-	 * Add all pending congruences to the CC graph.  We do not merge congruences
-	 * immediately but wait for checkpoint.  Then this method is called to merge
-	 * congruent function applications.
-	 * @param checked if true, congruences are only applied if they still hold.
+	 * Add all pending congruences to the CC graph. We do not merge congruences immediately but wait for checkpoint.
+	 * Then this method is called to merge congruent function applications.
+	 *
+	 * @param checked
+	 *            if true, congruences are only applied if they still hold.
 	 * @return A conflict clause if a conflict was found, null otherwise.
 	 */
 	private Clause buildCongruence(final boolean checked) {
@@ -1082,8 +1075,7 @@ public class CClosure implements ITheory {
 			final CCAppTerm rhs = cong.getSecond();
 			// TODO Uncomment checked here
 			if (/* !checked || */
-					(lhs.mArg.mRepStar == rhs.mArg.mRepStar
-						&& lhs.mFunc.mRepStar == rhs.mFunc.mRepStar)) {
+			(lhs.mArg.mRepStar == rhs.mArg.mRepStar && lhs.mFunc.mRepStar == rhs.mFunc.mRepStar)) {
 				res = lhs.merge(this, rhs, null);
 			} else {
 				// assert checked : "Unchecked buildCongruence with non-holding congruence!";
@@ -1204,17 +1196,10 @@ public class CClosure implements ITheory {
 
 	@Override
 	public Object[] getStatistics() {
-		return new Object[]{
-			":CC", new Object[][]{
-				{"Merges", mMergeCount},
-				{"Closure", mCcCount},
-				{"Times", new Object[][]{
-					{"Invert", mInvertEdgeTime},
-					{"Eq", mEqTime},
-					{"Closure", mCcTime},
-					{"SetRep", mSetRepTime}}
-				}
-			}};
+		return new Object[] { ":CC",
+				new Object[][] { { "Merges", mMergeCount }, { "Closure", mCcCount },
+						{ "Times", new Object[][] { { "Invert", mInvertEdgeTime }, { "Eq", mEqTime },
+								{ "Closure", mCcTime }, { "SetRep", mSetRepTime } } } } };
 	}
 
 	public void fillInModel(final Model model, final Theory t, final SharedTermEvaluator ste, final ArrayTheory array) {
@@ -1251,18 +1236,15 @@ public class CClosure implements ITheory {
 
 	void initArrays() {
 		assert mNumFunctionPositions == 0 : "Solver already in use before initArrays";
-		final CCBaseTerm store = new CCBaseTerm(
-				true, mNumFunctionPositions, "store");
+		final CCBaseTerm store = new CCBaseTerm(true, mNumFunctionPositions, "store");
 		mStoreNum = mNumFunctionPositions;
 		mNumFunctionPositions += 3;
 		mSymbolicTerms.put("store", store);
-		final CCBaseTerm select = new CCBaseTerm(
-				true, mNumFunctionPositions, "select");
+		final CCBaseTerm select = new CCBaseTerm(true, mNumFunctionPositions, "select");
 		mSelectNum = mNumFunctionPositions;
 		mNumFunctionPositions += 2;
 		mSymbolicTerms.put("select", select);
-		final CCBaseTerm diff = new CCBaseTerm(
-				true, mNumFunctionPositions, "@diff");
+		final CCBaseTerm diff = new CCBaseTerm(true, mNumFunctionPositions, "@diff");
 		mDiffNum = mNumFunctionPositions;
 		mNumFunctionPositions += 2;
 		mSymbolicTerms.put("@diff", diff);

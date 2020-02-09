@@ -64,7 +64,7 @@ public class CCProofGenerator {
 		}
 
 		public SymmetricPair<CCTerm> getPathEnds() {
-			return new SymmetricPair<CCTerm>(mPath[0], mPath[mPath.length - 1]);
+			return new SymmetricPair<>(mPath[0], mPath[mPath.length - 1]);
 		}
 
 		@Override
@@ -86,7 +86,7 @@ public class CCProofGenerator {
 		}
 
 		public SymmetricPair<CCTerm> toSymmetricPair() {
-			return new SymmetricPair<CCTerm>(mLeft, mRight);
+			return new SymmetricPair<>(mLeft, mRight);
 		}
 
 		public CCTerm getLeft() {
@@ -426,7 +426,7 @@ public class CCProofGenerator {
 			final CCTerm idx1 = ArrayTheory.getIndexFromSelect((CCAppTerm) selectEquality.getFirst());
 			final CCTerm idx2 = ArrayTheory.getIndexFromSelect((CCAppTerm) selectEquality.getSecond());
 			if (idx1 != idx2) {
-				mainProof.collectEquality(new SymmetricPair<CCTerm>(idx1, idx2));
+				mainProof.collectEquality(new SymmetricPair<>(idx1, idx2));
 			}
 			// Only a weak path, which must be the first path
 			assert mIndexedPaths[0].getIndex() != null;
@@ -622,10 +622,10 @@ public class CCProofGenerator {
 	private boolean isTrivialDisequality(final SymmetricPair<CCTerm> termPair) {
 		final CCTerm first = termPair.getFirst();
 		final CCTerm second = termPair.getSecond();
-		SMTAffineTerm smtAffine = SMTAffineTerm.create(first.getFlatTerm());
+		final SMTAffineTerm smtAffine = SMTAffineTerm.create(first.getFlatTerm());
 		smtAffine.add(Rational.MONE, second.getFlatTerm());
-		if (smtAffine.isConstant() && smtAffine.getConstant() != Rational.ZERO) {
-			return true;
+		if (smtAffine.isConstant()) {
+			return smtAffine.getConstant() != Rational.ZERO;
 		}
 		return smtAffine.isAllIntSummands() && !smtAffine.getConstant().div(smtAffine.getGcd()).isIntegral();
 	}
@@ -687,7 +687,7 @@ public class CCProofGenerator {
 	 */
 	private ProofInfo findCongruencePaths(CCTerm first, CCTerm second) {
 		final ProofInfo proofInfo = new ProofInfo();
-		proofInfo.mLemmaDiseq = new SymmetricPair<CCTerm>(first, second);
+		proofInfo.mLemmaDiseq = new SymmetricPair<>(first, second);
 		proofInfo.mProofPaths = new IndexedPath[] { new IndexedPath(null, new CCTerm[] { first, second }) };
 		while (first != second) {
 			if (!(first instanceof CCAppTerm) || !(second instanceof CCAppTerm)) {
