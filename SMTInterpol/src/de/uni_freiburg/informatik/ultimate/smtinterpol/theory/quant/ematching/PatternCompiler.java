@@ -29,8 +29,6 @@ import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier.CCTermBuilder;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.ClausifierTermInfo;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantLiteral;
@@ -102,16 +100,7 @@ public class PatternCompiler {
 		}
 		if (term.getFreeVars().length == 0) {
 			final Clausifier clausifier = mEMatching.getQuantTheory().getClausifier();
-			final Term sharedTerm = clausifier.getSharedTerm(term, mQuantAtom.getClause().getSource());
-			final ClausifierTermInfo termInfo = clausifier.getClausifierTermInfo(sharedTerm);
-			if (termInfo.getCCTerm() != null) {
-				info.mGroundTerm = termInfo.getCCTerm();
-			} else {
-				final CCTermBuilder cc =
-						mEMatching.getQuantTheory().getClausifier().new CCTermBuilder(
-								mQuantAtom.getClause().getSource());
-				info.mGroundTerm = cc.convert(term);
-			}
+			info.mGroundTerm = clausifier.createCCTerm(term, mQuantAtom.getClause().getSource());
 		} else if (!(term instanceof TermVariable)) {
 			assert term instanceof ApplicationTerm;
 			final Term[] args = ((ApplicationTerm) term).getParameters();

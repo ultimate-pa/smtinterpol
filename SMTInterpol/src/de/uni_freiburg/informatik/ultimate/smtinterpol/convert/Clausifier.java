@@ -736,14 +736,13 @@ public class Clausifier {
 					lit = mFALSE;
 				} else if (at.getFunction().getName().equals("=")) {
 					assert at.getParameters()[0].getSort() != mTheory.getBooleanSort();
+					final Term lhs = at.getParameters()[0];
+					final Term rhs = at.getParameters()[1];
 
 					if (quantified) {
 						// TODO Find trivially true or false QuantLiterals.
-						lit = mQuantTheory.getQuantEquality(positive, mCollector.getSource(), at.getParameters()[0],
-								at.getParameters()[1]);
+						lit = mQuantTheory.getQuantEquality(positive, mCollector.getSource(), lhs, rhs);
 					} else {
-						final Term lhs = getSharedTerm(at.getParameters()[0], mCollector.getSource());
-						final Term rhs = getSharedTerm(at.getParameters()[1], mCollector.getSource());
 						final EqualityProxy eq = createEqualityProxy(lhs, rhs);
 						// eq == true and positive ==> set to true
 						// eq == true and !positive ==> noop
@@ -1300,18 +1299,6 @@ public class Clausifier {
 		return res;
 	}
 
-	/**
-	 * Get or create a shared term for a term. This version also makes sure that all axioms (e.g. select-over-store) are
-	 * added before a newly created shared term is returned.
-	 */
-	public Term getSharedTerm(final Term term, final SourceAnnotation source) {
-		addTermAxioms(term, source);
-		if (!mIsRunning) {
-			run();
-		}
-		return term;
-	}
-
 	public ClausifierTermInfo getClausifierTermInfo(final Term t) {
 		ClausifierTermInfo termInfo = mTermData.get(t);
 		if (termInfo == null) {
@@ -1706,7 +1693,7 @@ public class Clausifier {
 			final Term a = store.getParameters()[0];
 			final Term sel = mTheory.term("select", a, i);
 			// Simply create the CCTerm
-			getSharedTerm(sel, source);
+			createCCTerm(sel, source);
 		}
 	}
 
@@ -1968,9 +1955,7 @@ public class Clausifier {
 			 * axiom true != false will be removed from the assertion stack as well.
 			 */
 			final SourceAnnotation source = SourceAnnotation.EMPTY_SOURCE_ANNOT;
-			final Literal atom =
-					createEqualityProxy(getSharedTerm(mTheory.mTrue, null), getSharedTerm(mTheory.mFalse, null))
-							.getLiteral(source);
+			final Literal atom = createEqualityProxy(mTheory.mTrue, mTheory.mFalse).getLiteral(source);
 			final Term trueEqFalse = mTheory.term("=", mTheory.mTrue, mTheory.mFalse);
 			final Term axiom = mTracker.auxAxiom(mTheory.not(trueEqFalse), ProofConstants.AUX_TRUE_NOT_FALSE);
 			final BuildClause bc = new BuildClause(axiom, source);

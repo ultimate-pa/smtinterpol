@@ -151,6 +151,8 @@ public class EqualityProxy {
 	private DPLLAtom createAtom(final SourceAnnotation source) {
 		final ClausifierTermInfo lhsInfo = mClausifier.getClausifierTermInfo(mLhs);
 		final ClausifierTermInfo rhsInfo = mClausifier.getClausifierTermInfo(mRhs);
+		mClausifier.addTermAxioms(mLhs, source);
+		mClausifier.addTermAxioms(mRhs, source);
 		if (!lhsInfo.hasCCTerm() && !rhsInfo.hasCCTerm()) {
 			/* if both terms do not exist in CClosure yet, it may be better to
 			 * create them in linear arithmetic.

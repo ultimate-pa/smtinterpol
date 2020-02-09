@@ -637,7 +637,7 @@ public class InstantiationManager {
 		for (final Entry<Term, Rational> entry : smtAff.getSummands().entrySet()) {
 			final Term sharedTerm;
 			if (entry.getKey().getFreeVars().length == 0) {
-				sharedTerm = mClausifier.getSharedTerm(entry.getKey(), source);
+				sharedTerm = entry.getKey();
 			} else {
 				sharedTerm = sharedForQuantSmds.get(entry.getKey());
 				if (sharedTerm == null) {
@@ -886,15 +886,12 @@ public class InstantiationManager {
 	private InstanceValue evaluateCCEqualityKnownShared(final QuantEquality qEq, final SubstitutionInfo info) {
 		final CCTerm leftCC, rightCC;
 		if (qEq.getLhs().getFreeVars().length == 0) {
-			leftCC = mClausifier.getClausifierTermInfo(mClausifier.getSharedTerm(qEq.getLhs(), qEq.mClause.getSource()))
-					.getCCTerm();
+			leftCC = mClausifier.getClausifierTermInfo(qEq.getLhs()).getCCTerm();
 		} else {
 			leftCC = info.getEquivalentCCTerms().get(qEq.getLhs());
 		}
 		if (qEq.getRhs().getFreeVars().length == 0) {
-			rightCC =
-					mClausifier.getClausifierTermInfo(mClausifier.getSharedTerm(qEq.getRhs(), qEq.mClause.getSource()))
-							.getCCTerm();
+			rightCC = mClausifier.getClausifierTermInfo(qEq.getRhs()).getCCTerm();
 		} else {
 			rightCC = info.getEquivalentCCTerms().get(qEq.getRhs());
 		}
@@ -1103,7 +1100,7 @@ public class InstantiationManager {
 			public void walk(final NonRecursive engine) {
 				if (!mTerms.containsKey(mTerm)) {
 					if (mTerm.getFreeVars().length == 0) {
-						mTerms.put(mTerm, mClausifier.getSharedTerm(mTerm, mSource));
+						mTerms.put(mTerm, mTerm);
 					} else if (mTerm instanceof TermVariable) {
 						mTerms.put(mTerm, mInstantiation.get(mVars.indexOf(mTerm)));
 					} else {

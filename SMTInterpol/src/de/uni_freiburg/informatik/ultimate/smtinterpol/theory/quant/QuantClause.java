@@ -265,12 +265,9 @@ public class QuantClause {
 								final int pos = getVarIndex((TermVariable) smd);
 								final VarInfo varInfo = mVarInfos[pos];
 								if (fac.isNegative()) {
-									varInfo.addUpperGroundBound(
-											mQuantTheory.getClausifier().getSharedTerm(remainderTerm,
-													mSource));
+									varInfo.addUpperGroundBound(remainderTerm);
 								} else {
-									varInfo.addLowerGroundBound(mQuantTheory.getClausifier()
-											.getSharedTerm(remainderTerm, mSource));
+									varInfo.addLowerGroundBound(remainderTerm);
 								}
 							} else if (remainderTerm instanceof TermVariable) {
 								final int pos = getVarIndex((TermVariable) smd);
@@ -303,10 +300,8 @@ public class QuantClause {
 							upperAffine.add(Rational.ONE);
 							final Term lowerBound = lowerAffine.toTerm(rhs.getSort());
 							final Term upperBound = upperAffine.toTerm(rhs.getSort());
-							varInfo.addLowerGroundBound(
-									mQuantTheory.getClausifier().getSharedTerm(lowerBound, mSource));
-							varInfo.addUpperGroundBound(
-									mQuantTheory.getClausifier().getSharedTerm(upperBound, mSource));
+							varInfo.addLowerGroundBound(lowerBound);
+							varInfo.addUpperGroundBound(upperBound);
 						}
 					}
 				}
@@ -363,10 +358,8 @@ public class QuantClause {
 		addAllInteresting(mInterestingTermsForVars[varPos], mVarInfos[varPos].mLowerGroundBounds);
 		addAllInteresting(mInterestingTermsForVars[varPos], mVarInfos[varPos].mUpperGroundBounds);
 		if (mVars[varPos].getSort().getName() == "Bool") {
-			final Term sharedTrue =
-					mQuantTheory.getClausifier().getSharedTerm(mQuantTheory.getTheory().mTrue, mSource);
-			final Term sharedFalse =
-					mQuantTheory.getClausifier().getSharedTerm(mQuantTheory.getTheory().mFalse, mSource);
+			final Term sharedTrue = mQuantTheory.getTheory().mTrue;
+			final Term sharedFalse = mQuantTheory.getTheory().mFalse;
 			mInterestingTermsForVars[varPos].put(sharedTrue, sharedTrue);
 			mInterestingTermsForVars[varPos].put(sharedFalse, sharedFalse);
 		} else {
@@ -444,8 +437,7 @@ public class QuantClause {
 							final Term idxTerm = idx.getFlatTerm();
 							final SMTAffineTerm idxPlusMinusOneAff = new SMTAffineTerm(idxTerm);
 							idxPlusMinusOneAff.add(offset);
-							final Term shared = mQuantTheory.getClausifier()
-									.getSharedTerm(idxPlusMinusOneAff.toTerm(idxTerm.getSort()), mSource);
+							final Term shared = idxPlusMinusOneAff.toTerm(idxTerm.getSort());
 							final Term repShared = getRepresentativeTerm(shared);
 							mInterestingTermsForVars[varNum].put(repShared, shared);
 						}

@@ -685,7 +685,6 @@ public class QuantifierTheory implements ITheory {
 			final FunctionSymbol fsym = mTheory.getFunctionWithResult("@0", null, sort, new Sort[0]);
 			lambda = mTheory.term(fsym);
 		}
-		lambda = mClausifier.getSharedTerm(lambda, SourceAnnotation.EMPTY_SOURCE_ANNOT);
 		mLambdas.put(sort, lambda);
 		return lambda;
 	}
