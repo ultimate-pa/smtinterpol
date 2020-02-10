@@ -227,12 +227,13 @@ public class InstantiationManager {
 					// Always build conflict or unit clauses on known terms
 					assert candVal.getSecond().booleanValue();
 					final InstClause unitClause = computeClauseInstance(quantClause, subs);
-					assert unitClause != null;
-					final int numUndef = unitClause.countAndSetUndefLits();
-					if (numUndef == 0) { // TODO Can this happen in final check? (At the moment, yes.)
-						return unitClause.toClause(mQuantTheory.getEngine().isProofGenerationEnabled());
-					} else if (numUndef > 0) {
-						return null;
+					if (unitClause != null) { // TODO Some true literals are not detected at the moment.
+						final int numUndef = unitClause.countAndSetUndefLits();
+						if (numUndef == 0) { // TODO Can this happen in final check? (At the moment, yes.)
+							return unitClause.toClause(mQuantTheory.getEngine().isProofGenerationEnabled());
+						} else if (numUndef > 0) {
+							return null;
+						}
 					}
 				} else {
 					final Pair<QuantClause, List<SharedTerm>> clauseSubsPair = new Pair<>(quantClause, subs);
