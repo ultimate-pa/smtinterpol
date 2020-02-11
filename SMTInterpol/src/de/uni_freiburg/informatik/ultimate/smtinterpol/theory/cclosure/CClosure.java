@@ -55,10 +55,17 @@ import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
 /**
  * This class implements the theory of equality, a.k.a. congruence closure.
  *
- * This theory basically handles equality literals in particular CCEquality. It does also Nelson-Oppen propagation For
- * every subterm in the formula that is handled by this theory there is a corresponding CCTerm object. These in the
- * sense that it sets the LAEquality if a corresponding CCEquality was set. CCTerm object build the basic union-merge
- * datastructure.
+ * This theory understands equality literals in particular CCEquality and can propagate literals that follow by
+ * transitivity and/or congruence. It can also find all conflicts on these equalities. Internally it uses an equality
+ * graph to represent the known equalities between terms.
+ *
+ * This theory can be combined with other theories using Nelson-Oppen theory combination. For every subterm in the
+ * equality graph that is shared with the other theories (currently only linear arithmetic), it will propagate
+ * equalities between these shared subterms when they become equal. For these shared subterms, it also creates and
+ * propagates an LAEquality when the corresponding CCEquality is created/set.
+ *
+ * The equality graph is implemented by a union-merge data structure. The nodes in the equality graph (terms) are
+ * implemented by the class CCTerm. See the description of this class for details on the implementation.
  *
  * @author Jochen Hoenicke, Jürgen Christ
  */
@@ -941,7 +948,8 @@ public class CClosure implements ITheory {
 			final CCAppTerm a1 = (CCAppTerm) t1;
 			skip = true;
 			for (final CCTerm t2 : mAllTerms) {
-				// don't check symmetric cases: we skip all terms until we find the first term.
+				// don't check symmetric cases: skip all terms in the inner loop up to and including the term t1.
+				// Thus we check exactly the pairs (t1,t2) where t1 occurs (strictly) before t2 in mAllTerms.
 				if (skip) {
 					if (t1 == t2) {
 						skip = false;

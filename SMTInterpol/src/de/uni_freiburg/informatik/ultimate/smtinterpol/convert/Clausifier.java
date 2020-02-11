@@ -1258,8 +1258,19 @@ public class Clausifier {
 		}
 	}
 
+	/**
+	 * Get the (non-basic) linvar for a given term. The term must not be a constant or have arithmetic on the outside.
+	 * The term must also be known to the linear solver.
+	 *
+	 * @param term
+	 *            the SMT term.
+	 * @return the linvar with linvar.getTerm() == term.
+	 */
 	public LinVar getLinVar(final Term term) {
+		assert term.getSort().isNumericSort();
+		assert term == SMTAffineTerm.create(term).getSummands().keySet().iterator().next();
 		final ClausifierTermInfo termInfo = getClausifierTermInfo(term);
+		assert termInfo.hasLAVar();
 		final LASharedTerm laShared = termInfo.getLATerm();
 		assert laShared.getSummands().size() == 1 && laShared.getOffset() == Rational.ZERO
 				&& laShared.getSummands().values().iterator().next() == Rational.ONE;
@@ -1267,9 +1278,14 @@ public class Clausifier {
 	}
 
 	/**
-	 * Create a LinVar for a basic term.
+	 * Create a LinVar for a basic term. The term must be a non-basic (no arithmetic on the outside and not a constant)
+	 * numeric term. This will create a linvar or return an already existing linvar.
+	 *
 	 * @param term
-	 * @return
+	 *            a non-basic term
+	 * @param source
+	 *            the source annotation, which is used to create auxiliary axioms for the term.
+	 * @return the linvar with linvar.getTerm() == term.
 	 */
 	public LinVar createLinVar(final Term term, final SourceAnnotation source) {
 		assert term.getSort().isNumericSort();
