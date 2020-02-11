@@ -42,7 +42,6 @@ import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.ClausifierTermInfo;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.EqualityProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
@@ -2163,10 +2162,9 @@ public class LinArSolve implements ITheory {
 		}
 		final MutableAffineTerm at = new MutableAffineTerm();
 		for (final Entry<Term, Rational> entry : smtTerm.getSummands().entrySet()) {
-			final ClausifierTermInfo termInfo = clausifier.getTermInfo(entry.getKey());
+			final LASharedTerm laShared = clausifier.getLATerm(entry.getKey());
 			final Rational coeff = entry.getValue();
-			if (termInfo.hasLAVar()) {
-				final LASharedTerm laShared = termInfo.getLATerm();
+			if (laShared != null) {
 				assert laShared.getSummands().size() == 1 && laShared.getOffset() == Rational.ZERO
 						&& laShared.getSummands().values().iterator().next() == Rational.ONE;
 				at.add(coeff, laShared.getSummands().keySet().iterator().next());

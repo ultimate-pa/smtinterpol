@@ -103,9 +103,9 @@ public class EqualityProxy {
 	 */
 	public CCEquality createCCEquality(final Term lhs, final Term rhs) {
 		assert lhs.getSort().isNumericSort();
-		final ClausifierTermInfo lhsInfo = mClausifier.getTermInfo(lhs);
-		final ClausifierTermInfo rhsInfo = mClausifier.getTermInfo(rhs);
-		assert lhsInfo.hasCCTerm() && rhsInfo.hasCCTerm();
+		final CCTerm ccLhs = mClausifier.getCCTerm(lhs);
+		final CCTerm ccRhs = mClausifier.getCCTerm(rhs);
+		assert ccLhs != null && ccRhs != null;
 		DPLLAtom eqAtom = getLiteral(null);
 		LAEquality laeq;
 		if (eqAtom instanceof CCEquality) {
@@ -122,15 +122,14 @@ public class EqualityProxy {
 		}
 		for (final CCEquality eq : laeq.getDependentEqualities()) {
 			assert (eq.getLASharedData() == laeq);
-			if (eq.getLhs() == lhsInfo.getCCTerm() && eq.getRhs() == rhsInfo.getCCTerm()) {
+			if (eq.getLhs() == ccLhs && eq.getRhs() == ccRhs) {
 				return eq;
 			}
-			if (eq.getRhs() == lhsInfo.getCCTerm() && eq.getLhs() == rhsInfo.getCCTerm()) {
+			if (eq.getRhs() == ccLhs && eq.getLhs() == ccRhs) {
 				return eq;
 			}
 		}
-		final CCEquality eq = mClausifier.getCClosure().createCCEquality(
-				mClausifier.getStackLevel(), lhsInfo.getCCTerm(), rhsInfo.getCCTerm());
+		final CCEquality eq = mClausifier.getCClosure().createCCEquality(mClausifier.getStackLevel(), ccLhs, ccRhs);
 		final Rational normFactor = computeNormFactor(lhs, rhs);
 		laeq.addDependentAtom(eq);
 		eq.setLASharedData(laeq, normFactor);
@@ -138,26 +137,31 @@ public class EqualityProxy {
 	}
 
 	private DPLLAtom createAtom(final Term eqTerm, final SourceAnnotation source) {
-		final ClausifierTermInfo lhsInfo = mClausifier.getTermInfo(mLhs);
-		final ClausifierTermInfo rhsInfo = mClausifier.getTermInfo(mRhs);
 		mClausifier.addTermAxioms(mLhs, source);
 		mClausifier.addTermAxioms(mRhs, source);
-		if (!lhsInfo.hasCCTerm() && !rhsInfo.hasCCTerm()) {
+
+		final CCTerm lhsCCTerm = mClausifier.getCCTerm(mLhs);
+		final CCTerm rhsCCTerm = mClausifier.getCCTerm(mRhs);
+		boolean hasLhsLA = mClausifier.getLATerm(mLhs) != null;
+		boolean hasRhsLA = mClausifier.getLATerm(mRhs) != null;
+		if (lhsCCTerm == null && rhsCCTerm == null) {
 			/* if both terms do not exist in CClosure yet, it may be better to
 			 * create them in linear arithmetic.
 			 * Do this, if we don't have a CClosure, or the other term is
 			 * already in linear arithmetic.
 			 */
-			if ((mClausifier.getCClosure() == null || lhsInfo.hasLAVar()) && !rhsInfo.hasLAVar()) {
+			if ((mClausifier.getCClosure() == null || hasLhsLA) && !hasRhsLA) {
 				mClausifier.createLinVar(mRhs, source);
+				hasRhsLA = true;
 			}
-			if ((mClausifier.getCClosure() == null || rhsInfo.hasLAVar()) && !lhsInfo.hasLAVar()) {
+			if ((mClausifier.getCClosure() == null || hasRhsLA) && !hasLhsLA) {
 				mClausifier.createLinVar(mLhs, source);
+				hasLhsLA = true;
 			}
 		}
 
 		/* Get linear arithmetic info, if both are arithmetic */
-		if (lhsInfo.hasLAVar() && rhsInfo.hasLAVar()) {
+		if (hasLhsLA && hasRhsLA) {
 			return createLAEquality();
 		} else {
 			/* let them share congruence closure */
@@ -165,8 +169,9 @@ public class EqualityProxy {
 			final CCTerm ccRhs = mClausifier.createCCTerm(mRhs, source);
 
 			/* Creating the CC terms could have created the equality */
-			if ((mClausifier.getTermFlags(eqTerm) & ClausifierTermInfo.HAS_LITERAL) != 0) {
-				return (DPLLAtom) mClausifier.getTermInfo(eqTerm).getLiteral();
+			DPLLAtom atom = (DPLLAtom) mClausifier.getILiteral(eqTerm);
+			if (atom != null) {
+				return atom;
 			}
 
 			/* create CC equality */
@@ -176,19 +181,16 @@ public class EqualityProxy {
 
 	public DPLLAtom getLiteral(final SourceAnnotation source) {
 		Term eqTerm = mLhs.getTheory().term("=", mLhs, mRhs);
-		ClausifierTermInfo termInfo = mClausifier.getTermInfo(eqTerm);
-		int oldFlags = mClausifier.getTermFlags(eqTerm);
-		if ((oldFlags & ClausifierTermInfo.HAS_LITERAL) == 0) {
-			assert termInfo.getLiteral() == null;
-			DPLLAtom lit = createAtom(eqTerm, source);
+		DPLLAtom lit = (DPLLAtom) mClausifier.getILiteral(eqTerm);
+		if (lit == null) {
+			lit = createAtom(eqTerm, source);
 			mClausifier.getLogger().debug("Created Equality: %s", lit);
-			mClausifier.setTermFlags(eqTerm, oldFlags | ClausifierTermInfo.HAS_LITERAL
-					| ClausifierTermInfo.POS_AUX_AXIOMS_ADDED
-					| ClausifierTermInfo.NEG_AUX_AXIOMS_ADDED);
-			termInfo.setLiteral(lit);
+			mClausifier.setTermFlags(eqTerm, mClausifier.getTermFlags(eqTerm)
+					| Clausifier.POS_AUX_AXIOMS_ADDED
+					| Clausifier.NEG_AUX_AXIOMS_ADDED);
+			mClausifier.setLiteral(eqTerm, lit);
 		}
-		assert termInfo.getLiteral() != null;
-		return (DPLLAtom) termInfo.getLiteral();
+		return (DPLLAtom) lit;
 	}
 
 	@Override

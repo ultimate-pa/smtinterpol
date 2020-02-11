@@ -103,13 +103,13 @@ public class Clausifier {
 
 			@Override
 			public void perform() {
-				final ClausifierTermInfo termInfo = getTermInfo(mTerm);
-				if (termInfo.hasCCTerm()) {
-					mConverted.push(termInfo.getCCTerm());
+				CCTerm ccTerm = getCCTerm(mTerm);
+				if (ccTerm != null) {
+					mConverted.push(ccTerm);
 				} else {
 					if (needCCTerm(mTerm)) {
 						final FunctionSymbol fs = ((ApplicationTerm) mTerm).getFunction();
-						mOps.push(new SaveCCTerm(mTerm, termInfo));
+						mOps.push(new SaveCCTerm(mTerm));
 						final ApplicationTerm at = (ApplicationTerm) mTerm;
 						final Term[] args = at.getParameters();
 						for (int i = args.length - 1; i >= 0; --i) {
@@ -119,30 +119,28 @@ public class Clausifier {
 						mConverted.push(mCClosure.getFuncTerm(fs));
 					} else {
 						// We have an intern function symbol
-						final CCTerm res = mCClosure.createAnonTerm(mTerm);
-						mCClosure.addTerm(res, mTerm);
-						shareCCTerm(mTerm, termInfo, res);
+						ccTerm = mCClosure.createAnonTerm(mTerm);
+						mCClosure.addTerm(ccTerm, mTerm);
+						shareCCTerm(mTerm, ccTerm);
 						addTermAxioms(mTerm, mSource);
-						mConverted.push(res);
+						mConverted.push(ccTerm);
 					}
 				}
 			}
 		}
 
 		private class SaveCCTerm implements Operation {
-			private final ClausifierTermInfo mTermInfo;
 			private final Term mTerm;
 
-			public SaveCCTerm(final Term term, final ClausifierTermInfo termInfo) {
+			public SaveCCTerm(final Term term) {
 				mTerm = term;
-				mTermInfo = termInfo;
 			}
 
 			@Override
 			public void perform() {
-				final CCTerm res = mConverted.peek();
-				mCClosure.addTerm(res, mTerm);
-				shareCCTerm(mTerm, mTermInfo, res);
+				final CCTerm ccTerm = mConverted.peek();
+				mCClosure.addTerm(ccTerm, mTerm);
+				shareCCTerm(mTerm, ccTerm);
 				addTermAxioms(mTerm, mSource);
 			}
 		}
@@ -221,15 +219,14 @@ public class Clausifier {
 				term = toPositive(term);
 				positive = false;
 			}
-			final ClausifierTermInfo ci = getTermInfo(term);
 			int oldFlags = getTermFlags(term);
 			int assertedFlag, auxFlag;
 			if (positive) {
-				assertedFlag = ClausifierTermInfo.POS_AXIOMS_ADDED;
-				auxFlag = ClausifierTermInfo.POS_AUX_AXIOMS_ADDED;
+				assertedFlag = Clausifier.POS_AXIOMS_ADDED;
+				auxFlag = Clausifier.POS_AUX_AXIOMS_ADDED;
 			} else {
-				assertedFlag = ClausifierTermInfo.NEG_AXIOMS_ADDED;
-				auxFlag = ClausifierTermInfo.NEG_AUX_AXIOMS_ADDED;
+				assertedFlag = Clausifier.NEG_AXIOMS_ADDED;
+				auxFlag = Clausifier.NEG_AUX_AXIOMS_ADDED;
 			}
 			if ((oldFlags & assertedFlag) != 0) {
 				// We've already added this formula as axioms
@@ -239,7 +236,7 @@ public class Clausifier {
 			// Also mark the auxFlag, as it is no longer necessary to create the auxiliary axioms that state that auxlit
 			// implies this formula.
 			setTermFlags(term, oldFlags | assertedFlag);
-			final ILiteral auxlit = ci.getLiteral();
+			final ILiteral auxlit = getILiteral(term);
 			if (auxlit != null) {
 				// add the unit aux literal as clause; this will basically make the auxaxioms the axioms after unit
 				// propagation and level 0 resolution.
@@ -598,7 +595,7 @@ public class Clausifier {
 				} else if (!at.getFunction().isInterpreted() || at.getFunction().getName().equals("select")) {
 					lit = createBooleanLit(at, mCollector.getSource());
 				} else {
-					lit = getLiteral(idx);
+					lit = createAnonLiteral(idx);
 					if (positive) {
 						addAuxAxioms(idx, true, mCollector.getSource());
 					} else {
@@ -999,41 +996,38 @@ public class Clausifier {
 		mTermDataFlags.put(term, newFlags);
 	}
 
-	public void share(final ClausifierTermInfo termInfo) {
-		getLASolver().addSharedTerm(termInfo.getLATerm());
-		getCClosure().addSharedTerm(termInfo.getCCTerm());
+	public void share(CCTerm ccTerm, LASharedTerm laTerm) {
+		getLASolver().addSharedTerm(laTerm);
+		getCClosure().addSharedTerm(ccTerm);
 	}
 
-	public void shareLATerm(final Term term, final ClausifierTermInfo termInfo, final LASharedTerm laTerm) {
-		final int flags = getTermFlags(term);
-		assert (flags & ClausifierTermInfo.HAS_LA_TERM) == 0;
-		setTermFlags(term, flags | ClausifierTermInfo.HAS_LA_TERM);
-		termInfo.setLATerm(laTerm);
-		if ((flags & ClausifierTermInfo.HAS_CC_TERM) != 0) {
-			share(termInfo);
+	public void shareLATerm(final Term term, final LASharedTerm laTerm) {
+		assert !mLATerms.containsKey(term);
+		mLATerms.put(term, laTerm);
+		CCTerm ccTerm = getCCTerm(term);
+		if (ccTerm != null) {
+			share(ccTerm, laTerm);
 		}
 	}
 
-	public void shareCCTerm(final Term term, final ClausifierTermInfo termInfo, final CCTerm ccTerm) {
-		final int flags = getTermFlags(term);
-		assert (flags & ClausifierTermInfo.HAS_CC_TERM) == 0;
-		setTermFlags(term, flags | ClausifierTermInfo.HAS_CC_TERM);
-		termInfo.setCCTerm(ccTerm);
-		if ((flags & ClausifierTermInfo.HAS_LA_TERM) != 0) {
-			share(termInfo);
+	public void shareCCTerm(final Term term, final CCTerm ccTerm) {
+		assert !mCCTerms.containsKey(term);
+		mCCTerms.put(term, ccTerm);
+		LASharedTerm laTerm = getLATerm(term);
+		if (laTerm != null) {
+			share(ccTerm, laTerm);
 		}
 	}
 
 	public void addTermAxioms(final Term term, final SourceAnnotation source) {
 		final int termFlags = getTermFlags(term);
-		if ((termFlags & ClausifierTermInfo.AUX_AXIOM_ADDED) == 0) {
-			setTermFlags(term, termFlags | ClausifierTermInfo.AUX_AXIOM_ADDED);
-			final ClausifierTermInfo termInfo = getTermInfo(term);
-			assert termInfo != null;
+		if ((termFlags & Clausifier.AUX_AXIOM_ADDED) == 0) {
+			setTermFlags(term, termFlags | Clausifier.AUX_AXIOM_ADDED);
 			if (term instanceof ApplicationTerm) {
-				if (termInfo.getCCTerm() == null && needCCTerm(term) || term.getSort().isArraySort()) {
+				CCTerm ccTerm = getCCTerm(term);
+				if (ccTerm == null && (needCCTerm(term) || term.getSort().isArraySort())) {
 					final CCTermBuilder cc = new CCTermBuilder(source);
-					cc.convert(term);
+					ccTerm = cc.convert(term);
 				}
 
 				final ApplicationTerm at = (ApplicationTerm) term;
@@ -1055,22 +1049,18 @@ public class Clausifier {
 							addStoreAxiom(at, source);
 						} else if (fs.getName().equals("@diff")) {
 							addDiffAxiom(at, source);
-							mArrayTheory.notifyDiff((CCAppTerm) termInfo.getCCTerm());
+							mArrayTheory.notifyDiff((CCAppTerm) ccTerm);
 						}
 					}
 				}
-			}
-			if (term.getSort().isArraySort()) {
-				assert termInfo.getCCTerm() != null;
-				boolean isStore = false;
-				boolean isConst = false;
-				if (term instanceof ApplicationTerm) {
-					final ApplicationTerm at = (ApplicationTerm) term;
+
+				if (term.getSort().isArraySort()) {
+					assert ccTerm != null;
 					final String funcName = at.getFunction().getName();
-					isStore = funcName.equals("store");
-					isConst = funcName.equals("const");
+					final boolean isStore = funcName.equals("store");
+					final boolean isConst = funcName.equals("const");
+					mArrayTheory.notifyArray(getCCTerm(term), isStore, isConst);
 				}
-				mArrayTheory.notifyArray(termInfo.getCCTerm(), isStore, isConst);
 			}
 			if (term.getSort().isNumericSort()) {
 				boolean needsLA = term instanceof ConstantTerm;
@@ -1083,7 +1073,7 @@ public class Clausifier {
 				if (needsLA) {
 					final MutableAffineTerm mat = createMutableAffinTerm(new SMTAffineTerm(term), source);
 					assert mat.getConstant().mEps == 0;
-					shareLATerm(term, termInfo, new LASharedTerm(term, mat.getSummands(), mat.getConstant().mReal));
+					shareLATerm(term, new LASharedTerm(term, mat.getSummands(), mat.getConstant().mReal));
 				}
 			}
 		}
@@ -1100,9 +1090,8 @@ public class Clausifier {
 	public LinVar getLinVar(final Term term) {
 		assert term.getSort().isNumericSort();
 		assert term == SMTAffineTerm.create(term).getSummands().keySet().iterator().next();
-		final ClausifierTermInfo termInfo = getTermInfo(term);
-		assert termInfo.hasLAVar();
-		final LASharedTerm laShared = termInfo.getLATerm();
+		final LASharedTerm laShared = getLATerm(term);
+		assert laShared != null;
 		assert laShared.getSummands().size() == 1 && laShared.getOffset() == Rational.ZERO
 				&& laShared.getSummands().values().iterator().next() == Rational.ONE;
 		return laShared.getSummands().keySet().iterator().next();
@@ -1122,13 +1111,12 @@ public class Clausifier {
 		assert term.getSort().isNumericSort();
 		assert term == SMTAffineTerm.create(term).getSummands().keySet().iterator().next();
 		addTermAxioms(term, source);
-		final ClausifierTermInfo termInfo = getTermInfo(term);
-		LASharedTerm laShared = termInfo.getLATerm();
-		if (!termInfo.hasLAVar()) {
+		LASharedTerm laShared = getLATerm(term);
+		if (laShared == null) {
 			final boolean isint = term.getSort().getName().equals("Int");
 			final LinVar lv = getLASolver().addVar(term, isint, getStackLevel());
 			laShared = new LASharedTerm(term, Collections.singletonMap(lv, Rational.ONE), Rational.ZERO);
-			shareLATerm(term, termInfo, laShared);
+			shareLATerm(term, laShared);
 		}
 		assert laShared.getSummands().size() == 1 && laShared.getOffset() == Rational.ZERO
 				&& laShared.getSummands().values().iterator().next() == Rational.ONE;
@@ -1146,13 +1134,20 @@ public class Clausifier {
 		return res;
 	}
 
-	public ClausifierTermInfo getTermInfo(final Term t) {
-		ClausifierTermInfo termInfo = mTermData.get(t);
-		if (termInfo == null) {
-			termInfo = new ClausifierTermInfo();
-			mTermData.put(t, termInfo);
-		}
-		return termInfo;
+	public CCTerm getCCTerm(final Term term) {
+		return mCCTerms.get(term);
+	}
+
+	public LASharedTerm getLATerm(final Term term) {
+		return mLATerms.get(term);
+	}
+
+	public ILiteral getILiteral(final Term term) {
+		return mLiterals.get(term);
+	}
+
+	public void setLiteral(final Term term, final ILiteral lit) {
+		mLiterals.put(term, lit);
 	}
 
 	public static boolean needCCTerm(final Term term) {
@@ -1234,6 +1229,13 @@ public class Clausifier {
 		}
 	}
 
+	// flags for all interpreted or boolean terms
+	public static final int AUX_AXIOM_ADDED = 16;
+	public static final int NEG_AUX_AXIOMS_ADDED = 8;
+	public static final int POS_AUX_AXIOMS_ADDED = 4;
+	public static final int NEG_AXIOMS_ADDED = 2;
+	public static final int POS_AXIOMS_ADDED = 1;
+
 	/// Internalization stuff
 	private final FormulaUnLet mUnlet = new FormulaUnLet();
 	private final TermCompiler mCompiler = new TermCompiler();
@@ -1262,9 +1264,19 @@ public class Clausifier {
 	private boolean mPropagateUnknownAux;
 
 	/**
-	 * Mapping from subterms/subformulas to information about literals, ccterms and LA shared terms for these terms.
+	 * Mapping from subformulas to their literal, if there was any created.
 	 */
-	private final ScopedHashMap<Term, ClausifierTermInfo> mTermData = new ScopedHashMap<>();
+	private final ScopedHashMap<Term, ILiteral> mLiterals = new ScopedHashMap<>();
+	/**
+	 * Mapping from subterms to their CCTerm, if it was created.
+	 */
+	private final ScopedHashMap<Term, CCTerm> mCCTerms = new ScopedHashMap<>();
+	/**
+	 * Mapping from subterms to their LASharedTerm if it was created. This is always created for linear affine terms
+	 * occuring under an uninterpreted function. It is also created for terms that appear as summand in some linear
+	 * affine term.
+	 */
+	private final ScopedHashMap<Term, LASharedTerm> mLATerms = new ScopedHashMap<>();
 	/**
 	 * Mapping from subterms/subformulas to information about axioms and other information produced for these terms.
 	 */
@@ -1373,10 +1385,9 @@ public class Clausifier {
 	public void addAuxAxioms(final Term term, final boolean positive, final SourceAnnotation source) {
 		assert term == toPositive(term);
 
-		final ClausifierTermInfo ci = getTermInfo(term);
 		final int oldFlags = getTermFlags(term);
-		final int auxflag = positive ? ClausifierTermInfo.POS_AUX_AXIOMS_ADDED
-				: ClausifierTermInfo.NEG_AUX_AXIOMS_ADDED;
+		final int auxflag = positive ? Clausifier.POS_AUX_AXIOMS_ADDED
+				: Clausifier.NEG_AUX_AXIOMS_ADDED;
 		if ((oldFlags & auxflag) != 0) {
 			// We've already added the aux axioms
 			// Nothing to do
@@ -1385,7 +1396,7 @@ public class Clausifier {
 		setTermFlags(term, oldFlags | auxflag);
 
 		final Theory t = term.getTheory();
-		ILiteral negLit = ci.getLiteral();
+		ILiteral negLit = getILiteral(term);
 		assert negLit != null;
 		negLit = positive ? negLit.negate() : negLit;
 		final Term negLitTerm = negLit.getSMTFormula(t, true);
@@ -1619,40 +1630,6 @@ public class Clausifier {
 		collector.perform();
 	}
 
-	ILiteral createAnonAtom(final Term smtFormula) {
-		ILiteral atom = null;
-		/*
-		 * when inserting a cnf-auxvar (for tseitin-style encoding) in a quantified formula, we need it to depend on the
-		 * currently active quantifiers
-		 */
-		if (smtFormula.getFreeVars().length > 0) {
-			assert mTheory.getLogic().isQuantified() : "quantified variables in quantifier-free theory";
-			final TermVariable[] freeVars = new TermVariable[smtFormula.getFreeVars().length];
-			final Term[] freeVarsAsTerm = new Term[freeVars.length];
-			final Sort[] paramTypes = new Sort[freeVars.length];
-			for (int i = 0; i < freeVars.length; i++) {
-				freeVars[i] = smtFormula.getFreeVars()[i];
-				freeVarsAsTerm[i] = freeVars[i];
-				paramTypes[i] = freeVars[i].getSort();
-			}
-			final FunctionSymbol fs = mTheory.declareInternalFunction("@AUX" + (mAuxCounter++), paramTypes,
-					freeVars, smtFormula, FunctionSymbol.UNINTERPRETEDINTERNAL); // TODO change flag in the future
-			final ApplicationTerm auxTerm = mTheory.term(fs, freeVarsAsTerm);
-			if (mIsEprEnabled) {
-				atom = mEprTheory.getEprAtom(auxTerm, 0, mStackLevel, SourceAnnotation.EMPTY_SOURCE_ANNOT);
-			} else {
-				// TODO Create CCBaseTerm for the aux func or pred (edit: this is done automatically when looking
-				// for instantiation terms - should it be done earlier?)
-				// We use an equality "f(x,y,...)=true", not a NamedAtom, as CClosure must treat the literal instances.
-				atom = mQuantTheory.getQuantEquality(true, null, auxTerm, mTheory.mTrue);
-			}
-		} else {
-			atom = new NamedAtom(smtFormula, mStackLevel);
-			mEngine.addAtom((NamedAtom) atom);
-		}
-		return atom;
-	}
-
 	public EqualityProxy createEqualityProxy(final Term lhs, final Term rhs) {
 		final SMTAffineTerm diff = new SMTAffineTerm(lhs);
 		diff.negate();
@@ -1689,22 +1666,49 @@ public class Clausifier {
 		return eqForm;
 	}
 
-	ILiteral getLiteral(final Term idx) {
-		ClausifierTermInfo ci = getTermInfo(idx);
-		int oldFlags = getTermFlags(idx);
-		if ((oldFlags & ClausifierTermInfo.HAS_LITERAL) == 0) {
-			assert ci.getLiteral() == null;
-			ci.setLiteral(createAnonAtom(idx));
-			setTermFlags(idx, getTermFlags(idx) | ClausifierTermInfo.HAS_LITERAL);
+	ILiteral createAnonLiteral(final Term term) {
+		ILiteral lit = getILiteral(term);
+		if (lit == null) {
+			/*
+			 * when inserting a cnf-auxvar (for tseitin-style encoding) in a quantified formula, we need it to depend on the 
+			 * currently active quantifiers
+			 */
+			if (term.getFreeVars().length > 0) {
+				assert mTheory.getLogic().isQuantified() : "quantified variables in quantifier-free theory";
+				final TermVariable[] freeVars = new TermVariable[term.getFreeVars().length];
+				final Term[] freeVarsAsTerm = new Term[freeVars.length];
+				final Sort[] paramTypes = new Sort[freeVars.length];
+				for (int i = 0; i < freeVars.length; i++) {
+					freeVars[i] = term.getFreeVars()[i];
+					freeVarsAsTerm[i] = freeVars[i];
+					paramTypes[i] = freeVars[i].getSort();
+				}
+				final FunctionSymbol fs = mTheory.declareInternalFunction("@AUX" + (mAuxCounter++), paramTypes,
+						freeVars, term, FunctionSymbol.UNINTERPRETEDINTERNAL); // TODO change flag in the future
+				final ApplicationTerm auxTerm = mTheory.term(fs, freeVarsAsTerm);
+				if (mIsEprEnabled) {
+					lit = mEprTheory.getEprAtom(auxTerm, 0, mStackLevel, SourceAnnotation.EMPTY_SOURCE_ANNOT);
+				} else {
+					// TODO Create CCBaseTerm for the aux func or pred (edit: this is done automatically when looking
+					// for instantiation terms - should it be done earlier?)
+					// We use an equality "f(x,y,...)=true", not a NamedAtom, as CClosure must treat the literal
+					// instances.
+					lit = mQuantTheory.getQuantEquality(true, null, auxTerm, mTheory.mTrue);
+				}
+			} else {
+				lit = new NamedAtom(term, mStackLevel);
+				mEngine.addAtom((NamedAtom) lit);
+			}
+			mLiterals.put(term, lit);
 		}
-		assert ci.getLiteral() != null;
-		return ci.getLiteral();
+		assert lit != null;
+		return lit;
 	}
 
 	ILiteral getLiteralTseitin(final Term t, final SourceAnnotation source) {
 		final Term idx = toPositive(t);
 		final boolean pos = t == idx;
-		final ILiteral lit = getLiteral(idx);
+		final ILiteral lit = createAnonLiteral(idx);
 		addAuxAxioms(idx, true, source);
 		addAuxAxioms(idx, false, source);
 		return pos ? lit : lit.negate();
@@ -1824,15 +1828,14 @@ public class Clausifier {
 
 	// TODO What do we have to do for quantifiers here?
 	public Iterable<BooleanVarAtom> getBooleanVars() {
-		final Iterator<ClausifierTermInfo> it = mTermData.values().iterator();
+		final Iterator<ILiteral> it = mLiterals.values().iterator();
 		return () -> new Iterator<BooleanVarAtom>() {
 			private BooleanVarAtom mNext = computeNext();
 
 			private final BooleanVarAtom computeNext() {
 				while (it.hasNext()) {
-					final ClausifierTermInfo termInfo = it.next();
-					ILiteral lit = termInfo.getLiteral();
-					if (lit != null && lit instanceof BooleanVarAtom) {
+					ILiteral lit = it.next();
+					if (lit instanceof BooleanVarAtom) {
 						return (BooleanVarAtom) lit;
 					}
 				}
@@ -1956,8 +1959,10 @@ public class Clausifier {
 			mEngine.push();
 			++mStackLevel;
 			mEqualities.beginScope();
-			mTermData.beginScope();
 			mTermDataFlags.beginScope();
+			mLiterals.beginScope();
+			mLATerms.beginScope();
+			mCCTerms.beginScope();
 		}
 	}
 
@@ -1971,28 +1976,17 @@ public class Clausifier {
 		mNumFailedPushes = 0;
 		mEngine.pop(numpops);
 		for (int i = 0; i < numpops; ++i) {
-			for (final Map.Entry<Term, Integer> entry : mTermDataFlags.undoMap().entrySet()) {
-				final Term term = entry.getKey();
-				final ClausifierTermInfo termInfo = getTermInfo(term);
-				final int newFlags = getTermFlags(term);
-				final int oldFlags = entry.getValue() == null ? 0 : entry.getValue();
-				assert (oldFlags & newFlags) == oldFlags : "flags were cleared?";
-				final int changedFlags = newFlags & ~oldFlags;
-				if ((changedFlags & ClausifierTermInfo.HAS_LITERAL) != 0) {
-					termInfo.setLiteral(null);
-				}
-				if ((changedFlags & ClausifierTermInfo.HAS_CC_TERM) != 0) {
-					termInfo.setCCTerm(null);
-				}
-				if ((changedFlags & ClausifierTermInfo.HAS_LA_TERM) != 0) {
-					if ((oldFlags & ClausifierTermInfo.HAS_CC_TERM) != 0) {
-						termInfo.getCCTerm().unshare();
-					}
-					termInfo.setLATerm(null);
+			mCCTerms.endScope();
+			/* unshare all ccterms that are no longer shared with LA but were in the previous scope */
+			for (Term term : mLATerms.undoMap().keySet()) {
+				CCTerm ccTerm = getCCTerm(term);
+				if (ccTerm != null) {
+					ccTerm.unshare();
 				}
 			}
+			mLATerms.endScope();
+			mLiterals.endScope();
 			mTermDataFlags.endScope();
-			mTermData.endScope();
 			mEqualities.endScope();
 		}
 		mStackLevel -= numpops;
@@ -2054,25 +2048,22 @@ public class Clausifier {
 	}
 
 	private Literal createLeq0(final ApplicationTerm leq0term, final SourceAnnotation source) {
-		ClausifierTermInfo termInfo = getTermInfo(leq0term);
-		int oldFlags = getTermFlags(leq0term);
-		if ((oldFlags & ClausifierTermInfo.HAS_LITERAL) == 0) {
+		Literal lit = (Literal) getILiteral(leq0term);
+		if (lit == null) {
 			final SMTAffineTerm sum = new SMTAffineTerm(leq0term.getParameters()[0]);
 			final MutableAffineTerm msum = createMutableAffinTerm(sum, source);
-			Literal lit = mLASolver.generateConstraint(msum, false);
-			termInfo.setLiteral(lit);
-			setTermFlags(leq0term, oldFlags | ClausifierTermInfo.HAS_LITERAL | ClausifierTermInfo.POS_AUX_AXIOMS_ADDED
-					| ClausifierTermInfo.NEG_AUX_AXIOMS_ADDED);
+			lit = mLASolver.generateConstraint(msum, false);
+			mLiterals.put(leq0term, lit);
+			// we don't need to add any aux axioms for (<= t 0) literal.
+			setTermFlags(leq0term, getTermFlags(leq0term) | Clausifier.POS_AUX_AXIOMS_ADDED
+					| Clausifier.NEG_AUX_AXIOMS_ADDED);
 		}
-		return (Literal) termInfo.getLiteral();
+		return lit;
 	}
 
 	private ILiteral createBooleanLit(final ApplicationTerm term, final SourceAnnotation source) {
-		ClausifierTermInfo termInfo = getTermInfo(term);
-		int oldFlags = getTermFlags(term);
-		if ((oldFlags & ClausifierTermInfo.HAS_LITERAL) == 0) {
-			assert termInfo.getLiteral() == null;
-			ILiteral lit;
+		ILiteral lit = (Literal) getILiteral(term);
+		if (lit == null) {
 			if (term.getParameters().length == 0) {
 				final DPLLAtom atom = new BooleanVarAtom(term, mStackLevel);
 				mEngine.addAtom(atom);
@@ -2107,12 +2098,11 @@ public class Clausifier {
 
 				}
 			}
-			termInfo.setLiteral(lit);
-			setTermFlags(term, oldFlags | ClausifierTermInfo.HAS_LITERAL | ClausifierTermInfo.POS_AUX_AXIOMS_ADDED
-					| ClausifierTermInfo.NEG_AUX_AXIOMS_ADDED);
+			mLiterals.put(term, lit);
+			setTermFlags(term, getTermFlags(term) | Clausifier.POS_AUX_AXIOMS_ADDED
+					| Clausifier.NEG_AUX_AXIOMS_ADDED);
 		}
-		assert termInfo.getLiteral() != null;
-		return termInfo.getLiteral();
+		return lit;
 	}
 
 	public IProofTracker getTracker() {

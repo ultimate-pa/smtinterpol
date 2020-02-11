@@ -35,7 +35,6 @@ import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.ClausifierTermInfo;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
@@ -385,8 +384,7 @@ public class QuantClause {
 	}
 
 	private Term getRepresentativeTerm(final Term term) {
-		final ClausifierTermInfo termInfo = mQuantTheory.getClausifier().getTermInfo(term);
-		final CCTerm ccTerm = termInfo.getCCTerm();
+		final CCTerm ccTerm = mQuantTheory.getClausifier().getCCTerm(term);
 		return ccTerm == null ? term : ccTerm.getRepresentative().getFlatTerm();
 	}
 

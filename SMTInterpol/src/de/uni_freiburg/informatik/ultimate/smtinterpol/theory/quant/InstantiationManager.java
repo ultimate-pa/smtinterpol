@@ -40,7 +40,6 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.ClausifierTermInfo;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
@@ -644,10 +643,9 @@ public class InstantiationManager {
 					return null;
 				}
 			}
-			final ClausifierTermInfo termInfo = mClausifier.getTermInfo(sharedTerm);
+			final LASharedTerm laTerm = mClausifier.getLATerm(sharedTerm);
 			final Rational coeff = entry.getValue();
-			if (termInfo.hasLAVar()) {
-				final LASharedTerm laTerm = termInfo.getLATerm();
+			if (laTerm != null) {
 				for (final Map.Entry<LinVar, Rational> summand : laTerm.getSummands().entrySet()) {
 					at.add(coeff.mul(summand.getValue()), summand.getKey());
 				}
@@ -886,12 +884,12 @@ public class InstantiationManager {
 	private InstanceValue evaluateCCEqualityKnownShared(final QuantEquality qEq, final SubstitutionInfo info) {
 		final CCTerm leftCC, rightCC;
 		if (qEq.getLhs().getFreeVars().length == 0) {
-			leftCC = mClausifier.getTermInfo(qEq.getLhs()).getCCTerm();
+			leftCC = mClausifier.getCCTerm(qEq.getLhs());
 		} else {
 			leftCC = info.getEquivalentCCTerms().get(qEq.getLhs());
 		}
 		if (qEq.getRhs().getFreeVars().length == 0) {
-			rightCC = mClausifier.getTermInfo(qEq.getRhs()).getCCTerm();
+			rightCC = mClausifier.getCCTerm(qEq.getRhs());
 		} else {
 			rightCC = info.getEquivalentCCTerms().get(qEq.getRhs());
 		}
@@ -923,8 +921,8 @@ public class InstantiationManager {
 		final Term left = finder.findEquivalentShared(qEq.getLhs());
 		final Term right = finder.findEquivalentShared(qEq.getRhs());
 		if (left != null && right != null) {
-			final CCTerm leftCC = mClausifier.getTermInfo(left).getCCTerm();
-			final CCTerm rightCC = mClausifier.getTermInfo(right).getCCTerm();
+			final CCTerm leftCC = mClausifier.getCCTerm(left);
+			final CCTerm rightCC = mClausifier.getCCTerm(right);
 			if (leftCC != null && rightCC != null) {
 				if (mQuantTheory.getCClosure().isEqSet(leftCC, rightCC)) {
 					return InstanceValue.TRUE;

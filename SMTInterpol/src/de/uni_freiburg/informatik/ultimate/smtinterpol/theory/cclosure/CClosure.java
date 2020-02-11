@@ -1204,8 +1204,8 @@ public class CClosure implements ITheory {
 	}
 
 	public void fillInModel(final Model model, final Theory t, final SharedTermEvaluator ste, final ArrayTheory array) {
-		final CCTerm trueNode = mClausifier.getTermInfo(t.mTrue).getCCTerm();
-		final CCTerm falseNode = mClausifier.getTermInfo(t.mTrue).getCCTerm();
+		final CCTerm trueNode = mClausifier.getCCTerm(t.mTrue);
+		final CCTerm falseNode = mClausifier.getCCTerm(t.mFalse);
 		trueNode.mModelVal = model.getBoolSortInterpretation().getTrueIdx();
 		falseNode.mModelVal = model.getBoolSortInterpretation().getFalseIdx();
 		new ModelBuilder(this, mAllTerms, model, t, ste, array, trueNode, falseNode);
