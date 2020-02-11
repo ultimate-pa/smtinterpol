@@ -2163,7 +2163,7 @@ public class LinArSolve implements ITheory {
 		}
 		final MutableAffineTerm at = new MutableAffineTerm();
 		for (final Entry<Term, Rational> entry : smtTerm.getSummands().entrySet()) {
-			final ClausifierTermInfo termInfo = clausifier.getClausifierTermInfo(entry.getKey());
+			final ClausifierTermInfo termInfo = clausifier.getTermInfo(entry.getKey());
 			final Rational coeff = entry.getValue();
 			if (termInfo.hasLAVar()) {
 				final LASharedTerm laShared = termInfo.getLATerm();

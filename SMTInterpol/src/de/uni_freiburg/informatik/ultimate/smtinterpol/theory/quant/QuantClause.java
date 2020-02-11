@@ -385,7 +385,7 @@ public class QuantClause {
 	}
 
 	private Term getRepresentativeTerm(final Term term) {
-		final ClausifierTermInfo termInfo = mQuantTheory.getClausifier().getClausifierTermInfo(term);
+		final ClausifierTermInfo termInfo = mQuantTheory.getClausifier().getTermInfo(term);
 		final CCTerm ccTerm = termInfo.getCCTerm();
 		return ccTerm == null ? term : ccTerm.getRepresentative().getFlatTerm();
 	}

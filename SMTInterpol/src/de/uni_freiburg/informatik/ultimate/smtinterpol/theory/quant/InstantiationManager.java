@@ -644,7 +644,7 @@ public class InstantiationManager {
 					return null;
 				}
 			}
-			final ClausifierTermInfo termInfo = mClausifier.getClausifierTermInfo(sharedTerm);
+			final ClausifierTermInfo termInfo = mClausifier.getTermInfo(sharedTerm);
 			final Rational coeff = entry.getValue();
 			if (termInfo.hasLAVar()) {
 				final LASharedTerm laTerm = termInfo.getLATerm();
@@ -886,12 +886,12 @@ public class InstantiationManager {
 	private InstanceValue evaluateCCEqualityKnownShared(final QuantEquality qEq, final SubstitutionInfo info) {
 		final CCTerm leftCC, rightCC;
 		if (qEq.getLhs().getFreeVars().length == 0) {
-			leftCC = mClausifier.getClausifierTermInfo(qEq.getLhs()).getCCTerm();
+			leftCC = mClausifier.getTermInfo(qEq.getLhs()).getCCTerm();
 		} else {
 			leftCC = info.getEquivalentCCTerms().get(qEq.getLhs());
 		}
 		if (qEq.getRhs().getFreeVars().length == 0) {
-			rightCC = mClausifier.getClausifierTermInfo(qEq.getRhs()).getCCTerm();
+			rightCC = mClausifier.getTermInfo(qEq.getRhs()).getCCTerm();
 		} else {
 			rightCC = info.getEquivalentCCTerms().get(qEq.getRhs());
 		}
@@ -923,8 +923,8 @@ public class InstantiationManager {
 		final Term left = finder.findEquivalentShared(qEq.getLhs());
 		final Term right = finder.findEquivalentShared(qEq.getRhs());
 		if (left != null && right != null) {
-			final CCTerm leftCC = mClausifier.getClausifierTermInfo(left).getCCTerm();
-			final CCTerm rightCC = mClausifier.getClausifierTermInfo(right).getCCTerm();
+			final CCTerm leftCC = mClausifier.getTermInfo(left).getCCTerm();
+			final CCTerm rightCC = mClausifier.getTermInfo(right).getCCTerm();
 			if (leftCC != null && rightCC != null) {
 				if (mQuantTheory.getCClosure().isEqSet(leftCC, rightCC)) {
 					return InstanceValue.TRUE;

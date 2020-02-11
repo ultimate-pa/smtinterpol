@@ -706,7 +706,7 @@ public class QuantifierTheory implements ITheory {
 				}
 				for (final Term lambda : mLambdas.values()) {
 					if (!lambda.getSort().isNumericSort()) {
-						final CCTerm lambdaCC = mClausifier.getClausifierTermInfo(lambda).getCCTerm();
+						final CCTerm lambdaCC = mClausifier.getTermInfo(lambda).getCCTerm();
 						if (lambdaCC != null && lambdaCC.getNumMembers() > 1) {
 							return DPLLEngine.INCOMPLETE_QUANTIFIER;
 						}
