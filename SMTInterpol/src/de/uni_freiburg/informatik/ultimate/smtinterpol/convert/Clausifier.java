@@ -219,7 +219,7 @@ public class Clausifier {
 				term = toPositive(term);
 				positive = false;
 			}
-			int oldFlags = getTermFlags(term);
+			final int oldFlags = getTermFlags(term);
 			int assertedFlag, auxFlag;
 			if (positive) {
 				assertedFlag = Clausifier.POS_AXIOMS_ADDED;
@@ -996,7 +996,7 @@ public class Clausifier {
 		mTermDataFlags.put(term, newFlags);
 	}
 
-	public void share(CCTerm ccTerm, LASharedTerm laTerm) {
+	public void share(final CCTerm ccTerm, final LASharedTerm laTerm) {
 		getLASolver().addSharedTerm(laTerm);
 		getCClosure().addSharedTerm(ccTerm);
 	}
@@ -1004,7 +1004,7 @@ public class Clausifier {
 	public void shareLATerm(final Term term, final LASharedTerm laTerm) {
 		assert !mLATerms.containsKey(term);
 		mLATerms.put(term, laTerm);
-		CCTerm ccTerm = getCCTerm(term);
+		final CCTerm ccTerm = getCCTerm(term);
 		if (ccTerm != null) {
 			share(ccTerm, laTerm);
 		}
@@ -1013,7 +1013,7 @@ public class Clausifier {
 	public void shareCCTerm(final Term term, final CCTerm ccTerm) {
 		assert !mCCTerms.containsKey(term);
 		mCCTerms.put(term, ccTerm);
-		LASharedTerm laTerm = getLATerm(term);
+		final LASharedTerm laTerm = getLATerm(term);
 		if (laTerm != null) {
 			share(ccTerm, laTerm);
 		}
@@ -1670,7 +1670,7 @@ public class Clausifier {
 		ILiteral lit = getILiteral(term);
 		if (lit == null) {
 			/*
-			 * when inserting a cnf-auxvar (for tseitin-style encoding) in a quantified formula, we need it to depend on the 
+			 * when inserting a cnf-auxvar (for tseitin-style encoding) in a quantified formula, we need it to depend on the
 			 * currently active quantifiers
 			 */
 			if (term.getFreeVars().length > 0) {
@@ -1699,7 +1699,7 @@ public class Clausifier {
 				lit = new NamedAtom(term, mStackLevel);
 				mEngine.addAtom((NamedAtom) lit);
 			}
-			mLiterals.put(term, lit);
+			setLiteral(term, lit);
 		}
 		assert lit != null;
 		return lit;
@@ -1834,7 +1834,7 @@ public class Clausifier {
 
 			private final BooleanVarAtom computeNext() {
 				while (it.hasNext()) {
-					ILiteral lit = it.next();
+					final ILiteral lit = it.next();
 					if (lit instanceof BooleanVarAtom) {
 						return (BooleanVarAtom) lit;
 					}
@@ -1978,8 +1978,8 @@ public class Clausifier {
 		for (int i = 0; i < numpops; ++i) {
 			mCCTerms.endScope();
 			/* unshare all ccterms that are no longer shared with LA but were in the previous scope */
-			for (Term term : mLATerms.undoMap().keySet()) {
-				CCTerm ccTerm = getCCTerm(term);
+			for (final Term term : mLATerms.undoMap().keySet()) {
+				final CCTerm ccTerm = getCCTerm(term);
 				if (ccTerm != null) {
 					ccTerm.unshare();
 				}
@@ -2053,7 +2053,7 @@ public class Clausifier {
 			final SMTAffineTerm sum = new SMTAffineTerm(leq0term.getParameters()[0]);
 			final MutableAffineTerm msum = createMutableAffinTerm(sum, source);
 			lit = mLASolver.generateConstraint(msum, false);
-			mLiterals.put(leq0term, lit);
+			setLiteral(leq0term, lit);
 			// we don't need to add any aux axioms for (<= t 0) literal.
 			setTermFlags(leq0term, getTermFlags(leq0term) | Clausifier.POS_AUX_AXIOMS_ADDED
 					| Clausifier.NEG_AUX_AXIOMS_ADDED);
@@ -2062,7 +2062,7 @@ public class Clausifier {
 	}
 
 	private ILiteral createBooleanLit(final ApplicationTerm term, final SourceAnnotation source) {
-		ILiteral lit = (Literal) getILiteral(term);
+		ILiteral lit = getILiteral(term);
 		if (lit == null) {
 			if (term.getParameters().length == 0) {
 				final DPLLAtom atom = new BooleanVarAtom(term, mStackLevel);
@@ -2098,7 +2098,7 @@ public class Clausifier {
 
 				}
 			}
-			mLiterals.put(term, lit);
+			setLiteral(term, lit);
 			setTermFlags(term, getTermFlags(term) | Clausifier.POS_AUX_AXIOMS_ADDED
 					| Clausifier.NEG_AUX_AXIOMS_ADDED);
 		}
