@@ -50,6 +50,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.Infinitesima
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LASharedTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinVar;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.MutableAffineTerm;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory.InstanceOrigin;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.dawg.Dawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.ematching.EMatching;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.ematching.EMatching.SubstitutionInfo;
@@ -130,7 +131,7 @@ public class InstantiationManager {
 					if (mQuantTheory.getEngine().isTerminationRequested()) {
 						return Collections.emptySet();
 					}
-					final InstClause inst = computeClauseInstance(qClause, subs);
+					final InstClause inst = computeClauseInstance(qClause, subs, InstanceOrigin.CHECKPOINT);
 					if (inst != null) {
 						conflictAndUnitClauses.add(inst);
 					}
@@ -163,7 +164,7 @@ public class InstantiationManager {
 				// TODO Don't evaluate existing instances
 				final InstanceValue clauseValue = evaluateClauseInstance(quantClause, subs);
 				if (clauseValue != InstanceValue.IRRELEVANT) {
-					final InstClause inst = computeClauseInstance(quantClause, subs);
+					final InstClause inst = computeClauseInstance(quantClause, subs, InstanceOrigin.CHECKPOINT);
 					if (inst != null) {
 						conflictAndUnitClauses.add(inst);
 					}
@@ -227,7 +228,7 @@ public class InstantiationManager {
 				} else if (candVal.getFirst() == InstanceValue.FALSE || candVal.getFirst() == InstanceValue.ONE_UNDEF) {
 					// Always build conflict or unit clauses on known terms
 					assert candVal.getSecond().booleanValue();
-					final InstClause unitClause = computeClauseInstance(quantClause, subs);
+					final InstClause unitClause = computeClauseInstance(quantClause, subs, InstanceOrigin.FINALCHECK);
 					if (unitClause != null) { // TODO Some true literals are not detected at the moment.
 						final int numUndef = unitClause.countAndSetUndefLits();
 						if (numUndef == 0) { // TODO Can this happen in final check? (At the moment, yes.)
@@ -259,7 +260,7 @@ public class InstantiationManager {
 		sortedInstances.addAll(unitValueInstancesNewTerms);
 		sortedInstances.addAll(otherValueInstancesNewTerms);
 		for (final Pair<QuantClause, List<Term>> cand : sortedInstances) {
-			final InstClause inst = computeClauseInstance(cand.getFirst(), cand.getSecond());
+			final InstClause inst = computeClauseInstance(cand.getFirst(), cand.getSecond(), InstanceOrigin.FINALCHECK);
 			if (inst != null) {
 				final int numUndef = inst.countAndSetUndefLits();
 				if (numUndef == 0) {
@@ -842,7 +843,8 @@ public class InstantiationManager {
 	 *
 	 * @return the set of ground literals, or null if the clause would be trivially true.
 	 */
-	private InstClause computeClauseInstance(final QuantClause clause, final List<Term> subs) {
+	private InstClause computeClauseInstance(final QuantClause clause, final List<Term> subs,
+			final InstanceOrigin origin) {
 		assert mClauseInstances.containsKey(clause);
 		if (mClauseInstances.get(clause).containsKey(subs)) {
 			return mClauseInstances.get(clause).get(subs);
@@ -862,13 +864,19 @@ public class InstantiationManager {
 		}
 
 		final InstClause inst =
-				resultingLits != null ? new InstClause(clause, subs, Arrays.asList(resultingLits), -1) : null;
+				resultingLits != null ? new InstClause(clause, subs, Arrays.asList(resultingLits), -1, origin)
+						: null;
 		mClauseInstances.get(clause).put(subs, inst);
 		if (resultingLits != null) {
 			mQuantTheory.getLogger().debug("Quant: instantiating quant clause %s results in %s", clause,
 					Arrays.asList(resultingLits));
 		}
 		mQuantTheory.mNumInstancesProduced++;
+		if (origin.equals(InstanceOrigin.CHECKPOINT)) {
+			mQuantTheory.mNumInstancesProducedCP++;
+		} else if (origin.equals(InstanceOrigin.FINALCHECK)) {
+			mQuantTheory.mNumInstancesProducedFC++;
+		}
 		return inst;
 	}
 

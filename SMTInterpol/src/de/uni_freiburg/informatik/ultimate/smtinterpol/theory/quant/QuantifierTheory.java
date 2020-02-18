@@ -89,7 +89,7 @@ public class QuantifierTheory implements ITheory {
 	private int mDecideLevelOfLastCheckpoint;
 
 	// Statistics
-	long mNumInstancesProduced;
+	long mNumInstancesProduced, mNumInstancesProducedCP, mNumInstancesProducedFC;
 	private long mDERGroundCount, mConflictCount, mPropCount, mFinalCount;
 	long mCheckpointTime, mFindEmatchingTime, mFinalCheckTime, mEMatchingTime;
 	long mDawgTime;
@@ -288,7 +288,8 @@ public class QuantifierTheory implements ITheory {
 	@Override
 	public void printStatistics(final LogProxy logger) {
 		logger.info("Quant: DER produced " + mDERGroundCount + " ground clause(s).");
-		logger.info("Quant: Instances produced: " + mNumInstancesProduced);
+		logger.info("Quant: Instances produced: %d (Checkpoint: %d, Final check: %d)", mNumInstancesProduced,
+				mNumInstancesProducedCP, mNumInstancesProducedFC);
 		logger.info("Quant: Conflicts: " + mConflictCount + " Props: " + mPropCount + " Final Checks: " + mFinalCount);
 		logger.info(
 				"Quant times: Checkpoint %.3f Find with E-matching: %.3f Dawg %.3f Final Check %.3f E-Matching %.3f",
@@ -350,11 +351,14 @@ public class QuantifierTheory implements ITheory {
 	public Object[] getStatistics() {
 		return new Object[] { ":Quant",
 				new Object[][] { { "DER ground results", mDERGroundCount },
-						{ "Instances produced", mNumInstancesProduced }, { "Conflicts", mConflictCount },
+						{ "Instances produced", mNumInstancesProduced },
+						{ "thereof in checkpoint", mNumInstancesProducedCP },
+						{ "and in final check", mNumInstancesProducedFC }, { "Conflicts", mConflictCount },
 						{ "Propagations", mPropCount }, { "Final Checks", mFinalCount },
-						{ "Times", new Object[][] { { "Checkpoint", mCheckpointTime },
-								{ "Find E-matching", mFindEmatchingTime },
-								{ "Final Check", mFinalCheckTime }, { "E-Matching", mEMatchingTime } } } } };
+						{ "Times",
+								new Object[][] { { "Checkpoint", mCheckpointTime },
+										{ "Find E-matching", mFindEmatchingTime }, { "Final Check", mFinalCheckTime },
+										{ "E-Matching", mEMatchingTime } } } } };
 
 	}
 
@@ -750,5 +754,23 @@ public class QuantifierTheory implements ITheory {
 			}
 		}
 		return null;
+	}
+
+	public enum InstanceOrigin {
+		DER(":DER"), CHECKPOINT(":Checkpoint"), FINALCHECK(":Finalcheck");
+		String mOrigin;
+
+		private InstanceOrigin(final String origin) {
+			mOrigin = origin;
+		}
+
+		/**
+		 * Get the name of the instance origin. This can be used in an annotation for the lemma.
+		 *
+		 * @return the annotation key for the instantiation lemma.
+		 */
+		public String getOrigin() {
+			return mOrigin;
+		}
 	}
 }

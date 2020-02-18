@@ -24,6 +24,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.LeafNode;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory.InstanceOrigin;
 
 /**
  * An instance of a quantified clause that is not added to the DPLL engine so far. It is basically a list of literals.
@@ -40,13 +41,15 @@ class InstClause {
 	protected final List<Term> mSubs;
 	protected final List<Literal> mLits;
 	protected int mNumUndefLits;
+	protected InstanceOrigin mOrigin;
 
 	InstClause(final QuantClause qClause, final List<Term> subs, final List<Literal> lits,
-			final int numUndefLits) {
+			final int numUndefLits, final InstanceOrigin origin) {
 		mQuantClause = qClause;
 		mSubs = subs;
 		mLits = lits;
 		mNumUndefLits = numUndefLits;
+		mOrigin = origin;
 	}
 
 	@Override
@@ -107,7 +110,7 @@ class InstClause {
 				subsAsTerm[i] = mSubs.get(i);
 			}
 			clause.setProof(new LeafNode(LeafNode.QUANT_INST,
-					new QuantAnnotation(mQuantClause, subsAsTerm)));
+					new QuantAnnotation(mQuantClause, subsAsTerm, mOrigin)));
 		}
 		return clause;
 	}

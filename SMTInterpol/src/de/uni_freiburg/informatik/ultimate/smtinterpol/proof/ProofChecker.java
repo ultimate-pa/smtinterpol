@@ -331,6 +331,9 @@ public class ProofChecker extends NonRecursive {
 	 * Statistics.
 	 */
 	private int mNumInstancesUsed;
+	private int mNumInstancesFromDER;
+	private int mNumInstancesFromCheckpoint;
+	private int mNumInstancesFromFinalcheck;
 
 	/**
 	 * Create a proof checker.
@@ -378,7 +381,8 @@ public class ProofChecker extends NonRecursive {
 
 		// TODO Handle this in a better way (e.g. as part of statistics)
 		if (proof.getTheory().getLogic().isQuantified()) {
-			mLogger.warn("Proof: Instances of quantified clauses used: %s", mNumInstancesUsed);
+			mLogger.warn("Proof: Instances of quantified clauses used: %d (DER: %d Checkpoint: %d Final check: %d)",
+					mNumInstancesUsed, mNumInstancesFromDER, mNumInstancesFromCheckpoint, mNumInstancesFromFinalcheck);
 		}
 		return mError == 0;
 	}
@@ -513,6 +517,16 @@ public class ProofChecker extends NonRecursive {
 			checkEQLemma(clause);
 		} else if (lemmaType == ":inst") {
 			mNumInstancesUsed++;
+			final Object[] subannots = ((Object[]) lemmaAnnotation);
+			assert subannots.length == 7 && subannots[6] instanceof String;
+			final String solverPart = (String) subannots[6];
+			if (solverPart == ":DER") {
+				mNumInstancesFromDER++;
+			} else if (solverPart == ":Checkpoint") {
+				mNumInstancesFromCheckpoint++;
+			} else if (solverPart == ":Finalcheck") {
+				mNumInstancesFromFinalcheck++;
+			}
 			reportWarning("Quantifier instantiation lemmas are not checked!");
 		} else {
 			reportError("Cannot deal with lemma " + lemmaType);

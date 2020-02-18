@@ -81,6 +81,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.MutableAffin
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory.InstanceOrigin;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ArrayMap;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
@@ -763,7 +764,8 @@ public class Clausifier {
 						}
 						final ProofNode derProof =
 								new LeafNode(LeafNode.QUANT_INST,
-										new QuantAnnotation(lits, resultFromDER.getSecond(), getTheory()));
+										new QuantAnnotation(lits, resultFromDER.getSecond(), getTheory(),
+												InstanceOrigin.DER));
 						addClause(groundLits, null, derProof);
 					} else {
 						mQuantTheory.addQuantClause(litsAfterDER, mSource);
