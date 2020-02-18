@@ -41,13 +41,13 @@ import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SharedTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.InfinitesimalNumber;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LASharedTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinVar;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.MutableAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.dawg.Dawg;
@@ -56,9 +56,9 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.ematching.EM
 
 /**
  * This class takes care of clause, literal and term instantiation.
- * 
+ *
  * Literals are pre-evaluated in order to create less false literals and clauses containing true literals.
- * 
+ *
  * TODO Rework methods that do almost the same.
  *
  * @author Tanja Schindler
@@ -70,12 +70,12 @@ public class InstantiationManager {
 	private final QuantifierTheory mQuantTheory;
 	private final EMatching mEMatching;
 
-	private final Map<QuantClause, Map<List<SharedTerm>, InstClause>> mClauseInstances;
+	private final Map<QuantClause, Map<List<Term>, InstClause>> mClauseInstances;
 
 	private final InstanceValue mDefaultValueForLitDawgs;
 	private final InstanceValue[] mRelevantValuesForCheckpoint;
 
-	public InstantiationManager(Clausifier clausifier, QuantifierTheory quantTheory) {
+	public InstantiationManager(final Clausifier clausifier, final QuantifierTheory quantTheory) {
 		mClausifier = clausifier;
 		mQuantTheory = quantTheory;
 		mEMatching = quantTheory.getEMatching();
@@ -89,7 +89,7 @@ public class InstantiationManager {
 
 	/**
 	 * Add the clause to the instance map.
-	 * 
+	 *
 	 * @param qClause
 	 *            the quantified clause.
 	 */
@@ -109,7 +109,7 @@ public class InstantiationManager {
 	/**
 	 * Find all current instances of quant clauses that would be conflict or unit instances. This will actually compute
 	 * the clause instances, i.e., it will create the ground literals.
-	 * 
+	 *
 	 * @return the clause instances.
 	 */
 	public Set<InstClause> findConflictAndUnitInstancesWithEMatching() {
@@ -123,10 +123,10 @@ public class InstantiationManager {
 			if (mQuantTheory.getEngine().isTerminationRequested()) {
 				return Collections.emptySet();
 			}
-			final Dawg<SharedTerm, InstanceValue> dawg = computeClauseDawg(qClause);
-			final Collection<List<SharedTerm>> conflictOrUnitSubs = getConflictAndUnitSubsFromDawg(qClause, dawg);
+			final Dawg<Term, InstanceValue> dawg = computeClauseDawg(qClause);
+			final Collection<List<Term>> conflictOrUnitSubs = getConflictAndUnitSubsFromDawg(qClause, dawg);
 			if (conflictOrUnitSubs != null) {
-				for (final List<SharedTerm> subs : conflictOrUnitSubs) {
+				for (final List<Term> subs : conflictOrUnitSubs) {
 					if (mQuantTheory.getEngine().isTerminationRequested()) {
 						return Collections.emptySet();
 					}
@@ -151,14 +151,15 @@ public class InstantiationManager {
 		// New Quant Clauses may be added when new instances are computed (e.g. axioms for ite terms)
 		final List<QuantClause> currentQuantClauses = new ArrayList<>();
 		currentQuantClauses.addAll(mQuantTheory.getQuantClauses());
-		for (QuantClause quantClause : currentQuantClauses) {
+		for (final QuantClause quantClause : currentQuantClauses) {
 			if (quantClause.hasTrueGroundLits()) {
 				continue;
 			}
-			final Set<List<SharedTerm>> allSubstitutions = computeAllSubstitutions(quantClause);
-			for (List<SharedTerm> subs : allSubstitutions) {
-				if (mClausifier.getEngine().isTerminationRequested())
+			final Set<List<Term>> allSubstitutions = computeAllSubstitutions(quantClause);
+			for (final List<Term> subs : allSubstitutions) {
+				if (mClausifier.getEngine().isTerminationRequested()) {
 					return Collections.emptySet();
+				}
 				// TODO Don't evaluate existing instances
 				final InstanceValue clauseValue = evaluateClauseInstance(quantClause, subs);
 				if (clauseValue != InstanceValue.IRRELEVANT) {
@@ -176,15 +177,15 @@ public class InstantiationManager {
 	 * In the final check, check if all interesting substitutions of all clauses lead to satisfied instances. As soon as
 	 * an instance is found that is not yet satisfied, stop. The newly created literals will be decided by the ground
 	 * theories next and may lead to new conflicts.
-	 * 
+	 *
 	 * If an actual conflict is found, return it.
-	 * 
+	 *
 	 * @return an actual conflict clause, if it exists; null otherwise.
 	 */
 	public Clause instantiateSomeNotSat() {
-		final List<Pair<QuantClause, List<SharedTerm>>> otherValueInstancesOnKnownTerms = new ArrayList<>();
-		final List<Pair<QuantClause, List<SharedTerm>>> unitValueInstancesNewTerms = new ArrayList<>();
-		final List<Pair<QuantClause, List<SharedTerm>>> otherValueInstancesNewTerms = new ArrayList<>();
+		final List<Pair<QuantClause, List<Term>>> otherValueInstancesOnKnownTerms = new ArrayList<>();
+		final List<Pair<QuantClause, List<Term>>> unitValueInstancesNewTerms = new ArrayList<>();
+		final List<Pair<QuantClause, List<Term>>> otherValueInstancesNewTerms = new ArrayList<>();
 
 		final List<QuantClause> currentQuantClauses = new ArrayList<>();
 		currentQuantClauses.addAll(mQuantTheory.getQuantClauses());
@@ -192,7 +193,7 @@ public class InstantiationManager {
 		// First check if an existing instance leads to a conflict. TODO: checkpoint() should have detected it!
 		for (final QuantClause qClause : currentQuantClauses) {
 			assert mClauseInstances.containsKey(qClause);
-			for (final Entry<List<SharedTerm>, InstClause> existingInst : mClauseInstances.get(qClause).entrySet()) {
+			for (final Entry<List<Term>, InstClause> existingInst : mClauseInstances.get(qClause).entrySet()) {
 				final InstClause instClause = existingInst.getValue();
 				if (instClause != null) {
 					final int numUndef = instClause.countAndSetUndefLits();
@@ -208,12 +209,12 @@ public class InstantiationManager {
 		}
 
 		// If no existing instance lead to a conflict, check new instances.
-		for (QuantClause quantClause : currentQuantClauses) {
+		for (final QuantClause quantClause : currentQuantClauses) {
 			if (quantClause.hasTrueGroundLits()) {
 				continue;
 			}
-			final Set<List<SharedTerm>> allSubstitutions = computeAllSubstitutions(quantClause);
-			for (List<SharedTerm> subs : allSubstitutions) {
+			final Set<List<Term>> allSubstitutions = computeAllSubstitutions(quantClause);
+			for (final List<Term> subs : allSubstitutions) {
 				if (mClausifier.getEngine().isTerminationRequested()) {
 					return null;
 				}
@@ -236,7 +237,7 @@ public class InstantiationManager {
 						}
 					}
 				} else {
-					final Pair<QuantClause, List<SharedTerm>> clauseSubsPair = new Pair<>(quantClause, subs);
+					final Pair<QuantClause, List<Term>> clauseSubsPair = new Pair<>(quantClause, subs);
 					if (candVal.getFirst() == InstanceValue.UNKNOWN_TERM) {
 						assert !candVal.getSecond().booleanValue();
 						unitValueInstancesNewTerms.add(clauseSubsPair);
@@ -253,11 +254,11 @@ public class InstantiationManager {
 		}
 		// If we haven't found a conflict instance or a unit instance on known terms, first check other non-sat
 		// instances on known terms, then unit instances producing new terms, then other non-sat instances on new terms
-		final List<Pair<QuantClause, List<SharedTerm>>> sortedInstances = new ArrayList<>();
+		final List<Pair<QuantClause, List<Term>>> sortedInstances = new ArrayList<>();
 		sortedInstances.addAll(otherValueInstancesOnKnownTerms);
 		sortedInstances.addAll(unitValueInstancesNewTerms);
 		sortedInstances.addAll(otherValueInstancesNewTerms);
-		for (final Pair<QuantClause, List<SharedTerm>> cand : sortedInstances) {
+		for (final Pair<QuantClause, List<Term>> cand : sortedInstances) {
 			final InstClause inst = computeClauseInstance(cand.getFirst(), cand.getSecond());
 			if (inst != null) {
 				final int numUndef = inst.countAndSetUndefLits();
@@ -273,31 +274,31 @@ public class InstantiationManager {
 
 	/**
 	 * Get the default dawg for a given literal.
-	 * 
+	 *
 	 * @param qLit
 	 *            a quantified literal.
 	 * @return a constant undef or unknown (according to options set) dawg of depth |clausevars|.
 	 */
-	private Dawg<SharedTerm, InstanceValue> getDefaultLiteralDawg(final QuantLiteral qLit) {
+	private Dawg<Term, InstanceValue> getDefaultLiteralDawg(final QuantLiteral qLit) {
 		return Dawg.createConst(qLit.mClause.getVars().length, mDefaultValueForLitDawgs);
 	}
 
 	/**
 	 * Compute a clause dawg.
-	 * 
+	 *
 	 * @param qClause
 	 *            the quantified clause.
 	 * @return the dawg that contains the evaluations of different potential instances.
 	 */
-	private Dawg<SharedTerm, InstanceValue> computeClauseDawg(final QuantClause qClause) {
-		final Dawg<SharedTerm, InstanceValue> constIrrelDawg =
+	private Dawg<Term, InstanceValue> computeClauseDawg(final QuantClause qClause) {
+		final Dawg<Term, InstanceValue> constIrrelDawg =
 				Dawg.createConst(qClause.getVars().length, InstanceValue.IRRELEVANT);
 
 		// Initialize clause value to false for correct combination.
 		InstanceValue clauseValue = InstanceValue.FALSE;
 
 		// Check ground literals first
-		for (Literal groundLit : qClause.getGroundLits()) {
+		for (final Literal groundLit : qClause.getGroundLits()) {
 			if (groundLit.getAtom().getDecideStatus() == groundLit) {
 				clauseValue = combineForCheckpoint(clauseValue, InstanceValue.TRUE);
 			} else if (groundLit.getAtom().getDecideStatus() == groundLit.negate()) {
@@ -312,7 +313,7 @@ public class InstantiationManager {
 
 		// Create the partial clause dawg.
 		final int length = qClause.getVars().length;
-		Dawg<SharedTerm, InstanceValue> clauseDawg = Dawg.createConst(length, clauseValue);
+		Dawg<Term, InstanceValue> clauseDawg = Dawg.createConst(length, clauseValue);
 
 		// Only check quant literals for clauses where all or all but one ground literals are false.
 		if (clauseValue != InstanceValue.IRRELEVANT) {
@@ -328,7 +329,7 @@ public class InstantiationManager {
 				if (qLit.isArithmetical()) { // will be treated later
 					arithLits.add(qLit);
 				} else if (mEMatching.isUsingEmatching(qLit)) {
-					Dawg<SharedTerm, InstanceValue> litDawg = getDefaultLiteralDawg(qLit);
+					Dawg<Term, InstanceValue> litDawg = getDefaultLiteralDawg(qLit);
 					litDawg = computeEMatchingLitDawg(qLit);
 					clauseDawg = clauseDawg.combine(litDawg, combinator);
 				} else {
@@ -347,14 +348,14 @@ public class InstantiationManager {
 			}
 			if (clauseDawg != constIrrelDawg && !arithLits.isEmpty()) {
 				// Compute relevant terms from dawg and from bounds for arithmetical literals, update and combine dawgs.
-				final SharedTerm[][] interestingSubsForArith =
+				final Term[][] interestingSubsForArith =
 						computeSubsForArithmetical(qClause, arithLits, clauseDawg);
 				// Consider all substitutions where the partial clause Dawg is not already true
 				for (final QuantLiteral arLit : arithLits) {
 					if (clauseDawg == constIrrelDawg) {
 						break;
 					}
-					final Dawg<SharedTerm, InstanceValue> litDawg = computeArithLitDawg(arLit, interestingSubsForArith);
+					final Dawg<Term, InstanceValue> litDawg = computeArithLitDawg(arLit, interestingSubsForArith);
 					clauseDawg = clauseDawg.combine(litDawg, combinator);
 				}
 			}
@@ -362,11 +363,11 @@ public class InstantiationManager {
 		return clauseDawg;
 	}
 
-	final InstanceValue combineForCheckpoint(InstanceValue first, InstanceValue second) {
+	final InstanceValue combineForCheckpoint(final InstanceValue first, final InstanceValue second) {
 		return (first.combine(second)).keepOnlyRelevant(mRelevantValuesForCheckpoint);
 	}
 
-	final boolean isUsedValueForCheckpoint(InstanceValue value) {
+	final boolean isUsedValueForCheckpoint(final InstanceValue value) {
 		if (value == InstanceValue.IRRELEVANT) {
 			return true;
 		}
@@ -380,14 +381,14 @@ public class InstantiationManager {
 
 	/**
 	 * Compute the evaluation dawg for a given literal handled by E-matching.
-	 * 
+	 *
 	 * @param qLit
 	 *            a quantified literal that is handled by E-matching.
 	 * @return the evaluation dawg for the literal, of depth |clausevars|.
 	 */
-	private Dawg<SharedTerm, InstanceValue> computeEMatchingLitDawg(final QuantLiteral qLit) {
+	private Dawg<Term, InstanceValue> computeEMatchingLitDawg(final QuantLiteral qLit) {
 		assert mEMatching.isUsingEmatching(qLit);
-		final Dawg<SharedTerm, SubstitutionInfo> atomSubsDawg = mEMatching.getSubstitutionInfos(qLit.getAtom());
+		final Dawg<Term, SubstitutionInfo> atomSubsDawg = mEMatching.getSubstitutionInfos(qLit.getAtom());
 		if (atomSubsDawg != null) {
 			final Function<SubstitutionInfo, InstanceValue> evaluationMap =
 					v1 -> evaluateLitForEMatchingSubsInfo(qLit, v1);
@@ -399,7 +400,7 @@ public class InstantiationManager {
 
 	/**
 	 * Evaluate a literal for a given substitution.
-	 * 
+	 *
 	 * @param qLit
 	 *            a quantified literal.
 	 * @param info
@@ -420,7 +421,7 @@ public class InstantiationManager {
 
 		InstanceValue val;
 		if (qAtom instanceof QuantBoundConstraint) {
-			final Map<Term, SharedTerm> sharedForQuantSmds = buildSharedMapFromCCMap(info.getEquivalentCCTerms());
+			final Map<Term, Term> sharedForQuantSmds = buildSharedMapFromCCMap(info.getEquivalentCCTerms());
 			val = evaluateBoundConstraintKnownShared((QuantBoundConstraint) qAtom, sharedForQuantSmds);
 		} else {
 			// First try if we can get an equality value in CC.
@@ -430,7 +431,7 @@ public class InstantiationManager {
 			// If the eq value is unknown in CC, and the terms are numeric, check for equality in LinAr.
 			if ((val == InstanceValue.ONE_UNDEF || val == InstanceValue.UNKNOWN_TERM)
 					&& qEq.getLhs().getSort().isNumericSort()) {
-				final Map<Term, SharedTerm> sharedForQuantSmds = buildSharedMapFromCCMap(info.getEquivalentCCTerms());
+				final Map<Term, Term> sharedForQuantSmds = buildSharedMapFromCCMap(info.getEquivalentCCTerms());
 				val = evaluateLAEqualityKnownShared(qEq, sharedForQuantSmds);
 			}
 		}
@@ -441,7 +442,7 @@ public class InstantiationManager {
 		return val;
 	}
 
-	private InstanceValue evaluateLitInstance(final QuantLiteral quantLit, final List<SharedTerm> substitution) {
+	private InstanceValue evaluateLitInstance(final QuantLiteral quantLit, final List<Term> substitution) {
 		InstanceValue litValue = mDefaultValueForLitDawgs;
 		final boolean isNeg = quantLit.isNegated();
 		final QuantLiteral atom = quantLit.getAtom();
@@ -463,15 +464,14 @@ public class InstantiationManager {
 
 	/**
 	 * Compute the literal evaluation dawg for arithmetical literals.
-	 * 
+	 *
 	 * @param arLit
 	 *            the arithmetical literal.
 	 * @param interestingSubs
 	 *            the potentially interesting substitutions for the variables in the clause.
 	 * @return am evaluation dawg for the literal, its depth corresponds to the number of variables in the clause.
 	 */
-	private Dawg<SharedTerm, InstanceValue> computeArithLitDawg(final QuantLiteral arLit,
-			final SharedTerm[][] interestingSubs) {
+	private Dawg<Term, InstanceValue> computeArithLitDawg(final QuantLiteral arLit, final Term[][] interestingSubs) {
 		final QuantLiteral qAtom = arLit.getAtom();
 		final TermVariable[] varsInLit = qAtom.getTerm().getFreeVars();
 		assert varsInLit.length == 1 || varsInLit.length == 2;
@@ -491,20 +491,20 @@ public class InstantiationManager {
 		}
 
 		final int nOuterLoops = otherVar == null ? 1 : interestingSubs[firstVarPosInClause].length;
-		final Map<SharedTerm, Dawg<SharedTerm, InstanceValue>> transitionsFromOtherVar = new LinkedHashMap<>();
+		final Map<Term, Dawg<Term, InstanceValue>> transitionsFromOtherVar = new LinkedHashMap<>();
 
 		final int remainderDawgLengthForVar = arLit.getClause().getVars().length - varPosInClause - 1;
-		Dawg<SharedTerm, InstanceValue> remainderDawgAllVars = null;
+		Dawg<Term, InstanceValue> remainderDawgAllVars = null;
 
 		for (int i = 0; i < nOuterLoops; i++) {
-			final SharedTerm otherSubs = otherVar != null ? interestingSubs[firstVarPosInClause][i] : null;
+			final Term otherSubs = otherVar != null ? interestingSubs[firstVarPosInClause][i] : null;
 
-			final Map<SharedTerm, Dawg<SharedTerm, InstanceValue>> transitionsFromVar = new LinkedHashMap<>();
-			for (final SharedTerm subs : interestingSubs[varPosInClause]) {
+			final Map<Term, Dawg<Term, InstanceValue>> transitionsFromVar = new LinkedHashMap<>();
+			for (final Term subs : interestingSubs[varPosInClause]) {
 				InstanceValue val = InstanceValue.ONE_UNDEF;
 
 				// Build substitution map.
-				final Map<Term, SharedTerm> subsMap = new HashMap<>();
+				final Map<Term, Term> subsMap = new HashMap<>();
 				subsMap.put(var, subs);
 				if (otherVar != null) {
 					subsMap.put(otherVar, otherSubs);
@@ -519,16 +519,16 @@ public class InstantiationManager {
 					val = val.negate();
 				}
 
-				long time = System.nanoTime();
+				final long time = System.nanoTime();
 				if (val != mDefaultValueForLitDawgs) {
-					final Dawg<SharedTerm, InstanceValue> remainderDawgForVarSub =
+					final Dawg<Term, InstanceValue> remainderDawgForVarSub =
 							Dawg.createConst(remainderDawgLengthForVar, val);
 					transitionsFromVar.put(subs, remainderDawgForVarSub);
 				}
 				mQuantTheory.mDawgTime += System.nanoTime() - time;
 			}
-			long time = System.nanoTime();
-			Dawg<SharedTerm, InstanceValue> dawgForVar = Dawg.createDawg(transitionsFromVar,
+			final long time = System.nanoTime();
+			final Dawg<Term, InstanceValue> dawgForVar = Dawg.createDawg(transitionsFromVar,
 					Dawg.createConst(remainderDawgLengthForVar, mDefaultValueForLitDawgs));
 			if (otherVar != null) {
 				transitionsFromOtherVar.put(otherSubs,
@@ -538,12 +538,12 @@ public class InstantiationManager {
 			}
 			mQuantTheory.mDawgTime += System.nanoTime() - time;
 		}
-		long time = System.nanoTime();
+		final long time = System.nanoTime();
 		if (otherVar != null) {
 			remainderDawgAllVars = Dawg.createDawg(transitionsFromOtherVar, Dawg.createConst(
 					arLit.getClause().getVars().length - firstVarPosInClause - 1, mDefaultValueForLitDawgs));
 		}
-		final Dawg<SharedTerm, InstanceValue> litDawg =
+		final Dawg<Term, InstanceValue> litDawg =
 				createAncestorDawg(remainderDawgAllVars, firstVarPosInClause);
 		mQuantTheory.mDawgTime += System.nanoTime() - time;
 		return litDawg;
@@ -552,16 +552,16 @@ public class InstantiationManager {
 	/**
 	 * Create an ancestor dawg for a given dawg and a given level. All transitions from the root until the given level
 	 * are else-transitions, and the transition at the given level maps to the input dawg.
-	 * 
+	 *
 	 * @param dawg
 	 *            the remainder dawg.
 	 * @param level
 	 *            the number of levels the new dawg will be deeper than the given dawg.
 	 * @return a new dawg with the given dawg as (only) sub-dawg at the given level.
 	 */
-	private Dawg<SharedTerm, InstanceValue> createAncestorDawg(final Dawg<SharedTerm, InstanceValue> dawg,
+	private Dawg<Term, InstanceValue> createAncestorDawg(final Dawg<Term, InstanceValue> dawg,
 			final int level) {
-		Dawg<SharedTerm, InstanceValue> prepended = dawg;
+		Dawg<Term, InstanceValue> prepended = dawg;
 		for (int i = 0; i < level; i++) {
 			prepended = Dawg.createDawg(Collections.emptyMap(), prepended);
 		}
@@ -570,22 +570,22 @@ public class InstantiationManager {
 
 	/**
 	 * Get all substitutions for this clause that result in a conflict or unit clause.
-	 * 
+	 *
 	 * @param qClause
 	 *            the quantified clause.
 	 * @return the variable substitutions for the clause that lead to conflict or unit instances.
 	 */
-	private Collection<List<SharedTerm>> getConflictAndUnitSubsFromDawg(final QuantClause qClause,
-			final Dawg<SharedTerm, InstanceValue> clauseDawg) {
-		final Collection<List<SharedTerm>> conflictAndUnitSubs = new ArrayList<>();
-		for (final Dawg.Entry<SharedTerm, InstanceValue> entry : clauseDawg.entrySet()) {
+	private Collection<List<Term>> getConflictAndUnitSubsFromDawg(final QuantClause qClause,
+			final Dawg<Term, InstanceValue> clauseDawg) {
+		final Collection<List<Term>> conflictAndUnitSubs = new ArrayList<>();
+		for (final Dawg.Entry<Term, InstanceValue> entry : clauseDawg.entrySet()) {
 			assert !Config.EXPENSIVE_ASSERTS || isUsedValueForCheckpoint(entry.getValue());
 			if (entry.getValue() != InstanceValue.IRRELEVANT) {
 				// Replace the nulls (standing for the "else" case) with the suitable lambda
 				boolean containsLambdas = false;
 				final int nVars = qClause.getVars().length;
-				final List<SharedTerm> subsWithNulls = entry.getKey();
-				final List<SharedTerm> subs = new ArrayList<>(nVars);
+				final List<Term> subsWithNulls = entry.getKey();
+				final List<Term> subs = new ArrayList<>(nVars);
 				for (int i = 0; i < nVars; i++) {
 					if (subsWithNulls.get(i) != null) {
 						subs.add(subsWithNulls.get(i));
@@ -606,14 +606,14 @@ public class InstantiationManager {
 	}
 
 	/**
-	 * Helper method to build a map from Term to SharedTerm, given a map from Term to CCTerm.
+	 * Helper method to build a map from Term to Term, given a map from Term to CCTerm.
 	 */
-	private Map<Term, SharedTerm> buildSharedMapFromCCMap(final Map<Term, CCTerm> ccMap) {
-		final Map<Term, SharedTerm> sharedMap = new HashMap<>();
-		for (Entry<Term, CCTerm> entry : ccMap.entrySet()) {
+	private Map<Term, Term> buildSharedMapFromCCMap(final Map<Term, CCTerm> ccMap) {
+		final Map<Term, Term> sharedMap = new HashMap<>();
+		for (final Entry<Term, CCTerm> entry : ccMap.entrySet()) {
 			final CCTerm ccTerm = entry.getValue();
-			SharedTerm sharedTerm = ccTerm.getSharedTerm();
-			sharedMap.put(entry.getKey(), sharedTerm);
+			final Term term = ccTerm.getFlatTerm();
+			sharedMap.put(entry.getKey(), term);
 		}
 		return sharedMap;
 	}
@@ -621,36 +621,36 @@ public class InstantiationManager {
 	/**
 	 * Build a MutableAffineTerm from an SMTAffineTerm that may contain quantifiers, using a map that contains
 	 * equivalent terms for the quantified summands.
-	 * 
+	 *
 	 * @param smtAff
 	 *            an SMTAffineTerm including quantified terms.
 	 * @param sharedForQuantSmds
 	 *            the equivalent shared terms for the quantified summands.
 	 * @param source
 	 *            the SourceAnnotation of the clause this SMTAffineTerm stems from.
-	 * @return a MutableAffineTerm if each summand of the SMTAffineTerm either is ground or has an equivalent SharedTerm
+	 * @return a MutableAffineTerm if each summand of the SMTAffineTerm either is ground or has an equivalent Term
 	 *         storing a LinVar, null otherwise.
 	 */
 	private MutableAffineTerm buildMutableAffineTerm(final SMTAffineTerm smtAff,
-			final Map<Term, SharedTerm> sharedForQuantSmds, SourceAnnotation source) {
-		MutableAffineTerm at = new MutableAffineTerm();
-		for (Entry<Term, Rational> entry : smtAff.getSummands().entrySet()) {
-			final SharedTerm sharedTerm;
+			final Map<Term, Term> sharedForQuantSmds, final SourceAnnotation source) {
+		final MutableAffineTerm at = new MutableAffineTerm();
+		for (final Entry<Term, Rational> entry : smtAff.getSummands().entrySet()) {
+			final Term sharedTerm;
 			if (entry.getKey().getFreeVars().length == 0) {
-				sharedTerm = mClausifier.getSharedTerm(entry.getKey(), source);
+				sharedTerm = entry.getKey();
 			} else {
 				sharedTerm = sharedForQuantSmds.get(entry.getKey());
 				if (sharedTerm == null) {
 					return null;
 				}
 			}
-			Rational coeff = entry.getValue();
-			if (sharedTerm.getOffset() != null) {
-				LinVar var = sharedTerm.getLinVar();
-				if (var != null) {
-					at.add(coeff.mul(sharedTerm.getFactor()), var);
+			final LASharedTerm laTerm = mClausifier.getLATerm(sharedTerm);
+			final Rational coeff = entry.getValue();
+			if (laTerm != null) {
+				for (final Map.Entry<LinVar, Rational> summand : laTerm.getSummands().entrySet()) {
+					at.add(coeff.mul(summand.getValue()), summand.getKey());
 				}
-				at.add(coeff.mul(sharedTerm.getOffset()));
+				at.add(coeff.mul(laTerm.getOffset()));
 			} else {
 				return null;
 			}
@@ -663,7 +663,7 @@ public class InstantiationManager {
 	/**
 	 * Compute the substitutions for an arithmetical literal from a partial clause dawg, and from the bounds on the
 	 * variables.
-	 * 
+	 *
 	 * @param clause
 	 *            the clause containing the arithmetical literals.
 	 * @param arLits
@@ -672,8 +672,8 @@ public class InstantiationManager {
 	 *            the partial clause dawg containing information for all literals but the arithmetical ones.
 	 * @return for each variable in the clause, the interesting substitutions.
 	 */
-	private SharedTerm[][] computeSubsForArithmetical(final QuantClause clause,
-			final Collection<QuantLiteral> arLits, final Dawg<SharedTerm, InstanceValue> clauseDawg) {
+	private Term[][] computeSubsForArithmetical(final QuantClause clause, final Collection<QuantLiteral> arLits,
+			final Dawg<Term, InstanceValue> clauseDawg) {
 		// TODO Rework this method
 
 		// Collect all variables occurring in arithmetical literals, i.e., check which of them have any lower or upper
@@ -689,7 +689,7 @@ public class InstantiationManager {
 		}
 
 		// TODO Make sure that only representatives are added, similar to addAllInteresting
-		final Set<SharedTerm>[] interestingTerms = new LinkedHashSet[nClauseVars];
+		final Set<Term>[] interestingTerms = new LinkedHashSet[nClauseVars];
 		// All ground bounds are interesting terms
 		for (int i = 0; i < nClauseVars; i++) {
 			interestingTerms[i] = new LinkedHashSet<>();
@@ -698,7 +698,7 @@ public class InstantiationManager {
 			}
 		}
 		// The substitutions for which the partial clause instance value is not yet true are interesting
-		for (final Dawg.Entry<SharedTerm, InstanceValue> entry : clauseDawg.entrySet()) {
+		for (final Dawg.Entry<Term, InstanceValue> entry : clauseDawg.entrySet()) {
 			if (entry.getValue() != InstanceValue.IRRELEVANT) {
 				for (int i = 0; i < nClauseVars; i++) {
 					if (clauseVarsInArLits[i] != null) {
@@ -715,43 +715,43 @@ public class InstantiationManager {
 			for (int i = 0; i < clauseVarsInArLits.length; i++) {
 				final TermVariable var = clauseVarsInArLits[i];
 				if (var != null) {
-					for (TermVariable t : clause.getVarBounds(var)) {
-						int j = clause.getVarIndex(t);
+					for (final TermVariable t : clause.getVarBounds(var)) {
+						final int j = clause.getVarIndex(t);
 						changed = interestingTerms[i].addAll(interestingTerms[j]);
 					}
 				}
 			}
 		}
 
-		final SharedTerm[][] interestingTermArrays = new SharedTerm[nClauseVars][];
+		final Term[][] interestingTermArrays = new Term[nClauseVars][];
 		for (int i = 0; i < nClauseVars; i++) {
-			interestingTermArrays[i] = interestingTerms[i].toArray(new SharedTerm[interestingTerms[i].size()]);
+			interestingTermArrays[i] = interestingTerms[i].toArray(new Term[interestingTerms[i].size()]);
 		}
 		return interestingTermArrays;
 	}
 
 	/**
 	 * Compute all interesting substitutions for a given clause.
-	 * 
+	 *
 	 * This should only be called after updating the interesting terms for the clause.
-	 * 
+	 *
 	 * @param quantClause
 	 *            the quantified clause.
 	 * @return a Set containing interesting substitutions for the clause.
 	 */
-	private Set<List<SharedTerm>> computeAllSubstitutions(QuantClause quantClause) {
+	private Set<List<Term>> computeAllSubstitutions(final QuantClause quantClause) {
 		final int nVars = quantClause.getVars().length;
-		Set<List<SharedTerm>> allSubs = new LinkedHashSet<>();
-		allSubs.add(new ArrayList<SharedTerm>(nVars));
+		final Set<List<Term>> allSubs = new LinkedHashSet<>();
+		allSubs.add(new ArrayList<Term>(nVars));
 		for (int i = 0; i < nVars; i++) {
-			Set<List<SharedTerm>> partialSubs = new LinkedHashSet<List<SharedTerm>>();
-			for (final List<SharedTerm> oldSub : allSubs) {
+			final Set<List<Term>> partialSubs = new LinkedHashSet<>();
+			for (final List<Term> oldSub : allSubs) {
 				if (mClausifier.getEngine().isTerminationRequested()) {
 					return Collections.emptySet();
 				}
 				assert !quantClause.getInterestingTerms()[i].isEmpty();
-				for (final SharedTerm ground : quantClause.getInterestingTerms()[i].values()) {
-					final List<SharedTerm> newSub = new ArrayList<>(nVars);
+				for (final Term ground : quantClause.getInterestingTerms()[i].values()) {
+					final List<Term> newSub = new ArrayList<>(nVars);
 					newSub.addAll(oldSub);
 					newSub.add(ground);
 					partialSubs.add(newSub);
@@ -774,11 +774,11 @@ public class InstantiationManager {
 	 *            the ground terms to instantiate.
 	 * @return the InstanceValue of the potential instance.
 	 */
-	private InstanceValue evaluateClauseInstance(final QuantClause quantClause, final List<SharedTerm> instantiation) {
+	private InstanceValue evaluateClauseInstance(final QuantClause quantClause, final List<Term> instantiation) {
 		InstanceValue clauseValue = InstanceValue.FALSE;
 
 		// Check ground literals first.
-		for (Literal groundLit : quantClause.getGroundLits()) {
+		for (final Literal groundLit : quantClause.getGroundLits()) {
 			if (groundLit.getAtom().getDecideStatus() == groundLit) {
 				return combineForCheckpoint(clauseValue, InstanceValue.TRUE);
 			} else if (groundLit.getAtom().getDecideStatus() == null) {
@@ -793,8 +793,8 @@ public class InstantiationManager {
 		}
 
 		// Check quantified literals. TODO: Use SubstitutionHelper
-		for (QuantLiteral quantLit : quantClause.getQuantLits()) {
-			InstanceValue litValue = evaluateLitInstance(quantLit, instantiation);
+		for (final QuantLiteral quantLit : quantClause.getQuantLits()) {
+			final InstanceValue litValue = evaluateLitInstance(quantLit, instantiation);
 			clauseValue = combineForCheckpoint(clauseValue, litValue);
 			if (clauseValue == InstanceValue.IRRELEVANT) {
 				return clauseValue;
@@ -804,13 +804,13 @@ public class InstantiationManager {
 	}
 
 	private Pair<InstanceValue, Boolean> evaluateNewClauseInstanceFinalCheck(final QuantClause quantClause,
-			final List<SharedTerm> instantiation) {
+			final List<Term> instantiation) {
 		assert !mClauseInstances.containsKey(quantClause)
 				|| !mClauseInstances.get(quantClause).containsKey(instantiation);
 		InstanceValue clauseValue = InstanceValue.FALSE;
 
 		// Check for true ground literals first.
-		for (Literal groundLit : quantClause.getGroundLits()) {
+		for (final Literal groundLit : quantClause.getGroundLits()) {
 			assert groundLit.getAtom().getDecideStatus() != null;
 			if (groundLit.getAtom().getDecideStatus() == groundLit) {
 				return new Pair<>(InstanceValue.TRUE, null);
@@ -819,8 +819,8 @@ public class InstantiationManager {
 
 		// Check quantified literals. TODO: Use SubstitutionHelper
 		boolean hasOnlyKnownTerms = true;
-		for (QuantLiteral quantLit : quantClause.getQuantLits()) {
-			InstanceValue litValue = evaluateLitInstance(quantLit, instantiation); // TODO evaluateLitInstanceFinalCheck
+		for (final QuantLiteral quantLit : quantClause.getQuantLits()) {
+			final InstanceValue litValue = evaluateLitInstance(quantLit, instantiation); // TODO evaluateLitInstanceFinalCheck
 			if (litValue == InstanceValue.UNKNOWN_TERM) {
 				hasOnlyKnownTerms = false;
 			}
@@ -842,7 +842,7 @@ public class InstantiationManager {
 	 *
 	 * @return the set of ground literals, or null if the clause would be trivially true.
 	 */
-	private InstClause computeClauseInstance(final QuantClause clause, final List<SharedTerm> subs) {
+	private InstClause computeClauseInstance(final QuantClause clause, final List<Term> subs) {
 		assert mClauseInstances.containsKey(clause);
 		if (mClauseInstances.get(clause).containsKey(subs)) {
 			return mClauseInstances.get(clause).get(subs);
@@ -850,7 +850,7 @@ public class InstantiationManager {
 
 		final Map<TermVariable, Term> sigma = new LinkedHashMap<>();
 		for (int i = 0; i < subs.size(); i++) {
-			sigma.put(clause.getVars()[i], subs.get(i).getTerm());
+			sigma.put(clause.getVars()[i], subs.get(i));
 		}
 		final SubstitutionHelper instHelper = new SubstitutionHelper(mQuantTheory, clause.getGroundLits(),
 				clause.getQuantLits(), clause.getSource(), sigma);
@@ -885,12 +885,12 @@ public class InstantiationManager {
 	private InstanceValue evaluateCCEqualityKnownShared(final QuantEquality qEq, final SubstitutionInfo info) {
 		final CCTerm leftCC, rightCC;
 		if (qEq.getLhs().getFreeVars().length == 0) {
-			leftCC = mClausifier.getSharedTerm(qEq.getLhs(), qEq.mClause.getSource()).getCCTerm();
+			leftCC = mClausifier.getCCTerm(qEq.getLhs());
 		} else {
 			leftCC = info.getEquivalentCCTerms().get(qEq.getLhs());
 		}
 		if (qEq.getRhs().getFreeVars().length == 0) {
-			rightCC = mClausifier.getSharedTerm(qEq.getRhs(), qEq.mClause.getSource()).getCCTerm();
+			rightCC = mClausifier.getCCTerm(qEq.getRhs());
 		} else {
 			rightCC = info.getEquivalentCCTerms().get(qEq.getRhs());
 		}
@@ -907,7 +907,7 @@ public class InstantiationManager {
 	}
 
 	/**
-	 * Determine the value that an equality literal between two given SharedTerm would have.
+	 * Determine the value that an equality literal between two given Term would have.
 	 *
 	 * @param left
 	 *            The left side of the equality.
@@ -916,14 +916,14 @@ public class InstantiationManager {
 	 * @return Value True if the two terms are in the same congruence class, False if they are definitely distinct,
 	 *         Undef else.
 	 */
-	private InstanceValue evaluateCCEquality(final QuantEquality qEq, final List<SharedTerm> subs) {
+	private InstanceValue evaluateCCEquality(final QuantEquality qEq, final List<Term> subs) {
 		final QuantClause qClause = qEq.getClause();
-		final SharedTermFinder finder = new SharedTermFinder(qClause.getSource(), qClause.getVars(), subs);
-		final SharedTerm left = finder.findEquivalentShared(qEq.getLhs());
-		final SharedTerm right = finder.findEquivalentShared(qEq.getRhs());
+		final TermFinder finder = new TermFinder(qClause.getSource(), qClause.getVars(), subs);
+		final Term left = finder.findEquivalentShared(qEq.getLhs());
+		final Term right = finder.findEquivalentShared(qEq.getRhs());
 		if (left != null && right != null) {
-			final CCTerm leftCC = left.getCCTerm();
-			final CCTerm rightCC = right.getCCTerm();
+			final CCTerm leftCC = mClausifier.getCCTerm(left);
+			final CCTerm rightCC = mClausifier.getCCTerm(right);
 			if (leftCC != null && rightCC != null) {
 				if (mQuantTheory.getCClosure().isEqSet(leftCC, rightCC)) {
 					return InstanceValue.TRUE;
@@ -938,13 +938,13 @@ public class InstantiationManager {
 
 	/**
 	 * Determine the value that an equality MutableAffineTerm = 0 would have if instantiated.
-	 * 
+	 *
 	 * @param at
 	 *            a MutableAffineTerm representing an LAEquality.
 	 * @return Value True if both the lower and upper bound of at are 0, False if the lower bound is greater or the
 	 *         upper bound is smaller than 0, Undef/Unknown else.
 	 */
-	private InstanceValue evaluateLAEqualityKnownShared(final QuantEquality qEq, final Map<Term, SharedTerm> sharedForQuant) {
+	private InstanceValue evaluateLAEqualityKnownShared(final QuantEquality qEq, final Map<Term, Term> sharedForQuant) {
 		final SMTAffineTerm diff = new SMTAffineTerm(qEq.getLhs());
 		diff.add(Rational.MONE, new SMTAffineTerm(qEq.getRhs()));
 
@@ -965,18 +965,18 @@ public class InstantiationManager {
 
 	/**
 	 * Determine the value that an equality SMTAffineTerm = 0 would have if instantiated.
-	 * 
+	 *
 	 * @param at
 	 *            a MutableAffineTerm representing an LAEquality.
 	 * @return Value True if both the lower and upper bound of at exist and are equal to 0, False if the lower bound
 	 *         exists and is greater than 0, or the upper bound exists and is smaller than 0, Undef else.
 	 */
-	private InstanceValue evaluateLAEquality(final QuantEquality qEq, final List<SharedTerm> subs) {
+	private InstanceValue evaluateLAEquality(final QuantEquality qEq, final List<Term> subs) {
 		final SMTAffineTerm diff = new SMTAffineTerm(qEq.getLhs());
 		diff.add(Rational.MONE, qEq.getRhs());
 
 		final QuantClause qClause = qEq.getClause();
-		final SharedTermFinder finder = new SharedTermFinder(qClause.getSource(), qClause.getVars(), subs);
+		final TermFinder finder = new TermFinder(qClause.getSource(), qClause.getVars(), subs);
 		final SMTAffineTerm smtAff = finder.findEquivalentAffine(diff);
 		if (smtAff != null) {
 			final InfinitesimalNumber upperBound = mQuantTheory.mLinArSolve.getUpperBound(mClausifier, smtAff);
@@ -1001,7 +1001,7 @@ public class InstantiationManager {
 	 *         otherwise.
 	 */
 	private InstanceValue evaluateBoundConstraintKnownShared(final QuantBoundConstraint qBc,
-			final Map<Term, SharedTerm> sharedForQuant) {
+			final Map<Term, Term> sharedForQuant) {
 		final MutableAffineTerm at =
 				buildMutableAffineTerm(qBc.getAffineTerm(), sharedForQuant, qBc.getClause().getSource());
 		if (at == null) {
@@ -1028,9 +1028,8 @@ public class InstantiationManager {
 	 *            The linear term for a constraint "term <= 0".
 	 * @return Value True if the term has an upper bound <= 0, False if -term has a lower bound < 0, or Undef otherwise.
 	 */
-	private InstanceValue evaluateBoundConstraint(final QuantBoundConstraint qBc, final List<SharedTerm> subs) {
-		final SharedTermFinder finder =
-				new SharedTermFinder(qBc.getClause().getSource(), qBc.getClause().getVars(), subs);
+	private InstanceValue evaluateBoundConstraint(final QuantBoundConstraint qBc, final List<Term> subs) {
+		final TermFinder finder = new TermFinder(qBc.getClause().getSource(), qBc.getClause().getVars(), subs);
 		final SMTAffineTerm affine = finder.findEquivalentAffine(qBc.getAffineTerm());
 		if (affine == null) {
 			return mDefaultValueForLitDawgs;
@@ -1049,29 +1048,28 @@ public class InstantiationManager {
 		}
 	}
 
-	private class SharedTermFinder extends NonRecursive {
+	private class TermFinder extends NonRecursive {
 		private final SourceAnnotation mSource;
 		private final List<TermVariable> mVars;
-		private final List<SharedTerm> mInstantiation;
-		private final Map<Term, SharedTerm> mSharedTerms;
+		private final List<Term> mInstantiation;
+		private final Map<Term, Term> mTerms;
 
-		SharedTermFinder(final SourceAnnotation source, final TermVariable[] vars,
-				final List<SharedTerm> instantiation) {
+		TermFinder(final SourceAnnotation source, final TermVariable[] vars, final List<Term> instantiation) {
 			mSource = source;
 			mVars = Arrays.asList(vars);
 			mInstantiation = instantiation;
-			mSharedTerms = new HashMap<>();
+			mTerms = new HashMap<>();
 		}
 
-		SharedTerm findEquivalentShared(final Term term) {
-			enqueueWalker(new FindSharedTerm(term));
+		Term findEquivalentShared(final Term term) {
+			enqueueWalker(new FindTerm(term));
 			run();
-			return mSharedTerms.get(term);
+			return mTerms.get(term);
 		}
 
 		SMTAffineTerm findEquivalentAffine(final SMTAffineTerm smtAff) {
 			for (final Term smd : smtAff.getSummands().keySet()) {
-				enqueueWalker(new FindSharedTerm(smd));
+				enqueueWalker(new FindTerm(smd));
 			}
 			run();
 			return buildEquivalentAffine(smtAff);
@@ -1080,45 +1078,45 @@ public class InstantiationManager {
 		private SMTAffineTerm buildEquivalentAffine(final SMTAffineTerm smtAff) {
 			final SMTAffineTerm instAff = new SMTAffineTerm();
 			for (final Entry<Term, Rational> smd : smtAff.getSummands().entrySet()) {
-				final SharedTerm inst = mSharedTerms.get(smd.getKey());
+				final Term inst = mTerms.get(smd.getKey());
 				if (inst == null) {
 					return null;
 				}
-				instAff.add(smd.getValue(), inst.getTerm());
+				instAff.add(smd.getValue(), inst);
 			}
 			instAff.add(smtAff.getConstant());
 			return instAff;
 		}
 
-		class FindSharedTerm implements Walker {
+		class FindTerm implements Walker {
 			private final Term mTerm;
 
-			public FindSharedTerm(final Term term) {
+			public FindTerm(final Term term) {
 				mTerm = term;
 			}
 
 			@Override
 			public void walk(final NonRecursive engine) {
-				if (!mSharedTerms.containsKey(mTerm)) {
+				if (!mTerms.containsKey(mTerm)) {
 					if (mTerm.getFreeVars().length == 0) {
-						mSharedTerms.put(mTerm, mClausifier.getSharedTerm(mTerm, mSource));
+						mTerms.put(mTerm, mTerm);
 					} else if (mTerm instanceof TermVariable) {
-						mSharedTerms.put(mTerm, mInstantiation.get(mVars.indexOf(mTerm)));
+						mTerms.put(mTerm, mInstantiation.get(mVars.indexOf(mTerm)));
 					} else {
 						assert mTerm instanceof ApplicationTerm;
 						final ApplicationTerm appTerm = (ApplicationTerm) mTerm;
 						final FunctionSymbol func = appTerm.getFunction();
-						if (Clausifier.needCCTerm(func)) {
+						if (Clausifier.needCCTerm(appTerm)) {
 							final Term[] params = appTerm.getParameters();
 							enqueueWalker(new FindSharedAppTerm(mTerm, func, params));
 							for (final Term arg : params) {
-								enqueueWalker(new FindSharedTerm(arg));
+								enqueueWalker(new FindTerm(arg));
 							}
 						} else if (func.getName() == "+" || func.getName() == "*" || func.getName() == "-") {
 							final SMTAffineTerm smtAff = new SMTAffineTerm(mTerm);
 							enqueueWalker(new FindSharedAffine(mTerm, smtAff));
 							for (final Term smd : smtAff.getSummands().keySet()) {
-								enqueueWalker(new FindSharedTerm(smd));
+								enqueueWalker(new FindTerm(smd));
 							}
 						}
 					}
@@ -1141,18 +1139,17 @@ public class InstantiationManager {
 			public void walk(final NonRecursive engine) {
 				final Term[] instArgs = new Term[mParams.length];
 				for (int i = 0; i < mParams.length; i++) {
-					final SharedTerm sharedArg = mSharedTerms.get(mParams[i]);
+					final Term sharedArg = mTerms.get(mParams[i]);
 					if (sharedArg == null) {
 						return;
 					} else {
-						instArgs[i] = sharedArg.getTerm();
+						instArgs[i] = sharedArg;
 					}
 				}
 				final Term instAppTerm = mClausifier.getTheory().term(mFunc, instArgs);
 				final CCTerm ccTermRep = mQuantTheory.getCClosure().getCCTermRep(instAppTerm);
 				if (ccTermRep != null) {
-					mSharedTerms.put(mTerm,
-							ccTermRep.getSharedTerm() != null ? ccTermRep.getSharedTerm() : ccTermRep.getFlatTerm());
+					mTerms.put(mTerm, ccTermRep.getFlatTerm());
 				}
 			}
 		}
@@ -1174,8 +1171,7 @@ public class InstantiationManager {
 					// Note: This will often not find a CC term.
 					final CCTerm ccTermRep = mQuantTheory.getCClosure().getCCTermRep(instTerm);
 					if (ccTermRep != null) {
-						mSharedTerms.put(mTerm, ccTermRep.getSharedTerm() != null ? ccTermRep.getSharedTerm()
-								: ccTermRep.getFlatTerm());
+						mTerms.put(mTerm, ccTermRep.getFlatTerm());
 					}
 				}
 			}
@@ -1192,7 +1188,7 @@ public class InstantiationManager {
 	private enum InstanceValue {
 		TRUE, FALSE, ONE_UNDEF, UNKNOWN_TERM, OTHER, IRRELEVANT;
 
-		private InstanceValue combine(InstanceValue other) {
+		private InstanceValue combine(final InstanceValue other) {
 			if (this == IRRELEVANT || other == IRRELEVANT) {
 				return IRRELEVANT;
 			} else if (this == TRUE || other == TRUE) {
@@ -1218,7 +1214,7 @@ public class InstantiationManager {
 
 		/**
 		 * Restrict instance values to the given relevant values plus IRRELEVANT.
-		 * 
+		 *
 		 * @param values
 		 *            the relevant values.
 		 * @return the InstanceValue itself, if contained in the relevant values, or IRRELEVANT else.

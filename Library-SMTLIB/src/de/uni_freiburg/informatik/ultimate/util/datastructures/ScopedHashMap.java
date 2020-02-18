@@ -57,17 +57,17 @@ public class ScopedHashMap<K, V> extends AbstractMap<K, V> {
 	}
 
 	@SuppressWarnings("unchecked")
-	public ScopedHashMap(boolean shrink) {
-		mMap = new HashMap<K, V>();
+	public ScopedHashMap(final boolean shrink) {
+		mMap = new HashMap<>();
 		mHistory = new HashMap[ScopeUtils.NUM_INITIAL_SCOPES];
 		mShrink = shrink;
 	}
 
-	private HashMap<K, V> undoMap() {
+	public HashMap<K, V> undoMap() {
 		return mHistory[mCurScope];
 	}
 
-	private void recordUndo(K key, V value) {
+	private void recordUndo(final K key, final V value) {
 		if (mCurScope != -1) {
 			final Map<K, V> old = undoMap();
 			if (!old.containsKey(key)) {
@@ -76,7 +76,7 @@ public class ScopedHashMap<K, V> extends AbstractMap<K, V> {
 		}
 	}
 
-	private void undoEntry(Entry<K,V> old) {
+	private void undoEntry(final Entry<K,V> old) {
 		if (old.getValue() == null) {
 			mMap.remove(old.getKey());
 		} else {
@@ -88,7 +88,7 @@ public class ScopedHashMap<K, V> extends AbstractMap<K, V> {
 		if (mCurScope == mHistory.length - 1) {
 			mHistory = ScopeUtils.grow(mHistory);
 		}
-		mHistory[++mCurScope] = new HashMap<K, V>();
+		mHistory[++mCurScope] = new HashMap<>();
 	}
 
 	public void endScope() {
@@ -133,7 +133,7 @@ public class ScopedHashMap<K, V> extends AbstractMap<K, V> {
 							}
 
 							@Override
-							public V setValue(V value) {
+							public V setValue(final V value) {
 								return mMap.put(key, value);
 							}
 						};
@@ -238,17 +238,17 @@ public class ScopedHashMap<K, V> extends AbstractMap<K, V> {
 	}
 
 	@Override
-	public boolean containsKey(Object key) {
+	public boolean containsKey(final Object key) {
 		return mMap.containsKey(key);
 	}
 
 	@Override
-	public boolean containsValue(Object value) {
+	public boolean containsValue(final Object value) {
 		return mMap.containsValue(value);
 	}
 
 	@Override
-	public V get(Object key) {
+	public V get(final Object key) {
 		return mMap.get(key);
 	}
 
@@ -298,7 +298,7 @@ public class ScopedHashMap<K, V> extends AbstractMap<K, V> {
 	}
 
 	@Override
-	public V put(K key, V value) {
+	public V put(final K key, final V value) {
 		if (value == null) {
 			throw new NullPointerException();
 		}
@@ -309,7 +309,7 @@ public class ScopedHashMap<K, V> extends AbstractMap<K, V> {
 
 	@SuppressWarnings("unchecked")
 	@Override
-	public V remove(Object key) {
+	public V remove(final Object key) {
 		final V oldval = mMap.remove(key);
 		recordUndo((K) key, oldval);
 		return oldval;
@@ -330,7 +330,7 @@ public class ScopedHashMap<K, V> extends AbstractMap<K, V> {
 	 * @param scope the scope number; must not be 0 for the outer most scope.
 	 * @return true if the key was overwritten in the given scope.
 	 */
-	public boolean overwritesKeyInScope(Object key, int scope) {
+	public boolean overwritesKeyInScope(final Object key, final int scope) {
 		assert(scope != 0);
 		return mHistory[scope - 1].containsKey(key);
 	}

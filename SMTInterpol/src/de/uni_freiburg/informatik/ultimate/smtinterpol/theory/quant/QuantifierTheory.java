@@ -37,7 +37,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SharedTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
@@ -72,7 +71,7 @@ public class QuantifierTheory implements ITheory {
 
 	private final EMatching mEMatching;
 	private final InstantiationManager mInstantiationManager;
-	private final Map<Sort, SharedTerm> mLambdas;
+	private final Map<Sort, Term> mLambdas;
 
 	/**
 	 * Clauses that only the QuantifierTheory knows, i.e. that contain at least one literal with an (implicitly)
@@ -578,7 +577,7 @@ public class QuantifierTheory implements ITheory {
 			litsAfterDER.addAll(Arrays.asList(groundLits));
 			litsAfterDER.addAll(Arrays.asList(quantLits));
 		}
-		return new Pair<ILiteral[], Map<TermVariable, Term>>(litsAfterDER.toArray(new ILiteral[litsAfterDER.size()]),
+		return new Pair<>(litsAfterDER.toArray(new ILiteral[litsAfterDER.size()]),
 				der.getSigma());
 	}
 
@@ -675,19 +674,17 @@ public class QuantifierTheory implements ITheory {
 		return mTheory;
 	}
 
-	protected SharedTerm getLambda(final Sort sort) {
+	protected Term getLambda(final Sort sort) {
 		if (mLambdas.containsKey(sort)) {
 			return mLambdas.get(sort);
 		}
-		Term lambdaTerm;
+		Term lambda;
 		if (sort.getName().equals("Bool")) {
-			lambdaTerm = mTheory.mTrue;
+			lambda = mTheory.mTrue;
 		} else {
 			final FunctionSymbol fsym = mTheory.getFunctionWithResult("@0", null, sort, new Sort[0]);
-			lambdaTerm = mTheory.term(fsym);
+			lambda = mTheory.term(fsym);
 		}
-		final SharedTerm lambda =
-				mClausifier.getSharedTerm(lambdaTerm, SourceAnnotation.EMPTY_SOURCE_ANNOT);
 		mLambdas.put(sort, lambda);
 		return lambda;
 	}
@@ -707,9 +704,9 @@ public class QuantifierTheory implements ITheory {
 						return DPLLEngine.INCOMPLETE_QUANTIFIER;
 					}
 				}
-				for (final SharedTerm lambda : mLambdas.values()) {
+				for (final Term lambda : mLambdas.values()) {
 					if (!lambda.getSort().isNumericSort()) {
-						final CCTerm lambdaCC = lambda.getCCTerm();
+						final CCTerm lambdaCC = mClausifier.getCCTerm(lambda);
 						if (lambdaCC != null && lambdaCC.getNumMembers() > 1) {
 							return DPLLEngine.INCOMPLETE_QUANTIFIER;
 						}
