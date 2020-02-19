@@ -109,6 +109,11 @@ public class CClosure implements ITheory {
 	 * wrong decision level. We need to recheck them after any backtrack, if they still can be propagated.
 	 */
 	ArrayQueue<Literal> mRecheckOnBacktrackLits = new ArrayQueue<>();
+	/**
+	 * The list of congruent terms that were already congruent when one of the terms was created and thus may be merged
+	 * too late on the wrong decision level. We need to recheck after any backtrack, if they are still congruent.
+	 */
+	ArrayQueue<SymmetricPair<CCAppTerm>> mRecheckOnBacktrackCongs = new ArrayQueue<>();
 
 	/**
 	 * A mapping from function symbol or string (the latter only for {@code select/@diff/store}) to the corresponding
@@ -150,13 +155,68 @@ public class CClosure implements ITheory {
 	}
 
 	/**
+	 * Get the merge height where t1 and t2 were merged into the same congruence class.
+	 * @param t1 the first term.
+	 * @param t2 the second term.
+	 * @return the mMergeDepth when t1 and t2 were merged.
+	 */
+	private int getMergeStackDepth(CCTerm t1, CCTerm t2) {
+		assert t1.getRepresentative() == t2.getRepresentative() : "terms were never merged";
+		if (t1 == t2) {
+			return -1;
+		}
+		/* first compute the number of rep edges to the common representative for both terms */
+		int depth1 = 0;
+		int depth2 = 0;
+		for (CCTerm t = t1; t != t.mRep; t = t.mRep) {
+			depth1++;
+		}
+		for (CCTerm t = t2; t != t.mRep; t = t.mRep) {
+			depth2++;
+		}
+		/*
+		 * Move to the common ancestor. If the common ancestor is one of the terms, the previous edge gives us the merge
+		 * time.
+		 */
+		while (depth1 > depth2) {
+			if (t1.mRep == t2)
+				return t1.mMergeTime;
+			t1 = t1.mRep;
+			depth1--;
+		}
+		assert t1 != t2;
+		while (depth2 > depth1) {
+			if (t2.mRep == t1)
+				return t2.mMergeTime;
+			t2 = t2.mRep;
+			depth2--;
+		}
+		assert t1 != t2;
+		assert depth2 == depth1;
+		/*
+		 * If the common ancestor is not one of the two terms, we find it here. One of the previous edges merged t1 and
+		 * t2, namely the one that happened later.
+		 */
+		while (true) {
+			assert t1 != t2;
+			assert t1 != t1.mRep;
+			assert t2 != t2.mRep;
+			if (t1.mRep == t2.mRep) {
+				return Math.max(t1.mMergeTime, t2.mMergeTime);
+			}
+			t1 = t1.mRep;
+			t2 = t2.mRep;
+		}
+	}
+
+	/**
 	 * Searches for the congruent term of {@code CCAppTerm(func,arg)} that would have been merged on the lowest decision
 	 * level.
 	 *
 	 * @param func
-	 *            A term on the path from this.mFunc to this.mFunc.mRepStar.
+	 *            The CCTerm representing the function.
 	 * @param arg
-	 *            A term on the path from this.mArg to this.mArg.mRepStar.
+	 *            The CCTerm representing the argument.
 	 * @return The congruent CCAppTerm or null if there is no congruent application.
 	 */
 	private CCAppTerm findCongruentAppTerm(final CCTerm func, final CCTerm arg) {
@@ -168,6 +228,7 @@ public class CClosure implements ITheory {
 			final CCAppTerm papp = p.getData();
 			final CCTerm pfunc = papp.getFunc();
 			final CCTerm parg = papp.getArg();
+			assert parg.getRepresentative() == arg.getRepresentative();
 			if (pfunc.getRepresentative() != func.getRepresentative()) {
 				// this term is not congruent
 				continue;
@@ -177,7 +238,7 @@ public class CClosure implements ITheory {
 				continue;
 			}
 			// compute the level where the congruence occurred
-			final int level = Math.max(getDecideLevelForPath(pfunc, func), getDecideLevelForPath(parg, arg));
+			final int level = Math.max(getMergeStackDepth(pfunc, func), getMergeStackDepth(parg, arg));
 			// store the congruence with the smallest level
 			if (level < congruenceLevel) {
 				congruenceLevel = level;
@@ -207,6 +268,7 @@ public class CClosure implements ITheory {
 		if (congruentTerm != null) {
 			// Here, we do not have the resulting term in the equivalence class
 			// Mark pending congruence
+			mRecheckOnBacktrackCongs.add(new SymmetricPair<CCAppTerm>(term, congruentTerm));
 			addPendingCongruence(term, congruentTerm);
 		}
 
@@ -901,7 +963,7 @@ public class CClosure implements ITheory {
 
 	@Override
 	public Clause checkpoint() {
-		return buildCongruence(false);
+		return buildCongruence();
 	}
 
 	public CCEquality createEquality(final CCTerm t1, final CCTerm t2, final boolean createLAEquality) {
@@ -942,6 +1004,7 @@ public class CClosure implements ITheory {
 	private boolean checkCongruence() {
 		boolean skip;
 		for (final CCTerm t1 : mAllTerms) {
+			assert t1.invariant();
 			if (!(t1 instanceof CCAppTerm)) {
 				continue;
 			}
@@ -1031,7 +1094,25 @@ public class CClosure implements ITheory {
 		 * Recheck the propagated literals again on the next backtrack.
 		 */
 		mRecheckOnBacktrackLits = newRecheckOnBacktrackLits;
-		return buildCongruence(true);
+
+		/*
+		 * Recheck congruences and propagate them.
+		 */
+		mPendingCongruences.clear();
+		final ArrayQueue<SymmetricPair<CCAppTerm>> newRecheckOnBacktrackCongs = new ArrayQueue<>();
+		for (SymmetricPair<CCAppTerm> cong : mRecheckOnBacktrackCongs) {
+			final CCAppTerm lhs = cong.getFirst();
+			final CCAppTerm rhs = cong.getSecond();
+			if (lhs.mArg.mRepStar == rhs.mArg.mRepStar && lhs.mFunc.mRepStar == rhs.mFunc.mRepStar) {
+				getLogger().debug("Still congruent: %s and %s", lhs, rhs);
+				addPendingCongruence(lhs, rhs);
+				newRecheckOnBacktrackCongs.add(cong);
+			} else {
+				getLogger().debug("No longer congruent: %s and %s", lhs, rhs);
+			}
+		}
+		mRecheckOnBacktrackLits = newRecheckOnBacktrackLits;
+		return buildCongruence();
 	}
 
 	@Override
@@ -1052,13 +1133,8 @@ public class CClosure implements ITheory {
 	void addPendingCongruence(final CCAppTerm first, final CCAppTerm second) {
 		assert (first.mLeftParInfo.inList() && second.mLeftParInfo.inList());
 		assert (first.mRightParInfo.inList() && second.mRightParInfo.inList());
+		getLogger().debug("addPendingCongruence: %s %s", first, second);
 		mPendingCongruences.add(new SymmetricPair<>(first, second));
-	}
-
-	void prependPendingCongruence(final CCAppTerm first, final CCAppTerm second) {
-		assert (first.mLeftParInfo.inList() && second.mLeftParInfo.inList());
-		assert (first.mRightParInfo.inList() && second.mRightParInfo.inList());
-		mPendingCongruences.addFirst(new SymmetricPair<>(first, second));
 	}
 
 	/**
@@ -1070,22 +1146,18 @@ public class CClosure implements ITheory {
 	 * @return A conflict clause if a conflict was found, null otherwise.
 	 */
 	@SuppressWarnings("unused")
-	private Clause buildCongruence(final boolean checked) {
+	private Clause buildCongruence() {
 		SymmetricPair<CCAppTerm> cong;
 		while ((cong = mPendingCongruences.poll()) != null) {
 			getLogger().debug(new DebugMessage("PC {0}", cong));
 			final CCAppTerm lhs = cong.getFirst();
 			final CCAppTerm rhs = cong.getSecond();
-			if (!checked || (lhs.mArg.mRepStar == rhs.mArg.mRepStar && lhs.mFunc.mRepStar == rhs.mFunc.mRepStar)) {
-				assert lhs.mArg.mRepStar == rhs.mArg.mRepStar
-						&& lhs.mFunc.mRepStar == rhs.mFunc.mRepStar : "Unchecked buildCongruence with non-holding congruence!";
-				final Clause res = lhs.merge(this, rhs, null);
-				if (res != null) {
-					getLogger().debug("buildCongruence: conflict %s", res);
-					// recheck congruence after backtracking
-					prependPendingCongruence(lhs, rhs);
-					return res;
-				}
+			assert lhs.mArg.mRepStar == rhs.mArg.mRepStar
+					&& lhs.mFunc.mRepStar == rhs.mFunc.mRepStar : "Unchecked buildCongruence with non-holding congruence!";
+			final Clause res = lhs.merge(this, rhs, null);
+			if (res != null) {
+				getLogger().debug("buildCongruence: conflict %s", res);
+				return res;
 			}
 		}
 		assert !Config.EXPENSIVE_ASSERTS || checkCongruence();
@@ -1096,14 +1168,7 @@ public class CClosure implements ITheory {
 		while (mMerges.size() > todepth) {
 			final CCTerm top = mMerges.pop();
 			top.mRepStar.invertEqualEdges(this);
-			final boolean isCongruence = top.mOldRep.mReasonLiteral == null;
-			final CCTerm lhs = top;
-			final CCTerm rhs = top.mEqualEdge;
 			top.undoMerge(this, top.mEqualEdge);
-			if (isCongruence) {
-				assert (rhs instanceof CCAppTerm);
-				prependPendingCongruence((CCAppTerm) lhs, (CCAppTerm) rhs);
-			}
 		}
 	}
 

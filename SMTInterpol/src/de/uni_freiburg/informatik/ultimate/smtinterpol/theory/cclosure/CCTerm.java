@@ -30,34 +30,25 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.SimpleListable;
 
 
 /**
- * Objects of this class represent smtlib terms.  This class contains
- * the functionality for computing congruence closure and deferring new
- * equality/disequality atoms.
+ * Objects of this class represent smtlib terms. This class contains the functionality for computing congruence closure
+ * and deferring new equality/disequality atoms.
  *
- * The congruent terms are kept in a tree like structure:  Every term
- * except for the root of the tree points to a single neighbour (equalEdge)
- * to which it is congruent.  The congruence is either due to an explicit
- * equality atom between these two neighbours or because the neighbours
- * are function application with congruent parameters.  If two nodes need
- * to be merged that are inside the tree, we make one of them the root
- * of its tree by inverting the equalEdges.  Then it gets a new equalEdge to
- * the other tree.
+ * The congruent terms are kept in a tree like structure: Every term except for the root of the tree points to a single
+ * neighbour (equalEdge) to which it is congruent. The congruence is either due to an explicit equality atom between
+ * these two neighbours or because the neighbours are function application with congruent parameters. If two nodes need
+ * to be merged that are inside the tree, we make one of them the root of its tree by inverting the equalEdges. Then it
+ * gets a new equalEdge to the other tree.
  *
- * There is another field rep pointing to the representative of the congruence
- * class.  It may be different to the root of the equalEdge tree.  The
- * representative keeps track of the members of the class (member), the
- * equality atoms starting from this class (eqlits), the classes that are
- * guaranteed to be disjoint (diseq), and the function application terms whose
- * parameter is in this class (ccpar1/ccpar2).
+ * There is another field rep pointing to the representative of the congruence class. It may be different to the root of
+ * the equalEdge tree. The representative keeps track of the members of the class (member), the equality atoms starting
+ * from this class (eqlits), the classes that are guaranteed to be disjoint (diseq), and the function application terms
+ * whose parameter is in this class (ccpar1/ccpar2).
  *
- * Each equalEdge corresponds to merging to equivalence classes.  We need to
- * remember the representative of the source equivalence class to allow undoing
- * the merge operation.  This is stored in the oldRep field of the object
- * that contains the equalEdge.  If equalEdge is inverted, the oldRep field
- * is moved accordingly.  The old representative also stores a
- * reasonLiteral (which is null if the edge was introduced by congruence),
- * and the list of merges that were introduced after this merge by
- * congruence closure (ccMerges).
+ * Each equalEdge corresponds to a merging event of two equivalence classes. We need to remember the representative of
+ * the source equivalence class to allow undoing the merge operation. This is stored in the oldRep field of the object
+ * that contains the equalEdge. If equalEdge is inverted, the oldRep field is moved accordingly. The old representative
+ * also stores a reasonLiteral (which is null if the edge was introduced by congruence), and the list of merges that
+ * were introduced after this merge by congruence closure (ccMerges).
  *
  * @author hoenicke
  */
@@ -594,7 +585,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		dest.mCCPars.unmergeParentInfo(src.mCCPars);
 		// Congruence merge
 		if (src.mReasonLiteral == null) {
-			((CCAppTerm)this).unmarkParentInfos();
+			((CCAppTerm) this).unmarkParentInfos();
 		}
 
 		//System.err.println("Unmerge "+this+"+"+lhs+" -> "+src+" "+dest);

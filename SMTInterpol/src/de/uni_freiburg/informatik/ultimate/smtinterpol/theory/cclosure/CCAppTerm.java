@@ -99,6 +99,9 @@ public class CCAppTerm extends CCTerm {
 		}
 		func.mCCPars.addParentInfo(0, mLeftParInfo, true, engine);
 		arg.mCCPars.addParentInfo(func.mParentPosition, mRightParInfo, true, engine);
+		assert invariant();
+		assert func.invariant();
+		assert arg.invariant();
 	}
 
 	public void unlinkParentInfos() {
