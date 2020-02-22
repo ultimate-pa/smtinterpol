@@ -378,6 +378,8 @@ public class SMTInterpol extends NoopScript {
 			mAssertions.clear();
 		}
 		mOptions.reset();
+		mNextQuickCheck = 1;
+		mNumAsserts = 0;
 	}
 
 	@Override
