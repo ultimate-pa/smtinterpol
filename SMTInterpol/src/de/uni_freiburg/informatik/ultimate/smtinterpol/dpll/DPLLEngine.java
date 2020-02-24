@@ -1246,14 +1246,13 @@ public class DPLLEngine {
 							break;
 						}
 					}
-					int decleveldec = 0;
 					if (restartpos != -1) {
 						while (mDecideStack.size() > restartpos) {
 							final Literal lit = mDecideStack.remove(mDecideStack.size() - 1);
 							assert lit.getAtom().mDecideLevel != mBaseLevel;
 							final Object litexpl = lit.getAtom().mExplanation;
 							if (litexpl == null) {
-								++decleveldec;
+								decreaseDecideLevel();
 							}
 							if (litexpl instanceof Clause) {
 								((Clause) litexpl).mActivity += mClsScale;
@@ -1265,7 +1264,6 @@ public class DPLLEngine {
 					unlearnClauses(mStacklevel);
 					conflict = finalizeBacktrack();
 					assert conflict == null;
-					mCurrentDecideLevel -= decleveldec;
 					iteration++;
 					for (final ITheory t : mTheories) {
 						t.restart(iteration);
