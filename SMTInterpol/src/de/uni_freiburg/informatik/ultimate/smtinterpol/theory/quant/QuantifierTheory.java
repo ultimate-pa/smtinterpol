@@ -89,10 +89,9 @@ public class QuantifierTheory implements ITheory {
 	private int mDecideLevelOfLastCheckpoint;
 
 	// Statistics
-	long mNumInstancesProduced, mNumInstancesProducedCP, mNumInstancesProducedFC;
-	private long mDERGroundCount, mConflictCount, mPropCount, mFinalCount;
-	long mCheckpointTime, mFindEmatchingTime, mFinalCheckTime, mEMatchingTime;
-	long mDawgTime;
+	long mNumInstancesProduced, mNumInstancesDER, mNumInstancesProducedCP, mNumInstancesProducedFC;
+	private long mNumCheckpoints, mNumCheckpointsWithNewEval, mNumConflicts, mNumProps, mNumFinalcheck;
+	private long mCheckpointTime, mFindEmatchingTime, mFinalCheckTime, mEMatchingTime, mDawgTime;
 
 	// Options
 	boolean mUseEMatching;
@@ -166,7 +165,7 @@ public class QuantifierTheory implements ITheory {
 				if (instClause.isConflict()) {
 					assert !Config.EXPENSIVE_ASSERTS || instClause.countAndSetUndefLits() == 0;
 					mLogger.debug("Quant conflict: %s", instClause);
-					mConflictCount++;
+					mNumConflicts++;
 					return instClause.toClause(mEngine.isProofGenerationEnabled());
 				}
 			}
@@ -181,6 +180,7 @@ public class QuantifierTheory implements ITheory {
 
 	@Override
 	public Clause checkpoint() {
+		mNumCheckpoints++;
 		long time;
 		if (Config.PROFILE_TIME) {
 			time = System.nanoTime();
@@ -196,6 +196,7 @@ public class QuantifierTheory implements ITheory {
 			return null;
 		}
 
+		mNumCheckpointsWithNewEval++;
 		final Collection<InstClause> conflictAndUnitInstances;
 		if (mUseEMatching) {
 			mEMatching.run();
@@ -216,7 +217,7 @@ public class QuantifierTheory implements ITheory {
 		if (conflict != null) {
 			mLogger.debug("Quant conflict: %s", conflict);
 			mEngine.learnClause(conflict);
-			mConflictCount++;
+			mNumConflicts++;
 		}
 		if (Config.PROFILE_TIME) {
 			mCheckpointTime += System.nanoTime() - time;
@@ -230,7 +231,7 @@ public class QuantifierTheory implements ITheory {
 		if (Config.PROFILE_TIME) {
 			time = System.nanoTime();
 		}
-		mFinalCount++;
+		mNumFinalcheck++;
 		assert mPotentialConflictAndUnitClauses.isEmpty();
 		for (final QuantClause clause : mQuantClauses) {
 			if (mEngine.isTerminationRequested()) {
@@ -240,7 +241,7 @@ public class QuantifierTheory implements ITheory {
 		}
 		final Clause conflict = mInstantiationManager.instantiateSomeNotSat();
 		if (conflict != null) {
-			mConflictCount++;
+			mNumConflicts++;
 			mEngine.learnClause(conflict);
 		}
 		if (Config.PROFILE_TIME) {
@@ -262,7 +263,7 @@ public class QuantifierTheory implements ITheory {
 					final Clause expl = inst.toClause(mEngine.isProofGenerationEnabled());
 					lit.getAtom().mExplanation = expl;
 					mEngine.learnClause(expl);
-					mPropCount++;
+					mNumProps++;
 					mLogger.debug("Quant Prop: %s Reason: %s", lit, lit.getAtom().mExplanation);
 					return lit;
 				} else {
@@ -287,14 +288,15 @@ public class QuantifierTheory implements ITheory {
 
 	@Override
 	public void printStatistics(final LogProxy logger) {
-		logger.info("Quant: DER produced " + mDERGroundCount + " ground clause(s).");
+		logger.info("Quant: DER produced %d ground clause(s).", mNumInstancesDER);
 		logger.info("Quant: Instances produced: %d (Checkpoint: %d, Final check: %d)", mNumInstancesProduced,
 				mNumInstancesProducedCP, mNumInstancesProducedFC);
-		logger.info("Quant: Conflicts: " + mConflictCount + " Props: " + mPropCount + " Final Checks: " + mFinalCount);
+		logger.info("Quant: Conflicts: %d Props: %d Checkpoints (with new evaluation): %d (%d) Final Checks: %d",
+				mNumConflicts, mNumProps, mNumCheckpoints, mNumCheckpointsWithNewEval, mNumFinalcheck);
 		logger.info(
-				"Quant times: Checkpoint %.3f Find with E-matching: %.3f Dawg %.3f Final Check %.3f E-Matching %.3f",
-				mCheckpointTime / 1000 / 1000.0, mFindEmatchingTime / 1000 / 1000.0, mDawgTime / 1000 / 1000.0,
-				mFinalCheckTime / 1000 / 1000.0, mEMatchingTime / 1000 / 1000.0);
+				"Quant times: Checkpoint: %.3f Find with E-matching: %.3f E-Matching: %.3f Dawg: %.3f Final Check: %.3f",
+				mCheckpointTime / 1000 / 1000.0, mFindEmatchingTime / 1000 / 1000.0, mEMatchingTime / 1000 / 1000.0,
+				mDawgTime / 1000 / 1000.0, mFinalCheckTime / 1000 / 1000.0);
 	}
 
 	@Override
@@ -350,15 +352,17 @@ public class QuantifierTheory implements ITheory {
 	@Override
 	public Object[] getStatistics() {
 		return new Object[] { ":Quant",
-				new Object[][] { { "DER ground results", mDERGroundCount },
+				new Object[][] { { "DER ground results", mNumInstancesDER },
 						{ "Instances produced", mNumInstancesProduced },
 						{ "thereof in checkpoint", mNumInstancesProducedCP },
-						{ "and in final check", mNumInstancesProducedFC }, { "Conflicts", mConflictCount },
-						{ "Propagations", mPropCount }, { "Final Checks", mFinalCount },
+						{ "and in final check", mNumInstancesProducedFC }, { "Conflicts", mNumConflicts },
+						{ "Propagations", mNumProps }, { "Checkpoints", mNumCheckpoints },
+						{ "Checkpoints with new evaluation", mNumCheckpointsWithNewEval },
+						{ "Final Checks", mNumFinalcheck },
 						{ "Times",
 								new Object[][] { { "Checkpoint", mCheckpointTime },
-										{ "Find E-matching", mFindEmatchingTime }, { "Final Check", mFinalCheckTime },
-										{ "E-Matching", mEMatchingTime } } } } };
+										{ "Find E-matching", mFindEmatchingTime }, { "E-Matching", mEMatchingTime },
+										{ "Final Check", mFinalCheckTime } } } } };
 
 	}
 
@@ -571,9 +575,9 @@ public class QuantifierTheory implements ITheory {
 			}
 			final Literal[] groundLitsAfterDER = der.getGroundLitsAfterDER();
 			final QuantLiteral[] quantLitsAfterDER = der.getQuantLitsAfterDER();
-			if (quantLitsAfterDER.length == 0 && mLogger.isDebugEnabled()) {
+			if (quantLitsAfterDER.length == 0) {
 				mLogger.debug("Quant: DER returned ground clause.");
-				mDERGroundCount++;
+				mNumInstancesDER++;
 			}
 			litsAfterDER.addAll(Arrays.asList(groundLitsAfterDER));
 			litsAfterDER.addAll(Arrays.asList(quantLitsAfterDER));

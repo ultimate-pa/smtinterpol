@@ -526,7 +526,7 @@ public class InstantiationManager {
 							Dawg.createConst(remainderDawgLengthForVar, val);
 					transitionsFromVar.put(subs, remainderDawgForVarSub);
 				}
-				mQuantTheory.mDawgTime += System.nanoTime() - time;
+				mQuantTheory.addDawgTime(System.nanoTime() - time);
 			}
 			final long time = System.nanoTime();
 			final Dawg<Term, InstanceValue> dawgForVar = Dawg.createDawg(transitionsFromVar,
@@ -537,7 +537,7 @@ public class InstantiationManager {
 			} else {
 				remainderDawgAllVars = dawgForVar;
 			}
-			mQuantTheory.mDawgTime += System.nanoTime() - time;
+			mQuantTheory.addDawgTime(System.nanoTime() - time);
 		}
 		final long time = System.nanoTime();
 		if (otherVar != null) {
@@ -546,7 +546,7 @@ public class InstantiationManager {
 		}
 		final Dawg<Term, InstanceValue> litDawg =
 				createAncestorDawg(remainderDawgAllVars, firstVarPosInClause);
-		mQuantTheory.mDawgTime += System.nanoTime() - time;
+		mQuantTheory.addDawgTime(System.nanoTime() - time);
 		return litDawg;
 	}
 
@@ -562,6 +562,7 @@ public class InstantiationManager {
 	 */
 	private Dawg<Term, InstanceValue> createAncestorDawg(final Dawg<Term, InstanceValue> dawg,
 			final int level) {
+
 		Dawg<Term, InstanceValue> prepended = dawg;
 		for (int i = 0; i < level; i++) {
 			prepended = Dawg.createDawg(Collections.emptyMap(), prepended);
