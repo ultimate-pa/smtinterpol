@@ -350,7 +350,7 @@ public class Dawg<LETTER, VALUE> {
 				isFinal = true;
 				if (finalValue == null) {
 					finalValue = inputDawg.getFinalValue();
-				} else if (finalValue != inputDawg.getFinalValue()) {
+				} else if (!finalValue.equals(inputDawg.getFinalValue())) {
 					// union the finalValue, unless they are already equal.
 					finalValue = union.apply(finalValue, inputDawg.getFinalValue());
 				}
