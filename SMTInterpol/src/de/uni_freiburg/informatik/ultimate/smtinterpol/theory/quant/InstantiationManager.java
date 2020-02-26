@@ -95,7 +95,7 @@ public class InstantiationManager {
 	 *            the quantified clause.
 	 */
 	public void addClause(final QuantClause qClause) {
-		mClauseInstances.put(qClause, new HashMap<>());
+		mClauseInstances.put(qClause, new LinkedHashMap<>());
 	}
 
 	/**
@@ -124,7 +124,7 @@ public class InstantiationManager {
 			if (mQuantTheory.getEngine().isTerminationRequested()) {
 				return Collections.emptySet();
 			}
-			final Dawg<Term, InstanceValue> dawg = computeClauseDawg(qClause);
+			final Dawg<Term, InstantiationInfo> dawg = computeClauseDawg(qClause);
 			final Collection<List<Term>> conflictOrUnitSubs = getConflictAndUnitSubsFromDawg(qClause, dawg);
 			if (conflictOrUnitSubs != null) {
 				for (final List<Term> subs : conflictOrUnitSubs) {
@@ -280,8 +280,9 @@ public class InstantiationManager {
 	 *            a quantified literal.
 	 * @return a constant undef or unknown (according to options set) dawg of depth |clausevars|.
 	 */
-	private Dawg<Term, InstanceValue> getDefaultLiteralDawg(final QuantLiteral qLit) {
-		return Dawg.createConst(qLit.mClause.getVars().length, mDefaultValueForLitDawgs);
+	private Dawg<Term, InstantiationInfo> getDefaultLiteralDawg(final QuantLiteral qLit) {
+		final int length = qLit.getClause().getVars().length;
+		return Dawg.createConst(length, new InstantiationInfo(mDefaultValueForLitDawgs, new ArrayList<>()));
 	}
 
 	/**
@@ -291,9 +292,12 @@ public class InstantiationManager {
 	 *            the quantified clause.
 	 * @return the dawg that contains the evaluations of different potential instances.
 	 */
-	private Dawg<Term, InstanceValue> computeClauseDawg(final QuantClause qClause) {
-		final Dawg<Term, InstanceValue> constIrrelDawg =
-				Dawg.createConst(qClause.getVars().length, InstanceValue.IRRELEVANT);
+	private Dawg<Term, InstantiationInfo> computeClauseDawg(final QuantClause qClause) {
+		final int numVars = qClause.getVars().length;
+		final List<Term> emptySubs = new ArrayList<>();
+		final Dawg<Term, InstantiationInfo> constIrrelDawg =
+				Dawg.createConst(qClause.getVars().length,
+						new InstantiationInfo(InstanceValue.IRRELEVANT, emptySubs));
 
 		// Initialize clause value to false for correct combination.
 		InstanceValue clauseValue = InstanceValue.FALSE;
@@ -313,12 +317,12 @@ public class InstantiationManager {
 		}
 
 		// Create the partial clause dawg.
-		final int length = qClause.getVars().length;
-		Dawg<Term, InstanceValue> clauseDawg = Dawg.createConst(length, clauseValue);
+		Dawg<Term, InstantiationInfo> clauseDawg =
+				Dawg.createConst(numVars, new InstantiationInfo(clauseValue, emptySubs));
 
 		// Only check quant literals for clauses where all or all but one ground literals are false.
 		if (clauseValue != InstanceValue.IRRELEVANT) {
-			final BiFunction<InstanceValue, InstanceValue, InstanceValue> combinator =
+			final BiFunction<InstantiationInfo, InstantiationInfo, InstantiationInfo> combinator =
 					(v1, v2) -> combineForCheckpoint(v1, v2);
 			final Collection<QuantLiteral> unknownLits = new ArrayList<>(qClause.getQuantLits().length);
 			final Collection<QuantLiteral> arithLits = new ArrayList<>(qClause.getQuantLits().length);
@@ -330,8 +334,7 @@ public class InstantiationManager {
 				if (qLit.isArithmetical()) { // will be treated later
 					arithLits.add(qLit);
 				} else if (mEMatching.isUsingEmatching(qLit)) {
-					Dawg<Term, InstanceValue> litDawg = getDefaultLiteralDawg(qLit);
-					litDawg = computeEMatchingLitDawg(qLit);
+					Dawg<Term, InstantiationInfo> litDawg = computeEMatchingLitDawg(qLit);
 					clauseDawg = clauseDawg.combine(litDawg, combinator);
 				} else {
 					unknownLits.add(qLit);
@@ -343,8 +346,9 @@ public class InstantiationManager {
 					if (clauseDawg == constIrrelDawg) {
 						break;
 					}
-					clauseDawg = clauseDawg.mapWithKey((key, value) -> (value == InstanceValue.IRRELEVANT ? value
-							: combineForCheckpoint(value, evaluateLitInstance(lit, key))));
+					clauseDawg = clauseDawg.mapWithKey((key,
+							value) -> (combineForCheckpoint(value,
+											new InstantiationInfo(evaluateLitInstance(lit, key), value.getSubs()))));
 				}
 			}
 			if (clauseDawg != constIrrelDawg && !arithLits.isEmpty()) {
@@ -356,7 +360,7 @@ public class InstantiationManager {
 					if (clauseDawg == constIrrelDawg) {
 						break;
 					}
-					final Dawg<Term, InstanceValue> litDawg = computeArithLitDawg(arLit, interestingSubsForArith);
+					final Dawg<Term, InstantiationInfo> litDawg = computeArithLitDawg(arLit, interestingSubsForArith);
 					clauseDawg = clauseDawg.combine(litDawg, combinator);
 				}
 			}
@@ -365,7 +369,36 @@ public class InstantiationManager {
 	}
 
 	final InstanceValue combineForCheckpoint(final InstanceValue first, final InstanceValue second) {
-		return (first.combine(second)).keepOnlyRelevant(mRelevantValuesForCheckpoint);
+		return first.combine(second).keepOnlyRelevant(mRelevantValuesForCheckpoint);
+	}
+
+	final InstantiationInfo combineForCheckpoint(final InstantiationInfo first, final InstantiationInfo second) {
+		final InstanceValue combinedValue =
+				first.getInstValue().combine(second.getInstValue()).keepOnlyRelevant(mRelevantValuesForCheckpoint);
+		if (combinedValue == InstanceValue.IRRELEVANT) {
+			return new InstantiationInfo(combinedValue, new ArrayList<>());
+		}
+		final List<Term> firstSubs = first.getSubs();
+		final List<Term> secondSubs = second.getSubs();
+		assert firstSubs.isEmpty() || secondSubs.isEmpty() || firstSubs.size() == secondSubs.size();
+		final List<Term> combinedSubs = new ArrayList<>();
+		if (firstSubs.isEmpty()) {
+			combinedSubs.addAll(secondSubs);
+		} else if (secondSubs.isEmpty()) {
+			combinedSubs.addAll(firstSubs);
+		} else {
+			for (int i = 0; i < firstSubs.size(); i++) {
+				if (firstSubs.get(i) == null) {
+					combinedSubs.add(secondSubs.get(i));
+				} else {
+					assert secondSubs.get(i) == null || !Config.EXPENSIVE_ASSERTS
+							|| mQuantTheory.getRepresentativeTerm(firstSubs.get(i)) == mQuantTheory
+									.getRepresentativeTerm(secondSubs.get(i));
+					combinedSubs.add(firstSubs.get(i));
+				}
+			}
+		}
+		return new InstantiationInfo(combinedValue, combinedSubs);
 	}
 
 	final boolean isUsedValueForCheckpoint(final InstanceValue value) {
@@ -387,16 +420,47 @@ public class InstantiationManager {
 	 *            a quantified literal that is handled by E-matching.
 	 * @return the evaluation dawg for the literal, of depth |clausevars|.
 	 */
-	private Dawg<Term, InstanceValue> computeEMatchingLitDawg(final QuantLiteral qLit) {
+	private Dawg<Term, InstantiationInfo> computeEMatchingLitDawg(final QuantLiteral qLit) {
 		assert mEMatching.isUsingEmatching(qLit);
 		final Dawg<Term, SubstitutionInfo> atomSubsDawg = mEMatching.getSubstitutionInfos(qLit.getAtom());
 		if (atomSubsDawg != null) {
-			final Function<SubstitutionInfo, InstanceValue> evaluationMap =
-					v1 -> evaluateLitForEMatchingSubsInfo(qLit, v1);
-			return atomSubsDawg.map(evaluationMap);
+			// First map keys to representative
+			final Dawg<Term, SubstitutionInfo> representativeSubsDawg =
+					atomSubsDawg.mapKeys(l -> mQuantTheory.getRepresentativeTerm(l),
+							(v1, v2) -> mapToFirstChecked(v1, v2));
+			// Then evaluate
+			final Function<SubstitutionInfo, InstantiationInfo> evaluationMap =
+					v1 -> new InstantiationInfo(evaluateLitForEMatchingSubsInfo(qLit, v1),
+							getTermSubsFromSubsInfo(qLit, v1));
+			return representativeSubsDawg.map(evaluationMap);
 		} else {
 			return getDefaultLiteralDawg(qLit);
 		}
+	}
+
+	private SubstitutionInfo mapToFirstChecked(final SubstitutionInfo first, final SubstitutionInfo second) {
+		if (Config.EXPENSIVE_ASSERTS) {
+			assert first.getEquivalentCCTerms().keySet().equals(second.getEquivalentCCTerms().keySet());
+			for (final Entry<Term, CCTerm> equi : first.getEquivalentCCTerms().entrySet()) {
+				assert first.getEquivalentCCTerms().get(equi.getKey()).getRepresentative() == second
+						.getEquivalentCCTerms().get(equi.getKey()).getRepresentative();
+			}
+		}
+		return first;
+	}
+
+	private List<Term> getTermSubsFromSubsInfo(final QuantLiteral qLit, final SubstitutionInfo info) {
+		final int length = qLit.getClause().getVars().length;
+		final List<Term> termSubs = new ArrayList<>();
+		if (!info.equals(mEMatching.getEmptySubs())) {
+			final List<CCTerm> ccSubs = info.getVarSubs();
+			assert ccSubs.size() == length;
+			for (int i = 0; i < length; i++) {
+				final CCTerm ccTerm = ccSubs.get(i);
+				termSubs.add(ccTerm == null ? null : ccTerm.getFlatTerm());
+			}
+		}
+		return termSubs;
 	}
 
 	/**
@@ -472,8 +536,10 @@ public class InstantiationManager {
 	 *            the potentially interesting substitutions for the variables in the clause.
 	 * @return am evaluation dawg for the literal, its depth corresponds to the number of variables in the clause.
 	 */
-	private Dawg<Term, InstanceValue> computeArithLitDawg(final QuantLiteral arLit, final Term[][] interestingSubs) {
+	private Dawg<Term, InstantiationInfo> computeArithLitDawg(final QuantLiteral arLit,
+			final Term[][] interestingSubs) {
 		final QuantLiteral qAtom = arLit.getAtom();
+		final int numVarsInClause = arLit.getClause().getVars().length;
 		final TermVariable[] varsInLit = qAtom.getTerm().getFreeVars();
 		assert varsInLit.length == 1 || varsInLit.length == 2;
 
@@ -492,15 +558,20 @@ public class InstantiationManager {
 		}
 
 		final int nOuterLoops = otherVar == null ? 1 : interestingSubs[firstVarPosInClause].length;
-		final Map<Term, Dawg<Term, InstanceValue>> transitionsFromOtherVar = new LinkedHashMap<>();
+		final Map<Term, Dawg<Term, InstantiationInfo>> transitionsFromOtherVar = new LinkedHashMap<>();
 
-		final int remainderDawgLengthForVar = arLit.getClause().getVars().length - varPosInClause - 1;
-		Dawg<Term, InstanceValue> remainderDawgAllVars = null;
+		final int remainderDawgLengthForVar = numVarsInClause - varPosInClause - 1;
+		Dawg<Term, InstantiationInfo> remainderDawgAllVars = null;
 
 		for (int i = 0; i < nOuterLoops; i++) {
 			final Term otherSubs = otherVar != null ? interestingSubs[firstVarPosInClause][i] : null;
+			final List<Term> partialSubs = new ArrayList<>();
+			for (int j = 0; j < numVarsInClause; j++) {
+				partialSubs.add(null);
+			}
+			partialSubs.set(firstVarPosInClause, otherSubs);
 
-			final Map<Term, Dawg<Term, InstanceValue>> transitionsFromVar = new LinkedHashMap<>();
+			final Map<Term, Dawg<Term, InstantiationInfo>> transitionsFromVar = new LinkedHashMap<>();
 			for (final Term subs : interestingSubs[varPosInClause]) {
 				InstanceValue val = InstanceValue.ONE_UNDEF;
 
@@ -522,15 +593,17 @@ public class InstantiationManager {
 
 				final long time = System.nanoTime();
 				if (val != mDefaultValueForLitDawgs) {
-					final Dawg<Term, InstanceValue> remainderDawgForVarSub =
-							Dawg.createConst(remainderDawgLengthForVar, val);
+					partialSubs.set(varPosInClause, subs);
+					final Dawg<Term, InstantiationInfo> remainderDawgForVarSub =
+							Dawg.createConst(remainderDawgLengthForVar, new InstantiationInfo(val, partialSubs));
 					transitionsFromVar.put(subs, remainderDawgForVarSub);
 				}
 				mQuantTheory.addDawgTime(System.nanoTime() - time);
 			}
 			final long time = System.nanoTime();
-			final Dawg<Term, InstanceValue> dawgForVar = Dawg.createDawg(transitionsFromVar,
-					Dawg.createConst(remainderDawgLengthForVar, mDefaultValueForLitDawgs));
+			final Dawg<Term, InstantiationInfo> dawgForVar =
+					Dawg.createDawg(transitionsFromVar, Dawg.createConst(remainderDawgLengthForVar,
+							new InstantiationInfo(mDefaultValueForLitDawgs, new ArrayList<>())));
 			if (otherVar != null) {
 				transitionsFromOtherVar.put(otherSubs,
 						createAncestorDawg(dawgForVar, varPosInClause - firstVarPosInClause - 1));
@@ -542,9 +615,10 @@ public class InstantiationManager {
 		final long time = System.nanoTime();
 		if (otherVar != null) {
 			remainderDawgAllVars = Dawg.createDawg(transitionsFromOtherVar, Dawg.createConst(
-					arLit.getClause().getVars().length - firstVarPosInClause - 1, mDefaultValueForLitDawgs));
+					arLit.getClause().getVars().length - firstVarPosInClause - 1,
+					new InstantiationInfo(mDefaultValueForLitDawgs, new ArrayList<>())));
 		}
-		final Dawg<Term, InstanceValue> litDawg =
+		final Dawg<Term, InstantiationInfo> litDawg =
 				createAncestorDawg(remainderDawgAllVars, firstVarPosInClause);
 		mQuantTheory.addDawgTime(System.nanoTime() - time);
 		return litDawg;
@@ -560,10 +634,10 @@ public class InstantiationManager {
 	 *            the number of levels the new dawg will be deeper than the given dawg.
 	 * @return a new dawg with the given dawg as (only) sub-dawg at the given level.
 	 */
-	private Dawg<Term, InstanceValue> createAncestorDawg(final Dawg<Term, InstanceValue> dawg,
+	private Dawg<Term, InstantiationInfo> createAncestorDawg(final Dawg<Term, InstantiationInfo> dawg,
 			final int level) {
 
-		Dawg<Term, InstanceValue> prepended = dawg;
+		Dawg<Term, InstantiationInfo> prepended = dawg;
 		for (int i = 0; i < level; i++) {
 			prepended = Dawg.createDawg(Collections.emptyMap(), prepended);
 		}
@@ -578,29 +652,24 @@ public class InstantiationManager {
 	 * @return the variable substitutions for the clause that lead to conflict or unit instances.
 	 */
 	private Collection<List<Term>> getConflictAndUnitSubsFromDawg(final QuantClause qClause,
-			final Dawg<Term, InstanceValue> clauseDawg) {
+			final Dawg<Term, InstantiationInfo> clauseDawg) {
 		final Collection<List<Term>> conflictAndUnitSubs = new ArrayList<>();
-		for (final Dawg.Entry<Term, InstanceValue> entry : clauseDawg.entrySet()) {
-			assert !Config.EXPENSIVE_ASSERTS || isUsedValueForCheckpoint(entry.getValue());
-			if (entry.getValue() != InstanceValue.IRRELEVANT) {
+		for (final InstantiationInfo info : clauseDawg.values()) { // TODO take dawg.values
+			assert !Config.EXPENSIVE_ASSERTS || isUsedValueForCheckpoint(info.getInstValue());
+			if (info.getInstValue() != InstanceValue.IRRELEVANT) {
 				// Replace the nulls (standing for the "else" case) with the suitable lambda
-				boolean containsLambdas = false;
 				final int nVars = qClause.getVars().length;
-				final List<Term> subsWithNulls = entry.getKey();
-				final List<Term> subs = new ArrayList<>(nVars);
+				final List<Term> subsWithNulls = info.getSubs();
+				final List<Term> subsWithLambdas = new ArrayList<>();
 				for (int i = 0; i < nVars; i++) {
-					if (subsWithNulls.get(i) != null) {
-						subs.add(subsWithNulls.get(i));
+					if (!subsWithNulls.isEmpty() && subsWithNulls.get(i) != null) {
+						subsWithLambdas.add(subsWithNulls.get(i));
 					} else {
-						subs.add(mQuantTheory.getLambda(qClause.getVars()[i].getSort()));
-						containsLambdas = true;
+						subsWithLambdas.add(mQuantTheory.getLambda(qClause.getVars()[i].getSort()));
 					}
 				}
-				assert containsLambdas || clauseDawg.getValue(subs) != InstanceValue.IRRELEVANT;
-				// If the subs contains lambdas and the dawg contains transitions for them, check the value.
-				// It might already be true, while the else case results in a different value.
-				if (!containsLambdas || clauseDawg.getValue(subs) != InstanceValue.IRRELEVANT) {
-					conflictAndUnitSubs.add(subs);
+				if (!conflictAndUnitSubs.contains(subsWithLambdas)) {
+					conflictAndUnitSubs.add(subsWithLambdas);
 				}
 			}
 		}
@@ -675,7 +744,7 @@ public class InstantiationManager {
 	 * @return for each variable in the clause, the interesting substitutions.
 	 */
 	private Term[][] computeSubsForArithmetical(final QuantClause clause, final Collection<QuantLiteral> arLits,
-			final Dawg<Term, InstanceValue> clauseDawg) {
+			final Dawg<Term, InstantiationInfo> clauseDawg) {
 		// TODO Rework this method
 
 		// Collect all variables occurring in arithmetical literals, i.e., check which of them have any lower or upper
@@ -700,8 +769,8 @@ public class InstantiationManager {
 			}
 		}
 		// The substitutions for which the partial clause instance value is not yet true are interesting
-		for (final Dawg.Entry<Term, InstanceValue> entry : clauseDawg.entrySet()) {
-			if (entry.getValue() != InstanceValue.IRRELEVANT) {
+		for (final Dawg.Entry<Term, InstantiationInfo> entry : clauseDawg.entrySet()) {
+			if (entry.getValue().getInstValue() != InstanceValue.IRRELEVANT) {
 				for (int i = 0; i < nClauseVars; i++) {
 					if (clauseVarsInArLits[i] != null) {
 						interestingTerms[i].add(entry.getKey().get(i));
@@ -1184,6 +1253,43 @@ public class InstantiationManager {
 					}
 				}
 			}
+		}
+	}
+
+	private class InstantiationInfo {
+		private final InstanceValue mValue;
+		private final List<Term> mSubs;
+
+		private InstantiationInfo(final InstanceValue val, final List<Term> subs) {
+			mValue = val;
+			mSubs = subs;
+		}
+
+		InstanceValue getInstValue() {
+			return mValue;
+		}
+
+		List<Term> getSubs() {
+			return mSubs;
+		}
+
+		@Override
+		public String toString() {
+			return "InstInfo: [" + mValue + mSubs + "]";
+		}
+
+		@Override
+		public int hashCode() {
+			return mSubs.hashCode();
+		}
+
+		@Override
+		public boolean equals(final Object other) {
+			if (other instanceof InstantiationInfo) {
+				final InstantiationInfo otherInfo = (InstantiationInfo) other;
+				return mValue == otherInfo.getInstValue() && mSubs.equals(otherInfo.getSubs());
+			}
+			return false;
 		}
 	}
 

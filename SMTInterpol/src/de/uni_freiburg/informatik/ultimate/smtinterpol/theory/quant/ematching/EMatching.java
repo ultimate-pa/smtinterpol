@@ -409,6 +409,21 @@ public class EMatching {
 			sb.append("]\nEquivalent CCTerms: " + mEquivalentCCTerms.toString());
 			return sb.toString();
 		}
+
+		@Override
+		public int hashCode() {
+			return mEquivalentCCTerms.hashCode();
+		}
+
+		@Override
+		public boolean equals(final Object other) {
+			if (other instanceof SubstitutionInfo) {
+				final SubstitutionInfo otherInfo = (SubstitutionInfo) other;
+				return mVarSubs.equals(otherInfo.getVarSubs())
+						&& mEquivalentCCTerms.equals(otherInfo.getEquivalentCCTerms());
+			}
+			return false;
+		}
 	}
 
 	/**

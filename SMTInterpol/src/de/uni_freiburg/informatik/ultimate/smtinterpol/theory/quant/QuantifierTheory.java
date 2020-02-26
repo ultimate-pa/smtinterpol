@@ -760,6 +760,11 @@ public class QuantifierTheory implements ITheory {
 		return null;
 	}
 
+	Term getRepresentativeTerm(final Term term) {
+		final CCTerm ccTerm = getClausifier().getCCTerm(term);
+		return ccTerm == null ? term : ccTerm.getRepresentative().getFlatTerm();
+	}
+
 	public enum InstanceOrigin {
 		DER(":DER"), CHECKPOINT(":Checkpoint"), FINALCHECK(":Finalcheck");
 		String mOrigin;

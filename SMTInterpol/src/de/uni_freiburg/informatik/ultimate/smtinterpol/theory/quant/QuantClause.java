@@ -383,11 +383,6 @@ public class QuantClause {
 		}
 	}
 
-	private Term getRepresentativeTerm(final Term term) {
-		final CCTerm ccTerm = mQuantTheory.getClausifier().getCCTerm(term);
-		return ccTerm == null ? term : ccTerm.getRepresentative().getFlatTerm();
-	}
-
 	/**
 	 * Update the interesting instantiation terms for a given variable, using the terms in CClosure.
 	 * <p>
@@ -436,7 +431,7 @@ public class QuantClause {
 							final SMTAffineTerm idxPlusMinusOneAff = new SMTAffineTerm(idxTerm);
 							idxPlusMinusOneAff.add(offset);
 							final Term shared = idxPlusMinusOneAff.toTerm(idxTerm.getSort());
-							final Term repShared = getRepresentativeTerm(shared);
+							final Term repShared = mQuantTheory.getRepresentativeTerm(shared);
 							mInterestingTermsForVars[varNum].put(repShared, shared);
 						}
 					}
@@ -460,7 +455,7 @@ public class QuantClause {
 	private boolean addAllInteresting(final Map<Term, Term> interestingTerms, final Collection<Term> newTerms) {
 		boolean changed = false;
 		for (final Term newTerm : newTerms) {
-			final Term rep = getRepresentativeTerm(newTerm);
+			final Term rep = mQuantTheory.getRepresentativeTerm(newTerm);
 			if (!interestingTerms.containsKey(rep)) {
 				interestingTerms.put(rep, newTerm);
 				changed = true;
