@@ -50,6 +50,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LAEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ArrayQueue;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
 import de.uni_freiburg.informatik.ultimate.util.DebugMessage;
+import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
 
 /**
@@ -86,7 +87,7 @@ public class CClosure implements ITheory {
 	 *
 	 * TODO: This is somewhat redundant, as the clausifier term data has also all terms.
 	 */
-	final ArrayList<CCTerm> mAllTerms = new ArrayList<>();
+	final ScopedArrayList<CCTerm> mAllTerms = new ScopedArrayList<>();
 	/**
 	 * For each pair of congruence classes this maps to the corresponding pair info. The pair info contains the list of
 	 * equalities between cc-terms of the congruence classes, the first set diseq that proves that these congruence
@@ -124,7 +125,24 @@ public class CClosure implements ITheory {
 	 * TODO: do we need the extra handling of {@code select/store/@diff}?
 	 */
 	final ScopedHashMap<Object, CCBaseTerm> mSymbolicTerms = new ScopedHashMap<>();
+
+	/**
+	 * This stores mNumFunctionPositions for every stack level.
+	 * 
+	 * @see #mNumFunctionPositions
+	 */
+	final ArrayList<Integer> mNumFunctionPositionsStack = new ArrayList<>();
+	/**
+	 * The number of function argument positions. This is used to give each argument position in each function symbol a
+	 * unique number. Two terms can only cause a congruence if they occur at the same index in the same function symbol.
+	 * Thus we only need to match parent information for each such index with each other on merge.
+	 * 
+	 * This number is used to generate a unique index for every function symbol argument position. When a new function
+	 * symbol is added as a CCBaseTerm this number is used to give the arguments a unique index and this number is
+	 * increased by the number of arguments of this function symbol.
+	 */
 	int mNumFunctionPositions;
+
 	int mMergeDepth;
 	final ArrayDeque<CCTerm> mMerges = new ArrayDeque<>();
 	final ArrayDeque<SymmetricPair<CCAppTerm>> mPendingCongruences = new ArrayDeque<>();
@@ -1243,21 +1261,20 @@ public class CClosure implements ITheory {
 	}
 
 	@Override
-	public void pop(final Object object, final int targetlevel) {
-		final StackData sd = (StackData) object;
-		for (int i = mAllTerms.size() - 1; i >= sd.mAllTermsSize; --i) {
-			final CCTerm t = mAllTerms.get(i);
+	public void pop() {
+		mNumFunctionPositions = mNumFunctionPositionsStack.remove(mNumFunctionPositionsStack.size() - 1);
+		for (CCTerm t : mAllTerms.currentScope()) {
 			removeTerm(t);
-			mAllTerms.remove(i);
 		}
-		mNumFunctionPositions = sd.mNumFuncPositions;
+		mAllTerms.endScope();
 		mSymbolicTerms.endScope();
 	}
 
 	@Override
-	public Object push() {
+	public void push() {
 		mSymbolicTerms.beginScope();
-		return new StackData(this);
+		mAllTerms.beginScope();
+		mNumFunctionPositionsStack.add(mNumFunctionPositions);
 	}
 
 	@Override

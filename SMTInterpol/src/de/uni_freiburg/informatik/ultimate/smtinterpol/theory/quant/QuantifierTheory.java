@@ -339,13 +339,12 @@ public class QuantifierTheory implements ITheory {
 	}
 
 	@Override
-	public Object push() {
+	public void push() {
 		mQuantClauses.beginScope();
-		return null;
 	}
 
 	@Override
-	public void pop(final Object object, final int targetlevel) {
+	public void pop() {
 		mQuantClauses.endScope();
 	}
 

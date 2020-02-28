@@ -648,8 +648,6 @@ public class ArrayTheory implements ITheory {
 	private long mTimePropagation = 0;
 	private long mTimeExplanations = 0;
 
-	private int mNumArrays = 0;
-
 	public ArrayTheory(final Clausifier clausifier, final CClosure cclosure) {
 		mClausifier = clausifier;
 		mCClosure = cclosure;
@@ -788,7 +786,7 @@ public class ArrayTheory implements ITheory {
 	public void printStatistics(final LogProxy logger) {
 		if (logger.isInfoEnabled()) {
 			logger.info("Array: #Arrays: %d, #BuildWeakEQ: %d, #ModEdges: %d, " + "#addStores: %d, #merges: %d",
-					mNumArrays, mNumBuildWeakEQ, mNumModuloEdges, mNumAddStores, mNumMerges);
+					mArrays.size(), mNumBuildWeakEQ, mNumModuloEdges, mNumAddStores, mNumMerges);
 			logger.info("Insts: ReadOverWeakEQ: %d, WeakeqExt: %d", mNumInstsSelect, mNumInstsEq);
 			logger.info("Time: BuildWeakEq: %.3f ms, BuildWeakEqi: %.3f ms", mTimeBuildWeakEq / 1e6,
 					mTimeBuildWeakEqi / 1e6);
@@ -845,17 +843,15 @@ public class ArrayTheory implements ITheory {
 	}
 
 	@Override
-	public Object push() {
+	public void push() {
 		mArrays.beginScope();
 		mStores.beginScope();
 		mConsts.beginScope();
 		mDiffs.beginScope();
-		return Integer.valueOf(mNumArrays);
 	}
 
 	@Override
-	public void pop(final Object object, final int targetlevel) {
-		mNumArrays = ((Integer) object).intValue();
+	public void pop() {
 		mArrays.endScope();
 		mStores.endScope();
 		mConsts.endScope();
@@ -865,7 +861,7 @@ public class ArrayTheory implements ITheory {
 	@Override
 	public Object[] getStatistics() {
 		return new Object[] { ":Array",
-				new Object[][] { { "NumArrays", mNumArrays }, { "BuildWeakEQ", mNumBuildWeakEQ },
+				new Object[][] { { "NumArrays", mArrays.size() }, { "BuildWeakEQ", mNumBuildWeakEQ },
 						{ "AddStores", mNumAddStores }, { "Merges", mNumMerges }, { "ModuloEdges", mNumModuloEdges },
 						{ "ReadOverWeakeq", mNumInstsSelect }, { "WeakeqExt", mNumInstsEq },
 						{ "Times",
@@ -993,7 +989,6 @@ public class ArrayTheory implements ITheory {
 			mConsts.add((CCAppTerm) array);
 		}
 		mArrays.add(array);
-		mNumArrays++;
 	}
 
 	public void notifyDiff(final CCAppTerm diff) {

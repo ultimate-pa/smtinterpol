@@ -2053,7 +2053,7 @@ public class LinArSolve implements ITheory {
 	}
 
 	@Override
-	public void pop(final Object object, final int targetlevel) {
+	public void pop() {
 		final int prevVarNum = mLinvars.getLastScopeSize();
 		for (int i = mLinvars.size() - 1; i >= prevVarNum; i--) {
 			final LinVar var = mLinvars.get(i);
@@ -2083,11 +2083,10 @@ public class LinArSolve implements ITheory {
 	}
 
 	@Override
-	public Object push() {
+	public void push() {
 		mBasics.beginScope();
 		mSharedVars.beginScope();
 		mLinvars.beginScope();
-		return null;
 	}
 
 	@Override
