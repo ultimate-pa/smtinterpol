@@ -88,7 +88,7 @@ public class EeaaLoggingScript extends LoggingScript {
 
 
 	@Override
-	public Term term(String funcname, BigInteger[] indices, Sort returnSort, Term... params) throws SMTLIBException {
+	public Term term(String funcname, String[] indices, Sort returnSort, Term... params) throws SMTLIBException {
 		// replace all occurrences of "=" by our new equals symbol
 		// except: we don't want to replace the "=" where it is used as a biimplication
 		// (because we would have to add more congruence atoms then)
