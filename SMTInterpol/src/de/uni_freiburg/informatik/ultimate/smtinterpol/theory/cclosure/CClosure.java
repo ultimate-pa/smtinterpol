@@ -44,7 +44,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.model.Model;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.model.SharedTermEvaluator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.LeafNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAppTerm.Parent;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTermPairHash.Info.Entry;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.EQAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LAEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ArrayQueue;
@@ -128,7 +127,7 @@ public class CClosure implements ITheory {
 
 	/**
 	 * This stores mNumFunctionPositions for every stack level.
-	 * 
+	 *
 	 * @see #mNumFunctionPositions
 	 */
 	final ArrayList<Integer> mNumFunctionPositionsStack = new ArrayList<>();
@@ -136,7 +135,7 @@ public class CClosure implements ITheory {
 	 * The number of function argument positions. This is used to give each argument position in each function symbol a
 	 * unique number. Two terms can only cause a congruence if they occur at the same index in the same function symbol.
 	 * Thus we only need to match parent information for each such index with each other on merge.
-	 * 
+	 *
 	 * This number is used to generate a unique index for every function symbol argument position. When a new function
 	 * symbol is added as a CCBaseTerm this number is used to give the arguments a unique index and this number is
 	 * increased by the number of arguments of this function symbol.
@@ -197,15 +196,17 @@ public class CClosure implements ITheory {
 		 * time.
 		 */
 		while (depth1 > depth2) {
-			if (t1.mRep == t2)
+			if (t1.mRep == t2) {
 				return t1.mMergeTime;
+			}
 			t1 = t1.mRep;
 			depth1--;
 		}
 		assert t1 != t2;
 		while (depth2 > depth1) {
-			if (t2.mRep == t1)
+			if (t2.mRep == t1) {
 				return t2.mMergeTime;
+			}
 			t2 = t2.mRep;
 			depth2--;
 		}
@@ -286,7 +287,7 @@ public class CClosure implements ITheory {
 		if (congruentTerm != null) {
 			// Here, we do not have the resulting term in the equivalence class
 			// Mark pending congruence
-			mRecheckOnBacktrackCongs.add(new SymmetricPair<CCAppTerm>(term, congruentTerm));
+			mRecheckOnBacktrackCongs.add(new SymmetricPair<>(term, congruentTerm));
 			addPendingCongruence(term, congruentTerm);
 		}
 
@@ -1118,7 +1119,7 @@ public class CClosure implements ITheory {
 		 */
 		mPendingCongruences.clear();
 		final ArrayQueue<SymmetricPair<CCAppTerm>> newRecheckOnBacktrackCongs = new ArrayQueue<>();
-		for (SymmetricPair<CCAppTerm> cong : mRecheckOnBacktrackCongs) {
+		for (final SymmetricPair<CCAppTerm> cong : mRecheckOnBacktrackCongs) {
 			final CCAppTerm lhs = cong.getFirst();
 			final CCAppTerm rhs = cong.getSecond();
 			if (lhs.mArg.mRepStar == rhs.mArg.mRepStar && lhs.mFunc.mRepStar == rhs.mFunc.mRepStar) {
@@ -1248,8 +1249,8 @@ public class CClosure implements ITheory {
 	private void removeTerm(final CCTerm t) {
 		assert t.mRepStar == t;
 		assert mPendingCongruences.isEmpty();
-		for (final Entry e : t.mPairInfos) {
-			mPairHash.removePairInfo(e.getInfo());
+		while (!t.mPairInfos.isEmpty()) {
+			mPairHash.removePairInfo(t.mPairInfos.iterator().next().getInfo());
 		}
 		if (t.mSharedTerm != null) {
 			t.mSharedTerm = null;
@@ -1263,7 +1264,7 @@ public class CClosure implements ITheory {
 	@Override
 	public void pop() {
 		mNumFunctionPositions = mNumFunctionPositionsStack.remove(mNumFunctionPositionsStack.size() - 1);
-		for (CCTerm t : mAllTerms.currentScope()) {
+		for (final CCTerm t : mAllTerms.currentScope()) {
 			removeTerm(t);
 		}
 		mAllTerms.endScope();
