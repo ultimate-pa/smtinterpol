@@ -1808,8 +1808,9 @@ public class Clausifier {
 	}
 
 	public void setLogic(final Logics logic) {
-		if (logic.isUF() || logic.isArray() || logic.isArithmetic()) {
+		if (logic.isUF() || logic.isArray() || logic.isArithmetic() || logic.isQuantified()) {
 			// also need UF for div/mod
+			// and for quantifiers for AUX functions
 			setupCClosure();
 		}
 		if (logic.isArithmetic()) {
