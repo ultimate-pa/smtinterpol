@@ -345,6 +345,11 @@ public class QuantifierTheory implements ITheory {
 
 	@Override
 	public void pop() {
+		assert mPotentialConflictAndUnitClauses.isEmpty(); // backtrackComplete() is called before pop()
+		for (final QuantClause quantClause : mQuantClauses.currentScope()) {
+			mInstantiationManager.removeClause(quantClause);
+		}
+		mInstantiationManager.removeAllInstClauses();
 		mQuantClauses.endScope();
 	}
 
