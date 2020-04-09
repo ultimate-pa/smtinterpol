@@ -346,10 +346,12 @@ public class QuantifierTheory implements ITheory {
 	@Override
 	public void pop() {
 		assert mPotentialConflictAndUnitClauses.isEmpty(); // backtrackComplete() is called before pop()
+		mInstantiationManager.removeAllInstClauses();
+		mEMatching.removeAllTriggers();
 		for (final QuantClause quantClause : mQuantClauses.currentScope()) {
 			mInstantiationManager.removeClause(quantClause);
+			mEMatching.removeClause(quantClause);
 		}
-		mInstantiationManager.removeAllInstClauses();
 		mQuantClauses.endScope();
 	}
 
@@ -634,7 +636,7 @@ public class QuantifierTheory implements ITheory {
 				quantLits.toArray(new QuantLiteral[quantLits.size()]), this, source);
 		mQuantClauses.add(clause);
 
-		mEMatching.addPatterns(clause);
+		mEMatching.addClause(clause);
 		mInstantiationManager.addClause(clause);
 
 		if (mLogger.isDebugEnabled()) {
