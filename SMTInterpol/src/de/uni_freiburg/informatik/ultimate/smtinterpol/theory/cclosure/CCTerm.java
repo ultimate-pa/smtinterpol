@@ -256,7 +256,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		 * as sterm is a newly shared term, which must be linear independent
 		 * of all previously created terms.
 		 */
-		final EqualityProxy eqForm = engine.mClausifier.createEqualityProxy(mFlatTerm, otherSharedTerm.mFlatTerm);
+		final EqualityProxy eqForm = engine.mClausifier.createEqualityProxy(mFlatTerm, otherSharedTerm.mFlatTerm, null);
 		assert (eqForm != EqualityProxy.getTrueProxy());
 		assert (eqForm != EqualityProxy.getFalseProxy());
 		final CCEquality cceq = eqForm.createCCEquality(mFlatTerm, otherSharedTerm.mFlatTerm);
