@@ -492,6 +492,11 @@ public class CClosure implements ITheory {
 	public void removeCompareTrigger(final CompareTrigger trigger) {
 		CCTerm t1 = trigger.getLhs();
 		CCTerm t2 = trigger.getRhs();
+		if (!mAllTerms.contains(t1) || !mAllTerms.contains(t2)) {
+			return; // FIXME This is a workaround for the problem that pop() first removes terms, then triggers, as it
+			// is executed for CClosure first. Then this method can be called for a trigger where the
+			// corresponding terms have already been removed.
+		}
 		while (true) {
 			// make t1 the term that was merged before t2 was merged.
 			if (t1.mMergeTime > t2.mMergeTime) {
@@ -586,6 +591,11 @@ public class CClosure implements ITheory {
 			/* this is a reverse trigger */
 			termWithTrigger = trigger.getArgument();
 			parentPos = func.mParentPosition + trigger.getArgPosition();
+		}
+		if (!mAllTerms.contains(termWithTrigger)) {
+			return; // FIXME This is a workaround for the problem that pop() first removes terms, then triggers, as it
+			// is executed for CClosure first. Then this method can be called for a trigger where the
+			// corresponding term has already been removed.
 		}
 		while (termWithTrigger != termWithTrigger.mRep) {
 			final CCParentInfo info = termWithTrigger.mCCPars.createInfo(parentPos);
