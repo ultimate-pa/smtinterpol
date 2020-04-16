@@ -167,6 +167,7 @@ public class CClosure implements ITheory {
 
 	public CCTerm createAnonTerm(final Term term) {
 		final CCTerm ccTerm = new CCBaseTerm(false, mNumFunctionPositions, term);
+		mAllTerms.add(ccTerm);
 		mAnonTerms.put(term, ccTerm);
 		return ccTerm;
 	}
@@ -281,6 +282,7 @@ public class CClosure implements ITheory {
 			}
 		}
 		final CCAppTerm term = new CCAppTerm(isFunc, isFunc ? func.mParentPosition + 1 : 0, func, arg, this);
+		mAllTerms.add(term);
 		term.addParentInfo(this);
 		final CCAppTerm congruentTerm = findCongruentAppTerm(func, arg);
 		getLogger().debug("createAppTerm %s congruent: %s", term, congruentTerm);
@@ -331,6 +333,7 @@ public class CClosure implements ITheory {
 		CCBaseTerm term = mSymbolicTerms.get(sym);
 		if (term == null) {
 			term = new CCBaseTerm(sym.getParameterSorts().length > 0, mNumFunctionPositions, sym);
+			mAllTerms.add(term);
 			mNumFunctionPositions += sym.getParameterSorts().length;
 			mSymbolicTerms.put(sym, term);
 		}
@@ -765,7 +768,6 @@ public class CClosure implements ITheory {
 
 	public void addTerm(final CCTerm ccterm, final Term term) {
 		ccterm.mFlatTerm = term;
-		mAllTerms.add(ccterm);
 	}
 
 	public void addSharedTerm(final CCTerm ccterm) {
@@ -1008,7 +1010,7 @@ public class CClosure implements ITheory {
 		// assert(checkCongruence());
 		logger.info("Equivalence Classes:");
 		for (final CCTerm t : mAllTerms) {
-			if (t == t.mRepStar) {
+			if (t == t.mRepStar && !t.isFunc()) {
 				final StringBuilder sb = new StringBuilder();
 				String comma = "";
 				for (final CCTerm t2 : t.mMembers) {
