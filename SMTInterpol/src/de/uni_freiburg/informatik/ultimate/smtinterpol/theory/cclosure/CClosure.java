@@ -1132,7 +1132,7 @@ public class CClosure implements ITheory {
 				getLogger().debug("No longer congruent: %s and %s", lhs, rhs);
 			}
 		}
-		mRecheckOnBacktrackLits = newRecheckOnBacktrackLits;
+		mRecheckOnBacktrackCongs = newRecheckOnBacktrackCongs;
 		return buildCongruence();
 	}
 
@@ -1264,6 +1264,9 @@ public class CClosure implements ITheory {
 
 	@Override
 	public void pop() {
+		assert mRecheckOnBacktrackCongs.isEmpty();
+		assert mRecheckOnBacktrackLits.isEmpty();
+		assert mPendingCongruences.isEmpty();
 		mNumFunctionPositions = mNumFunctionPositionsStack.remove(mNumFunctionPositionsStack.size() - 1);
 		for (final CCTerm t : mAllTerms.currentScope()) {
 			removeTerm(t);
