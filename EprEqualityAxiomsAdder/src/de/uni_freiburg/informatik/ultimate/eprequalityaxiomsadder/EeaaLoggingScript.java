@@ -1,7 +1,6 @@
 package de.uni_freiburg.informatik.ultimate.eprequalityaxiomsadder;
 
-import java.io.FileNotFoundException;
-import java.math.BigInteger;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -39,7 +38,7 @@ public class EeaaLoggingScript extends LoggingScript {
 
 
 	public EeaaLoggingScript(Script script, String file, boolean autoFlush)
-			throws FileNotFoundException {
+			throws IOException {
 		super(script, file, autoFlush);
 	}
 

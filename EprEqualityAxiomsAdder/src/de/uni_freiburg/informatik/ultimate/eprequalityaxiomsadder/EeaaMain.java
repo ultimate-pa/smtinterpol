@@ -1,6 +1,6 @@
 package de.uni_freiburg.informatik.ultimate.eprequalityaxiomsadder;
 
-import java.io.FileNotFoundException;
+import java.io.IOException;
 
 import de.uni_freiburg.informatik.ultimate.logic.LoggingScript;
 import de.uni_freiburg.informatik.ultimate.logic.NoopScript;
@@ -30,7 +30,7 @@ public class EeaaMain {
 		LoggingScript loggingScript = null;
 		try {
 			loggingScript = new EeaaLoggingScript(noopScript, outfileName, true);
-		} catch (FileNotFoundException e) {
+		} catch (IOException e) {
 			System.out.println("File not found -- please give a valid output file name");
 		}
 
