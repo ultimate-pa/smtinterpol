@@ -34,6 +34,7 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
+import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SolverOptions;
@@ -43,27 +44,13 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 @RunWith(Parameterized.class)
 public class SystemTest {
 
-	private void performTest(final File f) throws SMTLIBException, FileNotFoundException {
+	private void performTest() throws SMTLIBException, FileNotFoundException {
+		final File f = mFile;
 		System.out.println("Testing " + f.getAbsolutePath());
 		final DefaultLogger logger = new DefaultLogger();
 		final OptionMap options = new OptionMap(logger, true);
 		final SMTInterpol solver = new SMTInterpol(options);
-		final ParseEnvironment pe = new ParseEnvironment(solver, options) {
-
-			@Override
-			public void printError(final String message) {
-				Assert.fail(f.getAbsolutePath() + ": " + message);
-			}
-
-			@Override
-			public void printResponse(final Object response) {
-				if ("unsupported".equals(response)) {
-					Assert.fail(f.getAbsolutePath() + ": " + "unsupported");
-				}
-				super.printResponse(response);
-			}
-
-		};
+		final TestEnvironment testEnv = new TestEnvironment(solver, options);
 		if (!f.getAbsolutePath().contains("epr")) {
 			solver.setOption(":proof-check-mode", true);
 			if (!f.getAbsolutePath().contains("quant")) {
@@ -74,7 +61,8 @@ public class SystemTest {
 		if (f.getAbsolutePath().contains("test" + File.separatorChar + "epr")) {
 			solver.setOption(SolverOptions.EPR, true);
 		}
-		pe.parseStream(new FileReader(f), "TestStream");
+		testEnv.parseStream(new FileReader(f), "TestStream");
+		testEnv.checkExpected();
 	}
 
 	private static boolean shouldExecute(final File f) {
@@ -139,6 +127,62 @@ public class SystemTest {
 
 	@Test
 	public void testSystem() throws FileNotFoundException {
-		performTest(mFile);
+		performTest();
+	}
+
+	class TestEnvironment extends ParseEnvironment {
+		int mExpectedErrors = 0;
+		int mExpectedUnsupported = 0;
+
+		public TestEnvironment(final Script solver, final OptionMap options) {
+			super(solver, options);
+		}
+
+		public int parseNumber(final Object value) {
+			if (value instanceof Number) {
+				return ((Number) value).intValue();
+			} else if (value instanceof String) {
+				try {
+					return Integer.parseInt((String) value);
+				} catch (final NumberFormatException ex) {
+					Assert.fail("Not a number: " + value);
+				}
+			} else {
+				Assert.fail("Not a number: " + value);
+			}
+			return -1;
+		}
+
+		@Override
+		public void setInfo(final String info, final Object value) {
+			if (info.equals(":expect-unsupported")) {
+				Assert.assertTrue("Expected errors did not occur", mExpectedUnsupported == 0);
+				mExpectedUnsupported = parseNumber(value);
+			}
+			if (info.equals(":expect-errors")) {
+				Assert.assertTrue("Expected errors did not occur", mExpectedErrors == 0);
+				mExpectedErrors = parseNumber(value);
+			}
+			super.setInfo(info, value);
+		}
+
+		@Override
+		public void printError(final String message) {
+			Assert.assertTrue(mFile.getAbsolutePath() + ": " + message, mExpectedErrors > 0);
+			mExpectedErrors--;
+		}
+
+		@Override
+		public void printResponse(final Object response) {
+			if ("unsupported".equals(response)) {
+				Assert.assertTrue(mFile.getAbsolutePath() + ": " + "unsupported", mExpectedUnsupported > 0);
+				mExpectedUnsupported--;
+			}
+			super.printResponse(response);
+		}
+
+		public void checkExpected() {
+			Assert.assertTrue("Expected errors did not occur", mExpectedErrors == 0 && mExpectedUnsupported == 0);
+		}
 	}
 }
