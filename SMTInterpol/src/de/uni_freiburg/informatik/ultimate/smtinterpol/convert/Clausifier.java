@@ -2139,7 +2139,7 @@ public class Clausifier {
 		tmp = null;
 		mOccCounter.count(tmp2);
 
-		ApplicationTerm at = (ApplicationTerm) tmp2;
+		ApplicationTerm at = (ApplicationTerm) mTracker.getProvedTerm(tmp2);
 		boolean negated = false;
 		FunctionSymbol fs = at.getFunction();
 		if (fs == mTheory.mNot) {
