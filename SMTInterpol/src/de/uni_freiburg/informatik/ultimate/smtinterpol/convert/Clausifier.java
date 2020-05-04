@@ -764,8 +764,8 @@ public class Clausifier {
 						}
 						final ProofNode derProof =
 								new LeafNode(LeafNode.QUANT_INST,
-										new QuantAnnotation(lits, resultFromDER.getSecond(), getTheory(),
-												InstanceOrigin.DER));
+										new QuantAnnotation(lits, quantLits, resultFromDER.getSecond(), getTheory(),
+												InstanceOrigin.DER, mSource));
 						addClause(groundLits, null, derProof);
 					} else {
 						mQuantTheory.addQuantClause(litsAfterDER, mSource);
