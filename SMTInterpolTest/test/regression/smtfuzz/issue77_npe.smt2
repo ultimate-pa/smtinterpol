@@ -1,4 +1,5 @@
 (set-option :produce-unsat-cores true)
+(set-info :expect-errors 572)
 (set-logic NIA)
 (declare-fun v0 () Bool)
 (declare-fun v1 () Bool)

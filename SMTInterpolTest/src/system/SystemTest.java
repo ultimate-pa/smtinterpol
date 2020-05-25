@@ -61,7 +61,7 @@ public class SystemTest {
 		if (f.getAbsolutePath().contains("test" + File.separatorChar + "epr")) {
 			solver.setOption(SolverOptions.EPR, true);
 		}
-		testEnv.parseStream(new FileReader(f), "TestStream");
+		testEnv.parseStream(new FileReader(f), f.getName());
 		testEnv.checkExpected();
 	}
 
@@ -168,21 +168,21 @@ public class SystemTest {
 
 		@Override
 		public void printError(final String message) {
-			Assert.assertTrue(mFile.getAbsolutePath() + ": " + message, mExpectedErrors > 0);
 			mExpectedErrors--;
+			super.printError(message);
 		}
 
 		@Override
 		public void printResponse(final Object response) {
 			if ("unsupported".equals(response)) {
-				Assert.assertTrue(mFile.getAbsolutePath() + ": " + "unsupported", mExpectedUnsupported > 0);
 				mExpectedUnsupported--;
 			}
 			super.printResponse(response);
 		}
 
 		public void checkExpected() {
-			Assert.assertTrue("Expected errors did not occur", mExpectedErrors == 0 && mExpectedUnsupported == 0);
+			Assert.assertTrue(mFile.getAbsolutePath() + ": Unexpected error or unsupported results", mExpectedErrors >= 0 && mExpectedUnsupported >= 0);
+			Assert.assertTrue(mFile.getAbsolutePath() + ": Too few error or unsupported results", mExpectedErrors <= 0 && mExpectedUnsupported <= 0);
 		}
 	}
 }

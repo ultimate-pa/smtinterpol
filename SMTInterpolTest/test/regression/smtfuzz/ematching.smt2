@@ -1,6 +1,7 @@
 (set-option :produce-interpolants true)
 (set-option :simplify-interpolants true)
 (set-option :produce-proofs true)
+(set-info :expect-errors 10)
 (set-logic ALIA)
 (declare-fun v0 () Bool)
 (declare-fun v1 () Bool)

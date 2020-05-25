@@ -1,3 +1,4 @@
+(set-info :expect-errors 23)
 (set-logic UF)
 (declare-fun v0 () Bool)
 (declare-fun v1 () Bool)

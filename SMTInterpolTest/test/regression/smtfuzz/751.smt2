@@ -1,3 +1,4 @@
+(set-info :expect-unsupported 10)
 (set-option :produce-interpolants true)
 (set-logic NRA)
 (declare-fun v0 () Bool)

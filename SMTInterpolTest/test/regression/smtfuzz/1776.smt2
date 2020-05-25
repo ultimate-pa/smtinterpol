@@ -1,4 +1,5 @@
 (set-option :produce-interpolants true)
+(set-info :expect-errors 48)
 (set-logic QF_UFNRA)
 (declare-fun v0 () Bool)
 (declare-fun v1 () Bool)
