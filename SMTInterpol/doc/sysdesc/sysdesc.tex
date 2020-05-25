@@ -31,35 +31,28 @@ reads input in SMT-LIB format.  It includes parsers for DIMACS, AIGER, and
 SMT-LIB version 1.2 and 2.5.
 
 The solver is based on the well-known DPLL(T)/CDCL framework~\cite{DBLP:conf/cav/GanzingerHNOT04}.
-The solver uses variants of standard algorithms for CNF
-conversion~\cite{DBLP:journals/jsc/PlaistedG86}, congruence
-closure~\cite{DBLP:conf/rta/NieuwenhuisO05}, Simplex~\cite{DBLP:conf/cav/DutertreM06} and
-branch-and-cut for integer arithmetic~\cite{DBLP:conf/cav/ChristH15,DBLP:conf/cav/DilligDA09}.
-The array decision procedure is based on weak equivalences~\cite{DBLP:conf/frocos/ChristH15}.
-Theory combination is performed based on partial models produced by the theory
-solvers~\cite{DBLP:journals/entcs/MouraB08}.
+It uses variants of standard algorithms for CNF
+conversion~\cite{DBLP:journals/jsc/PlaistedG86} and congruence
+closure~\cite{DBLP:conf/rta/NieuwenhuisO05}.
+The solver for linear arithmetic is based on Simplex~\cite{DBLP:conf/cav/DutertreM06}, the sum-of-infeasibility algorithm~\cite{DBLP:conf/fmcad/KingBD13}, and branch-and-cut for integer arithmetic~\cite{DBLP:conf/cav/ChristH15,DBLP:conf/cav/DilligDA09}.
+The array decision procedure is based on weak equivalences~\cite{DBLP:conf/frocos/ChristH15} and includes an extension for constant arrays~\cite{DBLP:conf/vmcai/HoenickeS19}.
+Theory combination is performed based on partial models produced by the theory solvers~\cite{DBLP:journals/entcs/MouraB08}.
 
-This release uses the ``sum-of-infeasibility'' algorithm~\cite{DBLP:conf/fmcad/KingBD13} for linear arithmetic.
-The array theory was extended by constant arrays~\cite{DBLP:conf/vmcai/HoenickeS19}.
-New in the current release is an experimental solver for quantified formulas.
-It is based on model-based quantifier instantiation, in particular, it solves the almost uninterpreted fragment~\cite{DBLP:conf/cav/GeM09}.
-This approach is combined with ideas from conflict-based quantifier instantiation~\cite{DBLP:conf/fmcad/ReynoldsTM14}.
-A distinguishing feature is that it does not use pattern-based E-matching at all, but uses the E-graph to identify potential conflict and unit clauses.
+In the current release, the solver for quantified formulas was extensively revised.
+The core of the new approach is an incremental search for instances of quantified clauses that result in a conflict or a propagation.
+Instead of using E-matching as an instantiation heuristic, the E-graph is used to detect and evaluate candidate instances before adding them to the ground problem.
+The solver decides the finite almost uninterpreted fragment~\cite{DBLP:conf/cav/GeM09}.
 
 The main focus of \SI is the incremental track.
-This track simulates the typical
-application of \SI where a user asks multiple queries.  The main focus
-of the development team of \SI is the interpolation
-engine~\cite{DBLP:journals/jar/ChristH16,DBLP:conf/cade/HoenickeS18}.
+This track simulates the typical application of \SI where a user asks multiple queries.
+As an extension \SI supports quantifier-free interpolation for the supported theories~\cite{DBLP:journals/jar/ChristH16,DBLP:conf/cade/HoenickeS18,DBLP:conf/vmcai/HoenickeS19}.
 This makes it useful as a backend for software verification tools.  In particular,
-\textsc{Ultimate Automizer}\footnote{\url{https://ultimate.informatik.uni-freiburg.de/}} %~\cite{DBLP:conf/tacas/HeizmannCDGHLNM18}
-and \textsc{CPAchecker}\footnote{\url{https://cpachecker.sosy-lab.org/}}%~\cite{DBLP:conf/tacas/DanglLW15}
-, the winners of the SV-COMP 2016--2019, use \SI.
+\textsc{Ultimate Automizer}\footnote{\url{https://ultimate.informatik.uni-freiburg.de/}}
+and \textsc{CPAchecker}\footnote{\url{https://cpachecker.sosy-lab.org/}}, the winners of the SV-COMP 2016--2020, use \SI.
 
 \section*{Competition Version}
-The version submitted to the SMT-COMP 2019 is an experimental release with the new solver for quantified formulas.
-The algorithms to generate proofs and models are not adapted to the new quantifier theory.
-Therefore, some features like unsat cores do not work yet.
+The version submitted to the SMT-COMP 2020 includes a revised solver for quantified formulas.
+Proof production for quantified formulas is only partially implemented, and while this version supports unsat core extraction, it does not support interpolation in the presence of quantified formulas.
 The solver is conservative and returns unknown for satisfiable formulas that are not in the supported fragment.
 
 \section*{Webpage and Sources}
@@ -78,18 +71,14 @@ Markus Pomrehn, Pascal Raiola, and Tanja Schindler.
 
 \section*{Logics, Tracks and Magic Number}
 
-\SI participates in the single-query track, the incremental track, and the
-unsat core track.  In the single-query and incremental track it supports all
-combinations of uninterpreted functions, linear arithmetic, and
-arrays: ALIA, AUFLIA, AUFLIRA, LIA, LRA, QF\_ALIA, QF\_AUFLIA, QF\_AX,
+\SI participates in the single query track, the incremental track, the unsat core track, and the model validation track.
+It supports all combinations of uninterpreted functions, linear arithmetic, and arrays, and participates in the following logic divisions:
+
+ALIA, AUFLIA, AUFLIRA, LIA, LRA, QF\_ALIA, QF\_AUFLIA, QF\_AX,
 QF\_IDL, QF\_LIA, QF\_LIRA, QF\_LRA, QF\_RDL, QF\_UF, QF\_UFIDL,
 QF\_UFLIA, QF\_UFLRA, UF, UFIDL, UFLIA, UFLRA.
-In the unsat core track, \SI participates only in the quantifier-free logics:
-QF\_ALIA, QF\_AUFLIA, QF\_AX,
-QF\_IDL, QF\_LIA, QF\_LIRA, QF\_LRA, QF\_RDL, QF\_UF, QF\_UFIDL,
-QF\_UFLIA, QF\_UFLRA.
 
-Magic Number: $983\,571\,724$
+Magic Number: $192\,843\,011$
 
 \bibliography{sysdec}
 \bibliographystyle{alpha}
