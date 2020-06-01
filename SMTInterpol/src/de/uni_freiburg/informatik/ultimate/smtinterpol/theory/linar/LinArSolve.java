@@ -50,6 +50,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ITheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.model.Model;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.model.NumericSortInterpretation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.model.SharedTermEvaluator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.LeafNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
@@ -2137,7 +2138,9 @@ public class LinArSolve implements ITheory {
 				final FunctionSymbol fsym = getsValueFromLA(term);
 				if (fsym != null) {
 					final Rational val = realValue(var);
-					model.extendNumeric(fsym, val);
+					final NumericSortInterpretation si =
+							(NumericSortInterpretation) model.provideSortInterpretation(term.getSort());
+					model.map(fsym, si.extend(val, term.getSort()));
 				}
 			}
 		}
