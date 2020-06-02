@@ -184,8 +184,7 @@ public class EqualityProxy {
 		DPLLAtom lit = (DPLLAtom) mClausifier.getILiteral(eqTerm);
 		if (lit == null) {
 			lit = createAtom(eqTerm, source);
-			mClausifier.getLogger().debug("Created Equality: %s (%d/%d)", lit,
-					mClausifier.getEngine().getAssertionStackLevel(), lit.getAssertionStackLevel());
+			mClausifier.getLogger().debug("Created Equality: %s", lit);
 			mClausifier.setTermFlags(eqTerm, mClausifier.getTermFlags(eqTerm)
 					| Clausifier.POS_AUX_AXIOMS_ADDED
 					| Clausifier.NEG_AUX_AXIOMS_ADDED);
