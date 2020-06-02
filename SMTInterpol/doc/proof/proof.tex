@@ -795,8 +795,8 @@ constants.
     xor+2 & $\neg\quoted{xor\ F_1\ F_2}\lor\neg F_1\lor\neg F_2$\\
     xor-1 & $\quoted{xor\ F_1\ F_2}\lor F_1\lor\neg F_2$\\
     xor-2 & $\quoted{xor\ F_1\ F_2}\lor\neg F_1\lor F_2$\\
-    excludedMiddle1 & $\neg F\lor t_F = true$\\
-    excludedMiddle2 & $F\lor t_F = false$\\
+    excludedMiddle1 & $\quoted{t_F = true} \lor \neg F$\\
+    excludedMiddle2 & $\quoted{t_F = false} \lor F$\\
     termITE & $(\neg) F_1\lor\ldots\lor(\neg) F_n \lor (ite\ F_1 (ite\ F_2 \cdots (ite\ F_n\ t\ \_)\cdots)) = t$\\
     termITEBounds & $(ite F\ (ite \dots t_1 \dots t_n)) - max(t_i) \leq 0$\\
      & $min(t_i) -(ite\ F (ite \dots t_1 \dots t_n)) \leq 0$\\

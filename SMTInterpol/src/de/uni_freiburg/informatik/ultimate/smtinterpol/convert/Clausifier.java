@@ -686,6 +686,9 @@ public class Clausifier {
 		 *            The literal to add to the clause.
 		 */
 		public void addLiteral(final ILiteral lit) {
+			if (lit instanceof Literal) {
+				assert ((Literal) lit).getAtom().getAssertionStackLevel() <= mEngine.getAssertionStackLevel();
+			}
 			if (lit == mTRUE) {
 				mIsTrue = true;
 			} else if (lit == mFALSE) {
@@ -1607,31 +1610,21 @@ public class Clausifier {
 		assert falseProxy != EqualityProxy.getTrueProxy();
 		assert falseProxy != EqualityProxy.getFalseProxy();
 
-		final ILiteral lit = createBooleanLit((ApplicationTerm) term, source);
 		final Literal trueLit = trueProxy.getLiteral(source);
 		final Literal falseLit = falseProxy.getLiteral(source);
-		final Term trueTerm = trueLit.getSMTFormula(theory);
-		final Term falseTerm = falseLit.getSMTFormula(theory);
-		// m_Term => thenForm is (not m_Term) \/ thenForm
-		Term axiom = mTracker.auxAxiom(theory.term("or", theory.term("not", term), trueTerm),
-				ProofConstants.AUX_EXCLUDED_MIDDLE_1);
-		BuildClause bc = new BuildClause(axiom, source);
-		ClauseCollector collector = new ClauseCollector(bc, mTracker.reflexivity(mTracker.getProvedTerm(axiom)), 2);
-		final Term litRewrite = mTracker.intern(term, lit.getSMTFormula(theory, true));
-		Term rewrite = mTracker.congruence(mTracker.reflexivity(mTheory.term("not", term)),
-				new Term[] { litRewrite });
-		collector.addLiteral(lit.negate(), rewrite);
-		rewrite = mTracker.intern(trueTerm, trueLit.getSMTFormula(theory, true));
-		collector.addLiteral(trueLit, rewrite);
-		collector.perform();
-		// (not m_Term) => elseForm is m_Term \/ elseForm
-		axiom = mTracker.auxAxiom(theory.term("or", term, falseTerm), ProofConstants.AUX_EXCLUDED_MIDDLE_2);
-		bc = new BuildClause(axiom, source);
-		collector = new ClauseCollector(bc, mTracker.reflexivity(mTracker.getProvedTerm(axiom)), 2);
-		collector.addLiteral(lit, litRewrite);
-		rewrite = mTracker.intern(falseTerm, falseLit.getSMTFormula(theory, true));
-		collector.addLiteral(falseLit, rewrite);
-		collector.perform();
+
+		// term => trueLit is trueLit \/ ~term
+		Term axiom = theory.term("or", trueLit.getSMTFormula(theory, true), theory.term("not", term));
+		axiom = mTracker.auxAxiom(axiom, ProofConstants.AUX_EXCLUDED_MIDDLE_1);
+		buildAuxClause(trueLit, axiom, source);
+
+		// ~term => falseLit is falseLit \/ term
+		axiom = theory.term("or", falseLit.getSMTFormula(theory, true), term);
+		axiom = mTracker.auxAxiom(axiom, ProofConstants.AUX_EXCLUDED_MIDDLE_2);
+		buildAuxClause(falseLit, axiom, source);
+		if (!mIsRunning) {
+			run();
+		}
 	}
 
 	/**
@@ -1922,6 +1915,7 @@ public class Clausifier {
 	}
 
 	public void addFormula(final Term f) {
+		assert mTodoStack.isEmpty();
 		if (mEngine.inconsistent() && !mWarnedInconsistent) {
 			mLogger.warn("Already inconsistent.");
 			mWarnedInconsistent = true;
