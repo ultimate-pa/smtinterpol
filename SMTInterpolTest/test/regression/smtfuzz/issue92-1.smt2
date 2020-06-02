@@ -1,3 +1,4 @@
+(set-info :expect-errors 10)
 (set-option :produce-proofs true)
 (set-option :proof-check-mode true)
 (set-logic QF_UFLRA)
