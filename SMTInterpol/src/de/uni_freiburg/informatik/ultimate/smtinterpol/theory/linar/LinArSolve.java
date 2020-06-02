@@ -674,8 +674,8 @@ public class LinArSolve implements ITheory {
 
 	private boolean compositesSatisfied() {
 		for (final LinVar v : mLinvars) {
-			assert v.getValue().compareTo(v.getTightUpperBound()) <= 0;
-			assert v.getValue().compareTo(v.getTightLowerBound()) >= 0;
+			assert v.getValue().roundToInfinitesimal().compareTo(v.getTightUpperBound()) <= 0;
+			assert v.getValue().roundToInfinitesimal().compareTo(v.getTightLowerBound()) >= 0;
 		}
 		return true;
 	}
