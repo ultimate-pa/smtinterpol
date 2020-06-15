@@ -259,7 +259,8 @@ public class QuantClause {
 							if (!fac.isNegative()) {
 								remainder.mul(Rational.MONE);
 							}
-							final Term remainderTerm = remainder.toTerm(smd.getSort());
+							final Term remainderTerm =
+									remainder.toTerm(mQuantTheory.getClausifier().getTermCompiler(), smd.getSort());
 							if (remainderTerm.getFreeVars().length == 0) {
 								final int pos = getVarIndex((TermVariable) smd);
 								final VarInfo varInfo = mVarInfos[pos];
@@ -297,8 +298,10 @@ public class QuantClause {
 							lowerAffine.add(Rational.MONE);
 							final SMTAffineTerm upperAffine = new SMTAffineTerm(rhs);
 							upperAffine.add(Rational.ONE);
-							final Term lowerBound = lowerAffine.toTerm(rhs.getSort());
-							final Term upperBound = upperAffine.toTerm(rhs.getSort());
+							final Term lowerBound =
+									lowerAffine.toTerm(mQuantTheory.getClausifier().getTermCompiler(), rhs.getSort());
+							final Term upperBound =
+									upperAffine.toTerm(mQuantTheory.getClausifier().getTermCompiler(), rhs.getSort());
 							varInfo.addLowerGroundBound(lowerBound);
 							varInfo.addUpperGroundBound(upperBound);
 						}
@@ -430,7 +433,8 @@ public class QuantClause {
 							final Term idxTerm = idx.getFlatTerm();
 							final SMTAffineTerm idxPlusMinusOneAff = new SMTAffineTerm(idxTerm);
 							idxPlusMinusOneAff.add(offset);
-							final Term shared = idxPlusMinusOneAff.toTerm(idxTerm.getSort());
+							final Term shared = idxPlusMinusOneAff
+									.toTerm(mQuantTheory.getClausifier().getTermCompiler(), idxTerm.getSort());
 							final Term repShared = mQuantTheory.getRepresentativeTerm(shared);
 							mInterestingTermsForVars[varNum].put(repShared, shared);
 						}

@@ -44,7 +44,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantBoundCo
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantClause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantLiteral;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifiedTermInfo;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantUtils;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.dawg.Dawg;
 
@@ -92,8 +92,8 @@ public class EMatching {
 		final ArrayList<Triple<ICode, CCTerm[], Integer>> clauseCodes = new ArrayList<>();
 		for (final QuantLiteral qLit : qClause.getQuantLits()) {
 			final QuantLiteral qAtom = qLit.getAtom();
-			if (QuantifiedTermInfo.containsArithmeticOnlyAtTopLevel(qAtom)
-					&& QuantifiedTermInfo.containsAppTermsForEachVar(qAtom)) {
+			if (QuantUtils.containsArithmeticOnQuantTermsOnlyAtTopLevel(qAtom)
+					&& QuantUtils.containsAppTermsForEachVar(qAtom)) {
 				mEmatchingLiterals.add(qLit);
 				final Collection<Term> patterns = new LinkedHashSet<>();
 				if (qAtom instanceof QuantEquality) {
@@ -165,7 +165,7 @@ public class EMatching {
 	}
 
 	private Collection<Term> getSubPatterns(final SMTAffineTerm at) {
-		assert QuantifiedTermInfo.containsArithmeticOnlyAtTopLevel(at);
+		assert QuantUtils.containsArithmeticOnQuantTermsOnlyAtTopLevel(at);
 		final Collection<Term> patterns = new LinkedHashSet<>();
 		for (final Term smd : at.getSummands().keySet()) {
 			if (!(smd instanceof TermVariable) && smd.getFreeVars().length != 0) {

@@ -20,22 +20,25 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 
 /**
- * Info class for quantified terms. This class contains helper methods to classify quantified terms.
+ * This class contains helper methods to classify quantified terms and deal with substitutions.
  * 
  * @author Tanja Schindler
  */
-public class QuantifiedTermInfo {
+public class QuantUtils {
 
-	private QuantifiedTermInfo() {
+	private QuantUtils() {
 		// Not meant to be instantiated
 	}
 
@@ -89,19 +92,42 @@ public class QuantifiedTermInfo {
 		}
 	}
 
-	public static boolean containsArithmeticOnlyAtTopLevel(final QuantLiteral atom) {
+	public static boolean containsArithmeticOnQuantTermsOnlyAtTopLevel(final QuantLiteral atom) {
 		assert !atom.isNegated();
 		if (atom instanceof QuantBoundConstraint) {
-			return containsArithmeticOnlyAtTopLevel(((QuantBoundConstraint) atom).getAffineTerm());
+			return containsArithmeticOnQuantTermsOnlyAtTopLevel(((QuantBoundConstraint) atom).getAffineTerm());
 		} else {
 			final QuantEquality eq = (QuantEquality) atom;
 			final SMTAffineTerm lhsAff = new SMTAffineTerm(eq.getLhs());
-			if (containsArithmeticOnlyAtTopLevel(lhsAff)) {
+			if (containsArithmeticOnQuantTermsOnlyAtTopLevel(lhsAff)) {
 				final SMTAffineTerm rhsAff = new SMTAffineTerm(eq.getRhs());
-				return containsArithmeticOnlyAtTopLevel(rhsAff);
+				return containsArithmeticOnQuantTermsOnlyAtTopLevel(rhsAff);
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * Add up the coefficients of all lambda summmands of an affine term.
+	 * 
+	 * @param smtAff
+	 *            an SMTAffineTerm
+	 * @return the sum of all coefficients of lambda summands, or null, if the affine term does not contain any lambdas.
+	 */
+	public static Rational getLambdaCoeff(final SMTAffineTerm smtAff) {
+		boolean containsLambdas = false;
+		Rational lambdaCoeff = Rational.ZERO;
+		for (final Entry<Term, Rational> smd : smtAff.getSummands().entrySet()) {
+			if (QuantUtils.isLambda(smd.getKey())) {
+				containsLambdas = true;
+				lambdaCoeff = lambdaCoeff.add(smd.getValue());
+			}
+		}
+		if (containsLambdas) {
+			return lambdaCoeff;
+		} else {
+			return null;
+		}
 	}
 
 	public static boolean containsAppTermsForEachVar(final QuantLiteral atom) {
@@ -132,7 +158,7 @@ public class QuantifiedTermInfo {
 		return varTerms.isEmpty();
 	}
 
-	public static boolean containsArithmeticOnlyAtTopLevel(final SMTAffineTerm at) {
+	public static boolean containsArithmeticOnQuantTermsOnlyAtTopLevel(final SMTAffineTerm at) {
 		for (final Term smd : at.getSummands().keySet()) {
 			if (!(smd instanceof TermVariable) && !isNonVarUFTerm(smd)) {
 				return false;
@@ -152,7 +178,7 @@ public class QuantifiedTermInfo {
 	 *            the term to check.
 	 * @return true, if the term is a "simple" EU term, false otherwise.
 	 */
-	public static boolean isNonVarUFTerm(final Term term) {
+	private static boolean isNonVarUFTerm(final Term term) {
 		if (term.getFreeVars().length != 0) {
 			if (term instanceof TermVariable) {
 				return false;
@@ -196,4 +222,27 @@ public class QuantifiedTermInfo {
 		return false;
 	}
 
+	public static boolean isLambda(final Term term) {
+		return term instanceof ApplicationTerm && ((ApplicationTerm) term).getFunction().getName() == "@0";
+	}
+
+	/**
+	 * Substitute summands in affine term.
+	 * 
+	 * @param smtAff
+	 * @param subs
+	 * @return
+	 */
+	public static SMTAffineTerm substituteSmdsInAffine(final SMTAffineTerm smtAff, final Map<Term, Term> subs) {
+		final SMTAffineTerm subsAff = new SMTAffineTerm();
+		for (final Entry<Term, Rational> smd : smtAff.getSummands().entrySet()) {
+			final Term subsSmd = subs.get(smd.getKey());
+			if (subsSmd == null) {
+				return null;
+			}
+			subsAff.add(smd.getValue(), subsSmd);
+		}
+		subsAff.add(smtAff.getConstant());
+		return subsAff;
+	}
 }

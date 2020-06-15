@@ -71,6 +71,11 @@ public class QuantifierTheory implements ITheory {
 
 	private final EMatching mEMatching;
 	private final InstantiationManager mInstantiationManager;
+
+	/**
+	 * Lambdas are needed when there exists no ground substitution for a variable. For arithmetic sorts, lambda
+	 * corresponds to a very small number, for uninterpreted sorts it corresponds to a term that is different from all others.
+	 */
 	private final Map<Sort, Term> mLambdas;
 
 	/**
@@ -426,8 +431,8 @@ public class QuantifierTheory implements ITheory {
 
 		// Check if the atom is almost uninterpreted or can be used for DER.
 		if (!(newLhs instanceof TermVariable)) { // (euEUTerm = euTerm) is essentially and almost uninterpreted
-			if (QuantifiedTermInfo.isEssentiallyUninterpreted(newLhs)
-					&& QuantifiedTermInfo.isEssentiallyUninterpreted(newRhs)) {
+			if (QuantUtils.isEssentiallyUninterpreted(newLhs)
+					&& QuantUtils.isEssentiallyUninterpreted(newRhs)) {
 				atom.mIsEssentiallyUninterpreted = atom.negate().mIsEssentiallyUninterpreted = true;
 			}
 		} else if (!(newRhs instanceof TermVariable)) {
@@ -505,7 +510,7 @@ public class QuantifierTheory implements ITheory {
 		if (var == null) { // (euTerm <= 0), pos. and neg., is essentially and almost uninterpreted.
 			boolean hasOnlyEU = true;
 			for (final Term smd : linTerm.getSummands().keySet()) {
-				hasOnlyEU = hasOnlyEU && QuantifiedTermInfo.isEssentiallyUninterpreted(smd);
+				hasOnlyEU = hasOnlyEU && QuantUtils.isEssentiallyUninterpreted(smd);
 			}
 			if (hasOnlyEU) {
 				atom.mIsEssentiallyUninterpreted = atom.negate().mIsEssentiallyUninterpreted = true;

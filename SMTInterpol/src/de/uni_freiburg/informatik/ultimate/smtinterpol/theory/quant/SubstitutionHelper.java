@@ -24,6 +24,7 @@ import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
@@ -60,6 +61,8 @@ public class SubstitutionHelper {
 	private QuantLiteral[] mResultingQuantLits;
 	private Term mResultingClauseTerm;
 
+	private boolean mIsSubstitutionAllowed;
+
 	public SubstitutionHelper(final QuantifierTheory quantTheory, final Literal[] groundLits,
 			final QuantLiteral[] quantLits, final SourceAnnotation source, final Map<TermVariable, Term> sigma) {
 		mQuantTheory = quantTheory;
@@ -85,6 +88,7 @@ public class SubstitutionHelper {
 	public void substituteInClause() {
 
 		assert !mSigma.isEmpty();
+		mIsSubstitutionAllowed = true;
 
 		final List<Term> substitutedLitTerms = new ArrayList<>(mGroundLits.length + mQuantLits.length);
 		// We also need duplicates here for proof production.
@@ -105,14 +109,23 @@ public class SubstitutionHelper {
 				substitutedLitTerms.add(qLit.getTerm());
 				resultingQuantLits.add(qLit);
 			} else { // Build the new literals. Separate ground and quantified literals.
-				final Term subsLitTerm = computeSubstitutedLiteralAsTerm(qLit, mSigma);
+				final Term subsLitTerm = computeSubstitutedLiteralAsTerm(qLit, mSigma); // TOOD return null if it
+				// contains forbidden lambdas
+
+				// If the substitution is not allowed (i.e. contains lambdas in arithmetic), return
+				if (subsLitTerm == null) {
+					mResultingClauseTerm = null;
+					mResultingGroundLits = null;
+					mResultingQuantLits = null;
+					mIsSubstitutionAllowed = false;
+					return;
+				}
 				if (subsLitTerm == mQuantTheory.getTheory().mTrue) { // Clause is trivially true.
 					mResultingGroundLits = null;
 					mResultingQuantLits = null;
 					mResultingClauseTerm = mQuantTheory.getTheory().mTrue;
 					return;
 				}
-
 				substitutedLitTerms.add(subsLitTerm);
 				if (subsLitTerm == mQuantTheory.getTheory().mFalse) {
 					continue;
@@ -203,6 +216,21 @@ public class SubstitutionHelper {
 		// TODO Proof production.
 	}
 
+	public boolean isSubstitutionAllowed() {
+		return mIsSubstitutionAllowed;
+	}
+
+	/**
+	 * After applying the substitution, get the resulting clause term.
+	 *
+	 * @return the term representing the substituted clause. Note that it can be false or true.
+	 */
+	public Term getResultingClauseTerm() {
+		assert mIsSubstitutionAllowed;
+		assert mResultingClauseTerm != null : "Quant: Substitution has not yet been performed.";
+		return mResultingClauseTerm;
+	}
+
 	/**
 	 * After applying the substitution, get the resulting ground literals.
 	 *
@@ -210,6 +238,7 @@ public class SubstitutionHelper {
 	 *         to true; null if the clause is simplified to true.
 	 */
 	public Literal[] getResultingGroundLits() {
+		assert mIsSubstitutionAllowed;
 		assert mResultingClauseTerm != null : "Quant: Substitution has not yet been performed.";
 		return mResultingGroundLits;
 	}
@@ -221,18 +250,9 @@ public class SubstitutionHelper {
 	 *         simplified to true; null if the clause is simplified to true.
 	 */
 	public QuantLiteral[] getResultingQuantLits() {
+		assert mIsSubstitutionAllowed;
 		assert mResultingClauseTerm != null : "Quant: Substitution has not yet been performed.";
 		return mResultingQuantLits;
-	}
-
-	/**
-	 * After applying the substitution, get the resulting clause term.
-	 *
-	 * @return the term representing the substituted clause. Note that it can be false or true.
-	 */
-	public Term getResultingClauseTerm() {
-		assert mResultingClauseTerm != null : "Quant: Substitution has not yet been performed.";
-		return mResultingClauseTerm;
 	}
 
 	/**
@@ -245,10 +265,19 @@ public class SubstitutionHelper {
 	 *
 	 * TODO Proof production.
 	 *
-	 * @return the term resulting from the substitution.
+	 * @return the term resulting from the substitution, or null if the substitution is not allowed (i.e., the resulting
+	 *         term contains lambdas in arithmetic).
 	 */
 	private Term computeSubstitutedLiteralAsTerm(final QuantLiteral lit, final Map<TermVariable, Term> sigma) {
 		assert !Collections.disjoint(Arrays.asList(lit.getTerm().getFreeVars()), sigma.keySet());
+
+		// Do not build literals that are not almost uninterpreted where a variable is substituted by lambda as this can
+		// lead to lambdas in arithmetic. Not building the instance will not yield a wrong result, as the solver does
+		// not return satisfiable outside the almost uninterpreted fragment.
+		final boolean hasLambdaSubs = hasLambdaSubstitution(lit, sigma);
+		if (!lit.isAlmostUninterpreted() && hasLambdaSubs) {
+			return null;
+		}
 
 		final QuantLiteral atom = lit.getAtom();
 		final Term term = atom.getTerm(); // TODO Quoted literals?
@@ -259,79 +288,132 @@ public class SubstitutionHelper {
 		final Term substituted = unletter.transform(term);
 		// TODO Proof production. Needs rule for substitution.
 
-		// Normalize term.
-		Term normalized = substituted;
-		final TermCompiler compiler = mClausifier.getTermCompiler();
-		final IProofTracker tracker = mClausifier.getTracker();
+		Term normalized, simplified;
+		normalized = substituted;
 
-		if (atom instanceof QuantBoundConstraint) {
-			// TODO store rewrite proof
-			normalized = tracker.getProvedTerm(compiler.transform(substituted));
-		} else { // Normalize lhs and rhs separately
+		// Simplify arithmetical literals with lambdas; lambda is smaller than all other terms.
+		if (lit.isArithmetical() && hasLambdaSubs) {
 			assert substituted instanceof ApplicationTerm;
-			final ApplicationTerm subsEq = (ApplicationTerm) substituted;
-			assert subsEq.getFunction().getName() == "=";
-			final Term subsLhs = subsEq.getParameters()[0];
-			final Term subsRhs = subsEq.getParameters()[1];
-
-			if (QuantifiedTermInfo.isAuxApplication(subsLhs)) {
-				assert subsRhs == mQuantTheory.getTheory().mTrue;
-				final ApplicationTerm subsAuxTerm = (ApplicationTerm) subsLhs;
-				final Term[] oldArgs = subsAuxTerm.getParameters();
-				final Term[] normalizedArgs = new Term[oldArgs.length];
-				for (int i = 0; i < oldArgs.length; i++) {
-					normalizedArgs[i] = tracker.getProvedTerm(compiler.transform(oldArgs[i]));
-				}
-				final Term normalizedAuxTerm =
-						mQuantTheory.getTheory().term(((ApplicationTerm) subsLhs).getFunction(), normalizedArgs);
-				normalized = mQuantTheory.getTheory().term("=", normalizedAuxTerm, mQuantTheory.getTheory().mTrue);
-			} else {
-				final Term normalizedLhs = tracker.getProvedTerm(compiler.transform(subsLhs));
-				final Term normalizedRhs = tracker.getProvedTerm(compiler.transform(subsRhs));
-				normalized = mQuantTheory.getTheory().term("=", normalizedLhs, normalizedRhs);
-			}
-		}
-
-		// TODO Proof production.
-
-		// Simplify equality literals similar to EqualityProxy. (TermCompiler already takes care of <= literals).
-		Term simplified = normalized;
-		assert simplified instanceof ApplicationTerm;
-		final ApplicationTerm appTerm = (ApplicationTerm) simplified;
-		if (appTerm.getFunction().getName() == "=") {
-			final Term lhs = appTerm.getParameters()[0];
-			final Term rhs = appTerm.getParameters()[1];
-			final SMTAffineTerm diff = new SMTAffineTerm(lhs);
-			diff.add(Rational.MONE, rhs);
-			if (diff.isConstant()) {
-				if (diff.getConstant().equals(Rational.ZERO)) {
-					simplified = mQuantTheory.getTheory().mTrue;
+			final ApplicationTerm subsApp = (ApplicationTerm) normalized;
+			if (atom instanceof QuantBoundConstraint) { // x < t, t < x, x < y
+				if (subsApp.getFunction().getName() == "<=") {
+					final SMTAffineTerm lhs = new SMTAffineTerm(subsApp.getParameters()[0]);
+					boolean containsLambdas = false;
+					Rational lambdaCoeff = Rational.ZERO;
+					for (final Entry<Term, Rational> smd : lhs.getSummands().entrySet()) {
+						if (QuantUtils.isLambda(smd.getKey())) {
+							containsLambdas = true;
+							lambdaCoeff = lambdaCoeff.add(smd.getValue());
+						}
+					}
+					assert containsLambdas;
+					if (lambdaCoeff.signum() < 0) {
+						simplified = mQuantTheory.getTheory().mFalse;
+					} else {
+						// = 0 can happen for x<y literals where one of x, y is an integer and the other a rational
+						assert lambdaCoeff.signum() > 0 || lhs.getConstant().equals(Rational.ZERO);
+						simplified = mQuantTheory.getTheory().mTrue;
+					}
 				} else {
-					simplified = mQuantTheory.getTheory().mFalse;
+					simplified = normalized;
 				}
-			} else {
-				diff.div(diff.getGcd());
-				Sort sort = lhs.getSort();
-				// Normalize equality to integer logic if all variables are integer.
-				if (mQuantTheory.getTheory().getLogic().isIRA() && sort.getName().equals("Real")
-						&& diff.isAllIntSummands()) {
-					sort = mQuantTheory.getTheory().getSort("Int");
+			} else { // x = t
+				assert !lit.isNegated();
+				assert subsApp.getFunction().getName() == "=" && QuantUtils.isLambda(subsApp.getParameters()[0]);
+				simplified = mQuantTheory.getTheory().mFalse;
+			}
+		} else {
+			// Normalize term, in particular normalize affine terms.
+			normalized = substituted;
+			final TermCompiler compiler = mClausifier.getTermCompiler();
+			final IProofTracker tracker = mClausifier.getTracker();
+
+			if (atom instanceof QuantBoundConstraint) { // Normalize affine terms and simplify <= literals.
+				normalized = tracker.getProvedTerm(compiler.transform(substituted));
+			} else { // Normalize lhs and rhs separately.
+				final ApplicationTerm subsEq = (ApplicationTerm) substituted;
+				assert subsEq.getFunction().getName() == "=";
+				final Term subsLhs = subsEq.getParameters()[0];
+				final Term subsRhs = subsEq.getParameters()[1];
+
+				if (QuantUtils.isAuxApplication(subsLhs)) {
+					assert subsRhs == mQuantTheory.getTheory().mTrue;
+					final ApplicationTerm subsAuxTerm = (ApplicationTerm) subsLhs;
+					final Term[] oldArgs = subsAuxTerm.getParameters();
+					final Term[] normalizedArgs = new Term[oldArgs.length];
+					for (int i = 0; i < oldArgs.length; i++) {
+						normalizedArgs[i] = tracker.getProvedTerm(compiler.transform(oldArgs[i]));
+					}
+					final Term normalizedAuxTerm =
+							mQuantTheory.getTheory().term(((ApplicationTerm) subsLhs).getFunction(), normalizedArgs);
+					normalized = mQuantTheory.getTheory().term("=", normalizedAuxTerm, mQuantTheory.getTheory().mTrue);
+				} else {
+					final Term normalizedLhs = tracker.getProvedTerm(compiler.transform(subsLhs));
+					final Term normalizedRhs = tracker.getProvedTerm(compiler.transform(subsRhs));
+					normalized = mQuantTheory.getTheory().term("=", normalizedLhs, normalizedRhs);
 				}
-				// Check for unsatisfiable integer formula, e.g. 2x + 2y = 1.
-				if (sort.getName().equals("Int") && !diff.getConstant().isIntegral()) {
-					simplified = mQuantTheory.getTheory().mFalse;
+			}
+			// TODO Proof production for normalized term.
+
+			// Simplify equality literals similar to EqualityProxy.
+			simplified = normalized;
+			assert simplified instanceof ApplicationTerm;
+			final ApplicationTerm appTerm = (ApplicationTerm) simplified;
+			if (appTerm.getFunction().getName() == "=") {
+				final Term lhs = appTerm.getParameters()[0];
+				final Term rhs = appTerm.getParameters()[1];
+				final SMTAffineTerm diff = new SMTAffineTerm(lhs);
+				diff.add(Rational.MONE, rhs);
+				if (diff.isConstant()) {
+					if (diff.getConstant().equals(Rational.ZERO)) {
+						simplified = mQuantTheory.getTheory().mTrue;
+					} else {
+						simplified = mQuantTheory.getTheory().mFalse;
+					}
+				} else {
+					diff.div(diff.getGcd());
+					Sort sort = lhs.getSort();
+					// Normalize equality to integer logic if all variables are integer.
+					if (mQuantTheory.getTheory().getLogic().isIRA() && sort.getName().equals("Real")
+							&& diff.isAllIntSummands()) {
+						sort = mQuantTheory.getTheory().getSort("Int");
+					}
+					// Check for unsatisfiable integer formula, e.g. 2x + 2y = 1.
+					if (sort.getName().equals("Int") && !diff.getConstant().isIntegral()) {
+						simplified = mQuantTheory.getTheory().mFalse;
+					}
+
 				}
 			}
 		}
-		// TODO Proof production.
+		// TODO Proof production for simplified term.
 
 		final Term result;
 		if (lit.isNegated()) {
 			result = mQuantTheory.getTheory().not(simplified);
-			// TODO Proof production.
+			// TODO Proof production for negation.
 		} else {
 			result = simplified;
 		}
 		return result;
+	}
+
+	/**
+	 * Check if a variable in the given quantified literal is substituted by lambda.
+	 * 
+	 * @param lit
+	 *            the quantified literal.
+	 * @param subs
+	 *            a variable substitution.
+	 * @return true if any of the free variables in lit is mapped to a lambda term in the substitution subs, false
+	 *         otherwise.
+	 */
+	private boolean hasLambdaSubstitution(final QuantLiteral lit, final Map<TermVariable, Term> subs) {
+		for (final TermVariable var : lit.getTerm().getFreeVars()) {
+			if (QuantUtils.isLambda(subs.get(var))) {
+				return true;
+			}
+		}
+		return false;
 	}
 }

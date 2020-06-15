@@ -54,6 +54,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.model.NumericSortInterpre
 import de.uni_freiburg.informatik.ultimate.smtinterpol.model.SharedTermEvaluator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.LeafNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantUtils;
 import de.uni_freiburg.informatik.ultimate.util.DebugMessage;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
@@ -225,6 +226,10 @@ public class LinArSolve implements ITheory {
 	 * @return Newly created variable
 	 */
 	public LinVar addVar(final Term name, final boolean isint, final int level) {
+		if (mClausifier.getQuantifierTheory() != null) {
+			// Lambdas cannot occur in arithmetic.
+			assert !QuantUtils.isLambda(name);
+		}
 		if (mClausifier.getLogger().isDebugEnabled()) {
 			mClausifier.getLogger().debug("Creating var " + name);
 		}

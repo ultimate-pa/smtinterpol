@@ -264,11 +264,14 @@ class DestructiveEqualityReasoning {
 		final SubstitutionHelper subsHelper =
 				new SubstitutionHelper(mQuantTheory, mGroundLits, mQuantLits, mSource, mSigma);
 		subsHelper.substituteInClause();
-		mGroundLitsAfterDER = subsHelper.getResultingGroundLits();
-		mQuantLitsAfterDER = subsHelper.getResultingQuantLits();
-
+		assert subsHelper.isSubstitutionAllowed();
 		if (subsHelper.getResultingClauseTerm() == mQuantTheory.getTheory().mTrue) {
 			mIsTriviallyTrue = true;
+			mGroundLitsAfterDER = null;
+			mQuantLitsAfterDER = null;
+		} else {
+			mGroundLitsAfterDER = subsHelper.getResultingGroundLits();
+			mQuantLitsAfterDER = subsHelper.getResultingQuantLits();
 		}
 	}
 }
