@@ -93,7 +93,7 @@ public class EprPredicate {
 					mEprTheory.getTheory().createFreshTermVariable(tvName, fs.getParameterSorts()[i]));
 
 		}
-		mSignature = Collections.unmodifiableSortedSet(tva);
+		mSignature = tva;
 		mCurrentDecision = mEprTheory.getDawgFactory().createConstantDawg(mSignature, EprTheory.TriBool.UNKNOWN);
 	}
 
