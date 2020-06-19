@@ -107,7 +107,11 @@ public final class Main {
 			} else if (param[paramctr].equals("-script")
 					&& paramctr + 1 < param.length) {
 				paramctr++;
-				final Class<?> scriptClass = Class.forName(param[paramctr]);
+				String scriptName = param[paramctr];
+				if (!scriptName.contains(".")) {
+					scriptName = "de.uni_freiburg.informatik.ultimate.smtinterpol.scripts." + scriptName;
+				}
+				final Class<?> scriptClass = Class.forName(scriptName);
 				solver = (Script) scriptClass.newInstance();
 			} else if (param[paramctr].equals("-no-success")) {
 				options.set(":print-success", false);

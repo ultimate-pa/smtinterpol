@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.
  */
-package de.uni_freiburg.informatik.ultimate.smtinterpol.smtcomp;
+package de.uni_freiburg.informatik.ultimate.smtinterpol.scripts;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -33,6 +33,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Model;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.smtcomp.Track;
 
 /**
  * This script does the main work of the preparation. It also checks for compliance with the rules of SMT-COMP 2012.

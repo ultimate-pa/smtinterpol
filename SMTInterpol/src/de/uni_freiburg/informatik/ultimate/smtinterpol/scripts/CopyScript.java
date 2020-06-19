@@ -16,26 +16,16 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.
  */
-package de.uni_freiburg.informatik.ultimate.smtinterpol;
+package de.uni_freiburg.informatik.ultimate.smtinterpol.scripts;
 
 import java.io.IOException;
 
-import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.LoggingScript;
-import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
-import de.uni_freiburg.informatik.ultimate.logic.Term;
 
-public class Unletter extends LoggingScript {
+public class CopyScript extends LoggingScript {
 
-	private final FormulaUnLet mUnletter = new FormulaUnLet();
-
-	public Unletter() throws IOException {
+	public CopyScript() throws IOException {
 		super("<stdout>", true);
-	}
-
-	@Override
-	public LBool assertTerm(Term term) throws SMTLIBException {
-		return super.assertTerm(mUnletter.unlet(term));
 	}
 
 }
