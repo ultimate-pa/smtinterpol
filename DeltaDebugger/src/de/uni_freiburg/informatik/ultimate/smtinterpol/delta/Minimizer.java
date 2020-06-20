@@ -1182,32 +1182,10 @@ public class Minimizer {
 			}
 			ParseScript ps = new ParseScript();
 			ParseEnvironment pe = new ParseEnvironment(ps, new OptionMap(new DefaultLogger(), true)) {
-
-				@Override
-				public void printSuccess() {
-					// Disable output
-				}
-
-				@Override
-				public void printValues(final Map<Term, Term> values) {
-					// Disable output
-				}
-
 				@Override
 				public void printResponse(final Object response) {
 					// Disable output
 				}
-
-				@Override
-				public void printInfoResponse(final String info, final Object response) {
-					// Disable output
-				}
-
-				@Override
-				public void printTermResponse(final Term[] response) {
-					// Disable output
-				}
-
 			};
 			if (verbosity > 0) {
 				System.err.println("Begin parsing");

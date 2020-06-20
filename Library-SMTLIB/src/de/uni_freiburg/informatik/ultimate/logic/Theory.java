@@ -561,8 +561,8 @@ public class Theory {
 		}
 	}
 
-	public Term string(final String value) {
-		return constant(new QuotedObject(value), mStringSort);
+	public Term string(final QuotedObject value) {
+		return constant(value, mStringSort);
 	}
 
 	/******************** LOGICS AND THEORIES ********************************/

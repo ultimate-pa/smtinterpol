@@ -210,15 +210,15 @@ public class SMTInterpol extends NoopScript {
 
 	de.uni_freiburg.informatik.ultimate.smtinterpol.model.Model mModel = null;
 
-	private final static Object NAME = new QuotedObject("SMTInterpol");
+	private final static Object NAME = new QuotedObject("SMTInterpol", true);
 	private final static Object AUTHORS =
-			new QuotedObject("Juergen Christ, Jochen Hoenicke, Alexander Nutz, and Tanja Schindler");
-	private final static Object INTERPOLATION_METHOD = new QuotedObject("tree");
+			new QuotedObject("Juergen Christ, Jochen Hoenicke, Alexander Nutz, and Tanja Schindler", true);
+	private final static Object INTERPOLATION_METHOD = new QuotedObject("tree", true);
 	// I assume an initial check s.t. first (get-info :status) returns sat
 	private LBool mStatus = LBool.SAT;
 
 	// The status set in the benchmark
-	private String mStatusSet = null;
+	private LBool mStatusInfo = LBool.UNKNOWN;
 	private ReasonUnknown mReasonUnknown = null;
 
 	// The assertion stack was modified after the last check-sat, i.e., the
@@ -545,19 +545,19 @@ public class SMTInterpol extends NoopScript {
 		}
 		mStatus = result;
 		if (Config.CHECK_STATUS_SET && isStatusSet() && mReasonUnknown != ReasonUnknown.MEMOUT
-				&& !mStatus.toString().equals(mStatusSet)) {
-			mLogger.warn("Status differs: User said %s but we got %s", mStatusSet, mStatus);
+				&& !mStatus.equals(mStatusInfo)) {
+			mLogger.warn("Status differs: User said %s but we got %s", mStatusInfo, mStatus);
 			if (mDDFriendly) {
 				System.exit(13);
 			}
 		}
-		mStatusSet = null;
+		mStatusInfo = LBool.UNKNOWN;
 		mCancel.clearTimeout();
 		return result;
 	}
 
 	private final boolean isStatusSet() {
-		return mStatusSet != null && !mStatusSet.equals("unknown");
+		return mStatusInfo != LBool.UNKNOWN;
 	}
 
 	@Override
@@ -707,7 +707,7 @@ public class SMTInterpol extends NoopScript {
 			return NAME;
 		}
 		if (":version".equals(info)) {
-			return new QuotedObject(Main.getVersion());
+			return new QuotedObject(Main.getVersion(), true);
 		}
 		if (":authors".equals(info)) {
 			return AUTHORS;
@@ -716,7 +716,7 @@ public class SMTInterpol extends NoopScript {
 			return mEngine == null ? new Object[0] : mEngine.getStatistics();
 		}
 		if (":status-set".equals(info)) {
-			return mStatusSet;
+			return mStatusInfo;
 		}
 		if (":options".equals(info)) {
 			return mOptions.getInfo();
@@ -1010,14 +1010,11 @@ public class SMTInterpol extends NoopScript {
 	public void setInfo(final String info, final Object value) {
 		if (info.equals(":status") && value instanceof String) {
 			if (value.equals("sat")) {
-				mStatus = LBool.SAT;
-				mStatusSet = "sat";
+				mStatusInfo = LBool.SAT;
 			} else if (value.equals("unsat")) {
-				mStatus = LBool.UNSAT;
-				mStatusSet = "unsat";
+				mStatusInfo = LBool.UNSAT;
 			} else if (value.equals("unknown")) {
-				mStatus = LBool.UNKNOWN;
-				mStatusSet = "unknown";
+				mStatusInfo = LBool.UNKNOWN;
 			}
 		}
 	}
