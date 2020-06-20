@@ -531,7 +531,7 @@ constantTerm ::= NUMERAL:n
              			parser.report_error(se.getMessage());
              			RESULT = null;
              		} :};
-index ::= NUMERAL:n {: RESULT = n.toString(); :} | symbol;
+index ::= NUMERAL:n {: RESULT = n.toString(); :} | symbol | HEXADECIMAL | BINARY;
 identifierIndexed ::= LPAR UNDERSCORE symbol:id index+:indices RPAR
              {: RESULT = new IndexedIdentifier(id, indices); :};
 identifier ::= symbol:s {: RESULT = new IndexedIdentifier(s, null); :}

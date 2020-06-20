@@ -20,6 +20,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2;
 
 import java.io.FileWriter;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.Collections;
 import java.util.HashSet;
@@ -202,7 +203,9 @@ public class SMTInterpol extends NoopScript {
 
 	private final OptionMap mOptions;
 	private final SolverOptions mSolverOptions;
-	private double mSMTLIBVersion = 2.0;
+	private BigDecimal mSMTLIBVersion = new BigDecimal("2.0");
+	/** The SMTLIB version where string format changed */
+	private static final BigDecimal TWO_POINT_FIVE = new BigDecimal("2.5");
 
 	private DPLLEngine mEngine;
 	private Clausifier mClausifier;
@@ -728,7 +731,7 @@ public class SMTInterpol extends NoopScript {
 		case ":interpolation-method":
 			return INTERPOLATION_METHOD;
 		default:
-			return mOptions.getInfo(info, mSMTLIBVersion >= 2.5);
+			return mOptions.getInfo(info, mSMTLIBVersion.compareTo(TWO_POINT_FIVE) >= 0);
 		}
 	}
 
@@ -1014,7 +1017,7 @@ public class SMTInterpol extends NoopScript {
 			}
 		}
 		if (info.equals(SMTLIBConstants.SMT_LIB_VERSION)) {
-			mSMTLIBVersion = Double.parseDouble(String.valueOf(value));
+			mSMTLIBVersion = (BigDecimal) value;
 		}
 	}
 

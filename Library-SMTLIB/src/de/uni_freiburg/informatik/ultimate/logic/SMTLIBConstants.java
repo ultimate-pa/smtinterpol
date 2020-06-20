@@ -150,6 +150,53 @@ public interface SMTLIBConstants {
 	public static final String FP_IS_POSITIVE = "fp.isPositive";
 	public static final String FP_TO_REAL = "fp.to_real";
 
+	// Strings
+	public static final String STRING = "String";
+	public static final String REGLAN = "RegLan";
+
+	public static final String CHAR = "char";
+
+	public static final String STR_CONCAT = "str.++";
+	public static final String STR_LEN = "str.len";
+	public static final String STR_LT = "str.<";
+	public static final String STR_TO_RE = "str.to_re";
+	public static final String STR_IN_RE = "str.in_re";
+	public static final String RE_NONE = "re.none";
+	public static final String RE_ALL = "re.all";
+	public static final String RE_ALLCHAR = "re.allchar";
+	public static final String RE_CONCAT = "re.++";
+	public static final String RE_UNION = "re.union";
+	public static final String RE_INTER = "re.inter";
+	public static final String RE_STAR = "re.*";
+
+	public static final String STR_LE = "str.<=";
+	public static final String STR_AT = "str.at";
+	public static final String STR_SUBSTR = "str.substr";
+	public static final String STR_PREFIXOF = "str.prefixof";
+	public static final String STR_SUFFIXOF = "str.suffixof";
+	public static final String STR_CONTAINS = "str.contains";
+	public static final String STR_INDEXOF = "str.indexof";
+	public static final String STR_REPLACE = "str.replace";
+	public static final String STR_REPLACE_ALL = "str.replace_all";
+	public static final String STR_REPLACE_RE = "str.replace_re";
+	public static final String STR_REPLACE_RE_ALL = "str.replace_re_all";
+	/** Regex complement */
+	public static final String RE_COMP = "re.comp";
+	/** Regex difference */
+	public static final String RE_DIFF = "re.diff";
+	public static final String RE_PLUS = "re.+";
+	/** RegEx option: (re_opt re) = (re.union (re.to_str "") re) */
+	public static final String RE_OPT = "re.opt";
+	public static final String RE_RANGE = "re.range";
+	public static final String RE_ITER = "re.^";
+	public static final String RE_LOOP = "re.loop";
+
+	public static final String STR_IS_DIGIT = "str.is_digit";
+	public static final String STR_TO_CODE = "str.to_code";
+	public static final String STR_FROM_CODE = "str.from_code";
+	public static final String STR_TO_INT = "str.to_int";
+	public static final String STR_FROM_INT = "str.from_int";
+
 	// official attributes
 	public static final String NAMED = ":named";
 	public static final String PATTERN = ":pattern";
