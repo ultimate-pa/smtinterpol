@@ -781,8 +781,16 @@ command ::= SETLOGIC symbol:logic
                }
             :}
           | SETINFO keyword:k attributeValue?:v
-            {: parser.env.setInfo(k, v);
-            parser.env.printSuccess(); :}
+            {: try {
+                   parser.env.setInfo(k, v);
+                   parser.env.printSuccess();
+               } catch (UnsupportedOperationException uoe) {
+                   parser.env.printUnsupported();
+               } catch (SMTLIBException se) {
+                   parser.report_error(se.getMessage(), k$);
+                   parser.env.printError(getError());
+               }
+            :}
           | DECLARESORT symbol:sort NUMERAL:n
             {:
                 if (n.bitLength() >= 32)
@@ -1004,7 +1012,7 @@ command ::= SETLOGIC symbol:logic
           | GETUNSATCORE
             {: try {
                 Term[] res = parser.env.getScript().getUnsatCore();
-                parser.env.printResponse(res);
+                parser.env.printResponse(new SExpression(res));
             } catch (SMTLIBException se) {
                 parser.report_error(se.getMessage());
                 parser.env.printError(getError());
@@ -1014,7 +1022,7 @@ command ::= SETLOGIC symbol:logic
           | GETUNSATASSUMPTIONS
             {: try {
                 Term[] res = parser.env.getScript().getUnsatAssumptions();
-                parser.env.printResponse(res);
+                parser.env.printResponse(new SExpression(res));
             } catch (SMTLIBException se) {
                 parser.report_error(se.getMessage());
                 parser.env.printError(getError());
@@ -1100,7 +1108,7 @@ command ::= SETLOGIC symbol:logic
                    parser.env.printError(getError());
                } else {
                    try {
-                       parser.env.printResponse(parser.env.getScript().checkAllsat(p));
+                       parser.env.printResponse(new SExpression(parser.env.getScript().checkAllsat(p)));
                    } catch (UnsupportedOperationException ignored) {
                        parser.env.printUnsupported();
                    } catch (SMTLIBException se) {

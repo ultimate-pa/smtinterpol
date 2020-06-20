@@ -43,6 +43,7 @@ import de.uni_freiburg.informatik.ultimate.logic.PrintTerm;
 import de.uni_freiburg.informatik.ultimate.logic.QuotedObject;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.ReasonUnknown;
+import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -59,6 +60,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate.Interpolator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap.CopyMode;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolOptions;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SolverOptions;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofChecker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
@@ -200,6 +202,7 @@ public class SMTInterpol extends NoopScript {
 
 	private final OptionMap mOptions;
 	private final SolverOptions mSolverOptions;
+	private double mSMTLIBVersion = 2.0;
 
 	private DPLLEngine mEngine;
 	private Clausifier mClausifier;
@@ -594,23 +597,22 @@ public class SMTInterpol extends NoopScript {
 			// This has to be before set-logic since we need to capture
 			// initialization of CClosure.
 			mEngine.setProofGeneration(proofMode > 0);
-			mClausifier.setQuantifierOptions(getBooleanOption(SolverOptions.EPR),
-					getBooleanOption(SolverOptions.E_MATCHING), getBooleanOption(SolverOptions.UNKNOWN_TERM_DAWGS),
-					getBooleanOption(SolverOptions.PROPAGATE_UNKNOWN_TERMS),
-					getBooleanOption(SolverOptions.PROPAGATE_UNKNOWN_AUX));
+			mClausifier.setQuantifierOptions(getBooleanOption(SMTInterpolOptions.EPR),
+					getBooleanOption(SMTInterpolOptions.E_MATCHING), getBooleanOption(SMTInterpolOptions.UNKNOWN_TERM_DAWGS),
+					getBooleanOption(SMTInterpolOptions.PROPAGATE_UNKNOWN_TERMS),
+					getBooleanOption(SMTInterpolOptions.PROPAGATE_UNKNOWN_AUX));
 			mClausifier.setLogic(logic);
-			final boolean produceAssignment = getBooleanOption(":produce-assignments");
-			mClausifier.setAssignmentProduction(produceAssignment);
-			mEngine.setProduceAssignments(produceAssignment);
+			final boolean produceAssignments = getBooleanOption(SMTLIBConstants.PRODUCE_ASSIGNMENTS);
+			mClausifier.setAssignmentProduction(produceAssignments);
+			mEngine.setProduceAssignments(produceAssignments);
 			mEngine.setRandomSeed(mSolverOptions.getRandomSeed());
-			if (getBooleanOption(":interactive-mode") || mSolverOptions.isInterpolantCheckModeActive()
-					|| mSolverOptions.isProofCheckModeActive()
-					|| mSolverOptions.isModelCheckModeActive() || getBooleanOption(":unsat-core-check-mode")
-					|| getBooleanOption(":unsat-assumptions-check-mode")) {
+			if (produceAssignments || mSolverOptions.isInterpolantCheckModeActive() || mSolverOptions.isProofCheckModeActive()
+					|| mSolverOptions.isModelCheckModeActive() || getBooleanOption(SMTInterpolOptions.UNSAT_CORE_CHECK_MODE)
+					|| getBooleanOption(SMTInterpolOptions.UNSAT_ASSUMPTIONS_CHECK_MODE)) {
 				mAssertions = new ScopedArrayList<>();
 			}
 			mOptions.setOnline();
-			mEngine.getSMTTheory().setGlobalSymbols(((Boolean) mOptions.get(":global-declarations")).booleanValue());
+			mEngine.getSMTTheory().setGlobalSymbols(getBooleanOption(SMTLIBConstants.GLOBAL_DECLARATIONS));
 		} catch (final UnsupportedOperationException eLogicUnsupported) {
 			super.reset();
 			mEngine = null;
@@ -700,41 +702,34 @@ public class SMTInterpol extends NoopScript {
 
 	@Override
 	public Object getInfo(final String info) throws UnsupportedOperationException {
-		if (":status".equals(info)) {
+		switch (info) {
+		case SMTLIBConstants.STATUS:
 			return mStatus;
-		}
-		if (":name".equals(info)) {
+		case SMTLIBConstants.NAME:
 			return NAME;
-		}
-		if (":version".equals(info)) {
+		case SMTLIBConstants.VERSION:
 			return new QuotedObject(Main.getVersion(), true);
-		}
-		if (":authors".equals(info)) {
+		case SMTLIBConstants.AUTHORS:
 			return AUTHORS;
-		}
-		if (":all-statistics".equals(info)) {
+		case SMTLIBConstants.ALL_STATISTICS:
 			return mEngine == null ? new Object[0] : mEngine.getStatistics();
-		}
-		if (":status-set".equals(info)) {
+		case ":status-set":
 			return mStatusInfo;
-		}
-		if (":options".equals(info)) {
+		case ":options":
 			return mOptions.getInfo();
-		}
-		if (":reason-unknown".equals(info)) {
+		case SMTLIBConstants.REASON_UNKNOWN:
 			if (mStatus != LBool.UNKNOWN) {
 				throw new SMTLIBException("Status not unknown");
 			}
 			return mReasonUnknown;
-		}
-		if (":assertion-stack-levels".equals(info)) {
+		case SMTLIBConstants.ASSERTION_STACK_LEVELS:
 			return mStackLevel;
-		}
 		// Info from our SMTLIB interpolation proposal
-		if (":interpolation-method".equals(info)) {
+		case ":interpolation-method":
 			return INTERPOLATION_METHOD;
+		default:
+			return mOptions.getInfo(info, mSMTLIBVersion >= 2.5);
 		}
-		return mOptions.getInfo(info);
 	}
 
 	@Override
@@ -750,7 +745,7 @@ public class SMTInterpol extends NoopScript {
 	private int getProofMode() {
 		if (mSolverOptions.isProofCheckModeActive() || mSolverOptions.isProduceProofs()) {
 			return 2;
-		} else if (mSolverOptions.isProduceInterpolants() || getBooleanOption(":produce-unsat-cores")) {
+		} else if (mSolverOptions.isProduceInterpolants() || getBooleanOption(SMTLIBConstants.PRODUCE_UNSAT_CORES)) {
 			return 1;
 		} else {
 			return 0;
@@ -855,7 +850,8 @@ public class SMTInterpol extends NoopScript {
 			}
 			SMTInterpol checkingSolver = null;
 			if (mSolverOptions.isInterpolantCheckModeActive()) {
-				final Map<String, Object> newOptions = Collections.singletonMap(":interactive-mode", (Object) Boolean.TRUE);
+				final Map<String, Object> newOptions = 
+						Collections.singletonMap(SMTLIBConstants.PRODUCE_ASSERTIONS, (Object) Boolean.TRUE);
 				checkingSolver = new SMTInterpol(this, newOptions, CopyMode.CURRENT_VALUE);
 			}
 			final Term[] ipls;
@@ -873,10 +869,10 @@ public class SMTInterpol extends NoopScript {
 			if (mSolverOptions.isSimplifyInterpolants()) {
 				final SimplifyDDA simplifier = new SimplifyDDA(
 						new SMTInterpol(this,
-								Collections.singletonMap(":check-type",
+								Collections.singletonMap(SMTInterpolOptions.CHECK_TYPE,
 										(Object) mSolverOptions.getSimplifierCheckType()),
 								CopyMode.CURRENT_VALUE),
-						getBooleanOption(":simplify-repeatedly"));
+						getBooleanOption(SMTInterpolOptions.SIMPLIFY_REPEATEDLY));
 				for (int i = 0; i < ipls.length; ++i) {
 					ipls[i] = simplifier.getSimplifiedTerm(ipls[i]);
 				}
@@ -897,7 +893,7 @@ public class SMTInterpol extends NoopScript {
 		if (mEngine == null) {
 			throw new SMTLIBException("No logic set!");
 		}
-		if (!getBooleanOption(":produce-unsat-cores")) {
+		if (!getBooleanOption(SMTLIBConstants.PRODUCE_UNSAT_CORES)) {
 			throw new SMTLIBException("Set option :produce-unsat-cores to true before using get-unsat-cores");
 		}
 		checkAssertionStackModified();
@@ -906,7 +902,7 @@ public class SMTInterpol extends NoopScript {
 			throw new SMTLIBException("Logical context not inconsistent!");
 		}
 		final Term[] core = new UnsatCoreCollector(this).getUnsatCore(unsat);
-		if (getBooleanOption(":unsat-core-check-mode")) {
+		if (getBooleanOption(SMTInterpolOptions.UNSAT_CORE_CHECK_MODE)) {
 			final HashSet<String> usedParts = new HashSet<>();
 			for (final Term t : core) {
 				usedParts.add(((ApplicationTerm) t).getFunction().getName());
@@ -921,7 +917,7 @@ public class SMTInterpol extends NoopScript {
 					if (asserted instanceof AnnotatedTerm) {
 						final AnnotatedTerm annot = (AnnotatedTerm) asserted;
 						for (final Annotation an : annot.getAnnotations()) {
-							if (":named".equals(an.getKey()) && usedParts.contains(an.getValue())) {
+							if (SMTLIBConstants.NAMED.equals(an.getKey()) && usedParts.contains(an.getValue())) {
 								continue termloop;
 							}
 						}
@@ -949,7 +945,7 @@ public class SMTInterpol extends NoopScript {
 		if (mEngine == null) {
 			throw new SMTLIBException("No logic set!");
 		}
-		if (!getBooleanOption(":produce-unsat-assumptions")) {
+		if (!getBooleanOption(SMTLIBConstants.PRODUCE_UNSAT_ASSUMPTIONS)) {
 			throw new SMTLIBException(
 					"Set option :produce-unsat-assumptions to true before using get-unsat-assumptions");
 		}
@@ -963,7 +959,7 @@ public class SMTInterpol extends NoopScript {
 		for (int i = 0; i < unsatAssumptionLits.length; ++i) {
 			unsatAssumptions[i] = unsatAssumptionLits[i].negate().getSMTFormula(t);
 		}
-		if (getBooleanOption(":unsat-assumptions-check-mode")) {
+		if (getBooleanOption(SMTInterpolOptions.UNSAT_ASSUMPTIONS_CHECK_MODE)) {
 			final SMTInterpol tmpBench = new SMTInterpol(this, null, CopyMode.CURRENT_VALUE);
 			final int old = tmpBench.mLogger.getLoglevel();
 			try {
@@ -1008,14 +1004,17 @@ public class SMTInterpol extends NoopScript {
 
 	@Override
 	public void setInfo(final String info, final Object value) {
-		if (info.equals(":status") && value instanceof String) {
-			if (value.equals("sat")) {
+		if (info.equals(SMTLIBConstants.STATUS)) {
+			if (value.equals(SMTLIBConstants.SAT)) {
 				mStatusInfo = LBool.SAT;
-			} else if (value.equals("unsat")) {
+			} else if (value.equals(SMTLIBConstants.UNSAT)) {
 				mStatusInfo = LBool.UNSAT;
-			} else if (value.equals("unknown")) {
+			} else {
 				mStatusInfo = LBool.UNKNOWN;
 			}
+		}
+		if (info.equals(SMTLIBConstants.SMT_LIB_VERSION)) {
+			mSMTLIBVersion = Double.parseDouble(String.valueOf(value));
 		}
 	}
 
@@ -1030,7 +1029,7 @@ public class SMTInterpol extends NoopScript {
 		final int oldNumScopes = mStackLevel;
 		try {
 			mSolverOptions.setCheckType(mSolverOptions.getSimplifierCheckType());
-			return new SimplifyDDA(this, getBooleanOption(":simplify-repeatedly")).getSimplifiedTerm(term);
+			return new SimplifyDDA(this, getBooleanOption(SMTInterpolOptions.SIMPLIFY_REPEATEDLY)).getSimplifiedTerm(term);
 		} finally {
 			mSolverOptions.setCheckType(old);
 			assert (mStackLevel == oldNumScopes);

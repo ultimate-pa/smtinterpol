@@ -60,6 +60,7 @@ public class QuotedObject {
 	 */
 	public QuotedObject(String value, boolean isSMTLIB25) {
 		mValue = value;
+		mIsSMTLIB25 = isSMTLIB25;
 	}
 
 	/**

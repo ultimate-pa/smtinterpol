@@ -35,6 +35,7 @@ import com.github.jhoenicke.javacup.runtime.SimpleSymbolFactory;
 
 import de.uni_freiburg.informatik.ultimate.logic.PrintTerm;
 import de.uni_freiburg.informatik.ultimate.logic.QuotedObject;
+import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -53,10 +54,6 @@ public class ParseEnvironment {
 	private boolean mVersion25 = true;
 
 	public ParseEnvironment(final Script script, final OptionMap options) {
-		this(script, null, options);
-	}
-
-	public ParseEnvironment(final Script script, final ExitHook exit, final OptionMap options) {
 		mScript = script;
 		mOptions = options.getFrontEndOptions();
 		if (!mOptions.isFrontEndActive()) {
@@ -164,7 +161,7 @@ public class ParseEnvironment {
 				return;
 			} else if (response instanceof SExpression
 					   && ((SExpression) response).getData() instanceof Term[]) {
-				new PrintTerm().append(out, ((SExpression) response).getData());
+				new PrintTerm().append(out, (Term[]) ((SExpression) response).getData());
 				out.println();
 				out.flush();
 				return;
@@ -184,7 +181,7 @@ public class ParseEnvironment {
 	}
 
 	public void setInfo(final String info, final Object value) {
-		if (info.equals(":smt-lib-version")) {
+		if (info.equals(SMTLIBConstants.SMT_LIB_VERSION)) {
 			final String svalue = String.valueOf(value);
 			if ("2.5".equals(svalue) || "2.6".equals(svalue)) {
 				mVersion25 = true;
@@ -193,21 +190,27 @@ public class ParseEnvironment {
 				mVersion25 = false;
 				mLexer.setVersion25(false);
 			} else {
-				printError("Unknown SMTLIB version");
+				throw new SMTLIBException("Unknown SMT-LIB version");
 			}
-		} else if (info.equals(":error-behavior")) {
-			if ("immediate-exit".equals(value)) {
+		} else if (info.equals(SMTLIBConstants.ERROR_BEHAVIOR)) {
+			switch ((String) value) {
+			case SMTLIBConstants.IMMEDIATE_EXIT:
 				mScript.setOption(":continue-on-error", false);
-			} else if ("continued-execution".equals(value)) {
+				break;
+			case SMTLIBConstants.CONTINUED_EXECUTION:
 				mScript.setOption(":continue-on-error", true);
+				break;
+			default:
+				throw new SMTLIBException("Value should be " + SMTLIBConstants.CONTINUED_EXECUTION
+						+ " or " + SMTLIBConstants.IMMEDIATE_EXIT);
 			}
 		}
 		mScript.setInfo(info, value);
 	}
 
 	public Object getInfo(final String info) {
-		if (info.equals(":error-behavior")) {
-			return mOptions.continueOnError() ? "continued-execution" : "immediate-exit";
+		if (info.equals(SMTLIBConstants.ERROR_BEHAVIOR)) {
+			return mOptions.continueOnError() ? SMTLIBConstants.CONTINUED_EXECUTION : SMTLIBConstants.IMMEDIATE_EXIT;
 		}
 		return mScript.getInfo(info);
 	}

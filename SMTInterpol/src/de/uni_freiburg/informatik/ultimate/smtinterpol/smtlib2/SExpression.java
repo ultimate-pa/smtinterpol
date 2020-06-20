@@ -1,4 +1,24 @@
+/*
+ * Copyright (C) 2020 University of Freiburg
+ *
+ * This file is part of SMTInterpol.
+ *
+ * SMTInterpol is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * SMTInterpol is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.
+ */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2;
+
+import java.util.Arrays;
 
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 
@@ -11,18 +31,21 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
  *
  */
 public class SExpression {
-	private Object[] mData;
+	private Object mData;
 
-	public SExpression(Object[] data) {
+	public SExpression(Object data) {
 		this.mData = data;
 	}
 	
-	public Object[] getData() {
+	public Object getData() {
 		return mData;
 	}
-	
-	private static boolean convertSexp(final StringBuilder sb, final Object o, final int indentation) {
-		if (o instanceof Object[]) {
+
+	private static boolean convertSexp(final StringBuilder sb, Object sexpr, final int indentation) {
+		if (sexpr instanceof Object[]) {
+			sexpr = Arrays.asList((Object[]) sexpr);
+		}
+		if (sexpr instanceof Iterable) {
 			if (Config.RESULTS_ONE_PER_LINE && indentation > 0) {
 				sb.append(System.getProperty("line.separator"));
 				for (int i = 0; i < indentation; ++i) {
@@ -30,12 +53,11 @@ public class SExpression {
 				}
 			}
 			sb.append('(');
-			final Object[] array = (Object[]) o;
 			boolean subarray = false;
 			String sep = "";
-			for (final Object el : array) {
+			for (final Object elem : (Iterable<?>) sexpr) {
 				sb.append(sep);
-				subarray |= convertSexp(sb, el, indentation + Config.INDENTATION);
+				subarray |= convertSexp(sb, elem, indentation + Config.INDENTATION);
 				sep = " ";
 			}
 			if (subarray && Config.RESULTS_ONE_PER_LINE) {
@@ -47,7 +69,7 @@ public class SExpression {
 			sb.append(')');
 			return true;
 		} else {
-			sb.append(o);
+			sb.append(sexpr.toString());
 		}
 		return false;
 	}
