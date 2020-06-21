@@ -82,3 +82,5 @@ comment.cut
 *.tgz
 *.zip
 
+# webinterface
+Webinterface/target
