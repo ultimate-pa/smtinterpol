@@ -32,10 +32,10 @@ public class Main {
         String inputString = inputPanel.getValue().toString();
 
 		try {
-			SMTInterpol smtl = new SMTInterpol();
 			final DefaultLogger logger = new DefaultLogger();
 			final OptionMap options = new OptionMap(logger, true);
-			WebEnvironment pe = new WebEnvironment(smtl, options);
+			SMTInterpol solver = new SMTInterpol(null, options);
+			WebEnvironment pe = new WebEnvironment(solver, options);
 			pe.parseStream(new StringReader(inputString), "webinput.smt2");
 
 			if (inputPanel.getValue().toString().length() > 1) {
