@@ -117,6 +117,8 @@ public class ParseEnvironment {
 		parser.setParseEnvironment(this);
 		try {
 			parser.parse();
+		} catch (final RuntimeException ex) {
+			throw ex;
 		} catch (final Exception ex) {
 			System.err.println("Unexpected Exception: " + ex);
 			throw new SMTLIBException(ex);
