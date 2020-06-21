@@ -115,7 +115,13 @@ stage:             Upload new version to Maven Central (owner only)
   </target>
 
   <!-- Compile SMTInterpol -->
-  <target name="compile" depends="get-version,smtlib1.cup,smtlib2.cup,dimacs.cup">
+  <target name="prepare" depends="get-version,smtlib1.cup,smtlib2.cup,dimacs.cup">
+    <copy file="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/Version.template" overwrite="true" tofile="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/Version.java">
+      <filterchain><expandproperties /></filterchain>
+    </copy>
+  </target>
+
+  <target name="compile" depends="prepare">
     <mkdir dir="${dir.workspace}/Library-SMTLIB/release"/>
     <mkdir dir="${dir.workspace}/SMTInterpol/release"/>
     <javac srcdir="${dir.workspace}/Library-SMTLIB/src" destdir="${dir.workspace}/Library-SMTLIB/release" optimize="${optimize}" includeAntRuntime="false" debug="${debug}">
@@ -130,11 +136,6 @@ stage:             Upload new version to Maven Central (owner only)
         <pathelement path="${dir.workspace}/Library-SMTLIB/release"/>
       </classpath>
     </javac>
-    <propertyfile file="${dir.workspace}/SMTInterpol/release/de/uni_freiburg/informatik/ultimate/smtinterpol/Version.properties">
-      <entry key="version" value="${version}"/>
-      <entry key="build.date" value="${build.date}"/>
-      <entry key="build.year" value="${build.year}"/>
-    </propertyfile>
   </target>
 
   <!-- Compile Deltadebugger -->
@@ -150,10 +151,8 @@ stage:             Upload new version to Maven Central (owner only)
   </target>
 
   <!-- Create an executable jar -->
-  <target name="smtinterpol.jar" depends="get-version">
+  <target name="smtinterpol.jar" depends="compile">
     <mkdir dir="${jar.outdir}"/>
-    <antcall target="clean"/>
-    <antcall target="compile"/>
     <jar destfile="${jar.outdir}/${jar.basename}.jar" filesetmanifest="mergewithoutmain">
       <manifest>
         <attribute name="Main-Class" value="de.uni_freiburg.informatik.ultimate.smtinterpol.Main"/>
@@ -196,11 +195,8 @@ stage:             Upload new version to Maven Central (owner only)
   </target>
 
   <!-- Create a source jar -->
-  <target name="create_src_jar" depends="get-version">
+  <target name="create_src_jar" depends="prepare">
     <mkdir dir="${jar.outdir}"/>
-    <propertyfile file="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/Version.properties">
-      <entry key="version" value="${version}"/>
-    </propertyfile>
     <jar destfile="${jar.outdir}/${jar.basename}-sources.jar">
       <zipfileset dir="${dir.workspace}" prefix="smtinterpol">
         <include name="**/src/**" />
@@ -263,6 +259,7 @@ java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/3))m -da -dsa -XX:-UseGCOverheadLimit -j
       <filelist dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib" files="Parser.java,Lexer.java,LexerSymbols.java" />
       <filelist dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2" files="Parser.java,Lexer.java,LexerSymbols.java" />
       <filelist dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs" files="Parser.java,Lexer.java,LexerSymbols.java" />
+      <filelist dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/" files="Version.java" />
     </delete>
   </target>
 
@@ -436,13 +433,13 @@ java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/3))m -da -dsa -XX:-UseGCOverheadLimit -j
   <!-- There server id in the Maven settings.xml -->
   <property name="ossrh-server-id" value="ossrh" />
 
-  <target name="dist" depends="create_src_jar, smtinterpol.jar, javadoc-jar" description="Generate the distribution">
-    <copy file="pom_template.xml" overwrite="true" tofile="${jar.outdir}/pom.xml"/>
-    <replace file="${jar.outdir}/pom.xml" token="VERSION" value="${version}"/>
+  <target name="dist" depends="clean,create_src_jar, smtinterpol.jar, javadoc-jar" description="Generate the distribution">
   </target>
   
   <target name="stage" depends="dist" description="deploy release version to Maven staging repository">
-    
+    <copy file="pom_template.xml" overwrite="true" tofile="${jar.outdir}/pom.xml">
+      <filterchain><expandproperties /></filterchain>
+    </copy>
     <echo>
 Uploading artifacts using ~/.m2/settings.xml. I hope you have the
 permissions to do this.

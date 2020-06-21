@@ -33,4 +33,7 @@ along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.
         </java>
     </target>
 
+	<target name="eclipse" depends="generate_parser">
+		<eclipse.refreshLocal resource="SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib" depth="one"/>
+	</target>
 </project>

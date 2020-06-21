@@ -53,7 +53,7 @@ import de.uni_freiburg.informatik.ultimate.logic.simplification.SimplifyDDA;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.Main;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.Version;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
@@ -711,7 +711,7 @@ public class SMTInterpol extends NoopScript {
 		case SMTLIBConstants.NAME:
 			return NAME;
 		case SMTLIBConstants.VERSION:
-			return new QuotedObject(Main.getVersion(), true);
+			return new QuotedObject(Version.VERSION, mSMTLIBVersion.compareTo(TWO_POINT_FIVE) >= 0);
 		case SMTLIBConstants.AUTHORS:
 			return AUTHORS;
 		case SMTLIBConstants.ALL_STATISTICS:

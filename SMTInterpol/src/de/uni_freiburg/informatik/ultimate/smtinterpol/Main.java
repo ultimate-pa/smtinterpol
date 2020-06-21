@@ -18,10 +18,6 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.Properties;
-
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.aiger.AIGERFrontEnd;
@@ -38,31 +34,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTLIB2Parser;
  */
 public final class Main {
 
-	public static Properties sVersionInfo; //NOCHECKSTYLE
-	static {
-		sVersionInfo = new Properties();
-		try {
-			final InputStream is =
-					Main.class.getResourceAsStream("Version.properties");
-			if (is != null) {
-				sVersionInfo.load(is);
-			}
-		} catch (final IOException ex) {
-			/* ignore */
-		}
-	}
-
 	private Main() {
 		// Hide constructor
-	}
-
-	public static final String getVersion() {
-		String version = sVersionInfo.getProperty("version", "unknown version");
-		if (Config.COMPETITION)
-		 {
-			version += "-comp"; // NOPMD
-		}
-		return version;
 	}
 
 	private static void usage() {
@@ -83,11 +56,7 @@ public final class Main {
 	}
 
 	private static void version() {
-		final String date = sVersionInfo.getProperty("build.date");
-		System.err.println("SMTInterpol " + getVersion());
-		if (date != null) {
-			System.err.println("  built on " + date);
-		}
+		System.err.println("SMTInterpol " + Version.VERSION);
 	}
 
 	/**

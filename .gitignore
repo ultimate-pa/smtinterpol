@@ -10,6 +10,9 @@ Lexer.java
 LexerSymbols.java
 Parser.java
 
+# Automatically generated version #
+SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/Version.java
+
 # emacs backup files #
 *~
 
@@ -70,7 +73,6 @@ comment.cut
 
 # eclipse stuff
 .recommenders
-.externalToolBuilders
 
 #ant stuff
 .ant-*

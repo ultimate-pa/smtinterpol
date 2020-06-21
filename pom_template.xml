@@ -4,7 +4,7 @@
 
     <groupId>de.uni-freiburg.informatik.ultimate</groupId>
     <artifactId>smtinterpol</artifactId>
-    <version>VERSION</version>
+    <version>${version}</version>
 	<packaging>jar</packaging>
 	
     <name>SMTInterpol</name>
