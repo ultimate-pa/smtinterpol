@@ -892,7 +892,7 @@ public class ArrayTheory implements ITheory {
 			}
 			if (valueSort.isArraySort() && arraysBySort.containsKey(valueSort)) {
 				// do valueSort first
-				todoSorts.addFirst(indexSort);
+				todoSorts.addFirst(valueSort);
 				continue;
 			}
 			todoSorts.removeFirst();
