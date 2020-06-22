@@ -1085,6 +1085,9 @@ public class Clausifier {
 				}
 			}
 		}
+		if (!mIsRunning) {
+			run();
+		}
 	}
 
 	/**
@@ -1622,9 +1625,6 @@ public class Clausifier {
 		axiom = theory.term("or", falseLit.getSMTFormula(theory, true), term);
 		axiom = mTracker.auxAxiom(axiom, ProofConstants.AUX_EXCLUDED_MIDDLE_2);
 		buildAuxClause(falseLit, axiom, source);
-		if (!mIsRunning) {
-			run();
-		}
 	}
 
 	/**
