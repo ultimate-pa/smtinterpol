@@ -12,53 +12,49 @@ import org.teavm.jso.dom.html.HTMLElement;
 import org.teavm.jso.dom.html.HTMLInputElement;
 
 import java.io.StringReader;
+import java.io.StringWriter;
 
 public class Main {
-    private HTMLDocument document = Window.current().getDocument();
-    private HTMLButtonElement runButton = document.getElementById("run").cast();
-    private HTMLElement resultPanel = document.getElementById("result");
-    private HTMLInputElement inputPanel = (HTMLInputElement) document.getElementById("input");
+	private HTMLDocument document = Window.current().getDocument();
+	private HTMLButtonElement runButton = document.getElementById("run").cast();
+	private HTMLElement resultPanel = document.getElementById("result");
+	private HTMLInputElement inputPanel = (HTMLInputElement) document.getElementById("input");
 
 	public void run() {
-        runButton.listenClick(evt -> runSMTInterpol());
+		runButton.listenClick(evt -> runSMTInterpol());
 	}
 
-    public static void main(String[] args) {
+	public static void main(String[] args) {
 		new Main().run();
-    }
+	}
 
-    public void runSMTInterpol() {
-        runButton.setDisabled(true);
-        String inputString = inputPanel.getValue().toString();
+	public void runSMTInterpol() {
+		runButton.setDisabled(true);
+		String inputString = inputPanel.getValue().toString();
 
 		try {
 			final DefaultLogger logger = new DefaultLogger();
 			final OptionMap options = new OptionMap(logger, true);
 			SMTInterpol solver = new SMTInterpol(null, options);
 			WebEnvironment pe = new WebEnvironment(solver, options);
+			StringWriter output = new StringWriter();
+			options.getOption(":regular-output-channel").set(output);
+			resultPanel.clear();
 			pe.parseStream(new StringReader(inputString), "webinput.smt2");
-
-			if (inputPanel.getValue().toString().length() > 1) {
-				resultPanel.clear();
-				resultPanel.appendChild(document.createTextNode(pe.mResult.toString()));
-			}
+			resultPanel.appendChild(document.createTextNode(output.toString()));
 		} finally {
-            runButton.setDisabled(false);
+			runButton.setDisabled(false);
 		}
-    }
+	}
 
 
 	public class WebEnvironment extends ParseEnvironment {
-
-		public StringBuilder mResult = new StringBuilder();
-		
 		public WebEnvironment(Script script, OptionMap options) {
 			super(script, options);
 		}
 
-		public void printResponse(final Object response) {
-			mResult.append(response.toString()).append(System.getProperty("line.separator"));
+		public void exitWithStatus(int status) {
+			/* can't exit */
 		}
 	}
 }
-
