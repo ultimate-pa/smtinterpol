@@ -276,7 +276,7 @@ public class OptionMap {
 		return new OptionMap(mLogger, options, new LinkedHashMap<String, String>(mAliases));
 	}
 
-	Option getOption(final String key) {
+	public Option getOption(final String key) {
 		return mOptions.get(key);
 	}
 }
