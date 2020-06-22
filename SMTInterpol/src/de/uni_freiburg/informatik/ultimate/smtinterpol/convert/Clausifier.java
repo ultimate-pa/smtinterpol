@@ -1662,10 +1662,8 @@ public class Clausifier {
 		if (sort.getName().equals("Int") && !diff.getConstant().isIntegral()) {
 			return EqualityProxy.getFalseProxy();
 		}
-		if (source != null) {
-			addTermAxioms(lhs, source);
-			addTermAxioms(rhs, source);
-		}
+		addTermAxioms(lhs, source);
+		addTermAxioms(rhs, source);
 		// we cannot really normalize the sign of the term. Try both signs.
 		EqualityProxy eqForm = mEqualities.get(diff);
 		if (eqForm != null) {
