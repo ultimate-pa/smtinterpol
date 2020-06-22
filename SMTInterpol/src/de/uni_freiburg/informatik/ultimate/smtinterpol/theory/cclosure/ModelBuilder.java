@@ -50,10 +50,11 @@ public class ModelBuilder {
 	}
 
 	public Term getModelValue(final CCTerm term) {
-		return mModelValues.get(term);
+		return mModelValues.get(term.getRepresentative());
 	}
 
 	public void setModelValue(final CCTerm term, final Term value) {
+		assert term == term.getRepresentative();
 		final Term old = mModelValues.put(term, value);
 		assert old == null || old == value;
 	}
