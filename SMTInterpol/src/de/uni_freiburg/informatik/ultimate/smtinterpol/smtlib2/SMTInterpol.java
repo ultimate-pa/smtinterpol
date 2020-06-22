@@ -69,6 +69,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofTermGenerator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.PropProofChecker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.UnsatCoreCollector;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.ErrorCallback.ErrorReason;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
 
 /**
@@ -240,7 +241,7 @@ public class SMTInterpol extends NoopScript {
 	 * fails: 2 exception during check-sat: 3 command that needed sat after last check got unsat: 4 command that needed
 	 * unsat after last check got sat: 5
 	 */
-	private final boolean mDDFriendly = !Config.COMPETITION && System.getProperty("smtinterpol.ddfriendly") != null;
+	private ErrorCallback mErrorCallback = null;
 
 	/**
 	 * Default constructor using a default logger and no user termination request. If this constructor is used,
@@ -370,6 +371,16 @@ public class SMTInterpol extends NoopScript {
 		setupClausifier(getTheory().getLogic());
 	}
 
+	/**
+	 * Set an error callback that will be notified about internal problems in the
+	 * solving process: failed model checks, proof checks, interrnal errors, etc.
+	 *
+	 * @param callback The error callback.
+	 */
+	public void setErrorCallback(ErrorCallback callback) {
+		mErrorCallback = callback;
+	}
+
 	// Called in ctor => make it final
 	/**
 	 * Unset the logic and clear the assertion stack. This does not reset online modifiable options.
@@ -415,8 +426,8 @@ public class SMTInterpol extends NoopScript {
 		try {
 			super.pop(n);
 		} catch (final SMTLIBException eBug) {
-			if (mDDFriendly) {
-				System.exit(123);
+			if (mErrorCallback != null) {
+				mErrorCallback.notifyError(ErrorReason.ERROR_ON_POP);
 			}
 			throw eBug;
 		}
@@ -479,24 +490,33 @@ public class SMTInterpol extends NoopScript {
 		LBool result = LBool.UNKNOWN;
 		mReasonUnknown = ReasonUnknown.INCOMPLETE;
 		mEngine.setRandomSeed(mSolverOptions.getRandomSeed());
-		if (mSolverOptions.getCheckType().check(mEngine)) {
+		try {
+			result = mSolverOptions.getCheckType().check(mEngine) ? LBool.SAT : LBool.UNSAT;
+		} catch (final RuntimeException eUnknown) {
+			if (mErrorCallback != null) {
+				mErrorCallback.notifyError(ErrorReason.EXCEPTION_ON_CHECKSAT);
+			}
+			throw eUnknown;
+		}
+		if (result == LBool.SAT) {
 			if (mEngine.hasModel()) {
-				result = LBool.SAT;
 				if (mSolverOptions.isModelCheckModeActive()) {
 					try {
 						mModel = new de.uni_freiburg.informatik.ultimate.smtinterpol.model.Model(mClausifier,
 								getTheory(),
 							mSolverOptions.isModelsPartial());
-						if (mDDFriendly && !mModel.checkTypeValues(mLogger)) {
-							System.exit(1);
+						if (!mModel.checkTypeValues(mLogger)) {
+							if (mErrorCallback != null) {
+								mErrorCallback.notifyError(ErrorReason.INVALID_MODEL);
+							}
 						}
 						for (final Term asserted : mAssertions) {
 							final Term checkedResult = mModel.evaluate(asserted);
 							if (checkedResult != getTheory().mTrue) {
-								if (mDDFriendly) {
-									System.exit(1);
-								}
 								mLogger.fatal("Model does not satisfy " + asserted.toStringDirect());
+								if (mErrorCallback != null) {
+									mErrorCallback.notifyError(ErrorReason.INVALID_MODEL);
+								}
 							}
 						}
 					} catch (final UnsupportedOperationException ex) {
@@ -537,12 +557,11 @@ public class SMTInterpol extends NoopScript {
 				mLogger.debug("Got %s as reason to return unknown", mEngine.getCompletenessReason());
 			}
 		} else {
-			result = LBool.UNSAT;
 			if (mSolverOptions.isProofCheckModeActive()) {
 				final ProofChecker proofchecker = new ProofChecker(this, getLogger());
 				if (!proofchecker.check(getProof())) {
-					if (mDDFriendly) {
-						System.exit(2);
+					if (mErrorCallback != null) {
+						mErrorCallback.notifyError(ErrorReason.INVALID_PROOF);
 					}
 					mLogger.fatal("Proof-checker did not verify");
 					throw new SMTLIBException("Proof-check failed");
@@ -553,8 +572,8 @@ public class SMTInterpol extends NoopScript {
 		if (Config.CHECK_STATUS_SET && isStatusSet() && mReasonUnknown != ReasonUnknown.MEMOUT
 				&& !mStatus.equals(mStatusInfo)) {
 			mLogger.warn("Status differs: User said %s but we got %s", mStatusInfo, mStatus);
-			if (mDDFriendly) {
-				System.exit(13);
+			if (mErrorCallback != null) {
+				mErrorCallback.notifyError(ErrorReason.CHECKSAT_STATUS_DIFFERS);
 			}
 		}
 		mStatusInfo = LBool.UNKNOWN;
@@ -666,13 +685,13 @@ public class SMTInterpol extends NoopScript {
 		} catch (final UnsupportedOperationException ex) {
 			throw new SMTLIBException(ex.getMessage());
 		} catch (final RuntimeException exc) {
-			if (mDDFriendly) {
-				System.exit(7);// NOCHECKSTYLE
+			if (mErrorCallback != null) {
+				mErrorCallback.notifyError(ErrorReason.EXCEPTION_ON_ASSERT);
 			}
 			throw exc;
 		} catch (final AssertionError exc) {
-			if (mDDFriendly) {
-				System.exit(7);// NOCHECKSTYLE
+			if (mErrorCallback != null) {
+				mErrorCallback.notifyError(ErrorReason.EXCEPTION_ON_ASSERT);
 			}
 			throw exc;
 		}
@@ -882,8 +901,8 @@ public class SMTInterpol extends NoopScript {
 			}
 			return ipls;
 		} catch (final SMTLIBException ex) {
-			if (mDDFriendly) {
-				System.exit(10);
+			if (mErrorCallback != null) {
+				mErrorCallback.notifyError(ErrorReason.ERROR_ON_GET_INTERPOLANTS);
 			}
 			throw ex;
 		} finally {
@@ -1109,15 +1128,15 @@ public class SMTInterpol extends NoopScript {
 	private void buildModel() throws SMTLIBException {
 		checkAssertionStackModified();
 		if (mEngine.inconsistent()) {
-			if (mDDFriendly) {
-				System.exit(4); // NOCHECKSTYLE
+			if (mErrorCallback != null) {
+				mErrorCallback.notifyError(ErrorReason.GET_MODEL_BUT_UNSAT);
 			}
 			throw new SMTLIBException("Context is inconsistent");
 		}
 		if (mStatus != LBool.SAT) {
 			// Once we have incomplete solvers we might check mReasonUnknown...
-			if (mDDFriendly) {
-				System.exit(9);
+			if (mErrorCallback != null) {
+				mErrorCallback.notifyError(ErrorReason.GET_MODEL_BUT_UNKNOWN);
 			}
 			throw new SMTLIBException("Cannot construct model since solving did not complete");
 		}
@@ -1139,8 +1158,8 @@ public class SMTInterpol extends NoopScript {
 	public Clause retrieveProof() throws SMTLIBException {
 		final Clause unsat = mEngine.getProof();
 		if (unsat == null) {
-			if (mDDFriendly) {
-				System.exit(5); // NOCHECKSTYLE
+			if (mErrorCallback != null) {
+				mErrorCallback.notifyError(ErrorReason.GET_PROOF_BUT_SAT);
 			}
 			throw new SMTLIBException("Logical context not inconsistent!");
 		}
