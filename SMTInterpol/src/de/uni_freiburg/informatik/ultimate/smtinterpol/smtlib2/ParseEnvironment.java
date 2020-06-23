@@ -126,9 +126,7 @@ public class ParseEnvironment {
 	}
 
 	public void include(final String filename) throws SMTLIBException {
-		final File oldcwd = mCwd;
 		parseScript(filename);
-		mCwd = oldcwd;
 	}
 
 	public void printSuccess() {
