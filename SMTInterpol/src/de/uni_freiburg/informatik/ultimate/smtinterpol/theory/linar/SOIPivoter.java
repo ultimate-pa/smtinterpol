@@ -1,6 +1,7 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar;
 
 import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.Map.Entry;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -71,6 +72,7 @@ public class SOIPivoter {
 				}
 			}
 
+			assert var.mBasic;
 			isOOB = true;
 			// now we have found an out of bound variable.
 			// isUpper is true if we violate the upper bound.
@@ -259,15 +261,32 @@ public class SOIPivoter {
 		return mBestLimiter != null;
 	}
 
+	/**
+	 * Compute the conflict clause from the Sum-Of-Infeasibility variable. All
+	 * column variables should be at their bounds and the bound can be used to
+	 * explain the conflict with the sum of all currently violated bounds.
+	 *
+	 * @return A conflict clause.
+	 */
 	public Clause computeConflict() {
-		final Explainer explainer = new Explainer(mSolver, mSolver.getEngine().isProofGenerationEnabled(), null);
+		// First get the oob variables and their sign.
+		final ArrayList<LiteralReason> oobs = new ArrayList<>();
 		for (final LinVar var : mSolver.mLinvars) {
 			if (var.getValue().isub(var.getLowerBound()).signum() > 0) {
-				var.mLowerLiteral.explain(explainer, InfinitesimalNumber.ZERO, Rational.MONE);
-			} else if (var.getValue().isub(var.getUpperBound()).signum() < 0) {
-				var.mUpperLiteral.explain(explainer, InfinitesimalNumber.ZERO, Rational.ONE);
+				oobs.add(var.mLowerLiteral);
+ 			} else if (var.getValue().isub(var.getUpperBound()).signum() < 0) {
+				oobs.add(var.mUpperLiteral);
 			}
 		}
+		final Explainer explainer = new Explainer(mSolver, mSolver.getEngine().isProofGenerationEnabled(), null);
+		InfinitesimalNumber slack = mSOIValue.roundToInfinitesimal();
+		// Now sum up the currently violated bounds
+		for (final LiteralReason bound : oobs) {
+			final Rational factor = bound.isUpper() ? Rational.ONE : Rational.MONE;
+			slack = bound.explain(explainer, slack, factor);
+		}
+		// Now go through all columns and sum up the bounds of all involved column
+		// variables.
 		for (final Entry<LinVar, Rational> entry : mSOIVar.entrySet()) {
 			final LinVar colVar = entry.getKey();
 			final Rational coeff = entry.getValue();
@@ -275,7 +294,10 @@ public class SOIPivoter {
 				continue;
 			}
 			final LiteralReason reason = coeff.signum() < 0 ? colVar.mUpperLiteral : colVar.mLowerLiteral;
-			reason.explain(explainer, InfinitesimalNumber.ZERO, coeff.negate());
+			assert colVar.getValue().equals(reason.getBound());
+			slack = slack.div(coeff.abs());
+			slack = reason.explain(explainer, slack, coeff.negate());
+			slack = slack.mul(coeff.abs());
 		}
 		return explainer.createClause(mSolver.getEngine());
 	}
