@@ -1405,7 +1405,7 @@ public class LinArSolve implements ITheory {
 					final LinVar nb = mLinvars.get(row.getRawIndex(i + 1));
 					final Rational coeff = Rational.valueOf(row.getRawCoeff(i + 1), denom);
 					rowVars[i] = nb;
-					reasons[i] = coeff.isNegative() == isUpper ? nb.mLower : nb.mUpper;
+					reasons[i] = coeff.isNegative() == isUpper ? nb.mLowerLiteral : nb.mUpperLiteral;
 					coeffs[i] = coeff;
 					final LiteralReason lastOfThis = reasons[i].getLastLiteral();
 					if (lastLiteral == null
@@ -1420,8 +1420,8 @@ public class LinArSolve implements ITheory {
 				coeffs = basic.mCachedRowCoeffs;
 				reasons = new LAReason[rowVars.length];
 				for (int i = 0; i < rowVars.length; i++) {
-					reasons[i] = coeffs[i].isNegative() == isUpper
-						? rowVars[i].mLower : rowVars[i].mUpper;
+					reasons[i] = coeffs[i].isNegative() == isUpper ? rowVars[i].mLowerLiteral
+							: rowVars[i].mUpperLiteral;
 					final LiteralReason lastOfThis = reasons[i].getLastLiteral();
 					if (lastLiteral == null
 						|| lastOfThis.getStackPosition() > lastLiteral.getStackPosition()) {
