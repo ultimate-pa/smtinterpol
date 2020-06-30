@@ -1039,26 +1039,20 @@ public class Clausifier {
 				}
 
 				final ApplicationTerm at = (ApplicationTerm) term;
-				// Special cases
-				if (term.getSort() == term.getTheory().getBooleanSort()) {
-					if (term != term.getTheory().mTrue && term != term.getTheory().mFalse) {
-						addExcludedMiddleAxiom(term, source);
-					}
-				} else {
-					final FunctionSymbol fs = at.getFunction();
-					if (fs.isIntern()) {
-						if (fs.getName().equals("div")) {
-							addDivideAxioms(at, source);
-						} else if (fs.getName().equals("to_int")) {
-							addToIntAxioms(at, source);
-						} else if (fs.getName().equals("ite") && fs.getReturnSort() != mTheory.getBooleanSort()) {
-							pushOperation(new AddTermITEAxiom(term, source));
-						} else if (fs.getName().equals("store")) {
-							addStoreAxiom(at, source);
-						} else if (fs.getName().equals("@diff")) {
-							addDiffAxiom(at, source);
-							mArrayTheory.notifyDiff((CCAppTerm) ccTerm);
-						}
+				final FunctionSymbol fs = at.getFunction();
+				if (fs.isIntern()) {
+					/* add axioms for certain built-in functions */
+					if (fs.getName().equals("div")) {
+						addDivideAxioms(at, source);
+					} else if (fs.getName().equals("to_int")) {
+						addToIntAxioms(at, source);
+					} else if (fs.getName().equals("ite") && fs.getReturnSort() != mTheory.getBooleanSort()) {
+						pushOperation(new AddTermITEAxiom(term, source));
+					} else if (fs.getName().equals("store")) {
+						addStoreAxiom(at, source);
+					} else if (fs.getName().equals("@diff")) {
+						addDiffAxiom(at, source);
+						mArrayTheory.notifyDiff((CCAppTerm) ccTerm);
 					}
 				}
 
@@ -1082,6 +1076,12 @@ public class Clausifier {
 					final MutableAffineTerm mat = createMutableAffinTerm(new SMTAffineTerm(term), source);
 					assert mat.getConstant().mEps == 0;
 					shareLATerm(term, new LASharedTerm(term, mat.getSummands(), mat.getConstant().mReal));
+				}
+			}
+			if (term.getSort() == term.getTheory().getBooleanSort()) {
+				/* If the term is a boolean term, add it's excluded middle axiom */
+				if (term != term.getTheory().mTrue && term != term.getTheory().mFalse) {
+					addExcludedMiddleAxiom(term, source);
 				}
 			}
 		}
