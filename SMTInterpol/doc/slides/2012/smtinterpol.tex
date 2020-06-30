@@ -1,0 +1,761 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%   Folien: SMT Workshop
+%           SMTInterpol
+%   Juni/Juli 2012
+%
+%   Vortragsdauer: ??+5 Minuten
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  - SMTInterpol (logics, unsat core, interpolants)
+%
+
+\documentclass[table]{beamer}
+\usepackage{xcolor}
+\usepackage{tikz}
+%\usepackage{jharrows}
+\usetikzlibrary{fit,shapes.callouts,shapes.geometric,shapes.symbols}
+\usetikzlibrary{positioning,calc}
+\usetheme{Madrid}
+\usecolortheme{freiburg}
+\let\checkmark\relax
+\usepackage{dingbat}
+
+% The face style, can be changed
+\tikzset{face/.style={shape=circle,minimum size=20ex,shading=radial,outer sep=0pt,
+        inner color=white!50!yellow,outer color= yellow!70!orange}}
+%% Some commands to make the code easier
+\newcommand{\emoticon}[1][]{%
+  \node[face,#1] (emoticon) {};
+  %% The eyes are fixed.
+  \draw[fill=white] (-1ex,0ex) ..controls (-0.5ex,0.2ex)and(0.5ex,0.2ex)..
+        (1ex,0.0ex) ..controls ( 1.5ex,1.5ex)and( 0.2ex,1.7ex)..
+        (0ex,0.4ex) ..controls (-0.2ex,1.7ex)and(-1.5ex,1.5ex)..
+        (-1ex,0ex)--cycle;}
+\newcommand{\pupils}{
+  %% standard pupils
+  \fill[shift={(0.5ex,0.5ex)},rotate=80] 
+       (0,0) ellipse (0.3ex and 0.15ex);
+  \fill[shift={(-0.5ex,0.5ex)},rotate=100] 
+       (0,0) ellipse (0.3ex and 0.15ex);}
+
+%\geometry{papersize={12.80cm,10.24cm}}
+\setbeamertemplate{navigation symbols}{}
+
+%%% Titel, Autor und Datum des Vortrags:
+\pgfdeclareimage[height=1cm]{unifr}{unifr-neu}
+\title{SMTInterpol}
+\author[J{\"u}rgen Christ]{J{\"u}rgen Christ \and Jochen Hoenicke \and Alexander Nutz}
+\date[SMT Workshop]{SMT Workshop}
+
+%%% Logos
+%\pgfdeclareimage[height=.84cm]{university-logo}{Uni-Logo-kompakt}
+%\logo{\pgfuseimage{university-logo}}
+
+%\pgfdeclareimage[height=1cm]{csd-logo}{csd-logo-text}
+%\logo{\hskip.2cm\pgfuseimage{csd-logo}}
+
+%% Institut
+\institute[Uni Freiburg]{University of Freiburg\hspace{1cm}\pgfuseimage{unifr}}
+
+\colorlet{colorTest}{ALUblue}
+\colorlet{colorLamps1}{orange!70!black}
+\colorlet{colorLamps2}{orange!70!black}
+\colorlet{callOut}{red!30!white}
+\colorlet{calledOut}{ALUgray}
+
+\useoutertheme{unifr}
+
+
+\begin{document}
+%\renewcommand{\inserttotalframenumber}{25}
+
+
+%%% Titelfolie malen:
+%% \begin{frame}
+%% \titlepage
+%% \end{frame}
+%{
+%  \setbeamercolor{background canvas}{bg=}
+%  \includepdf[pages=1]{1103_FASE2011-4.pdf}
+%}
+%\refstepcounter{framenumber}
+
+\section{Motivation}
+
+\begin{frame}[fragile]
+  \pgfdeclarelayer{back}
+  \pgfsetlayers{back,main}
+  \begin{tikzpicture}
+    \uncover<3->{
+    \begin{scope}[xshift=-3cm,yshift=4cm]
+      \uncover<3>{
+        \node (qfla) at (0,.4) {Quantifier Free};
+      }
+      \node (la) at (0,0) {Linear Arithmetic};
+      \node (la1) at (.5,-.8) {$2z < x + y$};
+      \node (la2) at (-.8,-1.3) {$x = z - 4$ };
+    \end{scope}
+    \begin{scope}[xshift=3cm,yshift=4cm]
+      \uncover<3>{
+        \node (qfuf) at (0,.4) {Quantifier Free};
+      }
+      \node (uf) at (0,0) {Uninterpreted Functions};
+      \node (uf1) at (-.6,-.8) {$max(x,y) = z$};
+      \node (uf2) at (.7,-1.3) {$max(x,z) = f(y)$ };
+    \end{scope}
+    }
+    \uncover<5->{
+      \begin{scope}[xshift=0cm,yshift=4cm]
+        \node (qf) at (0,.7) {Quantifier Free};
+        \node (lauf1) at (0, -.3) {$max(x,y) \geq x$};
+        \node (lauf2) at (-.7, -1.3) {$f(x+y) = 2x$};
+    \end{scope}}
+    \uncover<8->{
+      \begin{scope}[xshift=0cm,yshift=4cm]
+        \node (lauf3) at (.3, -1.8) {$max(x,y) \geq y$};
+    \end{scope}}
+    \uncover<1-6>{
+      \node[align=left] at (0,-1.5) {
+        decides {\bf S}atisfiability {\bf M}odulo {\bf T}heory\\
+        computes Craig {\bf Interpol}ants};
+    }
+    \uncover<3-4>{
+      \node[shape=cloud callout,cloud puffs=20,draw,inner sep=0cm,aspect=2,
+        callout relative pointer={(.5,-.7)},fit=(la)(la1)(la2)] {};
+      \node[shape=cloud callout,cloud puffs=20,draw,inner sep=0cm,aspect=2,
+        callout relative pointer={(-.5,-.7)},fit=(uf)(uf1)(uf2)] {};
+    }
+    \uncover<5->{
+      \node[shape=cloud callout,cloud puffs=40,draw,inner sep=-1cm,aspect=3,
+        callout relative pointer={(0,-.4)},
+        fit=(la)(la1)(la2)(lauf1)(lauf2)(uf)(uf1)(uf2)] {};
+    }
+    \uncover<10>{
+      \node[shape=ellipse,inner sep=-.12cm,fit=(lauf1),draw=ALUred,thick]{};
+      \node[shape=ellipse,inner sep=-.12cm,fit=(lauf3),draw=ALUred,thick]{};
+      \node[shape=ellipse,inner sep=-.12cm,fit=(uf1),draw=ALUred,thick]{};
+      \node[shape=ellipse,inner sep=-.12cm,fit=(la1),draw=ALUred,thick]{};
+    }
+    \begin{pgfonlayer}{back}
+      \uncover<10->{
+        \node[shape=ellipse,inner sep=-.12cm,fit=(lauf1),fill=ALUred!20!white]{};
+        \node[shape=ellipse,inner sep=-.12cm,fit=(lauf3),fill=ALUred!20!white]{};
+        \node[shape=ellipse,inner sep=-.12cm,fit=(uf1),fill=ALUred!20!white]{};
+        \node[shape=ellipse,inner sep=-.12cm,fit=(la1),fill=ALUgreen!20!white]{};
+      }
+    \end{pgfonlayer}
+    \node at (1.75,-.1) {\pgfuseimage{unifr}};
+    \node (si) at (0,0) {\huge SMTInterpol};
+    
+    \uncover<6-7>{
+      \node[draw,shape=rectangle callout, callout relative pointer={(1.7,-.3)}] 
+      at (-4,.6) {sat};
+    }
+    \uncover<7>{
+      \node[draw,shape=rectangle callout, callout relative pointer={(1.4,.2)}]
+      (model) at (-4, -.4) {model};
+      \node[starburst, fill=yellow, draw=red, line width=2pt] at
+           ($(model.south)-(0,.7)$) {\bf NEW};
+    }
+
+    \uncover<8->{
+      \node[draw,shape=rectangle callout, callout relative pointer={(-1.8,-.5)}] 
+      at (4,1.2) {unsat};
+    }
+    \uncover<9->{
+      \node[shape=ellipse,inner sep=.01cm,thick](proof) at (4.4,.35) {proof};
+      \node[draw,shape=rectangle callout, fit=(proof),
+        callout relative pointer={(-1.5,-.15)}] {};
+    }
+    \uncover<10->{
+      \alt<10>{
+      \node[shape=ellipse,inner sep=.03cm,draw=ALUred,thick] at (4.4,-.55) {unsat core};
+      }{
+      \node[shape=ellipse,inner sep=.03cm,thick](uc) at (4.4,-.55) {unsat core};
+      }
+      \node[draw,shape=rectangle callout, fit=(uc),
+        callout relative pointer={(-.8,.1)}] (ucco) {};
+      \uncover<10>{
+        \node[starburst, fill=yellow, draw=red, line width=2pt] at
+        ($(ucco.south)-(0,.7)$) {\bf NEW};
+      }
+    }
+    \uncover<11->{
+      \node (ips) at (0,-1.5) {interpolants};
+      \node (a1) at (-3,-2) {\color{ALUred}$z = max(x,y)$};
+      \node (a2) at (-3,-2.5) {\color{ALUred}$max(x,y) \geq x$};
+      \node (a3) at (-3,-3) {\color{ALUred}$max(x,y) \geq y$};
+      \node at(-1,-2.5) {\LARGE$\Rightarrow$};
+      \node[align=center] (i) at (0,-2.5) {$z \geq x$ \\ $\land$\\$z \geq y$};
+      \node at(1.2,-2.5) {\LARGE$\Rightarrow~\lnot$};
+      \node (b) at (3,-2.5) {\color{ALUgreen}$2z < x + y$};
+      \node[draw,shape=rectangle callout, callout relative pointer={(0,+.8)},
+            fit=(ips)(a1)(a2)(a3)(b)(i)] {};
+    }
+    % Here, we magnify the improvements
+    \uncover<2>{
+      \node[magnifying glass,line width=1ex,draw,fill=yellow!80!red] (cm) at (0,2)
+           {clause minimization};
+           \node[starburst, fill=yellow, draw=red, line width=2pt] at
+           (cm.north) {\bf NEW};
+    }
+    \uncover<4>{
+      \node[magnifying glass,line width=1ex,draw,fill=yellow!80!red] (ps) at (-4,1)
+           {pivot strategy};
+           \node[starburst, fill=yellow, draw=red, line width=2pt] at
+           (ps.north) {\bf NEW};
+    }
+    \uncover<12>{
+      \node[magnifying glass,line width=1ex,draw,fill=yellow!80!red] (ip) at (-4,-1)
+           {QF\_UFLIA interpolation};
+           \node[starburst, fill=yellow, draw=red, line width=2pt] at
+           (ip.north) {\bf NEW};
+    }
+  \end{tikzpicture}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{SMTInterpol is\ldots}
+  \pgfdeclarelayer{back}
+  \pgfsetlayers{back,main}
+  \begin{tikzpicture}
+    \begin{pgfonlayer}{back}
+      \begin{scope}[scale=5]
+        \emoticon
+        %% pupils up
+        \fill<1>[shift={( 0.5ex,1.1ex)},rotate= 80] (0,0) ellipse (0.15ex and
+        0.15ex);
+        \fill<1>[shift={(-0.5ex,1.1ex)},rotate=100] (0,0) ellipse (0.15ex and
+        0.15ex);
+        %% pupils right
+        \fill<2>[shift={( 0.95ex,0.5ex)},rotate=80] (0,0) ellipse (0.3ex and
+        0.15ex);
+        \fill<2>[shift={(-0.25ex,0.5ex)},rotate=80] (0,0) ellipse (0.3ex and
+        0.15ex);
+        %% pupils right down
+        \fill<3>[shift={( 0.85ex,0.3ex)},rotate= 80] (0,0) ellipse (0.15ex and
+        0.15ex);
+        \fill<3>[shift={(-0.25ex,0.35ex)},rotate=100] (0,0) ellipse (0.15ex and
+        0.15ex);
+        %% pupils down
+        \fill<4->[shift={( 0.5ex,0.25ex)},rotate= 80] (0,0) ellipse (0.15ex and
+        0.15ex);
+        \fill<4->[shift={(-0.5ex,0.25ex)},rotate=100] (0,0) ellipse (0.15ex and
+        0.15ex);
+        %% mouth small
+        \draw<1>[thick] (-0.5ex,-1ex)
+        ..controls
+        (-0.25ex,-1.25ex)and(0.25ex,-1.25ex)..(0.5ex,-1ex);
+        %% mouth normal
+        \draw<2>[thick] (-1.0ex,-1ex)..controls
+        (-0.5ex,-1.5ex)and(0.5ex,-1.5ex)..(1ex,-1ex);
+        %% mouth big
+        \draw<3->[thick] (-1.5ex,-0.5ex)
+        ..controls (-0.7ex,-1.7ex)and(0.7ex,-1.7ex)..(1.5ex,-0.5ex);
+      \end{scope}
+    \end{pgfonlayer}
+    \uncover<1->{
+      \node (availableat) at (4.5,3.1) {available at};
+      \node (url) at (4.5,2.6)
+           {\url{http://ultimate.informatik.uni-freiburg.de/smtinterpol}};
+    }
+    \begin{pgfonlayer}{back}
+      \uncover<1>{
+        \node[draw,shape=rectangle callout,fill=callOut,
+          callout relative pointer={(-3.35,-3.05)},fit=(availableat)(url)]
+             {};
+      }
+      \uncover<2->{
+        \node[draw,shape=rectangle,fit=(availableat)(url),thick,fill=calledOut]{};
+      }
+    \end{pgfonlayer}
+    \uncover<2->{
+      \node (license) at (6,1.1) {licensed under LGPL version 3};
+    }
+    \begin{pgfonlayer}{back}
+      \uncover<2>{
+        \node[draw,shape=rectangle callout, callout relative
+          pointer={(-4.15,-1.6)},fit=(license),fill=callOut]{};
+      }
+      \uncover<3->{
+        \node[draw,shape=rectangle,thick,fit=(license),fill=calledOut]{};
+      }
+    \end{pgfonlayer}
+    \uncover<3->{
+      \node (java) at (6,-0.4) {platform independent (written in Java)};
+    }
+    \begin{pgfonlayer}{back}
+      \uncover<3>{
+        \node[draw,shape=rectangle callout, callout relative
+          pointer={(-1.3,0)},fill=callOut,fit=(java)] {};
+      }
+      \uncover<4->{
+        \node[draw,shape=rectangle,thick,fit=(java),fill=calledOut]{};
+      }
+    \end{pgfonlayer}
+    \uncover<4>{
+      \node[transform shape,scale=1.5,right] at (0,-3) {\Huge\leftthumbsup
+        \large Thank you for
+        your attention};
+    }
+  \end{tikzpicture}
+\end{frame}
+
+\end{document}
+\begin{frame}
+  \frametitle{Interpolation and Program Verification}
+
+  \fbox{
+%    \hbox to .05\textwidth{
+  \begin{minipage}{.45\textwidth}
+    \begin{alltt}
+{\bf proc} f (x : int, y : int)\\
+\hspace*{1em}{\bf returns} (r : int)\\
+\hspace*{1em}{\bf requires} x $\geq$ 0\\
+\hspace*{1em}{\bf ensures}  r $\geq$ y + 2 \{\\
+\uncover<3->{\hspace*{2em}\{x $\geq$ 0\}}\\
+\hspace*{2em}x := x + 2;\\
+\uncover<3->{\hspace*{2em}\{x $\geq$ 2\}}\\
+\hspace*{2em}x := x + y;\\
+\uncover<2->{\hspace*{2em}\{x $\geq$ y + 2\}}\\
+\hspace*{2em}r := x;\\
+\uncover<3->{\hspace*{2em}\{r $\geq$ y + 2\}}\\
+\}
+    \end{alltt}
+  \end{minipage}}~
+  \begin{minipage}{.45\textwidth}
+Single Static Assignment
+\vspace{3.7ex}
+\begin{align*}
+   &x_0 \geq 0\\[-.6ex]
+\uncover<3->{x_0 \geq 0}&\\[-.6ex]
+   &x_1 = x_0 + 2\\[-.6ex]
+\uncover<3->{x_1 \geq 2}&\\[-.6ex]
+   &x_2 = x_1 + y_0\\[-.6ex]
+\uncover<2->{x_2 \geq y_0+2}&\\[-.6ex]
+   &r_3 = x_2\\[-1ex]
+\uncover<3->{r_3 \geq y_0+2}&\\[-.6ex]
+   &r_3 < y_0 + 2
+\end{align*}
+  \end{minipage}
+
+  \bigskip
+  \uncover<2->{Interpolants correspond to Hoare annotations}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Inductive Sequence of Interpolants}
+  \begin{minipage}{.4\textwidth}
+    Inductive Interpolants:
+    \[I_i \land \phi_i \Rightarrow I_{i+1}\]
+    \[I_0 = \mathbf{true}, I_{n+1} = \mathbf{false}\]
+
+    Symbol condition:
+    \begin{align*}
+    sym(I_i) \subseteq{} &
+    sym(\bigwedge_{j<i} \phi_j)\\
+    &{}\cap sym(\bigwedge_{j\geq i} \phi_j)
+    \end{align*}
+
+  \end{minipage}~
+  \begin{minipage}{.55\textwidth}
+\begin{align*}
+\uncover<1->{I_0: \mathbf{true}}&\\[-.6ex]
+   &\phi_0: x_0 \geq 0\\[-.6ex]
+\uncover<1->{I_1: x_0 \geq 0}&\\[-.6ex]
+   &\phi_1: x_1 = x_0 + 2\\[-.6ex]
+\uncover<1->{I_2: x_1 \geq 2}&\\[-.6ex]
+   &\phi_2: x_2 = x_1 + y_0\\[-.6ex]
+\uncover<1->{I_3: x_2 \geq y_0+2}&\\[-.6ex]
+   &\phi_3: r_3 = x_2\\[-1ex]
+\uncover<1->{I_4: r_3 \geq y_0+2}&\\[-.6ex]
+   &\phi_4: r_3 < y_0 + 2\\[-.6ex]
+\uncover<1->{I_5: \mathbf{false}}&
+\end{align*}
+  \end{minipage}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Programs with Subprocedures}
+
+  \fbox{
+%    \hbox to .05\textwidth{
+  \begin{minipage}{.45\textwidth}
+    \begin{alltt}
+$\vdots$\\
+\hspace*{2em}{\color{ALUgreen}x} := {\color{ALUgreen}z};\\
+\uncover<3->{\hspace*{2em}\{{\color{ALUgreen}x} $\geq$ {\color{ALUgreen}z}\}}\\
+\hspace*{2em}{\color{ALUgreen}x} := add({\color{ALUgreen}x}, {\color{ALUgreen}y});\\
+\uncover<3->{\hspace*{2em}\{{\color{ALUgreen}x} $\geq$ {\color{ALUgreen}y} + {\color{ALUgreen}z}\}}\\
+\hspace*{2em}{\color{ALUgreen}r} := {\color{ALUgreen}x};\\
+\uncover<3->{\hspace*{2em}\{{\color{ALUgreen}r} $\geq$ {\color{ALUgreen}y} + {\color{ALUgreen}z}\}}\\
+\hspace*{2em}{\bf assert} {\color{ALUgreen}r} $\geq$ {\color{ALUgreen}y} + {\color{ALUgreen}z};\\
+$\vdots$\\
+{\bf proc} add ({\color{ALUblue}x} : int, {\color{ALUblue}y} : int)\\
+\hspace*{1em}{\bf returns} ({\color{ALUblue}s} : int)\\
+\uncover<3->{\hspace*{2em}\{{\color{ALUblue}x} $\geq$ {\color{ALUgreen}z} $\land$ {\color{ALUblue}y} $\geq$ {\color{ALUgreen}y}\}}\\
+\hspace*{2em}{\color{ALUblue}s} := {\color{ALUblue}x} + {\color{ALUblue}y};\\
+\uncover<3->{\hspace*{2em}\{{\color{ALUblue}s} $\geq$ {\color{ALUgreen}y} + {\color{ALUgreen}z}\}}\\
+\}
+    \end{alltt}
+  \end{minipage}}~
+  \begin{minipage}{.45\textwidth}
+\begin{align*}
+   &{\color{ALUgreen}x_1} = {\color{ALUgreen}z_0}\\[-.6ex]
+\uncover<2->{{\color{ALUgreen}x_1} \geq {\color{ALUgreen}z_0}}&\\[-.6ex]
+\text{\footnotesize(call)\quad}
+&{\color{ALUblue}x_2} = {\color{ALUgreen}x_1} \land {\color{ALUblue}y_2} = {\color{ALUgreen}y_0}\\[-.6ex]
+\uncover<2->{{\color{ALUblue}y_2}\geq {\color{ALUgreen}y_0} \land {\color{ALUblue}x_2} \geq {\color{ALUgreen}z_0}}&\\[-.6ex]
+   &\quad {\color{ALUblue}s_3} = {\color{ALUblue}x_2} + {\color{ALUblue}y_2}
+\\[-.6ex]
+\uncover<2->{{\color{ALUblue}s_3} \geq {\color{ALUgreen}y_0}+{\color{ALUgreen}z_0}}&\\[-.6ex]
+\text{\footnotesize(return)\quad}
+   &{\color{ALUgreen}x_4} = {\color{ALUblue}s_3}\\[-1ex]
+\uncover<2->{{\color{ALUgreen}x_4} \geq {\color{ALUgreen}y_0}+{\color{ALUgreen}z_0}}&\\[-.6ex]
+   &{\color{ALUgreen}r_5} = {\color{ALUgreen}x_4}\\[-1ex]
+\uncover<2->{{\color{ALUgreen}r_5} \geq {\color{ALUgreen}y_0}+{\color{ALUgreen}z_0}}&\\[-.6ex]
+   &{\color{ALUgreen}r_5} < {\color{ALUgreen}y_0} + {\color{ALUgreen}z_0}
+\end{align*}
+  \end{minipage}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Nested Sequences of Interpolants}
+
+  \begin{tikzpicture}
+    \node (xz) at (0,0) {${\color{ALUgreen}x_1} = {\color{ALUgreen}z_0}$};
+    \node (call) at (0,-1) {${\color{ALUblue}x_2} = {\color{ALUgreen}x_1}
+    \land {\color{ALUblue}y_2} = {\color{ALUgreen}y_0}$};
+    \node (s)  at(2,-2) {${\color{ALUblue}s_3} = {\color{ALUblue}x_2} + {\color{ALUblue}y_2}$};
+    \node (ret)  at(0,-3) {${\color{ALUgreen}x_4} = {\color{ALUblue}s_3}$};
+    \node (rx)  at(0,-4) {${\color{ALUgreen}r_5} = {\color{ALUgreen}x_4}$};
+    \node (assert)  at(0,-5) {${\color{ALUgreen}r_5} < {\color{ALUgreen}y_0} + {\color{ALUgreen}z_0}$};
+    \draw[thick, ->] (xz) -- (call);
+    \draw[thick, ->] (call) -- node (calledge) {} (s);
+    \draw[thick, ->] (s) -- (ret);
+    \draw[thick, ->] (ret) -- (rx);
+    \draw[thick, ->] (rx) -- (assert);
+    \uncover<2->{\draw[line width=3pt, color=black!50,->] (call) -- (ret);}
+    \uncover<2->{
+      \draw[shift=(calledge),color=ALUred, scale=3,very thick] plot[mark=x] coordinates {(0,0)};
+      \uncover<2>{
+        \node[align=center,text width=2.5cm] (expl) at (6,-1) {Ensure locality of interpolants of subprocedure};
+        \draw[->] (expl) to (calledge);
+      }
+    }
+    \uncover<3->{
+      \node[right, outer sep=3mm] (ixz) at (xz.east) {${\color{ALUgreen}x_1} \geq {\color{ALUgreen}z_0}$};
+      \node[right, outer sep=3mm] (icall) at (call.east) {${\color{ALUblue}x_2} \geq {\color{ALUgreen}z_0} \land {\color{ALUblue}y_2} > {\color{ALUgreen}y_0}$};
+      \node[right, outer sep=3mm] (is) at (s.east) {${\color{ALUblue}s_3} \geq {\color{ALUblue}x_2} + {\color{ALUblue}y_2}$};
+      \node[right, outer sep=3mm] (iret) at (ret.east) {${\color{ALUgreen}x_4} \geq {\color{ALUgreen}y_0} + {\color{ALUgreen}z_0}$};
+      \node[right, outer sep=3mm] (irx) at (rx.east) {${\color{ALUgreen}r_5} \geq {\color{ALUgreen}y_0} + {\color{ALUgreen}z_0}$};
+      \node[right, outer sep=3mm] (iassert) at (assert.east) {$\textbf{false}$};
+    }
+  \end{tikzpicture}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Corresponding Hoare Proof}
+
+  \fbox{
+%    \hbox to .05\textwidth{
+  \begin{minipage}[t]{.45\textwidth} 
+   \begin{alltt}
+$\vdots$\\
+\hspace*{2em}{\color{ALUgreen}x} :=
+        {\color{ALUgreen}z};\\ \uncover<2->{\hspace*{2em}\{{\color{ALUgreen}x}
+          $\geq$ {\color{ALUgreen}z}\}}\\
+\hspace*{2em}{\color{ALUgreen}x} := add({\color{ALUgreen}x},
+        {\color{ALUgreen}y});\\ \uncover<2->{\hspace*{2em}\{{\color{ALUgreen}x}
+          $\geq$ {\color{ALUgreen}y} + {\color{ALUgreen}z}\}}\\
+\hspace*{2em}{\color{ALUgreen}r} :=
+        {\color{ALUgreen}x};\\ \uncover<2->{\hspace*{2em}\{{\color{ALUgreen}r}
+          $\geq$ {\color{ALUgreen}y} + {\color{ALUgreen}z}\}}\\
+\hspace*{2em}{\bf assert} {\color{ALUgreen}r} $\geq$
+        {\color{ALUgreen}y} + {\color{ALUgreen}z};\\ $\vdots$\\ {\bf
+          proc} add ({\color{ALUblue}x} : int, {\color{ALUblue}y} :
+        int)\\
+\hspace*{1em}{\bf returns} ({\color{ALUblue}s} : int)\\ \\
+\hspace*{2em}{\color{ALUblue}s} := {\color{ALUblue}x} +
+        {\color{ALUblue}y};\\ \uncover<2->{\hspace*{2em}\{{\color{ALUblue}s}
+          $\geq$ {\color{ALUblue}x} + {\color{ALUblue}y}\}}\\ \}
+    \end{alltt}
+  \end{minipage}}
+  \begin{minipage}[t]{.45\textwidth}
+    \vbox{}
+  \begin{tikzpicture}[xscale=.8,yscale=1.2]\footnotesize
+    \node (xz) at (0,0) {${\color{ALUgreen}x_1} =
+      {\color{ALUgreen}z_0}$}; \node (call) at (0,-1)
+          {${\color{ALUblue}x_2} = {\color{ALUgreen}x_1} \land
+            {\color{ALUblue}y_2} = {\color{ALUgreen}y_0}$}; \node (s)
+          at(2,-2) {${\color{ALUblue}s_3} = {\color{ALUblue}x_2} +
+            {\color{ALUblue}y_2}$}; \node (ret) at(0,-3)
+          {${\color{ALUgreen}x_4} = {\color{ALUblue}s_3}$}; \node (rx)
+          at(0,-4) {${\color{ALUgreen}r_5} = {\color{ALUgreen}x_4}$};
+          \node (assert) at(0,-5) {${\color{ALUgreen}r_5} <
+            {\color{ALUgreen}y_0} + {\color{ALUgreen}z_0}$};
+          \draw[thick, ->] (xz) -- (call); \draw[thick, ->] (call) --
+          node (calledge) {} (s); \draw[thick, ->] (s) -- (ret);
+          \draw[thick, ->] (ret) -- (rx); \draw[thick, ->] (rx) --
+          (assert); \draw[line width=3pt, color=black!50,->] (call) --
+          (ret); \draw[shift=(calledge),color=ALUred, scale=3,very
+            thick] plot[mark=x] coordinates {(0,0)}; \node[right,
+            outer sep=3mm] (ixz) at (xz.east) {${\color{ALUgreen}x_1}
+            \geq {\color{ALUgreen}z_0}$}; \node[right, outer sep=3mm]
+          (icall) at (call.east) {${\color{ALUblue}x_2} \geq
+            {\color{ALUgreen}z_0} \land {\color{ALUblue}y_2} >
+            {\color{ALUgreen}y_0}$}; \node[right, outer sep=3mm] (is)
+          at (s.east) {${\color{ALUblue}s_3} \geq {\color{ALUblue}x_2}
+            + {\color{ALUblue}y_2}$}; \node[right, outer sep=3mm]
+          (iret) at (ret.east) {${\color{ALUgreen}x_4} \geq
+            {\color{ALUgreen}y_0} + {\color{ALUgreen}z_0}$};
+          \node[right, outer sep=3mm] (irx) at (rx.east)
+               {${\color{ALUgreen}r_5} \geq {\color{ALUgreen}y_0} +
+                 {\color{ALUgreen}z_0}$}; \node[right, outer sep=3mm]
+               (iassert) at (assert.east) {$\textbf{false}$};
+  \end{tikzpicture}
+  \end{minipage}
+\end{frame}
+
+
+\begin{frame}[fragile]
+  \frametitle{Nested Interpolants (a.k.a. Tree Interpolants)}
+
+  \begin{tikzpicture}
+    \node (xz) at (0,0) {$\phi_1$};
+    \node (call) at (0,-1) {$\phi_2$};
+    \node (s)  at(2,-2) {$\phi_3$};
+    \node (ret)  at(0,-3) {$\phi_4$};
+    \node (rx)  at(0,-4) {$\phi_5$};
+    \node (assert)  at(0,-5) {$\phi_6$};
+    \draw[thick, ->] (xz) -- (call);
+%    \draw[thick, ->] (call) -- node (calledge) {} (s);
+    \draw[thick, ->] (s) -- (ret);
+    \draw[thick, ->] (ret) -- (rx);
+    \draw[thick, ->] (rx) -- (assert);
+    \draw[line width=3pt, color=black!50,->] (call) -- (ret);
+
+    \node[right, outer sep=3mm] (ixz) at (xz.east) {$\{I_1\}$};
+    \node[right, outer sep=3mm] (icall) at (call.east) {$\{I_2\}$};
+    \node[right, outer sep=3mm] (is) at (s.east) {$\{I_3\}$};
+    \node[right, outer sep=3mm] (iret) at (ret.east) {$\{I_4\}$};
+    \node[right, outer sep=3mm] (irx) at (rx.east) {$\{I_5\}$};
+    \node[right, outer sep=3mm] (iassert) at (assert.east) {$\{I_6\}$};
+    
+    \uncover<2->{
+    \node[right] at(5,-1.5) {
+      $\begin{array}{rcl}
+        \phi_1 &\Rightarrow& I_1\\
+        I_1\land \phi_2 &\Rightarrow& I_2\\
+        \phi_3 &\Rightarrow& I_3\\
+        I_2 \land I_3 \land \phi_4 &\Rightarrow& I_4\\
+        I_4 \land \phi_5 &\Rightarrow& I_5\\
+        I_5 \land \phi_6 &\Rightarrow& I_6\\
+        I_6 &=& \textbf{false}
+      \end{array}$
+    };
+    }
+    
+    \node[right,align=left] at(3,-5) {
+      \noindent Inductivity:\\
+      $\quad\bigwedge \{I_j \mid j \text{ child of } i\} \land \phi_i \Rightarrow I_i$\\[2ex]
+      Symbol condition:\\
+      $\ \begin{array}{rl}
+        sym(I_i) \subseteq &
+        sym\{\phi_j \mid \text{$j$ in subtree with root $i$}\} \\
+        \cap &
+        sym\{\phi_j \mid \text{$j$ not in subtree with root $i$}\}
+      \end{array}$};
+  \end{tikzpicture}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{How to compute Nested Interpolants}
+  \begin{itemize}
+  \item Na{\"\i}ve Method: \\
+    $I_i = \textit{interpolate\/}(
+    \bigwedge \{\phi \mid \phi\text{ in subtree }i\}, 
+    \bigwedge \{\phi \mid \phi\text{ not in subtree }i\});$ 
+    \pause
+    \begin{itemize}
+    \item does not guarantee inductivity (unsound).
+    \end{itemize}
+    \pause
+  \item Method presented in [Heizmann et al. 2010]\\
+    $\begin{array}{r@{}l}I_i = \textit{interpolate\/}(&
+    \phi_i \land \bigwedge \{I_j \mid j\text{ child of }i\}, \\
+    &\bigwedge \{I_j \mid j\text{ call parent of }i\} \land
+    \bigwedge \{\phi_j \mid j > i\})\end{array}$
+    \pause
+    \begin{itemize}
+    \item needs a new proof for every interpolant
+    \end{itemize}
+    \pause
+  \item Method we propose for SMTInterpol\\
+    Compute all nested interpolants directly from a single proof tree.
+  \end{itemize}
+\end{frame}
+
+
+\begin{frame}[fragile]
+  \frametitle{Proof trees in SMTInterpol}
+  \begin{tikzpicture}[level distance=10mm,
+      level/.style={sibling distance=60mm/#1}]
+
+    \node (bottom) at (0,0) {\textbf{false}} [grow'=up]
+       child { node (c1) {$C^{(7)}$}
+         child { node (c11) {$C^{(3)}$}
+           child { node (c111) {${\color{ALUblue}C^{(1)}}$} }
+           child { node (c112) {${\color{ALUgreen}C^{(2)}}$} }
+         }
+         child { node (c12) {${\color{ALUgreen}C^{(4)}}$} }
+       }
+       child { node (c2) {$C^{(8)}$} 
+         child { node (c21) {${\color{ALUblue}C^{(5)}}$} }
+         child { node (c22) {${\color{ALUblue}C^{(6)}}$} }
+       };
+    \node at (0,0) {\textbf{false}};
+
+    \uncover<3>{
+      \node (tl) at (1,4) {\color{ALUblue}theory lemmas};
+      \draw[color=black!50,line width=1pt] (tl) -- (c111); 
+      \draw[color=black!50,line width=1pt] (tl) -- (c21);
+      \draw[color=black!50,line width=1pt] (tl) -- (c22);
+    }
+
+    \uncover<2>{
+      \node (if) at (-3,4) {\color{ALUgreen}input formulas};
+      
+      \draw[color=black!50,line width=1pt] (if) -- (c112);
+      \draw[color=black!50,line width=1pt] (if) -- (c12);
+    }
+    
+    \uncover<4>{
+      \node[align=center] (rr) at (3,3.5) {resolution rule\\
+        $\frac{\ell, C \quad \bar\ell, C'}{C,C'}$};
+      
+      \draw[color=black!50,line width=1pt] (bottom)+(0,.25) -- (rr);
+      \draw[color=black!50,line width=1pt] (c1)+(0,.25) -- (rr);
+      \draw[color=black!50,line width=1pt] (c2)+(0,.25) -- (rr);
+      \draw[color=black!50,line width=1pt] (c11)+(0,.25) -- (rr);
+    }
+
+    \begin{scope}[outer sep=0mm,inner sep=0mm]
+    \uncover<5-> {
+      \node[right] at (c111.east) {\tiny$\{I_1,\dots,I_n\}$};
+      \node[right] at (c112.east) {\tiny$\{I_1,\dots,I_n\}$};
+      \node[right] at (c12.east) {\footnotesize$\{I_1,\dots,I_n\}$};
+      \node[right] at (c21.east) {\footnotesize$\{I_1,\dots,I_n\}$};
+      \node[right] at (c22.east) {\footnotesize$\{I_1,\dots,I_n\}$};
+    }
+    \uncover<6-> {
+      \node[right] at (c1.east) {$\{I_1,\dots,I_n\}$};
+      \node[right] at (c11.east) {\footnotesize$\{I_1,\dots,I_n\}$};
+      \node[right] at (c2.east) {$\{I_1,\dots,I_n\}$};
+      \node[right] at (bottom.east) {$\{I_1,\dots,I_n\}$};
+    }
+    \end{scope}
+  \end{tikzpicture}
+  
+  \begin{itemize}
+  \item<5-> Compute \emph{Partial} Nested Interpolants for every leaf.\\
+  \item<6-> Propagate Partial Interpolants to the bottom clause.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Definition: Partial Nested Interpolants}
+  
+  Given Input Formulas partitioned into $\phi_1,\dots, \phi_n$, proof tree.
+
+  \begin{itemize}
+  \item Every Clause $C$ in the proof tree follows from the input:
+    \[\phi_1 \land \dots \land \phi_n \land \lnot C \text{ is unsat}\]
+  \item $\lnot C$ is a conjunction of literals.
+  \item For simplicity, assume every literal belongs to one part.\\
+    Split $\lnot C$ into the parts $\lnot C_1\land \dots \land \lnot C_n$.\\
+  \end{itemize}
+  \pause
+  \begin{definition}[Partial Nested Interpolant]
+    The \emph{Partial Nested Interpolant} for $C$ and the input
+    $\phi_1,\dots,\phi_n$ is the Nested Interpolant for
+    \[ \phi_1\land \lnot C_1, \dots, \phi_n \land \lnot C_n \]
+  \end{definition}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Computing Partial Nested Interpolants}
+  
+  \begin{itemize}
+  \item {\color{ALUblue} Theory lemmas}:\\
+    Theory-specific interpolation procedure.\\
+    Basically, $I_i$ summarises the (in)equalities of subtree $i$.
+    \pause
+  \item {\color{ALUgreen} Input formula} $C$:
+    \[I_i = \begin{cases}
+      \bigvee\{C_j \mid j\text{ not in subtree }i\} & \text{if $C$ in subtree $i$}\\
+      \bigwedge\{\lnot C_j \mid j\text{ in subtree }i\} & \text{if $C$ not in subtree $i$}
+    \end{cases}\]
+    \pause
+  \item Resolution on $\ell$ of $C^{(1)}~\{I^{(1)}_1,\dots,I^{(1)}_n\}$ and 
+    $C^{(2)}~\{I^{(2)}_1,\dots,I^{(2)}_n\}$:
+    \[I_i = \begin{cases}
+      I^{(1)}_i \lor I^{(2)}_i & \text{if $\ell$ in subtree $i$}\\
+      I^{(1)}_i \land I^{(2)}_i & \text{if $\ell$ not in subtree $i$}
+    \end{cases}\] 
+    \pause
+  \item Correctness can be proved by induction over the proof tree.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Proposed Syntax for SMTLIB 2.0}
+  Goal: Nice encoding for sequences and nested sequences.
+  \bigskip
+
+  \pause
+  Example:
+  \begin{tikzpicture}[rotate=90]
+    \node (xz) at (0,0) {$\phi_1$};
+    \node (call) at (0,-1) {$\phi_2$};
+    \node (s)  at(1,-2) {$\phi_3$};
+    \node (rx)  at(1,-3) {$\phi_4$};
+    \node (ret)  at(0,-4) {$\phi_5$};
+    \node (assert)  at(0,-5) {$\phi_6$};
+    \draw[thick, ->] (xz) -- (call);
+%    \draw[thick, ->] (call) -- node (calledge) {} (s);
+    \draw[thick, ->] (s) -- (rx);
+    \draw[thick, ->] (rx) -- (ret);
+    \draw[thick, ->] (ret) -- (assert);
+    \draw[line width=1.5pt, color=black!50,->] (call) -- (ret);
+  \end{tikzpicture}
+  \begin{alltt}
+  (get-interpolants phi1 phi2 (phi3 phi4) phi5 phi6)
+  \end{alltt}
+
+  \pause
+  This can be parsed by this simple grammar:
+  \begin{alltt}
+  tree~~~~~::= named-formula | children named-formula \\
+  children ::= tree ( children ) | tree \\
+  \end{alltt}
+
+  \pause
+  We return the interpolants as a flat sequence.\\
+  The last  interpolant, which is always $\textbf{false}$, is omitted.
+\end{frame}
+
+\begin{frame}
+  \frametitle{Conclusion}
+
+  \begin{itemize}
+  \item Inductive Sequences of Interpolants are not suited for programs with procedures.
+  \item Nested Sequences of Interpolants are the solution.
+  \item Nested Interpolants are Tree Interpolants.
+  \item We will add support for Nested Interpolants in SMTInterpol.
+  \end{itemize}
+\end{frame}
+
+\end{document}

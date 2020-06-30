@@ -1,0 +1,105 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%   Folien: SMT Workshop
+%           SMTInterpol
+%   Juli 2018
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\documentclass[table,aspectratio=169]{beamer}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{fit,shapes.callouts,shapes.geometric,shapes.symbols}
+\usetikzlibrary{positioning,calc}
+\usetheme{Madrid}
+\usecolortheme{freiburg}
+\let\checkmark\relax
+\usepackage{dingbat}
+
+\newcommand\store[3]{\ensuremath{#1\langle #2\lhd#3\rangle}}
+\newcommand\select[2]{\ensuremath{#1[#2]}}
+\newcommand\diff[2]{\ensuremath{\mathop{\mathrm{diff}}(#1,#2)}}
+
+\geometry{papersize={16.80cm,12.60cm}}
+\setbeamertemplate{navigation symbols}{}
+
+%%% Titel, Autor und Datum des Vortrags:
+\pgfdeclareimage[height=1cm]{unifr}{unifr-neu}
+
+%% Institut
+\institute[Uni Freiburg]{University of Freiburg\hspace{1cm}\pgfuseimage{unifr}}
+
+\colorlet{colorTest}{ALUblue}
+
+\useoutertheme{unifr}
+
+
+\begin{document}
+
+\section{Motivation}
+
+\begin{frame}[plain,fragile]
+  \pgfdeclarelayer{back}
+  \pgfsetlayers{back,main}
+  
+\begin{center}
+\begin{tikzpicture}
+  \begin{scope}[xshift=-5cm,yshift=4.5cm]
+    \node (qfla) at (.2,.4) {Quantifier Free};
+    \node (la) at (0,0) {Linear Arithmetic};
+    \node (la1) at (.5,-.6) {$y \leq i+1$};
+    \node (la2) at (-.8,-1.1) {$i \leq y$ };
+    \node (lamixed) at (0,-1.6) {$y - to\_int(y) < .3$};
+  \end{scope}
+  \begin{scope}[xshift=5cm,yshift=4.5cm]
+    \node (qfuf) at (0,.4) {Quantifier Free};
+    \node (uf) at (0,0) {Uninterpreted Functions};
+    \node (uf1) at (-.6,-.6) {$f(b) = v$};
+    \node (uf2) at (.7,-1.1) {$f(a) \neq v$ };
+  \end{scope}
+  \begin{scope}[xshift=0cm,yshift=5cm]
+    \node (qfar) at (0,.6) {Quantifier Free};
+    \node (ar) at (0,.2) {Arrays};
+    \node (ar1) at (-.3,-.4) {$b = \store aiv$};
+    \node (ar2) at (.3,-0.9) {$\select av = v$};
+  \end{scope}
+    
+  \begin{scope}[xshift=0cm,yshift=4cm]
+    \node (comb) at (0, -.9) {Theory combination};
+    \node (lauf1) at (0, -1.5) {$\select b i \geq i$};
+    \node (lauf2) at (-.7, -2) {$f(i+y) = 2v$};
+  \end{scope}
+  \begin{scope}[xshift=0cm,yshift=4cm]
+    \node (lauf3) at (.3, -2.5) {$f(b) \leq i$};
+  \end{scope}
+        
+  \node (url) at (0,-3)
+    {\url{http://ultimate.informatik.uni-freiburg.de/smtinterpol}};
+    
+  \coordinate (a1) at (-6,3.6);
+  \coordinate (a2) at (6.5,3.6);
+  \node[shape=cloud callout,cloud puffs=40,draw,inner sep=-1cm,aspect=3,
+    callout relative pointer={(0,-.4)},
+    fit=(a1)(a2)
+  ] {};
+    
+  \node (si) at (0,-.5) {\huge SMTInterpol};
+    
+  \node[draw,shape=rectangle callout, callout relative pointer={(1.7,-.3)}] at (-4,.1) {sat};
+    
+  \node[draw,shape=rectangle callout, callout relative pointer={(1.4,.2)}] (model) at (-4, -.9) {model};
+    
+  \node[draw,shape=rectangle callout, callout relative pointer={(-3.2,-.5)}] at (5.4,.5) {unsat};
+    
+  \node[shape=ellipse,inner sep=.01cm,thick](proof) at (5.4,-.35) {proof};
+  \node[draw,shape=rectangle callout, fit=(proof), callout relative pointer={(-2.5,-.15)}] {};
+    
+  \node[shape=ellipse,inner sep=.03cm,thick](uc) at (5.4,-1.25) {unsat core};
+  \node[draw,shape=rectangle callout, fit=(uc), callout relative pointer={(-1.8,.1)}] (ucco) {};
+    
+  \node (ips) at (0,-2) {interpolants};
+  \node[draw,shape=rectangle callout, callout relative pointer={(0,+.8)}, fit=(ips)] {};
+\end{tikzpicture}
+\end{center}
+\end{frame}
+\end{document}
