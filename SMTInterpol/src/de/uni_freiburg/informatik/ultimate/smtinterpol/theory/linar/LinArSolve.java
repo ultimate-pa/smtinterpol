@@ -562,15 +562,15 @@ public class LinArSolve implements ITheory {
 				final int coeffSign = row.getRawCoeff(i).signum();
 				final LinVar colvar = mLinvars.get(row.getRawIndex(i));
 				if (hasUpper) {
-					final InfinitesimalNumber colBound = coeffSign == sign ? colvar.getTightUpperBound()
-							: colvar.getTightLowerBound();
+					final InfinitesimalNumber colBound = coeffSign == sign ? colvar.getUpperBound()
+							: colvar.getLowerBound();
 					if (colBound.isInfinity()) {
 						hasUpper = false;
 					}
 				}
 				if (hasLower) {
-					final InfinitesimalNumber colBound = coeffSign == sign ? colvar.getTightLowerBound()
-							: colvar.getTightUpperBound();
+					final InfinitesimalNumber colBound = coeffSign == sign ? colvar.getLowerBound()
+							: colvar.getUpperBound();
 					if (colBound.isInfinity()) {
 						hasLower = false;
 					}
