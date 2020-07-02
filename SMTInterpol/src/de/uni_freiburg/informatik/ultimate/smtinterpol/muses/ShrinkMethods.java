@@ -3,6 +3,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.muses;
 import java.util.BitSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
+import de.uni_freiburg.informatik.ultimate.logic.Term;
 
 /**
  * A class that provides methods for single MUS extraction.
@@ -13,8 +14,9 @@ import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 public class ShrinkMethods {
 
 	/*
-	 * Takes an boolean array representing an unsatisfiable set of constraints and a MUSSolver to generate a minimal
-	 * unsatisfiable subset. This MUS will be returned as a new BitSet.
+	 * Takes an boolean array representing an unsatisfiable set of constraints and a CritAdministrationSolver,
+	 * containing all criticals found so far, to generate a minimal unsatisfiable subset. This MUS will be returned as a
+	 * new BitSet.
 	 */
 	public static BitSet shrink(final CritAdministrationSolver solver, final BitSet workingConstraints) {
 		solver.pushRecLevel();
@@ -43,6 +45,8 @@ public class ShrinkMethods {
 				throw new SMTLIBException("Unknown LBool value in Shrinking process.");
 			}
 		}
+		solver.clearUnknownConstraints();
+		final Term proofOfMus = solver.getProof();
 		final BitSet mus = solver.getCrits();
 		solver.popRecLevel();
 		return mus;
