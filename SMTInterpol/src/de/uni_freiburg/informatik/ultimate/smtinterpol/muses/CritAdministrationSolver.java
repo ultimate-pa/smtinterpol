@@ -129,7 +129,8 @@ public class CritAdministrationSolver {
 		final BitSet notAsserted = (BitSet) assertedAsBits.clone();
 		notAsserted.flip(0, notAsserted.size());
 
-		for (int i = notAsserted.nextSetBit(0); i >= 0; i = notAsserted.nextSetBit(i + 1)) {
+		final ArrayList<Integer> randomNotAsserted = randomPermutation(notAsserted);
+		for (final Integer i : randomNotAsserted) {
 			// TODO: Maybe permutate the not asserted indices instead of simply iterating over them
 			mScript.assertTerm(mIndex2Constraint.get(i));
 			assertedAsBits.set(i);
@@ -160,8 +161,8 @@ public class CritAdministrationSolver {
 		final BitSet notAsserted = (BitSet) assertedAsBits.clone();
 		notAsserted.flip(0, notAsserted.size());
 
-		for (int i = notAsserted.nextSetBit(0); i >= 0; i = notAsserted.nextSetBit(i + 1)) {
-			// TODO: Maybe permutate the not asserted indices instead of simply iterating over them
+		final ArrayList<Integer> randomNotAsserted = randomPermutation(notAsserted);
+		for (final Integer i : randomNotAsserted) {
 			mScript.assertTerm(mIndex2Constraint.get(i));
 			mScript.push(1);
 			pushCounter++;
@@ -207,5 +208,14 @@ public class CritAdministrationSolver {
 			constraintsAsBits.set(mConstraint2Index.get(constraints[i]));
 		}
 		return constraintsAsBits;
+	}
+
+	private ArrayList<Integer> randomPermutation(final BitSet toBePermutated) {
+		final ArrayList<Integer> toBePermutatedList = new ArrayList<>();
+		for (int i = toBePermutated.nextSetBit(0); i >= 0; i = toBePermutated.nextSetBit(i + 1)) {
+			toBePermutatedList.add(i);
+		}
+		java.util.Collections.shuffle(toBePermutatedList);
+		return toBePermutatedList;
 	}
 }
