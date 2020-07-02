@@ -5,6 +5,7 @@ import java.util.BitSet;
 import java.util.HashMap;
 
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
+import de.uni_freiburg.informatik.ultimate.logic.Model;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
@@ -94,7 +95,7 @@ public class CritAdministrationSolver {
 	/**
 	 * Check for satisfiability according to {@link Script#checkSat()}
 	 */
-	public LBool checkSat() {
+	public LBool checkSat() throws SMTLIBException {
 		return mScript.checkSat();
 	}
 
@@ -102,49 +103,109 @@ public class CritAdministrationSolver {
 	 * Return an unsatisfiable core according to {@link Script#getUnsatCore}. This unsatCore will be returned as an
 	 * array of booleans.
 	 */
-	public BitSet getUnsatCore() {
+	public BitSet getUnsatCore() throws SMTLIBException, UnsupportedOperationException {
 		final Term[] core = mScript.getUnsatCore();
-		final BitSet coreAsBits = new BitSet(mIndex2Constraint.size());
-		for(int i = 0; i < core.length; i++) {
-			coreAsBits.set(mConstraint2Index.get(core[i]));
-		}
-		return coreAsBits;
+		return arrayOfConstraintsToBitSet(core);
 	}
 
 	/**
-	 * Try to extend the given satisfiable set to a bigger satisfiable set.
+	 * Try to extend the currently asserted satisfiable set to a bigger satisfiable set without investing too much work in
+	 * it.
 	 */
-	public BitSet getSatExtension(final BitSet toBeExtended) {
+	public BitSet getSatExtension() throws SMTLIBException, UnsupportedOperationException {
+		// TODO: Maybe permutate the not asserted indices instead of simply iterating over them
+		final Model model = mScript.getModel();
 
 	}
 
 	/**
-	 * Try to extend the given satisfiable set to a bigger satisfiable set, but invest more work in it, than
+	 * Try to extend the currently asserted satisfiable set to a bigger satisfiable set, but invest more work in it, than
 	 * {@link #getSatExtension(BitSet)}.
 	 */
-	public BitSet getSatExtensionDemanding(final BitSet toBeExtended) {
+	public BitSet getSatExtensionMoreDemanding() throws SMTLIBException {
+		mScript.push(1);
+		final Term[] assertions = mScript.getAssertions();
+		final BitSet assertedAsBits = arrayOfConstraintsToBitSet(assertions);
+		final BitSet notAsserted = (BitSet) assertedAsBits.clone();
+		notAsserted.flip(0, notAsserted.size());
 
+		for (int i = notAsserted.nextSetBit(0); i >= 0; i = notAsserted.nextSetBit(i + 1)) {
+			// TODO: Maybe permutate the not asserted indices instead of simply iterating over them
+			mScript.assertTerm(mIndex2Constraint.get(i));
+			assertedAsBits.set(i);
+			switch (mScript.checkSat()) {
+			case UNSAT:
+				assertedAsBits.clear(i);
+				mScript.pop(1);
+				return assertedAsBits;
+			case SAT:
+				break;
+			case UNKNOWN:
+				throw new SMTLIBException("Solver returns UNKNOWN in Extension process.");
+			default:
+				throw new SMTLIBException("Unknown LBool value in Extension process.");
+			}
+		}
+		throw new SMTLIBException("This means, that the set of all constraints is satisfiable. Something is not right!");
+	}
+
+	/**
+	 * Try to extend the currently asserted satisfiable set to a maximal satisfiable subset.
+	 */
+	public BitSet getSatExtensionMaximalDemanding() {
+		mScript.push(1);
+		int pushCounter = 1;
+		final Term[] assertions = mScript.getAssertions();
+		final BitSet assertedAsBits = arrayOfConstraintsToBitSet(assertions);
+		final BitSet notAsserted = (BitSet) assertedAsBits.clone();
+		notAsserted.flip(0, notAsserted.size());
+
+		for (int i = notAsserted.nextSetBit(0); i >= 0; i = notAsserted.nextSetBit(i + 1)) {
+			// TODO: Maybe permutate the not asserted indices instead of simply iterating over them
+			mScript.assertTerm(mIndex2Constraint.get(i));
+			mScript.push(1);
+			pushCounter++;
+			assertedAsBits.set(i);
+			switch (mScript.checkSat()) {
+			case UNSAT:
+				assertedAsBits.clear(i);
+				mScript.pop(1);
+				pushCounter--;
+			case SAT:
+				break;
+			case UNKNOWN:
+				throw new SMTLIBException("Solver returns UNKNOWN in Extension process.");
+			default:
+				throw new SMTLIBException("Unknown LBool value in Extension process.");
+			}
+		}
+		mScript.pop(pushCounter);
+		return assertedAsBits;
 	}
 
 	/**
 	 * Return ALL critical constraints (this means on all recursion levels) that are asserted right now.
 	 */
-	public BitSet getCrits() {
+	public BitSet getCrits() throws SMTLIBException {
 		if (mUnknownConstraintsAreSet) {
 			throw new SMTLIBException("Reading crits without clearing unknowns is prohibited.");
 		}
 		final Term[] crits = mScript.getAssertions();
-		final BitSet critsAsBits = new BitSet();
-		for(int i = 0; i < crits.length; i++) {
-			critsAsBits.set(mConstraint2Index.get(crits[i]));
-		}
-		return critsAsBits;
+		return arrayOfConstraintsToBitSet(crits);
 	}
 
 	/**
 	 * Return a proof of unsatisfiability according to {@link Script#getProof()}.
 	 */
-	public Term getProof() {
+	public Term getProof() throws SMTLIBException, UnsupportedOperationException {
 		return mScript.getProof();
+	}
+
+	private BitSet arrayOfConstraintsToBitSet(final Term[] constraints) {
+		final BitSet constraintsAsBits = new BitSet();
+		for (int i = 0; i < constraints.length; i++) {
+			constraintsAsBits.set(mConstraint2Index.get(constraints[i]));
+		}
+		return constraintsAsBits;
 	}
 }
