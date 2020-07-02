@@ -109,8 +109,8 @@ public class CritAdministrationSolver {
 	}
 
 	/**
-	 * Try to extend the currently asserted satisfiable set to a bigger satisfiable set without investing too much work in
-	 * it.
+	 * Try to extend the currently asserted satisfiable set to a bigger satisfiable set without investing too much work
+	 * in it.
 	 */
 	public BitSet getSatExtension() throws SMTLIBException, UnsupportedOperationException {
 		// TODO: Maybe permutate the not asserted indices instead of simply iterating over them
@@ -119,8 +119,8 @@ public class CritAdministrationSolver {
 	}
 
 	/**
-	 * Try to extend the currently asserted satisfiable set to a bigger satisfiable set, but invest more work in it, than
-	 * {@link #getSatExtension(BitSet)}.
+	 * Try to extend the currently asserted satisfiable set to a bigger satisfiable set, but invest more work in it,
+	 * than {@link #getSatExtension(BitSet)}.
 	 */
 	public BitSet getSatExtensionMoreDemanding() throws SMTLIBException {
 		mScript.push(1);
@@ -129,8 +129,7 @@ public class CritAdministrationSolver {
 		final BitSet notAsserted = (BitSet) assertedAsBits.clone();
 		notAsserted.flip(0, notAsserted.size());
 
-		final ArrayList<Integer> randomNotAsserted = randomPermutation(notAsserted);
-		for (final Integer i : randomNotAsserted) {
+		for (int i = notAsserted.nextSetBit(0); i >= 0; i = notAsserted.nextSetBit(i + 1)) {
 			// TODO: Maybe permutate the not asserted indices instead of simply iterating over them
 			mScript.assertTerm(mIndex2Constraint.get(i));
 			assertedAsBits.set(i);
@@ -147,7 +146,8 @@ public class CritAdministrationSolver {
 				throw new SMTLIBException("Unknown LBool value in Extension process.");
 			}
 		}
-		throw new SMTLIBException("This means, that the set of all constraints is satisfiable. Something is not right!");
+		throw new SMTLIBException(
+				"This means, that the set of all constraints is satisfiable. Something is not right!");
 	}
 
 	/**
@@ -161,8 +161,7 @@ public class CritAdministrationSolver {
 		final BitSet notAsserted = (BitSet) assertedAsBits.clone();
 		notAsserted.flip(0, notAsserted.size());
 
-		final ArrayList<Integer> randomNotAsserted = randomPermutation(notAsserted);
-		for (final Integer i : randomNotAsserted) {
+		for (int i = notAsserted.nextSetBit(0); i >= 0; i = notAsserted.nextSetBit(i + 1)) {
 			mScript.assertTerm(mIndex2Constraint.get(i));
 			mScript.push(1);
 			pushCounter++;
@@ -202,20 +201,20 @@ public class CritAdministrationSolver {
 		return mScript.getProof();
 	}
 
-	private BitSet arrayOfConstraintsToBitSet(final Term[] constraints) {
-		final BitSet constraintsAsBits = new BitSet();
-		for (int i = 0; i < constraints.length; i++) {
-			constraintsAsBits.set(mConstraint2Index.get(constraints[i]));
-		}
-		return constraintsAsBits;
-	}
-
-	private ArrayList<Integer> randomPermutation(final BitSet toBePermutated) {
+	public ArrayList<Integer> randomPermutation(final BitSet toBePermutated) {
 		final ArrayList<Integer> toBePermutatedList = new ArrayList<>();
 		for (int i = toBePermutated.nextSetBit(0); i >= 0; i = toBePermutated.nextSetBit(i + 1)) {
 			toBePermutatedList.add(i);
 		}
 		java.util.Collections.shuffle(toBePermutatedList);
 		return toBePermutatedList;
+	}
+
+	private BitSet arrayOfConstraintsToBitSet(final Term[] constraints) {
+		final BitSet constraintsAsBits = new BitSet();
+		for (int i = 0; i < constraints.length; i++) {
+			constraintsAsBits.set(mConstraint2Index.get(constraints[i]));
+		}
+		return constraintsAsBits;
 	}
 }
