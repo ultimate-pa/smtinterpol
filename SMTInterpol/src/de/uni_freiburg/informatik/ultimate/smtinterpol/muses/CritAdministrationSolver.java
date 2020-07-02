@@ -13,11 +13,11 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 
 /**
  * A class that wraps a script and provides additional functionality for the MUS enumeration. Basically, it is used for
- * administration of the critical constraints. It provides recursion levels that enhance the reusability of the solver
- * in ReMUS. The earlier recursion levels only contain critical constraints. The latest recursion level is divided in
- * two "usual" push/pop levels: The lower level again contains critical constraints. The upper level contains all
- * constraints which status is currently unknown. Also this class translates between the bitset representation and the
- * term representation of constraints for the solver.
+ * administration of the critical constraints and communication with the solver. It provides recursion levels that
+ * enhance the reusability of the solver in ReMUS. The earlier recursion levels only contain critical constraints. The
+ * latest recursion level is divided in two "usual" push/pop levels: The lower level again contains critical
+ * constraints. The upper level contains all constraints which status is currently unknown. Also this class translates
+ * between the bitset representation and the term representation of constraints for the solver.
  *
  * @author LeonardFichtner
  *
@@ -121,7 +121,7 @@ public class CritAdministrationSolver {
 
 		for (int i = notAsserted.nextSetBit(0); i >= 0; i = notAsserted.nextSetBit(i + 1)) {
 			final Term evaluatedTerm = model.evaluate(mIndex2Constraint.get(i));
-			//TODO: Implement when it is clear how to check whether a constraint is satisfied by a model
+			// TODO: Implement when it is clear how to check whether a constraint is satisfied by a model
 		}
 		return new BitSet();
 	}
