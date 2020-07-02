@@ -75,7 +75,7 @@ public class CritAdministrationSolver {
 	/**
 	 * Assert a critical constraint. This can only be done, when no unknown constraints are asserted.
 	 */
-	public void assertCriticalConstraint(final int constraintNumber) {
+	public void assertCriticalConstraint(final int constraintNumber) throws SMTLIBException {
 		if (mUnknownConstraintsAreSet) {
 			throw new SMTLIBException("Modifying crits without clearing unknowns is prohibited.");
 		}
@@ -113,9 +113,17 @@ public class CritAdministrationSolver {
 	 * in it.
 	 */
 	public BitSet getSatExtension() throws SMTLIBException, UnsupportedOperationException {
-		// TODO: Maybe permutate the not asserted indices instead of simply iterating over them
 		final Model model = mScript.getModel();
+		final Term[] assertions = mScript.getAssertions();
+		final BitSet assertedAsBits = arrayOfConstraintsToBitSet(assertions);
+		final BitSet notAsserted = (BitSet) assertedAsBits.clone();
+		notAsserted.flip(0, notAsserted.size());
 
+		for (int i = notAsserted.nextSetBit(0); i >= 0; i = notAsserted.nextSetBit(i + 1)) {
+			final Term evaluatedTerm = model.evaluate(mIndex2Constraint.get(i));
+			//TODO: Implement when it is clear how to check whether a constraint is satisfied by a model
+		}
+		return new BitSet();
 	}
 
 	/**
@@ -130,7 +138,6 @@ public class CritAdministrationSolver {
 		notAsserted.flip(0, notAsserted.size());
 
 		for (int i = notAsserted.nextSetBit(0); i >= 0; i = notAsserted.nextSetBit(i + 1)) {
-			// TODO: Maybe permutate the not asserted indices instead of simply iterating over them
 			mScript.assertTerm(mIndex2Constraint.get(i));
 			assertedAsBits.set(i);
 			switch (mScript.checkSat()) {

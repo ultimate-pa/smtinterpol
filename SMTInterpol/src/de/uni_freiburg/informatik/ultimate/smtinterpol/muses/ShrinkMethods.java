@@ -18,7 +18,8 @@ public class ShrinkMethods {
 	 * containing all criticals found so far, to generate a minimal unsatisfiable subset. The corresponding proof of
 	 * unsatisfiability is returned.
 	 */
-	public static Term shrink(final CritAdministrationSolver solver, final BitSet workingConstraints) {
+	public static Term shrink(final CritAdministrationSolver solver, final BitSet workingConstraints,
+			final UnexploredMap map) {
 		solver.pushRecLevel();
 		final BitSet unknown = (BitSet) workingConstraints.clone();
 		unknown.andNot(solver.getCrits());
@@ -28,7 +29,47 @@ public class ShrinkMethods {
 				solver.assertUnknownConstraint(j);
 			}
 			switch (solver.checkSat()) {
-			// TODO: Add Extensions and BlockUp, BlockDown
+			case UNSAT:
+				unknown.clear(i);
+				final BitSet core = solver.getUnsatCore();
+				unknown.and(core);
+				solver.clearUnknownConstraints();
+				break;
+			case SAT:
+				solver.clearUnknownConstraints();
+				final BitSet crits = solver.getCrits();
+				crits.or(unknown);
+				map.BlockDown(crits);
+				solver.assertCriticalConstraint(i);
+				break;
+			case UNKNOWN:
+				throw new SMTLIBException("Solver returns UNKNOWN in Shrinking process.");
+			default:
+				throw new SMTLIBException("Unknown LBool value in Shrinking process.");
+			}
+		}
+		solver.clearUnknownConstraints();
+		final Term proofOfMus = solver.getProof();
+		final BitSet mus = solver.getCrits();
+		map.BlockUp(mus);
+		solver.popRecLevel();
+		return proofOfMus;
+	}
+
+	/**
+	 * Testversion of {@link #shrink(CritAdministrationSolver, BitSet, UnexploredMap)}. Returns a BitSet instead of a
+	 * proof, also does not use any Extension methods or the map (this will be tested separately).
+	 */
+	public static BitSet shrinkForTests(final CritAdministrationSolver solver, final BitSet workingConstraints) {
+		solver.pushRecLevel();
+		final BitSet unknown = (BitSet) workingConstraints.clone();
+		unknown.andNot(solver.getCrits());
+
+		for (final int i = unknown.nextSetBit(0); i >= 0; unknown.nextSetBit(i + 1)) {
+			for (final int j = unknown.nextSetBit(i + 1); j >= 0; unknown.nextSetBit(j + 1)) {
+				solver.assertUnknownConstraint(j);
+			}
+			switch (solver.checkSat()) {
 			case UNSAT:
 				unknown.clear(i);
 				final BitSet core = solver.getUnsatCore();
@@ -46,10 +87,9 @@ public class ShrinkMethods {
 			}
 		}
 		solver.clearUnknownConstraints();
-		final Term proofOfMus = solver.getProof();
 		final BitSet mus = solver.getCrits();
-		//TODO: Also add a block here
+		// TODO: Also add a block here
 		solver.popRecLevel();
-		return proofOfMus;
+		return mus;
 	}
 }
