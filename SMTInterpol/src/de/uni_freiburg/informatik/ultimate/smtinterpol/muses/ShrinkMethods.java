@@ -1,5 +1,9 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.muses;
 
+import java.util.BitSet;
+
+import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
+
 /**
  * A class that provides methods for single MUS extraction.
  *
@@ -13,38 +17,32 @@ public class ShrinkMethods {
 	 * set to generate a minimal unsatisfiable subset. This MUS will be returned as a new boolean array. It is assumed,
 	 * that all known given crits are asserted before calling this method.
 	 */
-	public static boolean[] shrinkBase(final MUSSolver solver, final boolean[] constraints, final boolean[] crits) {
+	public static BitSet shrinkBase(final MUSSolver solver, final BitSet constraints, final BitSet crits) {
 		solver.pushRecLevel();
-		final boolean[] workingCrits = crits.clone();
-		final boolean[] unknown = new boolean[constraints.length];
-		for (int i = 1; i < constraints.length; i++) {
-			unknown[i] = constraints[i] && !workingCrits[i];
-		}
+		final BitSet workingCrits = (BitSet) crits.clone();
+		final BitSet unknown = (BitSet) constraints.clone();
+		unknown.andNot(workingCrits);
 
-		for (int i = 1; i < unknown.length; i++) {
-			for (int j = i; j < unknown.length; j++) {
-				if (unknown[i] && !workingCrits[i]) {
-					solver.assertUnknownConstraint(i);
-				}
+		for (final int i = unknown.nextSetBit(0); i >= 0; unknown.nextSetBit(i+1)) {
+			for (final int j = unknown.nextSetBit(i+1); j >= 0; unknown.nextSetBit(j + 1)) {
+				solver.assertUnknownConstraint(j);
 			}
 			switch (solver.checkSat()) {
 			case UNSAT:
-				unknown[i - 1] = false;
-				final boolean[] core = solver.getUnsatCore();
-				for(int k = 0; k < unknown.length; k++) {
-					if (core[i]) {
-						unknown[i] = false;
-					}
-				}
+				unknown.clear(i);
+				final BitSet core = solver.getUnsatCore();
+				unknown.and(core);
+				solver.clearUnknownConstraints();
 				break;
 			case SAT:
-				solver.assertCriticalConstraint(i - 1);
-				workingCrits[i - 1] = true;
+				solver.clearUnknownConstraints();
+				solver.assertCriticalConstraint(i);
+				workingCrits.set(i);
 				break;
 			case UNKNOWN:
-				break;
+				throw new SMTLIBException("Solver returns UNKNOWN in Shrinking process.");
 			default:
-				break;
+				throw new SMTLIBException("Unknown LBool value in Shrinking process.");
 			}
 		}
 		solver.popRecLevel();

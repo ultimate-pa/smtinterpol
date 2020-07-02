@@ -1,5 +1,8 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.muses;
 
+import java.util.BitSet;
+
+import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
 
@@ -15,14 +18,14 @@ import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
 public class MUSSolver {
 
 	final Script script;
-	boolean hasPushedSinceLevelUp;
+	boolean unknownConstraintsSet;
 
 	/**
 	 * Note: This constructor does not reset the given script.
 	 */
 	public MUSSolver(final Script script) {
 		this.script = script;
-		hasPushedSinceLevelUp = false;
+		unknownConstraintsSet = false;
 	}
 
 	/**
@@ -42,12 +45,23 @@ public class MUSSolver {
 	}
 
 	/**
-	 * Assert a constraint that has is critical.
+	 * Clear all Unknown constraints.
+	 */
+	public void clearUnknownConstraints() {
+		if (unknownConstraintsSet) {
+			script.pop(1);
+			script.push(1);
+		}
+	}
+
+	/**
+	 * Assert a critical constraint. This can only be done, when no unknown constraints are asserted.
 	 */
 	public void assertCriticalConstraint(final int constraintNumber) {
-		if (hasPushedSinceLevelUp) {
-			script.pop(1);
+		if (unknownConstraintsSet) {
+			throw new SMTLIBException("Trying to modify crits without clearing unknowns.");
 		}
+		script.pop(1);
 
 	}
 
@@ -55,7 +69,7 @@ public class MUSSolver {
 	 * Assert a constraint, for which it is not known whether it is critical or not.
 	 */
 	public void assertUnknownConstraint(final int constraintNumber) {
-
+		unknownConstraintsSet = true;
 	}
 
 	/**
@@ -69,7 +83,7 @@ public class MUSSolver {
 	 * Return an unsatisfiable core according to {@link Script#getUnsatCore}. This unsatCore will be returned as an
 	 * array of booleans.
 	 */
-	public boolean[] getUnsatCore() {
+	public BitSet getUnsatCore() {
 		// TODO: Implement this, after it is clear what representation for MUSes we use.
 		return new boolean[0];
 	}
