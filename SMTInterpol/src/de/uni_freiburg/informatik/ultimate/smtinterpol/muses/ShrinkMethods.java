@@ -13,12 +13,12 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
  */
 public class ShrinkMethods {
 
-	/*
+	/**
 	 * Takes an boolean array representing an unsatisfiable set of constraints and a CritAdministrationSolver,
-	 * containing all criticals found so far, to generate a minimal unsatisfiable subset. This MUS will be returned as a
-	 * new BitSet.
+	 * containing all criticals found so far, to generate a minimal unsatisfiable subset. The corresponding proof of
+	 * unsatisfiability is returned.
 	 */
-	public static BitSet shrink(final CritAdministrationSolver solver, final BitSet workingConstraints) {
+	public static Term shrink(final CritAdministrationSolver solver, final BitSet workingConstraints) {
 		solver.pushRecLevel();
 		final BitSet unknown = (BitSet) workingConstraints.clone();
 		unknown.andNot(solver.getCrits());
@@ -48,7 +48,8 @@ public class ShrinkMethods {
 		solver.clearUnknownConstraints();
 		final Term proofOfMus = solver.getProof();
 		final BitSet mus = solver.getCrits();
+		//TODO: Also add a block here
 		solver.popRecLevel();
-		return mus;
+		return proofOfMus;
 	}
 }
