@@ -18,7 +18,7 @@ public class ShrinkMethods {
 	 * containing all criticals found so far, to generate a minimal unsatisfiable subset. The corresponding proof of
 	 * unsatisfiability is returned.
 	 */
-	public static Term shrink(final CritAdministrationSolver solver, final BitSet workingConstraints,
+	public static MUSContainer shrink(final CritAdministrationSolver solver, final BitSet workingConstraints,
 			final UnexploredMap map) {
 		solver.pushRecLevel();
 		final BitSet unknown = (BitSet) workingConstraints.clone();
@@ -48,12 +48,12 @@ public class ShrinkMethods {
 				throw new SMTLIBException("Unknown LBool value in Shrinking process.");
 			}
 		}
-		solver.clearUnknownConstraints();
 		final Term proofOfMus = solver.getProof();
+		solver.clearUnknownConstraints();
 		final BitSet mus = solver.getCrits();
 		map.BlockUp(mus);
 		solver.popRecLevel();
-		return proofOfMus;
+		return new MUSContainer(mus, proofOfMus);
 	}
 
 	/**
