@@ -13,21 +13,20 @@ import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 public class ShrinkMethods {
 
 	/*
-	 * Takes an boolean array representing an unsatisfiable set of constraints and known critical constraints of that
-	 * set to generate a minimal unsatisfiable subset. This MUS will be returned as a new boolean array. It is assumed,
-	 * that all known given crits are asserted before calling this method.
+	 * Takes an boolean array representing an unsatisfiable set of constraints and a MUSSolver to generate a minimal
+	 * unsatisfiable subset. This MUS will be returned as a new BitSet.
 	 */
-	public static BitSet shrinkBase(final MUSSolver solver, final BitSet constraints, final BitSet crits) {
+	public static BitSet shrink(final CritAdministrationSolver solver, final BitSet workingConstraints) {
 		solver.pushRecLevel();
-		final BitSet workingCrits = (BitSet) crits.clone();
-		final BitSet unknown = (BitSet) constraints.clone();
-		unknown.andNot(workingCrits);
+		final BitSet unknown = (BitSet) workingConstraints.clone();
+		unknown.andNot(solver.getCrits());
 
-		for (final int i = unknown.nextSetBit(0); i >= 0; unknown.nextSetBit(i+1)) {
-			for (final int j = unknown.nextSetBit(i+1); j >= 0; unknown.nextSetBit(j + 1)) {
+		for (final int i = unknown.nextSetBit(0); i >= 0; unknown.nextSetBit(i + 1)) {
+			for (final int j = unknown.nextSetBit(i + 1); j >= 0; unknown.nextSetBit(j + 1)) {
 				solver.assertUnknownConstraint(j);
 			}
 			switch (solver.checkSat()) {
+			// TODO: Add Extensions and BlockUp, BlockDown
 			case UNSAT:
 				unknown.clear(i);
 				final BitSet core = solver.getUnsatCore();
@@ -37,7 +36,6 @@ public class ShrinkMethods {
 			case SAT:
 				solver.clearUnknownConstraints();
 				solver.assertCriticalConstraint(i);
-				workingCrits.set(i);
 				break;
 			case UNKNOWN:
 				throw new SMTLIBException("Solver returns UNKNOWN in Shrinking process.");
@@ -45,7 +43,8 @@ public class ShrinkMethods {
 				throw new SMTLIBException("Unknown LBool value in Shrinking process.");
 			}
 		}
+		final BitSet mus = solver.getCrits();
 		solver.popRecLevel();
-		return workingCrits;
+		return mus;
 	}
 }
