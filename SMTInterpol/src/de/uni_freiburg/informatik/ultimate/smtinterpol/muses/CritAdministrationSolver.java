@@ -121,9 +121,16 @@ public class CritAdministrationSolver {
 
 		for (int i = notAsserted.nextSetBit(0); i >= 0; i = notAsserted.nextSetBit(i + 1)) {
 			final Term evaluatedTerm = model.evaluate(mIndex2Constraint.get(i));
-			// TODO: Implement when it is clear how to check whether a constraint is satisfied by a model
+			if (evaluatedTerm == evaluatedTerm.getTheory().mTrue) {
+				assertedAsBits.set(i);
+			}else if (evaluatedTerm == evaluatedTerm.getTheory().mFalse) {
+				//do nothing
+			}else {
+				//If this happens, evaluate does not work as planned
+				throw new SMTLIBException("Term evaluated by model is neither True nor False.");
+			}
 		}
-		return new BitSet();
+		return assertedAsBits;
 	}
 
 	/**
