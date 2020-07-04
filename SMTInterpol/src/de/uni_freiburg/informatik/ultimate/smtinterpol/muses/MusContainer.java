@@ -12,12 +12,12 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
  * @author LeonardFichtner
  *
  */
-public class MUSContainer {
+public class MusContainer {
 
 	BitSet mMus;
 	Term mProof;
 
-	public MUSContainer(final BitSet mus, final Term proof) {
+	public MusContainer(final BitSet mus, final Term proof) {
 		mMus = mus;
 		mProof = proof;
 	}

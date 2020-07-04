@@ -18,7 +18,7 @@ public class ShrinkMethods {
 	 * containing all criticals found so far, to generate a minimal unsatisfiable subset. The corresponding proof of
 	 * unsatisfiability is returned.
 	 */
-	public static MUSContainer shrink(final CritAdministrationSolver solver, final BitSet workingConstraints,
+	public static MusContainer shrink(final CritAdministrationSolver solver, final BitSet workingConstraints,
 			final UnexploredMap map) {
 		solver.pushRecLevel();
 		final BitSet unknown = (BitSet) workingConstraints.clone();
@@ -53,7 +53,7 @@ public class ShrinkMethods {
 		final BitSet mus = solver.getCrits();
 		map.BlockUp(mus);
 		solver.popRecLevel();
-		return new MUSContainer(mus, proofOfMus);
+		return new MusContainer(mus, proofOfMus);
 	}
 
 	/**

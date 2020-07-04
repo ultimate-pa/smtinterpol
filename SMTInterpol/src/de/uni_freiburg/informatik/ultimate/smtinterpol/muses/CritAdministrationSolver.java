@@ -5,6 +5,8 @@ import java.util.BitSet;
 import java.util.HashMap;
 
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
+import de.uni_freiburg.informatik.ultimate.logic.Annotation;
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Model;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
@@ -26,8 +28,9 @@ public class CritAdministrationSolver {
 
 	final Script mScript;
 	boolean mUnknownConstraintsAreSet;
-	HashMap<AnnotatedTerm, Integer> mConstraint2Index;
+	HashMap<String, Integer> mNameOfConstraint2Index;
 	ArrayList<AnnotatedTerm> mIndex2Constraint;
+	int mNumberOfConstraints;
 
 	/**
 	 * Note: This constructor does reset the assertions of the given script.
@@ -36,8 +39,32 @@ public class CritAdministrationSolver {
 		mScript = script;
 		mScript.resetAssertions();
 		mUnknownConstraintsAreSet = false;
-		mConstraint2Index = new HashMap<>();
+		mNameOfConstraint2Index = new HashMap<>();
 		mIndex2Constraint = new ArrayList<>();
+		mNumberOfConstraints = 0;
+
+		// This line is needed because of the convention that there is always a layer above the declared constraints.
+		mScript.push(1);
+	}
+
+	/**
+	 * Declare a constraint under a certain annotation. The annotation MUST include a name. The constraint can then be
+	 * asserted by {@link #assertCriticalConstraint(int)} or {@link #assertUnknownConstraint(int)}. Note that this
+	 * method can only be executed, when no constraints are asserted.
+	 */
+	public void declareConstraint(final Term constraint, final Annotation[] annotation) throws SMTLIBException {
+		if (!(mScript.getAssertions().length == 0)) {
+			throw new SMTLIBException("Constraints must not be asserted, when a constraint is declared.");
+		}
+		mScript.pop(1);
+		final String name = getName(annotation);
+
+		mNameOfConstraint2Index.put(name, mNumberOfConstraints);
+		mNumberOfConstraints++;
+
+		final AnnotatedTerm annotatedConstraint = (AnnotatedTerm) mScript.annotate(constraint, annotation);
+		mIndex2Constraint.add(annotatedConstraint);
+		mScript.push(1);
 	}
 
 	/**
@@ -105,7 +132,7 @@ public class CritAdministrationSolver {
 	 */
 	public BitSet getUnsatCore() throws SMTLIBException, UnsupportedOperationException {
 		final Term[] core = mScript.getUnsatCore();
-		return arrayOfConstraintsToBitSet(core);
+		return translateToBitSet(core);
 	}
 
 	/**
@@ -115,7 +142,7 @@ public class CritAdministrationSolver {
 	public BitSet getSatExtension() throws SMTLIBException, UnsupportedOperationException {
 		final Model model = mScript.getModel();
 		final Term[] assertions = mScript.getAssertions();
-		final BitSet assertedAsBits = arrayOfConstraintsToBitSet(assertions);
+		final BitSet assertedAsBits = translateToBitSet(assertions);
 		final BitSet notAsserted = (BitSet) assertedAsBits.clone();
 		notAsserted.flip(0, notAsserted.size());
 
@@ -123,10 +150,10 @@ public class CritAdministrationSolver {
 			final Term evaluatedTerm = model.evaluate(mIndex2Constraint.get(i));
 			if (evaluatedTerm == evaluatedTerm.getTheory().mTrue) {
 				assertedAsBits.set(i);
-			}else if (evaluatedTerm == evaluatedTerm.getTheory().mFalse) {
-				//do nothing
-			}else {
-				//If this happens, evaluate does not work as planned
+			} else if (evaluatedTerm == evaluatedTerm.getTheory().mFalse) {
+				// do nothing
+			} else {
+				// If this happens, evaluate does not work as planned
 				throw new SMTLIBException("Term evaluated by model is neither True nor False.");
 			}
 		}
@@ -140,7 +167,7 @@ public class CritAdministrationSolver {
 	public BitSet getSatExtensionMoreDemanding() throws SMTLIBException {
 		mScript.push(1);
 		final Term[] assertions = mScript.getAssertions();
-		final BitSet assertedAsBits = arrayOfConstraintsToBitSet(assertions);
+		final BitSet assertedAsBits = translateToBitSet(assertions);
 		final BitSet notAsserted = (BitSet) assertedAsBits.clone();
 		notAsserted.flip(0, notAsserted.size());
 
@@ -171,7 +198,7 @@ public class CritAdministrationSolver {
 		mScript.push(1);
 		int pushCounter = 1;
 		final Term[] assertions = mScript.getAssertions();
-		final BitSet assertedAsBits = arrayOfConstraintsToBitSet(assertions);
+		final BitSet assertedAsBits = translateToBitSet(assertions);
 		final BitSet notAsserted = (BitSet) assertedAsBits.clone();
 		notAsserted.flip(0, notAsserted.size());
 
@@ -205,7 +232,7 @@ public class CritAdministrationSolver {
 			throw new SMTLIBException("Reading crits without clearing unknowns is prohibited.");
 		}
 		final Term[] crits = mScript.getAssertions();
-		return arrayOfConstraintsToBitSet(crits);
+		return translateToBitSet(crits);
 	}
 
 	/**
@@ -224,11 +251,32 @@ public class CritAdministrationSolver {
 		return toBePermutatedList;
 	}
 
-	private BitSet arrayOfConstraintsToBitSet(final Term[] constraints) {
+	/**
+	 * Translates the arrays of Terms that are returned by the script to the corresponding BitSet.
+	 */
+	private BitSet translateToBitSet(final Term[] constraints) {
 		final BitSet constraintsAsBits = new BitSet();
 		for (int i = 0; i < constraints.length; i++) {
-			constraintsAsBits.set(mConstraint2Index.get(constraints[i]));
+			final String name = getName((ApplicationTerm) constraints[i]);
+			constraintsAsBits.set(mNameOfConstraint2Index.get(name));
 		}
 		return constraintsAsBits;
+	}
+
+	private String getName(final Annotation[] annotation) throws SMTLIBException {
+		String name = null;
+		for (int i = 0; i < annotation.length; i++) {
+			if (annotation[i].getKey() == ":named") {
+				name = (String) annotation[i].getValue();
+			}
+		}
+		if (name == null) {
+			throw new SMTLIBException("No name for the constraint has been found.");
+		}
+		return name;
+	}
+
+	private String getName(final ApplicationTerm appTerm) {
+		return appTerm.getFunction().getName();
 	}
 }
