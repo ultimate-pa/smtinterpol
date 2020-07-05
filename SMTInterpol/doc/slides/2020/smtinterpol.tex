@@ -1,0 +1,105 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%   Folien: SMT Workshop
+%           SMTInterpol
+%   Juli 2020
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\documentclass[table,aspectratio=169]{beamer}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{fit,shapes.callouts,shapes.geometric,shapes.symbols}
+\usetikzlibrary{positioning,calc}
+\usetheme{Madrid}
+\usecolortheme{freiburg}
+\let\checkmark\relax
+\usepackage{dingbat}
+
+\newcommand\store[3]{\ensuremath{#1\langle #2\lhd#3\rangle}}
+\newcommand\select[2]{\ensuremath{#1[#2]}}
+\newcommand\diff[2]{\ensuremath{\mathop{\mathrm{diff}}(#1,#2)}}
+
+\geometry{papersize={16.80cm,12.60cm}}
+\setbeamertemplate{navigation symbols}{}
+
+%%% Titel, Autor und Datum des Vortrags:
+\pgfdeclareimage[height=1cm]{unifr}{unifr-neu}
+
+%% Institut
+\institute[Uni Freiburg]{University of Freiburg\hspace{1cm}\pgfuseimage{unifr}}
+
+\colorlet{colorTest}{ALUblue}
+
+\useoutertheme{unifr}
+
+
+\begin{document}
+
+\section{Motivation}
+
+\begin{frame}[plain,fragile]
+  \frametitle{SMTInterpol}
+  \framesubtitle{J\"{u}rgen Christ, Jochen Hoenicke, Tanja Schindler}
+  \pgfdeclarelayer{back}
+  \pgfsetlayers{back,main}
+
+  \begin{itemize}
+  \item CDCL(T) based SMT solver
+    \begin{tikzpicture}[baseline=-0.5cm]
+      \node[draw,shape=rectangle callout, callout relative pointer={(-.7,-.1)}] at (0,0) {sat};
+      \node[draw,shape=rectangle callout, callout relative pointer={(-1.1,-.2)}] at (1.6,-.1) {unsat};
+    \end{tikzpicture}
+  \item for Arrays, Uninterpreted Functions, Linear Integer and Real Arithmetic
+    (AUFLIRA)\\
+    \begin{tikzpicture}
+  \begin{scope}[xshift=2cm,yshift=5cm]
+    \node (la1) at (-.8,-.6) {$y \leq i+1$};
+    \node (la2) at (.5,-1.1) {$i \leq y$ };
+    \node (lamixed) at (3,-1.6) {$y - to\_int(y) < .3$};
+  \end{scope}
+  \begin{scope}[xshift=-2cm,yshift=5cm]
+    \node (uf1) at (-.6,-.6) {$f(b) = v$};
+    \node (uf2) at (.7,-1.1) {$f(a) \neq v$ };
+  \end{scope}
+  \begin{scope}[xshift=-5cm,yshift=4.5cm]
+    \node (ar1) at (-.3,-.4) {$b = \store aiv$};
+    \node (ar2) at (.1,-.9) {$\forall x. \select bx = i \rightarrow \select ax = v$};
+  \end{scope}
+  \begin{scope}[xshift=0cm,yshift=5cm]
+    \node (lauf1) at (0, -1.5) {$\select b i \geq i$};
+    \node (lauf2) at (-.9, -2.2) {$\forall x. f(x) + i = g(2v)$};
+    \node (lauf3) at (2, -2) {$f(b) \leq i$};
+  \end{scope}
+  \coordinate (a1) at (-6,3.6);
+  \coordinate (a2) at (6.5,3.6);
+  \node[shape=cloud,cloud puffs=40,draw,inner sep=-1cm,aspect=6,
+    callout relative pointer={(0,.4)},
+    fit=(a1)(a2)
+  ] {};
+    \end{tikzpicture}
+        
+  \item that supports model/proof production and \emph{interpolation}, and\\
+    \begin{tikzpicture}
+      \node (x1) at (-7,0) {};
+      \node[draw,shape=rectangle callout, callout relative pointer={(.5,.2)}] at (-5.5,0) {get-model};
+      \node[draw,shape=rectangle callout, callout relative pointer={(-.4,.2)}] at (-2.4,0) {get-proof};
+      \node[draw,shape=rectangle callout, callout relative pointer={(-.9,.2)}] at (0.4,0) {get-unsat-core};
+      \node[draw,shape=rectangle callout, callout relative pointer={(-1.1,.2)}] at (4,0) {get-interpolants};
+    \end{tikzpicture}
+    
+  \item (since 2019) has support for quantifiers
+    (E-matching based unit/conflict propagation, MBQI).
+  \end{itemize}
+
+  \begin{center}
+\begin{tikzpicture}
+  \node[anchor=west] (url) at (-5,-.5)
+    {\url{https://github.com/ultimate-pa/smtinterpol}};
+  \node[anchor=west] (url) at (-5,-1)
+    {\url{https://ultimate.informatik.uni-freiburg.de/smtinterpol}};
+  \node[draw,shape=rectangle callout, callout relative pointer={(-1.2,-.2)}] at (6.7,0) {Open Source (LGPL)};
+\end{tikzpicture}
+  \end{center}
+\end{frame}
+\end{document}
