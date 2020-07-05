@@ -33,11 +33,10 @@ public class CritAdministrationSolver {
 	int mNumberOfConstraints;
 
 	/**
-	 * Note: This constructor does reset the assertions of the given script.
+	 * Note: This constructor does not reset the given script.
 	 */
 	public CritAdministrationSolver(final Script script) {
 		mScript = script;
-		mScript.resetAssertions();
 		mUnknownConstraintsAreSet = false;
 		mNameOfConstraint2Index = new HashMap<>();
 		mIndex2Constraint = new ArrayList<>();
@@ -52,7 +51,7 @@ public class CritAdministrationSolver {
 	 * asserted by {@link #assertCriticalConstraint(int)} or {@link #assertUnknownConstraint(int)}. Note that this
 	 * method can only be executed, when no constraints are asserted.
 	 */
-	public void declareConstraint(final Term constraint, final Annotation[] annotation) throws SMTLIBException {
+	public void declareConstraint(final Term constraint, final Annotation... annotation) throws SMTLIBException {
 		if (!(mScript.getAssertions().length == 0)) {
 			throw new SMTLIBException("Constraints must not be asserted, when a constraint is declared.");
 		}
@@ -263,7 +262,7 @@ public class CritAdministrationSolver {
 		return constraintsAsBits;
 	}
 
-	private String getName(final Annotation[] annotation) throws SMTLIBException {
+	private String getName(final Annotation... annotation) throws SMTLIBException {
 		String name = null;
 		for (int i = 0; i < annotation.length; i++) {
 			if (annotation[i].getKey() == ":named") {
