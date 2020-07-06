@@ -60,6 +60,39 @@ public class MusesTest {
 		solver.declareConstraint(c4, annots.get(4));
 	}
 
+	/**
+	 * Note that the constraints should be declared in the solver, but no constraints should be asserted!
+	 */
+	private void checkWhetherSetIsMus(final BitSet supposedMus, final CritAdministrationSolver solver) {
+		checkUnsat(supposedMus, solver);
+		checkMinimality(supposedMus, solver);
+	}
+
+	private void checkUnsat(final BitSet supposedMus,  final CritAdministrationSolver solver) {
+		solver.pushRecLevel();
+		for (int i = supposedMus.nextSetBit(0); i >= 0; i = supposedMus.nextSetBit(i + 1)) {
+			solver.assertCriticalConstraint(i);
+		}
+		Assert.assertTrue(solver.checkSat() == LBool.UNSAT);
+		solver.popRecLevel();
+	}
+
+	private void checkMinimality(final BitSet supposedMus,  final CritAdministrationSolver solver) {
+		solver.pushRecLevel();
+		for (int i = supposedMus.nextSetBit(0); i >= 0; i = supposedMus.nextSetBit(i + 1)) {
+			solver.pushRecLevel();
+			for (int j = supposedMus.nextSetBit(0); j >= 0; j = supposedMus.nextSetBit(j + 1)) {
+				if (i == j) {
+					continue;
+				}
+				solver.assertCriticalConstraint(i);
+			}
+			Assert.assertTrue(solver.checkSat() == LBool.SAT);
+			solver.popRecLevel();
+		}
+		solver.popRecLevel();
+	}
+
 	private void setupUnsatSet(final Script script, final CritAdministrationSolver solver) {
 		final ArrayList<String> names = new ArrayList<>();
 		final ArrayList<Annotation> annots = new ArrayList<>();
@@ -103,20 +136,11 @@ public class MusesTest {
 		final Script script = setupScript(Logics.ALL);
 		final CritAdministrationSolver solver = new CritAdministrationSolver(script);
 		setupUnsatSet(script, solver);
-		solver.assertCriticalConstraint(4);
 		final BitSet workingSet = new BitSet();
 		workingSet.flip(0, 10);
 		final MusContainer container = ShrinkMethods.shrinkWithoutMap(solver, workingSet);
-		Assert.assertFalse(container.getMus().get(0));
-		Assert.assertFalse(container.getMus().get(1));
-		Assert.assertFalse(container.getMus().get(2));
-		Assert.assertFalse(container.getMus().get(3));
-		Assert.assertTrue(container.getMus().get(4));
-		Assert.assertFalse(container.getMus().get(5));
-		Assert.assertFalse(container.getMus().get(6));
-		Assert.assertTrue(container.getMus().get(7));
-		Assert.assertFalse(container.getMus().get(8));
-		Assert.assertFalse(container.getMus().get(9));
+		System.out.println("Shrinker returned: " + container.getMus().toString());
+		checkWhetherSetIsMus(container.getMus(), solver);
 	}
 
 	@Test
@@ -124,23 +148,16 @@ public class MusesTest {
 		final Script script = setupScript(Logics.ALL);
 		final CritAdministrationSolver solver = new CritAdministrationSolver(script);
 		setupUnsatSet(script, solver);
-		solver.assertCriticalConstraint(8);
 		final BitSet workingSet = new BitSet();
 		workingSet.set(0);
+		workingSet.set(1);
 		workingSet.set(3);
+		workingSet.set(8);
 		workingSet.set(9);
 		workingSet.flip(0, 10);
 		final MusContainer container = ShrinkMethods.shrinkWithoutMap(solver, workingSet);
-		Assert.assertFalse(container.getMus().get(0));
-		Assert.assertFalse(container.getMus().get(1));
-		Assert.assertTrue(container.getMus().get(2));
-		Assert.assertFalse(container.getMus().get(3));
-		Assert.assertFalse(container.getMus().get(4));
-		Assert.assertTrue(container.getMus().get(5));
-		Assert.assertFalse(container.getMus().get(6));
-		Assert.assertFalse(container.getMus().get(7));
-		Assert.assertTrue(container.getMus().get(8));
-		Assert.assertFalse(container.getMus().get(9));
+		System.out.println("Shrinker returned: " + container.getMus().toString());
+		checkWhetherSetIsMus(container.getMus(), solver);
 	}
 
 	@Test

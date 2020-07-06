@@ -24,8 +24,8 @@ public class ShrinkMethods {
 		final BitSet unknown = (BitSet) workingConstraints.clone();
 		unknown.andNot(solver.getCrits());
 
-		for (final int i = unknown.nextSetBit(0); i >= 0; unknown.nextSetBit(i + 1)) {
-			for (final int j = unknown.nextSetBit(i + 1); j >= 0; unknown.nextSetBit(j + 1)) {
+		for (int i = unknown.nextSetBit(0); i >= 0; i = unknown.nextSetBit(i + 1)) {
+			for (int j = unknown.nextSetBit(i + 1); j >= 0; j = unknown.nextSetBit(j + 1)) {
 				solver.assertUnknownConstraint(j);
 			}
 			switch (solver.checkSat()) {
@@ -36,9 +36,11 @@ public class ShrinkMethods {
 				solver.clearUnknownConstraints();
 				break;
 			case SAT:
+				unknown.clear(i);
 				solver.clearUnknownConstraints();
 				final BitSet crits = solver.getCrits();
 				crits.or(unknown);
+				// Apply getExtension here
 				map.BlockDown(crits);
 				solver.assertCriticalConstraint(i);
 				break;
@@ -47,6 +49,17 @@ public class ShrinkMethods {
 			default:
 				throw new SMTLIBException("Unknown LBool value in Shrinking process.");
 			}
+		}
+		switch (solver.checkSat()) {
+		case UNSAT:
+			break;
+		case SAT:
+			throw new SMTLIBException("Something went wrong, the set of all crits should be unsatisfiable!!!");
+		case UNKNOWN:
+			throw new SMTLIBException(
+					"Solver returns UNKNOWN for set of all crits (despite of not doing it for a superset, weird).");
+		default:
+			throw new SMTLIBException("Unknown LBool value in Shrinking process.");
 		}
 		final Term proofOfMus = solver.getProof();
 		solver.clearUnknownConstraints();
@@ -66,8 +79,8 @@ public class ShrinkMethods {
 		final BitSet unknown = (BitSet) workingConstraints.clone();
 		unknown.andNot(solver.getCrits());
 
-		for (final int i = unknown.nextSetBit(0); i >= 0; unknown.nextSetBit(i + 1)) {
-			for (final int j = unknown.nextSetBit(i + 1); j >= 0; unknown.nextSetBit(j + 1)) {
+		for (int i = unknown.nextSetBit(0); i >= 0; i = unknown.nextSetBit(i + 1)) {
+			for (int j = unknown.nextSetBit(i + 1); j >= 0; j = unknown.nextSetBit(j + 1)) {
 				solver.assertUnknownConstraint(j);
 			}
 			switch (solver.checkSat()) {
@@ -78,9 +91,8 @@ public class ShrinkMethods {
 				solver.clearUnknownConstraints();
 				break;
 			case SAT:
+				unknown.clear(i);
 				solver.clearUnknownConstraints();
-				final BitSet crits = solver.getCrits();
-				crits.or(unknown);
 				solver.assertCriticalConstraint(i);
 				break;
 			case UNKNOWN:
@@ -88,6 +100,17 @@ public class ShrinkMethods {
 			default:
 				throw new SMTLIBException("Unknown LBool value in Shrinking process.");
 			}
+		}
+		switch (solver.checkSat()) {
+		case UNSAT:
+			break;
+		case SAT:
+			throw new SMTLIBException("Something went wrong, the set of all crits should be unsatisfiable!!!");
+		case UNKNOWN:
+			throw new SMTLIBException(
+					"Solver returns UNKNOWN for set of all crits (despite of not doing it for a superset, weird).");
+		default:
+			throw new SMTLIBException("Unknown LBool value in Shrinking process.");
 		}
 		final Term proofOfMus = solver.getProof();
 		solver.clearUnknownConstraints();

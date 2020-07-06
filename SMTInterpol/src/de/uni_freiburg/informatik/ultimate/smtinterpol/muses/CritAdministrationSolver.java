@@ -114,6 +114,7 @@ public class CritAdministrationSolver {
 	public void assertUnknownConstraint(final int constraintNumber) {
 		if (!mUnknownConstraintsAreSet) {
 			mScript.push(1);
+			mUnknownConstraintsAreSet = true;
 		}
 		mScript.assertTerm(mIndex2Constraint.get(constraintNumber));
 	}
