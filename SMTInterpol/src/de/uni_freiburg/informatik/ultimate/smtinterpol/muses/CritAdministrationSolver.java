@@ -243,6 +243,10 @@ public class CritAdministrationSolver {
 		return mScript.getProof();
 	}
 
+	public int getNumberOfConstraints() {
+		return mNumberOfConstraints;
+	}
+
 	public ArrayList<Integer> randomPermutation(final BitSet toBePermutated) {
 		final ArrayList<Integer> toBePermutatedList = new ArrayList<>();
 		for (int i = toBePermutated.nextSetBit(0); i >= 0; i = toBePermutated.nextSetBit(i + 1)) {

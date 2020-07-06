@@ -21,6 +21,11 @@ public class ShrinkMethods {
 	public static MusContainer shrink(final CritAdministrationSolver solver, final BitSet workingConstraints,
 			final UnexploredMap map) {
 		solver.pushRecLevel();
+
+		if (contains(workingConstraints, solver.getCrits())) {
+			throw new SMTLIBException("WorkingConstraints is corrupted! It should contain all crits.");
+		}
+
 		final BitSet unknown = (BitSet) workingConstraints.clone();
 		unknown.andNot(solver.getCrits());
 
@@ -76,6 +81,11 @@ public class ShrinkMethods {
 	public static MusContainer shrinkWithoutMap(final CritAdministrationSolver solver,
 			final BitSet workingConstraints) {
 		solver.pushRecLevel();
+
+		if (contains(workingConstraints, solver.getCrits())) {
+			throw new SMTLIBException("WorkingConstraints is corrupted! It should contain all crits.");
+		}
+
 		final BitSet unknown = (BitSet) workingConstraints.clone();
 		unknown.andNot(solver.getCrits());
 
@@ -117,5 +127,14 @@ public class ShrinkMethods {
 		final BitSet mus = solver.getCrits();
 		solver.popRecLevel();
 		return new MusContainer(mus, proofOfMus);
+	}
+
+	/**
+	 * Check whether set1 contains set2.
+	 */
+	private static boolean contains(final BitSet set1, final BitSet set2) {
+		final BitSet notSet1 = (BitSet) set1.clone();
+		notSet1.flip(0, set1.length());
+		return set2.intersects(notSet1);
 	}
 }
