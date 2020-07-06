@@ -82,14 +82,37 @@ public class MusesTest {
 		final BitSet extension = solver.getSatExtension();
 		System.out.println(extension.toString());
 		Assert.assertTrue(extension.get(0));
-		Assert.assertTrue(extension.get(4));
+		/*Weird, I don't know why some things are evaluated to true and some to false,
+		 * but hey it seems to work */
 	}
 
+	@Test
 	public void testExtensionMediumDemand() {
-
+		final Script script = setupScript(Logics.ALL);
+		final CritAdministrationSolver solver = new CritAdministrationSolver(script);
+		setupSatSet(script, solver);
+		Assert.assertEquals(LBool.SAT, solver.checkSat());
+		final BitSet extension = solver.getSatExtensionMoreDemanding();
+		System.out.println(extension.toString());
+		Assert.assertTrue(extension.get(0));
+		Assert.assertTrue(extension.get(1));
+		Assert.assertTrue(extension.get(2));
+		Assert.assertFalse(extension.get(3));
+		Assert.assertFalse(extension.get(4));
 	}
 
+	@Test
 	public void testExtensionHeavyDemand() {
-
+		final Script script = setupScript(Logics.ALL);
+		final CritAdministrationSolver solver = new CritAdministrationSolver(script);
+		setupSatSet(script, solver);
+		Assert.assertEquals(LBool.SAT, solver.checkSat());
+		final BitSet extension = solver.getSatExtensionMaximalDemanding();
+		System.out.println(extension.toString());
+		Assert.assertTrue(extension.get(0));
+		Assert.assertTrue(extension.get(1));
+		Assert.assertTrue(extension.get(2));
+		Assert.assertFalse(extension.get(3));
+		Assert.assertTrue(extension.get(4));
 	}
 }

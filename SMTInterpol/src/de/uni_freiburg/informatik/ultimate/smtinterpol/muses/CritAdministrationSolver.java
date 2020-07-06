@@ -143,7 +143,7 @@ public class CritAdministrationSolver {
 		final Term[] assertions = mScript.getAssertions();
 		final BitSet assertedAsBits = translateToBitSet(assertions);
 		final BitSet notAsserted = (BitSet) assertedAsBits.clone();
-		notAsserted.flip(0, notAsserted.length());
+		notAsserted.flip(0, mNumberOfConstraints);
 
 		for (int i = notAsserted.nextSetBit(0); i >= 0; i = notAsserted.nextSetBit(i + 1)) {
 			final Term evaluatedTerm = model.evaluate(mIndex2Constraint.get(i));
@@ -168,7 +168,7 @@ public class CritAdministrationSolver {
 		final Term[] assertions = mScript.getAssertions();
 		final BitSet assertedAsBits = translateToBitSet(assertions);
 		final BitSet notAsserted = (BitSet) assertedAsBits.clone();
-		notAsserted.flip(0, notAsserted.length());
+		notAsserted.flip(0, mNumberOfConstraints);
 
 		for (int i = notAsserted.nextSetBit(0); i >= 0; i = notAsserted.nextSetBit(i + 1)) {
 			mScript.assertTerm(mIndex2Constraint.get(i));
@@ -199,11 +199,11 @@ public class CritAdministrationSolver {
 		final Term[] assertions = mScript.getAssertions();
 		final BitSet assertedAsBits = translateToBitSet(assertions);
 		final BitSet notAsserted = (BitSet) assertedAsBits.clone();
-		notAsserted.flip(0, notAsserted.length());
+		notAsserted.flip(0, mNumberOfConstraints);
 
 		for (int i = notAsserted.nextSetBit(0); i >= 0; i = notAsserted.nextSetBit(i + 1)) {
-			mScript.assertTerm(mIndex2Constraint.get(i));
 			mScript.push(1);
+			mScript.assertTerm(mIndex2Constraint.get(i));
 			pushCounter++;
 			assertedAsBits.set(i);
 			switch (mScript.checkSat()) {
@@ -211,12 +211,13 @@ public class CritAdministrationSolver {
 				assertedAsBits.clear(i);
 				mScript.pop(1);
 				pushCounter--;
+				break;
 			case SAT:
 				break;
 			case UNKNOWN:
-				throw new SMTLIBException("Solver returns UNKNOWN in Extension process.");
+				throw new SMTLIBException("Solver returns LBool.UNKNOWN in extension process.");
 			default:
-				throw new SMTLIBException("Unknown LBool value in Extension process.");
+				throw new SMTLIBException("Unknown LBool value in extension process.");
 			}
 		}
 		mScript.pop(pushCounter);
