@@ -630,7 +630,8 @@ public class SMTInterpol extends NoopScript {
 			mEngine.setRandomSeed(mSolverOptions.getRandomSeed());
 			if (produceAssignments || mSolverOptions.isInterpolantCheckModeActive() || mSolverOptions.isProofCheckModeActive()
 					|| mSolverOptions.isModelCheckModeActive() || getBooleanOption(SMTInterpolOptions.UNSAT_CORE_CHECK_MODE)
-					|| getBooleanOption(SMTInterpolOptions.UNSAT_ASSUMPTIONS_CHECK_MODE)) {
+					|| getBooleanOption(SMTInterpolOptions.UNSAT_ASSUMPTIONS_CHECK_MODE)
+					|| (Boolean) mOptions.get(":interactive-mode") == true) {
 				mAssertions = new ScopedArrayList<>();
 			}
 			mOptions.setOnline();
@@ -706,9 +707,6 @@ public class SMTInterpol extends NoopScript {
 		}
 		if (mAssertions != null) {
 			return mAssertions.toArray(new Term[mAssertions.size()]);
-		}
-		if (mAssertions == null && (Boolean) mOptions.get(":interactive-mode") == true) {
-			return new Term[0];
 		}
 		throw new SMTLIBException("Set option :interactive-mode to true to get assertions!");
 	}

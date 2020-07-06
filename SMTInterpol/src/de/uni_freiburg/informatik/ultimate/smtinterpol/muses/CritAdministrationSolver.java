@@ -143,7 +143,7 @@ public class CritAdministrationSolver {
 		final Term[] assertions = mScript.getAssertions();
 		final BitSet assertedAsBits = translateToBitSet(assertions);
 		final BitSet notAsserted = (BitSet) assertedAsBits.clone();
-		notAsserted.flip(0, notAsserted.size());
+		notAsserted.flip(0, notAsserted.length());
 
 		for (int i = notAsserted.nextSetBit(0); i >= 0; i = notAsserted.nextSetBit(i + 1)) {
 			final Term evaluatedTerm = model.evaluate(mIndex2Constraint.get(i));
@@ -168,7 +168,7 @@ public class CritAdministrationSolver {
 		final Term[] assertions = mScript.getAssertions();
 		final BitSet assertedAsBits = translateToBitSet(assertions);
 		final BitSet notAsserted = (BitSet) assertedAsBits.clone();
-		notAsserted.flip(0, notAsserted.size());
+		notAsserted.flip(0, notAsserted.length());
 
 		for (int i = notAsserted.nextSetBit(0); i >= 0; i = notAsserted.nextSetBit(i + 1)) {
 			mScript.assertTerm(mIndex2Constraint.get(i));
@@ -199,7 +199,7 @@ public class CritAdministrationSolver {
 		final Term[] assertions = mScript.getAssertions();
 		final BitSet assertedAsBits = translateToBitSet(assertions);
 		final BitSet notAsserted = (BitSet) assertedAsBits.clone();
-		notAsserted.flip(0, notAsserted.size());
+		notAsserted.flip(0, notAsserted.length());
 
 		for (int i = notAsserted.nextSetBit(0); i >= 0; i = notAsserted.nextSetBit(i + 1)) {
 			mScript.assertTerm(mIndex2Constraint.get(i));
@@ -254,9 +254,9 @@ public class CritAdministrationSolver {
 	 * Translates the arrays of Terms that are returned by the script to the corresponding BitSet.
 	 */
 	private BitSet translateToBitSet(final Term[] constraints) {
-		final BitSet constraintsAsBits = new BitSet();
+		final BitSet constraintsAsBits = new BitSet(mNumberOfConstraints);
 		for (int i = 0; i < constraints.length; i++) {
-			final String name = getName((ApplicationTerm) constraints[i]);
+			final String name = getName(constraints[i]);
 			constraintsAsBits.set(mNameOfConstraint2Index.get(name));
 		}
 		return constraintsAsBits;
@@ -275,7 +275,13 @@ public class CritAdministrationSolver {
 		return name;
 	}
 
-	private String getName(final ApplicationTerm appTerm) {
-		return appTerm.getFunction().getName();
+	private String getName(final Term term) {
+		if (term instanceof ApplicationTerm) {
+			return ((ApplicationTerm) term).getFunction().getName();
+		}else if (term instanceof AnnotatedTerm) {
+			return getName(((AnnotatedTerm) term).getAnnotations());
+		}else {
+			throw new SMTLIBException("Unknown type of term.");
+		}
 	}
 }

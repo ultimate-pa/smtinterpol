@@ -78,11 +78,10 @@ public class MusesTest {
 		final CritAdministrationSolver solver = new CritAdministrationSolver(script);
 		setupSatSet(script, solver);
 		solver.assertUnknownConstraint(1);
-		solver.assertUnknownConstraint(4);
 		Assert.assertEquals(LBool.SAT, solver.checkSat());
 		final BitSet extension = solver.getSatExtension();
 		System.out.println(extension.toString());
-		Assert.assertTrue(extension.get(1));
+		Assert.assertTrue(extension.get(0));
 		Assert.assertTrue(extension.get(4));
 	}
 
