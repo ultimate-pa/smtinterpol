@@ -377,7 +377,7 @@ public class SMTInterpol extends NoopScript {
 	 *
 	 * @param callback The error callback.
 	 */
-	public void setErrorCallback(ErrorCallback callback) {
+	public void setErrorCallback(final ErrorCallback callback) {
 		mErrorCallback = callback;
 	}
 
@@ -707,6 +707,9 @@ public class SMTInterpol extends NoopScript {
 		if (mAssertions != null) {
 			return mAssertions.toArray(new Term[mAssertions.size()]);
 		}
+		if (mAssertions == null && (Boolean) mOptions.get(":interactive-mode") == true) {
+			return new Term[0];
+		}
 		throw new SMTLIBException("Set option :interactive-mode to true to get assertions!");
 	}
 
@@ -872,7 +875,7 @@ public class SMTInterpol extends NoopScript {
 			}
 			SMTInterpol checkingSolver = null;
 			if (mSolverOptions.isInterpolantCheckModeActive()) {
-				final Map<String, Object> newOptions = 
+				final Map<String, Object> newOptions =
 						Collections.singletonMap(SMTLIBConstants.PRODUCE_ASSERTIONS, (Object) Boolean.TRUE);
 				checkingSolver = new SMTInterpol(this, newOptions, CopyMode.CURRENT_VALUE);
 			}
