@@ -57,10 +57,11 @@ public class ShrinkMethods {
 	}
 
 	/**
-	 * Testversion of {@link #shrink(CritAdministrationSolver, BitSet, UnexploredMap)}. Returns a BitSet instead of a
-	 * proof, also does not use any Extension methods or the map (this will be tested separately).
+	 * Testversion of {@link #shrink(CritAdministrationSolver, BitSet, UnexploredMap)}. Does not use the map (this will
+	 * be tested in the ReMUS method).
 	 */
-	public static BitSet shrinkForTests(final CritAdministrationSolver solver, final BitSet workingConstraints) {
+	public static MusContainer shrinkWithoutMap(final CritAdministrationSolver solver,
+			final BitSet workingConstraints) {
 		solver.pushRecLevel();
 		final BitSet unknown = (BitSet) workingConstraints.clone();
 		unknown.andNot(solver.getCrits());
@@ -78,6 +79,8 @@ public class ShrinkMethods {
 				break;
 			case SAT:
 				solver.clearUnknownConstraints();
+				final BitSet crits = solver.getCrits();
+				crits.or(unknown);
 				solver.assertCriticalConstraint(i);
 				break;
 			case UNKNOWN:
@@ -86,10 +89,10 @@ public class ShrinkMethods {
 				throw new SMTLIBException("Unknown LBool value in Shrinking process.");
 			}
 		}
+		final Term proofOfMus = solver.getProof();
 		solver.clearUnknownConstraints();
 		final BitSet mus = solver.getCrits();
-		// TODO: Also add a block here
 		solver.popRecLevel();
-		return mus;
+		return new MusContainer(mus, proofOfMus);
 	}
 }
