@@ -19,6 +19,8 @@ public class Main {
 	private HTMLButtonElement runButton = document.getElementById("run").cast();
 	private HTMLElement resultPanel = document.getElementById("result");
 	private HTMLInputElement inputPanel = (HTMLInputElement) document.getElementById("input");
+	private HTMLElement separator = document.getElementById("separator");
+	int counter = 1;
 
 	public void run() {
 		runButton.listenClick(evt -> runSMTInterpol());
@@ -40,7 +42,10 @@ public class Main {
 			StringWriter output = new StringWriter();
 			options.getOption(":regular-output-channel").set(output);
 			resultPanel.clear();
+			separator.clear();
 			pe.parseStream(new StringReader(inputString), "webinput.smt2");
+			separator.appendChild(document.createTextNode("Separator Nr: " + counter));
+			counter += 1;
 			resultPanel.appendChild(document.createTextNode(output.toString()));
 		} finally {
 			runButton.setDisabled(false);

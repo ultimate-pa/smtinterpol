@@ -1,0 +1,30 @@
+head {
+    margin: auto;
+}
+body {
+    margin: auto;
+}
+h1 {
+    width: 700px;
+    margin: auto;
+    border: 1px solid red;
+    color: blue;
+    font-weight: bold
+}
+h3 {
+    margin: auto;
+    color: red;
+    font-weight: bold
+}
+.textarea {
+    rows="10";
+    cols="50";
+    autofocus;
+}
+.inputarea {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+}

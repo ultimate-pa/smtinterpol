@@ -227,7 +227,9 @@ public class ParseEnvironment {
 		final long old = mTiming.pop();
 		final long duration = System.nanoTime() - old;
 		final double secs = duration / 1000000000.0; // NOCHECKSTYLE
+		/* FIXME , TeaVM can not convert %.f Numbers, find a solution.
 		mOptions.getOutChannel().printf((Locale) null, " :time %.3f)", secs);
+		 */
 		mOptions.getOutChannel().println();
 		mOptions.getOutChannel().flush();
 	}

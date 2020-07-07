@@ -1221,7 +1221,9 @@ public class LinArSolve implements ITheory {
 			logger.info("Composite::createLit: " + mCompositeCreateLit);
 			logger.info("Number of cuts: " + mNumCuts);
 			logger.info("Time for cut-generation: " + mCutGenTime / 1000000);
+			/* FIXME , TeaVM can not convert %.f Numbers, find a solution.
 			logger.info("Count/Time for getUpperBound: %d / %.3f", mCountGetUpperBound, mTimeGetUpperBound / 1e9);
+			 */
 			logger.info("Number of branchings: " + mNumBranches);
 		}
 	}
