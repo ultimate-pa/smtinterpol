@@ -11,38 +11,19 @@
       </a> as a free software.
     </p>
     <script type="text/javascript" charset="utf-8" src="classes.js"></script>
+    <link rel="stylesheet" type="text/css" href="style.css"/>
     <link rel="icon" href="" type="image/x-icon">
   </head>
   <body onload="main()">
-    <header> The input field with a simple example: </header> 
+    <header> Input field: </header>
     <div class="inputarea">
-      <textarea id="input" rows="10" cols="50">
-(set-option :verbosity 1)
-(set-option :produce-interpolants true)
-(set-logic QF_LIA)
-(declare-fun x () Int)
-(declare-fun y () Int)
-(assert (! (> x y) :named IP_0))
-(assert (! (= x 0) :named IP_1))
-(assert (! (> y 0) :named IP_2))
-(check-sat)
-(get-interpolants IP_0 IP_1 IP_2)
-(exit)
-      </textarea>
+      <textarea id="input"  rows="10" cols="50" autofocus></textarea>
       <h2>
         <button id="run">Run SMTInterpol</button>
       </h2>
-      <h3>The result:</h3>
-      <pre id="result"> Run SMTInterpol to see the result here ! </pre>
     </div>
-    <style>
-      .inputarea {
-          display: flex;
-          flex-direction: column;
-          flex-grow: 1;
-          padding-top: 2rem;
-          padding-bottom: 2rem;
-       }
-    </style>
-  </body> 
+    <h3>The result:</h3>
+    <pre id="separator"> Separator Nr: 0</pre>
+    <pre id="result"> Run SMTInterpol to see the result here ! </pre>
+  </body>
 </html>

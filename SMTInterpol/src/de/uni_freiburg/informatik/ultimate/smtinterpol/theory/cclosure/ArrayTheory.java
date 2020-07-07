@@ -785,10 +785,12 @@ public class ArrayTheory implements ITheory {
 			logger.info("Array: #Arrays: %d, #BuildWeakEQ: %d, #ModEdges: %d, " + "#addStores: %d, #merges: %d",
 					mArrays.size(), mNumBuildWeakEQ, mNumModuloEdges, mNumAddStores, mNumMerges);
 			logger.info("Insts: ReadOverWeakEQ: %d, WeakeqExt: %d", mNumInstsSelect, mNumInstsEq);
+			/* FIXME , TeaVM can not convert %.f Numbers, find a solution.
 			logger.info("Time: BuildWeakEq: %.3f ms, BuildWeakEqi: %.3f ms", mTimeBuildWeakEq / 1e6,
 					mTimeBuildWeakEqi / 1e6);
 			logger.info("Time: Propagation %.3f ms, Explanations: %.3f ms", mTimePropagation / 1e6,
 					mTimeExplanations / 1e6);
+			 */
 		}
 
 	}
