@@ -22,6 +22,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map.Entry;
@@ -43,12 +44,8 @@ import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolOptions;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.LeafNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofNode;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.InfinitesimalNumber;
 
@@ -212,7 +209,7 @@ public class Interpolator extends NonRecursive {
 	}
 
 	public Term[] getInterpolants(final Term proofTree) {
-		colorLiterals();
+		colorLiterals(proofTree);
 		final Term[] interpolants = interpolate(proofTree);
 		for (int i = 0; i < interpolants.length; i++) {
 			interpolants[i] = unfoldLAs(interpolants[i]);
@@ -597,34 +594,46 @@ public class Interpolator extends NonRecursive {
 	/**
 	 * Color the input literals. This gets the source for the literals from the LeafNodes.
 	 */
-	public void colorLiterals() {
+	private void colorLiterals(final Term proofTree) {
 
-		for (final Clause clause : mSmtSolver.getEngine().getClauses()) {
-			final ProofNode pn = clause.getProof();
-			assert pn instanceof LeafNode;
-			final LeafNode ln = (LeafNode) pn;
-			if (ln.getLeafKind() == LeafNode.QUANT_INST) {
-				throw new UnsupportedOperationException("Interpolation not supported for quantified formulae.");
-			}
-			assert ln.hasSourceAnnotation();
-			final String source = ((SourceAnnotation) ln.getTheoryAnnotation()).getAnnotation();
-			final int partition = mPartitions.containsKey(source) ? mPartitions.get(source) : -1;
-			for (int i = 0; i < clause.getSize(); i++) {
-				// Take the quoted literal!
-				final Term literal = clause.getLiteral(i).getSMTFormula(mTheory, true);
-				final Term atom = getAtom(literal);
-				LitInfo info = mAtomOccurenceInfos.get(atom);
-				if (info == null) {
-					info = new LitInfo();
-					mAtomOccurenceInfos.put(atom, info);
+		final Deque<Term> todoStack = new ArrayDeque<>();
+		todoStack.add(proofTree);
+
+		while (!todoStack.isEmpty()) {
+			final Term proofTerm = todoStack.pop();
+			final InterpolatorClauseTermInfo proofTermInfo = getClauseTermInfo(proofTerm);
+			if (proofTermInfo.isResolution()) {
+				todoStack.add(proofTermInfo.getPrimary());
+				final Term[] antecedents = proofTermInfo.getAntecedents();
+				for (final Term a : antecedents) {
+					assert a instanceof AnnotatedTerm;
+					todoStack.add(((AnnotatedTerm) a).getSubterm());
 				}
-				if (!info.contains(partition)) {
-					info.occursIn(partition);
-					Term unquoted = atom;
-					if (unquoted instanceof AnnotatedTerm) {
-						unquoted = ((AnnotatedTerm) unquoted).getSubterm();
+			} else {
+				assert proofTermInfo.isLeaf();
+				if (proofTermInfo.getLeafKind().equals(ProofConstants.FN_CLAUSE)) {
+					// Color the literals
+					final String source = proofTermInfo.getSource();
+					final Term[] lits = proofTermInfo.getLiterals();
+					final int partition = mPartitions.containsKey(source) ? mPartitions.get(source) : -1;
+
+					for (int i = 0; i < lits.length; i++) {
+						// Take the quoted literal!
+						final Term atom = getAtom(lits[i]);
+						LitInfo info = mAtomOccurenceInfos.get(atom);
+						if (info == null) {
+							info = new LitInfo();
+							mAtomOccurenceInfos.put(atom, info);
+						}
+						if (!info.contains(partition)) {
+							info.occursIn(partition);
+							Term unquoted = atom;
+							if (unquoted instanceof AnnotatedTerm) {
+								unquoted = ((AnnotatedTerm) unquoted).getSubterm();
+							}
+							addOccurrence(unquoted, partition);
+						}
 					}
-					addOccurrence(unquoted, partition);
 				}
 			}
 		}
