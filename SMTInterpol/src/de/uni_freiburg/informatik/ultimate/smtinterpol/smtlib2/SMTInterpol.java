@@ -785,10 +785,6 @@ public class SMTInterpol extends NoopScript {
 		if (proofMode == 0) {
 			throw new SMTLIBException("Option :produce-proofs not set to true");
 		}
-		if (proofMode == 1) {
-			mLogger.info("Using partial proofs (cut at CNF-level).  "
-					+ "Set option :produce-proofs to true to get complete proofs.");
-		}
 		checkAssertionStackModified();
 		final Clause unsat = retrieveProof();
 		if (Config.CHECK_PROP_PROOF) {
@@ -807,20 +803,12 @@ public class SMTInterpol extends NoopScript {
 
 	@SuppressWarnings("unchecked")
 	@Override
-	public Term[] getInterpolants(final Term[] partition, final int[] startOfSubtree) {
-		if (mEngine == null) {
-			throw new SMTLIBException("No logic set!");
-		}
-		if (!mSolverOptions.isProduceProofs() && !mSolverOptions.isProduceInterpolants()) {
-			throw new SMTLIBException(
-					"Interpolant production not enabled.  Set either :produce-interpolants or :produce-proofs to true");
-		}
+	public Term[] getInterpolants(final Term[] partition, final int[] startOfSubtree, Term proofTree) {
 		final long timeout = mSolverOptions.getTimeout();
 		if (timeout > 0) {
 			mCancel.setTimeout(timeout);
 		}
 		try {
-			checkAssertionStackModified();
 			if (partition.length != startOfSubtree.length) {
 				throw new SMTLIBException("Partition table and subtree array need to have equal length");
 			}
@@ -882,7 +870,6 @@ public class SMTInterpol extends NoopScript {
 			try {
 				final Interpolator interpolator =
 						new Interpolator(mLogger, this, checkingSolver, mAssertions, getTheory(), parts, startOfSubtree);
-				final Term proofTree = getProof();
 				ipls = interpolator.getInterpolants(proofTree);
 			} finally {
 				if (checkingSolver != null) {
