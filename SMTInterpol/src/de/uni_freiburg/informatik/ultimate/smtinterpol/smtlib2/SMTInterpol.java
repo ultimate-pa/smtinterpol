@@ -628,8 +628,10 @@ public class SMTInterpol extends NoopScript {
 			mClausifier.setAssignmentProduction(produceAssignments);
 			mEngine.setProduceAssignments(produceAssignments);
 			mEngine.setRandomSeed(mSolverOptions.getRandomSeed());
-			if (produceAssignments || mSolverOptions.isInterpolantCheckModeActive() || mSolverOptions.isProofCheckModeActive()
-					|| mSolverOptions.isModelCheckModeActive() || getBooleanOption(SMTInterpolOptions.UNSAT_CORE_CHECK_MODE)
+			if (getBooleanOption(SMTLIBConstants.PRODUCE_ASSERTIONS)
+					|| mSolverOptions.isInterpolantCheckModeActive() || mSolverOptions.isProofCheckModeActive()
+					|| mSolverOptions.isModelCheckModeActive()
+					|| getBooleanOption(SMTInterpolOptions.UNSAT_CORE_CHECK_MODE)
 					|| getBooleanOption(SMTInterpolOptions.UNSAT_ASSUMPTIONS_CHECK_MODE)) {
 				mAssertions = new ScopedArrayList<>();
 			}
@@ -872,7 +874,7 @@ public class SMTInterpol extends NoopScript {
 			}
 			SMTInterpol checkingSolver = null;
 			if (mSolverOptions.isInterpolantCheckModeActive()) {
-				final Map<String, Object> newOptions = 
+				final Map<String, Object> newOptions =
 						Collections.singletonMap(SMTLIBConstants.PRODUCE_ASSERTIONS, (Object) Boolean.TRUE);
 				checkingSolver = new SMTInterpol(this, newOptions, CopyMode.CURRENT_VALUE);
 			}
