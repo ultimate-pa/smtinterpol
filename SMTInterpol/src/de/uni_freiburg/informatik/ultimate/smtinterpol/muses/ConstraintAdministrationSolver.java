@@ -11,7 +11,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 
 /**
  * A class that wraps a script and provides additional functionality for the MUS enumeration. Basically, it is used for
- * administration of the critical constraints and communication with the solver. It provides recursion levels that
+ * administration of the constraints and communication with the solver. It provides recursion levels that
  * enhance the reusability of the solver in ReMUS. The earlier recursion levels only contain critical constraints. The
  * latest recursion level is divided in two "usual" push/pop levels: The lower level again contains critical
  * constraints. The upper level contains all constraints which status is currently unknown. Also this class translates
@@ -53,10 +53,7 @@ public class ConstraintAdministrationSolver {
 	 * again.
 	 */
 	public void popRecLevel() {
-		if (mUnknownConstraintsAreSet) {
-			pop(1);
-			mUnknownConstraintsAreSet = false;
-		}
+		clearUnknownConstraints();
 		pop(1);
 	}
 
@@ -224,6 +221,9 @@ public class ConstraintAdministrationSolver {
 		return mScript.getProof();
 	}
 
+	/**
+	 * Returns the number of declared constraints.
+	 */
 	public int getNumberOfConstraints() {
 		return mTranslator.getNumberOfConstraints();
 	}

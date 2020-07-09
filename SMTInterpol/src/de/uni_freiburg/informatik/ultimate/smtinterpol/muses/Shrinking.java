@@ -16,7 +16,7 @@ public class Shrinking {
 	/**
 	 * Takes an boolean array representing an unsatisfiable set of constraints and a CritAdministrationSolver,
 	 * containing all criticals found so far, to generate a minimal unsatisfiable subset. The corresponding proof of
-	 * unsatisfiability is returned.
+	 * unsatisfiability is returned. This should only be used for Logics where checkSat cannot return LBool.UNKNOWN.
 	 */
 	public static MusContainer shrink(final ConstraintAdministrationSolver solver, final BitSet workingConstraints,
 			final UnexploredMap map) {
@@ -51,8 +51,6 @@ public class Shrinking {
 				break;
 			case UNKNOWN:
 				throw new SMTLIBException("Solver returns UNKNOWN in Shrinking process.");
-			default:
-				throw new SMTLIBException("Unknown LBool value in Shrinking process.");
 			}
 		}
 		switch (solver.checkSat()) {
@@ -63,8 +61,6 @@ public class Shrinking {
 		case UNKNOWN:
 			throw new SMTLIBException(
 					"Solver returns UNKNOWN for set of all crits (despite of not doing it for a superset, weird).");
-		default:
-			throw new SMTLIBException("Unknown LBool value in Shrinking process.");
 		}
 		final Term proofOfMus = solver.getProof();
 		solver.clearUnknownConstraints();
@@ -88,7 +84,6 @@ public class Shrinking {
 
 		final BitSet unknown = (BitSet) workingConstraints.clone();
 		unknown.andNot(solver.getCrits());
-
 		for (int i = unknown.nextSetBit(0); i >= 0; i = unknown.nextSetBit(i + 1)) {
 			for (int j = unknown.nextSetBit(i + 1); j >= 0; j = unknown.nextSetBit(j + 1)) {
 				solver.assertUnknownConstraint(j);
@@ -107,8 +102,6 @@ public class Shrinking {
 				break;
 			case UNKNOWN:
 				throw new SMTLIBException("Solver returns UNKNOWN in Shrinking process.");
-			default:
-				throw new SMTLIBException("Unknown LBool value in Shrinking process.");
 			}
 		}
 		switch (solver.checkSat()) {
@@ -119,8 +112,6 @@ public class Shrinking {
 		case UNKNOWN:
 			throw new SMTLIBException(
 					"Solver returns UNKNOWN for set of all crits (despite of not doing it for a superset, weird).");
-		default:
-			throw new SMTLIBException("Unknown LBool value in Shrinking process.");
 		}
 		final Term proofOfMus = solver.getProof();
 		solver.clearUnknownConstraints();
