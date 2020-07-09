@@ -6,6 +6,7 @@ import java.util.BitSet;
 import org.junit.Assert;
 import org.junit.Test;
 
+import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
@@ -36,12 +37,12 @@ public class MusesTest {
 	/**
 	 * Note that the constraints should be declared in the solver, but no constraints should be asserted!
 	 */
-	private void checkWhetherSetIsMus(final BitSet supposedMus, final CritAdministrationSolver solver) {
+	private void checkWhetherSetIsMus(final BitSet supposedMus, final ConstraintAdministrationSolver solver) {
 		checkUnsat(supposedMus, solver);
 		checkMinimality(supposedMus, solver);
 	}
 
-	private void checkUnsat(final BitSet supposedMus,  final CritAdministrationSolver solver) {
+	private void checkUnsat(final BitSet supposedMus, final ConstraintAdministrationSolver solver) {
 		solver.pushRecLevel();
 		for (int i = supposedMus.nextSetBit(0); i >= 0; i = supposedMus.nextSetBit(i + 1)) {
 			solver.assertCriticalConstraint(i);
@@ -50,7 +51,7 @@ public class MusesTest {
 		solver.popRecLevel();
 	}
 
-	private void checkMinimality(final BitSet supposedMus,  final CritAdministrationSolver solver) {
+	private void checkMinimality(final BitSet supposedMus, final ConstraintAdministrationSolver solver) {
 		solver.pushRecLevel();
 		for (int i = supposedMus.nextSetBit(0); i >= 0; i = supposedMus.nextSetBit(i + 1)) {
 			solver.pushRecLevel();
@@ -66,7 +67,7 @@ public class MusesTest {
 		solver.popRecLevel();
 	}
 
-	private void setupUnsatSet1(final Script script, final CritAdministrationSolver solver) {
+	private ConstraintAdministrationSolver setupUnsatSet1(final Script script) {
 		final ArrayList<String> names = new ArrayList<>();
 		final ArrayList<Annotation> annots = new ArrayList<>();
 		for (int i = 0; i < 5; i++) {
@@ -87,14 +88,16 @@ public class MusesTest {
 		final Term c2 = script.term("<", x, z);
 		final Term c3 = script.term("<=", z, script.numeral("101"));
 		final Term c4 = script.term("=", y, script.numeral("2"));
-		solver.declareConstraint(c0, annots.get(0));
-		solver.declareConstraint(c1, annots.get(1));
-		solver.declareConstraint(c2, annots.get(2));
-		solver.declareConstraint(c3, annots.get(3));
-		solver.declareConstraint(c4, annots.get(4));
+		final Translator translator = new Translator();
+		declareConstraint(script, translator, c0, annots.get(0));
+		declareConstraint(script, translator, c1, annots.get(1));
+		declareConstraint(script, translator, c2, annots.get(2));
+		declareConstraint(script, translator, c3, annots.get(3));
+		declareConstraint(script, translator, c4, annots.get(4));
+		return new ConstraintAdministrationSolver(script, translator);
 	}
 
-	private void setupUnsatSet2(final Script script, final CritAdministrationSolver solver) {
+	private ConstraintAdministrationSolver setupUnsatSet2(final Script script) {
 		final ArrayList<String> names = new ArrayList<>();
 		final ArrayList<Annotation> annots = new ArrayList<>();
 		for (int i = 0; i < 10; i++) {
@@ -120,26 +123,33 @@ public class MusesTest {
 		final Term c7 = script.term("=", y, script.numeral("4321"));
 		final Term c8 = script.term("=", x, script.numeral("23"));
 		final Term c9 = script.term("=", x, script.numeral("5353"));
-		solver.declareConstraint(c0, annots.get(0));
-		solver.declareConstraint(c1, annots.get(1));
-		solver.declareConstraint(c2, annots.get(2));
-		solver.declareConstraint(c3, annots.get(3));
-		solver.declareConstraint(c4, annots.get(4));
-		solver.declareConstraint(c5, annots.get(5));
-		solver.declareConstraint(c6, annots.get(6));
-		solver.declareConstraint(c7, annots.get(7));
-		solver.declareConstraint(c8, annots.get(8));
-		solver.declareConstraint(c9, annots.get(9));
+		final Translator translator = new Translator();
+		declareConstraint(script, translator, c0, annots.get(0));
+		declareConstraint(script, translator, c1, annots.get(1));
+		declareConstraint(script, translator, c2, annots.get(2));
+		declareConstraint(script, translator, c3, annots.get(3));
+		declareConstraint(script, translator, c4, annots.get(4));
+		declareConstraint(script, translator, c5, annots.get(5));
+		declareConstraint(script, translator, c6, annots.get(6));
+		declareConstraint(script, translator, c7, annots.get(7));
+		declareConstraint(script, translator, c8, annots.get(8));
+		declareConstraint(script, translator, c9, annots.get(9));
+		return new ConstraintAdministrationSolver(script, translator);
+	}
+
+	private void declareConstraint(final Script script, final Translator translator, final Term constraint,
+			final Annotation... annotation) throws SMTLIBException {
+		final AnnotatedTerm annotatedConstraint = (AnnotatedTerm) script.annotate(constraint, annotation);
+		translator.declareConstraint(annotatedConstraint);
 	}
 
 	@Test
 	public void testShrinkerNormal() {
 		final Script script = setupScript(Logics.ALL);
-		final CritAdministrationSolver solver = new CritAdministrationSolver(script);
-		setupUnsatSet2(script, solver);
+		final ConstraintAdministrationSolver solver =	setupUnsatSet2(script);
 		final BitSet workingSet = new BitSet();
 		workingSet.flip(0, 10);
-		final MusContainer container = ShrinkMethods.shrinkWithoutMap(solver, workingSet);
+		final MusContainer container = Shrinking.shrinkWithoutMap(solver, workingSet);
 		System.out.println("Shrinker returned: " + container.getMus().toString());
 		checkWhetherSetIsMus(container.getMus(), solver);
 	}
@@ -147,8 +157,7 @@ public class MusesTest {
 	@Test
 	public void testShrinkerRestrictedSet() {
 		final Script script = setupScript(Logics.ALL);
-		final CritAdministrationSolver solver = new CritAdministrationSolver(script);
-		setupUnsatSet2(script, solver);
+		final ConstraintAdministrationSolver solver = setupUnsatSet2(script);
 		final BitSet workingSet = new BitSet();
 		workingSet.set(0);
 		workingSet.set(1);
@@ -156,7 +165,7 @@ public class MusesTest {
 		workingSet.set(8);
 		workingSet.set(9);
 		workingSet.flip(0, 10);
-		final MusContainer container = ShrinkMethods.shrinkWithoutMap(solver, workingSet);
+		final MusContainer container = Shrinking.shrinkWithoutMap(solver, workingSet);
 		System.out.println("Shrinker returned: " + container.getMus().toString());
 		checkWhetherSetIsMus(container.getMus(), solver);
 	}
@@ -164,13 +173,12 @@ public class MusesTest {
 	@Test
 	public void testShrinkerWorkingSetIsMus() {
 		final Script script = setupScript(Logics.ALL);
-		final CritAdministrationSolver solver = new CritAdministrationSolver(script);
-		setupUnsatSet2(script, solver);
+		final ConstraintAdministrationSolver solver = setupUnsatSet2(script);
 		final BitSet workingSet = new BitSet();
 		workingSet.set(1);
 		workingSet.set(2);
 		workingSet.set(5);
-		final MusContainer container = ShrinkMethods.shrinkWithoutMap(solver, workingSet);
+		final MusContainer container = Shrinking.shrinkWithoutMap(solver, workingSet);
 		System.out.println("Shrinker returned: " + container.getMus().toString());
 		checkWhetherSetIsMus(container.getMus(), solver);
 	}
@@ -178,8 +186,7 @@ public class MusesTest {
 	@Test
 	public void testShrinkerMusAssertedBefore() {
 		final Script script = setupScript(Logics.ALL);
-		final CritAdministrationSolver solver = new CritAdministrationSolver(script);
-		setupUnsatSet2(script, solver);
+		final ConstraintAdministrationSolver solver = setupUnsatSet2(script);
 		solver.pushRecLevel();
 		solver.assertCriticalConstraint(4);
 		solver.assertCriticalConstraint(7);
@@ -188,7 +195,7 @@ public class MusesTest {
 		workingSet.set(2);
 		workingSet.set(4);
 		workingSet.set(7);
-		final MusContainer container = ShrinkMethods.shrinkWithoutMap(solver, workingSet);
+		final MusContainer container = Shrinking.shrinkWithoutMap(solver, workingSet);
 		System.out.println("Shrinker returned: " + container.getMus().toString());
 		Assert.assertTrue(solver.checkSat() == LBool.UNSAT);
 		solver.popRecLevel();
@@ -198,8 +205,7 @@ public class MusesTest {
 	@Test
 	public void testShrinkerSatSetAssertedBefore() {
 		final Script script = setupScript(Logics.ALL);
-		final CritAdministrationSolver solver = new CritAdministrationSolver(script);
-		setupUnsatSet2(script, solver);
+		final ConstraintAdministrationSolver solver = setupUnsatSet2(script);
 		solver.pushRecLevel();
 		solver.assertCriticalConstraint(1);
 		solver.assertCriticalConstraint(2);
@@ -207,73 +213,63 @@ public class MusesTest {
 		workingSet.set(5);
 		workingSet.set(1);
 		workingSet.set(2);
-		final MusContainer container = ShrinkMethods.shrinkWithoutMap(solver, workingSet);
+		final MusContainer container = Shrinking.shrinkWithoutMap(solver, workingSet);
 		System.out.println("Shrinker returned: " + container.getMus().toString());
 		solver.popRecLevel();
 		checkWhetherSetIsMus(container.getMus(), solver);
 		Assert.assertTrue(solver.checkSat() == LBool.SAT);
 	}
 
-	@Test (expected = SMTLIBException.class)
+	@Test(expected = SMTLIBException.class)
 	public void testShrinkerWorkingSetDoesNotContainCrits() {
 		final Script script = setupScript(Logics.ALL);
-		final CritAdministrationSolver solver = new CritAdministrationSolver(script);
-		setupUnsatSet2(script, solver);
+		final ConstraintAdministrationSolver solver = setupUnsatSet2(script);
 		solver.pushRecLevel();
 		solver.assertCriticalConstraint(1);
 		solver.assertCriticalConstraint(2);
 		final BitSet workingSet = new BitSet();
 		workingSet.set(5);
-		final MusContainer container = ShrinkMethods.shrinkWithoutMap(solver, workingSet);
+		final MusContainer container = Shrinking.shrinkWithoutMap(solver, workingSet);
 		System.out.println("Shrinker returned: " + container.getMus().toString());
 		solver.popRecLevel();
 		checkWhetherSetIsMus(container.getMus(), solver);
 		Assert.assertTrue(solver.checkSat() == LBool.SAT);
 	}
 
-	@Test (expected = SMTLIBException.class)
+	@Test(expected = SMTLIBException.class)
 	public void testShrinkerEmptySet() {
 		final Script script = setupScript(Logics.ALL);
-		final CritAdministrationSolver solver = new CritAdministrationSolver(script);
-		setupUnsatSet2(script, solver);
+		final ConstraintAdministrationSolver solver = setupUnsatSet2(script);
 		final BitSet workingSet = new BitSet();
-		ShrinkMethods.shrinkWithoutMap(solver, workingSet);
+		Shrinking.shrinkWithoutMap(solver, workingSet);
 	}
 
-	@Test (expected = SMTLIBException.class)
+	@Test(expected = SMTLIBException.class)
 	public void testShrinkerSatSet() {
 		final Script script = setupScript(Logics.ALL);
-		final CritAdministrationSolver solver = new CritAdministrationSolver(script);
-		setupUnsatSet2(script, solver);
+		final ConstraintAdministrationSolver solver = setupUnsatSet2(script);
 		final BitSet workingSet = new BitSet();
 		workingSet.set(0);
 		workingSet.set(1);
 		workingSet.set(7);
 		workingSet.set(5);
-		ShrinkMethods.shrinkWithoutMap(solver, workingSet);
+		Shrinking.shrinkWithoutMap(solver, workingSet);
 	}
 
 	@Test
 	public void testExtensionLightDemand() {
 		final Script script = setupScript(Logics.ALL);
-		final CritAdministrationSolver solver = new CritAdministrationSolver(script);
-		setupUnsatSet1(script, solver);
+		final ConstraintAdministrationSolver solver = setupUnsatSet1(script);
 		solver.assertUnknownConstraint(1);
-		Assert.assertEquals(LBool.SAT, solver.checkSat());
 		final BitSet extension = solver.getSatExtension();
 		System.out.println(extension.toString());
 		Assert.assertTrue(extension.get(0));
-		/*
-		 * Weird, I don't know why some things are evaluated to true and some to false, but hey it seems to work
-		 */
 	}
 
 	@Test
 	public void testExtensionMediumDemand() {
 		final Script script = setupScript(Logics.ALL);
-		final CritAdministrationSolver solver = new CritAdministrationSolver(script);
-		setupUnsatSet1(script, solver);
-		Assert.assertEquals(LBool.SAT, solver.checkSat());
+		final ConstraintAdministrationSolver solver = setupUnsatSet1(script);
 		final BitSet extension = solver.getSatExtensionMoreDemanding();
 		System.out.println(extension.toString());
 		Assert.assertTrue(extension.get(0));
@@ -286,9 +282,7 @@ public class MusesTest {
 	@Test
 	public void testExtensionHeavyDemand() {
 		final Script script = setupScript(Logics.ALL);
-		final CritAdministrationSolver solver = new CritAdministrationSolver(script);
-		setupUnsatSet1(script, solver);
-		Assert.assertEquals(LBool.SAT, solver.checkSat());
+		final ConstraintAdministrationSolver solver = setupUnsatSet1(script);
 		final BitSet extension = solver.getSatExtensionMaximalDemanding();
 		System.out.println(extension.toString());
 		Assert.assertTrue(extension.get(0));

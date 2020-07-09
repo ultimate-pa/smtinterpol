@@ -2,11 +2,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.muses;
 
 import java.util.ArrayList;
 import java.util.BitSet;
-import java.util.HashMap;
 
-import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
-import de.uni_freiburg.informatik.ultimate.logic.Annotation;
-import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Model;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
@@ -24,46 +20,21 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
  * @author LeonardFichtner
  *
  */
-public class CritAdministrationSolver {
+public class ConstraintAdministrationSolver {
 
 	final Script mScript;
 	boolean mUnknownConstraintsAreSet;
-	HashMap<String, Integer> mNameOfConstraint2Index;
-	ArrayList<AnnotatedTerm> mIndex2Constraint;
-	int mNumberOfConstraints;
+	int mLevels;
+	Translator mTranslator;
 
 	/**
 	 * Note: This constructor does not reset the given script.
 	 */
-	public CritAdministrationSolver(final Script script) {
+	public ConstraintAdministrationSolver(final Script script, final Translator translator) {
 		mScript = script;
 		mUnknownConstraintsAreSet = false;
-		mNameOfConstraint2Index = new HashMap<>();
-		mIndex2Constraint = new ArrayList<>();
-		mNumberOfConstraints = 0;
-
-		// This line is needed because of the convention that there is always a layer above the declared constraints.
-		mScript.push(1);
-	}
-
-	/**
-	 * Declare a constraint under a certain annotation. The annotation MUST include a name. The constraint can then be
-	 * asserted by {@link #assertCriticalConstraint(int)} or {@link #assertUnknownConstraint(int)}. Note that this
-	 * method can only be executed, when no constraints are asserted.
-	 */
-	public void declareConstraint(final Term constraint, final Annotation... annotation) throws SMTLIBException {
-		if (!(mScript.getAssertions().length == 0)) {
-			throw new SMTLIBException("Constraints must not be asserted, when a constraint is declared.");
-		}
-		mScript.pop(1);
-		final String name = getName(annotation);
-
-		mNameOfConstraint2Index.put(name, mNumberOfConstraints);
-		mNumberOfConstraints++;
-
-		final AnnotatedTerm annotatedConstraint = (AnnotatedTerm) mScript.annotate(constraint, annotation);
-		mIndex2Constraint.add(annotatedConstraint);
-		mScript.push(1);
+		mLevels = 0;
+		mTranslator = translator;
 	}
 
 	/**
@@ -74,7 +45,7 @@ public class CritAdministrationSolver {
 		if (mUnknownConstraintsAreSet) {
 			throw new SMTLIBException("You may not push a new recursion level, when unknown constraints are set.");
 		}
-		mScript.push(1);
+		push(1);
 	}
 
 	/**
@@ -83,9 +54,10 @@ public class CritAdministrationSolver {
 	 */
 	public void popRecLevel() {
 		if (mUnknownConstraintsAreSet) {
-			mScript.pop(1);
+			pop(1);
+			mUnknownConstraintsAreSet = false;
 		}
-		mScript.pop(1);
+		pop(1);
 	}
 
 	/**
@@ -93,7 +65,7 @@ public class CritAdministrationSolver {
 	 */
 	public void clearUnknownConstraints() {
 		if (mUnknownConstraintsAreSet) {
-			mScript.pop(1);
+			pop(1);
 			mUnknownConstraintsAreSet = false;
 		}
 	}
@@ -105,7 +77,7 @@ public class CritAdministrationSolver {
 		if (mUnknownConstraintsAreSet) {
 			throw new SMTLIBException("Modifying crits without clearing unknowns is prohibited.");
 		}
-		mScript.assertTerm(mIndex2Constraint.get(constraintNumber));
+		mScript.assertTerm(mTranslator.translate2Constraint(constraintNumber));
 	}
 
 	/**
@@ -113,10 +85,10 @@ public class CritAdministrationSolver {
 	 */
 	public void assertUnknownConstraint(final int constraintNumber) {
 		if (!mUnknownConstraintsAreSet) {
-			mScript.push(1);
+			push(1);
 			mUnknownConstraintsAreSet = true;
 		}
-		mScript.assertTerm(mIndex2Constraint.get(constraintNumber));
+		mScript.assertTerm(mTranslator.translate2Constraint(constraintNumber));
 	}
 
 	/**
@@ -132,7 +104,7 @@ public class CritAdministrationSolver {
 	 */
 	public BitSet getUnsatCore() throws SMTLIBException, UnsupportedOperationException {
 		final Term[] core = mScript.getUnsatCore();
-		return translateToBitSet(core);
+		return mTranslator.translateToBitSet(core);
 	}
 
 	/**
@@ -140,14 +112,17 @@ public class CritAdministrationSolver {
 	 * in it.
 	 */
 	public BitSet getSatExtension() throws SMTLIBException, UnsupportedOperationException {
+		if (!(LBool.SAT == mScript.checkSat())) {
+			throw new SMTLIBException("The current assertions are not satisfiable.");
+		}
 		final Model model = mScript.getModel();
 		final Term[] assertions = mScript.getAssertions();
-		final BitSet assertedAsBits = translateToBitSet(assertions);
+		final BitSet assertedAsBits = mTranslator.translateToBitSet(assertions);
 		final BitSet notAsserted = (BitSet) assertedAsBits.clone();
-		notAsserted.flip(0, mNumberOfConstraints);
+		notAsserted.flip(0, mTranslator.getNumberOfConstraints());
 
 		for (int i = notAsserted.nextSetBit(0); i >= 0; i = notAsserted.nextSetBit(i + 1)) {
-			final Term evaluatedTerm = model.evaluate(mIndex2Constraint.get(i));
+			final Term evaluatedTerm = model.evaluate(mTranslator.translate2Constraint(i));
 			if (evaluatedTerm == evaluatedTerm.getTheory().mTrue) {
 				assertedAsBits.set(i);
 			} else if (evaluatedTerm == evaluatedTerm.getTheory().mFalse) {
@@ -165,19 +140,22 @@ public class CritAdministrationSolver {
 	 * than {@link #getSatExtension(BitSet)}.
 	 */
 	public BitSet getSatExtensionMoreDemanding() throws SMTLIBException {
-		mScript.push(1);
+		if (!(LBool.SAT == mScript.checkSat())) {
+			throw new SMTLIBException("The current assertions are not satisfiable.");
+		}
+		push(1);
 		final Term[] assertions = mScript.getAssertions();
-		final BitSet assertedAsBits = translateToBitSet(assertions);
+		final BitSet assertedAsBits = mTranslator.translateToBitSet(assertions);
 		final BitSet notAsserted = (BitSet) assertedAsBits.clone();
-		notAsserted.flip(0, mNumberOfConstraints);
+		notAsserted.flip(0, mTranslator.getNumberOfConstraints());
 
 		for (int i = notAsserted.nextSetBit(0); i >= 0; i = notAsserted.nextSetBit(i + 1)) {
-			mScript.assertTerm(mIndex2Constraint.get(i));
+			mScript.assertTerm(mTranslator.translate2Constraint(i));
 			assertedAsBits.set(i);
 			switch (mScript.checkSat()) {
 			case UNSAT:
 				assertedAsBits.clear(i);
-				mScript.pop(1);
+				pop(1);
 				return assertedAsBits;
 			case SAT:
 				break;
@@ -195,22 +173,25 @@ public class CritAdministrationSolver {
 	 * Try to extend the currently asserted satisfiable set to a maximal satisfiable subset.
 	 */
 	public BitSet getSatExtensionMaximalDemanding() {
-		mScript.push(1);
+		if (!(LBool.SAT == mScript.checkSat())) {
+			throw new SMTLIBException("The current assertions are not satisfiable.");
+		}
+		push(1);
 		int pushCounter = 1;
 		final Term[] assertions = mScript.getAssertions();
-		final BitSet assertedAsBits = translateToBitSet(assertions);
+		final BitSet assertedAsBits = mTranslator.translateToBitSet(assertions);
 		final BitSet notAsserted = (BitSet) assertedAsBits.clone();
-		notAsserted.flip(0, mNumberOfConstraints);
+		notAsserted.flip(0, mTranslator.getNumberOfConstraints());
 
 		for (int i = notAsserted.nextSetBit(0); i >= 0; i = notAsserted.nextSetBit(i + 1)) {
-			mScript.push(1);
-			mScript.assertTerm(mIndex2Constraint.get(i));
+			push(1);
+			mScript.assertTerm(mTranslator.translate2Constraint(i));
 			pushCounter++;
 			assertedAsBits.set(i);
 			switch (mScript.checkSat()) {
 			case UNSAT:
 				assertedAsBits.clear(i);
-				mScript.pop(1);
+				pop(1);
 				pushCounter--;
 				break;
 			case SAT:
@@ -221,7 +202,7 @@ public class CritAdministrationSolver {
 				throw new SMTLIBException("Unknown LBool value in extension process.");
 			}
 		}
-		mScript.pop(pushCounter);
+		pop(pushCounter);
 		return assertedAsBits;
 	}
 
@@ -233,7 +214,7 @@ public class CritAdministrationSolver {
 			throw new SMTLIBException("Reading crits without clearing unknowns is prohibited.");
 		}
 		final Term[] crits = mScript.getAssertions();
-		return translateToBitSet(crits);
+		return mTranslator.translateToBitSet(crits);
 	}
 
 	/**
@@ -244,7 +225,7 @@ public class CritAdministrationSolver {
 	}
 
 	public int getNumberOfConstraints() {
-		return mNumberOfConstraints;
+		return mTranslator.getNumberOfConstraints();
 	}
 
 	public ArrayList<Integer> randomPermutation(final BitSet toBePermutated) {
@@ -256,38 +237,15 @@ public class CritAdministrationSolver {
 		return toBePermutatedList;
 	}
 
-	/**
-	 * Translates the arrays of Terms that are returned by the script to the corresponding BitSet.
-	 */
-	private BitSet translateToBitSet(final Term[] constraints) {
-		final BitSet constraintsAsBits = new BitSet(mNumberOfConstraints);
-		for (int i = 0; i < constraints.length; i++) {
-			final String name = getName(constraints[i]);
-			constraintsAsBits.set(mNameOfConstraint2Index.get(name));
-		}
-		return constraintsAsBits;
+	private void push(final int levels) {
+		mLevels++;
+		mScript.push(levels);
 	}
 
-	private String getName(final Annotation... annotation) throws SMTLIBException {
-		String name = null;
-		for (int i = 0; i < annotation.length; i++) {
-			if (annotation[i].getKey() == ":named") {
-				name = (String) annotation[i].getValue();
-			}
-		}
-		if (name == null) {
-			throw new SMTLIBException("No name for the constraint has been found.");
-		}
-		return name;
-	}
-
-	private String getName(final Term term) {
-		if (term instanceof ApplicationTerm) {
-			return ((ApplicationTerm) term).getFunction().getName();
-		}else if (term instanceof AnnotatedTerm) {
-			return getName(((AnnotatedTerm) term).getAnnotations());
-		}else {
-			throw new SMTLIBException("Unknown type of term.");
-		}
+	private void pop(final int levels) {
+		mLevels = mLevels - levels;
+		assert mLevels >= 0 : "This class should not be able to modify lower levels of the script than the level "
+				+ "at which it was created";
+		mScript.pop(levels);
 	}
 }

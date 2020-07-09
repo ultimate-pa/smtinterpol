@@ -11,14 +11,14 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
  * @author LeonardFichtner (leonard.fichtner@web.de)
  *
  */
-public class ShrinkMethods {
+public class Shrinking {
 
 	/**
 	 * Takes an boolean array representing an unsatisfiable set of constraints and a CritAdministrationSolver,
 	 * containing all criticals found so far, to generate a minimal unsatisfiable subset. The corresponding proof of
 	 * unsatisfiability is returned.
 	 */
-	public static MusContainer shrink(final CritAdministrationSolver solver, final BitSet workingConstraints,
+	public static MusContainer shrink(final ConstraintAdministrationSolver solver, final BitSet workingConstraints,
 			final UnexploredMap map) {
 		solver.pushRecLevel();
 
@@ -75,10 +75,10 @@ public class ShrinkMethods {
 	}
 
 	/**
-	 * Testversion of {@link #shrink(CritAdministrationSolver, BitSet, UnexploredMap)}. Does not use the map (this will
+	 * Testversion of {@link #shrink(ConstraintAdministrationSolver, BitSet, UnexploredMap)}. Does not use the map (this will
 	 * be tested in the ReMUS method).
 	 */
-	public static MusContainer shrinkWithoutMap(final CritAdministrationSolver solver,
+	public static MusContainer shrinkWithoutMap(final ConstraintAdministrationSolver solver,
 			final BitSet workingConstraints) {
 		solver.pushRecLevel();
 
