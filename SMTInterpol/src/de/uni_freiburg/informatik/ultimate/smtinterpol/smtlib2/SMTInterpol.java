@@ -869,7 +869,8 @@ public class SMTInterpol extends NoopScript {
 			final Term[] ipls;
 			try {
 				final Interpolator interpolator =
-						new Interpolator(mLogger, this, checkingSolver, mAssertions, getTheory(), parts, startOfSubtree);
+						new Interpolator(mLogger, checkingSolver, mAssertions, getTheory(), parts, startOfSubtree,
+								mCancel);
 				ipls = interpolator.getInterpolants(proofTree);
 			} finally {
 				if (checkingSolver != null) {
@@ -1092,6 +1093,10 @@ public class SMTInterpol extends NoopScript {
 	 */
 	public LogProxy getLogger() {
 		return mLogger;
+	}
+
+	public TerminationRequest getTimeoutHandler() {
+		return mCancel;
 	}
 
 	protected void setEngine(final DPLLEngine engine) {

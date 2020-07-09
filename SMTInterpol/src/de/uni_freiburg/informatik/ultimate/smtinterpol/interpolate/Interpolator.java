@@ -44,9 +44,8 @@ import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolOptions;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.TerminationRequest;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.InfinitesimalNumber;
 
 /**
@@ -62,7 +61,8 @@ public class Interpolator extends NonRecursive {
 	 */
 	public static final String EQ = "@EQ";
 
-	SMTInterpol mSmtSolver;
+	private final TerminationRequest mCancel;
+
 	InterpolantChecker mChecker;
 
 	LogProxy mLogger;
@@ -174,9 +174,9 @@ public class Interpolator extends NonRecursive {
 		}
 	}
 
-	public Interpolator(final LogProxy logger, final SMTInterpol smtSolver, final Script checkingSolver,
-			final Collection<Term> allAssertions,
-			final Theory theory, final Set<String>[] partitions, final int[] startOfSubTrees) {
+	public Interpolator(final LogProxy logger, final Script checkingSolver, final Collection<Term> allAssertions,
+			final Theory theory, final Set<String>[] partitions, final int[] startOfSubTrees,
+			final TerminationRequest cancel) {
 		assert partitions.length == startOfSubTrees.length;
 		mPartitions = new HashMap<>();
 		for (int i = 0; i < partitions.length; i++) {
@@ -186,7 +186,7 @@ public class Interpolator extends NonRecursive {
 			}
 		}
 		mLogger = logger;
-		mSmtSolver = smtSolver;
+		mCancel = cancel;
 		if (checkingSolver != null) {
 			mChecker = new InterpolantChecker(this, checkingSolver);
 			mChecker.assertUnpartitionedFormulas(allAssertions, mPartitions.keySet());
@@ -227,7 +227,7 @@ public class Interpolator extends NonRecursive {
 			mLogger.debug("Proof term %s has been interpolated before.", proofTerm.hashCode());
 			return mInterpolants.get(proofTerm);
 		}
-		if (mSmtSolver.isTerminationRequested()) {
+		if (mCancel.isTerminationRequested()) {
 			throw new SMTLIBException("Timeout exceeded");
 		}
 
@@ -247,7 +247,7 @@ public class Interpolator extends NonRecursive {
 	 *            the resolvent clause
 	 */
 	private void walkResolutionNode(final Term proofTerm) {
-		if (mSmtSolver.isTerminationRequested()) {
+		if (mCancel.isTerminationRequested()) {
 			throw new SMTLIBException("Timeout exceeded");
 		}
 		final InterpolatorClauseTermInfo proofTermInfo = getClauseTermInfo(proofTerm);
@@ -277,7 +277,7 @@ public class Interpolator extends NonRecursive {
 	 */
 	@SuppressWarnings("unused")
 	private void walkLeafNode(final Term leaf) {
-		if (mSmtSolver.isTerminationRequested()) {
+		if (mCancel.isTerminationRequested()) {
 			throw new SMTLIBException("Timeout exceeded");
 		}
 		Term[] interpolants;
@@ -301,11 +301,10 @@ public class Interpolator extends NonRecursive {
 			} else if (leafTermInfo.getLemmaType().equals(":trichotomy")) {
 				final LAInterpolator ipolator = new LAInterpolator(this);
 				interpolants = ipolator.computeTrichotomyInterpolants(leaf);
-			} else if ((Boolean) mSmtSolver.getOption(SMTInterpolOptions.ARRAY_INTERPOLATION)
-					&& (leafTermInfo.getLemmaType().equals(":read-over-weakeq")
-							|| leafTermInfo.getLemmaType().equals(":weakeq-ext")
-							|| leafTermInfo.getLemmaType().equals(":const-weakeq")
-							|| leafTermInfo.getLemmaType().equals(":read-const-weakeq"))) {
+			} else if (leafTermInfo.getLemmaType().equals(":read-over-weakeq")
+					|| leafTermInfo.getLemmaType().equals(":weakeq-ext")
+					|| leafTermInfo.getLemmaType().equals(":const-weakeq")
+					|| leafTermInfo.getLemmaType().equals(":read-const-weakeq")) {
 				final ArrayInterpolator ipolator = new ArrayInterpolator(this);
 				interpolants = ipolator.computeInterpolants(leaf);
 			} else if (leafTermInfo.getLemmaType().equals(":inst")) {
@@ -1138,7 +1137,7 @@ public class Interpolator extends NonRecursive {
 			}
 			while (offset.compareTo(kc) <= 0) {
 				Term x;
-				if (mSmtSolver.isTerminationRequested()) {
+				if (mCancel.isTerminationRequested()) {
 					throw new SMTLIBException("Timeout exceeded");
 				}
 				x = sPlusOffset.toSMTLib(mTheory, true);
