@@ -19,6 +19,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.NamedAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.TerminationRequest;
 
 /**
  * Tests for everything that has to do with MUSes.
@@ -27,6 +28,23 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
  *
  */
 public class MusesTest {
+
+	private static class TestTerminationRequest implements TerminationRequest {
+		boolean mTerminationRequested;
+
+		public TestTerminationRequest() {
+			mTerminationRequested = false;
+		}
+
+		public void setTerminationRequested(final boolean requested) {
+			mTerminationRequested = requested;
+		}
+
+		@Override
+		public boolean isTerminationRequested() {
+			return mTerminationRequested;
+		}
+	}
 
 	private Script setupScript(final Logics logic) {
 		final Script script = new SMTInterpol();
@@ -164,6 +182,7 @@ public class MusesTest {
 		final AnnotatedTerm annotatedConstraint = (AnnotatedTerm) script.annotate(constraint, annotation);
 		final NamedAtom atom = new NamedAtom(annotatedConstraint, 0);
 		atom.setPreferredStatus(atom.getAtom());
+		engine.addAtom(atom);
 		translator.declareConstraint(atom);
 	}
 
@@ -352,7 +371,7 @@ public class MusesTest {
 	@Test
 	public void testMapBlockDown() {
 		final Script script = setupScript(Logics.ALL);
-		final DPLLEngine engine = new DPLLEngine(new Theory(Logics.ALL), new DefaultLogger(), null);
+		final DPLLEngine engine = new DPLLEngine(new Theory(Logics.ALL), new DefaultLogger(), new TestTerminationRequest());
 		final Translator translator = new Translator();
 		setupUnsatSet3(script, translator, engine);
 		final UnexploredMap map = new UnexploredMap(engine, translator);
@@ -377,7 +396,7 @@ public class MusesTest {
 	@Test
 	public void testMapBlockUp() {
 		final Script script = setupScript(Logics.ALL);
-		final DPLLEngine engine = new DPLLEngine(new Theory(Logics.ALL), new DefaultLogger(), null);
+		final DPLLEngine engine = new DPLLEngine(new Theory(Logics.ALL), new DefaultLogger(), new TestTerminationRequest());
 		final Translator translator = new Translator();
 		setupUnsatSet3(script, translator, engine);
 		final UnexploredMap map = new UnexploredMap(engine, translator);
@@ -402,7 +421,7 @@ public class MusesTest {
 	@Test
 	public void testMapWorkingSet() {
 		final Script script = setupScript(Logics.ALL);
-		final DPLLEngine engine = new DPLLEngine(new Theory(Logics.ALL), new DefaultLogger(), null);
+		final DPLLEngine engine = new DPLLEngine(new Theory(Logics.ALL), new DefaultLogger(), new TestTerminationRequest());
 		final Translator translator = new Translator();
 		setupUnsatSet3(script, translator, engine);
 		final UnexploredMap map = new UnexploredMap(engine, translator);
@@ -417,7 +436,7 @@ public class MusesTest {
 	@Test
 	public void testMapNoUnexploredSet() {
 		final Script script = setupScript(Logics.ALL);
-		final DPLLEngine engine = new DPLLEngine(new Theory(Logics.ALL), new DefaultLogger(), null);
+		final DPLLEngine engine = new DPLLEngine(new Theory(Logics.ALL), new DefaultLogger(), new TestTerminationRequest());
 		final Translator translator = new Translator();
 		setupUnsatSet3(script, translator, engine);
 		final UnexploredMap map = new UnexploredMap(engine, translator);
