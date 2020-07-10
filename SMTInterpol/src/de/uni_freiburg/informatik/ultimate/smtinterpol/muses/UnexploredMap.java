@@ -31,7 +31,7 @@ public class UnexploredMap {
 		for (int i = unsatSet.nextSetBit(0); i >= 0; i = unsatSet.nextSetBit(i + 1)) {
 			clause.add(mTranslator.translate2Atom(i).negate());
 		}
-		mEngine.addClause(new Clause(clause.toArray(new Literal[clause.size()])));
+		mEngine.addClause(new Clause(clause.toArray(new Literal[clause.size()]), mEngine.getAssertionStackLevel()));
 	}
 
 	/**
@@ -40,11 +40,11 @@ public class UnexploredMap {
 	public void BlockDown(final BitSet satSet) {
 		final ArrayList<Literal> clause = new ArrayList<>();
 		final BitSet notInSatSet = (BitSet) satSet.clone();
-		notInSatSet.flip(0, satSet.length());
-		for (int i = satSet.nextSetBit(0); i >= 0; i = satSet.nextSetBit(i + 1)) {
+		notInSatSet.flip(0, mTranslator.getNumberOfConstraints());
+		for (int i = notInSatSet.nextSetBit(0); i >= 0; i = notInSatSet.nextSetBit(i + 1)) {
 			clause.add(mTranslator.translate2Atom(i));
 		}
-		mEngine.addClause(new Clause(clause.toArray(new Literal[clause.size()])));
+		mEngine.addClause(new Clause(clause.toArray(new Literal[clause.size()]), mEngine.getAssertionStackLevel()));
 	}
 
 	/**
@@ -53,12 +53,12 @@ public class UnexploredMap {
 	 */
 	public BitSet getMaximalUnexploredSubsetOf(final BitSet workingSet) {
 		final BitSet notInWorkingSet = (BitSet) workingSet.clone();
-		notInWorkingSet.flip(0, workingSet.length());
+		notInWorkingSet.flip(0, mTranslator.getNumberOfConstraints());
 		mEngine.push();
 		for (int i = notInWorkingSet.nextSetBit(0); i >= 0; i = notInWorkingSet.nextSetBit(i + 1)) {
 			final Literal[] unitClause = new Literal[1];
-			unitClause[0] = mTranslator.translate2Atom(i);
-			mEngine.addClause(new Clause(unitClause));
+			unitClause[0] = mTranslator.translate2Atom(i).negate();
+			mEngine.addClause(new Clause(unitClause, mEngine.getAssertionStackLevel()));
 		}
 		if (mEngine.solve()) {
 			final BitSet maximalUnexplored = collectTrueAtomsOf(workingSet);

@@ -440,16 +440,12 @@ public class MusesTest {
 		final Translator translator = new Translator();
 		setupUnsatSet3(script, translator, engine);
 		final UnexploredMap map = new UnexploredMap(engine, translator);
-		final BitSet set1 = new BitSet(3);
 		final BitSet set2 = new BitSet(3);
 		final BitSet workingSet = new BitSet(3);
 		workingSet.set(0);
 		workingSet.set(2);
-		set1.set(0);
-		set1.set(1);
 		set2.set(0);
 		set2.set(2);
-		map.BlockUp(set1);
 		map.BlockDown(set2);
 		final BitSet unexplored = map.getMaximalUnexploredSubsetOf(workingSet);
 		Assert.assertTrue(unexplored.cardinality() == 0);
