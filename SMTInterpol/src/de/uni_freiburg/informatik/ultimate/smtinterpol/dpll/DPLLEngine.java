@@ -1126,7 +1126,9 @@ public class DPLLEngine {
 					final Double nscore = scores.get(atom.negate());
 					final double Pscore = pscore == null ? 0 : pscore;
 					final double Nscore = nscore == null ? 0 : nscore;
-					atom.setPreferredStatus(Pscore > Nscore ? atom : atom.negate());
+					if (!atom.PreferredStatusIsLocked()) {
+						atom.setPreferredStatus(Pscore > Nscore ? atom : atom.negate());
+					}
 				}
 			}
 			long lastTime;

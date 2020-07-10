@@ -182,6 +182,7 @@ public class MusesTest {
 		final AnnotatedTerm annotatedConstraint = (AnnotatedTerm) script.annotate(constraint, annotation);
 		final NamedAtom atom = new NamedAtom(annotatedConstraint, 0);
 		atom.setPreferredStatus(atom.getAtom());
+		atom.lockPreferredStatus();
 		engine.addAtom(atom);
 		translator.declareConstraint(atom);
 	}
