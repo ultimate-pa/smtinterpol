@@ -372,7 +372,8 @@ public class MusesTest {
 	@Test
 	public void testMapBlockDown() {
 		final Script script = setupScript(Logics.ALL);
-		final DPLLEngine engine = new DPLLEngine(new Theory(Logics.ALL), new DefaultLogger(), new TestTerminationRequest());
+		final DPLLEngine engine =
+				new DPLLEngine(new Theory(Logics.ALL), new DefaultLogger(), new TestTerminationRequest());
 		final Translator translator = new Translator();
 		setupUnsatSet3(script, translator, engine);
 		final UnexploredMap map = new UnexploredMap(engine, translator);
@@ -390,14 +391,17 @@ public class MusesTest {
 		map.BlockDown(set1);
 		map.BlockDown(set2);
 		map.BlockDown(set3);
-		final BitSet unexplored = map.getMaximalUnexploredSubsetOf(workingSet);
+		final BitSet unexplored = map.findMaximalUnexploredSubsetOf(workingSet);
+		final BitSet crits = map.findImpliedCritsOf(workingSet);
 		Assert.assertTrue(unexplored.cardinality() == 3);
+		Assert.assertTrue(crits.cardinality() == 3);
 	}
 
 	@Test
 	public void testMapBlockUp() {
 		final Script script = setupScript(Logics.ALL);
-		final DPLLEngine engine = new DPLLEngine(new Theory(Logics.ALL), new DefaultLogger(), new TestTerminationRequest());
+		final DPLLEngine engine =
+				new DPLLEngine(new Theory(Logics.ALL), new DefaultLogger(), new TestTerminationRequest());
 		final Translator translator = new Translator();
 		setupUnsatSet3(script, translator, engine);
 		final UnexploredMap map = new UnexploredMap(engine, translator);
@@ -415,40 +419,75 @@ public class MusesTest {
 		map.BlockUp(set1);
 		map.BlockUp(set2);
 		map.BlockUp(set3);
-		final BitSet unexplored = map.getMaximalUnexploredSubsetOf(workingSet);
+		final BitSet crits = map.findImpliedCritsOf(workingSet);
+		final BitSet unexplored = map.findMaximalUnexploredSubsetOf(workingSet);
 		Assert.assertTrue(unexplored.cardinality() == 1);
+		Assert.assertTrue(crits.cardinality() == 0);
 	}
 
 	@Test
 	public void testMapWorkingSet() {
 		final Script script = setupScript(Logics.ALL);
-		final DPLLEngine engine = new DPLLEngine(new Theory(Logics.ALL), new DefaultLogger(), new TestTerminationRequest());
+		final DPLLEngine engine =
+				new DPLLEngine(new Theory(Logics.ALL), new DefaultLogger(), new TestTerminationRequest());
 		final Translator translator = new Translator();
 		setupUnsatSet3(script, translator, engine);
 		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final BitSet workingSet = new BitSet(3);
 		workingSet.set(1);
 		workingSet.set(2);
-		final BitSet unexplored = map.getMaximalUnexploredSubsetOf(workingSet);
+		final BitSet crits = map.findImpliedCritsOf(workingSet);
+		final BitSet unexplored = map.findMaximalUnexploredSubsetOf(workingSet);
 		Assert.assertTrue(unexplored.get(1) == true);
 		Assert.assertTrue(unexplored.get(2) == true);
+		Assert.assertTrue(crits.cardinality() == 0);
 	}
 
 	@Test
 	public void testMapNoUnexploredSet() {
 		final Script script = setupScript(Logics.ALL);
-		final DPLLEngine engine = new DPLLEngine(new Theory(Logics.ALL), new DefaultLogger(), new TestTerminationRequest());
+		final DPLLEngine engine =
+				new DPLLEngine(new Theory(Logics.ALL), new DefaultLogger(), new TestTerminationRequest());
 		final Translator translator = new Translator();
 		setupUnsatSet3(script, translator, engine);
 		final UnexploredMap map = new UnexploredMap(engine, translator);
-		final BitSet set2 = new BitSet(3);
+		final BitSet set1 = new BitSet(3);
 		final BitSet workingSet = new BitSet(3);
 		workingSet.set(0);
 		workingSet.set(2);
+		set1.set(0);
+		set1.set(2);
+		map.BlockDown(set1);
+		final BitSet unexplored = map.findMaximalUnexploredSubsetOf(workingSet);
+		final BitSet crits = map.findImpliedCritsOf(workingSet);
+		Assert.assertTrue(unexplored.cardinality() == 0);
+		Assert.assertTrue(crits.cardinality() == 0);
+	}
+
+	@Test
+	public void testMapExplicitlyForFindCrits() {
+		final Script script = setupScript(Logics.ALL);
+		final DPLLEngine engine =
+				new DPLLEngine(new Theory(Logics.ALL), new DefaultLogger(), new TestTerminationRequest());
+		final Translator translator = new Translator();
+		setupUnsatSet3(script, translator, engine);
+		final UnexploredMap map = new UnexploredMap(engine, translator);
+		final BitSet set1 = new BitSet(3);
+		final BitSet set2 = new BitSet(3);
+		final BitSet workingSet = new BitSet(3);
+		set1.set(0);
+		set1.set(1);
 		set2.set(0);
 		set2.set(2);
+		workingSet.set(0);
+		workingSet.set(1);
+		map.BlockUp(set1);
 		map.BlockDown(set2);
-		final BitSet unexplored = map.getMaximalUnexploredSubsetOf(workingSet);
-		Assert.assertTrue(unexplored.cardinality() == 0);
+		final BitSet crits = map.findImpliedCritsOf(workingSet);
+		final BitSet unexplored = map.findMaximalUnexploredSubsetOf(workingSet);
+		Assert.assertFalse(crits.get(0));
+		Assert.assertTrue(crits.get(1));
+		Assert.assertFalse(crits.get(2));
+		Assert.assertTrue(unexplored.cardinality() == 1);
 	}
 }

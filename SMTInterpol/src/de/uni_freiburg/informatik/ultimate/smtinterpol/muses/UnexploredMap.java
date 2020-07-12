@@ -56,8 +56,34 @@ public class UnexploredMap {
 	}
 
 	/**
-	 * Finds a maximal unexplored subset and the implied crits for the given working set. They can then be accessed by
-	 * {@link getMaximalUnexploredSubset()} and {@link getImpliedCrits}.
+	 * This method returns a maximal unexplored subset of workingSet. If it has not already been found in the last
+	 * {@link #findImpliedCritsOf(BitSet)} or {@link #findMaximalUnexploredSubsetOf(BitSet)}, this method first finds
+	 * the maximal unexplored subset and critical constraints. If no maximal unexplored subset has been found, it
+	 * returns a BitSet with all values set to false.
+	 */
+	public BitSet findMaximalUnexploredSubsetOf(final BitSet workingSet) {
+		if (mMapModifiedSinceLastSolve || !workingSet.equals(mLastWorkingSet)) {
+			findMaximalUnexploredSubsetAndImpliedCrits(workingSet);
+		}
+		return mMaximalUnexploredSubset;
+	}
+
+	/**
+	 * This method returns the set of constraints of workingSet that are implied to be True by the current map formula.
+	 * They must then be critical. If they have not already been found in the last {@link #findImpliedCritsOf(BitSet)}
+	 * or {@link #findMaximalUnexploredSubsetOf(BitSet)}, this method first finds the maximal unexplored subset and
+	 * critical constraints. If no ImpliedCrits have been found, this returns a BitSet with all values set to false.
+	 */
+	public BitSet findImpliedCritsOf(final BitSet workingSet) {
+		if (mMapModifiedSinceLastSolve || !workingSet.equals(mLastWorkingSet)) {
+			findMaximalUnexploredSubsetAndImpliedCrits(workingSet);
+		}
+		return mImpliedCrits;
+	}
+
+	/**
+	 * Finds a maximal unexplored subset and the implied crits for the given working set. They can be accessed by
+	 * {@link #findMaximalUnexploredSubsetOf(BitSet)} and {@link #findImpliedCritsOf(BitSet)}.
 	 */
 	private boolean findMaximalUnexploredSubsetAndImpliedCrits(final BitSet workingSet) {
 		mMapModifiedSinceLastSolve = false;
@@ -81,27 +107,6 @@ public class UnexploredMap {
 			mEngine.pop(1);
 			return false;
 		}
-	}
-
-	/**
-	 * If it has not already been found, this method finds a maximal unexplored subset of the given workingSet.
-	 * If no maximal unexplored subset has been found, it returns a BitSet with all values set to false.
-	 */
-	public BitSet getMaximalUnexploredSubsetOf(final BitSet workingSet) {
-		if (mMapModifiedSinceLastSolve || workingSet.equals(mLastWorkingSet)) {
-			findMaximalUnexploredSubsetAndImpliedCrits(workingSet);
-		}
-		return mMaximalUnexploredSubset;
-	}
-
-	/**
-	 * If this no ImpliedCrits have been found, it returns a BitSet with all values set to false.
-	 */
-	public BitSet getImpliedCritsOf(final BitSet workingSet) {
-		if (mMapModifiedSinceLastSolve || workingSet.equals(mLastWorkingSet)) {
-			findMaximalUnexploredSubsetAndImpliedCrits(workingSet);
-		}
-		return mImpliedCrits;
 	}
 
 	/**
