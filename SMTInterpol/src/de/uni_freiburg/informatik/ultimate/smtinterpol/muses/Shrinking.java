@@ -16,11 +16,11 @@ public class Shrinking {
 	/**
 	 * Takes an boolean array representing an unsatisfiable set of constraints and a CritAdministrationSolver,
 	 * containing all criticals found so far, to generate a minimal unsatisfiable subset. The corresponding proof of
-	 * unsatisfiability is returned. This should only be used for Logics where checkSat cannot return LBool.UNKNOWN.
+	 * unsatisfiability is returned. As a side effect, this method blocks all explored sets (also the found mus) in the
+	 * map. This should only be used for Logics where checkSat cannot return LBool.UNKNOWN.
 	 */
 	public static MusContainer shrink(final ConstraintAdministrationSolver solver, final BitSet workingConstraints,
 			final UnexploredMap map) {
-		solver.pushRecLevel();
 
 		if (contains(workingConstraints, solver.getCrits())) {
 			throw new SMTLIBException("WorkingConstraints is corrupted! It should contain all crits.");
@@ -66,13 +66,13 @@ public class Shrinking {
 		solver.clearUnknownConstraints();
 		final BitSet mus = solver.getCrits();
 		map.BlockUp(mus);
-		solver.popRecLevel();
+		map.BlockDown(mus);
 		return new MusContainer(mus, proofOfMus);
 	}
 
 	/**
-	 * Testversion of {@link #shrink(ConstraintAdministrationSolver, BitSet, UnexploredMap)}. Does not use the map (this will
-	 * be tested in the ReMUS method).
+	 * Testversion of {@link #shrink(ConstraintAdministrationSolver, BitSet, UnexploredMap)}. Does not use the map (this
+	 * will be tested in the ReMUS method).
 	 */
 	public static MusContainer shrinkWithoutMap(final ConstraintAdministrationSolver solver,
 			final BitSet workingConstraints) {
@@ -123,9 +123,9 @@ public class Shrinking {
 	/**
 	 * Check whether set1 contains set2.
 	 */
-	private static boolean contains(final BitSet set1, final BitSet set2) {
-		final BitSet notSet1 = (BitSet) set1.clone();
-		notSet1.flip(0, set1.length());
-		return set2.intersects(notSet1);
+	public static boolean contains(final BitSet set1, final BitSet set2) {
+		final BitSet set2Clone = (BitSet) set2.clone();
+		set2Clone.andNot(set1);
+		return set2Clone.isEmpty();
 	}
 }

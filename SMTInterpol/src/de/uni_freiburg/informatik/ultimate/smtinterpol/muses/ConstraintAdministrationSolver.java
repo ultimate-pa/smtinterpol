@@ -78,6 +78,18 @@ public class ConstraintAdministrationSolver {
 	}
 
 	/**
+	 * Assert critical constraints. This can only be done, when no unknown constraints are asserted.
+	 */
+	public void assertCriticalConstraints(final BitSet constraints) throws SMTLIBException {
+		if (mUnknownConstraintsAreSet) {
+			throw new SMTLIBException("Modifying crits without clearing unknowns is prohibited.");
+		}
+		for (int i = constraints.nextSetBit(0); i >= 0; i = constraints.nextSetBit(i + 1)) {
+			mScript.assertTerm(mTranslator.translate2Constraint(i));
+		}
+	}
+
+	/**
 	 * Assert a constraint, for which it is not known whether it is critical or not.
 	 */
 	public void assertUnknownConstraint(final int constraintNumber) {
@@ -86,6 +98,19 @@ public class ConstraintAdministrationSolver {
 			mUnknownConstraintsAreSet = true;
 		}
 		mScript.assertTerm(mTranslator.translate2Constraint(constraintNumber));
+	}
+
+	/**
+	 * Assert constraints, for which it is not known whether they are critical or not.
+	 */
+	public void assertUnknownConstraints(final BitSet constraints) {
+		if (!mUnknownConstraintsAreSet) {
+			push(1);
+			mUnknownConstraintsAreSet = true;
+		}
+		for (int i = constraints.nextSetBit(0); i >= 0; i = constraints.nextSetBit(i + 1)) {
+			mScript.assertTerm(mTranslator.translate2Constraint(i));
+		}
 	}
 
 	/**

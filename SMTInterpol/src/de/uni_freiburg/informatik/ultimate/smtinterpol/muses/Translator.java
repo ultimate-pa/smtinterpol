@@ -94,7 +94,7 @@ public class Translator {
 	private String getName(final Annotation... annotation) throws SMTLIBException {
 		String name = null;
 		for (int i = 0; i < annotation.length; i++) {
-			if (annotation[i].getKey() == ":named") {
+			if (annotation[i].getKey().equals(":named")) {
 				name = (String) annotation[i].getValue();
 			}
 		}
