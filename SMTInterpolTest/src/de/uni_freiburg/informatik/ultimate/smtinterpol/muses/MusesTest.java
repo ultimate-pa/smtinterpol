@@ -193,10 +193,11 @@ public class MusesTest {
 		final DPLLEngine engine = new DPLLEngine(new Theory(Logics.ALL), new DefaultLogger(), null);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
+		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet workingSet = new BitSet();
 		workingSet.flip(0, 10);
-		final MusContainer container = Shrinking.shrinkWithoutMap(solver, workingSet);
+		final MusContainer container = Shrinking.shrink(solver, workingSet, map);
 		System.out.println("Shrinker returned: " + container.getMus().toString());
 		checkWhetherSetIsMus(container.getMus(), solver);
 	}
@@ -207,6 +208,7 @@ public class MusesTest {
 		final DPLLEngine engine = new DPLLEngine(new Theory(Logics.ALL), new DefaultLogger(), null);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
+		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet workingSet = new BitSet();
 		workingSet.set(0);
@@ -215,7 +217,7 @@ public class MusesTest {
 		workingSet.set(8);
 		workingSet.set(9);
 		workingSet.flip(0, 10);
-		final MusContainer container = Shrinking.shrinkWithoutMap(solver, workingSet);
+		final MusContainer container = Shrinking.shrink(solver, workingSet, map);
 		System.out.println("Shrinker returned: " + container.getMus().toString());
 		checkWhetherSetIsMus(container.getMus(), solver);
 	}
@@ -226,12 +228,13 @@ public class MusesTest {
 		final DPLLEngine engine = new DPLLEngine(new Theory(Logics.ALL), new DefaultLogger(), null);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
+		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet workingSet = new BitSet();
 		workingSet.set(1);
 		workingSet.set(2);
 		workingSet.set(5);
-		final MusContainer container = Shrinking.shrinkWithoutMap(solver, workingSet);
+		final MusContainer container = Shrinking.shrink(solver, workingSet, map);
 		System.out.println("Shrinker returned: " + container.getMus().toString());
 		checkWhetherSetIsMus(container.getMus(), solver);
 	}
@@ -242,6 +245,7 @@ public class MusesTest {
 		final DPLLEngine engine = new DPLLEngine(new Theory(Logics.ALL), new DefaultLogger(), null);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
+		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		solver.pushRecLevel();
 		solver.assertCriticalConstraint(4);
@@ -251,7 +255,7 @@ public class MusesTest {
 		workingSet.set(2);
 		workingSet.set(4);
 		workingSet.set(7);
-		final MusContainer container = Shrinking.shrinkWithoutMap(solver, workingSet);
+		final MusContainer container = Shrinking.shrink(solver, workingSet, map);
 		System.out.println("Shrinker returned: " + container.getMus().toString());
 		Assert.assertTrue(solver.checkSat() == LBool.UNSAT);
 		solver.popRecLevel();
@@ -265,6 +269,7 @@ public class MusesTest {
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
+		final UnexploredMap map = new UnexploredMap(engine, translator);
 		solver.pushRecLevel();
 		solver.assertCriticalConstraint(1);
 		solver.assertCriticalConstraint(2);
@@ -272,7 +277,7 @@ public class MusesTest {
 		workingSet.set(5);
 		workingSet.set(1);
 		workingSet.set(2);
-		final MusContainer container = Shrinking.shrinkWithoutMap(solver, workingSet);
+		final MusContainer container = Shrinking.shrink(solver, workingSet, map);
 		System.out.println("Shrinker returned: " + container.getMus().toString());
 		solver.popRecLevel();
 		checkWhetherSetIsMus(container.getMus(), solver);
@@ -286,12 +291,13 @@ public class MusesTest {
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
+		final UnexploredMap map = new UnexploredMap(engine, translator);
 		solver.pushRecLevel();
 		solver.assertCriticalConstraint(1);
 		solver.assertCriticalConstraint(2);
 		final BitSet workingSet = new BitSet();
 		workingSet.set(5);
-		final MusContainer container = Shrinking.shrinkWithoutMap(solver, workingSet);
+		final MusContainer container = Shrinking.shrink(solver, workingSet, map);
 		System.out.println("Shrinker returned: " + container.getMus().toString());
 		solver.popRecLevel();
 		checkWhetherSetIsMus(container.getMus(), solver);
@@ -305,8 +311,9 @@ public class MusesTest {
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
+		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final BitSet workingSet = new BitSet();
-		Shrinking.shrinkWithoutMap(solver, workingSet);
+		Shrinking.shrink(solver, workingSet, map);
 	}
 
 	@Test(expected = SMTLIBException.class)
@@ -316,12 +323,13 @@ public class MusesTest {
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
+		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final BitSet workingSet = new BitSet();
 		workingSet.set(0);
 		workingSet.set(1);
 		workingSet.set(7);
 		workingSet.set(5);
-		Shrinking.shrinkWithoutMap(solver, workingSet);
+		Shrinking.shrink(solver, workingSet, map);
 	}
 
 	@Test

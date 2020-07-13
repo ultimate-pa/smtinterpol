@@ -22,7 +22,7 @@ public class Shrinking {
 	public static MusContainer shrink(final ConstraintAdministrationSolver solver, final BitSet workingConstraints,
 			final UnexploredMap map) {
 		solver.pushRecLevel();
-		if (contains(workingConstraints, solver.getCrits())) {
+		if (!contains(workingConstraints, solver.getCrits())) {
 			throw new SMTLIBException("WorkingConstraints is corrupted! It should contain all crits.");
 		}
 
@@ -67,56 +67,6 @@ public class Shrinking {
 		final BitSet mus = solver.getCrits();
 		map.BlockUp(mus);
 		map.BlockDown(mus);
-		solver.popRecLevel();
-		return new MusContainer(mus, proofOfMus);
-	}
-
-	/**
-	 * Testversion of {@link #shrink(ConstraintAdministrationSolver, BitSet, UnexploredMap)}. Does not use the map (this
-	 * will be tested in the ReMUS method).
-	 */
-	public static MusContainer shrinkWithoutMap(final ConstraintAdministrationSolver solver,
-			final BitSet workingConstraints) {
-		solver.pushRecLevel();
-
-		if (contains(workingConstraints, solver.getCrits())) {
-			throw new SMTLIBException("WorkingConstraints is corrupted! It should contain all crits.");
-		}
-
-		final BitSet unknown = (BitSet) workingConstraints.clone();
-		unknown.andNot(solver.getCrits());
-		for (int i = unknown.nextSetBit(0); i >= 0; i = unknown.nextSetBit(i + 1)) {
-			for (int j = unknown.nextSetBit(i + 1); j >= 0; j = unknown.nextSetBit(j + 1)) {
-				solver.assertUnknownConstraint(j);
-			}
-			switch (solver.checkSat()) {
-			case UNSAT:
-				unknown.clear(i);
-				final BitSet core = solver.getUnsatCore();
-				unknown.and(core);
-				solver.clearUnknownConstraints();
-				break;
-			case SAT:
-				unknown.clear(i);
-				solver.clearUnknownConstraints();
-				solver.assertCriticalConstraint(i);
-				break;
-			case UNKNOWN:
-				throw new SMTLIBException("Solver returns UNKNOWN in Shrinking process.");
-			}
-		}
-		switch (solver.checkSat()) {
-		case UNSAT:
-			break;
-		case SAT:
-			throw new SMTLIBException("Something went wrong, the set of all crits should be unsatisfiable!!!");
-		case UNKNOWN:
-			throw new SMTLIBException(
-					"Solver returns UNKNOWN for set of all crits (despite of not doing it for a superset, weird).");
-		}
-		final Term proofOfMus = solver.getProof();
-		solver.clearUnknownConstraints();
-		final BitSet mus = solver.getCrits();
 		solver.popRecLevel();
 		return new MusContainer(mus, proofOfMus);
 	}
