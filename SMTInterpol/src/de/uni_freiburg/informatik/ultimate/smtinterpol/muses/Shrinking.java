@@ -21,7 +21,7 @@ public class Shrinking {
 	 */
 	public static MusContainer shrink(final ConstraintAdministrationSolver solver, final BitSet workingConstraints,
 			final UnexploredMap map) {
-
+		solver.pushRecLevel();
 		if (contains(workingConstraints, solver.getCrits())) {
 			throw new SMTLIBException("WorkingConstraints is corrupted! It should contain all crits.");
 		}
@@ -67,6 +67,7 @@ public class Shrinking {
 		final BitSet mus = solver.getCrits();
 		map.BlockUp(mus);
 		map.BlockDown(mus);
+		solver.popRecLevel();
 		return new MusContainer(mus, proofOfMus);
 	}
 
