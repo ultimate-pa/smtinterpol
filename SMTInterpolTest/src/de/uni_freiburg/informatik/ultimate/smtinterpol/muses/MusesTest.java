@@ -498,4 +498,42 @@ public class MusesTest {
 		Assert.assertFalse(crits.get(2));
 		Assert.assertTrue(unexplored.cardinality() == 1);
 	}
+
+	@Test
+	public void testReMusSet1() {
+		final Script script = setupScript(Logics.ALL);
+		final DPLLEngine engine =
+				new DPLLEngine(new Theory(Logics.ALL), new DefaultLogger(), new TestTerminationRequest());
+		final Translator translator = new Translator();
+		setupUnsatSet1(script, translator, engine);
+		final UnexploredMap map = new UnexploredMap(engine, translator);
+		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
+		final BitSet workingSet = new BitSet(5);
+		workingSet.flip(0, 5);
+		final ReMus remus = new ReMus(solver, map, workingSet);
+		final ArrayList<MusContainer> muses = remus.enumerate();
+		for (final MusContainer container : muses) {
+			checkWhetherSetIsMus(container.getMus(), solver);
+		}
+		Assert.assertTrue(muses.size() == 1);
+	}
+
+	@Test
+	public void testReMusSet2() {
+		final Script script = setupScript(Logics.ALL);
+		final DPLLEngine engine =
+				new DPLLEngine(new Theory(Logics.ALL), new DefaultLogger(), new TestTerminationRequest());
+		final Translator translator = new Translator();
+		setupUnsatSet2(script, translator, engine);
+		final UnexploredMap map = new UnexploredMap(engine, translator);
+		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
+		final BitSet workingSet = new BitSet(10);
+		workingSet.flip(0, 10);
+		final ReMus remus = new ReMus(solver, map, workingSet);
+		final ArrayList<MusContainer> muses = remus.enumerate();
+		for (final MusContainer container : muses) {
+			checkWhetherSetIsMus(container.getMus(), solver);
+		}
+		Assert.assertTrue(muses.size() == 15);
+	}
 }

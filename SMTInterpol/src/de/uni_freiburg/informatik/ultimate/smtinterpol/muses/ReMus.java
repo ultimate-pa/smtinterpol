@@ -32,6 +32,11 @@ public class ReMus {
 	public ReMus(final ConstraintAdministrationSolver solver, final UnexploredMap map, final BitSet workingSet) {
 		mSolver = solver;
 		mMap = map;
+		if (workingSet.length() >= mSolver.getNumberOfConstraints()) {
+			throw new SMTLIBException(
+					"There are constraints set in the workingSet that are not registered in the translator of the "
+							+ "solver and the map");
+		}
 		mWorkingSet = workingSet;
 	}
 
@@ -96,7 +101,7 @@ public class ReMus {
 		if (mMcs.cardinality() == 1) {
 			mSolver.assertCriticalConstraint(mMcs.nextSetBit(0));
 		} else {
-			//We don't need mMaxUnexplored anymore before the update, so we can modify it directly
+			// We don't need mMaxUnexplored anymore before the update, so we can modify it directly
 			final BitSet nextWorkingSet = mMaxUnexplored;
 			for (int i = mMcs.nextSetBit(0); i >= 0; i = mMcs.nextSetBit(i + 1)) {
 				mSolver.pushRecLevel();
