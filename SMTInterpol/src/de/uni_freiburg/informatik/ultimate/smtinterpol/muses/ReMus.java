@@ -32,7 +32,7 @@ public class ReMus {
 	public ReMus(final ConstraintAdministrationSolver solver, final UnexploredMap map, final BitSet workingSet) {
 		mSolver = solver;
 		mMap = map;
-		if (workingSet.length() >= mSolver.getNumberOfConstraints()) {
+		if (workingSet.length() > mSolver.getNumberOfConstraints()) {
 			throw new SMTLIBException(
 					"There are constraints set in the workingSet that are not registered in the translator of the "
 							+ "solver and the map");
