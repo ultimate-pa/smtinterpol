@@ -5,6 +5,7 @@ import java.util.BitSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.TerminationRequest;
 
 /**
  * This is an implementation of the ReMUS algorithm (see Recursive Online Enumeration of all Minimal Unsatisfiable
@@ -17,6 +18,9 @@ public class ReMus {
 
 	ConstraintAdministrationSolver mSolver;
 	UnexploredMap mMap;
+	long mDurationUntilTimeout;
+	long mTimeout;
+	TerminationRequest mTerminationRequest;
 
 	ArrayList<MusContainer> mMuses;
 	boolean mProvisionalSat;
@@ -27,9 +31,13 @@ public class ReMus {
 	BitSet mWorkingSet;
 
 	/**
-	 * The solver and the map MUST have the same Translator.
+	 * The solver and the map MUST have the same Translator. ReMUS assumes ownership over the solver and the map.
+	 * DurationUntilTimeout specifies how much time {@link #enumerate()} may run, until it should return the found
+	 * muses. The durationUntilTimeout should be given in miliseconds. If the given durationUntilTimeout is negative,
+	 * {@link #enumerate()} assumes to have infinite time.
 	 */
-	public ReMus(final ConstraintAdministrationSolver solver, final UnexploredMap map, final BitSet workingSet) {
+	public ReMus(final ConstraintAdministrationSolver solver, final UnexploredMap map, final BitSet workingSet,
+			final long durationUntilTimeout) {
 		mSolver = solver;
 		mMap = map;
 		if (workingSet.length() > mSolver.getNumberOfConstraints()) {
@@ -38,13 +46,24 @@ public class ReMus {
 							+ "solver and the map");
 		}
 		mWorkingSet = workingSet;
+		mDurationUntilTimeout = durationUntilTimeout;
+	}
+
+	/**
+	 * The solver and the map MUST have the same Translator. ReMUS assumes ownership over the solver and the map.
+	 */
+	public ReMus(final ConstraintAdministrationSolver solver, final UnexploredMap map, final BitSet workingSet) {
+		this(solver, map, workingSet, -1);
 	}
 
 	/**
 	 * Applies the ReMUS algorithm to a set of constraints given as BitSet.
 	 */
 	public ArrayList<MusContainer> enumerate() throws SMTLIBException {
-		// TODO: Implement Timeout
+		setTimeout();
+		if (isTerminationRequested()) {
+			return new ArrayList<>();
+		}
 		mSolver.pushRecLevel();
 		initializeMembers();
 		mSolver.assertCriticalConstraints(mNewImpliedCrits);
@@ -64,6 +83,10 @@ public class ReMus {
 				} else {
 					throw new SMTLIBException("CheckSat returns UNKNOWN in Mus enumeration process.");
 				}
+			}
+			if (isTerminationRequested()) {
+				mSolver.popRecLevel();
+				return mMuses;
 			}
 			updateMembers();
 			mSolver.assertCriticalConstraints(mNewImpliedCrits);
@@ -94,7 +117,8 @@ public class ReMus {
 	}
 
 	private void handleUnexploredIsSat() {
-		// To get an extension here is useless, since maxUnexplored is a MSS already
+		//To get an extension here is useless, since maxUnexplored is a MSS already Also BlockUp is useless, since we
+		//will block those sets anyways in the following recursion or have already blocked those sets
 		mMap.BlockDown(mMaxUnexplored);
 		mMcs = (BitSet) mWorkingSet.clone();
 		mMcs.andNot(mMaxUnexplored);
@@ -107,7 +131,12 @@ public class ReMus {
 				mSolver.pushRecLevel();
 				mSolver.assertCriticalConstraint(i);
 				nextWorkingSet.set(i);
-				final ReMus remus = new ReMus(mSolver, mMap, nextWorkingSet);
+				final long timeLeft = mTimeout - System.currentTimeMillis();
+				if (isTerminationRequested()) {
+					mSolver.popRecLevel();
+					return;
+				}
+				final ReMus remus = new ReMus(mSolver, mMap, nextWorkingSet, timeLeft);
 				mMuses.addAll(remus.enumerate());
 				mSolver.popRecLevel();
 				nextWorkingSet.clear(i);
@@ -129,8 +158,24 @@ public class ReMus {
 					nextWorkingSet.set(i);
 				}
 			}
-			final ReMus remus = new ReMus(mSolver, mMap, nextWorkingSet);
+			final long timeLeft = mTimeout - System.currentTimeMillis();
+			if (isTerminationRequested()) {
+				return;
+			}
+			final ReMus remus = new ReMus(mSolver, mMap, nextWorkingSet, timeLeft);
 			mMuses.addAll(remus.enumerate());
 		}
+	}
+
+	private void setTimeout() {
+		if (mDurationUntilTimeout < 0) {
+			mTimeout = Long.MAX_VALUE;
+		} else {
+			mTimeout = System.currentTimeMillis() + mDurationUntilTimeout;
+		}
+	}
+
+	private boolean isTerminationRequested() {
+		return System.currentTimeMillis() >= mTimeout;
 	}
 }
