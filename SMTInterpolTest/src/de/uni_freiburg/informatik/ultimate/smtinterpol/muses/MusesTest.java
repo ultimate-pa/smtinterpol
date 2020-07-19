@@ -547,4 +547,53 @@ public class MusesTest {
 		}
 		Assert.assertTrue(muses.size() == 15);
 	}
+
+	@Test
+	public void testReMusSet2WithTimeout() {
+		final Script script = setupScript(Logics.ALL);
+		final Term trueTerm = script.term("true");
+		final DPLLEngine engine =
+				new DPLLEngine(trueTerm.getTheory(), new DefaultLogger(), new SimpleTerminationRequest());
+		final Translator translator = new Translator();
+		setupUnsatSet2(script, translator, engine);
+		final UnexploredMap map = new UnexploredMap(engine, translator);
+		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
+		final BitSet workingSet = new BitSet(10);
+		workingSet.flip(0, 10);
+		final ReMus remus = new ReMus(solver, map, workingSet, 0);
+		final ArrayList<MusContainer> muses = remus.enumerate();
+		Assert.assertTrue(muses.size() == 0);
+	}
+
+	@Test
+	public void testReMusEmptySet() {
+		final Script script = setupScript(Logics.ALL);
+		final Term trueTerm = script.term("true");
+		final DPLLEngine engine =
+				new DPLLEngine(trueTerm.getTheory(), new DefaultLogger(), new SimpleTerminationRequest());
+		final Translator translator = new Translator();
+		setupUnsatSet2(script, translator, engine);
+		final UnexploredMap map = new UnexploredMap(engine, translator);
+		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
+		final BitSet workingSet = new BitSet(10);
+		final ReMus remus = new ReMus(solver, map, workingSet);
+		final ArrayList<MusContainer> muses = remus.enumerate();
+		Assert.assertTrue(muses.size() == 0);
+	}
+
+	@Test(expected = SMTLIBException.class)
+	public void testReMusWorkingSetTooBig() {
+		final Script script = setupScript(Logics.ALL);
+		final Term trueTerm = script.term("true");
+		final DPLLEngine engine =
+				new DPLLEngine(trueTerm.getTheory(), new DefaultLogger(), new SimpleTerminationRequest());
+		final Translator translator = new Translator();
+		setupUnsatSet2(script, translator, engine);
+		final UnexploredMap map = new UnexploredMap(engine, translator);
+		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
+		final BitSet workingSet = new BitSet(11);
+		workingSet.set(11);
+		final ReMus remus = new ReMus(solver, map, workingSet);
+		remus.enumerate();
+	}
 }
