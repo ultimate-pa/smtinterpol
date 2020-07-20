@@ -5,7 +5,6 @@ import java.util.BitSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.TerminationRequest;
 
 /**
  * This is an implementation of the ReMUS algorithm (see Recursive Online Enumeration of all Minimal Unsatisfiable
@@ -20,7 +19,6 @@ public class ReMus {
 	UnexploredMap mMap;
 	long mDurationUntilTimeout;
 	long mTimeout;
-	TerminationRequest mTerminationRequest;
 
 	ArrayList<MusContainer> mMuses;
 	boolean mProvisionalSat;
