@@ -406,7 +406,7 @@ public class SMTInterpol extends NoopScript {
 		if (mAssertions != null) {
 			mAssertions.clear();
 		}
-		setupClausifier(mEngine.getSMTTheory().getLogic());
+		setupClausifier(getTheory().getLogic());
 	}
 
 	@Override
@@ -614,8 +614,8 @@ public class SMTInterpol extends NoopScript {
 	private void setupClausifier(final Logics logic) {
 		try {
 			final int proofMode = getProofMode();
-			mEngine = new DPLLEngine(getTheory(), mLogger, mCancel);
-			mClausifier = new Clausifier(mEngine, proofMode);
+			mEngine = new DPLLEngine(mLogger, mCancel);
+			mClausifier = new Clausifier(getTheory(), mEngine, proofMode);
 			// This has to be before set-logic since we need to capture
 			// initialization of CClosure.
 			mEngine.setProofGeneration(proofMode > 0);
@@ -628,14 +628,15 @@ public class SMTInterpol extends NoopScript {
 			mClausifier.setAssignmentProduction(produceAssignments);
 			mEngine.setProduceAssignments(produceAssignments);
 			mEngine.setRandomSeed(mSolverOptions.getRandomSeed());
-			if (produceAssignments || mSolverOptions.isInterpolantCheckModeActive() || mSolverOptions.isProofCheckModeActive()
-					|| mSolverOptions.isModelCheckModeActive() || getBooleanOption(SMTInterpolOptions.UNSAT_CORE_CHECK_MODE)
-					|| getBooleanOption(SMTInterpolOptions.UNSAT_ASSUMPTIONS_CHECK_MODE)
-					|| (Boolean) mOptions.get(":interactive-mode") == true) {
+			if (getBooleanOption(SMTLIBConstants.PRODUCE_ASSERTIONS)
+					|| mSolverOptions.isInterpolantCheckModeActive() || mSolverOptions.isProofCheckModeActive()
+					|| mSolverOptions.isModelCheckModeActive()
+					|| getBooleanOption(SMTInterpolOptions.UNSAT_CORE_CHECK_MODE)
+					|| getBooleanOption(SMTInterpolOptions.UNSAT_ASSUMPTIONS_CHECK_MODE)) {
 				mAssertions = new ScopedArrayList<>();
 			}
 			mOptions.setOnline();
-			mEngine.getSMTTheory().setGlobalSymbols(getBooleanOption(SMTLIBConstants.GLOBAL_DECLARATIONS));
+			getTheory().setGlobalSymbols(getBooleanOption(SMTLIBConstants.GLOBAL_DECLARATIONS));
 		} catch (final UnsupportedOperationException eLogicUnsupported) {
 			super.reset();
 			mEngine = null;
@@ -784,10 +785,6 @@ public class SMTInterpol extends NoopScript {
 		if (proofMode == 0) {
 			throw new SMTLIBException("Option :produce-proofs not set to true");
 		}
-		if (proofMode == 1) {
-			mLogger.info("Using partial proofs (cut at CNF-level).  "
-					+ "Set option :produce-proofs to true to get complete proofs.");
-		}
 		checkAssertionStackModified();
 		final Clause unsat = retrieveProof();
 		if (Config.CHECK_PROP_PROOF) {
@@ -806,20 +803,12 @@ public class SMTInterpol extends NoopScript {
 
 	@SuppressWarnings("unchecked")
 	@Override
-	public Term[] getInterpolants(final Term[] partition, final int[] startOfSubtree) {
-		if (mEngine == null) {
-			throw new SMTLIBException("No logic set!");
-		}
-		if (!mSolverOptions.isProduceProofs() && !mSolverOptions.isProduceInterpolants()) {
-			throw new SMTLIBException(
-					"Interpolant production not enabled.  Set either :produce-interpolants or :produce-proofs to true");
-		}
+	public Term[] getInterpolants(final Term[] partition, final int[] startOfSubtree, final Term proofTree) {
 		final long timeout = mSolverOptions.getTimeout();
 		if (timeout > 0) {
 			mCancel.setTimeout(timeout);
 		}
 		try {
-			checkAssertionStackModified();
 			if (partition.length != startOfSubtree.length) {
 				throw new SMTLIBException("Partition table and subtree array need to have equal length");
 			}
@@ -880,8 +869,8 @@ public class SMTInterpol extends NoopScript {
 			final Term[] ipls;
 			try {
 				final Interpolator interpolator =
-						new Interpolator(mLogger, this, checkingSolver, mAssertions, getTheory(), parts, startOfSubtree);
-				final Term proofTree = getProof();
+						new Interpolator(mLogger, checkingSolver, mAssertions, getTheory(), parts, startOfSubtree,
+								mCancel);
 				ipls = interpolator.getInterpolants(proofTree);
 			} finally {
 				if (checkingSolver != null) {
@@ -1106,6 +1095,10 @@ public class SMTInterpol extends NoopScript {
 		return mLogger;
 	}
 
+	public TerminationRequest getTimeoutHandler() {
+		return mCancel;
+	}
+
 	protected void setEngine(final DPLLEngine engine) {
 		mEngine = engine;
 	}
@@ -1181,7 +1174,7 @@ public class SMTInterpol extends NoopScript {
 	 */
 	public Term[] getSatisfiedLiterals() throws SMTLIBException {
 		checkAssertionStackModified();
-		return mEngine.getSatisfiedLiterals();
+		return mEngine.getSatisfiedLiterals(getTheory());
 	}
 
 	/**

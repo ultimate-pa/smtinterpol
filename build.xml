@@ -491,8 +491,8 @@ Click Release.
   <!-- Define the SonarQube target -->
   <target name="sonar" depends="compile,get-version,runtests-coverage">
     <taskdef uri="antlib:org.sonar.ant" resource="org/sonar/ant/antlib.xml">
-  	  <!-- Update from https://sonarsource.bintray.com/Distribution/sonarqube-ant-task/sonarqube-ant-task-2.4.1.jar -->
-  	  <classpath path="${dir.workspace}/sonar/lib/sonarqube-ant-task-2.4.1.jar" />
+  	  <!-- Update from https://mvnrepository.com/artifact/org.sonarsource.scanner.ant/sonarqube-ant-task -->
+  	  <classpath path="${dir.workspace}/sonar/lib/sonarqube-ant-task-2.7.0.1612.jar" />
     </taskdef>
 
     <!-- Various properties for the sonar target -->

@@ -182,8 +182,7 @@ public class MusesTest {
 	@Test
 	public void testShrinkerNormal() {
 		final Script script = setupScript(Logics.ALL);
-		final Term trueTerm = script.term("true");
-		final DPLLEngine engine = new DPLLEngine(trueTerm.getTheory(), new DefaultLogger(), null);
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), null);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 		final UnexploredMap map = new UnexploredMap(engine, translator);
@@ -198,8 +197,7 @@ public class MusesTest {
 	@Test
 	public void testShrinkerRestrictedSet() {
 		final Script script = setupScript(Logics.ALL);
-		final Term trueTerm = script.term("true");
-		final DPLLEngine engine = new DPLLEngine(trueTerm.getTheory(), new DefaultLogger(), null);
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), null);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 		final UnexploredMap map = new UnexploredMap(engine, translator);
@@ -219,8 +217,7 @@ public class MusesTest {
 	@Test
 	public void testShrinkerWorkingSetIsMus() {
 		final Script script = setupScript(Logics.ALL);
-		final Term trueTerm = script.term("true");
-		final DPLLEngine engine = new DPLLEngine(trueTerm.getTheory(), new DefaultLogger(), null);
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), null);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 		final UnexploredMap map = new UnexploredMap(engine, translator);
@@ -237,8 +234,7 @@ public class MusesTest {
 	@Test
 	public void testShrinkerMusAssertedBefore() {
 		final Script script = setupScript(Logics.ALL);
-		final Term trueTerm = script.term("true");
-		final DPLLEngine engine = new DPLLEngine(trueTerm.getTheory(), new DefaultLogger(), null);
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), null);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 		final UnexploredMap map = new UnexploredMap(engine, translator);
@@ -261,8 +257,7 @@ public class MusesTest {
 	@Test
 	public void testShrinkerSatSetAssertedBefore() {
 		final Script script = setupScript(Logics.ALL);
-		final Term trueTerm = script.term("true");
-		final DPLLEngine engine = new DPLLEngine(trueTerm.getTheory(), new DefaultLogger(), null);
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), null);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
@@ -284,8 +279,7 @@ public class MusesTest {
 	@Test(expected = SMTLIBException.class)
 	public void testShrinkerWorkingSetDoesNotContainCrits() {
 		final Script script = setupScript(Logics.ALL);
-		final Term trueTerm = script.term("true");
-		final DPLLEngine engine = new DPLLEngine(trueTerm.getTheory(), new DefaultLogger(), null);
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), null);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
@@ -305,8 +299,7 @@ public class MusesTest {
 	@Test(expected = SMTLIBException.class)
 	public void testShrinkerEmptySet() {
 		final Script script = setupScript(Logics.ALL);
-		final Term trueTerm = script.term("true");
-		final DPLLEngine engine = new DPLLEngine(trueTerm.getTheory(), new DefaultLogger(), null);
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), null);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
@@ -318,8 +311,7 @@ public class MusesTest {
 	@Test(expected = SMTLIBException.class)
 	public void testShrinkerSatSet() {
 		final Script script = setupScript(Logics.ALL);
-		final Term trueTerm = script.term("true");
-		final DPLLEngine engine = new DPLLEngine(trueTerm.getTheory(), new DefaultLogger(), null);
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), null);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
@@ -335,8 +327,7 @@ public class MusesTest {
 	@Test
 	public void testExtensionLightDemand() {
 		final Script script = setupScript(Logics.ALL);
-		final Term trueTerm = script.term("true");
-		final DPLLEngine engine = new DPLLEngine(trueTerm.getTheory(), new DefaultLogger(), null);
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), null);
 		final Translator translator = new Translator();
 		setupUnsatSet1(script, translator, engine);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
@@ -349,8 +340,7 @@ public class MusesTest {
 	@Test
 	public void testExtensionMediumDemand() {
 		final Script script = setupScript(Logics.ALL);
-		final Term trueTerm = script.term("true");
-		final DPLLEngine engine = new DPLLEngine(trueTerm.getTheory(), new DefaultLogger(), null);
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), null);
 		final Translator translator = new Translator();
 		setupUnsatSet1(script, translator, engine);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
@@ -366,8 +356,7 @@ public class MusesTest {
 	@Test
 	public void testExtensionHeavyDemand() {
 		final Script script = setupScript(Logics.ALL);
-		final Term trueTerm = script.term("true");
-		final DPLLEngine engine = new DPLLEngine(trueTerm.getTheory(), new DefaultLogger(), null);
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), null);
 		final Translator translator = new Translator();
 		setupUnsatSet1(script, translator, engine);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
@@ -383,9 +372,7 @@ public class MusesTest {
 	@Test
 	public void testMapBlockDown() {
 		final Script script = setupScript(Logics.ALL);
-		final Term trueTerm = script.term("true");
-		final DPLLEngine engine =
-				new DPLLEngine(trueTerm.getTheory(), new DefaultLogger(), new SimpleTerminationRequest());
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
 		final Translator translator = new Translator();
 		setupUnsatSet3(script, translator, engine);
 		final UnexploredMap map = new UnexploredMap(engine, translator);
@@ -412,9 +399,8 @@ public class MusesTest {
 	@Test
 	public void testMapBlockUp() {
 		final Script script = setupScript(Logics.ALL);
-		final Term trueTerm = script.term("true");
-		final DPLLEngine engine =
-				new DPLLEngine(trueTerm.getTheory(), new DefaultLogger(), new SimpleTerminationRequest());
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
+		;
 		final Translator translator = new Translator();
 		setupUnsatSet3(script, translator, engine);
 		final UnexploredMap map = new UnexploredMap(engine, translator);
@@ -441,9 +427,7 @@ public class MusesTest {
 	@Test
 	public void testMapWorkingSet() {
 		final Script script = setupScript(Logics.ALL);
-		final Term trueTerm = script.term("true");
-		final DPLLEngine engine =
-				new DPLLEngine(trueTerm.getTheory(), new DefaultLogger(), new SimpleTerminationRequest());
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
 		final Translator translator = new Translator();
 		setupUnsatSet3(script, translator, engine);
 		final UnexploredMap map = new UnexploredMap(engine, translator);
@@ -460,9 +444,7 @@ public class MusesTest {
 	@Test
 	public void testMapNoUnexploredSet() {
 		final Script script = setupScript(Logics.ALL);
-		final Term trueTerm = script.term("true");
-		final DPLLEngine engine =
-				new DPLLEngine(trueTerm.getTheory(), new DefaultLogger(), new SimpleTerminationRequest());
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
 		final Translator translator = new Translator();
 		setupUnsatSet3(script, translator, engine);
 		final UnexploredMap map = new UnexploredMap(engine, translator);
@@ -482,9 +464,7 @@ public class MusesTest {
 	@Test
 	public void testMapExplicitlyForFindCrits() {
 		final Script script = setupScript(Logics.ALL);
-		final Term trueTerm = script.term("true");
-		final DPLLEngine engine =
-				new DPLLEngine(trueTerm.getTheory(), new DefaultLogger(), new SimpleTerminationRequest());
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
 		final Translator translator = new Translator();
 		setupUnsatSet3(script, translator, engine);
 		final UnexploredMap map = new UnexploredMap(engine, translator);
@@ -511,9 +491,7 @@ public class MusesTest {
 	public void testReMusSet1() {
 		final TerminationRequest request = new SimpleTerminationRequest();
 		final Script script = setupScript(Logics.ALL, request);
-		final Term trueTerm = script.term("true");
-		final DPLLEngine engine =
-				new DPLLEngine(trueTerm.getTheory(), new DefaultLogger(), request);
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
 		final Translator translator = new Translator();
 		setupUnsatSet1(script, translator, engine);
 		final UnexploredMap map = new UnexploredMap(engine, translator);
@@ -531,9 +509,7 @@ public class MusesTest {
 	@Test
 	public void testReMusSet2() {
 		final Script script = setupScript(Logics.ALL);
-		final Term trueTerm = script.term("true");
-		final DPLLEngine engine =
-				new DPLLEngine(trueTerm.getTheory(), new DefaultLogger(), new SimpleTerminationRequest());
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 		final UnexploredMap map = new UnexploredMap(engine, translator);
@@ -551,9 +527,7 @@ public class MusesTest {
 	@Test
 	public void testReMusSet2WithTimeout() {
 		final Script script = setupScript(Logics.ALL);
-		final Term trueTerm = script.term("true");
-		final DPLLEngine engine =
-				new DPLLEngine(trueTerm.getTheory(), new DefaultLogger(), new SimpleTerminationRequest());
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 		final UnexploredMap map = new UnexploredMap(engine, translator);
@@ -568,9 +542,7 @@ public class MusesTest {
 	@Test
 	public void testReMusEmptySet() {
 		final Script script = setupScript(Logics.ALL);
-		final Term trueTerm = script.term("true");
-		final DPLLEngine engine =
-				new DPLLEngine(trueTerm.getTheory(), new DefaultLogger(), new SimpleTerminationRequest());
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 		final UnexploredMap map = new UnexploredMap(engine, translator);
@@ -584,9 +556,7 @@ public class MusesTest {
 	@Test(expected = SMTLIBException.class)
 	public void testReMusWorkingSetTooBig() {
 		final Script script = setupScript(Logics.ALL);
-		final Term trueTerm = script.term("true");
-		final DPLLEngine engine =
-				new DPLLEngine(trueTerm.getTheory(), new DefaultLogger(), new SimpleTerminationRequest());
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 		final UnexploredMap map = new UnexploredMap(engine, translator);
