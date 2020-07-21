@@ -30,4 +30,9 @@ public class MusContainer {
 	public Term getProof() {
 		return mProof;
 	}
+
+	@Override
+	public String toString() {
+		return mMus.toString();
+	}
 }

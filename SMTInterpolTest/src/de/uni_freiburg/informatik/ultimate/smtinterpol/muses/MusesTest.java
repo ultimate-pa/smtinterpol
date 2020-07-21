@@ -652,7 +652,7 @@ public class MusesTest {
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		final BitSet lowLexMus = Heuristics.chooseMusWithLowestLexicographicalOrder(muses).getMus();
 		for (int i = lowLexMus.nextSetBit(0); i >= 0; i = lowLexMus.nextSetBit(i + 1)) {
-			Assert.assertTrue(i == 0 || i == 3);
+			Assert.assertTrue(i == 0 || i == 2 || i == 5);
 		}
 	}
 
@@ -720,7 +720,7 @@ public class MusesTest {
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		final BitSet narrowestMus = Heuristics.chooseNarrowestMus(muses).getMus();
 		final int width = narrowestMus.length() - narrowestMus.nextSetBit(0);
-		Assert.assertTrue(width == 1);
+		Assert.assertTrue(width == 2);
 	}
 
 	@Test

@@ -167,7 +167,7 @@ public class Heuristics {
 				smallestMuses.add(container);
 			}
 		}
-		return findBestMusAccordingToGivenCriterion(smallestMuses, Heuristics::returnSmallerMus);
+		return findBestMusAccordingToGivenCriterion(smallestMuses, Heuristics::returnWiderMus);
 	}
 
 	/**
