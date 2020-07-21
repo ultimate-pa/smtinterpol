@@ -1,6 +1,8 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.muses;
 
+import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.Random;
 
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -78,5 +80,18 @@ public class Shrinking {
 		final BitSet set2Clone = (BitSet) set2.clone();
 		set2Clone.andNot(set1);
 		return set2Clone.isEmpty();
+	}
+
+	/**
+	 * Takes in a BitSet and returns an Array with the indices of the set Bits, but randomly permuted (pseudo-randomly,
+	 * this method always uses the same seed).
+	 */
+	public static ArrayList<Integer> randomPermutation(final BitSet toBePermutated) {
+		final ArrayList<Integer> toBePermutatedList = new ArrayList<>();
+		for (int i = toBePermutated.nextSetBit(0); i >= 0; i = toBePermutated.nextSetBit(i + 1)) {
+			toBePermutatedList.add(i);
+		}
+		java.util.Collections.shuffle(toBePermutatedList, new Random(1337));
+		return toBePermutatedList;
 	}
 }

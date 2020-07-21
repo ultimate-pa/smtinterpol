@@ -1,6 +1,5 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.muses;
 
-import java.util.ArrayList;
 import java.util.BitSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.Model;
@@ -251,15 +250,6 @@ public class ConstraintAdministrationSolver {
 	 */
 	public int getNumberOfConstraints() {
 		return mTranslator.getNumberOfConstraints();
-	}
-
-	public ArrayList<Integer> randomPermutation(final BitSet toBePermutated) {
-		final ArrayList<Integer> toBePermutatedList = new ArrayList<>();
-		for (int i = toBePermutated.nextSetBit(0); i >= 0; i = toBePermutated.nextSetBit(i + 1)) {
-			toBePermutatedList.add(i);
-		}
-		java.util.Collections.shuffle(toBePermutatedList);
-		return toBePermutatedList;
 	}
 
 	private void push(final int levels) {
