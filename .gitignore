@@ -83,4 +83,6 @@ comment.cut
 *.zip
 
 # webinterface
+*.iml
+.idea/
 Webinterface/target
