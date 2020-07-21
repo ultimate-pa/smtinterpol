@@ -18,11 +18,11 @@ public class Heuristics {
 	/**
 	 * Chooses a random MusContainer from the given ArrayList and returns it. Returns null if the List is emtpy.
 	 */
-	public static MusContainer chooseRandomMus(final ArrayList<MusContainer> muses) {
+	public static MusContainer chooseRandomMus(final ArrayList<MusContainer> muses, final long seed) {
 		if (muses.isEmpty()) {
 			return null;
 		}
-		final Random rnd = new Random(1337);
+		final Random rnd = new Random(seed);
 		return muses.get(rnd.nextInt(muses.size()));
 	}
 
