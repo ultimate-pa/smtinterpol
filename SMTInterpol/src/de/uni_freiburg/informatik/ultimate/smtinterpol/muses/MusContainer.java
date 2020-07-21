@@ -17,6 +17,7 @@ public class MusContainer {
 	BitSet mMus;
 	Term mProof;
 
+
 	public MusContainer(final BitSet mus, final Term proof) {
 		mMus = mus;
 		mProof = proof;
