@@ -370,6 +370,7 @@ java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/3))m -da -dsa -XX:-UseGCOverheadLimit -j
                 </group>
             </structure>
             <html destdir="${dir.workspace}/coverage"/>
+            <xml destfile="${dir.workspace}/testreports/jacoco.xml"/>
         </jacoco:report>
         <echo message="See coverage results in ${dir.workspace}/coverage/index.html"/>
     </target>
@@ -444,7 +445,7 @@ Click Release.
         <property name="sonar.java.libraries" value="${dir.workspace}/SMTInterpol/lib/*.jar"/>
         <property name="sonar.java.test.libraries" value="${dir.workspace}/SMTInterpol/lib/*.jar"/>
         <property name="sonar.java.coveragePlugin" value="jacoco"/>
-        <property name="sonar.jacoco.reportPath" value="${dir.workspace}/testreports/jacoco.exec"/>
+        <property name="sonar.coverage.jacoco.xmlReportPaths" value="${dir.workspace}/testreports/jacoco.xml"/>
         <!-- 	<resources id="sonar-exclusions">
 	  <fileset file="src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs/Lexer.java" />
 	  <fileset file="src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs/LexerSymbols.java" />
