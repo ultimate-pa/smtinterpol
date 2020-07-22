@@ -204,51 +204,69 @@ public class Heuristics {
 	 * This returns muses which are as different as possible in terms of statements contained. Since it would be an
 	 * expensive task to maximize the differences of all the muses that should be returned, this method relies on on
 	 * randomness to achieve an acceptable result. More precisely, it chooses a random mus and then finds a mus that has
-	 * the maximal number of different constraints. In case there are multiple such muses, this algorithm takes the last
-	 * one that has been found. The two muses will then be added to the list, that will be returned at the end of the
-	 * procedure. The given int "samples" specifies how many times this procedure is iterated, before returning the list
-	 * that has been built. Note, that the returned list will not necessarily have "samples"-many elements, since it
-	 * could be that the same muses have been selected randomly and duplicates in the returned list are filtered out.
+	 * the maximal number of different constraints. In case there are multiple such muses, this algorithm selects one of
+	 * them randomly. The two muses will then be added to the list, that will be returned at the end of the procedure.
+	 * The given int "samples" specifies how many times this procedure is iterated, before returning the list that has
+	 * been built. Note, that the returned list will not necessarily have "samples"-many elements, since it could be
+	 * that the same muses have been selected randomly and duplicates in the returned list are filtered out.
 	 */
-	public static ArrayList<MusContainer>
-			chooseMostDifferentMusesWithRespectToStatements(final ArrayList<MusContainer> muses, final int samples) {
+	public static ArrayList<MusContainer> chooseDifferentMusesWithRespectToStatements(
+			final ArrayList<MusContainer> muses, final int samples, final long seed) {
 		if (muses.isEmpty()) {
 			return new ArrayList<>();
 		}
 		final ArrayList<MusContainer> differentMuses = new ArrayList<>();
-		final Random rnd = new Random(1337);
+		final Random rnd = new Random(seed);
 		MusContainer randomContainer;
-		int difference;
+		MusContainer oneOfTheMostDifferentMuses;
+		int maxDifference;
 		int currentDifference;
-		MusContainer mostDifferentContainer = null;
-		for (int i = 0; i <= samples; i++) {
+		int nrOfFoundMostDifferentMuses;
+		final ArrayList<MusContainer> mostDifferentContainers = new ArrayList<>();
+
+		for (int i = 0; i < samples; i++) {
 			randomContainer = muses.get(rnd.nextInt(muses.size()));
 			if (differentMuses.contains(randomContainer)) {
 				continue;
 			}
-			difference = 0;
+			maxDifference = 0;
 			currentDifference = 0;
 			for (final MusContainer container : muses) {
 				currentDifference = numberOfDifferentStatements(randomContainer, container);
-				if (difference <= currentDifference) {
-					mostDifferentContainer = container;
-					difference = currentDifference;
+				if (maxDifference == currentDifference) {
+					mostDifferentContainers.add(container);
+
+				} else if (maxDifference < currentDifference) {
+					mostDifferentContainers.clear();
+					mostDifferentContainers.add(container);
+					maxDifference = currentDifference;
 				}
 			}
-			if (mostDifferentContainer == null) {
-				throw new SMTLIBException("Somehow no different container could be found.");
+
+			// Randomly find one of the most different muses that is not contained in the different muses already.
+			nrOfFoundMostDifferentMuses = mostDifferentContainers.size();
+			boolean mostDifferentMusHasBeenAdded = false;
+			int j = 0;
+			while (!mostDifferentMusHasBeenAdded && j < nrOfFoundMostDifferentMuses) {
+				oneOfTheMostDifferentMuses = mostDifferentContainers.get(rnd.nextInt(mostDifferentContainers.size()));
+				if (!differentMuses.contains(oneOfTheMostDifferentMuses)) {
+					differentMuses.add(oneOfTheMostDifferentMuses);
+					mostDifferentMusHasBeenAdded = true;
+				}
+				j++;
 			}
-			differentMuses.add(mostDifferentContainer);
+			differentMuses.add(randomContainer);
+			mostDifferentContainers.clear();
 		}
 		return differentMuses;
 	}
 
-	private static int numberOfDifferentStatements(final MusContainer mus1, final MusContainer mus2) {
+	public static int numberOfDifferentStatements(final MusContainer mus1, final MusContainer mus2) {
 		final BitSet realMus1 = mus1.getMus();
 		final BitSet realMus2 = mus2.getMus();
 		int difference = 0;
-		for (int i = realMus1.nextSetBit(0); i >= 0; i = realMus1.nextSetBit(i + 1)) {
-			if (!realMus2.get(i)) {
+		for (int i = 0; i < realMus1.length(); i++) {
+			if ((realMus1.get(i) && !realMus2.get(i)) || (realMus2.get(i) && !realMus1.get(i))) {
 				difference++;
 			}
 		}

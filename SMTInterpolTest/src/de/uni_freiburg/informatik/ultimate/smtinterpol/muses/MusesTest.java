@@ -175,7 +175,7 @@ public class MusesTest {
 	private void setupUnsatSet4(final Script script, final Translator translator, final DPLLEngine engine) {
 		final ArrayList<String> names = new ArrayList<>();
 		final ArrayList<Annotation> annots = new ArrayList<>();
-		for (int i = 0; i < 11; i++) {
+		for (int i = 0; i < 10; i++) {
 			names.add("c" + String.valueOf(i));
 		}
 		for (int i = 0; i < names.size(); i++) {
@@ -198,6 +198,48 @@ public class MusesTest {
 		final Term c7 = script.term("=", y, script.numeral("4321"));
 		final Term c8 = script.term("=", x, script.numeral("23"));
 		final Term c9 = script.term("<=", z, script.numeral("23"));
+		declareConstraint(script, translator, engine, c0, annots.get(0));
+		declareConstraint(script, translator, engine, c1, annots.get(1));
+		declareConstraint(script, translator, engine, c2, annots.get(2));
+		declareConstraint(script, translator, engine, c3, annots.get(3));
+		declareConstraint(script, translator, engine, c4, annots.get(4));
+		declareConstraint(script, translator, engine, c5, annots.get(5));
+		declareConstraint(script, translator, engine, c6, annots.get(6));
+		declareConstraint(script, translator, engine, c7, annots.get(7));
+		declareConstraint(script, translator, engine, c8, annots.get(8));
+		declareConstraint(script, translator, engine, c9, annots.get(9));
+	}
+
+	private void setupUnsatSet5(final Script script, final Translator translator, final DPLLEngine engine) {
+		final ArrayList<String> names = new ArrayList<>();
+		final ArrayList<Annotation> annots = new ArrayList<>();
+		for (int i = 0; i < 10; i++) {
+			names.add("c" + String.valueOf(i));
+		}
+		for (int i = 0; i < names.size(); i++) {
+			annots.add(new Annotation(":named", names.get(i)));
+		}
+		final Sort intSort = script.sort("Int");
+		script.declareFun("v", Script.EMPTY_SORT_ARRAY, intSort);
+		script.declareFun("w", Script.EMPTY_SORT_ARRAY, intSort);
+		script.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		script.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		script.declareFun("z", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term v = script.term("v");
+		final Term w = script.term("w");
+		final Term x = script.term("x");
+		final Term y = script.term("y");
+		final Term z = script.term("z");
+		final Term c0 = script.term("<", v, w);
+		final Term c1 = script.term("<", w, x);
+		final Term c2 = script.term("<", x, y);
+		final Term c3 = script.term("<", y, z);
+		final Term c4 = script.term("=", v, script.numeral("2000"));
+		final Term c5 = script.term("=", z, script.numeral("5"));
+		final Term c6 = script.term("=", x, script.numeral("1000"));
+		final Term c7 = script.term("=", x, script.numeral("1001"));
+		final Term c8 = script.term("=", w, script.numeral("1500"));
+		final Term c9 = script.term("=", y, script.numeral("100"));
 		declareConstraint(script, translator, engine, c0, annots.get(0));
 		declareConstraint(script, translator, engine, c1, annots.get(1));
 		declareConstraint(script, translator, engine, c2, annots.get(2));
@@ -566,6 +608,24 @@ public class MusesTest {
 	}
 
 	@Test
+	public void testReMusSet5() {
+		final Script script = setupScript(Logics.ALL);
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
+		final Translator translator = new Translator();
+		setupUnsatSet5(script, translator, engine);
+		final UnexploredMap map = new UnexploredMap(engine, translator);
+		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
+		final BitSet workingSet = new BitSet(10);
+		workingSet.flip(0, 10);
+		final ReMus remus = new ReMus(solver, map, workingSet);
+		final ArrayList<MusContainer> muses = remus.enumerate();
+		for (final MusContainer container : muses) {
+			checkWhetherSetIsMus(container.getMus(), solver);
+		}
+		Assert.assertTrue(muses.size() == 15);
+	}
+
+	@Test
 	public void testReMusSet2WithTimeout() {
 		final Script script = setupScript(Logics.ALL);
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
@@ -745,7 +805,7 @@ public class MusesTest {
 		final Script script = setupScript(Logics.ALL);
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
 		final Translator translator = new Translator();
-		//We use set 4 here, because in set 2 the widest mus is also one of the smallest.
+		// We use set 4 here, because in set 2 the widest mus is also one of the smallest.
 		setupUnsatSet4(script, translator, engine);
 		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
@@ -764,7 +824,7 @@ public class MusesTest {
 		final Script script = setupScript(Logics.ALL);
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
 		final Translator translator = new Translator();
-		//We use set 4 here, because in set 2 the widest mus is also one of the smallest.
+		// We use set 4 here, because in set 2 the widest mus is also one of the smallest.
 		setupUnsatSet4(script, translator, engine);
 		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
@@ -776,5 +836,57 @@ public class MusesTest {
 		final int width = widestAmongSmallestMus.length() - widestAmongSmallestMus.nextSetBit(0);
 		Assert.assertTrue(width == 10);
 		Assert.assertTrue(widestAmongSmallestMus.cardinality() == 3);
+	}
+
+	@Test
+	public void testNumberOfDifferentStatements() {
+		final Script script = setupScript(Logics.ALL);
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
+		final Translator translator = new Translator();
+		setupUnsatSet5(script, translator, engine);
+		final UnexploredMap map = new UnexploredMap(engine, translator);
+		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
+		final BitSet workingSet = new BitSet(10);
+		workingSet.flip(0, 10);
+		final ReMus remus = new ReMus(solver, map, workingSet);
+		final ArrayList<MusContainer> muses = remus.enumerate();
+		int maxDifference = 0;
+		int currentDifference = 0;
+		for (final MusContainer container1 : muses) {
+			for (final MusContainer container2 : muses) {
+				currentDifference = Heuristics.numberOfDifferentStatements(container1, container2);
+				if (currentDifference > maxDifference) {
+					maxDifference = currentDifference;
+				}
+			}
+		}
+		Assert.assertTrue(maxDifference == 8);
+	}
+
+	@Test
+	public void testHeuristicDifferentMusesWithRespectToStatements() {
+		final Script script = setupScript(Logics.ALL);
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
+		final Translator translator = new Translator();
+		setupUnsatSet5(script, translator, engine);
+		final UnexploredMap map = new UnexploredMap(engine, translator);
+		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
+		final BitSet workingSet = new BitSet(10);
+		workingSet.flip(0, 10);
+		final ReMus remus = new ReMus(solver, map, workingSet);
+		final ArrayList<MusContainer> muses = remus.enumerate();
+		final ArrayList<MusContainer> differentMuses =
+				Heuristics.chooseDifferentMusesWithRespectToStatements(muses, 4, 1337);
+		int maxDifference = 0;
+		int currentDifference;
+		for (final MusContainer container1 : differentMuses) {
+			for (final MusContainer container2 : differentMuses) {
+				currentDifference = Heuristics.numberOfDifferentStatements(container1, container2);
+				if (maxDifference < currentDifference) {
+					maxDifference = currentDifference;
+				}
+			}
+		}
+		Assert.assertTrue(maxDifference == 8);
 	}
 }
