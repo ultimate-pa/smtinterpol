@@ -2,6 +2,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.muses;
 
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.Random;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -56,6 +57,9 @@ public class MusesTest {
 		checkMinimality(supposedMus, solver);
 	}
 
+	/**
+	 * Note that the constraints should be declared in the solver, but no constraints should be asserted!
+	 */
 	private void checkUnsat(final BitSet supposedMus, final ConstraintAdministrationSolver solver) {
 		solver.pushRecLevel();
 		for (int i = supposedMus.nextSetBit(0); i >= 0; i = supposedMus.nextSetBit(i + 1)) {
@@ -65,6 +69,9 @@ public class MusesTest {
 		solver.popRecLevel();
 	}
 
+	/**
+	 * Note that the constraints should be declared in the solver, but no constraints should be asserted!
+	 */
 	private void checkMinimality(final BitSet supposedMus, final ConstraintAdministrationSolver solver) {
 		solver.pushRecLevel();
 		for (int i = supposedMus.nextSetBit(0); i >= 0; i = supposedMus.nextSetBit(i + 1)) {
@@ -268,11 +275,13 @@ public class MusesTest {
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), null);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
+
 		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet workingSet = new BitSet();
 		workingSet.flip(0, 10);
 		final MusContainer container = Shrinking.shrink(solver, workingSet, map);
+
 		System.out.println("Shrinker returned: " + container.getMus().toString());
 		checkWhetherSetIsMus(container.getMus(), solver);
 	}
@@ -283,6 +292,7 @@ public class MusesTest {
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), null);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
+
 		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet workingSet = new BitSet();
@@ -293,6 +303,7 @@ public class MusesTest {
 		workingSet.set(9);
 		workingSet.flip(0, 10);
 		final MusContainer container = Shrinking.shrink(solver, workingSet, map);
+
 		System.out.println("Shrinker returned: " + container.getMus().toString());
 		checkWhetherSetIsMus(container.getMus(), solver);
 	}
@@ -303,6 +314,7 @@ public class MusesTest {
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), null);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
+
 		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet workingSet = new BitSet();
@@ -310,6 +322,7 @@ public class MusesTest {
 		workingSet.set(2);
 		workingSet.set(5);
 		final MusContainer container = Shrinking.shrink(solver, workingSet, map);
+
 		System.out.println("Shrinker returned: " + container.getMus().toString());
 		checkWhetherSetIsMus(container.getMus(), solver);
 	}
@@ -320,6 +333,7 @@ public class MusesTest {
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), null);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
+
 		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		solver.pushRecLevel();
@@ -331,6 +345,7 @@ public class MusesTest {
 		workingSet.set(4);
 		workingSet.set(7);
 		final MusContainer container = Shrinking.shrink(solver, workingSet, map);
+
 		System.out.println("Shrinker returned: " + container.getMus().toString());
 		Assert.assertTrue(solver.checkSat() == LBool.UNSAT);
 		solver.popRecLevel();
@@ -343,6 +358,7 @@ public class MusesTest {
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), null);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
+
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final UnexploredMap map = new UnexploredMap(engine, translator);
 		solver.pushRecLevel();
@@ -353,6 +369,7 @@ public class MusesTest {
 		workingSet.set(1);
 		workingSet.set(2);
 		final MusContainer container = Shrinking.shrink(solver, workingSet, map);
+
 		System.out.println("Shrinker returned: " + container.getMus().toString());
 		solver.popRecLevel();
 		checkWhetherSetIsMus(container.getMus(), solver);
@@ -365,6 +382,7 @@ public class MusesTest {
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), null);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
+
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final UnexploredMap map = new UnexploredMap(engine, translator);
 		solver.pushRecLevel();
@@ -373,6 +391,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet();
 		workingSet.set(5);
 		final MusContainer container = Shrinking.shrink(solver, workingSet, map);
+
 		System.out.println("Shrinker returned: " + container.getMus().toString());
 		solver.popRecLevel();
 		checkWhetherSetIsMus(container.getMus(), solver);
@@ -385,6 +404,7 @@ public class MusesTest {
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), null);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
+
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final BitSet workingSet = new BitSet();
@@ -397,6 +417,7 @@ public class MusesTest {
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), null);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
+
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final BitSet workingSet = new BitSet();
@@ -413,9 +434,11 @@ public class MusesTest {
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), null);
 		final Translator translator = new Translator();
 		setupUnsatSet1(script, translator, engine);
+
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		solver.assertUnknownConstraint(1);
 		final BitSet extension = solver.getSatExtension();
+
 		System.out.println(extension.toString());
 		Assert.assertTrue(extension.get(0));
 	}
@@ -426,8 +449,10 @@ public class MusesTest {
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), null);
 		final Translator translator = new Translator();
 		setupUnsatSet1(script, translator, engine);
+
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet extension = solver.getSatExtensionMoreDemanding();
+
 		System.out.println(extension.toString());
 		Assert.assertTrue(extension.get(0));
 		Assert.assertTrue(extension.get(1));
@@ -442,8 +467,10 @@ public class MusesTest {
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), null);
 		final Translator translator = new Translator();
 		setupUnsatSet1(script, translator, engine);
+
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet extension = solver.getSatExtensionMaximalDemanding();
+
 		System.out.println(extension.toString());
 		Assert.assertTrue(extension.get(0));
 		Assert.assertTrue(extension.get(1));
@@ -458,6 +485,7 @@ public class MusesTest {
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
 		final Translator translator = new Translator();
 		setupUnsatSet3(script, translator, engine);
+
 		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final BitSet set1 = new BitSet(3);
 		final BitSet set2 = new BitSet(3);
@@ -475,6 +503,7 @@ public class MusesTest {
 		map.BlockDown(set3);
 		final BitSet unexplored = map.findMaximalUnexploredSubsetOf(workingSet);
 		final BitSet crits = map.findImpliedCritsOf(workingSet);
+
 		Assert.assertTrue(unexplored.cardinality() == 3);
 		Assert.assertTrue(crits.cardinality() == 3);
 	}
@@ -486,6 +515,7 @@ public class MusesTest {
 		;
 		final Translator translator = new Translator();
 		setupUnsatSet3(script, translator, engine);
+
 		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final BitSet set1 = new BitSet(3);
 		final BitSet set2 = new BitSet(3);
@@ -503,6 +533,7 @@ public class MusesTest {
 		map.BlockUp(set3);
 		final BitSet crits = map.findImpliedCritsOf(workingSet);
 		final BitSet unexplored = map.findMaximalUnexploredSubsetOf(workingSet);
+
 		Assert.assertTrue(unexplored.cardinality() == 1);
 		Assert.assertTrue(crits.cardinality() == 0);
 	}
@@ -513,12 +544,14 @@ public class MusesTest {
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
 		final Translator translator = new Translator();
 		setupUnsatSet3(script, translator, engine);
+
 		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final BitSet workingSet = new BitSet(3);
 		workingSet.set(1);
 		workingSet.set(2);
 		final BitSet crits = map.findImpliedCritsOf(workingSet);
 		final BitSet unexplored = map.findMaximalUnexploredSubsetOf(workingSet);
+
 		Assert.assertTrue(unexplored.get(1) == true);
 		Assert.assertTrue(unexplored.get(2) == true);
 		Assert.assertTrue(crits.cardinality() == 0);
@@ -530,6 +563,7 @@ public class MusesTest {
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
 		final Translator translator = new Translator();
 		setupUnsatSet3(script, translator, engine);
+
 		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final BitSet set1 = new BitSet(3);
 		final BitSet workingSet = new BitSet(3);
@@ -540,6 +574,7 @@ public class MusesTest {
 		map.BlockDown(set1);
 		final BitSet unexplored = map.findMaximalUnexploredSubsetOf(workingSet);
 		final BitSet crits = map.findImpliedCritsOf(workingSet);
+
 		Assert.assertTrue(unexplored.cardinality() == 0);
 		Assert.assertTrue(crits.cardinality() == 0);
 	}
@@ -550,6 +585,7 @@ public class MusesTest {
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
 		final Translator translator = new Translator();
 		setupUnsatSet3(script, translator, engine);
+
 		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final BitSet set1 = new BitSet(3);
 		final BitSet set2 = new BitSet(3);
@@ -564,6 +600,7 @@ public class MusesTest {
 		map.BlockDown(set2);
 		final BitSet crits = map.findImpliedCritsOf(workingSet);
 		final BitSet unexplored = map.findMaximalUnexploredSubsetOf(workingSet);
+
 		Assert.assertFalse(crits.get(0));
 		Assert.assertTrue(crits.get(1));
 		Assert.assertFalse(crits.get(2));
@@ -577,12 +614,14 @@ public class MusesTest {
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
 		final Translator translator = new Translator();
 		setupUnsatSet1(script, translator, engine);
+
 		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet workingSet = new BitSet(5);
 		workingSet.flip(0, 5);
 		final ReMus remus = new ReMus(solver, map, workingSet);
 		final ArrayList<MusContainer> muses = remus.enumerate();
+
 		for (final MusContainer container : muses) {
 			checkWhetherSetIsMus(container.getMus(), solver);
 		}
@@ -595,12 +634,14 @@ public class MusesTest {
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
+
 		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		final ReMus remus = new ReMus(solver, map, workingSet);
 		final ArrayList<MusContainer> muses = remus.enumerate();
+
 		for (final MusContainer container : muses) {
 			checkWhetherSetIsMus(container.getMus(), solver);
 		}
@@ -613,12 +654,14 @@ public class MusesTest {
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
 		final Translator translator = new Translator();
 		setupUnsatSet5(script, translator, engine);
+
 		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		final ReMus remus = new ReMus(solver, map, workingSet);
 		final ArrayList<MusContainer> muses = remus.enumerate();
+
 		for (final MusContainer container : muses) {
 			checkWhetherSetIsMus(container.getMus(), solver);
 		}
@@ -631,12 +674,14 @@ public class MusesTest {
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
+
 		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		final ReMus remus = new ReMus(solver, map, workingSet, 0);
 		final ArrayList<MusContainer> muses = remus.enumerate();
+
 		Assert.assertTrue(muses.size() == 0);
 	}
 
@@ -646,11 +691,13 @@ public class MusesTest {
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
+
 		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet workingSet = new BitSet(10);
 		final ReMus remus = new ReMus(solver, map, workingSet);
 		final ArrayList<MusContainer> muses = remus.enumerate();
+
 		Assert.assertTrue(muses.size() == 0);
 	}
 
@@ -660,6 +707,7 @@ public class MusesTest {
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
+
 		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet workingSet = new BitSet(11);
@@ -674,12 +722,14 @@ public class MusesTest {
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
+
 		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		final ReMus remus = new ReMus(solver, map, workingSet);
 		final ArrayList<MusContainer> muses = remus.enumerate();
+
 		Assert.assertTrue(Heuristics.chooseSmallestMus(muses).getMus().cardinality() == 2);
 	}
 
@@ -689,12 +739,14 @@ public class MusesTest {
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
+
 		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		final ReMus remus = new ReMus(solver, map, workingSet);
 		final ArrayList<MusContainer> muses = remus.enumerate();
+
 		Assert.assertTrue(Heuristics.chooseBiggestMus(muses).getMus().cardinality() == 3);
 	}
 
@@ -704,12 +756,14 @@ public class MusesTest {
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
+
 		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		final ReMus remus = new ReMus(solver, map, workingSet);
 		final ArrayList<MusContainer> muses = remus.enumerate();
+
 		final BitSet lowLexMus = Heuristics.chooseMusWithLowestLexicographicalOrder(muses).getMus();
 		for (int i = lowLexMus.nextSetBit(0); i >= 0; i = lowLexMus.nextSetBit(i + 1)) {
 			Assert.assertTrue(i == 0 || i == 2 || i == 5);
@@ -722,12 +776,14 @@ public class MusesTest {
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
+
 		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		final ReMus remus = new ReMus(solver, map, workingSet);
 		final ArrayList<MusContainer> muses = remus.enumerate();
+
 		final BitSet highLexMus = Heuristics.chooseMusWithHighestLexicographicalOrder(muses).getMus();
 		for (int i = highLexMus.nextSetBit(0); i >= 0; i = highLexMus.nextSetBit(i + 1)) {
 			Assert.assertTrue(i == 8 || i == 9);
@@ -740,12 +796,14 @@ public class MusesTest {
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
+
 		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		final ReMus remus = new ReMus(solver, map, workingSet);
 		final ArrayList<MusContainer> muses = remus.enumerate();
+
 		final BitSet shallowestMus = Heuristics.chooseShallowestMus(muses).getMus();
 		Assert.assertTrue(shallowestMus.get(0));
 	}
@@ -756,12 +814,14 @@ public class MusesTest {
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
+
 		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		final ReMus remus = new ReMus(solver, map, workingSet);
 		final ArrayList<MusContainer> muses = remus.enumerate();
+
 		final BitSet deepestMus = Heuristics.chooseDeepestMus(muses).getMus();
 		Assert.assertTrue(deepestMus.get(8));
 	}
@@ -772,12 +832,14 @@ public class MusesTest {
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
+
 		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		final ReMus remus = new ReMus(solver, map, workingSet);
 		final ArrayList<MusContainer> muses = remus.enumerate();
+
 		final BitSet narrowestMus = Heuristics.chooseNarrowestMus(muses).getMus();
 		final int width = narrowestMus.length() - narrowestMus.nextSetBit(0);
 		Assert.assertTrue(width == 2);
@@ -789,12 +851,14 @@ public class MusesTest {
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
+
 		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		final ReMus remus = new ReMus(solver, map, workingSet);
 		final ArrayList<MusContainer> muses = remus.enumerate();
+
 		final BitSet widestMus = Heuristics.chooseWidestMus(muses).getMus();
 		final int width = widestMus.length() - widestMus.nextSetBit(0);
 		Assert.assertTrue(width == 10);
@@ -807,12 +871,14 @@ public class MusesTest {
 		final Translator translator = new Translator();
 		// We use set 4 here, because in set 2 the widest mus is also one of the smallest.
 		setupUnsatSet4(script, translator, engine);
+
 		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		final ReMus remus = new ReMus(solver, map, workingSet);
 		final ArrayList<MusContainer> muses = remus.enumerate();
+
 		final BitSet smallestAmongWidestMus = Heuristics.chooseSmallestAmongWidestMus(muses, 0.2).getMus();
 		final int width = smallestAmongWidestMus.length() - smallestAmongWidestMus.nextSetBit(0);
 		Assert.assertTrue(width == 8);
@@ -826,12 +892,14 @@ public class MusesTest {
 		final Translator translator = new Translator();
 		// We use set 4 here, because in set 2 the widest mus is also one of the smallest.
 		setupUnsatSet4(script, translator, engine);
+
 		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		final ReMus remus = new ReMus(solver, map, workingSet);
 		final ArrayList<MusContainer> muses = remus.enumerate();
+
 		final BitSet widestAmongSmallestMus = Heuristics.chooseWidestAmongSmallestMus(muses, 0.5).getMus();
 		final int width = widestAmongSmallestMus.length() - widestAmongSmallestMus.nextSetBit(0);
 		Assert.assertTrue(width == 10);
@@ -844,12 +912,14 @@ public class MusesTest {
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
 		final Translator translator = new Translator();
 		setupUnsatSet5(script, translator, engine);
+
 		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		final ReMus remus = new ReMus(solver, map, workingSet);
 		final ArrayList<MusContainer> muses = remus.enumerate();
+
 		int maxDifference = 0;
 		int currentDifference = 0;
 		for (final MusContainer container1 : muses) {
@@ -869,24 +939,35 @@ public class MusesTest {
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
 		final Translator translator = new Translator();
 		setupUnsatSet5(script, translator, engine);
+
 		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		final ReMus remus = new ReMus(solver, map, workingSet);
 		final ArrayList<MusContainer> muses = remus.enumerate();
+
+		final Random rnd = new Random(1337);
 		final ArrayList<MusContainer> differentMuses =
-				Heuristics.chooseDifferentMusesWithRespectToStatements(muses, 4, 1337);
-		int maxDifference = 0;
+				Heuristics.chooseDifferentMusesWithRespectToStatements(muses, 13, rnd);
+		int maxDifference = Integer.MIN_VALUE;
+		int minDifference = Integer.MAX_VALUE;
 		int currentDifference;
 		for (final MusContainer container1 : differentMuses) {
 			for (final MusContainer container2 : differentMuses) {
+				if (container1.equals(container2)) {
+					continue;
+				}
 				currentDifference = Heuristics.numberOfDifferentStatements(container1, container2);
 				if (maxDifference < currentDifference) {
 					maxDifference = currentDifference;
 				}
+				if (minDifference > currentDifference) {
+					minDifference = currentDifference;
+				}
 			}
 		}
 		Assert.assertTrue(maxDifference == 8);
+		Assert.assertTrue(minDifference == 2);
 	}
 }
