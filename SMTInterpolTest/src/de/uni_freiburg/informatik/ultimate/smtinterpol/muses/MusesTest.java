@@ -730,7 +730,8 @@ public class MusesTest {
 		final ReMus remus = new ReMus(solver, map, workingSet);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 
-		Assert.assertTrue(Heuristics.chooseSmallestMus(muses).getMus().cardinality() == 2);
+		final Random rnd = new Random(1337);
+		Assert.assertTrue(Heuristics.chooseSmallestMus(muses, rnd).getMus().cardinality() == 2);
 	}
 
 	@Test
@@ -747,7 +748,8 @@ public class MusesTest {
 		final ReMus remus = new ReMus(solver, map, workingSet);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 
-		Assert.assertTrue(Heuristics.chooseBiggestMus(muses).getMus().cardinality() == 3);
+		final Random rnd = new Random(1337);
+		Assert.assertTrue(Heuristics.chooseBiggestMus(muses, rnd).getMus().cardinality() == 3);
 	}
 
 	@Test
@@ -764,7 +766,8 @@ public class MusesTest {
 		final ReMus remus = new ReMus(solver, map, workingSet);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 
-		final BitSet lowLexMus = Heuristics.chooseMusWithLowestLexicographicalOrder(muses).getMus();
+		final Random rnd = new Random(1337);
+		final BitSet lowLexMus = Heuristics.chooseMusWithLowestLexicographicalOrder(muses, rnd).getMus();
 		for (int i = lowLexMus.nextSetBit(0); i >= 0; i = lowLexMus.nextSetBit(i + 1)) {
 			Assert.assertTrue(i == 0 || i == 2 || i == 5);
 		}
@@ -784,7 +787,8 @@ public class MusesTest {
 		final ReMus remus = new ReMus(solver, map, workingSet);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 
-		final BitSet highLexMus = Heuristics.chooseMusWithHighestLexicographicalOrder(muses).getMus();
+		final Random rnd = new Random(1337);
+		final BitSet highLexMus = Heuristics.chooseMusWithHighestLexicographicalOrder(muses, rnd).getMus();
 		for (int i = highLexMus.nextSetBit(0); i >= 0; i = highLexMus.nextSetBit(i + 1)) {
 			Assert.assertTrue(i == 8 || i == 9);
 		}
@@ -804,7 +808,8 @@ public class MusesTest {
 		final ReMus remus = new ReMus(solver, map, workingSet);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 
-		final BitSet shallowestMus = Heuristics.chooseShallowestMus(muses).getMus();
+		final Random rnd = new Random(1337);
+		final BitSet shallowestMus = Heuristics.chooseShallowestMus(muses, rnd).getMus();
 		Assert.assertTrue(shallowestMus.get(0));
 	}
 
@@ -822,7 +827,8 @@ public class MusesTest {
 		final ReMus remus = new ReMus(solver, map, workingSet);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 
-		final BitSet deepestMus = Heuristics.chooseDeepestMus(muses).getMus();
+		final Random rnd = new Random(1337);
+		final BitSet deepestMus = Heuristics.chooseDeepestMus(muses, rnd).getMus();
 		Assert.assertTrue(deepestMus.get(8));
 	}
 
@@ -840,7 +846,8 @@ public class MusesTest {
 		final ReMus remus = new ReMus(solver, map, workingSet);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 
-		final BitSet narrowestMus = Heuristics.chooseNarrowestMus(muses).getMus();
+		final Random rnd = new Random(1337);
+		final BitSet narrowestMus = Heuristics.chooseNarrowestMus(muses, rnd).getMus();
 		final int width = narrowestMus.length() - narrowestMus.nextSetBit(0);
 		Assert.assertTrue(width == 2);
 	}
@@ -859,7 +866,8 @@ public class MusesTest {
 		final ReMus remus = new ReMus(solver, map, workingSet);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 
-		final BitSet widestMus = Heuristics.chooseWidestMus(muses).getMus();
+		final Random rnd = new Random(1337);
+		final BitSet widestMus = Heuristics.chooseWidestMus(muses, rnd).getMus();
 		final int width = widestMus.length() - widestMus.nextSetBit(0);
 		Assert.assertTrue(width == 10);
 	}
@@ -879,9 +887,10 @@ public class MusesTest {
 		final ReMus remus = new ReMus(solver, map, workingSet);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 
-		final BitSet smallestAmongWidestMus = Heuristics.chooseSmallestAmongWidestMus(muses, 0.2).getMus();
+		final Random rnd = new Random(1337);
+		final BitSet smallestAmongWidestMus = Heuristics.chooseSmallestAmongWidestMus(muses, 0.2, rnd).getMus();
 		final int width = smallestAmongWidestMus.length() - smallestAmongWidestMus.nextSetBit(0);
-		Assert.assertTrue(width == 8);
+		Assert.assertTrue(width == 8 || width == 9);
 		Assert.assertTrue(smallestAmongWidestMus.cardinality() == 2);
 	}
 
@@ -900,7 +909,8 @@ public class MusesTest {
 		final ReMus remus = new ReMus(solver, map, workingSet);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 
-		final BitSet widestAmongSmallestMus = Heuristics.chooseWidestAmongSmallestMus(muses, 0.5).getMus();
+		final Random rnd = new Random(1337);
+		final BitSet widestAmongSmallestMus = Heuristics.chooseWidestAmongSmallestMus(muses, 0.5, rnd).getMus();
 		final int width = widestAmongSmallestMus.length() - widestAmongSmallestMus.nextSetBit(0);
 		Assert.assertTrue(width == 10);
 		Assert.assertTrue(widestAmongSmallestMus.cardinality() == 3);
