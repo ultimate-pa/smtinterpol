@@ -106,6 +106,30 @@ public class IteratorReMus implements Iterator<MusContainer> {
 		return restOfMuses;
 	}
 
+	private void resumeSatisfiableCaseLoopUntilNextMus() {
+
+		if (mSubordinateRemus != null) {
+			throw new SMTLIBException("Let the subordinate find it's muses first.");
+		}
+		int i = mMcs.nextSetBit(mLastSatisfiableCaseLoopRunningIndex + 1);
+		while (i >= 0 && mNextMus == null) {
+			mSatisfiableCaseLoopNextWorkingSet.set(i);
+			createNewSubordinateRemusWithExtraCrit(mSatisfiableCaseLoopNextWorkingSet, i);
+			if (mSubordinateRemus.hasNext()) {
+				mNextMus = mSubordinateRemus.next();
+			} else {
+				removeSubordinateRemus();
+			}
+			mSatisfiableCaseLoopNextWorkingSet.clear(i);
+			mLastSatisfiableCaseLoopRunningIndex = i;
+			i = mMcs.nextSetBit(i + 1);
+		}
+		if (i < 0) {
+			mSatisfiableCaseLoopIsRunning = false;
+			return;
+		}
+	}
+
 	private void createNewSubordinateRemus(final BitSet nextWorkingSet) {
 		mSolver.pushRecLevel();
 		mSubordinateRemus = new IteratorReMus(mSolver, mMap, nextWorkingSet);
@@ -155,11 +179,15 @@ public class IteratorReMus implements Iterator<MusContainer> {
 		if (mSubordinateRemus != null) {
 			throw new SMTLIBException("Let the subordinate find it's muses first.");
 		}
+		if (mSatisfiableCaseLoopIsRunning) {
+			throw new SMTLIBException("Finish the Satisfiable case loop first.");
+		}
 
 		if (!mMembersUpToDate) {
 			updateMembersAndAssertImpliedCrits();
 		}
 		while (!mMaxUnexplored.isEmpty() && mNextMus == null) {
+			assert mMembersUpToDate  && mSubordinateRemus == null : "System variables are corrupted.";
 			if (mProvisionalSat) {
 				handleUnexploredIsSat();
 			} else {
@@ -198,11 +226,8 @@ public class IteratorReMus implements Iterator<MusContainer> {
 			int i = mMcs.nextSetBit(0);
 
 			while (i >= 0 && mNextMus == null) {
-				i = mMcs.nextSetBit(i + 1);
-				mSolver.pushRecLevel();
-				mSolver.assertCriticalConstraint(i);
 				nextWorkingSet.set(i);
-				createNewSubordinateRemus(nextWorkingSet);
+				createNewSubordinateRemusWithExtraCrit(nextWorkingSet, i);
 				if (mSubordinateRemus.hasNext()) {
 					mNextMus = mSubordinateRemus.next();
 				} else {
@@ -211,28 +236,9 @@ public class IteratorReMus implements Iterator<MusContainer> {
 				nextWorkingSet.clear(i);
 				mLastSatisfiableCaseLoopRunningIndex = i;
 				mSatisfiableCaseLoopNextWorkingSet = nextWorkingSet;
+				i = mMcs.nextSetBit(i + 1);
 			}
 			mSatisfiableCaseLoopIsRunning = i >= 0 ? true : false;
-		}
-	}
-
-	private void resumeSatisfiableCaseLoopUntilNextMus() {
-		int i = mMcs.nextSetBit(mLastSatisfiableCaseLoopRunningIndex + 1);
-		while (i >= 0 && mNextMus == null) {
-			mSatisfiableCaseLoopNextWorkingSet.set(i);
-			createNewSubordinateRemusWithExtraCrit(mSatisfiableCaseLoopNextWorkingSet, i);
-			if (mSubordinateRemus.hasNext()) {
-				mNextMus = mSubordinateRemus.next();
-			} else {
-				removeSubordinateRemus();
-			}
-			mSatisfiableCaseLoopNextWorkingSet.clear(i);
-			mLastSatisfiableCaseLoopRunningIndex = i;
-			i = mMcs.nextSetBit(i + 1);
-		}
-		if (i < 0) {
-			mSatisfiableCaseLoopIsRunning = false;
-			return;
 		}
 	}
 

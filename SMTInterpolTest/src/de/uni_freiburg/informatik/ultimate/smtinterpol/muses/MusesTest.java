@@ -619,7 +619,7 @@ public class MusesTest {
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet workingSet = new BitSet(5);
 		workingSet.flip(0, 5);
-		final ReMus remus = new ReMus(solver, map, workingSet);
+		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 
 		for (final MusContainer container : muses) {
@@ -639,7 +639,7 @@ public class MusesTest {
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
-		final ReMus remus = new ReMus(solver, map, workingSet);
+		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 
 		for (final MusContainer container : muses) {
@@ -659,13 +659,29 @@ public class MusesTest {
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
-		final ReMus remus = new ReMus(solver, map, workingSet);
+		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 
 		for (final MusContainer container : muses) {
 			checkWhetherSetIsMus(container.getMus(), solver);
 		}
 		Assert.assertTrue(muses.size() == 15);
+	}
+
+	@Test
+	public void testReMusEmptySet() {
+		final Script script = setupScript(Logics.ALL);
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
+		final Translator translator = new Translator();
+		setupUnsatSet2(script, translator, engine);
+
+		final UnexploredMap map = new UnexploredMap(engine, translator);
+		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
+		final BitSet workingSet = new BitSet(10);
+		final ReMus remus = new ReMus(solver, map, workingSet);
+		final ArrayList<MusContainer> muses = remus.enumerate();
+
+		Assert.assertTrue(muses.size() == 0);
 	}
 
 	@Test
@@ -685,22 +701,6 @@ public class MusesTest {
 		Assert.assertTrue(muses.size() == 0);
 	}
 
-	@Test
-	public void testReMusEmptySet() {
-		final Script script = setupScript(Logics.ALL);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
-		final Translator translator = new Translator();
-		setupUnsatSet2(script, translator, engine);
-
-		final UnexploredMap map = new UnexploredMap(engine, translator);
-		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
-		final BitSet workingSet = new BitSet(10);
-		final ReMus remus = new ReMus(solver, map, workingSet);
-		final ArrayList<MusContainer> muses = remus.enumerate();
-
-		Assert.assertTrue(muses.size() == 0);
-	}
-
 	@Test(expected = SMTLIBException.class)
 	public void testReMusWorkingSetTooBig() {
 		final Script script = setupScript(Logics.ALL);
@@ -712,7 +712,7 @@ public class MusesTest {
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet workingSet = new BitSet(11);
 		workingSet.set(11);
-		final ReMus remus = new ReMus(solver, map, workingSet);
+		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet);
 		remus.enumerate();
 	}
 
