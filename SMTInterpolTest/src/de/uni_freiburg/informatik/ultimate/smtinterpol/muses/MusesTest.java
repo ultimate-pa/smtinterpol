@@ -619,8 +619,10 @@ public class MusesTest {
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet workingSet = new BitSet(5);
 		workingSet.flip(0, 5);
+		solver.pushRecLevel();
 		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet);
 		final ArrayList<MusContainer> muses = remus.enumerate();
+		solver.popRecLevel();
 
 		for (final MusContainer container : muses) {
 			checkWhetherSetIsMus(container.getMus(), solver);
@@ -639,8 +641,10 @@ public class MusesTest {
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
+		solver.pushRecLevel();
 		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet);
 		final ArrayList<MusContainer> muses = remus.enumerate();
+		solver.popRecLevel();
 
 		for (final MusContainer container : muses) {
 			checkWhetherSetIsMus(container.getMus(), solver);
@@ -659,8 +663,10 @@ public class MusesTest {
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
+		solver.pushRecLevel();
 		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet);
 		final ArrayList<MusContainer> muses = remus.enumerate();
+		solver.popRecLevel();
 
 		for (final MusContainer container : muses) {
 			checkWhetherSetIsMus(container.getMus(), solver);
@@ -678,8 +684,10 @@ public class MusesTest {
 		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet workingSet = new BitSet(10);
+		solver.pushRecLevel();
 		final ReMus remus = new ReMus(solver, map, workingSet);
 		final ArrayList<MusContainer> muses = remus.enumerate();
+		solver.popRecLevel();
 
 		Assert.assertTrue(muses.size() == 0);
 	}
@@ -695,8 +703,10 @@ public class MusesTest {
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
+		solver.pushRecLevel();
 		final ReMus remus = new ReMus(solver, map, workingSet, 0);
 		final ArrayList<MusContainer> muses = remus.enumerate();
+		solver.popRecLevel();
 
 		Assert.assertTrue(muses.size() == 0);
 	}
