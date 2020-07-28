@@ -19,31 +19,44 @@ public class IteratorReMus implements Iterator<MusContainer> {
 
 	ConstraintAdministrationSolver mSolver;
 	UnexploredMap mMap;
+	TimeoutHandler mTimeoutHandler;
+	long mTimeout;
 
 	ArrayList<MusContainer> mMuses;
+	MusContainer mNextMus;
 	boolean mProvisionalSat;
 	BitSet mMaxUnexplored;
 	BitSet mMcs;
 	BitSet mPreviousCrits;
 	BitSet mNewImpliedCrits;
 	BitSet mWorkingSet;
-
 	IteratorReMus mSubordinateRemus;
 	boolean mMembersUpToDate;
 	boolean mSatisfiableCaseLoopIsRunning;
-	MusContainer mNextMus;
 	int mLastSatisfiableCaseLoopRunningIndex;
 	BitSet mSatisfiableCaseLoopNextWorkingSet;
+	boolean mTimeoutOrTerminationRequestOccurred;
 
 	/**
-	 * The solver and the map MUST have the same Translator. ReMUS assumes ownership over the solver and the map. In
-	 * case you still want to keep keep the original state of the solver even after enumerating, push a level before the
-	 * creation of this class, and pop a level after this class is finished with enumerating muses.
+	 * The solver and the map MUST have the same Translator. The SMTSolver and the DPLLEngine must also have the given
+	 * TimeoutHandler as TerminationRequest. ReMUS assumes ownership over the solver, the map and the handler. In case
+	 * you still want to keep the original state of the solver even after enumerating, push a level before the creation
+	 * of this class, and pop a level after this class is finished with enumerating muses. If timeout <= 0, remus does
+	 * not measure the time itself, but it still listens to {@link TimeoutHandler#isTerminationRequested()}. If timeout
+	 * > 0, remus additionaly uses the handler to measure time. In that case timeout dictates how much time remus has
+	 * per method (next, hasNext, enumerate) in miliseconds. If the timeout is exceeded or termination is requested
+	 * otherwise, remus stops the computation as fast as possible and can not continue the enumeration anymore. Note
+	 * that the SMTSolver and the DPLLEngine have separate timeouts, which can affect remus (and they should therefore
+	 * be set accordingly).
 	 */
-	public IteratorReMus(final ConstraintAdministrationSolver solver, final UnexploredMap map,
-			final BitSet workingSet) {
+	public IteratorReMus(final ConstraintAdministrationSolver solver, final UnexploredMap map, final BitSet workingSet,
+			final TimeoutHandler handler, final long timeout) {
 		mSolver = solver;
 		mMap = map;
+		mTimeoutHandler = handler;
+		mTimeout = timeout;
+		mTimeoutOrTerminationRequestOccurred = false;
+
 		if (workingSet.length() > mSolver.getNumberOfConstraints()) {
 			throw new SMTLIBException(
 					"There are constraints set in the workingSet that are not registered in the translator of the "
@@ -67,10 +80,20 @@ public class IteratorReMus implements Iterator<MusContainer> {
 
 	/**
 	 * This method might be costly, since it might have to search for a new mus first, before it knows whether another
-	 * mus exists or not.
+	 * mus exists or not. Also returns false, if a timeout or a request for termination occurred.
 	 */
 	@Override
 	public boolean hasNext() throws SMTLIBException {
+		boolean thisMethodHasSetTheTimeout = false;
+		if (mTimeoutOrTerminationRequestOccurred) {
+			return false;
+		}
+
+		if (mTimeout > 0 && !mTimeoutHandler.timeoutIsSet()) {
+			mTimeoutHandler.setTimeout(mTimeout);
+			thisMethodHasSetTheTimeout = true;
+		}
+
 		if (mNextMus != null) {
 			return true;
 		}
@@ -94,6 +117,12 @@ public class IteratorReMus implements Iterator<MusContainer> {
 			return true;
 		}
 
+		if (mTimeoutHandler.isTerminationRequested()) {
+			mTimeoutOrTerminationRequestOccurred = true;
+		}
+		if (thisMethodHasSetTheTimeout) {
+			mTimeoutHandler.clearTimeout();
+		}
 		return false;
 	}
 
@@ -106,7 +135,7 @@ public class IteratorReMus implements Iterator<MusContainer> {
 			throw new SMTLIBException("Let the subordinate find it's muses first.");
 		}
 		int i = mMcs.nextSetBit(mLastSatisfiableCaseLoopRunningIndex + 1);
-		while (i >= 0 && mNextMus == null) {
+		while (i >= 0 && mNextMus == null && !mTimeoutHandler.isTerminationRequested()) {
 			mSatisfiableCaseLoopNextWorkingSet.set(i);
 			createNewSubordinateRemusWithExtraCrit(mSatisfiableCaseLoopNextWorkingSet, i);
 			if (mSubordinateRemus.hasNext()) {
@@ -143,8 +172,8 @@ public class IteratorReMus implements Iterator<MusContainer> {
 		if (!mMembersUpToDate) {
 			updateMembersAndAssertImpliedCrits();
 		}
-		while (!mMaxUnexplored.isEmpty() && mNextMus == null) {
-			assert mMembersUpToDate && mSubordinateRemus == null : "System variables are corrupted.";
+		while (!mMaxUnexplored.isEmpty() && mNextMus == null && !mTimeoutHandler.isTerminationRequested()) {
+			assert mMembersUpToDate && mSubordinateRemus == null : "System variables of ReMus are corrupted.";
 			if (mProvisionalSat) {
 				handleUnexploredIsSat();
 			} else {
@@ -157,12 +186,15 @@ public class IteratorReMus implements Iterator<MusContainer> {
 				} else if (sat == LBool.UNSAT) {
 					handleUnexploredIsUnsat();
 				} else {
+					if (mTimeoutHandler.isTerminationRequested()) {
+						return;
+					}
 					throw new SMTLIBException("CheckSat returns UNKNOWN in Mus enumeration process.");
 				}
 			}
 			// Don't updateMembers while another ReMus is in work, since in the update also crits are asserted
 			// which will be removed (because of popRecLevel) after the other Remus is finished.
-			if (mSubordinateRemus == null) {
+			if (mSubordinateRemus == null && !mTimeoutHandler.isTerminationRequested()) {
 				updateMembersAndAssertImpliedCrits();
 			} else {
 				mMembersUpToDate = false;
@@ -194,7 +226,7 @@ public class IteratorReMus implements Iterator<MusContainer> {
 			final BitSet nextWorkingSet = (BitSet) mMaxUnexplored.clone();
 			int i = mMcs.nextSetBit(0);
 
-			while (i >= 0 && mNextMus == null) {
+			while (i >= 0 && mNextMus == null && !mTimeoutHandler.isTerminationRequested()) {
 				nextWorkingSet.set(i);
 				createNewSubordinateRemusWithExtraCrit(nextWorkingSet, i);
 				if (mSubordinateRemus.hasNext()) {
@@ -213,8 +245,11 @@ public class IteratorReMus implements Iterator<MusContainer> {
 
 	private void handleUnexploredIsUnsat() {
 		mSolver.pushRecLevel();
-		mNextMus = Shrinking.shrink(mSolver, mMaxUnexplored, mMap);
+		mNextMus = Shrinking.shrink(mSolver, mMaxUnexplored, mMap, mTimeoutHandler);
 		mSolver.popRecLevel();
+		if (mNextMus == null) {
+			return;
+		}
 		final BitSet nextWorkingSet = (BitSet) mNextMus.getMus().clone();
 		// The somewhat arbitrary number 0.9 is a heuristic from the original paper
 		if (nextWorkingSet.cardinality() < 0.9 * mMaxUnexplored.cardinality()) {
@@ -230,7 +265,7 @@ public class IteratorReMus implements Iterator<MusContainer> {
 
 	private void createNewSubordinateRemus(final BitSet nextWorkingSet) {
 		mSolver.pushRecLevel();
-		mSubordinateRemus = new IteratorReMus(mSolver, mMap, nextWorkingSet);
+		mSubordinateRemus = new IteratorReMus(mSolver, mMap, nextWorkingSet, mTimeoutHandler, 0);
 	}
 
 	/**
@@ -240,7 +275,7 @@ public class IteratorReMus implements Iterator<MusContainer> {
 	private void createNewSubordinateRemusWithExtraCrit(final BitSet nextWorkingSet, final int crit) {
 		mSolver.pushRecLevel();
 		mSolver.assertCriticalConstraint(crit);
-		mSubordinateRemus = new IteratorReMus(mSolver, mMap, nextWorkingSet);
+		mSubordinateRemus = new IteratorReMus(mSolver, mMap, nextWorkingSet, mTimeoutHandler, 0);
 	}
 
 	private void removeSubordinateRemus() {
@@ -262,13 +297,18 @@ public class IteratorReMus implements Iterator<MusContainer> {
 	}
 
 	/**
-	 * Finds and returns the rest of the muses.
+	 * Finds and returns the rest of the muses. In case of a timeout or a request for termination, this returns the
+	 * muses that have been found so far.
 	 */
 	public ArrayList<MusContainer> enumerate() throws SMTLIBException {
+		if (mTimeout > 0) {
+			mTimeoutHandler.setTimeout(mTimeout);
+		}
 		final ArrayList<MusContainer> restOfMuses = new ArrayList<>();
 		while (hasNext()) {
 			restOfMuses.add(next());
 		}
+		mTimeoutHandler.clearTimeout();
 		return restOfMuses;
 	}
 }

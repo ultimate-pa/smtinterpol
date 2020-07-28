@@ -482,7 +482,7 @@ public class MusesTest {
 	@Test
 	public void testMapBlockDown() {
 		final Script script = setupScript(Logics.ALL);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new TimeoutHandler(null));
 		final Translator translator = new Translator();
 		setupUnsatSet3(script, translator, engine);
 
@@ -511,7 +511,7 @@ public class MusesTest {
 	@Test
 	public void testMapBlockUp() {
 		final Script script = setupScript(Logics.ALL);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new TimeoutHandler(null));
 		;
 		final Translator translator = new Translator();
 		setupUnsatSet3(script, translator, engine);
@@ -541,7 +541,7 @@ public class MusesTest {
 	@Test
 	public void testMapWorkingSet() {
 		final Script script = setupScript(Logics.ALL);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new TimeoutHandler(null));
 		final Translator translator = new Translator();
 		setupUnsatSet3(script, translator, engine);
 
@@ -560,7 +560,7 @@ public class MusesTest {
 	@Test
 	public void testMapNoUnexploredSet() {
 		final Script script = setupScript(Logics.ALL);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new TimeoutHandler(null));
 		final Translator translator = new Translator();
 		setupUnsatSet3(script, translator, engine);
 
@@ -582,7 +582,7 @@ public class MusesTest {
 	@Test
 	public void testMapExplicitlyForFindCrits() {
 		final Script script = setupScript(Logics.ALL);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new TimeoutHandler(null));
 		final Translator translator = new Translator();
 		setupUnsatSet3(script, translator, engine);
 
@@ -609,9 +609,9 @@ public class MusesTest {
 
 	@Test
 	public void testReMusSet1() {
-		final TerminationRequest request = new SimpleTerminationRequest();
-		final Script script = setupScript(Logics.ALL, request);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
+		final TimeoutHandler handler = new TimeoutHandler(null);
+		final Script script = setupScript(Logics.ALL, handler);
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
 		final Translator translator = new Translator();
 		setupUnsatSet1(script, translator, engine);
 
@@ -620,7 +620,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(5);
 		workingSet.flip(0, 5);
 		solver.pushRecLevel();
-		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet);
+		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet, handler, 0);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -632,8 +632,9 @@ public class MusesTest {
 
 	@Test
 	public void testReMusSet2() {
-		final Script script = setupScript(Logics.ALL);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
+		final TimeoutHandler handler = new TimeoutHandler(null);
+		final Script script = setupScript(Logics.ALL, handler);
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 
@@ -642,7 +643,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet);
+		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet, handler, 0);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -654,8 +655,9 @@ public class MusesTest {
 
 	@Test
 	public void testReMusSet5() {
-		final Script script = setupScript(Logics.ALL);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
+		final TimeoutHandler handler = new TimeoutHandler(null);
+		final Script script = setupScript(Logics.ALL, handler);
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
 		final Translator translator = new Translator();
 		setupUnsatSet5(script, translator, engine);
 
@@ -664,7 +666,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet);
+		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet, handler, 0);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -676,8 +678,9 @@ public class MusesTest {
 
 	@Test
 	public void testReMusEmptySet() {
-		final Script script = setupScript(Logics.ALL);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
+		final TimeoutHandler handler = new TimeoutHandler(null);
+		final Script script = setupScript(Logics.ALL, handler);
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 
@@ -685,7 +688,7 @@ public class MusesTest {
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet workingSet = new BitSet(10);
 		solver.pushRecLevel();
-		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet);
+		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet, handler, 0);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -694,8 +697,9 @@ public class MusesTest {
 
 	@Test(expected = SMTLIBException.class)
 	public void testReMusWorkingSetTooBig() {
-		final Script script = setupScript(Logics.ALL);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
+		final TimeoutHandler handler = new TimeoutHandler(null);
+		final Script script = setupScript(Logics.ALL, handler);
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 
@@ -703,14 +707,15 @@ public class MusesTest {
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet workingSet = new BitSet(11);
 		workingSet.set(11);
-		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet);
+		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet, handler, 0);
 		remus.enumerate();
 	}
 
 	@Test
 	public void testReMusSet2WithTimeout() {
-		final Script script = setupScript(Logics.ALL);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
+		final TimeoutHandler handler = new TimeoutHandler(null);
+		final Script script = setupScript(Logics.ALL, handler);
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 
@@ -719,17 +724,19 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final ReMus remus = new ReMus(solver, map, workingSet, 0);
+		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet, handler, 1);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
 		Assert.assertTrue(muses.size() == 0);
+		Assert.assertFalse(remus.hasNext());
 	}
 
 	@Test
 	public void testHeuristicSmallest() {
-		final Script script = setupScript(Logics.ALL);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
+		final TimeoutHandler handler = new TimeoutHandler(null);
+		final Script script = setupScript(Logics.ALL, handler);
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 
@@ -738,7 +745,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet);
+		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet, handler, 0);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -748,8 +755,9 @@ public class MusesTest {
 
 	@Test
 	public void testHeuristicBiggest() {
-		final Script script = setupScript(Logics.ALL);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
+		final TimeoutHandler handler = new TimeoutHandler(null);
+		final Script script = setupScript(Logics.ALL, handler);
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 
@@ -758,7 +766,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet);
+		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet, handler, 0);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -768,8 +776,9 @@ public class MusesTest {
 
 	@Test
 	public void testHeuristicLowestLexOrder() {
-		final Script script = setupScript(Logics.ALL);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
+		final TimeoutHandler handler = new TimeoutHandler(null);
+		final Script script = setupScript(Logics.ALL, handler);
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 
@@ -778,7 +787,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet);
+		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet, handler, 0);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -791,8 +800,9 @@ public class MusesTest {
 
 	@Test
 	public void testHeuristicHighestLexOrder() {
-		final Script script = setupScript(Logics.ALL);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
+		final TimeoutHandler handler = new TimeoutHandler(null);
+		final Script script = setupScript(Logics.ALL, handler);
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 
@@ -801,7 +811,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet);
+		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet, handler, 0);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -814,8 +824,9 @@ public class MusesTest {
 
 	@Test
 	public void testHeuristicShallowest() {
-		final Script script = setupScript(Logics.ALL);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
+		final TimeoutHandler handler = new TimeoutHandler(null);
+		final Script script = setupScript(Logics.ALL, handler);
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 
@@ -824,7 +835,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet);
+		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet, handler, 0);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -835,8 +846,9 @@ public class MusesTest {
 
 	@Test
 	public void testHeuristicDeepest() {
-		final Script script = setupScript(Logics.ALL);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
+		final TimeoutHandler handler = new TimeoutHandler(null);
+		final Script script = setupScript(Logics.ALL, handler);
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 
@@ -845,7 +857,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet);
+		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet, handler, 0);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -856,8 +868,9 @@ public class MusesTest {
 
 	@Test
 	public void testHeuristicNarrowest() {
-		final Script script = setupScript(Logics.ALL);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
+		final TimeoutHandler handler = new TimeoutHandler(null);
+		final Script script = setupScript(Logics.ALL, handler);
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 
@@ -866,7 +879,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet);
+		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet, handler, 0);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -878,8 +891,9 @@ public class MusesTest {
 
 	@Test
 	public void testHeuristicWidest() {
-		final Script script = setupScript(Logics.ALL);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
+		final TimeoutHandler handler = new TimeoutHandler(null);
+		final Script script = setupScript(Logics.ALL, handler);
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 
@@ -888,7 +902,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet);
+		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet, handler, 0);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -900,8 +914,9 @@ public class MusesTest {
 
 	@Test
 	public void testHeuristicSmallestAmongWidest() {
+		final TimeoutHandler handler = new TimeoutHandler(null);
 		final Script script = setupScript(Logics.ALL);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
 		final Translator translator = new Translator();
 		// We use set 4 here, because in set 2 the widest mus is also one of the smallest.
 		setupUnsatSet4(script, translator, engine);
@@ -911,7 +926,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet);
+		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet, handler, 0);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.pushRecLevel();
 
@@ -924,8 +939,9 @@ public class MusesTest {
 
 	@Test
 	public void testHeuristicWidestAmongSmallest() {
-		final Script script = setupScript(Logics.ALL);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
+		final TimeoutHandler handler = new TimeoutHandler(null);
+		final Script script = setupScript(Logics.ALL, handler);
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
 		final Translator translator = new Translator();
 		// We use set 4 here, because in set 2 the widest mus is also one of the smallest.
 		setupUnsatSet4(script, translator, engine);
@@ -935,7 +951,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet);
+		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet, handler, 0);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -948,8 +964,9 @@ public class MusesTest {
 
 	@Test
 	public void testNumberOfDifferentStatements() {
-		final Script script = setupScript(Logics.ALL);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
+		final TimeoutHandler handler = new TimeoutHandler(null);
+		final Script script = setupScript(Logics.ALL, handler);
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
 		final Translator translator = new Translator();
 		setupUnsatSet5(script, translator, engine);
 
@@ -958,7 +975,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet);
+		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet, handler, 0);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -977,8 +994,9 @@ public class MusesTest {
 
 	@Test
 	public void testHeuristicDifferentMusesWithRespectToStatements() {
-		final Script script = setupScript(Logics.ALL);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), new SimpleTerminationRequest());
+		final TimeoutHandler handler = new TimeoutHandler(null);
+		final Script script = setupScript(Logics.ALL, handler);
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
 		final Translator translator = new Translator();
 		setupUnsatSet5(script, translator, engine);
 
@@ -987,7 +1005,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet);
+		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet, handler, 0);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 

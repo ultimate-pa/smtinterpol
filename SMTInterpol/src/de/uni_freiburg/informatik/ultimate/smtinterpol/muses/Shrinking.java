@@ -6,6 +6,7 @@ import java.util.Random;
 
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.TerminationRequest;
 
 /**
  * A class that provides methods for single MUS extraction.
@@ -17,12 +18,15 @@ public class Shrinking {
 
 	/**
 	 * Takes an boolean array representing an unsatisfiable set of constraints and a CritAdministrationSolver,
-	 * containing all criticals found so far, to generate a minimal unsatisfiable subset. The corresponding proof of
-	 * unsatisfiability is returned. As a side effect, this method blocks all explored sets (also the found mus) in the
-	 * map. This should only be used for Logics where checkSat cannot return LBool.UNKNOWN.
+	 * containing all criticals found so far, to generate a minimal unsatisfiable subset. As a side effect, this method
+	 * blocks all explored sets (also the found mus) in the map. This should only be used for Logics where checkSat
+	 * cannot return LBool.UNKNOWN.
+	 *
+	 * @returns A MusContainer which contains the found mus and the corresponding proof of unsatisfiability. Returns
+	 *          null, if termination was requested in the shrinking process.
 	 */
 	public static MusContainer shrink(final ConstraintAdministrationSolver solver, final BitSet workingConstraints,
-			final UnexploredMap map) {
+			final UnexploredMap map, final TerminationRequest request) throws SMTLIBException {
 		solver.pushRecLevel();
 		if (!contains(workingConstraints, solver.getCrits())) {
 			throw new SMTLIBException("WorkingConstraints is corrupted! It should contain all crits.");
@@ -52,6 +56,9 @@ public class Shrinking {
 				solver.assertCriticalConstraint(i);
 				break;
 			case UNKNOWN:
+				if (request != null && request.isTerminationRequested()) {
+					return null;
+				}
 				throw new SMTLIBException("Solver returns UNKNOWN in Shrinking process.");
 			}
 		}
@@ -61,6 +68,9 @@ public class Shrinking {
 		case SAT:
 			throw new SMTLIBException("Something went wrong, the set of all crits should be unsatisfiable!!!");
 		case UNKNOWN:
+			if (request != null && request.isTerminationRequested()) {
+				return null;
+			}
 			throw new SMTLIBException(
 					"Solver returns UNKNOWN for set of all crits (despite of not doing it for a superset, weird).");
 		}
@@ -71,6 +81,14 @@ public class Shrinking {
 		map.BlockDown(mus);
 		solver.popRecLevel();
 		return new MusContainer(mus, proofOfMus);
+	}
+
+	/**
+	 * A variation of shrink, which does not listen to a TerminationRequest.
+	 */
+	public static MusContainer shrink(final ConstraintAdministrationSolver solver, final BitSet workingSet,
+			final UnexploredMap map) {
+		return shrink(solver, workingSet, map, null);
 	}
 
 	/**
