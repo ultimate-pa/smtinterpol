@@ -28,11 +28,6 @@ public class IteratorReMus implements Iterator<MusContainer> {
 	BitSet mNewImpliedCrits;
 	BitSet mWorkingSet;
 
-	/*
-	 * ============================================================================
-	 * =========================================================================== NEW STUFF
-	 */
-
 	IteratorReMus mSubordinateRemus;
 	boolean mMembersUpToDate;
 	boolean mSatisfiableCaseLoopIsRunning;
@@ -41,7 +36,9 @@ public class IteratorReMus implements Iterator<MusContainer> {
 	BitSet mSatisfiableCaseLoopNextWorkingSet;
 
 	/**
-	 * The solver and the map MUST have the same Translator. ReMUS assumes ownership over the solver and the map.
+	 * The solver and the map MUST have the same Translator. ReMUS assumes ownership over the solver and the map. In
+	 * case you still want to keep keep the original state of the solver even after enumerating, push a level before the
+	 * creation of this class, and pop a level after this class is finished with enumerating muses.
 	 */
 	public IteratorReMus(final ConstraintAdministrationSolver solver, final UnexploredMap map,
 			final BitSet workingSet) {
@@ -53,9 +50,25 @@ public class IteratorReMus implements Iterator<MusContainer> {
 							+ "solver and the map");
 		}
 		mWorkingSet = workingSet;
-		initializeMembers();
+		initializeMembersAndAssertImpliedCrits();
 	}
 
+	private void initializeMembersAndAssertImpliedCrits() {
+		mMuses = new ArrayList<>();
+		mSolver.clearUnknownConstraints();
+		mPreviousCrits = mSolver.getCrits();
+		mMaxUnexplored = mMap.findMaximalUnexploredSubsetOf(mWorkingSet);
+		mNewImpliedCrits = mMap.findImpliedCritsOf(mWorkingSet);
+		mNewImpliedCrits.andNot(mPreviousCrits);
+		// If maxUnexplored does not contain some of the known crits, it must be satisfiable
+		mProvisionalSat = !Shrinking.contains(mMaxUnexplored, mPreviousCrits);
+		mMembersUpToDate = true;
+	}
+
+	/**
+	 * This method might be costly, since it might have to search for a new mus first, before it knows whether another
+	 * mus exists or not.
+	 */
 	@Override
 	public boolean hasNext() throws SMTLIBException {
 		if (mNextMus != null) {
@@ -76,7 +89,7 @@ public class IteratorReMus implements Iterator<MusContainer> {
 			return true;
 		}
 
-		searchForNextMusInThisRecursionLevel();
+		searchForNextMusBeginningInThisRecursionLevel();
 		if (mNextMus != null) {
 			return true;
 		}
@@ -84,30 +97,11 @@ public class IteratorReMus implements Iterator<MusContainer> {
 		return false;
 	}
 
-	@Override
-	public MusContainer next() throws SMTLIBException {
-		if (hasNext()) {
-			final MusContainer nextMus = mNextMus;
-			mNextMus = null;
-			return nextMus;
-		}else {
-			throw new NoSuchElementException();
-		}
-	}
-
 	/**
-	 * Finds and returns the rest of the muses.
+	 * Resumes the satisfiable case loop in {@link #handleUnexploredIsSat()} until the next mus is found (by a
+	 * subordinate remus) or the loop is finished.
 	 */
-	public ArrayList<MusContainer> enumerate() throws SMTLIBException {
-		final ArrayList<MusContainer> restOfMuses = new ArrayList<>();
-		while(hasNext()) {
-			restOfMuses.add(next());
-		}
-		return restOfMuses;
-	}
-
 	private void resumeSatisfiableCaseLoopUntilNextMus() {
-
 		if (mSubordinateRemus != null) {
 			throw new SMTLIBException("Let the subordinate find it's muses first.");
 		}
@@ -130,52 +124,15 @@ public class IteratorReMus implements Iterator<MusContainer> {
 		}
 	}
 
-	private void createNewSubordinateRemus(final BitSet nextWorkingSet) {
-		mSolver.pushRecLevel();
-		mSubordinateRemus = new IteratorReMus(mSolver, mMap, nextWorkingSet);
-	}
-
-	private void createNewSubordinateRemusWithExtraCrit(final BitSet nextWorkingSet, final int crit) {
-		mSolver.pushRecLevel();
-		mSolver.assertCriticalConstraint(crit);
-		mSubordinateRemus = new IteratorReMus(mSolver, mMap, nextWorkingSet);
-	}
-
-	private void removeSubordinateRemus() {
-		if (mSubordinateRemus != null) {
-			mSubordinateRemus = null;
-			mSolver.popRecLevel();
-		}
-	}
-
-	private void initializeMembers() {
-		mMuses = new ArrayList<>();
-		mSolver.clearUnknownConstraints();
-		mPreviousCrits = mSolver.getCrits();
-		mMaxUnexplored = mMap.findMaximalUnexploredSubsetOf(mWorkingSet);
-		mNewImpliedCrits = mMap.findImpliedCritsOf(mWorkingSet);
-		mNewImpliedCrits.andNot(mPreviousCrits);
-		// If maxUnexplored does not contain some of the known crits, it must be satisfiable
-		mProvisionalSat = !Shrinking.contains(mMaxUnexplored, mPreviousCrits);
-		mMembersUpToDate = true;
-	}
-
 	/**
-	 * Updates Members and also asserts the newly found criticals right away.
+	 * This represents the usual ReMUS loop. It searches for the next mus, beginning in this recursion level, until the
+	 * next mus is found, or the whole search space is explored. Before calling this method, first the subordinateRemus
+	 * must be exhausted (in terms of the muses it can deliver) and the satisfiable case loop in
+	 * {@link #handleUnexploredIsSat()} that has maybe been paused must be resumed and finished. After executing this
+	 * method and a mus has been found, this class has a new subordinate remus and maybe it paused the satisfiable case
+	 * loop.
 	 */
-	private void updateMembersAndAssertImpliedCrits() {
-		mNewImpliedCrits.or(mPreviousCrits);
-		mPreviousCrits = mNewImpliedCrits;
-		mMaxUnexplored = mMap.findMaximalUnexploredSubsetOf(mWorkingSet);
-		mNewImpliedCrits = mMap.findImpliedCritsOf(mWorkingSet);
-		mNewImpliedCrits.andNot(mPreviousCrits);
-		mSolver.assertCriticalConstraints(mNewImpliedCrits);
-		// If maxUnexplored does not contain some of the known crits, it must be satisfiable
-		mProvisionalSat = !Shrinking.contains(mMaxUnexplored, mPreviousCrits);
-		mMembersUpToDate = true;
-	}
-
-	private void searchForNextMusInThisRecursionLevel() {
+	private void searchForNextMusBeginningInThisRecursionLevel() {
 		if (mSubordinateRemus != null) {
 			throw new SMTLIBException("Let the subordinate find it's muses first.");
 		}
@@ -187,7 +144,7 @@ public class IteratorReMus implements Iterator<MusContainer> {
 			updateMembersAndAssertImpliedCrits();
 		}
 		while (!mMaxUnexplored.isEmpty() && mNextMus == null) {
-			assert mMembersUpToDate  && mSubordinateRemus == null : "System variables are corrupted.";
+			assert mMembersUpToDate && mSubordinateRemus == null : "System variables are corrupted.";
 			if (mProvisionalSat) {
 				handleUnexploredIsSat();
 			} else {
@@ -203,14 +160,26 @@ public class IteratorReMus implements Iterator<MusContainer> {
 					throw new SMTLIBException("CheckSat returns UNKNOWN in Mus enumeration process.");
 				}
 			}
-			//Don't updateMembers while another ReMus is in work, since in the update also crits are asserted
-			//which will be removed (cause of popRecLevel) after the other Remus is finished.
+			// Don't updateMembers while another ReMus is in work, since in the update also crits are asserted
+			// which will be removed (because of popRecLevel) after the other Remus is finished.
 			if (mSubordinateRemus == null) {
 				updateMembersAndAssertImpliedCrits();
-			}else {
+			} else {
 				mMembersUpToDate = false;
 			}
 		}
+	}
+
+	private void updateMembersAndAssertImpliedCrits() {
+		mNewImpliedCrits.or(mPreviousCrits);
+		mPreviousCrits = mNewImpliedCrits;
+		mMaxUnexplored = mMap.findMaximalUnexploredSubsetOf(mWorkingSet);
+		mNewImpliedCrits = mMap.findImpliedCritsOf(mWorkingSet);
+		mNewImpliedCrits.andNot(mPreviousCrits);
+		mSolver.assertCriticalConstraints(mNewImpliedCrits);
+		// If maxUnexplored does not contain some of the known crits, it must be satisfiable
+		mProvisionalSat = !Shrinking.contains(mMaxUnexplored, mPreviousCrits);
+		mMembersUpToDate = true;
 	}
 
 	private void handleUnexploredIsSat() {
@@ -257,5 +226,49 @@ public class IteratorReMus implements Iterator<MusContainer> {
 			}
 			createNewSubordinateRemus(nextWorkingSet);
 		}
+	}
+
+	private void createNewSubordinateRemus(final BitSet nextWorkingSet) {
+		mSolver.pushRecLevel();
+		mSubordinateRemus = new IteratorReMus(mSolver, mMap, nextWorkingSet);
+	}
+
+	/**
+	 * Creates a new subordinate remus, but a critical constraint is asserted on the level of the subordinate remus (and
+	 * this critical constraint will be popped again after the subordinate remus has finished enumerating).
+	 */
+	private void createNewSubordinateRemusWithExtraCrit(final BitSet nextWorkingSet, final int crit) {
+		mSolver.pushRecLevel();
+		mSolver.assertCriticalConstraint(crit);
+		mSubordinateRemus = new IteratorReMus(mSolver, mMap, nextWorkingSet);
+	}
+
+	private void removeSubordinateRemus() {
+		if (mSubordinateRemus != null) {
+			mSubordinateRemus = null;
+			mSolver.popRecLevel();
+		}
+	}
+
+	@Override
+	public MusContainer next() throws SMTLIBException {
+		if (hasNext()) {
+			final MusContainer nextMus = mNextMus;
+			mNextMus = null;
+			return nextMus;
+		} else {
+			throw new NoSuchElementException();
+		}
+	}
+
+	/**
+	 * Finds and returns the rest of the muses.
+	 */
+	public ArrayList<MusContainer> enumerate() throws SMTLIBException {
+		final ArrayList<MusContainer> restOfMuses = new ArrayList<>();
+		while (hasNext()) {
+			restOfMuses.add(next());
+		}
+		return restOfMuses;
 	}
 }
