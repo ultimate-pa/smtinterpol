@@ -15,7 +15,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
  * @author LeonardFichtner
  *
  */
-public class IteratorReMus implements Iterator<MusContainer> {
+public class ReMus implements Iterator<MusContainer> {
 
 	ConstraintAdministrationSolver mSolver;
 	UnexploredMap mMap;
@@ -30,7 +30,7 @@ public class IteratorReMus implements Iterator<MusContainer> {
 	BitSet mPreviousCrits;
 	BitSet mNewImpliedCrits;
 	BitSet mWorkingSet;
-	IteratorReMus mSubordinateRemus;
+	ReMus mSubordinateRemus;
 	boolean mMembersUpToDate;
 	boolean mSatisfiableCaseLoopIsRunning;
 	int mLastSatisfiableCaseLoopRunningIndex;
@@ -49,7 +49,7 @@ public class IteratorReMus implements Iterator<MusContainer> {
 	 * that the SMTSolver and the DPLLEngine have separate timeouts, which can affect remus (and they should therefore
 	 * be set accordingly).
 	 */
-	public IteratorReMus(final ConstraintAdministrationSolver solver, final UnexploredMap map, final BitSet workingSet,
+	public ReMus(final ConstraintAdministrationSolver solver, final UnexploredMap map, final BitSet workingSet,
 			final TimeoutHandler handler, final long timeout) {
 		mSolver = solver;
 		mMap = map;
@@ -265,7 +265,7 @@ public class IteratorReMus implements Iterator<MusContainer> {
 
 	private void createNewSubordinateRemus(final BitSet nextWorkingSet) {
 		mSolver.pushRecLevel();
-		mSubordinateRemus = new IteratorReMus(mSolver, mMap, nextWorkingSet, mTimeoutHandler, 0);
+		mSubordinateRemus = new ReMus(mSolver, mMap, nextWorkingSet, mTimeoutHandler, 0);
 	}
 
 	/**
@@ -275,7 +275,7 @@ public class IteratorReMus implements Iterator<MusContainer> {
 	private void createNewSubordinateRemusWithExtraCrit(final BitSet nextWorkingSet, final int crit) {
 		mSolver.pushRecLevel();
 		mSolver.assertCriticalConstraint(crit);
-		mSubordinateRemus = new IteratorReMus(mSolver, mMap, nextWorkingSet, mTimeoutHandler, 0);
+		mSubordinateRemus = new ReMus(mSolver, mMap, nextWorkingSet, mTimeoutHandler, 0);
 	}
 
 	private void removeSubordinateRemus() {

@@ -620,7 +620,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(5);
 		workingSet.flip(0, 5);
 		solver.pushRecLevel();
-		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet, handler, 0);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -643,7 +643,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet, handler, 0);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -666,7 +666,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet, handler, 0);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -688,7 +688,7 @@ public class MusesTest {
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet workingSet = new BitSet(10);
 		solver.pushRecLevel();
-		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet, handler, 0);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -707,7 +707,7 @@ public class MusesTest {
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet workingSet = new BitSet(11);
 		workingSet.set(11);
-		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet, handler, 0);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0);
 		remus.enumerate();
 	}
 
@@ -724,7 +724,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet, handler, 1);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 1);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -745,7 +745,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet, handler, 0);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -766,7 +766,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet, handler, 0);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -787,7 +787,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet, handler, 0);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -811,7 +811,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet, handler, 0);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -835,7 +835,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet, handler, 0);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -857,7 +857,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet, handler, 0);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -879,7 +879,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet, handler, 0);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -902,7 +902,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet, handler, 0);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -926,7 +926,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet, handler, 0);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.pushRecLevel();
 
@@ -951,7 +951,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet, handler, 0);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -975,7 +975,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet, handler, 0);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -1005,7 +1005,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final IteratorReMus remus = new IteratorReMus(solver, map, workingSet, handler, 0);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
