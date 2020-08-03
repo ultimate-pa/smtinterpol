@@ -20,7 +20,6 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.muses;
 
 import java.util.ArrayList;
 import java.util.BitSet;
-import java.util.HashMap;
 
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
@@ -28,6 +27,8 @@ import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.NamedAtom;
+import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
+import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
 
 /**
  * This class is responsible for translating between bit set representation and term representation of constraints.
@@ -37,22 +38,27 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.NamedAtom;
  */
 public class Translator {
 
-	HashMap<String, Integer> mNameOfConstraint2Index;
-	ArrayList<NamedAtom> mIndex2AtomOfConstraint;
+	ScopedHashMap<String, Integer> mNameOfConstraint2Index;
+	ScopedArrayList<NamedAtom> mIndex2AtomOfConstraint;
+	int mPushPopLevel;
 	int mNumberOfConstraints;
 
 	public Translator() {
-		mNameOfConstraint2Index = new HashMap<>();
-		mIndex2AtomOfConstraint = new ArrayList<>();
+		mNameOfConstraint2Index = new ScopedHashMap<>();
+		mIndex2AtomOfConstraint = new ScopedArrayList<>();
 		mNumberOfConstraints = 0;
 	}
 
 	/**
-	 * The NamedAtom must be named by the AnnotatedTerm representing the constraint.
-	 * Also the Polarity (preffered Status) must be set to TRUE for the Unexplored Map to behave correctly.
+	 * The NamedAtom must be named by the AnnotatedTerm representing the constraint. Also the Polarity (preffered
+	 * Status) must be set to TRUE for the Unexplored Map to behave correctly. If a term with the same name has already
+	 * be declared, this method throws an SMTLIBException.
 	 */
-	public void declareConstraint(final NamedAtom atom) {
+	public void declareConstraint(final NamedAtom atom) throws SMTLIBException {
 		final String name = getName(atom);
+		if (mNameOfConstraint2Index.containsKey(name)) {
+			throw new SMTLIBException("This name does already exist.");
+		}
 		mNameOfConstraint2Index.put(name, mNumberOfConstraints);
 		mIndex2AtomOfConstraint.add(atom);
 		mNumberOfConstraints++;
@@ -65,6 +71,7 @@ public class Translator {
 	public NamedAtom translate2Atom(final int index) {
 		return mIndex2AtomOfConstraint.get(index);
 	}
+
 	public int translate2Index(final Term term) {
 		return mNameOfConstraint2Index.get(getName(term));
 	}
@@ -88,13 +95,33 @@ public class Translator {
 		return mNumberOfConstraints;
 	}
 
-	public ArrayList<NamedAtom> getIndex2AtomOfConstraint(){
+	public ArrayList<NamedAtom> getIndex2AtomOfConstraint() {
 		return mIndex2AtomOfConstraint;
+	}
+
+	public void push(final int levels) {
+		for (int i = 0; i < levels; i++) {
+			mNameOfConstraint2Index.beginScope();
+			mIndex2AtomOfConstraint.beginScope();
+			mPushPopLevel++;
+		}
+	}
+
+	public void pop(final int levels) {
+		if (levels > mPushPopLevel) {
+			throw new IllegalArgumentException("Cannot pop more levels than the current PushPopLevel.");
+		}
+		for (int i = 0; i < levels; i++) {
+			mNameOfConstraint2Index.endScope();
+			mIndex2AtomOfConstraint.endScope();
+			mPushPopLevel--;
+		}
 	}
 
 	private Term getTerm(final NamedAtom atom) {
 		return atom.getSMTFormula(null, false);
 	}
+
 	private String getName(final NamedAtom atom) {
 		return getName(atom.getSMTFormula(null, false));
 	}

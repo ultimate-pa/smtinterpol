@@ -160,12 +160,12 @@ public class Heuristics {
 	}
 
 	/**
-	 * First selects the widest Muses of the given ArrayList. Tolerance specifies which muses count as "widest" - to be
-	 * precise a mus counts as widest when widthOf(mus) >= (1-tolerance)*maximumWidthOfMuses(muses). Afterwards, the
+	 * First selects the wide Muses of the given ArrayList. Tolerance specifies which muses count as "wide" - to be
+	 * precise a mus counts as wide when widthOf(mus) >= (1-tolerance)*maximumWidthOfMuses(muses). Afterwards, the
 	 * smallest Mus amongst the widest muses is returned. In case there are multiple such muses, this algorithm randomly
 	 * chooses one of them. Returns null if the given list is empty.
 	 */
-	public static MusContainer chooseSmallestAmongWidestMus(final ArrayList<MusContainer> muses, final double tolerance,
+	public static MusContainer chooseSmallestAmongWideMuses(final ArrayList<MusContainer> muses, final double tolerance,
 			final Random rnd) {
 		if (muses.isEmpty()) {
 			return null;
@@ -184,12 +184,12 @@ public class Heuristics {
 	}
 
 	/**
-	 * First selects the smallest Muses of the given ArrayList. Tolerance specifies which muses count as "smallest" - to
-	 * be precise a mus counts as smallest when sizeOf(mus) >= (1-tolerance)*maximumSizeOfMuses(muses). Afterwards, the
-	 * widest Mus amongst the smallest muses is returned. In case there are multiple such muses, this algorithm randomly
+	 * First selects the small Muses of the given ArrayList. Tolerance specifies which muses count as "small" - to
+	 * be precise a mus counts as small when sizeOf(mus) <= (1+tolerance)*minimumSizeOfMuses(muses). Afterwards, the
+	 * widest Mus amongst the small muses is returned. In case there are multiple such muses, this algorithm randomly
 	 * chooses one of them. Returns null if the given list is empty.
 	 */
-	public static MusContainer chooseWidestAmongSmallestMus(final ArrayList<MusContainer> muses, final double tolerance,
+	public static MusContainer chooseWidestAmongSmallMuses(final ArrayList<MusContainer> muses, final double tolerance,
 			final Random rnd) {
 		if (muses.isEmpty()) {
 			return null;
@@ -199,8 +199,8 @@ public class Heuristics {
 		final int minimalOccurringSize = smallestMus.getMus().cardinality();
 		int currentSize;
 		for (final MusContainer container : muses) {
-			currentSize = container.getMus().length() - container.getMus().nextSetBit(0);
-			if (currentSize >= (1 - tolerance) * minimalOccurringSize) {
+			currentSize = container.getMus().cardinality();
+			if (currentSize >= (1 + tolerance) * minimalOccurringSize) {
 				smallestMuses.add(container);
 			}
 		}
@@ -232,8 +232,8 @@ public class Heuristics {
 		mostExtremeMuses.add(chooseDeepestMus(muses, rnd));
 		mostExtremeMuses.add(chooseNarrowestMus(muses, rnd));
 		mostExtremeMuses.add(chooseWidestMus(muses, rnd));
-		mostExtremeMuses.add(chooseSmallestAmongWidestMus(muses, 0.9, rnd));
-		mostExtremeMuses.add(chooseWidestAmongSmallestMus(muses, 0.9, rnd));
+		mostExtremeMuses.add(chooseSmallestAmongWideMuses(muses, 0.9, rnd));
+		mostExtremeMuses.add(chooseWidestAmongSmallMuses(muses, 0.9, rnd));
 		return mostExtremeMuses;
 	}
 

@@ -932,7 +932,7 @@ public class MusesTest {
 	}
 
 	@Test
-	public void testHeuristicSmallestAmongWidest() {
+	public void testHeuristicSmallestAmongWide() {
 		final TimeoutHandler handler = new TimeoutHandler(null);
 		final Script script = setupScript(Logics.ALL);
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
@@ -950,14 +950,14 @@ public class MusesTest {
 		solver.pushRecLevel();
 
 		final Random rnd = new Random(1337);
-		final BitSet smallestAmongWidestMus = Heuristics.chooseSmallestAmongWidestMus(muses, 0.2, rnd).getMus();
+		final BitSet smallestAmongWidestMus = Heuristics.chooseSmallestAmongWideMuses(muses, 0.2, rnd).getMus();
 		final int width = smallestAmongWidestMus.length() - smallestAmongWidestMus.nextSetBit(0);
 		Assert.assertTrue(width == 8 || width == 9);
 		Assert.assertTrue(smallestAmongWidestMus.cardinality() == 2);
 	}
 
 	@Test
-	public void testHeuristicWidestAmongSmallest() {
+	public void testHeuristicWidestAmongSmall() {
 		final TimeoutHandler handler = new TimeoutHandler(null);
 		final Script script = setupScript(Logics.ALL, handler);
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
@@ -975,7 +975,7 @@ public class MusesTest {
 		solver.popRecLevel();
 
 		final Random rnd = new Random(1337);
-		final BitSet widestAmongSmallestMus = Heuristics.chooseWidestAmongSmallestMus(muses, 0.5, rnd).getMus();
+		final BitSet widestAmongSmallestMus = Heuristics.chooseWidestAmongSmallMuses(muses, 0.5, rnd).getMus();
 		final int width = widestAmongSmallestMus.length() - widestAmongSmallestMus.nextSetBit(0);
 		Assert.assertTrue(width == 10);
 		Assert.assertTrue(widestAmongSmallestMus.cardinality() == 3);
