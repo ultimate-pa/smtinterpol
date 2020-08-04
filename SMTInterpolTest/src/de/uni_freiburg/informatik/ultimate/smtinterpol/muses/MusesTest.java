@@ -932,7 +932,7 @@ public class MusesTest {
 	}
 
 	@Test
-	public void testHeuristicSmallestAmongWide() {
+	public void testHeuristicSmallestAmongWide01() {
 		final TimeoutHandler handler = new TimeoutHandler(null);
 		final Script script = setupScript(Logics.ALL);
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
@@ -954,6 +954,31 @@ public class MusesTest {
 		final int width = smallestAmongWidestMus.length() - smallestAmongWidestMus.nextSetBit(0);
 		Assert.assertTrue(width == 9);
 		Assert.assertTrue(smallestAmongWidestMus.cardinality() == 2);
+	}
+
+	@Test
+	public void testHeuristicSmallestAmongWide02() {
+		final TimeoutHandler handler = new TimeoutHandler(null);
+		final Script script = setupScript(Logics.ALL);
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
+		final Translator translator = new Translator();
+		// We use set 4 here, because in set 2 the widest mus is also one of the smallest.
+		setupUnsatSet4(script, translator, engine);
+
+		final UnexploredMap map = new UnexploredMap(engine, translator);
+		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
+		final BitSet workingSet = new BitSet(10);
+		workingSet.flip(0, 10);
+		solver.pushRecLevel();
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0);
+		final ArrayList<MusContainer> muses = remus.enumerate();
+		solver.pushRecLevel();
+
+		final Random rnd = new Random(1337);
+		final BitSet smallestAmongWidestMus = Heuristics.chooseSmallestAmongWideMuses(muses, 0, rnd).getMus();
+		final int width = smallestAmongWidestMus.length() - smallestAmongWidestMus.nextSetBit(0);
+		Assert.assertTrue(width == 10);
+		Assert.assertTrue(smallestAmongWidestMus.cardinality() == 3);
 	}
 
 	@Test
@@ -1037,7 +1062,7 @@ public class MusesTest {
 	}
 
 	@Test
-	public void testHeuristicDifferentMusesWithRespectToStatements() {
+	public void testHeuristicDifferentMusesWithRespectToStatements01() {
 		final TimeoutHandler handler = new TimeoutHandler(null);
 		final Script script = setupScript(Logics.ALL, handler);
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
@@ -1075,5 +1100,46 @@ public class MusesTest {
 		}
 		Assert.assertTrue(maxDifference == 8);
 		Assert.assertTrue(minDifference == 2);
+	}
+
+	@Test
+	public void testHeuristicDifferentMusesWithRespectToStatements02() {
+		final TimeoutHandler handler = new TimeoutHandler(null);
+		final Script script = setupScript(Logics.ALL, handler);
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
+		final Translator translator = new Translator();
+		setupUnsatSet5(script, translator, engine);
+
+		final UnexploredMap map = new UnexploredMap(engine, translator);
+		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
+		final BitSet workingSet = new BitSet(10);
+		workingSet.flip(0, 10);
+		solver.pushRecLevel();
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0);
+		final ArrayList<MusContainer> muses = remus.enumerate();
+		solver.popRecLevel();
+
+		final Random rnd = new Random(1337);
+		final ArrayList<MusContainer> differentMuses =
+				Heuristics.chooseDifferentMusesWithRespectToStatements(muses, 3, rnd);
+		int maxDifference = Integer.MIN_VALUE;
+		int minDifference = Integer.MAX_VALUE;
+		int currentDifference;
+		for (final MusContainer container1 : differentMuses) {
+			for (final MusContainer container2 : differentMuses) {
+				if (container1.equals(container2)) {
+					continue;
+				}
+				currentDifference = Heuristics.numberOfDifferentStatements(container1, container2);
+				if (maxDifference < currentDifference) {
+					maxDifference = currentDifference;
+				}
+				if (minDifference > currentDifference) {
+					minDifference = currentDifference;
+				}
+			}
+		}
+		Assert.assertTrue(maxDifference == 8);
+		Assert.assertTrue(minDifference == 6);
 	}
 }
