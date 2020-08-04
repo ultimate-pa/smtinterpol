@@ -200,7 +200,7 @@ public class Heuristics {
 		int currentSize;
 		for (final MusContainer container : muses) {
 			currentSize = container.getMus().cardinality();
-			if (currentSize >= (1 + tolerance) * minimalOccurringSize) {
+			if (currentSize <= (1 + tolerance) * minimalOccurringSize) {
 				smallestMuses.add(container);
 			}
 		}

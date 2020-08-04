@@ -950,14 +950,14 @@ public class MusesTest {
 		solver.pushRecLevel();
 
 		final Random rnd = new Random(1337);
-		final BitSet smallestAmongWidestMus = Heuristics.chooseSmallestAmongWideMuses(muses, 0.2, rnd).getMus();
+		final BitSet smallestAmongWidestMus = Heuristics.chooseSmallestAmongWideMuses(muses, 0.1, rnd).getMus();
 		final int width = smallestAmongWidestMus.length() - smallestAmongWidestMus.nextSetBit(0);
-		Assert.assertTrue(width == 8 || width == 9);
+		Assert.assertTrue(width == 9);
 		Assert.assertTrue(smallestAmongWidestMus.cardinality() == 2);
 	}
 
 	@Test
-	public void testHeuristicWidestAmongSmall() {
+	public void testHeuristicWidestAmongSmall01() {
 		final TimeoutHandler handler = new TimeoutHandler(null);
 		final Script script = setupScript(Logics.ALL, handler);
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
@@ -979,6 +979,31 @@ public class MusesTest {
 		final int width = widestAmongSmallestMus.length() - widestAmongSmallestMus.nextSetBit(0);
 		Assert.assertTrue(width == 10);
 		Assert.assertTrue(widestAmongSmallestMus.cardinality() == 3);
+	}
+
+	@Test
+	public void testHeuristicWidestAmongSmall02() {
+		final TimeoutHandler handler = new TimeoutHandler(null);
+		final Script script = setupScript(Logics.ALL, handler);
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
+		final Translator translator = new Translator();
+		// We use set 4 here, because in set 2 the widest mus is also one of the smallest.
+		setupUnsatSet4(script, translator, engine);
+
+		final UnexploredMap map = new UnexploredMap(engine, translator);
+		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
+		final BitSet workingSet = new BitSet(10);
+		workingSet.flip(0, 10);
+		solver.pushRecLevel();
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0);
+		final ArrayList<MusContainer> muses = remus.enumerate();
+		solver.popRecLevel();
+
+		final Random rnd = new Random(1337);
+		final BitSet widestAmongSmallestMus = Heuristics.chooseWidestAmongSmallMuses(muses, 0.4, rnd).getMus();
+		final int width = widestAmongSmallestMus.length() - widestAmongSmallestMus.nextSetBit(0);
+		Assert.assertTrue(width == 9);
+		Assert.assertTrue(widestAmongSmallestMus.cardinality() == 2);
 	}
 
 	@Test
