@@ -1142,4 +1142,9 @@ public class MusesTest {
 		Assert.assertTrue(maxDifference == 8);
 		Assert.assertTrue(minDifference == 6);
 	}
+
+	@Test
+	public void testMusEnumerationScript() {
+
+	}
 }
