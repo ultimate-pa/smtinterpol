@@ -18,6 +18,9 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
+import de.uni_freiburg.informatik.ultimate.logic.Annotation;
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ILiteral;
@@ -33,6 +36,14 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ILiteral;
  *
  */
 public abstract class QuantLiteral implements ILiteral {
+	public final static Annotation[] QUOTED_QUANT = new Annotation[] { new Annotation(":quotedQuant", null) };
+
+	public static Annotation[] getAuxAnnotation(final ApplicationTerm term) {
+		assert term.getFunction().getName().startsWith("@AUX");
+		final Term def = term.getFunction().getDefinition();
+		assert def != null;
+		return new Annotation[] { new Annotation(":quotedQuant", def) };
+	}
 
 	/**
 	 * The term that this literal represents.
@@ -116,7 +127,18 @@ public abstract class QuantLiteral implements ILiteral {
 	}
 
 	public Term getSMTFormula(final Theory theory, final boolean quoted) {
-		return mTerm; // TODO quoted
+		// Aux literals are annotated with the defining term
+		if (mAtom instanceof QuantEquality) {
+			final Term lhs = ((QuantEquality) mAtom).getLhs();
+			if (lhs instanceof ApplicationTerm) {
+				final ApplicationTerm lhsApp = (ApplicationTerm) lhs;
+				final FunctionSymbol func = lhsApp.getFunction();
+				if (func.getName().startsWith("@AUX")) {
+					return quoted ? theory.annotatedTerm(getAuxAnnotation(lhsApp), mTerm) : mTerm;
+				}
+			}
+		}
+		return quoted ? theory.annotatedTerm(QUOTED_QUANT, mTerm) : mTerm;
 	}
 
 	/**

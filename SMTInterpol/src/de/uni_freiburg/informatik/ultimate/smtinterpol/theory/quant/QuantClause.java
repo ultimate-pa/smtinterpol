@@ -53,6 +53,7 @@ public class QuantClause {
 	private final QuantLiteral[] mQuantLits;
 
 	private final SourceAnnotation mSource;
+	private final Term mProof;
 
 	/**
 	 * The quantified variables in this clause. Defines an order on the variables.
@@ -81,13 +82,14 @@ public class QuantClause {
 	 */
 	@SuppressWarnings("unchecked")
 	QuantClause(final Literal[] groundLits, final QuantLiteral[] quantLits, final QuantifierTheory quantTheory,
-			final SourceAnnotation source) {
+			final SourceAnnotation source, final Term proof) {
 		assert quantLits.length != 0;
 		mQuantTheory = quantTheory;
 
 		mGroundLits = groundLits;
 		mQuantLits = mQuantTheory.getLiteralCopies(quantLits, this);
 		mSource = source;
+		mProof = proof;
 
 		mVars = computeVars();
 		mVarInfos = new VarInfo[mVars.length];
@@ -190,12 +192,6 @@ public class QuantClause {
 		return Arrays.toString(mGroundLits).concat(Arrays.toString(mQuantLits));
 	}
 
-	void clearInterestingTerms() {
-		for (int i = 0; i < mVars.length; i++) {
-			mInterestingTermsForVars[i].clear();
-		}
-	}
-
 	public Term toTerm(final Theory theory) {
 		final int groundLength = mGroundLits.length;
 		final int quantLength = mQuantLits.length;
@@ -207,6 +203,16 @@ public class QuantClause {
 			litTerms[i + groundLength] = mQuantLits[i].getTerm();
 		}
 		return theory.or(litTerms);
+	}
+
+	public Term getProof() {
+		return mProof;
+	}
+
+	void clearInterestingTerms() {
+		for (int i = 0; i < mVars.length; i++) {
+			mInterestingTermsForVars[i].clear();
+		}
 	}
 
 	/**

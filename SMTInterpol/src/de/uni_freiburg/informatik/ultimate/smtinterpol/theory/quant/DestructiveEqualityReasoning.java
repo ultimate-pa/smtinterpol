@@ -35,6 +35,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.IProofTracker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantLiteral.NegQuantLiteral;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.SubstitutionHelper.SubstitutionResult;
 
 /**
  * Apply destructive equality reasoning to a quantified clause.
@@ -45,33 +46,35 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantLiteral
  * @author Tanja Schindler
  *
  */
-class DestructiveEqualityReasoning {
+public class DestructiveEqualityReasoning {
 
 	private final QuantifierTheory mQuantTheory;
 	private final Clausifier mClausifier;
 
 	private final Literal[] mGroundLits;
 	private final QuantLiteral[] mQuantLits;
+	private final Term mProof;
 	private final SourceAnnotation mSource;
 
 	private final Map<TermVariable, Term> mSigma;
 	private boolean mIsChanged;
-	private boolean mIsTriviallyTrue;
-	private Literal[] mGroundLitsAfterDER;
-	private QuantLiteral[] mQuantLitsAfterDER;
+
+	private DERResult mResult;
 
 	DestructiveEqualityReasoning(final QuantifierTheory quantTheory, final Literal[] groundLits, final QuantLiteral[] quantLits,
-			final SourceAnnotation source) {
+			final SourceAnnotation source, final Term proof) {
 		mQuantTheory = quantTheory;
 		mClausifier = quantTheory.getClausifier();
 
 		mGroundLits = groundLits;
 		mQuantLits = quantLits;
+		mProof = proof;
 		mSource = source;
 
 		mSigma = new LinkedHashMap<>();
 		mIsChanged = false;
-		mIsTriviallyTrue = false;
+
+		mResult = null;
 	}
 
 	/**
@@ -85,7 +88,15 @@ class DestructiveEqualityReasoning {
 	boolean applyDestructiveEqualityReasoning() {
 		collectSubstitution();
 		if (!mSigma.isEmpty()) {
-			applySubstitution();
+			final SubstitutionHelper subsHelper =
+					new SubstitutionHelper(mQuantTheory, mGroundLits, mQuantLits, mSource, mSigma);
+			final SubstitutionResult subsResult = subsHelper.substituteInClause();
+			final TermVariable[] vars = mClausifier.getTracker().getProvedTerm(mProof).getFreeVars();
+			final Term[] subs = new Term[vars.length];
+			for (int i = 0; i < subs.length; i++) {
+				subs[i] = mSigma.containsKey(vars[i]) ? mSigma.get(vars[i]) : vars[i];
+			}
+			mResult = new DERResult(subs, subsResult);
 			mIsChanged = true;
 		}
 		return mIsChanged;
@@ -97,37 +108,15 @@ class DestructiveEqualityReasoning {
 	 * @return true, if the clause is trivially true; false otherwise.
 	 */
 	public boolean isTriviallyTrue() {
-		return mIsTriviallyTrue;
-	}
-
-	/**
-	 * Get the ground literals after destructive equality reasoning was performed.
-	 *
-	 * @return an array containing the ground literals after DER. Can have length 0.
-	 */
-	Literal[] getGroundLitsAfterDER() {
-		assert !mIsTriviallyTrue : "Should never be called on trivially true clauses!";
-		if (!mIsChanged) {
-			return mGroundLits;
-		}
-		return mGroundLitsAfterDER;
-	}
-
-	/**
-	 * Get the quantified literals after destructive equality reasoning was performed.
-	 *
-	 * @return an array containing the quantified literals after DER. Can have length 0.
-	 */
-	QuantLiteral[] getQuantLitsAfterDER() {
-		assert !mIsTriviallyTrue : "Should never be called on trivially true clauses!";
-		if (!mIsChanged) {
-			return mQuantLits;
-		}
-		return mQuantLitsAfterDER;
+		return mResult.isTriviallyTrue();
 	}
 
 	Map<TermVariable, Term> getSigma() {
 		return mSigma;
+	}
+
+	DERResult getResult() {
+		return mResult;
 	}
 
 	/**
@@ -256,19 +245,22 @@ class DestructiveEqualityReasoning {
 		return false;
 	}
 
-	/**
-	 * Apply the substitution sigma collected from the disequalities in this clause, in order to get rid of some
-	 * variables.
-	 */
-	private void applySubstitution() {
-		final SubstitutionHelper subsHelper =
-				new SubstitutionHelper(mQuantTheory, mGroundLits, mQuantLits, mSource, mSigma);
-		subsHelper.substituteInClause();
-		mGroundLitsAfterDER = subsHelper.getResultingGroundLits();
-		mQuantLitsAfterDER = subsHelper.getResultingQuantLits();
+	public static class DERResult extends SubstitutionResult {
+		private final Term[] mSubs;
 
-		if (subsHelper.getResultingClauseTerm() == mQuantTheory.getTheory().mTrue) {
-			mIsTriviallyTrue = true;
+		protected DERResult(final Term[] subs, final Term substituted, final Term simplified,
+				final Literal[] groundLits, final QuantLiteral[] quantLits) {
+			super(substituted, simplified, groundLits, quantLits);
+			mSubs = subs;
+		}
+
+		protected DERResult(final Term[] subs, SubstitutionResult subsRes) {
+			super(subsRes.mSubstituted, subsRes.mSimplified, subsRes.mGroundLits, subsRes.mQuantLits);
+			mSubs = subs;
+		}
+
+		public Term[] getSubs() {
+			return mSubs;
 		}
 	}
 }

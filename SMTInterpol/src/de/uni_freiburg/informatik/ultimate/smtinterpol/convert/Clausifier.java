@@ -73,15 +73,13 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LASharedTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinArSolve;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinVar;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.MutableAffineTerm;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantAnnotation;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.DestructiveEqualityReasoning.DERResult;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory.InstanceOrigin;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ArrayMap;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
@@ -562,6 +560,7 @@ public class Clausifier {
 					quantified = true;
 				}
 
+				// TODO build a method for this, this part is used in several methods
 				if (at.getFunction().getName().equals("true")) {
 					lit = mTRUE;
 				} else if (at.getFunction().getName().equals("false")) {
@@ -606,6 +605,8 @@ public class Clausifier {
 						addAuxAxioms(idx, false, mCollector.getSource());
 					}
 				}
+				// TODO end
+
 				atomRewrite = mTracker.intern(at, lit.getSMTFormula(theory, true));
 				if (positive) {
 					rewrite = mTracker.transitivity(rewrite, atomRewrite);
@@ -631,16 +632,16 @@ public class Clausifier {
 				return;
 			} else if (idx instanceof TermVariable) {
 				// TODO Find trivially true or false QuantLiterals.
-				final Term value = positive ? mTheory.mFalse : mTheory.mTrue;
-				final Term equality = mTheory.equals(idx, value);
-				final ILiteral lit = mQuantTheory.getQuantEquality(false, mCollector.getSource(), idx, value);
-				final Term atomRewrite = mTracker.intern(idx, positive ? mTheory.not(equality) : equality);
+				final ILiteral lit = mQuantTheory.getQuantEquality(false, mCollector.getSource(), idx, mTheory.mTrue);
+				final Term atomRewrite = mTracker.intern(idx, lit.getSMTFormula(theory, true));
 				if (positive) {
 					rewrite = mTracker.transitivity(rewrite, atomRewrite);
 				} else {
 					rewrite = mTracker.congruence(rewrite, new Term[] { atomRewrite });
+					/* (not (<= -x 0)) can be rewritten to (not (not (< x 0))); remove double negation */
+					rewrite = mUtils.convertNot(rewrite);
 				}
-				mCollector.addLiteral(lit.negate(), rewrite);
+				mCollector.addLiteral(positive ? lit : lit.negate(), rewrite);
 			} else {
 				throw new SMTLIBException("Cannot handle literal " + mLiteral);
 			}
@@ -723,8 +724,8 @@ public class Clausifier {
 			if (mSimpOr && mTracker.getProvedTerm(rewrite) != rewrite.getTheory().mFalse) {
 				rewrite = mTracker.orSimpClause(rewrite);
 			}
-			Term proof = mTracker.getRewriteProof(mClause, rewrite);
-			proof = mTracker.getClauseProof(proof);
+			Term rewriteProof = mTracker.getRewriteProof(mClause, rewrite);
+			Term proof = mTracker.getClauseProof(rewriteProof);
 			boolean isDpllClause = true;
 
 			final Literal[] lits = mLits.toArray(new Literal[mLits.size()]);
@@ -749,32 +750,27 @@ public class Clausifier {
 				final Literal[] groundLiteralsAfterDER = mEprTheory.addEprClause(lits, null, null);
 
 				if (groundLiteralsAfterDER != null) {
-					addClause(groundLiteralsAfterDER, null, getProofNewSource(proof, mSource));
+					addClause(groundLiteralsAfterDER, null, getProofNewSource(proof, mSource)); // TODO needs DER proof
 				}
 			} else {
-				final Pair<ILiteral[], Map<TermVariable, Term>> resultFromDER =
-						mQuantTheory.performDestructiveEqualityReasoning(lits, quantLits, mSource);
-				if (resultFromDER != null) { // Clauses that become trivially true can be dropped.
-					final ILiteral[] litsAfterDER = resultFromDER.getFirst();
-					// TODO Proof production.
-					isDpllClause = true;
-					for (final ILiteral iLit : litsAfterDER) {
-						if (iLit instanceof QuantLiteral) {
-							isDpllClause = false;
-						}
-					}
+				final DERResult resultFromDER =
+						mQuantTheory.performDestructiveEqualityReasoning(rewriteProof, lits, quantLits, mSource);
+				if (resultFromDER == null) {
+					mQuantTheory.addQuantClause(lits, quantLits, mSource, rewriteProof);
+				} else if (!resultFromDER.isTriviallyTrue()) { // Clauses that become trivially true can be dropped.
+					isDpllClause = resultFromDER.isGround();
+					// Build rewrite proof from split and derProof
+					final Annotation splitAnnot = new Annotation(":subst", resultFromDER.getSubs());
+					final Term splitProof = mTracker.split(rewriteProof, resultFromDER.getSubstituted(), splitAnnot);
+					final Term derProof = resultFromDER.getSimplified();
+					final Term rewriteProofAfterDER = mTracker.getRewriteProof(splitProof, derProof);
+
 					if (isDpllClause) {
-						final Literal[] groundLits = new Literal[litsAfterDER.length];
-						for (int i = 0; i < groundLits.length; i++) {
-							groundLits[i] = (Literal) litsAfterDER[i];
-						}
-						final ProofNode derProof =
-								new LeafNode(LeafNode.QUANT_INST,
-										new QuantAnnotation(lits, quantLits, resultFromDER.getSecond(), getTheory(),
-												InstanceOrigin.DER, mSource));
-						addClause(groundLits, null, derProof);
+						addClause(resultFromDER.getGroundLits(), null,
+								getProofNewSource(mTracker.getClauseProof(rewriteProofAfterDER), mSource));
 					} else {
-						mQuantTheory.addQuantClause(litsAfterDER, mSource);
+						mQuantTheory.addQuantClause(resultFromDER.getGroundLits(), resultFromDER.getQuantLits(),
+								mSource, rewriteProofAfterDER);
 					}
 				}
 			}
@@ -2119,6 +2115,10 @@ public class Clausifier {
 
 	public IProofTracker getTracker() {
 		return mTracker;
+	}
+
+	public LogicSimplifier getSimplifier() {
+		return mUtils;
 	}
 
 	// TODO Do we need to change something here for quantifiers?
