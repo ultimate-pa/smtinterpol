@@ -18,7 +18,6 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -40,14 +39,13 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ILiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ITheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinArSolve;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.DestructiveEqualityReasoning.DERResult;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.ematching.EMatching;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
 
@@ -380,6 +378,8 @@ public class QuantifierTheory implements ITheory {
 	 * <p>
 	 * This method also brings equality atoms in the form (var = term), if there exists a TermVariable at top level. For
 	 * integers, only if the variable has factor ±1; for reals always.
+	 * 
+	 * TODO simplify trivial equalities
 	 */
 	public QuantLiteral getQuantEquality(final boolean positive, final SourceAnnotation source,
 			final Term lhs, final Term rhs) {
@@ -561,39 +561,29 @@ public class QuantifierTheory implements ITheory {
 
 	/**
 	 * Perform destructive equality reasoning.
-	 *
+	 * 
+	 * @param clause
+	 *            The quantified clause term, annotated with its proof if proof production is enabled.
 	 * @param groundLits
 	 *            The ground literals of the clause.
 	 * @param quantLits
 	 *            The quantified literals of the clause.
 	 * @param source
 	 *            The source of the clause.
-	 * @return an array of ILiteral containing all literals after DER; null if the clause became true.
 	 */
-	public Pair<ILiteral[], Map<TermVariable, Term>> performDestructiveEqualityReasoning(final Literal[] groundLits,
-			final QuantLiteral[] quantLits,
-			final SourceAnnotation source) {
+	public DERResult performDestructiveEqualityReasoning(final Term clause, final Literal[] groundLits,
+			final QuantLiteral[] quantLits, final SourceAnnotation source) {
 		final DestructiveEqualityReasoning der =
-				new DestructiveEqualityReasoning(this, groundLits, quantLits, source);
-		final ArrayList<ILiteral> litsAfterDER = new ArrayList<>(groundLits.length + quantLits.length);
+				new DestructiveEqualityReasoning(this, groundLits, quantLits, source, clause);
 		if (der.applyDestructiveEqualityReasoning()) {
-			if (der.isTriviallyTrue()) {
-				return null; // Don't add trivially true clauses.
-			}
-			final Literal[] groundLitsAfterDER = der.getGroundLitsAfterDER();
-			final QuantLiteral[] quantLitsAfterDER = der.getQuantLitsAfterDER();
-			if (quantLitsAfterDER.length == 0) {
+			if (der.getResult().isGround() && !der.isTriviallyTrue()) {
 				mLogger.debug("Quant: DER returned ground clause.");
 				mNumInstancesDER++;
 			}
-			litsAfterDER.addAll(Arrays.asList(groundLitsAfterDER));
-			litsAfterDER.addAll(Arrays.asList(quantLitsAfterDER));
+			return der.getResult();
 		} else {
-			litsAfterDER.addAll(Arrays.asList(groundLits));
-			litsAfterDER.addAll(Arrays.asList(quantLits));
+			return null;
 		}
-		return new Pair<>(litsAfterDER.toArray(new ILiteral[litsAfterDER.size()]),
-				der.getSigma());
 	}
 
 	/**
@@ -606,35 +596,20 @@ public class QuantifierTheory implements ITheory {
 	 * @param source
 	 *            the source of the clause
 	 */
-	public void addQuantClause(final ILiteral[] iLits, final SourceAnnotation source) {
-		boolean isQuant = false;
-		for (final ILiteral lit : iLits) {
-			if (lit instanceof QuantLiteral) {
-				isQuant = true;
+	public void addQuantClause(final Literal[] groundLits, final QuantLiteral[] quantLits,
+			final SourceAnnotation source, final Term proof) {
+		for (final QuantLiteral l : quantLits) {
+			if (!l.isAlmostUninterpreted()) {
+				mLogger.warn("Quant: Clause contains literal that is not almost uninterpreted: " + l);
+			} else if (l.mIsDERUsable) {
+				mLogger.warn("Quant: Clause contains disequality on variable not eliminated by DER: " + l);
 			}
 		}
-		if (!isQuant) {
+		if (quantLits.length == 0) {
 			throw new IllegalArgumentException("Cannot add clause to QuantifierTheory: No quantified literal!");
 		}
 
-		final ArrayList<Literal> groundLits = new ArrayList<>(iLits.length);
-		final ArrayList<QuantLiteral> quantLits = new ArrayList<>(iLits.length);
-		for (final ILiteral lit : iLits) {
-			if (lit instanceof Literal) {
-				groundLits.add((Literal) lit);
-			} else {
-				final QuantLiteral qLit = (QuantLiteral) lit;
-				if (!qLit.isAlmostUninterpreted()) {
-					mLogger.warn("Quant: Clause contains literal that is not almost uninterpreted: " + qLit);
-				} else if (qLit.isNegated() && qLit.mIsDERUsable) {
-					mLogger.warn("Quant: Clause contains disequality on variable not eliminated by DER: " + qLit);
-				}
-				quantLits.add((QuantLiteral) lit);
-			}
-		}
-
-		final QuantClause clause = new QuantClause(groundLits.toArray(new Literal[groundLits.size()]),
-				quantLits.toArray(new QuantLiteral[quantLits.size()]), this, source);
+		final QuantClause clause = new QuantClause(groundLits, quantLits, this, source, proof);
 		mQuantClauses.add(clause);
 
 		mEMatching.addClause(clause);

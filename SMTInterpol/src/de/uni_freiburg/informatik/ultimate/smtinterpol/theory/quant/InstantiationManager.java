@@ -51,6 +51,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LASharedTerm
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinVar;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.MutableAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory.InstanceOrigin;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.SubstitutionHelper.SubstitutionResult;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.dawg.Dawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.ematching.EMatching;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.ematching.EMatching.SubstitutionInfo;
@@ -938,21 +939,17 @@ public class InstantiationManager {
 		}
 		final SubstitutionHelper instHelper = new SubstitutionHelper(mQuantTheory, clause.getGroundLits(),
 				clause.getQuantLits(), clause.getSource(), sigma);
-		instHelper.substituteInClause();
-		Literal[] resultingLits = null;
-		if (instHelper.getResultingClauseTerm() != mQuantTheory.getTheory().mTrue) {
-			assert instHelper.getResultingQuantLits().length == 0;
-			resultingLits = instHelper.getResultingGroundLits();
-		}
-
-		final InstClause inst =
-				resultingLits != null ? new InstClause(clause, subs, Arrays.asList(resultingLits), -1, origin)
-						: null;
-		mClauseInstances.get(clause).put(subs, inst);
-		if (resultingLits != null) {
+		final SubstitutionResult result = instHelper.substituteInClause();
+		final InstClause inst;
+		if (result.isTriviallyTrue()) {
+			inst = null;
+		} else {
+			assert result.isGround();
 			mQuantTheory.getLogger().debug("Quant: instantiating quant clause %s results in %s", clause,
-					Arrays.asList(resultingLits));
+					Arrays.asList(result.mGroundLits));
+			inst = new InstClause(clause, subs, Arrays.asList(result.mGroundLits), -1, origin, result.mSimplified);
 		}
+		mClauseInstances.get(clause).put(subs, inst);
 		mQuantTheory.mNumInstancesProduced++;
 		if (origin.equals(InstanceOrigin.CHECKPOINT)) {
 			mQuantTheory.mNumInstancesProducedCP++;
@@ -1008,7 +1005,7 @@ public class InstantiationManager {
 	 */
 	private InstanceValue evaluateCCEquality(final QuantEquality qEq, final List<Term> subs) {
 		final QuantClause qClause = qEq.getClause();
-		final TermFinder finder = new TermFinder(qClause.getSource(), qClause.getVars(), subs);
+		final TermFinder finder = new TermFinder(qClause.getVars(), subs);
 		final Term left = finder.findEquivalentShared(qEq.getLhs());
 		final Term right = finder.findEquivalentShared(qEq.getRhs());
 		if (left != null && right != null) {
@@ -1066,7 +1063,7 @@ public class InstantiationManager {
 		diff.add(Rational.MONE, qEq.getRhs());
 
 		final QuantClause qClause = qEq.getClause();
-		final TermFinder finder = new TermFinder(qClause.getSource(), qClause.getVars(), subs);
+		final TermFinder finder = new TermFinder(qClause.getVars(), subs);
 		final SMTAffineTerm smtAff = finder.findEquivalentAffine(diff);
 		if (smtAff != null) {
 			final InfinitesimalNumber upperBound = mQuantTheory.mLinArSolve.getUpperBound(mClausifier, smtAff);
@@ -1119,7 +1116,7 @@ public class InstantiationManager {
 	 * @return Value True if the term has an upper bound <= 0, False if -term has a lower bound < 0, or Undef otherwise.
 	 */
 	private InstanceValue evaluateBoundConstraint(final QuantBoundConstraint qBc, final List<Term> subs) {
-		final TermFinder finder = new TermFinder(qBc.getClause().getSource(), qBc.getClause().getVars(), subs);
+		final TermFinder finder = new TermFinder(qBc.getClause().getVars(), subs);
 		final SMTAffineTerm affine = finder.findEquivalentAffine(qBc.getAffineTerm());
 		if (affine == null) {
 			return mDefaultValueForLitDawgs;
@@ -1139,13 +1136,11 @@ public class InstantiationManager {
 	}
 
 	private class TermFinder extends NonRecursive {
-		private final SourceAnnotation mSource;
 		private final List<TermVariable> mVars;
 		private final List<Term> mInstantiation;
 		private final Map<Term, Term> mTerms;
 
-		TermFinder(final SourceAnnotation source, final TermVariable[] vars, final List<Term> instantiation) {
-			mSource = source;
+		TermFinder(final TermVariable[] vars, final List<Term> instantiation) {
 			mVars = Arrays.asList(vars);
 			mInstantiation = instantiation;
 			mTerms = new HashMap<>();

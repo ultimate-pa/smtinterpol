@@ -42,14 +42,16 @@ class InstClause {
 	protected final List<Literal> mLits;
 	protected int mNumUndefLits;
 	protected InstanceOrigin mOrigin;
+	private Term mInstClauseTerm;
 
 	InstClause(final QuantClause qClause, final List<Term> subs, final List<Literal> lits,
-			final int numUndefLits, final InstanceOrigin origin) {
+			final int numUndefLits, final InstanceOrigin origin, final Term instClauseTerm) {
 		mQuantClause = qClause;
 		mSubs = subs;
 		mLits = lits;
 		mNumUndefLits = numUndefLits;
 		mOrigin = origin;
+		mInstClauseTerm = instClauseTerm;
 	}
 
 	@Override
@@ -106,12 +108,8 @@ class InstClause {
 		final Clause clause = new Clause(mLits.toArray(new Literal[mLits.size()]),
 				mQuantClause.getQuantTheory().getEngine().getAssertionStackLevel());
 		if (produceProofs) {
-			final Term[] subsAsTerm = new Term[mSubs.size()];
-			for (int i = 0; i < mSubs.size(); i++) {
-				subsAsTerm[i] = mSubs.get(i);
-			}
 			clause.setProof(new LeafNode(LeafNode.QUANT_INST,
-					new QuantAnnotation(mQuantClause, subsAsTerm, mOrigin)));
+					new QuantAnnotation(mQuantClause, mSubs, mInstClauseTerm, mOrigin)));
 		}
 		return clause;
 	}
