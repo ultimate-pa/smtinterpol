@@ -28,11 +28,14 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 
 /**
  * A class that wraps a script and provides additional functionality for the MUS enumeration. Basically, it is used for
- * administration of the constraints and communication with the solver. It provides recursion levels that
- * enhance the reusability of the solver in ReMUS. The earlier recursion levels only contain critical constraints. The
- * latest recursion level is divided in two "usual" push/pop levels: The lower level again contains critical
- * constraints. The upper level contains all constraints which status is currently unknown. Also this class translates
- * between the bitset representation and the term representation of constraints for the solver.
+ * administration of the constraints and communication with the solver. It provides recursion levels that enhance the
+ * reusability of the solver in ReMUS. The earlier recursion levels only contain critical constraints. The latest
+ * recursion level is divided in two "usual" push/pop levels: The lower level again contains critical constraints. The
+ * upper level contains all constraints which status is currently unknown. Also this class uses the translator to
+ * translate between the bitset representation and the term representation of constraints for the solver.
+ *
+ * Note: Meddling with the script of this class (after this class was instantiated) will result in weird, unwanted
+ * behaviour.
  *
  * @author LeonardFichtner
  *
@@ -41,17 +44,20 @@ public class ConstraintAdministrationSolver {
 
 	final Script mScript;
 	boolean mUnknownConstraintsAreSet;
+	boolean mLastOpWasReset;
 	int mLevels;
 	Translator mTranslator;
 
 	/**
-	 * Note: This constructor does not reset the given script.
+	 * Note: This constructor does not reset the script in any way, before using it.
 	 */
 	public ConstraintAdministrationSolver(final Script script, final Translator translator) {
 		mScript = script;
 		mUnknownConstraintsAreSet = false;
+		mLastOpWasReset = false;
 		mLevels = 0;
 		mTranslator = translator;
+		push(1);
 	}
 
 	/**
@@ -59,6 +65,9 @@ public class ConstraintAdministrationSolver {
 	 * popRecLevel is called. No unknown constraints are allowed to be asserted when pushing a new recursion level.
 	 */
 	public void pushRecLevel() {
+		if (mLastOpWasReset) {
+			push(1);
+		}
 		if (mUnknownConstraintsAreSet) {
 			throw new SMTLIBException("You may not push a new recursion level, when unknown constraints are set.");
 		}
@@ -70,8 +79,24 @@ public class ConstraintAdministrationSolver {
 	 * again.
 	 */
 	public void popRecLevel() {
+		if (mLastOpWasReset) {
+			push(1);
+		}
 		clearUnknownConstraints();
 		pop(1);
+	}
+
+	private void push(final int levels) {
+		mLevels++;
+		mScript.push(levels);
+	}
+
+	private void pop(final int levels) {
+		mLevels = mLevels - levels;
+		// There is a 1 instead of 0, since we need an additional level at the bottom for the reset functionality
+		assert mLevels >= 1 : "This class should not be able to modify lower levels of the script than the level "
+				+ "at which it was created";
+		mScript.pop(levels);
 	}
 
 	/**
@@ -88,6 +113,9 @@ public class ConstraintAdministrationSolver {
 	 * Assert a critical constraint. This can only be done, when no unknown constraints are asserted.
 	 */
 	public void assertCriticalConstraint(final int constraintNumber) throws SMTLIBException {
+		if (mLastOpWasReset) {
+			push(1);
+		}
 		if (mUnknownConstraintsAreSet) {
 			throw new SMTLIBException("Modifying crits without clearing unknowns is prohibited.");
 		}
@@ -98,6 +126,9 @@ public class ConstraintAdministrationSolver {
 	 * Assert critical constraints. This can only be done, when no unknown constraints are asserted.
 	 */
 	public void assertCriticalConstraints(final BitSet constraints) throws SMTLIBException {
+		if (mLastOpWasReset) {
+			push(1);
+		}
 		if (mUnknownConstraintsAreSet) {
 			throw new SMTLIBException("Modifying crits without clearing unknowns is prohibited.");
 		}
@@ -110,6 +141,9 @@ public class ConstraintAdministrationSolver {
 	 * Assert a constraint, for which it is not known whether it is critical or not.
 	 */
 	public void assertUnknownConstraint(final int constraintNumber) {
+		if (mLastOpWasReset) {
+			push(1);
+		}
 		if (!mUnknownConstraintsAreSet) {
 			push(1);
 			mUnknownConstraintsAreSet = true;
@@ -121,6 +155,9 @@ public class ConstraintAdministrationSolver {
 	 * Assert constraints, for which it is not known whether they are critical or not.
 	 */
 	public void assertUnknownConstraints(final BitSet constraints) {
+		if (mLastOpWasReset) {
+			push(1);
+		}
 		if (!mUnknownConstraintsAreSet) {
 			push(1);
 			mUnknownConstraintsAreSet = true;
@@ -204,6 +241,7 @@ public class ConstraintAdministrationSolver {
 				throw new SMTLIBException("Unknown LBool value in Extension process.");
 			}
 		}
+		pop(1);
 		throw new SMTLIBException(
 				"This means, that the set of all constraints is satisfiable. Something is not right!");
 	}
@@ -270,15 +308,14 @@ public class ConstraintAdministrationSolver {
 		return mTranslator.getNumberOfConstraints();
 	}
 
-	private void push(final int levels) {
-		mLevels++;
-		mScript.push(levels);
-	}
-
-	private void pop(final int levels) {
-		mLevels = mLevels - levels;
-		assert mLevels >= 0 : "This class should not be able to modify lower levels of the script than the level "
-				+ "at which it was created";
-		mScript.pop(levels);
+	/**
+	 * Reset this instance - all asserted constraints will be unasserted and the interal Script will be in the state it
+	 * was before the construction of this instance. Essentially, this method is like a "pop all levels that were pushed
+	 * since instantiation".
+	 */
+	public void reset() {
+		mUnknownConstraintsAreSet = false;
+		mLastOpWasReset = true;
+		mScript.pop(mLevels);
 	}
 }

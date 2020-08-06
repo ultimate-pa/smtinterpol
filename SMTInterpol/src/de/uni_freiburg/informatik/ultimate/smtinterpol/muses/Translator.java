@@ -39,7 +39,6 @@ public class Translator {
 
 	HashMap<String, Integer> mNameOfConstraint2Index;
 	ArrayList<NamedAtom> mIndex2AtomOfConstraint;
-	int mPushPopLevel;
 	int mNumberOfConstraints;
 
 	public Translator() {

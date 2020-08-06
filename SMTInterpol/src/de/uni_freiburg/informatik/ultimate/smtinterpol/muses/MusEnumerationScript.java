@@ -426,7 +426,6 @@ public class MusEnumerationScript extends WrapperScript {
 		mCurrentLevel = 0;
 		mInterpolationHeuristic.reset();
 		mTolerance.reset();
-
 	}
 
 	@Override

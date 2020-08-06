@@ -330,4 +330,13 @@ public class ReMus implements Iterator<MusContainer> {
 		mTimeoutHandler.clearTimeout();
 		return restOfMuses;
 	}
+
+	/**
+	 * Resets the internal SMTSolver, such that it will be in the state it was before the instantiation of the
+	 * ConstraintAdministrationSolver. But this means, that this iterator can no longer be used.
+	 */
+	public void resetSolver() {
+		mTimeoutOrTerminationRequestOccurred = true;
+		mSolver.reset();
+	}
 }
