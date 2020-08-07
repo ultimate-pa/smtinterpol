@@ -20,6 +20,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.muses;
 
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.HashMap;
 
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
@@ -27,8 +28,6 @@ import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.NamedAtom;
-import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
-import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
 
 /**
  * This class is responsible for translating between bit set representation and term representation of constraints.
@@ -38,14 +37,14 @@ import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
  */
 public class Translator {
 
-	ScopedHashMap<String, Integer> mNameOfConstraint2Index;
-	ScopedArrayList<NamedAtom> mIndex2AtomOfConstraint;
+	HashMap<String, Integer> mNameOfConstraint2Index;
+	ArrayList<NamedAtom> mIndex2AtomOfConstraint;
 	int mNumberOfConstraints;
 	int mPushPopLevel;
 
 	public Translator() {
-		mNameOfConstraint2Index = new ScopedHashMap<>();
-		mIndex2AtomOfConstraint = new ScopedArrayList<>();
+		mNameOfConstraint2Index = new HashMap<>();
+		mIndex2AtomOfConstraint = new ArrayList<>();
 		mNumberOfConstraints = 0;
 		mPushPopLevel = 0;
 	}
@@ -98,26 +97,6 @@ public class Translator {
 
 	public ArrayList<NamedAtom> getIndex2AtomOfConstraint() {
 		return mIndex2AtomOfConstraint;
-	}
-
-	/**
-	 * Creates a new push/pop level for the declaration of Constraints.
-	 */
-	public void push() {
-		mPushPopLevel++;
-		mNameOfConstraint2Index.beginScope();
-		mIndex2AtomOfConstraint.beginScope();
-	}
-
-	/**
-	 * Makes the translator forget all declarations that have happened since the last push.
-	 */
-	public void pop() {
-		if (mPushPopLevel == 0) {
-			throw new SMTLIBException("You cannot pop levels when there aren't any levels.");
-		}
-		mNameOfConstraint2Index.endScope();
-		mIndex2AtomOfConstraint.endScope();
 	}
 
 	private Term getTerm(final NamedAtom atom) {

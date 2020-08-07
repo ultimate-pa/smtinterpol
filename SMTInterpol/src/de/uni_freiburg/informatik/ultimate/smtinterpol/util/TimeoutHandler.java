@@ -45,6 +45,13 @@ public class TimeoutHandler implements TerminationRequest {
 		return mTimeoutIsSet;
 	}
 
+	public long timeLeft() {
+		if (timeoutIsSet()) {
+			return Long.MAX_VALUE;
+		}
+		return mTimeoutStamp - System.currentTimeMillis();
+	}
+
 	@Override
 	public boolean isTerminationRequested() {
 		if (mStackedTermination != null && mStackedTermination.isTerminationRequested()) {

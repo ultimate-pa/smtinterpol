@@ -20,25 +20,24 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.muses;
 
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
 
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
-import de.uni_freiburg.informatik.ultimate.logic.DataType;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
-import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
-import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.WrapperScript;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.NamedAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.DoubleOption;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.EnumOption;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.option.LongOption;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap.CopyMode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolOptions;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.TerminationRequest;
@@ -79,49 +78,8 @@ public class MusEnumerationScript extends WrapperScript {
 		}
 	}
 
-	private class Operation {
-		String mName;
-		Object mParam1;
-		Object mParam2;
-		Object mParam3;
-		Object mParam4;
-
-		private Operation(final String name, final Object param1, final Object param2, final Object param3,
-				final Object param4) {
-			mName = name;
-			mParam1 = param1;
-			mParam2 = param2;
-			mParam3 = param3;
-			mParam4 = param4;
-		}
-
-		public String getName() {
-			return mName;
-		}
-
-		public Object getParam1() {
-			return mParam1;
-		}
-
-		public Object getParam2() {
-			return mParam2;
-		}
-
-		public Object getParam3() {
-			return mParam3;
-		}
-
-		public Object getParam4() {
-			return mParam4;
-		}
-	}
-
-	UnexploredMap mUnexploredMap;
-	ConstraintAdministrationSolver mSolver;
 	TimeoutHandler mHandler;
 
-	TerminationRequest mTerminationRequest;
-	ScopedArrayList<Operation> mRememberedOperations;
 	ScopedArrayList<Term> mRememberedAssertions;
 	int mCustomNameId;
 	int mCurrentLevel;
@@ -130,16 +88,12 @@ public class MusEnumerationScript extends WrapperScript {
 	DoubleOption mTolerance;
 	Random mRandom;
 
-	public MusEnumerationScript(final Script wrappedScript, final TerminationRequest request) {
+	public MusEnumerationScript(final SMTInterpol wrappedScript, final TerminationRequest request) {
 		super(wrappedScript);
 		mCustomNameId = 0;
 		mCurrentLevel = 0;
-		mTerminationRequest = request;
-		mRememberedOperations = new ScopedArrayList<>();
-		mRandom = null;
-		mHandler = null;
-		mSolver = null;
-		mUnexploredMap = null;
+		mHandler = new TimeoutHandler(request);
+		mRandom = new Random((long) getOption(SMTLIBConstants.RANDOM_SEED));
 
 		mInterpolationHeuristic = new EnumOption<>(HeuristicsType.RANDOM, true, HeuristicsType.class,
 				"The Heuristic that is used to choose a minimal unsatisfiable subset/core for interpolant generation");
@@ -147,7 +101,7 @@ public class MusEnumerationScript extends WrapperScript {
 				"The tolerance value that is used by the SMALLESTAMONGWIDE and the WIDESTAMONGSMALL Heuristic.");
 	}
 
-	public MusEnumerationScript(final Script wrappedScript) {
+	public MusEnumerationScript(final SMTInterpol wrappedScript) {
 		this(wrappedScript, null);
 	}
 
@@ -161,95 +115,67 @@ public class MusEnumerationScript extends WrapperScript {
 		return mScript.getInterpolants(partition, startOfSubtree, proofTree);
 	}
 
+	/**
+	 * Currently sets the timeout for the enumeration and for the selection and creation of the interpolant
+	 * respectively, resulting in double the time of the given timeout, in worst case!
+	 */
 	@Override
 	public Term[] getInterpolants(final Term[] partition, final int[] startOfSubtree) {
-		setUpComponentsForEnumeration();
-		final int nrOfConstraints = mSolver.getNumberOfConstraints();
-		final BitSet workingSet = new BitSet(nrOfConstraints);
-		workingSet.flip(0, nrOfConstraints);
-		final long timeout = ((LongOption) getOption(SMTInterpolOptions.TIMEOUT)).getValue();
-
-		final ReMus remus = new ReMus(mSolver, mUnexploredMap, workingSet, mHandler, timeout);
-		clearComponentsForEnumeration();
-		final ArrayList<MusContainer> muses = remus.enumerate();
-		final MusContainer chosenMus = chooseMusAccordingToHeuristic(muses);
-		return getInterpolants(partition, startOfSubtree, chosenMus.getProof());
-	}
-
-	private void setUpComponentsForEnumeration() {
-		mHandler = new TimeoutHandler(mTerminationRequest);
 		final Translator translator = new Translator();
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), mHandler);
-		final Script scriptForReMus = new SMTInterpol(mHandler);
-		scriptForReMus.setLogic(mScript.getTheory().getLogic());
-		scriptForReMus.setOption(":produce-models", true);
-		scriptForReMus.setOption(":produce-proofs", true);
-		scriptForReMus.setOption(":interactive-mode", true);
-		scriptForReMus.setOption(":produce-unsat-cores", true);
-		for (final Operation op : mRememberedOperations) {
-			switch (op.getName()) {
-			case "annotate":
-				final Term term = (Term) op.getParam1();
-				final Annotation anno = (Annotation) op.getParam2();
-				scriptForReMus.annotate(term, anno);
-				break;
-			case "declareSort":
-				final String sort = (String) op.getParam1();
-				final int arity = (int) op.getParam2();
-				scriptForReMus.declareSort(sort, arity);
-				break;
-			case "defineSort":
-				final String defSortSort = (String) op.getParam1();
-				final Sort[] sortParams = (Sort[]) op.getParam2();
-				final Sort definition = (Sort) op.getParam3();
-				scriptForReMus.defineSort(defSortSort, sortParams, definition);
-				break;
-			case "declareDatatype":
-				final DataType datatype = (DataType) op.getParam1();
-				final DataType.Constructor[] constrs = (DataType.Constructor[]) op.getParam2();
-				scriptForReMus.declareDatatype(datatype, constrs);
-				break;
-			case "declareDatatypes":
-				final DataType[] datatypes = (DataType[]) op.getParam1();
-				final DataType.Constructor[][] declDataTypesConstrs = (DataType.Constructor[][]) op.getParam2();
-				final Sort[][] declDataTypesSortParams = (Sort[][]) op.getParam3();
-				scriptForReMus.declareDatatypes(datatypes, declDataTypesConstrs, declDataTypesSortParams);
-				break;
-			case "declareFun":
-				final String fun = (String) op.getParam1();
-				final Sort[] paramSorts = (Sort[]) op.getParam2();
-				final Sort resultSort = (Sort) op.getParam3();
-				scriptForReMus.declareFun(fun, paramSorts, resultSort);
-				break;
-			case "defineFun":
-				final String defFunFun = (String) op.getParam1();
-				final TermVariable[] params = (TermVariable[]) op.getParam2();
-				final Sort defFunResultSort = (Sort) op.getParam3();
-				final Term defFunDefinition = (Term) op.getParam4();
-				scriptForReMus.defineFun(defFunFun, params, defFunResultSort, defFunDefinition);
-				break;
-			default:
-				throw new SMTLIBException("An unknown Operation has been remembered. A case for it should be added.");
-			}
+		final Map<String, Object> remusOptions = createSMTInterpolOptionsForReMus();
+		final Script scriptForReMus = new SMTInterpol((SMTInterpol) mScript, remusOptions, CopyMode.CURRENT_VALUE);
+
+		scriptForReMus.push(1);
+
+		registerTermsForEnumeration(mRememberedAssertions, translator, engine, scriptForReMus);
+
+		final UnexploredMap unexploredMap = new UnexploredMap(engine, translator);
+		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(scriptForReMus, translator);
+		final int nrOfConstraints = solver.getNumberOfConstraints();
+		final BitSet workingSet = new BitSet(nrOfConstraints);
+		workingSet.flip(0, nrOfConstraints);
+		final long timeout = (long) getOption(SMTInterpolOptions.TIMEOUT);
+
+		final ReMus remus = new ReMus(solver, unexploredMap, workingSet, mHandler, timeout);
+		final ArrayList<MusContainer> muses = remus.enumerate();
+		remus.resetSolver();
+
+		scriptForReMus.pop(1);
+
+		mHandler.setTimeout(timeout/2);
+		final MusContainer chosenMus = chooseMusAccordingToHeuristic(muses, mHandler);
+		if (mHandler.isTerminationRequested()) {
+			setOption(SMTInterpolOptions.TIMEOUT, timeout/2);
+		}else {
+			setOption(SMTInterpolOptions.TIMEOUT, mHandler.timeLeft() + timeout/2);
 		}
-		for (final Term term : mRememberedAssertions) {
-			if (term instanceof AnnotatedTerm) {
-				final AnnotatedTerm annoTerm = (AnnotatedTerm) term;
-				final Annotation[] annotations = annoTerm.getAnnotations();
-				final String name = findName(annotations);
-				if (name == null) {
-					// What to do here? Annotate again with a name?
-				}
-				registerAnnotatedTermForEnumeration(annoTerm, engine, translator);
-			} else {
-				final Annotation name = new Annotation(":named", "constraint" + Integer.toString(mCustomNameId));
-				mCustomNameId++;
-				final AnnotatedTerm annoTerm = (AnnotatedTerm) scriptForReMus.annotate(term, name);
-				registerAnnotatedTermForEnumeration(annoTerm, engine, translator);
+		final Term[] sequenceOfInterpolants = getInterpolants(partition, startOfSubtree, chosenMus.getProof());
+		setOption(SMTInterpolOptions.TIMEOUT, timeout);
+		return sequenceOfInterpolants;
+	}
+
+	private Map<String, Object> createSMTInterpolOptionsForReMus() {
+		final Map<String, Object> remusOptions = new HashMap<>();
+		remusOptions.put(SMTLIBConstants.PRODUCE_MODELS, true);
+		remusOptions.put(SMTLIBConstants.PRODUCE_PROOFS, true);
+		remusOptions.put(SMTLIBConstants.INTERACTIVE_MODE, true);
+		remusOptions.put(SMTLIBConstants.PRODUCE_UNSAT_CORES, true);
+		return remusOptions;
+	}
+
+	private boolean hasName(final Term term) {
+		if (term instanceof AnnotatedTerm) {
+			final AnnotatedTerm annoTerm = (AnnotatedTerm) term;
+			final Annotation[] annotations = annoTerm.getAnnotations();
+			final String name = findName(annotations);
+			if (name == null) {
+				return false;
 			}
+			return true;
+		} else {
+			return false;
 		}
-		mUnexploredMap = new UnexploredMap(engine, translator);
-		mSolver = new ConstraintAdministrationSolver(scriptForReMus, translator);
 	}
 
 	private String findName(final Annotation[] annotations) {
@@ -262,28 +188,44 @@ public class MusEnumerationScript extends WrapperScript {
 		return name;
 	}
 
-	private void registerAnnotatedTermForEnumeration(final AnnotatedTerm term, final DPLLEngine engine,
-			final Translator translator) {
-		// To be fully "registered" this annotated Term must have been created by the script for remus,
-		// but this should have been done earlier.
-		final NamedAtom atom = new NamedAtom(term, mCurrentLevel);
-		atom.setPreferredStatus(atom.getAtom());
-		atom.lockPreferredStatus();
-		engine.addAtom(atom);
-		translator.declareConstraint(atom);
+	private AnnotatedTerm nameTerm(final Term term, final Script script) {
+		final Annotation name = new Annotation(":named", "constraint" + Integer.toString(mCustomNameId));
+		mCustomNameId++;
+		return (AnnotatedTerm) script.annotate(term, name);
 	}
 
-	private void clearComponentsForEnumeration() {
-		mHandler = null;
-		mSolver = null;
-		mUnexploredMap = null;
+	/**
+	 * Declares the given terms to the 3 components in a proper manner, so that the components "know" those terms. For
+	 * the scriptForReMus, this means, it has to "know" all terms in the sense of "All terms are annotated with a name
+	 * and scriptForReMus knows about their annotation". Currently, this means that either scriptForReMus or the script
+	 * it was cloned of, mScript, annotated the term with a name. For the translator this means, that each of the terms
+	 * (necessarily named AnnotatedTerms!) is wrapped in a {@link NamedAtom} and this atom is declared with
+	 * {@link Translator#declareConstraint(NamedAtom)}. For the DPLLEngine, this means that the preferred status of the
+	 * atom is set and locked, and the atom is added with
+	 * {@link DPLLEngine#addAtom(de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom)}.
+	 */
+	private void registerTermsForEnumeration(final ArrayList<Term> terms, final Translator translator,
+			final DPLLEngine engine, final Script scriptForReMus) {
+		AnnotatedTerm annoTerm;
+		for (final Term term : terms) {
+			if (hasName(term)) {
+				annoTerm = (AnnotatedTerm) term;
+			} else {
+				annoTerm = nameTerm(term, scriptForReMus);
+			}
+			final NamedAtom atom = new NamedAtom(annoTerm, mCurrentLevel);
+			atom.setPreferredStatus(atom.getAtom());
+			atom.lockPreferredStatus();
+			engine.addAtom(atom);
+			translator.declareConstraint(atom);
+		}
 	}
 
-	private MusContainer chooseMusAccordingToHeuristic(final ArrayList<MusContainer> muses) {
+	private MusContainer chooseMusAccordingToHeuristic(final ArrayList<MusContainer> muses, final TerminationRequest request) {
 		MusContainer chosenMus;
 		double tolerance;
 		if (mRandom == null) {
-			final long rndSeed = ((LongOption) getOption(SMTLIBConstants.RANDOM_SEED)).getValue();
+			final long rndSeed = (long) getOption(SMTLIBConstants.RANDOM_SEED);
 			mRandom = new Random(rndSeed);
 		}
 		switch (mInterpolationHeuristic.getValue()) {
@@ -291,36 +233,36 @@ public class MusEnumerationScript extends WrapperScript {
 			chosenMus = Heuristics.chooseRandomMus(muses, mRandom);
 			break;
 		case SMALLEST:
-			chosenMus = Heuristics.chooseSmallestMus(muses, mRandom);
+			chosenMus = Heuristics.chooseSmallestMus(muses, mRandom, mHandler);
 			break;
 		case BIGGEST:
-			chosenMus = Heuristics.chooseBiggestMus(muses, mRandom);
+			chosenMus = Heuristics.chooseBiggestMus(muses, mRandom, mHandler);
 			break;
 		case LOWLEXORDER:
-			chosenMus = Heuristics.chooseMusWithLowestLexicographicalOrder(muses, mRandom);
+			chosenMus = Heuristics.chooseMusWithLowestLexicographicalOrder(muses, mRandom, mHandler);
 			break;
 		case HIGHLEXORDER:
-			chosenMus = Heuristics.chooseMusWithHighestLexicographicalOrder(muses, mRandom);
+			chosenMus = Heuristics.chooseMusWithHighestLexicographicalOrder(muses, mRandom, mHandler);
 			break;
 		case SHALLOWEST:
-			chosenMus = Heuristics.chooseShallowestMus(muses, mRandom);
+			chosenMus = Heuristics.chooseShallowestMus(muses, mRandom, mHandler);
 			break;
 		case DEEPEST:
-			chosenMus = Heuristics.chooseDeepestMus(muses, mRandom);
+			chosenMus = Heuristics.chooseDeepestMus(muses, mRandom, mHandler);
 			break;
 		case NARROWEST:
-			chosenMus = Heuristics.chooseNarrowestMus(muses, mRandom);
+			chosenMus = Heuristics.chooseNarrowestMus(muses, mRandom, mHandler);
 			break;
 		case WIDEST:
-			chosenMus = Heuristics.chooseWidestMus(muses, mRandom);
+			chosenMus = Heuristics.chooseWidestMus(muses, mRandom, mHandler);
 			break;
 		case SMALLESTAMONGWIDE:
 			tolerance = (double) mTolerance.get();
-			chosenMus = Heuristics.chooseSmallestAmongWideMuses(muses, tolerance, mRandom);
+			chosenMus = Heuristics.chooseSmallestAmongWideMuses(muses, tolerance, mRandom, mHandler);
 			break;
 		case WIDESTAMONGSMALL:
 			tolerance = (double) mTolerance.get();
-			chosenMus = Heuristics.chooseWidestAmongSmallMuses(muses, tolerance, mRandom);
+			chosenMus = Heuristics.chooseWidestAmongSmallMuses(muses, tolerance, mRandom, mHandler);
 			break;
 		default:
 			throw new SMTLIBException("Unknown Enum for Interpolation heuristic");
@@ -332,7 +274,7 @@ public class MusEnumerationScript extends WrapperScript {
 	public void push(final int levels) throws SMTLIBException {
 		super.push(levels);
 		for (int i = 0; i < levels; i++) {
-			mRememberedOperations.beginScope();
+			mRememberedAssertions.beginScope();
 		}
 		mCurrentLevel = mCurrentLevel + levels;
 	}
@@ -341,7 +283,7 @@ public class MusEnumerationScript extends WrapperScript {
 	public void pop(final int levels) throws SMTLIBException {
 		super.pop(levels);
 		for (int i = 0; i < levels; i++) {
-			mRememberedOperations.endScope();
+			mRememberedAssertions.endScope();
 		}
 		mCurrentLevel = mCurrentLevel - levels;
 	}
@@ -352,6 +294,9 @@ public class MusEnumerationScript extends WrapperScript {
 			mInterpolationHeuristic.set(value);
 		} else if (opt.equals(":tolerance")) {
 			mTolerance.set(value);
+		} else if (opt.equals(SMTLIBConstants.RANDOM_SEED)) {
+			mScript.setOption(opt, value);
+			mRandom = new Random((long) getOption(SMTLIBConstants.RANDOM_SEED));
 		} else {
 			mScript.setOption(opt, value);
 		}
@@ -375,57 +320,14 @@ public class MusEnumerationScript extends WrapperScript {
 	}
 
 	@Override
-	public Term annotate(final Term t, final Annotation... annotations) throws SMTLIBException {
-		mRememberedOperations.add(new Operation("annotate", t, annotations, null, null));
-		return mScript.annotate(t, annotations);
-	}
-
-	@Override
-	public void declareSort(final String sort, final int arity) throws SMTLIBException {
-		mRememberedOperations.add(new Operation("declareSort", sort, arity, null, null));
-		mScript.declareSort(sort, arity);
-	}
-
-	@Override
-	public void defineSort(final String sort, final Sort[] sortParams, final Sort definition) throws SMTLIBException {
-		mRememberedOperations.add(new Operation("defineSort", sort, sortParams, definition, null));
-		mScript.defineSort(sort, sortParams, definition);
-	}
-
-	@Override
-	public void declareDatatype(final DataType datatype, final DataType.Constructor[] constrs) throws SMTLIBException {
-		mRememberedOperations.add(new Operation("declareDatatype", datatype, constrs, null, null));
-		mScript.declareDatatype(datatype, constrs);
-	}
-
-	@Override
-	public void declareDatatypes(final DataType[] datatypes, final DataType.Constructor[][] constrs,
-			final Sort[][] sortParams) throws SMTLIBException {
-		mRememberedOperations.add(new Operation("declareDatatypes", datatypes, constrs, sortParams, null));
-		mScript.declareDatatypes(datatypes, constrs, sortParams);
-	}
-
-	@Override
-	public void declareFun(final String fun, final Sort[] paramSorts, final Sort resultSort) throws SMTLIBException {
-		mRememberedOperations.add(new Operation("declareFun", fun, paramSorts, resultSort, null));
-		mScript.declareFun(fun, paramSorts, resultSort);
-	}
-
-	@Override
-	public void defineFun(final String fun, final TermVariable[] params, final Sort resultSort, final Term definition)
-			throws SMTLIBException {
-		mRememberedOperations.add(new Operation("defineFun", fun, params, resultSort, definition));
-		mScript.defineFun(fun, params, resultSort, definition);
-	}
-
-	@Override
 	public void reset() {
 		mScript.reset();
-		mRememberedOperations.clear();
+		mRememberedAssertions.clear();
 		mCustomNameId = 0;
 		mCurrentLevel = 0;
 		mInterpolationHeuristic.reset();
 		mTolerance.reset();
+		mRandom = new Random((long) getOption(SMTLIBConstants.RANDOM_SEED));
 	}
 
 	@Override

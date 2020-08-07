@@ -24,6 +24,7 @@ import java.util.Random;
 import java.util.function.BiFunction;
 
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.TerminationRequest;
 
 /**
  * This class provides several heuristics for choosing MUSes or groups of MUSes for Interpolant generation.
@@ -55,156 +56,183 @@ public class Heuristics {
 	/**
 	 * Chooses the the smallest Mus (in terms of cardinality) from the given ArrayList and returns its MusContainer. In
 	 * case there are multiple such muses, this algorithm randomly chooses one of them. Returns null if the given list
-	 * is empty.
+	 * is empty. If termination is requested, this heuristic returns one of the best muses found until this point.
 	 */
-	public static MusContainer chooseSmallestMus(final ArrayList<MusContainer> muses, final Random rnd) {
+	public static MusContainer chooseSmallestMus(final ArrayList<MusContainer> muses, final Random rnd,
+			final TerminationRequest request) {
 		if (muses.isEmpty()) {
 			return null;
 		}
-		return chooseRandomMus(findBestMusesAccordingToGivenCriterion(muses, Heuristics::compareWhichMusIsSmaller),
-				rnd);
+		return chooseRandomMus(
+				findBestMusesAccordingToGivenCriterion(muses, Heuristics::compareWhichMusIsSmaller, request), rnd);
 	}
 
 	/**
 	 * Chooses the biggest Mus (in terms of cardinality) from the given ArrayList and returns its MusContainer. In case
 	 * there are multiple such muses, this algorithm randomly chooses one of them. Returns null if the given list is
-	 * empty.
+	 * empty. If termination is requested, this heuristic returns one of the best muses found until this point.
 	 */
-	public static MusContainer chooseBiggestMus(final ArrayList<MusContainer> muses, final Random rnd) {
+	public static MusContainer chooseBiggestMus(final ArrayList<MusContainer> muses, final Random rnd,
+			final TerminationRequest request) {
 		if (muses.isEmpty()) {
 			return null;
 		}
-		return chooseRandomMus(findBestMusesAccordingToGivenCriterion(muses, Heuristics::compareWhichMusIsBigger), rnd);
+		return chooseRandomMus(
+				findBestMusesAccordingToGivenCriterion(muses, Heuristics::compareWhichMusIsBigger, request), rnd);
 	}
 
 	/**
 	 * Chooses the Mus with the lowest Lexicographical order (in terms of indices of the contained constraints) from the
-	 * given ArrayList and returns its MusContainer. Returns null if List is empty.
+	 * given ArrayList and returns its MusContainer. Returns null if List is empty. If termination is requested, this
+	 * heuristic returns one of the best muses found until this point.
 	 */
 	public static MusContainer chooseMusWithLowestLexicographicalOrder(final ArrayList<MusContainer> muses,
-			final Random rnd) {
+			final Random rnd, final TerminationRequest request) {
 		if (muses.isEmpty()) {
 			return null;
 		}
-		return chooseRandomMus(
-				findBestMusesAccordingToGivenCriterion(muses, Heuristics::compareWhichMusHasLowerLexicographicalOrder),
-				rnd);
+		return chooseRandomMus(findBestMusesAccordingToGivenCriterion(muses,
+				Heuristics::compareWhichMusHasLowerLexicographicalOrder, request), rnd);
 	}
 
 	/**
 	 * Chooses the Mus with the highest Lexicographical order (in terms of indices of the contained constraints) from
-	 * the given ArrayList and returns its MusContainer. Returns null if the given list is empty.
+	 * the given ArrayList and returns its MusContainer. Returns null if the given list is empty. If termination is
+	 * requested, this heuristic returns one of the best muses found until this point.
 	 */
 	public static MusContainer chooseMusWithHighestLexicographicalOrder(final ArrayList<MusContainer> muses,
-			final Random rnd) {
+			final Random rnd, final TerminationRequest request) {
 		if (muses.isEmpty()) {
 			return null;
 		}
-		return chooseRandomMus(
-				findBestMusesAccordingToGivenCriterion(muses, Heuristics::compareWhichMusHasHigherLexicographicalOrder),
-				rnd);
+		return chooseRandomMus(findBestMusesAccordingToGivenCriterion(muses,
+				Heuristics::compareWhichMusHasHigherLexicographicalOrder, request), rnd);
 	}
 
 	/**
 	 * Chooses the shallowest Mus of the given ArrayList and returns its MusContainer. In case there are multiple such
 	 * muses, this algorithm randomly chooses one of them. Shallow here means, that the first constraint of the mus has
-	 * a low index. Returns null if the given list is empty.
+	 * a low index. Returns null if the given list is empty. If termination is requested, this heuristic returns one of
+	 * the best muses found until this point.
 	 */
-	public static MusContainer chooseShallowestMus(final ArrayList<MusContainer> muses, final Random rnd) {
+	public static MusContainer chooseShallowestMus(final ArrayList<MusContainer> muses, final Random rnd,
+			final TerminationRequest request) {
 		if (muses.isEmpty()) {
 			return null;
 		}
-		return chooseRandomMus(findBestMusesAccordingToGivenCriterion(muses, Heuristics::compareWhichMusIsShallowerMus),
-				rnd);
+		return chooseRandomMus(
+				findBestMusesAccordingToGivenCriterion(muses, Heuristics::compareWhichMusIsShallowerMus, request), rnd);
 	}
 
 	/**
 	 * Chooses the deepest Mus of the given ArrayList and returns its MusContainer. In case there are multiple such
 	 * muses, this algorithm randomly chooses one of them. Deep here means, that the first constraint of the mus has a
-	 * high index. Returns null if the given list is empty.
+	 * high index. Returns null if the given list is empty. If termination is requested, this heuristic returns one of
+	 * the best muses found until this point.
 	 */
-	public static MusContainer chooseDeepestMus(final ArrayList<MusContainer> muses, final Random rnd) {
+	public static MusContainer chooseDeepestMus(final ArrayList<MusContainer> muses, final Random rnd,
+			final TerminationRequest request) {
 		if (muses.isEmpty()) {
 			return null;
 		}
-		return chooseRandomMus(findBestMusesAccordingToGivenCriterion(muses, Heuristics::compareWhichMusIsDeeperMus),
-				rnd);
+		return chooseRandomMus(
+				findBestMusesAccordingToGivenCriterion(muses, Heuristics::compareWhichMusIsDeeperMus, request), rnd);
 	}
 
 	/**
 	 * Chooses the narrowest Mus of the given ArrayList and returns its MusContainer. In case there are multiple such
 	 * muses, this algorithm randomly chooses one of them. Narrow here means, that the difference between the highest
 	 * index of a constraint in the mus and the lowest index of a constraint in the mus is small. Returns null if the
-	 * given list is empty.
+	 * given list is empty. If termination is requested, this heuristic returns one of the best muses found until this
+	 * point.
 	 */
-	public static MusContainer chooseNarrowestMus(final ArrayList<MusContainer> muses, final Random rnd) {
+	public static MusContainer chooseNarrowestMus(final ArrayList<MusContainer> muses, final Random rnd,
+			final TerminationRequest request) {
 		if (muses.isEmpty()) {
 			return null;
 		}
-		return chooseRandomMus(findBestMusesAccordingToGivenCriterion(muses, Heuristics::compareWhichMusIsNarrowerMus),
-				rnd);
+		return chooseRandomMus(
+				findBestMusesAccordingToGivenCriterion(muses, Heuristics::compareWhichMusIsNarrowerMus, request), rnd);
 	}
 
 	/**
 	 * Chooses the widest Mus of the given ArrayList and returns its MusContainer. In case there are multiple such
 	 * muses, this algorithm randomly chooses one of them. Wide here means, that the difference between the highest
 	 * index of a constraint in the mus and the lowest index of a constraint in the mus is big. Returns null if the
-	 * given list is empty.
+	 * given list is empty. If termination is requested, this heuristic returns one of the best muses found until this
+	 * point.
 	 */
-	public static MusContainer chooseWidestMus(final ArrayList<MusContainer> muses, final Random rnd) {
+	public static MusContainer chooseWidestMus(final ArrayList<MusContainer> muses, final Random rnd,
+			final TerminationRequest request) {
 		if (muses.isEmpty()) {
 			return null;
 		}
-		return chooseRandomMus(findBestMusesAccordingToGivenCriterion(muses, Heuristics::compareWhichMusIsWiderMus),
-				rnd);
+		return chooseRandomMus(
+				findBestMusesAccordingToGivenCriterion(muses, Heuristics::compareWhichMusIsWiderMus, request), rnd);
 	}
 
 	/**
 	 * First selects the wide Muses of the given ArrayList. Tolerance specifies which muses count as "wide" - to be
 	 * precise a mus counts as wide when widthOf(mus) >= (1-tolerance)*maximumWidthOfMuses(muses). Afterwards, the
 	 * smallest Mus amongst the widest muses is returned. In case there are multiple such muses, this algorithm randomly
-	 * chooses one of them. Returns null if the given list is empty.
+	 * chooses one of them. Returns null if the given list is empty. If termination is requested, this heuristic returns
+	 * one of the best muses found until this point.
 	 */
 	public static MusContainer chooseSmallestAmongWideMuses(final ArrayList<MusContainer> muses, final double tolerance,
-			final Random rnd) {
+			final Random rnd, final TerminationRequest request) {
 		if (muses.isEmpty()) {
 			return null;
 		}
 		final ArrayList<MusContainer> widestMuses = new ArrayList<>();
-		final MusContainer widestMus = chooseWidestMus(muses, rnd);
+		final MusContainer widestMus = chooseWidestMus(muses, rnd, request);
 		final int maximalOccurringWidth = widestMus.getMus().length() - widestMus.getMus().nextSetBit(0);
 		int currentWidth;
-		for (final MusContainer container : muses) {
+		if (request.isTerminationRequested()) {
+			return widestMus;
+		}
+		int i = 0;
+		MusContainer container;
+		while (i < muses.size() && !request.isTerminationRequested()) {
+			container = muses.get(i);
 			currentWidth = container.getMus().length() - container.getMus().nextSetBit(0);
 			if (currentWidth >= (1 - tolerance) * maximalOccurringWidth) {
 				widestMuses.add(container);
 			}
+			i++;
 		}
-		return chooseSmallestMus(widestMuses, rnd);
+		return chooseSmallestMus(widestMuses, rnd, request);
 	}
 
 	/**
-	 * First selects the small Muses of the given ArrayList. Tolerance specifies which muses count as "small" - to
-	 * be precise a mus counts as small when sizeOf(mus) <= (1+tolerance)*minimumSizeOfMuses(muses). Afterwards, the
-	 * widest Mus amongst the small muses is returned. In case there are multiple such muses, this algorithm randomly
-	 * chooses one of them. Returns null if the given list is empty.
+	 * First selects the small Muses of the given ArrayList. Tolerance specifies which muses count as "small" - to be
+	 * precise a mus counts as small when sizeOf(mus) <= (1+tolerance)*minimumSizeOfMuses(muses). Afterwards, the widest
+	 * Mus amongst the small muses is returned. In case there are multiple such muses, this algorithm randomly chooses
+	 * one of them. Returns null if the given list is empty. If termination is requested, this heuristic returns one of
+	 * the best muses found until this point.
 	 */
 	public static MusContainer chooseWidestAmongSmallMuses(final ArrayList<MusContainer> muses, final double tolerance,
-			final Random rnd) {
+			final Random rnd, final TerminationRequest request) {
 		if (muses.isEmpty()) {
 			return null;
 		}
 		final ArrayList<MusContainer> smallestMuses = new ArrayList<>();
-		final MusContainer smallestMus = chooseSmallestMus(muses, rnd);
+		final MusContainer smallestMus = chooseSmallestMus(muses, rnd, request);
 		final int minimalOccurringSize = smallestMus.getMus().cardinality();
 		int currentSize;
-		for (final MusContainer container : muses) {
+		if (request.isTerminationRequested()) {
+			return smallestMus;
+		}
+		int i = 0;
+		MusContainer container;
+		while (i < muses.size() && !request.isTerminationRequested()) {
+			container = muses.get(i);
 			currentSize = container.getMus().cardinality();
 			if (currentSize <= (1 + tolerance) * minimalOccurringSize) {
 				smallestMuses.add(container);
 			}
+			i++;
 		}
-		return chooseWidestMus(smallestMuses, rnd);
+		return chooseWidestMus(smallestMuses, rnd, request);
 	}
 
 	/**
@@ -216,24 +244,25 @@ public class Heuristics {
 
 	/**
 	 * This returns the most extreme muses in terms of the other heuristics in this class that return a single mus.
+	 * Random and the TerminationRequest are just passed to the individual heuristics.
 	 */
 	public static ArrayList<MusContainer> chooseMostDifferentMusesWithRespectToOtherHeuristics(
-			final ArrayList<MusContainer> muses, final Random rnd) {
+			final ArrayList<MusContainer> muses, final Random rnd, final TerminationRequest request) {
 		if (muses.isEmpty()) {
 			return new ArrayList<>();
 		}
 		final ArrayList<MusContainer> mostExtremeMuses = new ArrayList<>();
 		// ignore Random
-		mostExtremeMuses.add(chooseSmallestMus(muses, rnd));
-		mostExtremeMuses.add(chooseBiggestMus(muses, rnd));
-		mostExtremeMuses.add(chooseMusWithLowestLexicographicalOrder(muses, rnd));
-		mostExtremeMuses.add(chooseMusWithHighestLexicographicalOrder(muses, rnd));
-		mostExtremeMuses.add(chooseShallowestMus(muses, rnd));
-		mostExtremeMuses.add(chooseDeepestMus(muses, rnd));
-		mostExtremeMuses.add(chooseNarrowestMus(muses, rnd));
-		mostExtremeMuses.add(chooseWidestMus(muses, rnd));
-		mostExtremeMuses.add(chooseSmallestAmongWideMuses(muses, 0.9, rnd));
-		mostExtremeMuses.add(chooseWidestAmongSmallMuses(muses, 0.9, rnd));
+		mostExtremeMuses.add(chooseSmallestMus(muses, rnd, request));
+		mostExtremeMuses.add(chooseBiggestMus(muses, rnd, request));
+		mostExtremeMuses.add(chooseMusWithLowestLexicographicalOrder(muses, rnd, request));
+		mostExtremeMuses.add(chooseMusWithHighestLexicographicalOrder(muses, rnd, request));
+		mostExtremeMuses.add(chooseShallowestMus(muses, rnd, request));
+		mostExtremeMuses.add(chooseDeepestMus(muses, rnd, request));
+		mostExtremeMuses.add(chooseNarrowestMus(muses, rnd, request));
+		mostExtremeMuses.add(chooseWidestMus(muses, rnd, request));
+		mostExtremeMuses.add(chooseSmallestAmongWideMuses(muses, 0.9, rnd, request));
+		mostExtremeMuses.add(chooseWidestAmongSmallMuses(muses, 0.9, rnd, request));
 		return mostExtremeMuses;
 	}
 
@@ -243,10 +272,11 @@ public class Heuristics {
 	 * executed until the given size is reached. The loop finds the mus which maximizes the minimum number of different
 	 * statements {@link #numberOfDifferentStatements(MusContainer, MusContainer)} between itself and the muses that
 	 * have already been chosen to be in the list that will be returned. Note that the returned list will not contain
-	 * duplicates, hence it could be smaller than the given size.
+	 * duplicates, hence it could be smaller than the given size. If termination is requested, this heuristic returns
+	 * one of the best muses found until this point.
 	 */
 	public static ArrayList<MusContainer> chooseDifferentMusesWithRespectToStatements(
-			final ArrayList<MusContainer> muses, final int size, final Random rnd) {
+			final ArrayList<MusContainer> muses, final int size, final Random rnd, final TerminationRequest request) {
 		if (muses.isEmpty() || size == 0) {
 			return new ArrayList<>();
 		}
@@ -255,7 +285,8 @@ public class Heuristics {
 		differentMuses.add(muses.get(rnd.nextInt(muses.size())));
 		int maxMinDifference;
 		int currentMinDifference;
-		for (int i = 1; i < size; i++) {
+		int i = 1;
+		while (i < size && !request.isTerminationRequested()) {
 			maxMinDifference = Integer.MIN_VALUE;
 			for (final MusContainer contender : muses) {
 				currentMinDifference = findMinimumNumberOfDifferentStatements(contender, differentMuses);
@@ -272,6 +303,7 @@ public class Heuristics {
 				break;
 			}
 			differentMuses.add(chooseRandomMus(maxMinDifferenceMuses, rnd));
+			i++;
 		}
 		return differentMuses;
 	}
@@ -391,13 +423,15 @@ public class Heuristics {
 	}
 
 	private static ArrayList<MusContainer> findBestMusesAccordingToGivenCriterion(final ArrayList<MusContainer> muses,
-			final BiFunction<MusContainer, MusContainer, ResultOfComparison> criterion) {
+			final BiFunction<MusContainer, MusContainer, ResultOfComparison> criterion,
+			final TerminationRequest request) {
 		final ArrayList<MusContainer> bestMuses = new ArrayList<>();
 		MusContainer oneOfTheBestMuses = muses.get(0);
 		bestMuses.add(oneOfTheBestMuses);
 		MusContainer contender;
 		ResultOfComparison result;
-		for (int i = 1; i < muses.size(); i++) {
+		int i = 1;
+		while (i < muses.size() && !request.isTerminationRequested()) {
 			contender = muses.get(i);
 			result = criterion.apply(oneOfTheBestMuses, contender);
 			if (result == ResultOfComparison.MUS2) {
@@ -407,6 +441,7 @@ public class Heuristics {
 			} else if (result == ResultOfComparison.EQUAL) {
 				bestMuses.add(contender);
 			}
+			i++;
 		}
 		return bestMuses;
 	}

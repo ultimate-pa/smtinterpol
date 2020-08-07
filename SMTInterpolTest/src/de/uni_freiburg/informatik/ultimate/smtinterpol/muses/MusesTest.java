@@ -28,6 +28,7 @@ import org.junit.Test;
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
+import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
@@ -50,20 +51,20 @@ public class MusesTest {
 
 	private Script setupScript(final Logics logic) {
 		final Script script = new SMTInterpol();
-		script.setOption(":produce-models", true);
-		script.setOption(":produce-proofs", true);
-		script.setOption(":interactive-mode", true);
-		script.setOption(":produce-unsat-cores", true);
+		script.setOption(SMTLIBConstants.PRODUCE_MODELS, true);
+		script.setOption(SMTLIBConstants.PRODUCE_PROOFS, true);
+		script.setOption(SMTLIBConstants.INTERACTIVE_MODE, true);
+		script.setOption(SMTLIBConstants.PRODUCE_UNSAT_CORES, true);
 		script.setLogic(logic);
 		return script;
 	}
 
 	private Script setupScript(final Logics logic, final TerminationRequest request) {
 		final Script script = new SMTInterpol(request);
-		script.setOption(":produce-models", true);
-		script.setOption(":produce-proofs", true);
-		script.setOption(":interactive-mode", true);
-		script.setOption(":produce-unsat-cores", true);
+		script.setOption(SMTLIBConstants.PRODUCE_MODELS, true);
+		script.setOption(SMTLIBConstants.PRODUCE_PROOFS, true);
+		script.setOption(SMTLIBConstants.INTERACTIVE_MODE, true);
+		script.setOption(SMTLIBConstants.PRODUCE_UNSAT_CORES, true);
 		script.setLogic(logic);
 		return script;
 	}
@@ -769,7 +770,7 @@ public class MusesTest {
 		solver.popRecLevel();
 
 		final Random rnd = new Random(1337);
-		Assert.assertTrue(Heuristics.chooseSmallestMus(muses, rnd).getMus().cardinality() == 2);
+		Assert.assertTrue(Heuristics.chooseSmallestMus(muses, rnd, handler).getMus().cardinality() == 2);
 	}
 
 	@Test
@@ -790,7 +791,7 @@ public class MusesTest {
 		solver.popRecLevel();
 
 		final Random rnd = new Random(1337);
-		Assert.assertTrue(Heuristics.chooseBiggestMus(muses, rnd).getMus().cardinality() == 3);
+		Assert.assertTrue(Heuristics.chooseBiggestMus(muses, rnd, handler).getMus().cardinality() == 3);
 	}
 
 	@Test
@@ -811,7 +812,7 @@ public class MusesTest {
 		solver.popRecLevel();
 
 		final Random rnd = new Random(1337);
-		final BitSet lowLexMus = Heuristics.chooseMusWithLowestLexicographicalOrder(muses, rnd).getMus();
+		final BitSet lowLexMus = Heuristics.chooseMusWithLowestLexicographicalOrder(muses, rnd, handler).getMus();
 		for (int i = lowLexMus.nextSetBit(0); i >= 0; i = lowLexMus.nextSetBit(i + 1)) {
 			Assert.assertTrue(i == 0 || i == 2 || i == 5);
 		}
@@ -835,7 +836,7 @@ public class MusesTest {
 		solver.popRecLevel();
 
 		final Random rnd = new Random(1337);
-		final BitSet highLexMus = Heuristics.chooseMusWithHighestLexicographicalOrder(muses, rnd).getMus();
+		final BitSet highLexMus = Heuristics.chooseMusWithHighestLexicographicalOrder(muses, rnd, handler).getMus();
 		for (int i = highLexMus.nextSetBit(0); i >= 0; i = highLexMus.nextSetBit(i + 1)) {
 			Assert.assertTrue(i == 8 || i == 9);
 		}
@@ -859,7 +860,7 @@ public class MusesTest {
 		solver.popRecLevel();
 
 		final Random rnd = new Random(1337);
-		final BitSet shallowestMus = Heuristics.chooseShallowestMus(muses, rnd).getMus();
+		final BitSet shallowestMus = Heuristics.chooseShallowestMus(muses, rnd, handler).getMus();
 		Assert.assertTrue(shallowestMus.get(0));
 	}
 
@@ -881,7 +882,7 @@ public class MusesTest {
 		solver.popRecLevel();
 
 		final Random rnd = new Random(1337);
-		final BitSet deepestMus = Heuristics.chooseDeepestMus(muses, rnd).getMus();
+		final BitSet deepestMus = Heuristics.chooseDeepestMus(muses, rnd, handler).getMus();
 		Assert.assertTrue(deepestMus.get(8));
 	}
 
@@ -903,7 +904,7 @@ public class MusesTest {
 		solver.popRecLevel();
 
 		final Random rnd = new Random(1337);
-		final BitSet narrowestMus = Heuristics.chooseNarrowestMus(muses, rnd).getMus();
+		final BitSet narrowestMus = Heuristics.chooseNarrowestMus(muses, rnd, handler).getMus();
 		final int width = narrowestMus.length() - narrowestMus.nextSetBit(0);
 		Assert.assertTrue(width == 2);
 	}
@@ -926,7 +927,7 @@ public class MusesTest {
 		solver.popRecLevel();
 
 		final Random rnd = new Random(1337);
-		final BitSet widestMus = Heuristics.chooseWidestMus(muses, rnd).getMus();
+		final BitSet widestMus = Heuristics.chooseWidestMus(muses, rnd, handler).getMus();
 		final int width = widestMus.length() - widestMus.nextSetBit(0);
 		Assert.assertTrue(width == 10);
 	}
@@ -950,7 +951,7 @@ public class MusesTest {
 		solver.pushRecLevel();
 
 		final Random rnd = new Random(1337);
-		final BitSet smallestAmongWidestMus = Heuristics.chooseSmallestAmongWideMuses(muses, 0.1, rnd).getMus();
+		final BitSet smallestAmongWidestMus = Heuristics.chooseSmallestAmongWideMuses(muses, 0.1, rnd, handler).getMus();
 		final int width = smallestAmongWidestMus.length() - smallestAmongWidestMus.nextSetBit(0);
 		Assert.assertTrue(width == 9);
 		Assert.assertTrue(smallestAmongWidestMus.cardinality() == 2);
@@ -975,7 +976,7 @@ public class MusesTest {
 		solver.pushRecLevel();
 
 		final Random rnd = new Random(1337);
-		final BitSet smallestAmongWidestMus = Heuristics.chooseSmallestAmongWideMuses(muses, 0, rnd).getMus();
+		final BitSet smallestAmongWidestMus = Heuristics.chooseSmallestAmongWideMuses(muses, 0, rnd, handler).getMus();
 		final int width = smallestAmongWidestMus.length() - smallestAmongWidestMus.nextSetBit(0);
 		Assert.assertTrue(width == 10);
 		Assert.assertTrue(smallestAmongWidestMus.cardinality() == 3);
@@ -1000,7 +1001,7 @@ public class MusesTest {
 		solver.popRecLevel();
 
 		final Random rnd = new Random(1337);
-		final BitSet widestAmongSmallestMus = Heuristics.chooseWidestAmongSmallMuses(muses, 0.5, rnd).getMus();
+		final BitSet widestAmongSmallestMus = Heuristics.chooseWidestAmongSmallMuses(muses, 0.5, rnd, handler).getMus();
 		final int width = widestAmongSmallestMus.length() - widestAmongSmallestMus.nextSetBit(0);
 		Assert.assertTrue(width == 10);
 		Assert.assertTrue(widestAmongSmallestMus.cardinality() == 3);
@@ -1025,7 +1026,7 @@ public class MusesTest {
 		solver.popRecLevel();
 
 		final Random rnd = new Random(1337);
-		final BitSet widestAmongSmallestMus = Heuristics.chooseWidestAmongSmallMuses(muses, 0.4, rnd).getMus();
+		final BitSet widestAmongSmallestMus = Heuristics.chooseWidestAmongSmallMuses(muses, 0.4, rnd, handler).getMus();
 		final int width = widestAmongSmallestMus.length() - widestAmongSmallestMus.nextSetBit(0);
 		Assert.assertTrue(width == 9);
 		Assert.assertTrue(widestAmongSmallestMus.cardinality() == 2);
@@ -1080,7 +1081,7 @@ public class MusesTest {
 
 		final Random rnd = new Random(1337);
 		final ArrayList<MusContainer> differentMuses =
-				Heuristics.chooseDifferentMusesWithRespectToStatements(muses, 13, rnd);
+				Heuristics.chooseDifferentMusesWithRespectToStatements(muses, 13, rnd, handler);
 		int maxDifference = Integer.MIN_VALUE;
 		int minDifference = Integer.MAX_VALUE;
 		int currentDifference;
@@ -1121,7 +1122,7 @@ public class MusesTest {
 
 		final Random rnd = new Random(1337);
 		final ArrayList<MusContainer> differentMuses =
-				Heuristics.chooseDifferentMusesWithRespectToStatements(muses, 3, rnd);
+				Heuristics.chooseDifferentMusesWithRespectToStatements(muses, 3, rnd, handler);
 		int maxDifference = Integer.MIN_VALUE;
 		int minDifference = Integer.MAX_VALUE;
 		int currentDifference;
