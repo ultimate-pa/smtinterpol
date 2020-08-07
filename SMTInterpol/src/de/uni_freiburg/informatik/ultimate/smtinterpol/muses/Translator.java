@@ -39,13 +39,11 @@ public class Translator {
 
 	HashMap<String, Integer> mNameOfConstraint2Index;
 	ArrayList<NamedAtom> mIndex2AtomOfConstraint;
-	int mNumberOfConstraints;
 	int mPushPopLevel;
 
 	public Translator() {
 		mNameOfConstraint2Index = new HashMap<>();
 		mIndex2AtomOfConstraint = new ArrayList<>();
-		mNumberOfConstraints = 0;
 		mPushPopLevel = 0;
 	}
 
@@ -59,9 +57,9 @@ public class Translator {
 		if (mNameOfConstraint2Index.containsKey(name)) {
 			throw new SMTLIBException("This name does already exist.");
 		}
-		mNameOfConstraint2Index.put(name, mNumberOfConstraints);
+		final int numberOfConstraints = mIndex2AtomOfConstraint.size();
+		mNameOfConstraint2Index.put(name, numberOfConstraints);
 		mIndex2AtomOfConstraint.add(atom);
-		mNumberOfConstraints++;
 	}
 
 	public Term translate2Constraint(final int index) {
@@ -84,7 +82,7 @@ public class Translator {
 	 * Translates the arrays of Terms that are returned by the script to the corresponding BitSet.
 	 */
 	public BitSet translateToBitSet(final Term[] constraints) {
-		final BitSet constraintsAsBits = new BitSet(mNumberOfConstraints);
+		final BitSet constraintsAsBits = new BitSet(getNumberOfConstraints());
 		for (int i = 0; i < constraints.length; i++) {
 			constraintsAsBits.set(translate2Index(constraints[i]));
 		}
@@ -92,7 +90,7 @@ public class Translator {
 	}
 
 	public int getNumberOfConstraints() {
-		return mNumberOfConstraints;
+		return  mIndex2AtomOfConstraint.size();
 	}
 
 	public ArrayList<NamedAtom> getIndex2AtomOfConstraint() {
