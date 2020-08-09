@@ -290,9 +290,9 @@ public class MusEnumerationScript extends WrapperScript {
 
 	@Override
 	public void setOption(final String opt, final Object value) throws UnsupportedOperationException, SMTLIBException {
-		if (opt.equals(":interpolation-heuristic")) {
+		if (opt.equals(MusOptions.INTERPOLATION_HEURISTIC)) {
 			mInterpolationHeuristic.set(value);
-		} else if (opt.equals(":tolerance")) {
+		} else if (opt.equals(MusOptions.TOLERANCE)) {
 			mTolerance.set(value);
 		} else if (opt.equals(SMTLIBConstants.RANDOM_SEED)) {
 			mScript.setOption(opt, value);
@@ -304,9 +304,9 @@ public class MusEnumerationScript extends WrapperScript {
 
 	@Override
 	public Object getOption(final String opt) throws UnsupportedOperationException {
-		if (opt.equals(":interpolation-heuristic")) {
+		if (opt.equals(MusOptions.INTERPOLATION_HEURISTIC)) {
 			return mInterpolationHeuristic.get();
-		} else if (opt.equals(":tolerance")) {
+		} else if (opt.equals(MusOptions.TOLERANCE)) {
 			return mTolerance.get();
 		} else {
 			return mScript.getOption(opt);
