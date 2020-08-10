@@ -18,6 +18,7 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.muses;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.HashMap;
@@ -83,6 +84,7 @@ public class MusEnumerationScript extends WrapperScript {
 	ScopedArrayList<Term> mRememberedAssertions;
 	int mCustomNameId;
 	int mCurrentLevel;
+	boolean mAssertedTermsAreUnsat;
 
 	EnumOption<HeuristicsType> mInterpolationHeuristic;
 	DoubleOption mTolerance;
@@ -92,13 +94,23 @@ public class MusEnumerationScript extends WrapperScript {
 		super(wrappedScript);
 		mCustomNameId = 0;
 		mCurrentLevel = 0;
+		mAssertedTermsAreUnsat = false;
 		mHandler = new TimeoutHandler(request);
-		mRandom = new Random((long) getOption(SMTLIBConstants.RANDOM_SEED));
+		mRandom = new Random(getRandomSeed());
+		mRememberedAssertions = new ScopedArrayList<>();
 
 		mInterpolationHeuristic = new EnumOption<>(HeuristicsType.RANDOM, true, HeuristicsType.class,
 				"The Heuristic that is used to choose a minimal unsatisfiable subset/core for interpolant generation");
 		mTolerance = new DoubleOption(0.9, true,
 				"The tolerance value that is used by the SMALLESTAMONGWIDE and the WIDESTAMONGSMALL Heuristic.");
+	}
+
+	private long getRandomSeed() {
+		return ((BigInteger) getOption(SMTLIBConstants.RANDOM_SEED)).longValue();
+	}
+
+	private long getTimeout() {
+		return ((BigInteger) getOption(SMTInterpolOptions.TIMEOUT)).longValue();
 	}
 
 	public MusEnumerationScript(final SMTInterpol wrappedScript) {
@@ -116,15 +128,95 @@ public class MusEnumerationScript extends WrapperScript {
 	}
 
 	/**
-	 * Currently sets the timeout for the enumeration and for the selection and creation of the interpolant
-	 * respectively, resulting in double the time of the given timeout, in worst case!
+	 * Currently splits the timeout into 1/2 timeout for ReMus, 1/4 timeout for applying the heuristic, 1/4 generating
+	 * the interpolant.
 	 */
 	@Override
 	public Term[] getInterpolants(final Term[] partition, final int[] startOfSubtree) {
+		final long timeout = getTimeout();
+
+		final long timeoutForReMus = timeout / 2;
+		mHandler.setTimeout(timeoutForReMus);
+		final ArrayList<MusContainer> muses = executeReMus(mHandler);
+
+		final long timeoutForHeuristic;
+		if (mHandler.timeLeft() <= 0) {
+			timeoutForHeuristic = timeout / 4;
+		} else {
+			timeoutForHeuristic = timeout / 4 + mHandler.timeLeft();
+		}
+
+		mHandler.setTimeout(timeoutForHeuristic);
+		final MusContainer chosenMus = chooseMusAccordingToHeuristic(muses, mHandler);
+
+		if (mHandler.timeLeft() <= 0) {
+			setOption(SMTInterpolOptions.TIMEOUT, timeout / 4);
+		} else {
+			setOption(SMTInterpolOptions.TIMEOUT, timeout / 4 + mHandler.timeLeft());
+		}
+		mHandler.clearTimeout();
+		final Term[] sequenceOfInterpolants = getInterpolants(partition, startOfSubtree, chosenMus.getProof());
+		setOption(SMTInterpolOptions.TIMEOUT, timeout);
+		return sequenceOfInterpolants;
+	}
+
+	/**
+	 * First, uses the ReMUS algorithm to enumerate MUSes of the set of asserted Terms (max. 3/4 of the timeout). Then,
+	 * it searches for the best MUS according to the chosen heuristic (max 1/4 of the timeout). If the first timeout is
+	 * exceeded, the enumeration stops and the heuristic is applied to the MUSes found so far. If the second timeout is
+	 * exceeded, the best MUS that has been found so far is returned. If ReMUS could not find any MUS in the given time,
+	 * an arbitrary unsat core (i.e., the unsat core from the wrapped script) is returned, which is not necessarily
+	 * minimal wrt. satisfiability.
+	 */
+	@Override
+	public Term[] getUnsatCore() {
+		if (!mAssertedTermsAreUnsat) {
+			throw new SMTLIBException(
+					"Asserted Terms must be determined Unsat to return an unsat core. Call checkSat to determine satisfiability.");
+		} else if (!((boolean) getOption(SMTLIBConstants.PRODUCE_UNSAT_CORES))) {
+			throw new SMTLIBException("Unsat core production must be enabled.");
+		}
+
 		final Translator translator = new Translator();
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), mHandler);
+		final long timeout = getTimeout();
+		final long timeoutForReMus = 3 * timeout / 4;
+
+		mHandler.setTimeout(timeoutForReMus);
+		final ArrayList<MusContainer> muses = executeReMus(translator, mHandler);
+
+		final long timeoutForHeuristic;
+		if (mHandler.timeLeft() <= 0) {
+			timeoutForHeuristic = timeout / 4;
+		} else {
+			timeoutForHeuristic = timeout / 4 + mHandler.timeLeft();
+		}
+
+		mHandler.setTimeout(timeoutForHeuristic);
+		final MusContainer chosenMus = chooseMusAccordingToHeuristic(muses, mHandler);
+		mHandler.clearTimeout();
+		setOption(SMTInterpolOptions.TIMEOUT, timeout);
+
+		return translator.translateToTerms(chosenMus.getMus());
+	}
+
+	/**
+	 * Executes the ReMus algorithm on the currently asserted Terms, with the given TerminationRequest. If termination
+	 * is requested, all MUSes that have been found so far are returned.
+	 */
+	private ArrayList<MusContainer> executeReMus(final TerminationRequest request) {
+		final Translator translator = new Translator();
+		return executeReMus(translator, request);
+	}
+
+	private ArrayList<MusContainer> executeReMus(final Translator translator, final TerminationRequest request) {
+		if (translator.getNumberOfConstraints() != 0) {
+			throw new SMTLIBException("Translator must be new.");
+		}
+		final TimeoutHandler handlerForReMus = new TimeoutHandler(mHandler);
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handlerForReMus);
 		final Map<String, Object> remusOptions = createSMTInterpolOptionsForReMus();
 		final Script scriptForReMus = new SMTInterpol((SMTInterpol) mScript, remusOptions, CopyMode.CURRENT_VALUE);
+		// TODO: Somehow give the handlerForReMus to the scriptForRemus
 
 		scriptForReMus.push(1);
 
@@ -135,24 +227,13 @@ public class MusEnumerationScript extends WrapperScript {
 		final int nrOfConstraints = solver.getNumberOfConstraints();
 		final BitSet workingSet = new BitSet(nrOfConstraints);
 		workingSet.flip(0, nrOfConstraints);
-		final long timeout = (long) getOption(SMTInterpolOptions.TIMEOUT);
 
-		final ReMus remus = new ReMus(solver, unexploredMap, workingSet, mHandler, timeout);
+		final ReMus remus = new ReMus(solver, unexploredMap, workingSet, handlerForReMus, 0);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		remus.resetSolver();
 
 		scriptForReMus.pop(1);
-
-		mHandler.setTimeout(timeout/2);
-		final MusContainer chosenMus = chooseMusAccordingToHeuristic(muses, mHandler);
-		if (mHandler.isTerminationRequested()) {
-			setOption(SMTInterpolOptions.TIMEOUT, timeout/2);
-		}else {
-			setOption(SMTInterpolOptions.TIMEOUT, mHandler.timeLeft() + timeout/2);
-		}
-		final Term[] sequenceOfInterpolants = getInterpolants(partition, startOfSubtree, chosenMus.getProof());
-		setOption(SMTInterpolOptions.TIMEOUT, timeout);
-		return sequenceOfInterpolants;
+		return muses;
 	}
 
 	private Map<String, Object> createSMTInterpolOptionsForReMus() {
@@ -221,12 +302,12 @@ public class MusEnumerationScript extends WrapperScript {
 		}
 	}
 
-	private MusContainer chooseMusAccordingToHeuristic(final ArrayList<MusContainer> muses, final TerminationRequest request) {
+	private MusContainer chooseMusAccordingToHeuristic(final ArrayList<MusContainer> muses,
+			final TerminationRequest request) {
 		MusContainer chosenMus;
 		double tolerance;
 		if (mRandom == null) {
-			final long rndSeed = (long) getOption(SMTLIBConstants.RANDOM_SEED);
-			mRandom = new Random(rndSeed);
+			mRandom = new Random(getRandomSeed());
 		}
 		switch (mInterpolationHeuristic.getValue()) {
 		case RANDOM:
@@ -271,6 +352,15 @@ public class MusEnumerationScript extends WrapperScript {
 	}
 
 	@Override
+	public LBool checkSat() {
+		final LBool sat = mScript.checkSat();
+		if (sat == LBool.UNSAT) {
+			mAssertedTermsAreUnsat = true;
+		}
+		return sat;
+	}
+
+	@Override
 	public void push(final int levels) throws SMTLIBException {
 		super.push(levels);
 		for (int i = 0; i < levels; i++) {
@@ -286,6 +376,7 @@ public class MusEnumerationScript extends WrapperScript {
 			mRememberedAssertions.endScope();
 		}
 		mCurrentLevel = mCurrentLevel - levels;
+		mAssertedTermsAreUnsat = false;
 	}
 
 	@Override
@@ -296,7 +387,7 @@ public class MusEnumerationScript extends WrapperScript {
 			mTolerance.set(value);
 		} else if (opt.equals(SMTLIBConstants.RANDOM_SEED)) {
 			mScript.setOption(opt, value);
-			mRandom = new Random((long) getOption(SMTLIBConstants.RANDOM_SEED));
+			mRandom = new Random(getRandomSeed());
 		} else {
 			mScript.setOption(opt, value);
 		}
@@ -316,6 +407,7 @@ public class MusEnumerationScript extends WrapperScript {
 	@Override
 	public LBool assertTerm(final Term term) throws SMTLIBException {
 		mRememberedAssertions.add(term);
+		mAssertedTermsAreUnsat = false;
 		return mScript.assertTerm(term);
 	}
 
@@ -325,14 +417,16 @@ public class MusEnumerationScript extends WrapperScript {
 		mRememberedAssertions.clear();
 		mCustomNameId = 0;
 		mCurrentLevel = 0;
+		mAssertedTermsAreUnsat = false;
 		mInterpolationHeuristic.reset();
 		mTolerance.reset();
-		mRandom = new Random((long) getOption(SMTLIBConstants.RANDOM_SEED));
+		mRandom = new Random(getRandomSeed());
 	}
 
 	@Override
 	public void resetAssertions() {
 		mScript.resetAssertions();
 		mRememberedAssertions.clear();
+		mAssertedTermsAreUnsat = false;
 	}
 }

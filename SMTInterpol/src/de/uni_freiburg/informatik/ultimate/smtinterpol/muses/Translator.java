@@ -79,7 +79,7 @@ public class Translator {
 	}
 
 	/**
-	 * Translates the arrays of Terms that are returned by the script to the corresponding BitSet.
+	 * Translates the arrays of Terms to the corresponding BitSet.
 	 */
 	public BitSet translateToBitSet(final Term[] constraints) {
 		final BitSet constraintsAsBits = new BitSet(getNumberOfConstraints());
@@ -87,6 +87,20 @@ public class Translator {
 			constraintsAsBits.set(translate2Index(constraints[i]));
 		}
 		return constraintsAsBits;
+	}
+
+	/**
+	 * Translates the given BitSet to the corresponding array of Terms. The array does only contain constraints that
+	 * have been set in the BitSet (i.e. it does not contain placeholders for clear Bits at the corresponding index)
+	 */
+	public Term[] translateToTerms(final BitSet constraints) {
+		final Term[] constraintsAsTerms = new Term[constraints.cardinality()];
+		int i = 0;
+		for (int j = constraints.nextSetBit(0); i >= 0; j = constraints.nextSetBit(j + 1)) {
+			constraintsAsTerms[i] = translate2Constraint(j);
+			i++;
+		}
+		return constraintsAsTerms;
 	}
 
 	public int getNumberOfConstraints() {

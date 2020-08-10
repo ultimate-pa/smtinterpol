@@ -37,6 +37,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.NamedAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.muses.MusEnumerationScript.HeuristicsType;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.TerminationRequest;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TimeoutHandler;
@@ -67,6 +68,13 @@ public class MusesTest {
 		script.setOption(SMTLIBConstants.PRODUCE_UNSAT_CORES, true);
 		script.setLogic(logic);
 		return script;
+	}
+
+	private MusEnumerationScript setupMusEnumerationScript(final Logics logic) {
+		final SMTInterpol smtInterpol = new SMTInterpol();
+		smtInterpol.setOption(SMTLIBConstants.PRODUCE_UNSAT_CORES, true);
+		smtInterpol.setLogic(logic);
+		return new MusEnumerationScript(smtInterpol);
 	}
 
 	/**
@@ -287,6 +295,96 @@ public class MusesTest {
 		atom.lockPreferredStatus();
 		engine.addAtom(atom);
 		translator.declareConstraint(atom);
+	}
+
+	private void setupUnsatSet2(final MusEnumerationScript script) {
+		final ArrayList<String> names = new ArrayList<>();
+		final ArrayList<Annotation> annots = new ArrayList<>();
+		for (int i = 0; i < 10; i++) {
+			names.add("c" + String.valueOf(i));
+		}
+		for (int i = 0; i < names.size(); i++) {
+			annots.add(new Annotation(":named", names.get(i)));
+		}
+		final Sort intSort = script.sort("Int");
+		script.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		script.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		script.declareFun("z", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term x = script.term("x");
+		final Term y = script.term("y");
+		final Term z = script.term("z");
+		final Term c0 = script.term("=", x, script.numeral("53"));
+		final Term c1 = script.term(">", x, script.numeral("23"));
+		final Term c2 = script.term("<", x, z);
+		final Term c3 = script.term("=", x, script.numeral("535"));
+		final Term c4 = script.term("=", y, script.numeral("1234"));
+		final Term c5 = script.term("<=", z, script.numeral("23"));
+		final Term c6 = script.term(">=", x, script.numeral("34"));
+		final Term c7 = script.term("=", y, script.numeral("4321"));
+		final Term c8 = script.term("=", x, script.numeral("23"));
+		final Term c9 = script.term("=", x, script.numeral("5353"));
+		final Term c1Anno = script.annotate(c1, annots.get(1));
+		final Term c3Anno = script.annotate(c3, annots.get(3));
+		final Term c6Anno = script.annotate(c6, annots.get(6));
+		final Term c7Anno = script.annotate(c7, annots.get(7));
+		final Term c8Anno = script.annotate(c8, annots.get(8));
+		script.assertTerm(c0);
+		script.assertTerm(c1Anno);
+		script.assertTerm(c2);
+		script.assertTerm(c3Anno);
+		script.assertTerm(c4);
+		script.assertTerm(c5);
+		script.assertTerm(c6Anno);
+		script.assertTerm(c7Anno);
+		script.assertTerm(c8Anno);
+		script.assertTerm(c9);
+	}
+
+	private void setupUnsatSet5(final MusEnumerationScript script) {
+		final ArrayList<String> names = new ArrayList<>();
+		final ArrayList<Annotation> annots = new ArrayList<>();
+		for (int i = 0; i < 10; i++) {
+			names.add("c" + String.valueOf(i));
+		}
+		for (int i = 0; i < names.size(); i++) {
+			annots.add(new Annotation(":named", names.get(i)));
+		}
+		final Sort intSort = script.sort("Int");
+		script.declareFun("v", Script.EMPTY_SORT_ARRAY, intSort);
+		script.declareFun("w", Script.EMPTY_SORT_ARRAY, intSort);
+		script.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		script.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		script.declareFun("z", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term v = script.term("v");
+		final Term w = script.term("w");
+		final Term x = script.term("x");
+		final Term y = script.term("y");
+		final Term z = script.term("z");
+		final Term c0 = script.term("<", v, w);
+		final Term c1 = script.term("<", w, x);
+		final Term c2 = script.term("<", x, y);
+		final Term c3 = script.term("<", y, z);
+		final Term c4 = script.term("=", v, script.numeral("2000"));
+		final Term c5 = script.term("=", z, script.numeral("5"));
+		final Term c6 = script.term("=", x, script.numeral("1000"));
+		final Term c7 = script.term("=", x, script.numeral("1001"));
+		final Term c8 = script.term("=", w, script.numeral("1500"));
+		final Term c9 = script.term("=", y, script.numeral("100"));
+		final Term c0Anno = script.annotate(c0, annots.get(0));
+		final Term c2Anno = script.annotate(c2, annots.get(2));
+		final Term c3Anno = script.annotate(c3, annots.get(3));
+		final Term c5Anno = script.annotate(c5, annots.get(5));
+		final Term c6Anno = script.annotate(c6, annots.get(6));
+		script.assertTerm(c0Anno);
+		script.assertTerm(c1);
+		script.assertTerm(c2Anno);
+		script.assertTerm(c3Anno);
+		script.assertTerm(c4);
+		script.assertTerm(c5Anno);
+		script.assertTerm(c6Anno);
+		script.assertTerm(c7);
+		script.assertTerm(c8);
+		script.assertTerm(c9);
 	}
 
 	@Test
@@ -1144,8 +1242,35 @@ public class MusesTest {
 		Assert.assertTrue(minDifference == 6);
 	}
 
-	@Test
-	public void testMusEnumerationScript() {
+	public void testMusEnumerationScriptSet2() {
+		final MusEnumerationScript script = setupMusEnumerationScript(Logics.ALL);
+		script.setOption(MusOptions.INTERPOLATION_HEURISTIC, HeuristicsType.SMALLEST);
+		script.push(1);
+		setupUnsatSet2(script);
+		Assert.assertTrue(LBool.UNSAT == script.checkSat());
+		final Term[] core1 = script.getUnsatCore();
+		script.pop(1);
+		setupUnsatSet2(script);
+		final Term[] core2 = script.getUnsatCore();
+		Assert.assertTrue(core1.equals(core2));
+		final Term[] core3 = script.getUnsatCore();
+		script.setOption(MusOptions.INTERPOLATION_HEURISTIC, HeuristicsType.BIGGEST);
+		Assert.assertTrue(!core1.equals(core3));
+	}
 
+	public void testMusEnumerationScriptSet5() {
+		final MusEnumerationScript script = setupMusEnumerationScript(Logics.ALL);
+		script.setOption(MusOptions.INTERPOLATION_HEURISTIC, HeuristicsType.SMALLEST);
+		script.push(1);
+		setupUnsatSet5(script);
+		Assert.assertTrue(LBool.UNSAT == script.checkSat());
+		final Term[] core1 = script.getUnsatCore();
+		script.pop(1);
+		setupUnsatSet5(script);
+		final Term[] core2 = script.getUnsatCore();
+		Assert.assertTrue(core1.equals(core2));
+		final Term[] core3 = script.getUnsatCore();
+		script.setOption(MusOptions.INTERPOLATION_HEURISTIC, HeuristicsType.BIGGEST);
+		Assert.assertTrue(!core1.equals(core3));
 	}
 }
