@@ -25,6 +25,8 @@ import java.util.function.Function;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.NamedAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.SimpleList;
 
 /**
  * A class that represents the map of unexplored subsets in the MUS enumeration.
@@ -123,6 +125,10 @@ public class UnexploredMap {
 				return false;
 			} else {
 				mMaximalUnexploredSubset = collectAtomsWithCriteria(workingSet, this::isSetToTrue);
+				if (mMaximalUnexploredSubset.get(0) && mMaximalUnexploredSubset.get(1) && mMaximalUnexploredSubset.get(2) && mMaximalUnexploredSubset.get(4)){
+					System.out.println("DebuggingPrint");
+				}
+//				assert mMaximalUnexploredSubsetIsMSS() : "The models that are returned are no MSSes. Probably mLastStatus of the atoms has been corrupted.";
 				mImpliedCrits = collectAtomsWithCriteria(workingSet, this::isImpliedToTrue);
 				mEngine.pop(1);
 				return true;
@@ -150,11 +156,62 @@ public class UnexploredMap {
 		return model;
 	}
 
-	private Boolean isSetToTrue(final int atomNumber) {
+	private boolean isSetToTrue(final int atomNumber) {
 		return mTranslator.translate2Atom(atomNumber).getDecideStatus().getSign() == 1;
 	}
 
-	private Boolean isImpliedToTrue(final int atomNumber) {
+	private boolean isImpliedToTrue(final int atomNumber) {
 		return isSetToTrue(atomNumber) && mTranslator.translate2Atom(atomNumber).getDecideLevel() == 0;
+	}
+
+	private boolean mMaximalUnexploredSubsetIsMSS() {
+		final SimpleList<Clause> clauses = mEngine.getClauses();
+		final int maxIndex = mTranslator.getNumberOfConstraints();
+		NamedAtom atomToTest;
+		for (int i = mMaximalUnexploredSubset.nextClearBit(0); i >= 0 && i < maxIndex; i =
+				mMaximalUnexploredSubset.nextClearBit(i + 1)) {
+			atomToTest = mTranslator.translate2Atom(i);
+			if (!thereIsAClauseThatImpliesTheGivenAtomNegatedButNoOtherLiteral(clauses, atomToTest)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	private boolean thereIsAClauseThatImpliesTheGivenAtomNegatedButNoOtherLiteral(final SimpleList<Clause> clauses,
+			final NamedAtom atomToTest) {
+		for (final Clause clause : clauses) {
+			if (clause.contains(atomToTest.negate())) {
+				if (!thereIsALiteralWithAnAtomDifferentFromTheGivenThatSatisfiesTheClause(clause, atomToTest)) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	private boolean thereIsALiteralWithAnAtomDifferentFromTheGivenThatSatisfiesTheClause(final Clause clause,
+			final NamedAtom givenAtom) {
+		NamedAtom atomOfClause;
+		for (int i = 0; i < clause.getSize(); i++) {
+			if (clause.getLiteral(i).getSign() == 1) {
+				atomOfClause = (NamedAtom) clause.getLiteral(i);
+				if (atomOfClause == givenAtom) {
+					continue;
+				}
+				if (mMaximalUnexploredSubset.get(mTranslator.translate2Index(atomOfClause))) {
+					return true;
+				}
+			} else {
+				atomOfClause = (NamedAtom) clause.getLiteral(i).getAtom();
+				if (atomOfClause == givenAtom) {
+					continue;
+				}
+				if (!mMaximalUnexploredSubset.get(mTranslator.translate2Index(atomOfClause))) {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 }
