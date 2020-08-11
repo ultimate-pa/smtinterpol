@@ -126,16 +126,32 @@ public class MusEnumerationScript extends WrapperScript {
 	}
 
 	/**
-	 * Currently splits the timeout into 1/2 timeout for ReMus, 1/4 timeout for applying the heuristic, 1/4 generating
-	 * the interpolant.
+	 * This method first enumerates MUSes of the current asserted terms, then it applies a heuristic for choosing a MUS
+	 * amongst them. Lastly, the proof of unsatisfiability of the chosen MUS is used to generate the Sequence of
+	 * Interpolants that is returned. The timeout is currently split into 1/2 timeout for ReMus, 1/4 (+ what's left of
+	 * ReMus' timeout) timeout for applying the heuristic, 1/4 (+ what's left of the heuristics' timeout) generating the
+	 * interpolant. If the timeout for ReMus is exceeded, it returns the muses found so far. If the timeout for the
+	 * heuristic is exceeded, it returns the best mus found so far wrt. the heuristic. If the timeout for generating the
+	 * interpolant is exceeded, or the timeout for ReMus is exceeded, before any MUSes could be produced, an
+	 * SMTLIBException is thrown.
+	 *
 	 */
 	@Override
 	public Term[] getInterpolants(final Term[] partition, final int[] startOfSubtree) {
+		if (!mAssertedTermsAreUnsat) {
+			throw new SMTLIBException(
+					"Asserted terms must be determined to be unsatisfiable before an interpolant can be generated. Call checkSat to determine satisfiability.");
+		}
+
 		final long timeout = getTimeout();
 
 		final long timeoutForReMus = timeout / 2;
 		mHandler.setTimeout(timeoutForReMus);
 		final ArrayList<MusContainer> muses = executeReMus(mHandler);
+
+		if (muses.isEmpty()) {
+			throw new SMTLIBException("Timeout for ReMus exceeded before any muses could be found.");
+		}
 
 		final long timeoutForHeuristic;
 		if (mHandler.timeLeft() <= 0) {
@@ -160,11 +176,11 @@ public class MusEnumerationScript extends WrapperScript {
 
 	/**
 	 * First, uses the ReMUS algorithm to enumerate MUSes of the set of asserted Terms (max. 3/4 of the timeout). Then,
-	 * it searches for the best MUS according to the chosen heuristic (max 1/4 of the timeout). If the first timeout is
-	 * exceeded, the enumeration stops and the heuristic is applied to the MUSes found so far. If the second timeout is
-	 * exceeded, the best MUS that has been found so far is returned. If ReMUS could not find any MUS in the given time,
-	 * an arbitrary unsat core (i.e., the unsat core from the wrapped script) is returned, which is not necessarily
-	 * minimal wrt. satisfiability.
+	 * it searches for the best MUS according to the chosen heuristic (1/4 of the timeout + what's left of ReMus'
+	 * timeout). If the first timeout is exceeded, the enumeration stops and the heuristic is applied to the MUSes found
+	 * so far. If the second timeout is exceeded, the best MUS that has been found so far is returned. If ReMUS could
+	 * not find any MUS in the given time, an arbitrary unsat core (i.e., the unsat core from the wrapped script) is
+	 * returned, which is not necessarily minimal wrt. satisfiability.
 	 */
 	@Override
 	public Term[] getUnsatCore() {
@@ -175,12 +191,17 @@ public class MusEnumerationScript extends WrapperScript {
 			throw new SMTLIBException("Unsat core production must be enabled.");
 		}
 
+		final Term[] alternativeUnsatCore = mScript.getUnsatCore();
 		final Translator translator = new Translator();
 		final long timeout = getTimeout();
 		final long timeoutForReMus = 3 * timeout / 4;
 
 		mHandler.setTimeout(timeoutForReMus);
 		final ArrayList<MusContainer> muses = executeReMus(translator, mHandler);
+
+		if (muses.isEmpty()) {
+			return alternativeUnsatCore;
+		}
 
 		final long timeoutForHeuristic;
 		if (mHandler.timeLeft() <= 0) {
@@ -242,6 +263,7 @@ public class MusEnumerationScript extends WrapperScript {
 		remusOptions.put(SMTLIBConstants.PRODUCE_PROOFS, true);
 		remusOptions.put(SMTLIBConstants.INTERACTIVE_MODE, true);
 		remusOptions.put(SMTLIBConstants.PRODUCE_UNSAT_CORES, true);
+		//remusOptions.put(SMTInterpolOptions.UNSAT_CORE_CHECK_MODE, true);
 		return remusOptions;
 	}
 
