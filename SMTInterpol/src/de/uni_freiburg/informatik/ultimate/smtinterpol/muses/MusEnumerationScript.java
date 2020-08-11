@@ -263,7 +263,6 @@ public class MusEnumerationScript extends WrapperScript {
 		remusOptions.put(SMTLIBConstants.PRODUCE_PROOFS, true);
 		remusOptions.put(SMTLIBConstants.INTERACTIVE_MODE, true);
 		remusOptions.put(SMTLIBConstants.PRODUCE_UNSAT_CORES, true);
-		//remusOptions.put(SMTInterpolOptions.UNSAT_CORE_CHECK_MODE, true);
 		return remusOptions;
 	}
 

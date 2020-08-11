@@ -57,7 +57,6 @@ public class MusesTest {
 		script.setOption(SMTLIBConstants.PRODUCE_PROOFS, true);
 		script.setOption(SMTLIBConstants.INTERACTIVE_MODE, true);
 		script.setOption(SMTLIBConstants.PRODUCE_UNSAT_CORES, true);
-		script.setOption(SMTInterpolOptions.UNSAT_CORE_CHECK_MODE, true);
 		script.setLogic(logic);
 		return script;
 	}
@@ -78,7 +77,6 @@ public class MusesTest {
 		smtInterpol.setOption(SMTLIBConstants.PRODUCE_PROOFS, true);
 		smtInterpol.setOption(SMTLIBConstants.INTERACTIVE_MODE, true);
 		smtInterpol.setOption(SMTLIBConstants.PRODUCE_UNSAT_CORES, true);
-		smtInterpol.setOption(SMTInterpolOptions.UNSAT_CORE_CHECK_MODE, true);
 		smtInterpol.setLogic(logic);
 		return new MusEnumerationScript(smtInterpol);
 	}
