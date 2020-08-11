@@ -25,6 +25,7 @@ import java.util.NoSuchElementException;
 
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.TerminationRequest;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TimeoutHandler;
 
 /**
@@ -59,21 +60,41 @@ public class ReMus implements Iterator<MusContainer> {
 	/**
 	 * The solver and the map MUST have the same Translator. The SMTSolver and the DPLLEngine must also have the given
 	 * TimeoutHandler as TerminationRequest. ReMUS assumes ownership over the solver, the map and the handler. In case
-	 * you still want to keep the original state of the solver even after enumerating, push a level before the creation
-	 * of this class, and pop a level after this class is finished with enumerating muses. If timeout <= 0, remus does
-	 * not measure the time itself, but it still listens to {@link TimeoutHandler#isTerminationRequested()}. If timeout
-	 * > 0, remus additionaly uses the handler to measure time. In that case timeout dictates how much time remus has
-	 * per method (next, hasNext, enumerate) in miliseconds. If the timeout is exceeded or termination is requested
-	 * otherwise, remus stops the computation as fast as possible and can not continue the enumeration anymore. Note
-	 * that the SMTSolver and the DPLLEngine have separate timeouts, which can affect remus (and they should therefore
-	 * be set accordingly).
+	 * you still want to keep the original state of the solver even after enumerating, use {@link #resetSolver()}. If
+	 * timeout <= 0, remus does not measure the time itself, but it still listens to
+	 * {@link TimeoutHandler#isTerminationRequested()}. If timeout > 0, remus additionaly measures time. In that case
+	 * timeout dictates how much time remus has per method (next, hasNext, enumerate) in miliseconds. If the timeout is
+	 * exceeded or termination is requested otherwise, remus stops the computation as fast as possible and afterwards,
+	 * it can not continue the enumeration anymore. Note that the SMTSolver and the DPLLEngine of solver and map can
+	 * have separate timeouts/TerminationRequests, which can affect remus (and they should therefore be set
+	 * accordingly).
 	 */
 	public ReMus(final ConstraintAdministrationSolver solver, final UnexploredMap map, final BitSet workingSet,
-			final TimeoutHandler handler, final long timeout) {
+			final TerminationRequest request, final long timeout) {
+		mSolver = solver;
+		mMap = map;
+		mTimeoutHandler = new TimeoutHandler(request);
+		mTimeout = timeout;
+		mTimeoutOrTerminationRequestOccurred = false;
+
+		if (workingSet.length() > mSolver.getNumberOfConstraints()) {
+			throw new SMTLIBException(
+					"There are constraints set in the workingSet that are not registered in the translator of the "
+							+ "solver and the map");
+		}
+		mWorkingSet = workingSet;
+		initializeMembersAndAssertImpliedCrits();
+	}
+
+	/**
+	 * Constructor for internal instances, that are created for recursion.
+	 */
+	private ReMus(final ConstraintAdministrationSolver solver, final UnexploredMap map, final BitSet workingSet,
+			final TimeoutHandler handler) {
 		mSolver = solver;
 		mMap = map;
 		mTimeoutHandler = handler;
-		mTimeout = timeout;
+		mTimeout = 0;
 		mTimeoutOrTerminationRequestOccurred = false;
 
 		if (workingSet.length() > mSolver.getNumberOfConstraints()) {
@@ -284,7 +305,7 @@ public class ReMus implements Iterator<MusContainer> {
 
 	private void createNewSubordinateRemus(final BitSet nextWorkingSet) {
 		mSolver.pushRecLevel();
-		mSubordinateRemus = new ReMus(mSolver, mMap, nextWorkingSet, mTimeoutHandler, 0);
+		mSubordinateRemus = new ReMus(mSolver, mMap, nextWorkingSet, mTimeoutHandler);
 	}
 
 	/**
@@ -294,7 +315,7 @@ public class ReMus implements Iterator<MusContainer> {
 	private void createNewSubordinateRemusWithExtraCrit(final BitSet nextWorkingSet, final int crit) {
 		mSolver.pushRecLevel();
 		mSolver.assertCriticalConstraint(crit);
-		mSubordinateRemus = new ReMus(mSolver, mMap, nextWorkingSet, mTimeoutHandler, 0);
+		mSubordinateRemus = new ReMus(mSolver, mMap, nextWorkingSet, mTimeoutHandler);
 	}
 
 	private void removeSubordinateRemus() {
