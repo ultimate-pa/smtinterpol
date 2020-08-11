@@ -66,11 +66,9 @@ public class Shrinking {
 				break;
 			case SAT:
 				unknown.clear(i);
+				final BitSet extension = solver.getSatExtension();
+				map.BlockDown(extension);
 				solver.clearUnknownConstraints();
-				final BitSet crits = solver.getCrits();
-				crits.or(unknown);
-				// Apply getExtension here
-				map.BlockDown(crits);
 				solver.assertCriticalConstraint(i);
 				break;
 			case UNKNOWN:
