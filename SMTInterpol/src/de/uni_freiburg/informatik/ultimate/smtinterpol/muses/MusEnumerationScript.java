@@ -83,7 +83,6 @@ public class MusEnumerationScript extends WrapperScript {
 
 	ScopedArrayList<Term> mRememberedAssertions;
 	int mCustomNameId;
-	int mCurrentLevel;
 	boolean mAssertedTermsAreUnsat;
 
 	EnumOption<HeuristicsType> mInterpolationHeuristic;
@@ -93,7 +92,6 @@ public class MusEnumerationScript extends WrapperScript {
 	public MusEnumerationScript(final SMTInterpol wrappedScript, final TerminationRequest request) {
 		super(wrappedScript);
 		mCustomNameId = 0;
-		mCurrentLevel = 0;
 		mAssertedTermsAreUnsat = false;
 		mHandler = new TimeoutHandler(request);
 		mRandom = new Random(getRandomSeed());
@@ -193,6 +191,7 @@ public class MusEnumerationScript extends WrapperScript {
 
 		mHandler.setTimeout(timeoutForHeuristic);
 		final MusContainer chosenMus = chooseMusAccordingToHeuristic(muses, mHandler);
+
 		mHandler.clearTimeout();
 		setOption(SMTInterpolOptions.TIMEOUT, timeout);
 
@@ -221,6 +220,7 @@ public class MusEnumerationScript extends WrapperScript {
 		scriptForReMus.push(1);
 
 		registerTermsForEnumeration(mRememberedAssertions, translator, engine, scriptForReMus);
+		resetCustomNameId();
 
 		final UnexploredMap unexploredMap = new UnexploredMap(engine, translator);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(scriptForReMus, translator);
@@ -294,7 +294,7 @@ public class MusEnumerationScript extends WrapperScript {
 			} else {
 				annoTerm = nameTerm(term, scriptForReMus);
 			}
-			final NamedAtom atom = new NamedAtom(annoTerm, mCurrentLevel);
+			final NamedAtom atom = new NamedAtom(annoTerm, 0);
 			atom.setPreferredStatus(atom.getAtom());
 			atom.lockPreferredStatus();
 			engine.addAtom(atom);
@@ -306,9 +306,6 @@ public class MusEnumerationScript extends WrapperScript {
 			final TerminationRequest request) {
 		MusContainer chosenMus;
 		double tolerance;
-		if (mRandom == null) {
-			mRandom = new Random(getRandomSeed());
-		}
 		switch (mInterpolationHeuristic.getValue()) {
 		case RANDOM:
 			chosenMus = Heuristics.chooseRandomMus(muses, mRandom);
@@ -366,7 +363,6 @@ public class MusEnumerationScript extends WrapperScript {
 		for (int i = 0; i < levels; i++) {
 			mRememberedAssertions.beginScope();
 		}
-		mCurrentLevel = mCurrentLevel + levels;
 	}
 
 	@Override
@@ -375,7 +371,6 @@ public class MusEnumerationScript extends WrapperScript {
 		for (int i = 0; i < levels; i++) {
 			mRememberedAssertions.endScope();
 		}
-		mCurrentLevel = mCurrentLevel - levels;
 		mAssertedTermsAreUnsat = false;
 	}
 
@@ -416,7 +411,6 @@ public class MusEnumerationScript extends WrapperScript {
 		mScript.reset();
 		mRememberedAssertions.clear();
 		mCustomNameId = 0;
-		mCurrentLevel = 0;
 		mAssertedTermsAreUnsat = false;
 		mInterpolationHeuristic.reset();
 		mTolerance.reset();
@@ -428,5 +422,9 @@ public class MusEnumerationScript extends WrapperScript {
 		mScript.resetAssertions();
 		mRememberedAssertions.clear();
 		mAssertedTermsAreUnsat = false;
+	}
+
+	private void resetCustomNameId() {
+		mCustomNameId = 0;
 	}
 }

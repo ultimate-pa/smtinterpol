@@ -55,7 +55,7 @@ public class Translator {
 	public void declareConstraint(final NamedAtom atom) throws SMTLIBException {
 		final String name = getName(atom);
 		if (mNameOfConstraint2Index.containsKey(name)) {
-			throw new SMTLIBException("This name does already exist.");
+			throw new SMTLIBException("This name already exists.");
 		}
 		final int numberOfConstraints = mIndex2AtomOfConstraint.size();
 		mNameOfConstraint2Index.put(name, numberOfConstraints);
@@ -96,7 +96,7 @@ public class Translator {
 	public Term[] translateToTerms(final BitSet constraints) {
 		final Term[] constraintsAsTerms = new Term[constraints.cardinality()];
 		int i = 0;
-		for (int j = constraints.nextSetBit(0); i >= 0; j = constraints.nextSetBit(j + 1)) {
+		for (int j = constraints.nextSetBit(0); j >= 0; j = constraints.nextSetBit(j + 1)) {
 			constraintsAsTerms[i] = translate2Constraint(j);
 			i++;
 		}
@@ -119,7 +119,7 @@ public class Translator {
 		return getName(atom.getSMTFormula(null, false));
 	}
 
-	private String getName(final Term term) {
+	public static String getName(final Term term) {
 		if (term instanceof ApplicationTerm) {
 			return ((ApplicationTerm) term).getFunction().getName();
 		} else if (term instanceof AnnotatedTerm) {
@@ -129,7 +129,7 @@ public class Translator {
 		}
 	}
 
-	private String getName(final Annotation... annotation) throws SMTLIBException {
+	private static String getName(final Annotation... annotation) throws SMTLIBException {
 		String name = null;
 		for (int i = 0; i < annotation.length; i++) {
 			if (annotation[i].getKey().equals(":named")) {

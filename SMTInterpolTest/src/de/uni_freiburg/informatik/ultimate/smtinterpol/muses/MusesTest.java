@@ -38,6 +38,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.NamedAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.muses.MusEnumerationScript.HeuristicsType;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolOptions;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.TerminationRequest;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TimeoutHandler;
@@ -56,6 +57,7 @@ public class MusesTest {
 		script.setOption(SMTLIBConstants.PRODUCE_PROOFS, true);
 		script.setOption(SMTLIBConstants.INTERACTIVE_MODE, true);
 		script.setOption(SMTLIBConstants.PRODUCE_UNSAT_CORES, true);
+		script.setOption(SMTInterpolOptions.UNSAT_CORE_CHECK_MODE, true);
 		script.setLogic(logic);
 		return script;
 	}
@@ -72,7 +74,11 @@ public class MusesTest {
 
 	private MusEnumerationScript setupMusEnumerationScript(final Logics logic) {
 		final SMTInterpol smtInterpol = new SMTInterpol();
+		smtInterpol.setOption(SMTLIBConstants.PRODUCE_MODELS, true);
+		smtInterpol.setOption(SMTLIBConstants.PRODUCE_PROOFS, true);
+		smtInterpol.setOption(SMTLIBConstants.INTERACTIVE_MODE, true);
 		smtInterpol.setOption(SMTLIBConstants.PRODUCE_UNSAT_CORES, true);
+		smtInterpol.setOption(SMTInterpolOptions.UNSAT_CORE_CHECK_MODE, true);
 		smtInterpol.setLogic(logic);
 		return new MusEnumerationScript(smtInterpol);
 	}
@@ -851,7 +857,7 @@ public class MusesTest {
 	}
 
 	@Test
-	public void testHeuristicSmallest() {
+	public void testHeuristicSmallest01() {
 		final TimeoutHandler handler = new TimeoutHandler(null);
 		final Script script = setupScript(Logics.ALL, handler);
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
@@ -872,7 +878,28 @@ public class MusesTest {
 	}
 
 	@Test
-	public void testHeuristicBiggest() {
+	public void testHeuristicSmallest02() {
+		final TimeoutHandler handler = new TimeoutHandler(null);
+		final Script script = setupScript(Logics.ALL, handler);
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
+		final Translator translator = new Translator();
+		setupUnsatSet5(script, translator, engine);
+
+		final UnexploredMap map = new UnexploredMap(engine, translator);
+		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
+		final BitSet workingSet = new BitSet(10);
+		workingSet.flip(0, 10);
+		solver.pushRecLevel();
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0);
+		final ArrayList<MusContainer> muses = remus.enumerate();
+		solver.popRecLevel();
+
+		final Random rnd = new Random(1337);
+		Assert.assertTrue(Heuristics.chooseSmallestMus(muses, rnd, handler).getMus().cardinality() == 2);
+	}
+
+	@Test
+	public void testHeuristicBiggest01() {
 		final TimeoutHandler handler = new TimeoutHandler(null);
 		final Script script = setupScript(Logics.ALL, handler);
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
@@ -890,6 +917,27 @@ public class MusesTest {
 
 		final Random rnd = new Random(1337);
 		Assert.assertTrue(Heuristics.chooseBiggestMus(muses, rnd, handler).getMus().cardinality() == 3);
+	}
+
+	@Test
+	public void testHeuristicBiggest02() {
+		final TimeoutHandler handler = new TimeoutHandler(null);
+		final Script script = setupScript(Logics.ALL, handler);
+		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
+		final Translator translator = new Translator();
+		setupUnsatSet5(script, translator, engine);
+
+		final UnexploredMap map = new UnexploredMap(engine, translator);
+		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
+		final BitSet workingSet = new BitSet(10);
+		workingSet.flip(0, 10);
+		solver.pushRecLevel();
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0);
+		final ArrayList<MusContainer> muses = remus.enumerate();
+		solver.popRecLevel();
+
+		final Random rnd = new Random(1337);
+		Assert.assertTrue(Heuristics.chooseBiggestMus(muses, rnd, handler).getMus().cardinality() == 6);
 	}
 
 	@Test
@@ -1242,35 +1290,59 @@ public class MusesTest {
 		Assert.assertTrue(minDifference == 6);
 	}
 
+	@Test
 	public void testMusEnumerationScriptSet2() {
 		final MusEnumerationScript script = setupMusEnumerationScript(Logics.ALL);
 		script.setOption(MusOptions.INTERPOLATION_HEURISTIC, HeuristicsType.SMALLEST);
+		script.setOption(SMTInterpolOptions.TIMEOUT, 100000);
+		script.setOption(SMTLIBConstants.RANDOM_SEED, 1337);
+
 		script.push(1);
 		setupUnsatSet2(script);
 		Assert.assertTrue(LBool.UNSAT == script.checkSat());
 		final Term[] core1 = script.getUnsatCore();
+		Assert.assertTrue(core1.length == 2);
 		script.pop(1);
+
 		setupUnsatSet2(script);
+		//By setting the seed we reset the internal Random instance
+		script.setOption(SMTLIBConstants.RANDOM_SEED, 1337);
+		Assert.assertTrue(LBool.UNSAT == script.checkSat());
 		final Term[] core2 = script.getUnsatCore();
-		Assert.assertTrue(core1.equals(core2));
-		final Term[] core3 = script.getUnsatCore();
+		Assert.assertTrue(Translator.getName(core1[0]).equals(Translator.getName(core2[0])));
+		Assert.assertTrue(Translator.getName(core1[1]).equals(Translator.getName(core2[1])));
+
 		script.setOption(MusOptions.INTERPOLATION_HEURISTIC, HeuristicsType.BIGGEST);
+		final Term[] core3 = script.getUnsatCore();
 		Assert.assertTrue(!core1.equals(core3));
+		Assert.assertTrue(core3.length == 3);
 	}
 
+	@Test
 	public void testMusEnumerationScriptSet5() {
 		final MusEnumerationScript script = setupMusEnumerationScript(Logics.ALL);
 		script.setOption(MusOptions.INTERPOLATION_HEURISTIC, HeuristicsType.SMALLEST);
+		script.setOption(SMTInterpolOptions.TIMEOUT, 100000);
+		script.setOption(SMTLIBConstants.RANDOM_SEED, 1337);
+
 		script.push(1);
 		setupUnsatSet5(script);
 		Assert.assertTrue(LBool.UNSAT == script.checkSat());
 		final Term[] core1 = script.getUnsatCore();
+		Assert.assertTrue(core1.length == 2);
 		script.pop(1);
+
 		setupUnsatSet5(script);
+		//By setting the seed we reset the internal Random instance
+		script.setOption(SMTLIBConstants.RANDOM_SEED, 1337);
+		Assert.assertTrue(LBool.UNSAT == script.checkSat());
 		final Term[] core2 = script.getUnsatCore();
-		Assert.assertTrue(core1.equals(core2));
-		final Term[] core3 = script.getUnsatCore();
+		Assert.assertTrue(Translator.getName(core1[0]).equals(Translator.getName(core2[0])));
+		Assert.assertTrue(Translator.getName(core1[1]).equals(Translator.getName(core2[1])));
+
 		script.setOption(MusOptions.INTERPOLATION_HEURISTIC, HeuristicsType.BIGGEST);
+		final Term[] core3 = script.getUnsatCore();
 		Assert.assertTrue(!core1.equals(core3));
+		Assert.assertTrue(core3.length == 6);
 	}
 }

@@ -76,8 +76,8 @@ public class UnexploredMap {
 	/**
 	 * This method returns a maximal unexplored subset of workingSet. If it has not already been found in the last
 	 * {@link #findImpliedCritsOf(BitSet)} or {@link #findMaximalUnexploredSubsetOf(BitSet)}, this method first finds
-	 * the maximal unexplored subset and critical constraints. If no maximal unexplored subset has been found, it
-	 * returns a BitSet with all values set to false.
+	 * the maximal unexplored subset and critical constraints. If no maximal unexplored subset has been found or
+	 * termination has been requested, it returns a BitSet with all values set to false.
 	 */
 	public BitSet findMaximalUnexploredSubsetOf(final BitSet workingSet) {
 		if (mMapModifiedSinceLastSolve || !workingSet.equals(mLastWorkingSet)) {
@@ -90,7 +90,8 @@ public class UnexploredMap {
 	 * This method returns the set of constraints of workingSet that are implied to be True by the current map formula.
 	 * They must then be critical. If they have not already been found in the last {@link #findImpliedCritsOf(BitSet)}
 	 * or {@link #findMaximalUnexploredSubsetOf(BitSet)}, this method first finds the maximal unexplored subset and
-	 * critical constraints. If no ImpliedCrits have been found, this returns a BitSet with all values set to false.
+	 * critical constraints. If no ImpliedCrits have been found or termination has been requested, this returns a BitSet
+	 * with all values set to false.
 	 */
 	public BitSet findImpliedCritsOf(final BitSet workingSet) {
 		if (mMapModifiedSinceLastSolve || !workingSet.equals(mLastWorkingSet)) {
@@ -115,10 +116,17 @@ public class UnexploredMap {
 			mEngine.addClause(new Clause(unitClause, mEngine.getAssertionStackLevel()));
 		}
 		if (mEngine.solve()) {
-			mMaximalUnexploredSubset = collectAtomsWithCriteria(workingSet, this::isSetToTrue);
-			mImpliedCrits = collectAtomsWithCriteria(workingSet, this::isImpliedToTrue);
-			mEngine.pop(1);
-			return true;
+			if (mEngine.isTerminationRequested()) {
+				mMaximalUnexploredSubset = new BitSet();
+				mImpliedCrits = new BitSet();
+				mEngine.pop(1);
+				return false;
+			} else {
+				mMaximalUnexploredSubset = collectAtomsWithCriteria(workingSet, this::isSetToTrue);
+				mImpliedCrits = collectAtomsWithCriteria(workingSet, this::isImpliedToTrue);
+				mEngine.pop(1);
+				return true;
+			}
 		} else {
 			mMaximalUnexploredSubset = new BitSet();
 			mImpliedCrits = new BitSet();
