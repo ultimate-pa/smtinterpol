@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.function.Function;
 
+import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
@@ -125,10 +126,12 @@ public class UnexploredMap {
 				return false;
 			} else {
 				mMaximalUnexploredSubset = collectAtomsWithCriteria(workingSet, this::isSetToTrue);
-				if (mMaximalUnexploredSubset.get(0) && mMaximalUnexploredSubset.get(1) && mMaximalUnexploredSubset.get(2) && mMaximalUnexploredSubset.get(4)){
+				if (mMaximalUnexploredSubset.get(0) && mMaximalUnexploredSubset.get(1)
+						&& mMaximalUnexploredSubset.get(2) && mMaximalUnexploredSubset.get(4)) {
 					System.out.println("DebuggingPrint");
 				}
-				assert mMaximalUnexploredSubsetIsMSS() : "The models that are returned are no MSSes. Probably mLastStatus of the atoms has been corrupted.";
+				assert !Config.EXPENSIVE_ASSERTS
+						|| mMaximalUnexploredSubsetIsMSS() : "The models that are returned are no MSSes. Probably mLastStatus of the atoms has been corrupted.";
 				mImpliedCrits = collectAtomsWithCriteria(workingSet, this::isImpliedToTrue);
 				mEngine.pop(1);
 				return true;
