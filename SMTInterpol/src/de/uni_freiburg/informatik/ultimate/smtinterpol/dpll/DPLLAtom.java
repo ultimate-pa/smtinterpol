@@ -146,7 +146,7 @@ public abstract class DPLLAtom extends Literal {
 		return mAssertionstacklevel;
 	}
 
-	public boolean PreferredStatusIsLocked() {
+	public boolean preferredStatusIsLocked() {
 		return mPreferredStatusIsLocked;
 	}
 

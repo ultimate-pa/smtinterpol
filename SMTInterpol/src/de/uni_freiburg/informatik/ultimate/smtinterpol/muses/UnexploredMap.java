@@ -128,7 +128,7 @@ public class UnexploredMap {
 				if (mMaximalUnexploredSubset.get(0) && mMaximalUnexploredSubset.get(1) && mMaximalUnexploredSubset.get(2) && mMaximalUnexploredSubset.get(4)){
 					System.out.println("DebuggingPrint");
 				}
-//				assert mMaximalUnexploredSubsetIsMSS() : "The models that are returned are no MSSes. Probably mLastStatus of the atoms has been corrupted.";
+				assert mMaximalUnexploredSubsetIsMSS() : "The models that are returned are no MSSes. Probably mLastStatus of the atoms has been corrupted.";
 				mImpliedCrits = collectAtomsWithCriteria(workingSet, this::isImpliedToTrue);
 				mEngine.pop(1);
 				return true;

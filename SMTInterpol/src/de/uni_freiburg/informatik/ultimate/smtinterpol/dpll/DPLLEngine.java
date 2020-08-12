@@ -440,7 +440,9 @@ public class DPLLEngine {
 		mDPLLStack.add(literal);
 		atom.mDecideLevel = mCurrentDecideLevel;
 		atom.mDecideStatus = literal;
-		atom.mLastStatus = atom.mDecideStatus;
+		if (!atom.preferredStatusIsLocked()) {
+			atom.mLastStatus = atom.mDecideStatus;
+		}
 		mAtoms.remove(atom);
 		assert !Config.EXPENSIVE_ASSERTS || checkDecideLevel();
 		mWatcherSetList.moveAll(literal.negate().mWatchers);
@@ -1124,7 +1126,7 @@ public class DPLLEngine {
 					final Double nscore = scores.get(atom.negate());
 					final double Pscore = pscore == null ? 0 : pscore;
 					final double Nscore = nscore == null ? 0 : nscore;
-					if (!atom.PreferredStatusIsLocked()) {
+					if (!atom.preferredStatusIsLocked()) {
 						atom.setPreferredStatus(Pscore > Nscore ? atom : atom.negate());
 					}
 				}
