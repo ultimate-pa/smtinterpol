@@ -89,11 +89,13 @@ public class MusEnumerationScript extends WrapperScript {
 	DoubleOption mTolerance;
 	Random mRandom;
 
-	public MusEnumerationScript(final SMTInterpol wrappedScript, final TerminationRequest request) {
+	public MusEnumerationScript(final SMTInterpol wrappedScript) {
 		super(wrappedScript);
+		assert wrappedScript instanceof SMTInterpol : "Currently, only SMTInterpol is supported.";
+		final SMTInterpol wrappedSMTInterpol = (SMTInterpol) mScript;
 		mCustomNameId = 0;
 		mAssertedTermsAreUnsat = false;
-		mHandler = new TimeoutHandler(request);
+		mHandler = new TimeoutHandler(wrappedSMTInterpol.getTerminationRequest());
 		mRandom = new Random(getRandomSeed());
 		mRememberedAssertions = new ScopedArrayList<>();
 
@@ -109,10 +111,6 @@ public class MusEnumerationScript extends WrapperScript {
 
 	private long getTimeout() {
 		return ((BigInteger) getOption(SMTInterpolOptions.TIMEOUT)).longValue();
-	}
-
-	public MusEnumerationScript(final SMTInterpol wrappedScript) {
-		this(wrappedScript, null);
 	}
 
 	@Override
@@ -142,15 +140,15 @@ public class MusEnumerationScript extends WrapperScript {
 	 * {@link Heuristics#chooseWidestAmongSmallMuses(ArrayList, double, Random, TerminationRequest)} or
 	 * {@link Heuristics#chooseSmallestAmongWideMuses(ArrayList, double, Random, TerminationRequest)}.
 	 *
-	 * This method is only available if proof production is enabled
-	 * To enable proof production, call setOption(":produce-proofs",true).
+	 * This method is only available if proof production is enabled To enable proof production, call
+	 * setOption(":produce-proofs",true).
 	 */
 	@Override
 	public Term[] getInterpolants(final Term[] partition, final int[] startOfSubtree) {
 		if (!mAssertedTermsAreUnsat) {
 			throw new SMTLIBException(
 					"Asserted terms must be determined to be unsatisfiable before an interpolant can be generated. Call checkSat to determine satisfiability.");
-		}else if (!((boolean) getOption(SMTLIBConstants.PRODUCE_PROOFS))) {
+		} else if (!((boolean) getOption(SMTLIBConstants.PRODUCE_PROOFS))) {
 			throw new SMTLIBException("Proof production must be enabled (you can do this via setOption).");
 		}
 
@@ -158,7 +156,7 @@ public class MusEnumerationScript extends WrapperScript {
 
 		final long timeoutForReMus = timeout / 2;
 		mHandler.setTimeout(timeoutForReMus);
-		final ArrayList<MusContainer> muses = executeReMus(mHandler);
+		final ArrayList<MusContainer> muses = executeReMus();
 
 		if (muses.isEmpty()) {
 			throw new SMTLIBException("Timeout for ReMus exceeded before any muses could be found.");
@@ -200,9 +198,9 @@ public class MusEnumerationScript extends WrapperScript {
 	 * {@link Heuristics#chooseWidestAmongSmallMuses(ArrayList, double, Random, TerminationRequest)} or
 	 * {@link Heuristics#chooseSmallestAmongWideMuses(ArrayList, double, Random, TerminationRequest)}.
 	 *
-	 * This method is only available if proof production and unsat core production is enabled
-	 * To enable proof production, call setOption(":produce-proofs",true).
-	 * To enable unsat core production, call setOption(":produce-unsat-cores", true).
+	 * This method is only available if proof production and unsat core production is enabled To enable proof
+	 * production, call setOption(":produce-proofs",true). To enable unsat core production, call
+	 * setOption(":produce-unsat-cores", true).
 	 */
 	@Override
 	public Term[] getUnsatCore() {
@@ -211,7 +209,7 @@ public class MusEnumerationScript extends WrapperScript {
 					"Asserted Terms must be determined Unsat to return an unsat core. Call checkSat to determine satisfiability.");
 		} else if (!((boolean) getOption(SMTLIBConstants.PRODUCE_UNSAT_CORES))) {
 			throw new SMTLIBException("Unsat core production must be enabled (you can do this via setOption).");
-		}else if (!((boolean) getOption(SMTLIBConstants.PRODUCE_PROOFS))) {
+		} else if (!((boolean) getOption(SMTLIBConstants.PRODUCE_PROOFS))) {
 			throw new SMTLIBException("Proof production must be enabled (you can do this via setOption).");
 		}
 
@@ -221,7 +219,7 @@ public class MusEnumerationScript extends WrapperScript {
 		final long timeoutForReMus = 3 * timeout / 4;
 
 		mHandler.setTimeout(timeoutForReMus);
-		final ArrayList<MusContainer> muses = executeReMus(translator, mHandler);
+		final ArrayList<MusContainer> muses = executeReMus(translator);
 
 		if (muses.isEmpty()) {
 			return alternativeUnsatCore;
@@ -244,23 +242,26 @@ public class MusEnumerationScript extends WrapperScript {
 	}
 
 	/**
-	 * Executes the ReMus algorithm on the currently asserted Terms, with the given TerminationRequest. If termination
-	 * is requested, all MUSes that have been found so far are returned.
+	 * Executes the ReMus algorithm on the currently asserted Terms, with the internal TerminationRequest. If
+	 * termination is requested, all MUSes that have been found so far are returned.
 	 */
-	private ArrayList<MusContainer> executeReMus(final TerminationRequest request) {
+	private ArrayList<MusContainer> executeReMus() {
 		final Translator translator = new Translator();
-		return executeReMus(translator, request);
+		return executeReMus(translator);
 	}
 
-	private ArrayList<MusContainer> executeReMus(final Translator translator, final TerminationRequest request) {
+	private ArrayList<MusContainer> executeReMus(final Translator translator) {
 		if (translator.getNumberOfConstraints() != 0) {
 			throw new SMTLIBException("Translator must be new.");
 		}
+
 		final TimeoutHandler handlerForReMus = new TimeoutHandler(mHandler);
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handlerForReMus);
 		final Map<String, Object> remusOptions = createSMTInterpolOptionsForReMus();
+		final SMTInterpol smtInterpol = (SMTInterpol) mScript;
+		final TerminationRequest previousTerminationRequest = smtInterpol.getTerminationRequest();
+		smtInterpol.setTerminationRequest(handlerForReMus);
 		final Script scriptForReMus = new SMTInterpol((SMTInterpol) mScript, remusOptions, CopyMode.CURRENT_VALUE);
-		// TODO: Somehow give the handlerForReMus to the scriptForRemus
 
 		scriptForReMus.push(1);
 
@@ -278,6 +279,7 @@ public class MusEnumerationScript extends WrapperScript {
 		remus.resetSolver();
 
 		scriptForReMus.pop(1);
+		smtInterpol.setTerminationRequest(previousTerminationRequest);
 		return muses;
 	}
 

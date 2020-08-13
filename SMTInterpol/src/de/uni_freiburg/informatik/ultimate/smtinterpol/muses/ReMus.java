@@ -25,7 +25,6 @@ import java.util.NoSuchElementException;
 
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.TerminationRequest;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TimeoutHandler;
 
 /**
@@ -70,10 +69,10 @@ public class ReMus implements Iterator<MusContainer> {
 	 * accordingly).
 	 */
 	public ReMus(final ConstraintAdministrationSolver solver, final UnexploredMap map, final BitSet workingSet,
-			final TerminationRequest request, final long timeout) {
+			final TimeoutHandler handler, final long timeout) {
 		mSolver = solver;
 		mMap = map;
-		mTimeoutHandler = new TimeoutHandler(request);
+		mTimeoutHandler = handler;
 		mTimeout = timeout;
 		mTimeoutOrTerminationRequestOccurred = false;
 
@@ -341,14 +340,18 @@ public class ReMus implements Iterator<MusContainer> {
 	 * muses that have been found so far.
 	 */
 	public ArrayList<MusContainer> enumerate() throws SMTLIBException {
+		boolean thisMethodHasSetTheTimeout = false;
 		if (mTimeout > 0) {
 			mTimeoutHandler.setTimeout(mTimeout);
+			thisMethodHasSetTheTimeout = true;
 		}
 		final ArrayList<MusContainer> restOfMuses = new ArrayList<>();
 		while (hasNext()) {
 			restOfMuses.add(next());
 		}
-		mTimeoutHandler.clearTimeout();
+		if (thisMethodHasSetTheTimeout) {
+			mTimeoutHandler.clearTimeout();
+		}
 		return restOfMuses;
 	}
 
