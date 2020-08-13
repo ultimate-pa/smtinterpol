@@ -99,7 +99,7 @@ public class MusEnumerationScript extends WrapperScript {
 
 		mInterpolationHeuristic = new EnumOption<>(HeuristicsType.RANDOM, true, HeuristicsType.class,
 				"The Heuristic that is used to choose a minimal unsatisfiable subset/core for interpolant generation");
-		mTolerance = new DoubleOption(0.9, true,
+		mTolerance = new DoubleOption(0.1, true,
 				"The tolerance value that is used by the SMALLESTAMONGWIDE and the WIDESTAMONGSMALL Heuristic.");
 	}
 
@@ -141,12 +141,17 @@ public class MusEnumerationScript extends WrapperScript {
 	 * the value for the key {@link MusOptions#TOLERANCE} (for information about the tolerance, see
 	 * {@link Heuristics#chooseWidestAmongSmallMuses(ArrayList, double, Random, TerminationRequest)} or
 	 * {@link Heuristics#chooseSmallestAmongWideMuses(ArrayList, double, Random, TerminationRequest)}.
+	 *
+	 * This method is only available if proof production is enabled
+	 * To enable proof production, call setOption(":produce-proofs",true).
 	 */
 	@Override
 	public Term[] getInterpolants(final Term[] partition, final int[] startOfSubtree) {
 		if (!mAssertedTermsAreUnsat) {
 			throw new SMTLIBException(
 					"Asserted terms must be determined to be unsatisfiable before an interpolant can be generated. Call checkSat to determine satisfiability.");
+		}else if (!((boolean) getOption(SMTLIBConstants.PRODUCE_PROOFS))) {
+			throw new SMTLIBException("Proof production must be enabled (you can do this via setOption).");
 		}
 
 		final long timeout = getTimeout();
@@ -194,6 +199,10 @@ public class MusEnumerationScript extends WrapperScript {
 	 * the value for the key {@link MusOptions#TOLERANCE} (for information about the tolerance, see
 	 * {@link Heuristics#chooseWidestAmongSmallMuses(ArrayList, double, Random, TerminationRequest)} or
 	 * {@link Heuristics#chooseSmallestAmongWideMuses(ArrayList, double, Random, TerminationRequest)}.
+	 *
+	 * This method is only available if proof production and unsat core production is enabled
+	 * To enable proof production, call setOption(":produce-proofs",true).
+	 * To enable unsat core production, call setOption(":produce-unsat-cores", true).
 	 */
 	@Override
 	public Term[] getUnsatCore() {
@@ -201,7 +210,9 @@ public class MusEnumerationScript extends WrapperScript {
 			throw new SMTLIBException(
 					"Asserted Terms must be determined Unsat to return an unsat core. Call checkSat to determine satisfiability.");
 		} else if (!((boolean) getOption(SMTLIBConstants.PRODUCE_UNSAT_CORES))) {
-			throw new SMTLIBException("Unsat core production must be enabled.");
+			throw new SMTLIBException("Unsat core production must be enabled (you can do this via setOption).");
+		}else if (!((boolean) getOption(SMTLIBConstants.PRODUCE_PROOFS))) {
+			throw new SMTLIBException("Proof production must be enabled (you can do this via setOption).");
 		}
 
 		final Term[] alternativeUnsatCore = mScript.getUnsatCore();

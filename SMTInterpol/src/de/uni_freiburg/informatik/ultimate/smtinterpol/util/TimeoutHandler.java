@@ -52,6 +52,13 @@ public class TimeoutHandler implements TerminationRequest {
 		return mTimeoutStamp - System.currentTimeMillis();
 	}
 
+	/**
+	 * This returns null if there is no internal TerminationRequest.
+	 */
+	public TerminationRequest getTerminationRequest() {
+		return mStackedTermination;
+	}
+
 	@Override
 	public boolean isTerminationRequested() {
 		if (mStackedTermination != null && mStackedTermination.isTerminationRequested()) {
