@@ -37,39 +37,53 @@ public class Shrinking {
 	/**
 	 * Takes an boolean array representing an unsatisfiable set of constraints and a CritAdministrationSolver,
 	 * containing all criticals found so far, to generate a minimal unsatisfiable subset. As a side effect, this method
-	 * blocks all explored sets (also the found mus) in the map. This should only be used for Logics where checkSat
-	 * cannot return LBool.UNKNOWN.
+	 * blocks all explored sets (also the found mus) in the map. The Random instance is used to make the shrinking
+	 * randomly (the MUS that is created depends on the order in which the unknowns are tested to be critical). This
+	 * method should only be used for Logics where checkSat cannot return LBool.UNKNOWN.
 	 *
 	 * @returns A MusContainer which contains the found mus and the corresponding proof of unsatisfiability. Returns
 	 *          null, if termination was requested in the shrinking process.
 	 */
 	public static MusContainer shrink(final ConstraintAdministrationSolver solver, final BitSet workingConstraints,
-			final UnexploredMap map, final TerminationRequest request) throws SMTLIBException {
+			final UnexploredMap map, final TerminationRequest request, final Random rnd) throws SMTLIBException {
 		solver.pushRecLevel();
-		if (!contains(workingConstraints, solver.getCrits())) {
+		if (!MusUtils.contains(workingConstraints, solver.getCrits())) {
 			throw new SMTLIBException("WorkingConstraints is corrupted! It should contain all crits.");
 		}
 
 		final BitSet unknown = (BitSet) workingConstraints.clone();
 		unknown.andNot(solver.getCrits());
 
-		for (int i = unknown.nextSetBit(0); i >= 0; i = unknown.nextSetBit(i + 1)) {
-			for (int j = unknown.nextSetBit(i + 1); j >= 0; j = unknown.nextSetBit(j + 1)) {
+		final ArrayList<Integer> unknownPermutated = MusUtils.randomPermutation(unknown, rnd);
+		int unknownIndex;
+		while (!unknownPermutated.isEmpty()) {
+			unknownIndex = unknownPermutated.get(unknownPermutated.size() - 1);
+			unknownPermutated.remove(unknownPermutated.size() - 1);
+			if (!unknown.get(unknownIndex)) {
+				continue;
+			}
+			for (int j = unknown.nextSetBit(0); j >= 0; j = unknown.nextSetBit(j + 1)) {
+				if (j == unknownIndex) {
+					continue;
+				}
 				solver.assertUnknownConstraint(j);
 			}
 			switch (solver.checkSat()) {
 			case UNSAT:
-				unknown.clear(i);
+				unknown.clear(unknownIndex);
 				final BitSet core = solver.getUnsatCore();
 				unknown.and(core);
 				solver.clearUnknownConstraints();
 				break;
 			case SAT:
-				unknown.clear(i);
-				final BitSet extension = solver.getSatExtension();
+				unknown.clear(unknownIndex);
+				final BitSet extension = solver.getSatExtension(request);
+				if (extension == null) {
+					return null;
+				}
 				map.BlockDown(extension);
 				solver.clearUnknownConstraints();
-				solver.assertCriticalConstraint(i);
+				solver.assertCriticalConstraint(unknownIndex);
 				break;
 			case UNKNOWN:
 				if (request != null && request.isTerminationRequested()) {
@@ -103,29 +117,7 @@ public class Shrinking {
 	 * A variation of shrink, which does not listen to a TerminationRequest.
 	 */
 	public static MusContainer shrink(final ConstraintAdministrationSolver solver, final BitSet workingSet,
-			final UnexploredMap map) {
-		return shrink(solver, workingSet, map, null);
-	}
-
-	/**
-	 * Check whether set1 contains set2.
-	 */
-	public static boolean contains(final BitSet set1, final BitSet set2) {
-		final BitSet set2Clone = (BitSet) set2.clone();
-		set2Clone.andNot(set1);
-		return set2Clone.isEmpty();
-	}
-
-	/**
-	 * Takes in a BitSet and returns an Array with the indices of the set Bits, but randomly permuted (pseudo-randomly,
-	 * this method always uses the same seed).
-	 */
-	public static ArrayList<Integer> randomPermutation(final BitSet toBePermutated) {
-		final ArrayList<Integer> toBePermutatedList = new ArrayList<>();
-		for (int i = toBePermutated.nextSetBit(0); i >= 0; i = toBePermutated.nextSetBit(i + 1)) {
-			toBePermutatedList.add(i);
-		}
-		java.util.Collections.shuffle(toBePermutatedList, new Random(1337));
-		return toBePermutatedList;
+			final UnexploredMap map, final Random rnd) {
+		return shrink(solver, workingSet, map, null, rnd);
 	}
 }

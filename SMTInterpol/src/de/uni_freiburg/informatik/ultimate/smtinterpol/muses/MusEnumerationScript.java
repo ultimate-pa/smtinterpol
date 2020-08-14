@@ -274,7 +274,7 @@ public class MusEnumerationScript extends WrapperScript {
 		final BitSet workingSet = new BitSet(nrOfConstraints);
 		workingSet.flip(0, nrOfConstraints);
 
-		final ReMus remus = new ReMus(solver, unexploredMap, workingSet, handlerForReMus, 0);
+		final ReMus remus = new ReMus(solver, unexploredMap, workingSet, handlerForReMus, 0, mRandom);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		remus.resetSolver();
 

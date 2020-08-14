@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
+import java.util.Random;
 
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
@@ -40,19 +41,20 @@ public class ReMus implements Iterator<MusContainer> {
 	UnexploredMap mMap;
 	TimeoutHandler mTimeoutHandler;
 	long mTimeout;
+	Random mRnd;
 
 	ArrayList<MusContainer> mMuses;
 	MusContainer mNextMus;
 	boolean mProvisionalSat;
 	BitSet mMaxUnexplored;
-	BitSet mMcs;
+	ArrayList<Integer> mMcs;
 	BitSet mPreviousCrits;
 	BitSet mNewImpliedCrits;
 	BitSet mWorkingSet;
 	ReMus mSubordinateRemus;
 	boolean mMembersUpToDate;
+
 	boolean mSatisfiableCaseLoopIsRunning;
-	int mLastSatisfiableCaseLoopRunningIndex;
 	BitSet mSatisfiableCaseLoopNextWorkingSet;
 	boolean mTimeoutOrTerminationRequestOccurred;
 
@@ -69,12 +71,13 @@ public class ReMus implements Iterator<MusContainer> {
 	 * accordingly).
 	 */
 	public ReMus(final ConstraintAdministrationSolver solver, final UnexploredMap map, final BitSet workingSet,
-			final TimeoutHandler handler, final long timeout) {
+			final TimeoutHandler handler, final long timeout, final Random rnd) {
 		mSolver = solver;
 		mMap = map;
 		mTimeoutHandler = handler;
 		mTimeout = timeout;
 		mTimeoutOrTerminationRequestOccurred = false;
+		mRnd = rnd;
 
 		if (workingSet.length() > mSolver.getNumberOfConstraints()) {
 			throw new SMTLIBException(
@@ -89,31 +92,20 @@ public class ReMus implements Iterator<MusContainer> {
 	 * Constructor for internal instances, that are created for recursion.
 	 */
 	private ReMus(final ConstraintAdministrationSolver solver, final UnexploredMap map, final BitSet workingSet,
-			final TimeoutHandler handler) {
-		mSolver = solver;
-		mMap = map;
-		mTimeoutHandler = handler;
-		mTimeout = 0;
-		mTimeoutOrTerminationRequestOccurred = false;
-
-		if (workingSet.length() > mSolver.getNumberOfConstraints()) {
-			throw new SMTLIBException(
-					"There are constraints set in the workingSet that are not registered in the translator of the "
-							+ "solver and the map");
-		}
-		mWorkingSet = workingSet;
-		initializeMembersAndAssertImpliedCrits();
+			final TimeoutHandler handler, final Random rnd) {
+		this(solver, map, workingSet, handler, 0, rnd);
 	}
 
 	private void initializeMembersAndAssertImpliedCrits() {
 		mMuses = new ArrayList<>();
 		mSolver.clearUnknownConstraints();
 		mPreviousCrits = mSolver.getCrits();
+		//mMap.messWithActivityOfAtoms(mRnd);
 		mMaxUnexplored = mMap.findMaximalUnexploredSubsetOf(mWorkingSet);
 		mNewImpliedCrits = mMap.findImpliedCritsOf(mWorkingSet);
 		mNewImpliedCrits.andNot(mPreviousCrits);
 		// If maxUnexplored does not contain some of the known crits, it must be satisfiable
-		mProvisionalSat = !Shrinking.contains(mMaxUnexplored, mPreviousCrits);
+		mProvisionalSat = !MusUtils.contains(mMaxUnexplored, mPreviousCrits);
 		mMembersUpToDate = true;
 	}
 
@@ -173,23 +165,19 @@ public class ReMus implements Iterator<MusContainer> {
 		if (mSubordinateRemus != null) {
 			throw new SMTLIBException("Let the subordinate find it's muses first.");
 		}
-		int i = mMcs.nextSetBit(mLastSatisfiableCaseLoopRunningIndex + 1);
-		while (i >= 0 && mNextMus == null && !mTimeoutHandler.isTerminationRequested()) {
-			mSatisfiableCaseLoopNextWorkingSet.set(i);
-			createNewSubordinateRemusWithExtraCrit(mSatisfiableCaseLoopNextWorkingSet, i);
+		int critical;
+		while (!mMcs.isEmpty() && mNextMus == null && !mTimeoutHandler.isTerminationRequested()) {
+			critical = MusUtils.pop(mMcs);
+			mSatisfiableCaseLoopNextWorkingSet.set(critical);
+			createNewSubordinateRemusWithExtraCrit(mSatisfiableCaseLoopNextWorkingSet, critical);
 			if (mSubordinateRemus.hasNext()) {
 				mNextMus = mSubordinateRemus.next();
 			} else {
 				removeSubordinateRemus();
 			}
-			mSatisfiableCaseLoopNextWorkingSet.clear(i);
-			mLastSatisfiableCaseLoopRunningIndex = i;
-			i = mMcs.nextSetBit(i + 1);
+			mSatisfiableCaseLoopNextWorkingSet.clear(critical);
 		}
-		if (i < 0) {
-			mSatisfiableCaseLoopIsRunning = false;
-			return;
-		}
+		mSatisfiableCaseLoopIsRunning = !mMcs.isEmpty() ? true : false;
 	}
 
 	/**
@@ -249,7 +237,7 @@ public class ReMus implements Iterator<MusContainer> {
 		mNewImpliedCrits.andNot(mPreviousCrits);
 		mSolver.assertCriticalConstraints(mNewImpliedCrits);
 		// If maxUnexplored does not contain some of the known crits, it must be satisfiable
-		mProvisionalSat = !Shrinking.contains(mMaxUnexplored, mPreviousCrits);
+		mProvisionalSat = !MusUtils.contains(mMaxUnexplored, mPreviousCrits);
 		mMembersUpToDate = true;
 	}
 
@@ -257,34 +245,34 @@ public class ReMus implements Iterator<MusContainer> {
 		// To get an extension here is useless, since maxUnexplored is a MSS already. Also BlockUp is useless, since we
 		// will block those sets anyways in the following recursion or have already blocked those sets
 		mMap.BlockDown(mMaxUnexplored);
-		mMcs = (BitSet) mWorkingSet.clone();
-		mMcs.andNot(mMaxUnexplored);
-		if (mMcs.cardinality() == 1) {
-			mSolver.assertCriticalConstraint(mMcs.nextSetBit(0));
+		final BitSet bitSetMcs = (BitSet) mWorkingSet.clone();
+		bitSetMcs.andNot(mMaxUnexplored);
+		if (bitSetMcs.cardinality() == 1) {
+			mSolver.assertCriticalConstraint(bitSetMcs.nextSetBit(0));
 		} else {
+			mMcs = MusUtils.randomPermutation(bitSetMcs, mRnd);
 			final BitSet nextWorkingSet = (BitSet) mMaxUnexplored.clone();
-			int i = mMcs.nextSetBit(0);
 
-			while (i >= 0 && mNextMus == null && !mTimeoutHandler.isTerminationRequested()) {
-				nextWorkingSet.set(i);
-				createNewSubordinateRemusWithExtraCrit(nextWorkingSet, i);
+			int critical;
+			while (!mMcs.isEmpty() && mNextMus == null && !mTimeoutHandler.isTerminationRequested()) {
+				critical = MusUtils.pop(mMcs);
+				nextWorkingSet.set(critical);
+				createNewSubordinateRemusWithExtraCrit(nextWorkingSet, critical);
 				if (mSubordinateRemus.hasNext()) {
 					mNextMus = mSubordinateRemus.next();
 				} else {
 					removeSubordinateRemus();
 				}
-				nextWorkingSet.clear(i);
-				mLastSatisfiableCaseLoopRunningIndex = i;
+				nextWorkingSet.clear(critical);
 				mSatisfiableCaseLoopNextWorkingSet = nextWorkingSet;
-				i = mMcs.nextSetBit(i + 1);
 			}
-			mSatisfiableCaseLoopIsRunning = i >= 0 ? true : false;
+			mSatisfiableCaseLoopIsRunning = !mMcs.isEmpty() ? true : false;
 		}
 	}
 
 	private void handleUnexploredIsUnsat() {
 		mSolver.pushRecLevel();
-		mNextMus = Shrinking.shrink(mSolver, mMaxUnexplored, mMap, mTimeoutHandler);
+		mNextMus = Shrinking.shrink(mSolver, mMaxUnexplored, mMap, mTimeoutHandler, mRnd);
 		mSolver.popRecLevel();
 		if (mNextMus == null) {
 			return;
@@ -304,7 +292,7 @@ public class ReMus implements Iterator<MusContainer> {
 
 	private void createNewSubordinateRemus(final BitSet nextWorkingSet) {
 		mSolver.pushRecLevel();
-		mSubordinateRemus = new ReMus(mSolver, mMap, nextWorkingSet, mTimeoutHandler);
+		mSubordinateRemus = new ReMus(mSolver, mMap, nextWorkingSet, mTimeoutHandler, mRnd);
 	}
 
 	/**
@@ -314,7 +302,7 @@ public class ReMus implements Iterator<MusContainer> {
 	private void createNewSubordinateRemusWithExtraCrit(final BitSet nextWorkingSet, final int crit) {
 		mSolver.pushRecLevel();
 		mSolver.assertCriticalConstraint(crit);
-		mSubordinateRemus = new ReMus(mSolver, mMap, nextWorkingSet, mTimeoutHandler);
+		mSubordinateRemus = new ReMus(mSolver, mMap, nextWorkingSet, mTimeoutHandler, mRnd);
 	}
 
 	private void removeSubordinateRemus() {

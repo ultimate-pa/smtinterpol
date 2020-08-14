@@ -20,6 +20,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.muses;
 
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.Random;
 import java.util.function.Function;
 
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
@@ -48,6 +49,14 @@ public class UnexploredMap {
 		mEngine = engine;
 		mTranslator = translator;
 		mMapModifiedSinceLastSolve = true;
+	}
+
+	/**
+	 * Randomly mess with the activity of Atoms, such that the Engine does not prefer atoms that have been active/inactive
+	 * so far.
+	 */
+	public void messWithActivityOfAtoms(final Random rnd) {
+		mEngine.messWithActivityOfAtoms(rnd);
 	}
 
 	/**
@@ -128,7 +137,6 @@ public class UnexploredMap {
 				mMaximalUnexploredSubset = collectAtomsWithCriteria(workingSet, this::isSetToTrue);
 				if (mMaximalUnexploredSubset.get(0) && mMaximalUnexploredSubset.get(1)
 						&& mMaximalUnexploredSubset.get(2) && mMaximalUnexploredSubset.get(4)) {
-					System.out.println("DebuggingPrint");
 				}
 				assert !Config.EXPENSIVE_ASSERTS
 						|| mMaximalUnexploredSubsetIsMSS() : "The models that are returned are no MSSes. Probably mLastStatus of the atoms has been corrupted.";

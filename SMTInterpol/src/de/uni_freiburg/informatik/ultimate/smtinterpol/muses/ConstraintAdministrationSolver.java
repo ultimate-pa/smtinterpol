@@ -25,6 +25,7 @@ import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.TerminationRequest;
 
 /**
  * A class that wraps a script and provides additional functionality for the MUS enumeration. Basically, it is used for
@@ -185,10 +186,14 @@ public class ConstraintAdministrationSolver {
 
 	/**
 	 * Try to extend the currently asserted satisfiable set to a bigger satisfiable set without investing too much work
-	 * in it.
+	 * in it. Returns null if termination is requested.
 	 */
-	public BitSet getSatExtension() throws SMTLIBException, UnsupportedOperationException {
-		if (!(LBool.SAT == mScript.checkSat())) {
+	public BitSet getSatExtension(final TerminationRequest request) throws SMTLIBException, UnsupportedOperationException {
+		final LBool sat = mScript.checkSat();
+		if (!(LBool.SAT == sat)) {
+			if (LBool.UNKNOWN == sat && request != null && request.isTerminationRequested()) {
+				return null;
+			}
 			throw new SMTLIBException("The current assertions are not satisfiable.");
 		}
 		final Model model = mScript.getModel();

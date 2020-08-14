@@ -1904,4 +1904,14 @@ public class DPLLEngine {
 		}
 		return true;
 	}
+
+	/**
+	 * Randomly mess with the activity of Atoms, such that the Engine does not prefer atoms that have been active/inactive
+	 * so far. Currently causes assertionErrors, so don't use this.
+	 */
+	public void messWithActivityOfAtoms(final Random rnd) {
+		for (final DPLLAtom atom : mAtomList) {
+			atom.mActivity = atom.mActivity + rnd.nextDouble() * mAtomScale;
+		}
+	}
 }
