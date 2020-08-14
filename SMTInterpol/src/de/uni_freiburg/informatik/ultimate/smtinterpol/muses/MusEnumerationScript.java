@@ -38,6 +38,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.NamedAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.DoubleOption;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.EnumOption;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.option.LongOption;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap.CopyMode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolOptions;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
@@ -87,6 +88,8 @@ public class MusEnumerationScript extends WrapperScript {
 
 	EnumOption<HeuristicsType> mInterpolationHeuristic;
 	DoubleOption mTolerance;
+	LongOption mEnumerationTimeout;
+	LongOption mHeuristicTimeout;
 	Random mRandom;
 
 	public MusEnumerationScript(final SMTInterpol wrappedScript) {
@@ -103,6 +106,9 @@ public class MusEnumerationScript extends WrapperScript {
 				"The Heuristic that is used to choose a minimal unsatisfiable subset/core for interpolant generation");
 		mTolerance = new DoubleOption(0.1, true,
 				"The tolerance value that is used by the SMALLESTAMONGWIDE and the WIDESTAMONGSMALL Heuristic.");
+		mEnumerationTimeout = new LongOption(0, true, "The time that is invested into enumerating Muses");
+		mHeuristicTimeout = new LongOption(0, true,
+				"The time that is invested into finding the best Mus according to the set Heuristic");
 	}
 
 	private long getRandomSeed() {
@@ -111,6 +117,14 @@ public class MusEnumerationScript extends WrapperScript {
 
 	private long getTimeout() {
 		return ((BigInteger) getOption(SMTInterpolOptions.TIMEOUT)).longValue();
+	}
+
+	private long getEnumerationTimeout() {
+		return ((BigInteger) getOption(MusOptions.ENUMERATION_TIMEOUT)).longValue();
+	}
+
+	private long getHeuristicTimeout() {
+		return ((BigInteger) getOption(MusOptions.HEURISTIC_TIMEOUT)).longValue();
 	}
 
 	@Override
@@ -124,21 +138,23 @@ public class MusEnumerationScript extends WrapperScript {
 	}
 
 	/**
-	 * This method first enumerates MUSes of the current asserted terms, then it applies a heuristic for choosing a MUS
-	 * amongst them. Lastly, the proof of unsatisfiability of the chosen MUS is used to generate the Sequence of
-	 * Interpolants that is returned. The timeout is currently split into 1/2 timeout for ReMus, 1/4 (+ what's left of
-	 * ReMus' timeout) timeout for applying the heuristic, 1/4 (+ what's left of the heuristics' timeout) generating the
-	 * interpolant. If the timeout for ReMus is exceeded, it returns the muses found so far. If the timeout for the
-	 * heuristic is exceeded, it returns the best mus found so far wrt. the heuristic. If the timeout for generating the
-	 * interpolant is exceeded, or the timeout for ReMus is exceeded, before any MUSes could be produced, an
-	 * SMTLIBException is thrown.
+	 * This method first enumerates MUSes (with the ReMus algorithm) of the current asserted terms, then it applies a
+	 * heuristic for choosing a MUS amongst them. Lastly, the proof of unsatisfiability of the chosen MUS is used to
+	 * generate the Sequence of Interpolants that is returned. The enumeration of Muses, the heuristic and
+	 * getInterpolants use different timeouts, respectively. If the timeout for the enumeration is exceeded, it returns
+	 * the muses found so far. If the timeout for the heuristic is exceeded, it returns the best mus found so far wrt.
+	 * the heuristic. If the timeout for generating the interpolant is exceeded, or the timeout for the enumeration is
+	 * exceeded, before any MUSes could be produced, an SMTLIBException is thrown.
 	 *
-	 * To set the used heuristic, use {@link #setOption(String, Object)} with the
+	 * OPTIONS: To set the used heuristic, use {@link #setOption(String, Object)} with the
 	 * {@link MusOptions#INTERPOLATION_HEURISTIC} key and the respective {@link HeuristicsType} value. If you choose
 	 * {@link HeuristicsType#SMALLESTAMONGWIDE} or {@link HeuristicsType#WIDESTAMONGSMALL}, you may also want to specify
 	 * the value for the key {@link MusOptions#TOLERANCE} (for information about the tolerance, see
 	 * {@link Heuristics#chooseWidestAmongSmallMuses(ArrayList, double, Random, TerminationRequest)} or
-	 * {@link Heuristics#chooseSmallestAmongWideMuses(ArrayList, double, Random, TerminationRequest)}.
+	 * {@link Heuristics#chooseSmallestAmongWideMuses(ArrayList, double, Random, TerminationRequest)}. To set the
+	 * timeout for the enumeration, the heuristic or the Interpolation, call {@link #setOption(String, Object)} with the
+	 * keys {@link MusOptions#ENUMERATION_TIMEOUT}, {@link MusOptions#HEURISTIC_TIMEOUT},
+	 * {@link SMTInterpolOptions#TIMEOUT} respectively.
 	 *
 	 * This method is only available if proof production is enabled To enable proof production, call
 	 * setOption(":produce-proofs",true).
@@ -152,9 +168,8 @@ public class MusEnumerationScript extends WrapperScript {
 			throw new SMTLIBException("Proof production must be enabled (you can do this via setOption).");
 		}
 
-		final long timeout = getTimeout();
-
-		final long timeoutForReMus = timeout / 2;
+		final long timeoutForReMus = getEnumerationTimeout();
+		final long timeoutForHeuristic = getHeuristicTimeout();
 		mHandler.setTimeout(timeoutForReMus);
 		final ArrayList<MusContainer> muses = executeReMus();
 
@@ -162,41 +177,31 @@ public class MusEnumerationScript extends WrapperScript {
 			throw new SMTLIBException("Timeout for ReMus exceeded before any muses could be found.");
 		}
 
-		final long timeoutForHeuristic;
-		if (mHandler.timeLeft() <= 0) {
-			timeoutForHeuristic = timeout / 4;
-		} else {
-			timeoutForHeuristic = timeout / 4 + mHandler.timeLeft();
-		}
-
 		mHandler.setTimeout(timeoutForHeuristic);
 		final MusContainer chosenMus = chooseMusAccordingToHeuristic(muses, mHandler);
-
-		if (mHandler.timeLeft() <= 0) {
-			setOption(SMTInterpolOptions.TIMEOUT, timeout / 4);
-		} else {
-			setOption(SMTInterpolOptions.TIMEOUT, timeout / 4 + mHandler.timeLeft());
-		}
 		mHandler.clearTimeout();
+
 		final Term[] sequenceOfInterpolants = getInterpolants(partition, startOfSubtree, chosenMus.getProof());
-		setOption(SMTInterpolOptions.TIMEOUT, timeout);
 		return sequenceOfInterpolants;
 	}
 
 	/**
-	 * First, uses the ReMUS algorithm to enumerate MUSes of the set of asserted Terms (max. 3/4 of the timeout). Then,
-	 * it searches for the best MUS according to the chosen heuristic (1/4 of the timeout + what's left of ReMus'
-	 * timeout). If the first timeout is exceeded, the enumeration stops and the heuristic is applied to the MUSes found
-	 * so far. If the second timeout is exceeded, the best MUS that has been found so far is returned. If ReMUS could
-	 * not find any MUS in the given time, an arbitrary unsat core (i.e., the unsat core from the wrapped script) is
-	 * returned, which is not necessarily minimal wrt. satisfiability.
+	 * First, uses the ReMUS algorithm to enumerate MUSes of the set of asserted Terms. Then, it searches for the best
+	 * MUS according to the chosen heuristic. If the first timeout is exceeded, the enumeration stops and the heuristic
+	 * is applied to the MUSes found so far. If the second timeout is exceeded, the best MUS that has been found so far
+	 * is returned. If ReMUS could not find any MUS in the given time, an arbitrary unsat core (i.e., the unsat core of
+	 * the wrapped script) is returned, which is not necessarily minimal wrt. satisfiability. Every step (enumeration,
+	 * heuristic, getUnsatCore of the wrapped script) has its own timeout.
 	 *
-	 * To set the used heuristic, use {@link #setOption(String, Object)} with the
+	 * OPTIONS: To set the used heuristic, use {@link #setOption(String, Object)} with the
 	 * {@link MusOptions#INTERPOLATION_HEURISTIC} key and the respective {@link HeuristicsType} value. If you choose
 	 * {@link HeuristicsType#SMALLESTAMONGWIDE} or {@link HeuristicsType#WIDESTAMONGSMALL}, you may also want to specify
 	 * the value for the key {@link MusOptions#TOLERANCE} (for information about the tolerance, see
 	 * {@link Heuristics#chooseWidestAmongSmallMuses(ArrayList, double, Random, TerminationRequest)} or
-	 * {@link Heuristics#chooseSmallestAmongWideMuses(ArrayList, double, Random, TerminationRequest)}.
+	 * {@link Heuristics#chooseSmallestAmongWideMuses(ArrayList, double, Random, TerminationRequest)}. To set the
+	 * timeout for the enumeration, the heuristic or the getUnsatCore of the wrapped script, call
+	 * {@link #setOption(String, Object)} with the keys {@link MusOptions#ENUMERATION_TIMEOUT},
+	 * {@link MusOptions#HEURISTIC_TIMEOUT}, {@link SMTInterpolOptions#TIMEOUT} respectively.
 	 *
 	 * This method is only available if proof production and unsat core production is enabled To enable proof
 	 * production, call setOption(":produce-proofs",true). To enable unsat core production, call
@@ -215,8 +220,9 @@ public class MusEnumerationScript extends WrapperScript {
 
 		final Term[] alternativeUnsatCore = mScript.getUnsatCore();
 		final Translator translator = new Translator();
-		final long timeout = getTimeout();
-		final long timeoutForReMus = 3 * timeout / 4;
+
+		final long timeoutForReMus = getEnumerationTimeout();
+		final long timeoutForHeuristic = getHeuristicTimeout();
 
 		mHandler.setTimeout(timeoutForReMus);
 		final ArrayList<MusContainer> muses = executeReMus(translator);
@@ -225,18 +231,9 @@ public class MusEnumerationScript extends WrapperScript {
 			return alternativeUnsatCore;
 		}
 
-		final long timeoutForHeuristic;
-		if (mHandler.timeLeft() <= 0) {
-			timeoutForHeuristic = timeout / 4;
-		} else {
-			timeoutForHeuristic = timeout / 4 + mHandler.timeLeft();
-		}
-
 		mHandler.setTimeout(timeoutForHeuristic);
 		final MusContainer chosenMus = chooseMusAccordingToHeuristic(muses, mHandler);
-
 		mHandler.clearTimeout();
-		setOption(SMTInterpolOptions.TIMEOUT, timeout);
 
 		return translator.translateToTerms(chosenMus.getMus());
 	}
@@ -430,6 +427,10 @@ public class MusEnumerationScript extends WrapperScript {
 		} else if (opt.equals(SMTLIBConstants.RANDOM_SEED)) {
 			mScript.setOption(opt, value);
 			mRandom = new Random(getRandomSeed());
+		} else if (opt.equals(MusOptions.ENUMERATION_TIMEOUT)) {
+			mEnumerationTimeout.set(value);
+		} else if (opt.equals(MusOptions.HEURISTIC_TIMEOUT)) {
+			mHeuristicTimeout.set(value);
 		} else {
 			mScript.setOption(opt, value);
 		}
@@ -441,6 +442,10 @@ public class MusEnumerationScript extends WrapperScript {
 			return mInterpolationHeuristic.get();
 		} else if (opt.equals(MusOptions.TOLERANCE)) {
 			return mTolerance.get();
+		} else if (opt.equals(MusOptions.ENUMERATION_TIMEOUT)) {
+			return mEnumerationTimeout.get();
+		} else if (opt.equals(MusOptions.HEURISTIC_TIMEOUT)) {
+			return mHeuristicTimeout.get();
 		} else {
 			return mScript.getOption(opt);
 		}

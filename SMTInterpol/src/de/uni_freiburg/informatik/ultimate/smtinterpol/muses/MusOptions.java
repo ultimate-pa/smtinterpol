@@ -28,4 +28,6 @@ public interface MusOptions {
 
 	public String INTERPOLATION_HEURISTIC = ":interpolation-heuristic";
 	public String TOLERANCE = ":tolerance";
+	public String ENUMERATION_TIMEOUT = ":enumeration-timeout";
+	public String HEURISTIC_TIMEOUT = ":heuristic-timeout";
 }
