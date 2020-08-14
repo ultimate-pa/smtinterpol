@@ -170,14 +170,20 @@ public class MusEnumerationScript extends WrapperScript {
 
 		final long timeoutForReMus = getEnumerationTimeout();
 		final long timeoutForHeuristic = getHeuristicTimeout();
-		mHandler.setTimeout(timeoutForReMus);
+
+		if (timeoutForReMus > 0) {
+			mHandler.setTimeout(timeoutForReMus);
+		}
 		final ArrayList<MusContainer> muses = executeReMus();
+		mHandler.clearTimeout();
 
 		if (muses.isEmpty()) {
 			throw new SMTLIBException("Timeout for ReMus exceeded before any muses could be found.");
 		}
 
-		mHandler.setTimeout(timeoutForHeuristic);
+		if (timeoutForHeuristic > 0) {
+			mHandler.setTimeout(timeoutForHeuristic);
+		}
 		final MusContainer chosenMus = chooseMusAccordingToHeuristic(muses, mHandler);
 		mHandler.clearTimeout();
 
@@ -224,14 +230,20 @@ public class MusEnumerationScript extends WrapperScript {
 		final long timeoutForReMus = getEnumerationTimeout();
 		final long timeoutForHeuristic = getHeuristicTimeout();
 
-		mHandler.setTimeout(timeoutForReMus);
+		if (timeoutForReMus > 0) {
+			mHandler.setTimeout(timeoutForReMus);
+		}
 		final ArrayList<MusContainer> muses = executeReMus(translator);
+		mHandler.clearTimeout();
+
 
 		if (muses.isEmpty()) {
 			return alternativeUnsatCore;
 		}
 
-		mHandler.setTimeout(timeoutForHeuristic);
+		if (timeoutForHeuristic > 0) {
+			mHandler.setTimeout(timeoutForHeuristic);
+		}
 		final MusContainer chosenMus = chooseMusAccordingToHeuristic(muses, mHandler);
 		mHandler.clearTimeout();
 

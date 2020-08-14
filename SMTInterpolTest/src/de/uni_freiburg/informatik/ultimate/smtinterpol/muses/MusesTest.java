@@ -38,7 +38,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.NamedAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.muses.MusEnumerationScript.HeuristicsType;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolOptions;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.TerminationRequest;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TimeoutHandler;
@@ -1288,9 +1287,6 @@ public class MusesTest {
 	public void testMusEnumerationScriptSet2() {
 		final MusEnumerationScript script = setupMusEnumerationScript(Logics.ALL);
 		script.setOption(MusOptions.INTERPOLATION_HEURISTIC, HeuristicsType.SMALLEST);
-		script.setOption(SMTInterpolOptions.TIMEOUT, 100000);
-		script.setOption(MusOptions.ENUMERATION_TIMEOUT, 100000);
-		script.setOption(MusOptions.HEURISTIC_TIMEOUT, 100000);
 		script.setOption(SMTLIBConstants.RANDOM_SEED, 1337);
 
 		script.push(1);
@@ -1318,9 +1314,6 @@ public class MusesTest {
 	public void testMusEnumerationScriptSet5() {
 		final MusEnumerationScript script = setupMusEnumerationScript(Logics.ALL);
 		script.setOption(MusOptions.INTERPOLATION_HEURISTIC, HeuristicsType.SMALLEST);
-		script.setOption(SMTInterpolOptions.TIMEOUT, 100000);
-		script.setOption(MusOptions.ENUMERATION_TIMEOUT, 100000);
-		script.setOption(MusOptions.HEURISTIC_TIMEOUT, 100000);
 		script.setOption(SMTLIBConstants.RANDOM_SEED, 1337);
 
 		script.push(1);
