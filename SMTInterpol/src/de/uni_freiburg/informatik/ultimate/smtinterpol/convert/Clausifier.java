@@ -571,8 +571,15 @@ public class Clausifier {
 					final Term rhs = at.getParameters()[1];
 
 					if (quantified) {
-						// TODO Find trivially true or false QuantLiterals.
-						lit = mQuantTheory.getQuantEquality(positive, mCollector.getSource(), lhs, rhs);
+						// Find trivially true or false QuantLiterals.
+						final Term trivialEq = checkAndGetTrivialEquality(lhs, rhs, mTheory);
+						if (trivialEq == mTheory.mTrue) {
+							lit = mTRUE;
+						} else if (trivialEq == mTheory.mFalse) {
+							lit = mFALSE;
+						} else {
+							lit = mQuantTheory.getQuantEquality(positive, mCollector.getSource(), lhs, rhs);
+						}
 					} else {
 						final EqualityProxy eq = createEqualityProxy(lhs, rhs, mCollector.getSource());
 						// eq == true and positive ==> set to true
@@ -631,7 +638,6 @@ public class Clausifier {
 				pushOperation(new CollectLiteral(mTracker.getProvedTerm(rewrite), subCollector));
 				return;
 			} else if (idx instanceof TermVariable) {
-				// TODO Find trivially true or false QuantLiterals.
 				final ILiteral lit = mQuantTheory.getQuantEquality(false, mCollector.getSource(), idx, mTheory.mTrue);
 				final Term atomRewrite = mTracker.intern(idx, lit.getSMTFormula(theory, true));
 				if (positive) {
@@ -1673,6 +1679,42 @@ public class Clausifier {
 		eqForm = new EqualityProxy(this, lhs, rhs);
 		mEqualities.put(diff, eqForm);
 		return eqForm;
+	}
+
+	/**
+	 * Check if an equality between two terms is trivially true or false.
+	 * 
+	 * @param lhs
+	 *            the left side of the equality
+	 * @param rhs
+	 *            the right side of the equality
+	 * @param theory
+	 *            the theory
+	 * @return the true (false) term if the equality is trivially true (false), null otherwise.
+	 */
+	public static Term checkAndGetTrivialEquality(final Term lhs, final Term rhs, final Theory theory) {
+		// This code corresponds to the check in createEqualityProxy(...)
+		final SMTAffineTerm diff = new SMTAffineTerm(lhs);
+		diff.add(Rational.MONE, rhs);
+		if (diff.isConstant()) {
+			if (diff.getConstant().equals(Rational.ZERO)) {
+				return theory.mTrue;
+			} else {
+				return theory.mFalse;
+			}
+		} else {
+			diff.div(diff.getGcd());
+			Sort sort = lhs.getSort();
+			// Normalize equality to integer logic if all variables are integer.
+			if (theory.getLogic().isIRA() && sort.getName().equals("Real") && diff.isAllIntSummands()) {
+				sort = theory.getSort("Int");
+			}
+			// Check for unsatisfiable integer formula, e.g. 2x + 2y = 1.
+			if (sort.getName().equals("Int") && !diff.getConstant().isIntegral()) {
+				return theory.mFalse;
+			}
+		}
+		return null;
 	}
 
 	ILiteral createAnonLiteral(final Term term) {
