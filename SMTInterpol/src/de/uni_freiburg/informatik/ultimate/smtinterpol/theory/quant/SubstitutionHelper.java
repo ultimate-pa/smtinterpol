@@ -28,8 +28,6 @@ import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
-import de.uni_freiburg.informatik.ultimate.logic.Rational;
-import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
@@ -258,28 +256,10 @@ public class SubstitutionHelper {
 		assert simplifiedAtom instanceof ApplicationTerm;
 		final ApplicationTerm appTerm = (ApplicationTerm) simplifiedAtom;
 		if (appTerm.getFunction().getName() == "=") {
-			final Term simpLhs = appTerm.getParameters()[0];
-			final Term simpRhs = appTerm.getParameters()[1];
-			final SMTAffineTerm diff = new SMTAffineTerm(simpLhs);
-			diff.add(Rational.MONE, simpRhs);
-			if (diff.isConstant()) {
-				if (diff.getConstant().equals(Rational.ZERO)) {
-					simplifiedAtom = theory.mTrue;
-				} else {
-					simplifiedAtom = theory.mFalse;
-				}
-			} else {
-				diff.div(diff.getGcd());
-				Sort sort = simpLhs.getSort();
-				// Normalize equality to integer logic if all variables are integer.
-				if (theory.getLogic().isIRA() && sort.getName().equals("Real")
-						&& diff.isAllIntSummands()) {
-					sort = theory.getSort("Int");
-				}
-				// Check for unsatisfiable integer formula, e.g. 2x + 2y = 1.
-				if (sort.getName().equals("Int") && !diff.getConstant().isIntegral()) {
-					simplifiedAtom = theory.mFalse;
-				}
+			final Term trivialEq = Clausifier.checkAndGetTrivialEquality(appTerm.getParameters()[0],
+					appTerm.getParameters()[1], theory);
+			if (trivialEq != null) {
+				simplifiedAtom = trivialEq;
 			}
 		}
 		if (simplifiedAtom != mTracker.getProvedTerm(normalizedAtom)) {
