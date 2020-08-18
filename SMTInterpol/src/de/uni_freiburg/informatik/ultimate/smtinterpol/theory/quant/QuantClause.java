@@ -395,8 +395,6 @@ public class QuantClause {
 	 * This method does not consider dependencies between variables. They must be taken care of after computing the sets
 	 * for each single variable.
 	 *
-	 * TODO Should this use addAllInteresting?
-	 *
 	 * @param var
 	 *            the TermVariable which we compute the instantiation terms for.
 	 * @param varNum
@@ -407,6 +405,7 @@ public class QuantClause {
 		assert info != null;
 
 		// Retrieve from CClosure all ground terms that appear under the same functions at the same positions as var
+		final Set<Term> interestingTerms = new LinkedHashSet<>();
 		for (final Entry<FunctionSymbol, BitSet> entry : info.mFuncArgPositions.entrySet()) {
 			if (mQuantTheory.getEngine().isTerminationRequested()) {
 				return;
@@ -417,8 +416,7 @@ public class QuantClause {
 				final Collection<CCTerm> argTerms = mQuantTheory.mCClosure.getArgTermsForFunc(func, i);
 				if (argTerms != null) {
 					for (final CCTerm ccTerm : argTerms) {
-						final Term repShared = ccTerm.getRepresentative().getFlatTerm();
-						mInterestingTermsForVars[varNum].put(repShared, ccTerm.getFlatTerm());
+						interestingTerms.add(ccTerm.getFlatTerm());
 					}
 				}
 			}
@@ -437,13 +435,13 @@ public class QuantClause {
 							final SMTAffineTerm idxPlusMinusOneAff = new SMTAffineTerm(idxTerm);
 							idxPlusMinusOneAff.add(offset);
 							final Term shared = idxPlusMinusOneAff.toTerm(idxTerm.getSort());
-							final Term repShared = mQuantTheory.getRepresentativeTerm(shared);
-							mInterestingTermsForVars[varNum].put(repShared, shared);
+							interestingTerms.add(shared);
 						}
 					}
 				}
 			} // TODO: maybe for store(a,x,v) we need all i in select(b,i)
 		}
+		addAllInteresting(mInterestingTermsForVars[varNum], interestingTerms);
 	}
 
 	/**
