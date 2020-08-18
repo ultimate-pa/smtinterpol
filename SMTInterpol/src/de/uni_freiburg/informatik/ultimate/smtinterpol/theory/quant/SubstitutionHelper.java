@@ -157,7 +157,7 @@ public class SubstitutionHelper {
 						assert eq != EqualityProxy.getTrueProxy() && eq != EqualityProxy.getFalseProxy();
 						newAtom = eq.getLiteral(mSource);
 					} else {
-						newAtom = mQuantTheory.getQuantEquality(isPos, mSource, atomApp.getParameters()[0],
+						newAtom = mQuantTheory.getQuantEquality(mSource, atomApp.getParameters()[0],
 								atomApp.getParameters()[1]);
 					}
 				} else { // Predicates

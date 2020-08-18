@@ -2955,11 +2955,19 @@ public class ProofChecker extends NonRecursive {
 		if (!(lhs instanceof ApplicationTerm) && !(lhs instanceof TermVariable) || lhs.getSort().getName() != "Bool") {
 			return false;
 		}
+
+		// x can be rewritten to (= x true) or to (not (= x false))
 		if (lhs instanceof TermVariable) {
+			boolean isNegRewrite = false;
+			if (isApplication("not", rhs)) {
+				isNegRewrite = true;
+				rhs = negate(rhs);
+			}
 			rhs = unquote(rhs);
 			if (isApplication("=", rhs)) {
 				final ApplicationTerm rhsApp = (ApplicationTerm) rhs;
-				return isApplication("true", rhsApp.getParameters()[1]) && lhs == rhsApp.getParameters()[0];
+				return isApplication(isNegRewrite ? "false" : "true", rhsApp.getParameters()[1])
+						&& lhs == rhsApp.getParameters()[0];
 			}
 			return false;
 		}

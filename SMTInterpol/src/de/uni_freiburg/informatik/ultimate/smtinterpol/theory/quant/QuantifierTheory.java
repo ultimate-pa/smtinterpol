@@ -378,11 +378,8 @@ public class QuantifierTheory implements ITheory {
 	 * <p>
 	 * This method also brings equality atoms in the form (var = term), if there exists a TermVariable at top level. For
 	 * integers, only if the variable has factor ±1; for reals always.
-	 * 
-	 * TODO simplify trivial equalities
 	 */
-	public QuantLiteral getQuantEquality(final boolean positive, final SourceAnnotation source,
-			final Term lhs, final Term rhs) {
+	public QuantLiteral getQuantEquality(final SourceAnnotation source, final Term lhs, final Term rhs) {
 		// Bring atom to form (var = term) if there exists a variable at "top level".
 		Term newLhs = lhs;
 		Term newRhs = rhs;
