@@ -59,6 +59,10 @@ public class UnexploredMap {
 		mEngine.messWithActivityOfAtoms(rnd);
 	}
 
+	public void resetActivityOfAtoms() {
+		mEngine.resetActivityOfAtoms();
+	}
+
 	/**
 	 * Blocks all supersets of the given unsatisfiable set (since they are also unsatisfiable).
 	 */

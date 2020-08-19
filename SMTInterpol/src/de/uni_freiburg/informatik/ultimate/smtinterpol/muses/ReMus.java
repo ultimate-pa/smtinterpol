@@ -100,7 +100,6 @@ public class ReMus implements Iterator<MusContainer> {
 		mMuses = new ArrayList<>();
 		mSolver.clearUnknownConstraints();
 		mPreviousCrits = mSolver.getCrits();
-		//mMap.messWithActivityOfAtoms(mRnd);
 		mMaxUnexplored = mMap.findMaximalUnexploredSubsetOf(mWorkingSet);
 		mNewImpliedCrits = mMap.findImpliedCritsOf(mWorkingSet);
 		mNewImpliedCrits.andNot(mPreviousCrits);
@@ -232,6 +231,10 @@ public class ReMus implements Iterator<MusContainer> {
 	private void updateMembersAndAssertImpliedCrits() {
 		mNewImpliedCrits.or(mPreviousCrits);
 		mPreviousCrits = mNewImpliedCrits;
+		// choose one (well, the first one does not work and the second one maybe has not the desired effect of
+		// randomness, so you might also choose none):
+		// mMap.messWithActivityOfAtoms(mRnd);
+		// mMap.resetActivityOfAtoms();
 		mMaxUnexplored = mMap.findMaximalUnexploredSubsetOf(mWorkingSet);
 		mNewImpliedCrits = mMap.findImpliedCritsOf(mWorkingSet);
 		mNewImpliedCrits.andNot(mPreviousCrits);

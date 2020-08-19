@@ -1914,4 +1914,10 @@ public class DPLLEngine {
 			atom.mActivity = atom.mActivity + rnd.nextDouble() * mAtomScale;
 		}
 	}
+
+	public void resetActivityOfAtoms() {
+		for (final DPLLAtom atom : mAtomList) {
+			atom.mActivity = 0;
+		}
+	}
 }
