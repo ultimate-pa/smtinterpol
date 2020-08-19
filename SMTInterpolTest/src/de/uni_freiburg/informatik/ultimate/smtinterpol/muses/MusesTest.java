@@ -72,7 +72,7 @@ public class MusesTest {
 
 	private MusEnumerationScript setupMusEnumerationScript(final Logics logic) {
 		final SMTInterpol smtInterpol = new SMTInterpol();
-		smtInterpol.setOption(SMTLIBConstants.PRODUCE_PROOFS, true);
+		//smtInterpol.setOption(SMTLIBConstants.PRODUCE_PROOFS, true);
 		smtInterpol.setOption(SMTLIBConstants.PRODUCE_UNSAT_CORES, true);
 		smtInterpol.setLogic(logic);
 		return new MusEnumerationScript(smtInterpol);

@@ -220,9 +220,9 @@ public class MusEnumerationScript extends WrapperScript {
 					"Asserted Terms must be determined Unsat to return an unsat core. Call checkSat to determine satisfiability.");
 		} else if (!((boolean) getOption(SMTLIBConstants.PRODUCE_UNSAT_CORES))) {
 			throw new SMTLIBException("Unsat core production must be enabled (you can do this via setOption).");
-		} else if (!((boolean) getOption(SMTLIBConstants.PRODUCE_PROOFS))) {
-			throw new SMTLIBException("Proof production must be enabled (you can do this via setOption).");
-		}
+		} //else if (!((boolean) getOption(SMTLIBConstants.PRODUCE_PROOFS))) {
+			//throw new SMTLIBException("Proof production must be enabled (you can do this via setOption).");
+		//}
 
 		final Term[] alternativeUnsatCore = mScript.getUnsatCore();
 		final Translator translator = new Translator();
