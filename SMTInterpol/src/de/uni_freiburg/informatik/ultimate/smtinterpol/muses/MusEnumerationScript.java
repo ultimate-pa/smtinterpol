@@ -55,6 +55,10 @@ import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
  */
 public class MusEnumerationScript extends WrapperScript {
 
+	/**For the exact meaning of the respective Heuristic, see the respective descriptions in {@link Heuristics}.
+	 * That class does not contain the "FIRST" heuristic. The "FIRST" Heuristic means to just enumerate one MUS and
+	 * generate the Interpolant from it.
+	 */
 	public enum HeuristicsType {
 		RANDOM {
 		},
@@ -238,7 +242,6 @@ public class MusEnumerationScript extends WrapperScript {
 		final ArrayList<MusContainer> muses = executeReMus(translator);
 		mHandler.clearTimeout();
 
-
 		if (muses.isEmpty()) {
 			return alternativeUnsatCore;
 		}
@@ -286,11 +289,11 @@ public class MusEnumerationScript extends WrapperScript {
 		workingSet.flip(0, nrOfConstraints);
 
 		final ReMus remus = new ReMus(solver, unexploredMap, workingSet, handlerForReMus, 0, mRandom);
-		final ArrayList<MusContainer>  muses;
+		final ArrayList<MusContainer> muses;
 		if (mInterpolationHeuristic.getValue() == HeuristicsType.FIRST) {
 			muses = new ArrayList<>();
 			muses.add(remus.next());
-		}else {
+		} else {
 			muses = remus.enumerate();
 		}
 		remus.resetSolver();

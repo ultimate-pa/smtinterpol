@@ -810,7 +810,6 @@ public class MusesTest {
 		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337));
 		final ArrayList<MusContainer> muses = remus.enumerate();
 
-
 		Assert.assertTrue(muses.size() == 0);
 	}
 
@@ -1090,7 +1089,8 @@ public class MusesTest {
 		solver.pushRecLevel();
 
 		final Random rnd = new Random(1337);
-		final BitSet smallestAmongWidestMus = Heuristics.chooseSmallestAmongWideMuses(muses, 0.1, rnd, handler).getMus();
+		final BitSet smallestAmongWidestMus =
+				Heuristics.chooseSmallestAmongWideMuses(muses, 0.1, rnd, handler).getMus();
 		final int width = smallestAmongWidestMus.length() - smallestAmongWidestMus.nextSetBit(0);
 		Assert.assertTrue(width == 9);
 		Assert.assertTrue(smallestAmongWidestMus.cardinality() == 2);
@@ -1297,7 +1297,7 @@ public class MusesTest {
 		script.pop(1);
 
 		setupUnsatSet2(script);
-		//By setting the seed we reset the internal Random instance
+		// By setting the seed we reset the internal Random instance
 		script.setOption(SMTLIBConstants.RANDOM_SEED, 1337);
 		Assert.assertTrue(LBool.UNSAT == script.checkSat());
 		final Term[] core2 = script.getUnsatCore();
@@ -1324,7 +1324,7 @@ public class MusesTest {
 		script.pop(1);
 
 		setupUnsatSet5(script);
-		//By setting the seed we reset the internal Random instance
+		// By setting the seed we reset the internal Random instance
 		script.setOption(SMTLIBConstants.RANDOM_SEED, 1337);
 		Assert.assertTrue(LBool.UNSAT == script.checkSat());
 		final Term[] core2 = script.getUnsatCore();
@@ -1346,7 +1346,7 @@ public class MusesTest {
 		script.push(1);
 		setupUnsatSet5(script);
 		Assert.assertTrue(LBool.UNSAT == script.checkSat());
-		//Just make sure the internal asserts dont throw exceptions.
+		// Just make sure the internal asserts dont throw exceptions.
 		script.getUnsatCore();
 	}
 }
