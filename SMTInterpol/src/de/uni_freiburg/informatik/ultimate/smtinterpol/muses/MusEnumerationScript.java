@@ -77,6 +77,8 @@ public class MusEnumerationScript extends WrapperScript {
 		SMALLESTAMONGWIDE {
 		},
 		WIDESTAMONGSMALL {
+		},
+		FIRST {
 		}
 	}
 
@@ -220,9 +222,9 @@ public class MusEnumerationScript extends WrapperScript {
 					"Asserted Terms must be determined Unsat to return an unsat core. Call checkSat to determine satisfiability.");
 		} else if (!((boolean) getOption(SMTLIBConstants.PRODUCE_UNSAT_CORES))) {
 			throw new SMTLIBException("Unsat core production must be enabled (you can do this via setOption).");
-		} //else if (!((boolean) getOption(SMTLIBConstants.PRODUCE_PROOFS))) {
-			//throw new SMTLIBException("Proof production must be enabled (you can do this via setOption).");
-		//}
+		} else if (!((boolean) getOption(SMTLIBConstants.PRODUCE_PROOFS))) {
+			throw new SMTLIBException("Proof production must be enabled (you can do this via setOption).");
+		}
 
 		final Term[] alternativeUnsatCore = mScript.getUnsatCore();
 		final Translator translator = new Translator();
@@ -284,7 +286,13 @@ public class MusEnumerationScript extends WrapperScript {
 		workingSet.flip(0, nrOfConstraints);
 
 		final ReMus remus = new ReMus(solver, unexploredMap, workingSet, handlerForReMus, 0, mRandom);
-		final ArrayList<MusContainer> muses = remus.enumerate();
+		final ArrayList<MusContainer>  muses;
+		if (mInterpolationHeuristic.getValue() == HeuristicsType.FIRST) {
+			muses = new ArrayList<>();
+			muses.add(remus.next());
+		}else {
+			muses = remus.enumerate();
+		}
 		remus.resetSolver();
 
 		scriptForReMus.pop(1);
@@ -363,6 +371,9 @@ public class MusEnumerationScript extends WrapperScript {
 		MusContainer chosenMus;
 		double tolerance;
 		switch (mInterpolationHeuristic.getValue()) {
+		case FIRST:
+			assert muses.size() == 1 : "In case of the FIRST heuristic, only one mus should be enumerated.";
+			chosenMus = muses.get(0);
 		case RANDOM:
 			chosenMus = Heuristics.chooseRandomMus(muses, mRandom);
 			break;

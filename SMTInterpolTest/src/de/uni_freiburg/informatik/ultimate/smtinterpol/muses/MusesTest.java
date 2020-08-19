@@ -72,7 +72,7 @@ public class MusesTest {
 
 	private MusEnumerationScript setupMusEnumerationScript(final Logics logic) {
 		final SMTInterpol smtInterpol = new SMTInterpol();
-		//smtInterpol.setOption(SMTLIBConstants.PRODUCE_PROOFS, true);
+		smtInterpol.setOption(SMTLIBConstants.PRODUCE_PROOFS, true);
 		smtInterpol.setOption(SMTLIBConstants.PRODUCE_UNSAT_CORES, true);
 		smtInterpol.setLogic(logic);
 		return new MusEnumerationScript(smtInterpol);
@@ -1335,5 +1335,18 @@ public class MusesTest {
 		final Term[] core3 = script.getUnsatCore();
 		Assert.assertTrue(!core1.equals(core3));
 		Assert.assertTrue(core3.length == 6);
+	}
+
+	@Test
+	public void testMusEnumerationScriptFirstHeuristic() {
+		final MusEnumerationScript script = setupMusEnumerationScript(Logics.ALL);
+		script.setOption(MusOptions.INTERPOLATION_HEURISTIC, HeuristicsType.FIRST);
+		script.setOption(SMTLIBConstants.RANDOM_SEED, 1337);
+
+		script.push(1);
+		setupUnsatSet5(script);
+		Assert.assertTrue(LBool.UNSAT == script.checkSat());
+		//Just make sure the internal asserts dont throw exceptions.
+		script.getUnsatCore();
 	}
 }
