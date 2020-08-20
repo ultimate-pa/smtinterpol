@@ -30,4 +30,5 @@ public interface MusOptions {
 	public String TOLERANCE = ":tolerance";
 	public String ENUMERATION_TIMEOUT = ":enumeration-timeout";
 	public String HEURISTIC_TIMEOUT = ":heuristic-timeout";
+	public String LOG_ADDITIONAL_INFORMATION = ":log-additional-information";
 }

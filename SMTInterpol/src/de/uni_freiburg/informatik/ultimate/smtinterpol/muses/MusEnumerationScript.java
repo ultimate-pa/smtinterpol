@@ -34,8 +34,10 @@ import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.WrapperScript;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.NamedAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.option.BooleanOption;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.DoubleOption;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.EnumOption;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.LongOption;
@@ -55,9 +57,10 @@ import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
  */
 public class MusEnumerationScript extends WrapperScript {
 
-	/**For the exact meaning of the respective Heuristic, see the respective descriptions in {@link Heuristics}.
-	 * That class does not contain the "FIRST" heuristic. The "FIRST" Heuristic means to just enumerate one MUS and
-	 * generate the Interpolant from it.
+	/**
+	 * For the exact meaning of the respective Heuristic, see the respective descriptions in {@link Heuristics}. That
+	 * class does not contain the "FIRST" heuristic. The "FIRST" Heuristic means to just enumerate one MUS and generate
+	 * the Interpolant from it.
 	 */
 	public enum HeuristicsType {
 		RANDOM {
@@ -96,6 +99,9 @@ public class MusEnumerationScript extends WrapperScript {
 	DoubleOption mTolerance;
 	LongOption mEnumerationTimeout;
 	LongOption mHeuristicTimeout;
+	BooleanOption mLogAdditionalInformation;
+	LogProxy mLogger;
+
 	Random mRandom;
 
 	public MusEnumerationScript(final SMTInterpol wrappedScript) {
@@ -105,6 +111,7 @@ public class MusEnumerationScript extends WrapperScript {
 		mCustomNameId = 0;
 		mAssertedTermsAreUnsat = false;
 		mHandler = new TimeoutHandler(wrappedSMTInterpol.getTerminationRequest());
+		mLogger = wrappedSMTInterpol.getLogger();
 		mRandom = new Random(getRandomSeed());
 		mRememberedAssertions = new ScopedArrayList<>();
 
@@ -115,14 +122,12 @@ public class MusEnumerationScript extends WrapperScript {
 		mEnumerationTimeout = new LongOption(0, true, "The time that is invested into enumerating Muses");
 		mHeuristicTimeout = new LongOption(0, true,
 				"The time that is invested into finding the best Mus according to the set Heuristic");
+		mLogAdditionalInformation = new BooleanOption(false, true,
+				"Whether additional information (e.g. of the enumeration) should be logged.");
 	}
 
 	private long getRandomSeed() {
 		return ((BigInteger) getOption(SMTLIBConstants.RANDOM_SEED)).longValue();
-	}
-
-	private long getTimeout() {
-		return ((BigInteger) getOption(SMTInterpolOptions.TIMEOUT)).longValue();
 	}
 
 	private long getEnumerationTimeout() {
@@ -187,6 +192,10 @@ public class MusEnumerationScript extends WrapperScript {
 			throw new SMTLIBException("Timeout for ReMus exceeded before any muses could be found.");
 		}
 
+		if (mLogAdditionalInformation.getValue() == true) {
+			mLogger.fatal("Number of enumerated Muses: " + muses.size());
+		}
+
 		if (timeoutForHeuristic > 0) {
 			mHandler.setTimeout(timeoutForHeuristic);
 		}
@@ -244,6 +253,10 @@ public class MusEnumerationScript extends WrapperScript {
 
 		if (muses.isEmpty()) {
 			return alternativeUnsatCore;
+		}
+
+		if (mLogAdditionalInformation.getValue() == true) {
+			mLogger.fatal("Number of enumerated Muses: " + muses.size());
 		}
 
 		if (timeoutForHeuristic > 0) {
@@ -375,7 +388,7 @@ public class MusEnumerationScript extends WrapperScript {
 		double tolerance;
 		switch (mInterpolationHeuristic.getValue()) {
 		case FIRST:
-			assert muses.size() == 1 : "In case of the FIRST heuristic, only one mus should be enumerated.";
+			assert muses.size() == 1 : "In case of the FIRST heuristic, only one mus should have been enumerated.";
 			chosenMus = muses.get(0);
 		case RANDOM:
 			chosenMus = Heuristics.chooseRandomMus(muses, mRandom);
@@ -457,6 +470,8 @@ public class MusEnumerationScript extends WrapperScript {
 			mEnumerationTimeout.set(value);
 		} else if (opt.equals(MusOptions.HEURISTIC_TIMEOUT)) {
 			mHeuristicTimeout.set(value);
+		} else if (opt.equals(MusOptions.LOG_ADDITIONAL_INFORMATION)) {
+			mLogAdditionalInformation.set(value);
 		} else {
 			mScript.setOption(opt, value);
 		}
@@ -472,6 +487,8 @@ public class MusEnumerationScript extends WrapperScript {
 			return mEnumerationTimeout.get();
 		} else if (opt.equals(MusOptions.HEURISTIC_TIMEOUT)) {
 			return mHeuristicTimeout.get();
+		} else if (opt.equals(MusOptions.LOG_ADDITIONAL_INFORMATION)) {
+			return mLogAdditionalInformation.getValue();
 		} else {
 			return mScript.getOption(opt);
 		}
@@ -492,6 +509,9 @@ public class MusEnumerationScript extends WrapperScript {
 		mAssertedTermsAreUnsat = false;
 		mInterpolationHeuristic.reset();
 		mTolerance.reset();
+		mEnumerationTimeout.reset();
+		mHeuristicTimeout.reset();
+		mLogAdditionalInformation.reset();
 		mRandom = new Random(getRandomSeed());
 	}
 

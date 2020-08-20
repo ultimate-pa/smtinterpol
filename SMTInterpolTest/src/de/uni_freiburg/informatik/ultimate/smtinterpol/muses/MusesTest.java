@@ -1288,6 +1288,7 @@ public class MusesTest {
 		final MusEnumerationScript script = setupMusEnumerationScript(Logics.ALL);
 		script.setOption(MusOptions.INTERPOLATION_HEURISTIC, HeuristicsType.SMALLEST);
 		script.setOption(SMTLIBConstants.RANDOM_SEED, 1337);
+		script.setOption(MusOptions.LOG_ADDITIONAL_INFORMATION, true);
 
 		script.push(1);
 		setupUnsatSet2(script);
@@ -1315,6 +1316,7 @@ public class MusesTest {
 		final MusEnumerationScript script = setupMusEnumerationScript(Logics.ALL);
 		script.setOption(MusOptions.INTERPOLATION_HEURISTIC, HeuristicsType.SMALLEST);
 		script.setOption(SMTLIBConstants.RANDOM_SEED, 1337);
+		script.setOption(MusOptions.LOG_ADDITIONAL_INFORMATION, true);
 
 		script.push(1);
 		setupUnsatSet5(script);
@@ -1342,6 +1344,7 @@ public class MusesTest {
 		final MusEnumerationScript script = setupMusEnumerationScript(Logics.ALL);
 		script.setOption(MusOptions.INTERPOLATION_HEURISTIC, HeuristicsType.FIRST);
 		script.setOption(SMTLIBConstants.RANDOM_SEED, 1337);
+		script.setOption(MusOptions.LOG_ADDITIONAL_INFORMATION, true);
 
 		script.push(1);
 		setupUnsatSet5(script);
