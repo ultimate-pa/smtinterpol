@@ -186,15 +186,31 @@ public class MusEnumerationScript extends WrapperScript {
 			mHandler.setTimeout(timeoutForReMus);
 		}
 		final ArrayList<MusContainer> muses = executeReMus();
-		mHandler.clearTimeout();
 
 		if (muses.isEmpty()) {
 			throw new SMTLIBException("Timeout for ReMus exceeded before any muses could be found.");
 		}
 
 		if (mLogAdditionalInformation.getValue() == true) {
+			String value;
+			if (timeoutForReMus <= 0) {
+				value = "Unlimited (no timeout set)";
+			}else {
+				value = Long.toString(timeoutForReMus);
+			}
+			mLogger.fatal("Timeout: " + value);
 			mLogger.fatal("Number of enumerated Muses: " + muses.size());
+			final long timeLeft = mHandler.timeLeft();
+			if (timeLeft <= 0) {
+				value = "0";
+			}else if (timeLeft == Long.MAX_VALUE) {
+				value = "Unlimited (no timeout set)";
+			}else {
+				value = Long.toString(timeLeft);
+			}
+			mLogger.fatal("Time left for enumeration: " + value);
 		}
+		mHandler.clearTimeout();
 
 		if (timeoutForHeuristic > 0) {
 			mHandler.setTimeout(timeoutForHeuristic);
@@ -249,15 +265,31 @@ public class MusEnumerationScript extends WrapperScript {
 			mHandler.setTimeout(timeoutForReMus);
 		}
 		final ArrayList<MusContainer> muses = executeReMus(translator);
-		mHandler.clearTimeout();
 
 		if (muses.isEmpty()) {
 			return alternativeUnsatCore;
 		}
 
 		if (mLogAdditionalInformation.getValue() == true) {
+			String value;
+			if (timeoutForReMus <= 0) {
+				value = "Unlimited (no timeout set)";
+			}else {
+				value = Long.toString(timeoutForReMus);
+			}
+			mLogger.fatal("Timeout: " + value);
 			mLogger.fatal("Number of enumerated Muses: " + muses.size());
+			final long timeLeft = mHandler.timeLeft();
+			if (timeLeft <= 0) {
+				value = "0";
+			}else if (timeLeft == Long.MAX_VALUE) {
+				value = "Unlimited (no timeout set)";
+			}else {
+				value = Long.toString(timeLeft);
+			}
+			mLogger.fatal("Time left for enumeration: " + value);
 		}
+		mHandler.clearTimeout();
 
 		if (timeoutForHeuristic > 0) {
 			mHandler.setTimeout(timeoutForHeuristic);
@@ -305,7 +337,9 @@ public class MusEnumerationScript extends WrapperScript {
 		final ArrayList<MusContainer> muses;
 		if (mInterpolationHeuristic.getValue() == HeuristicsType.FIRST) {
 			muses = new ArrayList<>();
-			muses.add(remus.next());
+			if (remus.hasNext()) {
+				muses.add(remus.next());
+			}
 		} else {
 			muses = remus.enumerate();
 		}
