@@ -578,7 +578,7 @@ public class Clausifier {
 						} else if (trivialEq == mTheory.mFalse) {
 							lit = mFALSE;
 						} else {
-							lit = mQuantTheory.getQuantEquality(mCollector.getSource(), lhs, rhs);
+							lit = mQuantTheory.getQuantEquality(lhs, rhs);
 						}
 					} else {
 						final EqualityProxy eq = createEqualityProxy(lhs, rhs, mCollector.getSource());
@@ -598,7 +598,7 @@ public class Clausifier {
 					// (<= SMTAffineTerm 0)
 					if (quantified) {
 						final Term linTerm = at.getParameters()[0];
-						lit = mQuantTheory.getQuantInequality(positive, mCollector.getSource(), linTerm);
+						lit = mQuantTheory.getQuantInequality(positive, linTerm);
 					} else {
 						lit = createLeq0(at, mCollector.getSource());
 					}
@@ -642,7 +642,7 @@ public class Clausifier {
 				// Build a quantified disequality, this allows us to use the literal for DER.
 				// That is, x --> (x != false) and ~x --> (x != true),
 				final Term value = positive ? mTheory.mFalse : mTheory.mTrue;
-				final ILiteral lit = mQuantTheory.getQuantEquality(mCollector.getSource(), idx, value);
+				final ILiteral lit = mQuantTheory.getQuantEquality(idx, value);
 				final Term atomRewrite =
 						mTracker.intern(idx, (positive ? lit.negate() : lit).getSMTFormula(theory, true));
 				if (positive) {
@@ -1744,7 +1744,7 @@ public class Clausifier {
 					// for instantiation terms - should it be done earlier?)
 					// We use an equality "f(x,y,...)=true", not a NamedAtom, as CClosure must treat the literal
 					// instances.
-					lit = mQuantTheory.getQuantEquality(null, auxTerm, mTheory.mTrue);
+					lit = mQuantTheory.getQuantEquality(auxTerm, mTheory.mTrue);
 				}
 			} else {
 				lit = new NamedAtom(term, mStackLevel);
@@ -2123,7 +2123,7 @@ public class Clausifier {
 				lit = atom;
 			} else {
 				if (term.getFreeVars().length > 0 && !mIsEprEnabled) {
-					lit = mQuantTheory.getQuantEquality(source, term, mTheory.mTrue);
+					lit = mQuantTheory.getQuantEquality(term, mTheory.mTrue);
 
 					// alex: this the right place to get rid of the CClosure predicate conversion in EPR-case?
 					// --> seems to be one of three positions.. (keyword: predicate-to-function conversion)

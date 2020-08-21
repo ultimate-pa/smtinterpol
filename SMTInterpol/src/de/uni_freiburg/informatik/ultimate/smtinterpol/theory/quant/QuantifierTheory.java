@@ -52,8 +52,12 @@ import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
 /**
  * Solver for quantified formulas within the almost uninterpreted fragment (Restrictions on terms and literals are
  * explained in the corresponding classes. For reference, see Ge & de Moura, 2009).
+ * 
+ * For formulas outside the fragment, the solver may still find a proof of unsatisfiability but SMTInterpol will not
+ * return {@code satisfiable} in this case.
  *
- * This may be merged with the EPR solver implementation by Alexander Nutz in the future; for now, we keep it separate.
+ * This solver may be merged with the EPR solver implementation by Alexander Nutz in the future; for now, we keep it
+ * separate.
  *
  * @author Tanja Schindler
  */
@@ -81,7 +85,7 @@ public class QuantifierTheory implements ITheory {
 	 * Literals (not atoms!) mapped to potential conflict and unit clauses that they are contained in. At creation, the
 	 * clauses would have been conflicts or unit clauses if the corresponding theories had already known the contained
 	 * literals. In the next checkpoint, false literals should have been propagated by the other theories, but we might
-	 * still have one undefined literal (and is a unit clause).
+	 * still have one undefined literal (and hence the clause is a unit clause).
 	 */
 	private final Map<Literal, Set<InstClause>> mPotentialConflictAndUnitClauses;
 	private int mDecideLevelOfLastCheckpoint;
@@ -114,7 +118,7 @@ public class QuantifierTheory implements ITheory {
 		mLinArSolve = clausifier.getLASolver();
 
 		mEMatching = new EMatching(this);
-		mInstantiationManager = new InstantiationManager(mClausifier, this);
+		mInstantiationManager = new InstantiationManager(this);
 		mLambdas = new HashMap<>();
 
 		mQuantClauses = new ScopedArrayList<>();
@@ -372,14 +376,20 @@ public class QuantifierTheory implements ITheory {
 	}
 
 	/**
-	 * This method builds new QuantEqualities and simultaneously checks if they lie in the almost uninterpreted
+	 * This method builds new QuantEquality atoms and simultaneously checks if they lie in the almost uninterpreted
 	 * fragment, i.e., if they are of the form (i) (euEUTerm = euTerm), pos. and neg. or (ii) (var = ground), integer
 	 * only, or if they can be used for DER, i.e. (var != term[withoutthisvar])
 	 * <p>
 	 * This method also brings equality atoms in the form (var = term), if there exists a TermVariable at top level. For
 	 * integers, only if the variable has factor ±1; for reals always.
+	 * 
+	 * @param lhs
+	 *            the left side of the equality.
+	 * @param rhs
+	 *            the right side of the equality.
+	 * @return a QuantEquality atom for the equality lhs = rhs.
 	 */
-	public QuantLiteral getQuantEquality(final SourceAnnotation source, final Term lhs, final Term rhs) {
+	public QuantLiteral getQuantEquality(final Term lhs, final Term rhs) {
 		// Bring atom to form (var = term) if there exists a variable at "top level".
 		Term newLhs = lhs;
 		Term newRhs = rhs;
@@ -423,8 +433,8 @@ public class QuantifierTheory implements ITheory {
 
 		// Check if the atom is almost uninterpreted or can be used for DER.
 		if (!(newLhs instanceof TermVariable)) { // (euEUTerm = euTerm) is essentially and almost uninterpreted
-			if (QuantifiedTermInfo.isEssentiallyUninterpreted(newLhs)
-					&& QuantifiedTermInfo.isEssentiallyUninterpreted(newRhs)) {
+			if (QuantUtil.isEssentiallyUninterpreted(newLhs)
+					&& QuantUtil.isEssentiallyUninterpreted(newRhs)) {
 				atom.mIsEssentiallyUninterpreted = atom.negate().mIsEssentiallyUninterpreted = true;
 			}
 		} else if (!(newRhs instanceof TermVariable)) {
@@ -443,16 +453,22 @@ public class QuantifierTheory implements ITheory {
 	}
 
 	/**
-	 * This method builds new QuantInequalities and simultaneously checks if they lie in the almost uninterpreted
+	 * This method builds new QuantInequality literals and simultaneously checks if they lie in the almost uninterpreted
 	 * fragment, i.e., if they are of the form (i) (eu <= 0), pos. and neg., (ii) (var < var), (iii) (var < ground), or
 	 * (iv) (ground < var).
 	 * <p>
-	 * For integers x, positive (x-t<=0) are rewritten into ~(t+1<=x), or more precisely, ~(-x+t+1<=0). For reals x, we
-	 * normalize atoms (kx-t<= 0) to get (±x-t<=0).
+	 * For integers x, positive (x-t<=0) are rewritten into ~(t+1<=x), or more precisely, ~(-x+t+1<=0). Note that this
+	 * method can therefore return negated literals! For reals x, we normalize atoms (kx-t<= 0) to get (±x-t<=0).
 	 * <p>
 	 * TODO Offsets? (See paper)
+	 * 
+	 * @param positive
+	 *            should be true if the literal appears positively in the clause and false else
+	 * @param lhs
+	 *            the left side of the inequality (t <= 0)
+	 * @return a QuantLiteral, possibly negated, of the form (t <= 0) or ~(t' <= 0)
 	 */
-	public QuantLiteral getQuantInequality(final boolean positive, final SourceAnnotation source, final Term lhs) {
+	public QuantLiteral getQuantInequality(final boolean positive, final Term lhs) {
 
 		boolean rewrite = false; // Set to true when rewriting positive (x-t<=0) into ~(t+1<=x) for x integer
 		final SMTAffineTerm linTerm = SMTAffineTerm.create(lhs);
@@ -502,7 +518,7 @@ public class QuantifierTheory implements ITheory {
 		if (var == null) { // (euTerm <= 0), pos. and neg., is essentially and almost uninterpreted.
 			boolean hasOnlyEU = true;
 			for (final Term smd : linTerm.getSummands().keySet()) {
-				hasOnlyEU = hasOnlyEU && QuantifiedTermInfo.isEssentiallyUninterpreted(smd);
+				hasOnlyEU = hasOnlyEU && QuantUtil.isEssentiallyUninterpreted(smd);
 			}
 			if (hasOnlyEU) {
 				atom.mIsEssentiallyUninterpreted = atom.negate().mIsEssentiallyUninterpreted = true;
@@ -525,9 +541,9 @@ public class QuantifierTheory implements ITheory {
 	/**
 	 * Get copies for quantified literals that are uniquely assigned to a clause.
 	 *
-	 * @param qLits
+	 * @param lits
 	 *            the quantified literals.
-	 * @param qClause
+	 * @param clause
 	 *            the quantified clause these literals occur in.
 	 * @return copies of the quantified literals that know their clause.
 	 */
@@ -573,11 +589,12 @@ public class QuantifierTheory implements ITheory {
 		final DestructiveEqualityReasoning der =
 				new DestructiveEqualityReasoning(this, groundLits, quantLits, source, clause);
 		if (der.applyDestructiveEqualityReasoning()) {
-			if (der.getResult().isGround() && !der.isTriviallyTrue()) {
+			final DERResult result = der.getResult();
+			if (result.isGround() && !result.isTriviallyTrue()) {
 				mLogger.debug("Quant: DER returned ground clause.");
 				mNumInstancesDER++;
 			}
-			return der.getResult();
+			return result;
 		} else {
 			return null;
 		}
@@ -588,13 +605,17 @@ public class QuantifierTheory implements ITheory {
 	 *
 	 * Call this only after performing DER.
 	 *
-	 * @param iLits
-	 *            ground and quantified literals of the clause to add.
+	 * @param groundLits
+	 *            the ground literals of the clause to add.
+	 * @param quantLits
+	 *            the quantified literals of the clause to add.
 	 * @param source
 	 *            the source of the clause
+	 * @param clauseWithProof
+	 *            the clause term, possibly annotated with its proof
 	 */
 	public void addQuantClause(final Literal[] groundLits, final QuantLiteral[] quantLits,
-			final SourceAnnotation source, final Term proof) {
+			final SourceAnnotation source, final Term clauseWithProof) {
 		for (final QuantLiteral l : quantLits) {
 			if (!l.isAlmostUninterpreted()) {
 				mLogger.warn("Quant: Clause contains literal that is not almost uninterpreted: " + l);
@@ -606,7 +627,7 @@ public class QuantifierTheory implements ITheory {
 			throw new IllegalArgumentException("Cannot add clause to QuantifierTheory: No quantified literal!");
 		}
 
-		final QuantClause clause = new QuantClause(groundLits, quantLits, this, source, proof);
+		final QuantClause clause = new QuantClause(groundLits, quantLits, this, source, clauseWithProof);
 		mQuantClauses.add(clause);
 
 		mEMatching.addClause(clause);
@@ -645,7 +666,7 @@ public class QuantifierTheory implements ITheory {
 		return mLinArSolve;
 	}
 
-	public InstantiationManager getInstantiator() {
+	public InstantiationManager getInstantiationManager() {
 		return mInstantiationManager;
 	}
 
@@ -710,7 +731,7 @@ public class QuantifierTheory implements ITheory {
 	 *
 	 * @param instances
 	 *            a set of potential conflict and unit clauses
-	 * @return a conflict
+	 * @return a conflict, if it exists.
 	 */
 	private Clause addPotentialConflictAndUnitClauses(final Collection<InstClause> instances) {
 		if (instances == null) {
@@ -739,13 +760,24 @@ public class QuantifierTheory implements ITheory {
 		return null;
 	}
 
+	/**
+	 * Get the term that is the current CC representative of the given term, if such term exists.
+	 * 
+	 * @param term
+	 *            a term.
+	 * @return the the term corresponding to the current CC representative of the given term, if it exists, the input
+	 *         term else.
+	 */
 	Term getRepresentativeTerm(final Term term) {
 		final CCTerm ccTerm = getClausifier().getCCTerm(term);
 		return ccTerm == null ? term : ccTerm.getRepresentative().getFlatTerm();
 	}
 
+	/**
+	 * The origin of an instance of a quantified clause.
+	 */
 	public enum InstanceOrigin {
-		DER(":DER"), CHECKPOINT(":Checkpoint"), FINALCHECK(":Finalcheck");
+		CHECKPOINT(":Checkpoint"), FINALCHECK(":Finalcheck");
 		String mOrigin;
 
 		private InstanceOrigin(final String origin) {
@@ -754,8 +786,6 @@ public class QuantifierTheory implements ITheory {
 
 		/**
 		 * Get the name of the instance origin. This can be used in an annotation for the lemma.
-		 *
-		 * @return the annotation key for the instantiation lemma.
 		 */
 		public String getOrigin() {
 			return mOrigin;

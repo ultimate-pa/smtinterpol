@@ -147,7 +147,7 @@ public class SubstitutionHelper {
 								mClausifier.createMutableAffinTerm(lhs, mSource);
 						newAtom = mQuantTheory.getLinAr().generateConstraint(msum, false);
 					} else {
-						newAtom = mQuantTheory.getQuantInequality(isPos, mSource, atomApp.getParameters()[0]);
+						newAtom = mQuantTheory.getQuantInequality(isPos, atomApp.getParameters()[0]);
 					}
 				} else if (atomApp.getFunction().getName() == "=") {
 					final Term lhs = atomApp.getParameters()[0];
@@ -157,8 +157,7 @@ public class SubstitutionHelper {
 						assert eq != EqualityProxy.getTrueProxy() && eq != EqualityProxy.getFalseProxy();
 						newAtom = eq.getLiteral(mSource);
 					} else {
-						newAtom = mQuantTheory.getQuantEquality(mSource, atomApp.getParameters()[0],
-								atomApp.getParameters()[1]);
+						newAtom = mQuantTheory.getQuantEquality(atomApp.getParameters()[0], atomApp.getParameters()[1]);
 					}
 				} else { // Predicates
 					assert atomApp.getFreeVars().length == 0; // Quantified predicates are stored as equalities.
@@ -240,7 +239,7 @@ public class SubstitutionHelper {
 		assert atomTerm.getFunction().getName() == "=";
 		final Term lhs = atomTerm.getParameters()[0];
 		final Term rhs = atomTerm.getParameters()[1];
-		if (QuantifiedTermInfo.isAuxApplication(lhs)) {
+		if (QuantUtil.isAuxApplication(lhs)) {
 			return mTracker.reflexivity(litTerm);
 		}
 
@@ -277,7 +276,11 @@ public class SubstitutionHelper {
 		return new SubstitutionResult(null, null, null, null);
 	}
 
-	public static class SubstitutionResult {
+	/**
+	 * This class is used to collect the result from substituting variables in a clause. It contains information about
+	 * the substituted clause term, the simplified substituted term, and the corresponding literals.
+	 */
+	static class SubstitutionResult {
 		final Term mSubstituted;
 		final Term mSimplified;
 		final Literal[] mGroundLits;
