@@ -28,7 +28,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTh
 
 /**
  * An instance of a quantified clause that is not added to the DPLL engine so far. It is basically a list of literals.
- * // TODO List or array?
  *
  * It contains information about the number of yet undefined literals. It also contains information to build proofs
  * later, i.e., the quantified clause and the substitution this instance comes from.

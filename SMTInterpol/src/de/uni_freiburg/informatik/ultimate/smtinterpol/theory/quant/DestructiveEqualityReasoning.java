@@ -40,7 +40,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.Substitution
 /**
  * Apply destructive equality reasoning to a quantified clause.
  * <p>
- * This is, if a quantified clause contains a literal (x != t), every occurrence of x is substituted by t, and the
+ * That is, if a quantified clause contains a literal (x != t), every occurrence of x is substituted by t, and the
  * literal is dropped.
  *
  * @author Tanja Schindler
@@ -80,8 +80,7 @@ public class DestructiveEqualityReasoning {
 	/**
 	 * Apply destructive equality reasoning.
 	 * <p>
-	 * If something has changed, the result can be obtained by calling getGroundLitsAfterDER() and
-	 * getQuantLitsAfterDER(), respectively.
+	 * If something has changed, the result can be obtained by calling getResult().
 	 *
 	 * @return true if DER changed something, i.e., a variable has been removed; false otherwise.
 	 */
@@ -103,19 +102,12 @@ public class DestructiveEqualityReasoning {
 	}
 
 	/**
-	 * Check if the clause is trivially true.
-	 *
-	 * @return true, if the clause is trivially true; false otherwise.
+	 * Get the result from applying DER if it has changed something.
+	 * 
+	 * @return the result from applying DER on the given clause.
 	 */
-	public boolean isTriviallyTrue() {
-		return mResult.isTriviallyTrue();
-	}
-
-	Map<TermVariable, Term> getSigma() {
-		return mSigma;
-	}
-
 	DERResult getResult() {
+		assert mIsChanged : "Should only be called if DER has changed the clause.";
 		return mResult;
 	}
 
@@ -232,8 +224,7 @@ public class DestructiveEqualityReasoning {
 	}
 
 	/**
-	 * For a variable x and a potential substitution containing variables check if there is a cycle in the substitution
-	 * sigma.
+	 * For a variable x and a potential substitution sigma containing variables check if there is a cycle in sigma.
 	 */
 	private boolean hasCycle(final TermVariable var, final Term potentialSubs) {
 		assert potentialSubs.getFreeVars().length > 0;
@@ -245,14 +236,14 @@ public class DestructiveEqualityReasoning {
 		return false;
 	}
 
+	/**
+	 * This class is used to collect the result from applying Destructive Equality Reasoning on a clause. It contains
+	 * information about the substituted clause term, the simplified substituted term, and the corresponding literals,
+	 * as well as the terms used for the substitution.
+	 *
+	 */
 	public static class DERResult extends SubstitutionResult {
 		private final Term[] mSubs;
-
-		protected DERResult(final Term[] subs, final Term substituted, final Term simplified,
-				final Literal[] groundLits, final QuantLiteral[] quantLits) {
-			super(substituted, simplified, groundLits, quantLits);
-			mSubs = subs;
-		}
 
 		protected DERResult(final Term[] subs, SubstitutionResult subsRes) {
 			super(subsRes.mSubstituted, subsRes.mSimplified, subsRes.mGroundLits, subsRes.mQuantLits);

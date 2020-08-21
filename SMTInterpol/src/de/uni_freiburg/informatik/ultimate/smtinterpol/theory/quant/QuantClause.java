@@ -53,7 +53,7 @@ public class QuantClause {
 	private final QuantLiteral[] mQuantLits;
 
 	private final SourceAnnotation mSource;
-	private final Term mProof;
+	private final Term mClauseWithProof;
 
 	/**
 	 * The quantified variables in this clause. Defines an order on the variables.
@@ -64,8 +64,8 @@ public class QuantClause {
 	 */
 	private final VarInfo[] mVarInfos;
 	/**
-	 * For each variable, the set of potentially interesting substitutions for instantiation. The key stores the
-	 * SharedTerm of the representative in case the value term has a CCTerm.
+	 * For each variable, the set of potentially interesting substitutions for instantiation. The key stores the Term of
+	 * the CC representative in case the value term has a CCTerm.
 	 */
 	private final LinkedHashMap<Term, Term>[] mInterestingTermsForVars;
 
@@ -79,17 +79,21 @@ public class QuantClause {
 	 *            the quantified literals in this clause. This must not be empty.
 	 * @param quantTheory
 	 *            the QuantifierTheory.
+	 * @param source
+	 *            the SourceAnnotation for the clause.
+	 * @param clauseWithProof
+	 *            the clause term, potentially annotated with its proof.
 	 */
 	@SuppressWarnings("unchecked")
 	QuantClause(final Literal[] groundLits, final QuantLiteral[] quantLits, final QuantifierTheory quantTheory,
-			final SourceAnnotation source, final Term proof) {
+			final SourceAnnotation source, final Term clauseWithProof) {
 		assert quantLits.length != 0;
 		mQuantTheory = quantTheory;
 
 		mGroundLits = groundLits;
 		mQuantLits = mQuantTheory.getLiteralCopies(quantLits, this);
 		mSource = source;
-		mProof = proof;
+		mClauseWithProof = clauseWithProof;
 
 		mVars = computeVars();
 		mVarInfos = new VarInfo[mVars.length];
@@ -205,8 +209,11 @@ public class QuantClause {
 		return theory.or(litTerms);
 	}
 
-	public Term getProof() {
-		return mProof;
+	/**
+	 * Get the clause term potentially annotated with its proof.
+	 */
+	public Term getClauseWithProof() {
+		return mClauseWithProof;
 	}
 
 	void clearInterestingTerms() {
@@ -234,7 +241,7 @@ public class QuantClause {
 	 *
 	 * @param var
 	 *            a TermVariable
-	 * @return the position of var, if contained in this clause.
+	 * @return the position of var, if contained in this clause, -1 else.
 	 */
 	int getVarIndex(final TermVariable var) {
 		return Arrays.asList(mVars).indexOf(var);
@@ -481,8 +488,8 @@ public class QuantClause {
 		private final Set<TermVariable> mUpperVarBounds;
 
 		/**
-		 * Create a new VarInfo. This is used to store information for one variable: - lower and upper ground bounds and
-		 * - functions and positions where the variable appears as argument.
+		 * Create a new VarInfo. This is used to store information for one variable: - lower and upper ground and
+		 * variable bounds and - functions and positions where the variable appears as argument.
 		 */
 		VarInfo() {
 			mFuncArgPositions = new LinkedHashMap<>();

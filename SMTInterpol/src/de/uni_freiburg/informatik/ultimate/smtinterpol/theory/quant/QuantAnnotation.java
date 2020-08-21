@@ -33,10 +33,18 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory.InstanceOrigin;
 
 /**
- * Annotation for quantifier theory lemmas.
+ * Annotation for ground instances of quantified clauses.
+ * <p>
+ * The actual instantiation lemma is of the form {@code (not quantclause \/ instance}. When converting the
+ * QuantAnnotation to a proof term, the resolution between the instantiation lemma and the quantified clause, seen as a
+ * unit literal, is built.
  * 
- * A quantifier theory lemma is an instance of a quantified clause. It is annotated with the quantified clause and the
- * substitution used to produce the instance.
+ * The instantiation lemma is annotated with the ground substitution for the variables that produced the instance
+ * (ordered according to the order of the quantified variables in the clause), the origin of the instance (checkpoint or
+ * finalcheck), and, if full proofs are produced, a proof for the equality between the substituted clause term and the
+ * resulting simplified instance clause.
+ * 
+ * The proof for the unit (quantified) clause is its clause proof as usual.
  * 
  * @author Tanja Schindler
  *
@@ -62,7 +70,7 @@ public class QuantAnnotation implements IAnnotation {
 	 */
 	public QuantAnnotation(final QuantClause qClause, final List<Term> subs, final Term instTerm,
 			final InstanceOrigin origin) {
-		mQuantClauseTerm = qClause.getProof();
+		mQuantClauseTerm = qClause.getClauseWithProof();
 		mVars = qClause.getVars();
 		mSubs = subs.toArray(new Term[subs.size()]);
 		mInstClauseTerm = instTerm;

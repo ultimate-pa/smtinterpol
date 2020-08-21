@@ -30,7 +30,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ILiteral;
  * <p>
  * It stores the term, as well as the underlying atom and the negated literal. It also stores whether the literal lies
  * in the almost uninterpreted fragment, i.e., it is essentially uninterpreted or arithmetical, and whether it can be
- * used for DER.
+ * used for DER. A quantified literal appearing in a QuantClause also knows its clause.
  *
  * @author Tanja Schindler
  *
@@ -50,7 +50,7 @@ public abstract class QuantLiteral implements ILiteral {
 	 */
 	private final Term mTerm;
 	/**
-	 * The clause this literal occurs in. This is unique!
+	 * The clause this literal occurs in.
 	 */
 	protected QuantClause mClause;
 	/**
