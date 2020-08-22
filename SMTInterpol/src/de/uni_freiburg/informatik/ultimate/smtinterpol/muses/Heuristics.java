@@ -185,7 +185,7 @@ public class Heuristics {
 		}
 		final ArrayList<MusContainer> widestMuses = new ArrayList<>();
 		final MusContainer widestMus = chooseWidestMus(muses, rnd, request);
-		final int maximalOccurringWidth = widestMus.getMus().length() - widestMus.getMus().nextSetBit(0);
+		final int maximalOccurringWidth = width(widestMus);
 		int currentWidth;
 		if (request.isTerminationRequested()) {
 			return widestMus;
@@ -194,7 +194,7 @@ public class Heuristics {
 		MusContainer container;
 		while (i < muses.size() && !request.isTerminationRequested()) {
 			container = muses.get(i);
-			currentWidth = container.getMus().length() - container.getMus().nextSetBit(0);
+			currentWidth = width(container);
 			if (currentWidth >= (1 - tolerance) * maximalOccurringWidth) {
 				widestMuses.add(container);
 			}
@@ -217,7 +217,7 @@ public class Heuristics {
 		}
 		final ArrayList<MusContainer> smallestMuses = new ArrayList<>();
 		final MusContainer smallestMus = chooseSmallestMus(muses, rnd, request);
-		final int minimalOccurringSize = smallestMus.getMus().cardinality();
+		final int minimalOccurringSize = size(smallestMus);
 		int currentSize;
 		if (request.isTerminationRequested()) {
 			return smallestMus;
@@ -226,7 +226,7 @@ public class Heuristics {
 		MusContainer container;
 		while (i < muses.size() && !request.isTerminationRequested()) {
 			container = muses.get(i);
-			currentSize = container.getMus().cardinality();
+			currentSize = size(container);
 			if (currentSize <= (1 + tolerance) * minimalOccurringSize) {
 				smallestMuses.add(container);
 			}
@@ -346,8 +346,8 @@ public class Heuristics {
 	}
 
 	private static ResultOfComparison compareWhichMusIsSmaller(final MusContainer mus1, final MusContainer mus2) {
-		final int length1 = mus1.getMus().cardinality();
-		final int length2 = mus2.getMus().cardinality();
+		final int length1 = size(mus1);
+		final int length2 = size(mus2);
 		if (length1 < length2) {
 			return ResultOfComparison.MUS1;
 		} else if (length1 > length2) {
@@ -391,8 +391,8 @@ public class Heuristics {
 	}
 
 	private static ResultOfComparison compareWhichMusIsShallowerMus(final MusContainer mus1, final MusContainer mus2) {
-		final int depth1 = mus1.getMus().nextSetBit(0);
-		final int depth2 = mus2.getMus().nextSetBit(0);
+		final int depth1 = depth(mus1);
+		final int depth2 = depth(mus2);
 		if (depth1 < depth2) {
 			return ResultOfComparison.MUS1;
 		} else if (depth1 > depth2) {
@@ -407,8 +407,8 @@ public class Heuristics {
 	}
 
 	private static ResultOfComparison compareWhichMusIsNarrowerMus(final MusContainer mus1, final MusContainer mus2) {
-		final int width1 = mus1.getMus().length() - mus1.getMus().nextSetBit(0);
-		final int width2 = mus2.getMus().length() - mus2.getMus().nextSetBit(0);
+		final int width1 = width(mus1);
+		final int width2 = width(mus2);
 		if (width1 < width2) {
 			return ResultOfComparison.MUS1;
 		} else if (width1 > width2) {
@@ -444,5 +444,17 @@ public class Heuristics {
 			i++;
 		}
 		return bestMuses;
+	}
+
+	public static int size(final MusContainer mus) {
+		return mus.getMus().cardinality();
+	}
+
+	public static int depth(final MusContainer mus) {
+		return mus.getMus().nextSetBit(0);
+	}
+
+	public static int width(final MusContainer mus) {
+		return mus.getMus().length() - mus.getMus().nextSetBit(0);
 	}
 }

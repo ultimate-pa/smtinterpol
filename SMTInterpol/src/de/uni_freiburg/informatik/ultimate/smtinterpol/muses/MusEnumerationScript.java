@@ -198,8 +198,8 @@ public class MusEnumerationScript extends WrapperScript {
 			}else {
 				value = Long.toString(timeoutForReMus);
 			}
-			mLogger.fatal("Timeout: " + value);
-			mLogger.fatal("Number of enumerated Muses: " + muses.size());
+			mLogger.info("Timeout: " + value);
+			mLogger.info("Number of enumerated Muses: " + muses.size());
 			final long timeLeft = mHandler.timeLeft();
 			if (timeLeft <= 0) {
 				value = "0";
@@ -208,7 +208,7 @@ public class MusEnumerationScript extends WrapperScript {
 			}else {
 				value = Long.toString(timeLeft);
 			}
-			mLogger.fatal("Time left for enumeration: " + value);
+			mLogger.info("Time left for enumeration: " + value);
 		}
 		mHandler.clearTimeout();
 
@@ -267,6 +267,9 @@ public class MusEnumerationScript extends WrapperScript {
 		final ArrayList<MusContainer> muses = executeReMus(translator);
 
 		if (muses.isEmpty()) {
+			if (mLogAdditionalInformation.getValue() == true) {
+				mLogger.fatal("Timeout exceeded. Returning Unsat Core of wrapped Script.");
+			}
 			return alternativeUnsatCore;
 		}
 
@@ -277,8 +280,8 @@ public class MusEnumerationScript extends WrapperScript {
 			}else {
 				value = Long.toString(timeoutForReMus);
 			}
-			mLogger.fatal("Timeout: " + value);
-			mLogger.fatal("Number of enumerated Muses: " + muses.size());
+			mLogger.info("Timeout: " + value);
+			mLogger.info("Number of enumerated Muses: " + muses.size());
 			final long timeLeft = mHandler.timeLeft();
 			if (timeLeft <= 0) {
 				value = "0";
@@ -287,7 +290,7 @@ public class MusEnumerationScript extends WrapperScript {
 			}else {
 				value = Long.toString(timeLeft);
 			}
-			mLogger.fatal("Time left for enumeration: " + value);
+			mLogger.info("Time left for enumeration: " + value);
 		}
 		mHandler.clearTimeout();
 
@@ -461,6 +464,13 @@ public class MusEnumerationScript extends WrapperScript {
 			break;
 		default:
 			throw new SMTLIBException("Unknown Enum for Interpolation heuristic");
+		}
+		if (mLogAdditionalInformation.getValue() == true) {
+			final String heuristic = mInterpolationHeuristic.getValue().toString();
+			mLogger.info("Heuristic: " + heuristic);
+			mLogger.info("Chosen Mus has size: " + Heuristics.size(chosenMus));
+			mLogger.info("Chosen Mus has depth: " + Heuristics.depth(chosenMus));
+			mLogger.info("Chosen Mus has width: " + Heuristics.width(chosenMus));
 		}
 		return chosenMus;
 	}
