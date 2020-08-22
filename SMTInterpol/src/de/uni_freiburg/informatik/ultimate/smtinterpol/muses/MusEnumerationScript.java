@@ -104,14 +104,28 @@ public class MusEnumerationScript extends WrapperScript {
 
 	Random mRandom;
 
+	/**
+	 * Takes the LogProxy of the given SMTInterpol for logging.
+	 */
 	public MusEnumerationScript(final SMTInterpol wrappedScript) {
+		this(wrappedScript, null);
+	}
+
+	/**
+	 * Will use the given LogProxy for logging.
+	 */
+	public MusEnumerationScript(final SMTInterpol wrappedScript, final LogProxy logger) {
 		super(wrappedScript);
 		assert wrappedScript instanceof SMTInterpol : "Currently, only SMTInterpol is supported.";
 		final SMTInterpol wrappedSMTInterpol = (SMTInterpol) mScript;
 		mCustomNameId = 0;
 		mAssertedTermsAreUnsat = false;
 		mHandler = new TimeoutHandler(wrappedSMTInterpol.getTerminationRequest());
-		mLogger = wrappedSMTInterpol.getLogger();
+		if (logger == null) {
+			mLogger = wrappedScript.getLogger();
+		}else {
+			mLogger = logger;
+		}
 		mRandom = new Random(getRandomSeed());
 		mRememberedAssertions = new ScopedArrayList<>();
 
@@ -167,6 +181,9 @@ public class MusEnumerationScript extends WrapperScript {
 	 * keys {@link MusOptions#ENUMERATION_TIMEOUT}, {@link MusOptions#HEURISTIC_TIMEOUT},
 	 * {@link SMTInterpolOptions#TIMEOUT} respectively.
 	 *
+	 * If the option ":log-additional-information" is set to true with {@link #setOption(String, Object)}, then this
+	 * information about the enumeration and the chosen muses is logged on the level "info".
+	 *
 	 * This method is only available if proof production is enabled To enable proof production, call
 	 * setOption(":produce-proofs",true).
 	 */
@@ -195,7 +212,7 @@ public class MusEnumerationScript extends WrapperScript {
 			String value;
 			if (timeoutForReMus <= 0) {
 				value = "Unlimited (no timeout set)";
-			}else {
+			} else {
 				value = Long.toString(timeoutForReMus);
 			}
 			mLogger.info("Timeout: " + value);
@@ -203,9 +220,9 @@ public class MusEnumerationScript extends WrapperScript {
 			final long timeLeft = mHandler.timeLeft();
 			if (timeLeft <= 0) {
 				value = "0";
-			}else if (timeLeft == Long.MAX_VALUE) {
+			} else if (timeLeft == Long.MAX_VALUE) {
 				value = "Unlimited (no timeout set)";
-			}else {
+			} else {
 				value = Long.toString(timeLeft);
 			}
 			mLogger.info("Time left for enumeration: " + value);
@@ -239,6 +256,9 @@ public class MusEnumerationScript extends WrapperScript {
 	 * timeout for the enumeration, the heuristic or the getUnsatCore of the wrapped script, call
 	 * {@link #setOption(String, Object)} with the keys {@link MusOptions#ENUMERATION_TIMEOUT},
 	 * {@link MusOptions#HEURISTIC_TIMEOUT}, {@link SMTInterpolOptions#TIMEOUT} respectively.
+	 *
+	 * If the option ":log-additional-information" is set to true with {@link #setOption(String, Object)}, then this
+	 * information about the enumeration and the chosen muses is logged on the level "info".
 	 *
 	 * This method is only available if proof production and unsat core production is enabled To enable proof
 	 * production, call setOption(":produce-proofs",true). To enable unsat core production, call
@@ -277,7 +297,7 @@ public class MusEnumerationScript extends WrapperScript {
 			String value;
 			if (timeoutForReMus <= 0) {
 				value = "Unlimited (no timeout set)";
-			}else {
+			} else {
 				value = Long.toString(timeoutForReMus);
 			}
 			mLogger.info("Timeout: " + value);
@@ -285,9 +305,9 @@ public class MusEnumerationScript extends WrapperScript {
 			final long timeLeft = mHandler.timeLeft();
 			if (timeLeft <= 0) {
 				value = "0";
-			}else if (timeLeft == Long.MAX_VALUE) {
+			} else if (timeLeft == Long.MAX_VALUE) {
 				value = "Unlimited (no timeout set)";
-			}else {
+			} else {
 				value = Long.toString(timeLeft);
 			}
 			mLogger.info("Time left for enumeration: " + value);
