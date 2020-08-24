@@ -3009,7 +3009,9 @@ public class ProofChecker extends NonRecursive {
 				}
 			}
 			// Normalize coefficients
-			lhsAffine.div(lhsAffine.getGcd());
+			if (lhs.getFreeVars().length == 0) { // TODO Quantified terms are not normalized, but we might change this.
+				lhsAffine.div(lhsAffine.getGcd());
+			}
 			// Round constant up for integers: (<= (x + 1.25) 0) --> (<= x + 2)
 			if (isInt) {
 				final Rational constant = lhsAffine.getConstant();
@@ -3320,6 +3322,7 @@ public class ProofChecker extends NonRecursive {
 			break;
 		case ":subst":
 			result = checkSplitSubst((Term[]) splitAnnot.getValue(), origTerm, splitTerm);
+			mNumInstancesUsed++;
 			mNumInstancesFromDER++;
 			break;
 		default:
