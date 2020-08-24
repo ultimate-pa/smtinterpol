@@ -123,7 +123,7 @@ public class MusEnumerationScript extends WrapperScript {
 		mHandler = new TimeoutHandler(wrappedSMTInterpol.getTerminationRequest());
 		if (logger == null) {
 			mLogger = wrappedScript.getLogger();
-		}else {
+		} else {
 			mLogger = logger;
 		}
 		mRandom = new Random(getRandomSeed());
@@ -136,7 +136,7 @@ public class MusEnumerationScript extends WrapperScript {
 		mEnumerationTimeout = new LongOption(0, true, "The time that is invested into enumerating Muses");
 		mHeuristicTimeout = new LongOption(0, true,
 				"The time that is invested into finding the best Mus according to the set Heuristic");
-		mLogAdditionalInformation = new BooleanOption(false, true,
+		mLogAdditionalInformation = new BooleanOption(true, true,
 				"Whether additional information (e.g. of the enumeration) should be logged.");
 	}
 
@@ -215,8 +215,8 @@ public class MusEnumerationScript extends WrapperScript {
 			} else {
 				value = Long.toString(timeoutForReMus);
 			}
-			mLogger.info("Timeout: " + value);
-			mLogger.info("Number of enumerated Muses: " + muses.size());
+			mLogger.fatal("Timeout: " + value);
+			mLogger.fatal("Number of enumerated Muses: " + muses.size());
 			final long timeLeft = mHandler.timeLeft();
 			if (timeLeft <= 0) {
 				value = "0";
@@ -225,7 +225,7 @@ public class MusEnumerationScript extends WrapperScript {
 			} else {
 				value = Long.toString(timeLeft);
 			}
-			mLogger.info("Time left for enumeration: " + value);
+			mLogger.fatal("Time left for enumeration: " + value);
 		}
 		mHandler.clearTimeout();
 
@@ -300,8 +300,8 @@ public class MusEnumerationScript extends WrapperScript {
 			} else {
 				value = Long.toString(timeoutForReMus);
 			}
-			mLogger.info("Timeout: " + value);
-			mLogger.info("Number of enumerated Muses: " + muses.size());
+			mLogger.fatal("Timeout: " + value);
+			mLogger.fatal("Number of enumerated Muses: " + muses.size());
 			final long timeLeft = mHandler.timeLeft();
 			if (timeLeft <= 0) {
 				value = "0";
@@ -487,10 +487,14 @@ public class MusEnumerationScript extends WrapperScript {
 		}
 		if (mLogAdditionalInformation.getValue() == true) {
 			final String heuristic = mInterpolationHeuristic.getValue().toString();
-			mLogger.info("Heuristic: " + heuristic);
-			mLogger.info("Chosen Mus has size: " + Heuristics.size(chosenMus));
-			mLogger.info("Chosen Mus has depth: " + Heuristics.depth(chosenMus));
-			mLogger.info("Chosen Mus has width: " + Heuristics.width(chosenMus));
+			mLogger.fatal("Heuristic: " + heuristic);
+			final HeuristicsType heurType = mInterpolationHeuristic.getValue();
+			if (heurType == HeuristicsType.SMALLESTAMONGWIDE || heurType == HeuristicsType.WIDESTAMONGSMALL) {
+				mLogger.fatal("Tolerance: " + (double) mTolerance.get());
+			}
+			mLogger.fatal("Chosen Mus has size: " + Heuristics.size(chosenMus));
+			mLogger.fatal("Chosen Mus has depth: " + Heuristics.depth(chosenMus));
+			mLogger.fatal("Chosen Mus has width: " + Heuristics.width(chosenMus));
 		}
 		return chosenMus;
 	}
