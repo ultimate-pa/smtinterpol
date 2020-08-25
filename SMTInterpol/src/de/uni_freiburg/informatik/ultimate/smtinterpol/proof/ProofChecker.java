@@ -386,6 +386,11 @@ public class ProofChecker extends NonRecursive {
 	Stack<Term> mStackResults = new Stack<>();
 
 	/**
+	 * Defined quantified terms. This contains the {@literal @}AUX terms. TODO and the skolem terms.
+	 */
+	HashMap<Term, Term> mQuantDefinedTerms;
+
+	/**
 	 * Statistics.
 	 */
 	private int mNumInstancesUsed;
@@ -423,6 +428,7 @@ public class ProofChecker extends NonRecursive {
 
 		// Initializing the proof-checker-cache
 		mCacheConv = new HashMap<>();
+		mQuantDefinedTerms = new HashMap<>();
 		mError = 0;
 		// Now non-recursive:
 		proof = unletter.unlet(proof);
@@ -611,7 +617,6 @@ public class ProofChecker extends NonRecursive {
 		// The goal equality
 		final Term goalEquality = unquote((Term) ccAnnotation[0]);
 
-
 		/* collect literals and search for the disequality */
 		final HashSet<SymmetricPair<Term>> allEqualities = new HashSet<>();
 		boolean foundDiseq = false;
@@ -789,7 +794,7 @@ public class ProofChecker extends NonRecursive {
 		if (isWeakEqExt) {
 			final HashSet<Term> weakIndices = new HashSet<>();
 			for (int i = 3; i < ccAnnotation.length; i += 2) {
-				if (ccAnnotation[i] != ":weakpath" ||  !(ccAnnotation[i + 1] instanceof Object[])) {
+				if (ccAnnotation[i] != ":weakpath" || !(ccAnnotation[i + 1] instanceof Object[])) {
 					reportError("Malformed Array subpath");
 					return;
 				}
@@ -911,7 +916,7 @@ public class ProofChecker extends NonRecursive {
 			/* check for weak store step */
 			final Term storeIndex = checkStoreIndex(path[i], path[i + 1]);
 			if (storeIndex != null) {
-				// this is a step from a to (store a storeIndex v).  Check if storeIndex is okay.
+				// this is a step from a to (store a storeIndex v). Check if storeIndex is okay.
 				if (weakIdx != null) {
 					// for a weak path it needs to be different from weakIdx to prove a[weakIdx] = store[weakIdx]
 					if (disequalities.contains(new SymmetricPair<>(weakIdx, storeIndex))
@@ -1625,13 +1630,13 @@ public class ProofChecker extends NonRecursive {
 				if (sumWithCandidate.getConstant().signum() == 0) {
 					zeroSeen = true;
 				}
-				}
+			}
 			// check that the bound is tight, i.e. one of the sums should be 0.
 			if (zeroSeen) {
 				foundITE = true;
 				break;
-				}
 			}
+		}
 		return foundITE;
 	}
 
@@ -2615,7 +2620,7 @@ public class ProofChecker extends NonRecursive {
 		BigInteger num1;
 		try {
 			num1 = new BigInteger(((ApplicationTerm) lhs).getFunction().getIndices()[0]);
-		} catch(final NumberFormatException e){
+		} catch (final NumberFormatException e) {
 			throw new SMTLIBException("index must be numeral", e);
 		}
 		final Rational num = Rational.valueOf(num1, BigInteger.ONE);
@@ -3483,15 +3488,18 @@ public class ProofChecker extends NonRecursive {
 									&& ((ApplicationTerm) lhs).getFunction().getName().startsWith("@AUX")) {
 								// the definition of the quantAuxLit can be found in the annotation
 								if (replaceQuantAux) {
-									return (Term) annots[0].getValue();
+									// TODO Check if comparison is needed somewhere else
+									if (compareAuxDef(lhs, (Term) annots[0].getValue())) {
+										// check that the aux definition matches
+										return (Term) annots[0].getValue();
+									}
 								} else {
 									return annTerm.getSubterm();
 								}
 							}
 						}
-					} else {
-						reportError("Malformed quantified AUX literal");
 					}
+					reportError("Malformed quantified AUX literal");
 				} else if (annot == ":quoted" || annot == ":quotedCC" || annot == ":quotedLA"
 						|| annot == ":quotedQuant") {
 					final Term result = annTerm.getSubterm();
@@ -3605,6 +3613,23 @@ public class ProofChecker extends NonRecursive {
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * Check that an {@literal @}AUX term has the same definition as previously seen.
+	 */
+	private boolean compareAuxDef(final Term auxTerm, final Term defTerm) {
+		assert auxTerm instanceof ApplicationTerm
+				&& ((ApplicationTerm) auxTerm).getFunction().getName().startsWith("@AUX");
+		for (final Term p : ((ApplicationTerm) auxTerm).getParameters()) {
+			assert p instanceof TermVariable;
+		}
+		if (!mQuantDefinedTerms.containsKey(auxTerm)) {
+			mQuantDefinedTerms.put(auxTerm, defTerm);
+			return true;
+		} else {
+			return mQuantDefinedTerms.get(auxTerm) == defTerm;
+		}
 	}
 
 	/**
