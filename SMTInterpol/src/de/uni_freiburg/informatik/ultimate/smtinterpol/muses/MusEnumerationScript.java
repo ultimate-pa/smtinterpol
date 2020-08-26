@@ -158,6 +158,12 @@ public class MusEnumerationScript extends WrapperScript {
 	}
 
 	@Override
+	public Term[] getInterpolants(final Term[] partition) {
+		final int[] startOfSubtrees = new int[partition.length];
+		return getInterpolants(partition, startOfSubtrees);
+	}
+
+	@Override
 	public Term[] getInterpolants(final Term[] partition, final int[] startOfSubtree, final Term proofTree) {
 		return mScript.getInterpolants(partition, startOfSubtree, proofTree);
 	}
