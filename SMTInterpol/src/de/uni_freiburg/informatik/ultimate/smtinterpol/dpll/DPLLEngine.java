@@ -1910,14 +1910,12 @@ public class DPLLEngine {
 	 * so far. Currently causes assertionErrors, so don't use this.
 	 */
 	public void messWithActivityOfAtoms(final Random rnd) {
+		mAtoms.clear();
 		for (final DPLLAtom atom : mAtomList) {
 			atom.mActivity = atom.mActivity + rnd.nextDouble() * mAtomScale;
-		}
-	}
-
-	public void resetActivityOfAtoms() {
-		for (final DPLLAtom atom : mAtomList) {
-			atom.mActivity = 0;
+			if (atom.mDecideStatus == null) {
+				mAtoms.add(atom);
+			}
 		}
 	}
 }
