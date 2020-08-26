@@ -105,6 +105,13 @@ public class MusEnumerationScript extends WrapperScript {
 	Random mRandom;
 
 	/**
+	 * Default constructor.
+	 */
+	public MusEnumerationScript() {
+		this(new SMTInterpol());
+	}
+
+	/**
 	 * Takes the LogProxy of the given SMTInterpol for logging.
 	 */
 	public MusEnumerationScript(final SMTInterpol wrappedScript) {
