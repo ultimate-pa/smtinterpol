@@ -33,7 +33,6 @@ import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.WrapperScript;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.NamedAtom;
@@ -355,7 +354,7 @@ public class MusEnumerationScript extends WrapperScript {
 		}
 
 		final TimeoutHandler handlerForReMus = new TimeoutHandler(mHandler);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handlerForReMus);
+		final DPLLEngine engine = new DPLLEngine(mLogger, handlerForReMus);
 		final Map<String, Object> remusOptions = createSMTInterpolOptionsForReMus();
 		final SMTInterpol smtInterpol = (SMTInterpol) mScript;
 		final TerminationRequest previousTerminationRequest = smtInterpol.getTerminationRequest();
