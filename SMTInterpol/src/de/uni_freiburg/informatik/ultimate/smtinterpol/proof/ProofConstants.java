@@ -19,6 +19,7 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.proof;
 
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
+import de.uni_freiburg.informatik.ultimate.logic.Term;
 
 /**
  * Just a collection of constants denoting rewrite axioms or auxiliary axioms.
@@ -135,4 +136,13 @@ public interface ProofConstants {
 	public final static Annotation SPLIT_POS_ITE_2 = new Annotation(":ite+2", null);
 	public final static Annotation SPLIT_NEG_ITE_1 = new Annotation(":ite-1", null);
 	public final static Annotation SPLIT_NEG_ITE_2 = new Annotation(":ite-2", null);
+
+	//// ==== Annotations with non-null value ==== //// TODO This is probably not the best place
+	public static Annotation getSplitSubstAnnot(final Term[] subst) {
+		return new Annotation(":subst", subst);
+	}
+
+	public static Annotation getRewriteSkolemAnnot(final Term[] skolemFuns) {
+		return new Annotation(":skolem", skolemFuns);
+	}
 }

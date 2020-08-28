@@ -388,7 +388,7 @@ public class ProofChecker extends NonRecursive {
 	/**
 	 * Defined quantified terms. This contains the {@literal @}AUX terms. TODO and the skolem terms.
 	 */
-	HashMap<Term, Term> mQuantDefinedTerms;
+	HashMap<ApplicationTerm, Term> mQuantDefinedTerms;
 
 	/**
 	 * Statistics.
@@ -666,16 +666,14 @@ public class ProofChecker extends NonRecursive {
 
 		if (mainPath.length == 2) {
 			// This must be a congruence lemma
-			if (!(mainPath[0] instanceof ApplicationTerm)
-					|| !(mainPath[1] instanceof ApplicationTerm)) {
+			if (!(mainPath[0] instanceof ApplicationTerm) || !(mainPath[1] instanceof ApplicationTerm)) {
 				reportError("Malformed congruence lemma");
 				return;
 			}
 			final ApplicationTerm lhs = (ApplicationTerm) mainPath[0];
 			final ApplicationTerm rhs = (ApplicationTerm) mainPath[1];
 			// check if functions are the same and have the same number of parameters
-			if (lhs.getFunction() != rhs.getFunction()
-					|| lhs.getParameters().length != rhs.getParameters().length) {
+			if (lhs.getFunction() != rhs.getFunction() || lhs.getParameters().length != rhs.getParameters().length) {
 				reportError("Malformed congruence lemma");
 				return;
 			}
@@ -683,8 +681,7 @@ public class ProofChecker extends NonRecursive {
 			final Term[] lhsArgs = lhs.getParameters();
 			final Term[] rhsArgs = rhs.getParameters();
 			for (int i = 0; i < lhsArgs.length; i++) {
-				if (lhsArgs[i] != rhsArgs[i]
-						&& !allEqualities.contains(new SymmetricPair<>(lhsArgs[i], rhsArgs[i]))) {
+				if (lhsArgs[i] != rhsArgs[i] && !allEqualities.contains(new SymmetricPair<>(lhsArgs[i], rhsArgs[i]))) {
 					reportError("Malformed congruence lemma");
 				}
 			}
@@ -900,8 +897,8 @@ public class ProofChecker extends NonRecursive {
 	 *            not the main path.
 	 */
 	void checkArrayPath(final String lemmaType, final Term weakIdx, final Term[] path,
-			final HashSet<SymmetricPair<Term>> equalities,
-			final HashSet<SymmetricPair<Term>> disequalities, final HashSet<Term> weakPaths) {
+			final HashSet<SymmetricPair<Term>> equalities, final HashSet<SymmetricPair<Term>> disequalities,
+			final HashSet<Term> weakPaths) {
 		// note that a read-const-weakeq path can have length 1
 		if (path.length < 1) {
 			reportError("Empty path in array lemma");
@@ -976,21 +973,20 @@ public class ProofChecker extends NonRecursive {
 		// No candidate equality was found but it could also be a select-const edge where a[i] and v are
 		// syntactically equal, in which case there is no equality.
 		if (isApplication("const", termPair.getFirst())
-				&& checkSelectConst(((ApplicationTerm) termPair.getFirst()).getParameters()[0],
-						termPair.getSecond(), weakIdx, equalities)) {
+				&& checkSelectConst(((ApplicationTerm) termPair.getFirst()).getParameters()[0], termPair.getSecond(),
+						weakIdx, equalities)) {
 			return true;
 		}
 		if (isApplication("const", termPair.getSecond())
-				&& checkSelectConst(((ApplicationTerm) termPair.getSecond()).getParameters()[0],
-						termPair.getFirst(), weakIdx, equalities)) {
+				&& checkSelectConst(((ApplicationTerm) termPair.getSecond()).getParameters()[0], termPair.getFirst(),
+						weakIdx, equalities)) {
 			return true;
 		}
 		return false;
 	}
 
 	/**
-	 * Check if array[weakIdx] is value, either because value is the select term, or array is a constant array
-	 * on value.
+	 * Check if array[weakIdx] is value, either because value is the select term, or array is a constant array on value.
 	 */
 	private boolean checkSelectConst(final Term value, final Term array, final Term weakIdx,
 			final HashSet<SymmetricPair<Term>> strongPaths) {
@@ -1336,8 +1332,7 @@ public class ProofChecker extends NonRecursive {
 		}
 
 		// Check that the annotation of the lemma is well-formed.
-		if (quantAnnotation.length != 5 || quantAnnotation[0] != ":subs"
-				|| !(quantAnnotation[1] instanceof Term[])
+		if (quantAnnotation.length != 5 || quantAnnotation[0] != ":subs" || !(quantAnnotation[1] instanceof Term[])
 				|| (quantAnnotation[2] != ":DER" && quantAnnotation[2] != ":Checkpoint"
 						&& quantAnnotation[2] != ":Finalcheck")
 				|| quantAnnotation[3] != ":subproof" || !(quantAnnotation[4] instanceof ApplicationTerm)) {
@@ -1361,7 +1356,7 @@ public class ProofChecker extends NonRecursive {
 		 *
 		 * The possible types are defined in ProofConstants.AUX_*
 		 */
-		final String tautologyName = checkAndGetAnnotationKey(tautologyApp.getParameters()[0]);
+		final String tautologyName = getSingleAnnotation(tautologyApp.getParameters()[0]).getKey();
 		if (tautologyName == null) {
 			reportError("Malformed tautology rule " + tautologyApp);
 			return null;
@@ -1596,8 +1591,7 @@ public class ProofChecker extends NonRecursive {
 		// find the ite term and check it.
 		// we check each ite if the lemma works with it.
 		boolean foundITE = false;
-		entryLoop:
-		for (final Map.Entry<Term, Rational> entry : sum.getSummands().entrySet()) {
+		entryLoop: for (final Map.Entry<Term, Rational> entry : sum.getSummands().entrySet()) {
 			if (!isApplication("ite", entry.getKey()) || entry.getValue().abs() != Rational.ONE) {
 				continue;
 			}
@@ -1902,8 +1896,8 @@ public class ProofChecker extends NonRecursive {
 
 		final AnnotatedTerm annotatedTerm = (AnnotatedTerm) existsApp.getParameters()[0];
 		final Annotation varAnnot = annotatedTerm.getAnnotations()[0];
-		if (annotatedTerm.getAnnotations().length != 1
-				|| varAnnot.getKey() != ":vars" || !(varAnnot.getValue() instanceof TermVariable[])) {
+		if (annotatedTerm.getAnnotations().length != 1 || varAnnot.getKey() != ":vars"
+				|| !(varAnnot.getValue() instanceof TermVariable[])) {
 			reportError("@exists with malformed annotation: " + existsApp);
 		}
 		final TermVariable[] vars = (TermVariable[]) varAnnot.getValue();
@@ -1923,7 +1917,8 @@ public class ProofChecker extends NonRecursive {
 		 */
 		assert rewriteApp.getFunction().getName() == ProofConstants.FN_REWRITE;
 		assert rewriteApp.getParameters().length == 1;
-		final String rewriteRule = checkAndGetAnnotationKey(rewriteApp.getParameters()[0]);
+		final Annotation annot = getSingleAnnotation(rewriteApp.getParameters()[0]);
+		final String rewriteRule = annot.getKey();
 		if (rewriteRule == null) {
 			reportError("Malformed rewrite rule " + rewriteApp);
 			return null;
@@ -2059,6 +2054,9 @@ public class ProofChecker extends NonRecursive {
 			break;
 		case ":forallExists":
 			okay = checkRewriteForallExists(eqParams[0], eqParams[1]);
+			break;
+		case ":skolem":
+			okay = checkRewriteSkolem(eqParams[0], eqParams[1], (Term[]) annot.getValue());
 			break;
 		case ":sorry":
 			reportWarning("rule " + rewriteRule + " not checked!");
@@ -2675,8 +2673,7 @@ public class ProofChecker extends NonRecursive {
 			final SMTAffineTerm dividend = new SMTAffineTerm(divArgs[0]);
 			final SMTAffineTerm quotient = new SMTAffineTerm(rhs);
 			dividend.negate();
-			return divisor.equals(Rational.MONE)
-					&& quotient.equals(dividend);
+			return divisor.equals(Rational.MONE) && quotient.equals(dividend);
 		}
 		case ":divConst": {
 			final Rational dividend = parseConstant(divArgs[0]);
@@ -2826,6 +2823,31 @@ public class ProofChecker extends NonRecursive {
 		final TermVariable[] defVars = at.getFunction().getDefinitionVars();
 		final Term[] params = at.getParameters();
 		final Term expected = mSkript.let(defVars, params, def);
+		return rhs == new FormulaUnLet().unlet(expected);
+	}
+
+	boolean checkRewriteSkolem(final Term lhs, final Term rhs, final Term[] skolemFuns) {
+		if (!(lhs instanceof QuantifiedFormula)) {
+			return false;
+		}
+		final QuantifiedFormula qf = (QuantifiedFormula) lhs;
+		if (qf.getQuantifier() != QuantifiedFormula.EXISTS) {
+			return false;
+		}
+
+		final TermVariable[] freeVars = qf.getFreeVars();
+		final TermVariable[] existentialVars = qf.getVariables();
+		final Term subformula = qf.getSubformula();
+		if (existentialVars.length != skolemFuns.length) {
+			return false;
+		}
+		for (int i = 0; i < existentialVars.length; i++) {
+			final Term sk = skolemFuns[i];
+			if (sk.getFreeVars() != freeVars || !compareSkolemDef(sk, existentialVars[i], subformula)) {
+				return false;
+			}
+		}
+		final Term expected = mSkript.let(existentialVars, skolemFuns, subformula);
 		return rhs == new FormulaUnLet().unlet(expected);
 	}
 
@@ -3295,7 +3317,7 @@ public class ProofChecker extends NonRecursive {
 	 * @return the term proved by the split application, i.e., the simple clause from the annotation.
 	 */
 	Term walkSplit(final ApplicationTerm splitApp, final Term origTerm) {
-		final Annotation splitAnnot = getSplitAnnotation(splitApp.getParameters()[0]);
+		final Annotation splitAnnot = getSingleAnnotation(splitApp.getParameters()[0]);
 		final String splitRule = splitAnnot.getKey();
 		if (splitRule == null) {
 			reportError("Malformed split rule " + splitApp);
@@ -3586,29 +3608,24 @@ public class ProofChecker extends NonRecursive {
 	}
 
 	/**
-	 * Checks if a term is an annotation term with a single annotation without value.
+	 * Checks if a term is an annotation term with a single annotation. Usually the annotation has no value, there are
+	 * some exceptions that are checked.
 	 *
 	 * @param term
 	 *            the term to check.
-	 * @return the annotation key or null if it is not a correct annotation.
+	 * @return the annotation or null if it is not a correct annotation.
 	 */
-	String checkAndGetAnnotationKey(final Term term) {
-		if (term instanceof AnnotatedTerm) {
-			final Annotation[] annots = ((AnnotatedTerm) term).getAnnotations();
-			if (annots.length == 1 && annots[0].getValue() == null) {
-				return annots[0].getKey();
-			}
-		}
-		return null;
-	}
-
-	private Annotation getSplitAnnotation(final Term term) {
+	private Annotation getSingleAnnotation(final Term term) {
 		if (term instanceof AnnotatedTerm) {
 			final Annotation[] annots = ((AnnotatedTerm) term).getAnnotations();
 			if (annots.length == 1) {
-				if (annots[0].getValue() == null
-						|| annots[0].getKey() == ":subst" && annots[0].getValue() instanceof Term[]) {
-					return annots[0];
+				final Annotation singleAnnot = annots[0];
+				if (singleAnnot.getKey() == ":subst" || singleAnnot.getKey() == ":skolem") {
+					if (singleAnnot.getValue() instanceof Term[]) {
+						return singleAnnot;
+					}
+				} else if (singleAnnot.getValue() == null) {
+					return singleAnnot;
 				}
 			}
 		}
@@ -3621,15 +3638,41 @@ public class ProofChecker extends NonRecursive {
 	private boolean compareAuxDef(final Term auxTerm, final Term defTerm) {
 		assert auxTerm instanceof ApplicationTerm
 				&& ((ApplicationTerm) auxTerm).getFunction().getName().startsWith("@AUX");
-		for (final Term p : ((ApplicationTerm) auxTerm).getParameters()) {
+		final ApplicationTerm auxApp = (ApplicationTerm) auxTerm;
+		for (final Term p : auxApp.getParameters()) {
 			assert p instanceof TermVariable;
 		}
-		if (!mQuantDefinedTerms.containsKey(auxTerm)) {
-			mQuantDefinedTerms.put(auxTerm, defTerm);
+		if (!mQuantDefinedTerms.containsKey(auxApp)) {
+			mQuantDefinedTerms.put(auxApp, defTerm);
 			return true;
 		} else {
-			return mQuantDefinedTerms.get(auxTerm) == defTerm;
+			return mQuantDefinedTerms.get(auxApp) == defTerm;
 		}
+	}
+
+	/**
+	 * Check that an existentially quantified variable has a unique Skolem function.
+	 * 
+	 * @param sk
+	 * @param existentialVars
+	 * @param subformula
+	 */
+	private boolean compareSkolemDef(Term sk, TermVariable var, Term subformula) {
+		assert sk instanceof ApplicationTerm;
+		final ApplicationTerm skolemApp = (ApplicationTerm) sk;
+		final String func = skolemApp.getFunction().getName();
+		final Term defTerm = mSkript.quantifier(0, new TermVariable[] { var }, subformula);
+		for (final ApplicationTerm a : mQuantDefinedTerms.keySet()) {
+			if (a == skolemApp && mQuantDefinedTerms.get(a) != defTerm) {
+				return false;
+			}
+			if (isApplication(func, a) && a != skolemApp) {
+				return false;
+			}
+		}
+		assert !mQuantDefinedTerms.containsKey(skolemApp);
+		mQuantDefinedTerms.put(skolemApp, defTerm);
+		return true;
 	}
 
 	/**

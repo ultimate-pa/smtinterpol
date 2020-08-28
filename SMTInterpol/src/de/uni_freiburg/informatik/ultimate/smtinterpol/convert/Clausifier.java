@@ -73,6 +73,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprGroundPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LASharedTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinArSolve;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinVar;
@@ -330,11 +331,14 @@ public class Clausifier {
 			} else if (term instanceof QuantifiedFormula) {
 				final QuantifiedFormula qf = (QuantifiedFormula) term;
 				assert qf.getQuantifier() == QuantifiedFormula.EXISTS;
-				final Term converted = convertQuantifiedSubformula(positive, qf);
-				// FIXME: real proof rule?
+				final Pair<Term, Term[]> converted = convertQuantifiedSubformula(positive, qf);
+				// FIXME: new rule for forall, this is not an equality rewrite but an implication
 				Term rewrite =
-						mTracker.buildRewrite(mTracker.getProvedTerm(mAxiom), converted, ProofConstants.RW_SORRY);
-				if (isNotTerm(converted)) {
+						positive ? mTracker.buildRewrite(mTracker.getProvedTerm(mAxiom), converted.getFirst(),
+								ProofConstants.getRewriteSkolemAnnot(converted.getSecond()))
+								: mTracker.buildRewrite(mTracker.getProvedTerm(mAxiom), converted.getFirst(),
+										ProofConstants.RW_SORRY);
+				if (isNotTerm(converted.getFirst())) {
 					rewrite = mUtils.convertNot(rewrite);
 				}
 				pushOperation(new AddAsAxiom(mTracker.getRewriteProof(mAxiom, rewrite), mSource));
@@ -626,11 +630,13 @@ public class Clausifier {
 			} else if (idx instanceof QuantifiedFormula) {
 				final QuantifiedFormula qf = (QuantifiedFormula) idx;
 				assert qf.getQuantifier() == QuantifiedFormula.EXISTS;
-				final Term converted = convertQuantifiedSubformula(positive, qf);
-				// FIXME: real proof rule?
+				final Pair<Term, Term[]> converted = convertQuantifiedSubformula(positive, qf);
+				// FIXME: new rule for forall, this is not an equality rewrite but an implication
 				rewrite = mTracker.transitivity(rewrite,
-						mTracker.buildRewrite(mTracker.getProvedTerm(rewrite), converted, ProofConstants.RW_SORRY));
-				if (isNotTerm(converted)) {
+						mTracker.buildRewrite(mTracker.getProvedTerm(rewrite), converted.getFirst(),
+								positive ? ProofConstants.getRewriteSkolemAnnot(converted.getSecond())
+										: ProofConstants.RW_SORRY));
+				if (isNotTerm(converted.getFirst())) {
 					rewrite = mUtils.convertNot(rewrite);
 				}
 				final ClauseCollector subCollector = new ClauseCollector(mCollector, rewrite, 1);
@@ -769,7 +775,7 @@ public class Clausifier {
 				} else if (!resultFromDER.isTriviallyTrue()) { // Clauses that become trivially true can be dropped.
 					isDpllClause = resultFromDER.isGround();
 					// Build rewrite proof from split and derProof
-					final Annotation splitAnnot = new Annotation(":subst", resultFromDER.getSubs());
+					final Annotation splitAnnot = ProofConstants.getSplitSubstAnnot(resultFromDER.getSubs());
 					final Term splitProof = mTracker.split(rewriteProof, resultFromDER.getSubstituted(), splitAnnot);
 					final Term derProof = resultFromDER.getSimplified();
 					final Term rewriteProofAfterDER = mTracker.getRewriteProof(splitProof, derProof);
@@ -1198,12 +1204,15 @@ public class Clausifier {
 
 	/**
 	 * A QuantifiedFormula is either skolemized or the universal quantifier is dropped before processing the subformula.
+	 * 
+	 * In the existential case, the variables are replaced by Skolem functions over the free variables. In the universal
+	 * case, the variables are uniquely renamed.
 	 *
 	 * @param positive
 	 * @param qf
-	 * @return
+	 * @return a pair of the resulting formula and the variable substitutions.
 	 */
-	private Term convertQuantifiedSubformula(final boolean positive, final QuantifiedFormula qf) {
+	private Pair<Term, Term[]> convertQuantifiedSubformula(final boolean positive, final QuantifiedFormula qf) {
 		if (positive) {
 			/*
 			 * "exists" case
@@ -1223,7 +1232,7 @@ public class Clausifier {
 			final FormulaUnLet unlet = new FormulaUnLet();
 			unlet.addSubstitutions(new ArrayMap<>(vars, skolems));
 			final Term skolemized = unlet.unlet(qf.getSubformula());
-			return skolemized;
+			return new Pair<>(skolemized, skolems);
 		} else {
 			/*
 			 * "forall" case
@@ -1241,7 +1250,7 @@ public class Clausifier {
 			final FormulaUnLet unlet = new FormulaUnLet();
 			unlet.addSubstitutions(new ArrayMap<>(vars, freshVars));
 			final Term uniquelyRenamed = unlet.unlet(qf.getSubformula());
-			return mTheory.term("not", uniquelyRenamed);
+			return new Pair<>(mTheory.term("not", uniquelyRenamed), freshVars);
 		}
 	}
 
