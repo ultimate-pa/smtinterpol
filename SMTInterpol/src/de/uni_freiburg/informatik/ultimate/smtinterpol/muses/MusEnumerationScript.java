@@ -326,7 +326,7 @@ public class MusEnumerationScript extends WrapperScript {
 			} else {
 				value = Long.toString(timeLeft);
 			}
-			mLogger.info("Time left for enumeration: " + value);
+			mLogger.fatal("Time left for enumeration: " + value);
 		}
 		mHandler.clearTimeout();
 
@@ -386,6 +386,9 @@ public class MusEnumerationScript extends WrapperScript {
 
 		scriptForReMus.pop(1);
 		smtInterpol.setTerminationRequest(previousTerminationRequest);
+		if(mLogAdditionalInformation.getValue()) {
+			mLogger.fatal("Cardinality of Constraint set: " + translator.getNumberOfConstraints());
+		}
 		return muses;
 	}
 
