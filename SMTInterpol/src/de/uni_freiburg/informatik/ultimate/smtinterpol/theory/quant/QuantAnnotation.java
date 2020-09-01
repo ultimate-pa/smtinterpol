@@ -85,14 +85,9 @@ public class QuantAnnotation implements IAnnotation {
 
 	@Override
 	public Term toTerm(Clause cls, Theory theory) {
-		final Term quantClauseWithoutProof = mProofTracker.getProvedTerm(mQuantClauseTerm);
-		final Term quantClauseLit =
-				theory.annotatedTerm(new Annotation[] { new Annotation(":quoted", null) }, theory.forall(mVars, quantClauseWithoutProof));
-
-		final Term rewriteClauseToLit =
-				mProofTracker.buildRewrite(quantClauseWithoutProof, quantClauseLit, ProofConstants.RW_SORRY);
 		final Term quantClauseLitProof =
-				mProofTracker.getRewriteProof(mQuantClauseTerm, rewriteClauseToLit);
+				mProofTracker.allIntro(mQuantClauseTerm);
+		final Term quantClauseLit = mProofTracker.getProvedTerm(quantClauseLitProof);
 
 		// For partial proofs, make an asserted sub proof for the quant clause.
 		final Term subproof =

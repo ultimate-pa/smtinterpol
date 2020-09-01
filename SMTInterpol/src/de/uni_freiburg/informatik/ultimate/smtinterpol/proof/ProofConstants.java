@@ -34,6 +34,7 @@ public interface ProofConstants {
 	public static final String FN_EQ = "@eq";
 	public static final String FN_SPLIT = "@split";
 	public static final String FN_EXISTS = "@exists";
+	public static final String FN_ALLINTRO = "@allIntro";
 	public static final String FN_CONG = "@cong";
 	public static final String FN_TRANS = "@trans";
 	public static final String FN_REFL = "@refl";

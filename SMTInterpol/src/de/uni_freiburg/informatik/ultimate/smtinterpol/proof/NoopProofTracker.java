@@ -119,4 +119,11 @@ public class NoopProofTracker implements IProofTracker {
 		final Theory theory = quant.getTheory();
 		return theory.term("not", theory.exists(quant.getVariables(), negNewBody));
 	}
+
+	@Override
+	public Term allIntro(Term formula) {
+		final Theory theory = formula.getTheory();
+		return theory.annotatedTerm(new Annotation[] { new Annotation(":quoted", null) },
+				theory.forall(formula.getFreeVars(), formula));
+	}
 }
