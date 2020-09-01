@@ -182,6 +182,15 @@ public interface IProofTracker {
 	public Term split(Term formula, Term subterm, Annotation splitKind);
 
 	/**
+	 * Introduce a universal quantifier.
+	 *
+	 * @param formula
+	 *            The formula containing free variables annotated with its proof.
+	 * @return The universally quantified formula annotated with its proof.
+	 */
+	public Term allIntro(Term formula);
+
+	/**
 	 * Annotate an asserted formula with its proof {@code (@asserted formula)}.
 	 *
 	 * @param formula

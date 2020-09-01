@@ -164,6 +164,7 @@ public class SMTInterpol extends NoopScript {
 					declareInternalFunction(theory, ProofConstants.FN_TRANS, proof2, proof, leftassoc);
 					declareInternalFunction(theory, ProofConstants.FN_CONG, proof2, proof, leftassoc);
 					declareInternalFunction(theory, ProofConstants.FN_EXISTS, new Sort[] { proof }, proof, 0);
+					declareInternalFunction(theory, ProofConstants.FN_ALLINTRO, new Sort[] { proof }, proof, 0);
 					declareInternalFunction(theory, ProofConstants.FN_SPLIT, new Sort[] { proof, bool }, proof, 0);
 					declareInternalFunction(theory, ProofConstants.FN_EQ, proof2, proof, 0);
 					declareInternalFunction(theory, ProofConstants.FN_REWRITE, bool1, proof, 0);

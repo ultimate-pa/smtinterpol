@@ -268,6 +268,29 @@ public class ProofChecker extends NonRecursive {
 		}
 	}
 
+	static class AllIntroWalker implements Walker {
+		final ApplicationTerm mTerm;
+
+		public AllIntroWalker(final ApplicationTerm term) {
+			assert term.getFunction().getName().equals(ProofConstants.FN_ALLINTRO);
+			mTerm = term;
+		}
+
+		public void enqueue(final ProofChecker engine) {
+			final Term[] params = mTerm.getParameters();
+			assert params.length == 1;
+			assert params[0] instanceof AnnotatedTerm;
+			engine.enqueueWalker(this);
+			engine.enqueueWalker(new ProofWalker(((AnnotatedTerm) params[0]).getSubterm()));
+		}
+
+		@Override
+		public void walk(final NonRecursive engine) {
+			final ProofChecker checker = (ProofChecker) engine;
+			checker.stackPush(checker.walkAllIntro(mTerm, checker.stackPop()), mTerm);
+		}
+	}
+
 	/**
 	 * The proof walker that handles a {@literal @}trans application after its arguments are converted. It just calls
 	 * the walkTransitivity function.
@@ -531,6 +554,10 @@ public class ProofChecker extends NonRecursive {
 
 		case ProofConstants.FN_EXISTS:
 			new ExistsWalker(proofTerm).enqueue(this);
+			break;
+
+		case ProofConstants.FN_ALLINTRO:
+			new AllIntroWalker(proofTerm).enqueue(this);
 			break;
 
 		default:
@@ -3302,6 +3329,24 @@ public class ProofChecker extends NonRecursive {
 			}
 		}
 		return expectedClause;
+	}
+
+	Term walkAllIntro(final ApplicationTerm allApp, final Term origTerm) {
+		assert allApp.getFunction().getName() == ProofConstants.FN_ALLINTRO;
+		final AnnotatedTerm annotatedTerm = (AnnotatedTerm) allApp.getParameters()[0];
+		final Annotation varAnnot = annotatedTerm.getAnnotations()[0];
+		if (annotatedTerm.getAnnotations().length != 1 || varAnnot.getKey() != ":vars"
+				|| !(varAnnot.getValue() instanceof TermVariable[])) {
+			reportError("@allIntro with malformed annotation: " + allApp);
+		}
+		final TermVariable[] vars = (TermVariable[]) varAnnot.getValue();
+		if (vars != origTerm.getFreeVars()) {
+			reportError("@allIntro for wrong variables.");
+		}
+		/* compute the resulting quantified term (! (forall (...) origTerm) :quoted) */
+		final Theory theory = origTerm.getTheory();
+		return theory.annotatedTerm(new Annotation[] { new Annotation(":quoted", null) },
+				theory.forall(vars, origTerm));
 	}
 
 	/* === Split rules === */
