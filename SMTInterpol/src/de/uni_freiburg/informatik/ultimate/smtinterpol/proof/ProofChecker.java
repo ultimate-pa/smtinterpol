@@ -122,14 +122,14 @@ public class ProofChecker extends NonRecursive {
 	}
 
 	/**
-	 * The proof walker that handles a {@literal @}eq application term after its arguments are converted. It just calls
+	 * The proof walker that handles a {@literal @}mp application term after its arguments are converted. It just calls
 	 * the walkEquality function.
 	 */
-	static class EqualityWalker implements Walker {
+	static class ModusPonensWalker implements Walker {
 		final ApplicationTerm mTerm;
 
-		public EqualityWalker(final ApplicationTerm term) {
-			assert term.getFunction().getName().equals(ProofConstants.FN_EQ);
+		public ModusPonensWalker(final ApplicationTerm term) {
+			assert term.getFunction().getName().equals(ProofConstants.FN_MP);
 			mTerm = term;
 		}
 
@@ -146,7 +146,7 @@ public class ProofChecker extends NonRecursive {
 			final ProofChecker checker = (ProofChecker) engine;
 			final Term rewrite = checker.stackPop();
 			final Term origFormula = checker.stackPop();
-			checker.stackPush(checker.walkEquality(mTerm, origFormula, rewrite), mTerm);
+			checker.stackPush(checker.walkModusPonens(mTerm, origFormula, rewrite), mTerm);
 		}
 	}
 
@@ -237,6 +237,34 @@ public class ProofChecker extends NonRecursive {
 				subProofs[i] = checker.stackPop();
 			}
 			checker.stackPush(checker.walkCongruence(mTerm, subProofs), mTerm);
+		}
+	}
+
+	static class OrMonotonyWalker implements Walker {
+		final ApplicationTerm mTerm;
+
+		public OrMonotonyWalker(final ApplicationTerm term) {
+			assert term.getFunction().getName() == ProofConstants.FN_ORMONOTONY;
+			mTerm = term;
+		}
+
+		public void enqueue(final ProofChecker engine) {
+			final Term[] params = mTerm.getParameters();
+			engine.enqueueWalker(this);
+			for (int i = params.length - 1; i >= 0; i--) {
+				engine.enqueueWalker(new ProofWalker(params[i]));
+			}
+		}
+
+		@Override
+		public void walk(final NonRecursive engine) {
+			final ProofChecker checker = (ProofChecker) engine;
+			final Term[] params = mTerm.getParameters();
+			final Term[] subProofs = new Term[params.length];
+			for (int i = params.length - 1; i >= 0; i--) {
+				subProofs[i] = checker.stackPop();
+			}
+			checker.stackPush(checker.walkOrMonotony(mTerm, subProofs), mTerm);
 		}
 	}
 
@@ -512,12 +540,16 @@ public class ProofChecker extends NonRecursive {
 			new ResolutionWalker(proofTerm).enqueue(this);
 			break;
 
-		case ProofConstants.FN_EQ:
-			new EqualityWalker(proofTerm).enqueue(this);
+		case ProofConstants.FN_MP:
+			new ModusPonensWalker(proofTerm).enqueue(this);
 			break;
 
 		case ProofConstants.FN_CONG:
 			new CongruenceWalker(proofTerm).enqueue(this);
+			break;
+
+		case ProofConstants.FN_ORMONOTONY:
+			new OrMonotonyWalker(proofTerm).enqueue(this);
 			break;
 
 		case ProofConstants.FN_TRANS:
@@ -1838,31 +1870,36 @@ public class ProofChecker extends NonRecursive {
 		return newEquality;
 	}
 
-	Term walkTransitivity(final ApplicationTerm transitivityApp, final Term[] equalities) {
+	Term walkTransitivity(final ApplicationTerm transitivityApp, final Term[] implications) {
 		// sanity check (caller and typechecker should ensure this
 		assert transitivityApp.getFunction().getName() == ProofConstants.FN_TRANS;
 
 		Term firstTerm = null;
 		Term lastTerm = null;
-		for (int i = 0; i < equalities.length; i++) {
+		boolean containsImplication = false;
+		for (int i = 0; i < implications.length; i++) {
+			if (isApplication("=>", implications[i])) {
+				containsImplication = true;
+			}
 			// Check that subproofs prove equalities
-			if (!isApplication("=", equalities[i]) || ((ApplicationTerm) equalities[i]).getParameters().length != 2) {
+			if (!isApplication("=", implications[i]) && !isApplication("=>", implications[i])
+					|| ((ApplicationTerm) implications[i]).getParameters().length != 2) {
 				// don't report errors if sub proof already failed
-				if (equalities[i] != null) {
-					reportError("@trans on a proof of a non-equality: " + equalities[i]);
+				if (implications[i] != null) {
+					reportError("@trans on a proof of a non-equality or -implication: " + implications[i]);
 				}
 				return null;
 			}
-			final Term[] eqParams = ((ApplicationTerm) equalities[i]).getParameters();
+			final Term[] impParams = ((ApplicationTerm) implications[i]).getParameters();
 			/* check that equalities chain correctly */
 			if (i == 0) {
-				firstTerm = eqParams[0];
-			} else if (eqParams[0] != lastTerm) {
-				reportError("@trans doesn't chain: " + lastTerm + " and " + eqParams[0]);
+				firstTerm = impParams[0];
+			} else if (impParams[0] != lastTerm) {
+				reportError("@trans doesn't chain: " + lastTerm + " and " + impParams[0]);
 			}
-			lastTerm = eqParams[1];
+			lastTerm = impParams[1];
 		}
-		return transitivityApp.getTheory().term("=", firstTerm, lastTerm);
+		return transitivityApp.getTheory().term(containsImplication ? "=>" : "=", firstTerm, lastTerm);
 	}
 
 	Term walkCongruence(final ApplicationTerm congruenceApp, final Term[] subProofs) {
@@ -1909,6 +1946,57 @@ public class ProofChecker extends NonRecursive {
 		return newEquality;
 	}
 
+	Term walkOrMonotony(final ApplicationTerm orMonotonyApp, final Term[] subProofs) {
+		// sanity check (caller and typechecker should ensure this
+		assert orMonotonyApp.getFunction().getName() == ProofConstants.FN_ORMONOTONY;
+		boolean containsImplication = false;
+		for (int i = 0; i < subProofs.length; i++) {
+			/* Check that it is an implication */
+			if (!isApplication("=", subProofs[i]) && (i == 0 || !isApplication("=>", subProofs[i]))
+					|| ((ApplicationTerm) subProofs[i]).getParameters().length != 2) {
+				// don't report errors if sub proof already failed
+				if (subProofs[i] != null) {
+					reportError("@orMonotony on a proof that is not an implication: " + subProofs[i]);
+				}
+				return null;
+			}
+		}
+		/* assume that the first equality is of the form (= x (f p1 ... pn)) */
+		final Term orTerm = ((ApplicationTerm) subProofs[0]).getParameters()[1];
+		if (!(orTerm instanceof ApplicationTerm)) {
+			reportError("@orMonotony applied on a term that is not an or application: " + orTerm);
+			return null;
+		}
+
+		final Term[] disjuncts = ((ApplicationTerm) orTerm).getParameters();
+		final Term[] newDisjuncts = disjuncts.clone();
+		/* check that the rewrites are of the form (=> pi qi) or (= pi qi) where the i's are increasing */
+		int offset = 0;
+		for (int i = 1; i < subProofs.length; i++) {
+			if (isApplication("=>", subProofs[i])) {
+				containsImplication = true;
+			}
+			final Term[] argRewrite = ((ApplicationTerm) subProofs[i]).getParameters();
+			/* search the parameter that is rewritten */
+			while (offset < disjuncts.length && disjuncts[offset] != argRewrite[0]) {
+				offset++;
+			}
+			if (offset == disjuncts.length) {
+				reportError("cannot find rewritten parameter in @orMonotony: " + subProofs[i] + " in " + orTerm);
+				offset = 0;
+			} else {
+				newDisjuncts[offset] = argRewrite[1];
+				offset++;
+			}
+		}
+		/* compute the proven implication or equality (=> x (f q1 ... qn)) or (= x (f q1 ... qn)) */
+		final Theory theory = orMonotonyApp.getTheory();
+		final Term newImplication = theory.term(containsImplication ? "=>" : "=",
+				((ApplicationTerm) subProofs[0]).getParameters()[0], theory.term("or", newDisjuncts));
+		return newImplication;
+
+	}
+
 	Term walkExists(final ApplicationTerm existsApp, final Term subProof) {
 		// sanity check (caller and typechecker should ensure this
 		assert existsApp.getFunction().getName() == ProofConstants.FN_EXISTS;
@@ -1941,6 +2029,8 @@ public class ProofChecker extends NonRecursive {
 		/*
 		 * A rewrite rule has the form (@rewrite (! (= lhs rhs) :rewriteRule)) The rewriteRule gives the name of the
 		 * rewrite axiom. The equality (= lhs rhs) is then a simple rewrite axiom.
+		 * 
+		 * Exception: rewriteRule :removeForall has the form (@rewrite (! (=> lhs rhs) :removeForall)).
 		 */
 		assert rewriteApp.getFunction().getName() == ProofConstants.FN_REWRITE;
 		assert rewriteApp.getParameters().length == 1;
@@ -1950,65 +2040,69 @@ public class ProofChecker extends NonRecursive {
 			reportError("Malformed rewrite rule " + rewriteApp);
 			return null;
 		}
-		final Term rewriteEq = ((AnnotatedTerm) rewriteApp.getParameters()[0]).getSubterm();
-		if (!isApplication("=", rewriteEq)) {
-			reportError("Rewrite rule is not a binary equality: " + rewriteApp);
+		final Term rewriteStmt = ((AnnotatedTerm) rewriteApp.getParameters()[0]).getSubterm();
+		if (rewriteRule != ":removeForall" && !isApplication("=", rewriteStmt)) {
+			reportError("Equality rewrite rule is not a binary equality: " + rewriteApp);
 			return null;
 		}
-		final Term[] eqParams = ((ApplicationTerm) rewriteEq).getParameters();
-		if (eqParams.length != 2) {
-			reportError("Rewrite rule is not a binary equality: " + rewriteApp);
+		if (rewriteRule == ":removeForall" && !isApplication("=>", rewriteStmt)) {
+			reportError("Implication rewrite rule is not a binary implication: " + rewriteApp);
+			return null;
+		}
+		final Term[] stmtParams = ((ApplicationTerm) rewriteStmt).getParameters();
+		if (stmtParams.length != 2) {
+			reportError("Rewrite rule is not a binary equality or implication: " + rewriteApp);
 			return null;
 		}
 
 		boolean okay;
 		switch (rewriteRule) {
 		case ":expand":
-			okay = checkRewriteExpand(eqParams[0], eqParams[1]);
+			okay = checkRewriteExpand(stmtParams[0], stmtParams[1]);
 			break;
 		case ":expandDef":
-			okay = checkRewriteExpandDef(eqParams[0], eqParams[1]);
+			okay = checkRewriteExpandDef(stmtParams[0], stmtParams[1]);
 			break;
 		case ":trueNotFalse":
-			okay = checkRewriteTrueNotFalse(eqParams[0], eqParams[1]);
+			okay = checkRewriteTrueNotFalse(stmtParams[0], stmtParams[1]);
 			break;
 		case ":constDiff":
-			okay = checkRewriteConstDiff(eqParams[0], eqParams[1]);
+			okay = checkRewriteConstDiff(stmtParams[0], stmtParams[1]);
 			break;
 		case ":eqTrue":
 		case ":eqFalse":
-			okay = checkRewriteEqTrueFalse(rewriteRule, eqParams[0], eqParams[1]);
+			okay = checkRewriteEqTrueFalse(rewriteRule, stmtParams[0], stmtParams[1]);
 			break;
 		case ":eqSimp":
 		case ":eqSame":
-			okay = checkRewriteEqSimp(rewriteRule, eqParams[0], eqParams[1]);
+			okay = checkRewriteEqSimp(rewriteRule, stmtParams[0], stmtParams[1]);
 			break;
 		case ":eqBinary":
-			okay = checkRewriteEqBinary(eqParams[0], eqParams[1]);
+			okay = checkRewriteEqBinary(stmtParams[0], stmtParams[1]);
 			break;
 		case ":distinctBool":
 		case ":distinctSame":
 		case ":distinctBinary":
-			okay = checkRewriteDistinct(rewriteRule, eqParams[0], eqParams[1]);
+			okay = checkRewriteDistinct(rewriteRule, stmtParams[0], stmtParams[1]);
 			break;
 		case ":xorTrue":
 		case ":xorFalse":
-			okay = checkRewriteXorConst(rewriteRule, eqParams[0], eqParams[1]);
+			okay = checkRewriteXorConst(rewriteRule, stmtParams[0], stmtParams[1]);
 			break;
 		case ":xorNot":
-			okay = checkRewriteXorNot(eqParams[0], eqParams[1]);
+			okay = checkRewriteXorNot(stmtParams[0], stmtParams[1]);
 			break;
 		case ":xorSame":
-			okay = checkRewriteXorSame(eqParams[0], eqParams[1]);
+			okay = checkRewriteXorSame(stmtParams[0], stmtParams[1]);
 			break;
 		case ":notSimp":
-			okay = checkRewriteNot(eqParams[0], eqParams[1]);
+			okay = checkRewriteNot(stmtParams[0], stmtParams[1]);
 			break;
 		case ":orSimp":
-			okay = checkRewriteOrSimp(rewriteRule, eqParams[0], eqParams[1]);
+			okay = checkRewriteOrSimp(rewriteRule, stmtParams[0], stmtParams[1]);
 			break;
 		case ":orTaut":
-			okay = checkRewriteOrTaut(eqParams[0], eqParams[1]);
+			okay = checkRewriteOrTaut(stmtParams[0], stmtParams[1]);
 			break;
 		case ":iteTrue":
 		case ":iteFalse":
@@ -2019,75 +2113,74 @@ public class ProofChecker extends NonRecursive {
 		case ":iteBool4":
 		case ":iteBool5":
 		case ":iteBool6":
-			okay = checkRewriteIte(rewriteRule, eqParams[0], eqParams[1]);
+			okay = checkRewriteIte(rewriteRule, stmtParams[0], stmtParams[1]);
 			break;
 		case ":andToOr":
-			okay = checkRewriteAndToOr(eqParams[0], eqParams[1]);
+			okay = checkRewriteAndToOr(stmtParams[0], stmtParams[1]);
 			break;
 		case ":eqToXor":
 		case ":distinctToXor":
-			okay = checkRewriteToXor(rewriteRule, eqParams[0], eqParams[1]);
+			okay = checkRewriteToXor(rewriteRule, stmtParams[0], stmtParams[1]);
 			break;
 		case ":impToOr":
-			okay = checkRewriteImpToOr(eqParams[0], eqParams[1]);
+			okay = checkRewriteImpToOr(stmtParams[0], stmtParams[1]);
 			break;
 		case ":strip":
-			okay = checkRewriteStrip(eqParams[0], eqParams[1]);
+			okay = checkRewriteStrip(stmtParams[0], stmtParams[1]);
 			break;
 		case ":canonicalSum":
-			okay = checkRewriteCanonicalSum(eqParams[0], eqParams[1]);
+			okay = checkRewriteCanonicalSum(stmtParams[0], stmtParams[1]);
 			break;
 		case ":leqToLeq0":
 		case ":ltToLeq0":
 		case ":geqToLeq0":
 		case ":gtToLeq0":
-			okay = checkRewriteToLeq0(rewriteRule, eqParams[0], eqParams[1]);
+			okay = checkRewriteToLeq0(rewriteRule, stmtParams[0], stmtParams[1]);
 			break;
 		case ":leqTrue":
 		case ":leqFalse":
-			okay = checkRewriteLeq(rewriteRule, eqParams[0], eqParams[1]);
+			okay = checkRewriteLeq(rewriteRule, stmtParams[0], stmtParams[1]);
 			break;
 		case ":divisible":
-			okay = checkRewriteDivisible(eqParams[0], eqParams[1]);
+			okay = checkRewriteDivisible(stmtParams[0], stmtParams[1]);
 			break;
 		case ":div1":
 		case ":div-1":
 		case ":divConst":
-			okay = checkRewriteDiv(rewriteRule, eqParams[0], eqParams[1]);
+			okay = checkRewriteDiv(rewriteRule, stmtParams[0], stmtParams[1]);
 			break;
 		case ":modulo1":
 		case ":modulo-1":
 		case ":moduloConst":
 		case ":modulo":
-			okay = checkRewriteModulo(rewriteRule, eqParams[0], eqParams[1]);
+			okay = checkRewriteModulo(rewriteRule, stmtParams[0], stmtParams[1]);
 			break;
 		case ":toInt":
-			okay = checkRewriteToInt(eqParams[0], eqParams[1]);
+			okay = checkRewriteToInt(stmtParams[0], stmtParams[1]);
 			break;
 		case ":storeOverStore":
-			okay = checkRewriteStoreOverStore(eqParams[0], eqParams[1]);
+			okay = checkRewriteStoreOverStore(stmtParams[0], stmtParams[1]);
 			break;
 		case ":selectOverStore":
-			okay = checkRewriteSelectOverStore(eqParams[0], eqParams[1]);
+			okay = checkRewriteSelectOverStore(stmtParams[0], stmtParams[1]);
 			break;
 		case ":flatten":
-			okay = checkRewriteFlatten(eqParams[0], eqParams[1]);
+			okay = checkRewriteFlatten(stmtParams[0], stmtParams[1]);
 			break;
 		case ":storeRewrite":
-			okay = checkRewriteStore(eqParams[0], eqParams[1]);
+			okay = checkRewriteStore(stmtParams[0], stmtParams[1]);
 			break;
 		case ":intern":
-			okay = checkRewriteIntern(eqParams[0], eqParams[1]);
+			okay = checkRewriteIntern(stmtParams[0], stmtParams[1]);
 			break;
 		case ":forallExists":
-			okay = checkRewriteForallExists(eqParams[0], eqParams[1]);
+			okay = checkRewriteForallExists(stmtParams[0], stmtParams[1]);
 			break;
 		case ":skolem":
-			okay = checkRewriteSkolem(eqParams[0], eqParams[1], (Term[]) annot.getValue());
+			okay = checkRewriteSkolem(stmtParams[0], stmtParams[1], (Term[]) annot.getValue());
 			break;
-		case ":sorry":
-			reportWarning("rule " + rewriteRule + " not checked!");
-			okay = true;
+		case ":removeForall":
+			okay = checkRewriteRemoveForall(stmtParams[0], stmtParams[1], (Term[]) annot.getValue());
 			break;
 		default:
 			okay = false;
@@ -2101,7 +2194,7 @@ public class ProofChecker extends NonRecursive {
 		/*
 		 * The result is simply the equality (without annotation).
 		 */
-		return rewriteEq;
+		return rewriteStmt;
 	}
 
 	boolean checkRewriteAndToOr(final Term lhs, final Term rhs) {
@@ -3172,6 +3265,35 @@ public class ProofChecker extends NonRecursive {
 		return forallSubformula == ((ApplicationTerm) existsSubformula).getParameters()[0];
 	}
 
+	boolean checkRewriteRemoveForall(final Term lhs, final Term rhs, final Term[] subst) {
+		// lhs is (not (exists ... ))
+		if (!isApplication("not", lhs) || !isApplication("not", rhs)) {
+			return false;
+		}
+		final Term exists = ((ApplicationTerm) lhs).getParameters()[0];
+		if (!(exists instanceof QuantifiedFormula)) {
+			return false;
+		}
+		final QuantifiedFormula qf = (QuantifiedFormula) exists;
+		if (qf.getQuantifier() != QuantifiedFormula.EXISTS) {
+			return false;
+		}
+		// subst must contain as many variables as the lhs has universally quantified variables
+		for (final Term s : subst) {
+			if (!(s instanceof TermVariable)) {
+				return false;
+			}
+		}
+		final TermVariable[] universalVars = qf.getVariables();
+		if (universalVars.length != subst.length) {
+			return false;
+		}
+		// check result of substitution
+		final Term subformula = qf.getSubformula();
+		final Term expected = mSkript.let(universalVars, subst, mSkript.term("not", subformula));
+		return rhs == new FormulaUnLet().unlet(expected);
+	}
+
 	/**
 	 * Convert a clause term into an Array of terms, one entry for each disjunct. This also handles singleton and empty
 	 * clause correctly.
@@ -3266,28 +3388,29 @@ public class ProofChecker extends NonRecursive {
 	}
 
 	/**
-	 * Checks that an {@literal @}eq application is okay. The two parameter of the application should already be
+	 * Checks that an {@literal @}mp application is okay. The two parameter of the application should already be
 	 * converted and their proved formula on the result stack. This puts the resulting formula proved by the
-	 * {@literal @}eq application on the result stack.
+	 * {@literal @}mp application on the result stack.
 	 *
-	 * @param eqApp
-	 *            The {@literal @}eq application.
+	 * @param mpApp
+	 *            The {@literal @}mp application.
 	 */
-	Term walkEquality(final ApplicationTerm eqApp, final Term origFormula, final Term rewrite) {
-		assert eqApp.getFunction().getName().equals(ProofConstants.FN_EQ);
+	Term walkModusPonens(final ApplicationTerm mpApp, final Term origFormula, final Term rewrite) {
+		assert mpApp.getFunction().getName().equals(ProofConstants.FN_MP);
 
 		/*
-		 * Expected: The first argument is a boolean formula f the second argument a binary equality (= f g).
+		 * Expected: The first argument is a boolean formula f the second argument a binary implication (=> f g) or
+		 * equality (= f g).
 		 *
-		 * The second argument is a proves that g is equivalent to f and the result is a proof for g.
+		 * The second argument is a proof that g is implied by (or equivalent to) f and the result is a proof for g.
 		 */
 		boolean okay = false;
 		Term result = null;
-		if (isApplication("=", rewrite)) {
-			final Term[] eqSides = ((ApplicationTerm) rewrite).getParameters();
-			if (eqSides.length == 2) {
-				result = eqSides[1];
-				okay = (origFormula == eqSides[0]);
+		if (isApplication("=", rewrite) || isApplication("=>", rewrite)) {
+			final Term[] mpSides = ((ApplicationTerm) rewrite).getParameters();
+			if (mpSides.length == 2) {
+				result = mpSides[1];
+				okay = (origFormula == mpSides[0]);
 			}
 		}
 		if (!okay && rewrite != null && origFormula != null) {
@@ -3665,7 +3788,8 @@ public class ProofChecker extends NonRecursive {
 			final Annotation[] annots = ((AnnotatedTerm) term).getAnnotations();
 			if (annots.length == 1) {
 				final Annotation singleAnnot = annots[0];
-				if (singleAnnot.getKey() == ":subst" || singleAnnot.getKey() == ":skolem") {
+				if (singleAnnot.getKey() == ":subst" || singleAnnot.getKey() == ":skolem"
+						|| singleAnnot.getKey() == ":removeForall") {
 					if (singleAnnot.getValue() instanceof Term[]) {
 						return singleAnnot;
 					}
