@@ -80,7 +80,15 @@ public class NoopProofTracker implements IProofTracker {
 	}
 
 	@Override
-	public Term getRewriteProof(final Term asserted, final Term simpFormula) {
+	public Term orMonotony(Term a, Term[] b) {
+		assert a instanceof ApplicationTerm && ((ApplicationTerm) a).getFunction().getName() == "or";
+		assert b.length > 1;
+		final Theory theory = a.getSort().getTheory();
+		return theory.term("or", b);
+	}
+
+	@Override
+	public Term modusPonens(final Term asserted, final Term simpFormula) {
 		return simpFormula;
 	}
 

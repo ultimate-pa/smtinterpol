@@ -31,11 +31,12 @@ public interface ProofConstants {
 	public final static String SORT_PROOF = "@Proof";
 	public static final String FN_TAUTOLOGY = "@tautology";
 	public static final String FN_REWRITE = "@rewrite";
-	public static final String FN_EQ = "@eq";
+	public static final String FN_MP = "@mp";
 	public static final String FN_SPLIT = "@split";
 	public static final String FN_EXISTS = "@exists";
 	public static final String FN_ALLINTRO = "@allIntro";
 	public static final String FN_CONG = "@cong";
+	public static final String FN_ORMONOTONY = "@orMonotony";
 	public static final String FN_TRANS = "@trans";
 	public static final String FN_REFL = "@refl";
 	public static final String FN_ASSERTED = "@asserted";
@@ -100,7 +101,6 @@ public interface ProofConstants {
 	public final static Annotation RW_STORE_REWRITE     = new Annotation(":storeRewrite", null);
 	public final static Annotation RW_FORALL_EXISTS     = new Annotation(":forallExists", null);
 	public final static Annotation RW_INTERN            = new Annotation(":intern", null);
-	public final static Annotation RW_SORRY             = new Annotation(":sorry", null);
 
 	//// ==== Tautologies ====
 	public final static Annotation AUX_TRUE_NOT_FALSE    = new Annotation(":trueNotFalse", null);
@@ -145,5 +145,9 @@ public interface ProofConstants {
 
 	public static Annotation getRewriteSkolemAnnot(final Term[] skolemFuns) {
 		return new Annotation(":skolem", skolemFuns);
+	}
+
+	public static Annotation getRewriteRemoveForallAnnot(final Term[] newVars) {
+		return new Annotation(":removeForall", newVars); // Implication rewrite
 	}
 }
