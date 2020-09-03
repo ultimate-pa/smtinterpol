@@ -135,12 +135,11 @@ public class UnexploredMap {
 				return false;
 			} else {
 				mMaximalUnexploredSubset = collectAtomsWithCriteria(workingSet, this::isSetToTrue);
-				if (mMaximalUnexploredSubset.get(0) && mMaximalUnexploredSubset.get(1)
-						&& mMaximalUnexploredSubset.get(2) && mMaximalUnexploredSubset.get(4)) {
-				}
+				// The implied crits must be contained in the Maximal unexplored subset
+				// therefore, it is enough to look whether the constraint has been decided in level 0
+				mImpliedCrits = collectAtomsWithCriteria(mMaximalUnexploredSubset, this::isDecidedInLevelZero);
 				assert !Config.EXPENSIVE_ASSERTS
-						|| mMaximalUnexploredSubsetIsMSS() : "The models that are returned are no MSSes. Probably mLastStatus of the atoms has been corrupted.";
-				mImpliedCrits = collectAtomsWithCriteria(workingSet, this::isImpliedToTrue);
+				|| mMaximalUnexploredSubsetIsMSS() : "The models that are returned are no MSSes. Probably mLastStatus of the atoms has been corrupted.";
 				mEngine.pop(1);
 				return true;
 			}
@@ -171,8 +170,8 @@ public class UnexploredMap {
 		return mTranslator.translate2Atom(atomNumber).getDecideStatus().getSign() == 1;
 	}
 
-	private boolean isImpliedToTrue(final int atomNumber) {
-		return isSetToTrue(atomNumber) && mTranslator.translate2Atom(atomNumber).getDecideLevel() == 0;
+	private boolean isDecidedInLevelZero(final int atomNumber) {
+		return mTranslator.translate2Atom(atomNumber).getDecideLevel() == 0;
 	}
 
 	private boolean mMaximalUnexploredSubsetIsMSS() {

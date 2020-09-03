@@ -48,8 +48,7 @@ public class ReMus implements Iterator<MusContainer> {
 	boolean mProvisionalSat;
 	BitSet mMaxUnexplored;
 	ArrayList<Integer> mMcs;
-	BitSet mPreviousCrits;
-	BitSet mNewImpliedCrits;
+	BitSet mKnownCrits;
 	BitSet mWorkingSet;
 	ReMus mSubordinateRemus;
 	boolean mMembersUpToDate;
@@ -99,13 +98,22 @@ public class ReMus implements Iterator<MusContainer> {
 	private void initializeMembersAndAssertImpliedCrits() {
 		mMuses = new ArrayList<>();
 		mSolver.clearUnknownConstraints();
-		mPreviousCrits = mSolver.getCrits();
+		mKnownCrits = mSolver.getCrits();
 		mMap.messWithActivityOfAtoms(mRnd);
 		mMaxUnexplored = mMap.findMaximalUnexploredSubsetOf(mWorkingSet);
-		mNewImpliedCrits = mMap.findImpliedCritsOf(mWorkingSet);
-		mNewImpliedCrits.andNot(mPreviousCrits);
-		// If maxUnexplored does not contain some of the known crits, it must be satisfiable
-		mProvisionalSat = !MusUtils.contains(mMaxUnexplored, mPreviousCrits);
+		final BitSet newImpliedCrits = mMap.findImpliedCritsOf(mWorkingSet);
+		mSolver.assertCriticalConstraints(newImpliedCrits);
+		/*
+		 * This provisional test is not ment for speed-up (it might nonetheless provide some, since it could result in
+		 * one less checkSat call), but to dodge a certain case. It could be, that maxUnexplored does not contain one of
+		 * the already known (and hence, asserted) crits. Because of the (usually very handy) structure of the solver,
+		 * one would have to make a huge hassle to remove this one crit from the solver to get a correct checkSat and
+		 * then one would have to restore the previous structure of the solver again. But if maxUnexplored does not
+		 * contain some of the known crits, it must be satisfiable already, so one can just leave out this hassle and
+		 * check for set containment.
+		 */
+		mProvisionalSat = !MusUtils.contains(mMaxUnexplored, mKnownCrits);
+		mKnownCrits.or(newImpliedCrits);
 		mMembersUpToDate = true;
 	}
 
@@ -120,11 +128,11 @@ public class ReMus implements Iterator<MusContainer> {
 			return true;
 		}
 
-		boolean thisMethodHasSetTheTimeout = false;
 		if (mTimeoutOrTerminationRequestOccurred) {
 			return false;
 		}
 
+		boolean thisMethodHasSetTheTimeout = false;
 		if (mTimeout > 0 && !mTimeoutHandler.timeoutIsSet()) {
 			mTimeoutHandler.setTimeout(mTimeout);
 			thisMethodHasSetTheTimeout = true;
@@ -206,6 +214,7 @@ public class ReMus implements Iterator<MusContainer> {
 				handleUnexploredIsSat();
 			} else {
 				final BitSet unknowns = (BitSet) mMaxUnexplored.clone();
+				unknowns.andNot(mKnownCrits);
 				mSolver.assertUnknownConstraints(unknowns);
 				final LBool sat = mSolver.checkSat();
 				mSolver.clearUnknownConstraints();
@@ -217,7 +226,9 @@ public class ReMus implements Iterator<MusContainer> {
 					if (mTimeoutHandler.isTerminationRequested()) {
 						return;
 					}
-					throw new SMTLIBException("CheckSat returns UNKNOWN in Mus enumeration process.");
+					throw new SMTLIBException("Solver returned UNKNOWN in enumeration process.");
+					// In case of unknown, mark this set as satisfiable and continue
+					// mMap.BlockDown(mMaxUnexplored);
 				}
 			}
 			// Don't updateMembers while another ReMus is in work, since in the update also crits are asserted
@@ -231,21 +242,29 @@ public class ReMus implements Iterator<MusContainer> {
 	}
 
 	private void updateMembersAndAssertImpliedCrits() {
-		mNewImpliedCrits.or(mPreviousCrits);
-		mPreviousCrits = mNewImpliedCrits;
 		mMap.messWithActivityOfAtoms(mRnd);
 		mMaxUnexplored = mMap.findMaximalUnexploredSubsetOf(mWorkingSet);
-		mNewImpliedCrits = mMap.findImpliedCritsOf(mWorkingSet);
-		mNewImpliedCrits.andNot(mPreviousCrits);
-		mSolver.assertCriticalConstraints(mNewImpliedCrits);
-		// If maxUnexplored does not contain some of the known crits, it must be satisfiable
-		mProvisionalSat = !MusUtils.contains(mMaxUnexplored, mPreviousCrits);
+		final BitSet newImpliedCrits = mMap.findImpliedCritsOf(mWorkingSet);
+		newImpliedCrits.andNot(mKnownCrits);
+		mSolver.assertCriticalConstraints(newImpliedCrits);
+		/*
+		 * This provisional test is not ment for speed-up (it might nonetheless provide some, since it could result in
+		 * one less checkSat call), but to dodge a certain case. It could be, that maxUnexplored does not contain one of
+		 * the already known (and hence, asserted) crits. Because of the (usually very handy) structure of the solver,
+		 * one would have to make a huge hassle to remove this one crit from the solver to get a correct checkSat and
+		 * then one would have to restore the previous structure of the solver again. But if maxUnexplored does not
+		 * contain some of the known crits, it must be satisfiable already, so one can just leave out this hassle and
+		 * check for set containment.
+		 */
+		mProvisionalSat = !MusUtils.contains(mMaxUnexplored, mKnownCrits);
+		mKnownCrits.or(newImpliedCrits);
 		mMembersUpToDate = true;
 	}
 
 	private void handleUnexploredIsSat() {
 		// To get an extension here is useless, since maxUnexplored is a MSS already. Also BlockUp is useless, since we
-		// will block those sets anyways in the following recursion or have already blocked those sets
+		// will block the unsatisfiable supersets (mMaxUnexplored \cup \{crit\}) anyways in the following recursion or
+		// have already blocked those sets
 		mMap.BlockDown(mMaxUnexplored);
 		final BitSet bitSetMcs = (BitSet) mWorkingSet.clone();
 		bitSetMcs.andNot(mMaxUnexplored);

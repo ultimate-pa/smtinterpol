@@ -64,7 +64,7 @@ public class MusEnumerationScript extends WrapperScript {
 	public enum HeuristicsType {
 		RANDOM {
 		},
-		SMALLEST {
+		SMALLEST{
 		},
 		BIGGEST {
 		},
@@ -386,7 +386,7 @@ public class MusEnumerationScript extends WrapperScript {
 
 		scriptForReMus.pop(1);
 		smtInterpol.setTerminationRequest(previousTerminationRequest);
-		if(mLogAdditionalInformation.getValue()) {
+		if (mLogAdditionalInformation.getValue()) {
 			mLogger.fatal("Cardinality of Constraint set: " + translator.getNumberOfConstraints());
 		}
 		return muses;
