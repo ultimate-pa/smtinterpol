@@ -23,7 +23,7 @@ import java.util.BitSet;
 import java.util.Random;
 
 /**
- * Contains methods that are used all over the package package "muses".
+ * Contains methods that are used all over the package "muses".
  *
  * @author LeonardFichtner
  *

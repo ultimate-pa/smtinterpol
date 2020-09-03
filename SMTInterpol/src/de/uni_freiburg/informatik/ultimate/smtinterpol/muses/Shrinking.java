@@ -38,8 +38,7 @@ public class Shrinking {
 	 * Takes an boolean array representing an unsatisfiable set of constraints and a CritAdministrationSolver,
 	 * containing all criticals found so far, to generate a minimal unsatisfiable subset. As a side effect, this method
 	 * blocks all explored sets (also the found mus) in the map. The Random instance is used to make the shrinking
-	 * randomly (the MUS that is created depends on the order in which the unknowns are tested to be critical). This
-	 * method should only be used for Logics where checkSat cannot return LBool.UNKNOWN.
+	 * randomly (the MUS that is created depends on the order in which the unknowns are tested to be critical).
 	 *
 	 * @returns A MusContainer which contains the found mus and the corresponding proof of unsatisfiability. Returns
 	 *          null, if termination was requested in the shrinking process.
