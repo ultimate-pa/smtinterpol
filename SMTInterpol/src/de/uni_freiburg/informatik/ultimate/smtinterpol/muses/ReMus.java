@@ -111,10 +111,15 @@ public class ReMus implements Iterator<MusContainer> {
 
 	/**
 	 * This method might be costly, since it might have to search for a new mus first, before it knows whether another
-	 * mus exists or not. Also returns false, if a timeout or a request for termination occurred.
+	 * mus exists or not. This returns false, if a timeout or a request for termination occurred, except when a Mus has
+	 * been found before (by calling hasNext()) and has not been "consumed" by next().
 	 */
 	@Override
 	public boolean hasNext() throws SMTLIBException {
+		if (mNextMus != null) {
+			return true;
+		}
+
 		boolean thisMethodHasSetTheTimeout = false;
 		if (mTimeoutOrTerminationRequestOccurred) {
 			return false;
@@ -123,10 +128,6 @@ public class ReMus implements Iterator<MusContainer> {
 		if (mTimeout > 0 && !mTimeoutHandler.timeoutIsSet()) {
 			mTimeoutHandler.setTimeout(mTimeout);
 			thisMethodHasSetTheTimeout = true;
-		}
-
-		if (mNextMus != null) {
-			return true;
 		}
 
 		if (mSubordinateRemus != null && mSubordinateRemus.hasNext()) {
@@ -177,7 +178,7 @@ public class ReMus implements Iterator<MusContainer> {
 			}
 			mSatisfiableCaseLoopNextWorkingSet.clear(critical);
 		}
-		mSatisfiableCaseLoopIsRunning = !mMcs.isEmpty() ? true : false;
+		mSatisfiableCaseLoopIsRunning = !mMcs.isEmpty() && !mTimeoutHandler.isTerminationRequested() ? true : false;
 	}
 
 	/**
@@ -200,7 +201,7 @@ public class ReMus implements Iterator<MusContainer> {
 			updateMembersAndAssertImpliedCrits();
 		}
 		while (!mMaxUnexplored.isEmpty() && mNextMus == null && !mTimeoutHandler.isTerminationRequested()) {
-			assert mMembersUpToDate && mSubordinateRemus == null : "System variables of ReMus are corrupted.";
+			assert mMembersUpToDate && mSubordinateRemus == null : "Variables of ReMus are corrupted.";
 			if (mProvisionalSat) {
 				handleUnexploredIsSat();
 			} else {
@@ -220,7 +221,7 @@ public class ReMus implements Iterator<MusContainer> {
 				}
 			}
 			// Don't updateMembers while another ReMus is in work, since in the update also crits are asserted
-			// which will be removed (because of popRecLevel) after the other Remus is finished.
+			// which will be removed (because of popRecLevel) after the SubordinateRemus is finished.
 			if (mSubordinateRemus == null && !mTimeoutHandler.isTerminationRequested()) {
 				updateMembersAndAssertImpliedCrits();
 			} else {
