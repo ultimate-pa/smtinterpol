@@ -226,9 +226,8 @@ public class ReMus implements Iterator<MusContainer> {
 					if (mTimeoutHandler.isTerminationRequested()) {
 						return;
 					}
-					throw new SMTLIBException("Solver returned UNKNOWN in enumeration process.");
-					// In case of unknown, mark this set as satisfiable and continue
-					// mMap.BlockDown(mMaxUnexplored);
+					// In case of unknown, only mark this set as satisfiable
+					mMap.BlockDown(mMaxUnexplored);
 				}
 			}
 			// Don't updateMembers while another ReMus is in work, since in the update also crits are asserted

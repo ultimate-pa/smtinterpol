@@ -68,15 +68,15 @@ public class Shrinking {
 				}
 				solver.assertUnknownConstraint(j);
 			}
+
+			unknown.clear(unknownIndex);
 			switch (solver.checkSat()) {
 			case UNSAT:
-				unknown.clear(unknownIndex);
 				final BitSet core = solver.getUnsatCore();
 				unknown.and(core);
 				solver.clearUnknownConstraints();
 				break;
 			case SAT:
-				unknown.clear(unknownIndex);
 				final BitSet extension = solver.getSatExtension(request);
 				if (extension == null) {
 					return null;
@@ -89,20 +89,24 @@ public class Shrinking {
 				if (request != null && request.isTerminationRequested()) {
 					return null;
 				}
-				throw new SMTLIBException("Solver returns UNKNOWN in Shrinking process.");
+				//Treat UNKNOWN as SAT (without trying to get an extension)
+				final BitSet isAsserted = solver.getCrits();
+				isAsserted.or(unknown);
+				map.BlockDown(isAsserted);
+				solver.clearUnknownConstraints();
+				solver.assertCriticalConstraint(unknownIndex);
 			}
 		}
 		switch (solver.checkSat()) {
 		case UNSAT:
 			break;
 		case SAT:
-			throw new SMTLIBException("Something went wrong, the set of all crits should be unsatisfiable!!!");
+			throw new SMTLIBException("Something went wrong, the set of all crits should be unsatisfiable!");
 		case UNKNOWN:
 			if (request != null && request.isTerminationRequested()) {
 				return null;
 			}
-			throw new SMTLIBException(
-					"Solver returns UNKNOWN for set of all crits (despite of not doing it for a superset, weird).");
+			throw new SMTLIBException("Solver returns UNKNOWN for final set in shrink procedure.");
 		}
 		final Term proofOfMus = solver.getProof();
 		solver.clearUnknownConstraints();
