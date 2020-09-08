@@ -46,6 +46,7 @@ import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
 
 /**
@@ -358,13 +359,13 @@ public class ProofChecker extends NonRecursive {
 		private final Term[] mClause;
 		private final Term[] mSubstitution;
 
-		InstLemmaWalker(final Term[] clause, Term[] substitution) {
+		InstLemmaWalker(final Term[] clause, final Term[] substitution) {
 			mClause = clause;
 			mSubstitution = substitution;
 		}
 
 		@Override
-		public void walk(NonRecursive engine) {
+		public void walk(final NonRecursive engine) {
 			final ProofChecker checker = (ProofChecker) engine;
 
 			assert checker.isApplication("not", mClause[0]);
@@ -442,6 +443,12 @@ public class ProofChecker extends NonRecursive {
 	HashMap<ApplicationTerm, Term> mQuantDefinedTerms;
 
 	/**
+	 * Skolem terms. This contains for each skolem function the existentially
+	 * quantified formula and the variable for which it was created.
+	 */
+	HashMap<FunctionSymbol, Pair<Term, TermVariable>> mSkolemFunctions;
+
+	/**
 	 * Statistics.
 	 */
 	private int mNumInstancesUsed;
@@ -480,6 +487,7 @@ public class ProofChecker extends NonRecursive {
 		// Initializing the proof-checker-cache
 		mCacheConv = new HashMap<>();
 		mQuantDefinedTerms = new HashMap<>();
+		mSkolemFunctions = new HashMap<>();
 		mError = 0;
 		// Now non-recursive:
 		proof = unletter.unlet(proof);
@@ -2029,7 +2037,7 @@ public class ProofChecker extends NonRecursive {
 		/*
 		 * A rewrite rule has the form (@rewrite (! (= lhs rhs) :rewriteRule)) The rewriteRule gives the name of the
 		 * rewrite axiom. The equality (= lhs rhs) is then a simple rewrite axiom.
-		 * 
+		 *
 		 * Exception: rewriteRule :removeForall has the form (@rewrite (! (=> lhs rhs) :removeForall)).
 		 */
 		assert rewriteApp.getFunction().getName() == ProofConstants.FN_REWRITE;
@@ -2955,7 +2963,6 @@ public class ProofChecker extends NonRecursive {
 			return false;
 		}
 
-		final TermVariable[] freeVars = qf.getFreeVars();
 		final TermVariable[] existentialVars = qf.getVariables();
 		final Term subformula = qf.getSubformula();
 		if (existentialVars.length != skolemFuns.length) {
@@ -2963,7 +2970,11 @@ public class ProofChecker extends NonRecursive {
 		}
 		for (int i = 0; i < existentialVars.length; i++) {
 			final Term sk = skolemFuns[i];
-			if (sk.getFreeVars() != freeVars || !compareSkolemDef(sk, existentialVars[i], subformula)) {
+			if (!(sk instanceof ApplicationTerm)) {
+				return false;
+			}
+			final ApplicationTerm skApp = (ApplicationTerm) sk;
+			if (!compareSkolemDef(skApp, existentialVars[i], qf)) {
 				return false;
 			}
 		}
@@ -3717,7 +3728,7 @@ public class ProofChecker extends NonRecursive {
 
 	/**
 	 * Substitute variables in a given quantified clause. This also removes :quotedQuant annotations.
-	 * 
+	 *
 	 * @param orTerm
 	 * @param sigma
 	 * @return
@@ -3821,27 +3832,33 @@ public class ProofChecker extends NonRecursive {
 
 	/**
 	 * Check that an existentially quantified variable has a unique Skolem function.
-	 * 
-	 * @param sk
-	 * @param existentialVars
-	 * @param subformula
+	 *
+	 * @param skolemApp       the application term {@code (skolem_xyz vars)}. The
+	 *                        function symbol should be unique and the parameters
+	 *                        should equal the free variables of the existentially
+	 *                        quantified formula.
+	 * @param existentialVars the variable for which the skolemApp was introduced.
+	 * @param quantformula    the existentially quantified formula.
+	 * @return true iff this usage of skolemApp matches the previous uses (is only
+	 *         used for this quantformula with this variable) and that the arguments
+	 *         are the free variables of quantformula.
 	 */
-	private boolean compareSkolemDef(Term sk, TermVariable var, Term subformula) {
-		assert sk instanceof ApplicationTerm;
-		final ApplicationTerm skolemApp = (ApplicationTerm) sk;
-		final String func = skolemApp.getFunction().getName();
-		final Term defTerm = mSkript.quantifier(0, new TermVariable[] { var }, subformula);
-		for (final ApplicationTerm a : mQuantDefinedTerms.keySet()) {
-			if (a == skolemApp && mQuantDefinedTerms.get(a) != defTerm) {
-				return false;
-			}
-			if (isApplication(func, a) && a != skolemApp) {
-				return false;
-			}
+	private boolean compareSkolemDef(final ApplicationTerm skolemApp, final TermVariable var, final Term quantformula) {
+		// TODO the check is incomplete; we don't check that the func doesn't occur in
+		// any input formula.
+		final FunctionSymbol func = skolemApp.getFunction();
+		if (!Arrays.deepEquals(skolemApp.getParameters(), quantformula.getFreeVars())) {
+			return false;
 		}
-		assert !mQuantDefinedTerms.containsKey(skolemApp);
-		mQuantDefinedTerms.put(skolemApp, defTerm);
-		return true;
+		final Pair<Term, TermVariable> previousUse = mSkolemFunctions.get(func);
+		if (previousUse == null) {
+			mSkolemFunctions.put(func, new Pair<>(quantformula, var));
+			return true;
+		} else {
+			// TODO: this shouldn't even be reachable, as every rewrite rule is only checked
+			// once.
+			return previousUse.getFirst() == quantformula && previousUse.getSecond() == var;
+		}
 	}
 
 	/**
