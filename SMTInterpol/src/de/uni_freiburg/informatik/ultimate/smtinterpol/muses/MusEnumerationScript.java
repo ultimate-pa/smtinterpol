@@ -62,30 +62,18 @@ public class MusEnumerationScript extends WrapperScript {
 	 * the Interpolant from it.
 	 */
 	public enum HeuristicsType {
-		RANDOM {
-		},
-		SMALLEST{
-		},
-		BIGGEST {
-		},
-		LOWLEXORDER {
-		},
-		HIGHLEXORDER {
-		},
-		SHALLOWEST {
-		},
-		DEEPEST {
-		},
-		NARROWEST {
-		},
-		WIDEST {
-		},
-		SMALLESTAMONGWIDE {
-		},
-		WIDESTAMONGSMALL {
-		},
-		FIRST {
-		}
+		RANDOM,
+		SMALLEST,
+		BIGGEST,
+		LOWLEXORDER,
+		HIGHLEXORDER,
+		SHALLOWEST,
+		DEEPEST,
+		NARROWEST,
+		WIDEST,
+		SMALLESTAMONGWIDE,
+		WIDESTAMONGSMALL,
+		FIRST;
 	}
 
 	TimeoutHandler mHandler;
@@ -142,7 +130,7 @@ public class MusEnumerationScript extends WrapperScript {
 		mEnumerationTimeout = new LongOption(0, true, "The time that is invested into enumerating Muses");
 		mHeuristicTimeout = new LongOption(0, true,
 				"The time that is invested into finding the best Mus according to the set Heuristic");
-		mLogAdditionalInformation = new BooleanOption(true, true,
+		mLogAdditionalInformation = new BooleanOption(false, true,
 				"Whether additional information (e.g. of the enumeration) should be logged.");
 	}
 

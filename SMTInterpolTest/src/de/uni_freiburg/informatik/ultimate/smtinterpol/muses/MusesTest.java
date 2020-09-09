@@ -34,6 +34,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.NamedAtom;
@@ -386,6 +387,67 @@ public class MusesTest {
 		script.assertTerm(c7);
 		script.assertTerm(c8);
 		script.assertTerm(c9);
+	}
+
+	/**
+	 * Version of UnsatSet5 with a constraint that should be UNKNOWN.
+	 */
+	private void setupUnknownSet(final MusEnumerationScript script) {
+		final ArrayList<String> names = new ArrayList<>();
+		final ArrayList<Annotation> annots = new ArrayList<>();
+		for (int i = 0; i < 10; i++) {
+			names.add("c" + String.valueOf(i));
+		}
+		for (int i = 0; i < names.size(); i++) {
+			annots.add(new Annotation(":named", names.get(i)));
+		}
+		final Sort intSort = script.sort("Int");
+		final Sort[] intSortArray = new Sort[1];
+		intSortArray[0] = intSort;
+		script.declareFun("v", Script.EMPTY_SORT_ARRAY, intSort);
+		script.declareFun("w", Script.EMPTY_SORT_ARRAY, intSort);
+		script.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		script.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		script.declareFun("z", Script.EMPTY_SORT_ARRAY, intSort);
+		script.declareFun("f", intSortArray, intSort);
+		final Term v = script.term("v");
+		final Term w = script.term("w");
+		final Term x = script.term("x");
+		final Term y = script.term("y");
+		final Term z = script.term("z");
+
+		final TermVariable u = script.variable("u", intSort);
+		final Term fOfu = script.term("f", u);
+
+		final Term c0 = script.term("<", v, w);
+		final Term c1 = script.term("<", w, x);
+		final Term c2 = script.term("<", x, y);
+		final Term c3 = script.term("<", y, z);
+		final Term c4 = script.term("=", v, script.numeral("2000"));
+		final Term c5 = script.term("=", z, script.numeral("5"));
+		final Term c6 = script.term("=", x, script.numeral("1000"));
+		final Term c7 = script.term("=", x, script.numeral("1001"));
+		final Term c8 = script.term("=", w, script.numeral("1500"));
+		final Term c9 = script.term("=", y, script.numeral("100"));
+		final Term fOfuEqu = script.term("=", fOfu, u);
+		final Term c10 = script.quantifier(Script.FORALL, new TermVariable[] {u}, fOfuEqu, null);
+
+		final Term c0Anno = script.annotate(c0, annots.get(0));
+		final Term c2Anno = script.annotate(c2, annots.get(2));
+		final Term c3Anno = script.annotate(c3, annots.get(3));
+		final Term c5Anno = script.annotate(c5, annots.get(5));
+		final Term c6Anno = script.annotate(c6, annots.get(6));
+		script.assertTerm(c0Anno);
+		script.assertTerm(c1);
+		script.assertTerm(c2Anno);
+		script.assertTerm(c3Anno);
+		script.assertTerm(c4);
+		script.assertTerm(c5Anno);
+		script.assertTerm(c6Anno);
+		script.assertTerm(c7);
+		script.assertTerm(c8);
+		script.assertTerm(c9);
+		script.assertTerm(c10);
 	}
 
 	@Test
@@ -1288,7 +1350,7 @@ public class MusesTest {
 		final MusEnumerationScript script = setupMusEnumerationScript(Logics.ALL);
 		script.setOption(MusOptions.INTERPOLATION_HEURISTIC, HeuristicsType.SMALLEST);
 		script.setOption(SMTLIBConstants.RANDOM_SEED, 1337);
-		//script.setOption(MusOptions.LOG_ADDITIONAL_INFORMATION, true);
+		script.setOption(MusOptions.LOG_ADDITIONAL_INFORMATION, true);
 
 		script.push(1);
 		setupUnsatSet2(script);
@@ -1316,7 +1378,7 @@ public class MusesTest {
 		final MusEnumerationScript script = setupMusEnumerationScript(Logics.ALL);
 		script.setOption(MusOptions.INTERPOLATION_HEURISTIC, HeuristicsType.SMALLEST);
 		script.setOption(SMTLIBConstants.RANDOM_SEED, 1337);
-		//script.setOption(MusOptions.LOG_ADDITIONAL_INFORMATION, true);
+		script.setOption(MusOptions.LOG_ADDITIONAL_INFORMATION, true);
 
 		script.push(1);
 		setupUnsatSet5(script);
@@ -1330,8 +1392,8 @@ public class MusesTest {
 		script.setOption(SMTLIBConstants.RANDOM_SEED, 1337);
 		Assert.assertTrue(LBool.UNSAT == script.checkSat());
 		final Term[] core2 = script.getUnsatCore();
-		Assert.assertTrue(Translator.getName(core1[0]).equals(Translator.getName(core2[0])));
-		Assert.assertTrue(Translator.getName(core1[1]).equals(Translator.getName(core2[1])));
+		Assert.assertTrue(core1[0].toString().equals(core2[0].toString()));
+		Assert.assertTrue(core1[1].toString().equals(core2[1].toString()));
 
 		script.setOption(MusOptions.INTERPOLATION_HEURISTIC, HeuristicsType.BIGGEST);
 		final Term[] core3 = script.getUnsatCore();
@@ -1344,13 +1406,50 @@ public class MusesTest {
 		final MusEnumerationScript script = setupMusEnumerationScript(Logics.ALL);
 		script.setOption(MusOptions.INTERPOLATION_HEURISTIC, HeuristicsType.FIRST);
 		script.setOption(SMTLIBConstants.RANDOM_SEED, 1337);
-		//script.setOption(MusOptions.LOG_ADDITIONAL_INFORMATION, true);
+		script.setOption(MusOptions.LOG_ADDITIONAL_INFORMATION, true);
 		script.setOption(MusOptions.ENUMERATION_TIMEOUT, 1000);
 
 		script.push(1);
 		setupUnsatSet5(script);
 		Assert.assertTrue(LBool.UNSAT == script.checkSat());
 		// Just make sure the internal asserts dont throw exceptions.
+		script.getUnsatCore();
+	}
+
+	@Test
+	public void testWhetherFormulaIsUnknown() {
+		final Script script = setupScript(Logics.ALL);
+
+		final Sort intSort = script.sort("Int");
+		final Sort[] intSortArray = new Sort[1];
+		intSortArray[0] = intSort;
+
+		script.declareFun("f", intSortArray, intSort);
+		final TermVariable varX = script.variable("x", intSort);
+
+		final Term fOfx = script.term("f", varX);
+		final Term fOfxEqx = script.term("=", fOfx, varX);
+		final Term c10 = script.quantifier(Script.FORALL, new TermVariable[] {varX}, fOfxEqx, null);
+
+		script.assertTerm(c10);
+		Assert.assertTrue(script.checkSat() == LBool.UNKNOWN);
+
+		final Term unsatTerm = script.term("<", script.numeral("1"), script.numeral("0"));
+		script.assertTerm(unsatTerm);
+		Assert.assertTrue(script.checkSat() == LBool.UNSAT);
+	}
+
+	@Test
+	public void testUnknownSet() {
+		final MusEnumerationScript script = setupMusEnumerationScript(Logics.ALL);
+		script.setOption(MusOptions.INTERPOLATION_HEURISTIC, HeuristicsType.BIGGEST);
+		script.setOption(SMTLIBConstants.RANDOM_SEED, 1337);
+		script.setOption(MusOptions.LOG_ADDITIONAL_INFORMATION, true);
+
+		script.push(1);
+		setupUnknownSet(script);
+		Assert.assertTrue(LBool.UNSAT == script.checkSat());
+
 		script.getUnsatCore();
 	}
 }
