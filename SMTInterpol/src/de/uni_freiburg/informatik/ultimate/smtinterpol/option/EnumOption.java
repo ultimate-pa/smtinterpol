@@ -70,7 +70,7 @@ public class EnumOption<E extends Enum<E>> extends Option {
 					throwException(value);
 				}
 			}
-		} else if (value.getClass().getSuperclass() == mClass) {
+		} else if (mClass.isInstance(value)) {
 			mValue = (E) value;
 		} else {
 			throwException(value);

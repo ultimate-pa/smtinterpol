@@ -1,10 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <project default="all" name="Create Project SMTInterpol" xmlns:jacoco="antlib:org.jacoco.ant" xmlns:artifact="antlib:org.apache.maven.artifact.ant" xmlns:sonar="antlib:org.sonar.ant">
-
-  <target name="help">
-    <echo>
+    <target name="help">
+        <echo>
 Run with, e.g., `ant smtinterpol.jar`.  Useful targets:
-
 runtests:          Run unit tests
 smtinterpol.jar:   Create main jar file (in dist)
 starexec:          Create starexec package
@@ -12,502 +10,443 @@ deltadebugger.jar: Create delta debugger
 dist:              Create all jar files
 distribution:      Build website.
 stage:             Upload new version to Maven Central (owner only)
-    </echo>
-  </target>
-
-  <import file="smtinterpol2-publicapi.xml"/>
-  <path id="maven-ant-tasks.classpath" path="libs/maven-ant-tasks-2.1.3.jar" />
-  <typedef resource="org/apache/maven/artifact/ant/antlib.xml" uri="antlib:org.apache.maven.artifact.ant" classpathref="maven-ant-tasks.classpath" />
-  
-  <property name="artifactId" value="smtinterpol" />
-
-  <!-- Build everything  -->
-  <target name="all" depends="dist"/>
-
-  <property file="buildjar.properties"/>
-
-  <available file="${dir.jacoco}" type="dir" property="jacoco.present"/>
-
-  <target name="jacoco-setup" if="jacoco.present">
-    <taskdef uri="antlib:org.jacoco.ant" resource="org/jacoco/ant/antlib.xml">
-      <classpath path="${dir.jacoco}/lib/jacocoant.jar"/>
-    </taskdef>
-  </target>
-
-  <target name="get-version">
-    <!-- get a new version string using git describe if possible -->
-    <exec executable="git" outputproperty="version">
-      <arg value="describe"/>
-    </exec>
-	<echo>Version is ${version}</echo>
-    <property name="jar.basename" value="${artifactId}-${version}"/>
-    <tstamp>
-      <format property="build.date" pattern="yyyy-MM-dd"/>
-      <format property="build.year" pattern="yyyy"/>
-    </tstamp>
-  </target>
-
-
-  <!-- <target name="cobertura-setup" if="cobertura.present"> -->
-  <!--   <taskdef classpathref="cobertura.classpath" resource="tasks.properties" onerror="ignore"/> -->
-  <!-- </target> -->
-
-  <!-- Build smtlib1 parser and lexer -->
-  <target name="check_smtlib1.cup_current">
-    <uptodate property="smtlib1.cup.current">
-      <srcfiles dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib" includes="*.cup,*.flex" />
-      <srcfiles file="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.1.jar"/>
-      <mapper>
-	<globmapper from="smtlib.cup" to="Parser.java"/>
-	<globmapper from="smtlib.cup" to="LexerSymbols.java"/>
-	<globmapper from="smtlib.flex" to="Lexer.java"/>
-	<globmapper from="jh-javacup-1.1.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Parser.java"/>
-	<globmapper from="jh-javacup-1.1.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}LexerSymbols.java"/>
-	<globmapper from="jh-javacup-1.1.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Lexer.java"/>
-      </mapper>
-    </uptodate>
-  </target>
-  <target name="smtlib1.cup" depends="check_smtlib1.cup_current" unless="smtlib1.cup.current">
-    <property name="workspacedir" value="${dir.workspace}"/>
-    <ant antfile="build-parser.xml" dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib" />
-  </target>
-
-  <!-- Build smtlib2 parser and lexer -->
-  <target name="check_smtlib2.cup_current">
-    <uptodate property="smtlib2.cup.current">
-      <srcfiles dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2" includes="*.cup,*.flex" />
-      <srcfiles file="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.1.jar"/>
-      <mapper>
-	<globmapper from="smtlib.cup" to="Parser.java"/>
-	<globmapper from="smtlib.cup" to="LexerSymbols.java"/>
-	<globmapper from="smtlib.flex" to="Lexer.java"/>
-	<globmapper from="jh-javacup-1.1.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Parser.java"/>
-	<globmapper from="jh-javacup-1.1.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}LexerSymbols.java"/>
-	<globmapper from="jh-javacup-1.1.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Lexer.java"/>
-      </mapper>
-    </uptodate>
-  </target>
-  <target name="smtlib2.cup" depends="check_smtlib2.cup_current" 
-                             unless="smtlib2.cup.current">
-    <property name="workspacedir" value="${dir.workspace}"/>
-    <ant antfile="build-parser.xml" dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2" />
-  </target>
-
-  <!-- Build dimacs parser and lexer -->
-  <target name="check_dimacs.cup_current">
-    <uptodate property="dimacs.cup.current">
-      <srcfiles dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs" includes="*.cup,*.flex" />
-      <srcfiles file="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.1.jar"/>
-      <mapper>
-	<globmapper from="dimacs.cup" to="Parser.java"/>
-	<globmapper from="dimacs.cup" to="LexerSymbols.java"/>
-	<globmapper from="dimacs.flex" to="Lexer.java"/>
-	<globmapper from="jh-javacup-1.1.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Parser.java"/>
-	<globmapper from="jh-javacup-1.1.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}LexerSymbols.java"/>
-	<globmapper from="jh-javacup-1.1.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Lexer.java"/>
-      </mapper>
-    </uptodate>
-  </target>
-  <target name="dimacs.cup" depends="check_dimacs.cup_current" 
-                             unless="dimacs.cup.current">
-    <property name="workspacedir" value="${dir.workspace}"/>
-    <ant antfile="build-parser.xml" dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs" />
-  </target>
-
-  <!-- Compile SMTInterpol -->
-  <target name="prepare" depends="get-version,smtlib1.cup,smtlib2.cup,dimacs.cup">
-    <copy file="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/Version.template" overwrite="true" tofile="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/Version.java">
-      <filterchain><expandproperties /></filterchain>
-    </copy>
-  </target>
-
-  <target name="compile" depends="prepare">
-    <mkdir dir="${dir.workspace}/Library-SMTLIB/release"/>
-    <mkdir dir="${dir.workspace}/SMTInterpol/release"/>
-    <javac srcdir="${dir.workspace}/Library-SMTLIB/src" destdir="${dir.workspace}/Library-SMTLIB/release" optimize="${optimize}" includeAntRuntime="false" debug="${debug}">
-    </javac>
-    <echo message="Build SMTLIB library finished" />
-    <javac srcdir="${dir.workspace}/SMTInterpol/src"
-      destdir="${dir.workspace}/SMTInterpol/release" optimize="${optimize}" includeAntRuntime="false" debug="${debug}">
-      <exclude name="de/uni_freiburg/informatik/ultimate/smtinterpol/test_generator/**" />
-      <exclude name="de/uni_freiburg/informatik/ultimate/smtinterpol/smtcomp/**" />
-      <classpath>
-        <pathelement location="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.1.jar"/>
-        <pathelement path="${dir.workspace}/Library-SMTLIB/release"/>
-      </classpath>
-    </javac>
-  </target>
-
-  <!-- Compile Deltadebugger -->
-  <target name="compiledd" depends="compile">
-    <mkdir dir="${dir.workspace}/DeltaDebugger/release"/>
-    <javac srcdir="${dir.workspace}/DeltaDebugger/src" destdir="${dir.workspace}/DeltaDebugger/release" optimize="${optimize}" includeAntRuntime="false" debug="${debug}">
-      <classpath>
-        <pathelement location="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.1.jar"/>
-        <pathelement path="${dir.workspace}/Library-SMTLIB/release"/>
-        <pathelement path="${dir.workspace}/SMTInterpol/release"/>
-      </classpath>
-    </javac>
-  </target>
-
-  <!-- Create an executable jar -->
-  <target name="smtinterpol.jar" depends="compile">
-    <mkdir dir="${jar.outdir}"/>
-    <jar destfile="${jar.outdir}/${jar.basename}.jar" filesetmanifest="mergewithoutmain">
-      <manifest>
-        <attribute name="Main-Class" value="de.uni_freiburg.informatik.ultimate.smtinterpol.Main"/>
-      </manifest>
-      <zipfileset dir="${dir.workspace}/SMTInterpol/release" />
-      <zipfileset dir="${dir.workspace}/Library-SMTLIB/release" />
-      <zipfileset includes="com/github/jhoenicke/javacup/runtime/**" src="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.1.jar"/>
-      <zipfileset file="${dir.workspace}/LICENSE" prefix="" />
-      <zipfileset file="${dir.workspace}/COPYING" prefix="" />
-      <zipfileset file="${dir.workspace}/COPYING.LESSER" prefix="" />
-      <zipfileset file="${dir.workspace}/AUTHORS" prefix="" />
-      <zipfileset file="${dir.workspace}/README.md" prefix="" />
-    </jar>
-  </target>
-
-  <!-- Create deltadebugger jar -->
-  <target name="deltadebugger.jar" depends="clean,compiledd">
-    <mkdir dir="${jar.outdir}"/>
-    <jar destfile="${jar.outdir}/deltadebugger.jar" filesetmanifest="mergewithoutmain">
-      <manifest>
-        <attribute name="Main-Class" value="de.uni_freiburg.informatik.ultimate.smtinterpol.delta.Minimizer"/>
-      </manifest>
-      <zipfileset dir="${dir.workspace}/DeltaDebugger/release" />
-      <zipfileset dir="${dir.workspace}/SMTInterpol/release" />
-      <zipfileset dir="${dir.workspace}/Library-SMTLIB/release" />
-      <zipfileset includes="com/github/jhoenicke/javacup/runtime/**" src="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.1.jar"/>
-      <zipfileset file="${dir.workspace}/LICENSE" prefix="" />
-      <zipfileset file="${dir.workspace}/COPYING" prefix="" />
-      <zipfileset file="${dir.workspace}/COPYING.LESSER" prefix="" />
-      <zipfileset file="${dir.workspace}/AUTHORS" prefix="" />
-      <zipfileset file="${dir.workspace}/README.md" prefix="" />
-    </jar>
-  </target>
-
-  <target name="javadoc-jar" depends="javadoc, get-version">
-    <mkdir dir="${jar.outdir}" />
-    <jar jarfile="${jar.outdir}/${jar.basename}-javadoc.jar">
-      <fileset dir="doc-smtinterpol" />
-    </jar>
-  </target>
-
-  <!-- Create a source jar -->
-  <target name="create_src_jar" depends="prepare">
-    <mkdir dir="${jar.outdir}"/>
-    <jar destfile="${jar.outdir}/${jar.basename}-sources.jar">
-      <zipfileset dir="${dir.workspace}" prefix="smtinterpol">
-        <include name="**/src/**" />
-        <exclude name="**/test_generator/**" />
-        <exclude name="**/smtcomp/**" />
-        <include name="SMTInterpol*/lib/**" />
-        <exclude name="SMTInterpol/web/**" />
-        <exclude name="SMTInterpolSamples/src/de/uni_freiburg/informatik/ultimate/smtinterpol/samples/FlipDecisions.java" />
-	<include name="LICENSE" />
-	<include name="COPYING" />
-	<Include name="COPYING.LESSER" />
-	<include name="AUTHORS" />
-	<include name="README.md" />
-      </zipfileset>
-    </jar>
-  </target>
-
-  <!-- Create a new distribution -->
-  <target name="distribution" depends="smtinterpol.jar,create_src_jar">
-    <exec executable="make" dir="SMTInterpol/web/html">
-      <arg line="distribution" />
-    </exec>
-  </target>
-
-  <!-- Create the starexec solver zip file -->
-  <target name="starexec" depends="get-version,smtinterpol.jar">
-    <property name="tmpdir" value="buildtmp"/>
-    <mkdir dir="${tmpdir}/bin"/>
-    <echo file="${tmpdir}/bin/starexec_run_default" append="false">#!/bin/bash
-
+        </echo>
+    </target>
+    <import file="smtinterpol2-publicapi.xml"/>
+    <path id="maven-ant-tasks.classpath" path="libs/maven-ant-tasks-2.1.3.jar"/>
+    <typedef resource="org/apache/maven/artifact/ant/antlib.xml" uri="antlib:org.apache.maven.artifact.ant" classpathref="maven-ant-tasks.classpath"/>
+    <property name="artifactId" value="smtinterpol"/>
+    <!-- Build everything  -->
+    <target name="all" depends="dist"/>
+    <property file="buildjar.properties"/>
+    <available file="${dir.jacoco}" type="dir" property="jacoco.present"/>
+    <target name="jacoco-setup" if="jacoco.present">
+        <taskdef uri="antlib:org.jacoco.ant" resource="org/jacoco/ant/antlib.xml">
+            <classpath path="${dir.jacoco}/lib/jacocoant.jar"/>
+        </taskdef>
+    </target>
+    <target name="get-version">
+        <!-- get a new version string using git describe if possible -->
+        <exec executable="git" outputproperty="version">
+            <arg value="describe"/>
+        </exec>
+        <echo>Version is ${version}</echo>
+        <property name="jar.basename" value="${artifactId}-${version}"/>
+        <tstamp>
+            <format property="build.date" pattern="yyyy-MM-dd"/>
+            <format property="build.year" pattern="yyyy"/>
+        </tstamp>
+    </target>
+    <!-- <target name="cobertura-setup" if="cobertura.present"> -->
+    <!--   <taskdef classpathref="cobertura.classpath" resource="tasks.properties" onerror="ignore"/> -->
+    <!-- </target> -->
+    <!-- Build smtlib1 parser and lexer -->
+    <target name="check_smtlib1.cup_current">
+        <uptodate property="smtlib1.cup.current">
+            <srcfiles dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib" includes="*.cup,*.flex"/>
+            <srcfiles file="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.1.jar"/>
+            <mapper>
+                <globmapper from="smtlib.cup" to="Parser.java"/>
+                <globmapper from="smtlib.cup" to="LexerSymbols.java"/>
+                <globmapper from="smtlib.flex" to="Lexer.java"/>
+                <globmapper from="jh-javacup-1.1.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Parser.java"/>
+                <globmapper from="jh-javacup-1.1.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}LexerSymbols.java"/>
+                <globmapper from="jh-javacup-1.1.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Lexer.java"/>
+            </mapper>
+        </uptodate>
+    </target>
+    <target name="smtlib1.cup" depends="check_smtlib1.cup_current" unless="smtlib1.cup.current">
+        <property name="workspacedir" value="${dir.workspace}"/>
+        <ant antfile="build-parser.xml" dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib"/>
+    </target>
+    <!-- Build smtlib2 parser and lexer -->
+    <target name="check_smtlib2.cup_current">
+        <uptodate property="smtlib2.cup.current">
+            <srcfiles dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2" includes="*.cup,*.flex"/>
+            <srcfiles file="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.1.jar"/>
+            <mapper>
+                <globmapper from="smtlib.cup" to="Parser.java"/>
+                <globmapper from="smtlib.cup" to="LexerSymbols.java"/>
+                <globmapper from="smtlib.flex" to="Lexer.java"/>
+                <globmapper from="jh-javacup-1.1.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Parser.java"/>
+                <globmapper from="jh-javacup-1.1.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}LexerSymbols.java"/>
+                <globmapper from="jh-javacup-1.1.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Lexer.java"/>
+            </mapper>
+        </uptodate>
+    </target>
+    <target name="smtlib2.cup" depends="check_smtlib2.cup_current" unless="smtlib2.cup.current">
+        <property name="workspacedir" value="${dir.workspace}"/>
+        <ant antfile="build-parser.xml" dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2"/>
+    </target>
+    <!-- Build dimacs parser and lexer -->
+    <target name="check_dimacs.cup_current">
+        <uptodate property="dimacs.cup.current">
+            <srcfiles dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs" includes="*.cup,*.flex"/>
+            <srcfiles file="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.1.jar"/>
+            <mapper>
+                <globmapper from="dimacs.cup" to="Parser.java"/>
+                <globmapper from="dimacs.cup" to="LexerSymbols.java"/>
+                <globmapper from="dimacs.flex" to="Lexer.java"/>
+                <globmapper from="jh-javacup-1.1.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Parser.java"/>
+                <globmapper from="jh-javacup-1.1.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}LexerSymbols.java"/>
+                <globmapper from="jh-javacup-1.1.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Lexer.java"/>
+            </mapper>
+        </uptodate>
+    </target>
+    <target name="dimacs.cup" depends="check_dimacs.cup_current" unless="dimacs.cup.current">
+        <property name="workspacedir" value="${dir.workspace}"/>
+        <ant antfile="build-parser.xml" dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs"/>
+    </target>
+    <!-- Compile SMTInterpol -->
+    <target name="prepare" depends="get-version,smtlib1.cup,smtlib2.cup,dimacs.cup">
+        <copy file="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/Version.template" overwrite="true" tofile="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/Version.java">
+            <filterchain>
+                <expandproperties/>
+            </filterchain>
+        </copy>
+    </target>
+    <target name="compile" depends="prepare">
+        <mkdir dir="${dir.workspace}/Library-SMTLIB/release"/>
+        <mkdir dir="${dir.workspace}/SMTInterpol/release"/>
+        <javac srcdir="${dir.workspace}/Library-SMTLIB/src" destdir="${dir.workspace}/Library-SMTLIB/release" optimize="${optimize}" includeAntRuntime="false" debug="${debug}">
+        </javac>
+        <echo message="Build SMTLIB library finished"/>
+        <javac srcdir="${dir.workspace}/SMTInterpol/src" destdir="${dir.workspace}/SMTInterpol/release" optimize="${optimize}" includeAntRuntime="false" debug="${debug}">
+            <exclude name="de/uni_freiburg/informatik/ultimate/smtinterpol/test_generator/**"/>
+            <exclude name="de/uni_freiburg/informatik/ultimate/smtinterpol/smtcomp/**"/>
+            <classpath>
+                <pathelement location="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.1.jar"/>
+                <pathelement path="${dir.workspace}/Library-SMTLIB/release"/>
+            </classpath>
+        </javac>
+    </target>
+    <!-- Compile Deltadebugger -->
+    <target name="compiledd" depends="compile">
+        <mkdir dir="${dir.workspace}/DeltaDebugger/release"/>
+        <javac srcdir="${dir.workspace}/DeltaDebugger/src" destdir="${dir.workspace}/DeltaDebugger/release" optimize="${optimize}" includeAntRuntime="false" debug="${debug}">
+            <classpath>
+                <pathelement location="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.1.jar"/>
+                <pathelement path="${dir.workspace}/Library-SMTLIB/release"/>
+                <pathelement path="${dir.workspace}/SMTInterpol/release"/>
+            </classpath>
+        </javac>
+    </target>
+    <!-- Create an executable jar -->
+    <target name="smtinterpol.jar" depends="compile">
+        <mkdir dir="${jar.outdir}"/>
+        <jar destfile="${jar.outdir}/${jar.basename}.jar" filesetmanifest="mergewithoutmain">
+            <manifest>
+                <attribute name="Main-Class" value="de.uni_freiburg.informatik.ultimate.smtinterpol.Main"/>
+            </manifest>
+            <zipfileset dir="${dir.workspace}/SMTInterpol/release"/>
+            <zipfileset dir="${dir.workspace}/Library-SMTLIB/release"/>
+            <zipfileset includes="com/github/jhoenicke/javacup/runtime/**" src="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.1.jar"/>
+            <zipfileset file="${dir.workspace}/LICENSE" prefix=""/>
+            <zipfileset file="${dir.workspace}/COPYING" prefix=""/>
+            <zipfileset file="${dir.workspace}/COPYING.LESSER" prefix=""/>
+            <zipfileset file="${dir.workspace}/AUTHORS" prefix=""/>
+            <zipfileset file="${dir.workspace}/README.md" prefix=""/>
+        </jar>
+    </target>
+    <!-- Create deltadebugger jar -->
+    <target name="deltadebugger.jar" depends="clean,compiledd">
+        <mkdir dir="${jar.outdir}"/>
+        <jar destfile="${jar.outdir}/deltadebugger.jar" filesetmanifest="mergewithoutmain">
+            <manifest>
+                <attribute name="Main-Class" value="de.uni_freiburg.informatik.ultimate.smtinterpol.delta.Minimizer"/>
+            </manifest>
+            <zipfileset dir="${dir.workspace}/DeltaDebugger/release"/>
+            <zipfileset dir="${dir.workspace}/SMTInterpol/release"/>
+            <zipfileset dir="${dir.workspace}/Library-SMTLIB/release"/>
+            <zipfileset includes="com/github/jhoenicke/javacup/runtime/**" src="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.1.jar"/>
+            <zipfileset file="${dir.workspace}/LICENSE" prefix=""/>
+            <zipfileset file="${dir.workspace}/COPYING" prefix=""/>
+            <zipfileset file="${dir.workspace}/COPYING.LESSER" prefix=""/>
+            <zipfileset file="${dir.workspace}/AUTHORS" prefix=""/>
+            <zipfileset file="${dir.workspace}/README.md" prefix=""/>
+        </jar>
+    </target>
+    <target name="javadoc-jar" depends="javadoc, get-version">
+        <mkdir dir="${jar.outdir}"/>
+        <jar jarfile="${jar.outdir}/${jar.basename}-javadoc.jar">
+            <fileset dir="doc-smtinterpol"/>
+        </jar>
+    </target>
+    <!-- Create a source jar -->
+    <target name="create_src_jar" depends="prepare">
+        <mkdir dir="${jar.outdir}"/>
+        <jar destfile="${jar.outdir}/${jar.basename}-sources.jar">
+            <zipfileset dir="${dir.workspace}" prefix="smtinterpol">
+                <include name="**/src/**"/>
+                <exclude name="**/test_generator/**"/>
+                <exclude name="**/smtcomp/**"/>
+                <include name="SMTInterpol*/lib/**"/>
+                <exclude name="SMTInterpol/web/**"/>
+                <exclude name="SMTInterpolSamples/src/de/uni_freiburg/informatik/ultimate/smtinterpol/samples/FlipDecisions.java"/>
+                <include name="LICENSE"/>
+                <include name="COPYING"/>
+                <Include name="COPYING.LESSER"/>
+                <include name="AUTHORS"/>
+                <include name="README.md"/>
+            </zipfileset>
+        </jar>
+    </target>
+    <!-- Create a new distribution -->
+    <target name="distribution" depends="smtinterpol.jar,create_src_jar">
+        <exec executable="make" dir="SMTInterpol/web/html">
+            <arg line="distribution"/>
+        </exec>
+    </target>
+    <!-- Create the starexec solver zip file -->
+    <target name="starexec" depends="get-version,smtinterpol.jar">
+        <property name="tmpdir" value="buildtmp"/>
+        <mkdir dir="${tmpdir}/bin"/>
+        <echo file="${tmpdir}/bin/starexec_run_default" append="false">#!/bin/bash
 # Run script for SMTInterpol for the STAREXEC cluster
-
 if [ "$#" -gt 1 ]; then
-  # ignore bogus parameters given by starexec
-  set -- "$1"
+# ignore bogus parameters given by starexec
+set -- "$1"
 fi
-
 java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/3))m -da -dsa -XX:-UseGCOverheadLimit -jar smtinterpol.jar -q -o continue-on-error=false "$$@" 2&gt;/dev/null
-</echo>
-    <chmod file="${tmpdir}/bin/starexec_run_default" perm="a+rx" />
-    <echo file="${tmpdir}/starexec_description.txt" append="false">SMTInterpol ${version}</echo>
-    <!-- stupid starexec does not like - characters in description -->
-    <replace file="${tmpdir}/starexec_description.txt" token="-" value="_"/>
-    <copy file="${jar.outdir}/${jar.basename}.jar" tofile="${tmpdir}/bin/smtinterpol.jar"/>
-    <zip destfile="${jar.outdir}/smtinterpol-${version}.zip" basedir="${tmpdir}" />
-    <delete failonerror="false" includeemptydirs="true" dir="${tmpdir}"/>
-    <echo>created ${jar.outdir}/smtinterpol-${version}.zip</echo>
-  </target>
-
-  <!-- Delete compiled class files -->
-  <target name="clean" description="Cleans a previous build">
-    <echo message="Deleting release trees"/>
-    <delete failonerror="false" includeemptydirs="true">
-      <fileset dir="${dir.workspace}/SMTInterpol/release"/>
-      <fileset dir="${dir.workspace}/Library-SMTLIB/release"/>
-      <fileset dir="${dir.workspace}/DeltaDebugger/release"/>
-      <fileset dir="${dir.workspace}/Library-SMTLIBTest/release"/>
-      <fileset dir="${dir.workspace}/SMTInterpolTest/release"/>
-      
-      <filelist dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib" files="Parser.java,Lexer.java,LexerSymbols.java" />
-      <filelist dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2" files="Parser.java,Lexer.java,LexerSymbols.java" />
-      <filelist dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs" files="Parser.java,Lexer.java,LexerSymbols.java" />
-      <filelist dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/" files="Version.java" />
-    </delete>
-  </target>
-
-  <!-- Delete the executable jar and the source zip -->
-  <target name="distclean" description="Cleans a previously build including dist files" depends="clean">
-    <delete dir="${jar.outdir}" />
-  </target>
-
-  <!-- Clean before creating an executable jar -->
-  <target name="cleanbuild" description="Clean and rebuild jar" depends="clean,smtinterpol.jar"/>
-
-  <!-- Compile SMTInterpolTest -->
-  <target name="compile_tests" depends="compile">
-    <mkdir dir="${dir.workspace}/Library-SMTLIBTest/release"/>
-    <javac srcdir="${dir.workspace}/Library-SMTLIBTest/src"
-      destdir="${dir.workspace}/Library-SMTLIBTest/release" optimize="${optimize}" includeAntRuntime="false" debug="${debug}">
-      <classpath>
-	<pathelement location="${dir.workspace}/libs/junit-4.12.jar"/>
-	<pathelement location="${dir.workspace}/libs/hamcrest-core-1.3.jar"/>
-        <pathelement path="${dir.workspace}/Library-SMTLIB/release"/>
-      </classpath>
-    </javac>
-    <mkdir dir="${dir.workspace}/SMTInterpolTest/release"/>
-    <javac srcdir="${dir.workspace}/SMTInterpolTest/src"
-      destdir="${dir.workspace}/SMTInterpolTest/release" optimize="${optimize}" includeAntRuntime="false" debug="${debug}">
-      <classpath>
-        <pathelement location="${dir.workspace}/libs/junit-4.12.jar"/>
-	<pathelement location="${dir.workspace}/libs/hamcrest-core-1.3.jar"/>
-        <pathelement path="${dir.workspace}/SMTInterpol/release"/>
-        <pathelement path="${dir.workspace}/Library-SMTLIB/release"/>
-      </classpath>
-    </javac>
-  </target>
-
-  <!-- Run tests without coverage analysis -->
-  <target name="runtests" description="Run junit tests" depends="compile_tests">
-    <delete dir="${dir.workspace}/testreports" quiet="true" />
-    <mkdir dir="${dir.workspace}/testreports" />
-	
-	<path id="classpath.test">
-	  <fileset file="${dir.workspace}/libs/ant-junit.jar" />
-    </path>
-	    
-	<pathconvert property="testoutput" refid="classpath.test"/>
-	<echo>Using additional libs: ${testoutput}</echo>
-	
-    <taskdef name="junit" classname="org.apache.tools.ant.taskdefs.optional.junit.JUnitTask">
-      <classpath refid="classpath.test"/>
-    </taskdef>
-	
-    <junit fork="true" forkmode="once" dir="${dir.workspace}/testreports"
-	   failureProperty="test.failed">
-      <assertions>
-	<enable />
-      </assertions>
-
-      <classpath>
-	<pathelement location="${dir.workspace}/libs/junit-4.12.jar"/>
-	<pathelement location="${dir.workspace}/libs/hamcrest-core-1.3.jar"/>
-	<pathelement location="${dir.workspace}/libs/ant-junit4.jar"/>
-	<pathelement location="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.1.jar"/>
-	<pathelement path="${dir.workspace}/Library-SMTLIB/release" />
-	<pathelement path="${dir.workspace}/SMTInterpol/release" />
-	<pathelement path="${dir.tests}/Library-SMTLIBTest/release" />
-	<pathelement path="${dir.tests}/SMTInterpolTest/release" />
-      </classpath>
-
-      <formatter type="xml" />
-
-      <batchtest todir="${dir.workspace}/testreports" unless="testcase">
-	<fileset dir="${dir.tests}/Library-SMTLIBTest/src">
-	  <include name="**/*.java" />
-	</fileset>
-	<fileset dir="${dir.tests}/SMTInterpolTest/src">
-	  <include name="**/*.java" />
-	  <exclude name="**/EprTestHelpers.java" /> <!-- This is just an utility class -->
-	  <exclude name="**/TestCaseWithLogger.java" /> <!-- This is just an utility class -->
-	  <exclude name="**/CompilerTest.java" /> <!-- This is more a main class -->
-	</fileset>
-      </batchtest>
-    </junit>
-
-  </target>
-
-  <!-- Run junit tests under code coverage -->
-  <target name="runtests-coverage" description="Run junit tests using a coverage analyzer" depends="jacoco-setup,compile_tests" if="jacoco.present">
-    <delete dir="${dir.workspace}/testreports" quiet="true" />
-    <mkdir dir="${dir.workspace}/testreports" />
-
-    <path id="classpath.test">
-	  <fileset file="${dir.workspace}/libs/ant-junit.jar" />
-    </path>
-	    
-	<pathconvert property="testoutput" refid="classpath.test"/>
-	<echo>Using additional libs: ${testoutput}</echo>
-	
-    <taskdef name="junit" classname="org.apache.tools.ant.taskdefs.optional.junit.JUnitTask">
-      <classpath refid="classpath.test"/>
-    </taskdef>
-
-    <jacoco:coverage destfile="${dir.workspace}/testreports/jacoco.exec">
-	  <junit fork="true" forkmode="once" dir="${dir.workspace}/testreports" failureProperty="test.failed">
-        <assertions>
-	  <enable />
-        </assertions>
-        <classpath>
-          <pathelement location="${dir.workspace}/libs/junit-4.12.jar"/>
-	  <pathelement location="${dir.workspace}/libs/hamcrest-core-1.3.jar"/>
-	  <pathelement location="${dir.workspace}/libs/ant-junit4.jar"/> 
-	  <pathelement location="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.1.jar"/>
-	  <pathelement path="${dir.workspace}/Library-SMTLIB/release" />
-	  <pathelement path="${dir.workspace}/SMTInterpol/release" />
-	  <pathelement path="${dir.tests}/Library-SMTLIBTest/release" />
-	  <pathelement path="${dir.tests}/SMTInterpolTest/release" />
-        </classpath>
-
-        <formatter type="xml" />
-
-        <batchtest todir="${dir.workspace}/testreports" unless="testcase">
-	  <fileset dir="${dir.tests}/Library-SMTLIBTest/src">
-	    <include name="**/*.java" />
-	  </fileset>
-	  <fileset dir="${dir.tests}/SMTInterpolTest/src">
-	    <include name="**/*.java" />
-	    <exclude name="**/EprTestHelpers.java" /> <!-- This is just an utility class -->
-	    <exclude name="**/TestCaseWithLogger.java" /> <!-- This is just an utility class -->
-	    <exclude name="**/CompilerTest.java" /> <!-- This is more a main class -->
-	  </fileset>
-        </batchtest>
-      </junit>
-    </jacoco:coverage>
-
-    <delete dir="${dir.workspace}/coverage" quiet="true" />
-
-    <jacoco:report>
-      <executiondata>
-        <file file="${dir.workspace}/testreports/jacoco.exec" />
-      </executiondata>
-      <structure name="SMTInterpol">
-        <group name="Library-SMTLIB">
-          <classfiles>
-            <fileset dir="${dir.workspace}/Library-SMTLIB/release" />
-          </classfiles>
-          <sourcefiles>
-            <fileset dir="${dir.workspace}/Library-SMTLIB/src" />
-          </sourcefiles>
-        </group>
-        <group name="SMTInterpol">
-          <classfiles>
-            <fileset dir="${dir.workspace}/SMTInterpol/release" />
-          </classfiles>
-          <sourcefiles>
-            <fileset dir="${dir.workspace}/SMTInterpol/src" />
-          </sourcefiles>
-        </group>
-      </structure>
-
-      <html destdir="${dir.workspace}/coverage" />
-    </jacoco:report>
-
-    <echo message="See coverage results in ${dir.workspace}/coverage/index.html" />
-  </target>
-
-
-  <!-- Defined maven snapshots and staging repository id and url -->
-  <property name="ossrh-snapshots-repository-url"
-            value="https://oss.sonatype.org/content/repositories/snapshots" />
-  <property name="ossrh-staging-repository-url"
-            value="https://oss.sonatype.org/service/local/staging/deploy/maven2" />
-  
-  <!-- There server id in the Maven settings.xml -->
-  <property name="ossrh-server-id" value="ossrh" />
-
-  <target name="dist" depends="clean,create_src_jar, smtinterpol.jar, javadoc-jar" description="Generate the distribution">
-  </target>
-  
-  <target name="stage" depends="dist" description="deploy release version to Maven staging repository">
-    <copy file="pom_template.xml" overwrite="true" tofile="${jar.outdir}/pom.xml">
-      <filterchain><expandproperties /></filterchain>
-    </copy>
-    <echo>
+        </echo>
+        <chmod file="${tmpdir}/bin/starexec_run_default" perm="a+rx"/>
+        <echo file="${tmpdir}/starexec_description.txt" append="false">SMTInterpol ${version}</echo>
+        <!-- stupid starexec does not like - characters in description -->
+        <replace file="${tmpdir}/starexec_description.txt" token="-" value="_"/>
+        <copy file="${jar.outdir}/${jar.basename}.jar" tofile="${tmpdir}/bin/smtinterpol.jar"/>
+        <zip destfile="${jar.outdir}/smtinterpol-${version}.zip" basedir="${tmpdir}"/>
+        <delete failonerror="false" includeemptydirs="true" dir="${tmpdir}"/>
+        <echo>created ${jar.outdir}/smtinterpol-${version}.zip</echo>
+    </target>
+    <!-- Delete compiled class files -->
+    <target name="clean" description="Cleans a previous build">
+        <echo message="Deleting release trees"/>
+        <delete failonerror="false" includeemptydirs="true">
+            <fileset dir="${dir.workspace}/SMTInterpol/release"/>
+            <fileset dir="${dir.workspace}/Library-SMTLIB/release"/>
+            <fileset dir="${dir.workspace}/DeltaDebugger/release"/>
+            <fileset dir="${dir.workspace}/Library-SMTLIBTest/release"/>
+            <fileset dir="${dir.workspace}/SMTInterpolTest/release"/>
+            <filelist dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib" files="Parser.java,Lexer.java,LexerSymbols.java"/>
+            <filelist dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2" files="Parser.java,Lexer.java,LexerSymbols.java"/>
+            <filelist dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs" files="Parser.java,Lexer.java,LexerSymbols.java"/>
+            <filelist dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/" files="Version.java"/>
+        </delete>
+    </target>
+    <!-- Delete the executable jar and the source zip -->
+    <target name="distclean" description="Cleans a previously build including dist files" depends="clean">
+        <delete dir="${jar.outdir}"/>
+    </target>
+    <!-- Clean before creating an executable jar -->
+    <target name="cleanbuild" description="Clean and rebuild jar" depends="clean,smtinterpol.jar"/>
+    <!-- Compile SMTInterpolTest -->
+    <target name="compile_tests" depends="compile">
+        <mkdir dir="${dir.workspace}/Library-SMTLIBTest/release"/>
+        <javac srcdir="${dir.workspace}/Library-SMTLIBTest/src" destdir="${dir.workspace}/Library-SMTLIBTest/release" optimize="${optimize}" includeAntRuntime="false" debug="${debug}">
+            <classpath>
+                <pathelement location="${dir.workspace}/libs/junit-4.12.jar"/>
+                <pathelement location="${dir.workspace}/libs/hamcrest-core-1.3.jar"/>
+                <pathelement path="${dir.workspace}/Library-SMTLIB/release"/>
+            </classpath>
+        </javac>
+        <mkdir dir="${dir.workspace}/SMTInterpolTest/release"/>
+        <javac srcdir="${dir.workspace}/SMTInterpolTest/src" destdir="${dir.workspace}/SMTInterpolTest/release" optimize="${optimize}" includeAntRuntime="false" debug="${debug}">
+            <classpath>
+                <pathelement location="${dir.workspace}/libs/junit-4.12.jar"/>
+                <pathelement location="${dir.workspace}/libs/hamcrest-core-1.3.jar"/>
+                <pathelement path="${dir.workspace}/SMTInterpol/release"/>
+                <pathelement path="${dir.workspace}/Library-SMTLIB/release"/>
+            </classpath>
+        </javac>
+    </target>
+    <!-- Run tests without coverage analysis -->
+    <target name="runtests" description="Run junit tests" depends="compile_tests">
+        <delete dir="${dir.workspace}/testreports" quiet="true"/>
+        <mkdir dir="${dir.workspace}/testreports"/>
+        <path id="classpath.test">
+            <fileset file="${dir.workspace}/libs/ant-junit.jar"/>
+        </path>
+        <pathconvert property="testoutput" refid="classpath.test"/>
+        <echo>Using additional libs: ${testoutput}</echo>
+        <taskdef name="junit" classname="org.apache.tools.ant.taskdefs.optional.junit.JUnitTask">
+            <classpath refid="classpath.test"/>
+        </taskdef>
+        <junit fork="true" forkmode="once" dir="${dir.workspace}/testreports" failureProperty="test.failed">
+            <assertions>
+                <enable/>
+            </assertions>
+            <classpath>
+                <pathelement location="${dir.workspace}/libs/junit-4.12.jar"/>
+                <pathelement location="${dir.workspace}/libs/hamcrest-core-1.3.jar"/>
+                <pathelement location="${dir.workspace}/libs/ant-junit4.jar"/>
+                <pathelement location="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.1.jar"/>
+                <pathelement path="${dir.workspace}/Library-SMTLIB/release"/>
+                <pathelement path="${dir.workspace}/SMTInterpol/release"/>
+                <pathelement path="${dir.tests}/Library-SMTLIBTest/release"/>
+                <pathelement path="${dir.tests}/SMTInterpolTest/release"/>
+            </classpath>
+            <formatter type="xml"/>
+            <batchtest todir="${dir.workspace}/testreports" unless="testcase">
+                <fileset dir="${dir.tests}/Library-SMTLIBTest/src">
+                    <include name="**/*.java"/>
+                </fileset>
+                <fileset dir="${dir.tests}/SMTInterpolTest/src">
+                    <include name="**/*.java"/>
+                    <exclude name="**/EprTestHelpers.java"/>
+                    <!-- This is just an utility class -->
+                    <exclude name="**/TestCaseWithLogger.java"/>
+                    <!-- This is just an utility class -->
+                    <exclude name="**/CompilerTest.java"/>
+                    <!-- This is more a main class -->
+                </fileset>
+            </batchtest>
+        </junit>
+    </target>
+    <!-- Run junit tests under code coverage -->
+    <target name="runtests-coverage" description="Run junit tests using a coverage analyzer" depends="jacoco-setup,compile_tests" if="jacoco.present">
+        <delete dir="${dir.workspace}/testreports" quiet="true"/>
+        <mkdir dir="${dir.workspace}/testreports"/>
+        <path id="classpath.test">
+            <fileset file="${dir.workspace}/libs/ant-junit.jar"/>
+        </path>
+        <pathconvert property="testoutput" refid="classpath.test"/>
+        <echo>Using additional libs: ${testoutput}</echo>
+        <taskdef name="junit" classname="org.apache.tools.ant.taskdefs.optional.junit.JUnitTask">
+            <classpath refid="classpath.test"/>
+        </taskdef>
+        <jacoco:coverage destfile="${dir.workspace}/testreports/jacoco.exec">
+            <junit fork="true" forkmode="once" dir="${dir.workspace}/testreports" failureProperty="test.failed">
+                <assertions>
+                    <enable/>
+                </assertions>
+                <classpath>
+                    <pathelement location="${dir.workspace}/libs/junit-4.12.jar"/>
+                    <pathelement location="${dir.workspace}/libs/hamcrest-core-1.3.jar"/>
+                    <pathelement location="${dir.workspace}/libs/ant-junit4.jar"/>
+                    <pathelement location="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.1.jar"/>
+                    <pathelement path="${dir.workspace}/Library-SMTLIB/release"/>
+                    <pathelement path="${dir.workspace}/SMTInterpol/release"/>
+                    <pathelement path="${dir.tests}/Library-SMTLIBTest/release"/>
+                    <pathelement path="${dir.tests}/SMTInterpolTest/release"/>
+                </classpath>
+                <formatter type="xml"/>
+                <batchtest todir="${dir.workspace}/testreports" unless="testcase">
+                    <fileset dir="${dir.tests}/Library-SMTLIBTest/src">
+                        <include name="**/*.java"/>
+                    </fileset>
+                    <fileset dir="${dir.tests}/SMTInterpolTest/src">
+                        <include name="**/*.java"/>
+                        <exclude name="**/EprTestHelpers.java"/>
+                        <!-- This is just an utility class -->
+                        <exclude name="**/TestCaseWithLogger.java"/>
+                        <!-- This is just an utility class -->
+                        <exclude name="**/CompilerTest.java"/>
+                        <!-- This is more a main class -->
+                    </fileset>
+                </batchtest>
+            </junit>
+        </jacoco:coverage>
+        <delete dir="${dir.workspace}/coverage" quiet="true"/>
+        <jacoco:report>
+            <executiondata>
+                <file file="${dir.workspace}/testreports/jacoco.exec"/>
+            </executiondata>
+            <structure name="SMTInterpol">
+                <group name="Library-SMTLIB">
+                    <classfiles>
+                        <fileset dir="${dir.workspace}/Library-SMTLIB/release"/>
+                    </classfiles>
+                    <sourcefiles>
+                        <fileset dir="${dir.workspace}/Library-SMTLIB/src"/>
+                    </sourcefiles>
+                </group>
+                <group name="SMTInterpol">
+                    <classfiles>
+                        <fileset dir="${dir.workspace}/SMTInterpol/release"/>
+                    </classfiles>
+                    <sourcefiles>
+                        <fileset dir="${dir.workspace}/SMTInterpol/src"/>
+                    </sourcefiles>
+                </group>
+            </structure>
+            <html destdir="${dir.workspace}/coverage"/>
+            <xml destfile="${dir.workspace}/testreports/jacoco.xml"/>
+        </jacoco:report>
+        <echo message="See coverage results in ${dir.workspace}/coverage/index.html"/>
+    </target>
+    <!-- Defined maven snapshots and staging repository id and url -->
+    <property name="ossrh-snapshots-repository-url" value="https://oss.sonatype.org/content/repositories/snapshots"/>
+    <property name="ossrh-staging-repository-url" value="https://oss.sonatype.org/service/local/staging/deploy/maven2"/>
+    <!-- There server id in the Maven settings.xml -->
+    <property name="ossrh-server-id" value="ossrh"/>
+    <target name="dist" depends="clean,create_src_jar, smtinterpol.jar, javadoc-jar" description="Generate the distribution">
+    </target>
+    <target name="stage" depends="dist" description="deploy release version to Maven staging repository">
+        <copy file="pom_template.xml" overwrite="true" tofile="${jar.outdir}/pom.xml">
+            <filterchain>
+                <expandproperties/>
+            </filterchain>
+        </copy>
+        <echo>
 Uploading artifacts using ~/.m2/settings.xml. I hope you have the
 permissions to do this.
-    </echo>
-
-    <!-- Sign and deploy the main artifact. -->
-    <artifact:mvn>
-      <arg value="org.apache.maven.plugins:maven-gpg-plugin:1.3:sign-and-deploy-file" />
-      <arg value="-Durl=${ossrh-staging-repository-url}" />
-      <arg value="-DrepositoryId=${ossrh-server-id}" />
-      <arg value="-DpomFile=${jar.outdir}/pom.xml" />
-      <arg value="-Dfile=${jar.outdir}/${jar.basename}.jar" />
-      <arg value="-Pgpg" />
-    </artifact:mvn>
-    
-    <!-- Sign and deploy the sources artifact -->
-    <artifact:mvn>
-      <arg value="org.apache.maven.plugins:maven-gpg-plugin:1.3:sign-and-deploy-file" />
-      <arg value="-Durl=${ossrh-staging-repository-url}" />
-      <arg value="-DrepositoryId=${ossrh-server-id}" />
-      <arg value="-DpomFile=${jar.outdir}/pom.xml" />
-      <arg value="-Dfile=${jar.outdir}/${jar.basename}-sources.jar" />
-      <arg value="-Dclassifier=sources" />
-      <arg value="-Pgpg" />
-    </artifact:mvn>
-    
-    <!-- sign and deploy the javadoc artifact -->
-    <artifact:mvn>
-      <arg value="org.apache.maven.plugins:maven-gpg-plugin:1.3:sign-and-deploy-file" />
-      <arg value="-Durl=${ossrh-staging-repository-url}" />
-      <arg value="-DrepositoryId=${ossrh-server-id}" />
-      <arg value="-DpomFile=${jar.outdir}/pom.xml" />
-      <arg value="-Dfile=${jar.outdir}/${jar.basename}-javadoc.jar" />
-      <arg value="-Dclassifier=javadoc" />
-      <arg value="-Pgpg" />
-    </artifact:mvn>
-
-    <echo>
+        </echo>
+        <!-- Sign and deploy the main artifact. -->
+        <artifact:mvn>
+            <arg value="org.apache.maven.plugins:maven-gpg-plugin:1.3:sign-and-deploy-file"/>
+            <arg value="-Durl=${ossrh-staging-repository-url}"/>
+            <arg value="-DrepositoryId=${ossrh-server-id}"/>
+            <arg value="-DpomFile=${jar.outdir}/pom.xml"/>
+            <arg value="-Dfile=${jar.outdir}/${jar.basename}.jar"/>
+            <arg value="-Pgpg"/>
+        </artifact:mvn>
+        <!-- Sign and deploy the sources artifact -->
+        <artifact:mvn>
+            <arg value="org.apache.maven.plugins:maven-gpg-plugin:1.3:sign-and-deploy-file"/>
+            <arg value="-Durl=${ossrh-staging-repository-url}"/>
+            <arg value="-DrepositoryId=${ossrh-server-id}"/>
+            <arg value="-DpomFile=${jar.outdir}/pom.xml"/>
+            <arg value="-Dfile=${jar.outdir}/${jar.basename}-sources.jar"/>
+            <arg value="-Dclassifier=sources"/>
+            <arg value="-Pgpg"/>
+        </artifact:mvn>
+        <!-- sign and deploy the javadoc artifact -->
+        <artifact:mvn>
+            <arg value="org.apache.maven.plugins:maven-gpg-plugin:1.3:sign-and-deploy-file"/>
+            <arg value="-Durl=${ossrh-staging-repository-url}"/>
+            <arg value="-DrepositoryId=${ossrh-server-id}"/>
+            <arg value="-DpomFile=${jar.outdir}/pom.xml"/>
+            <arg value="-Dfile=${jar.outdir}/${jar.basename}-javadoc.jar"/>
+            <arg value="-Dclassifier=javadoc"/>
+            <arg value="-Pgpg"/>
+        </artifact:mvn>
+        <echo>
 Log into https://oss.sonatype.org as jhoenicke.
 Click "Staging Repository", scroll down to de.uni-freiburg...
 Select it, check contents.
 Click Close above the list of reppositories.
 Click Refresh (after a few seconds).
 Click Release.
-    </echo>
-  </target>
-
-  
-  <!-- Define the SonarQube target -->
-  <target name="sonar" depends="compile,get-version,runtests-coverage">
-    <taskdef uri="antlib:org.sonar.ant" resource="org/sonar/ant/antlib.xml">
-  	  <!-- Update from https://mvnrepository.com/artifact/org.sonarsource.scanner.ant/sonarqube-ant-task -->
-  	  <classpath path="${dir.workspace}/sonar/lib/sonarqube-ant-task-2.7.0.1612.jar" />
-    </taskdef>
-
-    <!-- Various properties for the sonar target -->
-    <property name="sonar.host.url" value="http://localhost:9000/sonar" />
-    <property name="sonar.projectKey" value="de.uni_freiburg.informatik.ultimate.smtinterpol" />
-    <property name="sonar.projectName" value="SMTInterpol" />	
-    <property name="sonar.projectVersion" value="${version}" />
-    <property name="sonar.sources" value="${dir.workspace}/SMTInterpol/src,${dir.workspace}/Library-SMTLIB/src" />
-    <property name="sonar.java.binaries" value="${dir.workspace}/SMTInterpol/release,${dir.workspace}/Library-SMTLIB/release" />
-    <property name="sonar.java.libraries" value="${dir.workspace}/SMTInterpol/lib/*.jar" />
-    <property name="sonar.java.test.libraries" value="${dir.workspace}/SMTInterpol/lib/*.jar" />
-    <property name="sonar.java.coveragePlugin" value="jacoco" />
-    <property name="sonar.jacoco.reportPath" value="${dir.workspace}/testreports/jacoco.exec" />
-	
-<!-- 	<resources id="sonar-exclusions">
+        </echo>
+    </target>
+    <!-- Define the SonarQube target -->
+    <target name="sonar" depends="compile,get-version,runtests-coverage">
+        <taskdef uri="antlib:org.sonar.ant" resource="org/sonar/ant/antlib.xml">
+            <!-- Update from https://mvnrepository.com/artifact/org.sonarsource.scanner.ant/sonarqube-ant-task -->
+            <classpath path="${dir.workspace}/sonar/lib/sonarqube-ant-task-2.7.0.1612.jar"/>
+        </taskdef>
+        <!-- Various properties for the sonar target -->
+        <property name="sonar.host.url" value="http://localhost:9000/sonar"/>
+        <property name="sonar.projectKey" value="de.uni_freiburg.informatik.ultimate.smtinterpol"/>
+        <property name="sonar.projectName" value="SMTInterpol"/>
+        <property name="sonar.projectVersion" value="${version}"/>
+        <property name="sonar.sources" value="${dir.workspace}/SMTInterpol/src,${dir.workspace}/Library-SMTLIB/src"/>
+        <property name="sonar.java.binaries" value="${dir.workspace}/SMTInterpol/release,${dir.workspace}/Library-SMTLIB/release"/>
+        <property name="sonar.java.libraries" value="${dir.workspace}/SMTInterpol/lib/*.jar"/>
+        <property name="sonar.java.test.libraries" value="${dir.workspace}/SMTInterpol/lib/*.jar"/>
+        <property name="sonar.java.coveragePlugin" value="jacoco"/>
+        <property name="sonar.coverage.jacoco.xmlReportPaths" value="${dir.workspace}/testreports/jacoco.xml"/>
+        <!-- 	<resources id="sonar-exclusions">
 	  <fileset file="src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs/Lexer.java" />
 	  <fileset file="src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs/LexerSymbols.java" />
 	  <fileset file="src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs/Parser.java" />
@@ -519,8 +458,7 @@ Click Release.
 	  <fileset file="src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2/Parser.java" />
     </resources>
 	<pathconvert property="sonar.exclusions" refid="sonar-exclusions" pathsep="," /> -->
-	
-	<property name="sonar.exclusions" value="
+        <property name="sonar.exclusions" value="
 	**/dimacs/Lexer.java,
 	**/dimacs/LexerSymbols.java,
 	**/dimacs/Parser.java,
@@ -530,10 +468,9 @@ Click Release.
 	**/smtlib2/Lexer.java,
 	**/smtlib2/LexerSymbols.java,
 	**/smtlib2/Parser.java
-	" />
-	<echo>Excluding the following auto-generated files from analysis: ${sonar.exclusions}</echo>
-	
-    <!-- Execute the SonarQube analysis -->
-    <sonar:sonar />
-  </target>
+	"/>
+        <echo>Excluding the following auto-generated files from analysis: ${sonar.exclusions}</echo>
+        <!-- Execute the SonarQube analysis -->
+        <sonar:sonar/>
+    </target>
 </project>
