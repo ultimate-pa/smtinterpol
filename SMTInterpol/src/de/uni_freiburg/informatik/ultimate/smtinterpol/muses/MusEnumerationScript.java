@@ -62,18 +62,8 @@ public class MusEnumerationScript extends WrapperScript {
 	 * the Interpolant from it.
 	 */
 	public enum HeuristicsType {
-		RANDOM,
-		SMALLEST,
-		BIGGEST,
-		LOWLEXORDER,
-		HIGHLEXORDER,
-		SHALLOWEST,
-		DEEPEST,
-		NARROWEST,
-		WIDEST,
-		SMALLESTAMONGWIDE,
-		WIDESTAMONGSMALL,
-		FIRST;
+		RANDOM, SMALLEST, BIGGEST, LOWLEXORDER, HIGHLEXORDER, SHALLOWEST, DEEPEST, NARROWEST, WIDEST, SMALLESTAMONGWIDE,
+		WIDESTAMONGSMALL, FIRST;
 	}
 
 	TimeoutHandler mHandler;
@@ -87,6 +77,7 @@ public class MusEnumerationScript extends WrapperScript {
 	LongOption mEnumerationTimeout;
 	LongOption mHeuristicTimeout;
 	BooleanOption mLogAdditionalInformation;
+	BooleanOption mUnknownAllowed;
 	LogProxy mLogger;
 
 	Random mRandom;
@@ -132,6 +123,8 @@ public class MusEnumerationScript extends WrapperScript {
 				"The time that is invested into finding the best Mus according to the set Heuristic");
 		mLogAdditionalInformation = new BooleanOption(false, true,
 				"Whether additional information (e.g. of the enumeration) should be logged.");
+		mUnknownAllowed =
+				new BooleanOption(false, true, "Whether LBool.UNKNOWN is allowed to occur in the enumeration process.");
 	}
 
 	private long getRandomSeed() {
@@ -173,20 +166,10 @@ public class MusEnumerationScript extends WrapperScript {
 	 *
 	 * DEFAULT: Per Default, the HeuristicsType is set to RANDOM, the tolerance to 0.9 and the Timeout is unlimited.
 	 *
-	 * OPTIONS: To set the used heuristic, use {@link #setOption(String, Object)} with the
-	 * {@link MusOptions#INTERPOLATION_HEURISTIC} key and the respective {@link HeuristicsType} value. If you choose
-	 * {@link HeuristicsType#SMALLESTAMONGWIDE} or {@link HeuristicsType#WIDESTAMONGSMALL}, you may also want to specify
-	 * the value for the key {@link MusOptions#TOLERANCE} (for information about the tolerance, see
-	 * {@link Heuristics#chooseWidestAmongSmallMuses(ArrayList, double, Random, TerminationRequest)} or
-	 * {@link Heuristics#chooseSmallestAmongWideMuses(ArrayList, double, Random, TerminationRequest)}. To set the
-	 * timeout for the enumeration, the heuristic or the Interpolation, call {@link #setOption(String, Object)} with the
-	 * keys {@link MusOptions#ENUMERATION_TIMEOUT}, {@link MusOptions#HEURISTIC_TIMEOUT},
-	 * {@link SMTInterpolOptions#TIMEOUT} respectively.
+	 * OPTIONS: For a description of the Options special to the MUSEnumerationScript, see
+	 * {@link #setOption(String, Object)}
 	 *
-	 * If the option ":log-additional-information" is set to true with {@link #setOption(String, Object)}, then this
-	 * information about the enumeration and the chosen muses is logged on the level "info".
-	 *
-	 * This method is only available if proof production is enabled To enable proof production, call
+	 * This method is only available if proof production is enabled. To enable proof production, call
 	 * setOption(":produce-proofs",true).
 	 */
 	@Override
@@ -251,20 +234,10 @@ public class MusEnumerationScript extends WrapperScript {
 	 *
 	 * DEFAULT: Per Default, the HeuristicsType is set to RANDOM, the tolerance to 0.9 and the Timeout is unlimited.
 	 *
-	 * OPTIONS: To set the used heuristic, use {@link #setOption(String, Object)} with the
-	 * {@link MusOptions#INTERPOLATION_HEURISTIC} key and the respective {@link HeuristicsType} value. If you choose
-	 * {@link HeuristicsType#SMALLESTAMONGWIDE} or {@link HeuristicsType#WIDESTAMONGSMALL}, you may also want to specify
-	 * the value for the key {@link MusOptions#TOLERANCE} (for information about the tolerance, see
-	 * {@link Heuristics#chooseWidestAmongSmallMuses(ArrayList, double, Random, TerminationRequest)} or
-	 * {@link Heuristics#chooseSmallestAmongWideMuses(ArrayList, double, Random, TerminationRequest)}. To set the
-	 * timeout for the enumeration, the heuristic or the getUnsatCore of the wrapped script, call
-	 * {@link #setOption(String, Object)} with the keys {@link MusOptions#ENUMERATION_TIMEOUT},
-	 * {@link MusOptions#HEURISTIC_TIMEOUT}, {@link SMTInterpolOptions#TIMEOUT} respectively.
+	 * OPTIONS: For a description of the Options special to the MUSEnumerationScript, see
+	 * {@link #setOption(String, Object)}
 	 *
-	 * If the option ":log-additional-information" is set to true with {@link #setOption(String, Object)}, then this
-	 * information about the enumeration and the chosen muses is logged on the level "info".
-	 *
-	 * This method is only available if proof production and unsat core production is enabled To enable proof
+	 * This method is only available if proof production and unsat core production is enabled. To enable proof
 	 * production, call setOption(":produce-proofs",true). To enable unsat core production, call
 	 * setOption(":produce-unsat-cores", true).
 	 */
@@ -360,7 +333,8 @@ public class MusEnumerationScript extends WrapperScript {
 		final BitSet workingSet = new BitSet(nrOfConstraints);
 		workingSet.flip(0, nrOfConstraints);
 
-		final ReMus remus = new ReMus(solver, unexploredMap, workingSet, handlerForReMus, 0, mRandom);
+		final ReMus remus =
+				new ReMus(solver, unexploredMap, workingSet, handlerForReMus, 0, mRandom, mUnknownAllowed.getValue());
 		final ArrayList<MusContainer> muses;
 		if (mInterpolationHeuristic.getValue() == HeuristicsType.FIRST) {
 			muses = new ArrayList<>();
@@ -532,6 +506,31 @@ public class MusEnumerationScript extends WrapperScript {
 		mAssertedTermsAreUnsat = false;
 	}
 
+	/**
+	 * Explanation of MUSEnumerationScript-specific Options:
+	 *
+	 * To set the used heuristic, use {@link #setOption(String, Object)} with the
+	 * {@link MusOptions#INTERPOLATION_HEURISTIC} key and the respective {@link HeuristicsType} value. If you choose
+	 * {@link HeuristicsType#SMALLESTAMONGWIDE} or {@link HeuristicsType#WIDESTAMONGSMALL}, you may also want to specify
+	 * the value for the key {@link MusOptions#TOLERANCE} (for information about the tolerance, see
+	 * {@link Heuristics#chooseWidestAmongSmallMuses(ArrayList, double, Random, TerminationRequest)} or
+	 * {@link Heuristics#chooseSmallestAmongWideMuses(ArrayList, double, Random, TerminationRequest)}). To set the
+	 * timeout for the enumeration, the heuristic or the Interpolation, set the values of the the keys
+	 * {@link MusOptions#ENUMERATION_TIMEOUT}, {@link MusOptions#HEURISTIC_TIMEOUT}, {@link SMTInterpolOptions#TIMEOUT}
+	 * respectively (the timeout is treated as MILLISECONDS!).
+	 *
+	 * If the option ":log-additional-information" is set to true with {@link #setOption(String, Object)}, then
+	 * additional information about the enumeration and the chosen muses is logged on the level "fatal".
+	 *
+	 * If the option ":unknown-allowed" is set to true, then LBool.UNKNOWN may occur in the enumeration process, without
+	 * causing an error (or let's just say it shouldn't cause an error ;) ). This means, that one might assert a wider
+	 * range of formulas and the enumeration still works. On the other hand, there is no guarantee for completeness (If
+	 * given enough time, all MUSes will be enumerated) or minimality (MUSes are minimal wrt. satisfiability) anymore.
+	 * However, these disadvantages might only show up, if there is indeed a subset of the asserted Terms for which
+	 * {@link #checkSat()} returns LBool.UNKNOWN. Also, at the current date, (09.09.20), the satisfiable extension is
+	 * not used in the internal shrinking process when this flag is set to true, which might impact the runtime of
+	 * enumeration.
+	 */
 	@Override
 	public void setOption(final String opt, final Object value) throws UnsupportedOperationException, SMTLIBException {
 		if (opt.equals(MusOptions.INTERPOLATION_HEURISTIC)) {
@@ -547,6 +546,8 @@ public class MusEnumerationScript extends WrapperScript {
 			mHeuristicTimeout.set(value);
 		} else if (opt.equals(MusOptions.LOG_ADDITIONAL_INFORMATION)) {
 			mLogAdditionalInformation.set(value);
+		} else if (opt.equals(MusOptions.UNKNOWN_ALLOWED)) {
+			mUnknownAllowed.set(value);
 		} else {
 			mScript.setOption(opt, value);
 		}
@@ -564,6 +565,8 @@ public class MusEnumerationScript extends WrapperScript {
 			return mHeuristicTimeout.get();
 		} else if (opt.equals(MusOptions.LOG_ADDITIONAL_INFORMATION)) {
 			return mLogAdditionalInformation.getValue();
+		} else if (opt.equals(MusOptions.UNKNOWN_ALLOWED)) {
+			return mUnknownAllowed.getValue();
 		} else {
 			return mScript.getOption(opt);
 		}

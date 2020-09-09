@@ -42,6 +42,7 @@ public class ReMus implements Iterator<MusContainer> {
 	TimeoutHandler mTimeoutHandler;
 	long mTimeout;
 	Random mRnd;
+	boolean mUnknownAllowed;
 
 	ArrayList<MusContainer> mMuses;
 	MusContainer mNextMus;
@@ -68,15 +69,22 @@ public class ReMus implements Iterator<MusContainer> {
 	 * it can not continue the enumeration anymore. Note that the SMTSolver and the DPLLEngine of solver and map can
 	 * have separate timeouts/TerminationRequests, which can affect remus (and they should therefore be set
 	 * accordingly).
+	 *
+	 *
+	 * Setting the unknownAllowed flag to true allows the LBool.UNKNOWN value to occur in the enumeration process. Then, when LBool.UNKNOWN is returned for a
+	 * set of constraints, the set is marked as satisfiable and no further action is taken on it, hence not all MUSes
+	 * might be found anymore. Also, the returned MUSes could be non-minimal wrt. satisfiability (because UNKNOWN might
+	 * also occur in the internal shrinking process).
 	 */
 	public ReMus(final ConstraintAdministrationSolver solver, final UnexploredMap map, final BitSet workingSet,
-			final TimeoutHandler handler, final long timeout, final Random rnd) {
+			final TimeoutHandler handler, final long timeout, final Random rnd, final boolean unknownAllowed) {
 		mSolver = solver;
 		mMap = map;
 		mTimeoutHandler = handler;
 		mTimeout = timeout;
 		mTimeoutOrTerminationRequestOccurred = false;
 		mRnd = rnd;
+		mUnknownAllowed = unknownAllowed;
 
 		if (workingSet.length() > mSolver.getNumberOfConstraints()) {
 			throw new SMTLIBException(
@@ -91,8 +99,8 @@ public class ReMus implements Iterator<MusContainer> {
 	 * Constructor for internal instances, that are created for recursion.
 	 */
 	private ReMus(final ConstraintAdministrationSolver solver, final UnexploredMap map, final BitSet workingSet,
-			final TimeoutHandler handler, final Random rnd) {
-		this(solver, map, workingSet, handler, 0, rnd);
+			final TimeoutHandler handler, final Random rnd, final boolean unknownAllowed) {
+		this(solver, map, workingSet, handler, 0, rnd, unknownAllowed);
 	}
 
 	private void initializeMembersAndAssertImpliedCrits() {
@@ -226,6 +234,10 @@ public class ReMus implements Iterator<MusContainer> {
 					if (mTimeoutHandler.isTerminationRequested()) {
 						return;
 					}
+					if (!mUnknownAllowed) {
+						throw new SMTLIBException("LBool.UNKNOWN occured in enumeration process, "
+								+ "despite of not being explicitly allowed. (To allow it, use allowCheckSatUnknown).");
+					}
 					// In case of unknown, only mark this set as satisfiable
 					mMap.BlockDown(mMaxUnexplored);
 				}
@@ -292,7 +304,7 @@ public class ReMus implements Iterator<MusContainer> {
 
 	private void handleUnexploredIsUnsat() {
 		mSolver.pushRecLevel();
-		mNextMus = Shrinking.shrink(mSolver, mMaxUnexplored, mMap, mTimeoutHandler, mRnd);
+		mNextMus = Shrinking.shrink(mSolver, mMaxUnexplored, mMap, mTimeoutHandler, mRnd, mUnknownAllowed);
 		mSolver.popRecLevel();
 		if (mNextMus == null) {
 			return;
@@ -312,7 +324,7 @@ public class ReMus implements Iterator<MusContainer> {
 
 	private void createNewSubordinateRemus(final BitSet nextWorkingSet) {
 		mSolver.pushRecLevel();
-		mSubordinateRemus = new ReMus(mSolver, mMap, nextWorkingSet, mTimeoutHandler, mRnd);
+		mSubordinateRemus = new ReMus(mSolver, mMap, nextWorkingSet, mTimeoutHandler, mRnd, mUnknownAllowed);
 	}
 
 	/**
@@ -322,7 +334,7 @@ public class ReMus implements Iterator<MusContainer> {
 	private void createNewSubordinateRemusWithExtraCrit(final BitSet nextWorkingSet, final int crit) {
 		mSolver.pushRecLevel();
 		mSolver.assertCriticalConstraint(crit);
-		mSubordinateRemus = new ReMus(mSolver, mMap, nextWorkingSet, mTimeoutHandler, mRnd);
+		mSubordinateRemus = new ReMus(mSolver, mMap, nextWorkingSet, mTimeoutHandler, mRnd, mUnknownAllowed);
 	}
 
 	private void removeSubordinateRemus() {

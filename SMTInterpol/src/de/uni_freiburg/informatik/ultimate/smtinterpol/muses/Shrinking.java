@@ -38,13 +38,17 @@ public class Shrinking {
 	 * Takes an boolean array representing an unsatisfiable set of constraints and a CritAdministrationSolver,
 	 * containing all criticals found so far, to generate a minimal unsatisfiable subset. As a side effect, this method
 	 * blocks all explored sets (also the found mus) in the map. The Random instance is used to make the shrinking
-	 * randomly (the MUS that is created depends on the order in which the unknowns are tested to be critical).
+	 * randomly (the MUS that is created depends on the order in which the unknowns are tested to be critical). If
+	 * unknownAllowed is true, this method allows for LBool.UNKNOWN to occur in the shrinking process and doesn't use
+	 * {@link ConstraintAdministrationSolver#getSatExtension(TerminationRequest)}. It then treats LBool.UNKNOWN as if it
+	 * was LBool.SAT and thus, the returned MUS could be non-minimal wrt. satisfiability.
 	 *
 	 * @returns A MusContainer which contains the found mus and the corresponding proof of unsatisfiability. Returns
 	 *          null, if termination was requested in the shrinking process.
 	 */
 	public static MusContainer shrink(final ConstraintAdministrationSolver solver, final BitSet workingConstraints,
-			final UnexploredMap map, final TerminationRequest request, final Random rnd) throws SMTLIBException {
+			final UnexploredMap map, final TerminationRequest request, final Random rnd, final boolean unknownAllowed)
+			throws SMTLIBException {
 		solver.pushRecLevel();
 		if (!MusUtils.contains(workingConstraints, solver.getCrits())) {
 			throw new SMTLIBException("WorkingConstraints is corrupted! It should contain all crits.");
@@ -76,11 +80,13 @@ public class Shrinking {
 				solver.clearUnknownConstraints();
 				break;
 			case SAT:
-				final BitSet extension = solver.getSatExtension(request);
-				if (extension == null) {
-					return null;
+				if (!unknownAllowed) {
+					final BitSet extension = solver.getSatExtension(request);
+					if (extension == null) {
+						return null;
+					}
+					map.BlockDown(extension);
 				}
-				map.BlockDown(extension);
 				solver.clearUnknownConstraints();
 				solver.assertCriticalConstraint(unknownIndex);
 				break;
@@ -88,7 +94,11 @@ public class Shrinking {
 				if (request != null && request.isTerminationRequested()) {
 					return null;
 				}
-				//Treat UNKNOWN as SAT (without trying to get an extension)
+				if (!unknownAllowed) {
+					throw new SMTLIBException(
+							"LBool.UNKNOWN occured in the shrinking process, despite not being explicitly allowed.");
+				}
+				// Treat UNKNOWN as SAT (without trying to get an extension)
 				final BitSet isAsserted = solver.getCrits();
 				isAsserted.or(unknown);
 				map.BlockDown(isAsserted);
@@ -120,7 +130,8 @@ public class Shrinking {
 	 * A variation of shrink, which does not listen to a TerminationRequest.
 	 */
 	public static MusContainer shrink(final ConstraintAdministrationSolver solver, final BitSet workingSet,
-			final UnexploredMap map, final Random rnd) {
-		return shrink(solver, workingSet, map, null, rnd);
+			final UnexploredMap map, final Random rnd, final boolean unknownAllowed) {
+		return shrink(solver, workingSet, map, null, rnd, unknownAllowed);
 	}
+
 }
