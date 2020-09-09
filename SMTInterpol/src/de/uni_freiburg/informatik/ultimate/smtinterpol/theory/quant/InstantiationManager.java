@@ -41,7 +41,6 @@ import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
@@ -203,7 +202,7 @@ public class InstantiationManager {
 	 *
 	 * @return an actual conflict clause, if it exists; null otherwise.
 	 */
-	public Clause instantiateSomeNotSat() {
+	public Set<InstClause> instantiateSomeNotSat() {
 		final List<Pair<QuantClause, List<Term>>> otherValueInstancesOnKnownTerms = new ArrayList<>();
 		final List<Pair<QuantClause, List<Term>>> unitValueInstancesNewTerms = new ArrayList<>();
 		final List<Pair<QuantClause, List<Term>>> otherValueInstancesNewTerms = new ArrayList<>();
@@ -223,7 +222,7 @@ public class InstantiationManager {
 						mQuantTheory.getLogger().warn(
 								"Conflict on existing clause instance hasn't been detected in checkpoint(): ",
 								instClause);
-						return instClause.toClause(mQuantTheory.getEngine().isProofGenerationEnabled());
+						return Collections.singleton(instClause);
 					}
 				}
 			}
@@ -250,12 +249,7 @@ public class InstantiationManager {
 					assert candVal.getSecond().booleanValue();
 					final InstClause unitClause = computeClauseInstance(quantClause, subs, InstanceOrigin.FINALCHECK);
 					if (unitClause != null) { // TODO Some true literals are not detected at the moment.
-						final int numUndef = unitClause.countAndSetUndefLits();
-						if (numUndef == 0) { // TODO Can this happen in final check? (At the moment, yes.)
-							return unitClause.toClause(mQuantTheory.getEngine().isProofGenerationEnabled());
-						} else if (numUndef > 0) {
-							return null;
-						}
+						return Collections.singleton(unitClause);
 					}
 				} else {
 					final Pair<QuantClause, List<Term>> clauseSubsPair = new Pair<>(quantClause, subs);
@@ -282,12 +276,7 @@ public class InstantiationManager {
 		for (final Pair<QuantClause, List<Term>> cand : sortedInstances) {
 			final InstClause inst = computeClauseInstance(cand.getFirst(), cand.getSecond(), InstanceOrigin.FINALCHECK);
 			if (inst != null) {
-				final int numUndef = inst.countAndSetUndefLits();
-				if (numUndef == 0) {
-					return inst.toClause(mQuantTheory.getEngine().isProofGenerationEnabled());
-				} else if (numUndef > 0) {
-					return null;
-				}
+				return Collections.singleton(inst);
 			}
 		}
 		return null;
