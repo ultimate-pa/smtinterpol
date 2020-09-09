@@ -82,12 +82,12 @@ public class QuantifierTheory implements ITheory {
 	private final ScopedArrayList<QuantClause> mQuantClauses;
 
 	/**
-	 * Literals (not atoms!) mapped to potential conflict and unit clauses that they are contained in. At creation, the
-	 * clauses would have been conflicts or unit clauses if the corresponding theories had already known the contained
-	 * literals. In the next checkpoint, false literals should have been propagated by the other theories, but we might
-	 * still have one undefined literal (and hence the clause is a unit clause).
+	 * Instances of quantified clauses that may be added to the DPLL engine in the future. The keys are undecided
+	 * literals (not atoms!) mapped to the instances they are contained in. The instances must not contain literals that
+	 * are currently set to true. This map should be used to return conflicts or propagate literals when an InstClause
+	 * becomes a conflict or unit clause.
 	 */
-	private final Map<Literal, Set<InstClause>> mPotentialConflictAndUnitClauses;
+	private final Map<Literal, Set<InstClause>> mPendingInstances;
 	private int mDecideLevelOfLastCheckpoint;
 
 	// Statistics
@@ -123,7 +123,7 @@ public class QuantifierTheory implements ITheory {
 
 		mQuantClauses = new ScopedArrayList<>();
 
-		mPotentialConflictAndUnitClauses = new LinkedHashMap<>();
+		mPendingInstances = new LinkedHashMap<>();
 		mDecideLevelOfLastCheckpoint = mEngine.getDecideLevel();
 	}
 
@@ -142,16 +142,16 @@ public class QuantifierTheory implements ITheory {
 	@Override
 	public Clause setLiteral(final Literal literal) {
 		// Remove clauses that have become true from potential conflict and unit clauses.
-		if (mPotentialConflictAndUnitClauses.containsKey(literal)) {
-			for (final InstClause instClause : mPotentialConflictAndUnitClauses.remove(literal)) {
+		if (mPendingInstances.containsKey(literal)) {
+			for (final InstClause instClause : mPendingInstances.remove(literal)) {
 				assert instClause.mLits.contains(literal);
 				for (final Literal otherLit : instClause.mLits) {
 					if (otherLit != literal) {
-						final Set<InstClause> clauses = mPotentialConflictAndUnitClauses.get(otherLit);
+						final Set<InstClause> clauses = mPendingInstances.get(otherLit);
 						if (clauses != null) {
 							clauses.remove(instClause);
 							if (clauses.isEmpty()) {
-								mPotentialConflictAndUnitClauses.remove(otherLit);
+								mPendingInstances.remove(otherLit);
 							}
 						}
 					}
@@ -160,8 +160,8 @@ public class QuantifierTheory implements ITheory {
 		}
 		// Remove former undef negated lit (now false) from map and decrease number of undef lits in clauses containing
 		// the negated lit.
-		if (mPotentialConflictAndUnitClauses.containsKey(literal.negate())) {
-			for (final InstClause instClause : mPotentialConflictAndUnitClauses.remove(literal.negate())) {
+		if (mPendingInstances.containsKey(literal.negate())) {
+			for (final InstClause instClause : mPendingInstances.remove(literal.negate())) {
 				assert instClause.mNumUndefLits > 0;
 				instClause.mNumUndefLits -= 1;
 				if (instClause.isConflict()) {
@@ -177,7 +177,7 @@ public class QuantifierTheory implements ITheory {
 
 	@Override
 	public void backtrackLiteral(final Literal literal) {
-		// we throw the potential conflict and unit clauses away after backtracking.
+		// we throw the pending clause instances away after backtracking.
 	}
 
 	@Override
@@ -190,11 +190,11 @@ public class QuantifierTheory implements ITheory {
 		// Don't search for new conflict and unit clauses if there are still potential conflict and unit clauses in the
 		// queue.
 		if (mLinArSolve == null) {
-			assert mPotentialConflictAndUnitClauses.isEmpty()
+			assert mPendingInstances.isEmpty()
 					|| mEngine.getDecideLevel() <= mDecideLevelOfLastCheckpoint;
 		}
 		mDecideLevelOfLastCheckpoint = mEngine.getDecideLevel();
-		if (!mPotentialConflictAndUnitClauses.isEmpty()) {
+		if (!mPendingInstances.isEmpty()) {
 			return null;
 		}
 
@@ -215,7 +215,7 @@ public class QuantifierTheory implements ITheory {
 			}
 			conflictAndUnitInstances = mInstantiationManager.findConflictAndUnitInstances();
 		}
-		final Clause conflict = addPotentialConflictAndUnitClauses(conflictAndUnitInstances);
+		final Clause conflict = addInstClausesToPending(conflictAndUnitInstances);
 		if (conflict != null) {
 			mLogger.debug("Quant conflict: %s", conflict);
 			mEngine.learnClause(conflict);
@@ -234,14 +234,15 @@ public class QuantifierTheory implements ITheory {
 			time = System.nanoTime();
 		}
 		mNumFinalcheck++;
-		assert mPotentialConflictAndUnitClauses.isEmpty();
+		assert mPendingInstances.isEmpty();
 		for (final QuantClause clause : mQuantClauses) {
 			if (mEngine.isTerminationRequested()) {
 				return null;
 			}
 			clause.updateInterestingTermsAllVars();
 		}
-		final Clause conflict = mInstantiationManager.instantiateSomeNotSat();
+		final Collection<InstClause> nonSatInstances = mInstantiationManager.instantiateSomeNotSat();
+		final Clause conflict = addInstClausesToPending(nonSatInstances);
 		if (conflict != null) {
 			mNumConflicts++;
 			mEngine.learnClause(conflict);
@@ -254,7 +255,7 @@ public class QuantifierTheory implements ITheory {
 
 	@Override
 	public Literal getPropagatedLiteral() {
-		for (final Map.Entry<Literal, Set<InstClause>> entry : mPotentialConflictAndUnitClauses.entrySet()) {
+		for (final Map.Entry<Literal, Set<InstClause>> entry : mPendingInstances.entrySet()) {
 			if (mEngine.isTerminationRequested()) {
 				return null;
 			}
@@ -324,7 +325,7 @@ public class QuantifierTheory implements ITheory {
 		final int decisionLevel = mClausifier.getEngine().getDecideLevel();
 		mEMatching.undo(decisionLevel);
 		mInstantiationManager.resetInterestingTerms();
-		mPotentialConflictAndUnitClauses.clear();
+		mPendingInstances.clear();
 		return null;
 	}
 
@@ -347,7 +348,7 @@ public class QuantifierTheory implements ITheory {
 
 	@Override
 	public void pop() {
-		assert mPotentialConflictAndUnitClauses.isEmpty(); // backtrackComplete() is called before pop()
+		assert mPendingInstances.isEmpty(); // backtrackComplete() is called before pop()
 		mInstantiationManager.removeAllInstClauses();
 		mEMatching.removeAllTriggers();
 		for (final QuantClause quantClause : mQuantClauses.currentScope()) {
@@ -727,14 +728,16 @@ public class QuantifierTheory implements ITheory {
 	}
 
 	/**
-	 * Add potential conflict and unit clauses to the map from undefined literals to clauses. We stop as soon as we find
-	 * an actual conflict.
+	 * Add InstClauses to the internal map that manages which instances to add as clause to the DPLL engine. Each
+	 * undecided literal in an InstClause is used as a key, and maps to the InstClauses it is contained in. This method
+	 * also counts the number of undecided literals in an InstClause, makes sure not to add currently satisfied
+	 * instances to the map, and if it finds a conflict in the given InstClauses, returns it as an actual Clause.
 	 *
 	 * @param instances
-	 *            a set of potential conflict and unit clauses
+	 *            the InstClauses to add.
 	 * @return a conflict, if it exists.
 	 */
-	private Clause addPotentialConflictAndUnitClauses(final Collection<InstClause> instances) {
+	private Clause addInstClausesToPending(final Collection<InstClause> instances) {
 		if (instances == null) {
 			return null;
 		}
@@ -751,10 +754,10 @@ public class QuantifierTheory implements ITheory {
 			}
 			for (final Literal lit : inst.mLits) {
 				if (lit.getAtom().getDecideStatus() == null) {
-					if (!mPotentialConflictAndUnitClauses.containsKey(lit)) {
-						mPotentialConflictAndUnitClauses.put(lit, new LinkedHashSet<>());
+					if (!mPendingInstances.containsKey(lit)) {
+						mPendingInstances.put(lit, new LinkedHashSet<>());
 					}
-					mPotentialConflictAndUnitClauses.get(lit).add(inst);
+					mPendingInstances.get(lit).add(inst);
 				}
 			}
 		}
