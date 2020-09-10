@@ -3839,7 +3839,7 @@ public class ProofChecker extends NonRecursive {
 	 *                        function symbol should be unique and the parameters
 	 *                        should equal the free variables of the existentially
 	 *                        quantified formula.
-	 * @param existentialVars the variable for which the skolemApp was introduced.
+	 * @param var             the variable for which the skolemApp was introduced.
 	 * @param quantformula    the existentially quantified formula.
 	 * @return true iff this usage of skolemApp matches the previous uses (is only
 	 *         used for this quantformula with this variable) and that the arguments
