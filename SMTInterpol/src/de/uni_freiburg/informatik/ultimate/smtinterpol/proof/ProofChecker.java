@@ -3277,7 +3277,9 @@ public class ProofChecker extends NonRecursive {
 	}
 
 	boolean checkRewriteRemoveForall(final Term lhs, final Term rhs, final Term[] subst) {
-		// lhs is (not (exists ... ))
+		// lhs is (not (exists ((x1...)) F )).
+		// subst is (y1, ..., yn).
+		// rhs is (not F [y1/x1]...[yn/xn]).
 		if (!isApplication("not", lhs) || !isApplication("not", rhs)) {
 			return false;
 		}
