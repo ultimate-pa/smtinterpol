@@ -96,20 +96,20 @@ public class QuantifierTheory implements ITheory {
 	private long mCheckpointTime, mFindEmatchingTime, mFinalCheckTime, mEMatchingTime, mDawgTime;
 
 	// Options
-	boolean mUseEMatching;
+	InstantiationMethod mInstantiationMethod;
 	boolean mUseUnknownTermValueInDawgs;
 	boolean mPropagateNewAux;
 	boolean mPropagateNewTerms;
 
 	public QuantifierTheory(final Theory th, final DPLLEngine engine, final Clausifier clausifier,
-			final boolean useEMatching, final boolean useUnknownTermDawgs, final boolean propagateNewTerms,
+			final InstantiationMethod instMethod, final boolean useUnknownTermDawgs, final boolean propagateNewTerms,
 			final boolean propagateNewAux) {
 		mClausifier = clausifier;
 		mLogger = clausifier.getLogger();
 		mTheory = th;
 		mEngine = engine;
 
-		mUseEMatching = useEMatching;
+		mInstantiationMethod = instMethod;
 		mUseUnknownTermValueInDawgs = useUnknownTermDawgs;
 		mPropagateNewTerms = propagateNewTerms;
 		mPropagateNewAux = propagateNewAux;
@@ -190,7 +190,8 @@ public class QuantifierTheory implements ITheory {
 		// Don't search for new conflict and unit clauses if there are still potential conflict and unit clauses in the
 		// queue.
 		if (mLinArSolve == null) {
-			assert mPendingInstances.isEmpty()
+			assert mPendingInstances.isEmpty() || mInstantiationMethod == InstantiationMethod.E_MATCHING_EAGER
+					|| mInstantiationMethod == InstantiationMethod.E_MATCHING_LAZY
 					|| mEngine.getDecideLevel() <= mDecideLevelOfLastCheckpoint;
 		}
 		mDecideLevelOfLastCheckpoint = mEngine.getDecideLevel();
@@ -199,23 +200,36 @@ public class QuantifierTheory implements ITheory {
 		}
 
 		mNumCheckpointsWithNewEval++;
-		final Collection<InstClause> conflictAndUnitInstances;
-		if (mUseEMatching) {
+		final Collection<InstClause> potentiallyInterestingInstances;
+		switch (mInstantiationMethod) {
+		case E_MATCHING_CONFLICT:
 			mEMatching.run();
-			conflictAndUnitInstances = mInstantiationManager.findConflictAndUnitInstancesWithEMatching();
+			potentiallyInterestingInstances = mInstantiationManager.findConflictAndUnitInstancesWithEMatching();
 			if (Config.PROFILE_TIME) {
 				mFindEmatchingTime += System.nanoTime() - time;
 			}
-		} else { // TODO for comparison
+			break;
+		case AUF_CONFLICT:
 			for (final QuantClause clause : mQuantClauses) {
 				if (mEngine.isTerminationRequested()) {
 					return null;
 				}
 				clause.updateInterestingTermsAllVars();
 			}
-			conflictAndUnitInstances = mInstantiationManager.findConflictAndUnitInstances();
+			potentiallyInterestingInstances = mInstantiationManager.findConflictAndUnitInstances();
+			break;
+		case E_MATCHING_EAGER:
+			mEMatching.run();
+			potentiallyInterestingInstances = mInstantiationManager.computeEMatchingInstances(true);
+			break;
+		case E_MATCHING_LAZY:
+			// Nothing to do, only in final check
+			potentiallyInterestingInstances = null;
+			break;
+		default:
+			throw new InternalError("Unknown instantiation method");
 		}
-		final Clause conflict = addInstClausesToPending(conflictAndUnitInstances);
+		final Clause conflict = addInstClausesToPending(potentiallyInterestingInstances);
 		if (conflict != null) {
 			mLogger.debug("Quant conflict: %s", conflict);
 			mEngine.learnClause(conflict);
@@ -235,14 +249,31 @@ public class QuantifierTheory implements ITheory {
 		}
 		mNumFinalcheck++;
 		assert mPendingInstances.isEmpty();
-		for (final QuantClause clause : mQuantClauses) {
-			if (mEngine.isTerminationRequested()) {
-				return null;
+
+		Collection<InstClause> potentiallyInterestingInstances = new LinkedHashSet<>();
+
+		boolean foundNonSat = false;
+		if (mInstantiationMethod == InstantiationMethod.E_MATCHING_LAZY) {
+			mEMatching.run();
+			potentiallyInterestingInstances = mInstantiationManager.computeEMatchingInstances(false);
+			for (final InstClause i : potentiallyInterestingInstances) {
+				if (i.countAndSetUndefLits() != -1) {
+					// Don't search for other instances if E-matching found one that is not yet satisfied.
+					foundNonSat = true;
+					break;
+				}
 			}
-			clause.updateInterestingTermsAllVars();
 		}
-		final Collection<InstClause> nonSatInstances = mInstantiationManager.instantiateSomeNotSat();
-		final Clause conflict = addInstClausesToPending(nonSatInstances);
+		if (potentiallyInterestingInstances.isEmpty() || !foundNonSat) {
+			for (final QuantClause clause : mQuantClauses) {
+				if (mEngine.isTerminationRequested()) {
+					return null;
+				}
+				clause.updateInterestingTermsAllVars();
+			}
+			potentiallyInterestingInstances = mInstantiationManager.instantiateSomeNotSat();
+		}
+		final Clause conflict = addInstClausesToPending(potentiallyInterestingInstances);
 		if (conflict != null) {
 			mNumConflicts++;
 			mEngine.learnClause(conflict);
@@ -270,7 +301,10 @@ public class QuantifierTheory implements ITheory {
 					mLogger.debug("Quant Prop: %s Reason: %s", lit, lit.getAtom().mExplanation);
 					return lit;
 				} else {
-					mLogger.debug("Not propagated: %s Clause: %s", lit, inst.mLits);
+					if (mInstantiationMethod != InstantiationMethod.E_MATCHING_EAGER
+							&& mInstantiationMethod != InstantiationMethod.E_MATCHING_LAZY) {
+						mLogger.debug("Not propagated: %s Clause: %s", lit, inst.mLits);
+					}
 				}
 			}
 		}
@@ -801,5 +835,28 @@ public class QuantifierTheory implements ITheory {
 		public String getOrigin() {
 			return mOrigin;
 		}
+	}
+
+	/**
+	 * Different instantiation methods for quantified formulae.
+	 */
+	public static enum InstantiationMethod {
+		/**
+		 * In checkpoint, build potential conflict and unit instances found by checking the substitutions determined by
+		 * the almost uninterpreted fragment.
+		 */
+		AUF_CONFLICT,
+		/**
+		 * In checkpoint, build potential conflict and unit instances found by E-matching.
+		 */
+		E_MATCHING_CONFLICT,
+		/**
+		 * In checkpoint, build instances found by E-matching (don't build terms without equivalent known term).
+		 */
+		E_MATCHING_EAGER,
+		/**
+		 * In final check, build instances found by E-matching (don't build terms without equivalent known term).
+		 */
+		E_MATCHING_LAZY;
 	}
 }

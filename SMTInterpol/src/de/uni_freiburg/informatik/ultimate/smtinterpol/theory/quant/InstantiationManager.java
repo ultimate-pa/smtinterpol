@@ -49,6 +49,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LASharedTerm
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinVar;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.MutableAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory.InstanceOrigin;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory.InstantiationMethod;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.SubstitutionHelper.SubstitutionResult;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.dawg.Dawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.ematching.EMatching;
@@ -73,7 +74,7 @@ public class InstantiationManager {
 	private final Map<QuantClause, Map<List<Term>, InstClause>> mClauseInstances;
 
 	private final InstanceValue mDefaultValueForLitDawgs;
-	private final InstanceValue[] mRelevantValuesForCheckpoint;
+	private final List<InstanceValue> mRelevantValuesForCheckpoint;
 
 	public InstantiationManager(final QuantifierTheory quantTheory) {
 		mQuantTheory = quantTheory;
@@ -82,9 +83,15 @@ public class InstantiationManager {
 		mClauseInstances = new HashMap<>();
 		mDefaultValueForLitDawgs =
 				mQuantTheory.mUseUnknownTermValueInDawgs ? InstanceValue.UNKNOWN_TERM : InstanceValue.ONE_UNDEF;
-		mRelevantValuesForCheckpoint = mQuantTheory.mPropagateNewTerms
-				? new InstanceValue[] { InstanceValue.FALSE, InstanceValue.ONE_UNDEF, InstanceValue.UNKNOWN_TERM }
-				: new InstanceValue[] { InstanceValue.FALSE, InstanceValue.ONE_UNDEF };
+		mRelevantValuesForCheckpoint = new ArrayList<>();
+		mRelevantValuesForCheckpoint.add(InstanceValue.FALSE);
+		mRelevantValuesForCheckpoint.add(InstanceValue.ONE_UNDEF);
+		if (mQuantTheory.mInstantiationMethod == InstantiationMethod.E_MATCHING_EAGER
+				|| mQuantTheory.mInstantiationMethod == InstantiationMethod.E_MATCHING_LAZY) {
+			mRelevantValuesForCheckpoint.add(InstanceValue.OTHER);
+		} else if (mQuantTheory.mPropagateNewTerms) {
+			mRelevantValuesForCheckpoint.add(InstanceValue.UNKNOWN_TERM);
+		}
 	}
 
 	/**
@@ -144,7 +151,7 @@ public class InstantiationManager {
 				return Collections.emptySet();
 			}
 			final Dawg<Term, InstantiationInfo> dawg = computeClauseDawg(qClause);
-			final Collection<List<Term>> conflictOrUnitSubs = getConflictAndUnitSubsFromDawg(qClause, dawg);
+			final Collection<List<Term>> conflictOrUnitSubs = getRelevantSubsFromDawg(qClause, dawg);
 			if (conflictOrUnitSubs != null) {
 				for (final List<Term> subs : conflictOrUnitSubs) {
 					if (mQuantTheory.getEngine().isTerminationRequested()) {
@@ -193,14 +200,76 @@ public class InstantiationManager {
 		return conflictAndUnitClauses;
 	}
 
+
+	/**
+	 * Compute clause instances found by E-matching. This method does not build instances of quant clauses containing
+	 * ground literals that are currently set to true, or instances producing new terms (i.e., without equivalent known
+	 * terms).
+	 * 
+	 * @return the computed InstClauses, except the ones resulting in trivially true clauses.
+	 */
+	public Set<InstClause> computeEMatchingInstances(final boolean isInCheckpoint) {
+		final Set<InstClause> newInstances = new LinkedHashSet<>();
+
+		final List<QuantClause> currentQuantClauses = new ArrayList<>();
+		currentQuantClauses.addAll(mQuantTheory.getQuantClauses());
+		outer: for (final QuantClause clause : currentQuantClauses) {
+			if (mQuantTheory.getEngine().isTerminationRequested()) {
+				return Collections.emptySet();
+			}
+			if (clause.hasTrueGroundLits()) {
+				continue;
+			}
+
+			// Intersect the literal dawgs to find out for which substitutions all triggers were matched.
+			Dawg<Term, InstantiationInfo> clauseDawg = Dawg.createConst(clause.getVars().length,
+					new InstantiationInfo(InstanceValue.FALSE, new ArrayList<>()));
+			for (final QuantLiteral lit : clause.getQuantLits()) {
+				Dawg<Term, InstantiationInfo> instDawg = null;
+				if (mEMatching.isUsingEmatching(lit)) {
+					final Dawg<Term, SubstitutionInfo> subsDawg = mEMatching.getSubstitutionInfos(lit.getAtom());
+					if (subsDawg != null) {
+						// Map keys to representative, and map non-empty SubstitutionInfo to one_undef
+						final Dawg<Term, SubstitutionInfo> representativeSubsDawg = subsDawg.mapKeys(
+								l -> mQuantTheory.getRepresentativeTerm(l), (v1, v2) -> mapToFirstChecked(v1, v2));
+						instDawg = representativeSubsDawg.map(
+								v -> v.equals(mEMatching.getEmptySubs())
+										? new InstantiationInfo(InstanceValue.IRRELEVANT, new ArrayList<>())
+										: new InstantiationInfo(InstanceValue.ONE_UNDEF,
+												getTermSubsFromSubsInfo(lit, v)));
+					}
+				} else if (lit.mIsArithmetical) {
+					instDawg = Dawg.createConst(clause.getVars().length,
+							new InstantiationInfo(InstanceValue.ONE_UNDEF, new ArrayList<>()));
+				}
+				// TODO Should we do something for the other literals, similar to "otherlits" in computeClauseDawg for
+				// E-matching based conflict and unit search?
+
+				if (instDawg == null) {
+					// No substitution found for this clause literal
+					continue outer;
+				}
+				// NOTE: For lazy E-matching, combineForCheckpoint also works for final check TODO rename it
+				clauseDawg = clauseDawg.combine(instDawg, (v1, v2) -> combineForCheckpoint(v1, v2));
+			}
+			// Compute instances that do not produce new terms, i.e., where the E-matching multi-pattern was matched
+			for (final List<Term> subs : getRelevantSubsFromDawg(clause, clauseDawg)) {
+				final InstClause inst = computeClauseInstance(clause, subs,
+						isInCheckpoint ? InstanceOrigin.CHECKPOINT : InstanceOrigin.FINALCHECK);
+				if (inst != null) {
+					newInstances.add(inst);
+				}
+			}
+		}
+		return newInstances;
+	}
+
 	/**
 	 * In the final check, check if all interesting substitutions of all clauses lead to satisfied instances. As soon as
 	 * an instance is found that is not yet satisfied, stop. The newly created literals will be decided by the ground
 	 * theories next and may lead to new conflicts.
-	 *
-	 * If an actual conflict is found, return it.
-	 *
-	 * @return an actual conflict clause, if it exists; null otherwise.
+	 * 
+	 * @return a singleton set containing the new instance, if one was found; null else.
 	 */
 	public Set<InstClause> instantiateSomeNotSat() {
 		final List<Pair<QuantClause, List<Term>>> otherValueInstancesOnKnownTerms = new ArrayList<>();
@@ -407,8 +476,11 @@ public class InstantiationManager {
 		if (combinedValue == InstanceValue.IRRELEVANT) {
 			return new InstantiationInfo(combinedValue, new ArrayList<>());
 		}
-		final List<Term> firstSubs = first.getSubs();
-		final List<Term> secondSubs = second.getSubs();
+		final List<Term> combinedSubs = combineSubs(first.getSubs(), second.getSubs());
+		return new InstantiationInfo(combinedValue, combinedSubs);
+	}
+
+	private List<Term> combineSubs(final List<Term> firstSubs, final List<Term> secondSubs) {
 		assert firstSubs.isEmpty() || secondSubs.isEmpty() || firstSubs.size() == secondSubs.size();
 		final List<Term> combinedSubs = new ArrayList<>();
 		if (firstSubs.isEmpty()) {
@@ -427,7 +499,7 @@ public class InstantiationManager {
 				}
 			}
 		}
-		return new InstantiationInfo(combinedValue, combinedSubs);
+		return combinedSubs;
 	}
 
 	private boolean isUsedValueForCheckpoint(final InstanceValue value) {
@@ -684,17 +756,17 @@ public class InstantiationManager {
 	}
 
 	/**
-	 * Get all substitutions for this clause that result in a conflict or unit clause.
+	 * Get all substitutions for this clause which evaluate to an InstanceValue other than IRRELEVANT.
 	 *
 	 * @param qClause
 	 *            the quantified clause.
 	 * @param clauseDawg
 	 *            the corresponding clause evaluation dawg.
-	 * @return the variable substitutions for the clause that lead to conflict or unit instances.
+	 * @return the variable substitutions for the clause with InstanceValue != IRRELEVANT.
 	 */
-	private Collection<List<Term>> getConflictAndUnitSubsFromDawg(final QuantClause qClause,
+	private Collection<List<Term>> getRelevantSubsFromDawg(final QuantClause qClause,
 			final Dawg<Term, InstantiationInfo> clauseDawg) {
-		final Collection<List<Term>> conflictAndUnitSubs = new ArrayList<>();
+		final Collection<List<Term>> relevantSubs = new ArrayList<>();
 		for (final InstantiationInfo info : clauseDawg.values()) {
 			assert !Config.EXPENSIVE_ASSERTS || isUsedValueForCheckpoint(info.getInstValue());
 			if (info.getInstValue() != InstanceValue.IRRELEVANT) {
@@ -709,12 +781,12 @@ public class InstantiationManager {
 						subsWithLambdas.add(mQuantTheory.getLambda(qClause.getVars()[i].getSort()));
 					}
 				}
-				if (!conflictAndUnitSubs.contains(subsWithLambdas)) {
-					conflictAndUnitSubs.add(subsWithLambdas);
+				if (!relevantSubs.contains(subsWithLambdas)) {
+					relevantSubs.add(subsWithLambdas);
 				}
 			}
 		}
-		return conflictAndUnitSubs;
+		return relevantSubs;
 	}
 
 	/**
@@ -1389,7 +1461,7 @@ public class InstantiationManager {
 		 *            the relevant values.
 		 * @return the InstanceValue itself, if contained in the relevant values, or IRRELEVANT else.
 		 */
-		private InstanceValue keepOnlyRelevant(final InstanceValue... values) {
+		private InstanceValue keepOnlyRelevant(final List<InstanceValue> values) {
 			for (final InstanceValue val : values) {
 				if (this == val) {
 					return this;
