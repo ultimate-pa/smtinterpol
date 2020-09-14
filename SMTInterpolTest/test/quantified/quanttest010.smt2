@@ -1,5 +1,4 @@
 (set-option :print-success false)
-(set-option :produce-proofs true)
 (set-logic UF)
 (set-info :source |Example where Destructive Equality Reasoning substitutes in quantified aux literal.|)
 (set-info :category "crafted")
