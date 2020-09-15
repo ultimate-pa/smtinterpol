@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -76,6 +77,8 @@ public class InstantiationManager {
 	private final InstanceValue mDefaultValueForLitDawgs;
 	private final List<InstanceValue> mRelevantValuesForCheckpoint;
 
+	private int mSubsAgeForFinalCheck = 0;
+
 	public InstantiationManager(final QuantifierTheory quantTheory) {
 		mQuantTheory = quantTheory;
 		mClausifier = quantTheory.getClausifier();
@@ -125,12 +128,16 @@ public class InstantiationManager {
 	}
 
 	/**
-	 * Reset the interesting terms for a variable.
+	 * Reset the interesting substitution terms for all clauses.
 	 */
 	public void resetInterestingTerms() {
 		for (final QuantClause qClause : mQuantTheory.getQuantClauses()) {
 			qClause.clearInterestingTerms();
 		}
+	}
+
+	public void resetSubsAgeForFinalCheck() {
+		mSubsAgeForFinalCheck = 0;
 	}
 
 	/**
@@ -179,9 +186,13 @@ public class InstantiationManager {
 		final List<QuantClause> currentQuantClauses = new ArrayList<>();
 		currentQuantClauses.addAll(mQuantTheory.getQuantClauses());
 		for (final QuantClause quantClause : currentQuantClauses) {
+			if (mClausifier.getEngine().isTerminationRequested()) {
+				return null;
+			}
 			if (quantClause.hasTrueGroundLits()) {
 				continue;
 			}
+			quantClause.updateInterestingTermsAllVars();
 			final Set<List<Term>> allSubstitutions = computeAllSubstitutions(quantClause);
 			for (final List<Term> subs : allSubstitutions) {
 				if (mClausifier.getEngine().isTerminationRequested()) {
@@ -272,83 +283,204 @@ public class InstantiationManager {
 	 * @return a singleton set containing the new instance, if one was found; null else.
 	 */
 	public Set<InstClause> instantiateSomeNotSat() {
-		final List<Pair<QuantClause, List<Term>>> otherValueInstancesOnKnownTerms = new ArrayList<>();
-		final List<Pair<QuantClause, List<Term>>> unitValueInstancesNewTerms = new ArrayList<>();
-		final List<Pair<QuantClause, List<Term>>> otherValueInstancesNewTerms = new ArrayList<>();
 
+		// Collect the QuantClauses that are not yet satisfied and check if existing instances lead to conflicts.
 		final List<QuantClause> currentQuantClauses = new ArrayList<>();
-		currentQuantClauses.addAll(mQuantTheory.getQuantClauses());
-
-		// First check if an existing instance leads to a conflict. TODO: checkpoint() should have detected it!
-		for (final QuantClause qClause : currentQuantClauses) {
-			assert mClauseInstances.containsKey(qClause);
-			for (final Entry<List<Term>, InstClause> existingInst : mClauseInstances.get(qClause).entrySet()) {
-				final InstClause instClause = existingInst.getValue();
-				if (instClause != null) {
-					final int numUndef = instClause.countAndSetUndefLits();
-					assert numUndef == -1 || numUndef == 0;
-					if (numUndef == 0) {
-						mQuantTheory.getLogger().warn(
-								"Conflict on existing clause instance hasn't been detected in checkpoint(): ",
-								instClause);
-						return Collections.singleton(instClause);
+		for (final QuantClause clause : mQuantTheory.getQuantClauses()) {
+			if (!clause.hasTrueGroundLits()) {
+				assert mClauseInstances.containsKey(clause);
+				for (final Entry<List<Term>, InstClause> existingInst : mClauseInstances.get(clause).entrySet()) {
+					final InstClause instClause = existingInst.getValue();
+					if (instClause != null) {
+						final int numUndef = instClause.countAndSetUndefLits();
+						assert numUndef == -1 || numUndef == 0;
+						if (numUndef == 0) {
+							mQuantTheory.getLogger().warn(
+									"Conflict on existing clause instance hasn't been detected in checkpoint(): ",
+									instClause);
+							return Collections.singleton(instClause);
+						}
 					}
 				}
+				currentQuantClauses.add(clause);
 			}
 		}
 
-		// If no existing instance lead to a conflict, check new instances.
-		for (final QuantClause quantClause : currentQuantClauses) {
-			if (quantClause.hasTrueGroundLits()) {
-				continue;
+		// Check all interesting substitutions ordered by age to avoid creating new (in particular nested) terms early.
+		final Map<QuantClause, List<Term>[]> interestingTermsSortedByAge = new HashMap<>();
+		for (final QuantClause clause : currentQuantClauses) {
+			if (mClausifier.getEngine().isTerminationRequested()) {
+				return null;
 			}
-			final Set<List<Term>> allSubstitutions = computeAllSubstitutions(quantClause);
-			for (final List<Term> subs : allSubstitutions) {
-				if (mClausifier.getEngine().isTerminationRequested()) {
-					return null;
-				}
-				if (mClauseInstances.containsKey(quantClause) && mClauseInstances.get(quantClause).containsKey(subs)) {
-					continue; // Checked in the first loop over the quant clauses.
-				}
-				final Pair<InstanceValue, Boolean> candVal = evaluateNewClauseInstanceFinalCheck(quantClause, subs);
-				if (candVal.getFirst() == InstanceValue.TRUE) {
-					continue;
-				} else if (candVal.getFirst() == InstanceValue.FALSE || candVal.getFirst() == InstanceValue.ONE_UNDEF) {
-					// Always build conflict or unit clauses on known terms
-					assert candVal.getSecond().booleanValue();
-					final InstClause unitClause = computeClauseInstance(quantClause, subs, InstanceOrigin.FINALCHECK);
-					if (unitClause != null) { // TODO Some true literals are not detected at the moment.
-						return Collections.singleton(unitClause);
+			clause.updateInterestingTermsAllVars();
+			final List<Term>[] termsSortedByAge = sortInterestingTermsByAge(clause.getInterestingTerms());
+			interestingTermsSortedByAge.put(clause, termsSortedByAge);
+		}
+		mQuantTheory.getLogger().debug("Current term age: %d", mQuantTheory.mCClosure.getTermAge());
+		for (; mSubsAgeForFinalCheck <= mClausifier.getCClosure().getTermAge(); mSubsAgeForFinalCheck++) {
+			mQuantTheory.getLogger().debug("Searching for instances of age %d", mSubsAgeForFinalCheck);
+			if (mClausifier.getEngine().isTerminationRequested()) {
+				return null;
+			}
+
+			final List<Pair<QuantClause, List<Term>>> otherValueInstancesOnKnownTerms = new ArrayList<>();
+			final List<Pair<QuantClause, List<Term>>> unitValueInstancesNewTerms = new ArrayList<>();
+			final List<Pair<QuantClause, List<Term>>> otherValueInstancesNewTerms = new ArrayList<>();
+
+			for (final QuantClause clause : currentQuantClauses) {
+				final Set<List<Term>> subsForAge =
+						computeSubstitutionsForAge(interestingTermsSortedByAge.get(clause), mSubsAgeForFinalCheck);
+				for (final List<Term> subs : subsForAge) {
+					assert getMaxAge(subs) == mSubsAgeForFinalCheck;
+					if (mClausifier.getEngine().isTerminationRequested()) {
+						return null;
 					}
-				} else {
-					final Pair<QuantClause, List<Term>> clauseSubsPair = new Pair<>(quantClause, subs);
-					if (candVal.getFirst() == InstanceValue.UNKNOWN_TERM) {
-						assert !candVal.getSecond().booleanValue();
-						unitValueInstancesNewTerms.add(clauseSubsPair);
+					if (mClauseInstances.containsKey(clause) && mClauseInstances.get(clause).containsKey(subs)) {
+						continue; // Checked in the first loop over the quant clauses.
+					}
+					final Pair<InstanceValue, Boolean> candVal = evaluateNewClauseInstanceFinalCheck(clause, subs);
+					if (candVal.getFirst() == InstanceValue.TRUE) {
+						continue;
+					} else if (candVal.getFirst() == InstanceValue.FALSE
+							|| candVal.getFirst() == InstanceValue.ONE_UNDEF) {
+						// Always build conflict or unit clauses on known terms
+						assert candVal.getSecond().booleanValue();
+						final InstClause unitClause = computeClauseInstance(clause, subs, InstanceOrigin.FINALCHECK);
+						if (unitClause != null) { // TODO Some true literals are not detected at the moment.
+							final int numUndef = unitClause.countAndSetUndefLits();
+							if (numUndef >= 0) {
+								mQuantTheory.getLogger().debug("Found inst of age %d", getMaxAge(subs));
+								return Collections.singleton(unitClause);
+							}
+						}
 					} else {
-						assert candVal.getFirst() == InstanceValue.OTHER;
-						if (candVal.getSecond().booleanValue()) {
-							otherValueInstancesOnKnownTerms.add(clauseSubsPair);
+						final Pair<QuantClause, List<Term>> clauseSubsPair = new Pair<>(clause, subs);
+						if (candVal.getFirst() == InstanceValue.UNKNOWN_TERM) {
+							assert !candVal.getSecond().booleanValue();
+							unitValueInstancesNewTerms.add(clauseSubsPair);
 						} else {
-							otherValueInstancesNewTerms.add(clauseSubsPair);
+							assert candVal.getFirst() == InstanceValue.OTHER;
+							if (candVal.getSecond().booleanValue()) {
+								otherValueInstancesOnKnownTerms.add(clauseSubsPair);
+							} else {
+								otherValueInstancesNewTerms.add(clauseSubsPair);
+							}
 						}
 					}
 				}
 			}
-		}
-		// If we haven't found a conflict instance or a unit instance on known terms, first check other non-sat
-		// instances on known terms, then unit instances producing new terms, then other non-sat instances on new terms
-		final List<Pair<QuantClause, List<Term>>> sortedInstances = new ArrayList<>();
-		sortedInstances.addAll(otherValueInstancesOnKnownTerms);
-		sortedInstances.addAll(unitValueInstancesNewTerms);
-		sortedInstances.addAll(otherValueInstancesNewTerms);
-		for (final Pair<QuantClause, List<Term>> cand : sortedInstances) {
-			final InstClause inst = computeClauseInstance(cand.getFirst(), cand.getSecond(), InstanceOrigin.FINALCHECK);
-			if (inst != null) {
-				return Collections.singleton(inst);
+			// If we haven't found a conflict or unit instance on known terms, first check other non-sat instances on
+			// known terms, then unit instances producing new terms, then other non-sat instances on new terms.
+			final List<Pair<QuantClause, List<Term>>> sortedInstances = new ArrayList<>();
+			sortedInstances.addAll(otherValueInstancesOnKnownTerms);
+			sortedInstances.addAll(unitValueInstancesNewTerms);
+			sortedInstances.addAll(otherValueInstancesNewTerms);
+			for (final Pair<QuantClause, List<Term>> cand : sortedInstances) {
+				final InstClause inst =
+						computeClauseInstance(cand.getFirst(), cand.getSecond(), InstanceOrigin.FINALCHECK);
+				if (inst != null) {
+					final int numUndef = inst.countAndSetUndefLits();
+					if (numUndef >= 0) {
+						mQuantTheory.getLogger().debug("Found inst of age %d", getMaxAge(cand.getSecond()));
+						return Collections.singleton(inst);
+					}
+				}
 			}
 		}
 		return null;
+	}
+
+	@SuppressWarnings("unchecked")
+	private List<Term>[] sortInterestingTermsByAge(final Map<Term, Term>[] interestingTermsForClause) {
+		final List<Term>[] sortedTerms = new ArrayList[interestingTermsForClause.length];
+		for (int i = 0; i < sortedTerms.length; i++) {
+			sortedTerms[i] = sortInterestingTermsByAge(interestingTermsForClause[i].values());
+		}
+		return sortedTerms;
+	}
+
+	private List<Term> sortInterestingTermsByAge(final Collection<Term> terms) {
+		final List<Term> termList = new ArrayList<>();
+		termList.addAll(terms);
+		Collections.sort(termList, new Comparator<Term>() {
+			@Override
+			public int compare(final Term t1, final Term t2) {
+				return getTermAge(t1) - getTermAge(t2);
+			}
+		});
+		return termList;
+	}
+
+	/**
+	 * From the given terms, compute all substitutions from the given age, i.e., that contain at least one term from the
+	 * given age, and only terms from the given or an earlier age.
+	 * 
+	 * @param sortedSubstitutionTerms
+	 *            an array of lists of substitution terms sorted by age (an array entry corresponds to a variable
+	 *            position)
+	 * @param age
+	 *            the term generation that the substitutions to compute should be from
+	 * @return all substitutions resulting from the given terms from the given age.
+	 */
+	private Set<List<Term>> computeSubstitutionsForAge(final List<Term>[] sortedSubstitutionTerms, final int age) {
+		final int length = sortedSubstitutionTerms.length;
+		final Map<List<Term>, Integer> allSubs = new LinkedHashMap<>();
+		allSubs.put(new ArrayList<Term>(length), 0);
+		for (int i = 0; i < length; i++) {
+			assert !sortedSubstitutionTerms[i].isEmpty();
+			assert !Config.EXPENSIVE_ASSERTS
+					|| sortedSubstitutionTerms[i].equals(sortInterestingTermsByAge(sortedSubstitutionTerms[i]));
+			final Map<List<Term>, Integer> partialSubs = new LinkedHashMap<>();
+			for (final Entry<List<Term>, Integer> oldSub : allSubs.entrySet()) {
+				if (mClausifier.getEngine().isTerminationRequested()) {
+					return Collections.emptySet();
+				}
+				final int oldSubAge = oldSub.getValue();
+				for (final Term ground : sortedSubstitutionTerms[i]) {
+					final int groundAge = getTermAge(ground);
+					if (groundAge > age) {
+						break;
+					}
+					if (i != length - 1 || oldSubAge == age || groundAge == age) {
+						final List<Term> newSub = new ArrayList<>(length);
+						newSub.addAll(oldSub.getKey());
+						newSub.add(ground);
+						final int newAge = oldSub.getValue() > groundAge ? oldSub.getValue() : groundAge;
+						partialSubs.put(newSub, newAge);
+					}
+				}
+			}
+			allSubs.clear();
+			allSubs.putAll(partialSubs);
+		}
+		return allSubs.keySet();
+	}
+
+	/**
+	 * Get the term age for a given term.
+	 * 
+	 * @param t
+	 *            a term.
+	 * @return the age of the CCTerm if the term has a CCTerm, 0 else.
+	 */
+	private int getTermAge(final Term t) {
+		final CCTerm cc = mClausifier.getCCTerm(t);
+		return cc != null ? cc.getAge() : 0;
+	}
+
+	/**
+	 * Get the maximum term age for the given terms.
+	 * 
+	 * @param terms
+	 *            a list of terms.
+	 * @return the maximum age of the given terms.
+	 */
+	private int getMaxAge(final List<Term> terms) {
+		int age = 0;
+		for (final Term t : terms) {
+			age = Math.max(age, getTermAge(t));
+		}
+		return age;
 	}
 
 	/**
@@ -417,22 +549,20 @@ public class InstantiationManager {
 				} else {
 					unknownLits.add(qLit);
 				}
-			}
+					}
 			if (clauseDawg != constIrrelDawg && !unknownLits.isEmpty()) {
 				// Consider all substitutions where the partial clause Dawg is not already true
 				for (final QuantLiteral lit : unknownLits) {
 					if (clauseDawg == constIrrelDawg) {
 						break;
 					}
-					clauseDawg = clauseDawg.mapWithKey((key,
-							value) -> (combineForCheckpoint(value,
+					clauseDawg = clauseDawg.mapWithKey((key, value) -> (combineForCheckpoint(value,
 											new InstantiationInfo(evaluateLitInstance(lit, key), value.getSubs()))));
 				}
 			}
 			if (clauseDawg != constIrrelDawg && !arithLits.isEmpty()) {
 				// Compute relevant terms from dawg and from bounds for arithmetical literals, update and combine dawgs.
-				final Term[][] interestingSubsForArith =
-						computeSubsForArithmetical(qClause, arithLits, clauseDawg);
+				final Term[][] interestingSubsForArith = computeSubsForArithmetical(qClause, arithLits, clauseDawg);
 				// Consider all substitutions where the partial clause Dawg is not already true
 				for (final QuantLiteral arLit : arithLits) {
 					if (clauseDawg == constIrrelDawg) {
@@ -441,7 +571,7 @@ public class InstantiationManager {
 					final Dawg<Term, InstantiationInfo> litDawg = computeArithLitDawg(arLit, interestingSubsForArith);
 					clauseDawg = clauseDawg.combine(litDawg, combinator);
 				}
-			}
+					}
 		}
 		return clauseDawg;
 	}
