@@ -105,6 +105,8 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 	Term mFlatTerm;
 
 	int mHashCode;
+	
+	final int mAge;
 
 	static class TermPairMergeInfo {
 		CCTermPairHash.Info.Entry mInfo;
@@ -130,7 +132,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 	boolean mIsFunc;
 	int mParentPosition;
 
-	protected CCTerm(final boolean isFunc, final int parentPos, final int hash) {
+	protected CCTerm(final boolean isFunc, final int parentPos, final int hash, final int age) {
 		mIsFunc = isFunc;
 		mCCPars = null;
 		if (isFunc) {
@@ -144,6 +146,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		mNumMembers = 1;
 		assert invariant();
 		mHashCode = hash;
+		mAge = age;
 	}
 
 	public boolean isFunc() {
@@ -717,5 +720,9 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 
 	public int getNumMembers() {
 		return mNumMembers;
+	}
+
+	public int getAge() {
+		return mAge;
 	}
 }

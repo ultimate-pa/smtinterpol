@@ -189,11 +189,13 @@ public class QuantifierTheory implements ITheory {
 		}
 		// Don't search for new conflict and unit clauses if there are still potential conflict and unit clauses in the
 		// queue.
-		if (mLinArSolve == null) {
-			assert mPendingInstances.isEmpty() || mInstantiationMethod == InstantiationMethod.E_MATCHING_EAGER
-					|| mInstantiationMethod == InstantiationMethod.E_MATCHING_LAZY
-					|| mEngine.getDecideLevel() <= mDecideLevelOfLastCheckpoint;
-		}
+
+		// TODO: This does not hold any more when we add instances from final check to the pendingInstances.
+		// if (mLinArSolve == null) {
+		// assert mPendingInstances.isEmpty() || mInstantiationMethod == InstantiationMethod.E_MATCHING_EAGER
+		// || mInstantiationMethod == InstantiationMethod.E_MATCHING_LAZY
+		// || mEngine.getDecideLevel() <= mDecideLevelOfLastCheckpoint;
+		// }
 		mDecideLevelOfLastCheckpoint = mEngine.getDecideLevel();
 		if (!mPendingInstances.isEmpty()) {
 			return null;
@@ -210,12 +212,6 @@ public class QuantifierTheory implements ITheory {
 			}
 			break;
 		case AUF_CONFLICT:
-			for (final QuantClause clause : mQuantClauses) {
-				if (mEngine.isTerminationRequested()) {
-					return null;
-				}
-				clause.updateInterestingTermsAllVars();
-			}
 			potentiallyInterestingInstances = mInstantiationManager.findConflictAndUnitInstances();
 			break;
 		case E_MATCHING_EAGER:
@@ -265,12 +261,6 @@ public class QuantifierTheory implements ITheory {
 			}
 		}
 		if (potentiallyInterestingInstances.isEmpty() || !foundNonSat) {
-			for (final QuantClause clause : mQuantClauses) {
-				if (mEngine.isTerminationRequested()) {
-					return null;
-				}
-				clause.updateInterestingTermsAllVars();
-			}
 			potentiallyInterestingInstances = mInstantiationManager.instantiateSomeNotSat();
 		}
 		final Clause conflict = addInstClausesToPending(potentiallyInterestingInstances);
@@ -359,6 +349,7 @@ public class QuantifierTheory implements ITheory {
 		final int decisionLevel = mClausifier.getEngine().getDecideLevel();
 		mEMatching.undo(decisionLevel);
 		mInstantiationManager.resetInterestingTerms();
+		mInstantiationManager.resetSubsAgeForFinalCheck();
 		mPendingInstances.clear();
 		return null;
 	}
