@@ -36,6 +36,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.NamedAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.muses.MusEnumerationScript.HeuristicsType;
@@ -61,8 +62,8 @@ public class MusesTest {
 		return script;
 	}
 
-	private Script setupScript(final Logics logic, final TerminationRequest request) {
-		final Script script = new SMTInterpol(request);
+	private Script setupScript(final Logics logic, final TerminationRequest request, final LogProxy logger) {
+		final Script script = new SMTInterpol(logger, request);
 		script.setOption(SMTLIBConstants.PRODUCE_MODELS, true);
 		script.setOption(SMTLIBConstants.PRODUCE_PROOFS, true);
 		script.setOption(SMTLIBConstants.INTERACTIVE_MODE, true);
@@ -847,9 +848,10 @@ public class MusesTest {
 
 	@Test
 	public void testReMusSet1() {
+		final LogProxy logger = new DefaultLogger();
 		final TimeoutHandler handler = new TimeoutHandler(null);
-		final Script script = setupScript(Logics.ALL, handler);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
+		final Script script = setupScript(Logics.ALL, handler, logger);
+		final DPLLEngine engine = new DPLLEngine(logger, handler);
 		final Translator translator = new Translator();
 		setupUnsatSet1(script, translator, engine);
 
@@ -858,7 +860,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(5);
 		workingSet.flip(0, 5);
 		solver.pushRecLevel();
-		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false, logger);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -870,9 +872,10 @@ public class MusesTest {
 
 	@Test
 	public void testReMusSet2() {
+		final LogProxy logger = new DefaultLogger();
 		final TimeoutHandler handler = new TimeoutHandler(null);
-		final Script script = setupScript(Logics.ALL, handler);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
+		final Script script = setupScript(Logics.ALL, handler, logger);
+		final DPLLEngine engine = new DPLLEngine(logger, handler);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 
@@ -881,7 +884,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false, logger);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -893,9 +896,10 @@ public class MusesTest {
 
 	@Test
 	public void testReMusSet5() {
+		final LogProxy logger = new DefaultLogger();
 		final TimeoutHandler handler = new TimeoutHandler(null);
-		final Script script = setupScript(Logics.ALL, handler);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
+		final Script script = setupScript(Logics.ALL, handler, logger);
+		final DPLLEngine engine = new DPLLEngine(logger, handler);
 		final Translator translator = new Translator();
 		setupUnsatSet5(script, translator, engine);
 
@@ -904,7 +908,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false, logger);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -916,9 +920,10 @@ public class MusesTest {
 
 	@Test
 	public void testReMusUnknownSet1() {
+		final LogProxy logger = new DefaultLogger();
 		final TimeoutHandler handler = new TimeoutHandler(null);
-		final Script script = setupScript(Logics.ALL, handler);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
+		final Script script = setupScript(Logics.ALL, handler, logger);
+		final DPLLEngine engine = new DPLLEngine(logger, handler);
 		final Translator translator = new Translator();
 		setupUnknownSet(script, translator, engine);
 
@@ -927,7 +932,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 11);
 		solver.pushRecLevel();
-		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), true);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), true, logger);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -940,9 +945,10 @@ public class MusesTest {
 
 	@Test
 	public void testReMusEmptySet() {
+		final LogProxy logger = new DefaultLogger();
 		final TimeoutHandler handler = new TimeoutHandler(null);
-		final Script script = setupScript(Logics.ALL, handler);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
+		final Script script = setupScript(Logics.ALL, handler, logger);
+		final DPLLEngine engine = new DPLLEngine(logger, handler);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 
@@ -950,7 +956,7 @@ public class MusesTest {
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet workingSet = new BitSet(10);
 
-		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false, logger);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 
 		Assert.assertTrue(muses.size() == 0);
@@ -958,9 +964,10 @@ public class MusesTest {
 
 	@Test(expected = SMTLIBException.class)
 	public void testReMusWorkingSetTooBig() {
+		final LogProxy logger = new DefaultLogger();
 		final TimeoutHandler handler = new TimeoutHandler(null);
-		final Script script = setupScript(Logics.ALL, handler);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
+		final Script script = setupScript(Logics.ALL, handler, logger);
+		final DPLLEngine engine = new DPLLEngine(logger, handler);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 
@@ -968,15 +975,16 @@ public class MusesTest {
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
 		final BitSet workingSet = new BitSet(11);
 		workingSet.set(11);
-		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false, logger);
 		remus.enumerate();
 	}
 
 	@Test
 	public void testReMusSet2WithTimeout() {
+		final LogProxy logger = new DefaultLogger();
 		final TimeoutHandler handler = new TimeoutHandler(null);
-		final Script script = setupScript(Logics.ALL, handler);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
+		final Script script = setupScript(Logics.ALL, handler, logger);
+		final DPLLEngine engine = new DPLLEngine(logger, handler);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 
@@ -985,7 +993,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 
-		final ReMus remus = new ReMus(solver, map, workingSet, handler, 1, new Random(1337), false);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 1, new Random(1337), false, logger);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 
 		Assert.assertTrue(muses.size() == 0 || muses.size() == 1 || muses.size() == 2);
@@ -994,9 +1002,10 @@ public class MusesTest {
 
 	@Test
 	public void testHeuristicSmallest01() {
+		final LogProxy logger = new DefaultLogger();
 		final TimeoutHandler handler = new TimeoutHandler(null);
-		final Script script = setupScript(Logics.ALL, handler);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
+		final Script script = setupScript(Logics.ALL, handler, logger);
+		final DPLLEngine engine = new DPLLEngine(logger, handler);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 
@@ -1005,7 +1014,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 
-		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false, logger);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 
 		final Random rnd = new Random(1337);
@@ -1014,9 +1023,10 @@ public class MusesTest {
 
 	@Test
 	public void testHeuristicSmallest02() {
+		final LogProxy logger = new DefaultLogger();
 		final TimeoutHandler handler = new TimeoutHandler(null);
-		final Script script = setupScript(Logics.ALL, handler);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
+		final Script script = setupScript(Logics.ALL, handler, logger);
+		final DPLLEngine engine = new DPLLEngine(logger, handler);
 		final Translator translator = new Translator();
 		setupUnsatSet5(script, translator, engine);
 
@@ -1025,7 +1035,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false, logger);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -1035,9 +1045,10 @@ public class MusesTest {
 
 	@Test
 	public void testHeuristicBiggest01() {
+		final LogProxy logger = new DefaultLogger();
 		final TimeoutHandler handler = new TimeoutHandler(null);
-		final Script script = setupScript(Logics.ALL, handler);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
+		final Script script = setupScript(Logics.ALL, handler, logger);
+		final DPLLEngine engine = new DPLLEngine(logger, handler);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 
@@ -1046,7 +1057,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false, logger);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -1056,9 +1067,10 @@ public class MusesTest {
 
 	@Test
 	public void testHeuristicBiggest02() {
+		final LogProxy logger = new DefaultLogger();
 		final TimeoutHandler handler = new TimeoutHandler(null);
-		final Script script = setupScript(Logics.ALL, handler);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
+		final Script script = setupScript(Logics.ALL, handler, logger);
+		final DPLLEngine engine = new DPLLEngine(logger, handler);
 		final Translator translator = new Translator();
 		setupUnsatSet5(script, translator, engine);
 
@@ -1067,7 +1079,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false, logger);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -1077,9 +1089,10 @@ public class MusesTest {
 
 	@Test
 	public void testHeuristicLowestLexOrder() {
+		final LogProxy logger = new DefaultLogger();
 		final TimeoutHandler handler = new TimeoutHandler(null);
-		final Script script = setupScript(Logics.ALL, handler);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
+		final Script script = setupScript(Logics.ALL, handler, logger);
+		final DPLLEngine engine = new DPLLEngine(logger, handler);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 
@@ -1088,7 +1101,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false, logger);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -1101,9 +1114,10 @@ public class MusesTest {
 
 	@Test
 	public void testHeuristicHighestLexOrder() {
+		final LogProxy logger = new DefaultLogger();
 		final TimeoutHandler handler = new TimeoutHandler(null);
-		final Script script = setupScript(Logics.ALL, handler);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
+		final Script script = setupScript(Logics.ALL, handler, logger);
+		final DPLLEngine engine = new DPLLEngine(logger, handler);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 
@@ -1112,7 +1126,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false, logger);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -1125,9 +1139,10 @@ public class MusesTest {
 
 	@Test
 	public void testHeuristicShallowest() {
+		final LogProxy logger = new DefaultLogger();
 		final TimeoutHandler handler = new TimeoutHandler(null);
-		final Script script = setupScript(Logics.ALL, handler);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
+		final Script script = setupScript(Logics.ALL, handler, logger);
+		final DPLLEngine engine = new DPLLEngine(logger, handler);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 
@@ -1136,7 +1151,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false, logger);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -1147,9 +1162,10 @@ public class MusesTest {
 
 	@Test
 	public void testHeuristicDeepest() {
+		final LogProxy logger = new DefaultLogger();
 		final TimeoutHandler handler = new TimeoutHandler(null);
-		final Script script = setupScript(Logics.ALL, handler);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
+		final Script script = setupScript(Logics.ALL, handler, logger);
+		final DPLLEngine engine = new DPLLEngine(logger, handler);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 
@@ -1158,7 +1174,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false, logger);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -1169,9 +1185,10 @@ public class MusesTest {
 
 	@Test
 	public void testHeuristicNarrowest() {
+		final LogProxy logger = new DefaultLogger();
 		final TimeoutHandler handler = new TimeoutHandler(null);
-		final Script script = setupScript(Logics.ALL, handler);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
+		final Script script = setupScript(Logics.ALL, handler, logger);
+		final DPLLEngine engine = new DPLLEngine(logger, handler);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 
@@ -1180,7 +1197,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false, logger);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -1192,9 +1209,10 @@ public class MusesTest {
 
 	@Test
 	public void testHeuristicWidest() {
+		final LogProxy logger = new DefaultLogger();
 		final TimeoutHandler handler = new TimeoutHandler(null);
-		final Script script = setupScript(Logics.ALL, handler);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
+		final Script script = setupScript(Logics.ALL, handler, logger);
+		final DPLLEngine engine = new DPLLEngine(logger, handler);
 		final Translator translator = new Translator();
 		setupUnsatSet2(script, translator, engine);
 
@@ -1203,7 +1221,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false, logger);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -1215,9 +1233,10 @@ public class MusesTest {
 
 	@Test
 	public void testHeuristicSmallestAmongWide01() {
+		final LogProxy logger = new DefaultLogger();
 		final TimeoutHandler handler = new TimeoutHandler(null);
-		final Script script = setupScript(Logics.ALL);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
+		final Script script = setupScript(Logics.ALL, handler, logger);
+		final DPLLEngine engine = new DPLLEngine(logger, handler);
 		final Translator translator = new Translator();
 		// We use set 4 here, because in set 2 the widest mus is also one of the smallest.
 		setupUnsatSet4(script, translator, engine);
@@ -1227,7 +1246,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false, logger);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.pushRecLevel();
 
@@ -1241,9 +1260,10 @@ public class MusesTest {
 
 	@Test
 	public void testHeuristicSmallestAmongWide02() {
+		final LogProxy logger = new DefaultLogger();
 		final TimeoutHandler handler = new TimeoutHandler(null);
-		final Script script = setupScript(Logics.ALL);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
+		final Script script = setupScript(Logics.ALL, handler, logger);
+		final DPLLEngine engine = new DPLLEngine(logger, handler);
 		final Translator translator = new Translator();
 		// We use set 4 here, because in set 2 the widest mus is also one of the smallest.
 		setupUnsatSet4(script, translator, engine);
@@ -1253,7 +1273,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false, logger);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.pushRecLevel();
 
@@ -1266,8 +1286,9 @@ public class MusesTest {
 
 	@Test
 	public void testHeuristicWidestAmongSmall01() {
+		final LogProxy logger = new DefaultLogger();
 		final TimeoutHandler handler = new TimeoutHandler(null);
-		final Script script = setupScript(Logics.ALL, handler);
+		final Script script = setupScript(Logics.ALL, handler, logger);
 		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
 		final Translator translator = new Translator();
 		// We use set 4 here, because in set 2 the widest mus is also one of the smallest.
@@ -1278,7 +1299,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false, logger);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -1291,9 +1312,10 @@ public class MusesTest {
 
 	@Test
 	public void testHeuristicWidestAmongSmall02() {
+		final LogProxy logger = new DefaultLogger();
 		final TimeoutHandler handler = new TimeoutHandler(null);
-		final Script script = setupScript(Logics.ALL, handler);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
+		final Script script = setupScript(Logics.ALL, handler, logger);
+		final DPLLEngine engine = new DPLLEngine(logger, handler);
 		final Translator translator = new Translator();
 		// We use set 4 here, because in set 2 the widest mus is also one of the smallest.
 		setupUnsatSet4(script, translator, engine);
@@ -1303,7 +1325,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false, logger);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -1316,9 +1338,10 @@ public class MusesTest {
 
 	@Test
 	public void testNumberOfDifferentStatements() {
+		final LogProxy logger = new DefaultLogger();
 		final TimeoutHandler handler = new TimeoutHandler(null);
-		final Script script = setupScript(Logics.ALL, handler);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
+		final Script script = setupScript(Logics.ALL, handler, logger);
+		final DPLLEngine engine = new DPLLEngine(logger, handler);
 		final Translator translator = new Translator();
 		setupUnsatSet5(script, translator, engine);
 
@@ -1327,7 +1350,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false, logger);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -1346,9 +1369,10 @@ public class MusesTest {
 
 	@Test
 	public void testHeuristicDifferentMusesWithRespectToStatements01() {
+		final LogProxy logger = new DefaultLogger();
 		final TimeoutHandler handler = new TimeoutHandler(null);
-		final Script script = setupScript(Logics.ALL, handler);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
+		final Script script = setupScript(Logics.ALL, handler, logger);
+		final DPLLEngine engine = new DPLLEngine(logger, handler);
 		final Translator translator = new Translator();
 		setupUnsatSet5(script, translator, engine);
 
@@ -1357,7 +1381,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false, logger);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -1387,9 +1411,10 @@ public class MusesTest {
 
 	@Test
 	public void testHeuristicDifferentMusesWithRespectToStatements02() {
+		final LogProxy logger = new DefaultLogger();
 		final TimeoutHandler handler = new TimeoutHandler(null);
-		final Script script = setupScript(Logics.ALL, handler);
-		final DPLLEngine engine = new DPLLEngine(new DefaultLogger(), handler);
+		final Script script = setupScript(Logics.ALL, handler, logger);
+		final DPLLEngine engine = new DPLLEngine(logger, handler);
 		final Translator translator = new Translator();
 		setupUnsatSet5(script, translator, engine);
 
@@ -1398,7 +1423,7 @@ public class MusesTest {
 		final BitSet workingSet = new BitSet(10);
 		workingSet.flip(0, 10);
 		solver.pushRecLevel();
-		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false, logger);
 		final ArrayList<MusContainer> muses = remus.enumerate();
 		solver.popRecLevel();
 
@@ -1517,5 +1542,25 @@ public class MusesTest {
 		for (final Term c : core) {
 			Assert.assertFalse(Translator.getName(c).equals("c10"));
 		}
+	}
+
+	/**
+	 * Example for wrong unsat core, if constraint in unsat core is not named.
+	 */
+	@Test
+	public void testMusEnumerationScriptNoMusEnumerated() {
+		final MusEnumerationScript script = setupMusEnumerationScript(Logics.ALL);
+		script.setOption(MusOptions.INTERPOLATION_HEURISTIC, HeuristicsType.BIGGEST);
+		script.setOption(SMTLIBConstants.RANDOM_SEED, 1337);
+		script.setOption(MusOptions.LOG_ADDITIONAL_INFORMATION, true);
+		script.setOption(MusOptions.ENUMERATION_TIMEOUT, 1);
+
+		setupUnsatSet2(script);
+		Assert.assertTrue(LBool.UNSAT == script.checkSat());
+		final Term[] core = script.getUnsatCore();
+		for (final Term term : core) {
+			System.out.println(term.toString());
+		}
+		script.getInterpolants(core);
 	}
 }

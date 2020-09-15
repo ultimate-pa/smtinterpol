@@ -323,4 +323,11 @@ public class ConstraintAdministrationSolver {
 		mLastOpWasReset = true;
 		mScript.pop(mLevels);
 	}
+
+	/**
+	 * Delegates the getInfo call to the wrapped script.
+	 */
+	public Object getInfo(final String info) {
+		return mScript.getInfo(info);
+	}
 }

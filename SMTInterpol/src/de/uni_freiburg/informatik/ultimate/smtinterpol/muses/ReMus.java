@@ -26,6 +26,8 @@ import java.util.Random;
 
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SExpression;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TimeoutHandler;
 
 /**
@@ -43,6 +45,7 @@ public class ReMus implements Iterator<MusContainer> {
 	long mTimeout;
 	Random mRnd;
 	boolean mUnknownAllowed;
+	LogProxy mLogger;
 
 	ArrayList<MusContainer> mMuses;
 	MusContainer mNextMus;
@@ -71,13 +74,17 @@ public class ReMus implements Iterator<MusContainer> {
 	 * accordingly).
 	 *
 	 *
-	 * Setting the unknownAllowed flag to true allows the LBool.UNKNOWN value to occur in the enumeration process. Then, when LBool.UNKNOWN is returned for a
-	 * set of constraints, the set is marked as satisfiable and no further action is taken on it, hence not all MUSes
-	 * might be found anymore. Also, the returned MUSes could be non-minimal wrt. satisfiability (because UNKNOWN might
-	 * also occur in the internal shrinking process).
+	 * Setting the unknownAllowed flag to true allows the LBool.UNKNOWN value to occur in the enumeration process. Then,
+	 * when LBool.UNKNOWN is returned for a set of constraints, the set is marked as satisfiable and no further action
+	 * is taken on it, hence not all MUSes might be found anymore. Also, the returned MUSes could be non-minimal wrt.
+	 * satisfiability (because UNKNOWN might also occur in the internal shrinking process).
+	 *
+	 * Giving a LogProxy makes ReMus log information on the Logger of the solver. Giving null means, that ReMus won't
+	 * log.
 	 */
 	public ReMus(final ConstraintAdministrationSolver solver, final UnexploredMap map, final BitSet workingSet,
-			final TimeoutHandler handler, final long timeout, final Random rnd, final boolean unknownAllowed) {
+			final TimeoutHandler handler, final long timeout, final Random rnd, final boolean unknownAllowed,
+			final LogProxy logger) {
 		mSolver = solver;
 		mMap = map;
 		mTimeoutHandler = handler;
@@ -85,6 +92,7 @@ public class ReMus implements Iterator<MusContainer> {
 		mTimeoutOrTerminationRequestOccurred = false;
 		mRnd = rnd;
 		mUnknownAllowed = unknownAllowed;
+		mLogger = logger;
 
 		if (workingSet.length() > mSolver.getNumberOfConstraints()) {
 			throw new SMTLIBException(
@@ -99,8 +107,8 @@ public class ReMus implements Iterator<MusContainer> {
 	 * Constructor for internal instances, that are created for recursion.
 	 */
 	private ReMus(final ConstraintAdministrationSolver solver, final UnexploredMap map, final BitSet workingSet,
-			final TimeoutHandler handler, final Random rnd, final boolean unknownAllowed) {
-		this(solver, map, workingSet, handler, 0, rnd, unknownAllowed);
+			final TimeoutHandler handler, final Random rnd, final boolean unknownAllowed, final LogProxy logger) {
+		this(solver, map, workingSet, handler, 0, rnd, unknownAllowed, logger);
 	}
 
 	private void initializeMembersAndAssertImpliedCrits() {
@@ -206,12 +214,8 @@ public class ReMus implements Iterator<MusContainer> {
 	 * loop.
 	 */
 	private void searchForNextMusBeginningInThisRecursionLevel() {
-		if (mSubordinateRemus != null) {
-			throw new SMTLIBException("Let the subordinate find it's muses first.");
-		}
-		if (mSatisfiableCaseLoopIsRunning) {
-			throw new SMTLIBException("Finish the Satisfiable case loop first.");
-		}
+		assert mSubordinateRemus == null : "Let the subordinate find its muses first.";
+		assert !mSatisfiableCaseLoopIsRunning : "Finish the Satisfiable case loop first.";
 
 		if (!mMembersUpToDate) {
 			updateMembersAndAssertImpliedCrits();
@@ -298,7 +302,7 @@ public class ReMus implements Iterator<MusContainer> {
 				nextWorkingSet.clear(critical);
 				mSatisfiableCaseLoopNextWorkingSet = nextWorkingSet;
 			}
-			mSatisfiableCaseLoopIsRunning = !mMcs.isEmpty() ? true : false;
+			mSatisfiableCaseLoopIsRunning = !mMcs.isEmpty() && !mTimeoutHandler.isTerminationRequested() ? true : false;
 		}
 	}
 
@@ -324,7 +328,7 @@ public class ReMus implements Iterator<MusContainer> {
 
 	private void createNewSubordinateRemus(final BitSet nextWorkingSet) {
 		mSolver.pushRecLevel();
-		mSubordinateRemus = new ReMus(mSolver, mMap, nextWorkingSet, mTimeoutHandler, mRnd, mUnknownAllowed);
+		mSubordinateRemus = new ReMus(mSolver, mMap, nextWorkingSet, mTimeoutHandler, mRnd, mUnknownAllowed, mLogger);
 	}
 
 	/**
@@ -334,7 +338,7 @@ public class ReMus implements Iterator<MusContainer> {
 	private void createNewSubordinateRemusWithExtraCrit(final BitSet nextWorkingSet, final int crit) {
 		mSolver.pushRecLevel();
 		mSolver.assertCriticalConstraint(crit);
-		mSubordinateRemus = new ReMus(mSolver, mMap, nextWorkingSet, mTimeoutHandler, mRnd, mUnknownAllowed);
+		mSubordinateRemus = new ReMus(mSolver, mMap, nextWorkingSet, mTimeoutHandler, mRnd, mUnknownAllowed, mLogger);
 	}
 
 	private void removeSubordinateRemus() {
@@ -371,6 +375,11 @@ public class ReMus implements Iterator<MusContainer> {
 		}
 		if (thisMethodHasSetTheTimeout) {
 			mTimeoutHandler.clearTimeout();
+		}
+		if (mLogger != null && restOfMuses.size() == 0) {
+			final Object info = mSolver.getInfo(":all-statistics");
+			final SExpression infoToString = new SExpression(info);
+			mLogger.fatal(infoToString.toString());
 		}
 		return restOfMuses;
 	}
