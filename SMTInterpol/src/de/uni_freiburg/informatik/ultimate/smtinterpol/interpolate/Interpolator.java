@@ -1478,6 +1478,24 @@ public class Interpolator extends NonRecursive {
 	}
 
 	/**
+	 * Update the color of all non-logical symbols in a given term according to the
+	 * given partition.
+	 */
+	public void colorSymbols(final Term literal, final int partition) {
+		assert literal != null;
+
+		HashSet<String> symbols = getSymbols(literal);
+		for (String symbol : symbols) {
+			Occurrence funOcc = new Occurrence();
+			if (mSymbolOccurrenceInfos.containsKey(symbol)) {
+				funOcc = mSymbolOccurrenceInfos.get(symbol);
+			}
+			funOcc.occursIn(partition);
+			mSymbolOccurrenceInfos.put(symbol, funOcc);
+		}
+	}
+
+	/**
 	 * Collect all non-logical symbols in a given term that are not AB-shared in the
 	 * given partition.
 	 */
