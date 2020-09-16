@@ -854,7 +854,8 @@ public class Interpolator extends NonRecursive {
 		}
 		/* Create occurrence if it is *not* an internal function and if it does not exists yet */
 		if (occ == null) {
-			occ = getOccurrence(term);
+			occ = new Occurrence();
+			mSymbolPartition.put(term, occ);
 		}
 		occ.occursIn(part);
 	}
