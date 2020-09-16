@@ -1177,6 +1177,52 @@ public class Interpolator extends NonRecursive {
 	}
 
 	/**
+	 * This term transformer substitutes a given term by another term. It is used to
+	 * remove non-shared symbols from a provisional interpolant.
+	 */
+	class TermSubstitutor extends TermTransformer {
+		Term mTerm;
+		Term mReplacement;
+
+		TermSubstitutor(final Term term, final Term replacement) {
+			mTerm = term;
+			mReplacement = replacement;
+		}
+
+		@Override
+		public void convert(final Term oldTerm) {
+			assert oldTerm != mReplacement;
+
+			if (oldTerm == mTerm) {
+				setResult(mReplacement);
+			} else if (oldTerm instanceof ApplicationTerm) {
+				final Term[] oldParams = ((ApplicationTerm) oldTerm).getParameters();
+				enqueueWalker(new Walker() {
+					@Override
+					public void walk(final NonRecursive engine) {
+						final TermSubstitutor ts = (TermSubstitutor) engine;
+						final String funName = ((ApplicationTerm) oldTerm).getFunction().getName();
+						final Term[] newParams = ts.getConverted(oldParams);
+
+						if (newParams == oldParams) {
+							// Nothing changed.
+							ts.setResult(oldTerm);
+							return;
+						}
+						// Create a new Term from newParams and the function symbol
+						final Term newTerm = mTheory.term(funName, newParams);
+						ts.setResult(newTerm);
+					}
+				});
+				pushTerms(oldParams);
+				return;
+			} else {
+				super.convert(oldTerm);
+			}
+		}
+	}
+
+	/**
 	 * Compute the interpolant for the resolution rule with a mixed equality as pivot. This is I1[I2(s_i)] for
 	 * I1[EQ(x,s_i)] and I2(x).
 	 *
