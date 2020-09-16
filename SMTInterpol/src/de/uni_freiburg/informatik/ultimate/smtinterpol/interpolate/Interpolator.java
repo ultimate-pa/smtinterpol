@@ -1477,6 +1477,23 @@ public class Interpolator extends NonRecursive {
 		return result;
 	}
 
+	/**
+	 * Collect all non-logical symbols in a given term that are not AB-shared in the
+	 * given partition.
+	 */
+	public HashSet<String> getNonsharedSymbols(final Term term, final int partition) {
+		HashSet<String> result = new HashSet<String>();
+		HashSet<String> symbols = getSymbols(term);
+
+		for (String s : symbols) {
+			assert mSymbolOccurrenceInfos.get(s) != null;
+			if (!mSymbolOccurrenceInfos.get(s).isAB(partition)) {
+				result.add(s);
+			}
+		}
+		return result;
+	}
+
 	public boolean isNegatedTerm(final Term literal) {
 		return literal instanceof ApplicationTerm && ((ApplicationTerm) literal).getFunction().getName().equals("not");
 	}
