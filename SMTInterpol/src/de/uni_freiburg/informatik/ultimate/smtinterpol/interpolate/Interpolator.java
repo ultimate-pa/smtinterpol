@@ -316,6 +316,8 @@ public class Interpolator extends NonRecursive {
 			case ":trans": {
 				final CCInterpolator ipolator = new CCInterpolator(this);
 				interpolants = ipolator.computeInterpolants(leafTermInfo);
+				// Replace non-shared symbols in interpolant.
+				interpolants = replaceNonsharedSymbols(interpolants);
 				break;
 			}
 			case ":LA": {
