@@ -1689,6 +1689,44 @@ public class Interpolator extends NonRecursive {
 		return result;
 	}
 
+	/**
+	 * Collect the set of unsupported variables relative to a given clause from a
+	 * list of variables .
+	 * 
+	 * @param variables The variables to be checked
+	 * @param clause    The clause against which the variables are checked
+	 * @return Set of TermVariables that are not supported by the clause
+	 */
+	private HashSet<TermVariable> getUnsupportedVariables(ArrayList<TermVariable> variables, Term[] clause) {
+		HashSet<TermVariable> result = new HashSet<TermVariable>();
+		HashSet<Term> subTerms = new HashSet<Term>();
+
+		if (variables.isEmpty()) {
+			return result;
+		}
+
+		for (int i = 0; i < clause.length; i++) {
+			subTerms.addAll(getAllSubTerms(clause[i]));
+		}
+
+		// Check if term that was replaced by the variable is a subterm of the clause.
+		for (int i = 0; i < variables.size(); i++) {
+			Term replaced = null;
+			for (Entry<Term, TermVariable> e : mMixedTermAuxEq.entrySet()) {
+				if (e.getValue().equals(variables.get(i))) {
+					replaced = (Term) e.getKey();
+					break;
+				}
+			}
+			// If term is not contained in the subterms, the corresponding variable is
+			// unsupported.
+			if (!subTerms.contains(replaced)) {
+				result.add(variables.get(i));
+			}
+		}
+		return result;
+	}
+
 	public boolean isNegatedTerm(final Term literal) {
 		return literal instanceof ApplicationTerm && ((ApplicationTerm) literal).getFunction().getName().equals("not");
 	}
