@@ -789,6 +789,9 @@ public class Interpolator extends NonRecursive {
 							info.occursIn(partition);
 							addOccurrence(atom, partition);
 						}
+
+						// Color all symbols occurring in the literal.
+						colorSymbols(atom, partition);
 					}
 				}
 			}
