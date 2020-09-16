@@ -25,6 +25,7 @@ import java.util.Collection;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
 
@@ -1612,6 +1613,61 @@ public class Interpolator extends NonRecursive {
 			funOcc.occursIn(partition);
 			mSymbolOccurrenceInfos.put(symbol, funOcc);
 		}
+	}
+
+	/**
+	 * Replace all non-shared symbols in the interpolants by auxiliary variables.
+	 * 
+	 * @param interpolants Array of interpolants that possibly contain non-shared
+	 *                     symbols.
+	 * @return resulting Array of interpolants only containing shared symbols.
+	 */
+	private Term[] replaceNonsharedSymbols(Term[] interpolants) {
+		// Term interpolant = null;
+
+		for (int i = 0; i < interpolants.length; i++) {
+			Term interpolant = interpolants[i];
+			HashSet<String> nonSharedSymbols = getNonsharedSymbols(interpolant, i);
+
+			if (nonSharedSymbols.isEmpty()) {
+				// The current interpolant only contains shared symbols.
+				continue;
+			}
+			HashSet<Term> subTerms = getAllSubTerms(interpolant);
+
+			// Collect the subterms that need to be replaced.
+			for (String s : nonSharedSymbols) {
+				HashSet<Term> replace = new HashSet<Term>(subTerms);
+				for (Term sub : subTerms) {
+					if (((ApplicationTerm) sub).getFunction().getName() != s) {
+						replace.remove(sub);
+					}
+				}
+
+				// Order in which we replace subterms in nested functions may effect result,
+				// i.e. if we have f(f(a)) and we want to replace f(...), we should start with
+				// the outermost occurrence of f.
+				ArrayList<Term> ordered = orderTerms(replace);
+
+				// Replace the term by a variable
+				for (int j = 0; j < ordered.size(); j++) {
+					TermVariable auxVar;
+					Term t = ordered.get(j);
+					Sort sort = t.getSort();
+					// Is there already a mapping from term to variable?
+					if (mMixedTermAuxEq.containsKey(t)) {
+						auxVar = mMixedTermAuxEq.get(t);
+					} else {
+						// Create fresh variable.
+						auxVar = mTheory.createFreshTermVariable("purAux", sort);
+						mMixedTermAuxEq.put(t, auxVar);
+					}
+					final TermTransformer ipolator = new TermSubstitutor(t, auxVar);
+					interpolants[i] = ipolator.transform(interpolants[i]);
+				}
+			}
+		}
+		return interpolants;
 	}
 
 	/**
