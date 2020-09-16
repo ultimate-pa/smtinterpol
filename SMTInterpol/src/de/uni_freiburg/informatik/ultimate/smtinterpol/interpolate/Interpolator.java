@@ -938,6 +938,30 @@ public class Interpolator extends NonRecursive {
 		return subTerms;
 	}
 
+	// Collect all subterms in a literal. This function ignores annotations while
+	// looking for subterms.
+	HashSet<Term> getAllSubTerms(final Term literal) {
+		final HashSet<Term> subTerms = new HashSet<>();
+		final ArrayDeque<Term> todo = new ArrayDeque<Term>();
+
+		todo.addLast(literal);
+		while (!todo.isEmpty()) {
+			final Term term = todo.removeLast();
+			if (subTerms.add(term)) {
+				if (term instanceof ApplicationTerm) {
+					final ApplicationTerm appTerm = (ApplicationTerm) term;
+					for (final Term sub : appTerm.getParameters()) {
+						todo.addLast(sub);
+					}
+				}
+				if (term instanceof AnnotatedTerm) {
+					todo.add(((AnnotatedTerm) term).getSubterm());
+				}
+			}
+		}
+		return subTerms;
+	}
+
 	LitInfo getAtomOccurenceInfo(final Term atom) {
 		assert !isNegatedTerm(atom);
 		LitInfo result = mAtomOccurenceInfos.get(atom);
