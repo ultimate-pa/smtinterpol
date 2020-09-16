@@ -1727,6 +1727,66 @@ public class Interpolator extends NonRecursive {
 		return result;
 	}
 
+	/**
+	 * For a given set of variables and their mapping to the terms they replace,
+	 * return a list where the given variables are ordered according to their
+	 * dependencies, i.e. For v1, v2 with dependency v1=f(v2), we return [v2,v1].
+	 * Only works if variable dependencies do not contain cycles.
+	 * 
+	 * @param unsupported    Set of variables to be sorted.
+	 * @param variableToTerm Set containing mapping between variables and the terms
+	 *                       that they replaced.
+	 * @return List of variables in dependency order.
+	 */
+	private List<TermVariable> sortVariables(HashMap<TermVariable, Term> map) {
+		HashMap<TermVariable, HashSet<TermVariable>> dependencies = new HashMap<TermVariable, HashSet<TermVariable>>();
+
+		// Build dependency map.
+		for (Entry<TermVariable, Term> e1 : map.entrySet()) {
+			Term t1 = (Term) e1.getValue();
+			HashSet<TermVariable> deps = new HashSet<TermVariable>();
+			for (Entry<TermVariable, Term> e2 : map.entrySet()) {
+				if (e1.equals(e2)) {
+					continue;
+				}
+				Term t2 = (Term) e2.getValue();
+				// check if v2 is subTerm of v1
+				HashSet<Term> sub = getAllSubTerms(t1);
+				if (sub.contains(t2)) {
+					deps.add((TermVariable) e2.getKey());
+				}
+			}
+			dependencies.put((TermVariable) e1.getKey(), deps);
+		}
+
+		Deque<TermVariable> todoStack = new ArrayDeque<TermVariable>(map.keySet());
+		List<TermVariable> ordered = new ArrayList<TermVariable>();
+		TermVariable seen = null;
+		Boolean reset = true;
+
+		// Compute dependency ordered list.
+		while (!todoStack.isEmpty()) {
+			TermVariable tv = todoStack.pop();
+			if (tv == seen) {
+				throw new IllegalArgumentException("Variable dependencies must not contain cycles.");
+			}
+			// Only add a variable to the ordered list if all variables on which it depends
+			// are already present.
+			if (dependencies.get(tv).isEmpty() || ordered.containsAll(dependencies.get(tv))) {
+				ordered.add(tv);
+				reset = true;
+				seen = tv;
+			} else {
+				todoStack.add(tv);
+				if (reset) {
+					seen = tv;
+					reset = false;
+				}
+			}
+		}
+		return ordered;
+	}
+
 	public boolean isNegatedTerm(final Term literal) {
 		return literal instanceof ApplicationTerm && ((ApplicationTerm) literal).getFunction().getName().equals("not");
 	}
