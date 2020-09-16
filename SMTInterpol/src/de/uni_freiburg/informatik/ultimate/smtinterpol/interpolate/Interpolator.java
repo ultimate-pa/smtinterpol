@@ -1481,6 +1481,22 @@ public class Interpolator extends NonRecursive {
 	}
 
 	/**
+	 * Return the depth of nested functions for a term with given depth.
+	 */
+	int getNestingDepth(final ApplicationTerm term, int n) {
+		if (term.getParameters().length == 0) {
+			return n;
+		} else {
+			int nMax = n;
+			for (int i = 0; i < term.getParameters().length; i++) {
+				int j = getNestingDepth((ApplicationTerm) term.getParameters()[i], n + 1);
+				nMax = (j > nMax) ? j : nMax;
+			}
+			return nMax;
+		}
+	}
+
+	/**
 	 * Update the color of all non-logical symbols in a given term according to the
 	 * given partition.
 	 */
