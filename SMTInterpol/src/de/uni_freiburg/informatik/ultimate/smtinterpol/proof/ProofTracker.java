@@ -29,6 +29,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 
 /**
@@ -273,13 +274,13 @@ public class ProofTracker implements IProofTracker{
 	}
 
 	@Override
-	public Term allIntro(Term formula) {
+	public Term allIntro(Term formula, TermVariable[] vars) {
 		final Theory theory = formula.getTheory();
 		final Term subProof = getProof(formula);
 		final Term body = getProvedTerm(formula);
 		final Term quantified = theory.annotatedTerm(new Annotation[] { new Annotation(":quoted", null) },
-				theory.forall(body.getFreeVars(), body));
-		final Annotation[] annot = new Annotation[] { new Annotation(":vars", formula.getFreeVars()) };
+				theory.forall(vars, body));
+		final Annotation[] annot = new Annotation[] { new Annotation(":vars", vars) };
 		final Term proof = theory.term(ProofConstants.FN_ALLINTRO, theory.annotatedTerm(annot, subProof));
 		return buildProof(proof, quantified);
 	}

@@ -86,7 +86,7 @@ public class QuantAnnotation implements IAnnotation {
 	@Override
 	public Term toTerm(Clause cls, Theory theory) {
 		final Term quantClauseLitProof =
-				mProofTracker.allIntro(mQuantClauseTerm);
+				mProofTracker.allIntro(mQuantClauseTerm, mVars);
 		final Term quantClauseLit = mProofTracker.getProvedTerm(quantClauseLitProof);
 
 		// For partial proofs, make an asserted sub proof for the quant clause.

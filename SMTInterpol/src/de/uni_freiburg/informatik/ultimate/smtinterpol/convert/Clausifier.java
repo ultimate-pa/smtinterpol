@@ -772,7 +772,9 @@ public class Clausifier {
 					mQuantTheory.addQuantClause(lits, quantLits, mSource, rewriteProof);
 				} else if (!resultFromDER.isTriviallyTrue()) { // Clauses that become trivially true can be dropped.
 					isDpllClause = resultFromDER.isGround();
-					// Build rewrite proof from split and derProof
+					// Build rewrite proof from all-intro, split-subst and derProof
+					final TermVariable[] vars = mTracker.getProvedTerm(rewriteProof).getFreeVars();
+					rewriteProof = mTracker.allIntro(rewriteProof, vars);
 					final Annotation splitAnnot = ProofConstants.getSplitSubstAnnot(resultFromDER.getSubs());
 					final Term splitProof = mTracker.split(rewriteProof, resultFromDER.getSubstituted(), splitAnnot);
 					final Term derProof = resultFromDER.getSimplified();

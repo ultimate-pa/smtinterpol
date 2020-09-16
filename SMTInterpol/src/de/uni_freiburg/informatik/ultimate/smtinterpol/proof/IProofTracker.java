@@ -23,6 +23,7 @@ import java.util.Set;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 
 /**
  * The proof tracker interface. There are two implementations, one that builds the proof and one that only builds the
@@ -203,9 +204,11 @@ public interface IProofTracker {
 	 *
 	 * @param formula
 	 *            The formula containing free variables annotated with its proof.
+	 * @param vars
+	 *            the variables to quantify
 	 * @return The universally quantified formula annotated with its proof.
 	 */
-	public Term allIntro(Term formula);
+	public Term allIntro(Term formula, TermVariable[] vars);
 
 	/**
 	 * Annotate an asserted formula with its proof {@code (@asserted formula)}.

@@ -3476,9 +3476,6 @@ public class ProofChecker extends NonRecursive {
 			reportError("@allIntro with malformed annotation: " + allApp);
 		}
 		final TermVariable[] vars = (TermVariable[]) varAnnot.getValue();
-		if (vars != origTerm.getFreeVars()) {
-			reportError("@allIntro for wrong variables.");
-		}
 		/* compute the resulting quantified term (! (forall (...) origTerm) :quoted) */
 		final Theory theory = origTerm.getTheory();
 		return theory.annotatedTerm(new Annotation[] { new Annotation(":quoted", null) },
@@ -3643,8 +3640,16 @@ public class ProofChecker extends NonRecursive {
 	}
 
 	boolean checkSplitSubst(final Term[] splitSubst, final Term origTerm, final Term splitTerm) {
-		// origTerm must contain free variables and splitSubst must contain the same number of terms
-		final TermVariable[] vars = origTerm.getFreeVars();
+		// origTerm must be a quoted universally quantified formula
+		final Term unquotedOrigTerm = unquote(origTerm);
+		if (!(unquotedOrigTerm instanceof QuantifiedFormula)) {
+			return false;
+		}
+		final QuantifiedFormula qf = (QuantifiedFormula) unquotedOrigTerm;
+		if (qf.getQuantifier() != QuantifiedFormula.FORALL) {
+			return false;
+		}
+		final TermVariable[] vars = qf.getVariables();
 		if (vars.length != 0 && vars.length == splitSubst.length) {
 			final Map<TermVariable, Term> sigma = new HashMap<>();
 			for (int i = 0; i < vars.length; i++) {
@@ -3653,7 +3658,7 @@ public class ProofChecker extends NonRecursive {
 					sigma.put(vars[i], splitSubst[i]);
 				}
 			}
-			final Term[] subst = substituteInQuantClause(origTerm, sigma);
+			final Term[] subst = substituteInQuantClause(qf.getSubformula(), sigma);
 			return new HashSet<>(Arrays.asList(subst)).equals(new HashSet<>(Arrays.asList(termToClause(splitTerm))));
 		}
 		return false;

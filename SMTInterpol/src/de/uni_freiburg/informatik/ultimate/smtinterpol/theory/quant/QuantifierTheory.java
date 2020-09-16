@@ -583,6 +583,7 @@ public class QuantifierTheory implements ITheory {
 	 *            The quantified literals of the clause.
 	 * @param source
 	 *            The source of the clause.
+	 * @return the result from performing DER if something has changed, null else.
 	 */
 	public DERResult performDestructiveEqualityReasoning(final Term clause, final Literal[] groundLits,
 			final QuantLiteral[] quantLits, final SourceAnnotation source) {

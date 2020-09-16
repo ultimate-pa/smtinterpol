@@ -25,6 +25,7 @@ import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 
 /**
@@ -129,9 +130,9 @@ public class NoopProofTracker implements IProofTracker {
 	}
 
 	@Override
-	public Term allIntro(Term formula) {
+	public Term allIntro(Term formula, TermVariable[] vars) {
 		final Theory theory = formula.getTheory();
 		return theory.annotatedTerm(new Annotation[] { new Annotation(":quoted", null) },
-				theory.forall(formula.getFreeVars(), formula));
+				theory.forall(vars, formula));
 	}
 }
