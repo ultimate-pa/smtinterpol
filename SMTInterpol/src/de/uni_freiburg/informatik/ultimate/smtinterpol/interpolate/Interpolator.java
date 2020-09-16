@@ -1497,6 +1497,36 @@ public class Interpolator extends NonRecursive {
 	}
 
 	/**
+	 * Return a list of terms with descending number of nested function depth.
+	 */
+	ArrayList<Term> orderTerms(final HashSet<Term> terms) {
+		final ArrayList<Term> ordered = new ArrayList<Term>();
+		final HashMap<Term, Integer> info = new HashMap<Term, Integer>();
+
+		// Collect nested function depth for all terms.
+		for (Term t : terms) {
+			ApplicationTerm at = (ApplicationTerm) t;
+
+			if (info.get(at) == null) {
+				info.put(at, getNestingDepth(at, 0));
+			}
+		}
+		// Order terms in descending order of nested function depth.
+		for (Term t : terms) {
+			ApplicationTerm at = (ApplicationTerm) t;
+			int n = 0;
+			for (int i = 0; i < ordered.size(); i++) {
+				if (info.get(at) > info.get(ordered.get(i))) {
+					n = i;
+					break;
+				}
+			}
+			ordered.add(n, at);
+		}
+		return ordered;
+	}
+
+	/**
 	 * Update the color of all non-logical symbols in a given term according to the
 	 * given partition.
 	 */
