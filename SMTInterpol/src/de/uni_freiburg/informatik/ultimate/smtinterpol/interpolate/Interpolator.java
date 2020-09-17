@@ -1643,7 +1643,7 @@ public class Interpolator extends NonRecursive {
 			for (String s : nonSharedSymbols) {
 				HashSet<Term> replace = new HashSet<Term>(subTerms);
 				for (Term sub : subTerms) {
-					if (((ApplicationTerm) sub).getFunction().getName() != s) {
+					if (sub instanceof TermVariable || ((ApplicationTerm) sub).getFunction().getName() != s) {
 						replace.remove(sub);
 					}
 				}
