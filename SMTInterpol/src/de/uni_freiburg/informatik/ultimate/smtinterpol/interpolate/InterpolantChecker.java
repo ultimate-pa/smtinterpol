@@ -119,6 +119,27 @@ public class InterpolantChecker {
 		return interpolant;
 	}
 
+	/**
+	 * Purify a literal and directly fix the emerging purification variables by
+	 * replacing them through constant terms. This is needed to obtain a closed
+	 * formula.
+	 *
+	 * @param literal   The term that needs to be purified.
+	 * @param varToTerm A map from auxiliary variables to their replacement term.
+	 * @return The purified literal with purification variables replaced by constant
+	 *         terms.
+	 */
+	private Term purifyAndFix(Term literal, HashMap<TermVariable, Term> varToTerm,
+			HashMap<TermVariable, Term> varToFreshTerm) {
+		for (Entry<TermVariable, Term> e : varToFreshTerm.entrySet()) {
+			Term term = varToTerm.get(e.getKey());
+			assert term != null;
+			final TermTransformer ipolator = mInterpolator.new TermSubstitutor(term, (Term) e.getValue());
+			literal = ipolator.transform(literal);
+		}
+		return literal;
+	}
+
 	public void checkInductivity(final Term[] literals, final Term[] ipls) {
 		final LogProxy logger = mInterpolator.getLogger();
 		final Theory theory = mInterpolator.mTheory;
