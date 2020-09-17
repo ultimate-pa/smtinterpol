@@ -340,8 +340,15 @@ public class Interpolator extends NonRecursive {
 				interpolants = ipolator.computeInterpolants(leafTermInfo);
 				break;
 			}
-			case ":inst":
-				throw new UnsupportedOperationException("Interpolation not supported for quantified formulae.");
+			case ":inst": {
+				// TODO: Only supports EUF.
+				final CCInterpolator ipolator = new CCInterpolator(this);
+				interpolants = ipolator.interpolateInstantiation(leaf);
+				// Replace non-shared symbols in interpolant.
+				interpolants = replaceNonsharedSymbols(interpolants);
+				// Check for unsupported variables and add quantifiers if necessary.
+				interpolants = addQuantifier(interpolants, new Term[] { leaf });
+			}
 			default:
 				throw new UnsupportedOperationException("Unknown lemma type!");
 			}
