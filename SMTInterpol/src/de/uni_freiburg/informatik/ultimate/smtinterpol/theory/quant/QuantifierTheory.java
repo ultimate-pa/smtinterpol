@@ -94,6 +94,7 @@ public class QuantifierTheory implements ITheory {
 	long mNumInstancesProduced, mNumInstancesDER, mNumInstancesProducedCP, mNumInstancesProducedFC;
 	private long mNumCheckpoints, mNumCheckpointsWithNewEval, mNumConflicts, mNumProps, mNumFinalcheck;
 	private long mCheckpointTime, mFindEmatchingTime, mFinalCheckTime, mEMatchingTime, mDawgTime;
+	int[] mNumInstancesOfAge, mNumInstancesOfAgeFC;
 
 	// Options
 	InstantiationMethod mInstantiationMethod;
@@ -125,6 +126,9 @@ public class QuantifierTheory implements ITheory {
 
 		mPendingInstances = new LinkedHashMap<>();
 		mDecideLevelOfLastCheckpoint = mEngine.getDecideLevel();
+
+		mNumInstancesOfAge = new int[Integer.SIZE];
+		mNumInstancesOfAgeFC = new int[Integer.SIZE];
 	}
 
 	@Override
@@ -318,6 +322,9 @@ public class QuantifierTheory implements ITheory {
 		logger.info("Quant: DER produced %d ground clause(s).", mNumInstancesDER);
 		logger.info("Quant: Instances produced: %d (Checkpoint: %d, Final check: %d)", mNumInstancesProduced,
 				mNumInstancesProducedCP, mNumInstancesProducedFC);
+		logger.info(
+				"Quant: Subs of age 0, 1, 2-3, 4-7, ... : %s, (Final Check: %s)",
+				Arrays.toString(mNumInstancesOfAge), Arrays.toString(mNumInstancesOfAgeFC));
 		logger.info("Quant: Conflicts: %d Props: %d Checkpoints (with new evaluation): %d (%d) Final Checks: %d",
 				mNumConflicts, mNumProps, mNumCheckpoints, mNumCheckpointsWithNewEval, mNumFinalcheck);
 		logger.info(
@@ -390,7 +397,11 @@ public class QuantifierTheory implements ITheory {
 				new Object[][] { { "DER ground results", mNumInstancesDER },
 						{ "Instances produced", mNumInstancesProduced },
 						{ "thereof in checkpoint", mNumInstancesProducedCP },
-						{ "and in final check", mNumInstancesProducedFC }, { "Conflicts", mNumConflicts },
+						{ "and in final check", mNumInstancesProducedFC },
+						{ "Subs of age 0, 1, 2-3, 4-7, ...",
+								Arrays.toString(mNumInstancesOfAge) },
+						{ "thereof in final check", Arrays.toString(mNumInstancesOfAgeFC) },
+						{ "Conflicts", mNumConflicts },
 						{ "Propagations", mNumProps }, { "Checkpoints", mNumCheckpoints },
 						{ "Checkpoints with new evaluation", mNumCheckpointsWithNewEval },
 						{ "Final Checks", mNumFinalcheck },
@@ -398,7 +409,6 @@ public class QuantifierTheory implements ITheory {
 								new Object[][] { { "Checkpoint", mCheckpointTime },
 										{ "Find E-matching", mFindEmatchingTime }, { "E-Matching", mEMatchingTime },
 										{ "Final Check", mFinalCheckTime } } } } };
-
 	}
 
 	/**
