@@ -186,23 +186,28 @@ public class MusEnumerationScript extends WrapperScript {
 
 		final Translator translator = new Translator();
 
-		final long timeoutForReMus = getEnumerationTimeout();
-		final long timeoutForHeuristic = getHeuristicTimeout();
+		final long enumerationTimeout = getEnumerationTimeout();
+		final long heuristicTimeout = getHeuristicTimeout();
 
-		if (timeoutForReMus > 0) {
-			mHandler.setTimeout(timeoutForReMus);
+		if (enumerationTimeout > 0) {
+			mHandler.setTimeout(enumerationTimeout);
 		}
 
 		long elapsedTime = System.currentTimeMillis();
-		final ArrayList<MusContainer> muses = executeReMus(translator);
+		final ArrayList<MusContainer> muses;
+		if (mInterpolationHeuristic.getValue() == HeuristicsType.FIRST) {
+			muses = shrinkVanillaUnsatCore(translator);
+		}else {
+			muses = executeReMus(translator);
+		}
 		elapsedTime = System.currentTimeMillis() - elapsedTime;
 
-		if (mLogAdditionalInformation.getValue() == true) {
+		if (mLogAdditionalInformation.getValue()) {
 			String value;
-			if (timeoutForReMus <= 0) {
+			if (enumerationTimeout <= 0) {
 				value = "Unlimited (no timeout set)";
 			} else {
-				value = Long.toString(timeoutForReMus);
+				value = Long.toString(enumerationTimeout);
 			}
 			mLogger.fatal("Timeout: " + value);
 			mLogger.fatal("Cardinality of Constraint set: " + translator.getNumberOfConstraints());
@@ -211,13 +216,12 @@ public class MusEnumerationScript extends WrapperScript {
 		}
 		mHandler.clearTimeout();
 
-		if (muses.isEmpty()) {
-			if (mLogAdditionalInformation.getValue() == true
-					&& ((boolean) getOption(SMTLIBConstants.PRODUCE_UNSAT_CORES))) {
+		if (muses.isEmpty() && mLogAdditionalInformation.getValue()) {
+			mLogger.fatal("Timeout for enumeration exceeded before any muses could be found.");
+			mLogger.fatal("Heuristic: None (UC is from Vanilla-SMTInterpol)");
+			if (((boolean) getOption(SMTLIBConstants.PRODUCE_UNSAT_CORES))) {
 				final MusContainer container =
 						new MusContainer(translator.translateToBitSet(mScript.getUnsatCore()), null);
-				mLogger.fatal("Timeout for enumeration exceeded before any muses could be found.");
-				mLogger.fatal("Heuristic: None (UC is from Vanilla-SMTInterpol)");
 				mLogger.fatal(
 						"Disclaimer: Vanilla-UC information is only correct, if every asserted Term was annotated with a name");
 				mLogger.fatal("Vanilla-UC has size: " + Heuristics.size(container));
@@ -229,15 +233,15 @@ public class MusEnumerationScript extends WrapperScript {
 			return sequenceOfInterpolants;
 		}
 
-		if (timeoutForHeuristic > 0) {
-			mHandler.setTimeout(timeoutForHeuristic);
+		if (heuristicTimeout > 0) {
+			mHandler.setTimeout(heuristicTimeout);
 		}
 
 		elapsedTime = System.currentTimeMillis();
 		final MusContainer chosenMus = chooseMusAccordingToHeuristic(muses, mHandler);
 		elapsedTime = System.currentTimeMillis();
 
-		if (mLogAdditionalInformation.getValue() == true) {
+		if (mLogAdditionalInformation.getValue()) {
 			mLogger.fatal("Time needed for Heuristics: " + elapsedTime);
 		}
 
@@ -285,10 +289,15 @@ public class MusEnumerationScript extends WrapperScript {
 		}
 
 		long elapsedTime = System.currentTimeMillis();
-		final ArrayList<MusContainer> muses = executeReMus(translator);
+		final ArrayList<MusContainer> muses;
+		if (mInterpolationHeuristic.getValue() == HeuristicsType.FIRST) {
+			muses = shrinkVanillaUnsatCore(translator);
+		}else {
+			muses = executeReMus(translator);
+		}
 		elapsedTime = System.currentTimeMillis() - elapsedTime;
 
-		if (mLogAdditionalInformation.getValue() == true) {
+		if (mLogAdditionalInformation.getValue()) {
 			String value;
 			if (timeoutForReMus <= 0) {
 				value = "Unlimited (no timeout set)";
@@ -306,7 +315,7 @@ public class MusEnumerationScript extends WrapperScript {
 
 			final Term[] alternativeUnsatCore = mScript.getUnsatCore();
 
-			if (mLogAdditionalInformation.getValue() == true) {
+			if (mLogAdditionalInformation.getValue()) {
 				mLogger.fatal("Enumeration timeout exceeded. Returning Unsat Core of wrapped Script.");
 				final MusContainer container =
 						new MusContainer(translator.translateToBitSet(alternativeUnsatCore), null);
@@ -329,7 +338,7 @@ public class MusEnumerationScript extends WrapperScript {
 		final MusContainer chosenMus = chooseMusAccordingToHeuristic(muses, mHandler);
 		elapsedTime = System.currentTimeMillis();
 
-		if (mLogAdditionalInformation.getValue() == true) {
+		if (mLogAdditionalInformation.getValue()) {
 			mLogger.fatal("Time needed for Heuristics: " + elapsedTime);
 		}
 
@@ -354,13 +363,7 @@ public class MusEnumerationScript extends WrapperScript {
 
 		final TimeoutHandler handlerForReMus = new TimeoutHandler(mHandler);
 		final DPLLEngine engine = new DPLLEngine(mLogger, handlerForReMus);
-		final Map<String, Object> remusOptions = createSMTInterpolOptionsForReMus();
-		final SMTInterpol smtInterpol = (SMTInterpol) mScript;
-		final TerminationRequest previousTerminationRequest = smtInterpol.getTerminationRequest();
-		smtInterpol.setTerminationRequest(handlerForReMus);
-		final Script scriptForReMus = new SMTInterpol((SMTInterpol) mScript, remusOptions, CopyMode.CURRENT_VALUE);
-
-		scriptForReMus.push(1);
+		final Script scriptForReMus = createScriptForMuses((SMTInterpol) mScript, handlerForReMus);
 
 		registerTermsForEnumeration(mRememberedAssertions, translator, engine, scriptForReMus);
 		resetCustomNameId();
@@ -372,27 +375,71 @@ public class MusEnumerationScript extends WrapperScript {
 		workingSet.flip(0, nrOfConstraints);
 
 		LogProxy logForReMus;
-		if (mLogAdditionalInformation.getValue() == true) {
+		if (mLogAdditionalInformation.getValue()) {
 			logForReMus = mLogger;
 		} else {
 			logForReMus = null;
 		}
 		final ReMus remus = new ReMus(solver, unexploredMap, workingSet, handlerForReMus, 0, mRandom,
 				mUnknownAllowed.getValue(), logForReMus);
-		final ArrayList<MusContainer> muses;
-		if (mInterpolationHeuristic.getValue() == HeuristicsType.FIRST) {
-			muses = new ArrayList<>();
-			if (remus.hasNext()) {
-				muses.add(remus.next());
-			}
-		} else {
-			muses = remus.enumerate();
-		}
-		remus.resetSolver();
+		final ArrayList<MusContainer> muses = remus.enumerate();
 
-		scriptForReMus.pop(1);
-		smtInterpol.setTerminationRequest(previousTerminationRequest);
+		letScriptForReMusRetire(scriptForReMus, remus);
+
 		return muses;
+	}
+
+	private ArrayList<MusContainer> shrinkVanillaUnsatCore(final Translator translator){
+		final Term[] unsatCore = mScript.getUnsatCore();
+		final ArrayList<MusContainer> muses = new ArrayList<>();
+
+		final TerminationRequest requestForShrinker = mHandler;
+		final Script scriptForShrinker = createScriptForMuses((SMTInterpol) mScript, requestForShrinker);
+		registerTermsForShrinking(mRememberedAssertions, translator, scriptForShrinker);
+		resetCustomNameId();
+
+		final ConstraintAdministrationSolver solver =
+				new ConstraintAdministrationSolver(scriptForShrinker, translator);
+
+		final BitSet workingSet = translator.translateToBitSet(unsatCore);
+
+		final MusContainer firstMus =
+				Shrinking.shrink(solver, workingSet, requestForShrinker, mRandom, mUnknownAllowed.getValue());
+		if (firstMus == null) {
+			//leave muses empty
+		}else {
+			muses.add(firstMus);
+			if (mLogAdditionalInformation.getValue()) {
+				final MusContainer containsVanillaUc = new MusContainer(workingSet, null);
+				final int sizeDiff = Heuristics.size(containsVanillaUc) - Heuristics.size(firstMus);
+				final int depthDiff = Heuristics.depth(containsVanillaUc) - Heuristics.depth(firstMus);
+				final int widthDiff = Heuristics.width(containsVanillaUc) - Heuristics.width(firstMus);
+				mLogger.fatal("Difference in size: " + sizeDiff);
+				mLogger.fatal("Difference in depth: " + depthDiff);
+				mLogger.fatal("Difference in width: " + widthDiff);
+			}
+		}
+		letScriptForShrinkerRetire(scriptForShrinker, solver);
+		return muses;
+	}
+
+	/**
+	 * Uses the cloning constructor of SMTInterpol to clone the given smtInterpol and thereby set up a new Script for
+	 * MUS enumeration. The given TerminationRequest will be set for the newly created Script. The intended
+	 * TerminationRequest is the TimeoutHandler that is given to ReMus.
+	 *
+	 * Be sure to use {@link #letScriptForReMusRetire(Script, ReMus)} or
+	 * {@link #letScriptForShrinkerRetire(Script, ConstraintAdministrationSolver)} (depending on what you intended to do
+	 * with the script) after you are done with this Script! Otherwise the original smtInterpol could become
+	 * inconsistent.
+	 */
+	private Script createScriptForMuses(final SMTInterpol smtInterpol, final TerminationRequest terminationRequest) {
+		final Map<String, Object> remusOptions = createSMTInterpolOptionsForReMus();
+		final SMTInterpol scriptForReMus = new SMTInterpol(smtInterpol, remusOptions, CopyMode.CURRENT_VALUE);
+		scriptForReMus.setTerminationRequest(terminationRequest);
+		scriptForReMus.push(1);
+
+		return scriptForReMus;
 	}
 
 	private Map<String, Object> createSMTInterpolOptionsForReMus() {
@@ -402,6 +449,20 @@ public class MusEnumerationScript extends WrapperScript {
 		remusOptions.put(SMTLIBConstants.INTERACTIVE_MODE, true);
 		remusOptions.put(SMTLIBConstants.PRODUCE_UNSAT_CORES, true);
 		return remusOptions;
+	}
+
+	/**
+	 * Use this method after you are done with using the Script that has been created for ReMus.
+	 */
+	private void letScriptForReMusRetire(final Script scriptForReMus, final ReMus remus) {
+		remus.resetSolver();
+		scriptForReMus.pop(1);
+	}
+
+	private void letScriptForShrinkerRetire(final Script scriptForShrinker,
+			final ConstraintAdministrationSolver solver) {
+		solver.reset();
+		scriptForShrinker.pop(1);
 	}
 
 	private boolean hasName(final Term term) {
@@ -456,9 +517,20 @@ public class MusEnumerationScript extends WrapperScript {
 			final NamedAtom atom = new NamedAtom(annoTerm, 0);
 			atom.setPreferredStatus(atom.getAtom());
 			atom.lockPreferredStatus();
-			engine.addAtom(atom);
+			if (engine != null) {
+				engine.addAtom(atom);
+			}
 			translator.declareConstraint(atom);
 		}
+	}
+
+	/**
+	 * Essentially, its {@link #registerTermsForEnumeration(ArrayList, Translator, DPLLEngine, Script)}, but without the
+	 * DPLLEngine, because the registration at a DPLLEngine is not necessary if one only needs to shrink.
+	 */
+	private void registerTermsForShrinking(final ArrayList<Term> terms, final Translator translator,
+			final Script scriptForReMus) {
+		registerTermsForEnumeration(terms, translator, null, scriptForReMus);
 	}
 
 	private MusContainer chooseMusAccordingToHeuristic(final ArrayList<MusContainer> muses,

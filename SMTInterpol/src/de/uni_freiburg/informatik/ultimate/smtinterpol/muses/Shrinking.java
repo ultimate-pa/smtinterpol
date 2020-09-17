@@ -134,4 +134,76 @@ public class Shrinking {
 		return shrink(solver, workingSet, map, null, rnd, unknownAllowed);
 	}
 
+	/**
+	 * A variation of shrink, which does not use an UnexploredMap.
+	 */
+	public static MusContainer shrink(final ConstraintAdministrationSolver solver, final BitSet workingConstraints,
+			final TerminationRequest request, final Random rnd, final boolean unknownAllowed)
+			throws SMTLIBException {
+		solver.pushRecLevel();
+		if (!MusUtils.contains(workingConstraints, solver.getCrits())) {
+			throw new SMTLIBException("WorkingConstraints is corrupted! It should contain all crits.");
+		}
+
+		final BitSet unknown = (BitSet) workingConstraints.clone();
+		unknown.andNot(solver.getCrits());
+
+		final ArrayList<Integer> unknownPermutated = MusUtils.randomPermutation(unknown, rnd);
+		int unknownIndex;
+		while (!unknownPermutated.isEmpty()) {
+			unknownIndex = unknownPermutated.get(unknownPermutated.size() - 1);
+			unknownPermutated.remove(unknownPermutated.size() - 1);
+			if (!unknown.get(unknownIndex)) {
+				continue;
+			}
+			for (int j = unknown.nextSetBit(0); j >= 0; j = unknown.nextSetBit(j + 1)) {
+				if (j == unknownIndex) {
+					continue;
+				}
+				solver.assertUnknownConstraint(j);
+			}
+
+			unknown.clear(unknownIndex);
+			switch (solver.checkSat()) {
+			case UNSAT:
+				final BitSet core = solver.getUnsatCore();
+				unknown.and(core);
+				solver.clearUnknownConstraints();
+				break;
+			case SAT:
+				solver.clearUnknownConstraints();
+				solver.assertCriticalConstraint(unknownIndex);
+				break;
+			case UNKNOWN:
+				if (request != null && request.isTerminationRequested()) {
+					return null;
+				}
+				if (!unknownAllowed) {
+					throw new SMTLIBException(
+							"LBool.UNKNOWN occured in the shrinking process, despite not being explicitly allowed.");
+				}
+				// Treat UNKNOWN as SAT (without trying to get an extension)
+				final BitSet isAsserted = solver.getCrits();
+				isAsserted.or(unknown);
+				solver.clearUnknownConstraints();
+				solver.assertCriticalConstraint(unknownIndex);
+			}
+		}
+		switch (solver.checkSat()) {
+		case UNSAT:
+			break;
+		case SAT:
+			throw new SMTLIBException("Something went wrong, the set of all crits should be unsatisfiable!");
+		case UNKNOWN:
+			if (request != null && request.isTerminationRequested()) {
+				return null;
+			}
+			throw new SMTLIBException("Solver returns UNKNOWN for final set in shrink procedure.");
+		}
+		final Term proofOfMus = solver.getProof();
+		solver.clearUnknownConstraints();
+		final BitSet mus = solver.getCrits();
+		solver.popRecLevel();
+		return new MusContainer(mus, proofOfMus);
+	}
 }
