@@ -193,14 +193,14 @@ public class MusEnumerationScript extends WrapperScript {
 			mHandler.setTimeout(enumerationTimeout);
 		}
 
-		long elapsedTime = System.currentTimeMillis();
+		long elapsedTime = System.nanoTime();
 		final ArrayList<MusContainer> muses;
 		if (mInterpolationHeuristic.getValue() == HeuristicsType.FIRST) {
 			muses = shrinkVanillaUnsatCore(translator);
 		}else {
 			muses = executeReMus(translator);
 		}
-		elapsedTime = System.currentTimeMillis() - elapsedTime;
+		elapsedTime = (System.nanoTime() - elapsedTime) / 1000000;
 
 		if (mLogAdditionalInformation.getValue()) {
 			String value;
@@ -237,9 +237,9 @@ public class MusEnumerationScript extends WrapperScript {
 			mHandler.setTimeout(heuristicTimeout);
 		}
 
-		elapsedTime = System.currentTimeMillis();
+		elapsedTime = System.nanoTime();
 		final MusContainer chosenMus = chooseMusAccordingToHeuristic(muses, mHandler);
-		elapsedTime = System.currentTimeMillis();
+		elapsedTime = (System.nanoTime() - elapsedTime) / 1000000;
 
 		if (mLogAdditionalInformation.getValue()) {
 			mLogger.fatal("Time needed for Heuristics: " + elapsedTime);
@@ -288,14 +288,14 @@ public class MusEnumerationScript extends WrapperScript {
 			mHandler.setTimeout(timeoutForReMus);
 		}
 
-		long elapsedTime = System.currentTimeMillis();
+		long elapsedTime = System.nanoTime();
 		final ArrayList<MusContainer> muses;
 		if (mInterpolationHeuristic.getValue() == HeuristicsType.FIRST) {
 			muses = shrinkVanillaUnsatCore(translator);
 		}else {
 			muses = executeReMus(translator);
 		}
-		elapsedTime = System.currentTimeMillis() - elapsedTime;
+		elapsedTime = (System.nanoTime() - elapsedTime) / 1000000;
 
 		if (mLogAdditionalInformation.getValue()) {
 			String value;
@@ -334,9 +334,9 @@ public class MusEnumerationScript extends WrapperScript {
 			mHandler.setTimeout(timeoutForHeuristic);
 		}
 
-		elapsedTime = System.currentTimeMillis();
+		elapsedTime = System.nanoTime();
 		final MusContainer chosenMus = chooseMusAccordingToHeuristic(muses, mHandler);
-		elapsedTime = System.currentTimeMillis();
+		elapsedTime = (System.nanoTime() - elapsedTime) / 1000000;
 
 		if (mLogAdditionalInformation.getValue()) {
 			mLogger.fatal("Time needed for Heuristics: " + elapsedTime);

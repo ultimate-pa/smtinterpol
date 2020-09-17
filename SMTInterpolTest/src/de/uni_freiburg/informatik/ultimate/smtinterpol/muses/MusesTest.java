@@ -1404,7 +1404,6 @@ public class MusesTest {
 		script.push(1);
 		setupUnsatSet5(script);
 		Assert.assertTrue(LBool.UNSAT == script.checkSat());
-		// Just make sure the internal asserts dont throw exceptions and the log looks good.
 		script.getUnsatCore();
 	}
 
@@ -1419,8 +1418,14 @@ public class MusesTest {
 		script.push(1);
 		setupUnsatSet5AllConstraintsNamed(script);
 		Assert.assertTrue(LBool.UNSAT == script.checkSat());
-		// Just make sure the internal asserts dont throw exceptions and the log looks good.
-		script.getUnsatCore();
+		// Just make sure the internal asserts don't throw exceptions and the log looks good, the interpolant makes no
+		// sense
+		final Term[] core = script.getUnsatCore();
+		for (final Term term : core) {
+			System.out.println(term.toString());
+		}
+		//Not ready yet, since getUnsatCore returns nonstandard unsat cores.
+		//script.getInterpolants(core);
 	}
 
 	@Test
@@ -1633,6 +1638,7 @@ public class MusesTest {
 		for (final Term term : core) {
 			System.out.println(term.toString());
 		}
+		//This interpolant makes no sense and is only for testing.
 		script.getInterpolants(core);
 	}
 }
