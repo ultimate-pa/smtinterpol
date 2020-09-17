@@ -349,7 +349,8 @@ public class InstantiationManager {
 						if (unitClause != null) { // TODO Some true literals are not detected at the moment.
 							final int numUndef = unitClause.countAndSetUndefLits();
 							if (numUndef >= 0) {
-								mQuantTheory.getLogger().debug("Found inst of age %d", getMaxAge(subs));
+								assert !Config.EXPENSIVE_ASSERTS || getMaxAge(subs) == mSubsAgeForFinalCheck;
+								mQuantTheory.getLogger().debug("Found inst of age %d", mSubsAgeForFinalCheck);
 								return Collections.singleton(unitClause);
 							}
 						}
@@ -381,7 +382,8 @@ public class InstantiationManager {
 				if (inst != null) {
 					final int numUndef = inst.countAndSetUndefLits();
 					if (numUndef >= 0) {
-						mQuantTheory.getLogger().debug("Found inst of age %d", getMaxAge(cand.getSecond()));
+						assert !Config.EXPENSIVE_ASSERTS || getMaxAge(cand.getSecond()) == mSubsAgeForFinalCheck;
+						mQuantTheory.getLogger().debug("Found inst of age %d", mSubsAgeForFinalCheck);
 						return Collections.singleton(inst);
 					}
 				}
@@ -1196,6 +1198,7 @@ public class InstantiationManager {
 		} else if (origin.equals(InstanceOrigin.FINALCHECK)) {
 			mQuantTheory.mNumInstancesProducedFC++;
 		}
+		recordSubstAgeForStats(getMaxAge(subs), origin.equals(InstanceOrigin.FINALCHECK));
 		return inst;
 	}
 
@@ -1375,6 +1378,15 @@ public class InstantiationManager {
 			} else {
 				return InstanceValue.ONE_UNDEF;
 			}
+		}
+	}
+
+	private void recordSubstAgeForStats(final int age, final boolean isInFinalCheck) {
+		assert age >= 0;
+		final int index = Integer.SIZE - Integer.numberOfLeadingZeros(age);
+		mQuantTheory.mNumInstancesOfAge[index]++;
+		if (isInFinalCheck) {
+			mQuantTheory.mNumInstancesOfAgeFC[index]++;
 		}
 	}
 
