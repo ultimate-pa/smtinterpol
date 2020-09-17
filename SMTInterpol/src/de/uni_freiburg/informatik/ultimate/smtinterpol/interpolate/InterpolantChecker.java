@@ -20,6 +20,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -95,6 +96,27 @@ public class InterpolantChecker {
 			}
 		};
 		return substitutor.transform(interpolant);
+	}
+
+	/**
+	 * Fix auxiliary variables by replacing them through constant terms. This is
+	 * needed to obtain a closed formula.
+	 *
+	 * @param interpolant The term in which variables should be replaced.
+	 * @param varToTerm   A map from auxiliary variables to their replacement term.
+	 * @return The term with variables replaced by constant terms.
+	 */
+	private Term fixVars(Term interpolant, HashMap<TermVariable, Term> varToTerm) {
+		HashSet<Term> sub = mInterpolator.getAllSubTerms(interpolant);
+
+		for (Entry<TermVariable, Term> e : varToTerm.entrySet()) {
+			if (sub.contains(e.getKey())) {
+				final TermTransformer ipolator = mInterpolator.new TermSubstitutor((Term) e.getKey(),
+						(Term) e.getValue());
+				interpolant = ipolator.transform(interpolant);
+			}
+		}
+		return interpolant;
 	}
 
 	public void checkInductivity(final Term[] literals, final Term[] ipls) {
