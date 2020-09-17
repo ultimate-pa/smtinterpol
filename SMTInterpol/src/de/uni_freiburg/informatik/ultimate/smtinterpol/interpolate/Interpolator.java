@@ -959,16 +959,17 @@ public class Interpolator extends NonRecursive {
 		todo.addLast(literal);
 		while (!todo.isEmpty()) {
 			final Term term = todo.removeLast();
-			if (subTerms.add(term)) {
-				if (term instanceof ApplicationTerm) {
-					final ApplicationTerm appTerm = (ApplicationTerm) term;
-					for (final Term sub : appTerm.getParameters()) {
-						todo.addLast(sub);
-					}
+			if (term instanceof ApplicationTerm) {
+				final ApplicationTerm appTerm = (ApplicationTerm) term;
+				if (!appTerm.getFunction().equals(mTheory.mNot)) {
+					subTerms.add(appTerm);
 				}
-				if (term instanceof AnnotatedTerm) {
-					todo.add(((AnnotatedTerm) term).getSubterm());
+				for (final Term sub : appTerm.getParameters()) {
+					todo.addLast(sub);
 				}
+			}
+			if (term instanceof AnnotatedTerm) {
+				todo.add(((AnnotatedTerm) term).getSubterm());
 			}
 		}
 		return subTerms;
