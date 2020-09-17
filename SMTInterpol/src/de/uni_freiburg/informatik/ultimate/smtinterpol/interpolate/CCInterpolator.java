@@ -442,6 +442,77 @@ public class CCInterpolator {
 		return interpolants;
 	}
 
+	public Term[] interpolateInstantiation(final Term proofTerm) {
+		assert mInterpolator.getClauseTermInfo(proofTerm).getLemmaType().equals(":inst");
+
+		final Term[] interpolants = new Term[mNumInterpolants];
+		final InterpolatorClauseTermInfo proofTermInfo = mInterpolator.getClauseTermInfo(proofTerm);
+
+		// The literals in the instantiation lemma.
+		final Term[] lits = proofTermInfo.getLiterals();
+
+		// Get occurrence of quantified literal.
+		Term quantLit = mInterpolator.getAtom(lits[0]);
+		Occurrence quantLitInfo = mInterpolator.getAtomOccurenceInfo(quantLit);
+
+		for (int part = 0; part < mNumInterpolants; part++) {
+			final ArrayDeque<Term> terms = new ArrayDeque<>(lits.length);
+			if (quantLitInfo.isALocal(part)) {
+				// Instance is in A.
+				for (int i = 0; i < lits.length; i++) {
+					Term atom = mInterpolator.getAtom(lits[i]);
+					Term unquoted = mInterpolator.unquote(atom);
+					LitInfo litInfo = mInterpolator.getAtomOccurenceInfo(atom);
+					// Collect all B-local or shared literals. (We do not explicitly negate them, as
+					// literals in the lemma are already the negation of literals in the conflict.)
+					if (litInfo.isBorShared(part)) {
+						terms.add(lits[i]);
+					} else if (litInfo.isMixed(part)) {
+						// Collect B-part from splitting mixed literal.
+						TermVariable mixedVar = litInfo.getMixedVar();
+						Term sideB = litInfo.getLhsOccur().isBLocal(part)
+								? ((ApplicationTerm) unquoted).getParameters()[0]
+								: ((ApplicationTerm) unquoted).getParameters()[1];
+
+						final String op = mInterpolator.isNegatedTerm(lits[i]) ? "=" : "EQ";
+						terms.add(mTheory.not(mTheory.term(op, mixedVar, sideB)));
+					}
+				}
+				if (terms.isEmpty()) {
+					interpolants[part] = mTheory.mFalse;
+				} else {
+					interpolants[part] = mTheory.or(terms.toArray(new Term[terms.size()]));
+				}
+			} else {
+				// Instance is in B.
+				for (int i = 0; i < lits.length; i++) {
+					Term atom = mInterpolator.getAtom(lits[i]);
+					Term unquoted = mInterpolator.unquote(atom);
+					LitInfo litInfo = mInterpolator.getAtomOccurenceInfo(atom);
+					// Collect all A-local or shared literals. (We need to explicitly negate them,
+					// as we need the conflict literal.)
+					if (litInfo.isALocal(part)) {
+						terms.add(mTheory.not(lits[i]));
+					} else if (litInfo.isMixed(part)) {
+						// Collect A-part from splitting mixed literal.
+						TermVariable mixedVar = litInfo.getMixedVar();
+						Term sideA = litInfo.getLhsOccur().isALocal(part)
+								? ((ApplicationTerm) unquoted).getParameters()[0]
+								: ((ApplicationTerm) unquoted).getParameters()[1];
+						final String op = mInterpolator.isNegatedTerm(lits[i]) ? "=" : "EQ";
+						terms.add(mTheory.term(op, mixedVar, sideA));
+					}
+				}
+				if (terms.isEmpty()) {
+					interpolants[part] = mTheory.mTrue;
+				} else {
+					interpolants[part] = mTheory.and(terms.toArray(new Term[terms.size()]));
+				}
+			}
+		}
+		return interpolants;
+	}
+
 	public Term[] computeInterpolants(final InterpolatorClauseInfo proofTermInfo) {
 		// Collect the literal infos for all equalities in the clause.
 		mEqualityOccurrences = new HashMap<>();
