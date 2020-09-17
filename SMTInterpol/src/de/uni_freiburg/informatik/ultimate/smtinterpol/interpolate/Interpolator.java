@@ -26,8 +26,10 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
@@ -1785,6 +1787,58 @@ public class Interpolator extends NonRecursive {
 			}
 		}
 		return ordered;
+	}
+
+	/**
+	 * Add quantifiers to the provisional interpolants for a given clause if the
+	 * provisional interpolant contains auxiliary variables that are not supported
+	 * by the clause.
+	 * 
+	 * @param interpolants Set of provisional interpolants for the clause
+	 * @param clause       The clause for which the interpolants should be computed
+	 * @return The modified interpolant.
+	 */
+	private Term[] addQuantifier(final Term[] interpolants, Term[] clause) {
+		ArrayList<TermVariable> vars = new ArrayList<TermVariable>();
+		HashMap<TermVariable, Term> termToAuxEq = (HashMap<TermVariable, Term>) mMixedTermAuxEq.entrySet().stream()
+				.collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
+		HashMap<TermVariable, Term> mapUnsupported = new HashMap<TermVariable, Term>();
+
+		if (termToAuxEq.isEmpty()) {
+			return interpolants;
+		}
+		// Get the list of mixed-term auxiliary variables introduced for the clause.
+		vars.addAll((Collection<? extends TermVariable>) termToAuxEq.keySet());
+
+		// Collect those auxiliary variables not supported by the clause.
+		HashSet<TermVariable> unsupported = getUnsupportedVariables(vars, clause);
+		if (unsupported.isEmpty()) {
+			return interpolants;
+		}
+
+		// Store mapping from variable to term for unsupported variables.
+		for (TermVariable tv : unsupported) {
+			mapUnsupported.put(tv, termToAuxEq.get(tv));
+		}
+
+		// Sort unsupported variables in dependency order.
+		List<TermVariable> ordered = sortVariables(mapUnsupported);
+
+		// Insert quantifiers for unsupported variables in inverse dependency order.
+		for (int i = 0; i < mNumInterpolants; i++) {
+			for (int j = ordered.size() - 1; j >= 0; j--) {
+				// Get term that was replaced by the variable
+				String outermost = ((ApplicationTerm) mapUnsupported.get(ordered.get(j))).getFunction().getName();
+
+				// Add quantifier according to color of outermost function symbol.
+				if (mSymbolOccurrenceInfos.get(outermost).isALocal(i)) {
+					interpolants[i] = mTheory.exists(new TermVariable[] { ordered.get(j) }, interpolants[i]);
+				} else {
+					interpolants[i] = mTheory.forall(new TermVariable[] { ordered.get(j) }, interpolants[i]);
+				}
+			}
+		}
+		return interpolants;
 	}
 
 	public boolean isNegatedTerm(final Term literal) {
