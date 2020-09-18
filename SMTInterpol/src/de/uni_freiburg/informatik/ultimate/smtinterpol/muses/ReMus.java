@@ -308,6 +308,10 @@ public class ReMus implements Iterator<MusContainer> {
 
 	private void handleUnexploredIsUnsat() {
 		mSolver.pushRecLevel();
+
+		if (mLogger != null) {
+			mLogger.fatal("Now shrinking...");
+		}
 		mNextMus = Shrinking.shrink(mSolver, mMaxUnexplored, mMap, mTimeoutHandler, mRnd, mUnknownAllowed);
 		mSolver.popRecLevel();
 		if (mNextMus == null) {

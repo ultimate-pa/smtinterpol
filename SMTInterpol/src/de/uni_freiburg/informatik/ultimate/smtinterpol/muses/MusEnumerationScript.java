@@ -173,7 +173,10 @@ public class MusEnumerationScript extends WrapperScript {
 	 * {@link #setOption(String, Object)}
 	 *
 	 * This method is only available if proof production is enabled. To enable proof production, call
-	 * setOption(":produce-proofs",true).
+	 * setOption(":produce-proofs",true). For the FIRST Heuristic, unsat core production must be enabled. To enable
+	 * unsat core production, call setOption(":produce-unsat-cores", true). Also, if unsat core production is turned on,
+	 * in case the script is not able to enumerate a MUS and logging is turned on, info about the vanilla unsat core is
+	 * logged.
 	 */
 	@Override
 	public Term[] getInterpolants(final Term[] partition, final int[] startOfSubtree) {
@@ -182,6 +185,9 @@ public class MusEnumerationScript extends WrapperScript {
 					"Asserted terms must be determined to be unsatisfiable before an interpolant can be generated. Call checkSat to determine satisfiability.");
 		} else if (!((boolean) getOption(SMTLIBConstants.PRODUCE_PROOFS))) {
 			throw new SMTLIBException("Proof production must be enabled (you can do this via setOption).");
+		} else if (!((boolean) getOption(SMTLIBConstants.PRODUCE_UNSAT_CORES))
+				&& mInterpolationHeuristic.getValue() == HeuristicsType.FIRST) {
+			throw new SMTLIBException("For the FIRST Heuristic, unsat core production must be enabled.");
 		}
 
 		final Translator translator = new Translator();
@@ -197,7 +203,7 @@ public class MusEnumerationScript extends WrapperScript {
 		final ArrayList<MusContainer> muses;
 		if (mInterpolationHeuristic.getValue() == HeuristicsType.FIRST) {
 			muses = shrinkVanillaUnsatCore(translator);
-		}else {
+		} else {
 			muses = executeReMus(translator);
 		}
 		elapsedTime = (System.nanoTime() - elapsedTime) / 1000000;
@@ -266,7 +272,9 @@ public class MusEnumerationScript extends WrapperScript {
 	 *
 	 * This method is only available if proof production and unsat core production is enabled. To enable proof
 	 * production, call setOption(":produce-proofs",true). To enable unsat core production, call
-	 * setOption(":produce-unsat-cores", true).
+	 * setOption(":produce-unsat-cores", true).Also, if unsat core production is turned on,
+	 * in case the script is not able to enumerate a MUS and logging is turned on, info about the vanilla unsat core is
+	 * logged.
 	 */
 	@Override
 	public Term[] getUnsatCore() {
@@ -292,7 +300,7 @@ public class MusEnumerationScript extends WrapperScript {
 		final ArrayList<MusContainer> muses;
 		if (mInterpolationHeuristic.getValue() == HeuristicsType.FIRST) {
 			muses = shrinkVanillaUnsatCore(translator);
-		}else {
+		} else {
 			muses = executeReMus(translator);
 		}
 		elapsedTime = (System.nanoTime() - elapsedTime) / 1000000;
@@ -389,7 +397,7 @@ public class MusEnumerationScript extends WrapperScript {
 		return muses;
 	}
 
-	private ArrayList<MusContainer> shrinkVanillaUnsatCore(final Translator translator){
+	private ArrayList<MusContainer> shrinkVanillaUnsatCore(final Translator translator) {
 		final Term[] unsatCore = mScript.getUnsatCore();
 		final ArrayList<MusContainer> muses = new ArrayList<>();
 
@@ -398,16 +406,15 @@ public class MusEnumerationScript extends WrapperScript {
 		registerTermsForShrinking(mRememberedAssertions, translator, scriptForShrinker);
 		resetCustomNameId();
 
-		final ConstraintAdministrationSolver solver =
-				new ConstraintAdministrationSolver(scriptForShrinker, translator);
+		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(scriptForShrinker, translator);
 
 		final BitSet workingSet = translator.translateToBitSet(unsatCore);
 
 		final MusContainer firstMus =
 				Shrinking.shrink(solver, workingSet, requestForShrinker, mRandom, mUnknownAllowed.getValue());
 		if (firstMus == null) {
-			//leave muses empty
-		}else {
+			// leave muses empty
+		} else {
 			muses.add(firstMus);
 			if (mLogAdditionalInformation.getValue()) {
 				final MusContainer containsVanillaUc = new MusContainer(workingSet, null);
