@@ -434,7 +434,7 @@ public class Interpolator extends NonRecursive {
 		}
 
 		// Add quantifiers if necessary. TODO: Is there a better place to do this?
-		Term[] quantified = addQuantifier(interpolants, proofTermInfo.getLiterals());
+		interpolants = addQuantifier(interpolants, proofTermInfo.getLiterals());
 
 		if (Config.DEEP_CHECK_INTERPOLANTS && mChecker != null) {
 			final InterpolatorClauseInfo proofTermInfo = getClauseTermInfo(proofTerm);
