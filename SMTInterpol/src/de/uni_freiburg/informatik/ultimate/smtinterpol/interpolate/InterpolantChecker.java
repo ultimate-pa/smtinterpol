@@ -390,12 +390,16 @@ public class InterpolantChecker {
 			}
 			for (int child = part - 1; child >= mInterpolator.mStartOfSubtrees[part];
 					child = mInterpolator.mStartOfSubtrees[child] - 1) {
-				final Term interpolant = fixupAndLet(ipls[child], fixedEQs[child], auxMaps[child]);
+				Term interpolant = fixupAndLet(ipls[child], fixedEQs[child], auxMaps[child]);
+				// Replace purification variable in interpolant by fresh term.
+				interpolant = fixVars(interpolant, purVarToFreshTerm);
 				mCheckingSolver.assertTerm(interpolant);
 			}
 
 			if (part < ipls.length) {
-				final Term interpolant = fixupAndLet(ipls[part], fixedEQs[part], auxMaps[part]);
+				Term interpolant = fixupAndLet(ipls[part], fixedEQs[part], auxMaps[part]);
+				// Replace purification variable in interpolant by fresh term.
+				interpolant = fixVars(interpolant, purVarToFreshTerm);
 				mCheckingSolver.assertTerm(theory.not(interpolant));
 			}
 			if (mCheckingSolver.checkSat() != LBool.UNSAT) {
