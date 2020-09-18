@@ -236,7 +236,9 @@ public class InterpolantChecker {
 				final InterpolatorAtomInfo atomTermInfo = mInterpolator.getAtomTermInfo(atom);
 				final LitInfo occInfo = mInterpolator.mAtomOccurenceInfos.get(atom);
 				if (occInfo.contains(part)) {
-					mCheckingSolver.assertTerm(theory.not(lit));
+					// Purify literal and replace purification variable by fresh term.
+					Term purLit = purifyAndFix(lit, purVarToTerm, purVarToFreshTerm);
+					mCheckingSolver.assertTerm(theory.not(purLit));
 				} else if (occInfo.isBLocal(part)) {
 					// nothing to do, literal cannot be mixed in sub-tree.
 				} else if (occInfo.isALocalInSomeChild(part)) {
