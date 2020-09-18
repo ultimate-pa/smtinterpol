@@ -109,14 +109,11 @@ public class InterpolantChecker {
 	 * @return The term with variables replaced by constant terms.
 	 */
 	private Term fixVars(Term interpolant, HashMap<TermVariable, Term> varToTerm) {
-		HashSet<Term> sub = mInterpolator.getAllSubTerms(interpolant);
+		final HashSet<Term> vars = mInterpolator.getTermVariables(interpolant);
 
-		for (Entry<TermVariable, Term> e : varToTerm.entrySet()) {
-			if (sub.contains(e.getKey())) {
-				final TermTransformer ipolator = mInterpolator.new TermSubstitutor((Term) e.getKey(),
-						(Term) e.getValue());
+		for (Term tv : vars) {
+			final TermTransformer ipolator = mInterpolator.new TermSubstitutor(tv, (Term) varToTerm.get(tv));
 				interpolant = ipolator.transform(interpolant);
-			}
 		}
 		return interpolant;
 	}
