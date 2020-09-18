@@ -1866,6 +1866,9 @@ public class Interpolator extends NonRecursive {
 		// Insert quantifiers for unsupported variables in inverse dependency order.
 		for (int i = 0; i < mNumInterpolants; i++) {
 			for (int j = ordered.size() - 1; j >= 0; j--) {
+				if (!getTermVariables(interpolants[i]).contains(ordered.get(j))) {
+					continue;
+				}
 				// Get term that was replaced by the variable
 				String outermost = ((ApplicationTerm) mapUnsupported.get(ordered.get(j))).getFunction().getName();
 
