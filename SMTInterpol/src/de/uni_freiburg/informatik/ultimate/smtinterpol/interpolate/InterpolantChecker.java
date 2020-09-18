@@ -402,6 +402,15 @@ public class InterpolantChecker {
 				interpolant = fixVars(interpolant, purVarToFreshTerm);
 				mCheckingSolver.assertTerm(theory.not(interpolant));
 			}
+			// Assert auxeq in all partitions were outermost symbol is contained and/or
+			// interpolant contains auxvar.
+			for (Entry<TermVariable, Term> e : purVarToTerm.entrySet()) {
+				ApplicationTerm t = (ApplicationTerm) e.getValue();
+				Occurrence occ = mInterpolator.mSymbolOccurrenceInfos.get(t.getFunction().getName());
+				if (occ.contains(part) || activeVars.contains(e.getKey())) {
+					mCheckingSolver.assertTerm(theory.term("=", t, purVarToFreshTerm.get(e.getKey())));
+				}
+			}
 			if (mCheckingSolver.checkSat() != LBool.UNSAT) {
 				throw new AssertionError();
 			}
