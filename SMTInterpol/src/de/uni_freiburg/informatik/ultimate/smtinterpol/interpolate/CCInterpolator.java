@@ -247,10 +247,6 @@ public class CCInterpolator {
 		// Get outermost function symbol and its occurrence.
 		final String outermost = left.getFunction().getName().toString();
 		final Occurrence outermostOcc = mInterpolator.mSymbolOccurrenceInfos.get(outermost);
-		// Get source and corresponding partition of literal if it has one.
-		final String source = clauseInfo.getSource();
-		final int sourcePart = mInterpolator.mPartitions.containsKey(source) ? mInterpolator.mPartitions.get(source)
-				: -1;
 
 		for (int i = 0; i < leftParams.length; i++) {
 			if (leftParams[i] == rightParams[i]) {
@@ -295,7 +291,7 @@ public class CCInterpolator {
 			} else if (mDiseqOccurrences.isAB(part) && outermostOcc.isAB(part)) {
 				// Color literal depending on its source. If it has none, treat it as if it
 				// originates from B.
-				if (mInterpolator.mStartOfSubtrees[part] <= sourcePart && sourcePart <= part) {
+				if (outermostOcc.isALocal(part)) {
 					// The literal originates from partition A.
 					final ArrayDeque<Term> terms = new ArrayDeque<>(leftParams.length);
 					for (int paramNr = 0; paramNr < leftParams.length; paramNr++) {
