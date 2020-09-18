@@ -982,6 +982,30 @@ public class Interpolator extends NonRecursive {
 		return subTerms;
 	}
 
+	// TODO:
+	HashSet<Term> getTermVariables(final Term literal) {
+		final HashSet<Term> vars = new HashSet<>();
+		final ArrayDeque<Term> todo = new ArrayDeque<Term>();
+
+		todo.addLast(literal);
+		while (!todo.isEmpty()) {
+			final Term term = todo.removeLast();
+			if (term instanceof ApplicationTerm) {
+				final ApplicationTerm appTerm = (ApplicationTerm) term;
+				for (final Term at : appTerm.getParameters()) {
+					todo.addLast(at);
+				}
+			}
+			if (term instanceof AnnotatedTerm) {
+				todo.add(((AnnotatedTerm) term).getSubterm());
+			}
+			if (term instanceof TermVariable) {
+				vars.add(term);
+			}
+		}
+		return vars;
+	}
+
 	LitInfo getAtomOccurenceInfo(final Term atom) {
 		assert !isNegatedTerm(atom);
 		LitInfo result = mAtomOccurenceInfos.get(atom);
