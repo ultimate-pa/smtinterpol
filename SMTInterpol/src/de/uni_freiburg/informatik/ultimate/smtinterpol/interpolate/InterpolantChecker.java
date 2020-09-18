@@ -85,7 +85,7 @@ public class InterpolantChecker {
 				if (LAInterpolator.isLATerm(term)) {
 					term = ((AnnotatedTerm) term).getSubterm();
 				}
-				if (term instanceof TermVariable) {
+				if (auxMap != null && term instanceof TermVariable) {
 					final Term replacement = auxMap.get(term);
 					if (replacement != null) {
 						setResult(replacement);
