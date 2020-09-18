@@ -154,6 +154,39 @@ public class InterpolantChecker {
 		@SuppressWarnings("unchecked") // because Java Generics are broken :(
 		final HashMap<TermVariable, Term>[] auxMaps = new HashMap[ipls.length];
 
+		/*
+		 * purVarToFreshTerm Get the mapping from all so far used purification variables
+		 * to the terms they replaced.
+		 */
+		HashMap<TermVariable, Term> purVarToTerm = (HashMap<TermVariable, Term>) mInterpolator.mMixedTermAuxEq
+				.entrySet().stream().collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
+
+		HashSet<TermVariable> activeVars = new HashSet<TermVariable>();
+
+		/*
+		 * TODO: initialize purVarToFreshTerm, which maps the auxiliary variables used
+		 * in the purified interpolant of at least one partition to a new fresh
+		 * constant.
+		 */
+		final HashMap<TermVariable, Term> purVarToFreshTerm = new HashMap<TermVariable, Term>();
+		for (Entry<TermVariable, Term> e : purVarToTerm.entrySet()) {
+			TermVariable tv = (TermVariable) e.getKey();
+			if (!purVarToFreshTerm.containsKey(tv)) {
+				final String name = ".check" + ((TermVariable) tv).getName();
+				mCheckingSolver.declareFun(name, new Sort[0], tv.getSort());
+				Term constTerm = mCheckingSolver.term(name);
+				purVarToFreshTerm.put(tv, constTerm);
+			}
+		}
+		assert purVarToTerm.size() == purVarToFreshTerm.size();
+
+		for (int i = 0; i < ipls.length; i++) {
+			HashSet<Term> vars = mInterpolator.getTermVariables(ipls[i]);
+			for (Term var : vars) {
+				activeVars.add((TermVariable) var);
+			}
+		}
+
 		for (final Term lit : literals) {
 			final Term atom = mInterpolator.getAtom(lit);
 			final InterpolatorAtomInfo atomTermInfo = mInterpolator.getAtomTermInfo(atom);
