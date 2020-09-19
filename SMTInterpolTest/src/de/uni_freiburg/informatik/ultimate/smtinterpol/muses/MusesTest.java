@@ -113,7 +113,7 @@ public class MusesTest {
 				}
 				solver.assertCriticalConstraint(i);
 			}
-			Assert.assertTrue(solver.checkSat() == LBool.SAT);
+			Assert.assertTrue(solver.checkSat() == LBool.SAT || solver.checkSat() == LBool.UNKNOWN);
 			solver.popRecLevel();
 		}
 		solver.popRecLevel();
@@ -293,7 +293,7 @@ public class MusesTest {
 	/**
 	 * Version of UnsatSet5 with a constraint that should be UNKNOWN.
 	 */
-	private void setupUnknownSet(final Script script, final Translator translator, final DPLLEngine engine) {
+	private void setupUnknownSet1(final Script script, final Translator translator, final DPLLEngine engine) {
 		final ArrayList<String> names = new ArrayList<>();
 		final ArrayList<Annotation> annots = new ArrayList<>();
 		for (int i = 0; i < 11; i++) {
@@ -344,6 +344,153 @@ public class MusesTest {
 		declareConstraint(script, translator, engine, c8, annots.get(8));
 		declareConstraint(script, translator, engine, c9, annots.get(9));
 		declareConstraint(script, translator, engine, c10, annots.get(10));
+	}
+
+	/**
+	 * Version of UnsatSet5 with three constraints c10, c11. C10, c11 are LBool.UNKNOWN and could be determined unsat
+	 * with a third constraint c12 (despite of c10, c11 being unsat on together already).
+	 */
+	private void setupUnknownSet2(final Script script, final Translator translator, final DPLLEngine engine) {
+		final ArrayList<String> names = new ArrayList<>();
+		final ArrayList<Annotation> annots = new ArrayList<>();
+		for (int i = 0; i < 13; i++) {
+			names.add("c" + String.valueOf(i));
+		}
+		for (int i = 0; i < names.size(); i++) {
+			annots.add(new Annotation(":named", names.get(i)));
+		}
+		final Sort intSort = script.sort("Int");
+		final Sort[] intSortArray = new Sort[1];
+		intSortArray[0] = intSort;
+		script.declareFun("v", Script.EMPTY_SORT_ARRAY, intSort);
+		script.declareFun("w", Script.EMPTY_SORT_ARRAY, intSort);
+		script.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		script.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		script.declareFun("z", Script.EMPTY_SORT_ARRAY, intSort);
+		script.declareFun("a", Script.EMPTY_SORT_ARRAY, intSort);
+		script.declareFun("b", Script.EMPTY_SORT_ARRAY, intSort);
+		script.declareFun("f", intSortArray, intSort);
+		script.declareFun("g", intSortArray, intSort);
+		final Term v = script.term("v");
+		final Term w = script.term("w");
+		final Term x = script.term("x");
+		final Term y = script.term("y");
+		final Term z = script.term("z");
+		final Term a = script.term("a");
+		final Term b = script.term("b");
+
+		final TermVariable t = script.variable("t", intSort);
+		final TermVariable u = script.variable("u", intSort);
+
+		final Term gOfu = script.term("g", u);
+		final Term fOfgOfu = script.term("f", gOfu);
+		final Term fOfgOfuEqu = script.term("=", fOfgOfu, u);
+
+		final Term fOft = script.term("f", t);
+		final Term fOftEqa = script.term("=", fOft, a);
+		final Term fOftNeqa = script.term("not", fOftEqa);
+
+		final Term gOfa = script.term("g", a);
+		final Term fOfgOfa = script.term("f", gOfa);
+
+		final Term c0 = script.term("<", v, w);
+		final Term c1 = script.term("<", w, x);
+		final Term c2 = script.term("<", x, y);
+		final Term c3 = script.term("<", y, z);
+		final Term c4 = script.term("=", v, script.numeral("2000"));
+		final Term c5 = script.term("=", z, script.numeral("5"));
+		final Term c6 = script.term("=", x, script.numeral("1000"));
+		final Term c7 = script.term("=", x, script.numeral("1001"));
+		final Term c8 = script.term("=", w, script.numeral("1500"));
+		final Term c9 = script.term("=", y, script.numeral("100"));
+		final Term c10 = script.quantifier(Script.FORALL, new TermVariable[] { u }, fOfgOfuEqu, null);
+		final Term c11 = script.quantifier(Script.FORALL, new TermVariable[] { t }, fOftNeqa, null);
+		final Term c12 = script.term("=", fOfgOfa, b);
+
+		declareConstraint(script, translator, engine, c0, annots.get(0));
+		declareConstraint(script, translator, engine, c1, annots.get(1));
+		declareConstraint(script, translator, engine, c2, annots.get(2));
+		declareConstraint(script, translator, engine, c3, annots.get(3));
+		declareConstraint(script, translator, engine, c4, annots.get(4));
+		declareConstraint(script, translator, engine, c5, annots.get(5));
+		declareConstraint(script, translator, engine, c6, annots.get(6));
+		declareConstraint(script, translator, engine, c7, annots.get(7));
+		declareConstraint(script, translator, engine, c8, annots.get(8));
+		declareConstraint(script, translator, engine, c9, annots.get(9));
+		declareConstraint(script, translator, engine, c10, annots.get(10));
+		declareConstraint(script, translator, engine, c11, annots.get(11));
+		declareConstraint(script, translator, engine, c12, annots.get(12));
+	}
+
+	/**
+	 * Version of UnsatSet5 with three constraints c10, c11. C10, c11 are LBool.UNKNOWN and could be determined unsat
+	 * with a third constraint c12 (despite of c10, c11 being unsat on together already). But c12 is not in this set.
+	 */
+	private void setupUnknownSet3(final Script script, final Translator translator, final DPLLEngine engine) {
+		final ArrayList<String> names = new ArrayList<>();
+		final ArrayList<Annotation> annots = new ArrayList<>();
+		for (int i = 0; i < 13; i++) {
+			names.add("c" + String.valueOf(i));
+		}
+		for (int i = 0; i < names.size(); i++) {
+			annots.add(new Annotation(":named", names.get(i)));
+		}
+		final Sort intSort = script.sort("Int");
+		final Sort[] intSortArray = new Sort[1];
+		intSortArray[0] = intSort;
+		script.declareFun("v", Script.EMPTY_SORT_ARRAY, intSort);
+		script.declareFun("w", Script.EMPTY_SORT_ARRAY, intSort);
+		script.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		script.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		script.declareFun("z", Script.EMPTY_SORT_ARRAY, intSort);
+		script.declareFun("a", Script.EMPTY_SORT_ARRAY, intSort);
+		script.declareFun("b", Script.EMPTY_SORT_ARRAY, intSort);
+		script.declareFun("f", intSortArray, intSort);
+		script.declareFun("g", intSortArray, intSort);
+		final Term v = script.term("v");
+		final Term w = script.term("w");
+		final Term x = script.term("x");
+		final Term y = script.term("y");
+		final Term z = script.term("z");
+		final Term a = script.term("a");
+		final Term b = script.term("b");
+
+		final TermVariable t = script.variable("t", intSort);
+		final TermVariable u = script.variable("u", intSort);
+
+		final Term gOfu = script.term("g", u);
+		final Term fOfgOfu = script.term("f", gOfu);
+		final Term fOfgOfuEqu = script.term("=", fOfgOfu, u);
+
+		final Term fOft = script.term("f", t);
+		final Term fOftEqa = script.term("=", fOft, a);
+		final Term fOftNeqa = script.term("not", fOftEqa);
+
+		final Term c0 = script.term("<", v, w);
+		final Term c1 = script.term("<", w, x);
+		final Term c2 = script.term("<", x, y);
+		final Term c3 = script.term("<", y, z);
+		final Term c4 = script.term("=", v, script.numeral("2000"));
+		final Term c5 = script.term("=", z, script.numeral("5"));
+		final Term c6 = script.term("=", x, script.numeral("1000"));
+		final Term c7 = script.term("=", x, script.numeral("1001"));
+		final Term c8 = script.term("=", w, script.numeral("1500"));
+		final Term c9 = script.term("=", y, script.numeral("100"));
+		final Term c10 = script.quantifier(Script.FORALL, new TermVariable[] { u }, fOfgOfuEqu, null);
+		final Term c11 = script.quantifier(Script.FORALL, new TermVariable[] { t }, fOftNeqa, null);
+
+		declareConstraint(script, translator, engine, c0, annots.get(0));
+		declareConstraint(script, translator, engine, c1, annots.get(1));
+		declareConstraint(script, translator, engine, c2, annots.get(2));
+		declareConstraint(script, translator, engine, c3, annots.get(3));
+		declareConstraint(script, translator, engine, c4, annots.get(4));
+		declareConstraint(script, translator, engine, c5, annots.get(5));
+		declareConstraint(script, translator, engine, c6, annots.get(6));
+		declareConstraint(script, translator, engine, c7, annots.get(7));
+		declareConstraint(script, translator, engine, c8, annots.get(8));
+		declareConstraint(script, translator, engine, c9, annots.get(9));
+		declareConstraint(script, translator, engine, c10, annots.get(10));
+		declareConstraint(script, translator, engine, c11, annots.get(11));
 	}
 
 	private void declareConstraint(final Script script, final Translator translator, final DPLLEngine engine,
@@ -970,6 +1117,28 @@ public class MusesTest {
 		Assert.assertTrue(muses.size() == 15);
 	}
 
+	@Test(expected = SMTLIBException.class)
+	public void testReMusUnknownSetTestFailIfUnknownAllowedTurnedOff() {
+		final LogProxy logger = new DefaultLogger();
+		final TimeoutHandler handler = new TimeoutHandler(null);
+		final Script script = setupScript(Logics.ALL, handler, logger);
+		final DPLLEngine engine = new DPLLEngine(logger, handler);
+		final Translator translator = new Translator();
+		setupUnknownSet1(script, translator, engine);
+
+		final UnexploredMap map = new UnexploredMap(engine, translator);
+		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
+		final BitSet workingSet = new BitSet(11);
+		workingSet.flip(0, 11);
+		solver.pushRecLevel();
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false, logger);
+		final ArrayList<MusContainer> muses = remus.enumerate();
+	}
+
+	/**
+	 * Example, where a constraint, for which the solver returns LBool.UNKNOWN causes no problems (all MUSes are found,
+	 * all MUSes are minimal).
+	 */
 	@Test
 	public void testReMusUnknownSet1() {
 		final LogProxy logger = new DefaultLogger();
@@ -977,11 +1146,11 @@ public class MusesTest {
 		final Script script = setupScript(Logics.ALL, handler, logger);
 		final DPLLEngine engine = new DPLLEngine(logger, handler);
 		final Translator translator = new Translator();
-		setupUnknownSet(script, translator, engine);
+		setupUnknownSet1(script, translator, engine);
 
 		final UnexploredMap map = new UnexploredMap(engine, translator);
 		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
-		final BitSet workingSet = new BitSet(10);
+		final BitSet workingSet = new BitSet(11);
 		workingSet.flip(0, 11);
 		solver.pushRecLevel();
 		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), true, logger);
@@ -991,6 +1160,68 @@ public class MusesTest {
 		for (final MusContainer container : muses) {
 			checkWhetherSetIsMus(container.getMus(), solver);
 			Assert.assertFalse(container.getMus().get(10));
+		}
+		Assert.assertTrue(muses.size() == 15);
+	}
+
+	/**
+	 * Example, that MUSes might not be minimal anymore, if the solver can return LBool.UNKNOWN upon checkSat() call.
+	 */
+	@Test
+	public void testReMusUnknownSet2() {
+		final LogProxy logger = new DefaultLogger();
+		final TimeoutHandler handler = new TimeoutHandler(null);
+		final Script script = setupScript(Logics.ALL, handler, logger);
+		final DPLLEngine engine = new DPLLEngine(logger, handler);
+		final Translator translator = new Translator();
+		setupUnknownSet2(script, translator, engine);
+
+		final UnexploredMap map = new UnexploredMap(engine, translator);
+		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
+		final BitSet workingSet = new BitSet(13);
+		workingSet.flip(0, 13);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), true, logger);
+		final ArrayList<MusContainer> muses = remus.enumerate();
+		solver.reset();
+
+		boolean foundSpecialMus = false;
+		for (final MusContainer container : muses) {
+			System.out.println(container.getMus().toString());
+			checkWhetherSetIsMus(container.getMus(), solver);
+			if (container.getMus().get(10) || container.getMus().get(11) || container.getMus().get(12)) {
+				Assert.assertTrue((container.getMus().get(10) && container.getMus().get(11)
+						&& container.getMus().get(12) && container.getMus().cardinality() == 3));
+				foundSpecialMus = true;
+			}
+		}
+		Assert.assertTrue(foundSpecialMus);
+		Assert.assertTrue(muses.size() == 16);
+	}
+
+	/**
+	 * Example, that not all MUSes might be found anymore, if the solver can return LBool.UNKNOWN upon checkSat() call.
+	 * (It does not find the MUS c10, c11)
+	 */
+	@Test
+	public void testReMusUnknownSet3() {
+		final LogProxy logger = new DefaultLogger();
+		final TimeoutHandler handler = new TimeoutHandler(null);
+		final Script script = setupScript(Logics.ALL, handler, logger);
+		final DPLLEngine engine = new DPLLEngine(logger, handler);
+		final Translator translator = new Translator();
+		setupUnknownSet3(script, translator, engine);
+
+		final UnexploredMap map = new UnexploredMap(engine, translator);
+		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
+		final BitSet workingSet = new BitSet(12);
+		workingSet.flip(0, 12);
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), true, logger);
+		final ArrayList<MusContainer> muses = remus.enumerate();
+		solver.reset();
+
+		for (final MusContainer container : muses) {
+			checkWhetherSetIsMus(container.getMus(), solver);
+			Assert.assertTrue(!container.getMus().get(10) && !container.getMus().get(11));
 		}
 		Assert.assertTrue(muses.size() == 15);
 	}
@@ -1424,8 +1655,8 @@ public class MusesTest {
 		for (final Term term : core) {
 			System.out.println(term.toString());
 		}
-		//Not ready yet, since getUnsatCore returns nonstandard unsat cores.
-		//script.getInterpolants(core);
+		// Not ready yet, since getUnsatCore returns nonstandard unsat cores.
+		// script.getInterpolants(core);
 	}
 
 	@Test
@@ -1638,7 +1869,7 @@ public class MusesTest {
 		for (final Term term : core) {
 			System.out.println(term.toString());
 		}
-		//This interpolant makes no sense and is only for testing.
+		// This interpolant makes no sense and is only for testing.
 		script.getInterpolants(core);
 	}
 }

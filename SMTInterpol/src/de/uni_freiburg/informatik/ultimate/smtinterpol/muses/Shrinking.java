@@ -99,10 +99,10 @@ public class Shrinking {
 							"LBool.UNKNOWN occured in the shrinking process, despite not being explicitly allowed.");
 				}
 				// Treat UNKNOWN as SAT (without trying to get an extension)
+				solver.clearUnknownConstraints();
 				final BitSet isAsserted = solver.getCrits();
 				isAsserted.or(unknown);
 				map.BlockDown(isAsserted);
-				solver.clearUnknownConstraints();
 				solver.assertCriticalConstraint(unknownIndex);
 			}
 		}

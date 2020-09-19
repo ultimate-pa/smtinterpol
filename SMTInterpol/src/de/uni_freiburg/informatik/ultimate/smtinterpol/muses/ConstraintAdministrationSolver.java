@@ -68,6 +68,7 @@ public class ConstraintAdministrationSolver {
 	public void pushRecLevel() {
 		if (mLastOpWasReset) {
 			push(1);
+			mLastOpWasReset = false;
 		}
 		if (mUnknownConstraintsAreSet) {
 			throw new SMTLIBException("You may not push a new recursion level, when unknown constraints are set.");
@@ -82,6 +83,7 @@ public class ConstraintAdministrationSolver {
 	public void popRecLevel() {
 		if (mLastOpWasReset) {
 			push(1);
+			mLastOpWasReset = false;
 		}
 		clearUnknownConstraints();
 		pop(1);
@@ -116,6 +118,7 @@ public class ConstraintAdministrationSolver {
 	public void assertCriticalConstraint(final int constraintNumber) throws SMTLIBException {
 		if (mLastOpWasReset) {
 			push(1);
+			mLastOpWasReset = false;
 		}
 		if (mUnknownConstraintsAreSet) {
 			throw new SMTLIBException("Modifying crits without clearing unknowns is prohibited.");
@@ -129,6 +132,7 @@ public class ConstraintAdministrationSolver {
 	public void assertCriticalConstraints(final BitSet constraints) throws SMTLIBException {
 		if (mLastOpWasReset) {
 			push(1);
+			mLastOpWasReset = false;
 		}
 		if (mUnknownConstraintsAreSet) {
 			throw new SMTLIBException("Modifying crits without clearing unknowns is prohibited.");
@@ -144,6 +148,7 @@ public class ConstraintAdministrationSolver {
 	public void assertUnknownConstraint(final int constraintNumber) {
 		if (mLastOpWasReset) {
 			push(1);
+			mLastOpWasReset = false;
 		}
 		if (!mUnknownConstraintsAreSet) {
 			push(1);
@@ -158,6 +163,7 @@ public class ConstraintAdministrationSolver {
 	public void assertUnknownConstraints(final BitSet constraints) {
 		if (mLastOpWasReset) {
 			push(1);
+			mLastOpWasReset = false;
 		}
 		if (!mUnknownConstraintsAreSet) {
 			push(1);
