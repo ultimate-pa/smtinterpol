@@ -470,7 +470,7 @@ public class CCInterpolator {
 								? ((ApplicationTerm) unquoted).getParameters()[0]
 								: ((ApplicationTerm) unquoted).getParameters()[1];
 
-						final String op = mInterpolator.isNegatedTerm(lits[i]) ? "=" : "EQ";
+						final String op = mInterpolator.isNegatedTerm(lits[i]) ? "=" : "@EQ";
 						terms.add(mTheory.not(mTheory.term(op, mixedVar, sideB)));
 					}
 				}
@@ -495,7 +495,7 @@ public class CCInterpolator {
 						Term sideA = litInfo.getLhsOccur().isALocal(part)
 								? ((ApplicationTerm) unquoted).getParameters()[0]
 								: ((ApplicationTerm) unquoted).getParameters()[1];
-						final String op = mInterpolator.isNegatedTerm(lits[i]) ? "=" : "EQ";
+						final String op = mInterpolator.isNegatedTerm(lits[i]) ? "=" : "@EQ";
 						terms.add(mTheory.term(op, mixedVar, sideA));
 					}
 				}
