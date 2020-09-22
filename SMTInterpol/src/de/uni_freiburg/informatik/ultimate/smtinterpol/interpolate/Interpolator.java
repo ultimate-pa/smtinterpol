@@ -1577,6 +1577,9 @@ public class Interpolator extends NonRecursive {
 			if (t instanceof QuantifiedFormula) {
 				t = unquote(((QuantifiedFormula) t).getSubformula());
 			}
+			if (t instanceof AnnotatedTerm) {
+				t = ((AnnotatedTerm) t).getSubterm();
+			}
 			ApplicationTerm at = (ApplicationTerm) t;
 
 			FunctionSymbol funSymbol = at.getFunction();
