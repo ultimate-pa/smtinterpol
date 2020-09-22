@@ -1826,6 +1826,9 @@ public class DPLLEngine {
 	 */
 	public void clearAssumptions() {
 		/* check if we need to clear any assumptions */
+		if (mCurrentDecideLevel == 0) {
+			return;
+		}
 		mAssumptionLiterals.clear();
 		mLogger.debug("Clearing Assumptions (Baselevel is %d)", mBaseLevel);
 		while (mCurrentDecideLevel > 0) {
