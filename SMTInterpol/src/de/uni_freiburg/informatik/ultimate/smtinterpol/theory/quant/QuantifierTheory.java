@@ -264,6 +264,9 @@ public class QuantifierTheory implements ITheory {
 				}
 			}
 		}
+		if (mClausifier.getEngine().isTerminationRequested()) {
+			return null;
+		}
 		if (potentiallyInterestingInstances.isEmpty() || !foundNonSat) {
 			potentiallyInterestingInstances = mInstantiationManager.instantiateSomeNotSat();
 		}
