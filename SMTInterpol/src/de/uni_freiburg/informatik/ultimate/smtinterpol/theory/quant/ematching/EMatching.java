@@ -46,6 +46,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantEqualit
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantUtil;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory.InstantiationMethod;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.dawg.Dawg;
 
 /**
@@ -92,18 +93,23 @@ public class EMatching {
 		final ArrayList<Triple<ICode, CCTerm[], Integer>> clauseCodes = new ArrayList<>();
 		for (final QuantLiteral qLit : qClause.getQuantLits()) {
 			final QuantLiteral qAtom = qLit.getAtom();
-			if (QuantUtil.containsArithmeticOnQuantOnlyAtTopLevel(qAtom)
-					&& QuantUtil.containsAppTermsForEachVar(qAtom)) {
-				mEmatchingLiterals.add(qLit);
+			boolean isSuitableForEmatching = QuantUtil.containsArithmeticOnQuantOnlyAtTopLevel(qAtom)
+					&& (mQuantTheory.getInstantiationMethod() == InstantiationMethod.E_MATCHING_CONFLICT
+							? QuantUtil.containsAppTermsForEachVar(qAtom)
+							: true);
+			if (isSuitableForEmatching) {
 				final Collection<Term> patterns = new LinkedHashSet<>();
 				if (qAtom instanceof QuantEquality) {
 					final QuantEquality eq = (QuantEquality) qAtom;
 					final Term lhs = eq.getLhs();
+					final Term rhs = eq.getRhs();
 					if (!lhs.getSort().isNumericSort()) {
 						if (!(lhs instanceof TermVariable)) {
 							patterns.add(lhs);
 						}
-						patterns.add(eq.getRhs());
+						if (!(rhs instanceof TermVariable)) {
+							patterns.add(eq.getRhs());
+						}
 					} else {
 						final SMTAffineTerm lhsAff = new SMTAffineTerm(lhs);
 						final SMTAffineTerm rhsAff = new SMTAffineTerm(eq.getRhs());
@@ -114,7 +120,10 @@ public class EMatching {
 					final SMTAffineTerm affine = ((QuantBoundConstraint) qAtom).getAffineTerm();
 					patterns.addAll(getSubPatterns(affine));
 				}
+				assert mQuantTheory.getInstantiationMethod() != InstantiationMethod.E_MATCHING_CONFLICT
+						|| !patterns.isEmpty();
 				if (!patterns.isEmpty()) {
+					mEmatchingLiterals.add(qLit);
 					final Pair<ICode, CCTerm[]> newCode =
 							new PatternCompiler(mQuantTheory, qAtom, patterns.toArray(new Term[patterns.size()]))
 									.compile();
