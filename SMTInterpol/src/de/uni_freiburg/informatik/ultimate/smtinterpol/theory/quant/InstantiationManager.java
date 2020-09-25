@@ -249,7 +249,7 @@ public class InstantiationManager {
 										: new InstantiationInfo(InstanceValue.ONE_UNDEF,
 												getTermSubsFromSubsInfo(lit, v)));
 					}
-				} else if (lit.mIsArithmetical) {
+				} else if (lit.mIsArithmetical || QuantUtil.isVarEq(lit.getAtom())) {
 					instDawg = Dawg.createConst(clause.getVars().length,
 							new InstantiationInfo(InstanceValue.ONE_UNDEF, new ArrayList<>()));
 				}

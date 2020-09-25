@@ -729,6 +729,10 @@ public class QuantifierTheory implements ITheory {
 		return mTheory;
 	}
 
+	public InstantiationMethod getInstantiationMethod() {
+		return mInstantiationMethod;
+	}
+
 	protected Term getLambda(final Sort sort) {
 		if (mLambdas.containsKey(sort)) {
 			return mLambdas.get(sort);
