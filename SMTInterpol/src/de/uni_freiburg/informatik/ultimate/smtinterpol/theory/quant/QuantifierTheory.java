@@ -205,10 +205,10 @@ public class QuantifierTheory implements ITheory {
 			return null;
 		}
 
-		mNumCheckpointsWithNewEval++;
 		final Collection<InstClause> potentiallyInterestingInstances;
 		switch (mInstantiationMethod) {
 		case E_MATCHING_CONFLICT:
+			mNumCheckpointsWithNewEval++;
 			mEMatching.run();
 			potentiallyInterestingInstances = mInstantiationManager.findConflictAndUnitInstancesWithEMatching();
 			if (Config.PROFILE_TIME) {
@@ -216,9 +216,11 @@ public class QuantifierTheory implements ITheory {
 			}
 			break;
 		case AUF_CONFLICT:
+			mNumCheckpointsWithNewEval++;
 			potentiallyInterestingInstances = mInstantiationManager.findConflictAndUnitInstances();
 			break;
 		case E_MATCHING_EAGER:
+			mNumCheckpointsWithNewEval++;
 			mEMatching.run();
 			potentiallyInterestingInstances = mInstantiationManager.computeEMatchingInstances(true);
 			break;
