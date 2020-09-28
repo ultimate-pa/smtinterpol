@@ -237,22 +237,33 @@ public class InstantiationManager {
 					new InstantiationInfo(InstanceValue.FALSE, new ArrayList<>()));
 			for (final QuantLiteral lit : clause.getQuantLits()) {
 				Dawg<Term, InstantiationInfo> instDawg = null;
+				final QuantLiteral atom = lit.getAtom();
 				if (mEMatching.isUsingEmatching(lit)) {
-					final Dawg<Term, SubstitutionInfo> subsDawg = mEMatching.getSubstitutionInfos(lit.getAtom());
-					if (subsDawg != null) {
-						// Map keys to representative, and map non-empty SubstitutionInfo to one_undef
-						final Dawg<Term, SubstitutionInfo> representativeSubsDawg = subsDawg.mapKeys(
-								l -> mQuantTheory.getRepresentativeTerm(l), (v1, v2) -> mapToFirstChecked(v1, v2));
-						instDawg = representativeSubsDawg.map(
-								v -> v.equals(mEMatching.getEmptySubs())
-										? new InstantiationInfo(InstanceValue.IRRELEVANT, new ArrayList<>())
-										: new InstantiationInfo(InstanceValue.ONE_UNDEF,
-												getTermSubsFromSubsInfo(lit, v)));
+					if (mQuantTheory.mPropagateNewAux && atom instanceof QuantEquality) {
+						// If this option is set, don't treat aux-terms as new terms.
+						// TODO: Rename the option
+						final Term lhs = ((QuantEquality) atom).getLhs();
+						if (QuantUtil.isAuxApplication(lhs)) {
+							instDawg = Dawg.createConst(clause.getVars().length,
+									new InstantiationInfo(InstanceValue.ONE_UNDEF, new ArrayList<>()));
+						}
 					}
-				} else if (lit.mIsArithmetical || QuantUtil.isVarEq(lit.getAtom())) {
+					if (instDawg != null) {
+						final Dawg<Term, SubstitutionInfo> subsDawg = mEMatching.getSubstitutionInfos(atom);
+						if (subsDawg != null) {
+							// Map keys to representative, and map non-empty SubstitutionInfo to one_undef
+							final Dawg<Term, SubstitutionInfo> representativeSubsDawg = subsDawg.mapKeys(
+									l -> mQuantTheory.getRepresentativeTerm(l), (v1, v2) -> mapToFirstChecked(v1, v2));
+							instDawg = representativeSubsDawg.map(v -> v.equals(mEMatching.getEmptySubs())
+									? new InstantiationInfo(InstanceValue.IRRELEVANT, new ArrayList<>())
+									: new InstantiationInfo(InstanceValue.ONE_UNDEF, getTermSubsFromSubsInfo(lit, v)));
+						}
+					}
+				} else if (lit.mIsArithmetical || QuantUtil.isVarEq(atom)) {
 					instDawg = Dawg.createConst(clause.getVars().length,
 							new InstantiationInfo(InstanceValue.ONE_UNDEF, new ArrayList<>()));
 				}
+
 				// TODO Should we do something for the other literals, similar to "otherlits" in computeClauseDawg for
 				// E-matching based conflict and unit search?
 
