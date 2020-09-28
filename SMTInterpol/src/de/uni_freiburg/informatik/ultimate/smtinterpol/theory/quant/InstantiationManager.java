@@ -164,7 +164,7 @@ public class InstantiationManager {
 					if (mQuantTheory.getEngine().isTerminationRequested()) {
 						return Collections.emptySet();
 					}
-					final InstClause inst = computeClauseInstance(qClause, subs, InstanceOrigin.CHECKPOINT);
+					final InstClause inst = computeClauseInstance(qClause, subs, InstanceOrigin.CONFLICT);
 					if (inst != null) {
 						conflictAndUnitClauses.add(inst);
 					}
@@ -201,7 +201,7 @@ public class InstantiationManager {
 				// TODO Don't evaluate existing instances
 				final InstanceValue clauseValue = evaluateClauseInstance(quantClause, subs);
 				if (clauseValue != InstanceValue.IRRELEVANT) {
-					final InstClause inst = computeClauseInstance(quantClause, subs, InstanceOrigin.CHECKPOINT);
+					final InstClause inst = computeClauseInstance(quantClause, subs, InstanceOrigin.CONFLICT);
 					if (inst != null) {
 						conflictAndUnitClauses.add(inst);
 					}
@@ -219,7 +219,7 @@ public class InstantiationManager {
 	 * 
 	 * @return the computed InstClauses, except the ones resulting in trivially true clauses.
 	 */
-	public Set<InstClause> computeEMatchingInstances(final boolean isInCheckpoint) {
+	public Set<InstClause> computeEMatchingInstances() {
 		final Set<InstClause> newInstances = new LinkedHashSet<>();
 
 		final List<QuantClause> currentQuantClauses = new ArrayList<>();
@@ -265,8 +265,7 @@ public class InstantiationManager {
 			}
 			// Compute instances that do not produce new terms, i.e., where the E-matching multi-pattern was matched
 			for (final List<Term> subs : getRelevantSubsFromDawg(clause, clauseDawg)) {
-				final InstClause inst = computeClauseInstance(clause, subs,
-						isInCheckpoint ? InstanceOrigin.CHECKPOINT : InstanceOrigin.FINALCHECK);
+				final InstClause inst = computeClauseInstance(clause, subs, InstanceOrigin.EMATCHING);
 				if (inst != null) {
 					newInstances.add(inst);
 				}
@@ -345,7 +344,7 @@ public class InstantiationManager {
 							|| candVal.getFirst() == InstanceValue.ONE_UNDEF) {
 						// Always build conflict or unit clauses on known terms
 						assert candVal.getSecond().booleanValue();
-						final InstClause unitClause = computeClauseInstance(clause, subs, InstanceOrigin.FINALCHECK);
+						final InstClause unitClause = computeClauseInstance(clause, subs, InstanceOrigin.ENUMERATION);
 						if (unitClause != null) { // TODO Some true literals are not detected at the moment.
 							final int numUndef = unitClause.countAndSetUndefLits();
 							if (numUndef >= 0) {
@@ -378,7 +377,7 @@ public class InstantiationManager {
 			sortedInstances.addAll(otherValueInstancesNewTerms);
 			for (final Pair<QuantClause, List<Term>> cand : sortedInstances) {
 				final InstClause inst =
-						computeClauseInstance(cand.getFirst(), cand.getSecond(), InstanceOrigin.FINALCHECK);
+						computeClauseInstance(cand.getFirst(), cand.getSecond(), InstanceOrigin.ENUMERATION);
 				if (inst != null) {
 					final int numUndef = inst.countAndSetUndefLits();
 					if (numUndef >= 0) {
@@ -1193,12 +1192,14 @@ public class InstantiationManager {
 		}
 		mClauseInstances.get(clause).put(subs, inst);
 		mQuantTheory.mNumInstancesProduced++;
-		if (origin.equals(InstanceOrigin.CHECKPOINT)) {
-			mQuantTheory.mNumInstancesProducedCP++;
-		} else if (origin.equals(InstanceOrigin.FINALCHECK)) {
-			mQuantTheory.mNumInstancesProducedFC++;
+		if (origin.equals(InstanceOrigin.CONFLICT)) {
+			mQuantTheory.mNumInstancesProducedConfl++;
+		} else if (origin.equals(InstanceOrigin.EMATCHING)) {
+			mQuantTheory.mNumInstancesProducedEM++;
+		} else if (origin.equals(InstanceOrigin.ENUMERATION)) {
+			mQuantTheory.mNumInstancesProducedEnum++;
 		}
-		recordSubstAgeForStats(getMaxAge(subs), origin.equals(InstanceOrigin.FINALCHECK));
+		recordSubstAgeForStats(getMaxAge(subs), origin.equals(InstanceOrigin.ENUMERATION));
 		return inst;
 	}
 
@@ -1381,12 +1382,12 @@ public class InstantiationManager {
 		}
 	}
 
-	private void recordSubstAgeForStats(final int age, final boolean isInFinalCheck) {
+	private void recordSubstAgeForStats(final int age, final boolean isProducedByEnumeration) {
 		assert age >= 0;
 		final int index = Integer.SIZE - Integer.numberOfLeadingZeros(age);
 		mQuantTheory.mNumInstancesOfAge[index]++;
-		if (isInFinalCheck) {
-			mQuantTheory.mNumInstancesOfAgeFC[index]++;
+		if (isProducedByEnumeration) {
+			mQuantTheory.mNumInstancesOfAgeEnum[index]++;
 		}
 	}
 
