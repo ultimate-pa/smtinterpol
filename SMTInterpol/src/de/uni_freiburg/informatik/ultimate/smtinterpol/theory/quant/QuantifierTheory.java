@@ -229,6 +229,10 @@ public class QuantifierTheory implements ITheory {
 			// Nothing to do, only in final check
 			potentiallyInterestingInstances = null;
 			break;
+		case E_MATCHING_CONFLICT_LAZY:
+			// Nothing to do, only in final check
+			potentiallyInterestingInstances = null;
+			break;
 		default:
 			throw new InternalError("Unknown instantiation method");
 		}
@@ -262,6 +266,17 @@ public class QuantifierTheory implements ITheory {
 			for (final InstClause i : potentiallyInterestingInstances) {
 				if (i.countAndSetUndefLits() != -1) {
 					// Don't search for other instances if E-matching found one that is not yet satisfied.
+					foundNonSat = true;
+					break;
+				}
+			}
+		} else if (mInstantiationMethod == InstantiationMethod.E_MATCHING_CONFLICT_LAZY) {
+			mEMatching.run();
+			potentiallyInterestingInstances = mInstantiationManager.findConflictAndUnitInstancesWithEMatching();
+			for (final InstClause i : potentiallyInterestingInstances) {
+				if (i.countAndSetUndefLits() != -1) {
+					// Don't search for other instances if E-matching based conflict/unit search found one that is not
+					// yet satisfied. (The method might miss some true literals, so we need to check this here.)
 					foundNonSat = true;
 					break;
 				}
@@ -862,6 +877,10 @@ public class QuantifierTheory implements ITheory {
 		/**
 		 * In final check, build instances found by E-matching (don't build terms without equivalent known term).
 		 */
-		E_MATCHING_LAZY;
+		E_MATCHING_LAZY,
+		/**
+		 * In final check, build potential conflict and unit instances found by E-matching.
+		 */
+		E_MATCHING_CONFLICT_LAZY;
 	}
 }
