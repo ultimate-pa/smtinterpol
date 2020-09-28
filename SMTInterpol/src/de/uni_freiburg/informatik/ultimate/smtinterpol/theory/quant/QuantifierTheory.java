@@ -91,10 +91,11 @@ public class QuantifierTheory implements ITheory {
 	private int mDecideLevelOfLastCheckpoint;
 
 	// Statistics
-	long mNumInstancesProduced, mNumInstancesDER, mNumInstancesProducedCP, mNumInstancesProducedFC;
+	long mNumInstancesProduced, mNumInstancesDER, mNumInstancesProducedConfl, mNumInstancesProducedEM,
+			mNumInstancesProducedEnum;
 	private long mNumCheckpoints, mNumCheckpointsWithNewEval, mNumConflicts, mNumProps, mNumFinalcheck;
 	private long mCheckpointTime, mFindEmatchingTime, mFinalCheckTime, mEMatchingTime, mDawgTime;
-	int[] mNumInstancesOfAge, mNumInstancesOfAgeFC;
+	int[] mNumInstancesOfAge, mNumInstancesOfAgeEnum;
 
 	// Options
 	InstantiationMethod mInstantiationMethod;
@@ -128,7 +129,7 @@ public class QuantifierTheory implements ITheory {
 		mDecideLevelOfLastCheckpoint = mEngine.getDecideLevel();
 
 		mNumInstancesOfAge = new int[Integer.SIZE];
-		mNumInstancesOfAgeFC = new int[Integer.SIZE];
+		mNumInstancesOfAgeEnum = new int[Integer.SIZE];
 	}
 
 	@Override
@@ -222,7 +223,7 @@ public class QuantifierTheory implements ITheory {
 		case E_MATCHING_EAGER:
 			mNumCheckpointsWithNewEval++;
 			mEMatching.run();
-			potentiallyInterestingInstances = mInstantiationManager.computeEMatchingInstances(true);
+			potentiallyInterestingInstances = mInstantiationManager.computeEMatchingInstances();
 			break;
 		case E_MATCHING_LAZY:
 			// Nothing to do, only in final check
@@ -257,7 +258,7 @@ public class QuantifierTheory implements ITheory {
 		boolean foundNonSat = false;
 		if (mInstantiationMethod == InstantiationMethod.E_MATCHING_LAZY) {
 			mEMatching.run();
-			potentiallyInterestingInstances = mInstantiationManager.computeEMatchingInstances(false);
+			potentiallyInterestingInstances = mInstantiationManager.computeEMatchingInstances();
 			for (final InstClause i : potentiallyInterestingInstances) {
 				if (i.countAndSetUndefLits() != -1) {
 					// Don't search for other instances if E-matching found one that is not yet satisfied.
@@ -325,11 +326,11 @@ public class QuantifierTheory implements ITheory {
 	@Override
 	public void printStatistics(final LogProxy logger) {
 		logger.info("Quant: DER produced %d ground clause(s).", mNumInstancesDER);
-		logger.info("Quant: Instances produced: %d (Checkpoint: %d, Final check: %d)", mNumInstancesProduced,
-				mNumInstancesProducedCP, mNumInstancesProducedFC);
+		logger.info("Quant: Instances produced: %d (Conflict/Unit: %d, E-Matching: %d, Enumeration: %d)",
+				mNumInstancesProduced, mNumInstancesProducedConfl, mNumInstancesProducedEM, mNumInstancesProducedEnum);
 		logger.info(
-				"Quant: Subs of age 0, 1, 2-3, 4-7, ... : %s, (Final Check: %s)",
-				Arrays.toString(mNumInstancesOfAge), Arrays.toString(mNumInstancesOfAgeFC));
+				"Quant: Subs of age 0, 1, 2-3, 4-7, ... : %s, (Enumeration: %s)", Arrays.toString(mNumInstancesOfAge),
+				Arrays.toString(mNumInstancesOfAgeEnum));
 		logger.info("Quant: Conflicts: %d Props: %d Checkpoints (with new evaluation): %d (%d) Final Checks: %d",
 				mNumConflicts, mNumProps, mNumCheckpoints, mNumCheckpointsWithNewEval, mNumFinalcheck);
 		logger.info(
@@ -401,11 +402,12 @@ public class QuantifierTheory implements ITheory {
 		return new Object[] { ":Quant",
 				new Object[][] { { "DER ground results", mNumInstancesDER },
 						{ "Instances produced", mNumInstancesProduced },
-						{ "thereof in checkpoint", mNumInstancesProducedCP },
-						{ "and in final check", mNumInstancesProducedFC },
+						{ "thereof by conflict/unit search", mNumInstancesProducedConfl },
+						{ "and by E-matching", mNumInstancesProducedEM },
+						{ "and by enumeration", mNumInstancesProducedEnum },
 						{ "Subs of age 0, 1, 2-3, 4-7, ...",
 								Arrays.toString(mNumInstancesOfAge) },
-						{ "thereof in final check", Arrays.toString(mNumInstancesOfAgeFC) },
+						{ "thereof for enumeration", Arrays.toString(mNumInstancesOfAgeEnum) },
 						{ "Conflicts", mNumConflicts },
 						{ "Propagations", mNumProps }, { "Checkpoints", mNumCheckpoints },
 						{ "Checkpoints with new evaluation", mNumCheckpointsWithNewEval },
@@ -825,7 +827,7 @@ public class QuantifierTheory implements ITheory {
 	 * The origin of an instance of a quantified clause.
 	 */
 	public enum InstanceOrigin {
-		CHECKPOINT(":Checkpoint"), FINALCHECK(":Finalcheck");
+		CONFLICT(":conflict"), EMATCHING(":e-matching"), ENUMERATION(":enumeration");
 		String mOrigin;
 
 		private InstanceOrigin(final String origin) {
