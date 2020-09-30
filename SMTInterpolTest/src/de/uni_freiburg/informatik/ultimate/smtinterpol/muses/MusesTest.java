@@ -185,7 +185,7 @@ public class MusesTest {
 		declareConstraint(script, translator, engine, c9, annots.get(9));
 	}
 
-	private void setupUnsatSet2AssertSomeAsAxioms(final Script script, final Translator translator, final DPLLEngine engine) {
+	private void setupUnsatSet2AssertSomeAsAxioms1(final Script script, final Translator translator, final DPLLEngine engine) {
 		final ArrayList<String> names = new ArrayList<>();
 		final ArrayList<Annotation> annots = new ArrayList<>();
 		for (int i = 0; i < 10; i++) {
@@ -216,6 +216,44 @@ public class MusesTest {
 		declareConstraint(script, translator, engine, c2, annots.get(2));
 		declareConstraint(script, translator, engine, c3, annots.get(3));
 		script.assertTerm(c4);
+		declareConstraint(script, translator, engine, c5, annots.get(5));
+		declareConstraint(script, translator, engine, c6, annots.get(6));
+		declareConstraint(script, translator, engine, c7, annots.get(7));
+		declareConstraint(script, translator, engine, c8, annots.get(8));
+		declareConstraint(script, translator, engine, c9, annots.get(9));
+	}
+
+	private void setupUnsatSet2AssertSomeAsAxioms2(final Script script, final Translator translator, final DPLLEngine engine) {
+		final ArrayList<String> names = new ArrayList<>();
+		final ArrayList<Annotation> annots = new ArrayList<>();
+		for (int i = 0; i < 10; i++) {
+			names.add("c" + String.valueOf(i));
+		}
+		for (int i = 0; i < names.size(); i++) {
+			annots.add(new Annotation(":named", names.get(i)));
+		}
+		final Sort intSort = script.sort("Int");
+		script.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		script.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		script.declareFun("z", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term x = script.term("x");
+		final Term y = script.term("y");
+		final Term z = script.term("z");
+		final Term c0 = script.term("=", x, script.numeral("53"));
+		final Term c1 = script.term(">", x, script.numeral("23"));
+		final Term c2 = script.term("<", x, z);
+		final Term c3 = script.term("=", x, script.numeral("535"));
+		final Term c4 = script.term("=", y, script.numeral("1234"));
+		final Term c5 = script.term("<=", z, script.numeral("23"));
+		final Term c6 = script.term(">=", x, script.numeral("34"));
+		final Term c7 = script.term("=", y, script.numeral("4321"));
+		final Term c8 = script.term("=", x, script.numeral("23"));
+		final Term c9 = script.term("=", x, script.numeral("5353"));
+		declareConstraint(script, translator, engine, c0, annots.get(0));
+		declareConstraint(script, translator, engine, c1, annots.get(1));
+		script.assertTerm(c2);
+		declareConstraint(script, translator, engine, c3, annots.get(3));
+		declareConstraint(script, translator, engine, c4, annots.get(4));
 		declareConstraint(script, translator, engine, c5, annots.get(5));
 		declareConstraint(script, translator, engine, c6, annots.get(6));
 		declareConstraint(script, translator, engine, c7, annots.get(7));
@@ -628,6 +666,53 @@ public class MusesTest {
 		script.assertTerm(c2Anno);
 		script.assertTerm(c3Anno);
 		script.assertTerm(c4);
+		script.assertTerm(c5Anno);
+		script.assertTerm(c6Anno);
+		script.assertTerm(c7Anno);
+		script.assertTerm(c8Anno);
+		script.assertTerm(c9Anno);
+	}
+
+	private void setupUnsatSet2WithUnnamedTerms2(final MusEnumerationScript script) {
+		final ArrayList<String> names = new ArrayList<>();
+		final ArrayList<Annotation> annots = new ArrayList<>();
+		for (int i = 0; i < 10; i++) {
+			names.add("c" + String.valueOf(i));
+		}
+		for (int i = 0; i < names.size(); i++) {
+			annots.add(new Annotation(":named", names.get(i)));
+		}
+		final Sort intSort = script.sort("Int");
+		script.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		script.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		script.declareFun("z", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term x = script.term("x");
+		final Term y = script.term("y");
+		final Term z = script.term("z");
+		final Term c0 = script.term("=", x, script.numeral("53"));
+		final Term c1 = script.term(">", x, script.numeral("23"));
+		final Term c2 = script.term("<", x, z);
+		final Term c3 = script.term("=", x, script.numeral("535"));
+		final Term c4 = script.term("=", y, script.numeral("1234"));
+		final Term c5 = script.term("<=", z, script.numeral("23"));
+		final Term c6 = script.term(">=", x, script.numeral("34"));
+		final Term c7 = script.term("=", y, script.numeral("4321"));
+		final Term c8 = script.term("=", x, script.numeral("23"));
+		final Term c9 = script.term("=", x, script.numeral("5353"));
+		final Term c0Anno = script.annotate(c0, annots.get(0));
+		final Term c1Anno = script.annotate(c1, annots.get(1));
+		final Term c3Anno = script.annotate(c3, annots.get(3));
+		final Term c4Anno = script.annotate(c4, annots.get(4));
+		final Term c5Anno = script.annotate(c5, annots.get(5));
+		final Term c6Anno = script.annotate(c6, annots.get(6));
+		final Term c7Anno = script.annotate(c7, annots.get(7));
+		final Term c8Anno = script.annotate(c8, annots.get(8));
+		final Term c9Anno = script.annotate(c9, annots.get(9));
+		script.assertTerm(c0Anno);
+		script.assertTerm(c1Anno);
+		script.assertTerm(c2);
+		script.assertTerm(c3Anno);
+		script.assertTerm(c4Anno);
 		script.assertTerm(c5Anno);
 		script.assertTerm(c6Anno);
 		script.assertTerm(c7Anno);
@@ -1141,13 +1226,13 @@ public class MusesTest {
 	}
 
 	@Test
-	public void testReMusSet2AssertSomeAsAxioms() {
+	public void testReMusSet2AssertSomeAsAxioms1() {
 		final LogProxy logger = new DefaultLogger();
 		final TimeoutHandler handler = new TimeoutHandler(null);
 		final Script script = setupScript(Logics.ALL, handler, logger);
 		final DPLLEngine engine = new DPLLEngine(logger, handler);
 		final Translator translator = new Translator();
-		setupUnsatSet2AssertSomeAsAxioms(script, translator, engine);
+		setupUnsatSet2AssertSomeAsAxioms1(script, translator, engine);
 
 		script.push(1);
 		final UnexploredMap map = new UnexploredMap(engine, translator);
@@ -1163,6 +1248,30 @@ public class MusesTest {
 			checkWhetherSetIsMus(container.getMus(), solver);
 		}
 		Assert.assertTrue(muses.size() == 5);
+	}
+
+	@Test
+	public void testReMusSet2AssertSomeAsAxioms2() {
+		final LogProxy logger = new DefaultLogger();
+		final TimeoutHandler handler = new TimeoutHandler(null);
+		final Script script = setupScript(Logics.ALL, handler, logger);
+		final DPLLEngine engine = new DPLLEngine(logger, handler);
+		final Translator translator = new Translator();
+		setupUnsatSet2AssertSomeAsAxioms2(script, translator, engine);
+
+		final UnexploredMap map = new UnexploredMap(engine, translator);
+		final ConstraintAdministrationSolver solver = new ConstraintAdministrationSolver(script, translator);
+		final BitSet workingSet = new BitSet(9);
+		workingSet.flip(0, 9);
+		solver.pushRecLevel();
+		final ReMus remus = new ReMus(solver, map, workingSet, handler, 0, new Random(1337), false, logger);
+		final ArrayList<MusContainer> muses = remus.enumerate();
+		solver.popRecLevel();
+
+		for (final MusContainer container : muses) {
+			checkWhetherSetIsMus(container.getMus(), solver);
+		}
+		Assert.assertTrue(muses.size() == 15);
 	}
 
 	@Test
@@ -1895,6 +2004,34 @@ public class MusesTest {
 		final Term[] core2 = script.getUnsatCore();
 		Assert.assertTrue(core2.length == 1);
 		Assert.assertTrue(core1[0].toString().equals(core2[0].toString()));
+
+		script.setOption(MusOptions.INTERPOLATION_HEURISTIC, HeuristicsType.BIGGEST);
+		final Term[] core3 = script.getUnsatCore();
+		Assert.assertTrue(!core1.equals(core3));
+		Assert.assertTrue(core3.length == 2);
+	}
+
+	@Test
+	public void testMusEnumerationScriptSet2WithUnnamedTerms2() {
+		final MusEnumerationScript script = setupMusEnumerationScript(Logics.ALL);
+		script.setOption(MusOptions.INTERPOLATION_HEURISTIC, HeuristicsType.SMALLEST);
+		script.setOption(SMTLIBConstants.RANDOM_SEED, 1337);
+		script.setOption(MusOptions.LOG_ADDITIONAL_INFORMATION, true);
+
+		script.push(1);
+		setupUnsatSet2WithUnnamedTerms2(script);
+		Assert.assertTrue(LBool.UNSAT == script.checkSat());
+		final Term[] core1 = script.getUnsatCore();
+		Assert.assertTrue(core1.length == 2);
+		script.pop(1);
+
+		setupUnsatSet2WithUnnamedTerms2(script);
+		// By setting the seed we reset the internal Random instance
+		script.setOption(SMTLIBConstants.RANDOM_SEED, 1337);
+		Assert.assertTrue(LBool.UNSAT == script.checkSat());
+		final Term[] core2 = script.getUnsatCore();
+		Assert.assertTrue(core1[0].toString().equals(core2[0].toString()));
+		Assert.assertTrue(core1[1].toString().equals(core2[1].toString()));
 
 		script.setOption(MusOptions.INTERPOLATION_HEURISTIC, HeuristicsType.BIGGEST);
 		final Term[] core3 = script.getUnsatCore();
