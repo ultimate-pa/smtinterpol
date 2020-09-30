@@ -146,6 +146,10 @@ public class QuantifierTheory implements ITheory {
 
 	@Override
 	public Clause setLiteral(final Literal literal) {
+		if (mQuantClauses.isEmpty()) {
+			assert mPendingInstances.isEmpty();
+			return null;
+		}
 		// Remove clauses that have become true from potential conflict and unit clauses.
 		if (mPendingInstances.containsKey(literal)) {
 			for (final InstClause instClause : mPendingInstances.remove(literal)) {
@@ -187,60 +191,64 @@ public class QuantifierTheory implements ITheory {
 
 	@Override
 	public Clause checkpoint() {
-		mNumCheckpoints++;
 		long time;
 		if (Config.PROFILE_TIME) {
 			time = System.nanoTime();
 		}
-		// Don't search for new conflict and unit clauses if there are still potential conflict and unit clauses in the
-		// queue.
+		mNumCheckpoints++;
+		Clause conflict = null;
+		if (!mQuantClauses.isEmpty()) {
 
-		// TODO: This does not hold any more when we add instances from final check to the pendingInstances.
-		// if (mLinArSolve == null) {
-		// assert mPendingInstances.isEmpty() || mInstantiationMethod == InstantiationMethod.E_MATCHING_EAGER
-		// || mInstantiationMethod == InstantiationMethod.E_MATCHING_LAZY
-		// || mEngine.getDecideLevel() <= mDecideLevelOfLastCheckpoint;
-		// }
-		mDecideLevelOfLastCheckpoint = mEngine.getDecideLevel();
-		if (!mPendingInstances.isEmpty()) {
-			return null;
-		}
+			// Don't search for new conflict and unit clauses if there are still potential conflict and unit clauses in
+			// the queue.
 
-		final Collection<InstClause> potentiallyInterestingInstances;
-		switch (mInstantiationMethod) {
-		case E_MATCHING_CONFLICT:
-			mNumCheckpointsWithNewEval++;
-			mEMatching.run();
-			potentiallyInterestingInstances = mInstantiationManager.findConflictAndUnitInstancesWithEMatching();
-			if (Config.PROFILE_TIME) {
-				mFindEmatchingTime += System.nanoTime() - time;
+			// TODO: This does not hold any more when we add instances from final check to the pendingInstances.
+			// if (mLinArSolve == null) {
+			// assert mPendingInstances.isEmpty() || mInstantiationMethod == InstantiationMethod.E_MATCHING_EAGER
+			// || mInstantiationMethod == InstantiationMethod.E_MATCHING_LAZY
+			// || mEngine.getDecideLevel() <= mDecideLevelOfLastCheckpoint;
+			// }
+			mDecideLevelOfLastCheckpoint = mEngine.getDecideLevel();
+			if (!mPendingInstances.isEmpty()) {
+				return null;
 			}
-			break;
-		case AUF_CONFLICT:
-			mNumCheckpointsWithNewEval++;
-			potentiallyInterestingInstances = mInstantiationManager.findConflictAndUnitInstances();
-			break;
-		case E_MATCHING_EAGER:
-			mNumCheckpointsWithNewEval++;
-			mEMatching.run();
-			potentiallyInterestingInstances = mInstantiationManager.computeEMatchingInstances();
-			break;
-		case E_MATCHING_LAZY:
-			// Nothing to do, only in final check
-			potentiallyInterestingInstances = null;
-			break;
-		case E_MATCHING_CONFLICT_LAZY:
-			// Nothing to do, only in final check
-			potentiallyInterestingInstances = null;
-			break;
-		default:
-			throw new InternalError("Unknown instantiation method");
-		}
-		final Clause conflict = addInstClausesToPending(potentiallyInterestingInstances);
-		if (conflict != null) {
-			mLogger.debug("Quant conflict: %s", conflict);
-			mEngine.learnClause(conflict);
-			mNumConflicts++;
+
+			final Collection<InstClause> potentiallyInterestingInstances;
+			switch (mInstantiationMethod) {
+			case E_MATCHING_CONFLICT:
+				mNumCheckpointsWithNewEval++;
+				mEMatching.run();
+				potentiallyInterestingInstances = mInstantiationManager.findConflictAndUnitInstancesWithEMatching();
+				if (Config.PROFILE_TIME) {
+					mFindEmatchingTime += System.nanoTime() - time;
+				}
+				break;
+			case AUF_CONFLICT:
+				mNumCheckpointsWithNewEval++;
+				potentiallyInterestingInstances = mInstantiationManager.findConflictAndUnitInstances();
+				break;
+			case E_MATCHING_EAGER:
+				mNumCheckpointsWithNewEval++;
+				mEMatching.run();
+				potentiallyInterestingInstances = mInstantiationManager.computeEMatchingInstances();
+				break;
+			case E_MATCHING_LAZY:
+				// Nothing to do, only in final check
+				potentiallyInterestingInstances = null;
+				break;
+			case E_MATCHING_CONFLICT_LAZY:
+				// Nothing to do, only in final check
+				potentiallyInterestingInstances = null;
+				break;
+			default:
+				throw new InternalError("Unknown instantiation method");
+			}
+			conflict = addInstClausesToPending(potentiallyInterestingInstances);
+			if (conflict != null) {
+				mLogger.debug("Quant conflict: %s", conflict);
+				mEngine.learnClause(conflict);
+				mNumConflicts++;
+			}
 		}
 		if (Config.PROFILE_TIME) {
 			mCheckpointTime += System.nanoTime() - time;
@@ -256,42 +264,46 @@ public class QuantifierTheory implements ITheory {
 		}
 		mNumFinalcheck++;
 		assert mPendingInstances.isEmpty();
+		Clause conflict = null;
 
-		Collection<InstClause> potentiallyInterestingInstances = new LinkedHashSet<>();
+		if (!mQuantClauses.isEmpty()) {
+			Collection<InstClause> potentiallyInterestingInstances = new LinkedHashSet<>();
 
-		boolean foundNonSat = false;
-		if (mInstantiationMethod == InstantiationMethod.E_MATCHING_LAZY) {
-			mEMatching.run();
-			potentiallyInterestingInstances = mInstantiationManager.computeEMatchingInstances();
-			for (final InstClause i : potentiallyInterestingInstances) {
-				if (i.countAndSetUndefLits() != -1) {
-					// Don't search for other instances if E-matching found one that is not yet satisfied.
-					foundNonSat = true;
-					break;
+			boolean foundNonSat = false;
+			if (mInstantiationMethod == InstantiationMethod.E_MATCHING_LAZY) {
+				mEMatching.run();
+				potentiallyInterestingInstances = mInstantiationManager.computeEMatchingInstances();
+				for (final InstClause i : potentiallyInterestingInstances) {
+					if (i.countAndSetUndefLits() != -1) {
+						// Don't search for other instances if E-matching found one that is not yet satisfied.
+						foundNonSat = true;
+						break;
+					}
+				}
+			} else if (mInstantiationMethod == InstantiationMethod.E_MATCHING_CONFLICT_LAZY) {
+				mEMatching.run();
+				potentiallyInterestingInstances = mInstantiationManager.findConflictAndUnitInstancesWithEMatching();
+				for (final InstClause i : potentiallyInterestingInstances) {
+					if (i.countAndSetUndefLits() != -1) {
+						// Don't search for other instances if E-matching based conflict/unit search found one that is
+						// not
+						// yet satisfied. (The method might miss some true literals, so we need to check this here.)
+						foundNonSat = true;
+						break;
+					}
 				}
 			}
-		} else if (mInstantiationMethod == InstantiationMethod.E_MATCHING_CONFLICT_LAZY) {
-			mEMatching.run();
-			potentiallyInterestingInstances = mInstantiationManager.findConflictAndUnitInstancesWithEMatching();
-			for (final InstClause i : potentiallyInterestingInstances) {
-				if (i.countAndSetUndefLits() != -1) {
-					// Don't search for other instances if E-matching based conflict/unit search found one that is not
-					// yet satisfied. (The method might miss some true literals, so we need to check this here.)
-					foundNonSat = true;
-					break;
-				}
+			if (mClausifier.getEngine().isTerminationRequested()) {
+				return null;
 			}
-		}
-		if (mClausifier.getEngine().isTerminationRequested()) {
-			return null;
-		}
-		if (potentiallyInterestingInstances.isEmpty() || !foundNonSat) {
-			potentiallyInterestingInstances = mInstantiationManager.instantiateSomeNotSat();
-		}
-		final Clause conflict = addInstClausesToPending(potentiallyInterestingInstances);
-		if (conflict != null) {
-			mNumConflicts++;
-			mEngine.learnClause(conflict);
+			if (potentiallyInterestingInstances.isEmpty() || !foundNonSat) {
+				potentiallyInterestingInstances = mInstantiationManager.instantiateSomeNotSat();
+			}
+			conflict = addInstClausesToPending(potentiallyInterestingInstances);
+			if (conflict != null) {
+				mNumConflicts++;
+				mEngine.learnClause(conflict);
+			}
 		}
 		if (Config.PROFILE_TIME) {
 			mFinalCheckTime += System.nanoTime() - time;
@@ -301,6 +313,11 @@ public class QuantifierTheory implements ITheory {
 
 	@Override
 	public Literal getPropagatedLiteral() {
+		if (mQuantClauses.isEmpty()) {
+			assert mPendingInstances.isEmpty();
+			return null;
+		}
+
 		for (final Map.Entry<Literal, Set<InstClause>> entry : mPendingInstances.entrySet()) {
 			if (mEngine.isTerminationRequested()) {
 				return null;
@@ -427,11 +444,10 @@ public class QuantifierTheory implements ITheory {
 						{ "thereof by conflict/unit search", mNumInstancesProducedConfl },
 						{ "and by E-matching", mNumInstancesProducedEM },
 						{ "and by enumeration", mNumInstancesProducedEnum },
-						{ "Subs of age 0, 1, 2-3, 4-7, ...",
-								Arrays.toString(mNumInstancesOfAge) },
+						{ "Subs of age 0, 1, 2-3, 4-7, ...", Arrays.toString(mNumInstancesOfAge) },
 						{ "thereof for enumeration", Arrays.toString(mNumInstancesOfAgeEnum) },
-						{ "Conflicts", mNumConflicts },
-						{ "Propagations", mNumProps }, { "Checkpoints", mNumCheckpoints },
+						{ "Conflicts", mNumConflicts }, { "Propagations", mNumProps },
+						{ "Checkpoints", mNumCheckpoints },
 						{ "Checkpoints with new evaluation", mNumCheckpointsWithNewEval },
 						{ "Final Checks", mNumFinalcheck },
 						{ "Times",

@@ -141,13 +141,15 @@ public class InstantiationManager {
 	}
 
 	/**
-	 * Find all current instances of quant clauses that would be conflict or unit instances. This will actually compute
-	 * the clause instances, i.e., it will create the ground literals.
+	 * Find instances of quant clauses that would be conflict or unit instances. This will actually compute the clause
+	 * instances, i.e., it will create the ground literals. We prefer conflict instances, only if there are none, unit
+	 * instances are computed.
 	 *
 	 * @return the clause instances.
 	 */
 	public Set<InstClause> findConflictAndUnitInstancesWithEMatching() {
 		final Set<InstClause> conflictAndUnitClauses = new LinkedHashSet<>();
+		final Map<QuantClause, Collection<List<Term>>> unitSubs = new LinkedHashMap<>();
 
 		// New Quant Clauses may be added when new instances are computed (e.g. axioms for ite terms)
 		final List<QuantClause> currentQuantClauses = new ArrayList<>();
@@ -157,14 +159,38 @@ public class InstantiationManager {
 			if (mQuantTheory.getEngine().isTerminationRequested()) {
 				return Collections.emptySet();
 			}
+			if (qClause.hasTrueGroundLits()) {
+				continue;
+			}
 			final Dawg<Term, InstantiationInfo> dawg = computeClauseDawg(qClause);
-			final Collection<List<Term>> conflictOrUnitSubs = getRelevantSubsFromDawg(qClause, dawg);
-			if (conflictOrUnitSubs != null) {
-				for (final List<Term> subs : conflictOrUnitSubs) {
+			for (final Pair<List<Term>, InstanceValue> subsWithVal : getRelevantSubsFromDawg(qClause, dawg)) {
+				if (mQuantTheory.getEngine().isTerminationRequested()) {
+					return Collections.emptySet();
+				}
+				final List<Term> subs = subsWithVal.getFirst();
+				final InstanceValue val = subsWithVal.getSecond();
+				if (val == InstanceValue.FALSE) {
+					final InstClause inst = computeClauseInstance(qClause, subs, InstanceOrigin.CONFLICT);
+					if (inst != null) {
+						conflictAndUnitClauses.add(inst);
+					}
+				} else {
+					assert val == InstanceValue.ONE_UNDEF || val == InstanceValue.UNKNOWN_TERM;
+					if (!unitSubs.containsKey(qClause)) {
+						unitSubs.put(qClause, new ArrayList<List<Term>>());
+					}
+					unitSubs.get(qClause).add(subs);
+				}
+			}
+		}
+		if (conflictAndUnitClauses.isEmpty()) {
+			for (final Entry<QuantClause, Collection<List<Term>>> e : unitSubs.entrySet()) {
+				final QuantClause clause = e.getKey();
+				for (final List<Term> subs : e.getValue()) {
 					if (mQuantTheory.getEngine().isTerminationRequested()) {
 						return Collections.emptySet();
 					}
-					final InstClause inst = computeClauseInstance(qClause, subs, InstanceOrigin.CONFLICT);
+					final InstClause inst = computeClauseInstance(clause, subs, InstanceOrigin.CONFLICT);
 					if (inst != null) {
 						conflictAndUnitClauses.add(inst);
 					}
@@ -175,13 +201,15 @@ public class InstantiationManager {
 	}
 
 	/**
-	 * Find all instances of clauses that would be a conflict or unit clause if the corresponding theories had known the
-	 * literals at creation of the instance.
+	 * Find instances of quant clauses that would be conflict or unit instances. This will actually compute the clause
+	 * instances, i.e., it will create the ground literals. We prefer conflict instances, only if there are none, unit
+	 * instances are computed.
 	 *
 	 * @return A Set of potentially conflicting and unit instances.
 	 */
 	public Set<InstClause> findConflictAndUnitInstances() {
 		final Set<InstClause> conflictAndUnitClauses = new LinkedHashSet<>();
+		final Map<QuantClause, Collection<List<Term>>> unitSubs = new LinkedHashMap<>();
 		// New Quant Clauses may be added when new instances are computed (e.g. axioms for ite terms)
 		final List<QuantClause> currentQuantClauses = new ArrayList<>();
 		currentQuantClauses.addAll(mQuantTheory.getQuantClauses());
@@ -201,7 +229,29 @@ public class InstantiationManager {
 				// TODO Don't evaluate existing instances
 				final InstanceValue clauseValue = evaluateClauseInstance(quantClause, subs);
 				if (clauseValue != InstanceValue.IRRELEVANT) {
-					final InstClause inst = computeClauseInstance(quantClause, subs, InstanceOrigin.CONFLICT);
+					if (clauseValue == InstanceValue.FALSE) {
+						final InstClause inst = computeClauseInstance(quantClause, subs, InstanceOrigin.CONFLICT);
+						if (inst != null) {
+							conflictAndUnitClauses.add(inst);
+						}
+					} else {
+						assert clauseValue == InstanceValue.ONE_UNDEF || clauseValue == InstanceValue.UNKNOWN_TERM;
+						if (!unitSubs.containsKey(quantClause)) {
+							unitSubs.put(quantClause, new ArrayList<List<Term>>());
+						}
+						unitSubs.get(quantClause).add(subs);
+					}
+				}
+			}
+		}
+		if (conflictAndUnitClauses.isEmpty()) {
+			for (final Entry<QuantClause, Collection<List<Term>>> e : unitSubs.entrySet()) {
+				final QuantClause clause = e.getKey();
+				for (final List<Term> subs : e.getValue()) {
+					if (mQuantTheory.getEngine().isTerminationRequested()) {
+						return Collections.emptySet();
+					}
+					final InstClause inst = computeClauseInstance(clause, subs, InstanceOrigin.CONFLICT);
 					if (inst != null) {
 						conflictAndUnitClauses.add(inst);
 					}
@@ -275,8 +325,8 @@ public class InstantiationManager {
 				clauseDawg = clauseDawg.combine(instDawg, (v1, v2) -> combineForCheckpoint(v1, v2));
 			}
 			// Compute instances that do not produce new terms, i.e., where the E-matching multi-pattern was matched
-			for (final List<Term> subs : getRelevantSubsFromDawg(clause, clauseDawg)) {
-				final InstClause inst = computeClauseInstance(clause, subs, InstanceOrigin.EMATCHING);
+			for (final Pair<List<Term>, InstanceValue> subs : getRelevantSubsFromDawg(clause, clauseDawg)) {
+				final InstClause inst = computeClauseInstance(clause, subs.getFirst(), InstanceOrigin.EMATCHING);
 				if (inst != null) {
 					newInstances.add(inst);
 				}
@@ -569,9 +619,9 @@ public class InstantiationManager {
 						break;
 					}
 					clauseDawg = clauseDawg.mapWithKey((key, value) -> (combineForCheckpoint(value,
-											new InstantiationInfo(evaluateLitInstance(lit, key), value.getSubs()))));
+							new InstantiationInfo(evaluateLitInstance(lit, key), value.getSubs()))));
 				}
-			}
+					}
 			if (clauseDawg != constIrrelDawg && !arithLits.isEmpty()) {
 				// Compute relevant terms from dawg and from bounds for arithmetical literals, update and combine dawgs.
 				final Term[][] interestingSubsForArith = computeSubsForArithmetical(qClause, arithLits, clauseDawg);
@@ -906,12 +956,13 @@ public class InstantiationManager {
 	 *            the corresponding clause evaluation dawg.
 	 * @return the variable substitutions for the clause with InstanceValue != IRRELEVANT.
 	 */
-	private Collection<List<Term>> getRelevantSubsFromDawg(final QuantClause qClause,
+	private Collection<Pair<List<Term>, InstanceValue>> getRelevantSubsFromDawg(final QuantClause qClause,
 			final Dawg<Term, InstantiationInfo> clauseDawg) {
-		final Collection<List<Term>> relevantSubs = new ArrayList<>();
+		final Collection<Pair<List<Term>, InstanceValue>> relevantSubs = new ArrayList<>();
 		for (final InstantiationInfo info : clauseDawg.values()) {
-			assert !Config.EXPENSIVE_ASSERTS || isUsedValueForCheckpoint(info.getInstValue());
-			if (info.getInstValue() != InstanceValue.IRRELEVANT) {
+			final InstanceValue val = info.getInstValue();
+			assert !Config.EXPENSIVE_ASSERTS || isUsedValueForCheckpoint(val);
+			if (val != InstanceValue.IRRELEVANT) {
 				// Replace the nulls (standing for the "else" case) with the suitable lambda
 				final int nVars = qClause.getVars().length;
 				final List<Term> subsWithNulls = info.getSubs();
@@ -923,8 +974,9 @@ public class InstantiationManager {
 						subsWithLambdas.add(mQuantTheory.getLambda(qClause.getVars()[i].getSort()));
 					}
 				}
-				if (!relevantSubs.contains(subsWithLambdas)) {
-					relevantSubs.add(subsWithLambdas);
+				final Pair<List<Term>, InstanceValue> subsWithValue = new Pair<>(subsWithLambdas, val);
+				if (!relevantSubs.contains(subsWithValue)) {
+					relevantSubs.add(subsWithValue);
 				}
 			}
 		}
