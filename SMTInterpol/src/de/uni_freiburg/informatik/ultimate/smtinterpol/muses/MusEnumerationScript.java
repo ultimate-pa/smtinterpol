@@ -272,7 +272,7 @@ public class MusEnumerationScript extends WrapperScript {
 	 *
 	 * This method is only available if proof production and unsat core production is enabled. To enable proof
 	 * production, call setOption(":produce-proofs",true). To enable unsat core production, call
-	 * setOption(":produce-unsat-cores", true).Also, if unsat core production is turned on,
+	 * setOption(":produce-unsat-cores", true). Also, if unsat core production is turned on,
 	 * in case the script is not able to enumerate a MUS and logging is turned on, info about the vanilla unsat core is
 	 * logged.
 	 */
@@ -519,7 +519,11 @@ public class MusEnumerationScript extends WrapperScript {
 			if (hasName(term)) {
 				annoTerm = (AnnotatedTerm) term;
 			} else {
-				annoTerm = nameTerm(term, scriptForReMus);
+				//annoTerm = nameTerm(term, scriptForReMus);
+				//The terms that have been asserted without a name are axioms, and should not be minimized.
+				//Therefore we assert them at the beginning, and don't let the ReMus-System know that they even exist.
+				scriptForReMus.assertTerm(term);
+				continue;
 			}
 			final NamedAtom atom = new NamedAtom(annoTerm, 0);
 			atom.setPreferredStatus(atom.getAtom());

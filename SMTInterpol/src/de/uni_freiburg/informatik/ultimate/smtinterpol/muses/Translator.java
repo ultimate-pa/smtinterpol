@@ -70,7 +70,10 @@ public class Translator {
 		return mIndex2AtomOfConstraint.get(index);
 	}
 
-	public int translate2Index(final Term term) {
+	/**
+	 * Returns null if there is no translation for this term or it has no name.
+	 */
+	public Integer translate2Index(final Term term) {
 		return mNameOfConstraint2Index.get(getName(term));
 	}
 
@@ -83,8 +86,13 @@ public class Translator {
 	 */
 	public BitSet translateToBitSet(final Term[] constraints) {
 		final BitSet constraintsAsBits = new BitSet(getNumberOfConstraints());
+		Integer translation;
 		for (int i = 0; i < constraints.length; i++) {
-			constraintsAsBits.set(translate2Index(constraints[i]));
+			translation = translate2Index(constraints[i]);
+			if (translate2Index(constraints[i]) == null) {
+				continue;
+			}
+			constraintsAsBits.set(translation);
 		}
 		return constraintsAsBits;
 	}
@@ -119,6 +127,9 @@ public class Translator {
 		return getName(atom.getSMTFormula(null, false));
 	}
 
+	/**
+	 * Returns null, if the name was not found.
+	 */
 	public static String getName(final Term term) {
 		if (term instanceof ApplicationTerm) {
 			return ((ApplicationTerm) term).getFunction().getName();
