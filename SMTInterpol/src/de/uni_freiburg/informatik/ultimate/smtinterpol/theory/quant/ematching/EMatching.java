@@ -94,7 +94,8 @@ public class EMatching {
 		for (final QuantLiteral qLit : qClause.getQuantLits()) {
 			final QuantLiteral qAtom = qLit.getAtom();
 			boolean isSuitableForEmatching = QuantUtil.containsArithmeticOnQuantOnlyAtTopLevel(qAtom)
-					&& (mQuantTheory.getInstantiationMethod() == InstantiationMethod.E_MATCHING_CONFLICT
+					&& ((mQuantTheory.getInstantiationMethod() == InstantiationMethod.E_MATCHING_CONFLICT
+							|| mQuantTheory.getInstantiationMethod() == InstantiationMethod.E_MATCHING_CONFLICT_LAZY)
 							? QuantUtil.containsAppTermsForEachVar(qAtom)
 							: true);
 			if (isSuitableForEmatching) {
