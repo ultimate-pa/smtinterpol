@@ -433,8 +433,8 @@ public class InstantiationManager {
 			// If we haven't found a conflict or unit instance on known terms, first check other non-sat instances on
 			// known terms, then unit instances producing new terms, then other non-sat instances on new terms.
 			final List<Pair<QuantClause, List<Term>>> sortedInstances = new ArrayList<>();
-			sortedInstances.addAll(otherValueInstancesOnKnownTerms);
 			sortedInstances.addAll(unitValueInstancesNewTerms);
+			sortedInstances.addAll(otherValueInstancesOnKnownTerms);
 			sortedInstances.addAll(otherValueInstancesNewTerms);
 			for (final Pair<QuantClause, List<Term>> cand : sortedInstances) {
 				final InstClause inst =
