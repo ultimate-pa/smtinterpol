@@ -298,7 +298,7 @@ public class InstantiationManager {
 									new InstantiationInfo(InstanceValue.ONE_UNDEF, new ArrayList<>()));
 						}
 					}
-					if (instDawg != null) {
+					if (instDawg == null) {
 						final Dawg<Term, SubstitutionInfo> subsDawg = mEMatching.getSubstitutionInfos(atom);
 						if (subsDawg != null) {
 							// Map keys to representative, and map non-empty SubstitutionInfo to one_undef
