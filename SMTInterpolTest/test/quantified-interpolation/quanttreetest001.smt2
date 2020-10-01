@@ -30,4 +30,7 @@ Desired Interpolant:
 (check-sat)
 (get-proof)
 (get-interpolants P0 (P1) P2 (P3 (P4) P5) P6)
+(get-interpolants P1 (P2) P3 (P4 (P5) P0) P6)
+(get-interpolants P2 (P3) P4 (P5 (P0) P1) P6)
+(get-interpolants P3 (P4) P5 (P0 (P1) P2) P6)
 (exit)
