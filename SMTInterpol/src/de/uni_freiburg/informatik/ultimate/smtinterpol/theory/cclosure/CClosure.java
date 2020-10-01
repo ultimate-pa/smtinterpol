@@ -800,10 +800,6 @@ public class CClosure implements ITheory {
 	}
 
 	@Override
-	public void backtrackLiteral(final Literal literal) {
-	}
-
-	@Override
 	public Clause computeConflictClause() {
 		Clause res = checkpoint();
 		if (res == null) {
@@ -905,32 +901,38 @@ public class CClosure implements ITheory {
 		return null;
 	}
 
-	private CCTermPairHash.Info mLastInfo;
+	@Override
+	public void backtrackLiteral(final Literal literal) {
+	}
 
 	void removePairHash(final CCTermPairHash.Info info) {
 		mPairHash.remove(info);
-		if (mLastInfo == info) {
-			mLastInfo = null;
-		}
 	}
 
 	private void separate(final CCTerm lhs, final CCTerm rhs, final CCEquality diseq) {
-		if (mLastInfo == null || !mLastInfo.equals(lhs, rhs)) {
-			mLastInfo = mPairHash.getInfo(lhs, rhs);
-			assert mLastInfo != null;
-		} else {
-			assert mLastInfo.equals(lhs, rhs);
-			assert mLastInfo == mPairHash.getInfo(lhs, rhs);
+		final CCEquality reason = diseq.mDiseqReason;
+		/*
+		 * Check if this is a propagated equality. We need to check if the diseq reason
+		 * is asserted and that it is still the same equivalence class. This is because
+		 * the diseq reason is not reset on backtrack.
+		 */
+		if (reason != null && reason.getDecideStatus() == reason.negate()) {
+			if (reason.getLhs().getRepresentative() == lhs && reason.getRhs().getRepresentative() == rhs) {
+				return;
+			}
+			if (reason.getLhs().getRepresentative() == rhs && reason.getRhs().getRepresentative() == lhs) {
+				return;
+			}
 		}
-		if (mLastInfo.mDiseq != null) {
-			return;
-		}
+		final CCTermPairHash.Info info = mPairHash.getInfo(lhs, rhs);
+		assert info.mDiseq == null;
 
 		mUndoStack.push(new SepUndoInfo(diseq));
-		mLastInfo.mDiseq = diseq;
+		info.mDiseq = diseq;
 		/* Propagate inequalities */
-		for (final CCEquality.Entry eqentry : mLastInfo.mEqlits) {
+		for (final CCEquality.Entry eqentry : info.mEqlits) {
 			final CCEquality eq = eqentry.getCCEquality();
+			assert eq.getDecideStatus() == null || eq == diseq;
 			if (eq.getDecideStatus() == null) {
 				eq.mDiseqReason = diseq;
 				addPending(eq.negate());
@@ -939,7 +941,6 @@ public class CClosure implements ITheory {
 	}
 
 	private void undoSep(final CCEquality atom) {
-		atom.mDiseqReason = null;
 		final CCTermPairHash.Info destInfo = mPairHash.getInfo(atom.getLhs().mRepStar, atom.getRhs().mRepStar);
 		assert destInfo != null && destInfo.mDiseq == atom;
 		destInfo.mDiseq = null;
@@ -1279,9 +1280,6 @@ public class CClosure implements ITheory {
 				eq.getEntry().removeFromList();
 				if (info.isEmpty()) {
 					mPairHash.removePairInfo(info);
-					if (info == mLastInfo) {
-						mLastInfo = null;
-					}
 				}
 			}
 		} else {
@@ -1313,9 +1311,6 @@ public class CClosure implements ITheory {
 		while (!t.mPairInfos.isEmpty()) {
 			final CCTermPairHash.Info info = t.mPairInfos.iterator().next().getInfo();
 			mPairHash.removePairInfo(info);
-			if (info == mLastInfo) {
-				mLastInfo = null;
-			}
 		}
 		if (t.mSharedTerm != null) {
 			t.mSharedTerm = null;
