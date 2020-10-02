@@ -300,14 +300,12 @@ public class InstantiationManager {
 					}
 					if (instDawg == null) {
 						final Dawg<Term, SubstitutionInfo> subsDawg = mEMatching.getSubstitutionInfos(atom);
-						if (subsDawg != null) {
-							// Map keys to representative, and map non-empty SubstitutionInfo to one_undef
-							final Dawg<Term, SubstitutionInfo> representativeSubsDawg = subsDawg.mapKeys(
-									l -> mQuantTheory.getRepresentativeTerm(l), (v1, v2) -> mapToFirstChecked(v1, v2));
-							instDawg = representativeSubsDawg.map(v -> v.equals(mEMatching.getEmptySubs())
-									? new InstantiationInfo(InstanceValue.IRRELEVANT, new ArrayList<>())
-									: new InstantiationInfo(InstanceValue.ONE_UNDEF, getTermSubsFromSubsInfo(lit, v)));
-						}
+						// Map keys to representative, and map non-empty SubstitutionInfo to one_undef
+						final Dawg<Term, SubstitutionInfo> representativeSubsDawg = subsDawg.mapKeys(
+								l -> mQuantTheory.getRepresentativeTerm(l), (v1, v2) -> mapToFirstChecked(v1, v2));
+						instDawg = representativeSubsDawg.map(v -> v.equals(mEMatching.getEmptySubs())
+								? new InstantiationInfo(InstanceValue.IRRELEVANT, new ArrayList<>())
+								: new InstantiationInfo(InstanceValue.ONE_UNDEF, getTermSubsFromSubsInfo(lit, v)));
 					}
 				} else if (lit.mIsArithmetical || QuantUtil.isVarEq(atom)) {
 					instDawg = Dawg.createConst(clause.getVars().length,
@@ -716,19 +714,14 @@ public class InstantiationManager {
 	private Dawg<Term, InstantiationInfo> computeEMatchingLitDawg(final QuantLiteral qLit) {
 		assert mEMatching.isUsingEmatching(qLit);
 		final Dawg<Term, SubstitutionInfo> atomSubsDawg = mEMatching.getSubstitutionInfos(qLit.getAtom());
-		if (atomSubsDawg != null) {
-			// First map keys to representative
-			final Dawg<Term, SubstitutionInfo> representativeSubsDawg =
-					atomSubsDawg.mapKeys(l -> mQuantTheory.getRepresentativeTerm(l),
-							(v1, v2) -> mapToFirstChecked(v1, v2));
-			// Then evaluate
-			final Function<SubstitutionInfo, InstantiationInfo> evaluationMap =
-					v1 -> new InstantiationInfo(evaluateLitForEMatchingSubsInfo(qLit, v1),
-							getTermSubsFromSubsInfo(qLit, v1));
-			return representativeSubsDawg.map(evaluationMap);
-		} else {
-			return getDefaultLiteralDawg(qLit);
-		}
+		// First map keys to representative
+		final Dawg<Term, SubstitutionInfo> representativeSubsDawg =
+				atomSubsDawg.mapKeys(l -> mQuantTheory.getRepresentativeTerm(l), (v1, v2) -> mapToFirstChecked(v1, v2));
+		// Then evaluate
+		final Function<SubstitutionInfo, InstantiationInfo> evaluationMap =
+				v1 -> new InstantiationInfo(evaluateLitForEMatchingSubsInfo(qLit, v1),
+						getTermSubsFromSubsInfo(qLit, v1));
+		return representativeSubsDawg.map(evaluationMap);
 	}
 
 	private SubstitutionInfo mapToFirstChecked(final SubstitutionInfo first, final SubstitutionInfo second) {
