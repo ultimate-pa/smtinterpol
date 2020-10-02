@@ -99,6 +99,7 @@ public class EMatching {
 							? QuantUtil.containsAppTermsForEachVar(qAtom)
 							: true);
 			if (isSuitableForEmatching) {
+				mAtomSubsDawgs.put(qAtom, Dawg.createConst(qClause.getVars().length, mEmptySubs));
 				final Collection<Term> patterns = new LinkedHashSet<>();
 				if (qAtom instanceof QuantEquality) {
 					final QuantEquality eq = (QuantEquality) qAtom;
@@ -234,9 +235,10 @@ public class EMatching {
 	 *
 	 * @param qAtom
 	 *            the quantified literal atom.
-	 * @return a list containing the new substitution infos.
+	 * @return a Dawg containing the variable substitutions and the corresponding substitution infos.
 	 */
 	public Dawg<Term, SubstitutionInfo> getSubstitutionInfos(final QuantLiteral qAtom) {
+		assert mAtomSubsDawgs.containsKey(qAtom) && mAtomSubsDawgs.get(qAtom) != null;
 		return mAtomSubsDawgs.get(qAtom);
 	}
 
@@ -282,8 +284,8 @@ public class EMatching {
 	void addInterestingSubstitution(final QuantLiteral qLit, final List<CCTerm> varSubs,
 			final Map<Term, CCTerm> equivalentCCTerms, final int decisionLevel) {
 		final long time = System.nanoTime();
-		Dawg<Term, SubstitutionInfo> subsDawg = mAtomSubsDawgs.containsKey(qLit) ? mAtomSubsDawgs.get(qLit)
-				: Dawg.createConst(varSubs.size(), mEmptySubs);
+		assert mAtomSubsDawgs.containsKey(qLit);
+		Dawg<Term, SubstitutionInfo> subsDawg = mAtomSubsDawgs.get(qLit);
 		final List<Term> sharedTermSubs = new ArrayList<>(varSubs.size());
 		for (int i = 0; i < qLit.getClause().getVars().length; i++) {
 			sharedTermSubs.add(varSubs.get(i) == null ? null : varSubs.get(i).getFlatTerm());
