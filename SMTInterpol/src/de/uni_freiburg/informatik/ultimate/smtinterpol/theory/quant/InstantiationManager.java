@@ -77,7 +77,7 @@ public class InstantiationManager {
 	private final InstanceValue mDefaultValueForLitDawgs;
 	private final List<InstanceValue> mRelevantValuesForCheckpoint;
 
-	private int mSubsAgeForFinalCheck = 0;
+	private int mSubsDepthForFinalCheck = 0;
 
 	public InstantiationManager(final QuantifierTheory quantTheory) {
 		mQuantTheory = quantTheory;
@@ -136,8 +136,8 @@ public class InstantiationManager {
 		}
 	}
 
-	public void resetSubsAgeForFinalCheck() {
-		mSubsAgeForFinalCheck = 0;
+	public void resetSubsDepthForFinalCheck() {
+		mSubsDepthForFinalCheck = 0;
 	}
 
 	/**
@@ -298,16 +298,14 @@ public class InstantiationManager {
 									new InstantiationInfo(InstanceValue.ONE_UNDEF, new ArrayList<>()));
 						}
 					}
-					if (instDawg != null) {
+					if (instDawg == null) {
 						final Dawg<Term, SubstitutionInfo> subsDawg = mEMatching.getSubstitutionInfos(atom);
-						if (subsDawg != null) {
-							// Map keys to representative, and map non-empty SubstitutionInfo to one_undef
-							final Dawg<Term, SubstitutionInfo> representativeSubsDawg = subsDawg.mapKeys(
-									l -> mQuantTheory.getRepresentativeTerm(l), (v1, v2) -> mapToFirstChecked(v1, v2));
-							instDawg = representativeSubsDawg.map(v -> v.equals(mEMatching.getEmptySubs())
-									? new InstantiationInfo(InstanceValue.IRRELEVANT, new ArrayList<>())
-									: new InstantiationInfo(InstanceValue.ONE_UNDEF, getTermSubsFromSubsInfo(lit, v)));
-						}
+						// Map keys to representative, and map non-empty SubstitutionInfo to one_undef
+						final Dawg<Term, SubstitutionInfo> representativeSubsDawg = subsDawg.mapKeys(
+								l -> mQuantTheory.getRepresentativeTerm(l), (v1, v2) -> mapToFirstChecked(v1, v2));
+						instDawg = representativeSubsDawg.map(v -> v.equals(mEMatching.getEmptySubs())
+								? new InstantiationInfo(InstanceValue.IRRELEVANT, new ArrayList<>())
+								: new InstantiationInfo(InstanceValue.ONE_UNDEF, getTermSubsFromSubsInfo(lit, v)));
 					}
 				} else if (lit.mIsArithmetical || QuantUtil.isVarEq(atom)) {
 					instDawg = Dawg.createConst(clause.getVars().length,
@@ -366,19 +364,19 @@ public class InstantiationManager {
 			}
 		}
 
-		// Check all interesting substitutions ordered by age to avoid creating new (in particular nested) terms early.
-		final Map<QuantClause, List<Term>[]> interestingTermsSortedByAge = new HashMap<>();
+		// Check all interesting substitutions ordered by depth to avoid creating nested terms early.
+		final Map<QuantClause, List<Term>[]> interestingTermsSortedByDepth = new HashMap<>();
 		for (final QuantClause clause : currentQuantClauses) {
 			if (mClausifier.getEngine().isTerminationRequested()) {
 				return null;
 			}
 			clause.updateInterestingTermsAllVars();
-			final List<Term>[] termsSortedByAge = sortInterestingTermsByAge(clause.getInterestingTerms());
-			interestingTermsSortedByAge.put(clause, termsSortedByAge);
+			final List<Term>[] termsSortedByDepth = sortInterestingTermsByDepth(clause.getInterestingTerms());
+			interestingTermsSortedByDepth.put(clause, termsSortedByDepth);
 		}
-		mQuantTheory.getLogger().debug("Current term age: %d", mQuantTheory.mCClosure.getTermAge());
-		for (; mSubsAgeForFinalCheck <= mClausifier.getCClosure().getTermAge(); mSubsAgeForFinalCheck++) {
-			mQuantTheory.getLogger().debug("Searching for instances of age %d", mSubsAgeForFinalCheck);
+		for (; mSubsDepthForFinalCheck <= mClausifier.getCClosure().getMaxTermDepth(); mSubsDepthForFinalCheck++) {
+			mQuantTheory.getLogger().debug("Searching for instances from substitutions of depth %d",
+					mSubsDepthForFinalCheck);
 			if (mClausifier.getEngine().isTerminationRequested()) {
 				return null;
 			}
@@ -388,10 +386,10 @@ public class InstantiationManager {
 			final List<Pair<QuantClause, List<Term>>> otherValueInstancesNewTerms = new ArrayList<>();
 
 			for (final QuantClause clause : currentQuantClauses) {
-				final Set<List<Term>> subsForAge =
-						computeSubstitutionsForAge(interestingTermsSortedByAge.get(clause), mSubsAgeForFinalCheck);
-				for (final List<Term> subs : subsForAge) {
-					assert getMaxAge(subs) == mSubsAgeForFinalCheck;
+				final Set<List<Term>> subsOfDepth =
+						computeSubstitutionsOfDepth(interestingTermsSortedByDepth.get(clause), mSubsDepthForFinalCheck);
+				for (final List<Term> subs : subsOfDepth) {
+					assert getMaxDepth(subs) == mSubsDepthForFinalCheck;
 					if (mClausifier.getEngine().isTerminationRequested()) {
 						return null;
 					}
@@ -409,8 +407,8 @@ public class InstantiationManager {
 						if (unitClause != null) { // TODO Some true literals are not detected at the moment.
 							final int numUndef = unitClause.countAndSetUndefLits();
 							if (numUndef >= 0) {
-								assert !Config.EXPENSIVE_ASSERTS || getMaxAge(subs) == mSubsAgeForFinalCheck;
-								mQuantTheory.getLogger().debug("Found inst of age %d", mSubsAgeForFinalCheck);
+								assert !Config.EXPENSIVE_ASSERTS || getMaxDepth(subs) == mSubsDepthForFinalCheck;
+								mQuantTheory.getLogger().debug("Found inst of subs depth %d", mSubsDepthForFinalCheck);
 								return Collections.singleton(unitClause);
 							}
 						}
@@ -433,8 +431,8 @@ public class InstantiationManager {
 			// If we haven't found a conflict or unit instance on known terms, first check other non-sat instances on
 			// known terms, then unit instances producing new terms, then other non-sat instances on new terms.
 			final List<Pair<QuantClause, List<Term>>> sortedInstances = new ArrayList<>();
-			sortedInstances.addAll(otherValueInstancesOnKnownTerms);
 			sortedInstances.addAll(unitValueInstancesNewTerms);
+			sortedInstances.addAll(otherValueInstancesOnKnownTerms);
 			sortedInstances.addAll(otherValueInstancesNewTerms);
 			for (final Pair<QuantClause, List<Term>> cand : sortedInstances) {
 				final InstClause inst =
@@ -442,8 +440,8 @@ public class InstantiationManager {
 				if (inst != null) {
 					final int numUndef = inst.countAndSetUndefLits();
 					if (numUndef >= 0) {
-						assert !Config.EXPENSIVE_ASSERTS || getMaxAge(cand.getSecond()) == mSubsAgeForFinalCheck;
-						mQuantTheory.getLogger().debug("Found inst of age %d", mSubsAgeForFinalCheck);
+						assert !Config.EXPENSIVE_ASSERTS || getMaxDepth(cand.getSecond()) == mSubsDepthForFinalCheck;
+						mQuantTheory.getLogger().debug("Found inst of subs depth %d", mSubsDepthForFinalCheck);
 						return Collections.singleton(inst);
 					}
 				}
@@ -453,62 +451,62 @@ public class InstantiationManager {
 	}
 
 	@SuppressWarnings("unchecked")
-	private List<Term>[] sortInterestingTermsByAge(final Map<Term, Term>[] interestingTermsForClause) {
+	private List<Term>[] sortInterestingTermsByDepth(final Map<Term, Term>[] interestingTermsForClause) {
 		final List<Term>[] sortedTerms = new ArrayList[interestingTermsForClause.length];
 		for (int i = 0; i < sortedTerms.length; i++) {
-			sortedTerms[i] = sortInterestingTermsByAge(interestingTermsForClause[i].values());
+			sortedTerms[i] = sortInterestingTermsByDepth(interestingTermsForClause[i].values());
 		}
 		return sortedTerms;
 	}
 
-	private List<Term> sortInterestingTermsByAge(final Collection<Term> terms) {
+	private List<Term> sortInterestingTermsByDepth(final Collection<Term> terms) {
 		final List<Term> termList = new ArrayList<>();
 		termList.addAll(terms);
 		Collections.sort(termList, new Comparator<Term>() {
 			@Override
 			public int compare(final Term t1, final Term t2) {
-				return getTermAge(t1) - getTermAge(t2);
+				return getTermDepth(t1) - getTermDepth(t2);
 			}
 		});
 		return termList;
 	}
 
 	/**
-	 * From the given terms, compute all substitutions from the given age, i.e., that contain at least one term from the
-	 * given age, and only terms from the given or an earlier age.
+	 * From the given terms, compute all substitutions of the given depth, i.e., that contain at least one term of the
+	 * given depth, and only terms of less or equal depth.
 	 * 
 	 * @param sortedSubstitutionTerms
-	 *            an array of lists of substitution terms sorted by age (an array entry corresponds to a variable
+	 *            an array of lists of substitution terms sorted by depth (an array entry corresponds to a variable
 	 *            position)
-	 * @param age
-	 *            the term generation that the substitutions to compute should be from
-	 * @return all substitutions resulting from the given terms from the given age.
+	 * @param depth
+	 *            the term depth that the substitutions to compute should have
+	 * @return all substitutions resulting from the given terms of the given depth.
 	 */
-	private Set<List<Term>> computeSubstitutionsForAge(final List<Term>[] sortedSubstitutionTerms, final int age) {
+	private Set<List<Term>> computeSubstitutionsOfDepth(final List<Term>[] sortedSubstitutionTerms, final int depth) {
 		final int length = sortedSubstitutionTerms.length;
 		final Map<List<Term>, Integer> allSubs = new LinkedHashMap<>();
 		allSubs.put(new ArrayList<Term>(length), 0);
 		for (int i = 0; i < length; i++) {
 			assert !sortedSubstitutionTerms[i].isEmpty();
 			assert !Config.EXPENSIVE_ASSERTS
-					|| sortedSubstitutionTerms[i].equals(sortInterestingTermsByAge(sortedSubstitutionTerms[i]));
+					|| sortedSubstitutionTerms[i].equals(sortInterestingTermsByDepth(sortedSubstitutionTerms[i]));
 			final Map<List<Term>, Integer> partialSubs = new LinkedHashMap<>();
 			for (final Entry<List<Term>, Integer> oldSub : allSubs.entrySet()) {
 				if (mClausifier.getEngine().isTerminationRequested()) {
 					return Collections.emptySet();
 				}
-				final int oldSubAge = oldSub.getValue();
-				for (final Term ground : sortedSubstitutionTerms[i]) {
-					final int groundAge = getTermAge(ground);
-					if (groundAge > age) {
+				final int oldSubDepth = oldSub.getValue();
+				for (final Term t : sortedSubstitutionTerms[i]) {
+					final int tDepth = getTermDepth(t);
+					if (tDepth > depth) {
 						break;
 					}
-					if (i != length - 1 || oldSubAge == age || groundAge == age) {
+					if (i != length - 1 || oldSubDepth == depth || tDepth == depth) {
 						final List<Term> newSub = new ArrayList<>(length);
 						newSub.addAll(oldSub.getKey());
-						newSub.add(ground);
-						final int newAge = oldSub.getValue() > groundAge ? oldSub.getValue() : groundAge;
-						partialSubs.put(newSub, newAge);
+						newSub.add(t);
+						final int newDepth = oldSub.getValue() > tDepth ? oldSub.getValue() : tDepth;
+						partialSubs.put(newSub, newDepth);
 					}
 				}
 			}
@@ -519,30 +517,30 @@ public class InstantiationManager {
 	}
 
 	/**
-	 * Get the term age for a given term.
+	 * Get the term depth of a given term.
 	 * 
 	 * @param t
 	 *            a term.
-	 * @return the age of the CCTerm if the term has a CCTerm, 0 else.
+	 * @return the depth of the CCTerm if the term has a CCTerm, 0 else.
 	 */
-	private int getTermAge(final Term t) {
+	private int getTermDepth(final Term t) {
 		final CCTerm cc = mClausifier.getCCTerm(t);
-		return cc != null ? cc.getAge() : 0;
+		return cc != null ? cc.getDepth() : 0;
 	}
 
 	/**
-	 * Get the maximum term age for the given terms.
+	 * Get the maximum term depth the given terms.
 	 * 
 	 * @param terms
 	 *            a list of terms.
-	 * @return the maximum age of the given terms.
+	 * @return the maximum depth of the given terms.
 	 */
-	private int getMaxAge(final List<Term> terms) {
-		int age = 0;
+	private int getMaxDepth(final List<Term> terms) {
+		int depth = 0;
 		for (final Term t : terms) {
-			age = Math.max(age, getTermAge(t));
+			depth = Math.max(depth, getTermDepth(t));
 		}
-		return age;
+		return depth;
 	}
 
 	/**
@@ -716,19 +714,14 @@ public class InstantiationManager {
 	private Dawg<Term, InstantiationInfo> computeEMatchingLitDawg(final QuantLiteral qLit) {
 		assert mEMatching.isUsingEmatching(qLit);
 		final Dawg<Term, SubstitutionInfo> atomSubsDawg = mEMatching.getSubstitutionInfos(qLit.getAtom());
-		if (atomSubsDawg != null) {
-			// First map keys to representative
-			final Dawg<Term, SubstitutionInfo> representativeSubsDawg =
-					atomSubsDawg.mapKeys(l -> mQuantTheory.getRepresentativeTerm(l),
-							(v1, v2) -> mapToFirstChecked(v1, v2));
-			// Then evaluate
-			final Function<SubstitutionInfo, InstantiationInfo> evaluationMap =
-					v1 -> new InstantiationInfo(evaluateLitForEMatchingSubsInfo(qLit, v1),
-							getTermSubsFromSubsInfo(qLit, v1));
-			return representativeSubsDawg.map(evaluationMap);
-		} else {
-			return getDefaultLiteralDawg(qLit);
-		}
+		// First map keys to representative
+		final Dawg<Term, SubstitutionInfo> representativeSubsDawg =
+				atomSubsDawg.mapKeys(l -> mQuantTheory.getRepresentativeTerm(l), (v1, v2) -> mapToFirstChecked(v1, v2));
+		// Then evaluate
+		final Function<SubstitutionInfo, InstantiationInfo> evaluationMap =
+				v1 -> new InstantiationInfo(evaluateLitForEMatchingSubsInfo(qLit, v1),
+						getTermSubsFromSubsInfo(qLit, v1));
+		return representativeSubsDawg.map(evaluationMap);
 	}
 
 	private SubstitutionInfo mapToFirstChecked(final SubstitutionInfo first, final SubstitutionInfo second) {
@@ -1262,7 +1255,7 @@ public class InstantiationManager {
 		} else if (origin.equals(InstanceOrigin.ENUMERATION)) {
 			mQuantTheory.mNumInstancesProducedEnum++;
 		}
-		recordSubstAgeForStats(getMaxAge(subs), origin.equals(InstanceOrigin.ENUMERATION));
+		recordSubstDepthForStats(getMaxDepth(subs), origin.equals(InstanceOrigin.ENUMERATION));
 		return inst;
 	}
 
@@ -1445,12 +1438,12 @@ public class InstantiationManager {
 		}
 	}
 
-	private void recordSubstAgeForStats(final int age, final boolean isProducedByEnumeration) {
-		assert age >= 0;
-		final int index = Integer.SIZE - Integer.numberOfLeadingZeros(age);
-		mQuantTheory.mNumInstancesOfAge[index]++;
+	private void recordSubstDepthForStats(final int depth, final boolean isProducedByEnumeration) {
+		assert depth >= 0;
+		final int index = Integer.SIZE - Integer.numberOfLeadingZeros(depth);
+		mQuantTheory.mNumInstSubsOfDepth[index]++;
 		if (isProducedByEnumeration) {
-			mQuantTheory.mNumInstancesOfAgeEnum[index]++;
+			mQuantTheory.mNumInstSubsOfDepthEnum[index]++;
 		}
 	}
 

@@ -3533,8 +3533,11 @@ public class ProofChecker extends NonRecursive {
 			break;
 		case ":subst":
 			result = checkSplitSubst((Term[]) splitAnnot.getValue(), origTerm, splitTerm);
-			mNumInstancesUsed++;
-			mNumInstancesFromDER++;
+			if (splitTerm.getFreeVars().length == 0) {
+				// Partial instantiated clauses count when they become ground instances in an inst-lemma.
+				mNumInstancesUsed++;
+				mNumInstancesFromDER++;
+			}
 			break;
 		default:
 			result = false;
