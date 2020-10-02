@@ -50,7 +50,8 @@ public class CCAppTerm extends CCTerm {
 
 	public CCAppTerm(final boolean isFunc, final int parentPos, final CCTerm func, final CCTerm arg,
 			final CClosure engine) {
-		super(isFunc, parentPos, HashUtils.hashJenkins(func.hashCode(), arg), isFunc ? 0 : engine.mAppTermAge);
+		super(isFunc, parentPos, HashUtils.hashJenkins(func.hashCode(), arg),
+				isFunc ? Math.max(func.mDepth, arg.mDepth) : 1 + Math.max(func.mDepth, arg != null ? arg.mDepth : 0));
 		mFunc = func;
 		mArg = arg;
 		// firstFormula = Integer.MAX_VALUE; lastFormula = -1;
