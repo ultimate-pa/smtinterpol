@@ -229,8 +229,6 @@ public class MusEnumerationScript extends WrapperScript {
 				if (((boolean) getOption(SMTLIBConstants.PRODUCE_UNSAT_CORES))) {
 					final MusContainer container =
 							new MusContainer(translator.translateToBitSet(mScript.getUnsatCore()), null);
-					mLogger.fatal(
-							"Disclaimer: Vanilla-UC information is only correct, if every asserted Term was annotated with a name");
 					mLogger.fatal("Vanilla-UC has size: " + Heuristics.size(container));
 					mLogger.fatal("Vanilla-UC has depth: " + Heuristics.depth(container));
 					mLogger.fatal("Vanilla-UC has width: " + Heuristics.width(container));
@@ -273,9 +271,8 @@ public class MusEnumerationScript extends WrapperScript {
 	 *
 	 * This method is only available if proof production and unsat core production is enabled. To enable proof
 	 * production, call setOption(":produce-proofs",true). To enable unsat core production, call
-	 * setOption(":produce-unsat-cores", true). Also, if unsat core production is turned on,
-	 * in case the script is not able to enumerate a MUS and logging is turned on, info about the vanilla unsat core is
-	 * logged.
+	 * setOption(":produce-unsat-cores", true). Also, if unsat core production is turned on, in case the script is not
+	 * able to enumerate a MUS and logging is turned on, info about the vanilla unsat core is logged.
 	 */
 	@Override
 	public Term[] getUnsatCore() {
@@ -329,8 +326,6 @@ public class MusEnumerationScript extends WrapperScript {
 				final MusContainer container =
 						new MusContainer(translator.translateToBitSet(alternativeUnsatCore), null);
 				mLogger.fatal("Heuristic: None (UC is from Vanilla-SMTInterpol)");
-				mLogger.fatal(
-						"Disclaimer: Vanilla-UC information is only correct, if every asserted Term was annotated with a name");
 				mLogger.fatal("Vanilla-UC has size: " + Heuristics.size(container));
 				mLogger.fatal("Vanilla-UC has depth: " + Heuristics.depth(container));
 				mLogger.fatal("Vanilla-UC has width: " + Heuristics.width(container));
@@ -520,9 +515,9 @@ public class MusEnumerationScript extends WrapperScript {
 			if (hasName(term)) {
 				annoTerm = (AnnotatedTerm) term;
 			} else {
-				//annoTerm = nameTerm(term, scriptForReMus);
-				//The terms that have been asserted without a name are axioms, and should not be minimized.
-				//Therefore we assert them at the beginning, and don't let the ReMus-System know that they even exist.
+				// annoTerm = nameTerm(term, scriptForReMus);
+				// The terms that have been asserted without a name are axioms, and should not be minimized.
+				// Therefore we assert them at the beginning, and don't let the ReMus-System know that they even exist.
 				scriptForReMus.assertTerm(term);
 				continue;
 			}
