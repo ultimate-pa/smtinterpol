@@ -222,19 +222,20 @@ public class MusEnumerationScript extends WrapperScript {
 		}
 		mHandler.clearTimeout();
 
-		if (muses.isEmpty() && mLogAdditionalInformation.getValue()) {
-			mLogger.fatal("Timeout for enumeration exceeded before any muses could be found.");
-			mLogger.fatal("Heuristic: None (UC is from Vanilla-SMTInterpol)");
-			if (((boolean) getOption(SMTLIBConstants.PRODUCE_UNSAT_CORES))) {
-				final MusContainer container =
-						new MusContainer(translator.translateToBitSet(mScript.getUnsatCore()), null);
-				mLogger.fatal(
-						"Disclaimer: Vanilla-UC information is only correct, if every asserted Term was annotated with a name");
-				mLogger.fatal("Vanilla-UC has size: " + Heuristics.size(container));
-				mLogger.fatal("Vanilla-UC has depth: " + Heuristics.depth(container));
-				mLogger.fatal("Vanilla-UC has width: " + Heuristics.width(container));
+		if (muses.isEmpty()) {
+			if (mLogAdditionalInformation.getValue()) {
+				mLogger.fatal("Timeout for enumeration exceeded before any muses could be found.");
+				mLogger.fatal("Heuristic: None (UC is from Vanilla-SMTInterpol)");
+				if (((boolean) getOption(SMTLIBConstants.PRODUCE_UNSAT_CORES))) {
+					final MusContainer container =
+							new MusContainer(translator.translateToBitSet(mScript.getUnsatCore()), null);
+					mLogger.fatal(
+							"Disclaimer: Vanilla-UC information is only correct, if every asserted Term was annotated with a name");
+					mLogger.fatal("Vanilla-UC has size: " + Heuristics.size(container));
+					mLogger.fatal("Vanilla-UC has depth: " + Heuristics.depth(container));
+					mLogger.fatal("Vanilla-UC has width: " + Heuristics.width(container));
+				}
 			}
-
 			final Term[] sequenceOfInterpolants = getInterpolants(partition, startOfSubtree, mScript.getProof());
 			return sequenceOfInterpolants;
 		}
