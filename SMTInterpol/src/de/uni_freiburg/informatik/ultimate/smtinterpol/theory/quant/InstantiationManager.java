@@ -288,7 +288,7 @@ public class InstantiationManager {
 			for (final QuantLiteral lit : clause.getQuantLits()) {
 				Dawg<Term, InstantiationInfo> instDawg = null;
 				final QuantLiteral atom = lit.getAtom();
-				if (mEMatching.isUsingEmatching(lit)) {
+				if (mEMatching.isUsingEmatching(lit) || mEMatching.isPartiallyUsingEmatching(lit)) {
 					if (mQuantTheory.mPropagateNewAux && atom instanceof QuantEquality) {
 						// If this option is set, don't treat aux-terms as new terms.
 						// TODO: Rename the option
@@ -297,21 +297,21 @@ public class InstantiationManager {
 							instDawg = Dawg.createConst(clause.getVars().length,
 									new InstantiationInfo(InstanceValue.ONE_UNDEF, new ArrayList<>()));
 						}
+						// TODO: What about the lambda?
 					}
 					if (instDawg == null) {
 						final Dawg<Term, SubstitutionInfo> subsDawg = mEMatching.getSubstitutionInfos(atom);
 						// Map keys to representative, and map non-empty SubstitutionInfo to one_undef
-						final Dawg<Term, SubstitutionInfo> representativeSubsDawg = subsDawg.mapKeys(
-								l -> mQuantTheory.getRepresentativeTerm(l), (v1, v2) -> mapToFirstChecked(v1, v2));
-						instDawg = representativeSubsDawg.map(v -> v.equals(mEMatching.getEmptySubs())
+						final Dawg<Term, SubstitutionInfo> representativeSubsDawg = getRepresentativeSubsDawg(subsDawg);
+						instDawg = representativeSubsDawg.map(v -> v.equals(mEMatching.getEmptySubs()) && !QuantUtil.isVarEq(lit.getAtom())
 								? new InstantiationInfo(InstanceValue.IRRELEVANT, new ArrayList<>())
-								: new InstantiationInfo(InstanceValue.ONE_UNDEF, getTermSubsFromSubsInfo(lit, v)));
+										: new InstantiationInfo(InstanceValue.ONE_UNDEF,
+												getTermSubsFromSubsInfo(lit, v)));
 					}
-				} else if (lit.mIsArithmetical || QuantUtil.isVarEq(atom)) {
+				} else if (lit.mIsArithmetical) {
 					instDawg = Dawg.createConst(clause.getVars().length,
 							new InstantiationInfo(InstanceValue.ONE_UNDEF, new ArrayList<>()));
 				}
-
 				// TODO Should we do something for the other literals, similar to "otherlits" in computeClauseDawg for
 				// E-matching based conflict and unit search?
 
@@ -331,6 +331,13 @@ public class InstantiationManager {
 			}
 		}
 		return newInstances;
+	}
+
+	/**
+	 * Map the given substitution dawg to a substitution dawg using only the representative terms as keys.
+	 */
+	private Dawg<Term, SubstitutionInfo> getRepresentativeSubsDawg(final Dawg<Term, SubstitutionInfo> dawg) {
+		return dawg.mapKeys(l -> mQuantTheory.getRepresentativeTerm(l), (v1, v2) -> mapToFirstChecked(v1, v2));
 	}
 
 	/**
@@ -596,6 +603,7 @@ public class InstantiationManager {
 					(v1, v2) -> combineForCheckpoint(v1, v2);
 			final Collection<QuantLiteral> unknownLits = new ArrayList<>(qClause.getQuantLits().length);
 			final Collection<QuantLiteral> arithLits = new ArrayList<>(qClause.getQuantLits().length);
+			final Collection<QuantLiteral> partialEMLits = new ArrayList<>(qClause.getQuantLits().length);
 			// First update and combine the literals that are not arithmetical
 			for (final QuantLiteral qLit : qClause.getQuantLits()) {
 				if (clauseDawg == constIrrelDawg) {
@@ -606,8 +614,23 @@ public class InstantiationManager {
 				} else if (mEMatching.isUsingEmatching(qLit)) {
 					final Dawg<Term, InstantiationInfo> litDawg = computeEMatchingLitDawg(qLit);
 					clauseDawg = clauseDawg.combine(litDawg, combinator);
+				} else if (mEMatching.isPartiallyUsingEmatching(qLit)) {
+					partialEMLits.add(qLit);
 				} else {
 					unknownLits.add(qLit);
+				}
+			}
+
+			if (clauseDawg != constIrrelDawg && !partialEMLits.isEmpty()) {
+				for (final QuantLiteral lit : partialEMLits) {
+					if (clauseDawg == constIrrelDawg) {
+						break;
+					}
+					final Dawg<Term, SubstitutionInfo> info = mEMatching.getSubstitutionInfos(lit.getAtom());
+					final Dawg<Term, SubstitutionInfo> rep = getRepresentativeSubsDawg(info);
+
+					clauseDawg = clauseDawg.combine(rep,
+							(v1, v2) -> combineForCheckpoint(v1, evaluateLitForPartialEMatchingSubsInfo(lit, v1, v2)));
 				}
 					}
 			if (clauseDawg != constIrrelDawg && !unknownLits.isEmpty()) {
@@ -715,8 +738,7 @@ public class InstantiationManager {
 		assert mEMatching.isUsingEmatching(qLit);
 		final Dawg<Term, SubstitutionInfo> atomSubsDawg = mEMatching.getSubstitutionInfos(qLit.getAtom());
 		// First map keys to representative
-		final Dawg<Term, SubstitutionInfo> representativeSubsDawg =
-				atomSubsDawg.mapKeys(l -> mQuantTheory.getRepresentativeTerm(l), (v1, v2) -> mapToFirstChecked(v1, v2));
+		final Dawg<Term, SubstitutionInfo> representativeSubsDawg = getRepresentativeSubsDawg(atomSubsDawg);
 		// Then evaluate
 		final Function<SubstitutionInfo, InstantiationInfo> evaluationMap =
 				v1 -> new InstantiationInfo(evaluateLitForEMatchingSubsInfo(qLit, v1),
@@ -765,6 +787,7 @@ public class InstantiationManager {
 			if (mQuantTheory.mPropagateNewAux && !mQuantTheory.mPropagateNewTerms && qAtom instanceof QuantEquality) {
 				if (QuantUtil.isAuxApplication(((QuantEquality) qAtom).getLhs())) {
 					return InstanceValue.ONE_UNDEF;
+					// TODO What about the lambda?
 				}
 			}
 			return mDefaultValueForLitDawgs;
@@ -777,7 +800,7 @@ public class InstantiationManager {
 		} else {
 			// First try if we can get an equality value in CC.
 			final QuantEquality qEq = (QuantEquality) qAtom;
-			val = evaluateCCEqualityKnownShared(qEq, info);
+			val = evaluateCCEqualityKnownShared(qEq, info.getEquivalentCCTerms());
 
 			// If the eq value is unknown in CC, and the terms are numeric, check for equality in LinAr.
 			if ((val == InstanceValue.ONE_UNDEF || val == InstanceValue.UNKNOWN_TERM)
@@ -791,6 +814,65 @@ public class InstantiationManager {
 			val = val.negate();
 		}
 		return val;
+	}
+
+	/**
+	 * Evaluate a literal that partially uses E-Matching. That is, it contains arithmetic only on top level and there
+	 * are variables that do not appear under an uninterpreted function. E.g. for f(x)=y or f(x)+y<=0, E-Matching only
+	 * uses the pattern f(x), but the literal can be evaluated for any substitution of y.
+	 * 
+	 * @param lit
+	 *            the quantified literal to evaluate.
+	 * @param subs
+	 *            the variable substitution.
+	 * @param info
+	 *            the substitution info found by E-matching.
+	 * @return the value of the literal under the given substitution.
+	 */
+	private InstantiationInfo evaluateLitForPartialEMatchingSubsInfo(final QuantLiteral lit,
+			final InstantiationInfo clauseInstInfo, final SubstitutionInfo litSubsInfo) {
+		InstanceValue val = mDefaultValueForLitDawgs;
+		final TermVariable[] clauseVars = lit.getClause().getVars();
+		final List<Term> clauseVarSubs = clauseInstInfo.getSubs();
+		if (clauseInstInfo.getInstValue() != InstanceValue.IRRELEVANT && !clauseVarSubs.isEmpty()) {
+			// Complete the equivalent term map from info by adding the variable substitution from the key
+			final Map<Term, CCTerm> equivalentTerms = new HashMap<>();
+			equivalentTerms.putAll(litSubsInfo.getEquivalentCCTerms());
+			for (int i = 0; i < clauseVars.length; i++) {
+				final CCTerm clauseSubs = mClausifier.getCCTerm(clauseVarSubs.get(i));
+				if (clauseSubs != null) {
+					final CCTerm litSubs =
+							litSubsInfo.equals(mEMatching.getEmptySubs()) ? null : litSubsInfo.getVarSubs().get(i);
+					if (litSubs != null) { // If the substitutionInfo has a substitution for the variable, keep it.
+						assert litSubs.getRepresentative().equals(clauseSubs.getRepresentative());
+					} else { // Use the subs from the clause.
+						equivalentTerms.put(clauseVars[i], clauseSubs);
+					}
+				}
+			}
+			// Evaluate
+			final QuantLiteral atom = lit.getAtom();
+			if (atom instanceof QuantBoundConstraint) {
+				final Map<Term, Term> sharedForQuantSmds = buildSharedMapFromCCMap(equivalentTerms);
+				val = evaluateBoundConstraintKnownShared((QuantBoundConstraint) atom, sharedForQuantSmds);
+			} else {
+				// First try if we can get an equality value in CC.
+				final QuantEquality qEq = (QuantEquality) atom;
+				val = evaluateCCEqualityKnownShared(qEq, equivalentTerms);
+
+				// If the eq value is unknown in CC, and the terms are numeric, check for equality in LinAr.
+				if ((val == InstanceValue.ONE_UNDEF || val == InstanceValue.UNKNOWN_TERM)
+						&& qEq.getLhs().getSort().isNumericSort()) {
+					final Map<Term, Term> sharedForQuantSmds = buildSharedMapFromCCMap(equivalentTerms);
+					val = evaluateLAEqualityKnownShared(qEq, sharedForQuantSmds);
+				}
+			}
+			if (lit.isNegated()) {
+				val = val.negate();
+			}
+		}
+		return new InstantiationInfo(val,
+				val == InstanceValue.IRRELEVANT ? new ArrayList<>() : getTermSubsFromSubsInfo(lit, litSubsInfo));
 	}
 
 	/**
@@ -1268,17 +1350,17 @@ public class InstantiationManager {
 	 *            the substitution info containing the known ground terms for the quantified terms in the literal.
 	 * @return the InstanceValue of the substituted literal.
 	 */
-	private InstanceValue evaluateCCEqualityKnownShared(final QuantEquality qEq, final SubstitutionInfo info) {
+	private InstanceValue evaluateCCEqualityKnownShared(final QuantEquality qEq, Map<Term, CCTerm> equivalentCCTerms) {
 		final CCTerm leftCC, rightCC;
 		if (qEq.getLhs().getFreeVars().length == 0) {
 			leftCC = mClausifier.getCCTerm(qEq.getLhs());
 		} else {
-			leftCC = info.getEquivalentCCTerms().get(qEq.getLhs());
+			leftCC = equivalentCCTerms.get(qEq.getLhs());
 		}
 		if (qEq.getRhs().getFreeVars().length == 0) {
 			rightCC = mClausifier.getCCTerm(qEq.getRhs());
 		} else {
-			rightCC = info.getEquivalentCCTerms().get(qEq.getRhs());
+			rightCC = equivalentCCTerms.get(qEq.getRhs());
 		}
 		if (leftCC != null && rightCC != null) {
 			if (mQuantTheory.getCClosure().isEqSet(leftCC, rightCC)) {

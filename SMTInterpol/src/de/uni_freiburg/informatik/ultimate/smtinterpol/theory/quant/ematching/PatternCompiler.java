@@ -33,7 +33,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory.InstantiationMethod;
 
 /**
  * The pattern compiler for E-Matching compiles given patterns into code that can be executed to find new interesting
@@ -177,8 +176,7 @@ public class PatternCompiler {
 
 		// Information on how to find the substitution and corresponding CCTerms in the register
 		for (final TermVariable var : mQuantAtom.getTerm().getFreeVars()) {
-			assert mQuantTheory.getInstantiationMethod() != InstantiationMethod.E_MATCHING_CONFLICT
-					|| mTermInfos.containsKey(var);
+			assert mEMatching.isPartiallyUsingEmatching(mQuantAtom) || mTermInfos.containsKey(var);
 			if (mTermInfos.containsKey(var)) {
 				varPos.put(var, mTermInfos.get(var).mRegIndex);
 				candPos.put(var, mTermInfos.get(var).mRegIndex);
