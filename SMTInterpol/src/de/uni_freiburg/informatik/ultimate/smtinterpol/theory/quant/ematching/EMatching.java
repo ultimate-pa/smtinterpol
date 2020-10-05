@@ -67,7 +67,7 @@ public class EMatching {
 	 */
 	private final Map<QuantLiteral, Dawg<Term, SubstitutionInfo>> mAtomSubsDawgs;
 	private final Map<QuantClause, ArrayList<Triple<ICode, CCTerm[], Integer>>> mClauseCodes;
-	private final Set<QuantLiteral> mEmatchingLiterals, mPartialEmatchingLiterals;
+	private final Set<QuantLiteral> mEmatchingAtoms, mPartialEmatchingAtoms;
 	final SubstitutionInfo mEmptySubs;
 
 	public EMatching(final QuantifierTheory quantifierTheory) {
@@ -77,8 +77,8 @@ public class EMatching {
 		mClauseCodes = new HashMap<>();
 		mUndoInformation = new LinkedHashMap<>();
 		mEmptySubs = new SubstitutionInfo(new ArrayList<CCTerm>(), new LinkedHashMap<>());
-		mEmatchingLiterals = new HashSet<>();
-		mPartialEmatchingLiterals = new HashSet<>();
+		mEmatchingAtoms = new HashSet<>();
+		mPartialEmatchingAtoms = new HashSet<>();
 	}
 
 	/**
@@ -119,9 +119,9 @@ public class EMatching {
 					patterns.addAll(getSubPatterns(affine));
 				}
 				if (patterns.isEmpty() || !QuantUtil.containsAppTermsForEachVar(qAtom)) {
-					mPartialEmatchingLiterals.add(qLit); // Also contains x=y literals
+					mPartialEmatchingAtoms.add(qAtom); // Also contains x=y literals
 				} else {
-					mEmatchingLiterals.add(qLit);
+					mEmatchingAtoms.add(qAtom);
 				}
 
 				if (!patterns.isEmpty()) {
@@ -146,7 +146,8 @@ public class EMatching {
 	public void removeClause(final QuantClause qClause) {
 		mClauseCodes.remove(qClause);
 		for (final QuantLiteral qLit : qClause.getQuantLits()) {
-			mEmatchingLiterals.remove(qLit);
+			mEmatchingAtoms.remove(qLit.getAtom());
+			mPartialEmatchingAtoms.remove(qLit.getAtom());
 			mAtomSubsDawgs.remove(qLit.getAtom());
 		}
 	}
@@ -432,7 +433,7 @@ public class EMatching {
 	 * @return true if handled by E-matching.
 	 */
 	public boolean isUsingEmatching(final QuantLiteral qLit) {
-		return mEmatchingLiterals.contains(qLit);
+		return mEmatchingAtoms.contains(qLit.getAtom());
 	}
 
 	/**
@@ -445,7 +446,7 @@ public class EMatching {
 	 * @return true if handled by E-matching.
 	 */
 	public boolean isPartiallyUsingEmatching(final QuantLiteral qLit) {
-		return mPartialEmatchingLiterals.contains(qLit);
+		return mPartialEmatchingAtoms.contains(qLit.getAtom());
 	}
 
 	/**
