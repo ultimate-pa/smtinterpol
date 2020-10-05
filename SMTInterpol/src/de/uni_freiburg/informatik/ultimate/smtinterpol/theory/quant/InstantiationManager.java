@@ -163,12 +163,12 @@ public class InstantiationManager {
 				continue;
 			}
 			final Dawg<Term, InstantiationInfo> dawg = computeClauseDawg(qClause);
-			for (final Pair<List<Term>, InstanceValue> subsWithVal : getRelevantSubsFromDawg(qClause, dawg)) {
+			for (final InstantiationInfo subsWithVal : getRelevantSubsFromDawg(qClause, dawg)) {
 				if (mQuantTheory.getEngine().isTerminationRequested()) {
 					return Collections.emptySet();
 				}
-				final List<Term> subs = subsWithVal.getFirst();
-				final InstanceValue val = subsWithVal.getSecond();
+				final List<Term> subs = subsWithVal.getSubs();
+				final InstanceValue val = subsWithVal.getInstValue();
 				if (val == InstanceValue.FALSE) {
 					final InstClause inst = computeClauseInstance(qClause, subs, InstanceOrigin.CONFLICT);
 					if (inst != null) {
@@ -297,7 +297,6 @@ public class InstantiationManager {
 							instDawg = Dawg.createConst(clause.getVars().length,
 									new InstantiationInfo(InstanceValue.ONE_UNDEF, new ArrayList<>()));
 						}
-						// TODO: What about the lambda?
 					}
 					if (instDawg == null) {
 						final Dawg<Term, SubstitutionInfo> subsDawg = mEMatching.getSubstitutionInfos(atom);
@@ -323,8 +322,8 @@ public class InstantiationManager {
 				clauseDawg = clauseDawg.combine(instDawg, (v1, v2) -> combineForCheckpoint(v1, v2));
 			}
 			// Compute instances that do not produce new terms, i.e., where the E-matching multi-pattern was matched
-			for (final Pair<List<Term>, InstanceValue> subs : getRelevantSubsFromDawg(clause, clauseDawg)) {
-				final InstClause inst = computeClauseInstance(clause, subs.getFirst(), InstanceOrigin.EMATCHING);
+			for (final InstantiationInfo subs : getRelevantSubsFromDawg(clause, clauseDawg)) {
+				final InstClause inst = computeClauseInstance(clause, subs.getSubs(), InstanceOrigin.EMATCHING);
 				if (inst != null) {
 					newInstances.add(inst);
 				}
@@ -548,18 +547,6 @@ public class InstantiationManager {
 			depth = Math.max(depth, getTermDepth(t));
 		}
 		return depth;
-	}
-
-	/**
-	 * Get the default dawg for a given literal.
-	 *
-	 * @param qLit
-	 *            a quantified literal.
-	 * @return a constant undef or unknown (according to options set) dawg of depth |clausevars|.
-	 */
-	private Dawg<Term, InstantiationInfo> getDefaultLiteralDawg(final QuantLiteral qLit) {
-		final int length = qLit.getClause().getVars().length;
-		return Dawg.createConst(length, new InstantiationInfo(mDefaultValueForLitDawgs, new ArrayList<>()));
 	}
 
 	/**
@@ -787,7 +774,6 @@ public class InstantiationManager {
 			if (mQuantTheory.mPropagateNewAux && !mQuantTheory.mPropagateNewTerms && qAtom instanceof QuantEquality) {
 				if (QuantUtil.isAuxApplication(((QuantEquality) qAtom).getLhs())) {
 					return InstanceValue.ONE_UNDEF;
-					// TODO What about the lambda?
 				}
 			}
 			return mDefaultValueForLitDawgs;
@@ -1023,35 +1009,32 @@ public class InstantiationManager {
 	}
 
 	/**
-	 * Get all substitutions for this clause which evaluate to an InstanceValue other than IRRELEVANT.
+	 * Get all substitutions for this clause which evaluate to an InstanceValue other than IRRELEVANT, and which are
+	 * complete, i.e., there is a substitution for each variable.
 	 *
 	 * @param qClause
 	 *            the quantified clause.
 	 * @param clauseDawg
 	 *            the corresponding clause evaluation dawg.
-	 * @return the variable substitutions for the clause with InstanceValue != IRRELEVANT.
+	 * @return the complete variable substitutions for the clause with InstanceValue != IRRELEVANT.
 	 */
-	private Collection<Pair<List<Term>, InstanceValue>> getRelevantSubsFromDawg(final QuantClause qClause,
+	private Collection<InstantiationInfo> getRelevantSubsFromDawg(final QuantClause qClause,
 			final Dawg<Term, InstantiationInfo> clauseDawg) {
-		final Collection<Pair<List<Term>, InstanceValue>> relevantSubs = new ArrayList<>();
+		final Collection<InstantiationInfo> relevantSubs = new ArrayList<>();
 		for (final InstantiationInfo info : clauseDawg.values()) {
+			final List<Term> subs = info.getSubs();
 			final InstanceValue val = info.getInstValue();
 			assert !Config.EXPENSIVE_ASSERTS || isUsedValueForCheckpoint(val);
-			if (val != InstanceValue.IRRELEVANT) {
-				// Replace the nulls (standing for the "else" case) with the suitable lambda
-				final int nVars = qClause.getVars().length;
-				final List<Term> subsWithNulls = info.getSubs();
-				final List<Term> subsWithLambdas = new ArrayList<>();
-				for (int i = 0; i < nVars; i++) {
-					if (!subsWithNulls.isEmpty() && subsWithNulls.get(i) != null) {
-						subsWithLambdas.add(subsWithNulls.get(i));
-					} else {
-						subsWithLambdas.add(mQuantTheory.getLambda(qClause.getVars()[i].getSort()));
+			if (val != InstanceValue.IRRELEVANT && !subs.isEmpty()) {
+				boolean isComplete = true;
+				for (int i = 0; i < subs.size(); i++) {
+					if (subs.get(i) == null) {
+						isComplete = false;
+						break;
 					}
 				}
-				final Pair<List<Term>, InstanceValue> subsWithValue = new Pair<>(subsWithLambdas, val);
-				if (!relevantSubs.contains(subsWithValue)) {
-					relevantSubs.add(subsWithValue);
+				if (isComplete) {
+					relevantSubs.add(info);
 				}
 			}
 		}
