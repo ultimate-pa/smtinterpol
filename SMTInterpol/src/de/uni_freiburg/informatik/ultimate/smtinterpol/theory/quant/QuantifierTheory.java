@@ -95,10 +95,7 @@ public class QuantifierTheory implements ITheory {
 			mNumInstancesProducedEnum;
 	private long mNumCheckpoints, mNumCheckpointsWithNewEval, mNumConflicts, mNumProps, mNumFinalcheck;
 	private long mCheckpointTime, mFindEmatchingTime, mFinalCheckTime, mEMatchingTime, mDawgTime;
-	/**
-	 * The number of substitutions of a certain depth used for instantiation (in enumeration).
-	 */
-	int[] mNumInstSubsOfDepth, mNumInstSubsOfDepthEnum;
+	int[] mNumInstancesOfAge, mNumInstancesOfAgeEnum;
 
 	// Options
 	InstantiationMethod mInstantiationMethod;
@@ -131,8 +128,8 @@ public class QuantifierTheory implements ITheory {
 		mPendingInstances = new LinkedHashMap<>();
 		mDecideLevelOfLastCheckpoint = mEngine.getDecideLevel();
 
-		mNumInstSubsOfDepth = new int[Integer.SIZE];
-		mNumInstSubsOfDepthEnum = new int[Integer.SIZE];
+		mNumInstancesOfAge = new int[Integer.SIZE];
+		mNumInstancesOfAgeEnum = new int[Integer.SIZE];
 	}
 
 	@Override
@@ -364,8 +361,8 @@ public class QuantifierTheory implements ITheory {
 		logger.info("Quant: Instances produced: %d (Conflict/Unit: %d, E-Matching: %d, Enumeration: %d)",
 				mNumInstancesProduced, mNumInstancesProducedConfl, mNumInstancesProducedEM, mNumInstancesProducedEnum);
 		logger.info(
-				"Quant: Subs of depth 0, 1, 2-3, 4-7, ... used: %s, (Enumeration: %s)",
-				Arrays.toString(mNumInstSubsOfDepth), Arrays.toString(mNumInstSubsOfDepthEnum));
+				"Quant: Subs of age 0, 1, 2-3, 4-7, ... : %s, (Enumeration: %s)", Arrays.toString(mNumInstancesOfAge),
+				Arrays.toString(mNumInstancesOfAgeEnum));
 		logger.info("Quant: Conflicts: %d Props: %d Checkpoints (with new evaluation): %d (%d) Final Checks: %d",
 				mNumConflicts, mNumProps, mNumCheckpoints, mNumCheckpointsWithNewEval, mNumFinalcheck);
 		logger.info(
@@ -404,7 +401,7 @@ public class QuantifierTheory implements ITheory {
 		final int decisionLevel = mClausifier.getEngine().getDecideLevel();
 		mEMatching.undo(decisionLevel);
 		mInstantiationManager.resetInterestingTerms();
-		mInstantiationManager.resetSubsDepthForFinalCheck();
+		mInstantiationManager.resetSubsAgeForFinalCheck();
 		mPendingInstances.clear();
 		return null;
 	}
@@ -447,8 +444,8 @@ public class QuantifierTheory implements ITheory {
 						{ "thereof by conflict/unit search", mNumInstancesProducedConfl },
 						{ "and by E-matching", mNumInstancesProducedEM },
 						{ "and by enumeration", mNumInstancesProducedEnum },
-						{ "Subs of depth 0, 1, 2-3, 4-7, ... used", Arrays.toString(mNumInstSubsOfDepth) },
-						{ "thereof for enumeration", Arrays.toString(mNumInstSubsOfDepthEnum) },
+						{ "Subs of age 0, 1, 2-3, 4-7, ...", Arrays.toString(mNumInstancesOfAge) },
+						{ "thereof for enumeration", Arrays.toString(mNumInstancesOfAgeEnum) },
 						{ "Conflicts", mNumConflicts }, { "Propagations", mNumProps },
 						{ "Checkpoints", mNumCheckpoints },
 						{ "Checkpoints with new evaluation", mNumCheckpointsWithNewEval },
