@@ -1300,7 +1300,7 @@ public class InstantiationManager {
 			sigma.put(clause.getVars()[i], subs.get(i));
 		}
 		final SubstitutionHelper instHelper = new SubstitutionHelper(mQuantTheory, clause.getGroundLits(),
-				clause.getQuantLits(), clause.getSource(), sigma);
+				clause.getQuantLits(), clause.getQuantSource(), sigma);
 		final SubstitutionResult result = instHelper.substituteInClause();
 		final InstClause inst;
 		if (result.isTriviallyTrue()) {

@@ -165,7 +165,7 @@ public class Clausifier {
 			public void perform() {
 				final CCTerm arg = mConverted.pop();
 				final CCTerm func = mConverted.pop();
-				mConverted.push(mCClosure.createAppTerm(mIsFunc, func, arg));
+				mConverted.push(mCClosure.createAppTerm(mIsFunc, func, arg, mSource));
 			}
 		}
 
@@ -1970,9 +1970,8 @@ public class Clausifier {
 			mWarnedInconsistent = true;
 			return;
 		}
-		SourceAnnotation source = null;
+		SourceAnnotation source = SourceAnnotation.EMPTY_SOURCE_ANNOT;
 		if (mEngine.isProofGenerationEnabled()) {
-			source = SourceAnnotation.EMPTY_SOURCE_ANNOT;
 			if (f instanceof AnnotatedTerm) {
 				final AnnotatedTerm at = (AnnotatedTerm) f;
 				final Annotation[] annots = at.getAnnotations();
