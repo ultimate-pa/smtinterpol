@@ -43,6 +43,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.SimpleList;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.model.Model;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.model.SharedTermEvaluator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.LeafNode;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAppTerm.Parent;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.EQAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LAEquality;
@@ -160,8 +161,16 @@ public class CClosure implements ITheory {
 	 * merged in checkpoint.
 	 */
 	final ArrayDeque<SymmetricPair<CCAppTerm>> mPendingCongruences = new ArrayDeque<>();
-
-	private int mMaxTermDepth = 0;
+	
+	/**
+	 * This determines if a new term age for CCAppTerms should begin. This should be set to true only if new terms
+	 * were built.
+	 */
+	boolean mBeginNextTermAgeInFinalCheck;
+	/**
+	 * The current generation of (complete) CCAppTerms.
+	 */
+	int mAppTermAge;
 
 	private long mInvertEdgeTime, mEqTime, mCcTime, mSetRepTime;
 	private long mCcCount, mMergeCount;
@@ -178,8 +187,8 @@ public class CClosure implements ITheory {
 		return mClausifier.getLogger();
 	}
 
-	public int getMaxTermDepth() {
-		return mMaxTermDepth;
+	public int getTermAge() {
+		return mAppTermAge;
 	}
 
 	public boolean isProofGenerationEnabled() {
@@ -289,7 +298,8 @@ public class CClosure implements ITheory {
 		return congruentTerm;
 	}
 
-	public CCAppTerm createAppTerm(final boolean isFunc, final CCTerm func, final CCTerm arg) {
+	public CCAppTerm createAppTerm(final boolean isFunc, final CCTerm func, final CCTerm arg,
+			final SourceAnnotation source) {
 		assert func.mIsFunc;
 		final CCParentInfo info = arg.mRepStar.mCCPars.getExistingParentInfo(func.mParentPosition);
 		if (info != null) {
@@ -302,9 +312,13 @@ public class CClosure implements ITheory {
 				}
 			}
 		}
-		final CCAppTerm term = new CCAppTerm(isFunc, isFunc ? func.mParentPosition + 1 : 0, func, arg, this);
-		if (term.mDepth > mMaxTermDepth) {
-			mMaxTermDepth = term.mDepth;
+		final CCAppTerm term = new CCAppTerm(isFunc, isFunc ? func.mParentPosition + 1 : 0, func, arg, this,
+				source.isFromQuantTheory());
+		if (!isFunc) {
+			mBeginNextTermAgeInFinalCheck = true;
+			if (mAppTermAge > 0) {
+				getLogger().debug("Create new AppTerm %s of age %d", term, mAppTermAge);
+			}
 		}
 		mAllTerms.add(term);
 		term.addParentInfo(this);
@@ -810,6 +824,10 @@ public class CClosure implements ITheory {
 
 	@Override
 	public Clause computeConflictClause() {
+		if (mBeginNextTermAgeInFinalCheck) {
+			mAppTermAge++;
+			mBeginNextTermAgeInFinalCheck = false;
+		}
 		Clause res = checkpoint();
 		if (res == null) {
 			res = checkpoint();
