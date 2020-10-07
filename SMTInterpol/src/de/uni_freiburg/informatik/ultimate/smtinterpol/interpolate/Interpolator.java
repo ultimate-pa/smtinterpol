@@ -1609,6 +1609,9 @@ public class Interpolator extends NonRecursive {
 		} else {
 			int nMax = n;
 			for (int i = 0; i < term.getParameters().length; i++) {
+				if (term.getParameters()[i] instanceof TermVariable) {
+					continue;
+				}
 				int j = getNestingDepth((ApplicationTerm) term.getParameters()[i], n + 1);
 				nMax = (j > nMax) ? j : nMax;
 			}
