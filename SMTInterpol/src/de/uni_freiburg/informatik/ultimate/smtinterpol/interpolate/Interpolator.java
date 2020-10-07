@@ -1262,7 +1262,7 @@ public class Interpolator extends NonRecursive {
 
 		@Override
 		public void convert(final Term oldTerm) {
-			assert oldTerm != mReplacement;
+			// assert oldTerm != mReplacement;
 
 			if (oldTerm == mTerm) {
 				setResult(mReplacement);
