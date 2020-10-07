@@ -1574,15 +1574,20 @@ public class Interpolator extends NonRecursive {
 
 		while (!todoStack.isEmpty()) {
 			Term t = todoStack.pop();
+
+			while ((t instanceof AnnotatedTerm || t instanceof QuantifiedFormula)) {
+				if (t instanceof QuantifiedFormula) {
+					t = unquote(((QuantifiedFormula) t).getSubformula());
+				}
+				if (t instanceof AnnotatedTerm) {
+					t = ((AnnotatedTerm) t).getSubterm();
+				}
+			}
+
 			if (t instanceof TermVariable || t instanceof ConstantTerm) {
 				continue;
 			}
-			if (t instanceof QuantifiedFormula) {
-				t = unquote(((QuantifiedFormula) t).getSubformula());
-			}
-			if (t instanceof AnnotatedTerm) {
-				t = ((AnnotatedTerm) t).getSubterm();
-			}
+
 			ApplicationTerm at = (ApplicationTerm) t;
 
 			FunctionSymbol funSymbol = at.getFunction();
