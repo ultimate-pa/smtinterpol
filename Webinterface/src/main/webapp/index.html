@@ -1,29 +1,63 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="UTF-8">
-    <meta name="author" content="Andrea Qosja">
-    <title> SMTInterpol TeaVM Test </title>
-    <h1> SMTInterpol-Online ( work in progress o.O') </h1>
-    <p> For more fun, you can find the SMTInterpol
-      <a href="http://ultimate.informatik.uni-freiburg.de/smtinterpol/index.html">
+<head>
+  <meta charset="UTF-8">
+  <meta name="author" content="Andrea Qosja">
+  <title> SMTInterpol TeaVM Test </title>
+  <h1> SMTInterpol-Online ( work in progress o.O') </h1>
+  <p> For more fun, you can find the SMTInterpol
+    <a href="http://ultimate.informatik.uni-freiburg.de/smtinterpol/index.html">
       here
-      </a> as a free software.
-    </p>
-    <script type="text/javascript" charset="utf-8" src="classes.js"></script>
-    <link rel="stylesheet" type="text/css" href="style.css"/>
-    <link rel="icon" href="" type="image/x-icon">
-  </head>
-  <body onload="main()">
-    <header> Input field: </header>
-    <div class="inputarea">
-      <textarea id="input"  rows="10" cols="50" autofocus></textarea>
-      <h2>
-        <button id="run">Run SMTInterpol</button>
-      </h2>
-    </div>
-    <h3>The result:</h3>
-    <pre id="separator"> Separator Nr: 0</pre>
-    <pre id="result"> Run SMTInterpol to see the result here ! </pre>
-  </body>
+    </a> as a free software.
+  </p>
+  <!script type="text/javascript" charset="utf-8" src="classes.js"><!/script>
+  <!script type="text/javascript" charset="utf-8" src="webworker.js"><!/script>
+  <link rel="stylesheet" type="text/css" href="style.css"/>
+  <link rel="icon" href="" type="image/x-icon">
+</head>
+<body>
+<header> Input field: </header>
+<div class="inputarea">
+  <textarea id="input"  rows="10" cols="50" autofocus></textarea>
+  <h2>
+    <button id="run">Run SMTInterpol</button>
+    <button id="stop">Stop</button>
+  </h2>
+</div>
+<h3>The result:</h3>
+<pre id="result"> Run SMTInterpol to see the result here ! </pre>
+<script>
+      var runButton = document.getElementById("run");
+      var inputPanel = document.getElementById("input");
+      var stopButton = document.getElementById("stop");
+      let output = document.getElementById("result");
+
+      // maybe init();
+      let worker = new Worker('webworker.js');
+      worker.addEventListener('message', workerMessaged);
+      worker.addEventListener('error', workerError);
+
+      runButton.onclick = function(){run()};
+
+      function run(){
+            // runButton.addEventListener("click", ()=>{})
+            worker.postMessage(inputPanel.value);
+        }
+
+        function workerMessaged(ev){
+            let data = ev.data;
+            output.textContent += data + "\n";
+            // output.appendChild(document.createTextNode(data.toString() + '\n'));
+        }
+
+        function workerError(err){
+            console.log(err.message, err.filename);
+        }
+        // Sent the msg to stop running SmtInterpol. throw worker.postMessage("Sent Data");
+        stopButton.addEventListener('click', ()=>{
+                //send another message to the worker
+                worker.postMessage('Stop SMTInterpol');
+        })
+    </script>
+</body>
 </html>
