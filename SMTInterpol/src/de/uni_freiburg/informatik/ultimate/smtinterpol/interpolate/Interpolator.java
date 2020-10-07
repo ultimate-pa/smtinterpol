@@ -412,6 +412,8 @@ public class Interpolator extends NonRecursive {
 					throw new UnsupportedOperationException("Cannot handle mixed literal " + pivot);
 				}
 			}
+			interp[i] = replaceNonsharedSymbols(interp)[i];
+			// TODO: What about quantifier introduction?
 			mLogger.debug(interp[i]);
 		}
 		// add the interpolants to the Interpolated stack
@@ -433,6 +435,7 @@ public class Interpolator extends NonRecursive {
 			proofTermInfo.computeResolutionLiterals(this);
 		}
 
+		interpolants = replaceNonsharedSymbols(interpolants);
 		// Add quantifiers if necessary. TODO: Is there a better place to do this?
 		interpolants = addQuantifier(interpolants, proofTermInfo.getLiterals());
 
