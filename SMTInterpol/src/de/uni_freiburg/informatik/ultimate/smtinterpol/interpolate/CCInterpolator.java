@@ -247,6 +247,7 @@ public class CCInterpolator {
 		// Get outermost function symbol and its occurrence.
 		final String outermost = left.getFunction().getName().toString();
 		final Occurrence outermostOcc = mInterpolator.mSymbolOccurrenceInfos.get(outermost);
+		assert outermostOcc != null;
 
 		for (int i = 0; i < leftParams.length; i++) {
 			if (leftParams[i] == rightParams[i]) {
@@ -257,7 +258,7 @@ public class CCInterpolator {
 		}
 
 		for (int part = 0; part < mNumInterpolants; part++) {
-			if (mDiseqOccurrences.isBLocal(part) || (mDiseqOccurrences.isAB(part) && (outermostOcc.isBLocal(part)))) {
+			if (mDiseqOccurrences.isBorShared(part)) {
 				final ArrayDeque<Term> terms = new ArrayDeque<>(leftParams.length);
 				for (int paramNr = 0; paramNr < leftParams.length; paramNr++) {
 					// Collect A-local literals.
@@ -272,8 +273,7 @@ public class CCInterpolator {
 					}
 				}
 				interpolants[part] = mTheory.and(terms.toArray(new Term[terms.size()]));
-			} else if (mDiseqOccurrences.isALocal(part)
-					|| (mDiseqOccurrences.isAB(part) && outermostOcc.isALocal(part))) {
+			} else if (mDiseqOccurrences.isALocal(part)) {
 				final ArrayDeque<Term> terms = new ArrayDeque<>(leftParams.length);
 				for (int paramNr = 0; paramNr < leftParams.length; paramNr++) {
 					// Collect negated B-local literals.
@@ -288,44 +288,47 @@ public class CCInterpolator {
 					}
 				}
 				interpolants[part] = mTheory.or(terms.toArray(new Term[terms.size()]));
-			} else if (mDiseqOccurrences.isAB(part) && outermostOcc.isAB(part)) {
-				// Color literal depending on its source. If it has none, treat it as if it
-				// originates from B.
-				if (outermostOcc.isALocal(part)) {
-					// The literal originates from partition A.
-					final ArrayDeque<Term> terms = new ArrayDeque<>(leftParams.length);
-					for (int paramNr = 0; paramNr < leftParams.length; paramNr++) {
-						// Collect negated B-local literals.
-						if (paramInfos[paramNr] != null && paramInfos[paramNr].isBLocal(part)) {
-							terms.add(mTheory.not(mTheory.term("=", leftParams[paramNr], rightParams[paramNr])));
-						} else if (paramInfos[paramNr] != null && paramInfos[paramNr].isMixed(part)) {
-							// Collect B-local parts in mixed parameter equalities.
-							TermVariable mixedVar = paramInfos[paramNr].getMixedVar();
-							Term sideB = paramInfos[paramNr].getLhsOccur().isBLocal(part) ? leftParams[paramNr]
-									: rightParams[paramNr];
-							terms.add(mTheory.term("=", mixedVar, sideB));
-						}
-					}
-					interpolants[part] = mTheory.or(terms.toArray(new Term[terms.size()]));
-				} else {
-					// The literal originates from partition B.
-					// Collect non-B-local-orShared literals
-					final ArrayDeque<Term> terms = new ArrayDeque<>(leftParams.length);
-					for (int paramNr = 0; paramNr < leftParams.length; paramNr++) {
-						// Collect A-local literals.
-						if (paramInfos[paramNr] != null && paramInfos[paramNr].isALocal(part)) {
-							terms.add(mTheory.term("=", leftParams[paramNr], rightParams[paramNr]));
-						} else if (paramInfos[paramNr] != null && paramInfos[paramNr].isMixed(part)) {
-							// Collect A-local parts in mixed parameter equalities.
-							TermVariable mixedVar = paramInfos[paramNr].getMixedVar();
-							Term sideA = paramInfos[paramNr].getLhsOccur().isALocal(part) ? leftParams[paramNr]
-									: rightParams[paramNr];
-							terms.add(mTheory.term("=", mixedVar, sideA));
-						}
-					}
-					interpolants[part] = mTheory.and(terms.toArray(new Term[terms.size()]));
-				}
-			} else {
+			}
+//				else if (mDiseqOccurrences.isAB(part) && outermostOcc.isAB(part)) {
+//				// Color literal depending on its source. If it has none, treat it as if it
+//				// originates from B.
+//				if (outermostOcc.isALocal(part)) {
+//					// The literal originates from partition A.
+//					final ArrayDeque<Term> terms = new ArrayDeque<>(leftParams.length);
+//					for (int paramNr = 0; paramNr < leftParams.length; paramNr++) {
+//						// Collect negated B-local literals.
+//						if (paramInfos[paramNr] != null && paramInfos[paramNr].isBLocal(part)) {
+//							terms.add(mTheory.not(mTheory.term("=", leftParams[paramNr], rightParams[paramNr])));
+//						} else if (paramInfos[paramNr] != null && paramInfos[paramNr].isMixed(part)) {
+//							// Collect B-local parts in mixed parameter equalities.
+//							TermVariable mixedVar = paramInfos[paramNr].getMixedVar();
+//							Term sideB = paramInfos[paramNr].getLhsOccur().isBLocal(part) ? leftParams[paramNr]
+//									: rightParams[paramNr];
+//							terms.add(mTheory.term("=", mixedVar, sideB));
+//						}
+//					}
+//					interpolants[part] = mTheory.or(terms.toArray(new Term[terms.size()]));
+//				} 
+//				else {
+//					// The literal originates from partition B.
+//					// Collect non-B-local-orShared literals
+//					final ArrayDeque<Term> terms = new ArrayDeque<>(leftParams.length);
+//					for (int paramNr = 0; paramNr < leftParams.length; paramNr++) {
+//						// Collect A-local literals.
+//						if (paramInfos[paramNr] != null && paramInfos[paramNr].isALocal(part)) {
+//							terms.add(mTheory.term("=", leftParams[paramNr], rightParams[paramNr]));
+//						} else if (paramInfos[paramNr] != null && paramInfos[paramNr].isMixed(part)) {
+//							// Collect A-local parts in mixed parameter equalities.
+//							TermVariable mixedVar = paramInfos[paramNr].getMixedVar();
+//							Term sideA = paramInfos[paramNr].getLhsOccur().isALocal(part) ? leftParams[paramNr]
+//									: rightParams[paramNr];
+//							terms.add(mTheory.term("=", mixedVar, sideA));
+//						}
+//					}
+//					interpolants[part] = mTheory.and(terms.toArray(new Term[terms.size()]));
+//				}
+//			} 
+			else {
 				// the congruence is mixed.  In this case f must be shared and we need to find boundary
 				// terms for every parameter.
 				final Term[] boundaryTerms = new Term[leftParams.length];

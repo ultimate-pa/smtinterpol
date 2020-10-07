@@ -824,7 +824,9 @@ public class Interpolator extends NonRecursive {
 		if (term instanceof ConstantTerm) {
 			return mFullOccurrence;
 		}
-		Occurrence result = mSymbolOccurrenceInfos.get(term);
+
+		// TODO
+		Occurrence result = mSymbolPartition.get(term);
 		if (result == null) {
 			if (term instanceof ApplicationTerm && ((ApplicationTerm) term).getFunction().isIntern()
 					&& !((ApplicationTerm) term).getFunction().getName().startsWith("@AUX")) {
@@ -971,6 +973,7 @@ public class Interpolator extends NonRecursive {
 			final Term term = todo.removeLast();
 			if (term instanceof ApplicationTerm) {
 				final ApplicationTerm appTerm = (ApplicationTerm) term;
+				// TODO: Not intern and not @EQ @AUX
 				if (!appTerm.getFunction().equals(mTheory.mNot)) {
 					subTerms.add(appTerm);
 				}
