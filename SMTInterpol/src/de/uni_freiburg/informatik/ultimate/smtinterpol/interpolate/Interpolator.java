@@ -996,6 +996,9 @@ public class Interpolator extends NonRecursive {
 					todo.addLast(at);
 				}
 			}
+			if (term instanceof QuantifiedFormula) {
+				todo.add(((QuantifiedFormula) term).getSubformula());
+			}
 			if (term instanceof AnnotatedTerm) {
 				todo.add(((AnnotatedTerm) term).getSubterm());
 			}
