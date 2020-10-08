@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+
+<!DOCTYPE benchmark PUBLIC "+//IDN sosy-lab.org//DTD BenchExec benchmark 2.3//EN" "https://www.sosy-lab.org/benchexec/benchmark-2.3.dtd">
+
+<benchmark tool="smtinterpol_quantified_interpolation" displayName="SMTInterpol">
+
+  <rundefinition/>
+  
+  <tasks name="quantified_interpolation">
+    <include>../../SMTInterpolTest/test/quantified-interpolation/benchmark/*.smt2</include>
+  </tasks>
+  
+</benchmark>
