@@ -1,21 +1,28 @@
 importScripts("classes.js");
 var runWebInterface;
+var counter = 1;
 
 self.addEventListener('message', (ev)=>{
-    console.log('Web worker started with data: ', ev.data);
+    console.log('Web worker started.');
 
     let data = ev.data;
     switch(data){
         default:
-            console.log("Hier wird aufgerufen");
+            console.log("Versuch aufzurufen, counter: ", counter);
+            // Zuweiss auf eine Variable kann man vielleicht nicht stoppen.
             var output = runWebInterface.runSMTInterpol(data);
-            console.log("Hier wurde aufgerufen");
+            console.log("Aufruf erfolgreich, counter: ", counter);
             self.postMessage(output);
+            counter += 1;
+            self.close();
             break;
+            /*
         case 'Stop SMTInterpol':
+            console.log("Versuch thread zu stoppen");
             runWebInterface.requestTermination();
-            self.postMessage('Stop Web Worker');
+            console.log('Nach Webworker thread is stopped');
             break;
+            */
     }
 });
 

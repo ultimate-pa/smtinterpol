@@ -32,32 +32,44 @@
       var stopButton = document.getElementById("stop");
       let output = document.getElementById("result");
 
-      // maybe init();
-      let worker = new Worker('webworker.js');
-      worker.addEventListener('message', workerMessaged);
-      worker.addEventListener('error', workerError);
+      var worker;
 
       runButton.onclick = function(){run()};
 
       function run(){
-            // runButton.addEventListener("click", ()=>{})
+            runButton.disabled = true;
+            output.textContent = "";
+            worker = new Worker('webworker.js');
+            worker.addEventListener('message', workerMessaged);
+            worker.addEventListener('error', workerError);
             worker.postMessage(inputPanel.value);
-        }
+      }
 
-        function workerMessaged(ev){
-            let data = ev.data;
-            output.textContent += data + "\n";
-            // output.appendChild(document.createTextNode(data.toString() + '\n'));
-        }
+      function workerMessaged(ev){
+          runButton.disabled = false;
+          let data = ev.data;
+          output.textContent += data + "\n";
+      }
+      function workerError(err){
+          console.log(err.message, err.filename);
+      }
 
-        function workerError(err){
-            console.log(err.message, err.filename);
-        }
-        // Sent the msg to stop running SmtInterpol. throw worker.postMessage("Sent Data");
-        stopButton.addEventListener('click', ()=>{
-                //send another message to the worker
-                worker.postMessage('Stop SMTInterpol');
-        })
-    </script>
+      stopButton.onclick = function() {stop()};
+
+      function stop() {
+        console.log("terminated");
+        worker.terminate();
+        output.textContent = " SMTInterpol stoped !"
+        runButton.disabled = false;
+      }
+
+      /*
+      // Sent the msg to stop running SmtInterpol. throw worker.postMessage("Sent Data");
+      stopButton.addEventListener('click', ()=>{
+        //send another message to the worker
+        worker.postMessage('Stop SMTInterpol');
+      })
+      */
+</script>
 </body>
 </html>
