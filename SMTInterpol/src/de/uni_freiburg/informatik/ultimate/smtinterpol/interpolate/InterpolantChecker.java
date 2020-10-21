@@ -408,7 +408,8 @@ public class InterpolantChecker {
 				ApplicationTerm t = (ApplicationTerm) e.getValue();
 				Occurrence occ = mInterpolator.mSymbolOccurrenceInfos.get(t.getFunction().getName());
 				if (occ.contains(part) || activeVars.contains(e.getKey())) {
-					mCheckingSolver.assertTerm(theory.term("=", t, purVarToFreshTerm.get(e.getKey())));
+					Term tNew = fixVars(t, purVarToFreshTerm);
+					mCheckingSolver.assertTerm(theory.term("=", tNew, purVarToFreshTerm.get(e.getKey())));
 				}
 			}
 			if (mCheckingSolver.checkSat() != LBool.UNSAT) {
