@@ -393,7 +393,7 @@ public class QuantifierTheory implements ITheory {
 	public void backtrackAll() {
 		mEMatching.removeAllTriggers();
 		mInstantiationManager.resetInterestingTerms();
-		mPotentialConflictAndUnitClauses.clear();
+		mPendingInstances.clear();
 	}
 
 	@Override
