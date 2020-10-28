@@ -1,0 +1,65 @@
+\documentclass[]{article}
+\usepackage{hyperref}
+%opening
+\title{Documentation for SMTInterpol Webinterface}
+\author{Andrea Qosja}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This is a short document to describe the experience of using TeaVM to create a Web-Interface in JS for SMTInterpol. It will focus on the issues encountered, the solution and/or the notices for further examination.
+\end{abstract}
+
+\section{Outside TeaVM}
+
+\begin{itemize}
+
+\item[]  WebWorkers ?
+
+\item[b)]  2-3 Sentences for WebAssembly.
+
+\item[c)]  Librarys of TeaVM, how u can use js methods and syntax from java ?
+
+\item[d)] Anstatt java lang system.exit(1) java funktion,
+
+parse Env exit funktion, die übergeschirebn, nicht mehr system.exit.
+
+\item[e)] Ausgabe wurde vereifacht, es gibt nur noch eine funktion die man überschreiben muss
+
+\item[f)] unmodifiable sorted set , also nun modifiable, wirt keine Exceptions mehr. ausgenommen nur im TeaVM branch, 
+
+\item[f)] Hashcode, integer hashcode is anderes implementiert als die java.land integer(wert des integer). teaVM.hashcode( gibt ein andere element)
+
+fix: https://github.com/ultimate-pa/smtinterpol/commit/2260635b54c0af738551849c99d2e2a179499da5
+
+
+\end{itemize}
+
+%\end{section}
+
+\section{Inside TeaVM}
+
+
+\subsection{•}  \textbf{Possibility for performance enhancer.} \\
+There is an option of the compiler of the TeaVM, to be found in the pom.xml file on line 150. It gives the possibility to optimize the code conversation from Java to JS, in tree increasingly different level SIMPLE, ADVANCED, FULL.
+
+We did not try to test the optimization quotas, and were able to deploy only level SIMPLE, to ensure a stable version.
+Since every higher level would result in  errors. Specifically when using higher level of the "Verbosity" option provided from SMTInterpol. To duplicate error just use a higher verbosity value than 1.
+
+\textbf{For future reference:} Here is a possibility to enhance the performance of the interface, \textit{NO} reassurances.   
+
+\begin{itemize}
+
+
+\item[b)]  \textbf{A bug that should be fixed from TeaVM developers.} \\ Issued open at the Github \href{https://github.com/konsoletyper/teavm/issues/519}{https://github.com/konsoletyper/teavm/issues/519} page of TeaVM. Simple description: TeaVM implementation of the TreeMap<type, type>.subMap(index, index) is broken, which result in wrongly outcomes and/or errors in the our Web-Interface. 
+
+\textbf{For future reference:} It can be possible that the person responsible did not understood the opened issue right, it could bring more to write him again. Although he did not close the issue yet.
+
+\item[c)] \textbf{Supported Java library/classes from TeaVM.} \\ There is no support/implementation from TeaVm for the java Formatter Class, and it is not planed to be any in the future. See\href{http://teavm.org/jcl-support/0.6.x/jcl.html}{ http://teavm.org/jcl-support/0.6.x/jcl.html}, or\href{https://github.com/konsoletyper/teavm/issues/472}{ https://github.com/konsoletyper/teavm/issues/472.} This results in less developer feedback from the Web-Interface regarding the measurement of f.e. execute speed, since no \%.f numbers can be shown. The only fix though was commenting the responsible lines out.
+Following files contain instances of the described issue: QuantifierTheory.java, ArrayTheory.java, LinArSolve.java.
+
+\end{itemize}
+
+\end{document}
