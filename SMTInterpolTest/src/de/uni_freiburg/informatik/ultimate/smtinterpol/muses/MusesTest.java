@@ -1965,8 +1965,8 @@ public class MusesTest {
 				}
 			}
 		}
-		Assert.assertTrue(maxDifference == 8);
-		Assert.assertTrue(minDifference == 6);
+		Assert.assertTrue(maxDifference == 7);
+		Assert.assertTrue(minDifference == 5);
 	}
 
 	@Test

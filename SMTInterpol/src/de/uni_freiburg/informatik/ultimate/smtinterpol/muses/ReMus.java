@@ -320,10 +320,12 @@ public class ReMus implements Iterator<MusContainer> {
 		final BitSet nextWorkingSet = (BitSet) mNextMus.getMus().clone();
 		// The somewhat arbitrary number 0.9 is a heuristic from the original paper
 		if (nextWorkingSet.cardinality() < 0.9 * mMaxUnexplored.cardinality()) {
-			for (int i = mMaxUnexplored.nextSetBit(0); nextWorkingSet.cardinality() < 0.9
-					* mMaxUnexplored.cardinality(); i = mMaxUnexplored.nextSetBit(i + 1)) {
-				if (!nextWorkingSet.get(i)) {
-					nextWorkingSet.set(i);
+			final ArrayList<Integer> randomlyPermutatedMaxUnexplored = MusUtils.randomPermutation(mMaxUnexplored, mRnd);
+			int toAdd;
+			while (nextWorkingSet.cardinality() < 0.9 * mMaxUnexplored.cardinality()) {
+				toAdd = MusUtils.pop(randomlyPermutatedMaxUnexplored);
+				if (!nextWorkingSet.get(toAdd)) {
+					nextWorkingSet.set(toAdd);
 				}
 			}
 			createNewSubordinateRemus(nextWorkingSet);

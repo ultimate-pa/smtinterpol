@@ -61,8 +61,7 @@ public class Shrinking {
 		int unknownIndex;
 		Term substituteProof = null;
 		while (!unknownPermutated.isEmpty()) {
-			unknownIndex = unknownPermutated.get(unknownPermutated.size() - 1);
-			unknownPermutated.remove(unknownPermutated.size() - 1);
+			unknownIndex = MusUtils.pop(unknownPermutated);
 			if (!unknown.get(unknownIndex)) {
 				continue;
 			}
