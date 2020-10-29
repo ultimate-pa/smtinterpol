@@ -185,7 +185,8 @@ public class MusesTest {
 		declareConstraint(script, translator, engine, c9, annots.get(9));
 	}
 
-	private void setupUnsatSet2AssertSomeAsAxioms1(final Script script, final Translator translator, final DPLLEngine engine) {
+	private void setupUnsatSet2AssertSomeAsAxioms1(final Script script, final Translator translator,
+			final DPLLEngine engine) {
 		final ArrayList<String> names = new ArrayList<>();
 		final ArrayList<Annotation> annots = new ArrayList<>();
 		for (int i = 0; i < 10; i++) {
@@ -223,7 +224,8 @@ public class MusesTest {
 		declareConstraint(script, translator, engine, c9, annots.get(9));
 	}
 
-	private void setupUnsatSet2AssertSomeAsAxioms2(final Script script, final Translator translator, final DPLLEngine engine) {
+	private void setupUnsatSet2AssertSomeAsAxioms2(final Script script, final Translator translator,
+			final DPLLEngine engine) {
 		final ArrayList<String> names = new ArrayList<>();
 		final ArrayList<Annotation> annots = new ArrayList<>();
 		for (int i = 0; i < 10; i++) {
@@ -1346,7 +1348,13 @@ public class MusesTest {
 	}
 
 	/**
-	 * Example, that MUSes might not be minimal anymore, if the solver can return LBool.UNKNOWN upon checkSat() call.
+	 * This previously was an example, that MUSes might not be minimal anymore, if the solver can return LBool.UNKNOWN
+	 * upon checkSat() call. The not-minimal MUS would've been the constraints c10, c11, c12. But there are certain
+	 * circumstances, where the shrinker is still able to find the real (minimal) MUS c10, c11. Through some changes in
+	 * the code, these circumstances now occur and I cannot reproduce the old circumstances without undoing the changes
+	 * in the code. Therefore, this test has been degenerated to a normal "does ReMus work with UNKNOWN-Constraints"
+	 * test. However, through possible future changes, circumstances, where the other case arises, could again occur.
+	 * Therefore, I allow both cases here (case 1: ReMUS finds c10, c11, c12 ; case2: ReMus finds c10, c11).
 	 */
 	@Test
 	public void testReMusUnknownSet2() {
@@ -1368,10 +1376,16 @@ public class MusesTest {
 		boolean foundSpecialMus = false;
 		for (final MusContainer container : muses) {
 			System.out.println(container.getMus().toString());
-			checkWhetherSetIsMus(container.getMus(), solver);
+			if (container.getMus().get(10) && container.getMus().get(11) && container.getMus().cardinality() == 2) {
+				// don't check whether it is a MUS, since the solver cannot confirm this MUS without constraint 12.
+			} else {
+				checkWhetherSetIsMus(container.getMus(), solver);
+			}
 			if (container.getMus().get(10) || container.getMus().get(11) || container.getMus().get(12)) {
 				Assert.assertTrue((container.getMus().get(10) && container.getMus().get(11)
-						&& container.getMus().get(12) && container.getMus().cardinality() == 3));
+						&& container.getMus().get(12) && container.getMus().cardinality() == 3)
+						|| (container.getMus().get(10) && container.getMus().get(11)
+								&& container.getMus().cardinality() == 2));
 				foundSpecialMus = true;
 			}
 		}
@@ -1800,24 +1814,24 @@ public class MusesTest {
 		Assert.assertTrue(widestAmongSmallestMus.cardinality() == 2);
 	}
 
-//	/**
-//	 * If unnamed terms have been asserted, this method fails, because the internal getUnsatCore call returns an
-//	 * UnsatCore which is incomplete to the degree, that it is satisfiable. Hence, the Shrinker detects that it shall
-//	 * shrink something satisfiable and throws an exception.
-//	 */
-//	@Test(expected = SMTLIBException.class)
-//	public void testMusEnumerationScriptFirstFailExample() {
-//		final MusEnumerationScript script = setupMusEnumerationScript(Logics.ALL);
-//		script.setOption(MusOptions.INTERPOLATION_HEURISTIC, HeuristicsType.FIRST);
-//		script.setOption(SMTLIBConstants.RANDOM_SEED, 1337);
-//		script.setOption(MusOptions.LOG_ADDITIONAL_INFORMATION, true);
-//		script.setOption(MusOptions.ENUMERATION_TIMEOUT, 1000);
-//
-//		script.push(1);
-//		setupUnsatSet5(script);
-//		Assert.assertTrue(LBool.UNSAT == script.checkSat());
-//		script.getUnsatCore();
-//	}
+	// /**
+	// * If unnamed terms have been asserted, this method fails, because the internal getUnsatCore call returns an
+	// * UnsatCore which is incomplete to the degree, that it is satisfiable. Hence, the Shrinker detects that it shall
+	// * shrink something satisfiable and throws an exception.
+	// */
+	// @Test(expected = SMTLIBException.class)
+	// public void testMusEnumerationScriptFirstFailExample() {
+	// final MusEnumerationScript script = setupMusEnumerationScript(Logics.ALL);
+	// script.setOption(MusOptions.INTERPOLATION_HEURISTIC, HeuristicsType.FIRST);
+	// script.setOption(SMTLIBConstants.RANDOM_SEED, 1337);
+	// script.setOption(MusOptions.LOG_ADDITIONAL_INFORMATION, true);
+	// script.setOption(MusOptions.ENUMERATION_TIMEOUT, 1000);
+	//
+	// script.push(1);
+	// setupUnsatSet5(script);
+	// Assert.assertTrue(LBool.UNSAT == script.checkSat());
+	// script.getUnsatCore();
+	// }
 
 	@Test
 	public void testMusEnumerationScriptFirst() {
@@ -2087,8 +2101,8 @@ public class MusesTest {
 		for (final Term c : core) {
 			Assert.assertFalse(Translator.getName(c).equals("c10"));
 		}
-		//Enable as soon as unsat core of MUSEnumeration script is according to the standard.
-		//script.getInterpolants(core);
+		// Enable as soon as unsat core of MUSEnumeration script is according to the standard.
+		// script.getInterpolants(core);
 	}
 
 	/**
