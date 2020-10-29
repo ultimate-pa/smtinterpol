@@ -85,6 +85,9 @@ public class Shrinking {
 				break;
 			case SAT:
 				if (unknownAllowed) {
+					// In this case, the model class cannot be used because of quantifiers,
+					// therefore getting an extension is not possible, since the extension uses the model class.
+					// Hence, we just block the currently asserted set.
 					solver.clearUnknownConstraints();
 					final BitSet satisfiableSet = solver.getCrits();
 					satisfiableSet.or(unknown);
@@ -126,7 +129,8 @@ public class Shrinking {
 				return null;
 			}
 			if (unknownAllowed) {
-				// In a rare case, it may happen, that getUnsatCore() previously returned an unsatisfiable set, which
+				// In a (seemingly) rare case, it may happen, that getUnsatCore() previously returned an unsatisfiable
+				// set, which
 				// could only be shown to be unsatisfiable with another term (see f.ex. MusesTest.setupUnknownSet2).
 				// But at this point in the code, the other term is no longer present in the solver, which means, that
 				// checkSat() returns UNKNOWN for this in reality unsatisfiable set. Therefore, we need to use the
@@ -135,10 +139,7 @@ public class Shrinking {
 				map.BlockUp(mus);
 				map.BlockDown(mus);
 				solver.popRecLevel();
-				if (substituteProof == null) {
-					throw new SMTLIBException(
-							"The case described in the comment above did not occur, so this is an unexpected behaviour.");
-				}
+				assert substituteProof != null : "The case described in the comment above did not occur, so this is an unexpected behaviour";
 				return new MusContainer(mus, substituteProof);
 			} else {
 				throw new SMTLIBException("Solver returns UNKNOWN for final set in shrink procedure.");
@@ -175,6 +176,7 @@ public class Shrinking {
 
 		final ArrayList<Integer> unknownPermutated = MusUtils.randomPermutation(unknown, rnd);
 		int unknownIndex;
+		Term substituteProof = null;
 		while (!unknownPermutated.isEmpty()) {
 			unknownIndex = unknownPermutated.get(unknownPermutated.size() - 1);
 			unknownPermutated.remove(unknownPermutated.size() - 1);
@@ -192,6 +194,9 @@ public class Shrinking {
 			switch (solver.checkSat()) {
 			case UNSAT:
 				final BitSet core = solver.getUnsatCore();
+				if (unknownAllowed) {
+					substituteProof = solver.getProof();
+				}
 				unknown.and(core);
 				solver.clearUnknownConstraints();
 				break;
@@ -223,7 +228,23 @@ public class Shrinking {
 			if (request != null && request.isTerminationRequested()) {
 				return null;
 			}
-			throw new SMTLIBException("Solver returns UNKNOWN for final set in shrink procedure.");
+			if (unknownAllowed) {
+				// In a (seemingly) rare case, it may happen, that getUnsatCore() previously returned an unsatisfiable
+				// set, which
+				// could only be shown to be unsatisfiable with another term (see f.ex. MusesTest.setupUnknownSet2).
+				// But at this point in the code, the other term is no longer present in the solver, which means, that
+				// checkSat() returns UNKNOWN for this in reality unsatisfiable set. Therefore, we need to use the
+				// substitute proof collected earlier.
+				final BitSet mus = solver.getCrits();
+				solver.popRecLevel();
+				if (substituteProof == null) {
+					throw new SMTLIBException(
+							"The case described in the comment above did not occur, so this is an unexpected behaviour.");
+				}
+				return new MusContainer(mus, substituteProof);
+			} else {
+				throw new SMTLIBException("Solver returns UNKNOWN for final set in shrink procedure.");
+			}
 		}
 		final Term proofOfMus = solver.getProof();
 		solver.clearUnknownConstraints();
