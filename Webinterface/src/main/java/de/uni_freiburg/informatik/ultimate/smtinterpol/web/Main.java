@@ -15,7 +15,7 @@ public class Main implements SolverInterface {
 	@JSBody(params = { "handler" }, script = "runWebInterface = handler;")
 	public static native void setSolverInterface(SolverInterface handler);
 
-	// native method to have the string argument written in js. ( f.e. wie self.postmsg)
+	// native method to have the string argument written in js. ( f.e. self.postmsg)
 	@JSBody(params = { "message" }, script = "self.postMessage(message);")
 	public static native void postMessage(String message);
 
