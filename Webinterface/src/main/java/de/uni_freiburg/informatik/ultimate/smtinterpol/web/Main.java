@@ -52,10 +52,9 @@ public class Main implements SolverInterface {
 		}
 
 		/*
-		wird immer von smtInterpol aufgerufen immer wennn er ein Erg. hat.
-		print response methode überscheiben , sodass die zwischen ergebnisse geposted werden
-		public void printResponse(Object response)
-		post messege response.tostring.
+		wird immer von smtInterpol aufgerufen, immer wennn er ein Erg. hat.
+		print response methode überscheiben, sodass die zwischen ergebnisse geposted werden
+		können.
 		 */
 		public void printResponse(Object response) {
 			postMessage(response.toString());
