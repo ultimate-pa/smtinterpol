@@ -231,6 +231,9 @@ public class QuantifierTheory implements ITheory {
 				mNumCheckpointsWithNewEval++;
 				mEMatching.run();
 				potentiallyInterestingInstances = mInstantiationManager.computeEMatchingInstances();
+				if (Config.PROFILE_TIME) {
+					mFindEmatchingTime += System.nanoTime() - time;
+				}
 				break;
 			case E_MATCHING_LAZY:
 				// Nothing to do, only in final check
@@ -273,6 +276,9 @@ public class QuantifierTheory implements ITheory {
 			if (mInstantiationMethod == InstantiationMethod.E_MATCHING_LAZY) {
 				mEMatching.run();
 				potentiallyInterestingInstances = mInstantiationManager.computeEMatchingInstances();
+				if (Config.PROFILE_TIME) {
+					mFindEmatchingTime += System.nanoTime() - time;
+				}
 				for (final InstClause i : potentiallyInterestingInstances) {
 					if (i.countAndSetUndefLits() != -1) {
 						// Don't search for other instances if E-matching found one that is not yet satisfied.
@@ -283,6 +289,9 @@ public class QuantifierTheory implements ITheory {
 			} else if (mInstantiationMethod == InstantiationMethod.E_MATCHING_CONFLICT_LAZY) {
 				mEMatching.run();
 				potentiallyInterestingInstances = mInstantiationManager.findConflictAndUnitInstancesWithEMatching();
+				if (Config.PROFILE_TIME) {
+					mFindEmatchingTime += System.nanoTime() - time;
+				}
 				for (final InstClause i : potentiallyInterestingInstances) {
 					if (i.countAndSetUndefLits() != -1) {
 						// Don't search for other instances if E-matching based conflict/unit search found one that is
