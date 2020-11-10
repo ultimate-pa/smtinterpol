@@ -286,6 +286,9 @@ public class InstantiationManager {
 			Dawg<Term, InstantiationInfo> clauseDawg = Dawg.createConst(clause.getVars().length,
 					new InstantiationInfo(InstanceValue.FALSE, new ArrayList<>()));
 			for (final QuantLiteral lit : clause.getQuantLits()) {
+				if (mQuantTheory.getEngine().isTerminationRequested()) {
+					return Collections.emptySet();
+				}
 				Dawg<Term, InstantiationInfo> instDawg = null;
 				final QuantLiteral atom = lit.getAtom();
 				if (mEMatching.isUsingEmatching(lit) || mEMatching.isPartiallyUsingEmatching(lit)) {
@@ -323,6 +326,9 @@ public class InstantiationManager {
 			}
 			// Compute instances that do not produce new terms, i.e., where the E-matching multi-pattern was matched
 			for (final InstantiationInfo subs : getRelevantSubsFromDawg(clause, clauseDawg)) {
+				if (mQuantTheory.getEngine().isTerminationRequested()) {
+					return Collections.emptySet();
+				}
 				final InstClause inst = computeClauseInstance(clause, subs.getSubs(), InstanceOrigin.EMATCHING);
 				if (inst != null) {
 					newInstances.add(inst);
@@ -351,6 +357,9 @@ public class InstantiationManager {
 		// Collect the QuantClauses that are not yet satisfied and check if existing instances lead to conflicts.
 		final List<QuantClause> currentQuantClauses = new ArrayList<>();
 		for (final QuantClause clause : mQuantTheory.getQuantClauses()) {
+			if (mQuantTheory.getEngine().isTerminationRequested()) {
+				return Collections.emptySet();
+			}
 			if (!clause.hasTrueGroundLits()) {
 				assert mClauseInstances.containsKey(clause);
 				for (final Entry<List<Term>, InstClause> existingInst : mClauseInstances.get(clause).entrySet()) {
@@ -392,6 +401,9 @@ public class InstantiationManager {
 			final List<Pair<QuantClause, List<Term>>> otherValueInstancesNewTerms = new ArrayList<>();
 
 			for (final QuantClause clause : currentQuantClauses) {
+				if (mQuantTheory.getEngine().isTerminationRequested()) {
+					return Collections.emptySet();
+				}
 				final Set<List<Term>> subsForAge =
 						computeSubstitutionsForAge(interestingTermsSortedByAge.get(clause), mSubsAgeForFinalCheck);
 				for (final List<Term> subs : subsForAge) {
@@ -441,6 +453,9 @@ public class InstantiationManager {
 			sortedInstances.addAll(otherValueInstancesOnKnownTerms);
 			sortedInstances.addAll(otherValueInstancesNewTerms);
 			for (final Pair<QuantClause, List<Term>> cand : sortedInstances) {
+				if (mQuantTheory.getEngine().isTerminationRequested()) {
+					return Collections.emptySet();
+				}
 				final InstClause inst =
 						computeClauseInstance(cand.getFirst(), cand.getSecond(), InstanceOrigin.ENUMERATION);
 				if (inst != null) {
@@ -593,8 +608,8 @@ public class InstantiationManager {
 			final Collection<QuantLiteral> partialEMLits = new ArrayList<>(qClause.getQuantLits().length);
 			// First update and combine the literals that are not arithmetical
 			for (final QuantLiteral qLit : qClause.getQuantLits()) {
-				if (clauseDawg == constIrrelDawg) {
-					break;
+				if (clauseDawg == constIrrelDawg || mQuantTheory.getEngine().isTerminationRequested()) {
+					return constIrrelDawg;
 				}
 				if (qLit.isArithmetical()) { // will be treated later
 					arithLits.add(qLit);
@@ -610,8 +625,8 @@ public class InstantiationManager {
 
 			if (clauseDawg != constIrrelDawg && !partialEMLits.isEmpty()) {
 				for (final QuantLiteral lit : partialEMLits) {
-					if (clauseDawg == constIrrelDawg) {
-						break;
+					if (clauseDawg == constIrrelDawg || mQuantTheory.getEngine().isTerminationRequested()) {
+						return constIrrelDawg;
 					}
 					final Dawg<Term, SubstitutionInfo> info = mEMatching.getSubstitutionInfos(lit.getAtom());
 					final Dawg<Term, SubstitutionInfo> rep = getRepresentativeSubsDawg(info);
@@ -623,8 +638,8 @@ public class InstantiationManager {
 			if (clauseDawg != constIrrelDawg && !unknownLits.isEmpty()) {
 				// Consider all substitutions where the partial clause Dawg is not already true
 				for (final QuantLiteral lit : unknownLits) {
-					if (clauseDawg == constIrrelDawg) {
-						break;
+					if (clauseDawg == constIrrelDawg || mQuantTheory.getEngine().isTerminationRequested()) {
+						return constIrrelDawg;
 					}
 					clauseDawg = clauseDawg.mapWithKey((key, value) -> (combineForCheckpoint(value,
 							new InstantiationInfo(evaluateLitInstance(lit, key), value.getSubs()))));
@@ -635,8 +650,8 @@ public class InstantiationManager {
 				final Term[][] interestingSubsForArith = computeSubsForArithmetical(qClause, arithLits, clauseDawg);
 				// Consider all substitutions where the partial clause Dawg is not already true
 				for (final QuantLiteral arLit : arithLits) {
-					if (clauseDawg == constIrrelDawg) {
-						break;
+					if (clauseDawg == constIrrelDawg || mQuantTheory.getEngine().isTerminationRequested()) {
+						return constIrrelDawg;
 					}
 					final Dawg<Term, InstantiationInfo> litDawg = computeArithLitDawg(arLit, interestingSubsForArith);
 					clauseDawg = clauseDawg.combine(litDawg, combinator);
@@ -1022,6 +1037,9 @@ public class InstantiationManager {
 			final Dawg<Term, InstantiationInfo> clauseDawg) {
 		final Collection<InstantiationInfo> relevantSubs = new ArrayList<>();
 		for (final InstantiationInfo info : clauseDawg.values()) {
+			if (mQuantTheory.getEngine().isTerminationRequested()) {
+				return Collections.emptySet();
+			}
 			final List<Term> subs = info.getSubs();
 			final InstanceValue val = info.getInstValue();
 			assert !Config.EXPENSIVE_ASSERTS || isUsedValueForCheckpoint(val);
