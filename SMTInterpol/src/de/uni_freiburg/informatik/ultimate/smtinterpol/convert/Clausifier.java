@@ -1191,6 +1191,7 @@ public class Clausifier {
 			case "store":
 			case "@diff":
 			case "const":
+			case "@EQ":
 				return true;
 			case "div":
 			case "mod":
