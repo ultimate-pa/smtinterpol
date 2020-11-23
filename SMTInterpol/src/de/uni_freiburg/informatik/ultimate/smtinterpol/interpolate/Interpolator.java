@@ -29,11 +29,17 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
+import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
+import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.LetTerm;
+import de.uni_freiburg.informatik.ultimate.logic.MatchTerm;
 import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
+import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
+import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
@@ -64,6 +70,7 @@ public class Interpolator extends NonRecursive {
 	private final TerminationRequest mCancel;
 
 	InterpolantChecker mChecker;
+	final Collection<Term> mAllAssertions;
 
 	LogProxy mLogger;
 	Theory mTheory;
@@ -191,6 +198,7 @@ public class Interpolator extends NonRecursive {
 			mChecker = new InterpolantChecker(this, checkingSolver);
 			mChecker.assertUnpartitionedFormulas(allAssertions, mPartitions.keySet());
 		}
+		mAllAssertions = allAssertions;
 		mTheory = theory;
 		mNumInterpolants = partitions.length - 1;
 		mFullOccurrence = new Occurrence();
@@ -209,6 +217,7 @@ public class Interpolator extends NonRecursive {
 	}
 
 	public Term[] getInterpolants(final Term proofTree) {
+		colorTermsInAssertions();
 		colorLiterals(proofTree);
 		final Term[] interpolants = interpolate(proofTree);
 		for (int i = 0; i < interpolants.length; i++) {
@@ -588,6 +597,97 @@ public class Interpolator extends NonRecursive {
 			}
 		};
 		return substitutor.transform(interpolant);
+	}
+
+	private void colorTermsInAssertions() {
+		for (final Term a : mAllAssertions) {
+			int part = -1;
+			Term subTerm = a;
+			if (a instanceof AnnotatedTerm) {
+				final AnnotatedTerm annTerm = (AnnotatedTerm) a;
+				for (final Annotation an : annTerm.getAnnotations()) {
+					if (SMTLIBConstants.NAMED.equals(an.getKey()) && mPartitions.containsKey(an.getValue())) {
+						part = mPartitions.get(an.getValue());
+					}
+				}
+				subTerm = annTerm.getSubterm();
+			}
+			new ColorAssertion().color(subTerm, part);
+		}
+	}
+
+	private class ColorAssertion extends NonRecursive {
+		private HashSet<Term> mSeen;
+
+		void color(final Term term, final int part) {
+			mSeen = new HashSet<>();
+			run(new ColorTerm(term, part));
+		}
+
+		/**
+		 * Color all ground terms occurring in a given term according to the given partition.
+		 */
+		private class ColorTerm extends NonRecursive.TermWalker {
+
+			final int mPart;
+
+			public ColorTerm(final Term term, final int part) {
+				super(term);
+				mPart = part;
+			}
+
+			@Override
+			public void walk(NonRecursive walker) {
+				if (mSeen.add(mTerm)) {
+					super.walk(walker);
+				}
+			}
+
+			@Override
+			public void walk(NonRecursive walker, ConstantTerm term) {
+				// Nothing to do
+			}
+
+			@Override
+			public void walk(NonRecursive walker, AnnotatedTerm term) {
+				walker.enqueueWalker(new ColorTerm(((AnnotatedTerm) term).getSubterm(), mPart));
+			}
+
+			@Override
+			public void walk(NonRecursive walker, ApplicationTerm term) {
+				final Term def = term.getFunction().getDefinition();
+				if (def != null) {
+					walker.enqueueWalker(new ColorTerm(def, mPart));
+				} else {
+					if (!term.getFunction().isIntern() && term.getFreeVars().length == 0) {
+						addOccurrence(term, mPart);
+					}
+					for (final Term param : ((ApplicationTerm) mTerm).getParameters()) {
+						walker.enqueueWalker(new ColorTerm(param, mPart));
+					}
+				}
+			}
+
+			@Override
+			public void walk(NonRecursive walker, LetTerm term) {
+				walker.enqueueWalker(new ColorTerm(new FormulaUnLet().unlet(term), mPart));
+			}
+
+			@Override
+			public void walk(NonRecursive walker, QuantifiedFormula term) {
+				walker.enqueueWalker(new ColorTerm(((QuantifiedFormula) term).getSubformula(), mPart));
+			}
+
+			@Override
+			public void walk(NonRecursive walker, TermVariable term) {
+				// Nothing to do
+			}
+
+			@Override
+			public void walk(NonRecursive walker, MatchTerm term) {
+				mLogger.warn("Not coloring match terms yet.");
+			}
+		}
 	}
 
 	/**
