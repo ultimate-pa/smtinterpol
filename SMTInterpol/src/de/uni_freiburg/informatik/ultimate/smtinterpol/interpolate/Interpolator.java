@@ -655,12 +655,25 @@ public class Interpolator extends NonRecursive {
 
 			@Override
 			public void walk(NonRecursive walker, ApplicationTerm term) {
-				final Term def = term.getFunction().getDefinition();
+				final FunctionSymbol fsym = term.getFunction();
+				final Term def = fsym.getDefinition();
 				if (def != null) {
-					walker.enqueueWalker(new ColorTerm(def, mPart));
+					final Term[] params = term.getParameters();
+					final HashMap<TermVariable, Term> subs = new HashMap<>();
+					for (int i = 0; i < params.length; i++) {
+						subs.put(term.getFunction().getDefinitionVars()[i], params[i]);
+					}
+					final FormulaUnLet unletter = new FormulaUnLet();
+					unletter.addSubstitutions(subs);
+					final Term expanded = unletter.unlet(def);
+					walker.enqueueWalker(new ColorTerm(expanded, mPart));
 				} else {
-					if (!term.getFunction().isIntern() && term.getFreeVars().length == 0) {
-						addOccurrence(term, mPart);
+					if (!term.getFunction().isIntern()) {
+						if (term.getFreeVars().length == 0) {
+							addOccurrence(term, mPart);
+						} else {
+							// TODO Color function symbol for quantified interpolation
+						}
 					}
 					for (final Term param : ((ApplicationTerm) mTerm).getParameters()) {
 						walker.enqueueWalker(new ColorTerm(param, mPart));
@@ -685,7 +698,10 @@ public class Interpolator extends NonRecursive {
 
 			@Override
 			public void walk(NonRecursive walker, MatchTerm term) {
-				mLogger.warn("Not coloring match terms yet.");
+				walker.enqueueWalker(new ColorTerm(term.getDataTerm(), mPart));
+				for (final Term t : term.getCases()) {
+					walker.enqueueWalker(new ColorTerm(t, mPart));
+				}
 			}
 		}
 	}
