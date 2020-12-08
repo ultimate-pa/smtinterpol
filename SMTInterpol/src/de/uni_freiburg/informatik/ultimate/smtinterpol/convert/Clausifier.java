@@ -582,7 +582,7 @@ public class Clausifier {
 						} else if (trivialEq == mTheory.mFalse) {
 							lit = mFALSE;
 						} else {
-							lit = mQuantTheory.getQuantEquality(lhs, rhs);
+							lit = mQuantTheory.getQuantEquality(lhs, rhs, mCollector.getSource());
 						}
 					} else {
 						final EqualityProxy eq = createEqualityProxy(lhs, rhs, mCollector.getSource());
@@ -602,14 +602,14 @@ public class Clausifier {
 					// (<= SMTAffineTerm 0)
 					if (quantified) {
 						final Term linTerm = at.getParameters()[0];
-						lit = mQuantTheory.getQuantInequality(positive, linTerm);
+						lit = mQuantTheory.getQuantInequality(positive, linTerm, mCollector.getSource());
 					} else {
 						lit = createLeq0(at, mCollector.getSource());
 					}
 				} else if (!at.getFunction().isInterpreted() || at.getFunction().getName().equals("select")) {
 					lit = createBooleanLit(at, mCollector.getSource());
 				} else {
-					lit = createAnonLiteral(idx);
+					lit = createAnonLiteral(idx, mCollector.getSource());
 					if (positive) {
 						addAuxAxioms(idx, true, mCollector.getSource());
 					} else {
@@ -647,7 +647,7 @@ public class Clausifier {
 				// Build a quantified disequality, this allows us to use the literal for DER.
 				// That is, x --> (x != false) and ~x --> (x != true),
 				final Term value = positive ? mTheory.mFalse : mTheory.mTrue;
-				final ILiteral lit = mQuantTheory.getQuantEquality(idx, value);
+				final ILiteral lit = mQuantTheory.getQuantEquality(idx, value, mCollector.getSource());
 				final Term atomRewrite =
 						mTracker.intern(idx, (positive ? lit.negate() : lit).getSMTFormula(theory, true));
 				if (positive) {
@@ -1731,7 +1731,7 @@ public class Clausifier {
 		return null;
 	}
 
-	ILiteral createAnonLiteral(final Term term) {
+	ILiteral createAnonLiteral(final Term term, final SourceAnnotation source) {
 		ILiteral lit = getILiteral(term);
 		if (lit == null) {
 			/*
@@ -1755,7 +1755,7 @@ public class Clausifier {
 					// for instantiation terms - should it be done earlier?)
 					// We use an equality "f(x,y,...)=true", not a NamedAtom, as CClosure must treat the literal
 					// instances.
-					lit = mQuantTheory.getQuantEquality(auxTerm, mTheory.mTrue);
+					lit = mQuantTheory.getQuantEquality(auxTerm, mTheory.mTrue, source);
 				}
 			} else {
 				lit = new NamedAtom(term, mStackLevel);
@@ -1770,7 +1770,7 @@ public class Clausifier {
 	ILiteral getLiteralTseitin(final Term t, final SourceAnnotation source) {
 		final Term idx = toPositive(t);
 		final boolean pos = t == idx;
-		final ILiteral lit = createAnonLiteral(idx);
+		final ILiteral lit = createAnonLiteral(idx, source);
 		addAuxAxioms(idx, true, source);
 		addAuxAxioms(idx, false, source);
 		return pos ? lit : lit.negate();
@@ -2133,7 +2133,7 @@ public class Clausifier {
 				lit = atom;
 			} else {
 				if (term.getFreeVars().length > 0 && !mIsEprEnabled) {
-					lit = mQuantTheory.getQuantEquality(term, mTheory.mTrue);
+					lit = mQuantTheory.getQuantEquality(term, mTheory.mTrue, source);
 
 					// alex: this the right place to get rid of the CClosure predicate conversion in EPR-case?
 					// --> seems to be one of three positions.. (keyword: predicate-to-function conversion)
