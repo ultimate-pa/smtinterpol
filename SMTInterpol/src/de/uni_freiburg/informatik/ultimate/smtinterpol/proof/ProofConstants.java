@@ -101,7 +101,11 @@ public interface ProofConstants {
 	public final static Annotation RW_STORE_REWRITE     = new Annotation(":storeRewrite", null);
 	public final static Annotation RW_FORALL_EXISTS     = new Annotation(":forallExists", null);
 	public final static Annotation RW_INTERN            = new Annotation(":intern", null);
-
+	public final static Annotation RW_CONCAT            = new Annotation(":concat", null);
+	public static final Annotation RW_BVARITH			= new Annotation(":bvarith", null);
+	public static final Annotation RW_BVLOGIC 			= new Annotation(":bvlogic", null);
+	public static final Annotation RW_BVSHIFT 			= new Annotation(":bvshift", null);
+	
 	//// ==== Tautologies ====
 	public final static Annotation AUX_TRUE_NOT_FALSE    = new Annotation(":trueNotFalse", null);
 	public final static Annotation AUX_OR_POS            = new Annotation(":or+", null);
@@ -137,6 +141,9 @@ public interface ProofConstants {
 	public final static Annotation SPLIT_POS_ITE_2 = new Annotation(":ite+2", null);
 	public final static Annotation SPLIT_NEG_ITE_1 = new Annotation(":ite-1", null);
 	public final static Annotation SPLIT_NEG_ITE_2 = new Annotation(":ite-2", null);
+
+
+	
 
 	//// ==== Annotations with non-null value ==== //// TODO This is probably not the best place
 	public static Annotation getSplitSubstAnnot(final Term[] subst) {

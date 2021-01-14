@@ -62,6 +62,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofTracker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.bitvector.BitVectorTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.ArrayTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAppTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
@@ -590,10 +591,14 @@ public class Clausifier {
 						// eq == true and !positive ==> noop
 						// eq == false and !positive ==> set to true
 						// eq == false and positive ==> noop
+						String bitvectorSort = "BitVec";
 						if (eq == EqualityProxy.getTrueProxy()) {
 							lit = mTRUE;
 						} else if (eq == EqualityProxy.getFalseProxy()) {
 							lit = mFALSE;
+						} else if (bitvectorSort.equals(lhs.getSort().getRealSort().getName())
+								&& bitvectorSort.equals(rhs.getSort().getRealSort().getName())) {
+							lit = getBVSolver().createEquality(lhs, rhs);
 						} else {
 							lit = eq.getLiteral(mCollector.getSource());
 						}
@@ -608,6 +613,10 @@ public class Clausifier {
 					}
 				} else if (!at.getFunction().isInterpreted() || at.getFunction().getName().equals("select")) {
 					lit = createBooleanLit(at, mCollector.getSource());
+				} else if (at.getFunction().getName().equals("bvult")) {
+					final Term lhs = at.getParameters()[0];
+					final Term rhs = at.getParameters()[1];
+					lit = getBVSolver().createInEquality(lhs, rhs);
 				} else {
 					lit = createAnonLiteral(idx);
 					if (positive) {
@@ -1274,6 +1283,7 @@ public class Clausifier {
 	private LinArSolve mLASolver;
 	private ArrayTheory mArrayTheory;
 	private EprTheory mEprTheory;
+	private BitVectorTheory mBVSolver;
 	private QuantifierTheory mQuantTheory;
 
 	/**
@@ -1733,6 +1743,7 @@ public class Clausifier {
 	ILiteral createAnonLiteral(final Term term) {
 		ILiteral lit = getILiteral(term);
 		if (lit == null) {
+
 			/*
 			 * when inserting a cnf-auxvar (for tseitin-style encoding) in a quantified formula, we need it to depend on the
 			 * currently active quantifiers
@@ -1822,6 +1833,13 @@ public class Clausifier {
 		}
 	}
 
+	private void setupBvTheory() {
+		if (mBVSolver == null) {
+			mBVSolver = new BitVectorTheory(this);
+			mEngine.addTheory(mBVSolver);
+		}
+	}
+
 	private void setupLinArithmetic() {
 		if (mLASolver == null) {
 			mLASolver = new LinArSolve(this);
@@ -1877,6 +1895,9 @@ public class Clausifier {
 		}
 		if (logic.isArray()) {
 			setupArrayTheory();
+		}
+		if (logic.isBitVector()) {
+			setupBvTheory();
 		}
 		if (logic.isQuantified()) {
 			// TODO How can we combine the two? For now, we keep EPR separately.
@@ -1955,6 +1976,9 @@ public class Clausifier {
 		return mLASolver;
 	}
 
+	public BitVectorTheory getBVSolver() {
+		return mBVSolver;
+	}
 	public LogProxy getLogger() {
 		return mLogger;
 	}
@@ -1988,9 +2012,11 @@ public class Clausifier {
 		Term simpFormula;
 		try {
 			simpFormula = mCompiler.transform(origFormula);
+
 		} finally {
 			mCompiler.reset();
 		}
+
 		simpFormula = mTracker.modusPonens(mTracker.asserted(origFormula), simpFormula);
 		origFormula = null;
 
@@ -2004,6 +2030,7 @@ public class Clausifier {
 		pushOperation(new AddAsAxiom(simpFormula, source));
 		run();
 		mOccCounter.reset(simpFormula);
+
 		simpFormula = null;
 
 		// logger.info("Added " + numClauses + " clauses, " + numAtoms
@@ -2087,6 +2114,9 @@ public class Clausifier {
 				} else {
 					lit = ep.getLiteral(source);
 				}
+			} else if (fs.getName().equals("bvult")) {
+				System.out.println("huhu");
+				lit = getILiteral(idx);
 			} else if ((!fs.isIntern() || fs.getName().equals("select"))
 					&& fs.getReturnSort() == mTheory.getBooleanSort()) {
 				lit = createBooleanLit(at, source);

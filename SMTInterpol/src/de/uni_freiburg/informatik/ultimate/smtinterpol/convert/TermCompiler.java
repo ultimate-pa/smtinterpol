@@ -43,6 +43,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate.Interpolator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.IProofTracker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.bitvector.BVUtils;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.UnifyHash;
 
 /**
@@ -82,7 +83,7 @@ public class TermCompiler extends TermTransformer {
 
 	public void setAssignmentProduction(final boolean on) {
 		if (on) {
-			mNames = new HashMap<Term, Set<String>>();
+			mNames = new HashMap<>();
 		} else {
 			mNames = null;
 		}
@@ -101,6 +102,7 @@ public class TermCompiler extends TermTransformer {
 			case "Int":
 			case "Real":
 			case "Array":
+			case "BitVec":
 				/* okay */
 				break;
 			default:
@@ -189,10 +191,9 @@ public class TermCompiler extends TermTransformer {
 	public void convertApplicationTerm(final ApplicationTerm appTerm, final Term[] args) {
 		final FunctionSymbol fsym = appTerm.getFunction();
 		final Theory theory = appTerm.getTheory();
-
 		final Term convertedApp = mTracker.congruence(mTracker.reflexivity(appTerm), args);
-
 		final Term[] params = ((ApplicationTerm) mTracker.getProvedTerm(convertedApp)).getParameters();
+		final BVUtils bvUtils = new BVUtils(theory);
 
 		if (fsym.getDefinition() != null) {
 			final HashMap<TermVariable, Term> substs = new HashMap<>();
@@ -230,6 +231,11 @@ public class TermCompiler extends TermTransformer {
 				setResult(mUtils.convertIte(convertedApp));
 				return;
 			case "=":
+				final Term elimCM = bvUtils.eliminateConcatPerfectMatch(fsym, params);
+				if (elimCM != null) {
+					setResult(mUtils.convertAnd(elimCM));
+					return;
+				}
 				setResult(mUtils.convertEq(convertedApp));
 				return;
 			case "distinct":
@@ -446,7 +452,7 @@ public class TermCompiler extends TermTransformer {
 				BigInteger divisor1;
 				try {
 					divisor1 = new BigInteger(fsym.getIndices()[0]);
-				} catch(NumberFormatException e){
+				} catch (final NumberFormatException e) {
 					throw new SMTLIBException("index must be numeral", e);
 				}
 				final Rational divisor = Rational.valueOf(divisor1, BigInteger.ONE);
@@ -526,6 +532,88 @@ public class TermCompiler extends TermTransformer {
 				}
 				break;
 			}
+			case "concat": {
+				if (bvUtils.isConstRelation(params[0], params[1])) {
+					setResult(bvUtils.getProof(bvUtils.optimizeConcat(fsym, params[0], params[1]), convertedApp,
+							mTracker, ProofConstants.RW_CONCAT));
+					return;
+				}
+				setResult(convertedApp);
+				return;
+			}
+			case "bvadd":
+			case "bvudiv":
+			case "bvurem":
+			case "bvmul": {
+				if (bvUtils.isConstRelation(params[0], params[1])) {
+					setResult(bvUtils.getProof(bvUtils.optimizeArithmetic(fsym, params[0], params[1]), convertedApp,
+							mTracker, ProofConstants.RW_BVARITH));
+					return;
+				}
+				setResult(convertedApp);
+				return;
+			}
+			case "bvand":
+			case "bvor": {
+				bvUtils.bitMaskElimination(convertedApp);
+				if (bvUtils.isConstRelation(params[0], params[1])) {
+					setResult(bvUtils.getProof(bvUtils.optimizeLogical(fsym, params[0], params[1]), convertedApp,
+							mTracker, ProofConstants.RW_BVLOGIC));
+					return;
+				}
+				setResult(convertedApp);
+				return;
+			}
+			case "bvlshr":
+			case "bvshl": {
+				if (bvUtils.isConstRelation(params[0], params[1])) {
+					setResult(bvUtils.getProof(bvUtils.optimizeShift(fsym, params[0], params[1]), convertedApp,
+							mTracker, ProofConstants.RW_BVSHIFT));
+					return;
+				}
+				setResult(convertedApp);
+				return;
+			}
+			case "bvneg": {
+				if (params[0] instanceof ConstantTerm) {
+					// TODO
+					setResult(bvUtils.optimizeNEG(fsym, params[0]));
+					return;
+				}
+				setResult(convertedApp);
+				return;
+			}
+			case "bvnot": {
+				if (params[0] instanceof ConstantTerm) {
+					// TODO
+					setResult(bvUtils.optimizeNOT(fsym, params[0]));
+					return;
+				}
+				setResult(convertedApp);
+				return;
+			}
+			case "bvuge":
+			case "bvslt":
+			case "bvule":
+			case "bvsle": {
+				final Term bvult = bvUtils.getBvultTerm(convertedApp);
+				if (bvult instanceof ApplicationTerm) {
+					final ApplicationTerm appterm = (ApplicationTerm) bvult;
+					if (appterm.getParameters().length == 0) {
+						setResult(bvult);
+					} else {
+						setResult(mUtils.convertOr(bvult));
+					}
+				}
+				return;
+			}
+			case "bvugt":
+			case "bvsgt":
+			case "bvsge":
+			case "bvult": {
+				setResult(bvUtils.getBvultTerm(convertedApp));
+				return;
+			}
 			case "true":
 			case "false":
 			case "@diff":
@@ -601,7 +689,7 @@ public class TermCompiler extends TermTransformer {
 				if (annot.getKey().equals(":named")) {
 					Set<String> oldNames = mNames.get(newBody);
 					if (oldNames == null) {
-						oldNames = new HashSet<String>();
+						oldNames = new HashSet<>();
 						mNames.put(newBody, oldNames);
 					}
 					oldNames.add(annot.getValue().toString());

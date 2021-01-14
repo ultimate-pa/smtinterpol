@@ -153,8 +153,8 @@ public class Clause extends SimpleListable<Clause> {
 			} else {
 				mHead = c.mNextSecondWatch;
 				mHeadIndex = (c.mNextIsSecond & 2) >> 1;
-				c.mNextSecondWatch = null;
-				c.mNextIsSecond &= 1;
+					c.mNextSecondWatch = null;
+					c.mNextIsSecond &= 1;
 			}
 			if (mHead == null) {
 				mTail = null;
@@ -261,7 +261,7 @@ public class Clause extends SimpleListable<Clause> {
 
 	public boolean doCleanup(final DPLLEngine engine) {
 		return mCleanupHook == null
-		        ? true : mCleanupHook.clauseDeleted(this, engine);
+				? true : mCleanupHook.clauseDeleted(this, engine);
 	}
 
 	/**

@@ -145,10 +145,9 @@ public class EqualityProxy {
 		boolean hasLhsLA = mClausifier.getLATerm(mLhs) != null;
 		boolean hasRhsLA = mClausifier.getLATerm(mRhs) != null;
 		if (lhsCCTerm == null && rhsCCTerm == null) {
-			/* if both terms do not exist in CClosure yet, it may be better to
-			 * create them in linear arithmetic.
-			 * Do this, if we don't have a CClosure, or the other term is
-			 * already in linear arithmetic.
+			/*
+			 * if both terms do not exist in CClosure yet, it may be better to create them in linear arithmetic. Do
+			 * this, if we don't have a CClosure, or the other term is already in linear arithmetic.
 			 */
 			if ((mClausifier.getCClosure() == null || hasLhsLA) && !hasRhsLA) {
 				mClausifier.createLinVar(mRhs, source);
@@ -164,6 +163,7 @@ public class EqualityProxy {
 		if (hasLhsLA && hasRhsLA) {
 			return createLAEquality();
 		} else {
+
 			/* let them share congruence closure */
 			final CCTerm ccLhs = mClausifier.createCCTerm(mLhs, source);
 			final CCTerm ccRhs = mClausifier.createCCTerm(mRhs, source);

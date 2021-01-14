@@ -79,7 +79,8 @@ public final class SMTAffineTerm {
 				subterm = ((ApplicationTerm) subterm).getParameters()[0];
 			}
 			subterm = parseConstant(subterm);
-			if (subterm instanceof ConstantTerm) {
+
+			if ((subterm instanceof ConstantTerm) && !("BitVec".equals(subterm.getSort().getRealSort().getName()))) {
 				assert factor == Rational.ONE && mConstant == Rational.ZERO;
 				mConstant = convertConstant((ConstantTerm) subterm);
 			} else {
@@ -130,6 +131,9 @@ public final class SMTAffineTerm {
 			numerator = ((ApplicationTerm) numerator).getParameters()[0];
 		}
 		if (!(numerator instanceof ConstantTerm)) {
+			return term;
+		}
+		if ((term instanceof ConstantTerm) && "BitVec".equals(term.getSort().getRealSort().getName())) {
 			return term;
 		}
 		Rational value = convertConstant((ConstantTerm) numerator).mul(denominator.inverse());
