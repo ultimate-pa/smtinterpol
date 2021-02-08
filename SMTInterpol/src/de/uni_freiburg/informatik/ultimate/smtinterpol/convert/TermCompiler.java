@@ -29,6 +29,8 @@ import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
+import de.uni_freiburg.informatik.ultimate.logic.DataType;
+import de.uni_freiburg.informatik.ultimate.logic.DataType.Constructor;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
@@ -530,10 +532,14 @@ public class TermCompiler extends TermTransformer {
 			case "false":
 			case "@diff":
 			case "@0": // lambda for QuantifierTheory
+			case "is":
 			case Interpolator.EQ:
 				/* nothing to do */
 				break;
 			default:
+				if (fsym.isConstructor() || fsym.isSelector()) {
+					break;
+				}
 				throw new UnsupportedOperationException("Unsupported internal function " + fsym.getName());
 			}
 		}

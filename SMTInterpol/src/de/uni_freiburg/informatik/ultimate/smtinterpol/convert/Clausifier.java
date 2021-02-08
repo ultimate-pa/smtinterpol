@@ -34,6 +34,8 @@ import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
+import de.uni_freiburg.informatik.ultimate.logic.DataType;
+import de.uni_freiburg.informatik.ultimate.logic.DataType.Constructor;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
@@ -66,6 +68,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.ArrayTheo
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAppTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.DTReverseTrigger;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.DataTypeTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprHelpers;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheorySettings;
@@ -606,7 +610,7 @@ public class Clausifier {
 					} else {
 						lit = createLeq0(at, mCollector.getSource());
 					}
-				} else if (!at.getFunction().isInterpreted() || at.getFunction().getName().equals("select")) {
+				} else if (!at.getFunction().isInterpreted() || at.getFunction().getName().equals("select") || at.getFunction().getName().equals("is")) {
 					lit = createBooleanLit(at, mCollector.getSource());
 				} else {
 					lit = createAnonLiteral(idx, mCollector.getSource());
@@ -1075,6 +1079,23 @@ public class Clausifier {
 					final boolean isConst = funcName.equals("const");
 					mArrayTheory.notifyArray(getCCTerm(term), isStore, isConst);
 				}
+				
+
+				if (fs.isConstructor()) {
+					DataType returnSort = (DataType) fs.getReturnSort().getSortSymbol();
+					Constructor c = returnSort.findConstructor(fs.getName());
+					
+					if (c != null) {
+						for (String sel : c.getSelectors()) {
+							mCClosure.insertReverseTrigger(mTheory.getFunctionSymbol(sel), ccTerm, 0, new DTReverseTrigger(mDataTypeTheory, this, mTheory.getFunctionSymbol(sel), ccTerm));
+						}
+						for (Constructor allC : returnSort.getConstructors()) {
+							FunctionSymbol isFs = mTheory.getFunctionWithResult("is", new String[] {allC.getName()}, null, fs.getReturnSort());
+							mCClosure.insertReverseTrigger(isFs, ccTerm, 0, new DTReverseTrigger(mDataTypeTheory, this, isFs, ccTerm));
+						}
+					}
+				}
+				
 			}
 			if (term.getSort().isNumericSort()) {
 				boolean needsLA = term instanceof ConstantTerm;
@@ -1192,12 +1213,16 @@ public class Clausifier {
 			case "@diff":
 			case "const":
 			case "@EQ":
+			case "is":
 				return true;
 			case "div":
 			case "mod":
 			case "/":
 				return SMTAffineTerm.convertConstant((ConstantTerm) appTerm.getParameters()[1]) == Rational.ZERO;
 			default:
+				if (fs.isConstructor() || fs.isSelector()) {
+					return true;
+				}
 				return false;
 			}
 		}
@@ -1274,6 +1299,7 @@ public class Clausifier {
 	private CClosure mCClosure;
 	private LinArSolve mLASolver;
 	private ArrayTheory mArrayTheory;
+	private DataTypeTheory mDataTypeTheory;
 	private EprTheory mEprTheory;
 	private QuantifierTheory mQuantTheory;
 
@@ -1836,6 +1862,13 @@ public class Clausifier {
 			mEngine.addTheory(mArrayTheory);
 		}
 	}
+	
+	private void setupDataTypeTheory() {
+		if (mDataTypeTheory == null) {
+			mDataTypeTheory = new DataTypeTheory(this, mTheory, mCClosure);
+			mEngine.addTheory(mDataTypeTheory);
+		}
+	}
 
 	private void setupEprTheory() {
 		// TODO maybe merge with setupQuantifiers, below?
@@ -1868,7 +1901,7 @@ public class Clausifier {
 	}
 
 	public void setLogic(final Logics logic) {
-		if (logic.isUF() || logic.isArray() || logic.isArithmetic() || logic.isQuantified()) {
+		if (logic.isUF() || logic.isArray() || logic.isArithmetic() || logic.isQuantified() || logic.isDatatype()) {
 			// also need UF for div/mod
 			// and for quantifiers for AUX functions
 			setupCClosure();
@@ -1886,6 +1919,9 @@ public class Clausifier {
 			} else {
 				setupQuantifiers();
 			}
+		}
+		if (logic.isDatatype()) {
+			setupDataTypeTheory();
 		}
 	}
 
