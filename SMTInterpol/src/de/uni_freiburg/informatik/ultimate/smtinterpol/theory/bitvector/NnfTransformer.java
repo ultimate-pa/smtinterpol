@@ -30,7 +30,7 @@ public class NnfTransformer extends TermTransformer {
 		final Theory theory = fun.getTheory();
 		if (fun.getName().equals("not")) {
 			if (appTerm.getParameters()[0] instanceof ApplicationTerm) {
-				final ApplicationTerm negTerm = (ApplicationTerm) appTerm.getParameters()[0];
+				final ApplicationTerm negTerm = (ApplicationTerm) newArgs[0];
 				if (negTerm.getFunction().getName().equals("and")) {
 					final Term[] negated = new Term[negTerm.getParameters().length];
 					for (int i = 0; i < negTerm.getParameters().length; i++) {

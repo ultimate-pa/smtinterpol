@@ -1,5 +1,7 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.bitvector;
 
+import java.util.LinkedHashSet;
+
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -21,8 +23,8 @@ import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
  */
 public class BitVectorTheory implements ITheory {
 	private final Clausifier mClausifier;
-	private final ScopedArrayList<Literal> mBVLiterals;
-	private final ScopedArrayList<Term> mAllTerms;
+	private final ScopedArrayList<Literal> mBVLiterals; // Linked Hash Set
+	private final LinkedHashSet<Term> mAllTerms;
 	private ScopedArrayList<String> mAllNewVarNames;
 	private ScopedArrayList<Term> mAllNewVars;
 
@@ -30,7 +32,7 @@ public class BitVectorTheory implements ITheory {
 
 		mClausifier = clausifier;
 		mBVLiterals = new ScopedArrayList<>();
-		mAllTerms = new ScopedArrayList<>();
+		mAllTerms = new LinkedHashSet<>();
 
 	}
 
@@ -117,7 +119,7 @@ public class BitVectorTheory implements ITheory {
 	@Override
 	public void backtrackLiteral(final Literal literal) {
 		// TODO Auto-generated method stub
-
+		mBVLiterals.remove(literal);
 	}
 
 	@Override
@@ -146,7 +148,7 @@ public class BitVectorTheory implements ITheory {
 		for (final Clause cl : bitblaster.getClauses()) {
 			engine.addClause(cl);
 		}
-
+		// TODO atom encoding zurück übersetzten
 		final boolean sat = engine.solve();
 		System.out.println("DPLL: " + sat);
 		if (sat) {
@@ -216,6 +218,7 @@ public class BitVectorTheory implements ITheory {
 
 	@Override
 	public Clause backtrackComplete() {
+		//
 		// TODO Auto-generated method stub
 		return null;
 	}
@@ -256,13 +259,7 @@ public class BitVectorTheory implements ITheory {
 		return null;
 	}
 
-	public DPLLAtom createEquality(final Term lhs, final Term rhs) {
-		System.out.println("createBV_EQ_LIT");
-		final BVEquality bveqlit = new BVEquality(lhs, rhs, mClausifier.getStackLevel());
-		getEngine().addAtom(bveqlit);
-		return bveqlit;
 
-	}
 
 	public DPLLEngine getEngine() {
 		return mClausifier.getEngine();
@@ -272,7 +269,15 @@ public class BitVectorTheory implements ITheory {
 		return mClausifier.getTheory();
 	}
 
+	public DPLLAtom createEquality(final Term lhs, final Term rhs) {
+		System.out.println("createBV_EQ_LIT");
+		final BVEquality bveqlit = new BVEquality(lhs, rhs, mClausifier.getStackLevel());
+		getEngine().addAtom(bveqlit);
+		return bveqlit;
+
+	}
 	public DPLLAtom createInEquality(final Term lhs, final Term rhs) {
+
 		System.out.println("createBV_BVULT_LIT");
 		final BVInEquality bvInEqlit = new BVInEquality(lhs, rhs, mClausifier.getStackLevel());
 		getEngine().addAtom(bvInEqlit);

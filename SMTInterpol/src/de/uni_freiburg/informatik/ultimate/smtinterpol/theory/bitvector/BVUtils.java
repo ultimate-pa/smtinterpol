@@ -284,12 +284,13 @@ public class BVUtils {
 				}
 				case "bvslt": {
 					final String[] asd = new String[2];
-					asd[0] = "1";
-					asd[1] = "2";
+					asd[0] = "3";
+					asd[1] = "0";
 					// (_ extract i j)
+					System.out.println(appterm.getParameters()[0].getSort().getIndices()[0]);
 					final FunctionSymbol extract =
-							mTheory.getFunctionWithResult("extract", asd, null, null);
-					System.out.println(extract.getName());
+							mTheory.getFunctionWithResult("extract", asd, null, appterm.getParameters()[0].getSort());
+					System.out.println(mTheory.term(extract, appterm.getParameters()[0]));
 					final Term equiBvult = theory.or(theory.and(
 							theory.term("=",
 									theory.term(extract, appterm.getParameters()[0]),
@@ -405,7 +406,7 @@ public class BVUtils {
 	 */
 	public Term bitMaskElimination(final Term term) {
 		final Term btiMask;
-		final int[] indices = new String[2];
+		final int[] indices = new int[2];
 		indices[1] = -1;
 
 		if (term instanceof ApplicationTerm) {
@@ -422,29 +423,31 @@ public class BVUtils {
 					&& ((lhs instanceof TermVariable) || (lhs instanceof ApplicationTerm))) {
 				final String rhsString = getConstAsString((ConstantTerm) rhs);
 				String zeros;
-				for (int i = 0; i < rhsString.length; i++){ //iterates from left to right
+				for (int i = 0; i < rhsString.length(); i++){ //iterates from left to right
 					final char ch = rhsString.charAt(i);
 					if (ch == '0') {
-						zeros = zeros + ch;
+						// zeros = zeros + ch;
 						indices[0]  = rhsString.length() - i; //  + 1
 						if(indices[0] <= indices[1]) {
 							// indices to string array
-							final FunctionSymbol extract = mTheory.getFunctionWithResult("extract", indices, null);
+							// final inal FunctionSymbol extract = mTheory.getFunctionWithResult("extract", indices,
+							// null, BitVec sort);
 							final Term select = mTheory.term("extract", term);
-							btiMask = mTheory.term("concat" , select,btiMask);
+							// btiMask = mTheory.term("concat" , select,btiMask);
 						}
 					}else {
-						btiMask = mTheory.term("concat" , mTheory.binary(zeros),btiMask);
+						// btiMask = mTheory.term("concat" , mTheory.binary(zeros),btiMask);
 						zeros = "";
 						indices[1] = rhsString.length() - i;
 					}
 
 				}
-				mTheory.term("concat",);
+				// mTheory.term("concat",);
+
 			}
 		}
 
-		System.out.println(btiMask);
+		// System.out.println(btiMask);
 		return term;
 	}
 
