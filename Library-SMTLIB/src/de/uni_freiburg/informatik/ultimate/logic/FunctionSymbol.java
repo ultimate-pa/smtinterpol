@@ -40,6 +40,7 @@ public class FunctionSymbol {
 	public static final int MODELVALUE = 32;
 	public static final int UNINTERPRETEDINTERNAL = 64;
 	public static final int CONSTRUCTOR = 128;
+	public static final int SELECTOR = 256;
 
 	final String mName;
 	final String[] mIndices;
@@ -361,5 +362,13 @@ public class FunctionSymbol {
 	public boolean isInterpreted() {
 		return isModelValue()
 				|| (isIntern() && (mFlags & UNINTERPRETEDINTERNAL) == 0);
+	}
+	
+	public boolean isConstructor() {
+		return (mFlags & CONSTRUCTOR) != 0;
+	}
+	
+	public boolean isSelector() {
+		return (mFlags & SELECTOR) != 0;
 	}
 }
