@@ -5,10 +5,13 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 
+import org.w3c.dom.Node;
+
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.DataType;
 import de.uni_freiburg.informatik.ultimate.logic.DataType.Constructor;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.SortSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
@@ -29,6 +32,7 @@ public class DataTypeTheory implements ITheory {
 	private final Theory mTheory;
 	private final ArrayDeque<SymmetricPair<CCTerm>> mPendingEqualities;
 	private final LinkedHashMap<String, Constructor> mSelectorMap;
+	private final LinkedHashMap<SortSymbol, Boolean> mInfinitSortsMap;
 	
 	public DataTypeTheory(Clausifier clausifier, Theory theory, CClosure cclosure) {
 		mClausifier = clausifier;
@@ -36,6 +40,7 @@ public class DataTypeTheory implements ITheory {
 		mTheory = theory;
 		mPendingEqualities = new ArrayDeque<SymmetricPair<CCTerm>>();
 		mSelectorMap = new LinkedHashMap<>();
+		mInfinitSortsMap = new LinkedHashMap<>();
 	}
 	
 	public void addPendingEquality(SymmetricPair<CCTerm> pair) {
@@ -44,17 +49,66 @@ public class DataTypeTheory implements ITheory {
 
 	@Override
 	public Clause startCheck() {
-		
+		LinkedHashMap<SortSymbol, ArrayDeque<SortSymbol>> deps = new LinkedHashMap<>();
+		ArrayDeque<SortSymbol> undecidedSorts = new ArrayDeque<>();
 		for (SortSymbol sym : mTheory.getDeclaredSorts().values()) {
-			if (sym instanceof DataType) {
+			if (sym.isDatatype()) {
+				ArrayDeque<SortSymbol> dependsOn = new ArrayDeque<>();
 				for (Constructor cons : ((DataType) sym).getConstructors()) {
 					for (String sel : cons.getSelectors()) {
 						mSelectorMap.put(sel, cons);
 					}
+					for (Sort argSort : cons.getArgumentSorts()) {
+						// TODO: are arraysSorts also infinite?
+						if (argSort.getSortSymbol() == sym || mInfinitSortsMap.containsKey(argSort.getSortSymbol()) || argSort.isNumericSort()) {
+							mInfinitSortsMap.put(sym, true);
+						} else {
+							dependsOn.add(argSort.getSortSymbol());
+						}
+					}
 				}
-				// TODO: decide if this sort is infinite
+				if (!mInfinitSortsMap.containsKey(sym)) {
+					if (dependsOn.isEmpty()) {
+						mInfinitSortsMap.put(sym, false);
+					} else {
+						deps.put(sym, dependsOn);
+						undecidedSorts.add(sym);
+					}
+				}
 			}
 		}
+		
+		int noDecisionCounter = 0;
+		while (!undecidedSorts.isEmpty() && noDecisionCounter < undecidedSorts.size()) {
+			noDecisionCounter++;
+			SortSymbol sym = undecidedSorts.poll();
+			ArrayDeque<SortSymbol> dependsOn = new ArrayDeque<>();
+			while (!deps.get(sym).isEmpty()) {
+				SortSymbol dSym = deps.get(sym).poll();
+				if (mInfinitSortsMap.containsKey(dSym)) {
+					if (mInfinitSortsMap.get(dSym)) {
+						mInfinitSortsMap.put(sym, true);
+						noDecisionCounter = 0;
+					}
+				} else {
+					dependsOn.add(dSym);
+				}
+			}
+			if (!mInfinitSortsMap.containsKey(sym)) {
+				if (dependsOn.isEmpty()) {
+					mInfinitSortsMap.put(sym, false);
+					noDecisionCounter = 0;
+				} else {
+					deps.put(sym, dependsOn);
+					undecidedSorts.add(sym);
+				}
+			}
+		}
+		// if undecidedSorts is not empty there are sorts which depend on each other and are therefore infinite
+		for (SortSymbol sym : undecidedSorts) {
+			mInfinitSortsMap.put(sym, true);
+		}
+		
 		return null;
 	}
 
@@ -87,6 +141,18 @@ public class DataTypeTheory implements ITheory {
 				}
 			}
 		}
+		
+		LinkedHashSet<CCTerm> visited = new LinkedHashSet<>();
+		for (CCTerm ct : mCClosure.mAllTerms) {
+			if (!visited.contains(ct.mRep) && !ct.mIsFunc && ct.mRep.mFlatTerm != null) {
+				visited.add(ct.mRep);
+				Sort realSort = ct.mRep.mFlatTerm.getSort().getRealSort();
+				SortSymbol sym = realSort.getSortSymbol();
+				if (sym.isDatatype()) Rule4(ct.mRep);
+			}
+		}
+		
+		
 		return null;
 	}
 
@@ -242,6 +308,36 @@ public class DataTypeTheory implements ITheory {
 		mPendingEqualities.add(new SymmetricPair<CCTerm>(argRep, consCCTerm));
 	}
 	
+	private void Rule4(CCTerm ccterm) {
+		LinkedHashSet<String> exisitingSelectors = findAllSelectorApplications(ccterm);
+		
+		for (SortSymbol sym : mTheory.getDeclaredSorts().values()) {
+			if (sym.isDatatype()) {
+				for (Constructor c : ((DataType) sym).getConstructors()) {
+					// check if only selectors with finite return sort are missing and build them
+					boolean noInfSel = true;
+					LinkedHashSet<String> neededSelectors = new LinkedHashSet<>();
+					for (int i = 0; i < c.getSelectors().length; i++) {
+						if (!exisitingSelectors.contains(c.getSelectors()[i])) {
+							if (!c.getArgumentSorts()[i].getSortSymbol().isDatatype() || mInfinitSortsMap.get(c.getArgumentSorts()[i].getSortSymbol())) {
+								noInfSel = false;
+								break;
+							} else {
+								neededSelectors.add(c.getSelectors()[i]);
+							}
+ 						}
+					}
+					if (noInfSel) {
+						// build selectors
+						for (String sel : neededSelectors) {
+							mClausifier.getCCTerm(mTheory.term(mTheory.getFunctionSymbol(sel), ccterm.getFlatTerm()));
+						}
+					}
+				}
+			}
+		}
+	}
+	
 	private Clause buildUnitClause(CCTerm lhs, CCTerm rhs, Literal literal) {
 		CongruencePath cp = new CongruencePath(mCClosure);
 		ApplicationTerm lhsAt = lhs.getFlatTerm() instanceof ApplicationTerm ? (ApplicationTerm) lhs.getFlatTerm() : null;
@@ -306,6 +402,21 @@ public class DataTypeTheory implements ITheory {
 			}
 		}
 		return null;
+	}
+	
+	private LinkedHashSet<String> findAllSelectorApplications(CCTerm ccterm) {
+		LinkedHashSet<String> selApps = new LinkedHashSet<>();
+		CCParentInfo parInfo = ccterm.mRep.mCCPars;
+		while (parInfo != null) {
+			if (parInfo.mCCParents != null) {
+				for (Parent p : parInfo.mCCParents) {
+					FunctionSymbol fun = ((ApplicationTerm) p.getData().getFlatTerm()).getFunction();
+					if (fun.isSelector()) selApps.add(fun.getName());
+				}
+			}
+			parInfo = parInfo.mNext;
+		}
+		return selApps;
 	}
 
 }
