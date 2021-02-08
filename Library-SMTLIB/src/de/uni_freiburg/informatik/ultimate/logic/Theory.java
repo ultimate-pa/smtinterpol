@@ -1496,6 +1496,10 @@ public class Theory {
 	public Map<String, FunctionSymbol> getDeclaredFunctions() {
 		return mDeclaredFuns;
 	}
+	
+	public Map<String, SortSymbol> getDeclaredSorts() {
+		return mDeclaredSorts;
+	}
 
 	private FunctionSymbol getModelValueSymbol(final String name, final Sort sort) {
 		final int hash = HashUtils.hashJenkins(name.hashCode(), sort);
