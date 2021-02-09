@@ -5,8 +5,6 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 
-import org.w3c.dom.Node;
-
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.DataType;
 import de.uni_freiburg.informatik.ultimate.logic.DataType.Constructor;
@@ -144,11 +142,13 @@ public class DataTypeTheory implements ITheory {
 		
 		LinkedHashSet<CCTerm> visited = new LinkedHashSet<>();
 		for (CCTerm ct : mCClosure.mAllTerms) {
-			if (!visited.contains(ct.mRep) && !ct.mIsFunc && ct.mRep.mFlatTerm != null) {
+			if (!visited.contains(ct.mRep) && ct.mRep.mFlatTerm != null) {
 				visited.add(ct.mRep);
 				Sort realSort = ct.mRep.mFlatTerm.getSort().getRealSort();
 				SortSymbol sym = realSort.getSortSymbol();
-				if (sym.isDatatype()) Rule4(ct.mRep);
+				if (sym.isDatatype()) {
+					Rule4(ct.mRep);
+				}
 			}
 		}
 		
@@ -330,7 +330,7 @@ public class DataTypeTheory implements ITheory {
 					if (noInfSel) {
 						// build selectors
 						for (String sel : neededSelectors) {
-							mClausifier.getCCTerm(mTheory.term(mTheory.getFunctionSymbol(sel), ccterm.getFlatTerm()));
+							mClausifier.createCCTerm(mTheory.term(mTheory.getFunctionSymbol(sel), ccterm.getFlatTerm()), SourceAnnotation.EMPTY_SOURCE_ANNOT);
 						}
 					}
 				}
