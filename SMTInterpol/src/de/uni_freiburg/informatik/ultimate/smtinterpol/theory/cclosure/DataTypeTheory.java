@@ -43,7 +43,7 @@ public class DataTypeTheory implements ITheory {
 	}
 	
 	public void addPendingEquality(SymmetricPair<CCTerm> pair) {
-		mPendingEqualities.push(pair);
+		mPendingEqualities.add(pair);
 	}
 
 	@Override
@@ -148,6 +148,7 @@ public class DataTypeTheory implements ITheory {
 		
 		for (CCTerm ct : DTReps) {
 			Rule4(ct);
+			Rule5(ct);
 		}
 		
 		
@@ -274,27 +275,24 @@ public class DataTypeTheory implements ITheory {
 		DataType dt = (DataType) at.getFunction().getParameterSorts()[0].getSortSymbol();
 		Constructor c = dt.findConstructor(consName);
 		
-		if (c.getSelectors().length == 0) {
-			CCTerm consAppTerm = mClausifier.createCCTerm(mTheory.term(c.getName(), new Term[0]), SourceAnnotation.EMPTY_SOURCE_ANNOT);
-			mPendingEqualities.add(new SymmetricPair<CCTerm>(argRep, consAppTerm));
-			return;
-		}
-		
 		LinkedHashMap<String, Term> selectorApps = new LinkedHashMap<>();
 		for (String s : c.getSelectors()) selectorApps.put(s, null);
-		CCParentInfo argParInfo = argRep.mCCPars;
-		while (argParInfo != null) {
-			if (argParInfo.mCCParents != null) {
-				for (Parent p : argParInfo.mCCParents) {
-					if (p.getData().mFlatTerm instanceof ApplicationTerm) {
-						String parFunName = ((ApplicationTerm) p.getData().mFlatTerm).getFunction().getName();
-						if (selectorApps.containsKey(parFunName)) { 
-							selectorApps.put(parFunName, mTheory.term(parFunName, new Term[] {arg}));
+		
+		if (selectorApps.size() > 0) {
+			CCParentInfo argParInfo = argRep.mCCPars;
+			while (argParInfo != null) {
+				if (argParInfo.mCCParents != null) {
+					for (Parent p : argParInfo.mCCParents) {
+						if (p.getData().mFlatTerm instanceof ApplicationTerm) {
+							String parFunName = ((ApplicationTerm) p.getData().mFlatTerm).getFunction().getName();
+							if (selectorApps.containsKey(parFunName)) { 
+								selectorApps.put(parFunName, mTheory.term(parFunName, new Term[] {arg}));
+							}
 						}
 					}
 				}
+				argParInfo = argParInfo.mNext;
 			}
-			argParInfo = argParInfo.mNext;
 		}
 		
 		if (selectorApps.containsValue(null)) return;
@@ -303,7 +301,9 @@ public class DataTypeTheory implements ITheory {
 		
 		Term consTerm = mTheory.term(consName, (Term[]) selectorApps.values().toArray(new Term[selectorApps.values().size()]));
 		CCTerm consCCTerm = mClausifier.createCCTerm(consTerm, SourceAnnotation.EMPTY_SOURCE_ANNOT);
-		mPendingEqualities.add(new SymmetricPair<CCTerm>(argRep, consCCTerm));
+		if (consCCTerm.mRep != argRep.mRep) {
+			addPendingEquality(new SymmetricPair<CCTerm>(argRep, consCCTerm));
+		}
 	}
 	
 	private void Rule4(CCTerm ccterm) {
@@ -328,6 +328,20 @@ public class DataTypeTheory implements ITheory {
 				// build selectors
 				for (String sel : neededSelectors) {
 					mClausifier.createCCTerm(mTheory.term(mTheory.getFunctionSymbol(sel), ccterm.getFlatTerm()), SourceAnnotation.EMPTY_SOURCE_ANNOT);
+				}
+			}
+		}
+	}
+	
+	private void Rule5(CCTerm ccterm) {
+		LinkedHashSet<String> selApps = findAllSelectorApplications(ccterm);
+		SortSymbol sym = ccterm.mFlatTerm.getSort().getSortSymbol();
+		for (Constructor c : ((DataType) sym).getConstructors()) {
+			if (selApps.containsAll(Arrays.asList(c.getSelectors()))) {
+				FunctionSymbol isFs = mTheory.getFunctionWithResult("is", new String[] {c.getName()}, null, new Sort[] {ccterm.getFlatTerm().getSort()});
+				Term isTerm = mTheory.term(isFs, ccterm.mFlatTerm);
+				if (mClausifier.getCCTerm(isTerm) == null) {
+					mClausifier.createCCTerm(isTerm, SourceAnnotation.EMPTY_SOURCE_ANNOT);
 				}
 			}
 		}

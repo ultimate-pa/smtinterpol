@@ -45,13 +45,14 @@ public class DTReverseTrigger extends ReverseTrigger {
 	@Override
 	public void activate(CCAppTerm appTerm) {
 		// TODO: merke Knoten für backtrackCompleteCheck
-		ApplicationTerm at = (ApplicationTerm) appTerm.mFlatTerm;
 //				LogProxy logger = mCClosure.getLogger();
 //				logger.info("DTReverseTrigger activated: %s", appTerm);
-
+		
 		ApplicationTerm argAT = (ApplicationTerm) mArg.mFlatTerm;
 		if (mFunctionSymbol.getName() == "is") {
-			if (at.getFunction().getIndices()[0].equals(argAT.getFunction().getName())) {
+			// Just a workaround, is there a cleaner solution?
+			FunctionSymbol fs = ((CCBaseTerm) appTerm.mFunc).getFunctionSymbol();
+			if (fs.getIndices()[0].equals(argAT.getFunction().getName())) {
 				mDTTheory.addPendingEquality(new SymmetricPair<CCTerm>(appTerm, mClausifier.getCCTerm(mClausifier.getTheory().mTrue) ));
 			} else {
 				mDTTheory.addPendingEquality(new SymmetricPair<CCTerm>(appTerm, mClausifier.getCCTerm(mClausifier.getTheory().mFalse)));
