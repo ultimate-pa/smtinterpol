@@ -1,6 +1,7 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure;
 
 import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -140,16 +141,13 @@ public class DataTypeTheory implements ITheory {
 			}
 		}
 		
-		LinkedHashSet<CCTerm> visited = new LinkedHashSet<>();
+		LinkedHashSet<CCTerm> DTReps = new LinkedHashSet<>();
 		for (CCTerm ct : mCClosure.mAllTerms) {
-			if (!visited.contains(ct.mRep) && ct.mRep.mFlatTerm != null) {
-				visited.add(ct.mRep);
-				Sort realSort = ct.mRep.mFlatTerm.getSort().getRealSort();
-				SortSymbol sym = realSort.getSortSymbol();
-				if (sym.isDatatype()) {
-					Rule4(ct.mRep);
-				}
-			}
+			if (ct == ct.mRep && ct.mFlatTerm != null && ct.mFlatTerm.getSort().getSortSymbol().isDatatype()) DTReps.add(ct);
+		}
+		
+		for (CCTerm ct : DTReps) {
+			Rule4(ct);
 		}
 		
 		
@@ -311,28 +309,25 @@ public class DataTypeTheory implements ITheory {
 	private void Rule4(CCTerm ccterm) {
 		LinkedHashSet<String> exisitingSelectors = findAllSelectorApplications(ccterm);
 		
-		for (SortSymbol sym : mTheory.getDeclaredSorts().values()) {
-			if (sym.isDatatype()) {
-				for (Constructor c : ((DataType) sym).getConstructors()) {
-					// check if only selectors with finite return sort are missing and build them
-					boolean noInfSel = true;
-					LinkedHashSet<String> neededSelectors = new LinkedHashSet<>();
-					for (int i = 0; i < c.getSelectors().length; i++) {
-						if (!exisitingSelectors.contains(c.getSelectors()[i])) {
-							if (!c.getArgumentSorts()[i].getSortSymbol().isDatatype() || mInfinitSortsMap.get(c.getArgumentSorts()[i].getSortSymbol())) {
-								noInfSel = false;
-								break;
-							} else {
-								neededSelectors.add(c.getSelectors()[i]);
-							}
- 						}
+		SortSymbol sym = ccterm.mFlatTerm.getSort().getSortSymbol();
+		for (Constructor c : ((DataType) sym).getConstructors()) {
+			// check if only selectors with finite return sort are missing and build them
+			boolean noInfSel = true;
+			LinkedHashSet<String> neededSelectors = new LinkedHashSet<>();
+			for (int i = 0; i < c.getSelectors().length; i++) {
+				if (!exisitingSelectors.contains(c.getSelectors()[i])) {
+					if (!c.getArgumentSorts()[i].getSortSymbol().isDatatype() || mInfinitSortsMap.get(c.getArgumentSorts()[i].getSortSymbol())) {
+						noInfSel = false;
+						break;
+					} else {
+						neededSelectors.add(c.getSelectors()[i]);
 					}
-					if (noInfSel) {
-						// build selectors
-						for (String sel : neededSelectors) {
-							mClausifier.createCCTerm(mTheory.term(mTheory.getFunctionSymbol(sel), ccterm.getFlatTerm()), SourceAnnotation.EMPTY_SOURCE_ANNOT);
-						}
-					}
+				}
+			}
+			if (noInfSel) {
+				// build selectors
+				for (String sel : neededSelectors) {
+					mClausifier.createCCTerm(mTheory.term(mTheory.getFunctionSymbol(sel), ccterm.getFlatTerm()), SourceAnnotation.EMPTY_SOURCE_ANNOT);
 				}
 			}
 		}
