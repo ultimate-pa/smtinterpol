@@ -149,6 +149,7 @@ public class DataTypeTheory implements ITheory {
 		for (CCTerm ct : DTReps) {
 			Rule4(ct);
 			Rule5(ct);
+			Rule6(ct);
 		}
 		
 		
@@ -345,6 +346,25 @@ public class DataTypeTheory implements ITheory {
 				}
 			}
 		}
+	}
+	
+	private void Rule6(CCTerm ccterm) {
+		LinkedHashSet<String> isAppsIndices = new LinkedHashSet<>();
+		CCParentInfo parInfo = ccterm.mRep.mCCPars;
+		while (parInfo != null) {
+			if (parInfo.mCCParents != null) {
+				for (Parent p : parInfo.mCCParents) {
+					FunctionSymbol fs = ((ApplicationTerm) p.getData().mFlatTerm).getFunction();
+					if (fs.getName().equals("is")) isAppsIndices.add(fs.getIndices()[0]);
+				}
+			}
+			parInfo = parInfo.mNext;
+		}
+		SortSymbol sym = ccterm.getFlatTerm().getSort().getSortSymbol();
+		for (Constructor c : ((DataType) sym).getConstructors()) {
+			if (!isAppsIndices.contains(c.getName())) return;
+		}
+		// TODO: prepare literal propagation isC1(x)\/isC2(x)\/...
 	}
 	
 	private Clause buildUnitClause(CCTerm lhs, CCTerm rhs, Literal literal) {
