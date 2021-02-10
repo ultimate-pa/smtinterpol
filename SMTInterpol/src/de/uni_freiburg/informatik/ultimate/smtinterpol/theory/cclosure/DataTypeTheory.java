@@ -32,6 +32,7 @@ public class DataTypeTheory implements ITheory {
 	private final ArrayDeque<SymmetricPair<CCTerm>> mPendingEqualities;
 	private final LinkedHashMap<String, Constructor> mSelectorMap;
 	private final LinkedHashMap<SortSymbol, Boolean> mInfinitSortsMap;
+	private final ArrayDeque<Clause> mConflicts;
 	
 	public DataTypeTheory(Clausifier clausifier, Theory theory, CClosure cclosure) {
 		mClausifier = clausifier;
@@ -40,10 +41,15 @@ public class DataTypeTheory implements ITheory {
 		mPendingEqualities = new ArrayDeque<SymmetricPair<CCTerm>>();
 		mSelectorMap = new LinkedHashMap<>();
 		mInfinitSortsMap = new LinkedHashMap<>();
+		mConflicts = new ArrayDeque<>();
 	}
 	
 	public void addPendingEquality(SymmetricPair<CCTerm> pair) {
 		mPendingEqualities.add(pair);
+	}
+	
+	public void addConflict(Clause clause) {
+		mConflicts.add(clause);
 	}
 
 	@Override
@@ -130,13 +136,22 @@ public class DataTypeTheory implements ITheory {
 
 	@Override
 	public Clause checkpoint() {
+		if (!mConflicts.isEmpty()) {
+			return mConflicts.poll();
+		}
+		
 		// Rule 3:
 		CCTerm trueRep = mCClosure.getCCTermRep(mClausifier.getTheory().mTrue);
+		LinkedHashSet<CCTerm> visited = new LinkedHashSet<>();
 		for (CCTerm t : trueRep.mMembers) {
 			if (t instanceof CCAppTerm && t.mFlatTerm instanceof ApplicationTerm) {
 				ApplicationTerm at = (ApplicationTerm) t.mFlatTerm;
 				if (at.getFunction().getName() == "is") {
-					Rule3(at);
+					if (visited.add(t.mRep)) {
+						Rule3(at);
+					} else {
+						// TODO: Rule 8 check if isC1(x) == true and isC2(x) == true, if so there is a conflict
+					}
 				}
 			}
 		}
@@ -263,7 +278,7 @@ public class DataTypeTheory implements ITheory {
 		CCTerm argRep = mCClosure.getCCTermRep(arg);
 		String consName = at.getFunction().getIndices()[0];
 		for (CCTerm mt : argRep.mMembers) {
-			if (mt instanceof CCAppTerm && mt.mFlatTerm instanceof ApplicationTerm) {
+			if (mt.mFlatTerm instanceof ApplicationTerm) {
 				ApplicationTerm mat = (ApplicationTerm) mt.mFlatTerm;
 				String matName = mat.getFunction().getName();
 				if (matName.equals(consName)) {
@@ -302,9 +317,7 @@ public class DataTypeTheory implements ITheory {
 		
 		Term consTerm = mTheory.term(consName, (Term[]) selectorApps.values().toArray(new Term[selectorApps.values().size()]));
 		CCTerm consCCTerm = mClausifier.createCCTerm(consTerm, SourceAnnotation.EMPTY_SOURCE_ANNOT);
-		if (consCCTerm.mRep != argRep.mRep) {
-			addPendingEquality(new SymmetricPair<CCTerm>(argRep, consCCTerm));
-		}
+		addPendingEquality(new SymmetricPair<CCTerm>(argRep, consCCTerm));
 	}
 	
 	private void Rule4(CCTerm ccterm) {
@@ -397,9 +410,11 @@ public class DataTypeTheory implements ITheory {
 					break;
 				}
 			}
+		} else {
+			return null;
 		}
 		
-		if (cp.mAllLiterals.isEmpty()) return null;
+		//if (cp.mAllLiterals.isEmpty()) return null;
 		
 		LinkedHashSet<Literal> lits = new LinkedHashSet<>();
 		lits.addAll(cp.mAllLiterals);
