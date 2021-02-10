@@ -22,6 +22,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ITheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAppTerm.Parent;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ArrayQueue;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
 
 public class DataTypeTheory implements ITheory {
@@ -33,6 +34,7 @@ public class DataTypeTheory implements ITheory {
 	private final LinkedHashMap<String, Constructor> mSelectorMap;
 	private final LinkedHashMap<SortSymbol, Boolean> mInfinitSortsMap;
 	private final ArrayDeque<Clause> mConflicts;
+	private ArrayQueue<CCTerm> mRecheckOnBacktrack;
 	
 	public DataTypeTheory(Clausifier clausifier, Theory theory, CClosure cclosure) {
 		mClausifier = clausifier;
@@ -42,6 +44,7 @@ public class DataTypeTheory implements ITheory {
 		mSelectorMap = new LinkedHashMap<>();
 		mInfinitSortsMap = new LinkedHashMap<>();
 		mConflicts = new ArrayDeque<>();
+		mRecheckOnBacktrack = new ArrayQueue<>();
 	}
 	
 	public void addPendingEquality(SymmetricPair<CCTerm> pair) {
@@ -124,13 +127,13 @@ public class DataTypeTheory implements ITheory {
 	}
 
 	@Override
-	public Clause setLiteral(Literal literal) {
+	public Clause setLiteral(Literal literal) {		
 		return null;
 	}
 
 	@Override
 	public void backtrackLiteral(Literal literal) {
-		// TODO Auto-generated method stub
+		// TODO Auto-generated method stubfinal
 
 	}
 
@@ -150,7 +153,7 @@ public class DataTypeTheory implements ITheory {
 					if (visited.add(t.mRep)) {
 						Rule3(at);
 					} else {
-						// TODO: Rule 8 check if isC1(x) == true and isC2(x) == true, if so there is a conflict
+						// TODO: Rule 9 check if isC1(x) == true and isC2(x) == true, if so there is a conflict
 					}
 				}
 			}
@@ -232,7 +235,33 @@ public class DataTypeTheory implements ITheory {
 
 	@Override
 	public Clause backtrackComplete() {
-		// TODO Auto-generated method stub
+		ArrayQueue<CCTerm> newRecheckOnBacktrack = new ArrayQueue<>();
+		while (!mRecheckOnBacktrack.isEmpty()) {
+			ApplicationTerm constructor = null;
+			CCTerm checkTerm = mRecheckOnBacktrack.poll();
+			for (CCTerm ct : ((CCAppTerm) checkTerm).mArg.mRepStar.mMembers) {
+				if (ct.mFlatTerm instanceof ApplicationTerm && ((ApplicationTerm) ct.mFlatTerm).getFunction().isConstructor()) {
+					constructor = (ApplicationTerm) ct.mFlatTerm;
+					break;
+				}
+			}
+			if (((ApplicationTerm) checkTerm.mFlatTerm).getFunction().isSelector()) {
+				String selName = ((ApplicationTerm) checkTerm.mFlatTerm).getFunction().getName();
+				Constructor c = mSelectorMap.get(selName);
+				assert c.getName().equals(constructor.getFunction().getName());
+				for (int i = 0; i < c.getSelectors().length; i++) {
+					if (selName.equals(c.getSelectors()[i])) {
+						addPendingEquality(new SymmetricPair<CCTerm>(mClausifier.getCCTerm(constructor.getParameters()[i]), checkTerm));
+						newRecheckOnBacktrack.add(checkTerm);
+					}
+				}
+			} else {
+				assert constructor.getFunction().getName().equals(((ApplicationTerm) checkTerm.mFlatTerm).getFunction().getIndices()[0]);
+				addPendingEquality(new SymmetricPair<CCTerm>(checkTerm, mClausifier.getCCTerm(mTheory.mTrue)));
+				newRecheckOnBacktrack.add(checkTerm);
+			}
+		}
+		mRecheckOnBacktrack = newRecheckOnBacktrack;
 		return null;
 	}
 
@@ -341,7 +370,7 @@ public class DataTypeTheory implements ITheory {
 			if (noInfSel) {
 				// build selectors
 				for (String sel : neededSelectors) {
-					mClausifier.createCCTerm(mTheory.term(mTheory.getFunctionSymbol(sel), ccterm.getFlatTerm()), SourceAnnotation.EMPTY_SOURCE_ANNOT);
+					mRecheckOnBacktrack.add(mClausifier.createCCTerm(mTheory.term(mTheory.getFunctionSymbol(sel), ccterm.getFlatTerm()), SourceAnnotation.EMPTY_SOURCE_ANNOT));
 				}
 			}
 		}
@@ -355,7 +384,7 @@ public class DataTypeTheory implements ITheory {
 				FunctionSymbol isFs = mTheory.getFunctionWithResult("is", new String[] {c.getName()}, null, new Sort[] {ccterm.getFlatTerm().getSort()});
 				Term isTerm = mTheory.term(isFs, ccterm.mFlatTerm);
 				if (mClausifier.getCCTerm(isTerm) == null) {
-					mClausifier.createCCTerm(isTerm, SourceAnnotation.EMPTY_SOURCE_ANNOT);
+					mRecheckOnBacktrack.add(mClausifier.createCCTerm(isTerm, SourceAnnotation.EMPTY_SOURCE_ANNOT));
 				}
 			}
 		}
@@ -363,7 +392,7 @@ public class DataTypeTheory implements ITheory {
 	
 	private void Rule6(CCTerm ccterm) {
 		LinkedHashSet<String> isAppsIndices = new LinkedHashSet<>();
-		CCParentInfo parInfo = ccterm.mRep.mCCPars;
+		CCParentInfo parInfo = ccterm.mRepStar.mCCPars;
 		while (parInfo != null) {
 			if (parInfo.mCCParents != null) {
 				for (Parent p : parInfo.mCCParents) {
@@ -389,7 +418,7 @@ public class DataTypeTheory implements ITheory {
 			assert cons != null : "no corresponding constructor found";
 			cp.computePath(((CCAppTerm) lhs).getArg(), cons);
 		} else if (lhsAt.getFunction().isConstructor()) {
-			CCParentInfo rhsParInfo = rhs.mRep.mCCPars;
+			CCParentInfo rhsParInfo = rhs.mRepStar.mCCPars;
 			while (rhsParInfo != null && cp.mAllLiterals.isEmpty()) {
 				if (rhsParInfo.mCCParents != null) {
 					for (Parent p : rhsParInfo.mCCParents) {
@@ -404,7 +433,7 @@ public class DataTypeTheory implements ITheory {
 			}
 		} else if (lhsAt.getFunction().getName().equals("is")) {
 			CCTerm isArg = ((CCAppTerm) lhs).getArg();
-			for (CCTerm mem : isArg.mRep.mMembers) {
+			for (CCTerm mem : isArg.mRepStar.mMembers) {
 				if (mem.getFlatTerm() instanceof ApplicationTerm && ((ApplicationTerm) mem.getFlatTerm()).getFunction().isConstructor()) {
 					cp.computePath(isArg, mem);
 					break;
@@ -450,7 +479,7 @@ public class DataTypeTheory implements ITheory {
 	
 	private LinkedHashSet<String> findAllSelectorApplications(CCTerm ccterm) {
 		LinkedHashSet<String> selApps = new LinkedHashSet<>();
-		CCParentInfo parInfo = ccterm.mRep.mCCPars;
+		CCParentInfo parInfo = ccterm.mRepStar.mCCPars;
 		while (parInfo != null) {
 			if (parInfo.mCCParents != null) {
 				for (Parent p : parInfo.mCCParents) {
