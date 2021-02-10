@@ -5,7 +5,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
-import java.util.List;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
@@ -128,8 +127,6 @@ public class BitBlaster {
 	 * Creates BVConstraint for Atom's
 	 * For equals:
 	 * (AND lhs_i = rhs_i) <=> encAtom
-	 * For bvult:
-	 * TODO
 	 */
 	private Term getBvConstraintAtom(final Term encAtom, final DPLLAtom atom) {
 		if (atom instanceof BVEquality) {
@@ -149,12 +146,12 @@ public class BitBlaster {
 								getNewBoolVar(bveqatom.getLHS(), i));
 			}
 			final Term eqconjunction = mTheory.and(eqconj);
-			final Term iff = mTheory.and(mTheory.or(mTheory.not(encAtom), eqconjunction),
+			final Term ifte = mTheory.and(mTheory.or(mTheory.not(encAtom), eqconjunction),
 					mTheory.or(mTheory.not(eqconjunction), encAtom));
 			System.out.println("ATOM CNF:");
-			final Term cnfTerm = toCNF(iff);
+			final Term cnfTerm = toCNF(ifte);
 			cnfToClause((ApplicationTerm) cnfTerm);
-			return iff;
+			return ifte;
 		} else if (atom instanceof BVInEquality) {
 			final BVInEquality bveqatom = (BVInEquality) atom;
 			// unsigned operants, holds if cout is false
@@ -163,11 +160,11 @@ public class BitBlaster {
 							mTheory.mTrue).getSecond());
 
 			// TODO signed
-			final Term iff = mTheory.and(mTheory.or(mTheory.not(encAtom), bvult),
+			final Term ifte = mTheory.and(mTheory.or(mTheory.not(encAtom), bvult),
 					mTheory.or(mTheory.not(bvult), encAtom));
-			final Term cnfTerm = toCNF(iff);
+			final Term cnfTerm = toCNF(ifte);
 			cnfToClause((ApplicationTerm) cnfTerm);
-			return iff;
+			return ifte;
 		}
 		throw new UnsupportedOperationException("Unknown Atom");
 	}
@@ -188,10 +185,10 @@ public class BitBlaster {
 					boolVar = mTheory.mFalse;
 				}
 				mBoolAtoms.put(boolVar, new BooleanVarAtom(boolVar, mStackLevel));
-				final Term iff = mTheory.and(mTheory.or(mTheory.not(encTerm[i]), boolVar),
+				final Term ifte = mTheory.and(mTheory.or(mTheory.not(encTerm[i]), boolVar),
 						mTheory.or(mTheory.not(boolVar), encTerm[i]));
 				equivalenceAsClausel(encTerm[i], boolVar);
-				constresult[i] = iff;
+				constresult[i] = ifte;
 			}
 			return mTheory.and(constresult);
 		}
@@ -246,7 +243,7 @@ public class BitBlaster {
 				case "bvshl": {
 					final int stage =
 							mTheory.toNumeral(appterm.getParameters()[1].getSort().getIndices()[0]).intValue() - 1;
-					conjunction = shift(appterm.getParameters()[0], appterm.getParameters()[1], stage, appterm, true);
+					conjunction = shift(appterm.getParameters()[0], appterm.getParameters()[1], stage, true);
 					break;
 				}
 				case "bvmul": {
@@ -255,20 +252,21 @@ public class BitBlaster {
 					conjunction = multiplier(appterm.getParameters()[0], appterm.getParameters()[1], stage);
 					break;
 				}
-				case "bvudiv": {
-					final int stage =
-							mTheory.toNumeral(appterm.getParameters()[1].getSort().getIndices()[0]).intValue() - 1;
-					conjunction = multiplier(appterm.getParameters()[0], appterm.getParameters()[1], stage);
-					// conjunction extended by 2 Constraints
-					// encTerm * b + r = a
-					// r < b
-					break;
-				}
+
 				case "bvlshr": {
 					final int stage =
 							mTheory.toNumeral(appterm.getParameters()[1].getSort().getIndices()[0]).intValue() - 1;
-					conjunction = shift(appterm.getParameters()[0], appterm.getParameters()[1], stage, appterm, false);
+					conjunction = shift(appterm.getParameters()[0], appterm.getParameters()[1], stage, false);
 					break;
+				}
+				case "bvudiv": {
+					// final int stage =
+					// mTheory.toNumeral(appterm.getParameters()[1].getSort().getIndices()[0]).intValue() - 1;
+					// conjunction = multiplier(appterm.getParameters()[0], appterm.getParameters()[1], stage);
+					// conjunction extended by 2 Constraints
+					// encTerm * b + r = a
+					// r < b
+					// break;
 				}
 				case "bvurem":
 				case "bvneg":
@@ -279,9 +277,9 @@ public class BitBlaster {
 				}
 				for (int i = 0; i < conjunction.length; i++) {
 					termConstraintToClausel(conjunction, encTerm);
-					final Term iff = mTheory.and(mTheory.or(mTheory.not(encTerm[i]), conjunction[i]),
+					final Term ifte = mTheory.and(mTheory.or(mTheory.not(encTerm[i]), conjunction[i]),
 							mTheory.or(mTheory.not(conjunction[i]), encTerm[i]));
-					constraint[i] = iff;
+					constraint[i] = ifte;
 				}
 
 				return mTheory.and(constraint);
@@ -311,23 +309,6 @@ public class BitBlaster {
 					mTheory.or(a, mTheory.not(b), mTheory.not(cin)),
 					mTheory.or(a, b, cin));
 		}
-	}
-
-	/*
-	 * return true, if term is either an atom or a negated atom
-	 */
-	private boolean isTermLiteral(final Term t) {
-		if (t instanceof TermVariable) {
-			return true;
-		} else if (t instanceof ApplicationTerm) {
-			final ApplicationTerm ap = (ApplicationTerm) t;
-			if (ap.getFunction().getName().equals("not")) {
-				if ((ap.getParameters().length == 1) && (ap.getParameters()[0] instanceof TermVariable)) {
-					return true;
-				}
-			}
-		}
-		return false;
 	}
 
 	// returns ((a and b) or (mTheory.(a xor b) and cin)) in CNF
@@ -364,8 +345,8 @@ public class BitBlaster {
 		return new Pair<>(sumResult, cout);
 	}
 
+	// create all auxiliary variables, needed to get rid of recursions
 	private Term[][] createBoolVarMap(final int stage, final int indices) {
-		// create recursion vars
 		final Term[][] boolvarmap = new Term[stage][indices];
 		for (int s = 0; s < stage; s++) {
 			for (int i = 0; i < indices; i++) {
@@ -379,6 +360,7 @@ public class BitBlaster {
 	}
 
 	/*
+	 * Barrel Shifter
 	 * TODO Optimize: a<<b = ite(b3 \/ b4, (0,0,0,0), ls(a,b,2))
 	 * For i :
 	 * ite(b3 \/ b4, enc[i] = 0, ls(a,b,2)[i])
@@ -386,8 +368,8 @@ public class BitBlaster {
 	 * TODO Optimize, if encB True, and second case recommend DPLL to set auxVar to false
 	 * leftshift, true if bvshl. False if bvlshr
 	 */
-	private Term[] shift(final Term a, final Term b, final int stage, final Term shift, final boolean leftshift) {
-		final Term[] encShift = mEncTerms.get(shift);
+	private Term[] shift(final Term a, final Term b, final int stage, final boolean leftshift) {
+
 		final Term[] encA = mEncTerms.get(a);
 		final Term[] encB = mEncTerms.get(b);
 		final Term[] shiftResult = new Term[encA.length];
@@ -399,35 +381,37 @@ public class BitBlaster {
 				Term ifte;
 				if (s == 0) {
 					Term thenTerm;
-					if ((i + pow < encA.length) && !leftshift) { // TODO richtig
-						// ifthenelse in CNF (not a or b) and (a or c)
+					// rightshift
+					if ((i + pow < encA.length) && !leftshift) {
 						thenTerm = encA[i + pow];
+						// leftshift
 					} else if (i >= pow && leftshift) {
 						thenTerm = encA[i - pow];
+						// no shift
 					} else {
-						thenTerm = boolvarmap[s][i];
+						thenTerm = mTheory.mFalse;
 					}
+					// ifthenelse in CNF (not a or b) and (a or c)
 					ifte = mTheory.and(
 							mTheory.or(mTheory.not(encB[0]), thenTerm),
 							mTheory.or(encB[0], encA[i]));
 				} else {
 					Term thenTerm;
 					if ((i + pow < encA.length) && !leftshift) {
-						// ifthenelse in CNF (not a or b) and (a or c)
 						thenTerm = boolvarmap[s - 1][i + pow];
 					} else if (i >= pow && leftshift) {
 						thenTerm = boolvarmap[s - 1][i - pow];
 					} else {
-						thenTerm = boolvarmap[s][i];
+						thenTerm = mTheory.mFalse;
 					}
-
-					// ifthenelse in CNF (not a or b) and (a or c)
 					ifte = mTheory.and(mTheory.or(mTheory.not(encB[s]), thenTerm),
 							mTheory.or(encB[s], boolvarmap[s - 1][i]));
 				}
 				// Add Auxiliary variables and their represented term (ifte), as clauses
 				// Save in Set to prevent douplicats?
 				toCnfIfte(boolvarmap[s][i], ifte);
+				// cnfToClause((ApplicationTerm) toCNF(mTheory.and(mTheory.or(mTheory.not(boolvarmap[s][i]), ifte),
+				// mTheory.or(mTheory.not(ifte), boolvarmap[s][i]))));
 			}
 		}
 		// Last Stage
@@ -440,8 +424,8 @@ public class BitBlaster {
 				thenTerm = boolvarmap[stage - 1][i - pow];
 			}else {
 				// If B than 0
-				// 0 can't be written as "False" Term, instead we say encShift[i] <=> encShift[i]
-				thenTerm = encShift[i];
+
+				thenTerm = mTheory.mFalse;
 			}
 			// ifthenelse in CNF (not a or b) and (a or c)
 			shiftResult[i] = mTheory.and(mTheory.or(mTheory.not(encB[stage]), thenTerm),
@@ -461,117 +445,24 @@ public class BitBlaster {
 	}
 
 	/*
-	 * atom <=> ifte into cnf
-	 * Add Clauses of (boolVar <=> ifte) to dpll
-	 */
-	private void toCnfIfte(final Term atom, final Term ifteTerm) {
-		if (ifteTerm instanceof ApplicationTerm) {
-			final ApplicationTerm appifteTerm = (ApplicationTerm) ifteTerm;
-			// and
-			final ApplicationTerm conj1 = (ApplicationTerm) appifteTerm.getParameters()[0];
-			final ApplicationTerm conj2 = (ApplicationTerm) appifteTerm.getParameters()[1];
-			final Term ifTerm = conj2.getParameters()[0];
-			final Term thenTerm;
-			if (conj1.getParameters().length > 1) {
-				thenTerm = conj1.getParameters()[1];
-			} else {
-				thenTerm = mTheory.mFalse;
-			}
-			final Term elseTerm = conj2.getParameters()[1];
-			addClause(mTheory.or(atom, mTheory.not(ifTerm), mTheory.not(thenTerm)));
-			addClause(mTheory.or(atom, ifTerm, mTheory.not(elseTerm)));
-			addClause(mTheory.or(mTheory.not(atom), ifTerm, thenTerm));
-			addClause(mTheory.or(mTheory.not(atom), mTheory.not(ifTerm), thenTerm));
-		} else {
-			addClause(mTheory.or(atom, mTheory.not(ifteTerm)));
-			addClause(mTheory.or(ifteTerm, mTheory.not(atom)));
-		}
-
-	}
-
-	/*
-	 * Barrel Shifter
-	 * TODO optimize, as soon as b[log_2 size] is 1, return zerobitvec
-	 */
-	private Term[] leftshift(final Term a, final Term b, final int stage, final Term shift) {
-		final Term[] encShift = mEncTerms.get(shift);
-		final Term[] encA = mEncTerms.get(a);
-		final Term[] encB = mEncTerms.get(b);
-		final Term[] shiftResult = new Term[encA.length];
-		final Term[][] boolvarmap = createBoolVarMap(stage, encA.length);
-		// Add Clauses of boolVar <=> ifte to dpll
-		for (int s = 0; s < stage; s++) {
-			for (int i = 0; i < encA.length; i++) {
-				Term ifte;
-				final int pow = (int) Math.pow(2, s);
-				if (s == 0) {
-					if (i >= 1) {
-						ifte = mTheory.and(
-								mTheory.or(mTheory.not(encB[0]), encA[i - pow]),
-								mTheory.or(encB[0], encA[i]));
-					} else {
-						ifte = mTheory.and(mTheory.or(mTheory.not(encB[0]), boolvarmap[s][i]),
-								mTheory.or(encB[0], encA[i]));
-					}
-				} else {
-					if (i >= pow) {
-						ifte = mTheory.and(
-								mTheory.or(mTheory.not(encB[s]), boolvarmap[s - 1][i - pow]),
-								mTheory.or(encB[s], boolvarmap[s - 1][i]));
-					} else {
-						ifte = mTheory.and(mTheory.or(mTheory.not(encB[s]), boolvarmap[s][i]),
-								mTheory.or(encB[s], boolvarmap[s - 1][i]));
-					}
-
-				}
-				System.out.println(mTheory.equals(boolvarmap[s][i], ifte));
-				toCnfIfte(boolvarmap[s][i], ifte);
-			}
-		}
-		for (int i = 0; i < encA.length; i++) {
-			// optimization, get rid of ifthenelse term, if b is constant
-			if (i >= (int) Math.pow(2, stage)) {
-				// ifthenelse in CNF (not a or b) and (a or c)
-				shiftResult[i] = mTheory.and(
-						mTheory.or(mTheory.not(encB[stage]),
-								boolvarmap[stage - 1][i - (int) Math.pow(2, stage)]),
-						mTheory.or(encB[stage], boolvarmap[stage - 1][i]));
-			} else {
-				shiftResult[i] = mTheory.and(mTheory.or(mTheory.not(encB[stage]), encShift[i]),
-						mTheory.or(encB[stage], boolvarmap[stage - 1][i]));
-			}
-			System.out.println(shiftResult[i]);
-		}
-
-		return shiftResult;
-	}
-
-	/*
 	 * Used, when b is not a term in the orginial formula, therefore mEncTerms.get(b) would be null
-	 * TODO testen, pc laufzeit etc achtung
 	 */
-	private Term[] leftshiftMul(final Term a, final Term b, final int stage) {
+	private Term[] leftshiftMul(final Term a, final String b, final int stage) {
 		final Term[] encA = mEncTerms.get(a);
 		final Term[] shiftResult = new Term[encA.length];
 		if (stage == -1) {
 			return encA;
 		} else {
 			for (int i = 0; i < encA.length; i++) {
-				if (b instanceof ConstantTerm) {
-					final String bAsString = BVUtils.getConstAsString((ConstantTerm) b);
-					if (bAsString.charAt(bAsString.length() - 1 - stage) == '1') {
-						if (i >= Math.pow(2, stage)) {
-							shiftResult[i] =
-									leftshiftMul(a, b, stage - 1)[i - (int) Math.pow(2, stage)];
-						} else {
-							shiftResult[i] = mTheory.mFalse;
-						}
+				if (b.charAt(b.length() - 1 - stage) == '1') {
+					if (i >= Math.pow(2, stage)) {
+						shiftResult[i] =
+								leftshiftMul(a, b, stage - 1)[i - (int) Math.pow(2, stage)];
 					} else {
-						shiftResult[i] = leftshiftMul(a, b, stage - 1)[i];
+						shiftResult[i] = mTheory.mFalse;
 					}
 				} else {
-					throw new UnsupportedOperationException(
-							" Can only be used in multiplier, second argument needs to be ConstantTerm");
+					shiftResult[i] = leftshiftMul(a, b, stage - 1)[i];
 				}
 			}
 		}
@@ -579,7 +470,8 @@ public class BitBlaster {
 	}
 
 	/*
-	 * todo teilformeln statt rekursion durch hilfsvariablen ersetzten
+	 * Multiplier withouth recursion. Instead we use aux vars.
+	 * TODO test for bit vec width 1
 	 */
 	private Term[] multiplier(final Term a, final Term b, final int stage) {
 		final Term[] encA = mEncTerms.get(a);
@@ -587,39 +479,73 @@ public class BitBlaster {
 		final int size = encA.length;
 		final Term[] zeroVec = new Term[size];
 		Arrays.fill(zeroVec, mTheory.mFalse);
-		if (stage == -1) {
+		final Term[][] boolvarmap = createBoolVarMap(stage + 1, encA.length);
+		if (stage == 0) {
 			return zeroVec;
-		} else {
-			final Term[] mul = multiplier(a, b, stage - 1);
+		}
+		// Create AuxVars for each, except last.
+		for (int s = 0; s < stage; s++) {
+			final Term[] mul;
 			final Term[] shift;
-			if (stage != 0) {
-				final String s = Integer.toString(stage, 2);
-				final String stageAsBits = "#b" + new String(new char[size - s.length()]).replace("\0", "0") + s;
-				shift = leftshiftMul(a, mTheory.binary(stageAsBits), size - 1); // durch neue var erstzten
-			} else {
-				// a shifted by 0 = a
+			if (s == 0) {
+				mul = zeroVec;
 				shift = encA;
+			} else {
+				// Auxiliary Variable
+				mul = boolvarmap[s - 1];
+				String SAsString = Integer.toString(s, 2);
+				SAsString = new String(new char[size - SAsString.length()]).replace("\0", "0") + SAsString;
+				shift = leftshiftMul(a, SAsString, size - 1);
 			}
-			final Term[] ite = new Term[size];
+			final Term[] ifte = new Term[size];
 			for (int i = 0; i < size; i++) {
 				if (b instanceof ConstantTerm) {
 					final String bString = BVUtils.getConstAsString((ConstantTerm) b);
-					if (bString.charAt(bString.length() - stage - 1) == '1') {
-						ite[i] = mTheory.or(mTheory.not(encB[stage]), shift[i]);
+					if (bString.charAt(bString.length() - s - 1) == '1') {
+						ifte[i] = mTheory.or(mTheory.not(encB[s]), shift[i]);
 					} else {
-						ite[i] = mTheory.or(encB[stage], mTheory.mFalse);
+						ifte[i] = mTheory.or(encB[s], mTheory.mFalse);
 					}
 				} else {
 					// mTheory.ifthenelse(encB[stage], shift[i], mTheory.mFalse);
-					ite[i] = mTheory.and(
-							mTheory.or(mTheory.not(encB[stage]), shift[i]),
-							mTheory.or(encB[stage], mTheory.mFalse));
+					ifte[i] = mTheory.and(
+							mTheory.or(mTheory.not(encB[s]), shift[i]),
+							mTheory.or(encB[s], mTheory.mFalse));
 				}
-
 			}
-			final Term[] sum = adder(mul, ite, mTheory.mFalse).getFirst();
-			return sum;
+			final Term[] sum = adder(mul, ifte, mTheory.mFalse).getFirst();
+			for (int i = 0; i < size; i++) {
+				// boolvarmap[s][i] <=> sum[i]
+				// System.out.println(boolvarmap[s][i] + " = " + sum[i]);
+				cnfToClause((ApplicationTerm) toCNF(mTheory.and(mTheory.or(mTheory.not(boolvarmap[s][i]), sum[i]),
+						mTheory.or(mTheory.not(sum[i]), boolvarmap[s][i]))));
+			}
 		}
+		// Last stage
+		final Term[] shift;
+		// stage must not be 0 at this point!
+		String SAsString = Integer.toString(stage, 2);
+		SAsString = new String(new char[size - SAsString.length()]).replace("\0", "0") + SAsString;
+		shift = leftshiftMul(a, SAsString, size - 1);
+
+		final Term[] ifte = new Term[size];
+		for (int i = 0; i < size; i++) {
+			if (b instanceof ConstantTerm) {
+				final String bString = BVUtils.getConstAsString((ConstantTerm) b);
+				if (bString.charAt(bString.length() - stage - 1) == '1') {
+					ifte[i] = mTheory.or(mTheory.not(encB[stage]), shift[i]);
+				} else {
+					ifte[i] = mTheory.or(encB[stage], mTheory.mFalse);
+				}
+			} else {
+				// mTheory.ifthenelse(encB[stage], shift[i], mTheory.mFalse);
+				ifte[i] = mTheory.and(
+						mTheory.or(mTheory.not(encB[stage]), shift[i]),
+						mTheory.or(encB[stage], mTheory.mFalse));
+			}
+		}
+		final Term[] sum = adder(boolvarmap[stage - 1], ifte, mTheory.mFalse).getFirst();
+		return sum;
 	}
 
 	/*
@@ -644,7 +570,7 @@ public class BitBlaster {
 		final CnfTransformer cnf = new CnfTransformer();
 		final Term cnfTerm = cnf.transform(cnf.transform(nnfTerm));
 		final Term cleanTerm = cleaner.transform(cnfTerm);
-		// System.out.println("CNF SIZE: " + ((ApplicationTerm) cleanTerm).getParameters().length);
+		System.out.println("CNF SIZE: " + ((ApplicationTerm) cleanTerm).getParameters().length);
 		return cleanTerm;
 	}
 
@@ -669,21 +595,40 @@ public class BitBlaster {
 	}
 
 	/*
-	 * get's a list of terms,
-	 * returns these terms as disjunction
-	 * if negated is set to true, each disjunct will be negated
-	 * TODO: Doppel Negation vermeiden!! für code übersicht
+	 * atom <=> ifte into cnf
+	 * Add Clauses of (boolVar <=> ifte) to dpll
+	 * ifte arguments need to be literals
 	 */
-	private Term listToDisjunction(final List<Term> list, final boolean negate) {
-		assert !list.isEmpty();
-		Term[] disjArray = new Term[list.size()];
-		disjArray = list.toArray(disjArray);
-		for (int i = 0; i < list.size(); i++) {
-			if (negate) {
-				disjArray = negate(disjArray);
+	private void toCnfIfte(final Term atom, final Term ifteTerm) {
+
+		if (ifteTerm instanceof ApplicationTerm) {
+			final ApplicationTerm appifteTerm = (ApplicationTerm) ifteTerm;
+			// ((not ifTerm or thenTerm) and (ifTerm or elseTerm))
+			final ApplicationTerm conj1 = (ApplicationTerm) appifteTerm.getParameters()[0];
+			final ApplicationTerm conj2 = (ApplicationTerm) appifteTerm.getParameters()[1];
+			final Term ifTerm = conj2.getParameters()[0];
+			final Term elseTerm = conj2.getParameters()[1];
+			final Term thenTerm;
+			if (conj1.getParameters().length == 2) {
+				thenTerm = conj1.getParameters()[1];
+				addClause(mTheory.or(atom, mTheory.not(ifTerm), mTheory.not(thenTerm)));
+				addClause(mTheory.or(mTheory.not(atom), ifTerm, elseTerm));
+				addClause(mTheory.or(mTheory.not(atom), mTheory.not(ifTerm), thenTerm));
+				addClause(mTheory.or(atom, mTheory.not(elseTerm), elseTerm));
+
+			} else {
+				// thenTerm = mTheory.mFalse;
+				addClause(mTheory.or(mTheory.not(atom), elseTerm, ifTerm));
+				addClause(mTheory.or(mTheory.not(atom), mTheory.not(ifTerm)));
+
 			}
+			addClause(mTheory.or(atom, mTheory.not(ifTerm), ifTerm));
+			addClause(mTheory.or(atom, ifTerm, mTheory.not(elseTerm)));
+
+		} else {
+			throw new UnsupportedOperationException("Can't convert to CNF");
 		}
-		return mTheory.or(disjArray);
+
 	}
 
 	private void addClause(final Term term) {
