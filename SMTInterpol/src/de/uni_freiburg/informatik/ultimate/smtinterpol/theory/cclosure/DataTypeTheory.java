@@ -6,6 +6,8 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 
+import javax.xml.crypto.Data;
+
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.DataType;
 import de.uni_freiburg.informatik.ultimate.logic.DataType.Constructor;
@@ -35,6 +37,7 @@ public class DataTypeTheory implements ITheory {
 	private final LinkedHashMap<SortSymbol, Boolean> mInfinitSortsMap;
 	private final ArrayDeque<Clause> mConflicts;
 	private ArrayQueue<CCTerm> mRecheckOnBacktrack;
+	private final LinkedHashMap<Sort, Boolean> mInfinityMap;
 	
 	public DataTypeTheory(Clausifier clausifier, Theory theory, CClosure cclosure) {
 		mClausifier = clausifier;
@@ -43,6 +46,7 @@ public class DataTypeTheory implements ITheory {
 		mPendingEqualities = new ArrayDeque<SymmetricPair<CCTerm>>();
 		mSelectorMap = new LinkedHashMap<>();
 		mInfinitSortsMap = new LinkedHashMap<>();
+		mInfinityMap = new LinkedHashMap<>();
 		mConflicts = new ArrayDeque<>();
 		mRecheckOnBacktrack = new ArrayQueue<>();
 	}
@@ -56,67 +60,7 @@ public class DataTypeTheory implements ITheory {
 	}
 
 	@Override
-	public Clause startCheck() {
-		LinkedHashMap<SortSymbol, ArrayDeque<SortSymbol>> deps = new LinkedHashMap<>();
-		ArrayDeque<SortSymbol> undecidedSorts = new ArrayDeque<>();
-		for (SortSymbol sym : mTheory.getDeclaredSorts().values()) {
-			if (sym.isDatatype()) {
-				ArrayDeque<SortSymbol> dependsOn = new ArrayDeque<>();
-				for (Constructor cons : ((DataType) sym).getConstructors()) {
-					for (String sel : cons.getSelectors()) {
-						mSelectorMap.put(sel, cons);
-					}
-					for (Sort argSort : cons.getArgumentSorts()) {
-						// TODO: are arraysSorts also infinite?
-						if (argSort.getSortSymbol() == sym || mInfinitSortsMap.containsKey(argSort.getSortSymbol()) || argSort.isNumericSort()) {
-							mInfinitSortsMap.put(sym, true);
-						} else {
-							dependsOn.add(argSort.getSortSymbol());
-						}
-					}
-				}
-				if (!mInfinitSortsMap.containsKey(sym)) {
-					if (dependsOn.isEmpty()) {
-						mInfinitSortsMap.put(sym, false);
-					} else {
-						deps.put(sym, dependsOn);
-						undecidedSorts.add(sym);
-					}
-				}
-			}
-		}
-		
-		int noDecisionCounter = 0;
-		while (!undecidedSorts.isEmpty() && noDecisionCounter < undecidedSorts.size()) {
-			noDecisionCounter++;
-			SortSymbol sym = undecidedSorts.poll();
-			ArrayDeque<SortSymbol> dependsOn = new ArrayDeque<>();
-			while (!deps.get(sym).isEmpty()) {
-				SortSymbol dSym = deps.get(sym).poll();
-				if (mInfinitSortsMap.containsKey(dSym)) {
-					if (mInfinitSortsMap.get(dSym)) {
-						mInfinitSortsMap.put(sym, true);
-						noDecisionCounter = 0;
-					}
-				} else {
-					dependsOn.add(dSym);
-				}
-			}
-			if (!mInfinitSortsMap.containsKey(sym)) {
-				if (dependsOn.isEmpty()) {
-					mInfinitSortsMap.put(sym, false);
-					noDecisionCounter = 0;
-				} else {
-					deps.put(sym, dependsOn);
-					undecidedSorts.add(sym);
-				}
-			}
-		}
-		// if undecidedSorts is not empty there are sorts which depend on each other and are therefore infinite
-		for (SortSymbol sym : undecidedSorts) {
-			mInfinitSortsMap.put(sym, true);
-		}
-		
+	public Clause startCheck() {		
 		return null;
 	}
 
@@ -291,8 +235,7 @@ public class DataTypeTheory implements ITheory {
 
 	@Override
 	public void pop() {
-		// TODO Auto-generated method stub
-
+		mInfinityMap.clear();
 	}
 
 	@Override
@@ -359,7 +302,7 @@ public class DataTypeTheory implements ITheory {
 			LinkedHashSet<String> neededSelectors = new LinkedHashSet<>();
 			for (int i = 0; i < c.getSelectors().length; i++) {
 				if (!exisitingSelectors.contains(c.getSelectors()[i])) {
-					if (!c.getArgumentSorts()[i].getSortSymbol().isDatatype() || mInfinitSortsMap.get(c.getArgumentSorts()[i].getSortSymbol())) {
+					if (!c.getArgumentSorts()[i].getSortSymbol().isDatatype() || isInfinite(c.getArgumentSorts()[i], new LinkedHashSet<>())) {
 						noInfSel = false;
 						break;
 					} else {
@@ -490,6 +433,34 @@ public class DataTypeTheory implements ITheory {
 			parInfo = parInfo.mNext;
 		}
 		return selApps;
+	}
+	
+	private boolean isInfinite(Sort sort, LinkedHashSet<Sort> dependents) {
+		dependents.add(sort);
+		Boolean cacheVal = mInfinityMap.get(sort);
+		if (cacheVal != null) return cacheVal;
+		if (sort.getSortSymbol().isDatatype()) {
+			for (Constructor c : ((DataType) sort.getSortSymbol()).getConstructors()) {
+				for (Sort as : c.getArgumentSorts()) {
+					// if a constructor of the sort of this argument has a argument with Sort "sort" the sort is infinite
+					if (dependents.contains(as)) {
+						mInfinityMap.put(sort, true);
+						return true;
+					}
+					if (isInfinite(as, dependents)) {
+						mInfinityMap.put(sort, true);
+						return true;
+					}
+				}
+			}
+			mInfinityMap.put(sort, false);
+			return false;
+		} else if (sort.isNumericSort()) {
+			mInfinityMap.put(sort, true);
+			return true;
+		}
+		mInfinityMap.put(sort, false);
+		return false;
 	}
 
 }
