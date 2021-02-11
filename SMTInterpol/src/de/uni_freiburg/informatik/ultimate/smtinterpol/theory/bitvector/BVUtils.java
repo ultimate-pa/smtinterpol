@@ -188,25 +188,35 @@ public class BVUtils {
 	public Term optimizeShift(final FunctionSymbol fsym, final Term lhs, final Term rhs) {
 		String resultconst = "#b";
 		final String lhsString = getConstAsString((ConstantTerm) lhs);
-		final BigInteger rhsInt = new BigInteger(getConstAsString((ConstantTerm) rhs), 2);
+		final BigInteger rhsBigInt = new BigInteger(getConstAsString((ConstantTerm) rhs), 2);
 		final BigInteger lhslenth = new BigInteger(String.valueOf(lhsString.length()));
-		final int modRhs = rhsInt.mod(lhslenth).intValue();
+
 		if (fsym.getName().equals("bvshl")) {
-			// split lhsString at posi (rhsInt mod size), add overhead
-			if (lhsString.length() >= modRhs) {
-				// String overhead = lhsString.substring(0, modRhs);
-				// TODO fill with overhead or Zero's
-				final String repeated = new String(new char[modRhs]).replace("\0", "0");
-				resultconst = resultconst + lhsString.substring(modRhs) + repeated;
+			if (lhslenth.compareTo(rhsBigInt) <= 0) {
+				final String repeated = new String(new char[lhslenth.intValue()]).replace("\0", "0");
+				resultconst = resultconst + repeated;
 			} else {
-				throw new UnsupportedOperationException();
+				final int rhsInt = rhsBigInt.intValue();
+				final String repeated = new String(new char[rhsInt]).replace("\0", "0");
+				resultconst = resultconst + lhsString.substring(rhsInt, lhslenth.intValue()) + repeated;
+
 			}
 		} else if (fsym.getName().equals("bvlshr")) {
-			final String repeated = new String(new char[modRhs]).replace("\0", "0");
-			resultconst = resultconst + repeated + lhsString.substring(0, modRhs);
+			if (lhslenth.compareTo(rhsBigInt) <= 0) {
+				final String repeated = new String(new char[lhslenth.intValue()]).replace("\0", "0");
+				resultconst = resultconst + repeated;
+			} else {
+				final int rhsInt = rhsBigInt.intValue();
+				System.out.println(lhsString.substring(0, lhslenth.intValue() - rhsInt));
+				final String repeated = new String(new char[rhsInt]).replace("\0", "0");
+				resultconst = resultconst + repeated + lhsString.substring(0, lhslenth.intValue() - rhsInt);
+				System.out.println(resultconst);
+			}
+
 		} else {
 			throw new UnsupportedOperationException("unknown function symbol: " + fsym.getName());
 		}
+
 		return mTheory.binary(resultconst);
 	}
 

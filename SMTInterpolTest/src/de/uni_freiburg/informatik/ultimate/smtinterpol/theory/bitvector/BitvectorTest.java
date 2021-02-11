@@ -39,6 +39,7 @@ public class BitvectorTest {
 	private Term q3;
 	private Term p4;
 	private Term q4;
+	private Term p8;
 
 	@Before
 	public void setUp() throws Exception {
@@ -49,6 +50,7 @@ public class BitvectorTest {
 		final Sort bv3 = mSolver.getTheory().getSort("BitVec", new String[] { "3" });
 		final Sort bv4 = mSolver.getTheory().getSort("BitVec", new String[] { "4" });
 		final Sort bv8 = mSolver.getTheory().getSort("BitVec", new String[] { "8" });
+		final Sort bv12 = mSolver.getTheory().getSort("BitVec", new String[] { "12" });
 		final Sort bv32 = mSolver.getTheory().getSort("BitVec", new String[] { "32" });
 		final Sort bv64 = mSolver.getTheory().getSort("BitVec", new String[] { "64" });
 
@@ -69,6 +71,7 @@ public class BitvectorTest {
 		mSolver.declareFun("q3", Script.EMPTY_SORT_ARRAY, bv3);
 		mSolver.declareFun("p4", Script.EMPTY_SORT_ARRAY, bv4);
 		mSolver.declareFun("q4", Script.EMPTY_SORT_ARRAY, bv4);
+		mSolver.declareFun("p8", Script.EMPTY_SORT_ARRAY, bv8);
 
 		x = mSolver.term("x");
 		y = mSolver.term("y");
@@ -87,6 +90,7 @@ public class BitvectorTest {
 		q3 = mSolver.term("q3");
 		p4 = mSolver.term("p4");
 		q4 = mSolver.term("q4");
+		p8 = mSolver.term("p8");
 
 	}
 
@@ -98,21 +102,28 @@ public class BitvectorTest {
 
 	@Test
 	public void shiftConst() {
+		// TODO more tests
 		// {bvshl, bvlshr}
 		mSolver.resetAssertions();
 		final Term consTerm = mSolver.binary("#b1001");
-
 		// mSolver.getTheory().getFunctionWithResult("(_ bv 4 4)");
 		final String[] asd = new String[2];
 		asd[0] = "1";
 		asd[1] = "1";
 		final Term result = mSolver.term("extract", asd, null, consTerm);
 		System.out.println(result.getSort().getIndexedName());
+
 		final Term consTerm2 = mSolver.binary("#b0010");
 		final Term consTerm3 = mSolver.binary("#b0100");
+
 		final Term input = mSolver.term("and",
 				mSolver.term("=", mSolver.term("bvshl", consTerm, consTerm2), consTerm3),
-				mSolver.term("=", mSolver.term("bvlshr", consTerm, consTerm2), consTerm2));
+				mSolver.term("=", mSolver.term("bvlshr", consTerm, consTerm2), consTerm2),
+				mSolver.term("=", mSolver.term("bvshl", mSolver.binary("#b00110011"), mSolver.binary("#b00000010")),
+						mSolver.binary("#b11001100")),
+				mSolver.term("=", mSolver.term("bvlshr", mSolver.binary("#b00110011"), mSolver.binary("#b00000010")),
+						mSolver.binary("#b00001100")));
+
 		mSolver.assertTerm(input);
 		final LBool isSat = mSolver.checkSat();
 		Assert.assertSame(LBool.SAT, isSat);
@@ -227,6 +238,28 @@ public class BitvectorTest {
 		mSolver.resetAssertions();
 		final Term input = mSolver.term("=", mSolver.binary("#b1000"),
 				mSolver.term("bvshl", p4, mSolver.binary("#b0010")));
+		mSolver.assertTerm(input);
+		final LBool isUnSat = mSolver.checkSat();
+		Assert.assertSame(LBool.SAT, isUnSat);
+		mSolver.reset();
+	}
+
+	@Test
+	public void bitVecLeftShiftUNSATOptimization() {
+		mSolver.resetAssertions();
+		final Term input = mSolver.term("=", mSolver.binary("#b00000001"),
+				mSolver.term("bvshl", p8, mSolver.binary("#b00001000")));
+		mSolver.assertTerm(input);
+		final LBool isUnSat = mSolver.checkSat();
+		Assert.assertSame(LBool.UNSAT, isUnSat);
+		mSolver.reset();
+	}
+
+	@Test
+	public void bitVecLeftShiftSATOptimization() {
+		mSolver.resetAssertions();
+		final Term input = mSolver.term("=", mSolver.binary("#b10000000"),
+				mSolver.term("bvshl", p8, mSolver.binary("#b00000111")));
 		mSolver.assertTerm(input);
 		final LBool isUnSat = mSolver.checkSat();
 		Assert.assertSame(LBool.SAT, isUnSat);

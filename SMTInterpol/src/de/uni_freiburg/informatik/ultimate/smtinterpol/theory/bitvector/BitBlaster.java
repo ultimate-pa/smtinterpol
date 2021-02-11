@@ -1,10 +1,12 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.bitvector;
 
 import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
@@ -361,20 +363,31 @@ public class BitBlaster {
 
 	/*
 	 * Barrel Shifter
-	 * TODO Optimize: a<<b = ite(b3 \/ b4, (0,0,0,0), ls(a,b,2))
-	 * For i :
-	 * ite(b3 \/ b4, enc[i] = 0, ls(a,b,2)[i])
-	 * Check case b = 000110 and b = 00101
+	 * Optimization: a<<b = ite(b3 \/ b4, (0,0,0,0), ls(a,b, log_2(length a) - 1))
 	 * TODO Optimize, if encB True, and second case recommend DPLL to set auxVar to false
 	 * leftshift, true if bvshl. False if bvlshr
 	 */
-	private Term[] shift(final Term a, final Term b, final int stage, final boolean leftshift) {
+	private Term[] shift(final Term a, final Term b, int stage, final boolean leftshift) {
 
 		final Term[] encA = mEncTerms.get(a);
 		final Term[] encB = mEncTerms.get(b);
 		final Term[] shiftResult = new Term[encA.length];
 		final Term[][] boolvarmap = createBoolVarMap(stage, encA.length);
 
+		// Log Base 2, rounded up
+		final int logTwo = (int) Math.ceil((float) (Math.log(encA.length) / Math.log(2)));
+		// if any enB[x] with x > log_2(encA.length) is true, then shift result is zero BitVec
+		for (int i = 0; i < encA.length; i++) {
+			final List<Term> disj = new ArrayList<>();
+			for (int k = logTwo; k < encB.length; k++) {
+				disj.add(encB[k]);
+			}
+			final Term disjunction = listToDisjunction(disj, false);
+			shiftResult[i] = mTheory.and(mTheory.or(mTheory.not(disjunction), mTheory.mFalse),
+					mTheory.or(mTheory.or(disjunction), boolvarmap[logTwo - 1][i]));
+		}
+		// Only consider stages smaller than maximal shift distance
+		stage = logTwo;
 		for (int s = 0; s < stage; s++) {
 			for (int i = 0; i < encA.length; i++) {
 				final int pow = (int) Math.pow(2, s);
@@ -410,38 +423,27 @@ public class BitBlaster {
 				// Add Auxiliary variables and their represented term (ifte), as clauses
 				// Save in Set to prevent douplicats?
 				toCnfIfte(boolvarmap[s][i], ifte);
-				// cnfToClause((ApplicationTerm) toCNF(mTheory.and(mTheory.or(mTheory.not(boolvarmap[s][i]), ifte),
-				// mTheory.or(mTheory.not(ifte), boolvarmap[s][i]))));
 			}
-		}
-		// Last Stage
-		for (int i = 0; i < encA.length; i++) {
-			final int pow = (int) Math.pow(2, stage);
-			Term thenTerm;
-			if ((i + pow < encA.length) && !leftshift) {
-				thenTerm = boolvarmap[stage - 1][i + pow];
-			} else if (i >= pow && leftshift) {
-				thenTerm = boolvarmap[stage - 1][i - pow];
-			}else {
-				// If B than 0
-
-				thenTerm = mTheory.mFalse;
-			}
-			// ifthenelse in CNF (not a or b) and (a or c)
-			shiftResult[i] = mTheory.and(mTheory.or(mTheory.not(encB[stage]), thenTerm),
-					mTheory.or(encB[stage], boolvarmap[stage - 1][i]));
-			// final int half = (int) Math.ceil((float) encA.length / 2);
-			// final List<Term> disj = new ArrayList<>(); // if lenth = 5, dish has 2 elements
-			// for (int k = half; k < encB.length; k++) {
-			// disj.add(encB[k]);
-			// }
-			// final Term disjunction = listToDisjunction(disj, false);
-			// System.out.println(disjunction);
-			// ifte = mTheory.and(mTheory.or(mTheory.not(disjunction), mTheory.mFalse),
-			// mTheory.or(mTheory.or(disjunction), boolvarmap[half][i]));
-
 		}
 		return shiftResult;
+	}
+
+	/*
+	 * get's a list of terms,
+	 * returns these terms as disjunction
+	 * if negated is set to true, each disjunct will be negated
+	 * TODO: Doppel Negation vermeiden!! für code übersicht
+	 */
+	private Term listToDisjunction(final List<Term> list, final boolean negate) {
+		assert !list.isEmpty();
+		Term[] disjArray = new Term[list.size()];
+		disjArray = list.toArray(disjArray);
+		for (int i = 0; i < list.size(); i++) {
+			if (negate) {
+				disjArray = negate(disjArray);
+			}
+		}
+		return mTheory.or(disjArray);
 	}
 
 	/*
