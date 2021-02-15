@@ -1,5 +1,7 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure;
 
+import java.util.ArrayList;
+
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.DataType;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
@@ -45,13 +47,15 @@ public class DTReverseTrigger extends ReverseTrigger {
 //				logger.info("DTReverseTrigger activated: %s", appTerm);
 		
 		ApplicationTerm argAT = (ApplicationTerm) mArg.mFlatTerm;
+		ArrayList<SymmetricPair<CCTerm>> reason = new ArrayList<>();
+		reason.add(new SymmetricPair<CCTerm>(appTerm.getArg(), mArg));
 		if (mFunctionSymbol.getName() == "is") {
 			// Just a workaround, is there a cleaner solution?
 			FunctionSymbol fs = ((CCBaseTerm) appTerm.mFunc).getFunctionSymbol();
 			if (fs.getIndices()[0].equals(argAT.getFunction().getName())) {
-				mDTTheory.addPendingEquality(new SymmetricPair<CCTerm>(appTerm, mClausifier.getCCTerm(mClausifier.getTheory().mTrue) ));
+				mDTTheory.addPendingEquality(new SymmetricPair<CCTerm>(appTerm, mClausifier.getCCTerm(mClausifier.getTheory().mTrue)), reason);
 			} else {
-				mDTTheory.addPendingEquality(new SymmetricPair<CCTerm>(appTerm, mClausifier.getCCTerm(mClausifier.getTheory().mFalse)));
+				mDTTheory.addPendingEquality(new SymmetricPair<CCTerm>(appTerm, mClausifier.getCCTerm(mClausifier.getTheory().mFalse)), reason);
 			}
 		} else {
 			FunctionSymbol fs = argAT.getFunction();
@@ -59,7 +63,7 @@ public class DTReverseTrigger extends ReverseTrigger {
 			Constructor c = argDT.findConstructor(argAT.getFunction().getName());
 			for (int i = 0; i < c.getSelectors().length; i++) {
 				if (mFunctionSymbol.getName() == c.getSelectors()[i]) {
-					mDTTheory.addPendingEquality(new SymmetricPair<CCTerm>(appTerm, mClausifier.getCCTerm(argAT.getParameters()[i])));
+					mDTTheory.addPendingEquality(new SymmetricPair<CCTerm>(appTerm, mClausifier.getCCTerm(argAT.getParameters()[i])), reason);
 					return;
 				}
 			}

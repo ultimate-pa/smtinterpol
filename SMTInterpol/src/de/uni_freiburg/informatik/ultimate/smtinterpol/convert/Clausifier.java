@@ -1198,6 +1198,9 @@ public class Clausifier {
 		if (term instanceof ApplicationTerm) {
 			final ApplicationTerm appTerm = (ApplicationTerm) term;
 			final FunctionSymbol fs = appTerm.getFunction();
+			if (fs.isConstructor() || fs.isSelector()) {
+				return true;
+			}
 			if (appTerm.getParameters().length == 0) {
 				return false;
 			}
@@ -1220,9 +1223,6 @@ public class Clausifier {
 			case "/":
 				return SMTAffineTerm.convertConstant((ConstantTerm) appTerm.getParameters()[1]) == Rational.ZERO;
 			default:
-				if (fs.isConstructor() || fs.isSelector()) {
-					return true;
-				}
 				return false;
 			}
 		}
