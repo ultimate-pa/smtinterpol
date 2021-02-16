@@ -256,6 +256,25 @@ public class BVUtils {
 		return mTheory.binary(resultconst);
 	}
 
+	public Term optimizeSelect(final FunctionSymbol fsym, final Term term) {
+		// (_ extract i j)
+		// (_ BitVec l), 0 <= j <= i < l
+		// (_ extract 7 5) 00100000 = 001
+		// (_ extract 7 7) 10000000 = 1
+		// Result length = i - j + 1
+		String resultconst = "#b";
+		if (fsym.getName().equals("extract")) {
+			final String parameterAsString = getConstAsString((ConstantTerm) term);
+			final int size = parameterAsString.length();
+			final int idx1 = size - Integer.parseInt(fsym.getIndices()[1]);
+			final int idx2 = size - Integer.parseInt(fsym.getIndices()[0]) - 1;
+			resultconst = resultconst + parameterAsString.substring(idx2, idx1);
+		} else {
+			throw new UnsupportedOperationException("unknown function symbol: " + fsym.getName());
+		}
+		return mTheory.binary(resultconst);
+	}
+
 	public Term getProof(final Term optimized, final Term convertedApp, final IProofTracker tracker,
 			final Annotation proofconst) {
 		final Term lhs = tracker.getProvedTerm(convertedApp);
@@ -279,6 +298,7 @@ public class BVUtils {
 
 	/*
 	 * brings every inequality in the form: (bvult (bvsub s t) 0)
+	 * uses recursion in some cases
 	 */
 	public Term getBvultTerm(final Term convert) {
 		if (convert instanceof ApplicationTerm) {
@@ -287,19 +307,22 @@ public class BVUtils {
 			final int size = Integer.valueOf(appterm.getParameters()[0].getSort().getIndices()[0]);
 			final FunctionSymbol fsym = appterm.getFunction();
 			final Theory theory = convert.getTheory();
+			// selectIndices[0] >= selectIndices[1]
+			final String[] selectIndices = new String[2];
+			final int signBitIndex = size - 1;
+			selectIndices[0] = String.valueOf(signBitIndex);
+			selectIndices[1] = String.valueOf(signBitIndex);
+			// (_ extract i j)
+			System.out.println(appterm);
+			final FunctionSymbol extract =
+					mTheory.getFunctionWithResult("extract", selectIndices, null,
+							appterm.getParameters()[0].getSort());
 			if (fsym.isIntern()) {
 				switch (fsym.getName()) {
 				case "bvult": {
 					return appterm;
 				}
 				case "bvslt": {
-					final String[] asd = new String[2];
-					asd[0] = "3";
-					asd[1] = "0";
-					// (_ extract i j)
-					System.out.println(appterm.getParameters()[0].getSort().getIndices()[0]);
-					final FunctionSymbol extract =
-							mTheory.getFunctionWithResult("extract", asd, null, appterm.getParameters()[0].getSort());
 					System.out.println(mTheory.term(extract, appterm.getParameters()[0]));
 					final Term equiBvult = theory.or(theory.and(
 							theory.term("=",
@@ -313,7 +336,7 @@ public class BVUtils {
 									theory.term(extract, appterm.getParameters()[1]))),
 
 							theory.term("bvult", appterm.getParameters()[0], appterm.getParameters()[1]));
-					System.out.println(equiBvult);
+					System.out.println(equiBvult.toStringDirect());
 					return equiBvult;
 				}
 				case "bvule": {
@@ -323,11 +346,6 @@ public class BVUtils {
 					return theory.or(bvult, theory.term("=", appterm.getParameters()[0], appterm.getParameters()[1]));
 				}
 				case "bvsle": {
-					final String[] indices = new String[2];
-					indices[0] = String.valueOf(size - 1);
-					indices[1] = String.valueOf(size - 1);
-					final FunctionSymbol extract = mTheory.getFunctionWithResult("extract", indices, null);
-
 					final Term equiBvule = theory.or(
 							theory.and(theory.term("=",
 									theory.term(extract, appterm.getParameters()[0]),
@@ -339,7 +357,7 @@ public class BVUtils {
 									theory.term(extract, appterm.getParameters()[0]),
 									theory.term(extract, appterm.getParameters()[1]))),
 							theory.term("bvule", appterm.getParameters()[0], appterm.getParameters()[1]));
-					System.out.println(equiBvule);
+					System.out.println(equiBvule.toStringDirect());
 					return equiBvule;
 				}
 				case "bvugt": {

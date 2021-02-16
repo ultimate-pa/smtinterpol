@@ -211,6 +211,11 @@ public class TermCompiler extends TermTransformer {
 		}
 
 		if (fsym.isIntern()) {
+			if (fsym.getName().startsWith("bv")) {
+				// BitVec Constants created using Theory.getFunctionWithResult()
+				setResult(convertedApp);
+				return;
+			}
 			switch (fsym.getName()) {
 			case "not":
 				setResult(mUtils.convertNot(convertedApp));
@@ -612,6 +617,15 @@ public class TermCompiler extends TermTransformer {
 			case "bvsge":
 			case "bvult": {
 				setResult(bvUtils.getBvultTerm(convertedApp));
+				return;
+			}
+			case "extract": {
+				// If paramter constantterm, replace with result
+				if (params[0] instanceof ConstantTerm) {
+					bvUtils.optimizeSelect(fsym, params[0]);
+				}
+
+				setResult(convertedApp);
 				return;
 			}
 			case "true":
