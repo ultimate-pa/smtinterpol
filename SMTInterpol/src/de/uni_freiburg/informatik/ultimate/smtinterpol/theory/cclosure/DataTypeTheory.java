@@ -3,9 +3,12 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.DataType;
@@ -54,7 +57,7 @@ public class DataTypeTheory implements ITheory {
 	}
 
 	@Override
-	public Clause startCheck() {		
+	public Clause startCheck() {
 		return null;
 	}
 
@@ -169,6 +172,69 @@ public class DataTypeTheory implements ITheory {
 
 	@Override
 	public Clause computeConflictClause() {
+		// check for cycles (Rule7)
+		LinkedHashSet<CCTerm> visited = new LinkedHashSet<>();
+		
+		// DFS Cycle Detection
+		Deque<CCTerm> path = new ArrayDeque<>();
+		Set<CCTerm> visitedOnPath = new LinkedHashSet<>();
+		Deque<CCTerm> todo = new ArrayDeque<>();
+		Map<CCTerm, SymmetricPair<CCTerm>> argConsPairs = new LinkedHashMap<>();
+		for (CCTerm start : mCClosure.mAllTerms) {
+			if (start == start.mRepStar && start.mFlatTerm != null && start.mFlatTerm.getSort().getSortSymbol().isDatatype()) {
+				todo.push(start);
+				
+				while (!todo.isEmpty()) {
+					CCTerm ct = todo.pop();
+					CCTerm rep = ct.mRepStar;
+					if (visited.contains(rep)) {
+						if (path.peek() == rep) {
+							path.pop();
+							visitedOnPath.remove(rep);
+						} else if (visitedOnPath.contains(rep)) {
+							// build and return conflict clause
+							Set<Literal> literals = new HashSet<>();
+							while (!path.isEmpty()) {
+								CCTerm pathRep = path.pop();
+								SymmetricPair<CCTerm> pair = argConsPairs.get(pathRep);
+								assert pathRep != null;
+								CongruencePath cp = new CongruencePath(mCClosure);
+								if (rep == pathRep) {
+									cp.computePath(ct, pair.getSecond());
+									literals.addAll(cp.mAllLiterals);
+									break;
+								}
+								cp.computePath(pair.getFirst(), pair.getSecond());
+								literals.addAll(cp.mAllLiterals);
+							}
+							Literal[] negLits = new Literal[literals.size()];
+							int i = 0;
+							for (Literal l : literals) {
+								negLits[i++] = l.negate();
+							}
+							mClausifier.getLogger().debug("Found Cycle: %s", literals);
+							return new Clause(negLits);
+						}
+						continue;
+					}
+					for (CCTerm mem : rep.mMembers) {
+						if (mem.mFlatTerm instanceof ApplicationTerm && ((ApplicationTerm)mem.mFlatTerm).getFunction().isConstructor()) {
+							path.push(rep);
+							visitedOnPath.add(rep);
+							todo.push(ct);
+							argConsPairs.put(rep, new SymmetricPair<CCTerm>(ct, mem));
+							for (Term arg : ((ApplicationTerm)mem.mFlatTerm).getParameters()) {
+								if (arg.getSort().getSortSymbol().isDatatype()) {
+									todo.push(mClausifier.getCCTerm(arg));
+								}
+							}
+							break;
+						}
+					}
+					visited.add(rep);
+				}
+			}
+		}
 		return null;
 	}
 
@@ -261,13 +327,15 @@ public class DataTypeTheory implements ITheory {
 				assert c.getName().equals(constructor.getFunction().getName());
 				for (int i = 0; i < c.getSelectors().length; i++) {
 					if (selName.equals(c.getSelectors()[i])) {
-						addPendingEquality(new SymmetricPair<CCTerm>(mClausifier.getCCTerm(constructor.getParameters()[i]), checkTerm), reason);
+						CCTerm arg = mClausifier.getCCTerm(constructor.getParameters()[i]);
+						if (arg.mRepStar != checkTerm.mRepStar) addPendingEquality(new SymmetricPair<CCTerm>(arg, checkTerm), reason);
 						newRecheckOnBacktrack.add(checkTerm);
 					}
 				}
 			} else {
 				if (constructor.getFunction().getName().equals(((ApplicationTerm) checkTerm.mFlatTerm).getFunction().getIndices()[0])) {
-					addPendingEquality(new SymmetricPair<CCTerm>(checkTerm, mClausifier.getCCTerm(mTheory.mTrue)), reason);
+					CCTerm ccTrue = mClausifier.getCCTerm(mTheory.mTrue);
+					if (ccTrue.mRepStar != checkTerm.mRepStar) addPendingEquality(new SymmetricPair<CCTerm>(checkTerm, mClausifier.getCCTerm(mTheory.mTrue)), reason);
 					newRecheckOnBacktrack.add(checkTerm);
 				}
 			}
@@ -395,6 +463,12 @@ public class DataTypeTheory implements ITheory {
 	private void Rule5(CCTerm ccterm) {
 		LinkedHashSet<String> selApps = findAllSelectorApplications(ccterm);
 		SortSymbol sym = ccterm.mFlatTerm.getSort().getSortSymbol();
+		
+		// check if there is already a constructor
+		for (CCTerm mem : ccterm.mMembers) {
+			if (mem.mFlatTerm instanceof ApplicationTerm && ((ApplicationTerm)mem.mFlatTerm).getFunction().isConstructor()) return;
+		}
+		
 		for (Constructor c : ((DataType) sym).getConstructors()) {
 			if (selApps.containsAll(Arrays.asList(c.getSelectors()))) {
 				FunctionSymbol isFs = mTheory.getFunctionWithResult("is", new String[] {c.getName()}, null, new Sort[] {ccterm.getFlatTerm().getSort()});
