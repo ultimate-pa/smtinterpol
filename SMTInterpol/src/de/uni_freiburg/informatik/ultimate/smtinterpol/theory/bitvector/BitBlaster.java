@@ -114,17 +114,6 @@ public class BitBlaster {
 		return boolvector;
 	}
 
-	// returns the boolean variable representing term
-	private TermVariable getNewBoolVar(final Term term, final int bit) {
-		final String prefix = "e(" + term.toString() + ")_" + bit;
-		final TermVariable tv = mVarPrefix.get(prefix);
-		if (tv == null) {
-			throw new UnsupportedOperationException("Boolean variable was not genereated: " + term);
-		} else {
-			return tv;
-		}
-	}
-
 	/*
 	 * Creates BVConstraint for Atom's
 	 * For equals:
@@ -141,11 +130,11 @@ public class BitBlaster {
 				// TODO check effizienz bei groﬂen BITVECS
 				// getNewBoolVar(bveqatom.getLHS(), i) gets the encoded term on each side of ther relation
 				eqconj[i] =
-						mTheory.or(mTheory.not(getNewBoolVar(bveqatom.getLHS(), i)),
-								getNewBoolVar(bveqatom.getRHS(), i));
+						mTheory.or(mTheory.not(mEncTerms.get(bveqatom.getLHS())[i]),
+								mEncTerms.get(bveqatom.getRHS())[i]);
 				eqconj[i + size] =
-						mTheory.or(mTheory.not(getNewBoolVar(bveqatom.getRHS(), i)),
-								getNewBoolVar(bveqatom.getLHS(), i));
+						mTheory.or(mTheory.not(mEncTerms.get(bveqatom.getRHS())[i]),
+								mEncTerms.get(bveqatom.getLHS())[i]);
 			}
 			final Term eqconjunction = mTheory.and(eqconj);
 			final Term ifte = mTheory.and(mTheory.or(mTheory.not(encAtom), eqconjunction),
@@ -155,11 +144,12 @@ public class BitBlaster {
 			cnfToClause((ApplicationTerm) cnfTerm);
 			return ifte;
 		} else if (atom instanceof BVInEquality) {
-			final BVInEquality bveqatom = (BVInEquality) atom;
-			// unsigned operants, holds if cout is false
+			final BVInEquality bvIneqatom = (BVInEquality) atom;
+			// bvult, holds if cout is false
 			final Term bvult =
-					mTheory.not(adder(mEncTerms.get(bveqatom.getLHS()), negate(mEncTerms.get(bveqatom.getRHS())),
+					mTheory.not(adder(mEncTerms.get(bvIneqatom.getLHS()), negate(mEncTerms.get(bvIneqatom.getRHS())),
 							mTheory.mTrue).getSecond());
+			System.out.println("bvult: " + bvult.toStringDirect());
 
 			// TODO signed
 			final Term ifte = mTheory.and(mTheory.or(mTheory.not(encAtom), bvult),
@@ -208,24 +198,32 @@ public class BitBlaster {
 				switch (fsym.getName()) {
 				case "bvand": {
 					for (int i = 0; i < encTerm.length; i++) {
-						final Term and = mTheory.or(mTheory.not(getNewBoolVar(appterm.getParameters()[0], i)),
-								mTheory.not(getNewBoolVar(appterm.getParameters()[1], i)));
+						final Term and = mTheory.or(mTheory.not(mEncTerms.get(appterm.getParameters()[0])[i]),
+								mTheory.not(mEncTerms.get(appterm.getParameters()[0])[i]));
 						conjunction[i] = and;
 					}
 					break;
 				}
 				case "bvor": {
 					for (int i = 0; i < encTerm.length; i++) {
-						final Term or = mTheory.or(getNewBoolVar(appterm.getParameters()[0], i),
-								getNewBoolVar(appterm.getParameters()[1], i));
+						final Term or = mTheory.or(mEncTerms.get(appterm.getParameters()[0])[i],
+								mEncTerms.get(appterm.getParameters()[0])[i]);
 						conjunction[i] = or;
 					}
 					break;
 				}
 				case "bvnot": {
 					for (int i = 0; i < encTerm.length; i++) {
-						final Term not = mTheory.not(getNewBoolVar(appterm.getParameters()[0], i));
+						final Term not = mTheory.not(mEncTerms.get(appterm.getParameters()[0])[i]);
 						conjunction[i] = not;
+					}
+					break;
+				}
+				case "bvneg": {
+					conjunction[encTerm.length - 1] =
+							mTheory.not(mEncTerms.get(appterm.getParameters()[0])[encTerm.length - 1]);
+					for (int i = 0; i < encTerm.length - 1; i++) {
+						conjunction[i] = mEncTerms.get(appterm.getParameters()[0])[i];
 					}
 					break;
 				}
@@ -276,6 +274,7 @@ public class BitBlaster {
 					// TODO FIX
 					// b != 0 => e(t) * b + r = a
 					// b != 0 => r < b
+					// Add Aux vars for each step
 					final Term[] encA  = mEncTerms.get(appterm.getParameters()[0]);
 					final Term[] encB = mEncTerms.get(appterm.getParameters()[1]);
 					final int stage =
@@ -303,7 +302,7 @@ public class BitBlaster {
 					return mTheory.and(mTheory.and(conjunction), remainderConstraint);
 				}
 				case "bvurem":
-				case "bvneg":
+
 				default:
 					throw new UnsupportedOperationException(
 							"Unsupported functionsymbol for bitblasting: " + fsym.getName());
@@ -330,7 +329,7 @@ public class BitBlaster {
 		return result;
 	}
 
-	// negates each term in terms
+	// negates each term in terms array
 	private Term[] negate(final Term[] terms) {
 		final Term[] negateresult = new Term[terms.length];
 		for (int i = 0; i < terms.length; i++) {
@@ -358,16 +357,15 @@ public class BitBlaster {
 			return mTheory.and(a, b);
 		} else if (cin.equals(mTheory.mTrue)) {
 			return mTheory.or(a, b);
-			// throw new UnsupportedOperationException("TODO nicht in CNF");
 		}
 		return mTheory.and(mTheory.or(a, b), mTheory.or(a, cin), mTheory.or(b, cin));
 	}
 
 	private Term[] carryBits(final Term[] encA, final Term[] encB, final Term cin) {
 		assert encA.length == encB.length;
-		final Term[] carryBits = new Term[encA.length];
+		final Term[] carryBits = new Term[encA.length + 1];
 		carryBits[0] = cin;
-		for (int i = 1; i < encA.length; i++) {
+		for (int i = 1; i <= encA.length; i++) {
 			carryBits[i] = carryAdder(encA[i - 1], encB[i - 1], carryBits[i - 1]);
 		}
 		return carryBits;
@@ -378,9 +376,7 @@ public class BitBlaster {
 		final Term[] sumResult = new Term[encA.length];
 		final Term[] carryBits = carryBits(encA, encB, cin);
 		for (int i = 0; i < encA.length; i++) {
-			// System.out.println("IN: " + mTheory.xor(encA[i], mTheory.xor(encB[i], carryBits[i])).toStringDirect());
 			sumResult[i] = sumAdder(encA[i], encB[i], carryBits[i]);
-			// System.out.println("OUT: " + sumResult[i].toStringDirect());
 		}
 		final Term cout = carryBits[carryBits.length - 1];
 		return new Pair<>(sumResult, cout);

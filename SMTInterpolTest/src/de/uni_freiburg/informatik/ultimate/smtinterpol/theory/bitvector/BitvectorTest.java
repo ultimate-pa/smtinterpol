@@ -247,6 +247,16 @@ public class BitvectorTest {
 	}
 
 	// @Test
+	public void divSat2() {
+		mSolver.resetAssertions();
+		final Term input = mSolver.term("and",
+				mSolver.term("=", mSolver.term("bvudiv", mSolver.binary("#b100"), p3), mSolver.binary("#b010")),
+				mSolver.term("=", mSolver.binary("#b010"), p3));
+		mSolver.assertTerm(input);
+		final LBool isSat = mSolver.checkSat();
+		Assert.assertSame(LBool.UNSAT, isSat);
+	}
+	// @Test
 	public void eqConcatMatch() {
 		// x < y::z, ¬(x < w), w = y:: z
 		mSolver.resetAssertions();
@@ -586,6 +596,18 @@ public class BitvectorTest {
 	}
 
 	@Test
+	public void bitVecNegation() {
+		mSolver.resetAssertions();
+		final Term input = mSolver.term("and",
+				mSolver.term("=", mSolver.term("bvneg", p4), mSolver.binary("#b1111")),
+				mSolver.term("=", p4, mSolver.binary("#b0111")));
+		mSolver.assertTerm(input);
+		final LBool isUnSat = mSolver.checkSat();
+		Assert.assertSame(LBool.SAT, isUnSat);
+		mSolver.reset();
+	}
+
+	@Test
 	public void bitVecNotAtom() {
 		mSolver.resetAssertions();
 		final Term input = mSolver.term("and",
@@ -600,10 +622,35 @@ public class BitvectorTest {
 	@Test
 	public void bitVecBVULTAtom() {
 		mSolver.resetAssertions();
+		// p4 = 0000
 		final Term input = mSolver.term("and",
-				mSolver.term("bvult", p2, mSolver.binary("#b11")),
-				mSolver.term("not", mSolver.term("=", p2, mSolver.binary("#b01"))),
-				mSolver.term("not", mSolver.term("=", p2, mSolver.binary("#b10"))));
+				mSolver.term("bvult", p4, mSolver.binary("#b0011")),
+				mSolver.term("not", mSolver.term("=", p4, mSolver.binary("#b0001"))),
+				mSolver.term("not", mSolver.term("=", p4, mSolver.binary("#b0010"))));
+		mSolver.assertTerm(input);
+		final LBool isUnSat = mSolver.checkSat();
+		Assert.assertSame(LBool.SAT, isUnSat);
+		mSolver.reset();
+	}
+
+	@Test
+	public void bitVecBVULTAtom2() {
+		mSolver.resetAssertions();
+		final Term input = mSolver.term("and",
+				mSolver.term("bvult", mSolver.binary("#b0111"), p4),
+				mSolver.term("not", mSolver.term("=", p4, mSolver.binary("#b1000"))));
+		mSolver.assertTerm(input);
+		final LBool isUnSat = mSolver.checkSat();
+		Assert.assertSame(LBool.SAT, isUnSat);
+		mSolver.reset();
+	}
+
+	@Test
+	public void bitVecSub1() {
+		mSolver.resetAssertions();
+		final Term input = mSolver.term("and",
+				mSolver.term("=", mSolver.term("bvsub", mSolver.binary("#b0111"), p4), mSolver.binary("#b0001")),
+				mSolver.term("=", p4, mSolver.binary("#b0110")));
 		mSolver.assertTerm(input);
 		final LBool isUnSat = mSolver.checkSat();
 		Assert.assertSame(LBool.SAT, isUnSat);

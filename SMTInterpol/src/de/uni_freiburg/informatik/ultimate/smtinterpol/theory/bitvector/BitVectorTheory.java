@@ -157,7 +157,7 @@ public class BitVectorTheory implements ITheory {
 				System.out.println("Model: " + t);
 			}
 		} else {
-			final Literal[] unsat = engine.getUnsatAssumptions();
+			final Literal[] unsat = engine.getUnsatAssumptions(); // always 0
 			System.out.println("DPLL: " + unsat.length);
 			for (final Term lit : engine.getSatisfiedLiterals(getTheory())) {
 				System.out.println("Unsat: " + lit);
