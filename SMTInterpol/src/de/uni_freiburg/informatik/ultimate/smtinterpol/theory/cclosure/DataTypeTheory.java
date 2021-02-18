@@ -98,7 +98,7 @@ public class DataTypeTheory implements ITheory {
 					if (!visited.containsKey(ccat.mArg.mRepStar)) {
 						visited.put(ccat.mArg.mRepStar, new LinkedHashSet<>());
 						visited.get(ccat.mArg.mRepStar).add(ccat);
-						Rule3(t);
+						Rule3((CCAppTerm) t);
 					} else {
 						// Rule 9: if this is-Function tests for a another constructor than the is-Functions
 						// we already saw for this congruence class, there is a conflict.
@@ -228,6 +228,17 @@ public class DataTypeTheory implements ITheory {
 							argConsPairs.put(rep, new SymmetricPair<CCTerm>(ct, mem));
 							for (Term arg : ((ApplicationTerm)mem.mFlatTerm).getParameters()) {
 								if (arg.getSort().getSortSymbol().isDatatype()) {
+									CCTerm ccArg = mClausifier.getCCTerm(arg);
+									if (ccArg.mRepStar == rep) {
+										CongruencePath cp = new CongruencePath(mCClosure);
+										cp.computePath(ccArg, mem);
+										Literal[] negLits = new Literal[cp.mAllLiterals.size()];
+										int i = 0;
+										for (Literal l : cp.mAllLiterals) {
+											negLits[i++] = l.negate();
+										}
+										return new Clause(negLits);
+									}
 									todo.push(mClausifier.getCCTerm(arg));
 								}
 							}
@@ -384,12 +395,17 @@ public class DataTypeTheory implements ITheory {
 		return null;
 	}
 	
-	private void Rule3(CCTerm isTerm) {
+	private void Rule3(CCAppTerm isTerm) {
 		// check if there is already a constructor application equal to the argument
 		ApplicationTerm at = (ApplicationTerm) isTerm.mFlatTerm;
 		Term arg = at.getParameters()[0];
-		CCTerm argRep = mCClosure.getCCTermRep(arg);
+		
+		//CCTerm argRep = mCClosure.getCCTermRep(arg);
+		CCTerm argRep = isTerm.mArg.mRepStar;
 		String consName = at.getFunction().getIndices()[0];
+		if (argRep == null) {
+			return;
+		}
 		for (CCTerm mt : argRep.mMembers) {
 			if (mt.mFlatTerm instanceof ApplicationTerm) {
 				ApplicationTerm mat = (ApplicationTerm) mt.mFlatTerm;
