@@ -60,6 +60,7 @@ public class TermCompiler extends TermTransformer {
 
 	private IProofTracker mTracker;
 	private LogicSimplifier mUtils;
+	private final static String BITVEC_CONST_PATTERN = "bv\\d+";
 
 	static class TransitivityStep implements Walker {
 		final Term mFirst;
@@ -209,9 +210,8 @@ public class TermCompiler extends TermTransformer {
 			pushTerm(expanded);
 			return;
 		}
-
 		if (fsym.isIntern()) {
-			if (fsym.getName().startsWith("bv")) {
+			if (fsym.getName().matches(BITVEC_CONST_PATTERN)) {
 				// BitVec Constants created using Theory.getFunctionWithResult()
 				setResult(convertedApp);
 				return;
@@ -546,6 +546,7 @@ public class TermCompiler extends TermTransformer {
 				setResult(convertedApp);
 				return;
 			}
+			case "bvsub":
 			case "bvadd":
 			case "bvudiv":
 			case "bvurem":
@@ -601,6 +602,7 @@ public class TermCompiler extends TermTransformer {
 			case "bvslt":
 			case "bvule":
 			case "bvsle": {
+				// TODO FIX
 				final Term bvult = bvUtils.getBvultTerm(convertedApp);
 				if (bvult instanceof ApplicationTerm) {
 					final ApplicationTerm appterm = (ApplicationTerm) bvult;
@@ -616,15 +618,16 @@ public class TermCompiler extends TermTransformer {
 			case "bvsgt":
 			case "bvsge":
 			case "bvult": {
-				setResult(bvUtils.getBvultTerm(convertedApp));
+				// TODO FIX
+				final Term bvult = bvUtils.getBvultTerm(convertedApp);
+				setResult(bvult);
 				return;
 			}
 			case "extract": {
 				// If paramter constantterm, replace with result
 				if (params[0] instanceof ConstantTerm) {
-					bvUtils.optimizeSelect(fsym, params[0]);
+					setResult(bvUtils.optimizeSelect(fsym, params[0]));
 				}
-
 				setResult(convertedApp);
 				return;
 			}

@@ -55,6 +55,7 @@ public class BitBlaster {
 			// TODO atom merken für zurück übersetztung
 			final String atomPrefix = "At_" + i;
 			final TermVariable boolVar = mTheory.createFreshTermVariable(atomPrefix, mTheory.getSort("Bool"));
+			// mBoolAtoms.put(mLiterals.get(i), new BooleanVarAtom(boolVar, mStackLevel));
 			mBoolAtoms.put(boolVar, new BooleanVarAtom(boolVar, mStackLevel));
 			mEncAtoms.put(atomPrefix, boolVar);
 			if (mLiterals.get(i).getSign() == -1) {
@@ -92,7 +93,7 @@ public class BitBlaster {
 	/*
 	 * Encodes bitvector Term in an Array of same lenth as the size of the bitvector Term.
 	 * The Array contains Fresh Boolean Variables with name:
-	 * "e(term)_i" where e stands for encoded, term is the input term and i the current position in the Array
+	 * "e(term)_i" where e stands for encoded, term is the input term and i the current position in the Array/BitVec
 	 */
 	private Term[] getEncodedTerm(final Term term) {
 		final BigInteger sizeBig = mTheory.toNumeral(term.getSort().getIndices()[0]);
@@ -127,8 +128,6 @@ public class BitBlaster {
 			final int size = sizeBig.intValue();
 			final Term[] eqconj = new Term[size + size];
 			for (int i = 0; i < size; i++) {
-				// TODO check effizienz bei großen BITVECS
-				// getNewBoolVar(bveqatom.getLHS(), i) gets the encoded term on each side of ther relation
 				eqconj[i] =
 						mTheory.or(mTheory.not(mEncTerms.get(bveqatom.getLHS())[i]),
 								mEncTerms.get(bveqatom.getRHS())[i]);
@@ -149,7 +148,7 @@ public class BitBlaster {
 			final Term bvult =
 					mTheory.not(adder(mEncTerms.get(bvIneqatom.getLHS()), negate(mEncTerms.get(bvIneqatom.getRHS())),
 							mTheory.mTrue).getSecond());
-			System.out.println("bvult: " + bvult.toStringDirect());
+
 
 			// TODO signed
 			final Term ifte = mTheory.and(mTheory.or(mTheory.not(encAtom), bvult),
@@ -271,20 +270,40 @@ public class BitBlaster {
 					break;
 				}
 				case "bvudiv": {
-					// TODO FIX
 					// b != 0 => e(t) * b + r = a
 					// b != 0 => r < b
+				}
+				case "bvurem":
+					// b != 0 => q * b + e(t) = a
+					// b != 0 => e(t) < b
 					// Add Aux vars for each step
 					final Term[] encA  = mEncTerms.get(appterm.getParameters()[0]);
 					final Term[] encB = mEncTerms.get(appterm.getParameters()[1]);
 					final int stage =
 							mTheory.toNumeral(appterm.getParameters()[1].getSort().getIndices()[0]).intValue() - 1;
-					final Term[] remainder = createBoolVarArray(conjunction.length);
-					final Term[] product = multiplier(encTerm, encB, stage);
+					final Term[] remainder;
+					final Term[] product;
+					if (fsym.getName().equals("bvudiv")) {
+						remainder = createBoolVarArray(conjunction.length);
+						product = multiplier(encTerm, encB, stage);
+					} else if (fsym.getName().equals("bvurem")) {
+						remainder = encTerm;
+						product = multiplier(createBoolVarArray(conjunction.length), encB, stage);
+					} else {
+						throw new UnsupportedOperationException(
+								"Unsupported functionsymbol for bitblasting: " + fsym.getName());
+					}
+					for (int i = 0; i < product.length; i++) {
+						product[i] = createAuxVar(product[i]);
+					}
 					final Term[] sum = adder(product, remainder, mTheory.mFalse).getFirst();
+					for (int i = 0; i < sum.length; i++) {
+						sum[i] = createAuxVar(sum[i]);
+					}
 					//	Term lhs = (encB != False);
 					final Term lhs = mTheory.or(encB);
-					final Term bvult = mTheory.not(adder(remainder, negate(encB), mTheory.mTrue).getSecond());
+					final Term bvult =
+							createAuxVar(mTheory.not(adder(remainder, negate(encB), mTheory.mTrue).getSecond()));
 					for (int i = 0; i < conjunction.length; i++) {
 						conjunction[i] = mTheory.and(
 								mTheory.or(mTheory.not(sum[i]), encA[i]),
@@ -297,11 +316,10 @@ public class BitBlaster {
 
 					final Term remainderConstraint = mTheory.and(mTheory.or(mTheory.not(lhs), bvult),
 							mTheory.or(lhs, mTheory.not(bvult)));
+
 					cnfToClause((ApplicationTerm) toCNF(remainderConstraint));
 
 					return mTheory.and(mTheory.and(conjunction), remainderConstraint);
-				}
-				case "bvurem":
 
 				default:
 					throw new UnsupportedOperationException(
@@ -376,7 +394,7 @@ public class BitBlaster {
 		final Term[] sumResult = new Term[encA.length];
 		final Term[] carryBits = carryBits(encA, encB, cin);
 		for (int i = 0; i < encA.length; i++) {
-			sumResult[i] = sumAdder(encA[i], encB[i], carryBits[i]);
+			sumResult[i] = sumAdder(encA[i], encB[i], createAuxVar(carryBits[i]));
 		}
 		final Term cout = carryBits[carryBits.length - 1];
 		return new Pair<>(sumResult, cout);
@@ -396,10 +414,10 @@ public class BitBlaster {
 		return boolvarmap;
 	}
 
-	// create all auxiliary variables representing an bitvector
+
+	// create all bool variables representing an bitvector
 	private Term[] createBoolVarArray(final int indices) {
 		final Term[] boolvarArray = new Term[indices];
-
 		for (int i = 0; i < indices; i++) {
 			final String stageRec = "aux_" + i;
 			final TermVariable boolVar = mTheory.createFreshTermVariable(stageRec, mTheory.getSort("Bool"));
@@ -409,6 +427,28 @@ public class BitBlaster {
 
 		return boolvarArray;
 	}
+
+	/*
+	 * Check if a aux var helps in the cnf process
+	 * If (appterm.getParameters().length > 1), create auxvar and add it to cnf
+	 * Else return input
+	 */
+	private Term createAuxVar(final Term represented) {
+		if (represented instanceof ApplicationTerm) {
+			final ApplicationTerm appterm = (ApplicationTerm) represented;
+			if (appterm.getParameters().length > 1) { // Maybe only worth, if appterm is a conjunction
+				final TermVariable boolVar = mTheory.createFreshTermVariable("AuxVar", mTheory.getSort("Bool"));
+				mBoolAtoms.put(boolVar, new BooleanVarAtom(boolVar, mStackLevel));
+				cnfToClause((ApplicationTerm) toCNF(
+						mTheory.and(mTheory.or(mTheory.not(boolVar), represented),
+								mTheory.or(mTheory.not(represented), boolVar))));
+				return boolVar;
+			}
+		}
+		//Probably not worth to add the Aux Var
+		return represented;
+	}
+
 
 	/*
 	 * Barrel Shifter
@@ -422,7 +462,6 @@ public class BitBlaster {
 		final Term[] encB = mEncTerms.get(b);
 		final Term[] shiftResult = new Term[encA.length];
 
-
 		// Log Base 2, rounded up
 		final int logTwo = (int) Math.ceil((float) (Math.log(encA.length) / Math.log(2)));
 		final Term[][] boolvarmap = createBoolVarMap(logTwo, encA.length);
@@ -433,14 +472,8 @@ public class BitBlaster {
 				disj.add(encB[k]);
 			}
 			final Term disjunction = listToDisjunction(disj, false);
-
-			// final TermVariable auxVarDisj = mTheory.createFreshTermVariable("shift_op", mTheory.getSort("Bool"));
-			// mBoolAtoms.put(auxVarDisj, new BooleanVarAtom(auxVarDisj, mStackLevel));
-			// cnfToClause((ApplicationTerm) toCNF(mTheory.and(mTheory.or(mTheory.not(auxVarDisj), disjunction),
-			// mTheory.or(mTheory.not(disjunction), auxVarDisj))));
-			final Term auxVarDisj = disjunction;
-			shiftResult[i] = mTheory.and(mTheory.or(mTheory.not(auxVarDisj), mTheory.mFalse),
-					mTheory.or(mTheory.or(auxVarDisj), boolvarmap[logTwo - 1][i]));
+			shiftResult[i] = mTheory.and(mTheory.or(mTheory.not(disjunction), mTheory.mFalse),
+					mTheory.or(mTheory.or(disjunction), boolvarmap[logTwo - 1][i]));
 		}
 		// Only consider stages smaller than maximal shift distance
 		stage = logTwo;
@@ -560,7 +593,6 @@ public class BitBlaster {
 			}
 			final Term[] ifte = new Term[size];
 			for (int i = 0; i < size; i++) {
-
 				if (encB[i].equals(mTheory.mTrue)) {
 					ifte[i] = mTheory.or(mTheory.not(encB[s]), shift[i]);
 				} else if (encB[i].equals(mTheory.mFalse)) {
@@ -576,7 +608,6 @@ public class BitBlaster {
 			final Term[] sum = adder(mul, ifte, mTheory.mFalse).getFirst();
 			for (int i = 0; i < size; i++) {
 				// boolvarmap[s][i] <=> sum[i]
-				// System.out.println(boolvarmap[s][i] + " = " + sum[i]);
 				cnfToClause((ApplicationTerm) toCNF(mTheory.and(mTheory.or(mTheory.not(boolvarmap[s][i]), sum[i]),
 						mTheory.or(mTheory.not(sum[i]), boolvarmap[s][i]))));
 			}
@@ -594,7 +625,6 @@ public class BitBlaster {
 				ifte[i] = mTheory.or(mTheory.not(encB[stage]), shift[i]);
 			} else if (encB[i].equals(mTheory.mFalse)) {
 				ifte[i] = mTheory.or(encB[stage], mTheory.mFalse);
-
 			} else {
 				// mTheory.ifthenelse(encB[stage], shift[i], mTheory.mFalse);
 				ifte[i] = mTheory.and(
@@ -712,4 +742,11 @@ public class BitBlaster {
 		return mClauses;
 	}
 
+	public Literal[] getNegatedInputLiterals() {
+		final Literal[] lit = new Literal[mLiterals.size()];
+		for (int i = 0; i < mLiterals.size(); i++) {
+			lit[i] = mLiterals.get(i).negate();
+		}
+		return lit;
+	}
 }

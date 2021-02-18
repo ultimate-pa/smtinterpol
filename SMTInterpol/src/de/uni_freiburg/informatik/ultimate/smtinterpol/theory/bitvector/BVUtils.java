@@ -170,9 +170,7 @@ public class BVUtils {
 	}
 
 	public Term optimizeConcat(final FunctionSymbol fsym, final Term lhs, final Term rhs) {
-		if (!fsym.getName().equals("concat")) {
-			throw new UnsupportedOperationException("unknown function symbol: " + fsym.getName());
-		}
+		assert fsym.getName().equals("concat");
 		final String result = "#b" + getConstAsString((ConstantTerm) lhs)
 		.concat(getConstAsString((ConstantTerm) rhs));
 		final Term concat = mTheory.binary(result);
@@ -224,16 +222,13 @@ public class BVUtils {
 	public Term optimizeNEG(final FunctionSymbol fsym, final Term term) {
 		final String resultconst = "#b";
 		final String termAsString = getConstAsString((ConstantTerm) term);
-		if (fsym.getName().equals("bvneg")) {
-			for (int i = 0; i < termAsString.length(); i++) {
-				if (termAsString.charAt(termAsString.length() - 1 - i) == '1') {
+		assert fsym.getName().equals("bvneg");
+		for (int i = 0; i < termAsString.length(); i++) {
+			if (termAsString.charAt(termAsString.length() - 1 - i) == '1') {
 
-				} else {
+			} else {
 
-				}
 			}
-		} else {
-			throw new UnsupportedOperationException("unknown function symbol: " + fsym.getName());
 		}
 		return mTheory.binary(resultconst);
 	}
@@ -242,17 +237,15 @@ public class BVUtils {
 	public Term optimizeNOT(final FunctionSymbol fsym, final Term term) {
 		String resultconst = "#b";
 		final String termAsString = getConstAsString((ConstantTerm) term);
-		if (fsym.getName().equals("bvnot")) {
-			for (int i = 0; i < termAsString.length(); i++) {
-				if (termAsString.charAt(termAsString.length() - 1 - i) == '1') {
-					resultconst = resultconst + "0";
-				} else {
-					resultconst = resultconst + "1";
-				}
+		assert fsym.getName().equals("bvnot");
+		for (int i = 0; i < termAsString.length(); i++) {
+			if (termAsString.charAt(termAsString.length() - 1 - i) == '1') {
+				resultconst = resultconst + "0";
+			} else {
+				resultconst = resultconst + "1";
 			}
-		} else {
-			throw new UnsupportedOperationException("unknown function symbol: " + fsym.getName());
 		}
+
 		return mTheory.binary(resultconst);
 	}
 
@@ -263,15 +256,12 @@ public class BVUtils {
 		// (_ extract 7 7) 10000000 = 1
 		// Result length = i - j + 1
 		String resultconst = "#b";
-		if (fsym.getName().equals("extract")) {
-			final String parameterAsString = getConstAsString((ConstantTerm) term);
-			final int size = parameterAsString.length();
-			final int idx1 = size - Integer.parseInt(fsym.getIndices()[1]);
-			final int idx2 = size - Integer.parseInt(fsym.getIndices()[0]) - 1;
-			resultconst = resultconst + parameterAsString.substring(idx2, idx1);
-		} else {
-			throw new UnsupportedOperationException("unknown function symbol: " + fsym.getName());
-		}
+		assert fsym.getName().equals("extract");
+		final String parameterAsString = getConstAsString((ConstantTerm) term);
+		final int size = parameterAsString.length();
+		final int idx1 = size - Integer.parseInt(fsym.getIndices()[1]);
+		final int idx2 = size - Integer.parseInt(fsym.getIndices()[0]) - 1;
+		resultconst = resultconst + parameterAsString.substring(idx2, idx1);
 		return mTheory.binary(resultconst);
 	}
 
@@ -323,7 +313,6 @@ public class BVUtils {
 					return appterm;
 				}
 				case "bvslt": {
-					System.out.println(mTheory.term(extract, appterm.getParameters()[0]));
 					final Term equiBvult = theory.or(theory.and(
 							theory.term("=",
 									theory.term(extract, appterm.getParameters()[0]),
@@ -336,7 +325,6 @@ public class BVUtils {
 									theory.term(extract, appterm.getParameters()[1]))),
 
 							theory.term("bvult", appterm.getParameters()[0], appterm.getParameters()[1]));
-					System.out.println(equiBvult.toStringDirect());
 					return equiBvult;
 				}
 				case "bvule": {
@@ -357,7 +345,7 @@ public class BVUtils {
 									theory.term(extract, appterm.getParameters()[0]),
 									theory.term(extract, appterm.getParameters()[1]))),
 							theory.term("bvule", appterm.getParameters()[0], appterm.getParameters()[1]));
-					System.out.println(equiBvule.toStringDirect());
+
 					return equiBvule;
 				}
 				case "bvugt": {

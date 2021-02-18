@@ -1,5 +1,7 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.bitvector;
 
+import java.util.ArrayDeque;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
@@ -14,6 +16,11 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ITheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.LeafNode;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ResolutionNode;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ResolutionNode.Antecedent;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.util.IdentityHashSet;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
 
 /**
@@ -133,7 +140,7 @@ public class BitVectorTheory implements ITheory {
 
 		final DPLLEngine engine = new DPLLEngine(mClausifier.getLogger(), () -> false); // TODO terminationrequest
 		// TODO fill mAllTerms
-
+		engine.setProofGeneration(true);
 		final ScopedArrayList<Literal> allLiterals = mBVLiterals;
 		final int engineStackLevel = engine.getAssertionStackLevel();
 		final BitBlaster bitblaster = new BitBlaster(getTheory(), engineStackLevel, allLiterals, mAllTerms);
@@ -157,14 +164,52 @@ public class BitVectorTheory implements ITheory {
 				System.out.println("Model: " + t);
 			}
 		} else {
-			final Literal[] unsat = engine.getUnsatAssumptions(); // always 0
-			System.out.println("DPLL: " + unsat.length);
+			final Clause unsat = engine.getProof();
 			for (final Term lit : engine.getSatisfiedLiterals(getTheory())) {
 				System.out.println("Unsat: " + lit);
 			}
-			return new Clause(unsat, mClausifier.getStackLevel());
+			System.out.println(unsat.getProof());
+			// System.out.println(getUnsatCore(unsat));
+			return new Clause(bitblaster.getNegatedInputLiterals(), mClausifier.getStackLevel());
+			// return new Clause(getUnsatCore(unsat), mClausifier.getStackLevel());
+			// negierter conflict als clausel
+			// return new Clause(unsat, mClausifier.getStackLevel());
 		}
 		return null;
+	}
+
+	private HashSet<Clause> getUnsatCore(final Clause unsat) {
+		final HashSet<Clause> res = new HashSet<>();
+		final ArrayDeque<Clause> todo = new ArrayDeque<>();
+		todo.push(unsat);
+		final IdentityHashSet<Clause> visited = new IdentityHashSet<>();
+		while (!todo.isEmpty()) {
+			final Clause c = todo.pop();
+			if (visited.add(c)) {
+				if (c.getProof() != null) {
+					System.out.println("aaaaa");
+
+				}
+				if (c.getProof().isLeaf()) {
+					final LeafNode l = (LeafNode) c.getProof();
+					// Tautologies are not needed in an unsat core
+					if (l.getLeafKind() == LeafNode.NO_THEORY
+							&& l.getTheoryAnnotation() instanceof SourceAnnotation) {
+						// TODO if atom aus orginal formel
+						System.out.println(c);
+						res.add(c);
+					}
+				} else {
+					final ResolutionNode n = (ResolutionNode) c.getProof();
+					todo.push(n.getPrimary());
+					final Antecedent[] ants = n.getAntecedents();
+					for (final Antecedent a : ants) {
+						todo.push(a.mAntecedent);
+					}
+				}
+			}
+		}
+		return res;
 	}
 
 	@Override
