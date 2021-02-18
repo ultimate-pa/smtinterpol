@@ -48,6 +48,9 @@ public class DataTypeTheory implements ITheory {
 	}
 	
 	public void addPendingEquality(SymmetricPair<CCTerm> eq, ArrayList<SymmetricPair<CCTerm>> reason) {
+		if (eq.getFirst() == eq.getSecond()) {
+			return;
+		}
 		mPendingEqualities.add(eq);
 		mEqualityReasons.put(eq, reason);
 	}
@@ -309,6 +312,7 @@ public class DataTypeTheory implements ITheory {
 
 	@Override
 	public Clause backtrackComplete() {
+		mPendingEqualities.clear();
 		ArrayQueue<CCTerm> newRecheckOnBacktrack = new ArrayQueue<>();
 		while (!mRecheckOnBacktrack.isEmpty()) {
 			ApplicationTerm constructor = null;
