@@ -18,6 +18,8 @@
  */
 package de.uni_freiburg.informatik.ultimate.logic;
 
+import de.uni_freiburg.informatik.ultimate.util.HashUtils;
+
 /**
  * Represents a function symbol.  Each function symbol has a name, a sort and
  * zero or more parameter sorts.  A constant symbol is represented as a function
@@ -49,6 +51,7 @@ public class FunctionSymbol {
 	final int mFlags;
 	final TermVariable[] mDefinitionVars;
 	final Term mDefinition;
+	final int mHash;
 
 	FunctionSymbol(String n, String[] i, Sort[] params, Sort result,
 			TermVariable[] definitionVars, Term definition, int flags) {
@@ -75,11 +78,17 @@ public class FunctionSymbol {
 			throw new IllegalArgumentException(
 					"Wrong sorts for chainable symbol");
 		}
+		int hash = HashUtils.hashJenkins(mName.hashCode(), mParamSort);
+		if (mIndices != null) hash = HashUtils.hashJenkins(hash, mIndices);
+		if (mReturnSort != null) hash = HashUtils.hashJenkins(hash, mReturnSort);
+		mHash = hash;
 	}
 
 	@Override
 	public int hashCode() {
-		return mName.hashCode();
+//		return mIndices == null ? mName.hashCode() : HashUtils.hashJenkins(mName.hashCode(), mIndices);
+//		return mName.hashCode();
+		return mHash;
 	}
 
 	/**

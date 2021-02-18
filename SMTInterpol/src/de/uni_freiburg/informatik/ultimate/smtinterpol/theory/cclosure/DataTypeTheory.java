@@ -242,7 +242,8 @@ public class DataTypeTheory implements ITheory {
 	public Literal getPropagatedLiteral() {
 		if (!mPendingEqualities.isEmpty()) {
 			SymmetricPair<CCTerm> eqPair = mPendingEqualities.poll();
-			return mCClosure.createCCEquality(mClausifier.getStackLevel(), eqPair.getFirst(), eqPair.getSecond());
+			//return mCClosure.createCCEquality(mClausifier.getStackLevel(), eqPair.getFirst(), eqPair.getSecond());
+			return mCClosure.createEquality(eqPair.getFirst(), eqPair.getSecond(), false);
 		}
 		return null;
 	}
