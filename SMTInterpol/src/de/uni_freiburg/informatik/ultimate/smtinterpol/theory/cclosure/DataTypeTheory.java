@@ -48,11 +48,23 @@ public class DataTypeTheory implements ITheory {
 	}
 	
 	public void addPendingEquality(SymmetricPair<CCTerm> eq, ArrayList<SymmetricPair<CCTerm>> reason) {
-		if (eq.getFirst() == eq.getSecond()) {
+		if (eq.getFirst() == eq.getSecond() || eq.getFirst().mRepStar == eq.getSecond().mRepStar) {
 			return;
 		}
 		mPendingEqualities.add(eq);
 		mEqualityReasons.put(eq, reason);
+		
+//		if (mEqualityReasons.containsKey(eq)) {
+//			// check if exisiting reason still holds
+//			for (SymmetricPair<CCTerm> pair : mEqualityReasons.get(eq)) {
+//				if (pair.getFirst().mRepStar != pair.getSecond().mRepStar) {
+//					mEqualityReasons.put(eq, reason);
+//					return;
+//				}
+//			}
+//		} else {
+//			mEqualityReasons.put(eq, reason);
+//		}
 	}
 	
 	public void addConflict(Clause clause) {
