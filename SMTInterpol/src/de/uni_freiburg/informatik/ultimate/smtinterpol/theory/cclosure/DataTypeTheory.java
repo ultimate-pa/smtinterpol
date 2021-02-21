@@ -195,13 +195,15 @@ public class DataTypeTheory implements ITheory {
 		Set<CCTerm> visitedOnPath = new LinkedHashSet<>();
 		Deque<CCTerm> todo = new ArrayDeque<>();
 		Map<CCTerm, SymmetricPair<CCTerm>> argConsPairs = new LinkedHashMap<>();
+		Set<CCTerm> possibleCons = new LinkedHashSet<>();
+		
 		for (CCTerm start : mCClosure.mAllTerms) {
 			if (start == start.mRepStar && start.mFlatTerm != null && start.mFlatTerm.getSort().getSortSymbol().isDatatype()) {
 				todo.push(start);
 				
 				while (!todo.isEmpty()) {
-					CCTerm ct = todo.pop();
-					CCTerm rep = ct.mRepStar;
+					final CCTerm ct = todo.pop();
+					final CCTerm rep = ct.mRepStar;
 					if (visited.contains(rep)) {
 						if (path.peek() == rep) {
 							path.pop();
@@ -209,11 +211,36 @@ public class DataTypeTheory implements ITheory {
 						} else if (visitedOnPath.contains(rep)) {
 							// build and return conflict clause
 							Set<Literal> literals = new HashSet<>();
+							CCTerm lastCt = ct;
 							while (!path.isEmpty()) {
 								CCTerm pathRep = path.pop();
 								SymmetricPair<CCTerm> pair = argConsPairs.get(pathRep);
-								assert pathRep != null;
+								
+								// if it is not sure that pathRep is the matching constructor to the selector (lastCT)
+								// build an is-function
+								if (possibleCons.contains(pathRep)) {
+									String selName = ((ApplicationTerm) lastCt.mFlatTerm).getFunction().getName();
+									Sort repSort = pathRep.mFlatTerm.getSort();
+									for (Constructor c : ((DataType) repSort.getSortSymbol()).getConstructors()) {
+										for (String s : c.getSelectors()) {
+											if (s.equals(selName)) {
+												Term isTerm = mTheory.term(mTheory.getFunctionWithResult("is", new String[] {c.getName()}, null, repSort), pair.getFirst().mFlatTerm);
+												CCTerm isCCTerm = mClausifier.createCCTerm(isTerm, SourceAnnotation.EMPTY_SOURCE_ANNOT);
+												return null;
+											}
+										}
+									}
+									mClausifier.getLogger().error("Should have found the matching constructor to %s", selName);
+									return null;
+								}								
+								
 								CongruencePath cp = new CongruencePath(mCClosure);
+
+								// pair.getSecond() == null, means lastCt must be a selector application on rep
+								if (pair.getSecond() == null) {
+									pair = new SymmetricPair<CCTerm>(pair.getFirst(), ((CCAppTerm)lastCt).mArg);
+								}
+								
 								if (rep == pathRep) {
 									cp.computePath(ct, pair.getSecond());
 									literals.addAll(cp.mAllLiterals);
@@ -221,6 +248,7 @@ public class DataTypeTheory implements ITheory {
 								}
 								cp.computePath(pair.getFirst(), pair.getSecond());
 								literals.addAll(cp.mAllLiterals);
+								lastCt = pair.getFirst();
 							}
 							Literal[] negLits = new Literal[literals.size()];
 							int i = 0;
@@ -232,8 +260,10 @@ public class DataTypeTheory implements ITheory {
 						}
 						continue;
 					}
+					boolean foundConstructor = false;
 					for (CCTerm mem : rep.mMembers) {
 						if (mem.mFlatTerm instanceof ApplicationTerm && ((ApplicationTerm)mem.mFlatTerm).getFunction().isConstructor()) {
+							foundConstructor = true;
 							path.push(rep);
 							visitedOnPath.add(rep);
 							todo.push(ct);
@@ -255,6 +285,49 @@ public class DataTypeTheory implements ITheory {
 								}
 							}
 							break;
+						}
+					}
+
+					if (!foundConstructor) {
+						CCTerm trueRep = mClausifier.getCCTerm(mTheory.mTrue).mRepStar;
+//						CCTerm falseRep = mClausifier.getCCTerm(mTheory.mFalse).mRepStar;
+						Set<CCTerm> selectors = new LinkedHashSet<>();
+						Set<String> rightSelectors = new LinkedHashSet<>();
+						Set<String> falseSelectors = new LinkedHashSet<>();
+						CCParentInfo pInfo = rep.mCCPars;
+						while (pInfo != null) {
+							if (pInfo.mCCParents != null && pInfo.mCCParents.iterator().hasNext()) {
+								CCAppTerm p = pInfo.mCCParents.iterator().next().getData();
+								if (p.mFlatTerm instanceof ApplicationTerm) {
+									FunctionSymbol pFun = ((ApplicationTerm) p.mFlatTerm).getFunction();
+									if (pFun.isSelector() && p.mFlatTerm.getSort().getSortSymbol().isDatatype()) {
+										selectors.add(p);
+									} else if (pFun.getName().equals("is")) {
+										Constructor c = ((DataType)rep.mFlatTerm.getSort().getSortSymbol()).findConstructor(pFun.getIndices()[0]);
+										if (p.mRepStar == trueRep) {
+											rightSelectors.addAll(Arrays.asList(c.getSelectors()));
+										} else {
+											falseSelectors.addAll(Arrays.asList(c.getSelectors()));
+										}
+									}
+								}
+							}
+							pInfo = pInfo.mNext;
+						}
+						
+						if (!selectors.isEmpty()) {
+							path.push(rep);
+							visitedOnPath.add(rep);
+							todo.push(ct);
+							argConsPairs.put(rep, new SymmetricPair<CCTerm>(ct, null));
+						}
+						
+						for (CCTerm s : selectors) {
+							String fsName = ((ApplicationTerm)s.mFlatTerm).getFunction().getName();
+							if ((!rightSelectors.isEmpty() && rightSelectors.contains(fsName)) || !falseSelectors.contains(fsName)) {
+								todo.push(s);
+								if (!rightSelectors.contains(fsName)) possibleCons.add(rep);
+							}
 						}
 					}
 					visited.add(rep);
