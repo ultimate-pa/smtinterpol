@@ -128,6 +128,7 @@ public class DataTypeTheory implements ITheory {
 								for (Literal l : lits) {
 									negLits[i++] = l.negate();
 								}
+								mClausifier.getLogger().debug("Conflict: Rule 9");
 								return new Clause(negLits);
 							}
 						}
@@ -161,6 +162,7 @@ public class DataTypeTheory implements ITheory {
 					for (CCTerm isFun : isIndices.values()) {
 						CongruencePath cp = new CongruencePath(mCClosure);
 						cp.computePath(isFun, falseRep);
+						cp.computePath(((CCAppTerm)isFun).mArg, cct);
 						lits.addAll(cp.mAllLiterals);
 					}
 					Literal[] negLits = new Literal[lits.size()];
@@ -168,6 +170,7 @@ public class DataTypeTheory implements ITheory {
 					for (Literal l : lits) {
 						negLits[i++] = l.negate();
 					}
+					mClausifier.getLogger().debug("Conflict: Rule 6");
 					return new Clause(negLits);
 				}
 			}
@@ -178,7 +181,10 @@ public class DataTypeTheory implements ITheory {
 			Rule5(ct);
 			
 			Clause cl = Rule8(ct);
-			if (cl != null) return cl;
+			if (cl != null) {
+				mClausifier.getLogger().debug("Conflict: Rule 8");
+				return cl;
+			}
 		}
 		
 		
@@ -195,7 +201,7 @@ public class DataTypeTheory implements ITheory {
 		Set<CCTerm> visitedOnPath = new LinkedHashSet<>();
 		Deque<CCTerm> todo = new ArrayDeque<>();
 		Map<CCTerm, SymmetricPair<CCTerm>> argConsPairs = new LinkedHashMap<>();
-		Set<CCTerm> possibleCons = new LinkedHashSet<>();
+		Map<CCTerm, CCAppTerm> possibleCons = new LinkedHashMap<>();
 		
 		for (CCTerm start : mCClosure.mAllTerms) {
 			if (start == start.mRepStar && start.mFlatTerm != null && start.mFlatTerm.getSort().getSortSymbol().isDatatype()) {
@@ -215,26 +221,31 @@ public class DataTypeTheory implements ITheory {
 							while (!path.isEmpty()) {
 								CCTerm pathRep = path.pop();
 								SymmetricPair<CCTerm> pair = argConsPairs.get(pathRep);
+								CongruencePath cp = new CongruencePath(mCClosure);
 								
 								// if it is not sure that pathRep is the matching constructor to the selector (lastCT)
 								// build an is-function
-								if (possibleCons.contains(pathRep)) {
-									String selName = ((ApplicationTerm) lastCt.mFlatTerm).getFunction().getName();
-									Sort repSort = pathRep.mFlatTerm.getSort();
-									for (Constructor c : ((DataType) repSort.getSortSymbol()).getConstructors()) {
-										for (String s : c.getSelectors()) {
-											if (s.equals(selName)) {
-												Term isTerm = mTheory.term(mTheory.getFunctionWithResult("is", new String[] {c.getName()}, null, repSort), pair.getFirst().mFlatTerm);
-												CCTerm isCCTerm = mClausifier.createCCTerm(isTerm, SourceAnnotation.EMPTY_SOURCE_ANNOT);
-												return null;
+								if (possibleCons.containsKey(pathRep)) {
+									CCAppTerm isFun = possibleCons.get(pathRep);
+									if (isFun == null) {
+										String selName = ((ApplicationTerm) lastCt.mFlatTerm).getFunction().getName();
+										Sort repSort = pathRep.mFlatTerm.getSort();
+										for (Constructor c : ((DataType) repSort.getSortSymbol()).getConstructors()) {
+											for (String s : c.getSelectors()) {
+												if (s.equals(selName)) {
+													Term isTerm = mTheory.term(mTheory.getFunctionWithResult("is", new String[] {c.getName()}, null, repSort), pair.getFirst().mFlatTerm);
+													CCTerm isCCTerm = mClausifier.createCCTerm(isTerm, SourceAnnotation.EMPTY_SOURCE_ANNOT);
+													return null;
+												}
 											}
 										}
+										mClausifier.getLogger().error("Should have found the matching constructor to %s", selName);
+										return null;
+									} else {
+										cp.computePath(isFun, mClausifier.getCCTerm(mTheory.mTrue));
 									}
-									mClausifier.getLogger().error("Should have found the matching constructor to %s", selName);
-									return null;
 								}								
 								
-								CongruencePath cp = new CongruencePath(mCClosure);
 
 								// pair.getSecond() == null, means lastCt must be a selector application on rep
 								if (pair.getSecond() == null) {
@@ -290,9 +301,9 @@ public class DataTypeTheory implements ITheory {
 
 					if (!foundConstructor) {
 						CCTerm trueRep = mClausifier.getCCTerm(mTheory.mTrue).mRepStar;
-//						CCTerm falseRep = mClausifier.getCCTerm(mTheory.mFalse).mRepStar;
 						Set<CCTerm> selectors = new LinkedHashSet<>();
 						Set<String> rightSelectors = new LinkedHashSet<>();
+						CCAppTerm trueIsFunction = null;
 						Set<String> falseSelectors = new LinkedHashSet<>();
 						CCParentInfo pInfo = rep.mCCPars;
 						while (pInfo != null) {
@@ -306,6 +317,7 @@ public class DataTypeTheory implements ITheory {
 										Constructor c = ((DataType)rep.mFlatTerm.getSort().getSortSymbol()).findConstructor(pFun.getIndices()[0]);
 										if (p.mRepStar == trueRep) {
 											rightSelectors.addAll(Arrays.asList(c.getSelectors()));
+											trueIsFunction = p;
 										} else {
 											falseSelectors.addAll(Arrays.asList(c.getSelectors()));
 										}
@@ -326,7 +338,8 @@ public class DataTypeTheory implements ITheory {
 							String fsName = ((ApplicationTerm)s.mFlatTerm).getFunction().getName();
 							if ((!rightSelectors.isEmpty() && rightSelectors.contains(fsName)) || !falseSelectors.contains(fsName)) {
 								todo.push(s);
-								if (!rightSelectors.contains(fsName)) possibleCons.add(rep);
+//								if (!rightSelectors.contains(fsName)) possibleCons.add(rep);
+								possibleCons.put(rep, trueIsFunction);
 							}
 						}
 					}
