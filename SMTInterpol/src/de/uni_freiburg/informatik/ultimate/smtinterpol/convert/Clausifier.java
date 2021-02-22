@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -39,6 +40,7 @@ import de.uni_freiburg.informatik.ultimate.logic.DataType.Constructor;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
+import de.uni_freiburg.informatik.ultimate.logic.MatchTerm;
 import de.uni_freiburg.informatik.ultimate.logic.OccurrenceCounter;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
@@ -1117,6 +1119,9 @@ public class Clausifier {
 					addExcludedMiddleAxiom(term, source);
 				}
 			}
+			if (term instanceof MatchTerm) {
+				addMatchAxiom((MatchTerm) term, source);
+			}
 		}
 		if (!mIsRunning) {
 			run();
@@ -1667,6 +1672,33 @@ public class Clausifier {
 		axiom = theory.term("or", falseLit.getSMTFormula(theory, true), term);
 		axiom = mTracker.auxAxiom(axiom, ProofConstants.AUX_EXCLUDED_MIDDLE_2);
 		buildAuxClause(falseLit, axiom, source);
+	}
+	
+	public void addMatchAxiom(final MatchTerm term, final SourceAnnotation source) {
+		final Theory theory = term.getTheory();
+		final FormulaUnLet unlet = new FormulaUnLet();
+		int c_i = 0;
+		for (Constructor c : term.getConstructors()) {
+			// substitute argument TermVariables with the according selector function
+			int s_i = 0;
+			Map<TermVariable, Term> argSubs = new LinkedHashMap<>();
+			for (String sel : c.getSelectors()) {
+				Term selTerm = theory.term(theory.getFunctionSymbol(sel), term.getDataTerm());
+				argSubs.put(term.getVariables()[c_i][s_i++], selTerm);
+			}
+			unlet.addSubstitutions(argSubs);
+			
+			// build is-condition
+			FunctionSymbol isFs = theory.getFunctionWithResult("is", new String[] {c.getName()}, null, term.getSort());
+			Term isTerm = theory.term(isFs, term.getDataTerm());
+			final Literal isTermFalse = createEqualityProxy(isTerm, theory.mFalse, source).getLiteral(source); 
+			
+			// build implicated equality
+			final Literal caseLit = createEqualityProxy(term, unlet.unlet(term.getCases()[c_i++]), source).getLiteral(source);
+			Term axiom = theory.term("or", isTermFalse.getSMTFormula(theory), caseLit.getSMTFormula(theory));
+			
+			buildClause(axiom, source);
+		}
 	}
 
 	/**
