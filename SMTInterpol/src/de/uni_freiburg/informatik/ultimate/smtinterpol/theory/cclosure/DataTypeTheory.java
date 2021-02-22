@@ -301,7 +301,7 @@ public class DataTypeTheory implements ITheory {
 
 					if (!foundConstructor) {
 						CCTerm trueRep = mClausifier.getCCTerm(mTheory.mTrue).mRepStar;
-						Set<CCTerm> selectors = new LinkedHashSet<>();
+						Set<CCAppTerm> selectors = new LinkedHashSet<>();
 						Set<String> rightSelectors = new LinkedHashSet<>();
 						CCAppTerm trueIsFunction = null;
 						Set<String> falseSelectors = new LinkedHashSet<>();
@@ -334,11 +334,32 @@ public class DataTypeTheory implements ITheory {
 							argConsPairs.put(rep, new SymmetricPair<CCTerm>(ct, null));
 						}
 						
-						for (CCTerm s : selectors) {
+						for (CCAppTerm s : selectors) {
 							String fsName = ((ApplicationTerm)s.mFlatTerm).getFunction().getName();
 							if ((!rightSelectors.isEmpty() && rightSelectors.contains(fsName)) || !falseSelectors.contains(fsName)) {
+								if (s.mRepStar == rep) {
+									// if the selector is in the same class as its argument it is a cycle
+									// but only if the argument is the right constructor
+									if (trueIsFunction == null) {
+										Constructor cons = getConstructor((ApplicationTerm) s.mFlatTerm);
+										Term isTerm = mTheory.term(mTheory.getFunctionWithResult("is", new String[] {cons.getName()}, null, rep.mFlatTerm.getSort()), s.mArg.mFlatTerm);
+										mClausifier.createCCTerm(isTerm, SourceAnnotation.EMPTY_SOURCE_ANNOT);
+										return null;
+									} else {
+										CongruencePath cp = new CongruencePath(mCClosure);
+										cp.computePath(mClausifier.getCCTerm(mTheory.mTrue), trueIsFunction);
+										cp.computePath(trueIsFunction.mArg, s.mArg);
+										cp.computePath(s, s.mArg);
+										int i = 0;
+										Literal[] negLits = new Literal[cp.mAllLiterals.size()];
+										for (Literal l : cp.mAllLiterals) {
+											negLits[i++] = l.negate();
+										}
+										return new Clause(negLits);
+									}
+								}
+								
 								todo.push(s);
-//								if (!rightSelectors.contains(fsName)) possibleCons.add(rep);
 								possibleCons.put(rep, trueIsFunction);
 							}
 						}
@@ -678,6 +699,24 @@ public class DataTypeTheory implements ITheory {
 		}
 		mInfinityMap.put(sort, false);
 		return false;
+	}
+	
+	private Constructor getConstructor(ApplicationTerm selector) {
+		if (!selector.getFunction().isSelector()) return null;
+		
+		String selName = selector.getFunction().getName();
+		if (mSelectorMap.containsKey(selector.getFunction().getName())) return mSelectorMap.get(selector.getFunction().getName());
+		
+		for (Constructor c : ((DataType)selector.getParameters()[0].getSort().getSortSymbol()).getConstructors()) {
+			for (String s : c.getSelectors()) {
+				if (s.equals(selName)) {
+					mSelectorMap.put(selName, c);
+					return c;
+				}
+			}
+		}
+		
+		return null;
 	}
 
 }
