@@ -488,7 +488,7 @@ public class CCInterpolator {
 					Term atom = mInterpolator.getAtom(lits[i]);
 					Term unquoted = mInterpolator.unquote(atom);
 					LitInfo litInfo = mInterpolator.getAtomOccurenceInfo(atom);
-					// Collect all A-local or shared literals. (We need to explicitly negate them,
+					// Collect all A-local literals. (We need to explicitly negate them,
 					// as we need the conflict literal.)
 					if (litInfo.isALocal(part)) {
 						terms.add(mTheory.not(lits[i]));

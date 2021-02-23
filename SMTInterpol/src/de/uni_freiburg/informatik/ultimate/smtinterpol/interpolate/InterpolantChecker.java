@@ -31,6 +31,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
+import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
@@ -407,7 +408,7 @@ public class InterpolantChecker {
 			for (Entry<TermVariable, Term> e : purVarToTerm.entrySet()) {
 				ApplicationTerm t = (ApplicationTerm) e.getValue();
 				Occurrence occ = mInterpolator.mSymbolOccurrenceInfos.get(t.getFunction().getName());
-				if (occ.contains(part) || activeVars.contains(e.getKey())) {
+				if (occ.contains(part) || activeVars.contains(e.getKey()) || true) {
 					Term tNew = fixVars(t, purVarToFreshTerm);
 					mCheckingSolver.assertTerm(theory.term("=", tNew, purVarToFreshTerm.get(e.getKey())));
 				}
