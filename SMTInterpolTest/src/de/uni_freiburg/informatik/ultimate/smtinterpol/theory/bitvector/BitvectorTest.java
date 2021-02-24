@@ -371,6 +371,56 @@ public class BitvectorTest {
 	}
 
 	@Test
+	public void bitVec2() {
+		mSolver.resetAssertions();
+		final Term input = mSolver.term("and", mSolver.term("=", mSolver.binary("#b1000"), p4),
+				mSolver.term("or", mSolver.term("not", mSolver.term("=", mSolver.binary("#b1011"), p4)),
+						mSolver.term("=", mSolver.binary("#b1001"), p4)));
+		mSolver.assertTerm(input);
+		final LBool isUnSat = mSolver.checkSat();
+		Assert.assertSame(LBool.SAT, isUnSat);
+		mSolver.reset();
+	}
+
+	// (= (concat (ite (not (= (_ bv0 1) (_ bv1 1))) (_ bv1 1) (_ bv0 1)) (_ bv0 1)) (_ bv2 2))
+	@Test
+	public void bitVec3() {
+		mSolver.resetAssertions();
+		final String[] constindices = new String[1];
+		constindices[0] = "1";
+		final String[] constindices2 = new String[1];
+		constindices2[0] = "2";
+
+		final Term input = mSolver.term("=", mSolver.term("concat",
+				mSolver.term("ite", mSolver.term("not", mSolver.term("=", mSolver.term("bv0", constindices, null),
+						p)),
+						mSolver.term("bv1", constindices, null), mSolver.term("bv0", constindices, null)),
+				mSolver.term("bv0", constindices, null)),
+				mSolver.term("bv2", constindices2, null));
+		mSolver.assertTerm(input);
+		final LBool isUnSat = mSolver.checkSat();
+		Assert.assertSame(LBool.SAT, isUnSat);
+		mSolver.reset();
+	}
+
+	@Test
+	public void bitVec4() {
+		mSolver.resetAssertions();
+		final String[] constindices = new String[1];
+		constindices[0] = "1";
+		final String[] constindices2 = new String[1];
+		constindices2[0] = "2";
+
+		final Term input = mSolver.term("not", mSolver.term("=", mSolver.term("concat",
+				mSolver.term("bv1", constindices, null), mSolver.term("bv0", constindices, null)),
+				mSolver.term("bv2", constindices2, null)));
+		mSolver.assertTerm(input);
+		final LBool isUnSat = mSolver.checkSat();
+		Assert.assertSame(LBool.UNSAT, isUnSat);
+		mSolver.reset();
+	}
+
+	@Test
 	public void bitVecLeftShiftUNSATOptimization() {
 		mSolver.resetAssertions();
 		final Term input = mSolver.term("=", mSolver.binary("#b00000001"),

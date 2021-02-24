@@ -213,7 +213,8 @@ public class TermCompiler extends TermTransformer {
 		if (fsym.isIntern()) {
 			if (fsym.getName().matches(BITVEC_CONST_PATTERN)) {
 				// BitVec Constants created using Theory.getFunctionWithResult()
-				setResult(convertedApp);
+				// Not an instanceof ConstantTerm! translate to #b... ConstantTerm
+				setResult(bvUtils.getBvConstAsBinaryConst((ApplicationTerm) convertedApp));
 				return;
 			}
 			switch (fsym.getName()) {
@@ -236,10 +237,12 @@ public class TermCompiler extends TermTransformer {
 				setResult(mUtils.convertIte(convertedApp));
 				return;
 			case "=":
-				final Term elimCM = bvUtils.eliminateConcatPerfectMatch(fsym, params);
-				if (elimCM != null) {
-					setResult(mUtils.convertAnd(elimCM));
-					return;
+				if (params[0].getSort().getName().equals("BitVec")) {
+					final Term elimCM = bvUtils.eliminateConcatPerfectMatch(fsym, params);
+					if (elimCM != null) {
+						setResult(mUtils.convertAnd(elimCM));
+						return;
+					}
 				}
 				setResult(mUtils.convertEq(convertedApp));
 				return;

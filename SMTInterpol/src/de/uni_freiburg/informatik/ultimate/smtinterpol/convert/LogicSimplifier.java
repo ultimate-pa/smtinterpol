@@ -29,6 +29,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.IProofTracker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.bitvector.BVUtils;
 
 /**
  * Helper class that can be used by other term transformers to build partial
@@ -64,7 +65,7 @@ public class LogicSimplifier {
 			return mTracker.transitivity(input, rewrite);
 		}
 		if ((arg instanceof ApplicationTerm)
-			&& ((ApplicationTerm) arg).getFunction().getName().equals("not")) {
+				&& ((ApplicationTerm) arg).getFunction().getName().equals("not")) {
 			final Term res = ((ApplicationTerm) arg).getParameters()[0];
 			final Term rewrite = mTracker.buildRewrite(notTerm, res, ProofConstants.RW_NOT_SIMP);
 			return mTracker.transitivity(input, rewrite);
@@ -83,7 +84,7 @@ public class LogicSimplifier {
 		final ApplicationTerm orTerm = (ApplicationTerm) mTracker.getProvedTerm(input);
 		assert orTerm.getFunction().getName() == "or";
 		final Term[] args = orTerm.getParameters();
-		final LinkedHashSet<Term> ctx = new LinkedHashSet<Term>();
+		final LinkedHashSet<Term> ctx = new LinkedHashSet<>();
 		final Theory theory = args[0].getTheory();
 		final Term trueTerm = theory.mTrue;
 		final Term falseTerm = theory.mFalse;
@@ -277,12 +278,26 @@ public class LogicSimplifier {
 		assert eqTerm.getFunction().getName() == "=";
 		final Theory theory = input.getTheory();
 		Term[] args = eqTerm.getParameters();
-		final LinkedHashSet<Term> eqArgList = new LinkedHashSet<Term>();
+		final LinkedHashSet<Term> eqArgList = new LinkedHashSet<>();
 		if (args[0].getSort().isNumericSort()) {
 			Rational lastConst = null;
 			for (final Term t : args) {
 				if (t instanceof ConstantTerm) {
 					final Rational value = (Rational) ((ConstantTerm) t).getValue();
+					if (lastConst == null) {
+						lastConst = value;
+					} else if (!lastConst.equals(value)) {
+						return mTracker.transitivity(input,
+								mTracker.buildRewrite(eqTerm, theory.mFalse, ProofConstants.RW_CONST_DIFF));
+					}
+				}
+				eqArgList.add(t);
+			}
+		} else if (args[0].getSort().getName().equals("BitVec")) {
+			String lastConst = null;
+			for (final Term t : args) {
+				if (t instanceof ConstantTerm) {
+					final String value = BVUtils.getConstAsString((ConstantTerm) t);
 					if (lastConst == null) {
 						lastConst = value;
 					} else if (!lastConst.equals(value)) {
@@ -423,7 +438,7 @@ public class LogicSimplifier {
 				return convertXor(xorTerm);
 			}
 		}
-		LinkedHashSet<Term> tmp = new LinkedHashSet<Term>();
+		LinkedHashSet<Term> tmp = new LinkedHashSet<>();
 		for (final Term t : args) {
 			if (!tmp.add(t)) {
 				// We had (distinct a b a)
@@ -464,7 +479,7 @@ public class LogicSimplifier {
 		for (int i = 0; i < args.length; i++) {
 			argRewrites[i] = mTracker.reflexivity(args[i]);
 			if (args[i] instanceof ApplicationTerm
-				&& ((ApplicationTerm) args[i]).getFunction().getName() == "not") {
+					&& ((ApplicationTerm) args[i]).getFunction().getName() == "not") {
 				argRewrites[i] = convertNot(argRewrites[i]);
 			}
 		}

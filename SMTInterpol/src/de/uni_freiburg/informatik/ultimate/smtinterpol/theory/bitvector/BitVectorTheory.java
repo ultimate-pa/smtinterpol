@@ -1,6 +1,7 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.bitvector;
 
 import java.util.ArrayDeque;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 
@@ -16,10 +17,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ITheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.LeafNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ResolutionNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ResolutionNode.Antecedent;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.IdentityHashSet;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
 
@@ -82,21 +81,28 @@ public class BitVectorTheory implements ITheory {
 		// mSolver.getTheory().getFunctionWithResult("(_ bv 4 4)");
 
 		final DPLLAtom atom = literal.getAtom();
-
 		if ((atom instanceof BVEquality) || (atom instanceof BVInEquality)) {
 			mBVLiterals.add(literal);
 
 			if (literal.getAtom().getSMTFormula(getTheory()) instanceof ApplicationTerm) {
 				final ApplicationTerm appterm = (ApplicationTerm) literal.getAtom().getSMTFormula(getTheory());
+
 				if (appterm.getFunction().getName().equals("=")) {
 					final Term bvEqLHS = appterm.getParameters()[0];
 					final Term bvEqRHS = appterm.getParameters()[1];
 					getAllTerms(appterm); // For Bitblasting erst machen
-					System.out.println("SetBVEquality: (= " + bvEqLHS + " " + bvEqRHS + ")");
+					System.out.println("SetBVEquality: " + literal.getSMTFormula(getTheory()));
+
+
+
 					if ((bvEqLHS instanceof ConstantTerm) && (bvEqRHS instanceof ConstantTerm)) {
 						if (!BVUtils.getConstAsString((ConstantTerm) bvEqLHS)
 								.equals(BVUtils.getConstAsString((ConstantTerm) bvEqRHS))) {
 							// if (!(bvEqLHS == bvEqRHS)) { //TODO BUGFIX sollte auf term nicht auf string ebene gehen
+							if (((ApplicationTerm) literal.getSMTFormula(getTheory())).getFunction().getName()
+									.equals("not")) {
+								return null;
+							}
 							final Literal[] conflictSet = new Literal[1];
 							conflictSet[0] = literal.negate();
 							final Clause conflict = new Clause(conflictSet);
@@ -107,6 +113,13 @@ public class BitVectorTheory implements ITheory {
 					if (bvEqLHS.toString().equals(bvEqRHS.toString())) {
 						// getEngine(). //tell dpll
 						// .setPreferredStatus(status)
+						if (((ApplicationTerm) literal.getSMTFormula(getTheory())).getFunction().getName()
+								.equals("not")) {
+							final Literal[] conflictSet = new Literal[1];
+							conflictSet[0] = literal.negate();
+							final Clause conflict = new Clause(conflictSet);
+							return conflict;
+						}
 						return null;
 					}
 				} else if (appterm.getFunction().getName().equals("bvult")) {
@@ -115,6 +128,7 @@ public class BitVectorTheory implements ITheory {
 					getAllTerms(appterm);
 					// TODO
 				} else {
+
 					// TODO Trivial Atom
 				}
 			}
@@ -168,38 +182,38 @@ public class BitVectorTheory implements ITheory {
 			for (final Term lit : engine.getSatisfiedLiterals(getTheory())) {
 				System.out.println("Unsat: " + lit);
 			}
-			System.out.println(unsat.getProof());
-			// System.out.println(getUnsatCore(unsat));
-			return new Clause(bitblaster.getNegatedInputLiterals(), mClausifier.getStackLevel());
-			// return new Clause(getUnsatCore(unsat), mClausifier.getStackLevel());
-			// negierter conflict als clausel
-			// return new Clause(unsat, mClausifier.getStackLevel());
+			final HashSet<Literal> unsatcore = getUnsatCore(unsat, bitblaster.getLiteralMap());
+			final Literal[] cores = new Literal[unsatcore.size()];
+			int i = 0;
+			for (final Literal c : unsatcore) {
+				cores[i] = c;
+				System.out.println("Core: " + c.getSMTFormula(getTheory()));
+				i ++;
+			}
+			return new Clause(cores, mClausifier.getStackLevel());
+
 		}
+
 		return null;
 	}
 
-	private HashSet<Clause> getUnsatCore(final Clause unsat) {
-		final HashSet<Clause> res = new HashSet<>();
+	private HashSet<Literal> getUnsatCore(final Clause unsat, final HashMap<Term, Literal> literals) {
+		final HashSet<Literal> res = new HashSet<>();
 		final ArrayDeque<Clause> todo = new ArrayDeque<>();
 		todo.push(unsat);
 		final IdentityHashSet<Clause> visited = new IdentityHashSet<>();
 		while (!todo.isEmpty()) {
 			final Clause c = todo.pop();
 			if (visited.add(c)) {
-				if (c.getProof() != null) {
-					System.out.println("aaaaa");
-
-				}
-				if (c.getProof().isLeaf()) {
-					final LeafNode l = (LeafNode) c.getProof();
-					// Tautologies are not needed in an unsat core
-					if (l.getLeafKind() == LeafNode.NO_THEORY
-							&& l.getTheoryAnnotation() instanceof SourceAnnotation) {
-						// TODO if atom aus orginal formel
-						System.out.println(c);
-						res.add(c);
+				if (c.getProof() == null) {
+					final Term lit = c.getLiteral(0).getAtom().getSMTFormula(getTheory());
+					if (literals.containsKey(lit)) {
+						res.add(literals.get(lit).negate());
 					}
+				} else if (c.getProof().isLeaf()) {
+					throw new UnsupportedOperationException("TODO");
 				} else {
+
 					final ResolutionNode n = (ResolutionNode) c.getProof();
 					todo.push(n.getPrimary());
 					final Antecedent[] ants = n.getAntecedents();
@@ -318,6 +332,7 @@ public class BitVectorTheory implements ITheory {
 		System.out.println("createBV_EQ_LIT");
 		final BVEquality bveqlit = new BVEquality(lhs, rhs, mClausifier.getStackLevel());
 		getEngine().addAtom(bveqlit);
+		System.out.println(bveqlit.getSMTFormula(getTheory()));
 		return bveqlit;
 
 	}
@@ -326,6 +341,7 @@ public class BitVectorTheory implements ITheory {
 		System.out.println("createBV_BVULT_LIT");
 		final BVInEquality bvInEqlit = new BVInEquality(lhs, rhs, mClausifier.getStackLevel());
 		getEngine().addAtom(bvInEqlit);
+		System.out.println(bvInEqlit.getSMTFormula(getTheory()));
 		return bvInEqlit;
 
 	}

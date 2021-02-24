@@ -28,24 +28,37 @@ public class BVUtils {
 	public static String getConstAsString(final ConstantTerm ct) {
 		if (ct.getSort().getName().equals("BitVec")) {
 			String bitString;
-			if (ct.getValue() instanceof String) {
+			assert (ct.getValue() instanceof String);
+			bitString = (String) ct.getValue();
+			if (bitString.startsWith("#b")) {
 				bitString = (String) ct.getValue();
-				if (bitString.startsWith("#b")) {
-					bitString = (String) ct.getValue();
-					return bitString.substring(2);
-				} else if (bitString.startsWith("#x")) { // TODO Value > maxrepnumbers
-					final String number = new BigInteger(bitString.substring(2), 16).toString(2);
-					final int size = Integer.valueOf(ct.getSort().getIndices()[0]);
-					final String repeated = new String(new char[size - number.length()]).replace("\0", "0");
-					return repeated + number;
-				}
-			} else if (ct.getValue() instanceof BigInteger) {
-				final BigInteger big = (BigInteger) ct.getValue();
-				bitString = big.toString(2);
-				return bitString;
+				return bitString.substring(2);
+			} else if (bitString.startsWith("#x")) { // TODO Value > maxrepnumbers
+				final String number = new BigInteger(bitString.substring(2), 16).toString(2);
+				// TODO number länger als max bits
+				final int size = Integer.valueOf(ct.getSort().getIndices()[0]);
+				final String repeated = new String(new char[size - number.length()]).replace("\0", "0");
+				return repeated + number;
 			}
+
 		}
 		throw new UnsupportedOperationException("Can't convert to bitstring: " + ct);
+	}
+
+	public Term getBvConstAsBinaryConst(final ApplicationTerm ct) {
+		if (ct.getSort().getName().equals("BitVec")) {
+			final String name = ct.getFunction().getName();
+			assert name.matches("bv\\d+");
+			final String value = new BigInteger(name.substring(2), 16).toString(2);
+			final int size = Integer.valueOf(ct.getSort().getIndices()[0]);
+			if (value.length() > size) {
+				throw new UnsupportedOperationException("TODO: bvConst numer > size");
+			} else {
+				final String repeated = new String(new char[size - value.length()]).replace("\0", "0");
+				return mTheory.binary("#b" + repeated + value);
+			}
+		}
+		throw new UnsupportedOperationException("Can't convert bv constant: " + ct);
 	}
 
 	public boolean isConstRelation(final Term lhs, final Term rhs) {
@@ -247,6 +260,15 @@ public class BVUtils {
 		}
 
 		return mTheory.binary(resultconst);
+	}
+
+	public Term optimizeEQ(final FunctionSymbol fsym, final ConstantTerm lhs, final ConstantTerm rhs) {
+		assert fsym.getName().equals("=");
+		if (getConstAsString(lhs).equals(getConstAsString(rhs))) {
+			return mTheory.mTrue;
+		} else {
+			return mTheory.mFalse;
+		}
 	}
 
 	public Term optimizeSelect(final FunctionSymbol fsym, final Term term) {
