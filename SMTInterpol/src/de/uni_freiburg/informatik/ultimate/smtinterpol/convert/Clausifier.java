@@ -1089,7 +1089,8 @@ public class Clausifier {
 					
 					if (c != null) {
 						for (String sel : c.getSelectors()) {
-							mCClosure.insertReverseTrigger(mTheory.getFunctionSymbol(sel), ccTerm, 0, new DTReverseTrigger(mDataTypeTheory, this, mTheory.getFunctionSymbol(sel), ccTerm));
+							FunctionSymbol selFs = mTheory.getFunctionWithResult(sel, null, null, fs.getReturnSort());
+							mCClosure.insertReverseTrigger(selFs, ccTerm, 0, new DTReverseTrigger(mDataTypeTheory, this, mTheory.getFunctionSymbol(sel), ccTerm));
 						}
 						for (Constructor allC : returnSort.getConstructors()) {
 							FunctionSymbol isFs = mTheory.getFunctionWithResult("is", new String[] {allC.getName()}, null, fs.getReturnSort());
