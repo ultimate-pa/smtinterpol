@@ -1678,11 +1678,29 @@ public class Clausifier {
 	public void addMatchAxiom(final MatchTerm term, final SourceAnnotation source) {
 		final Theory theory = term.getTheory();
 		final FormulaUnLet unlet = new FormulaUnLet();
+		final Map<Constructor, Term> cases = new LinkedHashMap<>();
 		int c_i = 0;
 		for (Constructor c : term.getConstructors()) {
+			if (cases.containsKey(c)) {
+				c_i++;
+				continue;
+			}
+			
+			Map<TermVariable, Term> argSubs = new LinkedHashMap<>();
+			if (c == null) {
+				// if c == null, this is the default case which matches everything
+				Term isTerm = mTheory.or(cases.values().toArray(new Term[cases.values().size()]));
+				argSubs.put(term.getVariables()[c_i][0], term.getDataTerm());
+				unlet.addSubstitutions(argSubs);
+				Term defaultCase = mTheory.term("=", term, unlet.unlet(term.getCases()[c_i]));
+				Term axiom = mTheory.or(isTerm, defaultCase);
+				axiom = mTracker.auxAxiom(axiom, ProofConstants.AUX_MATCH_DEFAULT);
+				buildClause(axiom, source);
+				return;
+			}
+			
 			// substitute argument TermVariables with the according selector function
 			int s_i = 0;
-			Map<TermVariable, Term> argSubs = new LinkedHashMap<>();
 			for (String sel : c.getSelectors()) {
 				Term selTerm = theory.term(theory.getFunctionSymbol(sel), term.getDataTerm());
 				argSubs.put(term.getVariables()[c_i][s_i++], selTerm);
@@ -1692,13 +1710,15 @@ public class Clausifier {
 			// build is-condition
 			FunctionSymbol isFs = theory.getFunctionWithResult("is", new String[] {c.getName()}, null, term.getSort());
 			Term isTerm = theory.term(isFs, term.getDataTerm());
-			final Literal isTermFalse = createEqualityProxy(isTerm, theory.mFalse, source).getLiteral(source); 
+			cases.put(c, isTerm);
+			isTerm = theory.term("not", isTerm);
 			
 			// build implicated equality
-			final Literal caseLit = createEqualityProxy(term, unlet.unlet(term.getCases()[c_i++]), source).getLiteral(source);
-			Term axiom = theory.term("or", isTermFalse.getSMTFormula(theory), caseLit.getSMTFormula(theory));
-			
+			Term caseTerm = mTheory.term("=", term, unlet.unlet(term.getCases()[c_i]));
+			Term axiom = theory.term("or", isTerm, caseTerm);
+			axiom = mTracker.auxAxiom(axiom, ProofConstants.AUX_MATCH_CASE);
 			buildClause(axiom, source);
+			c_i++;
 		}
 	}
 
