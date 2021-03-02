@@ -645,7 +645,7 @@ public class DataTypeTheory implements ITheory {
 			LinkedHashSet<String> neededSelectors = new LinkedHashSet<>();
 			for (int i = 0; i < c.getSelectors().length; i++) {
 				if (!exisitingSelectors.contains(c.getSelectors()[i])) {
-					if (!c.getArgumentSorts()[i].getSortSymbol().isDatatype() || isInfinite(c.getArgumentSorts()[i], new LinkedHashSet<>())) {
+					if (!c.getArgumentSorts()[i].getSortSymbol().isDatatype() || isInfinite(c.getArgumentSorts()[i])) {
 						noInfSel = false;
 						break;
 					} else {
@@ -757,34 +757,52 @@ public class DataTypeTheory implements ITheory {
 	 * This function determines if a given sort is infinite or not.
 	 *  
 	 * @param sort the sort in question.
-	 * @param dependents the sorts that depend on this sort. (Call this with an empty set)
 	 * @return True if sort is infinite else False
 	 */
-	private boolean isInfinite(Sort sort, LinkedHashSet<Sort> dependents) {
-		dependents.add(sort);
+	private boolean isInfinite(Sort sort) {
 		Boolean cacheVal = mInfinityMap.get(sort);
 		if (cacheVal != null) return cacheVal;
-		if (sort.getSortSymbol().isDatatype()) {
-			for (Constructor c : ((DataType) sort.getSortSymbol()).getConstructors()) {
-				for (Sort as : c.getArgumentSorts()) {
-					if (dependents.contains(as)) {
-						mInfinityMap.put(sort, true);
-						return true;
-					}
-					if (isInfinite(as, dependents)) {
-						mInfinityMap.put(sort, true);
-						return true;
+		ArrayDeque<Sort> todo = new ArrayDeque<>();
+		Set<Sort> dependent = new LinkedHashSet<>();
+		todo.push(sort);
+		todo_loop: while (!todo.isEmpty()) {
+			Sort currSort = todo.pop();
+			Set<Sort> undecided = new LinkedHashSet<>();
+			if (currSort.getSortSymbol().isDatatype()) {
+				for (Constructor c : ((DataType)currSort.getSortSymbol()).getConstructors()) {
+					for (Sort argSort : c.getArgumentSorts()) {
+						Boolean cv = mInfinityMap.get(argSort);
+						if (cv != null) {
+							if (cv == true) {
+								mInfinityMap.put(currSort, true);
+								dependent.remove(currSort);
+								continue todo_loop;
+							}
+						} else if (dependent.contains(argSort)) {
+							mInfinityMap.put(currSort, true);
+							dependent.remove(currSort);
+							continue todo_loop;
+						} else {
+							undecided.add(argSort);
+						}
 					}
 				}
+				if (!undecided.isEmpty()) {
+					todo.push(currSort);
+					dependent.add(currSort);
+					for (Sort s: undecided) todo.push(s);
+				} else {
+					mInfinityMap.put(currSort, false);
+					dependent.remove(currSort);
+				}
+			} else if (currSort.getSortSymbol().isNumeric()) {
+				mInfinityMap.put(currSort, true);
+			} else {
+				mInfinityMap.put(currSort, false);
 			}
-			mInfinityMap.put(sort, false);
-			return false;
-		} else if (sort.isNumericSort()) {
-			mInfinityMap.put(sort, true);
-			return true;
 		}
-		mInfinityMap.put(sort, false);
-		return false;
+		
+		return mInfinityMap.get(sort);
 	}
 	
 	/**
