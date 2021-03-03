@@ -51,14 +51,15 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
 /**
  * Solver for the data type theory.
  * 
- * TODO: Comment
+ * This theory understands relations between data types, their constructors and selectors.
+ * It propagates new equalities between data type terms as well as the arguments of their constructors.
+ * It also detects all conflicts in these relations. It uses the equality graph of the CClosure class.
  * 
  * @author Moritz Mohr
  *
  */
 public class DataTypeTheory implements ITheory {
 	
-	// TODO: Comment
 	private final Clausifier mClausifier;
 	private final CClosure mCClosure;
 	private final Theory mTheory;
@@ -72,7 +73,7 @@ public class DataTypeTheory implements ITheory {
 	 */
 	private final LinkedHashMap<String, Constructor> mSelectorMap = new LinkedHashMap<>();
 	/**
-	 * TODO: Comment
+	 * Collect all created terms to check after a backtrack if their equalities are still valid.
 	 */
 	private ArrayQueue<CCTerm> mRecheckOnBacktrack = new ArrayQueue<>();
 	/**
@@ -103,18 +104,6 @@ public class DataTypeTheory implements ITheory {
 		}
 		mPendingEqualities.add(eq);
 		mEqualityReasons.put(eq, reason);
-		
-//		if (mEqualityReasons.containsKey(eq)) {
-//			// check if exisiting reason still holds
-//			for (SymmetricPair<CCTerm> pair : mEqualityReasons.get(eq)) {
-//				if (pair.getFirst().mRepStar != pair.getSecond().mRepStar) {
-//					mEqualityReasons.put(eq, reason);
-//					return;
-//				}
-//			}
-//		} else {
-//			mEqualityReasons.put(eq, reason);
-//		}
 	}
 
 	@Override
@@ -617,7 +606,7 @@ public class DataTypeTheory implements ITheory {
 		
 		if (selectorApps.containsValue(null)) return;
 		
-		// construct a new constructor application like C(s1(x), s2(x), ..., sm(x))
+		// create a new constructor application like C(s1(x), s2(x), ..., sm(x))
 		
 		Term consTerm = mTheory.term(consName, (Term[]) selectorApps.values().toArray(new Term[selectorApps.values().size()]));
 		CCTerm consCCTerm = mClausifier.createCCTerm(consTerm, SourceAnnotation.EMPTY_SOURCE_ANNOT);
