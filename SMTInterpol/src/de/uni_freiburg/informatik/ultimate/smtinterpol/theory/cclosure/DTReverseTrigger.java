@@ -71,16 +71,13 @@ public class DTReverseTrigger extends ReverseTrigger {
 
 	@Override
 	public void activate(CCAppTerm appTerm) {
-		/*
-		 * 
-		 */
 		ApplicationTerm argAT = (ApplicationTerm) mArg.mFlatTerm;
 		ArrayList<SymmetricPair<CCTerm>> reason = new ArrayList<>();
 		reason.add(new SymmetricPair<CCTerm>(appTerm.getArg(), mArg));
 		if (mFunctionSymbol.getName() == "is") {
 			// If appTerm is a "is" function, check if it tests for the constructor of mArg.
 			// If so set the function equal to true else to false. 
-			FunctionSymbol fs = ((ApplicationTerm) appTerm.mFlatTerm).getFunction();
+			FunctionSymbol fs = ((CCBaseTerm)appTerm.mFunc).getFunctionSymbol();
 			if (fs.getIndices()[0].equals(argAT.getFunction().getName())) {
 				mDTTheory.addPendingEquality(new SymmetricPair<CCTerm>(appTerm, mClausifier.getCCTerm(mClausifier.getTheory().mTrue)), reason);
 			} else {

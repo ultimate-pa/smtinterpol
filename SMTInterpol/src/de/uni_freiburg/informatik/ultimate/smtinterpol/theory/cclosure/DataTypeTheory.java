@@ -431,7 +431,6 @@ public class DataTypeTheory implements ITheory {
 	public Literal getPropagatedLiteral() {
 		if (!mPendingEqualities.isEmpty()) {
 			SymmetricPair<CCTerm> eqPair = mPendingEqualities.poll();
-			//return mCClosure.createCCEquality(mClausifier.getStackLevel(), eqPair.getFirst(), eqPair.getSecond());
 			return mCClosure.createEquality(eqPair.getFirst(), eqPair.getSecond(), false);
 		}
 		return null;
@@ -704,7 +703,6 @@ public class DataTypeTheory implements ITheory {
 							ArrayList<SymmetricPair<CCTerm>> reason = new ArrayList<>();
 							reason.add(new SymmetricPair<CCTerm>(consCCTerm, mem));
 							addPendingEquality(eqPair, reason);
-//							mUnitClauseReasons.put(eqPair, new SymmetricPair<CCTerm>(mem, consCCTerm));
 						}
 					}
 				} else {
