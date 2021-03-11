@@ -17,7 +17,10 @@ import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.BooleanVarAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom.TrueAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.LeafNode;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
 
@@ -50,14 +53,12 @@ public class BitBlaster {
 		mStackLevel = engineStackLevel;
 	}
 
-	public Term bitBlasting() {
+	public void bitBlasting() {
 		Term equisatProp;
 		final Term[] propSkeleton = new Term[mInputLiterals.size()];
 		for (int i = 0; i < mInputLiterals.size(); i++) {
-			// TODO atom merken für zurück übersetztung
 			final String atomPrefix = "At_" + i;
 			final TermVariable boolVar = mTheory.createFreshTermVariable(atomPrefix, mTheory.getSort("Bool"));
-			// mBoolAtoms.put(mLiterals.get(i), new BooleanVarAtom(boolVar, mStackLevel));
 			mEncAtoms.put(atomPrefix, boolVar);
 			mBoolAtoms.put(boolVar, new BooleanVarAtom(boolVar, mStackLevel));
 			mLiterals.put(boolVar, mInputLiterals.get(i));
@@ -69,30 +70,24 @@ public class BitBlaster {
 		}
 		for (final Term term : mAllTerms) {
 			// e(t), t in terms. Terms Size long Array of bool vars with e(t)_i being var at position i
-			mEncTerms.put(term, getEncodedTerm(term));
+			if (term.getSort().isBitVecSort()) {
+				mEncTerms.put(term, getEncodedTerm(term));
+			}
 		}
 		// Initial propositional configuration
 		equisatProp = mTheory.and(propSkeleton); // TODO Input always conjunction?
-		if (equisatProp instanceof ApplicationTerm) {
-			cnfToClause((ApplicationTerm) toCnf(equisatProp));
-		} else {
-			addClause(equisatProp);
-		}
+		toClauses(equisatProp);
 
 		// add BVConstraint of Atoms as conjunct
 		for (int i = 0; i < mInputLiterals.size(); i++) {
 			final DPLLAtom atom = mInputLiterals.get(i).getAtom();
 			final Term encAtom = mEncAtoms.get("At_" + i);
-
-			final Term bvConstraint = getBvConstraintAtom(encAtom, atom);
-			equisatProp = mTheory.and(equisatProp, bvConstraint);
+			getBvConstraintAtom(encAtom, atom);
 		}
 		// add BVConstraint of all subterms as conjunct
 		for (final Term term : mAllTerms) {
-			final Term bvConstraint = getBvConstraintTerm(term);
-			equisatProp = mTheory.and(equisatProp, bvConstraint);
+			getBvConstraintTerm(term);
 		}
-		return equisatProp;
 	}
 
 	/*
@@ -101,8 +96,10 @@ public class BitBlaster {
 	 * "e(term)_i" where e stands for encoded, term is the input term and i the current position in the Array/BitVec
 	 */
 	private Term[] getEncodedTerm(final Term term) {
+		assert term.getSort().isBitVecSort();
 		final BigInteger sizeBig = mTheory.toNumeral(term.getSort().getIndices()[0]);
 		final int size = sizeBig.intValue();
+
 		final Term[] boolvector = new Term[size];
 		for (int i = 0; i < size; i++) {
 			final String termPrefix = "e(" + term + ")_" + i;
@@ -125,7 +122,7 @@ public class BitBlaster {
 	 * For equals:
 	 * (AND lhs_i = rhs_i) <=> encAtom
 	 */
-	private Term getBvConstraintAtom(final Term encAtom, final DPLLAtom atom) {
+	private void getBvConstraintAtom(final Term encAtom, final DPLLAtom atom) {
 		if (atom instanceof BVEquality) {
 			// (AND lhs_i = rhs_i) <=> encAtom
 			final BVEquality bveqatom = (BVEquality) atom;
@@ -141,36 +138,32 @@ public class BitBlaster {
 								mEncTerms.get(bveqatom.getLHS())[i]);
 			}
 			final Term eqconjunction = mTheory.and(eqconj);
-			final Term ifte = mTheory.and(mTheory.or(mTheory.not(encAtom), eqconjunction),
-					mTheory.or(mTheory.not(eqconjunction), encAtom));
-			System.out.println("ATOM CNF:");
-			final Term cnfTerm = toCnf(ifte);
-			cnfToClause((ApplicationTerm) cnfTerm);
-			return ifte;
+			toClauses(mTheory.and(mTheory.or(mTheory.not(encAtom), eqconjunction),
+					mTheory.or(mTheory.not(eqconjunction), encAtom)));
+
 		} else if (atom instanceof BVInEquality) {
 			final BVInEquality bvIneqatom = (BVInEquality) atom;
 			// bvult, holds if cout is false
 			final Term bvult =
 					mTheory.not(adder(mEncTerms.get(bvIneqatom.getLHS()), negate(mEncTerms.get(bvIneqatom.getRHS())),
 							mTheory.mTrue).getSecond());
+			toClauses(mTheory.and(mTheory.or(mTheory.not(encAtom), bvult),
+					mTheory.or(mTheory.not(bvult), encAtom)));
 
 
-			// TODO signed
-			final Term ifte = mTheory.and(mTheory.or(mTheory.not(encAtom), bvult),
-					mTheory.or(mTheory.not(bvult), encAtom));
-			final Term cnfTerm = toCnf(ifte);
-			cnfToClause((ApplicationTerm) cnfTerm);
-			return ifte;
+		} else {
+			throw new UnsupportedOperationException("Unknown Atom");
 		}
-		throw new UnsupportedOperationException("Unknown Atom");
 	}
 
-	private Term getBvConstraintTerm(final Term term) {
-		final Term[] encTerm = mEncTerms.get(term);
+	/*
+	 * Bitblasting for all terms, reports the result as Clause to mClauses
+	 */
+	private void getBvConstraintTerm(final Term term) {
 		if (term instanceof TermVariable) {
-			return mTheory.mTrue;
-		}
-		if (term instanceof ConstantTerm) {
+			return;
+		} else if (term instanceof ConstantTerm) {
+			final Term[] encTerm = mEncTerms.get(term);
 			final Term[] constresult = new Term[encTerm.length];
 			for (int i = 0; i < encTerm.length; i++) {
 				Term boolVar;
@@ -183,27 +176,35 @@ public class BitBlaster {
 				mBoolAtoms.put(boolVar, new BooleanVarAtom(boolVar, mStackLevel));
 				final Term ifte = mTheory.and(mTheory.or(mTheory.not(encTerm[i]), boolVar),
 						mTheory.or(mTheory.not(boolVar), encTerm[i]));
-				equivalenceAsClausel(encTerm[i], boolVar);
+
+				addClauses(mTheory.or(mTheory.not(encTerm[i]), boolVar));
+				addClauses(mTheory.or(mTheory.not(boolVar), encTerm[i]));
 				constresult[i] = ifte;
 			}
-			return mTheory.and(constresult);
-		}
-		if (term instanceof ApplicationTerm) {
+		} else if (term instanceof ApplicationTerm) {
 			final ApplicationTerm appterm = (ApplicationTerm) term;
 			final FunctionSymbol fsym = appterm.getFunction();
 			if (appterm.getParameters().length == 0) {
 				// Variable but not instanceof TermVariable
-				return mTheory.mTrue;
+				return;
 			}
-			// Appterm, not a Variable:
 			if (fsym.isIntern()) {
+				switch (fsym.getName()) {
+				case "=":
+				case "and":
+				case "or":
+				case "not":
+				case "ite": {
+					return;
+				}
+				}
+				final Term[] encTerm = mEncTerms.get(term);
 				Term[] conjunction = new Term[encTerm.length];
-				final Term[] constraint = new Term[encTerm.length];
 				switch (fsym.getName()) {
 				case "bvand": {
 					for (int i = 0; i < encTerm.length; i++) {
-						final Term and = mTheory.or(mTheory.not(mEncTerms.get(appterm.getParameters()[0])[i]),
-								mTheory.not(mEncTerms.get(appterm.getParameters()[0])[i]));
+						final Term and = mTheory.and(mEncTerms.get(appterm.getParameters()[0])[i],
+								mEncTerms.get(appterm.getParameters()[1])[i]);
 						conjunction[i] = and;
 					}
 					break;
@@ -211,7 +212,7 @@ public class BitBlaster {
 				case "bvor": {
 					for (int i = 0; i < encTerm.length; i++) {
 						final Term or = mTheory.or(mEncTerms.get(appterm.getParameters()[0])[i],
-								mEncTerms.get(appterm.getParameters()[0])[i]);
+								mEncTerms.get(appterm.getParameters()[1])[i]);
 						conjunction[i] = or;
 					}
 					break;
@@ -317,35 +318,29 @@ public class BitBlaster {
 
 					final Term divisionConstraint = mTheory.and(mTheory.or(mTheory.not(lhs), mTheory.and(conjunction)),
 							mTheory.or(lhs, mTheory.not(mTheory.and(conjunction))));
-					cnfToClause((ApplicationTerm) toCnf(divisionConstraint));
+					toClauses(divisionConstraint);
 
 					final Term remainderConstraint = mTheory.and(mTheory.or(mTheory.not(lhs), bvult),
 							mTheory.or(lhs, mTheory.not(bvult)));
-
-					cnfToClause((ApplicationTerm) toCnf(remainderConstraint));
-
-					return mTheory.and(mTheory.and(conjunction), remainderConstraint);
+					toClauses(remainderConstraint);
+					return;
 
 				default:
 					throw new UnsupportedOperationException(
 							"Unsupported functionsymbol for bitblasting: " + fsym.getName());
 				}
-				termConstraintToClausel(conjunction, encTerm);
 				for (int i = 0; i < conjunction.length; i++) {
-					final Term ifte = mTheory.and(mTheory.or(mTheory.not(encTerm[i]), conjunction[i]),
-							mTheory.or(mTheory.not(conjunction[i]), encTerm[i]));
-					constraint[i] = ifte;
+					toClauses(mTheory.or(mTheory.not(conjunction[i]), encTerm[i]));
+					toClauses(mTheory.or(mTheory.not(encTerm[i]), conjunction[i]));
 				}
-				//				cnfToClause((ApplicationTerm) toCNF(mTheory.and(constraint)));
-				return mTheory.and(constraint);
 			}
+		} else {
+			throw new UnsupportedOperationException("Unknown BVConstraint for term: " + term);
 		}
-
-		throw new UnsupportedOperationException("Unknown BVConstraint for term: " + term);
 	}
 
 	// 00 concat 01 = 0001
-	// as Array: [0 0] concat [1 0 ] = [1 0 0 0]
+	// as Array: [0 0] concat [1 0] = [1 0 0 0]
 	private Term[] concatArrays(final Term[] b, final Term[] a) {
 		final Term[] result = Arrays.copyOf(a, a.length + b.length);
 		System.arraycopy(b, 0, result, a.length, b.length);
@@ -444,9 +439,8 @@ public class BitBlaster {
 			if (appterm.getParameters().length > 1) { // Maybe only worth, if appterm is a conjunction
 				final TermVariable boolVar = mTheory.createFreshTermVariable("AuxVar", mTheory.getSort("Bool"));
 				mBoolAtoms.put(boolVar, new BooleanVarAtom(boolVar, mStackLevel));
-				cnfToClause((ApplicationTerm) toCnf(
-						mTheory.and(mTheory.or(mTheory.not(boolVar), represented),
-								mTheory.or(mTheory.not(represented), boolVar))));
+				toClauses(mTheory.and(mTheory.or(mTheory.not(boolVar), represented),
+						mTheory.or(mTheory.not(represented), boolVar)));
 				return boolVar;
 			}
 		}
@@ -485,9 +479,12 @@ public class BitBlaster {
 		for (int s = 0; s < stage; s++) {
 			for (int i = 0; i < encA.length; i++) {
 				final int pow = (int) Math.pow(2, s);
-				Term ifte;
+				final Term ifTerm;
+				final Term elseTerm;
+				Term thenTerm;
 				if (s == 0) {
-					Term thenTerm;
+					ifTerm = encB[0];
+					elseTerm = encA[i];
 					// rightshift
 					if ((i + pow < encA.length) && !leftshift) {
 						thenTerm = encA[i + pow];
@@ -499,11 +496,9 @@ public class BitBlaster {
 						thenTerm = mTheory.mFalse;
 					}
 					// ifthenelse in CNF (not a or b) and (a or c)
-					ifte = mTheory.and(
-							mTheory.or(mTheory.not(encB[0]), thenTerm),
-							mTheory.or(encB[0], encA[i]));
 				} else {
-					Term thenTerm;
+					ifTerm = encB[s];
+					elseTerm = boolvarmap[s - 1][i];
 					if ((i + pow < encA.length) && !leftshift) {
 						thenTerm = boolvarmap[s - 1][i + pow];
 					} else if (i >= pow && leftshift) {
@@ -511,12 +506,10 @@ public class BitBlaster {
 					} else {
 						thenTerm = mTheory.mFalse;
 					}
-					ifte = mTheory.and(mTheory.or(mTheory.not(encB[s]), thenTerm),
-							mTheory.or(encB[s], boolvarmap[s - 1][i]));
 				}
 				// Add Auxiliary variables and their represented term (ifte), as clauses
 				// Save in Set to prevent douplicats?
-				toCnfIfte(boolvarmap[s][i], ifte);
+				toClausesIte(boolvarmap[s][i], ifTerm, elseTerm, thenTerm);
 			}
 		}
 		return shiftResult;
@@ -613,8 +606,8 @@ public class BitBlaster {
 			final Term[] sum = adder(mul, ifte, mTheory.mFalse).getFirst();
 			for (int i = 0; i < size; i++) {
 				// boolvarmap[s][i] <=> sum[i]
-				cnfToClause((ApplicationTerm) toCnf(mTheory.and(mTheory.or(mTheory.not(boolvarmap[s][i]), sum[i]),
-						mTheory.or(mTheory.not(sum[i]), boolvarmap[s][i]))));
+				toClauses(mTheory.and(mTheory.or(mTheory.not(boolvarmap[s][i]), sum[i]),
+						mTheory.or(mTheory.not(sum[i]), boolvarmap[s][i])));
 			}
 		}
 		// Last stage
@@ -641,102 +634,99 @@ public class BitBlaster {
 		return sum;
 	}
 
-	/*
-	 * adds clauses for a term of from: lhs <=> rhs
-	 * lhs and rhs must be a literal
-	 */
-	private void equivalenceAsClausel(final Term lhs, final Term rhs) {
-		addClause(mTheory.or(mTheory.not(lhs), rhs));
-		addClause(mTheory.or(mTheory.not(rhs), lhs));
-	}
 
-	private void cnfToClause(final ApplicationTerm term) {
-		assert !term.getFunction().getName().equals("or");
-		for (int i = 0; i < term.getParameters().length; i++) {
-			addClause(term.getParameters()[i]);
-		}
-	}
-
-	private Term toCnf(final Term term) {
+	private void toClauses(final Term term) {
 		final CleanTransfomer cleaner = new CleanTransfomer();
 		final NnfTransformer nnf = new NnfTransformer();
-		final Term nnfTerm = nnf.transform(term); // TODO FIX RECURSION
+		final Term nnfTerm = nnf.transform(term);
 		final CnfTransformer cnf = new CnfTransformer();
 		final Term cnfTerm = cnf.transform(cnf.transform(nnfTerm));
 		final Term cleanTerm = cleaner.transform(cnfTerm);
-		System.out.println("CNF SIZE: " + ((ApplicationTerm) cleanTerm).getParameters().length);
-		return cleanTerm;
-	}
-
-	/*
-	 *
-	 */
-	private void termConstraintToClausel(final Term[] conjunction, final Term[] encTerm) {
-		for (int i = 0; i < conjunction.length; i++) {
-			final Term impl1 = toCnf(mTheory.or(mTheory.not(conjunction[i]), encTerm[i]));
-			if (impl1 instanceof ApplicationTerm) {
-				final ApplicationTerm ap = (ApplicationTerm) impl1;
-				if (ap.getFunction().getName().equals("and")) {
-					cnfToClause((ApplicationTerm) impl1);
-				} else {
-					addClause(impl1);
+		if (cleanTerm instanceof ApplicationTerm) {
+			final ApplicationTerm appClean = (ApplicationTerm) cleanTerm;
+			if (appClean.getFunction().getName().equals("and")) {
+				for (int i = 0; i < appClean.getParameters().length; i++) {
+					addClauses(appClean.getParameters()[i]);
 				}
-			} else {
-				addClause(impl1);
 			}
-			final Term impl2 = toCnf(mTheory.or(mTheory.not(encTerm[i]), conjunction[i]));
-			if (impl2 instanceof ApplicationTerm) {
-				final ApplicationTerm ap = (ApplicationTerm) impl2;
-				if (ap.getFunction().getName().equals("and")) {
-					cnfToClause((ApplicationTerm) impl2);
-				} else {
-					addClause(impl2);
-				}
-			} else {
-				addClause(impl2);
-			}
+		} else {
+			addClauses(cleanTerm);
 		}
 	}
 
+
 	/*
-	 * atom <=> ifte into cnf
+	 * atom <=> ite into cnf
 	 * Add Clauses of (boolVar <=> ifte) to dpll
 	 * ifte arguments need to be literals
 	 */
-	private void toCnfIfte(final Term atom, final Term ifteTerm) {
-
-		if (ifteTerm instanceof ApplicationTerm) {
-			final ApplicationTerm appifteTerm = (ApplicationTerm) ifteTerm;
-			// ((not ifTerm or thenTerm) and (ifTerm or elseTerm))
-			final ApplicationTerm conj1 = (ApplicationTerm) appifteTerm.getParameters()[0];
-			final ApplicationTerm conj2 = (ApplicationTerm) appifteTerm.getParameters()[1];
-			final Term ifTerm = conj2.getParameters()[0];
-			final Term elseTerm = conj2.getParameters()[1];
-			final Term thenTerm;
-			if (conj1.getParameters().length == 2) {
-				thenTerm = conj1.getParameters()[1];
-				addClause(mTheory.or(atom, mTheory.not(ifTerm), mTheory.not(thenTerm)));
-				addClause(mTheory.or(mTheory.not(atom), ifTerm, elseTerm));
-				addClause(mTheory.or(mTheory.not(atom), mTheory.not(ifTerm), thenTerm));
-				addClause(mTheory.or(atom, mTheory.not(elseTerm), elseTerm));
-
-			} else {
-				// thenTerm = mTheory.mFalse;
-				addClause(mTheory.or(mTheory.not(atom), elseTerm, ifTerm));
-				addClause(mTheory.or(mTheory.not(atom), mTheory.not(ifTerm)));
-
-			}
-			addClause(mTheory.or(atom, mTheory.not(ifTerm), ifTerm));
-			addClause(mTheory.or(atom, ifTerm, mTheory.not(elseTerm)));
-
+	private void toClausesIte(final Term atom, final Term ifTerm, final Term elseTerm, final Term thenTerm) {
+		final Literal atomlit = getLiteral(atom);
+		final Literal ifLit = getLiteral(ifTerm);
+		final Literal elseLit = getLiteral(elseTerm);
+		final Literal thenLit = getLiteral(thenTerm);
+		if (!thenTerm.equals(mTheory.mFalse)) {
+			final Literal[] lit1 = { atomlit, ifLit.negate(), thenLit.negate() };
+			addClause(lit1);
+			final Literal[] lit2 = { atomlit.negate(), ifLit, elseLit };
+			addClause(lit2);
+			final Literal[] lit3 = { atomlit.negate(), ifLit.negate(), thenLit };
+			addClause(lit3);
+			final Literal[] lit4 = { atomlit, elseLit.negate(), elseLit };
+			addClause(lit4);
 		} else {
-			throw new UnsupportedOperationException("Can't convert to CNF");
+			// thenTerm = mTheory.mFalse;
+			final Literal[] lit1 = { atomlit.negate(), ifLit, elseLit };
+			addClause(lit1);
+			final Literal[] lit2 = { atomlit.negate(), ifLit.negate() };
+			addClause(lit2);
 		}
-
+		final Literal[] lit5 = { atomlit, ifLit.negate(), ifLit };
+		addClause(lit5);
+		final Literal[] lit6 = { atomlit, ifLit, elseLit.negate() };
+		addClause(lit6);
 	}
 
-	private void addClause(final Term term) {
-		mClauses.add(mBVUtils.getClause(term, mBoolAtoms, mStackLevel));
+	private Literal getLiteral(final Term term) {
+		if(term instanceof ApplicationTerm) {
+			final ApplicationTerm appterm = (ApplicationTerm) term;
+			final FunctionSymbol fsym = appterm.getFunction();
+			if (fsym.getName().equals("not")) {
+				return mBoolAtoms.get(appterm.getParameters()[0]).negate();
+			}
+		}
+		return mBoolAtoms.get(term);
+	}
+
+	private void addClause(final Literal[] literals) {
+		final Clause cl = new Clause(literals, mStackLevel);
+		cl.setProof(new LeafNode(-1, SourceAnnotation.EMPTY_SOURCE_ANNOT));
+		mClauses.add(cl);
+	}
+
+	/*
+	 * term must be a disjunction or literal
+	 */
+	private void addClauses(final Term term) {
+		final ArrayList<Literal> literals = new ArrayList<>();
+		if (term instanceof ApplicationTerm) {
+			final ApplicationTerm appterm = (ApplicationTerm) term;
+			final FunctionSymbol fsym = appterm.getFunction();
+			if (fsym.getName().equals("or")) {
+				for (int i = 0; i < appterm.getParameters().length; i++) {
+					literals.add(getLiteral(appterm.getParameters()[i]));
+				}
+			} else if (fsym.getName().equals("true")) {
+				literals.add(new TrueAtom());
+			} else {
+				literals.add(getLiteral(term));
+			}
+		} else {
+			literals.add(getLiteral(term));
+		}
+		final Clause cl = new Clause(literals.toArray(new Literal[literals.size()]), mStackLevel);
+		cl.setProof(new LeafNode(-1, SourceAnnotation.EMPTY_SOURCE_ANNOT));
+		mClauses.add(cl);
 	}
 
 	public Collection<DPLLAtom> getBoolAtoms() {

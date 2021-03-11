@@ -604,26 +604,23 @@ public class TermCompiler extends TermTransformer {
 			case "bvuge":
 			case "bvslt":
 			case "bvule":
-			case "bvsle": {
-				// TODO FIX
-				final Term bvult = bvUtils.getBvultTerm(convertedApp);
-				if (bvult instanceof ApplicationTerm) {
-					final ApplicationTerm appterm = (ApplicationTerm) bvult;
-					if (appterm.getParameters().length == 0) {
-						setResult(bvult);
-					} else {
-						setResult(mUtils.convertOr(bvult));
-					}
-				}
-				return;
-			}
+			case "bvsle":
 			case "bvugt":
 			case "bvsgt":
 			case "bvsge":
 			case "bvult": {
 				// TODO FIX
 				final Term bvult = bvUtils.getBvultTerm(convertedApp);
-				setResult(bvult);
+				if (bvult instanceof ApplicationTerm) {
+					final ApplicationTerm appterm = (ApplicationTerm) bvult;
+					if (appterm.getParameters().length == 0) {
+						setResult(bvult);
+					} else if (appterm.getFunction().getName().equals("or")) {
+						setResult(mUtils.convertOr(bvult));
+					} else {
+						setResult(bvult);
+					}
+				}
 				return;
 			}
 			case "extract": {

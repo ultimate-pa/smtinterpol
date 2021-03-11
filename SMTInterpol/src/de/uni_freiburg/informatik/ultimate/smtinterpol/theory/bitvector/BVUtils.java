@@ -2,7 +2,6 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.bitvector;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
@@ -12,10 +11,6 @@ import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom.TrueAtom;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.IProofTracker;
 
 public class BVUtils {
@@ -26,7 +21,7 @@ public class BVUtils {
 	}
 
 	public static String getConstAsString(final ConstantTerm ct) {
-		if (ct.getSort().getName().equals("BitVec")) {
+		if (ct.getSort().isBitVecSort()) {
 			String bitString;
 			assert (ct.getValue() instanceof String);
 			bitString = (String) ct.getValue();
@@ -46,17 +41,19 @@ public class BVUtils {
 	}
 
 	public Term getBvConstAsBinaryConst(final ApplicationTerm ct) {
-		if (ct.getSort().getName().equals("BitVec")) {
+		if (ct.getSort().isBitVecSort()) {
 			final String name = ct.getFunction().getName();
 			assert name.matches("bv\\d+");
-			final String value = new BigInteger(name.substring(2), 16).toString(2);
+			String value = new BigInteger(name.substring(2), 16).toString(2);
 			final int size = Integer.valueOf(ct.getSort().getIndices()[0]);
 			if (value.length() > size) {
-				throw new UnsupportedOperationException("TODO: bvConst numer > size");
+				final int overhead = value.length() - size;
+				value = value.substring(overhead);
 			} else {
 				final String repeated = new String(new char[size - value.length()]).replace("\0", "0");
-				return mTheory.binary("#b" + repeated + value);
+				value = repeated + value;
 			}
+			return mTheory.binary("#b" + value);
 		}
 		throw new UnsupportedOperationException("Can't convert bv constant: " + ct);
 	}
@@ -83,7 +80,7 @@ public class BVUtils {
 		if (!fsym.getName().equals("=")) {
 			throw new UnsupportedOperationException("unknown function symbol");
 		}
-		if (!params[0].getSort().getName().equals("BitVec")) {
+		if (!params[0].getSort().isBitVecSort()) {
 			return null;
 		}
 		final List<Term> matchresult = new ArrayList<>();
@@ -231,22 +228,20 @@ public class BVUtils {
 		return mTheory.binary(resultconst);
 	}
 
-	// TODO arithmetic negation of the given bitvector value.
+
 	public Term optimizeNEG(final FunctionSymbol fsym, final Term term) {
-		final String resultconst = "#b";
+		String resultconst = "#b";
 		final String termAsString = getConstAsString((ConstantTerm) term);
 		assert fsym.getName().equals("bvneg");
-		for (int i = 0; i < termAsString.length(); i++) {
-			if (termAsString.charAt(termAsString.length() - 1 - i) == '1') {
 
-			} else {
-
-			}
+		if (termAsString.charAt(0) == '1') {
+			resultconst = resultconst + '0' + termAsString.substring(1);
+		} else {
+			resultconst = resultconst + '1' + termAsString.substring(1);
 		}
 		return mTheory.binary(resultconst);
 	}
 
-	// TODO bitwise negation of the given bitvector value
 	public Term optimizeNOT(final FunctionSymbol fsym, final Term term) {
 		String resultconst = "#b";
 		final String termAsString = getConstAsString((ConstantTerm) term);
@@ -258,7 +253,6 @@ public class BVUtils {
 				resultconst = resultconst + "1";
 			}
 		}
-
 		return mTheory.binary(resultconst);
 	}
 
@@ -335,18 +329,19 @@ public class BVUtils {
 					return appterm;
 				}
 				case "bvslt": {
-					final Term equiBvult = theory.or(theory.and(
-							theory.term("=",
+					final Term equiBvult = theory.or(theory.not(theory.or(
+							theory.not(theory.term("=",
 									theory.term(extract, appterm.getParameters()[0]),
-									theory.binary("#b1")),
-							theory.term("=",
+									theory.binary("#b1"))),
+							theory.not(theory.term("=",
 									theory.term(extract, appterm.getParameters()[1]),
-									theory.binary("#b0"))),
-							theory.and(theory.term("=",
-									theory.term(extract, appterm.getParameters()[0]),
-									theory.term(extract, appterm.getParameters()[1]))),
-
-							theory.term("bvult", appterm.getParameters()[0], appterm.getParameters()[1]));
+									theory.binary("#b0"))))),
+							theory.not(theory.or(
+									theory.not(theory.term("=",
+											theory.term(extract, appterm.getParameters()[0]),
+											theory.term(extract, appterm.getParameters()[1]))),
+									theory.not(theory.term("bvult", appterm.getParameters()[0],
+											appterm.getParameters()[1])))));
 					return equiBvult;
 				}
 				case "bvule": {
@@ -357,16 +352,20 @@ public class BVUtils {
 				}
 				case "bvsle": {
 					final Term equiBvule = theory.or(
-							theory.and(theory.term("=",
-									theory.term(extract, appterm.getParameters()[0]),
-									theory.binary("#b1")),
-									theory.term("=",
+							theory.not(theory.or(
+									theory.not(theory.term("=",
+											theory.term(extract, appterm.getParameters()[0]),
+											theory.binary("#b1"))),
+									theory.not(theory.term("=",
 											theory.term(extract, appterm.getParameters()[1]),
-											theory.binary("#b0"))),
-							theory.and(theory.term("=",
-									theory.term(extract, appterm.getParameters()[0]),
-									theory.term(extract, appterm.getParameters()[1]))),
-							theory.term("bvule", appterm.getParameters()[0], appterm.getParameters()[1]));
+											theory.binary("#b0"))))),
+							theory.not(theory.or(
+									theory.not(theory.term("=",
+											theory.term(extract, appterm.getParameters()[0]),
+											theory.term(extract, appterm.getParameters()[1]))),
+									theory.not(
+											getBvultTerm(theory.term("bvule", appterm.getParameters()[0],
+													appterm.getParameters()[1]))))));
 
 					return equiBvule;
 				}
@@ -397,97 +396,91 @@ public class BVUtils {
 		throw new UnsupportedOperationException("Not a Inequality");
 	}
 
-	public Clause getClause(final Term term, final HashMap<Term, DPLLAtom> boolAtoms, final int stackLevel) {
-		// System.out.println("to Clause: " + term);
-		final ArrayList<Literal> clause = new ArrayList<>();
-		if (term instanceof ApplicationTerm) {
-			final ApplicationTerm appterm = (ApplicationTerm) term;
-			final FunctionSymbol fsym = appterm.getFunction();
-			if (fsym.getName().equals("not")) {
-				clause.add(boolAtoms.get(appterm.getParameters()[0]).negate());
-			} else if (fsym.getName().equals("or")) {
-				for (int i = 0; i < appterm.getParameters().length; i++) {
-					if (appterm.getParameters()[i] instanceof ApplicationTerm) {
-						final ApplicationTerm disjunct = (ApplicationTerm) appterm.getParameters()[i];
-						if (disjunct.getFunction().getName().equals("not")) {
-							assert disjunct.getParameters()[0] instanceof TermVariable;
-							clause.add(boolAtoms.get(disjunct.getParameters()[0]).negate());
-						} else {
-							throw new UnsupportedOperationException("Cannot convert to Clausel: " + term);
-						}
-					} else {
-						clause.add(boolAtoms.get(appterm.getParameters()[i]));
-					}
-				}
-			} else if (fsym.getName().equals("true")) {
-				clause.add(new TrueAtom());
-				// } else if (fsym.getName().equals("and")) {
-				// for (final Term t : appterm.getParameters()) {
-				// getClause(t, boolAtoms, stackLevel);
-				// }
-			} else {
-				throw new UnsupportedOperationException("Cannot convert to Clausel: " + term);
-			}
-		} else {
-			clause.add(boolAtoms.get(term));
-		}
-		return new Clause(clause.toArray(new Literal[clause.size()]), stackLevel);
-	}
-
 	/*
-	 * When a constant occurs in a binary bitwise operation, it is
-	 * rewritten into concatenations of maximal sequences of 0’s and 1’s. For example, the
-	 * constant 00011101 is split as 000b :: 111b :: 0b :: 1b. Then, similar splitting is applied
-	 * to the other term, and then the operator is evaluated. For instance,
-	 * t8 AND 00011101
-	 * is rewritten into 000b :: t[4:2] :: 0b :: t[0:0].
+	 * TODO for or
+	 * TODO cleanup code
 	 */
 	public Term bitMaskElimination(final Term term) {
-		final Term btiMask;
-		final int[] indices = new int[2];
-		indices[1] = -1;
+		Term bitMask = null;
+		final String[] indices = new String[2];
 
 		if (term instanceof ApplicationTerm) {
-			System.out.println("AYAYA " + term);
 			final ApplicationTerm appterm = (ApplicationTerm) term;
-			final FunctionSymbol fsym = appterm.getFunction();
 			final Term lhs = appterm.getParameters()[0];
 			final Term rhs = appterm.getParameters()[1];
+			final String constAsString;
+			Term varTerm;
 			if ((lhs instanceof ConstantTerm) && ((rhs instanceof TermVariable) || (rhs instanceof ApplicationTerm))) {
-				final String lhsString = getConstAsString((ConstantTerm) lhs);
-				System.out.println("split " + lhsString.split("0"));
-				System.out.println("split " + lhsString.split("1"));
+				constAsString = getConstAsString((ConstantTerm) lhs);
+				varTerm = rhs;
 			} else if ((rhs instanceof ConstantTerm)
 					&& ((lhs instanceof TermVariable) || (lhs instanceof ApplicationTerm))) {
-				final String rhsString = getConstAsString((ConstantTerm) rhs);
-				String zeros;
-				for (int i = 0; i < rhsString.length(); i++){ //iterates from left to right
-					final char ch = rhsString.charAt(i);
-					if (ch == '0') {
-						// zeros = zeros + ch;
-						indices[0]  = rhsString.length() - i; //  + 1
-						if(indices[0] <= indices[1]) {
-							// indices to string array
-							// final inal FunctionSymbol extract = mTheory.getFunctionWithResult("extract", indices,
-							// null, BitVec sort);
-							final Term select = mTheory.term("extract", term);
-							// btiMask = mTheory.term("concat" , select,btiMask);
-						}
-					}else {
-						// btiMask = mTheory.term("concat" , mTheory.binary(zeros),btiMask);
-						zeros = "";
-						indices[1] = rhsString.length() - i;
-					}
+				constAsString = getConstAsString((ConstantTerm) rhs);
+				varTerm = lhs;
+			} else {
+				return term;
+			}
 
+			String zeros = "#b";
+			indices[0] = String.valueOf(constAsString.length() - 1);
+
+			for (int i = 0; i < constAsString.length(); i++) { // iterates from left to right over the BitVec
+				final char ch = constAsString.charAt(i);
+				if (ch == '0') {
+					zeros = zeros + ch;
+					if (i > 0) {
+						if (constAsString.charAt(i - 1) == '1') {
+							// indices.clone() is important, otherwise the term changes by altering the array!
+							final FunctionSymbol extract =
+									mTheory.getFunctionWithResult("extract", indices.clone(), null,
+											appterm.getParameters()[0].getSort());
+							final Term select = mTheory.term(extract, varTerm);
+
+							if(bitMask != null) {
+								bitMask = mTheory.term("concat", bitMask, select);
+							}else {
+								bitMask =  select;
+							}
+						}
+					}
+					indices[0] = String.valueOf(constAsString.length() - i - 2); // + 1
+					if (i == constAsString.length() - 1) {
+						if (bitMask != null) {
+							bitMask = mTheory.term("concat", bitMask, mTheory.binary(zeros));
+						} else {
+							bitMask = mTheory.binary(zeros);
+						}
+					}
+				}else {
+					if (!zeros.equals("#b")) {
+						if (bitMask != null) {
+							bitMask = mTheory.term("concat", bitMask, mTheory.binary(zeros));
+						} else {
+							bitMask = mTheory.binary(zeros);
+						}
+					}
+					zeros = "#b";
+					indices[1] = String.valueOf(constAsString.length() - i - 1);
+					// Case end of Vector
+					if (i == constAsString.length() - 1) {
+						final FunctionSymbol extract =
+								mTheory.getFunctionWithResult("extract", indices.clone(), null,
+										appterm.getParameters()[0].getSort());
+						final Term select = mTheory.term(extract, varTerm);
+						if (bitMask != null) {
+							bitMask = mTheory.term("concat", bitMask, select);
+						} else {
+							bitMask = select;
+						}
+					}
 				}
-				// mTheory.term("concat",);
 
 			}
+			return bitMask;
 		}
 
-		// System.out.println(btiMask);
 		return term;
+
 	}
 
 }
-

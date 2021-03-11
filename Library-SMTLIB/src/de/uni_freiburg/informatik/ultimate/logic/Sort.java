@@ -163,12 +163,12 @@ public final class Sort {
 						mRealSort = this;
 					} else {
 						mRealSort =
-							mSymbol.getSort(mIndices, newArgs).getRealSort();
+								mSymbol.getSort(mIndices, newArgs).getRealSort();
 					}
 				}
 			} else {
 				mRealSort =
-					mSymbol.mSortDefinition.mapSort(mArgs).getRealSort();
+						mSymbol.mSortDefinition.mapSort(mArgs).getRealSort();
 			}
 		}
 		return mRealSort;
@@ -235,7 +235,7 @@ public final class Sort {
 		}
 
 		// For more than two arguments create a cache to avoid exponential blow
-		final HashMap<Sort, Sort> cachedMappings = new HashMap<Sort, Sort>();
+		final HashMap<Sort, Sort> cachedMappings = new HashMap<>();
 		return mapSort(substitution, cachedMappings);
 	}
 
@@ -327,6 +327,16 @@ public final class Sort {
 	public boolean isArraySort() {
 		return getRealSort().mSymbol.isArray();
 	}
+
+	/**
+	 * Returns true if this is an bitvector sort.
+	 *
+	 * @return true if this is an bitvector sort.
+	 */
+	public boolean isBitVecSort() {
+		return getName().equals("BitVec");
+	}
+
 	/**
 	 * Returns true if this is a numeric sort.  Numeric sorts are only the
 	 * sorts Int and Real defined by the corresponding SMTLIB theories.

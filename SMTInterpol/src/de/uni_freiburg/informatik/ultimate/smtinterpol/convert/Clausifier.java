@@ -339,11 +339,11 @@ public class Clausifier {
 								ProofConstants.getRewriteSkolemAnnot(converted.getSecond()))
 								: mTracker.buildRewrite(mTracker.getProvedTerm(mAxiom), converted.getFirst(),
 										ProofConstants.getRewriteRemoveForallAnnot(converted.getSecond()));
-				if (isNotTerm(converted.getFirst())) {
-					rewrite = mUtils.convertNot(rewrite);
-				}
-				pushOperation(new AddAsAxiom(mTracker.modusPonens(mAxiom, rewrite), mSource));
-				return;
+						if (isNotTerm(converted.getFirst())) {
+							rewrite = mUtils.convertNot(rewrite);
+						}
+						pushOperation(new AddAsAxiom(mTracker.modusPonens(mAxiom, rewrite), mSource));
+						return;
 			}
 			buildClause(mAxiom, mSource);
 		}
@@ -591,14 +591,10 @@ public class Clausifier {
 						// eq == true and !positive ==> noop
 						// eq == false and !positive ==> set to true
 						// eq == false and positive ==> noop
-						String bitvectorSort = "BitVec";
 						if (eq == EqualityProxy.getTrueProxy()) {
 							lit = mTRUE;
 						} else if (eq == EqualityProxy.getFalseProxy()) {
 							lit = mFALSE;
-						} else if (bitvectorSort.equals(lhs.getSort().getRealSort().getName())
-								&& bitvectorSort.equals(rhs.getSort().getRealSort().getName())) {
-							lit = getBVSolver().createEquality(lhs, rhs);
 						} else {
 							lit = eq.getLiteral(mCollector.getSource());
 						}
@@ -748,7 +744,7 @@ public class Clausifier {
 				rewrite = mTracker.orSimpClause(rewrite);
 			}
 			Term rewriteProof = mTracker.modusPonens(mClause, rewrite);
-			Term proof = mTracker.getClauseProof(rewriteProof);
+			final Term proof = mTracker.getClauseProof(rewriteProof);
 			boolean isDpllClause = true;
 
 			final Literal[] lits = mLits.toArray(new Literal[mLits.size()]);
@@ -1054,7 +1050,8 @@ public class Clausifier {
 			setTermFlags(term, termFlags | Clausifier.AUX_AXIOM_ADDED);
 			if (term instanceof ApplicationTerm) {
 				CCTerm ccTerm = getCCTerm(term);
-				if (ccTerm == null && (needCCTerm(term) || term.getSort().isArraySort())) {
+				if (ccTerm == null
+						&& (needCCTerm(term) || term.getSort().isArraySort() || term.getSort().isBitVecSort())) {
 					final CCTermBuilder cc = new CCTermBuilder(source);
 					ccTerm = cc.convert(term);
 				}
@@ -1083,6 +1080,12 @@ public class Clausifier {
 					final boolean isStore = funcName.equals("store");
 					final boolean isConst = funcName.equals("const");
 					mArrayTheory.notifyArray(getCCTerm(term), isStore, isConst);
+				}
+
+				if (term.getSort().isBitVecSort() && !fs.getName().equals("ite")) {
+					assert ccTerm != null;
+					// mBVSolver.shareBvTerm();
+
 				}
 			}
 			if (term.getSort().isNumericSort()) {
@@ -1195,6 +1198,9 @@ public class Clausifier {
 			if (fs.getName().startsWith("@AUX")) {
 				return true;
 			}
+			if (term.getSort().isBitVecSort()) {
+				return true;
+			}
 			switch (fs.getName()) {
 			case "select":
 			case "store":
@@ -1214,7 +1220,7 @@ public class Clausifier {
 
 	/**
 	 * A QuantifiedFormula is either skolemized or the universal quantifier is dropped before processing the subformula.
-	 * 
+	 *
 	 * In the existential case, the variables are replaced by Skolem functions over the free variables. In the universal
 	 * case, the variables are uniquely renamed.
 	 *
@@ -1706,7 +1712,7 @@ public class Clausifier {
 
 	/**
 	 * Check if an equality between two terms is trivially true or false.
-	 * 
+	 *
 	 * @param lhs
 	 *            the left side of the equality
 	 * @param rhs
@@ -1885,7 +1891,7 @@ public class Clausifier {
 	}
 
 	public void setLogic(final Logics logic) {
-		if (logic.isUF() || logic.isArray() || logic.isArithmetic() || logic.isQuantified()) {
+		if (logic.isUF() || logic.isArray() || logic.isArithmetic() || logic.isQuantified() || logic.isBitVector()) {
 			// also need UF for div/mod
 			// and for quantifiers for AUX functions
 			setupCClosure();
@@ -2012,7 +2018,6 @@ public class Clausifier {
 		Term simpFormula;
 		try {
 			simpFormula = mCompiler.transform(origFormula);
-
 		} finally {
 			mCompiler.reset();
 		}
@@ -2115,7 +2120,6 @@ public class Clausifier {
 					lit = ep.getLiteral(source);
 				}
 			} else if (fs.getName().equals("bvult")) {
-				System.out.println("huhu");
 				lit = getILiteral(idx);
 			} else if ((!fs.isIntern() || fs.getName().equals("select"))
 					&& fs.getReturnSort() == mTheory.getBooleanSort()) {

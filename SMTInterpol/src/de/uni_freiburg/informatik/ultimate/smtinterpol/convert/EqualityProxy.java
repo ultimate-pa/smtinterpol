@@ -23,6 +23,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.bitvector.BVEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LAEquality;
@@ -31,25 +32,30 @@ public class EqualityProxy {
 
 	/**
 	 * Singleton class to represent an equality that is a tautology.
+	 *
 	 * @author Juergen Christ
 	 */
 	public static final class TrueEqualityProxy extends EqualityProxy {
 		private TrueEqualityProxy() {
 			super(null, null, null);
 		}
+
 		@Override
 		public DPLLAtom getLiteral(final SourceAnnotation source) {
 			throw new InternalError("Should never be called");
 		}
 	}
+
 	/**
 	 * Singleton class to represent an equality that is unsatisfiable.
+	 *
 	 * @author Juergen Christ
 	 */
 	public static final class FalseEqualityProxy extends EqualityProxy {
 		private FalseEqualityProxy() {
 			super(null, null, null);
 		}
+
 		@Override
 		public DPLLAtom getLiteral(final SourceAnnotation source) {
 			throw new InternalError("Should never be called");
@@ -83,6 +89,10 @@ public class EqualityProxy {
 		return mClausifier.getLASolver().createEquality(mClausifier.createMutableAffinTerm(affine, null));
 	}
 
+	public BVEquality createBVEquality() {
+		return mClausifier.getBVSolver().createEquality(mLhs, mRhs);
+	}
+
 	public Rational computeNormFactor(final Term lhs, final Term rhs) {
 		final SMTAffineTerm affine = SMTAffineTerm.create(lhs);
 		affine.add(Rational.MONE, rhs);
@@ -90,15 +100,18 @@ public class EqualityProxy {
 	}
 
 	/**
-	 * Creates a CCEquality for the given lhs and rhs.  The equality must
+	 * Creates a CCEquality for the given lhs and rhs. The equality must
 	 * match this EqualityFormula, i.e.,
 	 * <code>lhs-rhs = c*(this.lhs-this.rhs)</code> for some rational c.
 	 * This also has as side-effect, that it creates an LAEquality if it
-	 * did not exists before.  For this reason it is only allowed to call
+	 * did not exists before. For this reason it is only allowed to call
 	 * it for integer or real terms. It will register LAEquality and CCEquality
 	 * with each other.
-	 * @param lhs the left hand side.
-	 * @param rhs the right hand side.
+	 *
+	 * @param lhs
+	 *            the left hand side.
+	 * @param rhs
+	 *            the right hand side.
 	 * @return The created (or cached) CCEquality.
 	 */
 	public CCEquality createCCEquality(final Term lhs, final Term rhs) {
@@ -139,12 +152,11 @@ public class EqualityProxy {
 	private DPLLAtom createAtom(final Term eqTerm, final SourceAnnotation source) {
 		mClausifier.addTermAxioms(mLhs, source);
 		mClausifier.addTermAxioms(mRhs, source);
-
 		final CCTerm lhsCCTerm = mClausifier.getCCTerm(mLhs);
 		final CCTerm rhsCCTerm = mClausifier.getCCTerm(mRhs);
 		boolean hasLhsLA = mClausifier.getLATerm(mLhs) != null;
 		boolean hasRhsLA = mClausifier.getLATerm(mRhs) != null;
-		if (lhsCCTerm == null && rhsCCTerm == null) {
+		if (lhsCCTerm == null && rhsCCTerm == null && eqTerm.getSort().isNumericSort()) {
 			/*
 			 * if both terms do not exist in CClosure yet, it may be better to create them in linear arithmetic. Do
 			 * this, if we don't have a CClosure, or the other term is already in linear arithmetic.
@@ -158,10 +170,20 @@ public class EqualityProxy {
 				hasLhsLA = true;
 			}
 		}
+		boolean wtfAmIDoingHere = true;
+		if (mLhs.getSort().isBitVecSort() && null == mClausifier.getBVSolver()) {
+			mClausifier.addTermAxioms(mLhs, source);
+			mClausifier.addTermAxioms(mRhs, source);
+			wtfAmIDoingHere = false;
+		}
 
 		/* Get linear arithmetic info, if both are arithmetic */
 		if (hasLhsLA && hasRhsLA) {
 			return createLAEquality();
+		} else if (mLhs.getSort().isBitVecSort() && wtfAmIDoingHere) {
+			mClausifier.addTermAxioms(mLhs, source);
+			mClausifier.addTermAxioms(mRhs, source);
+			return createBVEquality();
 		} else {
 
 			/* let them share congruence closure */

@@ -77,7 +77,6 @@ public class BitVectorTheory implements ITheory {
 	@Override
 	public Clause setLiteral(final Literal literal) {
 		// merke getsetze literale in scoped
-		System.out.println("SetBvli");
 		// mSolver.getTheory().getFunctionWithResult("(_ bv 4 4)");
 
 		final DPLLAtom atom = literal.getAtom();
@@ -151,17 +150,13 @@ public class BitVectorTheory implements ITheory {
 
 	@Override
 	public Clause computeConflictClause() {
-
 		final DPLLEngine engine = new DPLLEngine(mClausifier.getLogger(), () -> false); // TODO terminationrequest
 		// TODO fill mAllTerms
 		engine.setProofGeneration(true);
 		final ScopedArrayList<Literal> allLiterals = mBVLiterals;
 		final int engineStackLevel = engine.getAssertionStackLevel();
 		final BitBlaster bitblaster = new BitBlaster(getTheory(), engineStackLevel, allLiterals, mAllTerms);
-		final Term propEquiSat = bitblaster.bitBlasting();
-
-		System.out.println("Bitblasting Result: " + propEquiSat.toStringDirect());
-
+		bitblaster.bitBlasting();
 
 		for (final DPLLAtom atom : bitblaster.getBoolAtoms()) {
 			engine.addAtom(atom);
@@ -205,15 +200,13 @@ public class BitVectorTheory implements ITheory {
 		while (!todo.isEmpty()) {
 			final Clause c = todo.pop();
 			if (visited.add(c)) {
-				if (c.getProof() == null) {
+				if (c.getProof().isLeaf()) {
 					final Term lit = c.getLiteral(0).getAtom().getSMTFormula(getTheory());
 					if (literals.containsKey(lit)) {
 						res.add(literals.get(lit).negate());
 					}
-				} else if (c.getProof().isLeaf()) {
-					throw new UnsupportedOperationException("TODO");
-				} else {
 
+				} else {
 					final ResolutionNode n = (ResolutionNode) c.getProof();
 					todo.push(n.getPrimary());
 					final Antecedent[] ants = n.getAntecedents();
@@ -328,8 +321,8 @@ public class BitVectorTheory implements ITheory {
 		return mClausifier.getTheory();
 	}
 
-	public DPLLAtom createEquality(final Term lhs, final Term rhs) {
-		System.out.println("createBV_EQ_LIT");
+	public BVEquality createEquality(final Term lhs, final Term rhs) {
+		System.out.println("createBV_EQ_LIT:");
 		final BVEquality bveqlit = new BVEquality(lhs, rhs, mClausifier.getStackLevel());
 		getEngine().addAtom(bveqlit);
 		System.out.println(bveqlit.getSMTFormula(getTheory()));
@@ -338,11 +331,16 @@ public class BitVectorTheory implements ITheory {
 	}
 	public DPLLAtom createInEquality(final Term lhs, final Term rhs) {
 
-		System.out.println("createBV_BVULT_LIT");
+		System.out.println("createBV_BVULT_LIT:");
 		final BVInEquality bvInEqlit = new BVInEquality(lhs, rhs, mClausifier.getStackLevel());
 		getEngine().addAtom(bvInEqlit);
 		System.out.println(bvInEqlit.getSMTFormula(getTheory()));
 		return bvInEqlit;
 
+	}
+
+	public void shareBvTerm() {
+		// TODO Auto-generated method stub
+		throw new UnsupportedOperationException("WTF SHARE");
 	}
 }
