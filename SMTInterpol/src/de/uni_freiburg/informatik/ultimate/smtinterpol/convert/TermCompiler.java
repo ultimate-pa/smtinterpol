@@ -190,7 +190,7 @@ public class TermCompiler extends TermTransformer {
 		final FunctionSymbol fsym = appTerm.getFunction();
 		final Theory theory = appTerm.getTheory();
 
-		final Term convertedApp = mTracker.congruence(mTracker.reflexivity(appTerm), args);
+		Term convertedApp = mTracker.congruence(mTracker.reflexivity(appTerm), args);
 
 		final Term[] params = ((ApplicationTerm) mTracker.getProvedTerm(convertedApp)).getParameters();
 
@@ -487,29 +487,35 @@ public class TermCompiler extends TermTransformer {
 				break;
 			}
 			case "select": {
-				final Term lhs = mTracker.getProvedTerm(convertedApp);
-				final Term array = params[0];
+				Term lhs = mTracker.getProvedTerm(convertedApp);
+				Term array = params[0];
 				final Term idx = params[1];
-				final Term nestedIdx = getArrayStoreIdx(array);
-				if (nestedIdx != null) {
-					// Check for select-over-store
-					final SMTAffineTerm diff = new SMTAffineTerm(idx);
-					diff.negate();
-					diff.add(new SMTAffineTerm(nestedIdx));
-					if (diff.isConstant()) {
-						// Found select-over-store
-						final ApplicationTerm store = (ApplicationTerm) array;
-						final Term rhs;
-						if (diff.getConstant().equals(Rational.ZERO)) {
-							// => transform into value
-							rhs = store.getParameters()[2];
-						} else { // Both indices are numerical and distinct.
-							// => transform into (select a idx)
-							rhs = theory.term("select", store.getParameters()[0], idx);
+				boolean isSelect = true;
+				while (isSelect) {
+					isSelect = false;
+					Term nestedIdx = getArrayStoreIdx(array);
+					if (nestedIdx != null) {
+						// Check for select-over-store
+						final SMTAffineTerm diff = new SMTAffineTerm(idx);
+						diff.negate();
+						diff.add(new SMTAffineTerm(nestedIdx));
+						if (diff.isConstant()) {
+							// Found select-over-store
+							final ApplicationTerm store = (ApplicationTerm) array;
+							final Term rhs;
+							if (diff.getConstant().equals(Rational.ZERO)) {
+								// => transform into value
+								rhs = store.getParameters()[2];
+							} else { // Both indices are numerical and distinct.
+								// => transform into (select a idx)
+								isSelect = true;
+								array = store.getParameters()[0];
+								rhs = theory.term("select", array, idx);
+							}
+							final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_SELECT_OVER_STORE);
+							lhs = rhs;
+							convertedApp = mTracker.transitivity(convertedApp, rewrite);
 						}
-						final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_SELECT_OVER_STORE);
-						setResult(mTracker.transitivity(convertedApp, rewrite));
-						return;
 					}
 				}
 				break;
