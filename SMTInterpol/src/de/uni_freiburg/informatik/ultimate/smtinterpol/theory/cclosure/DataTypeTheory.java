@@ -265,159 +265,31 @@ public class DataTypeTheory implements ITheory {
 						} else if (visitedOnPath.contains(rep)) {
 							// if we already visited rep on our current path, it is a cycle.
 							// build and return conflict clause
-							Set<Literal> literals = new HashSet<>();
-							CCTerm lastCt = ct;
-							while (!path.isEmpty()) {
-								CCTerm pathRep = path.pop();
-								SymmetricPair<CCTerm> pair = argConsPairs.get(pathRep);
-								CongruencePath cp = new CongruencePath(mCClosure);
-								
-								// if it is not sure that pathRep is the matching constructor to the selector (lastCT)
-								// build an is-function
-								if (possibleCons.containsKey(pathRep)) {
-									CCAppTerm isFun = possibleCons.get(pathRep);
-									if (isFun == null) {
-										String selName = ((ApplicationTerm) lastCt.mFlatTerm).getFunction().getName();
-										Sort repSort = pathRep.mFlatTerm.getSort();
-										for (Constructor c : ((DataType) repSort.getSortSymbol()).getConstructors()) {
-											for (String s : c.getSelectors()) {
-												if (s.equals(selName)) {
-													Term isTerm = mTheory.term(mTheory.getFunctionWithResult("is", new String[] {c.getName()}, null, repSort), pair.getFirst().mFlatTerm);
-													mClausifier.createCCTerm(isTerm, SourceAnnotation.EMPTY_SOURCE_ANNOT);
-													return null;
-												}
-											}
-										}
-										mClausifier.getLogger().error("Should have found the matching constructor to %s", selName);
-										return null;
-									} else {
-										cp.computePath(isFun, mClausifier.getCCTerm(mTheory.mTrue));
-									}
-								}								
-								
-
-								// pair.getSecond() == null, means lastCt must be a selector application on rep
-								if (pair.getSecond() == null) {
-									pair = new SymmetricPair<CCTerm>(pair.getFirst(), ((CCAppTerm)lastCt).mArg);
-								}
-								
-								if (rep == pathRep) {
-									cp.computePath(ct, pair.getSecond());
-									literals.addAll(cp.mAllLiterals);
-									break;
-								}
-								cp.computePath(pair.getFirst(), pair.getSecond());
-								literals.addAll(cp.mAllLiterals);
-								lastCt = pair.getFirst();
-							}
-							Literal[] negLits = new Literal[literals.size()];
-							int i = 0;
-							for (Literal l : literals) {
-								negLits[i++] = l.negate();
-							}
-							mClausifier.getLogger().debug("Found Cycle: %s", literals);
-							return new Clause(negLits);
+							return buildCycleConflict(ct, path, argConsPairs, possibleCons);
 						}
 						continue;
 					}
 					
-					boolean foundConstructor = false;
-					// if this eq class contains a constructor add all data type arguments to the todo stack
-					for (CCTerm mem : rep.mMembers) {
-						if (mem.mFlatTerm instanceof ApplicationTerm && ((ApplicationTerm)mem.mFlatTerm).getFunction().isConstructor()) {
-							foundConstructor = true;
-							path.push(rep);
-							visitedOnPath.add(rep);
-							todo.push(ct);
-							argConsPairs.put(rep, new SymmetricPair<CCTerm>(ct, mem));
-							for (Term arg : ((ApplicationTerm)mem.mFlatTerm).getParameters()) {
-								if (arg.getSort().getSortSymbol().isDatatype()) {
-									CCTerm ccArg = mClausifier.getCCTerm(arg);
-									if (ccArg.mRepStar == rep) {
-										// if an argument of a constructor is equal to the constructor itself
-										// we need to build the conflict clause directly, otherwise we would assume
-										// we were backtracking.
-										CongruencePath cp = new CongruencePath(mCClosure);
-										cp.computePath(ccArg, mem);
-										Literal[] negLits = new Literal[cp.mAllLiterals.size()];
-										int i = 0;
-										for (Literal l : cp.mAllLiterals) {
-											negLits[i++] = l.negate();
-										}
-										return new Clause(negLits);
-									}
-									todo.push(mClausifier.getCCTerm(arg));
-								}
-							}
-							break;
-						}
-					}
-
-					if (!foundConstructor) {
-						// if there is no constructor in this equality class,
-						// we need to search for a selector function application.
-						CCTerm trueRep = mClausifier.getCCTerm(mTheory.mTrue).mRepStar;
-						Set<CCAppTerm> selectors = new LinkedHashSet<>();
-						Set<String> rightSelectors = new LinkedHashSet<>();
-						CCAppTerm trueIsFunction = null;
-						Set<String> falseSelectors = new LinkedHashSet<>();
-						CCParentInfo pInfo = rep.mCCPars;
-						while (pInfo != null) {
-							if (pInfo.mCCParents != null && pInfo.mCCParents.iterator().hasNext()) {
-								CCAppTerm p = pInfo.mCCParents.iterator().next().getData();
-								if (p.mFlatTerm instanceof ApplicationTerm) {
-									FunctionSymbol pFun = ((ApplicationTerm) p.mFlatTerm).getFunction();
-									if (pFun.isSelector() && p.mFlatTerm.getSort().getSortSymbol().isDatatype()) {
-										selectors.add(p);
-									} else if (pFun.getName().equals("is")) {
-										Constructor c = ((DataType)rep.mFlatTerm.getSort().getSortSymbol()).findConstructor(pFun.getIndices()[0]);
-										if (p.mRepStar == trueRep) {
-											rightSelectors.addAll(Arrays.asList(c.getSelectors()));
-											trueIsFunction = p;
-										} else {
-											falseSelectors.addAll(Arrays.asList(c.getSelectors()));
-										}
-									}
-								}
-							}
-							pInfo = pInfo.mNext;
-						}
+					ArrayDeque<CCTerm> children = new ArrayDeque<>();
+					CCTerm cons = getAllDataTypeChildren(rep, children);
+					
+					if (!children.isEmpty()) {
+						path.push(rep);
+						visitedOnPath.add(rep);
+						todo.push(rep);
 						
-						if (!selectors.isEmpty()) {
-							path.push(rep);
-							visitedOnPath.add(rep);
-							todo.push(ct);
+						if (cons == null || ((ApplicationTerm)cons.mFlatTerm).getFunction().getName().equals("is")) {
+							possibleCons.put(rep, (CCAppTerm) cons);
 							argConsPairs.put(rep, new SymmetricPair<CCTerm>(ct, null));
+						} else {
+							argConsPairs.put(rep, new SymmetricPair<CCTerm>(ct, cons));
 						}
 						
-						for (CCAppTerm s : selectors) {
-							String fsName = ((ApplicationTerm)s.mFlatTerm).getFunction().getName();
-							if ((!rightSelectors.isEmpty() && rightSelectors.contains(fsName)) || !falseSelectors.contains(fsName)) {
-								if (s.mRepStar == rep) {
-									// if the selector is in the same class as its argument it is a cycle
-									// but only if the argument is the right constructor
-									if (trueIsFunction == null) {
-										Constructor cons = getConstructor((ApplicationTerm) s.mFlatTerm);
-										Term isTerm = mTheory.term(mTheory.getFunctionWithResult("is", new String[] {cons.getName()}, null, rep.mFlatTerm.getSort()), s.mArg.mFlatTerm);
-										mClausifier.createCCTerm(isTerm, SourceAnnotation.EMPTY_SOURCE_ANNOT);
-										return null;
-									} else {
-										CongruencePath cp = new CongruencePath(mCClosure);
-										cp.computePath(mClausifier.getCCTerm(mTheory.mTrue), trueIsFunction);
-										cp.computePath(trueIsFunction.mArg, s.mArg);
-										cp.computePath(s, s.mArg);
-										int i = 0;
-										Literal[] negLits = new Literal[cp.mAllLiterals.size()];
-										for (Literal l : cp.mAllLiterals) {
-											negLits[i++] = l.negate();
-										}
-										return new Clause(negLits);
-									}
-								}
-								
-								todo.push(s);
-								possibleCons.put(rep, trueIsFunction);
+						for (CCTerm c : children) {
+							if (c.mRepStar == rep) {
+								return buildCycleConflict(c, path, argConsPairs, possibleCons);
 							}
+							todo.push(c);
 						}
 					}
 					visited.add(rep);
@@ -425,6 +297,143 @@ public class DataTypeTheory implements ITheory {
 			}
 		}
 		return null;
+	}
+	
+	/**
+	 * This functions searches all data type children of a given term. 
+	 * This means, if there is a constructor term, that it is equal to the given term, it finds all of its argument with a data type sort.
+	 * If there is no such constructor term, it searches for applications of selector term on the equality class and returns all selector
+	 * term, which could be valid applications.
+	 * 
+	 * @param rep The representative of the equality class.
+	 * @param children An empty list, which will be filled with children if there are any.
+	 * @return The constructor term which is equal to rep, if there is none, it returns a true "is" function for this equality class, 
+	 * if there is also none, it returns null.
+	 */
+	private CCTerm getAllDataTypeChildren(CCTerm rep, ArrayDeque<CCTerm> children) {
+		CCTerm consResult = null;
+		rep = rep.mRepStar;
+		for (CCTerm mem : rep.mMembers) {
+			if (mem.mFlatTerm instanceof ApplicationTerm && ((ApplicationTerm)mem.mFlatTerm).getFunction().isConstructor()) {
+				for (Term arg : ((ApplicationTerm)mem.mFlatTerm).getParameters()) {
+					if (arg.getSort().getSortSymbol().isDatatype()) {
+						children.add(mClausifier.getCCTerm(arg));
+					}
+				}
+				consResult = mem;
+				break;
+			}
+		}
+		
+		if (consResult == null) {
+			CCTerm trueRep = mClausifier.getCCTerm(mTheory.mTrue).mRepStar;
+			Set<CCAppTerm> selectors = new LinkedHashSet<>();
+			Set<String> rightSelectors = new LinkedHashSet<>();
+			Set<String> falseSelectors = new LinkedHashSet<>();
+			CCParentInfo pInfo = rep.mCCPars;
+			while (pInfo != null) {
+				if (pInfo.mCCParents != null && pInfo.mCCParents.iterator().hasNext()) {
+					CCAppTerm p = pInfo.mCCParents.iterator().next().getData();
+					if (p.mFlatTerm instanceof ApplicationTerm) {
+						FunctionSymbol pFun = ((ApplicationTerm) p.mFlatTerm).getFunction();
+						if (pFun.isSelector() && p.mFlatTerm.getSort().getSortSymbol().isDatatype()) {
+							selectors.add(p);
+						} else if (pFun.getName().equals("is")) {
+							Constructor c = ((DataType)rep.mFlatTerm.getSort().getSortSymbol()).findConstructor(pFun.getIndices()[0]);
+							if (p.mRepStar == trueRep) {
+								rightSelectors.addAll(Arrays.asList(c.getSelectors()));
+								consResult = p;
+							} else {
+								falseSelectors.addAll(Arrays.asList(c.getSelectors()));
+							}
+						}
+					}
+				}
+				pInfo = pInfo.mNext;
+			}
+			
+			if (!rightSelectors.isEmpty()) {
+				for (CCAppTerm s : selectors) {
+					if (rightSelectors.contains(((ApplicationTerm)s.mFlatTerm).getFunction().getName())) children.add(s);
+				}
+			} else {
+				for (CCAppTerm s : selectors) {
+					if (!falseSelectors.contains(((ApplicationTerm)s.mFlatTerm).getFunction().getName())) children.add(s);
+				}
+			}
+			
+		}
+		
+		return consResult;
+	}
+	
+	/**
+	 * This function builds the conflict clause for a path that contains a cycle.
+	 * If there is one equality class on the path for which it is not sure whether it is the constructor in question,
+	 * it builds an "is" term to let the dpll engine decide.
+	 * 
+	 * @param currentTerm The term whose equality class already appeared on the path.
+	 * @param path The list of representatives of equality classes in order of visit.
+	 * @param argConsPairs A table of representatives of equality classes
+	 *  which point to the argument of the preceding constructor and the constructor which argument is next in the path.
+	 * @param possibleCons A collection of representatives of equality classes that have no constructor function as member, but could have.
+	 * @return a conflict clause for the cyclic part of path, if there is for all equality classes in path a constructor term in the equality class or a true "is" term of the equality class.
+	 * If for one equality class there is no constructor or "is" term, it returns null.
+	 */
+	private Clause buildCycleConflict(CCTerm currentTerm, Deque<CCTerm> path, Map<CCTerm, SymmetricPair<CCTerm>> argConsPairs, Map<CCTerm, CCAppTerm> possibleCons) {
+		Set<Literal> literals = new HashSet<>();
+		CCTerm rep = currentTerm.mRepStar;
+		CCTerm lastCt = currentTerm;
+		CongruencePath cp = new CongruencePath(mCClosure);
+		while (!path.isEmpty()) {
+			CCTerm pathRep = path.pop();
+			SymmetricPair<CCTerm> pair = argConsPairs.get(pathRep);
+			
+			// if it is not sure that pathRep is the matching constructor to the selector (lastCT)
+			// build an is-function
+			if (possibleCons.containsKey(pathRep)) {
+				CCAppTerm isFun = possibleCons.get(pathRep);
+				if (isFun == null) {
+					String selName = ((ApplicationTerm) lastCt.mFlatTerm).getFunction().getName();
+					Sort repSort = pathRep.mFlatTerm.getSort();
+					for (Constructor c : ((DataType) repSort.getSortSymbol()).getConstructors()) {
+						for (String s : c.getSelectors()) {
+							if (s.equals(selName)) {
+								Term isTerm = mTheory.term(mTheory.getFunctionWithResult("is", new String[] {c.getName()}, null, repSort), pair.getFirst().mFlatTerm);
+								mClausifier.createCCTerm(isTerm, SourceAnnotation.EMPTY_SOURCE_ANNOT);
+								return null;
+							}
+						}
+					}
+					mClausifier.getLogger().error("Should have found the matching constructor to %s", selName);
+					return null;
+				} else {
+					cp.computePath(isFun, mClausifier.getCCTerm(mTheory.mTrue));
+				}
+			}								
+			
+
+			// pair.getSecond() == null, means lastCt must be a selector application on rep
+			if (pair.getSecond() == null) {
+				pair = new SymmetricPair<CCTerm>(pair.getFirst(), ((CCAppTerm)lastCt).mArg);
+			}
+			
+			if (rep == pathRep) {
+				cp.computePath(currentTerm, pair.getSecond());
+				literals.addAll(cp.mAllLiterals);
+				break;
+			}
+			cp.computePath(pair.getFirst(), pair.getSecond());
+			literals.addAll(cp.mAllLiterals);
+			lastCt = pair.getFirst();
+		}
+		Literal[] negLits = new Literal[literals.size()];
+		int i = 0;
+		for (Literal l : literals) {
+			negLits[i++] = l.negate();
+		}
+		mClausifier.getLogger().debug("Found Cycle: %s", literals);
+		return new Clause(negLits);
 	}
 
 	@Override
