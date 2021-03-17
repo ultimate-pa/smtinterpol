@@ -78,16 +78,14 @@ public class FunctionSymbol {
 			throw new IllegalArgumentException(
 					"Wrong sorts for chainable symbol");
 		}
-		int hash = HashUtils.hashJenkins(mName.hashCode(), mParamSort);
-		if (mIndices != null) hash = HashUtils.hashJenkins(hash, mIndices);
+		int hash = HashUtils.hashJenkins(mName.hashCode(), (Object[]) mParamSort);
+		if (mIndices != null) hash = HashUtils.hashJenkins(hash, (Object[]) mIndices);
 		if (mReturnSort != null) hash = HashUtils.hashJenkins(hash, mReturnSort);
 		mHash = hash;
 	}
 
 	@Override
 	public int hashCode() {
-//		return mIndices == null ? mName.hashCode() : HashUtils.hashJenkins(mName.hashCode(), mIndices);
-//		return mName.hashCode();
 		return mHash;
 	}
 
