@@ -612,6 +612,10 @@ public class Clausifier {
 				} else if (at.getFunction().getName().equals("bvult")) {
 					final Term lhs = at.getParameters()[0];
 					final Term rhs = at.getParameters()[1];
+					// mCClosure.createCCEquality(mStackLevel, createCCTerm(mLiteral,
+					// SourceAnnotation.EMPTY_SOURCE_ANNOT),
+					// mCClosure.getCCTermRep(mTheory.mTrue));
+
 					lit = getBVSolver().createInEquality(lhs, rhs);
 				} else {
 					lit = createAnonLiteral(idx);
@@ -1082,11 +1086,6 @@ public class Clausifier {
 					mArrayTheory.notifyArray(getCCTerm(term), isStore, isConst);
 				}
 
-				if (term.getSort().isBitVecSort() && !fs.getName().equals("ite")) {
-					assert ccTerm != null;
-					// mBVSolver.shareBvTerm();
-
-				}
 			}
 			if (term.getSort().isNumericSort()) {
 				boolean needsLA = term instanceof ConstantTerm;
@@ -1206,6 +1205,9 @@ public class Clausifier {
 			case "store":
 			case "@diff":
 			case "const":
+				return true;
+			case "bvult":
+				System.out.println("needdcc"); // kommt hier nie rein?
 				return true;
 			case "div":
 			case "mod":

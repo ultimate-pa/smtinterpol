@@ -24,8 +24,14 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
 
-public class BitBlaster {
+/**
+ * TODO
+ *
+ * @author Max Barth (max.barth95@gmx.de)
+ *
+ */
 
+public class BitBlaster {
 	private final Theory mTheory;
 	private final ScopedArrayList<Literal> mInputLiterals;
 	private final LinkedHashSet<Term> mAllTerms;
@@ -123,36 +129,41 @@ public class BitBlaster {
 	 * (AND lhs_i = rhs_i) <=> encAtom
 	 */
 	private void getBvConstraintAtom(final Term encAtom, final DPLLAtom atom) {
-		if (atom instanceof BVEquality) {
-			// (AND lhs_i = rhs_i) <=> encAtom
-			final BVEquality bveqatom = (BVEquality) atom;
-			final BigInteger sizeBig = mTheory.toNumeral(bveqatom.getLHS().getSort().getIndices()[0]);
-			final int size = sizeBig.intValue();
-			final Term[] eqconj = new Term[size + size];
-			for (int i = 0; i < size; i++) {
-				eqconj[i] =
-						mTheory.or(mTheory.not(mEncTerms.get(bveqatom.getLHS())[i]),
-								mEncTerms.get(bveqatom.getRHS())[i]);
-				eqconj[i + size] =
-						mTheory.or(mTheory.not(mEncTerms.get(bveqatom.getRHS())[i]),
-								mEncTerms.get(bveqatom.getLHS())[i]);
+		if (atom.getSMTFormula(mTheory) instanceof ApplicationTerm) {
+			final ApplicationTerm apAtom = (ApplicationTerm) atom.getSMTFormula(mTheory);
+			final Term lhs = apAtom.getParameters()[0];
+			final Term rhs = apAtom.getParameters()[1];
+
+			if (!(atom instanceof BVInEquality)) {
+				// (AND lhs_i = rhs_i) <=> encAtom
+				final BigInteger sizeBig = mTheory.toNumeral(lhs.getSort().getIndices()[0]);
+				final int size = sizeBig.intValue();
+				final Term[] eqconj = new Term[size + size];
+				for (int i = 0; i < size; i++) {
+					eqconj[i] =
+							mTheory.or(mTheory.not(mEncTerms.get(lhs)[i]),
+									mEncTerms.get(rhs)[i]);
+					eqconj[i + size] =
+							mTheory.or(mTheory.not(mEncTerms.get(rhs)[i]),
+									mEncTerms.get(lhs)[i]);
+				}
+				final Term eqconjunction = mTheory.and(eqconj);
+				toClauses(mTheory.and(mTheory.or(mTheory.not(encAtom), eqconjunction),
+						mTheory.or(mTheory.not(eqconjunction), encAtom)));
+
+			} else if (atom instanceof BVInEquality) {
+				final BVInEquality bvIneqatom = (BVInEquality) atom;
+				// bvult, holds if cout is false
+				final Term bvult =
+						mTheory.not(adder(mEncTerms.get(bvIneqatom.getLHS()), negate(mEncTerms.get(bvIneqatom.getRHS())),
+								mTheory.mTrue).getSecond());
+				toClauses(mTheory.and(mTheory.or(mTheory.not(encAtom), bvult),
+						mTheory.or(mTheory.not(bvult), encAtom)));
+
+
+			} else {
+				throw new UnsupportedOperationException("Unknown Atom");
 			}
-			final Term eqconjunction = mTheory.and(eqconj);
-			toClauses(mTheory.and(mTheory.or(mTheory.not(encAtom), eqconjunction),
-					mTheory.or(mTheory.not(eqconjunction), encAtom)));
-
-		} else if (atom instanceof BVInEquality) {
-			final BVInEquality bvIneqatom = (BVInEquality) atom;
-			// bvult, holds if cout is false
-			final Term bvult =
-					mTheory.not(adder(mEncTerms.get(bvIneqatom.getLHS()), negate(mEncTerms.get(bvIneqatom.getRHS())),
-							mTheory.mTrue).getSecond());
-			toClauses(mTheory.and(mTheory.or(mTheory.not(encAtom), bvult),
-					mTheory.or(mTheory.not(bvult), encAtom)));
-
-
-		} else {
-			throw new UnsupportedOperationException("Unknown Atom");
 		}
 	}
 
@@ -282,49 +293,8 @@ public class BitBlaster {
 				case "bvurem":
 					// b != 0 => q * b + e(t) = a
 					// b != 0 => e(t) < b
-					// Add Aux vars for each step
-					final Term[] encA  = mEncTerms.get(appterm.getParameters()[0]);
-					final Term[] encB = mEncTerms.get(appterm.getParameters()[1]);
-					final int stage =
-							mTheory.toNumeral(appterm.getParameters()[1].getSort().getIndices()[0]).intValue() - 1;
-					final Term[] remainder;
-					final Term[] product;
-					if (fsym.getName().equals("bvudiv")) {
-						remainder = createBoolVarArray(conjunction.length);
-						product = multiplier(encTerm, encB, stage);
-					} else if (fsym.getName().equals("bvurem")) {
-						remainder = encTerm;
-						product = multiplier(createBoolVarArray(conjunction.length), encB, stage);
-					} else {
-						throw new UnsupportedOperationException(
-								"Unsupported functionsymbol for bitblasting: " + fsym.getName());
-					}
-					for (int i = 0; i < product.length; i++) {
-						product[i] = createAuxVar(product[i]);
-					}
-					final Term[] sum = adder(product, remainder, mTheory.mFalse).getFirst();
-					for (int i = 0; i < sum.length; i++) {
-						sum[i] = createAuxVar(sum[i]);
-					}
-					//	Term lhs = (encB != False);
-					final Term lhs = mTheory.or(encB);
-					final Term bvult =
-							createAuxVar(mTheory.not(adder(remainder, negate(encB), mTheory.mTrue).getSecond()));
-					for (int i = 0; i < conjunction.length; i++) {
-						conjunction[i] = mTheory.and(
-								mTheory.or(mTheory.not(sum[i]), encA[i]),
-								mTheory.or(mTheory.not(encA[i]), sum[i]));
-					}
-
-					final Term divisionConstraint = mTheory.and(mTheory.or(mTheory.not(lhs), mTheory.and(conjunction)),
-							mTheory.or(lhs, mTheory.not(mTheory.and(conjunction))));
-					toClauses(divisionConstraint);
-
-					final Term remainderConstraint = mTheory.and(mTheory.or(mTheory.not(lhs), bvult),
-							mTheory.or(lhs, mTheory.not(bvult)));
-					toClauses(remainderConstraint);
+					division(appterm, conjunction, encTerm);
 					return;
-
 				default:
 					throw new UnsupportedOperationException(
 							"Unsupported functionsymbol for bitblasting: " + fsym.getName());
@@ -337,6 +307,51 @@ public class BitBlaster {
 		} else {
 			throw new UnsupportedOperationException("Unknown BVConstraint for term: " + term);
 		}
+	}
+
+	private void division(final ApplicationTerm appterm, final Term[] conjunction, final Term[] encTerm) {
+		// Add Aux vars for each step
+		final FunctionSymbol fsym = appterm.getFunction();
+		final Term[] encA = mEncTerms.get(appterm.getParameters()[0]);
+		final Term[] encB = mEncTerms.get(appterm.getParameters()[1]);
+		final int stage =
+				mTheory.toNumeral(appterm.getParameters()[1].getSort().getIndices()[0]).intValue() - 1;
+		final Term[] remainder;
+		final Term[] product;
+		if (fsym.getName().equals("bvudiv")) {
+			remainder = createBoolVarArray(conjunction.length);
+			product = multiplier(encTerm, encB, stage);
+		} else if (fsym.getName().equals("bvurem")) {
+			remainder = encTerm;
+			product = multiplier(createBoolVarArray(conjunction.length), encB, stage);
+		} else {
+			throw new UnsupportedOperationException(
+					"Unsupported functionsymbol for bitblasting: " + fsym.getName());
+		}
+		for (int i = 0; i < product.length; i++) {
+			product[i] = createAuxVar(product[i]);
+		}
+		final Term[] sum = adder(product, remainder, mTheory.mFalse).getFirst();
+		for (int i = 0; i < sum.length; i++) {
+			sum[i] = createAuxVar(sum[i]);
+		}
+		// Term lhs = (encB != False);
+		final Term lhs = mTheory.or(encB);
+		final Term bvult =
+				createAuxVar(mTheory.not(adder(remainder, negate(encB), mTheory.mTrue).getSecond()));
+		for (int i = 0; i < conjunction.length; i++) {
+			conjunction[i] = mTheory.and(
+					mTheory.or(mTheory.not(sum[i]), encA[i]),
+					mTheory.or(mTheory.not(encA[i]), sum[i]));
+		}
+
+		final Term divisionConstraint = mTheory.and(mTheory.or(mTheory.not(lhs), mTheory.and(conjunction)),
+				mTheory.or(lhs, mTheory.not(mTheory.and(conjunction))));
+		toClauses(divisionConstraint);
+
+		final Term remainderConstraint = mTheory.and(mTheory.or(mTheory.not(lhs), bvult),
+				mTheory.or(lhs, mTheory.not(bvult)));
+		toClauses(remainderConstraint);
 	}
 
 	// 00 concat 01 = 0001
@@ -648,10 +663,11 @@ public class BitBlaster {
 				for (int i = 0; i < appClean.getParameters().length; i++) {
 					addClauses(appClean.getParameters()[i]);
 				}
+				return;
 			}
-		} else {
-			addClauses(cleanTerm);
 		}
+		addClauses(cleanTerm);
+
 	}
 
 

@@ -41,6 +41,7 @@ public class BitvectorTest {
 	private Term q3;
 	private Term p4;
 	private Term q4;
+	private Term p7;
 	private Term p8;
 
 	@Before
@@ -52,21 +53,22 @@ public class BitvectorTest {
 		final Sort bv2 = mSolver.getTheory().getSort("BitVec", new String[] { "2" });
 		final Sort bv3 = mSolver.getTheory().getSort("BitVec", new String[] { "3" });
 		final Sort bv4 = mSolver.getTheory().getSort("BitVec", new String[] { "4" });
+		final Sort bv7 = mSolver.getTheory().getSort("BitVec", new String[] { "7" });
 		final Sort bv8 = mSolver.getTheory().getSort("BitVec", new String[] { "8" });
 		final Sort bv12 = mSolver.getTheory().getSort("BitVec", new String[] { "12" });
+		final Sort bv16 = mSolver.getTheory().getSort("BitVec", new String[] { "16" });
 		final Sort bv32 = mSolver.getTheory().getSort("BitVec", new String[] { "32" });
-		final Sort bv64 = mSolver.getTheory().getSort("BitVec", new String[] { "64" });
 
-		mSolver.declareFun("x", Script.EMPTY_SORT_ARRAY, bv32);
-		mSolver.declareFun("y", Script.EMPTY_SORT_ARRAY, bv32);
-		mSolver.declareFun("z", Script.EMPTY_SORT_ARRAY, bv32);
-		mSolver.declareFun("a", Script.EMPTY_SORT_ARRAY, bv32);
-		mSolver.declareFun("b", Script.EMPTY_SORT_ARRAY, bv32);
-		mSolver.declareFun("c", Script.EMPTY_SORT_ARRAY, bv32);
+		mSolver.declareFun("x", Script.EMPTY_SORT_ARRAY, bv16);
+		mSolver.declareFun("y", Script.EMPTY_SORT_ARRAY, bv16);
+		mSolver.declareFun("z", Script.EMPTY_SORT_ARRAY, bv16);
+		mSolver.declareFun("a", Script.EMPTY_SORT_ARRAY, bv16);
+		mSolver.declareFun("b", Script.EMPTY_SORT_ARRAY, bv16);
+		mSolver.declareFun("c", Script.EMPTY_SORT_ARRAY, bv16);
 
-		mSolver.declareFun("u", Script.EMPTY_SORT_ARRAY, bv64);
-		mSolver.declareFun("v", Script.EMPTY_SORT_ARRAY, bv64);
-		mSolver.declareFun("w", Script.EMPTY_SORT_ARRAY, bv64);
+		mSolver.declareFun("u", Script.EMPTY_SORT_ARRAY, bv32);
+		mSolver.declareFun("v", Script.EMPTY_SORT_ARRAY, bv32);
+		mSolver.declareFun("w", Script.EMPTY_SORT_ARRAY, bv32);
 
 		mSolver.declareFun("p", Script.EMPTY_SORT_ARRAY, bv1);
 		mSolver.declareFun("q", Script.EMPTY_SORT_ARRAY, bv1);
@@ -77,6 +79,7 @@ public class BitvectorTest {
 		mSolver.declareFun("p4", Script.EMPTY_SORT_ARRAY, bv4);
 		mSolver.declareFun("q4", Script.EMPTY_SORT_ARRAY, bv4);
 		mSolver.declareFun("p8", Script.EMPTY_SORT_ARRAY, bv8);
+		mSolver.declareFun("p7", Script.EMPTY_SORT_ARRAY, bv7);
 
 		x = mSolver.term("x");
 		y = mSolver.term("y");
@@ -97,6 +100,7 @@ public class BitvectorTest {
 		q3 = mSolver.term("q3");
 		p4 = mSolver.term("p4");
 		q4 = mSolver.term("q4");
+		p7 = mSolver.term("p7");
 		p8 = mSolver.term("p8");
 
 	}
@@ -114,11 +118,37 @@ public class BitvectorTest {
 		final String[] asd = new String[2];
 		asd[0] = "7";
 		asd[1] = "5";
-		final Term consTerm2 = mSolver.binary("#b00100000");
-		final Term term1 = mSolver.term("extract", asd, null, consTerm2);
+		final Term consTerm1 = mSolver.binary("#b00100000");
+		final Term consTerm2 = mSolver.binary("#b00100010");
+		final Term term1 = mSolver.term("extract", asd, null, consTerm1);
 		final Term term2 = mSolver.term("extract", asd, null, consTerm2);
 		final Term input = mSolver.term("=", term1, term2);
 		mSolver.assertTerm(input);
+		final LBool isSat = mSolver.checkSat();
+		Assert.assertSame(LBool.SAT, isSat);
+	}
+
+	@Test
+	public void selectPropagation() {
+		mSolver.resetAssertions();
+		final String[] idx = new String[2];
+		idx[0] = "5";
+		idx[1] = "3";
+		final Term consTerm1 = mSolver.binary("#b1111");
+		final Term consTerm2 = mSolver.binary("#b0000");
+		final Term term1 = mSolver.term("extract", idx, null, mSolver.term("concat", consTerm1, consTerm2));
+		final Term input1 = mSolver.term("=", term1, p3);
+		mSolver.assertTerm(input1);
+		final String[] idx2 = new String[2];
+		idx2[0] = "5";
+		idx2[1] = "2";
+		final String[] idx3 = new String[2];
+		idx3[0] = "2";
+		idx3[1] = "1";
+		final Term term2 =
+				mSolver.term("extract", idx3, null, mSolver.term("extract", idx2, null, mSolver.binary("#b0100100")));
+		final Term input2 = mSolver.term("=", term2, p2);
+		mSolver.assertTerm(input2);
 		final LBool isSat = mSolver.checkSat();
 		Assert.assertSame(LBool.SAT, isSat);
 	}
@@ -198,7 +228,7 @@ public class BitvectorTest {
 
 	}
 
-	@Test
+	// @Test
 	public void relationConst() {
 		mSolver.resetAssertions();
 		final Term consTerm = mSolver.binary("#b0001");
@@ -285,9 +315,36 @@ public class BitvectorTest {
 		final LBool isSat = mSolver.checkSat();
 		Assert.assertSame(LBool.UNSAT, isSat);
 	}
+
+	// @Test
+	public void bitVecCClosureBvult() {
+		// x < y::z, ¬(x < w), w = y:: z
+		mSolver.resetAssertions();
+		final Term input =mSolver.term("and",
+				mSolver.term("=", w, mSolver.term("concat", y, z)),
+				mSolver.term("not", mSolver.term("bvult", u, w)),
+				mSolver.term("bvult", u, mSolver.term("concat", y, z))
+
+				);
+		mSolver.assertTerm(input);
+		final LBool isSat = mSolver.checkSat();
+		Assert.assertSame(LBool.UNSAT, isSat);
+	}
+
+	@Test
+	public void bitVecCClosure() {
+		mSolver.resetAssertions();
+		final Term input = mSolver.term("and",
+				mSolver.term("=", mSolver.term("concat", y, z), w),
+				mSolver.term("not", mSolver.term("=", u, w)),
+				mSolver.term("=", u, mSolver.term("concat", y, z)));
+		mSolver.assertTerm(input);
+		final LBool isSat = mSolver.checkSat();
+		Assert.assertSame(LBool.UNSAT, isSat);
+	}
+
 	// @Test
 	public void eqConcatMatch() {
-		// x < y::z, ¬(x < w), w = y:: z
 		mSolver.resetAssertions();
 		final Term input = mSolver.term("=", mSolver.term("concat", y, z), mSolver.term("concat", x, c),
 				mSolver.term("concat", a, b));
@@ -297,8 +354,18 @@ public class BitvectorTest {
 	}
 
 	@Test
+	public void eqNoMatch() {
+		mSolver.resetAssertions();
+		final Term input = mSolver.term("and",
+				mSolver.term("=", mSolver.term("concat", p4, q3), p7),
+				mSolver.term("=", mSolver.term("concat", p2, q2), mSolver.term("concat", p, q3)));
+		mSolver.assertTerm(input);
+		final LBool isSat = mSolver.checkSat();
+		Assert.assertSame(LBool.SAT, isSat);
+	}
+
+	@Test
 	public void eqConst() {
-		// x < y::z, ¬(x < w), w = y:: z
 		mSolver.resetAssertions();
 		final Term input = mSolver.term("and",
 				mSolver.term("=", mSolver.binary("#b0001"), mSolver.binary("#b0001"), mSolver.binary("#b0001")),
@@ -310,7 +377,6 @@ public class BitvectorTest {
 
 	@Test
 	public void concatConstSimp() {
-		// x < y::z, ¬(x < w), w = y:: z
 		mSolver.resetAssertions();
 		final Term input = mSolver.term("=", mSolver.binary("#b01110100"),
 				mSolver.term("concat", mSolver.binary("#b0111"), mSolver.binary("#b0100")));
@@ -323,11 +389,12 @@ public class BitvectorTest {
 	public void concatBitBlast() {
 
 		mSolver.resetAssertions();
-		final Term input = mSolver.term("=", mSolver.binary("#b0001"),
-				mSolver.term("concat", p2, mSolver.binary("#b01")));
+		final Term input = mSolver.term("and", mSolver.term("=", mSolver.binary("#b01"),
+				mSolver.term("concat", p, mSolver.binary("#b1"))),
+				mSolver.term("=", p, mSolver.binary("#b1")));
 		mSolver.assertTerm(input);
 		final LBool isSat = mSolver.checkSat();
-		Assert.assertSame(LBool.SAT, isSat);
+		Assert.assertSame(LBool.UNSAT, isSat);
 	}
 
 	@Test
@@ -772,11 +839,25 @@ public class BitvectorTest {
 	@Test
 	public void bitVecANDBitMask() {
 		mSolver.resetAssertions();
-		final Term input = mSolver.term("=", p4, mSolver.term("bvand", q4, mSolver.binary("#b0110")));
+		final Term input = mSolver.term("and",
+				mSolver.term("=", mSolver.binary("#b1111"), mSolver.term("bvand", p4, mSolver.binary("#b0110"))),
+				mSolver.term("=", p4, mSolver.binary("#b0011")));
 		mSolver.assertTerm(input);
 		final LBool isUnSat = mSolver.checkSat();
-		Assert.assertSame(LBool.SAT, isUnSat);
+		Assert.assertSame(LBool.UNSAT, isUnSat);
 		mSolver.reset();
 	}
 
+	@Test
+	public void bitVecORBitMask() {
+		mSolver.resetAssertions();
+		final Term input = mSolver.term("and",
+				mSolver.term("=", mSolver.binary("#b1110"), mSolver.term("bvor", p4, mSolver.binary("#b0110"))),
+				mSolver.term("=", p4, mSolver.binary("#b0001")),
+				mSolver.term("=", mSolver.binary("#b0001"), mSolver.binary("#b0001")));
+		mSolver.assertTerm(input);
+		final LBool isUnSat = mSolver.checkSat();
+		Assert.assertSame(LBool.UNSAT, isUnSat);
+		mSolver.reset();
+	}
 }

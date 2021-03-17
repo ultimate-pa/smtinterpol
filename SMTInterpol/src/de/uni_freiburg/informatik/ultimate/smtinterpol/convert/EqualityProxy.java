@@ -23,7 +23,6 @@ import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.bitvector.BVEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LAEquality;
@@ -87,10 +86,6 @@ public class EqualityProxy {
 		final SMTAffineTerm affine = SMTAffineTerm.create(mLhs);
 		affine.add(Rational.MONE, SMTAffineTerm.create(mRhs));
 		return mClausifier.getLASolver().createEquality(mClausifier.createMutableAffinTerm(affine, null));
-	}
-
-	public BVEquality createBVEquality() {
-		return mClausifier.getBVSolver().createEquality(mLhs, mRhs);
 	}
 
 	public Rational computeNormFactor(final Term lhs, final Term rhs) {
@@ -170,20 +165,9 @@ public class EqualityProxy {
 				hasLhsLA = true;
 			}
 		}
-		boolean wtfAmIDoingHere = true;
-		if (mLhs.getSort().isBitVecSort() && null == mClausifier.getBVSolver()) {
-			mClausifier.addTermAxioms(mLhs, source);
-			mClausifier.addTermAxioms(mRhs, source);
-			wtfAmIDoingHere = false;
-		}
-
 		/* Get linear arithmetic info, if both are arithmetic */
 		if (hasLhsLA && hasRhsLA) {
 			return createLAEquality();
-		} else if (mLhs.getSort().isBitVecSort() && wtfAmIDoingHere) {
-			mClausifier.addTermAxioms(mLhs, source);
-			mClausifier.addTermAxioms(mRhs, source);
-			return createBVEquality();
 		} else {
 
 			/* let them share congruence closure */

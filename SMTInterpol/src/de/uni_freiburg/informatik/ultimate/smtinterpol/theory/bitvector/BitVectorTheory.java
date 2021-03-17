@@ -78,10 +78,14 @@ public class BitVectorTheory implements ITheory {
 	public Clause setLiteral(final Literal literal) {
 		// merke getsetze literale in scoped
 		// mSolver.getTheory().getFunctionWithResult("(_ bv 4 4)");
-
+		boolean bitVecLiteral = false;
 		final DPLLAtom atom = literal.getAtom();
-		if ((atom instanceof BVEquality) || (atom instanceof BVInEquality)) {
-			mBVLiterals.add(literal);
+		if (atom.getSMTFormula(getTheory()) instanceof ApplicationTerm) {
+			final ApplicationTerm apAtom = (ApplicationTerm) atom.getSMTFormula(getTheory());
+			bitVecLiteral = apAtom.getParameters()[0].getSort().isBitVecSort();
+		}
+		if (bitVecLiteral) {
+
 
 			if (literal.getAtom().getSMTFormula(getTheory()) instanceof ApplicationTerm) {
 				final ApplicationTerm appterm = (ApplicationTerm) literal.getAtom().getSMTFormula(getTheory());
@@ -89,6 +93,21 @@ public class BitVectorTheory implements ITheory {
 				if (appterm.getFunction().getName().equals("=")) {
 					final Term bvEqLHS = appterm.getParameters()[0];
 					final Term bvEqRHS = appterm.getParameters()[1];
+
+					if (bvEqLHS.toString().equals(bvEqRHS.toString())) {
+						System.out.println("Trivial BVEquality: " + literal.getSMTFormula(getTheory()));
+						// getEngine(). //tell dpll
+						// .setPreferredStatus(status)
+						if (((ApplicationTerm) literal.getSMTFormula(getTheory())).getFunction().getName()
+								.equals("not")) {
+							final Literal[] conflictSet = new Literal[1];
+							conflictSet[0] = literal.negate();
+							final Clause conflict = new Clause(conflictSet);
+							return conflict;
+						}
+						return null;
+					}
+					mBVLiterals.add(literal);
 					getAllTerms(appterm); // For Bitblasting erst machen
 					System.out.println("SetBVEquality: " + literal.getSMTFormula(getTheory()));
 
@@ -109,19 +128,9 @@ public class BitVectorTheory implements ITheory {
 						}
 					}
 
-					if (bvEqLHS.toString().equals(bvEqRHS.toString())) {
-						// getEngine(). //tell dpll
-						// .setPreferredStatus(status)
-						if (((ApplicationTerm) literal.getSMTFormula(getTheory())).getFunction().getName()
-								.equals("not")) {
-							final Literal[] conflictSet = new Literal[1];
-							conflictSet[0] = literal.negate();
-							final Clause conflict = new Clause(conflictSet);
-							return conflict;
-						}
-						return null;
-					}
+
 				} else if (appterm.getFunction().getName().equals("bvult")) {
+					mBVLiterals.add(literal);
 					final Term bvInEqLHS = appterm.getParameters()[0];
 					final Term bvInEqRHS = appterm.getParameters()[1];
 					getAllTerms(appterm);
@@ -150,6 +159,9 @@ public class BitVectorTheory implements ITheory {
 
 	@Override
 	public Clause computeConflictClause() {
+		// TODO choose variable assignment nad try to show Sat using the const optimizations, prevents us from using
+
+		// bitblasting
 		final DPLLEngine engine = new DPLLEngine(mClausifier.getLogger(), () -> false); // TODO terminationrequest
 		// TODO fill mAllTerms
 		engine.setProofGeneration(true);
@@ -164,7 +176,6 @@ public class BitVectorTheory implements ITheory {
 		for (final Clause cl : bitblaster.getClauses()) {
 			engine.addClause(cl);
 		}
-		// TODO atom encoding zurück übersetzten
 		final boolean sat = engine.solve();
 		System.out.println("DPLL: " + sat);
 		if (sat) {
@@ -192,6 +203,10 @@ public class BitVectorTheory implements ITheory {
 		return null;
 	}
 
+	/*
+	 * Searches some sort of Unsat Core in the Bitblasting result.
+	 * Returns the Conflict Clause, containing this core.
+	 */
 	private HashSet<Literal> getUnsatCore(final Clause unsat, final HashMap<Term, Literal> literals) {
 		final HashSet<Literal> res = new HashSet<>();
 		final ArrayDeque<Clause> todo = new ArrayDeque<>();
@@ -205,7 +220,6 @@ public class BitVectorTheory implements ITheory {
 					if (literals.containsKey(lit)) {
 						res.add(literals.get(lit).negate());
 					}
-
 				} else {
 					final ResolutionNode n = (ResolutionNode) c.getProof();
 					todo.push(n.getPrimary());
@@ -321,14 +335,14 @@ public class BitVectorTheory implements ITheory {
 		return mClausifier.getTheory();
 	}
 
-	public BVEquality createEquality(final Term lhs, final Term rhs) {
-		System.out.println("createBV_EQ_LIT:");
-		final BVEquality bveqlit = new BVEquality(lhs, rhs, mClausifier.getStackLevel());
-		getEngine().addAtom(bveqlit);
-		System.out.println(bveqlit.getSMTFormula(getTheory()));
-		return bveqlit;
-
-	}
+	// public BVEquality createEquality(final Term lhs, final Term rhs) {
+	// System.out.println("createBV_EQ_LIT:");
+	// final BVEquality bveqlit = new BVEquality(lhs, rhs, mClausifier.getStackLevel());
+	// getEngine().addAtom(bveqlit);
+	// System.out.println(bveqlit.getSMTFormula(getTheory()));
+	// return bveqlit;
+	//
+	// }
 	public DPLLAtom createInEquality(final Term lhs, final Term rhs) {
 
 		System.out.println("createBV_BVULT_LIT:");

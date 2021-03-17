@@ -237,12 +237,20 @@ public class TermCompiler extends TermTransformer {
 				setResult(mUtils.convertIte(convertedApp));
 				return;
 			case "=":
-				if (params[0].getSort().getName().equals("BitVec")) {
+				if (params[0].getSort().isBitVecSort()) {
 					final Term elimCM = bvUtils.eliminateConcatPerfectMatch(fsym, params);
 					if (elimCM != null) {
-						setResult(mUtils.convertAnd(elimCM));
+						if (elimCM instanceof ApplicationTerm) {
+							if (((ApplicationTerm) elimCM).getFunction().getName().equals("and")) {
+								setResult(mUtils.convertAnd(elimCM));
+								return;
+							}
+						}
+						setResult(elimCM);
 						return;
 					}
+					setResult(bvUtils.iterateOverBvEqualites(mUtils.convertEq(convertedApp)));
+					return;
 				}
 				setResult(mUtils.convertEq(convertedApp));
 				return;
@@ -550,10 +558,8 @@ public class TermCompiler extends TermTransformer {
 				return;
 			}
 			case "bvsub":
-			case "bvadd":
 			case "bvudiv":
-			case "bvurem":
-			case "bvmul": {
+			case "bvurem": {
 				if (bvUtils.isConstRelation(params[0], params[1])) {
 					setResult(bvUtils.getProof(bvUtils.optimizeArithmetic(fsym, params[0], params[1]), convertedApp,
 							mTracker, ProofConstants.RW_BVARITH));
@@ -562,16 +568,31 @@ public class TermCompiler extends TermTransformer {
 				setResult(convertedApp);
 				return;
 			}
+
+			case "bvadd":
+			case "bvmul": {
+				if (bvUtils.isConstRelation(params[0], params[1])) {
+					setResult(bvUtils.getProof(bvUtils.optimizeArithmetic(fsym, params[0], params[1]), convertedApp,
+							mTracker, ProofConstants.RW_BVARITH));
+					return;
+				}
+				setResult(bvUtils.orderParametersLexicographicaly((ApplicationTerm) convertedApp));
+				return;
+			}
 			case "bvand":
 			case "bvor": {
-				bvUtils.bitMaskElimination(convertedApp);
 				if (bvUtils.isConstRelation(params[0], params[1])) {
 					setResult(bvUtils.getProof(bvUtils.optimizeLogical(fsym, params[0], params[1]), convertedApp,
 							mTracker, ProofConstants.RW_BVLOGIC));
 					return;
+				} else {
+					// order before bitmaskelimination!
+					final Term bitMask =
+							bvUtils.bitMaskElimination(
+									bvUtils.orderParametersLexicographicaly((ApplicationTerm) convertedApp));
+					setResult(bitMask);
+					return;
 				}
-				setResult(convertedApp);
-				return;
 			}
 			case "bvlshr":
 			case "bvshl": {
@@ -624,11 +645,11 @@ public class TermCompiler extends TermTransformer {
 				return;
 			}
 			case "extract": {
-				// If paramter constantterm, replace with result
 				if (params[0] instanceof ConstantTerm) {
 					setResult(bvUtils.optimizeSelect(fsym, params[0]));
 				}
-				setResult(convertedApp);
+				setResult(bvUtils.propagateExtract(convertedApp)); // TODO check obs fehlher hier gibt von wegen
+																	// convertiereung
 				return;
 			}
 			case "true":
