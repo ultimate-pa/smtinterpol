@@ -78,6 +78,7 @@ public class QuantifierTheory implements ITheory {
 
 	private final EMatching mEMatching;
 	private final InstantiationManager mInstantiationManager;
+
 	private final Map<Sort, Term> mLambdas;
 
 	/**
@@ -97,19 +98,21 @@ public class QuantifierTheory implements ITheory {
 
 	// Statistics
 	long mNumInstancesProduced, mNumInstancesDER, mNumInstancesProducedConfl, mNumInstancesProducedEM,
-			mNumInstancesProducedEnum;
+			mNumInstancesProducedEnum, mNumInstancesProducedMB;
 	private long mNumCheckpoints, mNumCheckpointsWithNewEval, mNumConflicts, mNumProps, mNumFinalcheck;
 	private long mCheckpointTime, mFindEmatchingTime, mFinalCheckTime, mEMatchingTime, mDawgTime;
-	int[] mNumInstancesOfAge, mNumInstancesOfAgeEnum;
+	int[] mNumInstancesOfAge, mNumInstancesOfAgeFC;
 
 	// Options
 	InstantiationMethod mInstantiationMethod;
+	QuantFinalCheckMethod mFinalCheckMethod;
 	boolean mUseUnknownTermValueInDawgs;
 	boolean mPropagateNewAux;
 	boolean mPropagateNewTerms;
 
 	public QuantifierTheory(final Theory th, final DPLLEngine engine, final Clausifier clausifier,
-			final InstantiationMethod instMethod, final boolean useUnknownTermDawgs, final boolean propagateNewTerms,
+			final InstantiationMethod instMethod, final QuantFinalCheckMethod fcMethod,
+			final boolean useUnknownTermDawgs, final boolean propagateNewTerms,
 			final boolean propagateNewAux) {
 		mClausifier = clausifier;
 		mLogger = clausifier.getLogger();
@@ -117,6 +120,7 @@ public class QuantifierTheory implements ITheory {
 		mEngine = engine;
 
 		mInstantiationMethod = instMethod;
+		mFinalCheckMethod = fcMethod;
 		mUseUnknownTermValueInDawgs = useUnknownTermDawgs;
 		mPropagateNewTerms = propagateNewTerms;
 		mPropagateNewAux = propagateNewAux;
@@ -134,7 +138,7 @@ public class QuantifierTheory implements ITheory {
 		mDecideLevelOfLastCheckpoint = mEngine.getDecideLevel();
 
 		mNumInstancesOfAge = new int[Integer.SIZE];
-		mNumInstancesOfAgeEnum = new int[Integer.SIZE];
+		mNumInstancesOfAgeFC = new int[Integer.SIZE];
 	}
 
 	@Override
@@ -311,7 +315,7 @@ public class QuantifierTheory implements ITheory {
 				return null;
 			}
 			if (potentiallyInterestingInstances.isEmpty() || !foundNonSat) {
-				potentiallyInterestingInstances = mInstantiationManager.instantiateSomeNotSat();
+				potentiallyInterestingInstances = mInstantiationManager.instantiateSomeNotSat(mFinalCheckMethod);
 			}
 			conflict = addInstClausesToPending(potentiallyInterestingInstances);
 			if (conflict != null) {
@@ -372,11 +376,13 @@ public class QuantifierTheory implements ITheory {
 	@Override
 	public void printStatistics(final LogProxy logger) {
 		logger.info("Quant: DER produced %d ground clause(s).", mNumInstancesDER);
-		logger.info("Quant: Instances produced: %d (Conflict/Unit: %d, E-Matching: %d, Enumeration: %d)",
-				mNumInstancesProduced, mNumInstancesProducedConfl, mNumInstancesProducedEM, mNumInstancesProducedEnum);
 		logger.info(
-				"Quant: Subs of age 0, 1, 2-3, 4-7, ... : %s, (Enumeration: %s)", Arrays.toString(mNumInstancesOfAge),
-				Arrays.toString(mNumInstancesOfAgeEnum));
+				"Quant: Instances produced: %d (Conflict/Unit: %d, E-Matching: %d, Enumeration: %d, Model-based: %d)",
+				mNumInstancesProduced, mNumInstancesProducedConfl, mNumInstancesProducedEM, mNumInstancesProducedEnum,
+				mNumInstancesProducedMB);
+		logger.info(
+				"Quant: Subs of age 0, 1, 2-3, 4-7, ... : %s, (Final Check: %s)", Arrays.toString(mNumInstancesOfAge),
+				Arrays.toString(mNumInstancesOfAgeFC));
 		logger.info("Quant: Conflicts: %d Props: %d Checkpoints (with new evaluation): %d (%d) Final Checks: %d",
 				mNumConflicts, mNumProps, mNumCheckpoints, mNumCheckpointsWithNewEval, mNumFinalcheck);
 		logger.info(
@@ -461,8 +467,9 @@ public class QuantifierTheory implements ITheory {
 						{ "thereof by conflict/unit search", mNumInstancesProducedConfl },
 						{ "and by E-matching", mNumInstancesProducedEM },
 						{ "and by enumeration", mNumInstancesProducedEnum },
+						{ "and by model-based instantiation", mNumInstancesProducedMB },
 						{ "Subs of age 0, 1, 2-3, 4-7, ...", Arrays.toString(mNumInstancesOfAge) },
-						{ "thereof for enumeration", Arrays.toString(mNumInstancesOfAgeEnum) },
+						{ "thereof for final check", Arrays.toString(mNumInstancesOfAgeFC) },
 						{ "Conflicts", mNumConflicts }, { "Propagations", mNumProps },
 						{ "Checkpoints", mNumCheckpoints },
 						{ "Checkpoints with new evaluation", mNumCheckpointsWithNewEval },
@@ -528,8 +535,8 @@ public class QuantifierTheory implements ITheory {
 			}
 		}
 		final Term newTerm = mTheory.term("=", newLhs, newRhs);
-		addGroundCCTerms(newLhs, source);
-		addGroundCCTerms(newRhs, source);
+		addGroundTerms(newLhs, source);
+		addGroundTerms(newRhs, source);
 		final QuantLiteral atom = new QuantEquality(newTerm, newLhs, newRhs);
 
 		// Check if the atom is almost uninterpreted or can be used for DER.
@@ -614,7 +621,7 @@ public class QuantifierTheory implements ITheory {
 
 		final TermCompiler compiler = mClausifier.getTermCompiler();
 		final Term newLhs = linTerm.toTerm(compiler, lhs.getSort());
-		addGroundCCTerms(newLhs, source);
+		addGroundTerms(newLhs, source);
 		final Term newTerm = mTheory.term("<=", newLhs, Rational.ZERO.toTerm(lhs.getSort()));
 		final QuantLiteral atom = new QuantBoundConstraint(newTerm, linTerm);
 
@@ -791,6 +798,10 @@ public class QuantifierTheory implements ITheory {
 		return mInstantiationMethod;
 	}
 
+	public QuantFinalCheckMethod getFinalCheckMethod() {
+		return mFinalCheckMethod;
+	}
+
 	protected Term getLambda(final Sort sort) {
 		if (mLambdas.containsKey(sort)) {
 			return mLambdas.get(sort);
@@ -802,6 +813,9 @@ public class QuantifierTheory implements ITheory {
 			final FunctionSymbol fsym = mTheory.getFunctionWithResult("@0", null, sort, new Sort[0]);
 			lambda = mTheory.term(fsym);
 		}
+		// if (!sort.isNumericSort()) { // TODO Check this
+			mClausifier.createCCTerm(lambda, SourceAnnotation.EMPTY_SOURCE_ANNOT);
+		// }
 		mLambdas.put(sort, lambda);
 		return lambda;
 	}
@@ -884,7 +898,7 @@ public class QuantifierTheory implements ITheory {
 		return ccTerm == null ? term : ccTerm.getRepresentative().getFlatTerm();
 	}
 
-	private void addGroundCCTerms(final Term term, final SourceAnnotation source) {
+	private void addGroundTerms(final Term term, final SourceAnnotation source) {
 		final HashSet<Term> seen = new HashSet<>();
 		final Deque<Term> todo = new ArrayDeque<>();
 		todo.add(term);
@@ -895,6 +909,9 @@ public class QuantifierTheory implements ITheory {
 					CCTerm ccTerm = mClausifier.getCCTerm(subTerm);
 					if (ccTerm == null && (Clausifier.needCCTerm(subTerm) || subTerm.getSort().isArraySort())) {
 						mClausifier.createCCTerm(subTerm, source);
+					} else if (subTerm.getSort().isNumericSort()) {
+						final SMTAffineTerm aff = new SMTAffineTerm(subTerm);
+						mClausifier.createMutableAffinTerm(aff, source);
 					}
 				} else {
 					for (final Term arg : ((ApplicationTerm) subTerm).getParameters()) {
@@ -909,7 +926,7 @@ public class QuantifierTheory implements ITheory {
 	 * The origin of an instance of a quantified clause.
 	 */
 	public enum InstanceOrigin {
-		CONFLICT(":conflict"), EMATCHING(":e-matching"), ENUMERATION(":enumeration");
+		CONFLICT(":conflict"), EMATCHING(":e-matching"), ENUMERATION(":enumeration"), MODEL_BASED(":model-based");
 		String mOrigin;
 
 		private InstanceOrigin(final String origin) {
@@ -949,5 +966,9 @@ public class QuantifierTheory implements ITheory {
 		 * In final check, build potential conflict and unit instances found by E-matching.
 		 */
 		E_MATCHING_CONFLICT_LAZY;
+	}
+
+	public static enum QuantFinalCheckMethod {
+		ENUMERATIVE, MODEL_BASED;
 	}
 }

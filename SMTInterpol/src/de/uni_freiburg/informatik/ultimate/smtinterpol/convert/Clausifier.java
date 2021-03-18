@@ -86,8 +86,10 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinVar;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.MutableAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.DestructiveEqualityReasoning.DERResult;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantLiteral;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantUtil;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory.InstantiationMethod;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory.QuantFinalCheckMethod;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ArrayMap;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
@@ -1118,17 +1120,10 @@ public class Clausifier {
 				}
 
 			}
-			if (term.getSort().isNumericSort()) {
-				boolean needsLA = term instanceof ConstantTerm;
-				if (term instanceof ApplicationTerm) {
-					final String func = ((ApplicationTerm) term).getFunction().getName();
-					if (func.equals("+") || func.equals("-") || func.equals("*") || func.equals("to_real")) {
-						needsLA = true;
-					}
-				}
-				if (needsLA) {
-					final MutableAffineTerm mat = createMutableAffinTerm(new SMTAffineTerm(term), source);
-					assert mat.getConstant().mEps == 0;
+			if (term.getSort().isNumericSort() && !QuantUtil.isLambda(term)) {
+				final MutableAffineTerm mat = createMutableAffinTerm(new SMTAffineTerm(term), source);
+				assert mat.getConstant().mEps == 0;
+				if (!mLATerms.containsKey(term)) { // createMutableAffinTerm(…) could have shared this LATerm
 					shareLATerm(term, new LASharedTerm(term, mat.getSummands(), mat.getConstant().mReal));
 				}
 			}
@@ -1337,6 +1332,7 @@ public class Clausifier {
 	// TODO: make map or use option map
 	private boolean mIsEprEnabled;
 	private InstantiationMethod mInstantiationMethod;
+	private QuantFinalCheckMethod mFinalCheckMethod;
 	private boolean mIsUnknownTermDawgsEnabled;
 	private boolean mPropagateUnknownTerms;
 	private boolean mPropagateUnknownAux;
@@ -2010,17 +2006,19 @@ public class Clausifier {
 	private void setupQuantifiers() {
 		if (mQuantTheory == null) {
 			mQuantTheory =
-					new QuantifierTheory(mTheory, mEngine, this, mInstantiationMethod, mIsUnknownTermDawgsEnabled,
+					new QuantifierTheory(mTheory, mEngine, this, mInstantiationMethod, mFinalCheckMethod,
+							mIsUnknownTermDawgsEnabled,
 							mPropagateUnknownTerms, mPropagateUnknownAux);
 			mEngine.addTheory(mQuantTheory);
 		}
 	}
 
 	public void setQuantifierOptions(final boolean isEprEnabled, final InstantiationMethod instMethod,
-			final boolean enableUnknownTermDawgs, final boolean propagateUnknownTerm,
-			final boolean propagateUnknownAux) {
+			final QuantFinalCheckMethod fcMethod, final boolean enableUnknownTermDawgs,
+			final boolean propagateUnknownTerm, final boolean propagateUnknownAux) {
 		mIsEprEnabled = isEprEnabled;
 		mInstantiationMethod = instMethod;
+		mFinalCheckMethod = fcMethod;
 		mIsUnknownTermDawgsEnabled = enableUnknownTermDawgs;
 		mPropagateUnknownTerms = propagateUnknownTerm;
 		mPropagateUnknownAux = propagateUnknownAux;
@@ -2108,6 +2106,10 @@ public class Clausifier {
 
 	public DPLLEngine getEngine() {
 		return mEngine;
+	}
+
+	public ArrayTheory getArrayTheory() {
+		return mArrayTheory;
 	}
 
 	public CClosure getCClosure() {

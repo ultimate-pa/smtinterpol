@@ -1454,4 +1454,25 @@ public class ArrayTheory implements ITheory {
 		mCongRoots = null;
 		mPropClauses.clear();
 	}
+
+	/**
+	 * Get the current the weak-i-representative for an array and an index.
+	 * 
+	 * @param array
+	 *            a CCTerm with array sort.
+	 * @param index
+	 *            a CCTerm with the same sort as the array index sort.
+	 * @return the CCTerm which is the current weak-i-representative for the given array and index.
+	 */
+	public CCTerm getWeakIRep(CCTerm array, CCTerm index) {
+		assert array != null && index != null && array.getFlatTerm().getSort().isArraySort();
+		assert array.getFlatTerm().getSort().getArguments()[1] == index.getFlatTerm().getSort();
+		if (mCongRoots == null) {
+			buildWeakEq();
+		}
+		final ArrayNode arrayNode = mCongRoots.get(array.getRepresentative());
+		assert arrayNode != null;
+		final ArrayNode rep = arrayNode.getWeakIRepresentative(index);
+		return rep.mTerm;
+	}
 }

@@ -238,6 +238,28 @@ public class QuantUtil {
 		return true;
 	}
 
+	public static boolean containsLambdasInArithmetic(final Term term) {
+		if (term instanceof ApplicationTerm) {
+			final ApplicationTerm appTerm = (ApplicationTerm) term;
+			final FunctionSymbol func = appTerm.getFunction();
+			final String funcName = func.getName();
+			if (funcName == "+" || funcName == "*" || funcName == "-") {
+				for (final Term arg : appTerm.getParameters()) {
+					if (isLambda(arg) || containsLambdasInArithmetic(arg)) {
+						return true;
+					}
+				}
+			} else {
+				for (final Term arg : appTerm.getParameters()) {
+					if (containsLambdasInArithmetic(arg)) {
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	}
+
 	/**
 	 * Check if a term is a "simple" EU term, i.e., it is ground, or an application of an uninterpreted function where
 	 * all arguments are variables or simple EU terms. (Exception: select behaves as an uninterpreted function but may
@@ -290,6 +312,20 @@ public class QuantUtil {
 		if (term instanceof ApplicationTerm) {
 			FunctionSymbol fsym = ((ApplicationTerm) term).getFunction();
 			return fsym.isIntern() && fsym.getName().startsWith("@AUX");
+		}
+		return false;
+	}
+
+	/**
+	 * Check if a term is a lambda.
+	 * 
+	 * @param term
+	 *            the term to check.
+	 */
+	public static boolean isLambda(final Term term) {
+		if (term instanceof ApplicationTerm) {
+			FunctionSymbol fsym = ((ApplicationTerm) term).getFunction();
+			return fsym.isIntern() && fsym.getName().startsWith("@0");
 		}
 		return false;
 	}
