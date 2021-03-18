@@ -456,6 +456,7 @@ public class ProofChecker extends NonRecursive {
 	private int mNumInstancesFromConflictUnitSearch;
 	private int mNumInstancesFromEMatching;
 	private int mNumInstancesFromEnumeration;
+	private int mNumInstancesFromMB;
 
 	/**
 	 * Create a proof checker.
@@ -506,9 +507,9 @@ public class ProofChecker extends NonRecursive {
 		// TODO Handle this in a better way (e.g. as part of statistics)
 		if (proof.getTheory().getLogic().isQuantified()) {
 			mLogger.warn(
-					"Proof: Instances of quantified clauses used: %d (DER: %d Conflict/unit search: %d E-matching: %d Enumeration: %d)",
+					"Proof: Instances of quantified clauses used: %d (DER: %d Conflict/unit search: %d E-matching: %d Enumeration: %d Model-based: %d)",
 					mNumInstancesUsed, mNumInstancesFromDER, mNumInstancesFromConflictUnitSearch,
-					mNumInstancesFromEMatching, mNumInstancesFromEnumeration);
+					mNumInstancesFromEMatching, mNumInstancesFromEnumeration, mNumInstancesFromMB);
 		}
 		return mError == 0;
 	}
@@ -654,13 +655,19 @@ public class ProofChecker extends NonRecursive {
 			final Object[] subannots = ((Object[]) lemmaAnnotation);
 			assert subannots.length == 5;
 			final String solverPart = (String) subannots[2];
-			if (solverPart == ":conflict") {
+			switch (solverPart) {
+			case ":conflict":
 				mNumInstancesFromConflictUnitSearch++;
-			} else if (solverPart == ":e-matching") {
+				break;
+			case ":e-matching":
 				mNumInstancesFromEMatching++;
-			} else {
-				assert solverPart == ":enumeration";
+				break;
+			case ":enumeration":
 				mNumInstancesFromEnumeration++;
+				break;
+			case ":model-based":
+				mNumInstancesFromMB++;
+				break;
 			}
 			checkInstLemma(clause, subannots);
 		} else {
@@ -1407,7 +1414,7 @@ public class ProofChecker extends NonRecursive {
 		// Check that the annotation of the lemma is well-formed.
 		if (quantAnnotation.length != 5 || quantAnnotation[0] != ":subs" || !(quantAnnotation[1] instanceof Term[])
 				|| (quantAnnotation[2] != ":conflict" && quantAnnotation[2] != ":e-matching"
-						&& quantAnnotation[2] != ":enumeration")
+						&& quantAnnotation[2] != ":enumeration" && quantAnnotation[2] != ":model-based")
 				|| quantAnnotation[3] != ":subproof" || !(quantAnnotation[4] instanceof ApplicationTerm)) {
 			reportError("Malformed QuantAnnotation.");
 			return;

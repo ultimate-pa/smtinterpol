@@ -39,10 +39,12 @@ import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
+import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.model.SharedTermEvaluator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.InfinitesimalNumber;
@@ -51,6 +53,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinVar;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.MutableAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory.InstanceOrigin;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory.InstantiationMethod;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory.QuantFinalCheckMethod;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.SubstitutionHelper.SubstitutionResult;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.dawg.Dawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.ematching.EMatching;
@@ -352,7 +355,7 @@ public class InstantiationManager {
 	 * 
 	 * @return a singleton set containing the new instance, if one was found; null else.
 	 */
-	public Set<InstClause> instantiateSomeNotSat() {
+	public Set<InstClause> instantiateSomeNotSat(final QuantFinalCheckMethod fcMethod) {
 
 		// Collect the QuantClauses that are not yet satisfied and check if existing instances lead to conflicts.
 		final List<QuantClause> currentQuantClauses = new ArrayList<>();
@@ -392,6 +395,9 @@ public class InstantiationManager {
 			oldest = Math.max(oldest, termsSortedByAge.getSecond());
 			interestingTermsSortedByAge.put(clause, termsSortedByAge.getFirst());
 		}
+		final InstanceOrigin instOrigin =
+				fcMethod == QuantFinalCheckMethod.ENUMERATIVE ? InstanceOrigin.ENUMERATION : InstanceOrigin.MODEL_BASED;
+
 		mQuantTheory.getLogger().debug("Quant: Max term age %d", oldest);
 		for (; mSubsAgeForFinalCheck <= oldest; mSubsAgeForFinalCheck++) {
 			mQuantTheory.getLogger().debug("Searching for instances of age %d", mSubsAgeForFinalCheck);
@@ -417,14 +423,14 @@ public class InstantiationManager {
 					if (mClauseInstances.containsKey(clause) && mClauseInstances.get(clause).containsKey(subs)) {
 						continue; // Checked in the first loop over the quant clauses.
 					}
-					final Pair<InstanceValue, Boolean> candVal = evaluateNewClauseInstanceFinalCheck(clause, subs);
-					if (candVal.getFirst() == InstanceValue.TRUE) {
+					final Pair<InstanceValue, Boolean> candVal = fcMethod == QuantFinalCheckMethod.MODEL_BASED
+							? evaluateClauseInstanceModelBased(clause, subs)
+							: evaluateNewClauseInstanceFinalCheck(clause, subs);
+					if (candVal.getFirst() == InstanceValue.TRUE || candVal.getFirst() == InstanceValue.IRRELEVANT) {
 						continue;
-					} else if (candVal.getFirst() == InstanceValue.FALSE
-							|| candVal.getFirst() == InstanceValue.ONE_UNDEF) {
-						// Always build conflict or unit clauses on known terms
-						assert candVal.getSecond().booleanValue();
-						final InstClause unitClause = computeClauseInstance(clause, subs, InstanceOrigin.ENUMERATION);
+					} else if (candVal.getSecond() && (candVal.getFirst() == InstanceValue.FALSE
+							|| candVal.getFirst() == InstanceValue.ONE_UNDEF)) {
+						final InstClause unitClause = computeClauseInstance(clause, subs, instOrigin);
 						if (unitClause != null) { // TODO Some true literals are not detected at the moment.
 							final int numUndef = unitClause.countAndSetUndefLits();
 							if (numUndef >= 0) {
@@ -435,16 +441,23 @@ public class InstantiationManager {
 						}
 					} else {
 						final Pair<QuantClause, List<Term>> clauseSubsPair = new Pair<>(clause, subs);
-						if (candVal.getFirst() == InstanceValue.UNKNOWN_TERM) {
-							assert !candVal.getSecond().booleanValue();
-							unitValueInstancesNewTerms.add(clauseSubsPair);
-						} else {
-							assert candVal.getFirst() == InstanceValue.OTHER;
-							if (candVal.getSecond().booleanValue()) {
-								otherValueInstancesOnKnownTerms.add(clauseSubsPair);
+						if (fcMethod != QuantFinalCheckMethod.MODEL_BASED) {
+							if (candVal.getFirst() == InstanceValue.UNKNOWN_TERM) {
+								assert !candVal.getSecond().booleanValue();
+								unitValueInstancesNewTerms.add(clauseSubsPair);
 							} else {
-								otherValueInstancesNewTerms.add(clauseSubsPair);
+								assert candVal.getFirst() == InstanceValue.OTHER;
+
+								if (candVal.getSecond().booleanValue()) {
+									otherValueInstancesOnKnownTerms.add(clauseSubsPair);
+								} else {
+									otherValueInstancesNewTerms.add(clauseSubsPair);
+								}
 							}
+						} else {
+							// in model based setting, we only have instancevalues true/false, we dropped true instances
+							assert !candVal.getSecond() && candVal.getFirst() == InstanceValue.FALSE;
+							otherValueInstancesNewTerms.add(clauseSubsPair);
 						}
 					}
 				}
@@ -460,7 +473,7 @@ public class InstantiationManager {
 					return Collections.emptySet();
 				}
 				final InstClause inst =
-						computeClauseInstance(cand.getFirst(), cand.getSecond(), InstanceOrigin.ENUMERATION);
+						computeClauseInstance(cand.getFirst(), cand.getSecond(), instOrigin);
 				if (inst != null) {
 					final int numUndef = inst.countAndSetUndefLits();
 					if (numUndef >= 0) {
@@ -791,7 +804,7 @@ public class InstantiationManager {
 	 */
 	private InstanceValue evaluateLitForEMatchingSubsInfo(final QuantLiteral qLit, final SubstitutionInfo info) {
 		final QuantLiteral qAtom = qLit.getAtom();
-		if (info == mEMatching.getEmptySubs()) {
+		if (info.equals(mEMatching.getEmptySubs())) {
 			if (mQuantTheory.mPropagateNewAux && !mQuantTheory.mPropagateNewTerms && qAtom instanceof QuantEquality) {
 				if (QuantUtil.isAuxApplication(((QuantEquality) qAtom).getLhs())) {
 					return InstanceValue.ONE_UNDEF;
@@ -909,6 +922,39 @@ public class InstantiationManager {
 			litValue = litValue.negate();
 		}
 		return litValue;
+	}
+
+	/**
+	 * Evaluate a literal for a given substitution in the final check. The result can only be true or false, in the
+	 * final check, everything can be evaluated. We assume piecewise constant functions as models.
+	 * 
+	 * TODO: Should we first check if it is an E-matching literal as we have the equivalent terms then?
+	 * 
+	 * @param quantLit
+	 * @param substitution
+	 * @return
+	 */
+	private InstanceValue evaluateLitInstanceModelBased(final QuantLiteral quantLit,
+			final PiecewiseConstantModelEvaluator model) {
+		InstanceValue litValue = mDefaultValueForLitDawgs;
+		final boolean isNeg = quantLit.isNegated();
+		final QuantLiteral atom = quantLit.getAtom();
+		if (atom instanceof QuantEquality) {
+			final QuantEquality eq = (QuantEquality) atom;
+			if (!eq.getLhs().getSort().isNumericSort()) {
+				litValue = evaluateCCEqualityModelBased(eq, model);
+			} else {
+				litValue = evaluateLAEqualityModelBased(eq, model);
+			}
+		} else {
+			litValue = evaluateBoundConstraintModelBased((QuantBoundConstraint) atom, model);
+		}
+
+		if (isNeg) {
+			litValue = litValue.negate();
+		}
+		assert litValue == InstanceValue.FALSE || litValue == InstanceValue.TRUE;
+		return litValue; // must be true or false
 	}
 
 	/**
@@ -1288,7 +1334,6 @@ public class InstantiationManager {
 		boolean hasOnlyKnownTerms = true;
 		for (final QuantLiteral quantLit : quantClause.getQuantLits()) {
 			final InstanceValue litValue = evaluateLitInstance(quantLit, substitution);
-			// TODO evaluateLitInstanceFinalCheck
 			if (litValue == InstanceValue.UNKNOWN_TERM) {
 				hasOnlyKnownTerms = false;
 			}
@@ -1297,6 +1342,46 @@ public class InstantiationManager {
 				return new Pair<>(clauseValue, null);
 			}
 		}
+		return new Pair<>(clauseValue, hasOnlyKnownTerms);
+	}
+
+	private Pair<InstanceValue, Boolean> evaluateClauseInstanceModelBased(final QuantClause quantClause,
+			final List<Term> substitution) {
+		assert !mClauseInstances.containsKey(quantClause)
+				|| !mClauseInstances.get(quantClause).containsKey(substitution);
+		InstanceValue clauseValue = InstanceValue.FALSE;
+
+		// Check for true ground literals first.
+		for (final Literal groundLit : quantClause.getGroundLits()) {
+			assert groundLit.getAtom().getDecideStatus() != null;
+			if (groundLit.getAtom().getDecideStatus() == groundLit) {
+				return new Pair<>(InstanceValue.TRUE, null);
+			}
+		}
+
+		final PiecewiseConstantModelEvaluator model =
+				new PiecewiseConstantModelEvaluator(mQuantTheory, Arrays.asList(quantClause.getVars()), substitution);
+
+		// Start with arithmetical literals if existing, they are evaluated easily in the final check.
+		final List<QuantLiteral> nonArithmeticalLits = new ArrayList<>();
+		for (final QuantLiteral quantLit : quantClause.getQuantLits()) {
+			if (quantLit.isArithmetical()) {
+				final InstanceValue val = evaluateArithmeticalLiteralModelBased(quantLit, substitution);
+				clauseValue = clauseValue.combine(val);
+			} else {
+				nonArithmeticalLits.add(quantLit);
+			}
+		}
+		boolean hasOnlyKnownTerms = true;
+		for (final QuantLiteral quantLit : nonArithmeticalLits) {
+			final InstanceValue litValue = evaluateLitInstanceModelBased(quantLit, model);
+			hasOnlyKnownTerms &= model.knowsAllTerms();
+			clauseValue = clauseValue.combine(litValue);
+			if (clauseValue == InstanceValue.TRUE) {
+				return new Pair<>(clauseValue, null);
+			}
+		}
+		assert clauseValue == InstanceValue.FALSE;
 		return new Pair<>(clauseValue, hasOnlyKnownTerms);
 	}
 
@@ -1310,7 +1395,10 @@ public class InstantiationManager {
 	 * @param origin
 	 *            the InstanceOrigin determining if the instance was produced in checkpoint or finalcheck
 	 *
-	 * @return the resulting InstClause, or null if the clause would be trivially true.
+	 * @return the resulting InstClause, or null if the clause would be trivially true. Warning: Also returns null if
+	 *         the substitution is not allowed (i.e., the clause contains lambdas in arithmetic). This case is treated
+	 *         as if the clause was trivially true, and can only occur in undecidable fragments where the solver will
+	 *         not return satisfiable.
 	 */
 	private InstClause computeClauseInstance(final QuantClause clause, final List<Term> subs,
 			final InstanceOrigin origin) {
@@ -1327,7 +1415,7 @@ public class InstantiationManager {
 				clause.getQuantLits(), clause.getQuantSource(), sigma);
 		final SubstitutionResult result = instHelper.substituteInClause();
 		final InstClause inst;
-		if (result.isTriviallyTrue()) {
+		if (result.isTriviallyTrue() || !instHelper.isSubstitutionAllowed()) {
 			inst = null;
 		} else {
 			assert result.isGround();
@@ -1336,15 +1424,25 @@ public class InstantiationManager {
 			inst = new InstClause(clause, subs, Arrays.asList(result.mGroundLits), -1, origin, result.mSimplified);
 		}
 		mClauseInstances.get(clause).put(subs, inst);
+		// TODO: Do we want to count the trivially true results (as SubstitutionManager actually did something) or not
+		// (as the literals were not built)?
 		mQuantTheory.mNumInstancesProduced++;
-		if (origin.equals(InstanceOrigin.CONFLICT)) {
+		switch (origin) {
+		case CONFLICT:
 			mQuantTheory.mNumInstancesProducedConfl++;
-		} else if (origin.equals(InstanceOrigin.EMATCHING)) {
+			break;
+		case EMATCHING:
 			mQuantTheory.mNumInstancesProducedEM++;
-		} else if (origin.equals(InstanceOrigin.ENUMERATION)) {
+			break;
+		case ENUMERATION:
 			mQuantTheory.mNumInstancesProducedEnum++;
+			break;
+		case MODEL_BASED:
+			mQuantTheory.mNumInstancesProducedMB++;
+			break;
 		}
-		recordSubstAgeForStats(getMaxAge(subs), origin.equals(InstanceOrigin.ENUMERATION));
+		recordSubstAgeForStats(getMaxAge(subs),
+				origin.equals(InstanceOrigin.ENUMERATION) || origin == InstanceOrigin.MODEL_BASED);
 		return inst;
 	}
 
@@ -1358,6 +1456,8 @@ public class InstantiationManager {
 	 * @return the InstanceValue of the substituted literal.
 	 */
 	private InstanceValue evaluateCCEqualityKnownShared(final QuantEquality qEq, Map<Term, CCTerm> equivalentCCTerms) {
+		assert !qEq.isArithmetical() && (mEMatching.isUsingEmatching(qEq) || mEMatching.isPartiallyUsingEmatching(qEq));
+
 		final CCTerm leftCC, rightCC;
 		if (qEq.getLhs().getFreeVars().length == 0) {
 			leftCC = mClausifier.getCCTerm(qEq.getLhs());
@@ -1420,6 +1520,15 @@ public class InstantiationManager {
 	 * @return the InstanceValue of the substituted literal.
 	 */
 	private InstanceValue evaluateLAEqualityKnownShared(final QuantEquality qEq, final Map<Term, Term> sharedForQuant) {
+		assert qEq.isArithmetical() || mEMatching.isUsingEmatching(qEq) || mEMatching.isPartiallyUsingEmatching(qEq);
+
+		if (qEq.isArithmetical()) { // x = t is false for lambda
+			assert qEq.getLhs() instanceof TermVariable;
+			if (QuantUtil.isLambda(sharedForQuant.get(qEq.getLhs()))) {
+				return InstanceValue.FALSE;
+			}
+		}
+
 		final SMTAffineTerm diff = new SMTAffineTerm(qEq.getLhs());
 		diff.add(Rational.MONE, new SMTAffineTerm(qEq.getRhs()));
 
@@ -1448,6 +1557,14 @@ public class InstantiationManager {
 	 * @return the InstanceValue of the substituted literal.
 	 */
 	private InstanceValue evaluateLAEquality(final QuantEquality qEq, final List<Term> subs) {
+
+		// x = t is always false for lambda
+		if (qEq.isArithmetical() && hasLambdaSubs(qEq, subs)) {
+			assert qEq.getLhs() instanceof TermVariable
+					&& QuantUtil.isLambda(subs.get(qEq.getClause().getVarIndex((TermVariable) qEq.getLhs())));
+			return InstanceValue.FALSE;
+		}
+
 		final SMTAffineTerm diff = new SMTAffineTerm(qEq.getLhs());
 		diff.add(Rational.MONE, qEq.getRhs());
 
@@ -1479,8 +1596,18 @@ public class InstantiationManager {
 	 */
 	private InstanceValue evaluateBoundConstraintKnownShared(final QuantBoundConstraint qBc,
 			final Map<Term, Term> sharedForQuant) {
-		final MutableAffineTerm at =
-				buildMutableAffineTerm(qBc.getAffineTerm(), sharedForQuant);
+
+		// Evaluate x < t, t < x, x < y, lambda is a term smaller than all others
+		if (qBc.negate().isArithmetical() && hasLambdaSubs(qBc, sharedForQuant)) {
+			final Term[] termLtTerm = QuantUtil.getArithmeticalTermLtTerm(qBc.negate(), mClausifier.getTermCompiler());
+			if (termLtTerm[1] instanceof TermVariable && QuantUtil.isLambda(sharedForQuant.get(termLtTerm[1]))) {
+				return InstanceValue.TRUE;
+			} else if (termLtTerm[0] instanceof TermVariable && QuantUtil.isLambda(sharedForQuant.get(termLtTerm[0]))) {
+				return InstanceValue.FALSE;
+			}
+		}
+
+		final MutableAffineTerm at = buildMutableAffineTerm(qBc.getAffineTerm(), sharedForQuant);
 		if (at == null) {
 			return mDefaultValueForLitDawgs;
 		}
@@ -1508,6 +1635,19 @@ public class InstantiationManager {
 	 * @return the InstanceValue of the substituted literal.
 	 */
 	private InstanceValue evaluateBoundConstraint(final QuantBoundConstraint qBc, final List<Term> subs) {
+
+		// Evaluate x < t, t < x, x < y, lambda is a term smaller than all others
+		if (qBc.negate().isArithmetical() && hasLambdaSubs(qBc, subs)) {
+			final Term[] termLtTerm = QuantUtil.getArithmeticalTermLtTerm(qBc.negate(), mClausifier.getTermCompiler());
+			if (termLtTerm[1] instanceof TermVariable
+					&& QuantUtil.isLambda(subs.get(qBc.getClause().getVarIndex((TermVariable) termLtTerm[1])))) {
+				return InstanceValue.TRUE;
+			} else if (termLtTerm[0] instanceof TermVariable
+					&& QuantUtil.isLambda(subs.get(qBc.getClause().getVarIndex((TermVariable) termLtTerm[0])))) {
+				return InstanceValue.FALSE;
+			}
+		}
+		
 		final TermFinder finder = new TermFinder(qBc.getClause().getVars(), subs);
 		final SMTAffineTerm affine = finder.findEquivalentAffine(qBc.getAffineTerm());
 		if (affine == null) {
@@ -1527,13 +1667,116 @@ public class InstantiationManager {
 		}
 	}
 
-	private void recordSubstAgeForStats(final int age, final boolean isProducedByEnumeration) {
+	/* ========================================= Model based instantiation ========================================= */
+
+	private InstanceValue evaluateCCEqualityModelBased(final QuantEquality qEq,
+			final PiecewiseConstantModelEvaluator model) {
+		final CCTerm leftCC = model.getModelCClass(qEq.getLhs());
+		final CCTerm rightCC = model.getModelCClass(qEq.getRhs());
+		assert leftCC != null && rightCC != null;
+		if (mQuantTheory.getCClosure().isEqSet(leftCC, rightCC)) {
+			return InstanceValue.TRUE;
+		} else {
+			return InstanceValue.FALSE; // In the final check, CC classes that are not equal are distinct.
+		}
+	}
+
+	private InstanceValue evaluateLAEqualityModelBased(final QuantEquality qEq,
+			final PiecewiseConstantModelEvaluator model) {
+		final SMTAffineTerm diff = new SMTAffineTerm(qEq.getLhs());
+		diff.add(Rational.MONE, qEq.getRhs());
+		final Rational value = model.getModelValue(diff);
+		if (value == Rational.ZERO) {
+			return InstanceValue.TRUE;
+		} else {
+			return InstanceValue.FALSE;
+		}
+	}
+
+	private InstanceValue evaluateBoundConstraintModelBased(final QuantBoundConstraint qBc,
+			final PiecewiseConstantModelEvaluator model) {
+		final SMTAffineTerm affine = qBc.getAffineTerm();
+		final Rational value = model.getModelValue(affine);
+		if (value.compareTo(Rational.ZERO) <= 0) {
+			return InstanceValue.TRUE;
+		} else {
+			return InstanceValue.FALSE;
+		}
+	}
+
+	private InstanceValue evaluateArithmeticalLiteralModelBased(final QuantLiteral qLit, final List<Term> subs) {
+		assert qLit.isArithmetical();
+		final SharedTermEvaluator evaluator = new SharedTermEvaluator(mClausifier);
+		final Theory theory = mQuantTheory.getTheory();
+		if (qLit instanceof QuantEquality) {
+			final QuantEquality qEq = (QuantEquality) qLit;
+			assert qEq.getLhs() instanceof TermVariable && qEq.getRhs().getFreeVars().length == 0;
+			final Term leftSubs = subs.get(qLit.getClause().getVarIndex((TermVariable) qEq.getLhs()));
+			if (QuantUtil.isLambda(leftSubs)) {
+				return InstanceValue.FALSE;
+			} else {
+				if (evaluator.evaluate(leftSubs, theory).equals(evaluator.evaluate(qEq.getRhs(), theory))) {
+					return InstanceValue.TRUE;
+				} else {
+					return InstanceValue.FALSE;
+				}
+			}
+		} else {
+			final Term[] termLtTerm = QuantUtil.getArithmeticalTermLtTerm(qLit, mClausifier.getTermCompiler());
+			final Term groundLhs = termLtTerm[0].getFreeVars().length == 0 ? termLtTerm[0]
+					: subs.get(qLit.getClause().getVarIndex((TermVariable) termLtTerm[0]));
+			final Term groundRhs = termLtTerm[1].getFreeVars().length == 0 ? termLtTerm[1]
+					: subs.get(qLit.getClause().getVarIndex((TermVariable) termLtTerm[1]));
+			if (QuantUtil.isLambda(groundRhs)) {
+				return InstanceValue.FALSE;
+			} else {
+				if (QuantUtil.isLambda(groundLhs)
+						|| evaluator.evaluate(groundLhs, theory).compareTo(evaluator.evaluate(groundRhs, theory)) < 0) {
+					return InstanceValue.TRUE;
+				} else {
+					return InstanceValue.FALSE;
+				}
+			}
+		}
+	}
+
+	/* ============================================================================================================== */
+
+	private void recordSubstAgeForStats(final int age, final boolean isProducedByFinalCheck) {
 		assert age >= 0;
 		final int index = Integer.SIZE - Integer.numberOfLeadingZeros(age);
 		mQuantTheory.mNumInstancesOfAge[index]++;
-		if (isProducedByEnumeration) {
-			mQuantTheory.mNumInstancesOfAgeEnum[index]++;
+		if (isProducedByFinalCheck) {
+			mQuantTheory.mNumInstancesOfAgeFC[index]++;
 		}
+	}
+	/**
+	 * Check if a variable in this literal would be substituted by lambda under the given substitution.
+	 */
+	private boolean hasLambdaSubs(final QuantLiteral lit, final List<Term> subs) {
+		assert subs.size() == lit.getClause().getVars().length;
+		for (final TermVariable var : lit.getTerm().getFreeVars()) {
+			if (QuantUtil.isLambda(subs.get(lit.getClause().getVarIndex(var)))) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Check if a variable in this literal would be substituted by lambda under the given substitution.
+	 */
+	private boolean hasLambdaSubs(final QuantLiteral lit, final Map<Term, Term> subs) {
+		for (final TermVariable var : lit.getTerm().getFreeVars()) {
+			if (!subs.containsKey(var)) {
+				assert false;
+			}
+			assert subs.containsKey(var);
+			if (QuantUtil.isLambda(subs.get(var))) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -1715,7 +1958,7 @@ public class InstantiationManager {
 	 * OTHER for all other cases. An additional value IRRELEVANT can be used to mark instances that are not useful for a
 	 * certain purpose.
 	 */
-	private enum InstanceValue {
+	enum InstanceValue {
 		TRUE, FALSE, ONE_UNDEF, UNKNOWN_TERM, OTHER, IRRELEVANT;
 
 		private InstanceValue combine(final InstanceValue other) {

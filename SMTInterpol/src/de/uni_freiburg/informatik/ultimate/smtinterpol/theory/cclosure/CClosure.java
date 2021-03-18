@@ -410,7 +410,7 @@ public class CClosure implements ITheory {
 	 *            CCTerms that are partial functions.
 	 * @return all CCTerms that are applications of the given partial functions.
 	 */
-	static List<CCTerm> getApplications(final List<CCTerm> partialFunctions) {
+	public static List<CCTerm> getApplications(final List<CCTerm> partialFunctions) {
 		final List<CCTerm> applications = new ArrayList<>();
 		for (final CCTerm funcTerm : partialFunctions) {
 			final CCParentInfo info = funcTerm.getRepresentative().mCCPars.getInfo(0);

@@ -41,6 +41,7 @@ public interface SMTInterpolOptions {
 	public String SIMPLIFY_CHECK_TYPE = ":simplify-check-type";
 	public String EPR = ":epr";
 	public String INSTANTIATION_METHOD = ":instantiation-method";
+	public String QUANT_FINAL_CHECK_METHOD = ":quant-fc-method";
 	public String UNKNOWN_TERM_DAWGS = ":unknown-term-dawgs";
 	public String PROPAGATE_UNKNOWN_TERMS = ":propagate-unknown-terms";
 	public String PROPAGATE_UNKNOWN_AUX = ":propagate-unknown-aux";
