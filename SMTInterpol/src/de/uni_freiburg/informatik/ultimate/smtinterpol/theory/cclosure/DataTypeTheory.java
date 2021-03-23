@@ -257,15 +257,11 @@ public class DataTypeTheory implements ITheory {
 				while (!todo.isEmpty()) {
 					final CCTerm ct = todo.pop();
 					final CCTerm rep = ct.mRepStar;
+					
 					if (visited.contains(rep)) {
 						if (path.peek() == rep) {
-							// if the current term is the last on the path, we didn't find a cycle and we are backtracking.
 							path.pop();
 							visitedOnPath.remove(rep);
-						} else if (visitedOnPath.contains(rep)) {
-							// if we already visited rep on our current path, it is a cycle.
-							// build and return conflict clause
-							return buildCycleConflict(ct, path, argConsPairs, possibleCons);
 						}
 						continue;
 					}
@@ -286,7 +282,8 @@ public class DataTypeTheory implements ITheory {
 						}
 						
 						for (CCTerm c : children) {
-							if (c.mRepStar == rep) {
+							if (visitedOnPath.contains(c.mRepStar)) {
+								// one of the children is already on the path so we found a cycle
 								return buildCycleConflict(c, path, argConsPairs, possibleCons);
 							}
 							todo.push(c);
