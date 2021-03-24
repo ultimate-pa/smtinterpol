@@ -214,7 +214,7 @@ public class TermCompiler extends TermTransformer {
 			if (fsym.getName().matches(BITVEC_CONST_PATTERN)) {
 				// BitVec Constants created using Theory.getFunctionWithResult()
 				// Not an instanceof ConstantTerm! translate to #b... ConstantTerm
-				setResult(bvUtils.getBvConstAsBinaryConst((ApplicationTerm) convertedApp));
+				setResult(bvUtils.getBvConstAsBinaryConst(fsym, convertedApp.getSort()));
 				return;
 			}
 			switch (fsym.getName()) {
@@ -576,7 +576,7 @@ public class TermCompiler extends TermTransformer {
 							mTracker, ProofConstants.RW_BVARITH));
 					return;
 				}
-				setResult(bvUtils.orderParametersLexicographicaly((ApplicationTerm) convertedApp));
+				setResult(bvUtils.orderParametersLexicographicaly(fsym, params));
 				return;
 			}
 			case "bvand":
@@ -589,7 +589,7 @@ public class TermCompiler extends TermTransformer {
 					// order before bitmaskelimination!
 					final Term bitMask =
 							bvUtils.bitMaskElimination(
-									bvUtils.orderParametersLexicographicaly((ApplicationTerm) convertedApp));
+									bvUtils.orderParametersLexicographicaly(fsym, params));
 					setResult(bitMask);
 					return;
 				}
@@ -634,24 +634,206 @@ public class TermCompiler extends TermTransformer {
 				final Term bvult = bvUtils.getBvultTerm(convertedApp);
 				if (bvult instanceof ApplicationTerm) {
 					final ApplicationTerm appterm = (ApplicationTerm) bvult;
-					if (appterm.getParameters().length == 0) {
-						setResult(bvult);
-					} else if (appterm.getFunction().getName().equals("or")) {
+					if (appterm.getFunction().getName().equals("or")) {
 						setResult(mUtils.convertOr(bvult));
-					} else {
-						setResult(bvult);
+						return;
 					}
 				}
+				setResult(bvult);
 				return;
 			}
 			case "extract": {
 				if (params[0] instanceof ConstantTerm) {
 					setResult(bvUtils.optimizeSelect(fsym, params[0]));
+					return;
 				}
-				setResult(bvUtils.propagateExtract(convertedApp)); // TODO check obs fehlher hier gibt von wegen
-																	// convertiereung
+				final Term extract = bvUtils.propagateExtract(fsym, params);
+				setResult(extract); // TODO check obs fehlher hier gibt von wegen
+				// convertiereung
 				return;
 			}
+			case "bvnand":{
+				// (bvnand s t) abbreviates (bvnot (bvand s t))
+				pushTerm(theory.term("bvnot", theory.term("bvand", params)));
+				return;
+			}
+			case "bvnor": {
+				// (bvnor s t) abbreviates (bvnot (bvor s t))
+				pushTerm(theory.term("bvnot", theory.term("bvor", params)));
+				return;
+			}
+			case "bvxor": {
+				// TODO bvxor is left associative
+				// (bvxor s t) abbreviates (bvor (bvand s (bvnot t)) (bvand (bvnot s) t))
+				pushTerm(theory.term("bvor",
+						theory.term("bvand", params[0], theory.term("bvnot", params[1])),
+						theory.term("bvand", theory.term("bvnot", params[0]), params[1])));
+				return;
+			}
+			case "bvxnor": {
+				// (bvxnor s t) abbreviates (bvor (bvand s t) (bvand (bvnot s) (bvnot t)))
+				// bvxor is left associative
+				pushTerm(theory.term("bvor",
+						theory.term("bvand", params[0], params[1]),
+						theory.term("bvand", theory.term("bvnot", params[0]), theory.term("bvnot", params[1]))));
+				return;
+			}
+			case "bvcomp": {
+				// bit comparator: equals #b1 iff all bits are equal
+				final int size = Integer.parseInt(params[0].getSort().getIndices()[0]);
+				final Term[] bvxnor = new Term[size];
+				for (int i = 0; i < size; i++) {
+					final String[] selectIndices = new String[2];
+					selectIndices[0] = String.valueOf(i);
+					selectIndices[1] = String.valueOf(i);
+
+					final FunctionSymbol extractLhs =
+							theory.getFunctionWithResult("extract", selectIndices.clone(), null,
+									params[0].getSort());
+					final FunctionSymbol extractRhs =
+							theory.getFunctionWithResult("extract", selectIndices.clone(), null,
+									params[0].getSort());
+					final Term extrctLhs = theory.term(extractLhs, params[0]);
+					final Term extrctRhs = theory.term(extractRhs, params[1]);
+
+					bvxnor[i] = theory.term("bvor",
+							theory.term("bvand", extrctLhs, extrctRhs),
+							theory.term("bvand", theory.term("bvnot", extrctLhs), theory.term("bvnot", extrctRhs)));
+				}
+				if (size == 1) {
+					pushTerm(bvxnor[0]);
+					return;
+				}
+				Term result = bvxnor[0];
+				for (int i = 1; i < size; i++) {
+					result = theory.term("bvand", bvxnor[i], result);
+				}
+				pushTerm(result);
+				return;
+			}
+
+			case "bvsdiv": {
+				// (ite (and (= ((_ extract |m-1| |m-1|) s)#b0) (= ((_ extract |m-1| |m-1|) t) #b0))
+				// (bvudiv s t)
+				// (ite (and (= ((_ extract |m-1| |m-1|) s) #b1) (= ((_ extract |m-1| |m-1|) t) #b0))
+				// (bvneg (bvudiv (bvneg s) t))
+				// (ite (and (= ((_ extract |m-1| |m-1|) s) #b0) (= ((_ extract |m-1| |m-1|) t) #b1))
+				// (bvneg (bvudiv s (bvneg t)))
+				// (bvudiv (bvneg s) (bvneg t)))))
+				final int size = Integer.parseInt(params[0].getSort().getIndices()[0]);
+				final String[] selectIndices = new String[2];
+				selectIndices[0] = String.valueOf(size - 1);
+				selectIndices[1] = String.valueOf(size - 1);
+
+				final FunctionSymbol extract =
+						theory.getFunctionWithResult("extract", selectIndices.clone(), null,
+								params[0].getSort());
+				final Term extractSignLhs = theory.term(extract, params[0]);
+				final Term extractSignRhs = theory.term(extract, params[1]);
+
+				pushTerm(theory.ifthenelse(theory.term("and", theory.term("=", extractSignLhs, theory.binary("#b0")),
+						theory.term("=", extractSignRhs, theory.binary("#b0"))),
+						theory.term("bvudiv", params[0], params[1]),
+						theory.ifthenelse(theory.term("and", theory.term("=", extractSignLhs, theory.binary("#b1")),
+								theory.term("=", extractSignRhs, theory.binary("#b0"))),
+								theory.term("bvneg", theory.term("bvudiv", theory.term("bvneg", params[0]), params[1])),
+								theory.ifthenelse(
+										theory.term("and", theory.term("=", extractSignLhs, theory.binary("#b0")),
+												theory.term("=", extractSignRhs, theory.binary("#b1"))),
+										theory.term("bvneg",
+												theory.term("bvudiv", params[0], theory.term("bvneg", params[1]))),
+										theory.term("bvudiv", theory.term("bvneg", params[0]),
+												theory.term("bvneg", params[1]))))));
+				return;
+			}
+			case "bvsrem": {
+				// abbreviation as defined in the SMT-Lib
+				final int size = Integer.parseInt(params[0].getSort().getIndices()[0]);
+				final String[] selectIndices = new String[2];
+				selectIndices[0] = String.valueOf(size - 1);
+				selectIndices[1] = String.valueOf(size - 1);
+
+				final FunctionSymbol extract =
+						theory.getFunctionWithResult("extract", selectIndices.clone(), null,
+								params[0].getSort());
+				final Term extractSignLhs = theory.term(extract, params[0]);
+				final Term extractSignRhs = theory.term(extract, params[1]);
+
+				pushTerm(theory.ifthenelse(theory.term("and", theory.term("=", extractSignLhs, theory.binary("#b0")),
+						theory.term("=", extractSignRhs, theory.binary("#b0"))),
+						theory.term("bvurem", params[0], params[1]),
+						theory.ifthenelse(theory.term("and", theory.term("=", extractSignLhs, theory.binary("#b1")),
+								theory.term("=", extractSignRhs, theory.binary("#b0"))),
+								theory.term("bvneg", theory.term("bvurem", theory.term("bvneg", params[0]), params[1])),
+								theory.ifthenelse(
+										theory.term("and", theory.term("=", extractSignLhs, theory.binary("#b0")),
+												theory.term("=", extractSignRhs, theory.binary("#b1"))),
+										theory.term("bvurem", params[0], theory.term("bvneg", params[1])),
+										theory.term("bvneg", theory.term("bvurem", theory.term("bvneg", params[0]),
+												theory.term("bvneg", params[1])))))));
+				return;
+			}
+			case "bvsmod": {
+				// abbreviation as defined in the SMT-Lib
+				final int size = Integer.parseInt(params[0].getSort().getIndices()[0]);
+				final String[] selectIndices = new String[2];
+				selectIndices[0] = String.valueOf(size - 1);
+				selectIndices[1] = String.valueOf(size - 1);
+
+				final FunctionSymbol extract =
+						theory.getFunctionWithResult("extract", selectIndices.clone(), null,
+								params[0].getSort());
+				final Term extractSignLhs = theory.term(extract, params[0]);
+				final Term extractSignRhs = theory.term(extract, params[1]);
+				final Term ite1 = theory.ifthenelse(theory.term("=", extractSignLhs, theory.binary("#b0")), params[0],
+						theory.term("bvneg", params[0]));
+				final Term ite2 = theory.ifthenelse(theory.term("=", extractSignRhs, theory.binary("#b0")), params[1],
+						theory.term("bvneg", params[1]));
+				final Term bvurem = theory.term("bvurem", ite1, ite2);
+
+				final String[] constindices = new String[1];
+				constindices[0] = params[0].getSort().getIndices()[0];
+				final Term zeroVec =
+						theory.term(theory.getFunctionWithResult("bv0", constindices, null, params[0].getSort()));
+
+				final Term elseTerm3 = theory.ifthenelse(
+						theory.and(theory.term("=", extractSignLhs, theory.binary("#b0")),
+								theory.term("=", extractSignRhs, theory.binary("#b1"))),
+						theory.term("bvadd", bvurem, params[1]),
+						theory.term("bvneg", bvurem));
+				final Term elseTerm2 = theory.ifthenelse(
+						theory.and(theory.term("=", extractSignLhs, theory.binary("#b1")),
+								theory.term("=", extractSignRhs, theory.binary("#b0"))),
+						theory.term("bvadd", theory.term("bvneg", bvurem), params[1]),
+						elseTerm3);
+				final Term elseTerm =
+						theory.ifthenelse(
+								theory.and(theory.term("=", extractSignLhs, theory.binary("#b0")),
+										theory.term("=", extractSignRhs, theory.binary("#b0"))),
+								bvurem,
+								elseTerm2);
+				pushTerm(theory.ifthenelse(theory.term("=", bvurem, zeroVec), bvurem, elseTerm));
+				return;
+			}
+			case "bvashr": {
+				// abbreviation as defined in the SMT-Lib
+				final int size = Integer.parseInt(params[0].getSort().getIndices()[0]);
+				final String[] selectIndices = new String[2];
+				selectIndices[0] = String.valueOf(size - 1);
+				selectIndices[1] = String.valueOf(size - 1);
+
+				final FunctionSymbol extract =
+						theory.getFunctionWithResult("extract", selectIndices.clone(), null,
+								params[0].getSort());
+
+				pushTerm(theory.ifthenelse(
+						theory.term("=", theory.term(extract, params[0]), theory.binary("#b0")),
+						theory.term("bvlshr", params[0], params[1]),
+						theory.term("bvnot", theory.term("bvlshr", theory.term("bvnot", params[0]), params[1]))));
+				return;
+			}
+			// TODO ((_ repeat j) t), ((_ sign_extend i) t), ((_ rotate_left i) t), ((_ rotate_right i) t)
+
 			case "true":
 			case "false":
 			case "@diff":

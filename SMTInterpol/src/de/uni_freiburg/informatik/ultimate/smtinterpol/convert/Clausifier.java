@@ -610,13 +610,26 @@ public class Clausifier {
 				} else if (!at.getFunction().isInterpreted() || at.getFunction().getName().equals("select")) {
 					lit = createBooleanLit(at, mCollector.getSource());
 				} else if (at.getFunction().getName().equals("bvult")) {
-					final Term lhs = at.getParameters()[0];
-					final Term rhs = at.getParameters()[1];
-					// mCClosure.createCCEquality(mStackLevel, createCCTerm(mLiteral,
-					// SourceAnnotation.EMPTY_SOURCE_ANNOT),
-					// mCClosure.getCCTermRep(mTheory.mTrue));
+					final Term lhs = at;
+					final Term rhs;
 
-					lit = getBVSolver().createInEquality(lhs, rhs);
+					if (((ApplicationTerm) idx).getFunction().getName().equals("not")) {
+						rhs = mTheory.mFalse;
+					} else {
+						rhs = mTheory.mTrue;
+					}
+					final EqualityProxy eq = createEqualityProxy(lhs, rhs, mCollector.getSource());
+
+					if (eq == EqualityProxy.getTrueProxy()) {
+						lit = mTRUE;
+					} else if (eq == EqualityProxy.getFalseProxy()) {
+						lit = mFALSE;
+					} else {
+						lit = eq.getLiteral(mCollector.getSource());
+					}
+
+
+					// lit = getBVSolver().createInEquality(lhs, rhs);
 				} else {
 					lit = createAnonLiteral(idx);
 					if (positive) {
@@ -1197,7 +1210,7 @@ public class Clausifier {
 			if (fs.getName().startsWith("@AUX")) {
 				return true;
 			}
-			if (term.getSort().isBitVecSort()) {
+			if (term.getSort().isBitVecSort() && !fs.getName().equals("ite")) {
 				return true;
 			}
 			switch (fs.getName()) {
@@ -1205,9 +1218,7 @@ public class Clausifier {
 			case "store":
 			case "@diff":
 			case "const":
-				return true;
 			case "bvult":
-				System.out.println("needdcc"); // kommt hier nie rein?
 				return true;
 			case "div":
 			case "mod":

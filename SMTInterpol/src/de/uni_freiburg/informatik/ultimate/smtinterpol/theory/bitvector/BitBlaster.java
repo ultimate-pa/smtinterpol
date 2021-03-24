@@ -33,18 +33,19 @@ import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
 
 public class BitBlaster {
 	private final Theory mTheory;
-	private final ScopedArrayList<Literal> mInputLiterals;
+	private final ScopedArrayList<BvLiteral> mInputLiterals;
 	private final LinkedHashSet<Term> mAllTerms;
 	private final HashMap<String, TermVariable> mVarPrefix; // Maps enc_term indices to their bool vars.
 	private final HashMap<Term, DPLLAtom> mBoolAtoms; // All Bool Atoms, aux varaibles too
 	private final ScopedArrayList<Clause> mClauses; // Output clauses
 	private final HashMap<Term, Term[]> mEncTerms; // Term[0] is the least bit, the most right bit of Term
 	private final HashMap<String, Term> mEncAtoms; // Maps Prefix At_i to bool atom
-	private final HashMap<Term, Literal> mLiterals; // Maps mEncAtoms to mInputLiterals
+	private final HashMap<String, BvLiteral> mBitBlastAtoms; // ensures that Bitblasting happens only once for each Atom
+	private final HashMap<Term, BvLiteral> mLiterals; // Maps mEncAtoms to mInputLiterals
 	private final BVUtils mBVUtils;
 	private final int mStackLevel;
 
-	public BitBlaster(final Theory theory, final int engineStackLevel, final ScopedArrayList<Literal> allLiterals,
+	public BitBlaster(final Theory theory, final int engineStackLevel, final ScopedArrayList<BvLiteral> allLiterals,
 			final LinkedHashSet<Term> allTerms) {
 		mTheory = theory;
 		mInputLiterals = allLiterals;
@@ -52,6 +53,7 @@ public class BitBlaster {
 		mVarPrefix = new HashMap<>();
 		mEncTerms = new HashMap<>();
 		mEncAtoms = new HashMap<>();
+		mBitBlastAtoms = new HashMap<>();
 		mBVUtils = new BVUtils(mTheory);
 		mBoolAtoms = new HashMap<>();
 		mLiterals = new HashMap<>();
@@ -59,19 +61,17 @@ public class BitBlaster {
 		mStackLevel = engineStackLevel;
 	}
 
+
+
 	public void bitBlasting() {
 		Term equisatProp;
 		final Term[] propSkeleton = new Term[mInputLiterals.size()];
 		for (int i = 0; i < mInputLiterals.size(); i++) {
-			final String atomPrefix = "At_" + i;
-			final TermVariable boolVar = mTheory.createFreshTermVariable(atomPrefix, mTheory.getSort("Bool"));
-			mEncAtoms.put(atomPrefix, boolVar);
-			mBoolAtoms.put(boolVar, new BooleanVarAtom(boolVar, mStackLevel));
-			mLiterals.put(boolVar, mInputLiterals.get(i));
-			if (mInputLiterals.get(i).getSign() == -1) {
-				propSkeleton[i] = mTheory.not(boolVar);
+			final Term bitblastingAtom = createBoolAtom(i);
+			if (mInputLiterals.get(i).getSign()) {
+				propSkeleton[i] = bitblastingAtom;
 			} else {
-				propSkeleton[i] = boolVar;
+				propSkeleton[i] = mTheory.not(bitblastingAtom);
 			}
 		}
 		for (final Term term : mAllTerms) {
@@ -85,15 +85,30 @@ public class BitBlaster {
 		toClauses(equisatProp);
 
 		// add BVConstraint of Atoms as conjunct
-		for (int i = 0; i < mInputLiterals.size(); i++) {
-			final DPLLAtom atom = mInputLiterals.get(i).getAtom();
-			final Term encAtom = mEncAtoms.get("At_" + i);
-			getBvConstraintAtom(encAtom, atom);
+		for (final BvLiteral atom : mBitBlastAtoms.values()) {
+			getBvConstraintAtom(atom);
 		}
 		// add BVConstraint of all subterms as conjunct
 		for (final Term term : mAllTerms) {
 			getBvConstraintTerm(term);
 		}
+	}
+
+	private Term createBoolAtom(final int i) {
+		final BvLiteral bvlit = mBitBlastAtoms.get(mInputLiterals.get(i).getTerm().toStringDirect());
+		Term boolVar;
+		if (bvlit == null) {
+			final String atomPrefix = "At_" + i;
+			boolVar = mTheory.createFreshTermVariable(atomPrefix, mTheory.getSort("Bool"));
+			mEncAtoms.put(atomPrefix, boolVar);
+			mBoolAtoms.put(boolVar, new BooleanVarAtom(boolVar, mStackLevel));
+			mLiterals.put(boolVar, mInputLiterals.get(i));
+			mBitBlastAtoms.put(mInputLiterals.get(i).getTerm().toStringDirect(), mInputLiterals.get(i));
+		} else {
+			boolVar = bvlit.getBitBlastAtom();
+		}
+		mInputLiterals.get(i).setBitBlastAtom(boolVar);
+		return boolVar;
 	}
 
 	/*
@@ -127,40 +142,80 @@ public class BitBlaster {
 	 * Creates BVConstraint for Atom's
 	 * For equals:
 	 * (AND lhs_i = rhs_i) <=> encAtom
+	 * For bvult:
+	 * not(bvadd (lhs not(rhs)).cout) <=> encAtom
 	 */
-	private void getBvConstraintAtom(final Term encAtom, final DPLLAtom atom) {
-		if (atom.getSMTFormula(mTheory) instanceof ApplicationTerm) {
-			final ApplicationTerm apAtom = (ApplicationTerm) atom.getSMTFormula(mTheory);
+	private void getBvConstraintAtom(final BvLiteral bvLiteral) {
+		final Term atom = bvLiteral.getTerm();
+		final Term encAtom = bvLiteral.getBitBlastAtom();
+		if (atom instanceof ApplicationTerm) {
+			final ApplicationTerm apAtom = (ApplicationTerm) atom;
 			final Term lhs = apAtom.getParameters()[0];
 			final Term rhs = apAtom.getParameters()[1];
 
-			if (!(atom instanceof BVInEquality)) {
+			if (((ApplicationTerm) atom).getFunction().getName().equals("=")) {
 				// (AND lhs_i = rhs_i) <=> encAtom
 				final BigInteger sizeBig = mTheory.toNumeral(lhs.getSort().getIndices()[0]);
 				final int size = sizeBig.intValue();
-				final Term[] eqconj = new Term[size + size];
-				for (int i = 0; i < size; i++) {
-					eqconj[i] =
-							mTheory.or(mTheory.not(mEncTerms.get(lhs)[i]),
-									mEncTerms.get(rhs)[i]);
-					eqconj[i + size] =
-							mTheory.or(mTheory.not(mEncTerms.get(rhs)[i]),
-									mEncTerms.get(lhs)[i]);
-				}
-				final Term eqconjunction = mTheory.and(eqconj);
-				toClauses(mTheory.and(mTheory.or(mTheory.not(encAtom), eqconjunction),
-						mTheory.or(mTheory.not(eqconjunction), encAtom)));
+				final Term[] eqconj = new Term[size];
+				final Literal atLit = getLiteral(encAtom);
+				if (size == 1) { // TODO after which size is bvcomp faster?
+					for (int i = 0; i < size; i++) {
+						// creates 2*size + 2^size Clauses, Only faster for small sizes
+						final Literal lhsLit = getLiteral(mEncTerms.get(lhs)[i]);
+						final Literal rhsLit = getLiteral(mEncTerms.get(rhs)[i]);
+						final Literal[] lit1 = { atLit.negate(), lhsLit, rhsLit.negate() };
+						addClause(lit1);
+						final Literal[] lit2 = { atLit.negate(), lhsLit.negate(), rhsLit };
+						addClause(lit2);
+						eqconj[i] =
+								mTheory.or(mTheory.and(mEncTerms.get(lhs)[i],
+										mEncTerms.get(rhs)[i]),
+										mTheory.and(mTheory.not(mEncTerms.get(rhs)[i]),
+												mTheory.not(mEncTerms.get(lhs)[i])));
+					}
+					final Term eqconjunction = mTheory.and(eqconj);
+					toClauses(mTheory.or(mTheory.not(eqconjunction), encAtom));
+				} else {
+					// usign bvcomp method to determin equality
+					final Term[] bvxnor = new Term[size];
+					for (int i = 0; i < size; i++) {
+						final TermVariable boolVar = mTheory.createFreshTermVariable("AuxVar", mTheory.getSort("Bool"));
+						mBoolAtoms.put(boolVar, new BooleanVarAtom(boolVar, mStackLevel));
+						final Literal at = getLiteral(boolVar);
+						final Literal lhsLit = getLiteral(mEncTerms.get(lhs)[i]);
+						final Literal rhsLit = getLiteral(mEncTerms.get(rhs)[i]);
+						final Literal[] lit1 = { at, lhsLit, rhsLit };
+						addClause(lit1);
+						final Literal[] lit2 = { at, lhsLit.negate(), rhsLit.negate() };
+						addClause(lit2);
+						final Literal[] lit3 = { at.negate(), lhsLit, rhsLit.negate() };
+						addClause(lit3);
+						final Literal[] lit4 = { at.negate(), lhsLit.negate(), rhsLit };
+						addClause(lit4);
+						bvxnor[i] = boolVar;
 
-			} else if (atom instanceof BVInEquality) {
-				final BVInEquality bvIneqatom = (BVInEquality) atom;
+						final Literal[] lit5 = { atLit.negate(), at };
+						addClause(lit5);
+					}
+					// TODO directly to clause
+					toClauses(mTheory.or(encAtom, mTheory.not(mTheory.and(bvxnor))));
+				}
+
+
+			} else if (((ApplicationTerm) atom).getFunction().getName().equals("bvult")) {
 				// bvult, holds if cout is false
 				final Term bvult =
-						mTheory.not(adder(mEncTerms.get(bvIneqatom.getLHS()), negate(mEncTerms.get(bvIneqatom.getRHS())),
-								mTheory.mTrue).getSecond());
-				toClauses(mTheory.and(mTheory.or(mTheory.not(encAtom), bvult),
-						mTheory.or(mTheory.not(bvult), encAtom)));
+						mTheory.not(adder(mEncTerms.get(((ApplicationTerm) atom).getParameters()[0]),
+								negate(mEncTerms.get(((ApplicationTerm) atom).getParameters()[1])),
+								mTheory.mTrue, null).getSecond());
 
-
+				final Literal bvultLit = getLiteral(bvult);
+				final Literal atLit = getLiteral(encAtom);
+				final Literal[] lit1 = { atLit.negate(), bvultLit };
+				addClause(lit1);
+				final Literal[] lit2 = { atLit, bvultLit.negate() };
+				addClause(lit2);
 			} else {
 				throw new UnsupportedOperationException("Unknown Atom");
 			}
@@ -176,6 +231,7 @@ public class BitBlaster {
 		} else if (term instanceof ConstantTerm) {
 			final Term[] encTerm = mEncTerms.get(term);
 			final Term[] constresult = new Term[encTerm.length];
+			// adds a Clause for each index
 			for (int i = 0; i < encTerm.length; i++) {
 				Term boolVar;
 				final String termstring = BVUtils.getConstAsString((ConstantTerm) term);
@@ -244,16 +300,17 @@ public class BitBlaster {
 					break;
 				}
 				case "bvadd": {
-					conjunction =
-							adder(mEncTerms.get(appterm.getParameters()[0]), mEncTerms.get(appterm.getParameters()[1]),
-									mTheory.mFalse).getFirst();
-					break;
+
+					adder(mEncTerms.get(appterm.getParameters()[0]), mEncTerms.get(appterm.getParameters()[1]),
+							mTheory.mFalse, encTerm).getFirst();
+					// return, clauses will be created in the Adder
+					return;
 				}
 				case "bvsub": {
 					conjunction =
 							adder(mEncTerms.get(appterm.getParameters()[0]),
 									negate(mEncTerms.get(appterm.getParameters()[1])),
-									mTheory.mTrue).getFirst();
+									mTheory.mTrue, null).getFirst();
 					break;
 				}
 				case "bvshl": {
@@ -265,8 +322,8 @@ public class BitBlaster {
 				case "bvmul": {
 					final int stage =
 							mTheory.toNumeral(appterm.getParameters()[1].getSort().getIndices()[0]).intValue() - 1;
-					conjunction = multiplier(appterm.getParameters()[0], appterm.getParameters()[1], stage);
-					break;
+					multiplier(appterm.getParameters()[0], appterm.getParameters()[1], stage, encTerm);
+					return;
 				}
 
 				case "bvlshr": {
@@ -309,8 +366,10 @@ public class BitBlaster {
 		}
 	}
 
+	/*
+	 * The return values of adder and multiplier are aux vars
+	 */
 	private void division(final ApplicationTerm appterm, final Term[] conjunction, final Term[] encTerm) {
-		// Add Aux vars for each step
 		final FunctionSymbol fsym = appterm.getFunction();
 		final Term[] encA = mEncTerms.get(appterm.getParameters()[0]);
 		final Term[] encB = mEncTerms.get(appterm.getParameters()[1]);
@@ -320,38 +379,39 @@ public class BitBlaster {
 		final Term[] product;
 		if (fsym.getName().equals("bvudiv")) {
 			remainder = createBoolVarArray(conjunction.length);
-			product = multiplier(encTerm, encB, stage);
+			product = multiplier(encTerm, encB, stage, null);
 		} else if (fsym.getName().equals("bvurem")) {
 			remainder = encTerm;
-			product = multiplier(createBoolVarArray(conjunction.length), encB, stage);
+			product = multiplier(createBoolVarArray(conjunction.length), encB, stage, null);
 		} else {
 			throw new UnsupportedOperationException(
 					"Unsupported functionsymbol for bitblasting: " + fsym.getName());
 		}
-		for (int i = 0; i < product.length; i++) {
-			product[i] = createAuxVar(product[i]);
-		}
-		final Term[] sum = adder(product, remainder, mTheory.mFalse).getFirst();
-		for (int i = 0; i < sum.length; i++) {
-			sum[i] = createAuxVar(sum[i]);
-		}
+
+		final Term[] sum = adder(product, remainder, mTheory.mFalse, null).getFirst();
+
 		// Term lhs = (encB != False);
 		final Term lhs = mTheory.or(encB);
 		final Term bvult =
-				createAuxVar(mTheory.not(adder(remainder, negate(encB), mTheory.mTrue).getSecond()));
+				mTheory.not(adder(remainder, negate(encB), mTheory.mTrue, null).getSecond());
 		for (int i = 0; i < conjunction.length; i++) {
 			conjunction[i] = mTheory.and(
 					mTheory.or(mTheory.not(sum[i]), encA[i]),
 					mTheory.or(mTheory.not(encA[i]), sum[i]));
 		}
 
-		final Term divisionConstraint = mTheory.and(mTheory.or(mTheory.not(lhs), mTheory.and(conjunction)),
-				mTheory.or(lhs, mTheory.not(mTheory.and(conjunction))));
+		// divisionConstraint:
+		final Term divisionConstraint = mTheory.or(mTheory.not(lhs), mTheory.and(conjunction));
 		toClauses(divisionConstraint);
 
-		final Term remainderConstraint = mTheory.and(mTheory.or(mTheory.not(lhs), bvult),
-				mTheory.or(lhs, mTheory.not(bvult)));
-		toClauses(remainderConstraint);
+		// remainderConstraint:
+		final Literal bvultLit = getLiteral(bvult);
+		for (int i = 0; i < encB.length; i++) {
+			final Literal lhsLit = getLiteral(encB[i]);
+			final Literal[] lit1 = { bvultLit, lhsLit.negate() };
+			addClause(lit1);
+		}
+
 	}
 
 	// 00 concat 01 = 0001
@@ -372,26 +432,129 @@ public class BitBlaster {
 	}
 
 	// returns a xor b xor cin in CNF
-	private Term sumAdder(final Term a, final Term b, final Term cin) {
-		if (cin.equals(mTheory.mFalse)) {
-			return mTheory.and(mTheory.or(mTheory.not(a), mTheory.not(b)),
-					mTheory.or(a, b));
+	private Term sumAdder(final Term aTerm, final Term bTerm, final Term cin, final Term encAdd) {
+		final Literal b = getLiteral(bTerm);
+
+		final Literal at;
+		Term result;
+		if (encAdd == null) { // adder was called by multiplier or similar functions
+			final TermVariable boolVar = mTheory.createFreshTermVariable("AuxVar", mTheory.getSort("Bool"));
+			mBoolAtoms.put(boolVar, new BooleanVarAtom(boolVar, mStackLevel));
+			at = getLiteral(boolVar);
+			result = boolVar;
 		} else {
-			return mTheory.and(mTheory.or(mTheory.not(a), mTheory.not(b), cin),
-					mTheory.or(mTheory.not(a), b, mTheory.not(cin)),
-					mTheory.or(a, mTheory.not(b), mTheory.not(cin)),
-					mTheory.or(a, b, cin));
+			at = getLiteral(encAdd);
+			result = encAdd;
 		}
+
+		final Literal a = getLiteral(aTerm);
+
+		if (cin.equals(mTheory.mFalse)) {
+			if (aTerm.equals(mTheory.mFalse)) {
+				final Literal[] lit2 = { at, b.negate() };
+				addClause(lit2);
+				final Literal[] lit3 = { at.negate(), b };
+				addClause(lit3);
+			} else {
+				final Literal[] lit2 = { at, a, b.negate() };
+				addClause(lit2);
+				final Literal[] lit4 = { at, a.negate(), b, };
+				addClause(lit4);
+				final Literal[] lit6 = { at.negate(), a, b, };
+				addClause(lit6);
+				final Literal[] lit7 = { at.negate(), a.negate(), b.negate() };
+				addClause(lit7);
+			}
+		} else if (cin.equals(mTheory.mTrue)) {
+			if (aTerm.equals(mTheory.mFalse)) {
+				final Literal[] lit2 = { at, b };
+				addClause(lit2);
+				final Literal[] lit3 = { at.negate(), b.negate() };
+				addClause(lit3);
+			} else {
+				final Literal[] lit2 = { at.negate(), a, b.negate() };
+				addClause(lit2);
+				final Literal[] lit4 = { at.negate(), a.negate(), b, };
+				addClause(lit4);
+				final Literal[] lit6 = { at, a, b, };
+				addClause(lit6);
+				final Literal[] lit7 = { at, a.negate(), b.negate() };
+				addClause(lit7);
+			}
+		} else {
+			final Literal c = getLiteral(cin);
+
+			if (aTerm.equals(mTheory.mFalse)) {
+				final Literal[] lit2 = { at, c, b.negate() };
+				addClause(lit2);
+				final Literal[] lit4 = { at, c.negate(), b, };
+				addClause(lit4);
+				final Literal[] lit6 = { at.negate(), c, b, };
+				addClause(lit6);
+				final Literal[] lit7 = { at.negate(), c.negate(), b.negate() };
+				addClause(lit7);
+
+			} else {
+
+				final Literal[] lit1 = { at, a.negate(), b.negate(), c.negate() };
+				addClause(lit1);
+				final Literal[] lit2 = { at, a, b.negate(), c };
+				addClause(lit2);
+				final Literal[] lit3 = { at, a, b, c.negate() };
+				addClause(lit3);
+				final Literal[] lit4 = { at, a.negate(), b, c };
+				addClause(lit4);
+
+				final Literal[] lit5 = { at.negate(), a, b.negate(), c.negate() };
+				addClause(lit5);
+				final Literal[] lit6 = { at.negate(), a, b, c };
+				addClause(lit6);
+				final Literal[] lit7 = { at.negate(), a.negate(), b.negate(), c };
+				addClause(lit7);
+				final Literal[] lit8 = { at.negate(), a.negate(), b, c.negate() };
+				addClause(lit8);
+			}
+		}
+		return result;
 	}
 
 	// returns ((a and b) or (mTheory.(a xor b) and cin)) in CNF
-	private Term carryAdder(final Term a, final Term b, final Term cin) {
-		if (cin.equals(mTheory.mFalse)) {
-			return mTheory.and(a, b);
-		} else if (cin.equals(mTheory.mTrue)) {
-			return mTheory.or(a, b);
+	// cin is either false or AuxVar
+	private Term carryAdder(final Term aTerm, final Term bTerm, final Term cin) {
+		if (aTerm.equals(mTheory.mFalse)) {
+			// TODO
+			return createAuxVar(mTheory.and(mTheory.or(aTerm, bTerm), mTheory.or(aTerm, cin), mTheory.or(bTerm, cin)));
 		}
-		return mTheory.and(mTheory.or(a, b), mTheory.or(a, cin), mTheory.or(b, cin));
+		if (cin.equals(mTheory.mFalse)) {
+			return createAuxVar(mTheory.and(aTerm, bTerm)); // optimize
+		} else if (cin.equals(mTheory.mTrue)) {
+			return createAuxVar(mTheory.or(aTerm, bTerm)); // optimize
+		} else {
+			// return mTheory.and(mTheory.or(aTerm, bTerm), mTheory.or(aTerm, cin), mTheory.or(bTerm, cin));
+			final Literal a = getLiteral(aTerm);
+			final Literal b = getLiteral(bTerm);
+			final Literal c = getLiteral(cin);
+
+			final TermVariable boolVar = mTheory.createFreshTermVariable("AuxVar", mTheory.getSort("Bool"));
+			mBoolAtoms.put(boolVar, new BooleanVarAtom(boolVar, mStackLevel));
+			final Literal auxVar = getLiteral(boolVar);
+
+			final Literal[] lit1 = { auxVar, a.negate(), b.negate() };
+			addClause(lit1);
+			final Literal[] lit2 = { auxVar, a.negate(), c.negate() };
+			addClause(lit2);
+			final Literal[] lit3 = { auxVar, b.negate(), c.negate() };
+			addClause(lit3);
+
+			final Literal[] lit4 = { auxVar.negate(), b, a };
+			addClause(lit4);
+			final Literal[] lit5 = { auxVar.negate(), a, c };
+			addClause(lit5);
+			final Literal[] lit6 = { auxVar.negate(), b, c };
+			addClause(lit6);
+
+			return boolVar;
+		}
 	}
 
 	private Term[] carryBits(final Term[] encA, final Term[] encB, final Term cin) {
@@ -400,16 +563,23 @@ public class BitBlaster {
 		carryBits[0] = cin;
 		for (int i = 1; i <= encA.length; i++) {
 			carryBits[i] = carryAdder(encA[i - 1], encB[i - 1], carryBits[i - 1]);
+
 		}
 		return carryBits;
 	}
 
-	private Pair<Term[], Term> adder(final Term[] encA, final Term[] encB, final Term cin) {
+	private Pair<Term[], Term> adder(final Term[] encA, final Term[] encB, final Term cin, final Term[] encAdd) {
 		assert encA.length == encB.length;
 		final Term[] sumResult = new Term[encA.length];
 		final Term[] carryBits = carryBits(encA, encB, cin);
 		for (int i = 0; i < encA.length; i++) {
-			sumResult[i] = sumAdder(encA[i], encB[i], createAuxVar(carryBits[i]));
+			if (encAdd != null) {
+				// will create the clauses directly
+				sumResult[i] = sumAdder(encA[i], encB[i], carryBits[i], encAdd[i]);
+			} else {
+				// won't create clauses, used in the multiplier etc.
+				sumResult[i] = sumAdder(encA[i], encB[i], carryBits[i], null);
+			}
 		}
 		final Term cout = carryBits[carryBits.length - 1];
 		return new Pair<>(sumResult, cout);
@@ -550,6 +720,7 @@ public class BitBlaster {
 
 	/*
 	 * Used, when b is not a term in the orginial formula, therefore mEncTerms.get(b) would be null
+	 * No need for AuxVars since we can calculate the actual shift result
 	 */
 	private Term[] leftshiftMul(final Term[] encA, final String b, final int stage) {
 		final Term[] shiftResult = new Term[encA.length];
@@ -572,23 +743,33 @@ public class BitBlaster {
 		return shiftResult;
 	}
 
-	private Term[] multiplier(final Term a, final Term b, final int stage) {
+	private Term[] multiplier(final Term a, final Term b, final int stage, final Term[] encMul) {
 		final Term[] encA = mEncTerms.get(a);
 		final Term[] encB = mEncTerms.get(b);
-		return multiplier(encA, encB, stage);
+		return multiplier(encA, encB, stage, encMul);
 	}
 
 	/*
 	 * Multiplier withouth recursion. Instead we use aux vars.
 	 * TODO test for bit vec width 1
+	 * returns null, if encMul was given. Then clauses will be created during the process
 	 */
-	private Term[] multiplier(final Term[] encA, final Term[] encB, final int stage) {
+	private Term[] multiplier(final Term[] encA, final Term[] encB, final int stage, final Term[] encMul) {
 		final int size = encA.length;
 		final Term[] zeroVec = new Term[size];
 		Arrays.fill(zeroVec, mTheory.mFalse);
 		final Term[][] boolvarmap = createBoolVarMap(stage + 1, encA.length);
 		if (stage == 0) {
-			return zeroVec;
+			if (encMul == null) {
+				return zeroVec;
+			} else {
+				for (int i = 0; i < size; i++) {
+					final Literal result = getLiteral(encMul[i]);
+					final Literal[] lit6 = { result.negate() };
+					addClause(lit6);
+				}
+				return null;
+			}
 		}
 		// Create AuxVars for each, except last.
 		for (int s = 0; s < stage; s++) {
@@ -606,24 +787,22 @@ public class BitBlaster {
 			}
 			final Term[] ifte = new Term[size];
 			for (int i = 0; i < size; i++) {
+				Term t;
 				if (encB[i].equals(mTheory.mTrue)) {
-					ifte[i] = mTheory.or(mTheory.not(encB[s]), shift[i]);
+					t = mTheory.or(mTheory.not(encB[s]), shift[i]);
 				} else if (encB[i].equals(mTheory.mFalse)) {
-					ifte[i] = mTheory.or(encB[s], mTheory.mFalse);
+					t = mTheory.or(encB[s], mTheory.mFalse);
 				}
 				else {
 					// mTheory.ifthenelse(encB[stage], shift[i], mTheory.mFalse);
-					ifte[i] = mTheory.and(
+					t = mTheory.and(
 							mTheory.or(mTheory.not(encB[s]), shift[i]),
 							mTheory.or(encB[s], mTheory.mFalse));
 				}
+				ifte[i] = createAuxVar(t);
 			}
-			final Term[] sum = adder(mul, ifte, mTheory.mFalse).getFirst();
-			for (int i = 0; i < size; i++) {
-				// boolvarmap[s][i] <=> sum[i]
-				toClauses(mTheory.and(mTheory.or(mTheory.not(boolvarmap[s][i]), sum[i]),
-						mTheory.or(mTheory.not(sum[i]), boolvarmap[s][i])));
-			}
+
+			adder(mul, ifte, mTheory.mFalse, boolvarmap[s]).getFirst();
 		}
 		// Last stage
 		final Term[] shift;
@@ -634,19 +813,25 @@ public class BitBlaster {
 
 		final Term[] ifte = new Term[size];
 		for (int i = 0; i < size; i++) {
+			Term t;
 			if (encB[i].equals(mTheory.mTrue)) {
-				ifte[i] = mTheory.or(mTheory.not(encB[stage]), shift[i]);
+				t = mTheory.or(mTheory.not(encB[stage]), shift[i]);
 			} else if (encB[i].equals(mTheory.mFalse)) {
-				ifte[i] = mTheory.or(encB[stage], mTheory.mFalse);
+				t = mTheory.or(encB[stage], mTheory.mFalse);
 			} else {
 				// mTheory.ifthenelse(encB[stage], shift[i], mTheory.mFalse);
-				ifte[i] = mTheory.and(
+				t = mTheory.and(
 						mTheory.or(mTheory.not(encB[stage]), shift[i]),
 						mTheory.or(encB[stage], mTheory.mFalse));
 			}
+			ifte[i] = createAuxVar(t);
 		}
-		final Term[] sum = adder(boolvarmap[stage - 1], ifte, mTheory.mFalse).getFirst();
-		return sum;
+		final Term[] sum = adder(boolvarmap[stage - 1], ifte, mTheory.mFalse, encMul).getFirst();
+		if (encMul == null) {
+			return sum;
+		} else {
+			return null;
+		}
 	}
 
 
@@ -715,6 +900,10 @@ public class BitBlaster {
 	}
 
 	private void addClause(final Literal[] literals) {
+		assert !(literals.length == 0);
+		if (literals[0].equals(mTheory.mTrue) && literals.length == 1) {
+			return;
+		}
 		final Clause cl = new Clause(literals, mStackLevel);
 		cl.setProof(new LeafNode(-1, SourceAnnotation.EMPTY_SOURCE_ANNOT));
 		mClauses.add(cl);
@@ -724,6 +913,10 @@ public class BitBlaster {
 	 * term must be a disjunction or literal
 	 */
 	private void addClauses(final Term term) {
+		assert !term.equals(mTheory.mFalse);
+		if (term.equals(mTheory.mTrue)) {
+			return;
+		}
 		final ArrayList<Literal> literals = new ArrayList<>();
 		if (term instanceof ApplicationTerm) {
 			final ApplicationTerm appterm = (ApplicationTerm) term;
@@ -756,12 +949,12 @@ public class BitBlaster {
 	public Literal[] getNegatedInputLiterals() {
 		final Literal[] lit = new Literal[mInputLiterals.size()];
 		for (int i = 0; i < mInputLiterals.size(); i++) {
-			lit[i] = mInputLiterals.get(i).negate();
+			lit[i] = mInputLiterals.get(i).getLiteral().negate();
 		}
 		return lit;
 	}
 
-	public HashMap<Term, Literal> getLiteralMap() {
+	public HashMap<Term, BvLiteral> getLiteralMap() {
 		return mLiterals;
 	}
 }

@@ -37,6 +37,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.BooleanVarAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ITheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.model.FunctionValue.Index;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.bitvector.BitVectorTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.ArrayTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
@@ -100,6 +101,8 @@ public class Model implements de.uni_freiburg.informatik.ultimate.logic.Model {
 				la = (LinArSolve) theorySolver;
 			} else if (theorySolver instanceof ArrayTheory) {
 				array = (ArrayTheory) theorySolver;
+			} else if (theorySolver instanceof BitVectorTheory) {
+				throw new UnsupportedOperationException("Modelproduction for quantifier theory not implemented.");
 			} else if (theorySolver instanceof QuantifierTheory) {
 				if (!((QuantifierTheory) theorySolver).getQuantClauses().isEmpty()) {
 					throw new UnsupportedOperationException("Modelproduction for quantifier theory not implemented.");
