@@ -469,12 +469,9 @@ public class Theory {
 			return constant(Rational.valueOf(num, BigInteger.ONE), mNumericSort);
 		}
 		// For real arithmetic using Rational would convert to decimal, which we want to avoid.
-		Term result = constant(num.abs(), mNumericSort);
-		if (num.signum() < 0) {
-			final FunctionSymbol neg = getFunction("-", mNumericSort);
-			result = term(neg, result);
-		}
-		return result;
+		// positive and negated numerals are represented as constants of BigInteger type
+		// instead.
+		return constant(num, mNumericSort);
 	}
 
 	public Term numeral(final String num) {
@@ -485,12 +482,14 @@ public class Theory {
 		// Check if this is uses the default scale and no fractional part.
 		// In this case we create a rational constant instead.
 		// Also handle BigDecimal without scale to distinguish them from numerals.
-		if (value.scale() == 0 || (value.scale() == 1 && value.remainder(BigDecimal.ONE).signum() == 0)) {
+		if (value.scale() <= 0 || (value.scale() == 1 && value.remainder(BigDecimal.ONE).signum() == 0)) {
 			return constant(Rational.valueOf(value.toBigIntegerExact(), BigInteger.ONE), mRealSort);
 		}
 		// If the input contains something like 0.1, don't automatically convert to (/ 1.0 10.0), to avoid
 		// changing the input.
 		Term result = constant(value.abs(), mRealSort);
+		// positive non-normalized decimals are represented as BigDecimal constants
+		// negative BigDecimals like -0.1 are normalized to the SMT term (- 0.1)
 		if (value.signum() < 0) {
 			final FunctionSymbol neg = getFunction("-", mRealSort);
 			result = term(neg, result);
@@ -1183,7 +1182,7 @@ public class Theory {
 				if (indices == null || indices.length != 1 || paramSorts.length != 0 || resultSort != null) {
 					return null;
 				}
-				String index = indices[0];
+				final String index = indices[0];
 				if (!index.startsWith("#x") || index.length() <= 2 || index.length() > 7
 						|| (index.length() == 7 && index.charAt(2) > '2')) {
 					return null;
@@ -1223,7 +1222,7 @@ public class Theory {
 		defineFunction(new FunctionSymbolFactory(SMTLIBConstants.RE_ITER) {
 			@Override
 			public Sort getResultSort(final String[] indices, final Sort[] paramSorts, final Sort resultSort) {
-				if (indices == null || indices.length != 1 || paramSorts.length != 1 || resultSort != null 
+				if (indices == null || indices.length != 1 || paramSorts.length != 1 || resultSort != null
 						|| paramSorts[0] != re) {
 					return null;
 				}
@@ -1234,7 +1233,7 @@ public class Theory {
 		defineFunction(new FunctionSymbolFactory(SMTLIBConstants.RE_LOOP) {
 			@Override
 			public Sort getResultSort(final String[] indices, final Sort[] paramSorts, final Sort resultSort) {
-				if (indices == null || indices.length != 2 || paramSorts.length != 1 || resultSort != null 
+				if (indices == null || indices.length != 2 || paramSorts.length != 1 || resultSort != null
 						|| paramSorts[0] != re) {
 					return null;
 				}
