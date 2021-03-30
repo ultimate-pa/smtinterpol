@@ -403,12 +403,13 @@ public class BVUtils {
 						theory.not(theory.term("=",
 								theory.term(extract, appterm.getParameters()[1]),
 								theory.binary("#b0"))))),
-						theory.not(theory.or(
-								theory.not(theory.term("=",
-										theory.term(extract, appterm.getParameters()[0]),
-										theory.term(extract, appterm.getParameters()[1]))),
-								theory.not(theory.term("bvult", appterm.getParameters()[0],
-										appterm.getParameters()[1])))));
+
+				theory.not(theory.or(
+						theory.not(theory.term("=",
+								theory.term(extract, appterm.getParameters()[0]),
+								theory.term(extract, appterm.getParameters()[1]))),
+						theory.not(theory.term("bvult", appterm.getParameters()[0],
+								appterm.getParameters()[1])))));
 				return equiBvult;
 			}
 			case "bvule": {

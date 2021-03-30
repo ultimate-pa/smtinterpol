@@ -7,18 +7,16 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 
 public class BvLiteral {
 
-	private final boolean mSign;
-	private final boolean mNegated;
+	private boolean mSign;
 	private final Literal mLiteral;
 	private final Term mTerm;
 	private Term mBitBlastAtom;
 
 	// enum type der relation
-	public BvLiteral(final Literal lit, final Term relationTerm, final boolean sign, final boolean negated) {
+	public BvLiteral(final Literal lit, final Term relationTerm, final boolean sign) {
 		mLiteral = lit;
 		mTerm = relationTerm;
 		mSign = sign;
-		mNegated = negated;
 		mBitBlastAtom = null;
 	}
 
@@ -47,10 +45,7 @@ public class BvLiteral {
 		return mSign;
 	}
 
-	public boolean negated() {
-		// True if and only if the Literal has form (not Atom)
-		return mNegated;
-	}
+
 
 	public boolean isBvult() {
 		if (mTerm instanceof ApplicationTerm) {
@@ -73,6 +68,11 @@ public class BvLiteral {
 			return ((ApplicationTerm) mTerm).getParameters()[1];
 		}
 		return null;
+	}
+
+	public void setSign(final boolean sign) {
+		mSign = sign;
+
 	}
 
 }

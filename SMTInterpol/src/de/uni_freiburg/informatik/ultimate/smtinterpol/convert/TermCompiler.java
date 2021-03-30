@@ -832,8 +832,152 @@ public class TermCompiler extends TermTransformer {
 						theory.term("bvnot", theory.term("bvlshr", theory.term("bvnot", params[0]), params[1]))));
 				return;
 			}
-			// TODO ((_ repeat j) t), ((_ sign_extend i) t), ((_ rotate_left i) t), ((_ rotate_right i) t)
+			case "repeat": {
+				if (fsym.getIndices()[0].equals("1")) {
+					setResult(params[0]);
+					return;
+				} else {
+					Term repeat = params[0];
+					for (int i = 1; i < Integer.parseInt(fsym.getIndices()[0]); i++) { //start from 1
+						repeat = theory.term("concat", params[0], repeat);
+					}
+					pushTerm(repeat);
+					return;
+				}
+			}
+			case "zero_extend": {
+				// abbreviates (concat ((_ repeat i) #b0) t)
+				if (fsym.getIndices()[0].equals("0")) {
+					setResult(params[0]);
+					return;
+				} else if(fsym.getIndices()[0].equals("1")){
+					pushTerm(theory.term("concat", theory.binary("#b0"), params[0]));
+					return;
+				}else{
+					Term repeat = theory.binary("#b0");
+					for (int i = 1; i < Integer.parseInt(fsym.getIndices()[0]); i++) {
+						repeat = theory.term("concat", theory.binary("#b0"), repeat);
+					}
+					pushTerm(theory.term("concat", repeat, params[0]));
+					return;
+				}
+			}
 
+			case "sign_extend": {
+				// abbreviates (concat ((_ repeat i) ((_ extract |m-1| |m-1|) t)) t)
+
+				final int size = Integer.parseInt(params[0].getSort().getIndices()[0]);
+				final String[] selectIndices = new String[2];
+				selectIndices[0] = String.valueOf(size - 1);
+				selectIndices[1] = String.valueOf(size - 1);
+
+				final FunctionSymbol extract =
+						theory.getFunctionWithResult("extract", selectIndices.clone(), null,
+								params[0].getSort());
+
+				if (fsym.getIndices()[0].equals("0")) {
+					setResult(params[0]);
+					return;
+				} else if(fsym.getIndices()[0].equals("1")){
+					pushTerm(theory.term("concat", theory.term(extract, params[0]), params[0]));
+					return;
+				}else{
+					Term repeat = theory.term(extract, params[0]);
+					for (int i = 1; i < Integer.parseInt(fsym.getIndices()[0]); i++) {
+						repeat = theory.term("concat", theory.term(extract, params[0]), repeat);
+					}
+					pushTerm(theory.term("concat", repeat, params[0]));
+					return;
+				}
+			}
+
+			case "rotate_left": {
+				final int size = Integer.parseInt(params[0].getSort().getIndices()[0]);
+
+
+				if (fsym.getIndices()[0].equals("0")) {
+					setResult(params[0]);
+					return;
+				} else if (size == 1) {
+					setResult(params[0]);
+					return;
+				} else {
+
+					final String[] selectIndicesLhs = new String[2];
+					selectIndicesLhs[0] = String.valueOf(size - 2);
+					selectIndicesLhs[1] = "0";
+
+					final FunctionSymbol extractLhs =
+							theory.getFunctionWithResult("extract", selectIndicesLhs, null,
+									params[0].getSort());
+
+					final String[] selectIndicesRhs = new String[2];
+					selectIndicesRhs[0] = String.valueOf(size - 1);
+					selectIndicesRhs[1] = String.valueOf(size - 1);
+
+					final FunctionSymbol extractRhs =
+							theory.getFunctionWithResult("extract", selectIndicesRhs, null,
+									params[0].getSort());
+
+					final Term concat = theory.term("concat", theory.term(extractLhs, params[0]),
+							theory.term(extractRhs, params[0]));
+
+					final String[] rotateIndice = new String[1];
+					rotateIndice[0] = String.valueOf(Integer.parseInt(fsym.getIndices()[0]) - 1);
+
+					final FunctionSymbol rotateLeft =
+							theory.getFunctionWithResult("rotate_left", rotateIndice, null,
+									params[0].getSort());
+
+					final Term rotate = theory.term(rotateLeft, concat);
+
+					pushTerm(rotate);
+					return;
+				}
+			}
+			case "rotate_right": {
+				final int size = Integer.parseInt(params[0].getSort().getIndices()[0]);
+
+				if (fsym.getIndices()[0].equals("0")) {
+					setResult(params[0]);
+					return;
+				} else if (size == 1) {
+					setResult(params[0]);
+					return;
+				} else {
+
+					final String[] selectIndicesLhs = new String[2];
+					selectIndicesLhs[0] = "0";
+					selectIndicesLhs[1] = "0";
+
+					final FunctionSymbol extractLhs =
+							theory.getFunctionWithResult("extract", selectIndicesLhs, null,
+									params[0].getSort());
+
+					final String[] selectIndicesRhs = new String[2];
+					selectIndicesRhs[0] = String.valueOf(size - 1);
+					selectIndicesRhs[1] = "1";
+
+					final FunctionSymbol extractRhs =
+							theory.getFunctionWithResult("extract", selectIndicesRhs, null,
+									params[0].getSort());
+
+					final Term concat = theory.term("concat", theory.term(extractLhs, params[0]),
+							theory.term(extractRhs, params[0]));
+
+					final String[] rotateIndice = new String[1];
+					rotateIndice[0] = String.valueOf(Integer.parseInt(fsym.getIndices()[0]) - 1);
+
+					final FunctionSymbol rotateLeft =
+							theory.getFunctionWithResult("rotate_right", rotateIndice, null,
+									params[0].getSort());
+
+					final Term rotate = theory.term(rotateLeft, concat);
+
+					pushTerm(rotate);
+					return;
+				}
+			}
 			case "true":
 			case "false":
 			case "@diff":

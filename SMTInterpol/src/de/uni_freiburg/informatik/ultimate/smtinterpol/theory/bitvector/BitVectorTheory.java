@@ -36,6 +36,7 @@ public class BitVectorTheory implements ITheory {
 	private ScopedArrayList<String> mAllNewVarNames;
 	private ScopedArrayList<Term> mAllNewVars;
 	private final HashMap<Literal, BvLiteral> mLiteralMap; // All Bool Atoms, aux varaibles too
+	final BitBlaster mBitblaster;
 
 	public BitVectorTheory(final Clausifier clausifier) {
 
@@ -43,6 +44,7 @@ public class BitVectorTheory implements ITheory {
 		mBVLiterals = new ScopedArrayList<>();
 		mAllTerms = new LinkedHashSet<>();
 		mLiteralMap = new HashMap<>();
+		mBitblaster = new BitBlaster(getTheory());
 	}
 
 	@Override
@@ -148,29 +150,53 @@ public class BitVectorTheory implements ITheory {
 					}
 				}
 
+				// if (mLiteralMap.containsKey(literal.getAtom())) {
+				// final BvLiteral bvLit = mLiteralMap.get(literal.getAtom());
+				//
+				// if (inequality) {
+				// // bvultTerm;
+				// if (bvultSign.equals(getTheory().mTrue) && (literal.getSign() == 1)) {
+				// bvLit.setSign(true);
+				// } else if (bvultSign.equals(getTheory().mTrue) && (literal.getSign() == -1)) {
+				// bvLit.setSign(false);
+				// } else if (bvultSign.equals(getTheory().mFalse) && (literal.getSign() == 1)) {
+				// bvLit.setSign(false);
+				// } else if (bvultSign.equals(getTheory().mFalse) && (literal.getSign() == -1)) {
+				// bvLit.setSign(true);
+				// } else {
+				// throw new UnsupportedOperationException("Unknown Atom");
+				// }
+				//
+				// } else {
+				// if (literal.getSign() == 1) {
+				// bvLit.setSign(true);
+				// } else {
+				// bvLit.setSign(false);
+				// }
+				// }
+				// mBVLiterals.add(bvLit);
+				// } else
 				if(bitVecLiteral) {
 					BvLiteral bvLit;
 					if (inequality) {
 						// bvultTerm;
 						if (bvultSign.equals(getTheory().mTrue) && (literal.getSign() == 1)) {
-							bvLit = new BvLiteral(literal, bvultTerm, true, false);
+							bvLit = new BvLiteral(literal, bvultTerm, true);
 						} else if (bvultSign.equals(getTheory().mTrue) && (literal.getSign() == -1)) {
-							bvLit = new BvLiteral(literal, bvultTerm, false, true);
+							bvLit = new BvLiteral(literal, bvultTerm, false);
 						} else if (bvultSign.equals(getTheory().mFalse) && (literal.getSign() == 1)) {
-							bvLit = new BvLiteral(literal, bvultTerm, false, false);
+							bvLit = new BvLiteral(literal, bvultTerm, false);
 						} else if (bvultSign.equals(getTheory().mFalse) && (literal.getSign() == -1)) {
-							bvLit = new BvLiteral(literal, bvultTerm, true, true);
+							bvLit = new BvLiteral(literal, bvultTerm, true);
 						} else {
 							throw new UnsupportedOperationException("Unknown Atom");
 						}
 						getAllTerms(bvultTerm);
 					} else {
-						bvLit = new BvLiteral(literal, apAtom, (literal.getSign() == 1), (literal.getSign() != 1));
+						bvLit = new BvLiteral(literal, apAtom, (literal.getSign() == 1));
 						getAllTerms(apAtom); // For Bitblasting erst machen
 					}
 					mClausifier.getLogger().debug("Set BitVec Literal: " + literal.getSMTFormula(getTheory()));
-
-
 					mBVLiterals.add(bvLit);
 					mLiteralMap.put(literal, bvLit);
 				}
@@ -191,6 +217,8 @@ public class BitVectorTheory implements ITheory {
 	@Override
 	public Clause checkpoint() {
 		// TODO Auto-generated method stub
+		// bvult transititititity
+		// wenn alle kenne nach unitclausel schaun
 		return null;
 	}
 
@@ -242,20 +270,20 @@ public class BitVectorTheory implements ITheory {
 		// private final TermCompiler mCompiler = new TermCompiler();
 
 		// bitblasting
-		final DPLLEngine engine = new DPLLEngine(mClausifier.getLogger(), () -> false); // TODO terminationrequest
+		final DPLLEngine engine = new DPLLEngine(mClausifier.getLogger(), () -> false); // TODO TimeHandler
 		// TODO fill mAllTerms
 		engine.setProofGeneration(true);
 		final ScopedArrayList<BvLiteral> allLiterals = mBVLiterals;
 		final int engineStackLevel = engine.getAssertionStackLevel();
-		final BitBlaster bitblaster = new BitBlaster(getTheory(), engineStackLevel, allLiterals, mAllTerms);
 		// TODO
 		mClausifier.getLogger().debug("Starting Bitblasting");
-		bitblaster.bitBlasting();
+		mBitblaster.bitBlasting(mBVLiterals, mAllTerms, engine.getAssertionStackLevel());
 		mClausifier.getLogger().debug("Finished Bitblasting");
-		for (final DPLLAtom atom : bitblaster.getBoolAtoms()) {
+
+		for (final DPLLAtom atom : mBitblaster.getBoolAtoms()) {
 			engine.addAtom(atom);
 		}
-		for (final Clause cl : bitblaster.getClauses()) {
+		for (final Clause cl : mBitblaster.getClauses()) {
 			engine.addClause(cl);
 		}
 		final boolean sat = engine.solve();
@@ -266,25 +294,25 @@ public class BitVectorTheory implements ITheory {
 				if (t instanceof ApplicationTerm) {
 					if (((ApplicationTerm) t).getFunction().getName().equals("not")) {
 						final Term atom = ((ApplicationTerm) t).getParameters()[0];
-						if (bitblaster.getLiteralMap().containsKey(atom)) {
+						if (mBitblaster.getLiteralMap().containsKey(atom)) {
 							mClausifier.getLogger()
-							.info("Model InputLiteral: " + bitblaster.getLiteralMap().get(atom).getTerm());
+							.info("Model InputLiteral: " + mBitblaster.getLiteralMap().get(atom).getTerm());
 						} else {
 							// System.out.println("Model: " + t);
 
 						}
 					} else {
-						if (bitblaster.getLiteralMap().containsKey(t)) {
+						if (mBitblaster.getLiteralMap().containsKey(t)) {
 							mClausifier.getLogger()
-							.info("Model InputLiteral: " + bitblaster.getLiteralMap().get(t).getTerm());
+							.info("Model InputLiteral: " + mBitblaster.getLiteralMap().get(t).getTerm());
 						} else {
 							// System.out.println("Model: " + t);
 						}
 					}
 				} else {
-					if (bitblaster.getLiteralMap().containsKey(t)) {
+					if (mBitblaster.getLiteralMap().containsKey(t)) {
 						mClausifier.getLogger()
-						.info("Model InputLiteral: " + bitblaster.getLiteralMap().get(t).getTerm());
+						.info("Model InputLiteral: " + mBitblaster.getLiteralMap().get(t).getTerm());
 					} else {
 						// System.out.println("Model: " + t);
 					}
@@ -296,7 +324,7 @@ public class BitVectorTheory implements ITheory {
 			// for (final Term lit : engine.getSatisfiedLiterals(getTheory())) {
 			// System.out.println("Unsat: " + lit);
 			// }
-			final HashSet<Literal> unsatcore = getUnsatCore(unsat, bitblaster.getLiteralMap());
+			final HashSet<Literal> unsatcore = getUnsatCore(unsat, mBitblaster.getLiteralMap());
 			final Literal[] cores = new Literal[unsatcore.size()];
 			int i = 0;
 			for (final Literal c : unsatcore) {
@@ -343,6 +371,8 @@ public class BitVectorTheory implements ITheory {
 
 	@Override
 	public Literal getPropagatedLiteral() {
+		// zurück geben, welches literal nicht gelten darf weil sonst transitivity
+		// literal.getAtom().mExplanation und erklärung in (das was conflict wäre wenns gilt)
 		// TODO Auto-generated method stub
 		return null;
 	}

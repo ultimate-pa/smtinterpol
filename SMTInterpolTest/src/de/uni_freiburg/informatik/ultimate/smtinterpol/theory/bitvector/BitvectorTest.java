@@ -174,7 +174,6 @@ public class BitvectorTest {
 
 	@Test
 	public void shiftConst() {
-		// TODO more tests
 		// {bvshl, bvlshr}
 		mSolver.resetAssertions();
 		final Term consTerm = mSolver.binary("#b1001");
@@ -208,7 +207,7 @@ public class BitvectorTest {
 		mSolver.resetAssertions();
 
 		final Term consTerm = mSolver.binary("#b0001");
-		final Term consTerm2 = mSolver.binary("#b0010"); // "(_ bv2 4)" TODO
+		final Term consTerm2 = mSolver.binary("#b0010"); // "(_ bv2 4)"
 		final Term consTerm3 = mSolver.hexadecimal("#x3");
 		final Term input = mSolver.term("and",
 				mSolver.term("=", mSolver.term("bvadd", consTerm, consTerm), consTerm2),
@@ -262,21 +261,24 @@ public class BitvectorTest {
 		Assert.assertSame(LBool.SAT, isunSat);
 	}
 
-	// @Test
+	@Test
 	public void relationConst2() {
 		mSolver.resetAssertions();
-		final Term consTerm = q3;
-		final Term consTerm1 = p3;
+		final String[] constindices = new String[1];
+		constindices[0] = "4";
+		// final FunctionSymbol fs = mSolver.getTheory().getFunctionWithResult("bv", constindices, null, null);
+		final Term consTerm = mSolver.term("bv3", constindices, null);
+		final Term consTerm1 = mSolver.term("bv4", constindices, null);
 		final Term input =
 				mSolver.term("and",
 						mSolver.term("bvslt", consTerm1, consTerm),
 						mSolver.term("bvsle", consTerm, consTerm),
 						mSolver.term("bvsgt", consTerm, consTerm1));
-		// mSolver.term("bvsge", consTerm, consTerm);
 		mSolver.assertTerm(input);
 		final LBool isunSat = mSolver.checkSat();
-		Assert.assertSame(LBool.SAT, isunSat);
+		Assert.assertSame(LBool.UNSAT, isunSat);
 	}
+
 
 	@Test
 	public void relationConst3() {
@@ -286,7 +288,7 @@ public class BitvectorTest {
 		final Term input =
 				mSolver.term("and",
 						mSolver.term("bvslt", consTerm1, consTerm),
-						mSolver.term("bvsle", p4, q4),
+						mSolver.term("bvsle", p4, p4),
 						mSolver.term("bvsgt", consTerm, consTerm1));
 		// mSolver.term("bvsge", consTerm, consTerm);
 		mSolver.assertTerm(input);
@@ -450,9 +452,20 @@ public class BitvectorTest {
 		final String[] indices = new String[2];
 		indices[0] = "2";
 		indices[1] = "1";
+		final String[] indices2 = new String[2];
+		indices2[0] = "3";
+		indices2[1] = "2";
+		final String[] indices3 = new String[2];
+		indices3[0] = "1";
+		indices3[1] = "0";
+		final Term input =
+				mSolver.term("and", mSolver.term("=", p2,
+						mSolver.term("extract", indices3, null, p4)),
+						mSolver.term("=", mSolver.term("extract", indices, null, p4),
+								mSolver.term("extract", indices3, null, p4)),
+						mSolver.term("=", mSolver.term("extract", indices, null, p4),
+								mSolver.term("extract", indices2, null, p4)));
 
-		final Term input = mSolver.term("=", mSolver.binary("#b01"),
-				mSolver.term("extract", indices, null, p4));
 		mSolver.assertTerm(input);
 		final LBool isSat = mSolver.checkSat();
 		Assert.assertSame(LBool.SAT, isSat);
@@ -483,9 +496,10 @@ public class BitvectorTest {
 	@Test
 	public void bitVec1() {
 		mSolver.resetAssertions();
-		final Term input = mSolver.term("and", mSolver.term("=", mSolver.binary("#b1000"), p4),
-				mSolver.term("or", mSolver.term("=", mSolver.binary("#b1011"), p4),
-						mSolver.term("=", mSolver.binary("#b1001"), p4)));
+		final Term input =
+				mSolver.term("and", mSolver.term("=", mSolver.term("bvadd", p2, mSolver.binary("#b00")), q2),
+						mSolver.term("or", mSolver.term("=", mSolver.term("bvadd", p2, mSolver.binary("#b11")), q2),
+								mSolver.term("=", mSolver.term("bvadd", p2, mSolver.binary("#b01")), q2)));
 		mSolver.assertTerm(input);
 		final LBool isUnSat = mSolver.checkSat();
 		Assert.assertSame(LBool.UNSAT, isUnSat);
@@ -497,6 +511,81 @@ public class BitvectorTest {
 		mSolver.resetAssertions();
 		final Term input = mSolver.term("=", mSolver.term("bvcomp", x, y),
 				mSolver.binary("#b1"));
+		mSolver.assertTerm(input);
+		final LBool isUnSat = mSolver.checkSat();
+		Assert.assertSame(LBool.SAT, isUnSat);
+		mSolver.reset();
+	}
+
+	@Test
+	public void bitVecRepeat() {
+		mSolver.resetAssertions();
+		final String[] indices = new String[1];
+		indices[0] = "4";
+		final Term input =
+				mSolver.term("=", mSolver.binary("#b1100110011001100"),
+						mSolver.term("repeat", indices, null, mSolver.binary("#b1100")));
+
+		mSolver.assertTerm(input);
+		final LBool isUnSat = mSolver.checkSat();
+		Assert.assertSame(LBool.SAT, isUnSat);
+		mSolver.reset();
+	}
+
+	@Test
+	public void bitVecSignExtend() {
+		mSolver.resetAssertions();
+		final String[] indices = new String[1];
+		indices[0] = "4";
+		final Term input =
+				mSolver.term("=", mSolver.binary("#b11111100"),
+						mSolver.term("sign_extend", indices, null, mSolver.binary("#b1100")));
+
+		mSolver.assertTerm(input);
+		final LBool isUnSat = mSolver.checkSat();
+		Assert.assertSame(LBool.SAT, isUnSat);
+		mSolver.reset();
+	}
+
+	@Test
+	public void bitVecZeroExtend() {
+		mSolver.resetAssertions();
+		final String[] indices = new String[1];
+		indices[0] = "4";
+		final Term input =
+				mSolver.term("=", mSolver.binary("#b00001100"),
+						mSolver.term("zero_extend", indices, null, mSolver.binary("#b1100")));
+
+		mSolver.assertTerm(input);
+		final LBool isUnSat = mSolver.checkSat();
+		Assert.assertSame(LBool.SAT, isUnSat);
+		mSolver.reset();
+	}
+
+	@Test
+	public void bitVecRotateLeft() {
+		mSolver.resetAssertions();
+		final String[] indices = new String[1];
+		indices[0] = "2";
+		final Term input =
+				mSolver.term("=", mSolver.binary("#b0011"),
+						mSolver.term("rotate_left", indices, null, mSolver.binary("#b1100")));
+
+		mSolver.assertTerm(input);
+		final LBool isUnSat = mSolver.checkSat();
+		Assert.assertSame(LBool.SAT, isUnSat);
+		mSolver.reset();
+	}
+
+	@Test
+	public void bitVecRotateRight() {
+		mSolver.resetAssertions();
+		final String[] indices = new String[1];
+		indices[0] = "2";
+		final Term input =
+				mSolver.term("=", mSolver.binary("#b0011"),
+						mSolver.term("rotate_right", indices, null, mSolver.binary("#b1100")));
+
 		mSolver.assertTerm(input);
 		final LBool isUnSat = mSolver.checkSat();
 		Assert.assertSame(LBool.SAT, isUnSat);

@@ -161,7 +161,7 @@ public class CClosure implements ITheory {
 	 * merged in checkpoint.
 	 */
 	final ArrayDeque<SymmetricPair<CCAppTerm>> mPendingCongruences = new ArrayDeque<>();
-	
+
 	/**
 	 * This determines if a new term age for CCAppTerms should begin. This should be set to true only if new terms
 	 * were built.
@@ -746,6 +746,7 @@ public class CClosure implements ITheory {
 				CCTermPairHash.Info info = mPairHash.getInfo(t1, t2);
 				if (info == null) {
 					info = new CCTermPairHash.Info(t1, t2);
+					System.out.println("insertEQ: " + t1 + " " + t1);
 					mPairHash.add(info);
 				}
 				info.mEqlits.prependIntoJoined(eqentry, true);
@@ -1384,8 +1385,8 @@ public class CClosure implements ITheory {
 	public Object[] getStatistics() {
 		return new Object[] { ":CC",
 				new Object[][] { { "Merges", mMergeCount }, { "Closure", mCcCount },
-						{ "Times", new Object[][] { { "Invert", mInvertEdgeTime }, { "Eq", mEqTime },
-								{ "Closure", mCcTime }, { "SetRep", mSetRepTime } } } } };
+			{ "Times", new Object[][] { { "Invert", mInvertEdgeTime }, { "Eq", mEqTime },
+				{ "Closure", mCcTime }, { "SetRep", mSetRepTime } } } } };
 	}
 
 	public void fillInModel(final Model model, final Theory t, final SharedTermEvaluator ste, final ArrayTheory array) {

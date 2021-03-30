@@ -522,7 +522,7 @@ public class Theory {
 		}
 		final String bsize = String.valueOf(value.length() - 2);
 		final Sort sort = mBitVecSort.getSort(new String[] { bsize }, new Sort[0]);
-		return new ConstantTerm(value, sort, ConstantTerm.hashConstant(value, sort));
+		return constant(value, sort);
 	}
 
 	public Term hexadecimal(final String value) {
@@ -532,7 +532,7 @@ public class Theory {
 		}
 		final String bsize = String.valueOf(4 * (value.length() - 2));// NOCHECKSTYLE
 		final Sort sort = mBitVecSort.getSort(new String[] { bsize }, new Sort[0]);
-		return new ConstantTerm(value, sort, ConstantTerm.hashConstant(value, sort));
+		return constant(value, sort);
 	}
 
 	public Term modelRational(final Rational rat, final Sort sort) {
@@ -1183,7 +1183,7 @@ public class Theory {
 				if (indices == null || indices.length != 1 || paramSorts.length != 0 || resultSort != null) {
 					return null;
 				}
-				String index = indices[0];
+				final String index = indices[0];
 				if (!index.startsWith("#x") || index.length() <= 2 || index.length() > 7
 						|| (index.length() == 7 && index.charAt(2) > '2')) {
 					return null;
@@ -1223,7 +1223,7 @@ public class Theory {
 		defineFunction(new FunctionSymbolFactory(SMTLIBConstants.RE_ITER) {
 			@Override
 			public Sort getResultSort(final String[] indices, final Sort[] paramSorts, final Sort resultSort) {
-				if (indices == null || indices.length != 1 || paramSorts.length != 1 || resultSort != null 
+				if (indices == null || indices.length != 1 || paramSorts.length != 1 || resultSort != null
 						|| paramSorts[0] != re) {
 					return null;
 				}
@@ -1234,7 +1234,7 @@ public class Theory {
 		defineFunction(new FunctionSymbolFactory(SMTLIBConstants.RE_LOOP) {
 			@Override
 			public Sort getResultSort(final String[] indices, final Sort[] paramSorts, final Sort resultSort) {
-				if (indices == null || indices.length != 2 || paramSorts.length != 1 || resultSort != null 
+				if (indices == null || indices.length != 2 || paramSorts.length != 1 || resultSort != null
 						|| paramSorts[0] != re) {
 					return null;
 				}
