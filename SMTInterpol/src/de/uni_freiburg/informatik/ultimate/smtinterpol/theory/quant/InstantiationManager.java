@@ -1371,6 +1371,9 @@ public class InstantiationManager {
 			} else {
 				nonArithmeticalLits.add(quantLit);
 			}
+			if (clauseValue == InstanceValue.TRUE) {
+				return new Pair<>(clauseValue, null);
+			}
 		}
 		boolean hasOnlyKnownTerms = true;
 		for (final QuantLiteral quantLit : nonArithmeticalLits) {
@@ -1900,7 +1903,7 @@ public class InstantiationManager {
 			public void walk(final NonRecursive engine) {
 				final SMTAffineTerm instAffine = buildEquivalentAffine(mSmtAff);
 				if (instAffine != null) {
-					final Term instTerm = instAffine.toTerm(mTerm.getSort());
+					final Term instTerm = instAffine.toTerm(mClausifier.getTermCompiler(), mTerm.getSort());
 					// Note: This will often not find a CC term.
 					final CCTerm ccTermRep = mQuantTheory.getCClosure().getCCTermRep(instTerm);
 					if (ccTermRep != null) {
