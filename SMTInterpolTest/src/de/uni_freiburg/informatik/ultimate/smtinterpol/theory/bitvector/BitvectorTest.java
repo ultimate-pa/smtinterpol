@@ -236,12 +236,12 @@ public class BitvectorTest {
 		final Term input =
 				mSolver.term("and",
 						mSolver.term("bvult", consTerm, q4),
-						mSolver.term("bvult", q4, p4),
 						mSolver.term("bvult", q2, p2),
-						mSolver.term("bvult", q4, consTerm));
+						mSolver.term("or",
+								mSolver.term("bvult", q4, p4), mSolver.term("bvult", q4, consTerm)));
 		mSolver.assertTerm(input);
 		final LBool isunSat = mSolver.checkSat();
-		Assert.assertSame(LBool.UNSAT, isunSat);
+		Assert.assertSame(LBool.SAT, isunSat);
 	}
 
 	@Test

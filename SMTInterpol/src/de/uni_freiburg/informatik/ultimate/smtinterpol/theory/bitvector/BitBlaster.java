@@ -35,13 +35,13 @@ import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
 
 public class BitBlaster {
 	private final Theory mTheory;
-	private ScopedArrayList<BvLiteral> mInputLiterals;
+	private ScopedArrayList<Literal> mInputLiterals;
 	private HashMap<String, TermVariable> mVarPrefix; // Maps enc_term indices to their bool vars.
 	private HashMap<Term, DPLLAtom> mBoolAtoms; // All Bool Atoms, aux varaibles too
 	private ScopedArrayList<Clause> mClauses; // Output clauses
 	private HashMap<Term, Term[]> mEncTerms; // Term[0] is the least bit, the most right bit of Term
-	private HashMap<String, BvLiteral> mBitBlastAtoms; // ensures that Bitblasting happens only once for each Atom
-	private HashMap<Term, BvLiteral> mLiterals; // Maps mEncAtoms to mInputLiterals
+	private HashMap<Term, Term> mBitBlastAtoms; // ensures that Bitblasting happens only once for each Atom
+	private HashMap<Term, Literal> mLiterals; // Maps mEncAtoms to mInputLiterals
 	private int mStackLevel;
 
 	private final HashMap<Term, ScopedArrayList<Clause>> mBitBlastingResult;
@@ -55,7 +55,7 @@ public class BitBlaster {
 
 
 
-	public void bitBlasting(final ScopedArrayList<BvLiteral> allLiterals,
+	public void bitBlasting(final ScopedArrayList<Literal> allLiterals,
 			final LinkedHashSet<Term> allTerms, final int engineStackLevel) {
 		mStackLevel = engineStackLevel;
 		mInputLiterals = allLiterals;
@@ -71,7 +71,7 @@ public class BitBlaster {
 		final Term[] propSkeleton = new Term[mInputLiterals.size()];
 		for (int i = 0; i < mInputLiterals.size(); i++) {
 			final Term bitblastingAtom = createBoolAtom(i);
-			if (mInputLiterals.get(i).getSign()) {
+			if (mInputLiterals.get(i).getSign() == 1) {
 				propSkeleton[i] = bitblastingAtom;
 			} else {
 				propSkeleton[i] = mTheory.not(bitblastingAtom);
@@ -89,8 +89,8 @@ public class BitBlaster {
 		toClauses(equisatProp);
 
 		// add BVConstraint of Atoms as conjunct
-		for (final BvLiteral atom : mBitBlastAtoms.values()) {
-			getBvConstraintAtom(atom);
+		for (final Term atom : mBitBlastAtoms.keySet()) {
+			getBvConstraintAtom(atom, mBitBlastAtoms.get(atom));
 		}
 
 		// add BVConstraint of all subterms as conjunct
@@ -107,20 +107,33 @@ public class BitBlaster {
 	}
 
 	private Term createBoolAtom(final int i) {
-		// final BvLiteral bvlit = mBitBlastAtoms.get(mInputLiterals.get(i).getTerm().toStringDirect());
-		// Term boolVar;
-		// if (bvlit == null) {
+		Term atom = mInputLiterals.get(i).getAtom().getSMTFormula(mTheory);
+
 		final String atomPrefix = "At_" + i;
 		final Term boolVar = mTheory.createFreshTermVariable(atomPrefix, mTheory.getSort("Bool"));
 		final DPLLAtom dpll = new BooleanVarAtom(boolVar, mStackLevel);
 
 		mBoolAtoms.put(boolVar, dpll);
 		mLiterals.put(boolVar, mInputLiterals.get(i));
-		mBitBlastAtoms.put(mInputLiterals.get(i).getTerm().toStringDirect(), mInputLiterals.get(i));
-		// } else {
-		// boolVar = bvlit.getBitBlastAtom();
-		// }
-		mInputLiterals.get(i).setBitBlastAtom(boolVar);
+
+
+
+		assert atom instanceof ApplicationTerm;
+		final ApplicationTerm apAtom = (ApplicationTerm) atom;
+		assert apAtom.getFunction().getName().equals("=");
+
+		if (apAtom.getParameters()[0] instanceof ApplicationTerm) {
+			if (((ApplicationTerm) apAtom.getParameters()[0]).getFunction().getName().equals("bvult")) {
+				atom = apAtom.getParameters()[0];
+			}
+		} else if (apAtom.getParameters()[1] instanceof ApplicationTerm) {
+			if (((ApplicationTerm) apAtom.getParameters()[1]).getFunction().getName().equals("bvult")) {
+				atom = apAtom.getParameters()[1];
+			}
+		}
+
+
+		mBitBlastAtoms.put(atom, boolVar);
 		return boolVar;
 	}
 
@@ -159,9 +172,7 @@ public class BitBlaster {
 	 * For bvult:
 	 * not(bvadd (lhs not(rhs)).cout) <=> encAtom
 	 */
-	private void getBvConstraintAtom(final BvLiteral bvLiteral) {
-		final Term atom = bvLiteral.getTerm();
-		final Term encAtom = bvLiteral.getBitBlastAtom(); // TODO actually nicht das ATOM!!!
+	private void getBvConstraintAtom(final Term atom, final Term encAtom) {
 		if (atom instanceof ApplicationTerm) {
 			final ApplicationTerm apAtom = (ApplicationTerm) atom;
 			final Term lhs = apAtom.getParameters()[0];
@@ -921,6 +932,9 @@ public class BitBlaster {
 	}
 
 
+	/*
+	 * Transforms the term into cnf and collects the clauses.
+	 */
 	private void toClauses(final Term term) {
 		final CleanTransfomer cleaner = new CleanTransfomer();
 		final NnfTransformer nnf = new NnfTransformer();
@@ -988,7 +1002,6 @@ public class BitBlaster {
 	}
 
 	private void addClause(final Literal[] literal) {
-
 		assert !(literal.length == 0);
 		if (literal[0].equals(mTheory.mTrue) && literal.length == 1) {
 			return;
@@ -1041,12 +1054,12 @@ public class BitBlaster {
 	public Literal[] getNegatedInputLiterals() {
 		final Literal[] lit = new Literal[mInputLiterals.size()];
 		for (int i = 0; i < mInputLiterals.size(); i++) {
-			lit[i] = mInputLiterals.get(i).getLiteral().negate();
+			lit[i] = mInputLiterals.get(i).negate();
 		}
 		return lit;
 	}
 
-	public HashMap<Term, BvLiteral> getLiteralMap() {
+	public HashMap<Term, Literal> getLiteralMap() {
 		return mLiterals;
 	}
 }

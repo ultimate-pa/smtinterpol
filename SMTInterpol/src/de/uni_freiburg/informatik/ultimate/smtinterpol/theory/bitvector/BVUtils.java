@@ -562,9 +562,7 @@ public class BVUtils {
 			}
 			return bitMask;
 		}
-
 		return term;
-
 	}
 
 	/*

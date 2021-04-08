@@ -106,6 +106,8 @@ public class Clausifier {
 			@Override
 			public void perform() {
 				CCTerm ccTerm = getCCTerm(mTerm);
+				// System.out.println(mTerm);
+				// System.out.println("cc: " + ccTerm);
 				if (ccTerm != null) {
 					mConverted.push(ccTerm);
 				} else {
@@ -613,11 +615,8 @@ public class Clausifier {
 					final Term lhs = at;
 					final Term rhs;
 
-					if (((ApplicationTerm) idx).getFunction().getName().equals("not")) {
-						rhs = mTheory.mFalse;
-					} else {
-						rhs = mTheory.mTrue;
-					}
+					rhs = mTheory.mTrue;
+
 					final EqualityProxy eq = createEqualityProxy(lhs, rhs, mCollector.getSource());
 
 					if (eq == EqualityProxy.getTrueProxy()) {
@@ -627,9 +626,6 @@ public class Clausifier {
 					} else {
 						lit = eq.getLiteral(mCollector.getSource());
 					}
-
-
-					// lit = getBVSolver().createInEquality(lhs, rhs);
 				} else {
 					lit = createAnonLiteral(idx);
 					if (positive) {
@@ -1068,7 +1064,7 @@ public class Clausifier {
 			if (term instanceof ApplicationTerm) {
 				CCTerm ccTerm = getCCTerm(term);
 				if (ccTerm == null
-						&& (needCCTerm(term) || term.getSort().isArraySort() || term.getSort().isBitVecSort())) {
+						&& (needCCTerm(term) || term.getSort().isArraySort())) {
 					final CCTermBuilder cc = new CCTermBuilder(source);
 					ccTerm = cc.convert(term);
 				}
