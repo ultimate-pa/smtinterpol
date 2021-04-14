@@ -106,8 +106,6 @@ public class Clausifier {
 			@Override
 			public void perform() {
 				CCTerm ccTerm = getCCTerm(mTerm);
-				// System.out.println(mTerm);
-				// System.out.println("cc: " + ccTerm);
 				if (ccTerm != null) {
 					mConverted.push(ccTerm);
 				} else {

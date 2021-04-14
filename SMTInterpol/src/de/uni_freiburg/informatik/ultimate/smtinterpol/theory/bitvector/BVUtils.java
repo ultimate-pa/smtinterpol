@@ -61,7 +61,6 @@ public class BVUtils {
 	}
 
 	public boolean isConstRelation(final Term lhs, final Term rhs) {
-
 		if ((lhs instanceof ConstantTerm)) {
 			if (rhs == null) {
 				return true;
@@ -279,10 +278,8 @@ public class BVUtils {
 				resultconst = resultconst + repeated;
 			} else {
 				final int rhsInt = rhsBigInt.intValue();
-				System.out.println(lhsString.substring(0, lhslenth.intValue() - rhsInt));
 				final String repeated = new String(new char[rhsInt]).replace("\0", "0");
 				resultconst = resultconst + repeated + lhsString.substring(0, lhslenth.intValue() - rhsInt);
-				System.out.println(resultconst);
 			}
 
 		} else {
@@ -307,7 +304,6 @@ public class BVUtils {
 	}
 
 	public Term optimizeNOT(final FunctionSymbol fsym, final Term term) {
-		// TODO test
 		String resultconst = "#b";
 		final String termAsString = getConstAsString((ConstantTerm) term);
 		assert fsym.getName().equals("bvnot");
@@ -323,7 +319,7 @@ public class BVUtils {
 
 
 
-	public Term optimizeSelect(final FunctionSymbol fsym, final Term term) {
+	public Term simplifySelectConst(final FunctionSymbol fsym, final Term term) {
 		// (_ extract i j)
 		// (_ BitVec l), 0 <= j <= i < l
 		// (_ extract 7 5) 00100000 = 001
@@ -337,6 +333,59 @@ public class BVUtils {
 		final int idx2 = size - Integer.parseInt(fsym.getIndices()[0]) - 1;
 		resultconst = resultconst + parameterAsString.substring(idx2, idx1);
 		return mTheory.binary(resultconst);
+	}
+
+	public Term simplifyBvultConst(final FunctionSymbol fsym, final Term lhs, final Term rhs) {
+		if (fsym != null) {
+			assert fsym.getName().equals("bvult");
+		}
+		final String lhsAsString = getConstAsString((ConstantTerm) lhs);
+		final String rhsAsString = getConstAsString((ConstantTerm) rhs);
+		for (int i = 0; i < lhsAsString.length(); i++) {
+			if ((lhsAsString.charAt(i) == '1') && (rhsAsString.charAt(i) == '0')) {
+				return mTheory.mFalse;
+			} else if ((lhsAsString.charAt(i) == '0') && (rhsAsString.charAt(i) == '1')) {
+				return mTheory.mTrue;
+			}
+		}
+		return mTheory.mFalse; // both strings are equal
+	}
+
+	public Term simplifyBvslXConst(final FunctionSymbol fsym, final Term lhs, final Term rhs) {
+		assert fsym.getName().equals("bvslt") || fsym.getName().equals("bvsle");
+		final String lhsAsString = getConstAsString((ConstantTerm) lhs);
+		final String rhsAsString = getConstAsString((ConstantTerm) rhs);
+		// both strings are equal
+		if (lhsAsString.equals(rhsAsString)) {
+			if (fsym.getName().equals("bvslt")) {
+				return mTheory.mFalse;
+			} else {
+				return mTheory.mTrue;
+			}
+		}
+		// diffrent signes
+		if ((lhsAsString.charAt(0) == '1') && (rhsAsString.charAt(0) == '0')) {
+			return mTheory.mTrue;
+		} else if ((lhsAsString.charAt(0) == '0') && (rhsAsString.charAt(0) == '1')) {
+			return mTheory.mFalse;
+		}
+		// same sign
+		for (int i = 1; i < lhsAsString.length(); i++) {
+			if ((lhsAsString.charAt(i) == '1') && (rhsAsString.charAt(i) == '0')) {
+				if ((lhsAsString.charAt(0) == '0') && (rhsAsString.charAt(0) == '0')) {
+					return mTheory.mFalse;
+				} else { // both sides negated
+					return mTheory.mTrue;
+				}
+			} else if ((lhsAsString.charAt(i) == '0') && (rhsAsString.charAt(i) == '1')) {
+				if ((lhsAsString.charAt(0) == '0') && (rhsAsString.charAt(0) == '0')) {
+					return mTheory.mTrue;
+				} else { // both sides negated
+					return mTheory.mFalse;
+				}
+			}
+		}
+		return mTheory.term(fsym, lhs, rhs); // should never be the case
 	}
 
 	public Term getProof(final Term optimized, final Term convertedApp, final IProofTracker tracker,
@@ -361,7 +410,6 @@ public class BVUtils {
 	}
 
 	/*
-	 * TODO brings every inequality in the form: (bvult (bvsub s t) 0)
 	 * uses recursion in some cases
 	 */
 	public Term getBvultTerm(final Term convert) {
@@ -393,9 +441,20 @@ public class BVUtils {
 				if (appterm.getParameters()[0].equals(appterm.getParameters()[1])) {
 					return mTheory.mFalse;
 				}
+				if (isConstRelation(appterm.getParameters()[0], appterm.getParameters()[1])) {
+					return simplifyBvultConst(appterm.getFunction(), appterm.getParameters()[0],
+							appterm.getParameters()[1]);
+				}
 				return appterm;
 			}
 			case "bvslt": {
+				if (appterm.getParameters()[0].equals(appterm.getParameters()[1])) {
+					return mTheory.mFalse;
+				}
+				if (isConstRelation(appterm.getParameters()[0], appterm.getParameters()[1])) {
+					return simplifyBvslXConst(appterm.getFunction(), appterm.getParameters()[0],
+							appterm.getParameters()[1]);
+				}
 				final Term equiBvult = theory.or(theory.not(theory.or(
 						theory.not(theory.term("=",
 								theory.term(extract, appterm.getParameters()[0]),
@@ -404,12 +463,12 @@ public class BVUtils {
 								theory.term(extract, appterm.getParameters()[1]),
 								theory.binary("#b0"))))),
 
-				theory.not(theory.or(
-						theory.not(theory.term("=",
-								theory.term(extract, appterm.getParameters()[0]),
-								theory.term(extract, appterm.getParameters()[1]))),
-						theory.not(theory.term("bvult", appterm.getParameters()[0],
-								appterm.getParameters()[1])))));
+						theory.not(theory.or(
+								theory.not(theory.term("=",
+										theory.term(extract, appterm.getParameters()[0]),
+										theory.term(extract, appterm.getParameters()[1]))),
+								theory.not(theory.term("bvult", appterm.getParameters()[0],
+										appterm.getParameters()[1])))));
 				return equiBvult;
 			}
 			case "bvule": {
@@ -419,6 +478,10 @@ public class BVUtils {
 				return theory.or(bvult, theory.term("=", appterm.getParameters()[0], appterm.getParameters()[1]));
 			}
 			case "bvsle": {
+				if (isConstRelation(appterm.getParameters()[0], appterm.getParameters()[1])) {
+					return simplifyBvslXConst(appterm.getFunction(), appterm.getParameters()[0],
+							appterm.getParameters()[1]);
+				}
 				final Term equiBvule = theory.or(
 						theory.not(theory.or(
 								theory.not(theory.term("=",
@@ -442,6 +505,10 @@ public class BVUtils {
 					return mTheory.mFalse;
 				}
 				// (bvugt s t) abbreviates (bvult t s)
+				if (isConstRelation(appterm.getParameters()[0], appterm.getParameters()[1])) {
+					return simplifyBvultConst(null, appterm.getParameters()[1],
+							appterm.getParameters()[0]);
+				}
 				return theory.term("bvult", appterm.getParameters()[1], appterm.getParameters()[0]);
 			}
 			case "bvsgt": {
@@ -453,8 +520,13 @@ public class BVUtils {
 			}
 			case "bvuge": {
 				// (bvuge s t) abbreviates (or (bvult t s) (= s t))
-				final Term bvult =
-						theory.term("bvult", appterm.getParameters()[1], appterm.getParameters()[0]);
+				final Term bvult;
+				if (isConstRelation(appterm.getParameters()[0], appterm.getParameters()[1])) {
+					bvult = simplifyBvultConst(null, appterm.getParameters()[1],
+							appterm.getParameters()[0]);
+				} else {
+					bvult = theory.term("bvult", appterm.getParameters()[1], appterm.getParameters()[0]);
+				}
 				return theory.or(bvult, theory.term("=", appterm.getParameters()[0], appterm.getParameters()[1]));
 			}
 			case "bvsge": {
@@ -595,7 +667,7 @@ public class BVUtils {
 									mTheory.getFunctionWithResult("extract", selectIndices, null,
 											subTerm.getParameters()[0].getSort());
 							if (isConstRelation(subTerm.getParameters()[0], null)) {
-								return optimizeSelect(extract, subTerm.getParameters()[0]);
+								return simplifySelectConst(extract, subTerm.getParameters()[0]);
 							}
 							return mTheory.term(extract, subTerm.getParameters()[0]);
 						} else {
@@ -622,10 +694,10 @@ public class BVUtils {
 							Term selectLhs = mTheory.term(extractLhs, subTerm.getParameters()[0]);
 							Term selectRhs = mTheory.term(extractRhs, subTerm.getParameters()[1]);
 							if (isConstRelation(subTerm.getParameters()[0], null)) {
-								selectLhs = optimizeSelect(extractLhs, subTerm.getParameters()[0]);
+								selectLhs = simplifySelectConst(extractLhs, subTerm.getParameters()[0]);
 							}
 							if (isConstRelation(subTerm.getParameters()[1], null)) {
-								selectRhs = optimizeSelect(extractRhs, subTerm.getParameters()[1]);
+								selectRhs = simplifySelectConst(extractRhs, subTerm.getParameters()[1]);
 							}
 							return mTheory.term("concat", selectLhs, selectRhs);
 
@@ -637,7 +709,7 @@ public class BVUtils {
 								mTheory.getFunctionWithResult("extract", fsym.getIndices(), null,
 										subTerm.getParameters()[1].getSort());
 						if (isConstRelation(subTerm.getParameters()[0], null)) {
-							return optimizeSelect(extract, subTerm.getParameters()[0]);
+							return simplifySelectConst(extract, subTerm.getParameters()[0]);
 						}
 						return mTheory.term(extract, subTerm.getParameters()[1]);
 					}
@@ -657,7 +729,7 @@ public class BVUtils {
 							mTheory.getFunctionWithResult("extract", selectIndices, null,
 									subTerm.getParameters()[0].getSort());
 					if (isConstRelation(subTerm.getParameters()[0], null)) {
-						return optimizeSelect(extract, subTerm.getParameters()[0]);
+						return simplifySelectConst(extract, subTerm.getParameters()[0]);
 					}
 					return mTheory.term(extract, subTerm.getParameters()[0]);
 
@@ -748,7 +820,7 @@ public class BVUtils {
 			final AnnotatedTerm convAnno = (AnnotatedTerm) equality;
 			appterm = (ApplicationTerm) convAnno.getSubterm();
 		} else {
-			throw new UnsupportedOperationException("Not an Inequality");
+			throw new UnsupportedOperationException("Not an Equality");
 		}
 		if (equality.equals(mTheory.mTrue) || equality.equals(mTheory.mFalse)) {
 			return equality;

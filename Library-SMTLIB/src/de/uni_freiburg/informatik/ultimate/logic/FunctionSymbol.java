@@ -18,6 +18,8 @@
  */
 package de.uni_freiburg.informatik.ultimate.logic;
 
+import de.uni_freiburg.informatik.ultimate.util.HashUtils;
+
 /**
  * Represents a function symbol.  Each function symbol has a name, a sort and
  * zero or more parameter sorts.  A constant symbol is represented as a function
@@ -48,9 +50,10 @@ public class FunctionSymbol {
 	final int mFlags;
 	final TermVariable[] mDefinitionVars;
 	final Term mDefinition;
+	final int mHash;
 
-	FunctionSymbol(String n, String[] i, Sort[] params, Sort result,
-			TermVariable[] definitionVars, Term definition, int flags) {
+	FunctionSymbol(final String n, final String[] i, final Sort[] params, final Sort result,
+			final TermVariable[] definitionVars, final Term definition, final int flags) {
 		mName = n;
 		mIndices = i;
 		mParamSort = params;
@@ -70,15 +73,19 @@ public class FunctionSymbol {
 		}
 		if ((isChainable() || isPairwise())
 				&& (params.length != 2 || !params[0].equalsSort(params[1])
-						|| !result.equalsSort(getTheory().getBooleanSort()))) {
+				|| !result.equalsSort(getTheory().getBooleanSort()))) {
 			throw new IllegalArgumentException(
 					"Wrong sorts for chainable symbol");
 		}
+		int hash = HashUtils.hashJenkins(mName.hashCode(), (Object[]) mParamSort);
+		if (mIndices != null) hash = HashUtils.hashJenkins(hash, (Object[]) mIndices);
+		if (mReturnSort != null) hash = HashUtils.hashJenkins(hash, mReturnSort);
+		mHash = hash;
 	}
 
 	@Override
 	public int hashCode() {
-		return mName.hashCode();
+		return mHash;
 	}
 
 	/**
@@ -129,7 +136,7 @@ public class FunctionSymbol {
 	 * @return the sort of the ith parameter.
 	 */
 	@Deprecated
-	public Sort getParameterSort(int i) {
+	public Sort getParameterSort(final int i) {
 		return mParamSort[i];
 	}
 	/**
@@ -171,7 +178,7 @@ public class FunctionSymbol {
 		return mParamSort;
 	}
 
-	private final void checkSort(Term arg, Sort sort) {
+	private final void checkSort(final Term arg, final Sort sort) {
 		final Sort argSort = arg.getSort();
 		if (!sort.equalsSort(argSort)) {
 			if (argSort.toString().equals(sort.toString())) {
@@ -190,13 +197,13 @@ public class FunctionSymbol {
 	 * This throws an exception if the type check fails.
 	 * @param params the arguments for the function symbols.
 	 */
-	public void typecheck(Term[] params) throws SMTLIBException {
+	public void typecheck(final Term[] params) throws SMTLIBException {
 		assert params.getClass() == Term[].class;
 		if ((mFlags & (ASSOCMASK)) != 0) { // NOPMD
 			// All arguments should have the same type.
 			if (params.length < 2) {
 				throw new SMTLIBException(
-					"Function " + mName + " expects at least two arguments.");
+						"Function " + mName + " expects at least two arguments.");
 			}
 			checkSort(params[0], mParamSort[0]);
 			checkSort(params[params.length - 1], mParamSort[1]);
@@ -207,7 +214,7 @@ public class FunctionSymbol {
 		} else {
 			if (params.length != mParamSort.length) {
 				throw new SMTLIBException(
-					"Function " + mName + " expects " + mParamSort.length
+						"Function " + mName + " expects " + mParamSort.length
 						+ " arguments.");
 			}
 			for (int i = 0; i < mParamSort.length; i++) {
@@ -221,7 +228,7 @@ public class FunctionSymbol {
 	 * @param params the sort of the arguments for the function symbols.
 	 * @return true if the type check succeeds, false otherwise.
 	 */
-	public boolean typecheck(Sort[] params) {
+	public boolean typecheck(final Sort[] params) {
 		if ((mFlags & (ASSOCMASK)) != 0) { // NOPMD
 			assert (mParamSort.length == 2);
 			if (params.length < 2) {

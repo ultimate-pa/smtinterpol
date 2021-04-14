@@ -644,7 +644,7 @@ public class TermCompiler extends TermTransformer {
 			}
 			case "extract": {
 				if (params[0] instanceof ConstantTerm) {
-					setResult(bvUtils.optimizeSelect(fsym, params[0]));
+					setResult(bvUtils.simplifySelectConst(fsym, params[0]));
 					return;
 				}
 				final Term extract = bvUtils.propagateExtract(fsym, params);
