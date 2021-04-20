@@ -330,8 +330,8 @@ public class BitVectorTheory implements ITheory {
 
 	@Override
 	public Literal getPropagatedLiteral() {
-		// zurück geben, welches literal nicht gelten darf weil sonst transitivity
-		// literal.getAtom().mExplanation und erklärung in (das was conflict wäre wenns gilt)
+		// zurÃ¼ck geben, welches literal nicht gelten darf weil sonst transitivity
+		// literal.getAtom().mExplanation und erklÃ¤rung in (das was conflict wÃ¤re wenns gilt)
 		// TODO Auto-generated method stub
 		return null;
 	}
@@ -430,7 +430,7 @@ public class BitVectorTheory implements ITheory {
 	public Object[] getStatistics() {
 		// TODO
 		// bb atome, unit clause,
-		// Zeit für checkconflict und für ste lit, knoten im graphen zeit den cyclus zu finden
+		// Zeit fÃ¼r checkconflict und fÃ¼r ste lit, knoten im graphen zeit den cyclus zu finden
 		return new Object[] { ":BV",
 				new Object[][] {
 			{ "Times", new Object[][] { { "BitBlasting", mBitBlastingTime },

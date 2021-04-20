@@ -32,7 +32,7 @@ public class BVUtils {
 				return bitString.substring(2);
 			} else if (bitString.startsWith("#x")) { // TODO Value > maxrepnumbers
 				final String number = new BigInteger(bitString.substring(2), 16).toString(2);
-				// TODO number l‰nger als max bits
+				// TODO number l√§nger als max bits
 				final int size = Integer.valueOf(ct.getSort().getIndices()[0]);
 				final String repeated = new String(new char[size - number.length()]).replace("\0", "0");
 				return repeated + number;
