@@ -23,6 +23,9 @@ public class BVUtils {
 		mTheory = theory;
 	}
 
+	/*
+	 * setting the return value of this function to zero, will deactivate all constant optimizations
+	 */
 	public boolean isConstRelation(final Term lhs, final Term rhs) {
 		if ((lhs instanceof ConstantTerm)) {
 			if (rhs == null) {
@@ -169,7 +172,7 @@ public class BVUtils {
 		final FunctionSymbol extractHigher =
 				mTheory.getFunctionWithResult("extract", selectIndices2, null,
 						concatResult.getSort());
-		System.out.println(mTheory.term(extractHigher, concatResult));
+
 		final Term extractHigherConcatResult = propagateExtract(extractHigher, concatResult);
 
 		final Term matchConj1 = mTheory.term("=", apTermConcat.getParameters()[0], extractHigherConcatResult);
@@ -719,8 +722,8 @@ public class BVUtils {
 						final FunctionSymbol extract =
 								mTheory.getFunctionWithResult("extract", fsym.getIndices(), null,
 										subTerm.getParameters()[1].getSort());
-						if (isConstRelation(subTerm.getParameters()[0], null)) {
-							return simplifySelectConst(extract, subTerm.getParameters()[0]);
+						if (isConstRelation(subTerm.getParameters()[1], null)) {
+							return simplifySelectConst(extract, subTerm.getParameters()[1]);
 						}
 						return mTheory.term(extract, subTerm.getParameters()[1]);
 					}

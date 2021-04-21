@@ -160,7 +160,8 @@ public class BitBlaster {
 
 		final Term[] boolvector = new Term[size];
 		for (int i = 0; i < size; i++) {
-			final String termPrefix = "e_(" + term + ")_" + i;
+			String termPrefix = "e_(" + term + ")_" + i;
+			termPrefix = termPrefix.replace("|", ""); // remove quote, such that termvariables can be quoted later
 			final TermVariable tv = mVarPrefix.get(termPrefix);
 			final TermVariable boolVar;
 			if (tv != null) {
@@ -1016,6 +1017,11 @@ public class BitBlaster {
 				assert mBoolAtoms.containsKey(appterm.getParameters()[0]);
 				return mBoolAtoms.get(appterm.getParameters()[0]).negate();
 			}
+		}
+
+		if(term.equals(mTheory.mFalse)) {
+			// TODO warum kann hier false ssein
+			return new TrueAtom().negate();
 		}
 		assert mBoolAtoms.containsKey(term);
 		return mBoolAtoms.get(term);
