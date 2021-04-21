@@ -16,6 +16,7 @@ import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.BooleanVarAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
@@ -34,6 +35,7 @@ import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
  */
 
 public class BitBlaster {
+	private final Clausifier mClausifier;
 	private final Theory mTheory;
 	private ScopedArrayList<Literal> mInputLiterals;
 	private HashMap<String, TermVariable> mVarPrefix; // Maps enc_term indices to their bool vars.
@@ -48,7 +50,8 @@ public class BitBlaster {
 	private ScopedArrayList<Clause> mClauseCopy;
 
 
-	public BitBlaster(final Theory theory) {
+	public BitBlaster(final Clausifier clausifier, final Theory theory) {
+		mClausifier = clausifier;
 		mTheory = theory;
 		mBitBlastingResult = new HashMap<>(); // Save previous BitBlasting results
 	}
@@ -90,11 +93,20 @@ public class BitBlaster {
 
 		// add BVConstraint of Atoms as conjunct
 		for (final Term atom : mBitBlastAtoms.keySet()) {
+			mClauseCopy = new ScopedArrayList<>();
 			getBvConstraintAtom(atom, mBitBlastAtoms.get(atom));
+			if (!mBitBlastingResult.containsKey(atom)) {
+				// save BVConstraints for term
+				mBitBlastingResult.put(atom, mClauseCopy);
+				mClauseCopy = new ScopedArrayList<>();
+			}
 		}
 
 		// add BVConstraint of all subterms as conjunct
 		for (final Term term : allTerms) {
+			if (mClausifier.getEngine().isTerminationRequested()) {
+				return;
+			}
 			mClauseCopy = new ScopedArrayList<>();
 			getBvConstraintTerm(term);
 			if (!mBitBlastingResult.containsKey(term)) {
@@ -116,8 +128,6 @@ public class BitBlaster {
 		mBoolAtoms.put(boolVar, dpll);
 		mLiterals.put(boolVar, mInputLiterals.get(i));
 
-
-
 		assert atom instanceof ApplicationTerm;
 		final ApplicationTerm apAtom = (ApplicationTerm) atom;
 		assert apAtom.getFunction().getName().equals("=");
@@ -131,7 +141,6 @@ public class BitBlaster {
 				atom = apAtom.getParameters()[1];
 			}
 		}
-
 
 		mBitBlastAtoms.put(atom, boolVar);
 		return boolVar;
@@ -173,6 +182,11 @@ public class BitBlaster {
 	 * not(bvadd (lhs not(rhs)).cout) <=> encAtom
 	 */
 	private void getBvConstraintAtom(final Term atom, final Term encAtom) {
+		mClauseCopy = new ScopedArrayList<>();
+		if (mBitBlastingResult.containsKey(atom)) {
+			mClauses.addAll(createClauseCopy(mBitBlastingResult.get(atom), encAtom));
+			return;
+		}
 		if (atom instanceof ApplicationTerm) {
 			final ApplicationTerm apAtom = (ApplicationTerm) atom;
 			final Term lhs = apAtom.getParameters()[0];
@@ -184,7 +198,7 @@ public class BitBlaster {
 				final int size = sizeBig.intValue();
 				final Term[] eqconj = new Term[size];
 				final Literal atLit = getLiteral(encAtom);
-				if (size == 1) { // TODO after which size is bvcomp faster?
+				if (size == 1) { // after which size is bvcomp faster?
 					for (int i = 0; i < size; i++) {
 						// creates 2*size + 2^size Clauses, Only faster for small sizes
 						final Literal lhsLit = getLiteral(mEncTerms.get(lhs)[i]);
@@ -252,7 +266,7 @@ public class BitBlaster {
 	private void getBvConstraintTerm(final Term term) {
 		mClauseCopy = new ScopedArrayList<>();
 		if (mBitBlastingResult.containsKey(term)) {
-			mClauses.addAll(createClauseCopy(mBitBlastingResult.get(term)));
+			mClauses.addAll(createClauseCopy(mBitBlastingResult.get(term), null));
 			return;
 		}
 		if (term instanceof TermVariable) {
@@ -399,7 +413,7 @@ public class BitBlaster {
 	 * After collecting the needed Atoms, a new Clause is created.
 	 * We cannot re use old Clauses and therefore old Atoms, which have been created in a previous BitBlasting runs!
 	 */
-	private Collection<Clause> createClauseCopy(final ScopedArrayList<Clause> scopedArrayList) {
+	private Collection<Clause> createClauseCopy(final ScopedArrayList<Clause> scopedArrayList, final Term encAtom) {
 		// Auxar Map, maps oldAuxVar to newAuxVar
 		final HashMap<Literal, Literal> auxVarMap = new HashMap<>();
 
@@ -427,7 +441,12 @@ public class BitBlaster {
 					}
 				}
 				else if (VarPrefix.contains("At")) { // Case Input Atom
-					assert false;
+					if (lit.getSign() == 1) {
+						literal[i] = mBoolAtoms.get(encAtom);
+					} else {
+						literal[i] = mBoolAtoms.get(encAtom).negate();
+					}
+
 				} else { // Case AuxVar
 					Literal newAuxVar;
 					if (auxVarMap.containsKey(lit)) {
@@ -540,7 +559,6 @@ public class BitBlaster {
 			result = encAdd;
 		}
 
-		final Literal a = getLiteral(aTerm);
 
 		if (cin.equals(mTheory.mFalse)) {
 			if (aTerm.equals(mTheory.mFalse)) {
@@ -549,6 +567,7 @@ public class BitBlaster {
 				final Literal[] lit3 = { at.negate(), b };
 				addClause(lit3);
 			} else {
+				final Literal a = getLiteral(aTerm);
 				final Literal[] lit2 = { at, a, b.negate() };
 				addClause(lit2);
 				final Literal[] lit4 = { at, a.negate(), b, };
@@ -565,6 +584,7 @@ public class BitBlaster {
 				final Literal[] lit3 = { at.negate(), b.negate() };
 				addClause(lit3);
 			} else {
+				final Literal a = getLiteral(aTerm);
 				final Literal[] lit2 = { at.negate(), a, b.negate() };
 				addClause(lit2);
 				final Literal[] lit4 = { at.negate(), a.negate(), b, };
@@ -588,7 +608,7 @@ public class BitBlaster {
 				addClause(lit7);
 
 			} else {
-
+				final Literal a = getLiteral(aTerm);
 				final Literal[] lit1 = { at, a.negate(), b.negate(), c.negate() };
 				addClause(lit1);
 				final Literal[] lit2 = { at, a, b.negate(), c };
@@ -615,7 +635,6 @@ public class BitBlaster {
 	// cin is either false or AuxVar
 	private Term carryAdder(final Term aTerm, final Term bTerm, final Term cin) {
 		if (aTerm.equals(mTheory.mFalse)) {
-			// TODO
 			return createAuxVar(mTheory.and(mTheory.or(aTerm, bTerm), mTheory.or(aTerm, cin), mTheory.or(bTerm, cin)));
 		}
 		if (cin.equals(mTheory.mFalse)) {
@@ -792,7 +811,6 @@ public class BitBlaster {
 					}
 				}
 				// Add Auxiliary variables and their represented term (ifte), as clauses
-				// Save in Set to prevent douplicats?
 				toClausesIte(boolvarmap[s][i], ifTerm, elseTerm, thenTerm);
 			}
 		}
@@ -898,7 +916,9 @@ public class BitBlaster {
 				}
 				ifte[i] = createAuxVar(t);
 			}
-
+			if (mClausifier.getEngine().isTerminationRequested()) {
+				return null;
+			}
 			adder(mul, ifte, mTheory.mFalse, boolvarmap[s]).getFirst();
 		}
 		// Last stage

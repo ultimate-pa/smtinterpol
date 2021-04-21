@@ -249,7 +249,7 @@ public class TermCompiler extends TermTransformer {
 						setResult(elimCM);
 						return;
 					}
-					setResult(bvUtils.iterateOverBvEqualites(mUtils.convertEq(convertedApp)));
+					setResult(bvUtils.iterateOverBvEqualites(mUtils.convertEq(convertedApp), mUtils));
 					return;
 				}
 				setResult(mUtils.convertEq(convertedApp));
@@ -550,7 +550,7 @@ public class TermCompiler extends TermTransformer {
 			}
 			case "concat": {
 				if (bvUtils.isConstRelation(params[0], params[1])) {
-					setResult(bvUtils.getProof(bvUtils.optimizeConcat(fsym, params[0], params[1]), convertedApp,
+					setResult(bvUtils.getProof(bvUtils.simplifyConcatConst(fsym, params[0], params[1]), convertedApp,
 							mTracker, ProofConstants.RW_CONCAT));
 					return;
 				}
@@ -561,7 +561,7 @@ public class TermCompiler extends TermTransformer {
 			case "bvudiv":
 			case "bvurem": {
 				if (bvUtils.isConstRelation(params[0], params[1])) {
-					setResult(bvUtils.getProof(bvUtils.optimizeArithmetic(fsym, params[0], params[1]), convertedApp,
+					setResult(bvUtils.getProof(bvUtils.simplifyArithmeticConst(fsym, params[0], params[1]), convertedApp,
 							mTracker, ProofConstants.RW_BVARITH));
 					return;
 				}
@@ -572,7 +572,7 @@ public class TermCompiler extends TermTransformer {
 			case "bvadd":
 			case "bvmul": {
 				if (bvUtils.isConstRelation(params[0], params[1])) {
-					setResult(bvUtils.getProof(bvUtils.optimizeArithmetic(fsym, params[0], params[1]), convertedApp,
+					setResult(bvUtils.getProof(bvUtils.simplifyArithmeticConst(fsym, params[0], params[1]), convertedApp,
 							mTracker, ProofConstants.RW_BVARITH));
 					return;
 				}
@@ -582,7 +582,7 @@ public class TermCompiler extends TermTransformer {
 			case "bvand":
 			case "bvor": {
 				if (bvUtils.isConstRelation(params[0], params[1])) {
-					setResult(bvUtils.getProof(bvUtils.optimizeLogical(fsym, params[0], params[1]), convertedApp,
+					setResult(bvUtils.getProof(bvUtils.simplifyLogicalConst(fsym, params[0], params[1]), convertedApp,
 							mTracker, ProofConstants.RW_BVLOGIC));
 					return;
 				} else {
@@ -597,7 +597,7 @@ public class TermCompiler extends TermTransformer {
 			case "bvlshr":
 			case "bvshl": {
 				if (bvUtils.isConstRelation(params[0], params[1])) {
-					setResult(bvUtils.getProof(bvUtils.optimizeShift(fsym, params[0], params[1]), convertedApp,
+					setResult(bvUtils.getProof(bvUtils.simplifyShiftConst(fsym, params[0], params[1]), convertedApp,
 							mTracker, ProofConstants.RW_BVSHIFT));
 					return;
 				}
@@ -607,7 +607,7 @@ public class TermCompiler extends TermTransformer {
 			case "bvneg": {
 				if (params[0] instanceof ConstantTerm) {
 					// TODO
-					setResult(bvUtils.optimizeNEG(fsym, params[0]));
+					setResult(bvUtils.simplifyNegConst(fsym, params[0]));
 					return;
 				}
 				setResult(convertedApp);
@@ -616,7 +616,7 @@ public class TermCompiler extends TermTransformer {
 			case "bvnot": {
 				if (params[0] instanceof ConstantTerm) {
 					// TODO
-					setResult(bvUtils.optimizeNOT(fsym, params[0]));
+					setResult(bvUtils.simplifyNotConst(fsym, params[0]));
 					return;
 				}
 				setResult(convertedApp);
@@ -647,7 +647,7 @@ public class TermCompiler extends TermTransformer {
 					setResult(bvUtils.simplifySelectConst(fsym, params[0]));
 					return;
 				}
-				final Term extract = bvUtils.propagateExtract(fsym, params);
+				final Term extract = bvUtils.propagateExtract(fsym, params[0]);
 				setResult(extract); // TODO check obs fehlher hier gibt von wegen
 				// convertiereung
 				return;

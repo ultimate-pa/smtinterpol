@@ -13,6 +13,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.LogicSimplifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.IProofTracker;
 
 public class BVUtils {
@@ -22,6 +23,21 @@ public class BVUtils {
 		mTheory = theory;
 	}
 
+	public boolean isConstRelation(final Term lhs, final Term rhs) {
+		if ((lhs instanceof ConstantTerm)) {
+			if (rhs == null) {
+				return true;
+			} else if (rhs instanceof ConstantTerm) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/*
+	 * returns the bit string of #b or #x Constant Terms.
+	 * (_bvi j) Constants are replaced by #b constants beforehand
+	 */
 	public static String getConstAsString(final ConstantTerm ct) {
 		if (ct.getSort().isBitVecSort()) {
 			String bitString;
@@ -30,18 +46,20 @@ public class BVUtils {
 			if (bitString.startsWith("#b")) {
 				bitString = (String) ct.getValue();
 				return bitString.substring(2);
-			} else if (bitString.startsWith("#x")) { // TODO Value > maxrepnumbers
+			} else if (bitString.startsWith("#x")) {
+				// #xX of sort (_ BitVec m) where m is 4 times the number of digits in X.
 				final String number = new BigInteger(bitString.substring(2), 16).toString(2);
-				// TODO number länger als max bits
 				final int size = Integer.valueOf(ct.getSort().getIndices()[0]);
 				final String repeated = new String(new char[size - number.length()]).replace("\0", "0");
 				return repeated + number;
 			}
-
 		}
 		throw new UnsupportedOperationException("Can't convert to bitstring: " + ct);
 	}
 
+	/*
+	 * replaces (_bvi j) constants by #b constants
+	 */
 	public Term getBvConstAsBinaryConst(final FunctionSymbol fsym, final Sort sort) {
 		if (sort.isBitVecSort()) {
 			final String name = fsym.getName();
@@ -58,17 +76,6 @@ public class BVUtils {
 			return mTheory.binary("#b" + value);
 		}
 		throw new UnsupportedOperationException("Can't convert bv constant: " + fsym.getName());
-	}
-
-	public boolean isConstRelation(final Term lhs, final Term rhs) {
-		if ((lhs instanceof ConstantTerm)) {
-			if (rhs == null) {
-				return true;
-			} else if (rhs instanceof ConstantTerm) {
-				return true;
-			}
-		}
-		return false;
 	}
 
 
@@ -112,31 +119,33 @@ public class BVUtils {
 	 * elimintes concatinations with NO match:
 	 * That means, a,b and c have diffrent size;
 	 * a :: b = c is replaced by b = extract(0, b.length, c) AND a = extract( b.length , a.length, c)
+	 * Can only be called on binary equalities.
 	 */
-	public Term eliminateConcatNoMatch(final FunctionSymbol fsym, final Term[] params) {
+	public Term eliminateConcatNoMatch(final FunctionSymbol fsym, final Term lhs, final Term rhs) {
 		assert fsym.getName().equals("=");
-		assert params[0].getSort().isBitVecSort();
-		assert params[1].getSort().isBitVecSort();
+		assert lhs.getSort().isBitVecSort();
+		assert rhs.getSort().isBitVecSort();
 
 		ApplicationTerm apTermConcat = null;
 		Term concatResult = null;
-		if (params[0] instanceof ApplicationTerm) {
-			if (((ApplicationTerm) params[0]).getFunction().getName().equals("concat")) {
-				apTermConcat = (ApplicationTerm) params[0];
-				concatResult = params[1];
+		if (lhs instanceof ApplicationTerm) {
+			if (((ApplicationTerm) lhs).getFunction().getName().equals("concat")) {
+				apTermConcat = (ApplicationTerm) lhs;
+				concatResult = rhs;
 			}
 		}
-		if (params[1] instanceof ApplicationTerm) {
-			if (((ApplicationTerm) params[1]).getFunction().getName().equals("concat")) {
+		if (rhs instanceof ApplicationTerm) {
+			if (((ApplicationTerm) rhs).getFunction().getName().equals("concat")) {
 				if (concatResult != null) {
-					// concat on both sides TODO
-					assert false;
+					// concat on both sides
+					// select propagation will take care of this
+				} else {
+					apTermConcat = (ApplicationTerm) rhs;
+					concatResult = lhs;
 				}
-				apTermConcat = (ApplicationTerm) params[1];
-				concatResult = params[0];
+
 			}
 		}
-
 		if ((apTermConcat == null) || (concatResult == null)) {
 			return null;
 		}
@@ -150,19 +159,18 @@ public class BVUtils {
 		final FunctionSymbol extractLower =
 				mTheory.getFunctionWithResult("extract", selectIndices1, null,
 						concatResult.getSort());
-
-		final Term extractLowerConcatResult = mTheory.term(extractLower, concatResult);
-
+		final Term extractLowerConcatResult = propagateExtract(extractLower, concatResult);
 		final String[] selectIndices2 = new String[2];
 		selectIndices2[0] =
 				String.valueOf((Integer.parseInt(concatResult.getSort().getIndices()[0]) - 1));
 		selectIndices2[1] =
-				String.valueOf((Integer.parseInt(apTermConcat.getParameters()[0].getSort().getIndices()[0])));
-
+				String.valueOf((Integer.parseInt(concatResult.getSort().getIndices()[0])
+						- Integer.parseInt(apTermConcat.getParameters()[0].getSort().getIndices()[0])));
 		final FunctionSymbol extractHigher =
 				mTheory.getFunctionWithResult("extract", selectIndices2, null,
 						concatResult.getSort());
-		final Term extractHigherConcatResult = mTheory.term(extractHigher, concatResult);
+		System.out.println(mTheory.term(extractHigher, concatResult));
+		final Term extractHigherConcatResult = propagateExtract(extractHigher, concatResult);
 
 		final Term matchConj1 = mTheory.term("=", apTermConcat.getParameters()[0], extractHigherConcatResult);
 		final Term matchConj2 = mTheory.term("=", apTermConcat.getParameters()[1], extractLowerConcatResult);
@@ -176,7 +184,7 @@ public class BVUtils {
 	 *
 	 * @return
 	 */
-	public Term optimizeArithmetic(final FunctionSymbol fsym, final Term lhs, final Term rhs) {
+	public Term simplifyArithmeticConst(final FunctionSymbol fsym, final Term lhs, final Term rhs) {
 		final BigInteger lhsInt = new BigInteger(getConstAsString((ConstantTerm) lhs), 2);
 		final BigInteger rhsInt = new BigInteger(getConstAsString((ConstantTerm) rhs), 2);
 		String calc;
@@ -188,6 +196,7 @@ public class BVUtils {
 			if (!rhsInt.equals(BigInteger.ZERO)) {
 				calc = (lhsInt.divide(rhsInt).toString(2));
 			} else {
+				// value fixed to #b111...
 				final String repeated = new String(new char[size]).replace("\0", "1");
 				calc = repeated;
 			}
@@ -195,9 +204,8 @@ public class BVUtils {
 			if (!rhsInt.equals(BigInteger.ZERO)) {
 				calc = (lhsInt.remainder(rhsInt).toString(2));
 			} else {
-				// TODO cerstes argument lhsInt
-				final String repeated = new String(new char[size]).replace("\0", "1");
-				calc = repeated;
+				// value fixed to lhs
+				calc = lhsInt.toString(2);
 			}
 
 		} else if (fsym.getName().equals("bvmul")) {
@@ -216,7 +224,7 @@ public class BVUtils {
 	 *
 	 * @return
 	 */
-	public Term optimizeLogical(final FunctionSymbol fsym, final Term lhs, final Term rhs) {
+	public Term simplifyLogicalConst(final FunctionSymbol fsym, final Term lhs, final Term rhs) {
 		String resultconst = "#b";
 		final String constRHS = getConstAsString((ConstantTerm) lhs);
 		final String constLHS = getConstAsString((ConstantTerm) rhs);
@@ -242,7 +250,7 @@ public class BVUtils {
 		return mTheory.binary(resultconst);
 	}
 
-	public Term optimizeConcat(final FunctionSymbol fsym, final Term lhs, final Term rhs) {
+	public Term simplifyConcatConst(final FunctionSymbol fsym, final Term lhs, final Term rhs) {
 		assert fsym.getName().equals("concat");
 		final String result = "#b" + getConstAsString((ConstantTerm) lhs)
 		.concat(getConstAsString((ConstantTerm) rhs));
@@ -256,7 +264,7 @@ public class BVUtils {
 	 *
 	 * @return
 	 */
-	public Term optimizeShift(final FunctionSymbol fsym, final Term lhs, final Term rhs) {
+	public Term simplifyShiftConst(final FunctionSymbol fsym, final Term lhs, final Term rhs) {
 		String resultconst = "#b";
 		final String lhsString = getConstAsString((ConstantTerm) lhs);
 		final BigInteger rhsBigInt = new BigInteger(getConstAsString((ConstantTerm) rhs), 2);
@@ -290,7 +298,7 @@ public class BVUtils {
 	}
 
 
-	public Term optimizeNEG(final FunctionSymbol fsym, final Term term) {
+	public Term simplifyNegConst(final FunctionSymbol fsym, final Term term) {
 		String resultconst = "#b";
 		final String termAsString = getConstAsString((ConstantTerm) term);
 		assert fsym.getName().equals("bvneg");
@@ -303,7 +311,7 @@ public class BVUtils {
 		return mTheory.binary(resultconst);
 	}
 
-	public Term optimizeNOT(final FunctionSymbol fsym, final Term term) {
+	public Term simplifyNotConst(final FunctionSymbol fsym, final Term term) {
 		String resultconst = "#b";
 		final String termAsString = getConstAsString((ConstantTerm) term);
 		assert fsym.getName().equals("bvnot");
@@ -410,6 +418,8 @@ public class BVUtils {
 	}
 
 	/*
+	 * replaces every inequality by its bvult abbreviation.
+	 * Apllies a few simplifications on constant terms and simple equalitites
 	 * uses recursion in some cases
 	 */
 	public Term getBvultTerm(final Term convert) {
@@ -543,7 +553,9 @@ public class BVUtils {
 
 
 	/*
-	 *
+	 * Bit Mask Elimination simplifies bvand, bvor functions where one hand side is a constant.
+	 * We determen the result of the function as much as possible by the given constant (absorbingElement).
+	 * everything else (neutralElement in the constant) is selected from the non-constant argument.
 	 */
 	public Term bitMaskElimination(final Term term) {
 		Term bitMask = null;
@@ -641,12 +653,13 @@ public class BVUtils {
 	 * propagates a select over concat and bitwise functions to its arguments
 	 * smallers the bitvec size of the function (less work for bitblasting)
 	 */
-	public Term propagateExtract(final FunctionSymbol fsym, final Term[] params) {
+	public Term propagateExtract(final FunctionSymbol fsym, final Term param) {
 		assert fsym.getName().equals("extract");
 		final int lowerIndex = Integer.parseInt(fsym.getIndices()[1]);
 		final int upperIndex = Integer.parseInt(fsym.getIndices()[0]);
-		if (params[0] instanceof ApplicationTerm) {
-			final ApplicationTerm subTerm = (ApplicationTerm) params[0];
+		assert lowerIndex <= upperIndex;
+		if (param instanceof ApplicationTerm) {
+			final ApplicationTerm subTerm = (ApplicationTerm) param;
 			final FunctionSymbol subFsym = subTerm.getFunction();
 			if (subFsym.isIntern()) {
 				switch (subFsym.getName()) {
@@ -675,22 +688,20 @@ public class BVUtils {
 
 							// select from lhs of concat
 							final String[] selectIndices1 = new String[2];
-							selectIndices1[0] = String.valueOf(upperIndex - 1);
+							selectIndices1[0] = String.valueOf(upperIndex - rhsSize);
 							selectIndices1[1] = "0";
-
 							final FunctionSymbol extractLhs =
 									mTheory.getFunctionWithResult("extract", selectIndices1, null,
 											subTerm.getParameters()[0].getSort());
 
 							// select from rhs of concat
 							final String[] selectIndices2 = new String[2];
-							selectIndices2[0] = String.valueOf(rhsSize - 1);// rhs size
+							selectIndices2[0] = String.valueOf(rhsSize - 1); // rhs size
 							selectIndices2[1] = String.valueOf(lowerIndex);
 
 							final FunctionSymbol extractRhs =
 									mTheory.getFunctionWithResult("extract", selectIndices2, null,
 											subTerm.getParameters()[1].getSort());
-
 							Term selectLhs = mTheory.term(extractLhs, subTerm.getParameters()[0]);
 							Term selectRhs = mTheory.term(extractRhs, subTerm.getParameters()[1]);
 							if (isConstRelation(subTerm.getParameters()[0], null)) {
@@ -718,13 +729,11 @@ public class BVUtils {
 				case "extract": {
 					// term[x : y][i : j] replaced by term[y + i + (i - j) : y + j]
 
-					final int innerExtractLowerIndex = Integer.parseInt(fsym.getIndices()[0]);
+					final int innerExtractLowerIndex = Integer.parseInt(subFsym.getIndices()[1]);
 					final int difference = upperIndex - lowerIndex;
-
 					final String[] selectIndices = new String[2];
 					selectIndices[0] = String.valueOf(lowerIndex + innerExtractLowerIndex + difference);
 					selectIndices[1] = String.valueOf(lowerIndex + innerExtractLowerIndex);
-
 					final FunctionSymbol extract =
 							mTheory.getFunctionWithResult("extract", selectIndices, null,
 									subTerm.getParameters()[0].getSort());
@@ -750,27 +759,36 @@ public class BVUtils {
 
 				}
 				default: {
-					return mTheory.term(fsym, params);
+					if (isConstRelation(param, null)) {
+						return simplifySelectConst(fsym, param);
+					}
+					return mTheory.term(fsym, param);
 				}
 				}
 
 			}
 		}
-		return mTheory.term(fsym, params);
+		if (isConstRelation(param, null)) {
+			return simplifySelectConst(fsym, param);
+		}
+		return mTheory.term(fsym, param);
 
 	}
 
 	/*
 	 * iterates over a formula of form (not (or (not (= b a)) (not (= a c))))
 	 * often provided by mUtils.convertEq (called in TermCompiler)
+	 * TODO cleanup
 	 */
-	public Term iterateOverBvEqualites(final Term convertedEquality) {
+	public Term iterateOverBvEqualites(final Term convertedEquality, final LogicSimplifier mUtils) {
 		if (convertedEquality.equals(mTheory.mTrue) || convertedEquality.equals(mTheory.mFalse)) {
 			return convertedEquality;
 		}
 		assert convertedEquality instanceof ApplicationTerm;
 		final ApplicationTerm equalities = (ApplicationTerm) convertedEquality;
+
 		if (equalities.getFunction().getName().equals("not")) {
+			// called if the input formula is of form (= a b c ...)
 			final ApplicationTerm disjunction = (ApplicationTerm) equalities.getParameters()[0];
 			final Term[] orderedDisjTerms = new Term[disjunction.getParameters().length];
 			for (int i = 0; i < disjunction.getParameters().length; i++) {
@@ -785,12 +803,13 @@ public class BVUtils {
 
 				// Eliminate concationations without a matching equality
 				if (orderedAndSimplified instanceof ApplicationTerm) {
-					final ApplicationTerm apterm = (ApplicationTerm) orderedAndSimplified;
-					if (apterm.getFunction().getName().equals("=")) {
-						final Term noConcat = eliminateConcatNoMatch(apterm.getFunction(), apterm.getParameters());
-						if (noConcat != null) {
-							orderedAndSimplified = noConcat;
-						}
+					final ApplicationTerm apOrderedAndSimplified = (ApplicationTerm) orderedAndSimplified;
+					assert apOrderedAndSimplified.getFunction().getName().equals("=");
+					assert apOrderedAndSimplified.getParameters().length == 2;
+					final Term noConcat = eliminateConcatNoMatch(apOrderedAndSimplified.getFunction(),
+							apOrderedAndSimplified.getParameters()[0], apOrderedAndSimplified.getParameters()[1]);
+					if (noConcat != null) {
+						orderedAndSimplified = noConcat;
 					}
 				}
 
@@ -800,8 +819,30 @@ public class BVUtils {
 
 			return result;
 		} else if (equalities.getFunction().getName().equals("=")) {
-			return simplifyBitVecEquality(orderParametersLexicographicaly(equalities.getFunction(),
+			assert equalities.getParameters().length == 2; // if false, call mUtils.convertEq first
+
+			Term simpAndOrder = simplifyBitVecEquality(orderParametersLexicographicaly(equalities.getFunction(),
 					equalities.getParameters()));
+			if (simpAndOrder instanceof ApplicationTerm) {
+				final ApplicationTerm apOrderedAndSimplified = (ApplicationTerm) simpAndOrder;
+				if (apOrderedAndSimplified.getFunction().getName().equals("=")) {
+					assert apOrderedAndSimplified.getParameters().length == 2;
+					final Term elimCnoM = eliminateConcatNoMatch(apOrderedAndSimplified.getFunction(),
+							apOrderedAndSimplified.getParameters()[0],
+							apOrderedAndSimplified.getParameters()[1]);
+					if (elimCnoM != null) {
+						if (elimCnoM instanceof ApplicationTerm) {
+							if (((ApplicationTerm) elimCnoM).getFunction().getName().equals("and")) {
+								return mUtils.convertAnd(elimCnoM);
+							}
+
+						}
+						simpAndOrder = elimCnoM;
+					}
+				}
+			}
+
+			return simpAndOrder;
 		} else {
 			throw new UnsupportedOperationException("Not an Equality");
 		}
@@ -811,6 +852,7 @@ public class BVUtils {
 	/*
 	 * Since lhs.equals(rhs) is often not working,
 	 * we have ordered the arguments beforehand and compare the Strings
+	 * (May not be needed anymore after fixing the Const Hash)
 	 */
 	private Term simplifyBitVecEquality(final Term equality) {
 		final ApplicationTerm appterm;
@@ -852,7 +894,6 @@ public class BVUtils {
 	 * Case2:
 	 * In a more complex Term, bitblasting for bvadd(a,b) is only applied once.
 	 * Otherwise we would bitblast twice, for bvadd(a,b) and bvadd(b,a).
-	 * TODO
 	 * =, bvadd, bvmul, bvor, bvand
 	 */
 	public Term orderParametersLexicographicaly(final FunctionSymbol fsym, final Term[] params) {

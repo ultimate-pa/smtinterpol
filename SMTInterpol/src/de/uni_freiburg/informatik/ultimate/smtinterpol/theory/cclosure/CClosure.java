@@ -746,7 +746,6 @@ public class CClosure implements ITheory {
 				CCTermPairHash.Info info = mPairHash.getInfo(t1, t2);
 				if (info == null) {
 					info = new CCTermPairHash.Info(t1, t2);
-					System.out.println("insertEQ: " + t1 + " " + t1);
 					mPairHash.add(info);
 				}
 				info.mEqlits.prependIntoJoined(eqentry, true);
