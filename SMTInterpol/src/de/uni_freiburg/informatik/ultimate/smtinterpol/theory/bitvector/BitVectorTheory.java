@@ -320,10 +320,11 @@ public class BitVectorTheory implements ITheory {
 		}
 		mBitblaster.bitBlasting(mBVLiterals, mAllTerms, engine.getAssertionStackLevel());
 		// mAllTerms = new LinkedHashSet<>(); //reset allTerms?
-		mClausifier.getLogger().info("Finished Bitblasting");
+
 		if (Config.PROFILE_TIME) {
 			addBitBlastingTime(System.nanoTime() - time);
 		}
+		mClausifier.getLogger().info("Finished Bitblasting: " + (System.nanoTime() - time));
 		if (mClausifier.getEngine().isTerminationRequested()) {
 			return null;
 		}
