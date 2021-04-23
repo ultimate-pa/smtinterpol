@@ -35,8 +35,7 @@ public class BitVectorTheory implements ITheory {
 	final BitBlaster mBitblaster;
 	final BvultGraph mBvultGraph;
 	private long mBitBlastingTime, mAddDPLLBitBlastTime, mBvultGraphTime;
-	private int mClauseCount;
-	private int mCircleCount;
+	private int mClauseCount, mCircleCount, mTrivialConflicts;
 
 	public BitVectorTheory(final Clausifier clausifier) {
 		mClausifier = clausifier;
@@ -63,7 +62,6 @@ public class BitVectorTheory implements ITheory {
 	 * recursiv
 	 */
 	private void collectAllTerms(final Term term) {
-		// TODO check, ensure no function over constantterms (all const simplifications applied)
 		if (term instanceof TermVariable) {
 			mAllTerms.add(term);
 		} else if (term instanceof ApplicationTerm) {
@@ -127,6 +125,7 @@ public class BitVectorTheory implements ITheory {
 						final Literal[] conflictSet = new Literal[1];
 						conflictSet[0] = literal.negate();
 						final Clause conflict = new Clause(conflictSet);
+						mTrivialConflicts += 1;
 						return conflict;
 					}
 					return null;
@@ -134,6 +133,7 @@ public class BitVectorTheory implements ITheory {
 				if (bvLit) {
 					final Clause trivialConflict = checkTrivialConflict(literal, bvultLit, bvultTerm);
 					if (trivialConflict != null) {
+						mTrivialConflicts += 1;
 						return trivialConflict;
 					}
 				}
@@ -171,7 +171,6 @@ public class BitVectorTheory implements ITheory {
 					oldLitBvult = true;
 					oldLit = bvultOld;
 				}
-
 				if ((newLit.getParameters()[0].equals(oldLit.getParameters()[0])) &&
 						(newLit.getParameters()[1].equals(oldLit.getParameters()[1]))) {
 					if ((!bvultLit && oldLitBvult) || (bvultLit && !oldLitBvult)) {
@@ -304,7 +303,7 @@ public class BitVectorTheory implements ITheory {
 		if (Config.PROFILE_TIME) {
 			time = System.nanoTime();
 		}
-		mClausifier.getLogger().debug("Starting Bitblasting");
+		mClausifier.getLogger().info("Starting Bitblasting");
 
 		// collect all terms from all set literals
 		for (final Literal lit : mBVLiterals) {
@@ -321,7 +320,7 @@ public class BitVectorTheory implements ITheory {
 		}
 		mBitblaster.bitBlasting(mBVLiterals, mAllTerms, engine.getAssertionStackLevel());
 		// mAllTerms = new LinkedHashSet<>(); //reset allTerms?
-		mClausifier.getLogger().debug("Finished Bitblasting");
+		mClausifier.getLogger().info("Finished Bitblasting");
 		if (Config.PROFILE_TIME) {
 			addBitBlastingTime(System.nanoTime() - time);
 		}
@@ -439,7 +438,8 @@ public class BitVectorTheory implements ITheory {
 	public void printStatistics(final LogProxy logger) {
 		logger.info(
 				"BVTimes: BB " + mBitBlastingTime + " BB_DPLL " + mAddDPLLBitBlastTime + " Graph " + mBvultGraphTime);
-		logger.info("BitBlastingClauses: " + mClauseCount + " BvultGraphCircles: " + mCircleCount);
+		logger.info("BitBlastingClauses: " + mClauseCount + " BvultGraphCircles: " + mCircleCount
+				+ " TrivialConflicts: " + mTrivialConflicts);
 	}
 
 	@Override
@@ -514,7 +514,8 @@ public class BitVectorTheory implements ITheory {
 				{ "Bvult Graph", mBvultGraphTime } } },
 
 			{ "Count", new Object[][] { { "BBClauses", mClauseCount },
-				{ "GraphCircles", mCircleCount }
+				{ "GraphCircles", mCircleCount },
+				{ "TrivialConflicts", mTrivialConflicts }
 
 			} } } };
 	}

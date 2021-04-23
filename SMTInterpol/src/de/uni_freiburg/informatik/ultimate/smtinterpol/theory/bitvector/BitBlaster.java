@@ -151,7 +151,8 @@ public class BitBlaster {
 	/*
 	 * Encodes bitvector Term in an Array of same lenth as the size of the bitvector Term.
 	 * The Array contains Fresh Boolean Variables with name:
-	 * "e(term)_i" where e stands for encoded, term is the input term and i the current position in the Array/BitVec
+	 * "e(term)_i" where e stands for encoded, term is the input term (Its HashCode) and i the current position in the
+	 * Array/BitVec
 	 */
 	private Term[] getEncodedTerm(final Term term) {
 		assert term.getSort().isBitVecSort();
@@ -160,8 +161,8 @@ public class BitBlaster {
 
 		final Term[] boolvector = new Term[size];
 		for (int i = 0; i < size; i++) {
-			String termPrefix = "e_(" + term + ")_" + i;
-			termPrefix = termPrefix.replace("|", ""); // remove quote, such that termvariables can be quoted later
+			final String termPrefix = "e_(" + term.hashCode() + ")_" + i;
+			// termPrefix = termPrefix.replace("|", ""); // remove quote, such that termvariables can be quoted later
 			final TermVariable tv = mVarPrefix.get(termPrefix);
 			final TermVariable boolVar;
 			if (tv != null) {
@@ -431,9 +432,9 @@ public class BitBlaster {
 				final Pattern p = Pattern.compile("(e_\\(.*\\)_\\d*)");
 				final Matcher m = p.matcher(VarPrefix);
 
-				if (m.find()) {
-					final String stringsdasda = m.group();
-					final DPLLAtom newlit = mBoolAtoms.get(mVarPrefix.get(stringsdasda));
+				if (m.find()) { // Encoded Term
+					final String match = m.group();
+					final DPLLAtom newlit = mBoolAtoms.get(mVarPrefix.get(match));
 
 					if (lit.getSign() == 1) {
 						literal[i] = newlit;
@@ -986,8 +987,8 @@ public class BitBlaster {
 		final Literal atomlit = getLiteral(atom);
 		final Literal ifLit = getLiteral(ifTerm);
 		final Literal elseLit = getLiteral(elseTerm);
-		final Literal thenLit = getLiteral(thenTerm);
 		if (!thenTerm.equals(mTheory.mFalse)) {
+			final Literal thenLit = getLiteral(thenTerm);
 			final Literal[] lit1 = { atomlit, ifLit.negate(), thenLit.negate() };
 			addClause(lit1);
 			final Literal[] lit2 = { atomlit.negate(), ifLit, elseLit };
@@ -1019,17 +1020,13 @@ public class BitBlaster {
 			}
 		}
 
-		if(term.equals(mTheory.mFalse)) {
-			// TODO warum kann hier false ssein
-			return new TrueAtom().negate();
-		}
 		assert mBoolAtoms.containsKey(term);
 		return mBoolAtoms.get(term);
 	}
 
 	private void addClause(final Literal[] literal) {
 		assert !(literal.length == 0);
-		if (literal[0].equals(mTheory.mTrue) && literal.length == 1) {
+		if (literal[0].getSMTFormula(mTheory).equals(mTheory.mTrue) && literal.length == 1) {
 			return;
 		}
 		final Clause cl = new Clause(literal, mStackLevel);

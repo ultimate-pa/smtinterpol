@@ -576,7 +576,7 @@ public class TermCompiler extends TermTransformer {
 							mTracker, ProofConstants.RW_BVARITH));
 					return;
 				}
-				setResult(bvUtils.orderParametersLexicographicaly(fsym, params));
+				setResult(bvUtils.orderParameters(fsym, params));
 				return;
 			}
 			case "bvand":
@@ -589,7 +589,7 @@ public class TermCompiler extends TermTransformer {
 					// order before bitmaskelimination!
 					final Term bitMask =
 							bvUtils.bitMaskElimination(
-									bvUtils.orderParametersLexicographicaly(fsym, params));
+									bvUtils.orderParameters(fsym, params));
 					setResult(bitMask);
 					return;
 				}
@@ -856,7 +856,7 @@ public class TermCompiler extends TermTransformer {
 				}else{
 					Term repeat = theory.binary("#b0");
 					for (int i = 1; i < Integer.parseInt(fsym.getIndices()[0]); i++) {
-						repeat = theory.term("concat", theory.binary("#b0"), repeat);
+						repeat = theory.term("concat", theory.binary("#b0"), repeat); // TODO strings instead of terms
 					}
 					pushTerm(theory.term("concat", repeat, params[0]));
 					return;

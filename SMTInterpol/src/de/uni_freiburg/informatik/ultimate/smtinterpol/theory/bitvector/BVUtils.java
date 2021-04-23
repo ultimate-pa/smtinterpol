@@ -193,11 +193,15 @@ public class BVUtils {
 		String calc;
 		final int size = Integer.valueOf(lhs.getSort().getIndices()[0]);
 		if (fsym.getName().equals("bvadd")) {
-			calc = (lhsInt.add(rhsInt).toString(2));
+			final BigInteger add = lhsInt.add(rhsInt);
+			final BigInteger result = add.mod(BigInteger.valueOf(2).pow(size));
+			calc = result.toString(2);
 		} else if (fsym.getName().equals("bvudiv")) {
 			// truncated integer division
 			if (!rhsInt.equals(BigInteger.ZERO)) {
-				calc = (lhsInt.divide(rhsInt).toString(2));
+				final BigInteger divide = lhsInt.divide(rhsInt);
+				final BigInteger result = divide.mod(BigInteger.valueOf(2).pow(size));
+				calc = result.toString(2);
 			} else {
 				// value fixed to #b111...
 				final String repeated = new String(new char[size]).replace("\0", "1");
@@ -205,18 +209,23 @@ public class BVUtils {
 			}
 		} else if (fsym.getName().equals("bvurem")) {
 			if (!rhsInt.equals(BigInteger.ZERO)) {
-				calc = (lhsInt.remainder(rhsInt).toString(2));
+				final BigInteger remainder = lhsInt.remainder(rhsInt);
+				final BigInteger result = remainder.mod(BigInteger.valueOf(2).pow(size));
+				calc = result.toString(2);
 			} else {
 				// value fixed to lhs
 				calc = lhsInt.toString(2);
 			}
 
 		} else if (fsym.getName().equals("bvmul")) {
-			calc = (lhsInt.multiply(rhsInt).toString(2));
+			// multiplication mod 2^m
+			final BigInteger multiplication = lhsInt.multiply(rhsInt);
+			final BigInteger result = multiplication.mod(BigInteger.valueOf(2).pow(size));
+			calc = result.toString(2);
 		} else {
 			throw new UnsupportedOperationException("unknown function symbol: " + fsym.getName());
 		}
-
+		assert size >= calc.length();
 		final String repeated = new String(new char[size - calc.length()]).replace("\0", "0");
 		final String resultconst = "#b" + repeated + calc;
 		return mTheory.binary(resultconst);
@@ -250,6 +259,7 @@ public class BVUtils {
 				throw new UnsupportedOperationException("unknown function symbol: " + fsym.getName());
 			}
 		}
+		assert (constRHS.length() + 2) == resultconst.length();
 		return mTheory.binary(resultconst);
 	}
 
@@ -731,7 +741,6 @@ public class BVUtils {
 				}
 				case "extract": {
 					// term[x : y][i : j] replaced by term[y + i + (i - j) : y + j]
-
 					final int innerExtractLowerIndex = Integer.parseInt(subFsym.getIndices()[1]);
 					final int difference = upperIndex - lowerIndex;
 					final String[] selectIndices = new String[2];
@@ -801,7 +810,7 @@ public class BVUtils {
 				assert apPara.getFunction().getName().equals("not");
 
 				final ApplicationTerm eqApTerm = (ApplicationTerm) apPara.getParameters()[0];
-				final Term ordered = orderParametersLexicographicaly(eqApTerm.getFunction(), eqApTerm.getParameters());
+				final Term ordered = orderParameters(eqApTerm.getFunction(), eqApTerm.getParameters());
 				Term orderedAndSimplified = simplifyBitVecEquality(ordered);
 
 				// Eliminate concationations without a matching equality
@@ -824,7 +833,7 @@ public class BVUtils {
 		} else if (equalities.getFunction().getName().equals("=")) {
 			assert equalities.getParameters().length == 2; // if false, call mUtils.convertEq first
 
-			Term simpAndOrder = simplifyBitVecEquality(orderParametersLexicographicaly(equalities.getFunction(),
+			Term simpAndOrder = simplifyBitVecEquality(orderParameters(equalities.getFunction(),
 					equalities.getParameters()));
 			if (simpAndOrder instanceof ApplicationTerm) {
 				final ApplicationTerm apOrderedAndSimplified = (ApplicationTerm) simpAndOrder;
@@ -853,9 +862,8 @@ public class BVUtils {
 	}
 
 	/*
-	 * Since lhs.equals(rhs) is often not working,
+	 * Since lhs.equals(rhs) is often not enough,
 	 * we have ordered the arguments beforehand and compare the Strings
-	 * (May not be needed anymore after fixing the Const Hash)
 	 */
 	private Term simplifyBitVecEquality(final Term equality) {
 		final ApplicationTerm appterm;
@@ -899,7 +907,7 @@ public class BVUtils {
 	 * Otherwise we would bitblast twice, for bvadd(a,b) and bvadd(b,a).
 	 * =, bvadd, bvmul, bvor, bvand
 	 */
-	public Term orderParametersLexicographicaly(final FunctionSymbol fsym, final Term[] params) {
+	public Term orderParameters(final FunctionSymbol fsym, final Term[] params) {
 		assert params[0].getSort().isBitVecSort();
 		assert params.length == 2;
 		assert fsym.getName().equals("=")
@@ -907,11 +915,9 @@ public class BVUtils {
 		|| fsym.getName().equals("bvmul")
 		|| fsym.getName().equals("bvand")
 		|| fsym.getName().equals("bvor"); // has to be a symetricFunction
-		final int order = params[0].toStringDirect()
-				.compareTo(params[1].toStringDirect());
-		if (order < 0) {
+		if (params[0].hashCode() < params[1].hashCode()) {
 			return mTheory.term(fsym, params);
-		} else if (order > 0) {
+		} else if (params[0].hashCode() > params[1].hashCode()) {
 			return mTheory.term(fsym, params[1],
 					params[0]);
 		} else {
