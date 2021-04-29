@@ -22,12 +22,26 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ResolutionNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ResolutionNode.Antecedent;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.IdentityHashSet;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
-
-/**
+/*
+ * Copyright (C) 2020-2021 Max Barth (Max.Barth95@gmx.de)
+ * Copyright (C) 2020-2021 University of Freiburg
  *
- * @author Max Barth (max.barth95@gmx.de)
+ * This file is part of SMTInterpol.
  *
+ * SMTInterpol is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * SMTInterpol is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.
  */
+
 public class BitVectorTheory implements ITheory {
 	private final Clausifier mClausifier;
 	private final ScopedArrayList<Literal> mBVLiterals;
@@ -147,7 +161,7 @@ public class BitVectorTheory implements ITheory {
 
 	/*
 	 * looks for trivial conflicts of form (a = b and a < b or b < a )
-	 * and (a < b and b < a)
+	 * and (a < b and b < a).
 	 */
 	private Clause checkTrivialConflict(final Literal literal, final boolean bvultLit, final Term bvultTerm) {
 

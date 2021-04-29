@@ -581,12 +581,12 @@ public class TermCompiler extends TermTransformer {
 			}
 			case "bvand":
 			case "bvor": {
+				assert params.length == 2;
 				if (bvUtils.isConstRelation(params[0], params[1])) {
 					setResult(bvUtils.getProof(bvUtils.simplifyLogicalConst(fsym, params[0], params[1]), convertedApp,
 							mTracker, ProofConstants.RW_BVLOGIC));
 					return;
 				} else {
-					// order before bitmaskelimination!
 					final Term bitMask =
 							bvUtils.bitMaskElimination(
 									bvUtils.orderParameters(fsym, params));
@@ -606,7 +606,6 @@ public class TermCompiler extends TermTransformer {
 			}
 			case "bvneg": {
 				if (params[0] instanceof ConstantTerm) {
-					// TODO
 					setResult(bvUtils.simplifyNegConst(fsym, params[0]));
 					return;
 				}
@@ -615,7 +614,6 @@ public class TermCompiler extends TermTransformer {
 			}
 			case "bvnot": {
 				if (params[0] instanceof ConstantTerm) {
-					// TODO
 					setResult(bvUtils.simplifyNotConst(fsym, params[0]));
 					return;
 				}
@@ -630,7 +628,6 @@ public class TermCompiler extends TermTransformer {
 			case "bvsgt":
 			case "bvsge":
 			case "bvult": {
-				// TODO FIX
 				final Term bvult = bvUtils.getBvultTerm(convertedApp);
 				if (bvult instanceof ApplicationTerm) {
 					final ApplicationTerm appterm = (ApplicationTerm) bvult;
@@ -648,8 +645,7 @@ public class TermCompiler extends TermTransformer {
 					return;
 				}
 				final Term extract = bvUtils.propagateExtract(fsym, params[0]);
-				setResult(extract); // TODO check obs fehlher hier gibt von wegen
-				// convertiereung
+				setResult(extract);
 				return;
 			}
 			case "bvnand":{
@@ -663,8 +659,9 @@ public class TermCompiler extends TermTransformer {
 				return;
 			}
 			case "bvxor": {
-				// TODO bvxor is left associative
 				// (bvxor s t) abbreviates (bvor (bvand s (bvnot t)) (bvand (bvnot s) t))
+				// bvxor is left associative
+				assert params.length == 2;
 				pushTerm(theory.term("bvor",
 						theory.term("bvand", params[0], theory.term("bvnot", params[1])),
 						theory.term("bvand", theory.term("bvnot", params[0]), params[1])));
@@ -673,6 +670,7 @@ public class TermCompiler extends TermTransformer {
 			case "bvxnor": {
 				// (bvxnor s t) abbreviates (bvor (bvand s t) (bvand (bvnot s) (bvnot t)))
 				// bvxor is left associative
+				assert params.length == 2;
 				pushTerm(theory.term("bvor",
 						theory.term("bvand", params[0], params[1]),
 						theory.term("bvand", theory.term("bvnot", params[0]), theory.term("bvnot", params[1]))));
@@ -713,13 +711,7 @@ public class TermCompiler extends TermTransformer {
 			}
 
 			case "bvsdiv": {
-				// (ite (and (= ((_ extract |m-1| |m-1|) s)#b0) (= ((_ extract |m-1| |m-1|) t) #b0))
-				// (bvudiv s t)
-				// (ite (and (= ((_ extract |m-1| |m-1|) s) #b1) (= ((_ extract |m-1| |m-1|) t) #b0))
-				// (bvneg (bvudiv (bvneg s) t))
-				// (ite (and (= ((_ extract |m-1| |m-1|) s) #b0) (= ((_ extract |m-1| |m-1|) t) #b1))
-				// (bvneg (bvudiv s (bvneg t)))
-				// (bvudiv (bvneg s) (bvneg t)))))
+				// abbreviation as defined in the SMT-Lib
 				final int size = Integer.parseInt(params[0].getSort().getIndices()[0]);
 				final String[] selectIndices = new String[2];
 				selectIndices[0] = String.valueOf(size - 1);
@@ -854,11 +846,11 @@ public class TermCompiler extends TermTransformer {
 					pushTerm(theory.term("concat", theory.binary("#b0"), params[0]));
 					return;
 				}else{
-					Term repeat = theory.binary("#b0");
+					String repeat = "#b0";
 					for (int i = 1; i < Integer.parseInt(fsym.getIndices()[0]); i++) {
-						repeat = theory.term("concat", theory.binary("#b0"), repeat); // TODO strings instead of terms
+						repeat = repeat + "0";
 					}
-					pushTerm(theory.term("concat", repeat, params[0]));
+					pushTerm(theory.term("concat", theory.binary(repeat), params[0]));
 					return;
 				}
 			}
@@ -893,8 +885,6 @@ public class TermCompiler extends TermTransformer {
 
 			case "rotate_left": {
 				final int size = Integer.parseInt(params[0].getSort().getIndices()[0]);
-
-
 				if (fsym.getIndices()[0].equals("0")) {
 					setResult(params[0]);
 					return;

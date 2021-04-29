@@ -27,11 +27,24 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
 
-/**
- * TODO
+/*
+ * Copyright (C) 2020-2021 Max Barth (Max.Barth95@gmx.de)
+ * Copyright (C) 2020-2021 University of Freiburg
  *
- * @author Max Barth (max.barth95@gmx.de)
+ * This file is part of SMTInterpol.
  *
+ * SMTInterpol is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * SMTInterpol is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 public class BitBlaster {
@@ -41,7 +54,7 @@ public class BitBlaster {
 	private HashMap<String, TermVariable> mVarPrefix; // Maps enc_term indices to their bool vars.
 	private HashMap<Term, DPLLAtom> mBoolAtoms; // All Bool Atoms, aux varaibles too
 	private ScopedArrayList<Clause> mClauses; // Output clauses
-	private HashMap<Term, Term[]> mEncTerms; // Term[0] is the least bit, the most right bit of Term
+	private HashMap<Term, Term[]> mEncTerms; // Term[0] is the least bit, the most right bit of the key(Term)
 	private HashMap<Term, Term> mBitBlastAtoms; // ensures that Bitblasting happens only once for each Atom
 	private HashMap<Term, Literal> mLiterals; // Maps mEncAtoms to mInputLiterals
 	private int mStackLevel;
@@ -57,7 +70,13 @@ public class BitBlaster {
 	}
 
 
-
+	/*
+	 * Starts Bitblasting.
+	 * allLiterals contains all set bitvector Literals and allTerms all terms from these literals.
+	 * allTerms needs to contain all terms, subterms, constants, variables... but no relations(=, bvult...).
+	 * allTerms is filled by BitVectorTheory.collectAllTerms().
+	 * Use getClauses() to get the BB result Clauses and getBoolAtoms() to get the necessary Atoms.
+	 */
 	public void bitBlasting(final ScopedArrayList<Literal> allLiterals,
 			final LinkedHashSet<Term> allTerms, final int engineStackLevel) {
 		mStackLevel = engineStackLevel;
@@ -96,7 +115,7 @@ public class BitBlaster {
 			mClauseCopy = new ScopedArrayList<>();
 			getBvConstraintAtom(atom, mBitBlastAtoms.get(atom));
 			if (!mBitBlastingResult.containsKey(atom)) {
-				// save BVConstraints for term
+				// save BVConstraints for atom
 				mBitBlastingResult.put(atom, mClauseCopy);
 				mClauseCopy = new ScopedArrayList<>();
 			}
@@ -149,7 +168,7 @@ public class BitBlaster {
 
 
 	/*
-	 * Encodes bitvector Term in an Array of same lenth as the size of the bitvector Term.
+	 * Encodes bitvector Term in an Array of same length as the size of the bitvector Term.
 	 * The Array contains Fresh Boolean Variables with name:
 	 * "e(term)_i" where e stands for encoded, term is the input term (Its HashCode) and i the current position in the
 	 * Array/BitVec
@@ -186,6 +205,7 @@ public class BitBlaster {
 	private void getBvConstraintAtom(final Term atom, final Term encAtom) {
 		mClauseCopy = new ScopedArrayList<>();
 		if (mBitBlastingResult.containsKey(atom)) {
+			// we bitblasted this atom already in a previous run.
 			mClauses.addAll(createClauseCopy(mBitBlastingResult.get(atom), encAtom));
 			return;
 		}
@@ -218,7 +238,7 @@ public class BitBlaster {
 					final Term eqconjunction = mTheory.and(eqconj);
 					toClauses(mTheory.or(mTheory.not(eqconjunction), encAtom));
 				} else {
-					// usign bvcomp method to determin equality
+					// Using bvcomp method to determine equality
 					final Term[] bvxnor = new Term[size];
 					for (int i = 0; i < size; i++) {
 						final Term boolVar = createBoolAtom(null);
@@ -268,6 +288,7 @@ public class BitBlaster {
 	private void getBvConstraintTerm(final Term term) {
 		mClauseCopy = new ScopedArrayList<>();
 		if (mBitBlastingResult.containsKey(term)) {
+			// we bitblasted this term already in a previous run.
 			mClauses.addAll(createClauseCopy(mBitBlastingResult.get(term), null));
 			return;
 		}
@@ -410,10 +431,10 @@ public class BitBlaster {
 
 	/*
 	 * Creates a Copy of all Input Clauses.
-	 * Thereofore it searches for the current equivalent atoms or
-	 * creates them if they didnt occure beforehand (AuxVars).
+	 * Searches for the current equivalent atoms or
+	 * creates them if they didnt occur beforehand (AuxVars).
 	 * After collecting the needed Atoms, a new Clause is created.
-	 * We cannot re use old Clauses and therefore old Atoms, which have been created in a previous BitBlasting runs!
+	 * We cannot re use old Clauses and therefore old Atoms, which have been created in previous BitBlasting runs!
 	 */
 	private Collection<Clause> createClauseCopy(final ScopedArrayList<Clause> scopedArrayList, final Term encAtom) {
 		// Auxar Map, maps oldAuxVar to newAuxVar
@@ -480,7 +501,9 @@ public class BitBlaster {
 
 
 	/*
-	 * The return values of adder and multiplier are aux vars
+	 * Creates the Division and Remainder constraints. Adds the clauses of these constraints to the output clauses
+	 * The return values of adder and multiplier are auxVars, no need to create additional auxVars here.
+	 * This method can be used to encode bvudiv and bvurem.
 	 */
 	private void division(final ApplicationTerm appterm, final Term[] conjunction, final Term[] encTerm) {
 		final FunctionSymbol fsym = appterm.getFunction();
@@ -527,8 +550,11 @@ public class BitBlaster {
 
 	}
 
-	// 00 concat 01 = 0001
-	// as Array: [0 0] concat [1 0] = [1 0 0 0]
+	/*
+	 * Concationation on the encoded terms(Array of Bools).
+	 * On Terms: 00 concat 01 = 0001
+	 * As Array: [0 0] concat [1 0] = [1 0 0 0]
+	 */
 	private Term[] concatArrays(final Term[] b, final Term[] a) {
 		final Term[] result = Arrays.copyOf(a, a.length + b.length);
 		System.arraycopy(b, 0, result, a.length, b.length);
@@ -546,6 +572,9 @@ public class BitBlaster {
 
 	/*
 	 * returns an AuxVar representing (a xor b xor cin). Clauses for this auxvar will be created and saved directly.
+	 * cin and a can be false.
+	 * If encAdd is null, the adder is not called to encode bvadd, bvsub..., but as part of the multiplier.
+	 * an additional auxvar as result needs to be created then.
 	 */
 	private Term sumAdder(final Term aTerm, final Term bTerm, final Term cin, final Term encAdd) {
 		final Literal b = getLiteral(bTerm);
@@ -633,16 +662,19 @@ public class BitBlaster {
 		return result;
 	}
 
-	// returns ((a and b) or (mTheory.(a xor b) and cin)) in CNF
-	// cin is either false or AuxVar
+	/*
+	 * returns an AuxVar representing ((a and b) or (mTheory.(a xor b) and cin)). Clauses for this auxvar will be
+	 * created and saved directly.
+	 * cin and a can be false.
+	 */
 	private Term carryAdder(final Term aTerm, final Term bTerm, final Term cin) {
 		if (aTerm.equals(mTheory.mFalse)) {
 			return createAuxVar(mTheory.and(mTheory.or(aTerm, bTerm), mTheory.or(aTerm, cin), mTheory.or(bTerm, cin)));
 		}
 		if (cin.equals(mTheory.mFalse)) {
-			return createAuxVar(mTheory.and(aTerm, bTerm)); // optimize
+			return createAuxVar(mTheory.and(aTerm, bTerm));
 		} else if (cin.equals(mTheory.mTrue)) {
-			return createAuxVar(mTheory.or(aTerm, bTerm)); // optimize
+			return createAuxVar(mTheory.or(aTerm, bTerm));
 		} else {
 			// return mTheory.and(mTheory.or(aTerm, bTerm), mTheory.or(aTerm, cin), mTheory.or(bTerm, cin));
 			final Literal a = getLiteral(aTerm);
@@ -692,6 +724,10 @@ public class BitBlaster {
 		return carryBits;
 	}
 
+	/*
+	 * Full Adder.
+	 * No recursion, instead we use auxvars.
+	 */
 	private Pair<Term[], Term> adder(final Term[] encA, final Term[] encB, final Term cin, final Term[] encAdd) {
 		assert encA.length == encB.length;
 		final Term[] sumResult = new Term[encA.length];
@@ -723,7 +759,7 @@ public class BitBlaster {
 	}
 
 
-	// create all bool variables representing an bitvector
+	// create all bool variables representing a bitvector
 	private Term[] createBoolVarArray(final int indices) {
 		final Term[] boolvarArray = new Term[indices];
 		for (int i = 0; i < indices; i++) {
@@ -736,7 +772,7 @@ public class BitBlaster {
 	}
 
 	/*
-	 * Check if a aux var helps in the cnf process
+	 * Check if a auxvar helps in the cnf process
 	 * If (appterm.getParameters().length > 1), create auxvar and add it to cnf
 	 * Else return input
 	 */
@@ -759,6 +795,7 @@ public class BitBlaster {
 	 * Barrel Shifter
 	 * Optimization: a<<b = ite(b3 \/ b4, (0,0,0,0), ls(a,b, log_2(length a) - 1))
 	 * leftshift, true if bvshl. False if bvlshr
+	 * No recursion, instead we use auxvars.
 	 */
 	private Term[] shift(final Term a, final Term b, int stage, final boolean leftshift) {
 
@@ -837,8 +874,9 @@ public class BitBlaster {
 	}
 
 	/*
-	 * Used, when b is not a term in the orginial formula, therefore mEncTerms.get(b) would be null
-	 * No need for AuxVars since we can calculate the actual shift result
+	 * Used, when b is not a term in the original formula, therefore mEncTerms.get(b) would be null
+	 * No need for AuxVars since we can calculate the actual shift result.
+	 * Used in the multiplier
 	 */
 	private Term[] leftshiftMul(final Term[] encA, final String b, final int stage) {
 		final Term[] shiftResult = new Term[encA.length];
@@ -868,7 +906,7 @@ public class BitBlaster {
 	}
 
 	/*
-	 * Multiplier withouth recursion. Instead we use aux vars.
+	 * Multiplier without recursion. Instead we use aux vars.
 	 * returns null, if encMul was given. Then clauses will be created during the process
 	 */
 	private Term[] multiplier(final Term[] encA, final Term[] encB, final int stage, final Term[] encMul) {
@@ -955,7 +993,8 @@ public class BitBlaster {
 
 
 	/*
-	 * Transforms the term into cnf and collects the clauses.
+	 * Transforms the term into Cnf and collects the clauses.
+	 * Inefficient, try calculate the clauses directly.
 	 */
 	private void toClauses(final Term term) {
 		final CleanTransfomer cleaner = new CleanTransfomer();
@@ -979,9 +1018,9 @@ public class BitBlaster {
 
 
 	/*
-	 * atom <=> ite into cnf
-	 * Add Clauses of (boolVar <=> ifte) to dpll
-	 * ifte arguments need to be literals
+	 * Creates the clauses for (boolVar <=> ite) directly and adds them to the bitblasting result.
+	 * Ensure that there exists a literal for each argument.
+	 * thenTerm can be false
 	 */
 	private void toClausesIte(final Term atom, final Term ifTerm, final Term elseTerm, final Term thenTerm) {
 		final Literal atomlit = getLiteral(atom);
@@ -1036,7 +1075,8 @@ public class BitBlaster {
 	}
 
 	/*
-	 * term must be a disjunction or literal
+	 * adds the clauses of term to the Bitblasting result.
+	 * term must be a disjunction or literal.
 	 */
 	private void addClauses(final Term term) {
 		assert !term.equals(mTheory.mFalse);
@@ -1070,10 +1110,12 @@ public class BitBlaster {
 		return mBoolAtoms.values();
 	}
 
+	// used to get the Bitblasting result
 	public ScopedArrayList<Clause> getClauses() {
 		return mClauses;
 	}
 
+	// negates the input literals, used to create a conflict clause
 	public Literal[] getNegatedInputLiterals() {
 		final Literal[] lit = new Literal[mInputLiterals.size()];
 		for (int i = 0; i < mInputLiterals.size(); i++) {
