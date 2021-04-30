@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<!DOCTYPE benchmark PUBLIC "+//IDN sosy-lab.org//DTD BenchExec benchmark 1.9//EN" "https://www.sosy-lab.org/benchexec/benchmark-2.3.dtd">
+<benchmark tool="smtinterpol" timelimit="60s" hardtimelimit="70s" memlimit="8 GB" cpuCores="2">
+    <tasks name="SMT-LIB">
+        <includesfile>bench_crafted.set</includesfile>
+        <includesfile>bench_Heizmann2017.set</includesfile>
+        <includesfile>bench_Heizmann2019.set</includesfile>
+        <includesfile>bench_tacas07.set</includesfile>
+        <includesfile>bench_bmc-bv.set</includesfile>
+        <includesfile>bench_challenge.set</includesfile>
+        <includesfile>bench_bmc-bv-svcomp14.set</includesfile>
+        <includesfile>bench_20200415-Yurichev.set</includesfile>
+        <includesfile>bench_2017-BuchwaldFried.set</includesfile>
+        <includesfile>bench_galois.set</includesfile>
+        <includesfile>bench_pipe.set</includesfile>
+        <includesfile>bench_20170531-Hansen-Check.set</includesfile>
+        <includesfile>bench_pspace.set</includesfile>
+        <includesfile>bench_uum.set</includesfile>
+        <includesfile>bench_brummayerbiere.set</includesfile>
+        <includesfile>bench_sage-app10.set</includesfile>
+        <propertyfile>/storage/repos/smtinterpol/bench/smt.prop</propertyfile>
+    </tasks>
+    <rundefinition name="BV">
+        <option name="-no-success" />
+        <option name="-smt2" />
+        <!-- <option name="-o">opt=value</option> -->
+    </rundefinition>
+</benchmark>
