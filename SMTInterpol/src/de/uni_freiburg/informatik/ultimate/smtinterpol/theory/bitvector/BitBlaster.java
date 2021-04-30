@@ -52,21 +52,20 @@ public class BitBlaster {
 	private final Theory mTheory;
 	private ScopedArrayList<Literal> mInputLiterals;
 	private HashMap<String, TermVariable> mVarPrefix; // Maps enc_term indices to their bool vars.
-	private HashMap<Term, DPLLAtom> mBoolAtoms; // All Bool Atoms, aux varaibles too
+	public HashMap<Term, DPLLAtom> mBoolAtoms; // All Bool Atoms, aux varaibles too
 	private ScopedArrayList<Clause> mClauses; // Output clauses
 	private HashMap<Term, Term[]> mEncTerms; // Term[0] is the least bit, the most right bit of the key(Term)
 	private HashMap<Term, Term> mBitBlastAtoms; // ensures that Bitblasting happens only once for each Atom
 	private HashMap<Term, Literal> mLiterals; // Maps mEncAtoms to mInputLiterals
+	public HashMap<Literal, Literal> mInputAtomMap; // TODO
 	private int mStackLevel;
 
-	private final HashMap<Term, ScopedArrayList<Clause>> mBitBlastingResult;
-	private ScopedArrayList<Clause> mClauseCopy;
 
 
 	public BitBlaster(final Clausifier clausifier, final Theory theory) {
 		mClausifier = clausifier;
 		mTheory = theory;
-		mBitBlastingResult = new HashMap<>(); // Save previous BitBlasting results
+		mInputAtomMap = new HashMap<>();
 	}
 
 
@@ -87,17 +86,9 @@ public class BitBlaster {
 		mBoolAtoms = new HashMap<>();
 		mLiterals = new HashMap<>();
 		mClauses = new ScopedArrayList<>();
-		mClauseCopy = new ScopedArrayList<>();
 
-		Term equisatProp;
-		final Term[] propSkeleton = new Term[mInputLiterals.size()];
 		for (int i = 0; i < mInputLiterals.size(); i++) {
-			final Term bitblastingAtom = createBoolAtom(i);
-			if (mInputLiterals.get(i).getSign() == 1) {
-				propSkeleton[i] = bitblastingAtom;
-			} else {
-				propSkeleton[i] = mTheory.not(bitblastingAtom);
-			}
+			createBoolAtom(i);
 		}
 		for (final Term term : allTerms) {
 			// e(t), t in terms. Terms Size long Array of bool vars with e(t)_i being var at position i
@@ -106,19 +97,12 @@ public class BitBlaster {
 			}
 
 		}
-		// Initial propositional configuration
-		equisatProp = mTheory.and(propSkeleton);
-		toClauses(equisatProp);
+
+		// Propositional Skeleton is created in the Theory Solver.
 
 		// add BVConstraint of Atoms as conjunct
 		for (final Term atom : mBitBlastAtoms.keySet()) {
-			mClauseCopy = new ScopedArrayList<>();
 			getBvConstraintAtom(atom, mBitBlastAtoms.get(atom));
-			if (!mBitBlastingResult.containsKey(atom)) {
-				// save BVConstraints for atom
-				mBitBlastingResult.put(atom, mClauseCopy);
-				mClauseCopy = new ScopedArrayList<>();
-			}
 		}
 
 		// add BVConstraint of all subterms as conjunct
@@ -126,13 +110,7 @@ public class BitBlaster {
 			if (mClausifier.getEngine().isTerminationRequested()) {
 				return;
 			}
-			mClauseCopy = new ScopedArrayList<>();
 			getBvConstraintTerm(term);
-			if (!mBitBlastingResult.containsKey(term)) {
-				// save BVConstraints for term
-				mBitBlastingResult.put(term, mClauseCopy);
-				mClauseCopy = new ScopedArrayList<>();
-			}
 		}
 
 	}
@@ -145,7 +123,7 @@ public class BitBlaster {
 		final DPLLAtom dpll = new BooleanVarAtom(boolVar, mStackLevel);
 
 		mBoolAtoms.put(boolVar, dpll);
-		mLiterals.put(boolVar, mInputLiterals.get(i));
+		mLiterals.put(boolVar, mInputLiterals.get(i).getAtom());
 
 		assert atom instanceof ApplicationTerm;
 		final ApplicationTerm apAtom = (ApplicationTerm) atom;
@@ -160,7 +138,7 @@ public class BitBlaster {
 				atom = apAtom.getParameters()[1];
 			}
 		}
-
+		mInputAtomMap.put(mInputLiterals.get(i).getAtom(), dpll.getAtom());
 		mBitBlastAtoms.put(atom, boolVar);
 		return boolVar;
 	}
@@ -203,12 +181,6 @@ public class BitBlaster {
 	 * not(bvadd (lhs not(rhs)).cout) <=> encAtom
 	 */
 	private void getBvConstraintAtom(final Term atom, final Term encAtom) {
-		mClauseCopy = new ScopedArrayList<>();
-		if (mBitBlastingResult.containsKey(atom)) {
-			// we bitblasted this atom already in a previous run.
-			mClauses.addAll(createClauseCopy(mBitBlastingResult.get(atom), encAtom));
-			return;
-		}
 		if (atom instanceof ApplicationTerm) {
 			final ApplicationTerm apAtom = (ApplicationTerm) atom;
 			final Term lhs = apAtom.getParameters()[0];
@@ -286,12 +258,6 @@ public class BitBlaster {
 	 * If there exist an BitBlastngResult for this term, we'll add this instead
 	 */
 	private void getBvConstraintTerm(final Term term) {
-		mClauseCopy = new ScopedArrayList<>();
-		if (mBitBlastingResult.containsKey(term)) {
-			// we bitblasted this term already in a previous run.
-			mClauses.addAll(createClauseCopy(mBitBlastingResult.get(term), null));
-			return;
-		}
 		if (term instanceof TermVariable) {
 			return;
 		} else if (term instanceof ConstantTerm) {
@@ -436,7 +402,7 @@ public class BitBlaster {
 	 * After collecting the needed Atoms, a new Clause is created.
 	 * We cannot re use old Clauses and therefore old Atoms, which have been created in previous BitBlasting runs!
 	 */
-	private Collection<Clause> createClauseCopy(final ScopedArrayList<Clause> scopedArrayList, final Term encAtom) {
+	private Collection<Clause> createClauseCopyAUS(final ScopedArrayList<Clause> scopedArrayList, final Term encAtom) {
 		// Auxar Map, maps oldAuxVar to newAuxVar
 		final HashMap<Literal, Literal> auxVarMap = new HashMap<>();
 
@@ -1049,7 +1015,7 @@ public class BitBlaster {
 		addClause(lit6);
 	}
 
-	private Literal getLiteral(final Term term) {
+	public Literal getLiteral(final Term term) {
 		if(term instanceof ApplicationTerm) {
 			final ApplicationTerm appterm = (ApplicationTerm) term;
 			final FunctionSymbol fsym = appterm.getFunction();
@@ -1071,7 +1037,6 @@ public class BitBlaster {
 		final Clause cl = new Clause(literal, mStackLevel);
 		cl.setProof(new LeafNode(-1, SourceAnnotation.EMPTY_SOURCE_ANNOT));
 		mClauses.add(cl);
-		mClauseCopy.add(cl);
 	}
 
 	/*
@@ -1103,7 +1068,6 @@ public class BitBlaster {
 		final Clause cl = new Clause(literals.toArray(new Literal[literals.size()]), mStackLevel);
 		cl.setProof(new LeafNode(-1, SourceAnnotation.EMPTY_SOURCE_ANNOT));
 		mClauses.add(cl);
-		mClauseCopy.add(cl);
 	}
 
 	public Collection<DPLLAtom> getBoolAtoms() {

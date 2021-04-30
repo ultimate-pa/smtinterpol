@@ -18,8 +18,10 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ITheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.LeafNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ResolutionNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ResolutionNode.Antecedent;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.IdentityHashSet;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
 /*
@@ -48,8 +50,10 @@ public class BitVectorTheory implements ITheory {
 	private final LinkedHashSet<Term> mAllTerms; // Set to ensure no Term is Bitblasted twice
 	final BitBlaster mBitblaster;
 	final BvultGraph mBvultGraph;
+	DPLLEngine mEngine; // Dpll engine for bitblasting
 	private long mBitBlastingTime, mAddDPLLBitBlastTime, mBvultGraphTime;
 	private int mClauseCount, mCircleCount, mTrivialConflicts;
+	private boolean mBitBlast = false; // ensures Bitblasting happens only once, not compatible with incremental Tracks
 
 	public BitVectorTheory(final Clausifier clausifier) {
 		mClausifier = clausifier;
@@ -57,7 +61,8 @@ public class BitVectorTheory implements ITheory {
 		mAllTerms = new LinkedHashSet<>();
 		mBitblaster = new BitBlaster(mClausifier, getTheory());
 		mBvultGraph = new BvultGraph();
-
+		mEngine = new DPLLEngine(mClausifier.getLogger(), () -> false); // TODO TimeHandler
+		mEngine.setProofGeneration(true);
 	}
 
 	@Override
@@ -95,7 +100,6 @@ public class BitVectorTheory implements ITheory {
 	@Override
 	public Clause setLiteral(final Literal literal) {
 		final DPLLAtom atom = literal.getAtom();
-
 		if (atom.getSMTFormula(getTheory()) instanceof ApplicationTerm) {
 			final ApplicationTerm apAtom = (ApplicationTerm) atom.getSMTFormula(getTheory());
 
@@ -309,59 +313,83 @@ public class BitVectorTheory implements ITheory {
 			// problem was solved by constant simplifications or similiar
 			return null;
 		}
-		// bitblasting
-		final DPLLEngine engine = new DPLLEngine(mClausifier.getLogger(), () -> false); // TODO TimeHandler
-		engine.setProofGeneration(true);
 
 		long time;
-		if (Config.PROFILE_TIME) {
-			time = System.nanoTime();
-		}
-		mClausifier.getLogger().info("Starting Bitblasting");
 
-		// collect all terms from all set literals
-		for (final Literal lit : mBVLiterals) {
-			final Term atom = lit.getAtom().getSMTFormula(getTheory());
-			final Term bvult = getBvult(lit);
-			if (bvult != null) {
-				if (!bvult.equals(getTheory().mFalse)) {
-					collectAllTerms(bvult);
+		// bitblasting
+		if (!mBitBlast) {
+			mBitBlast = true;
+			// collect all terms from all set literals
+			for (final Literal lit : mBVLiterals) {
+				final Term atom = lit.getAtom().getSMTFormula(getTheory());
+				final Term bvult = getBvult(lit);
+				if (bvult != null) {
+					if (!bvult.equals(getTheory().mFalse)) {
+						collectAllTerms(bvult);
+					}
+					// else, lit can be ignored if form is (bvult == false)
+				} else {
+					collectAllTerms(atom);
 				}
-				// else, lit can be ignored if form is (bvult == false)
-			} else {
-				collectAllTerms(atom);
+			}
+			mClausifier.getLogger().info("Starting Bitblasting");
+			if (Config.PROFILE_TIME) {
+				time = System.nanoTime();
+			}
+			mBitblaster.bitBlasting(mBVLiterals, mAllTerms, mEngine.getAssertionStackLevel());
+			if (Config.PROFILE_TIME) {
+				addBitBlastingTime(System.nanoTime() - time);
+			}
+			mClausifier.getLogger().info("Finished Bitblasting in: " + (System.nanoTime() - time));
+			for (final DPLLAtom atom : mBitblaster.getBoolAtoms()) {
+				mEngine.addAtom(atom);
+			}
+			mClauseCount += mBitblaster.getClauses().size();
+			for (final Clause cl : mBitblaster.getClauses()) {
+				mEngine.addClause(cl);
 			}
 		}
-		mBitblaster.bitBlasting(mBVLiterals, mAllTerms, engine.getAssertionStackLevel());
 		// mAllTerms = new LinkedHashSet<>(); //reset allTerms?
 
-		if (Config.PROFILE_TIME) {
-			addBitBlastingTime(System.nanoTime() - time);
-		}
-		mClausifier.getLogger().info("Finished Bitblasting: " + (System.nanoTime() - time));
+
 		if (mClausifier.getEngine().isTerminationRequested()) {
 			return null;
 		}
+
+
+
+
+		// Propositional Skeleton for BitBlasting:
+		mEngine.push();
+		for (int i = 0; i < mBVLiterals.size(); i++) {
+			final Literal[] propSkel = new Literal[1];
+			final Literal bitblastingAtom = mBitblaster.mInputAtomMap.get(mBVLiterals.get(i).getAtom());
+			if (mBVLiterals.get(i).getSign() == 1) {
+				propSkel[0] = bitblastingAtom;
+			} else {
+				propSkel[0] = bitblastingAtom.negate();
+			}
+			mClauseCount += 1;
+			final Clause cl = new Clause(propSkel, mEngine.getAssertionStackLevel());
+			cl.setProof(new LeafNode(-1, SourceAnnotation.EMPTY_SOURCE_ANNOT));
+			mEngine.learnClause(cl); // learn instead of add, we want to pop() the propSkeleton after solving
+		}
+
+		// DPLL for BitBlasting
+		mClausifier.getLogger().info("Bitblasting DPLL:");
 		if (Config.PROFILE_TIME) {
 			time = System.nanoTime();
 		}
-		for (final DPLLAtom atom : mBitblaster.getBoolAtoms()) {
-			engine.addAtom(atom);
-		}
-		mClauseCount += mBitblaster.getClauses().size();
-		for (final Clause cl : mBitblaster.getClauses()) {
-			engine.addClause(cl);
-		}
-		mClausifier.getLogger().info("Bitblasting DPLL:");
-		final boolean sat = engine.solve();
+		final boolean sat = mEngine.solve();
 		if (Config.PROFILE_TIME) {
 			addDPLLBitBlastTime(System.nanoTime() - time);
 		}
-		mClausifier.getLogger().debug("Bitblasting DPLL solved");
+		mClausifier.getLogger().info("Bitblasting DPLL solved");
 
+		// DPLL result
 		if (sat) {
 			// TODO Model generation
-			final Term[] model = engine.getSatisfiedLiterals(getTheory());
+			final Term[] model = mEngine.getSatisfiedLiterals(getTheory());
 			for (final Term t : model) {
 				if (t instanceof ApplicationTerm) {
 					if (((ApplicationTerm) t).getFunction().getName().equals("not")) {
@@ -381,7 +409,7 @@ public class BitVectorTheory implements ITheory {
 				}
 			}
 		} else {
-			final Clause unsat = engine.getProof();
+			final Clause unsat = mEngine.getProof();
 			final HashSet<Literal> unsatcore = getUnsatCore(unsat, mBitblaster.getLiteralMap());
 			final Literal[] cores = new Literal[unsatcore.size()];
 			int i = 0;
@@ -390,9 +418,12 @@ public class BitVectorTheory implements ITheory {
 				mClausifier.getLogger().debug("Unsat Core: " + c.getSMTFormula(getTheory()));
 				i ++;
 			}
+			mEngine.pop(1); // remove prop skeleton from dppl engine
 			return new Clause(cores, mClausifier.getStackLevel());
 		}
+		mEngine.pop(1); // remove prop skeleton from dppl engine
 		return null;
+
 	}
 
 	/*
@@ -410,8 +441,14 @@ public class BitVectorTheory implements ITheory {
 				if (c.getProof().isLeaf()) {
 					final Term lit = c.getLiteral(0).getAtom().getSMTFormula(getTheory());
 					if (literals.containsKey(lit)) {
-						res.add(literals.get(lit).negate());
+						final int idx = mBVLiterals.indexOf(literals.get(lit));
+						if (idx != -1) {
+							res.add(mBVLiterals.get(idx).negate());
+						} else {
+							res.add(mBVLiterals.get(mBVLiterals.indexOf(literals.get(lit).negate())).negate());
+						}
 					}
+
 				} else {
 					final ResolutionNode n = (ResolutionNode) c.getProof();
 					todo.push(n.getPrimary());

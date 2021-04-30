@@ -43,7 +43,7 @@ public class BVUtils {
 	}
 
 	/*
-	 * setting the return value of this function to zero, will deactivate all constant optimizations
+	 * setting the return value of this function to false, will deactivate all constant optimizations
 	 */
 	public boolean isConstRelation(final Term lhs, final Term rhs) {
 		if ((lhs instanceof ConstantTerm)) {
@@ -101,11 +101,10 @@ public class BVUtils {
 	}
 
 
-	/**
-	 * nomralizaiton of bitvec equalities,
-	 * elimintes concatinations with perfect match:
+	/*
+	 * normalization of bitvec equalities,
+	 * eliminates concatenations with perfect match:
 	 * a :: b = c :: d replaced by a = c && c = d
-	 *
 	 * with a,c and b, d being of same size.
 	 */
 	public Term eliminateConcatPerfectMatch(final FunctionSymbol fsym, final Term[] params) {
@@ -138,8 +137,8 @@ public class BVUtils {
 	}
 
 	/*
-	 * elimintes concatinations with NO match:
-	 * That means, a,b and c have diffrent size;
+	 * eliminates concatenations with NO match:
+	 * That means, a,b and c have different size;
 	 * a :: b = c is replaced by b = extract(0, b.length, c) AND a = extract( b.length , a.length, c)
 	 * Can only be called on binary equalities.
 	 */

@@ -126,6 +126,7 @@ public class BitvectorTest {
 		mSolver.assertTerm(input);
 		final LBool isunSat = mSolver.checkSat();
 		Assert.assertSame(LBool.SAT, isunSat);
+		mSolver.reset();
 	}
 
 	@Test
@@ -144,6 +145,7 @@ public class BitvectorTest {
 		mSolver.assertTerm(input);
 		final LBool isunSat = mSolver.checkSat();
 		Assert.assertSame(LBool.UNSAT, isunSat);
+		mSolver.reset();
 	}
 
 	@Test
@@ -160,6 +162,7 @@ public class BitvectorTest {
 		mSolver.assertTerm(input);
 		final LBool isunSat = mSolver.checkSat();
 		Assert.assertSame(LBool.SAT, isunSat);
+		mSolver.reset();
 	}
 
 	@Test
