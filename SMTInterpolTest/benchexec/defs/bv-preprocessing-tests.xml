@@ -18,7 +18,7 @@
         <includesfile>bench_uum.set</includesfile>
         <includesfile>bench_brummayerbiere.set</includesfile>
         <includesfile>bench_sage-app10.set</includesfile>
-        <propertyfile>/storage/repos/smtinterpol/bench/smt.prop</propertyfile>
+        <propertyfile>/storage/repos/smtinterpol/SMTInterpolTest/benchexec/smt.prop</propertyfile>
     </tasks>
     <rundefinition name="BV">
         <option name="-no-success" />
