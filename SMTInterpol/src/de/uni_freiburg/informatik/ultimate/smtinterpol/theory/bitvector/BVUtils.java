@@ -200,10 +200,8 @@ public class BVUtils {
 				simplifyBitVecEquality(matchConj2));
 	}
 
-	/**
+	/*
 	 * bvadd, bvudiv, bvmul
-	 *
-	 * @return
 	 */
 	public Term simplifyArithmeticConst(final FunctionSymbol fsym, final Term lhs, final Term rhs) {
 		final BigInteger lhsInt = new BigInteger(getConstAsString((ConstantTerm) lhs), 2);
@@ -240,6 +238,10 @@ public class BVUtils {
 			final BigInteger multiplication = lhsInt.multiply(rhsInt);
 			final BigInteger result = multiplication.mod(BigInteger.valueOf(2).pow(size));
 			calc = result.toString(2);
+		} else if (fsym.getName().equals("bvsub")) {
+			final BigInteger sub = lhsInt.subtract(rhsInt);
+			final BigInteger result = sub.mod(BigInteger.valueOf(2).pow(size));
+			calc = result.toString(2);
 		} else {
 			throw new UnsupportedOperationException("unknown function symbol: " + fsym.getName());
 		}
@@ -249,10 +251,8 @@ public class BVUtils {
 		return mTheory.binary(resultconst);
 	}
 
-	/**
+	/*
 	 * bvand, bvor
-	 *
-	 * @return
 	 */
 	public Term simplifyLogicalConst(final FunctionSymbol fsym, final Term lhs, final Term rhs) {
 		String resultconst = "#b";
@@ -289,11 +289,8 @@ public class BVUtils {
 		return concat;
 	}
 
-	/**
+	/*
 	 * bvshl, bvlshr
-	 * Fill's with zero's
-	 *
-	 * @return
 	 */
 	public Term simplifyShiftConst(final FunctionSymbol fsym, final Term lhs, final Term rhs) {
 		String resultconst = "#b";
@@ -330,15 +327,19 @@ public class BVUtils {
 
 
 	public Term simplifyNegConst(final FunctionSymbol fsym, final Term term) {
-		String resultconst = "#b";
-		final String termAsString = getConstAsString((ConstantTerm) term);
 		assert fsym.getName().equals("bvneg");
-
-		if (termAsString.charAt(0) == '1') {
-			resultconst = resultconst + '0' + termAsString.substring(1);
-		} else {
-			resultconst = resultconst + '1' + termAsString.substring(1);
+		final BigInteger bigint = new BigInteger(getConstAsString((ConstantTerm) term), 2);
+		if (bigint.equals(BigInteger.ZERO)) {
+			return term;
 		}
+		final String calc;
+		final int size = Integer.valueOf(term.getSort().getIndices()[0]);
+
+		final BigInteger result = BigInteger.valueOf(2).pow(size).subtract(bigint);
+		calc = result.toString(2);
+		assert size >= calc.length();
+		final String repeated = new String(new char[size - calc.length()]).replace("\0", "0");
+		final String resultconst = "#b" + repeated + calc;
 		return mTheory.binary(resultconst);
 	}
 
@@ -427,6 +428,7 @@ public class BVUtils {
 		return mTheory.term(fsym, lhs, rhs); // should never be the case
 	}
 
+	// TODO add proof for all const optimizations
 	public Term getProof(final Term optimized, final Term convertedApp, final IProofTracker tracker,
 			final Annotation proofconst) {
 		final Term lhs = tracker.getProvedTerm(convertedApp);
@@ -438,6 +440,7 @@ public class BVUtils {
 
 	/*
 	 * (bvult s t) to (bvult (bvsub s t) 0)
+	 * unused
 	 */
 	private Term normalizeBvult(final ApplicationTerm bvult) {
 		final Theory theory = bvult.getTheory();
@@ -450,7 +453,7 @@ public class BVUtils {
 
 	/*
 	 * replaces every inequality by its bvult abbreviation.
-	 * Apllies a few simplifications on constant terms and simple equalitites
+	 * Applies a few simplifications on constant terms and simple equalities
 	 * uses recursion in some cases
 	 */
 	public Term getBvultTerm(final Term convert) {
@@ -523,6 +526,9 @@ public class BVUtils {
 					return simplifyBvslXConst(appterm.getFunction(), appterm.getParameters()[0],
 							appterm.getParameters()[1]);
 				}
+				final Term bvult =
+						theory.term("bvult", appterm.getParameters()[0], appterm.getParameters()[1]);
+				final Term bvule = theory.or(bvult, theory.term("=", appterm.getParameters()[0], appterm.getParameters()[1]));
 				final Term equiBvule = theory.or(
 						theory.not(theory.or(
 								theory.not(theory.term("=",
@@ -535,9 +541,8 @@ public class BVUtils {
 								theory.not(theory.term("=",
 										theory.term(extract, appterm.getParameters()[0]),
 										theory.term(extract, appterm.getParameters()[1]))),
-								theory.not(
-										getBvultTerm(theory.term("bvule", appterm.getParameters()[0],
-												appterm.getParameters()[1]))))));
+								theory.not(bvule
+										))));
 
 				return equiBvule;
 			}
@@ -585,7 +590,7 @@ public class BVUtils {
 
 	/*
 	 * Bit Mask Elimination simplifies bvand, bvor functions where one hand side is a constant.
-	 * We determen the result of the function as much as possible by the given constant (absorbingElement).
+	 * We determine the result of the function as much as possible by the given constant (absorbingElement).
 	 * everything else (neutralElement in the constant) is selected from the non-constant argument.
 	 */
 	public Term bitMaskElimination(final Term term) {
@@ -635,10 +640,10 @@ public class BVUtils {
 											appterm.getParameters()[0].getSort());
 							final Term select = mTheory.term(extract, varTerm);
 
-							if(bitMask != null) {
+							if (bitMask != null) {
 								bitMask = mTheory.term("concat", bitMask, select);
-							}else {
-								bitMask =  select;
+							} else {
+								bitMask = select;
 							}
 						}
 					}
@@ -650,7 +655,7 @@ public class BVUtils {
 							bitMask = mTheory.binary(constSubString);
 						}
 					}
-				}else {
+				} else {
 					if (!constSubString.equals("#b")) {
 						if (bitMask != null) {
 							bitMask = mTheory.term("concat", bitMask, mTheory.binary(constSubString));
@@ -808,7 +813,6 @@ public class BVUtils {
 	/*
 	 * iterates over a formula of form (not (or (not (= b a)) (not (= a c))))
 	 * often provided by mUtils.convertEq (called in TermCompiler)
-	 * TODO cleanup
 	 */
 	public Term iterateOverBvEqualites(final Term convertedEquality, final LogicSimplifier mUtils) {
 		if (convertedEquality.equals(mTheory.mTrue) || convertedEquality.equals(mTheory.mFalse)) {
@@ -880,7 +884,7 @@ public class BVUtils {
 	}
 
 	/*
-	 * Since lhs.equals(rhs) is often not enough,
+	 * Since lhs.equals(rhs) is often not enough, (was the case before fixing the hashvalue of bv constants)
 	 * we have ordered the arguments beforehand and compare the Strings
 	 */
 	private Term simplifyBitVecEquality(final Term equality) {
@@ -902,9 +906,6 @@ public class BVUtils {
 		if (lhs.equals(rhs)) {
 			return mTheory.mTrue;
 		}
-		if (lhs.toStringDirect().equals(rhs.toStringDirect())) {
-			return mTheory.mTrue;
-		}
 		if (isConstRelation(lhs, rhs)) {
 			if (getConstAsString((ConstantTerm) lhs).equals(getConstAsString((ConstantTerm) rhs))) {
 				return mTheory.mTrue;
@@ -916,7 +917,7 @@ public class BVUtils {
 	}
 
 	/*
-	 * orders the parameter of input Term, if its a symetric operand.
+	 * orders the parameter of input Term, if its a symmetric operand.
 	 * Optimization for two cases:
 	 * Case1:
 	 * bvadd(a,b) = bvadd(b,a) ordered to bvadd(a,b) = bvadd(a,b) and can later be replaced by true

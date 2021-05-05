@@ -61,7 +61,7 @@ public class BitVectorTheory implements ITheory {
 		mAllTerms = new LinkedHashSet<>();
 		mBitblaster = new BitBlaster(mClausifier, getTheory());
 		mBvultGraph = new BvultGraph();
-		mEngine = new DPLLEngine(mClausifier.getLogger(), () -> false); // TODO TimeHandler
+		mEngine = new DPLLEngine(mClausifier.getLogger(), () -> false);
 		mEngine.setProofGeneration(true);
 	}
 
@@ -137,7 +137,7 @@ public class BitVectorTheory implements ITheory {
 				}
 
 				// Look for trivial Conflicts:
-				if (bvEqLHS.toString().equals(bvEqRHS.toString())) {
+				if (bvEqLHS.equals(bvEqRHS)) {
 					if (((ApplicationTerm) literal.getSMTFormula(getTheory())).getFunction().getName()
 							.equals("not")) {
 						final Literal[] conflictSet = new Literal[1];
@@ -156,10 +156,7 @@ public class BitVectorTheory implements ITheory {
 					}
 				}
 			}
-
 		}
-
-
 		return null;
 	}
 
@@ -168,7 +165,6 @@ public class BitVectorTheory implements ITheory {
 	 * and (a < b and b < a).
 	 */
 	private Clause checkTrivialConflict(final Literal literal, final boolean bvultLit, final Term bvultTerm) {
-
 		ApplicationTerm newLit;
 		if (bvultLit) {
 			newLit = (ApplicationTerm) bvultTerm;
@@ -179,28 +175,28 @@ public class BitVectorTheory implements ITheory {
 			return null;
 		}
 		for (final Literal lit : mBVLiterals) {
-			ApplicationTerm oldLit = (ApplicationTerm) lit.getSMTFormula(getTheory());
-			boolean oldLitBvult = false;
-			final ApplicationTerm bvultOld = (ApplicationTerm) getBvult(lit);
-			if (!oldLit.getFunction().getName().equals("not")) {
-				if (bvultOld == null) {
-					oldLitBvult = false;
-				} else if (!bvultOld.equals(getTheory().mFalse)) {
-					oldLitBvult = true;
-					oldLit = bvultOld;
-				}
-				if ((newLit.getParameters()[0].equals(oldLit.getParameters()[0])) &&
-						(newLit.getParameters()[1].equals(oldLit.getParameters()[1]))) {
-					if ((!bvultLit && oldLitBvult) || (bvultLit && !oldLitBvult)) {
-						// Conflict
-						final Literal[] conflictSet = new Literal[2];
-						conflictSet[0] = literal.negate();
-						conflictSet[1] = lit.negate();
-						final Clause conflict = new Clause(conflictSet);
-						return conflict;
+			if ((lit.getSign() == 1) && (literal.getSign() == 1)) { // TODO was wenn eins negativ?
+				ApplicationTerm oldLit = (ApplicationTerm) lit.getSMTFormula(getTheory());
+				boolean oldLitBvult = false;
+				final ApplicationTerm bvultOld = (ApplicationTerm) getBvult(lit);
+				if (!oldLit.getFunction().getName().equals("not")) {
+					if (bvultOld == null) {
+						oldLitBvult = false;
+					} else if (!bvultOld.equals(getTheory().mFalse)) {
+						oldLitBvult = true;
+						oldLit = bvultOld;
 					}
-				} else
-					if ((newLit.getParameters()[0].equals(oldLit.getParameters()[1])) &&
+					if ((newLit.getParameters()[0].equals(oldLit.getParameters()[0])) &&
+							(newLit.getParameters()[1].equals(oldLit.getParameters()[1]))) {
+						if ((!bvultLit && oldLitBvult) || (bvultLit && !oldLitBvult)) {
+							// Conflict
+							final Literal[] conflictSet = new Literal[2];
+							conflictSet[0] = literal.negate();
+							conflictSet[1] = lit.negate();
+							final Clause conflict = new Clause(conflictSet);
+							return conflict;
+						}
+					} else if ((newLit.getParameters()[0].equals(oldLit.getParameters()[1])) &&
 							(newLit.getParameters()[1].equals(oldLit.getParameters()[0]))) {
 						if (bvultLit || oldLitBvult) {
 							// Conflict
@@ -211,6 +207,7 @@ public class BitVectorTheory implements ITheory {
 							return conflict;
 						}
 					}
+				}
 			}
 		}
 		return null;
@@ -236,7 +233,7 @@ public class BitVectorTheory implements ITheory {
 		}
 		for (final Literal lit : mBVLiterals) {
 			// check only the newly set literals for circles
-			if(lit.getAtom().getDecideLevel() == mClausifier.getEngine().getDecideLevel()) {
+			if (lit.getAtom().getDecideLevel() == mClausifier.getEngine().getDecideLevel()) {
 				if (mClausifier.getEngine().isTerminationRequested()) {
 					return null;
 				}
@@ -356,9 +353,6 @@ public class BitVectorTheory implements ITheory {
 			return null;
 		}
 
-
-
-
 		// Propositional Skeleton for BitBlasting:
 		mEngine.push();
 		for (int i = 0; i < mBVLiterals.size(); i++) {
@@ -384,7 +378,7 @@ public class BitVectorTheory implements ITheory {
 		if (Config.PROFILE_TIME) {
 			addDPLLBitBlastTime(System.nanoTime() - time);
 		}
-		mClausifier.getLogger().info("Bitblasting DPLL solved");
+		mClausifier.getLogger().info("Bitblasting DPLL finished");
 
 		// DPLL result
 		if (sat) {
@@ -396,16 +390,16 @@ public class BitVectorTheory implements ITheory {
 						final Term atom = ((ApplicationTerm) t).getParameters()[0];
 						if (mBitblaster.getLiteralMap().containsKey(atom)) {
 							mClausifier.getLogger()
-							.debug("Model InputLiteral: "
-									+ mBitblaster.getLiteralMap().get(atom).getSMTFormula(getTheory()));
+									.debug("Model InputLiteral: "
+											+ mBitblaster.getLiteralMap().get(atom).getSMTFormula(getTheory()));
 						}
 					}
 					break;
 				}
 				if (mBitblaster.getLiteralMap().containsKey(t)) {
 					mClausifier.getLogger()
-					.debug("Model InputLiteral: "
-							+ mBitblaster.getLiteralMap().get(t).getSMTFormula(getTheory()));
+							.debug("Model InputLiteral: "
+									+ mBitblaster.getLiteralMap().get(t).getSMTFormula(getTheory()));
 				}
 			}
 		} else {

@@ -558,11 +558,13 @@ public class TermCompiler extends TermTransformer {
 				return;
 			}
 			case "bvsub":
+				// pushTerm(theory.term("bvadd", params[0], theory.term("bvneg", params[1])));
 			case "bvudiv":
 			case "bvurem": {
 				if (bvUtils.isConstRelation(params[0], params[1])) {
-					setResult(bvUtils.getProof(bvUtils.simplifyArithmeticConst(fsym, params[0], params[1]), convertedApp,
-							mTracker, ProofConstants.RW_BVARITH));
+					setResult(
+							bvUtils.getProof(bvUtils.simplifyArithmeticConst(fsym, params[0], params[1]), convertedApp,
+									mTracker, ProofConstants.RW_BVARITH));
 					return;
 				}
 				setResult(convertedApp);
@@ -605,15 +607,19 @@ public class TermCompiler extends TermTransformer {
 				return;
 			}
 			case "bvneg": {
-				if (params[0] instanceof ConstantTerm) {
+				if (bvUtils.isConstRelation(params[0], null)) {
 					setResult(bvUtils.simplifyNegConst(fsym, params[0]));
 					return;
 				}
-				setResult(convertedApp);
+				final int size = Integer.valueOf(convertedApp.getSort().getIndices()[0]);
+				final String repeated = new String(new char[size-1]).replace("\0", "0");
+				final String oneVec = "#b" + repeated+"1";
+				final Term bvneg = theory.term("bvadd", theory.term("bvnot", params[0]), theory.binary(oneVec));
+				setResult(bvneg);
 				return;
 			}
 			case "bvnot": {
-				if (params[0] instanceof ConstantTerm) {
+				if (bvUtils.isConstRelation(params[0], null)) {
 					setResult(bvUtils.simplifyNotConst(fsym, params[0]));
 					return;
 				}
@@ -640,7 +646,7 @@ public class TermCompiler extends TermTransformer {
 				return;
 			}
 			case "extract": {
-				if (params[0] instanceof ConstantTerm) {
+				if (bvUtils.isConstRelation(params[0], null)) {
 					setResult(bvUtils.simplifySelectConst(fsym, params[0]));
 					return;
 				}
@@ -722,9 +728,20 @@ public class TermCompiler extends TermTransformer {
 								params[0].getSort());
 				final Term extractSignLhs = theory.term(extract, params[0]);
 				final Term extractSignRhs = theory.term(extract, params[1]);
+				final String zeroVec = "#b" + new String(new char[size]).replace("\0", "0");
+				final String oneVec = "#b" + new String(new char[size - 1]).replace("\0", "0") + "1";
+				final Term rhsZero = theory.term("=", params[1], theory.binary(zeroVec));
+				Term divZero;
+				if (size > 1) {
+					divZero = theory.ifthenelse(theory.term("=", extractSignLhs, theory.binary("#b0")),
+							params[0], theory.binary(oneVec)); // first operand if positiv, otherwise 1 (int)
+				} else {
+					divZero = theory.binary("#b1");
+				}
 
-				pushTerm(theory.ifthenelse(theory.term("and", theory.term("=", extractSignLhs, theory.binary("#b0")),
-						theory.term("=", extractSignRhs, theory.binary("#b0"))),
+				final Term bvsdivAbbreviation = theory.ifthenelse(
+						theory.term("and", theory.term("=", extractSignLhs, theory.binary("#b0")),
+								theory.term("=", extractSignRhs, theory.binary("#b0"))),
 						theory.term("bvudiv", params[0], params[1]),
 						theory.ifthenelse(theory.term("and", theory.term("=", extractSignLhs, theory.binary("#b1")),
 								theory.term("=", extractSignRhs, theory.binary("#b0"))),
@@ -735,7 +752,8 @@ public class TermCompiler extends TermTransformer {
 										theory.term("bvneg",
 												theory.term("bvudiv", params[0], theory.term("bvneg", params[1]))),
 										theory.term("bvudiv", theory.term("bvneg", params[0]),
-												theory.term("bvneg", params[1]))))));
+												theory.term("bvneg", params[1])))));
+				pushTerm(theory.ifthenelse(rhsZero, divZero, bvsdivAbbreviation));
 				return;
 			}
 			case "bvsrem": {
@@ -804,7 +822,12 @@ public class TermCompiler extends TermTransformer {
 										theory.term("=", extractSignRhs, theory.binary("#b0"))),
 								bvurem,
 								elseTerm2);
-				pushTerm(theory.ifthenelse(theory.term("=", bvurem, zeroVec), bvurem, elseTerm));
+
+				//bvsmod by zero:
+				final String zeroVec2 = "#b" + new String(new char[size]).replace("\0", "0");
+				final Term rhsZero = theory.term("=", params[1], theory.binary(zeroVec2));
+				pushTerm(theory.ifthenelse(rhsZero, params[0],
+						theory.ifthenelse(theory.term("=", bvurem, zeroVec), bvurem, elseTerm)));
 				return;
 			}
 			case "bvashr": {
@@ -842,10 +865,7 @@ public class TermCompiler extends TermTransformer {
 				if (fsym.getIndices()[0].equals("0")) {
 					setResult(params[0]);
 					return;
-				} else if(fsym.getIndices()[0].equals("1")){
-					pushTerm(theory.term("concat", theory.binary("#b0"), params[0]));
-					return;
-				}else{
+				} else {
 					String repeat = "#b0";
 					for (int i = 1; i < Integer.parseInt(fsym.getIndices()[0]); i++) {
 						repeat = repeat + "0";
@@ -885,6 +905,7 @@ public class TermCompiler extends TermTransformer {
 
 			case "rotate_left": {
 				final int size = Integer.parseInt(params[0].getSort().getIndices()[0]);
+
 				if (fsym.getIndices()[0].equals("0")) {
 					setResult(params[0]);
 					return;
@@ -892,7 +913,6 @@ public class TermCompiler extends TermTransformer {
 					setResult(params[0]);
 					return;
 				} else {
-
 					final String[] selectIndicesLhs = new String[2];
 					selectIndicesLhs[0] = String.valueOf(size - 2);
 					selectIndicesLhs[1] = "0";

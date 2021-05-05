@@ -7,8 +7,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
@@ -63,7 +61,7 @@ public class BitBlaster {
 
 
 	public BitBlaster(final Clausifier clausifier, final Theory theory) {
-		mClausifier = clausifier;
+		mClausifier = clausifier; // used for Timeout
 		mTheory = theory;
 		mInputAtomMap = new HashMap<>();
 	}
@@ -158,8 +156,7 @@ public class BitBlaster {
 
 		final Term[] boolvector = new Term[size];
 		for (int i = 0; i < size; i++) {
-			final String termPrefix = "e_(" + term.hashCode() + ")_" + i;
-			// termPrefix = termPrefix.replace("|", ""); // remove quote, such that termvariables can be quoted later
+			final String termPrefix = "e_(" + term.hashCode() + ")_" + i; // must not contain | as symbol
 			final TermVariable tv = mVarPrefix.get(termPrefix);
 			final TermVariable boolVar;
 			if (tv != null) {
@@ -321,14 +318,9 @@ public class BitBlaster {
 					}
 					break;
 				}
-				case "bvneg": {
-					conjunction[encTerm.length - 1] =
-							mTheory.not(mEncTerms.get(appterm.getParameters()[0])[encTerm.length - 1]);
-					for (int i = 0; i < encTerm.length - 1; i++) {
-						conjunction[i] = mEncTerms.get(appterm.getParameters()[0])[i];
-					}
-					break;
-				}
+				// case "bvneg": {
+				// break;
+				// }
 				case "bvadd": {
 					adder(mEncTerms.get(appterm.getParameters()[0]), mEncTerms.get(appterm.getParameters()[1]),
 							mTheory.mFalse, encTerm).getFirst();
@@ -342,19 +334,18 @@ public class BitBlaster {
 									mTheory.mTrue, null).getFirst();
 					break;
 				}
-				case "bvshl": {
-					final int stage =
-							mTheory.toNumeral(appterm.getParameters()[1].getSort().getIndices()[0]).intValue() - 1;
-					conjunction = shift(appterm.getParameters()[0], appterm.getParameters()[1], stage, true);
-					break;
-				}
 				case "bvmul": {
 					final int stage =
 							mTheory.toNumeral(appterm.getParameters()[1].getSort().getIndices()[0]).intValue() - 1;
 					multiplier(appterm.getParameters()[0], appterm.getParameters()[1], stage, encTerm);
 					return;
 				}
-
+				case "bvshl": {
+					final int stage =
+							mTheory.toNumeral(appterm.getParameters()[1].getSort().getIndices()[0]).intValue() - 1;
+					conjunction = shift(appterm.getParameters()[0], appterm.getParameters()[1], stage, true);
+					break;
+				}
 				case "bvlshr": {
 					final int stage =
 							mTheory.toNumeral(appterm.getParameters()[1].getSort().getIndices()[0]).intValue() - 1;
@@ -379,6 +370,7 @@ public class BitBlaster {
 				case "bvurem":
 					// b != 0 => q * b + e(t) = a
 					// b != 0 => e(t) < b
+					// multiplication and addition without overflow in both cases
 					division(appterm, conjunction, encTerm);
 					return;
 				default:
@@ -396,77 +388,6 @@ public class BitBlaster {
 	}
 
 	/*
-	 * Creates a Copy of all Input Clauses.
-	 * Searches for the current equivalent atoms or
-	 * creates them if they didnt occur beforehand (AuxVars).
-	 * After collecting the needed Atoms, a new Clause is created.
-	 * We cannot re use old Clauses and therefore old Atoms, which have been created in previous BitBlasting runs!
-	 */
-	private Collection<Clause> createClauseCopyAUS(final ScopedArrayList<Clause> scopedArrayList, final Term encAtom) {
-		// Auxar Map, maps oldAuxVar to newAuxVar
-		final HashMap<Literal, Literal> auxVarMap = new HashMap<>();
-
-		final ScopedArrayList<Clause> result = new ScopedArrayList<>();
-		for (final Clause clause : scopedArrayList) {
-			final Literal[] literal = new Literal[clause.getSize()];
-
-			for (int i = 0; i < clause.getSize(); i++) {
-				final Literal lit = clause.getLiteral(i);
-
-				// look for the the new encoded term, corresponding to the old encoded term
-
-				final String VarPrefix = lit.getAtom().getSMTFormula(mTheory).toStringDirect();
-				final Pattern p = Pattern.compile("(e_\\(.*\\)_\\d*)");
-				final Matcher m = p.matcher(VarPrefix);
-
-				if (m.find()) { // Encoded Term
-					final String match = m.group();
-					final DPLLAtom newlit = mBoolAtoms.get(mVarPrefix.get(match));
-
-					if (lit.getSign() == 1) {
-						literal[i] = newlit;
-					} else {
-						literal[i] = newlit.negate();
-					}
-				}
-				else if (VarPrefix.contains("At")) { // Case Input Atom
-					if (lit.getSign() == 1) {
-						literal[i] = mBoolAtoms.get(encAtom);
-					} else {
-						literal[i] = mBoolAtoms.get(encAtom).negate();
-					}
-
-				} else { // Case AuxVar
-					Literal newAuxVar;
-					if (auxVarMap.containsKey(lit)) {
-						newAuxVar = auxVarMap.get(lit);
-					} else if (auxVarMap.containsKey(lit.negate())) {
-						// auxVarMap can contain the negated literal as Key
-						newAuxVar = auxVarMap.get(lit.negate());
-					} else {
-						// create and add new auxvar if it doesnt contain the old auxvar
-						final TermVariable boolVar = mTheory.createFreshTermVariable("aux", mTheory.getSort("Bool"));
-						final DPLLAtom dpll = new BooleanVarAtom(boolVar, mStackLevel);
-						mBoolAtoms.put(boolVar, dpll);
-						auxVarMap.put(lit, dpll);
-						newAuxVar = dpll;
-					}
-					if (lit.getSign() == 1) {
-						literal[i] = newAuxVar;
-					} else {
-						literal[i] = newAuxVar.negate();
-					}
-				}
-			}
-			final Clause cl = new Clause(literal, mStackLevel);
-			cl.setProof(new LeafNode(-1, SourceAnnotation.EMPTY_SOURCE_ANNOT));
-			result.add(cl);
-		}
-		return result;
-	}
-
-
-	/*
 	 * Creates the Division and Remainder constraints. Adds the clauses of these constraints to the output clauses
 	 * The return values of adder and multiplier are auxVars, no need to create additional auxVars here.
 	 * This method can be used to encode bvudiv and bvurem.
@@ -481,16 +402,16 @@ public class BitBlaster {
 		final Term[] product;
 		if (fsym.getName().equals("bvudiv")) {
 			remainder = createBoolVarArray(conjunction.length);
-			product = multiplier(encTerm, encB, stage, null);
+			product = multiplier(encTerm, encB, stage, null, false);
 		} else if (fsym.getName().equals("bvurem")) {
 			remainder = encTerm;
-			product = multiplier(createBoolVarArray(conjunction.length), encB, stage, null);
+			product = multiplier(createBoolVarArray(conjunction.length), encB, stage, null, false);
 		} else {
 			throw new UnsupportedOperationException(
 					"Unsupported functionsymbol for bitblasting: " + fsym.getName());
 		}
 
-		final Term[] sum = adder(product, remainder, mTheory.mFalse, null).getFirst();
+		final Term[] sum = adder(product, remainder, mTheory.mFalse, null, false).getFirst();
 
 		// Term lhs = (encB != False);
 		final Term lhs = mTheory.or(encB);
@@ -507,11 +428,26 @@ public class BitBlaster {
 		toClauses(divisionConstraint);
 
 		// remainderConstraint:
-		final Literal bvultLit = getLiteral(bvult);
-		for (int i = 0; i < encB.length; i++) {
-			final Literal lhsLit = getLiteral(encB[i]);
-			final Literal[] lit1 = { bvultLit, lhsLit.negate() };
-			addClause(lit1);
+		final Term remainderConstraint = mTheory.or(mTheory.not(lhs), bvult);
+		toClauses(remainderConstraint);
+
+		if (fsym.getName().equals("bvudiv")) {
+			// divZero Constraint:
+			final Term divZero = mTheory.or(lhs, mTheory.and(encTerm));
+			toClauses(divZero);
+		} else if (fsym.getName().equals("bvurem")) {
+			// remZero Constraint:
+			final Term[] conjZero = new Term[encTerm.length];
+			for (int i = 0; i < encTerm.length; i++) {
+				conjZero[i] = mTheory.and(
+						mTheory.or(mTheory.not(encTerm[i]), encA[i]),
+						mTheory.or(mTheory.not(encA[i]), encTerm[i]));
+			}
+			final Term divZero = mTheory.or(lhs, mTheory.and(conjZero));
+			toClauses(divZero);
+		} else {
+			throw new UnsupportedOperationException(
+					"Unsupported functionsymbol for bitblasting: " + fsym.getName());
 		}
 
 	}
@@ -691,14 +627,26 @@ public class BitBlaster {
 	}
 
 	/*
-	 * Full Adder.
-	 * No recursion, instead we use auxvars.
+	 * default adder, with overflow enabled
 	 */
 	private Pair<Term[], Term> adder(final Term[] encA, final Term[] encB, final Term cin, final Term[] encAdd) {
+		return adder(encA, encB, cin, encAdd, true);
+	}
+
+	/*
+	 * Full Adder.
+	 * No recursion, instead we use auxvars.
+	 * if overflow is false (used in division) cout needs to be false
+	 */
+	private Pair<Term[], Term> adder(final Term[] encA, final Term[] encB, final Term cin, final Term[] encAdd,
+			final boolean overflow) {
 		assert encA.length == encB.length;
 		final Term[] sumResult = new Term[encA.length];
 		final Term[] carryBits = carryBits(encA, encB, cin);
 		for (int i = 0; i < encA.length; i++) {
+			if (mClausifier.getEngine().isTerminationRequested()) {
+				break;
+			}
 			if (encAdd != null) {
 				// will create the clauses directly
 				sumResult[i] = sumAdder(encA[i], encB[i], carryBits[i], encAdd[i]);
@@ -708,6 +656,15 @@ public class BitBlaster {
 			}
 		}
 		final Term cout = carryBits[carryBits.length - 1];
+		if (!overflow) { //used for division constraints
+			if (cout.equals(mTheory.mFalse)) {
+				return new Pair<>(sumResult, cout);
+			} else {
+				final Literal coutLit = getLiteral(cout);
+				final Literal[] lit = { coutLit.negate() };
+				addClause(lit);
+			}
+		}
 		return new Pair<>(sumResult, cout);
 	}
 
@@ -785,7 +742,13 @@ public class BitBlaster {
 		// Only consider stages smaller than maximal shift distance
 		stage = logTwo;
 		for (int s = 0; s < stage; s++) {
+			if (mClausifier.getEngine().isTerminationRequested()) {
+				break;
+			}
 			for (int i = 0; i < encA.length; i++) {
+				if (mClausifier.getEngine().isTerminationRequested()) {
+					break;
+				}
 				final int pow = (int) Math.pow(2, s);
 				final Term ifTerm;
 				final Term elseTerm;
@@ -850,6 +813,9 @@ public class BitBlaster {
 			return encA;
 		} else {
 			for (int i = 0; i < encA.length; i++) {
+				if (mClausifier.getEngine().isTerminationRequested()) {
+					break;
+				}
 				if (b.charAt(b.length() - 1 - stage) == '1') {
 					if (i >= Math.pow(2, stage)) {
 						shiftResult[i] =
@@ -868,14 +834,16 @@ public class BitBlaster {
 	private Term[] multiplier(final Term a, final Term b, final int stage, final Term[] encMul) {
 		final Term[] encA = mEncTerms.get(a);
 		final Term[] encB = mEncTerms.get(b);
-		return multiplier(encA, encB, stage, encMul);
+		return multiplier(encA, encB, stage, encMul, true);
 	}
 
 	/*
 	 * Multiplier without recursion. Instead we use aux vars.
 	 * returns null, if encMul was given. Then clauses will be created during the process
+	 * if overflow is false, all carry out bits from the adder need to be false (used for division constraints)
 	 */
-	private Term[] multiplier(final Term[] encA, final Term[] encB, final int stage, final Term[] encMul) {
+	private Term[] multiplier(final Term[] encA, final Term[] encB, final int stage, final Term[] encMul,
+			final boolean overflow) {
 		final int size = encA.length;
 		final Term[] zeroVec = new Term[size];
 		Arrays.fill(zeroVec, mTheory.mFalse);
@@ -886,8 +854,8 @@ public class BitBlaster {
 			} else {
 				for (int i = 0; i < size; i++) {
 					final Literal result = getLiteral(encMul[i]);
-					final Literal[] lit6 = { result.negate() };
-					addClause(lit6);
+					final Literal[] lit = { result.negate() };
+					addClause(lit);
 				}
 				return null;
 			}
@@ -908,6 +876,9 @@ public class BitBlaster {
 			}
 			final Term[] ifte = new Term[size];
 			for (int i = 0; i < size; i++) {
+				if (mClausifier.getEngine().isTerminationRequested()) {
+					break;
+				}
 				Term t;
 				if (encB[i].equals(mTheory.mTrue)) {
 					t = mTheory.or(mTheory.not(encB[s]), shift[i]);
@@ -921,11 +892,20 @@ public class BitBlaster {
 							mTheory.or(encB[s], mTheory.mFalse));
 				}
 				ifte[i] = createAuxVar(t);
+				if (!overflow && i + s > stage) {
+					final Term overflo = mTheory.not(mTheory.and(encA[i], encB[s]));
+					toClauses(overflo);
+				}
+				// encA[i + s] must be false
 			}
 			if (mClausifier.getEngine().isTerminationRequested()) {
-				return null;
+				break;
 			}
-			adder(mul, ifte, mTheory.mFalse, boolvarmap[s]).getFirst();
+			final Term[] sum = adder(mul, ifte, mTheory.mFalse, boolvarmap[s], overflow).getFirst();
+
+			if (!overflow) { // used for division constraints
+
+			}
 		}
 		// Last stage
 		final Term[] shift;
@@ -943,13 +923,26 @@ public class BitBlaster {
 				t = mTheory.or(encB[stage], mTheory.mFalse);
 			} else {
 				// mTheory.ifthenelse(encB[stage], shift[i], mTheory.mFalse);
+				if (mClausifier.getEngine().isTerminationRequested()) {
+					break;
+				}
 				t = mTheory.and(
 						mTheory.or(mTheory.not(encB[stage]), shift[i]),
 						mTheory.or(encB[stage], mTheory.mFalse));
 			}
 			ifte[i] = createAuxVar(t);
+			if (!overflow && i > 0) {
+				final Term overflo = mTheory.not(mTheory.and(encA[i], encB[stage]));
+				toClauses(overflo);
+			}
 		}
-		final Term[] sum = adder(boolvarmap[stage - 1], ifte, mTheory.mFalse, encMul).getFirst();
+		if (mClausifier.getEngine().isTerminationRequested()) {
+			return null;
+		}
+		final Term[] sum = adder(boolvarmap[stage - 1], ifte, mTheory.mFalse, encMul, overflow).getFirst();
+		if (!overflow) { // used for division constraints
+
+		}
 		if (encMul == null) {
 			return sum;
 		} else {
