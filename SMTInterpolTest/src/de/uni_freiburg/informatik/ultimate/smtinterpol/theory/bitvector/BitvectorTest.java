@@ -643,7 +643,7 @@ public class BitvectorTest {
 	}
 
 	@Test
-	public void bbEtract() {
+	public void bbExtract() {
 		mSolver.resetAssertions();
 		final String[] indices = new String[2];
 		indices[0] = "2";

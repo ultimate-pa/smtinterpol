@@ -54,6 +54,7 @@ public class BitVectorTheory implements ITheory {
 	private long mBitBlastingTime, mAddDPLLBitBlastTime, mBvultGraphTime;
 	private int mClauseCount, mCircleCount, mTrivialConflicts;
 	private boolean mBitBlast = false; // ensures Bitblasting happens only once, not compatible with incremental Tracks
+	private final boolean mEnableBvultGraph = true;
 
 	public BitVectorTheory(final Clausifier clausifier) {
 		mClausifier = clausifier;
@@ -81,6 +82,9 @@ public class BitVectorTheory implements ITheory {
 	 * recursiv
 	 */
 	private void collectAllTerms(final Term term) {
+		if (mAllTerms.contains(term)) {
+			return;
+		}
 		if (term instanceof TermVariable) {
 			mAllTerms.add(term);
 		} else if (term instanceof ApplicationTerm) {
@@ -125,12 +129,14 @@ public class BitVectorTheory implements ITheory {
 					bvLit = true;
 				}
 				if(bvultLit) {
-					final Term from = ((ApplicationTerm) bvultTerm).getParameters()[0];
-					final Term to = ((ApplicationTerm) bvultTerm).getParameters()[1];
-					mBvultGraph.addVertex(from);
-					mBvultGraph.addVertex(to);
-					if (literal.getSign() == 1) {
-						mBvultGraph.addEdge(mBvultGraph.getVertex(from), literal, mBvultGraph.getVertex(to));
+					if (mEnableBvultGraph) {
+						final Term from = ((ApplicationTerm) bvultTerm).getParameters()[0];
+						final Term to = ((ApplicationTerm) bvultTerm).getParameters()[1];
+						mBvultGraph.addVertex(from);
+						mBvultGraph.addVertex(to);
+						if (literal.getSign() == 1) {
+							mBvultGraph.addEdge(mBvultGraph.getVertex(from), literal, mBvultGraph.getVertex(to));
+						}
 					}
 					mClausifier.getLogger().debug("Set BitVec Literal: " + literal.getSMTFormula(getTheory()));
 					mBVLiterals.add(literal);
@@ -216,7 +222,7 @@ public class BitVectorTheory implements ITheory {
 	@Override
 	public void backtrackLiteral(final Literal literal) {
 		final Term bvult = getBvult(literal);
-		if (bvult != null && literal.getSign() == 1 && !bvult.equals(getTheory().mFalse)) {
+		if (bvult != null && literal.getSign() == 1 && !bvult.equals(getTheory().mFalse) && mEnableBvultGraph) {
 			final Vertex from = mBvultGraph.getVertex(((ApplicationTerm) bvult).getParameters()[0]);
 			final Vertex to = mBvultGraph.getVertex(((ApplicationTerm) bvult).getParameters()[1]);
 			from.removeNeighbor(to, literal);
@@ -231,40 +237,42 @@ public class BitVectorTheory implements ITheory {
 		if (Config.PROFILE_TIME) {
 			time = System.nanoTime();
 		}
-		for (final Literal lit : mBVLiterals) {
-			// check only the newly set literals for circles
-			if (lit.getAtom().getDecideLevel() == mClausifier.getEngine().getDecideLevel()) {
-				if (mClausifier.getEngine().isTerminationRequested()) {
-					return null;
-				}
-				final Term bvult = getBvult(lit);
-				if (bvult != null && lit.getSign() == 1 && !bvult.equals(getTheory().mFalse)) {
-					final Vertex ver = mBvultGraph.getVertex(((ApplicationTerm) bvult).getParameters()[0]);
-					if (!ver.isVisited()) {
-						final HashSet<Literal> conflict = mBvultGraph.getCycle(ver);
-						if (conflict.size() >= 2) {
-							final Literal[] cores = new Literal[conflict.size()];
-							int i = 0;
-							for (final Literal c : conflict) {
-								cores[i] = c.negate();
-								mClausifier.getLogger().debug("Bvult Circle: " + c.getSMTFormula(getTheory()));
-								i++;
+		if (mEnableBvultGraph) {
+			for (final Literal lit : mBVLiterals) {
+				// check only the newly set literals for circles
+				if (lit.getAtom().getDecideLevel() == mClausifier.getEngine().getDecideLevel()) {
+					if (mClausifier.getEngine().isTerminationRequested()) {
+						return null;
+					}
+					final Term bvult = getBvult(lit);
+					if (bvult != null && lit.getSign() == 1 && !bvult.equals(getTheory().mFalse)) {
+						final Vertex ver = mBvultGraph.getVertex(((ApplicationTerm) bvult).getParameters()[0]);
+						if (!ver.isVisited()) {
+							final HashSet<Literal> conflict = mBvultGraph.getCycle(ver);
+							if (conflict.size() >= 2) {
+								final Literal[] cores = new Literal[conflict.size()];
+								int i = 0;
+								for (final Literal c : conflict) {
+									cores[i] = c.negate();
+									mClausifier.getLogger().debug("Bvult Circle: " + c.getSMTFormula(getTheory()));
+									i++;
+								}
+								mBvultGraph.resetCycleVisited();
+								if (Config.PROFILE_TIME) {
+									addBvultGraphTime(System.nanoTime() - time);
+								}
+								mCircleCount += 1;
+								return new Clause(cores, mClausifier.getStackLevel());
 							}
-							mBvultGraph.resetCycleVisited();
-							if (Config.PROFILE_TIME) {
-								addBvultGraphTime(System.nanoTime() - time);
-							}
-							mCircleCount += 1;
-							return new Clause(cores, mClausifier.getStackLevel());
+
 						}
 
 					}
 
 				}
-
 			}
+			mBvultGraph.resetCycleVisited();
 		}
-		mBvultGraph.resetCycleVisited();
 		if (Config.PROFILE_TIME) {
 			addBvultGraphTime(System.nanoTime() - time);
 		}
