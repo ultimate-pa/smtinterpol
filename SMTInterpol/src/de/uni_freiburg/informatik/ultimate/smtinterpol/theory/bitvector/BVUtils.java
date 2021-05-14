@@ -37,9 +37,11 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.IProofTracker;
 
 public class BVUtils {
 	private final Theory mTheory;
+	private final LogicSimplifier mUtils;
 
-	public BVUtils(final Theory theory) {
+	public BVUtils(final Theory theory, final LogicSimplifier utils) {
 		mTheory = theory;
+		mUtils = utils;
 	}
 
 	/*
@@ -107,30 +109,28 @@ public class BVUtils {
 	 * a :: b = c :: d replaced by a = c && c = d
 	 * with a,c and b, d being of same size.
 	 */
-	public Term eliminateConcatPerfectMatch(final FunctionSymbol fsym, final Term[] params) {
+	public Term eliminateConcatPerfectMatch(final FunctionSymbol fsym, final Term lhs, final Term rhs) {
 		assert fsym.getName().equals("=");
-		assert params[0].getSort().isBitVecSort();
-		assert params[1].getSort().isBitVecSort();
 		final List<Term> matchresult = new ArrayList<>();
-		for (int j = 1; j <= params.length - 1; j++) {
-			if (!((params[0] instanceof ApplicationTerm) && (params[j] instanceof ApplicationTerm))) {
-				return null;
-			}
-			final ApplicationTerm aplhs = (ApplicationTerm) params[0];
-			final ApplicationTerm aprhs = (ApplicationTerm) params[j];
-			if (!(aplhs.getFunction().getName().equals("concat") && aprhs.getFunction().getName().equals("concat"))) {
-				return null;
-			}
-			if (aplhs.getParameters()[0].getSort().getIndices()
-					.equals(aprhs.getParameters()[0].getSort().getIndices())) {
-				final Term matchConj1 = mTheory.term("=", aplhs.getParameters()[0], aprhs.getParameters()[0]);
-				final Term matchConj2 = mTheory.term("=", aplhs.getParameters()[1], aprhs.getParameters()[1]);
-				matchresult.add(simplifyBitVecEquality(matchConj1));
-				matchresult.add(simplifyBitVecEquality(matchConj2));
-			} else {
-				return null;
-			}
+
+		if (!((lhs instanceof ApplicationTerm) && (rhs instanceof ApplicationTerm))) {
+			return null;
 		}
+		final ApplicationTerm aplhs = (ApplicationTerm) lhs;
+		final ApplicationTerm aprhs = (ApplicationTerm) rhs;
+		if (!(aplhs.getFunction().getName().equals("concat") && aprhs.getFunction().getName().equals("concat"))) {
+			return null;
+		}
+		if (aplhs.getParameters()[0].getSort().getIndices()
+				.equals(aprhs.getParameters()[0].getSort().getIndices())) {
+			final Term matchConj1 = mTheory.term("=", aplhs.getParameters()[0], aprhs.getParameters()[0]);
+			final Term matchConj2 = mTheory.term("=", aplhs.getParameters()[1], aprhs.getParameters()[1]);
+			matchresult.add(simplifyBinaryBitVecEquality(matchConj1));
+			matchresult.add(simplifyBinaryBitVecEquality(matchConj2));
+		} else {
+			return null;
+		}
+
 		Term[] result = new Term[matchresult.size()];
 		result = matchresult.toArray(result);
 		return mTheory.and(result);
@@ -196,8 +196,8 @@ public class BVUtils {
 		final Term matchConj1 = mTheory.term("=", apTermConcat.getParameters()[0], extractHigherConcatResult);
 		final Term matchConj2 = mTheory.term("=", apTermConcat.getParameters()[1], extractLowerConcatResult);
 
-		return mTheory.and(simplifyBitVecEquality(matchConj1),
-				simplifyBitVecEquality(matchConj2));
+		return mTheory.and(simplifyBinaryBitVecEquality(matchConj1),
+				simplifyBinaryBitVecEquality(matchConj2));
 	}
 
 	/*
@@ -261,6 +261,7 @@ public class BVUtils {
 		for (int i = 0; i < constRHS.length(); i++) {
 			final char first = constRHS.charAt(i);
 			final char second = constLHS.charAt(i);
+			// TODO if ((lhsAsString.charAt(i) == '1') && (rhsAsString.charAt(i) == '0')) {
 			if (fsym.getName().equals("bvand")) {
 				if ((Character.compare(first, second) == 0) && (Character.compare(first, '1') == 0)) {
 					resultconst = resultconst + "1";
@@ -647,7 +648,7 @@ public class BVUtils {
 							}
 						}
 					}
-					indices[0] = String.valueOf(constAsString.length() - i - 2); // + 1
+					indices[0] = String.valueOf(constAsString.length() - i - 2);
 					if (i == constAsString.length() - 1) {
 						if (bitMask != null) {
 							bitMask = mTheory.term("concat", bitMask, mTheory.binary(constSubString));
@@ -814,7 +815,8 @@ public class BVUtils {
 	 * iterates over a formula of form (not (or (not (= b a)) (not (= a c))))
 	 * often provided by mUtils.convertEq (called in TermCompiler)
 	 */
-	public Term iterateOverBvEqualites(final Term convertedEquality, final LogicSimplifier mUtils) {
+	public Term iterateOverBvEqualites(final Term convertedEquality) {
+		// System.out.println(convertedEquality.toStringDirect());
 		if (convertedEquality.equals(mTheory.mTrue) || convertedEquality.equals(mTheory.mFalse)) {
 			return convertedEquality;
 		}
@@ -831,51 +833,14 @@ public class BVUtils {
 				final ApplicationTerm apPara = (ApplicationTerm) para;
 				assert apPara.getFunction().getName().equals("not");
 
-				final ApplicationTerm eqApTerm = (ApplicationTerm) apPara.getParameters()[0];
-				final Term ordered = orderParameters(eqApTerm.getFunction(), eqApTerm.getParameters());
-				Term orderedAndSimplified = simplifyBitVecEquality(ordered);
-
-				// Eliminate concationations without a matching equality
-				if (orderedAndSimplified instanceof ApplicationTerm) {
-					final ApplicationTerm apOrderedAndSimplified = (ApplicationTerm) orderedAndSimplified;
-					assert apOrderedAndSimplified.getFunction().getName().equals("=");
-					assert apOrderedAndSimplified.getParameters().length == 2;
-					final Term noConcat = eliminateConcatNoMatch(apOrderedAndSimplified.getFunction(),
-							apOrderedAndSimplified.getParameters()[0], apOrderedAndSimplified.getParameters()[1]);
-					if (noConcat != null) {
-						orderedAndSimplified = noConcat;
-					}
-				}
-
-				orderedDisjTerms[i] = mTheory.not(orderedAndSimplified);
+				orderedDisjTerms[i] = simplifyBinaryBitVecEquality(apPara.getParameters()[0]);
 			}
 			final Term result = mTheory.not(mTheory.or(orderedDisjTerms));
-
+			// System.out.println(result.toStringDirect());
 			return result;
 		} else if (equalities.getFunction().getName().equals("=")) {
 			assert equalities.getParameters().length == 2; // if false, call mUtils.convertEq first
-
-			Term simpAndOrder = simplifyBitVecEquality(orderParameters(equalities.getFunction(),
-					equalities.getParameters()));
-			if (simpAndOrder instanceof ApplicationTerm) {
-				final ApplicationTerm apOrderedAndSimplified = (ApplicationTerm) simpAndOrder;
-				if (apOrderedAndSimplified.getFunction().getName().equals("=")) {
-					assert apOrderedAndSimplified.getParameters().length == 2;
-					final Term elimCnoM = eliminateConcatNoMatch(apOrderedAndSimplified.getFunction(),
-							apOrderedAndSimplified.getParameters()[0],
-							apOrderedAndSimplified.getParameters()[1]);
-					if (elimCnoM != null) {
-						if (elimCnoM instanceof ApplicationTerm) {
-							if (((ApplicationTerm) elimCnoM).getFunction().getName().equals("and")) {
-								return mUtils.convertAnd(elimCnoM);
-							}
-
-						}
-						simpAndOrder = elimCnoM;
-					}
-				}
-			}
-
+			final Term simpAndOrder = simplifyBinaryBitVecEquality(equalities);
 			return simpAndOrder;
 		} else {
 			throw new UnsupportedOperationException("Not an Equality");
@@ -883,12 +848,16 @@ public class BVUtils {
 
 	}
 
-	/*
-	 * Since lhs.equals(rhs) is often not enough, (was the case before fixing the hashvalue of bv constants)
-	 * we have ordered the arguments beforehand and compare the Strings
-	 */
-	private Term simplifyBitVecEquality(final Term equality) {
-		final ApplicationTerm appterm;
+	/**
+	 * Input is a binary equality.
+	 *
+	 * Simplifies trivial equalities.
+	 * calls orderParameters, eliminateConcatPerfectMatch and eliminateConcatNoMatch
+	 *
+	 * Retruns true, false, an equality or a mUtils.convertAnd() of two equalities
+	 **/
+	private Term simplifyBinaryBitVecEquality(final Term equality) {
+		ApplicationTerm appterm;
 		if (equality instanceof ApplicationTerm) {
 			appterm = (ApplicationTerm) equality;
 		} else if (equality instanceof AnnotatedTerm) {
@@ -901,8 +870,10 @@ public class BVUtils {
 			return equality;
 		}
 		assert appterm.getFunction().getName().equals("=");
+		appterm = (ApplicationTerm) orderParameters(appterm.getFunction(), appterm.getParameters());
 		final Term lhs = appterm.getParameters()[0];
 		final Term rhs = appterm.getParameters()[1];
+
 		if (lhs.equals(rhs)) {
 			return mTheory.mTrue;
 		}
@@ -912,7 +883,23 @@ public class BVUtils {
 			} else
 				return mTheory.mFalse;
 		}
-
+		final Term perfectMatch = eliminateConcatPerfectMatch(appterm.getFunction(), lhs, rhs);
+		if (perfectMatch != null) {
+			if (((ApplicationTerm) perfectMatch).getFunction().getName().equals("and")) {
+				// Needs to be converted for iterateOverBvEqualities
+				return mUtils.convertAnd(perfectMatch);
+			} else {
+				return perfectMatch;
+			}
+		}
+		final Term noMatch = eliminateConcatNoMatch(appterm.getFunction(), lhs, rhs);
+		if (noMatch != null) {
+			if (((ApplicationTerm) noMatch).getFunction().getName().equals("and")) {
+				return mUtils.convertAnd(noMatch);
+			} else {
+				return noMatch;
+			}
+		}
 		return equality;
 	}
 

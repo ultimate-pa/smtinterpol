@@ -1,6 +1,7 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.bitvector;
 
 import java.math.BigInteger;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -54,8 +55,8 @@ public class BitBlaster {
 	private final HashMap<Term, Term[]> mEncTerms; // Term[0] is the least bit, the most right bit of the key(Term)
 	private final HashMap<Term, Literal> mLiterals; // Maps encoded Atoms as Term to mInputLiterals
 	public HashMap<Literal, Literal> mInputAtomMap; // Maps Input Literals to encoded atoms
-	private Term trueConstBoolAtom;
-	private Term falseConstBoolAtom;
+	private Term mTrueConstBoolAtom;
+	private Term mFalseConstBoolAtom;
 	private int mStackLevel;
 
 
@@ -94,17 +95,40 @@ public class BitBlaster {
 		for (final Term term : allTerms) {
 			// e(t), t in terms. Terms Size long Array of bool vars with e(t)_i being var at position i
 			if (term.getSort().isBitVecSort() && !mEncTerms.containsKey(term)) {
-				getEncodedTerm(term);
+				final ArrayDeque<Term> encode = new ArrayDeque<>();
+				final ArrayDeque<Term> concatOrExtract = new ArrayDeque<>();
+				encode.push(term);
+				while (!encode.isEmpty()) {
+					final Term peek = encode.pop();
+					if (!mEncTerms.containsKey(peek)) {
+						if (peek instanceof ApplicationTerm) {
+							final ApplicationTerm apPeek = (ApplicationTerm) peek;
+							if (apPeek.getFunction().getName().equals("concat")) {
+								encode.push(apPeek.getParameters()[0]);
+								encode.push(apPeek.getParameters()[1]);
+								concatOrExtract.push(peek);
+								continue;
+							} else if (apPeek.getFunction().getName().equals("extract")) {
+								encode.push(apPeek.getParameters()[0]);
+								concatOrExtract.push(peek);
+								continue;
+							}
+						}
+						getEncodedTerm(peek);
+					}
+				}
+				while (!concatOrExtract.isEmpty()) {
+					getEncodedTerm(concatOrExtract.pop());
+				}
+
 			}
 		}
-
 		// Propositional Skeleton is created in the Theory Solver.
 
 		// add BVConstraint of Atoms as conjunct
 		for (final Literal atom : mInputAtomMap.keySet()) {
 			getBvConstraintAtom(getTerm(atom.getAtom()), mInputAtomMap.get(atom).getAtom().getSMTFormula(mTheory));
 		}
-
 		// add BVConstraint of all subterms as conjunct
 		for (final Term term : allTerms) {
 			if (mClausifier.getEngine().isTerminationRequested()) {
@@ -151,7 +175,7 @@ public class BitBlaster {
 		if (term instanceof ApplicationTerm) {
 			final ApplicationTerm apTerm = (ApplicationTerm) term;
 			if (apTerm.getFunction().getName().equals("extract")) {
-				final Term[] encArgument = getEncodedTerm(apTerm.getParameters()[0]);
+				final Term[] encArgument = mEncTerms.get(apTerm.getParameters()[0]);
 				final Term[] extractResult = Arrays.copyOfRange(encArgument,
 						Integer.parseInt(apTerm.getFunction().getIndices()[1]),
 						Integer.parseInt(apTerm.getFunction().getIndices()[0]) + 1);
@@ -161,8 +185,8 @@ public class BitBlaster {
 				mEncTerms.put(term, boolvector);
 				return boolvector;
 			} else if (apTerm.getFunction().getName().equals("concat")) {
-				final Term[] encArgument1 = getEncodedTerm(apTerm.getParameters()[0]);
-				final Term[] encArgument2 = getEncodedTerm(apTerm.getParameters()[1]);
+				final Term[] encArgument1 =  mEncTerms.get(apTerm.getParameters()[0]);
+				final Term[] encArgument2 =  mEncTerms.get(apTerm.getParameters()[1]);
 				for (int i = 0; i < encArgument2.length; i++) {
 					boolvector[i] = encArgument2[i];
 				}
@@ -174,21 +198,21 @@ public class BitBlaster {
 			}
 		} else if (term instanceof ConstantTerm) {
 			// Optimization create only one literal for "true" and one for "false"
-			if ((trueConstBoolAtom == null) && (falseConstBoolAtom == null)) {
-				trueConstBoolAtom = createBoolAtom("trueConst");
-				falseConstBoolAtom = createBoolAtom("falseConst");
-				final Literal[] trueLit = { mBoolAtoms.get(trueConstBoolAtom) };
+			if ((mTrueConstBoolAtom == null) && (mFalseConstBoolAtom == null)) {
+				mTrueConstBoolAtom = createBoolAtom("trueConst");
+				mFalseConstBoolAtom = createBoolAtom("falseConst");
+				final Literal[] trueLit = { mBoolAtoms.get(mTrueConstBoolAtom) };
 				addClause(trueLit);
-				final Literal[] falseLit = { mBoolAtoms.get(falseConstBoolAtom).negate() };
+				final Literal[] falseLit = { mBoolAtoms.get(mFalseConstBoolAtom).negate() };
 				addClause(falseLit);
 			}
 
 			for (int i = 0; i < size; i++) {
 				final String termstring = BVUtils.getConstAsString((ConstantTerm) term);
 				if (termstring.charAt(termstring.length() - 1 - i) == '1') {
-					boolvector[i] = trueConstBoolAtom;
+					boolvector[i] = mTrueConstBoolAtom;
 				} else {
-					boolvector[i] = falseConstBoolAtom;
+					boolvector[i] = mFalseConstBoolAtom;
 				}
 			}
 			mEncTerms.put(term, boolvector);
@@ -297,6 +321,7 @@ public class BitBlaster {
 		} else if (term instanceof ApplicationTerm) {
 			final ApplicationTerm appterm = (ApplicationTerm) term;
 			final FunctionSymbol fsym = appterm.getFunction();
+			// mClausifier.getLogger().info("Term Constraint: " + fsym.getName());
 			if (appterm.getParameters().length == 0) {
 				// Variable but not instanceof TermVariable
 				return;
@@ -682,9 +707,9 @@ public class BitBlaster {
 		return carryBits;
 	}
 
-	/*
+	/**
 	 * default adder, with overflow enabled
-	 */
+	 **/
 	private Pair<Term[], Term> adder(final Term[] encA, final Term[] encB, final Term cin, final Term[] encAdd) {
 		return adder(encA, encB, cin, encAdd, true);
 	}

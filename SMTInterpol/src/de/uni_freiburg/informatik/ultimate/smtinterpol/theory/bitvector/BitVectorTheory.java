@@ -53,7 +53,7 @@ public class BitVectorTheory implements ITheory {
 	DPLLEngine mEngine; // Dpll engine for bitblasting
 	private long mBitBlastingTime, mAddDPLLBitBlastTime, mBvultGraphTime;
 	private int mClauseCount, mCircleCount, mTrivialConflicts;
-	private boolean mBitBlast = false; // ensures Bitblasting happens only once, not compatible with incremental Tracks
+	private boolean mBitBlast = true; // ensures Bitblasting happens only once, not compatible with incremental Tracks
 	private final boolean mEnableBvultGraph = true;
 
 	public BitVectorTheory(final Clausifier clausifier) {
@@ -79,24 +79,35 @@ public class BitVectorTheory implements ITheory {
 	}
 
 	/*
-	 * recursiv
+	 * non recursiv
 	 */
-	private void collectAllTerms(final Term term) {
+	private final ArrayDeque<Term> mCollected = new ArrayDeque<>();
+
+	public void collectAllTerms(Term term) {
 		if (mAllTerms.contains(term)) {
 			return;
 		}
-		if (term instanceof TermVariable) {
-			mAllTerms.add(term);
-		} else if (term instanceof ApplicationTerm) {
-			final ApplicationTerm appterm = (ApplicationTerm) term;
-			if ((!appterm.getFunction().getName().equals("=")) && (!appterm.getFunction().getName().equals("bvult"))) {
+		mCollected.push(term);
+		while (!mCollected.isEmpty()) {
+			term = mCollected.pop();
+			if (mAllTerms.contains(term)) {
+				continue;
+			}
+			if (term instanceof TermVariable) {
 				mAllTerms.add(term);
+			} else if (term instanceof ApplicationTerm) {
+				final ApplicationTerm appterm = (ApplicationTerm) term;
+				if ((!appterm.getFunction().getName().equals("="))
+						&& (!appterm.getFunction().getName().equals("bvult"))) {
+					mAllTerms.add(term);
+				}
+				for (final Term subterm : appterm.getParameters()) {
+					mCollected.push(subterm);
+				}
+			} else if (term instanceof ConstantTerm) {
+				mAllTerms.add(term);
+
 			}
-			for (final Term subterm : appterm.getParameters()) {
-				collectAllTerms(subterm);
-			}
-		} else if (term instanceof ConstantTerm) {
-			mAllTerms.add(term);
 
 		}
 	}
@@ -181,7 +192,7 @@ public class BitVectorTheory implements ITheory {
 			return null;
 		}
 		for (final Literal lit : mBVLiterals) {
-			if ((lit.getSign() == 1) && (literal.getSign() == 1)) { // TODO was wenn eins negativ?
+			if ((lit.getSign() == 1) && (literal.getSign() == 1)) {
 				ApplicationTerm oldLit = (ApplicationTerm) lit.getSMTFormula(getTheory());
 				boolean oldLitBvult = false;
 				final ApplicationTerm bvultOld = (ApplicationTerm) getBvult(lit);
@@ -322,8 +333,8 @@ public class BitVectorTheory implements ITheory {
 		long time;
 
 		// bitblasting
-		if (!mBitBlast) {
-			mBitBlast = true;
+		if (mBitBlast) {
+			mBitBlast = false;
 			// collect all terms from all set literals
 			for (final Literal lit : mBVLiterals) {
 				final Term atom = lit.getAtom().getSMTFormula(getTheory());
@@ -398,16 +409,16 @@ public class BitVectorTheory implements ITheory {
 						final Term atom = ((ApplicationTerm) t).getParameters()[0];
 						if (mBitblaster.getLiteralMap().containsKey(atom)) {
 							mClausifier.getLogger()
-									.debug("Model InputLiteral: "
-											+ mBitblaster.getLiteralMap().get(atom).getSMTFormula(getTheory()));
+							.debug("Model InputLiteral: "
+									+ mBitblaster.getLiteralMap().get(atom).getSMTFormula(getTheory()));
 						}
 					}
 					break;
 				}
 				if (mBitblaster.getLiteralMap().containsKey(t)) {
 					mClausifier.getLogger()
-							.debug("Model InputLiteral: "
-									+ mBitblaster.getLiteralMap().get(t).getSMTFormula(getTheory()));
+					.debug("Model InputLiteral: "
+							+ mBitblaster.getLiteralMap().get(t).getSMTFormula(getTheory()));
 				}
 			}
 		} else {
