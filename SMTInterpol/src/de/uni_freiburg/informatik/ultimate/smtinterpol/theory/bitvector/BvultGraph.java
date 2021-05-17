@@ -45,7 +45,6 @@ public class BvultGraph {
 		sourceVertex.setBeingVisited(true);
 		final HashSet<Literal> circle = new HashSet<>();
 		for (final Entry<Vertex, Literal> neighbor : sourceVertex.getAdjacencyList().entrySet()) {
-			// übers entry set iterieren, spart getAdjacencyList().get(neighbor)
 			if (neighbor.getKey().isBeingVisited()) {
 				// circle closed
 				circle.add(neighbor.getValue());

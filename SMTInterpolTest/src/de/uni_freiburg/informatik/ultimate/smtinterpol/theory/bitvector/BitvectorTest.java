@@ -597,7 +597,7 @@ public class BitvectorTest {
 
 	@Test
 	public void cClosureBvult() {
-		// x < y::z, ¬(x < w), w = y:: z
+		// x < y::z, ~(x < w), w = y:: z
 		mSolver.resetAssertions();
 		final Term input = mSolver.term("and",
 				mSolver.term("=", w, mSolver.term("concat", y, z)),
@@ -610,7 +610,7 @@ public class BitvectorTest {
 
 	@Test
 	public void cClosureBvult2() {
-		// x < y::z, ¬(x < w), w = y:: z
+		// x < y::z, ~(x < w), w = y:: z
 		mSolver.resetAssertions();
 		final Term input = mSolver.term("and", mSolver.term("bvult", u, mSolver.term("concat", y, z)),
 				mSolver.term("=", mSolver.term("concat", y, z), w), mSolver.term("not", mSolver.term("bvult", u, w)));

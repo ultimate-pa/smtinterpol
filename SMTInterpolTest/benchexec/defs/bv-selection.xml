@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<!DOCTYPE benchmark PUBLIC "+//IDN sosy-lab.org//DTD BenchExec benchmark 1.9//EN" "https://www.sosy-lab.org/benchexec/benchmark-2.3.dtd">
+<benchmark tool="smtinterpol" timelimit="900s" hardtimelimit="960s" memlimit="16 GB" cpuCores="14">
+    <tasks name="SMT-LIB">
+        <includesfile>/storage/repos/smtinterpol/SMTInterpolTest/benchexec/sets/bench_crafted.set</includesfile>
+        <includesfile>/storage/repos/smtinterpol/SMTInterpolTest/benchexec/sets/bench_Heizmann2017.set</includesfile>
+        <includesfile>/storage/repos/smtinterpol/SMTInterpolTest/benchexec/sets/bench_Heizmann2019.set</includesfile>
+        <includesfile>/storage/repos/smtinterpol/SMTInterpolTest/benchexec/sets/bench_bruttomesso.set</includesfile>
+        <includesfile>/storage/repos/smtinterpol/SMTInterpolTest/benchexec/sets/bench_tacas07.set</includesfile>
+        <includesfile>/storage/repos/smtinterpol/SMTInterpolTest/benchexec/sets/bench_bmc-bv.set</includesfile>
+        <includesfile>/storage/repos/smtinterpol/SMTInterpolTest/benchexec/sets/bench_challenge.set</includesfile>
+        <includesfile>/storage/repos/smtinterpol/SMTInterpolTest/benchexec/sets/bench_bmc-bv-svcomp14.set</includesfile>
+        <includesfile>/storage/repos/smtinterpol/SMTInterpolTest/benchexec/sets/bench_20200415-Yurichev.set</includesfile>
+        <includesfile>/storage/repos/smtinterpol/SMTInterpolTest/benchexec/sets/bench_2017-BuchwaldFried.set</includesfile>
+        <includesfile>/storage/repos/smtinterpol/SMTInterpolTest/benchexec/sets/bench_galois.set</includesfile>
+        <includesfile>/storage/repos/smtinterpol/SMTInterpolTest/benchexec/sets/bench_pipe.set</includesfile>
+        <includesfile>/storage/repos/smtinterpol/SMTInterpolTest/benchexec/sets/bench_20170531-Hansen-Check.set</includesfile>
+        <includesfile>/storage/repos/smtinterpol/SMTInterpolTest/benchexec/sets/bench_pspace.set</includesfile>
+        <includesfile>/storage/repos/smtinterpol/SMTInterpolTest/benchexec/sets/bench_uum.set</includesfile>
+        <includesfile>/storage/repos/smtinterpol/SMTInterpolTest/benchexec/sets/bench_brummayerbiere.set</includesfile>
+        <includesfile>/storage/repos/smtinterpol/SMTInterpolTest/benchexec/sets/bench_sage-app10.set</includesfile>
+        <propertyfile>/storage/repos/smtinterpol/SMTInterpolTest/benchexec/smt.prop</propertyfile>
+    </tasks>
+    <rundefinition name="BV">
+        <option name="-no-success" />
+        <option name="-smt2" />
+        <!-- <option name="-o">opt=value</option> -->
+    </rundefinition>
+</benchmark>
