@@ -2,6 +2,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.bitvector;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map.Entry;
 
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
@@ -43,18 +44,18 @@ public class BvultGraph {
 	public HashSet<Literal> getCycle(final Vertex sourceVertex) {
 		sourceVertex.setBeingVisited(true);
 		final HashSet<Literal> circle = new HashSet<>();
-		for (final Vertex neighbor : sourceVertex.getAdjacencyList().keySet()) {
-			if (neighbor.isBeingVisited()) {
+		for (final Entry<Vertex, Literal> neighbor : sourceVertex.getAdjacencyList().entrySet()) {
+			// übers entry set iterieren, spart getAdjacencyList().get(neighbor)
+			if (neighbor.getKey().isBeingVisited()) {
 				// circle closed
-				circle.add(sourceVertex.getAdjacencyList().get(neighbor));
+				circle.add(neighbor.getValue());
 				return circle;
-			} else if (!neighbor.isVisited()) {
-
-				final HashSet<Literal> neighborCircle = getCycle(neighbor);
+			} else if (!neighbor.getKey().isVisited()) {
+				final HashSet<Literal> neighborCircle = getCycle(neighbor.getKey());
 				if (neighborCircle != null) {
 					if (!neighborCircle.isEmpty()) {
 						circle.addAll(neighborCircle);
-						circle.add(sourceVertex.getAdjacencyList().get(neighbor));
+						circle.add(neighbor.getValue());
 					}
 
 				}

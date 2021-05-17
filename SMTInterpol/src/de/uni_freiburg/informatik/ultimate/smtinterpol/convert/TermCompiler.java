@@ -194,7 +194,7 @@ public class TermCompiler extends TermTransformer {
 		final Theory theory = appTerm.getTheory();
 		final Term convertedApp = mTracker.congruence(mTracker.reflexivity(appTerm), args);
 		final Term[] params = ((ApplicationTerm) mTracker.getProvedTerm(convertedApp)).getParameters();
-		final BVUtils bvUtils = new BVUtils(theory);
+		final BVUtils bvUtils = new BVUtils(theory, mUtils);
 
 		if (fsym.getDefinition() != null) {
 			final HashMap<TermVariable, Term> substs = new HashMap<>();
@@ -238,18 +238,7 @@ public class TermCompiler extends TermTransformer {
 				return;
 			case "=":
 				if (params[0].getSort().isBitVecSort()) {
-					final Term elimCM = bvUtils.eliminateConcatPerfectMatch(fsym, params);
-					if (elimCM != null) {
-						if (elimCM instanceof ApplicationTerm) {
-							if (((ApplicationTerm) elimCM).getFunction().getName().equals("and")) {
-								setResult(mUtils.convertAnd(elimCM));
-								return;
-							}
-						}
-						setResult(elimCM);
-						return;
-					}
-					setResult(bvUtils.iterateOverBvEqualites(mUtils.convertEq(convertedApp), mUtils));
+					setResult(bvUtils.iterateOverBvEqualites(mUtils.convertEq(convertedApp)));
 					return;
 				}
 				setResult(mUtils.convertEq(convertedApp));
@@ -570,7 +559,6 @@ public class TermCompiler extends TermTransformer {
 				setResult(convertedApp);
 				return;
 			}
-
 			case "bvadd":
 			case "bvmul": {
 				if (bvUtils.isConstRelation(params[0], params[1])) {
@@ -578,6 +566,7 @@ public class TermCompiler extends TermTransformer {
 							mTracker, ProofConstants.RW_BVARITH));
 					return;
 				}
+				// Order Parameters
 				setResult(bvUtils.orderParameters(fsym, params));
 				return;
 			}
