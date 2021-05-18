@@ -40,6 +40,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.TermCompiler;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
@@ -498,6 +499,7 @@ public class QuantifierTheory implements ITheory {
 			final SMTAffineTerm linAdded = SMTAffineTerm.create(lhs);
 			linAdded.add(Rational.MONE, SMTAffineTerm.create(rhs));
 			Rational fac = Rational.ONE;
+			final TermCompiler compiler = mClausifier.getTermCompiler();
 			for (final Term smd : linAdded.getSummands().keySet()) {
 				if (smd instanceof TermVariable) {
 					fac = linAdded.getSummands().get(smd);
@@ -505,7 +507,7 @@ public class QuantifierTheory implements ITheory {
 						newLhs = smd;
 						linAdded.add(fac.negate(), smd);
 						linAdded.mul(fac.negate());
-						newRhs = linAdded.toTerm(lhs.getSort());
+						newRhs = linAdded.toTerm(compiler, lhs.getSort());
 						break;
 					} else {
 						if (fac.abs() == Rational.ONE) {
@@ -515,7 +517,7 @@ public class QuantifierTheory implements ITheory {
 							if (fac == Rational.ONE) {
 								linAdded.negate();
 							}
-							newRhs = linAdded.toTerm(lhs.getSort());
+							newRhs = linAdded.toTerm(compiler, lhs.getSort());
 							break;
 						}
 					}
@@ -607,7 +609,8 @@ public class QuantifierTheory implements ITheory {
 			linTerm.div(fac.abs());
 		}
 
-		final Term newLhs = linTerm.toTerm(lhs.getSort());
+		final TermCompiler compiler = mClausifier.getTermCompiler();
+		final Term newLhs = linTerm.toTerm(compiler, lhs.getSort());
 		addGroundCCTerms(newLhs, source);
 		final Term newTerm = mTheory.term("<=", newLhs, Rational.ZERO.toTerm(lhs.getSort()));
 		final QuantLiteral atom = new QuantBoundConstraint(newTerm, linTerm);
@@ -628,7 +631,7 @@ public class QuantifierTheory implements ITheory {
 			if (!hasUpperBound) {
 				remainderAff.negate();
 			}
-			final Term remainder = remainderAff.toTerm(lhs.getSort());
+			final Term remainder = remainderAff.toTerm(compiler, lhs.getSort());
 			if (remainder instanceof TermVariable || remainder.getFreeVars().length == 0) {
 				atom.negate().mIsArithmetical = true;
 			}

@@ -791,7 +791,7 @@ public class InstantiationManager {
 	 */
 	private InstanceValue evaluateLitForEMatchingSubsInfo(final QuantLiteral qLit, final SubstitutionInfo info) {
 		final QuantLiteral qAtom = qLit.getAtom();
-		if (info == mEMatching.getEmptySubs()) {
+		if (info.equals(mEMatching.getEmptySubs())) {
 			if (mQuantTheory.mPropagateNewAux && !mQuantTheory.mPropagateNewTerms && qAtom instanceof QuantEquality) {
 				if (QuantUtil.isAuxApplication(((QuantEquality) qAtom).getLhs())) {
 					return InstanceValue.ONE_UNDEF;
@@ -1328,6 +1328,7 @@ public class InstantiationManager {
 		final SubstitutionResult result = instHelper.substituteInClause();
 		final InstClause inst;
 		if (result.isTriviallyTrue()) {
+			// return null;
 			inst = null;
 		} else {
 			assert result.isGround();
@@ -1657,7 +1658,7 @@ public class InstantiationManager {
 			public void walk(final NonRecursive engine) {
 				final SMTAffineTerm instAffine = buildEquivalentAffine(mSmtAff);
 				if (instAffine != null) {
-					final Term instTerm = instAffine.toTerm(mTerm.getSort());
+					final Term instTerm = instAffine.toTerm(mClausifier.getTermCompiler(), mTerm.getSort());
 					// Note: This will often not find a CC term.
 					final CCTerm ccTermRep = mQuantTheory.getCClosure().getCCTermRep(instTerm);
 					if (ccTermRep != null) {
