@@ -127,7 +127,7 @@ public interface ProofConstants {
 	public final static Annotation AUX_ARRAY_STORE       = new Annotation(":store", null);
 	public final static Annotation AUX_ARRAY_DIFF        = new Annotation(":diff", null);
 	public final static Annotation AUX_MATCH_CASE        = new Annotation(":matchCase", null);
-	public final static Annotation AUX_MATCH_DEFAULT 	 = new Annotation(":matchDefault", null);
+	public final static Annotation AUX_MATCH_DEFAULT     = new Annotation(":matchDefault", null);
 
 	//// ==== Structural splitting constants ====
 	public final static Annotation SPLIT_NEG_OR    = new Annotation(":notOr", null);

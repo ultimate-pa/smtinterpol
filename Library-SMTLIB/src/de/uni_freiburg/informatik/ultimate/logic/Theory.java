@@ -1223,7 +1223,7 @@ public class Theory {
 		defineFunction(new FunctionSymbolFactory(SMTLIBConstants.RE_ITER) {
 			@Override
 			public Sort getResultSort(final String[] indices, final Sort[] paramSorts, final Sort resultSort) {
-				if (indices == null || indices.length != 1 || paramSorts.length != 1 || resultSort != null 
+				if (indices == null || indices.length != 1 || paramSorts.length != 1 || resultSort != null
 						|| paramSorts[0] != re) {
 					return null;
 				}
@@ -1234,7 +1234,7 @@ public class Theory {
 		defineFunction(new FunctionSymbolFactory(SMTLIBConstants.RE_LOOP) {
 			@Override
 			public Sort getResultSort(final String[] indices, final Sort[] paramSorts, final Sort resultSort) {
-				if (indices == null || indices.length != 2 || paramSorts.length != 1 || resultSort != null 
+				if (indices == null || indices.length != 2 || paramSorts.length != 1 || resultSort != null
 						|| paramSorts[0] != re) {
 					return null;
 				}
@@ -1496,7 +1496,7 @@ public class Theory {
 	public Map<String, FunctionSymbol> getDeclaredFunctions() {
 		return mDeclaredFuns;
 	}
-	
+
 	public Map<String, SortSymbol> getDeclaredSorts() {
 		return mDeclaredSorts;
 	}

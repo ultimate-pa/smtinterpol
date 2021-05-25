@@ -745,7 +745,7 @@ public class Clausifier {
 				rewrite = mTracker.orSimpClause(rewrite);
 			}
 			Term rewriteProof = mTracker.modusPonens(mClause, rewrite);
-			Term proof = mTracker.getClauseProof(rewriteProof);
+			final Term proof = mTracker.getClauseProof(rewriteProof);
 			boolean isDpllClause = true;
 
 			final Literal[] lits = mLits.toArray(new Literal[mLits.size()]);
@@ -1081,24 +1081,24 @@ public class Clausifier {
 					final boolean isConst = funcName.equals("const");
 					mArrayTheory.notifyArray(getCCTerm(term), isStore, isConst);
 				}
-				
+
 
 				if (fs.isConstructor()) {
-					DataType returnSort = (DataType) fs.getReturnSort().getSortSymbol();
-					Constructor c = returnSort.findConstructor(fs.getName());
-					
+					final DataType returnSort = (DataType) fs.getReturnSort().getSortSymbol();
+					final Constructor c = returnSort.findConstructor(fs.getName());
+
 					if (c != null) {
-						for (String sel : c.getSelectors()) {
-							FunctionSymbol selFs = mTheory.getFunctionWithResult(sel, null, null, fs.getReturnSort());
+						for (final String sel : c.getSelectors()) {
+							final FunctionSymbol selFs = mTheory.getFunctionWithResult(sel, null, null, fs.getReturnSort());
 							mCClosure.insertReverseTrigger(selFs, ccTerm, 0, new DTReverseTrigger(mDataTypeTheory, this, mTheory.getFunctionSymbol(sel), ccTerm));
 						}
-						for (Constructor allC : returnSort.getConstructors()) {
-							FunctionSymbol isFs = mTheory.getFunctionWithResult("is", new String[] {allC.getName()}, null, fs.getReturnSort());
+						for (final Constructor allC : returnSort.getConstructors()) {
+							final FunctionSymbol isFs = mTheory.getFunctionWithResult("is", new String[] {allC.getName()}, null, fs.getReturnSort());
 							mCClosure.insertReverseTrigger(isFs, ccTerm, 0, new DTReverseTrigger(mDataTypeTheory, this, isFs, ccTerm));
 						}
 					}
 				}
-				
+
 			}
 			if (term.getSort().isNumericSort()) {
 				boolean needsLA = term instanceof ConstantTerm;
@@ -1236,10 +1236,12 @@ public class Clausifier {
 	}
 
 	/**
-	 * A QuantifiedFormula is either skolemized or the universal quantifier is dropped before processing the subformula.
-	 * 
-	 * In the existential case, the variables are replaced by Skolem functions over the free variables. In the universal
-	 * case, the variables are uniquely renamed.
+	 * A QuantifiedFormula is either skolemized or the universal quantifier is
+	 * dropped before processing the subformula.
+	 *
+	 * In the existential case, the variables are replaced by Skolem functions over
+	 * the free variables. In the universal case, the variables are uniquely
+	 * renamed.
 	 *
 	 * @param positive
 	 * @param qf
@@ -1674,47 +1676,47 @@ public class Clausifier {
 		axiom = mTracker.auxAxiom(axiom, ProofConstants.AUX_EXCLUDED_MIDDLE_2);
 		buildAuxClause(falseLit, axiom, source);
 	}
-	
+
 	public void addMatchAxiom(final MatchTerm term, final SourceAnnotation source) {
 		final Theory theory = term.getTheory();
 		final FormulaUnLet unlet = new FormulaUnLet();
 		final Map<Constructor, Term> cases = new LinkedHashMap<>();
 		int c_i = 0;
-		for (Constructor c : term.getConstructors()) {
+		for (final Constructor c : term.getConstructors()) {
 			if (cases.containsKey(c)) {
 				c_i++;
 				continue;
 			}
-			
-			Map<TermVariable, Term> argSubs = new LinkedHashMap<>();
+
+			final Map<TermVariable, Term> argSubs = new LinkedHashMap<>();
 			if (c == null) {
 				// if c == null, this is the default case which matches everything
-				Term isTerm = mTheory.or(cases.values().toArray(new Term[cases.values().size()]));
+				final Term isTerm = mTheory.or(cases.values().toArray(new Term[cases.values().size()]));
 				argSubs.put(term.getVariables()[c_i][0], term.getDataTerm());
 				unlet.addSubstitutions(argSubs);
-				Term defaultCase = mTheory.term("=", term, unlet.unlet(term.getCases()[c_i]));
+				final Term defaultCase = mTheory.term("=", term, unlet.unlet(term.getCases()[c_i]));
 				Term axiom = mTheory.or(isTerm, defaultCase);
 				axiom = mTracker.auxAxiom(axiom, ProofConstants.AUX_MATCH_DEFAULT);
 				buildClause(axiom, source);
 				return;
 			}
-			
+
 			// substitute argument TermVariables with the according selector function
 			int s_i = 0;
-			for (String sel : c.getSelectors()) {
-				Term selTerm = theory.term(theory.getFunctionSymbol(sel), term.getDataTerm());
+			for (final String sel : c.getSelectors()) {
+				final Term selTerm = theory.term(theory.getFunctionSymbol(sel), term.getDataTerm());
 				argSubs.put(term.getVariables()[c_i][s_i++], selTerm);
 			}
 			unlet.addSubstitutions(argSubs);
-			
+
 			// build is-condition
-			FunctionSymbol isFs = theory.getFunctionWithResult("is", new String[] {c.getName()}, null, term.getSort());
+			final FunctionSymbol isFs = theory.getFunctionWithResult("is", new String[] {c.getName()}, null, term.getSort());
 			Term isTerm = theory.term(isFs, term.getDataTerm());
 			cases.put(c, isTerm);
 			isTerm = theory.term("not", isTerm);
-			
+
 			// build implicated equality
-			Term caseTerm = mTheory.term("=", term, unlet.unlet(term.getCases()[c_i]));
+			final Term caseTerm = mTheory.term("=", term, unlet.unlet(term.getCases()[c_i]));
 			Term axiom = theory.term("or", isTerm, caseTerm);
 			axiom = mTracker.auxAxiom(axiom, ProofConstants.AUX_MATCH_CASE);
 			buildClause(axiom, source);
@@ -1776,14 +1778,12 @@ public class Clausifier {
 
 	/**
 	 * Check if an equality between two terms is trivially true or false.
-	 * 
-	 * @param lhs
-	 *            the left side of the equality
-	 * @param rhs
-	 *            the right side of the equality
-	 * @param theory
-	 *            the theory
-	 * @return the true (false) term if the equality is trivially true (false), null otherwise.
+	 *
+	 * @param lhs    the left side of the equality
+	 * @param rhs    the right side of the equality
+	 * @param theory the theory
+	 * @return the true (false) term if the equality is trivially true (false), null
+	 *         otherwise.
 	 */
 	public static Term checkAndGetTrivialEquality(final Term lhs, final Term rhs, final Theory theory) {
 		// This code corresponds to the check in createEqualityProxy(...)
@@ -1915,7 +1915,7 @@ public class Clausifier {
 			mEngine.addTheory(mArrayTheory);
 		}
 	}
-	
+
 	private void setupDataTypeTheory() {
 		if (mDataTypeTheory == null) {
 			mDataTypeTheory = new DataTypeTheory(this, mTheory, mCClosure);

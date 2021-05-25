@@ -30,7 +30,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
 
 /**
  * This ReverseTrigger is meant to be applied on to constructor terms and trigger the execution of rule 1 & 2 of the data type theory
- * 
+ *
  * @author moritz
  *
  */
@@ -39,15 +39,17 @@ public class DTReverseTrigger extends ReverseTrigger {
 	 * The constructor term on which this trigger is applied.
 	 */
 	final CCTerm mArg;
+
 	int mArgPos;
+
 	/**
 	 * The function symbol on which this trigger will be activated.
 	 */
 	final FunctionSymbol mFunctionSymbol;
 	final Clausifier mClausifier;
 	final DataTypeTheory mDTTheory;
-	
-	public DTReverseTrigger(DataTypeTheory dtTheory, Clausifier clausifier, FunctionSymbol fs, CCTerm arg) {
+
+	public DTReverseTrigger(final DataTypeTheory dtTheory, final Clausifier clausifier, final FunctionSymbol fs, final CCTerm arg) {
 		mDTTheory = dtTheory;
 		mClausifier = clausifier;
 		mFunctionSymbol = fs;
@@ -70,31 +72,31 @@ public class DTReverseTrigger extends ReverseTrigger {
 	}
 
 	@Override
-	public void activate(CCAppTerm appTerm) {
-		ApplicationTerm argAT = (ApplicationTerm) mArg.mFlatTerm;
-		ArrayList<SymmetricPair<CCTerm>> reason = new ArrayList<>();
-		reason.add(new SymmetricPair<CCTerm>(appTerm.getArg(), mArg));
+	public void activate(final CCAppTerm appTerm) {
+		final ApplicationTerm argAT = (ApplicationTerm) mArg.mFlatTerm;
+		final ArrayList<SymmetricPair<CCTerm>> reason = new ArrayList<>();
+		reason.add(new SymmetricPair<>(appTerm.getArg(), mArg));
 		if (mFunctionSymbol.getName() == "is") {
 			// If appTerm is a "is" function, check if it tests for the constructor of mArg.
-			// If so set the function equal to true else to false. 
-			FunctionSymbol fs = ((CCBaseTerm)appTerm.mFunc).getFunctionSymbol();
+			// If so set the function equal to true else to false.
+			final FunctionSymbol fs = ((CCBaseTerm)appTerm.mFunc).getFunctionSymbol();
 			if (fs.getIndices()[0].equals(argAT.getFunction().getName())) {
-				mDTTheory.addPendingEquality(new SymmetricPair<CCTerm>(appTerm, mClausifier.getCCTerm(mClausifier.getTheory().mTrue)), reason);
+				mDTTheory.addPendingEquality(new SymmetricPair<>(appTerm, mClausifier.getCCTerm(mClausifier.getTheory().mTrue)), reason);
 			} else {
-				mDTTheory.addPendingEquality(new SymmetricPair<CCTerm>(appTerm, mClausifier.getCCTerm(mClausifier.getTheory().mFalse)), reason);
+				mDTTheory.addPendingEquality(new SymmetricPair<>(appTerm, mClausifier.getCCTerm(mClausifier.getTheory().mFalse)), reason);
 			}
 		} else {
 			// If appTerm is a selector function, set it equal to the matchin argument of mArg.
-			FunctionSymbol fs = argAT.getFunction();
-			DataType argDT = (DataType) fs.getReturnSort().getSortSymbol();
-			Constructor c = argDT.findConstructor(argAT.getFunction().getName());
+			final FunctionSymbol fs = argAT.getFunction();
+			final DataType argDT = (DataType) fs.getReturnSort().getSortSymbol();
+			final Constructor c = argDT.findConstructor(argAT.getFunction().getName());
 			for (int i = 0; i < c.getSelectors().length; i++) {
 				if (mFunctionSymbol.getName() == c.getSelectors()[i]) {
-					mDTTheory.addPendingEquality(new SymmetricPair<CCTerm>(appTerm, mClausifier.getCCTerm(argAT.getParameters()[i])), reason);
+					mDTTheory.addPendingEquality(new SymmetricPair<>(appTerm, mClausifier.getCCTerm(argAT.getParameters()[i])), reason);
 					return;
 				}
 			}
-			
+
 			assert false :"selector function not part of constructor";
 		}
 	}

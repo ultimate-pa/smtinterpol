@@ -79,8 +79,12 @@ public class FunctionSymbol {
 					"Wrong sorts for chainable symbol");
 		}
 		int hash = HashUtils.hashJenkins(mName.hashCode(), (Object[]) mParamSort);
-		if (mIndices != null) hash = HashUtils.hashJenkins(hash, (Object[]) mIndices);
-		if (mReturnSort != null) hash = HashUtils.hashJenkins(hash, mReturnSort);
+		if (mIndices != null) {
+			hash = HashUtils.hashJenkins(hash, (Object[]) mIndices);
+		}
+		if (mReturnSort != null) {
+			hash = HashUtils.hashJenkins(hash, mReturnSort);
+		}
 		mHash = hash;
 	}
 
@@ -370,11 +374,11 @@ public class FunctionSymbol {
 		return isModelValue()
 				|| (isIntern() && (mFlags & UNINTERPRETEDINTERNAL) == 0);
 	}
-	
+
 	public boolean isConstructor() {
 		return (mFlags & CONSTRUCTOR) != 0;
 	}
-	
+
 	public boolean isSelector() {
 		return (mFlags & SELECTOR) != 0;
 	}
