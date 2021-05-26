@@ -25,6 +25,7 @@ import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.DataType;
 import de.uni_freiburg.informatik.ultimate.logic.DataType.Constructor;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
 
@@ -80,13 +81,15 @@ public class DTReverseTrigger extends ReverseTrigger {
 			// If appTerm is a "is" function, check if it tests for the constructor of mArg.
 			// If so set the function equal to true else to false.
 			final FunctionSymbol fs = ((CCBaseTerm)appTerm.mFunc).getFunctionSymbol();
+			final Term truthValue;
 			if (fs.getIndices()[0].equals(argAT.getFunction().getName())) {
-				mDTTheory.addPendingEquality(new SymmetricPair<>(appTerm, mClausifier.getCCTerm(mClausifier.getTheory().mTrue)), reason);
+				truthValue = mClausifier.getTheory().mTrue;
 			} else {
-				mDTTheory.addPendingEquality(new SymmetricPair<>(appTerm, mClausifier.getCCTerm(mClausifier.getTheory().mFalse)), reason);
+				truthValue = mClausifier.getTheory().mFalse;
 			}
+			mDTTheory.addPendingEquality(new SymmetricPair<>(appTerm, mClausifier.getCCTerm(truthValue)), reason);
 		} else {
-			// If appTerm is a selector function, set it equal to the matchin argument of mArg.
+			// If appTerm is a selector function, set it equal to the matching argument of mArg.
 			final FunctionSymbol fs = argAT.getFunction();
 			final DataType argDT = (DataType) fs.getReturnSort().getSortSymbol();
 			final Constructor c = argDT.findConstructor(argAT.getFunction().getName());

@@ -1089,12 +1089,16 @@ public class Clausifier {
 
 					if (c != null) {
 						for (final String sel : c.getSelectors()) {
-							final FunctionSymbol selFs = mTheory.getFunctionWithResult(sel, null, null, fs.getReturnSort());
-							mCClosure.insertReverseTrigger(selFs, ccTerm, 0, new DTReverseTrigger(mDataTypeTheory, this, mTheory.getFunctionSymbol(sel), ccTerm));
+							final FunctionSymbol selFs = mTheory.getFunction(sel, fs.getReturnSort());
+							mCClosure.insertReverseTrigger(selFs, ccTerm, 0,
+									new DTReverseTrigger(mDataTypeTheory, this, selFs, ccTerm));
 						}
-						for (final Constructor allC : returnSort.getConstructors()) {
-							final FunctionSymbol isFs = mTheory.getFunctionWithResult("is", new String[] {allC.getName()}, null, fs.getReturnSort());
-							mCClosure.insertReverseTrigger(isFs, ccTerm, 0, new DTReverseTrigger(mDataTypeTheory, this, isFs, ccTerm));
+						for (final Constructor otherConstr : returnSort.getConstructors()) {
+							final String[] index = new String[] { otherConstr.getName() };
+							final FunctionSymbol isFs = mTheory.getFunctionWithResult("is", index, null,
+									fs.getReturnSort());
+							mCClosure.insertReverseTrigger(isFs, ccTerm, 0,
+									new DTReverseTrigger(mDataTypeTheory, this, isFs, ccTerm));
 						}
 					}
 				}
