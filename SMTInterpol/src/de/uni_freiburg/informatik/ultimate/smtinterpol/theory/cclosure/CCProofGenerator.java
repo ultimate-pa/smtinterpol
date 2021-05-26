@@ -461,6 +461,19 @@ public class CCProofGenerator {
 			mainProof.mProofPaths = mPaths.toArray(new IndexedPath[mPaths.size()]);
 			break;
 		}
+		case DT_CASES:
+		case DT_CONSTRUCTOR:
+		case DT_CYCLE:
+		case DT_DISJOINT:
+		case DT_INJECTIVE:
+		case DT_PROJECT:
+		case DT_TESTER:
+		case DT_UNIQUE:
+			for (final SymmetricPair<CCTerm> dependentEq : mAnnot.mDTLemma.getReason()) {
+				mainProof.collectEquality(dependentEq);
+			}
+			mainProof.mProofPaths = new IndexedPath[0];
+			break;
 		}
 		return mainProof;
 	}

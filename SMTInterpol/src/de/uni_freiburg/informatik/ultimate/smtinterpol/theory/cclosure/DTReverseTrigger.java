@@ -19,14 +19,13 @@
 
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure;
 
-import java.util.ArrayList;
-
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.DataType;
 import de.uni_freiburg.informatik.ultimate.logic.DataType.Constructor;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAnnotation.RuleKind;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
 
 /**
@@ -72,11 +71,18 @@ public class DTReverseTrigger extends ReverseTrigger {
 		return mFunctionSymbol;
 	}
 
+	@SuppressWarnings("unchecked")
 	@Override
 	public void activate(final CCAppTerm appTerm) {
 		final ApplicationTerm argAT = (ApplicationTerm) mArg.mFlatTerm;
-		final ArrayList<SymmetricPair<CCTerm>> reason = new ArrayList<>();
-		reason.add(new SymmetricPair<>(appTerm.getArg(), mArg));
+		final SymmetricPair<CCTerm>[] reason;
+		if (appTerm.getArg() != mArg) {
+			reason = new SymmetricPair[] {
+				new SymmetricPair<>(appTerm.getArg(), mArg)
+			};
+		} else {
+			reason = new SymmetricPair[0];
+		}
 		if (mFunctionSymbol.getName() == "is") {
 			// If appTerm is a "is" function, check if it tests for the constructor of mArg.
 			// If so set the function equal to true else to false.
@@ -87,15 +93,18 @@ public class DTReverseTrigger extends ReverseTrigger {
 			} else {
 				truthValue = mClausifier.getTheory().mFalse;
 			}
-			mDTTheory.addPendingEquality(new SymmetricPair<>(appTerm, mClausifier.getCCTerm(truthValue)), reason);
+			final DataTypeLemma lemma = new DataTypeLemma(RuleKind.DT_TESTER, reason);
+			mDTTheory.addPendingEquality(new SymmetricPair<>(appTerm, mClausifier.getCCTerm(truthValue)), lemma);
 		} else {
 			// If appTerm is a selector function, set it equal to the matching argument of mArg.
 			final FunctionSymbol fs = argAT.getFunction();
 			final DataType argDT = (DataType) fs.getReturnSort().getSortSymbol();
 			final Constructor c = argDT.findConstructor(argAT.getFunction().getName());
+			final DataTypeLemma lemma = new DataTypeLemma(RuleKind.DT_PROJECT, reason);
 			for (int i = 0; i < c.getSelectors().length; i++) {
 				if (mFunctionSymbol.getName() == c.getSelectors()[i]) {
-					mDTTheory.addPendingEquality(new SymmetricPair<>(appTerm, mClausifier.getCCTerm(argAT.getParameters()[i])), reason);
+					mDTTheory.addPendingEquality(
+							new SymmetricPair<>(appTerm, mClausifier.getCCTerm(argAT.getParameters()[i])), lemma);
 					return;
 				}
 			}

@@ -645,6 +645,11 @@ public class ProofChecker extends NonRecursive {
 		} else if (lemmaType == ":CC" || lemmaType == ":read-over-weakeq" || lemmaType == ":weakeq-ext"
 				|| lemmaType == ":read-const-weakeq" || lemmaType == ":const-weakeq") {
 			checkArrayLemma(lemmaType, clause, (Object[]) lemmaAnnotation);
+		} else if (lemmaType == ":dt-project" || lemmaType == ":dt-tester" || lemmaType == ":dt-constructor"
+				|| lemmaType == ":dt-cases" || lemmaType == ":dt-unique" || lemmaType == ":dt-injective"
+				|| lemmaType == ":dt-disjoint" || lemmaType == ":dt-cycle") {
+			reportWarning("Cannot deal with lemma " + annTerm);
+			checkDataTypeLemma(lemmaType, clause, (Object[]) lemmaAnnotation);
 		} else if (lemmaType == ":trichotomy") {
 			checkTrichotomy(clause);
 		} else if (lemmaType == ":EQ") {
@@ -1122,15 +1127,27 @@ public class ProofChecker extends NonRecursive {
 	}
 
 	/**
-	 * Check whether the disequality between two terms is trivial. There are two cases, (1) the difference between the
-	 * terms is constant and nonzero, e.g. {@code (= x (+ x 1))}, or (2) the difference contains only integer variables
+	 * Check a data type lemma for correctness. If a problem is found, an error is
+	 * reported.
+	 *
+	 * @param type         the lemma type
+	 * @param clause       the clause to check
+	 * @param ccAnnotation the argument of the :CC annotation.
+	 */
+	private void checkDataTypeLemma(final String type, final Term[] clause, final Object[] ccAnnotation) {
+		// FIXME: add checks
+		return;
+	}
+
+	/**
+	 * Check whether the disequality between two terms is trivial. There are two
+	 * cases, (1) the difference between the terms is constant and nonzero, e.g.
+	 * {@code (= x (+ x 1))}, or (2) the difference contains only integer variables
 	 * and the constant divided by the gcd of the factors is non-integral, e.g.,
 	 * {@code (= (+ x (* 2 y)) (+ x (* 2 z) 1))}.
 	 *
-	 * @param first
-	 *            the left-hand side of the equality
-	 * @param second
-	 *            the right-hand side of the equality
+	 * @param first  the left-hand side of the equality
+	 * @param second the right-hand side of the equality
 	 * @return true if the equality is trivially not satisfied.
 	 */
 	boolean checkTrivialDisequality(final Term first, final Term second) {
@@ -3137,7 +3154,8 @@ public class ProofChecker extends NonRecursive {
 		}
 
 		final ApplicationTerm at = (ApplicationTerm) lhs;
-		if (!at.getFunction().isInterpreted() || at.getFunction().getName() == "select") {
+		if (!at.getFunction().isInterpreted() || at.getFunction().getName() == "select"
+				|| at.getFunction().getName() == "is") {
 			/* boolean literals are not quoted */
 			if (at.getParameters().length == 0) {
 				return rhs == at;

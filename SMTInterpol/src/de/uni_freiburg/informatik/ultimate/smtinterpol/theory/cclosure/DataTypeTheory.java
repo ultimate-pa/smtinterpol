@@ -44,6 +44,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ITheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAnnotation.RuleKind;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAppTerm.Parent;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ArrayQueue;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
@@ -85,7 +86,7 @@ public class DataTypeTheory implements ITheory {
 	 * The equalities of the term pairs in the list are the reason for the equality of the key pair
 	 * and are used to generate the unit clause.
 	 */
-	private final LinkedHashMap<SymmetricPair<CCTerm>, ArrayList<SymmetricPair<CCTerm>>> mEqualityReasons = new LinkedHashMap<>();
+	private final LinkedHashMap<SymmetricPair<CCTerm>, DataTypeLemma> mEqualityReasons = new LinkedHashMap<>();
 
 	public DataTypeTheory(final Clausifier clausifier, final Theory theory, final CClosure cclosure) {
 		mClausifier = clausifier;
@@ -98,7 +99,7 @@ public class DataTypeTheory implements ITheory {
 	 * @param eq the terms that are equal.
 	 * @param reason the terms which are needed for the unit clause generation.
 	 */
-	public void addPendingEquality(final SymmetricPair<CCTerm> eq, final ArrayList<SymmetricPair<CCTerm>> reason) {
+	public void addPendingEquality(final SymmetricPair<CCTerm> eq, final DataTypeLemma reason) {
 		if (eq.getFirst() == eq.getSecond() || eq.getFirst().mRepStar == eq.getSecond().mRepStar) {
 			return;
 		}
@@ -452,25 +453,10 @@ public class DataTypeTheory implements ITheory {
 	public Clause getUnitClause(final Literal literal) {
 		final CCEquality eq = (CCEquality) literal;
 
-		final ArrayList<SymmetricPair<CCTerm>> reason = mEqualityReasons.get(new SymmetricPair<>(eq.getLhs(), eq.getRhs()));
-		if (reason == null) {
-			return null;
-		}
-		final HashSet<Literal> lits = new HashSet<>();
-		for (final SymmetricPair<CCTerm> pair : reason) {
-			final CongruencePath cp = new CongruencePath(mCClosure);
-			cp.computePath(pair.getFirst(), pair.getSecond());
-			lits.addAll(cp.mAllLiterals);
-		}
-
-		final Literal[] negLits = new Literal[lits.size() + 1];
-		int i = 0;
-		negLits [i++] = literal;
-		for (final Literal l : lits) {
-			negLits[i++] = l.negate();
-		}
-
-		return new Clause(negLits);
+		final DataTypeLemma lemma = mEqualityReasons.get(new SymmetricPair<>(eq.getLhs(), eq.getRhs()));
+		final boolean isProofEnabled = mClausifier.getEngine().isProofGenerationEnabled();
+		final CongruencePath cp = new CongruencePath(mCClosure);
+		return cp.computeDTLemma(eq, lemma, isProofEnabled);
 	}
 
 	@Override
@@ -499,6 +485,7 @@ public class DataTypeTheory implements ITheory {
 	public void decreasedDecideLevel(final int currentDecideLevel) {
 	}
 
+	@SuppressWarnings("unchecked")
 	@Override
 	public Clause backtrackComplete() {
 		// if we constructed new terms, their equalities have been removed in the backtracking process,
@@ -517,17 +504,24 @@ public class DataTypeTheory implements ITheory {
 			if (constructor == null) {
 				continue;
 			}
-			final ArrayList<SymmetricPair<CCTerm>> reason = new ArrayList<>();
-			reason.add(new SymmetricPair<>(((CCAppTerm) checkTerm).getArg(), mClausifier.getCCTerm(constructor)));
+			final SymmetricPair<CCTerm> reasonPair =
+					new SymmetricPair<>(((CCAppTerm) checkTerm).getArg(), mClausifier.getCCTerm(constructor));
+			SymmetricPair<CCTerm>[] reason;
+			if (reasonPair.getFirst() != reasonPair.getSecond()) {
+				reason = new SymmetricPair[] { reasonPair };
+			} else {
+				reason = new SymmetricPair[0];
+			}
 			if (((ApplicationTerm) checkTerm.mFlatTerm).getFunction().isSelector()) {
 				final String selName = ((ApplicationTerm) checkTerm.mFlatTerm).getFunction().getName();
 				final Constructor c = mSelectorMap.get(selName);
 				assert c.getName().equals(constructor.getFunction().getName());
+				final DataTypeLemma lemma = new DataTypeLemma(RuleKind.DT_TESTER, reason);
 				for (int i = 0; i < c.getSelectors().length; i++) {
 					if (selName.equals(c.getSelectors()[i])) {
 						final CCTerm arg = mClausifier.getCCTerm(constructor.getParameters()[i]);
 						if (arg.mRepStar != checkTerm.mRepStar) {
-							addPendingEquality(new SymmetricPair<>(arg, checkTerm), reason);
+							addPendingEquality(new SymmetricPair<>(arg, checkTerm), lemma);
 						}
 						newRecheckOnBacktrack.add(checkTerm);
 					}
@@ -535,8 +529,9 @@ public class DataTypeTheory implements ITheory {
 			} else {
 				if (constructor.getFunction().getName().equals(((ApplicationTerm) checkTerm.mFlatTerm).getFunction().getIndices()[0])) {
 					final CCTerm ccTrue = mClausifier.getCCTerm(mTheory.mTrue);
+					final DataTypeLemma lemma = new DataTypeLemma(RuleKind.DT_PROJECT, reason);
 					if (ccTrue.mRepStar != checkTerm.mRepStar) {
-						addPendingEquality(new SymmetricPair<>(checkTerm, mClausifier.getCCTerm(mTheory.mTrue)), reason);
+						addPendingEquality(new SymmetricPair<>(checkTerm, mClausifier.getCCTerm(mTheory.mTrue)), lemma);
 					}
 					newRecheckOnBacktrack.add(checkTerm);
 				}
@@ -639,7 +634,10 @@ public class DataTypeTheory implements ITheory {
 			reason.add(new SymmetricPair<>(mClausifier.getCCTerm(arg), argRep));
 		}
 		reason.add(new SymmetricPair<>(isTerm, mClausifier.getCCTerm(mTheory.mTrue)));
-		addPendingEquality(eq, reason);
+		@SuppressWarnings("unchecked")
+		final DataTypeLemma lemma = new DataTypeLemma(RuleKind.DT_CONSTRUCTOR,
+				reason.toArray(new SymmetricPair[reason.size()]));
+		addPendingEquality(eq, lemma);
 
 	}
 
@@ -728,9 +726,11 @@ public class DataTypeTheory implements ITheory {
 						final CCTerm consArg = mClausifier.getCCTerm(consAt.getParameters()[i]);
 						if (memArg.mRepStar != consArg.mRepStar) {
 							final SymmetricPair<CCTerm> eqPair = new SymmetricPair<>(memArg, consArg);
-							final ArrayList<SymmetricPair<CCTerm>> reason = new ArrayList<>();
-							reason.add(new SymmetricPair<>(consCCTerm, mem));
-							addPendingEquality(eqPair, reason);
+							@SuppressWarnings("unchecked")
+							final SymmetricPair<CCTerm>[] reason = new SymmetricPair[] {
+									new SymmetricPair<>(consCCTerm, mem) };
+							final DataTypeLemma lemma = new DataTypeLemma(RuleKind.DT_INJECTIVE, reason);
+							addPendingEquality(eqPair, lemma);
 						}
 					}
 				} else {
@@ -851,7 +851,6 @@ public class DataTypeTheory implements ITheory {
 			}
 		}
 
-		return null;
+		throw new AssertionError("No constructor for selector " + selector);
 	}
-
 }
