@@ -569,7 +569,7 @@ public class DataTypeTheory implements ITheory {
 
 	@Override
 	public Object[] getStatistics() {
-		return null;
+		return new Object[] { ":DT" };
 	}
 
 	// TODO: rename
