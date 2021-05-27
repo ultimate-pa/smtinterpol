@@ -1,3 +1,22 @@
+/*
+ * Copyright (C) 2020-2021 Max Barth (Max.Barth95@gmx.de)
+ * Copyright (C) 2020-2021 University of Freiburg
+ *
+ * This file is part of SMTInterpol.
+ *
+ * SMTInterpol is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * SMTInterpol is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.
+ */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.bitvector;
 
 import java.util.ArrayDeque;
@@ -24,25 +43,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ResolutionNode.Ante
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.IdentityHashSet;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
-/*
- * Copyright (C) 2020-2021 Max Barth (Max.Barth95@gmx.de)
- * Copyright (C) 2020-2021 University of Freiburg
- *
- * This file is part of SMTInterpol.
- *
- * SMTInterpol is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * SMTInterpol is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.
- */
+
 
 public class BitVectorTheory implements ITheory {
 	private final Clausifier mClausifier;
@@ -54,7 +55,7 @@ public class BitVectorTheory implements ITheory {
 	private long mBitBlastingTime, mAddDPLLBitBlastTime, mBvultGraphTime;
 	private int mClauseCount, mCircleCount, mTrivialConflicts;
 	private boolean mBitBlast = true; // ensures Bitblasting happens only once, not compatible with incremental Tracks
-	private final boolean mEnableBvultGraph = true;
+	private final boolean mEnableBvultGraph = false;
 
 	public BitVectorTheory(final Clausifier clausifier) {
 		mClausifier = clausifier;
@@ -82,8 +83,7 @@ public class BitVectorTheory implements ITheory {
 	 * non recursiv
 	 */
 	private final ArrayDeque<Term> mCollected = new ArrayDeque<>();
-
-	public void collectAllTerms(Term term) {
+	private void collectAllTerms(Term term) {
 		if (mAllTerms.contains(term)) {
 			return;
 		}
@@ -443,8 +443,8 @@ public class BitVectorTheory implements ITheory {
 	 * Searches some sort of Unsat Core in the Bitblasting result.
 	 * Returns the Conflict Clause, containing this core.
 	 */
-	private HashSet<Literal> getUnsatCore(final Clause unsat, final HashMap<Term, Literal> literals) {
-		final HashSet<Literal> res = new HashSet<>();
+	private LinkedHashSet<Literal> getUnsatCore(final Clause unsat, final HashMap<Term, Literal> literals) {
+		final LinkedHashSet<Literal> res = new LinkedHashSet<>();
 		final ArrayDeque<Clause> todo = new ArrayDeque<>();
 		todo.push(unsat);
 		final IdentityHashSet<Clause> visited = new IdentityHashSet<>();

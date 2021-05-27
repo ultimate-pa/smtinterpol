@@ -1,3 +1,22 @@
+/*
+ * Copyright (C) 2020-2021 Max Barth (Max.Barth95@gmx.de)
+ * Copyright (C) 2020-2021 University of Freiburg
+ *
+ * This file is part of SMTInterpol.
+ *
+ * SMTInterpol is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * SMTInterpol is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.
+ */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.bitvector;
 
 import java.math.BigInteger;
@@ -26,26 +45,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
 
-/*
- * Copyright (C) 2020-2021 Max Barth (Max.Barth95@gmx.de)
- * Copyright (C) 2020-2021 University of Freiburg
- *
- * This file is part of SMTInterpol.
- *
- * SMTInterpol is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * SMTInterpol is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.
- */
-
 public class BitBlaster {
 	private final Clausifier mClausifier;
 	private final Theory mTheory;
@@ -72,13 +71,13 @@ public class BitBlaster {
 	}
 
 
-	/*
+	/**
 	 * Starts Bitblasting.
 	 * allLiterals contains all set bitvector Literals and allTerms all terms from these literals.
 	 * allTerms needs to contain all terms, subterms, constants, variables... but no relations(=, bvult...).
 	 * allTerms is filled by BitVectorTheory.collectAllTerms().
 	 * Use getClauses() to get the BB result Clauses and getBoolAtoms() to get the necessary Atoms.
-	 */
+	 **/
 	public void bitBlasting(final ScopedArrayList<Literal> allLiterals,
 			final LinkedHashSet<Term> allTerms, final int engineStackLevel) {
 		mStackLevel = engineStackLevel;
@@ -96,7 +95,7 @@ public class BitBlaster {
 			// e(t), t in terms. Terms Size long Array of bool vars with e(t)_i being var at position i
 			if (term.getSort().isBitVecSort() && !mEncTerms.containsKey(term)) {
 				final ArrayDeque<Term> encode = new ArrayDeque<>();
-				final ArrayDeque<Term> concatOrExtract = new ArrayDeque<>();
+				final ArrayDeque<Term> optimizeBVselections = new ArrayDeque<>();
 				encode.push(term);
 				while (!encode.isEmpty()) {
 					final Term peek = encode.pop();
@@ -106,19 +105,27 @@ public class BitBlaster {
 							if (apPeek.getFunction().getName().equals("concat")) {
 								encode.push(apPeek.getParameters()[0]);
 								encode.push(apPeek.getParameters()[1]);
-								concatOrExtract.push(peek);
+								optimizeBVselections.push(peek);
 								continue;
-							} else if (apPeek.getFunction().getName().equals("extract")) {
+							} else if ((apPeek.getFunction().getName().equals("extract")) ||
+									(apPeek.getFunction().getName().equals("rotate_left")) ||
+									(apPeek.getFunction().getName().equals("rotate_right")) ||
+									(apPeek.getFunction().getName().equals("zero_extend")) ||
+									(apPeek.getFunction().getName().equals("sign_extend")) ||
+									(apPeek.getFunction().getName().equals("repeat"))) {
 								encode.push(apPeek.getParameters()[0]);
-								concatOrExtract.push(peek);
+								// optimization
+								optimizeBVselections.push(peek);
 								continue;
 							}
 						}
 						getEncodedTerm(peek);
 					}
 				}
-				while (!concatOrExtract.isEmpty()) {
-					getEncodedTerm(concatOrExtract.pop());
+				// Encode concat, extract, etc after encoding their arguments.
+				while (!optimizeBVselections.isEmpty()) {
+					// Encode the most inner concat, extract... first (arguments have to be encoded before)
+					getEncodedTerm(optimizeBVselections.pop());
 				}
 
 			}
@@ -171,32 +178,116 @@ public class BitBlaster {
 		final int size = sizeBig.intValue();
 		final Term[] boolvector = new Term[size];
 
-		// optimization, select/concat is not encoded, instead we return the encoded argument
+		// optimization, select,concat, etc. is not encoded, instead we return the encoded argument
 		if (term instanceof ApplicationTerm) {
 			final ApplicationTerm apTerm = (ApplicationTerm) term;
-			if (apTerm.getFunction().getName().equals("extract")) {
-				final Term[] encArgument = mEncTerms.get(apTerm.getParameters()[0]);
-				final Term[] extractResult = Arrays.copyOfRange(encArgument,
-						Integer.parseInt(apTerm.getFunction().getIndices()[1]),
-						Integer.parseInt(apTerm.getFunction().getIndices()[0]) + 1);
-				for (int i = 0; i < size; i++) {
-					boolvector[i] = extractResult[i];
+			if (apTerm.getFunction().isIntern()) {
+				switch (apTerm.getFunction().getName()) {
+				case "extract": {
+					final Term[] encArgument = mEncTerms.get(apTerm.getParameters()[0]);
+					final Term[] extractResult = Arrays.copyOfRange(encArgument,
+							Integer.parseInt(apTerm.getFunction().getIndices()[1]),
+							Integer.parseInt(apTerm.getFunction().getIndices()[0]) + 1);
+					for (int i = 0; i < size; i++) {
+						boolvector[i] = extractResult[i];
+					}
+					mEncTerms.put(term, boolvector);
+					return boolvector;
 				}
-				mEncTerms.put(term, boolvector);
-				return boolvector;
-			} else if (apTerm.getFunction().getName().equals("concat")) {
-				final Term[] encArgument1 =  mEncTerms.get(apTerm.getParameters()[0]);
-				final Term[] encArgument2 =  mEncTerms.get(apTerm.getParameters()[1]);
-				for (int i = 0; i < encArgument2.length; i++) {
-					boolvector[i] = encArgument2[i];
+				case "concat": {
+					final Term[] encArgument1 = mEncTerms.get(apTerm.getParameters()[0]);
+					final Term[] encArgument2 = mEncTerms.get(apTerm.getParameters()[1]);
+					for (int i = 0; i < encArgument2.length; i++) {
+						boolvector[i] = encArgument2[i];
+					}
+					for (int i = 0; i < encArgument1.length; i++) {
+						boolvector[encArgument2.length + i] = encArgument1[i];
+					}
+					mEncTerms.put(term, boolvector);
+					return boolvector;
 				}
-				for (int i = 0; i < encArgument1.length; i++) {
-					boolvector[encArgument2.length + i] = encArgument1[i];
+				case "rotate_left": {
+					final Term[] encArgument = mEncTerms.get(apTerm.getParameters()[0]);
+					int rotationDistance = Integer.valueOf(apTerm.getFunction().getIndices()[0]);
+					if (rotationDistance > encArgument.length) {
+						rotationDistance = (rotationDistance % encArgument.length);
+					}
+					for (int i = 0; i < encArgument.length; i++) {
+						if (i + rotationDistance < encArgument.length) {
+							boolvector[i + rotationDistance] = encArgument[i];
+						} else {
+							boolvector[(i + rotationDistance) - encArgument.length] = encArgument[i];
+						}
+
+					}
+					mEncTerms.put(term, boolvector);
+					return boolvector;
 				}
-				mEncTerms.put(term, boolvector);
-				return boolvector;
+				case "rotate_right": {
+					final Term[] encArgument = mEncTerms.get(apTerm.getParameters()[0]);
+					int rotationDistance = Integer.valueOf(apTerm.getFunction().getIndices()[0]);
+					if (rotationDistance > encArgument.length) {
+						rotationDistance = (rotationDistance % encArgument.length);
+					}
+					for (int i = 0; i < encArgument.length; i++) {
+						if (i - rotationDistance >= 0) {
+							boolvector[i - rotationDistance] = encArgument[i];
+						} else {
+							boolvector[(i - rotationDistance) + (encArgument.length)] = encArgument[i];
+						}
+
+					}
+					mEncTerms.put(term, boolvector);
+					return boolvector;
+				}
+				case "zero_extend": {
+					if ((mTrueConstBoolAtom == null) && (mFalseConstBoolAtom == null)) {
+						mTrueConstBoolAtom = createBoolAtom("trueConst");
+						mFalseConstBoolAtom = createBoolAtom("falseConst");
+						final Literal[] trueLit = { mBoolAtoms.get(mTrueConstBoolAtom) };
+						addClause(trueLit);
+						final Literal[] falseLit = { mBoolAtoms.get(mFalseConstBoolAtom).negate() };
+						addClause(falseLit);
+					}
+					final Term[] encArgument = mEncTerms.get(apTerm.getParameters()[0]);
+					final int extendDistance = Integer.valueOf(apTerm.getFunction().getIndices()[0]);
+					for (int i = 0; i < encArgument.length; i++) {
+						boolvector[i] = encArgument[i];
+					}
+					for (int i = 0; i < extendDistance; i++) {
+						boolvector[encArgument.length + i] = mFalseConstBoolAtom;
+					}
+					mEncTerms.put(term, boolvector);
+					return boolvector;
+				}
+				case "sign_extend": {
+					final Term[] encArgument = mEncTerms.get(apTerm.getParameters()[0]);
+					final int extendDistance = Integer.valueOf(apTerm.getFunction().getIndices()[0]);
+					for (int i = 0; i < encArgument.length; i++) {
+						boolvector[i] = encArgument[i];
+					}
+					for (int i = 0; i < extendDistance; i++) {
+						boolvector[encArgument.length + i] = encArgument[encArgument.length - 1];
+					}
+					mEncTerms.put(term, boolvector);
+					return boolvector;
+				}
+				case "repeat": {
+					final Term[] encArgument = mEncTerms.get(apTerm.getParameters()[0]);
+					final int repetitions = Integer.valueOf(apTerm.getFunction().getIndices()[0]);
+					for (int r = 0; r < repetitions; r++) {
+						for (int i = 0; i < encArgument.length; i++) {
+							boolvector[i + (encArgument.length * r)] = encArgument[i];
+						}
+
+					}
+					mEncTerms.put(term, boolvector);
+					return boolvector;
+				}
+				}
 			}
-		} else if (term instanceof ConstantTerm) {
+		}
+		if (term instanceof ConstantTerm) {
 			// Optimization create only one literal for "true" and one for "false"
 			if ((mTrueConstBoolAtom == null) && (mFalseConstBoolAtom == null)) {
 				mTrueConstBoolAtom = createBoolAtom("trueConst");
@@ -206,7 +297,6 @@ public class BitBlaster {
 				final Literal[] falseLit = { mBoolAtoms.get(mFalseConstBoolAtom).negate() };
 				addClause(falseLit);
 			}
-
 			for (int i = 0; i < size; i++) {
 				final String termstring = BVUtils.getConstAsString((ConstantTerm) term);
 				if (termstring.charAt(termstring.length() - 1 - i) == '1') {
@@ -218,6 +308,7 @@ public class BitBlaster {
 			mEncTerms.put(term, boolvector);
 			return boolvector;
 		}
+
 		for (int i = 0; i < size; i++) {
 			final String termPrefix = "e_(" + term.hashCode() + ")_" + i; // must not contain | as symbol
 			final Term boolVar = createBoolAtom(termPrefix);
@@ -403,7 +494,13 @@ public class BitBlaster {
 					// break;
 					return;
 				}
-				case "extract": {
+				case "extract":
+				case "zero_extend":
+				case "sign_extend":
+				case "repeat":
+				case "rotate_left":
+				case "rotate_right": {
+					// all optimized in getEncodedTerm()
 					return;
 				}
 				case "bvudiv": {
@@ -1100,6 +1197,9 @@ public class BitBlaster {
 
 	}
 
+	/**
+	 * returns the literal used to encode the input term
+	 */
 	public Literal getLiteral(final Term term) {
 		if(term instanceof ApplicationTerm) {
 			final ApplicationTerm appterm = (ApplicationTerm) term;
@@ -1109,7 +1209,6 @@ public class BitBlaster {
 				return mBoolAtoms.get(appterm.getParameters()[0]).negate();
 			}
 		}
-
 		assert mBoolAtoms.containsKey(term);
 		return mBoolAtoms.get(term);
 	}
@@ -1155,16 +1254,23 @@ public class BitBlaster {
 		mClauses.add(cl);
 	}
 
+	/**
+	 * returns all atoms used as encoding.
+	 */
 	public Collection<DPLLAtom> getBoolAtoms() {
 		return mBoolAtoms.values();
 	}
 
-	// used to get the Bitblasting result
+	/**
+	 * used to get the Bitblasting result
+	 **/
 	public ScopedArrayList<Clause> getClauses() {
 		return mClauses;
 	}
 
-	// negates the input literals, used to create a conflict clause
+	/**
+	 * negates the input literals, used to create a conflict clause
+	 **/
 	public Literal[] getNegatedInputLiterals() {
 		final Literal[] lit = new Literal[mInputLiterals.size()];
 		for (int i = 0; i < mInputLiterals.size(); i++) {
@@ -1173,6 +1279,9 @@ public class BitBlaster {
 		return lit;
 	}
 
+	/**
+	 * returns the map, encoded Atom to Input Literal
+	 */
 	public HashMap<Term, Literal> getLiteralMap() {
 		return mLiterals;
 	}

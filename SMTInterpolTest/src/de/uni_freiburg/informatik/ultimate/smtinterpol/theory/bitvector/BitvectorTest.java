@@ -1,3 +1,22 @@
+/*
+ * Copyright (C) 2020-2021 Max Barth (Max.Barth95@gmx.de)
+ * Copyright (C) 2020-2021 University of Freiburg
+ *
+ * This file is part of SMTInterpol.
+ *
+ * SMTInterpol is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * SMTInterpol is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.
+ */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.bitvector;
 
 import org.junit.After;
@@ -329,10 +348,10 @@ public class BitvectorTest {
 	public void constRotateLeft() {
 		mSolver.resetAssertions();
 		final String[] indices = new String[1];
-		indices[0] = "10";
+		indices[0] = "5";
 		final Term input =
-				mSolver.term("=", mSolver.binary("#b1001"),
-						mSolver.term("rotate_left", indices, null, p4));
+				mSolver.term("=", mSolver.binary("#b0110"),
+						mSolver.term("rotate_left", indices, null, mSolver.binary("#b0011")));
 
 		mSolver.assertTerm(input);
 		final LBool isUnSat = mSolver.checkSat();
@@ -344,9 +363,9 @@ public class BitvectorTest {
 	public void constRotateRight() {
 		mSolver.resetAssertions();
 		final String[] indices = new String[1];
-		indices[0] = "2";
+		indices[0] = "3";
 		final Term input =
-				mSolver.term("=", mSolver.binary("#b0011"),
+				mSolver.term("=", mSolver.binary("#b1001"),
 						mSolver.term("rotate_right", indices, null, mSolver.binary("#b1100")));
 
 		mSolver.assertTerm(input);

@@ -1,20 +1,3 @@
-package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.bitvector;
-
-import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.List;
-
-import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
-import de.uni_freiburg.informatik.ultimate.logic.Annotation;
-import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
-import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
-import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
-import de.uni_freiburg.informatik.ultimate.logic.Sort;
-import de.uni_freiburg.informatik.ultimate.logic.Term;
-import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
-import de.uni_freiburg.informatik.ultimate.logic.Theory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.LogicSimplifier;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.IProofTracker;
 /*
  * Copyright (C) 2020-2021 Max Barth (Max.Barth95@gmx.de)
  * Copyright (C) 2020-2021 University of Freiburg
@@ -34,6 +17,23 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.IProofTracker;
  * You should have received a copy of the GNU Lesser General Public License
  * along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.
  */
+package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.bitvector;
+
+import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.List;
+
+import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
+import de.uni_freiburg.informatik.ultimate.logic.Annotation;
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
+import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.Sort;
+import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
+import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.LogicSimplifier;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.IProofTracker;
 
 public class BVUtils {
 	private final Theory mTheory;
@@ -44,8 +44,9 @@ public class BVUtils {
 		mUtils = utils;
 	}
 
-	/*
-	 * setting the return value of this function to false, will deactivate all constant optimizations
+	/**
+	 * Returns True, if all arguments are ConstantTerm's
+	 * Setting the return value of this function to false, will deactivate all BV constant optimizations
 	 */
 	public boolean isConstRelation(final Term lhs, final Term rhs) {
 		if ((lhs instanceof ConstantTerm)) {
@@ -58,7 +59,7 @@ public class BVUtils {
 		return false;
 	}
 
-	/*
+	/**
 	 * returns the bit string of #b or #x Constant Terms.
 	 * (_bvi j) Constants are replaced by #b constants beforehand
 	 */
@@ -81,7 +82,7 @@ public class BVUtils {
 		throw new UnsupportedOperationException("Can't convert to bitstring: " + ct);
 	}
 
-	/*
+	/**
 	 * replaces (_bvi j) constants by #b constants
 	 */
 	public Term getBvConstAsBinaryConst(final FunctionSymbol fsym, final Sort sort) {
@@ -109,7 +110,7 @@ public class BVUtils {
 	 * a :: b = c :: d replaced by a = c && c = d
 	 * with a,c and b, d being of same size.
 	 */
-	public Term eliminateConcatPerfectMatch(final FunctionSymbol fsym, final Term lhs, final Term rhs) {
+	private Term eliminateConcatPerfectMatch(final FunctionSymbol fsym, final Term lhs, final Term rhs) {
 		assert fsym.getName().equals("=");
 		final List<Term> matchresult = new ArrayList<>();
 
@@ -142,7 +143,7 @@ public class BVUtils {
 	 * a :: b = c is replaced by b = extract(0, b.length, c) AND a = extract( b.length , a.length, c)
 	 * Can only be called on binary equalities.
 	 */
-	public Term eliminateConcatNoMatch(final FunctionSymbol fsym, final Term lhs, final Term rhs) {
+	private Term eliminateConcatNoMatch(final FunctionSymbol fsym, final Term lhs, final Term rhs) {
 		assert fsym.getName().equals("=");
 		assert lhs.getSort().isBitVecSort();
 		assert rhs.getSort().isBitVecSort();
@@ -429,7 +430,9 @@ public class BVUtils {
 		return mTheory.term(fsym, lhs, rhs); // should never be the case
 	}
 
-	// TODO add proof for all const optimizations
+	/*
+	 * TODO add proof for all const optimizations
+	 */
 	public Term getProof(final Term optimized, final Term convertedApp, final IProofTracker tracker,
 			final Annotation proofconst) {
 		final Term lhs = tracker.getProvedTerm(convertedApp);
@@ -452,7 +455,7 @@ public class BVUtils {
 				theory.binary(zeroconst));
 	}
 
-	/*
+	/**
 	 * replaces every inequality by its bvult abbreviation.
 	 * Applies a few simplifications on constant terms and simple equalities
 	 * uses recursion in some cases
@@ -589,7 +592,7 @@ public class BVUtils {
 	}
 
 
-	/*
+	/**
 	 * Bit Mask Elimination simplifies bvand, bvor functions where one hand side is a constant.
 	 * We determine the result of the function as much as possible by the given constant (absorbingElement).
 	 * everything else (neutralElement in the constant) is selected from the non-constant argument.
@@ -686,7 +689,7 @@ public class BVUtils {
 		return term;
 	}
 
-	/*
+	/**
 	 * propagates a select over concat and bitwise functions to its arguments
 	 * smallers the bitvec size of the function (less work for bitblasting)
 	 */
@@ -811,7 +814,7 @@ public class BVUtils {
 
 	}
 
-	/*
+	/**
 	 * iterates over a formula of form (not (or (not (= b a)) (not (= a c))))
 	 * often provided by mUtils.convertEq (called in TermCompiler)
 	 */
@@ -903,7 +906,7 @@ public class BVUtils {
 		return equality;
 	}
 
-	/*
+	/**
 	 * orders the parameter of input Term, if its a symmetric operand.
 	 * Optimization for two cases:
 	 * Case1:
