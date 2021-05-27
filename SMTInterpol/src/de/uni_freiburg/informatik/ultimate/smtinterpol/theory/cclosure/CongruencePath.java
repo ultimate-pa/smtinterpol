@@ -363,15 +363,18 @@ public class CongruencePath {
 			computePath(reason.getFirst(), reason.getSecond());
 		}
 
-		final Literal[] negLits = new Literal[mAllLiterals.size() + 1];
+		final Literal[] negLits = new Literal[mAllLiterals.size() + (propagatedEq != null ? 1 : 0)];
 		int i = 0;
-		negLits[i++] = propagatedEq;
+		if (propagatedEq != null) {
+			negLits[i++] = propagatedEq;
+		}
 		for (final Literal l : mAllLiterals) {
 			negLits[i++] = l.negate();
 		}
 		final Clause c = new Clause(negLits);
 		if (produceProofs) {
-			final SymmetricPair<CCTerm> diseq = new SymmetricPair<>(propagatedEq.getLhs(), propagatedEq.getRhs());
+			final SymmetricPair<CCTerm> diseq = propagatedEq == null ? null
+					: new SymmetricPair<>(propagatedEq.getLhs(), propagatedEq.getRhs());
 			c.setProof(new LeafNode(LeafNode.THEORY_DT, new CCAnnotation(diseq, mAllPaths, lemma)));
 		}
 		return c;

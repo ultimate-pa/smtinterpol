@@ -2,7 +2,7 @@
 (set-logic QF_DT)
 
 (set-info :category "crafted")
-(set-info :status sat)
+(set-info :status unsat)
 
 
 (declare-datatypes ( (List 0) (Nat 0) ) (
@@ -11,8 +11,11 @@
 ))
 
 (declare-const u List)
+(declare-const v List)
 
-(assert (and (not ((_ is nil) u)) (= (cdr u) nil)))
+(assert (and ((_ is nil) u) ((_ is cons) v)))
+
+(assert (= u v))
 
 (check-sat)
 (exit)
