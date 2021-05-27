@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 
@@ -53,7 +54,7 @@ public class BitBlaster {
 	private final ScopedArrayList<Clause> mClauses; // Output clauses
 	private final HashMap<Term, Term[]> mEncTerms; // Term[0] is the least bit, the most right bit of the key(Term)
 	private final HashMap<Term, Literal> mLiterals; // Maps encoded Atoms as Term to mInputLiterals
-	public HashMap<Literal, Literal> mInputAtomMap; // Maps Input Literals to encoded atoms
+	public LinkedHashMap<Literal, Literal> mInputAtomMap; // Maps Input Literals to encoded atoms
 	private Term mTrueConstBoolAtom;
 	private Term mFalseConstBoolAtom;
 	private int mStackLevel;
@@ -63,7 +64,7 @@ public class BitBlaster {
 	public BitBlaster(final Clausifier clausifier, final Theory theory) {
 		mClausifier = clausifier; // used for Timeout
 		mTheory = theory;
-		mInputAtomMap = new HashMap<>();
+		mInputAtomMap = new LinkedHashMap<>();
 		mEncTerms = new HashMap<>();
 		mBoolAtoms = new HashMap<>();
 		mLiterals = new HashMap<>();
@@ -279,7 +280,6 @@ public class BitBlaster {
 						for (int i = 0; i < encArgument.length; i++) {
 							boolvector[i + (encArgument.length * r)] = encArgument[i];
 						}
-
 					}
 					mEncTerms.put(term, boolvector);
 					return boolvector;
@@ -414,7 +414,7 @@ public class BitBlaster {
 			final FunctionSymbol fsym = appterm.getFunction();
 			// mClausifier.getLogger().info("Term Constraint: " + fsym.getName());
 			if (appterm.getParameters().length == 0) {
-				// Variable but not instanceof TermVariable
+				// uninterpreted constants
 				return;
 			}
 			if (fsym.isIntern()) {
@@ -464,11 +464,10 @@ public class BitBlaster {
 					return;
 				}
 				case "bvsub": {
-					conjunction =
-							adder(mEncTerms.get(appterm.getParameters()[0]),
-									negate(mEncTerms.get(appterm.getParameters()[1])),
-									mTheory.mTrue, null).getFirst();
-					break;
+					adder(mEncTerms.get(appterm.getParameters()[0]),
+							negate(mEncTerms.get(appterm.getParameters()[1])),
+							mTheory.mTrue, encTerm).getFirst();
+					return;
 				}
 				case "bvmul": {
 					final int stage =
@@ -1080,9 +1079,10 @@ public class BitBlaster {
 
 				if (!overflow && i + s > stage) {// used for division constraints
 					final Term of = mTheory.not(mTheory.and(encA[i], encB[s]));
+					// encA[i + s] must be false
 					toClauses(of);
 				}
-				// encA[i + s] must be false
+
 			}
 			if (mClausifier.getEngine().isTerminationRequested()) {
 				break;

@@ -423,7 +423,7 @@ public class BitVectorTheory implements ITheory {
 			}
 		} else {
 			final Clause unsat = mEngine.getProof();
-			final HashSet<Literal> unsatcore = getUnsatCore(unsat, mBitblaster.getLiteralMap());
+			final LinkedHashSet<Literal> unsatcore = getUnsatCore(unsat, mBitblaster.getLiteralMap());
 			final Literal[] cores = new Literal[unsatcore.size()];
 			int i = 0;
 			for (final Literal c : unsatcore) {
