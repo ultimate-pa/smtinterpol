@@ -31,6 +31,7 @@ import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.MatchTerm;
 import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
@@ -82,7 +83,7 @@ public class TermCompiler extends TermTransformer {
 
 	public void setAssignmentProduction(final boolean on) {
 		if (on) {
-			mNames = new HashMap<Term, Set<String>>();
+			mNames = new HashMap<>();
 		} else {
 			mNames = null;
 		}
@@ -446,7 +447,7 @@ public class TermCompiler extends TermTransformer {
 				BigInteger divisor1;
 				try {
 					divisor1 = new BigInteger(fsym.getIndices()[0]);
-				} catch(NumberFormatException e){
+				} catch(final NumberFormatException e){
 					throw new SMTLIBException("index must be numeral", e);
 				}
 				final Rational divisor = Rational.valueOf(divisor1, BigInteger.ONE);
@@ -581,6 +582,11 @@ public class TermCompiler extends TermTransformer {
 	}
 
 	@Override
+	public void postConvertMatch(final MatchTerm oldMatch, final Term newDataTerm, final Term[] newCases) {
+		setResult(mTracker.match(oldMatch, newDataTerm, newCases));
+	}
+
+	@Override
 	public void postConvertQuantifier(final QuantifiedFormula old, final Term newBody) {
 		final Theory theory = old.getTheory();
 		if (!theory.getLogic().isQuantified()) {
@@ -605,7 +611,7 @@ public class TermCompiler extends TermTransformer {
 				if (annot.getKey().equals(":named")) {
 					Set<String> oldNames = mNames.get(newBody);
 					if (oldNames == null) {
-						oldNames = new HashSet<String>();
+						oldNames = new HashSet<>();
 						mNames.put(newBody, oldNames);
 					}
 					oldNames.add(annot.getValue().toString());
