@@ -194,7 +194,7 @@ public class NoopScript implements Script {
 				getTheory().declareInternalFunction(constrName, argumentSorts, datatypeSort, FunctionSymbol.CONSTRUCTOR);
 
 				for (int j = 0; j < selectors.length; j++) {
-					getTheory().declareInternalFunction(selectors[j], selectorParamSorts, argumentSorts[j], 0);
+					getTheory().declareInternalFunction(selectors[j], selectorParamSorts, argumentSorts[j], FunctionSymbol.SELECTOR);
 				}
 			} else {
 				getTheory().declareInternalPolymorphicFunction(constrName, sortParams, argumentSorts,
