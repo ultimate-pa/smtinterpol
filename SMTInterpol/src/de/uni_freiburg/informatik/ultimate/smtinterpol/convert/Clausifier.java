@@ -662,6 +662,20 @@ public class Clausifier {
 					rewrite = mTracker.congruence(rewrite, new Term[] { atomRewrite });
 				}
 				mCollector.addLiteral(lit.negate(), rewrite);
+			} else if (idx instanceof MatchTerm) {
+				final ILiteral lit = createAnonLiteral(idx, mCollector.getSource());
+				if (positive) {
+					addAuxAxioms(idx, true, mCollector.getSource());
+				} else {
+					addAuxAxioms(idx, false, mCollector.getSource());
+				}
+				final Term atomRewrite = mTracker.intern(idx, lit.getSMTFormula(theory, true));
+				if (positive) {
+					rewrite = mTracker.transitivity(rewrite, atomRewrite);
+				} else {
+					rewrite = mTracker.congruence(rewrite, new Term[] { atomRewrite });
+				}
+				mCollector.addLiteral(positive ? lit : lit.negate(), rewrite);
 			} else {
 				throw new SMTLIBException("Cannot handle literal " + mLiteral);
 			}
@@ -1552,6 +1566,59 @@ public class Clausifier {
 			} else {
 				throw new AssertionError("AuxAxiom not implemented: " + term);
 			}
+		} else if (term instanceof MatchTerm) {
+			final Theory theory = term.getTheory();
+			final MatchTerm mt = (MatchTerm) term;
+			final Term dataTerm = mt.getDataTerm();
+			final Map<Constructor, Term> cases = new LinkedHashMap<>();
+			int c_i = 0;
+			for (final Constructor c : mt.getConstructors()) {
+				Annotation rule;
+				if (cases.containsKey(c)) {
+					c_i++;
+					continue;
+				}
+
+				final Deque<Term> clause = new ArrayDeque<>();
+				clause.add(negLitTerm);
+
+				final Map<TermVariable, Term> argSubs = new LinkedHashMap<>();
+				if (c == null) {
+					// if c == null, this is the default case which matches everything else
+					clause.addAll(cases.values());
+					argSubs.put(mt.getVariables()[c_i][0], mt.getDataTerm());
+					rule = ProofConstants.AUX_MATCH_DEFAULT;
+					assert c_i == mt.getConstructors().length - 1;
+				} else {
+					// build is-condition
+					final FunctionSymbol isFs = theory.getFunctionWithResult("is", new String[] { c.getName() }, null,
+							dataTerm.getSort());
+					final Term isTerm = theory.term(isFs, dataTerm);
+					cases.put(c, isTerm);
+					clause.add(theory.term("not", isTerm));
+
+					// substitute argument TermVariables with the according selector function
+					int s_i = 0;
+					for (final String sel : c.getSelectors()) {
+						final Term selTerm = theory.term(theory.getFunctionSymbol(sel), mt.getDataTerm());
+						argSubs.put(mt.getVariables()[c_i][s_i++], selTerm);
+					}
+					rule = ProofConstants.AUX_MATCH_CASE;
+				}
+
+				// build implicated literal
+				final FormulaUnLet unlet = new FormulaUnLet();
+				unlet.addSubstitutions(argSubs);
+				final Term equalTerm = unlet.unlet(mt.getCases()[c_i]);
+				if (positive) {
+					clause.add(equalTerm);
+				} else {
+					clause.add(theory.term("not", equalTerm));
+				}
+				final Term axiom = mTracker.auxAxiom(theory.term("or", clause.toArray(new Term[clause.size()])), rule);
+				buildAuxClause(negLit, axiom, source);
+				c_i++;
+			}
 		} else {
 			throw new AssertionError("Don't know how to create aux axiom: " + term);
 		}
@@ -1714,8 +1781,10 @@ public class Clausifier {
 			unlet.addSubstitutions(argSubs);
 
 			// build is-condition
-			final FunctionSymbol isFs = theory.getFunctionWithResult("is", new String[] {c.getName()}, null, term.getSort());
-			Term isTerm = theory.term(isFs, term.getDataTerm());
+			final Term dataTerm = term.getDataTerm();
+			final FunctionSymbol isFs = theory.getFunctionWithResult("is", new String[] { c.getName() }, null,
+					dataTerm.getSort());
+			Term isTerm = theory.term(isFs, dataTerm);
 			cases.put(c, isTerm);
 			isTerm = theory.term("not", isTerm);
 

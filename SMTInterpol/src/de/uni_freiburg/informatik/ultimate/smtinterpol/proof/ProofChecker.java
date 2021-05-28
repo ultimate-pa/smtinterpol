@@ -36,6 +36,7 @@ import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.MatchTerm;
 import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
@@ -648,7 +649,7 @@ public class ProofChecker extends NonRecursive {
 		} else if (lemmaType == ":dt-project" || lemmaType == ":dt-tester" || lemmaType == ":dt-constructor"
 				|| lemmaType == ":dt-cases" || lemmaType == ":dt-unique" || lemmaType == ":dt-injective"
 				|| lemmaType == ":dt-disjoint" || lemmaType == ":dt-cycle") {
-			reportWarning("Cannot deal with lemma " + annTerm);
+			reportWarning("Unchecked datatype lemma " + annTerm);
 			checkDataTypeLemma(lemmaType, clause, (Object[]) lemmaAnnotation);
 		} else if (lemmaType == ":trichotomy") {
 			checkTrichotomy(clause);
@@ -1501,6 +1502,11 @@ public class ProofChecker extends NonRecursive {
 			break;
 		case ":diff":
 			result = checkTautDiff(clause);
+			break;
+		case ":matchCase":
+		case ":matchDefault":
+			result = true;
+			reportWarning("Unchecked datatype tautology rule " + tautologyApp);
 			break;
 		default:
 			result = false;
@@ -3133,7 +3139,7 @@ public class ProofChecker extends NonRecursive {
 	}
 
 	boolean checkRewriteIntern(final Term lhs, Term rhs) {
-		if (!(lhs instanceof ApplicationTerm) && !(lhs instanceof TermVariable) || lhs.getSort().getName() != "Bool") {
+		if (lhs.getSort().getName() != "Bool") {
 			return false;
 		}
 
@@ -3153,6 +3159,16 @@ public class ProofChecker extends NonRecursive {
 			return false;
 		}
 
+		/* Check for auxiliary literals */
+		if (isApplication("ite", lhs) || isApplication("or", lhs) || isApplication("xor", lhs)
+				|| lhs instanceof MatchTerm) {
+			rhs = unquote(rhs, true);
+			return lhs == rhs;
+		}
+
+		if (!(lhs instanceof ApplicationTerm)) {
+			return false;
+		}
 		final ApplicationTerm at = (ApplicationTerm) lhs;
 		if (!at.getFunction().isInterpreted() || at.getFunction().getName() == "select"
 				|| at.getFunction().getName() == "is") {
@@ -3264,12 +3280,6 @@ public class ProofChecker extends NonRecursive {
 			}
 			rhsAffine.negate();
 			return lhsAffine.equals(rhsAffine);
-		}
-
-		/* Check for auxiliary literals */
-		if (isApplication("ite", lhs) || isApplication("or", lhs) || isApplication("xor", lhs)) {
-			rhs = unquote(rhs, true);
-			return lhs == rhs;
 		}
 		return false;
 	}
