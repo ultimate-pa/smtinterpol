@@ -102,7 +102,6 @@ public class Theory {
 
 	private final UnifyHash<QuantifiedFormula> mQfCache = new UnifyHash<>();
 	private final UnifyHash<LetTerm> mLetCache = new UnifyHash<>();
-	private final UnifyHash<MatchTerm> mMtCache = new UnifyHash<>();
 	private final UnifyHash<Term> mTermCache = new UnifyHash<>();
 	private final UnifyHash<TermVariable> mTvUnify = new UnifyHash<>();
 	/**
@@ -343,9 +342,18 @@ public class Theory {
 			final DataType.Constructor[] constructors) {
 
 		final int hash = MatchTerm.hashMatch(dataArg, vars, cases);
+		for (final Term t : mTermCache.iterateHashCode(hash)) {
+			if (t instanceof MatchTerm) {
+				final MatchTerm mt = (MatchTerm) t;
+				if (mt.getDataTerm() == dataArg && Arrays.equals(mt.getCases(), cases)
+						&& Arrays.deepEquals(mt.getVariables(), vars)
+						&& Arrays.equals(mt.getConstructors(), constructors)) {
+					return mt;
+				}
+			}
+		}
 		final MatchTerm mt = new MatchTerm(hash, dataArg, vars, cases, constructors);
-		// add to hashmap
-		mMtCache.put(hash, mt);
+		mTermCache.put(hash, mt);
 		return mt;
 	}
 
@@ -1183,7 +1191,7 @@ public class Theory {
 				if (indices == null || indices.length != 1 || paramSorts.length != 0 || resultSort != null) {
 					return null;
 				}
-				String index = indices[0];
+				final String index = indices[0];
 				if (!index.startsWith("#x") || index.length() <= 2 || index.length() > 7
 						|| (index.length() == 7 && index.charAt(2) > '2')) {
 					return null;
