@@ -1586,7 +1586,7 @@ public class Clausifier {
 				if (c == null) {
 					// if c == null, this is the default case which matches everything else
 					clause.addAll(cases.values());
-					argSubs.put(mt.getVariables()[c_i][0], mt.getDataTerm());
+					argSubs.put(mt.getVariables()[c_i][0], dataTerm);
 					rule = ProofConstants.AUX_MATCH_DEFAULT;
 					assert c_i == mt.getConstructors().length - 1;
 				} else {
@@ -1600,7 +1600,7 @@ public class Clausifier {
 					// substitute argument TermVariables with the according selector function
 					int s_i = 0;
 					for (final String sel : c.getSelectors()) {
-						final Term selTerm = theory.term(theory.getFunctionSymbol(sel), mt.getDataTerm());
+						final Term selTerm = theory.term(theory.getFunctionSymbol(sel), dataTerm);
 						argSubs.put(mt.getVariables()[c_i][s_i++], selTerm);
 					}
 					rule = ProofConstants.AUX_MATCH_CASE;
@@ -1750,7 +1750,7 @@ public class Clausifier {
 
 	public void addMatchAxiom(final MatchTerm term, final SourceAnnotation source) {
 		final Theory theory = term.getTheory();
-		final FormulaUnLet unlet = new FormulaUnLet();
+		final Term dataTerm = term.getDataTerm();
 		final Map<Constructor, Term> cases = new LinkedHashMap<>();
 		int c_i = 0;
 		for (final Constructor c : term.getConstructors()) {
@@ -1760,37 +1760,37 @@ public class Clausifier {
 			}
 
 			final Map<TermVariable, Term> argSubs = new LinkedHashMap<>();
+			final Deque<Term> clause = new ArrayDeque<>();
+			Annotation rule;
 			if (c == null) {
-				// if c == null, this is the default case which matches everything
-				final Term isTerm = mTheory.or(cases.values().toArray(new Term[cases.values().size()]));
-				argSubs.put(term.getVariables()[c_i][0], term.getDataTerm());
-				unlet.addSubstitutions(argSubs);
-				final Term defaultCase = mTheory.term("=", term, unlet.unlet(term.getCases()[c_i]));
-				Term axiom = mTheory.or(isTerm, defaultCase);
-				axiom = mTracker.auxAxiom(axiom, ProofConstants.AUX_MATCH_DEFAULT);
-				buildClause(axiom, source);
-				return;
-			}
+				// if c == null, this is the default case which matches everything else
+				clause.addAll(cases.values());
+				argSubs.put(term.getVariables()[c_i][0], dataTerm);
+				rule = ProofConstants.AUX_MATCH_DEFAULT;
+				assert c_i == term.getConstructors().length - 1;
+			} else {
+				// build is-condition
+				final FunctionSymbol isFs = theory.getFunctionWithResult("is", new String[] { c.getName() }, null,
+						dataTerm.getSort());
+				final Term isTerm = theory.term(isFs, dataTerm);
+				cases.put(c, isTerm);
+				clause.add(theory.term("not", isTerm));
 
-			// substitute argument TermVariables with the according selector function
-			int s_i = 0;
-			for (final String sel : c.getSelectors()) {
-				final Term selTerm = theory.term(theory.getFunctionSymbol(sel), term.getDataTerm());
-				argSubs.put(term.getVariables()[c_i][s_i++], selTerm);
+				// substitute argument TermVariables with the according selector function
+				int s_i = 0;
+				for (final String sel : c.getSelectors()) {
+					final Term selTerm = theory.term(theory.getFunctionSymbol(sel), dataTerm);
+					argSubs.put(term.getVariables()[c_i][s_i++], selTerm);
+				}
+				rule = ProofConstants.AUX_MATCH_CASE;
 			}
-			unlet.addSubstitutions(argSubs);
-
-			// build is-condition
-			final Term dataTerm = term.getDataTerm();
-			final FunctionSymbol isFs = theory.getFunctionWithResult("is", new String[] { c.getName() }, null,
-					dataTerm.getSort());
-			Term isTerm = theory.term(isFs, dataTerm);
-			cases.put(c, isTerm);
-			isTerm = theory.term("not", isTerm);
 
 			// build implicated equality
+			final FormulaUnLet unlet = new FormulaUnLet();
+			unlet.addSubstitutions(argSubs);
 			final Term caseTerm = mTheory.term("=", term, unlet.unlet(term.getCases()[c_i]));
-			Term axiom = theory.term("or", isTerm, caseTerm);
+			clause.add(caseTerm);
+			Term axiom = theory.term("or", clause.toArray(new Term[clause.size()]));
 			axiom = mTracker.auxAxiom(axiom, ProofConstants.AUX_MATCH_CASE);
 			buildClause(axiom, source);
 			c_i++;
