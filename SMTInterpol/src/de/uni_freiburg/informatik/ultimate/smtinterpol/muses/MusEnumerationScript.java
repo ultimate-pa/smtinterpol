@@ -19,6 +19,7 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.muses;
 
 import java.math.BigInteger;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.HashMap;
@@ -281,8 +282,6 @@ public class MusEnumerationScript extends WrapperScript {
 					"Asserted Terms must be determined Unsat to return an unsat core. Call checkSat to determine satisfiability.");
 		} else if (!((boolean) getOption(SMTLIBConstants.PRODUCE_UNSAT_CORES))) {
 			throw new SMTLIBException("Unsat core production must be enabled (you can do this via setOption).");
-		} else if (!((boolean) getOption(SMTLIBConstants.PRODUCE_PROOFS))) {
-			throw new SMTLIBException("Proof production must be enabled (you can do this via setOption).");
 		}
 
 		final Translator translator = new Translator();
@@ -348,7 +347,20 @@ public class MusEnumerationScript extends WrapperScript {
 
 		mHandler.clearTimeout();
 
-		return translator.translateToTerms(chosenMus.getMus());
+		final ArrayDeque<Term> unsatcore = new ArrayDeque<>();
+		for (final Term t : translator.translateToTerms(chosenMus.getMus())) {
+			if (t instanceof AnnotatedTerm) {
+				final AnnotatedTerm at = (AnnotatedTerm) t;
+				for (final Annotation a : at.getAnnotations()) {
+					if (a.getKey().equals(":named")) {
+						final String name = ((String) a.getValue()).intern();
+						unsatcore.add(t.getTheory().term(name));
+						break;
+					}
+				}
+			}
+		}
+		return unsatcore.toArray(new Term[unsatcore.size()]);
 	}
 
 	/**
