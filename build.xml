@@ -207,8 +207,8 @@ if [ "$#" -gt 1 ]; then
 # ignore bogus parameters given by starexec
 set -- "$1"
 fi
-java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/3))m -da -dsa -XX:-UseGCOverheadLimit -jar smtinterpol.jar -q -o continue-on-error=false "$$@" 2&gt;/dev/null
-        </echo>
+java -Xms1536m -Xmx50g -da -dsa -jar smtinterpol.jar -q -o continue-on-error=false -o proof-check-mode "$$@" 2&gt;/dev/null
+</echo>
         <chmod file="${tmpdir}/bin/starexec_run_default" perm="a+rx"/>
         <echo file="${tmpdir}/starexec_description.txt" append="false">SMTInterpol ${version}</echo>
         <!-- stupid starexec does not like - characters in description -->

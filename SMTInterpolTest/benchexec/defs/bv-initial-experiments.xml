@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<!DOCTYPE benchmark PUBLIC "+//IDN sosy-lab.org//DTD BenchExec benchmark 1.9//EN" "https://www.sosy-lab.org/benchexec/benchmark-2.3.dtd">
+<benchmark tool="smtinterpol" timelimit="900s" hardtimelimit="900s" memlimit="8 GB" cpuCores="2">
+    <tasks name="SMT-LIB">
+        <includesfile>bench_crafted.set</includesfile>
+        <includesfile>bench_bruttomesso.set</includesfile>
+        <includesfile>bench_Heizmann2017.set</includesfile>
+        <includesfile>bench_Heizmann2019.set</includesfile>
+        <propertyfile>/storage/repos/smtinterpol/bench/smt.prop</propertyfile>
+    </tasks>
+    <rundefinition name="BV">
+        <option name="-no-success" />
+        <option name="-smt2" />
+        <!-- <option name="-o">opt=value</option> -->
+    </rundefinition>
+</benchmark>
