@@ -25,6 +25,7 @@ import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.aiger.AIGERFrontEnd;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dimacs.DIMACSParser;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.muses.MusEnumerationScript;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib.SMTLIBParser;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.ErrorCallback;
@@ -70,6 +71,7 @@ public final class Main {
 		final DefaultLogger logger = new DefaultLogger();
 		final OptionMap options = new OptionMap(logger, true);
 		final Deque<Option> optionList = new ArrayDeque<>();
+		boolean useRemus = false;
 		ErrorCallback errorCallback = null;
 		IParser parser = new SMTLIB2Parser();
 		Script solver = null;
@@ -95,6 +97,8 @@ public final class Main {
 						System.exit(reason.ordinal() + 1);
 					}
 				};
+			} else if (param[paramctr].equals("-remus")) {
+				useRemus = true;
 			} else if (param[paramctr].equals("-no-success")) {
 				optionList.add(new Option(":print-success", false));
 			} else if (param[paramctr].equals("-v")) {
@@ -163,6 +167,9 @@ public final class Main {
 			final SMTInterpol smtinterpol = new SMTInterpol(null, options);
 			smtinterpol.setErrorCallback(errorCallback);
 			solver = smtinterpol;
+			if (useRemus) {
+				solver = new MusEnumerationScript(smtinterpol);
+			}
 		}
 		for (final Option opt : optionList) {
 			solver.setOption(opt.getName(), opt.getValue());
