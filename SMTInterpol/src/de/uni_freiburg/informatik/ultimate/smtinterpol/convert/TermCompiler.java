@@ -855,23 +855,19 @@ public class TermCompiler extends TermTransformer {
 				}
 			}
 			case "zero_extend": {
+				// abbreviates (concat ((_ repeat i) #b0) t)
 				if (fsym.getIndices()[0].equals("0")) {
 					setResult(params[0]);
 					return;
 				} else {
-					if (bvUtils.isConstRelation(params[0], null)) {
-						String repeat = "#b0";
-						for (int i = 1; i < Integer.parseInt(fsym.getIndices()[0]); i++) { // start from 1
-							repeat = repeat + "0";
-						}
-						setResult(theory.binary(repeat + BVUtils.getConstAsString((ConstantTerm) params[0])));
-						return;
+					String repeat = "#b0";
+					for (int i = 1; i < Integer.parseInt(fsym.getIndices()[0]); i++) {
+						repeat = repeat + "0";
 					}
-					setResult(convertedApp);
+					pushTerm(theory.term("concat", theory.binary(repeat), params[0]));
 					return;
 				}
 			}
-
 			case "sign_extend": {
 				if (fsym.getIndices()[0].equals("0")) {
 					setResult(params[0]);
