@@ -72,6 +72,7 @@ public class MusEnumerationScript extends WrapperScript {
 	ScopedArrayList<Term> mRememberedAssertions;
 	int mCustomNameId;
 	boolean mAssertedTermsAreUnsat;
+	long mStartTime;
 
 	EnumOption<HeuristicsType> mInterpolationHeuristic;
 	DoubleOption mTolerance;
@@ -79,6 +80,7 @@ public class MusEnumerationScript extends WrapperScript {
 	LongOption mHeuristicTimeout;
 	BooleanOption mLogAdditionalInformation;
 	BooleanOption mUnknownAllowed;
+	BooleanOption mAbsoluteTimeout;
 	LogProxy mLogger;
 
 	Random mRandom;
@@ -104,6 +106,7 @@ public class MusEnumerationScript extends WrapperScript {
 		super(wrappedScript);
 		assert wrappedScript instanceof SMTInterpol : "Currently, only SMTInterpol is supported.";
 		final SMTInterpol wrappedSMTInterpol = (SMTInterpol) mScript;
+		mStartTime = System.currentTimeMillis();
 		mCustomNameId = 0;
 		mAssertedTermsAreUnsat = false;
 		mHandler = new TimeoutHandler(wrappedSMTInterpol.getTerminationRequest());
@@ -126,6 +129,8 @@ public class MusEnumerationScript extends WrapperScript {
 				"Whether additional information (e.g. of the enumeration) should be logged.");
 		mUnknownAllowed =
 				new BooleanOption(false, true, "Whether LBool.UNKNOWN is allowed to occur in the enumeration process.");
+		mAbsoluteTimeout = new BooleanOption(false, true,
+				"Whether the enumeration timeout is from start of Java (true) or from get-unsat-core call (false).");
 	}
 
 	private long getRandomSeed() {
@@ -197,7 +202,11 @@ public class MusEnumerationScript extends WrapperScript {
 		final long heuristicTimeout = getHeuristicTimeout();
 
 		if (enumerationTimeout > 0) {
-			mHandler.setTimeout(enumerationTimeout);
+			if (mAbsoluteTimeout.getValue()) {
+				mHandler.setAbsoluteTimeout(mStartTime + enumerationTimeout);
+			} else {
+				mHandler.setTimeout(enumerationTimeout);
+			}
 		}
 
 		long elapsedTime = System.nanoTime();
@@ -290,7 +299,11 @@ public class MusEnumerationScript extends WrapperScript {
 		final long timeoutForHeuristic = getHeuristicTimeout();
 
 		if (timeoutForReMus > 0) {
-			mHandler.setTimeout(timeoutForReMus);
+			if (mAbsoluteTimeout.getValue()) {
+				mHandler.setAbsoluteTimeout(mStartTime + timeoutForReMus);
+			} else {
+				mHandler.setTimeout(timeoutForReMus);
+			}
 		}
 
 		long elapsedTime = System.nanoTime();
@@ -680,6 +693,8 @@ public class MusEnumerationScript extends WrapperScript {
 			mLogAdditionalInformation.set(value);
 		} else if (opt.equals(MusOptions.UNKNOWN_ALLOWED)) {
 			mUnknownAllowed.set(value);
+		} else if (opt.equals(MusOptions.ABSOLUTE_TIMEOUT)) {
+			mAbsoluteTimeout.set(value);
 		} else {
 			mScript.setOption(opt, value);
 		}
@@ -699,6 +714,8 @@ public class MusEnumerationScript extends WrapperScript {
 			return mLogAdditionalInformation.getValue();
 		} else if (opt.equals(MusOptions.UNKNOWN_ALLOWED)) {
 			return mUnknownAllowed.getValue();
+		} else if (opt.equals(MusOptions.ABSOLUTE_TIMEOUT)) {
+			return mAbsoluteTimeout.getValue();
 		} else {
 			return mScript.getOption(opt);
 		}

@@ -41,6 +41,11 @@ public class TimeoutHandler implements TerminationRequest {
 		mTimeoutIsSet = true;
 	}
 
+	public void setAbsoluteTimeout(final long millis) {
+		mTimeoutStamp = millis;
+		mTimeoutIsSet = true;
+	}
+
 	public boolean timeoutIsSet() {
 		return mTimeoutIsSet;
 	}

@@ -32,4 +32,5 @@ public interface MusOptions {
 	public String HEURISTIC_TIMEOUT = ":heuristic-timeout";
 	public String LOG_ADDITIONAL_INFORMATION = ":log-additional-information";
 	public String UNKNOWN_ALLOWED = ":unknown-allowed";
+	public String ABSOLUTE_TIMEOUT = ":absolute-timeout";
 }
