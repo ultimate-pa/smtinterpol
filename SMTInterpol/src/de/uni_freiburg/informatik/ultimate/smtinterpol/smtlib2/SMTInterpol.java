@@ -335,6 +335,26 @@ public class SMTInterpol extends NoopScript {
 	 *            What to do when copying existing options.
 	 */
 	public SMTInterpol(final SMTInterpol other, final Map<String, Object> options, final OptionMap.CopyMode mode) {
+		this(other, options, mode, other.mCancel);
+	}
+
+	/**
+	 * Copy the current context and modify some pre-theory options. The copy shares
+	 * the push/pop stack on the symbols but not on the assertions. Users should be
+	 * careful not to mess up the push/pop stack, i.e., not to push on one context
+	 * and pop on another one.
+	 *
+	 * Note that this cloning does not clone the assertion stack and should not be
+	 * used in multi-threaded contexts since users cannot guarantee correct
+	 * push/pop-stack treatment.
+	 *
+	 * @param other   The context to clone.
+	 * @param options The options to set before setting the logic.
+	 * @param mode    What to do when copying existing options.
+	 * @param cancel  The new termination request.
+	 */
+	public SMTInterpol(final SMTInterpol other, final Map<String, Object> options, final OptionMap.CopyMode mode,
+			final TimeoutHandler cancel) {
 		super(other.getTheory());
 		mLogger = other.mLogger;
 		mOptions = other.mOptions.copy(mode);
@@ -344,7 +364,7 @@ public class SMTInterpol extends NoopScript {
 				setOption(me.getKey(), me.getValue());
 			}
 		}
-		mCancel = other.mCancel;
+		mCancel = cancel;
 		setupClausifier(getTheory().getLogic());
 	}
 

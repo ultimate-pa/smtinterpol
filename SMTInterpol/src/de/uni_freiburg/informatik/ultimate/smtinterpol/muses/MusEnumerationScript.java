@@ -422,7 +422,7 @@ public class MusEnumerationScript extends WrapperScript {
 		final Term[] unsatCore = mScript.getUnsatCore();
 		final ArrayList<MusContainer> muses = new ArrayList<>();
 
-		final TerminationRequest requestForShrinker = mHandler;
+		final TimeoutHandler requestForShrinker = mHandler;
 		final Script scriptForShrinker = createScriptForMuses((SMTInterpol) mScript, requestForShrinker);
 		registerTermsForShrinking(mRememberedAssertions, translator, scriptForShrinker);
 		resetCustomNameId();
@@ -461,10 +461,10 @@ public class MusEnumerationScript extends WrapperScript {
 	 * with the script) after you are done with this Script! Otherwise the original smtInterpol could become
 	 * inconsistent.
 	 */
-	private Script createScriptForMuses(final SMTInterpol smtInterpol, final TerminationRequest terminationRequest) {
+	private Script createScriptForMuses(final SMTInterpol smtInterpol, final TimeoutHandler terminationRequest) {
 		final Map<String, Object> remusOptions = createSMTInterpolOptionsForReMus();
-		final SMTInterpol scriptForReMus = new SMTInterpol(smtInterpol, remusOptions, CopyMode.CURRENT_VALUE);
-		scriptForReMus.setTerminationRequest(terminationRequest);
+		final SMTInterpol scriptForReMus = new SMTInterpol(smtInterpol, remusOptions, CopyMode.CURRENT_VALUE,
+				terminationRequest);
 		scriptForReMus.push(1);
 
 		return scriptForReMus;
