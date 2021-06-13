@@ -204,15 +204,14 @@ stage:             Upload new version to Maven Central (owner only)
         <echo file="${tmpdir}/bin/starexec_run_default" append="false">#!/bin/bash
 
 WALLCLOCK_LIMIT="${STAREXEC_WALLCLOCK_LIMIT:-60}"
-ENUMTIMEOUT=$(expr $WALLCLOCK_LIMIT - 10)
-ENUMTIMEOUT=$(expr $ENUMTIMEOUT \* 1000)
+ENUMTIMEOUT=$(expr $WALLCLOCK_LIMIT \* 950)
 
 # Run script for SMTInterpol for the STAREXEC cluster
 if [ "$#" -gt 1 ]; then
 # ignore bogus parameters given by starexec
 set -- "$1"
 fi
-java -Xms1536m -Xmx50g -da -dsa -jar smtinterpol.jar -q -remus -o continue-on-error=false -o produce-proofs -o proof-check-mode -o enumeration-timeout="$ENUMTIMEOUT" -o absolute-timeout -o interpolation-heuristic=SMALLEST -o unknown-allowed "$@" 2&gt;/dev/null
+java -Xms1536m -Xmx50g -da -dsa -jar smtinterpol.jar -q -remus -o continue-on-error=false -o produce-proofs -o proof-check-mode -o enumeration-timeout="$ENUMTIMEOUT" -o absolute-timeout -o interpolation-heuristic=SMALLEST -o unknown-allowed -o sub-timeout=60000 "$@" 2&gt;/dev/null
 </echo>
         <chmod file="${tmpdir}/bin/starexec_run_default" perm="a+rx"/>
         <echo file="${tmpdir}/starexec_description.txt" append="false">SMTInterpol ${version}</echo>

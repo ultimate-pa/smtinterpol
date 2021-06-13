@@ -78,6 +78,7 @@ public class MusEnumerationScript extends WrapperScript {
 	DoubleOption mTolerance;
 	LongOption mEnumerationTimeout;
 	LongOption mHeuristicTimeout;
+	LongOption mSubTimeout;
 	BooleanOption mLogAdditionalInformation;
 	BooleanOption mUnknownAllowed;
 	BooleanOption mAbsoluteTimeout;
@@ -125,6 +126,8 @@ public class MusEnumerationScript extends WrapperScript {
 		mEnumerationTimeout = new LongOption(0, true, "The time that is invested into enumerating Muses");
 		mHeuristicTimeout = new LongOption(0, true,
 				"The time that is invested into finding the best Mus according to the set Heuristic");
+		mSubTimeout = new LongOption(0, true,
+				"The time that is invested per sub call to check an unsat core candidate for sat or unsat");
 		mLogAdditionalInformation = new BooleanOption(false, true,
 				"Whether additional information (e.g. of the enumeration) should be logged.");
 		mUnknownAllowed =
@@ -465,6 +468,9 @@ public class MusEnumerationScript extends WrapperScript {
 		final Map<String, Object> remusOptions = createSMTInterpolOptionsForReMus();
 		final SMTInterpol scriptForReMus = new SMTInterpol(smtInterpol, remusOptions, CopyMode.CURRENT_VALUE,
 				terminationRequest);
+		if (mSubTimeout.getValue() > 0) {
+			scriptForReMus.setOption(SMTInterpolOptions.TIMEOUT, mSubTimeout.getValue());
+		}
 		scriptForReMus.push(1);
 
 		return scriptForReMus;
@@ -689,6 +695,8 @@ public class MusEnumerationScript extends WrapperScript {
 			mEnumerationTimeout.set(value);
 		} else if (opt.equals(MusOptions.HEURISTIC_TIMEOUT)) {
 			mHeuristicTimeout.set(value);
+		} else if (opt.equals(MusOptions.SUB_TIMEOUT)) {
+			mSubTimeout.set(value);
 		} else if (opt.equals(MusOptions.LOG_ADDITIONAL_INFORMATION)) {
 			mLogAdditionalInformation.set(value);
 		} else if (opt.equals(MusOptions.UNKNOWN_ALLOWED)) {
@@ -710,6 +718,8 @@ public class MusEnumerationScript extends WrapperScript {
 			return mEnumerationTimeout.get();
 		} else if (opt.equals(MusOptions.HEURISTIC_TIMEOUT)) {
 			return mHeuristicTimeout.get();
+		} else if (opt.equals(MusOptions.SUB_TIMEOUT)) {
+			return mSubTimeout.get();
 		} else if (opt.equals(MusOptions.LOG_ADDITIONAL_INFORMATION)) {
 			return mLogAdditionalInformation.getValue();
 		} else if (opt.equals(MusOptions.UNKNOWN_ALLOWED)) {
@@ -738,6 +748,8 @@ public class MusEnumerationScript extends WrapperScript {
 		mTolerance.reset();
 		mEnumerationTimeout.reset();
 		mHeuristicTimeout.reset();
+		mSubTimeout.reset();
+		mAbsoluteTimeout.reset();
 		mLogAdditionalInformation.reset();
 		mRandom = new Random(getRandomSeed());
 	}
