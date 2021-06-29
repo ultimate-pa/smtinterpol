@@ -1,0 +1,417 @@
+Proof ::= (let ((....)) Proof)
+        | (res Term Proof Proof)
+	| (instantiate ((Var Term) ... (Var Term)) Proof)
+	  (instantiate (! Proof :subst (Vars) (Terms)))
+	| (assert Term)
+	| false- | true+
+	| (not+ Term)
+	| (not- Term)
+	| (or+ NUM Term ... Term)
+	| (or- Term ... Term)
+	| (and+ Term ... Term)
+	| (and- NUM Term ... Term)
+	| (=>+ NUM Term ... Term)
+	| (=>- Term ... Term)
+	| (=+1 Term Term)
+	| (=+2 Term Term)
+	| (=-1 Term Term)
+	| (=-2 Term Term)
+	| (xor+1 NUM Term ... Term)
+	| (xor+2 NUM Term ... Term)
+	| (xor-1 NUM Term ... Term)
+	| (xor-2 NUM Term ... Term)
+	| (forall+ VarDecl Term)
+	| (forall- VarDecl Term)
+	| (exists+ VarDecl Term)
+	| (exists- VarDecl Term)
+	| (ite1 Term Term Term)
+	| (ite2 Term Term Term)
+	| (trans Term ... Term)
+	| (symm Term Term)
+	| (cong Symbol Term Term ... Term Term)
+	| (expand Term)
+	| (del! Term)
+
+Special Skolem Variables: (_ skolem NUM VarDecl Term)
+
+================
+
+Terms, Literal, Clause
+
+A Term is an SMT-LIB term, the sort can be annotated in brackets, e.g.
+with Term[bool] we describe the type off all SMT-LIB terms with sort Bool.
+
+A Literal is either a positive or a negative SMT-LIB term of sort Bool:
+
+Literal ::= Pos(Term[bool]) | Neg(Term[bool])
+    where Pos(t) is written as t  and  Neg(t) is written as ~t.
+
+A Clause is a set of literals, where {lit1,lit2} is written as lit1,lit2
+
+Rules:
+
+We have only two rules:
+
+Resolution-Rule:
+
+(res t C1 C2):
+      C1        C2
+      ------------
+       C1\t, C2\~t
+
+The resolution rule takes as argument a pivot Term and two sub proofs.
+It returns the proof for a new clause which is the result of the resolution.
+Note that C1 needs to contain the positive literal for t, C2 contains the
+neegative literal for t.
+
+Instantiation-Rule:
+
+(instantiate ((x1 t1) ... (xn tn)) C):
+        C
+      ----------------------------
+      (let ((x1 t1)... (xn tn)) C)
+
+where x1,...,xn are the free variables in the terms in C and
+the let is applied on every term of the literals of C.
+
+Here the C argument is a sub-proof for clause C and the Inst function returns
+the proof of the resulting instantiated clause.x
+
+
+Axioms:
+Axioms take only terms and create a new tautology clause (except for
+assert, which creates a clause corresponding to one of the input formulas).
+
+(assert t):         t
+false-:             ~false
+true+:              true
+(or+ k t1 ... tn):  (or t1 ... tn), ~tk
+(or- t1 ... tn):    ~(or t1 ... tn), t1, ..., tn
+(not+ t):           (not t), t
+(not- t):           ~(not t), ~t
+(and+ t1 ... tn):   (and t1 ... tn), ~t1, ..., ~tn
+(and- k t1 ... tn): ~(and t1 ... tn), tk
+(=>+ k t1 ... tn): (=> t1 ... tn), ~? tk   (negated literal iff k == n)
+(=>- t1 ... tn):   ~(=> t1 ... tn), ~t1, ..., ~tn-1, tn
+(=+1 t1 t2):       (= e1 e2), e1, e2
+(=+2 t1 t2):       (= e1 e2), ~e1, ~e2
+(=-1 t1 t2):       ~(= e1 e2), e1, ~e2
+(=-2 t1 t2):       ~(= e1 e2), ~e1, e2
+(xor+ p t1 ... tn): (xor t1 t2... tn), ~? t1, ..., ~? tn    (odd number of ~)
+(xor- p t1 ... tn): ~(xor t1 t2... tn), ~? t1, ..., ~? tn   (even number of ~)
+
+(ite1 c t e):       (= (ite c t e) t), ~c
+(ite2 c t e):       (= (ite c t e) e), c
+
+(del! (! t :annot)) (= (! t :annot) t)
+
+(trans a1 ... an):  (= a1 an), ~(= a1 a2), ..., ~(= an-1 an)
+(symm a1 a2):       (= a1 a2), ~(= a2 a1)
+(cong f a1 b1 ... an bn):
+        (= (f a1 ... an) (f b1 .. bn)), ~(= a1 b1), ..., ~(= an bn)
+Cong works with every function, even logical operators.
+
+
+(distinct+ t1 ... tn): (distinct t1 ... tn), (= t1 t2), (= t1 t3) ..., (= tn-1 tn)  (for all i, j, i<j)
+(distinct- i j t1 ... tn): ~(distinct t1 ... tn), ~(= ti tj)
+   where i != j,  i,j in 1...n
+
+(=+ t1 ... tn): (= t1 ... tn), ~(= t1 t2), ... ~(= tn-1 tn)
+(=- i j t1 ... tn): ~(= t1 ... tn), (= ti tj)
+
+
+(expand (f t1 ... tn)): (= (f t1 ... tn) (let ((x1 t1) ... (xn tn)) t))
+
+  where f is defined by (define-fun f ((x1 tau1) ... (xn taun)) t)
+  or f is =, n >=3, t is (and (= x1 x2) ... (= xn-1 xn))
+  or f is distinct, t is (and (not (= x1 x2)) ... )  (for each pair xi,xj i<j)
+
+TODO:
+  chainable, pairwise operators
+  flatten
+  associative commutative built-in operators (and/or/xor/+/*) and
+  their normalization?
+
+Quantifiers:
+
+(forall+ F):  (forall ((x1 tau1) ... (xn taun)) F),
+              ~(let ((x1 ((_ skolem 1 (...) F) y)) ...
+	             (xn ((_ skolem n (...) F) y)))
+		    F)
+(forall- F):  ~(forall ((x1 tau1) ... (xn taun)) F), F
+(exists+ F):  (exists ((x1 tau1) ... (xn taun)) F), ~F
+(exists- F):  ~(exists ((x1 tau1) ... (xn taun)) F),
+              (let ((x1 ((_ skolem 1 (...) F) y)) ...
+	            (xn ((_ skolem n (...) F) y)))
+		   F)
+
+    where (skolem_Fi y) is the application of a fresh function symbol
+    to the free variables y1,...,ym of the input formula
+    (not including x1,...,xn which are bound in the input formula).
+
+
+Arrays:
+
+(selectstore1 a i v):   (= (select (store a i v) i) v)
+(selectstore2 a i j v): (= (select (store a i v) j) (select a j)), (= i j)
+(extdiff a b):  (= a b), ~(= (select a (@diff a b)) (select b (@diff a b)))
+
+DT:
+
+(dt_project seli a1 ... an): (= (seli (cons a1 ... an)) ai)
+(dt_cons cons x): ~((_ is cons) x), (= (cons (sel1 x) ... (seln x)) x)
+(dt_test cons (cons a1 ... an)):   ((_ is cons) (cons a1 ... an))
+(dt_test cons' (cons a1 ... an)): ~((_ is cons') (cons a1 ... an))
+(dt_exhaust x): ((_ is cons1) x), ..., ((_ is consn) x)
+(dt_acyclic (cons ... x ...)):  ~(= (cons ... x ...) x)
+   where (cons ... x ...) is a term dag containing term x and on the path
+   from the root to x only constructor functions appear.
+(dt_match (match ..)): (= (match t ((p1 x1) c1) ...)
+           (ite ((_ is p1) t) (let (x1 (sel1 t)) c1)
+	     ...))
+
+Arithmetic:
+
+  Here (poly p) is some normalization of a polynomial expression:
+  (+ (* c1 t11 ...t1m) ... (* cn tn1 ... tnm))
+  where c1, .., cn are non-zero constants,
+  all (ti1...tim) are different sets, the head symbol of tij is not +,-,*.
+  ci is omitted, if it is 1 (except if there is no ti1...tin).
+  */+ is omitted if it has only one argument.
+  For linear arithmetic m must be one or zero.
+
+(ToIntLow x):       (<= (- (to_int x) x) 0)
+(ToIntHigh x):      (<  (- x (to_int x) 1) 0)
+(DivLow d x):       (<= (- (* d (div x d)) x) 0), (= d 0)
+(DivHigh d x):      (< (- x (* d (div x d)) d) 0), (= d 0)
+
+(mod d x):          (= (+ (* d (div x d)) (mod x d)) x), (= d 0)
+(divisible d x):    (= ((_ divisible d) x) (= x (* d (div x d))))
+
+(Tricho e):  (< e 0), (= e 0), (< (poly -e) 0)
+(EqNeq):     ~(= e 0), (<= e 0)
+(EqSimp c e1 e2):   (= (= (poly c*(e1-e2)) 0) (= e1 e2))
+(NegIneq2 e): (<= e 0), ~(< (poly -e) 0)
+(NegIneqI e): (< e 0), ~(< (poly -e + 1)) 0)
+
+(Farkas c1 p1 ... cn pn):  (<=? p1 0), ..., (<=? pn n)
+   iff c1, ..., cn positive rationals (algebraic numbers?)
+       p1, ..., pn are polynomials over the same arithmetic sort.
+    and poly(c1*p1 + ... + cn*pn)=c <= 0
+    and c either < 0 or at least one non-strict inequality.
+    if some pi are Int and some are Real, the Int ones are
+    replaced by (to_real pi).
+
+Poly+:  (= (poly p1+p2) (+ (poly p1) (poly p2)))
+Poly-:  (= (poly p1-p2) (- (poly p1) (poly p2)))
+Poly-:  (= (poly -p1) (- (poly p1)))
+Poly*:  (= (poly p1*p2) (* (poly p1) (poly p2)))
+Poly/:  (= (poly 1/c *p) (/ (poly p) c))  (linear)
+PolyToReal:  (= (poly (to_real p)) (to_real (polyI p)))
+   where (poly (to_real p)) replaces each tij in p with (to_real tij).
+
+
+
+
+
+
+------------------------------------------------------------------
+
+FalseE:  (not false)
+TrueI:   true
+OrI(k):  (or e1 ... en), ek
+OrE:     (not (or e1 ... en)), e1, ..., en
+NotI:    (not e), e                       (mainly used for double not elim)
+AndI:    (and e1 ... en), (not e1), ..., (not en)
+AndE(k): (not (and e1 ... en)), ek
+ImpI(k): (=> e1 ... en), (not ek)
+ImpI(n): (=> e1 ... en), en
+ImpE:    (not (=> e1 ... en)), (not e1), ..., (not en-1), en
+EqI1:    (= e1 e2), e1, e2
+EqI2:    (= e1 e2), (not e1), (not e2)
+EqE1:    (not (= e1 e2)), e1, (not e2)
+EqE2:    (not (= e1 e2)), (not e1), e2
+XorI:    (xor t1 t2... tn), (not? t1), ..., (not? tn)         (odd not)
+XorE:    (not (xor t1 t2... tn)), (not? t1), ..., (not? tn)   (even not)
+EqIte1:  (= (ite c t e) t), (not c)
+EqIte2:  (= (ite c t e) e), c
+ToIntLow:  (<= (- (to_int x) x) 0)
+ToIntHigh: (<  (- x (to_int x) 1) 0)
+DivLow:    (<= (- (* d (div x d)) x) 0)
+DivHigh:   (< (- x (* d (div x d)) d) 0)
+...
+(assert e): e   (where e is an assertion or assumption)
+
+Flatten: (= (or/and (set t1.... tn))  (nested or/and t1 ... tn))
+Flatten: (= (xor (sort t1.... tn))  (nested xor t1 ... tn))
+
+Distinct: (= (and (not (= ti tj)) ...) (distinct t1 ... tn))
+EqChain: (= (and (= t1 t2) ... (= tn-1 tn)) (= t1 ... tn))
+
+
+XorI1 k:  (xor t1 ... tn), tk, (xor t1 ... tk-1 tk+1 ... tn)
+XorI2 k:  (xor t1 ... tn), (not tk), (not (xor t1 ... tk-1 tk+1 ... tn))
+XorE1 k:  (not (xor t1 t2... tn)), (not? t1), ..., (not? tn)   (even not)
+
+Inst-Rule:
+
+(Inst C t1 ... tn):
+        C
+      ----------------------------
+      (let ((x1 t1)... (xn tn)) C)
+
+Where x1,...,xn are the union of the free variables in the terms in C and
+the let is applied on every term of the literals of C.
+
+SelectOverStore1:  (= (select (store a i v) i) v)
+SelectOverStore2:  (= (select (store a i v) j) (select a j)), (= i j)
+Diff:    (= a b), (not (= (select a (@diff a b)) (select b (@diff a b))))
+
+Trans(a1 .. an): (= a1 an), (not (= a1 a2)) ... (not (= an-1 an))
+Symm(a1 a2):     (= a1 a2), (not (= a2 a1))
+Cong((f a1.. an) (f b1 .. bn)):
+         (= (f a1 ... an) (f b1 .. bn)), (Not (= a1 b1)), ..., (not (= an bn))
+
+Tricho e:  (< e 0), (= e 0), (< (- e) 0)
+NegIneqR e: (< e 0), (not (<= (- e) 0))
+NegIneqI e: (< e 0), (not (< (+ (- e) 1) 0))
+
+Farkas c1 ... cn:  (<=? p1 0), ..., (<=? pn n)
+   iff c1, ..., cn positive rationals (reals?)
+    and poly(c1*p1 + ... + cn*pn)=c <= 0
+    and c either < 0 or at least one non-strict inequality
+
+Poly+:  (= (poly p1+p2) (+ (poly p1) (poly p2)))
+Poly*:  (= (poly p1*p2) (* (poly p1) (poly p2)))
+PolyToReal:  (= (poly (to_real p)) (to_real (polyI p)))
+Derived Rules:
+
+IteI1:   (ite c t e), (not c), (not t)
+  = (Res (= (ite c t e) t) (EqIte1 c t e) (EqE1 (ite c t e) t))
+IteI2:   (ite c t e), c, (not e)
+  = (Res (= (ite c t e) e) (EqIte2 c t e) (EqE1 (ite c t e) e))
+IteE1:   (not (ite c t e)), (not c), t
+  = (Res (= (ite c t e) t) (EqIte1 c t e) (EqE2 (ite c t e) t))
+IteE2:   (not (ite c t e)), c, e
+  = (Res (= (ite c t e) e) (EqIte2 c t e) (EqE2 (ite c t e) e))
+
+
+
+(@refl a) = (Trans a)
+(@trans prf0 prf1) where prf0/prf1 proofs (= a b)/(= b c)
+  = (Res (= a b) prf1
+      (Res (= b c) prf2
+        (Trans a b c)))
+
+(@cong prf0 prf1 .. prfn) where
+   prf0 proofs (= a (f b1 ... bn))
+   prfk proofs (= bk ck)
+(Res (= (f b1.. bn) (f c1.. cn))
+  (Res a
+    (Trans a (f b1 ... bn) (f c1 ... cn))
+    prf0)
+  (Res (= bn cn) prfn
+   ...
+    (Res (= b1 c1) prf1
+       (Cong (f b1 ... bn) (f c1 .. cn)))...))
+
+(@eq prf0 prf1) where
+   prf0/prf1 proof t1/(= t1 t2):
+(Res (= t1 t2) prf1
+  (Res t1 prf 0)
+    (EqE2 t1 t2))
+
+(@split prf0 :notOr):
+  (Res (not (or t1 ... tn)) prf0
+       (OrI k t1 .. tn))
+
+EqTrue:  (= t true), (not t)
+ = (Res true TrueI (EqI2 t true))
+
+EqFalse: (= t false), t
+ = (Res false (EqI1 t false) falseE)
+
+
+termITEnested:
+  (Res (= (ite c1 ....(ite cn tn en) ....) (ite c2 ... (ite cn tn en)))
+   (EqIte1/2 c1 .....)
+   ...
+   (Res (= (ite cn1 ? (ite cn tn en) ?) (ite cn tn en))
+     (EqIte1/2 cn tn en)
+     (Trans (ite c1 .....(ite cn tn en) ....) ... (ite cn tn en)))...)
+
+read-over-weakeq :weakpath (i1 a1 ... an)
+  Res (= ...) (Cong (select a1 i1) (select a2 i1))
+  Res (= ...) (Cong (select a2 i1) (select (store a4 j4 v4) i1))
+  Res (= ...) (SelectOverStore1 a4 j4 v4 i1)
+     ...
+     (Trans (select a1 i1) .... (select an in))
+     (Trans i1)
+     (Symm ...)
+    
+
+weakeq-ext :subpath a1 ... an :weakpath (i1 a1 a21 ... an) ...
+  Res
+     (Diff a1 an)
+     (read-over-weakeq (diff a1 an) a1 ... an)
+     (Trans (select a1 (diff a1 an)) (select a1 i1) (select an in) (select an (diff a1 an)))
+       (Cong (select a1 (diff a1 an))  (select a1 i1))
+       (read-over-weakeq i1 a1 a21 ... an)
+       (Cong (select an i1) (select an (diff a1 an)))
+       (Symm i1 (diff a1 an))
+     ...
+
+
+trueNotFalse:  (= (= t1 .. true ... false ... tn) false)
+  (expand (= t1 ... true ... false ... tn))
+
+
+
+iteTrue:
+   (Res true TrueI (EqIte1 true t1 t2))
+iteFalse:
+   (Res false (EqIte2 true t1 t2) FalseE)
+iteSame:
+   (Res t0 (EqIte1 t0 t t) (EqIte2 t0 t t))
+iteBool1:
+   (Res t0
+      (Trans (ite t0 true false) false t0)
+        (EqIte2 t0 true false)
+        (EqI1 false t0)
+	FalseE
+      (Trans (ite t0 true true) true t0)
+        (EqIte2 t0 true false)
+        (EqI2 true t0)
+	TrueI
+
+iteBool3:
+   (Res t0
+      (Trans (ite t0 true t2) t2 (or t0 t2))
+        (EqIte2 t0 true t2)
+        (EqI1 t2 (or t0 t2))
+	  FalseE
+      (Trans (ite t0 true true) true (or t0 t2))
+        (EqIte2 t0 true false)
+	(EqI2 true (or t0 t2))
+	  TrueI
+	  (OrI 1 t0 t2)
+
+
+(subst pattern t1 t1' .. tn tn'):
+   (= (let ((x1 t1) ... (xn tn)) pattern)
+      (let ((x1 t1') ... (xn tn')) pattern),
+   ~(= t1 t1'), ... ~(= tn tn')
+
+
+
+Gamma, s=t   Lambda, u[s] =v
+----------------------------
+Gamma, Lambda, u[t] = v
+
+
+Lambda, u[s] =v
+----------------
+~(s=t), Lambda, u[t] =v
+
+
+~(s=t), ~(u[s] =v), (u[t] = v)
