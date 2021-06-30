@@ -160,6 +160,21 @@ NEW:
 REWRITE RULES
 
 OLD:
+(@rewrite (! (= (not (not t)) t) :notNot))
+NEW:
+(res t                     # (= (not (not t)) t)
+  (res (= not (not t))
+    (=+1 (not (not t)) t)  # (= (not (not t)) t), (not (not t)), t
+    (res (not t)           # ~(not (not t)), t
+      (not+ t)             # (not t), t
+      (not- (not t))))     # ~(not (not t)), ~(not t)
+  (res (= not (not t))
+    (=+2 (not (not t)) t)  # (= (not (not t)) t), ~(not (not t)), ~t
+    (res (not t)           # (not (not t)), ~t
+      (not+ (not t))
+      (not- t))))
+
+OLD:
 (@rewrite (! (= (= true false) false) :trueNotFalse))
 NEW:
 (res false
@@ -267,4 +282,52 @@ NEW:
 
  =+1
  =+2
- 
+
+
+How to prove xor things:
+
+(xorunitt+ t): (xor t true), t
+(res true
+  true+
+  (xor+ (t true) (t) (true)))   # ~true, (xor t true), t
+
+(xorunitf+ t): (xor t false), ~t
+(res false
+  (xor+ (t false) (false) (t))
+  false-)
+
+(xorunitt- t): ~(xor t true), ~t
+(res true
+  true+
+  (xor- (t true) (t) (true)))
+
+(xorunitf- t): ~(xor t false), t
+(res false
+  (xor+ (t false) (false) (t))
+  false-)
+
+(notxor t): ~(xor t t)
+(res false
+  (xor+ (false) (false) (t t))    # ~(xor t1 t1), false
+  false-)
+
+
+(xornot t): (xor t (not t))
+(res t
+  (res (not t)
+    (not+ t)
+    (xor+ (t (not t)) (t) ((not t))))   # (xor t (not t)), t, ~(not t)
+  (res (not t)
+    (xor+ (t (not t)) ((not t)) (t))    # (xor t (not t)), (not t), ~t
+    (not- t)))
+
+(xor t1 ... (not ti) ... tn), (xor t1 ... ti ... tn):
+(res (xor t (not t))
+  (xornot t)
+  (xor+ (t1 ... (not ti) ... tn) (xor t1 ... ti ... tn) (t (not t))))
+
+
+~(xor t1 ... (not ti) ... tn), ~(xor t1 ... ti ... tn):
+(res (xor t (not t))
+  (xornot t)
+  (xor- (t1 ... (not ti) ... tn) (xor t1 ... ti ... tn) (t (not t))))
