@@ -588,7 +588,7 @@ public class Interpolator extends NonRecursive {
 		}
 
 		public LitInfo(final BitSet inA, final BitSet inB, final BitSet containsMixedTerm) {
-			super(inA, inB);
+			super(inA, inB, containsMixedTerm);
 		}
 
 		public TermVariable getMixedVar() {
