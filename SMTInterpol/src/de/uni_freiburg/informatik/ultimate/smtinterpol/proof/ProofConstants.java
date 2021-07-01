@@ -105,6 +105,7 @@ public interface ProofConstants {
 
 	//// ==== Tautologies ====
 	public final static Annotation AUX_TRUE_NOT_FALSE    = new Annotation(":trueNotFalse", null);
+	public final static Annotation AUX_NOT_NEG           = new Annotation(":not-", null);
 	public final static Annotation AUX_OR_POS            = new Annotation(":or+", null);
 	public final static Annotation AUX_OR_NEG            = new Annotation(":or-", null);
 	public final static Annotation AUX_ITE_POS_1         = new Annotation(":ite+1", null);
@@ -117,6 +118,8 @@ public interface ProofConstants {
 	public final static Annotation AUX_XOR_POS_2         = new Annotation(":xor+2", null);
 	public final static Annotation AUX_XOR_NEG_1         = new Annotation(":xor-1", null);
 	public final static Annotation AUX_XOR_NEG_2         = new Annotation(":xor-2", null);
+	public final static Annotation AUX_EXISTS_POS        = new Annotation(":exists+", null);
+	public final static Annotation AUX_EXISTS_NEG        = new Annotation(":exists-", null);
 	public final static Annotation AUX_EXCLUDED_MIDDLE_1 = new Annotation(":excludedMiddle1", null);
 	public final static Annotation AUX_EXCLUDED_MIDDLE_2 = new Annotation(":excludedMiddle2", null);
 	public final static Annotation AUX_TERM_ITE          = new Annotation(":termITE", null);
