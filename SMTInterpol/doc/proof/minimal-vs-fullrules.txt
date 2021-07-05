@@ -47,8 +47,8 @@ NEW:
        (trans t3)
        (res (= t2 t2')
          (assert (= t2 t2'))
-	 (res (= t1 t1)
-	   (trans t1)
+         (res (= t1 t1)
+           (trans t1)
            (cong f t1 t1 t2 t2' t3 t3))))
      (trans t (f t1 t2 t3) (f t1 t2' t3))
 
@@ -196,15 +196,15 @@ NEW:
      (ite2 t true false)              # (= (ite t true false) false), t
      (res (= false t)
         (res false                    # (= false t), t
-	   (=+1 false t)              # (= false t), false, t
-	   false-)
+           (=+1 false t)              # (= false t), false, t
+           false-)
         (trans (ite t true false) false t)))
   (res (= (ite t true false) true)    # (= (ite t true false) t), ~t
      (ite1 t true false)              # (= (ite t true false) true), ~t
      (res (= true t)
         (res true                     # (= true t), ~t
-	   true+
-	   (=+2 true t))              # (= true t), ~true, ~t
+           true+
+           (=+2 true t))              # (= true t), ~true, ~t
         (trans (ite t true false) true t)))
 
 
@@ -264,13 +264,13 @@ NEW:
       (selectstore2 (store a i v) i w (diff store2 store1))
       (selectstore2 a i v (diff store2 store1))
       (res
-	 (symm (select a (diff store2 store1))
-	       (select store1 (diff store2 store1)))
+         (symm (select a (diff store2 store1))
+               (select store1 (diff store2 store1)))
          (selectstore2 a i w (diff store2 store1)))
       (trans (select store2 (diff store2 store1))
              (select (store a i v) (diff store2 store1))
              (select a (diff store2 store1))
-	     (select store1 (diff store2 store1)))))
+             (select store1 (diff store2 store1)))))
   (extdiff store2 store1)))
 
 
@@ -331,3 +331,203 @@ How to prove xor things:
 (res (xor t (not t))
   (xornot t)
   (xor- (t1 ... (not ti) ... tn) (xor t1 ... ti ... tn) (t (not t))))
+
+
+
+LINEAR ARITHMETIC:
+
+# show (= (= ... ci ... cj ...) false)  where ci > cj:
+
+  (res (= ... ci ... cj ...)
+    (res false
+      (=+1 (= ... ci ... cj ...) false)
+      falseE)
+    (res (= ci cj)
+       (=- i j ... ci ... cj ...)
+       (res (<= ci cj)
+          (eqleq ci cj)
+          (farkas 1 (<= ci cj)))))
+
+#show  ~(= p1 q1), (= p2 q2)
+#   iff (poly c1*(p1-q1) - c2*(p2-q2)) evaluates to 0.
+
+(res (<= p1 q1)
+  (eqleq p1 q1)
+  (res (<= q1 p1)
+    (res (= q1 p1)
+      (symm q1 p1)
+      (eqleq q1 p1))
+    (res (< p2 q2)
+      (res (< q2 p2)
+        (tricho p2 q2)
+        (farkas c1 (<= p1 q1) c2 (< q2 p2)))
+      (farkas c1 (<= q1 p1) c2 (< p2 q2)))))
+
+# show  (= (= a b) (= (poly c*(a-b)) 0)
+
+(res (= a b)
+  (res (= (poly c*(a-b)) 0)
+    (=+1 (= a b) (= (poly c*(a-b)) 0))
+    # show ~(= (poly c*(a-b)) 0), (= a b), see above)
+  (res (= (poly c*(a-b)) 0)
+    # show ~(= a b), (= (poly c*(a-b)) 0), see above
+    (=+2 (= a b) (= (poly c*(a-b)) 0))))
+
+# show ~(<= x b), (<= x' b')  where poly(x - c*x') = 0 and b' = floor(b/c)
+  (res (<= (b'+1) x')
+    (res (< b' x')
+      (total x' b')
+      (ltint b' x'))
+    (farkas 1 (<= x b) c (<= (b'+1) x')))
+      #valid since b - c*(floor(b/c) -1) = c*(b/c - floor(b/c) - 1) < 0
+
+
+Howto proof other facts:
+  ~(= 1 0):   (res (<= 1 0) (eqleq 1 0) (farkas 1 (<= 1 0))
+  ~(< 5 4):   (farkas 1 (< 1 0))
+  (< 4 5):    (res (<= 5 4) (total 5 4) (farkas 1 (<= 5 4)))
+  ~(<= a b), ~(< b a):
+    (farkas 1 (<= a b) 1 (< b a))
+  ~(<= a b), ~(<= b c), (<= a c):
+    (res (< c a)
+      (total a c)
+      (farkas 1 (<= a b) 1 (<= b c) 1 (< c a)))
+
+  ~(<= (* 3 x) 2), (<= x 0)
+    (res (<= 1 x)
+       (res (< x 0)
+         (total x 0)
+         (ltint x 0))
+       (farkas 1 (<= (* 3 x) 2) 3 (<= 1 x)))
+
+  ~(<= (* 3 x) 2), (<= (* 3 x) 0)
+    (res (<= 1 (* 3 x))
+      (total (* 3 x) 0)
+      (res (<= x 0)
+         (res (<= 1 x)
+           (res (< 0 x)
+              (total x 0)
+              (ltint 0 x))
+           (farkas 1 (<= (* 3 x) 2) 3 (<= 1 x)))
+         (farkas 1 (< 0 (* 3 x)) 3 (<= x 0))))
+
+  ~(= (* 2 x) z), ~(= (+ (* 2 y) 1) z):  ##C
+   (res (= (* 2 x) (+ (* 2 y) 1))
+     (res (= z (+ (* 2 y) 1))    # c, (= (* 2 x) (+ (* 2 y) 1))
+          (symm z (+ * 2 y) 1)
+          (trans (* 2 x) z (+ (* 2 y) 1)))
+     (res (<= x y)
+       (res (<= (+ y 1) x)
+          (res (< y x)
+            (total x y)
+            (ltint y x))
+          (res (<= (* 2 x) (+ (* 2 y) 1))
+            (eqleq (* 2 x) (+ (* 2 y) 1))
+            (farkas 2 (<= (+ y 1) x) 1 (<= (* 2 x) (+ (* 2 y) 1)))))
+       (res (<= (+ (* 2 y) 1) (* 2 x))
+          (res (= (+ (* 2 y) 1) (* 2 x))
+            (symm (+ (* 2 y) 1) (* 2 x))
+            (eqleq (+ (* 2 y) 1) (* 2 x)))
+          (farkas 2 (<= x y) 1 (<= (+ (* 2 y) 1) (* 2 x))))))
+
+
+  ~(<= 1 x), ~(<= x 2), (= x 1), (= x 2):
+    (res (< x 1)
+      (res (< 1 x)
+        (tricho x 1)
+        (res (< x 2)
+          (res (< 2 x)
+            (tricho x 2)
+            (farkas 1 (<= x 2) 1 (< 2 x)))
+          (res (<= (+ x 1) 2)
+            (ltint x 2)
+            (farkas 1 (<= (+ x 1) 2) 1 (< 1 x)))))
+      (farkas 1 (<= 1 x) 1 (< x 1))
+
+
+Proof sketch for:
+  ~(= (* 2.0 x) (to_real (+ (* 2 y) 1))), (= (- x (to_real (to_int x))) (/ 1 2))
+
+  use subst on (= (to_real (+ (* 2 y) 1)) (+ (* 2.0 (to_real y)) 1.0)) after
+  showing:
+  ~(= (* 2.0 x) (+ (* 2.0 (to_real y)) 1.0)),
+   (= (- x (to_real (to_int x))) (/ 1 2))
+
+
+  first show:
+  (= y (to_int x))
+
+  (res (<= (+ (to_int x) 1) y)
+    (res (< (to_int x) y)
+      (res (<= (+ y 1) (to_int x))
+        (res (< y (to_int x))
+          (tricho y (to_int x))
+          (ltint y (to_int x)))
+        (farkas 2 (<= (to_real (to_int x)) x) 2 (<= (+ y 1) (to_int x))
+                1 (<= (* 2.0 x) (+ (* 2.0 (to_real y)) 1.0))))
+      (ltint (to_int x) y))
+    (farkas 2 (<= x (+ (to_real (to_int x)) 1.0)) 2 (<= (+ (to_int x) 1) y)
+            1 (<= (+ (* 2.0 (to_real y)) 1.0) (* 2.0 x)))
+
+
+show (= (abs c) c) # for c >= 0
+
+(res (< c 0)
+  (abs+ c)
+  (farkas 1 (< c 0))
+
+show (= (abs (- c)) c) # for c >= 0
+
+(res (= (- (- c)) c)
+  (poly- (- c))
+  (res (= (abc (- c)) (- (- c)))
+    (res (< 0 (- c))
+      (abs- (- c))
+      (farkas 1 (< 0 (- c))))
+    (trans (abs (- c)) (- (- c)) c)))
+
+
+show (= (div 14 (- 3)) (- 4))
+
+  (res (< (div 14 (- 3)) (- 4))
+    (res (< (- 4) (div 14 (- 3)))
+      (tricho (div 14 (- 3)) (- 4))
+      (res (<= (- 3) (div 14 (- 3)) (- 4))
+         (ltint (- 4) (div 14 (- 3)))
+         (res (<= 14 (+ (* (- 3) (div 14 (- 3))) 3)))
+           (subst abs...
+             (divhigh 14 (-3)))
+           (farkas 3 (<= (- 3) (div 14 (- 3)))
+                   1 (<= 14 (+ (* (- 3) (div 14 (- 3))) 3)))))
+                  # valid since (-9 + 14 - 3) = 2 >= 0
+    (res (<= (+ (div 14 (- 3)) 1) (- 4))
+      (ltint (div 14 (- 3)) (- 4))
+      (res (<= (* (- 3) (div 14 (- 3))) 14)
+         (divlow 14 (-3))
+         (farkas 3 (<= (+ (div 14 (- 3)) 1) (- 4))
+                 1 (<= (* (- 3) (div 14 (- 3))) 14)))))
+                 # valid since (3 + 12 - 14) >= 0
+
+
+
+(= ((_ divisible d) x) (exists (y Int) (= x (* d y))))
+
+(res ((_ divisible d) x)
+  (res (exists ...)
+    (=+1 ...)
+    (res (= x (* d (_ skolem ...)))
+      (exists- y (= x (* d y)))
+      (res (= (div x d) (_ skolem ...))
+         #subst
+         (res (= ((_ divisble d) x) (= x (* d (div x d))))
+            (divisible d x)
+            (=-2 ((_ divisble d) x) (= x (* d (div x d)))))
+         # show (div x d) = skolem using tricho, farkas)))
+  (res (exists ...)
+    (res (= x (* d (div x d)))
+      (instantiate (y (div x d))
+        (exists+ y (= x (* d y))))
+      (res (= ((_ divisble d) x) (= x (* d (div x d))))
+         (divisible d x)
+         (=-1 ((_ divisble d) x) (= x (* d (div x d))))))
+    (=+2 ...)))

@@ -35,38 +35,38 @@ variables.
 
 Proof ::= (let ((....)) Proof)
         | (res Term Proof Proof)
-	| (instantiate ((Var Term) ... (Var Term)) Proof)
-	| (assert Term)
-	| false- | true+
-	| (not+ Term)
-	| (not- Term)
-	| (or+ NUM Term ... Term)
-	| (or- Term ... Term)
-	| (and+ Term ... Term)
-	| (and- NUM Term ... Term)
-	| (=>+ NUM Term ... Term)
-	| (=>- Term ... Term)
-	| (=+1 Term Term)
-	| (=+2 Term Term)
-	| (=-1 Term Term)
-	| (=-2 Term Term)
-	| (xor+ (Term ... Term) (Term ...Term) (Term ... Term))
-	| (xor- (Term ... Term) (Term ...Term) (Term ... Term))
-	| (forall+ VarDecl Term)
-	| (forall- VarDecl Term)
-	| (exists+ VarDecl Term)
-	| (exists- VarDecl Term)
-	| (distinct+ Term ... Term)
-	| (distinct- Term ... Term)
-	| (=+ Term ... Term)
-	| (=- Term ... Term)
-	| (ite1 Term Term Term)
-	| (ite2 Term Term Term)
-	| (trans Term ... Term)
-	| (symm Term Term)
-	| (cong Symbol Term Term ... Term Term)
-	| (expand Term)
-	| (del! Term)
+        | (instantiate ((Var Term) ... (Var Term)) Proof)
+        | (assert Term)
+        | false- | true+
+        | (not+ Term)
+        | (not- Term)
+        | (or+ NUM Term ... Term)
+        | (or- Term ... Term)
+        | (and+ Term ... Term)
+        | (and- NUM Term ... Term)
+        | (=>+ NUM Term ... Term)
+        | (=>- Term ... Term)
+        | (=+1 Term Term)
+        | (=+2 Term Term)
+        | (=-1 Term Term)
+        | (=-2 Term Term)
+        | (xor+ (Term ... Term) (Term ...Term) (Term ... Term))
+        | (xor- (Term ... Term) (Term ...Term) (Term ... Term))
+        | (forall+ VarDecl Term)
+        | (forall- VarDecl Term)
+        | (exists+ VarDecl Term)
+        | (exists- VarDecl Term)
+        | (distinct+ Term ... Term)
+        | (distinct- Term ... Term)
+        | (=+ Term ... Term)
+        | (=- Term ... Term)
+        | (ite1 Term Term Term)
+        | (ite2 Term Term Term)
+        | (trans Term ... Term)
+        | (symm Term Term)
+        | (cong Symbol Term Term ... Term Term)
+        | (expand Term)
+        | (del! Term)
 
 Special Skolem Variables: (_ skolem NUM VarDecl Term)
 
@@ -113,7 +113,7 @@ where x1,...,xn are the free variables in the terms in C and
 the let is applied on every term of the literals of C.
 
 Here the C argument is a sub-proof for clause C and the Inst function returns
-the proof of the resulting instantiated clause.x
+the proof of the resulting instantiated clause.
 
 
 Axioms:
@@ -148,18 +148,23 @@ XOR-Reasoning (TODO: this is just a first draft)
 
 (forall+ F):  (forall ((x1 tau1) ... (xn taun)) F),
               ~(let ((x1 ((_ skolem 1 (...) F) y)) ...
-	             (xn ((_ skolem n (...) F) y)))
-		    F)
+                     (xn ((_ skolem n (...) F) y)))
+                    F)
 (forall- F):  ~(forall ((x1 tau1) ... (xn taun)) F), F
 (exists+ F):  (exists ((x1 tau1) ... (xn taun)) F), ~F
 (exists- F):  ~(exists ((x1 tau1) ... (xn taun)) F),
               (let ((x1 ((_ skolem 1 (...) F) y)) ...
-	            (xn ((_ skolem n (...) F) y)))
-		   F)
+                    (xn ((_ skolem n (...) F) y)))
+                   F)
 
     where (skolem_Fi y) is the application of a fresh function symbol
     to the free variables y1,...,ym of the input formula
     (not including x1,...,xn which are bound in the input formula).
+
+(expand (f t1 ... tn)): (= (f t1 ... tn) (let ((x1 t1) ... (xn tn)) t))
+  where f is defined by (define-fun f ((x1 tau1) ... (xn taun)) t)
+  could also be used to expand left-associate/chainable operators
+  or to expand some builtin functions, like abs or bitvector functions.
 
 (distinct+ t1 ... tn): (distinct t1 ... tn), (= t1 t2), (= t1 t3) ..., (= tn-1 tn)  (for all i, j, i<j)
 (distinct- i j t1 ... tn): ~(distinct t1 ... tn), ~(= ti tj)
@@ -172,36 +177,42 @@ XOR-Reasoning (TODO: this is just a first draft)
 
 (del! (! t :annot)) (= (! t :annot) t)
 
-(trans a1 ... an):  (= a1 an), ~(= a1 a2), ..., ~(= an-1 an
-Remark:  (trans a1) is the reflexivity axiom: (= a1 a1)
+Equality reasoning with refl and subst:
 
+(refl t):           (= t t)
+(subst (x1 .. xn) F t1 t1' ... tn tn'):
+      ~(let ((x1 t1) ... (xn tn)) F), ~(= t1 t1'),..., ~(= tn tn'),
+      (let ((x1 t1') ... (xn tn')) F)
+
+Alternatives:
+
+(trans a1 ... an):  (= a1 an), ~(= a1 a2), ..., ~(= an-1 an
 (symm a1 a2):       (= a1 a2), ~(= a2 a1)
+
+Remark:  (trans a1) is the reflexivity axiom: (= a1 a1)
+trans and symm can also be simulated by =+, =-:
+trans: (res (= a1 ... an) (=+ a1 ... an) (=- 1 n a1 ... an)
+symm:  (res (= a1 a2) (=+ a1 a2) (=- 2 1 a1 a2)
+
 (cong f a1 b1 ... an bn):
         (= (f a1 ... an) (f b1 .. bn)), ~(= a1 b1), ..., ~(= an bn)
 
 Cong works with every function, even logical operators.
+It can also be expressed with subst:
+cong: (res (refl (f a1 ... an))
+           (subst (x1...xn) (= (f a1 .. an) (f x1 .. xn)) a1 b1 ... an bn)
 
-Alternatively, one could support a more powerful substitution rule,
-e.g.:
+Alternatively, one could support a more powerful congruence rule, to work
+over multiple levels and quantifiers:
 
-(subst pattern t1 t1' .. tn tn'):
+(congsubst pattern t1 t1' .. tn tn'):
    (= (let ((x1 t1) ... (xn tn)) pattern)
       (let ((x1 t1') ... (xn tn')) pattern),  ~(= t1 t1'), ... ~(= tn tn')
+
 Remark:
-  (refl a) = (subst a)
-  (symm a b) = (res (= (= a a) (= a b))
-                    (subst (= a x1) b a)
-                    (res (= a a) (refl a) (=-2 (= a a) (= a b))))
-  (trans a b c) = (res (= (= a b) (= a c))
-                       (subst (= a x1) b c)
-		       (=-2 (= a b) (= a c)))
-  (trans a b c d) = (res (= a c) (trans a b c) (trans a c d))
+  (refl a) = (congsubst a)
 
-The above rule can also rewrite terms over multiple levels over exists/forall.
-
-
-(expand (f t1 ... tn)): (= (f t1 ... tn) (let ((x1 t1) ... (xn tn)) t))
-  where f is defined by (define-fun f ((x1 tau1) ... (xn taun)) t)
+congsubst and subst can express each other using the =+-12 rules.
 
 
 Arrays:
@@ -222,55 +233,73 @@ DT:
    from the root to x only constructor functions appear.
 (dt_match (match ..)): (= (match t ((p1 x1) c1) ...)
            (ite ((_ is p1) t) (let (x1 (sel1 t)) c1)
-	     ...))
+             ...))
 
-Arithmetic:
+Linear Arithmetic:
 
-TODO:
-  chainable <=, <
-  associative commutative built-in operators (+/*) and
-  their normalization?
-  Lots >=, > rewrite to <=, < (or rules)
-  Can we use Farkas and Tricho for everything?
-
-  Here (poly p) is some normalization of a polynomial expression:
+  We use (poly p) to denote some normalization of a polynomial expression:
   (+ (* c1 t11 ...t1m) ... (* cn tn1 ... tnm))
-  where c1, .., cn are non-zero constants,
-  all (ti1...tim) are different sets, the head symbol of tij is not +,-,*.
-  ci is omitted, if it is 1 (except if there is no ti1...tin).
-  */+ is omitted if it has only one argument.
-  For linear arithmetic m must be one or zero.
+  where c1, .., cn are non-zero constants
+  all (ti1...tim) are different multi-sets, the head symbol of tij
+  is not +,-,* or division with non-zero constant
+  all ci,tij have the same type (Real or Int),
+  ci can be omitted, if it is 1 (except if there is no ti1...tin),
+  */+ is omitted if it has only one argument,
+  The zero polynomial is represented by 0 and this is the only case
+  where 0 may appear,
+  NOTE: For linear arithmetic m must be one or zero.
 
-(ToIntLow x):       (<= (- (to_int x) x) 0)
-(ToIntHigh x):      (<  (- x (to_int x) 1) 0)
-(DivLow d x):       (<= (- (* d (div x d)) x) 0), (= d 0)
-(DivHigh d x):      (< (- x (* d (div x d)) d) 0), (= d 0)
+(poly+ a1 .. an):  (= (poly a1+..+an) (+ (poly a1) ... (poly an)))
+(poly- a1 .. an):  (= (poly a1-..-an) (- (poly a1) ... (poly an)))
+(poly- a1):        (= (poly -a1) (- (poly a1)))
+(poly* a1 .. an):  (= (poly a1*..*an) (* (poly a1) ... (poly an)))
+  # NOTE: for linear arithmetic all but one ai must be constant
+(poly/ a1 c2 ... cn):  (= (poly 1/(c2*...*cn) * a1) (/ (poly a1) c2 .. cn))
+  # where c2...cn are constants
 
-(mod d x):          (= (+ (* d (div x d)) (mod x d)) x), (= d 0)
+PolyToReal:  (= (poly (to_real p)) (to_real (polyI p)))
+  where (poly (to_real p)) replaces each tij in p with (to_real tij),
+  and each integer constant by the corresponding real constant.
+
+(abs+ x):           (< x 0), (= (abs x) x)
+(abs- x):           (< 0 x), (= (abs x) (- x))
+(tointlow x):       (<= (to_real (to_int x)) x)
+(tointhigh x):      (<  x (+ (to_real (to_int x)) 1.0))
+(divlow x d):       (<= (* d (div x d)) x), (= d 0)
+(divhigh x d):      (<  x (+ (* d (div x d)) (abs d))), (= d 0)
+
+(mod x d):          (= (mod x d) (- x (* d (div x d)))), (= d 0)
 (divisible d x):    (= ((_ divisible d) x) (= x (* d (div x d))))
 
-(Tricho e):  (< e 0), (= e 0), (< (poly -e) 0)
-(EqNeq):     ~(= e 0), (<= e 0)
-(EqSimp c e1 e2):   (= (= (poly c*(e1-e2)) 0) (= e1 e2))
-(NegIneq2 e): (<= e 0), ~(< (poly -e) 0)
-(NegIneqI e): (< e 0), ~(< (poly -e + 1)) 0)
+(gtdef a b):  (= (> a b) (< b a))
+(geqdef a b): (= (>= a b) (<= b a))
 
-(Farkas c1 p1 ... cn pn):  (<=? p1 0), ..., (<=? pn n)
-   iff c1, ..., cn positive rationals (algebraic numbers?)
-       p1, ..., pn are polynomials over the same arithmetic sort.
-    and poly(c1*p1 + ... + cn*pn)=c <= 0
-    and c either < 0 or at least one non-strict inequality.
-    if some pi are Int and some are Real, the Int ones are
-    replaced by (to_real pi).
+(tricho a b):  (< a b), (= a b), (< b a)
+(eqleq):       ~(= a b), (<= a b)
+(total a b): (<= a b), (< b a)
+(ltint a b): ~(< a b), (<= (poly a+1) b)   # where a, b have sort int.
+(farkas c1 (<=? a1 b1) ... cn (<=? an bn)): ~(<=? a1 b1), ..., ~(<=? an bn)
+  where c1, ...,cn are positive integers,
+  (poly c1*(a1-b1) + ... + cn*(an-bn)) is a (rational or int) constant c.
+  and c > 0 or c = 0 and at least one inequality is strict.
+  If some inequalities are Int and some are Real, all inequalites are
+  implicitly converted to Real by computing (poly (to_real pi/qi)).
 
-Poly+:  (= (poly p1+p2) (+ (poly p1) (poly p2)))
-Poly-:  (= (poly p1-p2) (- (poly p1) (poly p2)))
-Poly-:  (= (poly -p1) (- (poly p1)))
-Poly*:  (= (poly p1*p2) (* (poly p1) (poly p2)))
-Poly/:  (= (poly 1/c *p) (/ (poly p) c))  (linear)
-PolyToReal:  (= (poly (to_real p)) (to_real (polyI p)))
-   where (poly (to_real p)) replaces each tij in p with (to_real tij).
 
+NON-LINEAR Arithmetic:
+
+TODO:
+something like
+(/ a1 a2 ... an):
+  (= a2 0), ..., (= an 0), (= (* (/ a1 a2 ... an) a2 ... an) a1)
+
+(divlow a1 a2 ... an):
+  (= a2 0), (<= a1 (* (div a1 a2) a2))
+(divhigh a1 a2 ... an):
+  (= a2 0), (<= (* (div a1 a2) a2) (+ a1 (abs a2)))
+
+(zero a1 ... an):
+  ~(= (poly a1*...*an) 0), (= a1 0), ..., (= an 0)
 
 
 
