@@ -252,4 +252,15 @@ public interface IProofTracker {
 	 * @return the proof.
 	 */
 	public Term getClauseProof(Term t);
+
+	/**
+	 * Create a simple resolution proof from a unit clause and a tautology clause
+	 * that uses the negated unit.
+	 *
+	 * @param unit      the asserted formula {@code u} annotated with its proof.
+	 * @param tautology a tautology of the form {@code (or (not u) u1 .. un)}. If
+	 *                  unit is negated, the tautology does not contain the not.
+	 * @return the resulting (or u1 .. un) annotated with its proof
+	 */
+	public Term resolution(Term asserted, Term rewrite);
 }

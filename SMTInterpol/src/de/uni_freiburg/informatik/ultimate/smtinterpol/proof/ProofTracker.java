@@ -29,6 +29,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.MatchTerm;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
+import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
@@ -310,5 +311,25 @@ public class ProofTracker implements IProofTracker{
 		final Annotation[] annot = new Annotation[] { new Annotation(":vars", vars) };
 		final Term proof = theory.term(ProofConstants.FN_ALLINTRO, theory.annotatedTerm(annot, subProof));
 		return buildProof(proof, quantified);
+	}
+
+	@Override
+	public Term resolution(final Term asserted, final Term tautology) {
+		final Theory theory = tautology.getTheory();
+		final ApplicationTerm tautApp = (ApplicationTerm) getProvedTerm(tautology);
+		assert tautApp.getFunction().getName() == SMTLIBConstants.OR;
+		final Term[] clause = tautApp.getParameters();
+		final Annotation[] pivotAnnot = new Annotation[] { new Annotation(":pivot", clause[0]) };
+		final Term proof = theory.term(ProofConstants.FN_RES, getProof(asserted),
+				theory.annotatedTerm(pivotAnnot, getProof(tautology)));
+		assert theory.term("not", asserted) == clause[0] || asserted == theory.term("not", clause[0]);
+		assert clause.length >= 2;
+		if (clause.length == 2) {
+			return buildProof(proof, clause[1]);
+		} else {
+			final Term[] stripped = new Term[clause.length - 1];
+			System.arraycopy(clause, 1, stripped, 0, stripped.length);
+			return buildProof(proof, theory.term("or", stripped));
+		}
 	}
 }

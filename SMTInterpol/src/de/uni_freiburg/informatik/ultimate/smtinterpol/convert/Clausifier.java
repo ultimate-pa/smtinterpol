@@ -262,15 +262,15 @@ public class Clausifier {
 				if (at.getFunction() == t.mNot) {
 					assert !positive;
 					// remove double negation
-					Term p = at.getParameters()[0];
+					final Term p = at.getParameters()[0];
 					final Term notIntro = mTracker.auxAxiom(t.term("or", term, p), ProofConstants.AUX_NOT_NEG);
 					final Term split = mTracker.resolution(mAxiom, notIntro);
 					pushOperation(new AddAsAxiom(split, mSource));
 					return;
 				} else if (at.getFunction() == t.mOr) {
 					if (positive) {
-						Term[] params = at.getParameters();
-						Term[] tautClause = new Term[params.length + 1];
+						final Term[] params = at.getParameters();
+						final Term[] tautClause = new Term[params.length + 1];
 						tautClause[0] = t.term("not", term);
 						System.arraycopy(at.getParameters(), 0, tautClause, 1, params.length);
 						final Term orElim = mTracker.auxAxiom(t.term("or", tautClause),
@@ -309,7 +309,7 @@ public class Clausifier {
 						final Term xorIntro1 = mTracker.auxAxiom(t.term("or", term, p1, t.term("not", p2)),
 								ProofConstants.AUX_XOR_NEG_1);
 						buildClause(mTracker.resolution(mAxiom, xorIntro1), mSource);
-						final Term xorIntro1 = mTracker.auxAxiom(t.term("or", term, t.term("not", p1), p2),
+						final Term xorIntro2 = mTracker.auxAxiom(t.term("or", term, t.term("not", p1), p2),
 								ProofConstants.AUX_XOR_NEG_2);
 						buildClause(mTracker.resolution(mAxiom, xorIntro2), mSource);
 					}
@@ -319,8 +319,8 @@ public class Clausifier {
 					setTermFlags(term, oldFlags | assertedFlag | auxFlag);
 					assert at.getFunction().getReturnSort() == t.getBooleanSort();
 					final Term cond = at.getParameters()[0];
-					Term thenForm = at.getParameters()[1];
-					Term elseForm = at.getParameters()[2];
+					final Term thenForm = at.getParameters()[1];
+					final Term elseForm = at.getParameters()[2];
 					Term rule1, rule2;
 					if (positive) {
 						rule1 = mTracker.auxAxiom(t.term("or", t.term("not", term), t.term("not", cond), thenForm),
@@ -356,163 +356,6 @@ public class Clausifier {
 		}
 	}
 
-	/**
-	 * The ClauseCollector collects the literals for a clause. For every clause we build, we collect the literals in an
-	 * underlying BuildClause object. There is also a ClauseCollector that collects the rewrite proof and adds the
-	 * literals to the underlying BuildClause object.
-	 *
-	 * <p>
-	 * If a clause contains a nested or, then a new clause collector is created. This collects the rewrite proof of the
-	 * nested or. The corresponding literal is directly added to the main BuildClause object and the rewrite proof is
-	 * stored and used to create the final rewrite proof of the nested or. When an or term is fully collected, it adds
-	 * its own rewrite proof to the parent clause collector. We may in some cases also create new clause collectors for
-	 * other terms.
-	 *
-	 * <p>
-	 * The ClauseCollector is also an operation and runs when all its literals are collected. It creates the rewrite
-	 * proof and add it to its parent.
-	 *
-	 * @author hoenicke
-	 *
-	 */
-	private class ClauseCollector implements Operation {
-		/**
-		 * The object that collects the literals for this clause.
-		 */
-		private final BuildClause mClause;
-		/**
-		 * The parent collector for a nested or. This is null for the main collector of a clause. If this is not null,
-		 * this is where the final rewrite proof is reported when this clause collector finishes.
-		 */
-		private final ClauseCollector mCollector;
-		/**
-		 * The first step of the rewrite proof that rewrites to the term that is collected in this clause.
-		 */
-		private final Term mRewriteProof;
-		/**
-		 * The array of sub rewrites, one for each subterm in a nested or term. The or term must be produced by
-		 * mRewriteProof. If this array has length one, there is no nested or term and only one literal will be
-		 * collected.
-		 */
-		private final Term[] mSubRewrites;
-		/**
-		 * The number of rewrites we have already written to the mSubRewrites array.
-		 */
-		private int mNumRewritesSeen;
-
-		/**
-		 * Create a new main clause collector for a clause. It collects the arguments of some term, usually
-		 * clause.mClause, but it can also be rewritten to a simpler term before collecting it. If this is an or term
-		 * than we collect each argument of the or separately and numArgs gives the number of arguments. Otherwise
-		 * numArgs is one.
-		 *
-		 * @param clause
-		 *            the clause where the literals are collected to.
-		 * @param rewrite
-		 *            The term we collect together with its rewrite proof from clause.mClause.
-		 * @param numArgs
-		 *            The number of arguments that should be collected.
-		 */
-		public ClauseCollector(final BuildClause clause, final Term rewrite, final int numArgs) {
-			mClause = clause;
-			mCollector = null;
-			mRewriteProof = rewrite;
-			mSubRewrites = new Term[numArgs];
-		}
-
-		/**
-		 * Create a new sub clause collector under a parent clause collector. It acollects the arguments of some term,
-		 * usually from the corresponding subterm in the parent literal. This term can have be rewritten to a simpler
-		 * term before collecting it. If this is a nested or term than we collect each argument of the or separately and
-		 * numArgs gives the number of arguments. Otherwise numArgs is one.
-		 *
-		 * @param parent
-		 *            the parent clause collector, where we send our rewrite proof in the end.
-		 * @param rewrite
-		 *            The term we collect together with its rewrite proof from clause.mClause.
-		 * @param numArgs
-		 *            The number of arguments that should be collected.
-		 */
-		public ClauseCollector(final ClauseCollector parent, final Term rewrite, final int numArgs) {
-			mClause = parent.getClause();
-			mCollector = parent;
-			mSubRewrites = new Term[numArgs];
-			mRewriteProof = rewrite;
-		}
-
-		/**
-		 * The underlying build clause object.
-		 *
-		 * @return the build clause object.
-		 */
-		public BuildClause getClause() {
-			return mClause;
-		}
-
-		public SourceAnnotation getSource() {
-			return mClause.getSource();
-		}
-
-		/**
-		 * Add a rewrite proof without a literal. This is mainly used for nested or terms by the child collector. The
-		 * child collector rewrites a nested or term to another nested or term for the final literals. Since the
-		 * literals were already added, we only need to add the rewrite proof in that case.
-		 *
-		 * @param rewrite
-		 *            the rewrite proof from the original argument to the literal.
-		 */
-		public void addRewrite(final Term rewrite) {
-			assert rewrite != null;
-			mSubRewrites[mNumRewritesSeen++] = rewrite;
-		}
-
-		/**
-		 * Add a literal and its rewrite proof. This is called whenever we create a new literal. It is expected that
-		 * every term rewrites to exactly one literal.
-		 *
-		 * @param lit
-		 *            The collected literal.
-		 * @param rewrite
-		 *            the rewrite proof from the original argument to the literal.
-		 */
-		public void addLiteral(final ILiteral lit, final Term rewrite) {
-			addRewrite(rewrite);
-			mClause.addLiteral(lit);
-		}
-
-		@Override
-		/**
-		 * This performs the action of this clause collector after all literals have been collected. It computes the
-		 * rewrite proof by combining the first step with all collected rewrites and adds the rewrite proof to the
-		 * parent collector. If this is the top collector, it sends the rewrite proof to the BuildClause object to build
-		 * the final clause.
-		 */
-		public void perform() {
-			if (mClause.mIsTrue) {
-				return;
-			}
-			assert mNumRewritesSeen == mSubRewrites.length;
-			Term rewrite;
-			if (mSubRewrites.length == 1) {
-				rewrite = mTracker.transitivity(mRewriteProof, mSubRewrites[0]);
-			} else {
-				rewrite = mTracker.orMonotony(mRewriteProof, mSubRewrites);
-				mClause.addFlatten(mTracker.getProvedTerm(rewrite));
-			}
-
-			if (mCollector == null) {
-				mClause.buildClause(rewrite);
-			} else {
-				mCollector.addRewrite(rewrite);
-			}
-		}
-
-		@Override
-		public String toString() {
-			return "CC" + mTracker.getProvedTerm(mRewriteProof);
-		}
-	}
-
 
 	/**
 	 * Collect a single literal to build a clause.
@@ -521,9 +364,9 @@ public class Clausifier {
 	 */
 	private class CollectLiteral implements Operation {
 		private final Term mLiteral;
-		private final ClauseCollector mCollector;
+		private final BuildClause mCollector;
 
-		public CollectLiteral(final Term term, final ClauseCollector collector) {
+		public CollectLiteral(final Term term, final BuildClause collector) {
 			assert term.getSort() == mTheory.getBooleanSort();
 			mLiteral = term;
 			mCollector = collector;
@@ -534,7 +377,7 @@ public class Clausifier {
 			final Theory theory = mLiteral.getTheory();
 			Term idx = mLiteral;
 			boolean quantified = false;
-			boolean positive = !isNotTerm(idx);
+			final boolean positive = !isNotTerm(idx);
 			if (!positive) {
 				idx = ((ApplicationTerm) idx).getParameters()[0];
 			}
@@ -552,19 +395,19 @@ public class Clausifier {
 
 				final ApplicationTerm at = (ApplicationTerm) idx;
 				ILiteral lit;
-				Term atomRewrite = null;
+				final Term atomRewrite = null;
 				if (at.getFunction() == theory.mNot) {
 					assert !positive;
 					/* remove double negation */
-					Term p = ((ApplicationTerm) idx).getParameters()[0];
+					final Term p = ((ApplicationTerm) idx).getParameters()[0];
 					final Term notIntro = mTracker.auxAxiom(theory.term("or", idx, p), ProofConstants.AUX_NOT_NEG);
 					mCollector.addResolution(notIntro);
 					pushOperation(new CollectLiteral(p, mCollector));
 					return;
 				}
 				if (positive && at.getFunction() == theory.mOr && mLiteral.mTmpCtr <= Config.OCC_INLINE_THRESHOLD) {
-					Term[] params = at.getParameters();
-					Term[] tautClause = new Term[params.length + 1];
+					final Term[] params = at.getParameters();
+					final Term[] tautClause = new Term[params.length + 1];
 					tautClause[0] = theory.term("not", idx);
 					System.arraycopy(at.getParameters(), 0, tautClause, 1, params.length);
 					final Term orElim = mTracker.auxAxiom(theory.term("or", tautClause),
@@ -634,7 +477,7 @@ public class Clausifier {
 				}
 				// TODO end
 
-				rewrite = mTracker.intern(at, lit.getSMTFormula(theory, true));
+				Term rewrite = mTracker.intern(at, lit.getSMTFormula(theory, true));
 				if (!positive) {
 					rewrite = mTracker.congruence(mTracker.reflexivity(mLiteral), new Term[] { atomRewrite });
 					/* (not (<= -x 0)) can be rewritten to (not (not (< x 0))); remove double negation */
@@ -647,10 +490,10 @@ public class Clausifier {
 				final Pair<Term, Term[]> converted = convertQuantifiedSubformula(positive, qf);
 				Term rule;
 				if (positive) {
-					rule = mTracker.auxAxiom(t.term("or", t.term("not", term), converted.getFirst()),
+					rule = mTracker.auxAxiom(theory.term("or", theory.term("not", term), converted.getFirst()),
 							ProofConstants.getRewriteSkolemAnnot(converted.getSecond()));
 				} else {
-					rule = mTracker.auxAxiom(t.term("or", term, converted.getFirst()),
+					rule = mTracker.auxAxiom(theory.term("or", term, converted.getFirst()),
 							ProofConstants.getRewriteRemoveForallAnnot(converted.getSecond()));
 				}
 				mCollector.addResolution(rule);
@@ -662,14 +505,9 @@ public class Clausifier {
 				// That is, x --> (x != false) and ~x --> (x != true),
 				final Term value = positive ? mTheory.mFalse : mTheory.mTrue;
 				final ILiteral lit = mQuantTheory.getQuantEquality(idx, value, mCollector.getSource());
-				final Term atomRewrite =
+				final Term rewrite =
 						mTracker.intern(idx, (positive ? lit.negate() : lit).getSMTFormula(theory, true));
-				if (positive) {
-					rewrite = mTracker.transitivity(rewrite, atomRewrite);
-				} else {
-					rewrite = mTracker.congruence(rewrite, new Term[] { atomRewrite });
-				}
-				mCollector.addLiteral(lit.negate(), rewrite);
+				mCollector.addLiteral(lit.negate(), rewrite, positive);
 			} else if (idx instanceof MatchTerm) {
 				final ILiteral lit = createAnonLiteral(idx, mCollector.getSource());
 				if (positive) {
@@ -677,13 +515,8 @@ public class Clausifier {
 				} else {
 					addAuxAxioms(idx, false, mCollector.getSource());
 				}
-				final Term atomRewrite = mTracker.intern(idx, lit.getSMTFormula(theory, true));
-				if (positive) {
-					rewrite = mTracker.transitivity(rewrite, atomRewrite);
-				} else {
-					rewrite = mTracker.congruence(rewrite, new Term[] { atomRewrite });
-				}
-				mCollector.addLiteral(positive ? lit : lit.negate(), rewrite);
+				final Term rewrite = mTracker.intern(idx, lit.getSMTFormula(theory, true));
+				mCollector.addLiteral(positive ? lit : lit.negate(), rewrite, positive);
 			} else {
 				throw new SMTLIBException("Cannot handle literal " + mLiteral);
 			}
@@ -698,13 +531,37 @@ public class Clausifier {
 	/**
 	 * Object to collect a clause and build it.
 	 *
-	 * @author Jürgen Christ, Jochen Hoenicke
+	 * The BuildClause collects the literals for a clause and tracks the proof. For
+	 * every clause we build, we collect the literals in this object. It collects
+	 * all resolution steps for all literal rewrites that are done internally.
+	 *
+	 * <p>
+	 * The BuildClause is also an operation and runs when all its literals are
+	 * collected. It creates the clause and annotates it with its resolution proof.
+	 *
+	 * @author hoenicke
 	 */
-	private class BuildClause {
+	private class BuildClause implements Operation {
+		/**
+		 * The term that is collected into a clause. If the head symbol is not an or
+		 * this denotes a unit clause. The unit clause "(or ...)" cannot be collected,
+		 * but must be expanded by the caller.
+		 */
+		private final Term mClause;
+		/**
+		 * The array of sub rewrites, one for each subterm in a nested or term. The or
+		 * term must be produced by mRewriteProof. If this array has length one, there
+		 * is no nested or term and only one literal will be collected.
+		 */
+		private final ArrayList<Term> mResolutionSteps = new ArrayList<>();
+		/**
+		 * The number of rewrites we have already written to the mSubRewrites array.
+		 */
+		private int mNumRewritesSeen;
+
 		private boolean mIsTrue = false;
 		private final LinkedHashSet<Literal> mLits = new LinkedHashSet<>();
 		private final LinkedHashSet<QuantLiteral> mQuantLits = new LinkedHashSet<>();
-		private final Term mClause;
 		private final SourceAnnotation mSource;
 
 		public BuildClause(final Term clauseWithProof, final SourceAnnotation proofNode) {
@@ -729,21 +586,48 @@ public class Clausifier {
 			if (lit == mTRUE) {
 				mIsTrue = true;
 			} else if (lit == mFALSE) {
-				mSimpOr = true;
+				return;
 			} else if (lit instanceof Literal && mLits.add((Literal) lit)) {
 				mIsTrue |= mLits.contains(((Literal) lit).negate());
 			} else if (lit instanceof QuantLiteral && mQuantLits.add((QuantLiteral) lit)) {
 				mIsTrue |= mQuantLits.contains(((QuantLiteral) lit).negate());
 			} else {
-				mSimpOr = true;
+				return;
 			}
+		}
+
+		/**
+		 * Add a rewrite proof without a literal. This is mainly used for nested or
+		 * terms by the child collector. The child collector rewrites a nested or term
+		 * to another nested or term for the final literals. Since the literals were
+		 * already added, we only need to add the rewrite proof in that case.
+		 *
+		 * @param rewrite the rewrite proof from the original argument to the literal.
+		 */
+		public void addRewrite(final Term rewrite) {
+			assert rewrite != null;
+			addResolution(rewrite, mTracker.getProvedTerm(rewrite));
+			mResolutionSteps.add(rewrite);
+			mSubRewrites[mNumRewritesSeen++] = rewrite;
+		}
+
+		/**
+		 * Add a literal and its rewrite proof. This is called whenever we create a new
+		 * literal. It is expected that every term rewrites to exactly one literal.
+		 *
+		 * @param lit     The collected literal.
+		 * @param rewrite the rewrite proof from the original argument to the literal.
+		 */
+		public void addLiteral(final ILiteral lit, final Term rewrite) {
+			addRewrite(rewrite);
+			mClause.addLiteral(lit);
 		}
 
 		/**
 		 * Builds the final clause
 		 *
-		 * @param rewrite
-		 *            the rewrite proof from mClause to a (possibly nested) or term with the final literals.
+		 * @param rewrite the rewrite proof from mClause to a (possibly nested) or term
+		 *                with the final literals.
 		 */
 		public void buildClause(Term rewrite) {
 			if (mIsTrue) {
@@ -812,6 +696,30 @@ public class Clausifier {
 					}
 				}
 			}
+		}
+
+		@Override
+		/**
+		 * This performs the action of this clause collector after all literals have
+		 * been collected. It computes the rewrite proof by combining the first step
+		 * with all collected rewrites and adds the rewrite proof to the parent
+		 * collector. If this is the top collector, it sends the rewrite proof to the
+		 * BuildClause object to build the final clause.
+		 */
+		public void perform() {
+			if (mClause.mIsTrue) {
+				return;
+			}
+			assert mNumRewritesSeen == mSubRewrites.length;
+			Term rewrite;
+			if (mSubRewrites.length == 1) {
+				rewrite = mTracker.transitivity(mRewriteProof, mSubRewrites[0]);
+			} else {
+				rewrite = mTracker.orMonotony(mRewriteProof, mSubRewrites);
+				mClause.addFlatten(mTracker.getProvedTerm(rewrite));
+			}
+
+			mClause.buildClause(rewrite);
 		}
 
 		@Override
@@ -1434,32 +1342,26 @@ public class Clausifier {
 	}
 
 	public void buildAuxClause(final ILiteral auxlit, final Term axiom, final SourceAnnotation source) {
-		ApplicationTerm orTerm = (ApplicationTerm) mTracker.getProvedTerm(axiom);
+		final ApplicationTerm orTerm = (ApplicationTerm) mTracker.getProvedTerm(axiom);
 		assert orTerm.getFunction().getName() == "or";
 		assert orTerm.getParameters()[0] == auxlit.getSMTFormula(orTerm.getTheory(), true);
-
-		/* first remove double negations; these may be in conflict with flatten */
-		final Term orRewrite = mUtils.convertFuncNot(mTracker.reflexivity(orTerm));
-		orTerm = (ApplicationTerm) mTracker.getProvedTerm(orRewrite);
 
 		final BuildClause bc = new BuildClause(axiom, source);
 		/* use the usual engine to create the other literals of the axiom. */
 		final Term[] params = orTerm.getParameters();
-		final ClauseCollector collector = new ClauseCollector(bc, orRewrite, params.length);
-		pushOperation(collector);
+		pushOperation(bc);
 		/* add auxlit directly to prevent it getting converted. No rewrite proof necessary */
-		collector.addLiteral(auxlit, mTracker.reflexivity(auxlit.getSMTFormula(mTheory, true)));
+		bc.addLiteral(auxlit, mTracker.reflexivity(auxlit.getSMTFormula(mTheory, true)));
 		for (int i = params.length - 1; i >= 1; i--) {
-			pushOperation(new CollectLiteral(params[i], collector));
+			pushOperation(new CollectLiteral(params[i], bc));
 		}
 	}
 
 	public void buildClause(final Term term, final SourceAnnotation source) {
 		final BuildClause bc = new BuildClause(term, source);
 		final Term rewrite = mTracker.reflexivity(mTracker.getProvedTerm(term));
-		final ClauseCollector collector = new ClauseCollector(bc, rewrite, 1);
-		pushOperation(collector);
-		pushOperation(new CollectLiteral(mTracker.getProvedTerm(term), collector));
+		pushOperation(bc);
+		pushOperation(new CollectLiteral(mTracker.getProvedTerm(term), bc));
 	}
 
 	public void addAuxAxioms(final Term term, final boolean positive, final SourceAnnotation source) {
@@ -1969,11 +1871,10 @@ public class Clausifier {
 			final Term trueEqFalse = mTheory.term("=", mTheory.mTrue, mTheory.mFalse);
 			final Term axiom = mTracker.auxAxiom(mTheory.not(trueEqFalse), ProofConstants.AUX_TRUE_NOT_FALSE);
 			final BuildClause bc = new BuildClause(axiom, source);
-			final ClauseCollector collector = new ClauseCollector(bc, mTracker.reflexivity(mTracker.getProvedTerm(axiom)), 1);
 			Term rewrite = mTracker.intern(trueEqFalse, atom.getSMTFormula(mTheory, true));
 			rewrite = mTracker.congruence(mTracker.reflexivity(mTheory.not(trueEqFalse)), new Term[] { rewrite });
-			collector.addLiteral(atom.negate(), rewrite);
-			collector.perform();
+			bc.addLiteral(atom.negate(), rewrite);
+			bc.perform();
 		}
 	}
 
