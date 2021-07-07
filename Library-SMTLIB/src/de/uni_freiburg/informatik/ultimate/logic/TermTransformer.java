@@ -44,20 +44,20 @@ public class TermTransformer extends NonRecursive {
 	 * The term cache.
 	 */
 	private final ArrayDeque<HashMap<Term, Term>> mCache =
-		new ArrayDeque<HashMap<Term,Term>>();
+		new ArrayDeque<>();
 
 	/**
 	 * The converted terms.  This is used for example to store the
 	 * arguments of an application term, before the application term is
 	 * evaluated.
 	 */
-	private final ArrayDeque<Term> mConverted = new ArrayDeque<Term>();
+	private final ArrayDeque<Term> mConverted = new ArrayDeque<>();
 
 	/**
 	 * The converted object arrays. This is used to store the arguments of an array valued annotation, before the
 	 * annotation's subterm is processed.
 	 */
-	private final ArrayDeque<Object[]> mConvertedArrays = new ArrayDeque<Object[]>();
+	private final ArrayDeque<Object[]> mConvertedArrays = new ArrayDeque<>();
 
 	/**
 	 * This class represents one item of work. It consists of a term and some task that still needs to be performed on
@@ -172,18 +172,18 @@ public class TermTransformer extends NonRecursive {
 			final AnnotatedTerm annterm = (AnnotatedTerm) term;
 			enqueueWalker(new BuildAnnotation(annterm));
 			final ArrayDeque<Object> todo = new ArrayDeque<>();
-			for (Annotation annot : annterm.getAnnotations()) {
+			for (final Annotation annot : annterm.getAnnotations()) {
 				if (annot.getValue() != null) {
 					todo.add(annot.getValue());
 				}
 			}
 			while (!todo.isEmpty()) {
-				Object value = todo.removeLast();
+				final Object value = todo.removeLast();
 				if (value instanceof Term) {
 					pushTerm((Term) value);
 				} else if (value instanceof Object[]) {
 					enqueueWalker(new BuildObjectArray((Object[]) value));
-					for (Object elem : (Object[]) value) {
+					for (final Object elem : (Object[]) value) {
 						todo.add(elem);
 					}
 				}
@@ -241,7 +241,7 @@ public class TermTransformer extends NonRecursive {
 			final Annotation[] newAnnots, final Term newBody) {
 		final Annotation[] annots = old.getAnnotations();
 		Term result = old;
-		if (newBody != old.getSubterm()	|| newAnnots != annots) {
+		if (newBody != old.getSubterm() || newAnnots != annots) {
 			result = old.getTheory().annotatedTerm(newAnnots, newBody);
 		}
 		setResult(result);
@@ -533,7 +533,7 @@ public class TermTransformer extends NonRecursive {
 		@Override
 		public void walk(final NonRecursive engine) {
 			final TermTransformer transformer = (TermTransformer) engine;
-			Term[] cases = mMatchTerm.getCases();
+			final Term[] cases = mMatchTerm.getCases();
 			if (mCaseNr > 0) {
 				transformer.endScope();
 			}
