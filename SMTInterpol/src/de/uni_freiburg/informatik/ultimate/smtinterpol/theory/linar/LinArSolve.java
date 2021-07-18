@@ -25,6 +25,7 @@ import java.util.BitSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -104,8 +105,8 @@ public class LinArSolve implements ITheory {
 	 * must be null.
 	 */
 	final ArrayList<BitSet> mDependentRows;
-	/** The list of all non-basic integer variables. */
-	final ArrayList<LinVar> mIntVars;
+	/** All non-basic integer variables. */
+	final Set<LinVar> mIntVars;
 	/** The literals that will be propagated. */
 	final Queue<Literal> mProplist;
 	/** The basic variables hashed by their linear combinations. */
@@ -161,7 +162,7 @@ public class LinArSolve implements ITheory {
 		mLinvars = new ScopedArrayList<>();
 		mTableaux = new ArrayList<>();
 		mDependentRows = new ArrayList<>();
-		mIntVars = new ArrayList<>();
+		mIntVars = new LinkedHashSet<>();
 		mDirty = new BitSet();
 		mProplist = new ArrayDeque<>();
 		mSuggestions = new ArrayDeque<>();
