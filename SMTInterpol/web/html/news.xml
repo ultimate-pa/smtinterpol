@@ -9,19 +9,26 @@
 <page id="news">
   <name>News</name>
   <content>
+    <head1><s /> at SMTCOMP 2021</head1>
+    <txt> We participated in the <link url="https://smt-comp.github.io/2021/">SMT-COMP 2021</link>.
+    In the single-query track we won the division "Quantifier-free Equality with Linear Arithmetic".
+    In the incremental track we won "Quantifier-free Nonlinear Integer Arithmetic" and "Quantifier-free Equality with Nonlinear Arithmetic". 
+    We scored the second place in the biggest lead ranking for the incremental track.
+    </txt>
+    
     <head1><s /> at SMTCOMP 2018</head1>
-    <txt>We participated in the SMTCOMP 2018 which was part of the FLoC Olympic Games in Oxford.
-    <s /> won the unsat core track for quantifier free linear integer arithmetic and real arithmetic (QF_LIA and QF_LRA) and made it to the third place in the overall evaluation.
+    <txt>We participated in the <link url="https://smt-comp.github.io/2018/">SMTCOMP 2018</link> which was part of the <link url="https://www.floc2018.org/">FLoC</link> Olympic Games in Oxford.
+    <s /> won the unsat core track for quantifier-free linear integer arithmetic and real arithmetic (QF_LIA and QF_LRA) and made it to the third place in the overall evaluation.
     <nl /><img src="floc2018.jpg" alt="Medal for SMTInterpol during FLOC 2018" />
     </txt>
 
     <head1>Interpolation for Arrays</head1>
-    <txt><s /> now supports interpolation in the quantifier free logic of arrays.
+    <txt><s /> now supports interpolation in the quantifier-free logic of arrays.
     </txt>
 
     <head1>New release 2.5</head1>
     <txt>We released version 2.5 of <s />.
-    This release has full support for the quantifier free fragment for
+    This release has full support for the quantifier-free fragment for
     arrays.  Although this theory have been supported in the solver for a
     while, the new release also supports generation of interpolants for
     this theory.
@@ -29,7 +36,8 @@
     </txt>
 
     <head1><s /> at SMTCOMP 2014</head1>
-    <txt>We participated in the SMTCOMP 2014 which was part of the Vienna Summer of Logic Olympic Games.  The primary new feature was our array solver which performed really good.  We were awarded with the  G&ouml;del medal for the second place according to the multi-division error-free scoring.  Furthermore, David Cok - the lead organizer of the competition - awarded us with a beautiful "big A" also known as a universal quantifier when put in correct position.  We thank all the supporters that helped to improve <s /> and, of course, the organizers of the competition and the VSL olympic games for these nice awards.<nl /><img src="floc2014.jpg" alt="Awards for SMTInterpol during VSL 2014" /><img src="goedel.jpg" alt="The goedel medal" /></txt>
+    <txt>We participated in the <link url="https://smt-comp.github.io/2014/">SMTCOMP 2014</link> which was part of the Vienna Summer of Logic Olympic Games.
+    The primary new feature was our array solver which performed really good.  We were awarded with the  G&ouml;del medal for the second place according to the multi-division error-free scoring.  Furthermore, David Cok - the lead organizer of the competition - awarded us with a beautiful "big A" also known as a universal quantifier when put in correct position.  We thank all the supporters that helped to improve <s /> and, of course, the organizers of the competition and the VSL olympic games for these nice awards.<nl /><img src="floc2014.jpg" alt="Awards for SMTInterpol during VSL 2014" /><img src="goedel.jpg" alt="The goedel medal" /></txt>
 
 <txt>The scoring system that was applied this year penalized errors in a draconic way.  This quasi led to the disqualification of the main competitors CVC4 and Yices.  Also Z3 and MathSAT were not competing this year.  Therefore the second place should be taken with a grain of salt.</txt>
 
@@ -44,16 +52,13 @@
     <txt>A new release of <s /> is available. It now allows users to define functions that take arguments in QF_LIA and QF_LRA. Thanks to Hans-Martin Adorf for reporting this bug.</txt>
     <head1>SMT Competition 2012</head1>
     <txt><s /> participates in the <link
-    url="http://www.smtcomp.org/2012">SMT-COMP 2012</link> in the <link
-    url="http://smtexec.org/exec/?jobs=1004">main</link>, <link
-    url="http://smtexec.org/exec/?jobs=1005">application</link>, <link
-    url="http://smtexec.org/exec/?jobs=1006">unsat-core</link>, and in the
-    <link url="http://smtexec.org/exec/?jobs=1007">demonstration</link> track.
+    url="https://smt-comp.github.io/2012/">SMT-COMP 2012</link>
+    in the main, application, unsat-core, and in the demonstration track.
     A slightly newer version of <s /> is available from the download
     page.</txt>
     
     <head1>Proof Transformations</head1>
-    <txt>The latest version of <s /> incorporates the proof tree transformation techniques presented by Fontaine et. al. in their paper <link url="http://www.loria.fr/~fontaine/Fontaine14.pdf">Compression of Propositional Resolution Proofs via Partial Regularization"</link>.  The option <tt>:proof-transformation</tt> can be used to activate one of the algorithms presented in this paper.  Possible values are:
+    <txt>The latest version of <s /> incorporates the proof tree transformation techniques presented by Fontaine et. al. in their paper <link url="https://doi.org/10.1007/978-3-642-22438-6_19">Compression of Propositional Resolution Proofs via Partial Regularization"</link>.  The option <tt>:proof-transformation</tt> can be used to activate one of the algorithms presented in this paper.  Possible values are:
     <table>
       <headrow>
 	<col>Value</col>
@@ -85,10 +90,8 @@
     <txt>On popular demand we changed the license of <s /> from
     GPL to LGPL.</txt> <head1>SMT Competition 2011</head1> <txt>A pre-release
     version of <s /> 2.0 participated in the <link
-    url="http://www.smtcomp.org/2011/">SMT-COMP 2011</link> in the <link
-    url="http://www.smtexec.org/exec/?jobs=856">main</link> and in the <link
-    url="http://www.smtexec.org/exec/?jobs=859">application</link> track.  See
-    these pages for further details. This was the first time <s />
+    url="http://smtcomp.sourceforge.net/2011/">SMT-COMP 2011</link> in the main and in the application track.
+    See these pages for further details. This was the first time <s />
     participated in the competition. It showed its strength in the divisions
     QF_UFLRA and QF_UFLIA where it could solve as many instances as the winner
     of this division in the main track.</txt>

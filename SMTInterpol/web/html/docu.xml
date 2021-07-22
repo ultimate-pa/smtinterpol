@@ -3,7 +3,8 @@
   <name>Documentation</name>
   <content>
     <head1>Command Line Interface</head1>
-    <txt><s /> can be used from command line using a <link url="http://smtlib.org">SMTLIB input script</link>.  After downloading the JAR file, you can run <s /> from command line as
+    <txt><s /> can be used from command line using a <link url="http://smtlib.cs.uiowa.edu/">SMTLIB input script</link>.
+    After downloading the JAR file, you can run <s /> from command line as
     <verb>java -jar smtinterpol.jar input.smt2</verb>
     Without input file, <s /> reads from standard input.  This can be used in interactive mode.  According to the standard, <s /> replies to every command unless the user sets the option <tt>:print-success</tt> to <tt>false</tt></txt>
     <txt>The solver supports the following command line options:</txt>
@@ -42,7 +43,7 @@
     <head1>API</head1>
     <txt>See the <link url="doc/index.html">JavaDOC Documentation</link> for details.</txt>
     <head1>Interpolation</head1>
-    <txt><s /> supports Craig interpolation via an extension of the <link url="http://smtlib.org">SMTLIB language</link>.  Names of terms asserted in the form <verb>(assert (! t :named p))</verb> can be used to describe interpolation partitions.  The syntax for generating sequence interpolants is <verb>(get-interpolants p1 p2 .. pn)</verb> where each <tt>p</tt><emph>i</emph> is either the name of a term asserted in the way described above or a conjunction of such names.  <s /> also supports tree interpolants.  <link url="proposal.pdf">Our format is described in an SMTLIB proposal</link>.</txt>
+    <txt><s /> supports Craig interpolation via an extension of the <link url="http://smtlib.cs.uiowa.edu/">SMTLIB language</link>.  Names of terms asserted in the form <verb>(assert (! t :named p))</verb> can be used to describe interpolation partitions.  The syntax for generating sequence interpolants is <verb>(get-interpolants p1 p2 .. pn)</verb> where each <tt>p</tt><emph>i</emph> is either the name of a term asserted in the way described above or a conjunction of such names.  <s /> also supports tree interpolants.  <link url="proposal.pdf">Our format is described in an SMTLIB proposal</link>.</txt>
     <head1>Additional SMTLIB Commands</head1>
     <txt>Besides the <tt>get-interpolants</tt> command <s /> supports additional non-standard SMTLIB commands.  The following table summarizes these commands and describes their effects.</txt>
     <table>
@@ -83,7 +84,7 @@
       </row>
     </table>
     <head1>Extended SMTLIB Logics</head1>
-    <txt><s /> extends the integer logics (QF_LIA, QF_UFLIA) defined by the <link url="http://smtlib.org">SMTLIB standard</link> to close them under interpolation.  The division-by-constant and modulo-by-constant operators are added.</txt>
+    <txt><s /> extends the integer logics (QF_LIA, QF_UFLIA) defined by the <link url="http://smtlib.cs.uiowa.edu/">SMTLIB standard</link> to close them under interpolation.  The division-by-constant and modulo-by-constant operators are added.</txt>
     <txt>Additionally, <s /> supports the logic QF_UFLIRA.  This logic combines uninterpreted functions with mixed linear integer and real arithmetic.</txt>
   </content>
 </page>

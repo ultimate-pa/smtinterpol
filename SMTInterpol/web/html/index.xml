@@ -11,41 +11,53 @@
   <content>
     <head1>About SMTInterpol</head1>
     <txt><s /> is an SMT Solver that can compute Craig interpolants for various theories.  The solver is
-    developed at the <link url="http://swt.informatik.uni-freiburg.de">Chair
+    developed at the <link url="https://swt.informatik.uni-freiburg.de">Chair
     of Software Engineering</link> at
-    the <link url="http://www.uni-freiburg.de">University of
+    the <link url="https://uni-freiburg.de">University of
     Freiburg</link>.</txt>
     <txt>The solver is written
-    in <link url="http://www.oracle.com/technetwork/java/index.html">Java</link>
+    in <link url="https://www.oracle.com/java/technologies">Java</link>
     and can be used on any operating system that supports Java Version
     8 or above.</txt>
-    <txt>The solver reads input in <link url="http://smtlib.org">SMTLIB
-    Version 2.5</link> format.</txt>
+    <txt>The solver reads input in <link url="http://smtlib.cs.uiowa.edu/">SMTLIB
+    Version 2.6</link> format.</txt>
 
     <head1>Status</head1>
-    <txt>The current version of <s /> supports interpolation for the
-    combination of the quantifier-free fragments of the theories of
+    <txt>The current version of <s /> supports the combination of the theories of
     uninterpreted functions, linear real arithmetic, linear integer
-    arithmetic, and arrays including constant arrays.</txt>
+    arithmetic, arrays including constant arrays, and datatypes.</txt>
+    <txt><s /> supports quantifiers for all supported theories except for datatypes,
+    and it supports interpolation for the quantifier-free fragments of all supported theories except datatypes.</txt>
 
     <head1>System Requirements</head1>
     <txt><s /> needs a Java 8 JRE or above.  No
     special hardware is necessary but depending on the input problem, a fast
     CPU and a good amount of RAM might be useful.</txt>
 
-    <head1>Team</head1>
+    <head1>Current Team</head1>
     <txt><s /> is developed by <link
-    url="http://swt.informatik.uni-freiburg.de/staff/hoenicke">Jochen
-    Hoenicke</link> and <link
-    url="http://swt.informatik.uni-freiburg.de/staff/schindler">Tanja
-    Schindler</link> in the context of the SIGSMCAP
-    (SMT-based Interpolant Generation
-    for Software ModelChecking of Array Programs) project, and by
-    Alexander Nutz.
+    url="https://swt.informatik.uni-freiburg.de/staff/hoenicke">Jochen
+    Hoenicke</link> in the context of the project "Quantified Formulas in Interpolating SMT Solvers"
+    and by <link url="https://swt.informatik.uni-freiburg.de/staff/schindler">Tanja
+    Schindler</link> and Elisabeth Henkel.
     If you have any questions, suggestions,
-    or if you want to contribute, feel free to contact us.
-    Previous contributors include
-    J&uuml;rgen Christ.</txt>
+    or if you want to contribute, feel free to contact us.</txt>
+    
+    <head1>Other contributors</head1>
+    <table>
+      <headrow><col>Name</col><col>Main contribution</col></headrow>
+      <row><col>Max Barth</col><col>Theory solver for bitvectors</col></row>
+      <row><col>Daniel Blank</col><col>Proof translation to <link url="https://smtcoq.github.io/">SMTCoq</link></col></row>
+      <row><col>J&uuml;rgen Christ</col><col>Major parts of <s /></col></row>
+      <row><col>Leonard Fichtner</col><col>Unsat core enumeration and heuristics</col></row>
+      <row><col>Joanna Greulich</col><col>Parser for datatypes</col></row>
+      <row><col>Moritz Mohr</col><col>Theory solver for datatypes</col></row>
+      <row><col>Alexander Nutz</col><col>Theory solver for EPR</col></row>
+      <row><col>Markus Pomrehn</col><col>Fine-grained rewrite proofs</col></row>
+      <row><col>Andrea Qosja</col><col>Web interface</col></row>
+      <row><col>Pascal Raiola</col><col>Trigger compiler</col></row>
+      <row><col>Daniel Dietsch, Matthias Heizmann</col><col>SMT-LIB libraries</col></row>
+    </table>
 
     <head1>Bug Reports</head1>
     <txt>Please use our <link url="https://github.com/ultimate-pa/smtinterpol/issues">github page</link> to report bugs.</txt>
@@ -55,7 +67,7 @@
 
     <head1>SMTInterpol in Action</head1>
     <txt><s /> participates regularly in the <link
-    url="http://smtcomp.sourceforge.net">SMT-COMP</link>. See this page or
+    url="https://smt-comp.github.io">SMT-COMP</link>. See this page or
     the news page for further details.</txt>
   </content>
 </page>

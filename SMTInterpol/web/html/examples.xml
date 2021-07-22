@@ -3,7 +3,7 @@
   <name>Examples</name>
   <content>
     <head1>Examples</head1>
-    <txt>This page presents some additional examples.  Some of them are in SMTLIB syntax, others are examples in Java.  Further examples can be downloaded from the <link url="http://smtlib.org">SMTLIB website</link>.
+    <txt>This page presents some additional examples.  Some of them are in SMTLIB syntax, others are examples in Java.  Further examples can be downloaded from the <link url="http://smtlib.cs.uiowa.edu/">SMTLIB website</link>.
     </txt>
     <downloads>
       <download file="usage.smt2">
@@ -31,7 +31,7 @@
 	<desc>Small API usage example from the interpolation section of the tool paper</desc>
       </download>
       <download file="fmcad11.tar.bz2">
-	<desc>Interpolation examples from the paper <link url="http://research.microsoft.com/en-us/people/kenmcmil/fmacad11benchmarks.aspx">Interpolants from Z3 proofs</link></desc>
+	<desc>Interpolation examples from the paper <link url="http://dl.acm.org/citation.cfm?id=2157661">Interpolants from Z3 proofs</link></desc>
       </download>
       <download file="interpolationtests.tar.bz2">
 	<desc>Small interpolation tests</desc>

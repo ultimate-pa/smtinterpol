@@ -11,6 +11,17 @@
   <content>
     <head1>Publications about <s /></head1>
     <list>
+    <paper conf="SMT 2021">
+    <authors>Elisabeth Henkel, Jochen Hoenicke and Tanja Schindler</authors>
+    <title>Proof Tree Preserving Sequence Interpolation of Quantified Formulas in the Theory of Equality</title>
+    <pdf>http://ceur-ws.org/Vol-2908/short12.pdf</pdf>
+      </paper>
+      <paper conf="VMCAI 2021">
+    <authors>Jochen Hoenicke and Tanja Schindler</authors>
+    <title>Incremental Search for Conflict and Unit Instances of Quantified Formulas with E-Matching</title>
+    <doi>https://doi.org/10.1007/978-3-030-67067-2_24</doi>
+    <bib>https://dblp.org/rec/bibtex/conf/vmcai/HoenickeS21</bib>
+      </paper>
       <paper conf="VMCAI 2019">
 	<authors>Jochen Hoenicke and Tanja Schindler</authors>
 	<title>Solving and Interpolating Constant Arrays Based on Weak Equivalences</title>
@@ -22,21 +33,22 @@
 	<title>Efficient Interpolation for the Theory of Arrays</title>
 	<doi>https://doi.org/10.1007/978-3-319-94205-6_36</doi>
 	<bib>https://dblp.uni-trier.de/rec/bibtex/conf/cade/HoenickeS18</bib>
+	<arxiv>https://arxiv.org/abs/1804.07173</arxiv>
       </paper>
       <paper conf="Journal of Automated Reasoning (57) 1">
-	<authors>J&uuml;rgen Christ, and Jochen Hoenicke</authors>
+	<authors>J&uuml;rgen Christ and Jochen Hoenicke</authors>
 	<title>Proof Tree Preserving Tree Interpolation</title>
 	<doi>https://doi.org/10.1007/s10817-016-9365-5</doi>
 	<bib>https://dblp.uni-trier.de/rec/bibtex/journals/jar/ChristH16</bib>
       </paper>
       <paper conf="CAV 2015">
-	<authors>J&uuml;rgen Christ, and Jochen Hoenicke</authors>
+	<authors>J&uuml;rgen Christ and Jochen Hoenicke</authors>
 	<title>Cutting the Mix</title>
-	<doi>https://doi.org/10.1007/978-3-319-24246-0_8</doi>
-	<bib>https://dblp.uni-trier.de/rec/bibtex/conf/cav/ChristH15</bib>
+	<doi>https://doi.org/10.1007/978-3-319-21668-3_3</doi>
+	<bib>https://dblp.org/rec/bibtex/conf/cav/ChristH15</bib>
       </paper>
       <paper conf="FroCos 2015">
-	<authors>J&uuml;rgen Christ, and Jochen Hoenicke</authors>
+	<authors>J&uuml;rgen Christ and Jochen Hoenicke</authors>
 	<title>Weakly Equivalent Arrays</title>
 	<doi>https://doi.org/10.1007/978-3-319-24246-0_8</doi>
 	<bib>https://dblp.uni-trier.de/rec/bibtex/conf/frocos/ChristH15</bib>
@@ -47,6 +59,7 @@
 	<pdf>http://www.avacs.org/fileadmin/Publikationen/Open/avacs_technical_report_089.pdf</pdf>
 	<doi>https://doi.org/10.1007/978-3-642-36742-7_9</doi>
 	<bib>https://dblp.uni-trier.de/rec/bibtex/conf/tacas/ChristHN13</bib>
+	<arxiv>https://arxiv.org/abs/1705.05309</arxiv>
       </paper>
       <paper conf="SPIN 2012">
 	<authors>J&uuml;rgen Christ, Jochen Hoenicke, and Alexander Nutz</authors>
@@ -58,7 +71,7 @@
       <paper>
 	<authors>J&uuml;rgen Christ, Jochen Hoenicke, and Alexander Nutz</authors>
 	  <title>SMTInterpol system description for the SMT-COMP 2012</title>
-	  <pdf>http://www.smtexec.org/exec/competitors2012.php?desc=1438</pdf>
+	  <pdf>https://smt-comp.github.io/2012/system-descriptions/SMTInterpol.pdf</pdf>
 	</paper>
     </list>
     <br />
@@ -74,7 +87,7 @@
 	<authors>Daniel Dietsch, Marius Greitschus, Matthias Heizmann, Jochen Hoenicke, Alexander Nutz, Andreas Podelski, Christian Schilling, Tanja Schindler</authors>
 	<title>Ultimate Taipan with Dynamic Block Encoding - (Competition Contribution)</title>
 	<doi>https://doi.org/10.1007/978-3-319-89963-3_31</doi>
-	<bib>https://dblp.uni-trier.de/rec/bibtex/conf/vmcai/SchindlerJ18</bib>
+	<bib>https://dblp.org/rec/bibtex/conf/tacas/DietschGHHNPSS18</bib>
       </paper>
       <paper conf="VMCAI 2012">
 	<authors>Evren Ermis, Jochen Hoenicke, and Andreas Podelski</authors>
@@ -88,7 +101,7 @@
 	<title>Error Invariants</title>
 	<pdf>http://cs.nyu.edu/wies/publ/error_invariants.pdf</pdf>
 	<doi>https://doi.org/10.1007/978-3-642-32759-9_17</doi>
-	<bib>https://dblp.uni-trier.de/rec/bibtex/conf/vmcai/ErmisSW12</bib>
+	<bib>https://dblp.org/rec/bibtex/conf/fm/ErmisSW12</bib>
       </paper>
     </list>
     <br />

@@ -261,6 +261,7 @@ xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns="http://www.w3.org/1999/x
       <xsl:apply-templates select="pdf" />
       <xsl:apply-templates select="doi" />
       <xsl:apply-templates select="bib" />
+      <xsl:apply-templates select="arxiv" />
     </xsl:element>
   </xsl:template>
 
@@ -307,6 +308,15 @@ xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns="http://www.w3.org/1999/x
       <xsl:text>doi</xsl:text>
     </xsl:element>
     <xsl:text>] </xsl:text>
+  </xsl:template>
+  
+  <xsl:template match="arxiv">
+    <xsl:text> Authors' version at </xsl:text>
+    <xsl:element name="a">
+      <xsl:attribute name="href"><xsl:value-of select="./text()" /></xsl:attribute>
+      <xsl:text>arXiv</xsl:text>
+    </xsl:element>
+    <xsl:text>.</xsl:text>
   </xsl:template>
 
 </xsl:stylesheet>
