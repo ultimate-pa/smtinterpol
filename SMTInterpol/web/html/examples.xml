@@ -13,7 +13,7 @@
 	<desc>Example from the "Proofs and Annotations" section of the tool paper</desc>
       </download>
       <download file="subannot.smt2">
-	<desc>Example that demonstrates sub annotations in proofs from <si /></desc>
+	<desc>Example that demonstrates sub annotations in proofs from <s /></desc>
       </download>
       <download file="interpolation.smt2">
 	<desc>Interpolation example</desc>

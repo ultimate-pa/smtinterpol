@@ -74,7 +74,7 @@
 	  <pdf>https://smt-comp.github.io/2012/system-descriptions/SMTInterpol.pdf</pdf>
 	</paper>
     </list>
-    <br />
+    <nl />
     <head1>Publications using <s /></head1>
     <list>
       <paper conf="TACAS 2018">
@@ -104,7 +104,7 @@
 	<bib>https://dblp.org/rec/bibtex/conf/fm/ErmisSW12</bib>
       </paper>
     </list>
-    <br />
+    <nl />
     <txt>If you feel like your paper should be listed here, feel free to contact us.</txt>
   </content>
 </page>

@@ -10,14 +10,17 @@ xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns="http://www.w3.org/1999/x
   <xsl:output
       method = "xml"
       encoding = "UTF-8"
-      omit-xml-declaration = "no"
-      doctype-public = "-//W3C//DTD XHTML 1.0 Transitional//EN"
-      doctype-system = "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"
+      omit-xml-declaration = "yes"
       indent = "yes" />
 
   <xsl:template match="/page">
+    <xsl:text disable-output-escaping="yes">&lt;!DOCTYPE html&gt;&#10;</xsl:text>
     <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-us" lang="en-us">
       <head>
+	<xsl:element name="meta">
+	  <xsl:attribute name="http-equiv">Content-Type</xsl:attribute>
+	  <xsl:attribute name="content">text/html; charset=UTF-8</xsl:attribute>
+	</xsl:element>
 	<xsl:element name="meta">
 	  <xsl:attribute name="name">robots</xsl:attribute>
 	  <xsl:attribute name="content">index, follow</xsl:attribute>
@@ -78,14 +81,15 @@ xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns="http://www.w3.org/1999/x
 	    <xsl:text disable-output-escaping="yes">&amp;nbsp;</xsl:text>
 	    <xsl:text disable-output-escaping="yes">&amp;nbsp;</xsl:text>
 	    <xsl:text disable-output-escaping="yes">&amp;nbsp;</xsl:text>
-	    <a href="http://validator.w3.org/check?uri=referer">
-	      <img src="valid-xhtml10.png"
-		   alt="Valid XHTML 1.0 Transitional" height="31" width="88" /></a>
-	      <a href="http://jigsaw.w3.org/css-validator/check/referer">
-		<img style="border:0;width:88px;height:31px"
-		     src="vcss.gif"
-		       alt="Valid CSS!" />
-	      </a>
+	    <a href="https://validator.w3.org/check?uri=referer" referrerpolicy="no-referrer-when-downgrade">
+	      <img src="HTML5_Logo.svg"
+		   alt="Valid HTML 5" height="32" width="23" />
+            </a>
+	    <xsl:text disable-output-escaping="yes">&amp;nbsp;</xsl:text>
+	    <a href="https://jigsaw.w3.org/css-validator/check/referer" referrerpolicy="no-referrer-when-downgrade">
+	      <img src="CSS3_Logo.svg"
+		   alt="Valid CSS!" height="32" width="23" />
+	    </a>
 	  </p>
 	</div>
       </body>
