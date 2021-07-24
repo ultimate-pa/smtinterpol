@@ -4,8 +4,6 @@
   <meta charset="UTF-8">
   <meta name="author" content="Andrea Qosja, Jochen Hoenicke">
   <title>SMTInterpol Web-Interface </title>
-  <!script type="text/javascript" charset="utf-8" src="classes.js"><!/script>
-  <!script type="text/javascript" charset="utf-8" src="webworker.js"><!/script>
   <link rel="stylesheet" href="../smtinterpol.css" type="text/css"/>
   <link rel="stylesheet" href="style.css" type="text/css"/>
 </head>
@@ -97,15 +95,15 @@
   }
   
   function run(){
+      showCog();
       output.textContent = "";
       worker = new Worker('webworker.js');
       worker.addEventListener('message', workerMessaged);
       worker.addEventListener('error', workerError);
       worker.postMessage(inputPanel.value);
-      showCog();
   }
 
-  optnewline = ""
+  var optnewline = ""
   function workerMessaged(ev){
       let data = ev.data;
       if (data == "@EXIT") {
