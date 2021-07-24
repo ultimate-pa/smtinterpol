@@ -72,6 +72,9 @@ xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns="http://www.w3.org/1999/x
 	      </xsl:otherwise>
 	    </xsl:choose>
 	  </xsl:for-each>
+          <div>
+            <a href="online/">Web-Interface</a>
+	  </div>
 	</div>
 	<div id="contentbox">
 	  <xsl:apply-templates match="content" />
