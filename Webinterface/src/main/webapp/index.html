@@ -39,15 +39,27 @@
   <h1> SMTInterpol Web-Interface </h1>
   <p>You can now run an SMT solver in your browser.  Paste an SMT-LIB
     2.6 compatible <a href="https://smtlib.cs.uiowa.edu/benchmarks.shtml">input problem</a> in the box below and click the run
-    button.  You can also drag and drop files into this box.</p>
-<header> Input field: </header>
-<div class="inputarea">
-  <textarea id="input"  rows="10" cols="50" autofocus></textarea>
+    button.  You can also upload files or drag and drop them into this box.</p>
+
+  <p>This runs SMTInterpol in your browser (powered by TeaVM).
+  Please note that running large problems can affect the performance of
+  your browser.</p>
+
+  <div class="inputarea">
+    <textarea id="input"  rows="10" cols="50" autofocus>
+; Can you prove that 1 + 1 is 2?
+
+(set-option :produce-proofs true)
+(set-logic QF_LIA)
+(assert (not (= (+ 1 1) 2)))
+(check-sat)
+(get-proof)
+    </textarea>
   <br/>
   <div class="buttons">
     <input type="file" name="upload" id="upload" />
     <button id="run">Run SMTInterpol</button>
-    <button id="stop" disabled="true">Stop</button>
+    <button id="stop" disabled="true">Abort</button>
     &nbsp;
     <svg id="cogwheels" width="20" height="20" viewBox="0 120 400 400" style="visibility:hidden">
       <g style="fill:#000" >
@@ -57,7 +69,6 @@
     </svg>
   </div>
 </div>
-<h3>The result:</h3>
 <pre id="result">Run SMTInterpol to see the result here !</pre>
 
 <script>
@@ -67,7 +78,7 @@
   let output = document.getElementById("result");
   var fileUploader = document.getElementById("upload");
 
-  var worker;  
+  var worker;
 
   function showCog() {
       document.getElementById("cogwheels").style.visibility = "visible";
