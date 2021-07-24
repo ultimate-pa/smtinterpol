@@ -379,12 +379,13 @@ public class QuantifierTheory implements ITheory {
 				Arrays.toString(mNumInstancesOfAgeEnum));
 		logger.info("Quant: Conflicts: %d Props: %d Checkpoints (with new evaluation): %d (%d) Final Checks: %d",
 				mNumConflicts, mNumProps, mNumCheckpoints, mNumCheckpointsWithNewEval, mNumFinalcheck);
-		/* FIXME , TeaVM can not convert %.f Numbers, find a solution.
 		logger.info(
-				"Quant times: Checkpoint: %.3f Find with E-matching: %.3f E-Matching: %.3f Dawg: %.3f Final Check: %.3f",
-				mCheckpointTime / 1000 / 1000.0, mFindEmatchingTime / 1000 / 1000.0, mEMatchingTime / 1000 / 1000.0,
-				mDawgTime / 1000 / 1000.0, mFinalCheckTime / 1000 / 1000.0);
-		*/
+				"Quant times: Checkpoint: %d.%03d Find with E-matching: %d.%03d E-Matching: %d.%03d Dawg: %d.%03d Final Check: %d.%03d",
+				mCheckpointTime / 1000 / 1000, mCheckpointTime /1000 % 1000,
+				mFindEmatchingTime / 1000 / 1000, mFindEmatchingTime / 1000 % 1000,
+				mEMatchingTime / 1000 / 1000, mEMatchingTime / 1000 % 1000,
+				mDawgTime / 1000 / 1000, mDawgTime / 1000 % 1000,
+				mFinalCheckTime / 1000 / 1000, mFinalCheckTime / 1000 % 1000);
 	}
 
 	@Override

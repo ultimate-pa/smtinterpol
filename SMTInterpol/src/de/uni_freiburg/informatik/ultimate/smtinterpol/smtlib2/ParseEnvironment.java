@@ -219,19 +219,15 @@ public class ParseEnvironment {
 		if (mTiming == null) {
 			mTiming = new ArrayDeque<>();
 		}
-		mOptions.getOutChannel().print('(');
+		printResponse("(");
 		mTiming.push(System.nanoTime());
 	}
 
 	public void endTiming() {
 		final long old = mTiming.pop();
 		final long duration = System.nanoTime() - old;
-		final double secs = duration / 1000000000.0; // NOCHECKSTYLE
-		/* FIXME , TeaVM can not convert %.f Numbers, find a solution.
-		mOptions.getOutChannel().printf((Locale) null, " :time %.3f)", secs);
-		 */
-		mOptions.getOutChannel().println();
-		mOptions.getOutChannel().flush();
+		final long msecs = duration / 1000000; // NOCHECKSTYLE
+		printResponse(String.format(" :time %d.%03d)", msecs/1000, msecs % 1000));
 	}
 
 	public boolean isContinueOnError() {
