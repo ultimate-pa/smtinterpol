@@ -4,5 +4,5 @@ import org.teavm.jso.JSObject;
 
 public interface SolverInterface extends JSObject {
 
-    String runSMTInterpol(String input);
+    void runSMTInterpol(String input);
 }

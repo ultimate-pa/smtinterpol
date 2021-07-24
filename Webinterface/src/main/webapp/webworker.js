@@ -7,10 +7,10 @@ self.addEventListener('message', (ev)=>{
     let data = ev.data;
     switch(data){
         default:
-            var output = runWebInterface.runSMTInterpol(data);
-            self.postMessage(output);
-            self.close();
-            break;
+        runWebInterface.runSMTInterpol(data);
+	self.postMessage("@EXIT");
+        self.close();
+        break;
     }
 });
 

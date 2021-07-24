@@ -1,21 +1,3 @@
-head {
-    margin: auto;
-}
-body {
-    margin: auto;
-}
-h1 {
-    width: 700px;
-    margin: auto;
-    border: 1px solid red;
-    color: blue;
-    font-weight: bold
-}
-h3 {
-    margin: auto;
-    color: red;
-    font-weight: bold
-}
 .textarea {
     rows="10";
     cols="50";
@@ -27,4 +9,23 @@ h3 {
     flex-grow: 1;
     padding-top: 2rem;
     padding-bottom: 2rem;
+}
+
+.small {
+    animation: counter-rotation 2.5s infinite linear;
+    transform-origin: 100.136px 225.345px;
+}
+.medium {
+    animation: rotation 3.75s infinite linear;
+    transform-origin: 254.675px 379.447px;
+}
+
+@keyframes rotation {
+    from {transform: rotate(0deg);}
+    to   {transform: rotate(359deg);}
+}
+
+@keyframes counter-rotation {
+    from {transform: rotate(359deg);}
+    to   {transform: rotate(0deg);}
 }

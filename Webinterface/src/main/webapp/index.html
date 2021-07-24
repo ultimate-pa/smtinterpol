@@ -2,74 +2,143 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <meta name="author" content="Andrea Qosja">
-  <title> SMTInterpol TeaVM Test </title>
-  <h1> SMTInterpol-Online ( work in progress o.O') </h1>
-  <p> For more fun, you can find the SMTInterpol
-    <a href="http://ultimate.informatik.uni-freiburg.de/smtinterpol/index.html">
-      here
-    </a> as a free software.
-  </p>
+  <meta name="author" content="Andrea Qosja, Jochen Hoenicke">
+  <title>SMTInterpol Web-Interface </title>
   <!script type="text/javascript" charset="utf-8" src="classes.js"><!/script>
   <!script type="text/javascript" charset="utf-8" src="webworker.js"><!/script>
-  <link rel="stylesheet" type="text/css" href="style.css"/>
-  <link rel="icon" href="" type="image/x-icon">
+  <link rel="stylesheet" href="../smtinterpol.css" type="text/css"/>
+  <link rel="stylesheet" href="style.css" type="text/css"/>
 </head>
 <body>
+   <div id="headerbox">
+      <div id="heading">SMTInterpol</div>
+      <div id="subheading">an Interpolating SMT Solver</div>
+    </div>
+    <div id="navibox">
+      <div>
+        <a href="../">Home</a>
+      </div>
+      <div>
+        <a href="../news.html">News</a>
+      </div>
+      <div>
+        <a href="../docu.html">Documentation</a>
+      </div>
+      <div>Download</div>
+      <div>
+        <a href="../publications.html">Publications</a>
+      </div>
+      <div>
+        <a href="../examples.html">Examples</a>
+      </div>
+      <div>
+        <a href="../online/">Web-Interface</a>
+      </div>
+    </div>
+    <div id="contentbox">
+  <h1> SMTInterpol Web-Interface </h1>
+  <p>You can now run an SMT solver in your browser.  Paste an SMT-LIB
+    2.6 compatible <a href="https://smtlib.cs.uiowa.edu/benchmarks.shtml">input problem</a> in the box below and click the run
+    button.  You can also drag and drop files into this box.</p>
 <header> Input field: </header>
 <div class="inputarea">
   <textarea id="input"  rows="10" cols="50" autofocus></textarea>
-  <h2>
+  <br/>
+  <div class="buttons">
     <button id="run">Run SMTInterpol</button>
-    <button id="stop">Stop</button>
-  </h2>
+    <button id="stop" disabled="true">Stop</button>
+    &nbsp;
+    <svg id="cogwheels" width="20" height="20" viewBox="0 120 400 400" style="visibility:hidden">
+      <g style="fill:#000" >
+        <path id="smallcog" x="-100,136" y="-100,136" d="M200 236v-21l-29-4c-2-10-6-18-11-26l18-23 -15-15 -23 18c-8-5-17-9-26-11l-4-29H90l-4 29c-10 2-18 6-26 11l-23-18 -15 15 18 23c-5 8-9 17-11 26L0 215v21l29 4c2 10 6 18 11 26l-18 23 15 15 23-18c8 5 17 9 26 11l4 29h21l4-29c10-2 18-6 26-11l23 18 15-15 -18-23c5-8 9-17 11-26L200 236zM100 262c-20 0-37-17-37-37s17-37 37-37c20 0 37 17 37 37S121 262 100 262z"/>
+        <path id="mediumcog" x="-136,996" y="-136,996" d="M392 390v-21l-28-4c-1-10-4-19-7-28l23-17 -11-18L342 313c-6-8-13-14-20-20l11-26 -18-11 -17 23c-9-4-18-6-28-7l-4-28h-21l-4 28c-10 1-19 4-28 7l-17-23 -18 11 11 26c-8 6-14 13-20 20l-26-11 -11 18 23 17c-4 9-6 18-7 28l-28 4v21l28 4c1 10 4 19 7 28l-23 17 11 18 26-11c6 8 13 14 20 20l-11 26 18 11 17-23c9 4 18 6 28 7l4 28h21l4-28c10-1 19-4 28-7l17 23 18-11 -11-26c8-6 14-13 20-20l26 11 11-18 -23-17c4-9 6-18 7-28L392 390zM255 453c-41 0-74-33-74-74 0-41 33-74 74-74 41 0 74 33 74 74C328 420 295 453 255 453z"/>
+      </g>
+    </svg>
+  </div>
 </div>
 <h3>The result:</h3>
-<pre id="result"> Run SMTInterpol to see the result here ! </pre>
+<pre id="result">Run SMTInterpol to see the result here !</pre>
+
 <script>
-      var runButton = document.getElementById("run");
-      var inputPanel = document.getElementById("input");
-      var stopButton = document.getElementById("stop");
-      let output = document.getElementById("result");
+  var runButton = document.getElementById("run");
+  var inputPanel = document.getElementById("input");
+  var stopButton = document.getElementById("stop");
+  let output = document.getElementById("result");
+  
+  var worker;  
 
-      var worker;
+  function showCog() {
+      document.getElementById("cogwheels").style.visibility = "visible";
+      document.getElementById("smallcog").classList.add("small");
+      document.getElementById("mediumcog").classList.add("medium");
+      runButton.disabled = true;
+      stopButton.disabled = false;
+  }
+  
+  function hideCog() {
+      document.getElementById("cogwheels").style.visibility = "hidden";
+      document.getElementById("smallcog").classList.remove("small");
+      document.getElementById("mediumcog").classList.remove("medium");
+      runButton.disabled = false;
+      stopButton.disabled = true;
+  }
+  
+  function run(){
+      runButton.disabled = true;
+      output.textContent = "";
+      worker = new Worker('webworker.js');
+      worker.addEventListener('message', workerMessaged);
+      worker.addEventListener('error', workerError);
+      worker.postMessage(inputPanel.value);
+      showCog();
+  }
 
-      runButton.onclick = function(){run()};
-
-      function run(){
-            runButton.disabled = true;
-            output.textContent = "";
-            worker = new Worker('webworker.js');
-            worker.addEventListener('message', workerMessaged);
-            worker.addEventListener('error', workerError);
-            worker.postMessage(inputPanel.value);
+  optnewline = ""
+  function workerMessaged(ev){
+      runButton.disabled = false;
+      let data = ev.data;
+      if (data == "@EXIT") {
+	  hideCog();
+      } else if (data == "success") {
+	  output.textContent += ".";
+	  optnewline = "\n";
+      } else {
+	  output.textContent += optnewline + data + "\n";
+	  optnewline = "";
       }
+  }
+  function workerError(err){
+      console.log(err.message, err.filename);
+  }
+  
+  function stop() {
+      console.log("terminated");
+      worker.terminate();
+      output.textContent += optnewline + "SMTInterpol terminated."
+      runButton.disabled = false;
+      hideCog();
+  }
 
-      function workerMessaged(ev){
-          runButton.disabled = false;
-          let data = ev.data;
-          output.textContent += data + "\n";
+  function dropHandler(ev) {
+      ev.preventDefault();
+      if (ev.dataTransfer.files) {
+	  // Use DataTransfer interface to access the file(s)
+	  let reader = new FileReader()
+	  reader.onload = function(e) {
+	      inputPanel.value = e.target.result;
+	  }
+	  reader.readAsText(ev.dataTransfer.files[0]);
       }
-      function workerError(err){
-          console.log(err.message, err.filename);
-      }
+  }
+  function dragoverHandler(ev) {
+      ev.preventDefault();
+  }
 
-      stopButton.onclick = function() {stop()};
+  runButton.onclick = run;
+  stopButton.onclick = stop;
 
-      function stop() {
-        console.log("terminated");
-        worker.terminate();
-        output.textContent = " SMTInterpol stoped !"
-        runButton.disabled = false;
-      }
-
-      /*
-      // Sent the msg to stop running SmtInterpol. throw worker.postMessage("Sent Data");
-      stopButton.addEventListener('click', ()=>{
-        //send another message to the worker
-        worker.postMessage('Stop SMTInterpol');
-      })
-      */
+  inputPanel.ondrop=dropHandler;
+  inputPanel.ondragover=dragoverHandler;
 </script>
 </body>
 </html>

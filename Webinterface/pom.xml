@@ -8,9 +8,22 @@
 	<version>1.0-SNAPSHOT</version>
 	<packaging>war</packaging>
 
+	<repositories>
+		<repository>
+			<id>teavm-dev</id>
+			<url>https://teavm.org/maven/repository</url>
+		</repository>
+	</repositories>
+	<pluginRepositories>
+		<pluginRepository>
+			<id>teavm-dev</id>
+			<url>https://teavm.org/maven/repository</url>
+		</pluginRepository>
+	</pluginRepositories>
+
 	<properties>
 		<java.version>1.8</java.version>
-		<teavm.version>0.6.1</teavm.version>
+		<teavm.version>0.7.0-dev-1196</teavm.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 	</properties>
 

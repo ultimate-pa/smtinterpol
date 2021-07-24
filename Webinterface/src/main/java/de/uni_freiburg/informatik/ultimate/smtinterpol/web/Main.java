@@ -27,19 +27,13 @@ public class Main implements SolverInterface {
 		new Main().run();
 	}
 
-	public String runSMTInterpol(String inputString) {
-		StringWriter output = new StringWriter();
-
+	public void runSMTInterpol(String inputString) {
 		final DefaultLogger logger = new DefaultLogger();
 		final OptionMap options = new OptionMap(logger, true);
 
 		SMTInterpol solver = new SMTInterpol(null, options);
 		WebEnvironment pe = new WebEnvironment(solver, options);
-
-		options.getOption(":regular-output-channel").set(output);
-		pe.parseStream(new StringReader(inputString), "webinput.smt2");
-
-		return output.toString();
+		pe.parseStream(new StringReader(inputString), "<webinput>");
 	}
 
 	public class WebEnvironment extends ParseEnvironment {
@@ -51,10 +45,8 @@ public class Main implements SolverInterface {
 			/* can't exit */
 		}
 
-		/*
-		wird immer von smtInterpol aufgerufen, immer wennn er ein Erg. hat.
-		print response methode überscheiben, sodass die zwischen ergebnisse geposted werden
-		können.
+		/**
+		 * Post response from SMTInterpol directly to the client.
 		 */
 		public void printResponse(Object response) {
 			postMessage(response.toString());
