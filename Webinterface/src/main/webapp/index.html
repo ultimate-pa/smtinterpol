@@ -45,6 +45,7 @@
   <textarea id="input"  rows="10" cols="50" autofocus></textarea>
   <br/>
   <div class="buttons">
+    <input type="file" name="upload" id="upload" />
     <button id="run">Run SMTInterpol</button>
     <button id="stop" disabled="true">Stop</button>
     &nbsp;
@@ -64,7 +65,8 @@
   var inputPanel = document.getElementById("input");
   var stopButton = document.getElementById("stop");
   let output = document.getElementById("result");
-  
+  var fileUploader = document.getElementById("upload");
+
   var worker;  
 
   function showCog() {
@@ -74,7 +76,7 @@
       runButton.disabled = true;
       stopButton.disabled = false;
   }
-  
+
   function hideCog() {
       document.getElementById("cogwheels").style.visibility = "hidden";
       document.getElementById("smallcog").classList.remove("small");
@@ -84,7 +86,6 @@
   }
   
   function run(){
-      runButton.disabled = true;
       output.textContent = "";
       worker = new Worker('webworker.js');
       worker.addEventListener('message', workerMessaged);
@@ -95,7 +96,6 @@
 
   optnewline = ""
   function workerMessaged(ev){
-      runButton.disabled = false;
       let data = ev.data;
       if (data == "@EXIT") {
 	  hideCog();
@@ -110,24 +110,31 @@
   function workerError(err){
       console.log(err.message, err.filename);
   }
-  
+
   function stop() {
       console.log("terminated");
       worker.terminate();
       output.textContent += optnewline + "SMTInterpol terminated."
-      runButton.disabled = false;
       hideCog();
+  }
+
+  function readFile(file) {
+      let reader = new FileReader()
+      reader.onload = function(e) {
+	  inputPanel.value = e.target.result;
+      }
+      reader.readAsText(file);
+  }
+
+  function uploadFile(ev) {
+      readFile(fileUploader.files[0]);
   }
 
   function dropHandler(ev) {
       ev.preventDefault();
       if (ev.dataTransfer.files) {
 	  // Use DataTransfer interface to access the file(s)
-	  let reader = new FileReader()
-	  reader.onload = function(e) {
-	      inputPanel.value = e.target.result;
-	  }
-	  reader.readAsText(ev.dataTransfer.files[0]);
+	  readFile(ev.dataTransfer.files[0]);
       }
   }
   function dragoverHandler(ev) {
@@ -139,6 +146,8 @@
 
   inputPanel.ondrop=dropHandler;
   inputPanel.ondragover=dragoverHandler;
+
+  fileUploader.onchange=uploadFile;
 </script>
 </body>
 </html>
