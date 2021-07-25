@@ -787,6 +787,9 @@ public class ArrayTheory implements ITheory {
 			logger.info("Insts: ReadOverWeakEQ: %d, WeakeqExt: %d", mNumInstsSelect, mNumInstsEq);
 			logger.info("Time: BuildWeakEq: %d.%03d ms, BuildWeakEqi: %d.%03d ms",
 					mTimeBuildWeakEq / 1000000, mTimeBuildWeakEq / 1000 % 1000,
+					mTimeBuildWeakEqi / 1000000, mTimeBuildWeakEqi / 1000 % 1000);
+			logger.info("Time: Propagation %d.%03d ms, Explanations: %d.%03d ms",
+					mTimePropagation / 1000000, mTimePropagation / 1000 % 1000,
 					mTimeExplanations / 1000000, mTimeExplanations / 1000 % 1000);
 		}
 
