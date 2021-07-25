@@ -1,14 +1,15 @@
-.textarea {
-    rows="10";
-    cols="50";
-    autofocus;
-}
 .inputarea {
     display: flex;
     flex-direction: column;
     flex-grow: 1;
     padding-top: 2rem;
     padding-bottom: 2rem;
+}
+
+pre {
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  overflow: auto;
 }
 
 .small {

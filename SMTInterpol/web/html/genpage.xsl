@@ -41,6 +41,10 @@ xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns="http://www.w3.org/1999/x
 	  <xsl:attribute name="name">generator</xsl:attribute>
 	  <xsl:attribute name="content">The SMTInterpol Team</xsl:attribute>
 	</xsl:element>
+	<xsl:element name="meta">
+	  <xsl:attribute name="name">viewport</xsl:attribute>
+	  <xsl:attribute name="content">width=device-width, initial-scale=1</xsl:attribute>
+	</xsl:element>
 	<xsl:element name="link">
 	  <xsl:attribute name="rel">stylesheet</xsl:attribute>
 	  <xsl:attribute name="href">smtinterpol.css</xsl:attribute>
@@ -49,36 +53,40 @@ xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns="http://www.w3.org/1999/x
 	<title>SMTInterpol - an Interpolating SMT Solver</title>
       </head>
       <body>
-	<div id="headerbox">
-	  <div id="heading">SMTInterpol</div>
-	  <div id="subheading">an Interpolating SMT Solver</div>
-	</div>
-	<div id="navibox">
-	  <xsl:variable name="myId" select="//page/@id" />
-	  <xsl:for-each select="document('gen/navi.xml')/navi/subpage">
-	    <xsl:choose>
-	      <xsl:when test="@id=$myId">
-		<div><xsl:copy-of select="name/text()" /></div>
-	      </xsl:when>
-	      <xsl:otherwise>
-		<div>
-		  <xsl:element name="a">
-		    <xsl:attribute name="href">
-		      <xsl:value-of select="link/text()" disable-output-escaping="yes" />
-		    </xsl:attribute>
-		    <xsl:copy-of select="name/text()" />
-		  </xsl:element>
-		</div>
-	      </xsl:otherwise>
-	    </xsl:choose>
-	  </xsl:for-each>
-          <div>
-            <a href="online/">Web-Interface</a>
+	<a class="skip" href="#main">Skip navigation</a>
+	<header>
+	  <div id="logo">
+	    <h1>SMTInterpol</h1>
+	    <h2>an Interpolating SMT Solver</h2>
 	  </div>
-	</div>
-	<div id="contentbox">
+	  <nav><ul id="subnav">
+	    <xsl:variable name="myId" select="//page/@id" />
+	    <xsl:for-each select="document('gen/navi.xml')/navi/subpage">
+	      <xsl:choose>
+		<xsl:when test="@id=$myId">
+		  <li><div><xsl:copy-of select="name/text()" /></div></li>
+		</xsl:when>
+		<xsl:otherwise>
+		  <li>
+		    <xsl:element name="a">
+		      <xsl:attribute name="href">
+			<xsl:value-of select="link/text()" disable-output-escaping="yes" />
+		      </xsl:attribute>
+		      <xsl:copy-of select="name/text()" />
+		    </xsl:element>
+		  </li>
+		</xsl:otherwise>
+	      </xsl:choose>
+	    </xsl:for-each>
+            <li>
+              <a href="online/">Web-Interface</a>
+	    </li>
+	  </ul></nav>
+	</header>
+	<div id="main">
 	  <xsl:apply-templates match="content" />
-	  <div><xsl:text disable-output-escaping="yes">&amp;nbsp;</xsl:text></div>
+	</div>
+	<footer>
 	  <p>
 	    Last modified: <xsl:value-of select="$date" />
 	    <xsl:text disable-output-escaping="yes">&amp;nbsp;</xsl:text>
@@ -94,7 +102,7 @@ xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns="http://www.w3.org/1999/x
 		   alt="Valid CSS!" height="32" width="23" />
 	    </a>
 	  </p>
-	</div>
+	</footer>
       </body>
     </html>
   </xsl:template>
