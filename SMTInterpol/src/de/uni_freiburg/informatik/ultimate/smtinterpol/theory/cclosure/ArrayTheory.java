@@ -785,10 +785,12 @@ public class ArrayTheory implements ITheory {
 			logger.info("Array: #Arrays: %d, #BuildWeakEQ: %d, #ModEdges: %d, " + "#addStores: %d, #merges: %d",
 					mArrays.size(), mNumBuildWeakEQ, mNumModuloEdges, mNumAddStores, mNumMerges);
 			logger.info("Insts: ReadOverWeakEQ: %d, WeakeqExt: %d", mNumInstsSelect, mNumInstsEq);
-			logger.info("Time: BuildWeakEq: %.3f ms, BuildWeakEqi: %.3f ms", mTimeBuildWeakEq / 1e6,
-					mTimeBuildWeakEqi / 1e6);
-			logger.info("Time: Propagation %.3f ms, Explanations: %.3f ms", mTimePropagation / 1e6,
-					mTimeExplanations / 1e6);
+			logger.info("Time: BuildWeakEq: %d.%03d ms, BuildWeakEqi: %d.%03d ms",
+					mTimeBuildWeakEq / 1000000, mTimeBuildWeakEq / 1000 % 1000,
+					mTimeBuildWeakEqi / 1000000, mTimeBuildWeakEqi / 1000 % 1000);
+			logger.info("Time: Propagation %d.%03d ms, Explanations: %d.%03d ms",
+					mTimePropagation / 1000000, mTimePropagation / 1000 % 1000,
+					mTimeExplanations / 1000000, mTimeExplanations / 1000 % 1000);
 		}
 
 	}

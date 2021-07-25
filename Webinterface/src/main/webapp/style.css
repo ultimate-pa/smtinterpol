@@ -1,0 +1,32 @@
+.inputarea {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+}
+
+pre {
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  overflow: auto;
+}
+
+.small {
+    animation: counter-rotation 2.5s infinite linear;
+    transform-origin: 100.136px 225.345px;
+}
+.medium {
+    animation: rotation 3.75s infinite linear;
+    transform-origin: 254.675px 379.447px;
+}
+
+@keyframes rotation {
+    from {transform: rotate(0deg);}
+    to   {transform: rotate(359deg);}
+}
+
+@keyframes counter-rotation {
+    from {transform: rotate(359deg);}
+    to   {transform: rotate(0deg);}
+}

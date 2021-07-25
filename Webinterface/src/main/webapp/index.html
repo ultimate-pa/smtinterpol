@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-us" lang="en-us">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+    <meta name="robots" content="index, follow"/>
+    <meta name="keywords" content="SMTInterpol, Craig, Interpolation, Tool, SMT, solver"/>
+    <meta name="title" content="SMTInterpol Version 2.0"/>
+    <meta name="description" content="The interpolating SMT solver SMTInterpol"/>
+    <meta name="generator" content="The SMTInterpol Team"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <link rel="stylesheet" href="../smtinterpol.css" type="text/css"/>
+    <link rel="stylesheet" href="style.css" type="text/css"/>
+    <title>SMTInterpol - an Interpolating SMT Solver</title>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip navigation</a>
+    <header>
+      <div id="logo">
+        <h1>SMTInterpol</h1>
+        <h2>an Interpolating SMT Solver</h2>
+      </div>
+      <nav>
+        <ul id="subnav">
+          <li>
+            <a href="../">Home</a>
+          </li>
+          <li>
+            <a href="../news.html">News</a>
+          </li>
+          <li>
+            <a href="../docu.html">Documentation</a>
+          </li>
+          <li>
+            <a href="../download.html">Download</a>
+          </li>
+          <li>
+            <a href="../publications.html">Publications</a>
+          </li>
+          <li>
+            <a href="../examples.html">Examples</a>
+          </li>
+          <li>
+            <div>Web-Interface</div>
+          </li>
+        </ul>
+      </nav>
+    </header>
+    <div id="main">
+  <h1> SMTInterpol Web-Interface </h1>
+  <p>You can now run an SMT solver in your browser.  Paste an SMT-LIB
+    2.6 compatible <a href="https://smtlib.cs.uiowa.edu/benchmarks.shtml">input problem</a> in the box below and click the run
+    button.  You can also upload files or drag and drop them into this box.</p>
+
+  <p>This runs SMTInterpol in your browser (powered by TeaVM).
+  Please note that running large problems can affect the performance of
+  your browser.</p>
+
+  <div class="inputarea">
+    <textarea id="input" rows="25" autofocus>
+; Can you prove that 1 + 1 is 2?
+
+(set-option :produce-proofs true)
+(set-logic QF_LIA)
+(assert (not (= (+ 1 1) 2)))
+(check-sat)
+(get-proof)
+    </textarea>
+  <br/>
+  <div class="buttons">
+    <input type="file" name="upload" id="upload" />
+    <button id="run">Run SMTInterpol</button>
+    <button id="stop" disabled>Abort</button>
+    &nbsp;
+    <svg id="cogwheels" width="20" height="20" viewBox="0 120 400 400" style="visibility:hidden">
+      <g style="fill:#000" >
+        <path id="smallcog" d="M200 236v-21l-29-4c-2-10-6-18-11-26l18-23 -15-15 -23 18c-8-5-17-9-26-11l-4-29H90l-4 29c-10 2-18 6-26 11l-23-18 -15 15 18 23c-5 8-9 17-11 26L0 215v21l29 4c2 10 6 18 11 26l-18 23 15 15 23-18c8 5 17 9 26 11l4 29h21l4-29c10-2 18-6 26-11l23 18 15-15 -18-23c5-8 9-17 11-26L200 236zM100 262c-20 0-37-17-37-37s17-37 37-37c20 0 37 17 37 37S121 262 100 262z"/>
+        <path id="mediumcog" d="M392 390v-21l-28-4c-1-10-4-19-7-28l23-17 -11-18L342 313c-6-8-13-14-20-20l11-26 -18-11 -17 23c-9-4-18-6-28-7l-4-28h-21l-4 28c-10 1-19 4-28 7l-17-23 -18 11 11 26c-8 6-14 13-20 20l-26-11 -11 18 23 17c-4 9-6 18-7 28l-28 4v21l28 4c1 10 4 19 7 28l-23 17 11 18 26-11c6 8 13 14 20 20l-11 26 18 11 17-23c9 4 18 6 28 7l4 28h21l4-28c10-1 19-4 28-7l17 23 18-11 -11-26c8-6 14-13 20-20l26 11 11-18 -23-17c4-9 6-18 7-28L392 390zM255 453c-41 0-74-33-74-74 0-41 33-74 74-74 41 0 74 33 74 74C328 420 295 453 255 453z"/>
+      </g>
+    </svg>
+  </div>
+</div>
+<pre id="result">Run SMTInterpol to see the result here !</pre>
+
+<script>
+  var runButton = document.getElementById("run");
+  var inputPanel = document.getElementById("input");
+  var stopButton = document.getElementById("stop");
+  let output = document.getElementById("result");
+  var fileUploader = document.getElementById("upload");
+
+  var worker;
+
+  function showCog() {
+      document.getElementById("cogwheels").style.visibility = "visible";
+      document.getElementById("smallcog").classList.add("small");
+      document.getElementById("mediumcog").classList.add("medium");
+      runButton.disabled = true;
+      stopButton.disabled = false;
+  }
+
+  function hideCog() {
+      document.getElementById("cogwheels").style.visibility = "hidden";
+      document.getElementById("smallcog").classList.remove("small");
+      document.getElementById("mediumcog").classList.remove("medium");
+      runButton.disabled = false;
+      stopButton.disabled = true;
+  }
+  
+  function run(){
+      showCog();
+      output.textContent = "";
+      worker = new Worker('webworker.js');
+      worker.addEventListener('message', workerMessaged);
+      worker.addEventListener('error', workerError);
+      worker.postMessage(inputPanel.value);
+  }
+
+  var optnewline = ""
+  function workerMessaged(ev){
+      let data = ev.data;
+      if (data == "@EXIT") {
+	  hideCog();
+      } else if (data == "success") {
+	  output.textContent += ".";
+	  optnewline = "\n";
+      } else {
+	  output.textContent += optnewline + data + "\n";
+	  optnewline = "";
+      }
+  }
+  function workerError(err){
+      console.log(err.message, err.filename);
+  }
+
+  function stop() {
+      console.log("terminated");
+      worker.terminate();
+      output.textContent += optnewline + "SMTInterpol terminated."
+      hideCog();
+  }
+
+  function readFile(file) {
+      let reader = new FileReader()
+      reader.onload = function(e) {
+	  inputPanel.value = e.target.result;
+      }
+      reader.readAsText(file);
+  }
+
+  function uploadFile(ev) {
+      readFile(fileUploader.files[0]);
+  }
+
+  function dropHandler(ev) {
+      ev.preventDefault();
+      if (ev.dataTransfer.files) {
+	  // Use DataTransfer interface to access the file(s)
+	  readFile(ev.dataTransfer.files[0]);
+      }
+  }
+  function dragoverHandler(ev) {
+      ev.preventDefault();
+  }
+
+  runButton.onclick = run;
+  stopButton.onclick = stop;
+
+  inputPanel.ondrop=dropHandler;
+  inputPanel.ondragover=dragoverHandler;
+
+  fileUploader.onchange=uploadFile;
+</script>
+    </div>
+    <footer>
+      <p>
+	<a href="https://validator.w3.org/check?uri=referer" referrerpolicy="no-referrer-when-downgrade"><img src="../HTML5_Logo.svg" alt="Valid HTML 5" height="32" width="23"/></a>&nbsp;<a href="https://jigsaw.w3.org/css-validator/check/referer" referrerpolicy="no-referrer-when-downgrade"><img src="../CSS3_Logo.svg" alt="Valid CSS!" height="32" width="23"/></a>
+      </p>
+    </footer>
+  </body>
+</html>
