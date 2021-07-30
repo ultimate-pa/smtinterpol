@@ -63,12 +63,6 @@ public class LogicSimplifier {
 			final Term rewrite = mTracker.buildRewrite(notTerm, theory.mFalse, ProofConstants.RW_NOT_SIMP);
 			return mTracker.transitivity(input, rewrite);
 		}
-		if ((arg instanceof ApplicationTerm)
-			&& ((ApplicationTerm) arg).getFunction().getName().equals("not")) {
-			final Term res = ((ApplicationTerm) arg).getParameters()[0];
-			final Term rewrite = mTracker.buildRewrite(notTerm, res, ProofConstants.RW_NOT_SIMP);
-			return mTracker.transitivity(input, rewrite);
-		}
 		return input;
 	}
 
@@ -83,7 +77,7 @@ public class LogicSimplifier {
 		final ApplicationTerm orTerm = (ApplicationTerm) mTracker.getProvedTerm(input);
 		assert orTerm.getFunction().getName() == "or";
 		final Term[] args = orTerm.getParameters();
-		final LinkedHashSet<Term> ctx = new LinkedHashSet<Term>();
+		final LinkedHashSet<Term> ctx = new LinkedHashSet<>();
 		final Theory theory = args[0].getTheory();
 		final Term trueTerm = theory.mTrue;
 		final Term falseTerm = theory.mFalse;
@@ -277,7 +271,7 @@ public class LogicSimplifier {
 		assert eqTerm.getFunction().getName() == "=";
 		final Theory theory = input.getTheory();
 		Term[] args = eqTerm.getParameters();
-		final LinkedHashSet<Term> eqArgList = new LinkedHashSet<Term>();
+		final LinkedHashSet<Term> eqArgList = new LinkedHashSet<>();
 		if (args[0].getSort().isNumericSort()) {
 			Rational lastConst = null;
 			for (final Term t : args) {
@@ -423,7 +417,7 @@ public class LogicSimplifier {
 				return convertXor(xorTerm);
 			}
 		}
-		LinkedHashSet<Term> tmp = new LinkedHashSet<Term>();
+		LinkedHashSet<Term> tmp = new LinkedHashSet<>();
 		for (final Term t : args) {
 			if (!tmp.add(t)) {
 				// We had (distinct a b a)

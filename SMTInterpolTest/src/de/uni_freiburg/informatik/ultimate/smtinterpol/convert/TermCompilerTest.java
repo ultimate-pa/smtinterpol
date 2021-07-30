@@ -72,7 +72,7 @@ public class TermCompilerTest {
 		Assert.assertSame(ex, res);
 		in = mSolver.term("and", mA, mA);
 		res = mCompiler.transform(in);
-		Assert.assertSame(mA, res);
+		Assert.assertSame(mSolver.term("not", mSolver.term("not", mA)), res);
 		in = mSolver.term("and", mA, mB, mC, mA);
 		ex = mSolver.term("not",
 				mSolver.term("or", mSolver.term("not", mA), mSolver.term("not", mB), mSolver.term("not", mC)));
@@ -154,7 +154,9 @@ public class TermCompilerTest {
 		res = mCompiler.transform(in);
 		Assert.assertSame(exp, res);
 		in = mSolver.term("=", mA, mB, mC, mA);
-		exp = mSolver.term("not", mSolver.term("or", mSolver.term("xor", mA, mB), mSolver.term("xor", mB, mC)));
+		exp = mSolver.term("not",
+				mSolver.term("or", mSolver.term("not", mSolver.term("not", mSolver.term("xor", mA, mB))),
+						mSolver.term("not", mSolver.term("not", mSolver.term("xor", mB, mC)))));
 		res = mCompiler.transform(in);
 		Assert.assertSame(exp, res);
 	}
@@ -191,7 +193,7 @@ public class TermCompilerTest {
 		Term res = mCompiler.transform(nota);
 		Assert.assertSame(nota, res);
 		res = mCompiler.transform(mSolver.term("not", nota));
-		Assert.assertSame(mA, res);
+		Assert.assertSame(mSolver.term("not", mSolver.term("not", mA)), res);
 		res = mCompiler.transform(mSolver.term("not", mTrue));
 		Assert.assertSame(mFalse, res);
 		res = mCompiler.transform(mSolver.term("not", mFalse));

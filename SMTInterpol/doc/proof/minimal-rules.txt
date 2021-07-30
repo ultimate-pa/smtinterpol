@@ -112,8 +112,8 @@ Instantiation-Rule:
 where x1,...,xn are the free variables in the terms in C and
 the let is applied on every term of the literals of C.
 
-Here the C argument is a sub-proof for clause C and the Inst function returns
-the proof of the resulting instantiated clause.
+Here the C argument is a sub-proof for clause C and the instantiate
+function returns the proof of the resulting instantiated clause.
 
 
 Axioms:

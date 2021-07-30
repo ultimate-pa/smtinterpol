@@ -32,7 +32,6 @@ public interface ProofConstants {
 	public static final String FN_TAUTOLOGY = "@tautology";
 	public static final String FN_REWRITE = "@rewrite";
 	public static final String FN_MP = "@mp";
-	public static final String FN_SPLIT = "@split";
 	public static final String FN_EXISTS = "@exists";
 	public static final String FN_MATCH = "@match";
 	public static final String FN_ALLINTRO = "@allIntro";
@@ -105,7 +104,9 @@ public interface ProofConstants {
 
 	//// ==== Tautologies ====
 	public final static Annotation AUX_TRUE_NOT_FALSE    = new Annotation(":trueNotFalse", null);
-	public final static Annotation AUX_NOT_NEG           = new Annotation(":not-", null);
+	public final static Annotation AUX_TRUE_POS          = new Annotation(":true-", null);
+	public final static Annotation AUX_FALSE_NEG         = new Annotation(":false-", null);
+	public final static Annotation AUX_NOT_POS           = new Annotation(":not+", null);
 	public final static Annotation AUX_OR_POS            = new Annotation(":or+", null);
 	public final static Annotation AUX_OR_NEG            = new Annotation(":or-", null);
 	public final static Annotation AUX_ITE_POS_1         = new Annotation(":ite+1", null);
@@ -114,12 +115,14 @@ public interface ProofConstants {
 	public final static Annotation AUX_ITE_NEG_1         = new Annotation(":ite-1", null);
 	public final static Annotation AUX_ITE_NEG_2         = new Annotation(":ite-2", null);
 	public final static Annotation AUX_ITE_NEG_RED       = new Annotation(":ite-red", null);
+	public final static Annotation AUX_IFF_POS_1         = new Annotation(":=+1", null);
+	public final static Annotation AUX_IFF_POS_2         = new Annotation(":=+2", null);
+	public final static Annotation AUX_IFF_NEG_1         = new Annotation(":=-1", null);
+	public final static Annotation AUX_IFF_NEG_2         = new Annotation(":=-2", null);
 	public final static Annotation AUX_XOR_POS_1         = new Annotation(":xor+1", null);
 	public final static Annotation AUX_XOR_POS_2         = new Annotation(":xor+2", null);
 	public final static Annotation AUX_XOR_NEG_1         = new Annotation(":xor-1", null);
 	public final static Annotation AUX_XOR_NEG_2         = new Annotation(":xor-2", null);
-	public final static Annotation AUX_EXISTS_POS        = new Annotation(":exists+", null);
-	public final static Annotation AUX_EXISTS_NEG        = new Annotation(":exists-", null);
 	public final static Annotation AUX_EXCLUDED_MIDDLE_1 = new Annotation(":excludedMiddle1", null);
 	public final static Annotation AUX_EXCLUDED_MIDDLE_2 = new Annotation(":excludedMiddle2", null);
 	public final static Annotation AUX_TERM_ITE          = new Annotation(":termITE", null);
@@ -144,16 +147,16 @@ public interface ProofConstants {
 	public final static Annotation SPLIT_NEG_ITE_1 = new Annotation(":ite-1", null);
 	public final static Annotation SPLIT_NEG_ITE_2 = new Annotation(":ite-2", null);
 
-	//// ==== Annotations with non-null value ==== //// TODO This is probably not the best place
-	public static Annotation getSplitSubstAnnot(final Term[] subst) {
-		return new Annotation(":subst", subst);
+	//// ==== Annotations with non-null value ====
+	public static Annotation getTautForallNeg(final Term[] subst) {
+		return new Annotation(":forall-", subst);
 	}
 
-	public static Annotation getRewriteSkolemAnnot(final Term[] skolemFuns) {
-		return new Annotation(":skolem", skolemFuns);
+	public static Annotation getTautExistsNeg(final Term[] skolemFuns) {
+		return new Annotation(":exists-", skolemFuns);
 	}
 
-	public static Annotation getRewriteRemoveForallAnnot(final Term[] newVars) {
-		return new Annotation(":removeForall", newVars); // Implication rewrite
+	public static Annotation getTautExistsPos(final Term[] newVars) {
+		return new Annotation(":exists+", newVars); // Implication rewrite
 	}
 }

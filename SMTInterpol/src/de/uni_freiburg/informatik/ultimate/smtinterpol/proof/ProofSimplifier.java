@@ -407,6 +407,31 @@ public class ProofSimplifier extends TermTransformer {
 		return annotateProved(rewriteStmt, subProof);
 	}
 
+	private Term convertLemma(final Term[] newParams) {
+		/*
+		 * The argument of the @lemma application is a single clause annotated with the lemma type, which has as object
+		 * all the necessary annotation. For example (@lemma (! (or (not (= a b)) (not (= b c)) (= a c)) :CC ((= a c)
+		 * :path (a b c))))
+		 */
+		assert newParams.length == 1;
+		final AnnotatedTerm annTerm = (AnnotatedTerm) newParams[0];
+		final String lemmaType = annTerm.getAnnotations()[0].getKey();
+		final Object lemmaAnnotation = annTerm.getAnnotations()[0].getValue();
+		final Term lemma = annTerm.getSubterm();
+		final Term[] clause = termToClause(lemma);
+
+		switch (lemmaType) {
+		default: {
+			// throw new AssertionError("Unknown Lemma: " + annotTerm);
+			Term subProof = ProofRules.asserted(lemma);
+			if (clause.length > 1) {
+				subProof = ProofRules.resolutionRule(lemma, subProof, ProofRules.orElim(lemma));
+			}
+			return subProof;
+		}
+		}
+	}
+
 	@Override
 	public void convertApplicationTerm(final ApplicationTerm old, final Term[] newParams) {
 		assert old.getSort().getName() == ProofConstants.SORT_PROOF;
@@ -568,5 +593,24 @@ public class ProofSimplifier extends TermTransformer {
 	 */
 	boolean isZero(final Term zero) {
 		return zero == Rational.ZERO.toTerm(zero.getSort());
+	}
+
+	/**
+	 * Convert a clause term into an Array of terms, one entry for each disjunct.
+	 * This also handles singleton and empty clause correctly.
+	 *
+	 * @param clauseTerm The term representing a clause.
+	 * @return The disjuncts of the clause.
+	 */
+	private Term[] termToClause(final Term clauseTerm) {
+		assert clauseTerm != null && clauseTerm.getSort().getName() == "Bool";
+		if (isApplication("or", clauseTerm)) {
+			return ((ApplicationTerm) clauseTerm).getParameters();
+		} else if (isApplication("false", clauseTerm)) {
+			return new Term[0];
+		} else {
+			/* in all other cases, this is a singleton clause. */
+			return new Term[] { clauseTerm };
+		}
 	}
 }

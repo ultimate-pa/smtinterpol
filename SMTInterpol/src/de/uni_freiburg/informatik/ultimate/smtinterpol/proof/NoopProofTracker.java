@@ -106,13 +106,8 @@ public class NoopProofTracker implements IProofTracker {
 	}
 
 	@Override
-	public Term auxAxiom(final Term axiom, final Annotation auxRule) {
+	public Term tautology(final Term axiom, final Annotation auxRule) {
 		return axiom;
-	}
-
-	@Override
-	public Term split(final Term input, final Term splitTerm, final Annotation splitKind) {
-		return splitTerm;
 	}
 
 	@Override
@@ -147,17 +142,17 @@ public class NoopProofTracker implements IProofTracker {
 
 	@Override
 	public Term resolution(final Term asserted, final Term tautology) {
-		assert ((ApplicationTerm) tautology).getFunction().getName() == SMTLIBConstants.OR;
-		final Term[] clause = ((ApplicationTerm) tautology).getParameters();
-		final Theory t = tautology.getTheory();
-		assert t.term("not", asserted) == clause[0] || asserted == t.term("not", clause[0]);
+		final Theory theory = tautology.getTheory();
+		final ApplicationTerm tautApp = (ApplicationTerm) getProvedTerm(tautology);
+		assert tautApp.getFunction().getName() == SMTLIBConstants.OR;
+		final Term[] clause = tautApp.getParameters();
 		assert clause.length >= 2;
 		if (clause.length == 2) {
-			return clause[0];
+			return clause[1];
 		} else {
 			final Term[] stripped = new Term[clause.length - 1];
 			System.arraycopy(clause, 1, stripped, 0, stripped.length);
-			return t.term("or", stripped);
+			return theory.term("or", stripped);
 		}
 	}
 }

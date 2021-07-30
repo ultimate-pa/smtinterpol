@@ -190,29 +190,14 @@ public interface IProofTracker {
 	public Term orSimpClause(Term rewrite);
 
 	/**
-	 * Create aux axiom input (tautologies). The term axiom is introduced as Tautology. This doesn't check if the axiom
-	 * is correct.
+	 * Create tautology input (formerly known as aux axiom). The term axiom is
+	 * introduced as Tautology. This doesn't check if the axiom is correct.
 	 *
-	 * @param axiom
-	 *            The axiom.
-	 * @param auxRule
-	 *            The rule for the axiom, one of {@link ProofConstants}.AUX_*.
+	 * @param axiom   The axiom.
+	 * @param auxRule The rule for the axiom, one of {@link ProofConstants}.AUX_*.
 	 * @return Proof node of the auxiliary tautology.
 	 */
-	public Term auxAxiom(Term axiom, Annotation auxRule);
-
-	/**
-	 * Track a structural splitting step. Rewrites formula into subterm.
-	 *
-	 * @param formula
-	 *            The formula being split annotated with its proof.
-	 * @param subterm
-	 *            The subformula, which is the result of the split.
-	 * @param splitKind
-	 *            The kind of split, see {@see ProofConstants}.SPLIT_*.
-	 * @return The subterm annotated with its proof.
-	 */
-	public Term split(Term formula, Term subterm, Annotation splitKind);
+	public Term tautology(Term axiom, Annotation auxRule);
 
 	/**
 	 * Introduce a universal quantifier.

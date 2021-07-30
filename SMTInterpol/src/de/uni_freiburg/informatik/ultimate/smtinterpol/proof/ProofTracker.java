@@ -214,18 +214,10 @@ public class ProofTracker implements IProofTracker{
 	}
 
 	@Override
-	public Term auxAxiom(final Term axiom, final Annotation rule) {
+	public Term tautology(final Term axiom, final Annotation rule) {
 		final Theory t = axiom.getTheory();
 		final Term proof = t.term(ProofConstants.FN_TAUTOLOGY, t.annotatedTerm(new Annotation[] { rule }, axiom));
 		return buildProof(proof, axiom);
-	}
-
-	@Override
-	public Term split(final Term input, final Term splitTerm, final Annotation splitRule) {
-		final Theory t = input.getTheory();
-		final Term proof = t.term(ProofConstants.FN_SPLIT,
-				t.annotatedTerm(new Annotation[] { splitRule }, getProof(input)), splitTerm);
-		return buildProof(proof, splitTerm);
 	}
 
 	@Override
@@ -313,6 +305,22 @@ public class ProofTracker implements IProofTracker{
 		return buildProof(proof, quantified);
 	}
 
+	private boolean equalModNotNot(Term t1, Term t2) {
+		if (t1 == t2) {
+			return true;
+		}
+		boolean negated = false;
+		while (t1 instanceof ApplicationTerm && ((ApplicationTerm) t1).getFunction().getName() == SMTLIBConstants.NOT) {
+			negated = !negated;
+			t1 = ((ApplicationTerm) t1).getParameters()[0];
+		}
+		while (t2 instanceof ApplicationTerm && ((ApplicationTerm) t2).getFunction().getName() == SMTLIBConstants.NOT) {
+			negated = !negated;
+			t2 = ((ApplicationTerm) t2).getParameters()[0];
+		}
+		return t1 == t2 && !negated;
+	}
+
 	@Override
 	public Term resolution(final Term asserted, final Term tautology) {
 		final Theory theory = tautology.getTheory();
@@ -322,7 +330,7 @@ public class ProofTracker implements IProofTracker{
 		final Annotation[] pivotAnnot = new Annotation[] { new Annotation(":pivot", clause[0]) };
 		final Term proof = theory.term(ProofConstants.FN_RES, getProof(asserted),
 				theory.annotatedTerm(pivotAnnot, getProof(tautology)));
-		assert theory.term("not", asserted) == clause[0] || asserted == theory.term("not", clause[0]);
+		assert equalModNotNot(theory.term("not", getProvedTerm(asserted)), clause[0]);
 		assert clause.length >= 2;
 		if (clause.length == 2) {
 			return buildProof(proof, clause[1]);
