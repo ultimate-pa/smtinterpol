@@ -806,6 +806,9 @@ public class SMTInterpol extends NoopScript {
 	@SuppressWarnings("unchecked")
 	@Override
 	public Term[] getInterpolants(final Term[] partition, final int[] startOfSubtree, final Term proofTree) {
+		if (getProofMode() == 0 || mAssertions == null) {
+			throw new SMTLIBException("Option :produce-interpolants not set to true");
+		}
 		final long timeout = mSolverOptions.getTimeout();
 		if (timeout > 0) {
 			mCancel.setTimeout(timeout);
