@@ -522,6 +522,8 @@ public class SMTInterpol extends NoopScript {
 						}
 					} catch (final UnsupportedOperationException ex) {
 						mLogger.warn("Model check mode not working: %s", ex.getMessage());
+					} catch (final SMTLIBException ex) {
+						mLogger.warn("Model check mode not working: %s", ex.getMessage());
 					}
 				}
 			} else {
