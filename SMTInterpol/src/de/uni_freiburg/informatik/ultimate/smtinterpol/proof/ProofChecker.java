@@ -165,7 +165,7 @@ public class ProofChecker extends NonRecursive {
 
 		public void enqueue(final ProofChecker engine) {
 			engine.enqueueWalker(this);
-			engine.enqueueWalker(new ProofWalker(mTerm.getParameters()[0]));
+			engine.enqueueWalker(new ProofWalker(((AnnotatedTerm) mTerm.getParameters()[0]).getSubterm()));
 		}
 
 		@Override
@@ -1732,18 +1732,18 @@ public class ProofChecker extends NonRecursive {
 		}
 		switch (tautKind) {
 		case ":xor+1":
+			// (or (not (! (xor t1 t2) :quoted)) t1 (not t2))
+			return !negated && clause[1] == eqParams[0] && clause[2] == mSkript.term("not", eqParams[1]);
+		case ":xor+2":
+			// (or (not (! (xor t1 t2) :quoted)) (not t1) t2)
+			return !negated && clause[1] == mSkript.term("not", eqParams[0]) && clause[2] == eqParams[1];
+		case ":xor-1":
 			// (or (! (xor t1 t2) :quoted) t1 t2)
 			return negated && clause[1] == eqParams[0] && clause[2] == eqParams[1];
-		case ":xor+2":
+		case ":xor-2":
 			// (or (! (xor t1 t2) :quoted) (not t1) (not t2))
 			return negated && clause[1] == mSkript.term("not", eqParams[0])
 					&& clause[2] == mSkript.term("not", eqParams[1]);
-		case ":xor-1":
-			// (or (not (! (xor t1 t2) :quoted)) t1 (not t2))
-			return !negated && clause[1] == eqParams[0] && clause[2] == mSkript.term("not", eqParams[1]);
-		case ":xor-2":
-			// (or (not (! (xor t1 t2) :quoted)) (not t1) t2)
-			return !negated && clause[1] == mSkript.term("not", eqParams[0]) && clause[2] == eqParams[1];
 		}
 		return false;
 	}
@@ -3399,8 +3399,7 @@ public class ProofChecker extends NonRecursive {
 
 		/* Check for auxiliary literals */
 		if (isApplication("ite", lhs) || isApplication("or", lhs) || isApplication("xor", lhs)
-				|| isApplication("=>", lhs) || isApplication("and", lhs)
-				|| lhs instanceof MatchTerm) {
+				|| isApplication("=>", lhs) || isApplication("and", lhs) || lhs instanceof MatchTerm) {
 			rhs = unquote(rhs, true);
 			return lhs == rhs;
 		}
@@ -3413,7 +3412,7 @@ public class ProofChecker extends NonRecursive {
 				|| at.getFunction().getName() == "is") {
 			/* boolean literals are not quoted */
 			if (at.getParameters().length == 0) {
-				return rhs == at;
+				return false;
 			}
 			/* second case: boolean functions are created as equalities */
 			rhs = unquote(rhs);
@@ -3725,19 +3724,17 @@ public class ProofChecker extends NonRecursive {
 		 * Check if the second parameters of clause is a disjunction (which it should
 		 * be)
 		 */
-		Term expectedClause = clauseApp.getParameters()[1];
-		if (expectedClause instanceof AnnotatedTerm) {
-			final Annotation[] annot = ((AnnotatedTerm) expectedClause).getAnnotations();
-			if (annot.length == 1 && annot[0].getKey().equals(":input")) {
-				/* newer version of proof producer adds :input annotation to @clause for interpolator */
-				expectedClause = ((AnnotatedTerm) expectedClause).getSubterm();
-			}
+		final Annotation[] annots = ((AnnotatedTerm) clauseApp.getParameters()[0]).getAnnotations();
+		if (annots.length != 2
+				|| !annots[0].getKey().equals(ProofConstants.ANNOTKEY_PROVES)
+				|| !annots[1].getKey().equals(ProofConstants.ANNOTKEY_INPUT)) {
+			reportError("Clause has unexpected annotation: " + clauseApp);
 		}
-		final Term[] expectedLits = createClause(expectedClause);
+		final Term[] expectedLits = (Term[]) annots[0].getValue();
 
 		if (provedLits.length != expectedLits.length) {
 			reportError("Clause has different number of literals: " + Arrays.toString(provedLits) + " versus "
-					+ expectedClause);
+					+ Arrays.toString(expectedLits));
 		} else {
 			final HashSet<Term> param1Disjuncts = new HashSet<>(Arrays.asList(provedLits));
 			final HashSet<Term> param2Disjuncts = new HashSet<>(Arrays.asList(expectedLits));

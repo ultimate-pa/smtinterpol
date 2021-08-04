@@ -111,7 +111,7 @@ public class ProofSimplifier extends TermTransformer {
 	}
 
 	private Term convertClause(final Term[] newParams) {
-		assert newParams.length == 2;
+		assert newParams.length == 1;
 		assert newParams[0] instanceof AnnotatedTerm;
 		// the second argument is the clause and is just discarded.
 		// the first argument is the proved clause.

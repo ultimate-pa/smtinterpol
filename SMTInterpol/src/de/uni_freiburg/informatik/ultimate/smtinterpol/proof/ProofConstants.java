@@ -45,6 +45,10 @@ public interface ProofConstants {
 	public static final String FN_LEMMA = "@lemma";
 	public static final String FN_RES = "@res";
 
+	//// Annotation keys for @clause
+	public static final String ANNOTKEY_PROVES = ":proves";
+	public static final String ANNOTKEY_INPUT = ":input";
+
 	//// ==== Rewrite ids and names ====
 	public final static Annotation RW_EXPAND            = new Annotation(":expand", null);
 	public final static Annotation RW_EXPAND_DEF        = new Annotation(":expandDef", null);

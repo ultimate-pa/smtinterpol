@@ -152,10 +152,11 @@ public class SMTInterpol extends NoopScript {
 				// Declare all symbols needed for proof production
 				declareInternalSort(theory, ProofConstants.SORT_PROOF, 0, 0);
 				final Sort proof = theory.getSort(ProofConstants.SORT_PROOF);
+				final Sort[] proof1 = new Sort[] { proof };
 				final Sort[] proof2 = new Sort[] { proof, proof };
 				declareInternalFunction(theory, ProofConstants.FN_RES, proof2, proof, leftassoc);
 				declareInternalFunction(theory, ProofConstants.FN_LEMMA, bool1, proof, 0);
-				declareInternalFunction(theory, ProofConstants.FN_CLAUSE, new Sort[] { proof, bool }, proof, 0);
+				declareInternalFunction(theory, ProofConstants.FN_CLAUSE, proof1, proof, 0);
 				declareInternalFunction(theory, ProofConstants.FN_ASSUMPTION, bool1, proof, 0);
 				declareInternalFunction(theory, ProofConstants.FN_ASSERTED, bool1, proof, 0);
 				if (mProofMode > 1) {
@@ -164,8 +165,8 @@ public class SMTInterpol extends NoopScript {
 					declareInternalFunction(theory, ProofConstants.FN_TRANS, proof2, proof, leftassoc);
 					declareInternalFunction(theory, ProofConstants.FN_CONG, proof2, proof, leftassoc);
 					declareInternalFunction(theory, ProofConstants.FN_ORMONOTONY, proof2, proof, leftassoc);
-					declareInternalFunction(theory, ProofConstants.FN_EXISTS, new Sort[] { proof }, proof, 0);
-					declareInternalFunction(theory, ProofConstants.FN_ALLINTRO, new Sort[] { proof }, proof, 0);
+					declareInternalFunction(theory, ProofConstants.FN_EXISTS, proof1, proof, 0);
+					declareInternalFunction(theory, ProofConstants.FN_ALLINTRO, proof1, proof, 0);
 					declareInternalFunction(theory, ProofConstants.FN_MP, proof2, proof, 0);
 					declareInternalFunction(theory, ProofConstants.FN_REWRITE, bool1, proof, 0);
 					declareInternalFunction(theory, ProofConstants.FN_TAUTOLOGY, bool1, proof, 0);
