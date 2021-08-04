@@ -9,13 +9,11 @@ import de.uni_freiburg.informatik.ultimate.logic.PrintTerm;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
-import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 
 public class ProofRules {
 	public final static String RES = "res";
-	public final static String INSTANTIATE = "instantiate";
-	public final static String ASSERT = "assert";
+	public final static String ASSUME = "assume";
 	public final static String FALSEE = "false-";
 	public final static String TRUEI = "true+";
 	public final static String NOTI = "not+";
@@ -44,8 +42,9 @@ public class ProofRules {
 
 	public final static String ITE1 = "ite1";
 	public final static String ITE2 = "ite2";
-	public final static String TRANS = "trans";
+	public final static String REFL = "refl";
 	public final static String SYMM = "symm";
+	public final static String TRANS = "trans";
 	public final static String CONG = "cong";
 	public final static String EXPAND = "expand";
 	public final static String ANNOT = "del!";
@@ -70,16 +69,18 @@ public class ProofRules {
 		t.declareInternalSort(PREFIX + PROOF, 0, 0);
 		final Sort proofSort = t.getSort(PREFIX + PROOF);
 		final Sort boolSort = t.getBooleanSort();
+		final Sort[] generic = t.createSortVariables("X");
 		final Sort[] proof1 = new Sort[] { proofSort };
 		final Sort[] bool1 = new Sort[] { boolSort };
 		final Sort[] bool3 = new Sort[] { boolSort, boolSort, boolSort };
 		final Sort[] sort0 = new Sort[0];
 
 		t.declareInternalFunction(PREFIX + RES, new Sort[] { boolSort, proofSort, proofSort }, proofSort, 0);
-		t.declareInternalFunction(PREFIX + INSTANTIATE, proof1, proofSort, 0);
-		t.declareInternalFunction(PREFIX + ASSERT, proof1, proofSort, 0);
+		t.declareInternalFunction(PREFIX + ASSUME, bool1, proofSort, 0);
 		t.declareInternalFunction(PREFIX + FALSEE, sort0, proofSort, 0);
 		t.declareInternalFunction(PREFIX + TRUEI, sort0, proofSort, 0);
+		t.declareInternalFunction(PREFIX + NOTI, bool1, proofSort, 0);
+		t.declareInternalFunction(PREFIX + NOTE, bool1, proofSort, 0);
 		t.declareInternalFunction(PREFIX + ORI, bool1, proofSort, 0);
 		t.declareInternalFunction(PREFIX + ORE, bool1, proofSort, 0);
 		t.declareInternalFunction(PREFIX + ANDI, bool1, proofSort, 0);
@@ -100,10 +101,11 @@ public class ProofRules {
 		t.declareInternalFunction(PREFIX + EQE, bool1, proofSort, 0);
 		t.declareInternalFunction(PREFIX + DISTINCTI, bool1, proofSort, 0);
 		t.declareInternalFunction(PREFIX + DISTINCTE, bool1, proofSort, 0);
-		t.declareInternalFunction(PREFIX + ITE1, bool1, proofSort, 0);
-		t.declareInternalFunction(PREFIX + ITE2, bool1, proofSort, 0);
-		t.declareInternalFunction(PREFIX + TRANS, bool1, proofSort, 0);
+		t.declareInternalPolymorphicFunction(PREFIX + ITE1, generic, generic, proofSort, 0);
+		t.declareInternalPolymorphicFunction(PREFIX + ITE2, generic, generic, proofSort, 0);
+		t.declareInternalPolymorphicFunction(PREFIX + REFL, generic, generic, proofSort, 0);
 		t.declareInternalFunction(PREFIX + SYMM, bool1, proofSort, 0);
+		t.declareInternalFunction(PREFIX + TRANS, bool1, proofSort, 0);
 		t.declareInternalFunction(PREFIX + CONG, bool1, proofSort, 0);
 		t.declareInternalFunction(PREFIX + EXPAND, bool1, proofSort, 0);
 		t.declareInternalFunction(PREFIX + ANNOT, bool1, proofSort, 0);
@@ -114,15 +116,8 @@ public class ProofRules {
 		return t.term(PREFIX + RES, pivot, proofPos, proofNeg);
 	}
 
-	public static Term instantiationRule(final TermVariable[] vars, final Term[] values, final Term subproof) {
-		final Theory t = subproof.getTheory();
-		final Annotation[] annotation = new Annotation[] { new Annotation(ANNOT_VARS, vars),
-				new Annotation(ANNOT_VALUES, values) };
-		return t.term(PREFIX + INSTANTIATE, t.annotatedTerm(annotation, subproof));
-	}
-
 	public static Term asserted(final Term t) {
-		return t.getTheory().term(PREFIX + ASSERT, t);
+		return t.getTheory().term(PREFIX + ASSUME, t);
 	}
 
 	public static Term trueIntro(final Theory t) {
@@ -256,18 +251,20 @@ public class ProofRules {
 				t.annotatedTerm(new Annotation[] { new Annotation(ANNOT_POS, new Integer[] { pos1, pos2 }) }, disTerm));
 	}
 
-	public static Term trans(Term... terms) {
-		assert terms.length != 2;
-		final Theory t = terms[0].getTheory();
-		if (terms.length == 1) {
-			terms = new Term[] { terms[0], terms[0] };
-		}
-		return t.term(PREFIX + TRANS, t.term(SMTLIBConstants.EQUALS, terms));
+	public static Term refl(final Term term) {
+		final Theory t = term.getTheory();
+		return t.term(PREFIX + REFL, term);
 	}
 
 	public static Term symm(final Term term1, final Term term2) {
 		final Theory t = term1.getTheory();
 		return t.term(PREFIX + SYMM, t.term(SMTLIBConstants.EQUALS, term1, term2));
+	}
+
+	public static Term trans(final Term... terms) {
+		assert terms.length > 2;
+		final Theory t = terms[0].getTheory();
+		return t.term(PREFIX + TRANS, t.term(SMTLIBConstants.EQUALS, terms));
 	}
 
 	public static Term cong(final Term term1, final Term term2) {
@@ -278,6 +275,18 @@ public class ProofRules {
 	public static Term expand(final Term term) {
 		final Theory t = term.getTheory();
 		return t.term(PREFIX + EXPAND, term);
+	}
+
+	public static Term ite1(final Term iteTerm) {
+		assert ((ApplicationTerm) iteTerm).getFunction().getName() == SMTLIBConstants.ITE;
+		final Theory t = iteTerm.getTheory();
+		return t.term(PREFIX + ITE1, iteTerm);
+	}
+
+	public static Term ite2(final Term iteTerm) {
+		assert ((ApplicationTerm) iteTerm).getFunction().getName() == SMTLIBConstants.ITE;
+		final Theory t = iteTerm.getTheory();
+		return t.term(PREFIX + ITE2, iteTerm);
 	}
 
 	public void printProof(final Appendable appender, final Term proof) {
@@ -311,398 +320,28 @@ public class ProofRules {
 		return xorSum.isEmpty();
 	}
 
-	public ProofLiteral[] computeClause(final Term axiom) {
-		final ApplicationTerm appTerm = (ApplicationTerm) axiom;
-		final Term[] params = appTerm.getParameters();
-		switch (appTerm.getFunction().getName()) {
-		case PREFIX + ASSERT: {
-			assert params.length == 1;
-			// t
-			return new ProofLiteral[] { new ProofLiteral(params[0], true) };
-		}
-		case PREFIX + NOTI: {
-			assert params.length == 1;
-			final ApplicationTerm subterm = (ApplicationTerm) params[0];
-			assert subterm.getFunction().getName() == SMTLIBConstants.NOT;
-			final Term[] subParams = subterm.getParameters();
-
-			// (not t), t
-			return new ProofLiteral[] { new ProofLiteral(subterm, true), new ProofLiteral(subParams[0], true) };
-		}
-		case PREFIX + NOTE: {
-			assert params.length == 1;
-			final ApplicationTerm subterm = (ApplicationTerm) params[0];
-			assert subterm.getFunction().getName() == SMTLIBConstants.NOT;
-			final Term[] subParams = subterm.getParameters();
-
-			// ~(not t), ~t
-			return new ProofLiteral[] { new ProofLiteral(subterm, false), new ProofLiteral(subParams[0], false) };
-		}
-		case PREFIX + ORI: {
-			assert params.length == 1;
-			final AnnotatedTerm annotTerm = (AnnotatedTerm) params[0];
-			final Annotation[] annots = annotTerm.getAnnotations();
-			assert annots.length == 1 && annots[0].getKey().equals(ANNOT_POS);
-			final ApplicationTerm subterm = (ApplicationTerm) annotTerm.getSubterm();
-			assert subterm.getFunction().getName() == SMTLIBConstants.OR;
-			final int pos = (Integer) annots[0].getValue();
-			final Term[] subParams = subterm.getParameters();
-			assert pos >= 0 && pos < subParams.length;
-
-			// (or t1 ... tn), ~tpos
-			return new ProofLiteral[] { new ProofLiteral(subterm, true), new ProofLiteral(subParams[pos], false) };
-		}
-		case PREFIX + ORE: {
-			assert params.length == 1;
-			final ApplicationTerm subterm = (ApplicationTerm) params[0];
-			assert subterm.getFunction().getName() == SMTLIBConstants.OR;
-			final Term[] subParams = subterm.getParameters();
-
-			// ~(or t1 ... tn), t1, ..., tn
-			final ProofLiteral[] clause = new ProofLiteral[subParams.length + 1];
-			clause[0] = new ProofLiteral(subterm, false);
-			for (int i = 0; i < subParams.length; i++) {
-				clause[i + 1] = new ProofLiteral(subParams[i], true);
-			}
-			return clause;
-		}
-		case PREFIX + ANDI: {
-			assert params.length == 1;
-			final ApplicationTerm subterm = (ApplicationTerm) params[0];
-			assert subterm.getFunction().getName() == SMTLIBConstants.AND;
-			final Term[] subParams = subterm.getParameters();
-
-			// (and t1 ... tn), ~t1, ..., ~tn
-			final ProofLiteral[] clause = new ProofLiteral[subParams.length + 1];
-			clause[0] = new ProofLiteral(subterm, true);
-			for (int i = 0; i < subParams.length; i++) {
-				clause[i + 1] = new ProofLiteral(subParams[i], false);
-			}
-			return clause;
-		}
-		case PREFIX + ANDE: {
-			assert params.length == 1;
-			final AnnotatedTerm annotTerm = (AnnotatedTerm) params[0];
-			final Annotation[] annots = annotTerm.getAnnotations();
-			assert annots.length == 1 && annots[0].getKey().equals(ANNOT_POS);
-			final ApplicationTerm subterm = (ApplicationTerm) annotTerm.getSubterm();
-			assert subterm.getFunction().getName() == SMTLIBConstants.AND;
-			final int pos = (Integer) annots[0].getValue();
-			final Term[] subParams = subterm.getParameters();
-			assert pos >= 0 && pos < subParams.length;
-
-			// ~(and t1 ... tn), tpos
-			return new ProofLiteral[] { new ProofLiteral(subterm, false), new ProofLiteral(subParams[pos], true) };
-		}
-		case PREFIX + IMPI: {
-			assert params.length == 1;
-			final AnnotatedTerm annotTerm = (AnnotatedTerm) params[0];
-			final Annotation[] annots = annotTerm.getAnnotations();
-			assert annots.length == 1 && annots[0].getKey().equals(ANNOT_POS);
-			final ApplicationTerm subterm = (ApplicationTerm) annotTerm.getSubterm();
-			assert subterm.getFunction().getName() == SMTLIBConstants.IMPLIES;
-			final int pos = (Integer) annots[0].getValue();
-			final Term[] subParams = subterm.getParameters();
-			assert pos >= 0 && pos < subParams.length;
-
-			// (=> t1 ... tn), tpos (~tpos if pos == n)
-			return new ProofLiteral[] { new ProofLiteral(subterm, true),
-					new ProofLiteral(subParams[pos], pos < subParams.length - 1) };
-		}
-		case PREFIX + IMPE: {
-			assert params.length == 1;
-			final ApplicationTerm subterm = (ApplicationTerm) params[0];
-			assert subterm.getFunction().getName() == SMTLIBConstants.IMPLIES;
-			final Term[] subParams = subterm.getParameters();
-
-			// ~(=> t1 ... tn), ~t1, ..., ~tn-1, tn
-			final ProofLiteral[] clause = new ProofLiteral[subParams.length + 1];
-			clause[0] = new ProofLiteral(subterm, false);
-			for (int i = 0; i < subParams.length; i++) {
-				clause[i + 1] = new ProofLiteral(subParams[i], i == subParams.length - 1);
-			}
-			return clause;
-		}
-		case PREFIX + IFFI1: {
-			assert params.length == 1;
-			final ApplicationTerm subterm = (ApplicationTerm) params[0];
-			assert subterm.getFunction().getName() == SMTLIBConstants.EQUALS;
-			final Term[] subParams = subterm.getParameters();
-			assert subParams.length == 2;
-
-			// (= t1 t2), t1, t2
-			return new ProofLiteral[] { new ProofLiteral(subterm, true),
-					new ProofLiteral(subParams[0], true),
-					new ProofLiteral(subParams[1], true) };
-		}
-		case PREFIX + IFFI2: {
-			assert params.length == 1;
-			final ApplicationTerm subterm = (ApplicationTerm) params[0];
-			assert subterm.getFunction().getName() == SMTLIBConstants.EQUALS;
-			final Term[] subParams = subterm.getParameters();
-			assert subParams.length == 2;
-
-			// (= t1 t2), ~t1, ~t2
-			return new ProofLiteral[] { new ProofLiteral(subterm, true),
-					new ProofLiteral(subParams[0], false),
-					new ProofLiteral(subParams[1], false) };
-		}
-		case PREFIX + IFFE1: {
-			assert params.length == 1;
-			final ApplicationTerm subterm = (ApplicationTerm) params[0];
-			assert subterm.getFunction().getName() == SMTLIBConstants.EQUALS;
-			final Term[] subParams = subterm.getParameters();
-			assert subParams.length == 2;
-
-			// ~(= t1 t2), t1, ~t2
-			return new ProofLiteral[] { new ProofLiteral(subterm, false),
-					new ProofLiteral(subParams[0], true),
-					new ProofLiteral(subParams[1], false) };
-		}
-		case PREFIX + IFFE2: {
-			assert params.length == 1;
-			final ApplicationTerm subterm = (ApplicationTerm) params[0];
-			assert subterm.getFunction().getName() == SMTLIBConstants.EQUALS;
-			final Term[] subParams = subterm.getParameters();
-			assert subParams.length == 2;
-
-			// ~(= t1 t2), ~t1, t2
-			return new ProofLiteral[] { new ProofLiteral(subterm, false),
-					new ProofLiteral(subParams[0], false),
-					new ProofLiteral(subParams[1], true) };
-		}
-		case PREFIX + XORI: {
-			assert params.length == 3;
-			assert checkXorParams(params);
-			// (xor set0), (xor set1), ~(xor set2)
-			final ProofLiteral[] clause = new ProofLiteral[3];
-			for (int i = 0; i < 3; i++) {
-				Term atom = params[i];
-				if (atom instanceof AnnotatedTerm) {
-					assert ((AnnotatedTerm) atom).getAnnotations()[0].getKey() == "unit";
-					atom = ((AnnotatedTerm) atom).getSubterm();
-				}
-				clause[i] = new ProofLiteral(atom, i < 2);
-			}
-			return clause;
-		}
-		case PREFIX + XORE: {
-			assert params.length == 3;
-			assert checkXorParams(params);
-			// ~(xor set0), ~(xor set1), ~(xor set2)
-			final ProofLiteral[] clause = new ProofLiteral[3];
-			for (int i = 0; i < 3; i++) {
-				Term atom = params[i];
-				if (atom instanceof AnnotatedTerm) {
-					assert ((AnnotatedTerm) atom).getAnnotations()[0].getKey() == "unit";
-					atom = ((AnnotatedTerm) atom).getSubterm();
-				}
-				clause[i] = new ProofLiteral(atom, false);
-			}
-			return clause;
-		}
-		case PREFIX + EQI: {
-			assert params.length == 1;
-			final ApplicationTerm subterm = (ApplicationTerm) params[0];
-			assert subterm.getFunction().getName() == SMTLIBConstants.EQUALS;
-			final Term[] subParams = subterm.getParameters();
-			final Theory t = axiom.getTheory();
-
-			// (= t1 ... tn), ~(= t1 t2), ~(tn-1 tn)
-			final ProofLiteral[] clause = new ProofLiteral[subParams.length];
-			clause[0] = new ProofLiteral(subterm, true);
-			for (int i = 0; i < subParams.length - 1; i++) {
-				clause[i + 1] = new ProofLiteral(t.term(SMTLIBConstants.EQUALS, subParams[i], subParams[i + 1]), false);
-			}
-			return clause;
-		}
-		case PREFIX + EQE: {
-			assert params.length == 1;
-			final AnnotatedTerm annotTerm = (AnnotatedTerm) params[0];
-			final Annotation[] annots = annotTerm.getAnnotations();
-			assert annots.length == 1 && annots[0].getKey().equals(ANNOT_POS);
-			final ApplicationTerm subterm = (ApplicationTerm) annotTerm.getSubterm();
-			assert subterm.getFunction().getName() == SMTLIBConstants.EQUALS;
-			final Term[] subParams = subterm.getParameters();
-			final Object[] positions = (Object[]) annots[0].getValue();
-			assert positions.length == 2;
-			final int pos0 = (Integer) positions[0];
-			final int pos1 = (Integer) positions[1];
-			assert 0 <= pos0 && pos0 < subParams.length && 0 <= pos1 && pos1 < subParams.length;
-			final Theory t = axiom.getTheory();
-
-			// ~(= t1 ... tn), (= ti tj)
-			return new ProofLiteral[] { new ProofLiteral(subterm, false),
-					new ProofLiteral(t.term(SMTLIBConstants.EQUALS, subParams[pos0], subParams[pos1]), true) };
-		}
-		case PREFIX + DISTINCTI: {
-			assert params.length == 1;
-			final ApplicationTerm subterm = (ApplicationTerm) params[0];
-			assert subterm.getFunction().getName() == SMTLIBConstants.DISTINCT;
-			final Term[] subParams = subterm.getParameters();
-			final Theory t = axiom.getTheory();
-			final int len = subParams.length;
-
-			// (distinct t1 ... tn), (= t1 t2),...
-			final ProofLiteral[] clause = new ProofLiteral[1 + len * (len - 1) / 2];
-			clause[0] = new ProofLiteral(subterm, true);
-			int pos = 0;
-			for (int i = 0; i < len - 1; i++) {
-				for (int j = i + 1; j < len; j++) {
-					clause[pos++] = new ProofLiteral(t.term(SMTLIBConstants.EQUALS, subParams[i], subParams[j]), true);
-				}
-			}
-			assert pos == clause.length;
-			return clause;
-		}
-		case PREFIX + DISTINCTE: {
-			assert params.length == 1;
-			final AnnotatedTerm annotTerm = (AnnotatedTerm) params[0];
-			final Annotation[] annots = annotTerm.getAnnotations();
-			assert annots.length == 1 && annots[0].getKey().equals(ANNOT_POS);
-			final ApplicationTerm subterm = (ApplicationTerm) annotTerm.getSubterm();
-			assert subterm.getFunction().getName() == SMTLIBConstants.DISTINCT;
-			final Term[] subParams = subterm.getParameters();
-			final Object[] positions = (Object[]) annots[0].getValue();
-			assert positions.length == 2;
-			final int pos0 = (Integer) positions[0];
-			final int pos1 = (Integer) positions[1];
-			assert 0 <= pos0 && pos0 < subParams.length && 0 <= pos1 && pos1 < subParams.length;
-			final Theory t = axiom.getTheory();
-
-			// ~(distinct t1 ... tn), ~(= ti tj)
-			return new ProofLiteral[] { new ProofLiteral(subterm, false),
-					new ProofLiteral(t.term(SMTLIBConstants.EQUALS, subParams[pos0], subParams[pos1]), false) };
-		}
-		case PREFIX + ITE1: {
-			assert params.length == 1;
-			final ApplicationTerm subterm = (ApplicationTerm) params[0];
-			assert subterm.getFunction().getName() == SMTLIBConstants.ITE;
-			final Term[] subParams = subterm.getParameters();
-			assert subParams.length == 3;
-			final Theory t = axiom.getTheory();
-
-			// (= (ite c t e) t), ~c
-			return new ProofLiteral[] { new ProofLiteral(t.term(SMTLIBConstants.EQUALS, params[0], subParams[1]), true),
-					new ProofLiteral(subParams[0], false) };
-		}
-		case PREFIX + ITE2: {
-			assert params.length == 1;
-			final ApplicationTerm subterm = (ApplicationTerm) params[0];
-			assert subterm.getFunction().getName() == SMTLIBConstants.ITE;
-			final Term[] subParams = subterm.getParameters();
-			assert subParams.length == 3;
-			final Theory t = axiom.getTheory();
-
-			// (= (ite c t e) e), c
-			return new ProofLiteral[] { new ProofLiteral(t.term(SMTLIBConstants.EQUALS, params[0], subParams[2]), true),
-					new ProofLiteral(subParams[0], true) };
-		}
-		case PREFIX + ANNOT: {
-			assert params.length == 1;
-			final AnnotatedTerm annotTerm = (AnnotatedTerm) params[0];
-			final Term subterm = annotTerm.getSubterm();
-			final Theory t = axiom.getTheory();
-
-			// (= (! t :...) t)
-			return new ProofLiteral[] { new ProofLiteral(t.term(SMTLIBConstants.EQUALS, annotTerm, subterm), true) };
-		}
-		case PREFIX + TRANS: {
-			assert params.length == 1;
-			final ApplicationTerm subterm = (ApplicationTerm) params[0];
-			assert subterm.getFunction().getName() == SMTLIBConstants.EQUALS;
-			Term subParams[] = subterm.getParameters();
-			if (subParams.length == 2) {
-				// hack for reflexivity
-				assert subParams[0] == subParams[1];
-				subParams = new Term[] { subParams[0] };
-			}
-			final int len = subParams.length;
-			final Theory t = axiom.getTheory();
-
-			// (= a0 alen-1), ~(= a0 a1), ..., ~(= alen-2 alen-1)
-			final ProofLiteral[] clause = new ProofLiteral[len];
-			clause[0] = new ProofLiteral(t.term(SMTLIBConstants.EQUALS, subParams[0], subParams[len - 1]), true);
-			for (int i = 0; i < len -1; i++)  {
-				clause[i + 1] = new ProofLiteral(t.term(SMTLIBConstants.EQUALS, subParams[i], subParams[i + 1]), false);
-			}
-			return clause;
-		}
-		case PREFIX + SYMM: {
-			assert params.length == 1;
-			final ApplicationTerm subterm = (ApplicationTerm) params[0];
-			assert subterm.getFunction().getName() == SMTLIBConstants.EQUALS;
-			final Term subParams[] = subterm.getParameters();
-			assert subParams.length == 2;
-			final Theory t = axiom.getTheory();
-
-			// (= a0 a1), ~(= a1 a0)
-			return new ProofLiteral[] {
-					new ProofLiteral(subterm, true),
-					new ProofLiteral(t.term(SMTLIBConstants.EQUALS, subParams[1], subParams[0]), false)
-			};
-		}
-		case PREFIX + CONG: {
-			assert params.length == 1;
-			final ApplicationTerm subterm = (ApplicationTerm) params[0];
-			assert subterm.getFunction().getName() == SMTLIBConstants.EQUALS;
-			final Term subParams[] = subterm.getParameters();
-			assert subParams.length == 2;
-			final ApplicationTerm appTerm0 = (ApplicationTerm) subParams[0];
-			final ApplicationTerm appTerm1 = (ApplicationTerm) subParams[1];
-			assert (appTerm0.getFunction() == appTerm1.getFunction());
-			final Term[] params0 = appTerm0.getParameters();
-			final Term[] params1 = appTerm1.getParameters();
-			assert params0.length == params1.length;
-			final Theory t = axiom.getTheory();
-
-			// (= (f a0...an) (f b0... bn)), ~(= a0 b0), ..., ~(= an bn)
-			final ProofLiteral[] clause = new ProofLiteral[params0.length + 1];
-			clause[0] = new ProofLiteral(subterm, true);
-			for (int i = 0; i < params0.length; i++) {
-				clause[i + 1] = new ProofLiteral(t.term(SMTLIBConstants.EQUALS, params0[i], params1[i]), false);
-			}
-			return clause;
-		}
-		default:
-			throw new AssertionError("Unknown axiom "+ axiom);
-		}
+	public static boolean isProofRule(final String rule, final Term proof) {
+		return proof instanceof ApplicationTerm
+				&& ((ApplicationTerm) proof).getFunction().getName().equals(PREFIX + rule);
 	}
 
-	public class ProofLiteral {
-		Term mAtom;
-		boolean mPositive;
+	public static class PrintProof extends PrintTerm {
 
-		public ProofLiteral(final Term atom, final boolean positive) {
-			mAtom = atom;
-			mPositive = positive;
-		}
-
-		public ProofLiteral negate() {
-			return new ProofLiteral(mAtom, !mPositive);
-		}
-
-		@Override
-		public int hashCode() {
-			return mAtom.hashCode() ^ (mPositive ? 0 : 0xffffffff);
-		}
-
-		@Override
-		public boolean equals(final Object other) {
-			if (!(other instanceof ProofLiteral)) {
-				return false;
+		private void addChildParams(final Term child, final String expected) {
+			if (child instanceof ApplicationTerm) {
+				final ApplicationTerm subterm = (ApplicationTerm) child;
+				assert subterm.getFunction().getName() == expected;
+				final Term[] subParams = subterm.getParameters();
+				for (int i = subParams.length - 1; i >= 0; i--) {
+					mTodo.add(subParams[i]);
+					mTodo.add(" ");
+				}
+			} else {
+				mTodo.add(child);
+				mTodo.add(" ::");
 			}
-			final ProofLiteral otherLit = (ProofLiteral) other;
-			return mAtom == otherLit.mAtom && mPositive == otherLit.mPositive;
 		}
 
-		@Override
-		public String toString() {
-			return mPositive ? mAtom.toString() : "~" + mAtom.toString();
-		}
-	}
-
-	class PrintProof extends PrintTerm {
 		@Override
 		public void walkTerm(final Term proof) {
 			if (proof instanceof ApplicationTerm) {
@@ -711,67 +350,33 @@ public class ProofRules {
 				switch (appTerm.getFunction().getName()) {
 				case PREFIX + RES: {
 					assert params.length == 3;
-					mTodo.push(")");
+					mTodo.add(")");
 					for (int i = params.length - 1; i >= 0; i--) {
-						mTodo.push(params[i]);
-						mTodo.push(" ");
+						mTodo.add(params[i]);
+						mTodo.add(" ");
 					}
-					mTodo.push("(" + RES);
+					mTodo.add("(" + RES);
 					return;
 				}
-				case PREFIX + INSTANTIATE: {
+				case PREFIX + ASSUME: {
 					assert params.length == 1;
-					final AnnotatedTerm annotTerm = (AnnotatedTerm) params[0];
-					final Annotation[] annots = annotTerm.getAnnotations();
-					assert annots.length == 2 && annots[0].getKey().equals(ANNOT_VARS)
-							&& annots[0].getKey().equals(ANNOT_VALUES);
-					final TermVariable[] vars = (TermVariable[]) annots[0].getValue();
-					final Term[] terms = (Term[]) annots[1].getValue();
-					assert vars.length == terms.length && vars.length > 0;
-					mTodo.push(")");
-					mTodo.push(annotTerm.getSubterm());
-					String separator = ")) ";
-					for (int i = terms.length - 1; i >= 0; i--) {
-						mTodo.push(separator);
-						mTodo.push(terms[i]);
-						mTodo.push(" ");
-						mTodo.push(terms[i]);
-						separator = ") (";
-					}
-					mTodo.push("(" + INSTANTIATE + " ((");
-					return;
-				}
-				case PREFIX + ASSERT: {
-					assert params.length == 1;
-					mTodo.push(")");
-					mTodo.push(params[0]);
-					mTodo.push("(" + ASSERT + " ");
+					mTodo.add(")");
+					mTodo.add(params[0]);
+					mTodo.add("(" + ASSUME + " ");
 					return;
 				}
 				case PREFIX + NOTI: {
 					assert params.length == 1;
-					final ApplicationTerm subterm = (ApplicationTerm) params[0];
-					assert subterm.getFunction().getName() == SMTLIBConstants.NOT;
-					final Term[] subParams = subterm.getParameters();
-					mTodo.push(")");
-					for (int i = subParams.length - 1; i >= 0; i--) {
-						mTodo.push(subParams[i]);
-						mTodo.push(" ");
-					}
-					mTodo.push("(" + NOTI);
+					mTodo.add(")");
+					addChildParams(params[0], SMTLIBConstants.NOT);
+					mTodo.add("(" + NOTI);
 					return;
 				}
 				case PREFIX + NOTE: {
 					assert params.length == 1;
-					final ApplicationTerm subterm = (ApplicationTerm) params[0];
-					assert subterm.getFunction().getName() == SMTLIBConstants.NOT;
-					final Term[] subParams = subterm.getParameters();
-					mTodo.push(")");
-					for (int i = subParams.length - 1; i >= 0; i--) {
-						mTodo.push(subParams[i]);
-						mTodo.push(" ");
-					}
-					mTodo.push("(" + NOTE);
+					mTodo.add(")");
+					addChildParams(params[0], SMTLIBConstants.NOT);
+					mTodo.add("(" + NOTE);
 					return;
 				}
 				case PREFIX + ORI: {
@@ -779,42 +384,24 @@ public class ProofRules {
 					final AnnotatedTerm annotTerm = (AnnotatedTerm) params[0];
 					final Annotation[] annots = annotTerm.getAnnotations();
 					assert annots.length == 1 && annots[0].getKey().equals(ANNOT_POS);
-					final ApplicationTerm subterm = (ApplicationTerm) annotTerm.getSubterm();
-					assert subterm.getFunction().getName() == SMTLIBConstants.OR;
-					final Term[] subParams = subterm.getParameters();
-					mTodo.push(")");
-					for (int i = subParams.length - 1; i >= 0; i--) {
-						mTodo.push(subParams[i]);
-						mTodo.push(" ");
-					}
-					mTodo.push(annots[0].getValue());
-					mTodo.push("(" + ORI + " ");
+					mTodo.add(")");
+					addChildParams(annotTerm.getSubterm(), SMTLIBConstants.OR);
+					mTodo.add(annots[0].getValue());
+					mTodo.add("(" + ORI + " ");
 					return;
 				}
 				case PREFIX + ORE: {
 					assert params.length == 1;
-					final ApplicationTerm subterm = (ApplicationTerm) params[0];
-					assert subterm.getFunction().getName() == SMTLIBConstants.OR;
-					final Term[] subParams = subterm.getParameters();
-					mTodo.push(")");
-					for (int i = subParams.length - 1; i >= 0; i--) {
-						mTodo.push(subParams[i]);
-						mTodo.push(" ");
-					}
-					mTodo.push("(" + ORE);
+					mTodo.add(")");
+					addChildParams(params[0], SMTLIBConstants.OR);
+					mTodo.add("(" + ORE);
 					return;
 				}
 				case PREFIX + ANDI: {
 					assert params.length == 1;
-					final ApplicationTerm subterm = (ApplicationTerm) params[0];
-					assert subterm.getFunction().getName() == SMTLIBConstants.AND;
-					final Term[] subParams = subterm.getParameters();
-					mTodo.push(")");
-					for (int i = subParams.length - 1; i >= 0; i--) {
-						mTodo.push(subParams[i]);
-						mTodo.push(" ");
-					}
-					mTodo.push("(" + ANDI);
+					mTodo.add(")");
+					addChildParams(params[0], SMTLIBConstants.AND);
+					mTodo.add("(" + ANDI);
 					return;
 				}
 				case PREFIX + ANDE: {
@@ -822,16 +409,10 @@ public class ProofRules {
 					final AnnotatedTerm annotTerm = (AnnotatedTerm) params[0];
 					final Annotation[] annots = annotTerm.getAnnotations();
 					assert annots.length == 1 && annots[0].getKey().equals(ANNOT_POS);
-					final ApplicationTerm subterm = (ApplicationTerm) annotTerm.getSubterm();
-					assert subterm.getFunction().getName() == SMTLIBConstants.AND;
-					final Term[] subParams = subterm.getParameters();
-					mTodo.push(")");
-					for (int i = subParams.length - 1; i >= 0; i--) {
-						mTodo.push(subParams[i]);
-						mTodo.push(" ");
-					}
-					mTodo.push(annots[0].getValue());
-					mTodo.push("(" + ANDE + " ");
+					mTodo.add(")");
+					addChildParams(annotTerm.getSubterm(), SMTLIBConstants.AND);
+					mTodo.add(annots[0].getValue());
+					mTodo.add("(" + ANDE + " ");
 					return;
 				}
 				case PREFIX + IMPI: {
@@ -839,85 +420,73 @@ public class ProofRules {
 					final AnnotatedTerm annotTerm = (AnnotatedTerm) params[0];
 					final Annotation[] annots = annotTerm.getAnnotations();
 					assert annots.length == 1 && annots[0].getKey().equals(ANNOT_POS);
-					final ApplicationTerm subterm = (ApplicationTerm) annotTerm.getSubterm();
-					assert subterm.getFunction().getName() == SMTLIBConstants.IMPLIES;
-					final Term[] subParams = subterm.getParameters();
-					mTodo.push(")");
-					for (int i = subParams.length - 1; i >= 0; i--) {
-						mTodo.push(subParams[i]);
-						mTodo.push(" ");
-					}
-					mTodo.push(annots[0].getValue());
-					mTodo.push("(" + IMPI + " ");
+					mTodo.add(")");
+					addChildParams(annotTerm.getSubterm(), SMTLIBConstants.IMPLIES);
+					mTodo.add(annots[0].getValue());
+					mTodo.add("(" + IMPI + " ");
 					return;
 				}
 				case PREFIX + IMPE: {
 					assert params.length == 1;
-					final ApplicationTerm subterm = (ApplicationTerm) params[0];
-					assert subterm.getFunction().getName() == SMTLIBConstants.IMPLIES;
-					final Term[] subParams = subterm.getParameters();
-					mTodo.push(")");
-					for (int i = subParams.length - 1; i >= 0; i--) {
-						mTodo.push(subParams[i]);
-						mTodo.push(" ");
-					}
-					mTodo.push("(" + IMPE);
+					mTodo.add(")");
+					addChildParams(params[0], SMTLIBConstants.IMPLIES);
+					mTodo.add("(" + IMPE);
 					return;
 				}
 				case PREFIX + IFFI1: {
 					assert params.length == 1;
-					final ApplicationTerm subterm = (ApplicationTerm) params[0];
-					assert subterm.getFunction().getName() == SMTLIBConstants.EQUALS;
-					final Term[] subParams = subterm.getParameters();
-					assert subParams.length == 2;
-					mTodo.push(")");
-					for (int i = subParams.length - 1; i >= 0; i--) {
-						mTodo.push(subParams[i]);
-						mTodo.push(" ");
-					}
-					mTodo.push("(" + IFFI1);
+					mTodo.add(")");
+					addChildParams(params[0], SMTLIBConstants.EQUALS);
+					mTodo.add("(" + IFFI1);
 					return;
 				}
 				case PREFIX + IFFI2: {
 					assert params.length == 1;
-					final ApplicationTerm subterm = (ApplicationTerm) params[0];
-					assert subterm.getFunction().getName() == SMTLIBConstants.EQUALS;
-					final Term[] subParams = subterm.getParameters();
-					assert subParams.length == 2;
-					mTodo.push(")");
-					for (int i = subParams.length - 1; i >= 0; i--) {
-						mTodo.push(subParams[i]);
-						mTodo.push(" ");
-					}
-					mTodo.push("(" + IFFI2);
+					mTodo.add(")");
+					addChildParams(params[0], SMTLIBConstants.EQUALS);
+					mTodo.add("(" + IFFI2);
 					return;
 				}
 				case PREFIX + IFFE1: {
 					assert params.length == 1;
-					final ApplicationTerm subterm = (ApplicationTerm) params[0];
-					assert subterm.getFunction().getName() == SMTLIBConstants.EQUALS;
-					final Term[] subParams = subterm.getParameters();
-					assert subParams.length == 2;
-					mTodo.push(")");
-					for (int i = subParams.length - 1; i >= 0; i--) {
-						mTodo.push(subParams[i]);
-						mTodo.push(" ");
-					}
-					mTodo.push("(" + IFFE1);
+					mTodo.add(")");
+					addChildParams(params[0], SMTLIBConstants.EQUALS);
+					mTodo.add("(" + IFFE1);
 					return;
 				}
 				case PREFIX + IFFE2: {
 					assert params.length == 1;
-					final ApplicationTerm subterm = (ApplicationTerm) params[0];
-					assert subterm.getFunction().getName() == SMTLIBConstants.EQUALS;
-					final Term[] subParams = subterm.getParameters();
-					assert subParams.length == 2;
-					mTodo.push(")");
-					for (int i = subParams.length - 1; i >= 0; i--) {
-						mTodo.push(subParams[i]);
-						mTodo.push(" ");
-					}
-					mTodo.push("(" + IFFE2);
+					mTodo.add(")");
+					addChildParams(params[0], SMTLIBConstants.EQUALS);
+					mTodo.add("(" + IFFE2);
+					return;
+				}
+				case PREFIX + REFL: {
+					assert params.length == 1;
+					mTodo.add(")");
+					mTodo.add(params[0]);
+					mTodo.add("(" + REFL + " ");
+					return;
+				}
+				case PREFIX + SYMM: {
+					assert params.length == 1;
+					mTodo.add(")");
+					addChildParams(params[0], SMTLIBConstants.EQUALS);
+					mTodo.add("(" + SYMM);
+					return;
+				}
+				case PREFIX + TRANS: {
+					assert params.length == 1;
+					mTodo.add(")");
+					addChildParams(params[0], SMTLIBConstants.EQUALS);
+					mTodo.add("(" + TRANS);
+					return;
+				}
+				case PREFIX + CONG: {
+					assert params.length == 1;
+					mTodo.add(")");
+					addChildParams(params[0], SMTLIBConstants.EQUALS);
+					mTodo.add("(" + CONG);
 					return;
 				}
 				default:

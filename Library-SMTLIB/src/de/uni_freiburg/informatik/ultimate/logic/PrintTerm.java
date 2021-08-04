@@ -38,7 +38,7 @@ public class PrintTerm {
 	 */
 	public void append(final Appendable appender, final Term term) {
 		try {
-			mTodo.push(term);
+			mTodo.add(term);
 			run(appender);
 		} catch (final IOException ex) {
 			throw new RuntimeException("Appender throws IOException", ex);
@@ -52,7 +52,7 @@ public class PrintTerm {
 	 */
 	public void append(final Appendable appender, final Sort sort) {
 		try {
-			mTodo.push(sort);
+			mTodo.add(sort);
 			run(appender);
 		} catch (final IOException ex) {
 			throw new RuntimeException("Appender throws IOException", ex);
@@ -66,7 +66,7 @@ public class PrintTerm {
 	 */
 	public void append(final Appendable appender, final Object[] sexpr) {
 		try {
-			mTodo.push(sexpr);
+			mTodo.add(sexpr);
 			run(appender);
 		} catch (final IOException ex) {
 			throw new RuntimeException("Appender throws IOException", ex);

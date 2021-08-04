@@ -28,7 +28,6 @@ import java.io.PrintWriter;
 import java.io.Reader;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.Locale;
 import java.util.zip.GZIPInputStream;
 
 import com.github.jhoenicke.javacup.runtime.SimpleSymbolFactory;
@@ -149,7 +148,7 @@ public class ParseEnvironment {
 		}
 	}
 
-	public void printResponse(Object response) {
+	public void printResponse(final Object response) {
 		final PrintWriter out = mOptions.getOutChannel();
 		if (!mOptions.isPrintTermsCSE()) {
 			if (response instanceof Term) {
@@ -169,7 +168,7 @@ public class ParseEnvironment {
 		out.flush();
 	}
 	
-	public void exitWithStatus(int statusCode) {
+	public void exitWithStatus(final int statusCode) {
 		System.exit(statusCode);
 	}
 
