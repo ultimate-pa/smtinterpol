@@ -19,14 +19,18 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.proof;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
 
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.MatchTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
@@ -35,6 +39,7 @@ import de.uni_freiburg.informatik.ultimate.logic.TermTransformer;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
 
 /**
  * This class simplifies SMTInterpol proof into a simpler proof format.
@@ -329,7 +334,7 @@ public class ProofSimplifier extends TermTransformer {
 			assert isApplication("=", eqTerm);
 			final Term[] eqParams = ((ApplicationTerm) eqTerm).getParameters();
 			assert eqParams.length == 2;
-			Term proof = ProofRules.iffElim2(eqTerm);
+			Term proof = ProofRules.iffElim1(eqTerm);
 			assert eqParams[0] == clauseLits[1];
 			proof = removeNot(proof, eqParams[0], true);
 			assert isApplication("not", clauseLits[2]);
@@ -354,10 +359,50 @@ public class ProofSimplifier extends TermTransformer {
 			proof = removeNot(proof, eqParams[1], true);
 			return proof;
 		}
+		case ":xor+1": {
+			assert isApplication("or", clause);
+			final Term[] clauseLits = ((ApplicationTerm) clause).getParameters();
+			final Term xorTerm = clauseLits[0];
+			assert isApplication("xor", xorTerm);
+			final Term[] xorParams = ((ApplicationTerm) xorTerm).getParameters();
+			return ProofRules.xorIntro(xorTerm, xorParams[0], xorParams[1]);
+		}
+		case ":xor+2": {
+			assert isApplication("or", clause);
+			final Term[] clauseLits = ((ApplicationTerm) clause).getParameters();
+			final Term xorTerm = clauseLits[0];
+			assert isApplication("xor", xorTerm);
+			final Term[] xorParams = ((ApplicationTerm) xorTerm).getParameters();
+			return ProofRules.xorIntro(xorTerm, xorParams[1], xorParams[0]);
+		}
+		case ":xor-1": {
+			assert isApplication("or", clause);
+			final Term[] clauseLits = ((ApplicationTerm) clause).getParameters();
+			assert isApplication("not", clauseLits[0]);
+			final Term xorTerm = ((ApplicationTerm) clauseLits[0]).getParameters()[0];
+			assert isApplication("xor", xorTerm);
+			final Term[] xorParams = ((ApplicationTerm) xorTerm).getParameters();
+			return ProofRules.xorIntro(xorParams[0], xorParams[1], xorTerm);
+		}
+		case ":xor-2": {
+			assert isApplication("or", clause);
+			final Term[] clauseLits = ((ApplicationTerm) clause).getParameters();
+			assert isApplication("not", clauseLits[0]);
+			final Term xorTerm = ((ApplicationTerm) clauseLits[0]).getParameters()[0];
+			assert isApplication("xor", xorTerm);
+			final Term[] xorParams = ((ApplicationTerm) xorTerm).getParameters();
+			return ProofRules.xorElim(xorTerm, xorParams[0], xorParams[1]);
+		}
 		case ":termITE": {
 			assert isApplication("or", clause);
 			final Term[] clauseLits = ((ApplicationTerm) clause).getParameters();
 			return convertTermITE(clauseLits);
+		}
+		case ":trueNotFalse": {
+			final Theory t = taut.getTheory();
+			return ProofRules.resolutionRule(t.mTrue, ProofRules.trueIntro(t),
+					ProofRules.resolutionRule(t.mFalse, ProofRules.iffElim2(t.term("=", t.mTrue, t.mFalse)),
+							ProofRules.falseElim(t)));
 		}
 		default:
 			throw new AssertionError("Unknown tautology: " + taut);
@@ -373,11 +418,19 @@ public class ProofSimplifier extends TermTransformer {
 		final Term implicationTerm = (ApplicationTerm) annotImp.getAnnotations()[0].getValue();
 		final boolean isEquality = isApplication(SMTLIBConstants.EQUALS, implicationTerm);
 		assert isEquality || isApplication(SMTLIBConstants.IMPLIES, implicationTerm);
-		final Term lhsTerm = ((ApplicationTerm) implicationTerm).getParameters()[0];
+		Term lhsTerm = ((ApplicationTerm) implicationTerm).getParameters()[0];
+		final Term rhsTerm = ((ApplicationTerm) implicationTerm).getParameters()[1];
 
 		final Term impElim = isEquality ? ProofRules.iffElim2(implicationTerm) : ProofRules.impElim(implicationTerm);
-		final Term impClause = ProofRules.resolutionRule(implicationTerm, annotImp.getSubterm(), impElim);
-		return ProofRules.resolutionRule(lhsTerm, newParams[0], impClause);
+		final Term impClause = ProofRules.resolutionRule(implicationTerm, annotImp.getSubterm(),
+				removeNot(impElim, lhsTerm, false));
+		boolean positive = true;
+		while (isApplication("not", lhsTerm)) {
+			lhsTerm = ((ApplicationTerm) lhsTerm).getParameters()[0];
+			positive = !positive;
+		}
+		return removeNot(ProofRules.resolutionRule(lhsTerm, positive ? newParams[0] : impClause,
+				positive ? impClause : newParams[0]), rhsTerm, true);
 	}
 
 	private Term convertTrans(final Term[] newParams) {
@@ -447,9 +500,157 @@ public class ProofSimplifier extends TermTransformer {
 		if (leftEquality.getParameters()[0] != leftEquality.getParameters()[1]) {
 			Term transProof = ProofRules.trans(leftEquality.getParameters()[0], oldFunc, newFunc);
 			transProof = ProofRules.resolutionRule(leftEquality, subproof((AnnotatedTerm) newParams[0]), transProof);
-			proof = ProofRules.resolutionRule(congEquality, transProof, proof);
+			proof = ProofRules.resolutionRule(congEquality, proof, transProof);
 		}
 		return annotateProved(t.term(SMTLIBConstants.EQUALS, leftEquality.getParameters()[0], newFunc), proof);
+	}
+
+	private Term convertRewriteIntern(final Term lhs, final Term rhs) {
+		final Theory theory = lhs.getTheory();
+		/* Check for auxiliary literals */
+		if (isApplication("ite", lhs) || isApplication("or", lhs) || isApplication("xor", lhs)
+				|| isApplication("=>", lhs) || isApplication("and", lhs) || lhs instanceof MatchTerm) {
+			assert rhs instanceof AnnotatedTerm;
+			return ProofRules.resolutionRule(theory.term("=", rhs, lhs),
+					ProofRules.delAnnot((AnnotatedTerm) rhs),
+					ProofRules.symm(lhs, rhs));
+		}
+
+		final ApplicationTerm at = (ApplicationTerm) lhs;
+		if (!at.getFunction().isInterpreted() || at.getFunction().getName() == "select"
+				|| at.getFunction().getName() == "is") {
+			/* boolean literals are not quoted */
+			assert at.getParameters().length != 0;
+			/* second case: boolean functions are created as equalities */
+			final Term unquoteRhs = unquote(rhs);
+			final Term equality2 = theory.term("=", unquoteRhs, rhs);
+			final Term proof2 = ProofRules.resolutionRule(theory.term("=", rhs, unquoteRhs),
+					ProofRules.delAnnot((AnnotatedTerm) rhs), ProofRules.symm(unquoteRhs, rhs));
+
+			assert isApplication("=", unquoteRhs);
+			final Term[] rhsArgs = ((ApplicationTerm) unquoteRhs).getParameters();
+			assert rhsArgs.length == 2 && rhsArgs[0] == lhs && isApplication("true", rhsArgs[1]);
+
+			final Term equality1 = theory.term("=", lhs, unquoteRhs);
+			final Term proof1 =
+					ProofRules.resolutionRule(rhsArgs[1], ProofRules.trueIntro(theory),
+							ProofRules.resolutionRule(lhs,
+									ProofRules.resolutionRule(unquoteRhs,
+											ProofRules.iffIntro1(equality1), ProofRules.iffElim1(unquoteRhs)),
+									ProofRules.resolutionRule(unquoteRhs,
+											ProofRules.iffIntro2(unquoteRhs), ProofRules.iffIntro2(equality1))));
+			return ProofRules.resolutionRule(equality1, proof1,
+					ProofRules.resolutionRule(equality2, proof2, ProofRules.trans(lhs, unquoteRhs, rhs)));
+		}
+
+		if (isApplication("<=", lhs)) {
+			final Term[] lhsParams = ((ApplicationTerm) lhs).getParameters();
+			final boolean isInt = lhsParams[0].getSort().getName() == "Int";
+			final SMTAffineTerm lhsAffine = new SMTAffineTerm(lhsParams[0]);
+			assert isZero(lhsParams[1]);
+
+			/* (<= a b) can be translated to (not (< b a)) */
+			final boolean isNegated = isApplication("not", rhs);
+			boolean isStrict = false;
+			Term rhsAtom = rhs;
+			if (isNegated) {
+				rhsAtom = negate(rhs);
+				/* <= (a-b) 0 --> (not (< (b-a) 0)) resp. (not (<= (b-a+1) 0)) for integer */
+				lhsAffine.negate();
+				if (isInt) {
+					lhsAffine.add(Rational.ONE);
+				} else {
+					isStrict = true;
+				}
+			}
+			// Normalize coefficients
+			if (lhs.getFreeVars().length == 0) { // TODO Quantified terms are not normalized, but we might change this.
+				lhsAffine.div(lhsAffine.getGcd());
+			}
+			// Round constant up for integers: (<= (x + 1.25) 0) --> (<= x + 2)
+			if (isInt) {
+				final Rational constant = lhsAffine.getConstant();
+				final Rational frac = constant.add(constant.negate().floor());
+				lhsAffine.add(frac.negate());
+			}
+
+			// Now check that rhs is as expected
+			final Term unquoteRhs = unquote(rhsAtom);
+			assert isApplication(isStrict ? "<" : "<=", unquoteRhs);
+
+			final Term[] rhsParams = ((ApplicationTerm) unquoteRhs).getParameters();
+			assert new SMTAffineTerm(rhsParams[0]).equals(lhsAffine) && isZero(rhsParams[1]);
+			// TODO
+			return ProofRules.asserted(theory.term("=", lhs, rhs));
+		}
+
+		if (isApplication("=", lhs)) {
+			/* compute affine term for lhs */
+			final Term[] lhsParams = ((ApplicationTerm) lhs).getParameters();
+			assert lhsParams.length == 2;
+			if (isApplication("false", rhs)) {
+				assert checkTrivialDisequality(lhsParams[0], lhsParams[1]);
+				return null; //TODO
+			} else if (isApplication("true", rhs)) {
+				// since we canonicalize SMTAffineTerms, they can only be equal if they are
+				// identical.
+				assert lhsParams[0] == lhsParams[1];
+				return ProofRules.resolutionRule(rhs, ProofRules.trueIntro(theory),
+						ProofRules.resolutionRule(lhs, ProofRules.refl(lhsParams[0]),
+								ProofRules.iffIntro2(theory.term("=", lhs, rhs))));
+			}
+
+			final Term unquoteRhs = unquote(rhs);
+			final Term equality2 = theory.term("=", unquoteRhs, rhs);
+			final Term proof2 = ProofRules.resolutionRule(theory.term("=", rhs, unquoteRhs),
+					ProofRules.delAnnot((AnnotatedTerm) rhs), ProofRules.symm(unquoteRhs, rhs));
+
+			assert isApplication("=", unquoteRhs);
+			final Term[] rhsParams = ((ApplicationTerm) unquoteRhs).getParameters();
+			assert rhsParams.length == 2;
+
+			/* first check if rhs and lhs are the same or only swapped parameters */
+			if (lhs == unquoteRhs) {
+				return proof2;
+			} else if (lhsParams[1] == rhsParams[0] && lhsParams[0] == rhsParams[1]) {
+				final Term equality1 = theory.term("=", lhs, unquoteRhs);
+				final Term proof1 =
+						ProofRules.resolutionRule(lhs,
+								ProofRules.resolutionRule(unquoteRhs,
+										ProofRules.iffIntro1(equality1),
+										ProofRules.symm(lhsParams[0], lhsParams[1])),
+										ProofRules.resolutionRule(unquoteRhs,
+												ProofRules.symm(rhsParams[0], rhsParams[1]),
+												ProofRules.iffIntro2(equality1)));
+				return ProofRules.resolutionRule(equality1, proof1,
+						ProofRules.resolutionRule(equality2, proof2, ProofRules.trans(lhs, unquoteRhs, rhs)));
+			}
+
+			// Now it must be an LA equality that got normalized in a different way.
+			assert lhsParams[0].getSort().isNumericSort();
+
+			/* check that they represent the same equality */
+			// Note that an LA equality can sometimes be rewritten to an already existing CC
+			// equality, so
+			// we cannot assume the rhs is normalized
+
+			final SMTAffineTerm lhsAffine = new SMTAffineTerm(lhsParams[0]);
+			lhsAffine.add(Rational.MONE, lhsParams[1]);
+			final SMTAffineTerm rhsAffine = new SMTAffineTerm(rhsParams[0]);
+			rhsAffine.add(Rational.MONE, rhsParams[1]);
+			// we cannot compute gcd on constants so check for this and bail out
+			assert !lhsAffine.isConstant() && !rhsAffine.isConstant() : "A trivial equality was created";
+			lhsAffine.div(lhsAffine.getGcd());
+			rhsAffine.div(rhsAffine.getGcd());
+			if (lhsAffine.equals(rhsAffine)) {
+				throw new UnsupportedOperationException();
+			} else {
+				rhsAffine.negate();
+				assert lhsAffine.equals(rhsAffine);
+				throw new UnsupportedOperationException();
+			}
+		}
+		throw new AssertionError();
 	}
 
 	private Term convertRewriteTrueNotFalse(final Term lhs, final Term rhs) {
@@ -508,7 +709,7 @@ public class ProofSimplifier extends TermTransformer {
 		if (args.size() > 1 || !trueCase) {
 			assert isApplication(SMTLIBConstants.NOT, rhs);
 			clause = ProofRules.resolutionRule(rhs, ProofRules.notIntro(rhs), clause);
-			auxClause = ProofRules.resolutionRule(rhs, clause, ProofRules.notElim(rhs));
+			auxClause = ProofRules.resolutionRule(rhs, auxClause, ProofRules.notElim(rhs));
 		}
 		if (args.size() > 1) {
 			final Term orTerm = ((ApplicationTerm) rhs).getParameters()[0];
@@ -551,7 +752,43 @@ public class ProofSimplifier extends TermTransformer {
 			// subclause: (= lhs rhs), ~? p1
 			clause = ProofRules.resolutionRule(arg, trueCase ? subclause : clause, trueCase ? clause : subclause);
 		}
+		clause = ProofRules.resolutionRule(params[trueFalseIdx], trueCase ? ProofRules.trueIntro(theo) : clause,
+				trueCase ? clause : ProofRules.falseElim(theo));
 		return clause;
+	}
+
+	private Term convertRewriteToXor(final String rule, final Term rewrite, final Term lhs, final Term rhs) {
+		// expect lhs: (=/distinct a b), rhs: (not? (xor a b))
+		assert isApplication(rule == ":eqToXor" ? "=" : "distinct", lhs);
+		Term xorTerm = rhs;
+		if (rule == ":eqToXor") {
+			xorTerm = negate(xorTerm);
+		}
+		assert isApplication("xor", xorTerm);
+		final Term[] eqParams = ((ApplicationTerm) lhs).getParameters();
+		final Term[] xorParams = ((ApplicationTerm) xorTerm).getParameters();
+		assert xorParams.length == 2 && eqParams.length == 2;
+		assert xorParams[0] == eqParams[0] && xorParams[1] == eqParams[1];
+		final Term proofEqToNotXor = ProofRules.resolutionRule(eqParams[0],
+				ProofRules.resolutionRule(eqParams[1], ProofRules.xorIntro(eqParams[0], eqParams[1], xorTerm), ProofRules.iffElim1(lhs)),
+				ProofRules.resolutionRule(eqParams[1], ProofRules.iffElim2(lhs), ProofRules.xorElim(eqParams[0], eqParams[1], xorTerm)));
+		final Term proofNotXorToEq = ProofRules.resolutionRule(eqParams[0],
+				ProofRules.resolutionRule(eqParams[1], ProofRules.iffIntro1(lhs),
+						ProofRules.xorIntro(xorTerm, eqParams[0], eqParams[1])),
+				ProofRules.resolutionRule(eqParams[1], ProofRules.xorIntro(xorTerm, eqParams[1], eqParams[0]),
+						ProofRules.iffIntro2(lhs)));
+		final Term iffIntro1, iffIntro2;
+		if (rule == ":eqToXor") {
+			iffIntro1 = ProofRules.resolutionRule(rhs, ProofRules.iffIntro1(rewrite), ProofRules.notElim(rhs));
+			iffIntro2 = ProofRules.resolutionRule(rhs, ProofRules.notIntro(rhs), ProofRules.iffIntro2(rewrite));
+		} else {
+			iffIntro1 = ProofRules.resolutionRule(lhs, ProofRules.distinctIntro(lhs), ProofRules.iffIntro2(rewrite));
+			iffIntro2 = ProofRules.resolutionRule(lhs, ProofRules.iffIntro1(rewrite), ProofRules.distinctIntro(lhs));
+		}
+		final Term eqLhs = rewrite.getTheory().term("=", eqParams[0], eqParams[1]);
+		return ProofRules.resolutionRule(eqLhs,
+				ProofRules.resolutionRule(xorTerm, proofNotXorToEq, iffIntro1),
+				ProofRules.resolutionRule(xorTerm, iffIntro2, proofEqToNotXor));
 	}
 
 	private Term convertRewrite(final Term[] newParams) {
@@ -569,12 +806,19 @@ public class ProofSimplifier extends TermTransformer {
 		case ":expandDef":
 			subProof = ProofRules.expand(stmtParams[0]);
 			break;
+		case ":intern":
+			subProof = convertRewriteIntern(stmtParams[0], stmtParams[1]);
+			break;
 		case ":trueNotFalse":
 			subProof = convertRewriteTrueNotFalse(stmtParams[0], stmtParams[1]);
 			break;
 		case ":eqTrue":
 		case ":eqFalse":
 			subProof = convertRewriteEqTrueFalse(rewriteRule, stmtParams[0], stmtParams[1]);
+			break;
+		case ":eqToXor":
+		case ":distinctToXor":
+			subProof = convertRewriteToXor(rewriteRule, rewriteStmt, stmtParams[0], stmtParams[1]);
 			break;
 		case ":constDiff":
 		case ":eqSimp":
@@ -600,8 +844,6 @@ public class ProofSimplifier extends TermTransformer {
 		case ":iteBool5":
 		case ":iteBool6":
 		case ":andToOr":
-		case ":eqToXor":
-		case ":distinctToXor":
 		case ":impToOr":
 		case ":strip":
 		case ":canonicalSum":
@@ -624,7 +866,6 @@ public class ProofSimplifier extends TermTransformer {
 		case ":selectOverStore":
 		case ":flatten":
 		case ":storeRewrite":
-		case ":intern":
 		case ":forallExists":
 		case ":skolem":
 		case ":removeForall":
@@ -633,6 +874,122 @@ public class ProofSimplifier extends TermTransformer {
 			subProof = ProofRules.asserted(rewriteStmt);
 		}
 		return annotateProved(rewriteStmt, subProof);
+	}
+
+	/**
+	 * Convert a CC lemma to a minimal proof.
+	 *
+	 * @param clause       the clause to check
+	 * @param ccAnnotation the argument of the :CC annotation.
+	 */
+	private Term convertCCLemma(final Term[] clause, final Object[] ccAnnotation) {
+		assert ccAnnotation.length >= 3 && ccAnnotation[0] instanceof Term && ccAnnotation[1] == ":subpath"
+				&& ccAnnotation[2] instanceof Term[];
+		final int startSubpathAnnot = 1;
+
+		// The goal equality
+		final Term goalEquality = unquote((Term) ccAnnotation[0]);
+		final Theory theory = goalEquality.getTheory();
+
+		/* collect literals and search for the disequality */
+		final HashMap<SymmetricPair<Term>, Term> allEqualities = new HashMap<>();
+		Term disEq = null;
+		for (final Term literal : clause) {
+			if (isApplication("not", literal)) {
+				final Term quotedAtom = ((ApplicationTerm) literal).getParameters()[0];
+				final Term atom = unquote(quotedAtom);
+				assert isApplication("=", atom);
+				final Term[] sides = ((ApplicationTerm) atom).getParameters();
+				assert sides.length == 2;
+				allEqualities.put(new SymmetricPair<>(sides[0], sides[1]), quotedAtom);
+			} else {
+				assert unquote(literal) == goalEquality && disEq == null;
+				disEq = literal;
+			}
+		}
+
+		final Term[] mainPath = (Term[]) ccAnnotation[startSubpathAnnot + 1];
+		assert mainPath.length >= 2 : "Main path too short in CC lemma";
+		assert isApplication("=", goalEquality) : "Goal equality is not an equality in CC lemma";
+		final Term[] sides = ((ApplicationTerm) goalEquality).getParameters();
+		assert sides.length == 2 : "Expected binary equality in CC lemma";
+		assert disEq != null || checkTrivialDisequality(sides[0], sides[1]) : "Did not find goal equality in CC lemma";
+		// TODO handle trivialDiseq.
+		assert new SymmetricPair<>(mainPath[0], mainPath[mainPath.length - 1])
+				.equals(new SymmetricPair<>(sides[0], sides[1])) : "Did not explain main equality " + goalEquality;
+
+		Term proof;
+		Term[] expectedLhs;
+		Term[] expectedRhs;
+		final Term mainPathEquality = theory.term("=", mainPath[0], mainPath[mainPath.length - 1]);
+		if (mainPath.length == 2) {
+			// This must be a congruence lemma
+			assert mainPath[0] instanceof ApplicationTerm && mainPath[1] instanceof ApplicationTerm;
+			final ApplicationTerm lhs = (ApplicationTerm) mainPath[0];
+			final ApplicationTerm rhs = (ApplicationTerm) mainPath[1];
+			proof = ProofRules.cong(lhs, rhs);
+
+			// check that functions are the same and have the same number of parameters
+			assert lhs.getFunction() == rhs.getFunction() && lhs.getParameters().length == rhs.getParameters().length;
+			// check if each parameter is identical or equal
+			expectedLhs = lhs.getParameters();
+			expectedRhs = rhs.getParameters();
+		} else {
+			// This is a transitivity lemma
+			proof = ProofRules.trans(mainPath);
+			expectedLhs = new Term[mainPath.length - 1];
+			expectedRhs = new Term[mainPath.length - 1];
+			System.arraycopy(mainPath, 0, expectedLhs, 0, expectedLhs.length);
+			System.arraycopy(mainPath, 1, expectedRhs, 0, expectedRhs.length);
+		}
+
+		final LinkedHashMap<Term, Term> subProofs = new LinkedHashMap<>();
+		for (int i = 0; i < expectedLhs.length; i++) {
+			final Term eq = theory.term("=", expectedLhs[i], expectedRhs[i]);
+			if (subProofs.containsKey(eq)) {
+				/* equality was already proved */
+				continue;
+			}
+			final Term literal = allEqualities.get(new SymmetricPair<>(expectedLhs[i], expectedRhs[i]));
+			if (literal == null) {
+				assert expectedLhs[i] == expectedRhs[i];
+				subProofs.put(eq, ProofRules.refl(expectedLhs[i]));
+			} else {
+				final Term unquoteLiteral = unquote(literal);
+				if (unquoteLiteral != eq) {
+					// symmetric case
+					subProofs.put(eq, ProofRules.symm(expectedLhs[i], expectedRhs[i]));
+				}
+				if (subProofs.containsKey(unquoteLiteral)) {
+					// move proof to the end
+					subProofs.put(unquoteLiteral, subProofs.remove(unquoteLiteral));
+				} else {
+					final Term unquotingEq = theory.term("=", literal, unquoteLiteral);
+					subProofs.put(unquoteLiteral, ProofRules.resolutionRule(unquotingEq,
+							ProofRules.delAnnot((AnnotatedTerm) literal), ProofRules.iffElim2(unquotingEq)));
+				}
+			}
+		}
+		for (final Map.Entry<Term, Term> subproof : subProofs.entrySet()) {
+			proof = ProofRules.resolutionRule(subproof.getKey(), subproof.getValue(), proof);
+		}
+		if (disEq == null) {
+			// TODO trivial diseq
+			final Term notEq = theory.term("not", mainPathEquality);
+			proof = ProofRules.resolutionRule(mainPathEquality, proof,
+					ProofRules.resolutionRule(notEq, ProofRules.asserted(notEq), ProofRules.notElim(notEq)));
+		} else {
+			final Term unquoteLiteral = unquote(disEq);
+			if (unquoteLiteral != mainPathEquality) {
+				// symmetric case
+				proof = ProofRules.resolutionRule(mainPathEquality, proof,
+						ProofRules.symm(mainPath[0], mainPath[mainPath.length - 1]));
+			}
+			final Term unquotingEq = theory.term("=", disEq, unquoteLiteral);
+			proof = ProofRules.resolutionRule(unquoteLiteral, proof, ProofRules.resolutionRule(unquotingEq,
+					ProofRules.delAnnot((AnnotatedTerm) disEq), ProofRules.iffElim1(unquotingEq)));
+		}
+		return proof;
 	}
 
 	private Term convertLemma(final Term[] newParams) {
@@ -649,11 +1006,16 @@ public class ProofSimplifier extends TermTransformer {
 		final Term[] clause = termToClause(lemma);
 
 		switch (lemmaType) {
+		case ":CC":
+			return convertCCLemma(clause, (Object[]) lemmaAnnotation);
 		default: {
 			// throw new AssertionError("Unknown Lemma: " + annotTerm);
 			Term subProof = ProofRules.asserted(lemma);
 			if (clause.length > 1) {
 				subProof = ProofRules.resolutionRule(lemma, subProof, ProofRules.orElim(lemma));
+			}
+			for (final Term lit : clause) {
+				subProof = removeNot(subProof, lit, true);
 			}
 			return subProof;
 		}
@@ -827,6 +1189,30 @@ public class ProofSimplifier extends TermTransformer {
 	 */
 	boolean isZero(final Term zero) {
 		return zero == Rational.ZERO.toTerm(zero.getSort());
+	}
+
+	/**
+	 * Check whether the disequality between two terms is trivial. There are two
+	 * cases, (1) the difference between the terms is constant and nonzero, e.g.
+	 * {@code (= x (+ x 1))}, or (2) the difference contains only integer variables
+	 * and the constant divided by the gcd of the factors is non-integral, e.g.,
+	 * {@code (= (+ x (* 2 y)) (+ x (* 2 z) 1))}.
+	 *
+	 * @param first  the left-hand side of the equality
+	 * @param second the right-hand side of the equality
+	 * @return true if the equality is trivially not satisfied.
+	 */
+	boolean checkTrivialDisequality(final Term first, final Term second) {
+		if (!first.getSort().isNumericSort()) {
+			return false;
+		}
+		final SMTAffineTerm diff = new SMTAffineTerm(first);
+		diff.add(Rational.MONE, second);
+		if (diff.isConstant()) {
+			return !diff.getConstant().equals(Rational.ZERO);
+		} else {
+			return diff.isAllIntSummands() && !diff.getConstant().div(diff.getGcd()).isIntegral();
+		}
 	}
 
 	/**

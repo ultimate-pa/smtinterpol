@@ -47,7 +47,7 @@ public class ProofRules {
 	public final static String TRANS = "trans";
 	public final static String CONG = "cong";
 	public final static String EXPAND = "expand";
-	public final static String ANNOT = "del!";
+	public final static String DELANNOT = "del!";
 	/**
 	 * sort name for proofs.
 	 */
@@ -62,7 +62,7 @@ public class ProofRules {
 
 	public static void setupTheory(final Theory t) {
 
-		if (t.getDeclaredSorts().containsKey(PREFIX+PROOF)) {
+		if (t.getDeclaredSorts().containsKey(PREFIX + PROOF)) {
 			return;
 		}
 
@@ -108,7 +108,7 @@ public class ProofRules {
 		t.declareInternalFunction(PREFIX + TRANS, bool1, proofSort, 0);
 		t.declareInternalFunction(PREFIX + CONG, bool1, proofSort, 0);
 		t.declareInternalFunction(PREFIX + EXPAND, bool1, proofSort, 0);
-		t.declareInternalFunction(PREFIX + ANNOT, bool1, proofSort, 0);
+		t.declareInternalFunction(PREFIX + DELANNOT, bool1, proofSort, 0);
 	}
 
 	public static Term resolutionRule(final Term pivot, final Term proofPos, final Term proofNeg) {
@@ -287,6 +287,11 @@ public class ProofRules {
 		assert ((ApplicationTerm) iteTerm).getFunction().getName() == SMTLIBConstants.ITE;
 		final Theory t = iteTerm.getTheory();
 		return t.term(PREFIX + ITE2, iteTerm);
+	}
+
+	public static Term delAnnot(final AnnotatedTerm annotTerm) {
+		final Theory t = annotTerm.getTheory();
+		return t.term(PREFIX + DELANNOT, annotTerm);
 	}
 
 	public void printProof(final Appendable appender, final Term proof) {
@@ -487,6 +492,13 @@ public class ProofRules {
 					mTodo.add(")");
 					addChildParams(params[0], SMTLIBConstants.EQUALS);
 					mTodo.add("(" + CONG);
+					return;
+				}
+				case PREFIX + DELANNOT: {
+					assert params.length == 1;
+					mTodo.add(")");
+					mTodo.add(params[0]);
+					mTodo.add("(" + DELANNOT + " ");
 					return;
 				}
 				default:

@@ -186,7 +186,7 @@ public class MinimalProofChecker extends NonRecursive {
 
 		/* Remove the pivot from allDisjuncts */
 		if (!allDisjuncts.remove(posPivot)) {
-			reportWarning("Could not find pivot in first clause");
+			reportWarning("Could not find pivot " + posPivot + " in " + Arrays.asList(posClause));
 		}
 
 		boolean pivotFound = false;
@@ -199,7 +199,7 @@ public class MinimalProofChecker extends NonRecursive {
 		}
 
 		if (!pivotFound) {
-			reportWarning("Could not find pivot in secondary clause");
+			reportWarning("Could not find pivot " + negPivot + " in " + Arrays.asList(negClause));
 		}
 		return allDisjuncts.toArray(new ProofLiteral[allDisjuncts.size()]);
 	}
@@ -226,6 +226,12 @@ public class MinimalProofChecker extends NonRecursive {
 			}
 			// t
 			return new ProofLiteral[] { new ProofLiteral(params[0], true) };
+		}
+		case ProofRules.PREFIX + ProofRules.TRUEI: {
+			return new ProofLiteral[] { new ProofLiteral(axiom.getTheory().term(SMTLIBConstants.TRUE), true) };
+		}
+		case ProofRules.PREFIX + ProofRules.FALSEE: {
+			return new ProofLiteral[] { new ProofLiteral(axiom.getTheory().term(SMTLIBConstants.FALSE), false) };
 		}
 		case ProofRules.PREFIX + ProofRules.NOTI: {
 			assert params.length == 1;
@@ -382,7 +388,7 @@ public class MinimalProofChecker extends NonRecursive {
 			for (int i = 0; i < 3; i++) {
 				Term atom = params[i];
 				if (atom instanceof AnnotatedTerm) {
-					assert ((AnnotatedTerm) atom).getAnnotations()[0].getKey() == "unit";
+					assert ((AnnotatedTerm) atom).getAnnotations()[0].getKey() == ProofRules.ANNOT_UNIT;
 					atom = ((AnnotatedTerm) atom).getSubterm();
 				}
 				clause[i] = new ProofLiteral(atom, i < 2);
@@ -397,7 +403,7 @@ public class MinimalProofChecker extends NonRecursive {
 			for (int i = 0; i < 3; i++) {
 				Term atom = params[i];
 				if (atom instanceof AnnotatedTerm) {
-					assert ((AnnotatedTerm) atom).getAnnotations()[0].getKey() == "unit";
+					assert ((AnnotatedTerm) atom).getAnnotations()[0].getKey() == ProofRules.ANNOT_UNIT;
 					atom = ((AnnotatedTerm) atom).getSubterm();
 				}
 				clause[i] = new ProofLiteral(atom, false);
@@ -501,7 +507,7 @@ public class MinimalProofChecker extends NonRecursive {
 			return new ProofLiteral[] { new ProofLiteral(t.term(SMTLIBConstants.EQUALS, params[0], subParams[2]), true),
 					new ProofLiteral(subParams[0], true) };
 		}
-		case ProofRules.PREFIX + ProofRules.ANNOT: {
+		case ProofRules.PREFIX + ProofRules.DELANNOT: {
 			assert params.length == 1;
 			final AnnotatedTerm annotTerm = (AnnotatedTerm) params[0];
 			final Term subterm = annotTerm.getSubterm();

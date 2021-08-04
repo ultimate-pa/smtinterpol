@@ -21,7 +21,6 @@ package de.uni_freiburg.informatik.ultimate.logic;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -94,7 +93,7 @@ public class Theory {
 	private Sort mNumericSort, mRealSort, mStringSort, mBooleanSort;
 	private SortSymbol mBitVecSort, mFloatingPointSort;
 	private Sort mRoundingModeSort;
-	private final HashMap<String, FunctionSymbolFactory> mFunFactory = new HashMap<>();
+	private final ScopedHashMap<String, FunctionSymbolFactory> mFunFactory = new ScopedHashMap<>();
 	private final UnifyHash<FunctionSymbol> mModelValueCache = new UnifyHash<>();
 
 	private final ScopedHashMap<String, SortSymbol> mDeclaredSorts = new ScopedHashMap<>();
@@ -1698,6 +1697,7 @@ public class Theory {
 
 	public void push() {
 		if (!mGlobalDecls) {
+			mFunFactory.beginScope();
 			mDeclaredFuns.beginScope();
 			mDeclaredSorts.beginScope();
 		}
@@ -1705,6 +1705,7 @@ public class Theory {
 
 	public void pop() {
 		if (!mGlobalDecls) {
+			mFunFactory.endScope();
 			mDeclaredFuns.endScope();
 			mDeclaredSorts.endScope();
 		}
