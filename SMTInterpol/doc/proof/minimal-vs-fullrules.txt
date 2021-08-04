@@ -531,3 +531,11 @@ show (= (div 14 (- 3)) (- 4))
          (divisible d x)
          (=-1 ((_ divisble d) x) (= x (* d (div x d))))))
     (=+2 ...)))
+
+
+(@allintro ((x1 U) ... (xn U)) proof_of_F_x1_xn):
+
+(res (forall+ ((x1 U) ... (xn U)) F)
+  (let ((x1 (skolem _ ... F)) ...
+        (xn (skolem _ ... F)))
+       proof_of_F_x1_xn))

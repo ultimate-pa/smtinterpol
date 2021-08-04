@@ -1,11 +1,12 @@
-A proof is represented as a DAG, where the inner nodes are mainly
-resolution application (there is also an instantiation rule) and the
-leafs are input formulas or tautologies.  The syntax for proofs is
-very similar to SMT-LIB terms.  In particular a proof may use let
-expression to bind common subexpressions (subterms or proofs) to
-variables.  Most proof rules could be represented by application
-terms.  However, the instantiation rule needs higher order constructs
-and the forall+-/exists+- rule also don't follow the term syntax.
+A proof is represented as a DAG, where the inner nodes are resolution
+application and the leafs are input formulas or tautologies.  The
+syntax for proofs is very similar to SMT-LIB terms.  In particular a
+proof may use let expression to bind common subexpressions (subterms
+or proofs) to variables.  Most proof rules could be represented by
+function applications.  However, the forall+-/exists+- rules need
+binders and don't follow the term syntax.  Also most tautologies allow
+arbitrary number of parameters.  Thus, they need more overloading than
+can be easily expressed in SMT-LIB.
 
 Every proof proves a clause, which is a set of literals, i.e., a set
 of positive or negated atoms.  Each atom is a boolean SMT-LIB term.  A
@@ -28,14 +29,9 @@ supports extended resolution, since the atoms used in the resolution
 rule can be arbitrary terms like `(and p1 p2)`.  Thus even DRAT proofs
 can be efficiently expressed in this format [1].
 
-The instantiate rule can also be used to support custom rules without
-proving them over and over, by proving the general case using
-variables.
-
 
 Proof ::= (let ((....)) Proof)
         | (res Term Proof Proof)
-        | (instantiate ((Var Term) ... (Var Term)) Proof)
         | (assert Term)
         | false- | true+
         | (not+ Term)
@@ -53,9 +49,9 @@ Proof ::= (let ((....)) Proof)
         | (xor+ (Term ... Term) (Term ...Term) (Term ... Term))
         | (xor- (Term ... Term) (Term ...Term) (Term ... Term))
         | (forall+ VarDecl Term)
-        | (forall- VarDecl Term)
+        | (forall- VarBinding Term)
         | (exists+ VarDecl Term)
-        | (exists- VarDecl Term)
+        | (exists- VarBinding Term)
         | (distinct+ Term ... Term)
         | (distinct- Term ... Term)
         | (=+ Term ... Term)
@@ -86,9 +82,8 @@ A Clause is a set of literals, where {lit1,lit2} is written as lit1,lit2
 
 Rules:
 
-The core of the proof format is the resolution rule.  There is a second
-rule, the instantiation rule.  All other rules are axioms proving a
-simple tautology.
+The core of the proof format is the resolution rule.  All other rules
+are axioms proving a simple tautology.
 
 Resolution-Rule:
 
@@ -100,20 +95,7 @@ Resolution-Rule:
 The resolution rule takes as argument a pivot Term and two sub proofs.
 It returns the proof for a new clause which is the result of the resolution.
 Note that C1 needs to contain the positive literal for t, C2 contains the
-neegative literal for t.
-
-Instantiation-Rule:
-
-(instantiate ((x1 t1) ... (xn tn)) C):
-        C
-      ----------------------------
-      (let ((x1 t1)... (xn tn)) C)
-
-where x1,...,xn are the free variables in the terms in C and
-the let is applied on every term of the literals of C.
-
-Here the C argument is a sub-proof for clause C and the instantiate
-function returns the proof of the resulting instantiated clause.
+negative literal for t.
 
 
 Axioms:
@@ -146,20 +128,19 @@ XOR-Reasoning (TODO: this is just a first draft)
   Moreover, if seqi = (t) contains only one element, the clause contains
   the literal "t" instead of the syntactically incorrect "(xor t)".
 
-(forall+ F):  (forall ((x1 tau1) ... (xn taun)) F),
-              ~(let ((x1 ((_ skolem 1 (...) F) y)) ...
-                     (xn ((_ skolem n (...) F) y)))
+(forall+ (decl) F):  (forall (decl) F),
+              ~(let ((x1 (_ skolem 1 (decl) F)) ...
+                     (xn (_ skolem n (decl) F)))
                     F)
-(forall- F):  ~(forall ((x1 tau1) ... (xn taun)) F), F
-(exists+ F):  (exists ((x1 tau1) ... (xn taun)) F), ~F
-(exists- F):  ~(exists ((x1 tau1) ... (xn taun)) F),
-              (let ((x1 ((_ skolem 1 (...) F) y)) ...
-                    (xn ((_ skolem n (...) F) y)))
+(forall- (binding) F):  ~(forall ((x1 tau1) ... (xn taun)) F), (let (binding) F)
+(exists+ (binding) F):  (exists ((x1 tau1) ... (xn taun)) F), ~(let (binding) F)
+(exists- (decl) F):  ~(exists (decl)) F),
+              (let ((x1 (_ skolem 1 (decl) F)) ...
+                    (xn (_ skolem n (decl) F)))
                    F)
 
-    where (skolem_Fi y) is the application of a fresh function symbol
-    to the free variables y1,...,ym of the input formula
-    (not including x1,...,xn which are bound in the input formula).
+    where (_ skolem i (decl) F) is a fresh function symbol (that depends
+    implicitly on F).
 
 (expand (f t1 ... tn)): (= (f t1 ... tn) (let ((x1 t1) ... (xn tn)) t))
   where f is defined by (define-fun f ((x1 tau1) ... (xn taun)) t)
