@@ -67,17 +67,14 @@ public class TermCompilerTest {
 	@Test
 	public void testAnd() {
 		Term in = mSolver.term("and", mA, mB);
-		Term ex = mSolver.term("not", mSolver.term("or", mSolver.term("not", mA), mSolver.term("not", mB)));
 		Term res = mCompiler.transform(in);
-		Assert.assertSame(ex, res);
+		Assert.assertSame(in, res);
 		in = mSolver.term("and", mA, mA);
 		res = mCompiler.transform(in);
-		Assert.assertSame(mSolver.term("not", mSolver.term("not", mA)), res);
+		Assert.assertSame(in, res);
 		in = mSolver.term("and", mA, mB, mC, mA);
-		ex = mSolver.term("not",
-				mSolver.term("or", mSolver.term("not", mA), mSolver.term("not", mB), mSolver.term("not", mC)));
 		res = mCompiler.transform(in);
-		Assert.assertSame(ex, res);
+		Assert.assertSame(in, res);
 	}
 
 	@Test

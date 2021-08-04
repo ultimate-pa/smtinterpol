@@ -45,8 +45,9 @@ public class LogicSimplifier {
 	}
 
 	/**
-	 * Optimize nots.  Transforms (not true) to false, (not false) to true, and
+	 * Optimize nots. Transforms (not true) to false, (not false) to true, and
 	 * remove double negation.
+	 *
 	 * @param arg Term to negate.
 	 * @return Term equivalent to the negation of the input.
 	 */
@@ -67,9 +68,10 @@ public class LogicSimplifier {
 	}
 
 	/**
-	 * Optimize ors.  If true is found in the disjuncts, it is returned.
-	 * Otherwise, we remove false, or disjuncts that occur more than once.  The
-	 * result might still be an n-ary or.
+	 * Optimize ors. If true is found in the disjuncts, it is returned. Otherwise,
+	 * we remove false, or disjuncts that occur more than once. The result might
+	 * still be an n-ary or.
+	 *
 	 * @param args The disjuncts.
 	 * @return Term equivalent to the disjunction of the disjuncts.
 	 */
@@ -480,17 +482,7 @@ public class LogicSimplifier {
 	}
 
 	public Term convertAnd(final Term input) {
-		final ApplicationTerm andTerm = (ApplicationTerm) mTracker.getProvedTerm(input);
-		assert andTerm.getFunction().getName() == "and";
-		final Theory theory = input.getTheory();
-		final Term[] args = andTerm.getParameters();
-		final Term[] negArgs = new Term[args.length];
-		for (int i = 0; i < args.length; i++) {
-			negArgs[i] = theory.term("not", args[i]);
-		}
-		final Term notOrTerm = theory.term("not", theory.term("or", negArgs));
-		final Term andRewrite = mTracker.buildRewrite(andTerm, notOrTerm, ProofConstants.RW_AND_TO_OR);
-		return convertNotOrNot(mTracker.transitivity(input, andRewrite));
+		return input;
 	}
 
 	public Term convertXor(final Term input) {
@@ -548,18 +540,6 @@ public class LogicSimplifier {
 	}
 
 	public Term convertImplies(final Term input) {
-		final ApplicationTerm impliesTerm = (ApplicationTerm) mTracker.getProvedTerm(input);
-		final Theory theory = input.getTheory();
-		assert impliesTerm.getFunction().getName() == "=>";
-		final Term[] args = impliesTerm.getParameters();
-		final Term[] newArgs = new Term[args.length];
-		// We move the conclusion in front (see Simplify tech report)
-		newArgs[0] = args[args.length - 1];
-		for (int i = 1; i < newArgs.length; i++) {
-			newArgs[i] = theory.term("not", args[i - 1]);
-		}
-		final Term rhs = theory.term("or", newArgs);
-		final Term impliesRewrite = mTracker.buildRewrite(impliesTerm, rhs, ProofConstants.RW_IMP_TO_OR);
-		return convertOrNot(mTracker.transitivity(input, impliesRewrite));
+		return input;
 	}
 }

@@ -104,11 +104,15 @@ public interface ProofConstants {
 
 	//// ==== Tautologies ====
 	public final static Annotation AUX_TRUE_NOT_FALSE    = new Annotation(":trueNotFalse", null);
-	public final static Annotation AUX_TRUE_POS          = new Annotation(":true-", null);
+	public final static Annotation AUX_TRUE_POS          = new Annotation(":true+", null);
 	public final static Annotation AUX_FALSE_NEG         = new Annotation(":false-", null);
 	public final static Annotation AUX_NOT_POS           = new Annotation(":not+", null);
 	public final static Annotation AUX_OR_POS            = new Annotation(":or+", null);
 	public final static Annotation AUX_OR_NEG            = new Annotation(":or-", null);
+	public final static Annotation AUX_AND_POS           = new Annotation(":and+", null);
+	public final static Annotation AUX_AND_NEG           = new Annotation(":and-", null);
+	public final static Annotation AUX_IMP_POS           = new Annotation(":=>+", null);
+	public final static Annotation AUX_IMP_NEG           = new Annotation(":=>-", null);
 	public final static Annotation AUX_ITE_POS_1         = new Annotation(":ite+1", null);
 	public final static Annotation AUX_ITE_POS_2         = new Annotation(":ite+2", null);
 	public final static Annotation AUX_ITE_POS_RED       = new Annotation(":ite+red", null);

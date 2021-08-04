@@ -1442,6 +1442,18 @@ public class ProofChecker extends NonRecursive {
 		case ":or-":
 			result = checkTautOrNeg(clause);
 			break;
+		case ":and+":
+			result = checkTautAndPos(clause);
+			break;
+		case ":and-":
+			result = checkTautAndNeg(clause);
+			break;
+		case ":=>+":
+			result = checkTautImpPos(clause);
+			break;
+		case ":=>-":
+			result = checkTautImpNeg(clause);
+			break;
 		case ":ite+1":
 		case ":ite+2":
 		case ":ite+red":
@@ -1560,6 +1572,104 @@ public class ProofChecker extends NonRecursive {
 			}
 		}
 		return false;
+	}
+
+	private boolean checkTautAndNeg(final Term[] clause) {
+		// Check for the form: (or (! (not (and p1 ... pn) :quoted)) pi)
+		if (clause.length != 2) {
+			return false;
+		}
+		Term lit = negate(clause[0]);
+		if (lit instanceof AnnotatedTerm) {
+			lit = unquote(lit, true);
+		}
+		if (!isApplication("and", lit)) {
+			return false;
+		}
+		final Term otherLit = clause[1];
+		for (final Term t : ((ApplicationTerm) lit).getParameters()) {
+			if (t == otherLit) {
+				/* found it; everything okay */
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private boolean checkTautAndPos(final Term[] clause) {
+		// Check for the form: (or (! (and p1 ... pn) :quoted) (not p1) ... (not pn))
+		Term lit = clause[0];
+		if (lit instanceof AnnotatedTerm) {
+			lit = unquote(lit, true);
+		}
+		if (!isApplication("and", lit)) {
+			return false;
+		}
+		final Term[] params = ((ApplicationTerm) lit).getParameters();
+		if (params.length != clause.length - 1) {
+			return false;
+		}
+		for (int i = 0; i < params.length; i++) {
+			if (!isApplication("not", clause[i + 1])
+					|| params[i] != ((ApplicationTerm) clause[i + 1]).getParameters()[0]) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	private boolean checkTautImpNeg(final Term[] clause) {
+		// Check for the form: (or (not (! (=> p1 ... pn) :quoted)) (not p1) ... (not pn-1) pn)
+		Term lit = negate(clause[0]);
+		if (lit instanceof AnnotatedTerm) {
+			lit = unquote(lit, true);
+		}
+		if (!isApplication("=>", lit)) {
+			return false;
+		}
+		final Term[] params = ((ApplicationTerm) lit).getParameters();
+		if (params.length != clause.length - 1) {
+			return false;
+		}
+		for (int i = 0; i < params.length; i++) {
+			if (i < params.length - 1) {
+				if (!isApplication("not", clause[i + 1])
+						|| params[i] != ((ApplicationTerm) clause[i + 1]).getParameters()[0]) {
+					return false;
+				}
+			} else {
+				if (params[i] != clause[i + 1]) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
+	private boolean checkTautImpPos(final Term[] clause) {
+		// Check for the form: (or (! (=> p1 ... pn) :quoted) pi), resp ... (not pn))
+		if (clause.length != 2) {
+			return false;
+		}
+		final Term lit;
+		if (clause[0] instanceof AnnotatedTerm) {
+			lit = unquote(clause[0], true);
+		} else {
+			lit = clause[0];
+		}
+		if (!isApplication("=>", lit)) {
+			return false;
+		}
+		final Term[] params = ((ApplicationTerm) lit).getParameters();
+		for (int i = 0; i < params.length - 1; i++) {
+			if (params[i] == clause[1]) {
+				return true;
+			}
+		}
+		if (!isApplication("not", clause[1])) {
+			return false;
+		}
+		return (params[params.length - 1] == ((ApplicationTerm) clause[1]).getParameters()[0]);
 	}
 
 	private boolean checkTautIte(final String tautKind, final Term[] clause) {
@@ -3289,6 +3399,7 @@ public class ProofChecker extends NonRecursive {
 
 		/* Check for auxiliary literals */
 		if (isApplication("ite", lhs) || isApplication("or", lhs) || isApplication("xor", lhs)
+				|| isApplication("=>", lhs) || isApplication("and", lhs)
 				|| lhs instanceof MatchTerm) {
 			rhs = unquote(rhs, true);
 			return lhs == rhs;

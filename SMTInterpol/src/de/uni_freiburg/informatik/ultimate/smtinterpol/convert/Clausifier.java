@@ -19,7 +19,6 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.convert;
 
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Deque;
@@ -260,33 +259,41 @@ public class Clausifier {
 			final Theory t = mAxiom.getTheory();
 			if (term instanceof ApplicationTerm) {
 				final ApplicationTerm at = (ApplicationTerm) term;
-				if (at.getFunction() == t.mNot) {
-					assert !positive;
-					// remove double negation
-					final Term p = at.getParameters()[0];
-					//Term notIntro = mTracker.auxAxiom(t.term("or", term, p), ProofConstants.AUX_NOT_POS);
-					//final Term split = mTracker.resolution(mAxiom, notIntro);
-					// pushOperation(new AddAsAxiom(split, mSource));
+				if (!positive && at.getFunction() == t.mOr) {
+					// the axioms added below already imply the auxaxiom clauses.
+					setTermFlags(term, oldFlags | assertedFlag | auxFlag);
+					// A negated or is an and of negated formulas. Hence assert all negated
+					// subformulas.
+					for (final Term p : at.getParameters()) {
+						final Term orIntro = mTracker.tautology(t.term("or", term, t.term("not", p)),
+								ProofConstants.AUX_OR_POS);
+						final Term split = mTracker.resolution(mAxiom, orIntro);
+						pushOperation(new AddAsAxiom(split, mSource));
+					}
 					return;
-				} else if (at.getFunction() == t.mOr) {
-					if (positive) {
-						final Term[] params = at.getParameters();
-						final Term[] tautClause = new Term[params.length + 1];
-						tautClause[0] = t.term("not", term);
-						System.arraycopy(at.getParameters(), 0, tautClause, 1, params.length);
-						final Term orElim = mTracker.tautology(t.term("or", tautClause),
-								ProofConstants.AUX_OR_NEG);
-						buildClause(mTracker.resolution(mAxiom, orElim), mSource);
-					} else {
-						// the axioms added below already imply the auxaxiom clauses.
-						setTermFlags(term, oldFlags | assertedFlag | auxFlag);
-						// A negated or is an and of negated formulas. Hence assert all negated subformulas.
-						for (final Term p : at.getParameters()) {
-							final Term orIntro = mTracker.tautology(t.term("or", term, t.term("not", p)),
-									ProofConstants.AUX_OR_POS);
-							final Term split = mTracker.resolution(mAxiom, orIntro);
-							pushOperation(new AddAsAxiom(split, mSource));
-						}
+				} else if (positive && at.getFunction() == t.mAnd) {
+					// the axioms added below already imply the auxaxiom clauses.
+					setTermFlags(term, oldFlags | assertedFlag | auxFlag);
+					// A negated or is an and of negated formulas. Hence assert all negated
+					// subformulas.
+					for (final Term p : at.getParameters()) {
+						final Term andElim = mTracker.tautology(t.term("or", t.term("not", term), p),
+								ProofConstants.AUX_AND_NEG);
+						final Term split = mTracker.resolution(mAxiom, andElim);
+						pushOperation(new AddAsAxiom(split, mSource));
+					}
+					return;
+				} else if (!positive && at.getFunction() == t.mImplies) {
+					// the axioms added below already imply the auxaxiom clauses.
+					setTermFlags(term, oldFlags | assertedFlag | auxFlag);
+					// A negated or is an and of negated formulas. Hence assert all negated
+					// subformulas.
+					final Term[] params = at.getParameters();
+					for (int i = 0; i < params.length; i++) {
+						final Term p = i < params.length - 1 ? params[i] : t.term("not", params[i]);
+						final Term impIntro = mTracker.tautology(t.term("or", term, p), ProofConstants.AUX_IMP_POS);
+						final Term split = mTracker.resolution(mAxiom, impIntro);
+						pushOperation(new AddAsAxiom(split, mSource));
 					}
 					return;
 				} else if (at.getFunction().getName().equals("xor")
@@ -378,8 +385,9 @@ public class Clausifier {
 			final Theory theory = mLiteral.getTheory();
 			Term idx = mLiteral;
 			boolean quantified = false;
-			final boolean positive = !isNotTerm(idx);
-			if (!positive) {
+			boolean positive = true;
+			while (isNotTerm(idx)) {
+				positive = !positive;
 				idx = ((ApplicationTerm) idx).getParameters()[0];
 			}
 			if (idx instanceof ApplicationTerm) {
@@ -395,26 +403,28 @@ public class Clausifier {
 				}
 
 				final ApplicationTerm at = (ApplicationTerm) idx;
-				ILiteral lit;
-				if (at.getFunction() == theory.mNot) {
-					assert !positive;
-					/* remove double negation */
-					final Term p = ((ApplicationTerm) idx).getParameters()[0];
-					//final Term notIntro = mTracker.auxAxiom(theory.term("or", idx, p), ProofConstants.AUX_NOT_POS);
-					//mCollector.addResolution(notIntro, idx);
-					pushOperation(new CollectLiteral(p, mCollector));
-					return;
-				}
-				if (positive && at.getFunction() == theory.mOr && mLiteral.mTmpCtr <= Config.OCC_INLINE_THRESHOLD) {
+				final ILiteral lit;
+				if (mLiteral.mTmpCtr <= Config.OCC_INLINE_THRESHOLD &&
+						(positive ? (at.getFunction() == theory.mOr || at.getFunction() == theory.mImplies)
+								: at.getFunction() == theory.mAnd)) {
+					final Annotation rule = at.getFunction() == theory.mOr ? ProofConstants.AUX_OR_NEG
+							: at.getFunction() == theory.mImplies ? ProofConstants.AUX_IMP_NEG
+							: ProofConstants.AUX_AND_POS;
 					final Term[] params = at.getParameters();
 					final Term[] tautClause = new Term[params.length + 1];
-					tautClause[0] = theory.term("not", idx);
-					System.arraycopy(at.getParameters(), 0, tautClause, 1, params.length);
-					final Term orElim = mTracker.tautology(theory.term("or", tautClause),
-							ProofConstants.AUX_OR_NEG);
-					mCollector.addResolution(orElim, tautClause[0]);
+					tautClause[0] = positive ? theory.term("not", idx) : idx;
+					for (int i = 0; i < params.length; i++) {
+						Term p = params[i];
+						if (at.getFunction() == theory.mAnd
+								|| (at.getFunction() == theory.mImplies && i < params.length - 1)) {
+							p = theory.term("not", p);
+						}
+						tautClause[i + 1] = p;
+					}
+					final Term taut = mTracker.tautology(theory.term("or", tautClause), rule);
+					mCollector.addResolution(taut, tautClause[0]);
 					for (int i = params.length - 1; i >= 0; i--) {
-						pushOperation(new CollectLiteral(params[i], mCollector));
+						pushOperation(new CollectLiteral(tautClause[i + 1], mCollector));
 					}
 					return;
 				}
@@ -1440,7 +1450,7 @@ public class Clausifier {
 		negLit = positive ? negLit.negate() : negLit;
 		final Term negLitTerm = negLit.getSMTFormula(t, true);
 		if (term instanceof ApplicationTerm) {
-			ApplicationTerm at = (ApplicationTerm) term;
+			final ApplicationTerm at = (ApplicationTerm) term;
 			Term[] params = at.getParameters();
 			if (at.getFunction() == t.mOr) {
 				if (positive) {
@@ -1452,13 +1462,51 @@ public class Clausifier {
 					buildAuxClause(negLit, axiom, source);
 				} else {
 					// (or (or t1 ... tn)) (not ti))
-					at = flattenOr(at);
 					params = at.getParameters();
 					for (final Term p : params) {
 						final Term axiom = t.term("or", negLitTerm, t.term("not", p));
 						final Term axiomProof = mTracker.tautology(axiom, ProofConstants.AUX_OR_POS);
 						buildAuxClause(negLit, axiomProof, source);
 					}
+				}
+			} else if (at.getFunction() == t.mImplies) {
+				if (positive) {
+					// (or (not (=> t1 ... tn)) (not t1) ... (not tn-1) tn)
+					final Term[] literals = new Term[params.length + 1];
+					literals[0] = negLitTerm;
+					for (int i = 0; i < params.length - 1; i++) {
+						literals[i + 1] = t.term("not", params[i]);
+					}
+					literals[params.length] = params[params.length - 1];
+					final Term axiom = mTracker.tautology(t.term("or", literals), ProofConstants.AUX_IMP_NEG);
+					buildAuxClause(negLit, axiom, source);
+				} else {
+					// (or (=> t1 ... tn) ti), (or (=> t1 ... tn) (not tn))
+					params = at.getParameters();
+					for (int i = 0; i < params.length; i++) {
+						final Term p = i < params.length - 1 ? params[i] : t.term("not", params[i]);
+						final Term axiom = t.term("or", negLitTerm, p);
+						final Term axiomProof = mTracker.tautology(axiom, ProofConstants.AUX_IMP_POS);
+						buildAuxClause(negLit, axiomProof, source);
+					}
+				}
+			} else if (at.getFunction() == t.mAnd) {
+				if (positive) {
+					// (or (not (and t1 ... tn)) ti)
+					for (final Term p : params) {
+						final Term axiom = t.term("or", negLitTerm, p);
+						final Term axiomProof = mTracker.tautology(axiom, ProofConstants.AUX_AND_NEG);
+						buildAuxClause(negLit, axiomProof, source);
+					}
+				} else {
+					// (or (and t1 ... tn) (not t1) ... (not tn))
+					final Term[] literals = new Term[params.length + 1];
+					literals[0] = negLitTerm;
+					for (int i = 0; i < params.length; i++) {
+						literals[i + 1] = t.term("not", params[i]);
+					}
+					final Term axiom = mTracker.tautology(t.term("or", literals), ProofConstants.AUX_AND_POS);
+					buildAuxClause(negLit, axiom, source);
 				}
 			} else if (at.getFunction().getName().equals("ite")) {
 				final Term cond = params[0];
@@ -1583,30 +1631,6 @@ public class Clausifier {
 		} else {
 			throw new AssertionError("Don't know how to create aux axiom: " + term);
 		}
-	}
-
-	private ApplicationTerm flattenOr(final ApplicationTerm at) {
-		final FunctionSymbol or = at.getFunction();
-		assert or.getName().equals("or");
-		final ArrayList<Term> flat = new ArrayList<>();
-		final ArrayDeque<Term> todo = new ArrayDeque<>();
-		todo.addAll(Arrays.asList(at.getParameters()));
-		while (!todo.isEmpty()) {
-			final Term first = todo.removeFirst();
-			if (first instanceof ApplicationTerm) {
-				final ApplicationTerm firstApp = (ApplicationTerm) first;
-				if (firstApp.getFunction() == or && firstApp.mTmpCtr <= Config.OCC_INLINE_THRESHOLD) {
-					final Term[] params = firstApp.getParameters();
-					for (int i = params.length - 1; i >= 0; i--) {
-						todo.addFirst(params[i]);
-					}
-					continue;
-				}
-			}
-			flat.add(first);
-		}
-		return flat.size() == at.getParameters().length ? at
-				: at.getTheory().term(or, flat.toArray(new Term[flat.size()]));
 	}
 
 	public void addStoreAxiom(final ApplicationTerm store, final SourceAnnotation source) {
