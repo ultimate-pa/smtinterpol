@@ -353,6 +353,27 @@ public class ProofRules {
 			}
 		}
 
+		private void addXorParams(final Term child) {
+			mTodo.add(")");
+			if (child instanceof AnnotatedTerm) {
+				assert ((AnnotatedTerm) child).getAnnotations()[0].getKey() == ANNOT_UNIT;
+				mTodo.add(((AnnotatedTerm) child).getSubterm());
+			} else if (child instanceof ApplicationTerm) {
+				final ApplicationTerm subterm = (ApplicationTerm) child;
+				assert subterm.getFunction().getName() == SMTLIBConstants.XOR;
+				final Term[] subParams = subterm.getParameters();
+				for (int i = subParams.length - 1; i >= 1; i--) {
+					mTodo.add(subParams[i]);
+					mTodo.add(" ");
+				}
+				mTodo.add(subParams[0]);
+			} else {
+				mTodo.add(child);
+				mTodo.add("::");
+			}
+			mTodo.add(" (");
+		}
+
 		@Override
 		public void walkTerm(final Term proof) {
 			if (proof instanceof ApplicationTerm) {
@@ -470,6 +491,24 @@ public class ProofRules {
 					mTodo.add(")");
 					addChildParams(params[0], SMTLIBConstants.EQUALS);
 					mTodo.add("(" + IFFE2);
+					return;
+				}
+				case PREFIX + XORI: {
+					assert params.length == 3;
+					mTodo.add(")");
+					addXorParams(params[2]);
+					addXorParams(params[1]);
+					addXorParams(params[0]);
+					mTodo.add("(" + XORI);
+					return;
+				}
+				case PREFIX + XORE: {
+					assert params.length == 3;
+					mTodo.add(")");
+					addXorParams(params[2]);
+					addXorParams(params[1]);
+					addXorParams(params[0]);
+					mTodo.add("(" + XORE);
 					return;
 				}
 				case PREFIX + REFL: {

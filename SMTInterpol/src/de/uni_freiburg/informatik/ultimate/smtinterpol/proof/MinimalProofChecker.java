@@ -134,6 +134,36 @@ public class MinimalProofChecker extends NonRecursive {
 		return mError == 0;
 	}
 
+	/**
+	 * Check a proof for consistency and compute the proved clause. This prints
+	 * warnings for missing pivot literals.
+	 *
+	 * @param proof the proof to check.
+	 * @return the proved clause.
+	 */
+	public ProofLiteral[] getProvedClause(Term proof) {
+		final FormulaUnLet unletter = new FormulaUnLet();
+		final Term[] assertions = mSkript.getAssertions();
+		mAssertions = new HashSet<>(assertions.length);
+		for (final Term ass : assertions) {
+			mAssertions.add(unletter.transform(ass));
+		}
+
+		// Initializing the proof-checker-cache
+		mCacheConv = new HashMap<>();
+		mError = 0;
+		// Now non-recursive:
+		proof = unletter.unlet(proof);
+		run(new ProofWalker(proof));
+
+		assert (mStackResults.size() == 1);
+		// clear state
+		mAssertions = null;
+		mCacheConv = null;
+
+		return stackPop();
+	}
+
 	private void reportError(final String msg) {
 		mLogger.error(msg);
 		mError++;
