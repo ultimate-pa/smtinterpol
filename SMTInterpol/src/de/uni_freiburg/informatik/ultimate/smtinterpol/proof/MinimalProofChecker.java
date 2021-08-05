@@ -27,6 +27,7 @@ import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
+import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
@@ -573,6 +574,37 @@ public class MinimalProofChecker extends NonRecursive {
 				clause[i + 1] = new ProofLiteral(t.term(SMTLIBConstants.EQUALS, params0[i], params1[i]), false);
 			}
 			return clause;
+		}
+		case ProofRules.PREFIX + ProofRules.EXPAND: {
+			assert params.length == 1;
+			final Theory t = axiom.getTheory();
+			final ApplicationTerm subterm = (ApplicationTerm) params[0];
+			final Term[] subparams = subterm.getParameters();
+			final FunctionSymbol func = subterm.getFunction();
+			Term rhs;
+			if (func.getDefinition() != null) {
+				rhs = t.let(func.getDefinitionVars(), subparams, func.getDefinition());
+				rhs = new FormulaUnLet().unlet(rhs);
+			} else if (func.isLeftAssoc() && subparams.length > 2) {
+				rhs = subparams[0];
+				for (int i = 1; i < subparams.length; i++) {
+					rhs = t.term(func, rhs, subparams[i]);
+				}
+			} else if (func.isRightAssoc() && subparams.length > 2) {
+				rhs = subparams[subparams.length - 1];
+				for (int i = subparams.length - 2; i >= 0; i--) {
+					rhs = t.term(func, subparams[i], rhs);
+				}
+			} else if (func.isChainable() && subparams.length > 2) {
+				final Term[] chain = new Term[subparams.length - 1];
+				for (int i = 0; i < chain.length; i++) {
+					chain[i] = t.term(func, subparams[i], subparams[i + 1]);
+				}
+				rhs = t.term("and", chain);
+			} else {
+				throw new AssertionError();
+			}
+			return new ProofLiteral[] { new ProofLiteral(t.term("=", subterm, rhs), true) };
 		}
 		default:
 			throw new AssertionError("Unknown axiom " + axiom);

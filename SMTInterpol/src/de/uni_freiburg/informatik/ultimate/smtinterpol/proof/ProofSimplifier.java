@@ -177,12 +177,48 @@ public class ProofSimplifier extends TermTransformer {
 		}
 	}
 
+	private Term convertTautIte(final String tautKind, final Term[] clause) {
+		assert clause.length == 3;
+		final boolean negated = isApplication("not", clause[0]);
+		final Term iteAtom = negated ? negate(clause[0]) : clause[0];
+		final Theory theory = iteAtom.getTheory();
+		assert isApplication("ite", iteAtom);
+		final Term[] iteParams = ((ApplicationTerm) iteAtom).getParameters();
+		final Term iteTrueEq = theory.term("=", iteAtom, iteParams[1]);
+		final Term iteFalseEq = theory.term("=", iteAtom, iteParams[2]);
+		switch (tautKind) {
+		case ":ite+1":
+			// iteAtom, ~cond, ~then
+			return ProofRules.resolutionRule(iteTrueEq, ProofRules.ite1(iteAtom), ProofRules.iffElim1(iteTrueEq));
+		case ":ite+2":
+			// iteAtom, cond, ~else
+			return ProofRules.resolutionRule(iteFalseEq, ProofRules.ite2(iteAtom), ProofRules.iffElim1(iteFalseEq));
+		case ":ite+red":
+			return ProofRules.resolutionRule(iteParams[0],
+					ProofRules.resolutionRule(iteFalseEq, ProofRules.ite2(iteAtom), ProofRules.iffElim1(iteFalseEq)),
+					ProofRules.resolutionRule(iteTrueEq, ProofRules.ite1(iteAtom), ProofRules.iffElim1(iteTrueEq)));
+		case ":ite-1":
+			// ~iteAtom, ~cond, then
+			return ProofRules.resolutionRule(iteTrueEq, ProofRules.ite1(iteAtom), ProofRules.iffElim2(iteTrueEq));
+		case ":ite-2":
+			// ~iteAtom, cond, else
+			return ProofRules.resolutionRule(iteFalseEq, ProofRules.ite2(iteAtom), ProofRules.iffElim2(iteFalseEq));
+		case ":ite-red":
+			// ~iteAtom, then, else
+			return ProofRules.resolutionRule(iteParams[0],
+					ProofRules.resolutionRule(iteFalseEq, ProofRules.ite2(iteAtom), ProofRules.iffElim2(iteFalseEq)),
+					ProofRules.resolutionRule(iteTrueEq, ProofRules.ite1(iteAtom), ProofRules.iffElim2(iteTrueEq)));
+		}
+		throw new AssertionError();
+	}
+
 	private Term convertTautology(final Term taut) {
 		final AnnotatedTerm annotTerm = (AnnotatedTerm) taut;
 		final Term clause = annotTerm.getSubterm();
 		assert annotTerm.getAnnotations().length == 1;
 		final Annotation annot = annotTerm.getAnnotations()[0];
-		switch (annot.getKey()) {
+		final String ruleName = annot.getKey();
+		switch (ruleName) {
 		case ":true+":
 			assert isApplication("true", clause);
 			return ProofRules.trueIntro(taut.getTheory());
@@ -365,7 +401,7 @@ public class ProofSimplifier extends TermTransformer {
 			final Term xorTerm = clauseLits[0];
 			assert isApplication("xor", xorTerm);
 			final Term[] xorParams = ((ApplicationTerm) xorTerm).getParameters();
-			return ProofRules.xorIntro(xorTerm, xorParams[0], xorParams[1]);
+			return ProofRules.xorIntro(xorTerm, ProofRules.xorUnit(xorParams[0]), ProofRules.xorUnit(xorParams[1]));
 		}
 		case ":xor+2": {
 			assert isApplication("or", clause);
@@ -373,7 +409,7 @@ public class ProofSimplifier extends TermTransformer {
 			final Term xorTerm = clauseLits[0];
 			assert isApplication("xor", xorTerm);
 			final Term[] xorParams = ((ApplicationTerm) xorTerm).getParameters();
-			return ProofRules.xorIntro(xorTerm, xorParams[1], xorParams[0]);
+			return ProofRules.xorIntro(xorTerm, ProofRules.xorUnit(xorParams[1]), ProofRules.xorUnit(xorParams[0]));
 		}
 		case ":xor-1": {
 			assert isApplication("or", clause);
@@ -382,7 +418,7 @@ public class ProofSimplifier extends TermTransformer {
 			final Term xorTerm = ((ApplicationTerm) clauseLits[0]).getParameters()[0];
 			assert isApplication("xor", xorTerm);
 			final Term[] xorParams = ((ApplicationTerm) xorTerm).getParameters();
-			return ProofRules.xorIntro(xorParams[0], xorParams[1], xorTerm);
+			return ProofRules.xorIntro(ProofRules.xorUnit(xorParams[0]), ProofRules.xorUnit(xorParams[1]), xorTerm);
 		}
 		case ":xor-2": {
 			assert isApplication("or", clause);
@@ -391,7 +427,15 @@ public class ProofSimplifier extends TermTransformer {
 			final Term xorTerm = ((ApplicationTerm) clauseLits[0]).getParameters()[0];
 			assert isApplication("xor", xorTerm);
 			final Term[] xorParams = ((ApplicationTerm) xorTerm).getParameters();
-			return ProofRules.xorElim(xorTerm, xorParams[0], xorParams[1]);
+			return ProofRules.xorElim(xorTerm, ProofRules.xorUnit(xorParams[0]), ProofRules.xorUnit(xorParams[1]));
+		}
+		case ":ite+1":
+		case ":ite+2":
+		case ":ite+red":
+		case ":ite-1":
+		case ":ite-2":
+		case ":ite-red": {
+			return convertTautIte(ruleName, ((ApplicationTerm) clause).getParameters());
 		}
 		case ":termITE": {
 			assert isApplication("or", clause);
@@ -404,8 +448,17 @@ public class ProofSimplifier extends TermTransformer {
 					ProofRules.resolutionRule(t.mFalse, ProofRules.iffElim2(t.term("=", t.mTrue, t.mFalse)),
 							ProofRules.falseElim(t)));
 		}
-		default:
-			throw new AssertionError("Unknown tautology: " + taut);
+		default: {
+			Term subProof = ProofRules.asserted(clause);
+			final Term[] clauseLits = ((ApplicationTerm) clause).getParameters();
+			if (clauseLits.length > 1) {
+				subProof = ProofRules.resolutionRule(clause, subProof, ProofRules.orElim(clause));
+			}
+			for (final Term lit : clauseLits) {
+				subProof = removeNot(subProof, lit, true);
+			}
+			return subProof;
+		}
 		}
 	}
 
@@ -653,6 +706,37 @@ public class ProofSimplifier extends TermTransformer {
 		throw new AssertionError();
 	}
 
+	private Term convertRewriteNot(final Term rewrite, final Term lhs, final Term rhs) {
+		// lhs: (not lhsAtom)
+		assert isApplication("not", lhs);
+		final Theory t = rewrite.getTheory();
+		final Term lhsAtom = ((ApplicationTerm) lhs).getParameters()[0];
+		if (isApplication("false", lhsAtom)) {
+			assert isApplication("true", rhs);
+			return ProofRules.resolutionRule(rhs, ProofRules.trueIntro(t),
+					ProofRules.resolutionRule(lhsAtom,
+							ProofRules.resolutionRule(lhs, ProofRules.notIntro(lhs), ProofRules.iffIntro2(rewrite)),
+							ProofRules.falseElim(t)));
+		}
+		if (isApplication("true", lhsAtom)) {
+			assert isApplication("false", rhs);
+			return ProofRules.resolutionRule(lhsAtom, ProofRules.trueIntro(t),
+					ProofRules.resolutionRule(rhs,
+							ProofRules.resolutionRule(lhs, ProofRules.iffIntro1(rewrite), ProofRules.notElim(lhs)),
+							ProofRules.falseElim(t)));
+		}
+		if (isApplication("not", lhsAtom)) {
+			assert rhs == ((ApplicationTerm) lhsAtom).getParameters()[0];
+			return ProofRules.resolutionRule(rhs,
+					ProofRules.resolutionRule(lhsAtom, ProofRules.notIntro(lhsAtom),
+							ProofRules.resolutionRule(lhs, ProofRules.iffIntro1(rewrite), ProofRules.notElim(lhs))),
+					ProofRules.resolutionRule(lhsAtom,
+							ProofRules.resolutionRule(lhs, ProofRules.notIntro(lhs), ProofRules.iffIntro2(rewrite)),
+							ProofRules.notElim(lhsAtom)));
+		}
+		throw new AssertionError();
+	}
+
 	private Term convertRewriteTrueNotFalse(final Term lhs, final Term rhs) {
 		// expect lhs: (= ... true ... false ...)), rhs: false
 		final Theory t = lhs.getTheory();
@@ -770,12 +854,16 @@ public class ProofSimplifier extends TermTransformer {
 		assert xorParams.length == 2 && eqParams.length == 2;
 		assert xorParams[0] == eqParams[0] && xorParams[1] == eqParams[1];
 		final Term proofEqToNotXor = ProofRules.resolutionRule(eqParams[0],
-				ProofRules.resolutionRule(eqParams[1], ProofRules.xorIntro(eqParams[0], eqParams[1], xorTerm), ProofRules.iffElim1(lhs)),
-				ProofRules.resolutionRule(eqParams[1], ProofRules.iffElim2(lhs), ProofRules.xorElim(eqParams[0], eqParams[1], xorTerm)));
+				ProofRules.resolutionRule(eqParams[1],
+						ProofRules.xorIntro(ProofRules.xorUnit(eqParams[0]), ProofRules.xorUnit(eqParams[1]), xorTerm),
+						ProofRules.iffElim1(lhs)),
+				ProofRules.resolutionRule(eqParams[1], ProofRules.iffElim2(lhs),
+						ProofRules.xorElim(ProofRules.xorUnit(eqParams[0]), ProofRules.xorUnit(eqParams[1]), xorTerm)));
 		final Term proofNotXorToEq = ProofRules.resolutionRule(eqParams[0],
 				ProofRules.resolutionRule(eqParams[1], ProofRules.iffIntro1(lhs),
-						ProofRules.xorIntro(xorTerm, eqParams[0], eqParams[1])),
-				ProofRules.resolutionRule(eqParams[1], ProofRules.xorIntro(xorTerm, eqParams[1], eqParams[0]),
+						ProofRules.xorIntro(xorTerm, ProofRules.xorUnit(eqParams[0]), ProofRules.xorUnit(eqParams[1]))),
+				ProofRules.resolutionRule(eqParams[1],
+						ProofRules.xorIntro(xorTerm, ProofRules.xorUnit(eqParams[1]), ProofRules.xorUnit(eqParams[0])),
 						ProofRules.iffIntro2(lhs)));
 		final Term iffIntro1, iffIntro2;
 		if (rule == ":eqToXor") {
@@ -821,9 +909,9 @@ public class ProofSimplifier extends TermTransformer {
 				final Term xorNot = theory.term("xor", lhsArg, rhsArg);
 				final Term proofXorNot = ProofRules.resolutionRule(rhsArg,
 						ProofRules.resolutionRule(lhsArg, ProofRules.notIntro(lhsArg),
-								ProofRules.xorIntro(xorNot, rhsArg, lhsArg)),
+								ProofRules.xorIntro(xorNot, ProofRules.xorUnit(rhsArg), ProofRules.xorUnit(lhsArg))),
 						ProofRules.resolutionRule(lhsArg,
-								ProofRules.xorIntro(xorNot, lhsArg, rhsArg),
+								ProofRules.xorIntro(xorNot, ProofRules.xorUnit(lhsArg), ProofRules.xorUnit(rhsArg)),
 								ProofRules.notElim(lhsArg)));
 				pairs.add(lhsArg);
 				pairs.add(rhsArg);
@@ -917,6 +1005,9 @@ public class ProofSimplifier extends TermTransformer {
 		case ":intern":
 			subProof = convertRewriteIntern(stmtParams[0], stmtParams[1]);
 			break;
+		case ":notSimp":
+			subProof = convertRewriteNot(rewriteStmt, stmtParams[0], stmtParams[1]);
+			break;
 		case ":trueNotFalse":
 			subProof = convertRewriteTrueNotFalse(stmtParams[0], stmtParams[1]);
 			break;
@@ -943,7 +1034,6 @@ public class ProofSimplifier extends TermTransformer {
 		case ":xorTrue":
 		case ":xorFalse":
 		case ":xorSame":
-		case ":notSimp":
 		case ":orSimp":
 		case ":orTaut":
 		case ":iteTrue":
@@ -1121,7 +1211,6 @@ public class ProofSimplifier extends TermTransformer {
 		case ":CC":
 			return convertCCLemma(clause, (Object[]) lemmaAnnotation);
 		default: {
-			// throw new AssertionError("Unknown Lemma: " + annotTerm);
 			Term subProof = ProofRules.asserted(lemma);
 			if (clause.length > 1) {
 				subProof = ProofRules.resolutionRule(lemma, subProof, ProofRules.orElim(lemma));

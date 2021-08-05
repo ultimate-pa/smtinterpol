@@ -107,7 +107,7 @@ public class ProofRules {
 		t.declareInternalFunction(PREFIX + SYMM, bool1, proofSort, 0);
 		t.declareInternalFunction(PREFIX + TRANS, bool1, proofSort, 0);
 		t.declareInternalFunction(PREFIX + CONG, bool1, proofSort, 0);
-		t.declareInternalFunction(PREFIX + EXPAND, bool1, proofSort, 0);
+		t.declareInternalPolymorphicFunction(PREFIX + EXPAND, generic, generic, proofSort, 0);
 		t.declareInternalFunction(PREFIX + DELANNOT, bool1, proofSort, 0);
 	}
 
@@ -200,12 +200,18 @@ public class ProofRules {
 		return t.term(PREFIX + IFFE2, iffTerm);
 	}
 
+	public static Term xorUnit(final Term term) {
+		return term.getTheory().annotatedTerm(new Annotation[] { new Annotation(ANNOT_UNIT, null) }, term);
+	}
+
 	private static Term xorAxiom(final String name, final Term xorTerm1, final Term xorTerm2, final Term xorTerm3) {
 		final Theory t = xorTerm1.getTheory();
 		final Term[] xorArgs = new Term[] { xorTerm1, xorTerm2, xorTerm3 };
 		for (int i = 0; i < 3; i++) {
-			if (!(xorArgs[i] instanceof ApplicationTerm)
-					|| ((ApplicationTerm) xorArgs[i]).getFunction().getName() != SMTLIBConstants.XOR) {
+			if ((!(xorArgs[i] instanceof ApplicationTerm)
+					|| ((ApplicationTerm) xorArgs[i]).getFunction().getName() != SMTLIBConstants.XOR)
+				&& (!(xorArgs[i] instanceof AnnotatedTerm)
+						|| ((AnnotatedTerm) xorArgs[i]).getAnnotations()[0].getKey() != ANNOT_UNIT)) {
 				xorArgs[i] = t.annotatedTerm(new Annotation[] { new Annotation(ANNOT_UNIT, null) }, xorArgs[i]);
 			}
 		}
