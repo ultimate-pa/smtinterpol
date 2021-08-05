@@ -791,6 +791,114 @@ public class ProofSimplifier extends TermTransformer {
 				ProofRules.resolutionRule(xorTerm, iffIntro2, proofEqToNotXor));
 	}
 
+	private Term convertRewriteXorNot(final Term rewrite, final Term lhs, final Term rhs) {
+		// lhs: (xor (not? arg0) (not? arg1)), rhs: (not? (xor arg0 arg1))
+		final Theory theory = rewrite.getTheory();
+		boolean rhsNegated = false;
+		Term rhsAtom = rhs;
+		if (isApplication("not", rhs)) {
+			rhsNegated = !rhsNegated;
+			rhsAtom = ((ApplicationTerm) rhs).getParameters()[0];
+		}
+		assert isApplication("xor", lhs) && isApplication("xor", rhsAtom);
+		final Term[] lhsArgs = ((ApplicationTerm) lhs).getParameters();
+		final Term[] rhsArgs = ((ApplicationTerm) rhsAtom).getParameters();
+		final ArrayList<Term> pairs = new ArrayList<>();
+		assert lhsArgs.length == rhsArgs.length;
+
+		Term xorAll = null;
+		Term proofXorAll = null;
+		boolean polarity = false;
+		// Build xorAll = xor(~p1, p1,...) for all literals negatedin lhs.
+		// Build proof for polarity * xorAll.
+		for (int i = 0; i < lhsArgs.length; i++) {
+			// If lhsArg contains not, remove it, and switch polarity.
+			// Then check it equals the corresponding rhsArg
+			final Term lhsArg = lhsArgs[i];
+			final Term rhsArg = rhsArgs[i];
+			if (isApplication("not", lhsArg)) {
+				// prove +(xor lhsArgs[i] rhsArgs[i])
+				final Term xorNot = theory.term("xor", lhsArg, rhsArg);
+				final Term proofXorNot = ProofRules.resolutionRule(rhsArg,
+						ProofRules.resolutionRule(lhsArg, ProofRules.notIntro(lhsArg),
+								ProofRules.xorIntro(xorNot, rhsArg, lhsArg)),
+						ProofRules.resolutionRule(lhsArg,
+								ProofRules.xorIntro(xorNot, lhsArg, rhsArg),
+								ProofRules.notElim(lhsArg)));
+				pairs.add(lhsArg);
+				pairs.add(rhsArg);
+				final Term xorAllNext = theory.term("xor", pairs.toArray(new Term[pairs.size()]));
+				// Now compute the proof for !polarity * xorAllNext
+				if (proofXorAll == null) {
+					proofXorAll = proofXorNot;
+				} else {
+					Term proofStep = polarity
+							? ProofRules.xorElim(xorAllNext, xorAll, xorNot)
+							: ProofRules.xorIntro(xorAllNext, xorAll, xorNot);
+					proofStep = ProofRules.resolutionRule(xorNot, proofXorNot, proofStep);
+					proofXorAll = ProofRules.resolutionRule(xorAll,
+							polarity ? proofXorAll : proofStep,
+							polarity ? proofStep : proofXorAll);
+				}
+				xorAll = xorAllNext;
+				polarity = !polarity;
+				assert rhsArg == ((ApplicationTerm) lhsArg).getParameters()[0];
+			} else {
+				assert rhsArg == lhsArg;
+			}
+		}
+		assert pairs.size() > 0;
+		// The lemma is well-formed if all nots cancel out.
+		assert rhsNegated == polarity;
+
+		Term proof1, proof2;
+		proof1 = ProofRules.xorIntro(lhs, rhsNegated ? rhsAtom : xorAll, rhsNegated ? xorAll : rhsAtom);
+		proof2 = rhsNegated ? ProofRules.xorElim(rhsAtom, xorAll, lhs) : ProofRules.xorIntro(rhsAtom, xorAll, lhs);
+		if (rhsNegated) {
+			proof1 = ProofRules.resolutionRule(rhsAtom, proof1, ProofRules.notElim(rhs));
+			proof2 = ProofRules.resolutionRule(rhsAtom, ProofRules.notIntro(rhs), proof2);
+		}
+
+		final Term proof = ProofRules.resolutionRule(lhs,
+				ProofRules.resolutionRule(rhs,
+						ProofRules.iffIntro1(rewrite),
+						proof1),
+				ProofRules.resolutionRule(rhs, proof2,
+						ProofRules.iffIntro2(rewrite)));
+		return ProofRules.resolutionRule(xorAll, polarity ? proofXorAll : proof, polarity ? proof : proofXorAll);
+	}
+
+	private Term convertRewriteEqBinary(final Term rewrite, final Term lhs, final Term rhs) {
+		// eqBinary is like expand (chainable) combined with andToOr
+		final Theory theory = rewrite.getTheory();
+		assert isApplication("=", lhs);
+		final Term[] lhsParams = ((ApplicationTerm) lhs).getParameters();
+		assert lhsParams.length >= 3;
+		assert isApplication("not", rhs);
+		final Term rhsAtom = ((ApplicationTerm) rhs).getParameters()[0];
+		assert isApplication("or", rhsAtom);
+		final Term[] rhsParams = ((ApplicationTerm) rhsAtom).getParameters();
+		assert lhsParams.length == rhsParams.length + 1;
+
+		final Term proof1 = ProofRules.resolutionRule(rhs, ProofRules.iffIntro1(rewrite), ProofRules.notElim(rhs));
+		Term proof2 = ProofRules.resolutionRule(rhs, ProofRules.notIntro(rhs), ProofRules.iffIntro2(rewrite));
+		proof2 = ProofRules.resolutionRule(rhsAtom, proof2, ProofRules.orElim(rhsAtom));
+		proof2 = ProofRules.resolutionRule(lhs, ProofRules.equalsIntro(lhs), proof2);
+		// proof1: (= lhs rhs), lhs, ~rhsAtom
+		// proof2: (= lhs rhs), ~(= lhs0 lhs1), ..., ~(= lhsn lhsn+1), rhsParam[0],...rhsParam[n]
+		for (int i = 0; i < rhsParams.length; i++) {
+			final Term eqi = theory.term("=", lhsParams[i], lhsParams[i + 1]);
+			assert rhsParams[i] == theory.term("not", eqi);
+			proof2 = ProofRules.resolutionRule(rhsParams[i], proof2, ProofRules.notElim(rhsParams[i]));
+			proof2 = ProofRules.resolutionRule(eqi,
+					ProofRules.resolutionRule(rhsAtom, ProofRules.orIntro(i, rhsAtom),
+							ProofRules.resolutionRule(lhs, proof1, ProofRules.equalsElim(i, i + 1, lhs))),
+					proof2);
+			// proof2: (= lhs rhs), ~(= lhsi+1 lhsi+2), ..., ~(= lhsn lhsn+1), rhsParam[i+1],...rhsParam[n]
+		}
+		return proof2;
+	}
+
 	private Term convertRewrite(final Term[] newParams) {
 		final AnnotatedTerm annotTerm = (AnnotatedTerm) newParams[0];
 		final String rewriteRule = annotTerm.getAnnotations()[0].getKey();
@@ -816,20 +924,24 @@ public class ProofSimplifier extends TermTransformer {
 		case ":eqFalse":
 			subProof = convertRewriteEqTrueFalse(rewriteRule, stmtParams[0], stmtParams[1]);
 			break;
+		case ":eqBinary":
+			subProof = convertRewriteEqBinary(rewriteStmt, stmtParams[0], stmtParams[1]);
+			break;
 		case ":eqToXor":
 		case ":distinctToXor":
 			subProof = convertRewriteToXor(rewriteRule, rewriteStmt, stmtParams[0], stmtParams[1]);
 			break;
+		case ":xorNot":
+			subProof = convertRewriteXorNot(rewriteStmt, stmtParams[0], stmtParams[1]);
+			break;
 		case ":constDiff":
 		case ":eqSimp":
 		case ":eqSame":
-		case ":eqBinary":
 		case ":distinctBool":
 		case ":distinctSame":
 		case ":distinctBinary":
 		case ":xorTrue":
 		case ":xorFalse":
-		case ":xorNot":
 		case ":xorSame":
 		case ":notSimp":
 		case ":orSimp":
