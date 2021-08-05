@@ -956,6 +956,63 @@ public class ProofSimplifier extends TermTransformer {
 		return ProofRules.resolutionRule(xorAll, polarity ? proofXorAll : proof, polarity ? proof : proofXorAll);
 	}
 
+	private Term convertRewriteEqSimp(final String rewriteRule, final Term rewrite, final Term lhs, final Term rhs) {
+		// lhs: (= ...), rhs: (= ...) or true, if all entries in rhs are the same.
+		// duplicated entries in lhs should be removed in rhs.
+		assert isApplication("=", lhs);
+		final Theory theory = rewrite.getTheory();
+		final Term[] lhsParams = ((ApplicationTerm) lhs).getParameters();
+		final LinkedHashMap<Term, Integer> lhsTerms = new LinkedHashMap<>();
+		for (int i = 0; i < lhsParams.length; i++) {
+			lhsTerms.put(lhsParams[i], i);
+		}
+		if (lhsTerms.size() == 1) {
+			assert rewriteRule.equals(":eqSame") && isApplication("true", rhs);
+			Term proof = ProofRules.resolutionRule(rhs, ProofRules.trueIntro(theory), ProofRules.iffIntro2(rewrite));
+			Term reflexivity = lhs;
+			if (lhsParams.length > 2) {
+				reflexivity = theory.term("=", lhsParams[0], lhsParams[0]);
+				proof = ProofRules.resolutionRule(lhs, ProofRules.equalsIntro(lhs), proof);
+			}
+			proof = ProofRules.resolutionRule(reflexivity, ProofRules.refl(lhsParams[0]), proof);
+			return proof;
+		} else {
+			assert rewriteRule.equals(":eqSimp");
+			assert isApplication("=", rhs);
+			final Term[] rhsParams = ((ApplicationTerm) rhs).getParameters();
+			assert rhsParams.length == lhsTerms.size();
+
+			final LinkedHashMap<Term, Integer> rhsTerms = new LinkedHashMap<>();
+			for (int i = 0; i < rhsParams.length; i++) {
+				rhsTerms.put(rhsParams[i], i);
+			}
+
+			Term proofLhsToRhs = ProofRules.equalsIntro(rhs);
+			final HashSet<Term> seen = new HashSet<>();
+			for (int i = 0; i < rhsParams.length - 1; i++) {
+				final Term eq = theory.term("=", rhsParams[i], rhsParams[i + 1]);
+				if (seen.add(eq)) {
+					proofLhsToRhs = ProofRules.resolutionRule(eq,
+							ProofRules.equalsElim(lhsTerms.get(rhsParams[i]), lhsTerms.get(rhsParams[i + 1]), lhs),
+							proofLhsToRhs);
+				}
+			}
+			seen.clear();
+			Term proofRhsToLhs = ProofRules.equalsIntro(lhs);
+			for (int i = 0; i < lhsParams.length - 1; i++) {
+				final Term eq = theory.term("=", lhsParams[i], lhsParams[i + 1]);
+				if (seen.add(eq)) {
+					proofRhsToLhs = ProofRules.resolutionRule(eq,
+						ProofRules.equalsElim(rhsTerms.get(lhsParams[i]), rhsTerms.get(lhsParams[i + 1]), rhs),
+						proofRhsToLhs);
+				}
+			}
+			return ProofRules.resolutionRule(rhs,
+					ProofRules.resolutionRule(lhs, ProofRules.iffIntro1(rewrite), proofLhsToRhs),
+					ProofRules.resolutionRule(lhs, proofRhsToLhs, ProofRules.iffIntro2(rewrite)));
+		}
+	}
+
 	private Term convertRewriteEqBinary(final Term rewrite, final Term lhs, final Term rhs) {
 		// eqBinary is like expand (chainable) combined with andToOr
 		final Theory theory = rewrite.getTheory();
@@ -987,6 +1044,121 @@ public class ProofSimplifier extends TermTransformer {
 		return proof2;
 	}
 
+	private Term convertRewriteDistinct(final String rewriteRule, final Term rewrite, final Term lhs, final Term rhs) {
+		final Theory theory = rewrite.getTheory();
+		assert isApplication("distinct", lhs);
+		final Term[] args = ((ApplicationTerm) lhs).getParameters();
+		switch (rewriteRule) {
+		case ":distinctBool":
+			assert args.length > 2 && args[0].getSort().getName() == "Bool" && isApplication("false", rhs);
+			final Term eq01 = theory.term("=", args[0], args[1]);
+			final Term eq02 = theory.term("=", args[0], args[2]);
+			final Term eq12 = theory.term("=", args[1], args[2]);
+			final Term proof01 = ProofRules.distinctElim(0, 1, lhs);
+			final Term proof02 = ProofRules.distinctElim(0, 2, lhs);
+			final Term proof12 = ProofRules.distinctElim(1, 2, lhs);
+			Term proof =
+					ProofRules.resolutionRule(args[0],
+						ProofRules.resolutionRule(args[1],
+							ProofRules.iffIntro1(eq01),
+							ProofRules.resolutionRule(args[2], ProofRules.iffIntro1(eq02), ProofRules.iffIntro2(eq12))),
+						ProofRules.resolutionRule(args[1],
+							ProofRules.resolutionRule(args[2], ProofRules.iffIntro1(eq12), ProofRules.iffIntro2(eq02)),
+							ProofRules.iffIntro2(eq01)));
+			proof = ProofRules.resolutionRule(eq01,
+					ProofRules.resolutionRule(eq02, ProofRules.resolutionRule(eq12, proof, proof12), proof02), proof01);
+			proof = ProofRules.resolutionRule(lhs,
+					ProofRules.resolutionRule(rhs, ProofRules.iffIntro1(rewrite), ProofRules.falseElim(theory)), proof);
+			return proof;
+
+		case ":distinctSame": {
+			// (distinct ... x ... x ...) = false
+			assert isApplication("false", rhs);
+			final HashMap<Term,Integer> seen = new HashMap<>();
+			for (int i = 0; i < args.length; i++) {
+				final Integer otherIdx = seen.put(args[i], i);
+				if (otherIdx != null) {
+					final Term eq = theory.term("=", args[i], args[i]);
+					return ProofRules.resolutionRule(lhs,
+						ProofRules.resolutionRule(rhs, ProofRules.iffIntro1(rewrite), ProofRules.falseElim(theory)),
+						ProofRules.resolutionRule(eq,
+								ProofRules.refl(args[i]),
+								ProofRules.distinctElim(otherIdx, i, lhs)));
+				}
+			}
+			throw new AssertionError();
+		}
+		case ":distinctBinary": {
+			final Term rhsAtom = negate(rhs);
+			if (args.length == 2) {
+				assert rhsAtom == mSkript.term("=", args[0], args[1]);
+				final Term proof1 = ProofRules.resolutionRule(rhsAtom, ProofRules.distinctIntro(lhs),
+						ProofRules.notElim(rhs));
+				final Term proof2 = ProofRules.resolutionRule(rhsAtom, ProofRules.notIntro(rhs),
+						ProofRules.distinctElim(0, 1, lhs));
+				return ProofRules.resolutionRule(lhs,
+						ProofRules.resolutionRule(rhs, ProofRules.iffIntro1(rewrite), proof1),
+						ProofRules.resolutionRule(rhs, proof2, ProofRules.iffIntro2(rewrite)));
+			}
+			assert isApplication("or", rhsAtom);
+			final Term[] rhsArgs = ((ApplicationTerm) rhsAtom).getParameters();
+			Term proof1 = ProofRules.distinctIntro(lhs);
+			Term proof2 = ProofRules.resolutionRule(rhsAtom, ProofRules.notIntro(rhs), ProofRules.orElim(rhsAtom));
+			int offset = 0;
+			for (int i = 0; i < args.length - 1; i++) {
+				for (int j = i + 1; j < args.length; j++) {
+					assert offset < rhsArgs.length && rhsArgs[offset] == mSkript.term("=", args[i], args[j]);
+					proof1 = ProofRules.resolutionRule(rhsArgs[offset], proof1, ProofRules.orIntro(offset, rhsAtom));
+					proof2 = ProofRules.resolutionRule(rhsArgs[offset], proof2, ProofRules.distinctElim(i, j, lhs));
+					offset++;
+				}
+			}
+			proof1 = ProofRules.resolutionRule(rhsAtom, proof1, ProofRules.notElim(rhs));
+			assert offset == rhsArgs.length;
+			return ProofRules.resolutionRule(lhs,
+					ProofRules.resolutionRule(rhs, ProofRules.iffIntro1(rewrite), proof1),
+					ProofRules.resolutionRule(rhs, proof2, ProofRules.iffIntro2(rewrite)));
+		}
+		}
+		throw new AssertionError();
+	}
+
+	private Term convertRewriteOrTaut(final Term rewrite, final Term lhs, final Term rhs) {
+		assert isApplication("or", lhs) && isApplication("true", rhs);
+		final Theory theory = rewrite.getTheory();
+		// case 1
+		// lhs: (or ... true ...), rhs: true
+		// case 2
+		// lhs: (or ... p ... (not p) ...), rhs: true
+		Term proof = ProofRules.iffIntro2(rewrite);
+		final HashMap<Term,Integer> seen = new HashMap<>();
+		final Term[] lhsParams = ((ApplicationTerm) lhs).getParameters();
+		for (int i = 0; i < lhsParams.length; i++) {
+			if (isApplication("true", lhsParams[i])) {
+				proof = ProofRules.resolutionRule(lhs, ProofRules.orIntro(i, lhs), proof);
+				break;
+			}
+			final Integer otherIdx = seen.get(negate(lhsParams[i]));
+			if (otherIdx != null) {
+				int posIdx, negIdx;
+				if (isApplication("not", lhsParams[i])) {
+					negIdx = i;
+					posIdx = otherIdx;
+				} else {
+					negIdx = otherIdx;
+					posIdx = i;
+				}
+				final Term orProof = ProofRules.resolutionRule(lhsParams[posIdx],
+						ProofRules.resolutionRule(lhsParams[negIdx], ProofRules.notIntro(lhsParams[negIdx]),
+								ProofRules.orIntro(negIdx, lhs)),
+						ProofRules.orIntro(posIdx, lhs));
+				proof = ProofRules.resolutionRule(lhs, orProof, proof);
+			}
+			seen.put(lhsParams[i], i);
+		}
+		return ProofRules.resolutionRule(rhs, ProofRules.trueIntro(theory), proof);
+	}
+
 	private Term convertRewrite(final Term[] newParams) {
 		final AnnotatedTerm annotTerm = (AnnotatedTerm) newParams[0];
 		final String rewriteRule = annotTerm.getAnnotations()[0].getKey();
@@ -1015,6 +1187,10 @@ public class ProofSimplifier extends TermTransformer {
 		case ":eqFalse":
 			subProof = convertRewriteEqTrueFalse(rewriteRule, stmtParams[0], stmtParams[1]);
 			break;
+		case ":eqSimp":
+		case ":eqSame":
+			subProof = convertRewriteEqSimp(rewriteRule, rewriteStmt, stmtParams[0], stmtParams[1]);
+			break;
 		case ":eqBinary":
 			subProof = convertRewriteEqBinary(rewriteStmt, stmtParams[0], stmtParams[1]);
 			break;
@@ -1025,17 +1201,19 @@ public class ProofSimplifier extends TermTransformer {
 		case ":xorNot":
 			subProof = convertRewriteXorNot(rewriteStmt, stmtParams[0], stmtParams[1]);
 			break;
-		case ":constDiff":
-		case ":eqSimp":
-		case ":eqSame":
+		case ":orTaut":
+			subProof = convertRewriteOrTaut(rewriteStmt, stmtParams[0], stmtParams[1]);
+			break;
 		case ":distinctBool":
 		case ":distinctSame":
 		case ":distinctBinary":
+			subProof = convertRewriteDistinct(rewriteRule, rewriteStmt, stmtParams[0], stmtParams[1]);
+			break;
+		case ":constDiff":
 		case ":xorTrue":
 		case ":xorFalse":
 		case ":xorSame":
 		case ":orSimp":
-		case ":orTaut":
 		case ":iteTrue":
 		case ":iteFalse":
 		case ":iteSame":
@@ -1185,7 +1363,7 @@ public class ProofSimplifier extends TermTransformer {
 			if (unquoteLiteral != mainPathEquality) {
 				// symmetric case
 				proof = ProofRules.resolutionRule(mainPathEquality, proof,
-						ProofRules.symm(mainPath[0], mainPath[mainPath.length - 1]));
+						ProofRules.symm(mainPath[mainPath.length - 1], mainPath[0]));
 			}
 			final Term unquotingEq = theory.term("=", disEq, unquoteLiteral);
 			proof = ProofRules.resolutionRule(unquoteLiteral, proof, ProofRules.resolutionRule(unquotingEq,

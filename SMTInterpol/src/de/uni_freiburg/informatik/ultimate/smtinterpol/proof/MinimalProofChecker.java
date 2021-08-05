@@ -486,7 +486,7 @@ public class MinimalProofChecker extends NonRecursive {
 			// (distinct t1 ... tn), (= t1 t2),...
 			final ProofLiteral[] clause = new ProofLiteral[1 + len * (len - 1) / 2];
 			clause[0] = new ProofLiteral(subterm, true);
-			int pos = 0;
+			int pos = 1;
 			for (int i = 0; i < len - 1; i++) {
 				for (int j = i + 1; j < len; j++) {
 					clause[pos++] = new ProofLiteral(t.term(SMTLIBConstants.EQUALS, subParams[i], subParams[j]), true);
