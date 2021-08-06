@@ -28,10 +28,12 @@ import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.LambdaTerm;
 import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 
@@ -343,7 +345,7 @@ public class MinimalProofChecker extends NonRecursive {
 					new ProofLiteral(params[pos], pos < params.length - 1) };
 		}
 		case ":" + ProofRules.IMPE: {
-			assert annots.length == 2;
+			assert annots.length == 1;
 			final Term[] params = (Term[]) annots[0].getValue();
 
 			// ~(=> t1 ... tn), ~t1, ..., ~tn-1, tn
@@ -602,6 +604,60 @@ public class MinimalProofChecker extends NonRecursive {
 			}
 			return new ProofLiteral[] { new ProofLiteral(theory.term("=", app, rhs), true) };
 		}
+		case ":" + ProofRules.FORALLI:
+		case ":" + ProofRules.EXISTSE: {
+			assert annots.length == 1;
+			final boolean isForall = annots[0].getKey().equals(":" + ProofRules.FORALLI);
+			final Term[] params = (Term[]) annots[0].getValue();
+			final LambdaTerm lambda = (LambdaTerm) params[0];
+			final TermVariable[] termVars = lambda.getVariables();
+			final Term[] skolemTerms = new Term[termVars.length];
+			for (int i = 0; i < skolemTerms.length; i++) {
+				Term subform = lambda.getSubterm();
+				if (i + 1 < skolemTerms.length) {
+					final TermVariable[] remainingVars = new TermVariable[skolemTerms.length - i - 1];
+					System.arraycopy(termVars, i + 1, remainingVars, 0, remainingVars.length);
+					subform = isForall ? theory.forall(remainingVars, subform) : theory.exists(remainingVars, subform);
+				}
+				if (isForall) {
+					subform = theory.term(SMTLIBConstants.NOT, subform);
+				}
+				if (i > 0) {
+					final TermVariable[] precedingVars = new TermVariable[i];
+					final Term[] precedingSkolems = new Term[i];
+					System.arraycopy(termVars, 0, precedingVars, 0, i);
+					System.arraycopy(skolemTerms, 0, precedingSkolems, 0, i);
+					subform = theory.let(precedingVars, precedingSkolems, subform);
+				}
+				skolemTerms[i] = new ProofRules(theory).choose(termVars[i], subform);
+			}
+			final Term letted = theory.let(termVars, skolemTerms, lambda.getSubterm());
+			final Term quant = isForall ? theory.forall(termVars, lambda.getSubterm())
+					: theory.exists(termVars, lambda.getSubterm());
+
+			// (forall (vars) F), ~(let skolem F)
+			// ~(exists (vars) F), (let skolem F)
+			return new ProofLiteral[] { new ProofLiteral(quant, isForall),
+					new ProofLiteral(new FormulaUnLet().unlet(letted), !isForall) };
+		}
+		case ":" + ProofRules.FORALLE:
+		case ":" + ProofRules.EXISTSI: {
+			assert annots.length == 2;
+			final boolean isForall = annots[0].getKey().equals(":" + ProofRules.FORALLE);
+			final Term[] params = (Term[]) annots[0].getValue();
+			final LambdaTerm lambda = (LambdaTerm) params[0];
+			final TermVariable[] termVars = lambda.getVariables();
+			assert annots[1].getKey() == ProofRules.ANNOT_VALUES;
+			final Term[] values = (Term[]) annots[1].getValue();
+			final Term letted = theory.let(termVars, values, lambda.getSubterm());
+			final Term quant = isForall ? theory.forall(termVars, lambda.getSubterm())
+					: theory.exists(termVars, lambda.getSubterm());
+
+			// ~(forall (vars) F), (let values F)
+			// (exists (vars) F), ~(let values F)
+			return new ProofLiteral[] { new ProofLiteral(quant, !isForall),
+					new ProofLiteral(new FormulaUnLet().unlet(letted), isForall) };
+		}
 		default:
 			throw new AssertionError("Unknown axiom " + axiom);
 		}
@@ -616,39 +672,6 @@ public class MinimalProofChecker extends NonRecursive {
 			reportWarning("Unknown assumption: " + params[0]);
 		}
 		return new ProofLiteral[] { new ProofLiteral(params[0], true) };
-	}
-
-	public static class ProofLiteral {
-		Term mAtom;
-		boolean mPositive;
-
-		public ProofLiteral(final Term atom, final boolean positive) {
-			mAtom = atom;
-			mPositive = positive;
-		}
-
-		public ProofLiteral negate() {
-			return new ProofLiteral(mAtom, !mPositive);
-		}
-
-		@Override
-		public int hashCode() {
-			return mAtom.hashCode() ^ (mPositive ? 0 : 0xffffffff);
-		}
-
-		@Override
-		public boolean equals(final Object other) {
-			if (!(other instanceof ProofLiteral)) {
-				return false;
-			}
-			final ProofLiteral otherLit = (ProofLiteral) other;
-			return mAtom == otherLit.mAtom && mPositive == otherLit.mPositive;
-		}
-
-		@Override
-		public String toString() {
-			return mPositive ? mAtom.toString() : "~" + mAtom.toString();
-		}
 	}
 
 	/**

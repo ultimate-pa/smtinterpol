@@ -91,7 +91,8 @@ public class ProofRules {
 		mTheory.declareInternalFunction(PREFIX + RES, new Sort[] { boolSort, proofSort, proofSort }, proofSort, 0);
 		mTheory.declareInternalFunction(PREFIX + AXIOM, sort0, proofSort, 0);
 		mTheory.declareInternalFunction(PREFIX + ASSUME, bool1, proofSort, 0);
-		mTheory.declareInternalPolymorphicFunction(PREFIX + CHOOSE, generic, bool1, generic[0], 0);
+		mTheory.declareInternalPolymorphicFunction(PREFIX + CHOOSE, generic, bool1, generic[0],
+				FunctionSymbol.RETURNOVERLOAD);
 	}
 
 	public Term resolutionRule(final Term pivot, final Term proofPos, final Term proofNeg) {
@@ -103,7 +104,9 @@ public class ProofRules {
 	}
 
 	public Term choose(final TermVariable tv, final Term formula) {
-		return mTheory.term(PREFIX + CHOOSE, mTheory.lambda(new TermVariable[] { tv }, formula));
+		final FunctionSymbol choose = mTheory.getFunctionWithResult(PREFIX + CHOOSE, null, tv.getSort(),
+				formula.getSort());
+		return mTheory.term(choose, mTheory.lambda(new TermVariable[] { tv }, formula));
 	}
 
 	private Annotation[] annotate(final String rule, final Term[] terms, final Annotation... moreAnnots) {
@@ -211,14 +214,14 @@ public class ProofRules {
 	public Term forallIntro(final QuantifiedFormula forallTerm) {
 		assert forallTerm.getQuantifier() == QuantifiedFormula.FORALL;
 		return mTheory.annotatedTerm(annotate(":" + FORALLI,
-				new Term[] { mTheory.lambda(forallTerm.getFreeVars(), forallTerm.getSubformula()) }), mAxiom);
+				new Term[] { mTheory.lambda(forallTerm.getVariables(), forallTerm.getSubformula()) }), mAxiom);
 	}
 
 	public Term forallElim(final Term[] subst, final QuantifiedFormula forallTerm) {
 		assert forallTerm.getQuantifier() == QuantifiedFormula.FORALL;
 		return mTheory.annotatedTerm(
 				annotate(":" + FORALLE,
-						new Term[] { mTheory.lambda(forallTerm.getFreeVars(), forallTerm.getSubformula()) },
+						new Term[] { mTheory.lambda(forallTerm.getVariables(), forallTerm.getSubformula()) },
 						new Annotation(ANNOT_VALUES, subst)),
 				mAxiom);
 	}
@@ -227,7 +230,7 @@ public class ProofRules {
 		assert existsTerm.getQuantifier() == QuantifiedFormula.EXISTS;
 		return mTheory.annotatedTerm(
 				annotate(":" + EXISTSI,
-						new Term[] { mTheory.lambda(existsTerm.getFreeVars(), existsTerm.getSubformula()) },
+						new Term[] { mTheory.lambda(existsTerm.getVariables(), existsTerm.getSubformula()) },
 						new Annotation(ANNOT_VALUES, subst)),
 				mAxiom);
 	}
@@ -236,7 +239,7 @@ public class ProofRules {
 		assert existsTerm.getQuantifier() == QuantifiedFormula.EXISTS;
 		return mTheory.annotatedTerm(
 				annotate(":" + EXISTSE,
-						new Term[] { mTheory.lambda(existsTerm.getFreeVars(), existsTerm.getSubformula()) }),
+						new Term[] { mTheory.lambda(existsTerm.getVariables(), existsTerm.getSubformula()) }),
 				mAxiom);
 	}
 
@@ -515,7 +518,7 @@ public class ProofRules {
 						mTodo.add(")");
 						mTodo.add(lambda.getSubterm());
 						mTodo.add(") ");
-						for (int i = termVars.length; i >= 0; i--) {
+						for (int i = termVars.length - 1; i >= 0; i--) {
 							mTodo.add(")");
 							mTodo.add(termVars[i].getSort());
 							mTodo.add(" ");
@@ -555,6 +558,19 @@ public class ProofRules {
 						mTodo.add(" ");
 					}
 					mTodo.add("(" + RES);
+					return;
+				}
+				case PREFIX + CHOOSE: {
+					assert params.length == 1;
+					final LambdaTerm lambda = (LambdaTerm) params[0];
+					assert lambda.getVariables().length == 1;
+					mTodo.add(")");
+					mTodo.add(lambda.getSubterm());
+					mTodo.add(") ");
+					mTodo.add(lambda.getVariables()[0].getSort());
+					mTodo.add(" ");
+					mTodo.add(lambda.getVariables()[0]);
+					mTodo.add("(" + CHOOSE + " (");
 					return;
 				}
 				case PREFIX + ASSUME: {
