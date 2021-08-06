@@ -6,10 +6,13 @@ import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.LambdaTerm;
 import de.uni_freiburg.informatik.ultimate.logic.PrintTerm;
+import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 
 public class ProofRules {
@@ -54,6 +57,7 @@ public class ProofRules {
 	 */
 	public final static String PROOF = "Proof";
 	public final static String AXIOM = "axiom";
+	public final static String CHOOSE = "choose";
 
 	public final static String PREFIX = "..";
 
@@ -82,53 +86,24 @@ public class ProofRules {
 		final Sort boolSort = mTheory.getBooleanSort();
 		final Sort[] generic = mTheory.createSortVariables("X");
 		final Sort[] bool1 = new Sort[] { boolSort };
-		final Sort[] bool3 = new Sort[] { boolSort, boolSort, boolSort };
 		final Sort[] sort0 = new Sort[0];
 
 		mTheory.declareInternalFunction(PREFIX + RES, new Sort[] { boolSort, proofSort, proofSort }, proofSort, 0);
 		mTheory.declareInternalFunction(PREFIX + AXIOM, sort0, proofSort, 0);
 		mTheory.declareInternalFunction(PREFIX + ASSUME, bool1, proofSort, 0);
-		mTheory.declareInternalFunction(PREFIX + FALSEE, sort0, proofSort, 0);
-		mTheory.declareInternalFunction(PREFIX + TRUEI, sort0, proofSort, 0);
-		mTheory.declareInternalFunction(PREFIX + NOTI, bool1, proofSort, 0);
-		mTheory.declareInternalFunction(PREFIX + NOTE, bool1, proofSort, 0);
-		mTheory.declareInternalFunction(PREFIX + ORI, bool1, proofSort, 0);
-		mTheory.declareInternalFunction(PREFIX + ORE, bool1, proofSort, 0);
-		mTheory.declareInternalFunction(PREFIX + ANDI, bool1, proofSort, 0);
-		mTheory.declareInternalFunction(PREFIX + ANDE, bool1, proofSort, 0);
-		mTheory.declareInternalFunction(PREFIX + IMPI, bool1, proofSort, 0);
-		mTheory.declareInternalFunction(PREFIX + IMPE, bool1, proofSort, 0);
-		mTheory.declareInternalFunction(PREFIX + IFFI1, bool1, proofSort, 0);
-		mTheory.declareInternalFunction(PREFIX + IFFI2, bool1, proofSort, 0);
-		mTheory.declareInternalFunction(PREFIX + IFFE1, bool1, proofSort, 0);
-		mTheory.declareInternalFunction(PREFIX + IFFE2, bool1, proofSort, 0);
-		mTheory.declareInternalFunction(PREFIX + XORI, bool3, proofSort, 0);
-		mTheory.declareInternalFunction(PREFIX + XORE, bool3, proofSort, 0);
-		mTheory.declareInternalFunction(PREFIX + FORALLI, bool1, proofSort, 0);
-		mTheory.declareInternalFunction(PREFIX + FORALLE, bool1, proofSort, 0);
-		mTheory.declareInternalFunction(PREFIX + EXISTSI, bool1, proofSort, 0);
-		mTheory.declareInternalFunction(PREFIX + EXISTSE, bool1, proofSort, 0);
-		mTheory.declareInternalFunction(PREFIX + EQI, bool1, proofSort, 0);
-		mTheory.declareInternalFunction(PREFIX + EQE, bool1, proofSort, 0);
-		mTheory.declareInternalFunction(PREFIX + DISTINCTI, bool1, proofSort, 0);
-		mTheory.declareInternalFunction(PREFIX + DISTINCTE, bool1, proofSort, 0);
-		mTheory.declareInternalPolymorphicFunction(PREFIX + ITE1, generic, generic, proofSort, 0);
-		mTheory.declareInternalPolymorphicFunction(PREFIX + ITE2, generic, generic, proofSort, 0);
-		mTheory.declareInternalPolymorphicFunction(PREFIX + REFL, generic, generic, proofSort, 0);
-		mTheory.declareInternalFunction(PREFIX + SYMM, bool1, proofSort, 0);
-		mTheory.declareInternalFunction(PREFIX + TRANS, bool1, proofSort, 0);
-		mTheory.declareInternalFunction(PREFIX + CONG, bool1, proofSort, 0);
-		mTheory.declareInternalPolymorphicFunction(PREFIX + EXPAND, generic, generic, proofSort, 0);
-		mTheory.declareInternalFunction(PREFIX + DELANNOT, bool1, proofSort, 0);
+		mTheory.declareInternalPolymorphicFunction(PREFIX + CHOOSE, generic, bool1, generic[0], 0);
 	}
 
 	public Term resolutionRule(final Term pivot, final Term proofPos, final Term proofNeg) {
-		final Theory t = pivot.getTheory();
-		return t.term(PREFIX + RES, pivot, proofPos, proofNeg);
+		return mTheory.term(PREFIX + RES, pivot, proofPos, proofNeg);
 	}
 
 	public Term asserted(final Term t) {
-		return t.getTheory().term(PREFIX + ASSUME, t);
+		return mTheory.term(PREFIX + ASSUME, t);
+	}
+
+	public Term choose(final TermVariable tv, final Term formula) {
+		return mTheory.term(PREFIX + CHOOSE, mTheory.lambda(new TermVariable[] { tv }, formula));
 	}
 
 	private Annotation[] annotate(final String rule, final Term[] terms, final Annotation... moreAnnots) {
@@ -231,6 +206,38 @@ public class ProofRules {
 
 	public Term xorElim(final Term[] xorArgs1, final Term[] xorArgs2, final Term[] xorArgs3) {
 		return xorAxiom(":" + XORE, xorArgs1, xorArgs2, xorArgs3);
+	}
+
+	public Term forallIntro(final QuantifiedFormula forallTerm) {
+		assert forallTerm.getQuantifier() == QuantifiedFormula.FORALL;
+		return mTheory.annotatedTerm(annotate(":" + FORALLI,
+				new Term[] { mTheory.lambda(forallTerm.getFreeVars(), forallTerm.getSubformula()) }), mAxiom);
+	}
+
+	public Term forallElim(final Term[] subst, final QuantifiedFormula forallTerm) {
+		assert forallTerm.getQuantifier() == QuantifiedFormula.FORALL;
+		return mTheory.annotatedTerm(
+				annotate(":" + FORALLE,
+						new Term[] { mTheory.lambda(forallTerm.getFreeVars(), forallTerm.getSubformula()) },
+						new Annotation(ANNOT_VALUES, subst)),
+				mAxiom);
+	}
+
+	public Term existsIntro(final Term[] subst, final QuantifiedFormula existsTerm) {
+		assert existsTerm.getQuantifier() == QuantifiedFormula.EXISTS;
+		return mTheory.annotatedTerm(
+				annotate(":" + EXISTSI,
+						new Term[] { mTheory.lambda(existsTerm.getFreeVars(), existsTerm.getSubformula()) },
+						new Annotation(ANNOT_VALUES, subst)),
+				mAxiom);
+	}
+
+	public Term existsElim(final Term[] subst, final QuantifiedFormula existsTerm) {
+		assert existsTerm.getQuantifier() == QuantifiedFormula.EXISTS;
+		return mTheory.annotatedTerm(
+				annotate(":" + EXISTSE,
+						new Term[] { mTheory.lambda(existsTerm.getFreeVars(), existsTerm.getSubformula()) }),
+				mAxiom);
 	}
 
 	public Term equalsIntro(final Term eqTerm) {
@@ -475,6 +482,47 @@ public class ProofRules {
 							mTodo.add(" (");
 						}
 						mTodo.add("(" + annots[0].getKey().substring(1));
+						return;
+					}
+					case ":" + FORALLE:
+					case ":" + EXISTSI: {
+						assert annots.length == 2;
+						final Term[] params = (Term[]) annots[0].getValue();
+						final LambdaTerm lambda = (LambdaTerm) params[0];
+						final TermVariable[] termVars = lambda.getVariables();
+						assert annots[1].getKey() == ANNOT_VALUES;
+						final Term[] values = (Term[]) annots[1].getValue();
+						mTodo.add(")");
+						mTodo.add(lambda.getSubterm());
+						mTodo.add(") ");
+						for (int i = termVars.length; i >= 0; i--) {
+							mTodo.add(")");
+							mTodo.add(values[i]);
+							mTodo.add(" ");
+							mTodo.add(termVars[i]);
+							mTodo.add(i == 0 ? "(" : " (");
+						}
+						mTodo.add("(" + annots[0].getKey().substring(1) + " (");
+						return;
+					}
+					case ":" + FORALLI:
+					case ":" + EXISTSE: {
+						assert annots.length == 1;
+						final Term[] params = (Term[]) annots[0].getValue();
+						final LambdaTerm lambda = (LambdaTerm) params[0];
+						final TermVariable[] termVars = lambda.getVariables();
+
+						mTodo.add(")");
+						mTodo.add(lambda.getSubterm());
+						mTodo.add(") ");
+						for (int i = termVars.length; i >= 0; i--) {
+							mTodo.add(")");
+							mTodo.add(termVars[i].getSort());
+							mTodo.add(" ");
+							mTodo.add(termVars[i]);
+							mTodo.add(i == 0 ? "(" : " (");
+						}
+						mTodo.add("(" + annots[0].getKey().substring(1) + " (");
 						return;
 					}
 					case ":" + DELANNOT: {

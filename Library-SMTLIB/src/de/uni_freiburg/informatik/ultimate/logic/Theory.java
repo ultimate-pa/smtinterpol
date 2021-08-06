@@ -313,10 +313,7 @@ public class Theory {
 		return term("ite", c, t, e);
 	}
 
-	private Term lambda(final TermVariable[] vars, final Term subterm) {
-		if (subterm == mTrue || subterm == mFalse) {
-			return subterm;
-		}
+	public Term lambda(final TermVariable[] vars, final Term subterm) {
 		final int hash = LambdaTerm.hashLambda(vars, subterm);
 		for (final Term term : mTermCache.iterateHashCode(hash)) {
 			if (term instanceof LambdaTerm) {
@@ -332,9 +329,6 @@ public class Theory {
 	}
 
 	private Term quantify(final int quant, final TermVariable[] vars, final Term f) {
-		if (f == mTrue || f == mFalse) {
-			return f;
-		}
 		final int hash = QuantifiedFormula.hashQuantifier(quant, vars, f);
 		for (final Term term : mTermCache.iterateHashCode(hash)) {
 			if (term instanceof QuantifiedFormula) {

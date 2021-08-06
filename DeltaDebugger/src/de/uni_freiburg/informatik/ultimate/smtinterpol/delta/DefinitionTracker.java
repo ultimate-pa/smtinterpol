@@ -25,6 +25,7 @@ import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.LambdaTerm;
 import de.uni_freiburg.informatik.ultimate.logic.LetTerm;
 import de.uni_freiburg.informatik.ultimate.logic.MatchTerm;
 import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
@@ -35,22 +36,22 @@ import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 public class DefinitionTracker extends NonRecursive {
 	private class Walker extends TermWalker {
 
-		public Walker(Term term) {
+		public Walker(final Term term) {
 			super(term);
 		}
 
 		@Override
-		public void walk(NonRecursive walker, ConstantTerm term) {
+		public void walk(final NonRecursive walker, final ConstantTerm term) {
 			// Does not need definitions
 		}
 
 		@Override
-		public void walk(NonRecursive walker, AnnotatedTerm term) {
+		public void walk(final NonRecursive walker, final AnnotatedTerm term) {
 			walker.enqueueWalker(new Walker(term.getSubterm()));
 		}
 
 		@Override
-		public void walk(NonRecursive walker, ApplicationTerm term) {
+		public void walk(final NonRecursive walker, final ApplicationTerm term) {
 			final FunctionSymbol fs = term.getFunction();
 			if (!fs.isIntern()) {
 				track(fs.getName());
@@ -61,7 +62,7 @@ public class DefinitionTracker extends NonRecursive {
 		}
 
 		@Override
-		public void walk(NonRecursive walker, LetTerm term) {
+		public void walk(final NonRecursive walker, final LetTerm term) {
 			for (final Term bound : term.getValues()) {
 				walker.enqueueWalker(new Walker(bound));
 			}
@@ -69,17 +70,22 @@ public class DefinitionTracker extends NonRecursive {
 		}
 
 		@Override
-		public void walk(NonRecursive walker, QuantifiedFormula term) {
+		public void walk(final NonRecursive walker, final LambdaTerm term) {
+			walker.enqueueWalker(new Walker(term.getSubterm()));
+		}
+
+		@Override
+		public void walk(final NonRecursive walker, final QuantifiedFormula term) {
 			walker.enqueueWalker(new Walker(term.getSubformula()));
 		}
 
 		@Override
-		public void walk(NonRecursive walker, TermVariable term) {
+		public void walk(final NonRecursive walker, final TermVariable term) {
 			// Does not need definitions
 		}
 
 		@Override
-		public void walk(NonRecursive walker, MatchTerm term) {
+		public void walk(final NonRecursive walker, final MatchTerm term) {
 			walker.enqueueWalker(new Walker(term.getDataTerm()));
 			for (final Term caseTerm : term.getCases()) {
 				walker.enqueueWalker(new Walker(caseTerm));
@@ -90,16 +96,16 @@ public class DefinitionTracker extends NonRecursive {
 	private final Map<String, Cmd> mCtx;
 	private final Set<Cmd> mUsed;
 
-	public DefinitionTracker(Map<String, Cmd> ctx, Set<Cmd> used) {
+	public DefinitionTracker(final Map<String, Cmd> ctx, final Set<Cmd> used) {
 		mCtx = ctx;
 		mUsed = used;
 	}
 
-	public void track(Term t) {
+	public void track(final Term t) {
 		run(new Walker(t));
 	}
 
-	private void track(String fun) {
+	private void track(final String fun) {
 		final Cmd definition = mCtx.get(fun);
 		if (definition == null) {
 			throw new InternalError("No definition found for " + fun);

@@ -33,44 +33,44 @@ import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 
 public class ParseScript extends NoopScript {
 
-	private final List<Cmd> mCmds = new ArrayList<Cmd>();
+	private final List<Cmd> mCmds = new ArrayList<>();
 
 	public List<Cmd> getCmds() {
 		return mCmds;
 	}
 
 	@Override
-	public void setLogic(Logics logic) throws UnsupportedOperationException {
+	public void setLogic(final Logics logic) throws UnsupportedOperationException {
 		super.setLogic(logic);
 		mCmds.add(new SetLogic(logic));
 	}
 
 	@Override
-	public void setOption(String opt, Object value)
+	public void setOption(final String opt, final Object value)
 		throws UnsupportedOperationException, SMTLIBException {
 		mCmds.add(new SetterCmd("set-option", opt, value));
 	}
 
 	@Override
-	public void setInfo(String info, Object value) {
+	public void setInfo(final String info, final Object value) {
 		mCmds.add(new SetterCmd("set-info", info, value));
 	}
 
 	@Override
-	public void declareSort(String sort, int arity) throws SMTLIBException {
+	public void declareSort(final String sort, final int arity) throws SMTLIBException {
 		super.declareSort(sort, arity);
 		mCmds.add(new DeclareSort(sort, arity));
 	}
 
 	@Override
-	public void defineSort(String sort, Sort[] sortParams, Sort definition)
+	public void defineSort(final String sort, final Sort[] sortParams, final Sort definition)
 		throws SMTLIBException {
 		super.defineSort(sort, sortParams, definition);
 		mCmds.add(new DefineSort(sort, sortParams, definition));
 	}
 
 	@Override
-	public void declareFun(String fun, Sort[] paramSorts, Sort resultSort)
+	public void declareFun(final String fun, final Sort[] paramSorts, final Sort resultSort)
 		throws SMTLIBException {
 		super.declareFun(fun, paramSorts, resultSort);
 		mCmds.add(new DeclareFun(fun, paramSorts, resultSort));
@@ -78,27 +78,27 @@ public class ParseScript extends NoopScript {
 	}
 
 	@Override
-	public void defineFun(String fun, TermVariable[] params, Sort resultSort,
-			Term definition) throws SMTLIBException {
+	public void defineFun(final String fun, final TermVariable[] params, final Sort resultSort,
+			final Term definition) throws SMTLIBException {
 		super.defineFun(fun, params, resultSort, definition);
 		mCmds.add(new DefineFun(fun, params, resultSort, definition));
 		ensureNotFresh(fun);
 	}
 
 	@Override
-	public void push(int levels) {
+	public void push(final int levels) {
 		super.push(levels);
 		mCmds.add(new ScopeCmd("push", levels));
 	}
 
 	@Override
-	public void pop(int levels) throws SMTLIBException {
+	public void pop(final int levels) throws SMTLIBException {
 		super.pop(levels);
 		mCmds.add(new ScopeCmd("pop", levels));
 	}
 
 	@Override
-	public LBool assertTerm(Term term) throws SMTLIBException {
+	public LBool assertTerm(final Term term) throws SMTLIBException {
 		mCmds.add(new OneTermCmd("assert", term));
 		return LBool.UNKNOWN;
 	}
@@ -130,7 +130,7 @@ public class ParseScript extends NoopScript {
 	}
 
 	@Override
-	public Map<Term, Term> getValue(Term[] terms) throws SMTLIBException,
+	public Map<Term, Term> getValue(final Term[] terms) throws SMTLIBException,
 			UnsupportedOperationException {
 		mCmds.add(new TermListCmd("get-value", terms));
 		return null;
@@ -144,26 +144,26 @@ public class ParseScript extends NoopScript {
 	}
 
 	@Override
-	public Object getOption(String opt) throws UnsupportedOperationException {
+	public Object getOption(final String opt) throws UnsupportedOperationException {
 		mCmds.add(new GetterCmd("get-option", opt));
 		return null;
 	}
 
 	@Override
-	public Object getInfo(String info) throws UnsupportedOperationException {
+	public Object getInfo(final String info) throws UnsupportedOperationException {
 		mCmds.add(new GetterCmd("get-info", info));
 		return null;
 	}
 
 	@Override
-	public Term simplify(Term term) throws SMTLIBException {
+	public Term simplify(final Term term) throws SMTLIBException {
 		mCmds.add(new OneTermCmd("simplify", term));
 		return null;
 	}
 
 	@Override
 	public Term[] getInterpolants(// NOPMD
-			Term[] partition, int[] startOfSubtree)
+			final Term[] partition, final int[] startOfSubtree)
 		throws SMTLIBException, UnsupportedOperationException {
 		mCmds.add(new GetInterpolants(partition, startOfSubtree));
 		return null;
@@ -177,18 +177,18 @@ public class ParseScript extends NoopScript {
 	@Override
 	public Model getModel() throws SMTLIBException,
 			UnsupportedOperationException {
-		mCmds.add(new SimpleCmd("exit"));
+		mCmds.add(new SimpleCmd("get-model"));
 		return null;
 	}
 
 	@Override
-	public Iterable<Term[]> checkAllsat(Term[] predicates)
+	public Iterable<Term[]> checkAllsat(final Term[] predicates)
 		throws SMTLIBException, UnsupportedOperationException {
 		mCmds.add(new TermListCmd("check-allsat", predicates));
 		return null;
 	}
 
-	private void ensureNotFresh(String fun) {
+	private void ensureNotFresh(final String fun) {
 		if (fun.startsWith(ReplaceByFreshTerm.FRESH_PREFIX)) {
 			final String tail = fun.substring(
 					ReplaceByFreshTerm.FRESH_PREFIX.length());

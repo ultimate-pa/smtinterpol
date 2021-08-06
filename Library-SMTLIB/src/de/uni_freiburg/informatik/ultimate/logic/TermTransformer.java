@@ -168,6 +168,10 @@ public class TermTransformer extends NonRecursive {
 			enqueueWalker(new BuildQuantifier((QuantifiedFormula) term));
 			pushTerm(((QuantifiedFormula) term).getSubformula());
 			beginScope();
+		} else if (term instanceof LambdaTerm) {
+			enqueueWalker(new BuildLambda((LambdaTerm) term));
+			pushTerm(((LambdaTerm) term).getSubterm());
+			beginScope();
 		} else if (term instanceof AnnotatedTerm) {
 			final AnnotatedTerm annterm = (AnnotatedTerm) term;
 			enqueueWalker(new BuildAnnotation(annterm));
@@ -199,8 +203,7 @@ public class TermTransformer extends NonRecursive {
 		}
 	}
 
-	public void convertApplicationTerm(
-			final ApplicationTerm appTerm, final Term[] newArgs) {
+	public void convertApplicationTerm(final ApplicationTerm appTerm, final Term[] newArgs) {
 		Term newTerm = appTerm;
 		if (newArgs != appTerm.getParameters()) {
 			final FunctionSymbol fun = appTerm.getFunction();
@@ -224,6 +227,16 @@ public class TermTransformer extends NonRecursive {
 					oldLet.getVariables(), newValues, newBody);
 		}
 		setResult(result);
+	}
+
+	public void postConvertLambda(final LambdaTerm old, final Term newBody) {
+		Term newFormula = old;
+		if (newBody != old.getSubterm()) {
+			final Theory theory = old.getTheory();
+			final TermVariable[] vars = old.getVariables();
+			newFormula = theory.lambda(vars, newBody);
+		}
+		setResult(newFormula);
 	}
 
 	public void postConvertQuantifier(final QuantifiedFormula old, final Term newBody) {
@@ -400,11 +413,36 @@ public class TermTransformer extends NonRecursive {
 	}
 
 	/**
-	 * Collect the sub term of a quantified formula and build the converted
-	 * formula.  The converted sub formula is expected to be on the
-	 * converted stack.
-	 * It stores the converted quantifier on the converted stack and in the
-	 * cache.
+	 * Collect the sub term of a lambda term and build the converted formula. The
+	 * converted sub formula is expected to be on the converted stack. It stores the
+	 * converted quantifier on the converted stack and in the cache.
+	 */
+	protected static class BuildLambda implements Walker {
+		/** the quantifier to convert. */
+		private final LambdaTerm mLambda;
+
+		public BuildLambda(final LambdaTerm term) {
+			mLambda = term;
+		}
+
+		@Override
+		public void walk(final NonRecursive engine) {
+			final TermTransformer transformer = (TermTransformer) engine;
+			final Term sub = transformer.getConverted();
+			transformer.postConvertLambda(mLambda, sub);
+			transformer.endScope();
+		}
+
+		@Override
+		public String toString() {
+			return "lambda";
+		}
+	}
+
+	/**
+	 * Collect the sub term of a quantified formula and build the converted formula.
+	 * The converted sub formula is expected to be on the converted stack. It stores
+	 * the converted quantifier on the converted stack and in the cache.
 	 */
 	protected static class BuildQuantifier implements Walker {
 		/** the quantifier to convert. */
