@@ -208,4 +208,22 @@ public class ProofSimplifierTest {
 			mSmtInterpol.pop(1);
 		}
 	}
+
+	@Test
+	public void testEqToXorRewrite() {
+		mSmtInterpol.push(1);
+		final Sort U = mSmtInterpol.sort("Bool");
+		final Term[] terms = generateDummyTerms(2, U);
+
+		// convert equality to not xor, simplify the xor term and possibly remove double
+		// negation.
+		final Term eqTerm = mSmtInterpol.term("=", terms);
+		final Term xorTerm = mSmtInterpol.term("xor", terms);
+		final Term equality = mSmtInterpol.term("=", eqTerm, mSmtInterpol.term("not", xorTerm));
+		final Term rewriteEqSimp = mSmtInterpol.term(ProofConstants.FN_REWRITE,
+				mSmtInterpol.annotate(equality, ProofConstants.RW_EQ_TO_XOR));
+		checkLemmaOrRewrite(rewriteEqSimp, new Term[] { equality });
+		mSmtInterpol.pop(1);
+	}
+
 }

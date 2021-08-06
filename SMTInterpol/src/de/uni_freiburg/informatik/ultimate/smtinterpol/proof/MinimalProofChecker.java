@@ -73,6 +73,10 @@ public class MinimalProofChecker extends NonRecursive {
 	 */
 	LogProxy mLogger;
 	/**
+	 * The ProofRules object.
+	 */
+	ProofRules mProofRules;
+	/**
 	 * The number of reported errors.
 	 */
 	int mError;
@@ -98,6 +102,7 @@ public class MinimalProofChecker extends NonRecursive {
 	public MinimalProofChecker(final Script script, final LogProxy logger) {
 		mSkript = script;
 		mLogger = logger;
+		mProofRules = new ProofRules(script.getTheory());
 	}
 
 	/**
@@ -180,18 +185,21 @@ public class MinimalProofChecker extends NonRecursive {
 	 * @param proofTerm
 	 *            The proof term. Its sort must be {@literal @}Proof.
 	 */
-	void walk(final ApplicationTerm proofTerm) {
+	void walk(Term proofTerm) {
+		while (proofTerm instanceof AnnotatedTerm && !mProofRules.isAxiom(proofTerm)) {
+			proofTerm = ((AnnotatedTerm) proofTerm).getSubterm();
+		}
 		/* Check the cache, if the unfolding step was already done */
 		if (mCacheConv.containsKey(proofTerm)) {
 			stackPush(mCacheConv.get(proofTerm), proofTerm);
 			return;
 		}
-
-		/* Get the function and parameters */
-		if (ProofRules.isProofRule(ProofRules.RES, proofTerm))  {
-			new ResolutionWalker(proofTerm).enqueue(this);
+		if (mProofRules.isAxiom(proofTerm)) {
+			stackPush(computeAxiom(proofTerm), proofTerm);
+		} else if (mProofRules.isProofRule(ProofRules.RES, proofTerm)) {
+			new ResolutionWalker((ApplicationTerm) proofTerm).enqueue(this);
 		} else {
-			stackPush(computeClause(proofTerm), proofTerm);
+			stackPush(checkAssert(proofTerm), proofTerm);
 		}
 	}
 
@@ -204,7 +212,7 @@ public class MinimalProofChecker extends NonRecursive {
 	ProofLiteral[] walkResolution(final ApplicationTerm resApp, final ProofLiteral[] posClause,
 			final ProofLiteral[] negClause) {
 		/*
-		 * s allDisjuncts is the currently computed resolution result.
+		 * allDisjuncts is the currently computed resolution result.
 		 */
 		final HashSet<ProofLiteral> allDisjuncts = new HashSet<>();
 
@@ -237,7 +245,7 @@ public class MinimalProofChecker extends NonRecursive {
 
 	/* === Auxiliary functions === */
 
-	void stackPush(final ProofLiteral[] pushClause, final ApplicationTerm keyTerm) {
+	void stackPush(final ProofLiteral[] pushClause, final Term keyTerm) {
 		mCacheConv.put(keyTerm, pushClause);
 		mStackResults.push(pushClause);
 	}
@@ -246,399 +254,368 @@ public class MinimalProofChecker extends NonRecursive {
 		return mStackResults.pop();
 	}
 
-	public ProofLiteral[] computeClause(final Term axiom) {
-		final ApplicationTerm appTerm = (ApplicationTerm) axiom;
-		final Term[] params = appTerm.getParameters();
-		switch (appTerm.getFunction().getName()) {
-		case ProofRules.PREFIX + ProofRules.ASSUME: {
+	public ProofLiteral[] computeAxiom(final Term axiom) {
+		final Theory theory = axiom.getTheory();
+		assert mProofRules.isAxiom(axiom);
+		final Annotation[] annots = ((AnnotatedTerm) axiom).getAnnotations();
+		switch (annots[0].getKey()) {
+		case ":" + ProofRules.TRUEI: {
+			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.TRUE), true) };
+		}
+		case ":" + ProofRules.FALSEE: {
+			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.FALSE), false) };
+		}
+		case ":" + ProofRules.NOTI: {
+			assert annots.length == 1;
+			final Term[] params = (Term[]) annots[0].getValue();
 			assert params.length == 1;
-			if (!mAssertions.contains(params[0])) {
-				reportWarning("Unknown assumption: " + params[0]);
-			}
-			// t
-			return new ProofLiteral[] { new ProofLiteral(params[0], true) };
-		}
-		case ProofRules.PREFIX + ProofRules.TRUEI: {
-			return new ProofLiteral[] { new ProofLiteral(axiom.getTheory().term(SMTLIBConstants.TRUE), true) };
-		}
-		case ProofRules.PREFIX + ProofRules.FALSEE: {
-			return new ProofLiteral[] { new ProofLiteral(axiom.getTheory().term(SMTLIBConstants.FALSE), false) };
-		}
-		case ProofRules.PREFIX + ProofRules.NOTI: {
-			assert params.length == 1;
-			final ApplicationTerm subterm = (ApplicationTerm) params[0];
-			assert subterm.getFunction().getName() == SMTLIBConstants.NOT;
-			final Term[] subParams = subterm.getParameters();
+			final Term term = params[0];
 
 			// (not t), t
-			return new ProofLiteral[] { new ProofLiteral(subterm, true), new ProofLiteral(subParams[0], true) };
+			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.NOT, term), true),
+					new ProofLiteral(term, true) };
 		}
-		case ProofRules.PREFIX + ProofRules.NOTE: {
+		case ":" + ProofRules.NOTE: {
+			assert annots.length == 1;
+			final Term[] params = (Term[]) annots[0].getValue();
 			assert params.length == 1;
-			final ApplicationTerm subterm = (ApplicationTerm) params[0];
-			assert subterm.getFunction().getName() == SMTLIBConstants.NOT;
-			final Term[] subParams = subterm.getParameters();
+			final Term term = params[0];
 
 			// ~(not t), ~t
-			return new ProofLiteral[] { new ProofLiteral(subterm, false), new ProofLiteral(subParams[0], false) };
+			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.NOT, term), false),
+					new ProofLiteral(term, false) };
 		}
-		case ProofRules.PREFIX + ProofRules.ORI: {
-			assert params.length == 1;
-			final AnnotatedTerm annotTerm = (AnnotatedTerm) params[0];
-			final Annotation[] annots = annotTerm.getAnnotations();
-			assert annots.length == 1 && annots[0].getKey().equals(ProofRules.ANNOT_POS);
-			final ApplicationTerm subterm = (ApplicationTerm) annotTerm.getSubterm();
-			assert subterm.getFunction().getName() == SMTLIBConstants.OR;
-			final int pos = (Integer) annots[0].getValue();
-			final Term[] subParams = subterm.getParameters();
-			assert pos >= 0 && pos < subParams.length;
+		case ":" + ProofRules.ORI: {
+			assert annots.length == 2;
+			final Term[] params = (Term[]) annots[0].getValue();
+			assert annots[1].getKey().equals(ProofRules.ANNOT_POS);
+			final int pos = (Integer) annots[1].getValue();
+			assert pos >= 0 && pos < params.length;
 
 			// (or t1 ... tn), ~tpos
-			return new ProofLiteral[] { new ProofLiteral(subterm, true), new ProofLiteral(subParams[pos], false) };
+			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.OR, params), true),
+					new ProofLiteral(params[pos], false) };
 		}
-		case ProofRules.PREFIX + ProofRules.ORE: {
-			assert params.length == 1;
-			final ApplicationTerm subterm = (ApplicationTerm) params[0];
-			assert subterm.getFunction().getName() == SMTLIBConstants.OR;
-			final Term[] subParams = subterm.getParameters();
+		case ":" + ProofRules.ORE: {
+			assert annots.length == 1;
+			final Term[] params = (Term[]) annots[0].getValue();
 
 			// ~(or t1 ... tn), t1, ..., tn
-			final ProofLiteral[] clause = new ProofLiteral[subParams.length + 1];
-			clause[0] = new ProofLiteral(subterm, false);
-			for (int i = 0; i < subParams.length; i++) {
-				clause[i + 1] = new ProofLiteral(subParams[i], true);
+			final ProofLiteral[] clause = new ProofLiteral[params.length + 1];
+			clause[0] = new ProofLiteral(theory.term(SMTLIBConstants.OR, params), false);
+			for (int i = 0; i < params.length; i++) {
+				clause[i + 1] = new ProofLiteral(params[i], true);
 			}
 			return clause;
 		}
-		case ProofRules.PREFIX + ProofRules.ANDI: {
-			assert params.length == 1;
-			final ApplicationTerm subterm = (ApplicationTerm) params[0];
-			assert subterm.getFunction().getName() == SMTLIBConstants.AND;
-			final Term[] subParams = subterm.getParameters();
+		case ":" + ProofRules.ANDI: {
+			assert annots.length == 1;
+			final Term[] params = (Term[]) annots[0].getValue();
 
 			// (and t1 ... tn), ~t1, ..., ~tn
-			final ProofLiteral[] clause = new ProofLiteral[subParams.length + 1];
-			clause[0] = new ProofLiteral(subterm, true);
-			for (int i = 0; i < subParams.length; i++) {
-				clause[i + 1] = new ProofLiteral(subParams[i], false);
+			final ProofLiteral[] clause = new ProofLiteral[params.length + 1];
+			clause[0] = new ProofLiteral(theory.term(SMTLIBConstants.AND, params), true);
+			for (int i = 0; i < params.length; i++) {
+				clause[i + 1] = new ProofLiteral(params[i], false);
 			}
 			return clause;
 		}
-		case ProofRules.PREFIX + ProofRules.ANDE: {
-			assert params.length == 1;
-			final AnnotatedTerm annotTerm = (AnnotatedTerm) params[0];
-			final Annotation[] annots = annotTerm.getAnnotations();
-			assert annots.length == 1 && annots[0].getKey().equals(ProofRules.ANNOT_POS);
-			final ApplicationTerm subterm = (ApplicationTerm) annotTerm.getSubterm();
-			assert subterm.getFunction().getName() == SMTLIBConstants.AND;
-			final int pos = (Integer) annots[0].getValue();
-			final Term[] subParams = subterm.getParameters();
-			assert pos >= 0 && pos < subParams.length;
+		case ":" + ProofRules.ANDE: {
+			assert annots.length == 2;
+			final Term[] params = (Term[]) annots[0].getValue();
+			assert annots[1].getKey().equals(ProofRules.ANNOT_POS);
+			final int pos = (Integer) annots[1].getValue();
+			assert pos >= 0 && pos < params.length;
 
 			// ~(and t1 ... tn), tpos
-			return new ProofLiteral[] { new ProofLiteral(subterm, false), new ProofLiteral(subParams[pos], true) };
+			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.AND, params), false),
+					new ProofLiteral(params[pos], true) };
 		}
-		case ProofRules.PREFIX + ProofRules.IMPI: {
-			assert params.length == 1;
-			final AnnotatedTerm annotTerm = (AnnotatedTerm) params[0];
-			final Annotation[] annots = annotTerm.getAnnotations();
-			assert annots.length == 1 && annots[0].getKey().equals(ProofRules.ANNOT_POS);
-			final ApplicationTerm subterm = (ApplicationTerm) annotTerm.getSubterm();
-			assert subterm.getFunction().getName() == SMTLIBConstants.IMPLIES;
-			final int pos = (Integer) annots[0].getValue();
-			final Term[] subParams = subterm.getParameters();
-			assert pos >= 0 && pos < subParams.length;
+		case ":" + ProofRules.IMPI: {
+			assert annots.length == 2;
+			final Term[] params = (Term[]) annots[0].getValue();
+			assert annots[1].getKey().equals(ProofRules.ANNOT_POS);
+			final int pos = (Integer) annots[1].getValue();
+			assert pos >= 0 && pos < params.length;
 
 			// (=> t1 ... tn), tpos (~tpos if pos == n)
-			return new ProofLiteral[] { new ProofLiteral(subterm, true),
-					new ProofLiteral(subParams[pos], pos < subParams.length - 1) };
+			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.IMPLIES, params), true),
+					new ProofLiteral(params[pos], pos < params.length - 1) };
 		}
-		case ProofRules.PREFIX + ProofRules.IMPE: {
-			assert params.length == 1;
-			final ApplicationTerm subterm = (ApplicationTerm) params[0];
-			assert subterm.getFunction().getName() == SMTLIBConstants.IMPLIES;
-			final Term[] subParams = subterm.getParameters();
+		case ":" + ProofRules.IMPE: {
+			assert annots.length == 2;
+			final Term[] params = (Term[]) annots[0].getValue();
 
 			// ~(=> t1 ... tn), ~t1, ..., ~tn-1, tn
-			final ProofLiteral[] clause = new ProofLiteral[subParams.length + 1];
-			clause[0] = new ProofLiteral(subterm, false);
-			for (int i = 0; i < subParams.length; i++) {
-				clause[i + 1] = new ProofLiteral(subParams[i], i == subParams.length - 1);
+			final ProofLiteral[] clause = new ProofLiteral[params.length + 1];
+			clause[0] = new ProofLiteral(theory.term(SMTLIBConstants.IMPLIES, params), false);
+			for (int i = 0; i < params.length; i++) {
+				clause[i + 1] = new ProofLiteral(params[i], i == params.length - 1);
 			}
 			return clause;
 		}
-		case ProofRules.PREFIX + ProofRules.IFFI1: {
-			assert params.length == 1;
-			final ApplicationTerm subterm = (ApplicationTerm) params[0];
-			assert subterm.getFunction().getName() == SMTLIBConstants.EQUALS;
-			final Term[] subParams = subterm.getParameters();
-			assert subParams.length == 2;
+		case ":" + ProofRules.IFFI1: {
+			assert annots.length == 1;
+			final Term[] params = (Term[]) annots[0].getValue();
+			if (params.length != 2 || params[0].getSort().getName() != SMTLIBConstants.BOOL) {
+				throw new AssertionError("Invalid Rule: " + axiom);
+			}
 
 			// (= t1 t2), t1, t2
-			return new ProofLiteral[] { new ProofLiteral(subterm, true), new ProofLiteral(subParams[0], true),
-					new ProofLiteral(subParams[1], true) };
+			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, params), true),
+					new ProofLiteral(params[0], true), new ProofLiteral(params[1], true) };
 		}
-		case ProofRules.PREFIX + ProofRules.IFFI2: {
-			assert params.length == 1;
-			final ApplicationTerm subterm = (ApplicationTerm) params[0];
-			assert subterm.getFunction().getName() == SMTLIBConstants.EQUALS;
-			final Term[] subParams = subterm.getParameters();
-			assert subParams.length == 2;
+		case ":" + ProofRules.IFFI2: {
+			assert annots.length == 1;
+			final Term[] params = (Term[]) annots[0].getValue();
+			if (params.length != 2 || params[0].getSort().getName() != SMTLIBConstants.BOOL) {
+				throw new AssertionError("Invalid Rule: " + axiom);
+			}
 
 			// (= t1 t2), ~t1, ~t2
-			return new ProofLiteral[] { new ProofLiteral(subterm, true), new ProofLiteral(subParams[0], false),
-					new ProofLiteral(subParams[1], false) };
+			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, params), true),
+					new ProofLiteral(params[0], false), new ProofLiteral(params[1], false) };
 		}
-		case ProofRules.PREFIX + ProofRules.IFFE1: {
-			assert params.length == 1;
-			final ApplicationTerm subterm = (ApplicationTerm) params[0];
-			assert subterm.getFunction().getName() == SMTLIBConstants.EQUALS;
-			final Term[] subParams = subterm.getParameters();
-			assert subParams.length == 2;
+		case ":" + ProofRules.IFFE1: {
+			assert annots.length == 1;
+			final Term[] params = (Term[]) annots[0].getValue();
+			if (params.length != 2 || params[0].getSort().getName() != SMTLIBConstants.BOOL) {
+				throw new AssertionError("Invalid Rule: " + axiom);
+			}
 
 			// ~(= t1 t2), t1, ~t2
-			return new ProofLiteral[] { new ProofLiteral(subterm, false), new ProofLiteral(subParams[0], true),
-					new ProofLiteral(subParams[1], false) };
+			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, params), false),
+					new ProofLiteral(params[0], true), new ProofLiteral(params[1], false) };
 		}
-		case ProofRules.PREFIX + ProofRules.IFFE2: {
-			assert params.length == 1;
-			final ApplicationTerm subterm = (ApplicationTerm) params[0];
-			assert subterm.getFunction().getName() == SMTLIBConstants.EQUALS;
-			final Term[] subParams = subterm.getParameters();
-			assert subParams.length == 2;
+		case ":" + ProofRules.IFFE2: {
+			assert annots.length == 1;
+			final Term[] params = (Term[]) annots[0].getValue();
+			if (params.length != 2 || params[0].getSort().getName() != SMTLIBConstants.BOOL) {
+				throw new AssertionError("Invalid Rule: " + axiom);
+			}
 
 			// ~(= t1 t2), ~t1, t2
-			return new ProofLiteral[] { new ProofLiteral(subterm, false), new ProofLiteral(subParams[0], false),
-					new ProofLiteral(subParams[1], true) };
+			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, params), false),
+					new ProofLiteral(params[0], false), new ProofLiteral(params[1], true) };
 		}
-		case ProofRules.PREFIX + ProofRules.XORI: {
-			assert params.length == 3;
-			assert ProofRules.checkXorParams(params);
+		case ":" + ProofRules.XORI: {
+			assert annots.length == 1;
+			final Term[][] xorLists = (Term[][]) annots[0].getValue();
+			assert xorLists.length == 3;
+			if (!ProofRules.checkXorParams(xorLists)) {
+				throw new AssertionError("Invalid Rule: " + axiom);
+			}
 			// (xor set0), (xor set1), ~(xor set2)
 			final ProofLiteral[] clause = new ProofLiteral[3];
 			for (int i = 0; i < 3; i++) {
-				Term atom = params[i];
-				if (atom instanceof AnnotatedTerm) {
-					assert ((AnnotatedTerm) atom).getAnnotations()[0].getKey() == ProofRules.ANNOT_UNIT;
-					atom = ((AnnotatedTerm) atom).getSubterm();
-				}
-				clause[i] = new ProofLiteral(atom, i < 2);
+				final Term term = xorLists[i].length == 1 ? xorLists[i][0]
+						: theory.term(SMTLIBConstants.XOR, xorLists[i]);
+				assert term != null;
+				clause[i] = new ProofLiteral(term, i < 2);
 			}
 			return clause;
 		}
-		case ProofRules.PREFIX + ProofRules.XORE: {
-			assert params.length == 3;
-			assert ProofRules.checkXorParams(params);
+		case ":" + ProofRules.XORE: {
+			assert annots.length == 1;
+			final Term[][] xorLists = (Term[][]) annots[0].getValue();
+			assert xorLists.length == 3;
+			if (!ProofRules.checkXorParams(xorLists)) {
+				throw new AssertionError("Invalid Rule: " + axiom);
+			}
 			// ~(xor set0), ~(xor set1), ~(xor set2)
 			final ProofLiteral[] clause = new ProofLiteral[3];
 			for (int i = 0; i < 3; i++) {
-				Term atom = params[i];
-				if (atom instanceof AnnotatedTerm) {
-					assert ((AnnotatedTerm) atom).getAnnotations()[0].getKey() == ProofRules.ANNOT_UNIT;
-					atom = ((AnnotatedTerm) atom).getSubterm();
-				}
-				clause[i] = new ProofLiteral(atom, false);
+				final Term term = xorLists[i].length == 1 ? xorLists[i][0]
+						: theory.term(SMTLIBConstants.XOR, xorLists[i]);
+				assert term != null;
+				clause[i] = new ProofLiteral(term, false);
 			}
 			return clause;
 		}
-		case ProofRules.PREFIX + ProofRules.EQI: {
-			assert params.length == 1;
-			final ApplicationTerm subterm = (ApplicationTerm) params[0];
-			assert subterm.getFunction().getName() == SMTLIBConstants.EQUALS;
-			final Term[] subParams = subterm.getParameters();
-			final Theory t = axiom.getTheory();
+		case ":" + ProofRules.EQI: {
+			assert annots.length == 1;
+			final Term[] params = (Term[]) annots[0].getValue();
 
 			// (= t1 ... tn), ~(= t1 t2), ~(tn-1 tn)
-			final ProofLiteral[] clause = new ProofLiteral[subParams.length];
-			clause[0] = new ProofLiteral(subterm, true);
-			for (int i = 0; i < subParams.length - 1; i++) {
-				clause[i + 1] = new ProofLiteral(t.term(SMTLIBConstants.EQUALS, subParams[i], subParams[i + 1]), false);
+			final ProofLiteral[] clause = new ProofLiteral[params.length];
+			clause[0] = new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, params), true);
+			for (int i = 0; i < params.length - 1; i++) {
+				clause[i + 1] = new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, params[i], params[i + 1]), false);
 			}
 			return clause;
 		}
-		case ProofRules.PREFIX + ProofRules.EQE: {
-			assert params.length == 1;
-			final AnnotatedTerm annotTerm = (AnnotatedTerm) params[0];
-			final Annotation[] annots = annotTerm.getAnnotations();
-			assert annots.length == 1 && annots[0].getKey().equals(ProofRules.ANNOT_POS);
-			final ApplicationTerm subterm = (ApplicationTerm) annotTerm.getSubterm();
-			assert subterm.getFunction().getName() == SMTLIBConstants.EQUALS;
-			final Term[] subParams = subterm.getParameters();
-			final Object[] positions = (Object[]) annots[0].getValue();
+		case ":" + ProofRules.EQE: {
+			assert annots.length == 2;
+			final Term[] params = (Term[]) annots[0].getValue();
+			assert annots[1].getKey().equals(ProofRules.ANNOT_POS);
+			final Integer[] positions = (Integer[]) annots[1].getValue();
 			assert positions.length == 2;
-			final int pos0 = (Integer) positions[0];
-			final int pos1 = (Integer) positions[1];
-			assert 0 <= pos0 && pos0 < subParams.length && 0 <= pos1 && pos1 < subParams.length;
-			final Theory t = axiom.getTheory();
+			final int pos0 = positions[0];
+			final int pos1 = positions[1];
+			assert 0 <= pos0 && pos0 < params.length && 0 <= pos1 && pos1 < params.length;
 
 			// ~(= t1 ... tn), (= ti tj)
-			return new ProofLiteral[] { new ProofLiteral(subterm, false),
-					new ProofLiteral(t.term(SMTLIBConstants.EQUALS, subParams[pos0], subParams[pos1]), true) };
+			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, params), false),
+					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, params[pos0], params[pos1]), true) };
 		}
-		case ProofRules.PREFIX + ProofRules.DISTINCTI: {
-			assert params.length == 1;
-			final ApplicationTerm subterm = (ApplicationTerm) params[0];
-			assert subterm.getFunction().getName() == SMTLIBConstants.DISTINCT;
-			final Term[] subParams = subterm.getParameters();
-			final Theory t = axiom.getTheory();
-			final int len = subParams.length;
+		case ":" + ProofRules.DISTINCTI: {
+			assert annots.length == 1;
+			final Term[] params = (Term[]) annots[0].getValue();
+			final int len = params.length;
 
 			// (distinct t1 ... tn), (= t1 t2),...
 			final ProofLiteral[] clause = new ProofLiteral[1 + len * (len - 1) / 2];
-			clause[0] = new ProofLiteral(subterm, true);
+			clause[0] = new ProofLiteral(theory.term(SMTLIBConstants.DISTINCT, params), true);
 			int pos = 1;
 			for (int i = 0; i < len - 1; i++) {
 				for (int j = i + 1; j < len; j++) {
-					clause[pos++] = new ProofLiteral(t.term(SMTLIBConstants.EQUALS, subParams[i], subParams[j]), true);
+					clause[pos++] = new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, params[i], params[j]), true);
 				}
 			}
 			assert pos == clause.length;
 			return clause;
 		}
-		case ProofRules.PREFIX + ProofRules.DISTINCTE: {
-			assert params.length == 1;
-			final AnnotatedTerm annotTerm = (AnnotatedTerm) params[0];
-			final Annotation[] annots = annotTerm.getAnnotations();
-			assert annots.length == 1 && annots[0].getKey().equals(ProofRules.ANNOT_POS);
-			final ApplicationTerm subterm = (ApplicationTerm) annotTerm.getSubterm();
-			assert subterm.getFunction().getName() == SMTLIBConstants.DISTINCT;
-			final Term[] subParams = subterm.getParameters();
-			final Object[] positions = (Object[]) annots[0].getValue();
+		case ":" + ProofRules.DISTINCTE: {
+			assert annots.length == 2;
+			final Term[] params = (Term[]) annots[0].getValue();
+			assert annots[1].getKey().equals(ProofRules.ANNOT_POS);
+			final Integer[] positions = (Integer[]) annots[1].getValue();
 			assert positions.length == 2;
-			final int pos0 = (Integer) positions[0];
-			final int pos1 = (Integer) positions[1];
-			assert 0 <= pos0 && pos0 < subParams.length && 0 <= pos1 && pos1 < subParams.length;
-			final Theory t = axiom.getTheory();
+			final int pos0 = positions[0];
+			final int pos1 = positions[1];
+			assert 0 <= pos0 && pos0 < params.length && 0 <= pos1 && pos1 < params.length;
 
 			// ~(distinct t1 ... tn), ~(= ti tj)
-			return new ProofLiteral[] { new ProofLiteral(subterm, false),
-					new ProofLiteral(t.term(SMTLIBConstants.EQUALS, subParams[pos0], subParams[pos1]), false) };
+			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.DISTINCT, params), false),
+					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, params[pos0], params[pos1]), false) };
 		}
-		case ProofRules.PREFIX + ProofRules.ITE1: {
-			assert params.length == 1;
-			final ApplicationTerm subterm = (ApplicationTerm) params[0];
-			assert subterm.getFunction().getName() == SMTLIBConstants.ITE;
-			final Term[] subParams = subterm.getParameters();
-			assert subParams.length == 3;
-			final Theory t = axiom.getTheory();
+		case ":" + ProofRules.ITE1: {
+			assert annots.length == 1;
+			final Term[] params = (Term[]) annots[0].getValue();
+			assert params.length == 3;
+			final Term ite = theory.term(SMTLIBConstants.ITE, params);
 
 			// (= (ite c t e) t), ~c
-			return new ProofLiteral[] { new ProofLiteral(t.term(SMTLIBConstants.EQUALS, params[0], subParams[1]), true),
-					new ProofLiteral(subParams[0], false) };
+			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, ite, params[1]), true),
+					new ProofLiteral(params[0], false) };
 		}
-		case ProofRules.PREFIX + ProofRules.ITE2: {
-			assert params.length == 1;
-			final ApplicationTerm subterm = (ApplicationTerm) params[0];
-			assert subterm.getFunction().getName() == SMTLIBConstants.ITE;
-			final Term[] subParams = subterm.getParameters();
-			assert subParams.length == 3;
-			final Theory t = axiom.getTheory();
+		case ":" + ProofRules.ITE2: {
+			assert annots.length == 1;
+			final Term[] params = (Term[]) annots[0].getValue();
+			assert params.length == 3;
+			final Term ite = theory.term(SMTLIBConstants.ITE, params);
 
 			// (= (ite c t e) e), c
-			return new ProofLiteral[] { new ProofLiteral(t.term(SMTLIBConstants.EQUALS, params[0], subParams[2]), true),
-					new ProofLiteral(subParams[0], true) };
+			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, ite, params[2]), true),
+					new ProofLiteral(params[0], true) };
 		}
-		case ProofRules.PREFIX + ProofRules.DELANNOT: {
-			assert params.length == 1;
-			final AnnotatedTerm annotTerm = (AnnotatedTerm) params[0];
-			final Term subterm = annotTerm.getSubterm();
-			final Theory t = axiom.getTheory();
+		case ":" + ProofRules.DELANNOT: {
+			final Term subterm = (Term) annots[0].getValue();
+			final Annotation[] subAnnots = new Annotation[annots.length - 1];
+			System.arraycopy(annots, 1, subAnnots, 0, subAnnots.length);
+			final Term annotTerm = theory.annotatedTerm(subAnnots, subterm);
 
 			// (= (! t :...) t)
-			return new ProofLiteral[] { new ProofLiteral(t.term(SMTLIBConstants.EQUALS, annotTerm, subterm), true) };
+			return new ProofLiteral[] {
+					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, annotTerm, subterm), true) };
 		}
-		case ProofRules.PREFIX + ProofRules.REFL: {
+		case ":" + ProofRules.REFL: {
+			assert annots.length == 1;
+			final Term[] params = (Term[]) annots[0].getValue();
 			assert params.length == 1;
-			final Theory t = axiom.getTheory();
 
 			// (= a a)
-			return new ProofLiteral[] { new ProofLiteral(t.term(SMTLIBConstants.EQUALS, params[0], params[0]), true) };
+			return new ProofLiteral[] {
+					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, params[0], params[0]), true) };
 		}
-		case ProofRules.PREFIX + ProofRules.SYMM: {
-			assert params.length == 1;
-			final ApplicationTerm subterm = (ApplicationTerm) params[0];
-			assert subterm.getFunction().getName() == SMTLIBConstants.EQUALS;
-			final Term subParams[] = subterm.getParameters();
-			assert subParams.length == 2;
-			final Theory t = axiom.getTheory();
+		case ":" + ProofRules.SYMM: {
+			assert annots.length == 1;
+			final Term[] params = (Term[]) annots[0].getValue();
+			assert params.length == 2;
 
 			// (= a0 a1), ~(= a1 a0)
-			return new ProofLiteral[] { new ProofLiteral(subterm, true),
-					new ProofLiteral(t.term(SMTLIBConstants.EQUALS, subParams[1], subParams[0]), false) };
+			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, params), true),
+					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, params[1], params[0]), false) };
 		}
-		case ProofRules.PREFIX + ProofRules.TRANS: {
-			assert params.length == 1;
-			final ApplicationTerm subterm = (ApplicationTerm) params[0];
-			assert subterm.getFunction().getName() == SMTLIBConstants.EQUALS;
-			final Term subParams[] = subterm.getParameters();
-			assert subParams.length > 2;
-			final int len = subParams.length;
-			final Theory t = axiom.getTheory();
+		case ":" + ProofRules.TRANS: {
+			assert annots.length == 1;
+			final Term[] params = (Term[]) annots[0].getValue();
+			assert params.length > 2;
+			final int len = params.length;
 
 			// (= a0 alen-1), ~(= a0 a1), ..., ~(= alen-2 alen-1)
 			final ProofLiteral[] clause = new ProofLiteral[len];
-			clause[0] = new ProofLiteral(t.term(SMTLIBConstants.EQUALS, subParams[0], subParams[len - 1]), true);
+			clause[0] = new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, params[0], params[len - 1]), true);
 			for (int i = 0; i < len - 1; i++) {
-				clause[i + 1] = new ProofLiteral(t.term(SMTLIBConstants.EQUALS, subParams[i], subParams[i + 1]), false);
+				clause[i + 1] = new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, params[i], params[i + 1]), false);
 			}
 			return clause;
 		}
-		case ProofRules.PREFIX + ProofRules.CONG: {
-			assert params.length == 1;
-			final ApplicationTerm subterm = (ApplicationTerm) params[0];
-			assert subterm.getFunction().getName() == SMTLIBConstants.EQUALS;
-			final Term subParams[] = subterm.getParameters();
-			assert subParams.length == 2;
-			final ApplicationTerm appTerm0 = (ApplicationTerm) subParams[0];
-			final ApplicationTerm appTerm1 = (ApplicationTerm) subParams[1];
-			assert (appTerm0.getFunction() == appTerm1.getFunction());
-			final Term[] params0 = appTerm0.getParameters();
-			final Term[] params1 = appTerm1.getParameters();
+		case ":" + ProofRules.CONG: {
+			assert annots.length == 1;
+			final Object[] congArgs = (Object[]) annots[0].getValue();
+			assert congArgs.length == 3;
+			final FunctionSymbol func = (FunctionSymbol) congArgs[0];
+			final Term[] params0 = (Term[]) congArgs[1];
+			final Term[] params1 = (Term[]) congArgs[2];
 			assert params0.length == params1.length;
-			final Theory t = axiom.getTheory();
+			final Term app0 = theory.term(func, params0);
+			final Term app1 = theory.term(func, params1);
 
 			// (= (f a0...an) (f b0... bn)), ~(= a0 b0), ..., ~(= an bn)
 			final ProofLiteral[] clause = new ProofLiteral[params0.length + 1];
-			clause[0] = new ProofLiteral(subterm, true);
+			clause[0] = new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, app0, app1), true);
 			for (int i = 0; i < params0.length; i++) {
-				clause[i + 1] = new ProofLiteral(t.term(SMTLIBConstants.EQUALS, params0[i], params1[i]), false);
+				clause[i + 1] = new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, params0[i], params1[i]), false);
 			}
 			return clause;
 		}
-		case ProofRules.PREFIX + ProofRules.EXPAND: {
-			assert params.length == 1;
-			final Theory t = axiom.getTheory();
-			final ApplicationTerm subterm = (ApplicationTerm) params[0];
-			final Term[] subparams = subterm.getParameters();
-			final FunctionSymbol func = subterm.getFunction();
+		case ":" + ProofRules.EXPAND: {
+			assert annots.length == 1;
+			final Object[] expandArgs = (Object[]) annots[0].getValue();
+			assert expandArgs.length == 2;
+			final FunctionSymbol func = (FunctionSymbol) expandArgs[0];
+			final Term[] params = (Term[]) expandArgs[1];
+			final Term app = theory.term(func, params);
 			Term rhs;
 			if (func.getDefinition() != null) {
-				rhs = t.let(func.getDefinitionVars(), subparams, func.getDefinition());
+				rhs = theory.let(func.getDefinitionVars(), params, func.getDefinition());
 				rhs = new FormulaUnLet().unlet(rhs);
-			} else if (func.isLeftAssoc() && subparams.length > 2) {
-				rhs = subparams[0];
-				for (int i = 1; i < subparams.length; i++) {
-					rhs = t.term(func, rhs, subparams[i]);
+			} else if (func.isLeftAssoc() && params.length > 2) {
+				rhs = params[0];
+				for (int i = 1; i < params.length; i++) {
+					rhs = theory.term(func, rhs, params[i]);
 				}
-			} else if (func.isRightAssoc() && subparams.length > 2) {
-				rhs = subparams[subparams.length - 1];
-				for (int i = subparams.length - 2; i >= 0; i--) {
-					rhs = t.term(func, subparams[i], rhs);
+			} else if (func.isRightAssoc() && params.length > 2) {
+				rhs = params[params.length - 1];
+				for (int i = params.length - 2; i >= 0; i--) {
+					rhs = theory.term(func, params[i], rhs);
 				}
-			} else if (func.isChainable() && subparams.length > 2) {
-				final Term[] chain = new Term[subparams.length - 1];
+			} else if (func.isChainable() && params.length > 2) {
+				final Term[] chain = new Term[params.length - 1];
 				for (int i = 0; i < chain.length; i++) {
-					chain[i] = t.term(func, subparams[i], subparams[i + 1]);
+					chain[i] = theory.term(func, params[i], params[i + 1]);
 				}
-				rhs = t.term("and", chain);
+				rhs = theory.term("and", chain);
 			} else {
 				throw new AssertionError();
 			}
-			return new ProofLiteral[] { new ProofLiteral(t.term("=", subterm, rhs), true) };
+			return new ProofLiteral[] { new ProofLiteral(theory.term("=", app, rhs), true) };
 		}
 		default:
 			throw new AssertionError("Unknown axiom " + axiom);
 		}
+	}
+
+	public ProofLiteral[] checkAssert(final Term axiom) {
+		final ApplicationTerm appTerm = (ApplicationTerm) axiom;
+		final Term[] params = appTerm.getParameters();
+		assert appTerm.getFunction().getName() == ProofRules.PREFIX + ProofRules.ASSUME;
+		assert params.length == 1;
+		if (!mAssertions.contains(params[0])) {
+			reportWarning("Unknown assumption: " + params[0]);
+		}
+		return new ProofLiteral[] { new ProofLiteral(params[0], true) };
 	}
 
 	public static class ProofLiteral {
@@ -679,14 +656,11 @@ public class MinimalProofChecker extends NonRecursive {
 	 * calls the walk function.
 	 */
 	static class ProofWalker implements Walker {
-		final ApplicationTerm mTerm;
+		final Term mTerm;
 
-		public ProofWalker(Term term) {
+		public ProofWalker(final Term term) {
 			assert term.getSort().getName().equals(ProofRules.PREFIX + ProofRules.PROOF);
-			while (term instanceof AnnotatedTerm) {
-				term = ((AnnotatedTerm) term).getSubterm();
-			}
-			mTerm = (ApplicationTerm) term;
+			mTerm = term;
 		}
 
 		@Override
@@ -703,7 +677,6 @@ public class MinimalProofChecker extends NonRecursive {
 		final ApplicationTerm mTerm;
 
 		public ResolutionWalker(final ApplicationTerm term) {
-			assert ProofRules.isProofRule(ProofRules.RES, term);
 			mTerm = term;
 		}
 
