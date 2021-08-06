@@ -24,40 +24,23 @@ import java.util.ArrayDeque;
 import de.uni_freiburg.informatik.ultimate.util.HashUtils;
 
 /**
- * Represents a quantified formula in SMTLIB 2.  This class represents the
- * SMTLIB 2 construct
- * <pre>
- * (forall ((var_1 sort_1) ... (var_n sort_n)) ...)
- * </pre> or
- * <pre>
- * (exists ((var_1 sort_1) ... (var_n sort_n)) ...)
- * </pre>.
+ * Represents a lambda term SMTLIB 3. This class represents the SMTLIB 3
+ * construct
  *
- * A quantified formula is created by
- * {@link Script#quantifier(int, TermVariable[], Term, Term[][])}.
+ * <pre>
+ * (lambda ((var_1 sort_1) ... (var_n sort_n)) term)
+ * </pre>
  *
  * @author hoenicke
  */
-public class QuantifiedFormula extends Term {
-	public static final int EXISTS = 0;
-	public static final int FORALL = 1;
-
-	private final int mQuantifier;
+public class LambdaTerm extends Term {
 	private final TermVariable[] mVariables;
-	private final Term mSubFormula;
+	private final Term mSubTerm;
 
-	QuantifiedFormula(final int quant, final TermVariable[] vars, final Term f, final int hash) {
+	LambdaTerm(final TermVariable[] vars, final Term subterm, final int hash) {
 		super(hash);
-		mQuantifier = quant;
 		mVariables = vars;
-		mSubFormula = f;
-	}
-
-	/**
-	 * @return the quantifier
-	 */
-	public int getQuantifier() {
-		return mQuantifier;
+		mSubTerm = subterm;
 	}
 
 	/**
@@ -72,26 +55,24 @@ public class QuantifiedFormula extends Term {
 	 * Get the formula under the quantifier.
 	 * @return the sub-formula.
 	 */
-	public Term getSubformula() {
-		return mSubFormula;
+	public Term getSubterm() {
+		return mSubTerm;
 	}
 
 	@Override
 	public Sort getSort() {
-		return mSubFormula.getSort();
+		return mSubTerm.getSort();
 	}
 
-	public static final int hashQuantifier(
-			final int quant, final TermVariable[] vars, final Term f) {
-		return //Arrays.hashCode(vars) ^ f.hashCode() ^ quant;
-			HashUtils.hashJenkins(f.hashCode() ^ quant, (Object[]) vars);
+	public static final int hashLambda(final TermVariable[] vars, final Term f) {
+		return HashUtils.hashJenkins(f.hashCode(), (Object[]) vars);
 	}
 
 	@Override
 	public void toStringHelper(final ArrayDeque<Object> mTodo) {
 		// Add subterm to stack.
 		mTodo.addLast(")");
-		mTodo.addLast(getSubformula());
+		mTodo.addLast(getSubterm());
 		mTodo.addLast(")) ");
 
 		// Add variables
@@ -103,7 +84,6 @@ public class QuantifiedFormula extends Term {
 		mTodo.addLast(vars[0].getSort());
 
 		// Print out the quantifier.
-		mTodo.addLast("(" + (getQuantifier() == EXISTS ? "exists" : "forall")
-				+ " ((" + vars[0] + " ");
+		mTodo.addLast("(lambda ((" + vars[0] + " ");
 	}
 }

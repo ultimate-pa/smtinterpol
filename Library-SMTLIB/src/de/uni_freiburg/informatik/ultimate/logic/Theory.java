@@ -99,7 +99,6 @@ public class Theory {
 	private final ScopedHashMap<String, SortSymbol> mDeclaredSorts = new ScopedHashMap<>();
 	private final ScopedHashMap<String, FunctionSymbol> mDeclaredFuns = new ScopedHashMap<>();
 
-	private final UnifyHash<QuantifiedFormula> mQfCache = new UnifyHash<>();
 	private final UnifyHash<LetTerm> mLetCache = new UnifyHash<>();
 	private final UnifyHash<Term> mTermCache = new UnifyHash<>();
 	private final UnifyHash<TermVariable> mTvUnify = new UnifyHash<>();
@@ -314,18 +313,39 @@ public class Theory {
 		return term("ite", c, t, e);
 	}
 
+	private Term lambda(final TermVariable[] vars, final Term subterm) {
+		if (subterm == mTrue || subterm == mFalse) {
+			return subterm;
+		}
+		final int hash = LambdaTerm.hashLambda(vars, subterm);
+		for (final Term term : mTermCache.iterateHashCode(hash)) {
+			if (term instanceof LambdaTerm) {
+				final LambdaTerm lambda = (LambdaTerm) term;
+				if (lambda.getSubterm() == subterm && Arrays.equals(lambda.getVariables(), vars)) {
+					return lambda;
+				}
+			}
+		}
+		final LambdaTerm lambda = new LambdaTerm(vars, subterm, hash);
+		mTermCache.put(hash, lambda);
+		return lambda;
+	}
+
 	private Term quantify(final int quant, final TermVariable[] vars, final Term f) {
 		if (f == mTrue || f == mFalse) {
 			return f;
 		}
 		final int hash = QuantifiedFormula.hashQuantifier(quant, vars, f);
-		for (final QuantifiedFormula qf : mQfCache.iterateHashCode(hash)) {
-			if (qf.getQuantifier() == quant && qf.getSubformula() == f && Arrays.equals(vars, qf.getVariables())) {
-				return qf;
+		for (final Term term : mTermCache.iterateHashCode(hash)) {
+			if (term instanceof QuantifiedFormula) {
+				final QuantifiedFormula qf = (QuantifiedFormula) term;
+				if (qf.getQuantifier() == quant && qf.getSubformula() == f && Arrays.equals(vars, qf.getVariables())) {
+					return qf;
+				}
 			}
 		}
 		final QuantifiedFormula qf = new QuantifiedFormula(quant, vars, f, hash);
-		mQfCache.put(hash, qf);
+		mTermCache.put(hash, qf);
 		return qf;
 	}
 
