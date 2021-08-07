@@ -109,6 +109,30 @@ public class ProofRules {
 		return mTheory.term(choose, mTheory.lambda(new TermVariable[] { tv }, formula));
 	}
 
+	public Term[] getSkolemVars(final TermVariable[] termVars, final Term subterm, final boolean isForall) {
+		final Term[] skolemTerms = new Term[termVars.length];
+		for (int i = 0; i < skolemTerms.length; i++) {
+			Term subform = subterm;
+			if (i + 1 < skolemTerms.length) {
+				final TermVariable[] remainingVars = new TermVariable[skolemTerms.length - i - 1];
+				System.arraycopy(termVars, i + 1, remainingVars, 0, remainingVars.length);
+				subform = isForall ? mTheory.forall(remainingVars, subform) : mTheory.exists(remainingVars, subform);
+			}
+			if (isForall) {
+				subform = mTheory.term(SMTLIBConstants.NOT, subform);
+			}
+			if (i > 0) {
+				final TermVariable[] precedingVars = new TermVariable[i];
+				final Term[] precedingSkolems = new Term[i];
+				System.arraycopy(termVars, 0, precedingVars, 0, i);
+				System.arraycopy(skolemTerms, 0, precedingSkolems, 0, i);
+				subform = mTheory.let(precedingVars, precedingSkolems, subform);
+			}
+			skolemTerms[i] = choose(termVars[i], subform);
+		}
+		return skolemTerms;
+	}
+
 	private Annotation[] annotate(final String rule, final Term[] terms, final Annotation... moreAnnots) {
 		final Annotation[] annots = new Annotation[moreAnnots.length + 1];
 		annots[0] = new Annotation(rule, terms);
@@ -235,7 +259,7 @@ public class ProofRules {
 				mAxiom);
 	}
 
-	public Term existsElim(final Term[] subst, final QuantifiedFormula existsTerm) {
+	public Term existsElim(final QuantifiedFormula existsTerm) {
 		assert existsTerm.getQuantifier() == QuantifiedFormula.EXISTS;
 		return mTheory.annotatedTerm(
 				annotate(":" + EXISTSE,
@@ -311,10 +335,10 @@ public class ProofRules {
 		return mTheory.annotatedTerm(annotate(":" + ITE2, ((ApplicationTerm) iteTerm).getParameters()), mAxiom);
 	}
 
-	public Term delAnnot(final AnnotatedTerm annotTerm) {
-		final Annotation[] termAnnots = annotTerm.getAnnotations();
+	public Term delAnnot(final Term annotTerm) {
+		final Annotation[] termAnnots = ((AnnotatedTerm) annotTerm).getAnnotations();
 		final Annotation[] annots = new Annotation[termAnnots.length + 1];
-		annots[0] = new Annotation(":" + DELANNOT, annotTerm.getSubterm());
+		annots[0] = new Annotation(":" + DELANNOT, ((AnnotatedTerm) annotTerm).getSubterm());
 		System.arraycopy(termAnnots, 0, annots, 1, termAnnots.length);
 		return mTheory.annotatedTerm(annots, mAxiom);
 	}
@@ -498,7 +522,7 @@ public class ProofRules {
 						mTodo.add(")");
 						mTodo.add(lambda.getSubterm());
 						mTodo.add(") ");
-						for (int i = termVars.length; i >= 0; i--) {
+						for (int i = termVars.length - 1; i >= 0; i--) {
 							mTodo.add(")");
 							mTodo.add(values[i]);
 							mTodo.add(" ");

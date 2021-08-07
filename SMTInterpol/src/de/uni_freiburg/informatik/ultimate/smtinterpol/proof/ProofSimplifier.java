@@ -585,7 +585,7 @@ public class ProofSimplifier extends TermTransformer {
 		if (isApplication("ite", lhs) || isApplication("or", lhs) || isApplication("xor", lhs)
 				|| isApplication("=>", lhs) || isApplication("and", lhs) || lhs instanceof MatchTerm) {
 			assert rhs instanceof AnnotatedTerm;
-			return mProofRules.resolutionRule(theory.term("=", rhs, lhs), mProofRules.delAnnot((AnnotatedTerm) rhs),
+			return mProofRules.resolutionRule(theory.term("=", rhs, lhs), mProofRules.delAnnot(rhs),
 					mProofRules.symm(lhs, rhs));
 		}
 
@@ -598,7 +598,7 @@ public class ProofSimplifier extends TermTransformer {
 			final Term unquoteRhs = unquote(rhs);
 			final Term equality2 = theory.term("=", unquoteRhs, rhs);
 			final Term proof2 = mProofRules.resolutionRule(theory.term("=", rhs, unquoteRhs),
-					mProofRules.delAnnot((AnnotatedTerm) rhs), mProofRules.symm(unquoteRhs, rhs));
+					mProofRules.delAnnot(rhs), mProofRules.symm(unquoteRhs, rhs));
 
 			assert isApplication("=", unquoteRhs);
 			final Term[] rhsArgs = ((ApplicationTerm) unquoteRhs).getParameters();
@@ -676,7 +676,7 @@ public class ProofSimplifier extends TermTransformer {
 			final Term unquoteRhs = unquote(rhs);
 			final Term equality2 = theory.term("=", unquoteRhs, rhs);
 			final Term proof2 = mProofRules.resolutionRule(theory.term("=", rhs, unquoteRhs),
-					mProofRules.delAnnot((AnnotatedTerm) rhs), mProofRules.symm(unquoteRhs, rhs));
+					mProofRules.delAnnot(rhs), mProofRules.symm(unquoteRhs, rhs));
 
 			assert isApplication("=", unquoteRhs);
 			final Term[] rhsParams = ((ApplicationTerm) unquoteRhs).getParameters();
@@ -1380,7 +1380,7 @@ public class ProofSimplifier extends TermTransformer {
 				} else {
 					final Term unquotingEq = theory.term("=", literal, unquoteLiteral);
 					subProofs.put(unquoteLiteral, mProofRules.resolutionRule(unquotingEq,
-							mProofRules.delAnnot((AnnotatedTerm) literal), mProofRules.iffElim2(unquotingEq)));
+							mProofRules.delAnnot(literal), mProofRules.iffElim2(unquotingEq)));
 				}
 			}
 		}
@@ -1401,7 +1401,7 @@ public class ProofSimplifier extends TermTransformer {
 			}
 			final Term unquotingEq = theory.term("=", disEq, unquoteLiteral);
 			proof = mProofRules.resolutionRule(unquoteLiteral, proof, mProofRules.resolutionRule(unquotingEq,
-					mProofRules.delAnnot((AnnotatedTerm) disEq), mProofRules.iffElim1(unquotingEq)));
+					mProofRules.delAnnot(disEq), mProofRules.iffElim1(unquotingEq)));
 		}
 		return proof;
 	}
@@ -1435,6 +1435,54 @@ public class ProofSimplifier extends TermTransformer {
 		}
 	}
 
+	private Term convertExists(final Term[] newParams) {
+		final Theory theory = mSkript.getTheory();
+		final AnnotatedTerm annotatedTerm = (AnnotatedTerm) newParams[0];
+		final Annotation varAnnot = annotatedTerm.getAnnotations()[0];
+		assert annotatedTerm.getAnnotations().length == 1 && varAnnot.getKey() == ":vars"
+				&& (varAnnot.getValue() instanceof TermVariable[]);
+		final TermVariable[] vars = (TermVariable[]) varAnnot.getValue();
+
+		final Term subProof = annotatedTerm.getSubterm();
+		/* Check that subproof is an equality */
+		final ApplicationTerm subEquality = (ApplicationTerm) provedTerm((AnnotatedTerm) subProof);
+		assert isApplication("=", subEquality);
+
+		Term proof = subproof((AnnotatedTerm) subProof);
+
+		/* compute the proven equality (= (exists (...) lhs) (exists (...) rhs)) */
+		final FormulaUnLet unletter = new FormulaUnLet();
+		final Term lhs = subEquality.getParameters()[0];
+		final Term rhs = subEquality.getParameters()[1];
+
+		final Term[] skolemLhs = mProofRules.getSkolemVars(vars, lhs, false);
+		final Term[] skolemRhs = mProofRules.getSkolemVars(vars, rhs, false);
+		final Term letLhsEq = unletter.unlet(theory.let(vars, skolemLhs, subEquality));
+		final Term letLhsLhs = unletter.unlet(theory.let(vars, skolemLhs, lhs));
+		final Term letLhsRhs = unletter.unlet(theory.let(vars, skolemLhs, rhs));
+		final Term letLhsProof = unletter.unlet(theory.let(vars, skolemLhs, proof));
+		final QuantifiedFormula exLhs = (QuantifiedFormula) theory.exists(vars, lhs);
+		final Term letRhsEq = unletter.unlet(theory.let(vars, skolemRhs, subEquality));
+		final Term letRhsRhs = unletter.unlet(theory.let(vars, skolemRhs, rhs));
+		final Term letRhsLhs = unletter.unlet(theory.let(vars, skolemRhs, lhs));
+		final Term letRhsProof = unletter.unlet(theory.let(vars, skolemRhs, proof));
+		final QuantifiedFormula exRhs = (QuantifiedFormula) theory.exists(vars, rhs);
+		final Term newEquality = theory.term("=", exLhs, exRhs);
+
+		final Term proof1 = mProofRules.resolutionRule(letRhsRhs, mProofRules.existsElim(exRhs),
+				mProofRules.resolutionRule(letRhsLhs,
+						mProofRules.resolutionRule(letRhsEq, letRhsProof, mProofRules.iffElim1(letRhsEq)),
+						mProofRules.existsIntro(skolemRhs, exLhs)));
+		final Term proof2 = mProofRules.resolutionRule(letLhsLhs, mProofRules.existsElim(exLhs),
+				mProofRules.resolutionRule(letLhsRhs,
+						mProofRules.resolutionRule(letLhsEq, letLhsProof, mProofRules.iffElim2(letLhsEq)),
+						mProofRules.existsIntro(skolemLhs, exRhs)));
+		proof = mProofRules.resolutionRule(exLhs,
+				mProofRules.resolutionRule(exRhs, mProofRules.iffIntro1(newEquality), proof1),
+				mProofRules.resolutionRule(exRhs, proof2, mProofRules.iffIntro2(newEquality)));
+		return annotateProved(newEquality, proof);
+	}
+
 	private Term convertAllIntro(final Term[] newParams) {
 		final AnnotatedTerm annotatedTerm = (AnnotatedTerm) newParams[0];
 		final Annotation varAnnot = annotatedTerm.getAnnotations()[0];
@@ -1465,33 +1513,21 @@ public class ProofSimplifier extends TermTransformer {
 			}
 		}
 		final TermVariable[] vars = (TermVariable[]) varAnnot.getValue();
-		final Term[] skolemTerms = new Term[vars.length];
-		for (int i = 0; i < skolemTerms.length; i++) {
-			Term subformula = provedClause;
-			if (i < lits.length - 1) {
-				final TermVariable[] remainingVars = new TermVariable[lits.length - i - 1];
-				System.arraycopy(vars, i + 1, remainingVars, 0, remainingVars.length);
-				subformula = mSkript.quantifier(Script.FORALL, remainingVars, subformula);
-			}
-			subformula = mSkript.term(SMTLIBConstants.NOT, subformula);
-			if (i > 0) {
-				final TermVariable[] precedingVars = new TermVariable[i];
-				final Term[] precedingSkolems = new Term[i];
-				System.arraycopy(vars, 0, precedingVars, 0, i);
-				System.arraycopy(skolemTerms, 0, precedingSkolems, 0, i);
-				subformula = mSkript.let(precedingVars, precedingSkolems, subformula);
-			}
-			skolemTerms[i] = mProofRules.choose(vars[i], subformula);
-		}
+		final Term[] skolemTerms = mProofRules.getSkolemVars(vars, provedClause, true);
 		proof = mSkript.let(vars, skolemTerms, proof);
-		provedClause = mSkript.let(vars, skolemTerms, provedClause);
+		final Term lettedClause = mSkript.let(vars, skolemTerms, provedClause);
 		final FormulaUnLet unletter = new FormulaUnLet();
 		proof = unletter.unlet(proof);
-		provedClause = unletter.unlet(provedClause);
 		/* compute the resulting quantified term (forall (...) origTerm) */
 		final Term forallClause = mSkript.quantifier(Script.FORALL, vars, provedClause);
-		proof = mProofRules.resolutionRule(provedClause, proof,
+		proof = mProofRules.resolutionRule(unletter.unlet(lettedClause), proof,
 				mProofRules.forallIntro((QuantifiedFormula) forallClause));
+		/* add quoted annotation */
+		final Term quotedForallClause = mSkript.annotate(forallClause, new Annotation[] { new Annotation(":quoted", null) });
+		final Term quotedEq = mSkript.term("=", quotedForallClause, forallClause);
+		proof = mProofRules.resolutionRule(forallClause, proof,
+				mProofRules.resolutionRule(quotedEq, mProofRules.delAnnot(quotedForallClause),
+						mProofRules.iffElim1(quotedEq)));
 		return proof;
 	}
 
@@ -1532,6 +1568,10 @@ public class ProofSimplifier extends TermTransformer {
 		}
 		case ProofConstants.FN_CONG: {
 			setResult(convertCong(newParams));
+			return;
+		}
+		case ProofConstants.FN_EXISTS: {
+			setResult(convertExists(newParams));
 			return;
 		}
 		case ProofConstants.FN_REWRITE: {

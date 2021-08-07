@@ -611,26 +611,7 @@ public class MinimalProofChecker extends NonRecursive {
 			final Term[] params = (Term[]) annots[0].getValue();
 			final LambdaTerm lambda = (LambdaTerm) params[0];
 			final TermVariable[] termVars = lambda.getVariables();
-			final Term[] skolemTerms = new Term[termVars.length];
-			for (int i = 0; i < skolemTerms.length; i++) {
-				Term subform = lambda.getSubterm();
-				if (i + 1 < skolemTerms.length) {
-					final TermVariable[] remainingVars = new TermVariable[skolemTerms.length - i - 1];
-					System.arraycopy(termVars, i + 1, remainingVars, 0, remainingVars.length);
-					subform = isForall ? theory.forall(remainingVars, subform) : theory.exists(remainingVars, subform);
-				}
-				if (isForall) {
-					subform = theory.term(SMTLIBConstants.NOT, subform);
-				}
-				if (i > 0) {
-					final TermVariable[] precedingVars = new TermVariable[i];
-					final Term[] precedingSkolems = new Term[i];
-					System.arraycopy(termVars, 0, precedingVars, 0, i);
-					System.arraycopy(skolemTerms, 0, precedingSkolems, 0, i);
-					subform = theory.let(precedingVars, precedingSkolems, subform);
-				}
-				skolemTerms[i] = new ProofRules(theory).choose(termVars[i], subform);
-			}
+			final Term[] skolemTerms = new ProofRules(theory).getSkolemVars(termVars, lambda.getSubterm(), isForall);
 			final Term letted = theory.let(termVars, skolemTerms, lambda.getSubterm());
 			final Term quant = isForall ? theory.forall(termVars, lambda.getSubterm())
 					: theory.exists(termVars, lambda.getSubterm());
