@@ -18,6 +18,7 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.proof;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -38,6 +39,7 @@ import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
+import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermTransformer;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
@@ -830,9 +832,10 @@ public class ProofSimplifier extends TermTransformer {
 			final Term[] lhsParams = ((ApplicationTerm) lhs).getParameters();
 			assert lhsParams.length == 2;
 			if (isApplication("false", rhs)) {
-				assert checkTrivialDisequality(lhsParams[0], lhsParams[1]);
-				// TODO
-				return mProofRules.asserted(theory.term("=", lhs, rhs));
+				final Term proofNotLhs = proofTrivialDisequality(lhsParams[0], lhsParams[1]);
+				return mProofRules.resolutionRule(rhs,
+						mProofRules.resolutionRule(lhs, mProofRules.iffIntro1(theory.term("=", lhs, rhs)), proofNotLhs),
+						mProofRules.falseElim());
 			} else if (isApplication("true", rhs)) {
 				// since we canonicalize SMTAffineTerms, they can only be equal if they are
 				// identical.
@@ -1495,8 +1498,6 @@ public class ProofSimplifier extends TermTransformer {
 		assert isApplication("=", goalEquality) : "Goal equality is not an equality in CC lemma";
 		final Term[] sides = ((ApplicationTerm) goalEquality).getParameters();
 		assert sides.length == 2 : "Expected binary equality in CC lemma";
-		assert disEq != null || checkTrivialDisequality(sides[0], sides[1]) : "Did not find goal equality in CC lemma";
-		// TODO handle trivialDiseq.
 		assert new SymmetricPair<>(mainPath[0], mainPath[mainPath.length - 1])
 				.equals(new SymmetricPair<>(sides[0], sides[1])) : "Did not explain main equality " + goalEquality;
 
@@ -1556,10 +1557,8 @@ public class ProofSimplifier extends TermTransformer {
 			proof = mProofRules.resolutionRule(subproof.getKey(), subproof.getValue(), proof);
 		}
 		if (disEq == null) {
-			// TODO trivial diseq
-			final Term notEq = theory.term("not", mainPathEquality);
 			proof = mProofRules.resolutionRule(mainPathEquality, proof,
-					mProofRules.resolutionRule(notEq, mProofRules.asserted(notEq), mProofRules.notElim(notEq)));
+					proofTrivialDisequality(mainPath[0], mainPath[mainPath.length - 1]));
 		} else {
 			final Term unquoteLiteral = unquote(disEq);
 			if (unquoteLiteral != mainPathEquality) {
@@ -1887,16 +1886,50 @@ public class ProofSimplifier extends TermTransformer {
 	 * @param second the right-hand side of the equality
 	 * @return true if the equality is trivially not satisfied.
 	 */
-	boolean checkTrivialDisequality(final Term first, final Term second) {
-		if (!first.getSort().isNumericSort()) {
-			return false;
-		}
+	private Term proofTrivialDisequality(final Term first, final Term second) {
+		final Theory theory = first.getTheory();
 		final SMTAffineTerm diff = new SMTAffineTerm(first);
 		diff.add(Rational.MONE, second);
 		if (diff.isConstant()) {
-			return !diff.getConstant().equals(Rational.ZERO);
+			if (diff.getConstant().signum() > 0) {
+				final Term leqLhs = theory.term(SMTLIBConstants.LEQ, first, second);
+				return mProofRules.resolutionRule(leqLhs, mProofRules.eqLeq(first, second),
+						mProofRules.farkas(new Term[] { leqLhs }, new BigInteger[] { BigInteger.ONE }));
+			} else {
+				assert diff.getConstant().signum() < 0;
+				final Term leqLhs = theory.term(SMTLIBConstants.LEQ, second, first);
+				final Term eqSwapped = theory.term(SMTLIBConstants.EQUALS, second, first);
+				return mProofRules.resolutionRule(eqSwapped, mProofRules.symm(second, first),
+						mProofRules.resolutionRule(leqLhs, mProofRules.eqLeq(second, first),
+								mProofRules.farkas(new Term[] { leqLhs }, new BigInteger[] { BigInteger.ONE })));
+			}
 		} else {
-			return diff.isAllIntSummands() && !diff.getConstant().div(diff.getGcd()).isIntegral();
+			final Rational gcd = diff.getGcd();
+			diff.div(gcd);
+			final Rational bound = diff.getConstant().negate();
+			assert diff.isAllIntSummands() && !bound.isIntegral();
+			final Sort intSort = theory.getSort(SMTLIBConstants.INT);
+			diff.add(bound);
+			final Term intVar = diff.toTerm(intSort);
+			final Term floorBound = bound.floor().toTerm(intSort);
+			final Term ceilBound = bound.ceil().toTerm(intSort);
+			assert ceilBound != floorBound;
+			// show (ceil(bound) <= intVar) || (intVar <= floor(bound)
+			final Term geqCeil = theory.term(SMTLIBConstants.LEQ, ceilBound, intVar);
+			final Term leqFloor = theory.term(SMTLIBConstants.LEQ, intVar, floorBound);
+			final Term proofIntCase = mProofRules.resolutionRule(theory.term(SMTLIBConstants.LT, intVar, ceilBound),
+					mProofRules.totality(ceilBound, intVar), mProofRules.ltInt(intVar, ceilBound));
+			// show inequality in both cases
+			final Term leqLhs = theory.term(SMTLIBConstants.LEQ, first, second);
+			final Term geqLhs = theory.term(SMTLIBConstants.LEQ, second, first);
+			final Term eqSwapped = theory.term(SMTLIBConstants.EQUALS, second, first);
+			final Term caseCeil = mProofRules.resolutionRule(leqLhs, mProofRules.eqLeq(first, second), mProofRules
+					.farkas(new Term[] { leqLhs, geqCeil }, new BigInteger[] { gcd.denominator(), gcd.numerator() }));
+			final Term caseFloor = mProofRules.resolutionRule(eqSwapped, mProofRules.symm(second, first),
+					mProofRules.resolutionRule(geqLhs, mProofRules.eqLeq(second, first), mProofRules.farkas(
+							new Term[] { geqLhs, leqFloor }, new BigInteger[] { gcd.denominator(), gcd.numerator() })));
+			return mProofRules.resolutionRule(leqFloor, mProofRules.resolutionRule(geqCeil, proofIntCase, caseCeil),
+					caseFloor);
 		}
 	}
 
@@ -1918,4 +1951,13 @@ public class ProofSimplifier extends TermTransformer {
 			return new Term[] { clauseTerm };
 		}
 	}
+
+	private Term buildIffProof(final Term equality, final Term proofLeftToRight, final Term proofRightToLeft) {
+		final Term[] sides = ((ApplicationTerm) equality).getParameters();
+		assert sides.length == 2;
+		return mProofRules.resolutionRule(sides[1],
+				mProofRules.resolutionRule(sides[0], mProofRules.iffIntro1(equality), proofLeftToRight),
+				mProofRules.resolutionRule(sides[0], proofRightToLeft, mProofRules.iffIntro1(equality)));
+	}
+
 }

@@ -18,6 +18,7 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.proof;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Random;
@@ -31,10 +32,12 @@ import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
+import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
 
@@ -68,18 +71,49 @@ public class ProofSimplifierTest {
 		return o;
 	}
 
-	public Term[] generateDummyTerms(final int len, final Sort sort) {
+	public Term[] generateDummyTerms(final String name, final int len, final Sort sort) {
 		final Term[] terms = new Term[len];
 		for (int i = 0; i < len; i++) {
-			mSmtInterpol.declareFun("x" + i, new Sort[0], sort);
-			terms[i] = mSmtInterpol.term("x" + i);
+			mSmtInterpol.declareFun(name + i, new Sort[0], sort);
+			terms[i] = mSmtInterpol.term(name + i);
 		}
 		return terms;
 	}
 
+	public Term generateTransitivityInt(final int len, final int swapFlags) {
+		final Sort intSort = mSmtInterpol.sort("Int");
+		final Term[] terms = generateDummyTerms("x", len, intSort);
+		final Term[] eqs = new Term[len];
+		final SMTAffineTerm affine = new SMTAffineTerm();
+		affine.add((swapFlags & (1 << (len - 1))) != 0 ? Rational.ONE : Rational.MONE, terms[0]);
+		affine.add(Rational.ONE);
+		terms[len - 1] = affine.toTerm(intSort);
+		for (int i = 0; i < len; i++) {
+			if (i > 0) {
+				eqs[i - 1] = (swapFlags & (1 << (i - 1))) != 0 ? mTheory.term("=", terms[i - 1], terms[i])
+						: mTheory.term("=", terms[i], terms[i - 1]);
+			}
+		}
+		eqs[len - 1] = (swapFlags & (1 << (len - 1))) != 0 ? mTheory.term("=", terms[0], terms[len - 1])
+				: mTheory.term("=", terms[len - 1], terms[0]);
+		final Term[] quotedEqs = new Term[len];
+		for (int i = 0; i < len; i++) {
+			quotedEqs[i] = mSmtInterpol.annotate(eqs[i], CCEquality.QUOTED_CC);
+		}
+		final Term[] orParams = new Term[len - 1];
+		for (int i = 0; i < len - 1; i++) {
+			orParams[i] = mSmtInterpol.term("not", quotedEqs[i]);
+		}
+		final Term clause = mSmtInterpol.term("or", (Term[]) shuffle(orParams));
+		final Object[] subannots = new Object[] { quotedEqs[len - 1], ":subpath", terms };
+		final Annotation[] lemmaAnnots = new Annotation[] { new Annotation(":CC", subannots) };
+		final Term lemma = mSmtInterpol.term(ProofConstants.FN_LEMMA, mSmtInterpol.annotate(clause, lemmaAnnots));
+		return lemma;
+	}
+
 	public Term generateTransitivity(final int len, final int swapFlags) {
 		final Sort U = mSmtInterpol.sort("U");
-		final Term[] terms = generateDummyTerms(len, U);
+		final Term[] terms = generateDummyTerms("x", len, U);
 		final Term[] eqs   = new Term[len];
 		for (int i = 0; i < len; i++) {
 			if (i > 0) {
@@ -127,12 +161,16 @@ public class ProofSimplifierTest {
 	public void testCCLemma() {
 		for (int len = 3; len < 5; len++) {
 			for (int flags = 0; flags < (1 << len); flags++) {
-				mSmtInterpol.push(1);
-				final Term transLemma = generateTransitivity(len, flags);
-				final Term clause = ((AnnotatedTerm) ((ApplicationTerm) transLemma).getParameters()[0]).getSubterm();
-				final Term[] orParams = ((ApplicationTerm) clause).getParameters();
-				checkLemmaOrRewrite(transLemma, orParams);
-				mSmtInterpol.pop(1);
+				for (int i = 0; i < 2; i++) {
+					mSmtInterpol.push(1);
+					final Term transLemma = i == 0 ? generateTransitivity(len, flags)
+							: generateTransitivityInt(len, flags);
+					final Term clause = ((AnnotatedTerm) ((ApplicationTerm) transLemma).getParameters()[0])
+							.getSubterm();
+					final Term[] orParams = ((ApplicationTerm) clause).getParameters();
+					checkLemmaOrRewrite(transLemma, orParams);
+					mSmtInterpol.pop(1);
+				}
 			}
 		}
 	}
@@ -141,7 +179,7 @@ public class ProofSimplifierTest {
 	public void testEqSameRewrite() {
 		mSmtInterpol.push(1);
 		final Sort U = mSmtInterpol.sort("U");
-		final Term[] terms = generateDummyTerms(5, U);
+		final Term[] terms = generateDummyTerms("x", 5, U);
 
 		for (int i = 0; i < 1000; i++) {
 			final int len = rng.nextInt(10) + 2;
@@ -167,7 +205,7 @@ public class ProofSimplifierTest {
 
 		{
 			mSmtInterpol.push(1);
-			final Term[] terms = generateDummyTerms(5, mSmtInterpol.sort("Bool"));
+			final Term[] terms = generateDummyTerms("x", 5, mSmtInterpol.sort("Bool"));
 			final Term equality = mSmtInterpol.term("=", mSmtInterpol.term("distinct", terms),
 					mSmtInterpol.term(SMTLIBConstants.FALSE));
 			final Term rewriteEqSimp = mSmtInterpol.term(ProofConstants.FN_REWRITE,
@@ -178,7 +216,7 @@ public class ProofSimplifierTest {
 
 		{
 			mSmtInterpol.push(1);
-			final Term[] terms = generateDummyTerms(5, mSmtInterpol.sort("U"));
+			final Term[] terms = generateDummyTerms("x", 5, mSmtInterpol.sort("U"));
 			terms[4] = terms[2];
 			final Term equality = mSmtInterpol.term("=", mSmtInterpol.term("distinct", terms),
 					mSmtInterpol.term(SMTLIBConstants.FALSE));
@@ -190,7 +228,7 @@ public class ProofSimplifierTest {
 
 		for (int len = 2; len < 5; len++) {
 			mSmtInterpol.push(1);
-			final Term[] terms = generateDummyTerms(len, mSmtInterpol.sort("U"));
+			final Term[] terms = generateDummyTerms("x", len, mSmtInterpol.sort("U"));
 			final Term[] orParams = new Term[len * (len - 1) / 2];
 			int offset = 0;
 			for (int i = 0; i < terms.length; i++) {
@@ -212,7 +250,7 @@ public class ProofSimplifierTest {
 	public void testEqToXorRewrite() {
 		mSmtInterpol.push(1);
 		final Sort U = mSmtInterpol.sort("Bool");
-		final Term[] terms = generateDummyTerms(2, U);
+		final Term[] terms = generateDummyTerms("x", 2, U);
 
 		// convert equality to not xor, simplify the xor term and possibly remove double
 		// negation.
@@ -222,6 +260,90 @@ public class ProofSimplifierTest {
 		final Term rewriteEqSimp = mSmtInterpol.term(ProofConstants.FN_REWRITE,
 				mSmtInterpol.annotate(equality, ProofConstants.RW_EQ_TO_XOR));
 		checkLemmaOrRewrite(rewriteEqSimp, new Term[] { equality });
+		mSmtInterpol.pop(1);
+	}
+
+	public void checkOneTrivialDiseq(final Term lhs, final Term rhs) {
+		for (final Term trivialDiseq : new Term[] { mSmtInterpol.term("=", lhs, rhs),
+				mSmtInterpol.term("=", rhs, lhs) }) {
+			final Term equality = mSmtInterpol.term("=", trivialDiseq, mSmtInterpol.term(SMTLIBConstants.FALSE));
+			final Term rewrite = mSmtInterpol.term(ProofConstants.FN_REWRITE,
+					mSmtInterpol.annotate(equality, ProofConstants.RW_INTERN));
+			checkLemmaOrRewrite(rewrite, new Term[] { equality });
+		}
+	}
+
+	@Test
+	public void testTrivialDiseq() {
+		mSmtInterpol.push(1);
+		final Sort intSort = mSmtInterpol.sort("Int");
+		final Sort realSort = mSmtInterpol.sort("Real");
+		final Sort[] numericSorts = new Sort[] { intSort, realSort };
+		final Term[] intTerms = generateDummyTerms("i", 2, intSort);
+		final Term[] realTerms = generateDummyTerms("r", 2, realSort);
+		final Term[] mixedTerms = new Term[] { intTerms[0], realTerms[1] };
+
+		for (final Sort sort : numericSorts) {
+			checkOneTrivialDiseq(Rational.valueOf(2, 1).toTerm(sort), Rational.valueOf(3, 1).toTerm(sort));
+			checkOneTrivialDiseq(Rational.valueOf(-1, 1).toTerm(sort), Rational.valueOf(3, 1).toTerm(sort));
+			checkOneTrivialDiseq(Rational.valueOf(-5, 1).toTerm(sort), Rational.valueOf(-1, 1).toTerm(sort));
+			checkOneTrivialDiseq(Rational.valueOf(2, 1).toTerm(sort), Rational.valueOf(0, 1).toTerm(sort));
+			checkOneTrivialDiseq(Rational.valueOf(-2, 1).toTerm(sort), Rational.valueOf(0, 1).toTerm(sort));
+
+			final Term[][] termCases = sort == intSort ? new Term[][] { intTerms } : new Term[][] { intTerms, realTerms, mixedTerms };
+			final ArrayList<Rational> constants = new ArrayList<>();
+			constants.add(Rational.valueOf(1, 1));
+			constants.add(Rational.valueOf(-4, 1));
+			if (sort == realSort) {
+				constants.add(Rational.valueOf(5, 4));
+				constants.add(Rational.valueOf(-3, 2));
+			}
+			final ArrayList<Rational> constantsWithZero = new ArrayList<>(constants);
+			constantsWithZero.add(Rational.ZERO);
+
+			for (final Term[] terms : termCases) {
+				for (final Rational rat1 : constants) {
+					for (final Rational rat2 : constantsWithZero) {
+						for (final Rational rat3 : constantsWithZero) {
+							final SMTAffineTerm lhs = new SMTAffineTerm();
+							lhs.add(rat1, terms[0]);
+							lhs.add(rat2, terms[0]);
+							for (final Rational diff : constants) {
+								final SMTAffineTerm rhs = new SMTAffineTerm(diff.toTerm(sort));
+								rhs.add(lhs);
+								checkOneTrivialDiseq(lhs.toTerm(sort), rhs.toTerm(sort));
+							}
+						}
+					}
+				}
+			}
+		}
+		{
+			final SMTAffineTerm lhs = new SMTAffineTerm();
+			lhs.add(Rational.valueOf(3, 1), intTerms[0]);
+			final SMTAffineTerm rhs = new SMTAffineTerm();
+			rhs.add(Rational.valueOf(25, 1));
+			rhs.add(Rational.valueOf(6, 1), intTerms[1]);
+			checkOneTrivialDiseq(lhs.toTerm(intSort), rhs.toTerm(intSort));
+		}
+		{
+			final SMTAffineTerm lhs = new SMTAffineTerm();
+			lhs.add(Rational.valueOf(3, 4), intTerms[0]);
+			final SMTAffineTerm rhs = new SMTAffineTerm();
+			rhs.add(Rational.valueOf(16, 6));
+			rhs.add(Rational.valueOf(5, 4), intTerms[1]);
+			checkOneTrivialDiseq(lhs.toTerm(realSort), rhs.toTerm(realSort));
+		}
+		{
+			final SMTAffineTerm lhs = new SMTAffineTerm();
+			lhs.add(Rational.valueOf(3, 4), intTerms[0]);
+			lhs.add(Rational.valueOf(7, 3), realTerms[0]);
+			final SMTAffineTerm rhs = new SMTAffineTerm();
+			rhs.add(Rational.valueOf(16, 6));
+			rhs.add(Rational.valueOf(5, 4), intTerms[1]);
+			rhs.add(Rational.valueOf(7, 3), realTerms[0]);
+			checkOneTrivialDiseq(lhs.toTerm(realSort), rhs.toTerm(realSort));
+		}
 		mSmtInterpol.pop(1);
 	}
 

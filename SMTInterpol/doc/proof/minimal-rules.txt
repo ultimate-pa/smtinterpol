@@ -258,7 +258,7 @@ PolyToReal:  (= (poly (to_real p)) (to_real (polyI p)))
 (tricho a b):  (< a b), (= a b), (< b a)
 (eqleq):       ~(= a b), (<= a b)
 (total a b): (<= a b), (< b a)
-(ltint a b): ~(< a b), (<= (poly a+1) b)   # where a, b have sort int.
+(ltint a c): ~(< a c), (<= a (c-1))   # where a has sort int, c is a constant.
 (farkas c1 (<=? a1 b1) ... cn (<=? an bn)): ~(<=? a1 b1), ..., ~(<=? an bn)
   where c1, ...,cn are positive integers,
   (poly c1*(a1-b1) + ... + cn*(an-bn)) is a (rational or int) constant c.

@@ -63,6 +63,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap.CopyMode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolOptions;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SolverOptions;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.MinimalProofChecker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofChecker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofSimplifier;
@@ -567,13 +568,24 @@ public class SMTInterpol extends NoopScript {
 			}
 		} else {
 			if (mSolverOptions.isProofCheckModeActive()) {
-				final ProofChecker proofchecker = new ProofChecker(this, getLogger());
-				if (!proofchecker.check(getProof())) {
-					if (mErrorCallback != null) {
-						mErrorCallback.notifyError(ErrorReason.INVALID_PROOF);
+				if (mSolverOptions.getProofMode() == ProofMode.LOWLEVEL) {
+					final MinimalProofChecker proofchecker = new MinimalProofChecker(this, getLogger());
+					if (!proofchecker.check(getProof())) {
+						if (mErrorCallback != null) {
+							mErrorCallback.notifyError(ErrorReason.INVALID_PROOF);
+						}
+						mLogger.fatal("Proof-checker did not verify");
+						throw new SMTLIBException("Proof-check failed");
 					}
-					mLogger.fatal("Proof-checker did not verify");
-					throw new SMTLIBException("Proof-check failed");
+				} else {
+					final ProofChecker proofchecker = new ProofChecker(this, getLogger());
+					if (!proofchecker.check(getProof())) {
+						if (mErrorCallback != null) {
+							mErrorCallback.notifyError(ErrorReason.INVALID_PROOF);
+						}
+						mLogger.fatal("Proof-checker did not verify");
+						throw new SMTLIBException("Proof-check failed");
+					}
 				}
 			}
 		}

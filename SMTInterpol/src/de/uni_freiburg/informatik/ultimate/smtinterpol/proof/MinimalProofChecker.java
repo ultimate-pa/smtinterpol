@@ -18,6 +18,7 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.proof;
 
+import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -26,10 +27,12 @@ import java.util.Stack;
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.LambdaTerm;
 import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
+import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -638,6 +641,62 @@ public class MinimalProofChecker extends NonRecursive {
 			// (exists (vars) F), ~(let values F)
 			return new ProofLiteral[] { new ProofLiteral(quant, !isForall),
 					new ProofLiteral(new FormulaUnLet().unlet(letted), isForall) };
+		}
+		case ":" + ProofRules.TRICHOTOMY: {
+			final Term[] params = (Term[]) annots[0].getValue();
+			assert annots.length == 1;
+			if (params.length != 2) {
+				throw new AssertionError();
+			}
+			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.LT, params), true),
+					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, params), true),
+					new ProofLiteral(theory.term(SMTLIBConstants.LT, params[1], params[0]), true) };
+		}
+		case ":" + ProofRules.EQLEQ: {
+			final Term[] params = (Term[]) annots[0].getValue();
+			assert annots.length == 1;
+			if (params.length != 2) {
+				throw new AssertionError();
+			}
+			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, params), false),
+					new ProofLiteral(theory.term(SMTLIBConstants.LEQ, params), true) };
+		}
+		case ":" + ProofRules.TOTAL: {
+			final Term[] params = (Term[]) annots[0].getValue();
+			assert annots.length == 1;
+			assert params.length == 2;
+			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.LEQ, params[0], params[1]), true),
+					new ProofLiteral(theory.term(SMTLIBConstants.LT, params[1], params[0]), true) };
+		}
+		case ":" + ProofRules.LTINT: {
+			final Term[] params = (Term[]) annots[0].getValue();
+			assert annots.length == 1;
+			assert params.length == 2;
+			if (!params[0].getSort().getName().equals(SMTLIBConstants.INT)) {
+				throw new AssertionError();
+			}
+			final ConstantTerm rhs = (ConstantTerm) params[1];
+			final Rational rhsValue = (Rational) rhs.getValue();
+			if (!rhs.getSort().getName().equals(SMTLIBConstants.INT) || !rhsValue.isIntegral()) {
+				throw new AssertionError();
+			}
+			final Term rhsMinusOne = rhsValue.add(Rational.MONE).toTerm(params[0].getSort());
+			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.LT, params[0], rhs), false),
+					new ProofLiteral(theory.term(SMTLIBConstants.LEQ, params[0], rhsMinusOne), true) };
+		}
+		case ":" + ProofRules.FARKAS: {
+			final Term[] ineqs = (Term[]) annots[0].getValue();
+			assert annots.length == 2;
+			assert annots[1].getKey() == ProofRules.ANNOT_COEFFS;
+			final BigInteger[] coeffs = (BigInteger[]) annots[1].getValue();
+			if (!ProofRules.checkFarkas(ineqs, coeffs)) {
+				throw new AssertionError();
+			}
+			final ProofLiteral[] clause = new ProofLiteral[ineqs.length];
+			for (int i = 0; i < ineqs.length; i++) {
+				clause[i] = new ProofLiteral(ineqs[i], false);
+			}
+			return clause;
 		}
 		default:
 			throw new AssertionError("Unknown axiom " + axiom);

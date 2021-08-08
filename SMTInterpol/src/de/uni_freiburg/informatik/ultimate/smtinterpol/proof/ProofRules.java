@@ -1,5 +1,6 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.proof;
 
+import java.math.BigInteger;
 import java.util.HashSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
@@ -9,11 +10,13 @@ import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.LambdaTerm;
 import de.uni_freiburg.informatik.ultimate.logic.PrintTerm;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
+import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 
 public class ProofRules {
 	public final static String RES = "res";
@@ -52,6 +55,17 @@ public class ProofRules {
 	public final static String CONG = "cong";
 	public final static String EXPAND = "expand";
 	public final static String DELANNOT = "del!";
+
+	// rules for linear arithmetic
+	public final static String DIVISIBLE = "divisible-def";
+	public final static String GTDEF = ">-def";
+	public final static String GEQDEF = ">=-def";
+	public final static String TRICHOTOMY = "trichotomy";
+	public final static String EQLEQ = "=-<=";
+	public final static String TOTAL = "total";
+	public final static String LTINT = "<-int";
+	public final static String FARKAS = "farkas";
+
 	/**
 	 * sort name for proofs.
 	 */
@@ -63,6 +77,8 @@ public class ProofRules {
 
 	public final static String ANNOT_VARS = ":vars";
 	public final static String ANNOT_VALUES = ":values";
+	public final static String ANNOT_COEFFS = ":coeffs";
+	public final static String ANNOT_DIVISOR = ":divisor";
 	public final static String ANNOT_POS = ":pos";
 	public final static String ANNOT_UNIT = ":unit";
 
@@ -343,8 +359,66 @@ public class ProofRules {
 		return mTheory.annotatedTerm(annots, mAxiom);
 	}
 
+	public Term divisible(final Term lhs, final BigInteger divisor) {
+		return mTheory.annotatedTerm(annotate(":" + TOTAL, new Term[] { lhs }, new Annotation(ANNOT_DIVISOR, divisor)),
+				mAxiom);
+	}
+
+	public Term tricho(final Term lhs, final Term rhs) {
+		return mTheory.annotatedTerm(annotate(":" + TOTAL, new Term[] { lhs, rhs }), mAxiom);
+	}
+
+	public Term eqLeq(final Term lhs, final Term rhs) {
+		return mTheory.annotatedTerm(annotate(":" + EQLEQ, new Term[] { lhs, rhs }), mAxiom);
+	}
+
+	public Term totality(final Term lhs, final Term rhs) {
+		return mTheory.annotatedTerm(annotate(":" + TOTAL, new Term[] { lhs, rhs }), mAxiom);
+	}
+
+	public Term ltInt(final Term lhs, final Term rhs) {
+		return mTheory.annotatedTerm(annotate(":" + LTINT, new Term[] { lhs, rhs }), mAxiom);
+	}
+
+	public Term farkas(final Term[] inequalities, final BigInteger[] coefficients) {
+		assert checkFarkas(inequalities, coefficients);
+		return mTheory.annotatedTerm(annotate(":" + FARKAS, inequalities, new Annotation(ANNOT_COEFFS, coefficients)),
+				mAxiom);
+	}
+
 	public void printProof(final Appendable appender, final Term proof) {
 		new PrintProof().append(appender, proof);
+	}
+
+	public static boolean checkFarkas(final Term[] inequalities, final BigInteger[] coefficients) {
+		if (inequalities.length != coefficients.length) {
+			return false;
+		}
+		final SMTAffineTerm sum = new SMTAffineTerm();
+		boolean strict = false;
+		for (int i = 0; i < inequalities.length; i++) {
+			if (coefficients[i].signum() != 1) {
+				return false;
+			}
+			final ApplicationTerm appTerm = (ApplicationTerm) inequalities[i];
+			final Term[] params = appTerm.getParameters();
+			if (params.length != 2
+					|| (appTerm.getFunction().getName() != SMTLIBConstants.LT
+					&& appTerm.getFunction().getName() != SMTLIBConstants.LEQ)) {
+				return false;
+			}
+			if (appTerm.getFunction().getName() == SMTLIBConstants.LT) {
+				strict = true;
+			}
+			final SMTAffineTerm ineqAffine = new SMTAffineTerm(params[0]);
+			ineqAffine.add(Rational.MONE, params[1]);
+			ineqAffine.mul(Rational.valueOf(coefficients[i], BigInteger.ONE));
+			sum.add(ineqAffine);
+		}
+		if (!sum.isConstant()) {
+			return false;
+		}
+		return sum.getConstant().signum() >= (strict ? 0 : 1);
 	}
 
 	public static boolean checkXorParams(final Term[][] xorArgs) {
@@ -429,7 +503,13 @@ public class ProofRules {
 					case ":" + SYMM:
 					case ":" + TRANS:
 					case ":" + EQI:
-					case ":" + DISTINCTI: {
+					case ":" + DISTINCTI:
+					case ":" + GTDEF:
+					case ":" + GEQDEF:
+					case ":" + TRICHOTOMY:
+					case ":" + EQLEQ:
+					case ":" + TOTAL:
+					case ":" + LTINT: {
 						final Term[] params = (Term[]) annots[0].getValue();
 						assert annots.length == 1;
 						mTodo.add(")");
@@ -564,6 +644,36 @@ public class ProofRules {
 						}
 						mTodo.addLast(term);
 						mTodo.add("(" + DELANNOT + " (! ");
+						return;
+					}
+					case ":" + DIVISIBLE: {
+						final Term[] params = (Term[]) annots[0].getValue();
+						assert annots.length == 2;
+						assert annots[1].getKey() == ANNOT_DIVISOR;
+						mTodo.add(")");
+						mTodo.add(annots[1].getValue());
+						mTodo.add(" ");
+						for (int i = params.length - 1; i >= 0; i--) {
+							mTodo.add(params[i]);
+							mTodo.add(" ");
+						}
+						mTodo.add("(" + annots[0].getKey().substring(1));
+						return;
+					}
+					case ":" + FARKAS: {
+						final Term[] params = (Term[]) annots[0].getValue();
+						assert annots.length == 2;
+						assert annots[1].getKey() == ANNOT_COEFFS;
+						final BigInteger[] coeffs = (BigInteger[]) annots[1].getValue();
+						assert params.length == coeffs.length;
+						mTodo.add(")");
+						for (int i = params.length - 1; i >= 0; i--) {
+							mTodo.add(params[i]);
+							mTodo.add(" ");
+							mTodo.add(coeffs[i]);
+							mTodo.add(" ");
+						}
+						mTodo.add("(" + annots[0].getKey().substring(1));
 						return;
 					}
 					}
