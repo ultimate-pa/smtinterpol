@@ -20,6 +20,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.proof;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -100,6 +101,24 @@ public class ProofSimplifier extends TermTransformer {
 	private Term subproof(final AnnotatedTerm annotatedTerm) {
 		assert annotatedTerm.getAnnotations()[0].getKey() == ANNOT_PROVED;
 		return annotatedTerm.getSubterm();
+	}
+
+	private boolean checkProof(final Term proof, final Term[] expectedLits) {
+		final ProofLiteral[] actual = new MinimalProofChecker(mSkript, new DefaultLogger()).getProvedClause(proof);
+		final HashSet<ProofLiteral> expectedSet = new HashSet<>();
+		for (Term expected : expectedLits) {
+			boolean polarity = true;
+			while (isApplication(SMTLIBConstants.NOT, expected)) {
+				expected = negate(expected);
+				polarity = !polarity;
+			}
+			expectedSet.add(new ProofLiteral(expected, polarity));
+		}
+		assert expectedSet.size() == actual.length;
+		for (final ProofLiteral lit : actual) {
+			assert expectedSet.contains(lit);
+		}
+		return true;
 	}
 
 	private Term convertResolution(final Term[] newParams) {
@@ -189,6 +208,148 @@ public class ProofSimplifier extends TermTransformer {
 		}
 	}
 
+	/**
+	 * Check the tautology that introduces an exists.
+	 *
+	 * @param clause the clause to check
+	 * @param subst  the substitution used in the tautology; these are currently
+	 *               fresh variables.
+	 * @return true iff the clause is well-formed.
+	 */
+	private Term convertTautForallElim(final Term[] clause, final Term[] subst) {
+		// clause[0] is (not (forall ((x1...)) F )).
+		// subst is (y1, ..., yn).
+		// clause[1] is F [y1/x1]...[yn/xn].
+		assert clause.length == 2 && isApplication("not", clause[0]);
+		final Term forall = unquote(((ApplicationTerm) clause[0]).getParameters()[0]);
+		final QuantifiedFormula qf = (QuantifiedFormula) forall;
+		assert qf.getQuantifier() == QuantifiedFormula.FORALL;
+
+		// subst must contain one substitution for each variable
+		final TermVariable[] universalVars = qf.getVariables();
+		final Map<TermVariable, Term> sigma = new HashMap<>();
+		assert universalVars.length == subst.length;
+
+		for (int i = 0; i < subst.length; i++) {
+			if (subst[i] != universalVars[i]) {
+				sigma.put(universalVars[i], subst[i]);
+			}
+		}
+
+		Term proof = mProofRules.forallElim(subst, qf);
+		// peculiarity of proof format: remove quotes if subsitution changes something.
+		final FormulaUnLet unletter = new FormulaUnLet();
+		unletter.addSubstitutions(sigma);
+		final Term subFormula = qf.getSubformula();
+		Term[] lits;
+		if (isApplication("or", subFormula)) {
+			lits = ((ApplicationTerm) subFormula).getParameters();
+		} else {
+			lits = new Term[] { subFormula };
+		}
+		final Term[] substLitLhs = new Term[lits.length];
+		final Term[] substLitRhs = new Term[lits.length];
+		final Term[] substLitEqProofs = new Term[lits.length];
+		boolean changed = false;
+		for (int i = 0; i < lits.length; i++) {
+			substLitLhs[i] = unletter.unlet(lits[i]);
+			if (Collections.disjoint(Arrays.asList(lits[i].getFreeVars()), sigma.keySet())) {
+				substLitRhs[i] = substLitLhs[i];
+				substLitEqProofs[i] = mProofRules.refl(substLitLhs[i]);
+			} else {
+				final boolean isNeg = isApplication("not", substLitLhs[i]);
+				final Term quotedAtom = isNeg ? negate(substLitLhs[i]) : substLitLhs[i];
+				final Term atom = unquote(quotedAtom);
+				substLitEqProofs[i] = mProofRules.delAnnot(atom);
+				substLitRhs[i] = isNeg ? negate(atom) : atom;
+				if (isNeg) {
+					substLitEqProofs[i] = mProofRules.resolutionRule(
+							mSkript.term(SMTLIBConstants.EQUALS, quotedAtom, atom), substLitEqProofs[i],
+							mProofRules.cong(substLitLhs[i], substLitRhs[i]));
+				}
+				changed = true;
+			}
+		}
+		if (changed) {
+			Term eqProof;
+			final Term lhs, rhs;
+			if (lits.length == 1) {
+				lhs = substLitLhs[0];
+				rhs = substLitRhs[0];
+				eqProof = substLitEqProofs[0];
+			} else {
+				lhs = mSkript.term(SMTLIBConstants.OR, substLitLhs);
+				rhs = mSkript.term(SMTLIBConstants.OR, substLitRhs);
+				eqProof = mProofRules.cong(lhs, rhs);
+				final HashSet<Term> seen = new HashSet<>();
+				for (int i = 0; i < lits.length; i++) {
+					if (seen.add(substLitEqProofs[i])) {
+						eqProof = mProofRules.resolutionRule(
+								mSkript.term(SMTLIBConstants.EQUALS, substLitLhs[i], substLitRhs[i]),
+								substLitEqProofs[i], eqProof);
+					}
+				}
+			}
+			final Term eq = mSkript.term(SMTLIBConstants.EQUALS, lhs, rhs);
+			proof = mProofRules.resolutionRule(lhs, proof,
+					mProofRules.resolutionRule(eq, eqProof, mProofRules.iffElim2(eq)));
+		}
+		return proof;
+	}
+
+	/**
+	 * Check the tautology that introduces an exists.
+	 *
+	 * @param clause the clause to check
+	 * @param subst  the substitution used in the tautology; these are currently
+	 *               fresh variables.
+	 * @return true iff the clause is well-formed.
+	 */
+	private Term convertTautExistsIntro(final Term[] clause, final Term[] subst) {
+		// clause[0] is (exists ((x1...)) F ).
+		// subst is (y1, ..., yn).
+		// clause[1] is (not F [y1/x1]...[yn/xn]).
+		assert clause.length == 2;
+		final QuantifiedFormula qf = (QuantifiedFormula) clause[0];
+		assert qf.getQuantifier() == QuantifiedFormula.EXISTS;
+		final TermVariable[] universalVars = qf.getVariables();
+		assert universalVars.length == subst.length;
+
+		Term proof = mProofRules.existsIntro(subst, qf);
+		// remove negations
+		final FormulaUnLet unletter = new FormulaUnLet();
+		Term result = unletter.unlet(mSkript.let(universalVars, subst, qf.getSubformula()));
+		while (isApplication("not", result)) {
+			proof = mProofRules.resolutionRule(result, mProofRules.notIntro(result), proof);
+			result = negate(result);
+			if (isApplication("not", result)) {
+				proof = mProofRules.resolutionRule(result, proof, mProofRules.notElim(result));
+				result = negate(result);
+			}
+		}
+		return proof;
+	}
+
+	/**
+	 * Check the tautology that eliminates an exists.
+	 *
+	 * @param clause     the clause to check
+	 * @param skolemFuns the Skolemization used in the tautology.
+	 * @return true iff the clause is well-formed.
+	 */
+	private Term convertTautExistsElim(final Term[] clause, final Term[] skolemFuns) {
+		// clause[0]: not (exists ((x...)) F
+		// clause[1]: (let ((x skolem...)) F)
+		assert clause.length == 2 && isApplication("not", clause[0]);
+		final Term existsAtom = ((ApplicationTerm) clause[0]).getParameters()[0];
+		final QuantifiedFormula qf = (QuantifiedFormula) existsAtom;
+		assert qf.getQuantifier() == QuantifiedFormula.EXISTS;
+
+		final TermVariable[] existentialVars = qf.getVariables();
+		assert existentialVars.length == skolemFuns.length;
+		return mProofRules.existsElim(qf);
+	}
+
 	private Term convertTautIte(final String tautKind, final Term[] clause) {
 		assert clause.length == 3;
 		final boolean negated = isApplication("not", clause[0]);
@@ -233,20 +394,27 @@ public class ProofSimplifier extends TermTransformer {
 	private Term convertTautology(final Term taut) {
 		final AnnotatedTerm annotTerm = (AnnotatedTerm) taut;
 		final Term clause = annotTerm.getSubterm();
+		final Term[] clauseLits;
+		if (isApplication("or", clause)) {
+			clauseLits = ((ApplicationTerm) clause).getParameters();
+		} else {
+			clauseLits = new Term[] { clause };
+		}
 		assert annotTerm.getAnnotations().length == 1;
 		final Annotation annot = annotTerm.getAnnotations()[0];
 		final String ruleName = annot.getKey();
+		Term proof = null;
 		switch (ruleName) {
 		case ":true+":
 			assert isApplication("true", clause);
-			return mProofRules.trueIntro(taut.getTheory());
+			proof = mProofRules.trueIntro(taut.getTheory());
+			break;
 		case ":false-":
 			assert isApplication("not", clause)
 					&& isApplication("false", ((ApplicationTerm) clause).getParameters()[0]);
-			return mProofRules.falseElim();
+			proof = mProofRules.falseElim();
+			break;
 		case ":or+": {
-			assert isApplication("or", clause);
-			final Term[] clauseLits = ((ApplicationTerm) clause).getParameters();
 			assert clauseLits.length == 2;
 			final Term orTerm = clauseLits[0];
 			assert isApplication("or", orTerm);
@@ -255,44 +423,40 @@ public class ProofSimplifier extends TermTransformer {
 			final Term[] orParams = ((ApplicationTerm) orTerm).getParameters();
 			for (int i = 0; i < orParams.length; i++) {
 				if (orParams[i] == subArg) {
-					return removeNot(mProofRules.orIntro(i, orTerm), subArg, false);
+					proof = removeNot(mProofRules.orIntro(i, orTerm), subArg, false);
+					break;
 				}
 			}
-			throw new AssertionError("Malformed tautology: " + taut);
+			assert proof != null;
+			break;
 		}
 		case ":or-": {
-			assert isApplication("or", clause);
-			final Term[] clauseLits = ((ApplicationTerm) clause).getParameters();
 			assert isApplication("not", clauseLits[0]);
 			final Term orTerm = ((ApplicationTerm) clauseLits[0]).getParameters()[0];
 			assert isApplication("or", orTerm);
 			final Term[] orParams = ((ApplicationTerm) orTerm).getParameters();
 			assert clauseLits.length == orParams.length + 1;
-			Term proof = mProofRules.orElim(orTerm);
+			proof = mProofRules.orElim(orTerm);
 			for (int i = 0; i < orParams.length; i++) {
 				assert orParams[i] == clauseLits[i + 1];
 				proof = removeNot(proof, orParams[i], true);
 			}
-			return proof;
+			break;
 		}
 		case ":and+": {
-			assert isApplication("or", clause);
-			final Term[] clauseLits = ((ApplicationTerm) clause).getParameters();
 			final Term andTerm = clauseLits[0];
 			assert isApplication("and", andTerm);
 			final Term[] andParams = ((ApplicationTerm) andTerm).getParameters();
 			assert clauseLits.length == andParams.length + 1;
-			Term proof = mProofRules.andIntro(andTerm);
+			proof = mProofRules.andIntro(andTerm);
 			for (int i = 0; i < andParams.length; i++) {
 				assert isApplication("not", clauseLits[i + 1]);
 				assert andParams[i] == ((ApplicationTerm) clauseLits[i + 1]).getParameters()[0];
 				proof = removeNot(proof, andParams[i], false);
 			}
-			return proof;
+			break;
 		}
 		case ":and-": {
-			assert isApplication("or", clause);
-			final Term[] clauseLits = ((ApplicationTerm) clause).getParameters();
 			assert clauseLits.length == 2;
 			assert isApplication("not", clauseLits[0]);
 			final Term andTerm = ((ApplicationTerm) clauseLits[0]).getParameters()[0];
@@ -301,14 +465,14 @@ public class ProofSimplifier extends TermTransformer {
 			final Term[] andParams = ((ApplicationTerm) andTerm).getParameters();
 			for (int i = 0; i < andParams.length; i++) {
 				if (andParams[i] == subArg) {
-					return removeNot(mProofRules.andElim(i, andTerm), subArg, true);
+					proof = removeNot(mProofRules.andElim(i, andTerm), subArg, true);
+					break;
 				}
 			}
-			throw new AssertionError("Malformed tautology: " + taut);
+			assert proof != null;
+			break;
 		}
 		case ":=>+": {
-			assert isApplication("or", clause);
-			final Term[] clauseLits = ((ApplicationTerm) clause).getParameters();
 			assert clauseLits.length == 2;
 			final Term impTerm = clauseLits[0];
 			assert isApplication("=>", impTerm);
@@ -316,25 +480,25 @@ public class ProofSimplifier extends TermTransformer {
 			Term subArg = clauseLits[1];
 			for (int i = 0; i < impParams.length - 1; i++) {
 				if (impParams[i] == subArg) {
-					return removeNot(mProofRules.impIntro(i, impTerm), subArg, true);
+					proof = removeNot(mProofRules.impIntro(i, impTerm), subArg, true);
+					break;
 				}
 			}
-			assert isApplication("not", subArg);
-			subArg = ((ApplicationTerm) subArg).getParameters()[0];
-			if (impParams[impParams.length - 1] == subArg) {
-				return removeNot(mProofRules.impIntro(impParams.length - 1, impTerm), subArg, false);
+			if (proof == null) {
+				assert isApplication("not", subArg);
+				subArg = ((ApplicationTerm) subArg).getParameters()[0];
+				assert impParams[impParams.length - 1] == subArg;
+				proof = removeNot(mProofRules.impIntro(impParams.length - 1, impTerm), subArg, false);
 			}
-			throw new AssertionError("Malformed tautology: " + taut);
+			break;
 		}
 		case ":=>-": {
-			assert isApplication("or", clause);
-			final Term[] clauseLits = ((ApplicationTerm) clause).getParameters();
 			assert isApplication("not", clauseLits[0]);
 			final Term impTerm = ((ApplicationTerm) clauseLits[0]).getParameters()[0];
 			assert isApplication("=>", impTerm);
 			final Term[] impParams = ((ApplicationTerm) impTerm).getParameters();
 			assert clauseLits.length == impParams.length + 1;
-			Term proof = mProofRules.impElim(impTerm);
+			proof = mProofRules.impElim(impTerm);
 			for (int i = 0; i < impParams.length; i++) {
 				if (i < impParams.length - 1) {
 					assert isApplication("not", clauseLits[i + 1]);
@@ -345,107 +509,99 @@ public class ProofSimplifier extends TermTransformer {
 					proof = removeNot(proof, impParams[i], true);
 				}
 			}
-			return proof;
+			break;
 		}
 		case ":=+1": {
-			assert isApplication("or", clause);
-			final Term[] clauseLits = ((ApplicationTerm) clause).getParameters();
 			assert clauseLits.length == 3;
 			final Term eqTerm = clauseLits[0];
 			assert isApplication("=", eqTerm);
 			final Term[] eqParams = ((ApplicationTerm) eqTerm).getParameters();
 			assert eqParams.length == 2;
-			Term proof = mProofRules.iffIntro1(eqTerm);
+			proof = mProofRules.iffIntro1(eqTerm);
 			assert eqParams[0] == clauseLits[1];
 			proof = removeNot(proof, eqParams[0], true);
 			assert eqParams[1] == clauseLits[2];
 			proof = removeNot(proof, eqParams[1], true);
-			return proof;
+			break;
 		}
 		case ":=+2": {
-			assert isApplication("or", clause);
-			final Term[] clauseLits = ((ApplicationTerm) clause).getParameters();
 			assert clauseLits.length == 3;
 			final Term eqTerm = clauseLits[0];
 			assert isApplication("=", eqTerm);
 			final Term[] eqParams = ((ApplicationTerm) eqTerm).getParameters();
 			assert eqParams.length == 2;
-			Term proof = mProofRules.iffIntro2(eqTerm);
+			proof = mProofRules.iffIntro2(eqTerm);
 			assert isApplication("not", clauseLits[1]);
 			assert eqParams[0] == ((ApplicationTerm) clauseLits[1]).getParameters()[0];
 			proof = removeNot(proof, eqParams[0], false);
 			assert isApplication("not", clauseLits[2]);
 			assert eqParams[1] == ((ApplicationTerm) clauseLits[2]).getParameters()[0];
 			proof = removeNot(proof, eqParams[0], false);
-			return proof;
+			break;
 		}
 		case ":=-1": {
-			assert isApplication("or", clause);
-			final Term[] clauseLits = ((ApplicationTerm) clause).getParameters();
 			assert clauseLits.length == 3;
 			assert isApplication("not", clauseLits[0]);
 			final Term eqTerm = ((ApplicationTerm) clauseLits[0]).getParameters()[0];
 			assert isApplication("=", eqTerm);
 			final Term[] eqParams = ((ApplicationTerm) eqTerm).getParameters();
 			assert eqParams.length == 2;
-			Term proof = mProofRules.iffElim1(eqTerm);
+			proof = mProofRules.iffElim1(eqTerm);
 			assert eqParams[0] == clauseLits[1];
 			proof = removeNot(proof, eqParams[0], true);
 			assert isApplication("not", clauseLits[2]);
 			assert eqParams[1] == ((ApplicationTerm) clauseLits[2]).getParameters()[0];
 			proof = removeNot(proof, eqParams[1], false);
-			return proof;
+			break;
 		}
 		case ":=-2": {
-			assert isApplication("or", clause);
-			final Term[] clauseLits = ((ApplicationTerm) clause).getParameters();
 			assert clauseLits.length == 3;
 			assert isApplication("not", clauseLits[0]);
 			final Term eqTerm = ((ApplicationTerm) clauseLits[0]).getParameters()[0];
 			assert isApplication("=", eqTerm);
 			final Term[] eqParams = ((ApplicationTerm) eqTerm).getParameters();
 			assert eqParams.length == 2;
-			Term proof = mProofRules.iffElim2(eqTerm);
+			proof = mProofRules.iffElim2(eqTerm);
 			assert isApplication("not", clauseLits[1]);
 			assert eqParams[0] == ((ApplicationTerm) clauseLits[1]).getParameters()[0];
 			proof = removeNot(proof, eqParams[0], false);
 			assert eqParams[1] == clauseLits[2];
 			proof = removeNot(proof, eqParams[1], true);
-			return proof;
+			break;
 		}
 		case ":xor+1": {
 			assert isApplication("or", clause);
-			final Term[] clauseLits = ((ApplicationTerm) clause).getParameters();
 			final Term xorTerm = clauseLits[0];
 			assert isApplication("xor", xorTerm);
 			final Term[] xorParams = ((ApplicationTerm) xorTerm).getParameters();
-			return mProofRules.xorIntro(xorParams, new Term[] { xorParams[0] }, new Term[] { xorParams[1] });
+			proof = mProofRules.xorIntro(xorParams, new Term[] { xorParams[0] }, new Term[] { xorParams[1] });
+			break;
 		}
 		case ":xor+2": {
 			assert isApplication("or", clause);
-			final Term[] clauseLits = ((ApplicationTerm) clause).getParameters();
 			final Term xorTerm = clauseLits[0];
 			assert isApplication("xor", xorTerm);
 			final Term[] xorParams = ((ApplicationTerm) xorTerm).getParameters();
-			return mProofRules.xorIntro(xorParams, new Term[] { xorParams[1] }, new Term[] { xorParams[0] });
+			proof = mProofRules.xorIntro(xorParams, new Term[] { xorParams[1] }, new Term[] { xorParams[0] });
+			break;
 		}
 		case ":xor-1": {
 			assert isApplication("or", clause);
-			final Term[] clauseLits = ((ApplicationTerm) clause).getParameters();
 			assert isApplication("not", clauseLits[0]);
 			final Term xorTerm = ((ApplicationTerm) clauseLits[0]).getParameters()[0];
 			assert isApplication("xor", xorTerm);
 			final Term[] xorParams = ((ApplicationTerm) xorTerm).getParameters();
-			return mProofRules.xorIntro(new Term[] { xorParams[0] }, new Term[] { xorParams[1] }, xorParams);
+			proof = mProofRules.xorIntro(new Term[] { xorParams[0] }, new Term[] { xorParams[1] }, xorParams);
+			break;
 		}
 		case ":xor-2": {
 			assert isApplication("or", clause);
-			final Term[] clauseLits = ((ApplicationTerm) clause).getParameters();
 			assert isApplication("not", clauseLits[0]);
 			final Term xorTerm = ((ApplicationTerm) clauseLits[0]).getParameters()[0];
 			assert isApplication("xor", xorTerm);
 			final Term[] xorParams = ((ApplicationTerm) xorTerm).getParameters();
-			return mProofRules.xorElim(xorParams, new Term[] { xorParams[0] }, new Term[] { xorParams[1] });
+			proof = mProofRules.xorElim(xorParams, new Term[] { xorParams[0] }, new Term[] { xorParams[1] });
+			break;
 		}
 		case ":ite+1":
 		case ":ite+2":
@@ -453,33 +609,45 @@ public class ProofSimplifier extends TermTransformer {
 		case ":ite-1":
 		case ":ite-2":
 		case ":ite-red": {
-			return convertTautIte(ruleName, ((ApplicationTerm) clause).getParameters());
+			proof = convertTautIte(ruleName, clauseLits);
+			break;
+		}
+		case ":exists-": {
+			proof = convertTautExistsElim(clauseLits, (Term[]) annot.getValue());
+			break;
+		}
+		case ":exists+": {
+			proof = convertTautExistsIntro(clauseLits, (Term[]) annot.getValue());
+			break;
+		}
+		case ":forall-": {
+			proof = convertTautForallElim(clauseLits, (Term[]) annot.getValue());
+			break;
 		}
 		case ":termITE": {
 			assert isApplication("or", clause);
-			final Term[] clauseLits = ((ApplicationTerm) clause).getParameters();
-			return convertTermITE(clauseLits);
+			proof = convertTermITE(clauseLits);
+			break;
 		}
 		case ":trueNotFalse": {
 			final Theory t = taut.getTheory();
-			return mProofRules.resolutionRule(t.mTrue, mProofRules.trueIntro(t), mProofRules.resolutionRule(t.mFalse,
+			proof = mProofRules.resolutionRule(t.mTrue, mProofRules.trueIntro(t), mProofRules.resolutionRule(t.mFalse,
 					mProofRules.iffElim2(t.term("=", t.mTrue, t.mFalse)), mProofRules.falseElim()));
+			break;
 		}
 		default: {
-			Term subProof = mProofRules.asserted(clause);
-			final Term[] clauseLits;
+			proof = mProofRules.asserted(clause);
 			if (isApplication("or", clause)) {
-				clauseLits = ((ApplicationTerm) clause).getParameters();
-				subProof = mProofRules.resolutionRule(clause, subProof, mProofRules.orElim(clause));
-			} else {
-				clauseLits = new Term[] { clause };
+				proof = mProofRules.resolutionRule(clause, proof, mProofRules.orElim(clause));
 			}
 			for (final Term lit : clauseLits) {
-				subProof = removeNot(subProof, lit, true);
+				proof = removeNot(proof, lit, true);
 			}
-			return subProof;
+			break;
 		}
 		}
+		assert checkProof(proof, clauseLits);
+		return proof;
 	}
 
 	private Term convertMP(final Term[] newParams) {
