@@ -65,6 +65,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolOptions
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SolverOptions;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofChecker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofSimplifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofTermGenerator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.PropProofChecker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
@@ -109,6 +110,10 @@ public class SMTInterpol extends NoopScript {
 		}
 	}
 
+	public static enum ProofMode {
+		NONE, CLAUSES, FULL, LOWLEVEL
+	}
+
 	public static enum CheckType {
 		FULL {
 			@Override
@@ -135,9 +140,9 @@ public class SMTInterpol extends NoopScript {
 	}
 
 	private static class SMTInterpolSetup extends Theory.SolverSetup {
-		private final int mProofMode;
+		private final ProofMode mProofMode;
 
-		public SMTInterpolSetup(final int proofMode) {
+		public SMTInterpolSetup(final ProofMode proofMode) {
 			mProofMode = proofMode;
 		}
 
@@ -147,7 +152,7 @@ public class SMTInterpol extends NoopScript {
 			final int leftassoc = FunctionSymbol.LEFTASSOC;
 			final Sort bool = theory.getSort("Bool");
 			final Sort[] bool1 = { bool };
-			if (mProofMode > 0) {
+			if (mProofMode != ProofMode.NONE) {
 				// Partial proofs.
 				// Declare all symbols needed for proof production
 				declareInternalSort(theory, ProofConstants.SORT_PROOF, 0, 0);
@@ -159,7 +164,7 @@ public class SMTInterpol extends NoopScript {
 				declareInternalFunction(theory, ProofConstants.FN_CLAUSE, proof1, proof, 0);
 				declareInternalFunction(theory, ProofConstants.FN_ASSUMPTION, bool1, proof, 0);
 				declareInternalFunction(theory, ProofConstants.FN_ASSERTED, bool1, proof, 0);
-				if (mProofMode > 1) {
+				if (mProofMode != ProofMode.CLAUSES) {
 					// Full proofs.
 					declareInternalPolymorphicFunction(theory, ProofConstants.FN_REFL, polySort, polySort, proof, 0);
 					declareInternalFunction(theory, ProofConstants.FN_TRANS, proof2, proof, leftassoc);
@@ -617,12 +622,12 @@ public class SMTInterpol extends NoopScript {
 	 */
 	private void setupClausifier(final Logics logic) {
 		try {
-			final int proofMode = getProofMode();
+			final ProofMode proofMode = getProofMode();
 			mEngine = new DPLLEngine(mLogger, mCancel);
 			mClausifier = new Clausifier(getTheory(), mEngine, proofMode);
 			// This has to be before set-logic since we need to capture
 			// initialization of CClosure.
-			mEngine.setProofGeneration(proofMode > 0);
+			mEngine.setProofGeneration(proofMode != ProofMode.NONE);
 			mClausifier.setQuantifierOptions(getBooleanOption(SMTInterpolOptions.EPR),
 					mSolverOptions.getInstantiationMethod(), getBooleanOption(SMTInterpolOptions.UNKNOWN_TERM_DAWGS),
 					getBooleanOption(SMTInterpolOptions.PROPAGATE_UNKNOWN_TERMS),
@@ -768,26 +773,24 @@ public class SMTInterpol extends NoopScript {
 	/**
 	 * Get the proofMode according to the options that are set.
 	 *
-	 * @returns 2 for full proofs, 1 for propositional only proofs, 0 for no proofs.
+	 * @returns the proof mode as an enum.
 	 */
-	private int getProofMode() {
-		if (mSolverOptions.isProofCheckModeActive() || mSolverOptions.isProduceProofs()) {
-			return 2;
-		} else if (mSolverOptions.isProduceInterpolants() || getBooleanOption(SMTLIBConstants.PRODUCE_UNSAT_CORES)) {
-			return 1;
-		} else {
-			return 0;
-		}
+	private ProofMode getProofMode() {
+		return mSolverOptions.getProofMode();
 	}
 
 	@Override
 	public Term getProof() throws SMTLIBException, UnsupportedOperationException {
+		final ProofMode proofMode = getProofMode();
+		if (proofMode == ProofMode.NONE) {
+			throw new SMTLIBException("Option :produce-proofs not set to true");
+		}
+		return getProof(proofMode);
+	}
+
+	public Term getProof(final ProofMode proofMode) throws SMTLIBException, UnsupportedOperationException {
 		if (mEngine == null) {
 			throw new SMTLIBException("No logic set!");
-		}
-		final int proofMode = getProofMode();
-		if (proofMode == 0) {
-			throw new SMTLIBException("Option :produce-proofs not set to true");
 		}
 		checkAssertionStackModified();
 		final Clause unsat = retrieveProof();
@@ -798,17 +801,25 @@ public class SMTInterpol extends NoopScript {
 		}
 		try {
 			final ProofTermGenerator generator = new ProofTermGenerator(getTheory());
-			final Term res = generator.convert(unsat);
+			Term res = generator.convert(unsat);
+			if (proofMode == ProofMode.LOWLEVEL) {
+				res = new ProofSimplifier(this).transform(res);
+			}
 			return res;
 		} catch (final Exception exc) {
 			throw new SMTLIBException(exc.getMessage() == null ? exc.toString() : exc.getMessage());
 		}
 	}
 
+	@Override
+	public Term[] getInterpolants(final Term[] partition, final int[] startOfSubtree) {
+		return getInterpolants(partition, startOfSubtree, getProof(ProofMode.CLAUSES));
+	}
+
 	@SuppressWarnings("unchecked")
 	@Override
 	public Term[] getInterpolants(final Term[] partition, final int[] startOfSubtree, final Term proofTree) {
-		if (getProofMode() == 0 || mAssertions == null) {
+		if (getProofMode() == ProofMode.NONE || mAssertions == null) {
 			throw new SMTLIBException("Option :produce-interpolants not set to true");
 		}
 		final long timeout = mSolverOptions.getTimeout();

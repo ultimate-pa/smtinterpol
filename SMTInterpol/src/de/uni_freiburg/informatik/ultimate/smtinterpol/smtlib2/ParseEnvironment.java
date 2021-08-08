@@ -32,6 +32,7 @@ import java.util.zip.GZIPInputStream;
 
 import com.github.jhoenicke.javacup.runtime.SimpleSymbolFactory;
 
+import de.uni_freiburg.informatik.ultimate.logic.FormulaLet;
 import de.uni_freiburg.informatik.ultimate.logic.PrintTerm;
 import de.uni_freiburg.informatik.ultimate.logic.QuotedObject;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
@@ -40,6 +41,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.FrontEndOptions;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofRules;
 
 public class ParseEnvironment {
 	final Script mScript;
@@ -150,6 +152,17 @@ public class ParseEnvironment {
 
 	public void printResponse(final Object response) {
 		final PrintWriter out = mOptions.getOutChannel();
+		if (response instanceof Term
+				&& new ProofRules(mScript.getTheory()).isProofRule(ProofRules.RES, (Term) response)) {
+			Term proof = (Term) response;
+			if (mOptions.isPrintTermsCSE()) {
+				proof = new FormulaLet().let(proof);
+			}
+			new ProofRules.PrintProof().append(out, proof);
+			out.println();
+			out.flush();
+			return;
+		}
 		if (!mOptions.isPrintTermsCSE()) {
 			if (response instanceof Term) {
 				new PrintTerm().append(out, (Term) response);
@@ -167,7 +180,7 @@ public class ParseEnvironment {
 		out.println(response);
 		out.flush();
 	}
-	
+
 	public void exitWithStatus(final int statusCode) {
 		System.exit(statusCode);
 	}

@@ -23,6 +23,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.Transformations.AvailableTransformations;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol.CheckType;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol.ProofMode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory.InstantiationMethod;
 
 /**
@@ -44,7 +45,9 @@ public class SolverOptions {
 	private final BooleanOption mSimpIps;
 	private final BooleanOption mProofCheckMode;
 	private final EnumOption<CheckType> mSimpCheckType;
+	private final EnumOption<ProofMode> mProofLevel;
 	private final EnumOption<InstantiationMethod> mInstantiationMethod;
+	private final OptionMap mOptions;
 
 	SolverOptions(final OptionMap options, final LogProxy logger) {
 		mTimeout = new LongOption(0, true, "Soft timeout in milliseconds for "
@@ -76,6 +79,7 @@ public class SolverOptions {
 				+ " simplifier used in the simplify command");
 		mInstantiationMethod = new EnumOption<>(InstantiationMethod.E_MATCHING_CONFLICT, false,
 				InstantiationMethod.class, "Quantifier Theory: Method to instantiate quantified formulas.");
+		mProofLevel = new EnumOption<>(ProofMode.NONE, false, ProofMode.class, "Proof level.");
 
 		// general standard compliant options
 		options.addOption(SMTLIBConstants.VERBOSITY, new VerbosityOption(logger));
@@ -97,6 +101,7 @@ public class SolverOptions {
 		options.addOption(SMTLIBConstants.PRODUCE_PROOFS, mProduceProofs);
 		options.addOption(SMTInterpolOptions.PROOF_TRANSFORMATION, mProofTrans);
 		options.addOption(SMTInterpolOptions.PROOF_CHECK_MODE, mProofCheckMode);
+		options.addOption(SMTInterpolOptions.PROOF_LEVEL, mProofLevel);
 
 		// interpolant options
 		options.addOption(SMTInterpolOptions.PRODUCE_INTERPOLANTS, mProduceInterpolants);
@@ -134,6 +139,7 @@ public class SolverOptions {
 
 		options.addOption(SMTLIBConstants.GLOBAL_DECLARATIONS, new BooleanOption(false, false,
 				"Make all declared and defined symbols global.  Global symbols survive pop operations."));
+		mOptions = options;
 	}
 
 	@SuppressWarnings("unchecked")
@@ -150,8 +156,10 @@ public class SolverOptions {
 		mSimpIps = (BooleanOption) options.getOption(SMTInterpolOptions.SIMPLIFY_INTERPOLANTS);
 		mProofCheckMode = (BooleanOption) options.getOption(SMTInterpolOptions.PROOF_CHECK_MODE);
 		mSimpCheckType = (EnumOption<CheckType>) options.getOption(SMTInterpolOptions.SIMPLIFY_CHECK_TYPE);
+		mProofLevel = (EnumOption<ProofMode>) options.getOption(SMTInterpolOptions.PROOF_LEVEL);
 		mInstantiationMethod =
 				(EnumOption<InstantiationMethod>) options.getOption(SMTInterpolOptions.INSTANTIATION_METHOD);
+		mOptions = options;
 	}
 
 	public final CheckType getCheckType() {
@@ -184,6 +192,18 @@ public class SolverOptions {
 
 	public final boolean isProofCheckModeActive() {
 		return mProofCheckMode.getValue();
+	}
+
+	public final ProofMode getProofMode() {
+		ProofMode level = mProofLevel.getValue();
+		if (level == ProofMode.NONE) {
+			if (isProduceProofs() || isProofCheckModeActive()) {
+				level = ProofMode.FULL;
+			} else if (isProduceInterpolants() || (Boolean) mOptions.get(SMTLIBConstants.PRODUCE_UNSAT_CORES)) {
+				level = ProofMode.CLAUSES;
+			}
+		}
+		return level;
 	}
 
 	public final AvailableTransformations getProofTransformation() {

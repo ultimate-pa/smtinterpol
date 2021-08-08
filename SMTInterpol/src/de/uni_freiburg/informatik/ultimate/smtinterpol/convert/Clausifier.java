@@ -66,6 +66,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofTracker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol.ProofMode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.ArrayTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAppTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
@@ -1359,11 +1360,12 @@ public class Clausifier {
 	final static ILiteral mTRUE = new TrueLiteral();
 	final static ILiteral mFALSE = new FalseLiteral();
 
-	public Clausifier(final Theory theory, final DPLLEngine engine, final int proofLevel) {
+	public Clausifier(final Theory theory, final DPLLEngine engine, final ProofMode proofLevel) {
 		mTheory = theory;
 		mEngine = engine;
 		mLogger = engine.getLogger();
-		mTracker = proofLevel == 2 ? new ProofTracker() : new NoopProofTracker();
+		mTracker = proofLevel == ProofMode.NONE || proofLevel == ProofMode.CLAUSES ? new NoopProofTracker()
+				: new ProofTracker();
 		mUtils = new LogicSimplifier(mTracker);
 		mCompiler.setProofTracker(mTracker);
 	}

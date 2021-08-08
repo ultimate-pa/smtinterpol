@@ -33,6 +33,7 @@ public interface SMTInterpolOptions {
 	public String PROOF_TRANSFORMATION = ":proof-transformation";
 	public String MODEL_CHECK_MODE = ":model-check-mode";
 	public String PROOF_CHECK_MODE = ":proof-check-mode";
+	public String PROOF_LEVEL = ":proof-level";
 	public String INTERPOLANT_CHECK_MODE = ":interpolant-check-mode";
 	public String UNSAT_CORE_CHECK_MODE = ":unsat-core-check-mode";
 	public String UNSAT_ASSUMPTIONS_CHECK_MODE = ":unsat-assumptions-check-mode";
