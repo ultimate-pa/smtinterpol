@@ -306,24 +306,24 @@ public class MinimalProofChecker extends NonRecursive {
 			final Term[] params = (Term[]) annots[0].getValue();
 
 			// ~(or t1 ... tn), t1, ..., tn
-			final ProofLiteral[] clause = new ProofLiteral[params.length + 1];
-			clause[0] = new ProofLiteral(theory.term(SMTLIBConstants.OR, params), false);
-			for (int i = 0; i < params.length; i++) {
-				clause[i + 1] = new ProofLiteral(params[i], true);
+			final HashSet<ProofLiteral> clause = new HashSet<>();
+			clause.add(new ProofLiteral(theory.term(SMTLIBConstants.OR, params), false));
+			for (final Term param : params) {
+				clause.add(new ProofLiteral(param, true));
 			}
-			return clause;
+			return clause.toArray(new ProofLiteral[clause.size()]);
 		}
 		case ":" + ProofRules.ANDI: {
 			assert annots.length == 1;
 			final Term[] params = (Term[]) annots[0].getValue();
 
 			// (and t1 ... tn), ~t1, ..., ~tn
-			final ProofLiteral[] clause = new ProofLiteral[params.length + 1];
-			clause[0] = new ProofLiteral(theory.term(SMTLIBConstants.AND, params), true);
-			for (int i = 0; i < params.length; i++) {
-				clause[i + 1] = new ProofLiteral(params[i], false);
+			final HashSet<ProofLiteral> clause = new HashSet<>();
+			clause.add(new ProofLiteral(theory.term(SMTLIBConstants.AND, params), true));
+			for (final Term param : params) {
+				clause.add(new ProofLiteral(param, false));
 			}
-			return clause;
+			return clause.toArray(new ProofLiteral[clause.size()]);
 		}
 		case ":" + ProofRules.ANDE: {
 			assert annots.length == 2;
@@ -352,12 +352,12 @@ public class MinimalProofChecker extends NonRecursive {
 			final Term[] params = (Term[]) annots[0].getValue();
 
 			// ~(=> t1 ... tn), ~t1, ..., ~tn-1, tn
-			final ProofLiteral[] clause = new ProofLiteral[params.length + 1];
-			clause[0] = new ProofLiteral(theory.term(SMTLIBConstants.IMPLIES, params), false);
+			final HashSet<ProofLiteral> clause = new HashSet<>();
+			clause.add(new ProofLiteral(theory.term(SMTLIBConstants.IMPLIES, params), false));
 			for (int i = 0; i < params.length; i++) {
-				clause[i + 1] = new ProofLiteral(params[i], i == params.length - 1);
+				clause.add(new ProofLiteral(params[i], i == params.length - 1));
 			}
-			return clause;
+			return clause.toArray(new ProofLiteral[clause.size()]);
 		}
 		case ":" + ProofRules.IFFI1: {
 			assert annots.length == 1;
@@ -712,11 +712,11 @@ public class MinimalProofChecker extends NonRecursive {
 			if (!ProofRules.checkFarkas(ineqs, coeffs)) {
 				throw new AssertionError();
 			}
-			final ProofLiteral[] clause = new ProofLiteral[ineqs.length];
+			final HashSet<ProofLiteral> clause = new HashSet<>();
 			for (int i = 0; i < ineqs.length; i++) {
-				clause[i] = new ProofLiteral(ineqs[i], false);
+				clause.add(new ProofLiteral(ineqs[i], false));
 			}
-			return clause;
+			return clause.toArray(new ProofLiteral[clause.size()]);
 		}
 		default:
 			throw new AssertionError("Unknown axiom " + axiom);

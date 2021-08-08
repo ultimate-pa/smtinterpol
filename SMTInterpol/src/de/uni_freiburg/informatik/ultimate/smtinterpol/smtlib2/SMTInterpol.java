@@ -815,7 +815,7 @@ public class SMTInterpol extends NoopScript {
 			final ProofTermGenerator generator = new ProofTermGenerator(getTheory());
 			Term res = generator.convert(unsat);
 			if (proofMode == ProofMode.LOWLEVEL) {
-				res = new ProofSimplifier(this).transform(res);
+				res = new ProofSimplifier(this).transformProof(res);
 			}
 			return res;
 		} catch (final Exception exc) {
