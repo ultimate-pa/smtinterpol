@@ -1354,6 +1354,45 @@ public class ProofSimplifier extends TermTransformer {
 		return proveRewriteWithLeq(lhs, rhs, false);
 	}
 
+	Term convertRewriteForallExists(final Term lhs, final Term rhs) {
+		// lhs: (forall (vs) F)
+		// rhs: (not (exists (vs) (not F)))
+		final Theory theory = lhs.getTheory();
+		assert isApplication("not", rhs);
+		final Term rhsArg = ((ApplicationTerm) rhs).getParameters()[0];
+		final QuantifiedFormula forall = (QuantifiedFormula) lhs;
+		final QuantifiedFormula exists = (QuantifiedFormula) rhsArg;
+		assert forall.getQuantifier() == QuantifiedFormula.FORALL && exists.getQuantifier() == QuantifiedFormula.EXISTS;
+		assert Arrays.equals(forall.getVariables(), exists.getVariables());
+		final Term forallSubformula = forall.getSubformula();
+		final Term existsSubformula = exists.getSubformula();
+		assert isApplication("not", existsSubformula) && forallSubformula == ((ApplicationTerm) existsSubformula).getParameters()[0];
+
+		final Term[] forallSkolem = mProofRules.getSkolemVars(forall.getVariables(), forallSubformula, true);
+		final Term[] existsSkolem = mProofRules.getSkolemVars(exists.getVariables(), existsSubformula, false);
+		final FormulaUnLet unletter = new FormulaUnLet();
+		final Term existsLetted = unletter.unlet(theory.let(forall.getVariables(), existsSkolem, forallSubformula));
+		final Term notExistsLetted = theory.term("not", existsLetted);
+		final Term forallLetted = unletter.unlet(theory.let(forall.getVariables(), forallSkolem, forallSubformula));
+		final Term notForallLetted = theory.term("not", forallLetted);
+		final Term proofLtoR =
+				mProofRules.resolutionRule(exists,
+						mProofRules.notIntro(rhs),
+						mProofRules.resolutionRule(notExistsLetted,
+								mProofRules.existsElim(exists),
+								mProofRules.resolutionRule(existsLetted, mProofRules.forallElim(existsSkolem, forall),
+										mProofRules.notElim(notExistsLetted))));
+		final Term proofRtoL =
+				mProofRules.resolutionRule(exists,
+						mProofRules.resolutionRule(notForallLetted,
+								mProofRules.resolutionRule(forallLetted,
+										mProofRules.notIntro(notForallLetted),
+										mProofRules.forallIntro(forall)),
+								mProofRules.existsIntro(forallSkolem, exists)),
+						mProofRules.notElim(rhs));
+		return proveIff(theory.term("=", lhs, rhs), proofLtoR, proofRtoL);
+	}
+
 	private Term convertRewrite(final Term[] newParams) {
 		final AnnotatedTerm annotTerm = (AnnotatedTerm) newParams[0];
 		final String rewriteRule = annotTerm.getAnnotations()[0].getKey();
@@ -1410,6 +1449,9 @@ public class ProofSimplifier extends TermTransformer {
 		case ":gtToLeq0":
 			subProof = convertRewriteToLeq0(rewriteRule, stmtParams[0], stmtParams[1]);
 			break;
+		case ":forallExists":
+			subProof = convertRewriteForallExists(stmtParams[0], stmtParams[1]);
+			break;
 		case ":constDiff":
 		case ":xorTrue":
 		case ":xorFalse":
@@ -1443,7 +1485,6 @@ public class ProofSimplifier extends TermTransformer {
 		case ":selectOverStore":
 		case ":flatten":
 		case ":storeRewrite":
-		case ":forallExists":
 		case ":skolem":
 		case ":removeForall":
 		default:
