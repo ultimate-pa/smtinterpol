@@ -642,6 +642,26 @@ public class MinimalProofChecker extends NonRecursive {
 			return new ProofLiteral[] { new ProofLiteral(quant, !isForall),
 					new ProofLiteral(new FormulaUnLet().unlet(letted), isForall) };
 		}
+		case ":" + ProofRules.GTDEF: {
+			final Term[] params = (Term[]) annots[0].getValue();
+			assert annots.length == 1;
+			if (params.length != 2) {
+				throw new AssertionError();
+			}
+			return new ProofLiteral[] {
+					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, theory.term(SMTLIBConstants.GT, params),
+							theory.term(SMTLIBConstants.LT, params[1], params[0])), true) };
+		}
+		case ":" + ProofRules.GEQDEF: {
+			final Term[] params = (Term[]) annots[0].getValue();
+			assert annots.length == 1;
+			if (params.length != 2) {
+				throw new AssertionError();
+			}
+			return new ProofLiteral[] {
+					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, theory.term(SMTLIBConstants.GEQ, params),
+							theory.term(SMTLIBConstants.LEQ, params[1], params[0])), true) };
+		}
 		case ":" + ProofRules.TRICHOTOMY: {
 			final Term[] params = (Term[]) annots[0].getValue();
 			assert annots.length == 1;

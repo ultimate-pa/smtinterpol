@@ -788,43 +788,8 @@ public class ProofSimplifier extends TermTransformer {
 
 		if (isApplication("<=", lhs)) {
 			final Term[] lhsParams = ((ApplicationTerm) lhs).getParameters();
-			final boolean isInt = lhsParams[0].getSort().getName() == "Int";
-			final SMTAffineTerm lhsAffine = new SMTAffineTerm(lhsParams[0]);
 			assert isZero(lhsParams[1]);
-
-			/* (<= a b) can be translated to (not (< b a)) */
-			final boolean isNegated = isApplication("not", rhs);
-			boolean isStrict = false;
-			Term rhsAtom = rhs;
-			if (isNegated) {
-				rhsAtom = negate(rhs);
-				/* <= (a-b) 0 --> (not (< (b-a) 0)) resp. (not (<= (b-a+1) 0)) for integer */
-				lhsAffine.negate();
-				if (isInt) {
-					lhsAffine.add(Rational.ONE);
-				} else {
-					isStrict = true;
-				}
-			}
-			// Normalize coefficients
-			if (lhs.getFreeVars().length == 0) { // TODO Quantified terms are not normalized, but we might change this.
-				lhsAffine.div(lhsAffine.getGcd());
-			}
-			// Round constant up for integers: (<= (x + 1.25) 0) --> (<= x + 2)
-			if (isInt) {
-				final Rational constant = lhsAffine.getConstant();
-				final Rational frac = constant.add(constant.negate().floor());
-				lhsAffine.add(frac.negate());
-			}
-
-			// Now check that rhs is as expected
-			final Term unquoteRhs = unquote(rhsAtom);
-			assert isApplication(isStrict ? "<" : "<=", unquoteRhs);
-
-			final Term[] rhsParams = ((ApplicationTerm) unquoteRhs).getParameters();
-			assert new SMTAffineTerm(rhsParams[0]).equals(lhsAffine) && isZero(rhsParams[1]);
-			// TODO
-			return mProofRules.asserted(theory.term("=", lhs, rhs));
+			return proveRewriteWithLeq(lhs, rhs, true);
 		}
 
 		if (isApplication("=", lhs)) {
@@ -832,7 +797,7 @@ public class ProofSimplifier extends TermTransformer {
 			final Term[] lhsParams = ((ApplicationTerm) lhs).getParameters();
 			assert lhsParams.length == 2;
 			if (isApplication("false", rhs)) {
-				final Term proofNotLhs = proofTrivialDisequality(lhsParams[0], lhsParams[1]);
+				final Term proofNotLhs = proveTrivialDisequality(lhsParams[0], lhsParams[1]);
 				return mProofRules.resolutionRule(rhs,
 						mProofRules.resolutionRule(lhs, mProofRules.iffIntro1(theory.term("=", lhs, rhs)), proofNotLhs),
 						mProofRules.falseElim());
@@ -1361,6 +1326,34 @@ public class ProofSimplifier extends TermTransformer {
 		return mProofRules.resolutionRule(rhs, mProofRules.trueIntro(theory), proof);
 	}
 
+	private Term convertRewriteToLeq0(final String rewriteRule, final Term lhs, final Term rhs) {
+		boolean isNegated;
+		switch (rewriteRule) {
+		case ":leqToLeq0":
+			assert isApplication("<=", lhs);
+			isNegated = false;
+			break;
+		case ":ltToLeq0":
+			assert isApplication("<", lhs);
+			isNegated = true;
+			break;
+		case ":geqToLeq0":
+			assert isApplication(">=", lhs);
+			isNegated = false;
+			break;
+		case ":gtToLeq0":
+			assert isApplication(">", lhs);
+			isNegated = true;
+			break;
+		default:
+			throw new AssertionError();
+		}
+		final Term rhsAtom = isNegated ? negate(rhs) : rhs;
+		assert isApplication("<=", rhsAtom);
+
+		return proveRewriteWithLeq(lhs, rhs, false);
+	}
+
 	private Term convertRewrite(final Term[] newParams) {
 		final AnnotatedTerm annotTerm = (AnnotatedTerm) newParams[0];
 		final String rewriteRule = annotTerm.getAnnotations()[0].getKey();
@@ -1411,6 +1404,12 @@ public class ProofSimplifier extends TermTransformer {
 		case ":distinctBinary":
 			subProof = convertRewriteDistinct(rewriteRule, rewriteStmt, stmtParams[0], stmtParams[1]);
 			break;
+		case ":leqToLeq0":
+		case ":ltToLeq0":
+		case ":geqToLeq0":
+		case ":gtToLeq0":
+			subProof = convertRewriteToLeq0(rewriteRule, stmtParams[0], stmtParams[1]);
+			break;
 		case ":constDiff":
 		case ":xorTrue":
 		case ":xorFalse":
@@ -1429,10 +1428,6 @@ public class ProofSimplifier extends TermTransformer {
 		case ":impToOr":
 		case ":strip":
 		case ":canonicalSum":
-		case ":leqToLeq0":
-		case ":ltToLeq0":
-		case ":geqToLeq0":
-		case ":gtToLeq0":
 		case ":leqTrue":
 		case ":leqFalse":
 		case ":divisible":
@@ -1558,7 +1553,7 @@ public class ProofSimplifier extends TermTransformer {
 		}
 		if (disEq == null) {
 			proof = mProofRules.resolutionRule(mainPathEquality, proof,
-					proofTrivialDisequality(mainPath[0], mainPath[mainPath.length - 1]));
+					proveTrivialDisequality(mainPath[0], mainPath[mainPath.length - 1]));
 		} else {
 			final Term unquoteLiteral = unquote(disEq);
 			if (unquoteLiteral != mainPathEquality) {
@@ -1876,8 +1871,8 @@ public class ProofSimplifier extends TermTransformer {
 	}
 
 	/**
-	 * Check whether the disequality between two terms is trivial. There are two
-	 * cases, (1) the difference between the terms is constant and nonzero, e.g.
+	 * Proof that the disequality between two terms is trivial. There are two cases,
+	 * (1) the difference between the terms is constant and nonzero, e.g.
 	 * {@code (= x (+ x 1))}, or (2) the difference contains only integer variables
 	 * and the constant divided by the gcd of the factors is non-integral, e.g.,
 	 * {@code (= (+ x (* 2 y)) (+ x (* 2 z) 1))}.
@@ -1886,7 +1881,7 @@ public class ProofSimplifier extends TermTransformer {
 	 * @param second the right-hand side of the equality
 	 * @return true if the equality is trivially not satisfied.
 	 */
-	private Term proofTrivialDisequality(final Term first, final Term second) {
+	private Term proveTrivialDisequality(final Term first, final Term second) {
 		final Theory theory = first.getTheory();
 		final SMTAffineTerm diff = new SMTAffineTerm(first);
 		diff.add(Rational.MONE, second);
@@ -1952,12 +1947,93 @@ public class ProofSimplifier extends TermTransformer {
 		}
 	}
 
-	private Term buildIffProof(final Term equality, final Term proofLeftToRight, final Term proofRightToLeft) {
+	private Term proveIff(final Term equality, final Term proofLeftToRight, final Term proofRightToLeft) {
 		final Term[] sides = ((ApplicationTerm) equality).getParameters();
 		assert sides.length == 2;
 		return mProofRules.resolutionRule(sides[1],
 				mProofRules.resolutionRule(sides[0], mProofRules.iffIntro1(equality), proofLeftToRight),
-				mProofRules.resolutionRule(sides[0], proofRightToLeft, mProofRules.iffIntro1(equality)));
+				mProofRules.resolutionRule(sides[0], proofRightToLeft, mProofRules.iffIntro2(equality)));
 	}
 
+	private Term proveRewriteWithLeq(final Term lhs, final Term rhs, final boolean normalizeGCD) {
+		final Theory theory = lhs.getTheory();
+
+		final boolean isGreater = isApplication(">", lhs) || isApplication(">=", lhs);
+		final boolean rhsIsNegated = isApplication("not", rhs);
+		final Term quotedRhsAtom = rhsIsNegated ? negate(rhs) : rhs;
+		final boolean rhsIsQuoted = quotedRhsAtom instanceof AnnotatedTerm;
+		final Term rhsAtom = rhsIsQuoted ? unquote(quotedRhsAtom) : quotedRhsAtom;
+		Term[] lhsParam = ((ApplicationTerm) lhs).getParameters();
+		final Term[] rhsAtomParam = ((ApplicationTerm) rhsAtom).getParameters();
+		final boolean isStrictLhs = isApplication("<", lhs) || isApplication(">", lhs);
+		final boolean isStrictRhsAtom = isApplication("<", rhsAtom);
+
+		if (isGreater) {
+			lhsParam = new Term[] { lhsParam[1], lhsParam[0] };
+		}
+		final Term posLhs = theory.term(isStrictLhs ? "<" : "<=", lhsParam[0], lhsParam[1]);
+		final Term negLhs = theory.term(isStrictLhs ? "<=" : "<", lhsParam[1], lhsParam[0]);
+		final Term negRhsAtom = theory.term(isStrictRhsAtom ? "<=" : "<", rhsAtomParam[1], rhsAtomParam[0]);
+		final Term posRhs = rhsIsNegated ? negRhsAtom : rhsAtom;
+		final Term negRhs = rhsIsNegated ? rhsAtom : negRhsAtom;
+
+		Rational gcd = Rational.ONE;
+		if (normalizeGCD) {
+			final SMTAffineTerm lhsAffine = new SMTAffineTerm(lhsParam[0]);
+			lhsAffine.add(Rational.MONE, lhsParam[1]);
+			gcd = lhsAffine.getGcd();
+		}
+
+		Term proofLhsToRhs = mProofRules.farkas(new Term[] { posLhs, negRhs },
+				new BigInteger[] { gcd.denominator(), gcd.numerator() } );
+		Term proofRhsToLhs = mProofRules.farkas(new Term[] { negLhs, posRhs },
+				new BigInteger[] { gcd.denominator(), gcd.numerator() } );
+		proofRhsToLhs = mProofRules.resolutionRule(negLhs,
+				mProofRules.totality(lhsParam[isStrictLhs ? 1 : 0], lhsParam[isStrictLhs ? 0 : 1]), proofRhsToLhs);
+		if (rhsIsNegated) {
+			proofRhsToLhs = mProofRules.resolutionRule(posRhs,
+					mProofRules.totality(rhsAtomParam[isStrictRhsAtom ? 1 : 0], rhsAtomParam[isStrictRhsAtom ? 0 : 1]),
+					proofRhsToLhs);
+		} else {
+			proofLhsToRhs = mProofRules.resolutionRule(negRhs,
+					mProofRules.totality(rhsAtomParam[isStrictRhsAtom ? 1 : 0], rhsAtomParam[isStrictRhsAtom ? 0 : 1]),
+					proofLhsToRhs);
+		}
+		Term unquoteEq = null;
+		if (rhsIsQuoted) {
+			unquoteEq = theory.term(SMTLIBConstants.EQUALS, quotedRhsAtom, rhsAtom);
+			if (rhsIsNegated) {
+				proofRhsToLhs = mProofRules.resolutionRule(rhsAtom, proofRhsToLhs,
+						mProofRules.iffElim1(unquoteEq));
+				proofLhsToRhs = mProofRules.resolutionRule(rhsAtom, mProofRules.iffElim2(unquoteEq),
+						proofLhsToRhs);
+			} else {
+				proofRhsToLhs = mProofRules.resolutionRule(rhsAtom, mProofRules.iffElim2(unquoteEq),
+						proofRhsToLhs);
+				proofLhsToRhs = mProofRules.resolutionRule(rhsAtom, proofLhsToRhs,
+						mProofRules.iffElim1(unquoteEq));
+			}
+		}
+		if (rhsIsNegated) {
+			proofLhsToRhs = mProofRules.resolutionRule(rhsAtom, mProofRules.notIntro(rhs), proofLhsToRhs);
+			proofRhsToLhs = mProofRules.resolutionRule(rhsAtom, proofRhsToLhs, mProofRules.notElim(rhs));
+		}
+		Term greaterEq = null;
+		if (isGreater) {
+			greaterEq = theory.term("=", lhs, posLhs);
+			proofLhsToRhs = mProofRules.resolutionRule(posLhs, mProofRules.iffElim2(greaterEq),
+					proofLhsToRhs);
+			proofRhsToLhs = mProofRules.resolutionRule(posLhs, proofRhsToLhs, mProofRules.iffElim1(greaterEq));
+
+		}
+		Term proof = proveIff(theory.term("=", lhs, rhs), proofLhsToRhs, proofRhsToLhs);
+		if (rhsIsQuoted) {
+			proof = mProofRules.resolutionRule(unquoteEq, mProofRules.delAnnot(quotedRhsAtom), proof);
+		}
+		if (isGreater) {
+			proof = mProofRules.resolutionRule(greaterEq,
+					isStrictLhs ? mProofRules.gtDef(lhs) : mProofRules.geqDef(lhs), proof);
+		}
+		return proof;
+	}
 }

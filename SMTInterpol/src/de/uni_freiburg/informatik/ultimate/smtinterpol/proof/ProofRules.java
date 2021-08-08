@@ -360,8 +360,19 @@ public class ProofRules {
 	}
 
 	public Term divisible(final Term lhs, final BigInteger divisor) {
-		return mTheory.annotatedTerm(annotate(":" + TOTAL, new Term[] { lhs }, new Annotation(ANNOT_DIVISOR, divisor)),
+		return mTheory.annotatedTerm(
+				annotate(":" + DIVISIBLE, new Term[] { lhs }, new Annotation(ANNOT_DIVISOR, divisor)),
 				mAxiom);
+	}
+
+	public Term gtDef(final Term greaterTerm) {
+		assert ((ApplicationTerm) greaterTerm).getFunction().getName() == SMTLIBConstants.GT;
+		return mTheory.annotatedTerm(annotate(":" + GTDEF, ((ApplicationTerm) greaterTerm).getParameters()), mAxiom);
+	}
+
+	public Term geqDef(final Term greaterTerm) {
+		assert ((ApplicationTerm) greaterTerm).getFunction().getName() == SMTLIBConstants.GEQ;
+		return mTheory.annotatedTerm(annotate(":" + GEQDEF, ((ApplicationTerm) greaterTerm).getParameters()), mAxiom);
 	}
 
 	public Term tricho(final Term lhs, final Term rhs) {
