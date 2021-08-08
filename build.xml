@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <project default="all" name="Create Project SMTInterpol" xmlns:jacoco="antlib:org.jacoco.ant" xmlns:resolver="antlib:org.apache.maven.resolver.ant" xmlns:sonar="antlib:org.sonar.ant">
+    <property name="javacup.jar" value="jh-javacup-1.2.jar"/>
     <target name="help">
         <echo>
 Run with, e.g., `ant smtinterpol.jar`.  Useful targets:
@@ -44,14 +45,14 @@ stage:             Upload new version to Maven Central (owner only)
     <target name="check_smtlib1.cup_current">
         <uptodate property="smtlib1.cup.current">
             <srcfiles dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib" includes="*.cup,*.flex"/>
-            <srcfiles file="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.1.jar"/>
+            <srcfiles file="${dir.workspace}/SMTInterpol/lib/${javacup.jar}"/>
             <mapper>
                 <globmapper from="smtlib.cup" to="Parser.java"/>
                 <globmapper from="smtlib.cup" to="LexerSymbols.java"/>
                 <globmapper from="smtlib.flex" to="Lexer.java"/>
-                <globmapper from="jh-javacup-1.1.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Parser.java"/>
-                <globmapper from="jh-javacup-1.1.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}LexerSymbols.java"/>
-                <globmapper from="jh-javacup-1.1.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Lexer.java"/>
+                <globmapper from="${javacup.jar}" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Parser.java"/>
+                <globmapper from="${javacup.jar}" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}LexerSymbols.java"/>
+                <globmapper from="${javacup.jar}" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Lexer.java"/>
             </mapper>
         </uptodate>
     </target>
@@ -63,14 +64,14 @@ stage:             Upload new version to Maven Central (owner only)
     <target name="check_smtlib2.cup_current">
         <uptodate property="smtlib2.cup.current">
             <srcfiles dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2" includes="*.cup,*.flex"/>
-            <srcfiles file="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.1.jar"/>
+            <srcfiles file="${dir.workspace}/SMTInterpol/lib/${javacup.jar}"/>
             <mapper>
                 <globmapper from="smtlib.cup" to="Parser.java"/>
                 <globmapper from="smtlib.cup" to="LexerSymbols.java"/>
                 <globmapper from="smtlib.flex" to="Lexer.java"/>
-                <globmapper from="jh-javacup-1.1.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Parser.java"/>
-                <globmapper from="jh-javacup-1.1.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}LexerSymbols.java"/>
-                <globmapper from="jh-javacup-1.1.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Lexer.java"/>
+                <globmapper from="${javacup.jar}" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Parser.java"/>
+                <globmapper from="${javacup.jar}" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}LexerSymbols.java"/>
+                <globmapper from="${javacup.jar}" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Lexer.java"/>
             </mapper>
         </uptodate>
     </target>
@@ -82,14 +83,14 @@ stage:             Upload new version to Maven Central (owner only)
     <target name="check_dimacs.cup_current">
         <uptodate property="dimacs.cup.current">
             <srcfiles dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs" includes="*.cup,*.flex"/>
-            <srcfiles file="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.1.jar"/>
+            <srcfiles file="${dir.workspace}/SMTInterpol/lib/${javacup.jar}"/>
             <mapper>
                 <globmapper from="dimacs.cup" to="Parser.java"/>
                 <globmapper from="dimacs.cup" to="LexerSymbols.java"/>
                 <globmapper from="dimacs.flex" to="Lexer.java"/>
-                <globmapper from="jh-javacup-1.1.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Parser.java"/>
-                <globmapper from="jh-javacup-1.1.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}LexerSymbols.java"/>
-                <globmapper from="jh-javacup-1.1.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Lexer.java"/>
+                <globmapper from="${javacup.jar}" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Parser.java"/>
+                <globmapper from="${javacup.jar}" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}LexerSymbols.java"/>
+                <globmapper from="${javacup.jar}" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Lexer.java"/>
             </mapper>
         </uptodate>
     </target>
@@ -115,7 +116,7 @@ stage:             Upload new version to Maven Central (owner only)
             <exclude name="de/uni_freiburg/informatik/ultimate/smtinterpol/test_generator/**"/>
             <exclude name="de/uni_freiburg/informatik/ultimate/smtinterpol/smtcomp/**"/>
             <classpath>
-                <pathelement location="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.1.jar"/>
+                <pathelement location="${dir.workspace}/SMTInterpol/lib/${javacup.jar}"/>
                 <pathelement path="${dir.workspace}/Library-SMTLIB/release"/>
             </classpath>
         </javac>
@@ -125,7 +126,7 @@ stage:             Upload new version to Maven Central (owner only)
         <mkdir dir="${dir.workspace}/DeltaDebugger/release"/>
         <javac srcdir="${dir.workspace}/DeltaDebugger/src" destdir="${dir.workspace}/DeltaDebugger/release" optimize="${optimize}" includeAntRuntime="false" debug="${debug}">
             <classpath>
-                <pathelement location="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.1.jar"/>
+                <pathelement location="${dir.workspace}/SMTInterpol/lib/${javacup.jar}"/>
                 <pathelement path="${dir.workspace}/Library-SMTLIB/release"/>
                 <pathelement path="${dir.workspace}/SMTInterpol/release"/>
             </classpath>
@@ -140,7 +141,7 @@ stage:             Upload new version to Maven Central (owner only)
             </manifest>
             <zipfileset dir="${dir.workspace}/SMTInterpol/release"/>
             <zipfileset dir="${dir.workspace}/Library-SMTLIB/release"/>
-            <zipfileset includes="com/github/jhoenicke/javacup/runtime/**" src="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.1.jar"/>
+            <zipfileset includes="com/github/jhoenicke/javacup/runtime/**" src="${dir.workspace}/SMTInterpol/lib/${javacup.jar}"/>
             <zipfileset file="${dir.workspace}/LICENSE" prefix=""/>
             <zipfileset file="${dir.workspace}/COPYING" prefix=""/>
             <zipfileset file="${dir.workspace}/COPYING.LESSER" prefix=""/>
@@ -158,7 +159,7 @@ stage:             Upload new version to Maven Central (owner only)
             <zipfileset dir="${dir.workspace}/DeltaDebugger/release"/>
             <zipfileset dir="${dir.workspace}/SMTInterpol/release"/>
             <zipfileset dir="${dir.workspace}/Library-SMTLIB/release"/>
-            <zipfileset includes="com/github/jhoenicke/javacup/runtime/**" src="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.1.jar"/>
+            <zipfileset includes="com/github/jhoenicke/javacup/runtime/**" src="${dir.workspace}/SMTInterpol/lib/${javacup.jar}"/>
             <zipfileset file="${dir.workspace}/LICENSE" prefix=""/>
             <zipfileset file="${dir.workspace}/COPYING" prefix=""/>
             <zipfileset file="${dir.workspace}/COPYING.LESSER" prefix=""/>
@@ -279,7 +280,7 @@ java -Xms1536m -Xmx50g -da -dsa -jar smtinterpol.jar -q -o continue-on-error=fal
                 <pathelement location="${dir.workspace}/libs/junit-4.12.jar"/>
                 <pathelement location="${dir.workspace}/libs/hamcrest-core-1.3.jar"/>
                 <pathelement location="${dir.workspace}/libs/ant-junit4.jar"/>
-                <pathelement location="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.1.jar"/>
+                <pathelement location="${dir.workspace}/SMTInterpol/lib/${javacup.jar}"/>
                 <pathelement path="${dir.workspace}/Library-SMTLIB/release"/>
                 <pathelement path="${dir.workspace}/SMTInterpol/release"/>
                 <pathelement path="${dir.tests}/Library-SMTLIBTest/release"/>
@@ -323,7 +324,7 @@ java -Xms1536m -Xmx50g -da -dsa -jar smtinterpol.jar -q -o continue-on-error=fal
                     <pathelement location="${dir.workspace}/libs/junit-4.12.jar"/>
                     <pathelement location="${dir.workspace}/libs/hamcrest-core-1.3.jar"/>
                     <pathelement location="${dir.workspace}/libs/ant-junit4.jar"/>
-                    <pathelement location="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.1.jar"/>
+                    <pathelement location="${dir.workspace}/SMTInterpol/lib/${javacup.jar}"/>
                     <pathelement path="${dir.workspace}/Library-SMTLIB/release"/>
                     <pathelement path="${dir.workspace}/SMTInterpol/release"/>
                     <pathelement path="${dir.tests}/Library-SMTLIBTest/release"/>

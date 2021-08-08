@@ -20,7 +20,7 @@ along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.
 	<property name="smtinterpol" location="src/de/uni_freiburg/informatik/ultimate/smtinterpol"/>
 	<property name="smtlib" location="${smtinterpol}/smtlib"/>
 	<property name="smtlib2" location="${smtinterpol}/smtlib2"/>
-    <property name="cupJar" location="jh-javacup-1.1.jar"/>
+    <property name="cupJar" location="jh-javacup-1.2.jar"/>
     <property name="flexJar" location="JFlex.jar"/>
     <description>
         Build File for Compiler Project

@@ -2,7 +2,7 @@
 <project default="javadoc">
     <target name="javadoc">
         <javadoc access="protected" author="true"
-        	classpath="SMTInterpol/lib/jh-javacup-1.1.jar:Library-SMTLIB/bin:Library-SMTLIB/release:SMTInterpol/bin:SMTInterpol/release"
+        	classpath="SMTInterpol/lib/jh-javacup-1.2.jar:Library-SMTLIB/bin:Library-SMTLIB/release:SMTInterpol/bin:SMTInterpol/release"
         	destdir="doc-smtinterpol" 
         	Doctitle="SMTInterpol 2.1 Public API"
         	nodeprecated="false" 
