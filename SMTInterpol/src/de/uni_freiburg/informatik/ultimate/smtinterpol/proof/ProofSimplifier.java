@@ -801,59 +801,54 @@ public class ProofSimplifier extends TermTransformer {
 
 	private Term convertRewriteIntern(final Term lhs, final Term rhs) {
 		final Theory theory = lhs.getTheory();
+		// simple case first
 		if (rhs == lhs) {
 			return mProofRules.refl(lhs);
 		}
 
-		// x can be rewritten to (= x true) or to (not (= x false))
-		if (lhs instanceof TermVariable) {
-			boolean isNegRewrite = false;
-			Term quotedAtom = rhs;
-			if (isApplication("not", rhs)) {
-				isNegRewrite = true;
-				quotedAtom = negate(rhs);
+		// term x can be rewritten to (not (! (= x false) :quoted))
+		if (isApplication("not", rhs)) {
+			final Term quotedAtom = negate(rhs);
+			if (quotedAtom instanceof AnnotatedTerm) {
+				final Term unquotedAtom = unquote(quotedAtom);
+				if (isApplication("=", unquotedAtom)) {
+					final ApplicationTerm rhsApp = (ApplicationTerm) unquotedAtom;
+					if (isApplication("false", rhsApp.getParameters()[1])
+							&& lhs == rhsApp.getParameters()[0]) {
+						final Term rhsLit = theory.term("not", rhsApp);
+						final Term lhsEqRhsLit = theory.term("=", lhs, rhsLit);
+						Term proofLhsEqRhsLit;
+						Term proofUnquote = mProofRules.resolutionRule(theory.term("=", quotedAtom, unquotedAtom),
+								mProofRules.delAnnot(quotedAtom), mProofRules.symm(unquotedAtom, quotedAtom));
+						final Term falseTerm = rhsApp.getParameters()[1];
+						proofLhsEqRhsLit = proveIff(lhsEqRhsLit,
+								mProofRules.resolutionRule(rhsApp, mProofRules.notIntro(rhsLit), mProofRules.iffElim2(rhsApp)),
+								mProofRules.resolutionRule(rhsApp, mProofRules.iffIntro1(rhsApp), mProofRules.notElim(rhsLit)));
+						proofLhsEqRhsLit = mProofRules.resolutionRule(falseTerm, proofLhsEqRhsLit, mProofRules.falseElim());
+						proofUnquote = mProofRules.resolutionRule(theory.term("=", unquotedAtom, quotedAtom), proofUnquote,
+								mProofRules.cong(rhsLit, rhs));
+						return mProofRules.resolutionRule(theory.term("=", lhs, rhsLit), proofLhsEqRhsLit,
+								mProofRules.resolutionRule(theory.term("=", rhsLit, rhs), proofUnquote,
+										mProofRules.trans(lhs, rhsLit, rhs)));
+					}
+				}
 			}
-			final Term unquotedAtom = unquote(quotedAtom);
-			assert isApplication("=", unquotedAtom);
-			final ApplicationTerm rhsApp = (ApplicationTerm) unquotedAtom;
-			assert isApplication(isNegRewrite ? "false" : "true", rhsApp.getParameters()[1])
-					&& lhs == rhsApp.getParameters()[0];
-			final Term rhsLit = isNegRewrite ? theory.term("not", rhsApp) : rhsApp;
-			final Term lhsEqRhsLit = theory.term("=", lhs, rhsLit);
-			Term proofLhsEqRhsLit;
-			Term proofUnquote = mProofRules.resolutionRule(theory.term("=", quotedAtom, unquotedAtom),
-					mProofRules.delAnnot(quotedAtom), mProofRules.symm(unquotedAtom, quotedAtom));
-			if (isNegRewrite) {
-				final Term falseTerm = rhsApp.getParameters()[1];
-				proofLhsEqRhsLit = proveIff(lhsEqRhsLit,
-						mProofRules.resolutionRule(rhsApp, mProofRules.notIntro(rhsLit), mProofRules.iffElim2(rhsApp)),
-						mProofRules.resolutionRule(rhsApp, mProofRules.iffIntro1(rhsApp), mProofRules.notElim(rhsLit)));
-				proofLhsEqRhsLit = mProofRules.resolutionRule(falseTerm, proofLhsEqRhsLit, mProofRules.falseElim());
-				proofUnquote = mProofRules.resolutionRule(theory.term("=", unquotedAtom, quotedAtom), proofUnquote,
-						mProofRules.cong(rhsLit, rhs));
-			} else {
-				final Term trueTerm = rhsApp.getParameters()[1];
-				proofLhsEqRhsLit = proveIff(lhsEqRhsLit, mProofRules.iffIntro2(rhsApp), mProofRules.iffElim1(rhsApp));
-				proofLhsEqRhsLit = mProofRules.resolutionRule(trueTerm, mProofRules.trueIntro(), proofLhsEqRhsLit);
-			}
-			return mProofRules.resolutionRule(theory.term("=", lhs, rhsLit), proofLhsEqRhsLit,
-					mProofRules.resolutionRule(theory.term("=", rhsLit, rhs), proofUnquote,
-							mProofRules.trans(lhs, rhsLit, rhs)));
 		}
 
 		if (rhs instanceof AnnotatedTerm) {
-			/* second case: boolean functions are created as equalities */
 			final Term unquoteRhs = unquote(rhs);
 
-			/* Check for auxiliary literals */
+			/* check for quoted auxiliary literals */
 			if (lhs == unquoteRhs) {
 				return mProofRules.resolutionRule(theory.term("=", rhs, lhs), mProofRules.delAnnot(rhs),
 						mProofRules.symm(lhs, rhs));
 			}
 
+			/* second case: boolean functions are created as equality with true */
 			if (isApplication("=", unquoteRhs)) {
 				final Term[] rhsArgs = ((ApplicationTerm) unquoteRhs).getParameters();
 				if (rhsArgs.length == 2 && isApplication("true", rhsArgs[1])) {
+					/* check if we need to expand an @aux application */
 					final boolean needsExpand = lhs != rhsArgs[0] && (rhsArgs[0] instanceof ApplicationTerm
 							&& mAuxDefs.containsKey(((ApplicationTerm) rhsArgs[0]).getFunction()));
 					if (needsExpand || lhs == rhsArgs[0]) {
@@ -892,10 +887,13 @@ public class ProofSimplifier extends TermTransformer {
 			return proveRewriteWithLeq(lhs, rhs, true);
 		}
 
+		// eq is rewritten to quotedCC
 		if (isApplication("=", lhs)) {
 			/* compute affine term for lhs */
 			final Term[] lhsParams = ((ApplicationTerm) lhs).getParameters();
 			assert lhsParams.length == 2;
+
+			// check rewrites for trivial disequality / equality.
 			if (isApplication("false", rhs)) {
 				final Term proofNotLhs = proveTrivialDisequality(lhsParams[0], lhsParams[1]);
 				return mProofRules.resolutionRule(rhs,
@@ -918,46 +916,24 @@ public class ProofSimplifier extends TermTransformer {
 			final Term[] rhsParams = ((ApplicationTerm) unquoteRhs).getParameters();
 			assert rhsParams.length == 2;
 
-			/* first check if rhs and lhs are the same or only swapped parameters */
 			if (lhs == unquoteRhs) {
+				// lhs and rhs are the same (modulo quote)
 				return proof2;
-			} else if (lhsParams[1] == rhsParams[0] && lhsParams[0] == rhsParams[1]) {
-				final Term equality1 = theory.term("=", lhs, unquoteRhs);
-				final Term proof1 =
-						mProofRules.resolutionRule(lhs,
-								mProofRules.resolutionRule(unquoteRhs, mProofRules.iffIntro1(equality1),
-										mProofRules.symm(lhsParams[0], lhsParams[1])),
-								mProofRules.resolutionRule(unquoteRhs, mProofRules.symm(rhsParams[0], rhsParams[1]),
-										mProofRules.iffIntro2(equality1)));
-				return mProofRules.resolutionRule(equality1, proof1,
-						mProofRules.resolutionRule(equality2, proof2, mProofRules.trans(lhs, unquoteRhs, rhs)));
 			}
 
-			// Now it must be an LA equality that got normalized in a different way.
-			assert lhsParams[0].getSort().isNumericSort();
-
-			/* check that they represent the same equality */
-			// Note that an LA equality can sometimes be rewritten to an already existing CC
-			// equality, so
-			// we cannot assume the rhs is normalized
-
-			final SMTAffineTerm lhsAffine = new SMTAffineTerm(lhsParams[0]);
-			lhsAffine.add(Rational.MONE, lhsParams[1]);
-			final SMTAffineTerm rhsAffine = new SMTAffineTerm(rhsParams[0]);
-			rhsAffine.add(Rational.MONE, rhsParams[1]);
-			// we cannot compute gcd on constants so check for this and bail out
-			assert !lhsAffine.isConstant() && !rhsAffine.isConstant() : "A trivial equality was created";
-			lhsAffine.div(lhsAffine.getGcd());
-			rhsAffine.div(rhsAffine.getGcd());
-			if (lhsAffine.equals(rhsAffine)) {
-				// TODO
-				return mProofRules.asserted(theory.term("=", lhs, rhs));
+			final Term equality1 = theory.term("=", lhs, unquoteRhs);
+			Term proof1;
+			if (lhsParams[1] == rhsParams[0] && lhsParams[0] == rhsParams[1]) {
+				// lhs and rhs are only swapped
+				proof1 = proveIff(equality1, mProofRules.symm(rhsParams[0], rhsParams[1]),
+						mProofRules.symm(lhsParams[0], lhsParams[1]));
 			} else {
-				rhsAffine.negate();
-				assert lhsAffine.equals(rhsAffine);
-				// TODO
-				return mProofRules.asserted(theory.term("=", lhs, rhs));
+				// Now it must be an LA equality that got normalized in a different way.
+				assert lhsParams[0].getSort().isNumericSort();
+				proof1 = proveRewriteWithLinEq(lhs, unquoteRhs);
 			}
+			return mProofRules.resolutionRule(equality1, proof1,
+					mProofRules.resolutionRule(equality2, proof2, mProofRules.trans(lhs, unquoteRhs, rhs)));
 		}
 		throw new AssertionError();
 	}
@@ -2115,6 +2091,70 @@ public class ProofSimplifier extends TermTransformer {
 										mProofRules.iffIntro2(unquotedAtom))),
 						mProofRules.resolutionRule(thirdEq, mProofRules.expand(auxTerm),
 								mProofRules.trans(quotedAtom, unquotedAtom, auxTerm, expanded))));
+	}
+
+	/**
+	 * Proof a linear equality rhs from a linear equality lhs. This proves
+	 *
+	 * <pre>
+	 * (= (= lhs[0] lhs[1]) (= rhs[0] rhs[1])
+	 *
+	 * <pre>
+	 * , where (lhs[0] - lhs[1]) * multiplier == (rhs[0] - rhs[1]).
+	 *
+	 * @param lhs        the terms that are known to be equal
+	 * @param rhs        the terms that should be proved to be equal.
+	 * @param multiplier the factor that makes the sides equal.
+	 * @return the proof.
+	 */
+	private Term proveEqWithMultiplier(final Term[] lhs, final Term[] rhs, final Rational multiplier) {
+		final Theory theory = lhs[0].getTheory();
+		final Term leqLhs1 = theory.term(SMTLIBConstants.LEQ, lhs[0], lhs[1]);
+		final Term leqLhs2 = theory.term(SMTLIBConstants.LEQ, lhs[1], lhs[0]);
+		final Term lhsProof1 = mProofRules.eqLeq(lhs[0], lhs[1]);
+		final Term lhsProof2 = mProofRules.resolutionRule(theory.term("=", lhs[1], lhs[0]),
+				mProofRules.symm(lhs[1], lhs[0]), mProofRules.eqLeq(lhs[1], lhs[0]));
+		final Term ltRhs1 = theory.term(SMTLIBConstants.LT, rhs[0], rhs[1]);
+		final Term ltRhs2 = theory.term(SMTLIBConstants.LT, rhs[1], rhs[0]);
+		final Term leqSwapped1 = multiplier.signum() < 0 ? leqLhs1 : leqLhs2;
+		final Term leqSwapped2 = multiplier.signum() < 0 ? leqLhs2 : leqLhs1;
+		final Term proofSwapped1 = multiplier.signum() < 0 ? lhsProof1 : lhsProof2;
+		final Term proofSwapped2 = multiplier.signum() < 0 ? lhsProof2 : lhsProof1;
+		final BigInteger[] coeffs = new BigInteger[] { multiplier.numerator().abs(), multiplier.denominator() };
+		final Term farkas1 = mProofRules.farkas(new Term[] { leqSwapped1, ltRhs1 }, coeffs);
+		final Term farkas2 = mProofRules.farkas(new Term[] { leqSwapped2, ltRhs2 }, coeffs);
+
+		final Term proof1 = mProofRules.resolutionRule(leqSwapped1, proofSwapped1, farkas1);
+		final Term proof2 = mProofRules.resolutionRule(leqSwapped2, proofSwapped2, farkas2);
+
+		return mProofRules.resolutionRule(ltRhs1,
+				mProofRules.resolutionRule(ltRhs2, mProofRules.trichotomy(rhs[0], rhs[1]), proof2),
+				proof1);
+	}
+
+	private Term proveRewriteWithLinEq(final Term lhs, final Term rhs) {
+		final Theory theory = lhs.getTheory();
+		assert isApplication("=", lhs) && isApplication("=", rhs);
+
+		final Term[] lhsParams = ((ApplicationTerm) lhs).getParameters();
+		final Term[] rhsParams = ((ApplicationTerm) rhs).getParameters();
+		final SMTAffineTerm lhsAffine = new SMTAffineTerm(lhsParams[0]);
+		lhsAffine.add(Rational.MONE, lhsParams[1]);
+		final SMTAffineTerm rhsAffine = new SMTAffineTerm(rhsParams[0]);
+		rhsAffine.add(Rational.MONE, rhsParams[1]);
+		// we cannot compute gcd on constants so check for this and bail out
+		assert !lhsAffine.isConstant() && !rhsAffine.isConstant() : "A trivial equality was created";
+		Rational multiplier = lhsAffine.getGcd().div(rhsAffine.getGcd());
+		rhsAffine.mul(multiplier);
+		final boolean swapSides = !lhsAffine.equals(rhsAffine);
+		if (swapSides) {
+			rhsAffine.negate();
+			multiplier = multiplier.negate();
+		}
+		assert lhsAffine.equals(rhsAffine);
+		return proveIff(theory.term(SMTLIBConstants.EQUALS, lhs, rhs),
+				proveEqWithMultiplier(lhsParams, rhsParams, multiplier.inverse()),
+				proveEqWithMultiplier(rhsParams, lhsParams, multiplier));
 	}
 
 	private Term proveRewriteWithLeq(final Term lhs, final Term rhs, final boolean normalizeGCD) {

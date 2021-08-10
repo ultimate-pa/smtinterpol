@@ -375,8 +375,8 @@ public class ProofRules {
 		return mTheory.annotatedTerm(annotate(":" + GEQDEF, ((ApplicationTerm) greaterTerm).getParameters()), mAxiom);
 	}
 
-	public Term tricho(final Term lhs, final Term rhs) {
-		return mTheory.annotatedTerm(annotate(":" + TOTAL, new Term[] { lhs, rhs }), mAxiom);
+	public Term trichotomy(final Term lhs, final Term rhs) {
+		return mTheory.annotatedTerm(annotate(":" + TRICHOTOMY, new Term[] { lhs, rhs }), mAxiom);
 	}
 
 	public Term eqLeq(final Term lhs, final Term rhs) {
