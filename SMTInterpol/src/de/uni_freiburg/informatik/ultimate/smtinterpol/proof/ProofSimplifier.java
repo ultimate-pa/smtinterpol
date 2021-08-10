@@ -67,6 +67,7 @@ public class ProofSimplifier extends TermTransformer {
 	 * The logger where errors are reported.
 	 */
 	LogProxy mLogger;
+	private final MinimalProofChecker mChecker;
 
 	private HashMap<FunctionSymbol, LambdaTerm> mAuxDefs;
 
@@ -84,6 +85,7 @@ public class ProofSimplifier extends TermTransformer {
 		mSkript = script;
 		mProofRules = new ProofRules(script.getTheory());
 		mLogger = new DefaultLogger();
+		mChecker = new MinimalProofChecker(mSkript, new DefaultLogger());
 	}
 
 	private Term annotateProved(final Term provedTerm, final Term proof) {
@@ -108,8 +110,7 @@ public class ProofSimplifier extends TermTransformer {
 	}
 
 	private boolean checkProof(final Term proof, final ProofLiteral[] expectedLits) {
-		final MinimalProofChecker checker = new MinimalProofChecker(mSkript, new DefaultLogger());
-		final ProofLiteral[] actual = checker.getProvedClause(mAuxDefs, proof);
+		final ProofLiteral[] actual = mChecker.getProvedClause(mAuxDefs, proof);
 		final HashSet<ProofLiteral> expectedSet = new HashSet<>();
 		expectedSet.addAll(Arrays.asList(expectedLits));
 		assert expectedSet.size() == actual.length;
@@ -225,87 +226,11 @@ public class ProofSimplifier extends TermTransformer {
 		assert qf.getQuantifier() == QuantifiedFormula.FORALL;
 
 		// subst must contain one substitution for each variable
-		final TermVariable[] universalVars = qf.getVariables();
-		final Map<TermVariable, Term> sigma = new HashMap<>();
-		assert universalVars.length == subst.length;
+		assert qf.getVariables().length == subst.length;
 
-		for (int i = 0; i < subst.length; i++) {
-			if (subst[i] != universalVars[i]) {
-				sigma.put(universalVars[i], subst[i]);
-			}
-		}
-
-		Term proof = mProofRules.forallElim(subst, qf);
-		// peculiarity of proof format: remove quotes if subsitution changes something.
-		final FormulaUnLet unletter = new FormulaUnLet();
-		unletter.addSubstitutions(sigma);
-		final Term subFormula = qf.getSubformula();
-		Term[] lits;
-		if (isApplication("or", subFormula)) {
-			lits = ((ApplicationTerm) subFormula).getParameters();
-		} else {
-			lits = new Term[] { subFormula };
-		}
-		final Term[] substLitLhs = new Term[lits.length];
-		final Term[] substLitRhs = new Term[lits.length];
-		final Term[] substLitEqProofs = new Term[lits.length];
-		boolean changed = false;
-		for (int i = 0; i < lits.length; i++) {
-			substLitLhs[i] = unletter.unlet(lits[i]);
-			if (Collections.disjoint(Arrays.asList(lits[i].getFreeVars()), sigma.keySet())) {
-				substLitRhs[i] = substLitLhs[i];
-				substLitEqProofs[i] = mProofRules.refl(substLitLhs[i]);
-			} else {
-				final boolean isNeg = isApplication("not", substLitLhs[i]);
-				final Term quotedAtom = isNeg ? negate(substLitLhs[i]) : substLitLhs[i];
-				Term atom = unquote(quotedAtom);
-				Term litProof = mProofRules.delAnnot(quotedAtom);
-				if (!isApplication(SMTLIBConstants.EQUALS, atom)) {
-					// convert back to (= atom true)
-					final Term trueTerm = mSkript.term(SMTLIBConstants.TRUE);
-					final Term atomEqTrue = mSkript.term(SMTLIBConstants.EQUALS, atom, trueTerm);
-					final Term atomEqAtomEqTrue = mSkript.term(SMTLIBConstants.EQUALS, atom, atomEqTrue);
-					litProof = mProofRules.resolutionRule(mSkript.term(SMTLIBConstants.EQUALS, quotedAtom, atom), litProof,
-							mProofRules.resolutionRule(atomEqAtomEqTrue,
-									proveIff(atomEqAtomEqTrue, mProofRules.iffIntro2(atomEqTrue),
-											mProofRules.iffElim1(atomEqTrue)),
-									mProofRules.trans(quotedAtom, atom, atomEqTrue)));
-					litProof = mProofRules.resolutionRule(trueTerm, mProofRules.trueIntro(), litProof);
-					atom = atomEqTrue;
-				}
-				substLitRhs[i] = isNeg ? negate(atom) : atom;
-				if (isNeg) {
-					litProof = mProofRules.resolutionRule(mSkript.term(SMTLIBConstants.EQUALS, quotedAtom, atom),
-							litProof, mProofRules.cong(substLitLhs[i], substLitRhs[i]));
-				}
-				substLitEqProofs[i] = litProof;
-				changed = true;
-			}
-		}
-		final Term rhs = lits.length == 1 ? substLitRhs[0] : mSkript.term(SMTLIBConstants.OR, substLitRhs);
-		if (changed) {
-			Term eqProof;
-			final Term lhs;
-			if (lits.length == 1) {
-				lhs = substLitLhs[0];
-				eqProof = substLitEqProofs[0];
-			} else {
-				lhs = mSkript.term(SMTLIBConstants.OR, substLitLhs);
-				eqProof = mProofRules.cong(lhs, rhs);
-				final HashSet<Term> seen = new HashSet<>();
-				for (int i = 0; i < lits.length; i++) {
-					if (seen.add(substLitEqProofs[i])) {
-						eqProof = mProofRules.resolutionRule(
-								mSkript.term(SMTLIBConstants.EQUALS, substLitLhs[i], substLitRhs[i]),
-								substLitEqProofs[i], eqProof);
-					}
-				}
-			}
-			final Term eq = mSkript.term(SMTLIBConstants.EQUALS, lhs, rhs);
-			proof = mProofRules.resolutionRule(lhs, proof,
-					mProofRules.resolutionRule(eq, eqProof, mProofRules.iffElim2(eq)));
-		}
-		proof = removeNot(proof, rhs, true);
+		// peculiarity of proof format: remove quotes if substitution changes something.
+		final AnnotatedTerm subproof = substituteInQuantInst(subst, qf);
+		Term proof = removeNot(stripAnnotation(subproof), provedTerm(subproof), true);
 		final Term quotedEq = mSkript.term(SMTLIBConstants.EQUALS, quotedForall, forall);
 		proof = mProofRules.resolutionRule(quotedEq, mProofRules.delAnnot(quotedForall),
 				mProofRules.resolutionRule(forall, mProofRules.iffElim2(quotedEq), proof));
@@ -333,15 +258,8 @@ public class ProofSimplifier extends TermTransformer {
 		Term proof = mProofRules.existsIntro(subst, qf);
 		// remove negations
 		final FormulaUnLet unletter = new FormulaUnLet();
-		Term result = unletter.unlet(mSkript.let(universalVars, subst, qf.getSubformula()));
-		while (isApplication("not", result)) {
-			proof = mProofRules.resolutionRule(result, mProofRules.notIntro(result), proof);
-			result = negate(result);
-			if (isApplication("not", result)) {
-				proof = mProofRules.resolutionRule(result, proof, mProofRules.notElim(result));
-				result = negate(result);
-			}
-		}
+		final Term result = unletter.unlet(mSkript.let(universalVars, subst, qf.getSubformula()));
+		proof = removeNot(proof, result, false);
 		return proof;
 	}
 
@@ -362,14 +280,14 @@ public class ProofSimplifier extends TermTransformer {
 		return removeNot(mProofRules.existsElim(qf), clause[1], true);
 	}
 
-	private Term convertIte1Helper(final Term iteAtom, final Term iteTrueCase, final boolean polarity) {
+	private Term convertTautIte1Helper(final Term iteAtom, final Term iteTrueCase, final boolean polarity) {
 		final Term iteTrueCaseEq = iteAtom.getTheory().term("=", iteAtom, iteTrueCase);
 		final Term proof = mProofRules.resolutionRule(iteTrueCaseEq, mProofRules.ite1(iteAtom),
 				polarity ? mProofRules.iffElim1(iteTrueCaseEq) : mProofRules.iffElim2(iteTrueCaseEq));
 		return removeNot(proof, iteTrueCase, !polarity);
 	}
 
-	private Term convertIte2Helper(final Term iteAtom, final Term iteFalseCase, final boolean polarity) {
+	private Term convertTautIte2Helper(final Term iteAtom, final Term iteFalseCase, final boolean polarity) {
 		final Term iteFalseCaseEq = iteAtom.getTheory().term("=", iteAtom, iteFalseCase);
 		final Term proof = mProofRules.resolutionRule(iteFalseCaseEq, mProofRules.ite2(iteAtom),
 				polarity ? mProofRules.iffElim1(iteFalseCaseEq) : mProofRules.iffElim2(iteFalseCaseEq));
@@ -385,24 +303,24 @@ public class ProofSimplifier extends TermTransformer {
 		switch (tautKind) {
 		case ":ite+1":
 			// iteAtom, ~cond, ~then
-			return removeNot(convertIte1Helper(iteAtom, iteParams[1], true), iteParams[0], false);
+			return removeNot(convertTautIte1Helper(iteAtom, iteParams[1], true), iteParams[0], false);
 		case ":ite+2":
 			// iteAtom, cond, ~else
-			return removeNot(convertIte2Helper(iteAtom, iteParams[2], true), iteParams[0], true);
+			return removeNot(convertTautIte2Helper(iteAtom, iteParams[2], true), iteParams[0], true);
 		case ":ite+red":
 			// iteAtom, ~then, ~else
 			return mProofRules.resolutionRule(iteParams[0],
-					convertIte2Helper(iteAtom, iteParams[2], true), convertIte1Helper(iteAtom, iteParams[1], true));
+					convertTautIte2Helper(iteAtom, iteParams[2], true), convertTautIte1Helper(iteAtom, iteParams[1], true));
 		case ":ite-1":
 			// ~iteAtom, ~cond, then
-			return removeNot(convertIte1Helper(iteAtom, iteParams[1], false), iteParams[0], false);
+			return removeNot(convertTautIte1Helper(iteAtom, iteParams[1], false), iteParams[0], false);
 		case ":ite-2":
 			// ~iteAtom, cond, else
-			return removeNot(convertIte2Helper(iteAtom, iteParams[2], false), iteParams[0], true);
+			return removeNot(convertTautIte2Helper(iteAtom, iteParams[2], false), iteParams[0], true);
 		case ":ite-red": {
 			// ~iteAtom, then, else
 			return mProofRules.resolutionRule(iteParams[0],
-					convertIte2Helper(iteAtom, iteParams[2], false), convertIte1Helper(iteAtom, iteParams[1], false));
+					convertTautIte2Helper(iteAtom, iteParams[2], false), convertTautIte1Helper(iteAtom, iteParams[1], false));
 		}
 		}
 		throw new AssertionError();
@@ -1859,6 +1777,54 @@ public class ProofSimplifier extends TermTransformer {
 		return proof;
 	}
 
+	/**
+	 * Convert an instatiation lemma to a minimal proof.
+	 *
+	 * @param clause       the clause to convert
+	 * @param instAnnotation the argument of the :inst annotation.
+	 */
+	private Term convertInstLemma(final Term[] clause, final Object[] quantAnnotation) {
+		// the first literal in the lemma is a negated universally quantified literal.
+		assert isApplication("not", clause[0]);
+		final Term quotedForall = ((ApplicationTerm) clause[0]).getParameters()[0];
+		final Term firstAtom = unquote(quotedForall);
+		assert firstAtom instanceof QuantifiedFormula
+				&& ((QuantifiedFormula) firstAtom).getQuantifier() == QuantifiedFormula.FORALL;
+
+		// Check that the annotation of the lemma is well-formed.
+		assert quantAnnotation.length == 5
+				&& quantAnnotation[0] == ":subs" && (quantAnnotation[2] == ":conflict"
+						|| quantAnnotation[2] == ":e-matching" || quantAnnotation[2] == ":enumeration")
+				&& quantAnnotation[3] == ":subproof";
+		final Term[] subst = (Term[]) quantAnnotation[1];
+		final AnnotatedTerm annotSubproof = (AnnotatedTerm) quantAnnotation[4];
+		final Term provedEq = provedTerm(annotSubproof);
+		final Term subproof = stripAnnotation(annotSubproof);
+		assert isApplication("=", provedEq);
+		final Term[] provedEqSides = ((ApplicationTerm) provedEq).getParameters();
+
+		final QuantifiedFormula forall = (QuantifiedFormula) firstAtom;
+		final AnnotatedTerm substitute = substituteInQuantInst(subst, forall);
+		assert provedTerm(substitute) == provedEqSides[0];
+		final Term quotedEq = mSkript.term(SMTLIBConstants.EQUALS, quotedForall, forall);
+		Term proof = mProofRules.resolutionRule(quotedEq, mProofRules.delAnnot(quotedForall),
+				mProofRules.resolutionRule(forall, mProofRules.iffElim2(quotedEq), stripAnnotation(substitute)));
+		proof = mProofRules.resolutionRule(provedEqSides[0], proof, mProofRules.iffElim2(provedEq));
+		proof = mProofRules.resolutionRule(provedEq, subproof, proof);
+		Term[] result = new Term[] { provedEqSides[1] };
+		if (isApplication("false", provedEqSides[1])) {
+			result = new Term[0];
+			proof = mProofRules.resolutionRule(provedEqSides[1], proof, mProofRules.falseElim());
+		} else if (isApplication("or", provedEqSides[1])) {
+			result = ((ApplicationTerm) provedEqSides[1]).getParameters();
+			proof = mProofRules.resolutionRule(provedEqSides[1], proof, mProofRules.orElim(provedEqSides[1]));
+		}
+		for (int i = 0; i < result.length; i++) {
+			proof = removeNot(proof, result[i], true);
+		}
+		return proof;
+	}
+
 	private Term convertLemma(final Term[] newParams) {
 		/*
 		 * The argument of the @lemma application is a single clause annotated with the lemma type, which has as object
@@ -1877,11 +1843,14 @@ public class ProofSimplifier extends TermTransformer {
 		case ":CC":
 			subProof = convertCCLemma(clause, (Object[]) lemmaAnnotation);
 			break;
+		case ":inst":
+			subProof = convertInstLemma(clause, (Object[]) lemmaAnnotation);
+			break;
 		default: {
 			subProof = mProofRules.oracle(termToProofLiterals(lemma), annTerm.getAnnotations());
 		}
 		}
-		// assert checkProof(subProof, termToProofLiterals(lemma));
+		assert checkProof(subProof, termToProofLiterals(lemma));
 		return subProof;
 	}
 
@@ -2044,8 +2013,12 @@ public class ProofSimplifier extends TermTransformer {
 	@Override
 	public void convert(final Term term) {
 		if (term.getSort().getName() != ProofConstants.SORT_PROOF) {
-			setResult(term);
-			return;
+			// don't convert subterms that are not proofs
+			if (!(term instanceof AnnotatedTerm) || ((AnnotatedTerm) term).getAnnotations()[0].getKey() != ":inst") {
+				// but check that it is not an :inst annotation, that must be converted
+				setResult(term);
+				return;
+			}
 		}
 		super.convert(term);
 	}
@@ -2159,6 +2132,83 @@ public class ProofSimplifier extends TermTransformer {
 	 */
 	boolean isZero(final Term zero) {
 		return zero == Rational.ZERO.toTerm(zero.getSort());
+	}
+
+	/**
+	 * Substitute terms in forallElim and remove all :quotedQuant.
+	 *
+	 * @param subst substitution
+	 * @param qf    universal quantifier
+	 * @return subsituted formula annotated with proof that qf implies substituted
+	 *         formula.
+	 */
+	private AnnotatedTerm substituteInQuantInst(final Term[] subst, final QuantifiedFormula qf) {
+		final TermVariable[] universalVars = qf.getVariables();
+		final Map<TermVariable, Term> sigma = new HashMap<>();
+
+		for (int i = 0; i < subst.length; i++) {
+			if (subst[i] != universalVars[i]) {
+				sigma.put(universalVars[i], subst[i]);
+			}
+		}
+
+		final FormulaUnLet unletter = new FormulaUnLet();
+		unletter.addSubstitutions(sigma);
+		final Term subFormula = qf.getSubformula();
+		Term[] lits;
+		if (isApplication("or", subFormula)) {
+			lits = ((ApplicationTerm) subFormula).getParameters();
+		} else {
+			lits = new Term[] { subFormula };
+		}
+		final Term[] substLitLhs = new Term[lits.length];
+		final Term[] substLitRhs = new Term[lits.length];
+		final Term[] substLitEqProofs = new Term[lits.length];
+		boolean changed = false;
+		for (int i = 0; i < lits.length; i++) {
+			substLitLhs[i] = unletter.unlet(lits[i]);
+			if (Collections.disjoint(Arrays.asList(lits[i].getFreeVars()), sigma.keySet())) {
+				substLitRhs[i] = substLitLhs[i];
+				substLitEqProofs[i] = mProofRules.refl(substLitLhs[i]);
+			} else {
+				final boolean isNeg = isApplication("not", substLitLhs[i]);
+				final Term quotedAtom = isNeg ? negate(substLitLhs[i]) : substLitLhs[i];
+				final Term atom = unquote(quotedAtom);
+				Term litProof = mProofRules.delAnnot(quotedAtom);
+				substLitRhs[i] = isNeg ? negate(atom) : atom;
+				if (isNeg) {
+					litProof = mProofRules.resolutionRule(mSkript.term(SMTLIBConstants.EQUALS, quotedAtom, atom),
+							litProof, mProofRules.cong(substLitLhs[i], substLitRhs[i]));
+				}
+				substLitEqProofs[i] = litProof;
+				changed = true;
+			}
+		}
+		final Term rhs = lits.length == 1 ? substLitRhs[0] : mSkript.term(SMTLIBConstants.OR, substLitRhs);
+		Term proof = mProofRules.forallElim(subst, qf);
+		if (changed) {
+			Term eqProof;
+			final Term lhs;
+			if (lits.length == 1) {
+				lhs = substLitLhs[0];
+				eqProof = substLitEqProofs[0];
+			} else {
+				lhs = mSkript.term(SMTLIBConstants.OR, substLitLhs);
+				eqProof = mProofRules.cong(lhs, rhs);
+				final HashSet<Term> seen = new HashSet<>();
+				for (int i = 0; i < lits.length; i++) {
+					if (seen.add(substLitEqProofs[i])) {
+						eqProof = mProofRules.resolutionRule(
+								mSkript.term(SMTLIBConstants.EQUALS, substLitLhs[i], substLitRhs[i]),
+								substLitEqProofs[i], eqProof);
+					}
+				}
+			}
+			final Term eq = mSkript.term(SMTLIBConstants.EQUALS, lhs, rhs);
+			proof = mProofRules.resolutionRule(lhs, proof,
+					mProofRules.resolutionRule(eq, eqProof, mProofRules.iffElim2(eq)));
+		}
+		return (AnnotatedTerm) annotateProved(rhs, proof);
 	}
 
 	/**

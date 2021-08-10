@@ -116,6 +116,13 @@ public class MinimalProofChecker extends NonRecursive {
 		mSkript = script;
 		mLogger = logger;
 		mProofRules = new ProofRules(script.getTheory());
+
+		final FormulaUnLet unletter = new FormulaUnLet();
+		final Term[] assertions = mSkript.getAssertions();
+		mAssertions = new HashSet<>(assertions.length);
+		for (final Term ass : assertions) {
+			mAssertions.add(unletter.transform(ass));
+		}
 	}
 
 	/**
@@ -126,7 +133,8 @@ public class MinimalProofChecker extends NonRecursive {
 	 * @return true, if no errors were found.
 	 */
 	public boolean check(final Term proof) {
-		final ProofLiteral[] result = getProvedClause(proof);
+		final FormulaUnLet unletter = new FormulaUnLet();
+		final ProofLiteral[] result = getProvedClause(unletter.unlet(proof));
 		if (result != null && result.length > 0) {
 			reportError("The proof did not yield a contradiction but " + Arrays.toString(result));
 		}
@@ -152,14 +160,7 @@ public class MinimalProofChecker extends NonRecursive {
 	 * @param proof    the proof to check.
 	 * @return the proved clause.
 	 */
-	public ProofLiteral[] getProvedClause(final Map<FunctionSymbol, LambdaTerm> funcDefs, Term proof) {
-		final FormulaUnLet unletter = new FormulaUnLet();
-		final Term[] assertions = mSkript.getAssertions();
-		mAssertions = new HashSet<>(assertions.length);
-		for (final Term ass : assertions) {
-			mAssertions.add(unletter.transform(ass));
-		}
-
+	public ProofLiteral[] getProvedClause(final Map<FunctionSymbol, LambdaTerm> funcDefs, final Term proof) {
 		// Initializing the proof-checker-cache
 		mCacheConv = new HashMap<>();
 		mFunctionDefinitions = new HashMap<>();
@@ -167,13 +168,9 @@ public class MinimalProofChecker extends NonRecursive {
 			mFunctionDefinitions.putAll(funcDefs);
 		}
 		mError = 0;
-		// Now non-recursive:
-		proof = unletter.unlet(proof);
 		run(new ProofWalker(proof));
-
 		assert (mStackResults.size() == 1);
 		// clear state
-		mAssertions = null;
 		mCacheConv = null;
 
 		return stackPop();
