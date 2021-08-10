@@ -21,6 +21,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.proof;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -164,6 +165,17 @@ public class ProofSimplifier extends TermTransformer {
 		return proof;
 	}
 
+	private Term removeQuoted(Term proof, final Term quotedTerm, final Term term, final boolean polarity) {
+		final Term quotedEq = proof.getTheory().term("=", quotedTerm, term);
+		if (polarity) {
+			proof = mProofRules.resolutionRule(term, proof, mProofRules.iffElim1(quotedEq));
+
+		} else {
+			proof = mProofRules.resolutionRule(term, mProofRules.iffElim2(quotedEq), proof);
+		}
+		return mProofRules.resolutionRule(quotedEq, mProofRules.delAnnot(quotedTerm), proof);
+	}
+
 	private Term convertAsserted(final Term assertedProof) {
 		assert mProofRules.isProofRule(ProofRules.ASSUME, assertedProof);
 		final Term assertedFormula = ((ApplicationTerm) assertedProof).getParameters()[0];
@@ -232,8 +244,7 @@ public class ProofSimplifier extends TermTransformer {
 		final AnnotatedTerm subproof = substituteInQuantInst(subst, qf);
 		Term proof = removeNot(stripAnnotation(subproof), provedTerm(subproof), true);
 		final Term quotedEq = mSkript.term(SMTLIBConstants.EQUALS, quotedForall, forall);
-		proof = mProofRules.resolutionRule(quotedEq, mProofRules.delAnnot(quotedForall),
-				mProofRules.resolutionRule(forall, mProofRules.iffElim2(quotedEq), proof));
+		proof = removeQuoted(proof, quotedForall, forall, false);
 		return proof;
 	}
 
@@ -1666,6 +1677,149 @@ public class ProofSimplifier extends TermTransformer {
 	}
 
 	/**
+	 * Convert a Farkas lemma.
+	 *
+	 * @param clause       the clause to convert
+	 * @param coefficients the argument of the :LA annotation, which is the list of
+	 *                     Farkas coefficients.
+	 */
+	private Term convertLALemma(final Term[] clause, final Term[] coefficients) {
+		assert clause.length == coefficients.length;
+		final Theory theory = mSkript.getTheory();
+		final BigInteger[] coeffs = new BigInteger[coefficients.length];
+		final Term[] atoms = new Term[clause.length];
+		final Term[] quotedAtoms = new Term[clause.length];
+		final BitSet polarities = new BitSet();
+		final Term[] realAtoms = new Term[clause.length];
+		final Term[] realAtomProofs = new Term[clause.length];
+
+		for (int i = 0; i < clause.length; i++) {
+			final Rational coeff = parseConstant(coefficients[i]);
+			assert coeff.isIntegral() && coeff != Rational.ZERO;
+			coeffs[i] = coeff.numerator().abs();
+
+			final Term lit = clause[i];
+			final boolean isNegated = isApplication("not", lit);
+			final Term quotedAtom = isNegated ? negate(lit) : lit;
+			final Term atom = unquote(quotedAtom);
+			final Term[] atomParams = ((ApplicationTerm) atom).getParameters();
+			Term realAtom;
+			Term realAtomProof;
+
+			if (isApplication("=", atom)) {
+				assert isNegated;
+				if (coeff.signum() > 0) {
+					realAtom = theory.term("<=", atomParams[0], atomParams[1]);
+					realAtomProof = mProofRules.eqLeq(atomParams[0], atomParams[1]);
+				} else {
+					realAtom = theory.term("<=", atomParams[1], atomParams[0]);
+					realAtomProof = mProofRules.resolutionRule(theory.term("=", atomParams[1], atomParams[0]),
+							mProofRules.symm(atomParams[1], atomParams[0]),
+							mProofRules.eqLeq(atomParams[1], atomParams[0]));
+				}
+			} else if (isNegated) {
+				assert coeff.signum() > 0;
+				realAtom = atom;
+				realAtomProof = null;
+			} else {
+				assert coeff.signum() < 0;
+				if (isApplication("<=", atom)) {
+					final Sort sort = atomParams[0].getSort();
+					if (sort.getName().equals(SMTLIBConstants.INT)) {
+						final SMTAffineTerm rhsAffine = new SMTAffineTerm(atomParams[1]);
+						rhsAffine.add(Rational.ONE);
+						final Term rhsPlusOne = rhsAffine.toTerm(sort);
+						realAtom = theory.term("<=", rhsPlusOne, atomParams[0]);
+						realAtomProof = mProofRules.resolutionRule(theory.term("<", atomParams[0], rhsPlusOne),
+								mProofRules.totality(rhsPlusOne, atomParams[0]),
+								mProofRules.ltInt(atomParams[0], rhsPlusOne));
+					} else {
+						realAtom = theory.term("<", atomParams[1], atomParams[0]);
+						realAtomProof = mProofRules.totality(atomParams[0],  atomParams[1]);
+					}
+				} else {
+					realAtom = theory.term("<=", atomParams[1], atomParams[0]);
+					realAtomProof = mProofRules.totality(atomParams[1],  atomParams[0]);
+				}
+			}
+			realAtoms[i] = realAtom;
+			realAtomProofs[i] = realAtomProof;
+			atoms[i] = atom;
+			quotedAtoms[i] = quotedAtom;
+			polarities.set(i, !isNegated);
+		}
+		Term proof = mProofRules.farkas(realAtoms, coeffs);
+		for (int i = 0; i < atoms.length; i++) {
+			if (realAtomProofs[i] != null) {
+				proof = mProofRules.resolutionRule(realAtoms[i], realAtomProofs[i], proof);
+			}
+			proof = removeQuoted(proof, quotedAtoms[i], atoms[i], polarities.get(i));
+		}
+		return proof;
+	}
+
+	/**
+	 * Convert a trichotomy lemma to a proof.
+	 *
+	 * @param clause
+	 *            the clause to check.
+	 */
+	private Term convertTrichotomy(final Term[] clause) {
+		assert clause.length == 3;
+		final Theory theory = clause[0].getTheory();
+		Term quotedEq = null, eq = null;
+		Term quotedLt = null, lt = null;
+		Term quotedGt = null, gt = null;
+		for (final Term lit : clause) {
+			final boolean isNegated = isApplication("not", lit);
+			final Term quotedAtom = isNegated ? ((ApplicationTerm) lit).getParameters()[0] : lit;
+			final Term atom = unquote(quotedAtom);
+			assert isZero(((ApplicationTerm) atom).getParameters()[1]);
+
+			if (isApplication("=", atom)) {
+				assert !isNegated && eq == null;
+				quotedEq = quotedAtom;
+				eq = atom;
+			} else if (isApplication("<=", atom) || isApplication("<", atom)) {
+				if (isNegated) {
+					assert gt == null;
+					quotedGt = quotedAtom;
+					gt = atom;
+				} else {
+					assert lt == null;
+					quotedLt = quotedAtom;
+					lt = atom;
+				}
+			} else {
+				throw new AssertionError();
+			}
+		}
+		final Term[] sides = ((ApplicationTerm) eq).getParameters();
+		Term proof = mProofRules.trichotomy(sides[0], sides[1]);
+		// gt term needs to be negated
+		final Term realGt = theory.term("<", sides[1], sides[0]);
+		proof = mProofRules.resolutionRule(realGt, proof,
+				mProofRules.farkas(new Term[] { realGt, gt }, new BigInteger[] { BigInteger.ONE, BigInteger.ONE }));
+		// lt may need to be converted to <=
+		if (isApplication("<=", lt)) {
+			final Term[] ltSides = ((ApplicationTerm) lt).getParameters();
+			final Term mone = Rational.MONE.toTerm(sides[1].getSort());
+			final Term realLt = theory.term("<", sides[0], sides[1]);
+			final Term realLeq = theory.term("<=", sides[0], mone);
+			final Term notLt = theory.term("<", ltSides[1], ltSides[0]);
+			proof = mProofRules.resolutionRule(realLeq,
+					mProofRules.resolutionRule(realLt, proof, mProofRules.ltInt(sides[0], sides[1])),
+					mProofRules.farkas(new Term[] { realLeq, notLt },
+							new BigInteger[] { BigInteger.ONE, BigInteger.ONE }));
+			proof = mProofRules.resolutionRule(notLt, mProofRules.totality(ltSides[0], ltSides[1]), proof);
+		}
+		proof = removeQuoted(proof, quotedGt, gt, false);
+		proof = removeQuoted(proof, quotedLt, lt, true);
+		proof = removeQuoted(proof, quotedEq, eq, true);
+		return proof;
+	}
+
+	/**
 	 * Convert a CC lemma to a minimal proof.
 	 *
 	 * @param clause       the clause to check
@@ -1842,6 +1996,12 @@ public class ProofSimplifier extends TermTransformer {
 		switch (lemmaType) {
 		case ":CC":
 			subProof = convertCCLemma(clause, (Object[]) lemmaAnnotation);
+			break;
+		case ":LA":
+			subProof = convertLALemma(clause, (Term[]) lemmaAnnotation);
+			break;
+		case ":trichotomy":
+			subProof = convertTrichotomy(clause);
 			break;
 		case ":inst":
 			subProof = convertInstLemma(clause, (Object[]) lemmaAnnotation);

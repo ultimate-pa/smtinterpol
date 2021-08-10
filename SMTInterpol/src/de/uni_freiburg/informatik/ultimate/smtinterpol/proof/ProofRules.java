@@ -400,6 +400,17 @@ public class ProofRules {
 		return mTheory.annotatedTerm(annotate(":" + TOTAL, new Term[] { lhs, rhs }), mAxiom);
 	}
 
+	/**
+	 * Axiom for integer reasoning. This proves
+	 *
+	 * <pre>
+	 * ( - (&lt; lhs rhs) + (&lt;= lhs (- rhs 1))).
+	 * </pre>
+	 *
+	 * @param lhs left-hand side.
+	 * @param rhs right-hand side; must be a rational term.
+	 * @return the axiom.
+	 */
 	public Term ltInt(final Term lhs, final Term rhs) {
 		return mTheory.annotatedTerm(annotate(":" + LTINT, new Term[] { lhs, rhs }), mAxiom);
 	}
