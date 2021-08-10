@@ -158,7 +158,7 @@ public class ParseEnvironment {
 			if (mOptions.isPrintTermsCSE()) {
 				proof = new FormulaLet().let(proof);
 			}
-			new ProofRules.PrintProof().append(out, proof);
+			ProofRules.printProof(out, proof);
 			out.println();
 			out.flush();
 			return;

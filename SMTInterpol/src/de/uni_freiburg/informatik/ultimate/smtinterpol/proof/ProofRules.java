@@ -75,12 +75,12 @@ public class ProofRules {
 
 	public final static String PREFIX = "..";
 
-	public final static String ANNOT_VARS = ":vars";
 	public final static String ANNOT_VALUES = ":values";
 	public final static String ANNOT_COEFFS = ":coeffs";
 	public final static String ANNOT_DIVISOR = ":divisor";
 	public final static String ANNOT_POS = ":pos";
 	public final static String ANNOT_UNIT = ":unit";
+	public final static String ANNOT_DEFINE_FUN = ":define-fun";
 
 	public ProofRules(final Theory theory) {
 		mTheory = theory;
@@ -156,7 +156,7 @@ public class ProofRules {
 		return annots;
 	}
 
-	public Term trueIntro(final Theory t) {
+	public Term trueIntro() {
 		return mTheory.annotatedTerm(annotate(":" + TRUEI, null), mAxiom);
 	}
 
@@ -397,7 +397,14 @@ public class ProofRules {
 				mAxiom);
 	}
 
-	public void printProof(final Appendable appender, final Term proof) {
+	public Term defineFun(final FunctionSymbol func, final Term definition, final Term subProof) {
+		assert func.getName().startsWith("@");
+		return mTheory.annotatedTerm(new Annotation[] {
+				new Annotation(ANNOT_DEFINE_FUN, new Object[] { func, definition }),
+		}, subProof);
+	}
+
+	public static void printProof(final Appendable appender, final Term proof) {
 		new PrintProof().append(appender, proof);
 	}
 
@@ -456,49 +463,38 @@ public class ProofRules {
 				&& ((ApplicationTerm) proof).getFunction().getName().equals(PREFIX + rule);
 	}
 
+	public boolean isDefineFun(final Term proof) {
+		return proof instanceof AnnotatedTerm
+				&& ((AnnotatedTerm) proof).getAnnotations()[0].getKey() == ANNOT_DEFINE_FUN;
+	}
+
 	public static class PrintProof extends PrintTerm {
-		private void addChildParams(final Term child, final String expected) {
-			if (child instanceof ApplicationTerm) {
-				final ApplicationTerm subterm = (ApplicationTerm) child;
-				assert subterm.getFunction().getName() == expected;
-				final Term[] subParams = subterm.getParameters();
-				for (int i = subParams.length - 1; i >= 0; i--) {
-					mTodo.add(subParams[i]);
-					mTodo.add(" ");
-				}
-			} else {
-				mTodo.add(child);
-				mTodo.add(" ::");
-			}
-		}
-
-		private void addXorParams(final Term child) {
-			mTodo.add(")");
-			if (child instanceof AnnotatedTerm) {
-				assert ((AnnotatedTerm) child).getAnnotations()[0].getKey() == ANNOT_UNIT;
-				mTodo.add(((AnnotatedTerm) child).getSubterm());
-			} else if (child instanceof ApplicationTerm) {
-				final ApplicationTerm subterm = (ApplicationTerm) child;
-				assert subterm.getFunction().getName() == SMTLIBConstants.XOR;
-				final Term[] subParams = subterm.getParameters();
-				for (int i = subParams.length - 1; i >= 1; i--) {
-					mTodo.add(subParams[i]);
-					mTodo.add(" ");
-				}
-				mTodo.add(subParams[0]);
-			} else {
-				mTodo.add(child);
-				mTodo.add("::");
-			}
-			mTodo.add(" (");
-		}
-
 		@Override
 		public void walkTerm(final Term proof) {
 			if (proof instanceof AnnotatedTerm) {
 				final AnnotatedTerm annotTerm = (AnnotatedTerm) proof;
 				final Annotation[] annots = annotTerm.getAnnotations();
-				if (annotTerm.getSubterm() instanceof ApplicationTerm
+				if (annots.length == 1 && annots[0].getKey() == ANNOT_DEFINE_FUN) {
+					final Object[] annotVal = (Object[]) annots[0].getValue();
+					assert annotVal.length == 2;
+					final FunctionSymbol func = (FunctionSymbol) annotVal[0];
+					final LambdaTerm definition = (LambdaTerm) annotVal[1];
+					mTodo.add(")");
+					mTodo.add(annotTerm.getSubterm());
+					mTodo.add(" ");
+					mTodo.add(")");
+					mTodo.add(definition.getSubterm());
+					mTodo.add(" ");
+					final TermVariable[] vars = definition.getVariables();
+					for (int i = vars.length - 1; i >= 0; i--) {
+						mTodo.add(vars[i].getSort());
+						mTodo.add(" ");
+						mTodo.add(vars[i]);
+						mTodo.add(" ");
+					}
+					mTodo.add("((" + annots[0].getKey().substring(1));
+					return;
+				} else if (annotTerm.getSubterm() instanceof ApplicationTerm
 						&& ((ApplicationTerm) annotTerm.getSubterm()).getFunction().getName() == PREFIX + AXIOM) {
 					switch (annots[0].getKey()) {
 					case ":" + NOTI:

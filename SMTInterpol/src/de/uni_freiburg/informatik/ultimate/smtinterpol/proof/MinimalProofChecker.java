@@ -22,6 +22,7 @@ import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Stack;
 
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
@@ -92,6 +93,11 @@ public class MinimalProofChecker extends NonRecursive {
 	HashMap<Term, ProofLiteral[]> mCacheConv;
 
 	/**
+	 * The proof cache. It maps each converted proof to the clause it proves.
+	 */
+	HashMap<FunctionSymbol, LambdaTerm> mFunctionDefinitions;
+
+	/**
 	 * The result stack. This contains the terms proved by the proof terms.
 	 */
 	Stack<ProofLiteral[]> mStackResults = new Stack<>();
@@ -117,30 +123,11 @@ public class MinimalProofChecker extends NonRecursive {
 	 *            the proof to check.
 	 * @return true, if no errors were found.
 	 */
-	public boolean check(Term proof) {
-		final FormulaUnLet unletter = new FormulaUnLet();
-		final Term[] assertions = mSkript.getAssertions();
-		mAssertions = new HashSet<>(assertions.length);
-		for (final Term ass : assertions) {
-			mAssertions.add(unletter.transform(ass));
-		}
-
-		// Initializing the proof-checker-cache
-		mCacheConv = new HashMap<>();
-		mError = 0;
-		// Now non-recursive:
-		proof = unletter.unlet(proof);
-		run(new ProofWalker(proof));
-
-		assert (mStackResults.size() == 1);
-		final ProofLiteral[] result = stackPop();
+	public boolean check(final Term proof) {
+		final ProofLiteral[] result = getProvedClause(proof);
 		if (result != null && result.length > 0) {
 			reportError("The proof did not yield a contradiction but " + Arrays.toString(result));
 		}
-		// clear state
-		mAssertions = null;
-		mCacheConv = null;
-
 		return mError == 0;
 	}
 
@@ -151,7 +138,19 @@ public class MinimalProofChecker extends NonRecursive {
 	 * @param proof the proof to check.
 	 * @return the proved clause.
 	 */
-	public ProofLiteral[] getProvedClause(Term proof) {
+	public ProofLiteral[] getProvedClause(final Term proof) {
+		return getProvedClause(null, proof);
+	}
+
+	/**
+	 * Check a proof for consistency and compute the proved clause. This prints
+	 * warnings for missing pivot literals.
+	 *
+	 * @param funcDefs the function definitions (for expand rule)
+	 * @param proof    the proof to check.
+	 * @return the proved clause.
+	 */
+	public ProofLiteral[] getProvedClause(final Map<FunctionSymbol, LambdaTerm> funcDefs, Term proof) {
 		final FormulaUnLet unletter = new FormulaUnLet();
 		final Term[] assertions = mSkript.getAssertions();
 		mAssertions = new HashSet<>(assertions.length);
@@ -161,6 +160,10 @@ public class MinimalProofChecker extends NonRecursive {
 
 		// Initializing the proof-checker-cache
 		mCacheConv = new HashMap<>();
+		mFunctionDefinitions = new HashMap<>();
+		if (funcDefs != null) {
+			mFunctionDefinitions.putAll(funcDefs);
+		}
 		mError = 0;
 		// Now non-recursive:
 		proof = unletter.unlet(proof);
@@ -191,13 +194,17 @@ public class MinimalProofChecker extends NonRecursive {
 	 *            The proof term. Its sort must be {@literal @}Proof.
 	 */
 	void walk(Term proofTerm) {
-		while (proofTerm instanceof AnnotatedTerm && !mProofRules.isAxiom(proofTerm)) {
+		while (proofTerm instanceof AnnotatedTerm && !mProofRules.isAxiom(proofTerm)
+				&& !mProofRules.isDefineFun(proofTerm)) {
 			proofTerm = ((AnnotatedTerm) proofTerm).getSubterm();
 		}
 		/* Check the cache, if the unfolding step was already done */
 		if (mCacheConv.containsKey(proofTerm)) {
 			stackPush(mCacheConv.get(proofTerm), proofTerm);
 			return;
+		}
+		if (mProofRules.isDefineFun(proofTerm)) {
+			new DefineFunWalker((AnnotatedTerm) proofTerm).enqueue(this);
 		}
 		if (mProofRules.isAxiom(proofTerm)) {
 			stackPush(computeAxiom(proofTerm), proofTerm);
@@ -602,6 +609,10 @@ public class MinimalProofChecker extends NonRecursive {
 					chain[i] = theory.term(func, params[i], params[i + 1]);
 				}
 				rhs = theory.term("and", chain);
+			} else if (mFunctionDefinitions.containsKey(func)) {
+				final LambdaTerm lambda = mFunctionDefinitions.get(func);
+				rhs = theory.let(lambda.getVariables(), params, lambda.getSubterm());
+				rhs = new FormulaUnLet().unlet(rhs);
 			} else {
 				throw new AssertionError();
 			}
@@ -749,6 +760,37 @@ public class MinimalProofChecker extends NonRecursive {
 		@Override
 		public void walk(final NonRecursive engine) {
 			((MinimalProofChecker) engine).walk(mTerm);
+		}
+	}
+
+	/**
+	 * The proof walker that handles define-fun.
+	 */
+	static class DefineFunWalker implements Walker {
+		final AnnotatedTerm mProof;
+
+		public DefineFunWalker(final AnnotatedTerm term) {
+			mProof = term;
+		}
+
+		public void enqueue(final MinimalProofChecker engine) {
+			final Object[] annotValues = (Object[]) mProof.getAnnotations()[0].getValue();
+			final FunctionSymbol func = (FunctionSymbol) annotValues[0];
+			final LambdaTerm def = (LambdaTerm) annotValues[1];
+			if (engine.mFunctionDefinitions.containsKey(func)) {
+				throw new AssertionError("Double function definition.");
+			}
+			engine.mFunctionDefinitions.put(func, def);
+			engine.enqueueWalker(this);
+			engine.enqueueWalker(new ProofWalker(mProof.getSubterm()));
+		}
+
+		@Override
+		public void walk(final NonRecursive parent) {
+			final MinimalProofChecker engine = (MinimalProofChecker) parent;
+			final Object[] annotValues = (Object[]) mProof.getAnnotations()[0].getValue();
+			final FunctionSymbol func = (FunctionSymbol) annotValues[0];
+			engine.mFunctionDefinitions.remove(func);
 		}
 	}
 

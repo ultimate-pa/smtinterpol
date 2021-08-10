@@ -40,6 +40,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolOptions;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.ParseEnvironment;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol.ProofMode;
 
 @RunWith(Parameterized.class)
 public class SystemTest {
@@ -53,6 +54,7 @@ public class SystemTest {
 		final TestEnvironment testEnv = new TestEnvironment(solver, options);
 		if (!f.getAbsolutePath().contains("epr")) {
 			solver.setOption(":proof-check-mode", true);
+			solver.setOption(":proof-level", ProofMode.LOWLEVEL);
 			if (!f.getAbsolutePath().contains("quant") && !f.getAbsolutePath().contains("datatype")) {
 				solver.setOption(":model-check-mode", true);
 			}
