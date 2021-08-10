@@ -107,18 +107,11 @@ public class ProofSimplifier extends TermTransformer {
 		return annotatedTerm.getSubterm();
 	}
 
-	private boolean checkProof(final Term proof, final Term[] expectedLits) {
+	private boolean checkProof(final Term proof, final ProofLiteral[] expectedLits) {
 		final MinimalProofChecker checker = new MinimalProofChecker(mSkript, new DefaultLogger());
 		final ProofLiteral[] actual = checker.getProvedClause(mAuxDefs, proof);
 		final HashSet<ProofLiteral> expectedSet = new HashSet<>();
-		for (Term expected : expectedLits) {
-			boolean polarity = true;
-			while (isApplication(SMTLIBConstants.NOT, expected)) {
-				expected = negate(expected);
-				polarity = !polarity;
-			}
-			expectedSet.add(new ProofLiteral(expected, polarity));
-		}
+		expectedSet.addAll(Arrays.asList(expectedLits));
 		assert expectedSet.size() == actual.length;
 		for (final ProofLiteral lit : actual) {
 			assert expectedSet.contains(lit);
@@ -415,6 +408,36 @@ public class ProofSimplifier extends TermTransformer {
 		throw new AssertionError();
 	}
 
+	private Term convertTautExcludedMiddle(final String name, final Term[] clause) {
+		assert clause.length == 2;
+		final boolean isEqTrue = name == ":excludedMiddle1";
+
+		// Check for the form: (+ (! (= p true) :quoted) - p) :excludedMiddle1
+		// or (+ (! (= p false) :quoted) + p) :excludedMiddle2
+		final Term quotedAtom = clause[0];
+		final boolean isQuotedQuant = ((AnnotatedTerm) quotedAtom).getAnnotations()[0].getKey().equals(":quotedQuant");
+		final Term equality = isQuotedQuant ? unquoteExpand(quotedAtom) : unquote(quotedAtom);
+		assert isApplication("=", equality);
+		final Term[] eqArgs = ((ApplicationTerm) equality).getParameters();
+		final Term lit = clause[1];
+		assert isApplication("not", lit) == isEqTrue;
+		final Term atom = isEqTrue ? negate(lit) : lit;
+		assert eqArgs.length == 2 && eqArgs[0] == atom && isApplication(isEqTrue ? "true" : "false", eqArgs[1]);
+
+		// now proof equality, lit
+		Term proof = isEqTrue
+				? mProofRules.resolutionRule(eqArgs[1], mProofRules.trueIntro(), mProofRules.iffIntro2(equality))
+				: mProofRules.resolutionRule(eqArgs[1], mProofRules.iffIntro1(equality), mProofRules.falseElim());
+
+		final Term expandEq = mSkript.term(SMTLIBConstants.EQUALS, quotedAtom, equality);
+		final Term expandProof = isQuotedQuant ? proveAuxExpand(quotedAtom, equality)
+				: mProofRules.delAnnot(quotedAtom);
+		proof = mProofRules.resolutionRule(equality, proof, mProofRules.iffElim1(expandEq));
+		proof = mProofRules.resolutionRule(expandEq, expandProof, proof);
+		proof = removeNot(proof, atom, !isEqTrue);
+		return proof;
+	}
+
 	private Term convertTautElimIntro(final String ruleName, final Term[] clauseLits) {
 		final String func = ruleName.substring(1, ruleName.length() - 1);
 		final boolean isElim = ruleName.endsWith("-");
@@ -687,18 +710,17 @@ public class ProofSimplifier extends TermTransformer {
 					mProofRules.iffElim2(t.term("=", t.mTrue, t.mFalse)), mProofRules.falseElim()));
 			break;
 		}
+		case ":excludedMiddle1":
+		case ":excludedMiddle2":
+			assert isApplication("or", clause);
+			proof = convertTautExcludedMiddle(ruleName, clauseLits);
+			break;
 		default: {
-			proof = mProofRules.asserted(clause);
-			if (isApplication("or", clause)) {
-				proof = mProofRules.resolutionRule(clause, proof, mProofRules.orElim(clause));
-			}
-			for (final Term lit : clauseLits) {
-				proof = removeNot(proof, lit, true);
-			}
+			proof = mProofRules.oracle(termToProofLiterals(clause), annotTerm.getAnnotations());
 			break;
 		}
 		}
-		assert checkProof(proof, clauseLits);
+		assert checkProof(proof, termToProofLiterals(clause));
 		return proof;
 	}
 
@@ -1469,6 +1491,158 @@ public class ProofSimplifier extends TermTransformer {
 		return proveIff(theory.term("=", lhs, rhs), proofLtoR, proofRtoL);
 	}
 
+	private Term convertRewriteIte(final String rewriteRule, final Term rewriteStmt, final Term ite, final Term rhs) {
+		// lhs: (ite cond then else)
+		assert isApplication("ite", ite);
+		final Term[] args = ((ApplicationTerm) ite).getParameters();
+		final Term cond = args[0];
+		final Term t1 = args[1];
+		final Term t2 = args[2];
+		switch (rewriteRule) {
+		case ":iteTrue":
+			// (= (ite true t1 t2) t1)
+			return mProofRules.resolutionRule(cond, mProofRules.trueIntro(), mProofRules.ite1(ite));
+		case ":iteFalse":
+			// (= (ite false t1 t2) t2)
+			return mProofRules.resolutionRule(cond, mProofRules.ite2(ite), mProofRules.falseElim());
+		case ":iteSame":
+			// (= (ite cond t1 t1) t1)
+			return mProofRules.resolutionRule(cond, mProofRules.ite2(ite), mProofRules.ite1(ite));
+		case ":iteBool1": {
+			// (= (ite cond true false) cond)
+			assert isApplication("true", t1) && isApplication("false", t2) && rhs == cond;
+			// show ~ite, cond by observing that ite2 is cond, (= ite false).
+			final Term iteFalse = mSkript.term("=", ite, t2);
+			Term proofRhs = mProofRules.resolutionRule(iteFalse, mProofRules.ite2(ite), mProofRules.iffElim2(iteFalse));
+			proofRhs = mProofRules.resolutionRule(t2, proofRhs, mProofRules.falseElim());
+			// show ite, ~cond by observing that ite1 is ~cond, (= ite true).
+			final Term iteTrue = mSkript.term("=", ite, t1);
+			Term proofLhs = mProofRules.resolutionRule(iteTrue, mProofRules.ite1(ite), mProofRules.iffElim1(iteTrue));
+			proofLhs = mProofRules.resolutionRule(t1, mProofRules.trueIntro(), proofLhs);
+			return proveIff(rewriteStmt, proofRhs, proofLhs);
+		}
+		case ":iteBool2": {
+			// (= (ite cond false true) (not cond))
+			assert isApplication("false", t1) && isApplication("true", t2) && rhs == mSkript.term("not", cond);
+			// show ~ite, not cond by observing that ite1 is ~cond, (= ite false).
+			final Term iteFalse = mSkript.term("=", ite, t1);
+			Term proofRhs = mProofRules.resolutionRule(iteFalse, mProofRules.ite1(ite), mProofRules.iffElim2(iteFalse));
+			proofRhs = mProofRules.resolutionRule(t1, proofRhs, mProofRules.falseElim());
+			proofRhs = mProofRules.resolutionRule(cond, mProofRules.notIntro(rhs), proofRhs);
+			// show ite, ~not cond by observing that ite2 is cond, (= ite true).
+			final Term iteTrue = mSkript.term("=", ite, t2);
+			Term proofLhs = mProofRules.resolutionRule(iteTrue, mProofRules.ite2(ite), mProofRules.iffElim1(iteTrue));
+			proofLhs = mProofRules.resolutionRule(t2, mProofRules.trueIntro(), proofLhs);
+			proofLhs = mProofRules.resolutionRule(cond, proofLhs, mProofRules.notElim(rhs));
+			return proveIff(rewriteStmt, proofRhs, proofLhs);
+		}
+		case ":iteBool3": {
+			// (= (ite cond true t2) (or cond t2))
+			assert isApplication("true", t1) && rhs == mSkript.term("or", cond, t2);
+			final Term iteTrue = mSkript.term("=", ite, t1);
+			final Term iteT2 = mSkript.term("=", ite, t2);
+			// show ~ite, (or cond t2) by case distinction over cond, t2
+			final Term proofRhs = mProofRules
+					.resolutionRule(cond,
+							mProofRules.resolutionRule(t2,
+									mProofRules.resolutionRule(iteT2, mProofRules.ite2(ite),
+											mProofRules.iffElim2(iteT2)),
+									mProofRules.orIntro(1, rhs)),
+							mProofRules.orIntro(0, rhs));
+			// show ite, ~(or cond t2) by case distinction over cond, t2
+			Term proofLhs = mProofRules.resolutionRule(cond,
+					mProofRules.resolutionRule(t2, mProofRules.orElim(rhs),
+							mProofRules.resolutionRule(iteT2, mProofRules.ite2(ite), mProofRules.iffElim1(iteT2))),
+					mProofRules.resolutionRule(iteTrue, mProofRules.ite1(ite), mProofRules.iffElim1(iteTrue)));
+			proofLhs = mProofRules.resolutionRule(t1, mProofRules.trueIntro(), proofLhs);
+			return proveIff(rewriteStmt, proofRhs, proofLhs);
+		}
+		case ":iteBool4": {
+			// (= (ite cond false t2) (not (or cond (not t2))))
+			assert isApplication("false", t1)
+					&& rhs == mSkript.term("not", mSkript.term("or", cond, mSkript.term("not", t2)));
+			final Term notRhs = ((ApplicationTerm) rhs).getParameters()[0];
+			final Term notT2 = ((ApplicationTerm) notRhs).getParameters()[1];
+			final Term iteFalse = mSkript.term("=", ite, t1);
+			final Term iteT2 = mSkript.term("=", ite, t2);
+			// show ~ite, (not (or cond (not t2))) by case distinction over cond, t2
+			Term proofRhs = mProofRules.resolutionRule(cond,
+					mProofRules.resolutionRule(notT2, mProofRules.orElim(notRhs),
+							mProofRules.resolutionRule(t2,
+									mProofRules.resolutionRule(iteT2, mProofRules.ite2(ite),
+											mProofRules.iffElim2(iteT2)),
+									mProofRules.notElim(notT2))),
+					mProofRules.resolutionRule(iteFalse, mProofRules.ite1(ite), mProofRules.iffElim2(iteFalse)));
+			proofRhs = mProofRules.resolutionRule(t1, proofRhs, mProofRules.falseElim());
+			proofRhs = mProofRules.resolutionRule(notRhs, mProofRules.notIntro(rhs), proofRhs);
+			// show ite, ~(not (or cond (not t2)))) by case distinction over cond, t2
+			Term proofLhs = mProofRules.resolutionRule(cond,
+					mProofRules.resolutionRule(t2,
+							mProofRules.resolutionRule(notT2, mProofRules.notIntro(notT2),
+									mProofRules.orIntro(1, notRhs)),
+							mProofRules.resolutionRule(iteT2, mProofRules.ite2(ite), mProofRules.iffElim1(iteT2))),
+					mProofRules.orIntro(0, notRhs));
+			proofLhs = mProofRules.resolutionRule(notRhs, proofLhs, mProofRules.notElim(rhs));
+			return proveIff(rewriteStmt, proofRhs, proofLhs);
+		}
+		case ":iteBool5": {
+			// (= (ite cond t1 true) (or (not cond) t1))
+			final Term notCond = mSkript.term("not", cond);
+			assert isApplication("true", t2) && rhs == mSkript.term("or", notCond, t1);
+			final Term iteT1 = mSkript.term("=", ite, t1);
+			final Term iteTrue = mSkript.term("=", ite, t2);
+			// show ~ite, (or (not cond) t1) by case distinction over cond, t1
+			final Term proofRhs = mProofRules.resolutionRule(cond,
+					mProofRules.resolutionRule(notCond, mProofRules.notIntro(notCond), mProofRules.orIntro(0, rhs)),
+					mProofRules.resolutionRule(t1,
+							mProofRules.resolutionRule(iteT1, mProofRules.ite1(ite), mProofRules.iffElim2(iteT1)),
+							mProofRules.orIntro(1, rhs)));
+			// show ite, ~(or (not cond) t1) by case distinction over cond, t1
+			Term proofLhs = mProofRules.resolutionRule(cond,
+					mProofRules.resolutionRule(iteTrue, mProofRules.ite2(ite), mProofRules.iffElim1(iteTrue)),
+					mProofRules.resolutionRule(t1,
+							mProofRules.resolutionRule(notCond, mProofRules.orElim(rhs),
+									mProofRules.notElim(notCond)),
+							mProofRules.resolutionRule(iteT1, mProofRules.ite1(ite), mProofRules.iffElim1(iteT1))));
+			proofLhs = mProofRules.resolutionRule(t2, mProofRules.trueIntro(), proofLhs);
+			return proveIff(rewriteStmt, proofRhs, proofLhs);
+		}
+		case ":iteBool6":
+			// (= (ite cond t1 false) (not (or (not cond) (not t1))))
+			assert isApplication("false", t2) && rhs == mSkript.term("not",
+					mSkript.term("or", mSkript.term("not", cond), mSkript.term("not", t1)));
+			final Term notRhs = ((ApplicationTerm) rhs).getParameters()[0];
+			final Term notT1 = ((ApplicationTerm) notRhs).getParameters()[1];
+			final Term notCond = ((ApplicationTerm) notRhs).getParameters()[0];
+			final Term iteT1 = mSkript.term("=", ite, t1);
+			final Term iteFalse = mSkript.term("=", ite, t2);
+			// show ~ite, (not (or (not cond) (not t1))) by case distinction over cond, t1
+			Term proofRhs =
+					mProofRules.resolutionRule(cond, mProofRules.resolutionRule(iteFalse, mProofRules.ite2(ite), mProofRules.iffElim2(iteFalse)),
+					mProofRules.resolutionRule(notCond,
+									mProofRules.resolutionRule(notT1, mProofRules.orElim(notRhs),
+							mProofRules.resolutionRule(t1,
+									mProofRules.resolutionRule(iteT1, mProofRules.ite1(ite),
+											mProofRules.iffElim2(iteT1)),
+									mProofRules.notElim(notT1))),
+									mProofRules.notElim(notCond)));
+			proofRhs = mProofRules.resolutionRule(t2, proofRhs, mProofRules.falseElim());
+			proofRhs = mProofRules.resolutionRule(notRhs, mProofRules.notIntro(rhs), proofRhs);
+			// show ite, ~(not (or (not cond) (not t1)))) by case distinction over cond, t1
+			Term proofLhs = mProofRules.resolutionRule(notCond,
+					mProofRules.resolutionRule(cond, mProofRules.notIntro(notCond),
+							mProofRules.resolutionRule(t1,
+									mProofRules.resolutionRule(notT1, mProofRules.notIntro(notT1),
+											mProofRules.orIntro(1, notRhs)),
+									mProofRules.resolutionRule(iteT1, mProofRules.ite1(ite),
+											mProofRules.iffElim1(iteT1)))),
+					mProofRules.orIntro(0, notRhs));
+			proofLhs = mProofRules.resolutionRule(notRhs, proofLhs, mProofRules.notElim(rhs));
+			return proveIff(rewriteStmt, proofRhs, proofLhs);
+		}
+		throw new AssertionError();
+	}
+
 	private Term convertRewrite(final Term[] newParams) {
 		final AnnotatedTerm annotTerm = (AnnotatedTerm) newParams[0];
 		final String rewriteRule = annotTerm.getAnnotations()[0].getKey();
@@ -1528,11 +1702,6 @@ public class ProofSimplifier extends TermTransformer {
 		case ":forallExists":
 			subProof = convertRewriteForallExists(stmtParams[0], stmtParams[1]);
 			break;
-		case ":constDiff":
-		case ":xorTrue":
-		case ":xorFalse":
-		case ":xorSame":
-		case ":orSimp":
 		case ":iteTrue":
 		case ":iteFalse":
 		case ":iteSame":
@@ -1542,6 +1711,13 @@ public class ProofSimplifier extends TermTransformer {
 		case ":iteBool4":
 		case ":iteBool5":
 		case ":iteBool6":
+			subProof = convertRewriteIte(rewriteRule, rewriteStmt, stmtParams[0], stmtParams[1]);
+			break;
+		case ":constDiff":
+		case ":xorTrue":
+		case ":xorFalse":
+		case ":xorSame":
+		case ":orSimp":
 		case ":andToOr":
 		case ":impToOr":
 		case ":strip":
@@ -1565,9 +1741,9 @@ public class ProofSimplifier extends TermTransformer {
 		case ":removeForall":
 		default:
 			// throw new AssertionError("Unknown Rewrite Rule: " + annotTerm);
-			subProof = mProofRules.asserted(rewriteStmt);
+			subProof = mProofRules.oracle(termToProofLiterals(rewriteStmt), annotTerm.getAnnotations());
 		}
-		assert checkProof(subProof, new Term[] { rewriteStmt });
+		assert checkProof(subProof, termToProofLiterals(rewriteStmt));
 		return annotateProved(rewriteStmt, subProof);
 	}
 
@@ -1695,21 +1871,18 @@ public class ProofSimplifier extends TermTransformer {
 		final Object lemmaAnnotation = annTerm.getAnnotations()[0].getValue();
 		final Term lemma = annTerm.getSubterm();
 		final Term[] clause = termToClause(lemma);
+		Term subProof;
 
 		switch (lemmaType) {
 		case ":CC":
-			return convertCCLemma(clause, (Object[]) lemmaAnnotation);
+			subProof = convertCCLemma(clause, (Object[]) lemmaAnnotation);
+			break;
 		default: {
-			Term subProof = mProofRules.asserted(lemma);
-			if (clause.length > 1) {
-				subProof = mProofRules.resolutionRule(lemma, subProof, mProofRules.orElim(lemma));
-			}
-			for (final Term lit : clause) {
-				subProof = removeNot(subProof, lit, true);
-			}
-			return subProof;
+			subProof = mProofRules.oracle(termToProofLiterals(lemma), annTerm.getAnnotations());
 		}
 		}
+		// assert checkProof(subProof, termToProofLiterals(lemma));
+		return subProof;
 	}
 
 	private Term convertExists(final Term[] newParams) {
@@ -2063,6 +2236,28 @@ public class ProofSimplifier extends TermTransformer {
 			/* in all other cases, this is a singleton clause. */
 			return new Term[] { clauseTerm };
 		}
+	}
+
+	/**
+	 * Convert a clause term into an Array of proof literals, one entry for each
+	 * disjunct. This also removes double negations.
+	 *
+	 * @param clauseTerm The term representing a clause.
+	 * @return The disjuncts of the clause.
+	 */
+	private ProofLiteral[] termToProofLiterals(final Term clauseTerm) {
+		final Term[] clauseLits = termToClause(clauseTerm);
+		final ProofLiteral[] proofLits = new ProofLiteral[clauseLits.length];
+		for (int i = 0; i < proofLits.length; i++) {
+			Term lit = clauseLits[i];
+			boolean polarity = true;
+			while (isApplication("not", lit)) {
+				lit = ((ApplicationTerm) lit).getParameters()[0];
+				polarity = !polarity;
+			}
+			proofLits[i] = new ProofLiteral(lit, polarity);
+		}
+		return proofLits;
 	}
 
 	private Term proveIff(final Term equality, final Term proofLeftToRight, final Term proofRightToLeft) {

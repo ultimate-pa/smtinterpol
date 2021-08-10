@@ -144,12 +144,14 @@ public class ProofSimplifierTest {
 	void checkLemmaOrRewrite(final Term lemma, final Term[] lits) {
 		final HashSet<ProofLiteral> expected = new HashSet<>();
 		for (int i = 0; i < lits.length; i++) {
-			if (lits[i] instanceof ApplicationTerm
-					&& ((ApplicationTerm) lits[i]).getFunction().getName() == SMTLIBConstants.NOT) {
-				expected.add(new ProofLiteral(((ApplicationTerm) lits[i]).getParameters()[0], false));
-			} else {
-				expected.add(new ProofLiteral(lits[i], true));
+			Term atom = lits[i];
+			boolean polarity = true;
+			while (atom instanceof ApplicationTerm
+					&& ((ApplicationTerm) atom).getFunction().getName() == SMTLIBConstants.NOT) {
+				atom = ((ApplicationTerm) atom).getParameters()[0];
+				polarity = !polarity;
 			}
+			expected.add(new ProofLiteral(atom, polarity));
 		}
 		final Term simpleLemma = mSimplifier.transform(lemma);
 		final ProofLiteral[] provedLits = mProofChecker.getProvedClause(simpleLemma);
@@ -347,4 +349,65 @@ public class ProofSimplifierTest {
 		mSmtInterpol.pop(1);
 	}
 
+	private void checkIteRewrite(final Term cond, final Term thenCase, final Term elseCase, final Annotation rule,
+			final Term rhs) {
+		final Term ite = mSmtInterpol.term("ite", cond, thenCase, elseCase);
+		final Term equality = mSmtInterpol.term("=", ite, rhs);
+		final Term rewrite = mSmtInterpol.term(ProofConstants.FN_REWRITE, mSmtInterpol.annotate(equality, rule));
+		checkLemmaOrRewrite(rewrite, new Term[] { equality });
+	}
+
+	@Test
+	public void testRewriteIte() {
+		final Sort boolSort = mSmtInterpol.sort(SMTLIBConstants.BOOL);
+		final Term[] origTerms = generateDummyTerms("b", 3, boolSort);
+		final Term trueTerm = mSmtInterpol.term(SMTLIBConstants.TRUE);
+		final Term falseTerm = mSmtInterpol.term(SMTLIBConstants.FALSE);
+
+		for(int flags = 0; flags < 8; flags++) {
+			final Term[] terms = new Term[3];
+			for (int i = 0; i < 3; i++) {
+				terms[i] = ((flags >> i) & 1) != 0 ? mSmtInterpol.term(SMTLIBConstants.NOT, origTerms[i])
+						: origTerms[i];
+			}
+
+			checkIteRewrite(trueTerm, terms[1], terms[2], ProofConstants.RW_ITE_TRUE, terms[1]);
+			checkIteRewrite(falseTerm, terms[1], terms[2], ProofConstants.RW_ITE_FALSE, terms[2]);
+			checkIteRewrite(terms[0], terms[1], terms[1], ProofConstants.RW_ITE_SAME, terms[1]);
+			checkIteRewrite(terms[0], trueTerm, falseTerm, ProofConstants.RW_ITE_BOOL_1, terms[0]);
+			checkIteRewrite(terms[0], falseTerm, trueTerm, ProofConstants.RW_ITE_BOOL_2,
+					mSmtInterpol.term(SMTLIBConstants.NOT, terms[0]));
+			checkIteRewrite(terms[0], trueTerm, terms[2], ProofConstants.RW_ITE_BOOL_3,
+					mSmtInterpol.term(SMTLIBConstants.OR, terms[0], terms[2]));
+			checkIteRewrite(terms[0], falseTerm, terms[2], ProofConstants.RW_ITE_BOOL_4, mSmtInterpol.term(
+					SMTLIBConstants.NOT,
+					mSmtInterpol.term(SMTLIBConstants.OR, terms[0], mSmtInterpol.term(SMTLIBConstants.NOT, terms[2]))));
+			checkIteRewrite(terms[0], terms[1], trueTerm, ProofConstants.RW_ITE_BOOL_5,
+					mSmtInterpol.term(SMTLIBConstants.OR, mSmtInterpol.term(SMTLIBConstants.NOT, terms[0]), terms[1]));
+			checkIteRewrite(terms[0], terms[1], falseTerm, ProofConstants.RW_ITE_BOOL_6,
+					mSmtInterpol.term(SMTLIBConstants.NOT,
+							mSmtInterpol.term(SMTLIBConstants.OR, mSmtInterpol.term(SMTLIBConstants.NOT, terms[0]),
+									mSmtInterpol.term(SMTLIBConstants.NOT, terms[1]))));
+		}
+	}
+
+	@Test
+	public void testExcludedMiddle() {
+		final Sort boolSort = mSmtInterpol.sort(SMTLIBConstants.BOOL);
+		final Term[] terms = generateDummyTerms("b", 1, boolSort);
+		final Term trueTerm = mSmtInterpol.term(SMTLIBConstants.TRUE);
+		final Term falseTerm = mSmtInterpol.term(SMTLIBConstants.FALSE);
+
+		for (int flags = 0; flags < 2; flags++) {
+			final Term p = terms[0];
+			Term equality = mSmtInterpol.term(SMTLIBConstants.EQUALS, p, (flags & 1) != 0 ? falseTerm : trueTerm);
+			equality = mSmtInterpol.annotate(equality, new Annotation[] { new Annotation(":quotedCC", null) });
+			final Term litp = (flags & 1) != 0 ? p : mSmtInterpol.term(SMTLIBConstants.NOT, p);
+			final Term clause = mSmtInterpol.term(SMTLIBConstants.OR, equality, litp);
+			final Annotation rule = (flags & 1) != 0 ? ProofConstants.AUX_EXCLUDED_MIDDLE_2
+					: ProofConstants.AUX_EXCLUDED_MIDDLE_1;
+			final Term tautology = mSmtInterpol.term(ProofConstants.FN_TAUTOLOGY, mSmtInterpol.annotate(clause, rule));
+			checkLemmaOrRewrite(tautology, new Term[] { equality, litp });
+		}
+	}
 }

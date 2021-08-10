@@ -20,6 +20,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.proof;
 
 import java.math.BigInteger;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -29,6 +30,7 @@ import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
+import de.uni_freiburg.informatik.ultimate.logic.FormulaLet;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.LambdaTerm;
@@ -271,6 +273,20 @@ public class MinimalProofChecker extends NonRecursive {
 		assert mProofRules.isAxiom(axiom);
 		final Annotation[] annots = ((AnnotatedTerm) axiom).getAnnotations();
 		switch (annots[0].getKey()) {
+		case ":" + ProofRules.ORACLE: {
+			final Object[] values = (Object[]) annots[0].getValue();
+			assert values.length == 2;
+			final Term[] atoms = (Term[]) values[0];
+			final BitSet polarities = (BitSet) values[1];
+			final StringBuilder sb = new StringBuilder("Used oracle: ");
+			ProofRules.printProof(sb, new FormulaLet().let(axiom));
+			reportWarning(sb.toString());
+			final ProofLiteral[] clause = new ProofLiteral[atoms.length];
+			for (int i = 0; i < clause.length; i++) {
+				clause[i] = new ProofLiteral(atoms[i], polarities.get(i));
+			}
+			return clause;
+		}
 		case ":" + ProofRules.TRUEI: {
 			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.TRUE), true) };
 		}

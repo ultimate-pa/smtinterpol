@@ -1,6 +1,7 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.proof;
 
 import java.math.BigInteger;
+import java.util.BitSet;
 import java.util.HashSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
@@ -21,6 +22,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 public class ProofRules {
 	public final static String RES = "res";
 	public final static String ASSUME = "assume";
+	public final static String ORACLE = "oracle";
+
 	public final static String FALSEE = "false-";
 	public final static String TRUEI = "true+";
 	public final static String NOTI = "not+";
@@ -119,6 +122,16 @@ public class ProofRules {
 		return mTheory.term(PREFIX + ASSUME, t);
 	}
 
+	public Term oracle(final ProofLiteral[] literals, final Annotation[] annots) {
+		final Term[] atoms = new Term[literals.length];
+		final BitSet bitset = new BitSet();
+		for (int i = 0; i < literals.length; i++) {
+			atoms[i] = literals[i].getAtom();
+			bitset.set(i, literals[i].getPolarity());
+		}
+		return mTheory.annotatedTerm(annotate(":" + ORACLE, new Object[] { atoms, bitset }, annots), mAxiom);
+	}
+
 	public Term choose(final TermVariable tv, final Term formula) {
 		final FunctionSymbol choose = mTheory.getFunctionWithResult(PREFIX + CHOOSE, null, tv.getSort(),
 				formula.getSort());
@@ -149,9 +162,9 @@ public class ProofRules {
 		return skolemTerms;
 	}
 
-	private Annotation[] annotate(final String rule, final Term[] terms, final Annotation... moreAnnots) {
+	private Annotation[] annotate(final String rule, final Object value, final Annotation... moreAnnots) {
 		final Annotation[] annots = new Annotation[moreAnnots.length + 1];
-		annots[0] = new Annotation(rule, terms);
+		annots[0] = new Annotation(rule, value);
 		System.arraycopy(moreAnnots, 0, annots, 1, moreAnnots.length);
 		return annots;
 	}
@@ -497,6 +510,29 @@ public class ProofRules {
 				} else if (annotTerm.getSubterm() instanceof ApplicationTerm
 						&& ((ApplicationTerm) annotTerm.getSubterm()).getFunction().getName() == PREFIX + AXIOM) {
 					switch (annots[0].getKey()) {
+					case ":" + ORACLE: {
+						assert annots.length >= 1;
+						final Object[] values = (Object[]) annots[0].getValue();
+						assert values.length == 2;
+						final Term[] atoms = (Term[]) values[0];
+						final BitSet polarities = (BitSet) values[1];
+						mTodo.add(")");
+						for (int i = annots.length - 1; i >= 1; i--) {
+							if (annots[i].getValue() != null) {
+								mTodo.add(annots[i].getValue());
+								mTodo.add(" ");
+							}
+							mTodo.add(annots[i].getKey());
+							mTodo.add(" ");
+						}
+						mTodo.add(")");
+						for (int i = atoms.length - 1; i >= 0; i--) {
+							mTodo.add(atoms[i]);
+							mTodo.add(polarities.get(i) ? " + " : " - ");
+						}
+						mTodo.add("(" + annots[0].getKey().substring(1) + " (");
+						return;
+					}
 					case ":" + NOTI:
 					case ":" + NOTE:
 					case ":" + ORE:
