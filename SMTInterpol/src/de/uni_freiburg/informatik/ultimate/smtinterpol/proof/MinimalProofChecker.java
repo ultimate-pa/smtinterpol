@@ -29,7 +29,6 @@ import java.util.Stack;
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
-import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaLet;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
@@ -712,21 +711,20 @@ public class MinimalProofChecker extends NonRecursive {
 			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.LEQ, params[0], params[1]), true),
 					new ProofLiteral(theory.term(SMTLIBConstants.LT, params[1], params[0]), true) };
 		}
-		case ":" + ProofRules.LTINT: {
-			final Term[] params = (Term[]) annots[0].getValue();
+		case ":" + ProofRules.TOTALINT: {
 			assert annots.length == 1;
+			final Object[] params = (Object[]) annots[0].getValue();
 			assert params.length == 2;
-			if (!params[0].getSort().getName().equals(SMTLIBConstants.INT)) {
+			final Term x = (Term) params[0];
+			final BigInteger c = (BigInteger) params[1];
+			if (!x.getSort().getName().equals(SMTLIBConstants.INT)) {
 				throw new AssertionError();
 			}
-			final ConstantTerm rhs = (ConstantTerm) params[1];
-			final Rational rhsValue = (Rational) rhs.getValue();
-			if (!rhs.getSort().getName().equals(SMTLIBConstants.INT) || !rhsValue.isIntegral()) {
-				throw new AssertionError();
-			}
-			final Term rhsMinusOne = rhsValue.add(Rational.MONE).toTerm(params[0].getSort());
-			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.LT, params[0], rhs), false),
-					new ProofLiteral(theory.term(SMTLIBConstants.LEQ, params[0], rhsMinusOne), true) };
+			final Rational cAsRational = Rational.valueOf(c, BigInteger.ONE);
+			final Term cTerm = cAsRational.toTerm(x.getSort());
+			final Term cPlusOne = cAsRational.add(Rational.ONE).toTerm(x.getSort());
+			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.LEQ, x, cTerm), true),
+					new ProofLiteral(theory.term(SMTLIBConstants.LEQ, cPlusOne, x), true) };
 		}
 		case ":" + ProofRules.FARKAS: {
 			final Term[] ineqs = (Term[]) annots[0].getValue();

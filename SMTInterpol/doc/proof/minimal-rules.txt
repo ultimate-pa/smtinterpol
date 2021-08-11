@@ -252,13 +252,13 @@ PolyToReal:  (= (poly (to_real p)) (to_real (polyI p)))
 (mod x d):          (= (mod x d) (- x (* d (div x d)))), (= d 0)
 (divisible d x):    (= ((_ divisible d) x) (= x (* d (div x d))))
 
-(gtdef a b):  (= (> a b) (< b a))
-(geqdef a b): (= (>= a b) (<= b a))
+(>def a b):  (= (> a b) (< b a))
+(>=def a b): (= (>= a b) (<= b a))
 
 (tricho a b):  (< a b), (= a b), (< b a)
 (eqleq):       ~(= a b), (<= a b)
 (total a b): (<= a b), (< b a)
-(ltint a c): ~(< a c), (<= a (c-1))   # where a has sort int, c is a constant.
+(total-int a c): (<= a c), (<= (c+1) a)   # where a has sort int, c is an integer constant `NUMERAL` or `(- NUMERAL)`.
 (farkas c1 (<=? a1 b1) ... cn (<=? an bn)): ~(<=? a1 b1), ..., ~(<=? an bn)
   where c1, ...,cn are positive integers,
   (poly c1*(a1-b1) + ... + cn*(an-bn)) is a (rational or int) constant c.

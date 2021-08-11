@@ -1726,20 +1726,16 @@ public class ProofSimplifier extends TermTransformer {
 				if (isApplication("<=", atom)) {
 					final Sort sort = atomParams[0].getSort();
 					if (sort.getName().equals(SMTLIBConstants.INT)) {
-						final SMTAffineTerm rhsAffine = new SMTAffineTerm(atomParams[1]);
-						rhsAffine.add(Rational.ONE);
-						final Term rhsPlusOne = rhsAffine.toTerm(sort);
-						realAtom = theory.term("<=", rhsPlusOne, atomParams[0]);
-						realAtomProof = mProofRules.resolutionRule(theory.term("<", atomParams[0], rhsPlusOne),
-								mProofRules.totality(rhsPlusOne, atomParams[0]),
-								mProofRules.ltInt(atomParams[0], rhsPlusOne));
+						assert isZero(atomParams[1]);
+						realAtom = theory.term("<=", Rational.ONE.toTerm(sort), atomParams[0]);
+						realAtomProof = mProofRules.totalInt(atomParams[0], BigInteger.ZERO);
 					} else {
 						realAtom = theory.term("<", atomParams[1], atomParams[0]);
-						realAtomProof = mProofRules.totality(atomParams[0],  atomParams[1]);
+						realAtomProof = mProofRules.total(atomParams[0],  atomParams[1]);
 					}
 				} else {
 					realAtom = theory.term("<=", atomParams[1], atomParams[0]);
-					realAtomProof = mProofRules.totality(atomParams[1],  atomParams[0]);
+					realAtomProof = mProofRules.total(atomParams[1],  atomParams[0]);
 				}
 			}
 			realAtoms[i] = realAtom;
@@ -1803,15 +1799,16 @@ public class ProofSimplifier extends TermTransformer {
 		// lt may need to be converted to <=
 		if (isApplication("<=", lt)) {
 			final Term[] ltSides = ((ApplicationTerm) lt).getParameters();
-			final Term mone = Rational.MONE.toTerm(sides[1].getSort());
+			assert isZero(ltSides[1]);
+			final Term one = Rational.ONE.toTerm(ltSides[0].getSort());
+			// the literal in the new trichotomoy clause
 			final Term realLt = theory.term("<", sides[0], sides[1]);
-			final Term realLeq = theory.term("<=", sides[0], mone);
-			final Term notLt = theory.term("<", ltSides[1], ltSides[0]);
-			proof = mProofRules.resolutionRule(realLeq,
-					mProofRules.resolutionRule(realLt, proof, mProofRules.ltInt(sides[0], sides[1])),
-					mProofRules.farkas(new Term[] { realLeq, notLt },
-							new BigInteger[] { BigInteger.ONE, BigInteger.ONE }));
-			proof = mProofRules.resolutionRule(notLt, mProofRules.totality(ltSides[0], ltSides[1]), proof);
+			// the other literal in the ltInt clause that we need to show with farkas.
+			final Term realLeq = theory.term("<=", one, ltSides[0]);
+			proof = mProofRules.resolutionRule(realLt, proof,
+					mProofRules.resolutionRule(realLeq, mProofRules.totalInt(ltSides[0], BigInteger.ZERO),
+							mProofRules.farkas(new Term[] { realLeq, realLt },
+									new BigInteger[] { BigInteger.ONE, BigInteger.ONE })));
 		}
 		proof = removeQuoted(proof, quotedGt, gt, false);
 		proof = removeQuoted(proof, quotedLt, lt, true);
@@ -2413,8 +2410,7 @@ public class ProofSimplifier extends TermTransformer {
 			// show (ceil(bound) <= intVar) || (intVar <= floor(bound)
 			final Term geqCeil = theory.term(SMTLIBConstants.LEQ, ceilBound, intVar);
 			final Term leqFloor = theory.term(SMTLIBConstants.LEQ, intVar, floorBound);
-			final Term proofIntCase = mProofRules.resolutionRule(theory.term(SMTLIBConstants.LT, intVar, ceilBound),
-					mProofRules.totality(ceilBound, intVar), mProofRules.ltInt(intVar, ceilBound));
+			final Term proofIntCase = mProofRules.totalInt(intVar, bound.floor().numerator());
 			// show inequality in both cases
 			final Term leqLhs = theory.term(SMTLIBConstants.LEQ, first, second);
 			final Term geqLhs = theory.term(SMTLIBConstants.LEQ, second, first);
@@ -2596,18 +2592,15 @@ public class ProofSimplifier extends TermTransformer {
 
 		Term negRhsAtom;
 		Term rhsTotality;
-		Term one;
 		if (needsIntReasoning) {
-			assert isZero(lhsParam[1]) && isZero(rhsAtomParam[1]);
+			assert isZero(rhsAtomParam[1]);
 			assert !isStrictLhs && !isStrictRhsAtom;
-			one = Rational.ONE.toTerm(lhsParam[1].getSort());
-
+			final Term one = Rational.ONE.toTerm(rhsAtomParam[1].getSort());
 			negRhsAtom = theory.term("<=", one, rhsAtomParam[0]);
-			rhsTotality = mProofRules.totality(one, rhsAtomParam[0]);
+			rhsTotality = mProofRules.totalInt(rhsAtomParam[0], BigInteger.ZERO);
 		} else {
-			one = null;
 			negRhsAtom = theory.term(isStrictRhsAtom ? "<=" : "<", rhsAtomParam[1], rhsAtomParam[0]);
-			rhsTotality = mProofRules.totality(rhsAtomParam[isStrictRhsAtom ? 1 : 0],
+			rhsTotality = mProofRules.total(rhsAtomParam[isStrictRhsAtom ? 1 : 0],
 					rhsAtomParam[isStrictRhsAtom ? 0 : 1]);
 		}
 		Term proofToRhsAtom = mProofRules.farkas(new Term[] { rhsIsNegated ? negLhs : posLhs, negRhsAtom },
@@ -2615,11 +2608,6 @@ public class ProofSimplifier extends TermTransformer {
 		proofToRhsAtom = mProofRules.resolutionRule(negRhsAtom, rhsTotality, proofToRhsAtom);
 		Term proofFromRhsAtom = mProofRules.farkas(new Term[] { rhsIsNegated ? posLhs : negLhs, rhsAtom },
 				new BigInteger[] { gcd.denominator(), gcd.numerator() } );
-		if (needsIntReasoning) {
-			proofToRhsAtom = mProofRules.resolutionRule(
-					theory.term("<", rhsAtomParam[0], one), proofToRhsAtom,
-					mProofRules.ltInt(rhsAtomParam[0], one));
-		}
 		Term unquoteEq = null;
 		if (rhsIsQuoted) {
 			unquoteEq = theory.term(SMTLIBConstants.EQUALS, quotedRhsAtom, rhsAtom);
@@ -2633,7 +2621,7 @@ public class ProofSimplifier extends TermTransformer {
 				? mProofRules.resolutionRule(quotedRhsAtom, proofToRhsAtom, mProofRules.notElim(rhs))
 				: proofFromRhsAtom;
 		proofRhsToLhs = mProofRules.resolutionRule(negLhs,
-				mProofRules.totality(lhsParam[isStrictLhs ? 1 : 0], lhsParam[isStrictLhs ? 0 : 1]), proofRhsToLhs);
+				mProofRules.total(lhsParam[isStrictLhs ? 1 : 0], lhsParam[isStrictLhs ? 0 : 1]), proofRhsToLhs);
 		Term greaterEq = null;
 		if (isGreater) {
 			greaterEq = theory.term("=", lhs, posLhs);

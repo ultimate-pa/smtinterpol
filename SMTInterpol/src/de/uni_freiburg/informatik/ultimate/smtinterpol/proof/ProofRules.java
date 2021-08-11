@@ -61,12 +61,12 @@ public class ProofRules {
 
 	// rules for linear arithmetic
 	public final static String DIVISIBLE = "divisible-def";
-	public final static String GTDEF = ">-def";
-	public final static String GEQDEF = ">=-def";
+	public final static String GTDEF = ">def";
+	public final static String GEQDEF = ">=def";
 	public final static String TRICHOTOMY = "trichotomy";
-	public final static String EQLEQ = "=-<=";
+	public final static String EQLEQ = "eqleq";
 	public final static String TOTAL = "total";
-	public final static String LTINT = "<-int";
+	public final static String TOTALINT = "total-int";
 	public final static String FARKAS = "farkas";
 
 	/**
@@ -396,7 +396,7 @@ public class ProofRules {
 		return mTheory.annotatedTerm(annotate(":" + EQLEQ, new Term[] { lhs, rhs }), mAxiom);
 	}
 
-	public Term totality(final Term lhs, final Term rhs) {
+	public Term total(final Term lhs, final Term rhs) {
 		return mTheory.annotatedTerm(annotate(":" + TOTAL, new Term[] { lhs, rhs }), mAxiom);
 	}
 
@@ -404,15 +404,18 @@ public class ProofRules {
 	 * Axiom for integer reasoning. This proves
 	 *
 	 * <pre>
-	 * ( - (&lt; lhs rhs) + (&lt;= lhs (- rhs 1))).
+	 * (+ (&lt;= x c) + (&lt;= (c+1) x))
 	 * </pre>
 	 *
-	 * @param lhs left-hand side.
-	 * @param rhs right-hand side; must be a rational term.
+	 * where x is a term of sort Int and c an integer constant. Here c+1 is the
+	 * constant c increased by one.
+	 *
+	 * @param x a term of sort Int.
+	 * @param c an integer constant.
 	 * @return the axiom.
 	 */
-	public Term ltInt(final Term lhs, final Term rhs) {
-		return mTheory.annotatedTerm(annotate(":" + LTINT, new Term[] { lhs, rhs }), mAxiom);
+	public Term totalInt(final Term x, final BigInteger c) {
+		return mTheory.annotatedTerm(annotate(":" + TOTALINT, new Object[] { x, c }), mAxiom);
 	}
 
 	public Term farkas(final Term[] inequalities, final BigInteger[] coefficients) {
@@ -562,8 +565,7 @@ public class ProofRules {
 					case ":" + GEQDEF:
 					case ":" + TRICHOTOMY:
 					case ":" + EQLEQ:
-					case ":" + TOTAL:
-					case ":" + LTINT: {
+					case ":" + TOTAL: {
 						final Term[] params = (Term[]) annots[0].getValue();
 						assert annots.length == 1;
 						mTodo.add(")");
@@ -712,6 +714,22 @@ public class ProofRules {
 							mTodo.add(" ");
 						}
 						mTodo.add("(" + annots[0].getKey().substring(1));
+						return;
+					}
+					case ":" + TOTALINT: {
+						final Object[] params = (Object[]) annots[0].getValue();
+						final BigInteger c = (BigInteger) params[1];
+						final Term x = (Term) params[0];
+						assert annots.length == 1;
+						mTodo.add(")");
+						if (c.signum() < 0) {
+							mTodo.add("(- " + c.toString() + ")");
+						} else {
+							mTodo.add(c);
+						}
+						mTodo.add(" ");
+						mTodo.add(x);
+						mTodo.add("(" + annots[0].getKey().substring(1) + " ");
 						return;
 					}
 					case ":" + FARKAS: {
