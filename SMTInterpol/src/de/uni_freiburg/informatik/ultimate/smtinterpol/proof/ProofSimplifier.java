@@ -1849,6 +1849,48 @@ public class ProofSimplifier extends TermTransformer {
 	}
 
 	/**
+	 * Convert an EQ lemma to minimal proof.
+	 *
+	 * @param clause the clause to check
+	 * @return the proof.
+	 */
+	private Term convertEQLemma(final Term[] clause) {
+		assert clause.length == 2;
+		Term quotedNegAtom;
+		Term quotedPosAtom;
+
+		if (isApplication("not", clause[0])) {
+			quotedNegAtom = negate(clause[0]);
+			quotedPosAtom = clause[1];
+		} else {
+			assert isApplication("not", clause[1]);
+			quotedNegAtom = negate(clause[1]);
+			quotedPosAtom = clause[0];
+		}
+		final Term negAtom = unquote(quotedNegAtom);
+		final Term posAtom = unquote(quotedPosAtom);
+
+		assert isApplication("=", negAtom) && isApplication("=", posAtom);
+		final Term[] negAtomArgs = ((ApplicationTerm) negAtom).getParameters();
+		final Term[] posAtomArgs = ((ApplicationTerm) posAtom).getParameters();
+		final SMTAffineTerm negDiff = new SMTAffineTerm(negAtomArgs[0]);
+		negDiff.add(Rational.MONE, negAtomArgs[1]);
+		final SMTAffineTerm posDiff = new SMTAffineTerm(posAtomArgs[0]);
+		posDiff.add(Rational.MONE, posAtomArgs[1]);
+		Rational multiplier = posDiff.getGcd().div(negDiff.getGcd());
+		negDiff.mul(multiplier);
+		if (!negDiff.equals(posDiff)) {
+			negDiff.negate();
+			multiplier = multiplier.negate();
+		}
+		assert negDiff.equals(posDiff);
+		Term proof = proveEqWithMultiplier(negAtomArgs, posAtomArgs, multiplier);
+		proof = removeQuoted(proof, quotedNegAtom, negAtom, false);
+		proof = removeQuoted(proof, quotedPosAtom, posAtom, true);
+		return proof;
+	}
+
+	/**
 	 * Convert a CC lemma to a minimal proof.
 	 *
 	 * @param clause       the clause to check
@@ -2025,6 +2067,9 @@ public class ProofSimplifier extends TermTransformer {
 		switch (lemmaType) {
 		case ":CC":
 			subProof = convertCCLemma(clause, (Object[]) lemmaAnnotation);
+			break;
+		case ":EQ":
+			subProof = convertEQLemma(clause);
 			break;
 		case ":LA":
 			subProof = convertLALemma(clause, (Term[]) lemmaAnnotation);
@@ -2530,10 +2575,10 @@ public class ProofSimplifier extends TermTransformer {
 	 * Proof a linear equality rhs from a linear equality lhs. This proves
 	 *
 	 * <pre>
-	 * (= (= lhs[0] lhs[1]) (= rhs[0] rhs[1])
+	 * (=&gt; (= lhs[0] lhs[1]) (= rhs[0] rhs[1])
+	 * </pre>
 	 *
-	 * <pre>
-	 * , where (lhs[0] - lhs[1]) * multiplier == (rhs[0] - rhs[1]).
+	 * where (lhs[0] - lhs[1]) * multiplier == (rhs[0] - rhs[1]).
 	 *
 	 * @param lhs        the terms that are known to be equal
 	 * @param rhs        the terms that should be proved to be equal.
