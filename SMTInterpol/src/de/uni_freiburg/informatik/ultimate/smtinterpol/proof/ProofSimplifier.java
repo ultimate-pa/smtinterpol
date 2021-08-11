@@ -447,6 +447,40 @@ public class ProofSimplifier extends TermTransformer {
 		return proof;
 	}
 
+	/**
+	 * Check an select over store lemma for correctness. If a problem is found, an
+	 * error is reported.
+	 *
+	 * @param clause the clause to check.
+	 */
+	private Term convertTautStore(final Term[] clause) {
+		// Store tautology have the form
+		// (@tautology (! (= (select (store a i v) i) v) :store))
+		assert clause.length ==1;
+		final Term eqlit = clause[0];
+		assert isApplication("=", eqlit);
+		final Term[] sides = ((ApplicationTerm) eqlit).getParameters();
+		assert isApplication("select", sides[0]);
+		final ApplicationTerm select = (ApplicationTerm) sides[0];
+		final Term store = select.getParameters()[0];
+		assert isApplication("store", store);
+		final Term[] storeArgs = ((ApplicationTerm) store).getParameters();
+		assert storeArgs[1] == select.getParameters()[1] && storeArgs[2] == sides[1];
+
+		return mProofRules.selectStore1(storeArgs[0], storeArgs[1], storeArgs[2]);
+	}
+
+	private Term convertTautDiff(final Term[] clause) {
+		// lit0: (= a b)
+		// lit1: ~(= (select a (diff a b)) (select b (diff a b)))
+		assert clause.length == 2;
+		final Term arrEq = clause[0];
+		assert isApplication("=", arrEq);
+		final Term[] arrays = ((ApplicationTerm) arrEq).getParameters();
+		// we could check the second equality, but the proof check in tautology will catch any problems
+		return mProofRules.extDiff(arrays[0], arrays[1]);
+	}
+
 	private Term convertTautology(final Term taut) {
 		final AnnotatedTerm annotTerm = (AnnotatedTerm) taut;
 		final Term clause = annotTerm.getSubterm();
@@ -643,6 +677,12 @@ public class ProofSimplifier extends TermTransformer {
 		case ":excludedMiddle2":
 			assert isApplication("or", clause);
 			proof = convertTautExcludedMiddle(ruleName, clauseLits);
+			break;
+		case ":store":
+			proof = convertTautStore(clauseLits);
+			break;
+		case ":diff":
+			proof = convertTautDiff(clauseLits);
 			break;
 		default: {
 			proof = mProofRules.oracle(termToProofLiterals(clause), annotTerm.getAnnotations());
@@ -1432,6 +1472,151 @@ public class ProofSimplifier extends TermTransformer {
 		return mProofRules.resolutionRule(rhs, mProofRules.trueIntro(), proof);
 	}
 
+	private Term convertRewriteStoreOverStore(final Term lhs, final Term rhs) {
+		// lhs: (store (store a i v) i w)
+		// rhs: (store a i w)
+		assert isApplication("store", lhs);
+		final Term[] outerArgs = ((ApplicationTerm) lhs).getParameters();
+		final Term innerStore = outerArgs[0];
+		final Term index = outerArgs[1];
+		final Term valueW = outerArgs[2];
+		assert isApplication("store", innerStore);
+		final Term[] innerArgs = ((ApplicationTerm) innerStore).getParameters();
+		final Term array = innerArgs[0];
+		final Term innerIndex = innerArgs[1];
+		final Term proofEq = proveTrivialEquality(index, innerIndex);
+		assert proofEq != null;
+		assert rhs == mSkript.term("store", array, index, valueW);
+
+		final Theory theory = lhs.getTheory();
+		final Term diff = theory.term("@diff", lhs, rhs);
+		final Term selectLhsDiff = theory.term(SMTLIBConstants.SELECT, lhs, diff);
+		final Term selectInnerDiff = theory.term(SMTLIBConstants.SELECT, innerStore, diff);
+		final Term selectArrayDiff = theory.term(SMTLIBConstants.SELECT, array, diff);
+		final Term selectRhsDiff = theory.term(SMTLIBConstants.SELECT, rhs, diff);
+		final Term selectLhsI = theory.term(SMTLIBConstants.SELECT, lhs, index);
+		final Term selectRhsI = theory.term(SMTLIBConstants.SELECT, rhs, index);
+
+
+		// show (select lhs diff) = (select rhs diff) lhs if (= i diff)
+		Term proof1 = mProofRules.trans(selectLhsDiff, selectLhsI, valueW, selectRhsI, selectRhsDiff);
+		proof1 = res(theory.term("=", selectLhsDiff, selectLhsI), mProofRules.cong(selectLhsDiff, selectLhsI), proof1);
+		proof1 = res(theory.term("=", lhs, lhs), mProofRules.refl(lhs), proof1);
+		proof1 = res(theory.term("=", diff, index), mProofRules.symm(diff, index), proof1);
+		proof1 = res(theory.term("=", selectLhsI, valueW), mProofRules.selectStore1(innerStore, index, valueW), proof1);
+		proof1 = res(theory.term("=", valueW, selectRhsI), mProofRules.symm(valueW, selectRhsI), proof1);
+		proof1 = res(theory.term("=", selectRhsI, valueW), mProofRules.selectStore1(array, index, valueW), proof1);
+		proof1 = res(theory.term("=", selectRhsI, selectRhsDiff), mProofRules.cong(selectRhsI, selectRhsDiff), proof1);
+		proof1 = res(theory.term("=", rhs, rhs), mProofRules.refl(rhs), proof1);
+
+		// now the case ~(= i diff)
+		Term proof2 = mProofRules.trans(selectLhsDiff, selectInnerDiff, selectArrayDiff, selectRhsDiff);
+		proof2 = res(theory.term("=", selectLhsDiff, selectInnerDiff),
+				mProofRules.selectStore2(innerStore, index, valueW, diff), proof2);
+		proof2 = res(theory.term("=", selectInnerDiff, selectArrayDiff),
+				mProofRules.selectStore2(array, innerIndex, innerArgs[2], diff), proof2);
+		if (innerIndex != index) {
+			proof2 = res(theory.term("=", innerIndex, diff), proof2, mProofRules.trans(index, innerIndex, diff));
+			proof2 = res(theory.term("=", index, innerIndex), proofEq, proof2);
+		}
+		proof2 = res(theory.term("=", selectArrayDiff, selectRhsDiff),
+				mProofRules.symm(selectArrayDiff, selectRhsDiff), proof2);
+		proof2 = res(theory.term("=", selectRhsDiff, selectArrayDiff),
+				mProofRules.selectStore2(array, index, valueW, diff), proof2);
+
+		Term proof = res(theory.term("=", index, diff), proof2, proof1);
+		proof = res(theory.term("=", selectLhsDiff, selectRhsDiff), proof, mProofRules.extDiff(lhs, rhs));
+		return proof;
+	}
+
+	private Term convertRewriteSelectOverStore(final Term lhs, final Term rhs) {
+		// lhs: (select (store a i v) j) i-j is a constant
+		// rhs: (select a j) if i-j !=0. v if i-j = 0
+		final Theory theory = lhs.getTheory();
+		assert isApplication("select", lhs);
+		final Term[] selectArgs = ((ApplicationTerm) lhs).getParameters();
+		final Term store = selectArgs[0];
+		assert isApplication("store", store);
+		final Term[] storeArgs = ((ApplicationTerm) store).getParameters();
+		final Term array = storeArgs[0];
+		final Term indexI = storeArgs[1];
+		final Term value = storeArgs[2];
+		final Term indexJ = selectArgs[1];
+		final Term proofEqualJI = proveTrivialEquality(indexJ, indexI);
+		if (proofEqualJI != null) {
+			assert rhs == storeArgs[2];
+			final Term selectStoreI = theory.term("select", store, indexI);
+			Term proof = mProofRules.trans(lhs, selectStoreI, value);
+			proof = res(theory.term("=", lhs, selectStoreI), mProofRules.cong(lhs,  selectStoreI), proof);
+			proof = res(theory.term("=", store, store), mProofRules.refl(store), proof);
+			proof = res(theory.term("=", indexJ, indexI), proofEqualJI, proof);
+			proof = res(theory.term("=", selectStoreI, value), mProofRules.selectStore1(array, indexI, value), proof);
+			return proof;
+		} else {
+			final Term proofNotEqual = proveTrivialDisequality(indexI, indexJ);
+			assert proofNotEqual != null;
+			return res(theory.term("=", indexI, indexJ), mProofRules.selectStore2(array, indexI, value, indexJ),
+					proofNotEqual);
+		}
+	}
+
+	private Term convertRewriteStore(final Term rewrite, final Term lhs, final Term rhs) {
+		// lhs: (= (store a i v) a) (or symmetric)
+		// rhs: (= (select a i) v)
+		final Theory theory = lhs.getTheory();
+		assert isApplication("=", lhs);
+		final Term[] lhsArgs = ((ApplicationTerm) lhs).getParameters();
+		final int storeIdx = isApplication("store", lhsArgs[0])
+				&& ((ApplicationTerm) lhsArgs[0]).getParameters()[0] == lhsArgs[1] ? 0 : 1;
+		final Term store = lhsArgs[storeIdx];
+		final Term[] storeArgs = ((ApplicationTerm) store).getParameters();
+		final Term array = storeArgs[0];
+		final Term index = storeArgs[1];
+		final Term value = storeArgs[2];
+		assert isApplication("store", store) && array == lhsArgs[1 - storeIdx];
+
+		final Term diff = theory.term("@diff", lhsArgs);
+		final Term selectArrayDiff = theory.term(SMTLIBConstants.SELECT, array, diff);
+		final Term selectStoreDiff = theory.term(SMTLIBConstants.SELECT, store, diff);
+		final Term selectArrayI = theory.term(SMTLIBConstants.SELECT, array, index);
+		final Term selectStoreI = theory.term(SMTLIBConstants.SELECT, store, index);
+
+
+		// show (select a i) = v if array = store
+		Term proofRhs = res(theory.term("=", selectArrayI, selectStoreI),
+				res(theory.term("=", index, index), mProofRules.refl(index),
+						mProofRules.cong(selectArrayI, selectStoreI)),
+						mProofRules.trans(selectArrayI, selectStoreI, value));
+
+		// show (select store diff) = (select array diff) lhs if (= i diff)
+		Term proofLhs = mProofRules.trans(selectStoreDiff, selectStoreI, value, selectArrayI, selectArrayDiff);
+		proofLhs = res(theory.term("=", selectStoreDiff, selectStoreI),
+				mProofRules.cong(selectStoreDiff, selectStoreI), proofLhs);
+		proofLhs = res(theory.term("=", diff, index), mProofRules.symm(diff, index), proofLhs);
+		proofLhs = res(theory.term("=", store, store), mProofRules.refl(store), proofLhs);
+		proofLhs = res(theory.term("=", value, selectArrayI), mProofRules.symm(value, selectArrayI), proofLhs);
+		proofLhs = res(theory.term("=", selectArrayI, selectArrayDiff),
+				mProofRules.cong(selectArrayI, selectArrayDiff), proofLhs);
+		proofLhs = res(theory.term("=", array, array), mProofRules.refl(array), proofLhs);
+
+		// show (select store diff) = (select array diff) lhs also if ~(= i diff)
+		proofLhs = res(theory.term("=", index, diff), mProofRules.selectStore2(array, index, value, diff), proofLhs);
+
+		// hence store = array.
+		proofLhs = res(theory.term("=", selectStoreDiff, selectArrayDiff),
+				proofLhs, mProofRules.extDiff(store, array));
+
+		// swap store and array according to lhs.
+		if (storeIdx == 0) {
+			proofRhs = res(theory.term("=", array, store), mProofRules.symm(array, store), proofRhs);
+		} else {
+			proofLhs = res(theory.term("=", store, array), mProofRules.symm(store, array), proofRhs);
+		}
+		Term proof = proveIff(rewrite, proofRhs, proofLhs);
+		proof = res(theory.term("=", selectStoreI, value), mProofRules.selectStore1(array, index, value), proof);
+		return proof;
+	}
+
 	private Term convertRewriteToLeq0(final String rewriteRule, final Term lhs, final Term rhs) {
 		boolean isNegated;
 		switch (rewriteRule) {
@@ -1769,6 +1954,15 @@ public class ProofSimplifier extends TermTransformer {
 		case ":strip":
 			subProof = mProofRules.delAnnot(stmtParams[0]);
 			break;
+		case ":storeOverStore":
+			subProof = convertRewriteStoreOverStore(stmtParams[0], stmtParams[1]);
+			break;
+		case ":selectOverStore":
+			subProof = convertRewriteSelectOverStore(stmtParams[0], stmtParams[1]);
+			break;
+		case ":storeRewrite":
+			subProof = convertRewriteStore(rewriteStmt, stmtParams[0], stmtParams[1]);
+			break;
 		case ":canonicalSum":
 		case ":divisible":
 		case ":div1":
@@ -1779,9 +1973,6 @@ public class ProofSimplifier extends TermTransformer {
 		case ":moduloConst":
 		case ":modulo":
 		case ":toInt":
-		case ":storeOverStore":
-		case ":selectOverStore":
-		case ":storeRewrite":
 		default:
 			// throw new AssertionError("Unknown Rewrite Rule: " + annotTerm);
 			subProof = mProofRules.oracle(termToProofLiterals(rewriteStmt), annotTerm.getAnnotations());
@@ -2528,7 +2719,37 @@ public class ProofSimplifier extends TermTransformer {
 	}
 
 	/**
-	 * Proof that the disequality between two terms is trivial. There are two cases,
+	 * Prove that first and second are equal (modulo order of operands for +).
+	 *
+	 * @param first  the left-hand side of the equality
+	 * @param second the right-hand side of the equality
+	 * @return the proof for `(= first second)` or null if this is not a trivial disequality.
+	 */
+	private Term proveTrivialEquality(final Term first, final Term second) {
+		if (first == second) {
+			return mProofRules.refl(first);
+		}
+		if (!first.getSort().isNumericSort()) {
+			return null;
+		}
+		final SMTAffineTerm diff = new SMTAffineTerm(second);
+		diff.negate();
+		diff.add(new SMTAffineTerm(first));
+		if (diff.isConstant() && diff.getConstant().equals(Rational.ZERO)) {
+			final Theory theory = first.getTheory();
+			final Term ltTerm = theory.term(SMTLIBConstants.LT, first, second);
+			final Term gtTerm = theory.term(SMTLIBConstants.LT, second, first);
+			final BigInteger[] one = new BigInteger[] { BigInteger.ONE };
+			return res(ltTerm, res(gtTerm, mProofRules.trichotomy(first, second),
+					mProofRules.farkas(new Term[] { ltTerm }, one)),
+					mProofRules.farkas(new Term[] { gtTerm }, one));
+		} else {
+			return null;
+		}
+	}
+
+	/**
+	 * Prove that the disequality between two terms is trivial. There are two cases,
 	 * (1) the difference between the terms is constant and nonzero, e.g.
 	 * {@code (= x (+ x 1))}, or (2) the difference contains only integer variables
 	 * and the constant divided by the gcd of the factors is non-integral, e.g.,
@@ -2536,7 +2757,7 @@ public class ProofSimplifier extends TermTransformer {
 	 *
 	 * @param first  the left-hand side of the equality
 	 * @param second the right-hand side of the equality
-	 * @return true if the equality is trivially not satisfied.
+	 * @return the proof for `~(= first second)` or null if this is not a trivial disequality.
 	 */
 	private Term proveTrivialDisequality(final Term first, final Term second) {
 		final Theory theory = first.getTheory();
@@ -2547,19 +2768,22 @@ public class ProofSimplifier extends TermTransformer {
 				final Term leqLhs = theory.term(SMTLIBConstants.LEQ, first, second);
 				return mProofRules.resolutionRule(leqLhs, mProofRules.eqLeq(first, second),
 						mProofRules.farkas(new Term[] { leqLhs }, new BigInteger[] { BigInteger.ONE }));
-			} else {
-				assert diff.getConstant().signum() < 0;
+			} else if (diff.getConstant().signum() < 0) {
 				final Term leqLhs = theory.term(SMTLIBConstants.LEQ, second, first);
 				final Term eqSwapped = theory.term(SMTLIBConstants.EQUALS, second, first);
 				return mProofRules.resolutionRule(eqSwapped, mProofRules.symm(second, first),
 						mProofRules.resolutionRule(leqLhs, mProofRules.eqLeq(second, first),
 								mProofRules.farkas(new Term[] { leqLhs }, new BigInteger[] { BigInteger.ONE })));
+			} else {
+				return null;
 			}
 		} else {
 			final Rational gcd = diff.getGcd();
 			diff.div(gcd);
 			final Rational bound = diff.getConstant().negate();
-			assert diff.isAllIntSummands() && !bound.isIntegral();
+			if (!diff.isAllIntSummands() || bound.isIntegral()) {
+				return null;
+			}
 			final Sort intSort = theory.getSort(SMTLIBConstants.INT);
 			diff.add(bound);
 			final Term intVar = diff.toTerm(intSort);
