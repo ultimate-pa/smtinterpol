@@ -28,6 +28,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
@@ -2276,6 +2277,221 @@ public class ProofSimplifier extends TermTransformer {
 	}
 
 	/**
+	 * Checks whether {@code term1} is {@code (store term2 idx val)} or {@code term2} is {@code (store term1 idx val)}.
+	 *
+	 * @param term0
+	 *            the first array term.
+	 * @param term1
+	 *            the second array term
+	 * @return 0 if term0 is a store over term1, 1 if vice versa. -1 if neither.
+	 */
+	private int checkStoreIndex(final Term term0, final Term term1) {
+		if (isApplication("store", term0)) {
+			final Term[] storeArgs = ((ApplicationTerm) term0).getParameters();
+			if (storeArgs[0] == term1) {
+				return 0;
+			}
+		}
+		if (isApplication("store", term1)) {
+			final Term[] storeArgs = ((ApplicationTerm) term1).getParameters();
+			if (storeArgs[0] == term0) {
+				return 1;
+			}
+		}
+		return -1;
+	}
+
+
+	/**
+	 * Check if each step in an array path is valid. This means, for each pair of consecutive terms, either there is a
+	 * strong path between the two, or there exists a select path explaining element equality of array terms at the weak
+	 * path index, or it is a weak store step, or a congruence. This reports errors using reportError.
+	 *
+	 * @param weakIdx
+	 *            the weak path index or null for subpaths.
+	 * @param path
+	 *            the path to check.
+	 * @param equalities
+	 *            the equality literals from the clause.
+	 * @param disequalities
+	 *            the index disequality literals from the clause.
+	 * @param weakPaths
+	 *            the weak paths (given by their weak index) needed for the main path in array lemmas, null if path is
+	 *            not the main path.
+	 */
+	Term proveSelectOverPath(final Term weakIdx, final Term[] path,
+			final Set<SymmetricPair<Term>> equalities, final Set<SymmetricPair<Term>> disequalities,
+			final Set<Term> neededEqualities, final Set<Term> neededDisequalities) {
+		// note that a read-const-weakeq path can have length 1
+		assert path.length >= 1;
+		final Theory theory = path[0].getTheory();
+		final Term[] selectChain = new Term[path.length];
+		final Term[] proofSelectEq = new Term[path.length - 1];
+		for (int i = 0; i < path.length; i++) {
+			selectChain[i] = theory.term(SMTLIBConstants.SELECT, path[i], weakIdx);
+		}
+		for (int i = 0; i < path.length - 1; i++) {
+			final SymmetricPair<Term> pair = new SymmetricPair<>(path[i], path[i + 1]);
+			/* check for strong path first */
+			if (equalities.contains(pair)) {
+				proofSelectEq[i] = mProofRules.cong(selectChain[i], selectChain[i + 1]);
+				neededEqualities.add(theory.term(SMTLIBConstants.EQUALS, path[i], path[i + 1]));
+				neededEqualities.add(theory.term(SMTLIBConstants.EQUALS, weakIdx, weakIdx));
+				continue;
+			}
+			/* check for weak store step */
+			final int storePos = checkStoreIndex(path[i], path[i+1]);
+			if (storePos >= 0) {
+				// this is a step from a to (store a storeIndex v). Check if storeIndex is okay.
+				final Term storeTerm = path[i + storePos];
+				final Term storeIdx = ((ApplicationTerm) storeTerm).getParameters()[1];
+				if (disequalities.contains(new SymmetricPair<>(weakIdx, storeIdx))
+						|| proveTrivialDisequality(weakIdx, storeIdx) != null) {
+					final Term storeVal = ((ApplicationTerm) storeTerm).getParameters()[2];
+					neededDisequalities.add(theory.term(SMTLIBConstants.EQUALS, storeIdx, weakIdx));
+					Term proof = mProofRules.selectStore2(path[i + 1 - storePos], storeIdx, storeVal, weakIdx);
+					if (storePos == 1) {
+						proof = res(theory.term(SMTLIBConstants.EQUALS, selectChain[i + 1], selectChain[i]),
+								proof, mProofRules.symm(selectChain[i], selectChain[i + 1]));
+					}
+					proofSelectEq[i] = proof;
+					continue;
+				}
+			}
+			/* TODO check for select edge (only for weakeq-ext) */
+			throw new AssertionError();
+		}
+		if (selectChain.length == 1) {
+			return mProofRules.refl(selectChain[0]);
+		}
+		Term proof = selectChain.length > 2 ? mProofRules.trans(selectChain) : null;
+		for (int i = 0; i < path.length - 1; i++) {
+			proof = res(theory.term(SMTLIBConstants.EQUALS, selectChain[i], selectChain[i + 1]),
+					proofSelectEq[i], proof);
+		}
+		return proof;
+	}
+
+	/**
+	 * Check an array lemma for correctness. If a problem is found, an error is reported.
+	 *
+	 * @param type
+	 *            the lemma type
+	 * @param clause
+	 *            the clause to check
+	 * @param ccAnnotation
+	 *            the argument of the :CC annotation.
+	 */
+	private Term convertArraySelectWeakEqLemma(final Term[] clause, final Object[] ccAnnotation) {
+		assert ccAnnotation.length >= 3;
+		final Theory theory = clause[0].getTheory();
+		/*
+		 * weakPaths maps from a symmetric pair to the set of weak indices such that a weak path was proven for this
+		 * pair. strongPaths contains the sets of all proven strong paths.
+		 */
+		final HashMap<SymmetricPair<Term>, Term> allEqualities = new HashMap<>();
+		/* indexDiseqs contains all index equalities in the clause */
+		final HashMap<SymmetricPair<Term>, Term> allDisequalities = new HashMap<>();
+		final HashSet<Term> neededEqualities = new HashSet<>();
+		final HashSet<Term> neededDisequalities = new HashSet<>();
+
+		/* collect literals and search for the disequality */
+		for (final Term literal : clause) {
+			final boolean negated = isApplication("not", literal);
+			final Term quotedAtom = negated ? ((ApplicationTerm) literal).getParameters()[0] : literal;
+			final Term atom = unquote(quotedAtom);
+			assert isApplication("=", atom);
+			final Term[] sides = ((ApplicationTerm) atom).getParameters();
+			assert sides.length == 2;
+			if (negated) {
+				// negated atom in clause -> equality in conflict
+				allEqualities.put(new SymmetricPair<>(sides[0], sides[1]), quotedAtom);
+			} else {
+				allDisequalities.put(new SymmetricPair<>(sides[0], sides[1]), quotedAtom);
+			}
+		}
+		final Term goalEquality = unquote((Term) ccAnnotation[0]);
+		assert isApplication("=", goalEquality);
+		final Term[] goalTerms = ((ApplicationTerm) goalEquality).getParameters();
+		assert goalTerms.length == 2;
+
+		/*
+		 * Check the paths in reverse order. Collect proven paths in a hash set, so that they can be used later.
+		 */
+		assert ccAnnotation.length == 3;
+		assert ccAnnotation[1] == ":weakpath";
+		final Object[] weakItems = (Object[]) ccAnnotation[2];
+		assert weakItems.length == 2;
+		final Term mainIdx = (Term) weakItems[0];
+		final Term[] mainPath = (Term[]) weakItems[1];
+
+		Term proof = proveSelectOverPath(mainIdx, mainPath, allEqualities.keySet(), allDisequalities.keySet(),
+				neededEqualities, neededDisequalities);
+		assert isApplication("select", goalTerms[0]) && isApplication("select", goalTerms[1]);
+		final int goalOrder = ((ApplicationTerm) goalTerms[0]).getParameters()[0] == mainPath[0] ? 0 : 1;
+		final Term goal1 = goalTerms[goalOrder];
+		final Term goal2 = goalTerms[1 - goalOrder];
+		final Term firstTerm = theory.term("select", mainPath[0], mainIdx);
+		final Term lastTerm = theory.term("select", mainPath[mainPath.length - 1], mainIdx);
+		if (goal1 != firstTerm) {
+			assert mainPath[0] == ((ApplicationTerm) goal1).getParameters()[0];
+			final Term goalIdx = ((ApplicationTerm) goal1).getParameters()[1];
+			proof = res(theory.term("=", firstTerm, lastTerm), proof, mProofRules.trans(goal1, firstTerm, lastTerm));
+			proof = res(theory.term("=", goal1, firstTerm), mProofRules.cong(goal1, firstTerm), proof);
+			neededEqualities.add(theory.term("=", goalIdx, mainIdx));
+			neededEqualities.add(theory.term("=", mainPath[0], mainPath[0]));
+		}
+		if (goal2 != lastTerm) {
+			assert mainPath[mainPath.length - 1] == ((ApplicationTerm) goal2).getParameters()[0];
+			final Term goalIdx = ((ApplicationTerm) goal2).getParameters()[1];
+			proof = res(theory.term("=", goal1, lastTerm), proof, mProofRules.trans(goal1, lastTerm, goal2));
+			proof = res(theory.term("=", lastTerm, goal2), mProofRules.cong(lastTerm, goal2), proof);
+			neededEqualities.add(theory.term("=", mainIdx, goalIdx));
+			neededEqualities.add(theory.term("=", mainPath[mainPath.length - 1], mainPath[mainPath.length - 1]));
+		}
+		neededDisequalities.add(theory.term("=", goal1, goal2));
+		for (final Term eq : neededEqualities) {
+			assert isApplication("=", eq);
+			final Term[] eqParam = ((ApplicationTerm) eq).getParameters();
+			final Term quotedEq = allEqualities.get(new SymmetricPair<>(eqParam[0], eqParam[1]));
+			if (quotedEq != null) {
+				final Term unquoteEq = unquote(quotedEq);
+				if (unquoteEq != eq) {
+					// need symmetry
+					proof = res(eq, mProofRules.symm(eqParam[0], eqParam[1]), proof);
+				}
+			} else {
+				final Term proofEq = proveTrivialEquality(eqParam[0], eqParam[1]);
+				assert proofEq != null;
+				proof = res(eq, proofEq, proof);
+			}
+		}
+		for (final Term eq : neededDisequalities) {
+			assert isApplication("=", eq);
+			final Term[] eqParam = ((ApplicationTerm) eq).getParameters();
+			final Term quotedEq = allDisequalities.get(new SymmetricPair<>(eqParam[0], eqParam[1]));
+			if (quotedEq != null) {
+				final Term unquoteEq = unquote(quotedEq);
+				if (unquoteEq != eq) {
+					// need symmetry
+					proof = res(eq, proof, mProofRules.symm(eqParam[1], eqParam[0]));
+				}
+			} else {
+				final Term proofEq = proveTrivialDisequality(eqParam[0], eqParam[1]);
+				assert proofEq != null;
+				proof = res(eq, proof, proofEq);
+			}
+		}
+		for (final Term quotedEq : allEqualities.values()) {
+			proof = removeQuoted(proof, quotedEq, unquote(quotedEq), false);
+		}
+		for (final Term quotedEq : allDisequalities.values()) {
+			proof = removeQuoted(proof, quotedEq, unquote(quotedEq), true);
+		}
+		return proof;
+	}
+
+	/**
 	 * Convert an instatiation lemma to a minimal proof.
 	 *
 	 * @param clause       the clause to convert
@@ -2340,6 +2556,9 @@ public class ProofSimplifier extends TermTransformer {
 		switch (lemmaType) {
 		case ":CC":
 			subProof = convertCCLemma(clause, (Object[]) lemmaAnnotation);
+			break;
+		case ":read-over-weakeq":
+			subProof = convertArraySelectWeakEqLemma(clause, (Object[]) lemmaAnnotation);
 			break;
 		case ":EQ":
 			subProof = convertEQLemma(clause);
