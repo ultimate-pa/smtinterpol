@@ -1317,9 +1317,48 @@ public class ProofSimplifier extends TermTransformer {
 		throw new AssertionError();
 	}
 
+	private Term convertRewriteOrSimp(final Term rewriteStmt, final Term lhs, final Term rhs) {
+		// lhs: (or ...), rhs: (or ...)
+		// duplicated entries in lhs and false should be removed in rhs.
+		// if only one entry remains, or is omitted, if no entry remains, false is
+		// returned.
+		assert isApplication("or", lhs);
+		final LinkedHashMap<Term, Integer> args = new LinkedHashMap<>();
+		final Term[] lhsParams = ((ApplicationTerm) lhs).getParameters();
+		Term falseTerm = null;
+		for (int i = 0; i < lhsParams.length; i++) {
+			if (isApplication("false", lhsParams[i])) {
+				falseTerm = lhsParams[i];
+			} else {
+				args.put(lhsParams[i], i);
+			}
+		}
+		Term proofRhs = mProofRules.orElim(lhs);
+		if (falseTerm != null && rhs != falseTerm) {
+			proofRhs = mProofRules.resolutionRule(falseTerm, proofRhs, mProofRules.falseElim());
+		}
+		Term proofLhs = null;
+		if (isApplication("false", rhs)) {
+			proofLhs = mProofRules.falseElim();
+		} else if (isApplication("or", rhs)) {
+			final Term[] rhsParams = ((ApplicationTerm) rhs).getParameters();
+			for (int i = 0; i < rhsParams.length; i++) {
+				proofRhs = mProofRules.resolutionRule(rhsParams[i], proofRhs, mProofRules.orIntro(i, rhs));
+			}
+			proofLhs = mProofRules.orElim(rhs);
+		}
+		for (final int i : args.values()) {
+			if (proofLhs == null) {
+				proofLhs = mProofRules.orIntro(i, lhs);
+			} else {
+				proofLhs = mProofRules.resolutionRule(lhsParams[i], proofLhs, mProofRules.orIntro(i, lhs));
+			}
+		}
+		return proveIff(rewriteStmt, proofRhs, proofLhs);
+	}
+
 	private Term convertRewriteOrTaut(final Term rewrite, final Term lhs, final Term rhs) {
 		assert isApplication("or", lhs) && isApplication("true", rhs);
-		final Theory theory = rewrite.getTheory();
 		// case 1
 		// lhs: (or ... true ...), rhs: true
 		// case 2
@@ -1347,6 +1386,7 @@ public class ProofSimplifier extends TermTransformer {
 								mProofRules.notIntro(lhsParams[negIdx]), mProofRules.orIntro(negIdx, lhs)),
 						mProofRules.orIntro(posIdx, lhs));
 				proof = mProofRules.resolutionRule(lhs, orProof, proof);
+				break;
 			}
 			seen.put(lhsParams[i], i);
 		}
@@ -1642,6 +1682,9 @@ public class ProofSimplifier extends TermTransformer {
 		case ":xorNot":
 			subProof = convertRewriteXorNot(rewriteStmt, stmtParams[0], stmtParams[1]);
 			break;
+		case ":orSimp":
+			subProof = convertRewriteOrSimp(rewriteStmt, stmtParams[0], stmtParams[1]);
+			break;
 		case ":orTaut":
 			subProof = convertRewriteOrTaut(rewriteStmt, stmtParams[0], stmtParams[1]);
 			break;
@@ -1679,7 +1722,6 @@ public class ProofSimplifier extends TermTransformer {
 		case ":xorTrue":
 		case ":xorFalse":
 		case ":xorSame":
-		case ":orSimp":
 		case ":andToOr":
 		case ":impToOr":
 		case ":canonicalSum":
