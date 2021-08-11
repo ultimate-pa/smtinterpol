@@ -365,11 +365,9 @@ public class ProofRules {
 	}
 
 	public Term delAnnot(final Term annotTerm) {
-		final Annotation[] termAnnots = ((AnnotatedTerm) annotTerm).getAnnotations();
-		final Annotation[] annots = new Annotation[termAnnots.length + 1];
-		annots[0] = new Annotation(":" + DELANNOT, ((AnnotatedTerm) annotTerm).getSubterm());
-		System.arraycopy(termAnnots, 0, annots, 1, termAnnots.length);
-		return mTheory.annotatedTerm(annots, mAxiom);
+		final Term subterm = ((AnnotatedTerm) annotTerm).getSubterm();
+		final Annotation[] subAnnots = ((AnnotatedTerm) annotTerm).getAnnotations();
+		return mTheory.annotatedTerm(annotate(":" + DELANNOT, new Object[] { subterm, subAnnots }), mAxiom);
 	}
 
 	public Term divisible(final Term lhs, final BigInteger divisor) {
@@ -690,15 +688,19 @@ public class ProofRules {
 					}
 					case ":" + DELANNOT: {
 						mTodo.add("))");
-						final Term term = (Term) annots[0].getValue();
-						for (int i = annots.length - 1; i >= 1; i--) {
-							if (annots[i].getValue() != null) {
-								mTodo.addLast(annots[i].getValue());
+						assert annots.length == 1;
+						final Object[] params = (Object[]) annots[0].getValue();
+						assert params.length == 2;
+						final Term subterm = (Term) params[0];
+						final Annotation[] subAnnots = (Annotation[]) params[1];
+						for (int i = subAnnots.length - 1; i >= 0; i--) {
+							if (subAnnots[i].getValue() != null) {
+								mTodo.addLast(subAnnots[i].getValue());
 								mTodo.addLast(" ");
 							}
-							mTodo.addLast(" " + annots[i].getKey());
+							mTodo.addLast(" " + subAnnots[i].getKey());
 						}
-						mTodo.addLast(term);
+						mTodo.addLast(subterm);
 						mTodo.add("(" + DELANNOT + " (! ");
 						return;
 					}

@@ -534,9 +534,11 @@ public class MinimalProofChecker extends NonRecursive {
 					new ProofLiteral(params[0], true) };
 		}
 		case ":" + ProofRules.DELANNOT: {
-			final Term subterm = (Term) annots[0].getValue();
-			final Annotation[] subAnnots = new Annotation[annots.length - 1];
-			System.arraycopy(annots, 1, subAnnots, 0, subAnnots.length);
+			assert annots.length == 1;
+			final Object[] params = (Object[]) annots[0].getValue();
+			assert params.length == 2;
+			final Term subterm = (Term) params[0];
+			final Annotation[] subAnnots = (Annotation[]) params[1];
 			final Term annotTerm = theory.annotatedTerm(subAnnots, subterm);
 
 			// (= (! t :...) t)

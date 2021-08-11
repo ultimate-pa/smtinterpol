@@ -1572,6 +1572,34 @@ public class ProofSimplifier extends TermTransformer {
 		throw new AssertionError();
 	}
 
+	private Term convertRewriteConstDiff(final Term rewriteStmt, final Term lhs, final Term rhs) {
+		// lhs: (= ... 5 ... 7 ...), rhs: false
+		assert isApplication("=", lhs) && isApplication("false", rhs);
+		final Term[] lhsParams = ((ApplicationTerm) lhs).getParameters();
+		assert lhsParams[0].getSort().isNumericSort();
+		int lastConstantIdx = -1;
+		Rational lastConstant = null;
+		for (int i = 0; i < lhsParams.length; i++) {
+			final Rational value = parseConstant(lhsParams[i]);
+			if (value != null) {
+				if (lastConstantIdx < 0) {
+					lastConstantIdx = i;
+					lastConstant = value;
+				} else if (!lastConstant.equals(value)) {
+					Term proof = proveTrivialDisequality(lhsParams[lastConstantIdx], lhsParams[i]);
+					if (lhsParams.length > 2) {
+						proof = mProofRules.resolutionRule(
+								lhs.getTheory().term("=", lhsParams[lastConstantIdx], lhsParams[i]),
+								mProofRules.equalsElim(lastConstantIdx, i, lhs), proof);
+					}
+					proof = proveIff(rewriteStmt, proof, mProofRules.falseElim());
+					return proof;
+				}
+			}
+		}
+		throw new AssertionError();
+	}
+
 	private Term convertRewrite(final Term[] newParams) {
 		final AnnotatedTerm annotTerm = (AnnotatedTerm) newParams[0];
 		final String rewriteRule = annotTerm.getAnnotations()[0].getKey();
@@ -1643,13 +1671,17 @@ public class ProofSimplifier extends TermTransformer {
 			subProof = convertRewriteIte(rewriteRule, rewriteStmt, stmtParams[0], stmtParams[1]);
 			break;
 		case ":constDiff":
+			subProof = convertRewriteConstDiff(rewriteStmt, stmtParams[0], stmtParams[1]);
+			break;
+		case ":strip":
+			subProof = mProofRules.delAnnot(stmtParams[0]);
+			break;
 		case ":xorTrue":
 		case ":xorFalse":
 		case ":xorSame":
 		case ":orSimp":
 		case ":andToOr":
 		case ":impToOr":
-		case ":strip":
 		case ":canonicalSum":
 		case ":leqTrue":
 		case ":leqFalse":
