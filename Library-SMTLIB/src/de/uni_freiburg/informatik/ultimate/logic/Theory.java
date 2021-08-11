@@ -1594,16 +1594,84 @@ public class Theory {
 		return term(fsym, parameters);
 	}
 
-	public ApplicationTerm term(final String func, final Term... parameters) {
-		final Sort[] paramSorts = parameters.length == 0 ? EMPTY_SORT_ARRAY : new Sort[parameters.length];
-		for (int i = 0; i < parameters.length; i++) {
-			paramSorts[i] = parameters[i].getSort();
+	public Term term(final String funcname, final String[] indices,
+			final Sort returnSort, final Term... params) throws SMTLIBException {
+		// Special case for normalizing rationals: we want to use ConstantValue with Rational, for things
+		// like (/ 1.0 2.0), to avoid the overhead of parsing them again. To avoid two terms that look identical but are
+		// not equal, we don't create an ApplicationTerm when parsing rational constants.
+		if (funcname.equals("/") && indices == null && returnSort == null && params.length == 2
+				&& params[0] instanceof ConstantTerm && params[1] instanceof ConstantTerm
+				&& params[0].getSort() == getNumericSort() && params[1].getSort() == getNumericSort()) {
+			final ConstantTerm numTerm = (ConstantTerm) params[0];
+			final ConstantTerm denomTerm = (ConstantTerm) params[1];
+			BigInteger num = null, denom = null;
+			if (getNumericSort() == getRealSort()) {
+				// in LRA, numerals are not stored as Rational, but as BigInteger constants, to
+				// distinguish the terms 1 and 1.0.
+				if (numTerm.getValue() instanceof BigInteger && denomTerm.getValue() instanceof BigInteger) {
+					num = (BigInteger) numTerm.getValue();
+					denom = (BigInteger) denomTerm.getValue();
+				}
+			} else {
+				// in LIRA, the numerals are stored as Rational with denominator one.
+				if (numTerm.getValue() instanceof Rational && denomTerm.getValue() instanceof Rational) {
+					final Rational numRat = (Rational) numTerm.getValue();
+					final Rational denomRat = (Rational) denomTerm.getValue();
+					if (numRat.isIntegral() && denomRat.isIntegral()) {
+						num = numRat.numerator();
+						denom = denomRat.numerator();
+					}
+				}
+			}
+			// make sure that num and denom have the right form such that the created
+			// rational term would be completely identical
+			if (num != null && denom.compareTo(BigInteger.ONE) > 0 && num.gcd(denom).equals(BigInteger.ONE)) {
+				final Rational value = Rational.valueOf(num, denom);
+				return constant(value, getRealSort());
+			}
 		}
-		final FunctionSymbol fsym = getFunctionWithResult(func, null, null, paramSorts);
+		if (funcname.equals("-") && indices == null && returnSort == null && params.length == 1
+				&& params[0] instanceof ConstantTerm
+				&& (params[0].getSort() == getNumericSort() || params[0].getSort() == getRealSort())) {
+			final ConstantTerm numTerm = (ConstantTerm) params[0];
+			if (numTerm.getValue() instanceof Rational) {
+				final Rational num = (Rational) numTerm.getValue();
+				// make sure that num has the right form. In particular we only allow negating integrals, as the
+				// normal form of -.5 is (/ (- 1.0) 2.0).
+				if (num.isIntegral() && num.signum() > 0) {
+					return constant(num.negate(), numTerm.getSort());
+				}
+			} else if (numTerm.getValue() instanceof BigInteger) {
+				final BigInteger num = (BigInteger) numTerm.getValue();
+				// make sure that num is positive.
+				if (num.signum() > 0) {
+					return constant(num.negate(), numTerm.getSort());
+				}
+			}
+		}
+
+		// Not a rational term to normalize
+		final Sort[] sorts = params.length == 0 ? Script.EMPTY_SORT_ARRAY : new Sort[params.length];
+		for (int i = 0; i < sorts.length; i++) {
+			sorts[i] = params[i].getSort();
+		}
+		final FunctionSymbol fsym = getFunctionWithResult(funcname, indices, returnSort, sorts);
 		if (fsym == null) {
-			return null;
+			final StringBuilder sb = new StringBuilder();
+			final PrintTerm pt = new PrintTerm();
+			sb.append("Undeclared function symbol (").append(funcname);
+			for (final Sort s: sorts) {
+				sb.append(' ');
+				pt.append(sb, s);
+			}
+			sb.append(')');
+			throw new SMTLIBException(sb.toString());
 		}
-		return term(fsym, parameters);
+		return term(fsym, params);
+	}
+
+	public Term term(final String func, final Term... parameters) {
+		return term(func, null, null, parameters);
 	}
 
 	public ApplicationTerm term(final FunctionSymbol func, Term... parameters) {

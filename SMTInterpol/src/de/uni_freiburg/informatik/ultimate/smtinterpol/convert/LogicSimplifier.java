@@ -223,7 +223,7 @@ public class LogicSimplifier {
 			}
 			// rewrite and repeat with new equality
 			// this terminates, because the sort gets simpler
-			final ApplicationTerm newEqTerm = theory.term("=", newArgs);
+			final ApplicationTerm newEqTerm = (ApplicationTerm) theory.term("=", newArgs);
 			final Term result = mTracker.buildRewrite(eqTerm, newEqTerm, ProofConstants.RW_STORE_REWRITE);
 			input = mTracker.transitivity(input, result);
 			eqTerm = newEqTerm;
@@ -355,7 +355,7 @@ public class LogicSimplifier {
 		// Simplify first
 		if (eqArgList.size() != args.length) {
 			final Term[] newArgs = eqArgList.toArray(new Term[eqArgList.size()]);
-			final ApplicationTerm rhs = theory.term("=", newArgs);
+			final ApplicationTerm rhs = (ApplicationTerm) theory.term("=", newArgs);
 			input = mTracker.transitivity(input,
 					mTracker.buildRewrite(eqTerm, rhs, ProofConstants.RW_EQ_SIMP));
 			eqTerm = rhs;

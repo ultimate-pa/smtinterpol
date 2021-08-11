@@ -368,16 +368,16 @@ public class Minimizer {
 		}
 		public void nest(final Scope s) {
 			if (mNested == null) {
-				mNested = new ArrayList<Scope>();
+				mNested = new ArrayList<>();
 			}
 			mNested.add(s);
 		}
 	}
 
 	private List<Scope> detectScopes() {
-		final ArrayDeque<Scope> ppStack = new ArrayDeque<Scope>();
+		final ArrayDeque<Scope> ppStack = new ArrayDeque<>();
 		// All toplevel scopes.
-		final List<Scope> res = new ArrayList<Scope>();
+		final List<Scope> res = new ArrayList<>();
 		for (int i = 0; i < mCmds.size(); ++i) {
 			final Cmd cmd = mCmds.get(i);
 			if (!cmd.isActive()) {
@@ -421,11 +421,11 @@ public class Minimizer {
 			System.err.println("Removing scopes...");
 		}
 		boolean res = false;
-		final ArrayDeque<List<Scope>> todo = new ArrayDeque<List<Scope>>();
+		final ArrayDeque<List<Scope>> todo = new ArrayDeque<>();
 		todo.push(detectScopes());
 		while (!todo.isEmpty()) {
 			final List<Scope> scopes = todo.pop();
-			final BinSearch<Scope> bs = new BinSearch<Scope>(
+			final BinSearch<Scope> bs = new BinSearch<>(
 					scopes, new RemoveScopes(mCmds));
 			res |= bs.run(this);
 			for (final Scope s : scopes) {
@@ -444,7 +444,7 @@ public class Minimizer {
 		if (mVerbosity > 0) {
 			System.err.println("Removing commands...");
 		}
-		final List<Cmd> cmds = new ArrayList<Cmd>();
+		final List<Cmd> cmds = new ArrayList<>();
 		for (int i = 0; i < mCmds.size(); ++i) {
 			final Cmd cmd = mCmds.get(i);
 			if (!cmd.isActive()) {
@@ -464,7 +464,7 @@ public class Minimizer {
 	private boolean deactivateCmds(final List<Cmd> toDeactivate)
 		throws IOException, InterruptedException {
 		final DeactivateCmds driver = new DeactivateCmds();
-		final BinSearch<Cmd> bs = new BinSearch<Cmd>(toDeactivate, driver);
+		final BinSearch<Cmd> bs = new BinSearch<>(toDeactivate, driver);
 		return bs.run(this);
 	}
 
@@ -474,8 +474,8 @@ public class Minimizer {
 		}
 		// Collect used definitions
 		ScopedHashMap<String, Cmd> definitions =
-				new ScopedHashMap<String, Cmd>();
-		final Set<Cmd> usedDefs = new HashSet<Cmd>();
+				new ScopedHashMap<>();
+		final Set<Cmd> usedDefs = new HashSet<>();
 		for (final Cmd cmd : mCmds) {
 			if (!cmd.isActive()) {
 				continue;
@@ -500,7 +500,7 @@ public class Minimizer {
 		// Free some space...
 		definitions = null;
 		// Collect unused definitions
-		final List<Cmd> unusedDefs = new ArrayList<Cmd>();
+		final List<Cmd> unusedDefs = new ArrayList<>();
 		for (final Cmd cmd : mCmds) {
 			if (!cmd.isActive()) {
 				continue;
@@ -528,7 +528,7 @@ public class Minimizer {
 				it.remove();
 			}
 		}
-		final BinSearch<Cmd> bs = new BinSearch<Cmd>(
+		final BinSearch<Cmd> bs = new BinSearch<>(
 				unusedDefs, new BinSearch.Driver<Cmd>() {
 
 			@Override
@@ -541,7 +541,7 @@ public class Minimizer {
 						public void postConvertAnnotation(final AnnotatedTerm old,
 								final Annotation[] newAnnots, final Term newBody) {
 							final ArrayList<Annotation> noNames =
-									new ArrayList<Annotation>(newAnnots.length);
+									new ArrayList<>(newAnnots.length);
 							for (final Annotation a : newAnnots) {
 								if (!a.getKey().equals(":named")) {
 									noNames.add(a);
@@ -643,7 +643,7 @@ public class Minimizer {
 				continue;
 			}
 			final RemoveNeutrals driver = new RemoveNeutrals(tcmd);
-			final BinSearch<Neutral> bs = new BinSearch<Neutral>(neutrals, driver);
+			final BinSearch<Neutral> bs = new BinSearch<>(neutrals, driver);
 			result |= bs.run(this);
 		}
 		return result;
@@ -668,7 +668,7 @@ public class Minimizer {
 				// We should not substitute the top level
 				substmgr.deepen();
 			}
-			final HashMap<Term, Boolean> testCache = new HashMap<Term, Boolean>();
+			final HashMap<Term, Boolean> testCache = new HashMap<>();
 			deepen: while (substmgr.deepen()) {// NOCHECKSTYLE
 				List<Substitution> substs;
 				do {
@@ -683,7 +683,7 @@ public class Minimizer {
 					final SimplifyTerms driver = new SimplifyTerms(
 							tcmd, substmgr, substs, testCache);
 					final BinSearch<Substitution> bs =
-							new BinSearch<Substitution>(substs, driver);
+							new BinSearch<>(substs, driver);
 					localres |= bs.run(this);
 				} while (substmgr.failed());
 			}
@@ -696,7 +696,7 @@ public class Minimizer {
 	}
 
 	private Term unfoldAnd(final Term p1, final Term p2) {
-		final ArrayList<Term> conjuncts = new ArrayList<Term>();
+		final ArrayList<Term> conjuncts = new ArrayList<>();
 		ApplicationTerm at = (ApplicationTerm) p1;
 		if (at.getFunction() == at.getTheory().mAnd) {
 			conjuncts.addAll(Arrays.asList(at.getParameters()));
@@ -797,7 +797,7 @@ public class Minimizer {
 		boolean res = false;
 		while (c < conjs.length) {
 			final ArrayList<Term> newcs =
-					new ArrayList<Term>(conjs.length - 1);
+					new ArrayList<>(conjs.length - 1);
 			for (int j = 0; j < conjs.length; ++j) {
 				if (j != c) {
 					newcs.add(conjs[j]);
@@ -882,7 +882,7 @@ public class Minimizer {
 		if (conjs.size() == 1) {
 			return (ApplicationTerm) conjs.get(0);
 		}
-		return conjs.get(0).getTheory().term(
+		return (ApplicationTerm) conjs.get(0).getTheory().term(
 				"and", conjs.toArray(new Term[conjs.size()]));
 	}
 
@@ -892,7 +892,7 @@ public class Minimizer {
 			System.err.println("Simplifying get-interpolants...");
 		}
 		boolean res = false;
-		final Map<Term, Term> actualNames = new HashMap<Term, Term>();
+		final Map<Term, Term> actualNames = new HashMap<>();
 		for (final Cmd cmd : mCmds) {
 			if (!cmd.isActive()) {
 				continue;
@@ -928,7 +928,7 @@ public class Minimizer {
 		if (mVerbosity > 0) {
 			System.err.println("Simplifying term list commands...");
 		}
-		final List<TermListCmd> cmds = new ArrayList<TermListCmd>();
+		final List<TermListCmd> cmds = new ArrayList<>();
 		for (final Cmd cmd : mCmds) {
 			if (!cmd.isActive()) {
 				continue;
@@ -1010,7 +1010,7 @@ public class Minimizer {
 		if (mVerbosity > 1) {
 			System.err.println(mCmds.size() + " -> " + newsize);
 		}
-		final List<Cmd> tmp = new ArrayList<Cmd>(newsize);
+		final List<Cmd> tmp = new ArrayList<>(newsize);
 		for (final Iterator<Cmd> it = mCmds.iterator(); it.hasNext(); ) {
 			final Cmd cmd = it.next();
 			if (cmd.isActive()) {
@@ -1024,7 +1024,7 @@ public class Minimizer {
 	}
 
 	private boolean removeFeatures() throws IOException, InterruptedException {
-		final Map<String, Cmd> features = new HashMap<String, Cmd>();
+		final Map<String, Cmd> features = new HashMap<>();
 		for (final Cmd cmd : mCmds) {
 			if (cmd.isActive()) {
 				final String feature = cmd.provideFeature();
@@ -1041,7 +1041,7 @@ public class Minimizer {
 				cmd.checkFeature(features);
 			}
 		}
-		final List<Cmd> featureProvider = new ArrayList<Cmd>(features.values());
+		final List<Cmd> featureProvider = new ArrayList<>(features.values());
 		if (mVerbosity > 1) {
 			System.err.println("Trying to remove features " + featureProvider);
 		}

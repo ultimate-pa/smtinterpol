@@ -168,10 +168,10 @@ public class TermCompiler extends TermTransformer {
 				for (int i = 0; i < params.length - 1; i++) {
 					conjs[i] = theory.term(fsym, params[i], params[i + 1]);
 				}
-				final ApplicationTerm rhs = theory.term("and", conjs);
+				final Term rhs = theory.term("and", conjs);
 				final Term rewrite = mTracker.buildRewrite(appTerm, rhs, ProofConstants.RW_EXPAND);
 				enqueueWalker(new TransitivityStep(rewrite));
-				enqueueWalker(new BuildApplicationTerm(rhs));
+				enqueueWalker(new BuildApplicationTerm((ApplicationTerm) rhs));
 				pushTerms(conjs);
 				return;
 			}
@@ -494,7 +494,7 @@ public class TermCompiler extends TermTransformer {
 				boolean isSelect = true;
 				while (isSelect) {
 					isSelect = false;
-					Term nestedIdx = getArrayStoreIdx(array);
+					final Term nestedIdx = getArrayStoreIdx(array);
 					if (nestedIdx != null) {
 						// Check for select-over-store
 						final SMTAffineTerm diff = new SMTAffineTerm(idx);
