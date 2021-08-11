@@ -18,11 +18,9 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.proof;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
@@ -68,34 +66,6 @@ public class ProofTracker implements IProofTracker{
 	@Override
 	public Term intern(final Term term, final Term intern) {
 		return buildRewrite(term, intern, ProofConstants.RW_INTERN);
-	}
-
-	@Override
-	public Term flatten(final Term orig, final Set<Term> flattenedOrs) {
-		final ArrayList<Term> flat = new ArrayList<>();
-		final ArrayDeque<Term> todoStack = new ArrayDeque<>();
-		final Term origTerm = getProvedTerm(orig);
-		todoStack.addFirst(origTerm);
-		while (!todoStack.isEmpty()) {
-			final Term t = todoStack.removeFirst();
-			if (flattenedOrs.contains(t)) {
-				final ApplicationTerm appTerm = (ApplicationTerm) t;
-				assert appTerm.getFunction().getName() == "or";
-				final Term[] params = appTerm.getParameters();
-				for (int i = params.length-1; i >= 0; i--) {
-					todoStack.addFirst(params[i]);
-				}
-			} else {
-				flat.add(t);
-			}
-		}
-		Term result;
-		if (flat.size() == 1) {
-			result = flat.get(0);
-		} else {
-			result = orig.getTheory().term("or", flat.toArray(new Term[flat.size()]));
-		}
-		return transitivity(orig, buildRewrite(origTerm, result, ProofConstants.RW_FLATTEN));
 	}
 
 	@Override

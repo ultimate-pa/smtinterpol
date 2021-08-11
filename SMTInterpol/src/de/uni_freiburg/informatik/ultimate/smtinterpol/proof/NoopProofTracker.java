@@ -18,8 +18,6 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.proof;
 
-import java.util.Set;
-
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
@@ -52,12 +50,6 @@ public class NoopProofTracker implements IProofTracker {
 	@Override
 	public Term intern(final Term orig, final Term res) {
 		return res;
-	}
-
-	@Override
-	public Term flatten(final Term orig, final Set<Term> flattenedOrs) {
-		/* nobody cares about this */
-		return orig;
 	}
 
 	@Override

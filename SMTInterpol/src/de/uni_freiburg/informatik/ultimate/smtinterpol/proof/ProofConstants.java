@@ -76,12 +76,10 @@ public interface ProofConstants {
 	public final static Annotation RW_ITE_BOOL_4        = new Annotation(":iteBool4", null);
 	public final static Annotation RW_ITE_BOOL_5        = new Annotation(":iteBool5", null);
 	public final static Annotation RW_ITE_BOOL_6        = new Annotation(":iteBool6", null);
-	public final static Annotation RW_AND_TO_OR         = new Annotation(":andToOr", null);
 	public final static Annotation RW_XOR_TRUE          = new Annotation(":xorTrue", null);
 	public final static Annotation RW_XOR_FALSE         = new Annotation(":xorFalse", null);
 	public final static Annotation RW_XOR_NOT           = new Annotation(":xorNot", null);
 	public final static Annotation RW_XOR_SAME          = new Annotation(":xorSame", null);
-	public final static Annotation RW_IMP_TO_OR         = new Annotation(":impToOr", null);
 	public final static Annotation RW_STRIP             = new Annotation(":strip", null);
 	public final static Annotation RW_CANONICAL_SUM     = new Annotation(":canonicalSum", null);
 	public final static Annotation RW_LEQ_TO_LEQ0       = new Annotation(":leqToLeq0", null);
@@ -101,7 +99,6 @@ public interface ProofConstants {
 	public final static Annotation RW_TO_INT            = new Annotation(":toInt", null);
 	public final static Annotation RW_STORE_OVER_STORE  = new Annotation(":storeOverStore", null);
 	public final static Annotation RW_SELECT_OVER_STORE = new Annotation(":selectOverStore", null);
-	public final static Annotation RW_FLATTEN           = new Annotation(":flatten", null);
 	public final static Annotation RW_STORE_REWRITE     = new Annotation(":storeRewrite", null);
 	public final static Annotation RW_FORALL_EXISTS     = new Annotation(":forallExists", null);
 	public final static Annotation RW_INTERN            = new Annotation(":intern", null);

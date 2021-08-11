@@ -2424,15 +2424,9 @@ public class ProofChecker extends NonRecursive {
 		case ":iteBool6":
 			okay = checkRewriteIte(rewriteRule, stmtParams[0], stmtParams[1]);
 			break;
-		case ":andToOr":
-			okay = checkRewriteAndToOr(stmtParams[0], stmtParams[1]);
-			break;
 		case ":eqToXor":
 		case ":distinctToXor":
 			okay = checkRewriteToXor(rewriteRule, stmtParams[0], stmtParams[1]);
-			break;
-		case ":impToOr":
-			okay = checkRewriteImpToOr(stmtParams[0], stmtParams[1]);
 			break;
 		case ":strip":
 			okay = checkRewriteStrip(stmtParams[0], stmtParams[1]);
@@ -2473,9 +2467,6 @@ public class ProofChecker extends NonRecursive {
 		case ":selectOverStore":
 			okay = checkRewriteSelectOverStore(stmtParams[0], stmtParams[1]);
 			break;
-		case ":flatten":
-			okay = checkRewriteFlatten(stmtParams[0], stmtParams[1]);
-			break;
 		case ":storeRewrite":
 			okay = checkRewriteStore(stmtParams[0], stmtParams[1]);
 			break;
@@ -2498,46 +2489,6 @@ public class ProofChecker extends NonRecursive {
 		 * The result is simply the equality (without annotation).
 		 */
 		return new Term[] { rewriteStmt };
-	}
-
-	boolean checkRewriteAndToOr(final Term lhs, final Term rhs) {
-		// expect lhs: (and ...), rhs: (not (or (not ...)))
-		if (!isApplication("and", lhs) || !isApplication("not", rhs)) {
-			return false;
-		}
-		final Term orTerm = ((ApplicationTerm) rhs).getParameters()[0];
-		if (!isApplication("or", orTerm)) {
-			return false;
-		}
-		final Term[] andParams = ((ApplicationTerm) lhs).getParameters();
-		final Term[] orParams = ((ApplicationTerm) orTerm).getParameters();
-		if (andParams.length != orParams.length) {
-			return false;
-		}
-		for (int i = 0; i < andParams.length; i++) {
-			if (orParams[i] != mSkript.term("not", andParams[i])) {
-				return false;
-			}
-		}
-		return true;
-	}
-
-	boolean checkRewriteImpToOr(final Term lhs, final Term rhs) {
-		// expect lhs: (=> p1 ... pn), rhs: (or pn (not p1) .. (not pn-1))))
-		if (!isApplication("=>", lhs) || !isApplication("or", rhs)) {
-			return false;
-		}
-		final Term[] impParams = ((ApplicationTerm) lhs).getParameters();
-		final Term[] orParams = ((ApplicationTerm) rhs).getParameters();
-		if (impParams.length != orParams.length) {
-			return false;
-		}
-		for (int i = 0; i < impParams.length - 1; i++) {
-			if (orParams[i + 1] != mSkript.term("not", impParams[i])) {
-				return false;
-			}
-		}
-		return orParams[0] == impParams[impParams.length - 1];
 	}
 
 	boolean checkRewriteToXor(final String rule, final Term lhs, Term rhs) {
@@ -3000,37 +2951,6 @@ public class ProofChecker extends NonRecursive {
 		}
 		final SMTAffineTerm rhsAffine = new SMTAffineTerm(rhs);
 		return expected.equals(rhsAffine);
-	}
-
-	boolean checkRewriteFlatten(final Term lhs, final Term rhs) {
-		// lhs: (or ... (or ...) ... ), rhs: (or ... ... ...)
-		if (!isApplication("or", lhs) || !isApplication("or", rhs)) {
-			return false;
-		}
-		final Term[] rhsArgs = ((ApplicationTerm) rhs).getParameters();
-		int rhsOffset = 0;
-		final ArrayDeque<Term> lhsArgs = new ArrayDeque<>();
-		for (final Term t : ((ApplicationTerm) lhs).getParameters()) {
-			lhsArgs.add(t);
-		}
-		while (!lhsArgs.isEmpty()) {
-			final Term first = lhsArgs.removeFirst();
-			if (rhsOffset >= rhsArgs.length) {
-				return false;
-			}
-			if (rhsArgs[rhsOffset] == first) {
-				rhsOffset++;
-			} else {
-				if (!isApplication("or", first)) {
-					return false;
-				}
-				final Term[] args = ((ApplicationTerm) first).getParameters();
-				for (int i = args.length - 1; i >= 0; i--) {
-					lhsArgs.addFirst(args[i]);
-				}
-			}
-		}
-		return rhsOffset == rhsArgs.length;
 	}
 
 	boolean checkRewriteDivisible(final Term lhs, final Term rhs) {

@@ -1778,8 +1778,6 @@ public class ProofSimplifier extends TermTransformer {
 		case ":strip":
 			subProof = mProofRules.delAnnot(stmtParams[0]);
 			break;
-		case ":andToOr":
-		case ":impToOr":
 		case ":canonicalSum":
 		case ":divisible":
 		case ":div1":
@@ -1792,10 +1790,7 @@ public class ProofSimplifier extends TermTransformer {
 		case ":toInt":
 		case ":storeOverStore":
 		case ":selectOverStore":
-		case ":flatten":
 		case ":storeRewrite":
-		case ":skolem":
-		case ":removeForall":
 		default:
 			// throw new AssertionError("Unknown Rewrite Rule: " + annotTerm);
 			subProof = mProofRules.oracle(termToProofLiterals(rewriteStmt), annotTerm.getAnnotations());

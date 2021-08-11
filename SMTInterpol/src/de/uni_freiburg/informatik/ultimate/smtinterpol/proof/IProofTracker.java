@@ -18,8 +18,6 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.proof;
 
-import java.util.Set;
-
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.MatchTerm;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
@@ -168,17 +166,6 @@ public interface IProofTracker {
 	public Term forall(QuantifiedFormula old, Term negNewBody);
 
 	//// ==== Tracking of clausification ====
-
-	/**
-	 * Apply disjunction flattening.
-	 *
-	 * @param orig
-	 *            The term to flatten.
-	 * @param flattenedOrs
-	 *            The sub terms of orig (ApplicationTerms with function "or") that were flattened.
-	 * @return the rewrite proof to flatten the orig term.
-	 */
-	public Term flatten(Term orig, Set<Term> flattenedOrs);
 
 	/**
 	 * Prepend a disjunction simplification step. This removes double entries and {@code false} from the disjunction.
