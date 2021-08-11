@@ -558,7 +558,7 @@ public class Clausifier {
 		 * term must be produced by mRewriteProof. If this array has length one, there
 		 * is no nested or term and only one literal will be collected.
 		 */
-		private final ArrayDeque<Term> mResolutionSteps = new ArrayDeque<>();
+		private final LinkedHashSet<Term> mResolutionSteps = new LinkedHashSet<>();
 
 		private boolean mIsTrue = false;
 		private final LinkedHashSet<Literal> mLits = new LinkedHashSet<>();
@@ -610,7 +610,11 @@ public class Clausifier {
 			if (mTracker instanceof ProofTracker) {
 				final Theory theory = otherClause.getTheory();
 				final Annotation[] pivotAnnot = new Annotation[] { new Annotation(":pivot", pivotLit) };
-				mResolutionSteps.add(theory.annotatedTerm(pivotAnnot, mTracker.getClauseProof(otherClause)));
+				final Term antecedent = theory.annotatedTerm(pivotAnnot, mTracker.getClauseProof(otherClause));
+				if (mResolutionSteps.contains(antecedent)) {
+					mResolutionSteps.remove(antecedent);
+				}
+				mResolutionSteps.add(antecedent);
 			}
 		}
 
@@ -637,12 +641,6 @@ public class Clausifier {
 						positive ? ProofConstants.AUX_IFF_NEG_2 : ProofConstants.AUX_IFF_NEG_1);
 				addResolution(eqrule, negOrig);
 				addResolution(rewriteAtom, equality);
-				if (isNotTerm(destAtom) && !positive) {
-					/* remove double negation */
-					final Term p = ((ApplicationTerm) destAtom).getParameters()[0];
-					//final Term notIntro = mTracker.auxAxiom(theory.term("or", negDest, p), ProofConstants.AUX_NOT_POS);
-					//addResolution(mTracker.getClauseProof(notIntro), negDest);
-				}
 			}
 			if (mTracker instanceof ProofTracker && lit == mFALSE) {
 				/* remove literal */
@@ -669,7 +667,7 @@ public class Clausifier {
 			Term proof = null;
 			if (mTracker instanceof ProofTracker) {
 				if (mResolutionSteps.size() == 1) {
-					proof = mResolutionSteps.getFirst();
+					proof = mResolutionSteps.iterator().next();
 				} else {
 					proof = theory.term(ProofConstants.FN_RES,
 							mResolutionSteps.toArray(new Term[mResolutionSteps.size()]));

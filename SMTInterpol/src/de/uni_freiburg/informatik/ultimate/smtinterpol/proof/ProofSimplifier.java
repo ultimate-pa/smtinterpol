@@ -964,6 +964,7 @@ public class ProofSimplifier extends TermTransformer {
 
 	Term convertRewriteEqTrueFalse(final String rewriteRule, final Term lhs, final Term rhs) {
 		// lhs: (= l1 true ln), rhs: (not (or (not l1) ... (not ln)))
+		// lhs: (= l1 false ln), rhs: (not (or l1 ... ln))
 		// duplicated entries in lhs should be removed in rhs.
 		final boolean trueCase = rewriteRule.equals(":eqTrue");
 		assert isApplication("=", lhs);
@@ -981,63 +982,53 @@ public class ProofSimplifier extends TermTransformer {
 		assert trueFalseIdx >= 0;
 		final Theory theo = lhs.getTheory();
 
-
-		final Term goal = theo.term(SMTLIBConstants.EQUALS, lhs, rhs);
-		Term clause = mProofRules.iffIntro2(goal);
-		// clause: (= lhs rhs), ~lhs, ~rhs
-		Term auxClause = mProofRules.iffIntro1(goal);
-		// auxClause: (= lhs rhs), lhs, rhs
-
+		final Term rewrite = theo.term(SMTLIBConstants.EQUALS, lhs, rhs);
+		Term proofRhs = null;
+		final Term rhsAtom = ((ApplicationTerm) rhs).getParameters()[0];
 		if (args.size() > 1 || !trueCase) {
 			assert isApplication(SMTLIBConstants.NOT, rhs);
-			clause = mProofRules.resolutionRule(rhs, mProofRules.notIntro(rhs), clause);
-			auxClause = mProofRules.resolutionRule(rhs, auxClause, mProofRules.notElim(rhs));
+			proofRhs = mProofRules.notIntro(rhs);
+			if (args.size() > 1) {
+				assert isApplication(SMTLIBConstants.OR, rhsAtom);
+				proofRhs = res(rhsAtom, proofRhs, mProofRules.orElim(rhsAtom));
+			}
 		}
-		if (args.size() > 1) {
-			final Term orTerm = ((ApplicationTerm) rhs).getParameters()[0];
-			assert isApplication(SMTLIBConstants.OR, orTerm);
-			clause = mProofRules.resolutionRule(orTerm, clause, mProofRules.orElim(orTerm));
-		}
-		// clause: (= lhs rhs), ~lhs, (not? l1), ..., (not? ln)
-		clause = mProofRules.resolutionRule(lhs, mProofRules.equalsIntro(lhs), clause);
+		Term proofLhs = params.length > 2 ? mProofRules.equalsIntro(lhs) : null;
 		for (int i = 0; i < params.length - 1; i++) {
 			final Term equality = theo.term(SMTLIBConstants.EQUALS, params[i], params[i+1]);
 			final Term iffIntro = trueCase ? mProofRules.iffIntro2(equality) : mProofRules.iffIntro1(equality);
-			clause = mProofRules.resolutionRule(equality, iffIntro, clause);
+			proofLhs = res(equality, iffIntro, proofLhs);
 		}
-		// clause: (= lhs rhs), ~? l1,... ~?ln, (not? l1), ... (not? ln), ~true/false
-
+		// proofRhs: (not? l1), ..., (not? ln), rhs.
+		// proofLhs: ~true/false, ~? l1,...,~? ln, lhs.
 		// introduce all distinct arguments
 		int orPos = 0;
 		for (final int pos : args) {
 			final Term arg = params[pos];
-			final Term argTrueFalse = theo.term(SMTLIBConstants.EQUALS, arg, params[trueFalseIdx]);
 			final Term notArg = theo.term(SMTLIBConstants.NOT, arg);
-
-			// replace (not li) by ~li, if trueCase and args.size() > 1
-			if (args.size() > 1 && trueCase) {
-				clause = mProofRules.resolutionRule(notArg, clause, mProofRules.notElim(notArg));
-			}
-
-			Term subclause = mProofRules.resolutionRule(lhs, auxClause,
-					mProofRules.equalsElim(pos, trueFalseIdx, lhs));
+			final Term orArg = trueCase ? notArg : arg;
 			if (args.size() > 1) {
-				final Term orTerm = ((ApplicationTerm) rhs).getParameters()[0];
-				subclause = mProofRules.resolutionRule(orTerm, mProofRules.orIntro(orPos++, orTerm), subclause);
+				if (trueCase) {
+					proofRhs = res(notArg, proofRhs, mProofRules.notElim(notArg));
+					proofLhs = res(arg, mProofRules.notIntro(notArg), proofLhs);
+				}
+				proofLhs = res(orArg, proofLhs, mProofRules.orIntro(orPos++, rhsAtom));
 			}
-			// subclause: (= lhs rhs), (= p1 true/false), ~(not? p1)
-			subclause = mProofRules.resolutionRule(argTrueFalse, subclause,
-					trueCase ? mProofRules.iffElim1(argTrueFalse) : mProofRules.iffElim2(argTrueFalse));
-			// subclause: (= lhs rhs), ~? p1, ~(not? p1)
-			if (trueCase) {
-				subclause = mProofRules.resolutionRule(notArg, mProofRules.notIntro(notArg), subclause);
-			}
-			// subclause: (= lhs rhs), ~? p1
-			clause = mProofRules.resolutionRule(arg, trueCase ? subclause : clause, trueCase ? clause : subclause);
+			final Term argTrueFalse = theo.term(SMTLIBConstants.EQUALS, arg, params[trueFalseIdx]);
+			proofRhs = trueCase ? res(arg, mProofRules.iffElim1(argTrueFalse), proofRhs)
+					: res(arg, proofRhs, mProofRules.iffElim2(argTrueFalse));
+			final Term equalsElim = params.length > 2 ? mProofRules.equalsElim(pos, trueFalseIdx, lhs)
+					: trueFalseIdx == 1 ? null : mProofRules.symm(params[1], params[0]);
+			proofRhs = res(argTrueFalse, equalsElim, proofRhs);
 		}
-		clause = mProofRules.resolutionRule(params[trueFalseIdx], trueCase ? mProofRules.trueIntro() : clause,
-				trueCase ? clause : mProofRules.falseElim());
-		return clause;
+		if (args.size() > 1 || !trueCase) {
+			proofLhs = res(rhsAtom, proofLhs, mProofRules.notElim(rhs));
+		}
+		// proofLhs: ~true/false, ~rhs, lhs.
+		// proofRhs: ~true/false, ~lhs, rhs.
+		final Term proof = proveIff(rewrite, proofRhs, proofLhs);
+		return trueCase ? res(params[trueFalseIdx], mProofRules.trueIntro(), proof)
+				: res(params[trueFalseIdx], proof, mProofRules.falseElim());
 	}
 
 	private Term convertRewriteToXor(final String rule, final Term rewrite, final Term lhs, final Term rhs) {
@@ -2679,6 +2670,19 @@ public class ProofSimplifier extends TermTransformer {
 					mProofRules.resolutionRule(sides[0], mProofRules.iffIntro1(equality), proofLeftToRight),
 					mProofRules.resolutionRule(sides[0], proofRightToLeft, mProofRules.iffIntro2(equality)));
 		}
+	}
+
+	/**
+	 * Resolution rule which handles null proofs (for not resolving).
+	 *
+	 * @param pivot    The pivot literal.
+	 * @param proofPos The proof proving `+ pivot`.
+	 * @param proofNeg The proof proving `- pivot`.
+	 * @return the combined proof.
+	 */
+	private Term res(final Term pivot, final Term proofPos, final Term proofNeg) {
+		return proofPos == null ? proofNeg
+				: proofNeg == null ? proofPos : mProofRules.resolutionRule(pivot, proofPos, proofNeg);
 	}
 
 	private Term proveAuxExpand(final Term quotedAtom, final Term expanded) {
