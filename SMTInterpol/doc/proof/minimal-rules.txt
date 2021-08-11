@@ -201,6 +201,35 @@ Arrays:
 (selectstore1 a i v):   (= (select (store a i v) i) v)
 (selectstore2 a i j v): (= (select (store a i v) j) (select a j)), (= i j)
 (extdiff a b):  (= a b), ~(= (select a (@diff a b)) (select b (@diff a b)))
+(const v i): (= (select (@const v) i) v)
+
+# alternatively if no @diff:
+#   (ext a b): (= a b), ~(forall (i I) (= (select a i) (select b i)))
+# then with
+#   (define-fun @diff ((a (Array I V)) (b (Array I V))) (choose (i I) (not (= (select a i) (select bi)))))
+# we have
+#   (extdiff a b) == (res (forall (i I) (= (select a i) (select b i))) (forall+ (i I) (= (select a i) (select b i))) (ext a b))
+#
+# const is a real extension that changes the semantics, e.g., the following formula is sat in standard sementics, but can be
+# proved unsatisfiable using the const-rule
+#
+# (forall ((a (Array Int Bool))) (exists ((i Int)) (select a i)))
+#
+# Proof of unsat is:
+#
+# (let ((sk (choose ((i Int)) (select (@const false) i)) false)
+#       (exc (exists ((i Int)) (select (@const false) i)))
+#       (all (forall ((a (Array Int Bool))) (exists ((i Int)) (select a i)))))
+#   (let ((sel (select (@const false) sk)))
+#     (let ((eq (= sel false)))
+#       (res sel
+#         (res exc
+#              (res all (assert all)
+#                   (forall- ((a (@const false))) exa))
+#              (exists- (i Int) (select (@const false) i)))
+#         (res eq
+#              (const false sk)
+#              (res false (iff-2 eq) false-))))
 
 DT:
 

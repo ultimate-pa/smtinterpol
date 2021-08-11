@@ -742,6 +742,40 @@ public class MinimalProofChecker extends NonRecursive {
 			}
 			return clause.toArray(new ProofLiteral[clause.size()]);
 		}
+		case ":" + ProofRules.SELECTSTORE1: {
+			assert annots.length == 1;
+			final Term[] params = (Term[]) annots[0].getValue();
+
+			// (= (select (store a i v) i) v)
+			final Term store = theory.term(SMTLIBConstants.STORE, params[0], params[1], params[2]);
+			final Term selectStore = theory.term(SMTLIBConstants.SELECT, store, params[1]);
+			return new ProofLiteral[] {
+					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, selectStore, params[2]), true) };
+		}
+		case ":" + ProofRules.SELECTSTORE2: {
+			assert annots.length == 1;
+			final Term[] params = (Term[]) annots[0].getValue();
+
+			// (= (select (store a i v) j) (select a j))
+			final Term store = theory.term(SMTLIBConstants.STORE, params[0], params[1], params[2]);
+			final Term selectStore = theory.term(SMTLIBConstants.SELECT, store, params[3]);
+			final Term select = theory.term(SMTLIBConstants.SELECT, params[0], params[3]);
+			return new ProofLiteral[] {
+					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, selectStore, select), true),
+					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, params[1], params[3]), true) };
+		}
+		case ":" + ProofRules.EXTDIFF: {
+			assert annots.length == 1;
+			final Term[] params = (Term[]) annots[0].getValue();
+
+			// (= a b), ~(= (select a (@diff a b)) (select b (@diff a b)))
+			final Term diff = theory.term("@diff", params[0], params[1]);
+			final Term select0 = theory.term(SMTLIBConstants.SELECT, params[0], diff);
+			final Term select1 = theory.term(SMTLIBConstants.SELECT, params[1], diff);
+			return new ProofLiteral[] {
+					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, params[0], params[1]), true),
+					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, select0, select1), false) };
+		}
 		default:
 			throw new AssertionError("Unknown axiom " + axiom);
 		}

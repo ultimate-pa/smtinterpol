@@ -69,6 +69,12 @@ public class ProofRules {
 	public final static String TOTALINT = "total-int";
 	public final static String FARKAS = "farkas";
 
+	// axioms for arrays
+	public final static String SELECTSTORE1 = "selectstore1";
+	public final static String SELECTSTORE2 = "selectstore2";
+	public final static String EXTDIFF = "extdiff";
+
+
 	/**
 	 * sort name for proofs.
 	 */
@@ -422,6 +428,18 @@ public class ProofRules {
 				mAxiom);
 	}
 
+	public Term selectStore1(final Term array, final Term index, final Term value) {
+		return mTheory.annotatedTerm(annotate(":" + SELECTSTORE1, new Term[] { array, index, value }), mAxiom);
+	}
+
+	public Term selectStore2(final Term array, final Term index, final Term value, final Term index2) {
+		return mTheory.annotatedTerm(annotate(":" + SELECTSTORE2, new Term[] { array, index, value, index2 }), mAxiom);
+	}
+
+	public Term extDiff(final Term array1, final Term array2) {
+		return mTheory.annotatedTerm(annotate(":" + EXTDIFF, new Term[] { array1, array2 }), mAxiom);
+	}
+
 	public Term defineFun(final FunctionSymbol func, final Term definition, final Term subProof) {
 		assert func.getName().startsWith("@");
 		return mTheory.annotatedTerm(new Annotation[] {
@@ -563,7 +581,10 @@ public class ProofRules {
 					case ":" + GEQDEF:
 					case ":" + TRICHOTOMY:
 					case ":" + EQLEQ:
-					case ":" + TOTAL: {
+					case ":" + TOTAL:
+					case ":" + SELECTSTORE1:
+					case ":" + SELECTSTORE2:
+					case ":" + EXTDIFF: {
 						final Term[] params = (Term[]) annots[0].getValue();
 						assert annots.length == 1;
 						mTodo.add(")");
