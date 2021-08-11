@@ -79,7 +79,7 @@ xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns="http://www.w3.org/1999/x
 	      </xsl:choose>
 	    </xsl:for-each>
             <li>
-              <a href="online/">Web-Interface</a>
+              <a href="online/">Web Interface</a>
 	    </li>
 	  </ul></nav>
 	</header>

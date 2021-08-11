@@ -9,6 +9,13 @@
 <page id="news">
   <name>News</name>
   <content>
+  	<head1>Web interface</head1>
+  	<txt>
+  	<s /> now has a web interface.
+  	More precisely, our web interface runs <s /> in the browser.
+  	It was created by Andrea Qosja using TeaVM to compile <s /> into JavaScript.
+  	</txt>
+  
     <head1><s /> at SMTCOMP 2021</head1>
     <txt> We participated in the <link url="https://smt-comp.github.io/2021/">SMT-COMP 2021</link>.
     In the single-query track we won the division "Quantifier-free Equality with Linear Arithmetic".
