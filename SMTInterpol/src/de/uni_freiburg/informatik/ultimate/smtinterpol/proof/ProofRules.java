@@ -563,6 +563,13 @@ public class ProofRules {
 						mTodo.add("(" + annots[0].getKey().substring(1) + " (");
 						return;
 					}
+					case ":" + TRUEI:
+					case ":" + FALSEE: {
+						assert annots.length == 1;
+						assert annots[0].getValue() == null;
+						mTodo.add(annots[0].getKey().substring(1));
+						return;
+					}
 					case ":" + NOTI:
 					case ":" + NOTE:
 					case ":" + ORE:
@@ -572,6 +579,8 @@ public class ProofRules {
 					case ":" + IFFI2:
 					case ":" + IFFE1:
 					case ":" + IFFE2:
+					case ":" + ITE1:
+					case ":" + ITE2:
 					case ":" + REFL:
 					case ":" + SYMM:
 					case ":" + TRANS:
@@ -664,6 +673,22 @@ public class ProofRules {
 							mTodo.add(" (");
 						}
 						mTodo.add("(" + annots[0].getKey().substring(1));
+						return;
+					}
+					case ":" + EXPAND: {
+						assert annots.length == 1;
+						final Object[] expandParams = (Object[]) annots[0].getValue();
+						assert expandParams.length == 2;
+						final FunctionSymbol func = (FunctionSymbol) expandParams[0];
+						final Term[] params = (Term[]) expandParams[1];
+						mTodo.add(")");
+						mTodo.add(") ");
+						for (int i = params.length - 1; i >= 0; i--) {
+							mTodo.add(params[i]);
+							mTodo.add(" ");
+						}
+						mTodo.add(func.getApplicationString());
+						mTodo.add("(" + annots[0].getKey().substring(1) + " (");
 						return;
 					}
 					case ":" + FORALLE:
