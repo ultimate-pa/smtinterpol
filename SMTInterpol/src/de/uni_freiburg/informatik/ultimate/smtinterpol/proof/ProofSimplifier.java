@@ -1143,6 +1143,38 @@ public class ProofSimplifier extends TermTransformer {
 		return mProofRules.resolutionRule(xorAll, polarity ? proofXorAll : proof, polarity ? proof : proofXorAll);
 	}
 
+	private Term convertRewriteXorConst(final String rewriteRule, final Term rewrite, final Term lhs, final Term rhs) {
+		// lhs: (xor true/false arg1) or (xor arg0 true/false)
+		assert isApplication("xor", lhs);
+		final boolean isTrue = rewriteRule == ":xorTrue";
+		final Term[] xorArgs = ((ApplicationTerm) lhs).getParameters();
+		final int constIdx = isApplication(isTrue ? "true" : "false", xorArgs[0]) ? 0 : 1;
+		final Term[] constArg = new Term[] { xorArgs[constIdx] };
+		final Term[] otherArg = new Term[] { xorArgs[1 - constIdx] };
+		if (isTrue) {
+			assert isApplication("true", xorArgs[constIdx]) && rhs == mSkript.term("not", xorArgs[1 - constIdx]);
+			final Term proof = proveIff(rewrite,
+					mProofRules.resolutionRule(xorArgs[1 - constIdx], mProofRules.notIntro(rhs),
+							mProofRules.xorElim(otherArg, xorArgs, constArg)),
+					mProofRules.resolutionRule(xorArgs[1 - constIdx],
+							mProofRules.xorIntro(otherArg, xorArgs, constArg), mProofRules.notElim(rhs)));
+			return mProofRules.resolutionRule(xorArgs[constIdx], mProofRules.trueIntro(), proof);
+		} else {
+			assert isApplication("false", xorArgs[constIdx]) && rhs == xorArgs[1 - constIdx];
+			final Term proof = proveIff(rewrite,
+					mProofRules.xorIntro(otherArg, constArg, xorArgs),
+					mProofRules.xorIntro(xorArgs, constArg, otherArg));
+			return mProofRules.resolutionRule(xorArgs[constIdx], proof, mProofRules.falseElim());
+		}
+	}
+
+	private Term convertRewriteXorSame(final Term rewrite, final Term lhs, final Term rhs) {
+		assert isApplication("xor", lhs);
+		final Term[] lhsArgs = ((ApplicationTerm) lhs).getParameters();
+		assert lhsArgs.length == 2 && lhsArgs[0] == lhsArgs[1] && isApplication("false", rhs);
+		return proveIff(rewrite, mProofRules.xorElim(lhsArgs, lhsArgs, lhsArgs), mProofRules.falseElim());
+	}
+
 	private Term convertRewriteEqSimp(final String rewriteRule, final Term rewrite, final Term lhs, final Term rhs) {
 		// lhs: (= ...), rhs: (= ...) or true, if all entries in rhs are the same.
 		// duplicated entries in lhs should be removed in rhs.
@@ -1679,8 +1711,15 @@ public class ProofSimplifier extends TermTransformer {
 		case ":distinctToXor":
 			subProof = convertRewriteToXor(rewriteRule, rewriteStmt, stmtParams[0], stmtParams[1]);
 			break;
+		case ":xorTrue":
+		case ":xorFalse":
+			subProof = convertRewriteXorConst(rewriteRule, rewriteStmt, stmtParams[0], stmtParams[1]);
+			break;
 		case ":xorNot":
 			subProof = convertRewriteXorNot(rewriteStmt, stmtParams[0], stmtParams[1]);
+			break;
+		case ":xorSame":
+			subProof = convertRewriteXorSame(rewriteStmt, stmtParams[0], stmtParams[1]);
 			break;
 		case ":orSimp":
 			subProof = convertRewriteOrSimp(rewriteStmt, stmtParams[0], stmtParams[1]);
@@ -1719,9 +1758,6 @@ public class ProofSimplifier extends TermTransformer {
 		case ":strip":
 			subProof = mProofRules.delAnnot(stmtParams[0]);
 			break;
-		case ":xorTrue":
-		case ":xorFalse":
-		case ":xorSame":
 		case ":andToOr":
 		case ":impToOr":
 		case ":canonicalSum":
