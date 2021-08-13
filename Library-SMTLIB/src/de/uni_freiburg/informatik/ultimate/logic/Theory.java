@@ -169,8 +169,8 @@ public class Theory {
 		mXor = declareInternalFunction("xor", bool2, mBooleanSort, leftassoc);
 		declareInternalPolymorphicFunction("ite", generic1, new Sort[] { mBooleanSort, generic1[0], generic1[0] },
 				generic1[0], 0);
-		mTrue = term(declareInternalFunction("true", noarg, mBooleanSort, 0));
-		mFalse = term(declareInternalFunction("false", noarg, mBooleanSort, 0));
+		mTrue = (ApplicationTerm) term(declareInternalFunction("true", noarg, mBooleanSort, 0));
+		mFalse = (ApplicationTerm) term(declareInternalFunction("false", noarg, mBooleanSort, 0));
 		// Finally, declare logic specific functions
 		setLogic(logic);
 	}
@@ -1582,7 +1582,7 @@ public class Theory {
 		return symb;
 	}
 
-	public ApplicationTerm term(final FunctionSymbolFactory factory, final Term... parameters) {
+	public Term term(final FunctionSymbolFactory factory, final Term... parameters) {
 		final Sort[] sorts = parameters.length == 0 ? EMPTY_SORT_ARRAY : new Sort[parameters.length];
 		for (int i = 0; i < parameters.length; i++) {
 			sorts[i] = parameters[i].getSort();
@@ -1596,14 +1596,38 @@ public class Theory {
 
 	public Term term(final String funcname, final String[] indices,
 			final Sort returnSort, final Term... params) throws SMTLIBException {
+		final Sort[] sorts = params.length == 0 ? Script.EMPTY_SORT_ARRAY : new Sort[params.length];
+		for (int i = 0; i < sorts.length; i++) {
+			sorts[i] = params[i].getSort();
+		}
+		final FunctionSymbol fsym = getFunctionWithResult(funcname, indices, returnSort, sorts);
+		if (fsym == null) {
+			final StringBuilder sb = new StringBuilder();
+			final PrintTerm pt = new PrintTerm();
+			sb.append("Undeclared function symbol (").append(funcname);
+			for (final Sort s: sorts) {
+				sb.append(' ');
+				pt.append(sb, s);
+			}
+			sb.append(')');
+			throw new SMTLIBException(sb.toString());
+		}
+		return term(fsym, params);
+	}
+
+	public Term term(final String func, final Term... parameters) {
+		return term(func, null, null, parameters);
+	}
+
+	public Term term(final FunctionSymbol func, Term... parameters) {
 		// Special case for normalizing rationals: we want to use ConstantValue with Rational, for things
 		// like (/ 1.0 2.0), to avoid the overhead of parsing them again. To avoid two terms that look identical but are
 		// not equal, we don't create an ApplicationTerm when parsing rational constants.
-		if (funcname.equals("/") && indices == null && returnSort == null && params.length == 2
-				&& params[0] instanceof ConstantTerm && params[1] instanceof ConstantTerm
-				&& params[0].getSort() == getNumericSort() && params[1].getSort() == getNumericSort()) {
-			final ConstantTerm numTerm = (ConstantTerm) params[0];
-			final ConstantTerm denomTerm = (ConstantTerm) params[1];
+		if (func.isIntern() && func.getName().equals(SMTLIBConstants.DIVIDE) && parameters.length == 2
+				&& parameters[0] instanceof ConstantTerm && parameters[1] instanceof ConstantTerm
+				&& parameters[0].getSort() == getNumericSort() && parameters[1].getSort() == getNumericSort()) {
+			final ConstantTerm numTerm = (ConstantTerm) parameters[0];
+			final ConstantTerm denomTerm = (ConstantTerm) parameters[1];
 			BigInteger num = null, denom = null;
 			if (getNumericSort() == getRealSort()) {
 				// in LRA, numerals are not stored as Rational, but as BigInteger constants, to
@@ -1630,10 +1654,10 @@ public class Theory {
 				return constant(value, getRealSort());
 			}
 		}
-		if (funcname.equals("-") && indices == null && returnSort == null && params.length == 1
-				&& params[0] instanceof ConstantTerm
-				&& (params[0].getSort() == getNumericSort() || params[0].getSort() == getRealSort())) {
-			final ConstantTerm numTerm = (ConstantTerm) params[0];
+		if (func.isIntern() && func.getName().equals(SMTLIBConstants.MINUS) && parameters.length == 1
+				&& parameters[0] instanceof ConstantTerm
+				&& (parameters[0].getSort() == getNumericSort() || parameters[0].getSort() == getRealSort())) {
+			final ConstantTerm numTerm = (ConstantTerm) parameters[0];
 			if (numTerm.getValue() instanceof Rational) {
 				final Rational num = (Rational) numTerm.getValue();
 				// make sure that num has the right form. In particular we only allow negating integrals, as the
@@ -1651,30 +1675,6 @@ public class Theory {
 		}
 
 		// Not a rational term to normalize
-		final Sort[] sorts = params.length == 0 ? Script.EMPTY_SORT_ARRAY : new Sort[params.length];
-		for (int i = 0; i < sorts.length; i++) {
-			sorts[i] = params[i].getSort();
-		}
-		final FunctionSymbol fsym = getFunctionWithResult(funcname, indices, returnSort, sorts);
-		if (fsym == null) {
-			final StringBuilder sb = new StringBuilder();
-			final PrintTerm pt = new PrintTerm();
-			sb.append("Undeclared function symbol (").append(funcname);
-			for (final Sort s: sorts) {
-				sb.append(' ');
-				pt.append(sb, s);
-			}
-			sb.append(')');
-			throw new SMTLIBException(sb.toString());
-		}
-		return term(fsym, params);
-	}
-
-	public Term term(final String func, final Term... parameters) {
-		return term(func, null, null, parameters);
-	}
-
-	public ApplicationTerm term(final FunctionSymbol func, Term... parameters) {
 		if (parameters.length == 0) {
 			parameters = EMPTY_TERM_ARRAY;
 		}

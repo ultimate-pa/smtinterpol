@@ -1892,9 +1892,9 @@ public class Clausifier {
 					freeVarsAsTerm[i] = freeVars[i];
 				}
 				final FunctionSymbol fs = mTheory.createFreshAuxFunction(freeVars, term);
-				final ApplicationTerm auxTerm = mTheory.term(fs, freeVarsAsTerm);
+				final Term auxTerm = mTheory.term(fs, freeVarsAsTerm);
 				if (mIsEprEnabled) {
-					lit = mEprTheory.getEprAtom(auxTerm, 0, mStackLevel, SourceAnnotation.EMPTY_SOURCE_ANNOT);
+					lit = mEprTheory.getEprAtom((ApplicationTerm) auxTerm, 0, mStackLevel, SourceAnnotation.EMPTY_SOURCE_ANNOT);
 				} else {
 					// TODO Create CCBaseTerm for the aux func or pred (edit: this is done automatically when looking
 					// for instantiation terms - should it be done earlier?)

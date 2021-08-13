@@ -107,7 +107,7 @@ public class ApplyConstructiveEqualityReasoning {
 			/*
 			 * construct the new literal and add it to the resulting clause/literal set
 			 */
-			final ApplicationTerm newTerm = mEprTheory.getTheory().term(atomFormula.getFunction(), newParameters);
+			final ApplicationTerm newTerm = (ApplicationTerm) mEprTheory.getTheory().term(atomFormula.getFunction(), newParameters);
 			final EprAtom newAtom = mEprTheory.getEprAtom(newTerm,
 					0,
 					mEprTheory.getClausifier().getStackLevel(),

@@ -25,6 +25,7 @@ import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
+import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.IProofTracker;
@@ -486,10 +487,10 @@ public class LogicSimplifier {
 	}
 
 	public Term convertXor(final Term input) {
-		ApplicationTerm xorTerm = (ApplicationTerm) mTracker.getProvedTerm(input);
-		final Term[] args = xorTerm.getParameters();
+		Term xorTerm = mTracker.getProvedTerm(input);
+		assert ((ApplicationTerm) xorTerm).getFunction().getName() == "xor";
+		final Term[] args = ((ApplicationTerm) xorTerm).getParameters();
 		final Theory theory = input.getTheory();
-		assert xorTerm.getFunction().getName() == "xor";
 		assert args.length == 2;
 		// First check if one of the arguments is true or false and do simplification
 		if (args[0] == theory.mFalse) {
@@ -521,7 +522,7 @@ public class LogicSimplifier {
 		if (countNot > 0) {
 			// The new xor term is the term where all not applications are removed and the whole xor term need
 			// to be negated if there were an odd number of nots removed.
-			final ApplicationTerm newXorTerm = theory.term(xorTerm.getFunction(), newArgs);
+			final Term newXorTerm = theory.term(SMTLIBConstants.XOR, newArgs);
 			final Term newTerm = countNot % 2 == 1 ? theory.term("not", newXorTerm) : newXorTerm;
 			// no need to simplify not, since not(xor(..)) cannot be simplified.
 			rewrite = mTracker.transitivity(input, mTracker.buildRewrite(xorTerm, newTerm, ProofConstants.RW_XOR_NOT));
