@@ -553,10 +553,9 @@ public class ProofRules {
 			ineqAffine.mul(Rational.valueOf(coefficients[i], BigInteger.ONE));
 			sum.add(ineqAffine);
 		}
-		if (!sum.isConstant()) {
-			return false;
-		}
-		return sum.getConstant().signum() >= (strict ? 0 : 1);
+		final boolean okay = sum.isConstant() && sum.getConstant().signum() >= (strict ? 0 : 1);
+		assert okay;
+		return okay;
 	}
 
 	public static boolean checkXorParams(final Term[][] xorArgs) {
@@ -612,7 +611,8 @@ public class ProofRules {
 						mTodo.add(vars[i]);
 						mTodo.add(" ");
 					}
-					mTodo.add("((" + annots[0].getKey().substring(1));
+					mTodo.add(func.getApplicationString());
+					mTodo.add("((" + annots[0].getKey().substring(1) + " ");
 					return;
 				} else if (annotTerm.getSubterm() instanceof ApplicationTerm
 						&& ((ApplicationTerm) annotTerm.getSubterm()).getFunction().getName() == PREFIX + AXIOM) {

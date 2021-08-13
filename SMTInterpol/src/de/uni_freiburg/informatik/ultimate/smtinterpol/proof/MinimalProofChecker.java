@@ -763,7 +763,7 @@ public class MinimalProofChecker extends NonRecursive {
 		case ":" + ProofRules.DIVLOW: {
 			final Term[] params = (Term[]) annots[0].getValue();
 			assert annots.length == 1;
-			assert params.length == 1;
+			assert params.length == 2;
 			final Term arg = params[0];
 			final Term divisor = params[1];
 			final Term divTerm = theory.term(SMTLIBConstants.DIV, arg, divisor);
@@ -775,12 +775,13 @@ public class MinimalProofChecker extends NonRecursive {
 		case ":" + ProofRules.DIVHIGH: {
 			final Term[] params = (Term[]) annots[0].getValue();
 			assert annots.length == 1;
-			assert params.length == 1;
+			assert params.length == 2;
 			final Term arg = params[0];
 			final Term divisor = params[1];
 			final Term divTerm = theory.term(SMTLIBConstants.DIV, arg, divisor);
 			final Term mulDivTerm = theory.term(SMTLIBConstants.MUL, divisor, divTerm);
-			final Term mulDivTermPlus = theory.term(SMTLIBConstants.PLUS, mulDivTerm, divisor);
+			final Term mulDivTermPlus = theory.term(SMTLIBConstants.PLUS, mulDivTerm,
+					theory.term(SMTLIBConstants.ABS, divisor));
 			final Term zero = Rational.ZERO.toTerm(divisor.getSort());
 			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.LT, arg, mulDivTermPlus), true),
 					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, divisor, zero), true)};
@@ -788,7 +789,7 @@ public class MinimalProofChecker extends NonRecursive {
 		case ":" + ProofRules.MODDEF: {
 			final Term[] params = (Term[]) annots[0].getValue();
 			assert annots.length == 1;
-			assert params.length == 1;
+			assert params.length == 2;
 			final Term arg = params[0];
 			final Term divisor = params[1];
 			final Term divTerm = theory.term(SMTLIBConstants.DIV, arg, divisor);
