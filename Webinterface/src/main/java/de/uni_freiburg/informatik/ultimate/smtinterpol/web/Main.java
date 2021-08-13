@@ -1,10 +1,13 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.web;
 
+import de.uni_freiburg.informatik.ultimate.logic.FormulaLet;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
+import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.ParseEnvironment;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofRules;
 import org.teavm.jso.JSBody;
 
 import java.io.StringReader;
@@ -49,7 +52,19 @@ public class Main implements SolverInterface {
 		 * Post response from SMTInterpol directly to the client.
 		 */
 		public void printResponse(Object response) {
-			postMessage(response.toString());
+			if (response instanceof Term) {
+				Term term = (Term) response;
+				Term lettedTerm = new FormulaLet().let(term);
+				if (ProofRules.isProofRule(ProofRules.RES, term)) {
+					StringBuilder sb = new StringBuilder();
+					ProofRules.printProof(sb, lettedTerm);
+					postMessage(sb.toString());
+				} else {
+					postMessage(lettedTerm.toStringDirect());
+				}
+			} else {
+				postMessage(response.toString());
+			}
 		}
 	}
 }

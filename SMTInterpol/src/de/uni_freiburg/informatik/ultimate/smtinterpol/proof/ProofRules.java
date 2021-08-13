@@ -748,16 +748,16 @@ public class ProofRules {
 		return xorSum.isEmpty();
 	}
 
-	public boolean isAxiom(final Term proof) {
-		return proof instanceof AnnotatedTerm && ((AnnotatedTerm) proof).getSubterm() == mAxiom;
+	public static boolean isAxiom(final Term proof) {
+		return proof instanceof AnnotatedTerm && isApplication(PREFIX + AXIOM, ((AnnotatedTerm) proof).getSubterm());
 	}
 
-	public boolean isProofRule(final String rule, final Term proof) {
+	public static boolean isProofRule(final String rule, final Term proof) {
 		return proof instanceof ApplicationTerm
 				&& ((ApplicationTerm) proof).getFunction().getName().equals(PREFIX + rule);
 	}
 
-	public boolean isDefineFun(final Term proof) {
+	public static boolean isDefineFun(final Term proof) {
 		return proof instanceof AnnotatedTerm
 				&& ((AnnotatedTerm) proof).getAnnotations()[0].getKey() == ANNOT_DEFINE_FUN;
 	}
