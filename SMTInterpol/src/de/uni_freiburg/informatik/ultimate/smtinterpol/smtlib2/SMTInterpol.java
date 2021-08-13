@@ -650,6 +650,7 @@ public class SMTInterpol extends NoopScript {
 			mEngine.setProduceAssignments(produceAssignments);
 			mEngine.setRandomSeed(mSolverOptions.getRandomSeed());
 			if (getBooleanOption(SMTLIBConstants.PRODUCE_ASSERTIONS)
+					|| (mSolverOptions.isProduceProofs() && mSolverOptions.getProofMode() == ProofMode.LOWLEVEL)
 					|| mSolverOptions.isProduceInterpolants() || mSolverOptions.isProofCheckModeActive()
 					|| mSolverOptions.isModelCheckModeActive()
 					|| getBooleanOption(SMTInterpolOptions.UNSAT_CORE_CHECK_MODE)
