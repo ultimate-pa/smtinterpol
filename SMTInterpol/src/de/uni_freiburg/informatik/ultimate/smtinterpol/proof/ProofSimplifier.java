@@ -1585,6 +1585,88 @@ public class ProofSimplifier extends TermTransformer {
 		return mProofRules.resolutionRule(rhs, mProofRules.trueIntro(), proof);
 	}
 
+	private Term convertRewriteCanonicalSum(final Term lhs, final Term rhs) {
+		final Theory theory = lhs.getTheory();
+		if (lhs instanceof ConstantTerm) {
+			final Term expected = Polynomial.parseConstant(lhs).toTerm(lhs.getSort());
+			return mProofRules.oracle(
+					new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, lhs, expected), true) },
+					new Annotation[] { ProofConstants.RW_CANONICAL_SUM });
+		}
+
+		final ApplicationTerm lhsApp = (ApplicationTerm) lhs;
+		final Term[] lhsArgs = lhsApp.getParameters();
+		switch (lhsApp.getFunction().getName()) {
+		case "+":
+			return mProofRules.polyAdd(lhs, rhs);
+		case "*":
+			return mProofRules.polyMul(lhs, rhs);
+		case "to_real": {
+			final Term expected = ProofRules.computePolyToReal(lhsArgs[0]);
+			if (rhs == expected) {
+				return mProofRules.toRealDef(lhs);
+			} else {
+				// difference can only be order of +
+				return res(theory.term(SMTLIBConstants.EQUALS, lhs, expected),
+						mProofRules.toRealDef(lhs),
+						res(theory.term(SMTLIBConstants.EQUALS, expected, rhs),
+								 mProofRules.polyAdd(expected, rhs),
+								 mProofRules.trans(lhs, expected, rhs)));
+			}
+		}
+		case "-": {
+			final Term minusToPlus = ProofRules.computePolyMinus(lhs);
+			if (minusToPlus == rhs) {
+				return mProofRules.minusDef(lhs);
+			}
+			if (lhsArgs.length == 1) {
+				final Term proof = res(theory.term(SMTLIBConstants.EQUALS, lhs, minusToPlus),
+						mProofRules.minusDef(lhs), mProofRules.trans(lhs, minusToPlus, rhs));
+				return res(theory.term(SMTLIBConstants.EQUALS, minusToPlus, rhs),
+						mProofRules.polyMul(minusToPlus, rhs), proof);
+			} else {
+				final Term[] expectedArgs = new Term[lhsArgs.length];
+				expectedArgs[0] = lhsArgs[0];
+				for (int i = 1; i < lhsArgs.length; i++) {
+					final SMTAffineTerm affineTerm = new SMTAffineTerm();
+					affineTerm.add(Rational.MONE, lhsArgs[i]);
+					expectedArgs[i] = affineTerm.toTerm(lhsArgs[i].getSort());
+				}
+				final Term expectedPlus = theory.term(SMTLIBConstants.PLUS, expectedArgs);
+				Term proof;
+				if (expectedPlus != rhs) {
+					proof = res(theory.term(SMTLIBConstants.EQUALS, expectedPlus, rhs),
+							mProofRules.polyAdd(expectedPlus, rhs),
+							mProofRules.trans(lhs, minusToPlus, expectedPlus, rhs));
+				} else {
+					proof = mProofRules.trans(lhs, minusToPlus, expectedPlus);
+				}
+				proof = res(theory.term(SMTLIBConstants.EQUALS, lhs, minusToPlus), mProofRules.minusDef(lhs), proof);
+				proof = res(theory.term(SMTLIBConstants.EQUALS, minusToPlus, expectedPlus),
+						mProofRules.cong(minusToPlus, expectedPlus), proof);
+				final HashSet<Term> seenEqs = new HashSet<>();
+				final Term[] minusToPlusArgs = ((ApplicationTerm) minusToPlus).getParameters();
+ 				for (int i = 0; i < minusToPlusArgs.length; i++) {
+					final Term eq = theory.term(SMTLIBConstants.EQUALS, minusToPlusArgs[i], expectedArgs[i]);
+					if (seenEqs.add(eq)) {
+						final Term proofEq = minusToPlusArgs[i] == expectedArgs[i]
+								? mProofRules.refl(minusToPlusArgs[i])
+										: mProofRules.polyMul(minusToPlusArgs[i], expectedArgs[i]);
+						proof = res(eq, proofEq, proof);
+					}
+ 				}
+				return proof;
+			}
+		}
+		case "/":
+			return mProofRules.oracle(
+					new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, lhs, rhs), true) },
+					new Annotation[] { ProofConstants.RW_CANONICAL_SUM });
+		default:
+			throw new AssertionError();
+		}
+	}
+
 	private Term convertRewriteToInt(final Term lhs, final Term rhs) {
 		// (to_int constant) --> floor(constant)
 		assert isApplication("to_int", lhs);
@@ -2101,6 +2183,9 @@ public class ProofSimplifier extends TermTransformer {
 		case ":strip":
 			subProof = mProofRules.delAnnot(stmtParams[0]);
 			break;
+		case ":canonicalSum":
+			subProof = convertRewriteCanonicalSum(stmtParams[0], stmtParams[1]);
+			break;
 		case ":toInt":
 			subProof = convertRewriteToInt(stmtParams[0], stmtParams[1]);
 			break;
@@ -2113,7 +2198,6 @@ public class ProofSimplifier extends TermTransformer {
 		case ":storeRewrite":
 			subProof = convertRewriteStore(rewriteStmt, stmtParams[0], stmtParams[1]);
 			break;
-		case ":canonicalSum":
 		case ":divisible":
 		case ":div1":
 		case ":div-1":

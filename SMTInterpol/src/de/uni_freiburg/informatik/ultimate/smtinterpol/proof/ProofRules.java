@@ -7,6 +7,7 @@ import java.util.HashSet;
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.LambdaTerm;
 import de.uni_freiburg.informatik.ultimate.logic.PrintTerm;
@@ -17,7 +18,6 @@ import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 
 public class ProofRules {
 	public final static String RES = "res";
@@ -59,7 +59,7 @@ public class ProofRules {
 	public final static String EXPAND = "expand";
 	public final static String DELANNOT = "del!";
 
-	// rules for linear arithmetic
+	// rules for (non-)linear arithmetic
 	public final static String DIVISIBLE = "divisible-def";
 	public final static String GTDEF = ">def";
 	public final static String GEQDEF = ">=def";
@@ -70,6 +70,11 @@ public class ProofRules {
 	public final static String FARKAS = "farkas";
 	public final static String TOINTHIGH = "to_int-high";
 	public final static String TOINTLOW = "to_int-low";
+	public final static String MINUSDEF = "-def";
+	public final static String DIVIDEDEF = "/def";
+	public final static String POLYADD = "poly+";
+	public final static String POLYMUL = "poly*";
+	public final static String TOREALDEF = "to_real-def";
 
 	// rules for div/mod arithmetic
 	public final static String DIVLOW = "div-low";
@@ -437,7 +442,72 @@ public class ProofRules {
 	}
 
 	/**
+	 * Axiom stating `(= (+ a1... an) = result)` where result is equal to the
+	 * polynom addition of polynomials a1 ... an in standard form.
+	 *
+	 * @param plusTerm the plus term.
+	 * @param result   the result term.
+	 * @return the axiom.
+	 */
+	public Term polyAdd(final Term plusTerm, final Term result) {
+		assert checkPolyAdd(plusTerm, result);
+		return mTheory.annotatedTerm(annotate(":" + POLYADD, new Term[] { plusTerm, result }), mAxiom);
+	}
+
+	/**
+	 * Axiom stating `(= (+ a1... an) = result)` where result is equal to the
+	 * polynom addition of polynomials a1 ... an in standard form.
+	 *
+	 * @param mulTerm the plus term.
+	 * @param result  the result term.
+	 * @return the axiom.
+	 */
+	public Term polyMul(final Term mulTerm, final Term result) {
+		assert checkPolyMul(mulTerm, result);
+		return mTheory.annotatedTerm(annotate(":" + POLYMUL, new Term[] { mulTerm, result }), mAxiom);
+	}
+
+	/**
+	 * Axiom stating `(= (to_real a) = result)` where result is equal to the left
+	 * hand side in standard form.
+	 *
+	 * @param toRealTerm the to_real term.
+	 * @param result     the result term.
+	 * @return the axiom.
+	 */
+	public Term toRealDef(final Term toRealTerm) {
+		assert isApplication(SMTLIBConstants.TO_REAL, toRealTerm);
+		return mTheory.annotatedTerm(annotate(":" + TOREALDEF, ((ApplicationTerm) toRealTerm).getParameters()),
+				mAxiom);
+	}
+
+	/**
+	 * Axiom stating `(= (* b1 ... bn (/ a b1 ...bn)) a)` or `(= b1 0)` ... or `(=
+	 * bn 0)`.
+	 *
+	 * @param divideTerm the term `(/a b1 ... bn)`.
+	 * @return the axiom.
+	 */
+	public Term divideDef(final Term divTerm) {
+		assert isApplication(SMTLIBConstants.DIVIDE, divTerm);
+		return mTheory.annotatedTerm(annotate(":" + DIVIDEDEF, ((ApplicationTerm) divTerm).getParameters()), mAxiom);
+	}
+
+	/**
+	 * Axiom stating `(= (- a) (* (- 1) a)` resp. `(= (- a b1 .. bn) (+ a (* (- 1)
+	 * b1) .. (* (- 1) bn))`.
+	 *
+	 * @param minusTerm the minus term.
+	 * @return the axiom.
+	 */
+	public Term minusDef(final Term minusTerm) {
+		assert isApplication(SMTLIBConstants.MINUS, minusTerm);
+		return mTheory.annotatedTerm(annotate(":" + MINUSDEF, ((ApplicationTerm) minusTerm).getParameters()), mAxiom);
+	}
+
+	/**
 	 * Axiom stating `(<= (to_real (to_int arg)) arg)`.
+	 *
 	 * @param arg a term of type Real.
 	 * @return the axiom.
 	 */
@@ -528,30 +598,135 @@ public class ProofRules {
 		new PrintProof().append(appender, proof);
 	}
 
+	private static boolean isApplication(final String funcName, final Term term) {
+		if (term instanceof ApplicationTerm) {
+			final FunctionSymbol func = ((ApplicationTerm) term).getFunction();
+			return func.isIntern() && func.getName().equals(funcName);
+		}
+		return false;
+	}
+
+	/**
+	 * Check the parameters of a poly+ axiom. It checks that the plusTerm is an
+	 * application of `+` and that the sum of its arguments minus the results (using
+	 * polynomial addition) sums to zero.
+	 *
+	 * @param plusTerm the plus term (first argument of the poly+ axiom).
+	 * @param result   the result term (second argument of the poly+ axiom).
+	 * @return true iff the parameters are wellformed.
+	 */
+	public static boolean checkPolyAdd(final Term plusTerm, final Term result) {
+		if (!isApplication(SMTLIBConstants.PLUS, plusTerm)) {
+			return false;
+		}
+		final Polynomial poly = new Polynomial();
+		for (final Term t : ((ApplicationTerm) plusTerm).getParameters()) {
+			poly.add(Rational.ONE, t);
+		}
+		poly.add(Rational.MONE, result);
+		assert poly.isZero();
+		return poly.isZero();
+	}
+
+	/**
+	 * Check the parameters of a poly* axiom. It checks that the mulTerm is an
+	 * application of `*` and that the product of its arguments minus the results
+	 * (using polynomial multiplication and subtraction) gives zero.
+	 *
+	 * @param mulTerm the mul term (first argument of the poly* axiom).
+	 * @param result  the result term (second argument of the poly* axiom).
+	 * @return true iff the parameters are wellformed.
+	 */
+	public static boolean checkPolyMul(final Term mulTerm, final Term result) {
+		if (!isApplication(SMTLIBConstants.MUL, mulTerm)) {
+			return false;
+		}
+		final Polynomial poly = new Polynomial();
+		poly.add(Rational.ONE);
+		for (final Term t : ((ApplicationTerm) mulTerm).getParameters()) {
+			poly.mul(new Polynomial(t));
+		}
+		poly.add(Rational.MONE, result);
+		assert poly.isZero();
+		return poly.isZero();
+	}
+
+	private static Term computeFactorToReal(final Term factor) {
+		if (factor instanceof ConstantTerm && ((ConstantTerm) factor).getValue() instanceof Rational) {
+			return ((Rational) ((ConstantTerm) factor).getValue()).toTerm(factor.getTheory().getSort("Real"));
+		} else {
+			return factor.getTheory().term(SMTLIBConstants.TO_REAL, factor);
+		}
+	}
+
+	private static Term computeMonomialToReal(final Term monomial) {
+		if (isApplication(SMTLIBConstants.MUL, monomial)) {
+			final Term[] oldParams = ((ApplicationTerm) monomial).getParameters();
+			final Term[] newParams = new Term[oldParams.length];
+			for (int i = 0; i < oldParams.length; i++) {
+				newParams[i] = computeFactorToReal(oldParams[i]);
+			}
+			return monomial.getTheory().term(SMTLIBConstants.MUL, newParams);
+		} else {
+			return computeFactorToReal(monomial);
+		}
+	}
+
+	public static Term computePolyToReal(final Term poly) {
+		if (isApplication(SMTLIBConstants.PLUS, poly)) {
+			final Term[] oldParams = ((ApplicationTerm) poly).getParameters();
+			final Term[] newParams = new Term[oldParams.length];
+			for (int i = 0; i < oldParams.length; i++) {
+				newParams[i] = computeMonomialToReal(oldParams[i]);
+			}
+			return poly.getTheory().term(SMTLIBConstants.PLUS, newParams);
+		} else {
+			return computeMonomialToReal(poly);
+		}
+	}
+
+	public static Term computePolyMinus(final Term minusTerm) {
+		assert isApplication(SMTLIBConstants.MINUS, minusTerm);
+		final Theory theory = minusTerm.getTheory();
+		final Term[] params = ((ApplicationTerm) minusTerm).getParameters();
+		final Term minusOne = Rational.MONE.toTerm(minusTerm.getSort());
+		if (params.length == 1) {
+			return theory.term(SMTLIBConstants.MUL, minusOne, params[0]);
+		} else {
+			final Term[] rhsParams = new Term[params.length];
+			rhsParams[0] = params[0];
+			for (int i = 1; i < params.length; i++) {
+				rhsParams[i] = theory.term(SMTLIBConstants.MUL, minusOne, params[i]);
+			}
+			return theory.term(SMTLIBConstants.PLUS, rhsParams);
+		}
+	}
+
 	public static boolean checkFarkas(final Term[] inequalities, final BigInteger[] coefficients) {
 		if (inequalities.length != coefficients.length) {
 			return false;
 		}
-		final SMTAffineTerm sum = new SMTAffineTerm();
+		final Polynomial sum = new Polynomial();
 		boolean strict = false;
 		for (int i = 0; i < inequalities.length; i++) {
 			if (coefficients[i].signum() != 1) {
 				return false;
 			}
+			if (!isApplication(SMTLIBConstants.LT, inequalities[i])
+					&& !isApplication(SMTLIBConstants.LEQ, inequalities[i])) {
+				return false;
+			}
 			final ApplicationTerm appTerm = (ApplicationTerm) inequalities[i];
 			final Term[] params = appTerm.getParameters();
-			if (params.length != 2
-					|| (appTerm.getFunction().getName() != SMTLIBConstants.LT
-					&& appTerm.getFunction().getName() != SMTLIBConstants.LEQ)) {
+			if (params.length != 2) {
 				return false;
 			}
 			if (appTerm.getFunction().getName() == SMTLIBConstants.LT) {
 				strict = true;
 			}
-			final SMTAffineTerm ineqAffine = new SMTAffineTerm(params[0]);
-			ineqAffine.add(Rational.MONE, params[1]);
-			ineqAffine.mul(Rational.valueOf(coefficients[i], BigInteger.ONE));
-			sum.add(ineqAffine);
+			final Rational coeff = Rational.valueOf(coefficients[i], BigInteger.ONE);
+			sum.add(coeff, params[0]);
+			sum.add(coeff.negate(), params[1]);
 		}
 		final boolean okay = sum.isConstant() && sum.getConstant().signum() >= (strict ? 0 : 1);
 		assert okay;
@@ -668,6 +843,11 @@ public class ProofRules {
 					case ":" + TRICHOTOMY:
 					case ":" + EQLEQ:
 					case ":" + TOTAL:
+					case ":" + POLYADD:
+					case ":" + POLYMUL:
+					case ":" + DIVIDEDEF:
+					case ":" + MINUSDEF:
+					case ":" + TOREALDEF:
 					case ":" + TOINTLOW:
 					case ":" + TOINTHIGH:
 					case ":" + DIVLOW:

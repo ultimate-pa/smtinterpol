@@ -259,17 +259,27 @@ Linear Arithmetic:
   where 0 may appear,
   NOTE: For linear arithmetic m must be one or zero.
 
-(poly+ a1 .. an):  (= (poly a1+..+an) (+ (poly a1) ... (poly an)))
-(poly- a1 .. an):  (= (poly a1-..-an) (- (poly a1) ... (poly an)))
-(poly- a1):        (= (poly -a1) (- (poly a1)))
-(poly* a1 .. an):  (= (poly a1*..*an) (* (poly a1) ... (poly an)))
-  # NOTE: for linear arithmetic all but one ai must be constant
-(poly/ a1 c2 ... cn):  (= (poly 1/(c2*...*cn) * a1) (/ (poly a1) c2 .. cn))
-  # where c2...cn are constants
+(poly+ a1 .. an a):  (= (+ a1 ... an) a)
+  where (poly a) = (poly a1) + ... + (poly an))
+(poly* a1 .. an a):  (= (* a1 ... an) a)
+  where (poly a) = (poly a1) * ... * (poly an))
 
-PolyToReal:  (= (poly (to_real p)) (to_real (polyI p)))
-  where (poly (to_real p)) replaces each tij in p with (to_real tij),
-  and each integer constant by the corresponding real constant.
+  # NOTE: since constants are polynomials, the rule for * and + can
+  # be used to add or multiply constants.
+
+(to_real a):  (= (to_real a) a')
+  where a is (+ ... (* ci ...tij...))
+  and a' is (+ ... (* ci' ...(to_real tij)...))
+  where ci' is the real representation of the integer ci, i.e.,  NUM.0
+  for NUM and (- NUM.0) for (- NUM) and every other term t is replaced
+  by (to_real t)
+
+The functions / and - are defined by:
+
+(/def a b1 ... bn):  (= a (* b1 ... bn (/ a b1 ... bn))), (= b1 0), ..., (= bn 0)
+(-def a):    (= (- a) (* (- 1) a))
+(-def a b1 ... bn): (= (- a b1 ... bn) (+ a (* (- 1) b1)) ... (* (- 1) bn))
+
 
 (abs+ x):           (< x 0), (= (abs x) x)
 (abs- x):           (< 0 x), (= (abs x) (- x))
@@ -289,11 +299,12 @@ PolyToReal:  (= (poly (to_real p)) (to_real (polyI p)))
 (total a b): (<= a b), (< b a)
 (total-int a c): (<= a c), (<= (c+1) a)   # where a has sort int, c is an integer constant `NUMERAL` or `(- NUMERAL)`.
 (farkas c1 (<=? a1 b1) ... cn (<=? an bn)): ~(<=? a1 b1), ..., ~(<=? an bn)
-  where c1, ...,cn are positive integers,
+  where c1, ...,cn are positive integers, <=? stands for < or <=,
   (poly c1*(a1-b1) + ... + cn*(an-bn)) is a (rational or int) constant c.
   and c > 0 or c = 0 and at least one inequality is strict.
   If some inequalities are Int and some are Real, all inequalites are
-  implicitly converted to Real by computing (poly (to_real pi/qi)).
+  implicitly converted to Real by converting all coefficients in ai/bi to
+  real and replacing all terms t in ai/bi with (to_real t).
 
 
 NON-LINEAR Arithmetic:

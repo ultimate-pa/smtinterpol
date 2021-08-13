@@ -539,3 +539,20 @@ show (= (div 14 (- 3)) (- 4))
   (let ((x1 (skolem _ ... F)) ...
         (xn (skolem _ ... F)))
        proof_of_F_x1_xn))
+
+
+Show (/ t cseq) = rhs
+where rhs = poly (* (1/c) t) with c = cseq1*...*cseqn
+for c < 0:
+
+(res (= (* cseq (/ t cseq)) t)
+  (/def t cseq)
+  (res (< (/ t cseq) rhs)
+    (res (< rhs (/ t cseq))
+      (trichotomy (/ t cseq) rhs)
+      (res (= t (* cseq (/ t cseq))) (symm t (* cseq (/ t cseq)))
+        (res (<= t (* cseq (/ t cseq))) (eqLeq t (* c (/ t cseq)))
+          (farkas 1 (<= t (* cseq (/ t cseq))) |c| (< rhs (/ t cseq)))))
+    (res (<= (* cseq (/ t cseq)) t) (eqLeq (* cseq (/ t cseq)) t)
+      (farkas 1 (<= (* cseq (/ t cseq)) t) |c| (< (/ t cseq) rhs)))
+ 

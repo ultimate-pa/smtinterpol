@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.BitSet;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Stack;
 
@@ -52,23 +53,28 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 public class MinimalProofChecker extends NonRecursive {
 
 	/*
-	 * The proof checker uses a non-recursive iteration through the proof tree. The main type in a proof tree is the
-	 * sort {@literal @}Proof. Each term of this sort proves a formula and the main task of this code is to compute the
-	 * proven formula. The whole proof term should prove the formula false.
+	 * The proof checker uses a non-recursive iteration through the proof tree. The
+	 * main type in a proof tree is the sort {@literal @}Proof. Each term of this
+	 * sort proves a formula and the main task of this code is to compute the proven
+	 * formula. The whole proof term should prove the formula false.
 	 *
-	 * The main idea of this non-recursive algorithm is to push a proof walker for the {@literal @}Proof terms on the
-	 * todo stack, which will push the proved term of type Bool onto the result stack mStackResults. To handle functions
-	 * like {@literal @}eq, {@literal @}cong, {@literal @}trans that take a {@literal @}Proof term as input, first a
-	 * XYWalker the function XY is pushed on the todo stack and then the ProofWalker for the {@literal @}Proof terms are
-	 * pushed. The Walker will then call the corresponding walkXY function which checks the proved arguments, computes
-	 * the final proved formula and pushes that on the result stack.
+	 * The main idea of this non-recursive algorithm is to push a proof walker for
+	 * the {@literal @}Proof terms on the todo stack, which will push the proved
+	 * term of type Bool onto the result stack mStackResults. To handle functions
+	 * like {@literal @}eq, {@literal @}cong, {@literal @}trans that take a
+	 * {@literal @}Proof term as input, first a XYWalker the function XY is pushed
+	 * on the todo stack and then the ProofWalker for the {@literal @}Proof terms
+	 * are pushed. The Walker will then call the corresponding walkXY function which
+	 * checks the proved arguments, computes the final proved formula and pushes
+	 * that on the result stack.
 	 *
-	 * Simple functions that don't take {@literal @}Proof arguments are handled directly by calling the walkXY function.
+	 * Simple functions that don't take {@literal @}Proof arguments are handled
+	 * directly by calling the walkXY function.
 	 */
 
 	/**
-	 * The set of all asserted terms (collected from the script by calling getAssertions()). This is used to check the
-	 * {@literal @}asserted rules.
+	 * The set of all asserted terms (collected from the script by calling
+	 * getAssertions()). This is used to check the {@literal @}asserted rules.
 	 */
 	HashSet<Term> mAssertions;
 
@@ -107,10 +113,8 @@ public class MinimalProofChecker extends NonRecursive {
 	/**
 	 * Create a proof checker.
 	 *
-	 * @param script
-	 *            An SMT2 script.
-	 * @param logger
-	 *            The logger where errors are reported.
+	 * @param script An SMT2 script.
+	 * @param logger The logger where errors are reported.
 	 */
 	public MinimalProofChecker(final Script script, final LogProxy logger) {
 		mSkript = script;
@@ -128,8 +132,7 @@ public class MinimalProofChecker extends NonRecursive {
 	/**
 	 * Check a proof for consistency. This reports errors on the logger.
 	 *
-	 * @param proof
-	 *            the proof to check.
+	 * @param proof the proof to check.
 	 * @return true, if no errors were found.
 	 */
 	public boolean check(final Term proof) {
@@ -186,11 +189,11 @@ public class MinimalProofChecker extends NonRecursive {
 	}
 
 	/**
-	 * The proof walker. This takes a proof term and pushes the proven formula on the result stack. It also checks the
-	 * proof cache to prevent running over the same term twice.
+	 * The proof walker. This takes a proof term and pushes the proven formula on
+	 * the result stack. It also checks the proof cache to prevent running over the
+	 * same term twice.
 	 *
-	 * @param proofTerm
-	 *            The proof term. Its sort must be {@literal @}Proof.
+	 * @param proofTerm The proof term. Its sort must be {@literal @}Proof.
 	 */
 	void walk(Term proofTerm) {
 		while (proofTerm instanceof AnnotatedTerm && !mProofRules.isAxiom(proofTerm)
@@ -215,10 +218,11 @@ public class MinimalProofChecker extends NonRecursive {
 	}
 
 	/**
-	 * Handle the resolution rule. The stack should contain the converted input clauses.
+	 * Handle the resolution rule. The stack should contain the converted input
+	 * clauses.
 	 *
-	 * @param resApp
-	 *            The <code>{@literal @}res</code> application from the original proof.
+	 * @param resApp The <code>{@literal @}res</code> application from the original
+	 *               proof.
 	 */
 	ProofLiteral[] walkResolution(final ApplicationTerm resApp, final ProofLiteral[] posClause,
 			final ProofLiteral[] negClause) {
@@ -743,6 +747,58 @@ public class MinimalProofChecker extends NonRecursive {
 			}
 			return clause.toArray(new ProofLiteral[clause.size()]);
 		}
+		case ":" + ProofRules.POLYADD: {
+			final Term[] params = (Term[]) annots[0].getValue();
+			assert annots.length == 1;
+			assert params.length == 2;
+			if (!ProofRules.checkPolyAdd(params[0], params[1])) {
+				throw new AssertionError();
+			}
+			return new ProofLiteral[] {
+					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, params[0], params[1]), true) };
+		}
+		case ":" + ProofRules.POLYMUL: {
+			final Term[] params = (Term[]) annots[0].getValue();
+			assert annots.length == 1;
+			assert params.length == 2;
+			if (!ProofRules.checkPolyMul(params[0], params[1])) {
+				throw new AssertionError();
+			}
+			return new ProofLiteral[] {
+					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, params[0], params[1]), true) };
+		}
+		case ":" + ProofRules.TOREALDEF: {
+			final Term[] params = (Term[]) annots[0].getValue();
+			assert annots.length == 1;
+			assert params.length == 1;
+			final Term lhs = theory.term(SMTLIBConstants.TO_REAL, params[0]);
+			final Term rhs = ProofRules.computePolyToReal(params[0]);
+			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, lhs, rhs), true) };
+		}
+		case ":" + ProofRules.DIVIDEDEF: {
+			final Term[] params = (Term[]) annots[0].getValue();
+			assert annots.length == 1;
+			final Term divide = theory.term(SMTLIBConstants.DIVIDE, params);
+			final Term[] mulParams = new Term[params.length];
+			System.arraycopy(params, 1, mulParams, 0, params.length - 1);
+			mulParams[params.length - 1] = divide;
+			final Term lhs = theory.term(SMTLIBConstants.MUL, mulParams);
+			final LinkedHashSet<ProofLiteral> clause = new LinkedHashSet<>();
+			clause.add(new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, lhs, params[0]), true));
+			for (int i = 1; i < params.length; i++) {
+				clause.add(new ProofLiteral(
+						theory.term(SMTLIBConstants.EQUALS, params[i], Rational.ZERO.toTerm(params[i].getSort())),
+						true));
+			}
+			return clause.toArray(new ProofLiteral[clause.size()]);
+		}
+		case ":" + ProofRules.MINUSDEF: {
+			final Term[] params = (Term[]) annots[0].getValue();
+			assert annots.length == 1;
+			final Term lhs = theory.term(SMTLIBConstants.MINUS, params);
+			final Term rhs = ProofRules.computePolyMinus(lhs);
+			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, lhs, rhs), true) };
+		}
 		case ":" + ProofRules.TOINTLOW: {
 			final Term[] params = (Term[]) annots[0].getValue();
 			assert annots.length == 1;
@@ -757,7 +813,8 @@ public class MinimalProofChecker extends NonRecursive {
 			assert params.length == 1;
 			final Term arg = params[0];
 			final Term toRealToInt = theory.term(SMTLIBConstants.TO_REAL, theory.term(SMTLIBConstants.TO_INT, arg));
-			final Term toRealPlusOne = theory.term(SMTLIBConstants.PLUS, toRealToInt, Rational.ONE.toTerm(arg.getSort()));
+			final Term toRealPlusOne = theory.term(SMTLIBConstants.PLUS, toRealToInt,
+					Rational.ONE.toTerm(arg.getSort()));
 			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.LT, arg, toRealPlusOne), true) };
 		}
 		case ":" + ProofRules.DIVLOW: {
@@ -770,7 +827,7 @@ public class MinimalProofChecker extends NonRecursive {
 			final Term mulDivTerm = theory.term(SMTLIBConstants.MUL, divisor, divTerm);
 			final Term zero = Rational.ZERO.toTerm(divisor.getSort());
 			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.LEQ, mulDivTerm, arg), true),
-					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, divisor, zero), true)};
+					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, divisor, zero), true) };
 		}
 		case ":" + ProofRules.DIVHIGH: {
 			final Term[] params = (Term[]) annots[0].getValue();
@@ -784,7 +841,7 @@ public class MinimalProofChecker extends NonRecursive {
 					theory.term(SMTLIBConstants.ABS, divisor));
 			final Term zero = Rational.ZERO.toTerm(divisor.getSort());
 			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.LT, arg, mulDivTermPlus), true),
-					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, divisor, zero), true)};
+					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, divisor, zero), true) };
 		}
 		case ":" + ProofRules.MODDEF: {
 			final Term[] params = (Term[]) annots[0].getValue();
@@ -798,7 +855,7 @@ public class MinimalProofChecker extends NonRecursive {
 			final Term modDef = theory.term(SMTLIBConstants.PLUS, mulDivTerm, modTerm);
 			final Term zero = Rational.ZERO.toTerm(divisor.getSort());
 			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, modDef, arg), true),
-					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, divisor, zero), true)};
+					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, divisor, zero), true) };
 		}
 		case ":" + ProofRules.SELECTSTORE1: {
 			assert annots.length == 1;
@@ -844,8 +901,7 @@ public class MinimalProofChecker extends NonRecursive {
 			final Sort arraySort = theory.getSort(SMTLIBConstants.ARRAY, index.getSort(), value.getSort());
 			final Term constArray = theory.term("const", null, arraySort, value);
 			final Term select = theory.term(SMTLIBConstants.SELECT, constArray, index);
-			return new ProofLiteral[] {
-					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, select, value), true) };
+			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, select, value), true) };
 		}
 		default:
 			throw new AssertionError("Unknown axiom " + axiom);
