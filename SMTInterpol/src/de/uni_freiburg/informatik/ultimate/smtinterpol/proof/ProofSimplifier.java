@@ -2346,14 +2346,69 @@ public class ProofSimplifier extends TermTransformer {
 	}
 
 	/**
-	 * Check an array lemma for correctness. If a problem is found, an error is reported.
+	 * Convert an array lemma of type :read-const-weakeq to a simplified proof.
 	 *
 	 * @param type
 	 *            the lemma type
 	 * @param clause
 	 *            the clause to check
 	 * @param ccAnnotation
-	 *            the argument of the :CC annotation.
+	 *            the argument of the lemma annotation.
+	 */
+	private Term convertArraySelectConstWeakEqLemma(final Term[] clause, final Object[] ccAnnotation) {
+		assert ccAnnotation.length >= 3;
+		final Theory theory = clause[0].getTheory();
+		/*
+		 * weakPaths maps from a symmetric pair to the set of weak indices such that a weak path was proven for this
+		 * pair. strongPaths contains the sets of all proven strong paths.
+		 */
+		final HashMap<SymmetricPair<Term>, Term> allEqualities = new HashMap<>();
+		/* indexDiseqs contains all index equalities in the clause */
+		final HashMap<SymmetricPair<Term>, Term> allDisequalities = new HashMap<>();
+		collectEqualities(clause, allEqualities, allDisequalities);
+
+		final HashSet<Term> neededEqualities = new HashSet<>();
+		final HashSet<Term> neededDisequalities = new HashSet<>();
+
+		final Term goalEquality = unquote((Term) ccAnnotation[0]);
+		assert isApplication("=", goalEquality);
+		final Term[] goalTerms = ((ApplicationTerm) goalEquality).getParameters();
+		assert goalTerms.length == 2;
+
+		/*
+		 * Check the paths in reverse order. Collect proven paths in a hash set, so that they can be used later.
+		 */
+		assert ccAnnotation.length == 3;
+		assert ccAnnotation[1] == ":weakpath";
+		final Object[] weakItems = (Object[]) ccAnnotation[2];
+		assert weakItems.length == 2;
+		final Term mainIdx = (Term) weakItems[0];
+		final Term[] mainPath = (Term[]) weakItems[1];
+
+		Term proof = proveSelectOverPath(mainIdx, mainPath, allEqualities.keySet(), allDisequalities.keySet(),
+				neededEqualities, neededDisequalities);
+		final Term firstTerm = theory.term("select", mainPath[0], mainIdx);
+		final Term lastTerm = theory.term("select", mainPath[mainPath.length - 1], mainIdx);
+		assert isApplication("const", mainPath[mainPath.length - 1]);
+		final Term constParam = ((ApplicationTerm) mainPath[mainPath.length - 1]).getParameters()[0];
+		final int goalOrder = goalTerms[1] == constParam ? 0 : 1;
+		assert goalTerms[goalOrder] == mSkript.term("select", mainPath[0], mainIdx);
+		assert goalTerms[1 - goalOrder] == constParam;
+		proof = res(theory.term("=", firstTerm, lastTerm), proof, mProofRules.trans(firstTerm, lastTerm, constParam));
+		proof = res(theory.term("=", lastTerm, constParam), mProofRules.constArray(constParam, mainIdx), proof);
+		neededDisequalities.add(theory.term("=", firstTerm, constParam));
+		return resolveNeededEqualities(proof, allEqualities, allDisequalities, neededEqualities, neededDisequalities);
+	}
+
+	/**
+	 * Convert an array lemma of type :read-over-weakeq to a simplified proof.
+	 *
+	 * @param type
+	 *            the lemma type
+	 * @param clause
+	 *            the clause to check
+	 * @param ccAnnotation
+	 *            the argument of the lemma annotation.
 	 */
 	private Term convertArraySelectWeakEqLemma(final Term[] clause, final Object[] ccAnnotation) {
 		assert ccAnnotation.length >= 3;
@@ -2481,6 +2536,9 @@ public class ProofSimplifier extends TermTransformer {
 			break;
 		case ":read-over-weakeq":
 			subProof = convertArraySelectWeakEqLemma(clause, (Object[]) lemmaAnnotation);
+			break;
+		case ":read-const-weakeq":
+			subProof = convertArraySelectConstWeakEqLemma(clause, (Object[]) lemmaAnnotation);
 			break;
 		case ":EQ":
 			subProof = convertEQLemma(clause);

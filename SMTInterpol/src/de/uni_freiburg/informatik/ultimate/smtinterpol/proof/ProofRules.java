@@ -68,11 +68,19 @@ public class ProofRules {
 	public final static String TOTAL = "total";
 	public final static String TOTALINT = "total-int";
 	public final static String FARKAS = "farkas";
+	public final static String TOINTHIGH = "to_int-high";
+	public final static String TOINTLOW = "to_int-low";
+
+	// rules for div/mod arithmetic
+	public final static String DIVLOW = "div-low";
+	public final static String DIVHIGH = "div-HIGH";
+	public final static String MODDEF = "mod-def";
 
 	// axioms for arrays
 	public final static String SELECTSTORE1 = "selectstore1";
 	public final static String SELECTSTORE2 = "selectstore2";
 	public final static String EXTDIFF = "extdiff";
+	public final static String CONST = "const";
 
 
 	/**
@@ -428,16 +436,85 @@ public class ProofRules {
 				mAxiom);
 	}
 
+	/**
+	 * Axiom stating `(<= (to_real (to_int arg)) arg)`.
+	 * @param arg a term of type Real.
+	 * @return the axiom.
+	 */
+	public Term toIntLow(final Term arg) {
+		assert arg.getSort().getSortSymbol().getName().equals("Real");
+		return mTheory.annotatedTerm(annotate(":" + TOINTLOW, new Term[] { arg }), mAxiom);
+	}
+
+	/**
+	 * Axiom stating `(< arg (+ (to_real (to_int arg)) 1.0)`.
+	 * @param arg a term of type Real.
+	 * @return the axiom.
+	 */
+	public Term toIntHigh(final Term arg) {
+		assert arg.getSort().getSortSymbol().getName().equals("Real");
+		return mTheory.annotatedTerm(annotate(":" + TOINTHIGH, new Term[] { arg }), mAxiom);
+	}
+
+	/**
+	 * Axiom stating `(<= (* divisor (div arg divisor)) arg)` or `(= divisor 0)`.
+	 * @param arg a term of type Int.
+	 * @param divisor a term of type Int.
+	 * @return the axiom.
+	 */
+	public Term divLow(final Term arg, final Term divisor) {
+		assert arg.getSort().getSortSymbol().getName().equals("Int");
+		assert divisor.getSort() == arg.getSort();
+		return mTheory.annotatedTerm(annotate(":" + DIVLOW, new Term[] { arg, divisor }), mAxiom);
+	}
+
+	/**
+	 * Axiom stating `(< arg (+ (* divisor (div arg divisor)) divisor))` or `(= divisor 0)`.
+	 * @param arg a term of type Int.
+	 * @param divisor a term of type Int.
+	 * @return the axiom.
+	 */
+	public Term divHigh(final Term arg, final Term divisor) {
+		assert arg.getSort().getSortSymbol().getName().equals("Int");
+		assert divisor.getSort() == arg.getSort();
+		return mTheory.annotatedTerm(annotate(":" + DIVHIGH, new Term[] { arg, divisor }), mAxiom);
+	}
+
+	/**
+	 * Axiom stating `(= (+ (* divisor (div arg divisor)) (mod arg divisor)) arg` or `(= divisor 0)`.
+	 * @param arg a term of type Int.
+	 * @param divisor a term of type Int.
+	 * @return the axiom.
+	 */
+	public Term modDef(final Term arg, final Term divisor) {
+		assert arg.getSort().getSortSymbol().getName().equals("Int");
+		assert divisor.getSort() == arg.getSort();
+		return mTheory.annotatedTerm(annotate(":" + MODDEF, new Term[] { arg, divisor }), mAxiom);
+	}
+
 	public Term selectStore1(final Term array, final Term index, final Term value) {
+		assert array.getSort().getSortSymbol().getName().equals(SMTLIBConstants.ARRAY);
+		assert array.getSort().getArguments()[0] == index.getSort();
+		assert array.getSort().getArguments()[1] == value.getSort();
 		return mTheory.annotatedTerm(annotate(":" + SELECTSTORE1, new Term[] { array, index, value }), mAxiom);
 	}
 
 	public Term selectStore2(final Term array, final Term index, final Term value, final Term index2) {
+		assert array.getSort().getSortSymbol().getName().equals(SMTLIBConstants.ARRAY);
+		assert array.getSort().getArguments()[0] == index.getSort();
+		assert array.getSort().getArguments()[1] == value.getSort();
+		assert array.getSort().getArguments()[0] == index2.getSort();
 		return mTheory.annotatedTerm(annotate(":" + SELECTSTORE2, new Term[] { array, index, value, index2 }), mAxiom);
 	}
 
 	public Term extDiff(final Term array1, final Term array2) {
+		assert array1.getSort() == array2.getSort();
+		assert array1.getSort().getSortSymbol().getName().equals(SMTLIBConstants.ARRAY);
 		return mTheory.annotatedTerm(annotate(":" + EXTDIFF, new Term[] { array1, array2 }), mAxiom);
+	}
+
+	public Term constArray(final Term constValue, final Term index) {
+		return mTheory.annotatedTerm(annotate(":" + CONST, new Term[] { constValue, index }), mAxiom);
 	}
 
 	public Term defineFun(final FunctionSymbol func, final Term definition, final Term subProof) {
@@ -591,9 +668,15 @@ public class ProofRules {
 					case ":" + TRICHOTOMY:
 					case ":" + EQLEQ:
 					case ":" + TOTAL:
+					case ":" + TOINTLOW:
+					case ":" + TOINTHIGH:
+					case ":" + DIVLOW:
+					case ":" + DIVHIGH:
+					case ":" + MODDEF:
 					case ":" + SELECTSTORE1:
 					case ":" + SELECTSTORE2:
-					case ":" + EXTDIFF: {
+					case ":" + EXTDIFF:
+					case ":" + CONST: {
 						final Term[] params = (Term[]) annots[0].getValue();
 						assert annots.length == 1;
 						mTodo.add(")");

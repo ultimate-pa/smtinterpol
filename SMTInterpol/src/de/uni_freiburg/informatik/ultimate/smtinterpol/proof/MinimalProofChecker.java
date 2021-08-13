@@ -37,6 +37,7 @@ import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
+import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
@@ -742,6 +743,62 @@ public class MinimalProofChecker extends NonRecursive {
 			}
 			return clause.toArray(new ProofLiteral[clause.size()]);
 		}
+		case ":" + ProofRules.TOINTLOW: {
+			final Term[] params = (Term[]) annots[0].getValue();
+			assert annots.length == 1;
+			assert params.length == 1;
+			final Term arg = params[0];
+			final Term toRealToInt = theory.term(SMTLIBConstants.TO_REAL, theory.term(SMTLIBConstants.TO_INT, arg));
+			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.LEQ, toRealToInt, arg), true) };
+		}
+		case ":" + ProofRules.TOINTHIGH: {
+			final Term[] params = (Term[]) annots[0].getValue();
+			assert annots.length == 1;
+			assert params.length == 1;
+			final Term arg = params[0];
+			final Term toRealToInt = theory.term(SMTLIBConstants.TO_REAL, theory.term(SMTLIBConstants.TO_INT, arg));
+			final Term toRealPlusOne = theory.term(SMTLIBConstants.PLUS, toRealToInt, Rational.ONE.toTerm(arg.getSort()));
+			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.LT, arg, toRealPlusOne), true) };
+		}
+		case ":" + ProofRules.DIVLOW: {
+			final Term[] params = (Term[]) annots[0].getValue();
+			assert annots.length == 1;
+			assert params.length == 1;
+			final Term arg = params[0];
+			final Term divisor = params[1];
+			final Term divTerm = theory.term(SMTLIBConstants.DIV, arg, divisor);
+			final Term mulDivTerm = theory.term(SMTLIBConstants.MUL, divisor, divTerm);
+			final Term zero = Rational.ZERO.toTerm(divisor.getSort());
+			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.LEQ, mulDivTerm, arg), true),
+					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, divisor, zero), true)};
+		}
+		case ":" + ProofRules.DIVHIGH: {
+			final Term[] params = (Term[]) annots[0].getValue();
+			assert annots.length == 1;
+			assert params.length == 1;
+			final Term arg = params[0];
+			final Term divisor = params[1];
+			final Term divTerm = theory.term(SMTLIBConstants.DIV, arg, divisor);
+			final Term mulDivTerm = theory.term(SMTLIBConstants.MUL, divisor, divTerm);
+			final Term mulDivTermPlus = theory.term(SMTLIBConstants.PLUS, mulDivTerm, divisor);
+			final Term zero = Rational.ZERO.toTerm(divisor.getSort());
+			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.LT, arg, mulDivTermPlus), true),
+					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, divisor, zero), true)};
+		}
+		case ":" + ProofRules.MODDEF: {
+			final Term[] params = (Term[]) annots[0].getValue();
+			assert annots.length == 1;
+			assert params.length == 1;
+			final Term arg = params[0];
+			final Term divisor = params[1];
+			final Term divTerm = theory.term(SMTLIBConstants.DIV, arg, divisor);
+			final Term mulDivTerm = theory.term(SMTLIBConstants.MUL, divisor, divTerm);
+			final Term modTerm = theory.term(SMTLIBConstants.MOD, arg, divisor);
+			final Term modDef = theory.term(SMTLIBConstants.PLUS, mulDivTerm, modTerm);
+			final Term zero = Rational.ZERO.toTerm(divisor.getSort());
+			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, modDef, arg), true),
+					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, divisor, zero), true)};
+		}
 		case ":" + ProofRules.SELECTSTORE1: {
 			assert annots.length == 1;
 			final Term[] params = (Term[]) annots[0].getValue();
@@ -775,6 +832,19 @@ public class MinimalProofChecker extends NonRecursive {
 			return new ProofLiteral[] {
 					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, params[0], params[1]), true),
 					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, select0, select1), false) };
+		}
+		case ":" + ProofRules.CONST: {
+			assert annots.length == 1;
+			final Term[] params = (Term[]) annots[0].getValue();
+			final Term value = params[0];
+			final Term index = params[1];
+
+			// (= (select (const value) index) value)
+			final Sort arraySort = theory.getSort(SMTLIBConstants.ARRAY, index.getSort(), value.getSort());
+			final Term constArray = theory.term("const", null, arraySort, value);
+			final Term select = theory.term(SMTLIBConstants.SELECT, constArray, index);
+			return new ProofLiteral[] {
+					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, select, value), true) };
 		}
 		default:
 			throw new AssertionError("Unknown axiom " + axiom);
