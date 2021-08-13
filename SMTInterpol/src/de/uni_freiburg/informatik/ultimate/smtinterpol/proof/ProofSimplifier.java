@@ -2165,6 +2165,31 @@ public class ProofSimplifier extends TermTransformer {
 	}
 
 	/**
+	 *  Collect literals in a CC or array lemma clause
+	 *
+	 *  @param clause the clause.
+	 *  @param equalities  HashMap to store equalities (negated in the clause).
+	 *  @param disequalities HashMap to store disequalities (positive in the clause).
+	 */
+	private void collectEqualities(final Term[] clause, final HashMap<SymmetricPair<Term>, Term> equalities,
+			final HashMap<SymmetricPair<Term>, Term> disequalities) {
+		for (final Term literal : clause) {
+			final boolean negated = isApplication("not", literal);
+			final Term quotedAtom = negated ? ((ApplicationTerm) literal).getParameters()[0] : literal;
+			final Term atom = unquote(quotedAtom);
+			assert isApplication("=", atom);
+			final Term[] sides = ((ApplicationTerm) atom).getParameters();
+			assert sides.length == 2;
+			if (negated) {
+				// negated atom in clause -> equality in conflict
+				equalities.put(new SymmetricPair<>(sides[0], sides[1]), quotedAtom);
+			} else {
+				disequalities.put(new SymmetricPair<>(sides[0], sides[1]), quotedAtom);
+			}
+		}
+	}
+
+	/**
 	 * Convert a CC lemma to a minimal proof.
 	 *
 	 * @param clause       the clause to check
@@ -2181,20 +2206,9 @@ public class ProofSimplifier extends TermTransformer {
 
 		/* collect literals and search for the disequality */
 		final HashMap<SymmetricPair<Term>, Term> allEqualities = new HashMap<>();
-		Term disEq = null;
-		for (final Term literal : clause) {
-			if (isApplication("not", literal)) {
-				final Term quotedAtom = ((ApplicationTerm) literal).getParameters()[0];
-				final Term atom = unquote(quotedAtom);
-				assert isApplication("=", atom);
-				final Term[] sides = ((ApplicationTerm) atom).getParameters();
-				assert sides.length == 2;
-				allEqualities.put(new SymmetricPair<>(sides[0], sides[1]), quotedAtom);
-			} else {
-				assert unquote(literal) == goalEquality && disEq == null;
-				disEq = literal;
-			}
-		}
+		final HashMap<SymmetricPair<Term>, Term> allDisequalities = new HashMap<>();
+		collectEqualities(clause, allEqualities, allDisequalities);
+		assert allDisequalities.size() <= 1;
 
 		final Term[] mainPath = (Term[]) ccAnnotation[startSubpathAnnot + 1];
 		assert mainPath.length >= 2 : "Main path too short in CC lemma";
@@ -2205,8 +2219,7 @@ public class ProofSimplifier extends TermTransformer {
 				.equals(new SymmetricPair<>(sides[0], sides[1])) : "Did not explain main equality " + goalEquality;
 
 		Term proof;
-		Term[] expectedLhs;
-		Term[] expectedRhs;
+		final HashSet<Term> neededEqualities = new HashSet<>();
 		final Term mainPathEquality = theory.term("=", mainPath[0], mainPath[mainPath.length - 1]);
 		if (mainPath.length == 2) {
 			// This must be a congruence lemma
@@ -2218,61 +2231,21 @@ public class ProofSimplifier extends TermTransformer {
 			// check that functions are the same and have the same number of parameters
 			assert lhs.getFunction() == rhs.getFunction() && lhs.getParameters().length == rhs.getParameters().length;
 			// check if each parameter is identical or equal
-			expectedLhs = lhs.getParameters();
-			expectedRhs = rhs.getParameters();
+			final Term[] lhsParams = lhs.getParameters();
+			final Term[] rhsParams = rhs.getParameters();
+			assert lhsParams.length == rhsParams.length;
+			for (int i = 0; i < lhsParams.length; i++) {
+				neededEqualities.add(theory.term(SMTLIBConstants.EQUALS, lhsParams[i], rhsParams[i]));
+			}
 		} else {
 			// This is a transitivity lemma
 			proof = mProofRules.trans(mainPath);
-			expectedLhs = new Term[mainPath.length - 1];
-			expectedRhs = new Term[mainPath.length - 1];
-			System.arraycopy(mainPath, 0, expectedLhs, 0, expectedLhs.length);
-			System.arraycopy(mainPath, 1, expectedRhs, 0, expectedRhs.length);
-		}
-
-		final LinkedHashMap<Term, Term> subProofs = new LinkedHashMap<>();
-		for (int i = 0; i < expectedLhs.length; i++) {
-			final Term eq = theory.term("=", expectedLhs[i], expectedRhs[i]);
-			if (subProofs.containsKey(eq)) {
-				/* equality was already proved */
-				continue;
-			}
-			final Term literal = allEqualities.get(new SymmetricPair<>(expectedLhs[i], expectedRhs[i]));
-			if (literal == null) {
-				assert expectedLhs[i] == expectedRhs[i];
-				subProofs.put(eq, mProofRules.refl(expectedLhs[i]));
-			} else {
-				final Term unquoteLiteral = unquote(literal);
-				if (unquoteLiteral != eq) {
-					// symmetric case
-					subProofs.put(eq, mProofRules.symm(expectedLhs[i], expectedRhs[i]));
-				}
-				if (subProofs.containsKey(unquoteLiteral)) {
-					// move proof to the end
-					subProofs.put(unquoteLiteral, subProofs.remove(unquoteLiteral));
-				} else {
-					final Term unquotingEq = theory.term("=", literal, unquoteLiteral);
-					subProofs.put(unquoteLiteral, mProofRules.resolutionRule(unquotingEq,
-							mProofRules.delAnnot(literal), mProofRules.iffElim2(unquotingEq)));
-				}
+			for (int i = 0; i < mainPath.length - 1; i++) {
+				neededEqualities.add(theory.term(SMTLIBConstants.EQUALS, mainPath[i], mainPath[i + 1]));
 			}
 		}
-		for (final Map.Entry<Term, Term> subproof : subProofs.entrySet()) {
-			proof = mProofRules.resolutionRule(subproof.getKey(), subproof.getValue(), proof);
-		}
-		if (disEq == null) {
-			proof = mProofRules.resolutionRule(mainPathEquality, proof,
-					proveTrivialDisequality(mainPath[0], mainPath[mainPath.length - 1]));
-		} else {
-			final Term unquoteLiteral = unquote(disEq);
-			if (unquoteLiteral != mainPathEquality) {
-				// symmetric case
-				proof = mProofRules.resolutionRule(mainPathEquality, proof,
-						mProofRules.symm(mainPath[mainPath.length - 1], mainPath[0]));
-			}
-			final Term unquotingEq = theory.term("=", disEq, unquoteLiteral);
-			proof = mProofRules.resolutionRule(unquoteLiteral, proof, mProofRules.resolutionRule(unquotingEq,
-					mProofRules.delAnnot(disEq), mProofRules.iffElim1(unquotingEq)));
-		}
+		final Set<Term> neededDisequalities = Collections.singleton(mainPathEquality);
+		proof = resolveNeededEqualities(proof, allEqualities, allDisequalities, neededEqualities, neededDisequalities);
 		return proof;
 	}
 
@@ -2392,24 +2365,11 @@ public class ProofSimplifier extends TermTransformer {
 		final HashMap<SymmetricPair<Term>, Term> allEqualities = new HashMap<>();
 		/* indexDiseqs contains all index equalities in the clause */
 		final HashMap<SymmetricPair<Term>, Term> allDisequalities = new HashMap<>();
+		collectEqualities(clause, allEqualities, allDisequalities);
+
 		final HashSet<Term> neededEqualities = new HashSet<>();
 		final HashSet<Term> neededDisequalities = new HashSet<>();
 
-		/* collect literals and search for the disequality */
-		for (final Term literal : clause) {
-			final boolean negated = isApplication("not", literal);
-			final Term quotedAtom = negated ? ((ApplicationTerm) literal).getParameters()[0] : literal;
-			final Term atom = unquote(quotedAtom);
-			assert isApplication("=", atom);
-			final Term[] sides = ((ApplicationTerm) atom).getParameters();
-			assert sides.length == 2;
-			if (negated) {
-				// negated atom in clause -> equality in conflict
-				allEqualities.put(new SymmetricPair<>(sides[0], sides[1]), quotedAtom);
-			} else {
-				allDisequalities.put(new SymmetricPair<>(sides[0], sides[1]), quotedAtom);
-			}
-		}
 		final Term goalEquality = unquote((Term) ccAnnotation[0]);
 		assert isApplication("=", goalEquality);
 		final Term[] goalTerms = ((ApplicationTerm) goalEquality).getParameters();
@@ -2450,49 +2410,11 @@ public class ProofSimplifier extends TermTransformer {
 			neededEqualities.add(theory.term("=", mainPath[mainPath.length - 1], mainPath[mainPath.length - 1]));
 		}
 		neededDisequalities.add(theory.term("=", goal1, goal2));
-		for (final Term eq : neededEqualities) {
-			assert isApplication("=", eq);
-			final Term[] eqParam = ((ApplicationTerm) eq).getParameters();
-			final Term quotedEq = allEqualities.get(new SymmetricPair<>(eqParam[0], eqParam[1]));
-			if (quotedEq != null) {
-				final Term unquoteEq = unquote(quotedEq);
-				if (unquoteEq != eq) {
-					// need symmetry
-					proof = res(eq, mProofRules.symm(eqParam[0], eqParam[1]), proof);
-				}
-			} else {
-				final Term proofEq = proveTrivialEquality(eqParam[0], eqParam[1]);
-				assert proofEq != null;
-				proof = res(eq, proofEq, proof);
-			}
-		}
-		for (final Term eq : neededDisequalities) {
-			assert isApplication("=", eq);
-			final Term[] eqParam = ((ApplicationTerm) eq).getParameters();
-			final Term quotedEq = allDisequalities.get(new SymmetricPair<>(eqParam[0], eqParam[1]));
-			if (quotedEq != null) {
-				final Term unquoteEq = unquote(quotedEq);
-				if (unquoteEq != eq) {
-					// need symmetry
-					proof = res(eq, proof, mProofRules.symm(eqParam[1], eqParam[0]));
-				}
-			} else {
-				final Term proofEq = proveTrivialDisequality(eqParam[0], eqParam[1]);
-				assert proofEq != null;
-				proof = res(eq, proof, proofEq);
-			}
-		}
-		for (final Term quotedEq : allEqualities.values()) {
-			proof = removeQuoted(proof, quotedEq, unquote(quotedEq), false);
-		}
-		for (final Term quotedEq : allDisequalities.values()) {
-			proof = removeQuoted(proof, quotedEq, unquote(quotedEq), true);
-		}
-		return proof;
+		return resolveNeededEqualities(proof, allEqualities, allDisequalities, neededEqualities, neededDisequalities);
 	}
 
 	/**
-	 * Convert an instatiation lemma to a minimal proof.
+	 * Convert an instantiation lemma to a minimal proof.
 	 *
 	 * @param clause       the clause to convert
 	 * @param instAnnotation the argument of the :inst annotation.
@@ -3025,6 +2947,61 @@ public class ProofSimplifier extends TermTransformer {
 			return mProofRules.resolutionRule(leqFloor, mProofRules.resolutionRule(geqCeil, proofIntCase, caseCeil),
 					caseFloor);
 		}
+	}
+
+	/**
+	 * Prove the needed equalities and disequalities from their unquoted counterpart.  It also handles symmetric
+	 * cases and trivial equalities/disequalities.
+	 *
+	 * @param proof  the proof that is modified to remove the equalities/disequalities
+	 * @param allEqualities a hash map from symmetric pair to quoted equality as it appears (negated) in the clause.
+	 * @param allDisequalities a hash map from symmetric pair to quoted equality as it appears (positive) in the clause.
+	 * @param neededEqualities a set of needed equalities (occurring negative in the proved clause)
+	 * @param neededDisequalities a set of needed disequalities (occurring positive in the proved clause).
+	 * @return the modified proof.
+	 */
+	private Term resolveNeededEqualities(Term proof, final Map<SymmetricPair<Term>, Term> allEqualities,
+			final Map<SymmetricPair<Term>, Term> allDisequalities, final Set<Term> neededEqualities,
+			final Set<Term> neededDisequalities) {
+		for (final Term eq : neededEqualities) {
+			assert isApplication("=", eq);
+			final Term[] eqParam = ((ApplicationTerm) eq).getParameters();
+			final Term quotedEq = allEqualities.get(new SymmetricPair<>(eqParam[0], eqParam[1]));
+			if (quotedEq != null) {
+				final Term unquoteEq = unquote(quotedEq);
+				if (unquoteEq != eq) {
+					// need symmetry
+					proof = res(eq, mProofRules.symm(eqParam[0], eqParam[1]), proof);
+				}
+			} else {
+				final Term proofEq = proveTrivialEquality(eqParam[0], eqParam[1]);
+				assert proofEq != null;
+				proof = res(eq, proofEq, proof);
+			}
+		}
+		for (final Term eq : neededDisequalities) {
+			assert isApplication("=", eq);
+			final Term[] eqParam = ((ApplicationTerm) eq).getParameters();
+			final Term quotedEq = allDisequalities.get(new SymmetricPair<>(eqParam[0], eqParam[1]));
+			if (quotedEq != null) {
+				final Term unquoteEq = unquote(quotedEq);
+				if (unquoteEq != eq) {
+					// need symmetry
+					proof = res(eq, proof, mProofRules.symm(eqParam[1], eqParam[0]));
+				}
+			} else {
+				final Term proofEq = proveTrivialDisequality(eqParam[0], eqParam[1]);
+				assert proofEq != null;
+				proof = res(eq, proof, proofEq);
+			}
+		}
+		for (final Term quotedEq : allEqualities.values()) {
+			proof = removeQuoted(proof, quotedEq, unquote(quotedEq), false);
+		}
+		for (final Term quotedEq : allDisequalities.values()) {
+			proof = removeQuoted(proof, quotedEq, unquote(quotedEq), true);
+		}
+		return proof;
 	}
 
 	/**
