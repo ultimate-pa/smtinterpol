@@ -36,6 +36,7 @@ import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.LambdaTerm;
 import de.uni_freiburg.informatik.ultimate.logic.MatchTerm;
 import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
@@ -276,9 +277,9 @@ public class ProofChecker extends NonRecursive {
 		public void enqueue(final ProofChecker engine) {
 			final Term[] params = mTerm.getParameters();
 			assert params.length == 1;
-			assert params[0] instanceof AnnotatedTerm;
+			final LambdaTerm lambda = (LambdaTerm) params[0];
 			engine.enqueueWalker(this);
-			engine.enqueueWalker(new ProofWalker(((AnnotatedTerm) params[0]).getSubterm()));
+			engine.enqueueWalker(new ProofWalker(((AnnotatedTerm) lambda.getSubterm()).getSubterm()));
 		}
 
 		@Override
@@ -3671,21 +3672,25 @@ public class ProofChecker extends NonRecursive {
 
 	Term[] walkAllIntro(final ApplicationTerm allApp, final Term[] origClause) {
 		assert allApp.getFunction().getName() == ProofConstants.FN_ALLINTRO;
-		final AnnotatedTerm annotatedTerm = (AnnotatedTerm) allApp.getParameters()[0];
-		final Annotation varAnnot = annotatedTerm.getAnnotations()[0];
-		if (annotatedTerm.getAnnotations().length != 1 || varAnnot.getKey() != ":vars"
-				|| !(varAnnot.getValue() instanceof TermVariable[])) {
+		final LambdaTerm lambda = (LambdaTerm) allApp.getParameters()[0];
+		final TermVariable[] vars = lambda.getVariables();
+		final AnnotatedTerm annotatedTerm = (AnnotatedTerm) lambda.getSubterm();
+		final Annotation bodyAnnot = annotatedTerm.getAnnotations()[0];
+		if (annotatedTerm.getAnnotations().length != 1 || bodyAnnot.getKey() != ":body"
+				|| !(bodyAnnot.getValue() instanceof Term)) {
 			reportError("@allIntro with malformed annotation: " + allApp);
 		}
+		final Term bodyTerm = (Term) bodyAnnot.getValue();
 		if (origClause == null) {
 			return null;
 		}
-		final Term origTerm = clauseToTerm(Arrays.asList(origClause));
-		final TermVariable[] vars = (TermVariable[]) varAnnot.getValue();
+		if (origClause.length != 1 || origClause[0] != bodyTerm) {
+			reportError("@allIntro with wrong sub proof: " + allApp);
+		}
 		/* compute the resulting quantified term (! (forall (...) origTerm) :quoted) */
-		final Theory theory = origTerm.getTheory();
+		final Theory theory = bodyTerm.getTheory();
 		return new Term[] { theory.annotatedTerm(new Annotation[] { new Annotation(":quoted", null) },
-				theory.forall(vars, origTerm)) };
+				theory.forall(vars, bodyTerm)) };
 	}
 
 	/* === Auxiliary functions === */

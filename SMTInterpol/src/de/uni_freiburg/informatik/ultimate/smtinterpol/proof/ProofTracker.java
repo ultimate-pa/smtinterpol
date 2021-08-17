@@ -270,8 +270,9 @@ public class ProofTracker implements IProofTracker{
 		final Term body = getProvedTerm(formula);
 		final Term quantified = theory.annotatedTerm(new Annotation[] { new Annotation(":quoted", null) },
 				theory.forall(vars, body));
-		final Annotation[] annot = new Annotation[] { new Annotation(":vars", vars) };
-		final Term proof = theory.term(ProofConstants.FN_ALLINTRO, theory.annotatedTerm(annot, subProof));
+		final Annotation[] annot = new Annotation[] { new Annotation(":body", body) };
+		final Term proof = theory.term(ProofConstants.FN_ALLINTRO,
+				theory.lambda(vars, theory.annotatedTerm(annot, subProof)));
 		return buildProof(proof, quantified);
 	}
 

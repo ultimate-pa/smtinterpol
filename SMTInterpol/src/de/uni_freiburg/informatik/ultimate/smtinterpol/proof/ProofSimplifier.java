@@ -2834,35 +2834,21 @@ public class ProofSimplifier extends TermTransformer {
 	}
 
 	private Term convertAllIntro(final Term[] newParams) {
-		final AnnotatedTerm annotatedTerm = (AnnotatedTerm) newParams[0];
-		final Annotation varAnnot = annotatedTerm.getAnnotations()[0];
-		if (annotatedTerm.getAnnotations().length != 1 || varAnnot.getKey() != ":vars"
-				|| !(varAnnot.getValue() instanceof TermVariable[])) {
+		final LambdaTerm lambda = (LambdaTerm) newParams[0];
+		final AnnotatedTerm annotatedTerm = (AnnotatedTerm) lambda.getSubterm();
+
+		final Annotation bodyAnnot = annotatedTerm.getAnnotations()[0];
+		if (annotatedTerm.getAnnotations().length != 1 || bodyAnnot.getKey() != ":body"
+				|| !(bodyAnnot.getValue() instanceof Term)) {
 			throw new AssertionError("@allIntro with malformed annotation");
 		}
-		// TODO this is madness; should we remember the proved clause instead?
+		final Term provedClause = (Term) bodyAnnot.getValue();
 		Term proof = annotatedTerm.getSubterm();
-		final ProofLiteral[] lits = mChecker.getProvedClause(mAuxDefs, proof);
-		final Term[] litsAsTerms = new Term[lits.length];
-		for (int i = 0; i < lits.length; i++) {
-			final Term term = lits[i].getAtom();
-			if (lits[i].getPolarity()) {
-				litsAsTerms[i] = term;
-			} else {
-				litsAsTerms[i] = mSkript.term(SMTLIBConstants.NOT, term);
-				proof = mProofRules.resolutionRule(term, mProofRules.notIntro(litsAsTerms[i]), proof);
-			}
+		if (isApplication("not", provedClause)) {
+			final Term atom = ((ApplicationTerm) provedClause).getParameters()[0];
+			proof = res(atom, mProofRules.notIntro(provedClause), proof);
 		}
-		Term provedClause;
-		if (litsAsTerms.length == 1) {
-			provedClause = litsAsTerms[0];
-		} else {
-			provedClause = mSkript.term(SMTLIBConstants.OR, litsAsTerms);
-			for (int i = 0; i < lits.length; i++) {
-				proof = mProofRules.resolutionRule(litsAsTerms[i], proof, mProofRules.orIntro(i, litsAsTerms[i]));
-			}
-		}
-		final TermVariable[] vars = (TermVariable[]) varAnnot.getValue();
+		final TermVariable[] vars = lambda.getVariables();
 		final Term[] skolemTerms = mProofRules.getSkolemVars(vars, provedClause, true);
 		proof = mSkript.let(vars, skolemTerms, proof);
 		final Term lettedClause = mSkript.let(vars, skolemTerms, provedClause);
