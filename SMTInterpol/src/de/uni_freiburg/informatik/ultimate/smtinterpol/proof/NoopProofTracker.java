@@ -128,8 +128,7 @@ public class NoopProofTracker implements IProofTracker {
 	@Override
 	public Term allIntro(final Term formula, final TermVariable[] vars) {
 		final Theory theory = formula.getTheory();
-		return theory.annotatedTerm(new Annotation[] { new Annotation(":quoted", null) },
-				theory.forall(vars, formula));
+		return theory.forall(vars, formula);
 	}
 
 	@Override

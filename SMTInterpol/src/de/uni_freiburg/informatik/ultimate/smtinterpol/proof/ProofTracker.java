@@ -58,11 +58,6 @@ public class ProofTracker implements IProofTracker{
 		return theory.annotatedTerm(annotions, term);
 	}
 
-	public Term quote(final Term atom) {
-		final Theory t = atom.getTheory();
-		return t.annotatedTerm(new Annotation[] { new Annotation(":quoted", null) }, atom);
-	}
-
 	@Override
 	public Term intern(final Term term, final Term intern) {
 		return buildRewrite(term, intern, ProofConstants.RW_INTERN);
@@ -268,8 +263,7 @@ public class ProofTracker implements IProofTracker{
 		final Theory theory = formula.getTheory();
 		final Term subProof = getProof(formula);
 		final Term body = getProvedTerm(formula);
-		final Term quantified = theory.annotatedTerm(new Annotation[] { new Annotation(":quoted", null) },
-				theory.forall(vars, body));
+		final Term quantified = theory.forall(vars, body);
 		final Annotation[] annot = new Annotation[] { new Annotation(":body", body) };
 		final Term proof = theory.term(ProofConstants.FN_ALLINTRO,
 				theory.lambda(vars, theory.annotatedTerm(annot, subProof)));

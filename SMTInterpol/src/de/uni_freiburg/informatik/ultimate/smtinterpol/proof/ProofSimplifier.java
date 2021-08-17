@@ -227,8 +227,7 @@ public class ProofSimplifier extends TermTransformer {
 		// subst is (y1, ..., yn).
 		// clause[1] is F [y1/x1]...[yn/xn].
 		assert clause.length == 2 && isApplication("not", clause[0]);
-		final Term quotedForall = ((ApplicationTerm) clause[0]).getParameters()[0];
-		final Term forall = unquote(quotedForall);
+		final Term forall = ((ApplicationTerm) clause[0]).getParameters()[0];
 		final QuantifiedFormula qf = (QuantifiedFormula) forall;
 		assert qf.getQuantifier() == QuantifiedFormula.FORALL;
 
@@ -237,8 +236,7 @@ public class ProofSimplifier extends TermTransformer {
 
 		// peculiarity of proof format: remove quotes if substitution changes something.
 		final AnnotatedTerm subproof = substituteInQuantInst(subst, qf);
-		Term proof = removeNot(stripAnnotation(subproof), provedTerm(subproof), true);
-		proof = removeQuoted(proof, quotedForall, forall, false);
+		final Term proof = removeNot(stripAnnotation(subproof), provedTerm(subproof), true);
 		return proof;
 	}
 
@@ -2702,8 +2700,7 @@ public class ProofSimplifier extends TermTransformer {
 	private Term convertInstLemma(final Term[] clause, final Object[] quantAnnotation) {
 		// the first literal in the lemma is a negated universally quantified literal.
 		assert isApplication("not", clause[0]);
-		final Term quotedForall = ((ApplicationTerm) clause[0]).getParameters()[0];
-		final Term firstAtom = unquote(quotedForall);
+		final Term firstAtom = ((ApplicationTerm) clause[0]).getParameters()[0];
 		assert firstAtom instanceof QuantifiedFormula
 				&& ((QuantifiedFormula) firstAtom).getQuantifier() == QuantifiedFormula.FORALL;
 
@@ -2722,9 +2719,7 @@ public class ProofSimplifier extends TermTransformer {
 		final QuantifiedFormula forall = (QuantifiedFormula) firstAtom;
 		final AnnotatedTerm substitute = substituteInQuantInst(subst, forall);
 		assert provedTerm(substitute) == provedEqSides[0];
-		final Term quotedEq = mSkript.term(SMTLIBConstants.EQUALS, quotedForall, forall);
-		Term proof = mProofRules.resolutionRule(quotedEq, mProofRules.delAnnot(quotedForall),
-				mProofRules.resolutionRule(forall, mProofRules.iffElim2(quotedEq), stripAnnotation(substitute)));
+		Term proof = stripAnnotation(substitute);
 		proof = mProofRules.resolutionRule(provedEqSides[0], proof, mProofRules.iffElim2(provedEq));
 		proof = mProofRules.resolutionRule(provedEq, subproof, proof);
 		Term[] result = new Term[] { provedEqSides[1] };
@@ -2858,12 +2853,6 @@ public class ProofSimplifier extends TermTransformer {
 		final Term forallClause = mSkript.quantifier(Script.FORALL, vars, provedClause);
 		proof = mProofRules.resolutionRule(unletter.unlet(lettedClause), proof,
 				mProofRules.forallIntro((QuantifiedFormula) forallClause));
-		/* add quoted annotation */
-		final Term quotedForallClause = mSkript.annotate(forallClause, new Annotation[] { new Annotation(":quoted", null) });
-		final Term quotedEq = mSkript.term("=", quotedForallClause, forallClause);
-		proof = mProofRules.resolutionRule(forallClause, proof,
-				mProofRules.resolutionRule(quotedEq, mProofRules.delAnnot(quotedForallClause),
-						mProofRules.iffElim1(quotedEq)));
 		return proof;
 	}
 

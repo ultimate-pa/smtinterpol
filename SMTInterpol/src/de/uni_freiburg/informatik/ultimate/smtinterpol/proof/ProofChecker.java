@@ -338,7 +338,7 @@ public class ProofChecker extends NonRecursive {
 			final ProofChecker checker = (ProofChecker) engine;
 
 			assert checker.isApplication("not", mClause[0]);
-			final Term firstAtom = checker.unquote(((ApplicationTerm) mClause[0]).getParameters()[0]);
+			final Term firstAtom = ((ApplicationTerm) mClause[0]).getParameters()[0];
 			assert firstAtom instanceof QuantifiedFormula && ((QuantifiedFormula) firstAtom).getQuantifier() == 1;
 			final QuantifiedFormula forallLit = (QuantifiedFormula) firstAtom;
 			final TermVariable[] vars = forallLit.getVariables();
@@ -1385,7 +1385,7 @@ public class ProofChecker extends NonRecursive {
 			reportError("Lemma :inst must contain negated forall-literal as first literal.");
 			return;
 		}
-		final Term firstAtom = unquote(((ApplicationTerm) clause[0]).getParameters()[0]);
+		final Term firstAtom = ((ApplicationTerm) clause[0]).getParameters()[0];
 		if (!(firstAtom instanceof QuantifiedFormula) || ((QuantifiedFormula) firstAtom).getQuantifier() != 1) {
 			reportError("First literal in lemma :inst must be universally quantified formula.");
 			return;
@@ -1988,7 +1988,7 @@ public class ProofChecker extends NonRecursive {
 		if (clause.length != 2 || !isApplication("not", clause[0])) {
 			return false;
 		}
-		final Term forall = unquote(((ApplicationTerm) clause[0]).getParameters()[0]);
+		final Term forall = ((ApplicationTerm) clause[0]).getParameters()[0];
 		if (!(forall instanceof QuantifiedFormula)) {
 			return false;
 		}
@@ -3687,10 +3687,9 @@ public class ProofChecker extends NonRecursive {
 		if (origClause.length != 1 || origClause[0] != bodyTerm) {
 			reportError("@allIntro with wrong sub proof: " + allApp);
 		}
-		/* compute the resulting quantified term (! (forall (...) origTerm) :quoted) */
+		/* compute the resulting quantified term (forall (...) origTerm) */
 		final Theory theory = bodyTerm.getTheory();
-		return new Term[] { theory.annotatedTerm(new Annotation[] { new Annotation(":quoted", null) },
-				theory.forall(vars, bodyTerm)) };
+		return new Term[] { theory.forall(vars, bodyTerm) };
 	}
 
 	/* === Auxiliary functions === */
